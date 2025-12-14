@@ -51,6 +51,8 @@
 		5B8153B02D24845100B41A33 /* LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = 5B8153AB2D24845100B41A33 /* LICENSE */; };
 		5B8153B12D24845100B41A33 /* ChangeLog.md in Resources */ = {isa = PBXBuildFile; fileRef = 5B8153AC2D24845100B41A33 /* ChangeLog.md */; };
 		5B8153B22D24845100B41A33 /* readme.md in Resources */ = {isa = PBXBuildFile; fileRef = 5B8153AD2D24845100B41A33 /* readme.md */; };
+		5B82EDDD2EEEFD130083C003 /* ArticleStateSoldier.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5B82EDD12EEEFD120083C003 /* ArticleStateSoldier.cpp */; };
+		5B82EDE12EEEFD340083C003 /* ArticleStateUnit.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5B82EDDF2EEEFD330083C003 /* ArticleStateUnit.cpp */; };
 		5B95F032233D1AA90018C910 /* SoldierBonusState.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5B95F026233D1AA80018C910 /* SoldierBonusState.cpp */; };
 		5B95F035233D1ADB0018C910 /* GeoscapeEventState.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5B95F033233D1ADB0018C910 /* GeoscapeEventState.cpp */; };
 		5B95F03A233D1B770018C910 /* RuleEventScript.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5B95F037233D1B770018C910 /* RuleEventScript.cpp */; };
@@ -674,6 +676,10 @@
 		5B8153AC2D24845100B41A33 /* ChangeLog.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = ChangeLog.md; sourceTree = "<group>"; };
 		5B8153AD2D24845100B41A33 /* readme.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = readme.md; sourceTree = "<group>"; };
 		5B8153AE2D24845100B41A33 /* miniz.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = miniz.h; sourceTree = "<group>"; };
+		5B82EDD12EEEFD120083C003 /* ArticleStateSoldier.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ArticleStateSoldier.cpp; sourceTree = "<group>"; };
+		5B82EDDC2EEEFD120083C003 /* ArticleStateSoldier.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ArticleStateSoldier.h; sourceTree = "<group>"; };
+		5B82EDDF2EEEFD330083C003 /* ArticleStateUnit.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ArticleStateUnit.cpp; sourceTree = "<group>"; };
+		5B82EDE02EEEFD330083C003 /* ArticleStateUnit.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ArticleStateUnit.h; sourceTree = "<group>"; };
 		5B95F026233D1AA80018C910 /* SoldierBonusState.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SoldierBonusState.cpp; sourceTree = "<group>"; };
 		5B95F031233D1AA80018C910 /* SoldierBonusState.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SoldierBonusState.h; sourceTree = "<group>"; };
 		5B95F033233D1ADB0018C910 /* GeoscapeEventState.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = GeoscapeEventState.cpp; sourceTree = "<group>"; };
@@ -2324,6 +2330,10 @@
 		B283436F201F6D9C00BAEC9D /* Ufopaedia */ = {
 			isa = PBXGroup;
 			children = (
+				5B82EDDF2EEEFD330083C003 /* ArticleStateUnit.cpp */,
+				5B82EDE02EEEFD330083C003 /* ArticleStateUnit.h */,
+				5B82EDD12EEEFD120083C003 /* ArticleStateSoldier.cpp */,
+				5B82EDDC2EEEFD120083C003 /* ArticleStateSoldier.h */,
 				5BD0BB3E2242E0EF008E6DFB /* StatsForNerdsState.cpp */,
 				5BD0BB3F2242E0EF008E6DFB /* StatsForNerdsState.h */,
 				B2834370201F6D9C00BAEC9D /* UfopaediaSelectState.cpp */,
@@ -2868,6 +2878,7 @@
 				5BF23CFB29FD076900A5C239 /* SoldierRankState.cpp in Sources */,
 				B28344B9201F6D9E00BAEC9D /* hq4x.cpp in Sources */,
 				B2834465201F6D9D00BAEC9D /* ErrorMessageState.cpp in Sources */,
+				5B82EDE12EEEFD340083C003 /* ArticleStateUnit.cpp in Sources */,
 				B28344D6201F6D9E00BAEC9D /* Vehicle.cpp in Sources */,
 				B283459D201F6D9E00BAEC9D /* Polyline.cpp in Sources */,
 				B28344B8201F6D9E00BAEC9D /* hq3x.cpp in Sources */,
@@ -2904,6 +2915,7 @@
 				B28344BC201F6D9E00BAEC9D /* State.cpp in Sources */,
 				B28344F9201F6D9E00BAEC9D /* AIModule.cpp in Sources */,
 				5B8153AF2D24845100B41A33 /* miniz.c in Sources */,
+				5B82EDDD2EEEFD130083C003 /* ArticleStateSoldier.cpp in Sources */,
 				B283458E201F6D9E00BAEC9D /* RuleConverter.cpp in Sources */,
 				B2834523201F6D9E00BAEC9D /* UnitFallBState.cpp in Sources */,
 				B2834535201F6D9E00BAEC9D /* ArticleStateUfo.cpp in Sources */,
