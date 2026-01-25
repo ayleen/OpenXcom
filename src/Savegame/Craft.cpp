@@ -1215,6 +1215,11 @@ UfoDetection Craft::detect(const Ufo *target, const SavedGame *save, bool alread
  */
 void Craft::consumeFuel(int escortSpeed)
 {
+	if (!_dest && _rules->patrolWithoutFuel())
+	{
+		// patrol without fuel consumption
+		return;
+	}
 	setFuel(_fuel - getFuelConsumption(_speed, escortSpeed));
 }
 

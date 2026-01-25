@@ -129,6 +129,7 @@
 #include "../Mod/AlienDeployment.h"
 #include "../Mod/AlienRace.h"
 #include "../Mod/RuleInterface.h"
+#include "../Mod/RuleSoldier.h"
 #include "../Mod/RuleVideo.h"
 #include "../Mod/Texture.h"
 #include "../fmath.h"
@@ -2113,7 +2114,7 @@ void GeoscapeState::ufoDetection(Ufo* ufo, const std::vector<Craft*>* activeCraf
 			}
 			ufo->setDetected(true);
 			// don't show if player said he doesn't want to see this UFO anymore
-			if (!_game->getSavedGame()->isUfoOnIgnoreList(ufo->getId()))
+			if (!_game->getSavedGame()->isUfoOnIgnoreList(ufo->getId()) && !ufo->getRules()->isNoAlert())
 			{
 				popup(new UfoDetectedState(ufo, this, true, ufo->getHyperDetected()));
 			}
@@ -4741,6 +4742,12 @@ void GeoscapeState::resize(int &dX, int &dY)
 	}
 	switch (Options::geoscapeScale)
 	{
+	case SCALE_SCREEN_DIV_10:
+		divisor = 10;
+		break;
+	case SCALE_SCREEN_DIV_8:
+		divisor = 8;
+		break;
 	case SCALE_SCREEN_DIV_6:
 		divisor = 6;
 		break;
@@ -4807,8 +4814,53 @@ void GeoscapeState::updateSlackingIndicator()
 		int freePsi = 0;
 		for (auto* xcomBase : *_game->getSavedGame()->getBases())
 		{
-			freeGym += xcomBase->getFreeTrainingSpace();
-			freePsi += xcomBase->getFreePsiLabs();
+			int facilityGym = xcomBase->getFreeTrainingSpace();
+			if (facilityGym > 0)
+			{
+				int soldGym = 0;
+				for (auto* soldier : *xcomBase->getSoldiers())
+				{
+					bool isTraining = soldier->isInTraining();
+					bool isQueued = !isTraining && soldier->getReturnToTrainingWhenHealed();
+					bool isDone = soldier->isFullyTrained();
+
+					if (isTraining || isQueued || isDone)
+					{
+						// ignore this guy
+					}
+					else
+					{
+						// can train, or can be queued for training
+						soldGym++;
+					}
+					if (soldGym >= facilityGym) break;
+				}
+				freeGym += soldGym;
+			}
+
+			int facilityPsi = xcomBase->getFreePsiLabs();
+			if (facilityPsi > 0)
+			{
+				int soldPsi = 0;
+				for (auto* soldier : *xcomBase->getSoldiers())
+				{
+					bool isTraining = soldier->isInPsiTraining();
+					bool isDone = soldier->isFullyPsiTrained();
+					bool isNotEligible = soldier->getRules()->getTrainingStatCaps().psiSkill <= 0;
+
+					if (isTraining || isDone || isNotEligible)
+					{
+						// ignore this guy
+					}
+					else
+					{
+						// can train
+						soldPsi++;
+					}
+					if (soldPsi >= facilityPsi) break;
+				}
+				freePsi += soldPsi;
+			}
 		}
 		if (freeGym > 0 || freePsi > 0)
 		{

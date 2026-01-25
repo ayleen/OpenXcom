@@ -213,7 +213,7 @@ private:
 	int _repairRate, _refuelRate, _transferTime, _score;
 	RuleTerrain *_battlescapeTerrainData;
 	int _maxSkinIndex;
-	bool _keepCraftAfterFailedMission, _allowLanding, _spacecraft, _notifyWhenRefueled, _autoPatrol, _undetectable;
+	bool _keepCraftAfterFailedMission, _allowLanding, _spacecraft, _notifyWhenRefueled, _autoPatrol, _undetectable, _patrolWithoutFuel;
 	int _missilePower;
 	int _listOrder, _maxAltitude;
 	std::string _defaultAltitude;
@@ -343,6 +343,8 @@ public:
 	bool canAutoPatrol() const;
 	/// Is this craft immune to detection by HKs and alien bases?
 	bool isUndetectable() const { return _undetectable; }
+	/// Can this craft patrol without fuel comsumption?
+	bool patrolWithoutFuel() const { return _patrolWithoutFuel; }
 	/// Is this craft a self-destruct missile?
 	bool isMissile() const { return (_missilePower > 0); }
 	/// Gets the missile power.

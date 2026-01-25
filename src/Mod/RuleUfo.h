@@ -77,6 +77,7 @@ private:
 	int _missilePower;
 	bool _unmanned;
 	bool _instaHyper;
+	bool _noAlert;
 	int _splashdownSurvivalChance;
 	int _fakeWaterLandingChance;
 	int _fireSound;
@@ -169,6 +170,8 @@ public:
 	bool isUnmanned() const { return _unmanned; }
 	/// Show extra info during base defense even if the UFO was not yet hyper-detected classically?
 	bool isInstaHyper() const { return _instaHyper; }
+	/// Suppress UFO detection alerts?
+	bool isNoAlert() const { return _noAlert; }
 	/// Gets the chance of surviving a splashdown on fake water.
 	int getSplashdownSurvivalChance() const { return _splashdownSurvivalChance; }
 	/// Gets the chance for deciding to land on fake water texture.
