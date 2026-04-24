@@ -193,6 +193,10 @@ void FlcPlayer::deInit()
  */
 void FlcPlayer::play(bool skipLastFrame)
 {
+#ifdef __EMSCRIPTEN__
+	_playingState = FINISHED; // FLC video not supported in the browser build
+	return;
+#endif
 	_playingState = PLAYING;
 
 	// Vertically center the video

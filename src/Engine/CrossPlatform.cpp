@@ -1719,10 +1719,16 @@ void log(int level, const std::ostringstream& baremsgstream) {
 	auto msg = msgstream.str();
 
 	int effectiveLevel = Logger::reportingLevel();
+#ifdef __EMSCRIPTEN__
+	// Always route to stderr → printErr → DevTools Console.
+	fprintf(stderr, "%s", msg.c_str());
+	fflush(stderr);
+#else
 	if (effectiveLevel >= LOG_DEBUG) {
 		fwrite(msg.c_str(), msg.size(), 1, stderr);
 		fflush(stderr);
 	}
+#endif
 	if (logBuffer.size() > LOG_BUFFER_LIMIT) { // drop earliest message so as to not eat all memory
 		logBuffer.pop_front();
 	}

@@ -625,6 +625,10 @@ if(EMSCRIPTEN)
     -sASSERTIONS=1
     -fexceptions
     -sDISABLE_EXCEPTION_CATCHING=0
+    "--preload-file=${CMAKE_SOURCE_DIR}/bin/common@/game/common"
+    "--preload-file=${CMAKE_SOURCE_DIR}/bin/standard@/game/standard"
+    "--preload-file=${CMAKE_SOURCE_DIR}/../../assets/tftd-data/TFD@/game/TFTD"
+    -sSTB_IMAGE=1
   )
 endif()
 

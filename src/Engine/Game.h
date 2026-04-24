@@ -60,6 +60,13 @@ private:
 	int _scrollStep;
 	static const double VOLUME_GRADIENT;
 
+	enum ApplicationState { RUNNING = 0, SLOWED = 1, PAUSED = 2 };
+	ApplicationState _runningState;
+	bool _startupEvent;
+	bool _runInitialised;
+	Uint32 _lastMouseMoveEvent;
+	Sint16 _xrel, _yrel;
+
 public:
 	/// Creates a new game and initializes SDL.
 	Game(const std::string &title);
@@ -67,6 +74,8 @@ public:
 	~Game();
 	/// Starts the game's state machine.
 	void run();
+	/// Executes one frame of the game loop; returns false when the game should quit.
+	bool iterate();
 	/// Quits the game.
 	void quit();
 	/// Sets the game's audio volume.

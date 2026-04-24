@@ -175,6 +175,20 @@ Surface::UniqueSurfacePtr Surface::NewSdlSurface(const Surface::UniqueBufferPtr&
 		throw Exception(SDL_GetError());
 	}
 
+#ifdef __EMSCRIPTEN__
+	// SDL_CreateRGBSurfaceFrom under Emscripten SDL1 JS mode ignores the pixel
+	// data for non-32bpp surfaces and sets pitch=width*4, BytesPerPixel=4.
+	// Patch the C struct directly so that all C-side pixel access is correct.
+	// JS SDL functions use SDL.surfaces[surf].image (canvas), not surface->pixels.
+	surface->pixels = buffer.get();
+	surface->pitch  = GetPitch(bpp, width);
+	if (surface->format)
+	{
+		surface->format->BitsPerPixel  = (Uint8)bpp;
+		surface->format->BytesPerPixel = (Uint8)((bpp + 7) / 8);
+	}
+#endif
+
 	return NewSdlSurface(surface);
 }
 
@@ -183,6 +197,10 @@ Surface::UniqueSurfacePtr Surface::NewSdlSurface(const Surface::UniqueBufferPtr&
  */
 void Surface::CleanSdlSurface(SDL_Surface* surface)
 {
+#ifdef __EMSCRIPTEN__
+	if (surface->pixels)
+		memset(surface->pixels, 0, (size_t)surface->h * surface->pitch);
+#else
 	if (surface->flags & SDL_SWSURFACE)
 	{
 		memset(surface->pixels, 0, surface->h * surface->pitch);
@@ -196,6 +214,7 @@ void Surface::CleanSdlSurface(SDL_Surface* surface)
 		c.h = surface->h;
 		SDL_FillRect(surface, &c, 0);
 	}
+#endif
 }
 /**
  * Default deleter for alignment buffer
@@ -764,7 +783,26 @@ void Surface::drawRect(SDL_Rect *rect, Uint8 color)
 {
 	if (rect->w == 0 || rect->h == 0) return;
 
+#ifdef __EMSCRIPTEN__
+	SDL_Surface *s = _surface.get();
+	if (s && s->pixels)
+	{
+		int x = rect->x, y = rect->y, w = rect->w, h = rect->h;
+		if (x < 0) { w += x; x = 0; }
+		if (y < 0) { h += y; y = 0; }
+		if (x + w > s->w) w = s->w - x;
+		if (y + h > s->h) h = s->h - y;
+		if (w > 0 && h > 0)
+		{
+			int bpp = s->format ? s->format->BytesPerPixel : 1;
+			Uint8 *pixels = (Uint8 *)s->pixels;
+			for (int row = y; row < y + h; row++)
+				memset(pixels + row * s->pitch + x * bpp, (Uint8)color, (size_t)w * bpp);
+		}
+	}
+#else
 	SDL_FillRect(_surface.get(), rect, color);
+#endif
 }
 
 /**
@@ -784,7 +822,26 @@ void Surface::drawRect(Sint16 x, Sint16 y, Sint16 w, Sint16 h, Uint8 color)
 	rect.h = h;
 	rect.x = x;
 	rect.y = y;
+#ifdef __EMSCRIPTEN__
+	SDL_Surface *s = _surface.get();
+	if (s && s->pixels)
+	{
+		int cx = x, cy = y, cw = w, ch = h;
+		if (cx < 0) { cw += cx; cx = 0; }
+		if (cy < 0) { ch += cy; cy = 0; }
+		if (cx + cw > s->w) cw = s->w - cx;
+		if (cy + ch > s->h) ch = s->h - cy;
+		if (cw > 0 && ch > 0)
+		{
+			int bpp = s->format ? s->format->BytesPerPixel : 1;
+			Uint8 *pixels = (Uint8 *)s->pixels;
+			for (int row = cy; row < cy + ch; row++)
+				memset(pixels + row * s->pitch + cx * bpp, (Uint8)color, (size_t)cw * bpp);
+		}
+	}
+#else
 	SDL_FillRect(_surface.get(), &rect, color);
+#endif
 }
 
 /**

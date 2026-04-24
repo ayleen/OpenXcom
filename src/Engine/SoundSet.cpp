@@ -21,6 +21,7 @@
 #include "Sound.h"
 #include "Logger.h"
 #include "SDL2Helpers.h"
+#include "FileMap.h"
 #include <climits>
 #include <cassert>
 
@@ -233,15 +234,33 @@ void SoundSet::loadCatByIndex(CatFile &catFile, int index, bool tftd)
 	}
 	size_t dest_size = 44 + 2 * size; // worst-case estimation
 	auto dest_mem = SDL_malloc(dest_size);
-	auto dest_rwops = SDL_RWFromMem(dest_mem, dest_size);
-
-	if (do_resample) {
-		writeWAV(dest_rwops, samples, samplecount, !tftd);
-	} else { // nothing to do.
-		SDL_RWwrite(dest_rwops, sound, size, 1);
+#ifdef __EMSCRIPTEN__
+	// SDL_RWFromMem returns a JS rwops id; C macros (SDL_RWwrite/seek) need a C struct.
+	// Use em_writable_mem_to_rwops for the write phase, then a fresh JS id for Mix_LoadWAV_RW.
+	{
+		auto c_rwops = em_writable_mem_to_rwops(dest_mem, dest_size);
+		if (do_resample) {
+			writeWAV(c_rwops, samples, samplecount, !tftd);
+		} else {
+			SDL_RWwrite(c_rwops, sound, size, 1);
+		}
+		long bytes_written = SDL_RWseek(c_rwops, 0, RW_SEEK_CUR);
+		SDL_RWclose(c_rwops);
+		auto dest_rwops = SDL_RWFromMem(dest_mem, (int)bytes_written);
+		_sounds[set_index].load(dest_rwops);
 	}
-	SDL_RWseek(dest_rwops, 0, RW_SEEK_SET);
-	_sounds[set_index].load(dest_rwops);  // this frees the dest_rwops
+#else
+	{
+		auto dest_rwops = SDL_RWFromMem(dest_mem, dest_size);
+		if (do_resample) {
+			writeWAV(dest_rwops, samples, samplecount, !tftd);
+		} else {
+			SDL_RWwrite(dest_rwops, sound, size, 1);
+		}
+		SDL_RWseek(dest_rwops, 0, RW_SEEK_SET);
+		_sounds[set_index].load(dest_rwops);
+	}
+#endif
 	SDL_free(dest_mem);
 	SDL_free(sound);
 }

@@ -83,6 +83,18 @@ void Font::loadTerminal()
 
 	SDL_RWops *rw = SDL_RWFromConstMem(dosFont, DOSFONT_SIZE);
 	SDL_Surface *s = SDL_LoadBMP_RW(rw, SDL_TRUE);
+	if (!s)
+	{
+		// Fallback: create a blank terminal font surface (BMP decoder unavailable)
+		image.width  = 9;
+		image.height = 16;
+		image.surface = new Surface(image.width * 95, image.height);
+		image.surface->setPalette(TerminalColors, 0, std::size(TerminalColors));
+		_images.push_back(image);
+		UString chars = Unicode::convUtf8ToUtf32(" !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~");
+		init(_images.size() - 1, chars);
+		return;
+	}
 	image.surface = new Surface(s->w, s->h);
 	image.surface->setPalette(TerminalColors, 0, std::size(TerminalColors));
 	SDL_BlitSurface(s, 0, image.surface->getSurface(), 0);

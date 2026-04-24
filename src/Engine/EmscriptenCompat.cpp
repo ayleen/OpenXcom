@@ -15,7 +15,9 @@
 #include <SDL/SDL_mouse.h>
 #include <SDL/SDL_mixer.h>
 #include <SDL/SDL_gfxPrimitives.h>
+#include <SDL/SDL_thread.h>
 #include <cstdio>
+#include <cstring>
 
 #define STUB_ONCE() do { \
 	static bool _stub_warned = false; \
@@ -33,6 +35,18 @@ Uint8 SDL_EventState(Uint32 type, int state)
 {
 	STUB_ONCE();
 	return SDL_ENABLE;
+}
+
+/* ---- SDL_Delay ---- */
+
+/* SDL_Delay on the Emscripten main thread blocks the event loop and causes
+ * Emscripten to abort with "potential infinite loop". Use a no-op instead.
+ * Game.cpp already guards its SDL_Delay calls with #ifndef __EMSCRIPTEN__;
+ * this covers the FLC player and any other code paths we missed. */
+void SDL_Delay(Uint32 ms)
+{
+    /* intentional no-op — Emscripten main loop pacing is done by rAF */
+    (void)ms;
 }
 
 /* ---- Cursor ---- */
@@ -68,7 +82,20 @@ int SDL_putenv(const char *variable)
 	return 0;
 }
 
-/* ---- Threading / semaphores ---- */
+/* ---- Threading ---- */
+
+SDL_Thread *SDL_CreateThread(SDL_ThreadFunction fn, void *data)
+{
+	STUB_ONCE();
+	return NULL;  /* caller falls back to synchronous execution */
+}
+
+void SDL_WaitThread(SDL_Thread *thread, int *status)
+{
+	STUB_ONCE();
+}
+
+/* ---- Semaphores ---- */
 
 SDL_sem *SDL_CreateSemaphore(Uint32 initial_value)
 {
@@ -122,6 +149,24 @@ void SDL_Error(SDL_errorcode code)
 	STUB_ONCE();
 }
 
+/* ---- Palette (SDL_SetColors) ---- */
+
+/* Override SDL_SetColors so that surface->format->palette->colors is updated in WASM
+ * memory. Under Emscripten SDL1, the JS version only updates SDL.surfaces[surf].colors
+ * (the JS canvas palette), NOT the C struct palette. emscripten_flip_8bpp reads the
+ * C struct palette directly, so we must update it here. */
+int SDLCALL SDL_SetColors(SDL_Surface *surface, const SDL_Color *colors, int firstcolor, int ncolors)
+{
+    if (!surface || !surface->format || !surface->format->palette || !surface->format->palette->colors)
+        return 0;
+    SDL_Palette *pal = surface->format->palette;
+    int end = firstcolor + ncolors;
+    if (end > pal->ncolors) end = pal->ncolors;
+    for (int i = firstcolor; i < end; ++i)
+        pal->colors[i] = colors[i - firstcolor];
+    return 1;
+}
+
 /* ---- Audio / SDL_mixer ---- */
 
 void Mix_HookMusic(void (*mix_func)(void *udata, Uint8 *stream, int len),
@@ -148,6 +193,41 @@ Mix_MusicType Mix_GetMusicType(const Mix_Music *music)
 	return MUS_NONE;
 }
 
+int Mix_FadeOutChannel(int channel, int ms)
+{
+	STUB_ONCE();
+	return 0;
+}
+
+int Mix_FadeOutMusic(int ms)
+{
+	STUB_ONCE();
+	return 0;
+}
+
+int Mix_Volume(int channel, int volume)
+{
+	STUB_ONCE();
+	return MIX_MAX_VOLUME;
+}
+
+int Mix_VolumeMusic(int volume)
+{
+	STUB_ONCE();
+	return MIX_MAX_VOLUME;
+}
+
+void Mix_HookMusicFinished(void (*music_finished)(void))
+{
+	STUB_ONCE();
+}
+
+int Mix_SetPosition(int channel, Sint16 angle, Uint8 distance)
+{
+	STUB_ONCE();
+	return 0;
+}
+
 /* ---- SDL_gfx font/primitives not in libsdl.js ---- */
 
 int characterRGBA(SDL_Surface *dst, Sint16 x, Sint16 y, char c,
@@ -159,6 +239,13 @@ int characterRGBA(SDL_Surface *dst, Sint16 x, Sint16 y, char c,
 
 int stringRGBA(SDL_Surface *dst, Sint16 x, Sint16 y, const char *s,
                Uint8 r, Uint8 g, Uint8 b, Uint8 a)
+{
+	STUB_ONCE();
+	return 0;
+}
+
+int lineColor(SDL_Surface *dst, Sint16 x1, Sint16 y1, Sint16 x2, Sint16 y2,
+              Uint32 color)
 {
 	STUB_ONCE();
 	return 0;
@@ -177,6 +264,104 @@ int texturedPolygon(SDL_Surface *dst,
 {
 	STUB_ONCE();
 	return 0;
+}
+
+/* ---- C-side rendering: bypass Emscripten JS canvas so surf->pixels stays valid ----
+ *
+ * Emscripten SDL1 compat routes SDL_BlitSurface / SDL_FillRect / SDL_LockSurface
+ * through JS canvas operations and never touches surf->pixels in C memory.
+ * emscripten_flip_8bpp (in Screen.cpp) reads surf->pixels directly → all-black canvas.
+ *
+ * These C overrides intercept calls from C code only. JS callers (IMG_Load_RW etc.)
+ * still use the _SDL_LockSurface JS proxy, which is correct for those code paths.
+ *
+ * SDL_LockSurface / SDL_UnlockSurface become no-ops so the JS layer never overwrites
+ * surf->pixels with its own heap buffer.
+ *
+ * Colorkey: SDL2 headers (used by Emscripten) have no colorkey field in SDL_PixelFormat.
+ * We store the 8-bit colorkey value in surface->userdata (application-use field) and
+ * signal its presence via SDL_SRCCOLORKEY (0x00020000, from SDL_compat.h) in flags.
+ */
+
+int SDLCALL SDL_LockSurface(SDL_Surface *surface) { (void)surface; return 0; }
+void SDLCALL SDL_UnlockSurface(SDL_Surface *surface) { (void)surface; }
+
+int SDLCALL SDL_SetColorKey(SDL_Surface *surface, int flag, Uint32 key)
+{
+    if (!surface) return -1;
+    if (flag) {
+        surface->flags |= SDL_SRCCOLORKEY;
+        surface->userdata = (void*)(uintptr_t)(key & 0xFF);
+    } else {
+        surface->flags &= ~SDL_SRCCOLORKEY;
+    }
+    return 0;
+}
+
+int SDLCALL SDL_UpperBlit(SDL_Surface *src, const SDL_Rect *srcrect,
+                          SDL_Surface *dst, SDL_Rect *dstrect)
+{
+    if (!src || !dst || !src->pixels || !dst->pixels) return -1;
+    int sx = 0, sy = 0, sw = src->w, sh = src->h;
+    if (srcrect) { sx = srcrect->x; sy = srcrect->y; sw = srcrect->w; sh = srcrect->h; }
+    int dx = 0, dy = 0;
+    if (dstrect) { dx = dstrect->x; dy = dstrect->y; }
+    /* clamp source rect to source surface */
+    if (sx < 0) { dx -= sx; sw += sx; sx = 0; }
+    if (sy < 0) { dy -= sy; sh += sy; sy = 0; }
+    if (sx + sw > src->w) sw = src->w - sx;
+    if (sy + sh > src->h) sh = src->h - sy;
+    /* clamp destination offset to destination surface */
+    if (dx < 0) { sx -= dx; sw += dx; dx = 0; }
+    if (dy < 0) { sy -= dy; sh += dy; dy = 0; }
+    if (dx + sw > dst->w) sw = dst->w - dx;
+    if (dy + sh > dst->h) sh = dst->h - dy;
+    if (sw <= 0 || sh <= 0) return 0;
+    if (dstrect) { dstrect->x = dx; dstrect->y = dy;
+                   dstrect->w = sw; dstrect->h = sh; }
+    int bpp = src->format ? src->format->BytesPerPixel : 1;
+    bool use_colorkey = (src->flags & SDL_SRCCOLORKEY) != 0;
+    Uint8 colorkey = use_colorkey ? (Uint8)(uintptr_t)(src->userdata) : 0;
+    for (int row = 0; row < sh; ++row) {
+        const Uint8 *sp = (const Uint8*)src->pixels + (sy + row) * src->pitch + sx * bpp;
+        Uint8       *dp = (Uint8*)      dst->pixels + (dy + row) * dst->pitch + dx * bpp;
+        if (!use_colorkey) {
+            memcpy(dp, sp, (size_t)sw * bpp);
+        } else {
+            for (int col = 0; col < sw; ++col)
+                if (sp[col] != colorkey) dp[col] = sp[col];
+        }
+    }
+    return 0;
+}
+
+int SDLCALL SDL_LowerBlit(SDL_Surface *src, SDL_Rect *srcrect,
+                          SDL_Surface *dst, SDL_Rect *dstrect)
+{
+    return SDL_UpperBlit(src, srcrect, dst, dstrect);
+}
+
+int SDLCALL SDL_FillRect(SDL_Surface *dst, const SDL_Rect *rect, Uint32 color)
+{
+    if (!dst || !dst->pixels) return -1;
+    int x = 0, y = 0, w = dst->w, h = dst->h;
+    if (rect) { x = rect->x; y = rect->y; w = rect->w; h = rect->h; }
+    if (x < 0) { w += x; x = 0; }
+    if (y < 0) { h += y; y = 0; }
+    if (x + w > dst->w) w = dst->w - x;
+    if (y + h > dst->h) h = dst->h - y;
+    if (w <= 0 || h <= 0) return 0;
+    int bpp = dst->format ? dst->format->BytesPerPixel : 1;
+    for (int row = 0; row < h; ++row) {
+        Uint8 *ptr = (Uint8*)dst->pixels + (y + row) * dst->pitch + x * bpp;
+        if (bpp == 1) {
+            memset(ptr, (Uint8)color, (size_t)w);
+        } else {
+            Uint32 *p32 = (Uint32*)ptr;
+            for (int col = 0; col < w; ++col) p32[col] = color;
+        }
+    }
+    return 0;
 }
 
 } /* extern "C" */

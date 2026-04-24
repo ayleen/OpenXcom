@@ -117,7 +117,11 @@ SDL_RWops *CatFile::getRWops(Uint32 i) {
 		Log(LOG_ERROR) << "Catfile<" << _filename << ">::getRWops("<<i<<"): >= size " << _items.size();
 		return NULL;
 	}
+#ifdef __EMSCRIPTEN__
+	return em_const_mem_to_rwops(std::get<0>(_items[i]), std::get<1>(_items[i]));
+#else
 	return SDL_RWFromConstMem(std::get<0>(_items[i]), std::get<1>(_items[i]));
+#endif
 }
 
 }

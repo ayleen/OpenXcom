@@ -52,6 +52,164 @@
 #define MINIZ_NO_STDIO
 #include "../../libs/miniz/miniz.h"
 
+#ifdef __EMSCRIPTEN__
+#include <cstdio>
+#include <cstring>
+#include <cstdlib>
+
+/*
+ * Under -sUSE_SDL=1, SDL_RWFromFile/SDL_RWFromConstMem return JS array indices,
+ * not C struct pointers. SDL1 C macros (SDL_RWread, SDL_RWseek, etc.) dereference
+ * the handle as a struct pointer, causing "table index is out of bounds" crashes.
+ * These helpers create real C struct SDL_RWops in WASM heap so macros work correctly.
+ */
+
+static long em_rwops_seek(SDL_RWops *ctx, long off, int whence)
+{
+	Uint8 *base = ctx->hidden.mem.base;
+	long size = (long)(ctx->hidden.mem.stop - base);
+	long pos;
+	switch (whence) {
+		case RW_SEEK_SET: pos = off; break;
+		case RW_SEEK_CUR: pos = (long)(ctx->hidden.mem.here - base) + off; break;
+		case RW_SEEK_END: pos = size + off; break;
+		default: return -1;
+	}
+	if (pos < 0) pos = 0; else if (pos > size) pos = size;
+	ctx->hidden.mem.here = base + pos;
+	return pos;
+}
+
+static size_t em_rwops_read(SDL_RWops *ctx, void *ptr, size_t size, size_t maxnum)
+{
+	size_t avail = (size_t)(ctx->hidden.mem.stop - ctx->hidden.mem.here);
+	size_t total = size * maxnum;
+	if (total > avail) total = avail;
+	size_t n = (size > 0) ? (total / size) : 0;
+	memcpy(ptr, ctx->hidden.mem.here, n * size);
+	ctx->hidden.mem.here += n * size;
+	return n;
+}
+
+static size_t em_rwops_write(SDL_RWops *, const void *, size_t, size_t) { return 0; }
+
+static int em_rwops_close(SDL_RWops *ctx)
+{
+	if (ctx) {
+		if (ctx->hidden.mem.base) { free(ctx->hidden.mem.base); }
+		free(ctx);
+	}
+	return 0;
+}
+
+static int em_rwops_close_mz(SDL_RWops *ctx)
+{
+	if (ctx) {
+		if (ctx->hidden.mem.base) { mz_free(ctx->hidden.mem.base); }
+		free(ctx);
+	}
+	return 0;
+}
+
+static int em_rwops_close_nodata(SDL_RWops *ctx)
+{
+	if (ctx) { free(ctx); }
+	return 0;
+}
+
+static size_t em_rwops_write_noconst(SDL_RWops *ctx, const void *ptr, size_t size, size_t num)
+{
+	size_t avail = (size_t)(ctx->hidden.mem.stop - ctx->hidden.mem.here);
+	size_t total = size * num;
+	if (total > avail) total = avail;
+	size_t n = (size > 0) ? (total / size) : 0;
+	memcpy(ctx->hidden.mem.here, ptr, n * size);
+	ctx->hidden.mem.here += n * size;
+	return n;
+}
+
+/* Creates a writable C struct SDL_RWops for a caller-owned buffer.
+ * Does NOT free the buffer on close (caller owns the data).
+ * Use this when C macros (SDL_RWwrite, SDL_WriteLE32, SDL_RWseek) must write
+ * to a buffer, and the resulting bytes will be passed separately to JS functions
+ * (e.g., SDL_RWFromMem → Mix_LoadWAV_RW). */
+SDL_RWops *em_writable_mem_to_rwops(void *data, size_t size)
+{
+	SDL_RWops *rw = (SDL_RWops *)malloc(sizeof(SDL_RWops));
+	if (!rw) return nullptr;
+	memset(rw, 0, sizeof(SDL_RWops));
+	rw->seek  = em_rwops_seek;
+	rw->read  = em_rwops_read;
+	rw->write = em_rwops_write_noconst;
+	rw->close = em_rwops_close_nodata;
+	rw->hidden.mem.base = (Uint8 *)data;
+	rw->hidden.mem.here = (Uint8 *)data;
+	rw->hidden.mem.stop = (Uint8 *)data + size;
+	return rw;
+}
+
+/* Creates a real C struct SDL_RWops wrapping a const memory buffer.
+ * Does NOT free the buffer on close (caller owns the data). */
+SDL_RWops *em_const_mem_to_rwops(const void *data, size_t size)
+{
+	SDL_RWops *rw = (SDL_RWops *)malloc(sizeof(SDL_RWops));
+	if (!rw) return nullptr;
+	memset(rw, 0, sizeof(SDL_RWops));
+	rw->seek  = em_rwops_seek;
+	rw->read  = em_rwops_read;
+	rw->write = em_rwops_write;
+	rw->close = em_rwops_close_nodata;
+	rw->hidden.mem.base = (Uint8 *)data;
+	rw->hidden.mem.here = (Uint8 *)data;
+	rw->hidden.mem.stop = (Uint8 *)data + size;
+	return rw;
+}
+
+/* Creates a real C struct SDL_RWops backed by POSIX fopen, for use under Emscripten.
+ * The preloaded Emscripten FS is accessible via fopen even though SDL_RWFromFile
+ * returns a JS array index incompatible with SDL1 C macros. */
+SDL_RWops *em_file_to_rwops(const char *path)
+{
+	FILE *f = fopen(path, "rb");
+	if (!f) return nullptr;
+	fseek(f, 0, SEEK_END);
+	long sz = ftell(f);
+	rewind(f);
+	if (sz <= 0) { fclose(f); return nullptr; }
+	Uint8 *buf = (Uint8 *)malloc((size_t)sz);
+	if (!buf) { fclose(f); return nullptr; }
+	if ((long)fread(buf, 1, (size_t)sz, f) != sz) { fclose(f); free(buf); return nullptr; }
+	fclose(f);
+	SDL_RWops *rw = (SDL_RWops *)malloc(sizeof(SDL_RWops));
+	if (!rw) { free(buf); return nullptr; }
+	memset(rw, 0, sizeof(SDL_RWops));
+	rw->seek  = em_rwops_seek;
+	rw->read  = em_rwops_read;
+	rw->write = em_rwops_write;
+	rw->close = em_rwops_close;
+	rw->hidden.mem.base = buf;
+	rw->hidden.mem.here = buf;
+	rw->hidden.mem.stop = buf + sz;
+	return rw;
+}
+
+/* Creates a real C struct SDL_RWops that owns a miniz-allocated buffer. */
+static SDL_RWops *em_mz_mem_to_rwops(void *data, size_t size)
+{
+	SDL_RWops *rw = (SDL_RWops *)malloc(sizeof(SDL_RWops));
+	if (!rw) { mz_free(data); return nullptr; }
+	memset(rw, 0, sizeof(SDL_RWops));
+	rw->seek  = em_rwops_seek;
+	rw->read  = em_rwops_read;
+	rw->write = em_rwops_write;
+	rw->close = em_rwops_close_mz;
+	rw->hidden.mem.base = (Uint8 *)data;
+	rw->hidden.mem.here = (Uint8 *)data;
+	rw->hidden.mem.stop = (Uint8 *)data + size;
+	return rw;
+}
+#endif /* __EMSCRIPTEN__ */
+
 extern "C"
 {
 
@@ -71,9 +229,13 @@ SDL_RWops *SDL_RWFromMZ(mz_zip_archive *zip, mz_uint file_index) {
 		SDL_SetError("miniz extract: %s", mz_zip_get_error_string(mz_zip_get_last_error(zip)));
 		return NULL;
 	}
+#ifdef __EMSCRIPTEN__
+	return em_mz_mem_to_rwops(data, size);
+#else
 	SDL_RWops *rv = SDL_RWFromConstMem(data, size);
 	rv->close = mzops_close;
 	return rv;
+#endif
 }
 
 /* helpers that are already present in SDL2 */
@@ -213,9 +375,13 @@ SDL_RWops *FileRecord::getRWops() const
 	if (zip != NULL) {
 		rv = SDL_RWFromMZ((mz_zip_archive *)zip, findex);
 	} else {
+#ifdef __EMSCRIPTEN__
+		rv = em_file_to_rwops(fullpath.c_str());
+#else
 		rv = SDL_RWFromFile(fullpath.c_str(), "rb");
+#endif
 	}
-	if (!rv) { Log(LOG_ERROR) << "FileRecord::getRWops(): err=" << SDL_GetError(); }
+	if (!rv) { Log(LOG_ERROR) << "FileRecord::getRWops(): err=" << SDL_GetError() << " path=" << fullpath; }
 	return rv;
 }
 
@@ -228,6 +394,9 @@ SDL_RWops *FileRecord::getRWopsReadAll() const
 	}
 	else
 	{
+#ifdef __EMSCRIPTEN__
+		rv = em_file_to_rwops(fullpath.c_str());
+#else
 		rv = SDL_RWFromFile(fullpath.c_str(), "rb");
 		if (rv)
 		{
@@ -257,6 +426,7 @@ SDL_RWops *FileRecord::getRWopsReadAll() const
 				rv = nullptr;
 			}
 		}
+#endif
 	}
 	if (!rv) { Log(LOG_ERROR) << "FileRecord::getRWopsReadAll(): err=" << SDL_GetError(); }
 	return rv;

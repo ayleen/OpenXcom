@@ -117,6 +117,11 @@ int main(int argc, char *argv[])
 	YAML::setGlobalErrorHandler();
 	CrossPlatform::getErrorDialog();
 	CrossPlatform::processArgs(argc, argv);
+#ifdef __EMSCRIPTEN__
+	// common/ and standard/ are preloaded at /game/ via --preload-file.
+	// Must be set before Options::init() so setFolders() picks it up.
+	Options::setDataFolder("/game/");
+#endif
 	if (!Options::init())
 		return EXIT_SUCCESS;
 	printf("[calypso] OpenXcom %s%s init OK\n", OPENXCOM_VERSION_SHORT, OPENXCOM_VERSION_GIT);

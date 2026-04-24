@@ -35,6 +35,50 @@
 #include "Timer.h"
 #include <SDL.h>
 #include <algorithm>
+#ifdef __EMSCRIPTEN__
+#include <emscripten/em_js.h>
+#include <stdint.h>
+/* Render an 8bpp palette-indexed surface directly to the HTML canvas.
+ * Bypasses Emscripten's SDL_Flip (no-op) and SDL_BlitSurface (canvas-to-canvas)
+ * which don't work because our surface pixels live in WASM memory, not on a canvas.
+ * palette_rgba points to SDL_Color[256] — each entry is {r,g,b,unused} (4 bytes). */
+EM_JS(void, emscripten_flip_8bpp,
+    (const uint8_t *pixels, int width, int height, int pitch, int bpp,
+     const uint8_t *palette_rgba),
+{
+    var canvas = Module['canvas'];
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    /* Build a native-resolution image from the 8bpp palette-indexed buffer. */
+    var imgData = ctx.createImageData(width, height);
+    var dst = imgData.data;
+    for (var y = 0; y < height; y++) {
+        var srcRow = pixels + y * pitch;
+        var dstRow = y * width * 4;
+        for (var x = 0; x < width; x++) {
+            var idx = HEAPU8[srcRow + x * bpp];
+            var palOff = palette_rgba + idx * 4;
+            dst[dstRow + x*4]     = HEAPU8[palOff];
+            dst[dstRow + x*4 + 1] = HEAPU8[palOff + 1];
+            dst[dstRow + x*4 + 2] = HEAPU8[palOff + 2];
+            dst[dstRow + x*4 + 3] = 255;
+        }
+    }
+    /* Scale to fill the output canvas using nearest-neighbour (pixelated) rendering.
+     * SDL creates the canvas at 2× the game resolution (640×400 for a 320×200 game).
+     * We blit via a temporary OffscreenCanvas so ctx.drawImage scales without blur. */
+    if (canvas.width === width && canvas.height === height) {
+        ctx.putImageData(imgData, 0, 0);
+    } else {
+        var off = new OffscreenCanvas(width, height);
+        off.getContext('2d').putImageData(imgData, 0, 0);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(off, 0, 0, canvas.width, canvas.height);
+    }
+});
+#endif /* __EMSCRIPTEN__ */
 
 namespace OpenXcom
 {
@@ -190,6 +234,20 @@ void Screen::handle(Action *action)
  */
 void Screen::flip()
 {
+#ifdef __EMSCRIPTEN__
+	{
+		SDL_Surface *surf = _surface.get();
+		int bpp = (surf->format && surf->format->BytesPerPixel > 0) ? surf->format->BytesPerPixel : 1;
+		emscripten_flip_8bpp(
+			(const uint8_t*)surf->pixels,
+			surf->w, surf->h, surf->pitch, bpp,
+			(const uint8_t*)deferredPalette);
+		_numColors = 0;
+		_pushPalette = false;
+		return;
+	}
+#endif
+
 	// perform any requested palette update
 	if (_flickerFix && _pushPalette && _numColors && _screen->format->BitsPerPixel == 8)
 	{
@@ -220,8 +278,6 @@ void Screen::flip()
 		_numColors = 0;
 		_pushPalette = false;
 	}
-
-
 
 	if (SDL_Flip(_screen) == -1)
 	{
