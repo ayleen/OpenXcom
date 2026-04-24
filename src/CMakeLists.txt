@@ -625,9 +625,11 @@ if(EMSCRIPTEN)
     -sASSERTIONS=1
     -fexceptions
     -sDISABLE_EXCEPTION_CATCHING=0
+    # Only GPL OXCE engine data is bundled; TFTD and any other proprietary
+    # game files MUST be loaded at runtime via AssetProvider (see
+    # docs/MVP_PLAN.md Phase 4). Never add a --preload-file for game-data/.
     "--preload-file=${CMAKE_SOURCE_DIR}/bin/common@/game/common"
     "--preload-file=${CMAKE_SOURCE_DIR}/bin/standard@/game/standard"
-    "--preload-file=${CMAKE_SOURCE_DIR}/../../assets/tftd-data/TFD@/game/TFTD"
     -sSTB_IMAGE=1
   )
 endif()
