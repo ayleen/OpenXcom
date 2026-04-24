@@ -119,6 +119,7 @@ int main(int argc, char *argv[])
 	CrossPlatform::processArgs(argc, argv);
 	if (!Options::init())
 		return EXIT_SUCCESS;
+	printf("[calypso] OpenXcom %s%s init OK\n", OPENXCOM_VERSION_SHORT, OPENXCOM_VERSION_GIT);
 	std::ostringstream title;
 	title << "OpenXcom " << OPENXCOM_VERSION_SHORT << OPENXCOM_VERSION_GIT;
 	Options::baseXResolution = Options::displayWidth;

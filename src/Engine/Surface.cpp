@@ -443,10 +443,14 @@ void Surface::loadImage(const std::string &filename)
 		*this = Surface(surface->w, surface->h, 0, 0);
 		setPalette(surface->format->palette->colors, 0, surface->format->palette->ncolors);
 		RawCopySurf(_surface, surface);
-		FixTransparent(_surface, surface->format->colorkey);
-		if (surface->format->colorkey != 0)
+		Uint32 colorkey = 0;
+#ifndef __EMSCRIPTEN__
+		colorkey = surface->format->colorkey; // SDL1 struct field; no colorkey in Emscripten SDL1 emulation
+#endif
+		FixTransparent(_surface, colorkey);
+		if (colorkey != 0)
 		{
-			Log(LOG_WARNING) << "Image " << filename << " (from SDL) has incorrect transparent color index " << surface->format->colorkey << " (instead of 0).";
+			Log(LOG_WARNING) << "Image " << filename << " (from SDL) has incorrect transparent color index " << colorkey << " (instead of 0).";
 		}
 	}
 }

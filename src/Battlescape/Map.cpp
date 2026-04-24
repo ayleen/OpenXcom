@@ -2412,7 +2412,14 @@ void Map::scrollKey()
  */
 void Map::fadeShade()
 {
+#ifdef __EMSCRIPTEN__
+	// SDL_GetKeyState is not declared in Emscripten's SDL1 compat headers;
+	// the function is available via libsdl.js but requires an explicit declaration.
+	// Stub to false for now — night-vision hold key is a non-critical UI feature.
+	bool hold = false;
+#else
 	bool hold = SDL_GetKeyState(NULL)[Options::keyNightVisionHold];
+#endif
 	if ((_nightVisionOn && !hold) || (!_nightVisionOn && hold))
 	{
 		_nvColor = Options::oxceNightVisionColor;

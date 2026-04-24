@@ -71,11 +71,12 @@
 #include <cstring>
 #include <cstdio>
 #include <cstdlib>
+#include <cerrno>
 #include <unistd.h>
 #include <sys/param.h>
 #include <sys/types.h>
 #include <pwd.h>
-#ifndef __CYGWIN__
+#if !defined(__CYGWIN__) && !defined(__EMSCRIPTEN__)
 #include <execinfo.h>
 #endif
 #include <cxxabi.h>
@@ -547,6 +548,20 @@ bool createFolder(const std::string &path)
 		return false;
 	else
 		return true;
+#elif defined(__EMSCRIPTEN__)
+	// Emscripten MEMFS starts empty; create all parent directories first (mkdir -p).
+	for (size_t i = 1; i < path.size(); ++i)
+	{
+		if (path[i] == '/')
+		{
+			std::string sub = path.substr(0, i);
+			mkdir(sub.c_str(), 0755); // ignore error (EEXIST is fine)
+		}
+	}
+	std::string clean = path;
+	while (!clean.empty() && clean.back() == '/') clean.pop_back();
+	int result = mkdir(clean.c_str(), 0755);
+	return result == 0 || errno == EEXIST;
 #else
 	mode_t process_mask = umask(0);
 	int result = mkdir(path.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
@@ -1053,6 +1068,16 @@ bool copyFile(const std::string& src, const std::string& dest)
  * @return if we did write it.
  */
 bool writeFile(const std::string& filename, const std::string& data) {
+#ifdef __EMSCRIPTEN__
+	FILE *f = fopen(filename.c_str(), "w");
+	if (!f) {
+		Log(LOG_ERROR) << "Failed to write " << filename;
+		return false;
+	}
+	fwrite(data.c_str(), 1, data.size(), f);
+	fclose(f);
+	return true;
+#else
 	// Even SDL1 file IO accepts UTF-8 file names on windows.
 	SDL_RWops *rwops = SDL_RWFromFile(filename.c_str(), "w");
 	if (!rwops) {
@@ -1066,6 +1091,7 @@ bool writeFile(const std::string& filename, const std::string& data) {
 	}
 	SDL_RWclose(rwops);
 	return true;
+#endif
 }
 
 /**
@@ -1075,6 +1101,16 @@ bool writeFile(const std::string& filename, const std::string& data) {
  * @return if we did write it.
  */
 bool writeFile(const std::string& filename, const std::vector<unsigned char>& data) {
+#ifdef __EMSCRIPTEN__
+	FILE *f = fopen(filename.c_str(), "wb");
+	if (!f) {
+		Log(LOG_ERROR) << "Failed to write " << filename;
+		return false;
+	}
+	fwrite(data.data(), 1, data.size(), f);
+	fclose(f);
+	return true;
+#else
 	// Even SDL1 file IO accepts UTF-8 file names on windows.
 	SDL_RWops *rwops = SDL_RWFromFile(filename.c_str(), "wb");
 	if (!rwops) {
@@ -1088,6 +1124,7 @@ bool writeFile(const std::string& filename, const std::vector<unsigned char>& da
 	}
 	SDL_RWclose(rwops);
 	return true;
+#endif
 }
 
 /**
@@ -1108,6 +1145,24 @@ std::unique_ptr<std::istream> readFile(const std::string& filename)
  */
 RawData readFileRaw(const std::string& filename)
 {
+#ifdef __EMSCRIPTEN__
+	FILE *f = fopen(filename.c_str(), "rb");
+	if (!f)
+	{
+		std::string err = "Failed to read " + filename;
+		Log(LOG_ERROR) << err;
+		throw Exception(err);
+	}
+	fseek(f, 0, SEEK_END);
+	long sz = ftell(f);
+	fseek(f, 0, SEEK_SET);
+	char *data = (char*)malloc((size_t)sz + 1);
+	if (!data) { fclose(f); throw Exception("malloc failed"); }
+	fread(data, 1, (size_t)sz, f);
+	data[sz] = 0;
+	fclose(f);
+	return RawData(data, (size_t)sz, free);
+#else
 	SDL_RWops* rwops = SDL_RWFromFile(filename.c_str(), "r");
 	if (!rwops)
 	{
@@ -1124,6 +1179,7 @@ RawData readFileRaw(const std::string& filename)
 		throw Exception(err);
 	}
 	return RawData(data, s, SDL_free);
+#endif
 }
 
 /**
@@ -1146,6 +1202,35 @@ std::unique_ptr<std::istream> getYamlSaveHeader(const std::string& filename)
  */
 RawData getYamlSaveHeaderRaw(const std::string& filename)
 {
+#ifdef __EMSCRIPTEN__
+	FILE *f = fopen(filename.c_str(), "r");
+	if (!f)
+	{
+		std::string err = "Failed to read " + filename;
+		Log(LOG_ERROR) << err;
+		throw Exception(err);
+	}
+	const size_t chunksize = 4096;
+	size_t size = 0;
+	size_t offs = 0;
+	char* data = (char*)malloc(chunksize + 1);
+	if (!data) { fclose(f); throw Exception("malloc failed"); }
+	while (true)
+	{
+		size_t actually_read = fread(data + offs, 1, chunksize, f);
+		if (actually_read == 0) break;
+		size += actually_read;
+		data[size] = 0;
+		size_t search_from = offs > 4 ? offs - 4 : 0;
+		if (NULL != strstr(data + search_from, "\n---")) break;
+		char* newdata = (char*)realloc(data, size + chunksize + 1);
+		if (!newdata) { free(data); fclose(f); throw Exception("realloc failed"); }
+		data = newdata;
+		offs = size;
+	}
+	fclose(f);
+	return RawData(data, size, free);
+#else
 	SDL_RWops* rwops = SDL_RWFromFile(filename.c_str(), "r");
 	if (!rwops)
 	{
@@ -1189,6 +1274,7 @@ RawData getYamlSaveHeaderRaw(const std::string& filename)
 	}
 	SDL_RWclose(rwops);
 	return RawData(data, size, SDL_free);
+#endif
 }
 
 /**
@@ -1419,9 +1505,9 @@ void stackTrace(void *ctx)
 # else /* __NO_DBGHELP */
 	Log(LOG_FATAL) << "Unfortunately, no stack trace information is available";
 # endif
-#elif __CYGWIN__
+#elif __CYGWIN__ || __EMSCRIPTEN__
 	Log(LOG_FATAL) << "Unfortunately, no stack trace information is available";
-#else    /* not _WIN32 or __CYGWIN__ */
+#else    /* not _WIN32, __CYGWIN__, or __EMSCRIPTEN__ */
 	void *frames[32];
 	char buf[1024];
 	int  frame_count = backtrace(frames, 32);
@@ -1589,6 +1675,15 @@ bool openExplorer(const std::string &url)
  * @return if we did write it.
  */
 static bool logToFile(const std::string& filename, const std::string& data) {
+#ifdef __EMSCRIPTEN__
+	FILE *f = fopen(filename.c_str(), "a");
+	if (f) {
+		fwrite(data.c_str(), 1, data.size(), f);
+		fclose(f);
+		return true;
+	}
+	return false;
+#else
 	// Even SDL1 file IO accepts UTF-8 file names on windows.
 	SDL_RWops *rwops = SDL_RWFromFile(filename.c_str(), "a+");
 	if (rwops) {
@@ -1597,6 +1692,7 @@ static bool logToFile(const std::string& filename, const std::string& data) {
 		return rv == 1;
 	}
 	return false;
+#endif
 }
 
 static const size_t LOG_BUFFER_LIMIT = 1<<10;

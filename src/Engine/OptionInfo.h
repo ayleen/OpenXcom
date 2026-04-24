@@ -46,8 +46,12 @@ public:
 	OptionInfo(OptionOwner owner, const std::string &id, bool *option, bool def, const std::string &desc = "", const std::string &cat = "");
 	/// Creates a int option.
 	OptionInfo(OptionOwner owner, const std::string &id, int *option, int def, const std::string &desc = "", const std::string &cat = "");
+#ifndef __EMSCRIPTEN__
 	/// Creates a key option.
+	/// (Under Emscripten, SDLKey == Sint32 == int so this overload would be a
+	/// duplicate of the int overload above; key options fall back to int there.)
 	OptionInfo(OptionOwner owner, const std::string &id, SDLKey *option, SDLKey def, const std::string &desc = "", const std::string &cat = "");
+#endif
 	/// Creates a string option.
 	OptionInfo(OptionOwner owner, const std::string &id, std::string *option, const char *def, const std::string &desc = "", const std::string &cat = "");
 	/// Gets a bool option pointer.

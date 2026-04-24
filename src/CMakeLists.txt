@@ -547,6 +547,9 @@ if ( UNIX AND EMBED_ASSETS )
 endif ()
 
 set ( openxcom_src ${c_src} ${cxx_src} ${embed_src} )
+if(EMSCRIPTEN)
+  list(APPEND openxcom_src Engine/EmscriptenCompat.cpp)
+endif()
 set ( install_dest RUNTIME )
 set ( set_exec_path ON )
 set ( install_dest_dir bin )
@@ -598,6 +601,32 @@ if (( APPLE AND CREATE_BUNDLE ) OR CPACK_GENERATOR STREQUAL "7Z" )
 endif ()
 
 add_executable ( openxcom  ${application_type} ${openxcom_src} ${openxcom_icon} )
+
+if(EMSCRIPTEN)
+  set_target_properties(openxcom PROPERTIES
+    OUTPUT_NAME "calypso"
+    SUFFIX ".js"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+  )
+  target_compile_options(openxcom PRIVATE -fexceptions)
+  target_link_options(openxcom PRIVATE
+    -sUSE_SDL=1
+    -sWASM=1
+    -sALLOW_MEMORY_GROWTH=1
+    -sINITIAL_MEMORY=268435456
+    -sFORCE_FILESYSTEM=1
+    "-sEXPORTED_RUNTIME_METHODS=[\"FS\",\"callMain\",\"ccall\",\"cwrap\"]"
+    -sENVIRONMENT=web
+    -sMODULARIZE=1
+    -sEXPORT_ES6=1
+    -sEXPORT_NAME=initCalypso
+    -lidbfs.js
+    -O2
+    -sASSERTIONS=1
+    -fexceptions
+    -sDISABLE_EXCEPTION_CATCHING=0
+  )
+endif()
 
 if ( EMBED_ASSETS )
   add_dependencies(openxcom zips)

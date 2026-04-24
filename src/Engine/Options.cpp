@@ -21,7 +21,9 @@
 #include "../version.h"
 #include "../md5.h"
 #include <SDL.h>
-#include <SDL_keysym.h>
+#ifndef __EMSCRIPTEN__
+#include <SDL_keysym.h>  // SDL1 only; Emscripten has SDL_keycode.h instead
+#endif
 #include <SDL_mixer.h>
 #include <map>
 #include <sstream>

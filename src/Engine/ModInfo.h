@@ -26,11 +26,12 @@ namespace OpenXcom
 {
 
 /**
- * String with normalized version number,
- * as is not printable it use `signed char` to
- * not confuse it with normal string.
+ * String with normalized version number.
+ * Originally used signed char to distinguish from regular strings, but
+ * std::char_traits<signed char> is undefined in libc++ (Emscripten/Clang).
+ * Using char preserves identical runtime behaviour; do not mix with std::string.
  */
-typedef std::basic_string<signed char> ModInfoNormalizedVersion;
+typedef std::basic_string<char> ModInfoNormalizedVersion;
 
 /**
  * Version number with normalized value.
