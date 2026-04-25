@@ -563,7 +563,7 @@ void Surface::loadImage(const std::string &filename)
 					for (int c = 0; c < _surface->format->palette->ncolors; ++c)
 					{
 						SDL_Color *palColor = _surface->format->palette->colors + c;
-						if (palColor->unused == 0)
+						if (palColor->a == 0)
 						{
 							transparent = c;
 							break;

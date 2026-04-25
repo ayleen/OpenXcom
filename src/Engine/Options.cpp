@@ -171,7 +171,11 @@ void createOptionsOXC()
 	_info.push_back(OptionInfo(OPTION_OXC, "pauseMode", &pauseMode, 0));
 	_info.push_back(OptionInfo(OPTION_OXC, "battleNotifyDeath", &battleNotifyDeath, false));
 	_info.push_back(OptionInfo(OPTION_OXC, "showFundsOnGeoscape", &showFundsOnGeoscape, false));
+#ifdef __EMSCRIPTEN__
+	_info.push_back(OptionInfo(OPTION_OXC, "allowResize", &allowResize, true));
+#else
 	_info.push_back(OptionInfo(OPTION_OXC, "allowResize", &allowResize, false));
+#endif
 	_info.push_back(OptionInfo(OPTION_OXC, "windowedModePositionX", &windowedModePositionX, 0));
 	_info.push_back(OptionInfo(OPTION_OXC, "windowedModePositionY", &windowedModePositionY, 0));
 	_info.push_back(OptionInfo(OPTION_OXC, "borderless", &borderless, false));

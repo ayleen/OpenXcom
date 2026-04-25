@@ -71,10 +71,9 @@ endif()
 set ( DEPS_DIR "${default_deps_dir}" CACHE STRING "Dependencies directory" )
 
 if(EMSCRIPTEN)
-  # SDL1 core + SDL_image + SDL_mixer + SDL_gfx are all emulated by Emscripten's
-  # libsdl.js. The -sUSE_SDL=1 flag (added below) activates the emulation and
-  # exposes the SDL/ sysroot headers. No pkg-config or compiled libs needed.
-  add_compile_options(-sUSE_SDL=1)
+  # -sUSE_SDL=2 adds -isystem .../include/SDL2 at compile time (real SDL 2.32.x
+  # headers) and links the precompiled libSDL2.a at link time.
+  add_compile_options(-sUSE_SDL=2)
   add_definitions(-D__NO_OPENGL)
   set(OPENGL_FOUND FALSE)
   set(OPENGL_INCLUDE_DIR "")

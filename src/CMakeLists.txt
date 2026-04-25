@@ -609,21 +609,27 @@ if(EMSCRIPTEN)
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
   )
   target_compile_options(openxcom PRIVATE -fexceptions)
+  # Stub SDL_gfxPrimitives.h for Emscripten (no SDL2_gfx port; implementations in EmscriptenCompat.cpp).
+  target_include_directories(openxcom PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Engine/compat_sdl)
   target_link_options(openxcom PRIVATE
-    -sUSE_SDL=1
-    -sUSE_SDL_MIXER=1
+    -sUSE_SDL=2
+    -sUSE_SDL_IMAGE=2
+    -sUSE_SDL_MIXER=2
+    "-sSDL2_IMAGE_FORMATS=[\"png\",\"jpg\",\"bmp\"]"
+    "-sSDL2_MIXER_FORMATS=[\"ogg\"]"
     -sUSE_OGG=1
     -sUSE_VORBIS=1
     -sWASM=1
     -sALLOW_MEMORY_GROWTH=1
     -sINITIAL_MEMORY=268435456
     -sFORCE_FILESYSTEM=1
-    "-sEXPORTED_RUNTIME_METHODS=[\"FS\",\"IDBFS\",\"SDL\",\"callMain\",\"ccall\",\"cwrap\"]"
+    "-sEXPORTED_RUNTIME_METHODS=[\"FS\",\"IDBFS\",\"callMain\",\"ccall\",\"cwrap\"]"
     -sENVIRONMENT=web
     -sMODULARIZE=1
     -sEXPORT_ES6=1
     -sEXPORT_NAME=initCalypso
     -lidbfs.js
+    -Wl,--allow-multiple-definition
     -O2
     -sASSERTIONS=1
     -fexceptions
@@ -633,7 +639,6 @@ if(EMSCRIPTEN)
     # docs/MVP_PLAN.md Phase 4). Never add a --preload-file for game-data/.
     "--preload-file=${CMAKE_SOURCE_DIR}/bin/common@/game/common"
     "--preload-file=${CMAKE_SOURCE_DIR}/bin/standard@/game/standard"
-    -sSTB_IMAGE=1
   )
 endif()
 

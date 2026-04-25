@@ -21,6 +21,7 @@
 #include <string>
 #include <map>
 #include <SDL.h>
+#include "SDL2Helpers.h"
 
 namespace OpenXcom
 {

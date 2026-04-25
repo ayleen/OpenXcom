@@ -40,6 +40,11 @@ class Screen
 {
 private:
 	SDL_Surface *_screen;
+#ifdef __EMSCRIPTEN__
+	SDL_Window   *_window;
+	SDL_Renderer *_renderer;
+	SDL_Texture  *_texture;
+#endif
 	int _bpp;
 	int _baseWidth, _baseHeight;
 	double _scaleX, _scaleY;

@@ -19,6 +19,7 @@
 
 #include "Zoom.h"
 
+#include "SDL2Helpers.h"
 #include "Surface.h"
 #include "Logger.h"
 #include "Options.h"

@@ -58,25 +58,32 @@
 #include <cstdlib>
 
 /*
- * Under -sUSE_SDL=1, SDL_RWFromFile/SDL_RWFromConstMem return JS array indices,
- * not C struct pointers. SDL1 C macros (SDL_RWread, SDL_RWseek, etc.) dereference
- * the handle as a struct pointer, causing "table index is out of bounds" crashes.
- * These helpers create real C struct SDL_RWops in WASM heap so macros work correctly.
+ * SDL_RWFromFile/SDL_RWFromConstMem under Emscripten return JS handles that are
+ * incompatible with the C struct pointer that SDL C macros (SDL_RWread, SDL_RWseek,
+ * etc.) expect. These helpers allocate a real SDL_RWops in the WASM heap.
+ *
+ * Under SDL2, SDL_RWops has: size (Sint64 fn), seek (Sint64 fn), read, write, close.
+ * We implement all five so SDL_RWsize() can call ctx->size(ctx) safely.
  */
 
-static long em_rwops_seek(SDL_RWops *ctx, long off, int whence)
+static Sint64 em_rwops_size(SDL_RWops *ctx)
+{
+	return (Sint64)(ctx->hidden.mem.stop - ctx->hidden.mem.base);
+}
+
+static Sint64 em_rwops_seek(SDL_RWops *ctx, Sint64 off, int whence)
 {
 	Uint8 *base = ctx->hidden.mem.base;
-	long size = (long)(ctx->hidden.mem.stop - base);
-	long pos;
+	Sint64 size = (Sint64)(ctx->hidden.mem.stop - base);
+	Sint64 pos;
 	switch (whence) {
 		case RW_SEEK_SET: pos = off; break;
-		case RW_SEEK_CUR: pos = (long)(ctx->hidden.mem.here - base) + off; break;
+		case RW_SEEK_CUR: pos = (Sint64)(ctx->hidden.mem.here - base) + off; break;
 		case RW_SEEK_END: pos = size + off; break;
 		default: return -1;
 	}
 	if (pos < 0) pos = 0; else if (pos > size) pos = size;
-	ctx->hidden.mem.here = base + pos;
+	ctx->hidden.mem.here = base + (size_t)pos;
 	return pos;
 }
 
@@ -138,6 +145,7 @@ SDL_RWops *em_writable_mem_to_rwops(void *data, size_t size)
 	SDL_RWops *rw = (SDL_RWops *)malloc(sizeof(SDL_RWops));
 	if (!rw) return nullptr;
 	memset(rw, 0, sizeof(SDL_RWops));
+	rw->size  = em_rwops_size;
 	rw->seek  = em_rwops_seek;
 	rw->read  = em_rwops_read;
 	rw->write = em_rwops_write_noconst;
@@ -155,6 +163,7 @@ SDL_RWops *em_const_mem_to_rwops(const void *data, size_t size)
 	SDL_RWops *rw = (SDL_RWops *)malloc(sizeof(SDL_RWops));
 	if (!rw) return nullptr;
 	memset(rw, 0, sizeof(SDL_RWops));
+	rw->size  = em_rwops_size;
 	rw->seek  = em_rwops_seek;
 	rw->read  = em_rwops_read;
 	rw->write = em_rwops_write;
@@ -183,6 +192,7 @@ SDL_RWops *em_file_to_rwops(const char *path)
 	SDL_RWops *rw = (SDL_RWops *)malloc(sizeof(SDL_RWops));
 	if (!rw) { free(buf); return nullptr; }
 	memset(rw, 0, sizeof(SDL_RWops));
+	rw->size  = em_rwops_size;
 	rw->seek  = em_rwops_seek;
 	rw->read  = em_rwops_read;
 	rw->write = em_rwops_write;
@@ -199,6 +209,7 @@ static SDL_RWops *em_mz_mem_to_rwops(void *data, size_t size)
 	SDL_RWops *rw = (SDL_RWops *)malloc(sizeof(SDL_RWops));
 	if (!rw) { mz_free(data); return nullptr; }
 	memset(rw, 0, sizeof(SDL_RWops));
+	rw->size  = em_rwops_size;
 	rw->seek  = em_rwops_seek;
 	rw->read  = em_rwops_read;
 	rw->write = em_rwops_write;

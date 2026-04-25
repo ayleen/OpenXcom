@@ -2611,14 +2611,14 @@ void Mod::loadResourceConfigFile(const FileMap::FileRecord &filerec)
 						color.r = loadByteValue(colorReader[0]);
 						color.g = loadByteValue(colorReader[1]);
 						color.b = loadByteValue(colorReader[2]);
-						color.unused = colorReader[3] ? loadByteValue(colorReader[3]): 2;
+						color.a = colorReader[3] ? loadByteValue(colorReader[3]): 2;
 
 						for (int opacity = 0; opacity < TransparenciesOpacityLevels; ++opacity)
 						{
 							// pseudo interpolation of palette color with tint
 							// for small values `op` its should behave same as original TFTD
 							// but for bigger values it make result closer to tint color
-							const int op = Clamp((opacity+1) * color.unused, 0, 64);
+							const int op = Clamp((opacity+1) * color.a, 0, 64);
 							const float co = 1.0f - Sqr(op / 64.0f); // 1.0 -> 0.0
 							const float to = op * 1.0f; // 0.0 -> 64.0
 
@@ -2626,7 +2626,7 @@ void Mod::loadResourceConfigFile(const FileMap::FileRecord &filerec)
 							taint.r = Clamp((int)(color.r * to), 0, 255);
 							taint.g = Clamp((int)(color.g * to), 0, 255);
 							taint.b = Clamp((int)(color.b * to), 0, 255);
-							taint.unused = 255 * co;
+							taint.a = 255 * co;
 							_transparencies[start + curr][opacity] = taint;
 						};
 					}
@@ -2640,7 +2640,7 @@ void Mod::loadResourceConfigFile(const FileMap::FileRecord &filerec)
 							taint.r = loadByteValue(n[0]);
 							taint.g = loadByteValue(n[1]);
 							taint.b = loadByteValue(n[2]);
-							taint.unused = 255 - loadByteValue(n[3]);
+							taint.a = 255 - loadByteValue(n[3]);
 							_transparencies[start + curr][opacity] = taint;
 						};
 						std::reverse(std::begin(_transparencies[start + curr]), std::end(_transparencies[start + curr]));
@@ -6427,14 +6427,14 @@ void Mod::createTransparencyLUT(Palette *pal)
 			{
 				SDL_Color desiredColor;
 
-				desiredColor.r = std::min(255, (palColors[currentColor].r * tint.unused / 255) + tint.r);
-				desiredColor.g = std::min(255, (palColors[currentColor].g * tint.unused / 255) + tint.g);
-				desiredColor.b = std::min(255, (palColors[currentColor].b * tint.unused / 255) + tint.b);
+				desiredColor.r = std::min(255, (palColors[currentColor].r * tint.a / 255) + tint.r);
+				desiredColor.g = std::min(255, (palColors[currentColor].g * tint.a / 255) + tint.g);
+				desiredColor.b = std::min(255, (palColors[currentColor].b * tint.a / 255) + tint.b);
 
 				Uint8 closest = currentColor;
 				int lowestDifference = INT_MAX;
 				// if opacity is zero then we stay with current color, transparent color will stay same too
-				if (tint.unused != 0 && currentColor != 0)
+				if (tint.a != 0 && currentColor != 0)
 				{
 					// now compare each color in the palette to find the closest match to our desired one
 					for (int comparator = 1; comparator < TransparenciesPaletteColors; ++comparator)

@@ -34,51 +34,10 @@
 #include "Zoom.h"
 #include "Timer.h"
 #include <SDL.h>
-#include <algorithm>
 #ifdef __EMSCRIPTEN__
-#include <emscripten/em_js.h>
-#include <stdint.h>
-/* Render an 8bpp palette-indexed surface directly to the HTML canvas.
- * Bypasses Emscripten's SDL_Flip (no-op) and SDL_BlitSurface (canvas-to-canvas)
- * which don't work because our surface pixels live in WASM memory, not on a canvas.
- * palette_rgba points to SDL_Color[256] — each entry is {r,g,b,unused} (4 bytes). */
-EM_JS(void, emscripten_flip_8bpp,
-    (const uint8_t *pixels, int width, int height, int pitch, int bpp,
-     const uint8_t *palette_rgba),
-{
-    var canvas = Module['canvas'];
-    if (!canvas) return;
-    var ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    /* Build a native-resolution image from the 8bpp palette-indexed buffer. */
-    var imgData = ctx.createImageData(width, height);
-    var dst = imgData.data;
-    for (var y = 0; y < height; y++) {
-        var srcRow = pixels + y * pitch;
-        var dstRow = y * width * 4;
-        for (var x = 0; x < width; x++) {
-            var idx = HEAPU8[srcRow + x * bpp];
-            var palOff = palette_rgba + idx * 4;
-            dst[dstRow + x*4]     = HEAPU8[palOff];
-            dst[dstRow + x*4 + 1] = HEAPU8[palOff + 1];
-            dst[dstRow + x*4 + 2] = HEAPU8[palOff + 2];
-            dst[dstRow + x*4 + 3] = 255;
-        }
-    }
-    /* Scale to fill the output canvas using nearest-neighbour (pixelated) rendering.
-     * SDL creates the canvas at 2× the game resolution (640×400 for a 320×200 game).
-     * We blit via a temporary OffscreenCanvas so ctx.drawImage scales without blur. */
-    if (canvas.width === width && canvas.height === height) {
-        ctx.putImageData(imgData, 0, 0);
-    } else {
-        var off = new OffscreenCanvas(width, height);
-        off.getContext('2d').putImageData(imgData, 0, 0);
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(off, 0, 0, canvas.width, canvas.height);
-    }
-});
-#endif /* __EMSCRIPTEN__ */
+#include <SDL_render.h>
+#endif
+#include <algorithm>
 
 namespace OpenXcom
 {
@@ -86,12 +45,14 @@ namespace OpenXcom
 const int Screen::ORIGINAL_WIDTH = 320;
 const int Screen::ORIGINAL_HEIGHT = 200;
 
+#ifndef __EMSCRIPTEN__
 static const int VIDEO_WINDOW_POS_LEN = 40;
 static char VIDEO_WINDOW_POS[VIDEO_WINDOW_POS_LEN];
 
 static const char* SDL_VIDEO_CENTERED_UNSET = "SDL_VIDEO_CENTERED=";
 static const char* SDL_VIDEO_CENTERED_CENTER = "SDL_VIDEO_CENTERED=center";
 static const char* SDL_VIDEO_WINDOW_POS_UNSET = "SDL_VIDEO_WINDOW_POS=";
+#endif
 
 /**
  * Sets up all the internal display flags depending on
@@ -99,6 +60,13 @@ static const char* SDL_VIDEO_WINDOW_POS_UNSET = "SDL_VIDEO_WINDOW_POS=";
  */
 void Screen::makeVideoFlags()
 {
+#ifdef __EMSCRIPTEN__
+	/* Under SDL2/Emscripten the window is created via SDL_CreateWindow in
+	 * resetDisplay(); SDL1 flags are irrelevant. Just set bpp and base size. */
+	_bpp = 8;
+	_baseWidth  = Options::baseXResolution;
+	_baseHeight = Options::baseYResolution;
+#else
 	_flags = SDL_HWSURFACE|SDL_DOUBLEBUF|SDL_HWPALETTE;
 	if (Options::asyncBlit)
 	{
@@ -149,6 +117,7 @@ void Screen::makeVideoFlags()
 	_bpp = (use32bitScaler() || useOpenGL()) ? 32 : 8;
 	_baseWidth = Options::baseXResolution;
 	_baseHeight = Options::baseYResolution;
+#endif
 }
 
 
@@ -157,6 +126,9 @@ void Screen::makeVideoFlags()
  * The screen is set up based on the current options.
  */
 Screen::Screen() : _baseWidth(ORIGINAL_WIDTH), _baseHeight(ORIGINAL_HEIGHT), _scaleX(1.0), _scaleY(1.0), _flags(0), _numColors(0), _firstColor(0), _pushPalette(false), _flickerFix(false)
+#ifdef __EMSCRIPTEN__
+	, _window(nullptr), _renderer(nullptr), _texture(nullptr)
+#endif
 {
 	_flickerFix = Options::oxceEnablePaletteFlickerFix;
 
@@ -170,7 +142,12 @@ Screen::Screen() : _baseWidth(ORIGINAL_WIDTH), _baseHeight(ORIGINAL_HEIGHT), _sc
  */
 Screen::~Screen()
 {
-
+#ifdef __EMSCRIPTEN__
+	if (_texture)  { SDL_DestroyTexture(_texture);   _texture  = nullptr; }
+	if (_renderer) { SDL_DestroyRenderer(_renderer); _renderer = nullptr; }
+	if (_window)   { SDL_DestroyWindow(_window);     _window   = nullptr; }
+	if (_screen)   { SDL_FreeSurface(_screen);       _screen   = nullptr; }
+#endif
 }
 
 /**
@@ -236,17 +213,33 @@ void Screen::flip()
 {
 #ifdef __EMSCRIPTEN__
 	{
-		SDL_Surface *surf = _surface.get();
-		int bpp = (surf->format && surf->format->BytesPerPixel > 0) ? surf->format->BytesPerPixel : 1;
-		emscripten_flip_8bpp(
-			(const uint8_t*)surf->pixels,
-			surf->w, surf->h, surf->pitch, bpp,
-			(const uint8_t*)deferredPalette);
+		/* Blit internal 8bpp surface into RGBA32 _screen via SDL2 cross-format
+		 * blit (SDL2 performs palette lookup automatically from _surface's palette). */
+		SDL_BlitSurface(_surface.get(), nullptr, _screen, nullptr);
+
+		/* Upload RGBA32 pixels to streaming texture and present. */
+		void *texPixels;
+		int   texPitch;
+		SDL_LockTexture(_texture, nullptr, &texPixels, &texPitch);
+		if (texPitch == _screen->pitch) {
+			memcpy(texPixels, _screen->pixels, (size_t)_screen->h * texPitch);
+		} else {
+			for (int y = 0; y < _screen->h; y++) {
+				memcpy((char*)texPixels + y * texPitch,
+				       (char*)_screen->pixels + y * _screen->pitch,
+				       (size_t)_screen->w * 4);
+			}
+		}
+		SDL_UnlockTexture(_texture);
+		SDL_RenderClear(_renderer);
+		SDL_RenderCopy(_renderer, _texture, nullptr, nullptr);
+		SDL_RenderPresent(_renderer);
+
 		_numColors = 0;
 		_pushPalette = false;
 		return;
 	}
-#endif
+#else /* !__EMSCRIPTEN__ — native SDL1 flip path */
 
 	// perform any requested palette update
 	if (_flickerFix && _pushPalette && _numColors && _screen->format->BitsPerPixel == 8)
@@ -283,6 +276,7 @@ void Screen::flip()
 	{
 		throw Exception(SDL_GetError());
 	}
+#endif /* __EMSCRIPTEN__ */
 }
 
 /**
@@ -378,6 +372,89 @@ int Screen::getHeight() const
  */
 void Screen::resetDisplay(bool resetVideo, bool noShaders)
 {
+#ifdef __EMSCRIPTEN__
+	(void)noShaders;
+
+	int width  = Options::displayWidth;
+	int height = Options::displayHeight;
+	makeVideoFlags(); /* sets _bpp=8, _baseWidth, _baseHeight */
+
+	/* (Re)allocate 8bpp internal surface if size or bpp changed. */
+	if (!_surface || _surface->format->BitsPerPixel != 8 ||
+	    _surface->w != _baseWidth || _surface->h != _baseHeight)
+	{
+		std::tie(_buffer, _surface) = Surface::NewPair8Bit(_baseWidth, _baseHeight);
+		SDL_SetColors(_surface.get(), deferredPalette, 0, 256);
+	}
+	SDL_SetColorKey(_surface.get(), 0, 0);
+
+	if (resetVideo || !_window)
+	{
+		Log(LOG_INFO) << "Emscripten: creating SDL2 window " << width << "x" << height;
+
+		/* Destroy any previous SDL2 objects. */
+		if (_texture)  { SDL_DestroyTexture(_texture);   _texture  = nullptr; }
+		if (_renderer) { SDL_DestroyRenderer(_renderer); _renderer = nullptr; }
+		if (_screen)   { SDL_FreeSurface(_screen);       _screen   = nullptr; }
+		if (_window)   { SDL_DestroyWindow(_window);     _window   = nullptr; }
+
+		Uint32 winFlags = SDL_WINDOW_OPENGL;
+		if (Options::allowResize) winFlags |= SDL_WINDOW_RESIZABLE;
+
+		_window = SDL_CreateWindow("Calypso",
+		    SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+		    width, height, winFlags);
+		if (!_window)
+		{
+			Log(LOG_ERROR) << "SDL_CreateWindow failed: " << SDL_GetError();
+			throw Exception(SDL_GetError());
+		}
+
+		_renderer = SDL_CreateRenderer(_window, -1,
+		    SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+		if (!_renderer)
+		{
+			Log(LOG_ERROR) << "SDL_CreateRenderer failed: " << SDL_GetError();
+			throw Exception(SDL_GetError());
+		}
+		/* SDL_RenderSetLogicalSize not available in Emscripten SDL2.
+		 * Letterboxing is handled by the JS canvas CSS layer. */
+
+		/* RGBA32 staging surface: 8bpp _surface blits into this before texture upload. */
+		_screen = SDL_CreateRGBSurface(0, _baseWidth, _baseHeight, 32,
+		    0x00FF0000u, 0x0000FF00u, 0x000000FFu, 0xFF000000u);
+		if (!_screen)
+		{
+			Log(LOG_ERROR) << "SDL_CreateRGBSurface failed: " << SDL_GetError();
+			throw Exception(SDL_GetError());
+		}
+
+		_texture = SDL_CreateTexture(_renderer, SDL_PIXELFORMAT_ARGB8888,
+		    SDL_TEXTUREACCESS_STREAMING, _baseWidth, _baseHeight);
+		if (!_texture)
+		{
+			Log(LOG_ERROR) << "SDL_CreateTexture failed: " << SDL_GetError();
+			throw Exception(SDL_GetError());
+		}
+
+		Log(LOG_INFO) << "Display set to " << getWidth() << "x" << getHeight() << "x32 (RGBA staging).";
+	}
+	else
+	{
+		clear();
+	}
+
+	Options::displayWidth  = getWidth();
+	Options::displayHeight = getHeight();
+	_scaleX = 1.0;
+	_scaleY = 1.0;
+	_topBlackBand = _bottomBlackBand = _leftBlackBand = _rightBlackBand = 0;
+	_cursorTopBlackBand = _cursorLeftBlackBand = 0;
+
+	setPalette(getPalette());
+	return;
+#else /* !__EMSCRIPTEN__ */
+
 #if defined __linux__ || defined _WIN32 || defined  __CYGWIN__
 	Uint32 oldFlags = _flags;
 #endif
@@ -553,6 +630,7 @@ void Screen::resetDisplay(bool resetVideo, bool noShaders)
 	{
 		setPalette(getPalette());
 	}
+#endif /* !__EMSCRIPTEN__ */
 }
 
 /**
@@ -597,7 +675,7 @@ int Screen::getCursorLeftBlackBand() const
  */
 void Screen::screenshot(const std::string &filename) const
 {
-	SDL_Surface *screenshot = SDL_AllocSurface(0, getWidth() - getWidth()%4, getHeight(), 24, 0xff, 0xff00, 0xff0000, 0);
+	SDL_Surface *screenshot = SDL_CreateRGBSurface(0, getWidth() - getWidth()%4, getHeight(), 24, 0xff, 0xff00, 0xff0000, 0);
 
 	if (useOpenGL())
 	{

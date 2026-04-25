@@ -142,7 +142,7 @@ void StartState::init()
 	}
 
 	// Load the game data in a separate thread
-	_thread = SDL_CreateThread(load, (void*)_game);
+	_thread = SDL_CreateThread(load, "loader", (void*)_game);
 	if (_thread == 0)
 	{
 		// If we can't create the thread, just load it as usual

@@ -557,7 +557,13 @@ void TextEdit::keyboardPress(Action *action, State *state)
 			}
 			break;
 		default:
+#ifdef __EMSCRIPTEN__
+			/* SDL2 removed keysym.unicode; SDL_TEXTINPUT events carry text.
+			 * Approximate with the sym keycode for ASCII printable range. */
+			UCode c = (UCode)(action->getDetails()->key.keysym.sym);
+#else
 			UCode c = action->getDetails()->key.keysym.unicode;
+#endif
 			if (isValidChar(c) && !exceedsMaxWidth(c))
 			{
 				_value.insert(_caretPos, 1, c);

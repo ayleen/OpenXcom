@@ -191,6 +191,7 @@ bool Game::iterate()
 			case SDL_QUIT:
 				quit();
 				break;
+#ifndef __EMSCRIPTEN__
 			case SDL_ACTIVEEVENT:
 				// An event other than SDL_APPMOUSEFOCUS change happened.
 				if (reinterpret_cast<SDL_ActiveEvent*>(&_event)->state & ~SDL_APPMOUSEFOCUS)
@@ -247,6 +248,23 @@ bool Game::iterate()
 					}
 				}
 				break;
+#else /* __EMSCRIPTEN__ — SDL2 window events replace SDL_ACTIVEEVENT + SDL_VIDEORESIZE */
+			case SDL_WINDOWEVENT:
+				if (_event.window.event == SDL_WINDOWEVENT_RESIZED && Options::allowResize)
+				{
+					Options::newDisplayWidth = Options::displayWidth = std::max(Screen::ORIGINAL_WIDTH, _event.window.data1);
+					Options::newDisplayHeight = Options::displayHeight = std::max(Screen::ORIGINAL_HEIGHT, _event.window.data2);
+					int dX = 0, dY = 0;
+					Screen::updateScale(Options::battlescapeScale, Options::baseXBattlescape, Options::baseYBattlescape, false);
+					Screen::updateScale(Options::geoscapeScale, Options::baseXGeoscape, Options::baseYGeoscape, false);
+					for (auto* state : _states)
+					{
+						state->resize(dX, dY);
+					}
+					_screen->resetDisplay();
+				}
+				break;
+#endif /* __EMSCRIPTEN__ */
 			case SDL_MOUSEMOTION:
 				if (Options::oxceThrottleMouseMoveEvent > 0)
 				{
@@ -266,6 +284,27 @@ bool Game::iterate()
 					_event.motion.yrel += std::exchange(_yrel, 0);
 				}
 				FALLTHROUGH;
+#ifdef __EMSCRIPTEN__
+			case SDL_MOUSEWHEEL:
+				if (!_mouseActive) continue;
+				_runningState = RUNNING;
+				{
+					// SDL2 delivers mouse-wheel as SDL_MOUSEWHEEL; translate to
+					// fake SDL_MOUSEBUTTONDOWN so all existing BUTTON_WHEELUP/DOWN
+					// checks continue to work without modification.
+					int wheelDir = (_event.wheel.y >= 0) ? 1 : -1;
+					int mx = 0, my = 0;
+					SDL_GetMouseState(&mx, &my);
+					SDL_memset(&_event, 0, sizeof(_event));
+					_event.type = SDL_MOUSEBUTTONDOWN;
+					_event.button.state = SDL_PRESSED;
+					_event.button.button = (wheelDir > 0)
+					                       ? SDL_BUTTON_WHEELUP : SDL_BUTTON_WHEELDOWN;
+					_event.button.x = (Sint32)mx;
+					_event.button.y = (Sint32)my;
+				}
+				FALLTHROUGH;
+#endif /* __EMSCRIPTEN__ */
 			case SDL_MOUSEBUTTONDOWN:
 			case SDL_MOUSEBUTTONUP:
 				// Skip mouse events if they're disabled
@@ -339,7 +378,11 @@ bool Game::iterate()
 		if (Options::FPS > 0 && !(Options::useOpenGL && Options::vSyncForOpenGL))
 		{
 			// Update our FPS delay time based on the time of the last draw.
+#ifdef __EMSCRIPTEN__
+			int fps = Options::FPS; /* browser tab always "focused" from game's perspective */
+#else
 			int fps = SDL_GetAppState() & SDL_APPINPUTFOCUS ? Options::FPS : Options::FPSInactive;
+#endif
 
 			_timeUntilNextFrame = (1000.0f / fps) - (SDL_GetTicks() - _timeOfLastFrame);
 		}
