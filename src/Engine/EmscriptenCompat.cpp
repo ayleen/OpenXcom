@@ -16,7 +16,9 @@
 #include <SDL/SDL_mixer.h>
 #include <SDL/SDL_gfxPrimitives.h>
 #include <SDL/SDL_thread.h>
+#include <emscripten.h>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 #define STUB_ONCE() do { \
@@ -195,9 +197,21 @@ int Mix_GroupChannels(int from, int to, int tag)
     return count;
 }
 
-/* Return first idle channel with the given tag, or -1. */
+/* Return first idle channel with the given tag, or -1.
+ * Also resets SDL.channels[i].audio for channels whose audio has ended
+ * (paused=true after onended fires), so Emscripten's Mix_PlayChannelTimed
+ * free-channel search (!audio) can reuse them instead of exhausting all 32. */
 int Mix_GroupAvailable(int tag)
 {
+    /* Clear any finished channels so JS sees them as free for reuse. */
+    EM_ASM({
+        if (typeof SDL !== 'undefined' && SDL.channels) {
+            for (var i = 0; i < SDL.channels.length; i++) {
+                var ch = SDL.channels[i];
+                if (ch && ch.audio && ch.audio.paused) ch.audio = null;
+            }
+        }
+    });
     _emcc_init_groups();
     for (int i = 0; i < 64; ++i) {
         if (_emcc_channel_groups[i] == tag && !Mix_Playing(i))
@@ -215,6 +229,14 @@ int Mix_GroupOldest(int tag)
             return i;
     }
     return -1;
+}
+
+/* Mix_SetPosition is defined in Emscripten's port as a JS TODO that aborts.
+ * Override it with a silent no-op — spatial positioning is not needed in browser. */
+int Mix_SetPosition(int channel, Sint16 angle, Uint8 distance)
+{
+    (void)channel; (void)angle; (void)distance;
+    return 0;
 }
 
 /* Emscripten port omits Mix_FadeInChannelTimed; fall back to plain PlayChannel. */
@@ -238,6 +260,40 @@ void Mix_HookMusic(void (*mix_func)(void *udata, Uint8 *stream, int len),
                    void *arg)
 {
     (void)mix_func; (void)arg;
+}
+
+/* Mix_LoadMUS_RW: FileMap::getRWops returns a C-level SDL_RWops (em_file_to_rwops)
+ * that is NOT registered in the JS SDL.rwops table. Emscripten's Mix_LoadWAV_RW
+ * does SDL.rwops[id] where id is a WASM heap pointer → undefined → returns 0.
+ * Fix: drain bytes from the C-level RWops, re-register them via SDL_RWFromMem
+ * (which IS Emscripten's JS function and puts the buffer into SDL.rwops),
+ * call Mix_LoadWAV_RW with the resulting JS-side integer id, then free. */
+Mix_Music *Mix_LoadMUS_RW(SDL_RWops *src)
+{
+    if (!src) return nullptr;
+    /* SDL1 has no SDL_RWsize; compute size by seeking to end. */
+    int start = SDL_RWseek(src, 0, SEEK_SET);
+    int end   = SDL_RWseek(src, 0, SEEK_END);
+    int size  = end - start;
+    if (size <= 0) return nullptr;
+    SDL_RWseek(src, 0, SEEK_SET);
+    void *buf = malloc((size_t)size);
+    if (!buf) return nullptr;
+    size_t got = SDL_RWread(src, buf, 1, (size_t)size);
+    Mix_Music *result = nullptr;
+    if ((int)got == size) {
+        /* SDL_RWFromMem is Emscripten's JS function: pushes {bytes, count} into
+         * SDL.rwops and returns a small integer index that Mix_LoadWAV_RW accepts. */
+        SDL_RWops *js_rw = SDL_RWFromMem(buf, size);
+        if (js_rw) {
+            /* Mix_LoadWAV_RW copies bytes via HEAPU8.buffer.slice() on the webAudio
+             * path, so buf can be freed immediately after the call. freesrc=0. */
+            result = (Mix_Music *)(intptr_t)Mix_LoadWAV_RW(js_rw, 0);
+            SDL_FreeRW(js_rw);
+        }
+    }
+    free(buf);
+    return result;
 }
 
 /* ---- SDL_gfx font/primitives not in libsdl.js ---- */

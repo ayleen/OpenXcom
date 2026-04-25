@@ -618,7 +618,7 @@ if(EMSCRIPTEN)
     -sALLOW_MEMORY_GROWTH=1
     -sINITIAL_MEMORY=268435456
     -sFORCE_FILESYSTEM=1
-    "-sEXPORTED_RUNTIME_METHODS=[\"FS\",\"IDBFS\",\"callMain\",\"ccall\",\"cwrap\"]"
+    "-sEXPORTED_RUNTIME_METHODS=[\"FS\",\"IDBFS\",\"SDL\",\"callMain\",\"ccall\",\"cwrap\"]"
     -sENVIRONMENT=web
     -sMODULARIZE=1
     -sEXPORT_ES6=1
