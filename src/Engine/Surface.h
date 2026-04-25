@@ -130,6 +130,8 @@ public:
 	void loadBdy(const std::string &filename);
 	/// Loads a general image file.
 	void loadImage(const std::string &filename);
+	/// Loads a 32-bit RGBA image (HD asset path — preserves alpha, skips palette quantization).
+	void loadImageHD(const std::string &filename);
 	/// Clears the surface's contents with a specified colour.
 	void clear();
 	/// Offsets the surface's colors by a set amount.

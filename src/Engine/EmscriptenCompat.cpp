@@ -119,10 +119,13 @@ int SDLCALL SDL_SetColors(SDL_Surface *surface, const SDL_Color *colors, int fir
 
 /* ---- SDL_gfx primitives (real implementations for 8bpp surfaces) ----
  *
- * OXCE's Globe renders ocean, land polygons, and country borders using
- * filledCircleColor / texturedPolygon / lineColor on 8bpp palettized
- * surfaces. Emscripten's SDL2 port does not include SDL2_gfx, so we
- * provide C implementations here.
+ * Emscripten's SDL2 port does not include SDL2_gfx, so we provide C
+ * implementations here for all SDL_gfx symbols referenced by OXCE:
+ *  - filledCircleColor / texturedPolygon / lineColor / lineRGBA /
+ *    filledPolygonColor: used by Globe (ocean, land, borders).
+ *  - characterRGBA / stringRGBA / stringColor: used by Surface::drawString
+ *    and BattlescapeState tile-debug overlays; no font available in Emscripten,
+ *    so these are no-ops (STUB_ONCE warns once on first call).
  *
  * SDL_gfx colour arguments are packed as RGBA (r>>24 g>>16 b>>8 a).
  * For 8bpp surfaces we reverse-lookup the nearest palette index.

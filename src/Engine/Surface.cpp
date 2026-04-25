@@ -634,6 +634,45 @@ void Surface::loadImage(const std::string &filename)
 }
 
 /**
+ * Loads a 32-bit RGBA/ARGB PNG (or any SDL_image-supported format) without
+ * palette quantization. Used by the HD asset path (ExtraSprites with hd: true).
+ * The surface is stored as SDL_PIXELFORMAT_ARGB8888 with blend mode BLEND so
+ * it composes correctly over the 8-bpp framebuffer during SDL_BlitSurface calls.
+ * @param filename Filename of the image (resolved via FileMap).
+ */
+void Surface::loadImageHD(const std::string &filename)
+{
+	_alignedBuffer = nullptr;
+	_surface = nullptr;
+
+	Log(LOG_VERBOSE) << "Loading HD image: " << filename;
+	auto rw = FileMap::getRWops(filename);
+	if (!rw) { return; }
+
+	// IMG_Load_RW with SDL_TRUE takes ownership of rw and closes it on return.
+	auto raw = NewSdlSurface(IMG_Load_RW(rw, SDL_TRUE));
+	if (!raw)
+	{
+		throw Exception(filename + ": " + IMG_GetError());
+	}
+
+	auto converted = NewSdlSurface(SDL_ConvertSurfaceFormat(raw.get(), SDL_PIXELFORMAT_ARGB8888, 0));
+	if (!converted)
+	{
+		throw Exception(filename + ": SDL_ConvertSurfaceFormat: " + SDL_GetError());
+	}
+
+	SDL_SetSurfaceBlendMode(converted.get(), SDL_BLENDMODE_BLEND);
+
+	_width  = (Uint16)converted->w;
+	_height = (Uint16)converted->h;
+	_pitch  = (Uint16)converted->pitch;
+	_x = 0;
+	_y = 0;
+	_surface = std::move(converted);
+}
+
+/**
  * Loads the contents of an X-Com SPK image file into
  * the surface. SPK files are compressed with a custom
  * algorithm since they're usually full-screen images.

@@ -41,6 +41,7 @@ private:
 	bool _singleImage;
 	int _subX, _subY;
 	bool _loaded;
+	bool _hd;
 
 	Surface *getFrame(SurfaceSet *set, int index) const;
 public:
@@ -66,6 +67,8 @@ public:
 	int getSubY() const;
 	/// Has this sprite been loaded?
 	bool isLoaded() const;
+	/// Is this an HD (32-bit RGBA) sprite?
+	bool isHD() const;
 	/// Checks if a filename is a valid image file.
 	static bool isImageFile(const std::string &filename);
 	/// Load the external sprite into a surface.

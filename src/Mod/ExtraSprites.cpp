@@ -33,7 +33,7 @@ namespace OpenXcom
 /**
  * Creates a blank set of extra sprite data.
  */
-ExtraSprites::ExtraSprites() : _current(0), _width(320), _height(200), _singleImage(false), _subX(0), _subY(0), _loaded(false)
+ExtraSprites::ExtraSprites() : _current(0), _width(320), _height(200), _singleImage(false), _subX(0), _subY(0), _loaded(false), _hd(false)
 {
 }
 
@@ -76,6 +76,7 @@ void ExtraSprites::load(const YAML::YamlNodeReader& reader, const ModData* curre
 	reader.tryRead("singleImage", _singleImage);
 	reader.tryRead("subX", _subX);
 	reader.tryRead("subY", _subY);
+	reader.tryRead("hd", _hd);
 	_current = current;
 }
 
@@ -151,6 +152,11 @@ bool ExtraSprites::isLoaded() const
 	return _loaded;
 }
 
+bool ExtraSprites::isHD() const
+{
+	return _hd;
+}
+
 /**
  * Determines if an image file is an acceptable format for the game.
  * @param filename Image filename.
@@ -189,7 +195,10 @@ Surface *ExtraSprites::loadSurface(Surface *surface)
 		delete surface;
 	}
 	surface = new Surface(_width, _height);
-	surface->loadImage(_sprites.begin()->second);
+	if (_hd)
+		surface->loadImageHD(_sprites.begin()->second);
+	else
+		surface->loadImage(_sprites.begin()->second);
 	return surface;
 }
 
@@ -241,7 +250,11 @@ SurfaceSet *ExtraSprites::loadSurfaceSet(SurfaceSet *set)
 					continue;
 				try
 				{
-					getFrame(set, offset)->loadImage(fileName + name);
+					Surface* frame = getFrame(set, offset);
+					if (_hd)
+						frame->loadImageHD(fileName + name);
+					else
+						frame->loadImage(fileName + name);
 					offset++;
 				}
 				catch (Exception &e)
@@ -254,10 +267,18 @@ SurfaceSet *ExtraSprites::loadSurfaceSet(SurfaceSet *set)
 		{
 			if (!subdivision)
 			{
-				getFrame(set, startFrame)->loadImage(fileName);
+				Surface* frame = getFrame(set, startFrame);
+				if (_hd)
+					frame->loadImageHD(fileName);
+				else
+					frame->loadImage(fileName);
 			}
 			else
 			{
+				if (_hd)
+				{
+					Log(LOG_WARNING) << "ExtraSprites '" << _type << "': hd: true is not supported with subdivision; falling back to 8-bpp.";
+				}
 				Surface temp = Surface(_width, _height);
 				temp.loadImage(fileName);
 				int xDivision = _width / _subX;
