@@ -121,6 +121,8 @@ int main(int argc, char *argv[])
 	// common/ and standard/ are preloaded at /game/ via --preload-file.
 	// Must be set before Options::init() so setFolders() picks it up.
 	Options::setDataFolder("/game/");
+	// /user/ is the IDBFS mount point — mounted from JS before callMain.
+	Options::setUserFolder("/user/");
 #endif
 	if (!Options::init())
 		return EXIT_SUCCESS;

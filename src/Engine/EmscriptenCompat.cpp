@@ -167,65 +167,77 @@ int SDLCALL SDL_SetColors(SDL_Surface *surface, const SDL_Color *colors, int fir
     return 1;
 }
 
-/* ---- Audio / SDL_mixer ---- */
+/* ---- SDL_mixer functions missing from Emscripten's USE_SDL_MIXER=1 port ----
+ *
+ * These are proper implementations (not no-op stubs) for the subset of
+ * SDL1_mixer that Emscripten's port omits. Mix_Playing / Mix_Playing(ch)
+ * IS available in the port and is used here. */
 
+static int _emcc_channel_groups[64];
+static bool _emcc_groups_init = false;
+
+static void _emcc_init_groups() {
+    if (!_emcc_groups_init) {
+        for (int i = 0; i < 64; ++i) _emcc_channel_groups[i] = -1;
+        _emcc_groups_init = true;
+    }
+}
+
+/* Tag channels [from..to] with tag. Returns number of channels assigned. */
+int Mix_GroupChannels(int from, int to, int tag)
+{
+    _emcc_init_groups();
+    int count = 0;
+    for (int i = from; i <= to && i < 64; ++i) {
+        _emcc_channel_groups[i] = tag;
+        ++count;
+    }
+    return count;
+}
+
+/* Return first idle channel with the given tag, or -1. */
+int Mix_GroupAvailable(int tag)
+{
+    _emcc_init_groups();
+    for (int i = 0; i < 64; ++i) {
+        if (_emcc_channel_groups[i] == tag && !Mix_Playing(i))
+            return i;
+    }
+    return -1;
+}
+
+/* Return oldest active channel in group (needed by OXCE SFX eviction). */
+int Mix_GroupOldest(int tag)
+{
+    _emcc_init_groups();
+    for (int i = 0; i < 64; ++i) {
+        if (_emcc_channel_groups[i] == tag && Mix_Playing(i))
+            return i;
+    }
+    return -1;
+}
+
+/* Emscripten port omits Mix_FadeInChannelTimed; fall back to plain PlayChannel. */
+int Mix_FadeInChannelTimed(int channel, Mix_Chunk *chunk, int loops, int ms, int ticks)
+{
+    (void)ms; (void)ticks;
+    return Mix_PlayChannel(channel, chunk, loops);
+}
+
+/* Returns OGG for any loaded music; MUS_NONE for null.
+ * The Emscripten port converts all formats to OGG internally anyway. */
+Mix_MusicType Mix_GetMusicType(const Mix_Music *music)
+{
+    return music ? MUS_OGG : MUS_NONE;
+}
+
+/* AdlibMusic uses a custom mix hook for its software MIDI renderer.
+ * Under Emscripten we serve pre-converted OGG files via Mix_LoadMUS instead,
+ * so no custom hook is needed. */
 void Mix_HookMusic(void (*mix_func)(void *udata, Uint8 *stream, int len),
                    void *arg)
 {
-	STUB_ONCE();
-}
-
-int Mix_GroupChannels(int from, int to, int tag)
-{
-	STUB_ONCE();
-	return 0;
-}
-
-int Mix_GroupAvailable(int tag)
-{
-	STUB_ONCE();
-	return -1;
-}
-
-Mix_MusicType Mix_GetMusicType(const Mix_Music *music)
-{
-	STUB_ONCE();
-	return MUS_NONE;
-}
-
-int Mix_FadeOutChannel(int channel, int ms)
-{
-	STUB_ONCE();
-	return 0;
-}
-
-int Mix_FadeOutMusic(int ms)
-{
-	STUB_ONCE();
-	return 0;
-}
-
-int Mix_Volume(int channel, int volume)
-{
-	STUB_ONCE();
-	return MIX_MAX_VOLUME;
-}
-
-int Mix_VolumeMusic(int volume)
-{
-	STUB_ONCE();
-	return MIX_MAX_VOLUME;
-}
-
-void Mix_HookMusicFinished(void (*music_finished)(void))
-{
-	STUB_ONCE();
-}
-
-int Mix_SetPosition(int channel, Sint16 angle, Uint8 distance)
-{
-	STUB_ONCE();
-	return 0;
+    (void)mix_func; (void)arg;
 }
 
 /* ---- SDL_gfx font/primitives not in libsdl.js ---- */

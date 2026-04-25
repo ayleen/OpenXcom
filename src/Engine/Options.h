@@ -101,6 +101,8 @@ namespace Options
 	const std::vector<std::string> &getDataList();
 	/// Gets the game's user folder.
 	std::string getUserFolder();
+	/// Sets the game's user folder (Emscripten: point at IDBFS mount).
+	void setUserFolder(const std::string &folder);
 	/// Gets the game's config folder.
 	std::string getConfigFolder();
 	/// Gets the game's master mod user folder.

@@ -29,6 +29,9 @@
 #include <sstream>
 #include <iostream>
 #include <algorithm>
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 #include "../Engine/Yaml.h"
 #include "Exception.h"
 #include "Logger.h"
@@ -1346,6 +1349,9 @@ bool save(bool reset, const std::string& filename)
 		Log(LOG_WARNING) << "Failed to save " << filepath;
 		return false;
 	}
+#ifdef __EMSCRIPTEN__
+	EM_ASM(({ FS.syncfs(false, function(err) { if (err) console.error('[calypso] syncfs error', err); }); }));
+#endif
 	return true;
 }
 
@@ -1387,6 +1393,12 @@ const std::vector<std::string> &getDataList()
 std::string getUserFolder()
 {
 	return _userFolder;
+}
+
+void setUserFolder(const std::string &folder)
+{
+	_userFolder = folder;
+	Log(LOG_DEBUG) << "setUserFolder(" << folder << ");";
 }
 
 /**
