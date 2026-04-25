@@ -370,6 +370,147 @@ void Surface::loadScr(const std::string& filename)
 	std::vector<char> buffer((std::istreambuf_iterator<char>(*(istream))), (std::istreambuf_iterator<char>()));
 	loadRaw(buffer);
 }
+#ifdef __EMSCRIPTEN__
+/* ---- IFF/LBM decoder (Emscripten only) ----------------------------------------
+ *
+ * SDL_image on Emscripten SDL1 uses JS IMG_Load_RW which only supports formats
+ * covered by STB_IMAGE (JPEG, PNG, BMP, PSD, GIF, HDR, PIC, PNM) — not LBM.
+ * TFTD uses Deluxe Paint LBM files both as images and for their 256-color palette.
+ * We implement a minimal but complete IFF ILBM/PBM decoder here.
+ *
+ * Supported:
+ *   - FORM/ILBM and FORM/PBM  (Deluxe Paint DOS)
+ *   - 8bpp images (nPlanes == 8)
+ *   - compression 0 (none) and 1 (ByteRun1 / PackBits)
+ *   - CMAP palette chunk (up to 256 RGB entries)
+ * ---------------------------------------------------------------------------------*/
+namespace {
+
+/* PackBits / ByteRun1 decompressor. Decompresses exactly dstLen bytes into dst,
+ * advancing *src. Returns false on input underrun or output overrun. */
+static bool lbmUnpackRow(const Uint8 **src, const Uint8 *srcEnd, Uint8 *dst, int dstLen)
+{
+    int written = 0;
+    while (written < dstLen) {
+        if (*src >= srcEnd) return false;
+        Sint8 n = (Sint8)(*(*src)++);
+        if (n == -128) continue; // NOP
+        if (n >= 0) {
+            int count = (int)n + 1;
+            if (*src + count > srcEnd || written + count > dstLen) return false;
+            memcpy(dst + written, *src, count);
+            *src += count; written += count;
+        } else {
+            int count = -(int)n + 1;
+            if (*src >= srcEnd || written + count > dstLen) return false;
+            memset(dst + written, (int)*(*src)++, count);
+            written += count;
+        }
+    }
+    return true;
+}
+
+/* Decode raw IFF/LBM bytes into a Surface. Returns true on success.
+ * Handles PBM (chunky 8bpp) and ILBM (bitplanes, converted to 8bpp). */
+static bool loadLbmInto(Surface &out, const Uint8 *data, size_t size)
+{
+    if (size < 12) return false;
+    if (memcmp(data, "FORM", 4) != 0) return false;
+    bool isPBM  = (memcmp(data + 8, "PBM ", 4) == 0);
+    bool isILBM = (memcmp(data + 8, "ILBM", 4) == 0);
+    if (!isPBM && !isILBM) return false;
+
+    int w = 0, h = 0, nPlanes = 0, compression = 0;
+    SDL_Color palette[256] = {};
+    int palCount = 0;
+    const Uint8 *body = nullptr;
+    Uint32 bodyLen = 0;
+
+    // Scan IFF chunks
+    const Uint8 *p = data + 12, *end = data + size;
+    while (p + 8 <= end) {
+        Uint32 sz = ((Uint32)p[4]<<24)|((Uint32)p[5]<<16)|((Uint32)p[6]<<8)|p[7];
+        const Uint8 *cd = p + 8;
+        if (cd + sz > end) sz = (Uint32)(end - cd);
+
+        if (memcmp(p, "BMHD", 4) == 0 && sz >= 20) {
+            w           = (int)((cd[0]<<8)|cd[1]);
+            h           = (int)((cd[2]<<8)|cd[3]);
+            nPlanes     = (int)cd[8];
+            compression = (int)cd[10];
+        } else if (memcmp(p, "CMAP", 4) == 0) {
+            palCount = (int)(sz / 3);
+            if (palCount > 256) palCount = 256;
+            for (int i = 0; i < palCount; i++) {
+                palette[i] = { cd[i*3], cd[i*3+1], cd[i*3+2], 255 };
+            }
+        } else if (memcmp(p, "BODY", 4) == 0 && !body) {
+            body = cd; bodyLen = sz;
+        }
+        p += 8 + sz + (sz & 1); // IFF chunks are word-padded
+    }
+
+    if (!body || w <= 0 || h <= 0 || nPlanes < 1 || nPlanes > 8) return false;
+
+    out = Surface(w, h, 0, 0);
+    if (palCount > 0) out.setPalette(palette, 0, palCount);
+
+    SDL_Surface *surf = out.getSurface();
+    if (!surf || !surf->pixels) return false;
+
+    const Uint8 *src = body, *srcEnd = body + bodyLen;
+
+    if (isPBM) {
+        /* Chunky 8bpp: one byte per pixel per row.
+         * Rows are word-padded when ByteRun1 compressed (required by IFF spec),
+         * stored consecutively when uncompressed. */
+        int rowBuf = (w + 1) & ~1;
+        std::vector<Uint8> row((size_t)rowBuf);
+        for (int y = 0; y < h; y++) {
+            Uint8 *dst = (Uint8*)surf->pixels + y * surf->pitch;
+            if (compression == 1) {
+                if (!lbmUnpackRow(&src, srcEnd, row.data(), rowBuf)) break;
+                memcpy(dst, row.data(), w);
+            } else {
+                if (src + w > srcEnd) break;
+                memcpy(dst, src, w);
+                src += rowBuf; // skip possible pad byte
+            }
+        }
+    } else {
+        /* ILBM bitplanes → 8bpp chunky.
+         * Each scan line has nPlanes plane rows, each word-aligned. */
+        int planeRow = ((w + 15) / 16) * 2;
+        std::vector<Uint8> planes((size_t)(nPlanes * planeRow));
+        bool ok = true;
+        for (int y = 0; y < h && ok; y++) {
+            Uint8 *dst = (Uint8*)surf->pixels + y * surf->pitch;
+            for (int pn = 0; pn < nPlanes; pn++) {
+                Uint8 *pbuf = planes.data() + pn * planeRow;
+                if (compression == 1) {
+                    if (!lbmUnpackRow(&src, srcEnd, pbuf, planeRow)) { ok = false; break; }
+                } else {
+                    if (src + planeRow > srcEnd) { ok = false; break; }
+                    memcpy(pbuf, src, planeRow); src += planeRow;
+                }
+            }
+            if (!ok) break;
+            for (int x = 0; x < w; x++) {
+                Uint8 pix = 0;
+                for (int pn = 0; pn < nPlanes; pn++) {
+                    if (planes[pn * planeRow + x/8] & (0x80u >> (x & 7)))
+                        pix |= (Uint8)(1u << pn);
+                }
+                dst[x] = pix;
+            }
+        }
+    }
+    return true;
+}
+
+} // anonymous namespace
+#endif // __EMSCRIPTEN__
+
 /**
  * Loads the contents of an image file of a
  * known format into the surface.
@@ -444,6 +585,24 @@ void Surface::loadImage(const std::string &filename)
 	{
 		SDL_RWclose(rw);
 	}
+#ifdef __EMSCRIPTEN__
+	else if (CrossPlatform::compareExt(filename, "lbm"))
+	{
+		// SDL_image on Emscripten SDL1 cannot load LBM (not supported by STB_IMAGE).
+		// Use our native IFF/LBM decoder instead.
+		SDL_RWseek(rw, 0, RW_SEEK_SET);
+		size_t lbmSize;
+		void *lbmData = SDL_LoadFile_RW(rw, &lbmSize, SDL_TRUE); // SDL_TRUE = freesrc
+		if (lbmData) {
+			if (!loadLbmInto(*this, (const Uint8*)lbmData, lbmSize)) {
+				Log(LOG_ERROR) << "Image " << filename << ": LBM decode failed";
+			}
+			SDL_free(lbmData);
+		} else {
+			Log(LOG_ERROR) << "Image " << filename << ": could not read file";
+		}
+	}
+#endif
 	else // Otherwise default to SDL_Image
 	{
 		SDL_RWseek(rw, RW_SEEK_SET, 0); // rewind in case .png was no PNG at all

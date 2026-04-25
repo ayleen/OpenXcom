@@ -20,6 +20,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <cmath>
+#include <climits>
 
 #define STUB_ONCE() do { \
 	static bool _stub_warned = false; \
@@ -312,7 +314,44 @@ Mix_Music *Mix_LoadMUS_RW(SDL_RWops *src)
     return result;
 }
 
-/* ---- SDL_gfx font/primitives not in libsdl.js ---- */
+/* ---- SDL_gfx primitives (real implementations for 8bpp surfaces) ----
+ *
+ * OXCE's Globe renders ocean, land polygons, and country borders using
+ * filledCircleColor / texturedPolygon / lineColor on 8bpp palettized
+ * surfaces. Emscripten's libsdl.js does not include SDL_gfx, so we
+ * provide C implementations here.
+ *
+ * SDL_gfx colour arguments are packed as RGBA (r>>24 g>>16 b>>8 a).
+ * For 8bpp surfaces we reverse-lookup the nearest palette index.
+ * Palette must already be populated via SDL_SetColors (our override
+ * lazily allocates the C-side SDL_Palette on first call). */
+
+static Uint8 _gfx_pal_idx(SDL_Surface *dst, Uint32 rgba)
+{
+    if (!dst || !dst->format || !dst->format->palette ||
+        !dst->format->palette->colors) return 0;
+    Uint8 r = (rgba >> 24) & 0xFF;
+    Uint8 g = (rgba >> 16) & 0xFF;
+    Uint8 b = (rgba >>  8) & 0xFF;
+    SDL_Palette *pal = dst->format->palette;
+    int best = 0, best_d = INT_MAX;
+    for (int i = 0; i < pal->ncolors; i++) {
+        const SDL_Color &c = pal->colors[i];
+        int d = (r-c.r)*(r-c.r) + (g-c.g)*(g-c.g) + (b-c.b)*(b-c.b);
+        if (d < best_d) { best_d = d; best = i; if (!d) break; }
+    }
+    return (Uint8)best;
+}
+
+static void _gfx_hline(SDL_Surface *dst, int x1, int x2, int y, Uint8 idx)
+{
+    if (y < 0 || y >= dst->h) return;
+    if (x1 > x2) { int t = x1; x1 = x2; x2 = t; }
+    if (x1 < 0)  x1 = 0;
+    if (x2 >= dst->w) x2 = dst->w - 1;
+    if (x1 > x2) return;
+    memset((Uint8*)dst->pixels + y * dst->pitch + x1, idx, (size_t)(x2 - x1 + 1));
+}
 
 int characterRGBA(SDL_Surface *dst, Sint16 x, Sint16 y, char c,
                   Uint8 r, Uint8 g, Uint8 b, Uint8 a)
@@ -331,23 +370,81 @@ int stringRGBA(SDL_Surface *dst, Sint16 x, Sint16 y, const char *s,
 int lineColor(SDL_Surface *dst, Sint16 x1, Sint16 y1, Sint16 x2, Sint16 y2,
               Uint32 color)
 {
-	STUB_ONCE();
-	return 0;
+    if (!dst || !dst->pixels) return -1;
+    Uint8 idx = _gfx_pal_idx(dst, color);
+    int dx = abs(x2 - x1), dy = abs(y2 - y1);
+    int sx = (x1 < x2) ? 1 : -1, sy = (y1 < y2) ? 1 : -1;
+    int err = dx - dy, x = x1, y = y1;
+    for (;;) {
+        if (x >= 0 && x < dst->w && y >= 0 && y < dst->h)
+            ((Uint8*)dst->pixels)[y * dst->pitch + x] = idx;
+        if (x == x2 && y == y2) break;
+        int e2 = 2 * err;
+        if (e2 > -dy) { err -= dy; x += sx; }
+        if (e2 <  dx) { err += dx; y += sy; }
+    }
+    return 0;
 }
 
-int filledCircleColor(SDL_Surface *dst, Sint16 x, Sint16 y, Sint16 rad,
+int filledCircleColor(SDL_Surface *dst, Sint16 cx, Sint16 cy, Sint16 rad,
                       Uint32 color)
 {
-	STUB_ONCE();
-	return 0;
+    if (!dst || !dst->pixels || rad < 0) return -1;
+    Uint8 idx = _gfx_pal_idx(dst, color);
+    int r = rad;
+    for (int y = cy - r; y <= cy + r; y++) {
+        int dy = y - cy;
+        int dx = (int)sqrtf((float)(r * r - dy * dy));
+        _gfx_hline(dst, cx - dx, cx + dx, y, idx);
+    }
+    return 0;
 }
 
 int texturedPolygon(SDL_Surface *dst,
                     const Sint16 *vx, const Sint16 *vy, int n,
                     SDL_Surface *texture, int texture_dx, int texture_dy)
 {
-	STUB_ONCE();
-	return 0;
+    if (!dst || !dst->pixels || !texture || !texture->pixels || n < 3) return -1;
+    int y_min = vy[0], y_max = vy[0];
+    for (int i = 1; i < n; i++) {
+        if (vy[i] < y_min) y_min = vy[i];
+        if (vy[i] > y_max) y_max = vy[i];
+    }
+    if (y_min < 0)       y_min = 0;
+    if (y_max >= dst->h) y_max = dst->h - 1;
+    int tw = texture->w, th = texture->h;
+    for (int y = y_min; y <= y_max; y++) {
+        /* Collect edge intersections for this scan line. */
+        int xs[16]; int nxs = 0;
+        for (int i = 0; i < n && nxs < 15; i++) {
+            int i2 = (i + 1) % n;
+            int ya = vy[i], yb = vy[i2];
+            if (ya == yb) continue;
+            int lo = ya < yb ? ya : yb;
+            int hi = ya < yb ? yb : ya;
+            if (y < lo || y >= hi) continue;
+            xs[nxs++] = vx[i] + (vx[i2] - vx[i]) * (y - ya) / (yb - ya);
+        }
+        if (nxs < 2) continue;
+        /* Insertion sort (nxs ≤ 8 in practice). */
+        for (int a = 1; a < nxs; a++) {
+            int key = xs[a], b = a - 1;
+            while (b >= 0 && xs[b] > key) { xs[b+1] = xs[b]; b--; }
+            xs[b+1] = key;
+        }
+        int ty = ((y - texture_dy) % th + th) % th;
+        const Uint8 *trow = (const Uint8*)texture->pixels + ty * texture->pitch;
+        Uint8 *drow = (Uint8*)dst->pixels + y * dst->pitch;
+        for (int j = 0; j + 1 < nxs; j += 2) {
+            int x1 = xs[j];     if (x1 < 0)       x1 = 0;
+            int x2 = xs[j+1];   if (x2 >= dst->w)  x2 = dst->w - 1;
+            for (int x = x1; x <= x2; x++) {
+                int tx = ((x - texture_dx) % tw + tw) % tw;
+                drow[x] = trow[tx];
+            }
+        }
+    }
+    return 0;
 }
 
 /* ---- C-side rendering: bypass Emscripten JS canvas so surf->pixels stays valid ----

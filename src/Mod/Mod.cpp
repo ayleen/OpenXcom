@@ -5782,9 +5782,6 @@ void Mod::loadBattlescapeResources()
 	{ 2, 0, 24, 255 } };
 
 	const auto& ufographContents = FileMap::getVFolderContents("UFOGRAPH");
-#ifndef __EMSCRIPTEN__
-	// IMG_Load_RW is a JS function under Emscripten SDL1 and cannot handle C struct rwops.
-	// PAL_BATTLESCAPE_1/2/3 are null-checked before use (Mod.cpp ~6156), so skipping is safe.
 	for (size_t i = 0; i < ARRAYLEN(lbms); ++i)
 	{
 		if (ufographContents.find(lbms[i]) == ufographContents.end())
@@ -5806,7 +5803,6 @@ void Mod::loadBattlescapeResources()
 		createTransparencyLUT(_palettes[pals[i]]);
 		delete tempSurface;
 	}
-#endif
 
 	std::string spks[] = { "TAC01.SCR",
 		"DETBORD.PCK",
