@@ -156,16 +156,32 @@ void SDL_Error(SDL_errorcode code)
 /* Override SDL_SetColors so that surface->format->palette->colors is updated in WASM
  * memory. Under Emscripten SDL1, the JS version only updates SDL.surfaces[surf].colors
  * (the JS canvas palette), NOT the C struct palette. emscripten_flip_8bpp reads the
- * C struct palette directly, so we must update it here. */
+ * C struct palette directly, so we must update it here.
+ *
+ * SDL_CreateRGBSurfaceFrom (non-32bpp) returns with format->palette = NULL because
+ * Emscripten's JS makeSurface sets palette=0 for all surfaces. We lazily allocate a
+ * 256-entry C-side palette on the first SDL_SetColors call so that code reading
+ * format->palette->colors finds real data instead of WASM address 0. */
 int SDLCALL SDL_SetColors(SDL_Surface *surface, const SDL_Color *colors, int firstcolor, int ncolors)
 {
-    if (!surface || !surface->format || !surface->format->palette || !surface->format->palette->colors)
-        return 0;
+    if (!surface || !surface->format || !colors || ncolors <= 0) return 0;
+    if (!surface->format->palette) {
+        auto *pal = (SDL_Palette*)SDL_malloc(sizeof(SDL_Palette));
+        if (!pal) return 0;
+        auto *col = (SDL_Color*)SDL_calloc(256, sizeof(SDL_Color));
+        if (!col) { SDL_free(pal); return 0; }
+        pal->ncolors  = 256;
+        pal->colors   = col;
+        pal->version  = 1;
+        pal->refcount = 1;
+        surface->format->palette = pal;
+    }
     SDL_Palette *pal = surface->format->palette;
     int end = firstcolor + ncolors;
     if (end > pal->ncolors) end = pal->ncolors;
-    for (int i = firstcolor; i < end; ++i)
-        pal->colors[i] = colors[i - firstcolor];
+    if (firstcolor < end)
+        memcpy(pal->colors + firstcolor, colors,
+               (size_t)(end - firstcolor) * sizeof(SDL_Color));
     return 1;
 }
 
@@ -387,18 +403,30 @@ int SDLCALL SDL_UpperBlit(SDL_Surface *src, const SDL_Rect *srcrect,
     if (sw <= 0 || sh <= 0) return 0;
     if (dstrect) { dstrect->x = dx; dstrect->y = dy;
                    dstrect->w = sw; dstrect->h = sh; }
-    int bpp = src->format ? src->format->BytesPerPixel : 1;
+    int src_bpp = src->format ? src->format->BytesPerPixel : 1;
+    int dst_bpp = dst->format ? dst->format->BytesPerPixel : 1;
     bool use_colorkey = (src->flags & SDL_SRCCOLORKEY) != 0;
     Uint8 colorkey = use_colorkey ? (Uint8)(uintptr_t)(src->userdata) : 0;
     for (int row = 0; row < sh; ++row) {
-        const Uint8 *sp = (const Uint8*)src->pixels + (sy + row) * src->pitch + sx * bpp;
-        Uint8       *dp = (Uint8*)      dst->pixels + (dy + row) * dst->pitch + dx * bpp;
-        if (!use_colorkey) {
-            memcpy(dp, sp, (size_t)sw * bpp);
-        } else {
-            for (int col = 0; col < sw; ++col)
-                if (sp[col] != colorkey) dp[col] = sp[col];
+        const Uint8 *sp = (const Uint8*)src->pixels + (sy + row) * src->pitch + sx * src_bpp;
+        Uint8       *dp = (Uint8*)      dst->pixels + (dy + row) * dst->pitch + dx * dst_bpp;
+        if (src_bpp == dst_bpp) {
+            if (!use_colorkey) {
+                memcpy(dp, sp, (size_t)sw * src_bpp);
+            } else {
+                for (int col = 0; col < sw; ++col)
+                    if (sp[col] != colorkey) dp[col] = sp[col];
+            }
+        } else if (src_bpp == 4 && dst_bpp == 1) {
+            /* 32bpp RGBA → 8bpp: dosFont BMP decoded by STB_IMAGE.
+             * RGB(0,0,0) = black background → palette index 0.
+             * Any non-black pixel → foreground glyph → palette index 1. */
+            for (int col = 0; col < sw; ++col) {
+                const Uint8 *px = sp + (size_t)col * 4;
+                dp[col] = (px[0] | px[1] | px[2]) ? 1 : 0;
+            }
         }
+        /* other cross-bpp combinations not needed */
     }
     return 0;
 }
