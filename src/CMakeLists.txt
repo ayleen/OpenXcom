@@ -549,6 +549,7 @@ endif ()
 set ( openxcom_src ${c_src} ${cxx_src} ${embed_src} )
 if(EMSCRIPTEN)
   list(APPEND openxcom_src Engine/EmscriptenCompat.cpp)
+  list(APPEND openxcom_src Engine/EmscriptenHarness.cpp)
 endif()
 set ( install_dest RUNTIME )
 set ( set_exec_path ON )
@@ -624,6 +625,7 @@ if(EMSCRIPTEN)
     -sINITIAL_MEMORY=268435456
     -sFORCE_FILESYSTEM=1
     "-sEXPORTED_RUNTIME_METHODS=[\"FS\",\"IDBFS\",\"callMain\",\"ccall\",\"cwrap\"]"
+    "-sEXPORTED_FUNCTIONS=[\"_main\",\"_calypso_screenshot\"]"
     -sENVIRONMENT=web
     -sMODULARIZE=1
     -sEXPORT_ES6=1
