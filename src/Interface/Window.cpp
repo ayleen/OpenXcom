@@ -198,6 +198,7 @@ void Window::draw()
 	if (_bg && _bg->isARGB())
 	{
 		if (!isARGB()) promoteToARGB();
+		clear();
 		SDL_Rect src { (Sint16)square.x, (Sint16)square.y,
 		               (Sint16)square.w, (Sint16)square.h };
 		SDL_Rect dst { (Sint16)square.x, (Sint16)square.y, 0, 0 };

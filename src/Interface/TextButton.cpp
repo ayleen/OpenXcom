@@ -96,6 +96,14 @@ void TextButton::setTextColor(Uint8 color)
 	_redraw = true;
 }
 
+#ifdef __EMSCRIPTEN__
+void TextButton::setTextColorRGB(Uint32 argb)
+{
+	_text->setColorRGB(argb);
+	_redraw = true;
+}
+#endif
+
 /**
  * Changes the text to use the big-size font.
  */

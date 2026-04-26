@@ -59,6 +59,10 @@ public:
 	Uint8 getColor() const;
 	/// Sets the text button's text color.
 	void setTextColor(Uint8 color);
+#ifdef __EMSCRIPTEN__
+	/// Sets the text button's text color as 32-bit ARGB (promotes button to ARGB).
+	void setTextColorRGB(Uint32 argb);
+#endif
 	/// Sets the text size to big.
 	void setBig();
 	/// Sets the text size to small.

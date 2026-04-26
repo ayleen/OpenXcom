@@ -664,8 +664,13 @@ void Text::draw()
 				lock();
 				for (int py = 0; py < ch; ++py)
 					for (int px = 0; px < cw; ++px)
-						if (tmp.getPixel(px, py) != 0)
-							setPixel32(x + px, y + py, _colorRGB);
+					{
+						Uint8 idx = tmp.getPixel(px, py);
+						if (idx == 0) continue;
+						Uint8 sa = (idx >= 5u) ? 255u : (Uint8)((Uint32)idx * 255u / 5u);
+						Uint8 da = (Uint8)(((Uint32)(_colorRGB >> 24) * sa) / 255u);
+						setPixel32(x + px, y + py, (_colorRGB & 0x00FFFFFFu) | ((Uint32)da << 24));
+					}
 				unlock();
 			}
 			else
