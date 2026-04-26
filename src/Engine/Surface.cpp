@@ -1347,9 +1347,28 @@ void Surface::invalidate(bool valid)
 void Surface::resize(int width, int height)
 {
 #ifdef __EMSCRIPTEN__
+	if (_surface && _surface->format->BitsPerPixel == 32)
+	{
+		// HD/ARGB resize path. RawCopySurf is hard-coded to Uint8 stride and
+		// SDL_SetColors / getPalette() do not apply to 32 bpp surfaces, so
+		// the 8 bpp path below would silently corrupt ARGB pixels.
+		auto pair = Surface::NewPair32Bit(width, height);
+		SDL_SetSurfaceBlendMode(pair.second.get(), SDL_BLENDMODE_BLEND);
+		SDL_SetSurfaceBlendMode(_surface.get(), SDL_BLENDMODE_NONE);
+		SDL_BlitSurface(_surface.get(), nullptr, pair.second.get(), nullptr);
+		SDL_SetSurfaceBlendMode(_surface.get(), SDL_BLENDMODE_BLEND);
+		std::tie(_alignedBuffer, _surface) = std::move(pair);
+		_width  = (Uint16)_surface->w;
+		_height = (Uint16)_surface->h;
+		_pitch  = (Uint16)_surface->pitch;
+		// Keep _isHD = true. Reset _logicalW/H — the caller must call
+		// setLogicalSize() again for the new dimensions.
+		_logicalW = _logicalH = 0;
+		return;
+	}
 	_isHD = false; _logicalW = _logicalH = 0;
 #endif
-	// Set up new surface
+	// Set up new surface (8 bpp path)
 	Uint8 bpp = _surface->format->BitsPerPixel;
 	auto alignedBuffer = NewAlignedBuffer(bpp, width, height);
 	auto surface = NewSdlSurface(alignedBuffer, bpp, width, height);
