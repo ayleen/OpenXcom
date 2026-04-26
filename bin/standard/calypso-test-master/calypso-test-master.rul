@@ -1,5 +1,14 @@
 fontName: Font.dat
 
+extraSprites:
+  - type: CALYPSO_SPLASH_HD
+    width: 640
+    height: 400
+    singleImage: true
+    hd: true
+    files:
+      0: Resources/calypso-splash.png
+
 interfaces:
   - type: mainMenu
     backgroundImage: BACK01.SCR
