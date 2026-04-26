@@ -32,6 +32,9 @@
 #include "CrossPlatform.h"
 #include "FileMap.h"
 #include "Zoom.h"
+#ifdef __EMSCRIPTEN__
+#include "HDQueue.h"
+#endif
 #include "Timer.h"
 #include <SDL.h>
 #ifdef __EMSCRIPTEN__
@@ -216,6 +219,8 @@ void Screen::flip()
 		/* Blit internal 8bpp surface into RGBA32 _screen via SDL2 cross-format
 		 * blit (SDL2 performs palette lookup automatically from _surface's palette). */
 		SDL_BlitSurface(_surface.get(), nullptr, _screen, nullptr);
+
+		HDQueue::flush(_screen);
 
 		/* Upload RGBA32 pixels to streaming texture and present. */
 		void *texPixels;
@@ -417,8 +422,10 @@ void Screen::resetDisplay(bool resetVideo, bool noShaders)
 			Log(LOG_ERROR) << "SDL_CreateRenderer failed: " << SDL_GetError();
 			throw Exception(SDL_GetError());
 		}
-		/* SDL_RenderSetLogicalSize not available in Emscripten SDL2.
-		 * Letterboxing is handled by the JS canvas CSS layer. */
+		/* Lock the GPU viewport to the logical game resolution.
+		 * SDL2 scales the _baseWidth×_baseHeight content to fill the physical
+		 * window with letterboxing — no CSS object-fit tricks needed. */
+		SDL_RenderSetLogicalSize(_renderer, _baseWidth, _baseHeight);
 
 		/* RGBA32 staging surface: 8bpp _surface blits into this before texture upload. */
 		_screen = SDL_CreateRGBSurface(0, _baseWidth, _baseHeight, 32,
