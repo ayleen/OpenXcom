@@ -1512,11 +1512,29 @@ void Surface::promoteToARGB()
 {
 	if (!_surface || _surface->format->BitsPerPixel == 32) return;
 
+	if (_surface->format->palette && _surface->format->palette->colors)
+	{
+		memcpy(_savedPalette, _surface->format->palette->colors, 256 * sizeof(SDL_Color));
+		_hasSavedPalette = true;
+	}
+
 	auto pair = Surface::NewPair32Bit(_width, _height);
 	SDL_SetSurfaceBlendMode(pair.second.get(), SDL_BLENDMODE_BLEND);
 	SDL_BlitSurface(_surface.get(), nullptr, pair.second.get(), nullptr);
 	std::tie(_alignedBuffer, _surface) = std::move(pair);
 	_pitch = (Uint16)_surface->pitch;
+}
+
+void Surface::demoteToIndexed()
+{
+	if (!_surface || _surface->format->BitsPerPixel == 8) return;
+
+	auto pair = Surface::NewPair8Bit(_width, _height);
+	std::tie(_alignedBuffer, _surface) = std::move(pair);
+	_pitch = (Uint16)_surface->pitch;
+
+	if (_hasSavedPalette)
+		SDL_SetColors(_surface.get(), _savedPalette, 0, 256);
 }
 #endif
 

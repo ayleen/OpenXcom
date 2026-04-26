@@ -206,6 +206,12 @@ void TextButton::setPalette(const SDL_Color *colors, int firstcolor, int ncolors
  */
 void TextButton::draw()
 {
+#ifdef __EMSCRIPTEN__
+	// On second+ draw (hover, press) the surface is already ARGB-promoted.
+	// drawRect/setPixel/invert only work correctly on 8bpp surfaces, so
+	// demote back to indexed first; promoteToARGB() at the end re-promotes.
+	if (isARGB()) demoteToIndexed();
+#endif
 	Surface::draw();
 	SDL_Rect square;
 

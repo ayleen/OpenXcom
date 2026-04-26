@@ -93,6 +93,8 @@ protected:
 #ifdef __EMSCRIPTEN__
 	bool _isHD = false;
 	Uint16 _logicalW = 0, _logicalH = 0;
+	SDL_Color _savedPalette[256] = {};
+	bool _hasSavedPalette = false;
 #endif
 
 	/// Copies raw pixels.
@@ -154,6 +156,9 @@ public:
 	/// Promotes this surface from 8bpp indexed to 32bpp ARGB in-place.
 	/// No-op if already ARGB. Existing palette pixels are blitted into the new buffer.
 	void promoteToARGB();
+	/// Resets an ARGB-promoted surface back to fresh 8bpp, restoring the palette
+	/// saved at promotion time. Used by UI elements that redraw via 8bpp helpers.
+	void demoteToIndexed();
 #endif
 	/// Clears the surface's contents with a specified colour.
 	void clear();
