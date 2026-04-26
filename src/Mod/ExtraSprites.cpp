@@ -196,7 +196,12 @@ Surface *ExtraSprites::loadSurface(Surface *surface)
 	}
 	surface = new Surface(_width, _height);
 	if (_hd)
+	{
 		surface->loadImageHD(_sprites.begin()->second);
+#ifdef __EMSCRIPTEN__
+		surface->setLogicalSize(_width, _height);
+#endif
+	}
 	else
 		surface->loadImage(_sprites.begin()->second);
 	return surface;
@@ -252,7 +257,12 @@ SurfaceSet *ExtraSprites::loadSurfaceSet(SurfaceSet *set)
 				{
 					Surface* frame = getFrame(set, offset);
 					if (_hd)
+					{
 						frame->loadImageHD(fileName + name);
+#ifdef __EMSCRIPTEN__
+						frame->setLogicalSize(surfaceSetX, surfaceSetY);
+#endif
+					}
 					else
 						frame->loadImage(fileName + name);
 					offset++;
@@ -269,7 +279,12 @@ SurfaceSet *ExtraSprites::loadSurfaceSet(SurfaceSet *set)
 			{
 				Surface* frame = getFrame(set, startFrame);
 				if (_hd)
+				{
 					frame->loadImageHD(fileName);
+#ifdef __EMSCRIPTEN__
+					frame->setLogicalSize(surfaceSetX, surfaceSetY);
+#endif
+				}
 				else
 					frame->loadImage(fileName);
 			}
