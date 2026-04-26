@@ -34,6 +34,7 @@
 #include "Zoom.h"
 #ifdef __EMSCRIPTEN__
 #include "HDQueue.h"
+#include "FrameArena.h"
 #endif
 #include "Timer.h"
 #include <SDL.h>
@@ -221,6 +222,9 @@ void Screen::flip()
 		SDL_BlitSurface(_surface.get(), nullptr, _screen, nullptr);
 
 		HDQueue::flush(_screen);
+		// Arena reset MUST come after flush — surfaces are referenced by HDQueue
+		// entries until flush() completes. Resetting before flush dangling-pointers them.
+		frameArena().reset();
 
 		/* Upload RGBA32 pixels to streaming texture and present. */
 		void *texPixels;

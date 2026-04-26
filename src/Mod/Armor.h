@@ -100,6 +100,13 @@ public:
 private:
 	std::string _ufopediaType;
 	std::string _type, _spriteSheet, _spriteInv, _corpseGeoName, _storeItemName, _selfDestructItemName, _specWeaponName;
+#ifdef __EMSCRIPTEN__
+	// Phase 6b: optional greyscale mask sheet for HD armour recolouring.
+	// Empty = no mask (sprite ships final colour; recolor: none implied for HD units).
+	std::string _recolorMask;
+	// 0xRRGGBB armour tint applied where mask alpha > 0.  Default 0xFFFFFF (white = no tint).
+	Uint32 _recolorRgb = 0xFFFFFFu;
+#endif
 	std::string _requiresName;
 	std::string _requiresAwardName;
 	std::string _requiresBonusName;
@@ -218,6 +225,12 @@ public:
 	std::string getSpriteSheet() const;
 	/// Gets the unit's inventory sprite.
 	std::string getSpriteInventory() const;
+#ifdef __EMSCRIPTEN__
+	/// Gets the HD recolour mask sheet name (empty = no mask).
+	const std::string& getRecolorMask() const { return _recolorMask; }
+	/// Gets the 0xRRGGBB armour tint for HD recolour (default 0xFFFFFF = white/no tint).
+	Uint32 getRecolorRgb() const { return _recolorRgb; }
+#endif
 	/// Gets the front armor level.
 	int getFrontArmor() const;
 	/// Gets the left side armor level.

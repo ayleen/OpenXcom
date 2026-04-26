@@ -52,6 +52,10 @@
 #include "../Interface/NumberText.h"
 #include "../Interface/Text.h"
 #include "../fmath.h"
+#ifdef __EMSCRIPTEN__
+#include "../Engine/HDSpriteBatch.h"
+#include "../Engine/FrameArena.h"
+#endif
 
 
 /*
@@ -736,6 +740,12 @@ void Map::drawUnit(UnitSprite &unitSprite, Tile *unitTile, Tile *currTile, Posit
  */
 void Map::drawTerrain(Surface *surface)
 {
+#ifdef __EMSCRIPTEN__
+	// Discard any composite surfaces left over from the previous frame.
+	// Must happen before any HD drawUnit() calls this frame.
+	frameArena().reset();
+#endif
+
 	_isAltPressed = _game->isAltPressed(true);
 	_isCtrlPressed = _game->isCtrlPressed(true);
 	int frameNumber = 0;
@@ -1834,6 +1844,14 @@ void Map::drawTerrain(Surface *surface)
 	}
 
 	surface->unlock();
+
+#ifdef __EMSCRIPTEN__
+	// Depth-sort all HD unit composites accumulated this frame and push them
+	// into HDQueue. HDQueue::flush(_screen) in Screen::flip will blit them
+	// over the converted ARGB _screen after the 8bpp→ARGB blit.
+	// frameArena().reset() is called in Screen::flip AFTER HDQueue::flush().
+	HDSpriteBatch::sortAndFlushIntoQueue();
+#endif
 }
 
 /**

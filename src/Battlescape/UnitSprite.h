@@ -19,6 +19,9 @@
  */
 #include "../Engine/Surface.h"
 #include "../Engine/Script.h"
+#ifdef __EMSCRIPTEN__
+#include <SDL.h>
+#endif
 
 namespace OpenXcom
 {
@@ -107,6 +110,15 @@ private:
 	void blitItem(Part& item);
 	/// Blit body sprite.
 	void blitBody(Part& body);
+#ifdef __EMSCRIPTEN__
+	/// Composite one HD body-part frame into the unit's ARGB composite buffer.
+	void blitBodyHD(Part& body);
+	/// Push the completed whole-unit ARGB composite into HDSpriteBatch.
+	void pushHDComposite(int screenX, int screenY);
+
+	SDL_Surface *_hdComposite = nullptr; // arena-owned; non-null during HD draw()
+	int _hdPad = 0;                      // pixel margin around cell in composite buffer
+#endif
 public:
 	/// Creates a new UnitSprite at the specified position and size.
 	UnitSprite(Surface* dest, const Mod* mod, const SavedBattleGame* save, int frame, bool helmet, int red, int blue);
