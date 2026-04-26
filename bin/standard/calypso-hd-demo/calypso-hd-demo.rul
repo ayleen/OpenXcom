@@ -1,0 +1,19 @@
+# Phase 6a.1 — HD overlay proof-of-life demo.
+#
+# Registers a single HD surface at the name CALYPSO_SPLASH_HD.
+# The surface is loaded via loadImageHD() (ARGB8888, alpha-preserved) and
+# setLogicalSize(640, 400) (bilinear pre-scale to game-coordinate size).
+# When blitted, it goes through HDQueue and is composited alpha-correct
+# over the final _screen in Screen::flip().
+#
+# The PNG asset is streamed at runtime via manifest (not preloaded).
+# FileMap resolves the path relative to /game/:
+#   /game/calypso-hd-demo/calypso-splash.png
+extraSprites:
+  - type: CALYPSO_SPLASH_HD
+    width: 640
+    height: 400
+    singleImage: true
+    hd: true
+    files:
+      0: calypso-hd-demo/calypso-splash.png

@@ -1,0 +1,5 @@
+name: "Calypso HD Demo"
+version: "6a.1"
+description: "Phase 6a.1 proof-of-life demo for the HD overlay path (HDQueue). Registers a single HD surface loaded via loadImageHD + setLogicalSize. No gameplay changes."
+author: "Calypso project"
+master: xcom2
