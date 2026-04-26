@@ -280,6 +280,7 @@ set ( menu_src
   Menu/OptionsNoAudioState.cpp
   Menu/OptionsVideoState.cpp
   Menu/PauseState.cpp
+  Menu/CalypsoHDUIState.cpp
   Menu/CalypsoSplashState.cpp
   Menu/SaveGameState.cpp
   Menu/SetWindowedRootState.cpp

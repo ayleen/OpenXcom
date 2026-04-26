@@ -4,6 +4,7 @@
 #ifdef __EMSCRIPTEN__
 
 #include "CalypsoSplashState.h"
+#include "CalypsoHDUIState.h"
 #include "../Engine/Game.h"
 #include "../Engine/Surface.h"
 #include "../Mod/Mod.h"
@@ -46,7 +47,13 @@ void CalypsoSplashState::think()
 	// Frame-based timing is deterministic in headless Playwright as well as
 	// real browsers where RAF may run uncapped.
 	if (++_frames >= 90)
+	{
+		// Pop the splash first so CalypsoHDUIState lands on top of the main menu.
 		_game->popState();
+		// If the HD UI demo panel is registered, push the 6a.2 ARGB UI demo.
+		if (_game->getMod()->getSurface("CALYPSO_UI_PANEL_HD", false))
+			_game->pushState(new CalypsoHDUIState());
+	}
 }
 
 } /* namespace OpenXcom */
