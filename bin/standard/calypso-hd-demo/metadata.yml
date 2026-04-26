@@ -1,5 +1,7 @@
 name: "Calypso HD Demo"
-version: "6a.1"
-description: "Phase 6a.1 proof-of-life demo for the HD overlay path (HDQueue). Registers a single HD surface loaded via loadImageHD + setLogicalSize. No gameplay changes."
+version: "1.0"
+description: "Phase 6b proof-of-life: one HD aquanaut armour variant for testing the HD unit pipeline. All artwork is original (see Resources/Units/AQUANAUT_HD/CREDITS.md). Does NOT override vanilla TFTD content."
 author: "Calypso project"
+id: calypso-hd-demo
 master: xcom2
+isMaster: false

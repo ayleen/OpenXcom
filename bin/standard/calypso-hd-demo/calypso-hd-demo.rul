@@ -1,26 +1,49 @@
-# Phase 6a.1 — HD overlay proof-of-life demo.
-#
-# Registers a single HD surface at the name CALYPSO_SPLASH_HD.
-# The surface is loaded via loadImageHD() (ARGB8888, alpha-preserved) and
-# setLogicalSize(640, 400) (bilinear pre-scale to game-coordinate size).
-# When blitted, it goes through HDQueue and is composited alpha-correct
-# over the final _screen in Screen::flip().
-#
-# The PNG asset is streamed at runtime via manifest (not preloaded).
-# FileMap resolves the path relative to /game/:
-#   /game/calypso-hd-demo/calypso-splash.png
 extraSprites:
-  - type: CALYPSO_SPLASH_HD
-    width: 640
-    height: 400
-    singleImage: true
-    hd: true
-    files:
-      0: calypso-hd-demo/calypso-splash.png
-  - type: CALYPSO_UI_PANEL_HD
-    width: 480
+  # Phase 6b: HD unit sprite sheet and recolor mask for the demo aquanaut armour.
+  - type: AQUANAUT_HD
+    width: 128
     height: 160
-    singleImage: true
     hd: true
     files:
-      0: calypso-hd-demo/calypso-ui-panel.png
+      0: Resources/Units/AQUANAUT_HD/sheet.png
+
+  - type: AQUANAUT_HD_MASK
+    width: 128
+    height: 160
+    hd: true
+    files:
+      0: Resources/Units/AQUANAUT_HD/MASK/mask.png
+
+armors:
+  - type: STR_AQUANAUT_ARMOR_HD_DEMO
+    spriteSheet: AQUANAUT_HD
+    spriteInv: AQUA_PERSONAL_ARMOR.SPK
+    recolorMask: AQUANAUT_HD_MASK
+    recolorRgb: 0x2244AA
+    corpseItem: STR_CORPSE
+    loftemps: 3
+    drawingRoutine: 13
+    movementType: 0
+    size: 1
+    damageModifier:
+      - 1.0
+      - 1.0
+      - 1.0
+      - 1.0
+      - 1.0
+      - 1.0
+      - 1.0
+      - 1.0
+      - 1.0
+      - 1.0
+    frontArmor: 10
+    sideArmor: 6
+    rearArmor: 4
+    underArmor: 4
+    deathFrames: 3
+    constantAnimation: false
+    hasInventory: true
+    standHeight: 22
+    kneelHeight: 14
+    floatHeight: 0
+    listOrder: 9999

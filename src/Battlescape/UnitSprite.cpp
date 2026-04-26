@@ -226,13 +226,19 @@ void UnitSprite::blitBodyHD(Part& body)
 		const Surface *maskFrame = maskSet ? maskSet->getFrame(body.bodyPart) : nullptr;
 		SDL_Surface   *mask = maskFrame ? const_cast<Surface*>(maskFrame)->getSurface() : nullptr;
 
-		// Build a per-call shaded copy in the arena to avoid mutating the shared asset.
-		SDL_Surface *shaded = frameArena().alloc(src->w, src->h);
+		// Build a per-call shaded copy in the arena.  For multi-frame sprite
+		// sheets the SDL_Surface may be larger than one frame; clip to the
+		// declared per-frame dimensions so we only copy the first frame and
+		// keep the arena allocation small.
+		const int fw = (int)_unitSurface->getWidth();
+		const int fh = (int)_unitSurface->getHeight();
+		SDL_Surface *shaded = frameArena().alloc(fw, fh);
+		SDL_Rect srcRect = {0, 0, fw, fh};
 
 		// Blit shaded body into temp.
 		SDL_SetSurfaceColorMod(src, cm, cm, cm);
 		SDL_SetSurfaceBlendMode(src, SDL_BLENDMODE_NONE);
-		SDL_BlitSurface(src, nullptr, shaded, nullptr);
+		SDL_BlitSurface(src, &srcRect, shaded, nullptr);
 		SDL_SetSurfaceColorMod(src, 255, 255, 255);
 
 		// Overlay mask tint onto the shaded copy.

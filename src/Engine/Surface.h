@@ -129,7 +129,11 @@ public:
 	/// Is surface empty?
 	explicit operator bool() const
 	{
+#ifdef __EMSCRIPTEN__
+		return _alignedBuffer.get() || _surface.get();
+#else
 		return _alignedBuffer.get();
+#endif
 	}
 
 	/// Loads a raw pixel array.

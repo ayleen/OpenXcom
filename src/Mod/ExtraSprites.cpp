@@ -259,9 +259,8 @@ SurfaceSet *ExtraSprites::loadSurfaceSet(SurfaceSet *set)
 					if (_hd)
 					{
 						frame->loadImageHD(fileName + name);
-#ifdef __EMSCRIPTEN__
-						frame->setLogicalSize(surfaceSetX, surfaceSetY);
-#endif
+						// No setLogicalSize: multi-frame HD sprite sheets must not be
+						// bilinearly squished to per-frame dimensions.
 					}
 					else
 						frame->loadImage(fileName + name);
@@ -281,9 +280,8 @@ SurfaceSet *ExtraSprites::loadSurfaceSet(SurfaceSet *set)
 				if (_hd)
 				{
 					frame->loadImageHD(fileName);
-#ifdef __EMSCRIPTEN__
-					frame->setLogicalSize(surfaceSetX, surfaceSetY);
-#endif
+					// No setLogicalSize: multi-frame HD sprite sheets must not be
+					// bilinearly squished to per-frame dimensions.
 				}
 				else
 					frame->loadImage(fileName);
