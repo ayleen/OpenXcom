@@ -281,25 +281,28 @@ Surface::Surface(int width, int height, int x, int y) : _x(x), _y(y), _visible(t
  */
 Surface::Surface(const Surface& other) : Surface{ }
 {
-	if (!other)
-	{
-		return;
-	}
-	int width = other.getWidth();
-	int height = other.getHeight();
-
 #ifdef __EMSCRIPTEN__
-	if (other._isHD)
+	// HD surfaces from loadImageHD() have _surface (SDL-owned) but no
+	// _alignedBuffer, so operator bool() (which checks _alignedBuffer) returns
+	// false and the legacy 8 bpp guard `if (!other) return;` would short-
+	// circuit the copy to an empty surface. Handle HD before the guard.
+	if (other._isHD && other._surface)
 	{
-		std::tie(_alignedBuffer, _surface) = Surface::NewPair32Bit(width, height);
-		// Use SDL_BlitSurface with no blending for a straight ARGB pixel copy.
-		// RawCopySurf is Uint8-only and would silently corrupt 32-bit data.
-		SDL_SetSurfaceBlendMode(other._surface.get(), SDL_BLENDMODE_NONE);
-		SDL_BlitSurface(other._surface.get(), nullptr, _surface.get(), nullptr);
-		SDL_SetSurfaceBlendMode(other._surface.get(), SDL_BLENDMODE_BLEND);
-		SDL_SetSurfaceBlendMode(_surface.get(), SDL_BLENDMODE_BLEND);
-		_width   = (Uint16)width;
-		_height  = (Uint16)height;
+		// SDL_ConvertSurfaceFormat creates a properly-formatted ARGB8888 copy
+		// (with correct R/G/B/A masks). NewPair32Bit cannot be used here:
+		// its underlying SDL_CreateRGBSurfaceFrom call passes all-zero masks
+		// (an Emscripten-port quirk), and SDL_BlitSurface to such a surface
+		// silently loses channel data. SDL owns the pixel buffer for the
+		// converted surface, so _alignedBuffer stays null (matches the post-
+		// loadImageHD layout exactly).
+		auto copy = NewSdlSurface(
+			SDL_ConvertSurfaceFormat(other._surface.get(), SDL_PIXELFORMAT_ARGB8888, 0));
+		if (!copy) return;
+		SDL_SetSurfaceBlendMode(copy.get(), SDL_BLENDMODE_BLEND);
+		_alignedBuffer = nullptr;
+		_surface = std::move(copy);
+		_width   = (Uint16)_surface->w;
+		_height  = (Uint16)_surface->h;
 		_pitch   = (Uint16)_surface->pitch;
 		_x       = other._x;
 		_y       = other._y;
@@ -312,6 +315,13 @@ Surface::Surface(const Surface& other) : Surface{ }
 		return;
 	}
 #endif
+
+	if (!other)
+	{
+		return;
+	}
+	int width = other.getWidth();
+	int height = other.getHeight();
 
 	//move copy
 	*this = Surface(width, height, other._x, other._y);
