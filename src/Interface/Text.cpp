@@ -653,21 +653,19 @@ void Text::draw()
 #ifdef __EMSCRIPTEN__
 			if (_useRGB && isARGB())
 			{
-				// ARGB glyph rendering: map non-zero source palette indices to
-				// _colorRGB. Binary opacity (any non-zero idx → full color).
 				const SDL_Rect *srcR = chr.getCrop();
-				const SDL_Surface *fontSurf = chr.getSurface()->getSurface();
+				int cw = srcR->w, ch = srcR->h;
+				SurfaceCrop tmp_chr = chr;
+				tmp_chr.setX(0);
+				tmp_chr.setY(0);
+				Surface tmp(cw, ch, 0, 0);
+				ShaderDraw<PaletteShift>(ShaderSurface(&tmp, 0, 0), ShaderCrop(tmp_chr),
+				                        ShaderScalar(color), ShaderScalar(mul), ShaderScalar(mid));
 				lock();
-				for (int py = 0; py < srcR->h; ++py)
-				{
-					for (int px = 0; px < srcR->w; ++px)
-					{
-						Uint8 idx = ((const Uint8 *)fontSurf->pixels)
-							[(srcR->y + py) * fontSurf->pitch + (srcR->x + px)];
-						if (idx != 0)
+				for (int py = 0; py < ch; ++py)
+					for (int px = 0; px < cw; ++px)
+						if (tmp.getPixel(px, py) != 0)
 							setPixel32(x + px, y + py, _colorRGB);
-					}
-				}
 				unlock();
 			}
 			else

@@ -245,6 +245,9 @@ public:
 		{
 			return;
 		}
+#ifndef NDEBUG
+		assert(!_surface || _surface->format->BitsPerPixel == 8);
+#endif
 		*getRaw(x, y) = pixel;
 	}
 	/**

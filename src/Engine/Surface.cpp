@@ -1174,6 +1174,9 @@ void Surface::drawRect(Sint16 x, Sint16 y, Sint16 w, Sint16 h, Uint8 color)
  */
 void Surface::drawLine(Sint16 x1, Sint16 y1, Sint16 x2, Sint16 y2, Uint8 color)
 {
+#ifdef __EMSCRIPTEN__
+	if (!getPalette()) { static bool once = false; if (!once) { once = true; Log(LOG_WARNING) << "drawLine on ARGB surface — no-op"; } return; }
+#endif
 	lineColor(_surface.get(), x1, y1, x2, y2, Palette::getRGBA(getPalette(), color));
 }
 
@@ -1186,6 +1189,9 @@ void Surface::drawLine(Sint16 x1, Sint16 y1, Sint16 x2, Sint16 y2, Uint8 color)
  */
 void Surface::drawCircle(Sint16 x, Sint16 y, Sint16 r, Uint8 color)
 {
+#ifdef __EMSCRIPTEN__
+	if (!getPalette()) { static bool once = false; if (!once) { once = true; Log(LOG_WARNING) << "drawCircle on ARGB surface — no-op"; } return; }
+#endif
 	filledCircleColor(_surface.get(), x, y, r, Palette::getRGBA(getPalette(), color));
 }
 
@@ -1198,6 +1204,9 @@ void Surface::drawCircle(Sint16 x, Sint16 y, Sint16 r, Uint8 color)
  */
 void Surface::drawPolygon(Sint16 *x, Sint16 *y, int n, Uint8 color)
 {
+#ifdef __EMSCRIPTEN__
+	if (!getPalette()) { static bool once = false; if (!once) { once = true; Log(LOG_WARNING) << "drawPolygon on ARGB surface — no-op"; } return; }
+#endif
 	filledPolygonColor(_surface.get(), x, y, n, Palette::getRGBA(getPalette(), color));
 }
 
@@ -1224,6 +1233,9 @@ void Surface::drawTexturedPolygon(Sint16 *x, Sint16 *y, int n, Surface *texture,
  */
 void Surface::drawString(Sint16 x, Sint16 y, const char *s, Uint8 color)
 {
+#ifdef __EMSCRIPTEN__
+	if (!getPalette()) { static bool once = false; if (!once) { once = true; Log(LOG_WARNING) << "drawString on ARGB surface — no-op"; } return; }
+#endif
 	stringColor(_surface.get(), x, y, s, Palette::getRGBA(getPalette(), color));
 }
 
