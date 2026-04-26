@@ -172,23 +172,31 @@ Surface::UniqueSurfacePtr Surface::NewSdlSurface(SDL_Surface* surface)
  */
 Surface::UniqueSurfacePtr Surface::NewSdlSurface(const Surface::UniqueBufferPtr& buffer, int bpp, int width, int height)
 {
-	auto surface = SDL_CreateRGBSurfaceFrom(buffer.get(), width, height, bpp, GetPitch(bpp, width), 0, 0, 0, 0);
+#ifdef __EMSCRIPTEN__
+	// SDL_CreateRGBSurfaceFrom with all-zero masks leaves Rmask/Gmask/Bmask/Amask
+	// and the corresponding shifts/losses at zero under the Emscripten SDL2 port.
+	// SDL_BlitSurface 8bpp→ARGB cross-format conversion reads those fields to pack
+	// output pixels; with masks=0 it writes garbage (palette index repeated as
+	// grayscale — e.g. index 192 → 0xc0c0c0 instead of 0xff002474).
+	// Fix: use SDL_CreateRGBSurfaceWithFormat so SDL populates all format fields
+	// correctly, then redirect pixels/pitch to our aligned buffer.
+	// SDL_PREALLOC prevents SDL_FreeSurface from freeing our buffer (owned by the
+	// caller's UniqueBufferPtr); SDL_free releases the surface's own allocation.
+	Uint32 fmt = (bpp == 32) ? SDL_PIXELFORMAT_ARGB8888 : SDL_PIXELFORMAT_INDEX8;
+	auto surface = SDL_CreateRGBSurfaceWithFormat(0, width, height, bpp, fmt);
 	if (!surface)
 	{
 		throw Exception(SDL_GetError());
 	}
-
-#ifdef __EMSCRIPTEN__
-	// SDL_CreateRGBSurfaceFrom under Emscripten SDL1 JS mode ignores the pixel
-	// data for non-32bpp surfaces and sets pitch=width*4, BytesPerPixel=4.
-	// Patch the C struct directly so that all C-side pixel access is correct.
-	// JS SDL functions use SDL.surfaces[surf].image (canvas), not surface->pixels.
+	SDL_free(surface->pixels);
 	surface->pixels = buffer.get();
 	surface->pitch  = GetPitch(bpp, width);
-	if (surface->format)
+	surface->flags |= SDL_PREALLOC;
+#else
+	auto surface = SDL_CreateRGBSurfaceFrom(buffer.get(), width, height, bpp, GetPitch(bpp, width), 0, 0, 0, 0);
+	if (!surface)
 	{
-		surface->format->BitsPerPixel  = (Uint8)bpp;
-		surface->format->BytesPerPixel = (Uint8)((bpp + 7) / 8);
+		throw Exception(SDL_GetError());
 	}
 #endif
 
@@ -312,13 +320,9 @@ Surface::Surface(const Surface& other) : Surface{ }
 	// surface with no palette object.
 	if (other._surface && other._surface->format->BitsPerPixel == 32)
 	{
-		// SDL_ConvertSurfaceFormat creates a properly-formatted ARGB8888 copy
-		// (with correct R/G/B/A masks). NewPair32Bit cannot be used here:
-		// its underlying SDL_CreateRGBSurfaceFrom call passes all-zero masks
-		// (an Emscripten-port quirk), and SDL_BlitSurface to such a surface
-		// silently loses channel data. SDL owns the pixel buffer for the
-		// converted surface, so _alignedBuffer stays null (matches the post-
-		// loadImageHD layout exactly).
+		// SDL_ConvertSurfaceFormat creates a properly-formatted ARGB8888 copy.
+		// SDL owns the pixel buffer for the converted surface, so _alignedBuffer
+		// stays null (matches the post-loadImageHD layout exactly).
 		auto copy = NewSdlSurface(
 			SDL_ConvertSurfaceFormat(other._surface.get(), SDL_PIXELFORMAT_ARGB8888, 0));
 		if (!copy) return;
