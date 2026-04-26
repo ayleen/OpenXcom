@@ -255,6 +255,19 @@ void Window::draw()
 		}
 	}
 
+#ifdef __EMSCRIPTEN__
+	if (_bg && _bg->isARGB())
+	{
+		// Promote self to ARGB so the HD background blits into us (not HDQueue).
+		promoteToARGB();
+		SDL_Rect src  { (Sint16)(square.x - _dx), (Sint16)(square.y - _dy),
+		                (Sint16)square.w, (Sint16)square.h };
+		SDL_Rect dst  { (Sint16)square.x, (Sint16)square.y, 0, 0 };
+		SDL_BlitSurface(const_cast<SDL_Surface*>(_bg->getSurface()), &src,
+		                getSurface(), &dst);
+	}
+	else
+#endif
 	if (_bg != 0)
 	{
 		SurfaceCrop crop = _bg->getCrop();

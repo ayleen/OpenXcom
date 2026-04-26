@@ -271,6 +271,10 @@ void TextButton::draw()
 	}
 	_text->setInvert(press);
 
+#ifdef __EMSCRIPTEN__
+	if (_text->isARGB())
+		promoteToARGB();
+#endif
 	_text->blit(this->getSurface());
 }
 
