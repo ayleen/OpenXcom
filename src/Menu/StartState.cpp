@@ -37,6 +37,7 @@
 #include "CutsceneState.h"
 #ifdef __EMSCRIPTEN__
 #include "CalypsoSplashState.h"
+#include "../Mod/Mod.h"
 #endif
 #include <SDL_mixer.h>
 #include <SDL_thread.h>
