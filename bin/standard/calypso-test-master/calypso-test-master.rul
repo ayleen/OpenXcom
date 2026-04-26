@@ -8,6 +8,13 @@ extraSprites:
     hd: true
     files:
       0: Resources/calypso-splash.png
+  - type: CALYPSO_UI_PANEL_HD
+    width: 480
+    height: 160
+    singleImage: true
+    hd: true
+    files:
+      0: Resources/calypso-ui-panel.png
 
 interfaces:
   - type: mainMenu
