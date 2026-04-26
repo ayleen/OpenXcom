@@ -439,7 +439,7 @@ SDL_RWops *FileRecord::getRWopsReadAll() const
 		}
 #endif
 	}
-	if (!rv) { Log(LOG_ERROR) << "FileRecord::getRWopsReadAll(): err=" << SDL_GetError(); }
+	if (!rv) { Log(LOG_ERROR) << "FileRecord::getRWopsReadAll(): err=" << SDL_GetError() << " path=" << fullpath; }
 	return rv;
 }
 

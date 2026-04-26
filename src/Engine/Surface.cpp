@@ -730,6 +730,7 @@ void Surface::loadSpk(const std::string& filename)
 	Uint16 flag;
 	int x = 0, y = 0;
 	auto rw = FileMap::getRWopsReadAll(filename);
+	if (!rw) { return; }
 	auto rwsize = SDL_RWsize(rw);
 	// Lock the surface
 	lock();
@@ -765,6 +766,7 @@ void Surface::loadBdy(const std::string &filename)
 	int x = 0, y = 0;
 	int currentRow = 0;
 	auto rw = FileMap::getRWopsReadAll(filename);
+	if (!rw) { return; }
 	auto rwsize = SDL_RWsize(rw);
 	// Lock the surface
 	lock();
