@@ -15,20 +15,22 @@ CalypsoSplashState::CalypsoSplashState() : _bg(nullptr), _frames(0)
 {
 	// getSurface returns null (error=false) when the sprite is missing —
 	// e.g. when calypso-test-master is not the active master.
-	_bg = _game->getMod()->getSurface("CALYPSO_SPLASH_HD", false);
-	if (_bg)
+	Surface *modBg = _game->getMod()->getSurface("CALYPSO_SPLASH_HD", false);
+	if (modBg)
 	{
-		// Mod owns _bg; push directly into the render list (_surfaces) without
-		// going through add() / preAdd() — those mark the surface as owned and
-		// ~State() would delete it, corrupting the Mod's surface registry on
-		// any subsequent splash construction.
-		_surfaces.push_back(_bg);
+		// Deep-copy the Mod-owned surface so State::add() can take ownership
+		// without corrupting the Mod's surface registry. The ARGB-aware copy
+		// ctor (Surface(const Surface&)) handles 32 bpp via SDL_BlitSurface;
+		// add() then runs the standard palette + initText setup on the copy
+		// (no-op for HD ARGB — setPalette branches on BitsPerPixel == 8).
+		_bg = new Surface(*modBg);
+		add(_bg);
 	}
 }
 
 CalypsoSplashState::~CalypsoSplashState()
 {
-	// _bg is referenced, not owned; ~State() deletes only _surfacesOwned.
+	// _bg is owned via add() → _surfacesOwned and deleted by ~State().
 }
 
 void CalypsoSplashState::init()
