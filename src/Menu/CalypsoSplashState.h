@@ -22,7 +22,7 @@ class CalypsoSplashState : public State
 {
 private:
 	Surface *_bg;
-	Uint32   _shownAt;
+	int      _frames;
 
 public:
 	CalypsoSplashState();

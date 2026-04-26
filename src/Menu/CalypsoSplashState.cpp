@@ -11,7 +11,7 @@
 namespace OpenXcom
 {
 
-CalypsoSplashState::CalypsoSplashState() : _bg(nullptr), _shownAt(0)
+CalypsoSplashState::CalypsoSplashState() : _bg(nullptr), _frames(0)
 {
 	// getSurface returns null (error=false) when the sprite is missing —
 	// e.g. when calypso-test-master is not the active master.
@@ -28,14 +28,16 @@ CalypsoSplashState::~CalypsoSplashState()
 void CalypsoSplashState::init()
 {
 	State::init();
-	_shownAt = SDL_GetTicks();
+	_frames = 0;
 }
 
 void CalypsoSplashState::think()
 {
 	State::think();
-	// Hold for 1.5 s, then yield to GoToMainMenuState underneath.
-	if (SDL_GetTicks() - _shownAt > 1500)
+	// Hold for 90 game frames (~1.5 s at 60 fps).
+	// Frame-based timing is deterministic in headless Playwright as well as
+	// real browsers where RAF may run uncapped.
+	if (++_frames >= 90)
 		_game->popState();
 }
 
