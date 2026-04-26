@@ -510,7 +510,8 @@ void VideoState::init()
 	{
 		SDL_Color pal[256];
 		SDL_Color pal2[256];
-		memcpy(pal, _game->getScreen()->getPalette(), sizeof(SDL_Color) * 256);
+		SDL_Color *srcPal = _game->getScreen()->getPalette();
+		if (srcPal) memcpy(pal, srcPal, sizeof(SDL_Color) * 256);
 		for (int i = FADE_STEPS; i > 0; --i)
 		{
 			SDL_Event event;

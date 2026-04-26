@@ -275,6 +275,30 @@ Surface::Surface(int width, int height, int x, int y) : _x(x), _y(y), _visible(t
 	SDL_SetColorKey(_surface.get(), SDL_SRCCOLORKEY, 0);
 }
 
+#ifdef __EMSCRIPTEN__
+/**
+ * Creates a new surface with an explicit pixel format.
+ * Format::ARGB8888 allocates a 32bpp buffer suitable for HD UI containers.
+ */
+Surface::Surface(int width, int height, int x, int y, Format fmt)
+    : _x(x), _y(y), _visible(true), _hidden(false), _redraw(false)
+{
+	if (fmt == Format::ARGB8888)
+	{
+		std::tie(_alignedBuffer, _surface) = Surface::NewPair32Bit(width, height);
+		SDL_SetSurfaceBlendMode(_surface.get(), SDL_BLENDMODE_BLEND);
+	}
+	else
+	{
+		std::tie(_alignedBuffer, _surface) = Surface::NewPair8Bit(width, height);
+		SDL_SetColorKey(_surface.get(), SDL_SRCCOLORKEY, 0);
+	}
+	_width  = (Uint16)_surface->w;
+	_height = (Uint16)_surface->h;
+	_pitch  = (Uint16)_surface->pitch;
+}
+#endif
+
 /**
  * Performs a deep copy of an existing surface.
  * @param other Surface to copy from.
@@ -282,11 +306,11 @@ Surface::Surface(int width, int height, int x, int y) : _x(x), _y(y), _visible(t
 Surface::Surface(const Surface& other) : Surface{ }
 {
 #ifdef __EMSCRIPTEN__
-	// HD surfaces from loadImageHD() have _surface (SDL-owned) but no
-	// _alignedBuffer, so operator bool() (which checks _alignedBuffer) returns
-	// false and the legacy 8 bpp guard `if (!other) return;` would short-
-	// circuit the copy to an empty surface. Handle HD before the guard.
-	if (other._isHD && other._surface)
+	// HD surfaces (loadImageHD) and promoted-ARGB surfaces (promoteToARGB) both
+	// carry a 32bpp _surface. Handle before the 8bpp guard below, which would
+	// otherwise short-circuit on empty _alignedBuffer or call getPalette() on a
+	// surface with no palette object.
+	if (other._surface && other._surface->format->BitsPerPixel == 32)
 	{
 		// SDL_ConvertSurfaceFormat creates a properly-formatted ARGB8888 copy
 		// (with correct R/G/B/A masks). NewPair32Bit cannot be used here:
@@ -309,7 +333,7 @@ Surface::Surface(const Surface& other) : Surface{ }
 		_visible = other._visible;
 		_hidden  = other._hidden;
 		_redraw  = other._redraw;
-		_isHD    = true;
+		_isHD    = other._isHD;   // preserve HD-queue routing flag
 		_logicalW = other._logicalW;
 		_logicalH = other._logicalH;
 		return;
@@ -995,11 +1019,16 @@ void Surface::blit(SDL_Surface *surface)
 		target.y = getY();
 
 #ifdef __EMSCRIPTEN__
-		if (_isHD)
+		// Four-way blit table (6a.2):
+		//   ARGB src → 8bpp dst  : HDQueue (lands on final _screen via flush)
+		//   ARGB src → ARGB dst  : direct SDL_BlitSurface (alpha blend)
+		//   8bpp src → 8bpp dst  : SDL_BlitSurface (palette index copy)
+		//   8bpp src → ARGB dst  : SDL_BlitSurface (SDL2 cross-format)
+		if (_surface->format->BitsPerPixel == 32)
 		{
 			target.w = _logicalW > 0 ? _logicalW : _width;
 			target.h = _logicalH > 0 ? _logicalH : _height;
-			if (_logicalW == 0)
+			if (_isHD && _logicalW == 0)
 			{
 				static thread_local bool warned = false;
 				if (!warned)
@@ -1008,7 +1037,16 @@ void Surface::blit(SDL_Surface *surface)
 					warned = true;
 				}
 			}
-			HDQueue::push(_surface.get(), target);
+			if (surface->format->BitsPerPixel == 32)
+			{
+				// ARGB → ARGB: alpha-blend directly into the ARGB parent.
+				SDL_BlitSurface(_surface.get(), nullptr, surface, &target);
+			}
+			else
+			{
+				// ARGB → 8bpp: queue for final _screen composite.
+				HDQueue::push(_surface.get(), target);
+			}
 			return;
 		}
 #endif
@@ -1243,7 +1281,7 @@ SurfaceCrop Surface::getCrop() const
  */
 void Surface::setPalette(const SDL_Color *colors, int firstcolor, int ncolors)
 {
-	if (_surface->format->BitsPerPixel == 8)
+	if (colors && _surface->format->BitsPerPixel == 8)
 		SDL_SetColors(_surface.get(), const_cast<SDL_Color *>(colors), firstcolor, ncolors);
 }
 
@@ -1447,6 +1485,22 @@ void Surface::setLogicalSize(int w, int h)
 			_pitch   = (Uint16)_surface->pitch;
 		}
 	}
+}
+
+/**
+ * Promotes this surface from 8bpp indexed to 32bpp ARGB in-place.
+ * No-op if already ARGB. Used by UI containers that need to host HD children.
+ * Existing palette pixels are composited into the new ARGB buffer.
+ */
+void Surface::promoteToARGB()
+{
+	if (!_surface || _surface->format->BitsPerPixel == 32) return;
+
+	auto pair = Surface::NewPair32Bit(_width, _height);
+	SDL_SetSurfaceBlendMode(pair.second.get(), SDL_BLENDMODE_BLEND);
+	SDL_BlitSurface(_surface.get(), nullptr, pair.second.get(), nullptr);
+	std::tie(_alignedBuffer, _surface) = std::move(pair);
+	_pitch = (Uint16)_surface->pitch;
 }
 #endif
 

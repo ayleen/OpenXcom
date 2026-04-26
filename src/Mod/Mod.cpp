@@ -5798,6 +5798,7 @@ void Mod::loadBattlescapeResources()
 		tempSurface->loadImage("UFOGRAPH/" + lbms[i]);
 		_palettes[pals[i]] = new Palette();
 		SDL_Color *colors = tempSurface->getPalette();
+		if (!colors) { delete tempSurface; continue; }
 		colors[255] = backPal[i];
 		_palettes[pals[i]]->setColors(colors, 256);
 		createTransparencyLUT(_palettes[pals[i]]);

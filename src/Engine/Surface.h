@@ -101,10 +101,18 @@ protected:
 	/// Resizes the surface.
 	void resize(int width, int height);
 public:
+#ifdef __EMSCRIPTEN__
+	/// Surface pixel format used by the Format ctor.
+	enum class Format { Indexed8, ARGB8888 };
+#endif
 	/// Default empty surface.
 	Surface();
 	/// Creates a new surface with the specified size and position.
 	Surface(int width, int height, int x = 0, int y = 0);
+#ifdef __EMSCRIPTEN__
+	/// Creates a new surface with an explicit pixel format (ARGB8888 for HD UI containers).
+	Surface(int width, int height, int x, int y, Format fmt);
+#endif
 	/// Creates a new surface from an existing one.
 	Surface(const Surface& other);
 	/// Move surface to another place.
@@ -141,6 +149,11 @@ public:
 	bool isHD() const { return _isHD; }
 	/// Sets the logical (game-coordinate) size and pre-scales the HD surface to match.
 	void setLogicalSize(int w, int h);
+	/// Returns true if this surface is in 32bpp ARGB mode (HD asset or promoted UI container).
+	bool isARGB() const { return _surface && _surface->format->BitsPerPixel == 32; }
+	/// Promotes this surface from 8bpp indexed to 32bpp ARGB in-place.
+	/// No-op if already ARGB. Existing palette pixels are blitted into the new buffer.
+	void promoteToARGB();
 #endif
 	/// Clears the surface's contents with a specified colour.
 	void clear();
@@ -177,11 +190,12 @@ public:
 	/// Sets the surface's palette.
 	virtual void setPalette(const SDL_Color *colors, int firstcolor = 0, int ncolors = 256);
 	/**
-	 * Returns the surface's 8bpp palette.
-	 * @return Pointer to the palette's colors.
+	 * Returns the surface's 8bpp palette, or nullptr for ARGB surfaces.
+	 * @return Pointer to the palette's colors, or nullptr.
 	 */
 	SDL_Color *getPalette() const
 	{
+		if (!_surface || !_surface->format->palette) return nullptr;
 		return _surface->format->palette->colors;
 	}
 	/// Sets the X position of the surface.
@@ -210,6 +224,14 @@ public:
 	bool getVisible() const;
 	/// Gets the cropping rectangle for the surface.
 	SurfaceCrop getCrop() const;
+#ifdef __EMSCRIPTEN__
+	/// Writes a 32bpp ARGB pixel. Only valid on ARGB surfaces.
+	void setPixel32(int x, int y, Uint32 pixel)
+	{
+		if (x < 0 || x >= getWidth() || y < 0 || y >= getHeight()) return;
+		*(Uint32*)getRaw(x, y) = pixel;
+	}
+#endif
 	/**
 	 * Changes the color of a pixel in the surface, relative to
 	 * the top-left corner of the surface. Invalid positions are ignored.
@@ -282,6 +304,10 @@ public:
 	 * @return Pointer to the surface.
 	 */
 	SDL_Surface *getSurface()
+	{
+		return _surface.get();
+	}
+	const SDL_Surface *getSurface() const
 	{
 		return _surface.get();
 	}
