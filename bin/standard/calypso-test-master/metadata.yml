@@ -1,0 +1,6 @@
+name: "Calypso GPL Test Master"
+version: "1.0"
+description: "Synthetic GPL-only master for Phase 6a.1 regression harness. Not a playable game."
+author: "Calypso project"
+id: calypso-test-master
+isMaster: true

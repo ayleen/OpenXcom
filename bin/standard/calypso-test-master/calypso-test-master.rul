@@ -1,0 +1,18 @@
+fontName: Font.dat
+
+interfaces:
+  - type: mainMenu
+    backgroundImage: BACK01.SCR
+    elements:
+      - id: palette
+        color: 0
+      - id: window
+        color: 224
+      - id: text
+        color: 240
+      - id: button
+        color: 192
+      - id: battlescapeTheme
+        color: 128
+        color2: 128
+        border: 160
