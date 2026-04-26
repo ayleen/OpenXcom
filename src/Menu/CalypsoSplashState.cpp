@@ -17,12 +17,18 @@ CalypsoSplashState::CalypsoSplashState() : _bg(nullptr), _frames(0)
 	// e.g. when calypso-test-master is not the active master.
 	_bg = _game->getMod()->getSurface("CALYPSO_SPLASH_HD", false);
 	if (_bg)
-		add(_bg);
+	{
+		// Mod owns _bg; push directly into the render list (_surfaces) without
+		// going through add() / preAdd() — those mark the surface as owned and
+		// ~State() would delete it, corrupting the Mod's surface registry on
+		// any subsequent splash construction.
+		_surfaces.push_back(_bg);
+	}
 }
 
 CalypsoSplashState::~CalypsoSplashState()
 {
-	// _bg is owned by the Mod; do not delete it here.
+	// _bg is referenced, not owned; ~State() deletes only _surfacesOwned.
 }
 
 void CalypsoSplashState::init()
