@@ -267,6 +267,21 @@ void NumberText::setPalette(const SDL_Color *colors, int firstcolor, int ncolors
 	}
 }
 
+#ifdef __EMSCRIPTEN__
+/**
+ * Sets an ARGB color for rendering on ARGB surfaces.
+ * Promotes this surface to ARGB so the color is composited correctly.
+ * @param argb ARGB color value (0xAARRGGBB).
+ */
+void NumberText::setColorRGB(Uint32 argb)
+{
+	_colorRGB = argb;
+	_useRGB   = true;
+	promoteToARGB();
+	_redraw = true;
+}
+#endif
+
 /**
  * Draws all the digits in the number.
  */
@@ -277,6 +292,43 @@ void NumberText::draw()
 	ss << _value;
 	std::string s = ss.str();
 	int x = 0;
+
+#ifdef __EMSCRIPTEN__
+	if (_useRGB && isARGB())
+	{
+		// Draw digits into a temporary 8bpp surface, then transfer non-zero
+		// pixels as solid ARGB color onto this ARGB surface.
+		Surface tmp(getWidth(), getHeight());
+		if (!_bordered)
+		{
+			for (std::string::iterator i = s.begin(); i != s.end(); ++i)
+			{
+				_chars[*i - '0']->blitNShade(&tmp, x, 0);
+				x += _chars[*i - '0']->getWidth() + 1;
+			}
+		}
+		else
+		{
+			for (std::string::iterator i = s.begin(); i != s.end(); ++i)
+			{
+				_borderedChars[*i - '0']->blitNShade(&tmp, x, 0);
+				x += _chars[*i - '0']->getWidth() + 1;
+			}
+		}
+		lock();
+		for (int py = 0; py < getHeight(); ++py)
+		{
+			for (int px = 0; px < getWidth(); ++px)
+			{
+				if (tmp.getPixel(px, py) != 0)
+					setPixel32(px, py, _colorRGB);
+			}
+		}
+		unlock();
+		return;
+	}
+#endif
+
 	if (!_bordered)
 	{
 		for (std::string::iterator i = s.begin(); i != s.end(); ++i)

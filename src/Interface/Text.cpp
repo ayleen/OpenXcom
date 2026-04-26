@@ -231,6 +231,21 @@ Uint8 Text::getColor() const
 	return _color;
 }
 
+#ifdef __EMSCRIPTEN__
+/**
+ * Sets an ARGB color for rendering on ARGB surfaces.
+ * Promotes this surface to ARGB so the color is composited correctly.
+ * @param argb ARGB color value (0xAARRGGBB).
+ */
+void Text::setColorRGB(Uint32 argb)
+{
+	_colorRGB = argb;
+	_useRGB   = true;
+	promoteToARGB();
+	_redraw = true;
+}
+#endif
+
 /**
  * Changes the secondary color used to render the text. The text
  * switches between the primary and secondary color whenever there's
@@ -635,7 +650,31 @@ void Text::draw()
 			auto chr = font->getChar(*c);
 			chr.setX(x);
 			chr.setY(y);
-			ShaderDraw<PaletteShift>(ShaderSurface(this, 0, 0), ShaderCrop(chr), ShaderScalar(color), ShaderScalar(mul), ShaderScalar(mid));
+#ifdef __EMSCRIPTEN__
+			if (_useRGB && isARGB())
+			{
+				// ARGB glyph rendering: map non-zero source palette indices to
+				// _colorRGB. Binary opacity (any non-zero idx → full color).
+				const SDL_Rect *srcR = chr.getCrop();
+				const SDL_Surface *fontSurf = chr.getSurface()->getSurface();
+				lock();
+				for (int py = 0; py < srcR->h; ++py)
+				{
+					for (int px = 0; px < srcR->w; ++px)
+					{
+						Uint8 idx = ((const Uint8 *)fontSurf->pixels)
+							[(srcR->y + py) * fontSurf->pitch + (srcR->x + px)];
+						if (idx != 0)
+							setPixel32(x + px, y + py, _colorRGB);
+					}
+				}
+				unlock();
+			}
+			else
+#endif
+			{
+				ShaderDraw<PaletteShift>(ShaderSurface(this, 0, 0), ShaderCrop(chr), ShaderScalar(color), ShaderScalar(mul), ShaderScalar(mid));
+			}
 			if (dir > 0)
 				x += dir * font->getCharSize(*c).w;
 		}

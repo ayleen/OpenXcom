@@ -50,6 +50,10 @@ private:
 	TextVAlign _valign;
 	Uint8 _color, _color2;
 	int _scrollY;
+#ifdef __EMSCRIPTEN__
+	Uint32 _colorRGB = 0;
+	bool _useRGB = false;
+#endif
 
 	/// Processes the contained text.
 	void processText();
@@ -90,6 +94,10 @@ public:
 	void setColor(Uint8 color) override;
 	/// Gets the text's color.
 	Uint8 getColor() const;
+#ifdef __EMSCRIPTEN__
+	/// Sets the text's ARGB color (promotes surface to ARGB; for use in ARGB UI containers).
+	void setColorRGB(Uint32 argb);
+#endif
 	/// Sets the text's secondary color.
 	void setSecondaryColor(Uint8 color) override;
 	/// Gets the text's secondary color.
