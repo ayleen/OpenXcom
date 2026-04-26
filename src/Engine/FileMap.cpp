@@ -1263,7 +1263,8 @@ void scanModDir(const std::string& dirname, const std::string& basename, bool pr
 		"XcomUtil_Statstrings",
 		"XcomUtil_Statstrings_TFTD",
 		"XcomUtil_Triton_Weapon_Slot",
-		"XCOM_Damage"
+		"XCOM_Damage",
+		"calypso-hd-demo"
 	};
 
 	std::string log_ctx = "scanModDir('" + dirname + "', '" + basename + "'): ";
