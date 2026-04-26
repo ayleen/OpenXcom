@@ -710,8 +710,11 @@ void Surface::loadImageHD(const std::string &filename)
 	_surface = std::move(converted);
 #ifdef __EMSCRIPTEN__
 	_isHD = true;
-	_logicalW = _width;
-	_logicalH = _height;
+	// Intentionally leave _logicalW/_logicalH at 0 — the caller MUST follow
+	// loadImageHD() with setLogicalSize(). The blit() warning fires when this
+	// contract is violated; auto-defaulting here would silence it.
+	_logicalW = 0;
+	_logicalH = 0;
 #endif
 }
 
