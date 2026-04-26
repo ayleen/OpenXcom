@@ -292,8 +292,12 @@ Surface::Surface(const Surface& other) : Surface{ }
 	if (other._isHD)
 	{
 		std::tie(_alignedBuffer, _surface) = Surface::NewPair32Bit(width, height);
+		// Use SDL_BlitSurface with no blending for a straight ARGB pixel copy.
+		// RawCopySurf is Uint8-only and would silently corrupt 32-bit data.
+		SDL_SetSurfaceBlendMode(other._surface.get(), SDL_BLENDMODE_NONE);
+		SDL_BlitSurface(other._surface.get(), nullptr, _surface.get(), nullptr);
+		SDL_SetSurfaceBlendMode(other._surface.get(), SDL_BLENDMODE_BLEND);
 		SDL_SetSurfaceBlendMode(_surface.get(), SDL_BLENDMODE_BLEND);
-		RawCopySurf(_surface, other._surface);
 		_width   = (Uint16)width;
 		_height  = (Uint16)height;
 		_pitch   = (Uint16)_surface->pitch;
@@ -396,9 +400,6 @@ void Surface::loadRaw(const std::vector<char> &bytes)
  */
 void Surface::loadScr(const std::string& filename)
 {
-#ifdef __EMSCRIPTEN__
-	_isHD = false; _logicalW = _logicalH = 0;
-#endif
 	// Load file and put pixels in surface
 	auto istream = FileMap::getIStream(filename);
 	std::vector<char> buffer((std::istreambuf_iterator<char>(*(istream))), (std::istreambuf_iterator<char>()));
@@ -983,8 +984,15 @@ void Surface::blit(SDL_Surface *surface)
 		{
 			target.w = _logicalW > 0 ? _logicalW : _width;
 			target.h = _logicalH > 0 ? _logicalH : _height;
-			if (target.w == 0)
-				Log(LOG_WARNING) << "HD surface hit blit() with logicalW=0 — setLogicalSize not called";
+			if (_logicalW == 0)
+			{
+				static thread_local bool warned = false;
+				if (!warned)
+				{
+					Log(LOG_WARNING) << "HD surface hit blit() with logicalW=0 — setLogicalSize not called";
+					warned = true;
+				}
+			}
 			HDQueue::push(_surface.get(), target);
 			return;
 		}

@@ -50,6 +50,11 @@ inline void flush(SDL_Surface *target)
 	get().clear();
 }
 
+inline void reset()
+{
+	get().clear();
+}
+
 } /* namespace HDQueue */
 } /* namespace OpenXcom */
 

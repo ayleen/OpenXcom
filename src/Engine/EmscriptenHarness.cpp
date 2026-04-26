@@ -16,17 +16,14 @@
 #include "Game.h"
 #include "Screen.h"
 
-using namespace OpenXcom;
-
-extern Game *game;
-
 extern "C" {
 
 EMSCRIPTEN_KEEPALIVE
 void calypso_screenshot(const char *path)
 {
-	if (game && game->getScreen())
-		game->getScreen()->screenshot(path);
+	OpenXcom::Game *g = OpenXcom::getCurrentGame();
+	if (g && g->getScreen())
+		g->getScreen()->screenshot(path);
 }
 
 } /* extern "C" */

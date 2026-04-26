@@ -178,4 +178,9 @@ public:
 	int getScrollStep() const { return _scrollStep; }
 };
 
+#ifdef __EMSCRIPTEN__
+/// Returns the running Game instance (used by Emscripten harness entry-points).
+Game *getCurrentGame();
+#endif
+
 }

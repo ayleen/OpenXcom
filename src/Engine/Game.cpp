@@ -23,6 +23,7 @@
 #include <sstream>
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
+#include "HDQueue.h"
 #endif
 #include <SDL_mixer.h>
 #include "State.h"
@@ -48,6 +49,13 @@
 #include "../Menu/TestState.h"
 #include <algorithm>
 #include "../fallthrough.h"
+
+#ifdef __EMSCRIPTEN__
+// The global `game` pointer is defined in main.cpp at global scope (not in a
+// namespace).  Declare it here so getCurrentGame() can return it without
+// requiring every caller to write its own extern declaration.
+extern OpenXcom::Game *game;
+#endif
 
 namespace OpenXcom
 {
@@ -135,8 +143,16 @@ Game::~Game()
 
 	Mix_CloseAudio();
 
+#ifdef __EMSCRIPTEN__
+	HDQueue::reset();
+#endif
+
 	SDL_Quit();
 }
+
+#ifdef __EMSCRIPTEN__
+Game *getCurrentGame() { return ::game; }
+#endif
 
 /**
  * Executes one iteration of the game loop.
