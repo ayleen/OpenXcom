@@ -29,6 +29,9 @@
 #include "Logger.h"
 #include "SDL2Helpers.h"
 #include "FileMap.h"
+#ifdef __EMSCRIPTEN__
+#include "HDQueue.h"
+#endif
 #ifdef _WIN32
 #include <malloc.h>
 #endif
@@ -284,6 +287,28 @@ Surface::Surface(const Surface& other) : Surface{ }
 	}
 	int width = other.getWidth();
 	int height = other.getHeight();
+
+#ifdef __EMSCRIPTEN__
+	if (other._isHD)
+	{
+		std::tie(_alignedBuffer, _surface) = Surface::NewPair32Bit(width, height);
+		SDL_SetSurfaceBlendMode(_surface.get(), SDL_BLENDMODE_BLEND);
+		RawCopySurf(_surface, other._surface);
+		_width   = (Uint16)width;
+		_height  = (Uint16)height;
+		_pitch   = (Uint16)_surface->pitch;
+		_x       = other._x;
+		_y       = other._y;
+		_visible = other._visible;
+		_hidden  = other._hidden;
+		_redraw  = other._redraw;
+		_isHD    = true;
+		_logicalW = other._logicalW;
+		_logicalH = other._logicalH;
+		return;
+	}
+#endif
+
 	//move copy
 	*this = Surface(width, height, other._x, other._y);
 	//cant call `setPalette` because its virtual function and it doesn't work correctly in constructor
@@ -339,6 +364,9 @@ void Surface::rawCopy(const std::vector<T> &src)
  */
 void Surface::loadRaw(const std::vector<unsigned char> &bytes)
 {
+#ifdef __EMSCRIPTEN__
+	_isHD = false; _logicalW = _logicalH = 0;
+#endif
 	lock();
 	rawCopy(bytes);
 	unlock();
@@ -351,6 +379,9 @@ void Surface::loadRaw(const std::vector<unsigned char> &bytes)
  */
 void Surface::loadRaw(const std::vector<char> &bytes)
 {
+#ifdef __EMSCRIPTEN__
+	_isHD = false; _logicalW = _logicalH = 0;
+#endif
 	lock();
 	rawCopy(bytes);
 	unlock();
@@ -365,6 +396,9 @@ void Surface::loadRaw(const std::vector<char> &bytes)
  */
 void Surface::loadScr(const std::string& filename)
 {
+#ifdef __EMSCRIPTEN__
+	_isHD = false; _logicalW = _logicalH = 0;
+#endif
 	// Load file and put pixels in surface
 	auto istream = FileMap::getIStream(filename);
 	std::vector<char> buffer((std::istreambuf_iterator<char>(*(istream))), (std::istreambuf_iterator<char>()));
@@ -518,6 +552,9 @@ static bool loadLbmInto(Surface &out, const Uint8 *data, size_t size)
  */
 void Surface::loadImage(const std::string &filename)
 {
+#ifdef __EMSCRIPTEN__
+	_isHD = false; _logicalW = _logicalH = 0;
+#endif
 	// Destroy current surface (will be replaced)
 	_alignedBuffer = nullptr;
 	_surface = nullptr;
@@ -670,6 +707,11 @@ void Surface::loadImageHD(const std::string &filename)
 	_x = 0;
 	_y = 0;
 	_surface = std::move(converted);
+#ifdef __EMSCRIPTEN__
+	_isHD = true;
+	_logicalW = _width;
+	_logicalH = _height;
+#endif
 }
 
 /**
@@ -681,6 +723,9 @@ void Surface::loadImageHD(const std::string &filename)
  */
 void Surface::loadSpk(const std::string& filename)
 {
+#ifdef __EMSCRIPTEN__
+	_isHD = false; _logicalW = _logicalH = 0;
+#endif
 	Uint16 flag;
 	int x = 0, y = 0;
 	auto rw = FileMap::getRWopsReadAll(filename);
@@ -711,6 +756,9 @@ void Surface::loadSpk(const std::string& filename)
  */
 void Surface::loadBdy(const std::string &filename)
 {
+#ifdef __EMSCRIPTEN__
+	_isHD = false; _logicalW = _logicalH = 0;
+#endif
 	Uint8 dataByte;
 	int pixelCnt;
 	int x = 0, y = 0;
@@ -929,6 +977,19 @@ void Surface::blit(SDL_Surface *surface)
 		SDL_Rect target {};
 		target.x = getX();
 		target.y = getY();
+
+#ifdef __EMSCRIPTEN__
+		if (_isHD)
+		{
+			target.w = _logicalW > 0 ? _logicalW : _width;
+			target.h = _logicalH > 0 ? _logicalH : _height;
+			if (target.w == 0)
+				Log(LOG_WARNING) << "HD surface hit blit() with logicalW=0 — setLogicalSize not called";
+			HDQueue::push(_surface.get(), target);
+			return;
+		}
+#endif
+
 		SDL_BlitSurface(_surface.get(), nullptr, surface, &target);
 	}
 }
@@ -1272,6 +1333,9 @@ void Surface::invalidate(bool valid)
  */
 void Surface::resize(int width, int height)
 {
+#ifdef __EMSCRIPTEN__
+	_isHD = false; _logicalW = _logicalH = 0;
+#endif
 	// Set up new surface
 	Uint8 bpp = _surface->format->BitsPerPixel;
 	auto alignedBuffer = NewAlignedBuffer(bpp, width, height);
@@ -1290,6 +1354,59 @@ void Surface::resize(int width, int height)
 	_height = _surface->h;
 	_pitch = _surface->pitch;
 }
+
+#ifdef __EMSCRIPTEN__
+/**
+ * Scales the HD surface to the target logical size using bilinear filtering.
+ * Done once at load time; subsequent blit() uses the pre-scaled pixels.
+ * No-op for 8bpp surfaces or when the size already matches.
+ */
+static Surface::UniqueSurfacePtr preScaleHDBilinear(SDL_Surface *src, int w, int h)
+{
+	auto dst = Surface::NewSdlSurface(
+		SDL_CreateRGBSurfaceWithFormat(0, w, h, 32, SDL_PIXELFORMAT_ARGB8888));
+	if (!dst) return nullptr;
+
+	SDL_SetSurfaceBlendMode(dst.get(), SDL_BLENDMODE_BLEND);
+	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
+
+	SDL_Renderer *renderer = SDL_CreateSoftwareRenderer(dst.get());
+	if (!renderer) return nullptr;
+
+	SDL_Texture *tex = SDL_CreateTextureFromSurface(renderer, src);
+	if (!tex) { SDL_DestroyRenderer(renderer); return nullptr; }
+
+	SDL_SetTextureBlendMode(tex, SDL_BLENDMODE_BLEND);
+	SDL_RenderClear(renderer);
+	SDL_RenderCopy(renderer, tex, nullptr, nullptr);
+	SDL_DestroyTexture(tex);
+	SDL_DestroyRenderer(renderer);
+
+	return dst;
+}
+
+/**
+ * Stores the logical (game-coordinate) size for this HD surface and
+ * pre-scales the pixel data to match if the native size differs.
+ * Call immediately after loadImageHD to set the intended display size.
+ */
+void Surface::setLogicalSize(int w, int h)
+{
+	_logicalW = (Uint16)w;
+	_logicalH = (Uint16)h;
+
+	if (_isHD && _surface && (_surface->w != w || _surface->h != h))
+	{
+		if (auto scaled = preScaleHDBilinear(_surface.get(), w, h))
+		{
+			_surface = std::move(scaled);
+			_width   = (Uint16)w;
+			_height  = (Uint16)h;
+			_pitch   = (Uint16)_surface->pitch;
+		}
+	}
+}
+#endif
 
 /**
  * Changes the width of the surface.

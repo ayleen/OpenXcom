@@ -90,6 +90,10 @@ protected:
 	Uint8 _visible: 1;
 	Uint8 _hidden: 1;
 	Uint8 _redraw: 1;
+#ifdef __EMSCRIPTEN__
+	bool _isHD = false;
+	Uint16 _logicalW = 0, _logicalH = 0;
+#endif
 
 	/// Copies raw pixels.
 	template <typename T>
@@ -132,6 +136,12 @@ public:
 	void loadImage(const std::string &filename);
 	/// Loads a 32-bit RGBA image (HD asset path — preserves alpha, skips palette quantization).
 	void loadImageHD(const std::string &filename);
+#ifdef __EMSCRIPTEN__
+	/// Returns true if this surface carries an HD (ARGB8888) image.
+	bool isHD() const { return _isHD; }
+	/// Sets the logical (game-coordinate) size and pre-scales the HD surface to match.
+	void setLogicalSize(int w, int h);
+#endif
 	/// Clears the surface's contents with a specified colour.
 	void clear();
 	/// Offsets the surface's colors by a set amount.
