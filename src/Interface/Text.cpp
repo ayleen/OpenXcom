@@ -659,15 +659,23 @@ void Text::draw()
 				tmp_chr.setX(0);
 				tmp_chr.setY(0);
 				Surface tmp(cw, ch, 0, 0);
+				// Identity copy: PaletteShift with off=0, mul=1, mid=0 yields
+				// dest = src — keeps original glyph intensities (1..5) in tmp
+				// for the alpha-mapping pass below. Passing the real color/mul/mid
+				// would shift them into palette indices (e.g. 241..245), making the
+				// idx>=5 clamp always trigger and collapsing AA back to binary.
 				ShaderDraw<PaletteShift>(ShaderSurface(&tmp, 0, 0), ShaderCrop(tmp_chr),
-				                        ShaderScalar(color), ShaderScalar(mul), ShaderScalar(mid));
+				                        ShaderScalar(0), ShaderScalar(1), ShaderScalar(0));
 				lock();
 				for (int py = 0; py < ch; ++py)
 					for (int px = 0; px < cw; ++px)
 					{
 						Uint8 idx = tmp.getPixel(px, py);
 						if (idx == 0) continue;
-						Uint8 sa = (idx >= 5u) ? 255u : (Uint8)((Uint32)idx * 255u / 5u);
+						// Map glyph intensity (1..4) to alpha. Note: OXCE fonts
+						// rarely use idx=5; clamp anyway for safety.
+						Uint32 ialpha = (idx >= 4u) ? 255u : ((Uint32)idx * 255u / 4u);
+						Uint8 sa = (Uint8)ialpha;
 						Uint8 da = (Uint8)(((Uint32)(_colorRGB >> 24) * sa) / 255u);
 						setPixel32(x + px, y + py, (_colorRGB & 0x00FFFFFFu) | ((Uint32)da << 24));
 					}
