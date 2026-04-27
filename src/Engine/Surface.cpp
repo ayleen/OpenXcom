@@ -281,8 +281,9 @@ Surface::Surface(const Surface& other) : Surface{ }
 		_hasSavedPalette = other._hasSavedPalette;
 		if (_hasSavedPalette)
 			memcpy(_savedPalette, other._savedPalette, 256 * sizeof(SDL_Color));
-		_shadeTable = other._shadeTable;
-		_shadeCycle  = other._shadeCycle;
+		_shadeTable    = other._shadeTable;
+		_shadeCycle    = other._shadeCycle;
+		_paletteMirror = other._paletteMirror;
 		return;
 	}
 
@@ -1358,6 +1359,13 @@ void Surface::setPalette(const SDL_Color *colors, int firstcolor, int ncolors)
 			memcpy(_savedPalette, _surface->format->palette->colors, 256 * sizeof(SDL_Color));
 			_hasSavedPalette = true;
 		}
+		// R1.1: capture palette index buffer before SDL_BlitSurface resolves pixels to RGB.
+		{
+			_paletteMirror.resize((size_t)_width * _height);
+			const Uint8 *src8 = (const Uint8 *)_surface->pixels;
+			for (int row = 0; row < _height; ++row)
+				memcpy(&_paletteMirror[(size_t)row * _width], src8 + row * _surface->pitch, _width);
+		}
 		{
 			auto pair = Surface::NewPair32Bit(_width, _height);
 			SDL_SetSurfaceBlendMode(pair.second.get(), SDL_BLENDMODE_BLEND);
@@ -1520,9 +1528,13 @@ void Surface::blitNShade(SurfaceRaw<Uint8> surface, int x, int y, int shade, Gra
 	ShaderDraw<helper::StandardShade>(dest, src, ShaderScalar(shade));
 }
 
-// 7.B: ARGB overloads — source shade table carried on *this.
+// 7.B / R1.1: ARGB overloads — source shade table + palette mirror carried by callers.
+
+// Helper: dispatch ShaderDraw for StandardShade with correct idx type (ShaderMove vs ShaderScalar).
+// Defined as a lambda below inside blitRaw to avoid a separate symbol.
 
 void Surface::blitRaw(SurfaceRaw<Uint32> destSurf, SurfaceRaw<const Uint32> srcSurf,
+                      SurfaceRaw<const Uint8> srcMirror,
                       int x, int y, int shade, bool half, int newBaseColor,
                       const ShadeTable *srcTable, const ShadeTable *recolouredTable)
 {
@@ -1537,30 +1549,66 @@ void Surface::blitRaw(SurfaceRaw<Uint32> destSurf, SurfaceRaw<const Uint32> srcS
 	{
 		--newBaseColor;
 		newBaseColor <<= 4;
-		ShaderDraw<helper::ColorReplace>(ShaderSurface(destSurf), src,
-		                                 ShaderScalar(shade), ShaderScalar(newBaseColor),
-		                                 ShaderScalar(srcTable), ShaderScalar(recolouredTable));
+		if (srcMirror)
+		{
+			ShaderMove<const Uint8> idx(srcMirror, x, y);
+			ShaderDraw<helper::ColorReplace>(ShaderSurface(destSurf), src, idx,
+			                                 ShaderScalar(shade), ShaderScalar(newBaseColor),
+			                                 ShaderScalar(srcTable), ShaderScalar(recolouredTable));
+		}
+		else
+		{
+			Uint8 zero = 0;
+			ShaderDraw<helper::ColorReplace>(ShaderSurface(destSurf), src, ShaderScalar(zero),
+			                                 ShaderScalar(shade), ShaderScalar(newBaseColor),
+			                                 ShaderScalar(srcTable), ShaderScalar(recolouredTable));
+		}
 	}
 	else
 	{
-		ShaderDraw<helper::StandardShade>(ShaderSurface(destSurf), src,
-		                                  ShaderScalar(shade), ShaderScalar(srcTable));
+		if (srcMirror)
+		{
+			ShaderMove<const Uint8> idx(srcMirror, x, y);
+			ShaderDraw<helper::StandardShade>(ShaderSurface(destSurf), src, idx,
+			                                  ShaderScalar(shade), ShaderScalar(srcTable));
+		}
+		else
+		{
+			Uint8 zero = 0;
+			ShaderDraw<helper::StandardShade>(ShaderSurface(destSurf), src, ShaderScalar(zero),
+			                                  ShaderScalar(shade), ShaderScalar(srcTable));
+		}
 	}
 }
 
 void Surface::blitNShade(SurfaceRaw<Uint32> surface, int x, int y, int shade, bool half, int newBaseColor) const
 {
 	SurfaceRaw<const Uint32> srcRaw(reinterpret_cast<const Uint32*>(getBuffer()), getWidth(), getHeight(), getPitch());
-	blitRaw(surface, srcRaw, x, y, shade, half, newBaseColor, getShadeTable());
+	SurfaceRaw<const Uint8>  mirrorRaw(_paletteMirror.empty() ? nullptr : _paletteMirror.data(),
+	                                   _width, _height, _width);
+	blitRaw(surface, srcRaw, mirrorRaw, x, y, shade, half, newBaseColor, getShadeTable());
 }
 
 void Surface::blitNShade(SurfaceRaw<Uint32> surface, int x, int y, int shade, GraphSubset range) const
 {
 	SurfaceRaw<const Uint32> srcRaw(reinterpret_cast<const Uint32*>(getBuffer()), getWidth(), getHeight(), getPitch());
+	SurfaceRaw<const Uint8>  mirrorRaw(_paletteMirror.empty() ? nullptr : _paletteMirror.data(),
+	                                   _width, _height, _width);
 	ShaderMove<const Uint32> src(srcRaw, x, y);
-	ShaderMove<Uint32> dest(surface);
+	ShaderMove<Uint32>       dest(surface);
 	dest.setDomain(range);
-	ShaderDraw<helper::StandardShade>(dest, src, ShaderScalar(shade), ShaderScalar(getShadeTable()));
+	if (mirrorRaw)
+	{
+		ShaderMove<const Uint8> idx(mirrorRaw, x, y);
+		ShaderDraw<helper::StandardShade>(dest, src, idx,
+		                                  ShaderScalar(shade), ShaderScalar(getShadeTable()));
+	}
+	else
+	{
+		Uint8 zero = 0;
+		ShaderDraw<helper::StandardShade>(dest, src, ShaderScalar(zero),
+		                                  ShaderScalar(shade), ShaderScalar(getShadeTable()));
+	}
 }
 
 void Surface::blitNShade(Surface* dest, int x, int y, int shade, bool half, int newBaseColor) const
@@ -1575,7 +1623,13 @@ void Surface::blitNShade(Surface* dest, int x, int y, int shade, GraphSubset ran
 
 void Surface::blitRaw(Surface* dest, const Surface* src, int x, int y, int shade, bool half, int newBaseColor)
 {
-	blitRaw(SurfaceRaw<Uint32>(dest), SurfaceRaw<const Uint32>(src), x, y, shade, half, newBaseColor,
+	SurfaceRaw<const Uint8> mirrorRaw(
+		(src && !src->_paletteMirror.empty()) ? src->_paletteMirror.data() : nullptr,
+		src ? src->getWidth() : 0,
+		src ? src->getHeight() : 0,
+		src ? src->getWidth() : 0);
+	blitRaw(SurfaceRaw<Uint32>(dest), SurfaceRaw<const Uint32>(src), mirrorRaw,
+	        x, y, shade, half, newBaseColor,
 	        src ? src->getShadeTable() : nullptr);
 }
 

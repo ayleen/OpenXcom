@@ -157,7 +157,7 @@ AlienInventoryState::AlienInventoryState(BattleUnit *unit)
 			for (const auto& layer : s->getArmorLayers())
 			{
 				auto* surf = _game->getMod()->getSurface(layer, true);
-				surf->blitNShade(_soldier->getSurface(), 0, 0);
+				surf->blitNShade(_soldier, 0, 0); // R1.3: pass Surface* not SDL_Surface*
 			}
 		}
 		else

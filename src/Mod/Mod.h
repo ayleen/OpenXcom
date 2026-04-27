@@ -410,13 +410,9 @@ public:
 	constexpr static int NO_SOUND = -1;
 	/// Special value for default string different to empty one.
 	static const std::string STR_NULL;
-#ifdef __EMSCRIPTEN__
-	/// Returns true while mod assets are being loaded (setPalette builds shade tables).
-	/// False at runtime — setPalette cascade calls are no-ops after load completes.
-	static bool isLoadInProgress();
-	/// Called by Mod::load* internals to bracket the load phase.
-	static void setLoadInProgress(bool v);
-#endif
+	// R2.2 scope cut: isLoadInProgress / setLoadInProgress removed.
+	// The runtime buildFromPalette cost (~4 KB/setPalette) is acceptable;
+	// gating adds complexity for no visible gain.
 
 	static int ITEM_DROP;
 	static int ITEM_THROW;

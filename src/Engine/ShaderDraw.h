@@ -175,27 +175,21 @@ struct ColorReplace
 	}
 #endif // LEGACY_8BPP_HELPERS
 
-	/// 7.B ARGB overload: ColorReplace using pre-built recolouredTable.
-	static inline void func(Uint32& dest, const Uint32& src, const int& shade,
-	                        const int& newBaseColor,
+	/// 7.B / R1.1: ARGB overload — srcIdx is the original palette index from _paletteMirror.
+	static inline void func(Uint32& dest, const Uint32& src, const Uint8& srcIdx,
+	                        const int& shade, const int& newBaseColor,
 	                        const ShadeTable *table, const ShadeTable *recolouredTable)
 	{
 		if ((src >> 24) == 0) return;
-		if (table && recolouredTable)
-		{
-			const Uint8 idx = (Uint8)(src & 0xff);
-			dest = recolouredTable->get(idx, shade);
-		}
+		if (recolouredTable)
+			dest = recolouredTable->get(srcIdx, shade);
 		else if (table)
 		{
-			const Uint8 idx    = (Uint8)(src & 0xff);
-			const Uint8 newIdx = (Uint8)((idx & ColorShade) | (Uint8)newBaseColor);
+			const Uint8 newIdx = (Uint8)((srcIdx & ColorShade) | (Uint8)newBaseColor);
 			dest = table->get(newIdx, shade);
 		}
 		else
-		{
 			dest = ::OpenXcom::shadeARGBCurve(src, shade);
-		}
 	}
 };
 
@@ -241,22 +235,16 @@ struct StandardShade
 	}
 #endif // LEGACY_8BPP_HELPERS
 
-	/// 7.B ARGB overload: StandardShade using shade table lookup.
-	/// src low byte (B channel) carries the original palette index.
+	/// 7.B / R1.1: ARGB overload — srcIdx is the original palette index from _paletteMirror.
 	/// If table is null (HD asset), falls back to shadeARGBCurve.
-	static inline void func(Uint32& dest, const Uint32& src,
+	static inline void func(Uint32& dest, const Uint32& src, const Uint8& srcIdx,
 	                        const int& shade, const ShadeTable *table)
 	{
 		if ((src >> 24) == 0) return;
 		if (table)
-		{
-			const Uint8 idx = (Uint8)(src & 0xff);
-			dest = table->get(idx, shade);
-		}
+			dest = table->get(srcIdx, shade);
 		else
-		{
 			dest = ::OpenXcom::shadeARGBCurve(src, shade);
-		}
 	}
 };
 
@@ -296,8 +284,8 @@ struct BurnShade
 	}
 #endif // LEGACY_8BPP_HELPERS
 
-	/// 7.B ARGB overload: BurnShade using shade table lookup.
-	static inline void func(Uint32& dest, const Uint32& src,
+	/// 7.B / R1.1: ARGB overload — srcIdx is the original palette index from _paletteMirror.
+	static inline void func(Uint32& dest, const Uint32& src, const Uint8& srcIdx,
 	                        const int& burn, const int& shade,
 	                        const ShadeTable *table)
 	{
@@ -307,28 +295,21 @@ struct BurnShade
 			dest = ::OpenXcom::shadeARGBCurve(src, shade);
 			return;
 		}
-		const Uint8 idx = (Uint8)(src & 0xff);
 		if (burn)
 		{
-			const Uint8 tempBurn = (idx & ColorShade) + (Uint8)burn;
+			const Uint8 tempBurn = (srcIdx & ColorShade) + (Uint8)burn;
 			if (tempBurn > 26)
-			{
-				dest = table->get(idx, shade);
-			}
+				dest = table->get(srcIdx, shade);
 			else if (tempBurn > 15)
-			{
 				dest = table->get(ColorShade, shade);
-			}
 			else
 			{
-				const Uint8 burned = (Uint8)((idx & ColorGroup) + tempBurn);
+				const Uint8 burned = (Uint8)((srcIdx & ColorGroup) + tempBurn);
 				dest = table->get(burned, shade);
 			}
 		}
 		else
-		{
-			dest = table->get(idx, shade);
-		}
+			dest = table->get(srcIdx, shade);
 	}
 };
 

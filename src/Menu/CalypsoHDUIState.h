@@ -3,7 +3,7 @@
  * Phase 6a.2 — Calypso HD UI demo state.
  *
  * Demonstrates the ARGB UI subtree introduced in 6a.2:
- *   - Window auto-promoted to ARGB (via promoteToARGB()) hosting an HD panel bg
+ *   - Window's default ARGB surface (Phase 7+) hosting an HD panel bg
  *   - Text label rendered with setColorRGB() (ARGB glyph path)
  *   - TextButton auto-promoted to ARGB when its text child is ARGB
  *

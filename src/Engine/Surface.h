@@ -100,6 +100,10 @@ protected:
 	std::shared_ptr<ShadeTable> _shadeTable;
 	// Cycle-phase auxiliary tables for palette-cycling assets (empty for static assets).
 	std::vector<std::shared_ptr<ShadeTable>> _shadeCycle;
+	// Remediation R1.1: one byte per pixel carrying the original palette index.
+	// Populated by setPalette() just before SDL_BlitSurface resolves 8bpp → ARGB.
+	// Empty for HD-loaded surfaces; those fall back to shadeARGBCurve.
+	std::vector<Uint8> _paletteMirror;
 
 	/// Copies raw pixels.
 	template <typename T>
@@ -152,6 +156,13 @@ public:
 	// Phase 7: shade table accessors (cross-platform; guard removed in 7.K).
 	/// Returns the primary shade table, or nullptr if not yet built.
 	const ShadeTable *getShadeTable() const { return _shadeTable.get(); }
+	/// R1.1: palette-index mirror. nullptr if surface was loaded from HD path (no palette).
+	const Uint8 *getPaletteMirror() const
+	{
+		return _paletteMirror.empty() ? nullptr : _paletteMirror.data();
+	}
+	/// R1.1: mirror width (equals surface width; 0 if empty).
+	Uint16 getPaletteMirrorWidth() const { return _paletteMirror.empty() ? 0 : _width; }
 
 	/// Returns the cycle-phase shade table, or the primary table as fallback.
 	const ShadeTable *getShadeTable(int cyclePhase) const;
@@ -205,8 +216,9 @@ public:
 	/// Sets the surface's palette.
 	virtual void setPalette(const SDL_Color *colors, int firstcolor = 0, int ncolors = 256);
 	/**
-	 * Returns the surface's 8bpp palette, or nullptr for ARGB surfaces.
-	 * @return Pointer to the palette's colors, or nullptr.
+	 * Returns the SDL palette object, or nullptr after promotion to ARGB.
+	 * Post-Phase 7, all surfaces are ARGB so this returns nullptr at runtime.
+	 * For drawing-helper code that needs colours, prefer getEffectivePalette().
 	 */
 	SDL_Color *getPalette() const
 	{
@@ -302,6 +314,17 @@ public:
 		}
 		return *getRaw(x, y);
 	}
+	/// R3.3: returns the full 32bpp ARGB pixel at (x,y). Use for ARGB surfaces.
+	/// For palette-derived surfaces loaded pre-Phase 7, the B channel holds the
+	/// original palette index (historical); use getPaletteMirror() for reliable index access.
+	Uint32 getPixel32(int x, int y) const
+	{
+		if (x < 0 || x >= getWidth() || y < 0 || y >= getHeight())
+			return 0;
+		const Uint32 *row = reinterpret_cast<const Uint32 *>(
+			static_cast<const Uint8 *>(getBuffer()) + (size_t)y * _pitch);
+		return row[x];
+	}
 	/**
 	 * Returns the pointer to a specified pixel in the surface.
 	 * @param x X position of the pixel.
@@ -381,8 +404,9 @@ public:
 	void blitNShade(SurfaceRaw<Uint8> surface, int x, int y, int shade = 0, bool half = false, int newBaseColor = 0) const;
 	/// Specific blit function to blit battlescape terrain data in different shades in a fast way.
 	void blitNShade(SurfaceRaw<Uint8> surface, int x, int y, int shade, GraphSubset range) const;
-	/// 7.B: ARGB blit — uses per-asset shade table for pixel-perfect vanilla shading.
+	/// 7.B / R1.1: ARGB blit — srcMirror carries palette indices; nullptr falls back to shadeARGBCurve.
 	static void blitRaw(SurfaceRaw<Uint32> dest, SurfaceRaw<const Uint32> src,
+	                    SurfaceRaw<const Uint8> srcMirror,
 	                    int x, int y, int shade, bool half = false, int newBaseColor = 0,
 	                    const ShadeTable *srcTable = nullptr, const ShadeTable *recolouredTable = nullptr);
 	/// 7.B: ARGB blitNShade — shade table taken from this->getShadeTable().

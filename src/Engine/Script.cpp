@@ -538,15 +538,27 @@ void ScriptWorkerBlit::executeBlit(const Surface* src, Surface* dest, int x, int
 	// 7.G: ARGB hybrid dispatcher.
 	// All Emscripten surfaces are 32bpp ARGB.  The legacy 8bpp script VM (_proc)
 	// cannot consume Uint32 pixels directly — skip it and fall through to the
-	// shade-table path.  hdScripts:true ARGB VM is a future extension.
-	(void)_useHDScripts;
+	// shade-table path.  hdScripts:true ARGB VM deferred to Phase 8 (R2.1 scope cut).
 	if (src && src->isARGB())
 	{
 		ShaderMove<const Uint32> srcShader(SurfaceRaw<const Uint32>(src), x, y);
 		ShaderMove<Uint32>       destShader(SurfaceRaw<Uint32>(dest));
 		destShader.setDomain(mask);
 		const ShadeTable *tbl = src->getShadeTable();
-		ShaderDraw<helper::StandardShade>(destShader, srcShader, ShaderScalar(shade), ShaderScalar(tbl));
+		const Uint8 *mirrorData = src->getPaletteMirror();
+		if (mirrorData)
+		{
+			SurfaceRaw<const Uint8> mirrorRaw(mirrorData, src->getWidth(), src->getHeight(), src->getWidth());
+			ShaderMove<const Uint8>  idxShader(mirrorRaw, x, y);
+			ShaderDraw<helper::StandardShade>(destShader, srcShader, idxShader,
+			                                  ShaderScalar(shade), ShaderScalar(tbl));
+		}
+		else
+		{
+			Uint8 zero = 0;
+			ShaderDraw<helper::StandardShade>(destShader, srcShader, ShaderScalar(zero),
+			                                  ShaderScalar(shade), ShaderScalar(tbl));
+		}
 		return;
 	}
 

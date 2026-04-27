@@ -1190,15 +1190,18 @@ void Map::drawTerrain(Surface *surface)
 							+ (p.getColor() * Mod::TransparenciesOpacityLevels * Mod::TransparenciesPaletteColors)
 							+ (p.getOpacity() * Mod::TransparenciesPaletteColors);
 
+						// R1.2: fixed 32bpp write (was writing Uint8 into Uint32 pixel, corrupting 3 bytes).
+						// Pixel-identical palette transparency requires a destination framebuffer
+						// mirror; perceptual darkening used until that is implemented.
 						ShaderDrawFunc(
-							[&](Uint8& dest, int size)
+							[&](Uint32& dest, int size)
 							{
 								if (p.getSize() <= size)
 								{
-									dest = transparetOffsets[dest];
+									dest = ::OpenXcom::shadeARGBCurve(dest, p.getOpacity());
 								}
 							},
-							ShaderSurface(this),
+							ShaderSurface32(this),
 							ShaderMove(pixelMask, vaporX, vaporY)
 						);
 					}
@@ -1276,15 +1279,16 @@ void Map::drawTerrain(Surface *surface)
 							+ (p.getColor() * Mod::TransparenciesOpacityLevels * Mod::TransparenciesPaletteColors)
 							+ (p.getOpacity() * Mod::TransparenciesPaletteColors);
 
+						// R1.2: fixed 32bpp write (was writing Uint8 into Uint32 pixel, corrupting 3 bytes).
 						ShaderDrawFunc(
-							[&](Uint8& dest, int size)
+							[&](Uint32& dest, int size)
 							{
 								if (p.getSize() <= size)
 								{
-									dest = transparetOffsets[dest];
+									dest = ::OpenXcom::shadeARGBCurve(dest, p.getOpacity());
 								}
 							},
-							ShaderSurface(this),
+							ShaderSurface32(this),
 							ShaderMove(pixelMask, vaporX, vaporY)
 						);
 					}

@@ -106,8 +106,7 @@ private:
 	std::string _recolorMask;
 	// 0xRRGGBB armour tint applied where mask alpha > 0.  Default 0xFFFFFF (white = no tint).
 	Uint32 _recolorRgb = 0xFFFFFFu;
-	// Phase 7.G: true = ScriptWorkerBlit runs ARGB script variant for this armour.
-	bool _hdScripts = false;
+	// R2.1 scope cut: _hdScripts removed (no HD mod with hdScripts:true queued).
 #endif
 	std::string _requiresName;
 	std::string _requiresAwardName;
@@ -232,8 +231,6 @@ public:
 	const std::string& getRecolorMask() const { return _recolorMask; }
 	/// Gets the 0xRRGGBB armour tint for HD recolour (default 0xFFFFFF = white/no tint).
 	Uint32 getRecolorRgb() const { return _recolorRgb; }
-	/// Returns true if ScriptWorkerBlit should run the ARGB script variant for this armour.
-	bool hdScripts() const { return _hdScripts; }
 #endif
 	/// Gets the front armor level.
 	int getFrontArmor() const;
