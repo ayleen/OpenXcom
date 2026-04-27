@@ -417,6 +417,7 @@ void Surface::loadRaw(const std::vector<unsigned char> &bytes)
 	lock();
 	rawCopy(bytes);
 	unlock();
+	rebuildShadeTable(); // 7.A.3
 }
 
 /**
@@ -432,6 +433,7 @@ void Surface::loadRaw(const std::vector<char> &bytes)
 	lock();
 	rawCopy(bytes);
 	unlock();
+	rebuildShadeTable(); // 7.A.3
 }
 
 /**
@@ -447,6 +449,9 @@ void Surface::loadScr(const std::string& filename)
 	auto istream = FileMap::getIStream(filename);
 	std::vector<char> buffer((std::istreambuf_iterator<char>(*(istream))), (std::istreambuf_iterator<char>()));
 	loadRaw(buffer);
+	// 7.A.3: build shade table from current palette if already set;
+	// if not, the cascade setPalette will build it later.
+	rebuildShadeTable();
 }
 #ifdef __EMSCRIPTEN__
 /* ---- IFF/LBM decoder (Emscripten only) ----------------------------------------
@@ -712,6 +717,9 @@ void Surface::loadImage(const std::string &filename)
 			Log(LOG_WARNING) << "Image " << filename << " (from SDL) has incorrect transparent color index " << colorkey << " (instead of 0).";
 		}
 	}
+	// 7.A.3: ensure shade table reflects the final palette state (including
+	// any FixTransparent adjustments). No-op when setPalette already built it.
+	rebuildShadeTable();
 }
 
 /**
@@ -793,6 +801,8 @@ void Surface::loadSpk(const std::string& filename)
 	// Unlock the surface
 	unlock();
 	SDL_RWclose(rw);
+	// 7.A.3: build shade table if palette already available.
+	rebuildShadeTable();
 }
 
 /**
@@ -845,6 +855,8 @@ void Surface::loadBdy(const std::string &filename)
 	// Unlock the surface
 	unlock();
 	SDL_RWclose(rw);
+	// 7.A.3: build shade table if palette already available.
+	rebuildShadeTable();
 }
 
 /**
@@ -1311,6 +1323,21 @@ void Surface::setPalette(const SDL_Color *colors, int firstcolor, int ncolors)
 			_shadeTable = std::make_shared<ShadeTable>();
 		_shadeTable->buildFromPalette(getPalette());
 	}
+}
+
+/**
+ * Rebuilds the shade table from the surface's current SDL palette.
+ * Called at the end of each loader (loadScr/loadSpk/loadBdy) so that
+ * surfaces whose pixels are written before the cascade palette fires still
+ * get a shade table as soon as a palette becomes available.
+ * No-op if the surface is not 8bpp or has no SDL palette attached.
+ */
+void Surface::rebuildShadeTable()
+{
+	const SDL_Color *pal = getPalette();
+	if (!pal) return;
+	if (!_shadeTable) _shadeTable = std::make_shared<ShadeTable>();
+	_shadeTable->buildFromPalette(pal);
 }
 
 /**

@@ -107,6 +107,8 @@ protected:
 	void rawCopy(const std::vector<T> &bytes);
 	/// Resizes the surface.
 	void resize(int width, int height);
+	/// Rebuilds shade table from current 8bpp SDL palette if one exists.
+	void rebuildShadeTable();
 public:
 #ifdef __EMSCRIPTEN__
 	/// Surface pixel format used by the Format ctor.
