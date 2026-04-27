@@ -535,12 +535,23 @@ void ScriptWorkerBlit::executeBlit(const Surface* src, Surface* dest, int x, int
  */
 void ScriptWorkerBlit::executeBlit(const Surface* src, Surface* dest, int x, int y, int shade, GraphSubset mask)
 {
-#ifdef __EMSCRIPTEN__
-	// 7.G: HD armours with hdScripts:true will eventually run an ARGB script VM here.
-	// Until the full VM extension lands, fall through to the palette-compat path — the
-	// caller sets _useHDScripts=true as a capability signal, not yet a code fork.
+	// 7.G: ARGB hybrid dispatcher.
+	// All Emscripten surfaces are 32bpp ARGB.  The legacy 8bpp script VM (_proc)
+	// cannot consume Uint32 pixels directly — skip it and fall through to the
+	// shade-table path.  hdScripts:true ARGB VM is a future extension.
 	(void)_useHDScripts;
-#endif
+	if (src && src->isARGB())
+	{
+		ShaderMove<const Uint32> srcShader(SurfaceRaw<const Uint32>(src), x, y);
+		ShaderMove<Uint32>       destShader(SurfaceRaw<Uint32>(dest));
+		destShader.setDomain(mask);
+		const ShadeTable *tbl = src->getShadeTable();
+		ShaderDraw<helper::StandardShade>(destShader, srcShader, ShaderScalar(shade), ShaderScalar(tbl));
+		return;
+	}
+
+#ifdef LEGACY_8BPP_HELPERS
+	// 8bpp path — native builds only; Emscripten never reaches here.
 	ShaderMove<const Uint8> srcShader(src, x, y);
 	ShaderMove<Uint8> destShader(dest, 0, 0);
 
@@ -606,9 +617,9 @@ void ScriptWorkerBlit::executeBlit(const Surface* src, Surface* dest, int x, int
 	}
 	else
 	{
-		// TODO 7.C: switch srcShader/destShader to ShaderMove<Uint32> and pass src->getShadeTable().
 		ShaderDraw<helper::StandardShade>(destShader, srcShader, ShaderScalar(shade));
 	}
+#endif // LEGACY_8BPP_HELPERS
 }
 
 /**
