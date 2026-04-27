@@ -414,6 +414,14 @@ public:
 	void blitNShade(SurfaceRaw<Uint8> surface, int x, int y, int shade = 0, bool half = false, int newBaseColor = 0) const;
 	/// Specific blit function to blit battlescape terrain data in different shades in a fast way.
 	void blitNShade(SurfaceRaw<Uint8> surface, int x, int y, int shade, GraphSubset range) const;
+	/// 7.B: ARGB blit — uses per-asset shade table for pixel-perfect vanilla shading.
+	static void blitRaw(SurfaceRaw<Uint32> dest, SurfaceRaw<const Uint32> src,
+	                    int x, int y, int shade, bool half = false, int newBaseColor = 0,
+	                    const ShadeTable *srcTable = nullptr, const ShadeTable *recolouredTable = nullptr);
+	/// 7.B: ARGB blitNShade — shade table taken from this->getShadeTable().
+	void blitNShade(SurfaceRaw<Uint32> surface, int x, int y, int shade = 0, bool half = false, int newBaseColor = 0) const;
+	/// 7.B: ARGB blitNShade with explicit clip region.
+	void blitNShade(SurfaceRaw<Uint32> surface, int x, int y, int shade, GraphSubset range) const;
 	/// Invalidate the surface: force it to be redrawn
 	void invalidate(bool valid = true);
 
@@ -463,8 +471,8 @@ public:
 
 	}
 
-	/// Constructor, SFINAE enable it only for `Uint8`
-	template<typename = std::enable_if<std::is_same<Uint8, Pixel>::value, void>>
+	/// Constructor enabled only for `Uint8` pixel type.
+	template<typename T = Pixel, typename std::enable_if<std::is_same<T, Uint8>::value, int>::type* = nullptr>
 	SurfaceRaw(Surface* surf) : SurfaceRaw{ }
 	{
 		if (surf)
@@ -473,8 +481,8 @@ public:
 		}
 	}
 
-	/// Constructor, SFINAE enable it only for `Uint8`
-	template<typename = std::enable_if<std::is_same<const Uint8, Pixel>::value, void>>
+	/// Constructor enabled only for `const Uint8` pixel type.
+	template<typename T = Pixel, typename std::enable_if<std::is_same<T, const Uint8>::value, int>::type* = nullptr>
 	SurfaceRaw(const Surface* surf) : SurfaceRaw{ }
 	{
 		if (surf)
@@ -483,8 +491,8 @@ public:
 		}
 	}
 
-	/// Constructor, SFINAE enable it only for `Uint8`
-	template<typename = std::enable_if<std::is_same<Uint8, Pixel>::value, void>>
+	/// Constructor enabled only for `Uint8` pixel type.
+	template<typename T = Pixel, typename std::enable_if<std::is_same<T, Uint8>::value, int>::type* = nullptr>
 	SurfaceRaw(SDL_Surface* surf) : SurfaceRaw{ }
 	{
 		if (surf)
@@ -493,8 +501,8 @@ public:
 		}
 	}
 
-	/// Constructor, SFINAE enable it only for `const Uint8`
-	template<typename = std::enable_if<std::is_same<const Uint8, Pixel>::value, void>>
+	/// Constructor enabled only for `const Uint8` pixel type.
+	template<typename T = Pixel, typename std::enable_if<std::is_same<T, const Uint8>::value, int>::type* = nullptr>
 	SurfaceRaw(const SDL_Surface* surf) : SurfaceRaw{ }
 	{
 		if (surf)

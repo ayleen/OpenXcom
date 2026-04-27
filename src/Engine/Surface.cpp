@@ -1444,6 +1444,49 @@ void Surface::blitNShade(SurfaceRaw<Uint8> surface, int x, int y, int shade, Gra
 	ShaderDraw<helper::StandardShade>(dest, src, ShaderScalar(shade));
 }
 
+// 7.B: ARGB overloads — source shade table carried on *this.
+
+void Surface::blitRaw(SurfaceRaw<Uint32> destSurf, SurfaceRaw<const Uint32> srcSurf,
+                      int x, int y, int shade, bool half, int newBaseColor,
+                      const ShadeTable *srcTable, const ShadeTable *recolouredTable)
+{
+	ShaderMove<const Uint32> src(srcSurf, x, y);
+	if (half)
+	{
+		GraphSubset g = src.getDomain();
+		g.beg_x = g.end_x / 2;
+		src.setDomain(g);
+	}
+	if (newBaseColor)
+	{
+		--newBaseColor;
+		newBaseColor <<= 4;
+		ShaderDraw<helper::ColorReplace>(ShaderSurface(destSurf), src,
+		                                 ShaderScalar(shade), ShaderScalar(newBaseColor),
+		                                 ShaderScalar(srcTable), ShaderScalar(recolouredTable));
+	}
+	else
+	{
+		ShaderDraw<helper::StandardShade>(ShaderSurface(destSurf), src,
+		                                  ShaderScalar(shade), ShaderScalar(srcTable));
+	}
+}
+
+void Surface::blitNShade(SurfaceRaw<Uint32> surface, int x, int y, int shade, bool half, int newBaseColor) const
+{
+	SurfaceRaw<const Uint32> srcRaw(reinterpret_cast<const Uint32*>(getBuffer()), getWidth(), getHeight(), getPitch());
+	blitRaw(surface, srcRaw, x, y, shade, half, newBaseColor, getShadeTable());
+}
+
+void Surface::blitNShade(SurfaceRaw<Uint32> surface, int x, int y, int shade, GraphSubset range) const
+{
+	SurfaceRaw<const Uint32> srcRaw(reinterpret_cast<const Uint32*>(getBuffer()), getWidth(), getHeight(), getPitch());
+	ShaderMove<const Uint32> src(srcRaw, x, y);
+	ShaderMove<Uint32> dest(surface);
+	dest.setDomain(range);
+	ShaderDraw<helper::StandardShade>(dest, src, ShaderScalar(shade), ShaderScalar(getShadeTable()));
+}
+
 /**
  * Set the surface to be redrawn.
  * @param valid true means redraw.

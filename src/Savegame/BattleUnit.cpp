@@ -6194,6 +6194,7 @@ struct burnShadeScript
 {
 	static RetEnum func(int &curr, int burn, int shade)
 	{
+		// TODO 7.C: migrate to Uint32 BurnShade path with shade table.
 		Uint8 d = curr;
 		Uint8 s = curr;
 		helper::BurnShade::func(d, s, burn, shade);

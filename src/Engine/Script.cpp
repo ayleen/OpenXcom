@@ -600,6 +600,7 @@ void ScriptWorkerBlit::executeBlit(const Surface* src, Surface* dest, int x, int
 	}
 	else
 	{
+		// TODO 7.C: switch srcShader/destShader to ShaderMove<Uint32> and pass src->getShadeTable().
 		ShaderDraw<helper::StandardShade>(destShader, srcShader, ShaderScalar(shade));
 	}
 }
