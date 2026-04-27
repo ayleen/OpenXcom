@@ -938,13 +938,35 @@ void Surface::offset(int off, int min, int max, int mul)
 {
 	if (off == 0)
 		return;
-#ifdef __EMSCRIPTEN__
-	// 7.C: palette-index arithmetic is undefined on 32bpp surfaces; no-op until 7.D rewrites these.
-	if (_surface && _surface->format->BitsPerPixel != 8) return;
-#endif
 
 	// Lock the surface
 	lock();
+
+#ifdef __EMSCRIPTEN__
+	if (_surface && _surface->format->BitsPerPixel == 32)
+	{
+		const SDL_Color *pal = getEffectivePalette();
+		if (!pal) { unlock(); return; }
+		for (int y = 0; y < getHeight(); ++y)
+			for (int x = 0; x < getWidth(); ++x)
+			{
+				Uint32 px = *(Uint32*)getRaw(x, y);
+				if ((px >> 24) == 0) continue;
+				Uint8 r = (px >> 16) & 0xFF, g = (px >> 8) & 0xFF, b = px & 0xFF;
+				int idx = -1;
+				for (int i = 1; i < 256; ++i)
+					if (pal[i].r == r && pal[i].g == g && pal[i].b == b) { idx = i; break; }
+				if (idx < 0) continue;
+				int p = off > 0 ? idx * mul + off : (idx + off) / mul;
+				if (min != -1 && p < min) p = min;
+				else if (max != -1 && p > max) p = max;
+				if (p < 0 || p > 255) continue;
+				setPixel32(x, y, 0xFF000000u | ((Uint32)pal[p].r << 16) | ((Uint32)pal[p].g << 8) | pal[p].b);
+			}
+		unlock();
+		return;
+	}
+#endif
 
 	for (int x = 0, y = 0; x < getWidth() && y < getHeight();)
 	{
@@ -992,12 +1014,37 @@ void Surface::offsetBlock(int off, int blk, int mul)
 {
 	if (off == 0)
 		return;
-#ifdef __EMSCRIPTEN__
-	if (_surface && _surface->format->BitsPerPixel != 8) return; // 7.C: no-op on ARGB
-#endif
 
 	// Lock the surface
 	lock();
+
+#ifdef __EMSCRIPTEN__
+	if (_surface && _surface->format->BitsPerPixel == 32)
+	{
+		const SDL_Color *pal = getEffectivePalette();
+		if (!pal) { unlock(); return; }
+		for (int y = 0; y < getHeight(); ++y)
+			for (int x = 0; x < getWidth(); ++x)
+			{
+				Uint32 px = *(Uint32*)getRaw(x, y);
+				if ((px >> 24) == 0) continue;
+				Uint8 r = (px >> 16) & 0xFF, g = (px >> 8) & 0xFF, b = px & 0xFF;
+				int idx = -1;
+				for (int i = 1; i < 256; ++i)
+					if (pal[i].r == r && pal[i].g == g && pal[i].b == b) { idx = i; break; }
+				if (idx < 0) continue;
+				int blkMin = idx / blk * blk;
+				int blkMax = blkMin + blk;
+				int p = off > 0 ? idx * mul + off : (idx + off) / mul;
+				if (p < blkMin) p = blkMin;
+				else if (p > blkMax) p = blkMax;
+				if (p < 0 || p > 255) continue;
+				setPixel32(x, y, 0xFF000000u | ((Uint32)pal[p].r << 16) | ((Uint32)pal[p].g << 8) | pal[p].b);
+			}
+		unlock();
+		return;
+	}
+#endif
 
 	for (int x = 0, y = 0; x < getWidth() && y < getHeight();)
 	{
@@ -1168,6 +1215,23 @@ void Surface::copy(Surface *surface)
 	const int from_y = getY() - surface->getY();
 
 	lock();
+
+#ifdef __EMSCRIPTEN__
+	if (_surface->format->BitsPerPixel == 32 && surface->getSurface()->format->BitsPerPixel == 32)
+	{
+		const int sx0 = from_x > 0 ? from_x : 0;
+		const int sy0 = from_y > 0 ? from_y : 0;
+		const int dx0 = from_x < 0 ? -from_x : 0;
+		const int dy0 = from_y < 0 ? -from_y : 0;
+		const int cw  = std::min(getWidth() - dx0, surface->getWidth()  - sx0);
+		const int ch  = std::min(getHeight() - dy0, surface->getHeight() - sy0);
+		if (cw > 0 && ch > 0)
+			for (int r = 0; r < ch; ++r)
+				memcpy(getRaw(dx0, dy0 + r), surface->getRaw(sx0, sy0 + r), cw * 4);
+		unlock();
+		return;
+	}
+#endif
 
 	ShaderDrawFunc(
 		[](Uint8& dest, const Uint8& src)
