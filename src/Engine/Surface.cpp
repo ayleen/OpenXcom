@@ -17,6 +17,7 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "Surface.h"
+#include "ShadeTable.h"
 #include "ShaderDraw.h"
 #include "ShaderMove.h"
 #include <vector>
@@ -1298,7 +1299,27 @@ SurfaceCrop Surface::getCrop() const
 void Surface::setPalette(const SDL_Color *colors, int firstcolor, int ncolors)
 {
 	if (colors && _surface->format->BitsPerPixel == 8)
+	{
 		SDL_SetColors(_surface.get(), const_cast<SDL_Color *>(colors), firstcolor, ncolors);
+		// Phase 7.A: build/rebuild the shade table whenever the indexed palette changes.
+		// This runs at asset-load time and on state transitions; neutralised at runtime in 7.H.
+		if (!_shadeTable)
+			_shadeTable = std::make_shared<ShadeTable>();
+		_shadeTable->buildFromPalette(getPalette());
+	}
+}
+
+/**
+ * Returns the shade table for a specific palette-cycle phase.
+ * Falls back to the primary table if no cycle table is present.
+ */
+const ShadeTable *Surface::getShadeTable(int cyclePhase) const
+{
+	if (!_shadeCycle.empty() && cyclePhase >= 0
+	        && cyclePhase < (int)_shadeCycle.size()
+	        && _shadeCycle[cyclePhase])
+		return _shadeCycle[cyclePhase].get();
+	return _shadeTable.get();
 }
 
 /**

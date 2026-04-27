@@ -33,6 +33,7 @@ class Font;
 class Language;
 class ScriptWorkerBase;
 class SurfaceCrop;
+class ShadeTable;
 template<typename Pixel> class SurfaceRaw;
 
 /**
@@ -96,6 +97,10 @@ protected:
 	SDL_Color _savedPalette[256] = {};
 	bool _hasSavedPalette = false;
 #endif
+	// Phase 7: per-asset shade table (cross-platform; guard removed in 7.K).
+	std::shared_ptr<ShadeTable> _shadeTable;
+	// Cycle-phase auxiliary tables for palette-cycling assets (empty for static assets).
+	std::vector<std::shared_ptr<ShadeTable>> _shadeCycle;
 
 	/// Copies raw pixels.
 	template <typename T>
@@ -191,6 +196,13 @@ public:
 	/// saved at promotion time. Used by UI elements that redraw via 8bpp helpers.
 	void demoteToIndexed();
 #endif
+	// Phase 7: shade table accessors (cross-platform; guard removed in 7.K).
+	/// Returns the primary shade table, or nullptr if not yet built.
+	const ShadeTable *getShadeTable() const { return _shadeTable.get(); }
+	/// Returns the cycle-phase shade table, or the primary table as fallback.
+	const ShadeTable *getShadeTable(int cyclePhase) const;
+	/// Attaches a pre-built shade table (e.g. recoloured variant from the cache).
+	void attachShadeTable(std::shared_ptr<ShadeTable> t) { _shadeTable = std::move(t); }
 	/// Clears the surface's contents with a specified colour.
 	void clear();
 	/// Offsets the surface's colors by a set amount.

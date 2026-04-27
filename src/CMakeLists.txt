@@ -168,6 +168,7 @@ set ( engine_src
   Engine/Scalers/xbrz.cpp
   Engine/Screen.cpp
   Engine/Script.cpp
+  Engine/ShadeTable.cpp
   Engine/Sound.cpp
   Engine/SoundSet.cpp
   Engine/State.cpp
