@@ -205,6 +205,16 @@ public:
 	/// 7.C: builds shade table from an externally-provided palette (for ARGB surfaces that
 	/// bypassed the normal setPalette→promoteToARGB flow, e.g. direct ARGB pixel writes in loaders).
 	void rebuildShadeTableFromPalette(const SDL_Color *pal, int ncolors = 256);
+#ifdef __EMSCRIPTEN__
+	/// 7.D: returns getPalette() if available (8bpp), else _savedPalette (ARGB surface that
+	/// received setPalette after promotion), else nullptr.
+	const SDL_Color *getEffectivePalette() const
+	{
+		const SDL_Color *p = getPalette();
+		if (!p && _hasSavedPalette) return _savedPalette;
+		return p;
+	}
+#endif
 	/// Clears the surface's contents with a specified colour.
 	void clear();
 	/// Offsets the surface's colors by a set amount.
@@ -511,6 +521,22 @@ public:
 		{
 			*this = SurfaceRaw{ (Pixel*)surf->pixels, surf->w, surf->h, surf->pitch };
 		}
+	}
+
+	/// 7.D: Constructor for mutable Uint32 pixel type (ARGB surfaces).
+	template<typename T = Pixel, typename std::enable_if<std::is_same<T, Uint32>::value, int>::type* = nullptr>
+	SurfaceRaw(Surface* surf) : SurfaceRaw{ }
+	{
+		if (surf)
+			*this = SurfaceRaw{ (Uint32*)surf->getBuffer(), surf->getWidth(), surf->getHeight(), surf->getPitch() };
+	}
+
+	/// 7.D: Constructor for const Uint32 pixel type (ARGB surfaces, read-only).
+	template<typename T = Pixel, typename std::enable_if<std::is_same<T, const Uint32>::value, int>::type* = nullptr>
+	SurfaceRaw(const Surface* surf) : SurfaceRaw{ }
+	{
+		if (surf)
+			*this = SurfaceRaw{ (const Uint32*)surf->getBuffer(), surf->getWidth(), surf->getHeight(), surf->getPitch() };
 	}
 
 	/// Constructor, SFINAE enable it only for non const `PixelType`

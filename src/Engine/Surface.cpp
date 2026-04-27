@@ -1262,9 +1262,12 @@ void Surface::drawRect(Sint16 x, Sint16 y, Sint16 w, Sint16 h, Uint8 color)
 void Surface::drawLine(Sint16 x1, Sint16 y1, Sint16 x2, Sint16 y2, Uint8 color)
 {
 #ifdef __EMSCRIPTEN__
-	if (!getPalette()) { static bool once = false; if (!once) { once = true; Log(LOG_WARNING) << "drawLine on ARGB surface — no-op"; } return; }
-#endif
+	const SDL_Color *pal = getEffectivePalette();
+	if (!pal) return;
+	lineColor(_surface.get(), x1, y1, x2, y2, Palette::getRGBA(const_cast<SDL_Color*>(pal), color));
+#else
 	lineColor(_surface.get(), x1, y1, x2, y2, Palette::getRGBA(getPalette(), color));
+#endif
 }
 
 /**
@@ -1277,9 +1280,12 @@ void Surface::drawLine(Sint16 x1, Sint16 y1, Sint16 x2, Sint16 y2, Uint8 color)
 void Surface::drawCircle(Sint16 x, Sint16 y, Sint16 r, Uint8 color)
 {
 #ifdef __EMSCRIPTEN__
-	if (!getPalette()) { static bool once = false; if (!once) { once = true; Log(LOG_WARNING) << "drawCircle on ARGB surface — no-op"; } return; }
-#endif
+	const SDL_Color *pal = getEffectivePalette();
+	if (!pal) return;
+	filledCircleColor(_surface.get(), x, y, r, Palette::getRGBA(const_cast<SDL_Color*>(pal), color));
+#else
 	filledCircleColor(_surface.get(), x, y, r, Palette::getRGBA(getPalette(), color));
+#endif
 }
 
 /**
@@ -1292,9 +1298,12 @@ void Surface::drawCircle(Sint16 x, Sint16 y, Sint16 r, Uint8 color)
 void Surface::drawPolygon(Sint16 *x, Sint16 *y, int n, Uint8 color)
 {
 #ifdef __EMSCRIPTEN__
-	if (!getPalette()) { static bool once = false; if (!once) { once = true; Log(LOG_WARNING) << "drawPolygon on ARGB surface — no-op"; } return; }
-#endif
+	const SDL_Color *pal = getEffectivePalette();
+	if (!pal) return;
+	filledPolygonColor(_surface.get(), x, y, n, Palette::getRGBA(const_cast<SDL_Color*>(pal), color));
+#else
 	filledPolygonColor(_surface.get(), x, y, n, Palette::getRGBA(getPalette(), color));
+#endif
 }
 
 /**
@@ -1321,9 +1330,12 @@ void Surface::drawTexturedPolygon(Sint16 *x, Sint16 *y, int n, Surface *texture,
 void Surface::drawString(Sint16 x, Sint16 y, const char *s, Uint8 color)
 {
 #ifdef __EMSCRIPTEN__
-	if (!getPalette()) { static bool once = false; if (!once) { once = true; Log(LOG_WARNING) << "drawString on ARGB surface — no-op"; } return; }
-#endif
+	const SDL_Color *pal = getEffectivePalette();
+	if (!pal) return;
+	stringColor(_surface.get(), x, y, s, Palette::getRGBA(const_cast<SDL_Color*>(pal), color));
+#else
 	stringColor(_surface.get(), x, y, s, Palette::getRGBA(getPalette(), color));
+#endif
 }
 
 /**
@@ -1399,6 +1411,22 @@ void Surface::setPalette(const SDL_Color *colors, int firstcolor, int ncolors)
 		_shadeTable->buildFromPalette(getPalette());
 #endif
 	}
+#ifdef __EMSCRIPTEN__
+	else if (colors && _surface && _surface->format->BitsPerPixel != 8)
+	{
+		// 7.D: surface already promoted to ARGB (e.g. Globe, UI containers whose ctor is
+		// now 32bpp by default).  Save the palette so getEffectivePalette() and drawing
+		// functions that resolve palette-index colours can work.
+		int n = std::min(ncolors, 256 - firstcolor);
+		if (n > 0)
+		{
+			memcpy(_savedPalette + firstcolor, colors, n * sizeof(SDL_Color));
+			_hasSavedPalette = true;
+		}
+		if (!_shadeTable) _shadeTable = std::make_shared<ShadeTable>();
+		_shadeTable->buildFromPalette(_savedPalette);
+	}
+#endif
 }
 
 /**

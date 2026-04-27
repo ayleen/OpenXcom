@@ -318,6 +318,40 @@ struct CreateShadowWithoutCache
 	}
 };
 
+#ifdef __EMSCRIPTEN__
+// 7.D: ARGB shadow shaders — operate on 32bpp pixels using the same sun-angle
+// darkness logic as CreateShadow, but write a brightness-scaled ARGB result
+// instead of a palette index.  Shadow 0=full brightness, shadow 31=fully dark.
+struct CreateShadow32
+{
+	static inline void func(Uint32& dest, const Cord& earth, const Cord& sun, const Sint16& noise)
+	{
+		if (!(dest >> 24) || !earth.z)
+		{
+			dest = 0;
+			return;
+		}
+		const Uint8 shadow = CreateShadow::getShadowValue(earth, sun, noise);
+		// Linear brightness factor: shadow 0 → 1.0, shadow 31 → 0.0
+		const int factor = (32 - shadow) * 8; // 0–256 range, avoid float
+		const Uint8 a = (dest >> 24) & 0xFF;
+		const Uint8 r = ((((dest >> 16) & 0xFF) * factor) >> 8);
+		const Uint8 g = ((((dest >>  8) & 0xFF) * factor) >> 8);
+		const Uint8 b = ((( dest        & 0xFF) * factor) >> 8);
+		dest = (Uint32(a) << 24) | (Uint32(r) << 16) | (Uint32(g) << 8) | b;
+	}
+};
+
+struct CreateShadowWithoutCache32
+{
+	static inline void func(Uint32& dest, const helper::Offset& offset, const Cord& sun, const Sint16& noise, const int& radius)
+	{
+		Cord earth = static_data.circle_norm(0., 0., radius, offset.x, offset.y);
+		CreateShadow32::func(dest, earth, sun, noise);
+	}
+};
+#endif // __EMSCRIPTEN__
+
 }//namespace
 
 
@@ -1069,6 +1103,14 @@ Cord Globe::getSunDirection(double lon, double lat) const
 
 void Globe::drawShadow()
 {
+#ifdef __EMSCRIPTEN__
+	// 7.D: Globe surface is 32bpp ARGB; use ARGB-aware shadow shaders that apply
+	// a brightness multiplier instead of palette-index arithmetic.
+	ShaderRepeat<Sint16> noise = ShaderRepeat<Sint16>(SurfaceRaw<Sint16>(static_data.random_noise, static_data.random_surf_size, static_data.random_surf_size));
+	lock();
+	ShaderDraw<CreateShadowWithoutCache32>(ShaderSurface32(this), helper::Offset(_cenX, _cenY), ShaderScalar(getSunDirection(_cenLon, _cenLat)), noise, ShaderScalar(_zoomRadius[_zoom]));
+	unlock();
+#else
 	if (Options::globeSurfaceCache)
 	{
 		ShaderMove<Cord> earth = ShaderMove<Cord>(SurfaceRaw<Cord>(_earthData[_zoom], getWidth(), getHeight()));
@@ -1088,7 +1130,7 @@ void Globe::drawShadow()
 		ShaderDraw<CreateShadowWithoutCache>(ShaderSurface(this), helper::Offset(_cenX, _cenY), ShaderScalar(getSunDirection(_cenLon, _cenLat)), noise, ShaderScalar(_zoomRadius[_zoom]));
 		unlock();
 	}
-
+#endif
 }
 
 
@@ -1396,7 +1438,7 @@ void Globe::drawDetail()
 	if (_zoom >= 2)
 	{
 		Text *label = new Text(150, 9, 0, 0);
-		label->setPalette(getPalette());
+		label->setPalette(getEffectivePalette());
 		label->initText(_game->getMod()->getFont("FONT_BIG"), _game->getMod()->getFont("FONT_SMALL"), _game->getLanguage());
 		label->setAlign(ALIGN_CENTER);
 
@@ -1427,7 +1469,7 @@ void Globe::drawDetail()
 	// Draw extra globe labels
 	{
 		Text *label = new Text(120, 18, 0, 0);
-		label->setPalette(getPalette());
+		label->setPalette(getEffectivePalette());
 		label->initText(_game->getMod()->getFont("FONT_BIG"), _game->getMod()->getFont("FONT_SMALL"), _game->getLanguage());
 		label->setAlign(ALIGN_CENTER);
 
@@ -1462,7 +1504,7 @@ void Globe::drawDetail()
 	if (_zoom >= 3)
 	{
 		Text *label = new Text(100, 9, 0, 0);
-		label->setPalette(getPalette());
+		label->setPalette(getEffectivePalette());
 		label->initText(_game->getMod()->getFont("FONT_BIG"), _game->getMod()->getFont("FONT_SMALL"), _game->getLanguage());
 		label->setAlign(ALIGN_CENTER);
 		label->setColor(CITY_LABEL_COLOR);
@@ -1715,6 +1757,15 @@ void Globe::drawTarget(Target *target, Surface *surface)
 		polarToCart(target->getLongitude(), target->getLatitude(), &x, &y);
 		auto i = target->getMarker();
 		auto marker = _markerSet->getFrame(i);
+#ifdef __EMSCRIPTEN__
+		// 7.D: surfaces are ARGB; use shade-table blit path.
+		// Blink animation (+1 palette index) has no ARGB equivalent; skip for non-city blinking.
+		if (i == CITY_MARKER || _blink > 0)
+		{
+			marker->blitNShade(SurfaceRaw<Uint32>(surface), x - marker->getWidth() / 2, y - marker->getHeight() / 2, 0);
+		}
+		// else: skip blink-off frame (marker invisible) — same visual result
+#else
 		ShaderMove<const Uint8> surf{ marker, x - marker->getWidth() / 2, y - marker->getHeight() / 2 };
 		ShaderMove<Uint8> dest{ surface };
 
@@ -1746,6 +1797,7 @@ void Globe::drawTarget(Target *target, Surface *surface)
 				surf
 			);
 		}
+#endif
 	}
 }
 
