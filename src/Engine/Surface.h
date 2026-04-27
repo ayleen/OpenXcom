@@ -95,9 +95,11 @@ protected:
 #ifdef __EMSCRIPTEN__
 	bool _isHD = false;
 	Uint16 _logicalW = 0, _logicalH = 0;
+#endif
+	// Saved copy of the most recent setPalette call on ARGB surfaces (no SDL palette object).
+	// Cross-platform: native build may also use ARGB surfaces after 7.K.
 	SDL_Color _savedPalette[256] = {};
 	bool _hasSavedPalette = false;
-#endif
 	// Phase 7: per-asset shade table (cross-platform; guard removed in 7.K).
 	std::shared_ptr<ShadeTable> _shadeTable;
 	// Cycle-phase auxiliary tables for palette-cycling assets (empty for static assets).
@@ -205,16 +207,14 @@ public:
 	/// 7.C: builds shade table from an externally-provided palette (for ARGB surfaces that
 	/// bypassed the normal setPalette→promoteToARGB flow, e.g. direct ARGB pixel writes in loaders).
 	void rebuildShadeTableFromPalette(const SDL_Color *pal, int ncolors = 256);
-#ifdef __EMSCRIPTEN__
-	/// 7.D: returns getPalette() if available (8bpp), else _savedPalette (ARGB surface that
-	/// received setPalette after promotion), else nullptr.
+	/// Returns getPalette() if available (8bpp), else _savedPalette (ARGB surface
+	/// that received setPalette after promotion), else nullptr.
 	const SDL_Color *getEffectivePalette() const
 	{
 		const SDL_Color *p = getPalette();
 		if (!p && _hasSavedPalette) return _savedPalette;
 		return p;
 	}
-#endif
 	/// Clears the surface's contents with a specified colour.
 	void clear();
 	/// Offsets the surface's colors by a set amount.
@@ -284,14 +284,12 @@ public:
 	bool getVisible() const;
 	/// Gets the cropping rectangle for the surface.
 	SurfaceCrop getCrop() const;
-#ifdef __EMSCRIPTEN__
 	/// Writes a 32bpp ARGB pixel. Only valid on ARGB surfaces.
 	void setPixel32(int x, int y, Uint32 pixel)
 	{
 		if (x < 0 || x >= getWidth() || y < 0 || y >= getHeight()) return;
 		*(Uint32*)getRaw(x, y) = pixel;
 	}
-#endif
 	/**
 	 * Changes the color of a pixel in the surface, relative to
 	 * the top-left corner of the surface. Invalid positions are ignored.

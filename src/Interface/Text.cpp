@@ -231,17 +231,14 @@ Uint8 Text::getColor() const
 	return _color;
 }
 
-#ifdef __EMSCRIPTEN__
 /**
  * Sets an ARGB color for rendering on ARGB surfaces.
- * Promotes this surface to ARGB so the color is composited correctly.
  * @param argb ARGB color value (0xAARRGGBB).
  */
 void Text::setColorRGB(Uint32 argb)
 {
 	_colorRGB = argb;
 	_useRGB   = true;
-	promoteToARGB();
 	_redraw = true;
 }
 
@@ -250,7 +247,6 @@ void Text::setColorRGB2(Uint32 argb)
 	_colorRGB2 = argb;
 	_redraw = true;
 }
-#endif
 
 /**
  * Changes the secondary color used to render the text. The text
@@ -656,12 +652,9 @@ void Text::draw()
 			auto chr = font->getChar(*c);
 			chr.setX(x);
 			chr.setY(y);
-#ifdef __EMSCRIPTEN__
-			if (isARGB())
 			{
-				// 7.F: unified ARGB glyph blit — reads brightness directly from the font
-				// atlas (B channel of ARGB8888 LE = grayscale for all TFTD fonts), so
-				// the broken ShaderSurface(Uint8) path is bypassed entirely.
+				// 7.F/7.K: unified ARGB glyph blit — reads brightness from the font atlas
+				// (B channel of ARGB8888 LE = grayscale for all TFTD fonts).
 				Uint32 colorARGB;
 				if (_useRGB)
 				{
@@ -670,7 +663,6 @@ void Text::draw()
 				else
 				{
 					const SDL_Color *pal = getEffectivePalette();
-					// mid!=0 is _invert; palette range is color+1..color+5, use centre
 					Uint8 palIdx = (Uint8)(color + (mid != 0 ? 3 : 0));
 					colorARGB = pal
 						? (0xFF000000u | ((Uint32)pal[palIdx].r << 16) | ((Uint32)pal[palIdx].g << 8) | (Uint32)pal[palIdx].b)
@@ -694,11 +686,6 @@ void Text::draw()
 						setPixel32(x + px, y + py, (colorARGB & 0x00FFFFFFu) | ((Uint32)da << 24));
 					}
 				unlock();
-			}
-			else
-#endif
-			{
-				ShaderDraw<PaletteShift>(ShaderSurface(this, 0, 0), ShaderCrop(chr), ShaderScalar(color), ShaderScalar(mul), ShaderScalar(mid));
 			}
 			if (dir > 0)
 				x += dir * font->getCharSize(*c).w;

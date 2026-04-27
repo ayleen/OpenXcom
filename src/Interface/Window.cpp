@@ -194,19 +194,16 @@ void Window::draw()
 	}
 	Uint8 color = _color + 3 * mul;
 
-#ifdef __EMSCRIPTEN__
-	if (_bg && _bg->isARGB())
+	if (_bg)
 	{
-		if (!isARGB()) promoteToARGB();
 		clear();
-		SDL_Rect src { (Sint16)square.x, (Sint16)square.y,
-		               (Sint16)square.w, (Sint16)square.h };
-		SDL_Rect dst { (Sint16)square.x, (Sint16)square.y, 0, 0 };
-		SDL_BlitSurface(const_cast<SDL_Surface*>(_bg->getSurface()), &src,
-		                getSurface(), &dst);
+		SDL_Rect bgsrc { (Sint16)square.x, (Sint16)square.y,
+		                 (Sint16)square.w, (Sint16)square.h };
+		SDL_Rect bgdst { (Sint16)square.x, (Sint16)square.y, 0, 0 };
+		SDL_BlitSurface(const_cast<SDL_Surface*>(_bg->getSurface()), &bgsrc,
+		                getSurface(), &bgdst);
 		return;
 	}
-#endif
 
 	if (_thinBorder)
 	{

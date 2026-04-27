@@ -96,13 +96,11 @@ void TextButton::setTextColor(Uint8 color)
 	_redraw = true;
 }
 
-#ifdef __EMSCRIPTEN__
 void TextButton::setTextColorRGB(Uint32 argb)
 {
 	_text->setColorRGB(argb);
 	_redraw = true;
 }
-#endif
 
 /**
  * Changes the text to use the big-size font.
@@ -206,12 +204,6 @@ void TextButton::setPalette(const SDL_Color *colors, int firstcolor, int ncolors
  */
 void TextButton::draw()
 {
-#ifdef __EMSCRIPTEN__
-	// On second+ draw (hover, press) the surface is already ARGB-promoted.
-	// drawRect/setPixel/invert only work correctly on 8bpp surfaces, so
-	// demote back to indexed first; promoteToARGB() at the end re-promotes.
-	if (isARGB()) demoteToIndexed();
-#endif
 	Surface::draw();
 	SDL_Rect square;
 
@@ -285,10 +277,6 @@ void TextButton::draw()
 	}
 	_text->setInvert(press);
 
-#ifdef __EMSCRIPTEN__
-	if (_text->isARGB())
-		promoteToARGB();
-#endif
 	_text->blit(this->getSurface());
 }
 
