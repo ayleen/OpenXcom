@@ -28,8 +28,6 @@
 #include "../Mod/Mod.h"
 #include "../Engine/Exception.h"
 #ifdef __EMSCRIPTEN__
-#include "../Engine/FrameArena.h"
-#include "../Engine/HDSpriteBatch.h"
 #endif
 
 namespace OpenXcom
@@ -197,15 +195,14 @@ void UnitSprite::blitBody(Part& body)
 
 #ifdef __EMSCRIPTEN__
 /**
- * Composite one HD body-part frame into the unit's ARGB composite buffer.
- * shade approximation: linear-RGB attenuation via Surface::shadeToColorMod.
- * If the armour has a recolorMask sheet, the mask tint is applied over the
- * shaded frame before compositing.
- * Items (8bpp) are not dispatched here; they continue on the vanilla 8bpp path.
+ * Composite one HD body-part frame directly into _dest at the correct z-order
+ * position. Shade via SDL_SetSurfaceColorMod; recolorMask tint via a temporary
+ * SDL_Surface. No intermediate composite buffer — z-order is maintained by the
+ * draw() call order inside Map::drawTerrain.
  */
 void UnitSprite::blitBodyHD(Part& body)
 {
-	if (!body.src || !_hdComposite)
+	if (!body.src)
 		return;
 
 	SDL_Surface *src = const_cast<Surface *>(body.src)->getSurface();
@@ -214,7 +211,8 @@ void UnitSprite::blitBodyHD(Part& body)
 
 	Uint8 cm = Surface::shadeToColorMod(_shade);
 
-	SDL_Rect dstRect = { _hdPad + body.offX, _hdPad + body.offY, 0, 0 };
+	SDL_Surface *dst = _dest->getSurface();
+	SDL_Rect dstRect = { _x + body.offX, _y + body.offY, 0, 0 };
 
 	const auto *armor = _unit->getArmor();
 	const std::string &maskName = armor->getRecolorMask();
@@ -226,22 +224,17 @@ void UnitSprite::blitBodyHD(Part& body)
 		const Surface *maskFrame = maskSet ? maskSet->getFrame(body.bodyPart) : nullptr;
 		SDL_Surface   *mask = maskFrame ? const_cast<Surface*>(maskFrame)->getSurface() : nullptr;
 
-		// Build a per-call shaded copy in the arena.  For multi-frame sprite
-		// sheets the SDL_Surface may be larger than one frame; clip to the
-		// declared per-frame dimensions so we only copy the first frame and
-		// keep the arena allocation small.
 		const int fw = (int)_unitSurface->getWidth();
 		const int fh = (int)_unitSurface->getHeight();
-		SDL_Surface *shaded = frameArena().alloc(fw, fh);
+		SDL_Surface *shaded = SDL_CreateRGBSurface(0, fw, fh, 32,
+			0x00FF0000u, 0x0000FF00u, 0x000000FFu, 0xFF000000u);
 		SDL_Rect srcRect = {0, 0, fw, fh};
 
-		// Blit shaded body into temp.
 		SDL_SetSurfaceColorMod(src, cm, cm, cm);
 		SDL_SetSurfaceBlendMode(src, SDL_BLENDMODE_NONE);
 		SDL_BlitSurface(src, &srcRect, shaded, nullptr);
 		SDL_SetSurfaceColorMod(src, 255, 255, 255);
 
-		// Overlay mask tint onto the shaded copy.
 		if (mask)
 		{
 			Uint32 rgb  = armor->getRecolorRgb();
@@ -254,31 +247,18 @@ void UnitSprite::blitBodyHD(Part& body)
 			SDL_SetSurfaceColorMod(mask, 255, 255, 255);
 		}
 
-		// Composite the tinted result into the unit buffer.
 		SDL_SetSurfaceBlendMode(shaded, SDL_BLENDMODE_BLEND);
-		SDL_BlitSurface(shaded, nullptr, _hdComposite, &dstRect);
+		SDL_BlitSurface(shaded, nullptr, dst, &dstRect);
+		SDL_FreeSurface(shaded);
 	}
 	else
 	{
 		// Path 5b: no mask — sprite ships final colour; apply shade only.
 		SDL_SetSurfaceColorMod(src, cm, cm, cm);
 		SDL_SetSurfaceBlendMode(src, SDL_BLENDMODE_BLEND);
-		SDL_BlitSurface(src, nullptr, _hdComposite, &dstRect);
+		SDL_BlitSurface(src, nullptr, dst, &dstRect);
 		SDL_SetSurfaceColorMod(src, 255, 255, 255);
 	}
-}
-
-void UnitSprite::pushHDComposite(int screenX, int screenY)
-{
-	if (!_hdComposite)
-		return;
-	HDSpriteBatch::Entry e;
-	e.src   = _hdComposite;
-	e.dst   = { screenX - _hdPad, screenY - _hdPad,
-	            _hdComposite->w,  _hdComposite->h };
-	e.depth = screenY; // screen-Y of unit origin; stable_sort preserves visit order for ties
-	HDSpriteBatch::push(e);
-	_hdComposite = nullptr;
 }
 #endif
 
@@ -296,10 +276,6 @@ void UnitSprite::draw(const BattleUnit* unit, int part, int x, int y, int shade,
 	_shade = shade;
 	_mask = mask;
 
-#ifdef __EMSCRIPTEN__
-	_hdComposite = nullptr;
-#endif
-
 	if (_unit->isOut())
 	{
 		// unit is drawn as an item
@@ -312,23 +288,6 @@ void UnitSprite::draw(const BattleUnit* unit, int part, int x, int y, int shade,
 	_itemL = getIfVisible(_unit->getLeftHandWeapon());
 
 	_unitSurface = const_cast<Mod*>(_mod)->getSurfaceSet(armor->getSpriteSheet());
-
-#ifdef __EMSCRIPTEN__
-	{
-		// Check frame 0 to determine if the unit sprite sheet is HD.
-		const Surface *probe = _unitSurface->getFrame(0);
-		if (probe && probe->isHD())
-		{
-			// Create arena-owned ARGB composite buffer for this unit.
-			// PAD gives margin for body-part offsets (arm/leg offset tables
-			// in drawRoutine0 go up to ±16 px from unit origin).
-			_hdPad = 24;
-			int bufW = _unitSurface->getWidth()  + 2 * _hdPad;
-			int bufH = _unitSurface->getHeight() + 2 * _hdPad;
-			_hdComposite = frameArena().alloc(bufW, bufH);
-		}
-	}
-#endif
 
 	_drawingRoutine = armor->getDrawingRoutine();
 
@@ -403,14 +362,6 @@ void UnitSprite::draw(const BattleUnit* unit, int part, int x, int y, int shade,
 			Surface::blitRaw(_dest, tmpSurface, _x, _y, 0, false, unit->getOriginalFaction() == FACTION_HOSTILE ? _blue : _red);
 		}
 	}
-
-#ifdef __EMSCRIPTEN__
-	// If this was an HD unit, push the completed composite to HDSpriteBatch.
-	// Items (8bpp) already landed on _dest via blitItem(); the ARGB composite
-	// contains only HD body parts. HDSpriteBatch::sortAndFlushIntoQueue() is
-	// called once by Map::drawTerrain after all units in the frame are drawn.
-	pushHDComposite(_x, _y);
-#endif
 }
 
 /**

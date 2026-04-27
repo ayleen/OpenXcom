@@ -111,13 +111,8 @@ private:
 	/// Blit body sprite.
 	void blitBody(Part& body);
 #ifdef __EMSCRIPTEN__
-	/// Composite one HD body-part frame into the unit's ARGB composite buffer.
+	/// Composite one HD body-part frame directly into _dest at z-correct position.
 	void blitBodyHD(Part& body);
-	/// Push the completed whole-unit ARGB composite into HDSpriteBatch.
-	void pushHDComposite(int screenX, int screenY);
-
-	SDL_Surface *_hdComposite = nullptr; // arena-owned; non-null during HD draw()
-	int _hdPad = 0;                      // pixel margin around cell in composite buffer
 #endif
 public:
 	/// Creates a new UnitSprite at the specified position and size.
