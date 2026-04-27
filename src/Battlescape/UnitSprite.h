@@ -19,9 +19,6 @@
  */
 #include "../Engine/Surface.h"
 #include "../Engine/Script.h"
-#ifdef __EMSCRIPTEN__
-#include <SDL.h>
-#endif
 
 namespace OpenXcom
 {
@@ -110,10 +107,8 @@ private:
 	void blitItem(Part& item);
 	/// Blit body sprite.
 	void blitBody(Part& body);
-#ifdef __EMSCRIPTEN__
 	/// Composite one HD body-part frame directly into _dest at z-correct position.
 	void blitBodyHD(Part& body);
-#endif
 public:
 	/// Creates a new UnitSprite at the specified position and size.
 	UnitSprite(Surface* dest, const Mod* mod, const SavedBattleGame* save, int frame, bool helmet, int red, int blue);

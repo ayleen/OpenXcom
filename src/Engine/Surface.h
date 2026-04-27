@@ -92,8 +92,8 @@ protected:
 	Uint8 _visible: 1;
 	Uint8 _hidden: 1;
 	Uint8 _redraw: 1;
-#ifdef __EMSCRIPTEN__
 	bool _isHD = false;
+#ifdef __EMSCRIPTEN__
 	Uint16 _logicalW = 0, _logicalH = 0;
 #endif
 	// Saved copy of the most recent setPalette call on ARGB surfaces (no SDL palette object).
@@ -181,13 +181,14 @@ public:
 		    | ((Uint32)(Uint8)(g * m) <<  8)
 		    |  (Uint32)(Uint8)(b * m);
 	}
-	/// Returns true if this surface carries an HD (ARGB8888) image.
+	/// Returns true if this surface was loaded via loadImageHD (ARGB HD asset).
 	bool isHD() const { return _isHD; }
+#ifdef __EMSCRIPTEN__
 	/// Sets the logical (game-coordinate) size and pre-scales the HD surface to match.
 	void setLogicalSize(int w, int h);
+#endif
 	/// Returns true if this surface is in 32bpp ARGB mode.
 	bool isARGB() const { return _surface && _surface->format->BitsPerPixel == 32; }
-#endif
 	// Phase 7: shade table accessors (cross-platform; guard removed in 7.K).
 	/// Returns the primary shade table, or nullptr if not yet built.
 	const ShadeTable *getShadeTable() const { return _shadeTable.get(); }

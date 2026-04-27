@@ -27,8 +27,6 @@
 #include "../Mod/RuleInventory.h"
 #include "../Mod/Mod.h"
 #include "../Engine/Exception.h"
-#ifdef __EMSCRIPTEN__
-#endif
 
 namespace OpenXcom
 {
@@ -124,7 +122,6 @@ void UnitSprite::selectUnit(Part& p, int index, int dir)
 	//enforce compatibility with basic version
 	if (InvalidSpriteIndex != index && !_unitSurface->getFrame(index + dir))
 	{
-#ifdef __EMSCRIPTEN__
 		// HD sprite sheets are single ARGB composites; frame 0 serves all body parts.
 		// blitBody() routes HD surfaces to blitBodyHD(), which ignores per-frame indices.
 		const Surface *frame0 = _unitSurface->getFrame(0);
@@ -133,7 +130,6 @@ void UnitSprite::selectUnit(Part& p, int index, int dir)
 			p.src = frame0;
 			return;
 		}
-#endif
 		throw Exception("Frame(s) missing in '" + armor->getSpriteSheet() + "' for armor '" + armor->getType() + "'");
 	}
 
@@ -176,13 +172,11 @@ void UnitSprite::blitBody(Part& body)
 	{
 		return;
 	}
-#ifdef __EMSCRIPTEN__
 	if (body.src->isHD())
 	{
 		blitBodyHD(body);
 		return;
 	}
-#endif
 	ScriptWorkerBlit work;
 	BattleUnit::ScriptFill(&work, _unit, _save, body.bodyPart, _animationFrame, _shade, _burn);
 
@@ -193,7 +187,6 @@ void UnitSprite::blitBody(Part& body)
 	_dest->unlock();
 }
 
-#ifdef __EMSCRIPTEN__
 /**
  * Composite one HD body-part frame directly into _dest at the correct z-order
  * position. Shade via SDL_SetSurfaceColorMod; recolorMask tint via a temporary
@@ -260,7 +253,6 @@ void UnitSprite::blitBodyHD(Part& body)
 		SDL_SetSurfaceColorMod(src, 255, 255, 255);
 	}
 }
-#endif
 
 /**
  * Draws a unit, using the drawing rules of the unit.
