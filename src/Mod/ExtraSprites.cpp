@@ -252,10 +252,7 @@ Surface *ExtraSprites::loadSurface(Surface *surface)
 	}
 	surface = new Surface(_width, _height);
 	if (_hd)
-	{
-		surface->loadImageHD(_sprites.begin()->second);
-		surface->setLogicalSize(_width, _height);
-	}
+		surface->loadImageHD(_sprites.begin()->second, _width, _height);
 	else
 		surface->loadImage(_sprites.begin()->second);
 	return surface;

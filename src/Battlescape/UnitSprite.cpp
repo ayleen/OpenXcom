@@ -125,7 +125,7 @@ void UnitSprite::selectUnit(Part& p, int index, int dir)
 		// HD sprite sheets are single ARGB composites; frame 0 serves all body parts.
 		// blitBody() routes HD surfaces to blitBodyHD(), which ignores per-frame indices.
 		const Surface *frame0 = _unitSurface->getFrame(0);
-		if (frame0 && frame0->isHD())
+		if (frame0 && frame0->getShadeTable() == nullptr)
 		{
 			p.src = frame0;
 			return;
@@ -172,7 +172,7 @@ void UnitSprite::blitBody(Part& body)
 	{
 		return;
 	}
-	if (body.src->isHD())
+	if (body.src->getShadeTable() == nullptr)
 	{
 		blitBodyHD(body);
 		return;
@@ -202,7 +202,11 @@ void UnitSprite::blitBodyHD(Part& body)
 	if (!src)
 		return;
 
-	Uint8 cm = Surface::shadeToColorMod(_shade);
+	static const float kShade[16] = {
+		1.00f, 0.93f, 0.87f, 0.80f, 0.74f, 0.67f, 0.60f, 0.53f,
+		0.47f, 0.40f, 0.33f, 0.27f, 0.20f, 0.13f, 0.07f, 0.00f
+	};
+	Uint8 cm = (Uint8)(kShade[_shade & 0x0f] * 255.0f);
 
 	SDL_Surface *dst = _dest->getSurface();
 	SDL_Rect dstRect = { _x + body.offX, _y + body.offY, 0, 0 };

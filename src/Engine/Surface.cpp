@@ -278,9 +278,6 @@ Surface::Surface(const Surface& other) : Surface{ }
 		_visible = other._visible;
 		_hidden  = other._hidden;
 		_redraw  = other._redraw;
-		_isHD    = other._isHD;
-		_logicalW = other._logicalW;
-		_logicalH = other._logicalH;
 		_hasSavedPalette = other._hasSavedPalette;
 		if (_hasSavedPalette)
 			memcpy(_savedPalette, other._savedPalette, 256 * sizeof(SDL_Color));
@@ -357,7 +354,6 @@ void Surface::rawCopy(const std::vector<T> &src)
  */
 void Surface::loadRaw(const std::vector<unsigned char> &bytes)
 {
-	_isHD = false; _logicalW = _logicalH = 0;
 	// Demote to 8bpp scratch so rawCopy writes palette indices correctly;
 	// setPalette will promote back to 32bpp ARGB once the palette is available.
 	std::tie(_alignedBuffer, _surface) = Surface::NewLoadScratch8Bit(_width, _height);
@@ -376,7 +372,6 @@ void Surface::loadRaw(const std::vector<unsigned char> &bytes)
  */
 void Surface::loadRaw(const std::vector<char> &bytes)
 {
-	_isHD = false; _logicalW = _logicalH = 0;
 	std::tie(_alignedBuffer, _surface) = Surface::NewLoadScratch8Bit(_width, _height);
 	_pitch = (Uint16)_surface->pitch;
 	SDL_SetColorKey(_surface.get(), SDL_SRCCOLORKEY, 0);
@@ -563,7 +558,6 @@ static bool loadLbmInto(Surface &out, const Uint8 *data, size_t size)
  */
 void Surface::loadImage(const std::string &filename)
 {
-	_isHD = false; _logicalW = _logicalH = 0;
 	// Destroy current surface (will be replaced)
 	_alignedBuffer = nullptr;
 	_surface = nullptr;
@@ -599,7 +593,7 @@ void Surface::loadImage(const std::string &filename)
 					std::tie(_alignedBuffer, _surface) = Surface::NewLoadScratch8Bit(width, height);
 					_width = (Uint16)width; _height = (Uint16)height;
 					_pitch = (Uint16)_surface->pitch;
-					_x = 0; _y = 0; _isHD = false; _logicalW = _logicalH = 0;
+					_x = 0; _y = 0;
 					SDL_SetColorKey(_surface.get(), SDL_SRCCOLORKEY, 0);
 					SDL_SetColors(_surface.get(), (SDL_Color*)color->palette, 0, (int)color->palettesize);
 					ShaderDrawFunc(
@@ -697,7 +691,7 @@ void Surface::loadImage(const std::string &filename)
  * it composes correctly over the 8-bpp framebuffer during SDL_BlitSurface calls.
  * @param filename Filename of the image (resolved via FileMap).
  */
-void Surface::loadImageHD(const std::string &filename)
+void Surface::loadImageHD(const std::string &filename, int targetW, int targetH)
 {
 	_alignedBuffer = nullptr;
 	_surface = nullptr;
@@ -721,18 +715,18 @@ void Surface::loadImageHD(const std::string &filename)
 
 	SDL_SetSurfaceBlendMode(converted.get(), SDL_BLENDMODE_BLEND);
 
+	if (targetW > 0 && targetH > 0 && (converted->w != targetW || converted->h != targetH))
+	{
+		if (auto scaled = preScaleHDBilinear(converted.get(), targetW, targetH))
+			converted = std::move(scaled);
+	}
+
 	_width  = (Uint16)converted->w;
 	_height = (Uint16)converted->h;
 	_pitch  = (Uint16)converted->pitch;
 	_x = 0;
 	_y = 0;
 	_surface = std::move(converted);
-	_isHD = true;
-	// Intentionally leave _logicalW/_logicalH at 0 — the caller MUST follow
-	// loadImageHD() with setLogicalSize(). The blit() warning fires when this
-	// contract is violated; auto-defaulting here would silence it.
-	_logicalW = 0;
-	_logicalH = 0;
 }
 
 /**
@@ -744,7 +738,6 @@ void Surface::loadImageHD(const std::string &filename)
  */
 void Surface::loadSpk(const std::string& filename)
 {
-	_isHD = false; _logicalW = _logicalH = 0;
 	std::tie(_alignedBuffer, _surface) = Surface::NewLoadScratch8Bit(_width, _height);
 	_pitch = (Uint16)_surface->pitch;
 	SDL_SetColorKey(_surface.get(), SDL_SRCCOLORKEY, 0);
@@ -781,7 +774,6 @@ void Surface::loadSpk(const std::string& filename)
  */
 void Surface::loadBdy(const std::string &filename)
 {
-	_isHD = false; _logicalW = _logicalH = 0;
 	std::tie(_alignedBuffer, _surface) = Surface::NewLoadScratch8Bit(_width, _height);
 	_pitch = (Uint16)_surface->pitch;
 	SDL_SetColorKey(_surface.get(), SDL_SRCCOLORKEY, 0);
@@ -1081,9 +1073,8 @@ void Surface::blit(SDL_Surface *surface)
 		SDL_Rect target {};
 		target.x = getX();
 		target.y = getY();
-		// Use logicalW/H for HD-scale sprites; fall back to pixel dimensions.
-		target.w = _logicalW > 0 ? _logicalW : _width;
-		target.h = _logicalH > 0 ? _logicalH : _height;
+		target.w = _width;
+		target.h = _height;
 
 		SDL_BlitSurface(_surface.get(), nullptr, surface, &target);
 	}
@@ -1618,10 +1609,8 @@ void Surface::resize(int width, int height)
 		_width  = (Uint16)_surface->w;
 		_height = (Uint16)_surface->h;
 		_pitch  = (Uint16)_surface->pitch;
-		_logicalW = _logicalH = 0;
 		return;
 	}
-	_isHD = false; _logicalW = _logicalH = 0;
 	// 8bpp fallback — only reachable during transient pre-setPalette loading state.
 	Uint8 bpp = _surface->format->BitsPerPixel;
 	auto alignedBuffer = NewAlignedBuffer(bpp, width, height);
@@ -1666,28 +1655,6 @@ static Surface::UniqueSurfacePtr preScaleHDBilinear(SDL_Surface *src, int w, int
 	SDL_DestroyRenderer(renderer);
 
 	return dst;
-}
-
-/**
- * Stores the logical (game-coordinate) size for this HD surface and
- * pre-scales the pixel data to match if the native size differs.
- * Call immediately after loadImageHD to set the intended display size.
- */
-void Surface::setLogicalSize(int w, int h)
-{
-	_logicalW = (Uint16)w;
-	_logicalH = (Uint16)h;
-
-	if (_isHD && _surface && (_surface->w != w || _surface->h != h))
-	{
-		if (auto scaled = preScaleHDBilinear(_surface.get(), w, h))
-		{
-			_surface = std::move(scaled);
-			_width   = (Uint16)w;
-			_height  = (Uint16)h;
-			_pitch   = (Uint16)_surface->pitch;
-		}
-	}
 }
 
 /**

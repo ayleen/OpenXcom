@@ -92,8 +92,6 @@ protected:
 	Uint8 _visible: 1;
 	Uint8 _hidden: 1;
 	Uint8 _redraw: 1;
-	bool _isHD = false;
-	Uint16 _logicalW = 0, _logicalH = 0;
 	// Saved copy of the most recent setPalette call on ARGB surfaces (no SDL palette object).
 	// Cross-platform: native build may also use ARGB surfaces after 7.K.
 	SDL_Color _savedPalette[256] = {};
@@ -146,38 +144,9 @@ public:
 	/// Loads a general image file.
 	void loadImage(const std::string &filename);
 	/// Loads a 32-bit RGBA image (HD asset path — preserves alpha, skips palette quantization).
-	void loadImageHD(const std::string &filename);
-	/// Convert a shade level (0=full … 15=black) to an SDL colour-mod byte (255…0).
-	/// Single source of truth for the calibration curve; both shadeARGB() and
-	/// SDL_SetSurfaceColorMod callers use this so the curve is never duplicated.
-	/// Curve calibrated vs palette shading; see tests/regression/shade-curve.md.
-	static inline Uint8 shadeToColorMod(int shade)
-	{
-		static const float k[16] = {
-			1.00f, 0.93f, 0.87f, 0.80f, 0.74f, 0.67f, 0.60f, 0.53f,
-			0.47f, 0.40f, 0.33f, 0.27f, 0.20f, 0.13f, 0.07f, 0.00f
-		};
-		return (Uint8)(k[shade & 0x0f] * 255.0f);
-	}
-	/// Apply linear-RGB shade attenuation to one ARGB pixel (HD-only path).
-	/// shade 0 = full brightness … shade 15 = black.  Alpha is preserved.
-	static inline void shadeARGB(Uint32 &dst, Uint32 src, int shade)
-	{
-		if ((src >> 24) == 0) { dst = 0; return; }
-		float m = shadeToColorMod(shade) / 255.0f;
-		Uint8 a = (src >> 24) & 0xff;
-		Uint8 r = (src >> 16) & 0xff;
-		Uint8 g = (src >>  8) & 0xff;
-		Uint8 b =  src        & 0xff;
-		dst = ((Uint32)a       << 24)
-		    | ((Uint32)(Uint8)(r * m) << 16)
-		    | ((Uint32)(Uint8)(g * m) <<  8)
-		    |  (Uint32)(Uint8)(b * m);
-	}
-	/// Returns true if this surface was loaded via loadImageHD (ARGB HD asset).
-	bool isHD() const { return _isHD; }
-	/// Sets the logical (game-coordinate) size and pre-scales the HD surface to match.
-	void setLogicalSize(int w, int h);
+	/// If targetW/targetH are non-zero and the image dimensions differ, bilinearly rescales
+	/// the image to (targetW, targetH) at load time so the surface is game-resolution-ready.
+	void loadImageHD(const std::string &filename, int targetW = 0, int targetH = 0);
 	/// Returns true if this surface is in 32bpp ARGB mode.
 	bool isARGB() const { return _surface && _surface->format->BitsPerPixel == 32; }
 	// Phase 7: shade table accessors (cross-platform; guard removed in 7.K).
