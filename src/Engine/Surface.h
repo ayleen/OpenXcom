@@ -73,7 +73,7 @@ public:
 	}
 
 	/// Create 8bpp buffer+surface for palette-index scratch use during loading.
-	/// 7.C: palette loaders write indices here; promoteToARGB() converts to ARGB on setPalette.
+	/// Palette loaders write indices here; setPalette() rebuilds the shade table from palette.
 	static std::pair<UniqueBufferPtr, UniqueSurfacePtr> NewLoadScratch8Bit(int width, int height)
 	{
 		auto tempBuffer = Surface::NewAlignedBuffer(8, width, height);
@@ -185,14 +185,8 @@ public:
 	bool isHD() const { return _isHD; }
 	/// Sets the logical (game-coordinate) size and pre-scales the HD surface to match.
 	void setLogicalSize(int w, int h);
-	/// Returns true if this surface is in 32bpp ARGB mode (HD asset or promoted UI container).
+	/// Returns true if this surface is in 32bpp ARGB mode.
 	bool isARGB() const { return _surface && _surface->format->BitsPerPixel == 32; }
-	/// Promotes this surface from 8bpp indexed to 32bpp ARGB in-place.
-	/// No-op if already ARGB. Existing palette pixels are blitted into the new buffer.
-	void promoteToARGB();
-	/// Resets an ARGB-promoted surface back to fresh 8bpp, restoring the palette
-	/// saved at promotion time. Used by UI elements that redraw via 8bpp helpers.
-	void demoteToIndexed();
 #endif
 	// Phase 7: shade table accessors (cross-platform; guard removed in 7.K).
 	/// Returns the primary shade table, or nullptr if not yet built.
@@ -204,8 +198,8 @@ public:
 	void attachShadeTable(std::shared_ptr<ShadeTable> t) { _shadeTable = std::move(t); }
 	/// Replaces the full palette-cycle table list (7.A.4).
 	void attachShadeCycle(std::vector<std::shared_ptr<ShadeTable>> cycle) { _shadeCycle = std::move(cycle); }
-	/// 7.C: builds shade table from an externally-provided palette (for ARGB surfaces that
-	/// bypassed the normal setPalette→promoteToARGB flow, e.g. direct ARGB pixel writes in loaders).
+	/// Builds shade table from an externally-provided palette (for ARGB surfaces that
+	/// received direct ARGB pixel writes in loaders, bypassing the normal setPalette flow).
 	void rebuildShadeTableFromPalette(const SDL_Color *pal, int ncolors = 256);
 	/// Returns getPalette() if available (8bpp), else _savedPalette (ARGB surface
 	/// that received setPalette after promotion), else nullptr.
