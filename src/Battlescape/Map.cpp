@@ -317,7 +317,6 @@ void Map::draw()
 	// we use colour 15 because that actually corresponds to the colour we DO want in all variations of the xcom and tftd palettes.
 	// Note: un-hardcoded the color from 15 to ruleset value, default 15
 	_redraw = false;
-#ifdef __EMSCRIPTEN__
 	{
 		const SDL_Color *pal = getEffectivePalette();
 		Uint8 idx = (Uint8)(Palette::blockOffset(0) + _bgColor);
@@ -331,16 +330,6 @@ void Map::draw()
 			SDL_FillRect(getSurface(), nullptr, 0xFF000000u);
 		}
 	}
-#else
-	ShaderDrawFunc(
-		[](Uint8& dest, Uint8 color)
-		{
-			dest = color;
-		},
-		ShaderSurface(this),
-		ShaderScalar<Uint8>(Palette::blockOffset(0) + _bgColor)
-	);
-#endif
 
 	Tile *t;
 
@@ -755,11 +744,7 @@ void Map::drawTerrain(Surface *surface)
 	_isAltPressed = _game->isAltPressed(true);
 	_isCtrlPressed = _game->isCtrlPressed(true);
 	int frameNumber = 0;
-#ifdef __EMSCRIPTEN__
 	SurfaceRaw<const Uint32> tmpSurface;
-#else
-	SurfaceRaw<const Uint8> tmpSurface;
-#endif
 	Tile *tile;
 	int beginX = 0, endX = _save->getMapSizeX() - 1;
 	int beginY = 0, endY = _save->getMapSizeY() - 1;
@@ -2432,14 +2417,8 @@ void Map::scrollKey()
  */
 void Map::fadeShade()
 {
-#ifdef __EMSCRIPTEN__
-	// SDL_GetKeyState is not declared in Emscripten's SDL1 compat headers;
-	// the function is available via libsdl.js but requires an explicit declaration.
-	// Stub to false for now — night-vision hold key is a non-critical UI feature.
-	bool hold = false;
-#else
-	bool hold = SDL_GetKeyState(NULL)[Options::keyNightVisionHold];
-#endif
+	const Uint8 *ks = SDL_GetKeyboardState(nullptr);
+	bool hold = ks && ks[SDL_GetScancodeFromKey(Options::keyNightVisionHold)];
 	if ((_nightVisionOn && !hold) || (!_nightVisionOn && hold))
 	{
 		_nvColor = Options::oxceNightVisionColor;
