@@ -651,33 +651,41 @@ void Text::draw()
 			chr.setX(x);
 			chr.setY(y);
 #ifdef __EMSCRIPTEN__
-			if (_useRGB && isARGB())
+			if (isARGB())
 			{
+				// 7.F: unified ARGB glyph blit — reads brightness directly from the font
+				// atlas (B channel of ARGB8888 LE = grayscale for all TFTD fonts), so
+				// the broken ShaderSurface(Uint8) path is bypassed entirely.
+				Uint32 colorARGB;
+				if (_useRGB)
+				{
+					colorARGB = _colorRGB;
+				}
+				else
+				{
+					const SDL_Color *pal = getEffectivePalette();
+					// mid!=0 is _invert; palette range is color+1..color+5, use centre
+					Uint8 palIdx = (Uint8)(color + (mid != 0 ? 3 : 0));
+					colorARGB = pal
+						? (0xFF000000u | ((Uint32)pal[palIdx].r << 16) | ((Uint32)pal[palIdx].g << 8) | (Uint32)pal[palIdx].b)
+						: 0xFFFFFFFFu;
+				}
+				const Surface *glyphAtlas = chr.getSurface();
 				const SDL_Rect *srcR = chr.getCrop();
-				int cw = srcR->w, ch = srcR->h;
-				SurfaceCrop tmp_chr = chr;
-				tmp_chr.setX(0);
-				tmp_chr.setY(0);
-				Surface tmp(cw, ch, 0, 0);
-				// Identity copy: PaletteShift with off=0, mul=1, mid=0 yields
-				// dest = src — keeps original glyph intensities (1..5) in tmp
-				// for the alpha-mapping pass below. Passing the real color/mul/mid
-				// would shift them into palette indices (e.g. 241..245), making the
-				// idx>=5 clamp always trigger and collapsing AA back to binary.
-				ShaderDraw<PaletteShift>(ShaderSurface(&tmp, 0, 0), ShaderCrop(tmp_chr),
-				                        ShaderScalar(0), ShaderScalar(1), ShaderScalar(0));
+				int gx = srcR->x, gy = srcR->y, cw = srcR->w, ch = srcR->h;
 				lock();
 				for (int py = 0; py < ch; ++py)
 					for (int px = 0; px < cw; ++px)
 					{
-						Uint8 idx = tmp.getPixel(px, py);
-						if (idx == 0) continue;
-						// Map glyph intensity (1..4) to alpha. Note: OXCE fonts
-						// rarely use idx=5; clamp anyway for safety.
-						Uint32 ialpha = (idx >= 4u) ? 255u : ((Uint32)idx * 255u / 4u);
-						Uint8 sa = (Uint8)ialpha;
-						Uint8 da = (Uint8)(((Uint32)(_colorRGB >> 24) * sa) / 255u);
-						setPixel32(x + px, y + py, (_colorRGB & 0x00FFFFFFu) | ((Uint32)da << 24));
+						Uint8 brightness = glyphAtlas ? glyphAtlas->getPixel(gx + px, gy + py) : 0u;
+						if (brightness == 0) continue;
+						if (mul > 1)
+						{
+							int boosted = (int)brightness * mul;
+							brightness = boosted > 255 ? (Uint8)255 : (Uint8)boosted;
+						}
+						Uint8 da = (Uint8)(((Uint32)(colorARGB >> 24) * brightness) / 255u);
+						setPixel32(x + px, y + py, (colorARGB & 0x00FFFFFFu) | ((Uint32)da << 24));
 					}
 				unlock();
 			}

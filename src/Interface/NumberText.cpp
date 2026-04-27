@@ -294,39 +294,71 @@ void NumberText::draw()
 	int x = 0;
 
 #ifdef __EMSCRIPTEN__
-	if (_useRGB && isARGB())
+	if (isARGB())
 	{
-		// Draw digits into a temporary 8bpp surface, then transfer non-zero
-		// pixels as solid ARGB color onto this ARGB surface.
-		Surface tmp(getWidth(), getHeight());
-		if (!_bordered)
+		// 7.F: render digits directly from static 3×5 patterns.
+		// _chars pixel data is blank on ARGB (setPixel no-op after 7.C), so we
+		// skip blitNShade entirely and paint from the hardcoded glyph table.
+		static const Uint8 kPat[10][5] = {
+			{7, 5, 5, 5, 7}, {2, 6, 2, 2, 7}, {7, 1, 7, 4, 7},
+			{7, 1, 7, 1, 7}, {5, 5, 7, 1, 1}, {7, 4, 7, 1, 7},
+			{7, 4, 7, 5, 7}, {7, 1, 1, 1, 1}, {7, 5, 7, 5, 7},
+			{7, 5, 7, 1, 7},
+		};
+		Uint32 colorARGB;
+		if (_useRGB)
 		{
-			for (std::string::iterator i = s.begin(); i != s.end(); ++i)
-			{
-				_chars[*i - '0']->blitNShade(&tmp, x, 0);
-				x += _chars[*i - '0']->getWidth() + 1;
-			}
+			colorARGB = _colorRGB;
 		}
 		else
 		{
-			for (std::string::iterator i = s.begin(); i != s.end(); ++i)
-			{
-				_borderedChars[*i - '0']->blitNShade(&tmp, x, 0);
-				x += _chars[*i - '0']->getWidth() + 1;
-			}
+			const SDL_Color *pal = getEffectivePalette();
+			colorARGB = pal
+				? (0xFF000000u | ((Uint32)pal[_color].r << 16) | ((Uint32)pal[_color].g << 8) | (Uint32)pal[_color].b)
+				: 0xFFFFFFFFu;
 		}
 		lock();
-		for (int py = 0; py < getHeight(); ++py)
+		for (std::string::iterator i = s.begin(); i != s.end(); ++i)
 		{
-			for (int px = 0; px < getWidth(); ++px)
+			int d = *i - '0';
+			if (!_bordered)
 			{
-				Uint8 idx = tmp.getPixel(px, py);
-				if (idx == 0) continue;
-				Uint32 ialpha = (idx >= 4u) ? 255u : ((Uint32)idx * 255u / 4u);
-				Uint8 sa = (Uint8)ialpha;
-				Uint8 da = (Uint8)(((Uint32)(_colorRGB >> 24) * sa) / 255u);
-				setPixel32(px, py, (_colorRGB & 0x00FFFFFFu) | ((Uint32)da << 24));
+				for (int py = 0; py < 5; ++py)
+					for (int px = 0; px < 3; ++px)
+						if ((kPat[d][py] >> (2 - px)) & 1)
+							setPixel32(x + px, py, colorARGB);
 			}
+			else
+			{
+				// 5×7 bordered char: digit center at (1,1); shadow ring around it.
+				// Cardinal neighbours shade=8 (alpha≈47%), corner shade=11 (alpha≈27%).
+				for (int by = 0; by < 7; ++by)
+					for (int bx = 0; bx < 5; ++bx)
+					{
+						int sx = bx - 1, sy = by - 1;
+						bool on = sx >= 0 && sx < 3 && sy >= 0 && sy < 5 &&
+						          ((kPat[d][sy] >> (2 - sx)) & 1);
+						if (on) { setPixel32(x + bx, by, colorARGB); continue; }
+						bool cardinal = false, corner = false;
+						for (int dy = -1; dy <= 1; ++dy)
+							for (int dx = -1; dx <= 1; ++dx)
+							{
+								if (dx == 0 && dy == 0) continue;
+								int asx = sx + dx, asy = sy + dy;
+								if (asx < 0 || asx >= 3 || asy < 0 || asy >= 5) continue;
+								if (!((kPat[d][asy] >> (2 - asx)) & 1)) continue;
+								if (dx == 0 || dy == 0) cardinal = true; else corner = true;
+							}
+						if (cardinal || corner)
+						{
+							Uint8 alpha = cardinal
+								? (Uint8)(((Uint32)(colorARGB >> 24) * 119u) / 255u)
+								: (Uint8)(((Uint32)(colorARGB >> 24) *  68u) / 255u);
+							setPixel32(x + bx, by, (colorARGB & 0x00FFFFFFu) | ((Uint32)alpha << 24));
+						}
+					}
+			}
+			x += _chars[d]->getWidth() + 1;
 		}
 		unlock();
 		return;
