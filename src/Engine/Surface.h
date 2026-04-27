@@ -201,6 +201,7 @@ public:
 	// Phase 7: shade table accessors (cross-platform; guard removed in 7.K).
 	/// Returns the primary shade table, or nullptr if not yet built.
 	const ShadeTable *getShadeTable() const { return _shadeTable.get(); }
+
 	/// Returns the cycle-phase shade table, or the primary table as fallback.
 	const ShadeTable *getShadeTable(int cyclePhase) const;
 	/// Attaches a pre-built shade table (e.g. recoloured variant from the cache).
@@ -625,5 +626,29 @@ public:
 	/// Blit Cropped surface to another surface.
 	void blit(Surface* dest);
 };
+
+/**
+ * Phase 7.B: HD-path shade attenuation for ARGB pixels without a shade table.
+ * Applies a perceptually calibrated linear darkening curve.
+ * shade 0 = full brightness, shade 15 = black. Alpha is preserved.
+ * Index 0 (transparent, alpha==0) is passed through unchanged.
+ *
+ * This is a free function so ShaderDraw helpers can call it without including
+ * the full Surface class.  Cross-platform; no __EMSCRIPTEN__ guard (D4b).
+ */
+inline Uint32 shadeARGBCurve(Uint32 src, int shade)
+{
+	if ((src >> 24) == 0) return 0;
+	static const float k[16] = {
+		1.00f, 0.93f, 0.87f, 0.80f, 0.74f, 0.67f, 0.60f, 0.53f,
+		0.47f, 0.40f, 0.33f, 0.27f, 0.20f, 0.13f, 0.07f, 0.00f
+	};
+	const float m = k[shade & 0x0f];
+	const Uint8 a = (Uint8)((src >> 24) & 0xff);
+	const Uint8 r = (Uint8)(((src >> 16) & 0xff) * m);
+	const Uint8 g = (Uint8)(((src >>  8) & 0xff) * m);
+	const Uint8 b = (Uint8)( (src        & 0xff) * m);
+	return ((Uint32)a << 24) | ((Uint32)r << 16) | ((Uint32)g << 8) | b;
+}
 
 }
