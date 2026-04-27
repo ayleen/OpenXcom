@@ -44,7 +44,6 @@ private:
 	SDL_Window   *_window;
 	SDL_Renderer *_renderer;
 	SDL_Texture  *_texture;
-	SDL_Surface  *_screenBaseArgb;  // ARGB at base size, palette-mapped from _surface; stretched into _screen
 #endif
 	int _bpp;
 	int _baseWidth, _baseHeight;

@@ -54,7 +54,7 @@ CalypsoHDUIState::CalypsoHDUIState()
 	               "with 32-bit color (setColorRGB).");
 
 	_btnOk->setColor(192);
-	_btnOk->setTextColorRGB(0xFFE0E0E0u);  // light gray — promotes button to ARGB/HDQueue
+	_btnOk->setTextColorRGB(0xFFE0E0E0u);  // light gray ARGB
 	_btnOk->setText("OK");
 	_btnOk->onMouseClick((ActionHandler)&CalypsoHDUIState::btnOkClick);
 	_btnOk->onKeyboardPress((ActionHandler)&CalypsoHDUIState::btnOkClick,

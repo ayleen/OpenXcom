@@ -32,10 +32,6 @@
 #include "CrossPlatform.h"
 #include "FileMap.h"
 #include "Zoom.h"
-#ifdef __EMSCRIPTEN__
-#include "HDQueue.h"
-#include "FrameArena.h"
-#endif
 #include "Timer.h"
 #include <SDL.h>
 #ifdef __EMSCRIPTEN__
@@ -131,7 +127,7 @@ void Screen::makeVideoFlags()
  */
 Screen::Screen() : _screen(nullptr), _baseWidth(ORIGINAL_WIDTH), _baseHeight(ORIGINAL_HEIGHT), _scaleX(1.0), _scaleY(1.0), _flags(0), _numColors(0), _firstColor(0), _pushPalette(false), _flickerFix(false)
 #ifdef __EMSCRIPTEN__
-	, _window(nullptr), _renderer(nullptr), _texture(nullptr), _screenBaseArgb(nullptr)
+	, _window(nullptr), _renderer(nullptr), _texture(nullptr)
 #endif
 {
 	_flickerFix = Options::oxceEnablePaletteFlickerFix;
@@ -147,7 +143,6 @@ Screen::Screen() : _screen(nullptr), _baseWidth(ORIGINAL_WIDTH), _baseHeight(ORI
 Screen::~Screen()
 {
 #ifdef __EMSCRIPTEN__
-	if (_screenBaseArgb) { SDL_FreeSurface(_screenBaseArgb); _screenBaseArgb = nullptr; }
 	if (_texture)        { SDL_DestroyTexture(_texture);     _texture  = nullptr; }
 	if (_renderer)       { SDL_DestroyRenderer(_renderer);   _renderer = nullptr; }
 	if (_window)         { SDL_DestroyWindow(_window);       _window   = nullptr; }
@@ -251,16 +246,8 @@ void Screen::flip()
 			resetDisplay(false, false);
 		}
 
-		/* Two-step blit because SDL_BlitScaled requires matching src/dst
-		 * formats: (a) palette-map 8bpp _surface → ARGB at base size, then
-		 * (b) nearest-neighbour stretch ARGB-base → ARGB-canvas. */
-		SDL_BlitSurface(_surface.get(), nullptr, _screenBaseArgb, nullptr);
-		SDL_BlitScaled(_screenBaseArgb, nullptr, _screen, nullptr);
-
-		HDQueue::flush(_screen);
-		// Arena reset MUST come after flush — surfaces are referenced by HDQueue
-		// entries until flush() completes. Resetting before flush dangling-pointers them.
-		frameArena().reset();
+		/* _surface is ARGB32 at base resolution; stretch-blit into canvas-sized _screen. */
+		SDL_BlitScaled(_surface.get(), nullptr, _screen, nullptr);
 
 		/* Upload RGBA32 pixels to streaming texture and present. */
 		void *texPixels;
@@ -357,8 +344,6 @@ void Screen::setPalette(const SDL_Color* colors, int firstcolor, int ncolors, bo
 		_firstColor = firstcolor;
 	}
 
-	SDL_SetColors(_surface.get(), const_cast<SDL_Color *>(colors), firstcolor, ncolors);
-
 	// defer actual update of screen until SDL_Flip()
 	if (immediately && _screen->format->BitsPerPixel == 8 && SDL_SetColors(_screen, const_cast<SDL_Color *>(colors), firstcolor, ncolors) == 0)
 	{
@@ -424,22 +409,12 @@ void Screen::resetDisplay(bool resetVideo, bool noShaders)
 	int height = Options::displayHeight;
 	makeVideoFlags(); /* sets _bpp=8, _baseWidth, _baseHeight */
 
-	/* (Re)allocate 8bpp internal surface if size or bpp changed. */
-	if (!_surface || _surface->format->BitsPerPixel != 8 ||
+	/* (Re)allocate ARGB32 game-coordinate surface if size changed. */
+	if (!_surface || _surface->format->BitsPerPixel != 32 ||
 	    _surface->w != _baseWidth || _surface->h != _baseHeight)
 	{
-		std::tie(_buffer, _surface) = Surface::NewLoadScratch8Bit(_baseWidth, _baseHeight);
-		SDL_SetColors(_surface.get(), deferredPalette, 0, 256);
-
-		/* ARGB intermediate at base size — palette-mapped from _surface each
-		 * frame, then stretch-blitted into _screen at canvas size.  Required
-		 * because SDL_BlitScaled needs matching src/dst formats. */
-		if (_screenBaseArgb) SDL_FreeSurface(_screenBaseArgb);
-		_screenBaseArgb = SDL_CreateRGBSurface(0, _baseWidth, _baseHeight, 32,
-		    0x00FF0000u, 0x0000FF00u, 0x000000FFu, 0xFF000000u);
-		if (!_screenBaseArgb) throw Exception(SDL_GetError());
+		std::tie(_buffer, _surface) = Surface::NewPair32Bit(_baseWidth, _baseHeight);
 	}
-	SDL_SetColorKey(_surface.get(), 0, 0);
 
 	/* Recreate _screen + _texture at canvas size if displayWidth/Height changed
 	 * (state called Screen::updateScale or browser resized).  _screen is the
@@ -492,8 +467,8 @@ void Screen::resetDisplay(bool resetVideo, bool noShaders)
 			Log(LOG_ERROR) << "SDL_CreateRenderer failed: " << SDL_GetError();
 			throw Exception(SDL_GetError());
 		}
-		/* RGBA32 staging surface sized to the canvas (browser resolution).
-		 * 8bpp _surface (game-coord, _baseWidth × _baseHeight) is stretch-blitted
+		/* ARGB32 staging surface sized to the canvas (browser resolution).
+		 * ARGB32 _surface (game-coord, _baseWidth × _baseHeight) is stretch-blitted
 		 * into this each frame via SDL_BlitScaled — gives crisp pixel art at
 		 * the viewport's native resolution without relying on the Emscripten
 		 * SDL2 port's broken texture-stretch path. */

@@ -4,8 +4,8 @@
  *
  * Shown after mod loading completes (pushed on top of GoToMainMenuState).
  * Displays the CALYPSO_SPLASH_HD extraSprite (hd:true, 640×400) so that
- * the HD overlay path (Surface::blit → HDQueue::push → HDQueue::flush)
- * is exercised by the regression harness.
+ * the HD blit path (Surface::blit ARGB→ARGB) is exercised by the
+ * regression harness.
  *
  * Emscripten-only: native builds never see this state.
  */

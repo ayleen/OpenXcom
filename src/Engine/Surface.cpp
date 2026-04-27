@@ -30,9 +30,6 @@
 #include "Logger.h"
 #include "SDL2Helpers.h"
 #include "FileMap.h"
-#ifdef __EMSCRIPTEN__
-#include "HDQueue.h"
-#endif
 #ifdef _WIN32
 #include <malloc.h>
 #endif
@@ -1174,36 +1171,9 @@ void Surface::blit(SDL_Surface *surface)
 		target.y = getY();
 
 #ifdef __EMSCRIPTEN__
-		// Four-way blit table (6a.2):
-		//   ARGB src → 8bpp dst  : HDQueue (lands on final _screen via flush)
-		//   ARGB src → ARGB dst  : direct SDL_BlitSurface (alpha blend)
-		//   8bpp src → 8bpp dst  : SDL_BlitSurface (palette index copy)
-		//   8bpp src → ARGB dst  : SDL_BlitSurface (SDL2 cross-format)
-		if (_surface->format->BitsPerPixel == 32)
-		{
-			target.w = _logicalW > 0 ? _logicalW : _width;
-			target.h = _logicalH > 0 ? _logicalH : _height;
-			if (_isHD && _logicalW == 0)
-			{
-				static thread_local bool warned = false;
-				if (!warned)
-				{
-					Log(LOG_WARNING) << "HD surface hit blit() with logicalW=0 — setLogicalSize not called";
-					warned = true;
-				}
-			}
-			if (surface->format->BitsPerPixel == 32)
-			{
-				// ARGB → ARGB: alpha-blend directly into the ARGB parent.
-				SDL_BlitSurface(_surface.get(), nullptr, surface, &target);
-			}
-			else
-			{
-				// ARGB → 8bpp: queue for final _screen composite.
-				HDQueue::push(_surface.get(), target);
-			}
-			return;
-		}
+		// All surfaces are ARGB32 (7.C). Use logicalW/H for HD-scale sprites.
+		target.w = _logicalW > 0 ? _logicalW : _width;
+		target.h = _logicalH > 0 ? _logicalH : _height;
 #endif
 
 		SDL_BlitSurface(_surface.get(), nullptr, surface, &target);

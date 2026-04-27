@@ -23,7 +23,6 @@
 #include <sstream>
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
-#include "HDQueue.h"
 #endif
 #include <SDL_mixer.h>
 #include "State.h"
@@ -142,10 +141,6 @@ Game::~Game()
 	delete _fpsCounter;
 
 	Mix_CloseAudio();
-
-#ifdef __EMSCRIPTEN__
-	HDQueue::reset();
-#endif
 
 	SDL_Quit();
 }
