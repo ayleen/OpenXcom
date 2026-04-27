@@ -277,36 +277,19 @@ Surface::Surface() : _x{ }, _y{ }, _width{ }, _height{ }, _pitch{ }, _visible(tr
  */
 Surface::Surface(int width, int height, int x, int y) : _x(x), _y(y), _visible(true), _hidden(false), _redraw(false)
 {
-	std::tie(_alignedBuffer, _surface) = Surface::NewPair8Bit(width, height);
-	_width = _surface->w;
-	_height = _surface->h;
-	_pitch = _surface->pitch;
-	SDL_SetColorKey(_surface.get(), SDL_SRCCOLORKEY, 0);
-}
-
 #ifdef __EMSCRIPTEN__
-/**
- * Creates a new surface with an explicit pixel format.
- * Format::ARGB8888 allocates a 32bpp buffer suitable for HD UI containers.
- */
-Surface::Surface(int width, int height, int x, int y, Format fmt)
-    : _x(x), _y(y), _visible(true), _hidden(false), _redraw(false)
-{
-	if (fmt == Format::ARGB8888)
-	{
-		std::tie(_alignedBuffer, _surface) = Surface::NewPair32Bit(width, height);
-		SDL_SetSurfaceBlendMode(_surface.get(), SDL_BLENDMODE_BLEND);
-	}
-	else
-	{
-		std::tie(_alignedBuffer, _surface) = Surface::NewPair8Bit(width, height);
-		SDL_SetColorKey(_surface.get(), SDL_SRCCOLORKEY, 0);
-	}
+	// 7.C: all surfaces default to 32bpp ARGB; palette-index loaders (loadScr/loadSpk/loadBdy/loadRaw)
+	// temporarily demote to 8bpp scratch at the start of each load, then promote back via setPalette.
+	std::tie(_alignedBuffer, _surface) = Surface::NewPair32Bit(width, height);
+	SDL_SetSurfaceBlendMode(_surface.get(), SDL_BLENDMODE_BLEND);
+#else
+	std::tie(_alignedBuffer, _surface) = Surface::NewLoadScratch8Bit(width, height);
+	SDL_SetColorKey(_surface.get(), SDL_SRCCOLORKEY, 0);
+#endif
 	_width  = (Uint16)_surface->w;
 	_height = (Uint16)_surface->h;
 	_pitch  = (Uint16)_surface->pitch;
 }
-#endif
 
 /**
  * Performs a deep copy of an existing surface.
@@ -338,10 +321,15 @@ Surface::Surface(const Surface& other) : Surface{ }
 		_visible = other._visible;
 		_hidden  = other._hidden;
 		_redraw  = other._redraw;
-		_isHD    = other._isHD;   // preserve HD-queue routing flag
+		_isHD    = other._isHD;
 		_logicalW = other._logicalW;
 		_logicalH = other._logicalH;
-		// ARGB surfaces never have a shade table (no palette).
+		// 7.C: copy saved palette and shade tables (ARGB surfaces carry them after promotion).
+		_hasSavedPalette = other._hasSavedPalette;
+		if (_hasSavedPalette)
+			memcpy(_savedPalette, other._savedPalette, 256 * sizeof(SDL_Color));
+		_shadeTable = other._shadeTable;
+		_shadeCycle  = other._shadeCycle;
 		return;
 	}
 #endif
@@ -353,11 +341,22 @@ Surface::Surface(const Surface& other) : Surface{ }
 	int width = other.getWidth();
 	int height = other.getHeight();
 
+#ifdef __EMSCRIPTEN__
+	// 7.C: source is in 8bpp scratch state (pre-setPalette); copy scratch as-is.
+	std::tie(_alignedBuffer, _surface) = Surface::NewLoadScratch8Bit(width, height);
+	_width = (Uint16)_surface->w;
+	_height = (Uint16)_surface->h;
+	_pitch = (Uint16)_surface->pitch;
+	SDL_SetColorKey(_surface.get(), SDL_SRCCOLORKEY, 0);
+	if (other.getPalette()) SDL_SetColors(_surface.get(), other.getPalette(), 0, 255);
+	RawCopySurf(_surface, other._surface);
+#else
 	//move copy
 	*this = Surface(width, height, other._x, other._y);
 	//cant call `setPalette` because its virtual function and it doesn't work correctly in constructor
 	SDL_SetColors(_surface.get(), other.getPalette(), 0, 255);
 	RawCopySurf(_surface, other._surface);
+#endif
 
 	_x = other._x;
 	_y = other._y;
@@ -413,11 +412,16 @@ void Surface::loadRaw(const std::vector<unsigned char> &bytes)
 {
 #ifdef __EMSCRIPTEN__
 	_isHD = false; _logicalW = _logicalH = 0;
+	// 7.C: demote to 8bpp scratch so rawCopy writes palette indices correctly;
+	// setPalette will promote back to 32bpp ARGB once the palette is available.
+	std::tie(_alignedBuffer, _surface) = Surface::NewLoadScratch8Bit(_width, _height);
+	_pitch = (Uint16)_surface->pitch;
+	SDL_SetColorKey(_surface.get(), SDL_SRCCOLORKEY, 0);
 #endif
 	lock();
 	rawCopy(bytes);
 	unlock();
-	rebuildShadeTable(); // 7.A.3
+	rebuildShadeTable(); // 7.A.3: no-op until palette is set and shade table built
 }
 
 /**
@@ -429,6 +433,10 @@ void Surface::loadRaw(const std::vector<char> &bytes)
 {
 #ifdef __EMSCRIPTEN__
 	_isHD = false; _logicalW = _logicalH = 0;
+	// 7.C: demote to 8bpp scratch; setPalette promotes back to 32bpp ARGB.
+	std::tie(_alignedBuffer, _surface) = Surface::NewLoadScratch8Bit(_width, _height);
+	_pitch = (Uint16)_surface->pitch;
+	SDL_SetColorKey(_surface.get(), SDL_SRCCOLORKEY, 0);
 #endif
 	lock();
 	rawCopy(bytes);
@@ -535,11 +543,13 @@ static bool loadLbmInto(Surface &out, const Uint8 *data, size_t size)
 
     if (!body || w <= 0 || h <= 0 || nPlanes < 1 || nPlanes > 8) return false;
 
+    // 7.C: out is 32bpp ARGB by default; decode into a local 8bpp scratch then blit.
     out = Surface(w, h, 0, 0);
-    if (palCount > 0) out.setPalette(palette, 0, palCount);
+    SDL_Surface *scratch8 = SDL_CreateRGBSurface(SDL_SWSURFACE, w, h, 8, 0, 0, 0, 0);
+    if (!scratch8) return false;
+    if (palCount > 0) SDL_SetColors(scratch8, palette, 0, palCount);
 
-    SDL_Surface *surf = out.getSurface();
-    if (!surf || !surf->pixels) return false;
+    SDL_Surface *surf = scratch8;
 
     const Uint8 *src = body, *srcEnd = body + bodyLen;
 
@@ -588,6 +598,16 @@ static bool loadLbmInto(Surface &out, const Uint8 *data, size_t size)
             }
         }
     }
+
+    // Blit 8bpp scratch → 32bpp ARGB output (SDL uses palette for conversion).
+    SDL_SetSurfaceBlendMode(scratch8, SDL_BLENDMODE_NONE);
+    SDL_BlitSurface(scratch8, nullptr, out.getSurface(), nullptr);
+    SDL_FreeSurface(scratch8);
+
+    // Build shade table from palette.
+    if (palCount > 0)
+        out.rebuildShadeTableFromPalette(palette, palCount);
+
     return true;
 }
 
@@ -634,6 +654,33 @@ void Surface::loadImage(const std::string &filename)
 				unsigned bpp = lodepng_get_bpp(color);
 				if (bpp == 8)
 				{
+#ifdef __EMSCRIPTEN__
+					// 7.C: create 8bpp scratch, write pixels, then promote to ARGB.
+					// We bypass setPalette (which would auto-promote before pixels are written)
+					// and instead set SDL colors directly, then call promoteToARGB() after.
+					std::tie(_alignedBuffer, _surface) = Surface::NewLoadScratch8Bit(width, height);
+					_width = (Uint16)width; _height = (Uint16)height;
+					_pitch = (Uint16)_surface->pitch;
+					_x = 0; _y = 0; _isHD = false; _logicalW = _logicalH = 0;
+					SDL_SetColorKey(_surface.get(), SDL_SRCCOLORKEY, 0);
+					SDL_SetColors(_surface.get(), (SDL_Color*)color->palette, 0, (int)color->palettesize);
+					ShaderDrawFunc(
+						[](Uint8& dest, unsigned char& src) { dest = src; },
+						ShaderSurface(this),
+						ShaderSurface(SurfaceRaw<unsigned char>(image, width, height))
+					);
+					int transparent = 0;
+					for (int c = 0; c < _surface->format->palette->ncolors; ++c)
+					{
+						SDL_Color *palColor = _surface->format->palette->colors + c;
+						if (palColor->a == 0) { transparent = c; break; }
+					}
+					FixTransparent(_surface, transparent);
+					if (transparent != 0)
+						Log(LOG_WARNING) << "Image " << filename << " (from lodepng) has incorrect transparent color index " << transparent << " (instead of 0).";
+					promoteToARGB();
+					rebuildShadeTable();
+#else
 					*this = Surface(width, height, 0, 0);
 					setPalette((SDL_Color*)color->palette, 0, color->palettesize);
 
@@ -660,6 +707,7 @@ void Surface::loadImage(const std::string &filename)
 					{
 						Log(LOG_WARNING) << "Image " << filename << " (from lodepng) has incorrect transparent color index " << transparent << " (instead of 0).";
 					}
+#endif
 				}
 			} else {
 				Log(LOG_ERROR) << "Image " << filename << " lodepng failed:" << lodepng_error_text(error);
@@ -780,6 +828,10 @@ void Surface::loadSpk(const std::string& filename)
 {
 #ifdef __EMSCRIPTEN__
 	_isHD = false; _logicalW = _logicalH = 0;
+	// 7.C: demote to 8bpp scratch for palette-index writes; promoted by setPalette.
+	std::tie(_alignedBuffer, _surface) = Surface::NewLoadScratch8Bit(_width, _height);
+	_pitch = (Uint16)_surface->pitch;
+	SDL_SetColorKey(_surface.get(), SDL_SRCCOLORKEY, 0);
 #endif
 	Uint16 flag;
 	int x = 0, y = 0;
@@ -816,6 +868,10 @@ void Surface::loadBdy(const std::string &filename)
 {
 #ifdef __EMSCRIPTEN__
 	_isHD = false; _logicalW = _logicalH = 0;
+	// 7.C: demote to 8bpp scratch for palette-index writes; promoted by setPalette.
+	std::tie(_alignedBuffer, _surface) = Surface::NewLoadScratch8Bit(_width, _height);
+	_pitch = (Uint16)_surface->pitch;
+	SDL_SetColorKey(_surface.get(), SDL_SRCCOLORKEY, 0);
 #endif
 	Uint8 dataByte;
 	int pixelCnt;
@@ -882,6 +938,10 @@ void Surface::offset(int off, int min, int max, int mul)
 {
 	if (off == 0)
 		return;
+#ifdef __EMSCRIPTEN__
+	// 7.C: palette-index arithmetic is undefined on 32bpp surfaces; no-op until 7.D rewrites these.
+	if (_surface && _surface->format->BitsPerPixel != 8) return;
+#endif
 
 	// Lock the surface
 	lock();
@@ -932,6 +992,9 @@ void Surface::offsetBlock(int off, int blk, int mul)
 {
 	if (off == 0)
 		return;
+#ifdef __EMSCRIPTEN__
+	if (_surface && _surface->format->BitsPerPixel != 8) return; // 7.C: no-op on ARGB
+#endif
 
 	// Lock the surface
 	lock();
@@ -980,6 +1043,9 @@ void Surface::offsetBlock(int off, int blk, int mul)
  */
 void Surface::invert(Uint8 mid)
 {
+#ifdef __EMSCRIPTEN__
+	if (_surface && _surface->format->BitsPerPixel != 8) return; // 7.C: no-op on ARGB
+#endif
 	// Lock the surface
 	lock();
 
@@ -1314,14 +1380,24 @@ SurfaceCrop Surface::getCrop() const
  */
 void Surface::setPalette(const SDL_Color *colors, int firstcolor, int ncolors)
 {
-	if (colors && _surface->format->BitsPerPixel == 8)
+	if (colors && _surface && _surface->format->BitsPerPixel == 8)
 	{
 		SDL_SetColors(_surface.get(), const_cast<SDL_Color *>(colors), firstcolor, ncolors);
-		// Phase 7.A: build/rebuild the shade table whenever the indexed palette changes.
-		// This runs at asset-load time and on state transitions; neutralised at runtime in 7.H.
+#ifdef __EMSCRIPTEN__
+		// 7.C: promote 8bpp scratch → 32bpp ARGB now that the palette is known.
+		// promoteToARGB() saves the SDL palette to _savedPalette before converting.
+		promoteToARGB();
+		if (_hasSavedPalette)
+		{
+			if (!_shadeTable) _shadeTable = std::make_shared<ShadeTable>();
+			_shadeTable->buildFromPalette(_savedPalette);
+		}
+#else
+		// 7.A: build/rebuild shade table whenever the indexed palette changes.
 		if (!_shadeTable)
 			_shadeTable = std::make_shared<ShadeTable>();
 		_shadeTable->buildFromPalette(getPalette());
+#endif
 	}
 }
 
@@ -1335,7 +1411,24 @@ void Surface::setPalette(const SDL_Color *colors, int firstcolor, int ncolors)
 void Surface::rebuildShadeTable()
 {
 	const SDL_Color *pal = getPalette();
+#ifdef __EMSCRIPTEN__
+	// 7.C: ARGB surfaces have no SDL palette object; fall back to saved palette from promotion.
+	if (!pal && _hasSavedPalette) pal = _savedPalette;
+#endif
 	if (!pal) return;
+	if (!_shadeTable) _shadeTable = std::make_shared<ShadeTable>();
+	_shadeTable->buildFromPalette(pal);
+}
+
+void Surface::rebuildShadeTableFromPalette(const SDL_Color *pal, int ncolors)
+{
+	if (!pal || ncolors <= 0) return;
+	int n = std::min(ncolors, 256);
+#ifdef __EMSCRIPTEN__
+	memcpy(_savedPalette, pal, n * sizeof(SDL_Color));
+	if (n < 256) memset(_savedPalette + n, 0, (256 - n) * sizeof(SDL_Color));
+	_hasSavedPalette = true;
+#endif
 	if (!_shadeTable) _shadeTable = std::make_shared<ShadeTable>();
 	_shadeTable->buildFromPalette(pal);
 }
@@ -1624,7 +1717,7 @@ void Surface::demoteToIndexed()
 {
 	if (!_surface || _surface->format->BitsPerPixel == 8) return;
 
-	auto pair = Surface::NewPair8Bit(_width, _height);
+	auto pair = Surface::NewLoadScratch8Bit(_width, _height);
 	std::tie(_alignedBuffer, _surface) = std::move(pair);
 	_pitch = (Uint16)_surface->pitch;
 

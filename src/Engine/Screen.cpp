@@ -428,7 +428,7 @@ void Screen::resetDisplay(bool resetVideo, bool noShaders)
 	if (!_surface || _surface->format->BitsPerPixel != 8 ||
 	    _surface->w != _baseWidth || _surface->h != _baseHeight)
 	{
-		std::tie(_buffer, _surface) = Surface::NewPair8Bit(_baseWidth, _baseHeight);
+		std::tie(_buffer, _surface) = Surface::NewLoadScratch8Bit(_baseWidth, _baseHeight);
 		SDL_SetColors(_surface.get(), deferredPalette, 0, 256);
 
 		/* ARGB intermediate at base size — palette-mapped from _surface each
@@ -552,7 +552,7 @@ void Screen::resetDisplay(bool resetVideo, bool noShaders)
 		}
 		else
 		{
-			std::tie(_buffer, _surface) = Surface::NewPair8Bit(_baseWidth, _baseHeight);
+			std::tie(_buffer, _surface) = Surface::NewLoadScratch8Bit(_baseWidth, _baseHeight);
 		}
 
 		if (_surface->format->BitsPerPixel == 8)

@@ -72,8 +72,9 @@ public:
 		return std::make_pair(std::move(tempBuffer), std::move(tempSurface));
 	}
 
-	/// Create buffer and surface.
-	static std::pair<UniqueBufferPtr, UniqueSurfacePtr> NewPair8Bit(int width, int height)
+	/// Create 8bpp buffer+surface for palette-index scratch use during loading.
+	/// 7.C: palette loaders write indices here; promoteToARGB() converts to ARGB on setPalette.
+	static std::pair<UniqueBufferPtr, UniqueSurfacePtr> NewLoadScratch8Bit(int width, int height)
 	{
 		auto tempBuffer = Surface::NewAlignedBuffer(8, width, height);
 		auto tempSurface = Surface::NewSdlSurface(tempBuffer, 8, width, height);
@@ -110,18 +111,11 @@ protected:
 	/// Rebuilds shade table from current 8bpp SDL palette if one exists.
 	void rebuildShadeTable();
 public:
-#ifdef __EMSCRIPTEN__
-	/// Surface pixel format used by the Format ctor.
-	enum class Format { Indexed8, ARGB8888 };
-#endif
 	/// Default empty surface.
 	Surface();
 	/// Creates a new surface with the specified size and position.
+	/// 7.C: on Emscripten this produces a 32bpp ARGB surface by default.
 	Surface(int width, int height, int x = 0, int y = 0);
-#ifdef __EMSCRIPTEN__
-	/// Creates a new surface with an explicit pixel format (ARGB8888 for HD UI containers).
-	Surface(int width, int height, int x, int y, Format fmt);
-#endif
 	/// Creates a new surface from an existing one.
 	Surface(const Surface& other);
 	/// Move surface to another place.
@@ -208,6 +202,9 @@ public:
 	void attachShadeTable(std::shared_ptr<ShadeTable> t) { _shadeTable = std::move(t); }
 	/// Replaces the full palette-cycle table list (7.A.4).
 	void attachShadeCycle(std::vector<std::shared_ptr<ShadeTable>> cycle) { _shadeCycle = std::move(cycle); }
+	/// 7.C: builds shade table from an externally-provided palette (for ARGB surfaces that
+	/// bypassed the normal setPalette→promoteToARGB flow, e.g. direct ARGB pixel writes in loaders).
+	void rebuildShadeTableFromPalette(const SDL_Color *pal, int ncolors = 256);
 	/// Clears the surface's contents with a specified colour.
 	void clear();
 	/// Offsets the surface's colors by a set amount.
@@ -298,8 +295,13 @@ public:
 		{
 			return;
 		}
+#ifdef __EMSCRIPTEN__
+		// 7.C: 32bpp surfaces use shade tables; raw 8bpp writes are only valid during load scratch phase.
+		if (_surface && _surface->format->BitsPerPixel != 8) return;
+#else
 #ifndef NDEBUG
 		assert(!_surface || _surface->format->BitsPerPixel == 8);
+#endif
 #endif
 		*getRaw(x, y) = pixel;
 	}
