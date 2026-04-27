@@ -1201,10 +1201,26 @@ void Surface::drawRect(SDL_Rect *rect, Uint8 color)
 		if (y + h > s->h) h = s->h - y;
 		if (w > 0 && h > 0)
 		{
-			int bpp = s->format ? s->format->BytesPerPixel : 1;
-			Uint8 *pixels = (Uint8 *)s->pixels;
-			for (int row = y; row < y + h; row++)
-				memset(pixels + row * s->pitch + x * bpp, (Uint8)color, (size_t)w * bpp);
+			if (s->format && s->format->BitsPerPixel == 32)
+			{
+				// 7.F.3: resolve palette index → ARGB.
+				const SDL_Color *pal = getEffectivePalette();
+				Uint32 argb = pal
+					? (0xFF000000u | ((Uint32)pal[color].r << 16) | ((Uint32)pal[color].g << 8) | (Uint32)pal[color].b)
+					: 0u;
+				for (int row = y; row < y + h; row++)
+				{
+					Uint32 *row_px = (Uint32*)((Uint8*)s->pixels + row * s->pitch) + x;
+					for (int col = 0; col < w; col++)
+						row_px[col] = argb;
+				}
+			}
+			else
+			{
+				Uint8 *pixels = (Uint8 *)s->pixels;
+				for (int row = y; row < y + h; row++)
+					memset(pixels + row * s->pitch + x, (Uint8)color, (size_t)w);
+			}
 		}
 	}
 #else
@@ -1240,10 +1256,25 @@ void Surface::drawRect(Sint16 x, Sint16 y, Sint16 w, Sint16 h, Uint8 color)
 		if (cy + ch > s->h) ch = s->h - cy;
 		if (cw > 0 && ch > 0)
 		{
-			int bpp = s->format ? s->format->BytesPerPixel : 1;
-			Uint8 *pixels = (Uint8 *)s->pixels;
-			for (int row = cy; row < cy + ch; row++)
-				memset(pixels + row * s->pitch + cx * bpp, (Uint8)color, (size_t)cw * bpp);
+			if (s->format && s->format->BitsPerPixel == 32)
+			{
+				const SDL_Color *pal = getEffectivePalette();
+				Uint32 argb = pal
+					? (0xFF000000u | ((Uint32)pal[color].r << 16) | ((Uint32)pal[color].g << 8) | (Uint32)pal[color].b)
+					: 0u;
+				for (int row = cy; row < cy + ch; row++)
+				{
+					Uint32 *row_px = (Uint32*)((Uint8*)s->pixels + row * s->pitch) + cx;
+					for (int col = 0; col < cw; col++)
+						row_px[col] = argb;
+				}
+			}
+			else
+			{
+				Uint8 *pixels = (Uint8 *)s->pixels;
+				for (int row = cy; row < cy + ch; row++)
+					memset(pixels + row * s->pitch + cx, (Uint8)color, (size_t)cw);
+			}
 		}
 	}
 #else

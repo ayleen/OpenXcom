@@ -306,8 +306,16 @@ public:
 			return;
 		}
 #ifdef __EMSCRIPTEN__
-		// 7.C: 32bpp surfaces use shade tables; raw 8bpp writes are only valid during load scratch phase.
-		if (_surface && _surface->format->BitsPerPixel != 8) return;
+		if (_surface && _surface->format->BitsPerPixel == 32)
+		{
+			// 7.F.3: resolve palette index → ARGB via saved palette.
+			const SDL_Color *pal = getEffectivePalette();
+			Uint32 argb = pal
+				? (0xFF000000u | ((Uint32)pal[pixel].r << 16) | ((Uint32)pal[pixel].g << 8) | (Uint32)pal[pixel].b)
+				: 0u;
+			*(Uint32*)getRaw(x, y) = argb;
+			return;
+		}
 #else
 #ifndef NDEBUG
 		assert(!_surface || _surface->format->BitsPerPixel == 8);
