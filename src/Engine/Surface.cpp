@@ -341,6 +341,7 @@ Surface::Surface(const Surface& other) : Surface{ }
 		_isHD    = other._isHD;   // preserve HD-queue routing flag
 		_logicalW = other._logicalW;
 		_logicalH = other._logicalH;
+		// ARGB surfaces never have a shade table (no palette).
 		return;
 	}
 #endif
@@ -363,6 +364,9 @@ Surface::Surface(const Surface& other) : Surface{ }
 	_visible = other._visible;
 	_hidden = other._hidden;
 	_redraw = other._redraw;
+	// Share shade tables — shallow copy is correct; tables are rebuilt on setPalette.
+	_shadeTable = other._shadeTable;
+	_shadeCycle  = other._shadeCycle;
 }
 
 /**
