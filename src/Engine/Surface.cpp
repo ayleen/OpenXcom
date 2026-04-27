@@ -1090,11 +1090,32 @@ void Surface::offsetBlock(int off, int blk, int mul)
  */
 void Surface::invert(Uint8 mid)
 {
-#ifdef __EMSCRIPTEN__
-	if (_surface && _surface->format->BitsPerPixel != 8) return; // 7.C: no-op on ARGB
-#endif
 	// Lock the surface
 	lock();
+
+#ifdef __EMSCRIPTEN__
+	if (_surface && _surface->format->BitsPerPixel == 32)
+	{
+		const SDL_Color *pal = getEffectivePalette();
+		if (!pal) { unlock(); return; }
+		for (int y = 0; y < getHeight(); ++y)
+			for (int x = 0; x < getWidth(); ++x)
+			{
+				Uint32 px = *(Uint32*)getRaw(x, y);
+				if ((px >> 24) == 0) continue;
+				Uint8 r = (px >> 16) & 0xFF, g = (px >> 8) & 0xFF, b = px & 0xFF;
+				int idx = -1;
+				for (int i = 1; i < 256; ++i)
+					if (pal[i].r == r && pal[i].g == g && pal[i].b == b) { idx = i; break; }
+				if (idx < 0) continue;
+				int p = idx + 2 * ((int)mid - idx);
+				if (p < 0 || p > 255) continue;
+				setPixel32(x, y, 0xFF000000u | ((Uint32)pal[p].r << 16) | ((Uint32)pal[p].g << 8) | pal[p].b);
+			}
+		unlock();
+		return;
+	}
+#endif
 
 	for (int x = 0, y = 0; x < getWidth() && y < getHeight();)
 	{
