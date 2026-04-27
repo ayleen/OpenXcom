@@ -308,10 +308,10 @@ public:
 #ifdef __EMSCRIPTEN__
 		if (_surface && _surface->format->BitsPerPixel == 32)
 		{
-			// 7.F.3: resolve palette index → ARGB via saved palette.
+			// 7.F.3: resolve palette index → ARGB; index 0 is always transparent.
 			const SDL_Color *pal = getEffectivePalette();
-			Uint32 argb = pal
-				? (0xFF000000u | ((Uint32)pal[pixel].r << 16) | ((Uint32)pal[pixel].g << 8) | (Uint32)pal[pixel].b)
+			Uint32 argb = (pixel == 0) ? 0u
+				: pal ? (0xFF000000u | ((Uint32)pal[pixel].r << 16) | ((Uint32)pal[pixel].g << 8) | (Uint32)pal[pixel].b)
 				: 0u;
 			*(Uint32*)getRaw(x, y) = argb;
 			return;

@@ -961,7 +961,7 @@ void Surface::offset(int off, int min, int max, int mul)
 				if (min != -1 && p < min) p = min;
 				else if (max != -1 && p > max) p = max;
 				if (p < 0 || p > 255) continue;
-				setPixel32(x, y, 0xFF000000u | ((Uint32)pal[p].r << 16) | ((Uint32)pal[p].g << 8) | pal[p].b);
+				setPixel32(x, y, p == 0 ? 0u : (0xFF000000u | ((Uint32)pal[p].r << 16) | ((Uint32)pal[p].g << 8) | pal[p].b));
 			}
 		unlock();
 		return;
@@ -1039,7 +1039,7 @@ void Surface::offsetBlock(int off, int blk, int mul)
 				if (p < blkMin) p = blkMin;
 				else if (p > blkMax) p = blkMax;
 				if (p < 0 || p > 255) continue;
-				setPixel32(x, y, 0xFF000000u | ((Uint32)pal[p].r << 16) | ((Uint32)pal[p].g << 8) | pal[p].b);
+				setPixel32(x, y, p == 0 ? 0u : (0xFF000000u | ((Uint32)pal[p].r << 16) | ((Uint32)pal[p].g << 8) | pal[p].b));
 			}
 		unlock();
 		return;
@@ -1110,7 +1110,7 @@ void Surface::invert(Uint8 mid)
 				if (idx < 0) continue;
 				int p = idx + 2 * ((int)mid - idx);
 				if (p < 0 || p > 255) continue;
-				setPixel32(x, y, 0xFF000000u | ((Uint32)pal[p].r << 16) | ((Uint32)pal[p].g << 8) | pal[p].b);
+				setPixel32(x, y, p == 0 ? 0u : (0xFF000000u | ((Uint32)pal[p].r << 16) | ((Uint32)pal[p].g << 8) | pal[p].b));
 			}
 		unlock();
 		return;
@@ -1288,10 +1288,10 @@ void Surface::drawRect(SDL_Rect *rect, Uint8 color)
 		{
 			if (s->format && s->format->BitsPerPixel == 32)
 			{
-				// 7.F.3: resolve palette index → ARGB.
+				// 7.F.3: resolve palette index → ARGB; index 0 is always transparent.
 				const SDL_Color *pal = getEffectivePalette();
-				Uint32 argb = pal
-					? (0xFF000000u | ((Uint32)pal[color].r << 16) | ((Uint32)pal[color].g << 8) | (Uint32)pal[color].b)
+				Uint32 argb = (color == 0) ? 0u
+					: pal ? (0xFF000000u | ((Uint32)pal[color].r << 16) | ((Uint32)pal[color].g << 8) | (Uint32)pal[color].b)
 					: 0u;
 				for (int row = y; row < y + h; row++)
 				{
@@ -1344,8 +1344,8 @@ void Surface::drawRect(Sint16 x, Sint16 y, Sint16 w, Sint16 h, Uint8 color)
 			if (s->format && s->format->BitsPerPixel == 32)
 			{
 				const SDL_Color *pal = getEffectivePalette();
-				Uint32 argb = pal
-					? (0xFF000000u | ((Uint32)pal[color].r << 16) | ((Uint32)pal[color].g << 8) | (Uint32)pal[color].b)
+				Uint32 argb = (color == 0) ? 0u
+					: pal ? (0xFF000000u | ((Uint32)pal[color].r << 16) | ((Uint32)pal[color].g << 8) | (Uint32)pal[color].b)
 					: 0u;
 				for (int row = cy; row < cy + ch; row++)
 				{
