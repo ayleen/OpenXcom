@@ -666,7 +666,7 @@ bool Zoom::haveSSE2()
  * @param rightBlackBand Size of right black band in pixels (letterboxing).
  * @param glOut OpenGL output.
  */
-void Zoom::flipWithZoom(SDL_Surface *src, SDL_Surface *dst, int topBlackBand, int bottomBlackBand, int leftBlackBand, int rightBlackBand, OpenGL *glOut)
+void Zoom::flipWithZoom(SDL_Surface *src, SDL_Surface *dst, int topBlackBand, int bottomBlackBand, int leftBlackBand, int rightBlackBand, OpenGL *glOut, SDL_Window *window)
 {
 	int dstWidth = dst->w - leftBlackBand - rightBlackBand;
 	int dstHeight = dst->h - topBlackBand - bottomBlackBand;
@@ -678,7 +678,7 @@ void Zoom::flipWithZoom(SDL_Surface *src, SDL_Surface *dst, int topBlackBand, in
 			SDL_BlitSurface(src, 0, glOut->surface.get(), 0); // TODO; this is less than ideal...
 
 			glOut->refresh(glOut->linear, glOut->iwidth, glOut->iheight, dst->w, dst->h, topBlackBand, bottomBlackBand, leftBlackBand, rightBlackBand);
-			SDL_GL_SwapBuffers();
+			SDL_GL_SwapWindow(window);
 		}
 #endif
 	}

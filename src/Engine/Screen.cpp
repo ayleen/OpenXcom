@@ -173,17 +173,14 @@ void Screen::flip()
 		resetDisplay(false, false);
 	}
 
-#ifndef __EMSCRIPTEN__
-	/* Native OpenGL path (Zoom.cpp still uses SDL1 GL; ported separately). */
 	if (useOpenGL())
 	{
 		Zoom::flipWithZoom(_surface.get(), _screen, _topBlackBand, _bottomBlackBand,
-		                   _leftBlackBand, _rightBlackBand, &glOutput);
+		                   _leftBlackBand, _rightBlackBand, &glOutput, _window);
 		_numColors = 0;
 		_pushPalette = false;
 		return;
 	}
-#endif
 
 	/* SDL2 renderer path — shared by Emscripten and native non-OpenGL. */
 	SDL_BlitScaled(_surface.get(), nullptr, _screen, nullptr);
@@ -367,7 +364,6 @@ void Screen::resetDisplay(bool resetVideo, bool noShaders)
 			throw Exception(SDL_GetError());
 		}
 
-#ifndef __EMSCRIPTEN__
 		if (useOpenGL())
 		{
 			/* OpenGL context is managed by glOutput (Zoom::flipWithZoom).
@@ -381,7 +377,6 @@ void Screen::resetDisplay(bool resetVideo, bool noShaders)
 			}
 		}
 		else
-#endif
 		{
 			_renderer = SDL_CreateRenderer(_window, -1,
 			    SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);

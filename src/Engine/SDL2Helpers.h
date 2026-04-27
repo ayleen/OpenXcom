@@ -108,6 +108,17 @@ static inline int SDL_SetPalette(SDL_Surface *surface, int flags,
 
 #endif /* SDL_VERSION_ATLEAST(2,0,0) */
 
+/* SDL_SetColors: removed in SDL2.
+ * On Emscripten: declared here, implemented in EmscriptenCompat.cpp.
+ * On native SDL2: inline shim wrapping SDL_SetPaletteColors. */
+#if SDL_VERSION_ATLEAST(2,0,0) && !defined(__EMSCRIPTEN__)
+static inline int SDL_SetColors(SDL_Surface *surface, const SDL_Color *colors, int firstcolor, int ncolors)
+{
+    if (!surface || !surface->format || !surface->format->palette) return 0;
+    return SDL_SetPaletteColors(surface->format->palette, colors, firstcolor, ncolors) == 0 ? 1 : 0;
+}
+#endif
+
 /* ---- Forward declarations for SDL1 functions shim'd by EmscriptenCompat.cpp ----
  *
  * SDL2 headers don't declare these; the shim definitions live in EmscriptenCompat.cpp
