@@ -318,10 +318,9 @@ struct CreateShadowWithoutCache
 	}
 };
 
-#ifdef __EMSCRIPTEN__
-// 7.D: ARGB shadow shaders — operate on 32bpp pixels using the same sun-angle
-// darkness logic as CreateShadow, but write a brightness-scaled ARGB result
-// instead of a palette index.  Shadow 0=full brightness, shadow 31=fully dark.
+// ARGB shadow shaders — operate on 32bpp pixels using the same sun-angle
+// darkness logic as CreateShadow, but write a brightness-scaled ARGB result.
+// Shadow 0=full brightness, shadow 31=fully dark.
 struct CreateShadow32
 {
 	static inline void func(Uint32& dest, const Cord& earth, const Cord& sun, const Sint16& noise)
@@ -350,7 +349,6 @@ struct CreateShadowWithoutCache32
 		CreateShadow32::func(dest, earth, sun, noise);
 	}
 };
-#endif // __EMSCRIPTEN__
 
 }//namespace
 
@@ -1103,34 +1101,10 @@ Cord Globe::getSunDirection(double lon, double lat) const
 
 void Globe::drawShadow()
 {
-#ifdef __EMSCRIPTEN__
-	// 7.D: Globe surface is 32bpp ARGB; use ARGB-aware shadow shaders that apply
-	// a brightness multiplier instead of palette-index arithmetic.
 	ShaderRepeat<Sint16> noise = ShaderRepeat<Sint16>(SurfaceRaw<Sint16>(static_data.random_noise, static_data.random_surf_size, static_data.random_surf_size));
 	lock();
 	ShaderDraw<CreateShadowWithoutCache32>(ShaderSurface32(this), helper::Offset(_cenX, _cenY), ShaderScalar(getSunDirection(_cenLon, _cenLat)), noise, ShaderScalar(_zoomRadius[_zoom]));
 	unlock();
-#else
-	if (Options::globeSurfaceCache)
-	{
-		ShaderMove<Cord> earth = ShaderMove<Cord>(SurfaceRaw<Cord>(_earthData[_zoom], getWidth(), getHeight()));
-		ShaderRepeat<Sint16> noise = ShaderRepeat<Sint16>(SurfaceRaw<Sint16>(static_data.random_noise, static_data.random_surf_size, static_data.random_surf_size));
-
-		earth.setMove(_cenX-getWidth()/2, _cenY-getHeight()/2);
-
-		lock();
-		ShaderDraw<CreateShadow>(ShaderSurface(this), earth, ShaderScalar(getSunDirection(_cenLon, _cenLat)), noise);
-		unlock();
-	}
-	else
-	{
-		ShaderRepeat<Sint16> noise = ShaderRepeat<Sint16>(SurfaceRaw<Sint16>(static_data.random_noise, static_data.random_surf_size, static_data.random_surf_size));
-
-		lock();
-		ShaderDraw<CreateShadowWithoutCache>(ShaderSurface(this), helper::Offset(_cenX, _cenY), ShaderScalar(getSunDirection(_cenLon, _cenLat)), noise, ShaderScalar(_zoomRadius[_zoom]));
-		unlock();
-	}
-#endif
 }
 
 
@@ -1757,47 +1731,13 @@ void Globe::drawTarget(Target *target, Surface *surface)
 		polarToCart(target->getLongitude(), target->getLatitude(), &x, &y);
 		auto i = target->getMarker();
 		auto marker = _markerSet->getFrame(i);
-#ifdef __EMSCRIPTEN__
-		// 7.D: surfaces are ARGB; use shade-table blit path.
+		// Surfaces are ARGB; use shade-table blit path.
 		// Blink animation (+1 palette index) has no ARGB equivalent; skip for non-city blinking.
 		if (i == CITY_MARKER || _blink > 0)
 		{
 			marker->blitNShade(SurfaceRaw<Uint32>(surface), x - marker->getWidth() / 2, y - marker->getHeight() / 2, 0);
 		}
 		// else: skip blink-off frame (marker invisible) — same visual result
-#else
-		ShaderMove<const Uint8> surf{ marker, x - marker->getWidth() / 2, y - marker->getHeight() / 2 };
-		ShaderMove<Uint8> dest{ surface };
-
-		if (i == CITY_MARKER || _blink > 0)
-		{
-			ShaderDrawFunc(
-				[](Uint8& destStuff, Uint8 srcStuff)
-				{
-					if (srcStuff)
-					{
-						destStuff = srcStuff;
-					}
-				},
-				dest,
-				surf
-			);
-		}
-		else
-		{
-			ShaderDrawFunc(
-				[](Uint8& destStuff, Uint8 srcStuff)
-				{
-					if (srcStuff)
-					{
-						destStuff = srcStuff + 1;
-					}
-				},
-				dest,
-				surf
-			);
-		}
-#endif
 	}
 }
 
