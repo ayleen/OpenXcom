@@ -210,6 +210,13 @@ constexpr size_t MaxDifficultyLevels = 5;
 
 /// Special value for default string different to empty one.
 const std::string Mod::STR_NULL = { '\0' };
+
+#ifdef __EMSCRIPTEN__
+static bool s_loadInProgress = false;
+bool Mod::isLoadInProgress() { return s_loadInProgress; }
+void Mod::setLoadInProgress(bool v) { s_loadInProgress = v; }
+#endif
+
 /// Predefined name for first loaded mod that have all original data
 const std::string ModNameMaster = "master";
 /// Predefined name for current mod that is loading rulesets.
@@ -5404,6 +5411,9 @@ namespace
  */
 void Mod::loadVanillaResources()
 {
+#ifdef __EMSCRIPTEN__
+	Mod::setLoadInProgress(true);
+#endif
 	// Create Geoscape surface
 	_sets["GlobeMarkers"] = new SurfaceSet(3, 3);
 	// dummy resources, that need to be defined in order for mod loading to work correctly
@@ -6169,6 +6179,9 @@ void Mod::loadExtraResources()
 	Window::soundPopup[0] = getSound("GEO.CAT", Mod::WINDOW_POPUP[0]);
 	Window::soundPopup[1] = getSound("GEO.CAT", Mod::WINDOW_POPUP[1]);
 	Window::soundPopup[2] = getSound("GEO.CAT", Mod::WINDOW_POPUP[2]);
+#ifdef __EMSCRIPTEN__
+	Mod::setLoadInProgress(false);
+#endif
 }
 
 void Mod::loadExtraSprite(ExtraSprites *spritePack)
