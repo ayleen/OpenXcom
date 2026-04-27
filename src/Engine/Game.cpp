@@ -301,10 +301,13 @@ bool Game::iterate()
 			case SDL_MOUSEWHEEL:
 				if (!_mouseActive) continue;
 				_runningState = RUNNING;
+				if (_event.type == SDL_MOUSEWHEEL)
 				{
 					// SDL2 delivers mouse-wheel as SDL_MOUSEWHEEL; translate to
 					// fake SDL_MOUSEBUTTONDOWN so all existing BUTTON_WHEELUP/DOWN
 					// checks continue to work without modification.
+					// Guard: SDL_MOUSEMOTION falls through here too — skip the
+					// transform in that case or every mouse move becomes a wheel click.
 					int wheelDir = (_event.wheel.y >= 0) ? 1 : -1;
 					int mx = 0, my = 0;
 					SDL_GetMouseState(&mx, &my);
