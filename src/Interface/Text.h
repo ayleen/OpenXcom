@@ -52,6 +52,7 @@ private:
 	int _scrollY;
 #ifdef __EMSCRIPTEN__
 	Uint32 _colorRGB = 0;
+	Uint32 _colorRGB2 = 0;
 	bool _useRGB = false;
 #endif
 
@@ -95,8 +96,10 @@ public:
 	/// Gets the text's color.
 	Uint8 getColor() const;
 #ifdef __EMSCRIPTEN__
-	/// Sets the text's ARGB color (promotes surface to ARGB; for use in ARGB UI containers).
+	/// Sets the text's ARGB primary color.
 	void setColorRGB(Uint32 argb);
+	/// Sets the text's ARGB secondary color (for TOK_COLOR_FLIP).
+	void setColorRGB2(Uint32 argb);
 #endif
 	/// Sets the text's secondary color.
 	void setSecondaryColor(Uint8 color) override;

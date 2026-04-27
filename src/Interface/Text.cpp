@@ -244,6 +244,12 @@ void Text::setColorRGB(Uint32 argb)
 	promoteToARGB();
 	_redraw = true;
 }
+
+void Text::setColorRGB2(Uint32 argb)
+{
+	_colorRGB2 = argb;
+	_redraw = true;
+}
 #endif
 
 /**
@@ -659,7 +665,7 @@ void Text::draw()
 				Uint32 colorARGB;
 				if (_useRGB)
 				{
-					colorARGB = _colorRGB;
+					colorARGB = isAltColor ? _colorRGB2 : _colorRGB;
 				}
 				else
 				{
