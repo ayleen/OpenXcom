@@ -1608,6 +1608,34 @@ void Surface::blitNShade(SurfaceRaw<Uint32> surface, int x, int y, int shade, Gr
 	ShaderDraw<helper::StandardShade>(dest, src, ShaderScalar(shade), ShaderScalar(getShadeTable()));
 }
 
+void Surface::blitNShade(Surface* dest, int x, int y, int shade, bool half, int newBaseColor) const
+{
+#ifdef __EMSCRIPTEN__
+	blitNShade(SurfaceRaw<Uint32>(dest), x, y, shade, half, newBaseColor);
+#else
+	blitNShade(SurfaceRaw<Uint8>(dest), x, y, shade, half, newBaseColor);
+#endif
+}
+
+void Surface::blitNShade(Surface* dest, int x, int y, int shade, GraphSubset range) const
+{
+#ifdef __EMSCRIPTEN__
+	blitNShade(SurfaceRaw<Uint32>(dest), x, y, shade, range);
+#else
+	blitNShade(SurfaceRaw<Uint8>(dest), x, y, shade, range);
+#endif
+}
+
+void Surface::blitRaw(Surface* dest, const Surface* src, int x, int y, int shade, bool half, int newBaseColor)
+{
+#ifdef __EMSCRIPTEN__
+	blitRaw(SurfaceRaw<Uint32>(dest), SurfaceRaw<const Uint32>(src), x, y, shade, half, newBaseColor,
+	        src ? src->getShadeTable() : nullptr);
+#else
+	blitRaw(SurfaceRaw<Uint8>(dest), SurfaceRaw<const Uint8>(src), x, y, shade, half, newBaseColor);
+#endif
+}
+
 /**
  * Set the surface to be redrawn.
  * @param valid true means redraw.

@@ -434,6 +434,12 @@ public:
 	void blitNShade(SurfaceRaw<Uint32> surface, int x, int y, int shade = 0, bool half = false, int newBaseColor = 0) const;
 	/// 7.B: ARGB blitNShade with explicit clip region.
 	void blitNShade(SurfaceRaw<Uint32> surface, int x, int y, int shade, GraphSubset range) const;
+	/// 7.E: dispatch — Surface* dest resolves ambiguity; routes to Uint32 (Emscripten) or Uint8 (native).
+	void blitNShade(Surface* dest, int x, int y, int shade = 0, bool half = false, int newBaseColor = 0) const;
+	/// 7.E: dispatch with clip region.
+	void blitNShade(Surface* dest, int x, int y, int shade, GraphSubset range) const;
+	/// 7.E: dispatch — both Surface* args; routes to Uint32 (Emscripten) or Uint8 (native).
+	static void blitRaw(Surface* dest, const Surface* src, int x, int y, int shade, bool half = false, int newBaseColor = 0);
 	/// Invalidate the surface: force it to be redrawn
 	void invalidate(bool valid = true);
 
