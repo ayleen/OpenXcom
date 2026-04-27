@@ -254,9 +254,7 @@ Surface *ExtraSprites::loadSurface(Surface *surface)
 	if (_hd)
 	{
 		surface->loadImageHD(_sprites.begin()->second);
-#ifdef __EMSCRIPTEN__
 		surface->setLogicalSize(_width, _height);
-#endif
 	}
 	else
 		surface->loadImage(_sprites.begin()->second);

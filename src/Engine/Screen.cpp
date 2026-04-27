@@ -34,9 +34,7 @@
 #include "Zoom.h"
 #include "Timer.h"
 #include <SDL.h>
-#ifdef __EMSCRIPTEN__
 #include <SDL_render.h>
-#endif
 #include <algorithm>
 
 namespace OpenXcom
@@ -45,14 +43,6 @@ namespace OpenXcom
 const int Screen::ORIGINAL_WIDTH = 320;
 const int Screen::ORIGINAL_HEIGHT = 200;
 
-#ifndef __EMSCRIPTEN__
-static const int VIDEO_WINDOW_POS_LEN = 40;
-static char VIDEO_WINDOW_POS[VIDEO_WINDOW_POS_LEN];
-
-static const char* SDL_VIDEO_CENTERED_UNSET = "SDL_VIDEO_CENTERED=";
-static const char* SDL_VIDEO_CENTERED_CENTER = "SDL_VIDEO_CENTERED=center";
-static const char* SDL_VIDEO_WINDOW_POS_UNSET = "SDL_VIDEO_WINDOW_POS=";
-#endif
 
 /**
  * Sets up all the internal display flags depending on
@@ -60,64 +50,10 @@ static const char* SDL_VIDEO_WINDOW_POS_UNSET = "SDL_VIDEO_WINDOW_POS=";
  */
 void Screen::makeVideoFlags()
 {
-#ifdef __EMSCRIPTEN__
-	/* Under SDL2/Emscripten the window is created via SDL_CreateWindow in
-	 * resetDisplay(); SDL1 flags are irrelevant. Just set bpp and base size. */
-	_bpp = 8;
+	/* All paths use ARGB32 surfaces and an SDL2 window/renderer/texture chain. */
+	_bpp = 32;
 	_baseWidth  = Options::baseXResolution;
 	_baseHeight = Options::baseYResolution;
-#else
-	_flags = SDL_HWSURFACE|SDL_DOUBLEBUF|SDL_HWPALETTE;
-	if (Options::asyncBlit)
-	{
-		_flags |= SDL_ASYNCBLIT;
-	}
-	if (useOpenGL())
-	{
-		_flags = SDL_OPENGL;
-		SDL_GL_SetAttribute( SDL_GL_RED_SIZE, 5 );
-		SDL_GL_SetAttribute( SDL_GL_GREEN_SIZE, 5 );
-		SDL_GL_SetAttribute( SDL_GL_BLUE_SIZE, 5 );
-		SDL_GL_SetAttribute( SDL_GL_DEPTH_SIZE, 16 );
-		SDL_GL_SetAttribute( SDL_GL_DOUBLEBUFFER, 1 );
-	}
-	if (Options::allowResize)
-	{
-		_flags |= SDL_RESIZABLE;
-	}
-
-	// Handle window positioning
-	if (!Options::fullscreen && Options::rootWindowedMode)
-	{
-		snprintf(VIDEO_WINDOW_POS, VIDEO_WINDOW_POS_LEN, "SDL_VIDEO_WINDOW_POS=%d,%d", Options::windowedModePositionX, Options::windowedModePositionY);
-		SDL_putenv(VIDEO_WINDOW_POS);
-		SDL_putenv((char *)SDL_VIDEO_CENTERED_UNSET);
-	}
-	else if (Options::borderless)
-	{
-		SDL_putenv((char *)SDL_VIDEO_WINDOW_POS_UNSET);
-		SDL_putenv((char *)SDL_VIDEO_CENTERED_CENTER);
-	}
-	else
-	{
-		SDL_putenv((char *)SDL_VIDEO_WINDOW_POS_UNSET);
-		SDL_putenv((char *)SDL_VIDEO_CENTERED_UNSET);
-	}
-
-	// Handle display mode
-	if (Options::fullscreen)
-	{
-		_flags |= SDL_FULLSCREEN;
-	}
-	if (Options::borderless)
-	{
-		_flags |= SDL_NOFRAME;
-	}
-
-	_bpp = (use32bitScaler() || useOpenGL()) ? 32 : 8;
-	_baseWidth = Options::baseXResolution;
-	_baseHeight = Options::baseYResolution;
-#endif
 }
 
 
@@ -125,10 +61,9 @@ void Screen::makeVideoFlags()
  * Initializes a new display screen for the game to render contents to.
  * The screen is set up based on the current options.
  */
-Screen::Screen() : _screen(nullptr), _baseWidth(ORIGINAL_WIDTH), _baseHeight(ORIGINAL_HEIGHT), _scaleX(1.0), _scaleY(1.0), _flags(0), _numColors(0), _firstColor(0), _pushPalette(false), _flickerFix(false)
-#ifdef __EMSCRIPTEN__
-	, _window(nullptr), _renderer(nullptr), _texture(nullptr)
-#endif
+Screen::Screen() : _screen(nullptr), _window(nullptr), _renderer(nullptr), _texture(nullptr),
+	_baseWidth(ORIGINAL_WIDTH), _baseHeight(ORIGINAL_HEIGHT), _scaleX(1.0), _scaleY(1.0),
+	_bpp(32), _numColors(0), _firstColor(0), _pushPalette(false), _flickerFix(false)
 {
 	_flickerFix = Options::oxceEnablePaletteFlickerFix;
 
@@ -142,12 +77,10 @@ Screen::Screen() : _screen(nullptr), _baseWidth(ORIGINAL_WIDTH), _baseHeight(ORI
  */
 Screen::~Screen()
 {
-#ifdef __EMSCRIPTEN__
-	if (_texture)        { SDL_DestroyTexture(_texture);     _texture  = nullptr; }
-	if (_renderer)       { SDL_DestroyRenderer(_renderer);   _renderer = nullptr; }
-	if (_window)         { SDL_DestroyWindow(_window);       _window   = nullptr; }
-	if (_screen)         { SDL_FreeSurface(_screen);         _screen   = nullptr; }
-#endif
+	if (_texture)  { SDL_DestroyTexture(_texture);   _texture  = nullptr; }
+	if (_renderer) { SDL_DestroyRenderer(_renderer); _renderer = nullptr; }
+	if (_window)   { SDL_DestroyWindow(_window);     _window   = nullptr; }
+	if (_screen)   { SDL_FreeSurface(_screen);       _screen   = nullptr; }
 }
 
 /**
@@ -212,103 +145,72 @@ void Screen::handle(Action *action)
 void Screen::flip()
 {
 #ifdef __EMSCRIPTEN__
+	/* Browser canvas resize: SDL2/Emscripten does not emit
+	 * SDL_WINDOWEVENT_SIZE_CHANGED reliably, so poll each frame. */
+	if (_window)
 	{
-		/* Browser window resize: the SDL2/Emscripten port does not emit
-		 * SDL_WINDOWEVENT_SIZE_CHANGED reliably, so poll the canvas size each
-		 * frame.  When it changes, update display options and let downstream
-		 * states reset their base scale on the next updateScale call. */
-		if (_window)
+		int wW = 0, wH = 0;
+		SDL_GetWindowSize(_window, &wW, &wH);
+		if (wW > 0 && wH > 0 &&
+		    (wW != Options::displayWidth || wH != Options::displayHeight))
 		{
-			int wW = 0, wH = 0;
-			SDL_GetWindowSize(_window, &wW, &wH);
-			if (wW > 0 && wH > 0 &&
-			    (wW != Options::displayWidth || wH != Options::displayHeight))
-			{
-				Options::displayWidth  = wW;
-				Options::displayHeight = wH;
-				/* Re-evaluate scale-driven base resolution for mainmenu/geoscape
-				 * (battlescape state does its own per-state recompute). */
-				Screen::updateScale(Options::geoscapeScale,
-				                    Options::baseXGeoscape,
-				                    Options::baseYGeoscape,
-				                    true);
-			}
+			Options::displayWidth  = wW;
+			Options::displayHeight = wH;
+			Screen::updateScale(Options::geoscapeScale,
+			                    Options::baseXGeoscape,
+			                    Options::baseYGeoscape,
+			                    true);
 		}
+	}
+#endif
 
-		/* States call Screen::updateScale which mutates Options::baseXResolution
-		 * but does not call resetDisplay.  When the requested base differs from
-		 * what _surface/_screen/_texture were sized to, recreate them at the new
-		 * size; otherwise the state would draw partial geometry into a smaller
-		 * surface.  Window/renderer are kept (resetVideo=false). */
-		if (_surface && (_surface->w != Options::baseXResolution
-		              || _surface->h != Options::baseYResolution))
-		{
-			resetDisplay(false, false);
-		}
+	/* When States call Screen::updateScale, Options::baseXResolution changes
+	 * but resetDisplay is not called.  Detect the mismatch and re-create
+	 * surfaces at the new size, keeping window/renderer alive. */
+	if (_surface && (_surface->w != Options::baseXResolution
+	              || _surface->h != Options::baseYResolution))
+	{
+		resetDisplay(false, false);
+	}
 
-		/* _surface is ARGB32 at base resolution; stretch-blit into canvas-sized _screen. */
-		SDL_BlitScaled(_surface.get(), nullptr, _screen, nullptr);
-
-		/* Upload RGBA32 pixels to streaming texture and present. */
-		void *texPixels;
-		int   texPitch;
-		SDL_LockTexture(_texture, nullptr, &texPixels, &texPitch);
-		if (texPitch == _screen->pitch) {
-			memcpy(texPixels, _screen->pixels, (size_t)_screen->h * texPitch);
-		} else {
-			for (int y = 0; y < _screen->h; y++) {
-				memcpy((char*)texPixels + y * texPitch,
-				       (char*)_screen->pixels + y * _screen->pitch,
-				       (size_t)_screen->w * 4);
-			}
-		}
-		SDL_UnlockTexture(_texture);
-		SDL_RenderClear(_renderer);
-		SDL_RenderCopy(_renderer, _texture, nullptr, nullptr);
-		SDL_RenderPresent(_renderer);
-
+#ifndef __EMSCRIPTEN__
+	/* Native OpenGL path (Zoom.cpp still uses SDL1 GL; ported separately). */
+	if (useOpenGL())
+	{
+		Zoom::flipWithZoom(_surface.get(), _screen, _topBlackBand, _bottomBlackBand,
+		                   _leftBlackBand, _rightBlackBand, &glOutput);
 		_numColors = 0;
 		_pushPalette = false;
 		return;
 	}
-#else /* !__EMSCRIPTEN__ — native SDL1 flip path */
+#endif
 
-	// perform any requested palette update
-	if (_flickerFix && _pushPalette && _numColors && _screen->format->BitsPerPixel == 8)
-	{
-		if (_screen->format->BitsPerPixel == 8 && SDL_SetColors(_screen, &(deferredPalette[_firstColor]), _firstColor, _numColors) == 0)
-		{
-			Log(LOG_DEBUG) << "Display palette doesn't match requested palette";
-		}
-		_numColors = 0;
-		_pushPalette = false;
-	}
+	/* SDL2 renderer path — shared by Emscripten and native non-OpenGL. */
+	SDL_BlitScaled(_surface.get(), nullptr, _screen, nullptr);
 
-	if (getWidth() != _baseWidth || getHeight() != _baseHeight || useOpenGL())
+	void *texPixels;
+	int   texPitch;
+	SDL_LockTexture(_texture, nullptr, &texPixels, &texPitch);
+	if (texPitch == _screen->pitch)
 	{
-		Zoom::flipWithZoom(_surface.get(), _screen, _topBlackBand, _bottomBlackBand, _leftBlackBand, _rightBlackBand, &glOutput);
+		memcpy(texPixels, _screen->pixels, (size_t)_screen->h * texPitch);
 	}
 	else
 	{
-		SDL_BlitSurface(_surface.get(), 0, _screen, 0);
-	}
-
-	// perform any requested palette update
-	if (!_flickerFix && _pushPalette && _numColors && _screen->format->BitsPerPixel == 8)
-	{
-		if (_screen->format->BitsPerPixel == 8 && SDL_SetColors(_screen, &(deferredPalette[_firstColor]), _firstColor, _numColors) == 0)
+		for (int y = 0; y < _screen->h; y++)
 		{
-			Log(LOG_DEBUG) << "Display palette doesn't match requested palette";
+			memcpy((char*)texPixels + y * texPitch,
+			       (char*)_screen->pixels + y * _screen->pitch,
+			       (size_t)_screen->w * 4);
 		}
-		_numColors = 0;
-		_pushPalette = false;
 	}
+	SDL_UnlockTexture(_texture);
+	SDL_RenderClear(_renderer);
+	SDL_RenderCopy(_renderer, _texture, nullptr, nullptr);
+	SDL_RenderPresent(_renderer);
 
-	if (SDL_Flip(_screen) == -1)
-	{
-		throw Exception(SDL_GetError());
-	}
-#endif /* __EMSCRIPTEN__ */
+	_numColors = 0;
+	_pushPalette = false;
 }
 
 /**
@@ -344,11 +246,8 @@ void Screen::setPalette(const SDL_Color* colors, int firstcolor, int ncolors, bo
 		_firstColor = firstcolor;
 	}
 
-	// defer actual update of screen until SDL_Flip()
-	if (immediately && _screen->format->BitsPerPixel == 8 && SDL_SetColors(_screen, const_cast<SDL_Color *>(colors), firstcolor, ncolors) == 0)
-	{
-		Log(LOG_DEBUG) << "Display palette doesn't match requested palette";
-	}
+	// _screen is ARGB32; palette changes are deferred to shade-table lookups only.
+	(void)immediately;
 
 	// Sanity check
 	/*
@@ -402,24 +301,19 @@ int Screen::getHeight() const
  */
 void Screen::resetDisplay(bool resetVideo, bool noShaders)
 {
-#ifdef __EMSCRIPTEN__
-	(void)noShaders;
-
 	int width  = Options::displayWidth;
 	int height = Options::displayHeight;
-	makeVideoFlags(); /* sets _bpp=8, _baseWidth, _baseHeight */
+	makeVideoFlags(); /* sets _bpp=32, _baseWidth, _baseHeight */
 
-	/* (Re)allocate ARGB32 game-coordinate surface if size changed. */
+	/* (Re)allocate ARGB32 game surface if size changed. */
 	if (!_surface || _surface->format->BitsPerPixel != 32 ||
 	    _surface->w != _baseWidth || _surface->h != _baseHeight)
 	{
 		std::tie(_buffer, _surface) = Surface::NewPair32Bit(_baseWidth, _baseHeight);
 	}
 
-	/* Recreate _screen + _texture at canvas size if displayWidth/Height changed
-	 * (state called Screen::updateScale or browser resized).  _screen is the
-	 * physical-resolution staging surface; _surface is game-coords and stays
-	 * at _baseWidth × _baseHeight.  flip() does an SDL_BlitScaled to stretch. */
+#ifdef __EMSCRIPTEN__
+	/* Emscripten: resize screen/texture when canvas size changed without full resetVideo. */
 	if (!resetVideo && _window && _screen
 	    && (_screen->w != width || _screen->h != height))
 	{
@@ -437,58 +331,84 @@ void Screen::resetDisplay(bool resetVideo, bool noShaders)
 		Log(LOG_INFO) << "Display rebased: canvas=" << width << "x" << height
 		              << ", base=" << _baseWidth << "x" << _baseHeight;
 	}
+#endif
 
 	if (resetVideo || !_window)
 	{
-		Log(LOG_INFO) << "Emscripten: creating SDL2 window " << width << "x" << height;
+		Log(LOG_INFO) << "Creating SDL2 window " << width << "x" << height;
 
-		/* Destroy any previous SDL2 objects. */
 		if (_texture)  { SDL_DestroyTexture(_texture);   _texture  = nullptr; }
 		if (_renderer) { SDL_DestroyRenderer(_renderer); _renderer = nullptr; }
 		if (_screen)   { SDL_FreeSurface(_screen);       _screen   = nullptr; }
 		if (_window)   { SDL_DestroyWindow(_window);     _window   = nullptr; }
 
-		Uint32 winFlags = SDL_WINDOW_OPENGL;
+		Uint32 winFlags = 0;
+#ifdef __EMSCRIPTEN__
+		winFlags = SDL_WINDOW_OPENGL;
 		if (Options::allowResize) winFlags |= SDL_WINDOW_RESIZABLE;
+		int posX = SDL_WINDOWPOS_UNDEFINED, posY = SDL_WINDOWPOS_UNDEFINED;
+#else
+		if (useOpenGL())          winFlags |= SDL_WINDOW_OPENGL;
+		if (Options::allowResize) winFlags |= SDL_WINDOW_RESIZABLE;
+		if (Options::fullscreen)  winFlags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
+		if (Options::borderless)  winFlags |= SDL_WINDOW_BORDERLESS;
+		int posX = SDL_WINDOWPOS_CENTERED, posY = SDL_WINDOWPOS_CENTERED;
+		if (!Options::fullscreen && Options::rootWindowedMode)
+		{
+			posX = Options::windowedModePositionX;
+			posY = Options::windowedModePositionY;
+		}
+#endif
 
-		_window = SDL_CreateWindow("Calypso",
-		    SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-		    width, height, winFlags);
+		_window = SDL_CreateWindow("OpenXcom Extended", posX, posY, width, height, winFlags);
 		if (!_window)
 		{
 			Log(LOG_ERROR) << "SDL_CreateWindow failed: " << SDL_GetError();
 			throw Exception(SDL_GetError());
 		}
 
-		_renderer = SDL_CreateRenderer(_window, -1,
-		    SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-		if (!_renderer)
+#ifndef __EMSCRIPTEN__
+		if (useOpenGL())
 		{
-			Log(LOG_ERROR) << "SDL_CreateRenderer failed: " << SDL_GetError();
-			throw Exception(SDL_GetError());
+			/* OpenGL context is managed by glOutput (Zoom::flipWithZoom).
+			 * Only a staging surface is needed here; no renderer/texture. */
+			_screen = SDL_CreateRGBSurface(0, width, height, 32,
+			    0x00FF0000u, 0x0000FF00u, 0x000000FFu, 0xFF000000u);
+			if (!_screen)
+			{
+				Log(LOG_ERROR) << "SDL_CreateRGBSurface failed: " << SDL_GetError();
+				throw Exception(SDL_GetError());
+			}
 		}
-		/* ARGB32 staging surface sized to the canvas (browser resolution).
-		 * ARGB32 _surface (game-coord, _baseWidth × _baseHeight) is stretch-blitted
-		 * into this each frame via SDL_BlitScaled — gives crisp pixel art at
-		 * the viewport's native resolution without relying on the Emscripten
-		 * SDL2 port's broken texture-stretch path. */
-		_screen = SDL_CreateRGBSurface(0, width, height, 32,
-		    0x00FF0000u, 0x0000FF00u, 0x000000FFu, 0xFF000000u);
-		if (!_screen)
+		else
+#endif
 		{
-			Log(LOG_ERROR) << "SDL_CreateRGBSurface failed: " << SDL_GetError();
-			throw Exception(SDL_GetError());
+			_renderer = SDL_CreateRenderer(_window, -1,
+			    SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+			if (!_renderer)
+			{
+				Log(LOG_ERROR) << "SDL_CreateRenderer failed: " << SDL_GetError();
+				throw Exception(SDL_GetError());
+			}
+
+			_screen = SDL_CreateRGBSurface(0, width, height, 32,
+			    0x00FF0000u, 0x0000FF00u, 0x000000FFu, 0xFF000000u);
+			if (!_screen)
+			{
+				Log(LOG_ERROR) << "SDL_CreateRGBSurface failed: " << SDL_GetError();
+				throw Exception(SDL_GetError());
+			}
+
+			_texture = SDL_CreateTexture(_renderer, SDL_PIXELFORMAT_ARGB8888,
+			    SDL_TEXTUREACCESS_STREAMING, width, height);
+			if (!_texture)
+			{
+				Log(LOG_ERROR) << "SDL_CreateTexture failed: " << SDL_GetError();
+				throw Exception(SDL_GetError());
+			}
 		}
 
-		_texture = SDL_CreateTexture(_renderer, SDL_PIXELFORMAT_ARGB8888,
-		    SDL_TEXTUREACCESS_STREAMING, width, height);
-		if (!_texture)
-		{
-			Log(LOG_ERROR) << "SDL_CreateTexture failed: " << SDL_GetError();
-			throw Exception(SDL_GetError());
-		}
-
-		Log(LOG_INFO) << "Display set: canvas=" << width << "x" << height
+		Log(LOG_INFO) << "Display set: " << width << "x" << height
 		              << ", base=" << _baseWidth << "x" << _baseHeight;
 	}
 	else
@@ -498,169 +418,48 @@ void Screen::resetDisplay(bool resetVideo, bool noShaders)
 
 	Options::displayWidth  = getWidth();
 	Options::displayHeight = getHeight();
-	/* scale factors map canvas-pixel mouse input → base game coords
-	 * (used by Cursor::handle and the JS-side mouse-motion bridge). */
 	_scaleX = (_baseWidth  > 0) ? (double)getWidth()  / _baseWidth  : 1.0;
 	_scaleY = (_baseHeight > 0) ? (double)getHeight() / _baseHeight : 1.0;
-	_topBlackBand = _bottomBlackBand = _leftBlackBand = _rightBlackBand = 0;
-	_cursorTopBlackBand = _cursorLeftBlackBand = 0;
 
-	setPalette(getPalette());
-	return;
-#else /* !__EMSCRIPTEN__ */
-
-#if defined __linux__ || defined _WIN32 || defined  __CYGWIN__
-	Uint32 oldFlags = _flags;
-#endif
-
-	int width = Options::displayWidth;
-	int height = Options::displayHeight;
-	makeVideoFlags();
-
-	if (!_surface || (_surface->format->BitsPerPixel != _bpp ||
-		_surface->w != _baseWidth ||
-		_surface->h != _baseHeight)) // don't reallocate _surface if not necessary, it's a waste of CPU cycles
-	{
-		if (_bpp == 32)
-		{
-			std::tie(_buffer, _surface) = Surface::NewPair32Bit(_baseWidth, _baseHeight);
-		}
-		else
-		{
-			std::tie(_buffer, _surface) = Surface::NewLoadScratch8Bit(_baseWidth, _baseHeight);
-		}
-
-		if (_surface->format->BitsPerPixel == 8)
-		{
-			SDL_SetColors(_surface.get(), deferredPalette, 0, 255);
-		}
-	}
-	SDL_SetColorKey(_surface.get(), 0, 0); // turn off color key!
-
-	if (resetVideo || _screen->format->BitsPerPixel != _bpp)
-	{
-		Log(LOG_INFO) << "Attempting to set display to " << width << "x" << height << "x" << _bpp << "...";
-
-#if defined __linux__ || defined _WIN32 || defined  __CYGWIN__
-		// Workaround for segfault when switching to opengl
-		if ((oldFlags & SDL_OPENGL) != (_flags & SDL_OPENGL))
-		{
-			Uint8 cursor = 0;
-			char *_oldtitle = 0;
-			SDL_WM_GetCaption(&_oldtitle, NULL);
-			std::string title(_oldtitle);
-			SDL_QuitSubSystem(SDL_INIT_VIDEO);
-			SDL_InitSubSystem(SDL_INIT_VIDEO);
-
-			// recreate operations done by `Game::Game` constructor
-			SDL_ShowCursor(SDL_ENABLE);
-			SDL_EnableUNICODE(1);
-			SDL_WM_SetCaption(title.c_str(), 0);
-			SDL_WM_GrabInput(Options::captureMouse);
-			SDL_SetCursor(SDL_CreateCursor(&cursor, &cursor, 1,1,0,0));
-		}
-#endif
-		_screen = SDL_SetVideoMode(width, height, _bpp, _flags);
-		if (_screen == 0)
-		{
-			Log(LOG_ERROR) << SDL_GetError();
-			Log(LOG_INFO) << "Attempting to set display to default resolution...";
-			_screen = SDL_SetVideoMode(640, 400, _bpp, _flags);
-			if (_screen == 0)
-			{
-				if (_flags & SDL_OPENGL)
-				{
-					Options::useOpenGL = false;
-				}
-				throw Exception(SDL_GetError());
-			}
-		}
-		Log(LOG_INFO) << "Display set to " << getWidth() << "x" << getHeight() << "x" << (int)_screen->format->BitsPerPixel << ".";
-	}
-	else
-	{
-		clear();
-	}
-
-	Options::displayWidth = getWidth();
-	Options::displayHeight = getHeight();
-	_scaleX = getWidth() / (double)_baseWidth;
-	_scaleY = getHeight() / (double)_baseHeight;
-
+#ifndef __EMSCRIPTEN__
+	/* Aspect-ratio black bands for the OpenGL scaler and cursor-clip logic. */
 	double pixelRatioY = 1.0;
 	if (Options::nonSquarePixelRatio && !Options::allowResize)
-	{
 		pixelRatioY = 1.2;
-	}
-	bool cursorInBlackBands;
-	if (!Options::keepAspectRatio)
-	{
-		cursorInBlackBands = false;
-	}
-	else if (Options::fullscreen)
-	{
-		cursorInBlackBands = Options::cursorInBlackBandsInFullscreen;
-	}
-	else if (!Options::borderless)
-	{
-		cursorInBlackBands = Options::cursorInBlackBandsInWindow;
-	}
-	else
-	{
-		cursorInBlackBands = Options::cursorInBlackBandsInBorderlessWindow;
-	}
+
+	bool cursorInBlackBands =
+		!Options::keepAspectRatio ? false :
+		Options::fullscreen       ? Options::cursorInBlackBandsInFullscreen :
+		!Options::borderless      ? Options::cursorInBlackBandsInWindow :
+		                            Options::cursorInBlackBandsInBorderlessWindow;
 
 	if (_scaleX > _scaleY && Options::keepAspectRatio)
 	{
 		int targetWidth = (int)floor(_scaleY * (double)_baseWidth);
 		_topBlackBand = _bottomBlackBand = 0;
 		_leftBlackBand = (getWidth() - targetWidth) / 2;
-		if (_leftBlackBand < 0)
-		{
-			_leftBlackBand = 0;
-		}
+		if (_leftBlackBand < 0) _leftBlackBand = 0;
 		_rightBlackBand = getWidth() - targetWidth - _leftBlackBand;
 		_cursorTopBlackBand = 0;
-
-		if (cursorInBlackBands)
-		{
-			_scaleX = _scaleY;
-			_cursorLeftBlackBand = _leftBlackBand;
-		}
-		else
-		{
-			_cursorLeftBlackBand = 0;
-		}
+		if (cursorInBlackBands) { _scaleX = _scaleY; _cursorLeftBlackBand = _leftBlackBand; }
+		else _cursorLeftBlackBand = 0;
 	}
 	else if (_scaleY > _scaleX && Options::keepAspectRatio)
 	{
 		int targetHeight = (int)floor(_scaleX * (double)_baseHeight * pixelRatioY);
 		_topBlackBand = (getHeight() - targetHeight) / 2;
-		if (_topBlackBand < 0)
-		{
-			_topBlackBand = 0;
-		}
+		if (_topBlackBand < 0) _topBlackBand = 0;
 		_bottomBlackBand = getHeight() - targetHeight - _topBlackBand;
-		if (_bottomBlackBand < 0)
-		{
-			_bottomBlackBand = 0;
-		}
+		if (_bottomBlackBand < 0) _bottomBlackBand = 0;
 		_leftBlackBand = _rightBlackBand = 0;
 		_cursorLeftBlackBand = 0;
-
-		if (cursorInBlackBands)
-		{
-			_scaleY = _scaleX;
-			_cursorTopBlackBand = _topBlackBand;
-		}
-		else
-		{
-			_cursorTopBlackBand = 0;
-		}
+		if (cursorInBlackBands) { _scaleY = _scaleX; _cursorTopBlackBand = _topBlackBand; }
+		else _cursorTopBlackBand = 0;
 	}
 	else
 	{
-		_topBlackBand = _bottomBlackBand = _leftBlackBand = _rightBlackBand = _cursorTopBlackBand = _cursorLeftBlackBand = 0;
+		_topBlackBand = _bottomBlackBand = _leftBlackBand = _rightBlackBand =
+		    _cursorTopBlackBand = _cursorLeftBlackBand = 0;
 	}
 
 	if (useOpenGL())
@@ -668,23 +467,22 @@ void Screen::resetDisplay(bool resetVideo, bool noShaders)
 #ifndef __NO_OPENGL
 		OpenGL::checkErrors = Options::checkOpenGLErrors;
 		glOutput.init(_baseWidth, _baseHeight);
-		glOutput.linear = Options::useOpenGLSmoothing; // setting from shader file will override this, though
+		glOutput.linear = Options::useOpenGLSmoothing;
 		if (!noShaders && FileMap::fileExists(Options::useOpenGLShader))
 		{
 			if (!glOutput.set_shader(Options::useOpenGLShader.c_str()))
-			{
 				Options::useOpenGLShader = "";
-			}
 		}
 		glOutput.setVSync(Options::vSyncForOpenGL);
 #endif
 	}
+#else
+	_topBlackBand = _bottomBlackBand = _leftBlackBand = _rightBlackBand = 0;
+	_cursorTopBlackBand = _cursorLeftBlackBand = 0;
+	(void)noShaders;
+#endif
 
-	if (_screen->format->BitsPerPixel == 8)
-	{
-		setPalette(getPalette());
-	}
-#endif /* !__EMSCRIPTEN__ */
+	setPalette(getPalette());
 }
 
 /**

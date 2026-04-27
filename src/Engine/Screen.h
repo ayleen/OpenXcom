@@ -40,16 +40,13 @@ class Screen
 {
 private:
 	SDL_Surface *_screen;
-#ifdef __EMSCRIPTEN__
 	SDL_Window   *_window;
 	SDL_Renderer *_renderer;
 	SDL_Texture  *_texture;
-#endif
 	int _bpp;
 	int _baseWidth, _baseHeight;
 	double _scaleX, _scaleY;
 	int _topBlackBand, _bottomBlackBand, _leftBlackBand, _rightBlackBand, _cursorTopBlackBand, _cursorLeftBlackBand;
-	Uint32 _flags;
 	SDL_Color deferredPalette[256];
 	int _numColors, _firstColor;
 	bool _pushPalette;
@@ -57,7 +54,7 @@ private:
 	OpenGL glOutput;
 	Surface::UniqueBufferPtr _buffer;
 	Surface::UniqueSurfacePtr _surface;
-	/// Sets the _flags and _bpp variables based on game options; needed in more than one place now
+	/// Sets _bpp, _baseWidth, _baseHeight from current options.
 	void makeVideoFlags();
 public:
 	static const int ORIGINAL_WIDTH;

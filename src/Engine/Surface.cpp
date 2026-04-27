@@ -804,14 +804,12 @@ void Surface::loadImageHD(const std::string &filename)
 	_x = 0;
 	_y = 0;
 	_surface = std::move(converted);
-#ifdef __EMSCRIPTEN__
 	_isHD = true;
 	// Intentionally leave _logicalW/_logicalH at 0 — the caller MUST follow
 	// loadImageHD() with setLogicalSize(). The blit() warning fires when this
 	// contract is violated; auto-defaulting here would silence it.
 	_logicalW = 0;
 	_logicalH = 0;
-#endif
 }
 
 /**
@@ -1169,12 +1167,9 @@ void Surface::blit(SDL_Surface *surface)
 		SDL_Rect target {};
 		target.x = getX();
 		target.y = getY();
-
-#ifdef __EMSCRIPTEN__
-		// All surfaces are ARGB32 (7.C). Use logicalW/H for HD-scale sprites.
+		// Use logicalW/H for HD-scale sprites; fall back to pixel dimensions.
 		target.w = _logicalW > 0 ? _logicalW : _width;
 		target.h = _logicalH > 0 ? _logicalH : _height;
-#endif
 
 		SDL_BlitSurface(_surface.get(), nullptr, surface, &target);
 	}
@@ -1538,11 +1533,9 @@ void Surface::rebuildShadeTableFromPalette(const SDL_Color *pal, int ncolors)
 {
 	if (!pal || ncolors <= 0) return;
 	int n = std::min(ncolors, 256);
-#ifdef __EMSCRIPTEN__
 	memcpy(_savedPalette, pal, n * sizeof(SDL_Color));
 	if (n < 256) memset(_savedPalette + n, 0, (256 - n) * sizeof(SDL_Color));
 	_hasSavedPalette = true;
-#endif
 	if (!_shadeTable) _shadeTable = std::make_shared<ShadeTable>();
 	_shadeTable->buildFromPalette(pal);
 }

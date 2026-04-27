@@ -93,9 +93,7 @@ protected:
 	Uint8 _hidden: 1;
 	Uint8 _redraw: 1;
 	bool _isHD = false;
-#ifdef __EMSCRIPTEN__
 	Uint16 _logicalW = 0, _logicalH = 0;
-#endif
 	// Saved copy of the most recent setPalette call on ARGB surfaces (no SDL palette object).
 	// Cross-platform: native build may also use ARGB surfaces after 7.K.
 	SDL_Color _savedPalette[256] = {};
@@ -132,11 +130,7 @@ public:
 	/// Is surface empty?
 	explicit operator bool() const
 	{
-#ifdef __EMSCRIPTEN__
 		return _alignedBuffer.get() || _surface.get();
-#else
-		return _alignedBuffer.get();
-#endif
 	}
 
 	/// Loads a raw pixel array.
@@ -153,7 +147,6 @@ public:
 	void loadImage(const std::string &filename);
 	/// Loads a 32-bit RGBA image (HD asset path — preserves alpha, skips palette quantization).
 	void loadImageHD(const std::string &filename);
-#ifdef __EMSCRIPTEN__
 	/// Convert a shade level (0=full … 15=black) to an SDL colour-mod byte (255…0).
 	/// Single source of truth for the calibration curve; both shadeARGB() and
 	/// SDL_SetSurfaceColorMod callers use this so the curve is never duplicated.
@@ -183,10 +176,8 @@ public:
 	}
 	/// Returns true if this surface was loaded via loadImageHD (ARGB HD asset).
 	bool isHD() const { return _isHD; }
-#ifdef __EMSCRIPTEN__
 	/// Sets the logical (game-coordinate) size and pre-scales the HD surface to match.
 	void setLogicalSize(int w, int h);
-#endif
 	/// Returns true if this surface is in 32bpp ARGB mode.
 	bool isARGB() const { return _surface && _surface->format->BitsPerPixel == 32; }
 	// Phase 7: shade table accessors (cross-platform; guard removed in 7.K).
@@ -298,7 +289,6 @@ public:
 		{
 			return;
 		}
-#ifdef __EMSCRIPTEN__
 		if (_surface && _surface->format->BitsPerPixel == 32)
 		{
 			// 7.F.3: resolve palette index → ARGB; index 0 is always transparent.
@@ -309,11 +299,6 @@ public:
 			*(Uint32*)getRaw(x, y) = argb;
 			return;
 		}
-#else
-#ifndef NDEBUG
-		assert(!_surface || _surface->format->BitsPerPixel == 8);
-#endif
-#endif
 		*getRaw(x, y) = pixel;
 	}
 	/**
