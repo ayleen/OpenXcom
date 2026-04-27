@@ -115,7 +115,7 @@ protected:
 	BattleUnit *_unit = nullptr;
 	std::vector<BattleItem *> _inventory;
 	std::unique_ptr<TileMapDataCache> _mapData = std::make_unique<TileMapDataCache>();
-	SurfaceRaw<const Uint8> _currentSurface[O_MAX] = { };
+	const Surface* _currentSurface[O_MAX] = { };
 	TileObjectCache _objectsCache[O_MAX] = { };
 	TileCache _cache = { };
 	Position _pos;
@@ -321,7 +321,7 @@ public:
 	/// Update cached value of sprite.
 	void updateSprite(TilePart part);
 	/// Get object sprites.
-	SurfaceRaw<const Uint8> getSprite(TilePart part) const
+	const Surface* getSprite(TilePart part) const
 	{
 		return _currentSurface[part];
 	}

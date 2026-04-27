@@ -744,7 +744,7 @@ void Map::drawTerrain(Surface *surface)
 	_isAltPressed = _game->isAltPressed(true);
 	_isCtrlPressed = _game->isCtrlPressed(true);
 	int frameNumber = 0;
-	SurfaceRaw<const Uint32> tmpSurface;
+	const Surface* tmpSurface = nullptr;
 	Tile *tile;
 	int beginX = 0, endX = _save->getMapSizeX() - 1;
 	int beginY = 0, endY = _save->getMapSizeY() - 1;
@@ -1151,8 +1151,8 @@ void Map::drawTerrain(Surface *surface)
 											_save->getTileEngine()->isVoxelVisible(voxelPos))
 										{
 											_camera->convertVoxelToScreen(voxelPos, &bulletPositionScreen);
-											bulletPositionScreen.x -= tmpSurface.getWidth() / 2;
-											bulletPositionScreen.y -= tmpSurface.getHeight() / 2;
+											bulletPositionScreen.x -= tmpSurface->getWidth() / 2;
+											bulletPositionScreen.y -= tmpSurface->getHeight() / 2;
 											Surface::blitRaw(surface, tmpSurface, bulletPositionScreen.x, bulletPositionScreen.y, 16, false, _nvColor);
 										}
 
@@ -1164,8 +1164,8 @@ void Map::drawTerrain(Surface *surface)
 											_save->getTileEngine()->isVoxelVisible(voxelPos))
 										{
 											_camera->convertVoxelToScreen(voxelPos, &bulletPositionScreen);
-											bulletPositionScreen.x -= tmpSurface.getWidth() / 2;
-											bulletPositionScreen.y -= tmpSurface.getHeight() / 2;
+											bulletPositionScreen.x -= tmpSurface->getWidth() / 2;
+											bulletPositionScreen.y -= tmpSurface->getHeight() / 2;
 											Surface::blitRaw(surface, tmpSurface, bulletPositionScreen.x, bulletPositionScreen.y, 0, false, _nvColor);
 										}
 									}
@@ -1821,7 +1821,7 @@ void Map::drawTerrain(Surface *surface)
 					if (explosion->getCurrentFrame() >= 0)
 					{
 						tmpSurface = _game->getMod()->getSurfaceSet("X1.PCK")->getFrame(explosion->getCurrentFrame());
-						Surface::blitRaw(surface, tmpSurface, bulletPositionScreen.x - (tmpSurface.getWidth() / 2), bulletPositionScreen.y - (tmpSurface.getHeight() / 2), 0, false, _nvColor);
+						Surface::blitRaw(surface, tmpSurface, bulletPositionScreen.x - (tmpSurface->getWidth() / 2), bulletPositionScreen.y - (tmpSurface->getHeight() / 2), 0, false, _nvColor);
 					}
 				}
 				else if (explosion->isHit())
