@@ -217,6 +217,39 @@ void Screen::flip()
 {
 #ifdef __EMSCRIPTEN__
 	{
+		/* Browser window resize: the SDL2/Emscripten port does not emit
+		 * SDL_WINDOWEVENT_SIZE_CHANGED reliably, so poll the canvas size each
+		 * frame.  When it changes, update display options and let downstream
+		 * states reset their base scale on the next updateScale call. */
+		if (_window)
+		{
+			int wW = 0, wH = 0;
+			SDL_GetWindowSize(_window, &wW, &wH);
+			if (wW > 0 && wH > 0 &&
+			    (wW != Options::displayWidth || wH != Options::displayHeight))
+			{
+				Options::displayWidth  = wW;
+				Options::displayHeight = wH;
+				/* Re-evaluate scale-driven base resolution for mainmenu/geoscape
+				 * (battlescape state does its own per-state recompute). */
+				Screen::updateScale(Options::geoscapeScale,
+				                    Options::baseXGeoscape,
+				                    Options::baseYGeoscape,
+				                    true);
+			}
+		}
+
+		/* States call Screen::updateScale which mutates Options::baseXResolution
+		 * but does not call resetDisplay.  When the requested base differs from
+		 * what _surface/_screen/_texture were sized to, recreate them at the new
+		 * size; otherwise the state would draw partial geometry into a smaller
+		 * surface.  Window/renderer are kept (resetVideo=false). */
+		if (_surface && (_surface->w != Options::baseXResolution
+		              || _surface->h != Options::baseYResolution))
+		{
+			resetDisplay(false, false);
+		}
+
 		/* Blit internal 8bpp surface into RGBA32 _screen via SDL2 cross-format
 		 * blit (SDL2 performs palette lookup automatically from _surface's palette). */
 		SDL_BlitSurface(_surface.get(), nullptr, _screen, nullptr);
@@ -397,6 +430,31 @@ void Screen::resetDisplay(bool resetVideo, bool noShaders)
 	}
 	SDL_SetColorKey(_surface.get(), 0, 0);
 
+	/* Recreate _screen and _texture if base size changed (state called
+	 * Screen::updateScale).  Cheap — no window/renderer churn. */
+	if (!resetVideo && _window && _screen
+	    && (_screen->w != _baseWidth || _screen->h != _baseHeight))
+	{
+		if (_texture) { SDL_DestroyTexture(_texture);  _texture = nullptr; }
+		SDL_FreeSurface(_screen); _screen = nullptr;
+
+		_screen = SDL_CreateRGBSurface(0, _baseWidth, _baseHeight, 32,
+		    0x00FF0000u, 0x0000FF00u, 0x000000FFu, 0xFF000000u);
+		if (!_screen) throw Exception(SDL_GetError());
+
+		_texture = SDL_CreateTexture(_renderer, SDL_PIXELFORMAT_ARGB8888,
+		    SDL_TEXTUREACCESS_STREAMING, _baseWidth, _baseHeight);
+		if (!_texture) throw Exception(SDL_GetError());
+
+		/* Match canvas backing-store to the texture so SDL_RenderCopy is a
+		 * 1:1 identity copy (Emscripten SDL2's WebGL renderer doesn't honour
+		 * SDL_RenderSetLogicalSize/dst rect stretching reliably).  CSS scales
+		 * the canvas to fill the viewport via `width: 100vw; height: 100vh`. */
+		SDL_SetWindowSize(_window, _baseWidth, _baseHeight);
+
+		Log(LOG_INFO) << "Display rebased to " << _baseWidth << "x" << _baseHeight << " (RGBA staging).";
+	}
+
 	if (resetVideo || !_window)
 	{
 		Log(LOG_INFO) << "Emscripten: creating SDL2 window " << width << "x" << height;
@@ -426,10 +484,10 @@ void Screen::resetDisplay(bool resetVideo, bool noShaders)
 			Log(LOG_ERROR) << "SDL_CreateRenderer failed: " << SDL_GetError();
 			throw Exception(SDL_GetError());
 		}
-		/* Lock the GPU viewport to the logical game resolution.
-		 * SDL2 scales the _baseWidth×_baseHeight content to fill the physical
-		 * window with letterboxing — no CSS object-fit tricks needed. */
-		SDL_RenderSetLogicalSize(_renderer, _baseWidth, _baseHeight);
+		/* Match canvas backing to texture size; CSS will stretch.  Avoids the
+		 * Emscripten SDL2 port's broken SDL_RenderSetLogicalSize/dst-rect
+		 * stretching for WebGL textures. */
+		SDL_SetWindowSize(_window, _baseWidth, _baseHeight);
 
 		/* RGBA32 staging surface: 8bpp _surface blits into this before texture upload. */
 		_screen = SDL_CreateRGBSurface(0, _baseWidth, _baseHeight, 32,
