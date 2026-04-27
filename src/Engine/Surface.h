@@ -205,6 +205,8 @@ public:
 	const ShadeTable *getShadeTable(int cyclePhase) const;
 	/// Attaches a pre-built shade table (e.g. recoloured variant from the cache).
 	void attachShadeTable(std::shared_ptr<ShadeTable> t) { _shadeTable = std::move(t); }
+	/// Replaces the full palette-cycle table list (7.A.4).
+	void attachShadeCycle(std::vector<std::shared_ptr<ShadeTable>> cycle) { _shadeCycle = std::move(cycle); }
 	/// Clears the surface's contents with a specified colour.
 	void clear();
 	/// Offsets the surface's colors by a set amount.

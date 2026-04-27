@@ -21,6 +21,7 @@
 #include "ExtraSprites.h"
 #include "../Engine/Surface.h"
 #include "../Engine/SurfaceSet.h"
+#include "../Engine/ShadeTable.h"
 #include "../Engine/FileMap.h"
 #include "../Engine/Logger.h"
 #include "../Engine/Exception.h"
@@ -77,6 +78,9 @@ void ExtraSprites::load(const YAML::YamlNodeReader& reader, const ModData* curre
 	reader.tryRead("subX", _subX);
 	reader.tryRead("subY", _subY);
 	reader.tryRead("hd", _hd);
+	// 7.A.4: palette-cycle phase palette names.
+	// Each entry is a Mod palette name used for one cycle phase.
+	reader.tryRead("paletteCycle", _paletteCycle);
 	_current = current;
 }
 
@@ -172,6 +176,58 @@ bool ExtraSprites::isImageFile(const std::string &filename)
 			return true;
 	}
 	return false;
+}
+
+/**
+ * Builds and attaches cycle-phase ShadeTable objects to every frame of a
+ * surface set.  Called after loadSurfaceSet() by Mod when _paletteCycle is
+ * non-empty.  paletteLookup must resolve a palette name to 256 SDL_Color
+ * entries; returns nullptr for unknown names (cycle phase is skipped).
+ */
+void ExtraSprites::buildCycleTables(SurfaceSet *set,
+                                    const std::function<const SDL_Color*(const std::string&)>& paletteLookup) const
+{
+	if (_paletteCycle.empty() || !set) return;
+
+	std::vector<std::shared_ptr<ShadeTable>> cycleTables;
+	cycleTables.reserve(_paletteCycle.size());
+	for (const auto& palName : _paletteCycle)
+	{
+		auto tbl = std::make_shared<ShadeTable>();
+		const SDL_Color *pal = paletteLookup(palName);
+		if (pal)
+			tbl->buildFromPalette(pal);
+		cycleTables.push_back(std::move(tbl));
+	}
+
+	// Attach the same cycle-table vector to every frame in the set.
+	const int total = (int)set->getTotalFrames();
+	for (int i = 0; i < total; ++i)
+	{
+		Surface *frame = set->getFrame(i);
+		if (frame) frame->attachShadeCycle(cycleTables);
+	}
+}
+
+/**
+ * Overload for single-image surfaces.
+ */
+void ExtraSprites::buildCycleTables(Surface *surface,
+                                    const std::function<const SDL_Color*(const std::string&)>& paletteLookup) const
+{
+	if (_paletteCycle.empty() || !surface) return;
+
+	std::vector<std::shared_ptr<ShadeTable>> cycleTables;
+	cycleTables.reserve(_paletteCycle.size());
+	for (const auto& palName : _paletteCycle)
+	{
+		auto tbl = std::make_shared<ShadeTable>();
+		const SDL_Color *pal = paletteLookup(palName);
+		if (pal)
+			tbl->buildFromPalette(pal);
+		cycleTables.push_back(std::move(tbl));
+	}
+	surface->attachShadeCycle(cycleTables);
 }
 
 /**

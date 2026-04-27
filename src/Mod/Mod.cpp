@@ -6193,6 +6193,15 @@ void Mod::loadExtraSprite(ExtraSprites *spritePack)
 				_surfaces[spritePack->getType()]->setPalette(_statePalette);
 			}
 		}
+		// 7.A.4: build cycle-phase shade tables if paletteCycle: was specified.
+		if (!spritePack->getPaletteCycle().empty())
+		{
+			spritePack->buildCycleTables(_surfaces[spritePack->getType()],
+				[this](const std::string& name) -> const SDL_Color* {
+					Palette *p = getPalette(name, false);
+					return p ? p->getColors() : nullptr;
+				});
+		}
 	}
 	else
 	{
@@ -6211,7 +6220,38 @@ void Mod::loadExtraSprite(ExtraSprites *spritePack)
 				_sets[spritePack->getType()]->setPalette(_statePalette);
 			}
 		}
+		// 7.A.4: build cycle-phase shade tables if paletteCycle: was specified.
+		if (!spritePack->getPaletteCycle().empty())
+		{
+			spritePack->buildCycleTables(_sets[spritePack->getType()],
+				[this](const std::string& name) -> const SDL_Color* {
+					Palette *p = getPalette(name, false);
+					return p ? p->getColors() : nullptr;
+				});
+		}
 	}
+}
+
+/**
+ * Synthesises palette-cycle ShadeTable arrays for vanilla TFTD assets.
+ *
+ * TODO (7.A.4): catalogue each animated palette group here once the
+ * exact index ranges and per-phase rotations are confirmed against real
+ * TFTD.PAL data.  The groups are:
+ *   - Indices 48-63  (color group 3): Battlescape water animation, 16 phases
+ *   - Indices 96-111 (color group 6): Alien terrain electricity, 16 phases
+ *   - Indices 112-127 (color group 7): Mission countdown clock, 16 phases
+ *   - Indices 16-31  (color group 1): Smoke colour-shift, 16 phases
+ *
+ * For each group: phase N is a left-rotation of the 16 indices by N
+ * steps.  Build a full ShadeTable for each rotation (256×16 entries)
+ * and call SurfaceSet->getFrame(i)->attachShadeCycle(...) for each
+ * affected PCK set.  The primary shade table (non-cycle) stays as-is.
+ */
+void Mod::buildVanillaCycleTables()
+{
+	// Stub: no-op until vanilla cycle catalogue is populated in 7.A.4.
+	// When complete, this is called from Mod::load() after modResources().
 }
 
 /**

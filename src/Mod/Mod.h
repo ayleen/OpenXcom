@@ -390,6 +390,8 @@ private:
 	void loadExtraSprite(ExtraSprites *spritePack);
 	/// Applies mods to vanilla resources.
 	void modResources();
+	/// Builds palette-cycle shade tables for vanilla TFTD assets (7.A.4 stub).
+	void buildVanillaCycleTables();
 	/// Sorts all our lists according to their weight.
 	void sortLists();
 public:
