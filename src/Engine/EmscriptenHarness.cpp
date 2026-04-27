@@ -40,9 +40,16 @@ void calypso_push_mouse_motion(int x, int y)
 	OpenXcom::Game *g = OpenXcom::getCurrentGame();
 	if (!g) return;
 	OpenXcom::Cursor *c = g->getCursor();
-	if (!c) return;
-	c->setX(x);
-	c->setY(y);
+	OpenXcom::Screen *s = g->getScreen();
+	if (!c || !s) return;
+	/* JS sends canvas-backing pixels; convert to game-coords via the
+	 * Screen's current xScale/yScale (canvas / base). */
+	double sx = s->getXScale();
+	double sy = s->getYScale();
+	if (sx <= 0.0) sx = 1.0;
+	if (sy <= 0.0) sy = 1.0;
+	c->setX((int)(x / sx));
+	c->setY((int)(y / sy));
 }
 
 } /* extern "C" */

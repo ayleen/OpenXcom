@@ -131,7 +131,7 @@ void Screen::makeVideoFlags()
  */
 Screen::Screen() : _screen(nullptr), _baseWidth(ORIGINAL_WIDTH), _baseHeight(ORIGINAL_HEIGHT), _scaleX(1.0), _scaleY(1.0), _flags(0), _numColors(0), _firstColor(0), _pushPalette(false), _flickerFix(false)
 #ifdef __EMSCRIPTEN__
-	, _window(nullptr), _renderer(nullptr), _texture(nullptr)
+	, _window(nullptr), _renderer(nullptr), _texture(nullptr), _screenBaseArgb(nullptr)
 #endif
 {
 	_flickerFix = Options::oxceEnablePaletteFlickerFix;
@@ -147,10 +147,11 @@ Screen::Screen() : _screen(nullptr), _baseWidth(ORIGINAL_WIDTH), _baseHeight(ORI
 Screen::~Screen()
 {
 #ifdef __EMSCRIPTEN__
-	if (_texture)  { SDL_DestroyTexture(_texture);   _texture  = nullptr; }
-	if (_renderer) { SDL_DestroyRenderer(_renderer); _renderer = nullptr; }
-	if (_window)   { SDL_DestroyWindow(_window);     _window   = nullptr; }
-	if (_screen)   { SDL_FreeSurface(_screen);       _screen   = nullptr; }
+	if (_screenBaseArgb) { SDL_FreeSurface(_screenBaseArgb); _screenBaseArgb = nullptr; }
+	if (_texture)        { SDL_DestroyTexture(_texture);     _texture  = nullptr; }
+	if (_renderer)       { SDL_DestroyRenderer(_renderer);   _renderer = nullptr; }
+	if (_window)         { SDL_DestroyWindow(_window);       _window   = nullptr; }
+	if (_screen)         { SDL_FreeSurface(_screen);         _screen   = nullptr; }
 #endif
 }
 
@@ -250,9 +251,11 @@ void Screen::flip()
 			resetDisplay(false, false);
 		}
 
-		/* Blit internal 8bpp surface into RGBA32 _screen via SDL2 cross-format
-		 * blit (SDL2 performs palette lookup automatically from _surface's palette). */
-		SDL_BlitSurface(_surface.get(), nullptr, _screen, nullptr);
+		/* Two-step blit because SDL_BlitScaled requires matching src/dst
+		 * formats: (a) palette-map 8bpp _surface → ARGB at base size, then
+		 * (b) nearest-neighbour stretch ARGB-base → ARGB-canvas. */
+		SDL_BlitSurface(_surface.get(), nullptr, _screenBaseArgb, nullptr);
+		SDL_BlitScaled(_screenBaseArgb, nullptr, _screen, nullptr);
 
 		HDQueue::flush(_screen);
 		// Arena reset MUST come after flush — surfaces are referenced by HDQueue
@@ -427,32 +430,37 @@ void Screen::resetDisplay(bool resetVideo, bool noShaders)
 	{
 		std::tie(_buffer, _surface) = Surface::NewPair8Bit(_baseWidth, _baseHeight);
 		SDL_SetColors(_surface.get(), deferredPalette, 0, 256);
+
+		/* ARGB intermediate at base size — palette-mapped from _surface each
+		 * frame, then stretch-blitted into _screen at canvas size.  Required
+		 * because SDL_BlitScaled needs matching src/dst formats. */
+		if (_screenBaseArgb) SDL_FreeSurface(_screenBaseArgb);
+		_screenBaseArgb = SDL_CreateRGBSurface(0, _baseWidth, _baseHeight, 32,
+		    0x00FF0000u, 0x0000FF00u, 0x000000FFu, 0xFF000000u);
+		if (!_screenBaseArgb) throw Exception(SDL_GetError());
 	}
 	SDL_SetColorKey(_surface.get(), 0, 0);
 
-	/* Recreate _screen and _texture if base size changed (state called
-	 * Screen::updateScale).  Cheap — no window/renderer churn. */
+	/* Recreate _screen + _texture at canvas size if displayWidth/Height changed
+	 * (state called Screen::updateScale or browser resized).  _screen is the
+	 * physical-resolution staging surface; _surface is game-coords and stays
+	 * at _baseWidth × _baseHeight.  flip() does an SDL_BlitScaled to stretch. */
 	if (!resetVideo && _window && _screen
-	    && (_screen->w != _baseWidth || _screen->h != _baseHeight))
+	    && (_screen->w != width || _screen->h != height))
 	{
 		if (_texture) { SDL_DestroyTexture(_texture);  _texture = nullptr; }
 		SDL_FreeSurface(_screen); _screen = nullptr;
 
-		_screen = SDL_CreateRGBSurface(0, _baseWidth, _baseHeight, 32,
+		_screen = SDL_CreateRGBSurface(0, width, height, 32,
 		    0x00FF0000u, 0x0000FF00u, 0x000000FFu, 0xFF000000u);
 		if (!_screen) throw Exception(SDL_GetError());
 
 		_texture = SDL_CreateTexture(_renderer, SDL_PIXELFORMAT_ARGB8888,
-		    SDL_TEXTUREACCESS_STREAMING, _baseWidth, _baseHeight);
+		    SDL_TEXTUREACCESS_STREAMING, width, height);
 		if (!_texture) throw Exception(SDL_GetError());
 
-		/* Match canvas backing-store to the texture so SDL_RenderCopy is a
-		 * 1:1 identity copy (Emscripten SDL2's WebGL renderer doesn't honour
-		 * SDL_RenderSetLogicalSize/dst rect stretching reliably).  CSS scales
-		 * the canvas to fill the viewport via `width: 100vw; height: 100vh`. */
-		SDL_SetWindowSize(_window, _baseWidth, _baseHeight);
-
-		Log(LOG_INFO) << "Display rebased to " << _baseWidth << "x" << _baseHeight << " (RGBA staging).";
+		Log(LOG_INFO) << "Display rebased: canvas=" << width << "x" << height
+		              << ", base=" << _baseWidth << "x" << _baseHeight;
 	}
 
 	if (resetVideo || !_window)
@@ -484,13 +492,12 @@ void Screen::resetDisplay(bool resetVideo, bool noShaders)
 			Log(LOG_ERROR) << "SDL_CreateRenderer failed: " << SDL_GetError();
 			throw Exception(SDL_GetError());
 		}
-		/* Match canvas backing to texture size; CSS will stretch.  Avoids the
-		 * Emscripten SDL2 port's broken SDL_RenderSetLogicalSize/dst-rect
-		 * stretching for WebGL textures. */
-		SDL_SetWindowSize(_window, _baseWidth, _baseHeight);
-
-		/* RGBA32 staging surface: 8bpp _surface blits into this before texture upload. */
-		_screen = SDL_CreateRGBSurface(0, _baseWidth, _baseHeight, 32,
+		/* RGBA32 staging surface sized to the canvas (browser resolution).
+		 * 8bpp _surface (game-coord, _baseWidth × _baseHeight) is stretch-blitted
+		 * into this each frame via SDL_BlitScaled — gives crisp pixel art at
+		 * the viewport's native resolution without relying on the Emscripten
+		 * SDL2 port's broken texture-stretch path. */
+		_screen = SDL_CreateRGBSurface(0, width, height, 32,
 		    0x00FF0000u, 0x0000FF00u, 0x000000FFu, 0xFF000000u);
 		if (!_screen)
 		{
@@ -499,14 +506,15 @@ void Screen::resetDisplay(bool resetVideo, bool noShaders)
 		}
 
 		_texture = SDL_CreateTexture(_renderer, SDL_PIXELFORMAT_ARGB8888,
-		    SDL_TEXTUREACCESS_STREAMING, _baseWidth, _baseHeight);
+		    SDL_TEXTUREACCESS_STREAMING, width, height);
 		if (!_texture)
 		{
 			Log(LOG_ERROR) << "SDL_CreateTexture failed: " << SDL_GetError();
 			throw Exception(SDL_GetError());
 		}
 
-		Log(LOG_INFO) << "Display set to " << getWidth() << "x" << getHeight() << "x32 (RGBA staging).";
+		Log(LOG_INFO) << "Display set: canvas=" << width << "x" << height
+		              << ", base=" << _baseWidth << "x" << _baseHeight;
 	}
 	else
 	{
@@ -515,8 +523,10 @@ void Screen::resetDisplay(bool resetVideo, bool noShaders)
 
 	Options::displayWidth  = getWidth();
 	Options::displayHeight = getHeight();
-	_scaleX = 1.0;
-	_scaleY = 1.0;
+	/* scale factors map canvas-pixel mouse input → base game coords
+	 * (used by Cursor::handle and the JS-side mouse-motion bridge). */
+	_scaleX = (_baseWidth  > 0) ? (double)getWidth()  / _baseWidth  : 1.0;
+	_scaleY = (_baseHeight > 0) ? (double)getHeight() / _baseHeight : 1.0;
 	_topBlackBand = _bottomBlackBand = _leftBlackBand = _rightBlackBand = 0;
 	_cursorTopBlackBand = _cursorLeftBlackBand = 0;
 
