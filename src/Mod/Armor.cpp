@@ -87,6 +87,7 @@ void Armor::load(const YAML::YamlNodeReader& node, Mod *mod, const ModScript &pa
 #ifdef __EMSCRIPTEN__
 	reader.tryRead("recolorMask", _recolorMask);
 	reader.tryRead("recolorRgb", _recolorRgb);
+	reader.tryRead("hdScripts", _hdScripts);
 #endif
 	reader.tryRead("allowInv", _hasInventory);
 	if (reader["corpseItem"])

@@ -535,6 +535,12 @@ void ScriptWorkerBlit::executeBlit(const Surface* src, Surface* dest, int x, int
  */
 void ScriptWorkerBlit::executeBlit(const Surface* src, Surface* dest, int x, int y, int shade, GraphSubset mask)
 {
+#ifdef __EMSCRIPTEN__
+	// 7.G: HD armours with hdScripts:true will eventually run an ARGB script VM here.
+	// Until the full VM extension lands, fall through to the palette-compat path — the
+	// caller sets _useHDScripts=true as a capability signal, not yet a code fork.
+	(void)_useHDScripts;
+#endif
 	ShaderMove<const Uint8> srcShader(src, x, y);
 	ShaderMove<Uint8> destShader(dest, 0, 0);
 

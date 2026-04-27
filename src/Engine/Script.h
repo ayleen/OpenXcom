@@ -817,6 +817,9 @@ class ScriptWorkerBlit : public ScriptWorkerBase
 	/// Current script set in worker.
 	const Uint8* _proc;
 	const ScriptContainerBase* _events;
+#ifdef __EMSCRIPTEN__
+	bool _useHDScripts = false;
+#endif
 
 public:
 	/// Type of output value from script.
@@ -860,6 +863,12 @@ public:
 	void executeBlit(const Surface* src, Surface* dest, int x, int y, int shade);
 	/// Programmable blitting using script.
 	void executeBlit(const Surface* src, Surface* dest, int x, int y, int shade, GraphSubset mask);
+#ifdef __EMSCRIPTEN__
+	/// Enable ARGB script execution for the next executeBlit call (D1c).
+	void setUseHDScripts(bool v) { _useHDScripts = v; }
+	/// Returns true if ARGB script mode is active.
+	bool getUseHDScripts() const { return _useHDScripts; }
+#endif
 
 	/// Clear all worker data.
 	void clear()
