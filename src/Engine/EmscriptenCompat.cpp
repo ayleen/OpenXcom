@@ -131,6 +131,25 @@ int SDLCALL SDL_SetColors(SDL_Surface *surface, const SDL_Color *colors, int fir
  * For 8bpp surfaces we reverse-lookup the nearest palette index.
  * Palette must already be populated via SDL_SetColors / SDL_SetPaletteColors. */
 
+// Convert SDL_gfx RGBA colour argument to ARGB8888 Uint32 for 32bpp surfaces.
+// SDL_gfx packs as (r<<24)|(g<<16)|(b<<8)|a; SDL ARGB8888 is (a<<24)|(r<<16)|(g<<8)|b.
+static Uint32 _gfx_rgba_to_argb(Uint32 rgba)
+{
+    return ((rgba & 0xFFu) << 24) | (rgba >> 8);
+}
+
+// Horizontal fill for 32bpp ARGB surfaces.
+static void _gfx_hline_argb(SDL_Surface *dst, int x1, int x2, int y, Uint32 argb)
+{
+    if (y < 0 || y >= dst->h) return;
+    if (x1 > x2) { int t = x1; x1 = x2; x2 = t; }
+    if (x1 < 0) x1 = 0;
+    if (x2 >= dst->w) x2 = dst->w - 1;
+    if (x1 > x2) return;
+    Uint32 *row = (Uint32*)((Uint8*)dst->pixels + y * dst->pitch) + x1;
+    for (int i = 0; i <= x2 - x1; ++i) row[i] = argb;
+}
+
 static Uint8 _gfx_pal_idx(SDL_Surface *dst, Uint32 rgba)
 {
     if (!dst || !dst->format || !dst->format->palette ||
@@ -182,7 +201,9 @@ int filledPolygonColor(SDL_Surface *dst, const Sint16 *vx, const Sint16 *vy, int
                        Uint32 color)
 {
     if (!dst || !dst->pixels || n < 3) return -1;
-    Uint8 idx = _gfx_pal_idx(dst, color);
+    const bool is32 = (dst->format->BitsPerPixel == 32);
+    Uint32 argbVal = is32 ? _gfx_rgba_to_argb(color) : 0;
+    Uint8  idx     = is32 ? 0 : _gfx_pal_idx(dst, color);
     int y_min = vy[0], y_max = vy[0];
     for (int i = 1; i < n; i++) {
         if (vy[i] < y_min) y_min = vy[i];
@@ -207,8 +228,10 @@ int filledPolygonColor(SDL_Surface *dst, const Sint16 *vx, const Sint16 *vy, int
             while (b >= 0 && xs[b] > key) { xs[b+1] = xs[b]; b--; }
             xs[b+1] = key;
         }
-        for (int j = 0; j + 1 < nxs; j += 2)
-            _gfx_hline(dst, xs[j], xs[j+1], y, idx);
+        for (int j = 0; j + 1 < nxs; j += 2) {
+            if (is32) _gfx_hline_argb(dst, xs[j], xs[j+1], y, argbVal);
+            else      _gfx_hline(dst, xs[j], xs[j+1], y, idx);
+        }
     }
     return 0;
 }
@@ -217,13 +240,20 @@ int lineColor(SDL_Surface *dst, Sint16 x1, Sint16 y1, Sint16 x2, Sint16 y2,
               Uint32 color)
 {
     if (!dst || !dst->pixels) return -1;
-    Uint8 idx = _gfx_pal_idx(dst, color);
+    const bool argb = (dst->format->BitsPerPixel == 32);
+    Uint32 argbVal = argb ? _gfx_rgba_to_argb(color) : 0;
+    Uint8  idx     = argb ? 0 : _gfx_pal_idx(dst, color);
     int dx = abs(x2 - x1), dy = abs(y2 - y1);
     int sx = (x1 < x2) ? 1 : -1, sy = (y1 < y2) ? 1 : -1;
     int err = dx - dy, x = x1, y = y1;
     for (;;) {
         if (x >= 0 && x < dst->w && y >= 0 && y < dst->h)
-            ((Uint8*)dst->pixels)[y * dst->pitch + x] = idx;
+        {
+            if (argb)
+                ((Uint32*)((Uint8*)dst->pixels + y * dst->pitch))[x] = argbVal;
+            else
+                ((Uint8*)dst->pixels)[y * dst->pitch + x] = idx;
+        }
         if (x == x2 && y == y2) break;
         int e2 = 2 * err;
         if (e2 > -dy) { err -= dy; x += sx; }
@@ -243,12 +273,15 @@ int filledCircleColor(SDL_Surface *dst, Sint16 cx, Sint16 cy, Sint16 rad,
                       Uint32 color)
 {
     if (!dst || !dst->pixels || rad < 0) return -1;
-    Uint8 idx = _gfx_pal_idx(dst, color);
+    const bool is32 = (dst->format->BitsPerPixel == 32);
+    Uint32 argbVal = is32 ? _gfx_rgba_to_argb(color) : 0;
+    Uint8  idx     = is32 ? 0 : _gfx_pal_idx(dst, color);
     int r = rad;
     for (int y = cy - r; y <= cy + r; y++) {
         int dy = y - cy;
         int dx = (int)sqrtf((float)(r * r - dy * dy));
-        _gfx_hline(dst, cx - dx, cx + dx, y, idx);
+        if (is32) _gfx_hline_argb(dst, cx - dx, cx + dx, y, argbVal);
+        else      _gfx_hline(dst, cx - dx, cx + dx, y, idx);
     }
     return 0;
 }
@@ -265,6 +298,7 @@ int texturedPolygon(SDL_Surface *dst,
     }
     if (y_min < 0)       y_min = 0;
     if (y_max >= dst->h) y_max = dst->h - 1;
+    const bool is32 = (dst->format->BitsPerPixel == 32);
     int tw = texture->w, th = texture->h;
     for (int y = y_min; y <= y_max; y++) {
         int xs[16]; int nxs = 0;
@@ -284,14 +318,23 @@ int texturedPolygon(SDL_Surface *dst,
             xs[b+1] = key;
         }
         int ty = ((y - texture_dy) % th + th) % th;
-        const Uint8 *trow = (const Uint8*)texture->pixels + ty * texture->pitch;
-        Uint8 *drow = (Uint8*)dst->pixels + y * dst->pitch;
         for (int j = 0; j + 1 < nxs; j += 2) {
-            int x1 = xs[j];     if (x1 < 0)       x1 = 0;
-            int x2 = xs[j+1];   if (x2 >= dst->w)  x2 = dst->w - 1;
-            for (int x = x1; x <= x2; x++) {
-                int tx = ((x - texture_dx) % tw + tw) % tw;
-                drow[x] = trow[tx];
+            int x1 = xs[j];    if (x1 < 0)       x1 = 0;
+            int x2 = xs[j+1];  if (x2 >= dst->w)  x2 = dst->w - 1;
+            if (is32) {
+                const Uint32 *trow32 = (const Uint32*)((const Uint8*)texture->pixels + ty * texture->pitch);
+                Uint32       *drow32 = (Uint32*)((Uint8*)dst->pixels + y * dst->pitch);
+                for (int x = x1; x <= x2; x++) {
+                    int tx = ((x - texture_dx) % tw + tw) % tw;
+                    drow32[x] = trow32[tx];
+                }
+            } else {
+                const Uint8 *trow = (const Uint8*)texture->pixels + ty * texture->pitch;
+                Uint8       *drow = (Uint8*)dst->pixels + y * dst->pitch;
+                for (int x = x1; x <= x2; x++) {
+                    int tx = ((x - texture_dx) % tw + tw) % tw;
+                    drow[x] = trow[tx];
+                }
             }
         }
     }
