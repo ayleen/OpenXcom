@@ -167,6 +167,11 @@ public:
 	}
 	/// R1.1: mirror width (equals surface width; 0 if empty).
 	Uint16 getPaletteMirrorWidth() const { return _paletteMirror.empty() ? 0 : _width; }
+	/// Copy a rectangular region of the palette-index mirror from another surface
+	/// into this one. Allocates this->_paletteMirror lazily if needed. Used by
+	/// SDL-blit paths (SurfaceCrop::blit, Surface::copy) so downstream getPixel()
+	/// keeps returning palette indices instead of garbage from the ARGB byte order.
+	void copyMirrorFrom(const Surface *src, int srcX, int srcY, int dstX, int dstY, int w, int h);
 
 	/// Returns the cycle-phase shade table, or the primary table as fallback.
 	const ShadeTable *getShadeTable(int cyclePhase) const;

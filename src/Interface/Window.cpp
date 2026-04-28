@@ -194,17 +194,11 @@ void Window::draw()
 	}
 	Uint8 color = _color + 3 * mul;
 
-	if (_bg && _bg->isARGB() && _bg->getWidth() == getWidth() && _bg->getHeight() == getHeight())
-	{
-		clear();
-		SDL_Rect bgsrc { (Sint16)square.x, (Sint16)square.y,
-		                 (Sint16)square.w, (Sint16)square.h };
-		SDL_Rect bgdst { (Sint16)square.x, (Sint16)square.y, 0, 0 };
-		SDL_BlitSurface(const_cast<SDL_Surface*>(_bg->getSurface()), &bgsrc,
-		                getSurface(), &bgdst);
-		return;
-	}
-
+	// Always draw the bevel + inner fill first, then overlay the bg.
+	// Skipping the bevel for full-size ARGB bg (prior behaviour) broke
+	// in-Battlescape windows whose bg has transparent index-0 areas
+	// (TAC00.SCR), which let the parent state bleed through and made
+	// save/load look transparent.
 	if (_thinBorder)
 	{
 		color = _color + 1 * mul;
@@ -268,14 +262,27 @@ void Window::draw()
 
 	if (_bg != 0)
 	{
-		SurfaceCrop crop = _bg->getCrop();
-		crop.getCrop()->x = square.x - _dx;
-		crop.getCrop()->y = square.y - _dy;
-		crop.getCrop()->w = square.w ;
-		crop.getCrop()->h = square.h ;
-		crop.setX(square.x);
-		crop.setY(square.y);
-		crop.blit(this);
+		if (_bg->isARGB() && _bg->getWidth() == getWidth() && _bg->getHeight() == getHeight())
+		{
+			// Same-size ARGB bg: blit the inner-rect portion directly.
+			// Source rect == dest rect == `square` (post-bevel inner area).
+			SDL_Rect bgsrc { (Sint16)square.x, (Sint16)square.y,
+			                 (Sint16)square.w, (Sint16)square.h };
+			SDL_Rect bgdst { (Sint16)square.x, (Sint16)square.y, 0, 0 };
+			SDL_BlitSurface(const_cast<SDL_Surface*>(_bg->getSurface()), &bgsrc,
+			                getSurface(), &bgdst);
+		}
+		else
+		{
+			SurfaceCrop crop = _bg->getCrop();
+			crop.getCrop()->x = square.x - _dx;
+			crop.getCrop()->y = square.y - _dy;
+			crop.getCrop()->w = square.w ;
+			crop.getCrop()->h = square.h ;
+			crop.setX(square.x);
+			crop.setY(square.y);
+			crop.blit(this);
+		}
 	}
 }
 

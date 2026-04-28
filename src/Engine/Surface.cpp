@@ -1150,8 +1150,14 @@ void Surface::copy(Surface *surface)
 		const int cw  = std::min(getWidth() - dx0, surface->getWidth()  - sx0);
 		const int ch  = std::min(getHeight() - dy0, surface->getHeight() - sy0);
 		if (cw > 0 && ch > 0)
+		{
 			for (int r = 0; r < ch; ++r)
 				memcpy(getRaw(dx0, dy0 + r), surface->getRaw(sx0, sy0 + r), cw * 4);
+			// Propagate palette-index mirror so downstream getPixel() returns
+			// indices, not the ARGB byte-order garbage. Critical for
+			// BattlescapeButton::initSurfaces' colorFrom/colorTo swap.
+			copyMirrorFrom(surface, sx0, sy0, dx0, dy0, cw, ch);
+		}
 		unlock();
 		return;
 	}
@@ -1752,6 +1758,65 @@ void SurfaceCrop::blit(Surface* dest)
 
 	SDL_BlitSurface(const_cast<SDL_Surface*>(_surface->getSurface()), src,
 	                dest->getSurface(), &dst);
+
+	// Propagate palette-index mirror across the blit so downstream getPixel()
+	// on the destination still returns palette indices. Without this, the
+	// _icons HUD crop drops mirror data, BattlescapeButton::copy then copies
+	// from a mirror-less _icons, and initSurfaces' colorFrom/colorTo swap
+	// reads ARGB byte garbage — producing sparse "red stripes" instead of the
+	// proper TFTD pressed-state recolour.
+	if (dest->isARGB() && _surface->getPaletteMirror())
+	{
+		const int srcX = src ? srcRect.x : 0;
+		const int srcY = src ? srcRect.y : 0;
+		// SDL_BlitSurface clips and writes the actual blitted size into dst.w/dst.h.
+		const int w = (dst.w > 0) ? dst.w : (srcRect.w ? srcRect.w : _surface->getWidth());
+		const int h = (dst.h > 0) ? dst.h : (srcRect.h ? srcRect.h : _surface->getHeight());
+		if (w > 0 && h > 0)
+		{
+			dest->copyMirrorFrom(_surface, srcX, srcY, dst.x, dst.y, w, h);
+		}
+	}
+}
+
+/**
+ * Copies a rectangular region of the palette-index mirror from another surface.
+ */
+void Surface::copyMirrorFrom(const Surface *src, int srcX, int srcY,
+                              int dstX, int dstY, int w, int h)
+{
+	if (!src) return;
+	const Uint8 *srcMir = src->getPaletteMirror();
+	if (!srcMir) return;
+	const Uint16 srcW = src->getPaletteMirrorWidth();
+	const int srcH = src->getHeight();
+
+	// Clip to source bounds
+	if (srcX < 0) { dstX -= srcX; w += srcX; srcX = 0; }
+	if (srcY < 0) { dstY -= srcY; h += srcY; srcY = 0; }
+	if (srcX + w > srcW) w = srcW - srcX;
+	if (srcY + h > srcH) h = srcH - srcY;
+
+	// Clip to dest bounds
+	if (dstX < 0) { srcX -= dstX; w += dstX; dstX = 0; }
+	if (dstY < 0) { srcY -= dstY; h += dstY; dstY = 0; }
+	if (dstX + w > _width) w = _width - dstX;
+	if (dstY + h > _height) h = _height - dstY;
+
+	if (w <= 0 || h <= 0) return;
+
+	// Allocate dest mirror lazily.
+	if (_paletteMirror.empty())
+	{
+		_paletteMirror.assign((size_t)_width * (size_t)_height, 0);
+	}
+
+	for (int r = 0; r < h; ++r)
+	{
+		memcpy(_paletteMirror.data() + (size_t)(dstY + r) * _width + dstX,
+		       srcMir + (size_t)(srcY + r) * srcW + srcX,
+		       (size_t)w);
+	}
 }
 
 }
