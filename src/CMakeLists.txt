@@ -651,7 +651,12 @@ if(EMSCRIPTEN)
     -sUSE_SDL=2
     -sUSE_SDL_IMAGE=2
     -sUSE_SDL_MIXER=2
-    "-sSDL2_IMAGE_FORMATS=[\"png\",\"jpg\",\"bmp\",\"webp\"]"
+    # webp dropped: Emscripten's sdl2_image port does not list 'webp' in
+    # SUPPORTED_FORMATS (see tools/ports/sdl2_image.py) and there is no
+    # libwebp port — IMG_webp.c fails on missing <webp/decode.h> on any
+    # cache-cold rebuild. Phase 8c HD globe should switch to stb_image
+    # (built-in WebP) or a PNG fallback before re-adding webp here.
+    "-sSDL2_IMAGE_FORMATS=[\"png\",\"jpg\",\"bmp\"]"
     "-sSDL2_MIXER_FORMATS=[\"ogg\"]"
     -sUSE_OGG=1
     -sUSE_VORBIS=1
