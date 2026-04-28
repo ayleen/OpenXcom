@@ -126,7 +126,13 @@ void createOptionsOXC()
 	//_info.push_back(OptionInfo(OPTION_OXC, "baseXBattlescape", &baseXBattlescape, Screen::ORIGINAL_WIDTH));
 	//_info.push_back(OptionInfo(OPTION_OXC, "baseYBattlescape", &baseYBattlescape, Screen::ORIGINAL_HEIGHT));
 	_info.push_back(OptionInfo(OPTION_OXC, "geoscapeScale", &geoscapeScale, 0));
+#ifdef __EMSCRIPTEN__
+	// Calypso default: 3x Battlescape (stored value 3 → "3x" in UI mapping).
+	// 320x200 (stored 0) is unreadable in a desktop browser viewport.
+	_info.push_back(OptionInfo(OPTION_OXC, "battlescapeScale", &battlescapeScale, 3));
+#else
 	_info.push_back(OptionInfo(OPTION_OXC, "battlescapeScale", &battlescapeScale, 0));
+#endif
 	_info.push_back(OptionInfo(OPTION_OXC, "useScaleFilter", &useScaleFilter, false));
 	_info.push_back(OptionInfo(OPTION_OXC, "useHQXFilter", &useHQXFilter, false));
 	_info.push_back(OptionInfo(OPTION_OXC, "useXBRZFilter", &useXBRZFilter, false));
