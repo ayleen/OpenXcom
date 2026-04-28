@@ -166,10 +166,16 @@ set ( engine_src
   Engine/Scalers/scale3x.cpp
   Engine/Scalers/scalebit.cpp
   Engine/Scalers/xbrz.cpp
+  Engine/GpuInit.cpp
+  Engine/GpuTexture.cpp
+  Engine/RenderTarget.cpp
   Engine/Screen.cpp
   Engine/Script.cpp
+  Engine/Shader.cpp
+  Engine/Shaders/embedded.cpp
   Engine/ShadeTable.cpp
   Engine/ShadeTableCache.cpp
+  Engine/ShaderManager.cpp
   Engine/Sound.cpp
   Engine/SoundSet.cpp
   Engine/State.cpp
@@ -554,6 +560,31 @@ set ( openxcom_src ${c_src} ${cxx_src} ${embed_src} )
 if(EMSCRIPTEN)
   list(APPEND openxcom_src Engine/EmscriptenCompat.cpp)
   list(APPEND openxcom_src Engine/EmscriptenHarness.cpp)
+  list(APPEND openxcom_src Engine/GpuSmokeState.cpp)
+
+  # Phase 8b: regenerate embedded shader table before each build when any
+  # *.vert or *.frag file in Engine/Shaders/ has changed.
+  set(_shader_src_dir "${CMAKE_CURRENT_SOURCE_DIR}/Engine/Shaders")
+  set(_embedded_cpp   "${_shader_src_dir}/embedded.cpp")
+  set(_embedded_h     "${_shader_src_dir}/embedded.h")
+  set(_embed_script   "${CMAKE_SOURCE_DIR}/../../scripts/embed-shaders.py")
+
+  file(GLOB _shader_sources
+       "${_shader_src_dir}/*.vert"
+       "${_shader_src_dir}/*.frag")
+  # Remove auto-generated files from the dependency list.
+  list(REMOVE_ITEM _shader_sources "${_embedded_cpp}" "${_embedded_h}")
+
+  add_custom_command(
+    OUTPUT  "${_embedded_cpp}" "${_embedded_h}"
+    COMMAND "${Python3_EXECUTABLE}" "${_embed_script}"
+    DEPENDS ${_shader_sources} "${_embed_script}"
+    COMMENT "Embedding GLSL shaders into embedded.cpp/h"
+    VERBATIM
+  )
+  # Mark generated files as generated so CMake knows not to look for them.
+  set_source_files_properties("${_embedded_cpp}" "${_embedded_h}"
+    PROPERTIES GENERATED TRUE)
 endif()
 set ( install_dest RUNTIME )
 set ( set_exec_path ON )
@@ -629,7 +660,7 @@ if(EMSCRIPTEN)
     -sINITIAL_MEMORY=268435456
     -sFORCE_FILESYSTEM=1
     "-sEXPORTED_RUNTIME_METHODS=[\"FS\",\"IDBFS\",\"callMain\",\"ccall\",\"cwrap\"]"
-    "-sEXPORTED_FUNCTIONS=[\"_main\",\"_calypso_screenshot\",\"_calypso_push_mouse_motion\"]"
+    "-sEXPORTED_FUNCTIONS=[\"_main\",\"_calypso_screenshot\",\"_calypso_screenshot_gpu\",\"_calypso_gpu_smoke_activate\",\"_calypso_push_mouse_motion\"]"
     -sENVIRONMENT=web
     -sMODULARIZE=1
     -sEXPORT_ES6=1

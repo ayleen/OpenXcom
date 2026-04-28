@@ -11,6 +11,9 @@ set (CMAKE_CXX_STANDARD 17)
 # use std=c++11 rather than std=gnu++11
 #set (CMAKE_CXX_EXTENSIONS OFF)
 
+# Phase 8b: Python3 is used by the embed-shaders.py pre-build script.
+find_package(Python3 COMPONENTS Interpreter)
+
 option ( DEV_BUILD "Development Build. Disable this for release builds" ON )
 option ( DUMP_CORE "Disables exception and segfault handling." OFF )
 option ( BUILD_PACKAGE "Prepares build for creation of a package with CPack" ON )
