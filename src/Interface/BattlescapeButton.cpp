@@ -147,7 +147,10 @@ void BattlescapeButton::initSurfaces(Surface* custom)
 {
 	delete _altSurface;
 	_altSurface = new Surface(_surface->w, _surface->h, _x, _y);
-	_altSurface->setPalette(getPalette());
+	// getPalette() returns nullptr once a surface has been promoted to ARGB,
+	// which would leave _altSurface palette-less and produce nothing when blit
+	// (the lost-red-highlight bug for kneel/reserve/etc toggle buttons).
+	_altSurface->setPalette(getEffectivePalette());
 
 	if (custom)
 	{

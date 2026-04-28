@@ -5463,12 +5463,19 @@ void Mod::loadVanillaResources()
 		//_palettes[s2]->savePalMod("../../../customPalettes.rul", "PAL_BATTLESCAPE_CUSTOM", "PAL_BATTLESCAPE");
 	}
 
-	// Load surfaces
+	// Load surfaces. After ARGB migration each loadScr/loadBdy/loadSpk needs a
+	// setPalette() to promote the 8bpp scratch buffer into ARGB while capturing
+	// the index pixels into _paletteMirror. Without it, blitNShade /
+	// SDL_BlitSurface from these surfaces onto the ARGB screen produces nothing
+	// — Window backgrounds (BACK*.SCR for menus / pedia / dogfight windows)
+	// rendered as white-on-clear instead of their actual graphics.
+	Palette *geoPal = getPalette("PAL_GEOSCAPE", false);
 	{
 		std::string s1 = "GEODATA/INTERWIN.DAT";
 		std::string s2 = "INTERWIN.DAT";
 		_surfaces[s2] = new Surface(160, 600);
 		_surfaces[s2]->loadScr(s1);
+		if (geoPal) _surfaces[s2]->setPalette(geoPal->getColors(), 0, 256);
 	}
 
 	const auto& geographFiles = FileMap::getVFolderContents("GEOGRAPH");
@@ -5479,6 +5486,7 @@ void Mod::loadVanillaResources()
 		std::transform(name.begin(), name.end(), fname.begin(), toupper);
 		_surfaces[fname] = new Surface(320, 200);
 		_surfaces[fname]->loadScr("GEOGRAPH/" + fname);
+		if (geoPal) _surfaces[fname]->setPalette(geoPal->getColors(), 0, 256);
 	}
 	auto bdys = FileMap::filterFiles(geographFiles, "BDY");
 	for (const auto& name : bdys)
@@ -5487,6 +5495,7 @@ void Mod::loadVanillaResources()
 		std::transform(name.begin(), name.end(), fname.begin(), toupper);
 		_surfaces[fname] = new Surface(320, 200);
 		_surfaces[fname]->loadBdy("GEOGRAPH/" + fname);
+		if (geoPal) _surfaces[fname]->setPalette(geoPal->getColors(), 0, 256);
 	}
 
 	auto spks = FileMap::filterFiles(geographFiles, "SPK");
@@ -5496,6 +5505,7 @@ void Mod::loadVanillaResources()
 		std::transform(name.begin(), name.end(), fname.begin(), toupper);
 		_surfaces[fname] = new Surface(320, 200);
 		_surfaces[fname]->loadSpk("GEOGRAPH/" + fname);
+		if (geoPal) _surfaces[fname]->setPalette(geoPal->getColors(), 0, 256);
 	}
 
 	// Load surface sets
@@ -5768,6 +5778,17 @@ void Mod::loadBattlescapeResources()
 	{
 		_surfaces[scrs[i]] = new Surface(320, 200);
 		_surfaces[scrs[i]]->loadScr("UFOGRAPH/" + scrs[i]);
+		// loadScr fills 8bpp pixels but never installs a palette; without it
+		// the surface stays 8bpp with empty _paletteMirror, so blitNShade /
+		// SDL_BlitSurface onto an ARGB destination produces nothing — leaving
+		// the Window::draw clear() result (transparent zeroes) which renders
+		// as the parent's fill colour (white in NextTurnState).
+		// Promote via PAL_BATTLESCAPE so the index buffer + shade table are
+		// captured during the 8bpp → ARGB conversion.
+		if (Palette *pal = getPalette("PAL_BATTLESCAPE", false))
+		{
+			_surfaces[scrs[i]]->setPalette(pal->getColors(), 0, 256);
+		}
 	}
 
 	// lower case so we can find them in the contents map
