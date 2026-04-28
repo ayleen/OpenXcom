@@ -1,10 +1,13 @@
 /*
  * Regression-test harness entry-points exported to JavaScript.
  * Phase 6a.1 — screenshot capture for snapshot diffing.
+ * Phase 8b   — GPU framebuffer screenshot; ShaderManager hadGPUPass auto-route.
  *
  * calypso_screenshot(path) — writes a PNG of the current frame to `path`
  *   inside the Emscripten virtual filesystem; JS reads it back via
- *   Module.FS.readFile(path).
+ *   Module.FS.readFile(path).  Auto-routes to GPU readback when the last
+ *   frame had any registered GPU shader pass.
+ * calypso_screenshot_gpu(path) — always uses GPU framebuffer readback.
  *
  * The global `game` pointer is declared in main.cpp (global namespace).
  * Game and Screen are included directly so the call chain resolves at
@@ -17,6 +20,8 @@
 #include <cstring>
 #include "Game.h"
 #include "Screen.h"
+#include "ShaderManager.h"
+#include "GpuSmokeState.h"
 #include "../Interface/Cursor.h"
 
 extern "C" {
@@ -25,8 +30,38 @@ EMSCRIPTEN_KEEPALIVE
 void calypso_screenshot(const char *path)
 {
 	OpenXcom::Game *g = OpenXcom::getCurrentGame();
-	if (g && g->getScreen())
+	if (!g || !g->getScreen()) return;
+
+	/* Auto-route to GPU framebuffer readback when a GPU pass ran this frame. */
+	if (OpenXcom::ShaderManager::instance().hadGPUPass())
+		g->getScreen()->screenshotGPU(path);
+	else
 		g->getScreen()->screenshot(path);
+}
+
+/* Always read back from the GPU framebuffer, regardless of GPU-pass flag. */
+EMSCRIPTEN_KEEPALIVE
+void calypso_screenshot_gpu(const char *path)
+{
+	OpenXcom::Game *g = OpenXcom::getCurrentGame();
+	if (g && g->getScreen())
+		g->getScreen()->screenshotGPU(path);
+}
+
+/* Activate the GPU smoke-test scenario (Phase 8b — ?harness=gpu-smoke).
+ * Registers a shader pass with Screen that renders for 5 frames then
+ * saves a PNG to `path`.  Requires callMain to have been invoked first. */
+EMSCRIPTEN_KEEPALIVE
+void calypso_gpu_smoke_activate(const char *path)
+{
+	OpenXcom::Game *g = OpenXcom::getCurrentGame();
+	if (!g || !g->getScreen())
+	{
+		/* Log to stderr so JS can detect the failure. */
+		EM_ASM({ console.error('calypso_gpu_smoke_activate: game not running'); });
+		return;
+	}
+	OpenXcom::GpuSmokeState::activate(g->getScreen(), path ? path : "/tmp/gpu-smoke.png");
 }
 
 /* The SDL2 Emscripten port routes WebGL-canvas pointermove events as
