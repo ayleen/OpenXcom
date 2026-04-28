@@ -1133,8 +1133,10 @@ Cord Globe::getSunDirectionWorld() const
 
 		decl = -0.261 * sin(CurDay * 2*M_PI);
 	}
-	// Subsolar point: lon = -rot (sun at lon 0 at daylight=0), lat = decl.
-	const double sunLon = -rot;
+	// Subsolar point lon = π/2 − rot, lat = decl.
+	// getDaylight()=0 corresponds to 6h GMT (sub-solar at 90° E), daylight=0.25
+	// is noon at Greenwich (sub-solar at 0°), so the offset from rot is +π/2.
+	const double sunLon = M_PI / 2.0 - rot;
 	return Cord(cos(decl) * sin(sunLon),
 	            sin(decl),
 	            cos(decl) * cos(sunLon));
