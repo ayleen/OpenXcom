@@ -314,9 +314,10 @@ public:
 		}
 		return *getRaw(x, y);
 	}
-	/// R3.3: returns the full 32bpp ARGB pixel at (x,y). Use for ARGB surfaces.
-	/// For palette-derived surfaces loaded pre-Phase 7, the B channel holds the
-	/// original palette index (historical); use getPaletteMirror() for reliable index access.
+	/// R3.3: returns the full 32bpp ARGB pixel at (x,y). Use on ARGB surfaces.
+	/// The B channel carries the resolved palette colour (palette[idx].b), not the
+	/// palette index itself.  For reliable palette-index access on palette-derived
+	/// surfaces, use getPaletteMirror() which exposes the per-pixel index buffer.
 	Uint32 getPixel32(int x, int y) const
 	{
 		if (x < 0 || x >= getWidth() || y < 0 || y >= getHeight())
@@ -398,12 +399,10 @@ public:
 	void lock();
 	/// Unlocks the surface.
 	void unlock();
-	/// Specific blit function to blit battlescape terrain data in different shades in a fast way.
-	static void blitRaw(SurfaceRaw<Uint8> dest, SurfaceRaw<const Uint8> src, int x, int y, int shade, bool half = false, int newBaseColor = 0);
-	/// Specific blit function to blit battlescape terrain data in different shades in a fast way.
-	void blitNShade(SurfaceRaw<Uint8> surface, int x, int y, int shade = 0, bool half = false, int newBaseColor = 0) const;
-	/// Specific blit function to blit battlescape terrain data in different shades in a fast way.
-	void blitNShade(SurfaceRaw<Uint8> surface, int x, int y, int shade, GraphSubset range) const;
+	// B4: Uint8 `blitRaw`/`blitNShade(SurfaceRaw<Uint8>,...)` overloads removed —
+	// helper::*::func(Uint8&,...) was deleted in R3.1; ARGB overloads below cover
+	// every live callsite (Surface* dest dispatches through SurfaceRaw<Uint32>).
+
 	/// 7.B / R1.1: ARGB blit — srcMirror carries palette indices; nullptr falls back to shadeARGBCurve.
 	static void blitRaw(SurfaceRaw<Uint32> dest, SurfaceRaw<const Uint32> src,
 	                    SurfaceRaw<const Uint8> srcMirror,

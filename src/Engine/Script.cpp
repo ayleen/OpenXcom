@@ -542,7 +542,9 @@ void ScriptWorkerBlit::executeBlit(const Surface* src, Surface* dest, int x, int
 	if (src && src->isARGB())
 	{
 		ShaderMove<const Uint32> srcShader(SurfaceRaw<const Uint32>(src), x, y);
-		ShaderMove<Uint32>       destShader(SurfaceRaw<Uint32>(dest));
+		// Extra parens disambiguate the parse: without them this is read as a
+		// function declaration `destShader(SurfaceRaw<Uint32>)` (most-vexing-parse).
+		ShaderMove<Uint32>       destShader((SurfaceRaw<Uint32>(dest)));
 		destShader.setDomain(mask);
 		const ShadeTable *tbl = src->getShadeTable();
 		const Uint8 *mirrorData = src->getPaletteMirror();
@@ -562,76 +564,8 @@ void ScriptWorkerBlit::executeBlit(const Surface* src, Surface* dest, int x, int
 		return;
 	}
 
-#ifdef LEGACY_8BPP_HELPERS
-	// 8bpp path — native builds only; Emscripten never reaches here.
-	ShaderMove<const Uint8> srcShader(src, x, y);
-	ShaderMove<Uint8> destShader(dest, 0, 0);
-
-	destShader.setDomain(mask);
-
-	if (_proc)
-	{
-		if (_events)
-		{
-			ShaderDrawFunc(
-				[&](Uint8& destStuff, const Uint8& srcStuff)
-				{
-					if (srcStuff)
-					{
-						ScriptWorkerBlit::Output arg = { srcStuff, destStuff };
-						set(arg);
-						auto ptr = _events;
-						while (*ptr)
-						{
-							reset(arg);
-							scriptExe(*this, ptr->data());
-							++ptr;
-						}
-						++ptr;
-
-						reset(arg);
-						scriptExe(*this, _proc);
-
-						while (*ptr)
-						{
-							reset(arg);
-							scriptExe(*this, ptr->data());
-							++ptr;
-						}
-						++ptr;
-
-						get(arg);
-						if (arg.getFirst()) destStuff = arg.getFirst();
-					}
-				},
-				destShader,
-				srcShader
-			);
-		}
-		else
-		{
-			ShaderDrawFunc(
-				[&](Uint8& destStuff, const Uint8& srcStuff)
-				{
-					if (srcStuff)
-					{
-						ScriptWorkerBlit::Output arg = { srcStuff, destStuff };
-						set(arg);
-						scriptExe(*this, _proc);
-						get(arg);
-						if (arg.getFirst()) destStuff = arg.getFirst();
-					}
-				},
-				destShader,
-				srcShader
-			);
-		}
-	}
-	else
-	{
-		ShaderDraw<helper::StandardShade>(destShader, srcShader, ShaderScalar(shade));
-	}
-#endif // LEGACY_8BPP_HELPERS
+	// 8bpp fallback removed (R3.1): all surfaces are 32bpp ARGB on Emscripten.
+	// Native build catch-up is out-of-scope per Phase 7 remediation plan.
 }
 
 /**

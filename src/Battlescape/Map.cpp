@@ -1179,20 +1179,19 @@ void Map::drawTerrain(Surface *surface)
 					SurfaceRaw<int> pixelMask(pixelMaskArray, 2, 2);
 					const int vaporScreenOriginX = screenPosition.x + _spriteWidth / 2;
 					const int vaporScreenOriginY = screenPosition.y + _spriteHeight - _spriteWidth / 2 + tile->getPosition().toVoxel().z;
-					const Uint8* const transparetPtr = _transparencies->data();
+
+					// R1.2 / Q1: vapor uses a perceptual darkening fallback on 32bpp surfaces.
+					// The original palette-indexed transparency table (_transparencies) cannot
+					// be applied without a destination framebuffer palette mirror — locally
+					// computing transparetPtr/transparetOffsets here would just be dead state.
+					// Fixing this needs a Map-side mirror (deferred); ignoring p.getColor()
+					// makes vapor colour-agnostic until then.
 
 					//draw particle clouds behind solder
 					for (const Particle& p : getVaporParticle(tile, 0))
 					{
 						int vaporX = vaporScreenOriginX + p.getOffsetX();
 						int vaporY = vaporScreenOriginY + p.getOffsetY();
-						auto transparetOffsets = transparetPtr
-							+ (p.getColor() * Mod::TransparenciesOpacityLevels * Mod::TransparenciesPaletteColors)
-							+ (p.getOpacity() * Mod::TransparenciesPaletteColors);
-
-						// R1.2: fixed 32bpp write (was writing Uint8 into Uint32 pixel, corrupting 3 bytes).
-						// Pixel-identical palette transparency requires a destination framebuffer
-						// mirror; perceptual darkening used until that is implemented.
 						ShaderDrawFunc(
 							[&](Uint32& dest, int size)
 							{
@@ -1275,11 +1274,7 @@ void Map::drawTerrain(Surface *surface)
 					{
 						int vaporX = vaporScreenOriginX + p.getOffsetX();
 						int vaporY = vaporScreenOriginY + p.getOffsetY();
-						auto transparetOffsets = transparetPtr
-							+ (p.getColor() * Mod::TransparenciesOpacityLevels * Mod::TransparenciesPaletteColors)
-							+ (p.getOpacity() * Mod::TransparenciesPaletteColors);
-
-						// R1.2: fixed 32bpp write (was writing Uint8 into Uint32 pixel, corrupting 3 bytes).
+						// R1.2 / Q1: see comment on the back-row loop above.
 						ShaderDrawFunc(
 							[&](Uint32& dest, int size)
 							{

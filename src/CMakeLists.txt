@@ -169,6 +169,7 @@ set ( engine_src
   Engine/Screen.cpp
   Engine/Script.cpp
   Engine/ShadeTable.cpp
+  Engine/ShadeTableCache.cpp
   Engine/Sound.cpp
   Engine/SoundSet.cpp
   Engine/State.cpp

@@ -21,10 +21,6 @@
 #include "ShadeTable.h"
 #include <tuple>
 
-// 7.B transition guard: define to keep old Uint8 overloads compiling while
-// all callsites are migrated.  Removed after 7.C.
-#define LEGACY_8BPP_HELPERS 1
-
 namespace OpenXcom
 {
 
@@ -137,44 +133,6 @@ const Uint8 ColorShade = 0x0F;
  */
 struct ColorReplace
 {
-#ifdef LEGACY_8BPP_HELPERS
-	/**
-	* Function used by ShaderDraw in Surface::blitNShade
-	* set shade and replace color in that surface
-	* @param dest destination pixel
-	* @param src source pixel
-	* @param shade value of shade of this surface
-	* @param newColor new color to set (it should be offset by 4)
-	*/
-	static inline void func(Uint8& dest, const Uint8& src, const int& shade, const int& newColor)
-	{
-#ifdef OXCE_VECTORIZATION_FRIENDLY
-		//more vectorization friendly code
-		auto n = dest;
-		if (src)
-		{
-			const Uint8 newShade = (src & ColorShade) + shade;
-			if (newShade & ColorGroup)
-				// so dark it would flip over to another color - make it black instead
-				n = ColorShade;
-			else
-				n = newColor | newShade;
-		}
-		dest = n;
-#else
-		if (src)
-		{
-			const Uint8 newShade = (src & ColorShade) + shade;
-			if (newShade & ColorGroup)
-				// so dark it would flip over to another color - make it black instead
-				dest = ColorShade;
-			else
-				dest = newColor | newShade;
-		}
-#endif
-	}
-#endif // LEGACY_8BPP_HELPERS
-
 	/// 7.B / R1.1: ARGB overload — srcIdx is the original palette index from _paletteMirror.
 	static inline void func(Uint32& dest, const Uint32& src, const Uint8& srcIdx,
 	                        const int& shade, const int& newBaseColor,
@@ -198,43 +156,6 @@ struct ColorReplace
  */
 struct StandardShade
 {
-#ifdef LEGACY_8BPP_HELPERS
-	/**
-	* Function used by ShaderDraw in Surface::blitNShade
-	* set shade
-	* @param dest destination pixel
-	* @param src source pixel
-	* @param shade value of shade of this surface
-	*/
-	static inline void func(Uint8& dest, const Uint8& src, const int& shade)
-	{
-#ifdef OXCE_VECTORIZATION_FRIENDLY
-		//more vectorization friendly code
-		auto n = dest;
-		if (src)
-		{
-			const Uint8 newShade = src + shade;
-			if ((newShade ^ src) & ColorGroup)
-				// so dark it would flip over to another color - make it black instead
-				n = ColorShade;
-			else
-				n = newShade;
-		}
-		dest = n;
-#else
-		if (src)
-		{
-			const Uint8 newShade = src + shade;
-			if ((newShade ^ src) & ColorGroup)
-				// so dark it would flip over to another color - make it black instead
-				dest = ColorShade;
-			else
-				dest = newShade;
-		}
-#endif
-	}
-#endif // LEGACY_8BPP_HELPERS
-
 	/// 7.B / R1.1: ARGB overload — srcIdx is the original palette index from _paletteMirror.
 	/// If table is null (HD asset), falls back to shadeARGBCurve.
 	static inline void func(Uint32& dest, const Uint32& src, const Uint8& srcIdx,
@@ -253,37 +174,6 @@ struct StandardShade
  */
 struct BurnShade
 {
-#ifdef LEGACY_8BPP_HELPERS
-	static inline void func(Uint8& dest, const Uint8& src, const int& burn, const int& shade)
-	{
-		auto n = dest;
-		if (src)
-		{
-			if (burn)
-			{
-				const Uint8 tempBurn = (src & ColorShade) + burn;
-				if (tempBurn > 26)
-				{
-					//nothing
-				}
-				else if (tempBurn > 15)
-				{
-					StandardShade::func(n, ColorShade, shade);
-				}
-				else
-				{
-					StandardShade::func(n, (src & ColorGroup) + tempBurn, shade);
-				}
-			}
-			else
-			{
-				StandardShade::func(n, src, shade);
-			}
-		}
-		dest = n;
-	}
-#endif // LEGACY_8BPP_HELPERS
-
 	/// 7.B / R1.1: ARGB overload — srcIdx is the original palette index from _paletteMirror.
 	static inline void func(Uint32& dest, const Uint32& src, const Uint8& srcIdx,
 	                        const int& burn, const int& shade,

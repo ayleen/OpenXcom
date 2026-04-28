@@ -18,6 +18,7 @@
  */
 #include "Surface.h"
 #include "ShadeTable.h"
+#include "ShadeTableCache.h"
 #include "ShaderDraw.h"
 #include "ShaderMove.h"
 #include <vector>
@@ -44,6 +45,12 @@
 namespace OpenXcom
 {
 
+// R2.4: session-scoped cache of recoloured ShadeTable instances.
+static ShadeTableCache s_recolourCache;
+
+// Forward decl: defined later in this file. Needed by `loadImageHD`, which uses
+// it before the definition appears.
+static Surface::UniqueSurfacePtr preScaleHDBilinear(SDL_Surface *src, int w, int h);
 
 namespace
 {
@@ -481,13 +488,13 @@ static bool loadLbmInto(Surface &out, const Uint8 *data, size_t size)
 
     if (!body || w <= 0 || h <= 0 || nPlanes < 1 || nPlanes > 8) return false;
 
-    // 7.C: out is 32bpp ARGB by default; decode into a local 8bpp scratch then blit.
+    // B2 fix: decode into a flat std::vector<Uint8> of palette indices, then route
+    // through Surface::loadRaw + setPalette so the 8bpp setPalette branch captures
+    // _paletteMirror, promotes to 32bpp ARGB and builds the shade table.  The old
+    // path used a local SDL 8bpp scratch and SDL_BlitSurface'd into a pre-existing
+    // 32bpp `out`, bypassing mirror capture.
     out = Surface(w, h, 0, 0);
-    SDL_Surface *scratch8 = SDL_CreateRGBSurface(SDL_SWSURFACE, w, h, 8, 0, 0, 0, 0);
-    if (!scratch8) return false;
-    if (palCount > 0) SDL_SetColors(scratch8, palette, 0, palCount);
-
-    SDL_Surface *surf = scratch8;
+    std::vector<unsigned char> pixels((size_t)w * h, 0);
 
     const Uint8 *src = body, *srcEnd = body + bodyLen;
 
@@ -498,7 +505,7 @@ static bool loadLbmInto(Surface &out, const Uint8 *data, size_t size)
         int rowBuf = (w + 1) & ~1;
         std::vector<Uint8> row((size_t)rowBuf);
         for (int y = 0; y < h; y++) {
-            Uint8 *dst = (Uint8*)surf->pixels + y * surf->pitch;
+            unsigned char *dst = pixels.data() + (size_t)y * w;
             if (compression == 1) {
                 if (!lbmUnpackRow(&src, srcEnd, row.data(), rowBuf)) break;
                 memcpy(dst, row.data(), w);
@@ -515,7 +522,7 @@ static bool loadLbmInto(Surface &out, const Uint8 *data, size_t size)
         std::vector<Uint8> planes((size_t)(nPlanes * planeRow));
         bool ok = true;
         for (int y = 0; y < h && ok; y++) {
-            Uint8 *dst = (Uint8*)surf->pixels + y * surf->pitch;
+            unsigned char *dst = pixels.data() + (size_t)y * w;
             for (int pn = 0; pn < nPlanes; pn++) {
                 Uint8 *pbuf = planes.data() + pn * planeRow;
                 if (compression == 1) {
@@ -537,14 +544,11 @@ static bool loadLbmInto(Surface &out, const Uint8 *data, size_t size)
         }
     }
 
-    // Blit 8bpp scratch → 32bpp ARGB output (SDL uses palette for conversion).
-    SDL_SetSurfaceBlendMode(scratch8, SDL_BLENDMODE_NONE);
-    SDL_BlitSurface(scratch8, nullptr, out.getSurface(), nullptr);
-    SDL_FreeSurface(scratch8);
-
-    // Build shade table from palette.
+    // Stage indices on an 8bpp scratch surface, then promote via setPalette so
+    // _paletteMirror is captured before the 8bpp → 32bpp blit.
+    out.loadRaw(pixels);
     if (palCount > 0)
-        out.rebuildShadeTableFromPalette(palette, palCount);
+        out.setPalette(palette, 0, palCount);
 
     return true;
 }
@@ -611,20 +615,11 @@ void Surface::loadImage(const std::string &filename)
 					FixTransparent(_surface, transparent);
 					if (transparent != 0)
 						Log(LOG_WARNING) << "Image " << filename << " (from lodepng) has incorrect transparent color index " << transparent << " (instead of 0).";
-					// Inline promote: save palette, blit 8bpp → 32bpp ARGB.
-					if (_surface->format->palette && _surface->format->palette->colors)
-					{
-						memcpy(_savedPalette, _surface->format->palette->colors, 256 * sizeof(SDL_Color));
-						_hasSavedPalette = true;
-					}
-					{
-						auto pair = Surface::NewPair32Bit(_width, _height);
-						SDL_SetSurfaceBlendMode(pair.second.get(), SDL_BLENDMODE_BLEND);
-						SDL_BlitSurface(_surface.get(), nullptr, pair.second.get(), nullptr);
-						std::tie(_alignedBuffer, _surface) = std::move(pair);
-						_pitch = (Uint16)_surface->pitch;
-					}
-					rebuildShadeTable();
+					// B1 fix: route promote through setPalette so _paletteMirror is captured.
+					// _surface is still 8bpp here, so setPalette enters the 8bpp branch and
+					// performs: save palette → capture mirror → promote to 32bpp → build shade
+					// table.  Inlining here would skip mirror capture and break blitNShade.
+					setPalette((SDL_Color *)color->palette, 0, (int)color->palettesize);
 				}
 			} else {
 				Log(LOG_ERROR) << "Image " << filename << " lodepng failed:" << lodepng_error_text(error);
@@ -669,9 +664,27 @@ void Surface::loadImage(const std::string &filename)
 			throw Exception(err);
 		}
 
-		*this = Surface(surface->w, surface->h, 0, 0);
-		setPalette(surface->format->palette->colors, 0, surface->format->palette->ncolors);
-		RawCopySurf(_surface, surface);
+		// B3+Q4 fix: route through 8bpp scratch + setPalette so _paletteMirror is
+		// populated.  Old path created a 32bpp Surface, called setPalette (which hit
+		// the 32bpp else-branch — no mirror), then RawCopySurf (Uint8-only lambda
+		// writing 1 byte per pixel into a 32bpp buffer — corrupted output).
+		_alignedBuffer = nullptr;
+		_surface = nullptr;
+		std::tie(_alignedBuffer, _surface) = Surface::NewLoadScratch8Bit(surface->w, surface->h);
+		_width  = (Uint16)surface->w;
+		_height = (Uint16)surface->h;
+		_pitch  = (Uint16)_surface->pitch;
+		_x = 0; _y = 0;
+		SDL_SetColorKey(_surface.get(), SDL_SRCCOLORKEY, 0);
+		// Copy palette indices row-by-row from SDL surface into our 8bpp scratch.
+		SDL_LockSurface(surface.get());
+		{
+			const Uint8 *src8 = (const Uint8 *)surface->pixels;
+			Uint8       *dst8 = (Uint8 *)_surface->pixels;
+			for (int yy = 0; yy < surface->h; ++yy)
+				memcpy(dst8 + yy * _surface->pitch, src8 + yy * surface->pitch, surface->w);
+		}
+		SDL_UnlockSurface(surface.get());
 		Uint32 colorkey = 0;
 		SDL_GetColorKey(surface.get(), &colorkey);
 		FixTransparent(_surface, colorkey);
@@ -679,6 +692,8 @@ void Surface::loadImage(const std::string &filename)
 		{
 			Log(LOG_WARNING) << "Image " << filename << " (from SDL) has incorrect transparent color index " << colorkey << " (instead of 0).";
 		}
+		// Promote via setPalette: captures mirror, blits to 32bpp, builds shade table.
+		setPalette(surface->format->palette->colors, 0, surface->format->palette->ncolors);
 	}
 	// 7.A.3: ensure shade table reflects the final palette state (including
 	// any FixTransparent adjustments). No-op when setPalette already built it.
@@ -1470,68 +1485,17 @@ void Surface::unlock()
 	SDL_UnlockSurface(_surface.get());
 }
 
-/**
- * Specific blit function to blit battlescape terrain data in different shades in a fast way.
- */
-void Surface::blitRaw(SurfaceRaw<Uint8> destSurf, SurfaceRaw<const Uint8> srcSurf, int x, int y, int shade, bool half, int newBaseColor)
-{
-	ShaderMove<const Uint8> src(srcSurf, x, y);
-	if (half)
-	{
-		GraphSubset g = src.getDomain();
-		g.beg_x = g.end_x/2;
-		src.setDomain(g);
-	}
-	if (newBaseColor)
-	{
-		--newBaseColor;
-		newBaseColor <<= 4;
-		ShaderDraw<helper::ColorReplace>(ShaderSurface(destSurf), src, ShaderScalar(shade), ShaderScalar(newBaseColor));
-	}
-	else
-	{
-		ShaderDraw<helper::StandardShade>(ShaderSurface(destSurf), src, ShaderScalar(shade));
-	}
-}
-
-/**
- * Specific blit function to blit battlescape terrain data in different shades in a fast way.
- * Notice there is no surface locking here - you have to make sure you lock the surface yourself
- * at the start of blitting and unlock it when done.
- * @param surface to blit to
- * @param x
- * @param y
- * @param off
- * @param half some tiles are blitted only the right half
- * @param newBaseColor Attention: the actual color + 1, because 0 is no new base color.
- */
-void Surface::blitNShade(SurfaceRaw<Uint8> surface, int x, int y, int shade, bool half, int newBaseColor) const
-{
-	blitRaw(surface, SurfaceRaw<const Uint8>(this), x, y, shade, half, newBaseColor);
-}
-
-/**
- * Specific blit function to blit battlescape terrain data in different shades in a fast way.
- * @param surface destination blit to
- * @param x
- * @param y
- * @param shade shade offset
- * @param range area that limit draw surface
- */
-void Surface::blitNShade(SurfaceRaw<Uint8> surface, int x, int y, int shade, GraphSubset range) const
-{
-	ShaderMove<const Uint8> src(this, x, y);
-	ShaderMove<Uint8> dest(surface);
-
-	dest.setDomain(range);
-
-	ShaderDraw<helper::StandardShade>(dest, src, ShaderScalar(shade));
-}
+// B4 fix: Uint8 legacy `blitRaw(SurfaceRaw<Uint8>,...)` and
+// `blitNShade(SurfaceRaw<Uint8>,...)` overloads removed.  R3.1 deleted the
+// `helper::*::func(Uint8&,...)` overloads they relied on, leaving these as
+// dead code that broke the build.  No callsites remain (all blitNShade calls
+// route through `Surface*` / `SurfaceRaw<Uint32>` overloads).
 
 // 7.B / R1.1: ARGB overloads — source shade table + palette mirror carried by callers.
-
-// Helper: dispatch ShaderDraw for StandardShade with correct idx type (ShaderMove vs ShaderScalar).
-// Defined as a lambda below inside blitRaw to avoid a separate symbol.
+// Each branch picks ShaderMove<const Uint8>(srcMirror) when the mirror is present,
+// or ShaderScalar(zero) when it isn't (HD assets / surfaces without palette identity);
+// in the latter case helper::*::func sees srcIdx == 0 and falls back to shadeARGBCurve
+// because srcTable is also nullptr.
 
 void Surface::blitRaw(SurfaceRaw<Uint32> destSurf, SurfaceRaw<const Uint32> srcSurf,
                       SurfaceRaw<const Uint8> srcMirror,
@@ -1586,7 +1550,13 @@ void Surface::blitNShade(SurfaceRaw<Uint32> surface, int x, int y, int shade, bo
 	SurfaceRaw<const Uint32> srcRaw(reinterpret_cast<const Uint32*>(getBuffer()), getWidth(), getHeight(), getPitch());
 	SurfaceRaw<const Uint8>  mirrorRaw(_paletteMirror.empty() ? nullptr : _paletteMirror.data(),
 	                                   _width, _height, _width);
-	blitRaw(surface, srcRaw, mirrorRaw, x, y, shade, half, newBaseColor, getShadeTable());
+	const ShadeTable *recoloured = nullptr;
+	if (newBaseColor && _hasSavedPalette && _shadeTable)
+	{
+		const Uint8 nbcShifted = (Uint8)((newBaseColor - 1) << 4);
+		recoloured = s_recolourCache.getOrBuild(_shadeTable.get(), _savedPalette, nbcShifted);
+	}
+	blitRaw(surface, srcRaw, mirrorRaw, x, y, shade, half, newBaseColor, getShadeTable(), recoloured);
 }
 
 void Surface::blitNShade(SurfaceRaw<Uint32> surface, int x, int y, int shade, GraphSubset range) const
@@ -1628,9 +1598,15 @@ void Surface::blitRaw(Surface* dest, const Surface* src, int x, int y, int shade
 		src ? src->getWidth() : 0,
 		src ? src->getHeight() : 0,
 		src ? src->getWidth() : 0);
+	const ShadeTable *recoloured = nullptr;
+	if (newBaseColor && src && src->_hasSavedPalette && src->_shadeTable)
+	{
+		const Uint8 nbcShifted = (Uint8)((newBaseColor - 1) << 4);
+		recoloured = s_recolourCache.getOrBuild(src->_shadeTable.get(), src->_savedPalette, nbcShifted);
+	}
 	blitRaw(SurfaceRaw<Uint32>(dest), SurfaceRaw<const Uint32>(src), mirrorRaw,
 	        x, y, shade, half, newBaseColor,
-	        src ? src->getShadeTable() : nullptr);
+	        src ? src->getShadeTable() : nullptr, recoloured);
 }
 
 /**
