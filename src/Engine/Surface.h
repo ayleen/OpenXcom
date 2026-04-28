@@ -172,6 +172,18 @@ public:
 	/// SDL-blit paths (SurfaceCrop::blit, Surface::copy) so downstream getPixel()
 	/// keeps returning palette indices instead of garbage from the ARGB byte order.
 	void copyMirrorFrom(const Surface *src, int srcX, int srcY, int dstX, int dstY, int w, int h);
+	/// Allocates _paletteMirror (zero-filled) for ARGB surfaces that need
+	/// getPixel() to return palette indices.  Required for surfaces that are
+	/// drawn into via setPixel(idx) AND read back via getPixel(); without an
+	/// initialised mirror, getPixel() returns the B channel of the ARGB pixel
+	/// (reinterpreted as a palette index), which gives garbage results to
+	/// CreateShadow::isOcean / getLandShadow / getOceanShadow on the Globe.
+	/// No-op if mirror is already initialised.
+	void initPaletteMirror()
+	{
+		if (_paletteMirror.empty() && _width > 0 && _height > 0)
+			_paletteMirror.assign((size_t)_width * (size_t)_height, 0);
+	}
 
 	/// Returns the cycle-phase shade table, or the primary table as fallback.
 	const ShadeTable *getShadeTable(int cyclePhase) const;

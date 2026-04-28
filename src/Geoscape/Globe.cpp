@@ -386,6 +386,17 @@ Globe::Globe(Game* game, int cenX, int cenY, int width, int height, int x, int y
 	_radars = new Surface(width, height, x, y);
 	_clipper = new FastLineClip(x, x+width, y, y+height);
 
+	// ARGB pipeline: setPixel(idx) only writes to _paletteMirror if it exists.
+	// drawOcean → drawCircle(setPixel(OCEAN_COLOR)), drawLand → drawTexturedPolygon
+	// (setPixel of polygon palette indices) and drawShadow all expect getPixel()
+	// to return palette indices later — XuLine reads them to decide isOcean vs
+	// land shadow.  Without an initialised mirror, getPixel returns the ARGB
+	// B channel and CreateShadow::getLandShadow paints flight paths bright red.
+	initPaletteMirror();
+	_countries->initPaletteMirror();
+	_markers->initPaletteMirror();
+	_radars->initPaletteMirror();
+
 	// Animation timers
 	_blinkTimer = new Timer(100);
 	_blinkTimer->onTimer((SurfaceHandler)&Globe::blink);
@@ -1942,13 +1953,14 @@ void Globe::drawTarget(Target *target, Surface *surface)
 		polarToCart(target->getLongitude(), target->getLatitude(), &x, &y);
 		auto i = target->getMarker();
 		auto marker = _markerSet->getFrame(i);
-		// Surfaces are ARGB; use shade-table blit path.
-		// Blink animation (+1 palette index) has no ARGB equivalent; skip for non-city blinking.
-		if (i == CITY_MARKER || _blink > 0)
-		{
-			marker->blitNShade(SurfaceRaw<Uint32>(surface), x - marker->getWidth() / 2, y - marker->getHeight() / 2, 0);
-		}
-		// else: skip blink-off frame (marker invisible) — same visual result
+		// Classic OXCE used a +1 palette-index shift on _blink to give markers a
+		// subtle two-frame colour cycle.  The pre-ARGB code skipped rendering on
+		// blink-off, which made markers flicker on/off — that's far more
+		// distracting than the original gentle pulse.  Approximate the original
+		// effect by varying the shade attenuation in blitNShade instead, so the
+		// marker stays continuously visible but gets a tiny brightness bob.
+		const int shade = (_blink > 0) ? 0 : 1;
+		marker->blitNShade(SurfaceRaw<Uint32>(surface), x - marker->getWidth() / 2, y - marker->getHeight() / 2, shade);
 	}
 }
 

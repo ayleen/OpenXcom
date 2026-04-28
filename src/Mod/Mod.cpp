@@ -5593,37 +5593,49 @@ void Mod::loadVanillaResources()
 	// setPalette() so the 8bpp scratch frames promote to 32bpp ARGB and capture
 	// _paletteMirror; without it BaseView/MiniBaseView/Globe minimap render
 	// indexed pixels as if they were ARGB (visible as broken/striped facilities).
-	std::string sets[] = { "BASEBITS.PCK",
-		"INTICON.PCK",
-		"TEXTURE.DAT" };
-
-	for (size_t i = 0; i < ARRAYLEN(sets); ++i)
+	//
+	// Per-set initial palette MUST match the state palette of the screen that
+	// renders the set; otherwise sprites stay tinted by the wrong palette
+	// (e.g. PAL_GEOSCAPE applied to BASEBITS gives Triton pink instead of
+	// the basescape yellow/green).  The shadeTable is rebuilt on subsequent
+	// state-palette cascades, but for that the sprite must already be ARGB.
+	Palette *basePal = getPalette("PAL_BASESCAPE", false);
+	struct { const char *name; const char *type; Palette *pal; } setLoadInfo[] = {
+		// Basescape sprites: BaseView, MiniBaseView, Ufopaedia base-facility article.
+		{ "BASEBITS.PCK", "PCK", basePal },
+		// Geoscape sidebar icons + UFO/base markers.
+		{ "INTICON.PCK",  "PCK", geoPal  },
+		// Globe terrain texture frames.
+		{ "TEXTURE.DAT",  "DAT", geoPal  },
+	};
+	for (auto &info : setLoadInfo)
 	{
+		std::string n = info.name;
 		std::ostringstream s;
-		s << "GEOGRAPH/" << sets[i];
+		s << "GEOGRAPH/" << n;
 
-		std::string ext = sets[i].substr(sets[i].find_last_of('.') + 1, sets[i].length());
-		if (ext == "PCK")
+		if (std::string(info.type) == "PCK")
 		{
-			std::string tab = CrossPlatform::noExt(sets[i]) + ".TAB";
+			std::string tab = CrossPlatform::noExt(n) + ".TAB";
 			std::ostringstream s2;
 			s2 << "GEOGRAPH/" << tab;
-			_sets[sets[i]] = new SurfaceSet(32, 40);
-			_sets[sets[i]]->loadPck(s.str(), s2.str());
+			_sets[n] = new SurfaceSet(32, 40);
+			_sets[n]->loadPck(s.str(), s2.str());
 		}
 		else
 		{
-			_sets[sets[i]] = new SurfaceSet(32, 32);
-			_sets[sets[i]]->loadDat(s.str());
+			_sets[n] = new SurfaceSet(32, 32);
+			_sets[n]->loadDat(s.str());
 		}
-		if (geoPal) _sets[sets[i]]->setPalette(geoPal->getColors(), 0, 256);
+		if (info.pal) _sets[n]->setPalette(info.pal->getColors(), 0, 256);
 	}
 	{
+		// Battlescape minimap sprites — left in 8bpp scratch here; promoted with
+		// PAL_BATTLESCAPE during BattlescapeState init via ensureBattlescapeAssetPalettes.
 		std::string s1 = "GEODATA/SCANG.DAT";
 		std::string s2 = "SCANG.DAT";
 		_sets[s2] = new SurfaceSet(4, 4);
 		_sets[s2]->loadDat(s1);
-		if (geoPal) _sets[s2]->setPalette(geoPal->getColors(), 0, 256);
 	}
 
 	// construct sound sets
