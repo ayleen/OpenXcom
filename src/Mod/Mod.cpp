@@ -48,6 +48,11 @@
 #include "SoundDefinition.h"
 #include "ExtraSprites.h"
 #include "CustomPalettes.h"
+#ifdef __EMSCRIPTEN__
+#  include "../Engine/GpuTexture.h"
+#  include "../Engine/GpuInit.h"
+#  include <SDL_image.h>
+#endif
 #include "ExtraSounds.h"
 #include "../Engine/AdlibMusic.h"
 #include "../Engine/CatFile.h"
@@ -765,6 +770,12 @@ Mod::~Mod()
 			delete extraSprites;
 		}
 	}
+#ifdef __EMSCRIPTEN__
+	for (auto& pair : _globeTextures)
+	{
+		delete pair.second;
+	}
+#endif
 	for (auto& pair : _customPalettes)
 	{
 		delete pair.second;
@@ -911,6 +922,21 @@ SurfaceSet *Mod::getSurfaceSet(const std::string &name, bool error)
 	lazyLoadSurface(name);
 	return getRule(name, "Sprite Set", _sets, error);
 }
+
+#ifdef __EMSCRIPTEN__
+GpuTexture* Mod::getGlobeTexture(const std::string& id) const
+{
+	auto it = _globeTextures.find(id);
+	return (it != _globeTextures.end()) ? it->second : nullptr;
+}
+
+void Mod::clearGlobeTextures()
+{
+	for (auto& pair : _globeTextures)
+		delete pair.second;
+	_globeTextures.clear();
+}
+#endif /* __EMSCRIPTEN__ */
 
 /**
  * Returns a specific music from the mod.
@@ -3432,6 +3458,61 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 			}
 		}
 	}
+#ifdef __EMSCRIPTEN__
+	for (const auto& ruleReader : iterateRulesSpecific("globeTextures"))
+	{
+		if (!GpuInit::ready()) continue;
+		std::string id;
+		ruleReader["id"].tryReadVal<std::string>(id);
+		if (id.empty()) continue;
+
+		auto filesNode = ruleReader["files"];
+		if (!filesNode) continue;
+
+		// Only mip 0 is required; glGenerateMipmap fills the rest.
+		std::string relPath;
+		filesNode["0"].tryReadVal<std::string>(relPath);
+		if (relPath.empty()) continue;
+
+		const FileMap::FileRecord* rec = FileMap::at(relPath);
+		if (!rec)
+		{
+			Log(LOG_WARNING) << "globeTextures[" << id << "]: file not found: " << relPath;
+			continue;
+		}
+
+		SDL_RWops* rw = rec->getRWops();
+		SDL_Surface* raw = IMG_Load_RW(rw, SDL_TRUE); // SDL_TRUE = auto-close rw
+		if (!raw)
+		{
+			Log(LOG_WARNING) << "globeTextures[" << id << "]: IMG_Load_RW failed: " << IMG_GetError();
+			continue;
+		}
+
+		// Convert to RGBA8888 for GpuTexture::uploadRGBA.
+		SDL_Surface* rgba = SDL_ConvertSurfaceFormat(raw, SDL_PIXELFORMAT_RGBA8888, 0);
+		SDL_FreeSurface(raw);
+		if (!rgba)
+		{
+			Log(LOG_WARNING) << "globeTextures[" << id << "]: ConvertSurface failed";
+			continue;
+		}
+
+		delete _globeTextures[id]; // overwrite if re-loaded
+		GpuTexture* tex = new GpuTexture(/*srgb=*/true);
+		if (!tex->uploadRGBA(static_cast<const uint8_t*>(rgba->pixels), rgba->w, rgba->h, 0))
+		{
+			Log(LOG_WARNING) << "globeTextures[" << id << "]: GpuTexture upload failed";
+			delete tex;
+		}
+		else
+		{
+			_globeTextures[id] = tex;
+			Log(LOG_INFO) << "globeTextures[" << id << "]: " << rgba->w << "x" << rgba->h << " uploaded";
+		}
+		SDL_FreeSurface(rgba);
+	}
+#endif /* __EMSCRIPTEN__ */
 	for (const auto& ruleReader : iterateRulesSpecific("customPalettes"))
 	{
 		CustomPalettes* rule = loadRule(ruleReader, &_customPalettes, &_customPalettesIndex);
@@ -5508,7 +5589,10 @@ void Mod::loadVanillaResources()
 		if (geoPal) _surfaces[fname]->setPalette(geoPal->getColors(), 0, 256);
 	}
 
-	// Load surface sets
+	// Load surface sets.  After ARGB migration each loadPck/loadDat needs a
+	// setPalette() so the 8bpp scratch frames promote to 32bpp ARGB and capture
+	// _paletteMirror; without it BaseView/MiniBaseView/Globe minimap render
+	// indexed pixels as if they were ARGB (visible as broken/striped facilities).
 	std::string sets[] = { "BASEBITS.PCK",
 		"INTICON.PCK",
 		"TEXTURE.DAT" };
@@ -5532,12 +5616,14 @@ void Mod::loadVanillaResources()
 			_sets[sets[i]] = new SurfaceSet(32, 32);
 			_sets[sets[i]]->loadDat(s.str());
 		}
+		if (geoPal) _sets[sets[i]]->setPalette(geoPal->getColors(), 0, 256);
 	}
 	{
 		std::string s1 = "GEODATA/SCANG.DAT";
 		std::string s2 = "SCANG.DAT";
 		_sets[s2] = new SurfaceSet(4, 4);
 		_sets[s2]->loadDat(s1);
+		if (geoPal) _sets[s2]->setPalette(geoPal->getColors(), 0, 256);
 	}
 
 	// construct sound sets

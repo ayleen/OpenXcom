@@ -8,6 +8,7 @@
  *
  * Available shader programs (use with Shader::loadFromEmbedded):
  *   "colorquad"
+ *   "globe_sphere"
  *   "textured"
  */
 #include <cstring>

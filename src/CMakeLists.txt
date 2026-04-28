@@ -651,7 +651,7 @@ if(EMSCRIPTEN)
     -sUSE_SDL=2
     -sUSE_SDL_IMAGE=2
     -sUSE_SDL_MIXER=2
-    "-sSDL2_IMAGE_FORMATS=[\"png\",\"jpg\",\"bmp\"]"
+    "-sSDL2_IMAGE_FORMATS=[\"png\",\"jpg\",\"bmp\",\"webp\"]"
     "-sSDL2_MIXER_FORMATS=[\"ogg\"]"
     -sUSE_OGG=1
     -sUSE_VORBIS=1

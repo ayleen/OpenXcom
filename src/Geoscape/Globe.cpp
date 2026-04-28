@@ -53,6 +53,17 @@
 #include "../Mod/Texture.h"
 #include "../Interface/Cursor.h"
 #include "../Engine/Screen.h"
+#ifdef __EMSCRIPTEN__
+#  include "../Engine/GpuInit.h"
+#  include "../Engine/GpuTexture.h"
+#  include "../Engine/Shader.h"
+#  include "../Engine/Logger.h"
+#  include <GLES3/gl3.h>
+#  include <SDL.h>
+#  include <cmath>
+#  include <algorithm>
+#  include <vector>
+#endif
 
 namespace OpenXcom
 {
@@ -410,6 +421,13 @@ Globe::~Globe()
 	{
 		delete polygon;
 	}
+
+#ifdef __EMSCRIPTEN__
+	delete _globeShader;
+	if (_sphereFBO)    glDeleteFramebuffers(1,  &_sphereFBO);
+	if (_sphereFBOTex) glDeleteTextures(1,      &_sphereFBOTex);
+	if (_sphereVAO)    glDeleteVertexArrays(1,  &_sphereVAO);
+#endif
 }
 
 /**
@@ -987,8 +1005,187 @@ void Globe::rotate()
 	invalidate();
 }
 
+#ifdef __EMSCRIPTEN__
+/* ── GL state save/restore (local helper) ───────────────────────────────── */
+struct GlobeSphereGlSave
+{
+	GLint prog, vao, fbo; GLboolean blend, depth;
+	GLint vp[4];
+	void save()
+	{
+		glGetIntegerv(GL_CURRENT_PROGRAM,      &prog);
+		glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &vao);
+		glGetIntegerv(GL_FRAMEBUFFER_BINDING,  &fbo);
+		glGetIntegerv(GL_VIEWPORT,             vp);
+		blend = glIsEnabled(GL_BLEND);
+		depth = glIsEnabled(GL_DEPTH_TEST);
+	}
+	void restore()
+	{
+		glUseProgram((GLuint)prog);
+		glBindVertexArray((GLuint)vao);
+		glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)fbo);
+		glViewport(vp[0], vp[1], vp[2], vp[3]);
+		if (blend) glEnable(GL_BLEND);      else glDisable(GL_BLEND);
+		if (depth) glEnable(GL_DEPTH_TEST); else glDisable(GL_DEPTH_TEST);
+	}
+};
+
+/**
+ * One-time GPU initialisation for the HD sphere path.
+ * Called lazily from drawSphereGPU() on the first frame.
+ */
+bool Globe::initSphereGPU()
+{
+	if (!GpuInit::ready()) return false;
+
+	_globeShader = new Shader();
+	if (!_globeShader->loadFromEmbedded("globe_sphere"))
+	{
+		Log(LOG_ERROR) << "Globe::initSphereGPU: shader compile failed";
+		delete _globeShader; _globeShader = nullptr;
+		return false;
+	}
+
+	/* Fullscreen-quad VAO (NDC -1..+1, UV 0..1). */
+	float verts[] = {
+		-1.f,-1.f, 0.f,0.f,   1.f,-1.f, 1.f,0.f,  -1.f, 1.f, 0.f,1.f,
+		-1.f, 1.f, 0.f,1.f,   1.f,-1.f, 1.f,0.f,   1.f, 1.f, 1.f,1.f,
+	};
+	GLuint vbo = 0u;
+	glGenVertexArrays(1, &_sphereVAO);
+	glBindVertexArray(_sphereVAO);
+	glGenBuffers(1, &vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW);
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4*sizeof(float), (void*)0);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4*sizeof(float), (void*)(2*sizeof(float)));
+	glEnableVertexAttribArray(1);
+	glBindVertexArray(0);
+	/* VBO is owned by the VAO after bind; no need to keep a separate handle. */
+
+	/* FBO + colour attachment (same size as globe surface). */
+	int w = getWidth(), h = getHeight();
+	glGenTextures(1, &_sphereFBOTex);
+	glBindTexture(GL_TEXTURE_2D, _sphereFBOTex);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glBindTexture(GL_TEXTURE_2D, 0u);
+
+	glGenFramebuffers(1, &_sphereFBO);
+	glBindFramebuffer(GL_FRAMEBUFFER, _sphereFBO);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, _sphereFBOTex, 0);
+	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0u);
+	if (status != GL_FRAMEBUFFER_COMPLETE)
+	{
+		Log(LOG_ERROR) << "Globe::initSphereGPU: FBO incomplete (status=" << (int)status << ")";
+		return false;
+	}
+
+	_gpuSphereOK = true;
+	Log(LOG_INFO) << "Globe::initSphereGPU: ready (" << w << "x" << h << ")";
+	return true;
+}
+
+/**
+ * Renders the HD sphere using the GPU shader pipeline and reads the pixels
+ * back into this Surface so the existing CPU overlay (polylines, markers,
+ * text) can be composited on top in the same Globe::draw() call.
+ *
+ * Performance: glReadPixels for the globe surface is ~0.2–1 ms on typical
+ * hardware; acceptable for a 60 fps Geoscape.
+ */
+void Globe::drawSphereGPU()
+{
+	if (!_gpuSphereOK && !initSphereGPU()) return;
+
+	Mod* mod = _game->getMod();
+	GpuTexture* bathyTex   = mod->getGlobeTexture("bathymetry");
+	GpuTexture* diffuseTex = mod->getGlobeTexture("diffuse");
+	GpuTexture* nightTex   = mod->getGlobeTexture("night");
+	GpuTexture* cloudsTex  = mod->getGlobeTexture("clouds");
+	if (!bathyTex || !diffuseTex || !nightTex || !cloudsTex) return;
+
+	int w = getWidth(), h = getHeight();
+
+	GlobeSphereGlSave st; st.save();
+
+	/* Render sphere to FBO. */
+	glBindFramebuffer(GL_FRAMEBUFFER, _sphereFBO);
+	glViewport(0, 0, w, h);
+	glClearColor(0.f, 0.f, 0.f, 0.f);
+	glClear(GL_COLOR_BUFFER_BIT);
+	glDisable(GL_BLEND);
+	glDisable(GL_DEPTH_TEST);
+
+	_globeShader->use();
+
+	bathyTex ->bind(0);
+	diffuseTex->bind(1);
+	nightTex ->bind(2);
+	cloudsTex ->bind(3);
+	_globeShader->setUniform1i("u_bathymetry", 0);
+	_globeShader->setUniform1i("u_diffuse",    1);
+	_globeShader->setUniform1i("u_night",      2);
+	_globeShader->setUniform1i("u_clouds",     3);
+
+	/* Viewport and globe geometry. */
+	_globeShader->setUniform2f("u_viewportSize", (float)w, (float)h);
+	_globeShader->setUniform2f("u_globeCenter",  (float)_cenX, (float)_cenY);
+	_globeShader->setUniform1f("u_globeRadius",  (float)_zoomRadius[_zoom]);
+	_globeShader->setUniform1f("u_camLat",       (float)_cenLat);
+	_globeShader->setUniform1f("u_camLon",       (float)_cenLon);
+
+	/* Sun direction (8c.5). */
+	Cord sd = getSunDirection(_cenLon, _cenLat);
+	_globeShader->setUniform3f("u_sunDir", (float)sd.x, (float)sd.y, (float)sd.z);
+
+	/* Cloud drift time. */
+	_globeShader->setUniform1f("u_time", (float)SDL_GetTicks() * 0.001f);
+
+	/* Mip level curve (8c.6): 0=8k at high zoom, 3=1k at overview. */
+	float mipLvl = std::max(0.f, std::min(3.f, 3.f - (float)_zoom * 0.6f));
+	_globeShader->setUniform1f("u_mipLevel", mipLvl);
+
+	glBindVertexArray(_sphereVAO);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+	glBindVertexArray(0u);
+
+	/* Read back RGBA pixels from FBO; FBO rows are bottom-up, SDL is top-down. */
+	std::vector<uint8_t> rgba((size_t)w * h * 4);
+	glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, rgba.data());
+
+	st.restore();
+
+	/* Convert RGBA (GL) → ARGB8888 (SDL little-endian) and flip Y.
+	 * SDL_PIXELFORMAT_ARGB8888 memory layout: byte0=B, byte1=G, byte2=R, byte3=A. */
+	lock();
+	uint8_t* dst   = reinterpret_cast<uint8_t*>(getSurface()->pixels);
+	int      pitch = getSurface()->pitch;
+	for (int y = 0; y < h; ++y)
+	{
+		const uint8_t* src = rgba.data() + (size_t)(h - 1 - y) * w * 4;
+		uint8_t*       row = dst + y * pitch;
+		for (int x = 0; x < w; ++x)
+		{
+			row[x*4 + 0] = src[x*4 + 2]; /* B */
+			row[x*4 + 1] = src[x*4 + 1]; /* G */
+			row[x*4 + 2] = src[x*4 + 0]; /* R */
+			row[x*4 + 3] = src[x*4 + 3]; /* A */
+		}
+	}
+	unlock();
+}
+#endif /* __EMSCRIPTEN__ */
+
 /**
  * Draws the whole globe, part by part.
+ * When globeTextures are loaded (HD mod active), drawSphereGPU() replaces
+ * drawOcean()+drawLand()+drawShadow().  All CPU overlay passes (radars,
+ * flights, markers, detail/polylines) continue to run on top.
  */
 void Globe::draw()
 {
@@ -997,11 +1194,25 @@ void Globe::draw()
 		cachePolygons();
 	}
 	Surface::draw();
-	drawOcean();
-	drawLand();
+#ifdef __EMSCRIPTEN__
+	if (_game->getMod()->hasGlobeTextures())
+	{
+		drawSphereGPU(); /* renders sphere + reads back; CPU overlays follow */
+	}
+	else
+#endif
+	{
+		drawOcean();
+		drawLand();
+	}
 	drawRadars();
 	drawFlights();
-	drawShadow();
+#ifdef __EMSCRIPTEN__
+	if (!_game->getMod()->hasGlobeTextures())
+#endif
+	{
+		drawShadow(); /* GPU path handles terminator in shader */
+	}
 	drawMarkers();
 	drawDetail();
 }

@@ -34,6 +34,9 @@ class Target;
 class LocalizedText;
 class RuleGlobe;
 class Craft;
+#ifdef __EMSCRIPTEN__
+class Shader;
+#endif
 
 /**
  * Interactive globe view of the world.
@@ -78,6 +81,20 @@ private:
 	Uint32 _mouseScrollingStartTime;
 	int _totalMouseMoveX, _totalMouseMoveY;
 	bool _mouseMovedOverThreshold;
+
+#ifdef __EMSCRIPTEN__
+	/* Phase 8c — HD GPU sphere */
+	unsigned  _sphereVAO    = 0u;
+	unsigned  _sphereFBO    = 0u;
+	unsigned  _sphereFBOTex = 0u;
+	bool      _gpuSphereOK  = false;
+	Shader*   _globeShader  = nullptr; // owned; created in initSphereGPU()
+
+	/// One-time GPU resource initialisation for the sphere.
+	bool initSphereGPU();
+	/// Renders the sphere via GPU and reads back pixels into this surface.
+	void drawSphereGPU();
+#endif
 
 	/// Sets the globe zoom factor.
 	void setZoom(size_t zoom);

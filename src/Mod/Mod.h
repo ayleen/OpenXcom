@@ -105,6 +105,9 @@ class ModScriptGlobal;
 class ScriptParserBase;
 class ScriptGlobal;
 struct StatAdjustment;
+#ifdef __EMSCRIPTEN__
+class GpuTexture;
+#endif
 
 enum GameDifficulty : int;
 enum AIAttackWeight : int;
@@ -208,6 +211,9 @@ private:
 	std::map<std::string, RuleMissionScript*> _missionScripts;
 	std::map<std::string, RuleMissionScript*> _adhocScripts;
 	std::map<std::string, std::vector<ExtraSprites *> > _extraSprites;
+#ifdef __EMSCRIPTEN__
+	std::map<std::string, GpuTexture*> _globeTextures;
+#endif
 	std::map<std::string, CustomPalettes *> _customPalettes;
 	std::vector<std::pair<std::string, ExtraSounds *> > _extraSounds;
 	std::map<std::string, ExtraStrings *> _extraStrings;
@@ -486,6 +492,14 @@ public:
 	Surface *getSurface(const std::string &name, bool error = true);
 	/// Gets a particular surface set.
 	SurfaceSet *getSurfaceSet(const std::string &name, bool error = true);
+#ifdef __EMSCRIPTEN__
+	/// Returns true if any globeTextures were loaded (HD sphere path active).
+	bool hasGlobeTextures() const { return !_globeTextures.empty(); }
+	/// Returns the GpuTexture for the given id, or nullptr if not found.
+	GpuTexture* getGlobeTexture(const std::string& id) const;
+	/// Releases all GpuTextures (called on mod change or disable).
+	void clearGlobeTextures();
+#endif
 	/// Gets a particular music.
 	Music *getMusic(const std::string &name, bool error = true) const;
 	/// Gets the available music tracks.
