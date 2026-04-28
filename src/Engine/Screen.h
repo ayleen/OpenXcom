@@ -19,6 +19,8 @@
  */
 #include <SDL.h>
 #include <string>
+#include <functional>
+#include <vector>
 #include "OpenGL.h"
 #include "Surface.h"
 
@@ -54,6 +56,8 @@ private:
 	OpenGL glOutput;
 	Surface::UniqueBufferPtr _buffer;
 	Surface::UniqueSurfacePtr _surface;
+	/** GPU passes registered via registerGPUPass — called each frame in flip(). */
+	std::vector<std::function<void()>> _gpuPasses;
 	/// Sets _bpp, _baseWidth, _baseHeight from current options.
 	void makeVideoFlags();
 public:
@@ -94,8 +98,14 @@ public:
 	int getCursorTopBlackBand() const;
 	/// Gets the screen's left black forbidden to cursor band's width.
 	int getCursorLeftBlackBand() const;
-	/// Takes a screenshot.
+	/// Takes a screenshot from the CPU surface.
 	void screenshot(const std::string &filename) const;
+	/// Takes a screenshot by reading back the GPU framebuffer (Phase 8b).
+	void screenshotGPU(const std::string &filename) const;
+	/** Register a per-frame GPU shader pass.  The callable must save and restore
+	 *  all GL state (program, VAO, blend, depth) around its own GL calls.
+	 *  SDL_RenderFlush is called before the first pass each frame. */
+	void registerGPUPass(std::function<void()> pass);
 	/// Checks whether a 32bit scaler is requested and works for the selected resolution
 	static bool use32bitScaler();
 	/// Checks whether OpenGL output is requested

@@ -23,6 +23,7 @@
 #include <iomanip>
 #include <climits>
 #include <cstdio>
+#include <vector>
 #include "../lodepng.h"
 #include "Exception.h"
 #include "Surface.h"
@@ -33,6 +34,8 @@
 #include "FileMap.h"
 #include "Zoom.h"
 #include "Timer.h"
+#include "GpuInit.h"
+#include "ShaderManager.h"
 #include <SDL.h>
 #include <SDL_render.h>
 #include <algorithm>
@@ -113,7 +116,13 @@ void Screen::handle(Action *action)
 		}
 	}
 
-	if (action->getDetails()->type == SDL_KEYDOWN && action->getDetails()->key.keysym.sym == SDLK_RETURN && (SDL_GetModState() & KMOD_ALT) != 0)
+	if (action->getDetails()->type == SDL_RENDER_TARGETS_RESET)
+	{
+		/* WebGL context has been restored after a tab-suspend. Re-upload all
+		 * GPU resources so shaders/textures/FBOs are valid again. */
+		ShaderManager::instance().reuploadAll();
+	}
+	else if (action->getDetails()->type == SDL_KEYDOWN && action->getDetails()->key.keysym.sym == SDLK_RETURN && (SDL_GetModState() & KMOD_ALT) != 0)
 	{
 		Options::fullscreen = !Options::fullscreen;
 		resetDisplay();
@@ -204,6 +213,20 @@ void Screen::flip()
 	SDL_UnlockTexture(_texture);
 	SDL_RenderClear(_renderer);
 	SDL_RenderCopy(_renderer, _texture, nullptr, nullptr);
+
+	/* GPU shader passes (Phase 8b).
+	 * SDL_RenderFlush submits SDL's internal vertex batch before any raw
+	 * GL calls are made.  Each pass is responsible for saving and restoring
+	 * all GL state (program, VAO, blend, depth) around its own calls. */
+	if (!_gpuPasses.empty())
+	{
+		SDL_RenderFlush(_renderer);
+		ShaderManager::instance().resetFrameFlag();
+		for (auto& pass : _gpuPasses)
+			pass();
+		ShaderManager::instance().setHadGPUPass(true);
+	}
+
 	SDL_RenderPresent(_renderer);
 
 	_numColors = 0;
@@ -405,6 +428,11 @@ void Screen::resetDisplay(bool resetVideo, bool noShaders)
 
 		Log(LOG_INFO) << "Display set: " << width << "x" << height
 		              << ", base=" << _baseWidth << "x" << _baseHeight;
+
+		/* Initialise the GPU shader pipeline once the GL context is live.
+		 * On Emscripten, SDL_WINDOW_OPENGL + SDL_CreateRenderer establishes
+		 * the WebGL2 context; GpuInit::init() is a no-op on native. */
+		GpuInit::init();
 	}
 	else
 	{
@@ -713,6 +741,50 @@ void Screen::updateScale(int type, int &width, int &height, bool change)
 		Options::baseXResolution = width;
 		Options::baseYResolution = height;
 	}
+}
+
+/**
+ * Registers a per-frame GPU shader pass (Phase 8b).
+ * The callable will be invoked once per flip() after SDL_RenderFlush,
+ * and must save/restore all GL state around its own calls.
+ */
+void Screen::registerGPUPass(std::function<void()> pass)
+{
+	_gpuPasses.push_back(std::move(pass));
+}
+
+/**
+ * Saves a screenshot by reading back the GPU framebuffer (Phase 8b).
+ * Uses SDL_RenderReadPixels (not glReadPixels) so the path is renderer-agnostic.
+ * Always requests SDL_PIXELFORMAT_RGBA32 to ensure RGBA byte order regardless
+ * of backend endianness; lodepng expects RGBA.
+ * Falls back to the CPU screenshot path when the GPU pipeline is not active.
+ */
+void Screen::screenshotGPU(const std::string& filename) const
+{
+	int w = getWidth(), h = getHeight();
+	std::vector<unsigned char> pixels((size_t)w * h * 4);
+
+	/* SDL_PIXELFORMAT_RGBA32 = RGBA on all endiannesses. */
+	if (SDL_RenderReadPixels(_renderer, nullptr,
+	                          SDL_PIXELFORMAT_RGBA32,
+	                          pixels.data(), w * 4) != 0)
+	{
+		Log(LOG_ERROR) << "screenshotGPU: SDL_RenderReadPixels failed: " << SDL_GetError();
+		screenshot(filename);
+		return;
+	}
+
+	std::vector<unsigned char> png;
+	unsigned err = lodepng::encode(png, pixels, (unsigned)w, (unsigned)h);
+	if (err)
+	{
+		Log(LOG_ERROR) << "screenshotGPU: lodepng error " << err
+		               << ": " << lodepng_error_text(err);
+		return;
+	}
+	CrossPlatform::writeFile(filename, png);
+	Log(LOG_INFO) << "GPU screenshot: " << filename;
 }
 
 }
