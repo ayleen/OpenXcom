@@ -194,7 +194,7 @@ void Window::draw()
 	}
 	Uint8 color = _color + 3 * mul;
 
-	if (_bg)
+	if (_bg && _bg->isARGB() && _bg->getWidth() == getWidth() && _bg->getHeight() == getHeight())
 	{
 		clear();
 		SDL_Rect bgsrc { (Sint16)square.x, (Sint16)square.y,

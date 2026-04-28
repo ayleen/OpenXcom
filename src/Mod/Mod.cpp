@@ -23,6 +23,7 @@
 #include <sstream>
 #include <climits>
 #include <cassert>
+#include <cstring>
 #include "../version.h"
 #include "../Engine/CrossPlatform.h"
 #include "../Engine/FileMap.h"
@@ -5800,8 +5801,10 @@ void Mod::loadBattlescapeResources()
 		Surface *tempSurface = new Surface(1, 1);
 		tempSurface->loadImage("UFOGRAPH/" + lbms[i]);
 		_palettes[pals[i]] = new Palette();
-		SDL_Color *colors = tempSurface->getPalette();
-		if (!colors) { delete tempSurface; continue; }
+		const SDL_Color *sourceColors = tempSurface->getEffectivePalette();
+		if (!sourceColors) { delete tempSurface; continue; }
+		SDL_Color colors[256];
+		memcpy(colors, sourceColors, sizeof(colors));
 		colors[255] = backPal[i];
 		_palettes[pals[i]]->setColors(colors, 256);
 		createTransparencyLUT(_palettes[pals[i]]);

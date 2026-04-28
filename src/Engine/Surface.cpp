@@ -857,6 +857,10 @@ void Surface::loadBdy(const std::string &filename)
 void Surface::clear()
 {
 	CleanSdlSurface(_surface.get());
+	if (!_paletteMirror.empty())
+	{
+		std::fill(_paletteMirror.begin(), _paletteMirror.end(), 0);
+	}
 }
 
 /**

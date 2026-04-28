@@ -93,6 +93,79 @@
 namespace OpenXcom
 {
 
+namespace
+{
+void ensureIndexedSurfacePalette(Surface *surface, const SDL_Color *colors)
+{
+	if (surface && colors && !surface->isARGB())
+	{
+		surface->setPalette(colors);
+	}
+}
+
+void ensureIndexedSetPalette(SurfaceSet *set, const SDL_Color *colors)
+{
+	if (!set || !colors)
+	{
+		return;
+	}
+	for (size_t i = 0; i < set->getTotalFrames(); ++i)
+	{
+		Surface *frame = set->getFrame((int)i);
+		if (frame && !frame->isARGB())
+		{
+			set->setPalette(colors);
+			return;
+		}
+	}
+}
+
+void ensureBattlescapeAssetPalettes(Mod *mod, const SDL_Color *colors)
+{
+	if (!mod || !colors)
+	{
+		return;
+	}
+	static const char * const surfaces[] =
+	{
+		"ICONS.PCK",
+		"TFTDReserve",
+		"oxceLinks",
+		"AvatarBackground"
+	};
+	for (const char *name : surfaces)
+	{
+		ensureIndexedSurfacePalette(mod->getSurface(name, false), colors);
+	}
+
+	static const char * const sets[] =
+	{
+		"SPICONS.DAT",
+		"Touch",
+		"KneelButton",
+		"CURSOR.PCK",
+		"SMOKE.PCK",
+		"HIT.PCK",
+		"X1.PCK",
+		"MEDIBITS.DAT",
+		"DETBLOB.DAT",
+		"SCANG.DAT",
+		"BIGOBS.PCK",
+		"HANDOB.PCK",
+		"FLOOROB.PCK",
+		"Projectiles",
+		"UnderwaterProjectiles",
+		"Pathfinding",
+		"TinyRanks"
+	};
+	for (const char *name : sets)
+	{
+		ensureIndexedSetPalette(mod->getSurfaceSet(name, false), colors);
+	}
+}
+
+}
+
 /**
  * Initializes all the elements in the Battlescape screen.
  * @param game Pointer to the core game.
@@ -267,6 +340,7 @@ BattlescapeState::BattlescapeState() :
 
 	// Set palette
 	_save->setPaletteByDepth(this);
+	ensureBattlescapeAssetPalettes(_game->getMod(), getPalette());
 
 	if (_game->getMod()->getInterface("battlescape")->getElementOptional("pathfinding"))
 	{

@@ -274,6 +274,10 @@ public:
 		{
 			return;
 		}
+		if (!_paletteMirror.empty())
+		{
+			_paletteMirror[(size_t)y * getWidth() + x] = pixel;
+		}
 		if (_surface && _surface->format->BitsPerPixel == 32)
 		{
 			// 7.F.3: resolve palette index → ARGB; index 0 is always transparent.
@@ -315,6 +319,10 @@ public:
 		if (x < 0 || x >= getWidth() || y < 0 || y >= getHeight())
 		{
 			return 0;
+		}
+		if (!_paletteMirror.empty())
+		{
+			return _paletteMirror[(size_t)y * getWidth() + x];
 		}
 		return *getRaw(x, y);
 	}
@@ -666,11 +674,13 @@ public:
 inline Uint32 shadeARGBCurve(Uint32 src, int shade)
 {
 	if ((src >> 24) == 0) return 0;
+	if (shade >= 16) return src & 0xFF000000u;
+	if (shade <= 0) return src;
 	static const float k[16] = {
 		1.00f, 0.93f, 0.87f, 0.80f, 0.74f, 0.67f, 0.60f, 0.53f,
 		0.47f, 0.40f, 0.33f, 0.27f, 0.20f, 0.13f, 0.07f, 0.00f
 	};
-	const float m = k[shade & 0x0f];
+	const float m = k[shade];
 	const Uint8 a = (Uint8)((src >> 24) & 0xff);
 	const Uint8 r = (Uint8)(((src >> 16) & 0xff) * m);
 	const Uint8 g = (Uint8)(((src >>  8) & 0xff) * m);

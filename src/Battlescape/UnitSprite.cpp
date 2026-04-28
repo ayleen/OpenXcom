@@ -72,6 +72,30 @@ namespace
 const int InvalidSpriteIndex = -256;
 
 /**
+ * Vanilla battle sprite sets are loaded as 8bpp index buffers and only become
+ * drawable in the ARGB pipeline after the active Battlescape palette is known.
+ * HD sets are already ARGB and intentionally keep no shade table, so leave them
+ * untouched.
+ */
+void ensureIndexedSetPalette(const SurfaceSet *set, const Surface *paletteSource)
+{
+	if (!set || !paletteSource)
+		return;
+	const SDL_Color *colors = paletteSource->getEffectivePalette();
+	if (!colors)
+		return;
+	for (size_t i = 0; i < set->getTotalFrames(); ++i)
+	{
+		const Surface *frame = set->getFrame((int)i);
+		if (frame && !frame->isARGB())
+		{
+			const_cast<SurfaceSet *>(set)->setPalette(colors);
+			return;
+		}
+	}
+}
+
+/**
  * Get item if can be visible on sprite.
  */
 const BattleItem *getIfVisible(const BattleItem *item)
@@ -284,6 +308,11 @@ void UnitSprite::draw(const BattleUnit* unit, int part, int x, int y, int shade,
 	_itemL = getIfVisible(_unit->getLeftHandWeapon());
 
 	_unitSurface = const_cast<Mod*>(_mod)->getSurfaceSet(armor->getSpriteSheet());
+	ensureIndexedSetPalette(_unitSurface, _dest);
+	ensureIndexedSetPalette(_itemSurface, _dest);
+	ensureIndexedSetPalette(_fireSurface, _dest);
+	ensureIndexedSetPalette(_breathSurface, _dest);
+	ensureIndexedSetPalette(_facingArrowSurface, _dest);
 
 	_drawingRoutine = armor->getDrawingRoutine();
 

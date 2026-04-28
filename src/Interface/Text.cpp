@@ -677,8 +677,55 @@ void Text::draw()
 				for (int py = 0; py < ch; ++py)
 					for (int px = 0; px < cw; ++px)
 					{
-						Uint8 brightness = glyphAtlas ? glyphAtlas->getPixel(gx + px, gy + py) : 0u;
-						if (brightness == 0) continue;
+						// Read glyph atlas pixel as 8bpp ramp index (1..4 for OXCE fonts)
+						// from the palette mirror when available — this preserves the
+						// authentic per-pixel AA ramp that the legacy 8bpp PaletteShift
+						// shader produced (dest = _color + src*mul + 2*(mid-src)).
+						const Uint8 *mirror = glyphAtlas ? glyphAtlas->getPaletteMirror() : nullptr;
+						Uint8 srcRamp = 0u;
+						if (mirror)
+						{
+							const Uint16 mw = glyphAtlas->getPaletteMirrorWidth();
+							srcRamp = mirror[(size_t)(gy + py) * (size_t)mw + (size_t)(gx + px)];
+						}
+						else if (glyphAtlas)
+						{
+							srcRamp = glyphAtlas->getPixel(gx + px, gy + py);
+						}
+						if (srcRamp == 0) continue;
+
+						if (!_useRGB && mirror)
+						{
+							// Per-pixel palette ramp resolution — matches legacy 8bpp
+							// rendering exactly. Picks a different palette colour for
+							// each AA intensity step instead of alpha-blending one
+							// colour, so glyphs stay solid against any background.
+							const SDL_Color *pal = getEffectivePalette();
+							if (pal)
+							{
+								int rampIdx = (int)color + (int)srcRamp * mul;
+								if (mid != 0) rampIdx += 2 * ((int)mid - (int)srcRamp);
+								if (rampIdx < 0) rampIdx = 0;
+								else if (rampIdx > 255) rampIdx = 255;
+								Uint32 outARGB =
+									0xFF000000u
+									| ((Uint32)pal[rampIdx].r << 16)
+									| ((Uint32)pal[rampIdx].g << 8)
+									| (Uint32)pal[rampIdx].b;
+								setPixel32(x + px, y + py, outARGB);
+								continue;
+							}
+						}
+
+						// Fallback: alpha-mask blend. Two sources of srcRamp:
+						//   * mirror present  → 8bpp ramp index 1..4 → must scale up
+						//     (matches commit 4f8097fd0 alpha mapping) so AA pixels
+						//     don't render as alpha=1..4 (effectively invisible).
+						//   * mirror absent   → blue/alpha channel of HD grayscale
+						//     ARGB atlas, already in 0..255 range, use as-is.
+						Uint8 brightness = mirror
+							? ((srcRamp >= 4u) ? 255u : (Uint8)((Uint32)srcRamp * 255u / 4u))
+							: srcRamp;
 						if (mul > 1)
 						{
 							int boosted = (int)brightness * mul;

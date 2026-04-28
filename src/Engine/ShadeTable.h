@@ -60,16 +60,29 @@ public:
 	/// (i.e. (baseColor - 1) << 4, matching blitNShade callers).
 	void buildRecoloured(const SDL_Color *pal, Uint8 newBaseColor);
 
-	/// O(1) lookup.  idx in [0, 255], shade in [0, 15].
+	/// O(1) lookup.  idx in [0, 255], shade 16+ is forced black.
 	inline Uint32 get(Uint8 idx, int shade) const
 	{
-		return _columns[idx][shade & 0x0f];
+		if (idx == 0)
+		{
+			return 0;
+		}
+		if (shade >= 16)
+		{
+			return _black;
+		}
+		if (shade <= 0)
+		{
+			return _columns[idx][0];
+		}
+		return _columns[idx][shade];
 	}
 
 	bool empty() const { return _empty; }
 
 private:
 	std::array<ShadeColumn, 256> _columns{};
+	Uint32 _black = 0xFF000000u;
 	bool _empty = true;
 };
 

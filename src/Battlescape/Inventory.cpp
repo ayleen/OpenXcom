@@ -264,7 +264,7 @@ void Inventory::drawGridLabels(bool showTuCost)
 	_gridLabels->clear();
 
 	Text text = Text(90, 9, 0, 0);
-	text.setPalette(_gridLabels->getPalette());
+	text.setPalette(_gridLabels->getEffectivePalette());
 	text.initText(_game->getMod()->getFont("FONT_BIG"), _game->getMod()->getFont("FONT_SMALL"), _game->getLanguage());
 
 	RuleInterface *rule = _game->getMod()->getInterface("inventory");

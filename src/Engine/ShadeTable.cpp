@@ -43,8 +43,9 @@ static inline Uint32 toArgb(const SDL_Color &c)
  */
 void ShadeTable::buildFromPalette(const SDL_Color *pal)
 {
-	if (!pal) { _empty = true; return; }
+	if (!pal) { _black = 0xFF000000u; _empty = true; return; }
 	_empty = false;
+	_black = toArgb(pal[kColorShade]);
 	for (int idx = 0; idx < 256; ++idx)
 	{
 		for (int shade = 0; shade < 16; ++shade)
@@ -68,8 +69,9 @@ void ShadeTable::buildFromPalette(const SDL_Color *pal)
  */
 void ShadeTable::buildRecoloured(const SDL_Color *pal, Uint8 newBaseColor)
 {
-	if (!pal) { _empty = true; return; }
+	if (!pal) { _black = 0xFF000000u; _empty = true; return; }
 	_empty = false;
+	_black = toArgb(pal[kColorShade]);
 	_columns[0].fill(0);
 	for (int idx = 1; idx < 256; ++idx)
 	{

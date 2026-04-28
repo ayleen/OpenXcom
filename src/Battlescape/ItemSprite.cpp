@@ -17,6 +17,7 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "ItemSprite.h"
+#include "../Engine/SurfaceSet.h"
 #include "../Mod/Mod.h"
 #include "../Savegame/BattleUnit.h"
 #include "../Savegame/BattleItem.h"
@@ -24,6 +25,29 @@
 
 namespace OpenXcom
 {
+
+namespace
+{
+
+void ensureIndexedSetPalette(const SurfaceSet *set, const Surface *paletteSource)
+{
+	if (!set || !paletteSource)
+		return;
+	const SDL_Color *colors = paletteSource->getEffectivePalette();
+	if (!colors)
+		return;
+	for (size_t i = 0; i < set->getTotalFrames(); ++i)
+	{
+		const Surface *frame = set->getFrame((int)i);
+		if (frame && !frame->isARGB())
+		{
+			const_cast<SurfaceSet *>(set)->setPalette(colors);
+			return;
+		}
+	}
+}
+
+}
 
 /**
  * Sets up a ItemSprite with the specified size and position.
@@ -55,6 +79,7 @@ ItemSprite::~ItemSprite()
  */
 void ItemSprite::draw(const BattleItem* item, int x, int y, int shade)
 {
+	ensureIndexedSetPalette(_itemSurface, _dest);
 	const Surface* sprite = item->getFloorSprite(_itemSurface, _save, _animationFrame, shade);
 	if (sprite)
 	{
@@ -69,6 +94,7 @@ void ItemSprite::draw(const BattleItem* item, int x, int y, int shade)
  */
 void ItemSprite::drawShadow(const BattleItem* item, int x, int y)
 {
+	ensureIndexedSetPalette(_itemSurface, _dest);
 	const Surface* sprite = item->getFloorSprite(_itemSurface, _save, _animationFrame, 16);
 	if (sprite)
 	{
