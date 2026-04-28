@@ -1378,26 +1378,6 @@ void Globe::XuLine(Surface* surface, Surface* src, double x1, double y1, double 
 	while (len>0)
 	{
 		tcol=src->getPixel((int)x0,(int)y0);
-		// In the ARGB pipeline the textured-polygon land path writes ARGB pixels
-		// directly (through SDL_gfx texturedPolygon → row memcpy) without
-		// updating _paletteMirror.  That leaves mirror==0 on every land pixel,
-		// which the legacy `if (tcol)` predicate would treat as "off the globe"
-		// and skip — making craft / radar lines disappear over land.
-		// Fall back to ARGB alpha as the "globe is painted here" signal: if the
-		// pixel has any opacity, render a generic land shadow.  Truly empty
-		// (alpha==0) pixels — outside the globe disk — are still skipped.
-		if (tcol == 0)
-		{
-			Uint32 px = src->getPixel32((int)x0, (int)y0);
-			if ((px >> 24) != 0)
-			{
-				// Any palette index outside the ocean range — guaranteed to be
-				// classified as land by CreateShadow::isOcean (which checks
-				// [OCEAN_COLOR, OCEAN_COLOR+32)).  OCEAN_COLOR-1 stays inside
-				// the same colour group so getLandShadow attenuates predictably.
-				tcol = (Uint8)(Globe::OCEAN_COLOR - 1);
-			}
-		}
 		if (tcol)
 		{
 			if (CreateShadow::isOcean(tcol))

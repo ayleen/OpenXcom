@@ -1315,10 +1315,65 @@ void Surface::drawPolygon(Sint16 *x, Sint16 *y, int n, Uint8 color)
  * @param texture Texture for polygon.
  * @param dx X offset of texture relative to the screen.
  * @param dy Y offset of texture relative to the screen.
+ *
+ * ARGB pipeline note: in addition to the ARGB row blit that the SDL_gfx
+ * texturedPolygon path performs, we propagate the texture frame's
+ * _paletteMirror into this surface's mirror so downstream getPixel() sees
+ * the original palette index — required for Globe::XuLine to classify
+ * craft / radar lines as ocean vs land via CreateShadow::isOcean.
  */
 void Surface::drawTexturedPolygon(Sint16 *x, Sint16 *y, int n, Surface *texture, int dx, int dy)
 {
-	texturedPolygon(_surface.get(), x, y, n, texture->getSurface(), dx, dy);
+	if (!_surface || !_surface->pixels || !texture || n < 3) return;
+	const SDL_Surface *texSurf = texture->getSurface();
+	if (!texSurf || !texSurf->pixels) return;
+
+	int y_min = y[0], y_max = y[0];
+	for (int i = 1; i < n; i++) {
+		if (y[i] < y_min) y_min = y[i];
+		if (y[i] > y_max) y_max = y[i];
+	}
+	if (y_min < 0) y_min = 0;
+	if (y_max >= _surface->h) y_max = _surface->h - 1;
+
+	const Uint8 *texMirror = texture->getPaletteMirror();
+	const int   texMirrorW = texture->getPaletteMirrorWidth();
+	const int tw = texSurf->w, th = texSurf->h;
+
+	for (int yy = y_min; yy <= y_max; yy++) {
+		int xs[16]; int nxs = 0;
+		for (int i = 0; i < n && nxs < 15; i++) {
+			int i2 = (i + 1) % n;
+			int ya = y[i], yb = y[i2];
+			if (ya == yb) continue;
+			int lo = ya < yb ? ya : yb;
+			int hi = ya < yb ? yb : ya;
+			if (yy < lo || yy >= hi) continue;
+			xs[nxs++] = x[i] + (x[i2] - x[i]) * (yy - ya) / (yb - ya);
+		}
+		if (nxs < 2) continue;
+		// insertion-sort xs[]
+		for (int a = 1; a < nxs; a++) {
+			int key = xs[a], b = a - 1;
+			while (b >= 0 && xs[b] > key) { xs[b+1] = xs[b]; b--; }
+			xs[b+1] = key;
+		}
+		const int ty = ((yy - dy) % th + th) % th;
+		const Uint32 *trow = (const Uint32*)((const Uint8*)texSurf->pixels + (size_t)ty * texSurf->pitch);
+		Uint32       *drow = (Uint32*)((Uint8*)_surface->pixels + (size_t)yy * _surface->pitch);
+		Uint8        *mrow = (texMirror && !_paletteMirror.empty())
+		                        ? &_paletteMirror[(size_t)yy * _width] : nullptr;
+		const Uint8  *tmrow = texMirror ? &texMirror[(size_t)ty * texMirrorW] : nullptr;
+		for (int j = 0; j + 1 < nxs; j += 2) {
+			int x1 = xs[j];   if (x1 < 0)         x1 = 0;
+			int x2 = xs[j+1]; if (x2 >= _surface->w) x2 = _surface->w - 1;
+			for (int xx = x1; xx <= x2; xx++) {
+				int tx = ((xx - dx) % tw + tw) % tw;
+				drow[xx] = trow[tx];
+				if (mrow && tmrow) mrow[xx] = tmrow[tx];
+			}
+		}
+	}
 }
 
 /**
