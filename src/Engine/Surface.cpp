@@ -390,6 +390,20 @@ void Surface::loadRaw(const std::vector<char> &bytes)
 }
 
 /**
+ * Demotes this surface to an 8bpp palette-index scratch so that in-place pixel
+ * loading (via setPixelIterative) stores raw palette indices instead of trying
+ * to resolve them to ARGB (which fails when no palette is available yet).
+ * After all pixels are written, call setPalette() to promote back to 32bpp ARGB.
+ */
+void Surface::resetToIndexedScratch()
+{
+	std::tie(_alignedBuffer, _surface) = Surface::NewLoadScratch8Bit(_width, _height);
+	_pitch = (Uint16)_surface->pitch;
+	SDL_SetColorKey(_surface.get(), SDL_SRCCOLORKEY, 0);
+	_hasSavedPalette = false;
+}
+
+/**
  * Loads the contents of an X-Com SCR image file into
  * the surface. SCR files are simply uncompressed images
  * containing the palette offset of each pixel.

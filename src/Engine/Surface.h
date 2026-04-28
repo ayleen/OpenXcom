@@ -139,6 +139,10 @@ public:
 	void loadRaw(const std::vector<unsigned char> &bytes);
 	/// Loads a raw pixel array.
 	void loadRaw(const std::vector<char> &bytes);
+	/// Demotes this surface to an 8bpp palette-index scratch for in-place pixel loading.
+	/// Call before setPixelIterative() loops on surfaces whose palette is not yet known.
+	/// setPalette() will promote back to 32bpp ARGB once the palette is available.
+	void resetToIndexedScratch();
 	/// Loads an X-Com SCR graphic.
 	void loadScr(const std::string &filename);
 	/// Loads an X-Com SPK graphic.
