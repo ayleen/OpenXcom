@@ -97,6 +97,13 @@ MainMenuState::MainMenuState(bool updateCheck)
 	// Set up objects
 	setWindowBackground(_window, "mainMenu");
 
+	// Calypso HD: optional HD window background override.
+	if (Surface *hdWindow = _game->getMod()->getSurface(
+	        "CALYPSO_MAINMENU_WINDOW_HD", false))
+	{
+	    _window->setBackground(hdWindow);
+	}
+
 	_btnNewGame->setText(tr("STR_NEW_GAME"));
 	_btnNewGame->onMouseClick((ActionHandler)&MainMenuState::btnNewGameClick);
 
