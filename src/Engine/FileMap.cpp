@@ -1265,6 +1265,7 @@ void scanModDir(const std::string& dirname, const std::string& basename, bool pr
 		"XcomUtil_Triton_Weapon_Slot",
 		"XCOM_Damage",
 		"calypso-hd-demo",
+		"calypso-hd-pack",
 		"calypso-test-master"
 	};
 
