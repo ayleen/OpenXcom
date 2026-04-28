@@ -659,6 +659,12 @@ if(EMSCRIPTEN)
     -sALLOW_MEMORY_GROWTH=1
     -sINITIAL_MEMORY=268435456
     -sFORCE_FILESYSTEM=1
+    # Phase 8b: GPU shader pipeline requires WebGL2 / GLES 3.0 (preamble emits
+    # `#version 300 es`). Without these, SDL2 creates a WebGL1 context and
+    # shader compile fails with "unsupported shader version".
+    -sMIN_WEBGL_VERSION=2
+    -sMAX_WEBGL_VERSION=2
+    -sFULL_ES3=1
     "-sEXPORTED_RUNTIME_METHODS=[\"FS\",\"IDBFS\",\"callMain\",\"ccall\",\"cwrap\"]"
     "-sEXPORTED_FUNCTIONS=[\"_main\",\"_calypso_screenshot\",\"_calypso_screenshot_gpu\",\"_calypso_gpu_smoke_activate\",\"_calypso_push_mouse_motion\"]"
     -sENVIRONMENT=web
