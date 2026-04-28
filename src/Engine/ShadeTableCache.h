@@ -26,18 +26,28 @@ namespace OpenXcom
 {
 
 /**
- * Session-scoped cache of recoloured ShadeTable instances.
+ * Process-scoped cache of recoloured ShadeTable instances.
  *
  * Maps (base ShadeTable*, nbcShifted) → shared_ptr<ShadeTable> built via
  * ShadeTable::buildRecoloured.  Used by Surface::blitNShade for the
  * ColorReplace path so armour recolouring does not rebuild a 16 KB table
  * on every blit call.
  *
- * Eviction: when the map reaches kMaxEntries, it is cleared in full before
- * the next insert.  TFTD uses fewer than 20 distinct colour combinations,
- * so the cap is effectively never reached in practice.
+ * Eviction is intentionally simple: when the map reaches kMaxEntries, it is
+ * fully cleared before the next insert.  This is *not* an LRU — the plan
+ * called for LRU but vanilla TFTD uses well under 20 distinct (base, nbc)
+ * combinations across a full session, so the cap is never reached in
+ * practice and the linked-list bookkeeping LRU would impose is pure
+ * overhead.  If a future mod repeatedly cycles >50 base tables, swap this
+ * for an LRU; until then the flush-all policy is the right trade-off.
  *
- * R2.4 (Phase 7 remediation).
+ * Lifetime caveat: the cache is a function-local static in Surface.cpp and
+ * lives for the whole process.  If the engine ever supports unloading and
+ * reloading a Mod within one process, call clear() on Mod teardown to
+ * invalidate stale (base ShadeTable*, …) keys before the underlying
+ * shared_ptr<ShadeTable> goes away.
+ *
+ * R2.4 (Phase 7 remediation); doc updated by Q8.
  */
 class ShadeTableCache
 {

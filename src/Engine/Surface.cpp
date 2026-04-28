@@ -1559,6 +1559,10 @@ void Surface::blitNShade(SurfaceRaw<Uint32> surface, int x, int y, int shade, bo
 	blitRaw(surface, srcRaw, mirrorRaw, x, y, shade, half, newBaseColor, getShadeTable(), recoloured);
 }
 
+// Q5: this overload is intentionally StandardShade-only — there is no
+// newBaseColor parameter, so the recoloured-table cache is irrelevant.
+// If a future caller needs (range + newBaseColor) together, plumb the cache
+// lookup through here in the same shape as the other blitNShade above.
 void Surface::blitNShade(SurfaceRaw<Uint32> surface, int x, int y, int shade, GraphSubset range) const
 {
 	SurfaceRaw<const Uint32> srcRaw(reinterpret_cast<const Uint32*>(getBuffer()), getWidth(), getHeight(), getPitch());

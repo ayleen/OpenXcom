@@ -322,8 +322,11 @@ public:
 	{
 		if (x < 0 || x >= getWidth() || y < 0 || y >= getHeight())
 			return 0;
+		// Q3: cast _pitch to size_t before multiplying to avoid Uint16*int overflow
+		// on extreme dimensions and to mirror the byte-pointer arithmetic done by
+		// SDL_Surface row addressing.
 		const Uint32 *row = reinterpret_cast<const Uint32 *>(
-			static_cast<const Uint8 *>(getBuffer()) + (size_t)y * _pitch);
+			static_cast<const Uint8 *>(getBuffer()) + static_cast<size_t>(_pitch) * static_cast<size_t>(y));
 		return row[x];
 	}
 	/**
