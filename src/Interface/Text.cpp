@@ -663,7 +663,9 @@ void Text::draw()
 				else
 				{
 					const SDL_Color *pal = getEffectivePalette();
-					Uint8 palIdx = (Uint8)(color + (mid != 0 ? 3 : 0));
+					// R4: use shade +5 (brightest) for inverted text so it contrasts
+					// against the button fill, which stays at _color+3 (mid) after invert.
+					Uint8 palIdx = (Uint8)(color + (mid != 0 ? 5 : 0));
 					colorARGB = pal
 						? (0xFF000000u | ((Uint32)pal[palIdx].r << 16) | ((Uint32)pal[palIdx].g << 8) | (Uint32)pal[palIdx].b)
 						: 0xFFFFFFFFu;
