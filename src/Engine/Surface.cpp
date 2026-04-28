@@ -1735,20 +1735,19 @@ void Surface::setHeight(int height)
  */
 void SurfaceCrop::blit(Surface* dest)
 {
-	if (_surface)
-	{
-		auto srcShader = ShaderCrop(*this, _x, _y);
-		auto destShader = ShaderMove<Uint8>(dest, 0, 0);
+	if (!_surface || !dest) return;
 
-		ShaderDrawFunc(
-			[](Uint8& d, Uint8 s)
-			{
-				if (s) d = s;
-			},
-			destShader,
-			srcShader
-		);
-	}
+	// 8a-fix: HUD ICONS.PCK and similar crop blits used a Uint8 ShaderMove path that
+	// wrote one byte into a 32-bit ARGB framebuffer (alpha=0 → invisible). Use the
+	// native SDL_BlitSurface so 8bpp→ARGB conversion goes through the source palette.
+	SDL_Rect srcRect = _crop;
+	SDL_Rect *src = (srcRect.w || srcRect.h) ? &srcRect : nullptr;
+	SDL_Rect dst{};
+	dst.x = _x;
+	dst.y = _y;
+
+	SDL_BlitSurface(const_cast<SDL_Surface*>(_surface->getSurface()), src,
+	                dest->getSurface(), &dst);
 }
 
 }

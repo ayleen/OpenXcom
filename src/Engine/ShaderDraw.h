@@ -139,6 +139,13 @@ struct ColorReplace
 	                        const ShadeTable *table, const ShadeTable *recolouredTable)
 	{
 		if ((src >> 24) == 0) return;
+		// 8a-fix: srcIdx==0 means no _paletteMirror (or transparent index) — fall
+		// back to ARGB curve so non-transparent pixels don't collapse to table[0]==0.
+		if (srcIdx == 0)
+		{
+			dest = ::OpenXcom::shadeARGBCurve(src, shade);
+			return;
+		}
 		if (recolouredTable)
 			dest = recolouredTable->get(srcIdx, shade);
 		else if (table)
@@ -162,10 +169,11 @@ struct StandardShade
 	                        const int& shade, const ShadeTable *table)
 	{
 		if ((src >> 24) == 0) return;
-		if (table)
-			dest = table->get(srcIdx, shade);
-		else
+		// 8a-fix: see ColorReplace — srcIdx==0 → ARGB curve, not table[0].
+		if (!table || srcIdx == 0)
 			dest = ::OpenXcom::shadeARGBCurve(src, shade);
+		else
+			dest = table->get(srcIdx, shade);
 	}
 };
 
@@ -180,7 +188,7 @@ struct BurnShade
 	                        const ShadeTable *table)
 	{
 		if ((src >> 24) == 0) return;
-		if (!table)
+		if (!table || srcIdx == 0)
 		{
 			dest = ::OpenXcom::shadeARGBCurve(src, shade);
 			return;
