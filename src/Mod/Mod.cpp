@@ -5830,6 +5830,16 @@ void Mod::loadBattlescapeResources()
 
 		_surfaces[spks[i]] = new Surface(320, 200);
 		_surfaces[spks[i]]->loadSpk("UFOGRAPH/" + spks[i]);
+		// loadSpk fills 8bpp pixels but never installs a palette; without it
+		// the surface stays 8bpp with empty _paletteMirror, and blitNShade
+		// from this source produces nothing on an ARGB destination
+		// (TAC01.SCR — inventory background — was the visible casualty).
+		// Promote via PAL_BATTLESCAPE so the index buffer + shade table get
+		// captured during the 8bpp → ARGB conversion.
+		if (Palette *pal = getPalette("PAL_BATTLESCAPE", false))
+		{
+			_surfaces[spks[i]]->setPalette(pal->getColors(), 0, 256);
+		}
 	}
 
 	auto bdys = FileMap::filterFiles(ufographContents, "BDY");
@@ -5852,6 +5862,13 @@ void Mod::loadBattlescapeResources()
 		}
 		_surfaces[idxName] = new Surface(320, 200);
 		_surfaces[idxName]->loadBdy("UFOGRAPH/" + name);
+		// loadBdy mirrors loadSpk: 8bpp pixels, no palette → empty mirror,
+		// blitNShade outputs nothing on ARGB. Promote via PAL_BATTLESCAPE so
+		// _paletteMirror + shade table are captured.
+		if (Palette *pal = getPalette("PAL_BATTLESCAPE", false))
+		{
+			_surfaces[idxName]->setPalette(pal->getColors(), 0, 256);
+		}
 	}
 
 	// Load Battlescape inventory
@@ -5862,6 +5879,10 @@ void Mod::loadBattlescapeResources()
 		std::transform(name.begin(), name.end(), fname.begin(), toupper);
 		_surfaces[fname] = new Surface(320, 200);
 		_surfaces[fname]->loadSpk("UFOGRAPH/" + fname);
+		if (Palette *pal = getPalette("PAL_BATTLESCAPE", false))
+		{
+			_surfaces[fname]->setPalette(pal->getColors(), 0, 256);
+		}
 	}
 
 	//"fix" of color index in original solders sprites
