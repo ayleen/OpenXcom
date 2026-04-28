@@ -113,7 +113,7 @@ bool Shader::compile(const char* vertSrc, const char* fragSrc)
     }
 
     _program = (unsigned)prog;
-    Log(LOG_INFO) << "shader compiled in " << (vMs + fMs) << " ms";
+    Log(LOG_INFO) << "shader '" << (_name.empty() ? "<anon>" : _name) << "' compiled in " << (vMs + fMs) << " ms";
     return true;
 #else
     (void)vertSrc; (void)fragSrc;
@@ -146,6 +146,7 @@ bool Shader::loadFromEmbedded(const char* name)
         Log(LOG_ERROR) << "Shader::loadFromEmbedded: unknown shader '" << name << "'";
         return false;
     }
+    _name    = name ? name : "";
     _vertSrc = p.vert;
     _fragSrc = p.frag;
     return compile(p.vert, p.frag);

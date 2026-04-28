@@ -35,6 +35,7 @@
 #include "Zoom.h"
 #include "Timer.h"
 #include "GpuInit.h"
+#include "GpuTimer.h"
 #include "ShaderManager.h"
 #include <SDL.h>
 #include <SDL_render.h>
@@ -222,9 +223,26 @@ void Screen::flip()
 	{
 		SDL_RenderFlush(_renderer);
 		ShaderManager::instance().resetFrameFlag();
+
+		GpuTimer timer;
+		timer.start();
 		for (auto& pass : _gpuPasses)
 			pass();
+		timer.stop();
+
 		ShaderManager::instance().setHadGPUPass(true);
+
+		/* Log average GPU-pass time every 60 frames (Phase 8b.9). */
+		_gpuPassAccumUs += timer.elapsedUs();
+		++_gpuFrameCount;
+		if (_gpuFrameCount >= 60u)
+		{
+			long long avg = _gpuPassAccumUs / (long long)_gpuFrameCount;
+			Log(LOG_DEBUG) << "GPU passes avg: " << avg << " us/frame"
+			               << " (" << _gpuPasses.size() << " pass(es))";
+			_gpuFrameCount  = 0u;
+			_gpuPassAccumUs = 0;
+		}
 	}
 
 	SDL_RenderPresent(_renderer);

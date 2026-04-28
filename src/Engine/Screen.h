@@ -58,6 +58,10 @@ private:
 	Surface::UniqueSurfacePtr _surface;
 	/** GPU passes registered via registerGPUPass — called each frame in flip(). */
 	std::vector<std::function<void()>> _gpuPasses;
+	/** Frame counter for periodic GPU pass timing logs (Phase 8b.9). */
+	unsigned _gpuFrameCount = 0u;
+	/** Accumulated GPU pass wall-clock time for the current 60-frame window (µs). */
+	long long _gpuPassAccumUs = 0;
 	/// Sets _bpp, _baseWidth, _baseHeight from current options.
 	void makeVideoFlags();
 public:

@@ -43,6 +43,7 @@ public:
 
 private:
     unsigned _program = 0u;
+    std::string _name;
     std::string _vertSrc;
     std::string _fragSrc;
     std::unordered_map<std::string, int> _uniformCache;
