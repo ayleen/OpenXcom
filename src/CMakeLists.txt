@@ -651,11 +651,10 @@ if(EMSCRIPTEN)
     -sUSE_SDL=2
     -sUSE_SDL_IMAGE=2
     -sUSE_SDL_MIXER=2
-    # webp dropped: Emscripten's sdl2_image port does not list 'webp' in
-    # SUPPORTED_FORMATS (see tools/ports/sdl2_image.py) and there is no
-    # libwebp port — IMG_webp.c fails on missing <webp/decode.h> on any
-    # cache-cold rebuild. Phase 8c HD globe should switch to stb_image
-    # (built-in WebP) or a PNG fallback before re-adding webp here.
+    # Phase 8c: libwebp decoder-only port (engine/oxce/src/ports/libwebp.py).
+    # sdl2_image's SUPPORTED_FORMATS has no 'webp', so WebP is loaded directly
+    # via WebPDecodeRGBA() in Mod.cpp — SDL_image never sees the .webp bytes.
+    "--use-port=${CMAKE_CURRENT_SOURCE_DIR}/ports/libwebp.py"
     "-sSDL2_IMAGE_FORMATS=[\"png\",\"jpg\",\"bmp\"]"
     "-sSDL2_MIXER_FORMATS=[\"ogg\"]"
     -sUSE_OGG=1

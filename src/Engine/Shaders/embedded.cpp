@@ -130,8 +130,9 @@ void main()
     float sunDot   = dot(n_world, u_sunDir);
     float dayFactor = smoothstep(-0.087, 0.087, sunDot);
 
-    // Derive cloud opacity from luminance (textures are RGB JPEG, no alpha).
-    float cloudDensity = dot(cloud.rgb, vec3(0.299, 0.587, 0.114));
+    // Cloud opacity comes from the WebP alpha channel — MODIS cloud fraction
+    // is stored in the alpha channel (0 = clear, 1 = fully overcast).
+    float cloudDensity = cloud.a;
     // Clouds invisible on the night side; render as near-white.
     vec3 daySide = mix(surface, vec3(1.0), cloudDensity * 0.9 * dayFactor);
     vec3 nightSide = night * (1.0 - dayFactor);

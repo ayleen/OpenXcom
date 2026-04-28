@@ -52,6 +52,7 @@
 #  include "../Engine/GpuTexture.h"
 #  include "../Engine/GpuInit.h"
 #  include <SDL_image.h>
+#  include <webp/decode.h>
 #endif
 #include "ExtraSounds.h"
 #include "../Engine/AdlibMusic.h"
@@ -3481,6 +3482,58 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 			continue;
 		}
 
+		// WebP: use WebPDecodeRGBA() directly — SDL2_image's sdl2_image port
+		// has no libwebp in SUPPORTED_FORMATS.  Output is R,G,B,A in memory
+		// order, matching GL_RGBA + GL_UNSIGNED_BYTE exactly.
+		const bool isWebP = relPath.size() >= 5 &&
+		                    relPath.compare(relPath.size() - 5, 5, ".webp") == 0;
+		if (isWebP)
+		{
+			SDL_RWops* rw = rec->getRWops();
+			Sint64 fileSize = SDL_RWsize(rw);
+			if (fileSize <= 0)
+			{
+				Log(LOG_WARNING) << "globeTextures[" << id << "]: RWsize failed";
+				SDL_RWclose(rw);
+				continue;
+			}
+			std::vector<uint8_t> buf(static_cast<size_t>(fileSize));
+			if (SDL_RWread(rw, buf.data(), 1, buf.size()) != buf.size())
+			{
+				Log(LOG_WARNING) << "globeTextures[" << id << "]: RWread failed";
+				SDL_RWclose(rw);
+				continue;
+			}
+			SDL_RWclose(rw);
+
+			int w = 0, h = 0;
+			uint8_t* pixels = WebPDecodeRGBA(buf.data(), buf.size(), &w, &h);
+			if (!pixels)
+			{
+				Log(LOG_WARNING) << "globeTextures[" << id << "]: WebPDecodeRGBA failed";
+				continue;
+			}
+
+			delete _globeTextures[id];
+			GpuTexture* tex = new GpuTexture(/*srgb=*/true);
+			if (!tex->uploadRGBA(pixels, w, h, 0))
+			{
+				Log(LOG_WARNING) << "globeTextures[" << id << "]: GpuTexture upload failed";
+				delete tex;
+			}
+			else
+			{
+				_globeTextures[id] = tex;
+				Log(LOG_INFO) << "globeTextures[" << id << "]: " << w << "x" << h << " uploaded (WebP RGBA)";
+			}
+			WebPFree(pixels);
+			continue;
+		}
+
+		// JPEG / PNG: load via SDL_image, then convert to ABGR8888.
+		// SDL_PIXELFORMAT_ABGR8888 on little-endian (WASM) gives memory layout
+		// [R, G, B, A], which is what GL_RGBA + GL_UNSIGNED_BYTE expects.
+		// (SDL_PIXELFORMAT_RGBA8888 would give [A, B, G, R] — wrong.)
 		SDL_RWops* rw = rec->getRWops();
 		SDL_Surface* raw = IMG_Load_RW(rw, SDL_TRUE); // SDL_TRUE = auto-close rw
 		if (!raw)
@@ -3489,8 +3542,7 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 			continue;
 		}
 
-		// Convert to RGBA8888 for GpuTexture::uploadRGBA.
-		SDL_Surface* rgba = SDL_ConvertSurfaceFormat(raw, SDL_PIXELFORMAT_RGBA8888, 0);
+		SDL_Surface* rgba = SDL_ConvertSurfaceFormat(raw, SDL_PIXELFORMAT_ABGR8888, 0);
 		SDL_FreeSurface(raw);
 		if (!rgba)
 		{
