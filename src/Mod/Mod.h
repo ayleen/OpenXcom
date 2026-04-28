@@ -493,8 +493,13 @@ public:
 	/// Gets a particular surface set.
 	SurfaceSet *getSurfaceSet(const std::string &name, bool error = true);
 #ifdef __EMSCRIPTEN__
-	/// Returns true if any globeTextures were loaded (HD sphere path active).
-	bool hasGlobeTextures() const { return !_globeTextures.empty(); }
+	/// Returns true if all four required globeTextures are loaded (HD sphere path active).
+	bool hasGlobeTextures() const {
+		return _globeTextures.count("bathymetry")
+		    && _globeTextures.count("diffuse")
+		    && _globeTextures.count("night")
+		    && _globeTextures.count("clouds");
+	}
 	/// Returns the GpuTexture for the given id, or nullptr if not found.
 	GpuTexture* getGlobeTexture(const std::string& id) const;
 	/// Releases all GpuTextures (called on mod change or disable).

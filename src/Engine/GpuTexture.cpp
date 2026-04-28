@@ -13,7 +13,7 @@
 namespace OpenXcom
 {
 
-GpuTexture::GpuTexture(bool srgb) : _srgb(srgb)
+GpuTexture::GpuTexture(bool srgb, Wrap wrap) : _srgb(srgb), _wrap(wrap)
 {
     ShaderManager::instance().registerTexture(this);
 }
@@ -35,7 +35,8 @@ bool GpuTexture::uploadRGBA(const uint8_t* data, int w, int h, int mipLevel)
         glBindTexture(GL_TEXTURE_2D, _tex);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,
+                        _wrap == Wrap::RepeatS_ClampT ? GL_REPEAT : GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     }
     else
@@ -48,10 +49,13 @@ bool GpuTexture::uploadRGBA(const uint8_t* data, int w, int h, int mipLevel)
     GLenum internalFmt = _srgb ? GL_SRGB8_ALPHA8 : GL_RGBA8;
     glTexImage2D(GL_TEXTURE_2D, mipLevel, (GLint)internalFmt,
                  w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-    if (mipLevel == 0) glGenerateMipmap(GL_TEXTURE_2D);
-
-    _w = w; _h = h;
-    _cachedData = data; _cachedW = w; _cachedH = h;
+    if (mipLevel == 0)
+    {
+        glGenerateMipmap(GL_TEXTURE_2D);
+        _cachedData.assign(data, data + (size_t)w * h * 4);
+        _cachedW = w; _cachedH = h;
+        _w = w; _h = h;
+    }
     glBindTexture(GL_TEXTURE_2D, 0u);
     return true;
 #else
@@ -72,12 +76,12 @@ void GpuTexture::bind(int textureUnit)
 
 void GpuTexture::reupload()
 {
-    if (!_cachedData) return;
+    if (_cachedData.empty()) return;
 #ifdef __EMSCRIPTEN__
     glDeleteTextures(1, &_tex);
     _tex = 0u;
 #endif
-    uploadRGBA(_cachedData, _cachedW, _cachedH, 0);
+    uploadRGBA(_cachedData.data(), _cachedW, _cachedH, 0);
 }
 
 void GpuTexture::release()

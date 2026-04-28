@@ -94,6 +94,8 @@ private:
 	bool initSphereGPU();
 	/// Renders the sphere via GPU and reads back pixels into this surface.
 	void drawSphereGPU();
+	/// Sun direction in the fixed world frame the shader uses.
+	Cord getSunDirectionWorld() const;
 #endif
 
 	/// Sets the globe zoom factor.

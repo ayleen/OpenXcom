@@ -1,7 +1,6 @@
 // globe_sphere.frag — Phase 8c: HD globe multi-layer composite.
 //
 // Active uniforms:
-//   u_viewportSize  vec2   — surface pixel dimensions (W, H)
 //   u_globeCenter   vec2   — disk centre in pixel coords (top-left origin)
 //   u_globeRadius   float  — disk radius in pixels
 //   u_camLat        float  — Geoscape camera latitude  (radians, north +)
@@ -17,7 +16,6 @@
 in  vec2 v_pixel;
 out vec4 fragColor;
 
-uniform vec2      u_viewportSize;
 uniform vec2      u_globeCenter;
 uniform float     u_globeRadius;
 uniform float     u_camLat;
@@ -67,13 +65,11 @@ void main()
     // Rotate to world space using camera orientation.
     vec3 n_world = applyCameraRotation(n_view, -u_camLat, u_camLon);
 
-    // Guard against atan(0,0) at the exact sub-solar pole.
-    float nx_safe = n_world.x + 1.0e-5;
-    float nz_safe = n_world.z + 1.0e-5;
-
     // World normal → equirectangular UV.
-    float lat = asin(clamp(n_world.y, -1.0, 1.0));
-    float lon = atan(nx_safe, nz_safe);                       // [-π, +π]
+    float lat  = asin(clamp(n_world.y, -1.0, 1.0));
+    // Bias atan only at the exact pole singularity; preserves accuracy elsewhere.
+    float bias = (abs(n_world.x) + abs(n_world.z) < 1e-7) ? 1e-5 : 0.0;
+    float lon  = atan(n_world.x, n_world.z + bias);           // [-π, +π]
     vec2  uv  = vec2((lon + 3.14159265) / 6.28318530,        // [0, 1]
                      (1.57079633 - lat) / 3.14159265);        // [0, 1]
 
@@ -81,8 +77,8 @@ void main()
     vec3  bathy  = textureLod(u_bathymetry, uv, u_mipLevel).rgb;
     vec3  diff   = textureLod(u_diffuse,    uv, u_mipLevel).rgb;
     vec3  night  = textureLod(u_night,      uv, u_mipLevel).rgb;
-    // Cloud layer drifts longitudinally; wrap with fract for seamless repeat.
-    vec2  cloudUV = vec2(fract(uv.x + u_time * 0.0001), uv.y);
+    // Cloud layer drifts longitudinally; GL_REPEAT handles seamless wrap.
+    vec2  cloudUV = vec2(uv.x + u_time * 0.0001, uv.y);
     vec4  cloud   = textureLod(u_clouds, cloudUV, u_mipLevel);
 
     // Surface: bathymetry is the ocean base; Blue Marble dominates on land

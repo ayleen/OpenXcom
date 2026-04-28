@@ -3475,6 +3475,11 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 		filesNode["0"].tryReadVal<std::string>(relPath);
 		if (relPath.empty()) continue;
 
+		bool equirect = false;
+		ruleReader["equirectangular"].tryReadVal<bool>(equirect);
+		const auto wrap = equirect ? GpuTexture::Wrap::RepeatS_ClampT
+		                           : GpuTexture::Wrap::ClampToEdge;
+
 		const FileMap::FileRecord* rec = FileMap::at(relPath);
 		if (!rec)
 		{
@@ -3515,7 +3520,7 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 			}
 
 			delete _globeTextures[id];
-			GpuTexture* tex = new GpuTexture(/*srgb=*/true);
+			GpuTexture* tex = new GpuTexture(/*srgb=*/true, wrap);
 			if (!tex->uploadRGBA(pixels, w, h, 0))
 			{
 				Log(LOG_WARNING) << "globeTextures[" << id << "]: GpuTexture upload failed";
@@ -3551,7 +3556,7 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 		}
 
 		delete _globeTextures[id]; // overwrite if re-loaded
-		GpuTexture* tex = new GpuTexture(/*srgb=*/true);
+		GpuTexture* tex = new GpuTexture(/*srgb=*/true, wrap);
 		if (!tex->uploadRGBA(static_cast<const uint8_t*>(rgba->pixels), rgba->w, rgba->h, 0))
 		{
 			Log(LOG_WARNING) << "globeTextures[" << id << "]: GpuTexture upload failed";
@@ -3563,6 +3568,17 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 			Log(LOG_INFO) << "globeTextures[" << id << "]: " << rgba->w << "x" << rgba->h << " uploaded";
 		}
 		SDL_FreeSurface(rgba);
+	}
+	{
+		const char* required[] = {"bathymetry", "diffuse", "night", "clouds"};
+		int loaded = 0;
+		for (auto* k : required) loaded += (int)_globeTextures.count(k);
+		if (loaded > 0 && loaded != 4)
+		{
+			Log(LOG_WARNING) << "Phase 8c: HD globe disabled — loaded "
+			                 << loaded << "/4 required textures";
+			clearGlobeTextures();
+		}
 	}
 #endif /* __EMSCRIPTEN__ */
 	for (const auto& ruleReader : iterateRulesSpecific("customPalettes"))

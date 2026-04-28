@@ -237,14 +237,24 @@ public:
 	/// Sets the surface's palette.
 	virtual void setPalette(const SDL_Color *colors, int firstcolor = 0, int ncolors = 256);
 	/**
-	 * Returns the SDL palette object, or nullptr after promotion to ARGB.
-	 * Post-Phase 7, all surfaces are ARGB so this returns nullptr at runtime.
-	 * For drawing-helper code that needs colours, prefer getEffectivePalette().
+	 * Returns the surface's palette colours.
+	 * Prefers the SDL palette object when present (8bpp scratch state during
+	 * loading); otherwise falls back to _savedPalette captured at promotion
+	 * time (post-Phase 7 ARGB). Returns nullptr only when neither is set
+	 * (e.g. a freshly-constructed child surface whose parent has not yet
+	 * propagated its palette). Required for child surfaces created lazily
+	 * after the parent has been promoted — TextList::addRow inline arrows,
+	 * Map waypoint markers, BaseView facility labels — which propagate via
+	 * `child->setPalette(parent->getPalette())` and would otherwise inherit
+	 * a null palette and render as fully-transparent.
 	 */
 	SDL_Color *getPalette() const
 	{
-		if (!_surface || !_surface->format->palette) return nullptr;
-		return _surface->format->palette->colors;
+		if (_surface && _surface->format->palette)
+			return _surface->format->palette->colors;
+		if (_hasSavedPalette)
+			return const_cast<SDL_Color*>(_savedPalette);
+		return nullptr;
 	}
 	/// Sets the X position of the surface.
 	virtual void setX(int x);

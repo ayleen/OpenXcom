@@ -1102,6 +1102,45 @@ bool Globe::initSphereGPU()
 }
 
 /**
+ * Sun direction in the fixed world frame the GPU shader uses.
+ * World frame: Y = north pole, X = +90° lon (east), Z = 0° lon (prime meridian).
+ * This is independent of the observer position — unlike getSunDirection(lon, lat)
+ * which returns a camera-relative vector.
+ */
+Cord Globe::getSunDirectionWorld() const
+{
+	const double rot = _game->getSavedGame()->getTime()->getDaylight() * 2*M_PI;
+	double decl = 0;
+	if (Options::globeSeasons)
+	{
+		const int MonthDays1[] = {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365};
+		const int MonthDays2[] = {0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335, 366};
+
+		int year  = _game->getSavedGame()->getTime()->getYear();
+		int month = _game->getSavedGame()->getTime()->getMonth()-1;
+		int day   = _game->getSavedGame()->getTime()->getDay()-1;
+
+		double tm = (double)((_game->getSavedGame()->getTime()->getHour() * 60
+			+ _game->getSavedGame()->getTime()->getMinute()) * 60
+			+ _game->getSavedGame()->getTime()->getSecond()) / 86400.0;
+
+		double CurDay;
+		if (year%4 == 0 && !(year%100 == 0 && year%400 != 0))
+			CurDay = (MonthDays2[month] + day + tm)/366 - 0.219;
+		else
+			CurDay = (MonthDays1[month] + day + tm)/365 - 0.219;
+		if (CurDay < 0) CurDay += 1.;
+
+		decl = -0.261 * sin(CurDay * 2*M_PI);
+	}
+	// Subsolar point: lon = -rot (sun at lon 0 at daylight=0), lat = decl.
+	const double sunLon = -rot;
+	return Cord(cos(decl) * sin(sunLon),
+	            sin(decl),
+	            cos(decl) * cos(sunLon));
+}
+
+/**
  * Renders the HD sphere using the GPU shader pipeline and reads the pixels
  * back into this Surface so the existing CPU overlay (polylines, markers,
  * text) can be composited on top in the same Globe::draw() call.
@@ -1150,8 +1189,8 @@ void Globe::drawSphereGPU()
 	_globeShader->setUniform1f("u_camLat",       (float)_cenLat);
 	_globeShader->setUniform1f("u_camLon",       (float)_cenLon);
 
-	/* Sun direction (8c.5). */
-	Cord sd = getSunDirection(_cenLon, _cenLat);
+	/* Sun direction in world frame (8c.5 fix: was camera-relative, now world frame). */
+	Cord sd = getSunDirectionWorld();
 	_globeShader->setUniform3f("u_sunDir", (float)sd.x, (float)sd.y, (float)sd.z);
 
 	/* Cloud drift time. */
@@ -1182,6 +1221,7 @@ void Globe::drawSphereGPU()
 		uint8_t*       row = dst + y * pitch;
 		for (int x = 0; x < w; ++x)
 		{
+			if (src[x*4 + 3] == 0) continue; // discarded by shader — preserve halo drawn before
 			row[x*4 + 0] = src[x*4 + 2]; /* B */
 			row[x*4 + 1] = src[x*4 + 1]; /* G */
 			row[x*4 + 2] = src[x*4 + 0]; /* R */
@@ -1208,6 +1248,9 @@ void Globe::draw()
 #ifdef __EMSCRIPTEN__
 	if (_game->getMod()->hasGlobeTextures())
 	{
+		lock();
+		drawCircle(_cenX+1, _cenY, _radius+20, OCEAN_COLOR); // halo — GPU readback skips outside-disk pixels
+		unlock();
 		drawSphereGPU(); /* renders sphere + reads back; CPU overlays follow */
 	}
 	else
