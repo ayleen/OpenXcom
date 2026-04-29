@@ -1191,6 +1191,21 @@ void Globe::drawSphereGPU()
 	_globeShader->setUniform1f("u_camLat",       (float)_cenLat);
 	_globeShader->setUniform1f("u_camLon",       (float)_cenLon);
 
+	{
+		static int dbgFrameCount = 0;
+		if (dbgFrameCount < 3) {
+			Log(LOG_INFO) << "[8c-dbg] drawSphereGPU frame=" << dbgFrameCount
+			              << " surf=" << w << "x" << h
+			              << " cen=(" << _cenX << "," << _cenY << ")"
+			              << " zoom=" << _zoom
+			              << " radius=" << _zoomRadius[_zoom]
+			              << " camLat=" << _cenLat
+			              << " camLon=" << _cenLon
+			              << " zoomRadiusSize=" << _zoomRadius.size();
+			++dbgFrameCount;
+		}
+	}
+
 	/* Sun direction in world frame (8c.5 fix: was camera-relative, now world frame). */
 	Cord sd = getSunDirectionWorld();
 	_globeShader->setUniform3f("u_sunDir", (float)sd.x, (float)sd.y, (float)sd.z);
