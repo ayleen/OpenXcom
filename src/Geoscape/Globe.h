@@ -92,6 +92,8 @@ private:
 
 	/// One-time GPU resource initialisation for the sphere.
 	bool initSphereGPU();
+	/// Draws a deterministic pixel-art space background behind the HD sphere.
+	void drawHDStarfield();
 	/// Renders the sphere via GPU and reads back pixels into this surface.
 	void drawSphereGPU();
 	/// Sun direction in the fixed world frame the shader uses.

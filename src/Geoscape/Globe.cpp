@@ -1142,6 +1142,53 @@ Cord Globe::getSunDirectionWorld() const
 	            cos(decl) * cos(sunLon));
 }
 
+void Globe::drawHDStarfield()
+{
+	if (!isARGB()) return;
+
+	const int w = getWidth();
+	const int h = getHeight();
+	const double globeLimit = (_zoomRadius[_zoom] + 5.0) * (_zoomRadius[_zoom] + 5.0);
+
+	lock();
+	for (int y = 0; y < h; ++y)
+	{
+		const float t = (h > 1) ? (float)y / (float)(h - 1) : 0.f;
+		const Uint8 r = (Uint8)(1 + t * 2);
+		const Uint8 g = (Uint8)(5 + t * 9);
+		const Uint8 b = (Uint8)(17 + t * 18);
+		const Uint32 bg = 0xFF000000u | ((Uint32)r << 16) | ((Uint32)g << 8) | (Uint32)b;
+		for (int x = 0; x < w; ++x)
+		{
+			setPixel32(x, y, bg);
+		}
+	}
+
+	/* Deterministic sparse stars: bright enough to give the globe a space
+	 * setting, sparse enough to avoid fighting Geoscape labels and markers. */
+	for (unsigned i = 0; i < 125; ++i)
+	{
+		unsigned n = i * 747796405u + 2891336453u;
+		n = ((n >> ((n >> 28u) + 4u)) ^ n) * 277803737u;
+		n = (n >> 22u) ^ n;
+		const int x = (int)(n % (unsigned)w);
+		const int y = (int)((n / (unsigned)w) % (unsigned)h);
+		const double dx = (double)x - (double)_cenX;
+		const double dy = (double)y - (double)_cenY;
+		if (dx * dx + dy * dy < globeLimit) continue;
+
+		const Uint8 v = (Uint8)(100 + (n & 0x7Fu));
+		const Uint32 star = 0xFF000000u
+			| ((Uint32)(v * 78 / 100) << 16)
+			| ((Uint32)(v * 92 / 100) << 8)
+			| (Uint32)v;
+		setPixel32(x, y, star);
+		if ((n & 0x0Fu) == 0 && x + 1 < w) setPixel32(x + 1, y, star);
+		if ((n & 0x1Fu) == 0 && y + 1 < h) setPixel32(x, y + 1, star);
+	}
+	unlock();
+}
+
 /**
  * Renders the HD sphere using the GPU shader pipeline and reads the pixels
  * back into this Surface so the existing CPU overlay (polylines, markers,
@@ -1213,8 +1260,9 @@ void Globe::drawSphereGPU()
 	/* Cloud drift time. */
 	_globeShader->setUniform1f("u_time", (float)SDL_GetTicks() * 0.001f);
 
-	/* Mip level curve (8c.6): 0=8k at high zoom, 3=1k at overview. */
-	float mipLvl = std::max(0.f, std::min(3.f, 3.f - (float)_zoom * 0.6f));
+	/* Mip level curve: keep the overview detailed enough that land does not
+	 * read as a low-res smear; the globe is small, but 1k mips are too soft. */
+	float mipLvl = std::max(0.f, std::min(1.35f, 1.35f - (float)_zoom * 0.27f));
 	_globeShader->setUniform1f("u_mipLevel", mipLvl);
 
 	glBindVertexArray(_sphereVAO);
@@ -1274,9 +1322,7 @@ void Globe::draw()
 #ifdef __EMSCRIPTEN__
 	if (_game->getMod()->hasGlobeTextures())
 	{
-		lock();
-		drawCircle(_cenX+1, _cenY, _radius+20, OCEAN_COLOR); // halo — GPU readback skips outside-disk pixels
-		unlock();
+		drawHDStarfield();
 		drawSphereGPU(); /* renders sphere + reads back; CPU overlays follow */
 	}
 	else

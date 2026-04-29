@@ -78,23 +78,57 @@ void main()
     vec3  diff   = textureLod(u_diffuse,    uv, u_mipLevel).rgb;
     vec3  night  = textureLod(u_night,      uv, u_mipLevel).rgb;
     // Cloud layer drifts longitudinally; GL_REPEAT handles seamless wrap.
-    vec2  cloudUV = vec2(uv.x + u_time * 0.0001, uv.y);
+    // One wrap is ~37 minutes: visible in play, calm enough for Geoscape.
+    vec2  cloudUV = vec2(uv.x + u_time * 0.00045, uv.y);
     vec4  cloud   = textureLod(u_clouds, cloudUV, u_mipLevel);
 
-    // Surface: bathymetry is the ocean base; Blue Marble dominates on land
-    // where it is brighter.  Multiply diffuse slightly to keep ocean blue.
-    vec3 surface = max(bathy, diff * 0.95);
+    // Stylized TFTD composite.  Real satellite colour is too bright and
+    // documentary-looking next to the low-res Geoscape UI, so keep the ocean
+    // dominant and treat land as a muted overlay until a real land mask ships.
+    float landWarmth = diff.r * 1.15 + diff.g * 0.85 - diff.b * 1.25;
+    float landMask = smoothstep(0.10, 0.28, landWarmth);
 
-    // Day / night terminator — smooth 5° (~0.087 rad) transition.
+    vec3 ocean = bathy * vec3(0.16, 0.42, 0.62) + vec3(0.00, 0.018, 0.040);
+    vec3 dryLand = diff * vec3(0.48, 0.56, 0.50) + vec3(0.00, 0.015, 0.020);
+
+    // Preserve a hint of real tropical greenery.  The mask is intentionally
+    // soft: enough to make Amazon/Congo/Indonesia read green, not enough to
+    // pull the globe back into raw satellite-photo colours.
+    float diffMax = max(max(diff.r, diff.g), diff.b);
+    float diffMin = min(min(diff.r, diff.g), diff.b);
+    float diffLuma = dot(diff, vec3(0.299, 0.587, 0.114));
+    float diffSat = diffMax - diffMin;
+    float greenHue =
+        smoothstep(-0.015, 0.070, diff.g - diff.r * 0.88) *
+        smoothstep(-0.030, 0.075, diff.g - diff.b * 0.78);
+    float notSnow = (1.0 - smoothstep(0.50, 0.74, diffLuma)) * smoothstep(0.045, 0.155, diffSat);
+    float vegetation = landMask * greenHue * notSnow;
+    vec3 greenLand = diff * vec3(0.30, 0.92, 0.50) + vec3(0.00, 0.055, 0.025);
+    vec3 land = mix(dryLand, greenLand, vegetation * 0.78);
+    vec3 surface = mix(ocean, land, landMask);
+
+    // Desaturate and cool the whole globe toward TFTD's sonar/navy mood.
+    float luma = dot(surface, vec3(0.299, 0.587, 0.114));
+    surface = mix(vec3(luma), surface, 0.72);
+    surface *= vec3(0.72, 0.92, 1.05);
+
+    // Day / night terminator.  Keep it wider than the physical value: a
+    // razor-sharp terminator looks like a black stripe at Geoscape scale.
     float sunDot   = dot(n_world, u_sunDir);
-    float dayFactor = smoothstep(-0.087, 0.087, sunDot);
+    float dayFactor = smoothstep(-0.46, 0.24, sunDot);
 
-    // Cloud opacity comes from the WebP alpha channel — MODIS cloud fraction
-    // is stored in the alpha channel (0 = clear, 1 = fully overcast).
-    float cloudDensity = cloud.a;
-    // Clouds invisible on the night side; render as near-white.
-    vec3 daySide = mix(surface, vec3(1.0), cloudDensity * 0.9 * dayFactor);
-    vec3 nightSide = night * (1.0 - dayFactor);
+    // Cloud opacity comes from the WebP alpha channel.  The source cloud map is
+    // very dense, so compress it hard instead of washing the globe to white.
+    float cloudDensity = smoothstep(0.34, 0.96, cloud.a) * 0.24;
+    vec3 cloudColor = vec3(0.66, 0.86, 0.90);
 
-    fragColor = vec4(daySide + nightSide, 1.0);
+    vec3 daySide = mix(surface, cloudColor, cloudDensity * dayFactor) * (0.42 + dayFactor * 0.76);
+    vec3 nightSurface = surface * vec3(0.42, 0.48, 0.56);
+    vec3 nightSide = (nightSurface + vec3(0.005, 0.030, 0.055) + night * vec3(0.18, 0.62, 0.78)) * (1.0 - dayFactor);
+
+    // Darken the limb and add a thin cyan atmospheric rim inside the disk.
+    float limb = smoothstep(0.03, 0.55, nz);
+    vec3 rim = vec3(0.00, 0.16, 0.20) * pow(1.0 - nz, 3.0);
+
+    fragColor = vec4((daySide + nightSide) * (0.42 + limb * 0.58) + rim, 1.0);
 }
