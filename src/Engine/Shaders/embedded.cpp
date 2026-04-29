@@ -93,12 +93,12 @@ void main()
     vec2  d = v_pixel - u_globeCenter;
     float r = length(d) / u_globeRadius;
     if (r > 1.0) discard;
+    float edgeAlpha = 1.0 - smoothstep(0.985, 1.0, r);
 
     // Orthographic inverse: pixel → unit-sphere surface normal in view space.
-    // View space: +X right, +Y down (SDL), +Z into screen.
+    // View space matches Globe::polarToCart(): +X right, +Y down, +Z front.
     float nz      = sqrt(max(0.0, 1.0 - r * r));
-    // Flip Y so north is up in world space despite SDL's down-Y convention.
-    vec3  n_view  = vec3(d.x / u_globeRadius, -d.y / u_globeRadius, nz);
+    vec3  n_view  = vec3(d.x / u_globeRadius, d.y / u_globeRadius, nz);
 
     // Rotate to world space using camera orientation.
     vec3 n_world = applyCameraRotation(n_view, -u_camLat, u_camLon);
@@ -108,8 +108,12 @@ void main()
     // Bias atan only at the exact pole singularity; preserves accuracy elsewhere.
     float bias = (abs(n_world.x) + abs(n_world.z) < 1e-7) ? 1e-5 : 0.0;
     float lon  = atan(n_world.x, n_world.z + bias);           // [-π, +π]
+    // OXCE xcom2 globe rules use inverted latitude compared to real-world
+    // equirectangular imagery (London is stored near -49°, not +51°).
+    // Keep geometry/clicks in game coordinates, but sample NASA textures with
+    // latitude flipped so visual land/water matches the gameplay map.
     vec2  uv  = vec2((lon + 3.14159265) / 6.28318530,        // [0, 1]
-                     (1.57079633 - lat) / 3.14159265);        // [0, 1]
+                     (1.57079633 + lat) / 3.14159265);        // [0, 1]
 
     // Sample all layers at the selected mip level.
     vec3  bathy  = textureLod(u_bathymetry, uv, u_mipLevel).rgb;
@@ -168,7 +172,7 @@ void main()
     float limb = smoothstep(0.03, 0.55, nz);
     vec3 rim = vec3(0.00, 0.16, 0.20) * pow(1.0 - nz, 3.0);
 
-    fragColor = vec4((daySide + nightSide) * (0.42 + limb * 0.58) + rim, 1.0);
+    fragColor = vec4((daySide + nightSide) * (0.42 + limb * 0.58) + rim, edgeAlpha);
 }
 )glsl";
 

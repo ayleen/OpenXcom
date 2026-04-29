@@ -1166,6 +1166,7 @@ void Globe::drawHDStarfield()
 
 	/* Deterministic sparse stars: bright enough to give the globe a space
 	 * setting, sparse enough to avoid fighting Geoscape labels and markers. */
+	const float twinkleTime = (float)SDL_GetTicks() * 0.0017f;
 	for (unsigned i = 0; i < 125; ++i)
 	{
 		unsigned n = i * 747796405u + 2891336453u;
@@ -1177,7 +1178,9 @@ void Globe::drawHDStarfield()
 		const double dy = (double)y - (double)_cenY;
 		if (dx * dx + dy * dy < globeLimit) continue;
 
-		const Uint8 v = (Uint8)(100 + (n & 0x7Fu));
+		const float phase = (float)((n >> 8u) & 0xFFu) * 0.024543693f;
+		const float pulse = 0.62f + 0.38f * (0.5f + 0.5f * sinf(twinkleTime + phase));
+		const Uint8 v = (Uint8)((100 + (n & 0x7Fu)) * pulse);
 		const Uint32 star = 0xFF000000u
 			| ((Uint32)(v * 78 / 100) << 16)
 			| ((Uint32)(v * 92 / 100) << 8)
@@ -1295,11 +1298,23 @@ void Globe::drawSphereGPU()
 		uint8_t*       row = dst + y * pitch;
 		for (int x = 0; x < w; ++x)
 		{
-			if (src[x*4 + 3] == 0) continue; // discarded by shader — preserve halo drawn before
-			row[x*4 + 0] = src[x*4 + 2]; /* B */
-			row[x*4 + 1] = src[x*4 + 1]; /* G */
-			row[x*4 + 2] = src[x*4 + 0]; /* R */
-			row[x*4 + 3] = src[x*4 + 3]; /* A */
+			const uint8_t a = src[x*4 + 3];
+			if (a == 0) continue; // discarded by shader — preserve starfield
+			if (a == 255)
+			{
+				row[x*4 + 0] = src[x*4 + 2]; /* B */
+				row[x*4 + 1] = src[x*4 + 1]; /* G */
+				row[x*4 + 2] = src[x*4 + 0]; /* R */
+				row[x*4 + 3] = 255;
+			}
+			else
+			{
+				const int inv = 255 - a;
+				row[x*4 + 0] = (uint8_t)((src[x*4 + 2] * a + row[x*4 + 0] * inv) / 255);
+				row[x*4 + 1] = (uint8_t)((src[x*4 + 1] * a + row[x*4 + 1] * inv) / 255);
+				row[x*4 + 2] = (uint8_t)((src[x*4 + 0] * a + row[x*4 + 2] * inv) / 255);
+				row[x*4 + 3] = 255;
+			}
 		}
 	}
 	unlock();
