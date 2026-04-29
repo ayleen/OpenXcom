@@ -1225,6 +1225,15 @@ void Globe::drawSphereGPU()
 	std::vector<uint8_t> rgba((size_t)w * h * 4);
 	glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, rgba.data());
 
+	/* Unbind our textures from units 0..3 and reset the active unit to 0.
+	 * SDL2's renderer reuses these units for SDL_Texture rendering and would
+	 * otherwise pick up our globe textures, blasting them across the canvas
+	 * (sphere shader output is overridden by raw bathymetry on UI blits). */
+	for (int i = 3; i >= 0; --i) {
+		glActiveTexture(GL_TEXTURE0 + i);
+		glBindTexture(GL_TEXTURE_2D, 0u);
+	}
+
 	st.restore();
 
 	/* Convert RGBA (GL) → ARGB8888 (SDL little-endian) and flip Y.
