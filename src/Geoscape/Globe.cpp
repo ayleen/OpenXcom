@@ -64,6 +64,13 @@
 #  include <cmath>
 #  include <algorithm>
 #  include <vector>
+
+/* Phase 8c §C2 perf-log gate.  Definition lives in EmscriptenHarness.cpp
+ * inside `extern "C" { … }`, which puts it in the global namespace.  The
+ * forward declaration must therefore also be in the global namespace and
+ * carry C linkage; placing it outside `namespace OpenXcom { … }` below is
+ * what makes the link symbol resolve. */
+extern "C" int g_calypsoProfileGlobe;
 #endif
 
 namespace OpenXcom
@@ -1335,18 +1342,25 @@ void Globe::drawSphereGPU()
 	unlock();
 
 	perfTimer.stop();
-	static long long s_accumUs = 0;
-	static unsigned  s_frameCount = 0;
-	s_accumUs += perfTimer.elapsedUs();
-	const unsigned BATCH = 30u;
-	if (++s_frameCount >= BATCH)
+	/* Perf log is opt-in via JS-side calypso_set_profile_globe(1)
+	 * (EmscriptenHarness).  Production builds never call the setter so
+	 * g_calypsoProfileGlobe stays 0 and this branch emits zero bytes.
+	 * Forward-declared at top of file with C linkage. */
+	if (::g_calypsoProfileGlobe)
 	{
-		Log(LOG_INFO) << "Globe::drawSphereGPU avg: "
-		              << (s_accumUs / (long long)s_frameCount) << " us/frame"
-		              << " (" << w << "x" << h << ", n=" << s_frameCount
-		              << ", readback included)";
-		s_accumUs    = 0;
-		s_frameCount = 0;
+		static long long s_accumUs = 0;
+		static unsigned  s_frameCount = 0;
+		s_accumUs += perfTimer.elapsedUs();
+		const unsigned BATCH = 30u;
+		if (++s_frameCount >= BATCH)
+		{
+			Log(LOG_INFO) << "Globe::drawSphereGPU avg: "
+			              << (s_accumUs / (long long)s_frameCount) << " us/frame"
+			              << " (" << w << "x" << h << ", n=" << s_frameCount
+			              << ", readback included)";
+			s_accumUs    = 0;
+			s_frameCount = 0;
+		}
 	}
 }
 #endif /* __EMSCRIPTEN__ */

@@ -69,6 +69,18 @@ void calypso_gpu_smoke_activate(const char *path)
  * OXCE Cursor stuck.  Hosting code in main.js registers a JS mousemove
  * listener that calls this with backing-store coordinates; we update the
  * Cursor directly (the SDL queue path was unreliable). */
+/* Phase 8c §C2: opt-in perf log gate for Globe::drawSphereGPU.  JS toggles
+ * this from scripts/c2-perf-capture.js after Module init but before
+ * Geoscape opens; production builds never call this so the gate stays 0
+ * and the perf log emits zero bytes. */
+int g_calypsoProfileGlobe = 0;
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_set_profile_globe(int on)
+{
+	g_calypsoProfileGlobe = on ? 1 : 0;
+}
+
 EMSCRIPTEN_KEEPALIVE
 void calypso_push_mouse_motion(int x, int y)
 {
