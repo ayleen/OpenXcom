@@ -23,6 +23,7 @@
 #include "../Mod/MapData.h"
 #include "Position.h"
 #include "Particle.h"
+#include <memory>
 #include <vector>
 
 namespace OpenXcom
@@ -33,6 +34,10 @@ class Surface;
 class SurfaceSet;
 class BattleUnit;
 class Projectile;
+#ifdef __EMSCRIPTEN__
+class Shader;
+class GpuTexture;
+#endif
 class Explosion;
 class BattlescapeMessage;
 class Camera;
@@ -113,6 +118,8 @@ private:
 #ifdef __EMSCRIPTEN__
 	void drawTerrainGPU(Surface *surface);
 	void emitTilePass();
+	void initTileGL();
+	void drawTileGLPass();
 
 	/// Per-tile GPU instance record submitted to the tile_atlas shader.
 	struct TileInstance
@@ -124,13 +131,26 @@ private:
 		float alphaMask;          // MCD opacity flag (0 or 1)
 	};
 
-	std::vector<TileInstance> _tileInstances;
+	/// Per-atlas draw group: one glDrawArraysInstanced per atlas texture.
+	struct AtlasGroup
+	{
+		GpuTexture*               atlas    = nullptr;
+		float                     tileUVW  = 0.0f;
+		float                     tileUVH  = 0.0f;
+		std::vector<TileInstance> instances;
+	};
+
+	std::vector<AtlasGroup>  _tileAtlasGroups;
+	Shader*                  _tileShader    = nullptr;
+	GpuTexture*              _shadeTableTex = nullptr;
 	unsigned int _tileVAO    = 0;
-	unsigned int _tileVBO    = 0;  // corner (static)
-	unsigned int _tileIBO    = 0;  // instance (dynamic, per-frame)
+	unsigned int _tileVBO    = 0;  // corner quads (static)
+	unsigned int _tileIBO    = 0;  // instance data (dynamic, per-frame)
 	bool         _tileGLInit = false;
 	/// Fractional animation cycle position [0, 1) — set each frame, passed as u_animFrame.
 	float        _animFrameGPU = 0.0f;
+	/// Lifetime flag: reset in ~Map() so the registered GPU-pass lambda becomes a no-op.
+	std::shared_ptr<bool>    _gpuAliveFlag;
 #endif
 	int getTerrainLevel(const Position& pos, int size) const;
 	int getWallShade(TilePart part, Tile* tileFrot);

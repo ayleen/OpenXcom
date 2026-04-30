@@ -32,7 +32,8 @@ namespace OpenXcom
 GpuTexture* buildVanillaAtlas(const MapDataSet& mds,
                                const SDL_Color*  palette,
                                int               ncolors,
-                               std::map<int,int>& frameMap)
+                               std::map<int,int>& frameMap,
+                               std::map<int,int>& pckToAtlas)
 {
     if (!GpuInit::ready()) return nullptr;
     if (!palette || ncolors < 1) return nullptr;
@@ -182,6 +183,8 @@ GpuTexture* buildVanillaAtlas(const MapDataSet& mds,
         delete tex;
         return nullptr;
     }
+
+    pckToAtlas = dedup_map;
 
     Log(LOG_INFO) << "TileAtlasBuilder[" << mds.getName() << "]: "
                   << atlas_w << "x" << atlas_h << " atlas, "

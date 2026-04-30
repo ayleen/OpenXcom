@@ -57,6 +57,8 @@
 #  include "../Engine/GpuTimer.h"
 #  include "../Engine/GpuInit.h"
 #  include "../Engine/Shader.h"
+#  include "../Engine/GpuTexture.h"
+#  include "../Engine/ShadeTableCache.h"
 #  include "../Engine/RenderTarget.h"
 #  include <GLES3/gl3.h>
 #  include <vector>
@@ -372,6 +374,17 @@ Map::~Map()
 	delete _message;
 	delete _camera;
 	delete _txtAccuracy;
+#ifdef __EMSCRIPTEN__
+	_gpuAliveFlag.reset();
+	delete _tileShader;    _tileShader    = nullptr;
+	delete _shadeTableTex; _shadeTableTex = nullptr;
+	if (_tileGLInit)
+	{
+		glDeleteBuffers(1, &_tileVBO);
+		glDeleteBuffers(1, &_tileIBO);
+		glDeleteVertexArrays(1, &_tileVAO);
+	}
+#endif
 }
 
 /**
@@ -409,6 +422,17 @@ void Map::init()
 	{
 		_projectileSet = _game->getMod()->getSurfaceSet("UnderwaterProjectiles");
 	}
+#ifdef __EMSCRIPTEN__
+	if (_game->getMod()->hasHDPack() && GpuInit::ready())
+	{
+		_gpuAliveFlag = std::make_shared<bool>(true);
+		std::weak_ptr<bool> wf = _gpuAliveFlag;
+		_game->getScreen()->registerGPUPass([this, wf]() {
+			if (!wf.lock()) return;
+			this->drawTileGLPass();
+		});
+	}
+#endif
 }
 
 /**
@@ -526,6 +550,34 @@ void Map::setPalette(const SDL_Color *colors, int firstcolor, int ncolors)
 	refreshHiddenMovementBackground();
 	_message->initText(_game->getMod()->getFont("FONT_BIG"), _game->getMod()->getFont("FONT_SMALL"), _game->getLanguage());
 	_message->setText(_game->getLanguage()->getString("STR_HIDDEN_MOVEMENT"), _game->getLanguage()->getString("STR_THINKING"));
+#ifdef __EMSCRIPTEN__
+	if (_game->getMod()->hasHDPack() && GpuInit::ready())
+	{
+		Mod* mod = _game->getMod();
+		const auto* mdsVec = _save->getMapDataSets();
+		_tileAtlasGroups.clear();
+		_tileAtlasGroups.resize(mdsVec->size());
+		for (size_t i = 0; i < mdsVec->size(); ++i)
+		{
+			MapDataSet* mds = (*mdsVec)[i];
+			mod->ensureVanillaAtlas(mds, colors, ncolors);
+			GpuTexture* atlas = mod->getTileAtlas(mds->getName());
+			if (!atlas) continue;
+			auto* spec = mod->getTileAtlasSpec(mds->getName());
+			if (!spec) continue;
+			_tileAtlasGroups[i].atlas   = atlas;
+			_tileAtlasGroups[i].tileUVW = (float)spec->tileWidth  / (float)spec->width;
+			_tileAtlasGroups[i].tileUVH = (float)spec->tileHeight / (float)spec->height;
+		}
+		delete _shadeTableTex; _shadeTableTex = nullptr;
+		const ShadeTable* st = getShadeTable();
+		if (st)
+		{
+			ShadeTableCache tmp;
+			_shadeTableTex = tmp.uploadGPU(st).release();
+		}
+	}
+#endif
 }
 
 void Map::refreshHiddenMovementBackground()
@@ -2010,38 +2062,242 @@ void Map::drawTerrainCPU(Surface *surface)
 /**
  * GPU Battlescape compositor.
  * Computes the per-frame animation phase, collects TileInstance records via
- * emitTilePass(), then issues glDrawArraysInstanced for each mapDataSet atlas.
- * Full instance dispatch wired in Block 11.7+; falls back to CPU until then.
+ * emitTilePass(), then issues glDrawArraysInstanced for each mapDataSet atlas
+ * via a registered GPU pass.
  */
-void Map::drawTerrainGPU(Surface *surface)
+void Map::drawTerrainGPU(Surface* /*surface*/)
 {
-	// Block 11.6: compute animation fraction [0, 1) from wall-clock time.
-	// 8 frames × 100 ms = 800 ms period; matches BattlescapeState::DEFAULT_ANIM_SPEED × 8.
 	const Uint32 ticks = SDL_GetTicks();
 	_animFrameGPU = static_cast<float>(ticks % TILE_ANIM_PERIOD_MS)
 	                / static_cast<float>(TILE_ANIM_PERIOD_MS);
-
-	// Collect tile instances (stub until Block 11.7).
 	emitTilePass();
-
-	// Block 11.7: bind tile_atlas program, upload _tileInstances → _tileIBO,
-	// set uniforms (u_animFrame = _animFrameGPU, u_atlas, u_shadeTable, ...),
-	// glDrawArraysInstanced, then draw overlay passes (cursor, projectile…).
-	// Until the instance buffer is live, fall back to the CPU path.
-	drawTerrainCPU(surface);
+	// GPU draw is handled by drawTileGLPass(), invoked from the registered GPU pass
+	// in Screen::flip() after SDL_RenderFlush — no CPU fallback for tiles.
 }
 
 /**
- * Walk camera-visible tiles and append TileInstance entries to _tileInstances.
- * Full implementation in Block 11.7: reads atlas UV from Mod::getTileAtlas(),
- * computes screen position via Camera, fills shade/alphaMask/animFrameCount.
+ * Walk camera-visible tiles and build per-atlas TileInstance lists.
  */
 void Map::emitTilePass()
 {
-	_tileInstances.clear();
-	// Block 11.7: iterate _save tiles in camera-visible range,
-	// look up TileAtlasSpec::frameMap[mcd_index] → atlasUV,
-	// fill TileInstance, push_back into _tileInstances.
+	for (auto& grp : _tileAtlasGroups) grp.instances.clear();
+	if (_tileAtlasGroups.empty()) return;
+
+	Mod* mod = _game->getMod();
+	const auto* mdsVec = _save->getMapDataSets();
+
+	// Determine the camera-visible tile range.
+	int beginX = 0, endX = _save->getMapSizeX() - 1;
+	int beginY = 0, endY = _save->getMapSizeY() - 1;
+	int beginZ = 0, endZ = _save->getMapSizeZ() - 1;
+	int dummy;
+	_camera->convertScreenToMap(0, 0, &beginX, &dummy);
+	_camera->convertScreenToMap(getWidth(), 0, &dummy, &beginY);
+	_camera->convertScreenToMap(getWidth() + _spriteWidth, getHeight() + _spriteHeight, &endX, &dummy);
+	_camera->convertScreenToMap(0, getHeight() + _spriteHeight, &dummy, &endY);
+	beginY -= _camera->getViewLevel() * 2;
+	beginX -= _camera->getViewLevel() * 2;
+	beginX = std::max(beginX, 0); beginY = std::max(beginY, 0);
+	endX   = std::min(endX, _save->getMapSizeX() - 1);
+	endY   = std::min(endY, _save->getMapSizeY() - 1);
+	if (!_camera->getShowAllLayers())
+		endZ = std::min(endZ, _camera->getViewLevel());
+	if (_camera->getShowSingleLayer())
+	{
+		beginZ = _camera->getViewLevel();
+		endZ   = _camera->getViewLevel();
+	}
+
+	const int mapOffsetX   = getX();
+	const int mapOffsetY   = getY();
+	const Position camOff  = _camera->getMapOffset();
+	const int animFrameIdx = _animFrame;
+	static const TilePart parts[4] = { O_FLOOR, O_WESTWALL, O_NORTHWALL, O_OBJECT };
+
+	for (int itZ = beginZ; itZ <= endZ; ++itZ)
+	for (int itY = beginY; itY < endY;  ++itY)
+	{
+		Position mapPos(beginX, itY, itZ);
+		for (int itX = beginX; itX < endX; ++itX, ++mapPos.x)
+		{
+			Tile* tile = _save->getTile(mapPos);
+			if (!tile) continue;
+
+			Position screenPos;
+			_camera->convertMapToScreen(mapPos, &screenPos);
+			screenPos += camOff;
+			if (screenPos.x <= -_spriteWidth  || screenPos.x >= getWidth()  + _spriteWidth ||
+			    screenPos.y <= -_spriteHeight || screenPos.y >= getHeight() + _spriteHeight)
+				continue;
+
+			const int tileShade = tile->isDiscovered(O_FLOOR) ? reShade(tile) : 16;
+
+			for (int pi = 0; pi < 4; ++pi)
+			{
+				TilePart part = parts[pi];
+				if (!tile->getSprite(part)) continue;
+
+				int mcdIdx = 0, mdsID = 0;
+				tile->getMapData(&mcdIdx, &mdsID, part);
+				if (mdsID < 0 || mdsID >= (int)mdsVec->size()) continue;
+				if (mdsID >= (int)_tileAtlasGroups.size()) continue;
+				AtlasGroup& grp = _tileAtlasGroups[mdsID];
+				if (!grp.atlas) continue;
+
+				MapDataSet* mds = (*mdsVec)[mdsID];
+				auto* spec = mod->getTileAtlasSpec(mds->getName());
+				if (!spec) continue;
+
+				// Resolve animation frame: try pckToAtlas for animated sprites,
+				// fall back to frameMap primary-frame entry.
+				int atlasTileIdx = -1;
+				MapData* md = tile->getMapData(part);
+				if (md)
+				{
+					int animPCK = md->getSprite(animFrameIdx);
+					if (animPCK > 0)
+					{
+						auto it = spec->pckToAtlas.find(animPCK);
+						if (it != spec->pckToAtlas.end())
+							atlasTileIdx = it->second;
+					}
+					if (atlasTileIdx < 0)
+					{
+						auto it = spec->frameMap.find(mcdIdx);
+						if (it != spec->frameMap.end())
+							atlasTileIdx = it->second;
+					}
+				}
+				if (atlasTileIdx < 0) continue;
+
+				const int   atlasCol = atlasTileIdx % spec->columns;
+				const int   atlasRow = atlasTileIdx / spec->columns;
+				const float atlasU   = atlasCol * grp.tileUVW;
+				const float atlasV   = atlasRow * grp.tileUVH;
+
+				int shade = (part == O_WESTWALL || part == O_NORTHWALL)
+				            ? getWallShade(part, tile) : tileShade;
+				shade = std::min(shade, 15);
+
+				TileInstance inst;
+				inst.screenX       = (float)(screenPos.x + mapOffsetX);
+				inst.screenY       = (float)(screenPos.y - tile->getYOffset(part) + mapOffsetY);
+				inst.atlasU        = atlasU;
+				inst.atlasV        = atlasV;
+				inst.shade         = (float)shade;
+				inst.animFrameCount = 1.0f;
+				inst.alphaMask     = 1.0f;
+				grp.instances.push_back(inst);
+			}
+		}
+	}
+}
+
+/**
+ * Initialise VAO/VBO/IBO for instanced tile draw and compile tile_atlas shader.
+ * Called lazily on the first drawTileGLPass() invocation.
+ */
+void Map::initTileGL()
+{
+	if (_tileGLInit) return;
+	_tileGLInit = true;
+
+	_tileShader = new Shader();
+	if (!_tileShader->loadFromEmbedded("tile_atlas"))
+	{
+		Log(LOG_ERROR) << "Map::initTileGL: tile_atlas shader compile failed";
+		delete _tileShader; _tileShader = nullptr;
+		return;
+	}
+
+	static const float corners[] = {
+		0.f, 0.f,  1.f, 0.f,  0.f, 1.f,
+		0.f, 1.f,  1.f, 0.f,  1.f, 1.f,
+	};
+
+	glGenVertexArrays(1, &_tileVAO);
+	glBindVertexArray(_tileVAO);
+
+	// attr 0 — corner (vec2, per-vertex)
+	glGenBuffers(1, &_tileVBO);
+	glBindBuffer(GL_ARRAY_BUFFER, _tileVBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(corners), corners, GL_STATIC_DRAW);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
+	glVertexAttribDivisor(0, 0);
+
+	// attrs 1–5 — per-instance (stride = 7 floats = 28 bytes)
+	glGenBuffers(1, &_tileIBO);
+	glBindBuffer(GL_ARRAY_BUFFER, _tileIBO);
+	const GLsizei stride = 7 * (GLsizei)sizeof(float);
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, (const void*)0);
+	glVertexAttribDivisor(1, 1);
+
+	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (const void*)(2 * sizeof(float)));
+	glVertexAttribDivisor(2, 1);
+
+	glEnableVertexAttribArray(3);
+	glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, stride, (const void*)(4 * sizeof(float)));
+	glVertexAttribDivisor(3, 1);
+
+	glEnableVertexAttribArray(4);
+	glVertexAttribPointer(4, 1, GL_FLOAT, GL_FALSE, stride, (const void*)(5 * sizeof(float)));
+	glVertexAttribDivisor(4, 1);
+
+	glEnableVertexAttribArray(5);
+	glVertexAttribPointer(5, 1, GL_FLOAT, GL_FALSE, stride, (const void*)(6 * sizeof(float)));
+	glVertexAttribDivisor(5, 1);
+
+	glBindVertexArray(0);
+	Log(LOG_INFO) << "Map::initTileGL: tile rendering pipeline ready";
+}
+
+/**
+ * Issue one glDrawArraysInstanced per atlas group.  Called from the Screen GPU
+ * pass registered in Map::init(), i.e. AFTER SDL_RenderFlush in Screen::flip().
+ */
+void Map::drawTileGLPass()
+{
+	if (!_tileGLInit) initTileGL();
+	if (!_tileShader || !_tileShader->isValid()) return;
+	if (!_shadeTableTex || !_shadeTableTex->isValid()) return;
+
+	bool hasAny = false;
+	for (auto& grp : _tileAtlasGroups)
+		if (!grp.instances.empty()) { hasAny = true; break; }
+	if (!hasAny) return;
+
+	const int SW = _game->getScreen()->getWidth();
+	const int SH = _game->getScreen()->getHeight();
+
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glDisable(GL_DEPTH_TEST);
+
+	_tileShader->use();
+	_tileShader->setUniform2f("u_screenSize",    (float)SW, (float)SH);
+	_tileShader->setUniform2f("u_tilePixelSize", (float)_spriteWidth, (float)_spriteHeight);
+	_tileShader->setUniform1f("u_animFrame",     0.0f);
+	_tileShader->setUniform1i("u_atlas",         0);
+	_tileShader->setUniform1i("u_shadeTable",    1);
+	_shadeTableTex->bind(1);
+
+	glBindVertexArray(_tileVAO);
+	for (auto& grp : _tileAtlasGroups)
+	{
+		if (!grp.atlas || grp.instances.empty()) continue;
+		grp.atlas->bind(0);
+		_tileShader->setUniform2f("u_tileUVSize", grp.tileUVW, grp.tileUVH);
+		glBindBuffer(GL_ARRAY_BUFFER, _tileIBO);
+		glBufferData(GL_ARRAY_BUFFER,
+		             (GLsizeiptr)(grp.instances.size() * sizeof(TileInstance)),
+		             grp.instances.data(), GL_DYNAMIC_DRAW);
+		glDrawArraysInstanced(GL_TRIANGLES, 0, 6, (GLsizei)grp.instances.size());
+	}
+	glBindVertexArray(0);
+	glDisable(GL_BLEND);
 }
 #endif
 

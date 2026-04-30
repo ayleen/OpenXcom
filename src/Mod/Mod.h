@@ -224,7 +224,8 @@ private:
 		int               tileWidth  = 64;
 		int               tileHeight = 80;
 		int               columns    = 16;
-		std::map<int,int> frameMap;   // MCD entry index → atlas tile index
+		std::map<int,int> frameMap;    // MCD entry index → atlas tile index (primary frame)
+		std::map<int,int> pckToAtlas;  // PCK frame index → atlas tile index (all frames incl. animation)
 	};
 	std::map<std::string, TileAtlasSpec> _tileAtlasSpecs;
 	/// Synthesised vanilla tile atlases: mapDataSet name -> GpuTexture*.

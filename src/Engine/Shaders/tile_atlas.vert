@@ -18,12 +18,12 @@
 //   u_tilePixelSize — tile size in pixels (e.g. 32x40 or 64x80)
 //   u_tileUVSize   — one tile in UV space (tileW/atlasW, tileH/atlasH)
 
-in vec2  a_corner;
-in vec2  a_screenPos;
-in vec2  a_atlasUV;
-in float a_shade;
-in float a_animFrameCount;
-in float a_alphaMask;
+layout(location=0) in vec2  a_corner;
+layout(location=1) in vec2  a_screenPos;
+layout(location=2) in vec2  a_atlasUV;
+layout(location=3) in float a_shade;
+layout(location=4) in float a_animFrameCount;
+layout(location=5) in float a_alphaMask;
 
 uniform vec2 u_screenSize;
 uniform vec2 u_tilePixelSize;

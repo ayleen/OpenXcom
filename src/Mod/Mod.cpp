@@ -967,7 +967,8 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 	if (_tileAtlases.count(name)) return;
 
 	std::map<int,int> frameMap;
-	GpuTexture* tex = buildVanillaAtlas(*mds, palette, ncolors, frameMap);
+	std::map<int,int> pckToAtlas;
+	GpuTexture* tex = buildVanillaAtlas(*mds, palette, ncolors, frameMap, pckToAtlas);
 	if (!tex) return;
 
 	// Discard any stale entry (shouldn't happen, but be safe).
@@ -990,6 +991,7 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 	spec.tileHeight       = 80;
 	spec.columns          = 16;
 	spec.frameMap         = std::move(frameMap);
+	spec.pckToAtlas       = std::move(pckToAtlas);
 }
 
 void Mod::clearTileAtlases()
