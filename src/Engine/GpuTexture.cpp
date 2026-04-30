@@ -13,7 +13,7 @@
 namespace OpenXcom
 {
 
-GpuTexture::GpuTexture(bool srgb, Wrap wrap) : _srgb(srgb), _wrap(wrap)
+GpuTexture::GpuTexture(bool srgb, Wrap wrap, Filter filter) : _srgb(srgb), _wrap(wrap), _filter(filter)
 {
     ShaderManager::instance().registerTexture(this);
 }
@@ -33,8 +33,10 @@ bool GpuTexture::uploadRGBA(const uint8_t* data, int w, int h, int mipLevel)
     {
         glGenTextures(1, &_tex);
         glBindTexture(GL_TEXTURE_2D, _tex);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        GLenum minF = (_filter == Filter::Nearest) ? GL_NEAREST : GL_LINEAR_MIPMAP_LINEAR;
+        GLenum magF = (_filter == Filter::Nearest) ? GL_NEAREST : GL_LINEAR;
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, (GLint)minF);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, (GLint)magF);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,
                         _wrap == Wrap::RepeatS_ClampT ? GL_REPEAT : GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -64,6 +66,36 @@ bool GpuTexture::uploadRGBA(const uint8_t* data, int w, int h, int mipLevel)
 #endif
 }
 
+bool GpuTexture::uploadR8(const uint8_t* data, int w, int h)
+{
+#ifdef __EMSCRIPTEN__
+    if (!GpuInit::ready()) return false;
+    if (!_tex)
+    {
+        glGenTextures(1, &_tex);
+        glBindTexture(GL_TEXTURE_2D, _tex);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    }
+    else
+    {
+        glBindTexture(GL_TEXTURE_2D, _tex);
+    }
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, w, h, 0, GL_RED, GL_UNSIGNED_BYTE, data);
+    _cachedData.assign(data, data + (size_t)w * h);
+    _cachedW = w; _cachedH = h;
+    _w = w; _h = h;
+    _isR8 = true;
+    glBindTexture(GL_TEXTURE_2D, 0u);
+    return true;
+#else
+    (void)data; (void)w; (void)h;
+    return false;
+#endif
+}
+
 void GpuTexture::bind(int textureUnit)
 {
 #ifdef __EMSCRIPTEN__
@@ -81,7 +113,10 @@ void GpuTexture::reupload()
     glDeleteTextures(1, &_tex);
     _tex = 0u;
 #endif
-    uploadRGBA(_cachedData.data(), _cachedW, _cachedH, 0);
+    if (_isR8)
+        uploadR8(_cachedData.data(), _cachedW, _cachedH);
+    else
+        uploadRGBA(_cachedData.data(), _cachedW, _cachedH, 0);
 }
 
 void GpuTexture::release()
