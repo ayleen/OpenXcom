@@ -22,6 +22,10 @@
 #include <unordered_map>
 #include "ShadeTable.h"
 
+#ifdef __EMSCRIPTEN__
+#include "GpuTexture.h"
+#endif
+
 namespace OpenXcom
 {
 
@@ -63,6 +67,12 @@ public:
 	                              Uint8 nbcShifted);
 
 	void clear();
+
+#ifdef __EMSCRIPTEN__
+	/// Build a 16x256 RGBA8 GPU texture from a ShadeTable for use in tile_atlas.frag.
+	/// Column=shade(0..15), row=palette index(0..255). Returns nullptr if table is null/empty.
+	std::unique_ptr<GpuTexture> uploadGPU(const ShadeTable* table) const;
+#endif
 
 private:
 	struct Key

@@ -46,3 +46,44 @@ void ShadeTableCache::clear()
 }
 
 } // namespace OpenXcom
+
+#ifdef __EMSCRIPTEN__
+#include "GpuTexture.h"
+#include <vector>
+
+namespace OpenXcom
+{
+
+std::unique_ptr<GpuTexture> ShadeTableCache::uploadGPU(const ShadeTable* table) const
+{
+	if (!table || table->empty()) return nullptr;
+
+	// 16 columns (shade 0..15) x 256 rows (palette index 0..255), RGBA8
+	constexpr int W = 16, H = 256;
+	std::vector<uint8_t> pixels(W * H * 4u);
+	for (int palIdx = 0; palIdx < H; ++palIdx)
+	{
+		for (int shade = 0; shade < W; ++shade)
+		{
+			Uint32 argb = table->get(static_cast<Uint8>(palIdx), shade);
+			uint8_t a = (argb >> 24) & 0xFFu;
+			uint8_t r = (argb >> 16) & 0xFFu;
+			uint8_t g = (argb >>  8) & 0xFFu;
+			uint8_t b =  argb        & 0xFFu;
+			size_t i = (static_cast<size_t>(palIdx) * W + shade) * 4u;
+			pixels[i+0] = r;
+			pixels[i+1] = g;
+			pixels[i+2] = b;
+			pixels[i+3] = a;
+		}
+	}
+
+	// GL_NEAREST: shade levels are discrete; interpolation would give wrong colors.
+	auto tex = std::make_unique<GpuTexture>(false, GpuTexture::Wrap::ClampToEdge,
+	                                        GpuTexture::Filter::Nearest);
+	tex->uploadRGBA(pixels.data(), W, H);
+	return tex;
+}
+
+} // namespace OpenXcom
+#endif

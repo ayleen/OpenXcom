@@ -10,6 +10,7 @@
  *   "colorquad"
  *   "globe_sphere"
  *   "textured"
+ *   "tile_atlas"
  */
 #include <cstring>
 

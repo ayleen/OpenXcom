@@ -38,6 +38,46 @@ void main()
 }
 )glsl";
 
+static const char* kTile_atlasVertSrc = R"glsl(
+in vec2  a_corner;
+in vec2  a_screenPos;
+in vec2  a_atlasUV;
+in float a_shade;
+in float a_animFrameCount;
+in float a_alphaMask;
+
+uniform vec2 u_screenSize;
+uniform vec2 u_tilePixelSize;
+uniform vec2 u_tileUVSize;
+
+out vec2  v_uv;
+out float v_shade;
+out float v_animFrameCount;
+out float v_alphaMask;
+
+void main()
+{
+    // Build pixel-space position of this corner within the tile.
+    vec2 pixelPos = a_screenPos + a_corner * u_tilePixelSize;
+
+    // Convert to NDC [-1, +1].
+    vec2 ndc = (pixelPos / u_screenSize) * 2.0 - 1.0;
+
+    // Flip Y: SDL uses top-left origin, GL uses bottom-left.
+    ndc.y = -ndc.y;
+
+    gl_Position = vec4(ndc, 0.0, 1.0);
+
+    // Atlas UV: base UV offset by this corner's fraction of one tile.
+    v_uv = a_atlasUV + a_corner * u_tileUVSize;
+
+    // Pass per-instance data straight through to the fragment shader.
+    v_shade          = a_shade;
+    v_animFrameCount = a_animFrameCount;
+    v_alphaMask      = a_alphaMask;
+}
+)glsl";
+
 /* ── fragment shader sources ─────────────────────────────────────────────── */
 
 static const char* kColorquadFragSrc = R"glsl(
@@ -187,6 +227,46 @@ void main()
 }
 )glsl";
 
+static const char* kTile_atlasFragSrc = R"glsl(
+uniform sampler2D u_atlas;
+uniform sampler2D u_shadeTable;
+uniform float     u_animFrame;
+uniform vec2      u_tileUVSize;
+
+in vec2  v_uv;
+in float v_shade;
+in float v_animFrameCount;
+in float v_alphaMask;
+
+out vec4 fragColor;
+
+void main()
+{
+    // Discard tiles marked as fully transparent by the MCD opacity flag.
+    if (v_alphaMask < 0.5) discard;
+
+    // Resolve the current animation frame and offset the UV horizontally.
+    float frame = floor(u_animFrame * v_animFrameCount);
+    vec2 uv = v_uv + vec2(frame * u_tileUVSize.x, 0.0);
+
+    // Sample atlas: R channel holds the palette index normalised to [0, 1].
+    // Multiply by 255 and round to recover the integer index.
+    float palNorm = texture(u_atlas, uv).r;
+
+    // Palette index 0 is always transparent.
+    if (palNorm < (0.5 / 255.0)) discard;
+
+    // Shade-table lookup using texel-centre coordinates to avoid bleed
+    // between adjacent entries (both atlas and shade table use GL_NEAREST,
+    // but the explicit + 0.5 guard is cheap insurance).
+    float shadeU = (v_shade + 0.5) / 16.0;
+    float shadeV = (palNorm * 255.0 + 0.5) / 256.0;
+    vec4 shaded = texture(u_shadeTable, vec2(shadeU, shadeV));
+
+    fragColor = vec4(shaded.rgb, shaded.a);
+}
+)glsl";
+
 /* ── lookup table ───────────────────────────────────────────────────────── */
 
 namespace OpenXcom { namespace Shaders {
@@ -197,6 +277,7 @@ static const Entry kTable[] = {
     { "colorquad", kPassthroughVertSrc, kColorquadFragSrc },
     { "globe_sphere", kGlobe_sphereVertSrc, kGlobe_sphereFragSrc },
     { "textured", kPassthroughVertSrc, kTexturedFragSrc },
+    { "tile_atlas", kTile_atlasVertSrc, kTile_atlasFragSrc },
     { nullptr, nullptr, nullptr } /* sentinel */
 };
 
