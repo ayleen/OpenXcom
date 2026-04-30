@@ -265,5 +265,15 @@ if ( NOT WIN32 OR NOT CPACK_GENERATOR STREQUAL "7Z" ) # FIXME: that's to exclude
     DESTINATION "${CMAKE_INSTALL_FULL_DATAROOTDIR}/icons/hicolor/scalable/apps")
 endif ()
 
+# Unit tests — native only.  enable_testing() must be called at the project
+# root so CMake generates build-native/CTestTestfile.cmake with a subdirs()
+# entry pointing at build-native/src/.  Without this, `ctest --test-dir
+# build-native` silently finds no tests (exit 0) because the subdirectory
+# CTestTestfile is invisible from the build root.
+option(BUILD_TESTING "Build unit tests (ignored on Emscripten)" ON)
+if(NOT EMSCRIPTEN AND BUILD_TESTING)
+    enable_testing()
+endif()
+
 add_subdirectory ( docs )
 add_subdirectory ( src )

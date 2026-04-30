@@ -777,11 +777,10 @@ if ( WIN32 )
 endif ()
 
 # ---- Unit test target (native only) ----------------------------------------
-option(BUILD_TESTING "Build unit tests (ignored on Emscripten)" ON)
+# BUILD_TESTING option and enable_testing() are declared in the parent
+# CMakeLists.txt so that CTestTestfile.cmake is generated at the build root.
 
 if(NOT EMSCRIPTEN AND BUILD_TESTING)
-    enable_testing()
-
     # doctest vendored as a single header in engine/oxce/extern/doctest/.
     # Include path is engine/oxce/extern/ so tests use #include <doctest/doctest.h>.
     add_library(oxce_test_doctest INTERFACE)
