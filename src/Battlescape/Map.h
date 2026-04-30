@@ -105,7 +105,27 @@ private:
 	SurfaceSet *_projectileSet;
 
 	void drawUnit(UnitSprite &unitSprite, Tile *unitTile, Tile *currTile, Position tileScreenPosition, bool topLayer, BattleUnit* movingUnit = nullptr);
-	void drawTerrain(Surface *surface);
+	void drawTerrainCPU(Surface *surface);
+#ifdef __EMSCRIPTEN__
+	void drawTerrainGPU(Surface *surface);
+	void emitTilePass();
+
+	/// Per-tile GPU instance record submitted to the tile_atlas shader.
+	struct TileInstance
+	{
+		float screenX, screenY;   // top-left of tile in screen pixels
+		float atlasU,  atlasV;    // UV of primary frame top-left in atlas
+		float shade;              // 0..15
+		float animFrameCount;     // total anim frames (>=1)
+		float alphaMask;          // MCD opacity flag (0 or 1)
+	};
+
+	std::vector<TileInstance> _tileInstances;
+	unsigned int _tileVAO    = 0;
+	unsigned int _tileVBO    = 0;  // corner (static)
+	unsigned int _tileIBO    = 0;  // instance (dynamic, per-frame)
+	bool         _tileGLInit = false;
+#endif
 	int getTerrainLevel(const Position& pos, int size) const;
 	int getWallShade(TilePart part, Tile* tileFrot);
 	int _iconHeight, _iconWidth, _messageColor;

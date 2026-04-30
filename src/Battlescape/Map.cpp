@@ -483,7 +483,12 @@ void Map::draw()
 
 	if ((_save->getSelectedUnit() && _save->getSelectedUnit()->getVisible()) || _unitDying || _save->getSide() == FACTION_PLAYER || _save->getDebugMode() || _projectileInFOV || _explosionInFOV)
 	{
-		drawTerrain(this);
+#ifdef __EMSCRIPTEN__
+		if (_game->getMod()->hasHDPack())
+			drawTerrainGPU(this);
+		else
+#endif
+			drawTerrainCPU(this);
 	}
 	else
 	{
@@ -859,7 +864,7 @@ void Map::drawUnit(UnitSprite &unitSprite, Tile *unitTile, Tile *currTile, Posit
  * Keep this function as optimised as possible. It's big to minimise overhead of function calls.
  * @param surface The surface to draw on.
  */
-void Map::drawTerrain(Surface *surface)
+void Map::drawTerrainCPU(Surface *surface)
 {
 #ifdef __EMSCRIPTEN__
 	/* Phase 11.0: wall-clock CPU baseline for the full Battlescape render.
@@ -2000,6 +2005,32 @@ void Map::drawTerrain(Surface *surface)
 	}
 #endif
 }
+
+#ifdef __EMSCRIPTEN__
+/**
+ * GPU Battlescape compositor (Block 11.4 stub).
+ * Collects per-tile TileInstance records via emitTilePass(), then issues
+ * one glDrawArraysInstanced call per mapDataSet.  Implemented in Block 11.5+.
+ */
+void Map::drawTerrainGPU(Surface *surface)
+{
+	// Block 11.5: build _tileInstances via emitTilePass(), upload to _tileIBO,
+	// bind tile_atlas shader program, call glDrawArraysInstanced.
+	// For now fall back to the CPU path so the game remains playable.
+	drawTerrainCPU(surface);
+}
+
+/**
+ * Walk visible tiles and append TileInstance entries to _tileInstances.
+ * Called by drawTerrainGPU; implemented fully in Block 11.5.
+ */
+void Map::emitTilePass()
+{
+	_tileInstances.clear();
+	// Block 11.5: iterate camera-visible tiles, compute screenPos + atlasUV,
+	// fill TileInstance, push_back into _tileInstances.
+}
+#endif
 
 /**
  * Handles mouse presses on the map.
