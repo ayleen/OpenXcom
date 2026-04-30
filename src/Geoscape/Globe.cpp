@@ -56,6 +56,7 @@
 #ifdef __EMSCRIPTEN__
 #  include "../Engine/GpuInit.h"
 #  include "../Engine/GpuTexture.h"
+#  include "../Engine/GpuTimer.h"
 #  include "../Engine/Shader.h"
 #  include "../Engine/Logger.h"
 #  include <GLES3/gl3.h>
@@ -1232,6 +1233,16 @@ void Globe::drawSphereGPU()
 
 	int w = getWidth(), h = getHeight();
 
+	/* Phase 8c.10 perf instrumentation: wall-clock GPU pass time, averaged
+	 * over 60 frames.  Local instead of Screen::registerGPUPass because
+	 * drawSphereGPU lives inside Globe's own paint cycle (FBO render +
+	 * glReadPixels into the SDL surface), not Screen::flip's per-frame
+	 * GL injection point.  GpuTimer is CPU-side (steady_clock) so it
+	 * captures the synchronous glReadPixels stall, which is the dominant
+	 * cost on this path. */
+	GpuTimer perfTimer;
+	perfTimer.start();
+
 	GlobeSphereGlSave st; st.save();
 
 	/* Render sphere to FBO. */
@@ -1322,6 +1333,19 @@ void Globe::drawSphereGPU()
 		}
 	}
 	unlock();
+
+	perfTimer.stop();
+	static long long s_accumUs = 0;
+	static unsigned  s_frameCount = 0;
+	s_accumUs += perfTimer.elapsedUs();
+	if (++s_frameCount >= 60u)
+	{
+		Log(LOG_DEBUG) << "Globe::drawSphereGPU avg: "
+		               << (s_accumUs / (long long)s_frameCount) << " us/frame"
+		               << " (" << w << "x" << h << ", readback included)";
+		s_accumUs    = 0;
+		s_frameCount = 0;
+	}
 }
 #endif /* __EMSCRIPTEN__ */
 
