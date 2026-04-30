@@ -124,6 +124,8 @@ private:
 	void drawTarget(Target *target, Surface *surface);
 	/// Set up the radius of earth and stuff.
 	void setupRadii(int width, int height);
+	/// Rebuild the per-zoom surface-normal cache used by drawShadow.
+	void rebuildEarthData();
 public:
 	static Uint8 OCEAN_COLOR;
 	static bool OCEAN_SHADING;

@@ -1457,9 +1457,28 @@ Cord Globe::getSunDirection(double lon, double lat) const
 
 void Globe::drawShadow()
 {
-	ShaderRepeat<Sint16> noise = ShaderRepeat<Sint16>(SurfaceRaw<Sint16>(static_data.random_noise, static_data.random_surf_size, static_data.random_surf_size));
+	ShaderRepeat<Sint16> noise(SurfaceRaw<Sint16>(
+		static_data.random_noise, static_data.random_surf_size, static_data.random_surf_size));
 	lock();
-	ShaderDraw<CreateShadowWithoutCache32>(ShaderSurface32(this), helper::Offset(_cenX, _cenY), ShaderScalar(getSunDirection(_cenLon, _cenLat)), noise, ShaderScalar(_zoomRadius[_zoom]));
+	if (_zoom < _earthData.size() && !_earthData[_zoom].empty())
+	{
+		// Cached: surface normal precomputed per zoom in rebuildEarthData().
+		ShaderDraw<CreateShadow32>(
+			ShaderSurface32(this),
+			ShaderSurface(SurfaceRaw<const Cord>(_earthData[_zoom], getWidth(), getHeight())),
+			ShaderScalar(getSunDirection(_cenLon, _cenLat)),
+			noise);
+	}
+	else
+	{
+		// Fallback: per-pixel recompute (cache empty or zoom out-of-bounds).
+		ShaderDraw<CreateShadowWithoutCache32>(
+			ShaderSurface32(this),
+			helper::Offset(_cenX, _cenY),
+			ShaderScalar(getSunDirection(_cenLon, _cenLat)),
+			noise,
+			ShaderScalar(_zoomRadius[_zoom]));
+	}
 	unlock();
 }
 
@@ -2482,22 +2501,24 @@ void Globe::setupRadii(int width, int height)
 
 	if (Options::globeSurfaceCache)
 	{
-		_earthData.resize(_zoomRadius.size());
-		//filling normal field for each radius
-
-		for (size_t r = 0; r<_zoomRadius.size(); ++r)
-		{
-			_earthData[r].resize(width * height);
-			for (int j=0; j<height; ++j)
-				for (int i=0; i<width; ++i)
-				{
-					_earthData[r][width*j + i] = static_data.circle_norm(width/2, height/2, _zoomRadius[r], i+.5, j+.5);
-				}
-		}
+		rebuildEarthData();
 	}
 	else
 	{
 		_earthData.clear();
+	}
+}
+
+void Globe::rebuildEarthData()
+{
+	const int w = getWidth(), h = getHeight();
+	_earthData.assign(_zoomRadius.size(), {});
+	for (size_t r = 0; r < _zoomRadius.size(); ++r)
+	{
+		_earthData[r].resize(w * h);
+		for (int j = 0; j < h; ++j)
+			for (int i = 0; i < w; ++i)
+				_earthData[r][w*j + i] = static_data.circle_norm(w/2, h/2, _zoomRadius[r], i+.5, j+.5);
 	}
 }
 
