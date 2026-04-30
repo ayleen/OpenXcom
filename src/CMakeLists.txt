@@ -314,6 +314,7 @@ set ( mod_src
   Mod/MapData.cpp
   Mod/MapDataSet.cpp
   Mod/MapScript.cpp
+  Mod/TileAtlasBuilder.cpp
   Mod/MCDPatch.cpp
   Mod/Mod.cpp
   Mod/Polygon.cpp
