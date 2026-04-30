@@ -166,44 +166,64 @@ void Cursor::_uploadCursorPixels()
 
 /**
  * Uploads cursor sprite to GPU and registers a post-flush pass that renders
- * the cursor on top of GPU tile layers.  Safe to call multiple times; only
- * the first call does work.
+ * the cursor on top of GPU tile layers.
+ *
+ * Called once per BattlescapeState construction, AFTER Map::init() registers
+ * the tile pass, so the cursor pass always runs after the tile pass in the
+ * Screen::_gpuPasses list.  Each call invalidates the previous cursor pass
+ * (alive-flag reset → weak_ptr.lock() returns nullptr → old entry becomes a
+ * no-op) and registers a fresh pass at the end of the list.  GL resources
+ * (texture, VAO/VBO, shader) are created on the first call and reused
+ * thereafter.
  */
 void Cursor::initGPU(Screen& screen)
 {
-	if (_gpuMode) return;
 	if (!GpuInit::ready()) return;
+
+	// Invalidate any previously registered cursor pass so it becomes a no-op.
+	// This ensures the new pass (registered below) is the only active one.
+	_gpuAliveFlag.reset();
 
 	// Ensure cursor surface pixels are up-to-date before upload.
 	if (_redraw) draw();
 
-	_cursorTex = new GpuTexture(/*srgb=*/false,
-	                            GpuTexture::Wrap::ClampToEdge,
-	                            GpuTexture::Filter::Nearest);
+	// Create GL resources on first call; reuse on subsequent calls.
+	if (!_cursorTex)
+	{
+		_cursorTex = new GpuTexture(/*srgb=*/false,
+		                            GpuTexture::Wrap::ClampToEdge,
+		                            GpuTexture::Filter::Nearest);
+	}
 	_uploadCursorPixels();
 
-	// 6-vertex quad (2 triangles): each vertex is pos.xy + uv.xy (4 floats).
-	glGenVertexArrays(1, &_cursorVAO);
-	glGenBuffers(1, &_cursorVBO);
-	glBindVertexArray(_cursorVAO);
-	glBindBuffer(GL_ARRAY_BUFFER, _cursorVBO);
-	glBufferData(GL_ARRAY_BUFFER, 6 * 4 * (GLsizeiptr)sizeof(float), nullptr, GL_DYNAMIC_DRAW);
-	glEnableVertexAttribArray(0); // a_pos
-	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * (GLsizei)sizeof(float), (void*)0);
-	glEnableVertexAttribArray(1); // a_uv
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * (GLsizei)sizeof(float), (void*)(2 * sizeof(float)));
-	glBindVertexArray(0);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-	_cursorShader = new Shader();
-	if (!_cursorShader->loadFromEmbedded("textured"))
+	if (!_cursorVAO)
 	{
-		Log(LOG_ERROR) << "Cursor::initGPU: failed to load 'textured' shader";
-		delete _cursorShader; _cursorShader = nullptr;
-		delete _cursorTex;    _cursorTex    = nullptr;
-		glDeleteVertexArrays(1, &_cursorVAO); _cursorVAO = 0;
-		glDeleteBuffers(1, &_cursorVBO);      _cursorVBO = 0;
-		return;
+		// 6-vertex quad (2 triangles): each vertex is pos.xy + uv.xy (4 floats).
+		glGenVertexArrays(1, &_cursorVAO);
+		glGenBuffers(1, &_cursorVBO);
+		glBindVertexArray(_cursorVAO);
+		glBindBuffer(GL_ARRAY_BUFFER, _cursorVBO);
+		glBufferData(GL_ARRAY_BUFFER, 6 * 4 * (GLsizeiptr)sizeof(float), nullptr, GL_DYNAMIC_DRAW);
+		glEnableVertexAttribArray(0); // a_pos
+		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * (GLsizei)sizeof(float), (void*)0);
+		glEnableVertexAttribArray(1); // a_uv
+		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * (GLsizei)sizeof(float), (void*)(2 * sizeof(float)));
+		glBindVertexArray(0);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+	}
+
+	if (!_cursorShader)
+	{
+		_cursorShader = new Shader();
+		if (!_cursorShader->loadFromEmbedded("textured"))
+		{
+			Log(LOG_ERROR) << "Cursor::initGPU: failed to load 'textured' shader";
+			delete _cursorShader; _cursorShader = nullptr;
+			delete _cursorTex;    _cursorTex    = nullptr;
+			glDeleteVertexArrays(1, &_cursorVAO); _cursorVAO = 0;
+			glDeleteBuffers(1, &_cursorVBO);      _cursorVBO = 0;
+			return;
+		}
 	}
 
 	_gpuAliveFlag = std::make_shared<bool>(true);
@@ -217,7 +237,7 @@ void Cursor::initGPU(Screen& screen)
 		drawGPUPass(screenPtr);
 	});
 
-	Log(LOG_INFO) << "Cursor::initGPU: cursor GPU pass registered";
+	Log(LOG_DEBUG) << "Cursor::initGPU: cursor GPU pass registered";
 }
 
 /**
