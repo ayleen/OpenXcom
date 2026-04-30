@@ -299,35 +299,51 @@ bool Game::iterate()
 				if (_event.type == SDL_MOUSEWHEEL)
 				{
 					// SDL2 delivers mouse-wheel as SDL_MOUSEWHEEL; translate to
-					// fake SDL_MOUSEBUTTONDOWN so all existing BUTTON_WHEELUP/DOWN
-					// checks continue to work without modification.
+					// a synthetic SDL_MOUSEBUTTONDOWN+UP pair so all existing
+					// BUTTON_WHEELUP/DOWN handlers keep working.
 					// Guard: SDL_MOUSEMOTION falls through here too — skip the
 					// transform in that case or every mouse move becomes a wheel click.
+					//
+					// Both the DOWN and the UP are dispatched inline within this
+					// iteration. Queueing the UP via SDL_PushEvent appends it to
+					// the back of the queue; under bursty wheel input the next
+					// MOUSEBUTTONDOWN gets observed first and InteractiveSurface
+					// sees the synthetic button still latched, dropping the tick.
 					int wheelDir = (_event.wheel.y >= 0) ? 1 : -1;
 					int mx = 0, my = 0;
 					SDL_GetMouseState(&mx, &my);
-					SDL_memset(&_event, 0, sizeof(_event));
-					_event.type = SDL_MOUSEBUTTONDOWN;
-					_event.button.state = SDL_PRESSED;
-					_event.button.button = (wheelDir > 0)
-					                       ? SDL_BUTTON_WHEELUP : SDL_BUTTON_WHEELDOWN;
-					_event.button.x = (Sint32)mx;
-					_event.button.y = (Sint32)my;
+					Uint8 wheelBtn = (wheelDir > 0) ? SDL_BUTTON_WHEELUP : SDL_BUTTON_WHEELDOWN;
 
-					// Queue the matching MOUSEBUTTONUP so the synthetic wheel
-					// click doesn't leave the button latched in pressed state.
-					// InteractiveSurface gates onMousePress on PRESSED and
-					// expects RELEASED to clear; without it, the next wheel
-					// tick sees a still-pressed button and ignores the event
-					// (zoom buttons "stuck", arrows on Geoscape sidebar etc).
-					SDL_Event up;
-					SDL_memset(&up, 0, sizeof(up));
-					up.type = SDL_MOUSEBUTTONUP;
-					up.button.state = SDL_RELEASED;
-					up.button.button = _event.button.button;
-					up.button.x = _event.button.x;
-					up.button.y = _event.button.y;
-					SDL_PushEvent(&up);
+					SDL_Event ev;
+					SDL_memset(&ev, 0, sizeof(ev));
+					ev.button.button = wheelBtn;
+					ev.button.x = (Sint32)mx;
+					ev.button.y = (Sint32)my;
+					const double sx = _screen->getXScale();
+					const double sy = _screen->getYScale();
+					const int    tb = _screen->getCursorTopBlackBand();
+					const int    lb = _screen->getCursorLeftBlackBand();
+
+					ev.type = SDL_MOUSEBUTTONDOWN;
+					ev.button.state = SDL_PRESSED;
+					{
+						Action a(&ev, sx, sy, tb, lb);
+						_screen->handle(&a);
+						_cursor->handle(&a);
+						_fpsCounter->handle(&a);
+						if (!_states.empty()) _states.back()->handle(&a);
+					}
+					ev.type = SDL_MOUSEBUTTONUP;
+					ev.button.state = SDL_RELEASED;
+					{
+						Action a(&ev, sx, sy, tb, lb);
+						_screen->handle(&a);
+						_cursor->handle(&a);
+						_fpsCounter->handle(&a);
+						if (!_states.empty()) _states.back()->handle(&a);
+					}
+					if (!_init) break;
+					continue;
 				}
 				FALLTHROUGH;
 #endif /* __EMSCRIPTEN__ */
