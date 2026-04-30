@@ -59,6 +59,9 @@
 #include "../Engine/Timer.h"
 #include "../Engine/CrossPlatform.h"
 #include "../Interface/Cursor.h"
+#ifdef __EMSCRIPTEN__
+#include "../Engine/GpuInit.h"
+#endif
 #include "../Interface/Text.h"
 #include "../Interface/Bar.h"
 #include "../Interface/BattlescapeButton.h"
@@ -484,6 +487,12 @@ BattlescapeState::BattlescapeState() :
 
 	// Set up objects
 	_map->init();
+#ifdef __EMSCRIPTEN__
+	// Block 11.7: register cursor GPU pass after the tile pass so cursor always
+	// appears on top of GPU tile layers.  initGPU() is idempotent.
+	if (_game->getMod()->hasHDPack() && GpuInit::ready())
+		_game->getCursor()->initGPU(*_game->getScreen());
+#endif
 	_map->onMouseOver((ActionHandler)&BattlescapeState::mapOver);
 	_map->onMousePress((ActionHandler)&BattlescapeState::mapPress);
 	_map->onMouseClick((ActionHandler)&BattlescapeState::mapClick, 0);

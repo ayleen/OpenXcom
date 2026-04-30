@@ -18,11 +18,19 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "../Engine/Surface.h"
+#ifdef __EMSCRIPTEN__
+#include <memory>
+#endif
 
 namespace OpenXcom
 {
 
 class Action;
+#ifdef __EMSCRIPTEN__
+class Screen;
+class GpuTexture;
+class Shader;
+#endif
 
 /**
  * Mouse cursor that replaces the system cursor.
@@ -33,6 +41,17 @@ class Cursor : public Surface
 {
 private:
 	Uint8 _color;
+#ifdef __EMSCRIPTEN__
+	GpuTexture*           _cursorTex   = nullptr;
+	Shader*               _cursorShader= nullptr;
+	unsigned int          _cursorVAO   = 0;
+	unsigned int          _cursorVBO   = 0;
+	bool                  _gpuMode     = false;
+	std::shared_ptr<bool> _gpuAliveFlag;
+
+	void _uploadCursorPixels();
+	void drawGPUPass(Screen* screen);
+#endif
 
 public:
 	/// Creates a new cursor with the specified size and position.
@@ -47,6 +66,12 @@ public:
 	Uint8 getColor() const;
 	/// Draws the cursor.
 	void draw() override;
+	/// Blits cursor; skips when GPU mode is active.
+	void blit(SDL_Surface *surface) override;
+#ifdef __EMSCRIPTEN__
+	/// Uploads cursor sprite to GPU and registers post-flush pass. Call once on battle start.
+	void initGPU(Screen& screen);
+#endif
 };
 
 }

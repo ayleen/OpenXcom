@@ -7,8 +7,8 @@
  *   a_pos (location 0) — 2D clip-space position (-1..1)
  *   a_uv  (location 1) — normalised UV (0..1)
  */
-in  vec2 a_pos;
-in  vec2 a_uv;
+layout(location=0) in vec2 a_pos;
+layout(location=1) in vec2 a_uv;
 out vec2 v_uv;
 
 void main()

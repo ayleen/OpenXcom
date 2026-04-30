@@ -11,8 +11,8 @@
 /* ── vertex shader sources ──────────────────────────────────────────────── */
 
 static const char* kPassthroughVertSrc = R"glsl(
-in  vec2 a_pos;
-in  vec2 a_uv;
+layout(location=0) in vec2 a_pos;
+layout(location=1) in vec2 a_uv;
 out vec2 v_uv;
 
 void main()
