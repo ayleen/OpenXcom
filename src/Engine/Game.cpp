@@ -313,6 +313,21 @@ bool Game::iterate()
 					                       ? SDL_BUTTON_WHEELUP : SDL_BUTTON_WHEELDOWN;
 					_event.button.x = (Sint32)mx;
 					_event.button.y = (Sint32)my;
+
+					// Queue the matching MOUSEBUTTONUP so the synthetic wheel
+					// click doesn't leave the button latched in pressed state.
+					// InteractiveSurface gates onMousePress on PRESSED and
+					// expects RELEASED to clear; without it, the next wheel
+					// tick sees a still-pressed button and ignores the event
+					// (zoom buttons "stuck", arrows on Geoscape sidebar etc).
+					SDL_Event up;
+					SDL_memset(&up, 0, sizeof(up));
+					up.type = SDL_MOUSEBUTTONUP;
+					up.button.state = SDL_RELEASED;
+					up.button.button = _event.button.button;
+					up.button.x = _event.button.x;
+					up.button.y = _event.button.y;
+					SDL_PushEvent(&up);
 				}
 				FALLTHROUGH;
 #endif /* __EMSCRIPTEN__ */
