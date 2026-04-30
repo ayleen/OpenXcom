@@ -69,16 +69,34 @@ void calypso_gpu_smoke_activate(const char *path)
  * OXCE Cursor stuck.  Hosting code in main.js registers a JS mousemove
  * listener that calls this with backing-store coordinates; we update the
  * Cursor directly (the SDL queue path was unreliable). */
-/* Phase 8c §C2: opt-in perf log gate for Globe::drawSphereGPU.  JS toggles
- * this from scripts/c2-perf-capture.js after Module init but before
- * Geoscape opens; production builds never call this so the gate stays 0
- * and the perf log emits zero bytes. */
+/* Phase 8c §C2: opt-in perf log gate for Globe::drawSphereGPU. */
 int g_calypsoProfileGlobe = 0;
 
 EMSCRIPTEN_KEEPALIVE
 void calypso_set_profile_globe(int on)
 {
 	g_calypsoProfileGlobe = on ? 1 : 0;
+}
+
+/* Phase 11.0: opt-in CPU perf gate for Map::drawTerrain.
+ * JS toggles via calypso_set_profile_battlescape(1); production stays 0. */
+int g_calypsoProfileBattlescape = 0;
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_set_profile_battlescape(int on)
+{
+	g_calypsoProfileBattlescape = on ? 1 : 0;
+}
+
+/* Phase 11.1: opt-in readback-cost probe gate for Map::drawTerrain.
+ * Runs FBO solid-colour + glReadPixels at Battlescape surface size;
+ * self-terminates after 30 samples. */
+int g_calypsoProfileReadback = 0;
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_set_profile_readback(int on)
+{
+	g_calypsoProfileReadback = on ? 1 : 0;
 }
 
 EMSCRIPTEN_KEEPALIVE

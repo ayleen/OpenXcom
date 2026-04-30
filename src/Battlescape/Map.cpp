@@ -53,6 +53,20 @@
 #include "../Interface/Text.h"
 #include "../fmath.h"
 
+#ifdef __EMSCRIPTEN__
+#  include "../Engine/GpuTimer.h"
+#  include "../Engine/GpuInit.h"
+#  include "../Engine/Shader.h"
+#  include "../Engine/RenderTarget.h"
+#  include <GLES3/gl3.h>
+#  include <vector>
+/* Phase 11.0 CPU perf gate; Phase 11.1 readback-cost probe gate.
+ * Definitions live in EmscriptenHarness.cpp inside extern "C" {},
+ * so forward-declarations must carry C linkage (global namespace). */
+extern "C" int g_calypsoProfileBattlescape;
+extern "C" int g_calypsoProfileReadback;
+#endif /* __EMSCRIPTEN__ */
+
 
 /*
   1) Map origin is top corner.
@@ -94,6 +108,112 @@
 
 namespace OpenXcom
 {
+
+#ifdef __EMSCRIPTEN__
+namespace {
+
+/* GL state save/restore used by the readback probe. */
+struct GlStateSave
+{
+    GLint prog = 0, vao = 0; GLboolean blend = GL_FALSE, depth = GL_FALSE;
+    void save()
+    {
+        glGetIntegerv(GL_CURRENT_PROGRAM,      &prog);
+        glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &vao);
+        blend = glIsEnabled(GL_BLEND);
+        depth = glIsEnabled(GL_DEPTH_TEST);
+    }
+    void restore()
+    {
+        glUseProgram((GLuint)prog);
+        glBindVertexArray((GLuint)vao);
+        if (blend) glEnable(GL_BLEND);     else glDisable(GL_BLEND);
+        if (depth) glEnable(GL_DEPTH_TEST); else glDisable(GL_DEPTH_TEST);
+    }
+};
+
+/* ── Phase 11.1: FBO solid-colour + glReadPixels cost probe ────────────
+ * Measures the minimum readback stall for Option-A GPU compositor at the
+ * actual Battlescape surface size.  Activated by calypso_set_profile_readback(1).
+ * Self-terminates after PROBE_FRAMES samples and logs the average. */
+struct ReadbackProbe
+{
+    Shader       shader;
+    RenderTarget fbo;
+    GLuint       vao = 0u;
+    bool         ready = false;
+    bool         done  = false;
+    int          w = 0, h = 0;
+    std::vector<uint8_t> pixels;
+
+    long long accumUs    = 0;
+    unsigned  frameCount = 0;
+    static constexpr unsigned PROBE_FRAMES = 30u;
+
+    bool init(int surfW, int surfH)
+    {
+        if (!GpuInit::ready()) return false;
+        if (!shader.loadFromEmbedded("colorquad")) return false;
+        if (!fbo.create(surfW, surfH)) return false;
+        float verts[] = {
+            -1.f,-1.f, 0.f,0.f,  1.f,-1.f, 1.f,0.f,  -1.f, 1.f, 0.f,1.f,
+            -1.f, 1.f, 0.f,1.f,  1.f,-1.f, 1.f,0.f,   1.f, 1.f, 1.f,1.f,
+        };
+        GLuint vbo;
+        glGenVertexArrays(1, &vao);
+        glBindVertexArray(vao);
+        glGenBuffers(1, &vbo);
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW);
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4*sizeof(float), (void*)0);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4*sizeof(float), (void*)(2*sizeof(float)));
+        glEnableVertexAttribArray(1);
+        glBindVertexArray(0u);
+        w = surfW; h = surfH;
+        pixels.resize((size_t)w * h * 4);
+        ready = true;
+        Log(LOG_INFO) << "Map::readbackProbe: init at " << w << "x" << h;
+        return true;
+    }
+
+    void probe()
+    {
+        if (done || !ready) return;
+        GlStateSave st; st.save();
+        GpuTimer t;
+
+        t.start();
+        fbo.bind();
+        glDisable(GL_BLEND);
+        glDisable(GL_DEPTH_TEST);
+        glClearColor(0.2f, 0.4f, 0.8f, 1.f);
+        glClear(GL_COLOR_BUFFER_BIT);
+        shader.use();
+        shader.setUniform4f("u_color", 0.2f, 0.4f, 0.8f, 1.f);
+        glBindVertexArray(vao);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+        t.stop();
+        fbo.unbind();
+        st.restore();
+
+        accumUs += t.elapsedUs();
+        if (++frameCount >= PROBE_FRAMES)
+        {
+            Log(LOG_INFO) << "Map::readbackProbe avg: "
+                << (accumUs / (long long)frameCount) << " us/frame"
+                << " (" << w << "x" << h << ", n=" << frameCount
+                << ", FBO render + glReadPixels)";
+            done = true;
+        }
+    }
+};
+
+static ReadbackProbe s_readbackProbe;
+
+} // anonymous namespace
+#endif /* __EMSCRIPTEN__ */
 
 /**
  * Sets up a map with the specified size and position.
@@ -741,6 +861,14 @@ void Map::drawUnit(UnitSprite &unitSprite, Tile *unitTile, Tile *currTile, Posit
  */
 void Map::drawTerrain(Surface *surface)
 {
+#ifdef __EMSCRIPTEN__
+	/* Phase 11.0: wall-clock CPU baseline for the full Battlescape render.
+	 * Gated on g_calypsoProfileBattlescape — zero overhead in production. */
+	const int profileBs = ::g_calypsoProfileBattlescape;
+	GpuTimer bsTimer;
+	if (profileBs) bsTimer.start();
+#endif
+
 	_isAltPressed = _game->isAltPressed(true);
 	_isCtrlPressed = _game->isCtrlPressed(true);
 	int frameNumber = 0;
@@ -899,6 +1027,18 @@ void Map::drawTerrain(Surface *surface)
 	{
 		movingUnitPosition = movingUnit->getPosition();
 	}
+
+#ifdef __EMSCRIPTEN__
+	/* Phase 11.1: readback-cost probe — FBO solid-colour + glReadPixels
+	 * at actual surface dimensions.  Runs before CPU lock; GL path is
+	 * independent of the SDL_Surface pixel buffer. */
+	if (::g_calypsoProfileReadback)
+	{
+		if (!s_readbackProbe.ready && !s_readbackProbe.done)
+			s_readbackProbe.init(surface->getWidth(), surface->getHeight());
+		s_readbackProbe.probe();
+	}
+#endif
 
 	surface->lock();
 	const Position cameraPos = _camera->getMapOffset();
@@ -1838,6 +1978,27 @@ void Map::drawTerrain(Surface *surface)
 	}
 
 	surface->unlock();
+
+#ifdef __EMSCRIPTEN__
+	/* Phase 11.0: log avg CPU time every 30 frames (opt-in only). */
+	if (profileBs)
+	{
+		bsTimer.stop();
+		static long long s_accumUs   = 0;
+		static unsigned  s_frameCount = 0;
+		s_accumUs += bsTimer.elapsedUs();
+		const unsigned BATCH = 30u;
+		if (++s_frameCount >= BATCH)
+		{
+			Log(LOG_INFO) << "Map::drawTerrain avg: "
+			              << (s_accumUs / (long long)s_frameCount) << " us/frame"
+			              << " (" << surface->getWidth() << "x" << surface->getHeight()
+			              << ", n=" << s_frameCount << ", CPU-side)";
+			s_accumUs    = 0;
+			s_frameCount = 0;
+		}
+	}
+#endif
 }
 
 /**
