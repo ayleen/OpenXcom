@@ -65,6 +65,10 @@ private:
 	static const int NIGHT_VISION_SHADE = 4;
 	static const int NIGHT_VISION_MAX_SHADE = 8;
 	static const int BULLET_SPRITES = 35;
+	/// Tile animation: 8 frames × 100 ms per frame (BattlescapeState::DEFAULT_ANIM_SPEED).
+	static const int TILE_ANIM_FRAMES   = 8;
+	static const int TILE_ANIM_FRAME_MS = 100;
+	static const int TILE_ANIM_PERIOD_MS = TILE_ANIM_FRAMES * TILE_ANIM_FRAME_MS; // 800
 	Timer *_scrollMouseTimer, *_scrollKeyTimer, *_obstacleTimer;
 	Timer *_fadeTimer;
 	int _fadeShade;
@@ -125,6 +129,8 @@ private:
 	unsigned int _tileVBO    = 0;  // corner (static)
 	unsigned int _tileIBO    = 0;  // instance (dynamic, per-frame)
 	bool         _tileGLInit = false;
+	/// Fractional animation cycle position [0, 1) — set each frame, passed as u_animFrame.
+	float        _animFrameGPU = 0.0f;
 #endif
 	int getTerrainLevel(const Position& pos, int size) const;
 	int getWallShade(TilePart part, Tile* tileFrot);

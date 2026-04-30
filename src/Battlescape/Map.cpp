@@ -2008,26 +2008,39 @@ void Map::drawTerrainCPU(Surface *surface)
 
 #ifdef __EMSCRIPTEN__
 /**
- * GPU Battlescape compositor (Block 11.4 stub).
- * Collects per-tile TileInstance records via emitTilePass(), then issues
- * one glDrawArraysInstanced call per mapDataSet.  Implemented in Block 11.5+.
+ * GPU Battlescape compositor.
+ * Computes the per-frame animation phase, collects TileInstance records via
+ * emitTilePass(), then issues glDrawArraysInstanced for each mapDataSet atlas.
+ * Full instance dispatch wired in Block 11.7+; falls back to CPU until then.
  */
 void Map::drawTerrainGPU(Surface *surface)
 {
-	// Block 11.5: build _tileInstances via emitTilePass(), upload to _tileIBO,
-	// bind tile_atlas shader program, call glDrawArraysInstanced.
-	// For now fall back to the CPU path so the game remains playable.
+	// Block 11.6: compute animation fraction [0, 1) from wall-clock time.
+	// 8 frames × 100 ms = 800 ms period; matches BattlescapeState::DEFAULT_ANIM_SPEED × 8.
+	const Uint32 ticks = SDL_GetTicks();
+	_animFrameGPU = static_cast<float>(ticks % TILE_ANIM_PERIOD_MS)
+	                / static_cast<float>(TILE_ANIM_PERIOD_MS);
+
+	// Collect tile instances (stub until Block 11.7).
+	emitTilePass();
+
+	// Block 11.7: bind tile_atlas program, upload _tileInstances → _tileIBO,
+	// set uniforms (u_animFrame = _animFrameGPU, u_atlas, u_shadeTable, ...),
+	// glDrawArraysInstanced, then draw overlay passes (cursor, projectile…).
+	// Until the instance buffer is live, fall back to the CPU path.
 	drawTerrainCPU(surface);
 }
 
 /**
- * Walk visible tiles and append TileInstance entries to _tileInstances.
- * Called by drawTerrainGPU; implemented fully in Block 11.5.
+ * Walk camera-visible tiles and append TileInstance entries to _tileInstances.
+ * Full implementation in Block 11.7: reads atlas UV from Mod::getTileAtlas(),
+ * computes screen position via Camera, fills shade/alphaMask/animFrameCount.
  */
 void Map::emitTilePass()
 {
 	_tileInstances.clear();
-	// Block 11.5: iterate camera-visible tiles, compute screenPos + atlasUV,
+	// Block 11.7: iterate _save tiles in camera-visible range,
+	// look up TileAtlasSpec::frameMap[mcd_index] → atlasUV,
 	// fill TileInstance, push_back into _tileInstances.
 }
 #endif
