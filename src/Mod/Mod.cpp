@@ -53,6 +53,7 @@
 #  include "../Engine/GpuInit.h"
 #  include <SDL_image.h>
 #  include <webp/decode.h>
+#  include "TileAtlasBuilder.h"
 #endif
 #include "ExtraSounds.h"
 #include "../Engine/AdlibMusic.h"
@@ -776,6 +777,7 @@ Mod::~Mod()
 	{
 		delete pair.second;
 	}
+	clearTileAtlases();
 #endif
 	for (auto& pair : _customPalettes)
 	{
@@ -936,6 +938,67 @@ void Mod::clearGlobeTextures()
 	for (auto& pair : _globeTextures)
 		delete pair.second;
 	_globeTextures.clear();
+}
+
+const Mod::TileAtlasSpec* Mod::getTileAtlasSpec(const std::string& dataset) const
+{
+	auto it = _tileAtlasSpecs.find(dataset);
+	return it != _tileAtlasSpecs.end() ? &it->second : nullptr;
+}
+
+GpuTexture* Mod::getTileAtlas(const std::string& dataset) const
+{
+	auto it = _tileAtlases.find(dataset);
+	return it != _tileAtlases.end() ? it->second : nullptr;
+}
+
+void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncolors)
+{
+	if (!mds || !palette || ncolors < 1) return;
+	if (!GpuInit::ready()) return;
+
+	const std::string& name = mds->getName();
+
+	// Skip datasets that have an explicit tileAtlas: YAML spec — those will be
+	// handled by the HD-pack loader path, not the vanilla synthesiser.
+	if (_tileAtlasSpecs.count(name)) return;
+
+	// Already built for this dataset in this session.
+	if (_tileAtlases.count(name)) return;
+
+	std::map<int,int> frameMap;
+	GpuTexture* tex = buildVanillaAtlas(*mds, palette, ncolors, frameMap);
+	if (!tex) return;
+
+	// Discard any stale entry (shouldn't happen, but be safe).
+	auto old = _tileAtlases.find(name);
+	if (old != _tileAtlases.end())
+	{
+		delete old->second;
+	}
+	_tileAtlases[name] = tex;
+
+	// Store the frame map inside a TileAtlasSpec so downstream code has a
+	// uniform lookup path regardless of whether the atlas came from YAML or
+	// was synthesised here.
+	TileAtlasSpec& spec   = _tileAtlasSpecs[name];
+	spec.dataset          = name;
+	spec.file             = "";           // synthesised — no file path
+	spec.width            = tex->width();
+	spec.height           = tex->height();
+	spec.tileWidth        = 64;
+	spec.tileHeight       = 80;
+	spec.columns          = 16;
+	spec.frameMap         = std::move(frameMap);
+}
+
+void Mod::clearTileAtlases()
+{
+	for (auto& pair : _tileAtlases)
+	{
+		delete pair.second;
+	}
+	_tileAtlases.clear();
 }
 #endif /* __EMSCRIPTEN__ */
 
@@ -3579,6 +3642,37 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 			                 << loaded << "/4 required textures";
 			clearGlobeTextures();
 		}
+	}
+	for (const auto& ruleReader : iterateRulesSpecific("tileAtlas"))
+	{
+		std::string dataset;
+		ruleReader["dataset"].tryReadVal<std::string>(dataset);
+		if (dataset.empty()) continue;
+
+		TileAtlasSpec spec;
+		spec.dataset = dataset;
+		ruleReader["file"].tryReadVal<std::string>(spec.file);
+		ruleReader["width"].tryReadVal<int>(spec.width);
+		ruleReader["height"].tryReadVal<int>(spec.height);
+		ruleReader["tileWidth"].tryReadVal<int>(spec.tileWidth);
+		ruleReader["tileHeight"].tryReadVal<int>(spec.tileHeight);
+		ruleReader["columns"].tryReadVal<int>(spec.columns);
+
+		auto frameMapNode = ruleReader["frameMap"];
+		if (frameMapNode)
+		{
+			for (const auto& child : frameMapNode.children())
+			{
+				int mcdIdx = 0, atlasIdx = 0;
+				if (child.tryReadKey<int>(mcdIdx) && child.tryReadVal<int>(atlasIdx))
+					spec.frameMap[mcdIdx] = atlasIdx;
+			}
+		}
+
+		_tileAtlasSpecs[dataset] = std::move(spec);
+		_hdPackActive = true;
+		Log(LOG_INFO) << "tileAtlas[" << dataset << "]: registered "
+		              << _tileAtlasSpecs[dataset].frameMap.size() << " frameMap entries";
 	}
 #endif /* __EMSCRIPTEN__ */
 	for (const auto& ruleReader : iterateRulesSpecific("customPalettes"))

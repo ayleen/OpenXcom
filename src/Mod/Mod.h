@@ -213,6 +213,25 @@ private:
 	std::map<std::string, std::vector<ExtraSprites *> > _extraSprites;
 #ifdef __EMSCRIPTEN__
 	std::map<std::string, GpuTexture*> _globeTextures;
+
+	/// Atlas layout for a single mapDataSet's GPU tile sheet.
+	struct TileAtlasSpec
+	{
+		std::string       dataset;    // mapDataSet name, e.g. "SAND"
+		std::string       file;       // relative path to PNG
+		int               width      = 0;
+		int               height     = 0;
+		int               tileWidth  = 64;
+		int               tileHeight = 80;
+		int               columns    = 16;
+		std::map<int,int> frameMap;   // MCD entry index → atlas tile index
+	};
+	std::map<std::string, TileAtlasSpec> _tileAtlasSpecs;
+	/// Synthesised vanilla tile atlases: mapDataSet name -> GpuTexture*.
+	/// Populated lazily by ensureVanillaAtlas() (Block 11.2).
+	std::map<std::string, GpuTexture*> _tileAtlases;
+	/// True once at least one tileAtlas: YAML entry has been parsed.
+	bool _hdPackActive = false;
 #endif
 	std::map<std::string, CustomPalettes *> _customPalettes;
 	std::vector<std::pair<std::string, ExtraSounds *> > _extraSounds;
@@ -504,6 +523,19 @@ public:
 	GpuTexture* getGlobeTexture(const std::string& id) const;
 	/// Releases all GpuTextures (called on mod change or disable).
 	void clearGlobeTextures();
+	/// Returns the TileAtlasSpec for the given mapDataSet name, or nullptr if not registered.
+	const TileAtlasSpec* getTileAtlasSpec(const std::string& dataset) const;
+	/// Returns the synthesised vanilla atlas for the given mapDataSet, or nullptr if not built.
+	GpuTexture* getTileAtlas(const std::string& dataset) const;
+	/// Build a vanilla atlas for a fully-loaded MapDataSet (Block 11.2).
+	/// Called after MapDataSet::loadData() for datasets that have no tileAtlas: YAML entry.
+	/// palette/ncolors must be the active battlescape palette (PAL_BATTLESCAPE).
+	/// No-op if the atlas was already built or GPU is not ready.
+	void ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncolors);
+	/// Deletes all synthesised vanilla atlases (called in ~Mod and on mod reload).
+	void clearTileAtlases();
+	/// Returns true when at least one tileAtlas: YAML entry was loaded.
+	bool hasHDPack() const { return _hdPackActive; }
 #endif
 	/// Gets a particular music.
 	Music *getMusic(const std::string &name, bool error = true) const;
