@@ -1338,11 +1338,13 @@ void Globe::drawSphereGPU()
 	static long long s_accumUs = 0;
 	static unsigned  s_frameCount = 0;
 	s_accumUs += perfTimer.elapsedUs();
-	if (++s_frameCount >= 60u)
+	const unsigned BATCH = 30u;
+	if (++s_frameCount >= BATCH)
 	{
-		Log(LOG_DEBUG) << "Globe::drawSphereGPU avg: "
-		               << (s_accumUs / (long long)s_frameCount) << " us/frame"
-		               << " (" << w << "x" << h << ", readback included)";
+		Log(LOG_INFO) << "Globe::drawSphereGPU avg: "
+		              << (s_accumUs / (long long)s_frameCount) << " us/frame"
+		              << " (" << w << "x" << h << ", n=" << s_frameCount
+		              << ", readback included)";
 		s_accumUs    = 0;
 		s_frameCount = 0;
 	}
