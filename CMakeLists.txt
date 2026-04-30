@@ -93,6 +93,13 @@ else()
     include_directories ( ${OPENGL_INCLUDE_DIR} )
     message ( STATUS "OpenGL libraries: ${OPENGL_LIBRARIES}" )
   endif ()
+  if ( APPLE )
+    # macOS OpenGL.framework only exposes GL 1.x via SDL_opengl.h; GL2 shader
+    # functions in OpenGL.cpp are needed only for the GPU sphere which is
+    # Emscripten-only. Skip OpenGL.cpp for native macOS builds.
+    add_definitions(-D__NO_OPENGL)
+    set(OPENGL_LIBRARIES "")
+  endif ()
 endif()
 
 # Include rapidyaml lib
@@ -117,15 +124,17 @@ if(NOT EMSCRIPTEN)
     endif()
 
     include(FindPkgConfig)
-    pkg_check_modules(PKG_SDL REQUIRED sdl)
+    pkg_check_modules(PKG_SDL REQUIRED sdl2)
     pkg_check_modules(PKG_ZLIB REQUIRED zlib)
-    pkg_check_modules(PKG_SDLIMAGE REQUIRED SDL_image)
-    pkg_check_modules(PKG_SDLGFX REQUIRED SDL_gfx)
-    pkg_check_modules(PKG_SDLMIXER REQUIRED SDL_mixer)
+    pkg_check_modules(PKG_SDLIMAGE REQUIRED SDL2_image)
+    pkg_check_modules(PKG_SDLMIXER REQUIRED SDL2_mixer)
+    # SDL2_gfx uses SDL_Renderer* API (incompatible with the SDL_Surface* API
+    # that OXCE uses for gfx primitives).  SDL_gfxPrimitives implementations
+    # are provided by SDL2CompatNative.cpp (native) / EmscriptenCompat.cpp (WASM).
 
     include_directories(${PKG_SDL_INCLUDE_DIRS} ${PKG_ZLIB_INCLUDE_DIRS} ${PKG_SDLIMAGE_INCLUDE_DIRS})
-    include_directories(${PKG_SDLGFX_INCLUDE_DIRS} ${PKG_SDLMIXER_INCLUDE_DIRS})
-    set(PKG_DEPS_LDFLAGS ${PKG_SDL_LDFLAGS} ${PKG_ZLIB_LDFLAGS} ${PKG_SDLIMAGE_LDFLAGS} ${PKG_SDLGFX_LDFLAGS} ${PKG_SDLMIXER_LDFLAGS} ${OPENGL_LIBRARIES})
+    include_directories(${PKG_SDLMIXER_INCLUDE_DIRS})
+    set(PKG_DEPS_LDFLAGS ${PKG_SDL_LDFLAGS} ${PKG_ZLIB_LDFLAGS} ${PKG_SDLIMAGE_LDFLAGS} ${PKG_SDLMIXER_LDFLAGS} ${OPENGL_LIBRARIES})
 
     if (UNIX)
       set(PKG_DEPS_LDFLAGS "${PKG_DEPS_LDFLAGS};dl")

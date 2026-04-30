@@ -119,28 +119,32 @@ static inline int SDL_SetColors(SDL_Surface *surface, const SDL_Color *colors, i
 }
 #endif
 
-/* ---- Forward declarations for SDL1 functions shim'd by EmscriptenCompat.cpp ----
+/* ---- Forward declarations for SDL1 functions shim'd for all SDL2 builds ----
  *
- * SDL2 headers don't declare these; the shim definitions live in EmscriptenCompat.cpp
- * (compiled only under __EMSCRIPTEN__).  These declarations let callers compile
- * without error under -sUSE_SDL=2.
+ * SDL2 headers don't declare these; implementations come from:
+ *  - Emscripten builds: EmscriptenCompat.cpp
+ *  - Native SDL2 builds: Engine/compat_sdl_native/SDL2CompatNative.cpp
  */
-#if SDL_VERSION_ATLEAST(2,0,0) && defined(__EMSCRIPTEN__)
+#if SDL_VERSION_ATLEAST(2,0,0)
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/* SDL_SetColors: removed in SDL2; shim wraps SDL_SetPaletteColors (EmscriptenCompat.cpp). */
+/* SDL_SetColors: removed in SDL2.
+ * - Native SDL2: inline shim above (lines 114-120).
+ * - Emscripten: declared here, implemented in EmscriptenCompat.cpp. */
+#if defined(__EMSCRIPTEN__)
 int SDLCALL SDL_SetColors(SDL_Surface *surface, const SDL_Color *colors, int firstcolor, int ncolors);
+#endif
 
-/* SDL_WM_*: window-management API removed in SDL2; all no-ops in browser. */
+/* SDL_WM_*: window-management API removed in SDL2; all no-ops. */
 SDL_GrabMode SDL_WM_GrabInput(SDL_GrabMode mode);
 void         SDL_WM_SetCaption(const char *title, const char *icon);
 void         SDL_WM_GetCaption(const char **title, const char **icon);
 void         SDL_WM_SetIcon(SDL_Surface *icon, Uint8 *mask);
 
-/* SDL_WarpMouse: renamed SDL_WarpMouseInWindow in SDL2; no-op in browser. */
+/* SDL_WarpMouse: renamed SDL_WarpMouseInWindow in SDL2. */
 void SDL_WarpMouse(Uint16 x, Uint16 y);
 
 /* SDL1 Unicode / key-repeat API: removed in SDL2 (SDL2 handles these natively). */
@@ -168,4 +172,4 @@ int SDL_EnableKeyRepeat(int delay, int interval);
 #define SDL_DEFAULT_REPEAT_INTERVAL  30
 #endif
 
-#endif /* SDL_VERSION_ATLEAST(2,0,0) && __EMSCRIPTEN__ */
+#endif /* SDL_VERSION_ATLEAST(2,0,0) */

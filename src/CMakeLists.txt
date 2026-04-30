@@ -597,7 +597,14 @@ if ( UNIX AND NOT APPLE )
   set_property ( SOURCE main.cpp APPEND PROPERTY COMPILE_DEFINITIONS INSTALLDIR="${data_install_dir}/" )
 endif ()
 if ( APPLE )
-  set ( sdl_src "${MACOS_SDLMAIN_M_PATH}" )
+  # SDLMain.m is the SDL1 macOS entry point that calls SDL_main().
+  # SDL2 does not rename main→SDL_main on macOS; it initialises Cocoa
+  # internally.  Skip SDLMain.m for native SDL2 builds.
+  if ( NOT EMSCRIPTEN )
+    set ( sdl_src "" )
+  else ()
+    set ( sdl_src "${MACOS_SDLMAIN_M_PATH}" )
+  endif ()
   set ( openxcom_src ${openxcom_src} ${sdl_src} )
   set ( openxcom_icon "${PROJECT_SOURCE_DIR}/res/mac/AppIcon.icns" )
   if ( CREATE_BUNDLE )
@@ -687,6 +694,13 @@ if(EMSCRIPTEN)
     "--preload-file=${CMAKE_SOURCE_DIR}/bin/common@/game/common"
     "--preload-file=${CMAKE_SOURCE_DIR}/bin/standard@/game/standard"
   )
+else()
+  # SDL2_gfx header shim: SDL2_gfx names its header SDL2_gfxPrimitives.h but
+  # the OXCE source uses the SDL1-era name SDL_gfxPrimitives.h.
+  # SDL2CompatNative.cpp provides native implementations of SDL1 APIs that are
+  # stubs in EmscriptenCompat.cpp (e.g. SDL_WarpMouse → SDL_WarpMouseInWindow).
+  target_include_directories(openxcom PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Engine/compat_sdl_native)
+  target_sources(openxcom PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Engine/compat_sdl_native/SDL2CompatNative.cpp)
 endif()
 
 if ( EMBED_ASSETS )
@@ -708,6 +722,11 @@ endif ()
 # backtrace(3) requires libexecinfo on some *BSD systems
 if (${CMAKE_SYSTEM_NAME} MATCHES FreeBSD OR ${CMAKE_SYSTEM_NAME} MATCHES NetBSD OR ${CMAKE_SYSTEM_NAME} MATCHES OpenBSD)
   set ( system_libs -lexecinfo )
+endif ()
+
+# macOS: SDLMain.m uses Cocoa/CoreFoundation; SDL2_main renamed entry point needs SDL2main
+if (APPLE AND NOT EMSCRIPTEN)
+  set ( system_libs ${system_libs} "-framework Cocoa" "-framework CoreFoundation" "-framework IOKit" )
 endif ()
 
 if (WIN32)
@@ -756,6 +775,28 @@ if ( WIN32 )
     install ( FILES ${dll} DESTINATION bin)
   endforeach()
 endif ()
+
+# ---- Unit test target (native only) ----------------------------------------
+option(BUILD_TESTING "Build unit tests (ignored on Emscripten)" ON)
+
+if(NOT EMSCRIPTEN AND BUILD_TESTING)
+    enable_testing()
+
+    # doctest vendored as a single header in engine/oxce/extern/doctest/.
+    # Include path is engine/oxce/extern/ so tests use #include <doctest/doctest.h>.
+    add_library(oxce_test_doctest INTERFACE)
+    target_include_directories(oxce_test_doctest INTERFACE
+        ${CMAKE_SOURCE_DIR}/extern)
+
+    set(OXCE_TEST_SOURCES
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/test_main.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/GlobeMathTest.cpp)
+
+    add_executable(oxce_unit_tests ${OXCE_TEST_SOURCES})
+    target_link_libraries(oxce_unit_tests PRIVATE oxce_test_doctest)
+
+    add_test(NAME oxce_unit_tests COMMAND oxce_unit_tests)
+endif()
 
 #Setup source groups for IDE
 if ( MSVC OR "${CMAKE_GENERATOR}" STREQUAL "Xcode" )

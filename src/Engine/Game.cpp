@@ -202,7 +202,7 @@ bool Game::iterate()
 			case SDL_QUIT:
 				quit();
 				break;
-#ifndef __EMSCRIPTEN__
+#if !SDL_VERSION_ATLEAST(2,0,0)
 			case SDL_ACTIVEEVENT:
 				// An event other than SDL_APPMOUSEFOCUS change happened.
 				if (reinterpret_cast<SDL_ActiveEvent*>(&_event)->state & ~SDL_APPMOUSEFOCUS)
@@ -259,7 +259,7 @@ bool Game::iterate()
 					}
 				}
 				break;
-#else /* __EMSCRIPTEN__ — SDL2 window events replace SDL_ACTIVEEVENT + SDL_VIDEORESIZE */
+#else /* SDL2 native or Emscripten — SDL_WINDOWEVENT replaces SDL_ACTIVEEVENT + SDL_VIDEORESIZE */
 			case SDL_WINDOWEVENT:
 				if (_event.window.event == SDL_WINDOWEVENT_RESIZED)
 				{
@@ -272,7 +272,7 @@ bool Game::iterate()
 					    std::max(Screen::ORIGINAL_HEIGHT, _event.window.data2);
 				}
 				break;
-#endif /* __EMSCRIPTEN__ */
+#endif /* SDL2 */
 			case SDL_MOUSEMOTION:
 				if (Options::oxceThrottleMouseMoveEvent > 0)
 				{
@@ -420,8 +420,8 @@ bool Game::iterate()
 		if (Options::FPS > 0 && !(Options::useOpenGL && Options::vSyncForOpenGL))
 		{
 			// Update our FPS delay time based on the time of the last draw.
-#ifdef __EMSCRIPTEN__
-			int fps = Options::FPS; /* browser tab always "focused" from game's perspective */
+#if SDL_VERSION_ATLEAST(2,0,0)
+			int fps = Options::FPS; /* SDL2: no SDL_GetAppState; use FPS for both focused and background */
 #else
 			int fps = SDL_GetAppState() & SDL_APPINPUTFOCUS ? Options::FPS : Options::FPSInactive;
 #endif

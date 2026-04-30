@@ -243,7 +243,7 @@ void FlcPlayer::SDLPolling()
 		case SDL_KEYDOWN:
 			_playingState = SKIPPED;
 			break;
-#ifndef __EMSCRIPTEN__
+#if !SDL_VERSION_ATLEAST(2,0,0)
 		case SDL_VIDEORESIZE:
 			if (Options::allowResize)
 			{

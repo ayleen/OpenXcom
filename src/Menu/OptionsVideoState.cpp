@@ -78,7 +78,7 @@ OptionsVideoState::OptionsVideoState(OptionsOrigin origin) : OptionsBaseState(or
 	_btnRootWindowedMode = new ToggleTextButton(104, 16, 206, 128);
 
 	// Get available fullscreen modes
-#ifndef __EMSCRIPTEN__
+#if !SDL_VERSION_ATLEAST(2,0,0)
 	_res = SDL_ListModes(NULL, SDL_FULLSCREEN);
 	if (_res != (SDL_Rect**)-1 && _res != (SDL_Rect**)0)
 	{
@@ -95,13 +95,13 @@ OptionsVideoState::OptionsVideoState(OptionsOrigin origin) : OptionsBaseState(or
 		_resAmount = i;
 	}
 	else
-#endif /* __EMSCRIPTEN__: SDL_ListModes removed in SDL2; browser canvas has no fixed modes */
+#endif /* SDL2: SDL_ListModes removed; no fixed modes */
 	{
 		_resCurrent = -1;
 		_resAmount = 0;
 		_btnDisplayResolutionDown->setVisible(false);
 		_btnDisplayResolutionUp->setVisible(false);
-#ifndef __EMSCRIPTEN__
+#if !SDL_VERSION_ATLEAST(2,0,0)
 		Log(LOG_WARNING) << "Couldn't get display resolutions";
 #endif
 	}
