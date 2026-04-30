@@ -1240,15 +1240,16 @@ void Globe::drawSphereGPU()
 
 	int w = getWidth(), h = getHeight();
 
-	/* Phase 8c.10 perf instrumentation: wall-clock GPU pass time, averaged
-	 * over 60 frames.  Local instead of Screen::registerGPUPass because
-	 * drawSphereGPU lives inside Globe's own paint cycle (FBO render +
-	 * glReadPixels into the SDL surface), not Screen::flip's per-frame
-	 * GL injection point.  GpuTimer is CPU-side (steady_clock) so it
-	 * captures the synchronous glReadPixels stall, which is the dominant
-	 * cost on this path. */
+	/* Phase 8c.10 perf instrumentation: wall-clock GPU pass time.  ENTIRELY
+	 * gated on ::g_calypsoProfileGlobe — when the flag is 0 (production
+	 * default) the GpuTimer object is never constructed and steady_clock is
+	 * never read, so the path costs one int load + one branch-not-taken.
+	 * Sampled at the local level instead of Screen::registerGPUPass because
+	 * Globe's draw cycle does FBO render + glReadPixels synchronously into
+	 * _surface; restructuring would have been disproportionate. */
+	const int profileGlobe = ::g_calypsoProfileGlobe;
 	GpuTimer perfTimer;
-	perfTimer.start();
+	if (profileGlobe) perfTimer.start();
 
 	GlobeSphereGlSave st; st.save();
 
@@ -1341,13 +1342,14 @@ void Globe::drawSphereGPU()
 	}
 	unlock();
 
-	perfTimer.stop();
 	/* Perf log is opt-in via JS-side calypso_set_profile_globe(1)
 	 * (EmscriptenHarness).  Production builds never call the setter so
-	 * g_calypsoProfileGlobe stays 0 and this branch emits zero bytes.
-	 * Forward-declared at top of file with C linkage. */
-	if (::g_calypsoProfileGlobe)
+	 * g_calypsoProfileGlobe stays 0, perfTimer was never started, and
+	 * the entire branch below is skipped — zero clock reads, zero
+	 * accumulator math, zero log output. */
+	if (profileGlobe)
 	{
+		perfTimer.stop();
 		static long long s_accumUs = 0;
 		static unsigned  s_frameCount = 0;
 		s_accumUs += perfTimer.elapsedUs();
