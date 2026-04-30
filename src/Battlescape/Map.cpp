@@ -2065,14 +2065,17 @@ void Map::drawTerrainCPU(Surface *surface)
  * emitTilePass(), then issues glDrawArraysInstanced for each mapDataSet atlas
  * via a registered GPU pass.
  */
-void Map::drawTerrainGPU(Surface* /*surface*/)
+void Map::drawTerrainGPU(Surface* surface)
 {
 	const Uint32 ticks = SDL_GetTicks();
 	_animFrameGPU = static_cast<float>(ticks % TILE_ANIM_PERIOD_MS)
 	                / static_cast<float>(TILE_ANIM_PERIOD_MS);
 	emitTilePass();
-	// GPU draw is handled by drawTileGLPass(), invoked from the registered GPU pass
-	// in Screen::flip() after SDL_RenderFlush — no CPU fallback for tiles.
+	// CPU path renders units, cursor, projectiles, and all non-tile overlays into
+	// the SDL surface so the existing composite is preserved.  GPU tile pass fires
+	// after SDL_RenderFlush and draws tiles on top; unit z-order will be fixed when
+	// units are ported to the GPU path in a later block.
+	drawTerrainCPU(surface);
 }
 
 /**
@@ -2298,6 +2301,10 @@ void Map::drawTileGLPass()
 	}
 	glBindVertexArray(0);
 	glDisable(GL_BLEND);
+
+	// Consume-once: clear instances so stale data never reaches the next frame
+	// (guards hidden-movement frames where emitTilePass() is not called).
+	for (auto& grp : _tileAtlasGroups) grp.instances.clear();
 }
 #endif
 
