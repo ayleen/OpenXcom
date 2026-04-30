@@ -1666,11 +1666,59 @@ void Surface::blitNShade(SurfaceRaw<Uint32> surface, int x, int y, int shade, Gr
 
 void Surface::blitNShade(Surface* dest, int x, int y, int shade, bool half, int newBaseColor) const
 {
+	// Resolve src->_paletteMirror through dest's shade table when palettes
+	// differ — restores the SDL1 8bpp behaviour where pixel colours came
+	// from the destination's palette at render time.  Without this, surfaces
+	// baked under one palette in Mod::loadVanillaResources (e.g. every
+	// GEOGRAPH/{SCR,BDY,SPK} promoted to PAL_GEOSCAPE) carry the wrong
+	// colours into states that use a different palette.  Concrete symptom:
+	// UFOpedia article TFTD (`articleItemTFTD` → palette PAL_BASESCAPE,
+	// backgroundImage BACK08.SCR) renders the basescape backdrop as red /
+	// green / cyan grids because BACK08 indices were resolved through
+	// PAL_GEOSCAPE at promotion and the blit just memcpy'd those ARGB
+	// pixels.  ArticleStateText / Vehicle (BACK10.SCR + PAL_UFOPAEDIA)
+	// shared the same fault.
+	if (dest && !_paletteMirror.empty()
+	    && dest->_shadeTable && _shadeTable
+	    && dest->_shadeTable.get() != _shadeTable.get())
+	{
+		SurfaceRaw<const Uint32> srcRaw(reinterpret_cast<const Uint32*>(getBuffer()),
+		                                getWidth(), getHeight(), getPitch());
+		SurfaceRaw<const Uint8>  mirrorRaw(_paletteMirror.data(), _width, _height, _width);
+		const ShadeTable *destTable = dest->_shadeTable.get();
+		const ShadeTable *recoloured = nullptr;
+		if (newBaseColor && dest->_hasSavedPalette)
+		{
+			const Uint8 nbcShifted = (Uint8)((newBaseColor - 1) << 4);
+			recoloured = s_recolourCache.getOrBuild(destTable, dest->_savedPalette, nbcShifted);
+		}
+		blitRaw(SurfaceRaw<Uint32>(dest), srcRaw, mirrorRaw,
+		        x, y, shade, half, newBaseColor, destTable, recoloured);
+		return;
+	}
 	blitNShade(SurfaceRaw<Uint32>(dest), x, y, shade, half, newBaseColor);
 }
 
 void Surface::blitNShade(Surface* dest, int x, int y, int shade, GraphSubset range) const
 {
+	// Mirror of the cross-palette fix above for the GraphSubset overload.
+	if (dest && !_paletteMirror.empty()
+	    && dest->_shadeTable && _shadeTable
+	    && dest->_shadeTable.get() != _shadeTable.get())
+	{
+		SurfaceRaw<const Uint32> srcRaw(reinterpret_cast<const Uint32*>(getBuffer()),
+		                                getWidth(), getHeight(), getPitch());
+		SurfaceRaw<const Uint8>  mirrorRaw(_paletteMirror.data(), _width, _height, _width);
+		SurfaceRaw<Uint32>       destRaw(dest);
+		ShaderMove<const Uint32> src(srcRaw, x, y);
+		ShaderMove<Uint32>       dst(destRaw);
+		dst.setDomain(range);
+		ShaderMove<const Uint8>  idx(mirrorRaw, x, y);
+		ShaderDraw<helper::StandardShade>(dst, src, idx,
+		                                  ShaderScalar(shade),
+		                                  ShaderScalar(dest->_shadeTable.get()));
+		return;
+	}
 	blitNShade(SurfaceRaw<Uint32>(dest), x, y, shade, range);
 }
 
