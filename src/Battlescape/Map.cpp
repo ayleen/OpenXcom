@@ -2519,8 +2519,13 @@ void Map::drawUnitGLPass()
 		if (!g.instances.empty() && g.spec && g.spec->atlas) { hasAny = true; break; }
 	if (!hasAny) return;
 
-	const int SW = _game->getScreen()->getWidth();
-	const int SH = _game->getScreen()->getHeight();
+	// Pre-composite uses the iso projection in base-resolution pixels (Map
+	// emits TileInstance.screenX/Y in Map._surface coords, e.g. 640×400). GPU
+	// vertex shader divides by u_screenSize → NDC; with u_screenSize = base
+	// resolution, NDC [-1..1] maps to the canvas viewport directly, matching
+	// where CPU renders after BlitScaled stretches _surface 2× to canvas.
+	const float SW = (float)Options::baseXResolution;
+	const float SH = (float)Options::baseYResolution;
 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -2528,10 +2533,7 @@ void Map::drawUnitGLPass()
 	glBindVertexArray(_tileVAO);
 
 	_tileShader->use();
-	_tileShader->setUniform2f("u_screenSize",    (float)SW, (float)SH);
-	// Render at iso projection size; atlas is 2× upscaled internally and
-	// downsampled here via the GpuTexture::Linear filter. Hardcoded (64, 80)
-	// rendered units at 2× iso size, producing the "no units visible" symptom.
+	_tileShader->setUniform2f("u_screenSize",    SW, SH);
 	_tileShader->setUniform2f("u_tilePixelSize", (float)_spriteWidth, (float)_spriteHeight);
 	_tileShader->setUniform1f("u_animFrame",     0.0f);
 	_tileShader->setUniform1i("u_atlas",         0);
@@ -2649,8 +2651,10 @@ void Map::drawTileGLPass()
 		if (!grp.instances.empty()) { hasAny = true; break; }
 	if (!hasAny) return;
 
-	const int SW = _game->getScreen()->getWidth();
-	const int SH = _game->getScreen()->getHeight();
+	// Same coordinate convention as drawUnitGLPass — iso projection lives in
+	// base-resolution pixels, GPU u_screenSize = base resolution.
+	const float SW = (float)Options::baseXResolution;
+	const float SH = (float)Options::baseYResolution;
 
 	// Determine Z-range from populated zSlices across all groups.
 	int zMin = INT_MAX, zMax = INT_MIN;
@@ -2686,7 +2690,7 @@ void Map::drawTileGLPass()
 			if (sh != activeShader)
 			{
 				sh->use();
-				sh->setUniform2f("u_screenSize",    (float)SW, (float)SH);
+				sh->setUniform2f("u_screenSize",    SW, SH);
 				sh->setUniform2f("u_tilePixelSize", (float)_spriteWidth, (float)_spriteHeight);
 				sh->setUniform1f("u_animFrame",     0.0f);
 				sh->setUniform1i("u_atlas",         0);

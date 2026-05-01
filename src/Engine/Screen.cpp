@@ -219,7 +219,15 @@ void Screen::flip()
 			pass();
 		ShaderManager::instance().setHadGPUPass(true);
 
+		// SDL_RenderCopy below draws the surface texture with BLENDMODE_BLEND
+		// expecting GL_BLEND enabled with the standard alpha func. Pre-composite
+		// passes exit with glDisable(GL_BLEND) leaving SDL's batch-cached blend
+		// state out of sync with actual GL — RenderCopy then runs unblended and
+		// overwrites our pre-composite floor pixels with texture's alpha=0
+		// transparent black. Force the state SDL expects before the composite.
 		glUseProgram((GLuint)savedProg);
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	}
 
 	/* Upload the CPU surface (units, walls, HUD) as a texture and composite
