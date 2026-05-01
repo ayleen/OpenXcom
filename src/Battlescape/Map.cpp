@@ -2566,36 +2566,32 @@ void Map::drawUnitsAtZ(int z, Shader*& activeShader)
 	const float SW = (float)Options::baseXResolution;
 	const float SH = (float)Options::baseYResolution;
 
-	bool shaderEnsured = false;
-	std::vector<TileInstance> scratch;
-	for (auto& g : _unitAtlasGroups)
-	{
-		if (g.instances.empty() || !g.spec || !g.spec->atlas) continue;
-		if (g.zLevels.size() != g.instances.size()) continue;
+	// Iterate groups in two passes: floor items first (FLOOROB.PCK), then unit
+	// bodies + held items (everything else). Within a Z slice this gives:
+	// floor items → unit bodies → unit held items, matching iso order so
+	// units stand on top of dropped weapons rather than under them.
+	const Mod::UnitAtlasSpec* floorSpec  = _game->getMod()->getUnitAtlas("FLOOROB.PCK");
 
-		scratch.clear();
+	auto drawGroup = [&](UnitAtlasGroup& g) {
+		if (g.instances.empty() || !g.spec || !g.spec->atlas) return;
+		if (g.zLevels.size() != g.instances.size()) return;
+
+		std::vector<TileInstance> scratch;
 		scratch.reserve(g.instances.size());
 		for (size_t i = 0; i < g.instances.size(); ++i)
-		{
-			if (g.zLevels[i] == z)
-				scratch.push_back(g.instances[i]);
-		}
-		if (scratch.empty()) continue;
+			if (g.zLevels[i] == z) scratch.push_back(g.instances[i]);
+		if (scratch.empty()) return;
 
-		if (!shaderEnsured)
+		if (activeShader != _tileShader)
 		{
-			if (activeShader != _tileShader)
-			{
-				_tileShader->use();
-				_tileShader->setUniform2f("u_screenSize",    SW, SH);
-				_tileShader->setUniform2f("u_tilePixelSize", (float)_spriteWidth, (float)_spriteHeight);
-				_tileShader->setUniform1f("u_animFrame",     0.0f);
-				_tileShader->setUniform1i("u_atlas",         0);
-				_tileShader->setUniform1i("u_shadeTable",    1);
-				_shadeTableTex->bind(1);
-				activeShader = _tileShader;
-			}
-			shaderEnsured = true;
+			_tileShader->use();
+			_tileShader->setUniform2f("u_screenSize",    SW, SH);
+			_tileShader->setUniform2f("u_tilePixelSize", (float)_spriteWidth, (float)_spriteHeight);
+			_tileShader->setUniform1f("u_animFrame",     0.0f);
+			_tileShader->setUniform1i("u_atlas",         0);
+			_tileShader->setUniform1i("u_shadeTable",    1);
+			_shadeTableTex->bind(1);
+			activeShader = _tileShader;
 		}
 
 		const float uvW = (float)g.spec->tileWidth  / (float)g.spec->atlasW;
@@ -2608,7 +2604,15 @@ void Map::drawUnitsAtZ(int z, Shader*& activeShader)
 		             scratch.data(),
 		             GL_DYNAMIC_DRAW);
 		glDrawArraysInstanced(GL_TRIANGLES, 0, 6, (GLsizei)scratch.size());
-	}
+	};
+
+	// Pass 1: floor items (FLOOROB).
+	for (auto& g : _unitAtlasGroups)
+		if (g.spec == floorSpec) drawGroup(g);
+
+	// Pass 2: everything else (unit bodies + HANDOB held items).
+	for (auto& g : _unitAtlasGroups)
+		if (g.spec != floorSpec) drawGroup(g);
 }
 
 /**
