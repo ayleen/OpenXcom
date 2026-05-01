@@ -434,7 +434,9 @@ void Map::init()
 	{
 		_gpuAliveFlag = std::make_shared<bool>(true);
 		std::weak_ptr<bool> wf = _gpuAliveFlag;
-		_game->getScreen()->registerGPUPass([this, wf]() {
+		// Phase 13.3: tile pass fires BEFORE SDL composite so HD floor renders
+		// under CPU-drawn units / walls / HUD.
+		_game->getScreen()->registerGPUPassPreComposite([this, wf]() {
 			if (!wf.lock()) return;
 			this->drawTileGLPass();
 		});
@@ -496,16 +498,31 @@ void Map::draw()
 	// Note: un-hardcoded the color from 15 to ruleset value, default 15
 	_redraw = false;
 	{
-		const SDL_Color *pal = getEffectivePalette();
-		Uint8 idx = (Uint8)(Palette::blockOffset(0) + _bgColor);
-		if (pal)
+#ifdef __EMSCRIPTEN__
+		// Phase 13.4: in HD mode the GPU tile pass draws floor before the SDL
+		// composite; make the surface fully transparent so floor pixels show through.
+		const bool hdSurfaceBg = _game->getMod()->hasHDPack() && GpuInit::ready();
+#else
+		const bool hdSurfaceBg = false;
+#endif
+		if (hdSurfaceBg)
 		{
-			const SDL_Color &c = pal[idx];
-			SDL_FillRect(getSurface(), nullptr, SDL_MapRGB(getSurface()->format, c.r, c.g, c.b));
+			SDL_FillRect(getSurface(), nullptr,
+			             SDL_MapRGBA(getSurface()->format, 0, 0, 0, 0));
 		}
 		else
 		{
-			SDL_FillRect(getSurface(), nullptr, 0xFF000000u);
+			const SDL_Color *pal = getEffectivePalette();
+			Uint8 idx = (Uint8)(Palette::blockOffset(0) + _bgColor);
+			if (pal)
+			{
+				const SDL_Color &c = pal[idx];
+				SDL_FillRect(getSurface(), nullptr, SDL_MapRGB(getSurface()->format, c.r, c.g, c.b));
+			}
+			else
+			{
+				SDL_FillRect(getSurface(), nullptr, 0xFF000000u);
+			}
 		}
 	}
 
@@ -555,7 +572,7 @@ void Map::draw()
 		// Clear stale instances so tiles don't overdraw the hidden-movement screen.
 		if (_game->getMod()->hasHDPack() && GpuInit::ready())
 		{
-			for (auto& grp : _tileAtlasGroups) grp.instances.clear();
+			for (auto& grp : _tileAtlasGroups) { grp.instances.clear(); grp.zSlices.clear(); }
 			_cursorOverlayInstances.clear();
 			_smokeInstances.clear();
 		}
@@ -978,6 +995,8 @@ void Map::drawTerrainCPU(Surface *surface)
 	const bool gpuSpriteMode = _game->getMod()->hasHDPack() && GpuInit::ready();
 	SurfaceSet* const gpuCursorSet = gpuSpriteMode
 	    ? _game->getMod()->getSurfaceSet("CURSOR.PCK") : nullptr;
+	// Phase 13.4: O_FLOOR is drawn by the GPU tile pass before SDL composite.
+	const bool hdFloorMode = gpuSpriteMode;
 #endif
 
 	_isAltPressed = _game->isAltPressed(true);
@@ -1191,14 +1210,19 @@ void Map::drawTerrainCPU(Surface *surface)
 
 					tileColor = tile->getMarkerColor();
 
-					// Draw floor
-					tmpSurface = tile->getSprite(O_FLOOR);
-					if (tmpSurface)
+					// Draw floor — skipped in HD mode (GPU tile pass handles floor before SDL composite).
+#ifdef __EMSCRIPTEN__
+					if (!hdFloorMode)
+#endif
 					{
-						if (tile->getObstacle(O_FLOOR))
-							Surface::blitRaw(surface, tmpSurface, screenPosition.x, screenPosition.y - tile->getYOffset(O_FLOOR), obstacleShade, false, _nvColor);
-						else
-							Surface::blitRaw(surface, tmpSurface, screenPosition.x, screenPosition.y - tile->getYOffset(O_FLOOR), tileShade, false, _nvColor);
+						tmpSurface = tile->getSprite(O_FLOOR);
+						if (tmpSurface)
+						{
+							if (tile->getObstacle(O_FLOOR))
+								Surface::blitRaw(surface, tmpSurface, screenPosition.x, screenPosition.y - tile->getYOffset(O_FLOOR), obstacleShade, false, _nvColor);
+							else
+								Surface::blitRaw(surface, tmpSurface, screenPosition.x, screenPosition.y - tile->getYOffset(O_FLOOR), tileShade, false, _nvColor);
+						}
 					}
 
 					auto* unit = tile->getUnit();
@@ -2193,7 +2217,7 @@ void Map::drawTerrainGPU(Surface* surface)
  */
 void Map::emitTilePass()
 {
-	for (auto& grp : _tileAtlasGroups) grp.instances.clear();
+	for (auto& grp : _tileAtlasGroups) { grp.instances.clear(); grp.zSlices.clear(); }
 	_smokeInstances.clear();
 	_cursorOverlayInstances.clear();
 	if (_tileAtlasGroups.empty()) return;
@@ -2231,9 +2255,31 @@ void Map::emitTilePass()
 	SurfaceSet* smokeSet = mod->getSurfaceSet("SMOKE.PCK");
 	static const TilePart parts[4] = { O_FLOOR, O_WESTWALL, O_NORTHWALL, O_OBJECT };
 
+	// Phase 13.1: per-Z range descriptors — track instance-buffer boundary per group.
+	const size_t numGrps = _tileAtlasGroups.size();
+	std::vector<size_t> zSliceFirst(numGrps, 0);
+	int prevEmitZ = -1;
+
 	for (int itZ = beginZ; itZ <= endZ; ++itZ)
 	for (int itY = beginY; itY < endY;  ++itY)
 	{
+		// Detect Z-level transition (fires once per Z, at the first itY row).
+		if (itZ != prevEmitZ)
+		{
+			if (prevEmitZ >= 0)
+			{
+				for (size_t gi = 0; gi < numGrps; ++gi)
+				{
+					size_t cnt = _tileAtlasGroups[gi].instances.size() - zSliceFirst[gi];
+					if (cnt > 0)
+						_tileAtlasGroups[gi].zSlices.push_back({prevEmitZ, zSliceFirst[gi], cnt});
+				}
+			}
+			for (size_t gi = 0; gi < numGrps; ++gi)
+				zSliceFirst[gi] = _tileAtlasGroups[gi].instances.size();
+			prevEmitZ = itZ;
+		}
+
 		Position mapPos(beginX, itY, itZ);
 		for (int itX = beginX; itX < endX; ++itX, ++mapPos.x)
 		{
@@ -2339,6 +2385,17 @@ void Map::emitTilePass()
 			}
 		}
 	}
+
+	// Commit the final Z-level's slices.
+	if (prevEmitZ >= 0)
+	{
+		for (size_t gi = 0; gi < numGrps; ++gi)
+		{
+			size_t cnt = _tileAtlasGroups[gi].instances.size() - zSliceFirst[gi];
+			if (cnt > 0)
+				_tileAtlasGroups[gi].zSlices.push_back({prevEmitZ, zSliceFirst[gi], cnt});
+		}
+	}
 }
 
 /**
@@ -2418,8 +2475,9 @@ void Map::initTileGL()
 }
 
 /**
- * Issue one glDrawArraysInstanced per atlas group.  Called from the Screen GPU
- * pass registered in Map::init(), i.e. AFTER SDL_RenderFlush in Screen::flip().
+ * Issue glDrawArraysInstanced per atlas group, Z-level outer (Phase 13.2).
+ * Fires before SDL composite via registerGPUPassPreComposite so HD floor
+ * renders under units / walls / HUD that the CPU draws to the SDL surface.
  */
 void Map::drawTileGLPass()
 {
@@ -2435,51 +2493,60 @@ void Map::drawTileGLPass()
 	const int SW = _game->getScreen()->getWidth();
 	const int SH = _game->getScreen()->getHeight();
 
+	// Determine Z-range from populated zSlices across all groups.
+	int zMin = INT_MAX, zMax = INT_MIN;
+	for (auto& grp : _tileAtlasGroups)
+		for (auto& s : grp.zSlices)
+		{
+			if (s.zLevel < zMin) zMin = s.zLevel;
+			if (s.zLevel > zMax) zMax = s.zLevel;
+		}
+	if (zMin > zMax) return;
+
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glDisable(GL_DEPTH_TEST);
 	glBindVertexArray(_tileVAO);
 
-	// ── Pass 1: palette atlases (R8 + shade-table) ──────────────────────────
-	_tileShader->use();
-	_tileShader->setUniform2f("u_screenSize",    (float)SW, (float)SH);
-	_tileShader->setUniform2f("u_tilePixelSize", (float)_spriteWidth, (float)_spriteHeight);
-	_tileShader->setUniform1f("u_animFrame",     0.0f);
-	_tileShader->setUniform1i("u_atlas",         0);
-	_tileShader->setUniform1i("u_shadeTable",    1);
-	_shadeTableTex->bind(1);
+	// Track which shader+uniforms are currently bound to minimise switches.
+	Shader* activeShader = nullptr;
 
-	for (auto& grp : _tileAtlasGroups)
+	// Z-outer, group-inner: guarantees lower Z always draws before higher Z
+	// regardless of palette vs. RGBA mix (fixes Phase 13 Bug #1).
+	for (int z = zMin; z <= zMax; ++z)
 	{
-		if (!grp.atlas || grp.instances.empty() || grp.isRgba) continue;
-		grp.atlas->bind(0);
-		_tileShader->setUniform2f("u_tileUVSize", grp.tileUVW, grp.tileUVH);
-		glBindBuffer(GL_ARRAY_BUFFER, _tileIBO);
-		glBufferData(GL_ARRAY_BUFFER,
-		             (GLsizeiptr)(grp.instances.size() * sizeof(TileInstance)),
-		             grp.instances.data(), GL_DYNAMIC_DRAW);
-		glDrawArraysInstanced(GL_TRIANGLES, 0, 6, (GLsizei)grp.instances.size());
-	}
-
-	// ── Pass 2: RGBA atlases (GL_LINEAR + linear shade darkening) ───────────
-	if (_tileShaderRgba && _tileShaderRgba->isValid())
-	{
-		_tileShaderRgba->use();
-		_tileShaderRgba->setUniform2f("u_screenSize",    (float)SW, (float)SH);
-		_tileShaderRgba->setUniform2f("u_tilePixelSize", (float)_spriteWidth, (float)_spriteHeight);
-		_tileShaderRgba->setUniform1f("u_animFrame",     0.0f);
-		_tileShaderRgba->setUniform1i("u_atlas",         0);
-
 		for (auto& grp : _tileAtlasGroups)
 		{
-			if (!grp.atlas || grp.instances.empty() || !grp.isRgba) continue;
+			if (!grp.atlas) continue;
+			const auto* slice = grp.findZSlice(z);
+			if (!slice || slice->count == 0) continue;
+
+			Shader* sh = grp.isRgba ? _tileShaderRgba : _tileShader;
+			if (!sh || !sh->isValid()) continue;
+
+			if (sh != activeShader)
+			{
+				sh->use();
+				sh->setUniform2f("u_screenSize",    (float)SW, (float)SH);
+				sh->setUniform2f("u_tilePixelSize", (float)_spriteWidth, (float)_spriteHeight);
+				sh->setUniform1f("u_animFrame",     0.0f);
+				sh->setUniform1i("u_atlas",         0);
+				if (!grp.isRgba)
+				{
+					sh->setUniform1i("u_shadeTable", 1);
+					_shadeTableTex->bind(1);
+				}
+				activeShader = sh;
+			}
+
 			grp.atlas->bind(0);
-			_tileShaderRgba->setUniform2f("u_tileUVSize", grp.tileUVW, grp.tileUVH);
+			sh->setUniform2f("u_tileUVSize", grp.tileUVW, grp.tileUVH);
 			glBindBuffer(GL_ARRAY_BUFFER, _tileIBO);
 			glBufferData(GL_ARRAY_BUFFER,
-			             (GLsizeiptr)(grp.instances.size() * sizeof(TileInstance)),
-			             grp.instances.data(), GL_DYNAMIC_DRAW);
-			glDrawArraysInstanced(GL_TRIANGLES, 0, 6, (GLsizei)grp.instances.size());
+			             (GLsizeiptr)(slice->count * sizeof(TileInstance)),
+			             grp.instances.data() + slice->first,
+			             GL_DYNAMIC_DRAW);
+			glDrawArraysInstanced(GL_TRIANGLES, 0, 6, (GLsizei)slice->count);
 		}
 	}
 

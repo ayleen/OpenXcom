@@ -141,6 +141,14 @@ private:
 		float                     tileUVH  = 0.0f;
 		bool                      isRgba   = false;
 		std::vector<TileInstance> instances;
+		// Phase 13.1: per-Z range descriptors into instances[].
+		struct ZSlice { int zLevel; size_t first; size_t count; };
+		std::vector<ZSlice>       zSlices;
+
+		const ZSlice* findZSlice(int z) const {
+			for (const auto& s : zSlices) if (s.zLevel == z) return &s;
+			return nullptr;
+		}
 	};
 
 	std::vector<AtlasGroup>  _tileAtlasGroups;
