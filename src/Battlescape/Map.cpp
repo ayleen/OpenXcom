@@ -642,28 +642,30 @@ void Map::setPalette(const SDL_Color *colors, int firstcolor, int ncolors)
 			_tileAtlasGroups[i].tileUVH = (float)spec->tileHeight / (float)spec->height;
 			_tileAtlasGroups[i].isRgba  = (spec->format == Mod::TileAtlasSpec::Format::Rgba);
 		}
-		// Phase 14.1: build/refresh unit sprite atlases for vanilla (palette-indexed) sprite sets.
-		// Clear stale atlases first so ensureUnitAtlas rebuilds with the new palette.
+		// Force setPalette on each sheet: unit PCKs aren't in ensureBattlescapeAssetPalettes'
+		// list, so without this they stay 8bpp scratch with no palette mirror and the atlas
+		// builder reads B-channel of unpopulated ARGB instead of palette indices.
+		// PCK→ARGB promotion populates _paletteMirror; direct-loaded HD ARGB does not —
+		// so getPaletteMirror() distinguishes the two after setPalette runs.
 		{
 			mod->clearUnitAtlases();
 			std::set<std::string> built;
+			auto buildIfPalette = [&](SurfaceSet* ss, const std::string& sheet) {
+				if (!ss || ss->getTotalFrames() == 0 || !ss->getFrame(0)) return;
+				ss->setPalette(colors, firstcolor, ncolors);
+				if (!ss->getFrame(0)->getPaletteMirror()) return;  // HD ARGB — skip R8 atlas.
+				mod->ensureUnitAtlas(ss, sheet, colors, ncolors);
+			};
 			for (const auto& armorName : mod->getArmorsList())
 			{
 				const Armor* armor = mod->getArmor(armorName);
 				if (!armor) continue;
 				const std::string& sheet = armor->getSpriteSheet();
 				if (!built.insert(sheet).second) continue;
-				SurfaceSet* ss = mod->getSurfaceSet(sheet, false);
-				if (!ss) continue;
-				// Only build R8 atlas for palette-indexed sets; HD (ARGB) sets have no shade table.
-				if (ss->getTotalFrames() > 0 && ss->getFrame(0) && ss->getFrame(0)->getShadeTable() != nullptr)
-					mod->ensureUnitAtlas(ss, sheet, colors, ncolors);
+				buildIfPalette(mod->getSurfaceSet(sheet, false), sheet);
 			}
 			// Item hand sprites (HANDOB.PCK) also use R8 atlas.
-			SurfaceSet* handob = mod->getSurfaceSet("HANDOB.PCK", false);
-			if (handob && handob->getTotalFrames() > 0 && handob->getFrame(0)
-			    && handob->getFrame(0)->getShadeTable() != nullptr)
-				mod->ensureUnitAtlas(handob, "HANDOB.PCK", colors, ncolors);
+			buildIfPalette(mod->getSurfaceSet("HANDOB.PCK", false), "HANDOB.PCK");
 		}
 		// Invalidate sprite frame cache — palette mapping changed.
 		for (auto& p : _spriteFrameCache) delete p.second;
@@ -2527,7 +2529,10 @@ void Map::drawUnitGLPass()
 
 	_tileShader->use();
 	_tileShader->setUniform2f("u_screenSize",    (float)SW, (float)SH);
-	_tileShader->setUniform2f("u_tilePixelSize", 64.0f, 80.0f);
+	// Render at iso projection size; atlas is 2× upscaled internally and
+	// downsampled here via the GpuTexture::Linear filter. Hardcoded (64, 80)
+	// rendered units at 2× iso size, producing the "no units visible" symptom.
+	_tileShader->setUniform2f("u_tilePixelSize", (float)_spriteWidth, (float)_spriteHeight);
 	_tileShader->setUniform1f("u_animFrame",     0.0f);
 	_tileShader->setUniform1i("u_atlas",         0);
 	_tileShader->setUniform1i("u_shadeTable",    1);

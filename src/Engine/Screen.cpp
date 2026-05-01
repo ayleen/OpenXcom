@@ -40,6 +40,9 @@
 #include <SDL.h>
 #include <SDL_render.h>
 #include <algorithm>
+#ifdef __EMSCRIPTEN__
+#include <GLES3/gl3.h>
+#endif
 
 namespace OpenXcom
 {
@@ -195,15 +198,28 @@ void Screen::flip()
 	/* SDL2 renderer path — shared by Emscripten and native non-OpenGL. */
 
 	/* Phase 13.3: pre-composite GPU passes (HD tile floor) fire before the SDL
-	 * surface composite so CPU-drawn units / walls / HUD land on top of them. */
+	 * surface composite so CPU-drawn units / walls / HUD land on top of them.
+	 *
+	 * Save the active GL shader program before our raw GL passes and restore it
+	 * after. SDL2's batch state-cache assumes its own program is bound when it
+	 * issues SDL_RenderCopy below; if we leave a custom program bound the
+	 * RenderCopy draw produces no pixels and the HUD becomes invisible.
+	 * (We deliberately don't restore VAO/buffer — doing so additionally clobbers
+	 * the pre-composite floor pixels on the framebuffer, see post-Phase-14 fix.) */
 	SDL_RenderClear(_renderer);
 	if (!_gpuPassesPre.empty())
 	{
 		SDL_RenderFlush(_renderer);
+
+		GLint savedProg = 0;
+		glGetIntegerv(GL_CURRENT_PROGRAM, &savedProg);
+
 		ShaderManager::instance().resetFrameFlag();
 		for (auto& pass : _gpuPassesPre)
 			pass();
 		ShaderManager::instance().setHadGPUPass(true);
+
+		glUseProgram((GLuint)savedProg);
 	}
 
 	/* Upload the CPU surface (units, walls, HUD) as a texture and composite
