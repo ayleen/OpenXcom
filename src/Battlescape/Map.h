@@ -122,6 +122,7 @@ private:
 	void drawTerrainOverlayCPU(Surface *surface);
 #ifdef __EMSCRIPTEN__
 	friend class UnitSprite; // needs Map::TileInstance for emit targets
+	friend class ItemSprite; // ditto — emits floor items into pre-composite
 	void drawTerrainGPU(Surface *surface);
 	void emitTilePass();
 	void initTileGL();

@@ -18,6 +18,7 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "../Engine/Surface.h"
+#include "../Mod/Mod.h"
 
 namespace OpenXcom
 {
@@ -39,7 +40,12 @@ private:
 	int _animationFrame;
 	Surface *_dest;
 	const SavedBattleGame *_save;
-
+#ifdef __EMSCRIPTEN__
+	void* _emitTarget = nullptr;       // std::vector<Map::TileInstance>* — body emits
+	void* _emitZTarget = nullptr;      // std::vector<int>*               — Z per emit
+	const Mod::UnitAtlasSpec* _emitSpec = nullptr;
+	int   _emitZ = 0;
+#endif
 
 public:
 	/// Creates a new ItemSprite at the specified position and size.
@@ -50,6 +56,23 @@ public:
 	void draw(const BattleItem* item, int x, int y, int shade);
 	/// Draws the item shadow.
 	void drawShadow(const BattleItem* item, int x, int y);
+#ifdef __EMSCRIPTEN__
+	/// Emit-mode: redirect draw() into a TileInstance vector instead of CPU blit.
+	void setEmitMode(void* target, const Mod::UnitAtlasSpec* spec, int emitZ, void* zTarget)
+	{
+		_emitTarget = target;
+		_emitSpec   = spec;
+		_emitZ      = emitZ;
+		_emitZTarget = zTarget;
+	}
+	void clearEmitMode()
+	{
+		_emitTarget = nullptr;
+		_emitSpec   = nullptr;
+		_emitZ      = 0;
+		_emitZTarget = nullptr;
+	}
+#endif
 };
 
 } //namespace OpenXcom

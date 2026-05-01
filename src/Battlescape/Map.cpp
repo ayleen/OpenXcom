@@ -662,6 +662,9 @@ void Map::setPalette(const SDL_Color *colors, int firstcolor, int ncolors)
 			}
 			// Item hand sprites (HANDOB.PCK) also use R8 atlas.
 			buildIfPalette(mod->getSurfaceSet("HANDOB.PCK", false), "HANDOB.PCK");
+			// Floor item sprites (FLOOROB.PCK) — emitted via ItemSprite at item's
+			// tile Z so they render between walls and units in iso order.
+			buildIfPalette(mod->getSurfaceSet("FLOOROB.PCK", false), "FLOOROB.PCK");
 		}
 		// Invalidate sprite frame cache — palette mapping changed.
 		for (auto& p : _spriteFrameCache) delete p.second;
@@ -1424,11 +1427,37 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 						BattleItem* item = tile->getTopItem();
 						if (item)
 						{
+#ifdef __EMSCRIPTEN__
+							// In HD mode emit floor item into the GPU pre-composite at
+							// the item's tile Z, so it renders between walls and units
+							// in iso order rather than over everything via CPU surface.
+							const Mod::UnitAtlasSpec* itemAtlasSpec =
+							    gpuSpriteMode ? _game->getMod()->getUnitAtlas("FLOOROB.PCK")
+							                  : nullptr;
+							if (itemAtlasSpec && itemAtlasSpec->atlas)
+							{
+								size_t idx = _unitAtlasGroups.size();
+								for (size_t i = 0; i < _unitAtlasGroups.size(); ++i)
+									if (_unitAtlasGroups[i].spec == itemAtlasSpec) { idx = i; break; }
+								if (idx == _unitAtlasGroups.size())
+								{
+									_unitAtlasGroups.push_back({});
+									_unitAtlasGroups.back().spec = itemAtlasSpec;
+								}
+								itemSprite.setEmitMode(
+								    &_unitAtlasGroups[idx].instances,
+								    itemAtlasSpec, itZ,
+								    &_unitAtlasGroups[idx].zLevels);
+							}
+#endif
 							itemSprite.draw(item,
 								screenPosition.x,
 								screenPosition.y + tile->getTerrainLevel(),
 								tileShade
 							);
+#ifdef __EMSCRIPTEN__
+							itemSprite.clearEmitMode();
+#endif
 							if (_anyIndicator)
 							{
 								BattleUnit *itemUnit = item->getUnit();
