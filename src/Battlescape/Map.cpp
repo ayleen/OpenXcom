@@ -612,7 +612,7 @@ void Map::setPalette(const SDL_Color *colors, int firstcolor, int ncolors)
 			_tileAtlasGroups[i].atlas   = atlas;
 			_tileAtlasGroups[i].tileUVW = (float)spec->tileWidth  / (float)spec->width;
 			_tileAtlasGroups[i].tileUVH = (float)spec->tileHeight / (float)spec->height;
-			_tileAtlasGroups[i].isRgba  = (spec->format == TileAtlasSpec::Format::Rgba);
+			_tileAtlasGroups[i].isRgba  = (spec->format == Mod::TileAtlasSpec::Format::Rgba);
 		}
 		// Invalidate sprite frame cache — palette mapping changed.
 		for (auto& p : _spriteFrameCache) delete p.second;
