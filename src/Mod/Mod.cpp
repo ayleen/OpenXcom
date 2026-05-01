@@ -1053,11 +1053,12 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 					}
 					if (SDL_MUSTLOCK(rgba)) SDL_UnlockSurface(rgba);
 					SDL_FreeSurface(rgba);
-					if (nearestCount > 0)
+					if (nearestCount > 0) {
 						Log(LOG_WARNING) << "tileAtlas[" << name << "]: "
 						                 << nearestCount << " pixel(s) are not exact palette "
 						                 << "matches and were nearest-colour quantised — "
 						                 << "atlas art should use only TFTD palette colours";
+					}
 
 					GpuTexture* tex = new GpuTexture(/*srgb=*/false);
 					if (!tex->uploadR8(r8.data(), w, h))

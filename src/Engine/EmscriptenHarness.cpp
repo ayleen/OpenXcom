@@ -25,6 +25,8 @@
 #include "Logger.h"
 #include "../Interface/Cursor.h"
 
+using namespace OpenXcom;
+
 extern "C" {
 
 EMSCRIPTEN_KEEPALIVE
