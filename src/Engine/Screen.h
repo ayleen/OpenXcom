@@ -56,6 +56,8 @@ private:
 	OpenGL glOutput;
 	Surface::UniqueBufferPtr _buffer;
 	Surface::UniqueSurfacePtr _surface;
+	/** GPU passes that fire BEFORE the SDL surface composite (Phase 13.3). */
+	std::vector<std::function<void()>> _gpuPassesPre;
 	/** GPU passes registered via registerGPUPass — called each frame in flip(). */
 	std::vector<std::function<void()>> _gpuPasses;
 	/** Frame counter for periodic GPU pass timing logs (Phase 8b.9). */
@@ -110,6 +112,9 @@ public:
 	 *  all GL state (program, VAO, blend, depth) around its own GL calls.
 	 *  SDL_RenderFlush is called before the first pass each frame. */
 	void registerGPUPass(std::function<void()> pass);
+	/** Register a pass that fires BEFORE the SDL surface composite (Phase 13.3).
+	 *  Use for HD tile geometry so it renders under CPU-drawn units / HUD. */
+	void registerGPUPassPreComposite(std::function<void()> pass);
 	/// Checks whether a 32bit scaler is requested and works for the selected resolution
 	static bool use32bitScaler();
 	/// Checks whether OpenGL output is requested

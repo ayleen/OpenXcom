@@ -193,6 +193,22 @@ void Screen::flip()
 	}
 
 	/* SDL2 renderer path — shared by Emscripten and native non-OpenGL. */
+
+	/* Phase 13.3: pre-composite GPU passes (HD tile floor) fire before the SDL
+	 * surface composite so CPU-drawn units / walls / HUD land on top of them. */
+	SDL_RenderClear(_renderer);
+	if (!_gpuPassesPre.empty())
+	{
+		SDL_RenderFlush(_renderer);
+		ShaderManager::instance().resetFrameFlag();
+		for (auto& pass : _gpuPassesPre)
+			pass();
+		ShaderManager::instance().setHadGPUPass(true);
+	}
+
+	/* Upload the CPU surface (units, walls, HUD) as a texture and composite
+	 * it over whatever the pre-composite passes drew.  _texture blend mode is
+	 * SDL_BLENDMODE_BLEND so transparent surface pixels let GPU content show. */
 	SDL_BlitScaled(_surface.get(), nullptr, _screen, nullptr);
 
 	void *texPixels;
@@ -212,17 +228,16 @@ void Screen::flip()
 		}
 	}
 	SDL_UnlockTexture(_texture);
-	SDL_RenderClear(_renderer);
 	SDL_RenderCopy(_renderer, _texture, nullptr, nullptr);
 
-	/* GPU shader passes (Phase 8b).
+	/* GPU shader passes (Phase 8b): cursor, projectile, smoke — overlay on top.
 	 * SDL_RenderFlush submits SDL's internal vertex batch before any raw
-	 * GL calls are made.  Each pass is responsible for saving and restoring
-	 * all GL state (program, VAO, blend, depth) around its own calls. */
+	 * GL calls are made.  Each pass saves/restores all GL state. */
 	if (!_gpuPasses.empty())
 	{
 		SDL_RenderFlush(_renderer);
-		ShaderManager::instance().resetFrameFlag();
+		if (_gpuPassesPre.empty())   // resetFrameFlag not already called above
+			ShaderManager::instance().resetFrameFlag();
 
 		GpuTimer timer;
 		timer.start();
@@ -365,6 +380,8 @@ void Screen::resetDisplay(bool resetVideo, bool noShaders)
 		_texture = SDL_CreateTexture(_renderer, SDL_PIXELFORMAT_ARGB8888,
 		    SDL_TEXTUREACCESS_STREAMING, width, height);
 		if (!_texture) throw Exception(SDL_GetError());
+		// Phase 13.3: BLEND lets pre-composite GPU content show through transparent surface regions.
+		SDL_SetTextureBlendMode(_texture, SDL_BLENDMODE_BLEND);
 
 		Log(LOG_INFO) << "Display rebased: canvas=" << width << "x" << height
 		              << ", base=" << _baseWidth << "x" << _baseHeight;
@@ -442,6 +459,8 @@ void Screen::resetDisplay(bool resetVideo, bool noShaders)
 				Log(LOG_ERROR) << "SDL_CreateTexture failed: " << SDL_GetError();
 				throw Exception(SDL_GetError());
 			}
+			// Phase 13.3: BLEND lets pre-composite GPU content show through transparent surface regions.
+			SDL_SetTextureBlendMode(_texture, SDL_BLENDMODE_BLEND);
 		}
 
 		Log(LOG_INFO) << "Display set: " << width << "x" << height
@@ -769,6 +788,11 @@ void Screen::updateScale(int type, int &width, int &height, bool change)
 void Screen::registerGPUPass(std::function<void()> pass)
 {
 	_gpuPasses.push_back(std::move(pass));
+}
+
+void Screen::registerGPUPassPreComposite(std::function<void()> pass)
+{
+	_gpuPassesPre.push_back(std::move(pass));
 }
 
 /**
