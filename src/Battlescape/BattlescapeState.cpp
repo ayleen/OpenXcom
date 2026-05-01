@@ -488,10 +488,14 @@ BattlescapeState::BattlescapeState() :
 	// Set up objects
 	_map->init();
 #ifdef __EMSCRIPTEN__
-	// Block 11.7: register cursor GPU pass after the tile pass so cursor always
-	// appears on top of GPU tile layers.  initGPU() is idempotent.
+	// Block 11.11/11.7: register GPU passes after map init.
+	// Pass order: tiles → cursor-overlay → projectile → smoke (registered by _map->init())
+	//             → warning (11.11) → cursor (11.7, always last/topmost).
 	if (_game->getMod()->hasHDPack() && GpuInit::ready())
+	{
+		_warning->initGPU(*_game->getScreen());
 		_game->getCursor()->initGPU(*_game->getScreen());
+	}
 #endif
 	_map->onMouseOver((ActionHandler)&BattlescapeState::mapOver);
 	_map->onMousePress((ActionHandler)&BattlescapeState::mapPress);

@@ -23,7 +23,9 @@
 #include "../Mod/MapData.h"
 #include "Position.h"
 #include "Particle.h"
+#include <map>
 #include <memory>
+#include <utility>
 #include <vector>
 
 namespace OpenXcom
@@ -151,6 +153,39 @@ private:
 	float        _animFrameGPU = 0.0f;
 	/// Lifetime flag: reset in ~Map() so the registered GPU-pass lambda becomes a no-op.
 	std::shared_ptr<bool>    _gpuAliveFlag;
+
+	// Blocks 11.8–11.9: GPU sprite rendering (projectiles, smoke, explosions)
+	Shader*      _spriteShader = nullptr;
+	unsigned int _spriteVAO   = 0;
+	unsigned int _spriteVBO   = 0;
+	/// Unified sprite frame cache: (SurfaceSet*, frameIdx) → RGBA GpuTexture.
+	std::map<std::pair<SurfaceSet*, int>, GpuTexture*> _spriteFrameCache;
+	bool _spriteGLInit = false;
+	void initSpriteGL();
+	GpuTexture* getOrUploadSpriteFrame(SurfaceSet* set, int frameIdx);
+	void drawProjectileGLPass();
+
+	/// Smoke/fire/explosion instance collected during emitTilePass() / emitSmokeInstances().
+	struct SmokeInstance
+	{
+		int screenX, screenY;  // blit top-left in SDL-surface space
+		SurfaceSet* set;       // PCK surface set (SMOKE, X1, HIT)
+		int frameIdx;          // frame index within set
+		float darken;          // u_darken: 0.0=normal, 1.0=full black
+	};
+	std::vector<SmokeInstance> _smokeInstances;
+	void emitSmokeInstances();
+	void drawSmokeGLPass();
+
+	/// Block 11.10: tile-space cursor-box overlay instance (CURSOR.PCK sprites).
+	struct CursorOverlayInstance
+	{
+		int screenX, screenY;
+		SurfaceSet* set;
+		int frameIdx;
+	};
+	std::vector<CursorOverlayInstance> _cursorOverlayInstances;
+	void drawCursorOverlayGLPass();
 #endif
 	int getTerrainLevel(const Position& pos, int size) const;
 	int getWallShade(TilePart part, Tile* tileFrot);

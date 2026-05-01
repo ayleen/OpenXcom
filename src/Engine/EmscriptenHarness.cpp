@@ -22,6 +22,7 @@
 #include "Screen.h"
 #include "ShaderManager.h"
 #include "GpuSmokeState.h"
+#include "Logger.h"
 #include "../Interface/Cursor.h"
 
 extern "C" {
@@ -32,11 +33,19 @@ void calypso_screenshot(const char *path)
 	OpenXcom::Game *g = OpenXcom::getCurrentGame();
 	if (!g || !g->getScreen()) return;
 
-	/* Auto-route to GPU framebuffer readback when a GPU pass ran this frame. */
+	/* Auto-route to GPU framebuffer readback when a GPU pass ran this frame.
+	 * Block 11.12: log the route at [INFO] so the regression harness can assert
+	 * that Battlescape scenarios always capture via GPU. */
 	if (OpenXcom::ShaderManager::instance().hadGPUPass())
+	{
+		Log(LOG_INFO) << "screenshot via GPU readback";
 		g->getScreen()->screenshotGPU(path);
+	}
 	else
+	{
+		Log(LOG_INFO) << "screenshot via CPU surface";
 		g->getScreen()->screenshot(path);
+	}
 }
 
 /* Always read back from the GPU framebuffer, regardless of GPU-pass flag. */

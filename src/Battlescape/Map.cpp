@@ -60,6 +60,7 @@
 #  include "../Engine/GpuTexture.h"
 #  include "../Engine/ShadeTableCache.h"
 #  include "../Engine/RenderTarget.h"
+#  include "../Engine/ShaderManager.h"
 #  include <GLES3/gl3.h>
 #  include <vector>
 /* Phase 11.0 CPU perf gate; Phase 11.1 readback-cost probe gate.
@@ -384,6 +385,11 @@ Map::~Map()
 		glDeleteBuffers(1, &_tileIBO);
 		glDeleteVertexArrays(1, &_tileVAO);
 	}
+	delete _spriteShader; _spriteShader = nullptr;
+	for (auto& p : _spriteFrameCache) delete p.second;
+	_spriteFrameCache.clear();
+	if (_spriteVAO) { glDeleteVertexArrays(1, &_spriteVAO); _spriteVAO = 0; }
+	if (_spriteVBO) { glDeleteBuffers(1, &_spriteVBO);      _spriteVBO = 0; }
 #endif
 }
 
@@ -430,6 +436,33 @@ void Map::init()
 		_game->getScreen()->registerGPUPass([this, wf]() {
 			if (!wf.lock()) return;
 			this->drawTileGLPass();
+		});
+		// Block 11.10: tile-space cursor overlay after tile pass, before sprites.
+		_game->getScreen()->registerGPUPass([this, wf]() {
+			if (!wf.lock()) return;
+			this->drawCursorOverlayGLPass();
+		});
+		// Block 11.8: projectile pass fires after cursor overlay.
+		_game->getScreen()->registerGPUPass([this, wf]() {
+			if (!wf.lock()) return;
+			this->drawProjectileGLPass();
+		});
+		// Block 11.9: smoke/explosion pass fires after projectile pass
+		// (cursor registered from BattlescapeState ctor last, so order is:
+		//  tiles → cursor overlay → projectiles → smoke → cursor).
+		_game->getScreen()->registerGPUPass([this, wf]() {
+			if (!wf.lock()) return;
+			this->drawSmokeGLPass();
+		});
+
+		// Block 11.13: after context restore, zero stale VAO/VBO handles and
+		// reset init flags so the next draw call recreates them via initTileGL /
+		// initSpriteGL (shader C++ objects are rebuilt by ShaderManager::reuploadAll).
+		ShaderManager::instance().registerResetCallback(_gpuAliveFlag, [this]() {
+			_tileVAO = _tileVBO = _tileIBO = 0;
+			_tileGLInit = false;
+			_spriteVAO = _spriteVBO = 0;
+			_spriteGLInit = false;
 		});
 	}
 #endif
@@ -516,6 +549,16 @@ void Map::draw()
 	}
 	else
 	{
+#ifdef __EMSCRIPTEN__
+		// Block 11.11: GPU tile pass fires every frame from registered lambdas.
+		// Clear stale instances so tiles don't overdraw the hidden-movement screen.
+		if (_game->getMod()->hasHDPack() && GpuInit::ready())
+		{
+			for (auto& grp : _tileAtlasGroups) grp.instances.clear();
+			_cursorOverlayInstances.clear();
+			_smokeInstances.clear();
+		}
+#endif
 		_message->blit(this->getSurface());
 	}
 }
@@ -569,6 +612,9 @@ void Map::setPalette(const SDL_Color *colors, int firstcolor, int ncolors)
 			_tileAtlasGroups[i].tileUVW = (float)spec->tileWidth  / (float)spec->width;
 			_tileAtlasGroups[i].tileUVH = (float)spec->tileHeight / (float)spec->height;
 		}
+		// Invalidate sprite frame cache — palette mapping changed.
+		for (auto& p : _spriteFrameCache) delete p.second;
+		_spriteFrameCache.clear();
 		delete _shadeTableTex; _shadeTableTex = nullptr;
 		const ShadeTable* st = getShadeTable();
 		if (st)
@@ -924,6 +970,12 @@ void Map::drawTerrainCPU(Surface *surface)
 	const int profileBs = ::g_calypsoProfileBattlescape;
 	GpuTimer bsTimer;
 	if (profileBs) bsTimer.start();
+
+	// Block 11.10: cursor-box sprites are collected into _cursorOverlayInstances
+	// and rendered by drawCursorOverlayGLPass() instead of blitting to SDL surface.
+	const bool gpuSpriteMode = _game->getMod()->hasHDPack() && GpuInit::ready();
+	SurfaceSet* const gpuCursorSet = gpuSpriteMode
+	    ? _game->getMod()->getSurfaceSet("CURSOR.PCK") : nullptr;
 #endif
 
 	_isAltPressed = _game->isAltPressed(true);
@@ -1168,14 +1220,28 @@ void Map::drawTerrainCPU(Surface *surface)
 								else
 									frameNumber = 6; // red static crosshairs
 							}
-							tmpSurface = _game->getMod()->getSurfaceSet("CURSOR.PCK")->getFrame(frameNumber);
-							Surface::blitRaw(surface, tmpSurface, screenPosition.x, screenPosition.y, 0);
+#ifdef __EMSCRIPTEN__
+							if (gpuCursorSet)
+								_cursorOverlayInstances.push_back({screenPosition.x, screenPosition.y, gpuCursorSet, frameNumber});
+							else
+#endif
+							{
+								tmpSurface = _game->getMod()->getSurfaceSet("CURSOR.PCK")->getFrame(frameNumber);
+								Surface::blitRaw(surface, tmpSurface, screenPosition.x, screenPosition.y, 0);
+							}
 						}
 						else if (_camera->getViewLevel() > itZ)
 						{
 							frameNumber = 2; // blue box
-							tmpSurface = _game->getMod()->getSurfaceSet("CURSOR.PCK")->getFrame(frameNumber);
-							Surface::blitRaw(surface, tmpSurface, screenPosition.x, screenPosition.y, 0);
+#ifdef __EMSCRIPTEN__
+							if (gpuCursorSet)
+								_cursorOverlayInstances.push_back({screenPosition.x, screenPosition.y, gpuCursorSet, frameNumber});
+							else
+#endif
+							{
+								tmpSurface = _game->getMod()->getSurfaceSet("CURSOR.PCK")->getFrame(frameNumber);
+								Surface::blitRaw(surface, tmpSurface, screenPosition.x, screenPosition.y, 0);
+							}
 						}
 					}
 
@@ -1321,6 +1387,11 @@ void Map::drawTerrainCPU(Surface *surface)
 						}
 						else
 						{
+#ifdef __EMSCRIPTEN__
+							// Block 11.8: bullets are drawn by drawProjectileGLPass() in GPU mode.
+							if (!(_game->getMod()->hasHDPack() && GpuInit::ready()))
+#endif
+							{
 							// draw bullet on the correct tile
 							if (itX >= bulletLowX && itX <= bulletHighX && itY >= bulletLowY && itY <= bulletHighY)
 							{
@@ -1368,6 +1439,7 @@ void Map::drawTerrainCPU(Surface *surface)
 									}
 								}
 							}
+							} // end CPU bullet draw
 						}
 					}
 
@@ -1425,6 +1497,9 @@ void Map::drawTerrainCPU(Surface *surface)
 					}
 
 					// Draw smoke/fire
+#ifdef __EMSCRIPTEN__
+					if (!(tile->getSmoke() && tile->isDiscovered(O_FLOOR) && _game->getMod()->hasHDPack() && GpuInit::ready()))
+#endif
 					if (tile->getSmoke() && tile->isDiscovered(O_FLOOR))
 					{
 						frameNumber = 0;
@@ -1536,8 +1611,15 @@ void Map::drawTerrainCPU(Surface *surface)
 								else
 									frameNumber = 6; // red static crosshairs
 							}
-							tmpSurface = _game->getMod()->getSurfaceSet("CURSOR.PCK")->getFrame(frameNumber);
-							Surface::blitRaw(surface, tmpSurface, screenPosition.x, screenPosition.y, 0);
+#ifdef __EMSCRIPTEN__
+							if (gpuCursorSet)
+								_cursorOverlayInstances.push_back({screenPosition.x, screenPosition.y, gpuCursorSet, frameNumber});
+							else
+#endif
+							{
+								tmpSurface = _game->getMod()->getSurfaceSet("CURSOR.PCK")->getFrame(frameNumber);
+								Surface::blitRaw(surface, tmpSurface, screenPosition.x, screenPosition.y, 0);
+							}
 
 							// UFO extender accuracy: display adjusted accuracy value on crosshair in real-time.
 							if (_cursorType >= CT_AIM && _showInfoOnCursor && (_cursorType != CT_THROW || !Options::oxceDisableInfoOnThrowCursor))
@@ -1735,8 +1817,15 @@ void Map::drawTerrainCPU(Surface *surface)
 						else if (_camera->getViewLevel() > itZ)
 						{
 							frameNumber = 5; // blue box
-							tmpSurface = _game->getMod()->getSurfaceSet("CURSOR.PCK")->getFrame(frameNumber);
-							Surface::blitRaw(surface, tmpSurface, screenPosition.x, screenPosition.y, 0);
+#ifdef __EMSCRIPTEN__
+							if (gpuCursorSet)
+								_cursorOverlayInstances.push_back({screenPosition.x, screenPosition.y, gpuCursorSet, frameNumber});
+							else
+#endif
+							{
+								tmpSurface = _game->getMod()->getSurfaceSet("CURSOR.PCK")->getFrame(frameNumber);
+								Surface::blitRaw(surface, tmpSurface, screenPosition.x, screenPosition.y, 0);
+							}
 						}
 						if (!_isAltPressed && _cursorType > CT_AIM && _camera->getViewLevel() == itZ)
 						{
@@ -1758,8 +1847,16 @@ void Map::drawTerrainCPU(Surface *surface)
 							if (!ignore)
 							{
 								int frame[6] = { 0, 0, 0, 11, 13, 15 };
-								tmpSurface = _game->getMod()->getSurfaceSet("CURSOR.PCK")->getFrame(frame[_cursorType] + (_animFrame / 4) % 2);
-								Surface::blitRaw(surface, tmpSurface, screenPosition.x, screenPosition.y, 0);
+								const int cursorFrame = frame[_cursorType] + (_animFrame / 4) % 2;
+#ifdef __EMSCRIPTEN__
+								if (gpuCursorSet)
+									_cursorOverlayInstances.push_back({screenPosition.x, screenPosition.y, gpuCursorSet, cursorFrame});
+								else
+#endif
+								{
+									tmpSurface = _game->getMod()->getSurfaceSet("CURSOR.PCK")->getFrame(cursorFrame);
+									Surface::blitRaw(surface, tmpSurface, screenPosition.x, screenPosition.y, 0);
+								}
 							}
 						}
 					}
@@ -1775,8 +1872,15 @@ void Map::drawTerrainCPU(Surface *surface)
 						{
 							if (waypXOff == 2 && waypYOff == 2)
 							{
-								tmpSurface = _game->getMod()->getSurfaceSet("CURSOR.PCK")->getFrame(7);
-								Surface::blitRaw(surface, tmpSurface, screenPosition.x, screenPosition.y, 0);
+#ifdef __EMSCRIPTEN__
+								if (gpuCursorSet)
+									_cursorOverlayInstances.push_back({screenPosition.x, screenPosition.y, gpuCursorSet, 7});
+								else
+#endif
+								{
+									tmpSurface = _game->getMod()->getSurfaceSet("CURSOR.PCK")->getFrame(7);
+									Surface::blitRaw(surface, tmpSurface, screenPosition.x, screenPosition.y, 0);
+								}
 							}
 							if (_save->getBattleGame()->getCurrentAction()->type == BA_LAUNCH || _save->getBattleGame()->getCurrentAction()->sprayTargeting)
 							{
@@ -2009,6 +2113,10 @@ void Map::drawTerrainCPU(Surface *surface)
 		}
 		else
 		{
+#ifdef __EMSCRIPTEN__
+			// Block 11.9: explosions rendered by drawSmokeGLPass() in GPU mode.
+			if (!(_game->getMod()->hasHDPack() && GpuInit::ready()))
+#endif
 			for (const auto* explosion : _explosions)
 			{
 				_camera->convertVoxelToScreen(explosion->getPosition(), &bulletPositionScreen);
@@ -2084,6 +2192,8 @@ void Map::drawTerrainGPU(Surface* surface)
 void Map::emitTilePass()
 {
 	for (auto& grp : _tileAtlasGroups) grp.instances.clear();
+	_smokeInstances.clear();
+	_cursorOverlayInstances.clear();
 	if (_tileAtlasGroups.empty()) return;
 
 	Mod* mod = _game->getMod();
@@ -2111,10 +2221,12 @@ void Map::emitTilePass()
 		endZ   = _camera->getViewLevel();
 	}
 
-	const int mapOffsetX   = getX();
-	const int mapOffsetY   = getY();
-	const Position camOff  = _camera->getMapOffset();
-	const int animFrameIdx = _animFrame;
+	const int mapOffsetX    = getX();
+	const int mapOffsetY    = getY();
+	const Position camOff   = _camera->getMapOffset();
+	const int animFrameIdx  = _animFrame;
+	const int halfAnimFrame = (_animFrame / 2) % 4;
+	SurfaceSet* smokeSet = mod->getSurfaceSet("SMOKE.PCK");
 	static const TilePart parts[4] = { O_FLOOR, O_WESTWALL, O_NORTHWALL, O_OBJECT };
 
 	for (int itZ = beginZ; itZ <= endZ; ++itZ)
@@ -2192,6 +2304,37 @@ void Map::emitTilePass()
 				inst.alphaMask     = 1.0f;
 				grp.instances.push_back(inst);
 			}
+
+			// Block 11.9: collect tile smoke/fire instance for GPU smoke pass.
+			if (smokeSet && tile->getSmoke() && tile->isDiscovered(O_FLOOR))
+			{
+				int frameNumber = 0;
+				float gpuDarken = 0.0f;
+				if (!tile->getFire())
+				{
+					if (_save->getDepth() > 0)
+						frameNumber += Mod::UNDERWATER_SMOKE_OFFSET;
+					else
+						frameNumber += Mod::SMOKE_OFFSET;
+					if (Mod::EXTENDED_SMOKE_OFFSET == 0)
+						frameNumber += int(floor((tile->getSmoke() / 6.0) - 0.1));
+					else if (Mod::EXTENDED_SMOKE_OFFSET == 1)
+						frameNumber += int(floor((tile->getSmoke() / 6.0) - 0.1)) * 4;
+					else
+						frameNumber += (tile->getSmoke() - 1) / 5 * 4;
+					gpuDarken = std::min(1.0f, tileShade * (1.0f / 15.0f));
+				}
+				const int anim = halfAnimFrame + tile->getAnimationOffset();
+				frameNumber += (anim > 3) ? (anim - 4) : anim;
+
+				SmokeInstance si;
+				si.screenX  = screenPos.x + mapOffsetX;
+				si.screenY  = screenPos.y + mapOffsetY;
+				si.set      = smokeSet;
+				si.frameIdx = frameNumber;
+				si.darken   = gpuDarken;
+				_smokeInstances.push_back(si);
+			}
 		}
 	}
 }
@@ -2205,12 +2348,17 @@ void Map::initTileGL()
 	if (_tileGLInit) return;
 	_tileGLInit = true;
 
-	_tileShader = new Shader();
-	if (!_tileShader->loadFromEmbedded("tile_atlas"))
+	// On context restore _tileShader is already rebuilt by ShaderManager::reuploadAll();
+	// only allocate it on the very first call.
+	if (!_tileShader)
 	{
-		Log(LOG_ERROR) << "Map::initTileGL: tile_atlas shader compile failed";
-		delete _tileShader; _tileShader = nullptr;
-		return;
+		_tileShader = new Shader();
+		if (!_tileShader->loadFromEmbedded("tile_atlas"))
+		{
+			Log(LOG_ERROR) << "Map::initTileGL: tile_atlas shader compile failed";
+			delete _tileShader; _tileShader = nullptr;
+			return;
+		}
 	}
 
 	static const float corners[] = {
@@ -2306,6 +2454,383 @@ void Map::drawTileGLPass()
 	// (guards hidden-movement frames where emitTilePass() is not called).
 	for (auto& grp : _tileAtlasGroups) grp.instances.clear();
 }
+
+/**
+ * Block 11.8: Initialise VAO/VBO for the single-sprite dynamic quad and compile
+ * the "textured" shader reused from the cursor pass.  Called lazily on first use.
+ */
+void Map::initSpriteGL()
+{
+	if (_spriteGLInit) return;
+	_spriteGLInit = true;
+
+	// On context restore _spriteShader is already rebuilt by ShaderManager::reuploadAll().
+	if (!_spriteShader)
+	{
+		_spriteShader = new Shader();
+		if (!_spriteShader->loadFromEmbedded("textured"))
+		{
+			Log(LOG_ERROR) << "Map::initSpriteGL: textured shader compile failed";
+			delete _spriteShader; _spriteShader = nullptr;
+			return;
+		}
+	}
+
+	// 6-vertex dynamic quad: pos.xy + uv.xy (4 floats per vertex)
+	glGenVertexArrays(1, &_spriteVAO);
+	glGenBuffers(1, &_spriteVBO);
+	glBindVertexArray(_spriteVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, _spriteVBO);
+	glBufferData(GL_ARRAY_BUFFER, 6 * 4 * (GLsizeiptr)sizeof(float), nullptr, GL_DYNAMIC_DRAW);
+	glEnableVertexAttribArray(0); // a_pos
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * (GLsizei)sizeof(float), (void*)0);
+	glEnableVertexAttribArray(1); // a_uv
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * (GLsizei)sizeof(float), (void*)(2 * sizeof(float)));
+	glBindVertexArray(0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	Log(LOG_DEBUG) << "Map::initSpriteGL: sprite pipeline ready";
+}
+
+/**
+ * Blocks 11.8–11.9: Convert a palettized Surface frame from the given SurfaceSet
+ * to a linear-RGBA GpuTexture and cache it keyed by (set, frameIdx).
+ * Returns nullptr if the upload fails or the frame has no palette.
+ */
+GpuTexture* Map::getOrUploadSpriteFrame(SurfaceSet* set, int frameIdx)
+{
+	if (!set) return nullptr;
+	const auto key = std::make_pair(set, frameIdx);
+	auto it = _spriteFrameCache.find(key);
+	if (it != _spriteFrameCache.end()) return it->second;
+
+	Surface* src = set->getFrame(frameIdx);
+	if (!src) return nullptr;
+
+	const int w = src->getWidth();
+	const int h = src->getHeight();
+	const SDL_Color* pal = src->getEffectivePalette();
+	if (!pal || w <= 0 || h <= 0) return nullptr;
+
+	std::vector<uint8_t> rgba(static_cast<size_t>(w * h * 4), 0u);
+	for (int py = 0; py < h; ++py)
+	{
+		for (int px = 0; px < w; ++px)
+		{
+			const uint8_t idx = src->getPixel(px, py);
+			if (idx == 0) continue; // palette index 0 = transparent
+			const SDL_Color& c = pal[idx];
+			const size_t i = static_cast<size_t>((py * w + px) * 4);
+			rgba[i+0] = c.r;
+			rgba[i+1] = c.g;
+			rgba[i+2] = c.b;
+			rgba[i+3] = 255u;
+		}
+	}
+
+	GpuTexture* tex = new GpuTexture(/*srgb=*/false,
+	                                 GpuTexture::Wrap::ClampToEdge,
+	                                 GpuTexture::Filter::Nearest);
+	if (!tex->uploadRGBA(rgba.data(), w, h))
+	{
+		Log(LOG_WARNING) << "Map::getOrUploadSpriteFrame: upload failed ("
+		                 << w << "x" << h << " frame " << frameIdx << ")";
+		delete tex;
+		return nullptr;
+	}
+	_spriteFrameCache[key] = tex;
+	return tex;
+}
+
+/**
+ * Block 11.10: GPU post-flush pass that renders tile-space cursor-box sprites
+ * (CURSOR.PCK) on top of the GPU tile layer.
+ * Instances collected during drawTerrainCPU() into _cursorOverlayInstances.
+ */
+void Map::drawCursorOverlayGLPass()
+{
+	if (_cursorOverlayInstances.empty()) return;
+	if (!_spriteGLInit) initSpriteGL();
+	if (!_spriteGLInit) return;
+	if (!_spriteShader || !_spriteShader->isValid()) return;
+
+	Screen* screen = _game->getScreen();
+	const float xScale = static_cast<float>(screen->getXScale());
+	const float yScale = static_cast<float>(screen->getYScale());
+	const int   lbb    = screen->getCursorLeftBlackBand();
+	const int   tbb    = screen->getCursorTopBlackBand();
+	const int   dW     = Options::displayWidth;
+	const int   dH     = Options::displayHeight;
+
+	auto drawQuad = [&](GpuTexture* tex, int gx, int gy, int fw, int fh)
+	{
+		const float dispX = static_cast<float>(gx) * xScale + static_cast<float>(lbb);
+		const float dispY = static_cast<float>(gy) * yScale + static_cast<float>(tbb);
+		const float dispW = static_cast<float>(fw) * xScale;
+		const float dispH = static_cast<float>(fh) * yScale;
+
+		const float ndcX0 =  2.0f * dispX / static_cast<float>(dW) - 1.0f;
+		const float ndcY0 = -(2.0f * dispY / static_cast<float>(dH) - 1.0f);
+		const float ndcX1 =  2.0f * (dispX + dispW) / static_cast<float>(dW) - 1.0f;
+		const float ndcY1 = -(2.0f * (dispY + dispH) / static_cast<float>(dH) - 1.0f);
+
+		const float verts[6 * 4] = {
+			ndcX0, ndcY0,  0.0f, 0.0f,
+			ndcX1, ndcY0,  1.0f, 0.0f,
+			ndcX0, ndcY1,  0.0f, 1.0f,
+			ndcX0, ndcY1,  0.0f, 1.0f,
+			ndcX1, ndcY0,  1.0f, 0.0f,
+			ndcX1, ndcY1,  1.0f, 1.0f,
+		};
+		glBindBuffer(GL_ARRAY_BUFFER, _spriteVBO);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)sizeof(verts), verts);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+		tex->bind(0);
+		glBindVertexArray(_spriteVAO);
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+		glBindVertexArray(0);
+	};
+
+	GLint prevProgram = 0;
+	glGetIntegerv(GL_CURRENT_PROGRAM, &prevProgram);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	_spriteShader->use();
+	_spriteShader->setUniform1i("u_tex", 0);
+	_spriteShader->setUniform1f("u_darken", 0.0f);
+
+	for (const auto& ci : _cursorOverlayInstances)
+	{
+		GpuTexture* tex = getOrUploadSpriteFrame(ci.set, ci.frameIdx);
+		if (!tex) continue;
+		drawQuad(tex, ci.screenX, ci.screenY, tex->width(), tex->height());
+	}
+	_cursorOverlayInstances.clear();
+
+	glDisable(GL_BLEND);
+	glUseProgram(static_cast<GLuint>(prevProgram));
+}
+
+/**
+ * Block 11.8: GPU post-flush pass that renders all visible bullet segments on top
+ * of the GPU tile layer.  Thrown-item projectiles are still rendered by the CPU
+ * path (ItemSprite uses palette-indexed blits that are non-trivial to replicate).
+ * Called from the Screen GPU-pass loop registered in Map::init().
+ */
+void Map::drawProjectileGLPass()
+{
+	if (!_projectile || !_projectileInFOV) return;
+	if (_projectile->getItem()) return; // thrown items handled by CPU path
+	if (!_spriteGLInit) initSpriteGL();
+	if (!_spriteShader || !_spriteShader->isValid()) return;
+	if (!_spriteVAO) return;
+
+	Screen* screen = _game->getScreen();
+	const float xScale = static_cast<float>(screen->getXScale());
+	const float yScale = static_cast<float>(screen->getYScale());
+	const int   lbb    = screen->getCursorLeftBlackBand();
+	const int   tbb    = screen->getCursorTopBlackBand();
+	const int   dW     = Options::displayWidth;
+	const int   dH     = Options::displayHeight;
+	const int   mapX   = getX();
+	const int   mapY   = getY();
+
+	int begin = 0, end = BULLET_SPRITES, direction = 1;
+	if (_projectile->isReversed()) { begin = BULLET_SPRITES - 1; end = -1; direction = -1; }
+
+	// Helper: upload VBO data + issue one draw call for a single sprite quad.
+	auto drawQuad = [&](GpuTexture* tex, int gx, int gy, int fw, int fh, float darken)
+	{
+		const float dispX = static_cast<float>(gx) * xScale + static_cast<float>(lbb);
+		const float dispY = static_cast<float>(gy) * yScale + static_cast<float>(tbb);
+		const float dispW = static_cast<float>(fw) * xScale;
+		const float dispH = static_cast<float>(fh) * yScale;
+
+		const float ndcX0 =  2.0f * dispX / static_cast<float>(dW) - 1.0f;
+		const float ndcY0 = -(2.0f * dispY / static_cast<float>(dH) - 1.0f);
+		const float ndcX1 =  2.0f * (dispX + dispW) / static_cast<float>(dW) - 1.0f;
+		const float ndcY1 = -(2.0f * (dispY + dispH) / static_cast<float>(dH) - 1.0f);
+
+		const float verts[6 * 4] = {
+			ndcX0, ndcY0,  0.0f, 0.0f,
+			ndcX1, ndcY0,  1.0f, 0.0f,
+			ndcX0, ndcY1,  0.0f, 1.0f,
+			ndcX0, ndcY1,  0.0f, 1.0f,
+			ndcX1, ndcY0,  1.0f, 0.0f,
+			ndcX1, ndcY1,  1.0f, 1.0f,
+		};
+		glBindBuffer(GL_ARRAY_BUFFER, _spriteVBO);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)sizeof(verts), verts);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+		tex->bind(0);
+		_spriteShader->setUniform1f("u_darken", darken);
+		glBindVertexArray(_spriteVAO);
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+		glBindVertexArray(0);
+	};
+
+	GLint prevProgram = 0;
+	glGetIntegerv(GL_CURRENT_PROGRAM, &prevProgram);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	_spriteShader->use();
+	_spriteShader->setUniform1i("u_tex", 0);
+
+	for (int i = begin; i != end; i += direction)
+	{
+		Surface* frame = _projectileSet->getFrame(_projectile->getParticle(i));
+		if (!frame) continue;
+
+		const int particleIdx = _projectile->getParticle(i);
+		GpuTexture* tex = getOrUploadSpriteFrame(_projectileSet, particleIdx);
+		if (!tex) continue;
+
+		const int fw = frame->getWidth();
+		const int fh = frame->getHeight();
+
+		Position voxelPos = _projectile->getPosition(1 - i);
+		if (!_save->getTileEngine()->isVoxelVisible(voxelPos)) continue;
+
+		// Shadow: same sprite at floor level, fully darkened (darken = 1).
+		Position shadowPos = voxelPos;
+		shadowPos.z = _save->getTileEngine()->castedShade(voxelPos);
+		if (_save->getTileEngine()->isVoxelVisible(shadowPos))
+		{
+			Position sp;
+			_camera->convertVoxelToScreen(shadowPos, &sp);
+			drawQuad(tex, sp.x + mapX - fw / 2, sp.y + mapY - fh / 2, fw, fh, 1.0f);
+		}
+
+		// Bullet: normal colour (darken = 0).
+		Position bp;
+		_camera->convertVoxelToScreen(voxelPos, &bp);
+		drawQuad(tex, bp.x + mapX - fw / 2, bp.y + mapY - fh / 2, fw, fh, 0.0f);
+	}
+
+	glDisable(GL_BLEND);
+	glUseProgram(static_cast<GLuint>(prevProgram));
+}
+
+/**
+ * Block 11.9: GPU post-flush pass for smoke, fire, and explosion effects.
+ *
+ * Tile smoke instances were collected in emitTilePass() (stored in _smokeInstances).
+ * Explosion instances are enumerated live here since _explosions changes each frame.
+ * All sprites are drawn via the shared "textured" shader (same VAO/VBO as projectiles).
+ * Thrown items and _flashScreen pixel-flash remain in the CPU path.
+ */
+void Map::drawSmokeGLPass()
+{
+	if (!_spriteGLInit) initSpriteGL();
+	if (!_spriteShader || !_spriteShader->isValid()) return;
+	if (!_spriteVAO) return;
+
+	const bool hasSmokeWork     = !_smokeInstances.empty();
+	const bool hasExplosionWork = _explosionInFOV && !_flashScreen && !_explosions.empty();
+	if (!hasSmokeWork && !hasExplosionWork) return;
+
+	Screen* screen = _game->getScreen();
+	const float xScale = static_cast<float>(screen->getXScale());
+	const float yScale = static_cast<float>(screen->getYScale());
+	const int   lbb    = screen->getCursorLeftBlackBand();
+	const int   tbb    = screen->getCursorTopBlackBand();
+	const int   dW     = Options::displayWidth;
+	const int   dH     = Options::displayHeight;
+
+	// Helper: issue one draw call for a sprite placed at (gx, gy) in SDL-surface coords.
+	auto drawQuad = [&](GpuTexture* tex, int gx, int gy, int fw, int fh, float darken)
+	{
+		const float dispX = static_cast<float>(gx) * xScale + static_cast<float>(lbb);
+		const float dispY = static_cast<float>(gy) * yScale + static_cast<float>(tbb);
+		const float dispW = static_cast<float>(fw) * xScale;
+		const float dispH = static_cast<float>(fh) * yScale;
+
+		const float ndcX0 =  2.0f * dispX / static_cast<float>(dW) - 1.0f;
+		const float ndcY0 = -(2.0f * dispY / static_cast<float>(dH) - 1.0f);
+		const float ndcX1 =  2.0f * (dispX + dispW) / static_cast<float>(dW) - 1.0f;
+		const float ndcY1 = -(2.0f * (dispY + dispH) / static_cast<float>(dH) - 1.0f);
+
+		const float verts[6 * 4] = {
+			ndcX0, ndcY0,  0.0f, 0.0f,
+			ndcX1, ndcY0,  1.0f, 0.0f,
+			ndcX0, ndcY1,  0.0f, 1.0f,
+			ndcX0, ndcY1,  0.0f, 1.0f,
+			ndcX1, ndcY0,  1.0f, 0.0f,
+			ndcX1, ndcY1,  1.0f, 1.0f,
+		};
+		glBindBuffer(GL_ARRAY_BUFFER, _spriteVBO);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)sizeof(verts), verts);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+		tex->bind(0);
+		_spriteShader->setUniform1f("u_darken", darken);
+		glBindVertexArray(_spriteVAO);
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+		glBindVertexArray(0);
+	};
+
+	GLint prevProgram = 0;
+	glGetIntegerv(GL_CURRENT_PROGRAM, &prevProgram);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	_spriteShader->use();
+	_spriteShader->setUniform1i("u_tex", 0);
+
+	// --- Tile smoke/fire instances collected by emitTilePass() ---
+	for (const auto& si : _smokeInstances)
+	{
+		GpuTexture* tex = getOrUploadSpriteFrame(si.set, si.frameIdx);
+		if (!tex) continue;
+		drawQuad(tex, si.screenX, si.screenY, tex->width(), tex->height(), si.darken);
+	}
+	_smokeInstances.clear();
+
+	// --- Explosion effects (X1.PCK, HIT.PCK, SMOKE.PCK) ---
+	if (hasExplosionWork)
+	{
+		Mod* mod = _game->getMod();
+		SurfaceSet* x1Set    = mod->getSurfaceSet("X1.PCK");
+		SurfaceSet* hitSet   = mod->getSurfaceSet("HIT.PCK");
+		SurfaceSet* smokeSet = mod->getSurfaceSet("SMOKE.PCK");
+		const int mapX = getX();
+		const int mapY = getY();
+
+		for (const auto* explosion : _explosions)
+		{
+			Position sp;
+			_camera->convertVoxelToScreen(explosion->getPosition(), &sp);
+			const int bsx = sp.x + mapX;
+			const int bsy = sp.y + mapY;
+
+			if (explosion->isBig())
+			{
+				const int f = explosion->getCurrentFrame();
+				if (f < 0) continue;
+				GpuTexture* tex = getOrUploadSpriteFrame(x1Set, f);
+				if (!tex) continue;
+				drawQuad(tex, bsx - tex->width() / 2, bsy - tex->height() / 2,
+				         tex->width(), tex->height(), 0.0f);
+			}
+			else if (explosion->isHit())
+			{
+				GpuTexture* tex = getOrUploadSpriteFrame(hitSet, explosion->getCurrentFrame());
+				if (!tex) continue;
+				drawQuad(tex, bsx - 15, bsy - 25, tex->width(), tex->height(), 0.0f);
+			}
+			else
+			{
+				GpuTexture* tex = getOrUploadSpriteFrame(smokeSet, explosion->getCurrentFrame());
+				if (!tex) continue;
+				drawQuad(tex, bsx - 15, bsy - 15, tex->width(), tex->height(), 0.0f);
+			}
+		}
+	}
+
+	glDisable(GL_BLEND);
+	glUseProgram(static_cast<GLuint>(prevProgram));
+}
+
 #endif
 
 /**

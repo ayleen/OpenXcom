@@ -29,6 +29,7 @@
 #include "../Engine/Screen.h"
 #include "../Engine/Options.h"
 #include "../Engine/Logger.h"
+#include "../Engine/ShaderManager.h"
 #endif
 
 namespace OpenXcom
@@ -237,6 +238,14 @@ void Cursor::initGPU(Screen& screen)
 		drawGPUPass(screenPtr);
 	});
 
+	// Block 11.13: on context restore, zero stale VAO handles and re-enter initGPU
+	// to create fresh ones.  _cursorShader/_cursorTex are rebuilt by reuploadAll().
+	ShaderManager::instance().registerResetCallback(_gpuAliveFlag, [this, screenPtr]() {
+		_cursorVAO = 0;
+		_cursorVBO = 0;
+		initGPU(*screenPtr);
+	});
+
 	Log(LOG_DEBUG) << "Cursor::initGPU: cursor GPU pass registered";
 }
 
@@ -296,6 +305,7 @@ void Cursor::drawGPUPass(Screen* screen)
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	_cursorShader->use();
+	_cursorShader->setUniform1f("u_darken", 0.0f);
 	_cursorTex->bind(0);
 	_cursorShader->setUniform1i("u_tex", 0);
 

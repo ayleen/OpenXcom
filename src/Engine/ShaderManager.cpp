@@ -7,6 +7,7 @@
 #include "RenderTarget.h"
 #include "Logger.h"
 #include <algorithm>
+#include <functional>
 
 namespace OpenXcom
 {
@@ -51,6 +52,11 @@ void ShaderManager::unregisterTarget(RenderTarget* r)
 
 /* ── lost-context recovery ──────────────────────────────────────────────── */
 
+void ShaderManager::registerResetCallback(std::shared_ptr<bool> alive, std::function<void()> cb)
+{
+    _resetCallbacks.push_back({alive, std::move(cb)});
+}
+
 void ShaderManager::reuploadAll()
 {
     Log(LOG_INFO) << "ShaderManager: WebGL context restored — reuploading "
@@ -62,6 +68,16 @@ void ShaderManager::reuploadAll()
     for (Shader*       s : _shaders)  if (s) s->reupload();
     for (GpuTexture*   t : _textures) if (t) t->reupload();
     for (RenderTarget* r : _targets)  if (r) r->reupload();
+
+    /* VAO/VBO reset: sweep expired entries, then call live callbacks.
+     * Copy snapshot first — callbacks may re-register (e.g. Cursor::initGPU). */
+    _resetCallbacks.erase(
+        std::remove_if(_resetCallbacks.begin(), _resetCallbacks.end(),
+                       [](const ResetEntry& e) { return e.alive.expired(); }),
+        _resetCallbacks.end());
+    auto snapshot = _resetCallbacks;
+    for (const auto& e : snapshot)
+        if (!e.alive.expired()) e.cb();
 }
 
 } // namespace OpenXcom

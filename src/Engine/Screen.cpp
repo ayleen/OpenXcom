@@ -802,7 +802,7 @@ void Screen::screenshotGPU(const std::string& filename) const
 		return;
 	}
 	CrossPlatform::writeFile(filename, png);
-	Log(LOG_INFO) << "GPU screenshot: " << filename;
+	Log(LOG_DEBUG) << "GPU screenshot: " << filename;
 }
 
 }
