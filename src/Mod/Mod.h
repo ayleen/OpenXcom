@@ -156,6 +156,24 @@ public:
 	/// Number of opacity levels.
 	constexpr static int TransparenciesOpacityLevels = 4;
 
+#ifdef __EMSCRIPTEN__
+	/// Atlas layout for a single mapDataSet's GPU tile sheet.
+	struct TileAtlasSpec
+	{
+		enum class Format { Palette, Rgba };
+		std::string       dataset;    // mapDataSet name, e.g. "SAND"
+		std::string       file;       // relative path to PNG
+		int               width      = 0;
+		int               height     = 0;
+		int               tileWidth  = 64;
+		int               tileHeight = 80;
+		int               columns    = 16;
+		Format            format     = Format::Palette;
+		std::map<int,int> frameMap;    // MCD entry index → atlas tile index (primary frame)
+		std::map<int,int> pckToAtlas;  // PCK frame index → atlas tile index (all frames incl. animation)
+	};
+#endif
+
 private:
 	Music *_muteMusic;
 	Sound *_muteSound;
@@ -213,22 +231,6 @@ private:
 	std::map<std::string, std::vector<ExtraSprites *> > _extraSprites;
 #ifdef __EMSCRIPTEN__
 	std::map<std::string, GpuTexture*> _globeTextures;
-
-	/// Atlas layout for a single mapDataSet's GPU tile sheet.
-	struct TileAtlasSpec
-	{
-		enum class Format { Palette, Rgba };
-		std::string       dataset;    // mapDataSet name, e.g. "SAND"
-		std::string       file;       // relative path to PNG
-		int               width      = 0;
-		int               height     = 0;
-		int               tileWidth  = 64;
-		int               tileHeight = 80;
-		int               columns    = 16;
-		Format            format     = Format::Palette;
-		std::map<int,int> frameMap;    // MCD entry index → atlas tile index (primary frame)
-		std::map<int,int> pckToAtlas;  // PCK frame index → atlas tile index (all frames incl. animation)
-	};
 	std::map<std::string, TileAtlasSpec> _tileAtlasSpecs;
 	/// Synthesised vanilla tile atlases: mapDataSet name -> GpuTexture*.
 	/// Populated lazily by ensureVanillaAtlas() (Block 11.2).
