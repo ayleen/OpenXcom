@@ -574,7 +574,7 @@ void Map::draw()
 			drawTerrainGPU(this);
 		else
 #endif
-			drawTerrainCPU(this);
+			drawTerrainOverlayCPU(this);
 	}
 	else
 	{
@@ -1051,11 +1051,16 @@ void Map::drawUnit(UnitSprite &unitSprite, Tile *unitTile, Tile *currTile, Posit
 }
 
 /**
- * Draw the terrain.
+ * Draw the terrain overlay into the SDL surface (CPU path).
+ * In GPU mode (hasHDPack + GpuInit::ready), floors/walls/units/smoke are already
+ * on GPU pre-composite passes; this function only writes the remaining overlay
+ * content: front O_OBJECT, items on floor, path arrows, unit arrows, debug
+ * overlays, and the flash-screen effect.  In legacy (non-HD) mode it renders
+ * everything as before.
  * Keep this function as optimised as possible. It's big to minimise overhead of function calls.
  * @param surface The surface to draw on.
  */
-void Map::drawTerrainCPU(Surface *surface)
+void Map::drawTerrainOverlayCPU(Surface *surface)
 {
 #ifdef __EMSCRIPTEN__
 	/* Phase 11.0: wall-clock CPU baseline for the full Battlescape render.
@@ -2295,11 +2300,12 @@ void Map::drawTerrainGPU(Surface* surface)
 	                / static_cast<float>(TILE_ANIM_PERIOD_MS);
 	emitTilePass();
 	emitUnitPass();
-	// CPU path renders units, cursor, projectiles, and all non-tile overlays into
-	// the SDL surface so the existing composite is preserved.  GPU tile pass fires
-	// after SDL_RenderFlush and draws tiles on top; unit instances collected during
-	// drawTerrainCPU (via drawUnit emit mode) are drawn by drawUnitGLPass.
-	drawTerrainCPU(surface);
+	// drawTerrainOverlayCPU collects unit emit records (via drawUnit/setEmitMode)
+	// and writes the SDL overlay (front O_OBJECT, path arrows, unit arrows, items,
+	// flash-screen, debug overlays).  Floors/walls/units/smoke are already handled
+	// by GPU pre-composite passes; guarded code paths in drawTerrainOverlayCPU
+	// skip the CPU blits for those in HD mode.
+	drawTerrainOverlayCPU(surface);
 }
 
 /**
@@ -2489,7 +2495,7 @@ void Map::emitTilePass()
 }
 
 /**
- * Phase 14.2: clear unit instance buffers before drawTerrainCPU populates them.
+ * Phase 14.2: clear unit instance buffers before drawTerrainOverlayCPU populates them.
  */
 void Map::emitUnitPass()
 {
@@ -2803,7 +2809,7 @@ GpuTexture* Map::getOrUploadSpriteFrame(SurfaceSet* set, int frameIdx)
 /**
  * Block 11.10: GPU post-flush pass that renders tile-space cursor-box sprites
  * (CURSOR.PCK) on top of the GPU tile layer.
- * Instances collected during drawTerrainCPU() into _cursorOverlayInstances.
+ * Instances collected during drawTerrainOverlayCPU() into _cursorOverlayInstances.
  */
 void Map::drawCursorOverlayGLPass()
 {

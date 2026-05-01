@@ -119,7 +119,7 @@ private:
 	SurfaceSet *_projectileSet;
 
 	void drawUnit(UnitSprite &unitSprite, Tile *unitTile, Tile *currTile, Position tileScreenPosition, bool topLayer, BattleUnit* movingUnit = nullptr);
-	void drawTerrainCPU(Surface *surface);
+	void drawTerrainOverlayCPU(Surface *surface);
 #ifdef __EMSCRIPTEN__
 	void drawTerrainGPU(Surface *surface);
 	void emitTilePass();
