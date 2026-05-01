@@ -19,6 +19,10 @@
  */
 #include "../Engine/Surface.h"
 #include "../Engine/Script.h"
+#ifdef __EMSCRIPTEN__
+#include <vector>
+#include "../Mod/Mod.h"
+#endif
 
 namespace OpenXcom
 {
@@ -28,6 +32,9 @@ class BattleItem;
 class SavedBattleGame;
 class SurfaceSet;
 class Mod;
+#ifdef __EMSCRIPTEN__
+class GpuTexture;
+#endif
 
 /**
  * A class that renders a specific unit, given its render rules
@@ -42,6 +49,10 @@ private:
 		int bodyPart;
 		int offX;
 		int offY;
+#ifdef __EMSCRIPTEN__
+		int frameIdx = -1;   // PCK frame index within its SurfaceSet (-1 = unknown)
+		bool isItem  = false; // true = from _itemSurface, false = from _unitSurface
+#endif
 
 		Part(int body, const Surface *s = nullptr) : src{ s }, bodyPart{ body }, offX{ 0 }, offY{ 0 } { }
 
@@ -60,6 +71,16 @@ private:
 	int _red, _blue;
 	int _x, _y, _shade, _burn;
 	GraphSubset _mask;
+#ifdef __EMSCRIPTEN__
+	/// Phase 14.2: when non-null, blitBody emits TileInstance records into this
+	/// vector instead of blitting to _dest.  blitItem emits into _emitItemTarget.
+	/// Both pointers are std::vector<Map::TileInstance>* cast to void* to avoid
+	/// a circular header dependency.
+	void*                      _emitTarget     = nullptr;  // body parts
+	void*                      _emitItemTarget = nullptr;  // item hand sprites
+	const Mod::UnitAtlasSpec*  _emitUnitSpec   = nullptr;  // unit body atlas
+	const Mod::UnitAtlasSpec*  _emitItemSpec   = nullptr;  // item (HANDOB.PCK) atlas
+#endif
 
 	/// Drawing routine for XCom soldiers in overalls, sectoids (routine 0),
 	/// mutons (routine 10),
@@ -116,6 +137,26 @@ public:
 	~UnitSprite();
 	/// Draws the unit.
 	void draw(const BattleUnit* unit, int part, int x, int y, int shade, GraphSubset mask, bool drawFacingIndicator);
+#ifdef __EMSCRIPTEN__
+	/// Phase 14.2: redirect blitBody into bodyTarget and blitItem into itemTarget.
+	/// Both pointers must be std::vector<Map::TileInstance>* (cast to void*).
+	void setEmitMode(void* bodyTarget, void* itemTarget,
+	                 const Mod::UnitAtlasSpec* unitSpec,
+	                 const Mod::UnitAtlasSpec* itemSpec)
+	{
+		_emitTarget     = bodyTarget;
+		_emitItemTarget = itemTarget;
+		_emitUnitSpec   = unitSpec;
+		_emitItemSpec   = itemSpec;
+	}
+	void clearEmitMode()
+	{
+		_emitTarget     = nullptr;
+		_emitItemTarget = nullptr;
+		_emitUnitSpec   = nullptr;
+		_emitItemSpec   = nullptr;
+	}
+#endif
 };
 
 } //namespace OpenXcom

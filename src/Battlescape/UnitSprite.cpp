@@ -27,6 +27,9 @@
 #include "../Mod/RuleInventory.h"
 #include "../Mod/Mod.h"
 #include "../Engine/Exception.h"
+#ifdef __EMSCRIPTEN__
+#include "Map.h"
+#endif
 
 namespace OpenXcom
 {
@@ -132,6 +135,10 @@ void UnitSprite::selectItem(Part& p, const BattleItem *item, int dir)
 	);
 
 	p.src = _itemSurface->getFrame(result);
+#ifdef __EMSCRIPTEN__
+	p.frameIdx = result;
+	p.isItem   = true;
+#endif
 }
 
 /**
@@ -164,6 +171,10 @@ void UnitSprite::selectUnit(Part& p, int index, int dir)
 	);
 
 	p.src = _unitSurface->getFrame(result);
+#ifdef __EMSCRIPTEN__
+	p.frameIdx = result;
+	p.isItem   = false;
+#endif
 }
 
 /**
@@ -176,6 +187,27 @@ void UnitSprite::blitItem(Part& item)
 	{
 		return;
 	}
+#ifdef __EMSCRIPTEN__
+	if (_emitItemTarget && _emitItemSpec && _emitItemSpec->atlas
+	    && item.frameIdx >= 0 && item.src->getShadeTable() != nullptr)
+	{
+		auto* vec = static_cast<std::vector<Map::TileInstance>*>(_emitItemTarget);
+		const int col   = item.frameIdx % _emitItemSpec->columns;
+		const int row   = item.frameIdx / _emitItemSpec->columns;
+		const float uvW = (float)_emitItemSpec->tileWidth  / (float)_emitItemSpec->atlasW;
+		const float uvH = (float)_emitItemSpec->tileHeight / (float)_emitItemSpec->atlasH;
+		Map::TileInstance inst;
+		inst.screenX        = (float)(_x + item.offX);
+		inst.screenY        = (float)(_y + item.offY);
+		inst.atlasU         = col * uvW;
+		inst.atlasV         = row * uvH;
+		inst.shade          = (float)_shade;
+		inst.animFrameCount = 1.0f;
+		inst.alphaMask      = 1.0f;
+		vec->push_back(inst);
+		return;
+	}
+#endif
 	ScriptWorkerBlit work;
 	BattleItem::ScriptFill(&work, (item.bodyPart == BODYPART_ITEM_RIGHTHAND ? _itemR : _itemL), _save, item.bodyPart, _animationFrame, _shade);
 
@@ -201,6 +233,27 @@ void UnitSprite::blitBody(Part& body)
 		blitBodyHD(body);
 		return;
 	}
+#ifdef __EMSCRIPTEN__
+	if (_emitTarget && _emitUnitSpec && _emitUnitSpec->atlas
+	    && body.frameIdx >= 0)
+	{
+		auto* vec = static_cast<std::vector<Map::TileInstance>*>(_emitTarget);
+		const int col   = body.frameIdx % _emitUnitSpec->columns;
+		const int row   = body.frameIdx / _emitUnitSpec->columns;
+		const float uvW = (float)_emitUnitSpec->tileWidth  / (float)_emitUnitSpec->atlasW;
+		const float uvH = (float)_emitUnitSpec->tileHeight / (float)_emitUnitSpec->atlasH;
+		Map::TileInstance inst;
+		inst.screenX        = (float)(_x + body.offX);
+		inst.screenY        = (float)(_y + body.offY);
+		inst.atlasU         = col * uvW;
+		inst.atlasV         = row * uvH;
+		inst.shade          = (float)_shade;
+		inst.animFrameCount = 1.0f;
+		inst.alphaMask      = 1.0f;
+		vec->push_back(inst);
+		return;
+	}
+#endif
 	ScriptWorkerBlit work;
 	BattleUnit::ScriptFill(&work, _unit, _save, body.bodyPart, _animationFrame, _shade, _burn);
 

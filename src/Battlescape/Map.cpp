@@ -62,6 +62,7 @@
 #  include "../Engine/RenderTarget.h"
 #  include "../Engine/ShaderManager.h"
 #  include <GLES3/gl3.h>
+#  include <set>
 #  include <vector>
 /* Phase 11.0 CPU perf gate; Phase 11.1 readback-cost probe gate.
  * Definitions live in EmscriptenHarness.cpp inside extern "C" {},
@@ -440,6 +441,12 @@ void Map::init()
 			if (!wf.lock()) return;
 			this->drawTileGLPass();
 		});
+		// Phase 14.2: unit pass fires BEFORE SDL composite, after tile pass,
+		// so vanilla palette-indexed units render above floors but below front objects.
+		_game->getScreen()->registerGPUPassPreComposite([this, wf]() {
+			if (!wf.lock()) return;
+			this->drawUnitGLPass();
+		});
 		// Block 11.10: tile-space cursor overlay after tile pass, before sprites.
 		_game->getScreen()->registerGPUPass([this, wf]() {
 			if (!wf.lock()) return;
@@ -630,6 +637,29 @@ void Map::setPalette(const SDL_Color *colors, int firstcolor, int ncolors)
 			_tileAtlasGroups[i].tileUVW = (float)spec->tileWidth  / (float)spec->width;
 			_tileAtlasGroups[i].tileUVH = (float)spec->tileHeight / (float)spec->height;
 			_tileAtlasGroups[i].isRgba  = (spec->format == Mod::TileAtlasSpec::Format::Rgba);
+		}
+		// Phase 14.1: build/refresh unit sprite atlases for vanilla (palette-indexed) sprite sets.
+		// Clear stale atlases first so ensureUnitAtlas rebuilds with the new palette.
+		{
+			mod->clearUnitAtlases();
+			std::set<std::string> built;
+			for (const auto& armorName : mod->getArmorsList())
+			{
+				const Armor* armor = mod->getArmor(armorName);
+				if (!armor) continue;
+				const std::string& sheet = armor->getSpriteSheet();
+				if (!built.insert(sheet).second) continue;
+				SurfaceSet* ss = mod->getSurfaceSet(sheet, false);
+				if (!ss) continue;
+				// Only build R8 atlas for palette-indexed sets; HD (ARGB) sets have no shade table.
+				if (ss->getTotalFrames() > 0 && ss->getFrame(0) && ss->getFrame(0)->getShadeTable() != nullptr)
+					mod->ensureUnitAtlas(ss, sheet, colors, ncolors);
+			}
+			// Item hand sprites (HANDOB.PCK) also use R8 atlas.
+			SurfaceSet* handob = mod->getSurfaceSet("HANDOB.PCK", false);
+			if (handob && handob->getTotalFrames() > 0 && handob->getFrame(0)
+			    && handob->getFrame(0)->getShadeTable() != nullptr)
+				mod->ensureUnitAtlas(handob, "HANDOB.PCK", colors, ncolors);
 		}
 		// Invalidate sprite frame cache — palette mapping changed.
 		for (auto& p : _spriteFrameCache) delete p.second;
@@ -973,7 +1003,47 @@ void Map::drawUnit(UnitSprite &unitSprite, Tile *unitTile, Tile *currTile, Posit
 	{
 		shade = std::min(+NIGHT_VISION_SHADE, shade);
 	}
+#ifdef __EMSCRIPTEN__
+	{
+		const bool gpuUnitAvail = _game->getMod()->hasHDPack() && GpuInit::ready();
+		const Mod::UnitAtlasSpec* gpuUnitSpec = nullptr;
+		if (gpuUnitAvail)
+		{
+			const std::string& sheetName = bu->getArmor()->getSpriteSheet();
+			gpuUnitSpec = _game->getMod()->getUnitAtlas(sheetName);
+		}
+		if (gpuUnitSpec && gpuUnitSpec->atlas)
+		{
+			// Find or create UnitAtlasGroups; use indices to avoid iterator
+			// invalidation if push_back causes a vector reallocation.
+			auto ensureGroup = [this](const Mod::UnitAtlasSpec* spec) -> size_t {
+				for (size_t i = 0; i < _unitAtlasGroups.size(); ++i)
+					if (_unitAtlasGroups[i].spec == spec) return i;
+				_unitAtlasGroups.push_back({});
+				_unitAtlasGroups.back().spec = spec;
+				return _unitAtlasGroups.size() - 1;
+			};
+			const size_t bodyIdx = ensureGroup(gpuUnitSpec);
+			const Mod::UnitAtlasSpec* gpuItemSpec = _game->getMod()->getUnitAtlas("HANDOB.PCK");
+			const bool haveItem = gpuItemSpec && gpuItemSpec->atlas;
+			const size_t itemIdx = haveItem ? ensureGroup(gpuItemSpec) : _unitAtlasGroups.size();
+			unitSprite.setEmitMode(
+			    &_unitAtlasGroups[bodyIdx].instances,
+			    haveItem ? &_unitAtlasGroups[itemIdx].instances : nullptr,
+			    gpuUnitSpec,
+			    gpuItemSpec
+			);
+			unitSprite.draw(bu, part, tileScreenPosition.x + offsets.ScreenOffset.x, tileScreenPosition.y + offsets.ScreenOffset.y, shade, mask, _isAltPressed && !_isCtrlPressed);
+			unitSprite.clearEmitMode();
+		}
+		else
+		{
+			unitSprite.draw(bu, part, tileScreenPosition.x + offsets.ScreenOffset.x, tileScreenPosition.y + offsets.ScreenOffset.y, shade, mask, _isAltPressed && !_isCtrlPressed);
+		}
+	}
+#else
 	unitSprite.draw(bu, part, tileScreenPosition.x + offsets.ScreenOffset.x, tileScreenPosition.y + offsets.ScreenOffset.y, shade, mask, _isAltPressed && !_isCtrlPressed);
+#endif
 }
 
 /**
@@ -997,6 +1067,9 @@ void Map::drawTerrainCPU(Surface *surface)
 	    ? _game->getMod()->getSurfaceSet("CURSOR.PCK") : nullptr;
 	// Phase 13.4: O_FLOOR is drawn by the GPU tile pass before SDL composite.
 	const bool hdFloorMode = gpuSpriteMode;
+	// Phase 14.3: O_WESTWALL, O_NORTHWALL, and back-tile O_OBJECT are also drawn
+	// by the GPU tile pass (pre-composite, always behind units).  Skip CPU blits.
+	const bool hdWallMode = gpuSpriteMode;
 #endif
 
 	_isAltPressed = _game->isAltPressed(true);
@@ -1289,6 +1362,10 @@ void Map::drawTerrainCPU(Surface *surface)
 
 					// Draw walls
 					{
+#ifdef __EMSCRIPTEN__
+						if (!hdWallMode)
+						{
+#endif
 						// Draw west wall
 						tmpSurface = tile->getSprite(O_WESTWALL);
 						if (tmpSurface)
@@ -1309,16 +1386,24 @@ void Map::drawTerrainCPU(Surface *surface)
 							else
 								Surface::blitRaw(surface, tmpSurface, screenPosition.x, screenPosition.y - tile->getYOffset(O_NORTHWALL), wallShade, bool(tile->getSprite(O_WESTWALL)), _nvColor);
 						}
+#ifdef __EMSCRIPTEN__
+						} // end !hdWallMode (walls)
+#endif
 						// Draw object
 						tmpSurface = tile->getSprite(O_OBJECT);
 						if (tmpSurface)
 						{
 							if (tile->isBackTileObject(O_OBJECT))
 							{
+#ifdef __EMSCRIPTEN__
+								if (!hdWallMode)
+#endif
+								{
 								if (tile->getObstacle(O_OBJECT))
 									Surface::blitRaw(surface, tmpSurface, screenPosition.x, screenPosition.y - tile->getYOffset(O_OBJECT), obstacleShade, false, _nvColor);
 								else
 									Surface::blitRaw(surface, tmpSurface, screenPosition.x, screenPosition.y - tile->getYOffset(O_OBJECT), tileShade, false, _nvColor);
+								}
 							}
 						}
 						// draw an item on top of the floor (if any)
@@ -2205,10 +2290,11 @@ void Map::drawTerrainGPU(Surface* surface)
 	_animFrameGPU = static_cast<float>(ticks % TILE_ANIM_PERIOD_MS)
 	                / static_cast<float>(TILE_ANIM_PERIOD_MS);
 	emitTilePass();
+	emitUnitPass();
 	// CPU path renders units, cursor, projectiles, and all non-tile overlays into
 	// the SDL surface so the existing composite is preserved.  GPU tile pass fires
-	// after SDL_RenderFlush and draws tiles on top; unit z-order will be fixed when
-	// units are ported to the GPU path in a later block.
+	// after SDL_RenderFlush and draws tiles on top; unit instances collected during
+	// drawTerrainCPU (via drawUnit emit mode) are drawn by drawUnitGLPass.
 	drawTerrainCPU(surface);
 }
 
@@ -2396,6 +2482,64 @@ void Map::emitTilePass()
 				_tileAtlasGroups[gi].zSlices.push_back({prevEmitZ, zSliceFirst[gi], cnt});
 		}
 	}
+}
+
+/**
+ * Phase 14.2: clear unit instance buffers before drawTerrainCPU populates them.
+ */
+void Map::emitUnitPass()
+{
+	for (auto& g : _unitAtlasGroups) g.instances.clear();
+}
+
+/**
+ * Phase 14.2: draw collected vanilla unit instances via the tile_atlas R8 shader.
+ * Fires as a pre-composite pass (after tile pass, before SDL composite).
+ */
+void Map::drawUnitGLPass()
+{
+	if (!_tileGLInit) initTileGL();
+	if (!_tileShader || !_tileShader->isValid()) return;
+	if (!_shadeTableTex || !_shadeTableTex->isValid()) return;
+
+	bool hasAny = false;
+	for (auto& g : _unitAtlasGroups)
+		if (!g.instances.empty() && g.spec && g.spec->atlas) { hasAny = true; break; }
+	if (!hasAny) return;
+
+	const int SW = _game->getScreen()->getWidth();
+	const int SH = _game->getScreen()->getHeight();
+
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glDisable(GL_DEPTH_TEST);
+	glBindVertexArray(_tileVAO);
+
+	_tileShader->use();
+	_tileShader->setUniform2f("u_screenSize",    (float)SW, (float)SH);
+	_tileShader->setUniform2f("u_tilePixelSize", 64.0f, 80.0f);
+	_tileShader->setUniform1f("u_animFrame",     0.0f);
+	_tileShader->setUniform1i("u_atlas",         0);
+	_tileShader->setUniform1i("u_shadeTable",    1);
+	_shadeTableTex->bind(1);
+
+	for (auto& g : _unitAtlasGroups)
+	{
+		if (g.instances.empty() || !g.spec || !g.spec->atlas) continue;
+		const float uvW = (float)g.spec->tileWidth  / (float)g.spec->atlasW;
+		const float uvH = (float)g.spec->tileHeight / (float)g.spec->atlasH;
+		g.spec->atlas->bind(0);
+		_tileShader->setUniform2f("u_tileUVSize", uvW, uvH);
+		glBindBuffer(GL_ARRAY_BUFFER, _tileIBO);
+		glBufferData(GL_ARRAY_BUFFER,
+		             (GLsizeiptr)(g.instances.size() * sizeof(TileInstance)),
+		             g.instances.data(),
+		             GL_DYNAMIC_DRAW);
+		glDrawArraysInstanced(GL_TRIANGLES, 0, 6, (GLsizei)g.instances.size());
+	}
+
+	glBindVertexArray(0);
+	glDisable(GL_BLEND);
 }
 
 /**

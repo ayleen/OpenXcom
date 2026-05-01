@@ -172,6 +172,18 @@ public:
 		std::map<int,int> frameMap;    // MCD entry index → atlas tile index (primary frame)
 		std::map<int,int> pckToAtlas;  // PCK frame index → atlas tile index (all frames incl. animation)
 	};
+
+	/// Layout record for a unit-PCK GPU sprite atlas (Phase 14.1).
+	/// atlas_tile_index == PCK_frame_index (frames packed in declaration order).
+	struct UnitAtlasSpec
+	{
+		GpuTexture* atlas      = nullptr;  // R8 palette-index atlas; owned by Mod
+		int         atlasW     = 0;        // atlas pixel width
+		int         atlasH     = 0;        // atlas pixel height
+		int         tileWidth  = 64;       // cell width (2x upscale of 32)
+		int         tileHeight = 80;       // cell height (2x upscale of 40)
+		int         columns    = 16;
+	};
 #endif
 
 private:
@@ -235,6 +247,9 @@ private:
 	/// Synthesised vanilla tile atlases: mapDataSet name -> GpuTexture*.
 	/// Populated lazily by ensureVanillaAtlas() (Block 11.2).
 	std::map<std::string, GpuTexture*> _tileAtlases;
+	/// Unit sprite atlases: SurfaceSet name -> UnitAtlasSpec (Phase 14.1).
+	/// Populated lazily by ensureUnitAtlas().
+	std::map<std::string, UnitAtlasSpec> _unitAtlases;
 	/// True once at least one tileAtlas: YAML entry has been parsed.
 	bool _hdPackActive = false;
 #endif
@@ -539,6 +554,14 @@ public:
 	void ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncolors);
 	/// Deletes all synthesised vanilla atlases (called in ~Mod and on mod reload).
 	void clearTileAtlases();
+	/// Build or retrieve a unit-sprite atlas for the named SurfaceSet (Phase 14.1).
+	/// No-op if already built.  palette/ncolors = active battlescape palette.
+	void ensureUnitAtlas(SurfaceSet* ss, const std::string& name,
+	                     const SDL_Color* palette, int ncolors);
+	/// Returns the UnitAtlasSpec for the named SurfaceSet, or nullptr if not built.
+	const UnitAtlasSpec* getUnitAtlas(const std::string& name) const;
+	/// Deletes all unit-sprite atlases (called alongside clearTileAtlases).
+	void clearUnitAtlases();
 	/// Returns true when at least one tileAtlas: YAML entry was loaded.
 	bool hasHDPack() const { return _hdPackActive; }
 #endif

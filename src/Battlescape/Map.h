@@ -27,6 +27,9 @@
 #include <memory>
 #include <utility>
 #include <vector>
+#ifdef __EMSCRIPTEN__
+#include "../Mod/Mod.h"
+#endif
 
 namespace OpenXcom
 {
@@ -196,6 +199,17 @@ private:
 	};
 	std::vector<CursorOverlayInstance> _cursorOverlayInstances;
 	void drawCursorOverlayGLPass();
+
+	/// Phase 14.2: per-unit-atlas instance buffer for the unit GPU pass.
+	/// Keyed by atlas texture pointer (one draw call per unit PCK set).
+	struct UnitAtlasGroup
+	{
+		const Mod::UnitAtlasSpec* spec = nullptr;
+		std::vector<TileInstance>  instances;
+	};
+	std::vector<UnitAtlasGroup> _unitAtlasGroups;
+	void emitUnitPass();
+	void drawUnitGLPass();
 #endif
 	int getTerrainLevel(const Position& pos, int size) const;
 	int getWallShade(TilePart part, Tile* tileFrot);

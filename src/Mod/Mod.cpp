@@ -54,6 +54,7 @@
 #  include <SDL_image.h>
 #  include <webp/decode.h>
 #  include "TileAtlasBuilder.h"
+#  include "UnitSpriteAtlasBuilder.h"
 #endif
 #include "ExtraSounds.h"
 #include "../Engine/AdlibMusic.h"
@@ -778,6 +779,7 @@ Mod::~Mod()
 		delete pair.second;
 	}
 	clearTileAtlases();
+	clearUnitAtlases();
 #endif
 	for (auto& pair : _customPalettes)
 	{
@@ -1150,6 +1152,39 @@ void Mod::clearTileAtlases()
 		delete pair.second;
 	}
 	_tileAtlases.clear();
+}
+
+void Mod::ensureUnitAtlas(SurfaceSet* ss, const std::string& name,
+                           const SDL_Color* palette, int ncolors)
+{
+	if (!GpuInit::ready()) return;
+	if (!ss) return;
+	if (_unitAtlases.count(name)) return;
+
+	int atlasW = 0, atlasH = 0, cols = 0;
+	GpuTexture* tex = buildUnitAtlas(*ss, palette, ncolors, atlasW, atlasH, cols, name);
+	if (!tex) return;
+
+	UnitAtlasSpec& spec = _unitAtlases[name];
+	spec.atlas      = tex;
+	spec.atlasW     = atlasW;
+	spec.atlasH     = atlasH;
+	spec.tileWidth  = 64;
+	spec.tileHeight = 80;
+	spec.columns    = cols;
+}
+
+const Mod::UnitAtlasSpec* Mod::getUnitAtlas(const std::string& name) const
+{
+	auto it = _unitAtlases.find(name);
+	return it != _unitAtlases.end() ? &it->second : nullptr;
+}
+
+void Mod::clearUnitAtlases()
+{
+	for (auto& pair : _unitAtlases)
+		delete pair.second.atlas;
+	_unitAtlases.clear();
 }
 #endif /* __EMSCRIPTEN__ */
 
