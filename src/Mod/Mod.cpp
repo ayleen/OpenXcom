@@ -959,13 +959,105 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 
 	const std::string& name = mds->getName();
 
-	// Skip datasets that have an explicit tileAtlas: YAML spec — those will be
-	// handled by the HD-pack loader path, not the vanilla synthesiser.
-	if (_tileAtlasSpecs.count(name)) return;
-
 	// Already built for this dataset in this session.
 	if (_tileAtlases.count(name)) return;
 
+	// If there's an explicit YAML tileAtlas: spec with a file path, try to load
+	// the HD atlas PNG.  On any failure (file missing, decode error, GPU upload
+	// error) we log a warning, erase the stale spec, and fall through to the
+	// vanilla synthesiser below — so terrain always renders.
+	auto specIt = _tileAtlasSpecs.find(name);
+	if (specIt != _tileAtlasSpecs.end() && !specIt->second.file.empty())
+	{
+		const std::string& filePath = specIt->second.file;
+		const FileMap::FileRecord* rec = FileMap::at(filePath);
+		if (!rec)
+		{
+			Log(LOG_WARNING) << "tileAtlas[" << name << "]: file not found: "
+			                 << filePath << " — falling back to vanilla atlas";
+			_tileAtlasSpecs.erase(specIt);
+			// Fall through to vanilla synthesiser.
+		}
+		else
+		{
+			bool loaded = false;
+			SDL_RWops* rw = rec->getRWops();
+			SDL_Surface* raw = IMG_Load_RW(rw, SDL_TRUE); // SDL_TRUE = auto-close rw
+			if (!raw)
+			{
+				Log(LOG_WARNING) << "tileAtlas[" << name << "]: IMG_Load_RW failed ("
+				                 << IMG_GetError() << ") — falling back to vanilla atlas";
+			}
+			else
+			{
+				// Convert to ABGR8888: memory layout [R,G,B,A] on little-endian WASM.
+				SDL_Surface* rgba = SDL_ConvertSurfaceFormat(raw, SDL_PIXELFORMAT_ABGR8888, 0);
+				SDL_FreeSurface(raw);
+				if (!rgba)
+				{
+					Log(LOG_WARNING) << "tileAtlas[" << name
+					                 << "]: ConvertSurface failed — falling back to vanilla atlas";
+				}
+				else
+				{
+					const int w = rgba->w, h = rgba->h;
+					std::vector<uint8_t> r8(static_cast<size_t>(w) * static_cast<size_t>(h), 0u);
+
+					// Reverse-palette map: RGB packed as r|(g<<8)|(b<<16) → palette index.
+					// palette[0] is transparent; do not map it.
+					std::map<uint32_t, uint8_t> revPal;
+					for (int i = 1; i < ncolors; ++i)
+					{
+						uint32_t key = (uint32_t)palette[i].r
+						             | ((uint32_t)palette[i].g << 8)
+						             | ((uint32_t)palette[i].b << 16);
+						revPal[key] = (uint8_t)i;
+					}
+
+					if (SDL_MUSTLOCK(rgba)) SDL_LockSurface(rgba);
+					const uint8_t* src = static_cast<const uint8_t*>(rgba->pixels);
+					for (int y = 0; y < h; ++y)
+					{
+						const uint8_t* row = src + y * rgba->pitch;
+						for (int x = 0; x < w; ++x)
+						{
+							const uint8_t a = row[x * 4 + 3];
+							if (a < 128) { r8[y * w + x] = 0; continue; }
+							uint32_t key = (uint32_t)row[x * 4 + 0]
+							             | ((uint32_t)row[x * 4 + 1] << 8)
+							             | ((uint32_t)row[x * 4 + 2] << 16);
+							auto it = revPal.find(key);
+							r8[y * w + x] = (it != revPal.end()) ? it->second : 1u;
+						}
+					}
+					if (SDL_MUSTLOCK(rgba)) SDL_UnlockSurface(rgba);
+					SDL_FreeSurface(rgba);
+
+					GpuTexture* tex = new GpuTexture(/*srgb=*/false);
+					if (!tex->uploadR8(r8.data(), w, h))
+					{
+						Log(LOG_WARNING) << "tileAtlas[" << name
+						                 << "]: GPU upload failed — falling back to vanilla atlas";
+						delete tex;
+					}
+					else
+					{
+						_tileAtlases[name] = tex;
+						specIt->second.width  = w;
+						specIt->second.height = h;
+						Log(LOG_INFO) << "tileAtlas[" << name << "]: loaded HD atlas "
+						              << w << "x" << h << " (RGBA PNG → R8 palette)";
+						loaded = true;
+					}
+				}
+			}
+			if (!loaded) _tileAtlasSpecs.erase(specIt);
+			if (loaded)  return;
+			// Fall through to vanilla synthesiser.
+		}
+	}
+
+	// Vanilla synthesiser: build a 2× NN upscale atlas from PCK data.
 	std::map<int,int> frameMap;
 	std::map<int,int> pckToAtlas;
 	GpuTexture* tex = buildVanillaAtlas(*mds, palette, ncolors, frameMap, pckToAtlas);
