@@ -2486,9 +2486,17 @@ void Map::drawTileGLPass()
 	glBindVertexArray(0);
 	glDisable(GL_BLEND);
 
-	// Consume-once: clear instances so stale data never reaches the next frame
-	// (guards hidden-movement frames where emitTilePass() is not called).
-	for (auto& grp : _tileAtlasGroups) grp.instances.clear();
+	// NOTE: instances are NOT cleared here.  Map::draw() runs on _redraw
+	// (state changed) but the registered GPU pass fires every Screen::flip;
+	// clearing here would empty the buffer on every frame Map::draw doesn't
+	// run, causing 1-frame-on / N-frames-black flicker as the HD floor
+	// disappears between emits (visible after Phase 12.5 once RGBA tiles
+	// became visually distinct from the CPU vanilla layer underneath).
+	//
+	// emitTilePass() already clears instances at its head (line ~2196), so
+	// fresh content always replaces stale.  The hidden-movement / non-
+	// Battlescape suppression case is handled explicitly by Map::draw()'s
+	// else-branch, which clears instances before this pass fires (~line 558).
 }
 
 /**
