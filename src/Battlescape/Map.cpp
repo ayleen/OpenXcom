@@ -2396,17 +2396,11 @@ void Map::emitTilePass()
 			for (int pi = 0; pi < 4; ++pi)
 			{
 				TilePart part = parts[pi];
-				// Don't gate on tile->getSprite(part): that returns the cached
-				// sprite for the current animation frame and is null on frames
-				// whose animation slot is empty, which causes per-frame flicker
-				// (e.g. submarine wings, bubbles, kelp going invisible). The
-				// MapData/frameMap fallback below gives us a stable base sprite
-				// regardless of the animation slot state.
+				if (!tile->getSprite(part)) continue;
 
 				int mcdIdx = 0, mdsID = 0;
 				tile->getMapData(&mcdIdx, &mdsID, part);
 				if (mdsID < 0 || mdsID >= (int)mdsVec->size()) continue;
-				if (!tile->getMapData(part)) continue;  // empty tile slot — no MapData here
 				if (mdsID >= (int)_tileAtlasGroups.size()) continue;
 				AtlasGroup& grp = _tileAtlasGroups[mdsID];
 				if (!grp.atlas) continue;
@@ -2417,11 +2411,19 @@ void Map::emitTilePass()
 
 				// Resolve animation frame: try pckToAtlas for animated sprites,
 				// fall back to frameMap primary-frame entry.
+				//
+				// Use the tile's per-part currentFrame (matches what
+				// Tile::updateSprite() uses) instead of the global _animFrame:
+				// UFO doors freeze at 0 or 7 and tiles created mid-cycle have
+				// per-part counters that diverge from _animFrame, so a global
+				// frame index would emit the wrong sprite for those tiles
+				// (e.g. closed cargo door rendering as opening).
 				int atlasTileIdx = -1;
 				MapData* md = tile->getMapData(part);
 				if (md)
 				{
-					int animPCK = md->getSprite(animFrameIdx);
+					int frameIdx = tile->getCurrentFrame(part);
+					int animPCK = md->getSprite(frameIdx);
 					if (animPCK > 0)
 					{
 						auto it = spec->pckToAtlas.find(animPCK);

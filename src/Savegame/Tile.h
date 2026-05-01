@@ -288,6 +288,17 @@ public:
 		return _objectsCache[tp].offsetY;
 	}
 
+	/**
+	 * Gets the per-part animation frame (0..7), accounting for UFO-door pause
+	 * states. Use this — not the global Map::_animFrame — when querying a
+	 * MapData's animation slot, otherwise UFO doors and tiles created mid-cycle
+	 * render the wrong frame.
+	 */
+	int getCurrentFrame(TilePart tp) const
+	{
+		return (int)_objectsCache[tp].currentFrame;
+	}
+
 	/// Close ufo door.
 	int closeUfoDoor();
 	/// Sets the black fog of war status of this tile.
