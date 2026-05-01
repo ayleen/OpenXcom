@@ -217,6 +217,7 @@ private:
 	/// Atlas layout for a single mapDataSet's GPU tile sheet.
 	struct TileAtlasSpec
 	{
+		enum class Format { Palette, Rgba };
 		std::string       dataset;    // mapDataSet name, e.g. "SAND"
 		std::string       file;       // relative path to PNG
 		int               width      = 0;
@@ -224,6 +225,7 @@ private:
 		int               tileWidth  = 64;
 		int               tileHeight = 80;
 		int               columns    = 16;
+		Format            format     = Format::Palette;
 		std::map<int,int> frameMap;    // MCD entry index → atlas tile index (primary frame)
 		std::map<int,int> pckToAtlas;  // PCK frame index → atlas tile index (all frames incl. animation)
 	};
