@@ -468,11 +468,15 @@ void Map::init()
 		// Block 11.13: after context restore, zero stale VAO/VBO handles and
 		// reset init flags so the next draw call recreates them via initTileGL /
 		// initSpriteGL (shader C++ objects are rebuilt by ShaderManager::reuploadAll).
+		// Phase 14.1: also drop unit atlas groups and delete their GpuTextures so
+		// drawUnitGLPass() is a no-op until Map::setPalette() rebuilds them.
 		ShaderManager::instance().registerResetCallback(_gpuAliveFlag, [this]() {
 			_tileVAO = _tileVBO = _tileIBO = 0;
 			_tileGLInit = false;
 			_spriteVAO = _spriteVBO = 0;
 			_spriteGLInit = false;
+			_unitAtlasGroups.clear();
+			_game->getMod()->clearUnitAtlases();
 		});
 	}
 #endif
