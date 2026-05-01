@@ -2396,11 +2396,17 @@ void Map::emitTilePass()
 			for (int pi = 0; pi < 4; ++pi)
 			{
 				TilePart part = parts[pi];
-				if (!tile->getSprite(part)) continue;
+				// Don't gate on tile->getSprite(part): that returns the cached
+				// sprite for the current animation frame and is null on frames
+				// whose animation slot is empty, which causes per-frame flicker
+				// (e.g. submarine wings, bubbles, kelp going invisible). The
+				// MapData/frameMap fallback below gives us a stable base sprite
+				// regardless of the animation slot state.
 
 				int mcdIdx = 0, mdsID = 0;
 				tile->getMapData(&mcdIdx, &mdsID, part);
 				if (mdsID < 0 || mdsID >= (int)mdsVec->size()) continue;
+				if (!tile->getMapData(part)) continue;  // empty tile slot — no MapData here
 				if (mdsID >= (int)_tileAtlasGroups.size()) continue;
 				AtlasGroup& grp = _tileAtlasGroups[mdsID];
 				if (!grp.atlas) continue;
