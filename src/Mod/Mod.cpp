@@ -1003,7 +1003,7 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 					const int w = rgba->w, h = rgba->h;
 					std::vector<uint8_t> r8(static_cast<size_t>(w) * static_cast<size_t>(h), 0u);
 
-					// Reverse-palette map: RGB packed as r|(g<<8)|(b<<16) → palette index.
+					// Reverse-palette map for exact hits: RGB packed as r|(g<<8)|(b<<16) → index.
 					// palette[0] is transparent; do not map it.
 					std::map<uint32_t, uint8_t> revPal;
 					for (int i = 1; i < ncolors; ++i)
@@ -1016,6 +1016,7 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 
 					if (SDL_MUSTLOCK(rgba)) SDL_LockSurface(rgba);
 					const uint8_t* src = static_cast<const uint8_t*>(rgba->pixels);
+					int nearestCount = 0; // pixels that needed nearest-colour fallback
 					for (int y = 0; y < h; ++y)
 					{
 						const uint8_t* row = src + y * rgba->pitch;
@@ -1023,15 +1024,40 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 						{
 							const uint8_t a = row[x * 4 + 3];
 							if (a < 128) { r8[y * w + x] = 0; continue; }
-							uint32_t key = (uint32_t)row[x * 4 + 0]
-							             | ((uint32_t)row[x * 4 + 1] << 8)
-							             | ((uint32_t)row[x * 4 + 2] << 16);
+							const uint8_t pr = row[x * 4 + 0];
+							const uint8_t pg = row[x * 4 + 1];
+							const uint8_t pb = row[x * 4 + 2];
+							uint32_t key = (uint32_t)pr | ((uint32_t)pg << 8) | ((uint32_t)pb << 16);
 							auto it = revPal.find(key);
-							r8[y * w + x] = (it != revPal.end()) ? it->second : 1u;
+							if (it != revPal.end())
+							{
+								r8[y * w + x] = it->second;
+							}
+							else
+							{
+								// Non-palette-exact pixel: find nearest palette entry by
+								// squared Euclidean RGB distance.  Counts as a warning.
+								int bestIdx = 1, bestDist = INT_MAX;
+								for (int i = 1; i < ncolors; ++i)
+								{
+									int dr = (int)pr - (int)palette[i].r;
+									int dg = (int)pg - (int)palette[i].g;
+									int db = (int)pb - (int)palette[i].b;
+									int dist = dr*dr + dg*dg + db*db;
+									if (dist < bestDist) { bestDist = dist; bestIdx = i; }
+								}
+								r8[y * w + x] = (uint8_t)bestIdx;
+								++nearestCount;
+							}
 						}
 					}
 					if (SDL_MUSTLOCK(rgba)) SDL_UnlockSurface(rgba);
 					SDL_FreeSurface(rgba);
+					if (nearestCount > 0)
+						Log(LOG_WARNING) << "tileAtlas[" << name << "]: "
+						                 << nearestCount << " pixel(s) are not exact palette "
+						                 << "matches and were nearest-colour quantised — "
+						                 << "atlas art should use only TFTD palette colours";
 
 					GpuTexture* tex = new GpuTexture(/*srgb=*/false);
 					if (!tex->uploadR8(r8.data(), w, h))
