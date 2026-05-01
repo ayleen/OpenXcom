@@ -1032,18 +1032,22 @@ void Map::drawUnit(UnitSprite &unitSprite, Tile *unitTile, Tile *currTile, Posit
 			const Mod::UnitAtlasSpec* gpuItemSpec = _game->getMod()->getUnitAtlas("HANDOB.PCK");
 			const bool haveItem = gpuItemSpec && gpuItemSpec->atlas;
 			const size_t itemIdx = haveItem ? ensureGroup(gpuItemSpec) : _unitAtlasGroups.size();
-			// Pass currTile's Z so unit emits can be interleaved between
-			// tile Z slices in drawTileGLPass (so higher-Z tiles occlude
-			// lower-Z units, e.g. submarine roof above units inside).
+			// Pass currTile's (Z, Y) so unit emits can be interleaved between
+			// tile (Z, Y) row slices in drawTileGLPass — higher-Z tiles
+			// occlude from above (submarine roof) and Y > unitY tiles occlude
+			// from in front (camera-near walls).
 			const int unitZ = currTile ? currTile->getPosition().z : 0;
+			const int unitY = currTile ? currTile->getPosition().y : 0;
 			unitSprite.setEmitMode(
 			    &_unitAtlasGroups[bodyIdx].instances,
 			    haveItem ? &_unitAtlasGroups[itemIdx].instances : nullptr,
 			    gpuUnitSpec,
 			    gpuItemSpec,
-			    unitZ,
+			    unitZ, unitY,
 			    &_unitAtlasGroups[bodyIdx].zLevels,
-			    haveItem ? &_unitAtlasGroups[itemIdx].zLevels : nullptr
+			    haveItem ? &_unitAtlasGroups[itemIdx].zLevels : nullptr,
+			    &_unitAtlasGroups[bodyIdx].yLevels,
+			    haveItem ? &_unitAtlasGroups[itemIdx].yLevels : nullptr
 			);
 			unitSprite.draw(bu, part, tileScreenPosition.x + offsets.ScreenOffset.x, tileScreenPosition.y + offsets.ScreenOffset.y, shade, mask, _isAltPressed && !_isCtrlPressed);
 			unitSprite.clearEmitMode();
@@ -1446,8 +1450,9 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 								}
 								itemSprite.setEmitMode(
 								    &_unitAtlasGroups[idx].instances,
-								    itemAtlasSpec, itZ,
-								    &_unitAtlasGroups[idx].zLevels);
+								    itemAtlasSpec, itZ, itY,
+								    &_unitAtlasGroups[idx].zLevels,
+								    &_unitAtlasGroups[idx].yLevels);
 							}
 #endif
 							itemSprite.draw(item,
@@ -2385,29 +2390,34 @@ void Map::emitTilePass()
 	SurfaceSet* smokeSet = mod->getSurfaceSet("SMOKE.PCK");
 	static const TilePart parts[4] = { O_FLOOR, O_WESTWALL, O_NORTHWALL, O_OBJECT };
 
-	// Phase 13.1: per-Z range descriptors — track instance-buffer boundary per group.
+	// Per-(Z, Y) row descriptors — track instance-buffer boundary per group at
+	// each Y transition so unit emits at (z, y) can be interleaved between
+	// rows for correct iso wall→unit→wall ordering.
 	const size_t numGrps = _tileAtlasGroups.size();
-	std::vector<size_t> zSliceFirst(numGrps, 0);
+	std::vector<size_t> rowSliceFirst(numGrps, 0);
 	int prevEmitZ = -1;
+	int prevEmitY = -1;
+
+	auto flushRowSlice = [&]() {
+		if (prevEmitZ < 0 || prevEmitY < 0) return;
+		for (size_t gi = 0; gi < numGrps; ++gi)
+		{
+			size_t cnt = _tileAtlasGroups[gi].instances.size() - rowSliceFirst[gi];
+			if (cnt > 0)
+				_tileAtlasGroups[gi].zSlices.push_back({prevEmitZ, prevEmitY, rowSliceFirst[gi], cnt});
+		}
+		for (size_t gi = 0; gi < numGrps; ++gi)
+			rowSliceFirst[gi] = _tileAtlasGroups[gi].instances.size();
+	};
 
 	for (int itZ = beginZ; itZ <= endZ; ++itZ)
 	for (int itY = beginY; itY < endY;  ++itY)
 	{
-		// Detect Z-level transition (fires once per Z, at the first itY row).
-		if (itZ != prevEmitZ)
+		if (itZ != prevEmitZ || itY != prevEmitY)
 		{
-			if (prevEmitZ >= 0)
-			{
-				for (size_t gi = 0; gi < numGrps; ++gi)
-				{
-					size_t cnt = _tileAtlasGroups[gi].instances.size() - zSliceFirst[gi];
-					if (cnt > 0)
-						_tileAtlasGroups[gi].zSlices.push_back({prevEmitZ, zSliceFirst[gi], cnt});
-				}
-			}
-			for (size_t gi = 0; gi < numGrps; ++gi)
-				zSliceFirst[gi] = _tileAtlasGroups[gi].instances.size();
+			flushRowSlice();
 			prevEmitZ = itZ;
+			prevEmitY = itY;
 		}
 
 		Position mapPos(beginX, itY, itZ);
@@ -2524,16 +2534,8 @@ void Map::emitTilePass()
 		}
 	}
 
-	// Commit the final Z-level's slices.
-	if (prevEmitZ >= 0)
-	{
-		for (size_t gi = 0; gi < numGrps; ++gi)
-		{
-			size_t cnt = _tileAtlasGroups[gi].instances.size() - zSliceFirst[gi];
-			if (cnt > 0)
-				_tileAtlasGroups[gi].zSlices.push_back({prevEmitZ, zSliceFirst[gi], cnt});
-		}
-	}
+	// Commit the final row's slices.
+	flushRowSlice();
 }
 
 /**
@@ -2541,7 +2543,11 @@ void Map::emitTilePass()
  */
 void Map::emitUnitPass()
 {
-	for (auto& g : _unitAtlasGroups) { g.instances.clear(); g.zLevels.clear(); }
+	for (auto& g : _unitAtlasGroups) {
+		g.instances.clear();
+		g.zLevels.clear();
+		g.yLevels.clear();
+	}
 }
 
 /**
@@ -2551,14 +2557,11 @@ void Map::emitUnitPass()
 void Map::drawUnitGLPass() {}
 
 /**
- * Draw unit instances at the given Z. Filters _unitAtlasGroups instances
- * by zLevels[i] == z. Called from drawTileGLPass between tile Z slices.
- * Uniforms / blend / VAO are already set up by drawTileGLPass; we just
- * (re)bind the palette tile_atlas shader if a different shader was active,
- * then issue one glDrawArraysInstanced per unit atlas with a temporary
- * filtered instance buffer.
+ * Draw unit instances at the given (Z, Y) row. Filters _unitAtlasGroups
+ * instances by (zLevels[i], yLevels[i]) == (z, y). Called from drawTileGLPass
+ * between tile (Z, Y) row slices.
  */
-void Map::drawUnitsAtZ(int z, Shader*& activeShader)
+void Map::drawUnitsAtZY(int z, int y, Shader*& activeShader)
 {
 	if (!_shadeTableTex || !_shadeTableTex->isValid()) return;
 	if (!_tileShader   || !_tileShader->isValid())   return;
@@ -2567,19 +2570,20 @@ void Map::drawUnitsAtZ(int z, Shader*& activeShader)
 	const float SH = (float)Options::baseYResolution;
 
 	// Iterate groups in two passes: floor items first (FLOOROB.PCK), then unit
-	// bodies + held items (everything else). Within a Z slice this gives:
-	// floor items → unit bodies → unit held items, matching iso order so
-	// units stand on top of dropped weapons rather than under them.
+	// bodies + held items (everything else). Within a (Z, Y) row this gives:
+	// floor items → unit bodies → unit held items, matching iso order.
 	const Mod::UnitAtlasSpec* floorSpec  = _game->getMod()->getUnitAtlas("FLOOROB.PCK");
 
 	auto drawGroup = [&](UnitAtlasGroup& g) {
 		if (g.instances.empty() || !g.spec || !g.spec->atlas) return;
 		if (g.zLevels.size() != g.instances.size()) return;
+		if (g.yLevels.size() != g.instances.size()) return;
 
 		std::vector<TileInstance> scratch;
 		scratch.reserve(g.instances.size());
 		for (size_t i = 0; i < g.instances.size(); ++i)
-			if (g.zLevels[i] == z) scratch.push_back(g.instances[i]);
+			if (g.zLevels[i] == z && g.yLevels[i] == y)
+				scratch.push_back(g.instances[i]);
 		if (scratch.empty()) return;
 
 		if (activeShader != _tileShader)
@@ -2606,11 +2610,9 @@ void Map::drawUnitsAtZ(int z, Shader*& activeShader)
 		glDrawArraysInstanced(GL_TRIANGLES, 0, 6, (GLsizei)scratch.size());
 	};
 
-	// Pass 1: floor items (FLOOROB).
 	for (auto& g : _unitAtlasGroups)
 		if (g.spec == floorSpec) drawGroup(g);
 
-	// Pass 2: everything else (unit bodies + HANDOB held items).
 	for (auto& g : _unitAtlasGroups)
 		if (g.spec != floorSpec) drawGroup(g);
 }
@@ -2712,15 +2714,18 @@ void Map::drawTileGLPass()
 	const float SW = (float)Options::baseXResolution;
 	const float SH = (float)Options::baseYResolution;
 
-	// Determine Z-range from populated zSlices across all groups.
+	// Determine (Z, Y) range from populated zSlices across all groups.
 	int zMin = INT_MAX, zMax = INT_MIN;
+	int yMin = INT_MAX, yMax = INT_MIN;
 	for (auto& grp : _tileAtlasGroups)
 		for (auto& s : grp.zSlices)
 		{
 			if (s.zLevel < zMin) zMin = s.zLevel;
 			if (s.zLevel > zMax) zMax = s.zLevel;
+			if (s.yLevel < yMin) yMin = s.yLevel;
+			if (s.yLevel > yMax) yMax = s.yLevel;
 		}
-	if (zMin > zMax) return;
+	if (zMin > zMax || yMin > yMax) return;
 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -2730,16 +2735,16 @@ void Map::drawTileGLPass()
 	// Track which shader+uniforms are currently bound to minimise switches.
 	Shader* activeShader = nullptr;
 
-	// Z-outer, group-inner: guarantees lower Z always draws before higher Z
-	// regardless of palette vs. RGBA mix (fixes Phase 13 Bug #1).
-	// After each Z's tile slices, draw any unit instances at that Z so higher-Z
-	// tiles (e.g. submarine roof) can occlude lower-Z units inside.
+	// Per (Z, Y) row: draw all tile parts of (z, y) for each atlas group, then
+	// units at (z, y). Y-row granularity is what gives camera-near walls (rows
+	// with larger Y) the chance to occlude units in camera-far rows.
 	for (int z = zMin; z <= zMax; ++z)
+	for (int y = yMin; y <= yMax; ++y)
 	{
 		for (auto& grp : _tileAtlasGroups)
 		{
 			if (!grp.atlas) continue;
-			const auto* slice = grp.findZSlice(z);
+			const auto* slice = grp.findZRowSlice(z, y);
 			if (!slice || slice->count == 0) continue;
 
 			Shader* sh = grp.isRgba ? _tileShaderRgba : _tileShader;
@@ -2770,9 +2775,8 @@ void Map::drawTileGLPass()
 			glDrawArraysInstanced(GL_TRIANGLES, 0, 6, (GLsizei)slice->count);
 		}
 
-		// Draw units that belong to this Z. Use the palette tile_atlas shader
-		// (same one tiles use); _shadeTableTex is already bound from above.
-		drawUnitsAtZ(z, activeShader);
+		// Draw units belonging to (z, y) — items first, then bodies+held items.
+		drawUnitsAtZY(z, y, activeShader);
 	}
 
 	glBindVertexArray(0);

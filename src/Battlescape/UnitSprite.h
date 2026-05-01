@@ -81,8 +81,11 @@ private:
 	const Mod::UnitAtlasSpec*  _emitUnitSpec   = nullptr;  // unit body atlas
 	const Mod::UnitAtlasSpec*  _emitItemSpec   = nullptr;  // item (HANDOB.PCK) atlas
 	int                        _emitZ           = 0;        // unit's tile Z, parallel-pushed via zTargets
+	int                        _emitY           = 0;        // unit's tile Y, parallel-pushed via yTargets
 	void*                      _emitZTargetBody = nullptr;  // std::vector<int>* receiving Z per body emit
 	void*                      _emitZTargetItem = nullptr;  // std::vector<int>* receiving Z per item emit
+	void*                      _emitYTargetBody = nullptr;  // std::vector<int>* receiving Y per body emit
+	void*                      _emitYTargetItem = nullptr;  // std::vector<int>* receiving Y per item emit
 #endif
 
 	/// Drawing routine for XCom soldiers in overalls, sectoids (routine 0),
@@ -149,16 +152,20 @@ public:
 	void setEmitMode(void* bodyTarget, void* itemTarget,
 	                 const Mod::UnitAtlasSpec* unitSpec,
 	                 const Mod::UnitAtlasSpec* itemSpec,
-	                 int emitZ = 0,
-	                 void* zTargetBody = nullptr, void* zTargetItem = nullptr)
+	                 int emitZ = 0, int emitY = 0,
+	                 void* zTargetBody = nullptr, void* zTargetItem = nullptr,
+	                 void* yTargetBody = nullptr, void* yTargetItem = nullptr)
 	{
 		_emitTarget     = bodyTarget;
 		_emitItemTarget = itemTarget;
 		_emitUnitSpec   = unitSpec;
 		_emitItemSpec   = itemSpec;
 		_emitZ          = emitZ;
+		_emitY          = emitY;
 		_emitZTargetBody = zTargetBody;
 		_emitZTargetItem = zTargetItem;
+		_emitYTargetBody = yTargetBody;
+		_emitYTargetItem = yTargetItem;
 	}
 	void clearEmitMode()
 	{
@@ -167,8 +174,11 @@ public:
 		_emitUnitSpec   = nullptr;
 		_emitItemSpec   = nullptr;
 		_emitZ          = 0;
+		_emitY          = 0;
 		_emitZTargetBody = nullptr;
 		_emitZTargetItem = nullptr;
+		_emitYTargetBody = nullptr;
+		_emitYTargetItem = nullptr;
 	}
 #endif
 };

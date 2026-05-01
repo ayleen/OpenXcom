@@ -146,12 +146,16 @@ private:
 		float                     tileUVH  = 0.0f;
 		bool                      isRgba   = false;
 		std::vector<TileInstance> instances;
-		// Phase 13.1: per-Z range descriptors into instances[].
-		struct ZSlice { int zLevel; size_t first; size_t count; };
+		// Phase 13.1 + post-14: per-(Z,Y) row descriptors into instances[].
+		// Y-row granularity is needed so unit emits at (z, y) can be interleaved
+		// between rows for correct iso wall→unit→wall ordering. yLevel == -1
+		// is the legacy "whole Z" sentinel, no longer emitted.
+		struct ZSlice { int zLevel; int yLevel; size_t first; size_t count; };
 		std::vector<ZSlice>       zSlices;
 
-		const ZSlice* findZSlice(int z) const {
-			for (const auto& s : zSlices) if (s.zLevel == z) return &s;
+		const ZSlice* findZRowSlice(int z, int y) const {
+			for (const auto& s : zSlices)
+				if (s.zLevel == z && s.yLevel == y) return &s;
 			return nullptr;
 		}
 	};
@@ -213,15 +217,18 @@ private:
 		/// so higher-Z tiles can occlude lower-Z units (e.g. submarine roof
 		/// above units inside the cargo bay).
 		std::vector<int>           zLevels;
+		/// yLevels[i] = map Y of instances[i]. Same length as instances. Lets
+		/// drawTileGLPass interleave unit draws per (Z, Y) row so walls of
+		/// camera-near rows (Y > unit's Y) can occlude the unit from in front.
+		std::vector<int>           yLevels;
 	};
 	std::vector<UnitAtlasGroup> _unitAtlasGroups;
 	void emitUnitPass();
 	void drawUnitGLPass();
-	/// Draw unit instances whose tile Z equals the argument; called from
-	/// drawTileGLPass between tile Z slices to interleave unit and tile draws
-	/// for correct occlusion. activeShader: in/out — last bound Shader so we
-	/// reuse it without re-uploading uniforms when possible.
-	void drawUnitsAtZ(int z, Shader*& activeShader);
+	/// Draw unit instances at the given (Z, Y) row. activeShader is in/out so
+	/// we don't rebind/reupload uniforms when called repeatedly within one
+	/// drawTileGLPass loop.
+	void drawUnitsAtZY(int z, int y, Shader*& activeShader);
 #endif
 	int getTerrainLevel(const Position& pos, int size) const;
 	int getWallShade(TilePart part, Tile* tileFrot);

@@ -112,6 +112,8 @@ void ItemSprite::draw(const BattleItem* item, int x, int y, int shade)
 		vec->push_back(inst);
 		if (_emitZTarget)
 			static_cast<std::vector<int>*>(_emitZTarget)->push_back(_emitZ);
+		if (_emitYTarget)
+			static_cast<std::vector<int>*>(_emitYTarget)->push_back(_emitY);
 		return;
 	}
 #endif

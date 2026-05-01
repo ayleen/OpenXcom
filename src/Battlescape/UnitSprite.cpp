@@ -207,6 +207,8 @@ void UnitSprite::blitItem(Part& item)
 		vec->push_back(inst);
 		if (_emitZTargetItem)
 			static_cast<std::vector<int>*>(_emitZTargetItem)->push_back(_emitZ);
+		if (_emitYTargetItem)
+			static_cast<std::vector<int>*>(_emitYTargetItem)->push_back(_emitY);
 		return;
 	}
 #endif
@@ -255,6 +257,8 @@ void UnitSprite::blitBody(Part& body)
 		vec->push_back(inst);
 		if (_emitZTargetBody)
 			static_cast<std::vector<int>*>(_emitZTargetBody)->push_back(_emitZ);
+		if (_emitYTargetBody)
+			static_cast<std::vector<int>*>(_emitYTargetBody)->push_back(_emitY);
 		return;
 	}
 #endif
