@@ -121,6 +121,7 @@ private:
 	void drawUnit(UnitSprite &unitSprite, Tile *unitTile, Tile *currTile, Position tileScreenPosition, bool topLayer, BattleUnit* movingUnit = nullptr);
 	void drawTerrainOverlayCPU(Surface *surface);
 #ifdef __EMSCRIPTEN__
+	friend class UnitSprite; // needs Map::TileInstance for emit targets
 	void drawTerrainGPU(Surface *surface);
 	void emitTilePass();
 	void initTileGL();
