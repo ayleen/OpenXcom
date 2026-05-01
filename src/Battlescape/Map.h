@@ -139,11 +139,13 @@ private:
 		GpuTexture*               atlas    = nullptr;
 		float                     tileUVW  = 0.0f;
 		float                     tileUVH  = 0.0f;
+		bool                      isRgba   = false;
 		std::vector<TileInstance> instances;
 	};
 
 	std::vector<AtlasGroup>  _tileAtlasGroups;
-	Shader*                  _tileShader    = nullptr;
+	Shader*                  _tileShader     = nullptr;  // palette variant (R8 + shade table)
+	Shader*                  _tileShaderRgba = nullptr;  // RGBA variant (GL_LINEAR + linear shade)
 	GpuTexture*              _shadeTableTex = nullptr;
 	unsigned int _tileVAO    = 0;
 	unsigned int _tileVBO    = 0;  // corner quads (static)

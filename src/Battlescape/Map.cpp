@@ -377,8 +377,9 @@ Map::~Map()
 	delete _txtAccuracy;
 #ifdef __EMSCRIPTEN__
 	_gpuAliveFlag.reset();
-	delete _tileShader;    _tileShader    = nullptr;
-	delete _shadeTableTex; _shadeTableTex = nullptr;
+	delete _tileShader;     _tileShader     = nullptr;
+	delete _tileShaderRgba; _tileShaderRgba = nullptr;
+	delete _shadeTableTex;  _shadeTableTex  = nullptr;
 	if (_tileGLInit)
 	{
 		glDeleteBuffers(1, &_tileVBO);
@@ -611,6 +612,7 @@ void Map::setPalette(const SDL_Color *colors, int firstcolor, int ncolors)
 			_tileAtlasGroups[i].atlas   = atlas;
 			_tileAtlasGroups[i].tileUVW = (float)spec->tileWidth  / (float)spec->width;
 			_tileAtlasGroups[i].tileUVH = (float)spec->tileHeight / (float)spec->height;
+			_tileAtlasGroups[i].isRgba  = (spec->format == TileAtlasSpec::Format::Rgba);
 		}
 		// Invalidate sprite frame cache — palette mapping changed.
 		for (auto& p : _spriteFrameCache) delete p.second;
@@ -2348,8 +2350,8 @@ void Map::initTileGL()
 	if (_tileGLInit) return;
 	_tileGLInit = true;
 
-	// On context restore _tileShader is already rebuilt by ShaderManager::reuploadAll();
-	// only allocate it on the very first call.
+	// On context restore these are already rebuilt by ShaderManager::reuploadAll();
+	// only allocate on the very first call.
 	if (!_tileShader)
 	{
 		_tileShader = new Shader();
@@ -2358,6 +2360,16 @@ void Map::initTileGL()
 			Log(LOG_ERROR) << "Map::initTileGL: tile_atlas shader compile failed";
 			delete _tileShader; _tileShader = nullptr;
 			return;
+		}
+	}
+	if (!_tileShaderRgba)
+	{
+		_tileShaderRgba = new Shader();
+		if (!_tileShaderRgba->loadFromEmbedded("tile_atlas_rgba"))
+		{
+			Log(LOG_ERROR) << "Map::initTileGL: tile_atlas_rgba shader compile failed";
+			delete _tileShaderRgba; _tileShaderRgba = nullptr;
+			// Non-fatal: palette path still works; RGBA atlases just won't render.
 		}
 	}
 
@@ -2426,7 +2438,9 @@ void Map::drawTileGLPass()
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glDisable(GL_DEPTH_TEST);
+	glBindVertexArray(_tileVAO);
 
+	// ── Pass 1: palette atlases (R8 + shade-table) ──────────────────────────
 	_tileShader->use();
 	_tileShader->setUniform2f("u_screenSize",    (float)SW, (float)SH);
 	_tileShader->setUniform2f("u_tilePixelSize", (float)_spriteWidth, (float)_spriteHeight);
@@ -2435,10 +2449,9 @@ void Map::drawTileGLPass()
 	_tileShader->setUniform1i("u_shadeTable",    1);
 	_shadeTableTex->bind(1);
 
-	glBindVertexArray(_tileVAO);
 	for (auto& grp : _tileAtlasGroups)
 	{
-		if (!grp.atlas || grp.instances.empty()) continue;
+		if (!grp.atlas || grp.instances.empty() || grp.isRgba) continue;
 		grp.atlas->bind(0);
 		_tileShader->setUniform2f("u_tileUVSize", grp.tileUVW, grp.tileUVH);
 		glBindBuffer(GL_ARRAY_BUFFER, _tileIBO);
@@ -2447,6 +2460,29 @@ void Map::drawTileGLPass()
 		             grp.instances.data(), GL_DYNAMIC_DRAW);
 		glDrawArraysInstanced(GL_TRIANGLES, 0, 6, (GLsizei)grp.instances.size());
 	}
+
+	// ── Pass 2: RGBA atlases (GL_LINEAR + linear shade darkening) ───────────
+	if (_tileShaderRgba && _tileShaderRgba->isValid())
+	{
+		_tileShaderRgba->use();
+		_tileShaderRgba->setUniform2f("u_screenSize",    (float)SW, (float)SH);
+		_tileShaderRgba->setUniform2f("u_tilePixelSize", (float)_spriteWidth, (float)_spriteHeight);
+		_tileShaderRgba->setUniform1f("u_animFrame",     0.0f);
+		_tileShaderRgba->setUniform1i("u_atlas",         0);
+
+		for (auto& grp : _tileAtlasGroups)
+		{
+			if (!grp.atlas || grp.instances.empty() || !grp.isRgba) continue;
+			grp.atlas->bind(0);
+			_tileShaderRgba->setUniform2f("u_tileUVSize", grp.tileUVW, grp.tileUVH);
+			glBindBuffer(GL_ARRAY_BUFFER, _tileIBO);
+			glBufferData(GL_ARRAY_BUFFER,
+			             (GLsizeiptr)(grp.instances.size() * sizeof(TileInstance)),
+			             grp.instances.data(), GL_DYNAMIC_DRAW);
+			glDrawArraysInstanced(GL_TRIANGLES, 0, 6, (GLsizei)grp.instances.size());
+		}
+	}
+
 	glBindVertexArray(0);
 	glDisable(GL_BLEND);
 
