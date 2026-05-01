@@ -207,10 +207,20 @@ private:
 	{
 		const Mod::UnitAtlasSpec* spec = nullptr;
 		std::vector<TileInstance>  instances;
+		/// zLevels[i] = map Z of instances[i]. Same length as instances.
+		/// Used by drawTileGLPass to interleave unit draws between tile Z slices,
+		/// so higher-Z tiles can occlude lower-Z units (e.g. submarine roof
+		/// above units inside the cargo bay).
+		std::vector<int>           zLevels;
 	};
 	std::vector<UnitAtlasGroup> _unitAtlasGroups;
 	void emitUnitPass();
 	void drawUnitGLPass();
+	/// Draw unit instances whose tile Z equals the argument; called from
+	/// drawTileGLPass between tile Z slices to interleave unit and tile draws
+	/// for correct occlusion. activeShader: in/out — last bound Shader so we
+	/// reuse it without re-uploading uniforms when possible.
+	void drawUnitsAtZ(int z, Shader*& activeShader);
 #endif
 	int getTerrainLevel(const Position& pos, int size) const;
 	int getWallShade(TilePart part, Tile* tileFrot);

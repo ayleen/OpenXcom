@@ -205,6 +205,8 @@ void UnitSprite::blitItem(Part& item)
 		inst.animFrameCount = 1.0f;
 		inst.alphaMask      = 1.0f;
 		vec->push_back(inst);
+		if (_emitZTargetItem)
+			static_cast<std::vector<int>*>(_emitZTargetItem)->push_back(_emitZ);
 		return;
 	}
 #endif
@@ -251,6 +253,8 @@ void UnitSprite::blitBody(Part& body)
 		inst.animFrameCount = 1.0f;
 		inst.alphaMask      = 1.0f;
 		vec->push_back(inst);
+		if (_emitZTargetBody)
+			static_cast<std::vector<int>*>(_emitZTargetBody)->push_back(_emitZ);
 		return;
 	}
 #endif

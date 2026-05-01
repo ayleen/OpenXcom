@@ -80,6 +80,9 @@ private:
 	void*                      _emitItemTarget = nullptr;  // item hand sprites
 	const Mod::UnitAtlasSpec*  _emitUnitSpec   = nullptr;  // unit body atlas
 	const Mod::UnitAtlasSpec*  _emitItemSpec   = nullptr;  // item (HANDOB.PCK) atlas
+	int                        _emitZ           = 0;        // unit's tile Z, parallel-pushed via zTargets
+	void*                      _emitZTargetBody = nullptr;  // std::vector<int>* receiving Z per body emit
+	void*                      _emitZTargetItem = nullptr;  // std::vector<int>* receiving Z per item emit
 #endif
 
 	/// Drawing routine for XCom soldiers in overalls, sectoids (routine 0),
@@ -140,14 +143,22 @@ public:
 #ifdef __EMSCRIPTEN__
 	/// Phase 14.2: redirect blitBody into bodyTarget and blitItem into itemTarget.
 	/// Both pointers must be std::vector<Map::TileInstance>* (cast to void*).
+	/// zTargetBody / zTargetItem: optional std::vector<int>* (cast to void*),
+	/// receives one int per emitted instance — the unit's tile Z. Used by
+	/// drawTileGLPass to interleave unit draws between tile Z slices.
 	void setEmitMode(void* bodyTarget, void* itemTarget,
 	                 const Mod::UnitAtlasSpec* unitSpec,
-	                 const Mod::UnitAtlasSpec* itemSpec)
+	                 const Mod::UnitAtlasSpec* itemSpec,
+	                 int emitZ = 0,
+	                 void* zTargetBody = nullptr, void* zTargetItem = nullptr)
 	{
 		_emitTarget     = bodyTarget;
 		_emitItemTarget = itemTarget;
 		_emitUnitSpec   = unitSpec;
 		_emitItemSpec   = itemSpec;
+		_emitZ          = emitZ;
+		_emitZTargetBody = zTargetBody;
+		_emitZTargetItem = zTargetItem;
 	}
 	void clearEmitMode()
 	{
@@ -155,6 +166,9 @@ public:
 		_emitItemTarget = nullptr;
 		_emitUnitSpec   = nullptr;
 		_emitItemSpec   = nullptr;
+		_emitZ          = 0;
+		_emitZTargetBody = nullptr;
+		_emitZTargetItem = nullptr;
 	}
 #endif
 };

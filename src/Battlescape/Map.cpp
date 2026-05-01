@@ -436,16 +436,12 @@ void Map::init()
 		_gpuAliveFlag = std::make_shared<bool>(true);
 		std::weak_ptr<bool> wf = _gpuAliveFlag;
 		// Phase 13.3: tile pass fires BEFORE SDL composite so HD floor renders
-		// under CPU-drawn units / walls / HUD.
+		// under CPU-drawn units / walls / HUD. Tile pass internally interleaves
+		// unit draws via drawUnitsAtZ(z) between Z slices for correct
+		// occlusion (e.g. submarine roof above units inside the cargo bay).
 		_game->getScreen()->registerGPUPassPreComposite([this, wf]() {
 			if (!wf.lock()) return;
 			this->drawTileGLPass();
-		});
-		// Phase 14.2: unit pass fires BEFORE SDL composite, after tile pass,
-		// so vanilla palette-indexed units render above floors but below front objects.
-		_game->getScreen()->registerGPUPassPreComposite([this, wf]() {
-			if (!wf.lock()) return;
-			this->drawUnitGLPass();
 		});
 		// Block 11.10: tile-space cursor overlay after tile pass, before sprites.
 		_game->getScreen()->registerGPUPass([this, wf]() {
@@ -1033,11 +1029,18 @@ void Map::drawUnit(UnitSprite &unitSprite, Tile *unitTile, Tile *currTile, Posit
 			const Mod::UnitAtlasSpec* gpuItemSpec = _game->getMod()->getUnitAtlas("HANDOB.PCK");
 			const bool haveItem = gpuItemSpec && gpuItemSpec->atlas;
 			const size_t itemIdx = haveItem ? ensureGroup(gpuItemSpec) : _unitAtlasGroups.size();
+			// Pass currTile's Z so unit emits can be interleaved between
+			// tile Z slices in drawTileGLPass (so higher-Z tiles occlude
+			// lower-Z units, e.g. submarine roof above units inside).
+			const int unitZ = currTile ? currTile->getPosition().z : 0;
 			unitSprite.setEmitMode(
 			    &_unitAtlasGroups[bodyIdx].instances,
 			    haveItem ? &_unitAtlasGroups[itemIdx].instances : nullptr,
 			    gpuUnitSpec,
-			    gpuItemSpec
+			    gpuItemSpec,
+			    unitZ,
+			    &_unitAtlasGroups[bodyIdx].zLevels,
+			    haveItem ? &_unitAtlasGroups[itemIdx].zLevels : nullptr
 			);
 			unitSprite.draw(bu, part, tileScreenPosition.x + offsets.ScreenOffset.x, tileScreenPosition.y + offsets.ScreenOffset.y, shade, mask, _isAltPressed && !_isCtrlPressed);
 			unitSprite.clearEmitMode();
@@ -2509,62 +2512,74 @@ void Map::emitTilePass()
  */
 void Map::emitUnitPass()
 {
-	for (auto& g : _unitAtlasGroups) g.instances.clear();
+	for (auto& g : _unitAtlasGroups) { g.instances.clear(); g.zLevels.clear(); }
 }
 
 /**
- * Phase 14.2: draw collected vanilla unit instances via the tile_atlas R8 shader.
- * Fires as a pre-composite pass (after tile pass, before SDL composite).
+ * Phase 14.2: legacy single-pass unit draw — kept as no-op since
+ * drawTileGLPass now interleaves unit draws via drawUnitsAtZ().
  */
-void Map::drawUnitGLPass()
+void Map::drawUnitGLPass() {}
+
+/**
+ * Draw unit instances at the given Z. Filters _unitAtlasGroups instances
+ * by zLevels[i] == z. Called from drawTileGLPass between tile Z slices.
+ * Uniforms / blend / VAO are already set up by drawTileGLPass; we just
+ * (re)bind the palette tile_atlas shader if a different shader was active,
+ * then issue one glDrawArraysInstanced per unit atlas with a temporary
+ * filtered instance buffer.
+ */
+void Map::drawUnitsAtZ(int z, Shader*& activeShader)
 {
-	if (!_tileGLInit) initTileGL();
-	if (!_tileShader || !_tileShader->isValid()) return;
 	if (!_shadeTableTex || !_shadeTableTex->isValid()) return;
+	if (!_tileShader   || !_tileShader->isValid())   return;
 
-	bool hasAny = false;
-	for (auto& g : _unitAtlasGroups)
-		if (!g.instances.empty() && g.spec && g.spec->atlas) { hasAny = true; break; }
-	if (!hasAny) return;
-
-	// Pre-composite uses the iso projection in base-resolution pixels (Map
-	// emits TileInstance.screenX/Y in Map._surface coords, e.g. 640×400). GPU
-	// vertex shader divides by u_screenSize → NDC; with u_screenSize = base
-	// resolution, NDC [-1..1] maps to the canvas viewport directly, matching
-	// where CPU renders after BlitScaled stretches _surface 2× to canvas.
 	const float SW = (float)Options::baseXResolution;
 	const float SH = (float)Options::baseYResolution;
 
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glDisable(GL_DEPTH_TEST);
-	glBindVertexArray(_tileVAO);
-
-	_tileShader->use();
-	_tileShader->setUniform2f("u_screenSize",    SW, SH);
-	_tileShader->setUniform2f("u_tilePixelSize", (float)_spriteWidth, (float)_spriteHeight);
-	_tileShader->setUniform1f("u_animFrame",     0.0f);
-	_tileShader->setUniform1i("u_atlas",         0);
-	_tileShader->setUniform1i("u_shadeTable",    1);
-	_shadeTableTex->bind(1);
-
+	bool shaderEnsured = false;
+	std::vector<TileInstance> scratch;
 	for (auto& g : _unitAtlasGroups)
 	{
 		if (g.instances.empty() || !g.spec || !g.spec->atlas) continue;
+		if (g.zLevels.size() != g.instances.size()) continue;
+
+		scratch.clear();
+		scratch.reserve(g.instances.size());
+		for (size_t i = 0; i < g.instances.size(); ++i)
+		{
+			if (g.zLevels[i] == z)
+				scratch.push_back(g.instances[i]);
+		}
+		if (scratch.empty()) continue;
+
+		if (!shaderEnsured)
+		{
+			if (activeShader != _tileShader)
+			{
+				_tileShader->use();
+				_tileShader->setUniform2f("u_screenSize",    SW, SH);
+				_tileShader->setUniform2f("u_tilePixelSize", (float)_spriteWidth, (float)_spriteHeight);
+				_tileShader->setUniform1f("u_animFrame",     0.0f);
+				_tileShader->setUniform1i("u_atlas",         0);
+				_tileShader->setUniform1i("u_shadeTable",    1);
+				_shadeTableTex->bind(1);
+				activeShader = _tileShader;
+			}
+			shaderEnsured = true;
+		}
+
 		const float uvW = (float)g.spec->tileWidth  / (float)g.spec->atlasW;
 		const float uvH = (float)g.spec->tileHeight / (float)g.spec->atlasH;
 		g.spec->atlas->bind(0);
 		_tileShader->setUniform2f("u_tileUVSize", uvW, uvH);
 		glBindBuffer(GL_ARRAY_BUFFER, _tileIBO);
 		glBufferData(GL_ARRAY_BUFFER,
-		             (GLsizeiptr)(g.instances.size() * sizeof(TileInstance)),
-		             g.instances.data(),
+		             (GLsizeiptr)(scratch.size() * sizeof(TileInstance)),
+		             scratch.data(),
 		             GL_DYNAMIC_DRAW);
-		glDrawArraysInstanced(GL_TRIANGLES, 0, 6, (GLsizei)g.instances.size());
+		glDrawArraysInstanced(GL_TRIANGLES, 0, 6, (GLsizei)scratch.size());
 	}
-
-	glBindVertexArray(0);
-	glDisable(GL_BLEND);
 }
 
 /**
@@ -2684,6 +2699,8 @@ void Map::drawTileGLPass()
 
 	// Z-outer, group-inner: guarantees lower Z always draws before higher Z
 	// regardless of palette vs. RGBA mix (fixes Phase 13 Bug #1).
+	// After each Z's tile slices, draw any unit instances at that Z so higher-Z
+	// tiles (e.g. submarine roof) can occlude lower-Z units inside.
 	for (int z = zMin; z <= zMax; ++z)
 	{
 		for (auto& grp : _tileAtlasGroups)
@@ -2719,6 +2736,10 @@ void Map::drawTileGLPass()
 			             GL_DYNAMIC_DRAW);
 			glDrawArraysInstanced(GL_TRIANGLES, 0, 6, (GLsizei)slice->count);
 		}
+
+		// Draw units that belong to this Z. Use the palette tile_atlas shader
+		// (same one tiles use); _shadeTableTex is already bound from above.
+		drawUnitsAtZ(z, activeShader);
 	}
 
 	glBindVertexArray(0);
