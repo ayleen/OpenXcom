@@ -136,6 +136,7 @@ private:
 		float shade;              // 0..15
 		float animFrameCount;     // total anim frames (>=1)
 		float alphaMask;          // MCD opacity flag (0 or 1)
+		float iso;                // iso priority [0..1]; larger = closer to camera
 	};
 
 	/// Per-atlas draw group: one glDrawArraysInstanced per atlas texture.

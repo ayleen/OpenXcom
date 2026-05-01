@@ -439,6 +439,13 @@ void Screen::resetDisplay(bool resetVideo, bool noShaders)
 		}
 #endif
 
+#ifdef __EMSCRIPTEN__
+		// Request a depth buffer in the WebGL2 context so the iso-depth GPU
+		// pipeline (Map::drawTileGLPass) can sort tiles/units/items by their
+		// per-instance iso priority. Default emscripten/SDL2 attributes
+		// usually include depth=true, but setting this explicitly is safer.
+		SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+#endif
 		_window = SDL_CreateWindow("OpenXcom Extended", posX, posY, width, height, winFlags);
 		if (!_window)
 		{

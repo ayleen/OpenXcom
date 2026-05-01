@@ -109,6 +109,9 @@ void ItemSprite::draw(const BattleItem* item, int x, int y, int shade)
 		inst.shade          = (float)shade;
 		inst.animFrameCount = 1.0f;
 		inst.alphaMask      = 1.0f;
+		// Floor items: priority between back-tile object and unit body.
+		const int prio = _emitZ * 65536 + _emitY * 64 + _emitX * 8 + 3;
+		inst.iso = (float)prio / 1100000.0f;
 		vec->push_back(inst);
 		if (_emitZTarget)
 			static_cast<std::vector<int>*>(_emitZTarget)->push_back(_emitZ);

@@ -204,6 +204,9 @@ void UnitSprite::blitItem(Part& item)
 		inst.shade          = (float)_shade;
 		inst.animFrameCount = 1.0f;
 		inst.alphaMask      = 1.0f;
+		// Held items: priority above unit body but below front-tile object.
+		const int prio = _emitZ * 65536 + _emitY * 64 + _emitX * 8 + 5;
+		inst.iso = (float)prio / 1100000.0f;
 		vec->push_back(inst);
 		if (_emitZTargetItem)
 			static_cast<std::vector<int>*>(_emitZTargetItem)->push_back(_emitZ);
@@ -254,6 +257,9 @@ void UnitSprite::blitBody(Part& body)
 		inst.shade          = (float)_shade;
 		inst.animFrameCount = 1.0f;
 		inst.alphaMask      = 1.0f;
+		// Unit body: priority above floor items, below front-tile object.
+		const int prio = _emitZ * 65536 + _emitY * 64 + _emitX * 8 + 4;
+		inst.iso = (float)prio / 1100000.0f;
 		vec->push_back(inst);
 		if (_emitZTargetBody)
 			static_cast<std::vector<int>*>(_emitZTargetBody)->push_back(_emitZ);

@@ -24,6 +24,7 @@ layout(location=2) in vec2  a_atlasUV;
 layout(location=3) in float a_shade;
 layout(location=4) in float a_animFrameCount;
 layout(location=5) in float a_alphaMask;
+layout(location=6) in float a_iso;       // iso priority [0..1]: larger = closer to camera
 
 uniform vec2 u_screenSize;
 uniform vec2 u_tilePixelSize;
@@ -45,7 +46,10 @@ void main()
     // Flip Y: SDL uses top-left origin, GL uses bottom-left.
     ndc.y = -ndc.y;
 
-    gl_Position = vec4(ndc, 0.0, 1.0);
+    // Iso priority → NDC z. Smaller z wins under glDepthFunc(LESS), so larger
+    // iso (closer to camera) maps to smaller z and draws on top.
+    float ndcZ = 1.0 - 2.0 * a_iso;
+    gl_Position = vec4(ndc, ndcZ, 1.0);
 
     // Atlas UV: base UV offset by this corner's fraction of one tile.
     v_uv = a_atlasUV + a_corner * u_tileUVSize;

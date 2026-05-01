@@ -47,6 +47,7 @@ private:
 	const Mod::UnitAtlasSpec* _emitSpec = nullptr;
 	int   _emitZ = 0;
 	int   _emitY = 0;
+	int   _emitX = 0;                  // tile X — used for instance iso priority
 #endif
 
 public:
@@ -60,13 +61,15 @@ public:
 	void drawShadow(const BattleItem* item, int x, int y);
 #ifdef __EMSCRIPTEN__
 	/// Emit-mode: redirect draw() into a TileInstance vector instead of CPU blit.
-	void setEmitMode(void* target, const Mod::UnitAtlasSpec* spec, int emitZ, int emitY,
+	void setEmitMode(void* target, const Mod::UnitAtlasSpec* spec,
+	                 int emitZ, int emitY, int emitX,
 	                 void* zTarget, void* yTarget)
 	{
 		_emitTarget = target;
 		_emitSpec   = spec;
 		_emitZ      = emitZ;
 		_emitY      = emitY;
+		_emitX      = emitX;
 		_emitZTarget = zTarget;
 		_emitYTarget = yTarget;
 	}
@@ -76,6 +79,7 @@ public:
 		_emitSpec   = nullptr;
 		_emitZ      = 0;
 		_emitY      = 0;
+		_emitX      = 0;
 		_emitZTarget = nullptr;
 		_emitYTarget = nullptr;
 	}

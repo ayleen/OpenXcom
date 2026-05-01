@@ -1032,18 +1032,18 @@ void Map::drawUnit(UnitSprite &unitSprite, Tile *unitTile, Tile *currTile, Posit
 			const Mod::UnitAtlasSpec* gpuItemSpec = _game->getMod()->getUnitAtlas("HANDOB.PCK");
 			const bool haveItem = gpuItemSpec && gpuItemSpec->atlas;
 			const size_t itemIdx = haveItem ? ensureGroup(gpuItemSpec) : _unitAtlasGroups.size();
-			// Pass currTile's (Z, Y) so unit emits can be interleaved between
-			// tile (Z, Y) row slices in drawTileGLPass — higher-Z tiles
-			// occlude from above (submarine roof) and Y > unitY tiles occlude
-			// from in front (camera-near walls).
+			// Pass currTile's (Z, Y, X) so the GPU shader can derive an iso
+			// priority and use depth-test for correct iso z-ordering between
+			// units / items / tiles (no per-cell bucketing needed).
 			const int unitZ = currTile ? currTile->getPosition().z : 0;
 			const int unitY = currTile ? currTile->getPosition().y : 0;
+			const int unitX = currTile ? currTile->getPosition().x : 0;
 			unitSprite.setEmitMode(
 			    &_unitAtlasGroups[bodyIdx].instances,
 			    haveItem ? &_unitAtlasGroups[itemIdx].instances : nullptr,
 			    gpuUnitSpec,
 			    gpuItemSpec,
-			    unitZ, unitY,
+			    unitZ, unitY, unitX,
 			    &_unitAtlasGroups[bodyIdx].zLevels,
 			    haveItem ? &_unitAtlasGroups[itemIdx].zLevels : nullptr,
 			    &_unitAtlasGroups[bodyIdx].yLevels,
@@ -1450,7 +1450,7 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 								}
 								itemSprite.setEmitMode(
 								    &_unitAtlasGroups[idx].instances,
-								    itemAtlasSpec, itZ, itY,
+								    itemAtlasSpec, itZ, itY, mapPosition.x,
 								    &_unitAtlasGroups[idx].zLevels,
 								    &_unitAtlasGroups[idx].yLevels);
 							}
@@ -2490,6 +2490,16 @@ void Map::emitTilePass()
 				            ? getWallShade(part, tile) : tileShade;
 				shade = std::min(shade, 15);
 
+				// Iso priority: closer-to-camera = larger value.
+				// Layout: z*65536 + y*64 + x*8 + part_priority.
+				// Part order within a cell (FLOOR=0 → OBJECT=2 < UNIT=4 < FRONT_OBJECT=5)
+				// approximates vanilla iso: floor → walls → back-objects → items → unit
+				// → front-objects. Walls and objects share the back tier because they
+				// rarely overlap inside a single cell.
+				static const int partPrio[4] = { /*FLOOR*/0, /*WESTWALL*/1, /*NORTHWALL*/1, /*OBJECT*/2 };
+				const int prio = itZ * 65536 + itY * 64 + mapPos.x * 8 + partPrio[pi];
+				const float iso = (float)prio / 1100000.0f;
+
 				TileInstance inst;
 				inst.screenX       = (float)(screenPos.x + mapOffsetX);
 				inst.screenY       = (float)(screenPos.y - tile->getYOffset(part) + mapOffsetY);
@@ -2498,6 +2508,7 @@ void Map::emitTilePass()
 				inst.shade         = (float)shade;
 				inst.animFrameCount = 1.0f;
 				inst.alphaMask     = 1.0f;
+				inst.iso           = iso;
 				grp.instances.push_back(inst);
 			}
 
@@ -2665,10 +2676,10 @@ void Map::initTileGL()
 	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
 	glVertexAttribDivisor(0, 0);
 
-	// attrs 1–5 — per-instance (stride = 7 floats = 28 bytes)
+	// attrs 1–6 — per-instance (stride = 8 floats = 32 bytes; +1 float for iso)
 	glGenBuffers(1, &_tileIBO);
 	glBindBuffer(GL_ARRAY_BUFFER, _tileIBO);
-	const GLsizei stride = 7 * (GLsizei)sizeof(float);
+	const GLsizei stride = 8 * (GLsizei)sizeof(float);
 	glEnableVertexAttribArray(1);
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, (const void*)0);
 	glVertexAttribDivisor(1, 1);
@@ -2689,8 +2700,12 @@ void Map::initTileGL()
 	glVertexAttribPointer(5, 1, GL_FLOAT, GL_FALSE, stride, (const void*)(6 * sizeof(float)));
 	glVertexAttribDivisor(5, 1);
 
+	glEnableVertexAttribArray(6);
+	glVertexAttribPointer(6, 1, GL_FLOAT, GL_FALSE, stride, (const void*)(7 * sizeof(float)));
+	glVertexAttribDivisor(6, 1);
+
 	glBindVertexArray(0);
-	Log(LOG_INFO) << "Map::initTileGL: tile rendering pipeline ready";
+	Log(LOG_INFO) << "Map::initTileGL: tile rendering pipeline ready (with iso depth attr)";
 }
 
 /**
@@ -2714,72 +2729,70 @@ void Map::drawTileGLPass()
 	const float SW = (float)Options::baseXResolution;
 	const float SH = (float)Options::baseYResolution;
 
-	// Determine (Z, Y) range from populated zSlices across all groups.
-	int zMin = INT_MAX, zMax = INT_MIN;
-	int yMin = INT_MAX, yMax = INT_MIN;
-	for (auto& grp : _tileAtlasGroups)
-		for (auto& s : grp.zSlices)
-		{
-			if (s.zLevel < zMin) zMin = s.zLevel;
-			if (s.zLevel > zMax) zMax = s.zLevel;
-			if (s.yLevel < yMin) yMin = s.yLevel;
-			if (s.yLevel > yMax) yMax = s.yLevel;
-		}
-	if (zMin > zMax || yMin > yMax) return;
+	// Iso ordering is resolved on the GPU via depth-test using each instance's
+	// `iso` priority (set in emit). No (Z, Y) bucketing needed — each atlas
+	// group is rendered with a single instanced draw call and the depth buffer
+	// sorts overlapping instances correctly.
 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glDisable(GL_DEPTH_TEST);
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_LESS);
+	glDepthMask(GL_TRUE);
+	glClearDepthf(1.0f);
+	glClear(GL_DEPTH_BUFFER_BIT);
 	glBindVertexArray(_tileVAO);
 
-	// Track which shader+uniforms are currently bound to minimise switches.
 	Shader* activeShader = nullptr;
 
-	// Per (Z, Y) row: draw all tile parts of (z, y) for each atlas group, then
-	// units at (z, y). Y-row granularity is what gives camera-near walls (rows
-	// with larger Y) the chance to occlude units in camera-far rows.
-	for (int z = zMin; z <= zMax; ++z)
-	for (int y = yMin; y <= yMax; ++y)
-	{
-		for (auto& grp : _tileAtlasGroups)
+	auto drawAtlas = [&](GpuTexture* atlas, float uvW, float uvH,
+	                     const TileInstance* data, size_t count, bool isRgba) {
+		Shader* sh = isRgba ? _tileShaderRgba : _tileShader;
+		if (!sh || !sh->isValid()) return;
+		if (sh != activeShader)
 		{
-			if (!grp.atlas) continue;
-			const auto* slice = grp.findZRowSlice(z, y);
-			if (!slice || slice->count == 0) continue;
-
-			Shader* sh = grp.isRgba ? _tileShaderRgba : _tileShader;
-			if (!sh || !sh->isValid()) continue;
-
-			if (sh != activeShader)
+			sh->use();
+			sh->setUniform2f("u_screenSize",    SW, SH);
+			sh->setUniform2f("u_tilePixelSize", (float)_spriteWidth, (float)_spriteHeight);
+			sh->setUniform1f("u_animFrame",     0.0f);
+			sh->setUniform1i("u_atlas",         0);
+			if (!isRgba)
 			{
-				sh->use();
-				sh->setUniform2f("u_screenSize",    SW, SH);
-				sh->setUniform2f("u_tilePixelSize", (float)_spriteWidth, (float)_spriteHeight);
-				sh->setUniform1f("u_animFrame",     0.0f);
-				sh->setUniform1i("u_atlas",         0);
-				if (!grp.isRgba)
-				{
-					sh->setUniform1i("u_shadeTable", 1);
-					_shadeTableTex->bind(1);
-				}
-				activeShader = sh;
+				sh->setUniform1i("u_shadeTable", 1);
+				_shadeTableTex->bind(1);
 			}
-
-			grp.atlas->bind(0);
-			sh->setUniform2f("u_tileUVSize", grp.tileUVW, grp.tileUVH);
-			glBindBuffer(GL_ARRAY_BUFFER, _tileIBO);
-			glBufferData(GL_ARRAY_BUFFER,
-			             (GLsizeiptr)(slice->count * sizeof(TileInstance)),
-			             grp.instances.data() + slice->first,
-			             GL_DYNAMIC_DRAW);
-			glDrawArraysInstanced(GL_TRIANGLES, 0, 6, (GLsizei)slice->count);
+			activeShader = sh;
 		}
+		atlas->bind(0);
+		sh->setUniform2f("u_tileUVSize", uvW, uvH);
+		glBindBuffer(GL_ARRAY_BUFFER, _tileIBO);
+		glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)(count * sizeof(TileInstance)),
+		             data, GL_DYNAMIC_DRAW);
+		glDrawArraysInstanced(GL_TRIANGLES, 0, 6, (GLsizei)count);
+	};
 
-		// Draw units belonging to (z, y) — items first, then bodies+held items.
-		drawUnitsAtZY(z, y, activeShader);
+	// Tiles (terrain MDS atlases) — one draw call per group.
+	for (auto& grp : _tileAtlasGroups)
+	{
+		if (!grp.atlas || grp.instances.empty()) continue;
+		drawAtlas(grp.atlas, grp.tileUVW, grp.tileUVH,
+		          grp.instances.data(), grp.instances.size(), grp.isRgba);
+	}
+
+	// Units / floor items / held items (palette unit atlases) — one draw call
+	// per group; depth test handles inter-group ordering.
+	for (auto& g : _unitAtlasGroups)
+	{
+		if (!g.spec || !g.spec->atlas || g.instances.empty()) continue;
+		const float uvW = (float)g.spec->tileWidth  / (float)g.spec->atlasW;
+		const float uvH = (float)g.spec->tileHeight / (float)g.spec->atlasH;
+		drawAtlas(g.spec->atlas, uvW, uvH,
+		          g.instances.data(), g.instances.size(), false);
 	}
 
 	glBindVertexArray(0);
+	glDisable(GL_DEPTH_TEST);
+	glDepthMask(GL_FALSE);
 	glDisable(GL_BLEND);
 
 	// NOTE: instances are NOT cleared here.  Map::draw() runs on _redraw

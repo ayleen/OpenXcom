@@ -82,6 +82,7 @@ private:
 	const Mod::UnitAtlasSpec*  _emitItemSpec   = nullptr;  // item (HANDOB.PCK) atlas
 	int                        _emitZ           = 0;        // unit's tile Z, parallel-pushed via zTargets
 	int                        _emitY           = 0;        // unit's tile Y, parallel-pushed via yTargets
+	int                        _emitX           = 0;        // unit's tile X — used to derive instance iso priority
 	void*                      _emitZTargetBody = nullptr;  // std::vector<int>* receiving Z per body emit
 	void*                      _emitZTargetItem = nullptr;  // std::vector<int>* receiving Z per item emit
 	void*                      _emitYTargetBody = nullptr;  // std::vector<int>* receiving Y per body emit
@@ -152,7 +153,7 @@ public:
 	void setEmitMode(void* bodyTarget, void* itemTarget,
 	                 const Mod::UnitAtlasSpec* unitSpec,
 	                 const Mod::UnitAtlasSpec* itemSpec,
-	                 int emitZ = 0, int emitY = 0,
+	                 int emitZ = 0, int emitY = 0, int emitX = 0,
 	                 void* zTargetBody = nullptr, void* zTargetItem = nullptr,
 	                 void* yTargetBody = nullptr, void* yTargetItem = nullptr)
 	{
@@ -162,6 +163,7 @@ public:
 		_emitItemSpec   = itemSpec;
 		_emitZ          = emitZ;
 		_emitY          = emitY;
+		_emitX          = emitX;
 		_emitZTargetBody = zTargetBody;
 		_emitZTargetItem = zTargetItem;
 		_emitYTargetBody = yTargetBody;
@@ -175,6 +177,7 @@ public:
 		_emitItemSpec   = nullptr;
 		_emitZ          = 0;
 		_emitY          = 0;
+		_emitX          = 0;
 		_emitZTargetBody = nullptr;
 		_emitZTargetItem = nullptr;
 		_emitYTargetBody = nullptr;
