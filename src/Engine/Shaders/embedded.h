@@ -11,6 +11,7 @@
  *   "globe_sphere"
  *   "textured"
  *   "tile_atlas"
+ *   "tile_atlas_rgba"
  */
 #include <cstring>
 

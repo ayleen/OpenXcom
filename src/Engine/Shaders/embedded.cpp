@@ -78,6 +78,37 @@ void main()
 }
 )glsl";
 
+static const char* kTile_atlas_rgbaVertSrc = R"glsl(
+layout(location=0) in vec2  a_corner;
+layout(location=1) in vec2  a_screenPos;
+layout(location=2) in vec2  a_atlasUV;
+layout(location=3) in float a_shade;
+layout(location=4) in float a_animFrameCount;
+layout(location=5) in float a_alphaMask;
+
+uniform vec2 u_screenSize;
+uniform vec2 u_tilePixelSize;
+uniform vec2 u_tileUVSize;
+
+out vec2  v_uv;
+out float v_shade;
+out float v_animFrameCount;
+out float v_alphaMask;
+
+void main()
+{
+    vec2 pixelPos = a_screenPos + a_corner * u_tilePixelSize;
+    vec2 ndc = (pixelPos / u_screenSize) * 2.0 - 1.0;
+    ndc.y = -ndc.y;
+    gl_Position = vec4(ndc, 0.0, 1.0);
+
+    v_uv = a_atlasUV + a_corner * u_tileUVSize;
+    v_shade          = a_shade;
+    v_animFrameCount = a_animFrameCount;
+    v_alphaMask      = a_alphaMask;
+}
+)glsl";
+
 /* ── fragment shader sources ─────────────────────────────────────────────── */
 
 static const char* kColorquadFragSrc = R"glsl(
@@ -269,6 +300,33 @@ void main()
 }
 )glsl";
 
+static const char* kTile_atlas_rgbaFragSrc = R"glsl(
+uniform sampler2D u_atlas;
+uniform float     u_animFrame;
+uniform vec2      u_tileUVSize;
+
+in vec2  v_uv;
+in float v_shade;
+in float v_animFrameCount;
+in float v_alphaMask;
+
+out vec4 fragColor;
+
+void main()
+{
+    if (v_alphaMask < 0.5) discard;
+
+    float frame = floor(u_animFrame * v_animFrameCount);
+    vec2 uv = v_uv + vec2(frame * u_tileUVSize.x, 0.0);
+
+    vec4 c = texture(u_atlas, uv);
+    if (c.a < 0.5) discard;
+
+    float k = 1.0 - (v_shade / 15.0) * 0.6;
+    fragColor = vec4(c.rgb * k, c.a);
+}
+)glsl";
+
 /* ── lookup table ───────────────────────────────────────────────────────── */
 
 namespace OpenXcom { namespace Shaders {
@@ -280,6 +338,7 @@ static const Entry kTable[] = {
     { "globe_sphere", kGlobe_sphereVertSrc, kGlobe_sphereFragSrc },
     { "textured", kPassthroughVertSrc, kTexturedFragSrc },
     { "tile_atlas", kTile_atlasVertSrc, kTile_atlasFragSrc },
+    { "tile_atlas_rgba", kTile_atlas_rgbaVertSrc, kTile_atlas_rgbaFragSrc },
     { nullptr, nullptr, nullptr } /* sentinel */
 };
 
