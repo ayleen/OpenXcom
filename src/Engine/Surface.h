@@ -460,6 +460,7 @@ public:
 	void blitNShade(Surface* dest, int x, int y, int shade, GraphSubset range) const;
 	/// 7.E: dispatch — both Surface* args; routes to Uint32 (Emscripten) or Uint8 (native).
 	static void blitRaw(Surface* dest, const Surface* src, int x, int y, int shade, bool half = false, int newBaseColor = 0);
+
 	/// Invalidate the surface: force it to be redrawn
 	void invalidate(bool valid = true);
 

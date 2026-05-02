@@ -21,12 +21,15 @@
 #include "UnitSprite.h"
 #include "ItemSprite.h"
 #include "Pathfinding.h"
+#include "BattlescapeGame.h"
 #include "TileEngine.h"
 #include "Projectile.h"
 #include "Explosion.h"
 #include "BattlescapeState.h"
 #include "Particle.h"
+#include "../Interface/Cursor.h"
 #include "../Mod/Mod.h"
+#include "../Engine/TTFFont.h"
 #include "../Engine/Action.h"
 #include "../Engine/SurfaceSet.h"
 #include "../Engine/Timer.h"
@@ -237,7 +240,8 @@ Map::Map(Game *game, int width, int height, int x, int y, int visibleMapHeight) 
 	_game(game), _isTFTD(false), _arrow(0), _anyIndicator(false), _isAltPressed(false), _isCtrlPressed(false),
 	_selectorX(0), _selectorY(0), _mouseX(0), _mouseY(0), _cursorType(CT_NORMAL), _cursorSize(1), _animFrame(0),
 	_projectile(0), _followProjectile(true), _projectileInFOV(false), _explosionInFOV(false), _launch(false), _visibleMapHeight(visibleMapHeight),
-	_unitDying(false), _smoothingEngaged(false), _flashScreen(false), _bgColor(15), _projectileSet(0), _showObstacles(false), _showInfoOnCursor(false)
+	_unitDying(false), _smoothingEngaged(false), _flashScreen(false), _bgColor(15), _projectileSet(0), _showObstacles(false), _showInfoOnCursor(false),
+	_fontHdNumbers(nullptr)
 {
 	// TODO: extract to a better place later
 	for (const auto& pair : Options::mods)
@@ -306,19 +310,24 @@ Map::Map(Game *game, int width, int height, int x, int y, int visibleMapHeight) 
 	_txtAccuracy->setHighContrast(true);
 	_txtAccuracy->initText(_game->getMod()->getFont("FONT_BIG"), _game->getMod()->getFont("FONT_SMALL"), _game->getLanguage());
 
-	_txtUnitAP = new Text(44, 18, 0, 0);
-	_txtUnitAP->setSmall();
+	_txtUnitAP = new Text(44, 20, 0, 0);
+	_txtUnitAP->setBig();
 	_txtUnitAP->setPalette(_game->getScreen()->getPalette());
 	_txtUnitAP->setHighContrast(true);
 	_txtUnitAP->initText(_game->getMod()->getFont("FONT_BIG"), _game->getMod()->getFont("FONT_SMALL"), _game->getLanguage());
 	_txtUnitAP->setAlign(ALIGN_CENTER);
 
-	_txtCursorAP = new Text(44, 18, 0, 0);
-	_txtCursorAP->setSmall();
+	_txtCursorAP = new Text(44, 20, 0, 0);
+	_txtCursorAP->setBig();
 	_txtCursorAP->setPalette(_game->getScreen()->getPalette());
 	_txtCursorAP->setHighContrast(true);
 	_txtCursorAP->initText(_game->getMod()->getFont("FONT_BIG"), _game->getMod()->getFont("FONT_SMALL"), _game->getLanguage());
 	_txtCursorAP->setAlign(ALIGN_CENTER);
+
+	// Phase 16: Load TTF font for HD cursor numerals (registered in calypso-hd-pack.rul).
+	_fontHdNumbers = _game->getMod()->getTTFFont("FONT_HD_NUMBERS", false);
+
+	_hoveredTU = -1;
 	_cacheActiveWeaponUfopediaArticleUnlocked = -1;
 	_cacheIsCtrlPressed = false;
 	_cacheCursorPosition = TileEngine::invalid;
@@ -422,17 +431,18 @@ Map::~Map()
 void Map::init()
 {
 	// load the tiny arrow into a surface
-	int f = Palette::blockOffset(1); // yellow
+	int f = Palette::blockOffset(1);     // dark yellow
+	int g = Palette::blockOffset(1) + 3; // bright yellow (center highlight)
 	int b = 15; // black
 	int pixels[81] = { 0, 0, b, b, b, b, b, 0, 0,
-					   0, 0, b, f, f, f, b, 0, 0,
-					   0, 0, b, f, f, f, b, 0, 0,
-					   b, b, b, f, f, f, b, b, b,
-					   b, f, f, f, f, f, f, f, b,
-					   0, b, f, f, f, f, f, b, 0,
-					   0, 0, b, f, f, f, b, 0, 0,
-					   0, 0, 0, b, f, b, 0, 0, 0,
-					   0, 0, 0, 0, b, 0, 0, 0, 0 };
+	                   0, 0, b, f, g, f, b, 0, 0,
+	                   0, 0, b, f, g, f, b, 0, 0,
+	                   b, b, b, f, g, f, b, b, b,
+	                   b, f, f, f, g, f, f, f, b,
+	                   0, b, f, f, g, f, f, b, 0,
+	                   0, 0, b, f, g, f, b, 0, 0,
+	                   0, 0, 0, b, g, b, 0, 0, 0,
+	                   0, 0, 0, 0, b, 0, 0, 0, 0 };
 
 	_arrow = new Surface(9, 9);
 	_arrow->setPalette(this->getPalette());
@@ -1125,6 +1135,10 @@ void Map::drawUnit(UnitSprite &unitSprite, Tile *unitTile, Tile *currTile, Posit
 void Map::drawTerrainOverlayCPU(Surface *surface)
 {
 #ifdef __EMSCRIPTEN__
+	// Phase 16: default cursor to visible; suppressed below if walking in map state.
+	// We reset it here every frame so that it's visible by default in menus.
+	_game->getCursor()->setHidden(false);
+
 	/* Phase 11.0: wall-clock CPU baseline for the full Battlescape render.
 	 * Gated on g_calypsoProfileBattlescape — zero overhead in production. */
 	const int profileBs = ::g_calypsoProfileBattlescape;
@@ -1865,40 +1879,105 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 							if (_cursorType != CT_AIM)
 							{
 #ifdef __EMSCRIPTEN__
-								// Phase 16: 4-tip marker cursor — faction-aware color, no raster frame.
+								// Phase 16: cursor style — faction-aware 4-tip markers or floor ring.
 								if (gpuCursorSet)
 								{
-									CursorStyle markerStyle;
-									if (unit && (unit->getVisible() || _save->getDebugMode()))
-										markerStyle = (unit->getFaction() == FACTION_PLAYER) ? CS_MARKER_ALLY : CS_MARKER_ENEMY;
+									CursorStyle cursorStyle;
+									bool tileHasUnit = unit && (unit->getVisible() || _save->getDebugMode());
+									BattleUnit *selUnit = _save->getSelectedUnit();
+									bool playerWalking = (selUnit && selUnit->getFaction() == FACTION_PLAYER
+									                      && !selUnit->isOut() && _cursorType == CT_NORMAL);
+									if (tileHasUnit)
+										// Visible unit on tile → 4-tip marker (ally=blue, enemy=orange)
+										cursorStyle = (unit->getFaction() == FACTION_PLAYER) ? CS_MARKER_ALLY : CS_MARKER_ENEMY;
+									else if (playerWalking)
+										// Player unit selected, empty tile → floor ring
+										cursorStyle = CS_FLOOR_RING;
 									else
-										markerStyle = CS_MARKER_NEUTRAL;
-									_cursorOverlayInstances.push_back({screenPosition.x, screenPosition.y, nullptr, 0, markerStyle});
+										cursorStyle = CS_MARKER_NEUTRAL;
+
+									// Phase 16: hide neutral markers when a player is selected for movement.
+									// This clarifies the focus on the target destination circle.
+									if (playerWalking && cursorStyle == CS_MARKER_NEUTRAL)
+									{
+										// skip pushing instance
+									}
+									else
+									{
+										_cursorOverlayInstances.push_back({screenPosition.x, screenPosition.y, nullptr, 0, cursorStyle});
+									}
+
+									// Phase 16: hide the system cursor arrow when a player unit is selected
+									// for movement, but ONLY if we are actually in the interactive map state.
+									// This ensures the cursor remains visible in the Esc menu.
+									// _game->isState() checks if the given state is the top-most one.
+									bool isMapActive = _game->isState(_save->getBattleState());
+									_game->getCursor()->setHidden(playerWalking && isMapActive);
 								}
 
-								// Remaining TU at cursor tile — only when path preview is on and
-								// selected unit is a player unit (CT_NORMAL walk cursor).
-								if (pathfinderTurnedOn && _cursorType == CT_NORMAL)
+								// Remaining TU: when floor ring is active show it centred on the ring,
+								// otherwise near the mouse cursor.
+								if (_cursorType == CT_NORMAL)
 								{
 									BattleUnit *selUnit = _save->getSelectedUnit();
-									if (selUnit && selUnit->getFaction() == FACTION_PLAYER)
+									if (selUnit && selUnit->getFaction() == FACTION_PLAYER
+										&& selUnit->getBaseStats()->tu > 0)
 									{
-										int tuMarker = tile ? tile->getTUMarker() : -1;
-										if (tuMarker >= 0 && selUnit->getBaseStats()->tu > 0)
+										int tuToShow = _hoveredTU;
+										if (tuToShow < 0 && pathfinderTurnedOn && tile)
+											tuToShow = tile->getTUMarker();
+										if (tuToShow >= 0)
 										{
-											std::ostringstream ssCur;
-											ssCur << tuMarker;
-											float frac = static_cast<float>(tuMarker) /
+											float frac = static_cast<float>(tuToShow) /
 											             static_cast<float>(selUnit->getBaseStats()->tu);
-											if      (frac > 0.50f) _txtCursorAP->setColor(Palette::blockOffset(Pathfinding::green  - 1) - 1);
-											else if (frac > 0.25f) _txtCursorAP->setColor(Palette::blockOffset(Pathfinding::yellow - 1) - 1);
-											else                   _txtCursorAP->setColor(Palette::blockOffset(Pathfinding::red    - 1) - 1);
-											_txtCursorAP->setText(ssCur.str());
-											_txtCursorAP->draw();
-											_txtCursorAP->blitNShade(surface,
-												screenPosition.x + _spriteWidth / 2 - 22,
-												screenPosition.y + _spriteHeight / 2 + 2,
-												0);
+											Uint8 colorIdx;
+											if      (frac > 0.50f) colorIdx = Palette::blockOffset(Pathfinding::green  - 1) - 1;
+											else if (frac > 0.25f) colorIdx = Palette::blockOffset(Pathfinding::yellow - 1) - 1;
+											else                   colorIdx = Palette::blockOffset(Pathfinding::red    - 1) - 1;
+
+											SDL_Color *pal = _game->getScreen()->getPalette();
+											Uint32 argb = (0xFF000000u | ((Uint32)pal[colorIdx].r << 16) | ((Uint32)pal[colorIdx].g << 8) | (Uint32)pal[colorIdx].b);
+
+											bool tileHasUnit = unit && (unit->getVisible() || _save->getDebugMode());
+											bool showFloorRing = gpuCursorSet && !tileHasUnit && !selUnit->isOut();
+											if (_fontHdNumbers)
+											{
+												if (showFloorRing)
+												{
+													// Floor ring center in surface-pixel space:
+													//   X = tile left + half tile width
+													//   Y = tile top  + tileH - tileW/4  (≡ floorCY in UV space)
+													int cx = screenPosition.x + _spriteWidth / 2;
+													int cy = screenPosition.y + _spriteHeight - _spriteWidth / 4;
+													// Phase 16: use HD font for AP inside the ring.
+													this->drawHdNumber(surface, cx, cy + 2, tuToShow, argb);
+												}
+												else
+												{
+													// _mouseX/_mouseY are already surface-space.
+													// Phase 16: use HD font for mouse-hover AP.
+													this->drawHdNumber(surface, _mouseX, _mouseY - 12, tuToShow, argb);
+												}
+											}
+											else
+											{
+												// Fallback to standard 8-bpp font.
+												std::ostringstream ssCur;
+												ssCur << tuToShow;
+												_txtCursorAP->setColor(colorIdx);
+												_txtCursorAP->setText(ssCur.str());
+												_txtCursorAP->draw();
+												if (showFloorRing)
+												{
+													int cx = screenPosition.x + _spriteWidth / 2;
+													int cy = screenPosition.y + _spriteHeight - _spriteWidth / 4;
+													_txtCursorAP->blitNShade(surface, cx - 22, cy - 3, 0);
+												}
+												else
+												{
+													_txtCursorAP->blitNShade(surface, _mouseX - 16, _mouseY - 18, 0);
+												}
+											}
 										}
 									}
 								}
@@ -2171,35 +2250,6 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 						}
 					}
 
-					// AP ring + TU number over selected player unit (GPU path only).
-#ifdef __EMSCRIPTEN__
-					{
-						BattleUnit *selUnit = _save->getSelectedUnit();
-						if (gpuCursorSet && selUnit
-							&& selUnit->getFaction() == FACTION_PLAYER
-							&& !selUnit->isOut()
-							&& selUnit->getPosition() == mapPosition
-							&& _camera->getViewLevel() == itZ)
-						{
-							float arcFrac = static_cast<float>(selUnit->getTimeUnits()) /
-							                static_cast<float>(std::max(static_cast<int>(1), static_cast<int>(selUnit->getBaseStats()->tu)));
-							_cursorOverlayInstances.push_back(
-								{screenPosition.x, screenPosition.y, nullptr, 0, CS_AP_RING, arcFrac});
-
-							std::ostringstream ssAP;
-							ssAP << selUnit->getTimeUnits();
-							if      (arcFrac > 0.50f) _txtUnitAP->setColor(Palette::blockOffset(Pathfinding::green  - 1) - 1);
-							else if (arcFrac > 0.25f) _txtUnitAP->setColor(Palette::blockOffset(Pathfinding::yellow - 1) - 1);
-							else                      _txtUnitAP->setColor(Palette::blockOffset(Pathfinding::red    - 1) - 1);
-							_txtUnitAP->setText(ssAP.str());
-							_txtUnitAP->draw();
-							_txtUnitAP->blitNShade(surface,
-								screenPosition.x + _spriteWidth / 2 - 22,
-								screenPosition.y + _spriteHeight / 2 - 6,
-								0);
-						}
-					}
-#endif
 
 					// Draw waypoints if any on this tile
 					int waypid = 1;
@@ -2355,7 +2405,44 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 		}
 		if (this->getCursorType() != CT_NONE)
 		{
-			_arrow->blitNShade(surface, screenPosition.x + offset.x + (_spriteWidth / 2) - (_arrow->getWidth() / 2), screenPosition.y + offset.y - _arrow->getHeight() + getArrowBobForFrame(_animFrame), 0);
+			int arrowX = screenPosition.x + offset.x + (_spriteWidth / 2) - (_arrow->getWidth() / 2);
+			int arrowY = screenPosition.y + offset.y - _arrow->getHeight() + getArrowBobForFrame(_animFrame);
+			// Phase 16: selection arrow removed to reduce UI noise; replaced by AP number.
+			// _arrow->blitNShade(surface, arrowX, arrowY, 0);
+
+#ifdef __EMSCRIPTEN__
+			if (selectedUnit->getFaction() == FACTION_PLAYER && !selectedUnit->isOut())
+			{
+				float arcFrac = static_cast<float>(selectedUnit->getTimeUnits()) /
+				                static_cast<float>(std::max(static_cast<int>(1), static_cast<int>(selectedUnit->getBaseStats()->tu)));
+				Uint8 colorIdx;
+				if      (arcFrac > 0.50f) colorIdx = Palette::blockOffset(Pathfinding::green  - 1) - 1;
+				else if (arcFrac > 0.25f) colorIdx = Palette::blockOffset(Pathfinding::yellow - 1) - 1;
+				else                      colorIdx = Palette::blockOffset(Pathfinding::red    - 1) - 1;
+
+				SDL_Color *pal = _game->getScreen()->getPalette();
+				Uint32 argb = (0xFF000000u | ((Uint32)pal[colorIdx].r << 16) | ((Uint32)pal[colorIdx].g << 8) | (Uint32)pal[colorIdx].b);
+
+				// Phase 16: use HD font for unit's current AP.
+				if (_fontHdNumbers)
+				{
+					this->drawHdNumber(surface, arrowX + (_arrow->getWidth() / 2), arrowY + 6, selectedUnit->getTimeUnits(), argb);
+				}
+				else
+				{
+					// Fallback to standard 8-bpp font.
+					std::ostringstream ssAP;
+					ssAP << selectedUnit->getTimeUnits();
+					_txtUnitAP->setColor(colorIdx);
+					_txtUnitAP->setText(ssAP.str());
+					_txtUnitAP->draw();
+					_txtUnitAP->blitNShade(surface,
+						arrowX + (_arrow->getWidth() / 2) - 22,
+						arrowY + 2,
+						0);
+				}
+			}
+#endif
 		}
 	}
 
@@ -2798,6 +2885,42 @@ void Map::emitUnitPass()
 		g.instances.clear();
 		g.zLevels.clear();
 		g.yLevels.clear();
+	}
+}
+
+/**
+ * Phase 16: Draws a numeric value centred at (x, y) via the TTF pipeline.
+ * Two blits: black shadow at +1 px offset, then the coloured text on top.
+ * Both calls are cache-hits after the first frame — steady-state cost is two
+ * SDL_BlitSurface calls.
+ */
+void Map::drawHdNumber(Surface *dest, int x, int y, int value, Uint32 colorArgb)
+{
+	if (!_fontHdNumbers) return;
+	std::string s = std::to_string(value);
+
+	SDL_Color fg     = { (Uint8)((colorArgb >> 16) & 0xFF),
+	                     (Uint8)((colorArgb >>  8) & 0xFF),
+	                     (Uint8)( colorArgb        & 0xFF),
+	                     (Uint8)((colorArgb >> 24) & 0xFF) };
+	SDL_Color shadow = { 0, 0, 0, 220 };
+
+	SDL_Surface* shadowSurf = _fontHdNumbers->renderText(s, shadow);
+	SDL_Surface* textSurf   = _fontHdNumbers->renderText(s, fg);
+
+	if (shadowSurf)
+	{
+		SDL_Rect dst = { x - shadowSurf->w / 2 + 1,
+		                 y - shadowSurf->h / 2 + 1,
+		                 shadowSurf->w, shadowSurf->h };
+		SDL_BlitSurface(shadowSurf, nullptr, dest->getSurface(), &dst);
+	}
+	if (textSurf)
+	{
+		SDL_Rect dst = { x - textSurf->w / 2,
+		                 y - textSurf->h / 2,
+		                 textSurf->w, textSurf->h };
+		SDL_BlitSurface(textSurf, nullptr, dest->getSurface(), &dst);
 	}
 }
 
@@ -3299,6 +3422,14 @@ void Map::drawCursorOverlayGLPass()
 				buf.push_back(-0.38f); buf.push_back(0.08f);
 				buf.push_back(arcFrac); buf.push_back(phase);
 			}
+			else if (ci.style == CS_FLOOR_RING)
+			{
+				// Warm amber-yellow iso-ellipse ring on the tile floor.
+				// reduced alpha (0.50f) for better atmosphere.
+				buf.push_back(1.00f); buf.push_back(0.78f); buf.push_back(0.15f); buf.push_back(0.50f);
+				// v_params: x=0, y=ringWidth, z=animPhase, w=-1 (floor ring sentinel)
+				buf.push_back(0.0f); buf.push_back(0.14f); buf.push_back(phase); buf.push_back(-1.0f);
+			}
 		}
 
 		if (!buf.empty())
@@ -3774,6 +3905,24 @@ void Map::setSelectorPosition(int mx, int my)
 	if (oldX != _selectorX || oldY != _selectorY)
 	{
 		_redraw = true;
+		// Recompute remaining TU for the newly hovered tile whenever a player unit is
+		// selected and NO path preview is active (calling calculate() while preview is
+		// active would corrupt _path and break removePreview() later).
+		_hoveredTU = -1;
+#ifdef __EMSCRIPTEN__
+		BattleUnit *selUnit = _save->getSelectedUnit();
+		Pathfinding *pf = _save->getPathfinding();
+		if (selUnit && selUnit->getFaction() == FACTION_PLAYER && !selUnit->isOut()
+			&& _cursorType == CT_NORMAL && _save->getSide() == FACTION_PLAYER
+			&& !pf->isPathPreviewed())
+		{
+			Position dest(_selectorX, _selectorY, _camera->getViewLevel());
+			pf->calculate(selUnit, dest, BAM_NORMAL);
+			int cost = pf->getTotalTUCost();
+			if (cost > 0 && cost < 1000)
+				_hoveredTU = selUnit->getTimeUnits() - cost;
+		}
+#endif
 	}
 }
 
@@ -4243,6 +4392,10 @@ void Map::setUnitDying(bool flag)
  */
 void Map::refreshSelectorPosition()
 {
+	// Force _hoveredTU recompute on the next setSelectorPosition call by
+	// temporarily invalidating the cached selector so the change-guard fires.
+	_selectorX = -1;
+	_selectorY = -1;
 	setSelectorPosition(_mouseX, _mouseY);
 }
 

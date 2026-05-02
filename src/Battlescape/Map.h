@@ -118,8 +118,11 @@ private:
 	Text *_txtAccuracy;
 	Text *_txtUnitAP;    // current TU number over selected unit
 	Text *_txtCursorAP;  // remaining TU after walking to cursor tile
+	int _hoveredTU;      // remaining TU if selected unit walks to hovered tile (-1 = unknown)
 	SurfaceSet *_projectileSet;
+	TTFFont *_fontHdNumbers; // Phase 16: TTF font for HD cursor TU/AP numerals
 
+	void drawHdNumber(Surface *dest, int x, int y, int value, Uint32 colorArgb);
 	void drawUnit(UnitSprite &unitSprite, Tile *unitTile, Tile *currTile, Position tileScreenPosition, bool topLayer, BattleUnit* movingUnit = nullptr);
 	void drawTerrainOverlayCPU(Surface *surface);
 #ifdef __EMSCRIPTEN__
@@ -207,10 +210,11 @@ private:
 	enum CursorStyle : uint8_t
 	{
 		CS_RASTER          = 0,
-		CS_MARKER_NEUTRAL  = 1,  // cyan   — empty tile
+		CS_MARKER_NEUTRAL  = 1,  // cyan   — empty tile, no player selected
 		CS_MARKER_ALLY     = 2,  // blue   — FACTION_PLAYER unit
 		CS_MARKER_ENEMY    = 3,  // orange — hostile/neutral unit
-		CS_AP_RING         = 4,  // arc ring over selected unit (TU gauge)
+		CS_AP_RING         = 4,  // arc ring over selected unit (TU gauge, unused)
+		CS_FLOOR_RING      = 5,  // iso ellipse ring on floor — player selected, empty tile
 	};
 	struct CursorOverlayInstance
 	{

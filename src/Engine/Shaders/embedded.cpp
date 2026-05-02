@@ -175,6 +175,57 @@ void main()
     float inv = 1.0 / v_aspect;
     vec2 p = vec2(v_localUV.x * inv, v_localUV.y);
 
+    // ── Floor ring mode (v_params.w < -0.5) ────────────────────────────────
+    // Draws an SDF ellipse ring at the iso floor level of the tile.
+    // Floor center in p-space: (0, 1 - aspect/2), derived from tile geometry.
+    if (v_params.w < -0.5)
+    {
+        float floorCY = 1.0 - v_aspect * 0.5;
+        float a = inv  * 0.82;          // X semi-axis (82 % of tile half-width)
+        float b = v_aspect * 0.5 * 0.82; // Y semi-axis
+
+        // Subtle breathing animation.
+        float phase = v_params.z;
+        float breathe = 1.0 + 0.03 * sin(phase * 6.283185);
+        a *= breathe;
+        b *= breathe;
+
+        vec2  q = p - vec2(0.0, floorCY);
+        float dist = length(vec2(q.x / a, q.y / b));
+        float d = (dist - 1.0) * min(a, b);
+
+        float ringW = v_params.y;
+        float mainRing = abs(d) - ringW * 0.5;
+
+        // Outer ring (sharp edge).
+        float alpha = smoothstep(0.025, -0.025, mainRing);
+        // Soft holographic glow (reduced intensity).
+        float glow  = smoothstep(0.20, 0.0, max(mainRing, 0.0)) * 0.35;
+
+        // "Digital scan" sweep effect (more subtle).
+        float angle = atan(q.x / a, q.y / b);
+        float sweep = smoothstep(0.20, 0.0, abs(fract(angle / 6.283185 + phase * 0.35) - 0.5)) * 0.15;
+        glow += sweep;
+
+        // Interior "plasma" fill (semi-transparent holographic look, more subtle).
+        float swirl = sin(angle * 3.0 - phase * 12.0) * 0.5 + 0.5;
+        float vortex = smoothstep(0.0, -0.20, d) * 0.10 * swirl;
+        
+        // Secondary "digital pulse" ring (more integrated).
+        float d3 = d + 0.12 + 0.04 * cos(angle * 2.0 + phase * 6.0);
+        float pulseRing = smoothstep(0.03, -0.03, abs(d3) - 0.01) * 0.18;
+
+        // Inner pulsing core ring.
+        float d2 = d + 0.08 + 0.03 * sin(phase * 6.283185 + 0.8);
+        float innerRing = abs(d2) - ringW * 0.35;
+        float alpha2 = smoothstep(0.02, -0.02, innerRing) * (0.2 + 0.1 * sin(phase * 6.283185));
+
+        alpha = clamp(alpha + alpha2 + glow + vortex + pulseRing, 0.0, 1.0);
+        if (alpha < 0.01) discard;
+        fragColor = vec4(v_color.rgb, v_color.a * alpha);
+        return;
+    }
+
     // ── Ring (AP gauge) mode ────────────────────────────────────────────────
     if (v_params.x < -0.01)
     {
