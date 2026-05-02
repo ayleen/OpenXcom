@@ -199,15 +199,32 @@ private:
 	void emitSmokeInstances();
 	void drawSmokeGLPass();
 
-	/// Block 11.10: tile-space cursor-box overlay instance (CURSOR.PCK sprites).
+	/// Block 11.10 / Phase 15: tile-space cursor-box overlay instance.
+	/// CS_RASTER: existing sprite path (set + frameIdx).
+	/// CS_BOX_*:  SDF instanced path — set/frameIdx unused.
+	enum CursorStyle : uint8_t
+	{
+		CS_RASTER           = 0,
+		CS_BOX_RED          = 1,
+		CS_BOX_YELLOW_PULSE = 2,
+	};
 	struct CursorOverlayInstance
 	{
 		int screenX, screenY;
 		SurfaceSet* set;
 		int frameIdx;
+		CursorStyle style;
 	};
 	std::vector<CursorOverlayInstance> _cursorOverlayInstances;
 	void drawCursorOverlayGLPass();
+
+	/// Phase 15: SDF cursor GL objects.
+	Shader*      _cursorShader      = nullptr;
+	unsigned int _cursorVAO         = 0;
+	unsigned int _cursorVBO         = 0;   // static unit quad (4 verts × 2 floats)
+	unsigned int _cursorInstanceVBO = 0;   // per-instance attrs (dynamic)
+	bool         _cursorGLInit      = false;
+	void initCursorGL();
 
 	/// Phase 14.2: per-unit-atlas instance buffer for the unit GPU pass.
 	/// Keyed by atlas texture pointer (one draw call per unit PCK set).
