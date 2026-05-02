@@ -22,6 +22,31 @@ void main()
 }
 )glsl";
 
+static const char* kCursorVertSrc = R"glsl(
+layout(location = 0) in vec2 a_unitPos;   // unit quad corner [-1..1]
+layout(location = 1) in vec4 a_xywh;      // display-pixel rect (x, y, w, h), divisor 1
+layout(location = 2) in vec4 a_color;     // RGBA outline color, divisor 1
+layout(location = 3) in vec4 a_params;    // (thickness, radius, glowWidth, phase), divisor 1
+
+uniform vec2 u_screenSize;               // display resolution (px)
+
+out vec2       v_localUV;
+flat out vec4  v_color;
+flat out vec4  v_params;
+
+void main()
+{
+    // Map unit corner to pixel position inside the instance rect.
+    vec2 px = a_xywh.xy + (a_unitPos * 0.5 + 0.5) * a_xywh.zw;
+    vec2 ndc = (px / u_screenSize) * 2.0 - 1.0;
+    gl_Position = vec4(ndc.x, -ndc.y, 0.0, 1.0);
+
+    v_localUV = a_unitPos;   // passes [-1..1] to fragment for SDF evaluation
+    v_color   = a_color;
+    v_params  = a_params;
+}
+)glsl";
+
 static const char* kGlobe_sphereVertSrc = R"glsl(
 in vec2 a_pos;   // NDC [-1,+1]
 in vec2 a_uv;    // unused; present so VAO layout matches other passes
@@ -124,6 +149,50 @@ out     vec4 out_color;
 void main()
 {
     out_color = u_color;
+}
+)glsl";
+
+static const char* kCursorFragSrc = R"glsl(
+precision highp float;
+
+in  vec2       v_localUV;
+flat in vec4   v_color;
+flat in vec4   v_params;   // .x thickness  .y radius  .z glowWidth  .w phase [0..1]
+
+out vec4 fragColor;
+
+// SDF: rounded diamond in local UV space [-1..1].
+// Returns negative inside the shape, 0 on the boundary, positive outside.
+float sdRoundedDiamond(vec2 p, float r)
+{
+    // Shrink by radius, compute L1 distance, then expand back.
+    vec2 q = abs(p);
+    // Normalise so that the outer diamond tip is at UV magnitude 1.
+    float d = q.x + q.y - 1.0;
+    // Subtract radius so corners are rounded (the SDF is clamped-rounded).
+    return d - r * (1.0 - smoothstep(0.0, 0.5, max(q.x, q.y)));
+}
+
+void main()
+{
+    float thickness = v_params.x;
+    float radius    = v_params.y;
+    float glowW     = v_params.z;
+    float phase     = v_params.w;   // 0..1 pulse
+
+    float d = sdRoundedDiamond(v_localUV, radius);
+
+    // Outline: a ring of width `thickness` centered on the SDF zero-crossing.
+    // Pulse modulates the ring width so the yellow box visibly throbs.
+    float t = thickness * (0.7 + 0.3 * phase);
+    float outline = smoothstep(t, 0.0, abs(d));
+
+    // Soft outer glow decays from the outer edge of the diamond.
+    float glow = smoothstep(glowW, 0.0, max(d, 0.0)) * 0.4;
+
+    float alpha = clamp(outline + glow, 0.0, 1.0);
+    if (alpha < 0.01) discard;
+    fragColor = vec4(v_color.rgb, v_color.a * alpha);
 }
 )glsl";
 
@@ -359,6 +428,7 @@ struct Entry { const char* name; const char* vert; const char* frag; };
 
 static const Entry kTable[] = {
     { "colorquad", kPassthroughVertSrc, kColorquadFragSrc },
+    { "cursor", kCursorVertSrc, kCursorFragSrc },
     { "globe_sphere", kGlobe_sphereVertSrc, kGlobe_sphereFragSrc },
     { "textured", kPassthroughVertSrc, kTexturedFragSrc },
     { "tile_atlas", kTile_atlasVertSrc, kTile_atlasFragSrc },

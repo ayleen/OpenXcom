@@ -8,6 +8,7 @@
  *
  * Available shader programs (use with Shader::loadFromEmbedded):
  *   "colorquad"
+ *   "cursor"
  *   "globe_sphere"
  *   "textured"
  *   "tile_atlas"
