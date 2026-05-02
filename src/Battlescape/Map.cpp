@@ -2841,6 +2841,10 @@ void Map::drawTileGLPass()
 		if (!grp.instances.empty()) { hasAny = true; break; }
 	if (!hasAny) return;
 
+	const Uint32 ticks = SDL_GetTicks();
+	_animFrameGPU = static_cast<float>(ticks % TILE_ANIM_PERIOD_MS)
+	                / static_cast<float>(TILE_ANIM_PERIOD_MS);
+
 	// Same coordinate convention as drawUnitGLPass — iso projection lives in
 	// base-resolution pixels, GPU u_screenSize = base resolution.
 	const float SW = (float)Options::baseXResolution;
@@ -2871,7 +2875,7 @@ void Map::drawTileGLPass()
 			sh->use();
 			sh->setUniform2f("u_screenSize",    SW, SH);
 			sh->setUniform2f("u_tilePixelSize", (float)_spriteWidth, (float)_spriteHeight);
-			sh->setUniform1f("u_animFrame",     0.0f);
+			sh->setUniform1f("u_animFrame",     _animFrameGPU);
 			sh->setUniform1i("u_atlas",         0);
 			if (!isRgba)
 			{
@@ -3075,7 +3079,6 @@ void Map::drawCursorOverlayGLPass()
 		if (!tex) continue;
 		drawQuad(tex, ci.screenX, ci.screenY, tex->width(), tex->height());
 	}
-	_cursorOverlayInstances.clear();
 
 	glDisable(GL_BLEND);
 	glUseProgram(static_cast<GLuint>(prevProgram));
@@ -3254,7 +3257,6 @@ void Map::drawSmokeGLPass()
 		if (!tex) continue;
 		drawQuad(tex, si.screenX, si.screenY, tex->width(), tex->height(), si.darken);
 	}
-	_smokeInstances.clear();
 
 	// --- Explosion effects (X1.PCK, HIT.PCK, SMOKE.PCK) ---
 	if (hasExplosionWork)
