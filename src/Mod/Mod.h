@@ -41,6 +41,7 @@ namespace OpenXcom
 class Surface;
 class SurfaceSet;
 class Font;
+class TTFFont;
 class Palette;
 class Music;
 class SoundSet;
@@ -193,6 +194,7 @@ private:
 
 	std::map<std::string, Palette*> _palettes;
 	std::map<std::string, Font*> _fonts;
+	std::map<std::string, TTFFont*> _ttfFonts;
 	std::map<std::string, Surface*> _surfaces;
 	std::map<std::string, SurfaceSet*> _sets;
 	std::map<std::string, SoundSet*> _sounds;
@@ -527,6 +529,8 @@ public:
 
 	/// Gets a particular font.
 	Font *getFont(const std::string &name, bool error = true) const;
+	/// Gets a TTF font registered via extraTTFFonts (Phase 16).
+	TTFFont *getTTFFont(const std::string &id, bool error = true) const;
 	/// Gets a particular surface.
 	Surface *getSurface(const std::string &name, bool error = true);
 	/// Gets a particular surface set.

@@ -29,6 +29,7 @@
 #include "../Engine/FileMap.h"
 #include "../Engine/Palette.h"
 #include "../Engine/Font.h"
+#include "../Engine/TTFFont.h"
 #include "../Engine/Surface.h"
 #include "../Engine/SurfaceSet.h"
 #include "../Engine/Music.h"
@@ -622,6 +623,10 @@ Mod::~Mod()
 	{
 		delete pair.second;
 	}
+	for (auto& pair : _ttfFonts)
+	{
+		delete pair.second;
+	}
 	for (auto& pair : _surfaces)
 	{
 		delete pair.second;
@@ -884,6 +889,16 @@ T *Mod::getRule(const std::string &id, const std::string &name, const std::map<s
 Font *Mod::getFont(const std::string &name, bool error) const
 {
 	return getRule(name, "Font", _fonts, error);
+}
+
+TTFFont *Mod::getTTFFont(const std::string &id, bool error) const
+{
+	auto it = _ttfFonts.find(id);
+	if (it != _ttfFonts.end())
+		return it->second;
+	if (error)
+		Log(LOG_WARNING) << "TTFFont not found: " << id;
+	return nullptr;
 }
 
 /**
@@ -3883,6 +3898,27 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 		ExtraSounds *extraSounds = new ExtraSounds();
 		extraSounds->load(ruleReader, _modCurrent);
 		_extraSounds.push_back(std::make_pair(type, extraSounds));
+	}
+	// Phase 16: TrueType fonts for HD text rendering.
+	for (const auto& ruleReader : iterateRulesSpecific("extraTTFFonts"))
+	{
+		std::string id, file;
+		int size = 16;
+		ruleReader["id"].tryReadVal<std::string>(id);
+		ruleReader["file"].tryReadVal<std::string>(file);
+		ruleReader["size"].tryReadVal<int>(size);
+		if (id.empty() || file.empty())
+		{
+			Log(LOG_WARNING) << "extraTTFFonts entry missing id or file — skipped";
+			continue;
+		}
+		if (_ttfFonts.count(id))
+		{
+			delete _ttfFonts[id];
+		}
+		TTFFont* ttf = new TTFFont(file, size);
+		_ttfFonts[id] = ttf;
+		Log(LOG_INFO) << "Loaded TTFFont \"" << id << "\" from \"" << file << "\" size=" << size;
 	}
 	for (const auto& ruleReader : iterateRulesSpecific("extraStrings"))
 	{
