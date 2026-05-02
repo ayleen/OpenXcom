@@ -1426,9 +1426,11 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 						{
 							frameNumber = 2; // blue box
 #ifdef __EMSCRIPTEN__
-							if (gpuCursorSet)
-								_cursorOverlayInstances.push_back({screenPosition.x, screenPosition.y, gpuCursorSet, frameNumber});
-							else
+							// Lower-level marker is occluded by upper-floor tiles in the
+							// CPU painter, but the GPU cursor pass runs post-composite
+							// with no occlusion info — would render on top of everything
+							// and produce a "two-story" cursor. Skip when GPU path active.
+							if (!gpuCursorSet)
 #endif
 							{
 								tmpSurface = _game->getMod()->getSurfaceSet("CURSOR.PCK")->getFrame(frameNumber);
@@ -2054,9 +2056,9 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 						{
 							frameNumber = 5; // blue box
 #ifdef __EMSCRIPTEN__
-							if (gpuCursorSet)
-								_cursorOverlayInstances.push_back({screenPosition.x, screenPosition.y, gpuCursorSet, frameNumber});
-							else
+							// See cursor-back rationale above — skip the lower-level
+							// marker on the GPU path to avoid the "two-story" cursor.
+							if (!gpuCursorSet)
 #endif
 							{
 								tmpSurface = _game->getMod()->getSurfaceSet("CURSOR.PCK")->getFrame(frameNumber);

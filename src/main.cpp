@@ -127,15 +127,6 @@ int main(int argc, char *argv[])
 #endif
 	if (!Options::init())
 		return EXIT_SUCCESS;
-#ifdef __EMSCRIPTEN__
-	// Calypso: force Battlescape scale to "3x" (stored=3) on every launch.
-	// 1x/2x are unreadable in a desktop browser viewport, and the default in
-	// Options.cpp can be overridden by a stale options.cfg in IDBFS. Forcing
-	// here keeps Battlescape rendering at a consistent ~960×600 logical size
-	// regardless of legacy saved preferences.
-	Options::battlescapeScale    = 3;
-	Options::newBattlescapeScale = 3;
-#endif
 	printf("[calypso] OpenXcom %s%s init OK\n", OPENXCOM_VERSION_SHORT, OPENXCOM_VERSION_GIT);
 	std::ostringstream title;
 	title << "OpenXcom " << OPENXCOM_VERSION_SHORT << OPENXCOM_VERSION_GIT;
