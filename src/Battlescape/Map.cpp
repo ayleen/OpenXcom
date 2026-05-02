@@ -1796,10 +1796,15 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 						{
 							if (!tile->isBackTileObject(O_OBJECT))
 							{
+#ifdef __EMSCRIPTEN__
+								if (!hdWallMode)
+#endif
+								{
 								if (tile->getObstacle(O_OBJECT))
 									Surface::blitRaw(surface, tmpSurface, screenPosition.x, screenPosition.y - tile->getYOffset(O_OBJECT), obstacleShade, false, _nvColor);
 								else
 									Surface::blitRaw(surface, tmpSurface, screenPosition.x, screenPosition.y - tile->getYOffset(O_OBJECT), tileShade, false, _nvColor);
+								}
 							}
 						}
 					}
@@ -2589,7 +2594,7 @@ void Map::emitTilePass()
 					default:          partPrio = 2; break;
 				}
 				const int prio = itZ * 65536 + itY * 1024 + mapPos.x * 8 + partPrio;
-				const float iso = (float)prio / 1500000.0f;
+				const float iso = (float)prio / 2000000.0f;
 
 				TileInstance inst;
 				inst.screenX       = (float)(screenPos.x + mapOffsetX);

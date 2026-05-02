@@ -209,7 +209,7 @@ void UnitSprite::blitItem(Part& item)
 		// x_mul*x_max+part (60*8+6=486) so cells in different y-rows never
 		// collide on prio. Normalisation 1.5e6 keeps iso ∈ [0, 0.92).
 		const int prio = _emitZ * 65536 + _emitY * 1024 + _emitX * 8 + 5;
-		inst.iso = (float)prio / 1500000.0f;
+		inst.iso = (float)prio / 2000000.0f;
 		vec->push_back(inst);
 		if (_emitZTargetItem)
 			static_cast<std::vector<int>*>(_emitZTargetItem)->push_back(_emitZ);
@@ -262,7 +262,7 @@ void UnitSprite::blitBody(Part& body)
 		inst.alphaMask      = 1.0f;
 		// Unit body: priority above floor items, below front-tile object.
 		const int prio = _emitZ * 65536 + _emitY * 1024 + _emitX * 8 + 4;
-		inst.iso = (float)prio / 1500000.0f;
+		inst.iso = (float)prio / 2000000.0f;
 		vec->push_back(inst);
 		if (_emitZTargetBody)
 			static_cast<std::vector<int>*>(_emitZTargetBody)->push_back(_emitZ);
