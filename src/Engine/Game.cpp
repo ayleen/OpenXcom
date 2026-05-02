@@ -25,6 +25,7 @@
 #include <emscripten.h>
 #endif
 #include <SDL_mixer.h>
+#include <SDL_ttf.h>
 #include "State.h"
 #include "Screen.h"
 #include "Sound.h"
@@ -81,6 +82,13 @@ Game::Game(const std::string &title) : _screen(0), _cursor(0), _lang(0), _save(0
 		throw Exception(SDL_GetError());
 	}
 	Log(LOG_INFO) << "SDL initialized successfully.";
+
+	// Initialize SDL_ttf (for HD TrueType text rendering; Phase 16).
+	if (TTF_Init() < 0)
+	{
+		Log(LOG_ERROR) << "TTF_Init failed: " << TTF_GetError();
+		// Non-fatal: TTFFont will return null handles and the bitmap fallback is used.
+	}
 
 	// Initialize SDL_mixer
 	initAudio();
@@ -141,6 +149,7 @@ Game::~Game()
 	delete _fpsCounter;
 
 	Mix_CloseAudio();
+	TTF_Quit();
 
 	SDL_Quit();
 }

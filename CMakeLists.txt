@@ -128,13 +128,14 @@ if(NOT EMSCRIPTEN)
     pkg_check_modules(PKG_ZLIB REQUIRED zlib)
     pkg_check_modules(PKG_SDLIMAGE REQUIRED SDL2_image)
     pkg_check_modules(PKG_SDLMIXER REQUIRED SDL2_mixer)
+    pkg_check_modules(PKG_SDLTTF REQUIRED SDL2_ttf)
     # SDL2_gfx uses SDL_Renderer* API (incompatible with the SDL_Surface* API
     # that OXCE uses for gfx primitives).  SDL_gfxPrimitives implementations
     # are provided by SDL2CompatNative.cpp (native) / EmscriptenCompat.cpp (WASM).
 
     include_directories(${PKG_SDL_INCLUDE_DIRS} ${PKG_ZLIB_INCLUDE_DIRS} ${PKG_SDLIMAGE_INCLUDE_DIRS})
-    include_directories(${PKG_SDLMIXER_INCLUDE_DIRS})
-    set(PKG_DEPS_LDFLAGS ${PKG_SDL_LDFLAGS} ${PKG_ZLIB_LDFLAGS} ${PKG_SDLIMAGE_LDFLAGS} ${PKG_SDLMIXER_LDFLAGS} ${OPENGL_LIBRARIES})
+    include_directories(${PKG_SDLMIXER_INCLUDE_DIRS} ${PKG_SDLTTF_INCLUDE_DIRS})
+    set(PKG_DEPS_LDFLAGS ${PKG_SDL_LDFLAGS} ${PKG_ZLIB_LDFLAGS} ${PKG_SDLIMAGE_LDFLAGS} ${PKG_SDLMIXER_LDFLAGS} ${PKG_SDLTTF_LDFLAGS} ${OPENGL_LIBRARIES})
 
     if (UNIX)
       set(PKG_DEPS_LDFLAGS "${PKG_DEPS_LDFLAGS};dl")

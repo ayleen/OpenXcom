@@ -183,6 +183,7 @@ set ( engine_src
   Engine/SurfaceSet.cpp
   Engine/Timer.cpp
   Engine/TouchState.cpp
+  Engine/TTFFont.cpp
   Engine/Unicode.cpp
   Engine/Yaml.cpp
   Engine/Zoom.cpp
@@ -660,6 +661,7 @@ if(EMSCRIPTEN)
     -sUSE_SDL=2
     -sUSE_SDL_IMAGE=2
     -sUSE_SDL_MIXER=2
+    -sUSE_SDL_TTF=2
     # Phase 8c: libwebp decoder-only port (engine/oxce/src/ports/libwebp.py).
     # sdl2_image's SUPPORTED_FORMATS has no 'webp', so WebP is loaded directly
     # via WebPDecodeRGBA() in Mod.cpp — SDL_image never sees the .webp bytes.
