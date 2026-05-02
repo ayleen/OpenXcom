@@ -495,6 +495,16 @@ void Map::think()
 }
 
 /**
+ * Update visibility timestamp and blit.
+ * @param surface The surface to draw on.
+ */
+void Map::blit(SDL_Surface *surface)
+{
+	_lastDrawnTicks = SDL_GetTicks();
+	InteractiveSurface::blit(surface);
+}
+
+/**
  * Draws the whole map, part by part.
  */
 void Map::draw()
@@ -677,6 +687,16 @@ void Map::setPalette(const SDL_Color *colors, int firstcolor, int ncolors)
 			// Floor item sprites (FLOOROB.PCK) — emitted via ItemSprite at item's
 			// tile Z so they render between walls and units in iso order.
 			buildIfPalette(mod->getSurfaceSet("FLOOROB.PCK", false), "FLOOROB.PCK");
+
+			// Global Battlescape assets used by GPU sprite passes (Phase 11.8).
+			// Must have a valid palette before getOrUploadSpriteFrame builds RGBA textures.
+			buildIfPalette(mod->getSurfaceSet("Projectiles", false), "Projectiles");
+			buildIfPalette(mod->getSurfaceSet("UnderwaterProjectiles", false), "UnderwaterProjectiles");
+			buildIfPalette(mod->getSurfaceSet("CURSOR.PCK", false), "CURSOR.PCK");
+			buildIfPalette(mod->getSurfaceSet("SMOKE.PCK", false), "SMOKE.PCK");
+			buildIfPalette(mod->getSurfaceSet("HIT.PCK", false), "HIT.PCK");
+			buildIfPalette(mod->getSurfaceSet("X1.PCK", false), "X1.PCK");
+			buildIfPalette(mod->getSurfaceSet("Pathfinding", false), "Pathfinding");
 		}
 		// Invalidate sprite frame cache — palette mapping changed.
 		for (auto& p : _spriteFrameCache) delete p.second;
@@ -2449,7 +2469,6 @@ void Map::emitTilePass()
 	const int mapOffsetX    = getX();
 	const int mapOffsetY    = getY();
 	const Position camOff   = _camera->getMapOffset();
-	const int animFrameIdx  = _animFrame;
 	const int halfAnimFrame = (_animFrame / 2) % 4;
 	SurfaceSet* smokeSet = mod->getSurfaceSet("SMOKE.PCK");
 	static const TilePart parts[4] = { O_FLOOR, O_WESTWALL, O_NORTHWALL, O_OBJECT };
@@ -2836,12 +2855,27 @@ void Map::drawTileGLPass()
 	if (!_tileShader || !_tileShader->isValid()) return;
 	if (!_shadeTableTex || !_shadeTableTex->isValid()) return;
 
+	const Uint32 ticks = SDL_GetTicks();
+	if (ticks - _lastDrawnTicks > 250)
+	{
+		// Map not blitted recently; clear all GPU instances to avoid ghosting in menus.
+		for (auto& grp : _tileAtlasGroups) { grp.instances.clear(); }
+		for (auto& grp : _unitAtlasGroups) { grp.instances.clear(); grp.zLevels.clear(); grp.yLevels.clear(); }
+		_cursorOverlayInstances.clear();
+		_smokeInstances.clear();
+		return;
+	}
+
 	bool hasAny = false;
 	for (auto& grp : _tileAtlasGroups)
 		if (!grp.instances.empty()) { hasAny = true; break; }
+	if (!hasAny)
+	{
+		for (auto& grp : _unitAtlasGroups)
+			if (!grp.instances.empty()) { hasAny = true; break; }
+	}
 	if (!hasAny) return;
 
-	const Uint32 ticks = SDL_GetTicks();
 	_animFrameGPU = static_cast<float>(ticks % TILE_ANIM_PERIOD_MS)
 	                / static_cast<float>(TILE_ANIM_PERIOD_MS);
 
@@ -3022,7 +3056,7 @@ GpuTexture* Map::getOrUploadSpriteFrame(SurfaceSet* set, int frameIdx)
  */
 void Map::drawCursorOverlayGLPass()
 {
-	if (_cursorOverlayInstances.empty()) return;
+	if (_cursorOverlayInstances.empty() || SDL_GetTicks() - _lastDrawnTicks > 250) return;
 	if (!_spriteGLInit) initSpriteGL();
 	if (!_spriteGLInit) return;
 	if (!_spriteShader || !_spriteShader->isValid()) return;
@@ -3092,7 +3126,7 @@ void Map::drawCursorOverlayGLPass()
  */
 void Map::drawProjectileGLPass()
 {
-	if (!_projectile || !_projectileInFOV) return;
+	if (!_projectile || !_projectileInFOV || SDL_GetTicks() - _lastDrawnTicks > 250) return;
 	if (_projectile->getItem()) return; // thrown items handled by CPU path
 	if (!_spriteGLInit) initSpriteGL();
 	if (!_spriteShader || !_spriteShader->isValid()) return;
@@ -3195,6 +3229,7 @@ void Map::drawProjectileGLPass()
  */
 void Map::drawSmokeGLPass()
 {
+	if (SDL_GetTicks() - _lastDrawnTicks > 250) return;
 	if (!_spriteGLInit) initSpriteGL();
 	if (!_spriteShader || !_spriteShader->isValid()) return;
 	if (!_spriteVAO) return;

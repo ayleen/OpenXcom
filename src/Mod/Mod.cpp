@@ -1007,11 +1007,11 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 					if (specIt->second.format == TileAtlasSpec::Format::Rgba)
 					{
 						// RGBA path: upload verbatim, no palette reverse-mapping.
-						// Filter::Linear so 256×320 source tiles downsample smoothly to screen-space.
+						// Filter::Nearest to avoid atlas bleeding (black seams) between tiles.
 						if (SDL_MUSTLOCK(rgba)) SDL_LockSurface(rgba);
 						GpuTexture* tex = new GpuTexture(/*srgb=*/false,
 						                                 GpuTexture::Wrap::ClampToEdge,
-						                                 GpuTexture::Filter::Linear);
+						                                 GpuTexture::Filter::Nearest);
 						loaded = tex->uploadRGBA(static_cast<const uint8_t*>(rgba->pixels), w, h);
 						if (SDL_MUSTLOCK(rgba)) SDL_UnlockSurface(rgba);
 						SDL_FreeSurface(rgba);
@@ -1021,7 +1021,7 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 							specIt->second.width  = w;
 							specIt->second.height = h;
 							Log(LOG_INFO) << "tileAtlas[" << name << "]: loaded RGBA atlas "
-							              << w << "x" << h << " (GL_LINEAR filter)";
+							              << w << "x" << h << " (GL_NEAREST filter)";
 						}
 						else
 						{
@@ -1115,8 +1115,6 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 			// Fall through to vanilla synthesiser.
 		}
 	}
-
-	// Vanilla synthesiser: build a 2× NN upscale atlas from PCK data.
 	std::map<int,int> frameMap;
 	std::map<int,int> pckToAtlas;
 	GpuTexture* tex = buildVanillaAtlas(*mds, palette, ncolors, frameMap, pckToAtlas);

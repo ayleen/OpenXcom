@@ -171,6 +171,8 @@ private:
 	bool         _tileGLInit = false;
 	/// Fractional animation cycle position [0, 1) — set each frame, passed as u_animFrame.
 	float        _animFrameGPU = 0.0f;
+	/// Timestamp (SDL_GetTicks) of the last blit() call.
+	Uint32       _lastDrawnTicks = 0u;
 	/// Lifetime flag: reset in ~Map() so the registered GPU-pass lambda becomes a no-op.
 	std::shared_ptr<bool>    _gpuAliveFlag;
 
@@ -247,6 +249,8 @@ public:
 	void init();
 	/// Handles timers.
 	void think() override;
+	/// Update visibility timestamp and blit.
+	void blit(SDL_Surface *surface) override;
 	/// Draws the surface.
 	void draw() override;
 	void refreshAIProgress(int progress);
