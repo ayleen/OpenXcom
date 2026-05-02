@@ -79,14 +79,14 @@ GpuTexture* buildVanillaAtlas(const MapDataSet& mds,
             frameMap[mcd_index] = atlas_tile_idx;
         }
 
-        // Also pack animation frames (sprite slots 1..7)
+        // Also pack animation frames (sprite slots 1..7) — visit every slot
+        // (no early `break` on primary repeat; some tiles use slot 7 as their
+        // resting/closed frame even when slots 1-6 repeat the primary).
         for (int k = 1; k < 8; ++k)
         {
             const int anim_pck = entry->getSprite(k);
-            // Slot 0 repeating or out-of-range or invalid means end of animation
-            if (anim_pck <= 0 || anim_pck == primary_pck || anim_pck >= numFrames)
-                break;
-
+            if (anim_pck <= 0 || anim_pck >= numFrames)
+                continue;
             if (dedup_map.find(anim_pck) == dedup_map.end())
             {
                 dedup_map[anim_pck] = static_cast<int>(atlas_tiles.size());

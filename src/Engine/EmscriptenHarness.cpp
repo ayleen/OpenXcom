@@ -110,6 +110,18 @@ void calypso_set_profile_readback(int on)
 	g_calypsoProfileReadback = on ? 1 : 0;
 }
 
+/* Phase-14 railings debug: one-shot tile/painter dump.
+ * JS toggles via Module._calypso_dump_emit_once() before forcing a redraw;
+ * Map::emitTilePass() and Map::draw() (painter) each log every tile they
+ * see and reset the flag, so production runs at zero cost. */
+int g_calypsoDumpEmit = 0;
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_dump_emit_once()
+{
+	g_calypsoDumpEmit = 1;
+}
+
 EMSCRIPTEN_KEEPALIVE
 void calypso_push_mouse_motion(int x, int y)
 {

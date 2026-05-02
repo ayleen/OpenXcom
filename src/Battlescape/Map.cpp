@@ -69,6 +69,11 @@
  * so forward-declarations must carry C linkage (global namespace). */
 extern "C" int g_calypsoProfileBattlescape;
 extern "C" int g_calypsoProfileReadback;
+/* Phase-14 railings debug: one-shot tile dump flag.
+ * Set to 1 by Module._calypso_dump_emit_once() before forcing a redraw;
+ * emitTilePass() and Map::draw() painter pass each log every visible tile
+ * and reset the flag, so production runs at zero cost. */
+extern "C" int g_calypsoDumpEmit;
 #endif /* __EMSCRIPTEN__ */
 
 
@@ -586,6 +591,13 @@ void Map::draw()
 #endif
 		_message->blit(this->getSurface());
 	}
+#ifdef __EMSCRIPTEN__
+	if (g_calypsoDumpEmit)
+	{
+		Log(LOG_INFO) << "[DUMP-EMIT] === end frame; resetting flag ===";
+		g_calypsoDumpEmit = 0;
+	}
+#endif
 }
 
 void Map::refreshAIProgress(int progress)
@@ -1086,6 +1098,12 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 	const bool gpuSpriteMode = _game->getMod()->hasHDPack() && GpuInit::ready();
 	SurfaceSet* const gpuCursorSet = gpuSpriteMode
 	    ? _game->getMod()->getSurfaceSet("CURSOR.PCK") : nullptr;
+	const bool dumpPaint = (g_calypsoDumpEmit != 0);
+	if (dumpPaint)
+	{
+		Log(LOG_INFO) << "[DUMP-PAINT] === begin painter pass; viewLevel="
+		              << _camera->getViewLevel() << " ===";
+	}
 	// Phase 13.4: O_FLOOR is drawn by the GPU tile pass before SDL composite.
 	const bool hdFloorMode = gpuSpriteMode;
 	// Phase 14.3: O_WESTWALL, O_NORTHWALL, and back-tile O_OBJECT are also drawn
@@ -1300,6 +1318,40 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 					{
 						tileShade = 16;
 						obstacleShade = 16;
+					}
+
+					if (dumpPaint)
+					{
+						static const TilePart dumpParts[4] = { O_FLOOR, O_WESTWALL, O_NORTHWALL, O_OBJECT };
+						for (int dpi = 0; dpi < 4; ++dpi)
+						{
+							TilePart dPart = dumpParts[dpi];
+							if (!tile->getSprite(dPart)) continue;
+							int dMcd = 0, dMds = 0;
+							tile->getMapData(&dMcd, &dMds, dPart);
+							MapData* dMd = tile->getMapData(dPart);
+							int dShade = (dPart == O_WESTWALL || dPart == O_NORTHWALL)
+							             ? getWallShade(dPart, tile) : tileShade;
+							int dBigW = dMd ? dMd->getBigWall() : -1;
+							int dBack = tile->isBackTileObject(dPart) ? 1 : 0;
+							int dYOff = tile->getYOffset(dPart);
+							const auto* dMdsVec = _save->getMapDataSets();
+							std::string dMdsName = (dMds >= 0 && dMds < (int)dMdsVec->size())
+							                       ? (*dMdsVec)[dMds]->getName()
+							                       : std::string("?");
+							Log(LOG_INFO) << "[DUMP-PAINT] z=" << itZ
+							              << " y=" << itY
+							              << " x=" << mapPosition.x
+							              << " part=" << (int)dPart
+							              << " bigW=" << dBigW
+							              << " back=" << dBack
+							              << " yOff=" << dYOff
+							              << " shade=" << dShade
+							              << " sx=" << screenPosition.x
+							              << " sy=" << (screenPosition.y - dYOff)
+							              << " mds=" << dMdsName
+							              << " mcd=" << dMcd;
+						}
 					}
 
 					tileColor = tile->getMarkerColor();
@@ -2357,6 +2409,13 @@ void Map::emitTilePass()
 	_cursorOverlayInstances.clear();
 	if (_tileAtlasGroups.empty()) return;
 
+	const bool dumpEmit = g_calypsoDumpEmit != 0;
+	if (dumpEmit)
+	{
+		Log(LOG_INFO) << "[DUMP-EMIT] === begin emitTilePass; viewLevel="
+		              << _camera->getViewLevel() << " ===";
+	}
+
 	Mod* mod = _game->getMod();
 	const auto* mdsVec = _save->getMapDataSets();
 
@@ -2429,8 +2488,15 @@ void Map::emitTilePass()
 			Position screenPos;
 			_camera->convertMapToScreen(mapPos, &screenPos);
 			screenPos += camOff;
+			// Top-edge cull margin: O_OBJECT tiles can have negative yOffset
+			// (e.g. submarine hull anchored at y=N but extending visually up to
+			// y=N-2). Without margin, anchors near the top get culled while
+			// their sprite is still on screen — leaving holes in the hull.
+			// 80 px ≈ 2 tile heights, enough for typical hull/awning yOffsets.
+			const int kTopOffsetMargin = 80;
 			if (screenPos.x <= -_spriteWidth  || screenPos.x >= getWidth()  + _spriteWidth ||
-			    screenPos.y <= -_spriteHeight || screenPos.y >= getHeight() + _spriteHeight)
+			    screenPos.y <= -_spriteHeight - kTopOffsetMargin ||
+			    screenPos.y >= getHeight() + _spriteHeight)
 				continue;
 
 			const int tileShade = tile->isDiscovered(O_FLOOR) ? reShade(tile) : 16;
@@ -2488,17 +2554,42 @@ void Map::emitTilePass()
 
 				int shade = (part == O_WESTWALL || part == O_NORTHWALL)
 				            ? getWallShade(part, tile) : tileShade;
-				shade = std::min(shade, 15);
+				// shade==16 = "fully undiscovered, render as fully black" in
+				// CPU painter (ShadeTable::get returns _black for shade>=16).
+				// We DO emit these tiles — they must occlude what's behind, just
+				// like the painter's opaque-black blit does — and the fragment
+				// shader paints them solid black when v_shade >= 16.
+				// (Earlier `if (shade >= 16) continue;` made GPU skip canopy
+				// silhouettes, leaving alien-sub interior bleed through the
+				// canopy area on Battlescape view-level 2 — the railings-over-
+				// canopy bug investigated in phase-14-railings-debug.md.)
 
 				// Iso priority: closer-to-camera = larger value.
-				// Layout: z*65536 + y*64 + x*8 + part_priority.
-				// Part order within a cell (FLOOR=0 → OBJECT=2 < UNIT=4 < FRONT_OBJECT=5)
-				// approximates vanilla iso: floor → walls → back-objects → items → unit
-				// → front-objects. Walls and objects share the back tier because they
-				// rarely overlap inside a single cell.
-				static const int partPrio[4] = { /*FLOOR*/0, /*WESTWALL*/1, /*NORTHWALL*/1, /*OBJECT*/2 };
-				const int prio = itZ * 65536 + itY * 64 + mapPos.x * 8 + partPrio[pi];
-				const float iso = (float)prio / 1100000.0f;
+				// Layout: z*65536 + y*1024 + x*8 + part_priority.
+				// y_mul (1024) > x_max*8+part_max (60*8+6=486) so y strictly
+				// dominates — cells in different rows never collide. z_mul
+				// (65536) > y_max*1024 = 60*1024 = 61440 likewise.
+				// Part order within a cell:
+				//   FLOOR=0 → walls=1 → back-tile OBJECT=2 (under units, e.g.
+				//   submarine roof / hull back-walls) → floor item=3 → unit=4 →
+				//   held item=5 → front-tile OBJECT=6 (over units in same cell).
+				// O_OBJECT splits on tile->isBackTileObject(), matching vanilla
+				// CPU painters' two-pass scheme (back-pass before unit, front
+				// pass after unit). Across cells, the y/x components of prio
+				// dominate, so a back-tile object in a higher-Y row still
+				// renders over a front-tile object in a lower-Y row — same as
+				// CPU painters (later iter draws over earlier iter).
+				int partPrio;
+				switch (part)
+				{
+					case O_FLOOR:     partPrio = 0; break;
+					case O_WESTWALL:  partPrio = 1; break;
+					case O_NORTHWALL: partPrio = 1; break;
+					case O_OBJECT:    partPrio = tile->isBackTileObject(part) ? 2 : 6; break;
+					default:          partPrio = 2; break;
+				}
+				const int prio = itZ * 65536 + itY * 1024 + mapPos.x * 8 + partPrio;
+				const float iso = (float)prio / 1500000.0f;
 
 				TileInstance inst;
 				inst.screenX       = (float)(screenPos.x + mapOffsetX);
@@ -2510,6 +2601,27 @@ void Map::emitTilePass()
 				inst.alphaMask     = 1.0f;
 				inst.iso           = iso;
 				grp.instances.push_back(inst);
+
+				if (dumpEmit)
+				{
+					int yOff = tile->getYOffset(part);
+					int bigW = md ? md->getBigWall() : -1;
+					int isBack = tile->isBackTileObject(part) ? 1 : 0;
+					Log(LOG_INFO) << "[DUMP-EMIT] z=" << itZ
+					              << " y=" << itY
+					              << " x=" << mapPos.x
+					              << " part=" << (int)part
+					              << " bigW=" << bigW
+					              << " back=" << isBack
+					              << " prio=" << prio
+					              << " yOff=" << yOff
+					              << " shade=" << shade
+					              << " sx=" << (int)inst.screenX
+					              << " sy=" << (int)inst.screenY
+					              << " mds=" << mds->getName()
+					              << " mcd=" << mcdIdx
+					              << " atlas=" << atlasTileIdx;
+				}
 			}
 
 			// Block 11.9: collect tile smoke/fire instance for GPU smoke pass.

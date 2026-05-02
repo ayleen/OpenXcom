@@ -295,6 +295,16 @@ void main()
     // Palette index 0 is always transparent.
     if (palNorm < (0.5 / 255.0)) discard;
 
+    // Undiscovered tiles (v_shade==16 from CPU side) render as opaque black.
+    // ShadeTable::get returns _black (0xFF000000) for shade>=16; emulate that
+    // exactly here so canopy silhouettes occlude interiors the player has not
+    // discovered yet, matching painter's blit behaviour.
+    if (v_shade >= 15.5)
+    {
+        fragColor = vec4(0.0, 0.0, 0.0, 1.0);
+        return;
+    }
+
     // Shade-table lookup using texel-centre coordinates to avoid bleed
     // between adjacent entries (both atlas and shade table use GL_NEAREST,
     // but the explicit + 0.5 guard is cheap insurance).
@@ -327,6 +337,14 @@ void main()
 
     vec4 c = texture(u_atlas, uv);
     if (c.a < 0.5) discard;
+
+    // Undiscovered tiles (v_shade==16 from CPU side) render as opaque black.
+    // Matches palette path tile_atlas.frag and ShadeTable::get's _black return.
+    if (v_shade >= 15.5)
+    {
+        fragColor = vec4(0.0, 0.0, 0.0, 1.0);
+        return;
+    }
 
     float k = 1.0 - (v_shade / 15.0) * 0.6;
     fragColor = vec4(c.rgb * k, c.a);

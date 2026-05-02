@@ -32,6 +32,14 @@ void main()
     vec4 c = texture(u_atlas, uv);
     if (c.a < 0.5) discard;
 
+    // Undiscovered tiles (v_shade==16 from CPU side) render as opaque black.
+    // Matches palette path tile_atlas.frag and ShadeTable::get's _black return.
+    if (v_shade >= 15.5)
+    {
+        fragColor = vec4(0.0, 0.0, 0.0, 1.0);
+        return;
+    }
+
     float k = 1.0 - (v_shade / 15.0) * 0.6;
     fragColor = vec4(c.rgb * k, c.a);
 }

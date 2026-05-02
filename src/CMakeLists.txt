@@ -679,7 +679,7 @@ if(EMSCRIPTEN)
     -sMAX_WEBGL_VERSION=2
     -sFULL_ES3=1
     "-sEXPORTED_RUNTIME_METHODS=[\"FS\",\"IDBFS\",\"callMain\",\"ccall\",\"cwrap\"]"
-    "-sEXPORTED_FUNCTIONS=[\"_main\",\"_calypso_screenshot\",\"_calypso_screenshot_gpu\",\"_calypso_gpu_smoke_activate\",\"_calypso_push_mouse_motion\",\"_calypso_set_profile_globe\",\"_calypso_set_profile_battlescape\",\"_calypso_set_profile_readback\"]"
+    "-sEXPORTED_FUNCTIONS=[\"_main\",\"_calypso_screenshot\",\"_calypso_screenshot_gpu\",\"_calypso_gpu_smoke_activate\",\"_calypso_push_mouse_motion\",\"_calypso_set_profile_globe\",\"_calypso_set_profile_battlescape\",\"_calypso_set_profile_readback\",\"_calypso_dump_emit_once\"]"
     -sENVIRONMENT=web
     -sMODULARIZE=1
     -sEXPORT_ES6=1
@@ -791,7 +791,9 @@ if(NOT EMSCRIPTEN AND BUILD_TESTING)
 
     set(OXCE_TEST_SOURCES
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/test_main.cpp
-        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/GlobeMathTest.cpp)
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/GlobeMathTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/TileAtlasSpecTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/EmitShade16Test.cpp)
 
     add_executable(oxce_unit_tests ${OXCE_TEST_SOURCES})
     target_link_libraries(oxce_unit_tests PRIVATE oxce_test_doctest)
