@@ -1372,6 +1372,7 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 						obstacleShade = 16;
 					}
 
+#ifdef __EMSCRIPTEN__
 					if (dumpPaint)
 					{
 						static const TilePart dumpParts[4] = { O_FLOOR, O_WESTWALL, O_NORTHWALL, O_OBJECT };
@@ -1405,6 +1406,7 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 							              << " mcd=" << dMcd;
 						}
 					}
+#endif
 
 					tileColor = tile->getMarkerColor();
 

@@ -207,6 +207,7 @@ void Screen::flip()
 	 * (We deliberately don't restore VAO/buffer — doing so additionally clobbers
 	 * the pre-composite floor pixels on the framebuffer, see post-Phase-14 fix.) */
 	SDL_RenderClear(_renderer);
+#ifdef __EMSCRIPTEN__
 	if (!_gpuPassesPre.empty())
 	{
 		SDL_RenderFlush(_renderer);
@@ -229,6 +230,7 @@ void Screen::flip()
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	}
+#endif
 
 	/* Upload the CPU surface (units, walls, HUD) as a texture and composite
 	 * it over whatever the pre-composite passes drew.  _texture blend mode is

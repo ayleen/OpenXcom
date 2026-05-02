@@ -654,7 +654,7 @@ if(EMSCRIPTEN)
     SUFFIX ".js"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
   )
-  target_compile_options(openxcom PRIVATE -fexceptions)
+  target_compile_options(openxcom PRIVATE -fexceptions -sUSE_SDL_TTF=2)
   # Stub SDL_gfxPrimitives.h for Emscripten (no SDL2_gfx port; implementations in EmscriptenCompat.cpp).
   target_include_directories(openxcom PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Engine/compat_sdl)
   target_link_options(openxcom PRIVATE

@@ -50,6 +50,7 @@ class Timer;
 class Text;
 class Tile;
 class UnitSprite;
+class TTFFont;
 
 enum CursorType { CT_NONE, CT_NORMAL, CT_AIM, CT_PSI, CT_WAYPOINT, CT_THROW };
 enum TilePart : int;
@@ -121,6 +122,8 @@ private:
 	int _hoveredTU;      // remaining TU if selected unit walks to hovered tile (-1 = unknown)
 	SurfaceSet *_projectileSet;
 	TTFFont *_fontHdNumbers; // Phase 16: TTF font for HD cursor TU/AP numerals
+	/// Timestamp (SDL_GetTicks) of the last blit() call — used by GPU overlay guards.
+	Uint32 _lastDrawnTicks = 0u;
 
 	void drawHdNumber(Surface *dest, int x, int y, int value, Uint32 colorArgb);
 	void drawUnit(UnitSprite &unitSprite, Tile *unitTile, Tile *currTile, Position tileScreenPosition, bool topLayer, BattleUnit* movingUnit = nullptr);
@@ -176,8 +179,6 @@ private:
 	bool         _tileGLInit = false;
 	/// Fractional animation cycle position [0, 1) — set each frame, passed as u_animFrame.
 	float        _animFrameGPU = 0.0f;
-	/// Timestamp (SDL_GetTicks) of the last blit() call.
-	Uint32       _lastDrawnTicks = 0u;
 	/// Lifetime flag: reset in ~Map() so the registered GPU-pass lambda becomes a no-op.
 	std::shared_ptr<bool>    _gpuAliveFlag;
 
