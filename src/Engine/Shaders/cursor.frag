@@ -1,49 +1,71 @@
-// cursor.frag — Phase 15: SDF rounded-diamond cursor box + soft glow.
+// cursor.frag — Phase 16: 4-tip animated SDF cursor markers.
 //
-// Renders a single instanced quad as a resolution-independent selector
-// box using a signed-distance-field approximation of a rounded diamond.
+// Renders four small diamond markers near the N/S/E/W tips of the isometric
+// tile.  All four markers are placed at the same pixel distance from the tile
+// centre (isotropic space via v_aspect correction), so they appear identical
+// in size and shape regardless of tile dimensions.
+//
+// Animation: markers oscillate toward/away from the tile centre ("breathing").
+//
+// a_params layout (from vertex shader):
+//   .x  markerSize  — half-size of each diamond in iso units (typ. 0.10)
+//   .y  baseFrac    — base fraction of iso tip distance (typ. 0.72)
+//   .z  animFrac    — oscillation amplitude in fraction units (typ. 0.08)
+//   .w  phase       — animation phase [0..1], driven by CPU wallclock
 //
 // Do NOT include #version or precision qualifiers here.
 // The platform preamble is prepended by Shader::compile().
 
 precision highp float;
 
-in  vec2       v_localUV;
-flat in vec4   v_color;
-flat in vec4   v_params;   // .x thickness  .y radius  .z glowWidth  .w phase [0..1]
+in  vec2        v_localUV;
+flat in float   v_aspect;    // quad w/h — corrects X so 1 iso unit = h/2 px
+flat in vec4    v_color;
+flat in vec4    v_params;
 
 out vec4 fragColor;
 
-// SDF: rounded diamond in local UV space [-1..1].
-// Returns negative inside the shape, 0 on the boundary, positive outside.
-float sdRoundedDiamond(vec2 p, float r)
+// L1 SDF: solid diamond centred at `c` with half-size `sz` in iso space.
+float sdDiamond(vec2 p, vec2 c, float sz)
 {
-    // Shrink by radius, compute L1 distance, then expand back.
-    vec2 q = abs(p);
-    // Normalise so that the outer diamond tip is at UV magnitude 1.
-    float d = q.x + q.y - 1.0;
-    // Subtract radius so corners are rounded (the SDF is clamped-rounded).
-    return d - r * (1.0 - smoothstep(0.0, 0.5, max(q.x, q.y)));
+    vec2 d = abs(p - c);
+    return (d.x + d.y) - sz;
 }
 
 void main()
 {
-    float thickness = v_params.x;
-    float radius    = v_params.y;
-    float glowW     = v_params.z;
-    float phase     = v_params.w;   // 0..1 pulse
+    float markerSize = v_params.x;
+    float baseFrac   = v_params.y;
+    float animFrac   = v_params.z;
+    float phase      = v_params.w;
 
-    float d = sdRoundedDiamond(v_localUV, radius);
+    // Iso space: scale X by (1/aspect) so that 1 unit = h/2 px on both axes.
+    float inv = 1.0 / v_aspect;
+    vec2 p = vec2(v_localUV.x * inv, v_localUV.y);
 
-    // Outline: a ring of width `thickness` centered on the SDF zero-crossing.
-    // Pulse modulates the ring width so the yellow box visibly throbs.
-    float t = thickness * (0.7 + 0.3 * phase);
-    float outline = smoothstep(t, 0.0, abs(d));
+    // Animated fraction: all 4 markers move together (breathing effect).
+    float frac = baseFrac + animFrac * sin(phase * 6.28318530718);
 
-    // Soft outer glow decays from the outer edge of the diamond.
-    float glow = smoothstep(glowW, 0.0, max(d, 0.0)) * 0.4;
+    // Marker centres in iso space — equidistant from tile centre in pixels.
+    //   N/S along Y axis:    centre at (0, ±frac)
+    //   W/E along X axis:    centre at (±frac·inv, 0)  [inv scales to same px dist]
+    vec2 cN = vec2(0.0,       -frac);
+    vec2 cS = vec2(0.0,       +frac);
+    vec2 cW = vec2(-frac * inv, 0.0);
+    vec2 cE = vec2(+frac * inv, 0.0);
 
-    float alpha = clamp(outline + glow, 0.0, 1.0);
+    float d = min(min(sdDiamond(p, cN, markerSize),
+                      sdDiamond(p, cS, markerSize)),
+                  min(sdDiamond(p, cW, markerSize),
+                      sdDiamond(p, cE, markerSize)));
+
+    // Filled marker core with 1-px soft edge (AA).
+    float alpha = smoothstep(0.025, -0.025, d);
+
+    // Soft glow that bleeds out beyond the marker edge.
+    float glow = smoothstep(0.10, 0.0, max(d, 0.0)) * 0.40;
+
+    alpha = clamp(alpha + glow, 0.0, 1.0);
     if (alpha < 0.01) discard;
     fragColor = vec4(v_color.rgb, v_color.a * alpha);
 }

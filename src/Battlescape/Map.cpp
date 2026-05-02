@@ -1849,12 +1849,15 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 							if (_cursorType != CT_AIM)
 							{
 #ifdef __EMSCRIPTEN__
-								// Phase 15: box cursor uses SDF — emit style tag, no raster frame.
+								// Phase 16: 4-tip marker cursor — faction-aware color, no raster frame.
 								if (gpuCursorSet)
 								{
-									const CursorStyle boxStyle = (unit && (unit->getVisible() || _save->getDebugMode()))
-									    ? CS_BOX_YELLOW_PULSE : CS_BOX_RED;
-									_cursorOverlayInstances.push_back({screenPosition.x, screenPosition.y, nullptr, 0, boxStyle});
+									CursorStyle markerStyle;
+									if (unit && (unit->getVisible() || _save->getDebugMode()))
+										markerStyle = (unit->getFaction() == FACTION_PLAYER) ? CS_MARKER_ALLY : CS_MARKER_ENEMY;
+									else
+										markerStyle = CS_MARKER_NEUTRAL;
+									_cursorOverlayInstances.push_back({screenPosition.x, screenPosition.y, nullptr, 0, markerStyle});
 								}
 								else
 #endif
@@ -3145,8 +3148,8 @@ GpuTexture* Map::getOrUploadSpriteFrame(SurfaceSet* set, int frameIdx)
  *
  * Instances are collected during drawTerrainOverlayCPU() into
  * _cursorOverlayInstances with a CursorStyle tag:
- *   CS_BOX_RED / CS_BOX_YELLOW_PULSE → Phase 15 SDF instanced pass.
- *   CS_RASTER                        → existing sprite-shader raster pass.
+ *   CS_MARKER_NEUTRAL/ALLY/ENEMY → Phase 16 SDF 4-tip animated marker pass.
+ *   CS_RASTER                    → existing sprite-shader raster pass.
  */
 void Map::drawCursorOverlayGLPass()
 {
@@ -3165,12 +3168,12 @@ void Map::drawCursorOverlayGLPass()
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	// ── 1. SDF box pass (CS_BOX_RED / CS_BOX_YELLOW_PULSE) ─────────────────
+	// ── 1. SDF 4-tip marker pass (CS_MARKER_NEUTRAL / ALLY / ENEMY) ────────
 	if (!_cursorGLInit) initCursorGL();
 	if (_cursorGLInit && _cursorShader && _cursorShader->isValid())
 	{
-		// Smooth pulse: one full sine cycle per tile animation period (800 ms).
-		const float pulse = (sinf(2.0f * static_cast<float>(M_PI) * _animFrameGPU) + 1.0f) * 0.5f;
+		// Animation phase: 0→1 over the 800-ms tile animation cycle.
+		const float phase = _animFrameGPU;
 
 		// Per-instance buffer: a_xywh(4) + a_color(4) + a_params(4) = 12 floats.
 		std::vector<float> buf;
@@ -3181,7 +3184,7 @@ void Map::drawCursorOverlayGLPass()
 
 		for (const auto& ci : _cursorOverlayInstances)
 		{
-			if (ci.style != CS_BOX_RED && ci.style != CS_BOX_YELLOW_PULSE) continue;
+			if (ci.style == CS_RASTER) continue;
 
 			const float dispX = static_cast<float>(ci.screenX) * xScale + static_cast<float>(lbb);
 			const float dispY = static_cast<float>(ci.screenY) * yScale + static_cast<float>(tbb);
@@ -3189,19 +3192,25 @@ void Map::drawCursorOverlayGLPass()
 			buf.push_back(dispX); buf.push_back(dispY);
 			buf.push_back(tileW); buf.push_back(tileH);
 
-			if (ci.style == CS_BOX_RED)
+			// a_params layout: markerSize, baseFrac, animFrac, phase
+			// markerSize=0.10 iso units, baseFrac=0.72, animFrac=0.08
+			if (ci.style == CS_MARKER_NEUTRAL)
 			{
-				// color: red
-				buf.push_back(1.0f); buf.push_back(0.15f); buf.push_back(0.15f); buf.push_back(1.0f);
-				// params: thickness, radius, glowWidth, phase (static)
-				buf.push_back(0.06f); buf.push_back(0.10f); buf.push_back(0.20f); buf.push_back(1.0f);
+				// cyan — empty tile
+				buf.push_back(0.30f); buf.push_back(0.90f); buf.push_back(1.00f); buf.push_back(0.80f);
+				buf.push_back(0.10f); buf.push_back(0.72f); buf.push_back(0.08f); buf.push_back(phase);
 			}
-			else // CS_BOX_YELLOW_PULSE
+			else if (ci.style == CS_MARKER_ALLY)
 			{
-				// color: yellow
-				buf.push_back(1.0f); buf.push_back(0.85f); buf.push_back(0.10f); buf.push_back(1.0f);
-				// params: thickness, radius, glowWidth, phase (animated)
-				buf.push_back(0.06f); buf.push_back(0.10f); buf.push_back(0.30f); buf.push_back(pulse);
+				// blue — own unit (FACTION_PLAYER)
+				buf.push_back(0.15f); buf.push_back(0.55f); buf.push_back(1.00f); buf.push_back(0.95f);
+				buf.push_back(0.10f); buf.push_back(0.72f); buf.push_back(0.08f); buf.push_back(phase);
+			}
+			else // CS_MARKER_ENEMY
+			{
+				// orange — hostile / neutral unit
+				buf.push_back(1.00f); buf.push_back(0.45f); buf.push_back(0.05f); buf.push_back(0.95f);
+				buf.push_back(0.10f); buf.push_back(0.72f); buf.push_back(0.08f); buf.push_back(phase);
 			}
 		}
 

@@ -40,6 +40,7 @@ void main()
         return;
     }
 
-    float k = 1.0 - (v_shade / 15.0) * 0.95;
+    float t = clamp(v_shade / 15.0, 0.0, 1.0);
+    float k = pow(1.0 - t, 1.6);
     fragColor = vec4(c.rgb * k, c.a);
 }

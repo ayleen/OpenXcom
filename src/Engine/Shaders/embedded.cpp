@@ -25,23 +25,24 @@ void main()
 static const char* kCursorVertSrc = R"glsl(
 layout(location = 0) in vec2 a_unitPos;   // unit quad corner [-1..1]
 layout(location = 1) in vec4 a_xywh;      // display-pixel rect (x, y, w, h), divisor 1
-layout(location = 2) in vec4 a_color;     // RGBA outline color, divisor 1
-layout(location = 3) in vec4 a_params;    // (thickness, radius, glowWidth, phase), divisor 1
+layout(location = 2) in vec4 a_color;     // RGBA marker color, divisor 1
+layout(location = 3) in vec4 a_params;    // (markerSize, baseFrac, animFrac, phase), divisor 1
 
 uniform vec2 u_screenSize;               // display resolution (px)
 
-out vec2       v_localUV;
-flat out vec4  v_color;
-flat out vec4  v_params;
+out vec2        v_localUV;
+flat out float  v_aspect;   // w/h pixel ratio — used in frag for iso-space correction
+flat out vec4   v_color;
+flat out vec4   v_params;
 
 void main()
 {
-    // Map unit corner to pixel position inside the instance rect.
     vec2 px = a_xywh.xy + (a_unitPos * 0.5 + 0.5) * a_xywh.zw;
     vec2 ndc = (px / u_screenSize) * 2.0 - 1.0;
     gl_Position = vec4(ndc.x, -ndc.y, 0.0, 1.0);
 
-    v_localUV = a_unitPos;   // passes [-1..1] to fragment for SDF evaluation
+    v_localUV = a_unitPos;
+    v_aspect  = a_xywh.z / a_xywh.w;   // e.g. 32/40 = 0.8 for native TFTD tile
     v_color   = a_color;
     v_params  = a_params;
 }
@@ -155,42 +156,54 @@ void main()
 static const char* kCursorFragSrc = R"glsl(
 precision highp float;
 
-in  vec2       v_localUV;
-flat in vec4   v_color;
-flat in vec4   v_params;   // .x thickness  .y radius  .z glowWidth  .w phase [0..1]
+in  vec2        v_localUV;
+flat in float   v_aspect;    // quad w/h — corrects X so 1 iso unit = h/2 px
+flat in vec4    v_color;
+flat in vec4    v_params;
 
 out vec4 fragColor;
 
-// SDF: rounded diamond in local UV space [-1..1].
-// Returns negative inside the shape, 0 on the boundary, positive outside.
-float sdRoundedDiamond(vec2 p, float r)
+// L1 SDF: solid diamond centred at `c` with half-size `sz` in iso space.
+float sdDiamond(vec2 p, vec2 c, float sz)
 {
-    // Shrink by radius, compute L1 distance, then expand back.
-    vec2 q = abs(p);
-    // Normalise so that the outer diamond tip is at UV magnitude 1.
-    float d = q.x + q.y - 1.0;
-    // Subtract radius so corners are rounded (the SDF is clamped-rounded).
-    return d - r * (1.0 - smoothstep(0.0, 0.5, max(q.x, q.y)));
+    vec2 d = abs(p - c);
+    return (d.x + d.y) - sz;
 }
 
 void main()
 {
-    float thickness = v_params.x;
-    float radius    = v_params.y;
-    float glowW     = v_params.z;
-    float phase     = v_params.w;   // 0..1 pulse
+    float markerSize = v_params.x;
+    float baseFrac   = v_params.y;
+    float animFrac   = v_params.z;
+    float phase      = v_params.w;
 
-    float d = sdRoundedDiamond(v_localUV, radius);
+    // Iso space: scale X by (1/aspect) so that 1 unit = h/2 px on both axes.
+    float inv = 1.0 / v_aspect;
+    vec2 p = vec2(v_localUV.x * inv, v_localUV.y);
 
-    // Outline: a ring of width `thickness` centered on the SDF zero-crossing.
-    // Pulse modulates the ring width so the yellow box visibly throbs.
-    float t = thickness * (0.7 + 0.3 * phase);
-    float outline = smoothstep(t, 0.0, abs(d));
+    // Animated fraction: all 4 markers move together (breathing effect).
+    float frac = baseFrac + animFrac * sin(phase * 6.28318530718);
 
-    // Soft outer glow decays from the outer edge of the diamond.
-    float glow = smoothstep(glowW, 0.0, max(d, 0.0)) * 0.4;
+    // Marker centres in iso space — equidistant from tile centre in pixels.
+    //   N/S along Y axis:    centre at (0, ±frac)
+    //   W/E along X axis:    centre at (±frac·inv, 0)  [inv scales to same px dist]
+    vec2 cN = vec2(0.0,       -frac);
+    vec2 cS = vec2(0.0,       +frac);
+    vec2 cW = vec2(-frac * inv, 0.0);
+    vec2 cE = vec2(+frac * inv, 0.0);
 
-    float alpha = clamp(outline + glow, 0.0, 1.0);
+    float d = min(min(sdDiamond(p, cN, markerSize),
+                      sdDiamond(p, cS, markerSize)),
+                  min(sdDiamond(p, cW, markerSize),
+                      sdDiamond(p, cE, markerSize)));
+
+    // Filled marker core with 1-px soft edge (AA).
+    float alpha = smoothstep(0.025, -0.025, d);
+
+    // Soft glow that bleeds out beyond the marker edge.
+    float glow = smoothstep(0.10, 0.0, max(d, 0.0)) * 0.40;
+
+    alpha = clamp(alpha + glow, 0.0, 1.0);
     if (alpha < 0.01) discard;
     fragColor = vec4(v_color.rgb, v_color.a * alpha);
 }
@@ -415,7 +428,8 @@ void main()
         return;
     }
 
-    float k = 1.0 - (v_shade / 15.0) * 0.95;
+    float t = clamp(v_shade / 15.0, 0.0, 1.0);
+    float k = pow(1.0 - t, 1.6);
     fragColor = vec4(c.rgb * k, c.a);
 }
 )glsl";

@@ -199,14 +199,15 @@ private:
 	void emitSmokeInstances();
 	void drawSmokeGLPass();
 
-	/// Block 11.10 / Phase 15: tile-space cursor-box overlay instance.
-	/// CS_RASTER: existing sprite path (set + frameIdx).
-	/// CS_BOX_*:  SDF instanced path — set/frameIdx unused.
+	/// Block 11.10 / Phase 16: tile-space cursor marker overlay instance.
+	/// CS_RASTER:         existing sprite path (set + frameIdx).
+	/// CS_MARKER_*:       SDF 4-tip animated path — set/frameIdx unused.
 	enum CursorStyle : uint8_t
 	{
-		CS_RASTER           = 0,
-		CS_BOX_RED          = 1,
-		CS_BOX_YELLOW_PULSE = 2,
+		CS_RASTER          = 0,
+		CS_MARKER_NEUTRAL  = 1,  // cyan  — empty tile
+		CS_MARKER_ALLY     = 2,  // blue  — FACTION_PLAYER unit
+		CS_MARKER_ENEMY    = 3,  // orange — hostile/neutral unit
 	};
 	struct CursorOverlayInstance
 	{
