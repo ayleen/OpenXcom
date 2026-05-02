@@ -305,6 +305,20 @@ Map::Map(Game *game, int width, int height, int x, int y, int visibleMapHeight) 
 	_txtAccuracy->setPalette(_game->getScreen()->getPalette());
 	_txtAccuracy->setHighContrast(true);
 	_txtAccuracy->initText(_game->getMod()->getFont("FONT_BIG"), _game->getMod()->getFont("FONT_SMALL"), _game->getLanguage());
+
+	_txtUnitAP = new Text(44, 18, 0, 0);
+	_txtUnitAP->setSmall();
+	_txtUnitAP->setPalette(_game->getScreen()->getPalette());
+	_txtUnitAP->setHighContrast(true);
+	_txtUnitAP->initText(_game->getMod()->getFont("FONT_BIG"), _game->getMod()->getFont("FONT_SMALL"), _game->getLanguage());
+	_txtUnitAP->setAlign(ALIGN_CENTER);
+
+	_txtCursorAP = new Text(44, 18, 0, 0);
+	_txtCursorAP->setSmall();
+	_txtCursorAP->setPalette(_game->getScreen()->getPalette());
+	_txtCursorAP->setHighContrast(true);
+	_txtCursorAP->initText(_game->getMod()->getFont("FONT_BIG"), _game->getMod()->getFont("FONT_SMALL"), _game->getLanguage());
+	_txtCursorAP->setAlign(ALIGN_CENTER);
 	_cacheActiveWeaponUfopediaArticleUnlocked = -1;
 	_cacheIsCtrlPressed = false;
 	_cacheCursorPosition = TileEngine::invalid;
@@ -381,6 +395,8 @@ Map::~Map()
 	delete _message;
 	delete _camera;
 	delete _txtAccuracy;
+	delete _txtUnitAP;
+	delete _txtCursorAP;
 #ifdef __EMSCRIPTEN__
 	_gpuAliveFlag.reset();
 	delete _tileShader;     _tileShader     = nullptr;
@@ -1859,7 +1875,35 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 										markerStyle = CS_MARKER_NEUTRAL;
 									_cursorOverlayInstances.push_back({screenPosition.x, screenPosition.y, nullptr, 0, markerStyle});
 								}
-								else
+
+								// Remaining TU at cursor tile — only when path preview is on and
+								// selected unit is a player unit (CT_NORMAL walk cursor).
+								if (pathfinderTurnedOn && _cursorType == CT_NORMAL)
+								{
+									BattleUnit *selUnit = _save->getSelectedUnit();
+									if (selUnit && selUnit->getFaction() == FACTION_PLAYER)
+									{
+										int tuMarker = tile ? tile->getTUMarker() : -1;
+										if (tuMarker >= 0 && selUnit->getBaseStats()->tu > 0)
+										{
+											std::ostringstream ssCur;
+											ssCur << tuMarker;
+											float frac = static_cast<float>(tuMarker) /
+											             static_cast<float>(selUnit->getBaseStats()->tu);
+											if      (frac > 0.50f) _txtCursorAP->setColor(Palette::blockOffset(Pathfinding::green  - 1) - 1);
+											else if (frac > 0.25f) _txtCursorAP->setColor(Palette::blockOffset(Pathfinding::yellow - 1) - 1);
+											else                   _txtCursorAP->setColor(Palette::blockOffset(Pathfinding::red    - 1) - 1);
+											_txtCursorAP->setText(ssCur.str());
+											_txtCursorAP->draw();
+											_txtCursorAP->blitNShade(surface,
+												screenPosition.x + _spriteWidth / 2 - 22,
+												screenPosition.y + _spriteHeight / 2 + 2,
+												0);
+										}
+									}
+								}
+
+								if (!gpuCursorSet)
 #endif
 								{
 									if (unit && (unit->getVisible() || _save->getDebugMode()))
@@ -2126,6 +2170,36 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 							}
 						}
 					}
+
+					// AP ring + TU number over selected player unit (GPU path only).
+#ifdef __EMSCRIPTEN__
+					{
+						BattleUnit *selUnit = _save->getSelectedUnit();
+						if (gpuCursorSet && selUnit
+							&& selUnit->getFaction() == FACTION_PLAYER
+							&& !selUnit->isOut()
+							&& selUnit->getPosition() == mapPosition
+							&& _camera->getViewLevel() == itZ)
+						{
+							float arcFrac = static_cast<float>(selUnit->getTimeUnits()) /
+							                static_cast<float>(std::max(static_cast<int>(1), static_cast<int>(selUnit->getBaseStats()->tu)));
+							_cursorOverlayInstances.push_back(
+								{screenPosition.x, screenPosition.y, nullptr, 0, CS_AP_RING, arcFrac});
+
+							std::ostringstream ssAP;
+							ssAP << selUnit->getTimeUnits();
+							if      (arcFrac > 0.50f) _txtUnitAP->setColor(Palette::blockOffset(Pathfinding::green  - 1) - 1);
+							else if (arcFrac > 0.25f) _txtUnitAP->setColor(Palette::blockOffset(Pathfinding::yellow - 1) - 1);
+							else                      _txtUnitAP->setColor(Palette::blockOffset(Pathfinding::red    - 1) - 1);
+							_txtUnitAP->setText(ssAP.str());
+							_txtUnitAP->draw();
+							_txtUnitAP->blitNShade(surface,
+								screenPosition.x + _spriteWidth / 2 - 22,
+								screenPosition.y + _spriteHeight / 2 - 6,
+								0);
+						}
+					}
+#endif
 
 					// Draw waypoints if any on this tile
 					int waypid = 1;
@@ -3206,11 +3280,24 @@ void Map::drawCursorOverlayGLPass()
 				buf.push_back(0.15f); buf.push_back(0.55f); buf.push_back(1.00f); buf.push_back(0.95f);
 				buf.push_back(0.10f); buf.push_back(0.72f); buf.push_back(0.08f); buf.push_back(phase);
 			}
-			else // CS_MARKER_ENEMY
+			else if (ci.style == CS_MARKER_ENEMY)
 			{
 				// orange — hostile / neutral unit
 				buf.push_back(1.00f); buf.push_back(0.45f); buf.push_back(0.05f); buf.push_back(0.95f);
 				buf.push_back(0.10f); buf.push_back(0.72f); buf.push_back(0.08f); buf.push_back(phase);
+			}
+			else if (ci.style == CS_AP_RING)
+			{
+				// arc ring: color green/yellow/red by TU fraction.
+				float arcFrac = ci.extraData;
+				float r, g, b;
+				if      (arcFrac > 0.50f) { r=0.15f; g=0.90f; b=0.40f; }  // green
+				else if (arcFrac > 0.25f) { r=1.00f; g=0.75f; b=0.10f; }  // yellow
+				else                      { r=1.00f; g=0.20f; b=0.10f; }  // red
+				buf.push_back(r); buf.push_back(g); buf.push_back(b); buf.push_back(0.90f);
+				// params: -innerR (ring-mode sentinel), ringWidth, arcFrac, phase
+				buf.push_back(-0.38f); buf.push_back(0.08f);
+				buf.push_back(arcFrac); buf.push_back(phase);
 			}
 		}
 

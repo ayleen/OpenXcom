@@ -116,6 +116,8 @@ private:
 	int _bgColor;
 	bool _previewSettingArrows, _previewSettingTu, _previewSettingEnergy;
 	Text *_txtAccuracy;
+	Text *_txtUnitAP;    // current TU number over selected unit
+	Text *_txtCursorAP;  // remaining TU after walking to cursor tile
 	SurfaceSet *_projectileSet;
 
 	void drawUnit(UnitSprite &unitSprite, Tile *unitTile, Tile *currTile, Position tileScreenPosition, bool topLayer, BattleUnit* movingUnit = nullptr);
@@ -205,9 +207,10 @@ private:
 	enum CursorStyle : uint8_t
 	{
 		CS_RASTER          = 0,
-		CS_MARKER_NEUTRAL  = 1,  // cyan  — empty tile
-		CS_MARKER_ALLY     = 2,  // blue  — FACTION_PLAYER unit
+		CS_MARKER_NEUTRAL  = 1,  // cyan   — empty tile
+		CS_MARKER_ALLY     = 2,  // blue   — FACTION_PLAYER unit
 		CS_MARKER_ENEMY    = 3,  // orange — hostile/neutral unit
+		CS_AP_RING         = 4,  // arc ring over selected unit (TU gauge)
 	};
 	struct CursorOverlayInstance
 	{
@@ -215,6 +218,7 @@ private:
 		SurfaceSet* set;
 		int frameIdx;
 		CursorStyle style;
+		float extraData = 0.0f;  // CS_AP_RING: arcFraction [0..1]
 	};
 	std::vector<CursorOverlayInstance> _cursorOverlayInstances;
 	void drawCursorOverlayGLPass();

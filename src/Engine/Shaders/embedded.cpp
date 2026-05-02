@@ -172,21 +172,48 @@ float sdDiamond(vec2 p, vec2 c, float sz)
 
 void main()
 {
+    float inv = 1.0 / v_aspect;
+    vec2 p = vec2(v_localUV.x * inv, v_localUV.y);
+
+    // ── Ring (AP gauge) mode ────────────────────────────────────────────────
+    if (v_params.x < -0.01)
+    {
+        float innerR  = -v_params.x;          // inner radius in iso units
+        float ringW   =  v_params.y;           // ring width in iso units
+        float arcFrac =  v_params.z;           // [0..1] fraction of TU remaining
+
+        float r    = length(p);
+        float ring = abs(r - (innerR + ringW * 0.5)) - ringW * 0.5;
+
+        // Angle: 0 = top (12 o'clock), increasing clockwise.
+        // atan(x, -y): at top p=(0,-1) → atan(0,1)=0; at right p=(inv,0) → π/2.
+        float angle     = atan(p.x, -p.y);
+        float normAngle = mod(angle / 6.28318530718 + 1.0, 1.0);
+
+        // Faint background ring (full circle — shows TU maximum).
+        float bgAlpha  = smoothstep(0.025, -0.025, ring) * 0.18;
+
+        // Bright arc proportional to remaining TU.
+        float arcMask  = step(normAngle, arcFrac);
+        float arcAlpha = smoothstep(0.025, -0.025, ring) * arcMask;
+        float glow     = smoothstep(0.09, 0.0, max(ring, 0.0)) * arcMask * 0.35;
+
+        float alpha = clamp(arcAlpha + bgAlpha + glow, 0.0, 1.0);
+        if (alpha < 0.01) discard;
+        fragColor = vec4(v_color.rgb, v_color.a * alpha);
+        return;
+    }
+
+    // ── 4-tip marker mode ───────────────────────────────────────────────────
     float markerSize = v_params.x;
     float baseFrac   = v_params.y;
     float animFrac   = v_params.z;
     float phase      = v_params.w;
 
-    // Iso space: scale X by (1/aspect) so that 1 unit = h/2 px on both axes.
-    float inv = 1.0 / v_aspect;
-    vec2 p = vec2(v_localUV.x * inv, v_localUV.y);
-
     // Animated fraction: all 4 markers move together (breathing effect).
     float frac = baseFrac + animFrac * sin(phase * 6.28318530718);
 
     // Marker centres in iso space — equidistant from tile centre in pixels.
-    //   N/S along Y axis:    centre at (0, ±frac)
-    //   W/E along X axis:    centre at (±frac·inv, 0)  [inv scales to same px dist]
     vec2 cN = vec2(0.0,       -frac);
     vec2 cS = vec2(0.0,       +frac);
     vec2 cW = vec2(-frac * inv, 0.0);
@@ -197,11 +224,8 @@ void main()
                   min(sdDiamond(p, cW, markerSize),
                       sdDiamond(p, cE, markerSize)));
 
-    // Filled marker core with 1-px soft edge (AA).
     float alpha = smoothstep(0.025, -0.025, d);
-
-    // Soft glow that bleeds out beyond the marker edge.
-    float glow = smoothstep(0.10, 0.0, max(d, 0.0)) * 0.40;
+    float glow  = smoothstep(0.10, 0.0, max(d, 0.0)) * 0.40;
 
     alpha = clamp(alpha + glow, 0.0, 1.0);
     if (alpha < 0.01) discard;
