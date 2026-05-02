@@ -476,6 +476,8 @@ void Map::init()
 			_tileGLInit = false;
 			_spriteVAO = _spriteVBO = 0;
 			_spriteGLInit = false;
+			_cursorVAO = _cursorVBO = _cursorInstanceVBO = 0;
+			_cursorGLInit = false;
 			_unitAtlasGroups.clear();
 			_game->getMod()->clearUnitAtlases();
 		});
@@ -1400,10 +1402,19 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 						{
 							if (_cursorType != CT_AIM)
 							{
-								if (unit && (unit->getVisible() || _save->getDebugMode()))
-									frameNumber = halfAnimFrameRest; // yellow box
-								else
-									frameNumber = 0; // red box
+#ifdef __EMSCRIPTEN__
+								// Phase 15: box cursor uses SDF — emitted once in the front
+								// block below.  Skip the back-half push to avoid double draw.
+								if (!gpuCursorSet)
+#endif
+								{
+									if (unit && (unit->getVisible() || _save->getDebugMode()))
+										frameNumber = halfAnimFrameRest; // yellow box
+									else
+										frameNumber = 0; // red box
+									tmpSurface = _game->getMod()->getSurfaceSet("CURSOR.PCK")->getFrame(frameNumber);
+									Surface::blitRaw(surface, tmpSurface, screenPosition.x, screenPosition.y, 0);
+								}
 							}
 							else
 							{
@@ -1411,15 +1422,15 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 									frameNumber = 7 + halfAnimFrame; // yellow animated crosshairs
 								else
 									frameNumber = 6; // red static crosshairs
-							}
 #ifdef __EMSCRIPTEN__
-							if (gpuCursorSet)
-								_cursorOverlayInstances.push_back({screenPosition.x, screenPosition.y, gpuCursorSet, frameNumber});
-							else
+								if (gpuCursorSet)
+									_cursorOverlayInstances.push_back({screenPosition.x, screenPosition.y, gpuCursorSet, frameNumber, CS_RASTER});
+								else
 #endif
-							{
-								tmpSurface = _game->getMod()->getSurfaceSet("CURSOR.PCK")->getFrame(frameNumber);
-								Surface::blitRaw(surface, tmpSurface, screenPosition.x, screenPosition.y, 0);
+								{
+									tmpSurface = _game->getMod()->getSurfaceSet("CURSOR.PCK")->getFrame(frameNumber);
+									Surface::blitRaw(surface, tmpSurface, screenPosition.x, screenPosition.y, 0);
+								}
 							}
 						}
 						else if (_camera->getViewLevel() > itZ)
@@ -1837,10 +1848,24 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 						{
 							if (_cursorType != CT_AIM)
 							{
-								if (unit && (unit->getVisible() || _save->getDebugMode()))
-									frameNumber = 3 + halfAnimFrameRest; // yellow box
+#ifdef __EMSCRIPTEN__
+								// Phase 15: box cursor uses SDF — emit style tag, no raster frame.
+								if (gpuCursorSet)
+								{
+									const CursorStyle boxStyle = (unit && (unit->getVisible() || _save->getDebugMode()))
+									    ? CS_BOX_YELLOW_PULSE : CS_BOX_RED;
+									_cursorOverlayInstances.push_back({screenPosition.x, screenPosition.y, nullptr, 0, boxStyle});
+								}
 								else
-									frameNumber = 3; // red box
+#endif
+								{
+									if (unit && (unit->getVisible() || _save->getDebugMode()))
+										frameNumber = 3 + halfAnimFrameRest; // yellow box
+									else
+										frameNumber = 3; // red box
+									tmpSurface = _game->getMod()->getSurfaceSet("CURSOR.PCK")->getFrame(frameNumber);
+									Surface::blitRaw(surface, tmpSurface, screenPosition.x, screenPosition.y, 0);
+								}
 							}
 							else
 							{
@@ -1848,15 +1873,15 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 									frameNumber = 7 + halfAnimFrame; // yellow animated crosshairs
 								else
 									frameNumber = 6; // red static crosshairs
-							}
 #ifdef __EMSCRIPTEN__
-							if (gpuCursorSet)
-								_cursorOverlayInstances.push_back({screenPosition.x, screenPosition.y, gpuCursorSet, frameNumber});
-							else
+								if (gpuCursorSet)
+									_cursorOverlayInstances.push_back({screenPosition.x, screenPosition.y, gpuCursorSet, frameNumber, CS_RASTER});
+								else
 #endif
-							{
-								tmpSurface = _game->getMod()->getSurfaceSet("CURSOR.PCK")->getFrame(frameNumber);
-								Surface::blitRaw(surface, tmpSurface, screenPosition.x, screenPosition.y, 0);
+								{
+									tmpSurface = _game->getMod()->getSurfaceSet("CURSOR.PCK")->getFrame(frameNumber);
+									Surface::blitRaw(surface, tmpSurface, screenPosition.x, screenPosition.y, 0);
+								}
 							}
 
 							// UFO extender accuracy: display adjusted accuracy value on crosshair in real-time.
@@ -2088,7 +2113,7 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 								const int cursorFrame = frame[_cursorType] + (_animFrame / 4) % 2;
 #ifdef __EMSCRIPTEN__
 								if (gpuCursorSet)
-									_cursorOverlayInstances.push_back({screenPosition.x, screenPosition.y, gpuCursorSet, cursorFrame});
+									_cursorOverlayInstances.push_back({screenPosition.x, screenPosition.y, gpuCursorSet, cursorFrame, CS_RASTER});
 								else
 #endif
 								{
@@ -2112,7 +2137,7 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 							{
 #ifdef __EMSCRIPTEN__
 								if (gpuCursorSet)
-									_cursorOverlayInstances.push_back({screenPosition.x, screenPosition.y, gpuCursorSet, 7});
+									_cursorOverlayInstances.push_back({screenPosition.x, screenPosition.y, gpuCursorSet, 7, CS_RASTER});
 								else
 #endif
 								{
@@ -3002,6 +3027,70 @@ void Map::initSpriteGL()
 }
 
 /**
+ * Phase 15: Create VAO/VBO/instanceVBO for the SDF cursor box shader.
+ * Called lazily on first draw; safe to call again after context loss
+ * (reset callback has already zeroed the handles and cleared _cursorGLInit).
+ */
+void Map::initCursorGL()
+{
+	if (_cursorGLInit) return;
+	_cursorGLInit = true;
+
+	if (!_cursorShader)
+	{
+		_cursorShader = new Shader();
+		if (!_cursorShader->loadFromEmbedded("cursor"))
+		{
+			Log(LOG_ERROR) << "Map::initCursorGL: cursor shader compile failed";
+			delete _cursorShader; _cursorShader = nullptr;
+			return;
+		}
+	}
+
+	// Static unit quad: 4 corners in [-1..1] for GL_TRIANGLE_STRIP.
+	static const float kQuad[4 * 2] = {
+		-1.f, -1.f,
+		 1.f, -1.f,
+		-1.f,  1.f,
+		 1.f,  1.f,
+	};
+
+	glGenVertexArrays(1, &_cursorVAO);
+	glGenBuffers(1, &_cursorVBO);
+	glGenBuffers(1, &_cursorInstanceVBO);
+
+	glBindVertexArray(_cursorVAO);
+
+	// Location 0: a_unitPos (static unit quad, no divisor)
+	glBindBuffer(GL_ARRAY_BUFFER, _cursorVBO);
+	glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)sizeof(kQuad), kQuad, GL_STATIC_DRAW);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * (GLsizei)sizeof(float), (void*)0);
+	glVertexAttribDivisor(0, 0); // one corner per vertex
+
+	// Locations 1–3: per-instance attrs (xywh, color, params), stride = 12 floats
+	glBindBuffer(GL_ARRAY_BUFFER, _cursorInstanceVBO);
+	glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_STREAM_DRAW); // sized at draw time
+	const GLsizei kStride = 12 * (GLsizei)sizeof(float);
+	// a_xywh
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, kStride, (void*)(0 * sizeof(float)));
+	glVertexAttribDivisor(1, 1);
+	// a_color
+	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, kStride, (void*)(4 * sizeof(float)));
+	glVertexAttribDivisor(2, 1);
+	// a_params
+	glEnableVertexAttribArray(3);
+	glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, kStride, (void*)(8 * sizeof(float)));
+	glVertexAttribDivisor(3, 1);
+
+	glBindVertexArray(0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	Log(LOG_DEBUG) << "Map::initCursorGL: SDF cursor pipeline ready";
+}
+
+/**
  * Blocks 11.8–11.9: Convert a palettized Surface frame from the given SurfaceSet
  * to a linear-RGBA GpuTexture and cache it keyed by (set, frameIdx).
  * Returns nullptr if the upload fails or the frame has no palette.
@@ -3052,16 +3141,16 @@ GpuTexture* Map::getOrUploadSpriteFrame(SurfaceSet* set, int frameIdx)
 }
 
 /**
- * Block 11.10: GPU post-flush pass that renders tile-space cursor-box sprites
- * (CURSOR.PCK) on top of the GPU tile layer.
- * Instances collected during drawTerrainOverlayCPU() into _cursorOverlayInstances.
+ * Block 11.10 / Phase 15: GPU post-flush pass that renders cursor-box overlays.
+ *
+ * Instances are collected during drawTerrainOverlayCPU() into
+ * _cursorOverlayInstances with a CursorStyle tag:
+ *   CS_BOX_RED / CS_BOX_YELLOW_PULSE → Phase 15 SDF instanced pass.
+ *   CS_RASTER                        → existing sprite-shader raster pass.
  */
 void Map::drawCursorOverlayGLPass()
 {
 	if (_cursorOverlayInstances.empty() || SDL_GetTicks() - _lastDrawnTicks > 250) return;
-	if (!_spriteGLInit) initSpriteGL();
-	if (!_spriteGLInit) return;
-	if (!_spriteShader || !_spriteShader->isValid()) return;
 
 	Screen* screen = _game->getScreen();
 	const float xScale = static_cast<float>(screen->getXScale());
@@ -3071,49 +3160,124 @@ void Map::drawCursorOverlayGLPass()
 	const int   dW     = Options::displayWidth;
 	const int   dH     = Options::displayHeight;
 
-	auto drawQuad = [&](GpuTexture* tex, int gx, int gy, int fw, int fh)
-	{
-		const float dispX = static_cast<float>(gx) * xScale + static_cast<float>(lbb);
-		const float dispY = static_cast<float>(gy) * yScale + static_cast<float>(tbb);
-		const float dispW = static_cast<float>(fw) * xScale;
-		const float dispH = static_cast<float>(fh) * yScale;
-
-		const float ndcX0 =  2.0f * dispX / static_cast<float>(dW) - 1.0f;
-		const float ndcY0 = -(2.0f * dispY / static_cast<float>(dH) - 1.0f);
-		const float ndcX1 =  2.0f * (dispX + dispW) / static_cast<float>(dW) - 1.0f;
-		const float ndcY1 = -(2.0f * (dispY + dispH) / static_cast<float>(dH) - 1.0f);
-
-		const float verts[6 * 4] = {
-			ndcX0, ndcY0,  0.0f, 0.0f,
-			ndcX1, ndcY0,  1.0f, 0.0f,
-			ndcX0, ndcY1,  0.0f, 1.0f,
-			ndcX0, ndcY1,  0.0f, 1.0f,
-			ndcX1, ndcY0,  1.0f, 0.0f,
-			ndcX1, ndcY1,  1.0f, 1.0f,
-		};
-		glBindBuffer(GL_ARRAY_BUFFER, _spriteVBO);
-		glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)sizeof(verts), verts);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-		tex->bind(0);
-		glBindVertexArray(_spriteVAO);
-		glDrawArrays(GL_TRIANGLES, 0, 6);
-		glBindVertexArray(0);
-	};
-
 	GLint prevProgram = 0;
 	glGetIntegerv(GL_CURRENT_PROGRAM, &prevProgram);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	_spriteShader->use();
-	_spriteShader->setUniform1i("u_tex", 0);
-	_spriteShader->setUniform1f("u_darken", 0.0f);
 
-	for (const auto& ci : _cursorOverlayInstances)
+	// ── 1. SDF box pass (CS_BOX_RED / CS_BOX_YELLOW_PULSE) ─────────────────
+	if (!_cursorGLInit) initCursorGL();
+	if (_cursorGLInit && _cursorShader && _cursorShader->isValid())
 	{
-		GpuTexture* tex = getOrUploadSpriteFrame(ci.set, ci.frameIdx);
-		if (!tex) continue;
-		drawQuad(tex, ci.screenX, ci.screenY, tex->width(), tex->height());
+		// Smooth pulse: one full sine cycle per tile animation period (800 ms).
+		const float pulse = (sinf(2.0f * static_cast<float>(M_PI) * _animFrameGPU) + 1.0f) * 0.5f;
+
+		// Per-instance buffer: a_xywh(4) + a_color(4) + a_params(4) = 12 floats.
+		std::vector<float> buf;
+		buf.reserve(_cursorOverlayInstances.size() * 12u);
+
+		const float tileW = static_cast<float>(_spriteWidth)  * xScale;
+		const float tileH = static_cast<float>(_spriteHeight) * yScale;
+
+		for (const auto& ci : _cursorOverlayInstances)
+		{
+			if (ci.style != CS_BOX_RED && ci.style != CS_BOX_YELLOW_PULSE) continue;
+
+			const float dispX = static_cast<float>(ci.screenX) * xScale + static_cast<float>(lbb);
+			const float dispY = static_cast<float>(ci.screenY) * yScale + static_cast<float>(tbb);
+
+			buf.push_back(dispX); buf.push_back(dispY);
+			buf.push_back(tileW); buf.push_back(tileH);
+
+			if (ci.style == CS_BOX_RED)
+			{
+				// color: red
+				buf.push_back(1.0f); buf.push_back(0.15f); buf.push_back(0.15f); buf.push_back(1.0f);
+				// params: thickness, radius, glowWidth, phase (static)
+				buf.push_back(0.06f); buf.push_back(0.10f); buf.push_back(0.20f); buf.push_back(1.0f);
+			}
+			else // CS_BOX_YELLOW_PULSE
+			{
+				// color: yellow
+				buf.push_back(1.0f); buf.push_back(0.85f); buf.push_back(0.10f); buf.push_back(1.0f);
+				// params: thickness, radius, glowWidth, phase (animated)
+				buf.push_back(0.06f); buf.push_back(0.10f); buf.push_back(0.30f); buf.push_back(pulse);
+			}
+		}
+
+		if (!buf.empty())
+		{
+			const GLsizei count = static_cast<GLsizei>(buf.size() / 12u);
+			_cursorShader->use();
+			_cursorShader->setUniform2f("u_screenSize",
+				static_cast<float>(dW), static_cast<float>(dH));
+
+			glBindBuffer(GL_ARRAY_BUFFER, _cursorInstanceVBO);
+			glBufferData(GL_ARRAY_BUFFER,
+				static_cast<GLsizeiptr>(buf.size() * sizeof(float)),
+				buf.data(), GL_STREAM_DRAW);
+			glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+			glBindVertexArray(_cursorVAO);
+			glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, count);
+			glBindVertexArray(0);
+		}
+	}
+
+	// ── 2. Raster glyph pass (CS_RASTER instances) ─────────────────────────
+	{
+		bool anyRaster = false;
+		for (const auto& ci : _cursorOverlayInstances)
+			if (ci.style == CS_RASTER) { anyRaster = true; break; }
+
+		if (anyRaster)
+		{
+			if (!_spriteGLInit) initSpriteGL();
+			if (_spriteGLInit && _spriteShader && _spriteShader->isValid())
+			{
+				auto drawQuad = [&](GpuTexture* tex, int gx, int gy, int fw, int fh)
+				{
+					const float dispX = static_cast<float>(gx) * xScale + static_cast<float>(lbb);
+					const float dispY = static_cast<float>(gy) * yScale + static_cast<float>(tbb);
+					const float dispW = static_cast<float>(fw) * xScale;
+					const float dispH = static_cast<float>(fh) * yScale;
+
+					const float ndcX0 =  2.0f * dispX / static_cast<float>(dW) - 1.0f;
+					const float ndcY0 = -(2.0f * dispY / static_cast<float>(dH) - 1.0f);
+					const float ndcX1 =  2.0f * (dispX + dispW) / static_cast<float>(dW) - 1.0f;
+					const float ndcY1 = -(2.0f * (dispY + dispH) / static_cast<float>(dH) - 1.0f);
+
+					const float verts[6 * 4] = {
+						ndcX0, ndcY0,  0.0f, 0.0f,
+						ndcX1, ndcY0,  1.0f, 0.0f,
+						ndcX0, ndcY1,  0.0f, 1.0f,
+						ndcX0, ndcY1,  0.0f, 1.0f,
+						ndcX1, ndcY0,  1.0f, 0.0f,
+						ndcX1, ndcY1,  1.0f, 1.0f,
+					};
+					glBindBuffer(GL_ARRAY_BUFFER, _spriteVBO);
+					glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)sizeof(verts), verts);
+					glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+					tex->bind(0);
+					glBindVertexArray(_spriteVAO);
+					glDrawArrays(GL_TRIANGLES, 0, 6);
+					glBindVertexArray(0);
+				};
+
+				_spriteShader->use();
+				_spriteShader->setUniform1i("u_tex", 0);
+				_spriteShader->setUniform1f("u_darken", 0.0f);
+
+				for (const auto& ci : _cursorOverlayInstances)
+				{
+					if (ci.style != CS_RASTER) continue;
+					GpuTexture* tex = getOrUploadSpriteFrame(ci.set, ci.frameIdx);
+					if (!tex) continue;
+					drawQuad(tex, ci.screenX, ci.screenY, tex->width(), tex->height());
+				}
+			}
+		}
 	}
 
 	glDisable(GL_BLEND);
