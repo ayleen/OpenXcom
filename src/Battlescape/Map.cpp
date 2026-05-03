@@ -240,8 +240,7 @@ Map::Map(Game *game, int width, int height, int x, int y, int visibleMapHeight) 
 	_game(game), _isTFTD(false), _arrow(0), _anyIndicator(false), _isAltPressed(false), _isCtrlPressed(false),
 	_selectorX(0), _selectorY(0), _mouseX(0), _mouseY(0), _cursorType(CT_NORMAL), _cursorSize(1), _animFrame(0),
 	_projectile(0), _followProjectile(true), _projectileInFOV(false), _explosionInFOV(false), _launch(false), _visibleMapHeight(visibleMapHeight),
-	_unitDying(false), _smoothingEngaged(false), _flashScreen(false), _bgColor(15), _projectileSet(0), _showObstacles(false), _showInfoOnCursor(false),
-	_fontHdNumbers(nullptr)
+	_unitDying(false), _smoothingEngaged(false), _flashScreen(false), _bgColor(15), _projectileSet(0), _fontHdNumbers(nullptr), _showObstacles(false), _showInfoOnCursor(false)
 {
 	// TODO: extract to a better place later
 	for (const auto& pair : Options::mods)
