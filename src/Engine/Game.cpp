@@ -598,6 +598,19 @@ void Game::setState(State *state)
  */
 void Game::pushState(State *state)
 {
+	// Any new state defaults to a fully revealed cursor so menus opened mid-Battlescape
+	// (PauseState, UnitInfoState, Inventory, etc.) are reachable even when:
+	//   - _visible was cleared by AI turn / projectile animation in BattlescapeGame, or
+	//   - _hidden was set by Map::draw() while a player unit was selected for movement
+	//     (the "yellow floor ring" mode hides the arrow until Map::draw() runs again,
+	//     but Map::draw() stops running once the menu sits on top — so the flag stays
+	//     stuck and the menu inherits a hidden arrow).
+	// States that want a hidden cursor (Slideshow/Video/Start) override this in init().
+	if (_cursor)
+	{
+		_cursor->setVisible(true);
+		_cursor->setHidden(false);
+	}
 	_states.push_back(state);
 	_init = false;
 }
