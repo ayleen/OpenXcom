@@ -324,8 +324,9 @@ Map::Map(Game *game, int width, int height, int x, int y, int visibleMapHeight) 
 	_txtCursorAP->initText(_game->getMod()->getFont("FONT_BIG"), _game->getMod()->getFont("FONT_SMALL"), _game->getLanguage());
 	_txtCursorAP->setAlign(ALIGN_CENTER);
 
-	// Phase 16: Load TTF font for HD cursor numerals (registered in calypso-hd-pack.rul).
-	_fontHdNumbers = _game->getMod()->getTTFFont("FONT_HD_NUMBERS", false);
+	// Phase 16: HD cursor-numeral font is resolved lazily via getHdNumberFont()
+	// (see member-initializer at top of ctor).  Capturing it here would race
+	// with mod registration on first save-load.
 
 	_hoveredTU = -1;
 	_cacheActiveWeaponUfopediaArticleUnlocked = -1;
@@ -1942,7 +1943,7 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 
 											bool tileHasUnit = unit && (unit->getVisible() || _save->getDebugMode());
 											bool showFloorRing = gpuCursorSet && !tileHasUnit && !selUnit->isOut();
-											if (_fontHdNumbers)
+											if (getHdNumberFont())
 											{
 												if (showFloorRing)
 												{
@@ -2426,7 +2427,7 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 				Uint32 argb = (0xFF000000u | ((Uint32)pal[colorIdx].r << 16) | ((Uint32)pal[colorIdx].g << 8) | (Uint32)pal[colorIdx].b);
 
 				// Phase 16: use HD font for unit's current AP.
-				if (_fontHdNumbers)
+				if (getHdNumberFont())
 				{
 					this->drawHdNumber(surface, arrowX + (_arrow->getWidth() / 2), arrowY + 6, selectedUnit->getTimeUnits(), argb);
 				}
@@ -2891,6 +2892,21 @@ void Map::emitUnitPass()
 }
 
 /**
+ * Phase 16: Lazy resolver for the HD cursor-numeral font.  Caches the first
+ * non-null lookup into _fontHdNumbers so subsequent calls are a single member
+ * read.  Re-queries Mod::getTTFFont each call until the font appears — this
+ * prevents the first-save-load race where Map is constructed before the mod's
+ * extraTTFFonts: block has been parsed (resulting in a permanent bitmap-font
+ * fallback for that Map instance).
+ */
+TTFFont* Map::getHdNumberFont()
+{
+	if (_fontHdNumbers) return _fontHdNumbers;
+	_fontHdNumbers = _game->getMod()->getTTFFont("FONT_HD_NUMBERS", false);
+	return _fontHdNumbers;
+}
+
+/**
  * Phase 16: Draws a numeric value centred at (x, y) via the TTF pipeline.
  * Two blits: black shadow at +1 px offset, then the coloured text on top.
  * Both calls are cache-hits after the first frame — steady-state cost is two
@@ -2898,7 +2914,8 @@ void Map::emitUnitPass()
  */
 void Map::drawHdNumber(Surface *dest, int x, int y, int value, Uint32 colorArgb)
 {
-	if (!_fontHdNumbers) return;
+	TTFFont* font = getHdNumberFont();
+	if (!font) return;
 	std::string s = std::to_string(value);
 
 	SDL_Color fg     = { (Uint8)((colorArgb >> 16) & 0xFF),
@@ -2907,8 +2924,8 @@ void Map::drawHdNumber(Surface *dest, int x, int y, int value, Uint32 colorArgb)
 	                     (Uint8)((colorArgb >> 24) & 0xFF) };
 	SDL_Color shadow = { 0, 0, 0, 220 };
 
-	SDL_Surface* shadowSurf = _fontHdNumbers->renderText(s, shadow);
-	SDL_Surface* textSurf   = _fontHdNumbers->renderText(s, fg);
+	SDL_Surface* shadowSurf = font->renderText(s, shadow);
+	SDL_Surface* textSurf   = font->renderText(s, fg);
 
 	if (shadowSurf)
 	{

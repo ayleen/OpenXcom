@@ -121,9 +121,16 @@ private:
 	Text *_txtCursorAP;  // remaining TU after walking to cursor tile
 	int _hoveredTU;      // remaining TU if selected unit walks to hovered tile (-1 = unknown)
 	SurfaceSet *_projectileSet;
-	TTFFont *_fontHdNumbers; // Phase 16: TTF font for HD cursor TU/AP numerals
+	TTFFont *_fontHdNumbers; // Phase 16: TTF font for HD cursor TU/AP numerals (lazy-cached, see getHdNumberFont)
 	/// Timestamp (SDL_GetTicks) of the last blit() call — used by GPU overlay guards.
 	Uint32 _lastDrawnTicks = 0u;
+
+	/// Phase 16: returns the HD cursor-numeral font, lazily caching it on first
+	/// successful lookup.  Resilient to mid-session timing where the mod's TTF
+	/// table is not yet populated when Map is constructed (first save-load
+	/// after a hard page reset).  Returns nullptr only if the mod is genuinely
+	/// absent — callers fall back to the bitmap path in that case.
+	TTFFont *getHdNumberFont();
 
 	void drawHdNumber(Surface *dest, int x, int y, int value, Uint32 colorArgb);
 	void drawUnit(UnitSprite &unitSprite, Tile *unitTile, Tile *currTile, Position tileScreenPosition, bool topLayer, BattleUnit* movingUnit = nullptr);
