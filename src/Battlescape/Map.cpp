@@ -622,7 +622,12 @@ void Map::draw()
 		// Clear stale instances so tiles don't overdraw the hidden-movement screen.
 		if (_game->getMod()->hasHDPack() && GpuInit::ready())
 		{
-			for (auto& grp : _tileAtlasGroups) { grp.instances.clear(); grp.zSlices.clear(); }
+			for (auto& grp : _tileAtlasGroups)
+			{
+				grp.instances.clear();
+				grp.zSlices.clear();
+				grp.overlayInstances.clear();
+			}
 			_cursorOverlayInstances.clear();
 			_smokeInstances.clear();
 		}
@@ -683,10 +688,13 @@ void Map::setPalette(const SDL_Color *colors, int firstcolor, int ncolors)
 			if (!atlas) continue;
 			auto* spec = mod->getTileAtlasSpec(mds->getName());
 			if (!spec) continue;
-			_tileAtlasGroups[i].atlas   = atlas;
-			_tileAtlasGroups[i].tileUVW = (float)spec->tileWidth  / (float)spec->width;
-			_tileAtlasGroups[i].tileUVH = (float)spec->tileHeight / (float)spec->height;
-			_tileAtlasGroups[i].isRgba  = (spec->format == Mod::TileAtlasSpec::Format::Rgba);
+			_tileAtlasGroups[i].atlas        = atlas;
+			_tileAtlasGroups[i].tileUVW      = (float)spec->tileWidth  / (float)spec->width;
+			_tileAtlasGroups[i].tileUVH      = (float)spec->tileHeight / (float)spec->height;
+			_tileAtlasGroups[i].isRgba       = !spec->hybrid &&
+			                                   (spec->format == Mod::TileAtlasSpec::Format::Rgba);
+			// Phase 17: hybrid overlay atlas pointer (nullptr for non-hybrid specs).
+			_tileAtlasGroups[i].overlayAtlas = spec->hybrid ? spec->overlayAtlas : nullptr;
 		}
 		// Force setPalette on each sheet: unit PCKs aren't in ensureBattlescapeAssetPalettes'
 		// list, so without this they stay 8bpp scratch with no palette mirror and the atlas
@@ -2622,7 +2630,12 @@ void Map::drawTerrainGPU(Surface* surface)
  */
 void Map::emitTilePass()
 {
-	for (auto& grp : _tileAtlasGroups) { grp.instances.clear(); grp.zSlices.clear(); }
+	for (auto& grp : _tileAtlasGroups)
+	{
+		grp.instances.clear();
+		grp.zSlices.clear();
+		grp.overlayInstances.clear();
+	}
 	_smokeInstances.clear();
 	_cursorOverlayInstances.clear();
 	if (_tileAtlasGroups.empty()) return;
@@ -2818,6 +2831,16 @@ void Map::emitTilePass()
 				inst.alphaMask     = 1.0f;
 				inst.iso           = iso;
 				grp.instances.push_back(inst);
+
+				// Phase 17: hybrid overlay — emit a second instance with a micro iso
+				// bump so the overlay draws strictly on top of the baseline in the
+				// depth buffer (depthMask=OFF in drawTileGLPass overlay pass).
+				if (grp.overlayAtlas)
+				{
+					TileInstance ov = inst;
+					ov.iso = inst.iso + (0.5f / 2000000.0f);
+					grp.overlayInstances.push_back(ov);
+				}
 
 				if (dumpEmit)
 				{
@@ -3138,7 +3161,7 @@ void Map::drawTileGLPass()
 	if (ticks - _lastDrawnTicks > 250)
 	{
 		// Map not blitted recently; clear all GPU instances to avoid ghosting in menus.
-		for (auto& grp : _tileAtlasGroups) { grp.instances.clear(); }
+		for (auto& grp : _tileAtlasGroups) { grp.instances.clear(); grp.overlayInstances.clear(); }
 		for (auto& grp : _unitAtlasGroups) { grp.instances.clear(); grp.zLevels.clear(); grp.yLevels.clear(); }
 		_cursorOverlayInstances.clear();
 		_smokeInstances.clear();
@@ -3222,6 +3245,18 @@ void Map::drawTileGLPass()
 		const float uvH = (float)g.spec->tileHeight / (float)g.spec->atlasH;
 		drawAtlas(g.spec->atlas, uvW, uvH,
 		          g.instances.data(), g.instances.size(), false);
+	}
+
+	// Phase 17: hybrid RGBA overlay pass — drawn after tiles and units with
+	// depth-write disabled so the depth buffer (already written by baseline and
+	// units) determines occlusion.  Alpha-discard in tile_atlas_rgba.frag
+	// ensures vanilla cells (transparent in overlay) show through to baseline.
+	glDepthMask(GL_FALSE);
+	for (auto& grp : _tileAtlasGroups)
+	{
+		if (!grp.overlayAtlas || grp.overlayInstances.empty()) continue;
+		drawAtlas(grp.overlayAtlas, grp.tileUVW, grp.tileUVH,
+		          grp.overlayInstances.data(), grp.overlayInstances.size(), /*isRgba=*/true);
 	}
 
 	glBindVertexArray(0);

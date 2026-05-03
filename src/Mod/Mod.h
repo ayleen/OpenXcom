@@ -163,7 +163,12 @@ public:
 	{
 		enum class Format { Palette, Rgba };
 		std::string       dataset;    // mapDataSet name, e.g. "SAND"
-		std::string       file;       // relative path to PNG
+		std::string       file;       // relative path to PNG (single-file mode)
+		// Phase 17: hybrid dual-atlas mode
+		bool              hybrid       = false;
+		std::string       baselineFile; // R8 PNG (palette indices); used when hybrid=true
+		std::string       overlayFile;  // RGBA PNG (sparse HD overrides); used when hybrid=true
+		GpuTexture*       overlayAtlas = nullptr; // RGBA overlay texture; nullptr for non-hybrid
 		int               width      = 0;
 		int               height     = 0;
 		int               tileWidth  = 64;

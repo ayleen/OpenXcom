@@ -988,7 +988,145 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 	// error) we log a warning, erase the stale spec, and fall through to the
 	// vanilla synthesiser below — so terrain always renders.
 	auto specIt = _tileAtlasSpecs.find(name);
-	if (specIt != _tileAtlasSpecs.end() && !specIt->second.file.empty())
+
+	// Phase 17: hybrid dual-atlas path (R8 baseline + RGBA sparse overlay).
+	if (specIt != _tileAtlasSpecs.end() && specIt->second.hybrid)
+	{
+		TileAtlasSpec& spec = specIt->second;
+		GpuTexture* baselineTex = nullptr;
+		GpuTexture* overlayTex  = nullptr;
+
+		// Load baseline R8 — palette indices stored directly as greyscale values.
+		{
+			const FileMap::FileRecord* rec = spec.baselineFile.empty()
+			                                 ? nullptr : FileMap::at(spec.baselineFile);
+			if (!rec)
+			{
+				Log(LOG_WARNING) << "tileAtlas[" << name << "] hybrid: baseline not found: "
+				                 << spec.baselineFile;
+			}
+			else
+			{
+				SDL_RWops* rw  = rec->getRWops();
+				SDL_Surface* raw = IMG_Load_RW(rw, SDL_TRUE);
+				if (!raw)
+				{
+					Log(LOG_WARNING) << "tileAtlas[" << name << "] hybrid: IMG_Load_RW baseline failed ("
+					                 << IMG_GetError() << ")";
+				}
+				else
+				{
+					SDL_Surface* rgba = SDL_ConvertSurfaceFormat(raw, SDL_PIXELFORMAT_ABGR8888, 0);
+					SDL_FreeSurface(raw);
+					if (rgba)
+					{
+						const int w = rgba->w, h = rgba->h;
+						std::vector<uint8_t> r8(static_cast<size_t>(w) * static_cast<size_t>(h), 0u);
+						if (SDL_MUSTLOCK(rgba)) SDL_LockSurface(rgba);
+						const uint8_t* src = static_cast<const uint8_t*>(rgba->pixels);
+						// Greyscale L-mode PNG: R channel holds the palette index directly.
+						for (int y = 0; y < h; ++y)
+						{
+							const uint8_t* row = src + y * rgba->pitch;
+							for (int x = 0; x < w; ++x)
+								r8[y * w + x] = row[x * 4 + 0];
+						}
+						if (SDL_MUSTLOCK(rgba)) SDL_UnlockSurface(rgba);
+						SDL_FreeSurface(rgba);
+						GpuTexture* tex = new GpuTexture(/*srgb=*/false);
+						if (tex->uploadR8(r8.data(), w, h))
+						{
+							baselineTex  = tex;
+							spec.width   = w;
+							spec.height  = h;
+							spec.format  = TileAtlasSpec::Format::Palette;
+							Log(LOG_INFO) << "tileAtlas[" << name << "] hybrid: baseline R8 "
+							              << w << "x" << h;
+						}
+						else
+						{
+							delete tex;
+							Log(LOG_WARNING) << "tileAtlas[" << name << "] hybrid: baseline GPU upload failed";
+						}
+					}
+				}
+			}
+		}
+
+		// Load overlay RGBA — sparse; (0,0,0,0) outside HD cells.
+		if (baselineTex)
+		{
+			const FileMap::FileRecord* rec = spec.overlayFile.empty()
+			                                 ? nullptr : FileMap::at(spec.overlayFile);
+			if (!rec)
+			{
+				Log(LOG_WARNING) << "tileAtlas[" << name << "] hybrid: overlay not found: "
+				                 << spec.overlayFile;
+				delete baselineTex; baselineTex = nullptr;
+			}
+			else
+			{
+				SDL_RWops* rw  = rec->getRWops();
+				SDL_Surface* raw = IMG_Load_RW(rw, SDL_TRUE);
+				if (!raw)
+				{
+					Log(LOG_WARNING) << "tileAtlas[" << name << "] hybrid: IMG_Load_RW overlay failed ("
+					                 << IMG_GetError() << ")";
+					delete baselineTex; baselineTex = nullptr;
+				}
+				else
+				{
+					SDL_Surface* rgba = SDL_ConvertSurfaceFormat(raw, SDL_PIXELFORMAT_ABGR8888, 0);
+					SDL_FreeSurface(raw);
+					if (rgba)
+					{
+						const int w = rgba->w, h = rgba->h;
+						if (SDL_MUSTLOCK(rgba)) SDL_LockSurface(rgba);
+						GpuTexture* tex = new GpuTexture(/*srgb=*/false,
+						                                 GpuTexture::Wrap::ClampToEdge,
+						                                 GpuTexture::Filter::Nearest);
+						bool ok = tex->uploadRGBA(
+						              static_cast<const uint8_t*>(rgba->pixels), w, h);
+						if (SDL_MUSTLOCK(rgba)) SDL_UnlockSurface(rgba);
+						SDL_FreeSurface(rgba);
+						if (ok)
+						{
+							overlayTex = tex;
+							Log(LOG_INFO) << "tileAtlas[" << name << "] hybrid: overlay RGBA "
+							              << w << "x" << h;
+						}
+						else
+						{
+							delete tex;
+							Log(LOG_WARNING) << "tileAtlas[" << name << "] hybrid: overlay GPU upload failed";
+							delete baselineTex; baselineTex = nullptr;
+						}
+					}
+				}
+			}
+		}
+
+		if (baselineTex && overlayTex)
+		{
+			_tileAtlases[name] = baselineTex;
+			spec.overlayAtlas  = overlayTex;
+			if (spec.tileWidth > 0 && spec.tileHeight > 0 && spec.pckToAtlas.empty())
+			{
+				const int totalCells = (spec.width / spec.tileWidth) * (spec.height / spec.tileHeight);
+				for (int n = 0; n < totalCells; ++n)
+					spec.pckToAtlas[n] = n;
+				Log(LOG_INFO) << "tileAtlas[" << name << "] hybrid: auto-built identity "
+				              << "pckToAtlas (" << totalCells << " entries)";
+			}
+			return;
+		}
+
+		if (baselineTex) { delete baselineTex; }
+		if (overlayTex)  { delete overlayTex;  }
+		_tileAtlasSpecs.erase(specIt);
+		// Fall through to vanilla synthesiser.
+	}
+	else if (specIt != _tileAtlasSpecs.end() && !specIt->second.file.empty())
 	{
 		const std::string& filePath = specIt->second.file;
 		const FileMap::FileRecord* rec = FileMap::at(filePath);
@@ -1130,7 +1268,33 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 				}
 			}
 			if (!loaded) _tileAtlasSpecs.erase(specIt);
-			if (loaded)  return;
+			if (loaded)
+			{
+				// YAML HD specs only describe mcdIdx → atlas cell via frameMap,
+				// but Map.cpp tries pckToAtlas[animPCK] first when resolving
+				// animation frames. Without an entry, every animation step
+				// falls back to frameMap[mcdIdx] = primary frame's cell —
+				// freezing the animation. Vanilla SAND MCD#18 (deep-shadow)
+				// animates through sand-ripple PCK frames; missing this
+				// mapping painted MCD#18 tiles as a constant deep-shadow
+				// sprite (visually black) instead of the cycling sand-ripple.
+				//
+				// Auto-build identity pckToAtlas: assume cell N contains the
+				// sprite for PCK frame N. gen-sand-atlas.py / gen-blanks-atlas.py
+				// both lay out vanilla baseline cells at identity offsets, and
+				// HD overrides occupy the same cells for conceptually-equivalent
+				// sprites — so identity remains correct.
+				TileAtlasSpec& s = specIt->second;
+				if (s.tileWidth > 0 && s.tileHeight > 0 && s.pckToAtlas.empty())
+				{
+					const int totalCells = (s.width / s.tileWidth) * (s.height / s.tileHeight);
+					for (int n = 0; n < totalCells; ++n)
+						s.pckToAtlas[n] = n;
+					Log(LOG_INFO) << "tileAtlas[" << name << "]: auto-built identity "
+					              << "pckToAtlas (" << totalCells << " entries)";
+				}
+				return;
+			}
 			// Fall through to vanilla synthesiser.
 		}
 	}
@@ -1165,10 +1329,18 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 void Mod::clearTileAtlases()
 {
 	for (auto& pair : _tileAtlases)
-	{
 		delete pair.second;
-	}
 	_tileAtlases.clear();
+
+	// Phase 17: delete hybrid overlay atlases stored in TileAtlasSpec (not in _tileAtlases).
+	for (auto& pair : _tileAtlasSpecs)
+	{
+		if (pair.second.overlayAtlas)
+		{
+			delete pair.second.overlayAtlas;
+			pair.second.overlayAtlas = nullptr;
+		}
+	}
 }
 
 void Mod::ensureUnitAtlas(SurfaceSet* ss, const std::string& name,
@@ -3873,6 +4045,14 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 				Log(LOG_WARNING) << "tileAtlas[" << dataset << "]: unknown format '"
 				                 << fmtStr << "', defaulting to palette";
 			}
+		}
+
+		// Phase 17: hybrid dual-atlas fields
+		ruleReader["hybrid"].tryReadVal<bool>(spec.hybrid);
+		if (spec.hybrid)
+		{
+			ruleReader["baselineFile"].tryReadVal<std::string>(spec.baselineFile);
+			ruleReader["overlayFile"].tryReadVal<std::string>(spec.overlayFile);
 		}
 
 		auto frameMapNode = ruleReader["frameMap"];

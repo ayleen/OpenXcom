@@ -503,7 +503,11 @@ void main()
         return;
     }
 
-    float t = clamp(v_shade / 15.0, 0.0, 1.0);
+    // Formula uses /16.0 (not /15.0) so shade=15 doesn't collapse to k=0
+    // (full black). CPU palette path returns shade-table column 15 — a
+    // palette-shaded color, not _black. _black is only used for shade>=16,
+    // handled by the early-return branch above. Mirror that contract here.
+    float t = clamp(v_shade / 16.0, 0.0, 1.0);
     float k = pow(1.0 - t, 1.6);
     fragColor = vec4(c.rgb * k, c.a);
 }

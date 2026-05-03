@@ -174,6 +174,10 @@ private:
 				if (s.zLevel == z && s.yLevel == y) return &s;
 			return nullptr;
 		}
+
+		// Phase 17: hybrid overlay (RGBA HD overrides drawn after baseline).
+		GpuTexture*               overlayAtlas = nullptr;
+		std::vector<TileInstance> overlayInstances;
 	};
 
 	std::vector<AtlasGroup>  _tileAtlasGroups;

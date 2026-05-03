@@ -212,6 +212,21 @@ void Screen::flip()
 
 	/* SDL2 renderer path — shared by Emscripten and native non-OpenGL. */
 
+	/* HD pack: HD floor cells leave their 256×320 rectangle's non-diamond
+	 * corners transparent (so CPU-drawn walls/objects above them aren't
+	 * occluded). The CPU surface is also fully transparent there (Map::draw
+	 * fills RGBA(0,0,0,0) in HD mode), so SDL_RenderCopy's BLENDMODE_BLEND
+	 * lets the framebuffer clear color show through those gaps. SDL2's
+	 * default render draw color is opaque black — which painted black
+	 * squares between HD diamonds where vanilla shows palette index 15
+	 * (the bgColor used by Surface::draw). Match vanilla by clearing to
+	 * pal[15]. */
+	const SDL_Color* pal = getPalette();
+	if (pal)
+	{
+		SDL_SetRenderDrawColor(_renderer, pal[15].r, pal[15].g, pal[15].b, 255);
+	}
+
 	/* Phase 13.3: pre-composite GPU passes (HD tile floor) fire before the SDL
 	 * surface composite so CPU-drawn units / walls / HUD land on top of them.
 	 *
