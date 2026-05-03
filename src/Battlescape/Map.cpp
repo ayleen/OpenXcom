@@ -2926,20 +2926,54 @@ void Map::drawHdNumber(Surface *dest, int x, int y, int value, Uint32 colorArgb)
 	SDL_Surface* shadowSurf = font->renderText(s, shadow);
 	SDL_Surface* textSurf   = font->renderText(s, fg);
 
+	SDL_Surface* destSurf = dest->getSurface();
+	if (!destSurf) return;
+
+	// Manual ARGB8888 alpha composite: SDL_BlitSurface with TTF_Blended
+	// surfaces produces correct alpha compositing on a single-pass surface,
+	// but our `dest` is a 32bpp ARGB intermediate — by the time it reaches
+	// Screen::flip the alpha channel is consumed as opacity, so pixels with
+	// src.a=0 (TTF background) overwrite dest.a=255 → final glyph is fully
+	// transparent.  Manual composite writes opaque ARGB into dest.
+	auto compositeARGB = [&](SDL_Surface* src, int dstX, int dstY)
+	{
+		if (!src || src->format->BitsPerPixel != 32 || destSurf->format->BitsPerPixel != 32)
+			return;
+		SDL_LockSurface(src);
+		SDL_LockSurface(destSurf);
+		const int srcW = src->w, srcH = src->h;
+		const int dW = destSurf->w, dH = destSurf->h;
+		for (int j = 0; j < srcH; ++j)
+		{
+			const int dy = dstY + j;
+			if (dy < 0 || dy >= dH) continue;
+			Uint32* srcRow = (Uint32*)((Uint8*)src->pixels + j * src->pitch);
+			Uint32* dstRow = (Uint32*)((Uint8*)destSurf->pixels + dy * destSurf->pitch);
+			for (int i = 0; i < srcW; ++i)
+			{
+				const int dx = dstX + i;
+				if (dx < 0 || dx >= dW) continue;
+				Uint8 sr, sg, sb, sa;
+				SDL_GetRGBA(srcRow[i], src->format, &sr, &sg, &sb, &sa);
+				if (sa == 0) continue;
+				Uint8 dr, dg, db, da;
+				SDL_GetRGBA(dstRow[dx], destSurf->format, &dr, &dg, &db, &da);
+				const int a = sa;
+				const int ia = 255 - a;
+				const Uint8 outR = (Uint8)((sr * a + dr * ia) / 255);
+				const Uint8 outG = (Uint8)((sg * a + dg * ia) / 255);
+				const Uint8 outB = (Uint8)((sb * a + db * ia) / 255);
+				dstRow[dx] = SDL_MapRGBA(destSurf->format, outR, outG, outB, 0xFF);
+			}
+		}
+		SDL_UnlockSurface(destSurf);
+		SDL_UnlockSurface(src);
+	};
+
 	if (shadowSurf)
-	{
-		SDL_Rect dst = { x - shadowSurf->w / 2 + 1,
-		                 y - shadowSurf->h / 2 + 1,
-		                 shadowSurf->w, shadowSurf->h };
-		SDL_BlitSurface(shadowSurf, nullptr, dest->getSurface(), &dst);
-	}
+		compositeARGB(shadowSurf, x - shadowSurf->w / 2 + 1, y - shadowSurf->h / 2 + 1);
 	if (textSurf)
-	{
-		SDL_Rect dst = { x - textSurf->w / 2,
-		                 y - textSurf->h / 2,
-		                 textSurf->w, textSurf->h };
-		SDL_BlitSurface(textSurf, nullptr, dest->getSurface(), &dst);
-	}
+		compositeARGB(textSurf, x - textSurf->w / 2, y - textSurf->h / 2);
 }
 
 /**
