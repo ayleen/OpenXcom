@@ -3028,6 +3028,20 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 	YAML::YamlRootNodeReader r = filerec.getYAML();
 	YAML::YamlNodeReader reader = r.useIndex();
 
+	// Phase 16 DEBUG: for calypso-hd-pack ruleset only, dump every top-level
+	// key so we can tell whether ryml sees "extraTTFFonts:" at all.
+	if (_modCurrent && _modCurrent->name == "calypso-hd-pack")
+	{
+		Log(LOG_INFO) << "Phase 16 DEBUG: top-level keys in "
+		              << _modCurrent->name << " ruleset:";
+		for (const auto& child : reader.children())
+		{
+			std::string_view k = child.key();
+			Log(LOG_INFO) << "  - \"" << std::string(k) << "\""
+			              << " (children=" << child.childrenCount() << ")";
+		}
+	}
+
 	auto loadDocInfoHelper = [&](const char* nodeName)
 	{
 		if (reader.hasValTag(InfoTag))
