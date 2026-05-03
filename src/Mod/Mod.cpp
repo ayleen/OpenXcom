@@ -895,9 +895,13 @@ TTFFont *Mod::getTTFFont(const std::string &id, bool error) const
 {
 	auto it = _ttfFonts.find(id);
 	if (it != _ttfFonts.end())
+	{
 		return it->second;
+	}
 	if (error)
+	{
 		Log(LOG_WARNING) << "TTFFont not found: " << id;
+	}
 	return nullptr;
 }
 
@@ -3861,10 +3865,14 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 			std::string fmtStr;
 			ruleReader["format"].tryReadVal<std::string>(fmtStr);
 			if (fmtStr == "rgba")
+			{
 				spec.format = TileAtlasSpec::Format::Rgba;
+			}
 			else if (!fmtStr.empty() && fmtStr != "palette")
+			{
 				Log(LOG_WARNING) << "tileAtlas[" << dataset << "]: unknown format '"
 				                 << fmtStr << "', defaulting to palette";
+			}
 		}
 
 		auto frameMapNode = ruleReader["frameMap"];
@@ -4334,7 +4342,7 @@ SavedGame *Mod::newSave(GameDifficulty diff) const
 	}
 
 	// Correct soldier IDs
-	for (auto* soldier : *base->getSoldiers())
+	for (size_t i = 0; i < base->getSoldiers()->size(); ++i)
 	{
 		save->getId("STR_SOLDIER");
 	}
