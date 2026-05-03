@@ -41,6 +41,7 @@
 #include <SDL_render.h>
 #include <algorithm>
 #ifdef __EMSCRIPTEN__
+#include <emscripten.h>
 #include <GLES3/gl3.h>
 #endif
 
@@ -158,21 +159,35 @@ void Screen::handle(Action *action)
 void Screen::flip()
 {
 #ifdef __EMSCRIPTEN__
-	/* Browser canvas resize: SDL2/Emscripten does not emit
-	 * SDL_WINDOWEVENT_SIZE_CHANGED reliably, so poll each frame. */
+	/* Browser canvas resize: poll canvas.width each frame (physical pixels).
+	 * SDL_GetWindowSize returns CSS logical pixels in Emscripten, which differ
+	 * from Options::displayWidth (physical) on HiDPI/Retina screens (DPR > 1),
+	 * causing a spurious mismatch and scale corruption on every flip().
+	 * Reading canvas.width directly avoids the DPR mismatch. */
 	if (_window)
 	{
-		int wW = 0, wH = 0;
-		SDL_GetWindowSize(_window, &wW, &wH);
+		int wW = (int)EM_ASM_INT({ return document.getElementById('canvas').width; });
+		int wH = (int)EM_ASM_INT({ return document.getElementById('canvas').height; });
 		if (wW > 0 && wH > 0 &&
 		    (wW != Options::displayWidth || wH != Options::displayHeight))
 		{
-			Options::displayWidth  = wW;
-			Options::displayHeight = wH;
+			Options::displayWidth     = wW;
+			Options::displayHeight    = wH;
+			Options::newDisplayWidth  = wW;
+			Options::newDisplayHeight = wH;
+			/* Detect active rendering context by comparing the current surface
+			 * dimensions against the stored battlescape base (before update). */
+			const bool inBattle = _surface &&
+			                      _surface->w == Options::baseXBattlescape &&
+			                      _surface->h == Options::baseYBattlescape;
+			Screen::updateScale(Options::battlescapeScale,
+			                    Options::baseXBattlescape,
+			                    Options::baseYBattlescape,
+			                    inBattle);
 			Screen::updateScale(Options::geoscapeScale,
 			                    Options::baseXGeoscape,
 			                    Options::baseYGeoscape,
-			                    true);
+			                    !inBattle);
 		}
 	}
 #endif
