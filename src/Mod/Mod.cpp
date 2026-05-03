@@ -3028,20 +3028,6 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 	YAML::YamlRootNodeReader r = filerec.getYAML();
 	YAML::YamlNodeReader reader = r.useIndex();
 
-	// Phase 16 DEBUG: for calypso-hd-pack ruleset only, dump every top-level
-	// key so we can tell whether ryml sees "extraTTFFonts:" at all.
-	if (_modCurrent && _modCurrent->name == "calypso-hd-pack")
-	{
-		Log(LOG_INFO) << "Phase 16 DEBUG: top-level keys in "
-		              << _modCurrent->name << " ruleset:";
-		for (const auto& child : reader.children())
-		{
-			std::string_view k = child.key();
-			Log(LOG_INFO) << "  - \"" << std::string(k) << "\""
-			              << " (children=" << child.childrenCount() << ")";
-		}
-	}
-
 	auto loadDocInfoHelper = [&](const char* nodeName)
 	{
 		if (reader.hasValTag(InfoTag))
@@ -3922,33 +3908,25 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 		_extraSounds.push_back(std::make_pair(type, extraSounds));
 	}
 	// Phase 16: TrueType fonts for HD text rendering.
+	for (const auto& ruleReader : iterateRulesSpecific("extraTTFFonts"))
 	{
-		size_t ttfEntries = 0;
-		for (const auto& ruleReader : iterateRulesSpecific("extraTTFFonts"))
+		std::string id, file;
+		int size = 16;
+		ruleReader["id"].tryReadVal<std::string>(id);
+		ruleReader["file"].tryReadVal<std::string>(file);
+		ruleReader["size"].tryReadVal<int>(size);
+		if (id.empty() || file.empty())
 		{
-			++ttfEntries;
-			std::string id, file;
-			int size = 16;
-			ruleReader["id"].tryReadVal<std::string>(id);
-			ruleReader["file"].tryReadVal<std::string>(file);
-			ruleReader["size"].tryReadVal<int>(size);
-			if (id.empty() || file.empty())
-			{
-				Log(LOG_WARNING) << "extraTTFFonts entry missing id or file — skipped";
-				continue;
-			}
-			if (_ttfFonts.count(id))
-			{
-				delete _ttfFonts[id];
-			}
-			TTFFont* ttf = new TTFFont(file, size);
-			_ttfFonts[id] = ttf;
-			Log(LOG_INFO) << "Loaded TTFFont \"" << id << "\" from \"" << file << "\" size=" << size;
+			Log(LOG_WARNING) << "extraTTFFonts entry missing id or file — skipped";
+			continue;
 		}
-		Log(LOG_INFO) << "Phase 16 DEBUG: extraTTFFonts pass in mod=\""
-		              << (_modCurrent ? _modCurrent->name : std::string("?"))
-		              << "\" entries=" << ttfEntries
-		              << " _ttfFonts.size=" << _ttfFonts.size();
+		if (_ttfFonts.count(id))
+		{
+			delete _ttfFonts[id];
+		}
+		TTFFont* ttf = new TTFFont(file, size);
+		_ttfFonts[id] = ttf;
+		Log(LOG_INFO) << "Loaded TTFFont \"" << id << "\" from \"" << file << "\" size=" << size;
 	}
 	for (const auto& ruleReader : iterateRulesSpecific("extraStrings"))
 	{
