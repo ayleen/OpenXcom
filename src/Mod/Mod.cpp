@@ -1091,9 +1091,24 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 						SDL_FreeSurface(rgba);
 						if (ok)
 						{
-							overlayTex = tex;
-							Log(LOG_INFO) << "tileAtlas[" << name << "] hybrid: overlay RGBA "
-							              << w << "x" << h;
+							// Reject hybrid pair if overlay dimensions don't match baseline —
+							// otherwise UV mapping would silently drift.  Falls through to
+							// vanilla synth.
+							if (w != spec.width || h != spec.height)
+							{
+								Log(LOG_WARNING) << "tileAtlas[" << name << "] hybrid: overlay "
+								                 << w << "x" << h << " != baseline "
+								                 << spec.width << "x" << spec.height
+								                 << " — rejecting hybrid pair";
+								delete tex;
+								delete baselineTex; baselineTex = nullptr;
+							}
+							else
+							{
+								overlayTex = tex;
+								Log(LOG_INFO) << "tileAtlas[" << name << "] hybrid: overlay RGBA "
+								              << w << "x" << h;
+							}
 						}
 						else
 						{
