@@ -1952,7 +1952,7 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 													int cx = screenPosition.x + _spriteWidth / 2;
 													int cy = screenPosition.y + _spriteHeight - _spriteWidth / 4;
 													// Phase 16: use HD font for AP inside the ring.
-													this->drawHdNumber(surface, cx, cy + 2, tuToShow, argb);
+													this->drawHdNumber(surface, cx, cy - 3, tuToShow, argb);
 												}
 												else
 												{
