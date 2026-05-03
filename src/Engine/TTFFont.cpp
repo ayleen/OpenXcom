@@ -37,10 +37,17 @@ size_t TTFFont::KeyHash::operator()(const Key& k) const
 TTFFont::TTFFont(const std::string& vfsPath, int pixelSize)
 	: _font(nullptr)
 {
+	// fileExists() is safe (no throw); getRWops/at() throws on missing file,
+	// propagating up through Mod::loadMod to disable the entire mod.
+	if (!FileMap::fileExists(vfsPath))
+	{
+		Log(LOG_ERROR) << "TTFFont: file not found in VFS: \"" << vfsPath << "\"";
+		return;
+	}
 	SDL_RWops* rw = FileMap::getRWops(vfsPath);
 	if (!rw)
 	{
-		Log(LOG_ERROR) << "TTFFont: file not found in VFS: \"" << vfsPath << "\"";
+		Log(LOG_ERROR) << "TTFFont: getRWops failed for \"" << vfsPath << "\"";
 		return;
 	}
 	_font = TTF_OpenFontRW(rw, /*freesrc=*/1, pixelSize);
