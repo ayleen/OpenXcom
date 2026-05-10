@@ -30,7 +30,11 @@ void main()
     vec2 uv = v_uv + vec2(frame * u_tileUVSize.x, 0.0);
 
     vec4 c = texture(u_atlas, uv);
-    if (c.a < 0.5) discard;  // hard alpha test — no fractional alpha leaks.
+    // Discard only truly-transparent texels (covers the geometry-overdraw
+    // border around each cell and clamp-to-edge samples outside the mask).
+    // The previous 0.5 cutoff also discarded any cell where opacity < 0.5,
+    // making low-opacity tiles invisible.
+    if (c.a < 0.01) discard;
 
     // Undiscovered tiles (v_shade==16 from CPU side) render as opaque black.
     if (v_shade >= 15.5)
@@ -39,7 +43,9 @@ void main()
         return;
     }
 
-    // Overlay color from atlas (currently solid teal). No shade darkening
-    // — uniform teal across the floor with no per-tile variation.
-    fragColor = vec4(c.rgb, 1.0);
+    // Pass texture alpha through. The atlas builder bakes (mask × opacity)
+    // into c.a, so the standard glBlendFunc(SRC_ALPHA, ONE_MINUS_SRC_ALPHA)
+    // realises the authored opacity, and gradient-mask edges anti-alias
+    // naturally.
+    fragColor = vec4(c.rgb, c.a);
 }

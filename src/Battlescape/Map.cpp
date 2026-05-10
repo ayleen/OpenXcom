@@ -2886,25 +2886,47 @@ void Map::emitTilePass()
 				{
 					TileInstance ov = inst;
 					ov.iso = inst.iso + (0.5f / 2000000.0f);
-					// Phase 20.6: apply per-cell anchor + zBias from HDTileSpec.
+					// Phase 20.6: apply per-cell anchor + zBias from HDTileSpec, plus
+					// emit one instance per sub-layer declared on this cell.
 					auto hdIt = spec->hdTilesByCell.find(atlasTileIdx);
 					if (hdIt != spec->hdTilesByCell.end())
 					{
 						const HDTileSpec& ts = spec->hdTiles[hdIt->second];
+						const float scaleX = (spec->tileWidth  > 0)
+						    ? (float)_spriteWidth  / (float)spec->tileWidth  : 1.0f;
+						const float scaleY = (spec->tileHeight > 0)
+						    ? (float)_spriteHeight / (float)spec->tileHeight : 1.0f;
+						const float zStep = (spec->tileHeight > 0)
+						    ? 1.0f / (float)spec->tileHeight : 0.0f;
 						if (ts.anchor[0] || ts.anchor[1])
 						{
-							const float scaleX = (spec->tileWidth  > 0)
-							    ? (float)_spriteWidth  / (float)spec->tileWidth  : 1.0f;
-							const float scaleY = (spec->tileHeight > 0)
-							    ? (float)_spriteHeight / (float)spec->tileHeight : 1.0f;
 							ov.screenX += (float)ts.anchor[0] * scaleX;
 							ov.screenY += (float)ts.anchor[1] * scaleY;
 						}
 						if (ts.zBias)
 						{
-							const float zStep = (spec->tileHeight > 0)
-							    ? 1.0f / (float)spec->tileHeight : 0.0f;
 							ov.iso += (float)ts.zBias * zStep / 2000000.0f;
+						}
+						// Phase 20.5: per-sub-layer instance push. The sub-layer atlas
+						// stores its own pixel content; the instance only specifies
+						// where on screen and at what depth to draw it. Sub-layers
+						// inherit the base overlay position+iso, then offset by their
+						// own anchor+zBias (in tile-native pixels).
+						for (size_t li = 0; li < ts.subLayers.size(); ++li)
+						{
+							if (li >= grp.subLayerInstances.size()) break;
+							TileInstance sl = ov;
+							const HDTileSpec& sub = ts.subLayers[li];
+							if (sub.anchor[0] || sub.anchor[1])
+							{
+								sl.screenX += (float)sub.anchor[0] * scaleX;
+								sl.screenY += (float)sub.anchor[1] * scaleY;
+							}
+							if (sub.zBias)
+							{
+								sl.iso += (float)sub.zBias * zStep / 2000000.0f;
+							}
+							grp.subLayerInstances[li].push_back(sl);
 						}
 					}
 					grp.overlayInstances.push_back(ov);

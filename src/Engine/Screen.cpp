@@ -229,15 +229,15 @@ void Screen::flip()
 		SDL_SetRenderDrawColor(_renderer, pal[15].r, pal[15].g, pal[15].b, 255);
 	}
 #ifdef __EMSCRIPTEN__
-	// Diagnostic: when HD pack is active, override clear color with the
-	// solid teal currently baked into every overlay tile (#468A9A). This
-	// hides the thin "seam" lines between adjacent HD diamonds where the
-	// transparent corners of base-buffer pixels expose the underlying
-	// clear color through SDL_RenderCopy's BLENDMODE_BLEND. With a
-	// matching clear color, the seam pixels carry the same teal as the
-	// overlay tiles around them, becoming invisible.
+	// When a Battlescape pre-composite GPU pass is registered (HD pack active +
+	// in-mission), override the clear color with the solid teal baked into HD
+	// overlay tiles (#468A9A) — this hides the thin "seam" lines between
+	// adjacent HD diamonds where transparent corners of the base buffer expose
+	// the clear color through SDL_RenderCopy's BLENDMODE_BLEND. Geoscape /
+	// menus / loading have no _gpuPassesPre and keep the palette[15] clear
+	// above so non-Battlescape scenes don't get a teal background.
+	if (!_gpuPassesPre.empty())
 	{
-		extern int g_calypsoDumpEmit; (void)g_calypsoDumpEmit;
 		// Hardcoded to match docs/seabed-floor-sprites/tiles-hd-selected/*.png
 		SDL_SetRenderDrawColor(_renderer, 0x46, 0x8A, 0x9A, 255);
 	}
