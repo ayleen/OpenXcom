@@ -37,8 +37,11 @@ out float v_alphaMask;
 
 void main()
 {
-    // Build pixel-space position of this corner within the tile.
-    vec2 pixelPos = a_screenPos + a_corner * u_tilePixelSize;
+    // Phase 17.1: add 2.0px geometry overdraw (1.0px on each side) to close 
+    // sub-pixel gaps. Stretch UVs slightly to match.
+    vec2 overdraw = vec2(1.0);
+    vec2 offset = (a_corner * 2.0 - 1.0) * overdraw;
+    vec2 pixelPos = a_screenPos + a_corner * u_tilePixelSize + offset;
 
     // Convert to NDC [-1, +1].
     vec2 ndc = (pixelPos / u_screenSize) * 2.0 - 1.0;

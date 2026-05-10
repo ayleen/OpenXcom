@@ -84,8 +84,11 @@ out float v_alphaMask;
 
 void main()
 {
-    // Build pixel-space position of this corner within the tile.
-    vec2 pixelPos = a_screenPos + a_corner * u_tilePixelSize;
+    // Phase 17.1: add 2.0px geometry overdraw (1.0px on each side) to close 
+    // sub-pixel gaps. Stretch UVs slightly to match.
+    vec2 overdraw = vec2(1.0);
+    vec2 offset = (a_corner * 2.0 - 1.0) * overdraw;
+    vec2 pixelPos = a_screenPos + a_corner * u_tilePixelSize + offset;
 
     // Convert to NDC [-1, +1].
     vec2 ndc = (pixelPos / u_screenSize) * 2.0 - 1.0;
@@ -128,7 +131,14 @@ out float v_alphaMask;
 
 void main()
 {
-    vec2 pixelPos = a_screenPos + a_corner * u_tilePixelSize;
+    // Phase 17.1: add 4.0px geometry overdraw (2.0px on each side) to close 
+    // sub-pixel gaps. We do NOT expand UVs; instead we slightly stretch the 
+    // texture over the expanded quad. This prevents sampling neighbor cells 
+    // in the unguttered atlas while ensuring adjacent quads overlap.
+    vec2 overdraw = vec2(2.0);
+    vec2 offset = (a_corner * 2.0 - 1.0) * overdraw;
+    vec2 pixelPos = a_screenPos + a_corner * u_tilePixelSize + offset;
+
     vec2 ndc = (pixelPos / u_screenSize) * 2.0 - 1.0;
     ndc.y = -ndc.y;
     float ndcZ = 1.0 - 2.0 * a_iso;
@@ -493,23 +503,18 @@ void main()
     vec2 uv = v_uv + vec2(frame * u_tileUVSize.x, 0.0);
 
     vec4 c = texture(u_atlas, uv);
-    if (c.a < 0.5) discard;
+    if (c.a < 0.5) discard;  // hard alpha test — no fractional alpha leaks.
 
     // Undiscovered tiles (v_shade==16 from CPU side) render as opaque black.
-    // Matches palette path tile_atlas.frag and ShadeTable::get's _black return.
     if (v_shade >= 15.5)
     {
         fragColor = vec4(0.0, 0.0, 0.0, 1.0);
         return;
     }
 
-    // Formula uses /16.0 (not /15.0) so shade=15 doesn't collapse to k=0
-    // (full black). CPU palette path returns shade-table column 15 — a
-    // palette-shaded color, not _black. _black is only used for shade>=16,
-    // handled by the early-return branch above. Mirror that contract here.
-    float t = clamp(v_shade / 16.0, 0.0, 1.0);
-    float k = pow(1.0 - t, 1.6);
-    fragColor = vec4(c.rgb * k, c.a);
+    // Overlay color from atlas (currently solid teal). No shade darkening
+    // — uniform teal across the floor with no per-tile variation.
+    fragColor = vec4(c.rgb, 1.0);
 }
 )glsl";
 

@@ -981,6 +981,7 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 	const std::string& name = mds->getName();
 
 	// Already built for this dataset in this session.
+	// Note: baseline:none datasets store nullptr in _tileAtlases as a visited sentinel.
 	if (_tileAtlases.count(name)) return;
 
 	// If there's an explicit YAML tileAtlas: spec with a file path, try to load
@@ -988,6 +989,71 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 	// error) we log a warning, erase the stale spec, and fall through to the
 	// vanilla synthesiser below — so terrain always renders.
 	auto specIt = _tileAtlasSpecs.find(name);
+
+	// Phase 20: baseline:none path — HD-only dataset, load RGBA overlay only.
+	if (specIt != _tileAtlasSpecs.end()
+	    && specIt->second.baseline == BaselineMode::None
+	    && !specIt->second.overlayFile.empty())
+	{
+		TileAtlasSpec& spec = specIt->second;
+		const FileMap::FileRecord* rec = FileMap::at(spec.overlayFile);
+		if (!rec)
+		{
+			Log(LOG_WARNING) << "tileAtlas[" << name << "] baseline:none overlay not found: "
+			                 << spec.overlayFile;
+			_tileAtlasSpecs.erase(specIt);
+		}
+		else
+		{
+			SDL_RWops* rw = rec->getRWops();
+			SDL_Surface* raw = IMG_Load_RW(rw, SDL_TRUE);
+			if (!raw)
+			{
+				Log(LOG_WARNING) << "tileAtlas[" << name << "] baseline:none IMG_Load_RW failed ("
+				                 << IMG_GetError() << ")";
+				_tileAtlasSpecs.erase(specIt);
+			}
+			else
+			{
+				SDL_Surface* rgba = SDL_ConvertSurfaceFormat(raw, SDL_PIXELFORMAT_ABGR8888, 0);
+				SDL_FreeSurface(raw);
+				if (rgba)
+				{
+					const int w = rgba->w, h = rgba->h;
+					GpuTexture* tex = new GpuTexture(/*srgb=*/false,
+					                                 GpuTexture::Wrap::ClampToEdge,
+					                                 GpuTexture::Filter::Linear);
+					bool ok = tex->uploadRGBA(
+					              static_cast<const uint8_t*>(rgba->pixels), w, h);
+					if (SDL_MUSTLOCK(rgba)) SDL_UnlockSurface(rgba);
+					SDL_FreeSurface(rgba);
+					if (ok)
+					{
+						spec.overlayAtlas = tex;
+						spec.width  = w;
+						spec.height = h;
+						// Sentinel: mark as visited without a baseline texture.
+						_tileAtlases[name] = nullptr;
+						if (spec.tileWidth > 0 && spec.tileHeight > 0 && spec.pckToAtlas.empty())
+						{
+							const int totalCells = (w / spec.tileWidth) * (h / spec.tileHeight);
+							for (int n = 0; n < totalCells; ++n)
+								spec.pckToAtlas[n] = n;
+						}
+						Log(LOG_INFO) << "tileAtlas[" << name << "] baseline:none overlay RGBA "
+						              << w << "x" << h;
+					}
+					else
+					{
+						delete tex;
+						Log(LOG_WARNING) << "tileAtlas[" << name << "] baseline:none GPU upload failed";
+						_tileAtlasSpecs.erase(specIt);
+					}
+				}
+			}
+		}
+		return;
+	}
 
 	// Phase 17: hybrid dual-atlas path (R8 baseline + RGBA sparse overlay).
 	if (specIt != _tileAtlasSpecs.end() && specIt->second.hybrid)
@@ -1084,7 +1150,7 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 						if (SDL_MUSTLOCK(rgba)) SDL_LockSurface(rgba);
 						GpuTexture* tex = new GpuTexture(/*srgb=*/false,
 						                                 GpuTexture::Wrap::ClampToEdge,
-						                                 GpuTexture::Filter::Nearest);
+						                                 GpuTexture::Filter::Linear);
 						bool ok = tex->uploadRGBA(
 						              static_cast<const uint8_t*>(rgba->pixels), w, h);
 						if (SDL_MUSTLOCK(rgba)) SDL_UnlockSurface(rgba);
@@ -1183,7 +1249,7 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 						if (SDL_MUSTLOCK(rgba)) SDL_LockSurface(rgba);
 						GpuTexture* tex = new GpuTexture(/*srgb=*/false,
 						                                 GpuTexture::Wrap::ClampToEdge,
-						                                 GpuTexture::Filter::Nearest);
+						                                 GpuTexture::Filter::Linear);
 						loaded = tex->uploadRGBA(static_cast<const uint8_t*>(rgba->pixels), w, h);
 						if (SDL_MUSTLOCK(rgba)) SDL_UnlockSurface(rgba);
 						SDL_FreeSurface(rgba);
@@ -4070,6 +4136,65 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 			ruleReader["overlayFile"].tryReadVal<std::string>(spec.overlayFile);
 		}
 
+		// Phase 20: baseline mode (vanilla = default, none = skip R8 pass)
+		{
+			std::string baselineStr;
+			ruleReader["baseline"].tryReadVal<std::string>(baselineStr);
+			if (baselineStr == "none")
+				spec.baseline = BaselineMode::None;
+			// "vanilla" or missing → BaselineMode::Vanilla (default)
+		}
+
+		// Phase 20: atlas-wide authoring fields
+		ruleReader["bleed"].tryReadVal<int>(spec.bleed);
+		ruleReader["premultipliedAlpha"].tryReadVal<bool>(spec.premultipliedAlpha);
+		ruleReader["fallbackImage"].tryReadVal<std::string>(spec.fallbackImage);
+		ruleReader["fallbackOpacity"].tryReadVal<float>(spec.fallbackOpacity);
+
+		// Phase 20: per-cell hdTiles[] metadata
+		auto hdTilesNode = ruleReader["hdTiles"];
+		if (hdTilesNode)
+		{
+			for (const auto& tileNode : hdTilesNode.children())
+			{
+				HDTileSpec ts;
+				tileNode["cell"].tryReadVal<int>(ts.cell);
+				tileNode["image"].tryReadVal<std::string>(ts.image);
+				tileNode["mask"].tryReadVal<std::string>(ts.mask);
+				tileNode["opacity"].tryReadVal<float>(ts.opacity);
+				tileNode["zBias"].tryReadVal<int>(ts.zBias);
+				auto anchorNode = tileNode["anchor"];
+				if (anchorNode && anchorNode.numChildren() == 2)
+				{
+					auto it = anchorNode.children().begin();
+					(*it).tryReadVal<int>(ts.anchor[0]); ++it;
+					(*it).tryReadVal<int>(ts.anchor[1]);
+				}
+				// parse subLayers[] recursively
+				auto subLayersNode = tileNode["subLayers"];
+				if (subLayersNode)
+				{
+					for (const auto& slNode : subLayersNode.children())
+					{
+						HDTileSpec sl;
+						slNode["image"].tryReadVal<std::string>(sl.image);
+						slNode["mask"].tryReadVal<std::string>(sl.mask);
+						slNode["opacity"].tryReadVal<float>(sl.opacity);
+						slNode["zBias"].tryReadVal<int>(sl.zBias);
+						auto slAnchorNode = slNode["anchor"];
+						if (slAnchorNode && slAnchorNode.numChildren() == 2)
+						{
+							auto it = slAnchorNode.children().begin();
+							(*it).tryReadVal<int>(sl.anchor[0]); ++it;
+							(*it).tryReadVal<int>(sl.anchor[1]);
+						}
+						ts.subLayers.push_back(std::move(sl));
+					}
+				}
+				spec.hdTiles.push_back(std::move(ts));
+			}
+		}
+
 		auto frameMapNode = ruleReader["frameMap"];
 		if (frameMapNode)
 		{
@@ -4081,10 +4206,16 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 			}
 		}
 
+		// Build O(1) cell→hdTiles index lookup.
+		for (int hi = 0; hi < (int)spec.hdTiles.size(); ++hi)
+			spec.hdTilesByCell[spec.hdTiles[hi].cell] = hi;
+
 		_tileAtlasSpecs[dataset] = std::move(spec);
 		_hdPackActive = true;
 		Log(LOG_INFO) << "tileAtlas[" << dataset << "]: registered "
-		              << _tileAtlasSpecs[dataset].frameMap.size() << " frameMap entries";
+		              << _tileAtlasSpecs[dataset].frameMap.size() << " frameMap entries"
+		              << " hdTiles=" << _tileAtlasSpecs[dataset].hdTiles.size()
+		              << " baseline=" << (_tileAtlasSpecs[dataset].baseline == BaselineMode::None ? "none" : "vanilla");
 	}
 #endif /* __EMSCRIPTEN__ */
 	for (const auto& ruleReader : iterateRulesSpecific("customPalettes"))

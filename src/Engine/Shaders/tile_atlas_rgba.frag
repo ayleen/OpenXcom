@@ -30,21 +30,16 @@ void main()
     vec2 uv = v_uv + vec2(frame * u_tileUVSize.x, 0.0);
 
     vec4 c = texture(u_atlas, uv);
-    if (c.a < 0.5) discard;
+    if (c.a < 0.5) discard;  // hard alpha test — no fractional alpha leaks.
 
     // Undiscovered tiles (v_shade==16 from CPU side) render as opaque black.
-    // Matches palette path tile_atlas.frag and ShadeTable::get's _black return.
     if (v_shade >= 15.5)
     {
         fragColor = vec4(0.0, 0.0, 0.0, 1.0);
         return;
     }
 
-    // Formula uses /16.0 (not /15.0) so shade=15 doesn't collapse to k=0
-    // (full black). CPU palette path returns shade-table column 15 — a
-    // palette-shaded color, not _black. _black is only used for shade>=16,
-    // handled by the early-return branch above. Mirror that contract here.
-    float t = clamp(v_shade / 16.0, 0.0, 1.0);
-    float k = pow(1.0 - t, 1.6);
-    fragColor = vec4(c.rgb * k, c.a);
+    // Overlay color from atlas (currently solid teal). No shade darkening
+    // — uniform teal across the floor with no per-tile variation.
+    fragColor = vec4(c.rgb, 1.0);
 }

@@ -606,7 +606,21 @@ void Map::draw()
 		}
 	}
 
-	if ((_save->getSelectedUnit() && _save->getSelectedUnit()->getVisible()) || _unitDying || _save->getSide() == FACTION_PLAYER || _save->getDebugMode() || _projectileInFOV || _explosionInFOV)
+	const bool drawCond = (_save->getSelectedUnit() && _save->getSelectedUnit()->getVisible()) || _unitDying || _save->getSide() == FACTION_PLAYER || _save->getDebugMode() || _projectileInFOV || _explosionInFOV;
+#ifdef __EMSCRIPTEN__
+	if (g_calypsoDumpEmit) {
+		Log(LOG_INFO) << "[DIAG-DRAW] drawCond=" << (drawCond?1:0)
+		              << " selUnit=" << (_save->getSelectedUnit()?1:0)
+		              << " selVis=" << (_save->getSelectedUnit() && _save->getSelectedUnit()->getVisible() ? 1 : 0)
+		              << " unitDying=" << (_unitDying?1:0)
+		              << " side=" << (int)_save->getSide()
+		              << " debug=" << (_save->getDebugMode()?1:0)
+		              << " projInFOV=" << (_projectileInFOV?1:0)
+		              << " explInFOV=" << (_explosionInFOV?1:0)
+		              << " hasHDPack=" << (_game->getMod()->hasHDPack()?1:0);
+	}
+#endif
+	if (drawCond)
 	{
 #ifdef __EMSCRIPTEN__
 		if (_game->getMod()->hasHDPack())
@@ -674,6 +688,15 @@ void Map::setPalette(const SDL_Color *colors, int firstcolor, int ncolors)
 	_message->initText(_game->getMod()->getFont("FONT_BIG"), _game->getMod()->getFont("FONT_SMALL"), _game->getLanguage());
 	_message->setText(_game->getLanguage()->getString("STR_HIDDEN_MOVEMENT"), _game->getLanguage()->getString("STR_THINKING"));
 #ifdef __EMSCRIPTEN__
+	{
+		const bool hd  = _game->getMod()->hasHDPack();
+		const bool gpu = GpuInit::ready();
+		const size_t mdsN = _save->getMapDataSets()->size();
+		Log(LOG_INFO) << "[DIAG-SETPALETTE] hasHDPack=" << (hd?1:0)
+		              << " GpuInit::ready=" << (gpu?1:0)
+		              << " mapDataSets=" << mdsN
+		              << " enter_hybrid=" << ((hd&&gpu)?1:0);
+	}
 	if (_game->getMod()->hasHDPack() && GpuInit::ready())
 	{
 		Mod* mod = _game->getMod();
@@ -685,17 +708,28 @@ void Map::setPalette(const SDL_Color *colors, int firstcolor, int ncolors)
 			MapDataSet* mds = (*mdsVec)[i];
 			mod->ensureVanillaAtlas(mds, colors, ncolors);
 			GpuTexture* atlas = mod->getTileAtlas(mds->getName());
-			if (!atlas) continue;
 			auto* spec = mod->getTileAtlasSpec(mds->getName());
+			Log(LOG_INFO) << "[DIAG-SETPALETTE] mds[" << i << "]=" << mds->getName()
+			              << " atlas=" << (atlas?1:0) << " spec=" << (spec?1:0)
+			              << " hybrid=" << (spec && spec->hybrid ? 1 : 0)
+			              << " overlayAtlas=" << (spec && spec->overlayAtlas ? 1 : 0);
+			const bool baselineNone = spec && spec->baseline == Mod::BaselineMode::None;
+			if (!atlas && !baselineNone) continue;
 			if (!spec) continue;
-			_tileAtlasGroups[i].atlas        = atlas;
+			_tileAtlasGroups[i].atlas        = atlas; // nullptr for baseline:none (draw skipped)
 			_tileAtlasGroups[i].tileUVW      = (float)spec->tileWidth  / (float)spec->width;
 			_tileAtlasGroups[i].tileUVH      = (float)spec->tileHeight / (float)spec->height;
 			_tileAtlasGroups[i].isRgba       = !spec->hybrid &&
 			                                   (spec->format == Mod::TileAtlasSpec::Format::Rgba);
-			// Phase 17: hybrid overlay atlas pointer (nullptr for non-hybrid specs).
-			_tileAtlasGroups[i].overlayAtlas = spec->hybrid ? spec->overlayAtlas : nullptr;
+			// Phase 17: hybrid overlay atlas pointer; Phase 20: also set for baseline:none.
+			_tileAtlasGroups[i].overlayAtlas       = (spec->hybrid || baselineNone)
+			                                         ? spec->overlayAtlas : nullptr;
+			_tileAtlasGroups[i].premultipliedAlpha = spec->premultipliedAlpha;
+			// Phase 20.5: propagate sub-layer atlas pointers from spec.
+			_tileAtlasGroups[i].subLayerAtlases    = spec->subLayerAtlases;
+			_tileAtlasGroups[i].subLayerInstances.assign(spec->subLayerAtlases.size(), {});
 		}
+		Log(LOG_INFO) << "[DIAG-SETPALETTE] _tileAtlasGroups populated, size=" << _tileAtlasGroups.size();
 		// Force setPalette on each sheet: unit PCKs aren't in ensureBattlescapeAssetPalettes'
 		// list, so without this they stay 8bpp scratch with no palette mirror and the atlas
 		// builder reads B-channel of unpopulated ARGB instead of palette indices.
@@ -2612,6 +2646,8 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
  */
 void Map::drawTerrainGPU(Surface* surface)
 {
+	if (g_calypsoDumpEmit)
+		Log(LOG_INFO) << "[DIAG-GPU] drawTerrainGPU entered, _tileAtlasGroups.size=" << _tileAtlasGroups.size();
 	const Uint32 ticks = SDL_GetTicks();
 	_animFrameGPU = static_cast<float>(ticks % TILE_ANIM_PERIOD_MS)
 	                / static_cast<float>(TILE_ANIM_PERIOD_MS);
@@ -2635,10 +2671,20 @@ void Map::emitTilePass()
 		grp.instances.clear();
 		grp.zSlices.clear();
 		grp.overlayInstances.clear();
+		for (auto& sv : grp.subLayerInstances) sv.clear();
 	}
 	_smokeInstances.clear();
 	_cursorOverlayInstances.clear();
-	if (_tileAtlasGroups.empty()) return;
+	if (_tileAtlasGroups.empty())
+	{
+		static int emptyLogCount = 0;
+		if (emptyLogCount < 3)
+		{
+			Log(LOG_INFO) << "[DIAG-EMIT] _tileAtlasGroups EMPTY at emitTilePass — GPU pipeline inactive";
+			++emptyLogCount;
+		}
+		return;
+	}
 
 	const bool dumpEmit = g_calypsoDumpEmit != 0;
 	if (dumpEmit)
@@ -2741,7 +2787,8 @@ void Map::emitTilePass()
 				if (mdsID < 0 || mdsID >= (int)mdsVec->size()) continue;
 				if (mdsID >= (int)_tileAtlasGroups.size()) continue;
 				AtlasGroup& grp = _tileAtlasGroups[mdsID];
-				if (!grp.atlas) continue;
+				// baseline:none datasets have null atlas but still need overlay emit.
+				if (!grp.atlas && !grp.overlayAtlas) continue;
 
 				MapDataSet* mds = (*mdsVec)[mdsID];
 				auto* spec = mod->getTileAtlasSpec(mds->getName());
@@ -2839,6 +2886,27 @@ void Map::emitTilePass()
 				{
 					TileInstance ov = inst;
 					ov.iso = inst.iso + (0.5f / 2000000.0f);
+					// Phase 20.6: apply per-cell anchor + zBias from HDTileSpec.
+					auto hdIt = spec->hdTilesByCell.find(atlasTileIdx);
+					if (hdIt != spec->hdTilesByCell.end())
+					{
+						const HDTileSpec& ts = spec->hdTiles[hdIt->second];
+						if (ts.anchor[0] || ts.anchor[1])
+						{
+							const float scaleX = (spec->tileWidth  > 0)
+							    ? (float)_spriteWidth  / (float)spec->tileWidth  : 1.0f;
+							const float scaleY = (spec->tileHeight > 0)
+							    ? (float)_spriteHeight / (float)spec->tileHeight : 1.0f;
+							ov.screenX += (float)ts.anchor[0] * scaleX;
+							ov.screenY += (float)ts.anchor[1] * scaleY;
+						}
+						if (ts.zBias)
+						{
+							const float zStep = (spec->tileHeight > 0)
+							    ? 1.0f / (float)spec->tileHeight : 0.0f;
+							ov.iso += (float)ts.zBias * zStep / 2000000.0f;
+						}
+					}
 					grp.overlayInstances.push_back(ov);
 				}
 
@@ -3161,7 +3229,10 @@ void Map::drawTileGLPass()
 	if (ticks - _lastDrawnTicks > 250)
 	{
 		// Map not blitted recently; clear all GPU instances to avoid ghosting in menus.
-		for (auto& grp : _tileAtlasGroups) { grp.instances.clear(); grp.overlayInstances.clear(); }
+		for (auto& grp : _tileAtlasGroups) {
+			grp.instances.clear(); grp.overlayInstances.clear();
+			for (auto& sv : grp.subLayerInstances) sv.clear();
+		}
 		for (auto& grp : _unitAtlasGroups) { grp.instances.clear(); grp.zLevels.clear(); grp.yLevels.clear(); }
 		_cursorOverlayInstances.clear();
 		_smokeInstances.clear();
@@ -3197,7 +3268,11 @@ void Map::drawTileGLPass()
 	glDepthFunc(GL_LESS);
 	glDepthMask(GL_TRUE);
 	glClearDepthf(1.0f);
-	glClear(GL_DEPTH_BUFFER_BIT);
+	// Reset colorMask BEFORE clear so alpha is also cleared to 1.0 (else
+	// canvas alpha stays from prev frame and composites with page bg).
+	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+	glClearColor(0x46/255.0f, 0x8A/255.0f, 0x9A/255.0f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glBindVertexArray(_tileVAO);
 
 	Shader* activeShader = nullptr;
@@ -3228,6 +3303,9 @@ void Map::drawTileGLPass()
 		glDrawArraysInstanced(GL_TRIANGLES, 0, 6, (GLsizei)count);
 	};
 
+	// Lock alpha for the entire tile-grid pass: WebGL canvas alpha < 1 at
+	// edge pixels causes the page background to mix in and darken the seam.
+	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_FALSE);
 	// Tiles (terrain MDS atlases) — one draw call per group.
 	for (auto& grp : _tileAtlasGroups)
 	{
@@ -3235,6 +3313,7 @@ void Map::drawTileGLPass()
 		drawAtlas(grp.atlas, grp.tileUVW, grp.tileUVH,
 		          grp.instances.data(), grp.instances.size(), grp.isRgba);
 	}
+	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
 	// Units / floor items / held items (palette unit atlases) — one draw call
 	// per group; depth test handles inter-group ordering.
@@ -3252,12 +3331,59 @@ void Map::drawTileGLPass()
 	// units) determines occlusion.  Alpha-discard in tile_atlas_rgba.frag
 	// ensures vanilla cells (transparent in overlay) show through to baseline.
 	glDepthMask(GL_FALSE);
+	// Canvas alpha-channel protection.
+	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_FALSE);
+	// Overlay needs GL_LEQUAL: iso bump (0.5/2000000 ≈ 2.5e-7) is below
+	// 24-bit depth-buffer float precision, so GL_LESS treats overlay
+	// fragments as equal-or-greater than baseline and rejects them at
+	// shared edge pixels. LEQUAL lets the overlay (drawn after baseline)
+	// claim those pixels and overwrite the palette-shaded R8 color.
+	glDepthFunc(GL_LEQUAL);
+	// Phase 20.4: track active blend func to avoid redundant GL calls.
+	bool curPremult = false; // false = straight alpha (GL_SRC_ALPHA)
 	for (auto& grp : _tileAtlasGroups)
 	{
 		if (!grp.overlayAtlas || grp.overlayInstances.empty()) continue;
+		// Switch blend func only when premult mode changes between groups.
+		if (grp.premultipliedAlpha != curPremult)
+		{
+			curPremult = grp.premultipliedAlpha;
+			if (curPremult)
+				glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA); // premultiplied
+			else
+				glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); // straight
+		}
 		drawAtlas(grp.overlayAtlas, grp.tileUVW, grp.tileUVH,
 		          grp.overlayInstances.data(), grp.overlayInstances.size(), /*isRgba=*/true);
 	}
+	// Phase 20.5: sub-layer passes (rendered after base overlay, in layer order).
+	for (size_t li = 0; li < 8; ++li)  // cap at 8 sub-layers
+	{
+		bool drewAny = false;
+		for (auto& grp : _tileAtlasGroups)
+		{
+			if (li >= grp.subLayerAtlases.size()) continue;
+			if (!grp.subLayerAtlases[li]) continue;
+			if (li >= grp.subLayerInstances.size()) continue;
+			if (grp.subLayerInstances[li].empty()) continue;
+			if (grp.premultipliedAlpha != curPremult)
+			{
+				curPremult = grp.premultipliedAlpha;
+				glBlendFunc(curPremult ? GL_ONE : GL_SRC_ALPHA,
+				            GL_ONE_MINUS_SRC_ALPHA);
+			}
+			drawAtlas(grp.subLayerAtlases[li], grp.tileUVW, grp.tileUVH,
+			          grp.subLayerInstances[li].data(),
+			          grp.subLayerInstances[li].size(), /*isRgba=*/true);
+			drewAny = true;
+		}
+		if (!drewAny) break;  // no more sub-layers after an empty index
+	}
+	// Restore straight alpha for subsequent passes (units, cursor, smoke).
+	if (curPremult)
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glDepthFunc(GL_LESS);
+	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
 	glBindVertexArray(0);
 	glDisable(GL_DEPTH_TEST);

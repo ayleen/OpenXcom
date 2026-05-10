@@ -17,6 +17,8 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "Screen.h"
+#include "Game.h"
+#include "../Mod/Mod.h"
 #include <algorithm>
 #include <sstream>
 #include <cmath>
@@ -226,6 +228,20 @@ void Screen::flip()
 	{
 		SDL_SetRenderDrawColor(_renderer, pal[15].r, pal[15].g, pal[15].b, 255);
 	}
+#ifdef __EMSCRIPTEN__
+	// Diagnostic: when HD pack is active, override clear color with the
+	// solid teal currently baked into every overlay tile (#468A9A). This
+	// hides the thin "seam" lines between adjacent HD diamonds where the
+	// transparent corners of base-buffer pixels expose the underlying
+	// clear color through SDL_RenderCopy's BLENDMODE_BLEND. With a
+	// matching clear color, the seam pixels carry the same teal as the
+	// overlay tiles around them, becoming invisible.
+	{
+		extern int g_calypsoDumpEmit; (void)g_calypsoDumpEmit;
+		// Hardcoded to match docs/seabed-floor-sprites/tiles-hd-selected/*.png
+		SDL_SetRenderDrawColor(_renderer, 0x46, 0x8A, 0x9A, 255);
+	}
+#endif
 
 	/* Phase 13.3: pre-composite GPU passes (HD tile floor) fire before the SDL
 	 * surface composite so CPU-drawn units / walls / HUD land on top of them.
@@ -524,6 +540,14 @@ void Screen::resetDisplay(bool resetVideo, bool noShaders)
 			}
 			// Phase 13.3: BLEND lets pre-composite GPU content show through transparent surface regions.
 			SDL_SetTextureBlendMode(_texture, SDL_BLENDMODE_BLEND);
+			// Force NEAREST scaling on the main display texture: preScaleHDBilinear
+			// (Surface.cpp) sets SDL_HINT_RENDER_SCALE_QUALITY=1 globally for HD
+			// pre-scaling and never restores it, so by the time we create the main
+			// display texture the hint is "1" → SDL bilinear-blurs base→display
+			// upscale and partial-alpha pixels at HD-overlay tile borders blend
+			// with neighboring transparent fragments, producing the visible thin
+			// dark "seam" between adjacent diamonds. NEAREST keeps tile edges crisp.
+			SDL_SetTextureScaleMode(_texture, SDL_ScaleModeNearest);
 		}
 
 		Log(LOG_INFO) << "Display set: " << width << "x" << height

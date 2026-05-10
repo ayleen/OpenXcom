@@ -178,6 +178,12 @@ private:
 		// Phase 17: hybrid overlay (RGBA HD overrides drawn after baseline).
 		GpuTexture*               overlayAtlas = nullptr;
 		std::vector<TileInstance> overlayInstances;
+		// Phase 20: true when the overlay PNG was written with premultiplied alpha.
+		bool                      premultipliedAlpha = false;
+		// Phase 20.5: per-sub-layer overlay buffers; index 0 = reserved for base
+		// overlay (overlayInstances above), indices 1..N = additional sub-layers.
+		std::vector<GpuTexture*>               subLayerAtlases;    // owned by TileAtlasSpec
+		std::vector<std::vector<TileInstance>> subLayerInstances;  // parallel to subLayerAtlases
 	};
 
 	std::vector<AtlasGroup>  _tileAtlasGroups;

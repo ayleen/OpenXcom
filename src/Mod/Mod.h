@@ -158,6 +158,21 @@ public:
 	constexpr static int TransparenciesOpacityLevels = 4;
 
 #ifdef __EMSCRIPTEN__
+	/// Phase 20: per-cell HD authoring metadata, used by the atlas builder and renderer.
+	struct HDTileSpec
+	{
+		int                    cell      = 0;
+		std::string            image;          // RGBA PNG path (mod-relative)
+		std::string            mask;           // "diamond" | "silhouette" | PNG path
+		float                  opacity   = 1.0f;
+		std::array<int,2>      anchor    = {0, 0}; // tile-native pixels (tileWidth/tileHeight units)
+		int                    zBias     = 0;       // tile-native pixels, for draw ordering
+		std::vector<HDTileSpec> subLayers;           // additional draw passes over this cell
+	};
+
+	/// Phase 20: controls whether the R8 baseline atlas is built and drawn.
+	enum class BaselineMode { Vanilla, None };
+
 	/// Atlas layout for a single mapDataSet's GPU tile sheet.
 	struct TileAtlasSpec
 	{
@@ -177,6 +192,17 @@ public:
 		Format            format     = Format::Palette;
 		std::map<int,int> frameMap;    // MCD entry index → atlas tile index (primary frame)
 		std::map<int,int> pckToAtlas;  // PCK frame index → atlas tile index (all frames incl. animation)
+		// Phase 20: declarative HD authoring fields
+		BaselineMode             baseline           = BaselineMode::Vanilla;
+		int                      bleed              = 0;    // transparent gutter px between cells
+		bool                     premultipliedAlpha = false;
+		std::string              fallbackImage;             // default HD image for unlisted cells
+		float                    fallbackOpacity    = 1.0f; // opacity for fallback cells
+		std::vector<HDTileSpec>  hdTiles;                   // per-cell HD metadata
+		// Phase 20 runtime: per-sub-layer overlay atlases (index 0 = base overlay)
+		std::vector<GpuTexture*> subLayerAtlases;           // populated by ensureVanillaAtlas
+		// Phase 20.6: O(1) cell→hdTiles index lookup (built by parser, not serialised).
+		std::unordered_map<int,int> hdTilesByCell;          // cell index → hdTiles[] index
 	};
 
 	/// Layout record for a unit-PCK GPU sprite atlas (Phase 14.1).
