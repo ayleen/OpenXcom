@@ -990,6 +990,63 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 	// vanilla synthesiser below — so terrain always renders.
 	auto specIt = _tileAtlasSpecs.find(name);
 
+	// Phase 20.5: load sequential sub-layer overlays (-L1.png, -L2.png …).
+	// The atlas builder writes them alongside overlayFile when any hdTile
+	// declares subLayers[]. Stops at the first missing index — so absent
+	// files are not an error. Used by both baseline:none and hybrid paths.
+	auto loadSubLayerAtlases = [&name](TileAtlasSpec& spec) {
+		const std::string& base = spec.overlayFile;
+		const size_t extPos = base.rfind(".png");
+		if (extPos == std::string::npos) return;
+		for (int li = 1; li <= 8; ++li)
+		{
+			std::string layerPath = base.substr(0, extPos)
+			                      + "-L" + std::to_string(li) + ".png";
+			const FileMap::FileRecord* layerRec = FileMap::at(layerPath);
+			if (!layerRec) break;
+			SDL_RWops* layerRw = layerRec->getRWops();
+			SDL_Surface* layerRaw = IMG_Load_RW(layerRw, SDL_TRUE);
+			if (!layerRaw)
+			{
+				Log(LOG_WARNING) << "tileAtlas[" << name << "] sub-layer L" << li
+				                 << " IMG_Load_RW failed (" << IMG_GetError() << ")";
+				break;
+			}
+			SDL_Surface* layerRgba =
+			    SDL_ConvertSurfaceFormat(layerRaw, SDL_PIXELFORMAT_ABGR8888, 0);
+			SDL_FreeSurface(layerRaw);
+			if (!layerRgba) break;
+			const int lw = layerRgba->w, lh = layerRgba->h;
+			if (lw != spec.width || lh != spec.height)
+			{
+				Log(LOG_WARNING) << "tileAtlas[" << name << "] sub-layer L" << li
+				                 << " " << lw << "x" << lh << " != base "
+				                 << spec.width << "x" << spec.height
+				                 << " — skipping remaining sub-layers";
+				SDL_FreeSurface(layerRgba);
+				break;
+			}
+			if (SDL_MUSTLOCK(layerRgba)) SDL_LockSurface(layerRgba);
+			GpuTexture* layerTex = new GpuTexture(/*srgb=*/false,
+			                                      GpuTexture::Wrap::ClampToEdge,
+			                                      GpuTexture::Filter::Linear);
+			bool layerOk = layerTex->uploadRGBA(
+			    static_cast<const uint8_t*>(layerRgba->pixels), lw, lh);
+			if (SDL_MUSTLOCK(layerRgba)) SDL_UnlockSurface(layerRgba);
+			SDL_FreeSurface(layerRgba);
+			if (!layerOk)
+			{
+				delete layerTex;
+				Log(LOG_WARNING) << "tileAtlas[" << name << "] sub-layer L" << li
+				                 << " GPU upload failed";
+				break;
+			}
+			spec.subLayerAtlases.push_back(layerTex);
+			Log(LOG_INFO) << "tileAtlas[" << name << "] sub-layer L" << li
+			              << " RGBA " << lw << "x" << lh;
+		}
+	};
+
 	// Phase 20: baseline:none path — HD-only dataset, load RGBA overlay only.
 	if (specIt != _tileAtlasSpecs.end()
 	    && specIt->second.baseline == BaselineMode::None
@@ -1020,6 +1077,7 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 				if (rgba)
 				{
 					const int w = rgba->w, h = rgba->h;
+					if (SDL_MUSTLOCK(rgba)) SDL_LockSurface(rgba);
 					GpuTexture* tex = new GpuTexture(/*srgb=*/false,
 					                                 GpuTexture::Wrap::ClampToEdge,
 					                                 GpuTexture::Filter::Linear);
@@ -1040,6 +1098,7 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 							for (int n = 0; n < totalCells; ++n)
 								spec.pckToAtlas[n] = n;
 						}
+						loadSubLayerAtlases(spec);
 						Log(LOG_INFO) << "tileAtlas[" << name << "] baseline:none overlay RGBA "
 						              << w << "x" << h;
 					}
@@ -1191,64 +1250,7 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 		{
 			_tileAtlases[name] = baselineTex;
 			spec.overlayAtlas  = overlayTex;
-			// Phase 20.5: load sequential sub-layer overlays (-L1.png, -L2.png …).
-			// The atlas builder writes them alongside overlayFile when any hdTile
-			// declares subLayers[]. Stops at the first missing index — so absent
-			// files are not an error.
-			{
-				const std::string& base = spec.overlayFile;
-				const size_t extPos = base.rfind(".png");
-				if (extPos != std::string::npos)
-				{
-					for (int li = 1; li <= 8; ++li)
-					{
-						std::string layerPath = base.substr(0, extPos)
-						                      + "-L" + std::to_string(li) + ".png";
-						const FileMap::FileRecord* layerRec = FileMap::at(layerPath);
-						if (!layerRec) break;
-						SDL_RWops* layerRw = layerRec->getRWops();
-						SDL_Surface* layerRaw = IMG_Load_RW(layerRw, SDL_TRUE);
-						if (!layerRaw)
-						{
-							Log(LOG_WARNING) << "tileAtlas[" << name << "] sub-layer L" << li
-							                 << " IMG_Load_RW failed (" << IMG_GetError() << ")";
-							break;
-						}
-						SDL_Surface* layerRgba =
-						    SDL_ConvertSurfaceFormat(layerRaw, SDL_PIXELFORMAT_ABGR8888, 0);
-						SDL_FreeSurface(layerRaw);
-						if (!layerRgba) break;
-						const int lw = layerRgba->w, lh = layerRgba->h;
-						if (lw != spec.width || lh != spec.height)
-						{
-							Log(LOG_WARNING) << "tileAtlas[" << name << "] sub-layer L" << li
-							                 << " " << lw << "x" << lh << " != base "
-							                 << spec.width << "x" << spec.height
-							                 << " — skipping remaining sub-layers";
-							SDL_FreeSurface(layerRgba);
-							break;
-						}
-						if (SDL_MUSTLOCK(layerRgba)) SDL_LockSurface(layerRgba);
-						GpuTexture* layerTex = new GpuTexture(/*srgb=*/false,
-						                                      GpuTexture::Wrap::ClampToEdge,
-						                                      GpuTexture::Filter::Linear);
-						bool layerOk = layerTex->uploadRGBA(
-						    static_cast<const uint8_t*>(layerRgba->pixels), lw, lh);
-						if (SDL_MUSTLOCK(layerRgba)) SDL_UnlockSurface(layerRgba);
-						SDL_FreeSurface(layerRgba);
-						if (!layerOk)
-						{
-							delete layerTex;
-							Log(LOG_WARNING) << "tileAtlas[" << name << "] sub-layer L" << li
-							                 << " GPU upload failed";
-							break;
-						}
-						spec.subLayerAtlases.push_back(layerTex);
-						Log(LOG_INFO) << "tileAtlas[" << name << "] sub-layer L" << li
-						              << " RGBA " << lw << "x" << lh;
-					}
-				}
-			}
+			loadSubLayerAtlases(spec);
 			if (spec.tileWidth > 0 && spec.tileHeight > 0 && spec.pckToAtlas.empty())
 			{
 				const int totalCells = (spec.width / spec.tileWidth) * (spec.height / spec.tileHeight);
