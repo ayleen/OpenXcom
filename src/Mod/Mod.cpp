@@ -4224,11 +4224,10 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 				tileNode["opacity"].tryReadVal<float>(ts.opacity);
 				tileNode["zBias"].tryReadVal<int>(ts.zBias);
 				auto anchorNode = tileNode["anchor"];
-				if (anchorNode && anchorNode.numChildren() == 2)
+				if (anchorNode && anchorNode.children().size() == 2)
 				{
-					auto it = anchorNode.children().begin();
-					(*it).tryReadVal<int>(ts.anchor[0]); ++it;
-					(*it).tryReadVal<int>(ts.anchor[1]);
+					anchorNode[(size_t)0].tryReadVal<int>(ts.anchor[0]);
+					anchorNode[(size_t)1].tryReadVal<int>(ts.anchor[1]);
 				}
 				// parse subLayers[] recursively
 				auto subLayersNode = tileNode["subLayers"];
@@ -4242,11 +4241,10 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 						slNode["opacity"].tryReadVal<float>(sl.opacity);
 						slNode["zBias"].tryReadVal<int>(sl.zBias);
 						auto slAnchorNode = slNode["anchor"];
-						if (slAnchorNode && slAnchorNode.numChildren() == 2)
+						if (slAnchorNode && slAnchorNode.children().size() == 2)
 						{
-							auto it = slAnchorNode.children().begin();
-							(*it).tryReadVal<int>(sl.anchor[0]); ++it;
-							(*it).tryReadVal<int>(sl.anchor[1]);
+							slAnchorNode[(size_t)0].tryReadVal<int>(sl.anchor[0]);
+							slAnchorNode[(size_t)1].tryReadVal<int>(sl.anchor[1]);
 						}
 						ts.subLayers.push_back(std::move(sl));
 					}
