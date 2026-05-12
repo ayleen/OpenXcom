@@ -2891,7 +2891,7 @@ void Map::emitTilePass()
 					auto hdIt = spec->hdTilesByCell.find(atlasTileIdx);
 					if (hdIt != spec->hdTilesByCell.end())
 					{
-						const HDTileSpec& ts = spec->hdTiles[hdIt->second];
+						const Mod::HDTileSpec& ts = spec->hdTiles[hdIt->second];
 						const float scaleX = (spec->tileWidth  > 0)
 						    ? (float)_spriteWidth  / (float)spec->tileWidth  : 1.0f;
 						const float scaleY = (spec->tileHeight > 0)
@@ -2916,7 +2916,7 @@ void Map::emitTilePass()
 						{
 							if (li >= grp.subLayerInstances.size()) break;
 							TileInstance sl = ov;
-							const HDTileSpec& sub = ts.subLayers[li];
+							const Mod::HDTileSpec& sub = ts.subLayers[li];
 							if (sub.anchor[0] || sub.anchor[1])
 							{
 								sl.screenX += (float)sub.anchor[0] * scaleX;
