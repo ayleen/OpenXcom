@@ -1436,6 +1436,7 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 					Log(LOG_INFO) << "tileAtlas[" << name << "]: auto-built identity "
 					              << "pckToAtlas (" << totalCells << " entries)";
 				}
+				Log(LOG_INFO) << "[CALYPSO] activeDataset " << name;
 				return;
 			}
 			// Fall through to vanilla synthesiser.
