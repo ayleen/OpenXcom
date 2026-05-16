@@ -4062,12 +4062,17 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 		const auto wrap = equirect ? GpuTexture::Wrap::RepeatS_ClampT
 		                           : GpuTexture::Wrap::ClampToEdge;
 
-		const FileMap::FileRecord* rec = FileMap::at(relPath);
-		if (!rec)
+		// FileMap::at() throws Exception on miss, so a plain `!rec` test would
+		// never fire — the throw bubbles all the way up and the entire mod is
+		// disabled by the ruleset loader. Guard with fileExists() so optional
+		// HD globe textures (gitignored, sometimes absent on CI runners) are
+		// soft-missing instead of mod-killing.
+		if (!FileMap::fileExists(relPath))
 		{
 			Log(LOG_WARNING) << "globeTextures[" << id << "]: file not found: " << relPath;
 			continue;
 		}
+		const FileMap::FileRecord* rec = FileMap::at(relPath);
 
 		// WebP: use WebPDecodeRGBA() directly — SDL2_image's sdl2_image port
 		// has no libwebp in SUPPORTED_FORMATS.  Output is R,G,B,A in memory
