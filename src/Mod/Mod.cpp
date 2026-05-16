@@ -1014,8 +1014,11 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 		{
 			std::string layerPath = base.substr(0, extPos)
 			                      + "-L" + std::to_string(li) + ".png";
+			// fileExists() probe — FileMap::at() throws on miss; without this
+			// the "stop at the first missing index" contract becomes "first
+			// missing index kills the whole mod load".
+			if (!FileMap::fileExists(layerPath)) break;
 			const FileMap::FileRecord* layerRec = FileMap::at(layerPath);
-			if (!layerRec) break;
 			SDL_RWops* layerRw = layerRec->getRWops();
 			SDL_Surface* layerRaw = IMG_Load_RW(layerRw, SDL_TRUE);
 			if (!layerRaw)
@@ -1065,8 +1068,9 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 	    && !specIt->second.overlayFile.empty())
 	{
 		TileAtlasSpec& spec = specIt->second;
-		const FileMap::FileRecord* rec = FileMap::at(spec.overlayFile);
-		if (!rec)
+		// fileExists() probe — FileMap::at() throws on miss; the fallback to
+		// vanilla atlas only works if we don't unwind through ruleset loading.
+		if (!FileMap::fileExists(spec.overlayFile))
 		{
 			Log(LOG_WARNING) << "tileAtlas[" << name << "] baseline:none overlay not found: "
 			                 << spec.overlayFile;
@@ -1074,6 +1078,7 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 		}
 		else
 		{
+			const FileMap::FileRecord* rec = FileMap::at(spec.overlayFile);
 			SDL_RWops* rw = rec->getRWops();
 			SDL_Surface* raw = IMG_Load_RW(rw, SDL_TRUE);
 			if (!raw)
@@ -1136,8 +1141,12 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 
 		// Load baseline R8 — palette indices stored directly as greyscale values.
 		{
-			const FileMap::FileRecord* rec = spec.baselineFile.empty()
-			                                 ? nullptr : FileMap::at(spec.baselineFile);
+			// fileExists() probe — FileMap::at() throws on miss; the hybrid
+			// path's fall-through to vanilla synth only works without unwind.
+			const bool baselineHere =
+			    !spec.baselineFile.empty() && FileMap::fileExists(spec.baselineFile);
+			const FileMap::FileRecord* rec = baselineHere
+			                                 ? FileMap::at(spec.baselineFile) : nullptr;
 			if (!rec)
 			{
 				Log(LOG_WARNING) << "tileAtlas[" << name << "] hybrid: baseline not found: "
@@ -1194,8 +1203,11 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 		// Load overlay RGBA — sparse; (0,0,0,0) outside HD cells.
 		if (baselineTex)
 		{
-			const FileMap::FileRecord* rec = spec.overlayFile.empty()
-			                                 ? nullptr : FileMap::at(spec.overlayFile);
+			// fileExists() probe — FileMap::at() throws on miss.
+			const bool overlayHere =
+			    !spec.overlayFile.empty() && FileMap::fileExists(spec.overlayFile);
+			const FileMap::FileRecord* rec = overlayHere
+			                                 ? FileMap::at(spec.overlayFile) : nullptr;
 			if (!rec)
 			{
 				Log(LOG_WARNING) << "tileAtlas[" << name << "] hybrid: overlay not found: "
@@ -1284,7 +1296,11 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 	else if (specIt != _tileAtlasSpecs.end() && !specIt->second.file.empty())
 	{
 		const std::string& filePath = specIt->second.file;
-		const FileMap::FileRecord* rec = FileMap::at(filePath);
+		// fileExists() probe — FileMap::at() throws on miss; the legacy
+		// single-file path's fall-through to vanilla synth only works
+		// without unwind.
+		const FileMap::FileRecord* rec = FileMap::fileExists(filePath)
+		                                 ? FileMap::at(filePath) : nullptr;
 		if (!rec)
 		{
 			Log(LOG_WARNING) << "tileAtlas[" << name << "]: file not found: "
