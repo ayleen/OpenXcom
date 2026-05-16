@@ -654,7 +654,16 @@ if(EMSCRIPTEN)
     SUFFIX ".js"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
   )
-  target_compile_options(openxcom PRIVATE -fexceptions -sUSE_SDL_TTF=2)
+  target_compile_options(openxcom PRIVATE
+    -fexceptions
+    -sUSE_SDL_TTF=2
+    # libwebp port supplies <webp/decode.h> — needed at compile time for
+    # Mod.cpp (uses WebPDecodeRGBA). --use-port in link options alone only
+    # makes the header available after the port builds during the first
+    # link, which loses the race on clean CI runners where Mod.cpp compiles
+    # before any link step has fired.
+    "--use-port=${CMAKE_CURRENT_SOURCE_DIR}/ports/libwebp.py"
+  )
   # Stub SDL_gfxPrimitives.h for Emscripten (no SDL2_gfx port; implementations in EmscriptenCompat.cpp).
   target_include_directories(openxcom PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Engine/compat_sdl)
   target_link_options(openxcom PRIVATE
