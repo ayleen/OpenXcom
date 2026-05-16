@@ -982,7 +982,19 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 
 	// Already built for this dataset in this session.
 	// Note: baseline:none datasets store nullptr in _tileAtlases as a visited sentinel.
-	if (_tileAtlases.count(name)) return;
+	//
+	// Re-emit the activeDataset marker even on the cached path: Map.cpp calls
+	// ensureVanillaAtlas() for every dataset whenever a battlescape palette is
+	// set, so this function fires on every mission entry. The marker has to
+	// track "active now" (which dataset the user is iterating on), not
+	// "first time loaded". Without this, a session that opens BLANKS after
+	// SAND then returns to SAND leaves window.__activeDataset stuck on BLANKS
+	// and Cmd+Shift+R rebuilds the wrong atlas.
+	if (_tileAtlases.count(name))
+	{
+		Log(LOG_INFO) << "[CALYPSO] activeDataset " << name;
+		return;
+	}
 
 	// If there's an explicit YAML tileAtlas: spec with a file path, try to load
 	// the HD atlas PNG.  On any failure (file missing, decode error, GPU upload
