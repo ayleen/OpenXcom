@@ -34,6 +34,7 @@
 #include "RuleAlienMission.h"
 #include "RuleBaseFacilityFunctions.h"
 #include "RuleItem.h"
+#include "MapData.h"            // Phase 21: TilePart enum (O_FLOOR/O_OBJECT)
 
 namespace OpenXcom
 {
@@ -168,6 +169,18 @@ public:
 		std::array<int,2>      anchor    = {0, 0}; // tile-native pixels (tileWidth/tileHeight units)
 		int                    zBias     = 0;       // tile-native pixels, for draw ordering
 		std::vector<HDTileSpec> subLayers;           // additional draw passes over this cell
+		// Phase 21: Corner-Wang transition support.
+		// wangType is meaningful only when hasWangType==true. With hasWangType==false the
+		// dataset-level TileAtlasSpec::wangType is used (inheritance). With
+		// hasWangType==true && wangType=="" the cell explicitly opts out of Wang.
+		std::string            wangType;
+		bool                   hasWangType = false;
+		// tilePart hints which TilePart slot the MAP author placed this cell into.
+		// Required when the cell lives in O_OBJECT (e.g. SAND#19 pale-sand, BLANKS#1
+		// brown-debris in vanilla SEABED). hasTilePart==false inherits the dataset-level
+		// TileAtlasSpec::wangTilePart (hard default O_FLOOR).
+		TilePart               tilePart    = O_FLOOR;
+		bool                   hasTilePart = false;
 	};
 
 	/// Phase 20: controls whether the R8 baseline atlas is built and drawn.
@@ -203,6 +216,24 @@ public:
 		std::vector<GpuTexture*> subLayerAtlases;           // populated by ensureVanillaAtlas
 		// Phase 20.6: O(1) cell→hdTiles index lookup (built by parser, not serialised).
 		std::unordered_map<int,int> hdTilesByCell;          // cell index → hdTiles[] index
+		// Phase 21: Corner-Wang transition support (dataset-level defaults + variant tables).
+		std::string            wangType;                                                  // default neighbour-tag for cells without per-cell override
+		TilePart               wangTilePart = O_FLOOR;                                    // default TilePart slot for cells without per-cell override
+		std::unordered_map<std::string, std::array<int,16>> wangSets;                     // neighbour tag -> per-mask (0..15) atlas cell, -1 means "no variant"
+
+		// Phase 21: resolve cell-vs-dataset inheritance.
+		// effectiveWangType returns "" iff the cell explicitly opts out (hasWangType + ""),
+		// otherwise the per-cell override, otherwise the dataset default.
+		std::string effectiveWangType(const HDTileSpec& cell) const
+		{
+			return cell.hasWangType ? cell.wangType : wangType;
+		}
+		// effectiveTilePart returns the per-cell override when present,
+		// otherwise the dataset default (hard default O_FLOOR).
+		TilePart effectiveTilePart(const HDTileSpec& cell) const
+		{
+			return cell.hasTilePart ? cell.tilePart : wangTilePart;
+		}
 	};
 
 	/// Layout record for a unit-PCK GPU sprite atlas (Phase 14.1).

@@ -4285,6 +4285,22 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 						ts.subLayers.push_back(std::move(sl));
 					}
 				}
+				// Phase 21: per-cell wangType with presence flag. Empty string is a
+				// meaningful explicit value ("opt-out of Wang"); absence inherits the
+				// dataset default. tryReadVal returns true iff the key was present.
+				if (tileNode["wangType"].tryReadVal<std::string>(ts.wangType))
+					ts.hasWangType = true;
+				// Phase 21: per-cell TilePart slot hint. Accepts "O_FLOOR" or "O_OBJECT".
+				// Required for cells the MAP places in the object slot (e.g. SAND#19).
+				std::string tilePartStr;
+				if (tileNode["tilePart"].tryReadVal<std::string>(tilePartStr))
+				{
+					if      (tilePartStr == "O_OBJECT") { ts.tilePart = O_OBJECT; ts.hasTilePart = true; }
+					else if (tilePartStr == "O_FLOOR")  { ts.tilePart = O_FLOOR;  ts.hasTilePart = true; }
+					else Log(LOG_WARNING) << "tileAtlas[" << dataset << "]: hdTiles[cell="
+					                      << ts.cell << "].tilePart: unknown value '"
+					                      << tilePartStr << "', leaving default";
+				}
 				spec.hdTiles.push_back(std::move(ts));
 			}
 		}
@@ -4300,6 +4316,49 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 			}
 		}
 
+		// Phase 21: dataset-level wangType + wangTilePart + wangSet[] variant tables.
+		// wangType absence == no default neighbour-tag (cells without an own wangType
+		// then have no Wang transition either). wangSet[] entries map neighbour tag
+		// to per-mask atlas cell; mask is the 4-bit corner-coverage key (0..15).
+		ruleReader["wangType"].tryReadVal<std::string>(spec.wangType);
+		std::string dsTilePartStr;
+		if (ruleReader["wangTilePart"].tryReadVal<std::string>(dsTilePartStr))
+		{
+			if      (dsTilePartStr == "O_OBJECT") spec.wangTilePart = O_OBJECT;
+			else if (dsTilePartStr == "O_FLOOR")  spec.wangTilePart = O_FLOOR;
+			else Log(LOG_WARNING) << "tileAtlas[" << dataset
+			                      << "]: wangTilePart: unknown value '"
+			                      << dsTilePartStr << "', leaving default O_FLOOR";
+		}
+		auto wangSetNode = ruleReader["wangSet"];
+		if (wangSetNode)
+		{
+			for (const auto& wsNode : wangSetNode.children())
+			{
+				std::string neighbour;
+				wsNode["neighbour"].tryReadVal<std::string>(neighbour);
+				if (neighbour.empty()) continue;       // skip malformed entry
+				std::array<int,16> cells;
+				cells.fill(-1);
+				auto cellsNode = wsNode["atlasCells"];
+				if (cellsNode)
+				{
+					for (const auto& cellNode : cellsNode.children())
+					{
+						int maskKey = 0;
+						int cellIdx = -1;
+						if (cellNode.tryReadKey<int>(maskKey)
+						 && cellNode.tryReadVal<int>(cellIdx)
+						 && maskKey >= 0 && maskKey < 16)
+						{
+							cells[maskKey] = cellIdx;
+						}
+					}
+				}
+				spec.wangSets[neighbour] = cells;       // last-write-wins for duplicate neighbour
+			}
+		}
+
 		// Build O(1) cell→hdTiles index lookup.
 		for (int hi = 0; hi < (int)spec.hdTiles.size(); ++hi)
 			spec.hdTilesByCell[spec.hdTiles[hi].cell] = hi;
@@ -4309,7 +4368,9 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 		Log(LOG_INFO) << "tileAtlas[" << dataset << "]: registered "
 		              << _tileAtlasSpecs[dataset].frameMap.size() << " frameMap entries"
 		              << " hdTiles=" << _tileAtlasSpecs[dataset].hdTiles.size()
-		              << " baseline=" << (_tileAtlasSpecs[dataset].baseline == BaselineMode::None ? "none" : "vanilla");
+		              << " baseline=" << (_tileAtlasSpecs[dataset].baseline == BaselineMode::None ? "none" : "vanilla")
+		              << " wangType='" << _tileAtlasSpecs[dataset].wangType << "'"
+		              << " wangSets=" << _tileAtlasSpecs[dataset].wangSets.size();
 	}
 #endif /* __EMSCRIPTEN__ */
 	for (const auto& ruleReader : iterateRulesSpecific("customPalettes"))
