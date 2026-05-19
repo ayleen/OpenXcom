@@ -4540,6 +4540,47 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 	}
 }
 
+#ifdef __EMSCRIPTEN__
+/*
+ * Phase 21.3.0: animation-blind resolver for the Corner-Wang lookup.
+ *
+ * The render path in Map::emitTilePass resolves the atlas cell from the
+ * tile's *animated* frame index (tile->getCurrentFrame(part)) — required
+ * for UFO doors and animated water tiles that step through PCK frames each
+ * tick. Wang must NOT follow animation: wangType is a static property of
+ * the cell. Returning frame-0's atlas-cell index preserves stable Wang
+ * behaviour through any animation cycle.
+ *
+ * Signature note (deviation from v3 plan §21.3.0): the v3 plan called the
+ * helper with `(spec, md)` only, then did `spec->frameMap.find(md->getObjectType())`.
+ * That is wrong — MapData::getObjectType() returns the TilePart slot
+ * (O_FLOOR/O_OBJECT/...), not the MCD record index that frameMap is keyed
+ * by. The render path obtains the MCD record index via the out-param
+ * overload `tile->getMapData(&mcdIdx, &mdsID, part)`, and Wang's caller
+ * (computeWangMask §21.3.1) must do the same and pass mcdIdx in.
+ */
+static int resolveStaticAtlasCellIndex(const Mod::TileAtlasSpec* spec,
+                                       const MapData* md,
+                                       int mcdIdx)
+{
+	if (!spec || !md) return -1;
+	// Primary-frame PCK index — what the tile "is", independent of
+	// the animation cycle the renderer happens to be on.
+	const int primaryPCK = md->getSprite(0);
+	if (primaryPCK > 0)
+	{
+		auto it = spec->pckToAtlas.find(primaryPCK);
+		if (it != spec->pckToAtlas.end()) return it->second;
+	}
+	// Fallback: MCD-record-indexed primary frame, populated by the
+	// `frameMap:` ruleset block at parse time. Same fallback the render
+	// code uses when pckToAtlas misses (see Map.cpp::emitTilePass).
+	auto fit = spec->frameMap.find(mcdIdx);
+	if (fit != spec->frameMap.end()) return fit->second;
+	return -1;
+}
+#endif /* __EMSCRIPTEN__ */
+
 /**
  * Helper function protecting from circular references in node definition.
  * @param node Node to test
