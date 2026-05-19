@@ -4581,6 +4581,141 @@ static int resolveStaticAtlasCellIndex(const Mod::TileAtlasSpec* spec,
 }
 #endif /* __EMSCRIPTEN__ */
 
+#ifdef __EMSCRIPTEN__
+/*
+ * Phase 21.3.1: Corner-Wang mask + variant-cell lookup for one tile.
+ *
+ * Returns:
+ *   mask         — 4-bit OR-corner mask (NW=8, NE=4, SE=2, SW=1)
+ *   variantCell  — atlas-cell index from the matching wangSet, or -1
+ *
+ * Algorithm (mirrors the v3 plan §21.3.1):
+ *   1. Resolve `self`'s wang-capable cell via a dual-slot scan (FLOOR
+ *      then OBJECT). A cell qualifies when its hdTiles[] entry's
+ *      `tilePart` matches the slot it was found in AND its effective
+ *      wangType is non-empty.
+ *   2. typeAt(dx,dy) does the same dual-slot scan for each orthogonal
+ *      neighbour and returns the first non-empty wangType it finds.
+ *   3. Same-type fast-path: if all four orthogonals match self_type,
+ *      no transition fires. Critical for homogeneous floors (SEABED's
+ *      ~90% uniform sand).
+ *   4. OR-corner mask: a corner is foreign if EITHER of its two
+ *      adjacent orthogonals is foreign. See docs §21.4.2 for the rule
+ *      diagram and the OR-vs-strict trade-off recorded in the plan.
+ *   5. First-found collision: when multiple foreign neighbours collide,
+ *      the wangSet of the first foreign one in N→E→S→W order wins.
+ *
+ * `resolveStaticAtlasCellIndex` (§21.3.0) is used everywhere instead of
+ * the renderer's animated resolver — wangType is a static property of
+ * the cell, so Wang must read frame-0 even mid-animation.
+ */
+Mod::WangResult Mod::computeWangMask(const TileAtlasSpec* spec,
+                                     const Tile* self,
+                                     SavedBattleGame* save) const
+{
+	WangResult result;
+	if (!spec || spec->wangSets.empty()) return result;
+	if (!self || !save) return result;
+
+	auto resolveSlot = [](const TileAtlasSpec* s, const MapData* md,
+	                      int mcdIdx, TilePart part, int* outCell) -> bool
+	{
+		if (!md || !md->getDataset()) return false;
+		const int cell = resolveStaticAtlasCellIndex(s, md, mcdIdx);
+		if (cell < 0) return false;
+		auto cellIt = s->hdTilesByCell.find(cell);
+		if (cellIt == s->hdTilesByCell.end()) return false;
+		const int idx = cellIt->second;
+		if (idx < 0 || idx >= (int)s->hdTiles.size()) return false;
+		const auto& cellSpec = s->hdTiles[idx];
+		if (s->effectiveTilePart(cellSpec) != part) return false;
+		if (s->effectiveWangType(cellSpec).empty()) return false;
+		*outCell = cell;
+		return true;
+	};
+
+	// 1. Resolve self. MAP authors may park a wang cell in O_FLOOR or
+	//    O_OBJECT regardless of the MCD Tile_Type hint — see
+	//    docs/qa/phase-21-cross-terrain-floor-inventory.md.
+	int selfCell = -1;
+	for (TilePart part : {O_FLOOR, O_OBJECT})
+	{
+		const MapData* md = self->getMapData(part);
+		int mcdIdx = 0, mdsID = 0;
+		self->getMapData(&mcdIdx, &mdsID, part);
+		if (resolveSlot(spec, md, mcdIdx, part, &selfCell)) break;
+	}
+	if (selfCell < 0) return result;
+
+	const auto& selfSpec = spec->hdTiles[spec->hdTilesByCell.at(selfCell)];
+	const std::string self_type = spec->effectiveWangType(selfSpec);
+
+	// 2. typeAt does the same dual-slot scan for each orthogonal neighbour,
+	//    against that neighbour's own dataset spec (a cross-dataset MAP can
+	//    have SAND under one tile and BLANKS under the next).
+	const Position pos = self->getPosition();
+	auto typeAt = [&](int dx, int dy) -> std::string {
+		const Tile* t = save->getTile(Position(pos.x + dx, pos.y + dy, pos.z));
+		if (!t) return std::string();
+		for (TilePart part : {O_FLOOR, O_OBJECT})
+		{
+			const MapData* md = t->getMapData(part);
+			if (!md || !md->getDataset()) continue;
+			const auto* nspec = getTileAtlasSpec(md->getDataset()->getName());
+			if (!nspec) continue;
+			int mcdIdx = 0, mdsID = 0;
+			t->getMapData(&mcdIdx, &mdsID, part);
+			int nCell = -1;
+			if (!resolveSlot(nspec, md, mcdIdx, part, &nCell)) continue;
+			std::string nType = nspec->effectiveWangType(
+				nspec->hdTiles[nspec->hdTilesByCell.at(nCell)]);
+			if (!nType.empty()) return nType;
+		}
+		return std::string();
+	};
+
+	const std::string n_n = typeAt( 0, -1);
+	const std::string n_e = typeAt( 1,  0);
+	const std::string n_s = typeAt( 0,  1);
+	const std::string n_w = typeAt(-1,  0);
+
+	// 3. Same-type fast-path: all four orthogonals match self → no
+	//    transition possible, skip mask + wangSet lookup entirely.
+	if (n_n == self_type && n_e == self_type
+	 && n_s == self_type && n_w == self_type)
+		return result;
+
+	auto foreign = [&](const std::string& n) {
+		return !n.empty() && n != self_type;
+	};
+
+	// 4. OR-corner mask: a corner is foreign iff EITHER adjacent
+	//    orthogonal is foreign. (Strict-corner — both must be foreign —
+	//    is recorded as a deferred alternative in plan §21.4.2.)
+	const bool nw = foreign(n_n) || foreign(n_w);
+	const bool ne = foreign(n_n) || foreign(n_e);
+	const bool se = foreign(n_s) || foreign(n_e);
+	const bool sw = foreign(n_s) || foreign(n_w);
+	result.mask = (uint8_t)((nw << 3) | (ne << 2) | (se << 1) | sw);
+	if (result.mask == 0) return result;
+
+	// 5. First-found collision in N→E→S→W order picks the wangSet to
+	//    consult. Document §21.4.2 records the policy choice; if a tile
+	//    has no entry for the picked neighbour, variantCell stays -1
+	//    (the renderer falls through to the base cell).
+	std::string lookup;
+	for (const auto& n : {n_n, n_e, n_s, n_w}) {
+		if (foreign(n)) { lookup = n; break; }
+	}
+	if (lookup.empty()) return result;
+
+	auto wit = spec->wangSets.find(lookup);
+	if (wit == spec->wangSets.end()) return result;
+	result.variantCell = wit->second[result.mask];
+	return result;
+}
+#endif /* __EMSCRIPTEN__ */
+
 /**
  * Helper function protecting from circular references in node definition.
  * @param node Node to test

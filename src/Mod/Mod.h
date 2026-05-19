@@ -109,6 +109,8 @@ class ScriptGlobal;
 struct StatAdjustment;
 #ifdef __EMSCRIPTEN__
 class GpuTexture;
+class Tile;
+class SavedBattleGame;
 #endif
 
 enum GameDifficulty : int;
@@ -234,6 +236,16 @@ public:
 		{
 			return cell.hasTilePart ? cell.tilePart : wangTilePart;
 		}
+	};
+
+	/// Phase 21.3.1: result of a Corner-Wang lookup for one tile.
+	/// mask is the 4-bit OR-corner mask (NW=8, NE=4, SE=2, SW=1).
+	/// variantCell is the atlas-cell index from the matching wangSet, or
+	/// -1 when no transition fires (homogeneous tile or wangSet miss).
+	struct WangResult
+	{
+		uint8_t mask        = 0;
+		int     variantCell = -1;
 	};
 
 	/// Layout record for a unit-PCK GPU sprite atlas (Phase 14.1).
@@ -611,6 +623,14 @@ public:
 	void clearGlobeTextures();
 	/// Returns the TileAtlasSpec for the given mapDataSet name, or nullptr if not registered.
 	const TileAtlasSpec* getTileAtlasSpec(const std::string& dataset) const;
+	/// Phase 21.3.1: compute the Corner-Wang transition mask + variant cell for `self`.
+	/// Dual-slot scan (O_FLOOR then O_OBJECT) on self and each orthogonal neighbour;
+	/// OR-corner classification; same-type fast-path; first-found foreign neighbour
+	/// (N→E→S→W) drives the wangSet selection. Returns {mask=0, variantCell=-1} when
+	/// the tile carries no Wang configuration or all neighbours match.
+	WangResult computeWangMask(const TileAtlasSpec* spec,
+	                           const Tile* self,
+	                           SavedBattleGame* save) const;
 	/// Returns the synthesised vanilla atlas for the given mapDataSet, or nullptr if not built.
 	GpuTexture* getTileAtlas(const std::string& dataset) const;
 	/// Build a vanilla atlas for a fully-loaded MapDataSet (Block 11.2).

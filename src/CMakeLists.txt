@@ -806,7 +806,8 @@ if(NOT EMSCRIPTEN AND BUILD_TESTING)
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/TileAtlasSpecTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/EmitShade16Test.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/wang_parse_test.cpp
-        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/atlas_cell_resolver_test.cpp)
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/atlas_cell_resolver_test.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/wang_mask_test.cpp)
 
     add_executable(oxce_unit_tests ${OXCE_TEST_SOURCES})
     target_link_libraries(oxce_unit_tests PRIVATE oxce_test_doctest)
