@@ -2879,6 +2879,37 @@ void Map::emitTilePass()
 				inst.iso           = iso;
 				grp.instances.push_back(inst);
 
+				// Phase 21.3.2: Corner-Wang lookup for overlay base instance.
+				// Gated by the same hdTilesByCell + tilePart + non-empty
+				// wangType check that computeWangMask's self-resolution uses,
+				// so the variant cell is only applied on the iteration that
+				// represents the wang-relevant cell in its wang-relevant slot.
+				// Walls and unrelated cells fall through unchanged, otherwise
+				// their overlay (transparent in the atlas) would be replaced
+				// with the wang variant pixels at the wall's screen position.
+				//
+				// The variant overrides ov.atlasU/V *after* sub-layer push
+				// below — sub-layer atlases are indexed in parallel with the
+				// base overlay by the *original* atlasTileIdx, and pointing
+				// them at the variant cell would read the wrong layer texel
+				// (plan §21.3.2).
+				int atlasTileIdx_overlay = atlasTileIdx;
+				if (grp.overlayAtlas && (part == O_FLOOR || part == O_OBJECT))
+				{
+					auto hdIt = spec->hdTilesByCell.find(atlasTileIdx);
+					if (hdIt != spec->hdTilesByCell.end())
+					{
+						const auto& cellSpec = spec->hdTiles[hdIt->second];
+						if (spec->effectiveTilePart(cellSpec) == part
+						 && !spec->effectiveWangType(cellSpec).empty())
+						{
+							const auto wang = mod->computeWangMask(spec, tile, _save);
+							if (wang.variantCell >= 0)
+								atlasTileIdx_overlay = wang.variantCell;
+						}
+					}
+				}
+
 				// Phase 17: hybrid overlay — emit a second instance with a micro iso
 				// bump so the overlay draws strictly on top of the baseline in the
 				// depth buffer (depthMask=OFF in drawTileGLPass overlay pass).
@@ -2928,6 +2959,16 @@ void Map::emitTilePass()
 							}
 							grp.subLayerInstances[li].push_back(sl);
 						}
+					}
+					// Phase 21.3.2: apply Wang variant UV to the overlay base
+					// only (sub-layers above kept the original atlasTileIdx
+					// UVs — see comment at the wang lookup site above).
+					if (atlasTileIdx_overlay != atlasTileIdx)
+					{
+						const int ovCol = atlasTileIdx_overlay % spec->columns;
+						const int ovRow = atlasTileIdx_overlay / spec->columns;
+						ov.atlasU = (float)ovCol * grp.tileUVW;
+						ov.atlasV = (float)ovRow * grp.tileUVH;
 					}
 					grp.overlayInstances.push_back(ov);
 				}
