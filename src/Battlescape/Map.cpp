@@ -410,12 +410,17 @@ Map::~Map()
 	_gpuAliveFlag.reset();
 	delete _tileShader;     _tileShader     = nullptr;
 	delete _tileShaderRgba; _tileShaderRgba = nullptr;
+	delete _blendShader;    _blendShader    = nullptr;  // Phase 22
 	delete _shadeTableTex;  _shadeTableTex  = nullptr;
+	delete _shadeCurveTex;  _shadeCurveTex  = nullptr;  // Phase 22
+	delete _noiseTex;       _noiseTex       = nullptr;   // Phase 22
 	if (_tileGLInit)
 	{
 		glDeleteBuffers(1, &_tileVBO);
 		glDeleteBuffers(1, &_tileIBO);
 		glDeleteVertexArrays(1, &_tileVAO);
+		if (_blendVAO) { glDeleteVertexArrays(1, &_blendVAO); _blendVAO = 0; }
+		if (_blendIBO) { glDeleteBuffers(1,      &_blendIBO); _blendIBO = 0; }
 	}
 	delete _spriteShader; _spriteShader = nullptr;
 	for (auto& p : _spriteFrameCache) delete p.second;
@@ -641,6 +646,7 @@ void Map::draw()
 				grp.instances.clear();
 				grp.zSlices.clear();
 				grp.overlayInstances.clear();
+				grp.blendInstances.clear();  // Phase 22
 			}
 			_cursorOverlayInstances.clear();
 			_smokeInstances.clear();
@@ -777,6 +783,29 @@ void Map::setPalette(const SDL_Color *colors, int firstcolor, int ncolors)
 		{
 			ShadeTableCache tmp;
 			_shadeTableTex = tmp.uploadGPU(st).release();
+			// Phase 22 §22.4: 16×1 R8 shade-curve ramp for tile_blend + tile_atlas_rgba.
+			// Encodes average luminance ratio lum(s) / lum(0) over palette indices 1..255
+			// so the fragment shaders can darken blended surfaces identically to the
+			// vanilla tile path (prevents night seams, DoD #10).
+			std::vector<uint8_t> curve(16);
+			for (int s = 0; s < 16; ++s)
+			{
+				double sum = 0.0; int n = 0;
+				for (int idx = 1; idx < 256; ++idx)
+				{
+					Uint32 c0 = st->get((Uint8)idx, 0), cs = st->get((Uint8)idx, s);
+					double l0 = 0.299 * ((c0 >> 16) & 0xFF) + 0.587 * ((c0 >> 8) & 0xFF) + 0.114 * (c0 & 0xFF);
+					double ls = 0.299 * ((cs >> 16) & 0xFF) + 0.587 * ((cs >> 8) & 0xFF) + 0.114 * (cs & 0xFF);
+					if (l0 > 1.0) { sum += ls / l0; ++n; }
+				}
+				double r = n ? sum / (double)n : (1.0 - s / 15.0);
+				double v = r * 255.0;
+				if (v < 0.0) v = 0.0; else if (v > 255.0) v = 255.0;
+				curve[s] = (uint8_t)v;
+			}
+			delete _shadeCurveTex;
+			_shadeCurveTex = new GpuTexture(false, GpuTexture::Wrap::ClampToEdge, GpuTexture::Filter::Nearest);
+			_shadeCurveTex->uploadR8(curve.data(), 16, 1);
 		}
 	}
 #endif
@@ -839,6 +868,17 @@ static bool positionInRangeXY(Position a, Position b, int diff)
 
 namespace
 {
+
+// Phase 22 §22.5: integer hash for anti-repeat variant selection.
+// Maps a 3-D grid position to a pseudo-random uint32 via nested Murmur-style mix.
+static uint32_t hash3(int x, int y, int z)
+{
+    auto h = [](uint32_t v) -> uint32_t {
+        v ^= v >> 16; v *= 0x45d9f3bU; v ^= v >> 16;
+        return v;
+    };
+    return h((uint32_t)x ^ (h((uint32_t)y ^ h((uint32_t)z))));
+}
 
 static const int ArrowBobOffsets[8] = {0,1,2,1,0,1,2,1};
 
@@ -2671,6 +2711,7 @@ void Map::emitTilePass()
 		grp.instances.clear();
 		grp.zSlices.clear();
 		grp.overlayInstances.clear();
+		grp.blendInstances.clear();
 		for (auto& sv : grp.subLayerInstances) sv.clear();
 	}
 	_smokeInstances.clear();
@@ -2879,46 +2920,20 @@ void Map::emitTilePass()
 				inst.iso           = iso;
 				grp.instances.push_back(inst);
 
-				// Phase 21.3.2: Corner-Wang lookup for overlay base instance.
-				// Gated by the same hdTilesByCell + tilePart + non-empty
-				// wangType check that computeWangMask's self-resolution uses,
-				// so the variant cell is only applied on the iteration that
-				// represents the wang-relevant cell in its wang-relevant slot.
-				// Walls and unrelated cells fall through unchanged, otherwise
-				// their overlay (transparent in the atlas) would be replaced
-				// with the wang variant pixels at the wall's screen position.
-				//
-				// The variant overrides ov.atlasU/V *after* sub-layer push
-				// below — sub-layer atlases are indexed in parallel with the
-				// base overlay by the *original* atlasTileIdx, and pointing
-				// them at the variant cell would read the wrong layer texel
-				// (plan §21.3.2).
-				int atlasTileIdx_overlay = atlasTileIdx;
-				if (grp.overlayAtlas && (part == O_FLOOR || part == O_OBJECT))
-				{
-					auto hdIt = spec->hdTilesByCell.find(atlasTileIdx);
-					if (hdIt != spec->hdTilesByCell.end())
-					{
-						const auto& cellSpec = spec->hdTiles[hdIt->second];
-						if (spec->effectiveTilePart(cellSpec) == part
-						 && !spec->effectiveWangType(cellSpec).empty())
-						{
-							const auto wang = mod->computeWangMask(spec, tile, _save);
-							if (wang.variantCell >= 0)
-								atlasTileIdx_overlay = wang.variantCell;
-						}
-					}
-				}
-
 				// Phase 17: hybrid overlay — emit a second instance with a micro iso
 				// bump so the overlay draws strictly on top of the baseline in the
 				// depth buffer (depthMask=OFF in drawTileGLPass overlay pass).
+				// Phase 21/22: Wang lookup (bake variant UV / runtime blend bucket).
 				if (grp.overlayAtlas)
 				{
 					TileInstance ov = inst;
 					ov.iso = inst.iso + (0.5f / 2000000.0f);
-					// Phase 20.6: apply per-cell anchor + zBias from HDTileSpec, plus
-					// emit one instance per sub-layer declared on this cell.
+
+					// One hdTilesByCell lookup for all per-cell work below (sub-layers,
+					// Wang, anchor/zBias). Sub-layers use the *original* atlasTileIdx so
+					// a Wang-variant swap does not redirect them to the wrong texel (§21.3.2).
+					int atlasTileIdx_overlay = atlasTileIdx;
+					bool pushToBlend = false;
 					auto hdIt = spec->hdTilesByCell.find(atlasTileIdx);
 					if (hdIt != spec->hdTilesByCell.end())
 					{
@@ -2938,11 +2953,7 @@ void Map::emitTilePass()
 						{
 							ov.iso += (float)ts.zBias * zStep / 2000000.0f;
 						}
-						// Phase 20.5: per-sub-layer instance push. The sub-layer atlas
-						// stores its own pixel content; the instance only specifies
-						// where on screen and at what depth to draw it. Sub-layers
-						// inherit the base overlay position+iso, then offset by their
-						// own anchor+zBias (in tile-native pixels).
+						// Phase 20.5: sub-layer instances (always use original atlasTileIdx UVs).
 						for (size_t li = 0; li < ts.subLayers.size(); ++li)
 						{
 							if (li >= grp.subLayerInstances.size()) break;
@@ -2959,18 +2970,70 @@ void Map::emitTilePass()
 							}
 							grp.subLayerInstances[li].push_back(sl);
 						}
+						// Phase 21/22: Wang lookup — only on floor/object wang-eligible cells.
+						if ((part == O_FLOOR || part == O_OBJECT)
+						 && !spec->effectiveWangType(ts).empty()
+						 && spec->effectiveTilePart(ts) == part)
+						{
+							const auto wang = mod->computeWangMask(spec, tile, _save);
+							if (wang.blend && wang.surfaceCell >= 0)
+							{
+								// Phase 22: runtime blend → BlendInstance bucket.
+								BlendInstance b;
+								b.screenX = ov.screenX;
+								b.screenY = ov.screenY;
+								b.iso     = ov.iso;
+								b.shade   = (float)shade;
+								b.alphaMask      = 1.0f;
+								b.animFrameCount = 1.0f;
+								// Self UV: anti-repeat variant if authored (§22.5).
+								// metaCell (atlasTileIdx) stays the Wang eligibility key;
+								// visualCell changes only the rendered UV.
+								int visualCell = atlasTileIdx;
+								if (ts.variants > 1)
+									visualCell = atlasTileIdx
+									    + (int)(hash3(mapPos.x, mapPos.y, mapPos.z)
+									             % (uint32_t)ts.variants);
+								b.selfU = (float)(visualCell % spec->columns) * grp.tileUVW;
+								b.selfV = (float)(visualCell / spec->columns) * grp.tileUVH;
+								// Neighbour UV: anti-repeat via neighbour tile's hash.
+								int nbrCell = wang.surfaceCell;
+								if (wang.matched && wang.matched->surfaceVariants > 1)
+								{
+									Position nPos(mapPos.x + wang.neighbourDx,
+									              mapPos.y + wang.neighbourDy, mapPos.z);
+									nbrCell += (int)(hash3(nPos.x, nPos.y, nPos.z)
+									                  % (uint32_t)wang.matched->surfaceVariants);
+								}
+								b.neighbourU = (float)(nbrCell % spec->columns) * grp.tileUVW;
+								b.neighbourV = (float)(nbrCell / spec->columns) * grp.tileUVH;
+								b.worldX   = (float)mapPos.x;
+								b.worldY   = (float)mapPos.y;
+								b.wangMask = (uint32_t)wang.mask;
+								b.feather    = wang.matched ? wang.matched->feather    : 0.18f;
+								b.noiseScale = wang.matched ? wang.matched->noiseScale : 3.0f;
+								b.noiseAmp   = wang.matched ? wang.matched->noiseAmp   : 0.35f;
+								grp.blendInstances.push_back(b);
+								pushToBlend = true;
+							}
+							else if (wang.variantCell >= 0)
+							{
+								// Phase 21: bake path — swap overlay UV to the variant cell.
+								atlasTileIdx_overlay = wang.variantCell;
+							}
+						}
 					}
-					// Phase 21.3.2: apply Wang variant UV to the overlay base
-					// only (sub-layers above kept the original atlasTileIdx
-					// UVs — see comment at the wang lookup site above).
-					if (atlasTileIdx_overlay != atlasTileIdx)
+					if (!pushToBlend)
 					{
-						const int ovCol = atlasTileIdx_overlay % spec->columns;
-						const int ovRow = atlasTileIdx_overlay / spec->columns;
-						ov.atlasU = (float)ovCol * grp.tileUVW;
-						ov.atlasV = (float)ovRow * grp.tileUVH;
+						if (atlasTileIdx_overlay != atlasTileIdx)
+						{
+							const int ovCol = atlasTileIdx_overlay % spec->columns;
+							const int ovRow = atlasTileIdx_overlay / spec->columns;
+							ov.atlasU = (float)ovCol * grp.tileUVW;
+							ov.atlasV = (float)ovRow * grp.tileUVH;
+						}
+						grp.overlayInstances.push_back(ov);
 					}
-					grp.overlayInstances.push_back(ov);
 				}
 
 				if (dumpEmit)
@@ -3228,6 +3291,35 @@ void Map::initTileGL()
 			// Non-fatal: palette path still works; RGBA atlases just won't render.
 		}
 	}
+	// Phase 22: runtime blend shader.
+	if (!_blendShader)
+	{
+		_blendShader = new Shader();
+		if (!_blendShader->loadFromEmbedded("tile_blend"))
+		{
+			Log(LOG_ERROR) << "Map::initTileGL: tile_blend shader compile failed";
+			delete _blendShader; _blendShader = nullptr;
+			// Non-fatal: bake path continues; blend tiles fall back to base overlay.
+		}
+	}
+	// Phase 22: 256×256 tileable noise texture (GL_REPEAT on both axes).
+	// Simple value-noise placeholder; replace with surface-gen.py noise PNG if
+	// banding from lack of bandlimiting becomes visible at low noiseAmp values.
+	if (!_noiseTex)
+	{
+		std::vector<uint8_t> noiseData(256 * 256 * 4, 0u);
+		for (int ny = 0; ny < 256; ++ny)
+		{
+			for (int nx = 0; nx < 256; ++nx)
+			{
+				uint32_t h = hash3(nx, ny, 42u);
+				noiseData[(ny * 256 + nx) * 4 + 0] = (uint8_t)(h & 0xFFu);  // R
+				noiseData[(ny * 256 + nx) * 4 + 3] = 255u;                   // A
+			}
+		}
+		_noiseTex = new GpuTexture(false, GpuTexture::Wrap::Repeat, GpuTexture::Filter::Linear);
+		_noiseTex->uploadRGBA(noiseData.data(), 256, 256);
+	}
 
 	static const float corners[] = {
 		0.f, 0.f,  1.f, 0.f,  0.f, 1.f,
@@ -3274,6 +3366,74 @@ void Map::initTileGL()
 	glVertexAttribDivisor(6, 1);
 
 	glBindVertexArray(0);
+
+	// Phase 22: blend VAO — same corner VBO, different per-instance layout.
+	// BlendInstance stride = 64 bytes; uint wangMask at offset 32 needs IPointer.
+	// Attribute → BlendInstance field mapping (all per-instance except loc 0):
+	//   0 corner        vec2  per-vertex (reuse _tileVBO)
+	//   1 screenPos     vec2  offset  0
+	//   2 selfUV        vec2  offset  8
+	//   3 neighbourUV   vec2  offset 16
+	//   4 worldPos      vec2  offset 24
+	//   5 wangMask      uint  offset 32  (IPointer — bitwise ops in frag)
+	//   6 shade         float offset 36
+	//   7 alphaMask     float offset 40
+	//   8 iso           float offset 44
+	//   9 animFrameCount float offset 48
+	//  10 feather       float offset 52
+	//  11 noiseScale    float offset 56
+	//  12 noiseAmp      float offset 60
+	glGenVertexArrays(1, &_blendVAO);
+	glBindVertexArray(_blendVAO);
+
+	// attr 0 — corner (per-vertex, shared VBO)
+	glBindBuffer(GL_ARRAY_BUFFER, _tileVBO);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
+	glVertexAttribDivisor(0, 0);
+
+	// per-instance attrs 1–12 from _blendIBO
+	glGenBuffers(1, &_blendIBO);
+	glBindBuffer(GL_ARRAY_BUFFER, _blendIBO);
+	const GLsizei bStride = 64;  // sizeof(BlendInstance)
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, bStride, (const void*)0);
+	glVertexAttribDivisor(1, 1);
+	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, bStride, (const void*)8);
+	glVertexAttribDivisor(2, 1);
+	glEnableVertexAttribArray(3);
+	glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, bStride, (const void*)16);
+	glVertexAttribDivisor(3, 1);
+	glEnableVertexAttribArray(4);
+	glVertexAttribPointer(4, 2, GL_FLOAT, GL_FALSE, bStride, (const void*)24);
+	glVertexAttribDivisor(4, 1);
+	glEnableVertexAttribArray(5);
+	glVertexAttribIPointer(5, 1, GL_UNSIGNED_INT, bStride, (const void*)32);
+	glVertexAttribDivisor(5, 1);
+	glEnableVertexAttribArray(6);
+	glVertexAttribPointer(6, 1, GL_FLOAT, GL_FALSE, bStride, (const void*)36);
+	glVertexAttribDivisor(6, 1);
+	glEnableVertexAttribArray(7);
+	glVertexAttribPointer(7, 1, GL_FLOAT, GL_FALSE, bStride, (const void*)40);
+	glVertexAttribDivisor(7, 1);
+	glEnableVertexAttribArray(8);
+	glVertexAttribPointer(8, 1, GL_FLOAT, GL_FALSE, bStride, (const void*)44);
+	glVertexAttribDivisor(8, 1);
+	glEnableVertexAttribArray(9);
+	glVertexAttribPointer(9, 1, GL_FLOAT, GL_FALSE, bStride, (const void*)48);
+	glVertexAttribDivisor(9, 1);
+	glEnableVertexAttribArray(10);
+	glVertexAttribPointer(10, 1, GL_FLOAT, GL_FALSE, bStride, (const void*)52);
+	glVertexAttribDivisor(10, 1);
+	glEnableVertexAttribArray(11);
+	glVertexAttribPointer(11, 1, GL_FLOAT, GL_FALSE, bStride, (const void*)56);
+	glVertexAttribDivisor(11, 1);
+	glEnableVertexAttribArray(12);
+	glVertexAttribPointer(12, 1, GL_FLOAT, GL_FALSE, bStride, (const void*)60);
+	glVertexAttribDivisor(12, 1);
+
+	glBindVertexArray(0);
 	Log(LOG_INFO) << "Map::initTileGL: tile rendering pipeline ready (with iso depth attr)";
 }
 
@@ -3294,6 +3454,7 @@ void Map::drawTileGLPass()
 		// Map not blitted recently; clear all GPU instances to avoid ghosting in menus.
 		for (auto& grp : _tileAtlasGroups) {
 			grp.instances.clear(); grp.overlayInstances.clear();
+			grp.blendInstances.clear();  // Phase 22
 			for (auto& sv : grp.subLayerInstances) sv.clear();
 		}
 		for (auto& grp : _unitAtlasGroups) { grp.instances.clear(); grp.zLevels.clear(); grp.yLevels.clear(); }
@@ -3344,6 +3505,8 @@ void Map::drawTileGLPass()
 	                     const TileInstance* data, size_t count, bool isRgba) {
 		Shader* sh = isRgba ? _tileShaderRgba : _tileShader;
 		if (!sh || !sh->isValid()) return;
+		// P17: explicit bind so blend draw's _blendVAO doesn't leak into this call.
+		glBindVertexArray(_tileVAO);
 		if (sh != activeShader)
 		{
 			sh->use();
@@ -3355,6 +3518,12 @@ void Map::drawTileGLPass()
 			{
 				sh->setUniform1i("u_shadeTable", 1);
 				_shadeTableTex->bind(1);
+			}
+			else if (_shadeCurveTex && _shadeCurveTex->isValid())
+			{
+				// Phase 22 §22.4: shade ramp for RGBA overlay path (P5 — no night seam).
+				sh->setUniform1i("u_shadeCurve", 3);
+				_shadeCurveTex->bind(3);
 			}
 			activeShader = sh;
 		}
@@ -3419,6 +3588,40 @@ void Map::drawTileGLPass()
 		drawAtlas(grp.overlayAtlas, grp.tileUVW, grp.tileUVH,
 		          grp.overlayInstances.data(), grp.overlayInstances.size(), /*isRgba=*/true);
 	}
+	// Phase 22: runtime blend draw — same depth state as overlays (depthMask off,
+	// LEQUAL).  Per-group: only fire when _blendShader is available and the group
+	// has pending blend instances.  Binds _blendVAO; drawAtlas calls above and
+	// below re-bind _tileVAO at entry so VAO state does not leak (P17).
+	if (_blendShader && _blendShader->isValid()
+	 && _noiseTex && _noiseTex->isValid()
+	 && _shadeCurveTex && _shadeCurveTex->isValid())
+	{
+		_blendShader->use();
+		_blendShader->setUniform2f("u_screenSize",    SW, SH);
+		_blendShader->setUniform2f("u_tilePixelSize", (float)_spriteWidth, (float)_spriteHeight);
+		_blendShader->setUniform1f("u_animFrame",     _animFrameGPU);
+		_blendShader->setUniform1i("u_atlas",         0);
+		_blendShader->setUniform1i("u_noise",         2);
+		_blendShader->setUniform1i("u_shadeCurve",    3);
+		_noiseTex->bind(2);
+		_shadeCurveTex->bind(3);
+		activeShader = nullptr;  // force drawAtlas to re-bind _tileShaderRgba after this
+
+		glBindVertexArray(_blendVAO);
+		for (auto& grp : _tileAtlasGroups)
+		{
+			if (!grp.overlayAtlas || grp.blendInstances.empty()) continue;
+			grp.overlayAtlas->bind(0);
+			_blendShader->setUniform2f("u_tileUVSize", grp.tileUVW, grp.tileUVH);
+			glBindBuffer(GL_ARRAY_BUFFER, _blendIBO);
+			glBufferData(GL_ARRAY_BUFFER,
+			             (GLsizeiptr)(grp.blendInstances.size() * sizeof(BlendInstance)),
+			             grp.blendInstances.data(), GL_DYNAMIC_DRAW);
+			glDrawArraysInstanced(GL_TRIANGLES, 0, 6, (GLsizei)grp.blendInstances.size());
+		}
+		glBindVertexArray(0);
+	}
+
 	// Phase 20.5: sub-layer passes (rendered after base overlay, in layer order).
 	for (size_t li = 0; li < 8; ++li)  // cap at 8 sub-layers
 	{

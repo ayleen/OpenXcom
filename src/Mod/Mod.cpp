@@ -4301,6 +4301,10 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 					                      << ts.cell << "].tilePart: unknown value '"
 					                      << tilePartStr << "', leaving default";
 				}
+				// Phase 22: anti-repeat variant count; base cell carries metadata,
+				// cells [cell..cell+variants-1] form the visual pool (§22.5).
+				tileNode["variants"].tryReadVal<int>(ts.variants);
+				if (ts.variants < 1) ts.variants = 1;
 				spec.hdTiles.push_back(std::move(ts));
 			}
 		}
@@ -4337,25 +4341,40 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 			{
 				std::string neighbour;
 				wsNode["neighbour"].tryReadVal<std::string>(neighbour);
-				if (neighbour.empty()) continue;       // skip malformed entry
-				std::array<int,16> cells;
-				cells.fill(-1);
-				auto cellsNode = wsNode["atlasCells"];
-				if (cellsNode)
+				if (neighbour.empty()) continue;
+				WangNeighbour wn;
+				// Phase 22: mode field selects bake (default, Phase 21 compat) or blend.
+				std::string mode = "bake";
+				wsNode["mode"].tryReadVal<std::string>(mode);
+				wn.blend = (mode == "blend");
+				if (wn.blend)
 				{
-					for (const auto& cellNode : cellsNode.children())
+					wsNode["surfaceCell"].tryReadVal<int>(wn.surfaceCell);
+					wsNode["surfaceVariants"].tryReadVal<int>(wn.surfaceVariants);
+					if (wn.surfaceVariants < 1) wn.surfaceVariants = 1;
+					wsNode["feather"].tryReadVal<float>(wn.feather);
+					wsNode["noiseScale"].tryReadVal<float>(wn.noiseScale);
+					wsNode["noiseAmp"].tryReadVal<float>(wn.noiseAmp);
+				}
+				else
+				{
+					// bake (Phase 21): read atlasCells mask→cell map
+					auto cellsNode = wsNode["atlasCells"];
+					if (cellsNode)
 					{
-						int maskKey = 0;
-						int cellIdx = -1;
-						if (cellNode.tryReadKey<int>(maskKey)
-						 && cellNode.tryReadVal<int>(cellIdx)
-						 && maskKey >= 0 && maskKey < 16)
+						for (const auto& cellNode : cellsNode.children())
 						{
-							cells[maskKey] = cellIdx;
+							int maskKey = 0, cellIdx = -1;
+							if (cellNode.tryReadKey<int>(maskKey)
+							 && cellNode.tryReadVal<int>(cellIdx)
+							 && maskKey >= 0 && maskKey < 16)
+							{
+								wn.variantCells[maskKey] = cellIdx;
+							}
 						}
 					}
 				}
-				spec.wangSets[neighbour] = cells;       // last-write-wins for duplicate neighbour
+				spec.wangSets[neighbour] = std::move(wn);
 			}
 		}
 
@@ -4699,19 +4718,40 @@ Mod::WangResult Mod::computeWangMask(const TileAtlasSpec* spec,
 	result.mask = (uint8_t)((nw << 3) | (ne << 2) | (se << 1) | sw);
 	if (result.mask == 0) return result;
 
-	// 5. First-found collision in N→E→S→W order picks the wangSet to
-	//    consult. Document §21.4.2 records the policy choice; if a tile
-	//    has no entry for the picked neighbour, variantCell stays -1
-	//    (the renderer falls through to the base cell).
+	// 5. First-found collision in N→E→S→W order picks the wangSet.
+	//    §21.4.2: if the tile has no entry for the picked neighbour,
+	//    variantCell stays -1 (renderer falls through to the base cell).
 	std::string lookup;
-	for (const auto& n : {n_n, n_e, n_s, n_w}) {
-		if (foreign(n)) { lookup = n; break; }
+	int winDx = 0, winDy = 0;
+	for (int i = 0; i < 4; ++i)
+	{
+		const std::string& n = (i == 0) ? n_n : (i == 1) ? n_e : (i == 2) ? n_s : n_w;
+		if (foreign(n)) {
+			lookup = n;
+			if      (i == 0) { winDx =  0; winDy = -1; }
+			else if (i == 1) { winDx =  1; winDy =  0; }
+			else if (i == 2) { winDx =  0; winDy =  1; }
+			else             { winDx = -1; winDy =  0; }
+			break;
+		}
 	}
 	if (lookup.empty()) return result;
 
 	auto wit = spec->wangSets.find(lookup);
 	if (wit == spec->wangSets.end()) return result;
-	result.variantCell = wit->second[result.mask];
+	const WangNeighbour& neigh = wit->second;
+	result.blend   = neigh.blend;
+	result.matched = &neigh;
+	if (neigh.blend)
+	{
+		result.surfaceCell  = neigh.surfaceCell;
+		result.neighbourDx  = winDx;
+		result.neighbourDy  = winDy;
+	}
+	else
+	{
+		result.variantCell = neigh.variantCells[result.mask];
+	}
 	return result;
 }
 #endif /* __EMSCRIPTEN__ */

@@ -16,7 +16,7 @@ namespace OpenXcom
 class GpuTexture
 {
 public:
-    enum class Wrap   { ClampToEdge, RepeatS_ClampT };
+    enum class Wrap   { ClampToEdge, RepeatS_ClampT, Repeat };
     enum class Filter { Linear, Nearest };
 
     explicit GpuTexture(bool srgb = true,

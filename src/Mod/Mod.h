@@ -183,10 +183,27 @@ public:
 		// TileAtlasSpec::wangTilePart (hard default O_FLOOR).
 		TilePart               tilePart    = O_FLOOR;
 		bool                   hasTilePart = false;
+		// Phase 22: anti-repeat variant count (§22.5). The base cell (this one)
+		// carries all metadata; cells [cell..cell+variants-1] are the visual pool.
+		int                    variants    = 1;
 	};
 
 	/// Phase 20: controls whether the R8 baseline atlas is built and drawn.
 	enum class BaselineMode { Vanilla, None };
+
+	/// Phase 22: per-neighbour wangSet entry, supporting both bake (Phase 21)
+	/// and runtime blend (Phase 22) modes.
+	struct WangNeighbour
+	{
+		int   variantCells[16];          // bake: per-mask atlas cell (-1 = no variant)
+		bool  blend          = false;    // true → runtime blend path
+		int   surfaceCell    = -1;       // blend: base neighbour-surface cell in atlas
+		int   surfaceVariants = 1;       // blend: anti-repeat cell count from surfaceCell
+		float feather        = 0.18f;   // blend: boundary softness
+		float noiseScale     = 3.0f;    // blend: tiling frequency of u_noise
+		float noiseAmp       = 0.35f;   // blend: noise perturbation of the boundary
+		WangNeighbour() { std::fill(variantCells, variantCells + 16, -1); }
+	};
 
 	/// Atlas layout for a single mapDataSet's GPU tile sheet.
 	struct TileAtlasSpec
@@ -218,10 +235,10 @@ public:
 		std::vector<GpuTexture*> subLayerAtlases;           // populated by ensureVanillaAtlas
 		// Phase 20.6: O(1) cell→hdTiles index lookup (built by parser, not serialised).
 		std::unordered_map<int,int> hdTilesByCell;          // cell index → hdTiles[] index
-		// Phase 21: Corner-Wang transition support (dataset-level defaults + variant tables).
+		// Phase 21/22: Corner-Wang transition support (dataset-level defaults + variant tables).
 		std::string            wangType;                                                  // default neighbour-tag for cells without per-cell override
 		TilePart               wangTilePart = O_FLOOR;                                    // default TilePart slot for cells without per-cell override
-		std::unordered_map<std::string, std::array<int,16>> wangSets;                     // neighbour tag -> per-mask (0..15) atlas cell, -1 means "no variant"
+		std::unordered_map<std::string, WangNeighbour> wangSets;                          // neighbour tag → WangNeighbour (bake or blend)
 
 		// Phase 21: resolve cell-vs-dataset inheritance.
 		// effectiveWangType returns "" iff the cell explicitly opts out (hasWangType + ""),
@@ -238,14 +255,21 @@ public:
 		}
 	};
 
-	/// Phase 21.3.1: result of a Corner-Wang lookup for one tile.
+	/// Phase 21/22: result of a Corner-Wang lookup for one tile.
 	/// mask is the 4-bit OR-corner mask (NW=8, NE=4, SE=2, SW=1).
-	/// variantCell is the atlas-cell index from the matching wangSet, or
-	/// -1 when no transition fires (homogeneous tile or wangSet miss).
+	/// Bake (Phase 21): variantCell is the atlas-cell from the wangSet, or -1.
+	/// Blend (Phase 22): surfaceCell is the neighbour-surface cell; matched points
+	/// to the WangNeighbour for per-instance knobs; neighbourDx/Dy give the
+	/// grid offset to the dominant foreign neighbour tile.
 	struct WangResult
 	{
-		uint8_t mask        = 0;
-		int     variantCell = -1;
+		uint8_t mask              = 0;
+		int     variantCell       = -1;          // BAKE: variant cell index; -1 = no transition
+		int     surfaceCell       = -1;          // BLEND: neighbour-surface base cell; -1 = no blend
+		bool    blend             = false;
+		int     neighbourDx       = 0;           // BLEND: grid offset (±1) to dominant neighbour
+		int     neighbourDy       = 0;
+		const WangNeighbour* matched = nullptr;  // BLEND: knobs + surfaceVariants; null if bake/none
 	};
 
 	/// Layout record for a unit-PCK GPU sprite atlas (Phase 14.1).

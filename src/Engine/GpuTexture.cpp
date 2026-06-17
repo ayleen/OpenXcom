@@ -38,8 +38,10 @@ bool GpuTexture::uploadRGBA(const uint8_t* data, int w, int h, int mipLevel)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, (GLint)minF);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, (GLint)magF);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,
-                        _wrap == Wrap::RepeatS_ClampT ? GL_REPEAT : GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+                        (_wrap == Wrap::RepeatS_ClampT || _wrap == Wrap::Repeat)
+                            ? GL_REPEAT : GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,
+                        _wrap == Wrap::Repeat ? GL_REPEAT : GL_CLAMP_TO_EDGE);
     }
     else
     {

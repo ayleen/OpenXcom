@@ -1,17 +1,18 @@
 // tile_atlas_rgba.frag — Phase 12.3: RGBA atlas path, no shade-table lookup.
 //
 // Samples the atlas as RGBA8 (uploaded with GL_LINEAR filter so 256×320 source
-// tiles downsample smoothly).  Applies a simple linear darkening factor in place
-// of the palette shade-table used by the palette variant.
-//
-// shadeFactor calibration: linear 1 - shade/15 * 0.6 is the starting point;
-// replace with a 16-element LUT uniform if visual mismatch next to
-// palette-rendered tiles is unacceptable at night missions (shade > 8).
+// tiles downsample smoothly).  Phase 22 (P5): shade darkening now uses the same
+// u_shadeCurve LUT as tile_blend.frag so HD overlay and blend tiles match at
+// night (no seam at shade > 8).  u_shadeCurve is a 16×1 R8 texture built from
+// the real palette shade table in Map::setPalette.  If u_shadeCurve is not
+// bound the sampler returns 0.0 and the tile renders black — the shader relies
+// on Map::drawTileGLPass binding it at unit 3 for every RGBA draw call.
 //
 // Do NOT include #version or precision qualifiers here.
 // The platform preamble is prepended by Shader::compile().
 
 uniform sampler2D u_atlas;
+uniform sampler2D u_shadeCurve;  // unit 3: 16×1 night ramp (Phase 22, P5)
 uniform float     u_animFrame;
 uniform vec2      u_tileUVSize;
 
@@ -32,8 +33,6 @@ void main()
     vec4 c = texture(u_atlas, uv);
     // Discard only truly-transparent texels (covers the geometry-overdraw
     // border around each cell and clamp-to-edge samples outside the mask).
-    // The previous 0.5 cutoff also discarded any cell where opacity < 0.5,
-    // making low-opacity tiles invisible.
     if (c.a < 0.01) discard;
 
     // Undiscovered tiles (v_shade==16 from CPU side) render as opaque black.
@@ -43,9 +42,8 @@ void main()
         return;
     }
 
-    // Pass texture alpha through. The atlas builder bakes (mask × opacity)
-    // into c.a, so the standard glBlendFunc(SRC_ALPHA, ONE_MINUS_SRC_ALPHA)
-    // realises the authored opacity, and gradient-mask edges anti-alias
-    // naturally.
-    fragColor = vec4(c.rgb, c.a);
+    // Phase 22 (P5): luminance-ramp darkening from the palette shade table so
+    // HD overlay tiles match the brightness of adjacent blend tiles at night.
+    float shadeF  = texture(u_shadeCurve, vec2((v_shade + 0.5) / 16.0, 0.5)).r;
+    fragColor = vec4(c.rgb * shadeF, c.a);
 }

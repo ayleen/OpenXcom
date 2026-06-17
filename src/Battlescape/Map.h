@@ -154,6 +154,22 @@ private:
 		float iso;                // iso priority [0..1]; larger = closer to camera
 	};
 
+	/// Phase 22: per-tile instance for the runtime blend shader (tile_blend).
+	/// Kept separate from TileInstance so the ~99% non-blend path is unaffected.
+	struct BlendInstance
+	{
+		float    screenX,     screenY;       // top-left in screen pixels
+		float    selfU,       selfV;         // self-surface cell UV
+		float    neighbourU,  neighbourV;    // dominant-neighbour surface cell UV
+		float    worldX,      worldY;        // tile grid coords — noise anchor (P14)
+		uint32_t wangMask;                   // 4-bit corner mask as int (flat uint in shader, P16)
+		float    shade;                      // 0..15
+		float    alphaMask;                  // 0 or 1
+		float    iso;                        // iso depth priority
+		float    animFrameCount;
+		float    feather, noiseScale, noiseAmp;  // per-instance knobs (P4)
+	};
+
 	/// Per-atlas draw group: one glDrawArraysInstanced per atlas texture.
 	struct AtlasGroup
 	{
@@ -184,15 +200,22 @@ private:
 		// overlay (overlayInstances above), indices 1..N = additional sub-layers.
 		std::vector<GpuTexture*>               subLayerAtlases;    // owned by TileAtlasSpec
 		std::vector<std::vector<TileInstance>> subLayerInstances;  // parallel to subLayerAtlases
+		// Phase 22: runtime blend bucket; drawn by tile_blend shader after the overlay pass.
+		std::vector<BlendInstance>             blendInstances;
 	};
 
 	std::vector<AtlasGroup>  _tileAtlasGroups;
 	Shader*                  _tileShader     = nullptr;  // palette variant (R8 + shade table)
 	Shader*                  _tileShaderRgba = nullptr;  // RGBA variant (GL_LINEAR + linear shade)
-	GpuTexture*              _shadeTableTex = nullptr;
+	Shader*                  _blendShader    = nullptr;  // Phase 22: runtime blend (tile_blend)
+	GpuTexture*              _shadeTableTex  = nullptr;
+	GpuTexture*              _shadeCurveTex  = nullptr;  // Phase 22: 16×1 night shade ramp (§22.4)
+	GpuTexture*              _noiseTex       = nullptr;  // Phase 22: 256×256 tileable noise
 	unsigned int _tileVAO    = 0;
 	unsigned int _tileVBO    = 0;  // corner quads (static)
 	unsigned int _tileIBO    = 0;  // instance data (dynamic, per-frame)
+	unsigned int _blendVAO   = 0;  // Phase 22: blend instance VAO
+	unsigned int _blendIBO   = 0;  // Phase 22: blend instance buffer
 	bool         _tileGLInit = false;
 	/// Fractional animation cycle position [0, 1) — set each frame, passed as u_animFrame.
 	float        _animFrameGPU = 0.0f;
