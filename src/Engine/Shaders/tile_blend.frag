@@ -31,15 +31,21 @@ out vec4 fragColor;
 
 // Bilinear corner field in diamond-local space.
 // Returns 0 (self cell) → 1 (neighbour cell).
-// Bit mapping:  NW=bit3, NE=bit2, SE=bit1, SW=bit0 (§22.0.2 calibration).
-// A bit is set when that corner is "foreign" (dominated by the neighbour type).
+// Bit mapping:  NW=bit3, NE=bit2, SE=bit1, SW=bit0.
+// §22.0.2 calibration (derived from Camera::convertMapToScreen — screenX=16x-16y,
+// screenY=8x+8y — and computeWangMask): grid-N renders screen upper-right, W
+// upper-left, E lower-right, S lower-left, so the shared Wang corners land on the
+// diamond VERTICES as  NW→top  NE→right  SE→bottom  SW→left.  toDiamond maps those
+// vertices to d-corners  left→(0,0) top→(1,0) bottom→(0,1) right→(1,1), giving the
+// bilinear placement below (the prior nw/ne/sw/se order was rotated 90°).
 float cornerField(vec2 d, uint m)
 {
     float nw = float((m >> 3u) & 1u);
     float ne = float((m >> 2u) & 1u);
     float se = float((m >> 1u) & 1u);
     float sw = float( m        & 1u);
-    return mix(mix(nw, ne, d.x), mix(sw, se, d.x), d.y);
+    //  d(0,0)=left=SW   d(1,0)=top=NW   d(0,1)=bottom=SE   d(1,1)=right=NE
+    return mix(mix(sw, nw, d.x), mix(se, ne, d.x), d.y);
 }
 
 void main()
