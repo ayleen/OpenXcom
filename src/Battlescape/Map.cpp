@@ -504,6 +504,7 @@ void Map::init()
 		// drawUnitGLPass() is a no-op until Map::setPalette() rebuilds them.
 		ShaderManager::instance().registerResetCallback(_gpuAliveFlag, [this]() {
 			_tileVAO = _tileVBO = _tileIBO = 0;
+			_blendVAO = _blendIBO = 0;
 			_tileGLInit = false;
 			_spriteVAO = _spriteVBO = 0;
 			_spriteGLInit = false;
@@ -3596,6 +3597,8 @@ void Map::drawTileGLPass()
 	 && _noiseTex && _noiseTex->isValid()
 	 && _shadeCurveTex && _shadeCurveTex->isValid())
 	{
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);  // blend shader assumes straight alpha
+		curPremult = false;  // keep sub-layer premult tracking consistent
 		_blendShader->use();
 		_blendShader->setUniform2f("u_screenSize",    SW, SH);
 		_blendShader->setUniform2f("u_tilePixelSize", (float)_spriteWidth, (float)_spriteHeight);
