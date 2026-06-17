@@ -26,7 +26,7 @@ public:
 
     /* Upload RGBA pixel data to the GPU. mipLevel=0 triggers glGenerateMipmap. */
     bool uploadRGBA(const uint8_t* data, int w, int h, int mipLevel = 0);
-    /* Upload a single-channel R8 palette-index atlas. Always GL_NEAREST, no mipmaps. */
+    /* Upload a single-channel R8 atlas. Respects _filter and _wrap; no mipmaps. */
     bool uploadR8(const uint8_t* data, int w, int h);
     /* Bind to the given texture unit (0-based). */
     void bind(int textureUnit = 0);

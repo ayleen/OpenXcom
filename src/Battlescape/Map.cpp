@@ -780,15 +780,20 @@ void Map::setPalette(const SDL_Color *colors, int firstcolor, int ncolors)
 		_spriteFrameCache.clear();
 		delete _shadeTableTex; _shadeTableTex = nullptr;
 		const ShadeTable* st = getShadeTable();
+		// Phase 22 §22.4: 16×1 R8 shade-curve ramp for tile_blend + tile_atlas_rgba.
+		// Encodes average luminance ratio lum(s) / lum(0) over palette indices 1..255
+		// so the fragment shaders darken blended/HD surfaces identically to the
+		// vanilla tile path (prevents night seams, DoD #10).
+		// M1: ALWAYS (re)build _shadeCurveTex — defaulting to an identity ramp
+		// (255 = no darkening) when no shade table is available. The RGBA/blend
+		// fragment shaders render black on an unbound u_shadeCurve sampler, so a
+		// valid curve must exist unconditionally; identity preserves the pre-
+		// Phase-22 "undarkened HD tile" look in the degenerate (no shade table) case.
+		std::vector<uint8_t> curve(16, 255u);   // identity fallback (no darkening)
 		if (st)
 		{
 			ShadeTableCache tmp;
 			_shadeTableTex = tmp.uploadGPU(st).release();
-			// Phase 22 §22.4: 16×1 R8 shade-curve ramp for tile_blend + tile_atlas_rgba.
-			// Encodes average luminance ratio lum(s) / lum(0) over palette indices 1..255
-			// so the fragment shaders can darken blended surfaces identically to the
-			// vanilla tile path (prevents night seams, DoD #10).
-			std::vector<uint8_t> curve(16);
 			for (int s = 0; s < 16; ++s)
 			{
 				double sum = 0.0; int n = 0;
@@ -804,10 +809,10 @@ void Map::setPalette(const SDL_Color *colors, int firstcolor, int ncolors)
 				if (v < 0.0) v = 0.0; else if (v > 255.0) v = 255.0;
 				curve[s] = (uint8_t)v;
 			}
-			delete _shadeCurveTex;
-			_shadeCurveTex = new GpuTexture(false, GpuTexture::Wrap::ClampToEdge, GpuTexture::Filter::Nearest);
-			_shadeCurveTex->uploadR8(curve.data(), 16, 1);
 		}
+		delete _shadeCurveTex;
+		_shadeCurveTex = new GpuTexture(false, GpuTexture::Wrap::ClampToEdge, GpuTexture::Filter::Nearest);
+		_shadeCurveTex->uploadR8(curve.data(), 16, 1);
 	}
 #endif
 }
@@ -3012,7 +3017,7 @@ void Map::emitTilePass()
 								b.worldY   = (float)mapPos.y;
 								b.wangMask = (uint32_t)wang.mask;
 								b.feather    = wang.matched ? wang.matched->feather    : 0.18f;
-								b.noiseScale = wang.matched ? wang.matched->noiseScale : 3.0f;
+								b.noiseScale = wang.matched ? wang.matched->noiseScale : 2.71f;
 								b.noiseAmp   = wang.matched ? wang.matched->noiseAmp   : 0.35f;
 								grp.blendInstances.push_back(b);
 								pushToBlend = true;
@@ -3303,23 +3308,37 @@ void Map::initTileGL()
 			// Non-fatal: bake path continues; blend tiles fall back to base overlay.
 		}
 	}
-	// Phase 22: 256×256 tileable noise texture (GL_REPEAT on both axes).
-	// Simple value-noise placeholder; replace with surface-gen.py noise PNG if
-	// banding from lack of bandlimiting becomes visible at low noiseAmp values.
+	// Phase 22: 256×256 tileable R8 noise texture (GL_REPEAT + GL_LINEAR).
+	// R8 saves 75% VRAM vs RGBA8 (64 KB vs 256 KB); uploadR8 respects
+	// Wrap::Repeat and Filter::Linear set on construction.
+	// M2: periodic coherent value-noise — a 32-cell random lattice, smoothstep-
+	// interpolated up to 256×256, lattice indices wrapped mod 32. The wrap makes
+	// the field exactly periodic over 256 px, so GL_REPEAT tiles it with NO seam,
+	// and smoothstep interpolation gives an organic wobble (the previous per-texel
+	// white noise read as sparkle). surface-gen.py `noise` emits an equivalent PNG
+	// for Python-preview parity (DoD #7); swap to that asset when authored.
 	if (!_noiseTex)
 	{
-		std::vector<uint8_t> noiseData(256 * 256 * 4, 0u);
-		for (int ny = 0; ny < 256; ++ny)
-		{
-			for (int nx = 0; nx < 256; ++nx)
+		constexpr int N = 256, LAT = 32;          // 256 % LAT == 0 ⇒ seamless under REPEAT
+		auto lattice = [](int ix, int iy) -> float {
+			uint32_t h = hash3(ix & (LAT - 1), iy & (LAT - 1), 42u);  // wrap ⇒ periodic
+			return (float)(h & 0xFFFFu) / 65535.0f;
+		};
+		auto smooth = [](float t) { return t * t * (3.0f - 2.0f * t); };
+		std::vector<uint8_t> noiseData(N * N, 0u);
+		for (int ny = 0; ny < N; ++ny)
+			for (int nx = 0; nx < N; ++nx)
 			{
-				uint32_t h = hash3(nx, ny, 42u);
-				noiseData[(ny * 256 + nx) * 4 + 0] = (uint8_t)(h & 0xFFu);  // R
-				noiseData[(ny * 256 + nx) * 4 + 3] = 255u;                   // A
+				float gx = nx * (float)LAT / (float)N, gy = ny * (float)LAT / (float)N;
+				int ix = (int)gx, iy = (int)gy;
+				float tx = smooth(gx - ix), ty = smooth(gy - iy);
+				float a = lattice(ix,     iy),     b = lattice(ix + 1, iy);
+				float c = lattice(ix,     iy + 1), d = lattice(ix + 1, iy + 1);
+				float v = a + (b - a) * tx + (c - a) * ty + (a - b - c + d) * tx * ty;
+				noiseData[ny * N + nx] = (uint8_t)(v * 255.0f + 0.5f);
 			}
-		}
 		_noiseTex = new GpuTexture(false, GpuTexture::Wrap::Repeat, GpuTexture::Filter::Linear);
-		_noiseTex->uploadRGBA(noiseData.data(), 256, 256);
+		_noiseTex->uploadR8(noiseData.data(), N, N);
 	}
 
 	static const float corners[] = {

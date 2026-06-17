@@ -200,7 +200,7 @@ public:
 		int   surfaceCell    = -1;       // blend: base neighbour-surface cell in atlas
 		int   surfaceVariants = 1;       // blend: anti-repeat cell count from surfaceCell
 		float feather        = 0.18f;   // blend: boundary softness
-		float noiseScale     = 3.0f;    // blend: tiling frequency of u_noise
+		float noiseScale     = 2.71f;   // blend: tiling frequency of u_noise (non-integer avoids tile-grid aliasing)
 		float noiseAmp       = 0.35f;   // blend: noise perturbation of the boundary
 		WangNeighbour() { std::fill(variantCells, variantCells + 16, -1); }
 	};

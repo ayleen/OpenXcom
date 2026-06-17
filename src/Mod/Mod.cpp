@@ -4374,6 +4374,22 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 						}
 					}
 				}
+				// Bounds-check surfaceCell against the atlas grid so an out-of-range
+				// value degrades to no-blend rather than sampling a wrong UV on the GPU.
+				if (wn.blend && spec.tileWidth > 0 && spec.tileHeight > 0
+				 && spec.width > 0 && spec.height > 0)
+				{
+					int nCells = (spec.width / spec.tileWidth) * (spec.height / spec.tileHeight);
+					if (wn.surfaceCell < 0 || wn.surfaceCell >= nCells
+					 || wn.surfaceCell + wn.surfaceVariants - 1 >= nCells)
+					{
+						Log(LOG_WARNING) << "tileAtlas[" << dataset << "]: wangSet neighbour '"
+						                 << neighbour << "': surfaceCell=" << wn.surfaceCell
+						                 << " variants=" << wn.surfaceVariants
+						                 << " out of range [0," << nCells << "); blend disabled";
+						wn.blend = false;
+					}
+				}
 				spec.wangSets[neighbour] = std::move(wn);
 			}
 		}
