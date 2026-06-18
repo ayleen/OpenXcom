@@ -3028,6 +3028,12 @@ void Map::emitTilePass()
 								atlasTileIdx_overlay = wang.variantCell;
 							}
 						}
+						// Phase 22 anti-repeat (§22.5): a uniform overlay cell scatters
+						// across its pool [cell..cell+variants-1] by a stable position
+						// hash — only when no bake-Wang variant already overrode it.
+						if (ts.variants > 1 && atlasTileIdx_overlay == atlasTileIdx)
+							atlasTileIdx_overlay = atlasTileIdx +
+								(int)(hash3(mapPos.x, mapPos.y, mapPos.z) % (uint32_t)ts.variants);
 					}
 					if (!pushToBlend)
 					{
