@@ -4300,7 +4300,12 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 				// meaningful explicit value ("opt-out of Wang"); absence inherits the
 				// dataset default. tryReadVal returns true iff the key was present.
 				if (tileNode["wangType"].tryReadVal<std::string>(ts.wangType))
+				{
 					ts.hasWangType = true;
+					// Phase 22 (M1 perf): intern now so the emit-time neighbour scan
+					// compares ints. internWangType("") returns -1 (explicit opt-out).
+					ts.wangTypeId = internWangType(ts.wangType);
+				}
 				// Phase 21: per-cell TilePart slot hint. Accepts "O_FLOOR" or "O_OBJECT".
 				// Required for cells the MAP places in the object slot (e.g. SAND#19).
 				std::string tilePartStr;
@@ -4316,6 +4321,24 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 				// cells [cell..cell+variants-1] form the visual pool (§22.5).
 				tileNode["variants"].tryReadVal<int>(ts.variants);
 				if (ts.variants < 1) ts.variants = 1;
+				// Phase 22 (M3): clamp the anti-repeat pool to the atlas grid so a
+				// misauthored variants count cannot push visualCell (cell + hash%variants)
+				// past the atlas and sample a wrong/edge cell on the GPU. Mirrors the
+				// wangSet surfaceVariants guard. spec dimensions are parsed above.
+				if (ts.variants > 1 && spec.tileWidth > 0 && spec.tileHeight > 0
+				 && spec.width > 0 && spec.height > 0)
+				{
+					const int nCells = (spec.width / spec.tileWidth)
+					                 * (spec.height / spec.tileHeight);
+					if (ts.cell < 0 || ts.cell + ts.variants - 1 >= nCells)
+					{
+						Log(LOG_WARNING) << "tileAtlas[" << dataset << "]: hdTiles[cell="
+						                 << ts.cell << "].variants=" << ts.variants
+						                 << " exceeds atlas cell count " << nCells
+						                 << "; clamping to 1";
+						ts.variants = 1;
+					}
+				}
 				spec.hdTiles.push_back(std::move(ts));
 			}
 		}
@@ -4336,6 +4359,8 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 		// then have no Wang transition either). wangSet[] entries map neighbour tag
 		// to per-mask atlas cell; mask is the 4-bit corner-coverage key (0..15).
 		ruleReader["wangType"].tryReadVal<std::string>(spec.wangType);
+		// Phase 22 (M1 perf): intern the dataset-default tag once for effectiveWangTypeId.
+		spec.wangTypeIdDefault = internWangType(spec.wangType);
 		std::string dsTilePartStr;
 		if (ruleReader["wangTilePart"].tryReadVal<std::string>(dsTilePartStr))
 		{
@@ -4629,6 +4654,24 @@ static int resolveStaticAtlasCellIndex(const Mod::TileAtlasSpec* spec,
 
 #ifdef __EMSCRIPTEN__
 /*
+ * Phase 22 (M1 perf): intern a wangType tag to a stable integer id so the
+ * per-tile emit scan in computeWangMask compares ints instead of constructing
+ * and comparing std::string for self + four neighbours. Interning is global
+ * across datasets (same tag → same id) so a cross-dataset "sand" vs "sand"
+ * neighbour comparison still matches. Empty tag → -1 ("no wang" / opt-out).
+ */
+int Mod::internWangType(const std::string& tag)
+{
+	if (tag.empty()) return -1;
+	auto it = _wangTypeIds.find(tag);
+	if (it != _wangTypeIds.end()) return it->second;
+	const int id = (int)_wangTypeNames.size();
+	_wangTypeIds.emplace(tag, id);
+	_wangTypeNames.push_back(tag);
+	return id;
+}
+
+/*
  * Phase 21.3.1: Corner-Wang mask + variant-cell lookup for one tile.
  *
  * Returns:
@@ -4675,7 +4718,7 @@ Mod::WangResult Mod::computeWangMask(const TileAtlasSpec* spec,
 		if (idx < 0 || idx >= (int)s->hdTiles.size()) return false;
 		const auto& cellSpec = s->hdTiles[idx];
 		if (s->effectiveTilePart(cellSpec) != part) return false;
-		if (s->effectiveWangType(cellSpec).empty()) return false;
+		if (s->effectiveWangTypeId(cellSpec) < 0) return false;
 		*outCell = cell;
 		return true;
 	};
@@ -4694,15 +4737,15 @@ Mod::WangResult Mod::computeWangMask(const TileAtlasSpec* spec,
 	if (selfCell < 0) return result;
 
 	const auto& selfSpec = spec->hdTiles[spec->hdTilesByCell.at(selfCell)];
-	const std::string self_type = spec->effectiveWangType(selfSpec);
+	const int self_typeId = spec->effectiveWangTypeId(selfSpec);
 
 	// 2. typeAt does the same dual-slot scan for each orthogonal neighbour,
 	//    against that neighbour's own dataset spec (a cross-dataset MAP can
 	//    have SAND under one tile and BLANKS under the next).
 	const Position pos = self->getPosition();
-	auto typeAt = [&](int dx, int dy) -> std::string {
+	auto typeAt = [&](int dx, int dy) -> int {
 		const Tile* t = save->getTile(Position(pos.x + dx, pos.y + dy, pos.z));
-		if (!t) return std::string();
+		if (!t) return -1;
 		for (TilePart part : {O_FLOOR, O_OBJECT})
 		{
 			const MapData* md = t->getMapData(part);
@@ -4713,26 +4756,26 @@ Mod::WangResult Mod::computeWangMask(const TileAtlasSpec* spec,
 			t->getMapData(&mcdIdx, &mdsID, part);
 			int nCell = -1;
 			if (!resolveSlot(nspec, md, mcdIdx, part, &nCell)) continue;
-			std::string nType = nspec->effectiveWangType(
+			const int nTypeId = nspec->effectiveWangTypeId(
 				nspec->hdTiles[nspec->hdTilesByCell.at(nCell)]);
-			if (!nType.empty()) return nType;
+			if (nTypeId >= 0) return nTypeId;
 		}
-		return std::string();
+		return -1;
 	};
 
-	const std::string n_n = typeAt( 0, -1);
-	const std::string n_e = typeAt( 1,  0);
-	const std::string n_s = typeAt( 0,  1);
-	const std::string n_w = typeAt(-1,  0);
+	const int n_n = typeAt( 0, -1);
+	const int n_e = typeAt( 1,  0);
+	const int n_s = typeAt( 0,  1);
+	const int n_w = typeAt(-1,  0);
 
 	// 3. Same-type fast-path: all four orthogonals match self → no
 	//    transition possible, skip mask + wangSet lookup entirely.
-	if (n_n == self_type && n_e == self_type
-	 && n_s == self_type && n_w == self_type)
+	if (n_n == self_typeId && n_e == self_typeId
+	 && n_s == self_typeId && n_w == self_typeId)
 		return result;
 
-	auto foreign = [&](const std::string& n) {
-		return !n.empty() && n != self_type;
+	auto foreign = [&](int n) {
+		return n >= 0 && n != self_typeId;
 	};
 
 	// 4. OR-corner mask: a corner is foreign iff EITHER adjacent
@@ -4748,13 +4791,13 @@ Mod::WangResult Mod::computeWangMask(const TileAtlasSpec* spec,
 	// 5. First-found collision in N→E→S→W order picks the wangSet.
 	//    §21.4.2: if the tile has no entry for the picked neighbour,
 	//    variantCell stays -1 (renderer falls through to the base cell).
-	std::string lookup;
+	int winId = -1;
 	int winDx = 0, winDy = 0;
 	for (int i = 0; i < 4; ++i)
 	{
-		const std::string& n = (i == 0) ? n_n : (i == 1) ? n_e : (i == 2) ? n_s : n_w;
+		const int n = (i == 0) ? n_n : (i == 1) ? n_e : (i == 2) ? n_s : n_w;
 		if (foreign(n)) {
-			lookup = n;
+			winId = n;
 			if      (i == 0) { winDx =  0; winDy = -1; }
 			else if (i == 1) { winDx =  1; winDy =  0; }
 			else if (i == 2) { winDx =  0; winDy =  1; }
@@ -4762,8 +4805,10 @@ Mod::WangResult Mod::computeWangMask(const TileAtlasSpec* spec,
 			break;
 		}
 	}
-	if (lookup.empty()) return result;
+	if (winId < 0) return result;
 
+	// Map the winning neighbour id back to its tag for the (rare) wangSet lookup.
+	const std::string& lookup = _wangTypeNames[winId];
 	auto wit = spec->wangSets.find(lookup);
 	if (wit == spec->wangSets.end()) return result;
 	const WangNeighbour& neigh = wit->second;

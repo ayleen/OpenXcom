@@ -186,6 +186,12 @@ public:
 		// Phase 22: anti-repeat variant count (§22.5). The base cell (this one)
 		// carries all metadata; cells [cell..cell+variants-1] are the visual pool.
 		int                    variants    = 1;
+		// Phase 22 (M1 perf): interned id of this cell's wangType, resolved once at
+		// parse time so computeWangMask compares ints instead of constructing/comparing
+		// std::string on the per-tile emit path (hot during camera scroll). -1 = no
+		// wang (empty string / explicit opt-out). Meaningful only when hasWangType==true;
+		// cells without a per-cell override fall back to TileAtlasSpec::wangTypeIdDefault.
+		int                    wangTypeId  = -1;
 		// Phase 22.7: state-gated sub-layer condition. A sub-layer with a non-Always
 		// condition is emitted only when the underlying tile is in that battle state
 		// (e.g. a scorch overlay shown only while the tile burns). COND_ALWAYS keeps
@@ -245,6 +251,7 @@ public:
 		std::unordered_map<int,int> hdTilesByCell;          // cell index → hdTiles[] index
 		// Phase 21/22: Corner-Wang transition support (dataset-level defaults + variant tables).
 		std::string            wangType;                                                  // default neighbour-tag for cells without per-cell override
+		int                    wangTypeIdDefault = -1;                                    // Phase 22 (M1 perf): interned id of dataset-default wangType; -1 = none
 		TilePart               wangTilePart = O_FLOOR;                                    // default TilePart slot for cells without per-cell override
 		std::unordered_map<std::string, WangNeighbour> wangSets;                          // neighbour tag → WangNeighbour (bake or blend)
 
@@ -254,6 +261,14 @@ public:
 		std::string effectiveWangType(const HDTileSpec& cell) const
 		{
 			return cell.hasWangType ? cell.wangType : wangType;
+		}
+		// Phase 22 (M1 perf): integer-interned counterpart of effectiveWangType, used by
+		// computeWangMask so the per-tile neighbour scan compares ints (no std::string).
+		// Returns -1 for "no wang" (empty / opt-out). Parity with effectiveWangType:
+		// hasWangType ? cell id : dataset-default id (both resolved at parse time).
+		int effectiveWangTypeId(const HDTileSpec& cell) const
+		{
+			return cell.hasWangType ? cell.wangTypeId : wangTypeIdDefault;
 		}
 		// effectiveTilePart returns the per-cell override when present,
 		// otherwise the dataset default (hard default O_FLOOR).
@@ -355,6 +370,16 @@ private:
 	/// Synthesised vanilla tile atlases: mapDataSet name -> GpuTexture*.
 	/// Populated lazily by ensureVanillaAtlas() (Block 11.2).
 	std::map<std::string, GpuTexture*> _tileAtlases;
+	/// Phase 22 (M1 perf): global wangType string -> int interning, so computeWangMask
+	/// can compare integer ids on the per-tile emit path instead of constructing and
+	/// comparing std::string for self + four neighbours. Interning is global (one id per
+	/// distinct tag across all datasets) so a cross-dataset "sand"=="sand" still matches.
+	/// _wangTypeNames is the reverse map (id -> tag) for the single wangSet lookup that
+	/// fires only when a transition is actually detected.
+	std::unordered_map<std::string, int> _wangTypeIds;
+	std::vector<std::string>             _wangTypeNames;
+	/// Interns a wangType tag, returning a stable id (>=0); "" returns -1 (no wang).
+	int internWangType(const std::string& tag);
 	/// Unit sprite atlases: SurfaceSet name -> UnitAtlasSpec (Phase 14.1).
 	/// Populated lazily by ensureUnitAtlas().
 	std::map<std::string, UnitAtlasSpec> _unitAtlases;

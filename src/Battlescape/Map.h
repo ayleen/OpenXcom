@@ -202,6 +202,13 @@ private:
 		std::vector<std::vector<TileInstance>> subLayerInstances;  // parallel to subLayerAtlases
 		// Phase 22: runtime blend bucket; drawn by tile_blend shader after the overlay pass.
 		std::vector<BlendInstance>             blendInstances;
+		// Phase 22 (H1): instance offsets into Map::_tileInstIBO for the dirty-gated
+		// terrain upload (baseline / overlay / per-sub-layer). Recomputed whenever the
+		// instance buffer is rebuilt; plain offsets (no GL handles) so they stay valid
+		// across the setPalette clear()/resize() of _tileAtlasGroups.
+		size_t                                 baselineOffset = 0;
+		size_t                                 overlayOffset  = 0;
+		std::vector<size_t>                    subLayerOffsets;
 	};
 
 	std::vector<AtlasGroup>  _tileAtlasGroups;
@@ -216,6 +223,13 @@ private:
 	unsigned int _tileIBO    = 0;  // instance data (dynamic, per-frame)
 	unsigned int _blendVAO   = 0;  // Phase 22: blend instance VAO
 	unsigned int _blendIBO   = 0;  // Phase 22: blend instance buffer
+	// Phase 22 (H1): dedicated terrain instance buffer (baseline/overlay/sub-layer).
+	// Separate from _tileVAO/_tileIBO (which units still stream into every frame) so
+	// terrain instance data — stable between emits — is uploaded only when dirty.
+	unsigned int _tileInstVAO = 0;
+	unsigned int _tileInstIBO = 0;
+	std::vector<TileInstance> _tileInstUpload;     // CPU scratch concatenation; rebuilt only when dirty
+	bool         _tileBuffersDirty = true;         // re-upload _tileInstIBO only after an emit / group rebuild
 	bool         _tileGLInit = false;
 	/// Fractional animation cycle position [0, 1) — set each frame, passed as u_animFrame.
 	float        _animFrameGPU = 0.0f;

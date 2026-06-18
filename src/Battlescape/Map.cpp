@@ -67,6 +67,7 @@
 #  include <GLES3/gl3.h>
 #  include <set>
 #  include <vector>
+#  include <cstddef>   // offsetof — instance-layout static_asserts in initTileGL
 /* Phase 11.0 CPU perf gate; Phase 11.1 readback-cost probe gate.
  * Definitions live in EmscriptenHarness.cpp inside extern "C" {},
  * so forward-declarations must carry C linkage (global namespace). */
@@ -421,6 +422,8 @@ Map::~Map()
 		glDeleteVertexArrays(1, &_tileVAO);
 		if (_blendVAO) { glDeleteVertexArrays(1, &_blendVAO); _blendVAO = 0; }
 		if (_blendIBO) { glDeleteBuffers(1,      &_blendIBO); _blendIBO = 0; }
+		if (_tileInstVAO) { glDeleteVertexArrays(1, &_tileInstVAO); _tileInstVAO = 0; }  // Phase 22 (H1)
+		if (_tileInstIBO) { glDeleteBuffers(1,      &_tileInstIBO); _tileInstIBO = 0; }  // Phase 22 (H1)
 	}
 	delete _spriteShader; _spriteShader = nullptr;
 	for (auto& p : _spriteFrameCache) delete p.second;
@@ -505,6 +508,8 @@ void Map::init()
 		ShaderManager::instance().registerResetCallback(_gpuAliveFlag, [this]() {
 			_tileVAO = _tileVBO = _tileIBO = 0;
 			_blendVAO = _blendIBO = 0;
+			_tileInstVAO = _tileInstIBO = 0;   // Phase 22 (H1): recreated by initTileGL
+			_tileBuffersDirty = true;          // force re-upload after context restore
 			_tileGLInit = false;
 			_spriteVAO = _spriteVBO = 0;
 			_spriteGLInit = false;
@@ -651,6 +656,9 @@ void Map::draw()
 			}
 			_cursorOverlayInstances.clear();
 			_smokeInstances.clear();
+			// Phase 22 (H1): terrain lists emptied — invalidate the persistent buffer so
+			// the dirty-gate invariant holds (no stale offsets/data can be re-drawn).
+			_tileBuffersDirty = true;
 		}
 #endif
 		_message->blit(this->getSurface());
@@ -737,6 +745,7 @@ void Map::setPalette(const SDL_Color *colors, int firstcolor, int ncolors)
 			_tileAtlasGroups[i].subLayerInstances.assign(spec->subLayerAtlases.size(), {});
 		}
 		Log(LOG_INFO) << "[DIAG-SETPALETTE] _tileAtlasGroups populated, size=" << _tileAtlasGroups.size();
+		_tileBuffersDirty = true;  // Phase 22 (H1): groups rebuilt — invalidate the terrain instance buffer
 		// Force setPalette on each sheet: unit PCKs aren't in ensureBattlescapeAssetPalettes'
 		// list, so without this they stay 8bpp scratch with no palette mirror and the atlas
 		// builder reads B-channel of unpopulated ARGB instead of palette indices.
@@ -2722,6 +2731,9 @@ void Map::emitTilePass()
 	}
 	_smokeInstances.clear();
 	_cursorOverlayInstances.clear();
+	// Phase 22 (H1): the terrain instance lists are about to be rebuilt — mark the
+	// persistent _tileInstIBO stale so drawTileGLPass re-concatenates and re-uploads.
+	_tileBuffersDirty = true;
 	if (_tileAtlasGroups.empty())
 	{
 		static int emptyLogCount = 0;
@@ -2983,7 +2995,7 @@ void Map::emitTilePass()
 						}
 						// Phase 21/22: Wang lookup — only on floor/object wang-eligible cells.
 						if ((part == O_FLOOR || part == O_OBJECT)
-						 && !spec->effectiveWangType(ts).empty()
+						 && spec->effectiveWangTypeId(ts) >= 0
 						 && spec->effectiveTilePart(ts) == part)
 						{
 							const auto wang = mod->computeWangMask(spec, tile, _save);
@@ -3286,6 +3298,21 @@ void Map::initTileGL()
 	if (_tileGLInit) return;
 	_tileGLInit = true;
 
+	// Phase 22 (M2): the VAO setup below hardcodes byte strides/offsets that assume
+	// these structs are tightly packed (no padding). Lock that assumption at compile
+	// time so a future field reorder/insertion fails the build instead of silently
+	// desynchronising the GPU instance read.
+	static_assert(sizeof(TileInstance) == 32,
+	              "tile VAO stride assumes a 32-byte TileInstance (8 floats)");
+	static_assert(sizeof(BlendInstance) == 64,
+	              "blend VAO stride assumes a 64-byte BlendInstance (16 x 4 bytes)");
+	static_assert(offsetof(BlendInstance, wangMask) == 32,
+	              "blend attr loc 5 (glVertexAttribIPointer) reads wangMask at offset 32");
+	static_assert(offsetof(BlendInstance, shade) == 36,
+	              "blend attr loc 6 reads shade at offset 36");
+	static_assert(offsetof(BlendInstance, noiseAmp) == 60,
+	              "blend attr loc 12 reads noiseAmp at offset 60");
+
 	// On context restore these are already rebuilt by ShaderManager::reuploadAll();
 	// only allocate on the very first call.
 	if (!_tileShader)
@@ -3398,6 +3425,42 @@ void Map::initTileGL()
 
 	glBindVertexArray(0);
 
+	// Phase 22 (H1): terrain instance VAO/buffer — identical TileInstance layout to
+	// _tileVAO/_tileIBO, but persistent and dirty-gated. Baseline/overlay/sub-layer
+	// draws re-point attrs 1–6 to a per-(group,list) byte offset within this one
+	// buffer (concatenated in drawTileGLPass), so a clean frame issues zero uploads.
+	// Units keep streaming into _tileIBO via drawAtlas, so they are unaffected.
+	glGenVertexArrays(1, &_tileInstVAO);
+	glBindVertexArray(_tileInstVAO);
+	// attr 0 — corner (per-vertex, shared corner VBO)
+	glBindBuffer(GL_ARRAY_BUFFER, _tileVBO);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
+	glVertexAttribDivisor(0, 0);
+	// attrs 1–6 — per-instance, base offset 0 here; re-pointed per sub-draw.
+	glGenBuffers(1, &_tileInstIBO);
+	glBindBuffer(GL_ARRAY_BUFFER, _tileInstIBO);
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, (const void*)0);
+	glVertexAttribDivisor(1, 1);
+	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (const void*)(2 * sizeof(float)));
+	glVertexAttribDivisor(2, 1);
+	glEnableVertexAttribArray(3);
+	glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, stride, (const void*)(4 * sizeof(float)));
+	glVertexAttribDivisor(3, 1);
+	glEnableVertexAttribArray(4);
+	glVertexAttribPointer(4, 1, GL_FLOAT, GL_FALSE, stride, (const void*)(5 * sizeof(float)));
+	glVertexAttribDivisor(4, 1);
+	glEnableVertexAttribArray(5);
+	glVertexAttribPointer(5, 1, GL_FLOAT, GL_FALSE, stride, (const void*)(6 * sizeof(float)));
+	glVertexAttribDivisor(5, 1);
+	glEnableVertexAttribArray(6);
+	glVertexAttribPointer(6, 1, GL_FLOAT, GL_FALSE, stride, (const void*)(7 * sizeof(float)));
+	glVertexAttribDivisor(6, 1);
+	glBindVertexArray(0);
+	_tileBuffersDirty = true;  // force a rebuild on the first draw after (re)init
+
 	// Phase 22: blend VAO — same corner VBO, different per-instance layout.
 	// BlendInstance stride = 64 bytes; uint wangMask at offset 32 needs IPointer.
 	// Attribute → BlendInstance field mapping (all per-instance except loc 0):
@@ -3491,6 +3554,7 @@ void Map::drawTileGLPass()
 		for (auto& grp : _unitAtlasGroups) { grp.instances.clear(); grp.zLevels.clear(); grp.yLevels.clear(); }
 		_cursorOverlayInstances.clear();
 		_smokeInstances.clear();
+		_tileBuffersDirty = true;  // Phase 22 (H1): lists emptied — next emit rebuilds the buffer
 		return;
 	}
 
@@ -3566,15 +3630,102 @@ void Map::drawTileGLPass()
 		glDrawArraysInstanced(GL_TRIANGLES, 0, 6, (GLsizei)count);
 	};
 
+	// Phase 22 (H1): rebuild the persistent terrain instance buffer only when an
+	// emit (or group/context change) marked it dirty. Concatenate every group's
+	// baseline + overlay + sub-layer lists into one buffer and record per-list
+	// instance offsets. Clean frames skip this entirely and draw from the resident
+	// buffer, so steady-state (camera still, animation via u_animFrame uniform)
+	// issues zero terrain re-uploads. Units still stream into _tileIBO below.
+	if (_tileBuffersDirty)
+	{
+		_tileInstUpload.clear();
+		for (auto& grp : _tileAtlasGroups)
+		{
+			grp.baselineOffset = _tileInstUpload.size();
+			_tileInstUpload.insert(_tileInstUpload.end(),
+			                       grp.instances.begin(), grp.instances.end());
+			grp.overlayOffset = _tileInstUpload.size();
+			_tileInstUpload.insert(_tileInstUpload.end(),
+			                       grp.overlayInstances.begin(), grp.overlayInstances.end());
+			grp.subLayerOffsets.assign(grp.subLayerInstances.size(), 0);
+			for (size_t li = 0; li < grp.subLayerInstances.size(); ++li)
+			{
+				grp.subLayerOffsets[li] = _tileInstUpload.size();
+				_tileInstUpload.insert(_tileInstUpload.end(),
+				                       grp.subLayerInstances[li].begin(),
+				                       grp.subLayerInstances[li].end());
+			}
+		}
+		// Unbind any VAO first so this is a pure buffer upload: GL_ARRAY_BUFFER is
+		// global (not VAO state), but keeping the upload VAO-neutral means a future
+		// glVertexAttribPointer added here can never silently re-point _tileVAO's
+		// unit-draw attrs at _tileInstIBO.
+		glBindVertexArray(0);
+		glBindBuffer(GL_ARRAY_BUFFER, _tileInstIBO);
+		glBufferData(GL_ARRAY_BUFFER,
+		             (GLsizeiptr)(_tileInstUpload.size() * sizeof(TileInstance)),
+		             _tileInstUpload.empty() ? nullptr : _tileInstUpload.data(),
+		             GL_DYNAMIC_DRAW);
+		_tileBuffersDirty = false;
+	}
+
+	// Phase 22 (H1): re-point the terrain VAO's per-instance attrs (locs 1–6) to a
+	// byte offset within _tileInstIBO. Caller must bind _tileInstVAO + _tileInstIBO.
+	auto pointTileInstanceAttribs = [](size_t baseInstance) {
+		const GLsizei  stride = 8 * (GLsizei)sizeof(float);
+		const GLintptr base   = (GLintptr)(baseInstance * sizeof(TileInstance));
+		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, (const void*)(base + 0));
+		glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (const void*)(base + 2 * sizeof(float)));
+		glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, stride, (const void*)(base + 4 * sizeof(float)));
+		glVertexAttribPointer(4, 1, GL_FLOAT, GL_FALSE, stride, (const void*)(base + 5 * sizeof(float)));
+		glVertexAttribPointer(5, 1, GL_FLOAT, GL_FALSE, stride, (const void*)(base + 6 * sizeof(float)));
+		glVertexAttribPointer(6, 1, GL_FLOAT, GL_FALSE, stride, (const void*)(base + 7 * sizeof(float)));
+	};
+
+	// Phase 22 (H1): draw one terrain list from the resident _tileInstIBO at the
+	// given instance offset — no per-draw upload. Shares activeShader/uniform
+	// tracking with drawAtlas (uniforms are program state, independent of the VAO).
+	auto drawTileGroup = [&](GpuTexture* atlas, float uvW, float uvH,
+	                         size_t baseInstance, size_t count, bool isRgba) {
+		if (!atlas || count == 0) return;
+		Shader* sh = isRgba ? _tileShaderRgba : _tileShader;
+		if (!sh || !sh->isValid()) return;
+		glBindVertexArray(_tileInstVAO);
+		if (sh != activeShader)
+		{
+			sh->use();
+			sh->setUniform2f("u_screenSize",    SW, SH);
+			sh->setUniform2f("u_tilePixelSize", (float)_spriteWidth, (float)_spriteHeight);
+			sh->setUniform1f("u_animFrame",     _animFrameGPU);
+			sh->setUniform1i("u_atlas",         0);
+			if (!isRgba)
+			{
+				sh->setUniform1i("u_shadeTable", 1);
+				_shadeTableTex->bind(1);
+			}
+			else if (_shadeCurveTex && _shadeCurveTex->isValid())
+			{
+				sh->setUniform1i("u_shadeCurve", 3);
+				_shadeCurveTex->bind(3);
+			}
+			activeShader = sh;
+		}
+		atlas->bind(0);
+		sh->setUniform2f("u_tileUVSize", uvW, uvH);
+		glBindBuffer(GL_ARRAY_BUFFER, _tileInstIBO);
+		pointTileInstanceAttribs(baseInstance);
+		glDrawArraysInstanced(GL_TRIANGLES, 0, 6, (GLsizei)count);
+	};
+
 	// Lock alpha for the entire tile-grid pass: WebGL canvas alpha < 1 at
 	// edge pixels causes the page background to mix in and darken the seam.
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_FALSE);
-	// Tiles (terrain MDS atlases) — one draw call per group.
+	// Tiles (terrain MDS atlases) — one draw call per group, from _tileInstIBO.
 	for (auto& grp : _tileAtlasGroups)
 	{
 		if (!grp.atlas || grp.instances.empty()) continue;
-		drawAtlas(grp.atlas, grp.tileUVW, grp.tileUVH,
-		          grp.instances.data(), grp.instances.size(), grp.isRgba);
+		drawTileGroup(grp.atlas, grp.tileUVW, grp.tileUVH,
+		              grp.baselineOffset, grp.instances.size(), grp.isRgba);
 	}
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
@@ -3616,8 +3767,8 @@ void Map::drawTileGLPass()
 			else
 				glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); // straight
 		}
-		drawAtlas(grp.overlayAtlas, grp.tileUVW, grp.tileUVH,
-		          grp.overlayInstances.data(), grp.overlayInstances.size(), /*isRgba=*/true);
+		drawTileGroup(grp.overlayAtlas, grp.tileUVW, grp.tileUVH,
+		              grp.overlayOffset, grp.overlayInstances.size(), /*isRgba=*/true);
 	}
 	// Phase 22.1 §22.8: opt-in glFinish-isolated GPU timing of the blend pass.
 	// The blend pass is purely additive (it does not exist without runtime blend),
@@ -3639,8 +3790,9 @@ void Map::drawTileGLPass()
 	}
 	// Phase 22: runtime blend draw — same depth state as overlays (depthMask off,
 	// LEQUAL).  Per-group: only fire when _blendShader is available and the group
-	// has pending blend instances.  Binds _blendVAO; drawAtlas calls above and
-	// below re-bind _tileVAO at entry so VAO state does not leak (P17).
+	// has pending blend instances.  Binds _blendVAO; the overlay/sub-layer
+	// drawTileGroup calls around it bind _tileInstVAO at entry (and units' drawAtlas
+	// binds _tileVAO), so VAO state never leaks across passes (P17).
 	if (_blendShader && _blendShader->isValid()
 	 && _noiseTex && _noiseTex->isValid()
 	 && _shadeCurveTex && _shadeCurveTex->isValid())
@@ -3708,9 +3860,9 @@ void Map::drawTileGLPass()
 				glBlendFunc(curPremult ? GL_ONE : GL_SRC_ALPHA,
 				            GL_ONE_MINUS_SRC_ALPHA);
 			}
-			drawAtlas(grp.subLayerAtlases[li], grp.tileUVW, grp.tileUVH,
-			          grp.subLayerInstances[li].data(),
-			          grp.subLayerInstances[li].size(), /*isRgba=*/true);
+			drawTileGroup(grp.subLayerAtlases[li], grp.tileUVW, grp.tileUVH,
+			              grp.subLayerOffsets.size() > li ? grp.subLayerOffsets[li] : 0,
+			              grp.subLayerInstances[li].size(), /*isRgba=*/true);
 			drewAny = true;
 		}
 		if (!drewAny) break;  // no more sub-layers after an empty index
