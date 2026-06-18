@@ -186,6 +186,14 @@ public:
 		// Phase 22: anti-repeat variant count (§22.5). The base cell (this one)
 		// carries all metadata; cells [cell..cell+variants-1] are the visual pool.
 		int                    variants    = 1;
+		// Phase 22.7: state-gated sub-layer condition. A sub-layer with a non-Always
+		// condition is emitted only when the underlying tile is in that battle state
+		// (e.g. a scorch overlay shown only while the tile burns). COND_ALWAYS keeps
+		// the legacy unconditional behaviour. Parsed from the sub-layer's `condition:`
+		// string ("fire"); top-level cells ignore it.
+		static constexpr int   COND_ALWAYS = 0;
+		static constexpr int   COND_FIRE   = 1;
+		int                    condition   = COND_ALWAYS;
 	};
 
 	/// Phase 20: controls whether the R8 baseline atlas is built and drawn.

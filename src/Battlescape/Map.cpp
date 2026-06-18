@@ -2963,8 +2963,13 @@ void Map::emitTilePass()
 						for (size_t li = 0; li < ts.subLayers.size(); ++li)
 						{
 							if (li >= grp.subLayerInstances.size()) break;
-							TileInstance sl = ov;
 							const Mod::HDTileSpec& sub = ts.subLayers[li];
+							// Phase 22.7: state-gated sub-layer — skip a damage overlay
+							// whose battle-state condition the tile does not currently
+							// meet (e.g. a scorch layer only while the tile burns).
+							if (sub.condition == Mod::HDTileSpec::COND_FIRE && tile->getFire() <= 0)
+								continue;
+							TileInstance sl = ov;
 							if (sub.anchor[0] || sub.anchor[1])
 							{
 								sl.screenX += (float)sub.anchor[0] * scaleX;

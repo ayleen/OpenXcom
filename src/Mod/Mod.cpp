@@ -4282,6 +4282,17 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 							slAnchorNode[(size_t)0].tryReadVal<int>(sl.anchor[0]);
 							slAnchorNode[(size_t)1].tryReadVal<int>(sl.anchor[1]);
 						}
+						// Phase 22.7: state gate. "fire" → emit only while the tile burns;
+						// "always"/absent → unconditional (legacy).
+						std::string slCond;
+						if (slNode["condition"].tryReadVal<std::string>(slCond))
+						{
+							if      (slCond == "fire")   sl.condition = HDTileSpec::COND_FIRE;
+							else if (slCond == "always") sl.condition = HDTileSpec::COND_ALWAYS;
+							else Log(LOG_WARNING) << "tileAtlas[" << dataset
+							                      << "]: subLayer condition '" << slCond
+							                      << "' unknown, treating as always";
+						}
 						ts.subLayers.push_back(std::move(sl));
 					}
 				}
