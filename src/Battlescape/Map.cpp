@@ -3614,6 +3614,24 @@ void Map::drawTileGLPass()
 		drawAtlas(grp.overlayAtlas, grp.tileUVW, grp.tileUVH,
 		          grp.overlayInstances.data(), grp.overlayInstances.size(), /*isRgba=*/true);
 	}
+	// Phase 22.1 §22.8: opt-in glFinish-isolated GPU timing of the blend pass.
+	// The blend pass is purely additive (it does not exist without runtime blend),
+	// so its isolated GPU time IS the per-frame budget delta. The leading glFinish
+	// drains all prior passes; the trailing one (below) blocks until the blend
+	// fragments finish, so the CPU-side GpuTimer captures the blend GPU execution
+	// alone. Both syncs stall the pipeline — measurement builds only; production
+	// keeps g_calypsoProfileBattlescape == 0 → zero cost.
+	const bool profBlend = ::g_calypsoProfileBattlescape != 0;
+	GpuTimer blendTimer;
+	size_t   blendInstCount = 0;
+	if (profBlend)
+	{
+		for (auto& grp : _tileAtlasGroups)
+			if (grp.overlayAtlas && !grp.blendInstances.empty())
+				blendInstCount += grp.blendInstances.size();
+		glFinish();
+		blendTimer.start();
+	}
 	// Phase 22: runtime blend draw — same depth state as overlays (depthMask off,
 	// LEQUAL).  Per-group: only fire when _blendShader is available and the group
 	// has pending blend instances.  Binds _blendVAO; drawAtlas calls above and
@@ -3648,6 +3666,25 @@ void Map::drawTileGLPass()
 			glDrawArraysInstanced(GL_TRIANGLES, 0, 6, (GLsizei)grp.blendInstances.size());
 		}
 		glBindVertexArray(0);
+	}
+	if (profBlend)
+	{
+		glFinish();
+		blendTimer.stop();
+		static long long s_accumUs = 0;
+		static unsigned  s_n       = 0;
+		static size_t    s_inst    = 0;
+		s_accumUs += blendTimer.elapsedUs();
+		s_inst     = blendInstCount;
+		if (++s_n >= 30u)
+		{
+			Log(LOG_INFO) << "Map::blendPass avg: " << (s_accumUs / (long long)s_n)
+			              << " us/frame (" << SW << "x" << SH << ", "
+			              << s_inst << " blend instances, n=" << s_n
+			              << ", glFinish-isolated GPU)";
+			s_accumUs = 0;
+			s_n       = 0;
+		}
 	}
 
 	// Phase 20.5: sub-layer passes (rendered after base overlay, in layer order).
