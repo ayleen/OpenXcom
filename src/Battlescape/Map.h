@@ -242,6 +242,10 @@ private:
 	unsigned int _spriteVBO   = 0;
 	/// Unified sprite frame cache: (SurfaceSet*, frameIdx) → RGBA GpuTexture.
 	std::map<std::pair<SurfaceSet*, int>, GpuTexture*> _spriteFrameCache;
+	/// Phase 24 UX: RGBA UI marker textures (selection ring, reticle, …) loaded
+	/// from mod PNGs, keyed by mod-relative path. White silhouettes, tinted at draw.
+	std::map<std::string, GpuTexture*> _uiTexCache;
+	GpuTexture* getUITexture(const std::string& relPath);
 	bool _spriteGLInit = false;
 	void initSpriteGL();
 	GpuTexture* getOrUploadSpriteFrame(SurfaceSet* set, int frameIdx);
@@ -270,6 +274,7 @@ private:
 		CS_MARKER_ENEMY    = 3,  // orange — hostile/neutral unit
 		CS_AP_RING         = 4,  // arc ring over selected unit (TU gauge, unused)
 		CS_FLOOR_RING      = 5,  // iso ellipse ring on floor — player selected, empty tile
+		CS_TEX_TINT        = 6,  // Phase 24: RGBA UI texture (tex) drawn tinted (tintRGB)
 	};
 	struct CursorOverlayInstance
 	{
@@ -278,6 +283,10 @@ private:
 		int frameIdx;
 		CursorStyle style;
 		float extraData = 0.0f;  // CS_AP_RING: arcFraction [0..1]
+		GpuTexture* tex = nullptr;             // CS_TEX_TINT: source texture
+		float tintR = 1.0f, tintG = 1.0f, tintB = 1.0f;  // CS_TEX_TINT: multiply tint
+		float sizeMul = 1.0f;  // CS_TEX_TINT: quad size = sizeMul * tile size
+		int   offY = 0;        // CS_TEX_TINT: extra screen-Y offset (over-head markers)
 	};
 	std::vector<CursorOverlayInstance> _cursorOverlayInstances;
 	void drawCursorOverlayGLPass();

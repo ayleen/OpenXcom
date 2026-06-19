@@ -32,6 +32,8 @@
 #include "../Engine/TTFFont.h"
 #include "../Engine/Action.h"
 #include "../Engine/SurfaceSet.h"
+#include "../Engine/FileMap.h"
+#include <SDL_image.h>  // Phase 24: IMG_Load_RW for UI marker PNGs (getUITexture)
 #include "../Engine/Timer.h"
 #include "../Engine/Language.h"
 #include "../Engine/Palette.h"
@@ -1530,6 +1532,46 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 					}
 
 					auto* unit = tile->getUnit();
+
+#ifdef __EMSCRIPTEN__
+					// Phase 24 UX (Stage 1): persistent selection indicator under the
+					// active player unit — a cyan floor ring (selection-ring.png) plus a
+					// downward amber chevron over its head (active-unit.png) — drawn every
+					// frame regardless of the cursor, so it is always clear which unit is
+					// selected. Textured UI markers (white silhouettes tinted per state).
+					if (gpuCursorSet && unit && _camera->getViewLevel() == itZ)
+					{
+						BattleUnit* selU = _save->getSelectedUnit();
+						if (selU && unit == selU && selU->getFaction() == FACTION_PLAYER
+						    && !selU->isOut() && (selU->getVisible() || _save->getDebugMode()))
+						{
+							// Cyan floor ring, centred on the tile floor.
+							if (GpuTexture* ringTex = getUITexture("Resources/battlescape/ui/selection-ring.png"))
+							{
+								CursorOverlayInstance ci;
+								ci.screenX = screenPosition.x; ci.screenY = screenPosition.y;
+								ci.style = CS_TEX_TINT; ci.tex = ringTex;
+								ci.tintR = 0.15f; ci.tintG = 0.85f; ci.tintB = 1.0f;
+								ci.sizeMul = 1.35f;
+								const int sz = (int)(_spriteWidth * ci.sizeMul);
+								ci.offY = (_spriteHeight - _spriteWidth / 4) - sz / 2;  // floor centre
+								_cursorOverlayInstances.push_back(ci);
+							}
+							// Amber over-head chevron with a slow bob.
+							if (GpuTexture* chevTex = getUITexture("Resources/battlescape/ui/active-unit.png"))
+							{
+								CursorOverlayInstance ci;
+								const int bob = (int)(_spriteHeight * 0.04f * (1.0f - _animFrameGPU));
+								ci.screenX = screenPosition.x; ci.screenY = screenPosition.y;
+								ci.style = CS_TEX_TINT; ci.tex = chevTex;
+								ci.tintR = 1.0f; ci.tintG = 0.82f; ci.tintB = 0.20f;
+								ci.sizeMul = 0.55f;
+								ci.offY = -(int)(_spriteHeight * 0.55f) - bob;  // above the head
+								_cursorOverlayInstances.push_back(ci);
+							}
+						}
+					}
+#endif
 
 					// Draw cursor back
 					if (_cursorType != CT_NONE && _selectorX > itX - _cursorSize && _selectorY > itY - _cursorSize && _selectorX < itX+1 && _selectorY < itY+1 && !_save->getBattleState()->getMouseOverIcons())
@@ -4057,6 +4099,56 @@ GpuTexture* Map::getOrUploadSpriteFrame(SurfaceSet* set, int frameIdx)
 }
 
 /**
+ * Phase 24 UX: load an RGBA UI marker PNG (mod-relative path) into a GpuTexture,
+ * cached by path. These are white silhouettes (alpha = neon brightness) and are
+ * tinted per state at draw time. nullptr is cached too, to avoid retrying a
+ * missing/broken file every frame. Linear filter for a smooth scaled glow.
+ */
+GpuTexture* Map::getUITexture(const std::string& relPath)
+{
+	auto it = _uiTexCache.find(relPath);
+	if (it != _uiTexCache.end()) return it->second;
+
+	GpuTexture* tex = nullptr;
+	if (FileMap::fileExists(relPath))
+	{
+		SDL_RWops* rw = FileMap::at(relPath)->getRWops();
+		SDL_Surface* raw = IMG_Load_RW(rw, SDL_TRUE);
+		if (raw)
+		{
+			// ABGR8888 == [R,G,B,A] byte layout on little-endian (WASM), matching
+			// GpuTexture::uploadRGBA — same convention as the HD atlas loader.
+			SDL_Surface* rgba = SDL_ConvertSurfaceFormat(raw, SDL_PIXELFORMAT_ABGR8888, 0);
+			SDL_FreeSurface(raw);
+			if (rgba)
+			{
+				if (SDL_MUSTLOCK(rgba)) SDL_LockSurface(rgba);
+				tex = new GpuTexture(/*srgb=*/false,
+				                     GpuTexture::Wrap::ClampToEdge,
+				                     GpuTexture::Filter::Linear);
+				if (!tex->uploadRGBA(static_cast<const uint8_t*>(rgba->pixels), rgba->w, rgba->h))
+				{
+					delete tex; tex = nullptr;
+				}
+				if (SDL_MUSTLOCK(rgba)) SDL_UnlockSurface(rgba);
+				SDL_FreeSurface(rgba);
+			}
+		}
+		else
+		{
+			Log(LOG_WARNING) << "Map::getUITexture: IMG_Load_RW failed for " << relPath
+			                 << " (" << IMG_GetError() << ")";
+		}
+	}
+	else
+	{
+		Log(LOG_WARNING) << "Map::getUITexture: not found: " << relPath;
+	}
+	_uiTexCache[relPath] = tex;
+	return tex;
+}
+
+/**
  * Block 11.10 / Phase 15: GPU post-flush pass that renders cursor-box overlays.
  *
  * Instances are collected during drawTerrainOverlayCPU() into
@@ -4171,7 +4263,7 @@ void Map::drawCursorOverlayGLPass()
 	{
 		bool anyRaster = false;
 		for (const auto& ci : _cursorOverlayInstances)
-			if (ci.style == CS_RASTER) { anyRaster = true; break; }
+			if (ci.style == CS_RASTER || ci.style == CS_TEX_TINT) { anyRaster = true; break; }
 
 		if (anyRaster)
 		{
@@ -4214,14 +4306,27 @@ void Map::drawCursorOverlayGLPass()
 
 				for (const auto& ci : _cursorOverlayInstances)
 				{
-					if (ci.style != CS_RASTER) continue;
-					GpuTexture* tex = getOrUploadSpriteFrame(ci.set, ci.frameIdx);
-					if (!tex) continue;
-					// Phase 24: CURSOR.PCK frames are one tile in size, so draw them
-					// at the (possibly scaled) tile size — not the native 32×40 frame
-					// size — otherwise at battlescapeTileScale>1 the cursor lands in
-					// the top-left quarter of the 64×80 tile (above-left of the unit).
-					drawQuad(tex, ci.screenX, ci.screenY, _spriteWidth, _spriteHeight);
+					if (ci.style == CS_RASTER)
+					{
+						GpuTexture* tex = getOrUploadSpriteFrame(ci.set, ci.frameIdx);
+						if (!tex) continue;
+						_spriteShader->setUniform3f("u_tint", 1.0f, 1.0f, 1.0f);
+						// CURSOR.PCK frames are one tile in size (Phase 24), so draw at
+						// the (possibly scaled) tile size, not the native 32×40 frame.
+						drawQuad(tex, ci.screenX, ci.screenY, _spriteWidth, _spriteHeight);
+					}
+					else if (ci.style == CS_TEX_TINT)
+					{
+						// Phase 24 UX: white-silhouette UI marker, tinted per state.
+						// Square sprite sized sizeMul*tile, centred horizontally on the
+						// tile; offY places it (floor level vs over-head).
+						if (!ci.tex) continue;
+						_spriteShader->setUniform3f("u_tint", ci.tintR, ci.tintG, ci.tintB);
+						const int sz = (int)(_spriteWidth * ci.sizeMul);
+						const int gx = ci.screenX + (_spriteWidth - sz) / 2;
+						const int gy = ci.screenY + ci.offY;
+						drawQuad(ci.tex, gx, gy, sz, sz);
+					}
 				}
 			}
 		}
@@ -4296,6 +4401,7 @@ void Map::drawProjectileGLPass()
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	_spriteShader->use();
 	_spriteShader->setUniform1i("u_tex", 0);
+	_spriteShader->setUniform3f("u_tint", 1.0f, 1.0f, 1.0f);  // untinted (Phase 24 u_tint)
 
 	for (int i = begin; i != end; i += direction)
 	{
@@ -4401,6 +4507,7 @@ void Map::drawSmokeGLPass()
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	_spriteShader->use();
 	_spriteShader->setUniform1i("u_tex", 0);
+	_spriteShader->setUniform3f("u_tint", 1.0f, 1.0f, 1.0f);  // untinted (Phase 24 u_tint)
 
 	// --- Tile smoke/fire instances collected by emitTilePass() ---
 	// Tile smoke covers a whole tile (SMOKE.PCK frame == tile size), so it scales

@@ -496,13 +496,14 @@ void main()
 static const char* kTexturedFragSrc = R"glsl(
 uniform sampler2D u_tex;
 uniform float     u_darken;
+uniform vec3      u_tint;
 in      vec2      v_uv;
 out     vec4      out_color;
 
 void main()
 {
     vec4 c = texture(u_tex, v_uv);
-    out_color = vec4(c.rgb * (1.0 - u_darken), c.a);
+    out_color = vec4(c.rgb * u_tint * (1.0 - u_darken), c.a);
 }
 )glsl";
 
