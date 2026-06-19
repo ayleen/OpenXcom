@@ -127,9 +127,10 @@ void createOptionsOXC()
 	_info.push_back(OptionInfo(OPTION_OXC, "baseYBattlescape", &baseYBattlescape, Screen::ORIGINAL_HEIGHT));
 	_info.push_back(OptionInfo(OPTION_OXC, "geoscapeScale", &geoscapeScale, 0));
 #ifdef __EMSCRIPTEN__
-	// Calypso default: 3x Battlescape (stored value 3 → "3x" in UI mapping).
-	// 320x200 (stored 0) is unreadable in a desktop browser viewport.
-	_info.push_back(OptionInfo(OPTION_OXC, "battlescapeScale", &battlescapeScale, 3));
+	// Calypso default: ½-display Battlescape (stored value 4 = SCALE_SCREEN_DIV_2).
+	// All Calypso scales are proportional fractions of the stretched canvas, so a
+	// fixed 320x200 buffer (stored 0) would distort the aspect ratio.
+	_info.push_back(OptionInfo(OPTION_OXC, "battlescapeScale", &battlescapeScale, SCALE_SCREEN_DIV_2));
 #else
 	_info.push_back(OptionInfo(OPTION_OXC, "battlescapeScale", &battlescapeScale, 0));
 #endif

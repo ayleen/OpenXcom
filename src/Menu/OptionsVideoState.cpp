@@ -304,76 +304,58 @@ OptionsVideoState::OptionsVideoState(OptionsOrigin origin) : OptionsBaseState(or
 	if (Options::nonSquarePixelRatio && !Options::allowResize)
 		pixelRatioY = 1.2;
 
-	// Build "WxH" label for display divided by n (screen-relative options).
-	auto divRes = [&](int n) -> std::string {
-		int w = Options::displayWidth / n;
-		int h = (int)(Options::displayHeight / pixelRatioY / n);
+	// Calypso: the canvas is stretched to fill the window, so fixed Nx buffers
+	// (640x400 etc.) would distort the aspect ratio. The menu offers only
+	// proportional fractions of the current display, labelled with their real
+	// pixel size. The engine resolves each ScaleType to its fraction in
+	// Screen::getScreenScaleFraction — keep this list in sync with that.
+	auto fracRes = [&](int scaleType) -> std::string {
+		int num = 1, den = 1;
+		Screen::getScreenScaleFraction(scaleType, num, den);
+		int w = Options::displayWidth  * num / den;
+		int h = (int)(Options::displayHeight / pixelRatioY * num / den);
 		return std::to_string(w) + "x" + std::to_string(h);
 	};
 
-	// Build "WxH" label for fixed Nx multiples of the base 320x200 resolution.
-	auto nxRes = [](int n) -> std::string {
-		return std::to_string(Screen::ORIGINAL_WIDTH * n) + "x" +
-		       std::to_string(Screen::ORIGINAL_HEIGHT * n);
-	};
-
-	// Combobox display order (index 0..14):
-	//   0-6:  fixed Nx multiples of 320x200 — shown as actual pixel counts
-	//   7-14: screen-relative — labels computed from current display size
+	// Combobox display order (index 0..4): proportional fractions, largest first.
 	std::vector<std::string> scales;
-	scales.push_back(nxRes(1));    //  0 → SCALE_ORIGINAL    (0)  320x200
-	scales.push_back(nxRes(2));    //  1 → SCALE_2X          (2)  640x400
-	scales.push_back(nxRes(3));    //  2 → SCALE_3X          (11) 960x600
-	scales.push_back(nxRes(4));    //  3 → SCALE_4X          (12) 1280x800
-	scales.push_back(nxRes(5));    //  4 → SCALE_5X          (13) 1600x1000
-	scales.push_back(nxRes(6));    //  5 → SCALE_6X          (14) 1920x1200
-	scales.push_back(nxRes(8));    //  6 → SCALE_8X          (15) 2560x1600
-	scales.push_back(divRes(2));   //  7 → SCALE_SCREEN_DIV_2 (4)
-	scales.push_back(divRes(3));   //  8 → SCALE_SCREEN_DIV_3 (3)
-	scales.push_back(divRes(4));   //  9 → SCALE_SCREEN_DIV_4 (6)
-	scales.push_back(divRes(5));   // 10 → SCALE_SCREEN_DIV_5 (7)
-	scales.push_back(divRes(6));   // 11 → SCALE_SCREEN_DIV_6 (8)
-	scales.push_back(divRes(8));   // 12 → SCALE_SCREEN_DIV_8 (9)
-	scales.push_back(divRes(10));  // 13 → SCALE_SCREEN_DIV_10(10)
-	scales.push_back(divRes(1));   // 14 → SCALE_SCREEN       (5)  full display
+	scales.push_back(fracRes(SCALE_SCREEN));        // 0 Full (1/1)
+	scales.push_back(fracRes(SCALE_SCREEN_3_4));    // 1 3/4
+	scales.push_back(fracRes(SCALE_SCREEN_DIV_2));  // 2 1/2
+	scales.push_back(fracRes(SCALE_SCREEN_DIV_3));  // 3 1/3
+	scales.push_back(fracRes(SCALE_SCREEN_DIV_4));  // 4 1/4
 
-	// _scales[internal ScaleType value] = combobox display index
-	_scales.push_back(0);  // 0  SCALE_ORIGINAL    → "1x"
-	_scales.push_back(0);  // 1  SCALE_15X         → fallback "1x" (not in menu)
-	_scales.push_back(1);  // 2  SCALE_2X          → "2x"
-	_scales.push_back(8);  // 3  SCALE_SCREEN_DIV_3 → "/3"
-	_scales.push_back(7);  // 4  SCALE_SCREEN_DIV_2 → "/2"
-	_scales.push_back(14); // 5  SCALE_SCREEN       → "full"
-	_scales.push_back(9);  // 6  SCALE_SCREEN_DIV_4 → "/4"
-	_scales.push_back(10); // 7  SCALE_SCREEN_DIV_5 → "/5"
-	_scales.push_back(11); // 8  SCALE_SCREEN_DIV_6 → "/6"
-	_scales.push_back(12); // 9  SCALE_SCREEN_DIV_8 → "/8"
-	_scales.push_back(13); // 10 SCALE_SCREEN_DIV_10→ "/10"
-	_scales.push_back(2);  // 11 SCALE_3X           → "3x"
-	_scales.push_back(3);  // 12 SCALE_4X           → "4x"
-	_scales.push_back(4);  // 13 SCALE_5X           → "5x"
-	_scales.push_back(5);  // 14 SCALE_6X           → "6x"
-	_scales.push_back(6);  // 15 SCALE_8X           → "8x"
+	// _scales[internal ScaleType value] = combobox display index. Every ScaleType
+	// must map to a valid index; legacy fixed/screen-div scales no longer in the
+	// menu fall back to the nearest proportional entry, so an old options.cfg
+	// still selects something sane (and migrates to it on the next save).
+	_scales.push_back(2);  //  0 SCALE_ORIGINAL     → 1/2 (legacy)
+	_scales.push_back(2);  //  1 SCALE_15X          → 1/2 (legacy)
+	_scales.push_back(2);  //  2 SCALE_2X           → 1/2 (legacy)
+	_scales.push_back(3);  //  3 SCALE_SCREEN_DIV_3 → 1/3
+	_scales.push_back(2);  //  4 SCALE_SCREEN_DIV_2 → 1/2
+	_scales.push_back(0);  //  5 SCALE_SCREEN       → Full
+	_scales.push_back(4);  //  6 SCALE_SCREEN_DIV_4 → 1/4
+	_scales.push_back(4);  //  7 SCALE_SCREEN_DIV_5 → 1/4 (legacy)
+	_scales.push_back(4);  //  8 SCALE_SCREEN_DIV_6 → 1/4 (legacy)
+	_scales.push_back(4);  //  9 SCALE_SCREEN_DIV_8 → 1/4 (legacy)
+	_scales.push_back(4);  // 10 SCALE_SCREEN_DIV_10→ 1/4 (legacy)
+	_scales.push_back(2);  // 11 SCALE_3X           → 1/2 (legacy)
+	_scales.push_back(2);  // 12 SCALE_4X           → 1/2 (legacy)
+	_scales.push_back(2);  // 13 SCALE_5X           → 1/2 (legacy)
+	_scales.push_back(2);  // 14 SCALE_6X           → 1/2 (legacy)
+	_scales.push_back(2);  // 15 SCALE_8X           → 1/2 (legacy)
+	_scales.push_back(1);  // 16 SCALE_SCREEN_3_4   → 3/4
 
 	// _reverseScales[combobox display index] = internal ScaleType value
-	_reverseScales.push_back(0);  //  0 "1x"   → SCALE_ORIGINAL
-	_reverseScales.push_back(2);  //  1 "2x"   → SCALE_2X
-	_reverseScales.push_back(11); //  2 "3x"   → SCALE_3X
-	_reverseScales.push_back(12); //  3 "4x"   → SCALE_4X
-	_reverseScales.push_back(13); //  4 "5x"   → SCALE_5X
-	_reverseScales.push_back(14); //  5 "6x"   → SCALE_6X
-	_reverseScales.push_back(15); //  6 "8x"   → SCALE_8X
-	_reverseScales.push_back(4);  //  7 "/2"   → SCALE_SCREEN_DIV_2
-	_reverseScales.push_back(3);  //  8 "/3"   → SCALE_SCREEN_DIV_3
-	_reverseScales.push_back(6);  //  9 "/4"   → SCALE_SCREEN_DIV_4
-	_reverseScales.push_back(7);  // 10 "/5"   → SCALE_SCREEN_DIV_5
-	_reverseScales.push_back(8);  // 11 "/6"   → SCALE_SCREEN_DIV_6
-	_reverseScales.push_back(9);  // 12 "/8"   → SCALE_SCREEN_DIV_8
-	_reverseScales.push_back(10); // 13 "/10"  → SCALE_SCREEN_DIV_10
-	_reverseScales.push_back(5);  // 14 "full" → SCALE_SCREEN
+	_reverseScales.push_back(SCALE_SCREEN);        // 0 Full
+	_reverseScales.push_back(SCALE_SCREEN_3_4);    // 1 3/4
+	_reverseScales.push_back(SCALE_SCREEN_DIV_2);  // 2 1/2
+	_reverseScales.push_back(SCALE_SCREEN_DIV_3);  // 3 1/3
+	_reverseScales.push_back(SCALE_SCREEN_DIV_4);  // 4 1/4
 
-	if (Options::geoscapeScale < 0 || Options::geoscapeScale > 15) Options::geoscapeScale = 0;
-	if (Options::battlescapeScale < 0 || Options::battlescapeScale > 15) Options::battlescapeScale = 0;
+	if (Options::geoscapeScale < 0 || Options::geoscapeScale > 16) Options::geoscapeScale = SCALE_SCREEN_DIV_2;
+	if (Options::battlescapeScale < 0 || Options::battlescapeScale > 16) Options::battlescapeScale = SCALE_SCREEN_DIV_2;
 
 	_cbxGeoScale->setOptions(scales);
 	_cbxGeoScale->setSelected(_scales[Options::geoscapeScale]);

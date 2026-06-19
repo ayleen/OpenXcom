@@ -4091,14 +4091,27 @@ void BattlescapeState::resize(int &dX, int &dY)
 {
 	dX = Options::baseXResolution;
 	dY = Options::baseYResolution;
-	int divisor = 1;
 	double pixelRatioY = 1.0;
-	bool fixedRes = false;
-
 	if (Options::nonSquarePixelRatio)
 	{
 		pixelRatioY = 1.2;
 	}
+
+#ifdef __EMSCRIPTEN__
+	// Calypso: the canvas is stretched to fill the window, so only proportional
+	// (fraction-of-display) scales keep the aspect ratio — fixed Nx buffers would
+	// distort it. Every scale option maps to display × num/den;
+	// battlescapeTileScale enlarges the tiles (Map.cpp), not the buffer, so the
+	// options never collide into duplicates.
+	{
+		int num = 1, den = 1;
+		Screen::getScreenScaleFraction(Options::battlescapeScale, num, den);
+		Options::baseXResolution = std::max(Screen::ORIGINAL_WIDTH,  Options::displayWidth  * num / den);
+		Options::baseYResolution = std::max(Screen::ORIGINAL_HEIGHT, (int)(Options::displayHeight / pixelRatioY * num / den));
+	}
+#else
+	int divisor = 1;
+	bool fixedRes = false;
 	switch (Options::battlescapeScale)
 	{
 	case SCALE_SCREEN_DIV_10:
@@ -4129,36 +4142,6 @@ void BattlescapeState::resize(int &dX, int &dY)
 		break;
 	}
 
-#ifdef __EMSCRIPTEN__
-	// For screen-div options: halve the divisor so the base resolution is
-	// proportionally larger and the visible tile count stays the same as the
-	// user's chosen scale setting at native tile size.
-	// For fixed-resolution options (Nx): raise the floor so the base resolution
-	// is at least ORIGINAL * tileScale (same minimum tile count as vanilla).
-	{
-		int tileScale = _game->getMod()->getBattlescapeTileScale();
-		if (tileScale > 1)
-		{
-			if (!fixedRes && divisor > 1)
-			{
-				divisor = std::max(1, divisor / tileScale);
-			}
-			else if (fixedRes)
-			{
-				int minW = Screen::ORIGINAL_WIDTH  * tileScale;
-				int minH = Screen::ORIGINAL_HEIGHT * tileScale;
-				if (Options::baseXResolution < minW || Options::baseYResolution < minH)
-				{
-					Options::baseXResolution = std::max(Options::baseXResolution, minW);
-					Options::baseYResolution = std::max(Options::baseYResolution, minH);
-					fixedRes = false; // fall through to apply the resize
-					divisor = 0;      // sentinel: base res already set, skip divisor calc
-				}
-			}
-		}
-	}
-#endif
-
 	if (fixedRes)
 	{
 		dX = 0;
@@ -4166,12 +4149,9 @@ void BattlescapeState::resize(int &dX, int &dY)
 		return;
 	}
 
-	if (divisor > 0)
-	{
-		Options::baseXResolution = std::max(Screen::ORIGINAL_WIDTH, Options::displayWidth / divisor);
-		Options::baseYResolution = std::max(Screen::ORIGINAL_HEIGHT, (int)(Options::displayHeight / pixelRatioY / divisor));
-	}
-	// else: fixed-res with raised floor already set in the Emscripten block above
+	Options::baseXResolution = std::max(Screen::ORIGINAL_WIDTH, Options::displayWidth / divisor);
+	Options::baseYResolution = std::max(Screen::ORIGINAL_HEIGHT, (int)(Options::displayHeight / pixelRatioY / divisor));
+#endif
 
 	dX = Options::baseXResolution - dX;
 	dY = Options::baseYResolution - dY;

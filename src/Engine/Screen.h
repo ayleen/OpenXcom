@@ -121,6 +121,10 @@ public:
 	static bool useOpenGL();
 	/// update the game scale as required.
 	static void updateScale(int type, int &width, int &height, bool change);
+	/// Maps a screen-relative ScaleType to its display fraction (num/den).
+	/// Used by the Battlescape/Geoscape resize() proportional path and the
+	/// Video-menu labels so the canvas keeps the display aspect ratio.
+	static void getScreenScaleFraction(int scaleType, int &num, int &den);
 };
 
 }

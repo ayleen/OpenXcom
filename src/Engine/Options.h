@@ -67,7 +67,8 @@ enum ScaleType
 	SCALE_4X,
 	SCALE_5X,
 	SCALE_6X,
-	SCALE_8X
+	SCALE_8X,
+	SCALE_SCREEN_3_4   // display × 3/4 — fills the Full↔½ gap (Calypso menu)
 };
 /**
  * Container for all the various global game options

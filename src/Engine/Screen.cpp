@@ -807,6 +807,18 @@ void Screen::updateScale(int type, int &width, int &height, bool change)
 		pixelRatioY = 1.2;
 	}
 
+#ifdef __EMSCRIPTEN__
+	// Calypso: every scale is a proportional fraction of the display (see
+	// getScreenScaleFraction). Routing updateScale through the same helper keeps
+	// it in lockstep with the Battlescape/Geoscape resize() paths for any stored
+	// value — including legacy fixed scales from an old options.cfg.
+	{
+		int num = 1, den = 1;
+		getScreenScaleFraction(type, num, den);
+		width  = Options::displayWidth  * num / den;
+		height = (int)(Options::displayHeight / pixelRatioY * num / den);
+	}
+#else
 	switch (type)
 	{
 	case SCALE_15X:
@@ -849,6 +861,10 @@ void Screen::updateScale(int type, int &width, int &height, bool change)
 		width = Options::displayWidth;
 		height = Options::displayHeight / pixelRatioY;
 		break;
+	case SCALE_SCREEN_3_4:
+		width = Options::displayWidth * 3 / 4;
+		height = Options::displayHeight / pixelRatioY * 3 / 4;
+		break;
 	case SCALE_3X:
 		width = Screen::ORIGINAL_WIDTH * 3;
 		height = Screen::ORIGINAL_HEIGHT * 3;
@@ -875,6 +891,7 @@ void Screen::updateScale(int type, int &width, int &height, bool change)
 		height = Screen::ORIGINAL_HEIGHT;
 		break;
 	}
+#endif
 
 	// don't go under minimum resolution... it's bad, mmkay?
 	width = std::max(width, Screen::ORIGINAL_WIDTH);
@@ -884,6 +901,31 @@ void Screen::updateScale(int type, int &width, int &height, bool change)
 	{
 		Options::baseXResolution = width;
 		Options::baseYResolution = height;
+	}
+}
+
+/**
+ * Maps a screen-relative ScaleType to its display fraction (num/den), e.g.
+ * SCALE_SCREEN -> 1/1, SCALE_SCREEN_3_4 -> 3/4, SCALE_SCREEN_DIV_2 -> 1/2.
+ * Legacy fixed-resolution scales (no longer offered in the Calypso menu) and any
+ * unknown value fall back to 1/2 — a safe proportional default. The Battlescape
+ * and Geoscape proportional resize paths and the Video-menu labels share this so
+ * the stretched canvas always keeps the display aspect ratio.
+ */
+void Screen::getScreenScaleFraction(int type, int &num, int &den)
+{
+	switch (type)
+	{
+	case SCALE_SCREEN:        num = 1; den = 1;  break;
+	case SCALE_SCREEN_3_4:    num = 3; den = 4;  break;
+	case SCALE_SCREEN_DIV_2:  num = 1; den = 2;  break;
+	case SCALE_SCREEN_DIV_3:  num = 1; den = 3;  break;
+	case SCALE_SCREEN_DIV_4:  num = 1; den = 4;  break;
+	case SCALE_SCREEN_DIV_5:  num = 1; den = 5;  break;
+	case SCALE_SCREEN_DIV_6:  num = 1; den = 6;  break;
+	case SCALE_SCREEN_DIV_8:  num = 1; den = 8;  break;
+	case SCALE_SCREEN_DIV_10: num = 1; den = 10; break;
+	default:                  num = 1; den = 2;  break; // fixed/legacy → ½ fallback
 	}
 }
 
