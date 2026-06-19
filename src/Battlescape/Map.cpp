@@ -2030,29 +2030,44 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 								// Phase 16: cursor style — faction-aware 4-tip markers or floor ring.
 								if (gpuCursorSet)
 								{
-									CursorStyle cursorStyle;
 									bool tileHasUnit = unit && (unit->getVisible() || _save->getDebugMode());
 									BattleUnit *selUnit = _save->getSelectedUnit();
 									bool playerWalking = (selUnit && selUnit->getFaction() == FACTION_PLAYER
 									                      && !selUnit->isOut() && _cursorType == CT_NORMAL);
-									if (tileHasUnit)
-										// Visible unit on tile → 4-tip marker (ally=blue, enemy=orange)
-										cursorStyle = (unit->getFaction() == FACTION_PLAYER) ? CS_MARKER_ALLY : CS_MARKER_ENEMY;
-									else if (playerWalking)
-										// Player unit selected, empty tile → floor ring
-										cursorStyle = CS_FLOOR_RING;
-									else
-										cursorStyle = CS_MARKER_NEUTRAL;
-
-									// Phase 16: hide neutral markers when a player is selected for movement.
-									// This clarifies the focus on the target destination circle.
-									if (playerWalking && cursorStyle == CS_MARKER_NEUTRAL)
+									// Phase 24 UX (Stage 2): textured cursor markers (white silhouettes
+									// tinted per state) replace the procedural SDF 4-tip markers.
+									const bool isEnemyUnit = tileHasUnit && unit->getFaction() != FACTION_PLAYER;
+									if (isEnemyUnit)
 									{
-										// skip pushing instance
+										// Red lock-on reticle floating over a hostile/neutral unit.
+										if (GpuTexture* t = getUITexture("Resources/battlescape/ui/reticle-enemy.png"))
+										{
+											CursorOverlayInstance ci;
+											ci.screenX = screenPosition.x; ci.screenY = screenPosition.y;
+											ci.style = CS_TEX_TINT; ci.tex = t;
+											ci.tintR = 1.0f; ci.tintG = 0.27f; ci.tintB = 0.18f;
+											ci.sizeMul = 0.95f;
+											const int sz = (int)(_spriteWidth * ci.sizeMul);
+											ci.offY = (_spriteHeight - sz) / 2 - (int)(_spriteHeight * 0.30f); // over body
+											_cursorOverlayInstances.push_back(ci);
+										}
 									}
-									else
+									else if (playerWalking || tileHasUnit)
 									{
-										_cursorOverlayInstances.push_back({screenPosition.x, screenPosition.y, nullptr, 0, cursorStyle});
+										// Dim cyan hover ring on the floor — the hovered destination
+										// tile (or own unit). Neutral hover with nothing selected stays
+										// clean (no marker), preserving the Phase-16 focus behaviour.
+										if (GpuTexture* t = getUITexture("Resources/battlescape/ui/hover-ring.png"))
+										{
+											CursorOverlayInstance ci;
+											ci.screenX = screenPosition.x; ci.screenY = screenPosition.y;
+											ci.style = CS_TEX_TINT; ci.tex = t;
+											ci.tintR = 0.45f; ci.tintG = 0.85f; ci.tintB = 1.0f;
+											ci.sizeMul = 1.2f;
+											const int sz = (int)(_spriteWidth * ci.sizeMul);
+											ci.offY = (_spriteHeight - _spriteWidth / 4) - sz / 2; // floor centre
+											_cursorOverlayInstances.push_back(ci);
+										}
 									}
 
 									// Phase 16: hide the system cursor arrow when a player unit is selected
