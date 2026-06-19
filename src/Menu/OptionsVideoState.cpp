@@ -311,17 +311,23 @@ OptionsVideoState::OptionsVideoState(OptionsOrigin origin) : OptionsBaseState(or
 		return std::to_string(w) + "x" + std::to_string(h);
 	};
 
+	// Build "WxH" label for fixed Nx multiples of the base 320x200 resolution.
+	auto nxRes = [](int n) -> std::string {
+		return std::to_string(Screen::ORIGINAL_WIDTH * n) + "x" +
+		       std::to_string(Screen::ORIGINAL_HEIGHT * n);
+	};
+
 	// Combobox display order (index 0..14):
-	//   0-6:  fixed Nx multiples of 320x200 (1x=320x200, 2x=640x400, …)
+	//   0-6:  fixed Nx multiples of 320x200 — shown as actual pixel counts
 	//   7-14: screen-relative — labels computed from current display size
 	std::vector<std::string> scales;
-	scales.push_back("1x");        //  0 → SCALE_ORIGINAL    (0)  320x200
-	scales.push_back("2x");        //  1 → SCALE_2X          (2)  640x400
-	scales.push_back("3x");        //  2 → SCALE_3X          (11) 960x600
-	scales.push_back("4x");        //  3 → SCALE_4X          (12) 1280x800
-	scales.push_back("5x");        //  4 → SCALE_5X          (13) 1600x1000
-	scales.push_back("6x");        //  5 → SCALE_6X          (14) 1920x1200
-	scales.push_back("8x");        //  6 → SCALE_8X          (15) 2560x1600
+	scales.push_back(nxRes(1));    //  0 → SCALE_ORIGINAL    (0)  320x200
+	scales.push_back(nxRes(2));    //  1 → SCALE_2X          (2)  640x400
+	scales.push_back(nxRes(3));    //  2 → SCALE_3X          (11) 960x600
+	scales.push_back(nxRes(4));    //  3 → SCALE_4X          (12) 1280x800
+	scales.push_back(nxRes(5));    //  4 → SCALE_5X          (13) 1600x1000
+	scales.push_back(nxRes(6));    //  5 → SCALE_6X          (14) 1920x1200
+	scales.push_back(nxRes(8));    //  6 → SCALE_8X          (15) 2560x1600
 	scales.push_back(divRes(2));   //  7 → SCALE_SCREEN_DIV_2 (4)
 	scales.push_back(divRes(3));   //  8 → SCALE_SCREEN_DIV_3 (3)
 	scales.push_back(divRes(4));   //  9 → SCALE_SCREEN_DIV_4 (6)
