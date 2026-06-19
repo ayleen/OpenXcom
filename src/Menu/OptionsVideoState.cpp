@@ -304,6 +304,8 @@ OptionsVideoState::OptionsVideoState(OptionsOrigin origin) : OptionsBaseState(or
 	if (Options::nonSquarePixelRatio && !Options::allowResize)
 		pixelRatioY = 1.2;
 
+	std::vector<std::string> scales;
+#ifdef __EMSCRIPTEN__
 	// Calypso: the canvas is stretched to fill the window, so fixed Nx buffers
 	// (640x400 etc.) would distort the aspect ratio. The menu offers only
 	// proportional fractions of the current display, labelled with their real
@@ -318,7 +320,6 @@ OptionsVideoState::OptionsVideoState(OptionsOrigin origin) : OptionsBaseState(or
 	};
 
 	// Combobox display order (index 0..4): proportional fractions, largest first.
-	std::vector<std::string> scales;
 	scales.push_back(fracRes(SCALE_SCREEN));        // 0 Full (1/1)
 	scales.push_back(fracRes(SCALE_SCREEN_3_4));    // 1 3/4
 	scales.push_back(fracRes(SCALE_SCREEN_DIV_2));  // 2 1/2
@@ -356,6 +357,73 @@ OptionsVideoState::OptionsVideoState(OptionsOrigin origin) : OptionsBaseState(or
 
 	if (Options::geoscapeScale < 0 || Options::geoscapeScale > 16) Options::geoscapeScale = SCALE_SCREEN_DIV_2;
 	if (Options::battlescapeScale < 0 || Options::battlescapeScale > 16) Options::battlescapeScale = SCALE_SCREEN_DIV_2;
+#else
+	// Native OXCE build: keep the original fixed-Nx + screen-relative menu. The
+	// native resize() paths use an integer divisor and have no SCALE_SCREEN_3_4
+	// case, so the proportional-only menu above is Emscripten-only and the native
+	// UI stays exactly as before.
+	auto divRes = [&](int n) -> std::string {
+		int w = Options::displayWidth / n;
+		int h = (int)(Options::displayHeight / pixelRatioY / n);
+		return std::to_string(w) + "x" + std::to_string(h);
+	};
+	auto nxRes = [](int n) -> std::string {
+		return std::to_string(Screen::ORIGINAL_WIDTH * n) + "x" +
+		       std::to_string(Screen::ORIGINAL_HEIGHT * n);
+	};
+	scales.push_back(nxRes(1));   //  0 → SCALE_ORIGINAL
+	scales.push_back(nxRes(2));   //  1 → SCALE_2X
+	scales.push_back(nxRes(3));   //  2 → SCALE_3X
+	scales.push_back(nxRes(4));   //  3 → SCALE_4X
+	scales.push_back(nxRes(5));   //  4 → SCALE_5X
+	scales.push_back(nxRes(6));   //  5 → SCALE_6X
+	scales.push_back(nxRes(8));   //  6 → SCALE_8X
+	scales.push_back(divRes(2));  //  7 → SCALE_SCREEN_DIV_2
+	scales.push_back(divRes(3));  //  8 → SCALE_SCREEN_DIV_3
+	scales.push_back(divRes(4));  //  9 → SCALE_SCREEN_DIV_4
+	scales.push_back(divRes(5));  // 10 → SCALE_SCREEN_DIV_5
+	scales.push_back(divRes(6));  // 11 → SCALE_SCREEN_DIV_6
+	scales.push_back(divRes(8));  // 12 → SCALE_SCREEN_DIV_8
+	scales.push_back(divRes(10)); // 13 → SCALE_SCREEN_DIV_10
+	scales.push_back(divRes(1));  // 14 → SCALE_SCREEN (full)
+
+	_scales.push_back(0);  // 0  SCALE_ORIGINAL
+	_scales.push_back(0);  // 1  SCALE_15X (not in menu → 1x)
+	_scales.push_back(1);  // 2  SCALE_2X
+	_scales.push_back(8);  // 3  SCALE_SCREEN_DIV_3
+	_scales.push_back(7);  // 4  SCALE_SCREEN_DIV_2
+	_scales.push_back(14); // 5  SCALE_SCREEN
+	_scales.push_back(9);  // 6  SCALE_SCREEN_DIV_4
+	_scales.push_back(10); // 7  SCALE_SCREEN_DIV_5
+	_scales.push_back(11); // 8  SCALE_SCREEN_DIV_6
+	_scales.push_back(12); // 9  SCALE_SCREEN_DIV_8
+	_scales.push_back(13); // 10 SCALE_SCREEN_DIV_10
+	_scales.push_back(2);  // 11 SCALE_3X
+	_scales.push_back(3);  // 12 SCALE_4X
+	_scales.push_back(4);  // 13 SCALE_5X
+	_scales.push_back(5);  // 14 SCALE_6X
+	_scales.push_back(6);  // 15 SCALE_8X
+	_scales.push_back(0);  // 16 SCALE_SCREEN_3_4 (not in native menu → 1x)
+
+	_reverseScales.push_back(0);  //  0 1x   → SCALE_ORIGINAL
+	_reverseScales.push_back(2);  //  1 2x   → SCALE_2X
+	_reverseScales.push_back(11); //  2 3x   → SCALE_3X
+	_reverseScales.push_back(12); //  3 4x   → SCALE_4X
+	_reverseScales.push_back(13); //  4 5x   → SCALE_5X
+	_reverseScales.push_back(14); //  5 6x   → SCALE_6X
+	_reverseScales.push_back(15); //  6 8x   → SCALE_8X
+	_reverseScales.push_back(4);  //  7 /2   → SCALE_SCREEN_DIV_2
+	_reverseScales.push_back(3);  //  8 /3   → SCALE_SCREEN_DIV_3
+	_reverseScales.push_back(6);  //  9 /4   → SCALE_SCREEN_DIV_4
+	_reverseScales.push_back(7);  // 10 /5   → SCALE_SCREEN_DIV_5
+	_reverseScales.push_back(8);  // 11 /6   → SCALE_SCREEN_DIV_6
+	_reverseScales.push_back(9);  // 12 /8   → SCALE_SCREEN_DIV_8
+	_reverseScales.push_back(10); // 13 /10  → SCALE_SCREEN_DIV_10
+	_reverseScales.push_back(5);  // 14 full → SCALE_SCREEN
+
+	if (Options::geoscapeScale < 0 || Options::geoscapeScale > 16) Options::geoscapeScale = 0;
+	if (Options::battlescapeScale < 0 || Options::battlescapeScale > 16) Options::battlescapeScale = 0;
+#endif
 
 	_cbxGeoScale->setOptions(scales);
 	_cbxGeoScale->setSelected(_scales[Options::geoscapeScale]);
