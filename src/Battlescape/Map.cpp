@@ -1257,6 +1257,17 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 	const bool gpuSpriteMode = _game->getMod()->hasHDPack() && GpuInit::ready();
 	SurfaceSet* const gpuCursorSet = gpuSpriteMode
 	    ? _game->getMod()->getSurfaceSet("CURSOR.PCK") : nullptr;
+#ifdef __EMSCRIPTEN__
+	// Phase 24 UX: the in-map custom cursor is hidden while a unit is selected for
+	// movement, but over the HUD (visible-enemy buttons, item panel, …) the player
+	// needs the normal system arrow. The per-tile cursor block below only runs over
+	// the map, so force the arrow visible here whenever the mouse is over the icons.
+	if (gpuCursorSet && _save && _save->getBattleState()
+	    && _save->getBattleState()->getMouseOverIcons())
+	{
+		_game->getCursor()->setHidden(false);
+	}
+#endif
 	const bool dumpPaint = (g_calypsoDumpEmit != 0);
 	if (dumpPaint)
 	{
