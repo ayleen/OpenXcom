@@ -2005,11 +2005,11 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 						// red if not, brightness wave travelling toward the destination.
 						if (gpuCursorSet && _camera->getViewLevel() == itZ)
 						{
+							// Skip the destination tile: the hover ring (Stage 2) marks it, so
+							// no arrow there. Intermediate tiles get a directional path node.
 							const bool isDest = (itX == _selectorX && itY == _selectorY);
-							const char* texName = isDest
-							    ? "Resources/battlescape/ui/dest-marker.png"   // distinct "move here" marker
-							    : "Resources/battlescape/ui/path-node.png";    // old directional node shape
-							if (GpuTexture* t = getUITexture(texName))
+							if (!isDest)
+							if (GpuTexture* t = getUITexture("Resources/battlescape/ui/path-node.png"))
 							{
 								BattleUnit* su = _save->getSelectedUnit();
 								const int tuCost = tile->getTUMarker();
@@ -2021,24 +2021,13 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 								ci.style = CS_TEX_TINT; ci.tex = t;
 								if (reachable) { ci.tintR = 0.25f*wave; ci.tintG = 0.92f*wave; ci.tintB = 0.95f*wave; }
 								else           { ci.tintR = 1.00f*wave; ci.tintG = 0.28f*wave; ci.tintB = 0.18f*wave; }
-								if (isDest)
-								{
-									// Destination: distinct pulsing "move here" marker (ring +
-									// inward arrows), no rotation.
-									const float dp = 1.0f + 0.06f * std::sin(_animFrameGPU * 6.2831853f);
-									ci.sizeMul = 1.15f * dp;
-									ci.rot = 0.0f;
-								}
-								else
-								{
-									// Intermediate node: rotate to the movement direction
-									// (screen delta = (2*offsetX, -offsetY), base == game-dir N).
-									static const int oxv[8] = {1,1,1,0,-1,-1,-1,0};
-									static const int oyv[8] = {1,0,-1,-1,-1,0,1,1};
-									const int pdir = tile->getPreview() & 7;
-									ci.rot = std::atan2(-(float)oyv[pdir], 2.0f * (float)oxv[pdir]) - std::atan2(-1.0f, 2.0f);
-									ci.sizeMul = 0.5f;
-								}
+								// Rotate the node to the movement direction
+								// (screen delta = (2*offsetX, -offsetY), base == game-dir N).
+								static const int oxv[8] = {1,1,1,0,-1,-1,-1,0};
+								static const int oyv[8] = {1,0,-1,-1,-1,0,1,1};
+								const int pdir = tile->getPreview() & 7;
+								ci.rot = std::atan2(-(float)oyv[pdir], 2.0f * (float)oxv[pdir]) - std::atan2(-1.0f, 2.0f);
+								ci.sizeMul = 0.5f;
 								const int sz = (int)(_spriteWidth * ci.sizeMul);
 								ci.offY = (_spriteHeight - _spriteWidth / 4) - sz / 2;  // floor centre
 								_cursorOverlayInstances.push_back(ci);
@@ -2115,11 +2104,12 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 											_cursorOverlayInstances.push_back(ci);
 										}
 									}
-									else if (tileHasUnit)
+									else if (playerWalking || tileHasUnit)
 									{
-										// Cyan hover ring on a hovered unit. Empty destination tiles
-										// are marked by the path dest-marker instead, so no ring here.
-										// (legacy note) Neutral hover with nothing selected stays
+										// Cyan hover ring on the floor: the hovered tile (the move
+										// destination when a unit is selected) or a hovered unit. The
+										// path arrow is suppressed on this destination tile so the ring
+										// alone marks it. Neutral hover with nothing selected stays
 										// clean (no marker), preserving the Phase-16 focus behaviour.
 										if (GpuTexture* t = getUITexture("Resources/battlescape/ui/hover-ring.png"))
 										{
