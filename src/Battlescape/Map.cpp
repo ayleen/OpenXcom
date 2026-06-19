@@ -4239,7 +4239,11 @@ void Map::drawCursorOverlayGLPass()
 
 		for (const auto& ci : _cursorOverlayInstances)
 		{
-			if (ci.style == CS_RASTER) continue;
+			// CS_RASTER and CS_TEX_TINT are textured (drawn in the raster pass);
+			// the SDF marker pass must skip BOTH, or a CS_TEX_TINT instance pushes
+			// a partial (4-float) record here, desyncing the instance buffer and
+			// rendering garbage white quads. (Phase 24 white-square bug.)
+			if (ci.style == CS_RASTER || ci.style == CS_TEX_TINT) continue;
 
 			const float dispX = static_cast<float>(ci.screenX) * xScale + static_cast<float>(lbb);
 			const float dispY = static_cast<float>(ci.screenY) * yScale + static_cast<float>(tbb);
