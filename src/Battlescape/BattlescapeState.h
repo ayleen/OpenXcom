@@ -264,6 +264,8 @@ public:
 	void mouseOutIcons(Action *action);
 	/// Checks if the mouse is over the icons.
 	bool getMouseOverIcons() const;
+	/// Phase 24: is (mx,my) over (or within `margin` px of) a visible-enemy button?
+	bool isMouseNearVisibleUnitButton(int mx, int my, int margin = 6) const;
 	/// Is the player allowed to press buttons?
 	bool allowButtons(bool allowSaving = false) const;
 	/// Handler for clicking the reserve TUs to kneel button.

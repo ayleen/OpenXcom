@@ -287,6 +287,7 @@ private:
 		float tintR = 1.0f, tintG = 1.0f, tintB = 1.0f;  // CS_TEX_TINT: multiply tint
 		float sizeMul = 1.0f;  // CS_TEX_TINT: quad size = sizeMul * tile size
 		int   offY = 0;        // CS_TEX_TINT: extra screen-Y offset (over-head markers)
+		float rot = 0.0f;      // CS_TEX_TINT: rotation (radians, CW) around the quad centre
 	};
 	std::vector<CursorOverlayInstance> _cursorOverlayInstances;
 	void drawCursorOverlayGLPass();

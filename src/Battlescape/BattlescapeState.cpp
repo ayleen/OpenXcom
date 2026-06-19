@@ -3800,6 +3800,26 @@ bool BattlescapeState::getMouseOverIcons() const
 }
 
 /**
+ * Phase 24 UX: true when the cursor is over (or within `margin` px of) any
+ * currently-visible enemy-indicator button. Lets the map show the system arrow
+ * and stop snapping the tile cursor near those small floating buttons, so they
+ * are easy to click. Coordinates are in base-resolution surface space.
+ */
+bool BattlescapeState::isMouseNearVisibleUnitButton(int mx, int my, int margin) const
+{
+	for (int i = 0; i < VISIBLE_MAX; ++i)
+	{
+		const InteractiveSurface* b = _btnVisibleUnit[i];
+		if (!b || !b->getVisible()) continue;
+		const int x0 = b->getX() - margin, y0 = b->getY() - margin;
+		const int x1 = b->getX() + b->getWidth()  + margin;
+		const int y1 = b->getY() + b->getHeight() + margin;
+		if (mx >= x0 && mx < x1 && my >= y0 && my < y1) return true;
+	}
+	return false;
+}
+
+/**
  * Determines whether the player is allowed to press buttons.
  * Buttons are disabled in the middle of a shot, during the alien turn,
  * and while a player's units are panicking.

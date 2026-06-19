@@ -1263,7 +1263,8 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 	// needs the normal system arrow. The per-tile cursor block below only runs over
 	// the map, so force the arrow visible here whenever the mouse is over the icons.
 	if (gpuCursorSet && _save && _save->getBattleState()
-	    && _save->getBattleState()->getMouseOverIcons())
+	    && (_save->getBattleState()->getMouseOverIcons()
+	        || _save->getBattleState()->isMouseNearVisibleUnitButton(_mouseX, _mouseY)))
 	{
 		_game->getCursor()->setHidden(false);
 	}
@@ -1563,8 +1564,9 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 								CursorOverlayInstance ci;
 								ci.screenX = screenPosition.x; ci.screenY = screenPosition.y;
 								ci.style = CS_TEX_TINT; ci.tex = ringTex;
-								ci.tintR = 0.15f; ci.tintG = 0.85f; ci.tintB = 1.0f;
-								ci.sizeMul = 1.35f;
+								const float selPulse = 0.78f + 0.22f * std::sin(_animFrameGPU * 6.2831853f);
+								ci.tintR = 0.15f * selPulse; ci.tintG = 0.85f * selPulse; ci.tintB = 1.0f * selPulse;
+								ci.sizeMul = 1.35f + 0.05f * std::sin(_animFrameGPU * 6.2831853f);
 								const int sz = (int)(_spriteWidth * ci.sizeMul);
 								ci.offY = (_spriteHeight - _spriteWidth / 4) - sz / 2;  // floor centre
 								_cursorOverlayInstances.push_back(ci);
@@ -1586,7 +1588,7 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 #endif
 
 					// Draw cursor back
-					if (_cursorType != CT_NONE && _selectorX > itX - _cursorSize && _selectorY > itY - _cursorSize && _selectorX < itX+1 && _selectorY < itY+1 && !_save->getBattleState()->getMouseOverIcons())
+					if (_cursorType != CT_NONE && _selectorX > itX - _cursorSize && _selectorY > itY - _cursorSize && _selectorX < itX+1 && _selectorY < itY+1 && !_save->getBattleState()->getMouseOverIcons() && !_save->getBattleState()->isMouseNearVisibleUnitButton(_mouseX, _mouseY))
 					{
 						if (_camera->getViewLevel() == itZ)
 						{
@@ -2016,6 +2018,12 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 								if (reachable) { ci.tintR = 0.25f*wave; ci.tintG = 0.90f*wave; ci.tintB = 1.00f*wave; }
 								else           { ci.tintR = 1.00f*wave; ci.tintG = 0.28f*wave; ci.tintB = 0.18f*wave; }
 								ci.sizeMul = 0.5f;
+								// Point the chevron along the movement direction (screen space):
+								// screen delta = (2*offsetX, -offsetY); chevron texture base points right.
+								static const int oxv[8] = {1,1,1,0,-1,-1,-1,0};
+								static const int oyv[8] = {1,0,-1,-1,-1,0,1,1};
+								const int pdir = tile->getPreview() & 7;
+								ci.rot = std::atan2((float)(-oyv[pdir]), (float)(2 * oxv[pdir]));
 								const int sz = (int)(_spriteWidth * ci.sizeMul);
 								ci.offY = (_spriteHeight - _spriteWidth / 4) - sz / 2;  // floor centre
 								_cursorOverlayInstances.push_back(ci);
@@ -2060,7 +2068,7 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 						}
 					}
 					// Draw cursor front
-					if (_cursorType != CT_NONE && _selectorX > itX - _cursorSize && _selectorY > itY - _cursorSize && _selectorX < itX+1 && _selectorY < itY+1 && !_save->getBattleState()->getMouseOverIcons())
+					if (_cursorType != CT_NONE && _selectorX > itX - _cursorSize && _selectorY > itY - _cursorSize && _selectorX < itX+1 && _selectorY < itY+1 && !_save->getBattleState()->getMouseOverIcons() && !_save->getBattleState()->isMouseNearVisibleUnitButton(_mouseX, _mouseY))
 					{
 						if (_camera->getViewLevel() == itZ)
 						{
@@ -2102,8 +2110,9 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 											CursorOverlayInstance ci;
 											ci.screenX = screenPosition.x; ci.screenY = screenPosition.y;
 											ci.style = CS_TEX_TINT; ci.tex = t;
-											ci.tintR = 0.45f; ci.tintG = 0.85f; ci.tintB = 1.0f;
-											ci.sizeMul = 1.2f;
+											const float hovA = tileHasUnit ? (0.80f + 0.20f * std::sin(_animFrameGPU * 6.2831853f)) : 0.50f;
+								ci.tintR = 0.30f * hovA; ci.tintG = 0.85f * hovA; ci.tintB = 1.0f * hovA;
+											ci.sizeMul = tileHasUnit ? 1.28f : 1.18f;
 											const int sz = (int)(_spriteWidth * ci.sizeMul);
 											ci.offY = (_spriteHeight - _spriteWidth / 4) - sz / 2; // floor centre
 											_cursorOverlayInstances.push_back(ci);
@@ -4335,25 +4344,34 @@ void Map::drawCursorOverlayGLPass()
 			if (!_spriteGLInit) initSpriteGL();
 			if (_spriteGLInit && _spriteShader && _spriteShader->isValid())
 			{
-				auto drawQuad = [&](GpuTexture* tex, int gx, int gy, int fw, int fh)
+				auto drawQuad = [&](GpuTexture* tex, int gx, int gy, int fw, int fh, float rot = 0.0f)
 				{
 					const float dispX = static_cast<float>(gx) * xScale + static_cast<float>(lbb);
 					const float dispY = static_cast<float>(gy) * yScale + static_cast<float>(tbb);
 					const float dispW = static_cast<float>(fw) * xScale;
 					const float dispH = static_cast<float>(fh) * yScale;
 
-					const float ndcX0 =  2.0f * dispX / static_cast<float>(dW) - 1.0f;
-					const float ndcY0 = -(2.0f * dispY / static_cast<float>(dH) - 1.0f);
-					const float ndcX1 =  2.0f * (dispX + dispW) / static_cast<float>(dW) - 1.0f;
-					const float ndcY1 = -(2.0f * (dispY + dispH) / static_cast<float>(dH) - 1.0f);
-
+					// Rotate the quad around its centre by `rot` (CW) in pixel space;
+					// rot==0 -> axis-aligned (unchanged for cursor/projectile callers).
+					const float cxp = dispX + dispW * 0.5f, cyp = dispY + dispH * 0.5f;
+					const float hw = dispW * 0.5f, hh = dispH * 0.5f;
+					const float cs = std::cos(rot), sn = std::sin(rot);
+					auto rotNdc = [&](float ux, float uy, float* o) {
+						const float px = cxp + (ux * hw) * cs - (uy * hh) * sn;
+						const float py = cyp + (ux * hw) * sn + (uy * hh) * cs;
+						o[0] =  2.0f * px / static_cast<float>(dW) - 1.0f;
+						o[1] = -(2.0f * py / static_cast<float>(dH) - 1.0f);
+					};
+					float tl[2], tr[2], bl[2], br[2];
+					rotNdc(-1.0f,-1.0f,tl); rotNdc(1.0f,-1.0f,tr);
+					rotNdc(-1.0f, 1.0f,bl); rotNdc(1.0f, 1.0f,br);
 					const float verts[6 * 4] = {
-						ndcX0, ndcY0,  0.0f, 0.0f,
-						ndcX1, ndcY0,  1.0f, 0.0f,
-						ndcX0, ndcY1,  0.0f, 1.0f,
-						ndcX0, ndcY1,  0.0f, 1.0f,
-						ndcX1, ndcY0,  1.0f, 0.0f,
-						ndcX1, ndcY1,  1.0f, 1.0f,
+						tl[0], tl[1],  0.0f, 0.0f,
+						tr[0], tr[1],  1.0f, 0.0f,
+						bl[0], bl[1],  0.0f, 1.0f,
+						bl[0], bl[1],  0.0f, 1.0f,
+						tr[0], tr[1],  1.0f, 0.0f,
+						br[0], br[1],  1.0f, 1.0f,
 					};
 					glBindBuffer(GL_ARRAY_BUFFER, _spriteVBO);
 					glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)sizeof(verts), verts);
@@ -4390,7 +4408,7 @@ void Map::drawCursorOverlayGLPass()
 						const int sz = (int)(_spriteWidth * ci.sizeMul);
 						const int gx = ci.screenX + (_spriteWidth - sz) / 2;
 						const int gy = ci.screenY + ci.offY;
-						drawQuad(ci.tex, gx, gy, sz, sz);
+						drawQuad(ci.tex, gx, gy, sz, sz, ci.rot);
 					}
 				}
 			}
