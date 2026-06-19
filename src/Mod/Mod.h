@@ -385,6 +385,9 @@ private:
 	std::map<std::string, UnitAtlasSpec> _unitAtlases;
 	/// True once at least one tileAtlas: YAML entry has been parsed.
 	bool _hdPackActive = false;
+	/// Tile render scale factor (1=32×40 native, 2=64×80, 4=128×160).
+	/// Set via battlescapeTileScale: in the mod ruleset.
+	int _battlescapeTileScale = 1;
 #endif
 	std::map<std::string, CustomPalettes *> _customPalettes;
 	std::vector<std::pair<std::string, ExtraSounds *> > _extraSounds;
@@ -707,6 +710,8 @@ public:
 	void clearUnitAtlases();
 	/// Returns true when at least one tileAtlas: YAML entry was loaded.
 	bool hasHDPack() const { return _hdPackActive; }
+	/// Returns the battlescape tile scale factor (1, 2, or 4).
+	int getBattlescapeTileScale() const { return _battlescapeTileScale; }
 #endif
 	/// Gets a particular music.
 	Music *getMusic(const std::string &name, bool error = true) const;

@@ -175,7 +175,11 @@ GpuTexture* buildVanillaAtlas(const MapDataSet& mds,
     }
 
     // Step 4: upload to GPU as R8 (palette-index atlas; shade applied at draw time)
-    GpuTexture* tex = new GpuTexture(/*srgb=*/false);
+    // MUST be GL_NEAREST: linear filtering would interpolate palette *indices*,
+    // producing garbage colours along every index boundary (rainbow tile edges).
+    GpuTexture* tex = new GpuTexture(/*srgb=*/false,
+                                     GpuTexture::Wrap::ClampToEdge,
+                                     GpuTexture::Filter::Nearest);
     if (!tex->uploadR8(pixels.data(), atlas_w, atlas_h))
     {
         Log(LOG_WARNING) << "TileAtlasBuilder[" << mds.getName()

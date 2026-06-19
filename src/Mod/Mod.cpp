@@ -1044,7 +1044,7 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 			if (SDL_MUSTLOCK(layerRgba)) SDL_LockSurface(layerRgba);
 			GpuTexture* layerTex = new GpuTexture(/*srgb=*/false,
 			                                      GpuTexture::Wrap::ClampToEdge,
-			                                      GpuTexture::Filter::Linear);
+			                                      GpuTexture::Filter::Linear);  // LINEAR: smooths the anti-aliased diamond alpha edge + HD texture on downscale
 			bool layerOk = layerTex->uploadRGBA(
 			    static_cast<const uint8_t*>(layerRgba->pixels), lw, lh);
 			if (SDL_MUSTLOCK(layerRgba)) SDL_UnlockSurface(layerRgba);
@@ -1097,7 +1097,7 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 					if (SDL_MUSTLOCK(rgba)) SDL_LockSurface(rgba);
 					GpuTexture* tex = new GpuTexture(/*srgb=*/false,
 					                                 GpuTexture::Wrap::ClampToEdge,
-					                                 GpuTexture::Filter::Linear);
+					                                 GpuTexture::Filter::Linear);  // LINEAR: smooths the anti-aliased diamond alpha edge + HD texture on downscale
 					bool ok = tex->uploadRGBA(
 					              static_cast<const uint8_t*>(rgba->pixels), w, h);
 					if (SDL_MUSTLOCK(rgba)) SDL_UnlockSurface(rgba);
@@ -1180,7 +1180,7 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 						}
 						if (SDL_MUSTLOCK(rgba)) SDL_UnlockSurface(rgba);
 						SDL_FreeSurface(rgba);
-						GpuTexture* tex = new GpuTexture(/*srgb=*/false);
+						GpuTexture* tex = new GpuTexture(/*srgb=*/false, GpuTexture::Wrap::ClampToEdge, GpuTexture::Filter::Nearest) /* R8 palette: NEAREST only, else index interpolation = rainbow seams */;
 						if (tex->uploadR8(r8.data(), w, h))
 						{
 							baselineTex  = tex;
@@ -1234,7 +1234,7 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 						if (SDL_MUSTLOCK(rgba)) SDL_LockSurface(rgba);
 						GpuTexture* tex = new GpuTexture(/*srgb=*/false,
 						                                 GpuTexture::Wrap::ClampToEdge,
-						                                 GpuTexture::Filter::Linear);
+						                                 GpuTexture::Filter::Linear);  // LINEAR: smooths the anti-aliased diamond alpha edge + HD texture on downscale
 						bool ok = tex->uploadRGBA(
 						              static_cast<const uint8_t*>(rgba->pixels), w, h);
 						if (SDL_MUSTLOCK(rgba)) SDL_UnlockSurface(rgba);
@@ -1335,11 +1335,10 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 					if (specIt->second.format == TileAtlasSpec::Format::Rgba)
 					{
 						// RGBA path: upload verbatim, no palette reverse-mapping.
-						// Filter::Nearest to avoid atlas bleeding (black seams) between tiles.
 						if (SDL_MUSTLOCK(rgba)) SDL_LockSurface(rgba);
 						GpuTexture* tex = new GpuTexture(/*srgb=*/false,
 						                                 GpuTexture::Wrap::ClampToEdge,
-						                                 GpuTexture::Filter::Linear);
+						                                 GpuTexture::Filter::Linear);  // LINEAR: smooths the anti-aliased diamond alpha edge + HD texture on downscale
 						loaded = tex->uploadRGBA(static_cast<const uint8_t*>(rgba->pixels), w, h);
 						if (SDL_MUSTLOCK(rgba)) SDL_UnlockSurface(rgba);
 						SDL_FreeSurface(rgba);
@@ -1419,7 +1418,7 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 							                 << "atlas art should use only TFTD palette colours";
 						}
 
-						GpuTexture* tex = new GpuTexture(/*srgb=*/false);
+						GpuTexture* tex = new GpuTexture(/*srgb=*/false, GpuTexture::Wrap::ClampToEdge, GpuTexture::Filter::Nearest) /* R8 palette: NEAREST only, else index interpolation = rainbow seams */;
 						if (!tex->uploadR8(r8.data(), w, h))
 						{
 							Log(LOG_WARNING) << "tileAtlas[" << name
@@ -4442,6 +4441,14 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 		              << " baseline=" << (_tileAtlasSpecs[dataset].baseline == BaselineMode::None ? "none" : "vanilla")
 		              << " wangType='" << _tileAtlasSpecs[dataset].wangType << "'"
 		              << " wangSets=" << _tileAtlasSpecs[dataset].wangSets.size();
+	}
+	{
+		int v = _battlescapeTileScale;
+		reader["battlescapeTileScale"].tryReadVal<int>(v);
+		if (v == 2 || v == 4)
+			_battlescapeTileScale = v;
+		else if (v != 1)
+			Log(LOG_WARNING) << "battlescapeTileScale: " << v << " is not supported (use 1, 2, or 4); ignored";
 	}
 #endif /* __EMSCRIPTEN__ */
 	for (const auto& ruleReader : iterateRulesSpecific("customPalettes"))

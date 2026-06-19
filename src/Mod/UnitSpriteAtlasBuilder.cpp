@@ -85,7 +85,12 @@ GpuTexture* buildUnitAtlas(const SurfaceSet& ss,
             SDL_UnlockSurface(const_cast<SDL_Surface*>(sdl));
     }
 
-    GpuTexture* tex = new GpuTexture(/*srgb=*/false);
+    // MUST be GL_NEAREST: linear filtering of palette *indices* interpolates to
+    // unrelated palette entries, drawing rainbow seams along every colour
+    // boundary inside the unit sprite.
+    GpuTexture* tex = new GpuTexture(/*srgb=*/false,
+                                     GpuTexture::Wrap::ClampToEdge,
+                                     GpuTexture::Filter::Nearest);
     if (!tex->uploadR8(pixels.data(), atlas_w, atlas_h))
     {
         Log(LOG_WARNING) << "UnitSpriteAtlasBuilder[" << setName

@@ -289,6 +289,13 @@ Map::Map(Game *game, int width, int height, int x, int y, int visibleMapHeight) 
 
 	_spriteWidth = _game->getMod()->getSurfaceSet("BLANKS.PCK")->getFrame(0)->getWidth();
 	_spriteHeight = _game->getMod()->getSurfaceSet("BLANKS.PCK")->getFrame(0)->getHeight();
+#ifdef __EMSCRIPTEN__
+	{
+		int tileScale = _game->getMod()->getBattlescapeTileScale();
+		_spriteWidth  *= tileScale;
+		_spriteHeight *= tileScale;
+	}
+#endif
 	_message = new BattlescapeMessage(320, (visibleMapHeight < 200)? visibleMapHeight : 200, 0, 0);
 	_message->setX(_game->getScreen()->getDX());
 	_message->setY((visibleMapHeight - _message->getHeight()) / 2);
@@ -927,9 +934,9 @@ int getShadePulseForFrame(int shade, int frame)
  */
 void Map::drawUnit(UnitSprite &unitSprite, Tile *unitTile, Tile *currTile, Position currTileScreenPosition, bool topLayer, BattleUnit* movingUnit)
 {
-	const int tileFoorWidth = 32;
-	const int tileFoorHeight = 16;
-	const int tileHeight = 40;
+	const int tileFoorWidth  = _spriteWidth;
+	const int tileFoorHeight = _spriteWidth / 2;
+	const int tileHeight     = _spriteHeight;
 
 	if (!unitTile)
 	{

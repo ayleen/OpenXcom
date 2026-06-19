@@ -4129,6 +4129,17 @@ void BattlescapeState::resize(int &dX, int &dY)
 		return;
 	}
 
+#ifdef __EMSCRIPTEN__
+	// When the HD tile scale is > 1 (e.g. 64×80 tiles), halve the divisor so
+	// the base resolution is proportionally larger and the visible tile count
+	// stays the same as with the user's chosen scale setting at native tile size.
+	{
+		int tileScale = _game->getMod()->getBattlescapeTileScale();
+		if (tileScale > 1 && divisor > 1)
+			divisor = std::max(1, divisor / tileScale);
+	}
+#endif
+
 	Options::baseXResolution = std::max(Screen::ORIGINAL_WIDTH, Options::displayWidth / divisor);
 	Options::baseYResolution = std::max(Screen::ORIGINAL_HEIGHT, (int)(Options::displayHeight / pixelRatioY / divisor));
 
