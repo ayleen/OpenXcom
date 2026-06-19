@@ -503,7 +503,10 @@ out     vec4      out_color;
 void main()
 {
     vec4 c = texture(u_tex, v_uv);
-    out_color = vec4(c.rgb * u_tint * (1.0 - u_darken), c.a);
+    // Unset uniform (0,0,0) means "no tint" → white, so untinted callers are
+    // unaffected; tinted callers pass a non-zero colour.
+    vec3 tint = all(equal(u_tint, vec3(0.0))) ? vec3(1.0) : u_tint;
+    out_color = vec4(c.rgb * tint * (1.0 - u_darken), c.a);
 }
 )glsl";
 
