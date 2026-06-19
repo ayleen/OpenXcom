@@ -1565,7 +1565,7 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 								ci.screenX = screenPosition.x; ci.screenY = screenPosition.y;
 								ci.style = CS_TEX_TINT; ci.tex = ringTex;
 								const float selPulse = 0.78f + 0.22f * std::sin(_animFrameGPU * 6.2831853f);
-								ci.tintR = 0.15f * selPulse; ci.tintG = 0.85f * selPulse; ci.tintB = 1.0f * selPulse;
+								ci.tintR = 0.20f * selPulse; ci.tintG = 0.88f * selPulse; ci.tintB = 1.0f * selPulse;
 								ci.sizeMul = 1.35f + 0.05f * std::sin(_animFrameGPU * 6.2831853f);
 								const int sz = (int)(_spriteWidth * ci.sizeMul);
 								ci.offY = (_spriteHeight - _spriteWidth / 4) - sz / 2;  // floor centre
@@ -2019,7 +2019,7 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 								CursorOverlayInstance ci;
 								ci.screenX = screenPosition.x; ci.screenY = screenPosition.y;
 								ci.style = CS_TEX_TINT; ci.tex = t;
-								if (reachable) { ci.tintR = 0.25f*wave; ci.tintG = 0.92f*wave; ci.tintB = 0.95f*wave; }
+								if (reachable) { ci.tintR = 0.20f*wave; ci.tintG = 0.88f*wave; ci.tintB = 1.0f*wave; }
 								else           { ci.tintR = 1.00f*wave; ci.tintG = 0.28f*wave; ci.tintB = 0.18f*wave; }
 								// Rotate the node to the movement direction
 								// (screen delta = (2*offsetX, -offsetY), base == game-dir N).
@@ -2113,7 +2113,7 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 											ci.screenX = screenPosition.x; ci.screenY = screenPosition.y;
 											ci.style = CS_TEX_TINT; ci.tex = t;
 											const float dp = 0.80f + 0.20f * std::sin(_animFrameGPU * 6.2831853f);
-											ci.tintR = 0.30f*dp; ci.tintG = 0.85f*dp; ci.tintB = 1.0f*dp;
+											ci.tintR = 0.20f*dp; ci.tintG = 0.88f*dp; ci.tintB = 1.0f*dp;
 											ci.sizeMul = 1.28f;
 											const int sz = (int)(_spriteWidth * ci.sizeMul);
 											ci.offY = (_spriteHeight - _spriteWidth / 4) - sz / 2; // floor centre
@@ -2129,7 +2129,7 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 											ci.screenX = screenPosition.x; ci.screenY = screenPosition.y;
 											ci.style = CS_TEX_TINT; ci.tex = t;
 											const float dp = 0.80f + 0.20f * std::sin(_animFrameGPU * 6.2831853f);
-											ci.tintR = 0.25f*dp; ci.tintG = 0.95f*dp; ci.tintB = 0.80f*dp; // cyan-green
+											ci.tintR = 0.20f*dp; ci.tintG = 0.88f*dp; ci.tintB = 1.0f*dp; // unified cyan
 											ci.sizeMul = 1.30f;
 											const int sz = (int)(_spriteWidth * ci.sizeMul);
 											ci.offY = (_spriteHeight - _spriteWidth / 4) - sz / 2; // floor centre
