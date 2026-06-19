@@ -299,54 +299,64 @@ OptionsVideoState::OptionsVideoState(OptionsOrigin origin) : OptionsBaseState(or
 
 	_txtGeoScale->setText(tr("STR_GEOSCAPE_SCALE"));
 
+	// Combobox display order (index 0..14):
+	//   0-6:  fixed Nx multiples of 320x200 (semantically: 1x=320x200, 2x=640x400, …)
+	//   7-13: screen-relative divisors (/2 … /10)
+	//   14:   full screen
 	std::vector<std::string> scales;
-	scales.push_back("1x"); // was 5 -> is 0
-	scales.push_back("2x"); // was 4 -> is 1
-	scales.push_back("3x"); // was 3 -> is 2
-	scales.push_back("4x"); // was 6 -> is 3
-	scales.push_back("5x"); // was 7 -> is 4
-	scales.push_back("6x"); // was 8 -> is 5
-	scales.push_back("320x200"); // was 0 -> is 6
-	scales.push_back("480x300"); // was 1 -> is 7
-	scales.push_back("640x400"); // was 2 -> is 8
-	scales.push_back("8x");       // new 9
-	scales.push_back("10x");      // new 10
-	scales.push_back("1280x720"); // new 11
-	scales.push_back("1920x1080"); // new 12
-	scales.push_back("2560x1440"); // new 13
+	scales.push_back("1x");   //  0 → SCALE_ORIGINAL    (0)  320x200
+	scales.push_back("2x");   //  1 → SCALE_2X          (2)  640x400
+	scales.push_back("3x");   //  2 → SCALE_3X          (11) 960x600
+	scales.push_back("4x");   //  3 → SCALE_4X          (12) 1280x800
+	scales.push_back("5x");   //  4 → SCALE_5X          (13) 1600x1000
+	scales.push_back("6x");   //  5 → SCALE_6X          (14) 1920x1200
+	scales.push_back("8x");   //  6 → SCALE_8X          (15) 2560x1600
+	scales.push_back("/2");   //  7 → SCALE_SCREEN_DIV_2 (4)
+	scales.push_back("/3");   //  8 → SCALE_SCREEN_DIV_3 (3)
+	scales.push_back("/4");   //  9 → SCALE_SCREEN_DIV_4 (6)
+	scales.push_back("/5");   // 10 → SCALE_SCREEN_DIV_5 (7)
+	scales.push_back("/6");   // 11 → SCALE_SCREEN_DIV_6 (8)
+	scales.push_back("/8");   // 12 → SCALE_SCREEN_DIV_8 (9)
+	scales.push_back("/10");  // 13 → SCALE_SCREEN_DIV_10(10)
+	scales.push_back("full"); // 14 → SCALE_SCREEN       (5)
 
-	_scales.push_back(6); // 0
-	_scales.push_back(7); // 1
-	_scales.push_back(8); // 2
-	_scales.push_back(2); // 3
-	_scales.push_back(1); // 4
-	_scales.push_back(0); // 5
-	_scales.push_back(3); // 6
-	_scales.push_back(4); // 7
-	_scales.push_back(5); // 8
-	_scales.push_back(9);
-	_scales.push_back(10);
-	_scales.push_back(11);
-	_scales.push_back(12);
-	_scales.push_back(13);
+	// _scales[internal ScaleType value] = combobox display index
+	_scales.push_back(0);  // 0  SCALE_ORIGINAL    → "1x"
+	_scales.push_back(0);  // 1  SCALE_15X         → fallback "1x" (not in menu)
+	_scales.push_back(1);  // 2  SCALE_2X          → "2x"
+	_scales.push_back(8);  // 3  SCALE_SCREEN_DIV_3 → "/3"
+	_scales.push_back(7);  // 4  SCALE_SCREEN_DIV_2 → "/2"
+	_scales.push_back(14); // 5  SCALE_SCREEN       → "full"
+	_scales.push_back(9);  // 6  SCALE_SCREEN_DIV_4 → "/4"
+	_scales.push_back(10); // 7  SCALE_SCREEN_DIV_5 → "/5"
+	_scales.push_back(11); // 8  SCALE_SCREEN_DIV_6 → "/6"
+	_scales.push_back(12); // 9  SCALE_SCREEN_DIV_8 → "/8"
+	_scales.push_back(13); // 10 SCALE_SCREEN_DIV_10→ "/10"
+	_scales.push_back(2);  // 11 SCALE_3X           → "3x"
+	_scales.push_back(3);  // 12 SCALE_4X           → "4x"
+	_scales.push_back(4);  // 13 SCALE_5X           → "5x"
+	_scales.push_back(5);  // 14 SCALE_6X           → "6x"
+	_scales.push_back(6);  // 15 SCALE_8X           → "8x"
 
-	_reverseScales.push_back(5); // 0
-	_reverseScales.push_back(4); // 1
-	_reverseScales.push_back(3); // 2
-	_reverseScales.push_back(6); // 3
-	_reverseScales.push_back(7); // 4
-	_reverseScales.push_back(8); // 5
-	_reverseScales.push_back(0); // 6
-	_reverseScales.push_back(1); // 7
-	_reverseScales.push_back(2); // 8
-	_reverseScales.push_back(9);
-	_reverseScales.push_back(10);
-	_reverseScales.push_back(11);
-	_reverseScales.push_back(12);
-	_reverseScales.push_back(13);
+	// _reverseScales[combobox display index] = internal ScaleType value
+	_reverseScales.push_back(0);  //  0 "1x"   → SCALE_ORIGINAL
+	_reverseScales.push_back(2);  //  1 "2x"   → SCALE_2X
+	_reverseScales.push_back(11); //  2 "3x"   → SCALE_3X
+	_reverseScales.push_back(12); //  3 "4x"   → SCALE_4X
+	_reverseScales.push_back(13); //  4 "5x"   → SCALE_5X
+	_reverseScales.push_back(14); //  5 "6x"   → SCALE_6X
+	_reverseScales.push_back(15); //  6 "8x"   → SCALE_8X
+	_reverseScales.push_back(4);  //  7 "/2"   → SCALE_SCREEN_DIV_2
+	_reverseScales.push_back(3);  //  8 "/3"   → SCALE_SCREEN_DIV_3
+	_reverseScales.push_back(6);  //  9 "/4"   → SCALE_SCREEN_DIV_4
+	_reverseScales.push_back(7);  // 10 "/5"   → SCALE_SCREEN_DIV_5
+	_reverseScales.push_back(8);  // 11 "/6"   → SCALE_SCREEN_DIV_6
+	_reverseScales.push_back(9);  // 12 "/8"   → SCALE_SCREEN_DIV_8
+	_reverseScales.push_back(10); // 13 "/10"  → SCALE_SCREEN_DIV_10
+	_reverseScales.push_back(5);  // 14 "full" → SCALE_SCREEN
 
-	if (Options::geoscapeScale < 0 || Options::geoscapeScale > 13) Options::geoscapeScale = 0;
-	if (Options::battlescapeScale < 0 || Options::battlescapeScale > 13) Options::battlescapeScale = 0;
+	if (Options::geoscapeScale < 0 || Options::geoscapeScale > 15) Options::geoscapeScale = 0;
+	if (Options::battlescapeScale < 0 || Options::battlescapeScale > 15) Options::battlescapeScale = 0;
 
 	_cbxGeoScale->setOptions(scales);
 	_cbxGeoScale->setSelected(_scales[Options::geoscapeScale]);

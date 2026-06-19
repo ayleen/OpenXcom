@@ -63,9 +63,11 @@ enum ScaleType
 	SCALE_SCREEN_DIV_6,
 	SCALE_SCREEN_DIV_8,
 	SCALE_SCREEN_DIV_10,
-	SCALE_1280x720,
-	SCALE_1920x1080,
-	SCALE_2560x1440
+	SCALE_3X,
+	SCALE_4X,
+	SCALE_5X,
+	SCALE_6X,
+	SCALE_8X
 };
 /**
  * Container for all the various global game options
