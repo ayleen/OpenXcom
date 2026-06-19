@@ -2005,7 +2005,7 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 						// red if not, brightness wave travelling toward the destination.
 						if (gpuCursorSet && _camera->getViewLevel() == itZ)
 						{
-							if (GpuTexture* t = getUITexture("Resources/battlescape/ui/path-node.png"))
+							if (GpuTexture* t = getUITexture("Resources/battlescape/ui/path-arrow.png"))
 							{
 								BattleUnit* su = _save->getSelectedUnit();
 								const int tuCost = tile->getTUMarker();
@@ -2023,7 +2023,7 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 								static const int oxv[8] = {1,1,1,0,-1,-1,-1,0};
 								static const int oyv[8] = {1,0,-1,-1,-1,0,1,1};
 								const int pdir = tile->getPreview() & 7;
-								ci.rot = std::atan2((float)(-oyv[pdir]), (float)(2 * oxv[pdir]));
+								ci.rot = std::atan2(-(float)oyv[pdir], 2.0f * (float)oxv[pdir]) - std::atan2(-1.0f, 2.0f);
 								const int sz = (int)(_spriteWidth * ci.sizeMul);
 								ci.offY = (_spriteHeight - _spriteWidth / 4) - sz / 2;  // floor centre
 								_cursorOverlayInstances.push_back(ci);
