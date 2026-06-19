@@ -2445,6 +2445,14 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 							int off = tile->getTUMarker() > 9 ? 5 : 3;
 							int offE = tile->getEnergyMarker() > 9 ? 5 : 3;
 							int mcolor = _previewSettingArrows ? 0 : tile->getMarkerColor();
+							// Phase 24: marker offsets were tuned for a 32×40 tile; scale the
+							// tile-relative parts with the (possibly doubled) sprite size so the
+							// numbers stay centred at battlescapeTileScale > 1. At native 32×40
+							// these reduce to the original 16/22/29. off/offE are glyph-width
+							// nudges (native glyph) and stay unscaled.
+							const int cx    = _spriteWidth / 2;          // 16 at native width 32
+							const int yRowA = _spriteHeight * 22 / 40;   // 22 at native height 40
+							const int yRowB = _spriteHeight * 29 / 40;   // 29 at native height 40
 							if (_previewSettingArrows)
 							{
 								adjustment += 7;
@@ -2464,16 +2472,16 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 								if (_previewSettingEnergy)
 								{
 									// TU
-									_numWaypid->blitNShade(surface, screenPosition.x + 16 - off, screenPosition.y + (22 - adjustment), 0, false, mcolor);
+									_numWaypid->blitNShade(surface, screenPosition.x + cx - off, screenPosition.y + (yRowA - adjustment), 0, false, mcolor);
 									// and Energy
 									_numWaypid->setValue(tile->getEnergyMarker());
 									_numWaypid->draw();
-									_numWaypid->blitNShade(surface, screenPosition.x + 16 - offE, screenPosition.y + (29 - adjustment), 0, false, mcolor);
+									_numWaypid->blitNShade(surface, screenPosition.x + cx - offE, screenPosition.y + (yRowB - adjustment), 0, false, mcolor);
 								}
 								else
 								{
 									// only TU
-									_numWaypid->blitNShade(surface, screenPosition.x + 16 - off, screenPosition.y + (29 - adjustment), 0, false, mcolor);
+									_numWaypid->blitNShade(surface, screenPosition.x + cx - off, screenPosition.y + (yRowB - adjustment), 0, false, mcolor);
 								}
 							}
 							else if (_previewSettingEnergy)
@@ -2481,7 +2489,7 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 								// only Energy
 								_numWaypid->setValue(tile->getEnergyMarker());
 								_numWaypid->draw();
-								_numWaypid->blitNShade(surface, screenPosition.x + 16 - offE, screenPosition.y + (29 - adjustment), 0, false, mcolor);
+								_numWaypid->blitNShade(surface, screenPosition.x + cx - offE, screenPosition.y + (yRowB - adjustment), 0, false, mcolor);
 							}
 						}
 					}
@@ -4783,6 +4791,12 @@ UnitWalkingOffset Map::calculateWalkingOffset(const BattleUnit *unit) const
 
 	int offsetX[8] = { 1, 1, 1, 0, -1, -1, -1, 0 };
 	int offsetY[8] = { 1, 0, -1, -1, -1, 0, 1, 1 };
+	// Phase 24: the per-phase walk step is in screen pixels and was tuned for a
+	// 32×40 tile (x:y = 2:1). Scale it with the (possibly doubled) sprite size so
+	// a walking unit traverses a full tile instead of crossing half of it and
+	// snapping. At native 32×40 these are 2 and 1 — unchanged behaviour.
+	const int stepX = _spriteWidth / 16;
+	const int stepY = _spriteWidth / 32;
 	int phase = unit->getWalkingPhase() + unit->getDiagonalWalkingPhase();
 	int dir = unit->getDirection();
 	int midphase = 4 + 4 * (dir % 2);
@@ -4812,13 +4826,13 @@ UnitWalkingOffset Map::calculateWalkingOffset(const BattleUnit *unit) const
 	{
 		if (phase < midphase)
 		{
-			result.ScreenOffset.x = phase * 2 * offsetX[dir];
-			result.ScreenOffset.y = - phase * offsetY[dir];
+			result.ScreenOffset.x = phase * stepX * offsetX[dir];
+			result.ScreenOffset.y = - phase * stepY * offsetY[dir];
 		}
 		else
 		{
-			result.ScreenOffset.x = (phase - endphase) * 2 * offsetX[dir];
-			result.ScreenOffset.y = - (phase - endphase) * offsetY[dir];
+			result.ScreenOffset.x = (phase - endphase) * stepX * offsetX[dir];
+			result.ScreenOffset.y = - (phase - endphase) * stepY * offsetY[dir];
 		}
 	}
 
