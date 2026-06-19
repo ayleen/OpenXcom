@@ -4403,11 +4403,13 @@ void Map::drawSmokeGLPass()
 	_spriteShader->setUniform1i("u_tex", 0);
 
 	// --- Tile smoke/fire instances collected by emitTilePass() ---
+	// Tile smoke covers a whole tile (SMOKE.PCK frame == tile size), so it scales
+	// with the tile, exactly like the cursor/floor (Phase 24).
 	for (const auto& si : _smokeInstances)
 	{
 		GpuTexture* tex = getOrUploadSpriteFrame(si.set, si.frameIdx);
 		if (!tex) continue;
-		drawQuad(tex, si.screenX, si.screenY, tex->width(), tex->height(), si.darken);
+		drawQuad(tex, si.screenX, si.screenY, _spriteWidth, _spriteHeight, si.darken);
 	}
 
 	// --- Explosion effects (X1.PCK, HIT.PCK, SMOKE.PCK) ---
@@ -4419,6 +4421,10 @@ void Map::drawSmokeGLPass()
 		SurfaceSet* smokeSet = mod->getSurfaceSet("SMOKE.PCK");
 		const int mapX = getX();
 		const int mapY = getY();
+		// Phase 24: explosion/hit sprites are voxel-anchored effects, not tile-sized.
+		// Scale both their size and their hand-tuned centring offsets with the tile
+		// scale (native 32-wide tile -> es = 1, unchanged).
+		const int es = _spriteWidth / 32;
 
 		for (const auto* explosion : _explosions)
 		{
@@ -4433,20 +4439,20 @@ void Map::drawSmokeGLPass()
 				if (f < 0) continue;
 				GpuTexture* tex = getOrUploadSpriteFrame(x1Set, f);
 				if (!tex) continue;
-				drawQuad(tex, bsx - tex->width() / 2, bsy - tex->height() / 2,
-				         tex->width(), tex->height(), 0.0f);
+				drawQuad(tex, bsx - tex->width() * es / 2, bsy - tex->height() * es / 2,
+				         tex->width() * es, tex->height() * es, 0.0f);
 			}
 			else if (explosion->isHit())
 			{
 				GpuTexture* tex = getOrUploadSpriteFrame(hitSet, explosion->getCurrentFrame());
 				if (!tex) continue;
-				drawQuad(tex, bsx - 15, bsy - 25, tex->width(), tex->height(), 0.0f);
+				drawQuad(tex, bsx - 15 * es, bsy - 25 * es, tex->width() * es, tex->height() * es, 0.0f);
 			}
 			else
 			{
 				GpuTexture* tex = getOrUploadSpriteFrame(smokeSet, explosion->getCurrentFrame());
 				if (!tex) continue;
-				drawQuad(tex, bsx - 15, bsy - 15, tex->width(), tex->height(), 0.0f);
+				drawQuad(tex, bsx - 15 * es, bsy - 15 * es, tex->width() * es, tex->height() * es, 0.0f);
 			}
 		}
 	}
