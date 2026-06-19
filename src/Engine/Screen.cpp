@@ -849,6 +849,18 @@ void Screen::updateScale(int type, int &width, int &height, bool change)
 		width = Options::displayWidth;
 		height = Options::displayHeight / pixelRatioY;
 		break;
+	case SCALE_1280x720:
+		width = 1280;
+		height = 720;
+		break;
+	case SCALE_1920x1080:
+		width = 1920;
+		height = 1080;
+		break;
+	case SCALE_2560x1440:
+		width = 2560;
+		height = 1440;
+		break;
 	case SCALE_ORIGINAL:
 	default:
 		width = Screen::ORIGINAL_WIDTH;

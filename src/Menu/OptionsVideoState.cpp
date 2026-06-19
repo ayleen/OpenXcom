@@ -309,8 +309,11 @@ OptionsVideoState::OptionsVideoState(OptionsOrigin origin) : OptionsBaseState(or
 	scales.push_back("320x200"); // was 0 -> is 6
 	scales.push_back("480x300"); // was 1 -> is 7
 	scales.push_back("640x400"); // was 2 -> is 8
-	scales.push_back("8x");  // new 9
-	scales.push_back("10x"); // new 10
+	scales.push_back("8x");       // new 9
+	scales.push_back("10x");      // new 10
+	scales.push_back("1280x720"); // new 11
+	scales.push_back("1920x1080"); // new 12
+	scales.push_back("2560x1440"); // new 13
 
 	_scales.push_back(6); // 0
 	_scales.push_back(7); // 1
@@ -323,6 +326,9 @@ OptionsVideoState::OptionsVideoState(OptionsOrigin origin) : OptionsBaseState(or
 	_scales.push_back(5); // 8
 	_scales.push_back(9);
 	_scales.push_back(10);
+	_scales.push_back(11);
+	_scales.push_back(12);
+	_scales.push_back(13);
 
 	_reverseScales.push_back(5); // 0
 	_reverseScales.push_back(4); // 1
@@ -335,9 +341,12 @@ OptionsVideoState::OptionsVideoState(OptionsOrigin origin) : OptionsBaseState(or
 	_reverseScales.push_back(2); // 8
 	_reverseScales.push_back(9);
 	_reverseScales.push_back(10);
+	_reverseScales.push_back(11);
+	_reverseScales.push_back(12);
+	_reverseScales.push_back(13);
 
-	if (Options::geoscapeScale < 0 || Options::geoscapeScale > 10) Options::geoscapeScale = 0;
-	if (Options::battlescapeScale < 0 || Options::battlescapeScale > 10) Options::battlescapeScale = 0;
+	if (Options::geoscapeScale < 0 || Options::geoscapeScale > 13) Options::geoscapeScale = 0;
+	if (Options::battlescapeScale < 0 || Options::battlescapeScale > 13) Options::battlescapeScale = 0;
 
 	_cbxGeoScale->setOptions(scales);
 	_cbxGeoScale->setSelected(_scales[Options::geoscapeScale]);
