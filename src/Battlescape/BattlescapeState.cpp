@@ -263,8 +263,10 @@ BattlescapeState::BattlescapeState() :
 	const int visibleUnitY = _game->getMod()->getInterface("battlescape")->getElement("visibleUnits")->y;
 	for (int i = 0; i < VISIBLE_MAX; ++i)
 	{
-		_btnVisibleUnit[i] = new InteractiveSurface(15, 12, x + visibleUnitX, y + visibleUnitY - (i * 13));
-		_numVisibleUnit[i] = new NumberText(15, 12, _btnVisibleUnit[i]->getX() + 6 , _btnVisibleUnit[i]->getY() + 4);
+		// Phase 24 UX (Stage 4): larger, better-spaced visible-enemy buttons — the
+		// original 15×12 / 13-px-pitch indicators were nearly impossible to click.
+		_btnVisibleUnit[i] = new InteractiveSurface(20, 16, x + visibleUnitX, y + visibleUnitY - (i * 18));
+		_numVisibleUnit[i] = new NumberText(20, 16, _btnVisibleUnit[i]->getX() + 7 , _btnVisibleUnit[i]->getY() + 5);
 	}
 	_numVisibleUnit[9]->setX(_numVisibleUnit[9]->getX() - 2); // center number 10
 	_warning = new WarningMessage(224, 24, x + 48, y + 32);
@@ -2551,9 +2553,9 @@ void BattlescapeState::blinkVisibleUnitButtons()
 	{
 		if (_btnVisibleUnit[i]->getVisible() == true)
 		{
-			_btnVisibleUnit[i]->drawRect(0, 0, 15, 12, 15);
+			_btnVisibleUnit[i]->drawRect(0, 0, 20, 16, 15);
 			int bgColor = i < _numberOfDirectlyVisibleUnits ? color : i < _numberOfEnemiesTotal ? _indicatorGreen : i < _numberOfEnemiesTotalPlusWounded ? _indicatorBlue : _indicatorPurple;
-			_btnVisibleUnit[i]->drawRect(1, 1, 13, 10, bgColor);
+			_btnVisibleUnit[i]->drawRect(1, 1, 18, 14, bgColor);
 		}
 	}
 
