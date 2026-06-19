@@ -34,6 +34,7 @@
 #include "../Engine/SurfaceSet.h"
 #include "../Engine/FileMap.h"
 #include <SDL_image.h>  // Phase 24: IMG_Load_RW for UI marker PNGs (getUITexture)
+#include <cmath>        // Phase 24: std::sin for marching path-node animation
 #include "../Engine/Timer.h"
 #include "../Engine/Language.h"
 #include "../Engine/Palette.h"
@@ -1985,6 +1986,33 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 					// Draw Path Preview
 					if (_previewSettingArrows && tile->getPreview() != -1 && tile->isDiscovered(O_FLOOR))
 					{
+#ifdef __EMSCRIPTEN__
+						// Phase 24 UX (Stage 3): replace the flat Pathfinding arrows with an
+						// HD "marching" path node — cyan if reachable with the current TU,
+						// red if not, brightness wave travelling toward the destination.
+						if (gpuCursorSet && _camera->getViewLevel() == itZ)
+						{
+							if (GpuTexture* t = getUITexture("Resources/battlescape/ui/path-node.png"))
+							{
+								BattleUnit* su = _save->getSelectedUnit();
+								const int tuCost = tile->getTUMarker();
+								const bool reachable = !su || tuCost < 0 || tuCost <= su->getTimeUnits();
+								const float wave = 0.55f + 0.45f * std::sin(6.2831853f *
+								    (_animFrameGPU - (float)(tuCost > 0 ? tuCost : 0) * 0.07f));
+								CursorOverlayInstance ci;
+								ci.screenX = screenPosition.x; ci.screenY = screenPosition.y;
+								ci.style = CS_TEX_TINT; ci.tex = t;
+								if (reachable) { ci.tintR = 0.25f*wave; ci.tintG = 0.90f*wave; ci.tintB = 1.00f*wave; }
+								else           { ci.tintR = 1.00f*wave; ci.tintG = 0.28f*wave; ci.tintB = 0.18f*wave; }
+								ci.sizeMul = 0.5f;
+								const int sz = (int)(_spriteWidth * ci.sizeMul);
+								ci.offY = (_spriteHeight - _spriteWidth / 4) - sz / 2;  // floor centre
+								_cursorOverlayInstances.push_back(ci);
+							}
+						}
+						else
+#endif
+						{
 						if (itZ > 0 && tile->hasNoFloor(_save))
 						{
 							tmpSurface = _game->getMod()->getSurfaceSet("Pathfinding")->getFrame(11);
@@ -1997,6 +2025,7 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 						if (tmpSurface)
 						{
 							Surface::blitRaw(surface, tmpSurface, screenPosition.x, screenPosition.y + tile->getTerrainLevel(), 0, false, tileColor);
+						}
 						}
 					}
 
@@ -2479,7 +2508,13 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 						if (!tile || !tile->isDiscovered(O_FLOOR) || tile->getPreview() == -1)
 							continue;
 						int adjustment = -tile->getTerrainLevel();
-						if (_previewSettingArrows)
+						// Phase 24 UX (Stage 3): in GPU mode the HD marching path node (emitted
+						// in the back pass) replaces these flat front arrows — skip them here.
+						if (_previewSettingArrows
+#ifdef __EMSCRIPTEN__
+						    && !gpuCursorSet
+#endif
+						   )
 						{
 							if (itZ > 0 && tile->hasNoFloor(_save))
 							{

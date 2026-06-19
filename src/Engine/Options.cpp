@@ -162,8 +162,10 @@ void createOptionsOXC()
 	battleXcomSpeedOrig = -1;
 	battleAlienSpeedOrig = -1;
 	_info.push_back(OptionInfo(OPTION_OXC, "battleAlienSpeed", &battleAlienSpeed, 30));
-#ifdef __MOBILE__
-	_info.push_back(OptionInfo(OPTION_OXC, "battleNewPreviewPath", (int*)&battleNewPreviewPath, PATH_FULL)); // for android, set full preview by default
+#if defined(__MOBILE__) || defined(__EMSCRIPTEN__)
+	// Calypso (Phase 24 UX): full path preview on by default — the HD marching path
+	// nodes + running TU cost are a core part of the "where will it go" feedback.
+	_info.push_back(OptionInfo(OPTION_OXC, "battleNewPreviewPath", (int*)&battleNewPreviewPath, PATH_FULL));
 #else
 	_info.push_back(OptionInfo(OPTION_OXC, "battleNewPreviewPath", (int*)&battleNewPreviewPath, PATH_NONE)); // requires double-click to confirm moves
 #endif
