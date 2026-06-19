@@ -2009,7 +2009,7 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 							// no arrow there. Intermediate tiles get a directional path node.
 							const bool isDest = (itX == _selectorX && itY == _selectorY);
 							if (!isDest)
-							if (GpuTexture* t = getUITexture("Resources/battlescape/ui/path-node.png"))
+							if (GpuTexture* t = getUITexture("Resources/battlescape/ui/path-arrow.png"))
 							{
 								BattleUnit* su = _save->getSelectedUnit();
 								const int tuCost = tile->getTUMarker();
@@ -2104,27 +2104,38 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 											_cursorOverlayInstances.push_back(ci);
 										}
 									}
-									else if (playerWalking || tileHasUnit)
+									else if (tileHasUnit)
 									{
-										// Cyan hover ring on the floor: the hovered tile (the move
-										// destination when a unit is selected) or a hovered unit. The
-										// path arrow is suppressed on this destination tile so the ring
-										// alone marks it. Neutral hover with nothing selected stays
-										// clean (no marker), preserving the Phase-16 focus behaviour.
+										// Bright pulsing hover ring on a hovered unit.
 										if (GpuTexture* t = getUITexture("Resources/battlescape/ui/hover-ring.png"))
 										{
 											CursorOverlayInstance ci;
 											ci.screenX = screenPosition.x; ci.screenY = screenPosition.y;
 											ci.style = CS_TEX_TINT; ci.tex = t;
-											const float hovA = tileHasUnit ? (0.80f + 0.20f * std::sin(_animFrameGPU * 6.2831853f)) : 0.50f;
-								ci.tintR = 0.30f * hovA; ci.tintG = 0.85f * hovA; ci.tintB = 1.0f * hovA;
-											ci.sizeMul = tileHasUnit ? 1.28f : 1.18f;
+											const float dp = 0.80f + 0.20f * std::sin(_animFrameGPU * 6.2831853f);
+											ci.tintR = 0.30f*dp; ci.tintG = 0.85f*dp; ci.tintB = 1.0f*dp;
+											ci.sizeMul = 1.28f;
 											const int sz = (int)(_spriteWidth * ci.sizeMul);
 											ci.offY = (_spriteHeight - _spriteWidth / 4) - sz / 2; // floor centre
 											_cursorOverlayInstances.push_back(ci);
 										}
 									}
-
+									else if (playerWalking)
+									{
+										// Move-destination marker (ring + inward arrows): the "move here" target.
+										if (GpuTexture* t = getUITexture("Resources/battlescape/ui/dest-marker.png"))
+										{
+											CursorOverlayInstance ci;
+											ci.screenX = screenPosition.x; ci.screenY = screenPosition.y;
+											ci.style = CS_TEX_TINT; ci.tex = t;
+											const float dp = 0.80f + 0.20f * std::sin(_animFrameGPU * 6.2831853f);
+											ci.tintR = 0.25f*dp; ci.tintG = 0.95f*dp; ci.tintB = 0.80f*dp; // cyan-green
+											ci.sizeMul = 1.30f;
+											const int sz = (int)(_spriteWidth * ci.sizeMul);
+											ci.offY = (_spriteHeight - _spriteWidth / 4) - sz / 2; // floor centre
+											_cursorOverlayInstances.push_back(ci);
+										}
+									}
 									// Phase 16: hide the system cursor arrow when a player unit is selected
 									// for movement, but ONLY if we are actually in the interactive map state.
 									// This ensures the cursor remains visible in the Esc menu.
