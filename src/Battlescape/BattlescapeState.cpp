@@ -4093,6 +4093,7 @@ void BattlescapeState::resize(int &dX, int &dY)
 	dY = Options::baseYResolution;
 	int divisor = 1;
 	double pixelRatioY = 1.0;
+	bool fixedRes = false;
 
 	if (Options::nonSquarePixelRatio)
 	{
@@ -4124,24 +4125,53 @@ void BattlescapeState::resize(int &dX, int &dY)
 	case SCALE_SCREEN:
 		break;
 	default:
+		fixedRes = true;
+		break;
+	}
+
+#ifdef __EMSCRIPTEN__
+	// For screen-div options: halve the divisor so the base resolution is
+	// proportionally larger and the visible tile count stays the same as the
+	// user's chosen scale setting at native tile size.
+	// For fixed-resolution options (Nx): raise the floor so the base resolution
+	// is at least ORIGINAL * tileScale (same minimum tile count as vanilla).
+	{
+		int tileScale = _game->getMod()->getBattlescapeTileScale();
+		if (tileScale > 1)
+		{
+			if (!fixedRes && divisor > 1)
+			{
+				divisor = std::max(1, divisor / tileScale);
+			}
+			else if (fixedRes)
+			{
+				int minW = Screen::ORIGINAL_WIDTH  * tileScale;
+				int minH = Screen::ORIGINAL_HEIGHT * tileScale;
+				if (Options::baseXResolution < minW || Options::baseYResolution < minH)
+				{
+					Options::baseXResolution = std::max(Options::baseXResolution, minW);
+					Options::baseYResolution = std::max(Options::baseYResolution, minH);
+					fixedRes = false; // fall through to apply the resize
+					divisor = 0;      // sentinel: base res already set, skip divisor calc
+				}
+			}
+		}
+	}
+#endif
+
+	if (fixedRes)
+	{
 		dX = 0;
 		dY = 0;
 		return;
 	}
 
-#ifdef __EMSCRIPTEN__
-	// When the HD tile scale is > 1 (e.g. 64×80 tiles), halve the divisor so
-	// the base resolution is proportionally larger and the visible tile count
-	// stays the same as with the user's chosen scale setting at native tile size.
+	if (divisor > 0)
 	{
-		int tileScale = _game->getMod()->getBattlescapeTileScale();
-		if (tileScale > 1 && divisor > 1)
-			divisor = std::max(1, divisor / tileScale);
+		Options::baseXResolution = std::max(Screen::ORIGINAL_WIDTH, Options::displayWidth / divisor);
+		Options::baseYResolution = std::max(Screen::ORIGINAL_HEIGHT, (int)(Options::displayHeight / pixelRatioY / divisor));
 	}
-#endif
-
-	Options::baseXResolution = std::max(Screen::ORIGINAL_WIDTH, Options::displayWidth / divisor);
-	Options::baseYResolution = std::max(Screen::ORIGINAL_HEIGHT, (int)(Options::displayHeight / pixelRatioY / divisor));
+	// else: fixed-res with raised floor already set in the Emscripten block above
 
 	dX = Options::baseXResolution - dX;
 	dY = Options::baseYResolution - dY;
