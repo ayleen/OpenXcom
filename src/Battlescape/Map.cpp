@@ -4217,7 +4217,11 @@ void Map::drawCursorOverlayGLPass()
 					if (ci.style != CS_RASTER) continue;
 					GpuTexture* tex = getOrUploadSpriteFrame(ci.set, ci.frameIdx);
 					if (!tex) continue;
-					drawQuad(tex, ci.screenX, ci.screenY, tex->width(), tex->height());
+					// Phase 24: CURSOR.PCK frames are one tile in size, so draw them
+					// at the (possibly scaled) tile size — not the native 32×40 frame
+					// size — otherwise at battlescapeTileScale>1 the cursor lands in
+					// the top-left quarter of the 64×80 tile (above-left of the unit).
+					drawQuad(tex, ci.screenX, ci.screenY, _spriteWidth, _spriteHeight);
 				}
 			}
 		}
