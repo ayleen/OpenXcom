@@ -4445,9 +4445,9 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 	{
 		int v = _battlescapeTileScale;
 		reader["battlescapeTileScale"].tryReadVal<int>(v);
-		if (v == 2 || v == 4)
-			_battlescapeTileScale = v;
-		else if (v != 1)
+		if (v == 1 || v == 2 || v == 4)
+			_battlescapeTileScale = v;  // assign 1 too, so a later ruleset can reset to native
+		else
 			Log(LOG_WARNING) << "battlescapeTileScale: " << v << " is not supported (use 1, 2, or 4); ignored";
 	}
 #endif /* __EMSCRIPTEN__ */

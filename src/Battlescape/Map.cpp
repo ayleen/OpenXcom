@@ -4308,6 +4308,10 @@ void Map::drawProjectileGLPass()
 
 		const int fw = frame->getWidth();
 		const int fh = frame->getHeight();
+		// Phase 24: scale the bullet sprite with the tile size (native 32 -> 1x) so
+		// it stays proportional to the scene at battlescapeTileScale>1.
+		const int bw = fw * _spriteWidth / 32;
+		const int bh = fh * _spriteWidth / 32;
 
 		Position voxelPos = _projectile->getPosition(1 - i);
 		if (!_save->getTileEngine()->isVoxelVisible(voxelPos)) continue;
@@ -4319,13 +4323,13 @@ void Map::drawProjectileGLPass()
 		{
 			Position sp;
 			_camera->convertVoxelToScreen(shadowPos, &sp);
-			drawQuad(tex, sp.x + mapX - fw / 2, sp.y + mapY - fh / 2, fw, fh, 1.0f);
+			drawQuad(tex, sp.x + mapX - bw / 2, sp.y + mapY - bh / 2, bw, bh, 1.0f);
 		}
 
 		// Bullet: normal colour (darken = 0).
 		Position bp;
 		_camera->convertVoxelToScreen(voxelPos, &bp);
-		drawQuad(tex, bp.x + mapX - fw / 2, bp.y + mapY - fh / 2, fw, fh, 0.0f);
+		drawQuad(tex, bp.x + mapX - bw / 2, bp.y + mapY - bh / 2, bw, bh, 0.0f);
 	}
 
 	glDisable(GL_BLEND);
@@ -4887,7 +4891,11 @@ UnitWalkingOffset Map::calculateWalkingOffset(const BattleUnit *unit) const
 	{
 		result.TerrainLevelOffset = getTerrainLevel(unit->getPosition(), size);
 	}
-	result.ScreenOffset.y += result.TerrainLevelOffset;
+	// Phase 24: TerrainLevelOffset is a vertical screen offset in native pixels
+	// (raised floors, stairs, flight); scale it with the tile height so units sit
+	// on the floor at battlescapeTileScale>1. The unscaled value is kept for shade.
+	// Native 40-tall tile -> factor 1 (unchanged).
+	result.ScreenOffset.y += result.TerrainLevelOffset * _spriteHeight / 40;
 	return result;
 }
 

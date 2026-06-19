@@ -491,8 +491,13 @@ void Camera::convertVoxelToScreen(Position voxelPos, Position *screenPos) const
 	double dx = voxelPos.x - (mapPosition.x * 16);
 	double dy = voxelPos.y - (mapPosition.y * 16);
 	double dz = voxelPos.z - (mapPosition.z * 24);
-	screenPos->x += (int)(dx - dy) + (_spriteWidth/2);
-	screenPos->y += (int)(((_spriteHeight / 2.0)) + (dx / 2.0) + (dy / 2.0) - dz);
+	// Phase 24: the tile origin from convertMapToScreen is already tile-scaled, but
+	// the sub-tile voxel offset is in native pixels. Scale it with the tile size so
+	// voxel-positioned sprites (projectiles, explosions) land at the right sub-tile
+	// spot at battlescapeTileScale>1. Native 32-wide tile -> factor 1 (unchanged).
+	const double vox = _spriteWidth / 32.0;
+	screenPos->x += (int)((dx - dy) * vox) + (_spriteWidth/2);
+	screenPos->y += (int)((_spriteHeight / 2.0) + ((dx / 2.0) + (dy / 2.0) - dz) * vox);
 	screenPos->x += _mapOffset.x;
 	screenPos->y += _mapOffset.y;
 }
