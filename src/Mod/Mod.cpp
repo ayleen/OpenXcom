@@ -4246,6 +4246,15 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 		ruleReader["fallbackImage"].tryReadVal<std::string>(spec.fallbackImage);
 		ruleReader["fallbackOpacity"].tryReadVal<float>(spec.fallbackOpacity);
 
+		// Phase 27: world-position ground super-tile (base/tilesX/tilesY).
+		auto groundPoolNode = ruleReader["groundPool"];
+		if (groundPoolNode)
+		{
+			groundPoolNode["base"].tryReadVal<int>(spec.groundBase);
+			groundPoolNode["tilesX"].tryReadVal<int>(spec.groundTilesX);
+			groundPoolNode["tilesY"].tryReadVal<int>(spec.groundTilesY);
+		}
+
 		// Phase 20: per-cell hdTiles[] metadata
 		auto hdTilesNode = ruleReader["hdTiles"];
 		if (hdTilesNode)

@@ -3100,6 +3100,19 @@ void Map::emitTilePass()
 					if (hdIt != spec->hdTilesByCell.end())
 					{
 						const Mod::HDTileSpec& ts = spec->hdTiles[hdIt->second];
+						// Phase 27: world-position ground super-tile. For a dataset-default
+						// (self) O_FLOOR tile, pick the atlas cell by world position so one
+						// big seamless ground (relief baked) is reconstructed across the map
+						// with no per-tile repeat. Overrides the hash anti-repeat below.
+						int groundCell = -1;
+						if (spec->groundBase >= 0 && part == O_FLOOR
+						 && spec->groundTilesX > 0 && spec->groundTilesY > 0
+						 && spec->effectiveWangTypeId(ts) == spec->wangTypeIdDefault)
+						{
+							int gx = ((mapPos.x % spec->groundTilesX) + spec->groundTilesX) % spec->groundTilesX;
+							int gy = ((mapPos.y % spec->groundTilesY) + spec->groundTilesY) % spec->groundTilesY;
+							groundCell = spec->groundBase + gy * spec->groundTilesX + gx;
+						}
 						// Some TFTD MAPs put a second ground material in O_OBJECT (notably
 						// SEABED pale sand). It is a surface layer, not a freestanding
 						// object: draw it as a soft material patch over O_FLOOR rather than
@@ -3166,7 +3179,9 @@ void Map::emitTilePass()
 								// metaCell (atlasTileIdx) stays the Wang eligibility key;
 								// visualCell changes only the rendered UV.
 								int visualCell = atlasTileIdx;
-								if (ts.variants > 1)
+								if (groundCell >= 0)
+									visualCell = groundCell;   // Phase 27: self side = world ground
+								else if (ts.variants > 1)
 									visualCell = atlasTileIdx
 									    + (int)(hash3(mapPos.x, mapPos.y, mapPos.z)
 									             % (uint32_t)ts.variants);
@@ -3201,7 +3216,9 @@ void Map::emitTilePass()
 						// Phase 22 anti-repeat (§22.5): a uniform overlay cell scatters
 						// across its pool [cell..cell+variants-1] by a stable position
 						// hash — only when no bake-Wang variant already overrode it.
-						if (ts.variants > 1 && atlasTileIdx_overlay == atlasTileIdx)
+						if (groundCell >= 0 && atlasTileIdx_overlay == atlasTileIdx)
+							atlasTileIdx_overlay = groundCell;   // Phase 27: bulk floor = world ground
+						else if (ts.variants > 1 && atlasTileIdx_overlay == atlasTileIdx)
 							atlasTileIdx_overlay = atlasTileIdx +
 								(int)(hash3(mapPos.x, mapPos.y, mapPos.z) % (uint32_t)ts.variants);
 					}

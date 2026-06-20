@@ -254,6 +254,15 @@ public:
 		int                    wangTypeIdDefault = -1;                                    // Phase 22 (M1 perf): interned id of dataset-default wangType; -1 = none
 		TilePart               wangTilePart = O_FLOOR;                                    // default TilePart slot for cells without per-cell override
 		std::unordered_map<std::string, WangNeighbour> wangSets;                          // neighbour tag → WangNeighbour (bake or blend)
+		// Phase 27: world-position ground super-tile. groundBase < 0 = disabled.
+		// For every dataset-default-wangType O_FLOOR tile the engine selects atlas
+		// cell  groundBase + (worldY % groundTilesY)*groundTilesX + (worldX % groundTilesX),
+		// reconstructing one big seamless ground (bold relief baked, ripples spanning
+		// many tiles) across the map with no per-tile repeat. atlas-build slices the
+		// groundPool sheet into cells groundBase..groundBase+tilesX*tilesY-1.
+		int                    groundBase   = -1;
+		int                    groundTilesX = 0;
+		int                    groundTilesY = 0;
 
 		// Phase 21: resolve cell-vs-dataset inheritance.
 		// effectiveWangType returns "" iff the cell explicitly opts out (hasWangType + ""),
