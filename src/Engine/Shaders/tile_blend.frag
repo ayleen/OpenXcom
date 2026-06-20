@@ -63,9 +63,24 @@ void main()
     float nz  = texture(u_noise, v_worldUV * v_noiseScale).r - 0.5;
     // Clamp feather ≥ 0.001 to guard smoothstep UB when edge0 == edge1 (P15).
     float fe  = max(v_feather, 0.001);
-    float w   = smoothstep(0.5 - fe, 0.5 + fe, fld + nz * v_noiseAmp);
 
-    vec4 c = mix(self, nbr, clamp(w, 0.0, 1.0));
+    // §25 edge-localised blend. cornerField is 0.5 at a single-foreign tile's
+    // CENTRE (bilinear of 1/0 corners), so smoothstep(0.5±fe, fld) smeared the mix
+    // halfway across the tile and gave a bright core + wide halo that read as a
+    // diamond. Remap so only the FOREIGN half (fld 0.5→1) blends: `edge` is 0
+    // through the self interior and 1 at the shared seam — the tile keeps its own
+    // colour at its centre and dissolves only toward the boundary.
+    float edge = clamp((fld - 0.5) * 2.0, 0.0, 1.0);
+    float w    = smoothstep(0.5 - fe, 0.5 + fe, edge + nz * v_noiseAmp);
+
+    // Seam-symmetry: cap the mix at 0.5 so each tile reaches at most a 50/50 blend
+    // at the seam (edge → 1 there). Both neighbours render an IDENTICAL 50/50
+    // colour on the seam, so the result is independent of draw order — `baseline:
+    // none` datasets (SAND) write no floor depth, so the blend pass is a pure
+    // painter's-order draw, and before the cap the front tile's diamond occluded
+    // the back tile's feather on one diagonal only. 0.5 is the unique cap that
+    // makes the seam pixel agree from both sides (0.5·B+0.5·A == 0.5·A+0.5·B).
+    vec4 c = mix(self, nbr, clamp(w, 0.0, 1.0) * 0.5);
     if (c.a < 0.01) discard;
 
     if (v_shade >= 15.5)

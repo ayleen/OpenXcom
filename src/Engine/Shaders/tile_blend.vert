@@ -60,7 +60,15 @@ out float v_noiseAmp;
 // works in this range as long as corner values are at the extremes (P13).
 vec2 toDiamond(vec2 p)
 {
-    float d = 2.5 * (p.y - 0.8);
+    // §25 calibration: make_diamond_mask places the floor diamond at source rows
+    // 24..39 of a 40-row tile → p.y ∈ [0.6, 0.975], widest at rows 31/32, i.e.
+    // centred at 0.7875 with a half-height of 0.1875 — NOT 0.8 ± 0.2. The old
+    // 2.5·(p.y−0.8) mapped the BOTTOM vertex to d≈0.44 instead of 0.5, so the
+    // corner field was compressed toward the bottom and the seam feathered wider
+    // at the top than the bottom (the "blends on top, hard on the bottom" skew).
+    // slope 1/0.1875 = 8/3 about centre 0.7875 sends all four vertices to the
+    // exact unit-square corners the cornerField expects.
+    float d = (8.0 / 3.0) * (p.y - 0.7875);
     return vec2(p.x - d, p.x + d);
 }
 

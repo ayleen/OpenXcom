@@ -3100,6 +3100,15 @@ void Map::emitTilePass()
 					if (hdIt != spec->hdTilesByCell.end())
 					{
 						const Mod::HDTileSpec& ts = spec->hdTiles[hdIt->second];
+						// Some TFTD MAPs put a second ground material in O_OBJECT (notably
+						// SEABED pale sand). It is a surface layer, not a freestanding
+						// object: draw it as a soft material patch over O_FLOOR rather than
+						// exposing the atlas diamond as a hard edge. alphaMask's normal
+						// values are boolean; 2.0 is a private RGBA-shader marker.
+						const bool floorLikeObject = part == O_OBJECT
+							&& ts.hasTilePart && ts.tilePart == O_OBJECT;
+						if (floorLikeObject)
+							ov.alphaMask = 2.0f;
 						const float scaleX = (spec->tileWidth  > 0)
 						    ? (float)_spriteWidth  / (float)spec->tileWidth  : 1.0f;
 						const float scaleY = (spec->tileHeight > 0)
@@ -3138,7 +3147,7 @@ void Map::emitTilePass()
 							grp.subLayerInstances[li].push_back(sl);
 						}
 						// Phase 21/22: Wang lookup — only on floor/object wang-eligible cells.
-						if ((part == O_FLOOR || part == O_OBJECT)
+						if (!floorLikeObject && (part == O_FLOOR || part == O_OBJECT)
 						 && spec->effectiveWangTypeId(ts) >= 0
 						 && spec->effectiveTilePart(ts) == part)
 						{
@@ -3676,6 +3685,74 @@ void Map::initTileGL()
 }
 
 /**
+ * (Re)create the supersampled offscreen FBO used to antialias the HD floor.
+ * Color + depth are plain (single-sample) renderbuffers at _ssaaScale× the
+ * passed viewport; the pass renders the floor there with normal alpha-blending
+ * and then linearly downsamples (blit) into the default framebuffer. Idempotent:
+ * a no-op when the existing target already matches the requested size. Returns
+ * false if the target can't be made (e.g. exceeds GL_MAX_RENDERBUFFER_SIZE) so
+ * the caller falls back to direct rendering.
+ */
+bool Map::ensureSsaaTarget(int w, int h)
+{
+#ifdef __EMSCRIPTEN__
+	if (w <= 0 || h <= 0 || _ssaaScale < 1) return false;
+	const int sw = w * _ssaaScale, sh = h * _ssaaScale;
+	if (_ssaaFBO && _ssaaW == sw && _ssaaH == sh) return true;
+
+	// Size changed (or first use) — tear down any previous target.
+	if (_ssaaFBO)     { glDeleteFramebuffers(1, &_ssaaFBO);      _ssaaFBO = 0; }
+	if (_ssaaColorRB) { glDeleteRenderbuffers(1, &_ssaaColorRB); _ssaaColorRB = 0; }
+	if (_ssaaDepthRB) { glDeleteRenderbuffers(1, &_ssaaDepthRB); _ssaaDepthRB = 0; }
+
+	GLint maxRB = 0;
+	glGetIntegerv(GL_MAX_RENDERBUFFER_SIZE, &maxRB);
+	if (maxRB > 0 && (sw > maxRB || sh > maxRB))
+	{
+		Log(LOG_WARNING) << "Map::ensureSsaaTarget: " << sw << "x" << sh
+		                 << " exceeds GL_MAX_RENDERBUFFER_SIZE " << maxRB
+		                 << " — disabling SSAA";
+		return false;
+	}
+
+	glGenFramebuffers(1, &_ssaaFBO);
+	glBindFramebuffer(GL_FRAMEBUFFER, _ssaaFBO);
+
+	glGenRenderbuffers(1, &_ssaaColorRB);
+	glBindRenderbuffer(GL_RENDERBUFFER, _ssaaColorRB);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA8, sw, sh);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+	                          GL_RENDERBUFFER, _ssaaColorRB);
+
+	glGenRenderbuffers(1, &_ssaaDepthRB);
+	glBindRenderbuffer(GL_RENDERBUFFER, _ssaaDepthRB);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, sw, sh);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+	                          GL_RENDERBUFFER, _ssaaDepthRB);
+
+	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	if (status != GL_FRAMEBUFFER_COMPLETE)
+	{
+		Log(LOG_WARNING) << "Map::ensureSsaaTarget: FBO incomplete (status="
+		                 << (int)status << ", " << sw << "x" << sh
+		                 << ") — disabling SSAA";
+		if (_ssaaFBO)     { glDeleteFramebuffers(1, &_ssaaFBO);      _ssaaFBO = 0; }
+		if (_ssaaColorRB) { glDeleteRenderbuffers(1, &_ssaaColorRB); _ssaaColorRB = 0; }
+		if (_ssaaDepthRB) { glDeleteRenderbuffers(1, &_ssaaDepthRB); _ssaaDepthRB = 0; }
+		return false;
+	}
+	_ssaaW = sw; _ssaaH = sh;
+	Log(LOG_INFO) << "Map::ensureSsaaTarget: SSAA " << _ssaaScale << "x at "
+	              << sw << "x" << sh;
+	return true;
+#else
+	(void)w; (void)h;
+	return false;
+#endif
+}
+
+/**
  * Issue glDrawArraysInstanced per atlas group, Z-level outer (Phase 13.2).
  * Fires before SDL composite via registerGPUPassPreComposite so HD floor
  * renders under units / walls / HUD that the CPU draws to the SDL surface.
@@ -3724,6 +3801,26 @@ void Map::drawTileGLPass()
 	// `iso` priority (set in emit). No (Z, Y) bucketing needed — each atlas
 	// group is rendered with a single instanced draw call and the depth buffer
 	// sorts overlapping instances correctly.
+
+	// --- SSAA: render the HD floor into a supersampled (×_ssaaScale) offscreen
+	// target with normal alpha-blending, then linearly downsample into the
+	// default framebuffer below. This antialiases the diamond silhouette, the
+	// blend transitions and the texture at once, with no alpha-to-coverage/blend
+	// conflict. Falls back to direct rendering if the target can't be made. ---
+	GLint prevVp[4] = { 0, 0, 0, 0 };
+	glGetIntegerv(GL_VIEWPORT, prevVp);
+	GLint prevFBO = 0;
+	glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prevFBO);
+	// Render the floor at the physical display (canvas backing) resolution, NOT
+	// the smaller baseResolution map viewport — otherwise it rasterises small and
+	// SDL's final upscale to the display reintroduces the stair-step on the edges.
+	const int fbW = Options::displayWidth, fbH = Options::displayHeight;
+	const bool useSsaa = ensureSsaaTarget(fbW, fbH);
+	if (useSsaa)
+	{
+		glBindFramebuffer(GL_FRAMEBUFFER, _ssaaFBO);
+		glViewport(0, 0, _ssaaW, _ssaaH);  // display-res (× supersample)
+	}
 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -4016,6 +4113,24 @@ void Map::drawTileGLPass()
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glDepthFunc(GL_LESS);
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+
+	// --- SSAA downsample: blit the supersampled floor (READ _ssaaW×_ssaaH) into
+	// the prior framebuffer at viewport resolution (DRAW fbW×fbH) with LINEAR
+	// filtering, then restore the prior FBO binding + viewport. ---
+	if (useSsaa)
+	{
+		// Copy/downsample the display-res floor into the prior framebuffer. Disable
+		// scissor so SDL's logical-size scissor box can't clip the full-frame blit.
+		GLboolean hadScissor = glIsEnabled(GL_SCISSOR_TEST);
+		glDisable(GL_SCISSOR_TEST);
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, _ssaaFBO);
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, (GLuint)prevFBO);
+		glBlitFramebuffer(0, 0, _ssaaW, _ssaaH, 0, 0, fbW, fbH,
+		                  GL_COLOR_BUFFER_BIT, GL_LINEAR);
+		glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prevFBO);
+		glViewport(prevVp[0], prevVp[1], prevVp[2], prevVp[3]);
+		if (hadScissor) glEnable(GL_SCISSOR_TEST);
+	}
 
 	glBindVertexArray(0);
 	glDisable(GL_DEPTH_TEST);

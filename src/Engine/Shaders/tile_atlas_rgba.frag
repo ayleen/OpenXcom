@@ -17,6 +17,7 @@ uniform float     u_animFrame;
 uniform vec2      u_tileUVSize;
 
 in vec2  v_uv;
+in vec2  v_localUV;
 in float v_shade;
 in float v_animFrameCount;
 in float v_alphaMask;
@@ -31,6 +32,21 @@ void main()
     vec2 uv = v_uv + vec2(frame * u_tileUVSize.x, 0.0);
 
     vec4 c = texture(u_atlas, uv);
+
+    // A value above 1.0 in alphaMask marks a floor-like O_OBJECT layer. Its
+    // source still has the ordinary diamond mask, but the material fades out
+    // well inside that diamond so it dissolves into the O_FLOOR below instead
+    // of painting a visible, tile-sized rhombus.
+    if (v_alphaMask > 1.5)
+    {
+        // Map the unit quad to the 2:1 isometric diamond. Each component is
+        // 0..1 inside it; edge is the distance to the nearest diamond side.
+        float d = 2.5 * (v_localUV.y - 0.8);
+        vec2 diamondUV = vec2(v_localUV.x - d, v_localUV.x + d);
+        float edge = min(min(diamondUV.x, diamondUV.y),
+                         min(1.0 - diamondUV.x, 1.0 - diamondUV.y));
+        c.a *= smoothstep(0.10, 0.35, edge);
+    }
     // Discard only truly-transparent texels (covers the geometry-overdraw
     // border around each cell and clamp-to-edge samples outside the mask).
     if (c.a < 0.01) discard;

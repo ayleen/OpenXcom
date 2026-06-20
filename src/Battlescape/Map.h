@@ -142,6 +142,8 @@ private:
 	void emitTilePass();
 	void initTileGL();
 	void drawTileGLPass();
+	/// (Re)create the SSAA offscreen FBO sized (w×scale, h×scale); false if unavailable.
+	bool ensureSsaaTarget(int w, int h);
 
 	/// Per-tile GPU instance record submitted to the tile_atlas shader.
 	struct TileInstance
@@ -231,6 +233,20 @@ private:
 	std::vector<TileInstance> _tileInstUpload;     // CPU scratch concatenation; rebuilt only when dirty
 	bool         _tileBuffersDirty = true;         // re-upload _tileInstIBO only after an emit / group rebuild
 	bool         _tileGLInit = false;
+	// SSAA offscreen target for the HD floor pass: the tile pass renders into an
+	// offscreen FBO at _ssaaScale× the viewport (normal alpha-blending, unchanged),
+	// then linearly downsamples (blit) into the default framebuffer. Supersampling
+	// antialiases the diamond silhouette, the blend transitions AND the texture
+	// without the alpha-to-coverage/blend conflict MSAA would hit. Lazily
+	// (re)created to match the live viewport × scale.
+	unsigned int _ssaaFBO     = 0;
+	unsigned int _ssaaColorRB = 0;
+	unsigned int _ssaaDepthRB = 0;
+	int          _ssaaW       = 0;   // FBO width  = displayWidth  × scale
+	int          _ssaaH       = 0;   // FBO height = displayHeight × scale
+	int          _ssaaScale   = 2;   // supersample factor on top of display res
+	                                 // (1 = render floor at native display res;
+	                                 //  2 = +2× supersample — 4× fragments)
 	/// Fractional animation cycle position [0, 1) — set each frame, passed as u_animFrame.
 	float        _animFrameGPU = 0.0f;
 	/// Lifetime flag: reset in ~Map() so the registered GPU-pass lambda becomes a no-op.

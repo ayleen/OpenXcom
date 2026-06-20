@@ -20,6 +20,7 @@ uniform vec2 u_tilePixelSize;
 uniform vec2 u_tileUVSize;
 
 out vec2  v_uv;
+out vec2  v_localUV;
 out float v_shade;
 out float v_animFrameCount;
 out float v_alphaMask;
@@ -40,6 +41,7 @@ void main()
     gl_Position = vec4(ndc, ndcZ, 1.0);
 
     v_uv = a_atlasUV + a_corner * u_tileUVSize;
+    v_localUV        = a_corner;
     v_shade          = a_shade;
     v_animFrameCount = a_animFrameCount;
     v_alphaMask      = a_alphaMask;

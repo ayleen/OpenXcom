@@ -4690,8 +4690,9 @@ int Mod::internWangType(const std::string& tag)
  *      then OBJECT). A cell qualifies when its hdTiles[] entry's
  *      `tilePart` matches the slot it was found in AND its effective
  *      wangType is non-empty.
- *   2. typeAt(dx,dy) does the same dual-slot scan for each orthogonal
- *      neighbour and returns the first non-empty wangType it finds.
+ *   2. typeAt(dx,dy) scans O_OBJECT before O_FLOOR for each orthogonal
+ *      neighbour. A Wang-enabled O_OBJECT is a floor-like surface override
+ *      (not a decorative object), so it must win over the base floor.
  *   3. Same-type fast-path: if all four orthogonals match self_type,
  *      no transition fires. Critical for homogeneous floors (SEABED's
  *      ~90% uniform sand).
@@ -4753,7 +4754,10 @@ Mod::WangResult Mod::computeWangMask(const TileAtlasSpec* spec,
 	auto typeAt = [&](int dx, int dy) -> int {
 		const Tile* t = save->getTile(Position(pos.x + dx, pos.y + dy, pos.z));
 		if (!t) return -1;
-		for (TilePart part : {O_FLOOR, O_OBJECT})
+		// Some SEABED surfaces (notably SAND#19 pale-sand) live in O_OBJECT
+		// above a regular O_FLOOR. Check the Wang-enabled override first;
+		// ordinary objects have no Wang type and therefore fall through.
+		for (TilePart part : {O_OBJECT, O_FLOOR})
 		{
 			const MapData* md = t->getMapData(part);
 			if (!md || !md->getDataset()) continue;

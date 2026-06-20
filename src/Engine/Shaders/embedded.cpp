@@ -125,6 +125,7 @@ uniform vec2 u_tilePixelSize;
 uniform vec2 u_tileUVSize;
 
 out vec2  v_uv;
+out vec2  v_localUV;
 out float v_shade;
 out float v_animFrameCount;
 out float v_alphaMask;
@@ -145,6 +146,7 @@ void main()
     gl_Position = vec4(ndc, ndcZ, 1.0);
 
     v_uv = a_atlasUV + a_corner * u_tileUVSize;
+    v_localUV        = a_corner;
     v_shade          = a_shade;
     v_animFrameCount = a_animFrameCount;
     v_alphaMask      = a_alphaMask;
@@ -192,7 +194,15 @@ out float v_noiseAmp;
 // works in this range as long as corner values are at the extremes (P13).
 vec2 toDiamond(vec2 p)
 {
-    float d = 2.5 * (p.y - 0.8);
+    // §25 calibration: make_diamond_mask places the floor diamond at source rows
+    // 24..39 of a 40-row tile → p.y ∈ [0.6, 0.975], widest at rows 31/32, i.e.
+    // centred at 0.7875 with a half-height of 0.1875 — NOT 0.8 ± 0.2. The old
+    // 2.5·(p.y−0.8) mapped the BOTTOM vertex to d≈0.44 instead of 0.5, so the
+    // corner field was compressed toward the bottom and the seam feathered wider
+    // at the top than the bottom (the "blends on top, hard on the bottom" skew).
+    // slope 1/0.1875 = 8/3 about centre 0.7875 sends all four vertices to the
+    // exact unit-square corners the cornerField expects.
+    float d = (8.0 / 3.0) * (p.y - 0.7875);
     return vec2(p.x - d, p.x + d);
 }
 
@@ -567,6 +577,7 @@ uniform float     u_animFrame;
 uniform vec2      u_tileUVSize;
 
 in vec2  v_uv;
+in vec2  v_localUV;
 in float v_shade;
 in float v_animFrameCount;
 in float v_alphaMask;
@@ -581,6 +592,21 @@ void main()
     vec2 uv = v_uv + vec2(frame * u_tileUVSize.x, 0.0);
 
     vec4 c = texture(u_atlas, uv);
+
+    // A value above 1.0 in alphaMask marks a floor-like O_OBJECT layer. Its
+    // source still has the ordinary diamond mask, but the material fades out
+    // well inside that diamond so it dissolves into the O_FLOOR below instead
+    // of painting a visible, tile-sized rhombus.
+    if (v_alphaMask > 1.5)
+    {
+        // Map the unit quad to the 2:1 isometric diamond. Each component is
+        // 0..1 inside it; edge is the distance to the nearest diamond side.
+        float d = 2.5 * (v_localUV.y - 0.8);
+        vec2 diamondUV = vec2(v_localUV.x - d, v_localUV.x + d);
+        float edge = min(min(diamondUV.x, diamondUV.y),
+                         min(1.0 - diamondUV.x, 1.0 - diamondUV.y));
+        c.a *= smoothstep(0.10, 0.35, edge);
+    }
     // Discard only truly-transparent texels (covers the geometry-overdraw
     // border around each cell and clamp-to-edge samples outside the mask).
     if (c.a < 0.01) discard;
@@ -654,9 +680,24 @@ void main()
     float nz  = texture(u_noise, v_worldUV * v_noiseScale).r - 0.5;
     // Clamp feather ≥ 0.001 to guard smoothstep UB when edge0 == edge1 (P15).
     float fe  = max(v_feather, 0.001);
-    float w   = smoothstep(0.5 - fe, 0.5 + fe, fld + nz * v_noiseAmp);
 
-    vec4 c = mix(self, nbr, clamp(w, 0.0, 1.0));
+    // §25 edge-localised blend. cornerField is 0.5 at a single-foreign tile's
+    // CENTRE (bilinear of 1/0 corners), so smoothstep(0.5±fe, fld) smeared the mix
+    // halfway across the tile and gave a bright core + wide halo that read as a
+    // diamond. Remap so only the FOREIGN half (fld 0.5→1) blends: `edge` is 0
+    // through the self interior and 1 at the shared seam — the tile keeps its own
+    // colour at its centre and dissolves only toward the boundary.
+    float edge = clamp((fld - 0.5) * 2.0, 0.0, 1.0);
+    float w    = smoothstep(0.5 - fe, 0.5 + fe, edge + nz * v_noiseAmp);
+
+    // Seam-symmetry: cap the mix at 0.5 so each tile reaches at most a 50/50 blend
+    // at the seam (edge → 1 there). Both neighbours render an IDENTICAL 50/50
+    // colour on the seam, so the result is independent of draw order — `baseline:
+    // none` datasets (SAND) write no floor depth, so the blend pass is a pure
+    // painter's-order draw, and before the cap the front tile's diamond occluded
+    // the back tile's feather on one diagonal only. 0.5 is the unique cap that
+    // makes the seam pixel agree from both sides (0.5·B+0.5·A == 0.5·A+0.5·B).
+    vec4 c = mix(self, nbr, clamp(w, 0.0, 1.0) * 0.5);
     if (c.a < 0.01) discard;
 
     if (v_shade >= 15.5)

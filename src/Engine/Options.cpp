@@ -127,10 +127,13 @@ void createOptionsOXC()
 	_info.push_back(OptionInfo(OPTION_OXC, "baseYBattlescape", &baseYBattlescape, Screen::ORIGINAL_HEIGHT));
 	_info.push_back(OptionInfo(OPTION_OXC, "geoscapeScale", &geoscapeScale, 0));
 #ifdef __EMSCRIPTEN__
-	// Calypso default: ½-display Battlescape (stored value 4 = SCALE_SCREEN_DIV_2).
-	// All Calypso scales are proportional fractions of the stretched canvas, so a
-	// fixed 320x200 buffer (stored 0) would distort the aspect ratio.
-	_info.push_back(OptionInfo(OPTION_OXC, "battlescapeScale", &battlescapeScale, SCALE_SCREEN_DIV_2));
+	// Calypso default: full-display Battlescape (SCALE_SCREEN = 1:1 with the
+	// stretched canvas). Users can lower it in Options if UI/units feel small.
+	// Edge smoothness of the HD floor comes from its supersampled offscreen
+	// pass, not from the Battlescape render-buffer scale.
+	// All Calypso scales are proportional fractions of the canvas, so a fixed
+	// 320x200 buffer (stored 0) would distort the aspect ratio.
+	_info.push_back(OptionInfo(OPTION_OXC, "battlescapeScale", &battlescapeScale, SCALE_SCREEN));
 #else
 	_info.push_back(OptionInfo(OPTION_OXC, "battlescapeScale", &battlescapeScale, 0));
 #endif
