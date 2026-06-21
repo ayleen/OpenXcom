@@ -1218,6 +1218,29 @@ void Map::drawUnit(UnitSprite &unitSprite, Tile *unitTile, Tile *currTile, Posit
 			);
 			unitSprite.draw(bu, part, tileScreenPosition.x + offsets.ScreenOffset.x, tileScreenPosition.y + offsets.ScreenOffset.y, shade, mask, _isAltPressed && !_isCtrlPressed);
 			unitSprite.clearEmitMode();
+
+			// Phase 27.5: contact shadow on the unit's own tile floor. Emit once per
+			// unit (skip the back/front overlap calls where currTile != unitTile).
+			// Anchored to the tile floor (not the walk/fly offset) so it stays
+			// planted; depth (prio 0.5 < the unit body's 4) keeps it under the body.
+			if (currTile == unitTile && !unitFromBelow && !unitFromAbove)
+			{
+				const float shW = (float)_spriteWidth  * 0.60f;
+				const float shH = (float)tileFoorHeight * 0.60f;
+				const float fx  = (float)tileScreenPosition.x + _spriteWidth * 0.5f;
+				const float fy  = (float)tileScreenPosition.y + (float)tileHeight - (float)tileFoorHeight * 0.5f;
+				const Position pp = currTile->getPosition();
+				const float prio = pp.z * 65536.0f + pp.y * 1024.0f + pp.x * 8.0f + 0.5f;
+				TileInstance sh{};
+				sh.screenX = fx - shW * 0.5f;
+				sh.screenY = fy - shH * 0.5f;
+				sh.atlasU = 0.0f; sh.atlasV = 0.0f;
+				sh.shade = (float)shade;
+				sh.animFrameCount = 1.0f;
+				sh.alphaMask = 1.0f;
+				sh.iso = prio / 2000000.0f;
+				_unitShadowInst.push_back(sh);
+			}
 		}
 		else
 		{
@@ -3304,6 +3327,7 @@ void Map::emitUnitPass()
 		g.zLevels.clear();
 		g.yLevels.clear();
 	}
+	_unitShadowInst.clear();   // Phase 27.5: refilled by drawUnit this frame
 }
 
 /**
@@ -3547,6 +3571,32 @@ void Map::initTileGL()
 			}
 		_noiseTex = new GpuTexture(false, GpuTexture::Wrap::Repeat, GpuTexture::Filter::Linear);
 		_noiseTex->uploadR8(noiseData.data(), N, N);
+	}
+
+	// Phase 27.5: soft contact-shadow ellipse (RGBA: black, alpha = radial
+	// falloff). Rendered via tile_atlas_rgba under each unit. Linear filter so
+	// the small texture upscales smoothly to the on-screen shadow quad.
+	if (!_unitShadowTex)
+	{
+		const int SW = 128, SH = 64;
+		std::vector<uint8_t> px(static_cast<size_t>(SW) * SH * 4, 0u);
+		for (int y = 0; y < SH; ++y)
+			for (int x = 0; x < SW; ++x)
+			{
+				const float nx = (x + 0.5f) / SW * 2.0f - 1.0f;
+				const float ny = (y + 0.5f) / SH * 2.0f - 1.0f;
+				const float r  = std::sqrt(nx * nx + ny * ny);
+				// 1.0 at centre → 0.0 at the ellipse edge (smoothstep shoulder).
+				float t = (r - 0.55f) / (1.0f - 0.55f);
+				t = t < 0.0f ? 0.0f : (t > 1.0f ? 1.0f : t);
+				float a = 1.0f - (t * t * (3.0f - 2.0f * t));
+				const size_t o = (static_cast<size_t>(y) * SW + x) * 4;
+				px[o + 0] = 0; px[o + 1] = 0; px[o + 2] = 0;
+				px[o + 3] = (uint8_t)(a * 165.0f + 0.5f);   // peak opacity ~0.65
+			}
+		_unitShadowTex = new GpuTexture(false, GpuTexture::Wrap::ClampToEdge,
+		                                GpuTexture::Filter::Linear);
+		_unitShadowTex->uploadRGBA(px.data(), SW, SH);
 	}
 
 	static const float corners[] = {
@@ -4128,6 +4178,36 @@ void Map::drawTileGLPass()
 	// Restore straight alpha for subsequent passes (units, cursor, smoke).
 	if (curPremult)
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	// Phase 27.5: unit contact shadows — last in the overlay phase (depthMask
+	// off, LEQUAL). Blends over the composited floor; unit bodies (which wrote
+	// depth at the unit pass) occlude the shadow under them. RGBA tile shader
+	// + the soft-ellipse texture, drawn as a flat shadow-sized quad.
+	if (_unitShadowTex && _unitShadowTex->isValid() && !_unitShadowInst.empty()
+	 && _tileShaderRgba && _tileShaderRgba->isValid())
+	{
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glBindVertexArray(_tileVAO);
+		_tileShaderRgba->use();
+		_tileShaderRgba->setUniform2f("u_screenSize", SW, SH);
+		_tileShaderRgba->setUniform2f("u_tilePixelSize",
+		                              (float)_spriteWidth * 0.60f,
+		                              (float)(_spriteWidth / 2) * 0.60f);
+		_tileShaderRgba->setUniform1f("u_animFrame", 0.0f);
+		_tileShaderRgba->setUniform1i("u_atlas", 0);
+		if (_shadeCurveTex && _shadeCurveTex->isValid())
+		{
+			_tileShaderRgba->setUniform1i("u_shadeCurve", 3);
+			_shadeCurveTex->bind(3);
+		}
+		_tileShaderRgba->setUniform2f("u_tileUVSize", 1.0f, 1.0f);
+		_unitShadowTex->bind(0);
+		glBindBuffer(GL_ARRAY_BUFFER, _tileIBO);
+		glBufferData(GL_ARRAY_BUFFER,
+		             (GLsizeiptr)(_unitShadowInst.size() * sizeof(TileInstance)),
+		             _unitShadowInst.data(), GL_DYNAMIC_DRAW);
+		glDrawArraysInstanced(GL_TRIANGLES, 0, 6, (GLsizei)_unitShadowInst.size());
+		activeShader = nullptr;
+	}
 	glDepthFunc(GL_LESS);
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 

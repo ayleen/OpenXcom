@@ -333,6 +333,12 @@ private:
 		std::vector<int>           yLevels;
 	};
 	std::vector<UnitAtlasGroup> _unitAtlasGroups;
+	// Phase 27.5: soft contact-shadow ellipse under each unit so HD sprites read
+	// as planted, not floating. One shared RGBA texture (black, soft-ellipse
+	// alpha) + a per-frame instance list filled in drawUnit and rendered in the
+	// overlay phase (depth-occluded by the unit body, blended over the floor).
+	GpuTexture*               _unitShadowTex = nullptr;
+	std::vector<TileInstance> _unitShadowInst;
 	void emitUnitPass();
 	void drawUnitGLPass();
 	/// Draw unit instances at the given (Z, Y) row. activeShader is in/out so
