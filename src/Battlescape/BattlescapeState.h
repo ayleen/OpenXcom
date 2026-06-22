@@ -48,6 +48,7 @@ class BattlescapeState : public State
 {
 private:
 	Surface *_rank, *_rankTiny;
+	Surface *_portrait = nullptr;   // Calypso (Emscripten): HD soldier portrait cell
 	InteractiveSurface *_icons;
 	Map *_map;
 	BattlescapeButton *_btnUnitUp, *_btnUnitDown, *_btnMapUp, *_btnMapDown, *_btnShowMap, *_btnKneel;
@@ -295,6 +296,13 @@ public:
 	/// icons-panel origin), then re-lay-out the HUD scaled to ~half screen width.
 	void captureHudNative();
 	void layoutHud();
+	/// Blit the HD shoulder-board insignia for SoldierRank rankIdx (0..5) into the
+	/// HUD _rank slot, scaled; rankIdx < 0 clears it. Bypasses the pixel SMOKE.PCK
+	/// rank frames. Stores _hudRankIndex so layoutHud can re-apply it on resize.
+	void applyHdRank(int rankIdx);
+	/// Blit the soldier's inventory look sprite (head/shoulders crop, round-masked)
+	/// into the HUD portrait cell. Null/non-soldier clears it. Emscripten-only.
+	void applyPortrait(BattleUnit* unit);
 	struct HudNativeRect { Surface* surf; int dx; int dy; int w; int h; };
 	std::vector<HudNativeRect> _hudNative;
 	int _hudNativeIconsW = 0;
@@ -302,6 +310,7 @@ public:
 	int _hudLastBaseX = -1;
 	float _hudScale = 1.0f;
 	bool _hudCaptured = false;
+	int _hudRankIndex = -1;
 };
 
 }

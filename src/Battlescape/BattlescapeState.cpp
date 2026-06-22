@@ -218,6 +218,10 @@ BattlescapeState::BattlescapeState() :
 
 	_numLayers = new NumberText(3, 5, x + 232, y + 6);
 	_rank = new Surface(26, 23, x + 107, y + 33);
+#ifdef __EMSCRIPTEN__
+	// HD soldier portrait cell (sized + filled by layoutHud / applyPortrait).
+	_portrait = new Surface(32, 32, x + 75, y + 32);
+#endif
 
 	// Create buttons
 	_btnUnitUp = new BattlescapeButton(32, 16, x + 48, y);
@@ -393,6 +397,9 @@ BattlescapeState::BattlescapeState() :
 
 	add(_rank, "rank", "battlescape", _icons);
 	add(_rankTiny, "rank", "battlescape", _icons);
+#ifdef __EMSCRIPTEN__
+	if (_portrait) add(_portrait, "rank", "battlescape", _icons);
+#endif
 	add(_btnUnitUp, "buttonUnitUp", "battlescape", _icons);
 	add(_btnUnitDown, "buttonUnitDown", "battlescape", _icons);
 	add(_btnMapUp, "buttonMapUp", "battlescape", _icons);
@@ -2263,6 +2270,13 @@ void BattlescapeState::updateSoldierInfo(bool checkFOV)
 		Surface *customBg = _game->getMod()->getSurface("AvatarBackground", false);
 		if (customBg == 0)
 		{
+#ifdef __EMSCRIPTEN__
+			// Calypso HD HUD: the pixel SMOKE.PCK rank frame (26x23) looks tiny and
+			// blurry on the scaled HD panel. Blit the HD shoulder-board insignia for
+			// this soldier's rank instead (sized + positioned by layoutHud).
+			applyHdRank((int)soldier->getRank());
+			applyPortrait(battleUnit);
+#else
 			// show rank (vanilla behaviour)
 			SurfaceSet *texture = _game->getMod()->getSurfaceSet("SMOKE.PCK");
 			auto* frame = texture->getFrame(soldier->getRankSpriteBattlescape());
@@ -2270,6 +2284,7 @@ void BattlescapeState::updateSoldierInfo(bool checkFOV)
 			{
 				frame->blitNShade(_rank, 0, 0);
 			}
+#endif
 		}
 		else
 		{
@@ -2354,6 +2369,10 @@ void BattlescapeState::updateSoldierInfo(bool checkFOV)
 	}
 	else
 	{
+#ifdef __EMSCRIPTEN__
+		applyHdRank(-1);
+		applyPortrait(nullptr);
+#endif
 		_rank->clear();
 		_rankTiny->clear();
 	}
@@ -4231,7 +4250,7 @@ void BattlescapeState::captureHudNative()
 	const int ix = _icons->getX(), iy = _icons->getY();
 	for (auto* surf : _surfaces)
 	{
-		if (surf == _map || surf == _txtDebug
+		if (surf == _map || surf == _txtDebug || surf == _portrait
 			|| surf == _btnCtrl || surf == _btnAlt || surf == _btnShift
 			|| surf == _btnRMB || surf == _btnMMB
 			|| surf == _btnPsi || surf == _btnLaunch
@@ -4340,31 +4359,50 @@ void BattlescapeState::layoutHud()
 		int h = (int)(nh * newH + 0.5f); if (h < 1) h = 1;
 		s->setWidth(w); s->setHeight(h);
 	};
-	// _rank holds an externally-blitted insignia sprite that Surface::draw()
-	// would clear on resize (and resizing wouldn't enlarge the sprite anyway), so
-	// move it WITHOUT resizing — otherwise it vanishes.
-	auto placePos = [&](Surface* s, float nx, float ny)
+	// HD rank: a square shoulder-board plate (the HD art is 1:1). Size + position
+	// it here, then (re)blit the insignia via applyHdRank AFTER the resize so
+	// Surface::draw()'s clear() doesn't wipe it. _rank is skipped by the generic
+	// loop above so its native 26x23 size is not forced back on.
 	{
-		if (!s) return;
 		bool cap = false;
-		for (const auto& r : _hudNative) { if (r.surf == s) { cap = true; break; } }
-		if (!cap) return;
-		s->setX(panelX + (int)(nx * newW + 0.5f));
-		s->setY(panelY + (int)(ny * newH + 0.5f));
-	};
-	placePos(_rank,     0.435f, 0.30f);                  // no resize (keeps sprite)
-	place(_txtName,     0.500f, 0.30f, 0.340f, 0.18f);   // much lower
-	// bars: 2x longer, dropped ~3 bar-heights lower
-	place(_barTimeUnits, 0.620f, 0.64f, 0.166f, 0.040f);
-	place(_barEnergy,    0.620f, 0.70f, 0.166f, 0.040f);
-	place(_barHealth,    0.620f, 0.76f, 0.166f, 0.040f);
-	place(_barMorale,    0.620f, 0.82f, 0.166f, 0.040f);
-	place(_barMana,      0.620f, 0.88f, 0.166f, 0.035f);
-	// stat numbers (TU/EN top row, HP/MO bottom row), left of the bars
-	place(_numTimeUnits, 0.500f, 0.66f, 0.050f, 0.12f);
-	place(_numEnergy,    0.560f, 0.66f, 0.050f, 0.12f);
-	place(_numHealth,    0.500f, 0.80f, 0.050f, 0.12f);
-	place(_numMorale,    0.560f, 0.80f, 0.050f, 0.12f);
+		for (const auto& r : _hudNative) { if (r.surf == _rank) { cap = true; break; } }
+		if (cap)
+		{
+			// New format: rank anchor moves to the far-RIGHT corner of the slot,
+			// small. (The empty left cell will hold the soldier portrait.)
+			int side = (int)(0.300f * newH + 0.5f); if (side < 1) side = 1;
+			_rank->setX(panelX + (int)(0.775f * newW + 0.5f));
+			_rank->setY(panelY + (int)(0.640f * newH + 0.5f));
+			_rank->setWidth(side);
+			_rank->setHeight(side);
+			applyHdRank(_hudRankIndex);
+		}
+	}
+	// Soldier portrait in the empty cell just left of the slot (panel art cell
+	// ~x 0.355..0.42, y 0.625..0.94). Square; re-filled after the resize.
+	if (_portrait)
+	{
+		int pside = (int)(0.300f * newH + 0.5f); if (pside < 1) pside = 1;
+		_portrait->setX(panelX + (int)(0.334f * newW + 0.5f));
+		_portrait->setY(panelY + (int)(0.640f * newH + 0.5f));
+		_portrait->setWidth(pside);
+		_portrait->setHeight(pside);
+		applyPortrait(_save ? _save->getSelectedUnit() : nullptr);
+	}
+	// Target format: name across the top, bars stacked beneath it (left), a 2x2
+	// number grid to the right, rank anchor in the far-right corner.
+	place(_txtName,     0.435f, 0.640f, 0.250f, 0.130f);  // name, top-left of the slot (lowered)
+	// bars stacked directly under the name
+	place(_barTimeUnits, 0.435f, 0.72f, 0.200f, 0.040f);
+	place(_barEnergy,    0.435f, 0.77f, 0.200f, 0.040f);
+	place(_barHealth,    0.435f, 0.82f, 0.200f, 0.040f);
+	place(_barMorale,    0.435f, 0.87f, 0.200f, 0.040f);
+	place(_barMana,      0.435f, 0.92f, 0.200f, 0.035f);
+	// 2x2 stat-number grid, right of the bars and left of the rank corner
+	place(_numTimeUnits, 0.655f, 0.66f, 0.050f, 0.12f);
+	place(_numEnergy,    0.710f, 0.66f, 0.050f, 0.12f);
+	place(_numHealth,    0.655f, 0.82f, 0.050f, 0.12f);
+	place(_numMorale,    0.710f, 0.82f, 0.050f, 0.12f);
 
 	// Draw the panel background scaled into _icons (32-bit ARGB in this build).
 	// Prefer the HD panel; fall back to a stretched vanilla ICONS crop.
@@ -4390,6 +4428,112 @@ void BattlescapeState::layoutHud()
 	// setWidth() set _redraw on _icons; Surface::draw() would clear() it on the
 	// next blit and wipe the panel we just drew. Keep it.
 	_icons->setRedraw(false);
+#endif
+}
+
+/**
+ * Calypso (Emscripten): blit the HD shoulder-board insignia for SoldierRank
+ * rankIdx (0..5) into the HUD _rank slot, scaled to its current size. rankIdx < 0
+ * clears it. Stores the index so layoutHud can re-apply after a resize (which
+ * clears the surface). Bypasses the pixel SMOKE.PCK rank frames.
+ */
+void BattlescapeState::applyHdRank(int rankIdx)
+{
+#ifdef __EMSCRIPTEN__
+	_hudRankIndex = rankIdx;
+	if (!_rank || !_rank->getSurface()) return;
+	_rank->clear();
+	if (rankIdx >= 0)
+	{
+		std::ostringstream ss;
+		ss << "CALYPSO_RANK_" << rankIdx;
+		Surface* hd = _game->getMod()->getSurface(ss.str(), false);
+		if (hd && hd->getSurface())
+		{
+			// copy (not blend) so the plate's rounded-corner alpha lands verbatim;
+			// _rank then alpha-composites over the panel.
+			SDL_SetSurfaceBlendMode(hd->getSurface(), SDL_BLENDMODE_NONE);
+			SDL_Rect dst{ 0, 0, _rank->getWidth(), _rank->getHeight() };
+			SDL_BlitScaled(hd->getSurface(), nullptr, _rank->getSurface(), &dst);
+		}
+	}
+	_rank->setRedraw(false);
+#else
+	(void)rankIdx;
+#endif
+}
+
+/**
+ * Calypso (Emscripten): blit the soldier's inventory look sprite — the same
+ * paperdoll the inventory screen draws — cropped to the head/shoulders and
+ * round-masked, into the HUD portrait cell. Non-soldier units clear it.
+ */
+void BattlescapeState::applyPortrait(BattleUnit* unit)
+{
+#ifdef __EMSCRIPTEN__
+	if (!_portrait || !_portrait->getSurface()) return;
+	_portrait->clear();
+	Soldier* soldier = unit ? unit->getGeoscapeSoldier() : nullptr;
+	if (soldier)
+	{
+		// Resolve the inventory look sprite (mirrors InventoryState / the avatar
+		// branch): "<inventorySprite><gender><look+variant>.SPK", with fallbacks.
+		const std::string look = soldier->getArmor()->getSpriteInventory();
+		const std::string gender = soldier->getGender() == GENDER_MALE ? "M" : "F";
+		Surface* surf = nullptr;
+		for (int i = 0; i <= RuleSoldier::LookVariantBits; ++i)
+		{
+			std::ostringstream ss;
+			ss << look << gender
+			   << ((int)soldier->getLook() + (soldier->getLookVariant() & (RuleSoldier::LookVariantMask >> i)) * 4)
+			   << ".SPK";
+			surf = _game->getMod()->getSurface(ss.str(), false);
+			if (surf) break;
+		}
+		if (!surf) { surf = _game->getMod()->getSurface(look + ".SPK", false); }
+		if (!surf) { surf = _game->getMod()->getSurface(look, false); }
+		if (surf && surf->getSurface())
+		{
+			// The look .SPK is figure-on-transparent anchored in 320x200 space;
+			// crop head + shoulders (tuned to the inventory paperdoll head).
+			SDL_Surface* src = surf->getSurface();
+			// Head + shoulders only (measured from the rendered paperdoll: the head
+			// sits at sprite ~x74..95, y47..67; widen a touch for the shoulders).
+			SDL_Rect srcR{ 69, 44, 34, 36 };
+			if (srcR.x + srcR.w > src->w) srcR.w = src->w - srcR.x;
+			if (srcR.y + srcR.h > src->h) srcR.h = src->h - srcR.y;
+			SDL_Rect dst{ 0, 0, _portrait->getWidth(), _portrait->getHeight() };
+			SDL_SetSurfaceBlendMode(src, SDL_BLENDMODE_NONE);
+			SDL_BlitScaled(src, &srcR, _portrait->getSurface(), &dst);
+
+			// Round-mask: clear alpha outside the inscribed circle.
+			SDL_Surface* ps = _portrait->getSurface();
+			if (ps->format->BitsPerPixel == 32)
+			{
+				SDL_LockSurface(ps);
+				const float cx = ps->w / 2.0f, cy = ps->h / 2.0f;
+				const float r = (cx < cy ? cx : cy) - 1.0f;
+				for (int yy = 0; yy < ps->h; ++yy)
+				{
+					Uint32* row = (Uint32*)((Uint8*)ps->pixels + yy * ps->pitch);
+					for (int xx = 0; xx < ps->w; ++xx)
+					{
+						const float dx = xx - cx, dy = yy - cy;
+						if (dx * dx + dy * dy > r * r)
+						{
+							Uint8 rr, gg, bb, aa;
+							SDL_GetRGBA(row[xx], ps->format, &rr, &gg, &bb, &aa);
+							row[xx] = SDL_MapRGBA(ps->format, rr, gg, bb, 0);
+						}
+					}
+				}
+				SDL_UnlockSurface(ps);
+			}
+		}
+	}
+	_portrait->setRedraw(false);
+#else
+	(void)unit;
 #endif
 }
 
