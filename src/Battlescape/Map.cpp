@@ -4351,10 +4351,6 @@ void Map::drawSceneGrade()
 		"u_unitPos[0]", "u_unitPos[1]", "u_unitPos[2]",  "u_unitPos[3]",
 		"u_unitPos[4]", "u_unitPos[5]", "u_unitPos[6]",  "u_unitPos[7]",
 		"u_unitPos[8]", "u_unitPos[9]", "u_unitPos[10]", "u_unitPos[11]" };
-	static const char* kUnitBreathName[12] = {
-		"u_unitBreath[0]", "u_unitBreath[1]", "u_unitBreath[2]",  "u_unitBreath[3]",
-		"u_unitBreath[4]", "u_unitBreath[5]", "u_unitBreath[6]",  "u_unitBreath[7]",
-		"u_unitBreath[8]", "u_unitBreath[9]", "u_unitBreath[10]", "u_unitBreath[11]" };
 	int unitCount = 0;
 	Screen* scr = _game ? _game->getScreen() : nullptr;
 	if (scr && _camera && _save)
@@ -4375,12 +4371,9 @@ void Map::drawSceneGrade()
 			const float uvx = dispX / dW;
 			const float uvy = 1.0f - dispY / dH;          // flip into v_uv (y up)
 			if (uvx < -0.05f || uvx > 1.05f || uvy < -0.05f || uvy > 1.05f) continue;
-			// exhale progress 0..1 from the vanilla breath animation (-1 = not
-			// exhaling) — drives the HD bubbles with the exact vanilla cadence.
-			const int ef = u->getBreathExhaleFrame();   // 0..15 or -1
-			const float bp = (ef >= 0) ? (float)ef / 15.0f : -1.0f;
+			// each aquanaut continuously trickles bubbles; the shader gives every
+			// bubble its own lifecycle (inflate→rise→deflate) so they never sync.
 			_gradeShader->setUniform2f(kUnitPosName[unitCount], uvx, uvy);
-			_gradeShader->setUniform1f(kUnitBreathName[unitCount], bp);
 			++unitCount;
 		}
 	}

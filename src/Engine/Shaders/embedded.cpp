@@ -726,7 +726,6 @@ uniform float     u_chroma;           // subtle chromatic aberration at edges
 uniform float     u_unitbub;          // aquanaut breathing-bubble amount (own knob)
 uniform int       u_unitCount;        // # of visible aquanauts
 uniform vec2      u_unitPos[12];      // their screen UV (v_uv space; y up)
-uniform float     u_unitBreath[12];   // vanilla exhale progress 0..1 (<0 = not exhaling)
 in      vec2      v_uv;
 out     vec4      out_color;
 
@@ -797,38 +796,35 @@ float bubbleLayer(vec2 uv, float t, float grid, float speed, float size,
     return (rim * 0.85 + hi * 0.9) * step(dist, 1.25) * fade;
 }
 
-// HD breathing bubbles for an aquanaut at P (uv, y up), driven by the VANILLA
-// exhale progress bp (0..1; <0 = not exhaling). Same cadence/animation as vanilla
-// (random start, ~16-step rise) but rendered as pretty HD hollow bubbles: a small
-// cluster is released, staggered, rises above the head and fades.
-float unitBubbles(vec2 uv, vec2 P, float bp, float seed, float aspect, float t)
+// HD breathing bubbles rising from an aquanaut at P (uv, y up). Each bubble runs
+// its OWN continuous lifecycle (born small -> inflate -> rise -> DEFLATE to
+// nothing) on its own period + phase, so they are never in sync — they pop/deflate
+// one at a time, never all at once. Varied size + a slow shape wobble.
+float unitBubbles(vec2 uv, vec2 P, float seed, float aspect, float t)
 {
-    if (bp < 0.0) return 0.0;
     float acc = 0.0;
-    for (int k = 0; k < 3; ++k)
+    for (int k = 0; k < 4; ++k)
     {
         float fk = float(k);
-        float lp = bp - fk * 0.22;                          // staggered release
-        if (lp < 0.0) continue;
-        float rk = fract(sin((seed + fk) * 91.7) * 43758.5453);  // per-bubble random
-        float base = 0.0045 + 0.0075 * rk;                  // DIFFERENT sizes per bubble
-        // size over life: grow a touch, then SHRINK toward nothing near the top
-        // (so it dwindles away instead of fading out)
-        float sz = base * (1.0 + 0.30 * lp) * (1.0 - smoothstep(0.55, 1.0, lp) * 0.92);
-        sz = max(sz, 1e-4);
-        // shape: slow area-preserving wobble -> non-round, living bubble form
-        float wob = 0.28 * sin(t * 2.0 + rk * 6.28 + fk);
+        float rk = fract(sin((seed + fk * 12.9) * 91.7) * 43758.5453);  // per-bubble
+        float period = 3.0 + 2.5 * rk;                      // each bubble's own life (s)
+        float life = fract(t / period + rk);                // 0..1, staggered -> desynced
+        float base = 0.00225 + 0.00375 * fract(rk * 7.13 + 0.3);  // different sizes (half)
+        // born small -> inflate -> deflate away near the end of ITS life
+        float inflate = smoothstep(0.0, 0.10, life);
+        float deflate = 1.0 - smoothstep(0.62, 1.0, life);
+        float sz = max(base * inflate * deflate * (1.0 + 0.25 * life), 1e-4);
+        float wob = 0.26 * sin(t * 2.0 + rk * 6.28 + fk);   // living shape wobble
         vec2  sq = vec2(1.0 + wob, 1.0 / (1.0 + wob));
-        float sway = 0.006 * sin(t * 1.8 + fk + seed * 6.28);
-        vec2  bc = P + vec2(sway, 0.012 + lp * 0.085);      // rise above the head
+        float sway = 0.006 * sin(t * 1.6 + fk + rk * 6.28);
+        vec2  bc = P + vec2(sway, 0.010 + life * 0.085);    // rises over its life
         vec2  d  = (uv - bc) * vec2(aspect, 1.0) * sq;
         float dn = length(d) / sz;
         float er = (dn - 0.80) / 0.16;
         float rim = exp(-er * er);                          // hollow ring
         vec2  hp = (d / sz) - vec2(-0.30, 0.30);
         float hi = exp(-(length(hp) / 0.26) * (length(hp) / 0.26));
-        float a  = smoothstep(0.0, 0.10, lp);               // fade IN only (no fade-out)
-        acc += (rim * 0.85 + hi * 0.9) * a * step(dn, 1.25);
+        acc += (rim * 0.85 + hi * 0.9) * step(dn, 1.25);
     }
     return acc;
 }
@@ -906,6 +902,9 @@ void main()
     c = mix(c, fogCol, clamp(fogAmt, 0.0, 1.0));
 
     float surf = smoothstep(0.04, 0.30, lum0);   // "there is scene here" mask
+    // additive in-water particulate (snow, bubbles) must sit UNDER the depth
+    // darkening/fog so it doesn't read as bright white floating on top
+    float waterLit = dim * (1.0 - 0.45 * clamp(fogAmt, 0.0, 1.0));
 
     // 4. caustics - bright light-net on lit surfaces
     if (u_caustics > 0.0)
@@ -920,7 +919,7 @@ void main()
     {
         float sn  = particleLayer(v_uv, u_time, 26.0, vec2(0.010, 0.018), 0.045, 1.0, aspect);
         sn += 0.6 * particleLayer(v_uv, u_time, 40.0, vec2(-0.014, 0.026), 0.035, 7.0, aspect);
-        c += sn * u_snow * vec3(0.55, 0.68, 0.72);
+        c += sn * u_snow * waterLit * vec3(0.45, 0.56, 0.60);
     }
 
     // 6. bubbles - hollow, rising from vents distributed across the SEABED (the
@@ -930,7 +929,7 @@ void main()
     {
         float bz  = bubbleLayer(v_uv, u_time,  7.0, 0.10, 0.30, 21.0, aspect, 0.10);
         bz += 0.8 * bubbleLayer(v_uv, u_time, 11.0, 0.13, 0.22, 33.0, aspect, 0.09);
-        c += bz * surf * u_bubbles * vec3(0.60, 0.84, 0.96);
+        c += bz * surf * u_bubbles * waterLit * vec3(0.45, 0.62, 0.72);
     }
     // small breathing puffs from each visible aquanaut (our HD replacement for the
     // vanilla sprite bubbles, which are suppressed on this build)
@@ -939,9 +938,8 @@ void main()
         for (int i = 0; i < 12; ++i)
         {
             if (i >= u_unitCount) break;
-            c += unitBubbles(v_uv, u_unitPos[i], u_unitBreath[i], float(i) * 0.137,
-                             aspect, u_time)
-                 * u_unitbub * vec3(0.62, 0.86, 0.98);
+            c += unitBubbles(v_uv, u_unitPos[i], float(i) * 0.137, aspect, u_time)
+                 * u_unitbub * waterLit * vec3(0.42, 0.60, 0.70);
         }
     }
 
