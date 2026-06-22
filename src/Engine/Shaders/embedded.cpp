@@ -719,6 +719,10 @@ uniform float     u_caustics;
 uniform float     u_refract;
 uniform float     u_bubbles;
 uniform float     u_snow;
+uniform float     u_godray;           // light shafts from the surface
+uniform float     u_bloom;            // glow on bright spots
+uniform float     u_breath;           // slow global light "breathing" pulse
+uniform float     u_chroma;           // subtle chromatic aberration at edges
 uniform float     u_unitbub;          // aquanaut breathing-bubble amount (own knob)
 uniform int       u_unitCount;        // # of visible aquanauts
 uniform vec2      u_unitPos[12];      // their screen UV (v_uv space; y up)
@@ -829,10 +833,42 @@ float unitBubbles(vec2 uv, vec2 P, float bp, float seed, float aspect, float t)
     return acc;
 }
 
+// Light shafts from the surface: a few soft, slightly-tilted, swaying beams,
+// strong at the top of the screen (where light enters) and fading downward.
+float godrays(vec2 uv, float t)
+{
+    float r = 0.0;
+    for (int i = 0; i < 4; ++i)
+    {
+        float fi = float(i);
+        float x0 = 0.18 + 0.22 * fi + 0.04 * sin(t * 0.3 + fi * 1.7);
+        float w  = 0.05 + 0.018 * fi;
+        float e  = (uv.x - x0 - 0.10 * (1.0 - uv.y)) / w;   // tilt with depth
+        r += exp(-e * e);
+    }
+    return r * smoothstep(0.0, 0.55, uv.y);                 // top-lit, fade down
+}
+
+// Cheap single-pass bloom: golden-angle disk taps of the scene, keep the bright
+// part above a threshold, average -> soft glow added back over the graded colour.
+vec3 bloomGlow(vec2 uv, float radius, float aspect)
+{
+    vec3 acc = vec3(0.0);
+    for (int i = 0; i < 12; ++i)
+    {
+        float a  = float(i) * 2.39996323;                  // golden angle
+        float rr = sqrt((float(i) + 0.5) / 12.0) * radius;
+        vec2  o  = vec2(cos(a) / aspect, sin(a)) * rr;
+        acc += max(texture(u_scene, uv + o).rgb - 0.62, 0.0);
+    }
+    return acc / 12.0;
+}
+
 void main()
 {
     float s = clamp(u_strength, 0.0, 1.0);
     float aspect = u_res.x / max(u_res.y, 1.0);
+    float breath = 1.0 + u_breath * 0.08 * sin(u_time * 0.6);   // slow light pulse
 
     // 0. refraction: gently wobble the sample UV (looking through moving water)
     vec2 uv = v_uv;
@@ -842,7 +878,18 @@ void main()
         uv += vec2(sin(v_uv.y * 11.0 + u_time * 1.3),
                    cos(v_uv.x * 13.0 + u_time * 1.1)) * w;
     }
-    vec3 c = texture(u_scene, uv).rgb;
+    vec3 c;
+    if (u_chroma > 0.0)
+    {
+        vec2 off = (v_uv - 0.5) * u_chroma * 0.010;        // edge-weighted RGB split
+        c = vec3(texture(u_scene, uv + off).r,
+                 texture(u_scene, uv).g,
+                 texture(u_scene, uv - off).b);
+    }
+    else
+    {
+        c = texture(u_scene, uv).rgb;
+    }
     float lum0 = dot(c, vec3(0.299, 0.587, 0.114));
 
     // 1. desaturate
@@ -865,7 +912,7 @@ void main()
     {
         float net = caustics(v_uv, u_time);
         c += net * surf * (0.45 + 0.55 * v_uv.y)
-             * u_caustics * vec3(0.22, 0.46, 0.52);
+             * u_caustics * breath * vec3(0.22, 0.46, 0.52);   // shimmer with the pulse
     }
 
     // 5. marine snow - slow drifting motes (two parallax layers)
@@ -898,7 +945,18 @@ void main()
         }
     }
 
-    // 7. vignette
+    // 7. god rays — light shafts from the surface (shimmer with the pulse)
+    if (u_godray > 0.0)
+        c += godrays(v_uv, u_time) * u_godray * breath * vec3(0.16, 0.32, 0.40);
+
+    // 8. bloom — soft glow on bright spots
+    if (u_bloom > 0.0)
+        c += bloomGlow(uv, 0.014, aspect) * u_bloom * vec3(0.90, 0.97, 1.0);
+
+    // 9. global light breathing (the surface moves -> light dims and brightens)
+    c *= breath;
+
+    // 10. vignette
     vec2  d   = v_uv - vec2(0.5, 0.54);
     float r   = length(vec2(d.x * 1.05, d.y * 1.25));
     float vig = (0.28 + 0.62 * s) * pow(clamp(r - 0.35, 0.0, 1.0), 2.0);

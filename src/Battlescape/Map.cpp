@@ -84,6 +84,10 @@ extern "C" float g_calypsoUwRefract;
 extern "C" float g_calypsoUwBubbles;
 extern "C" float g_calypsoUwSnow;
 extern "C" float g_calypsoUwUnitBub;
+extern "C" float g_calypsoUwGodray;
+extern "C" float g_calypsoUwBloom;
+extern "C" float g_calypsoUwBreath;
+extern "C" float g_calypsoUwChroma;
 /* Phase-14 railings debug: one-shot tile dump flag.
  * Set to 1 by Module._calypso_dump_emit_once() before forcing a redraw;
  * emitTilePass() and Map::draw() painter pass each log every visible tile
@@ -4335,6 +4339,10 @@ void Map::drawSceneGrade()
 	_gradeShader->setUniform1f("u_bubbles",  g_calypsoUwBubbles);
 	_gradeShader->setUniform1f("u_snow",     g_calypsoUwSnow);
 	_gradeShader->setUniform1f("u_unitbub",  g_calypsoUwUnitBub);
+	_gradeShader->setUniform1f("u_godray",   g_calypsoUwGodray);
+	_gradeShader->setUniform1f("u_bloom",    g_calypsoUwBloom);
+	_gradeShader->setUniform1f("u_breath",   g_calypsoUwBreath);
+	_gradeShader->setUniform1f("u_chroma",   g_calypsoUwChroma);
 
 	// Breathing bubbles from visible player aquanauts: pass their screen UV using
 	// the same map→display transform as the cursor pass (convertMapToScreen +

@@ -129,6 +129,10 @@ float g_calypsoUwRefract  = 0.40f;   // weaker — subtle wobble, not seasick
 float g_calypsoUwBubbles  = 0.0f;    // seabed vents OFF (screen-anchored for now)
 float g_calypsoUwSnow     = 0.5f;
 float g_calypsoUwUnitBub  = 1.0f;    // HD bubbles, driven by the vanilla breath anim
+float g_calypsoUwGodray   = 0.1f;    // batch 2: light shafts — subtle
+float g_calypsoUwBloom    = 0.5f;    // batch 2: glow on bright spots
+float g_calypsoUwBreath   = 0.6f;    // batch 2: slow global light pulse
+float g_calypsoUwChroma   = 0.0f;    // OFF — no visible effect (scene edges are void)
 
 static float clamp01p(float v) { return v < 0.0f ? 0.0f : (v > 2.0f ? 2.0f : v); }
 
@@ -137,6 +141,10 @@ EMSCRIPTEN_KEEPALIVE void calypso_set_uw_refract (float v) { g_calypsoUwRefract 
 EMSCRIPTEN_KEEPALIVE void calypso_set_uw_bubbles (float v) { g_calypsoUwBubbles  = clamp01p(v); }
 EMSCRIPTEN_KEEPALIVE void calypso_set_uw_snow    (float v) { g_calypsoUwSnow     = clamp01p(v); }
 EMSCRIPTEN_KEEPALIVE void calypso_set_uw_unitbub (float v) { g_calypsoUwUnitBub  = clamp01p(v); }
+EMSCRIPTEN_KEEPALIVE void calypso_set_uw_godray  (float v) { g_calypsoUwGodray   = clamp01p(v); }
+EMSCRIPTEN_KEEPALIVE void calypso_set_uw_bloom   (float v) { g_calypsoUwBloom    = clamp01p(v); }
+EMSCRIPTEN_KEEPALIVE void calypso_set_uw_breath  (float v) { g_calypsoUwBreath   = clamp01p(v); }
+EMSCRIPTEN_KEEPALIVE void calypso_set_uw_chroma  (float v) { g_calypsoUwChroma   = clamp01p(v); }
 
 /* Phase-14 railings debug: one-shot tile/painter dump.
  * JS toggles via Module._calypso_dump_emit_once() before forcing a redraw;
