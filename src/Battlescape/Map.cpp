@@ -839,6 +839,13 @@ void Map::setPalette(const SDL_Color *colors, int firstcolor, int ncolors)
 					if (l0 > 1.0) { sum += ls / l0; ++n; }
 				}
 				double r = n ? sum / (double)n : (1.0 - s / 15.0);
+				// Phase 28: steepen the night darkening of HD overlay/blend tiles.
+				// The raw luminance ratio underplays the dark vs the vanilla palette
+				// walk (which also desaturates toward deep blue), so unlit tiles read
+				// too light — "barely dark". gamma>1 pushes the dark end down hard
+				// while leaving shade 0 (full light, r=1) untouched, so it's dark
+				// where it's dark and bright only near light sources/units.
+				r = std::pow(r, 2.0);
 				double v = r * 255.0;
 				if (v < 0.0) v = 0.0; else if (v > 255.0) v = 255.0;
 				curve[s] = (uint8_t)v;
