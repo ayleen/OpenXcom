@@ -814,6 +814,11 @@ BattlescapeState::BattlescapeState() :
 	_battleGame = new BattlescapeGame(_save, this);
 
 	_barHealthColor = _barHealth->getColor();
+
+	// Calypso (Emscripten): capture the native HUD layout once, then scale the
+	// bottom bar to ~half the screen width (no-op / native on other builds).
+	captureHudNative();
+	layoutHud();
 }
 
 
@@ -4204,6 +4209,188 @@ void BattlescapeState::resize(int &dX, int &dY)
 		pos += dX;
 	}
 
+	// Calypso: re-apply the half-width HUD layout for the new base resolution.
+	layoutHud();
+}
+
+/**
+ * Calypso (Emscripten): record the native HUD layout — every bottom-bar widget's
+ * offset from the icons-panel origin plus its native size — exactly once. These
+ * offsets are resolution-independent, so layoutHud() can rebuild the HUD
+ * absolutely from them at any scale (idempotent; no drift across resizes). The
+ * widget set mirrors resize()'s "centred bottom" group (everything except the
+ * map, the screen-corner modifier buttons, the right-edge action buttons and the
+ * debug text).
+ */
+void BattlescapeState::captureHudNative()
+{
+#ifdef __EMSCRIPTEN__
+	if (_hudCaptured || !_icons) return;
+	_hudNativeIconsW = _icons->getWidth();
+	_hudNativeIconsH = _icons->getHeight();
+	const int ix = _icons->getX(), iy = _icons->getY();
+	for (auto* surf : _surfaces)
+	{
+		if (surf == _map || surf == _txtDebug
+			|| surf == _btnCtrl || surf == _btnAlt || surf == _btnShift
+			|| surf == _btnRMB || surf == _btnMMB
+			|| surf == _btnPsi || surf == _btnLaunch
+			|| surf == _btnSpecial || surf == _btnSkills)
+		{
+			continue;
+		}
+		_hudNative.push_back({ surf, surf->getX() - ix, surf->getY() - iy,
+		                       surf->getWidth(), surf->getHeight() });
+	}
+	_hudCaptured = true;
+#endif
+}
+
+/**
+ * Calypso (Emscripten): lay the HUD out scaled so the icons panel spans ~half the
+ * base-resolution width, re-centred along the bottom. Geometry is rebuilt
+ * absolutely from the captured native offsets × scale, so clicks (which are
+ * positional in base-resolution space) stay correct by construction. The panel
+ * background (ICONS.PCK crop) is re-blitted scaled to fill the resized panel.
+ * Interim art is the stretched ICONS sprite; HD panel art replaces it later.
+ */
+void BattlescapeState::layoutHud()
+{
+#ifdef __EMSCRIPTEN__
+	if (!_hudCaptured || _hudNativeIconsW <= 0) return;
+	if (Options::baseXResolution == _hudLastBaseX) return;   // nothing changed
+	_hudLastBaseX = Options::baseXResolution;
+
+	// HD panel art (its aspect differs from the vanilla 320x56 bar — it's taller),
+	// so size the panel to the HD aspect and scale widget geometry NON-uniformly
+	// (sx by width, sy by height) onto it. The HD layout mirrors the vanilla
+	// proportional layout, so the click grid + dynamic widgets land on the art.
+	Surface* panel = _game->getMod()->getSurface("CALYPSO_HUD_PANEL", false);
+	const int pw = (panel && panel->getSurface()) ? panel->getSurface()->w : 0;
+	const int ph = (panel && panel->getSurface()) ? panel->getSurface()->h : 0;
+
+	const int newW = Options::baseXResolution / 2;            // ~half screen width
+	const int newH = (pw > 0 && ph > 0)
+	               ? (int)((float)newW * ph / pw + 0.5f)      // HD panel aspect
+	               : (int)((float)newW * _hudNativeIconsH / _hudNativeIconsW + 0.5f);
+
+	float sx = (float)newW / (float)_hudNativeIconsW; if (sx < 1.0f) sx = 1.0f;
+	float sy = (float)newH / (float)_hudNativeIconsH; if (sy < 1.0f) sy = 1.0f;
+	_hudScale = sx;
+
+	const int panelX = Options::baseXResolution / 2 - newW / 2;
+	const int panelY = Options::baseYResolution - newH;
+
+	// Publish the HD "toggled" panel + the live panel transform so a pressed/
+	// toggled BattlescapeButton can blit its own gold region (top-left aligned).
+	Surface* toggled = _game->getMod()->getSurface("CALYPSO_HUD_PANEL_TOGGLED", false);
+	if (toggled && toggled->getSurface())
+	{
+		BattlescapeButton::hudToggled = toggled->getSurface();
+		BattlescapeButton::hudSrcW = toggled->getSurface()->w;
+		BattlescapeButton::hudSrcH = toggled->getSurface()->h;
+		BattlescapeButton::hudPanelX = panelX;
+		BattlescapeButton::hudPanelY = panelY;
+		BattlescapeButton::hudPanelW = newW;
+		BattlescapeButton::hudPanelH = newH;
+	}
+	else
+	{
+		BattlescapeButton::hudToggled = nullptr;
+	}
+
+	for (const auto& r : _hudNative)
+	{
+		// _rank holds an externally-blitted sprite that resize()/clear() would
+		// wipe; it is positioned (no resize) by placePos() below — skip it here.
+		if (r.surf == _rank) continue;
+		r.surf->setX(panelX + (int)(r.dx * sx + 0.5f));
+		r.surf->setY(panelY + (int)(r.dy * sy + 0.5f));
+		if (r.surf == _icons)
+		{
+			r.surf->setWidth(newW);
+			r.surf->setHeight(newH);
+		}
+		else
+		{
+			int w = (int)(r.w * sx + 0.5f); if (w < 1) w = 1;
+			int h = (int)(r.h * sy + 0.5f); if (h < 1) h = 1;
+			r.surf->setWidth(w);
+			r.surf->setHeight(h);
+		}
+	}
+
+	// Explicit placement of the centre-slot dynamic widgets into the HD panel
+	// (panel-normalised coords). The HD layout differs from vanilla's, so the
+	// generic scale above only gets these roughly right; pin them to the slot.
+	// (Bars are procedural → scale with the surface; Text/NumberText use bitmap
+	// fonts that don't scale by size yet — HD font is a later step.)
+	auto place = [&](Surface* s, float nx, float ny, float nw, float nh)
+	{
+		if (!s) return;
+		// Only touch widgets that were actually captured (created + added). Some
+		// HUD widgets (e.g. _barMana) are optional and may be an uninitialised
+		// pointer when absent — calling through it would crash ("null function").
+		bool captured = false;
+		for (const auto& r : _hudNative) { if (r.surf == s) { captured = true; break; } }
+		if (!captured) return;
+		s->setX(panelX + (int)(nx * newW + 0.5f));
+		s->setY(panelY + (int)(ny * newH + 0.5f));
+		int w = (int)(nw * newW + 0.5f); if (w < 1) w = 1;
+		int h = (int)(nh * newH + 0.5f); if (h < 1) h = 1;
+		s->setWidth(w); s->setHeight(h);
+	};
+	// _rank holds an externally-blitted insignia sprite that Surface::draw()
+	// would clear on resize (and resizing wouldn't enlarge the sprite anyway), so
+	// move it WITHOUT resizing — otherwise it vanishes.
+	auto placePos = [&](Surface* s, float nx, float ny)
+	{
+		if (!s) return;
+		bool cap = false;
+		for (const auto& r : _hudNative) { if (r.surf == s) { cap = true; break; } }
+		if (!cap) return;
+		s->setX(panelX + (int)(nx * newW + 0.5f));
+		s->setY(panelY + (int)(ny * newH + 0.5f));
+	};
+	placePos(_rank,     0.435f, 0.30f);                  // no resize (keeps sprite)
+	place(_txtName,     0.500f, 0.30f, 0.340f, 0.18f);   // much lower
+	// bars: 2x longer, dropped ~3 bar-heights lower
+	place(_barTimeUnits, 0.620f, 0.64f, 0.166f, 0.040f);
+	place(_barEnergy,    0.620f, 0.70f, 0.166f, 0.040f);
+	place(_barHealth,    0.620f, 0.76f, 0.166f, 0.040f);
+	place(_barMorale,    0.620f, 0.82f, 0.166f, 0.040f);
+	place(_barMana,      0.620f, 0.88f, 0.166f, 0.035f);
+	// stat numbers (TU/EN top row, HP/MO bottom row), left of the bars
+	place(_numTimeUnits, 0.500f, 0.66f, 0.050f, 0.12f);
+	place(_numEnergy,    0.560f, 0.66f, 0.050f, 0.12f);
+	place(_numHealth,    0.500f, 0.80f, 0.050f, 0.12f);
+	place(_numMorale,    0.560f, 0.80f, 0.050f, 0.12f);
+
+	// Draw the panel background scaled into _icons (32-bit ARGB in this build).
+	// Prefer the HD panel; fall back to a stretched vanilla ICONS crop.
+	if (pw > 0 && _icons->getSurface())
+	{
+		// copy (not blend) so the panel's own alpha — rounded corners + cut-outs —
+		// lands in _icons verbatim; _icons then alpha-composites over the scene.
+		SDL_SetSurfaceBlendMode(panel->getSurface(), SDL_BLENDMODE_NONE);
+		SDL_Rect src{ 0, 0, pw, ph };
+		SDL_Rect dst{ 0, 0, newW, newH };
+		SDL_BlitScaled(panel->getSurface(), &src, _icons->getSurface(), &dst);
+	}
+	else
+	{
+		Surface* icons = _game->getMod()->getSurface("ICONS.PCK", false);
+		if (icons && icons->getSurface() && _icons->getSurface())
+		{
+			SDL_Rect src{ 0, 200 - _hudNativeIconsH, _hudNativeIconsW, _hudNativeIconsH };
+			SDL_Rect dst{ 0, 0, newW, newH };
+			SDL_BlitScaled(icons->getSurface(), &src, _icons->getSurface(), &dst);
+		}
+	}
+	// setWidth() set _redraw on _icons; Surface::draw() would clear() it on the
+	// next blit and wipe the panel we just drew. Keep it.
+	_icons->setRedraw(false);
+#endif
 }
 
 /**

@@ -291,6 +291,17 @@ public:
 	void autosave(int currentTurn);
 	/// Is busy?
 	bool isBusy() const;
+	/// Calypso (Emscripten): capture the native HUD layout once (offsets from the
+	/// icons-panel origin), then re-lay-out the HUD scaled to ~half screen width.
+	void captureHudNative();
+	void layoutHud();
+	struct HudNativeRect { Surface* surf; int dx; int dy; int w; int h; };
+	std::vector<HudNativeRect> _hudNative;
+	int _hudNativeIconsW = 0;
+	int _hudNativeIconsH = 0;
+	int _hudLastBaseX = -1;
+	float _hudScale = 1.0f;
+	bool _hudCaptured = false;
 };
 
 }

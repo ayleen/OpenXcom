@@ -266,6 +266,13 @@ public:
 	{
 		return _x;
 	}
+	/// Force the redraw flag. Calypso: after externally blitting a background into
+	/// a surface (e.g. the scaled HD HUD panel), clear it so draw()/clear() on the
+	/// next blit does not wipe that background.
+	void setRedraw(bool redraw)
+	{
+		_redraw = redraw;
+	}
 	/// Sets the Y position of the surface.
 	virtual void setY(int y);
 	/**
