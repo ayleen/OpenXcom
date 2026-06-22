@@ -14,6 +14,7 @@
  *   "tile_atlas"
  *   "tile_atlas_rgba"
  *   "tile_blend"
+ *   "underwater_grade"
  */
 #include <cstring>
 

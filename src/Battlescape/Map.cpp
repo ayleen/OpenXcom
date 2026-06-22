@@ -76,6 +76,14 @@
  * so forward-declarations must carry C linkage (global namespace). */
 extern "C" int g_calypsoProfileBattlescape;
 extern "C" int g_calypsoProfileReadback;
+/* Phase 28: underwater grade strength + beauty-FX amplitudes, set from JS via
+ * calypso_set_underwater_*(); read by Map::drawSceneGrade(). */
+extern "C" float g_calypsoUnderwaterStrength;
+extern "C" float g_calypsoUwCaustics;
+extern "C" float g_calypsoUwRefract;
+extern "C" float g_calypsoUwBubbles;
+extern "C" float g_calypsoUwSnow;
+extern "C" float g_calypsoUwUnitBub;
 /* Phase-14 railings debug: one-shot tile dump flag.
  * Set to 1 by Module._calypso_dump_emit_once() before forcing a redraw;
  * emitTilePass() and Map::draw() painter pass each log every visible tile
@@ -521,6 +529,9 @@ void Map::init()
 			_tileInstVAO = _tileInstIBO = 0;   // Phase 22 (H1): recreated by initTileGL
 			_tileBuffersDirty = true;          // force re-upload after context restore
 			_tileGLInit = false;
+			_gradeVAO = _gradeVBO = 0;         // Phase 28: grade quad recreated by initTileGL
+			_ssaaFBO = _ssaaColorTex = _ssaaDepthRB = 0;  // Phase 28: force SSAA recreate
+			_ssaaW = _ssaaH = 0;
 			_spriteVAO = _spriteVBO = 0;
 			_spriteGLInit = false;
 			_cursorVAO = _cursorVBO = _cursorInstanceVBO = 0;
@@ -3540,6 +3551,37 @@ void Map::initTileGL()
 			// Non-fatal: bake path continues; blend tiles fall back to base overlay.
 		}
 	}
+	// Phase 28: underwater colour-grade shader + fullscreen quad. Samples the SSAA
+	// scene texture and writes the graded result to the default framebuffer
+	// (downsample + grade in one pass). Non-fatal — falls back to a plain blit.
+	if (!_gradeShader)
+	{
+		_gradeShader = new Shader();
+		if (!_gradeShader->loadFromEmbedded("underwater_grade"))
+		{
+			Log(LOG_ERROR) << "Map::initTileGL: underwater_grade shader compile failed";
+			delete _gradeShader; _gradeShader = nullptr;
+		}
+	}
+	if (_gradeShader && !_gradeVAO)
+	{
+		glGenVertexArrays(1, &_gradeVAO);
+		glGenBuffers(1, &_gradeVBO);
+		glBindVertexArray(_gradeVAO);
+		glBindBuffer(GL_ARRAY_BUFFER, _gradeVBO);
+		// two triangles covering NDC; per vertex (pos.xy, uv.xy), uv.y 0=bottom 1=top
+		static const float quad[24] = {
+			-1.f,  1.f, 0.f, 1.f,   1.f,  1.f, 1.f, 1.f,  -1.f, -1.f, 0.f, 0.f,
+			-1.f, -1.f, 0.f, 0.f,   1.f,  1.f, 1.f, 1.f,   1.f, -1.f, 1.f, 0.f,
+		};
+		glBufferData(GL_ARRAY_BUFFER, sizeof(quad), quad, GL_STATIC_DRAW);
+		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float),
+		                      (void*)(2 * sizeof(float)));
+		glEnableVertexAttribArray(1);
+		glBindVertexArray(0);
+	}
 	// Phase 22: 256×256 tileable R8 noise texture (GL_REPEAT + GL_LINEAR).
 	// R8 saves 75% VRAM vs RGBA8 (64 KB vs 256 KB); uploadR8 respects
 	// Wrap::Repeat and Filter::Linear set on construction.
@@ -3769,7 +3811,7 @@ bool Map::ensureSsaaTarget(int w, int h)
 
 	// Size changed (or first use) — tear down any previous target.
 	if (_ssaaFBO)     { glDeleteFramebuffers(1, &_ssaaFBO);      _ssaaFBO = 0; }
-	if (_ssaaColorRB) { glDeleteRenderbuffers(1, &_ssaaColorRB); _ssaaColorRB = 0; }
+	if (_ssaaColorTex) { glDeleteTextures(1, &_ssaaColorTex); _ssaaColorTex = 0; }
 	if (_ssaaDepthRB) { glDeleteRenderbuffers(1, &_ssaaDepthRB); _ssaaDepthRB = 0; }
 
 	GLint maxRB = 0;
@@ -3785,11 +3827,18 @@ bool Map::ensureSsaaTarget(int w, int h)
 	glGenFramebuffers(1, &_ssaaFBO);
 	glBindFramebuffer(GL_FRAMEBUFFER, _ssaaFBO);
 
-	glGenRenderbuffers(1, &_ssaaColorRB);
-	glBindRenderbuffer(GL_RENDERBUFFER, _ssaaColorRB);
-	glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA8, sw, sh);
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-	                          GL_RENDERBUFFER, _ssaaColorRB);
+	// Phase 28: colour attachment is a TEXTURE (not a renderbuffer) so the
+	// underwater grade pass can sample the finished scene. LINEAR so the grade
+	// pass also performs the SSAA downsample when it samples at display res.
+	glGenTextures(1, &_ssaaColorTex);
+	glBindTexture(GL_TEXTURE_2D, _ssaaColorTex);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, sw, sh, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+	                       GL_TEXTURE_2D, _ssaaColorTex, 0);
 
 	glGenRenderbuffers(1, &_ssaaDepthRB);
 	glBindRenderbuffer(GL_RENDERBUFFER, _ssaaDepthRB);
@@ -3805,7 +3854,7 @@ bool Map::ensureSsaaTarget(int w, int h)
 		                 << (int)status << ", " << sw << "x" << sh
 		                 << ") — disabling SSAA";
 		if (_ssaaFBO)     { glDeleteFramebuffers(1, &_ssaaFBO);      _ssaaFBO = 0; }
-		if (_ssaaColorRB) { glDeleteRenderbuffers(1, &_ssaaColorRB); _ssaaColorRB = 0; }
+		if (_ssaaColorTex) { glDeleteTextures(1, &_ssaaColorTex); _ssaaColorTex = 0; }
 		if (_ssaaDepthRB) { glDeleteRenderbuffers(1, &_ssaaDepthRB); _ssaaDepthRB = 0; }
 		return false;
 	}
@@ -4216,15 +4265,29 @@ void Map::drawTileGLPass()
 	// filtering, then restore the prior FBO binding + viewport. ---
 	if (useSsaa)
 	{
-		// Copy/downsample the display-res floor into the prior framebuffer. Disable
-		// scissor so SDL's logical-size scissor box can't clip the full-frame blit.
+		// Disable scissor so SDL's logical-size scissor box can't clip the full frame.
 		GLboolean hadScissor = glIsEnabled(GL_SCISSOR_TEST);
 		glDisable(GL_SCISSOR_TEST);
-		glBindFramebuffer(GL_READ_FRAMEBUFFER, _ssaaFBO);
-		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, (GLuint)prevFBO);
-		glBlitFramebuffer(0, 0, _ssaaW, _ssaaH, 0, 0, fbW, fbH,
-		                  GL_COLOR_BUFFER_BIT, GL_LINEAR);
-		glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prevFBO);
+		const bool useGrade = _gradeShader && _gradeShader->isValid() && _gradeVAO;
+		if (useGrade)
+		{
+			// Phase 28: the grade pass BOTH downsamples (LINEAR sample of the SSAA
+			// texture at display res) AND applies the underwater colour grade, then
+			// writes to the prior (default) framebuffer. Runs pre-composite so the
+			// CPU surface (HUD/cursor/menus) drawn afterward is never tinted.
+			glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prevFBO);
+			glViewport(0, 0, fbW, fbH);
+			drawSceneGrade();
+		}
+		else
+		{
+			// Fallback (grade shader unavailable): plain linear downsample blit.
+			glBindFramebuffer(GL_READ_FRAMEBUFFER, _ssaaFBO);
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, (GLuint)prevFBO);
+			glBlitFramebuffer(0, 0, _ssaaW, _ssaaH, 0, 0, fbW, fbH,
+			                  GL_COLOR_BUFFER_BIT, GL_LINEAR);
+			glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prevFBO);
+		}
 		glViewport(prevVp[0], prevVp[1], prevVp[2], prevVp[3]);
 		if (hadScissor) glEnable(GL_SCISSOR_TEST);
 	}
@@ -4245,6 +4308,80 @@ void Map::drawTileGLPass()
 	// fresh content always replaces stale.  The hidden-movement / non-
 	// Battlescape suppression case is handled explicitly by Map::draw()'s
 	// else-branch, which clears instances before this pass fires (~line 558).
+}
+
+/**
+ * Phase 28: full-screen underwater colour grade. Samples the SSAA scene texture
+ * (_ssaaColorTex) through underwater_grade.frag and writes the graded, down-
+ * sampled result into the currently-bound (default) framebuffer. The caller has
+ * already bound the target FBO + set the viewport.
+ */
+void Map::drawSceneGrade()
+{
+#ifdef __EMSCRIPTEN__
+	glDisable(GL_DEPTH_TEST);
+	glDepthMask(GL_FALSE);
+	glDisable(GL_BLEND);                 // opaque write — this IS the final colour
+	_gradeShader->use();
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, _ssaaColorTex);
+	_gradeShader->setUniform1i("u_scene", 0);
+	_gradeShader->setUniform1f("u_strength", g_calypsoUnderwaterStrength);
+	_gradeShader->setUniform1f("u_time", (float)SDL_GetTicks() * 0.001f);
+	_gradeShader->setUniform2f("u_res", (float)Options::displayWidth,
+	                           (float)Options::displayHeight);
+	_gradeShader->setUniform1f("u_caustics", g_calypsoUwCaustics);
+	_gradeShader->setUniform1f("u_refract",  g_calypsoUwRefract);
+	_gradeShader->setUniform1f("u_bubbles",  g_calypsoUwBubbles);
+	_gradeShader->setUniform1f("u_snow",     g_calypsoUwSnow);
+	_gradeShader->setUniform1f("u_unitbub",  g_calypsoUwUnitBub);
+
+	// Breathing bubbles from visible player aquanauts: pass their screen UV using
+	// the same map→display transform as the cursor pass (convertMapToScreen +
+	// camera offset, then × scale + black-band; flip Y into v_uv space).
+	static const char* kUnitPosName[12] = {
+		"u_unitPos[0]", "u_unitPos[1]", "u_unitPos[2]",  "u_unitPos[3]",
+		"u_unitPos[4]", "u_unitPos[5]", "u_unitPos[6]",  "u_unitPos[7]",
+		"u_unitPos[8]", "u_unitPos[9]", "u_unitPos[10]", "u_unitPos[11]" };
+	static const char* kUnitBreathName[12] = {
+		"u_unitBreath[0]", "u_unitBreath[1]", "u_unitBreath[2]",  "u_unitBreath[3]",
+		"u_unitBreath[4]", "u_unitBreath[5]", "u_unitBreath[6]",  "u_unitBreath[7]",
+		"u_unitBreath[8]", "u_unitBreath[9]", "u_unitBreath[10]", "u_unitBreath[11]" };
+	int unitCount = 0;
+	Screen* scr = _game ? _game->getScreen() : nullptr;
+	if (scr && _camera && _save)
+	{
+		const float xS = (float)scr->getXScale(), yS = (float)scr->getYScale();
+		const float lbb = (float)scr->getCursorLeftBlackBand();
+		const float tbb = (float)scr->getCursorTopBlackBand();
+		const float dW = (float)Options::displayWidth, dH = (float)Options::displayHeight;
+		for (BattleUnit* u : *_save->getUnits())
+		{
+			if (unitCount >= 12) break;
+			if (!u || u->getFaction() != FACTION_PLAYER || u->isOut()) continue;
+			Position sp;
+			_camera->convertMapToScreen(u->getPosition(), &sp);
+			sp += _camera->getMapOffset();
+			const float dispX = (float)sp.x * xS + lbb + (float)_spriteWidth  * xS * 0.5f;
+			const float dispY = (float)sp.y * yS + tbb + (float)_spriteHeight * yS * 0.30f;
+			const float uvx = dispX / dW;
+			const float uvy = 1.0f - dispY / dH;          // flip into v_uv (y up)
+			if (uvx < -0.05f || uvx > 1.05f || uvy < -0.05f || uvy > 1.05f) continue;
+			// exhale progress 0..1 from the vanilla breath animation (-1 = not
+			// exhaling) — drives the HD bubbles with the exact vanilla cadence.
+			const int ef = u->getBreathExhaleFrame();   // 0..15 or -1
+			const float bp = (ef >= 0) ? (float)ef / 15.0f : -1.0f;
+			_gradeShader->setUniform2f(kUnitPosName[unitCount], uvx, uvy);
+			_gradeShader->setUniform1f(kUnitBreathName[unitCount], bp);
+			++unitCount;
+		}
+	}
+	_gradeShader->setUniform1i("u_unitCount", unitCount);
+
+	glBindVertexArray(_gradeVAO);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+	glBindVertexArray(0);
+#endif
 }
 
 /**

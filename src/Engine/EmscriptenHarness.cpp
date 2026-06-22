@@ -110,6 +110,34 @@ void calypso_set_profile_readback(int on)
 	g_calypsoProfileReadback = on ? 1 : 0;
 }
 
+/* Phase 28: underwater colour-grade strength (0 = neutral .. 1 = deepest).
+ * Map::drawSceneGrade() reads this each frame as the u_strength uniform.
+ * Live-tunable from the JS console: Module._calypso_set_underwater_strength(0.4).
+ * Default matches the "L1" starting look chosen during authoring. */
+float g_calypsoUnderwaterStrength = 0.20f;
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_set_underwater_strength(float v)
+{
+	g_calypsoUnderwaterStrength = v < 0.0f ? 0.0f : (v > 1.0f ? 1.0f : v);
+}
+
+/* Phase 28 batch-1 beauty FX amplitudes (0 = off). All read by
+ * Map::drawSceneGrade() each frame and live-tunable from the JS console. */
+float g_calypsoUwCaustics = 0.55f;
+float g_calypsoUwRefract  = 0.40f;   // weaker — subtle wobble, not seasick
+float g_calypsoUwBubbles  = 0.0f;    // seabed vents OFF (screen-anchored for now)
+float g_calypsoUwSnow     = 0.5f;
+float g_calypsoUwUnitBub  = 1.0f;    // HD bubbles, driven by the vanilla breath anim
+
+static float clamp01p(float v) { return v < 0.0f ? 0.0f : (v > 2.0f ? 2.0f : v); }
+
+EMSCRIPTEN_KEEPALIVE void calypso_set_uw_caustics(float v) { g_calypsoUwCaustics = clamp01p(v); }
+EMSCRIPTEN_KEEPALIVE void calypso_set_uw_refract (float v) { g_calypsoUwRefract  = clamp01p(v); }
+EMSCRIPTEN_KEEPALIVE void calypso_set_uw_bubbles (float v) { g_calypsoUwBubbles  = clamp01p(v); }
+EMSCRIPTEN_KEEPALIVE void calypso_set_uw_snow    (float v) { g_calypsoUwSnow     = clamp01p(v); }
+EMSCRIPTEN_KEEPALIVE void calypso_set_uw_unitbub (float v) { g_calypsoUwUnitBub  = clamp01p(v); }
+
 /* Phase-14 railings debug: one-shot tile/painter dump.
  * JS toggles via Module._calypso_dump_emit_once() before forcing a redraw;
  * Map::emitTilePass() and Map::draw() (painter) each log every tile they

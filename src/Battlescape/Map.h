@@ -240,13 +240,22 @@ private:
 	// without the alpha-to-coverage/blend conflict MSAA would hit. Lazily
 	// (re)created to match the live viewport × scale.
 	unsigned int _ssaaFBO     = 0;
-	unsigned int _ssaaColorRB = 0;
+	unsigned int _ssaaColorTex = 0;  // Phase 28: TEXTURE (was renderbuffer) so the
+	                                 // underwater grade pass can sample the scene
 	unsigned int _ssaaDepthRB = 0;
 	int          _ssaaW       = 0;   // FBO width  = displayWidth  × scale
 	int          _ssaaH       = 0;   // FBO height = displayHeight × scale
 	int          _ssaaScale   = 2;   // supersample factor on top of display res
 	                                 // (1 = render floor at native display res;
 	                                 //  2 = +2× supersample — 4× fragments)
+	// Phase 28: underwater colour-grade post-process. The scene (SSAA texture) is
+	// fed through underwater_grade.frag into the default framebuffer (this both
+	// downsamples AND grades, replacing the plain SSAA blit). Fires pre-composite
+	// so the HUD/cursor (CPU surface) are never tinted.
+	Shader*      _gradeShader = nullptr;
+	unsigned int _gradeVAO    = 0;
+	unsigned int _gradeVBO    = 0;
+	void drawSceneGrade();           // fullscreen grade quad: _ssaaColorTex → screen
 	/// Fractional animation cycle position [0, 1) — set each frame, passed as u_animFrame.
 	float        _animFrameGPU = 0.0f;
 	/// Lifetime flag: reset in ~Map() so the registered GPU-pass lambda becomes a no-op.

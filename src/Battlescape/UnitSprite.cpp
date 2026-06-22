@@ -435,6 +435,12 @@ void UnitSprite::draw(const BattleUnit* unit, int part, int x, int y, int shade,
 	{
 		_fireSurface->getFrame(4 + (_animationFrame / 2) % 4)->blitNShade(_dest, _x, _y, 0, _mask);
 	}
+#ifndef __EMSCRIPTEN__
+	// Phase 28: on the HD/web build the underwater post-process renders HD bubbles
+	// DRIVEN BY this same breath animation (getBreathExhaleFrame), so suppress the
+	// low-res pixel SurfaceSet here to avoid doubling. breathe() still advances the
+	// frame regardless, so the HD bubbles keep the exact vanilla cadence. Native
+	// keeps the original pixel effect.
 	if (_breathSurface && _helmet && unit->getBreathExhaleFrame() >= 0 && armor->drawBubbles() && !unit->getFloorAbove())
 	{
 		auto* tmpSurface = _breathSurface->getFrame(unit->getBreathExhaleFrame());
@@ -444,6 +450,7 @@ void UnitSprite::draw(const BattleUnit* unit, int part, int x, int y, int shade,
 			tmpSurface->blitNShade(_dest, _x, _y- 30 + (22 - unit->getHeight()), shade, _mask);
 		}
 	}
+#endif
 	if (drawFacingIndicator && part == 0)
 	{
 		// draw unit facing indicator
