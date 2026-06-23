@@ -278,7 +278,7 @@ private:
 	/// Phase 24 UX: RGBA UI marker textures (selection ring, reticle, …) loaded
 	/// from mod PNGs, keyed by mod-relative path. White silhouettes, tinted at draw.
 	std::map<std::string, GpuTexture*> _uiTexCache;
-	GpuTexture* getUITexture(const std::string& relPath);
+	GpuTexture* getUITexture(const std::string& relPath, int wrap = 0);  // wrap: 0=ClampToEdge,1=Repeat
 	bool _spriteGLInit = false;
 	void initSpriteGL();
 	GpuTexture* getOrUploadSpriteFrame(SurfaceSet* set, int frameIdx);
@@ -291,6 +291,8 @@ private:
 		SurfaceSet* set;       // PCK surface set (SMOKE, X1, HIT)
 		int frameIdx;          // frame index within set
 		float darken;          // u_darken: 0.0=normal, 1.0=full black
+		float density;         // Calypso: tile smoke 0..1 (drives murk strength)
+		float seedX, seedY;    // Calypso: world tile coords — murk noise anchor
 	};
 	std::vector<SmokeInstance> _smokeInstances;
 	void emitSmokeInstances();

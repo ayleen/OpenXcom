@@ -3341,6 +3341,9 @@ void Map::emitTilePass()
 				si.set      = smokeSet;
 				si.frameIdx = frameNumber;
 				si.darken   = gpuDarken;
+				si.density  = std::min(1.0f, tile->getSmoke() / 12.0f);   // murk strength
+				si.seedX    = (float)tile->getPosition().x;               // world-anchored noise
+				si.seedY    = (float)tile->getPosition().y;
 				_smokeInstances.push_back(si);
 			}
 		}
@@ -4423,6 +4426,8 @@ void Map::initSpriteGL()
 			return;
 		}
 	}
+	// Calypso tile-smoke murk: drawn with this textured shader (layered tinted
+	// cloud/particle PNGs) — no bespoke shader, so nothing to recreate on resize.
 
 	// 6-vertex dynamic quad: pos.xy + uv.xy (4 floats per vertex)
 	glGenVertexArrays(1, &_spriteVAO);
@@ -4520,28 +4525,56 @@ GpuTexture* Map::getOrUploadSpriteFrame(SurfaceSet* set, int frameIdx)
 
 	const int w = src->getWidth();
 	const int h = src->getHeight();
-	const SDL_Color* pal = src->getEffectivePalette();
-	if (!pal || w <= 0 || h <= 0) return nullptr;
+	if (w <= 0 || h <= 0) return nullptr;
+
+	// HD (Calypso): an extraSprites hd:true frame is a pure ARGB surface with NO
+	// palette mirror (the captured 8-bpp index buffer). Detect by the ABSENT mirror,
+	// not by the effective palette — loadExtraSprite assigns a palette to the whole
+	// set even for HD frames, so testing the palette sent HD frames down the index
+	// path where getPixel() returned garbage => dense rainbow noise.
+	SDL_Surface* ss = src->getSurface();
+	const bool isHD = (src->getPaletteMirror() == nullptr) && ss && ss->format && ss->format->BitsPerPixel == 32;
+	const SDL_Color* pal = isHD ? nullptr : src->getEffectivePalette();
+	if (!isHD && !pal) return nullptr;
 
 	std::vector<uint8_t> rgba(static_cast<size_t>(w * h * 4), 0u);
-	for (int py = 0; py < h; ++py)
+	if (isHD)
 	{
-		for (int px = 0; px < w; ++px)
+		SDL_LockSurface(ss);
+		for (int py = 0; py < h; ++py)
 		{
-			const uint8_t idx = src->getPixel(px, py);
-			if (idx == 0) continue; // palette index 0 = transparent
-			const SDL_Color& c = pal[idx];
-			const size_t i = static_cast<size_t>((py * w + px) * 4);
-			rgba[i+0] = c.r;
-			rgba[i+1] = c.g;
-			rgba[i+2] = c.b;
-			rgba[i+3] = 255u;
+			const Uint32* row = (const Uint32*)((const Uint8*)ss->pixels + py * ss->pitch);
+			for (int px = 0; px < w; ++px)
+			{
+				Uint8 r, g, b, a;
+				SDL_GetRGBA(row[px], ss->format, &r, &g, &b, &a);
+				const size_t i = static_cast<size_t>((py * w + px) * 4);
+				rgba[i+0] = r; rgba[i+1] = g; rgba[i+2] = b; rgba[i+3] = a;
+			}
+		}
+		SDL_UnlockSurface(ss);
+	}
+	else
+	{
+		for (int py = 0; py < h; ++py)
+		{
+			for (int px = 0; px < w; ++px)
+			{
+				const uint8_t idx = src->getPixel(px, py);
+				if (idx == 0) continue; // palette index 0 = transparent
+				const SDL_Color& c = pal[idx];
+				const size_t i = static_cast<size_t>((py * w + px) * 4);
+				rgba[i+0] = c.r;
+				rgba[i+1] = c.g;
+				rgba[i+2] = c.b;
+				rgba[i+3] = 255u;
+			}
 		}
 	}
 
 	GpuTexture* tex = new GpuTexture(/*srgb=*/false,
 	                                 GpuTexture::Wrap::ClampToEdge,
-	                                 GpuTexture::Filter::Nearest);
+	                                 isHD ? GpuTexture::Filter::Linear : GpuTexture::Filter::Nearest);
 	if (!tex->uploadRGBA(rgba.data(), w, h))
 	{
 		Log(LOG_WARNING) << "Map::getOrUploadSpriteFrame: upload failed ("
@@ -4559,7 +4592,7 @@ GpuTexture* Map::getOrUploadSpriteFrame(SurfaceSet* set, int frameIdx)
  * tinted per state at draw time. nullptr is cached too, to avoid retrying a
  * missing/broken file every frame. Linear filter for a smooth scaled glow.
  */
-GpuTexture* Map::getUITexture(const std::string& relPath)
+GpuTexture* Map::getUITexture(const std::string& relPath, int wrap)
 {
 	auto it = _uiTexCache.find(relPath);
 	if (it != _uiTexCache.end()) return it->second;
@@ -4579,7 +4612,7 @@ GpuTexture* Map::getUITexture(const std::string& relPath)
 			{
 				if (SDL_MUSTLOCK(rgba)) SDL_LockSurface(rgba);
 				tex = new GpuTexture(/*srgb=*/false,
-				                     GpuTexture::Wrap::ClampToEdge,
+				                     wrap == 1 ? GpuTexture::Wrap::Repeat : GpuTexture::Wrap::ClampToEdge,
 				                     GpuTexture::Filter::Linear);
 				if (!tex->uploadRGBA(static_cast<const uint8_t*>(rgba->pixels), rgba->w, rgba->h))
 				{
@@ -5017,14 +5050,48 @@ void Map::drawSmokeGLPass()
 	_spriteShader->setUniform1i("u_tex", 0);
 	_spriteShader->setUniform3f("u_tint", 1.0f, 1.0f, 1.0f);  // untinted (Phase 24 u_tint)
 
-	// --- Tile smoke/fire instances collected by emitTilePass() ---
-	// Tile smoke covers a whole tile (SMOKE.PCK frame == tile size), so it scales
-	// with the tile, exactly like the cursor/floor (Phase 24).
-	for (const auto& si : _smokeInstances)
+	// --- Tile smoke: layered MURK (Calypso) ---
+	// Lingering tile smoke reads as turbid, sediment-laden water that gently
+	// obscures the scene, not cartoon puffs. Authored grayscale cloud/particle PNGs
+	// are tinted per layer (silty mud + deep water + light sediment) and drawn with
+	// the textured sprite shader — which survives a context loss, unlike a bespoke
+	// shader (that crashed on resolution change). Strength = smoke density; the game
+	// decays the density over turns, so the murk dissolves on its own.
+	if (hasSmokeWork)
 	{
-		GpuTexture* tex = getOrUploadSpriteFrame(si.set, si.frameIdx);
-		if (!tex) continue;
-		drawQuad(tex, si.screenX, si.screenY, _spriteWidth, _spriteHeight, si.darken);
+		const float t = (float)SDL_GetTicks() * 0.001f;
+		const int kCloudFrames = 8;
+		GpuTexture* cloud[kCloudFrames];
+		for (int f = 0; f < kCloudFrames; ++f)
+			cloud[f] = getUITexture("Resources/battlescape/fx/murk/cloud-" + std::to_string(f) + ".png");
+		GpuTexture* parts = getUITexture("Resources/battlescape/fx/murk/particles.png", /*wrap=*/1);
+		// scrollY drifts a layer's UV (sediment rises); 0 = static.
+		auto layer = [&](GpuTexture* tex, int cx, int cy, int side, float r, float g, float b, float alpha, float scrollY)
+		{
+			if (!tex || alpha <= 0.01f) return;
+			_spriteShader->setUniform3f("u_tint", r, g, b);
+			_spriteShader->setUniform1f("u_alpha", alpha);
+			_spriteShader->setUniform2f("u_uvScroll", 0.0f, scrollY);
+			drawQuad(tex, cx - side / 2, cy - side / 2, side, side, 0.0f);
+		};
+		for (const auto& si : _smokeInstances)
+		{
+			const int   cx = si.screenX + _spriteWidth  / 2;
+			const int   cy = si.screenY + _spriteHeight / 2;
+			const float d  = si.density;                          // 0..1
+			const float ph = si.seedX * 0.7f + si.seedY * 1.3f;   // per-tile phase (anti-sync)
+			int fr = (int)(t * 1.5f + ph) % kCloudFrames; if (fr < 0) fr = 0; // ~1.5 fps swirl cycle
+			const float pulse = 1.0f + 0.08f * std::sin(t * 0.8f + ph);
+			const int   base  = (int)(_spriteWidth * 1.3f * pulse);
+			const float sed   = -(t * 0.05f + ph * 0.03f);        // sediment drifts upward, per-tile offset
+			layer(cloud[fr],                       cx, cy, base,                0.42f, 0.34f, 0.24f, d * 0.38f, 0.0f); // silty mud
+			layer(cloud[(fr + 3) % kCloudFrames],  cx, cy, (int)(base * 1.15f), 0.12f, 0.20f, 0.22f, d * 0.20f, 0.0f); // deep water
+			layer(parts,                cx, cy, (int)(base * 0.95f), 0.62f, 0.66f, 0.60f, d * 0.26f, sed);  // drifting sediment
+		}
+		// restore tint/alpha/scroll for the explosion pass below
+		_spriteShader->setUniform3f("u_tint", 1.0f, 1.0f, 1.0f);
+		_spriteShader->setUniform1f("u_alpha", 1.0f);
+		_spriteShader->setUniform2f("u_uvScroll", 0.0f, 0.0f);
 	}
 
 	// --- Explosion effects (X1.PCK, HIT.PCK, SMOKE.PCK) ---
@@ -5048,26 +5115,29 @@ void Map::drawSmokeGLPass()
 			const int bsx = sp.x + mapX;
 			const int bsy = sp.y + mapY;
 
+			// Size each blit by the set's LOGICAL frame size, not the texture's: HD
+			// (hd:true) frames are higher-res than 128x64 / 32x40 but must keep the
+			// vanilla footprint. For 8-bpp frames set size == tex size, so unchanged.
 			if (explosion->isBig())
 			{
 				const int f = explosion->getCurrentFrame();
 				if (f < 0) continue;
 				GpuTexture* tex = getOrUploadSpriteFrame(x1Set, f);
 				if (!tex) continue;
-				drawQuad(tex, bsx - tex->width() * es / 2, bsy - tex->height() * es / 2,
-				         tex->width() * es, tex->height() * es, 0.0f);
+				const int lw = x1Set->getWidth() * es, lh = x1Set->getHeight() * es;
+				drawQuad(tex, bsx - lw / 2, bsy - lh / 2, lw, lh, 0.0f);
 			}
 			else if (explosion->isHit())
 			{
 				GpuTexture* tex = getOrUploadSpriteFrame(hitSet, explosion->getCurrentFrame());
 				if (!tex) continue;
-				drawQuad(tex, bsx - 15 * es, bsy - 25 * es, tex->width() * es, tex->height() * es, 0.0f);
+				drawQuad(tex, bsx - 15 * es, bsy - 25 * es, hitSet->getWidth() * es, hitSet->getHeight() * es, 0.0f);
 			}
 			else
 			{
 				GpuTexture* tex = getOrUploadSpriteFrame(smokeSet, explosion->getCurrentFrame());
 				if (!tex) continue;
-				drawQuad(tex, bsx - 15 * es, bsy - 15 * es, tex->width() * es, tex->height() * es, 0.0f);
+				drawQuad(tex, bsx - 15 * es, bsy - 15 * es, smokeSet->getWidth() * es, smokeSet->getHeight() * es, 0.0f);
 			}
 		}
 	}
