@@ -39,7 +39,7 @@ namespace OpenXcom
  * @param partTxt A pointer to a Text. Will be updated with the selected body part.
  * @param woundTxt A pointer to a Text. Will be updated with the amount of fatal wound.
  */
-MedikitView::MedikitView (int w, int h, int x, int y, Game * game, BattleUnit *unit, Text *partTxt, Text *woundTxt) : InteractiveSurface(w, h, x, y), _game(game), _selectedPart(0), _unit(unit), _partTxt(partTxt), _woundTxt(woundTxt)
+MedikitView::MedikitView (int w, int h, int x, int y, Game * game, BattleUnit *unit, Text *partTxt, Text *woundTxt) : InteractiveSurface(w, h, x, y), _game(game), _selectedPart(0), _unit(unit), _partTxt(partTxt), _woundTxt(woundTxt), _baseW(w), _baseH(h)
 {
 	updateSelectedPart();
 	_redraw = true;
@@ -60,17 +60,44 @@ void MedikitView::draw()
 		green = _game->getMod()->getInterface("medikit")->getElement("body")->color;
 		red = _game->getMod()->getInterface("medikit")->getElement("body")->color2;
 	}
-	this->lock();
-	for (unsigned int i = 0; i < set->getTotalFrames(); i++)
+#ifdef __EMSCRIPTEN__
+	// Calypso: when scaled up (enableUiScaling), composite the body at its native
+	// size, then scale-blit it to fill — keeps the 8bpp MEDIBITS frames + per-part
+	// shading correct, just larger.
+	if (getWidth() != _baseW || getHeight() != _baseH)
 	{
-		int wound = _unit->getFatalWound((UnitBodyPart)i);
-		Surface * surface = set->getFrame (i);
-		int baseColor = wound ? red : green;
-		surface->blitNShade(this, 0, 0, 0, false, baseColor);
+		Surface scratch(_baseW, _baseH, 0, 0);
+		scratch.lock();
+		for (unsigned int i = 0; i < set->getTotalFrames(); i++)
+		{
+			int wound = _unit->getFatalWound((UnitBodyPart)i);
+			Surface * surface = set->getFrame (i);
+			int baseColor = wound ? red : green;
+			surface->blitNShade(&scratch, 0, 0, 0, false, baseColor);
+		}
+		scratch.unlock();
+		this->clear();
+		if (scratch.getSurface() && this->getSurface())
+		{
+			SDL_BlitScaled(scratch.getSurface(), nullptr, this->getSurface(), nullptr);
+		}
+		this->setRedraw(false);
 	}
-	this->unlock();
+	else
+#endif
+	{
+		this->lock();
+		for (unsigned int i = 0; i < set->getTotalFrames(); i++)
+		{
+			int wound = _unit->getFatalWound((UnitBodyPart)i);
+			Surface * surface = set->getFrame (i);
+			int baseColor = wound ? red : green;
+			surface->blitNShade(this, 0, 0, 0, false, baseColor);
+		}
+		this->unlock();
+		_redraw = false;
+	}
 
-	_redraw = false;
 	if (_selectedPart == -1)
 	{
 		return;
@@ -91,6 +118,11 @@ void MedikitView::mouseClick (Action *action, State *)
 	SurfaceSet *set = _game->getMod()->getSurfaceSet("MEDIBITS.DAT");
 	int x = action->getRelativeXMouse() / action->getXScale();
 	int y = action->getRelativeYMouse() / action->getYScale();
+#ifdef __EMSCRIPTEN__
+	// map scaled-view coords back to native frame space for the pixel hit-test
+	if (getWidth()  > 0 && getWidth()  != _baseW) x = x * _baseW / getWidth();
+	if (getHeight() > 0 && getHeight() != _baseH) y = y * _baseH / getHeight();
+#endif
 	for (unsigned int i = 0; i < set->getTotalFrames(); i++)
 	{
 		Surface * surface = set->getFrame (i);
