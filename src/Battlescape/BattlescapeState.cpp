@@ -4425,15 +4425,23 @@ void BattlescapeState::layoutHud()
 		const float barStartN = 0.435f, boxLeftN = 0.652f, halfBoxN = 0.0416f * 0.5f;
 		const float len100N = (boxLeftN - halfBoxN) - barStartN;   // panel-norm length at value 100
 		const double barScale = (double)(len100N * newW) / 100.0;
+		// Only touch bars that were actually captured (created + added). _barMana is
+		// optional and may be an UNINITIALISED pointer when absent — a bare `if (b)`
+		// passes on garbage and setGradient()/setScale() then write out of bounds
+		// (the resolution-change / restart crash). Mirror place()'s captured guard.
+		auto isCaptured = [&](Surface* s) {
+			for (const auto& r : _hudNative) if (r.surf == s) return true;
+			return false;
+		};
 		Bar* gbars[] = { _barTimeUnits, _barEnergy, _barHealth, _barMorale, _barMana };
-		for (Bar* b : gbars) { if (b) { b->setGradient(true); b->setScale(barScale); } }
+		for (Bar* b : gbars)
+			if (b && isCaptured(b)) { b->setGradient(true); b->setScale(barScale); }
 	}
 	// 2x2 stat-number grid (coloured boxes), right of the bars, left of the rank.
 	place(_numTimeUnits, 0.652f, 0.640f, 0.0416f, 0.136f);
 	place(_numEnergy,    0.712f, 0.640f, 0.0416f, 0.136f);
 	place(_numHealth,    0.652f, 0.790f, 0.0416f, 0.136f);
 	place(_numMorale,    0.712f, 0.790f, 0.0416f, 0.136f);
-	// _txtName / number boxes were just resized (cleared) by place(); re-render.
 	applyHudName(_save ? _save->getSelectedUnit() : nullptr);
 	applyHudNumbers(_save ? _save->getSelectedUnit() : nullptr);
 

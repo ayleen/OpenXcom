@@ -204,6 +204,18 @@ void OptionsBaseState::setCategory(TextButton *button)
  */
 void OptionsBaseState::btnOkClick(Action *)
 {
+	/* A browser canvas has no SDL video modes: its backing-store size is owned
+	 * by web/src/main.js and Screen::flip() follows it on every frame.  Letting
+	 * the native resolution fields through here makes resetDisplay() destroy and
+	 * recreate the SDL WebGL renderer while the active Battlescape still owns
+	 * GPU resources.  The newly-created context then sees stale handles during
+	 * the state restart (typically just after the textured shader is compiled).
+	 * Keep display resolution in sync with the canvas; the proportional scene
+	 * scale controls below remain fully functional. */
+#ifdef __EMSCRIPTEN__
+	Options::newDisplayWidth = Options::displayWidth;
+	Options::newDisplayHeight = Options::displayHeight;
+#endif
 	Options::switchDisplay();
 	int dX = Options::baseXResolution;
 	int dY = Options::baseYResolution;
@@ -214,7 +226,14 @@ void OptionsBaseState::btnOkClick(Action *)
 	recenter(dX, dY);
 	Options::save();
 	_game->loadLanguages();
+#ifdef __EMSCRIPTEN__
+	/* Preserve the one browser-owned WebGL context. resetDisplay(false) still
+	 * reallocates the software surface and SDL texture when a scene scale
+	 * changes, but never tears down the renderer and its GPU objects. */
+	_game->getScreen()->resetDisplay(false);
+#else
 	_game->getScreen()->resetDisplay();
+#endif
 	SDL_WM_GrabInput(Options::captureMouse);
 	_game->setVolume(Options::soundVolume, Options::musicVolume, Options::uiVolume);
 	if (Options::reload && _origin == OPT_MENU)

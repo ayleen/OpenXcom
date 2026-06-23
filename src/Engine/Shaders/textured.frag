@@ -17,14 +17,17 @@
 uniform sampler2D u_tex;
 uniform float     u_darken;
 uniform vec3      u_tint;
+uniform float     u_alpha;   // Calypso: overall alpha multiply; unset(0) => 1.0 (callers unaffected)
+uniform vec2      u_uvScroll; // Calypso: UV offset for drifting layers (unset(0) => none)
 in      vec2      v_uv;
 out     vec4      out_color;
 
 void main()
 {
-    vec4 c = texture(u_tex, v_uv);
+    vec4 c = texture(u_tex, v_uv + u_uvScroll);
     // Unset uniform (0,0,0) means "no tint" → white, so untinted callers are
     // unaffected; tinted callers pass a non-zero colour.
     vec3 tint = all(equal(u_tint, vec3(0.0))) ? vec3(1.0) : u_tint;
-    out_color = vec4(c.rgb * tint * (1.0 - u_darken), c.a);
+    float am = (u_alpha <= 0.0) ? 1.0 : u_alpha;   // unset → opaque
+    out_color = vec4(c.rgb * tint * (1.0 - u_darken), c.a * am);
 }

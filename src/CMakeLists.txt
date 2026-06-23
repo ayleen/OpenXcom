@@ -700,6 +700,7 @@ if(EMSCRIPTEN)
     -Wl,--allow-multiple-definition
     -O2
     -sASSERTIONS=1
+    --emit-symbol-map
     -fexceptions
     -sDISABLE_EXCEPTION_CATCHING=0
     # Only GPL OXCE engine data is bundled; TFTD and any other proprietary

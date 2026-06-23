@@ -278,7 +278,7 @@ private:
 	/// Phase 24 UX: RGBA UI marker textures (selection ring, reticle, …) loaded
 	/// from mod PNGs, keyed by mod-relative path. White silhouettes, tinted at draw.
 	std::map<std::string, GpuTexture*> _uiTexCache;
-	GpuTexture* getUITexture(const std::string& relPath);
+	GpuTexture* getUITexture(const std::string& relPath, int wrap = 0);  // wrap: 0=ClampToEdge,1=Repeat
 	bool _spriteGLInit = false;
 	void initSpriteGL();
 	GpuTexture* getOrUploadSpriteFrame(SurfaceSet* set, int frameIdx);
@@ -291,10 +291,17 @@ private:
 		SurfaceSet* set;       // PCK surface set (SMOKE, X1, HIT)
 		int frameIdx;          // frame index within set
 		float darken;          // u_darken: 0.0=normal, 1.0=full black
+		float density;         // Calypso: tile smoke 0..1 (drives murk strength)
+		float seedX, seedY;    // Calypso: world tile coords — murk noise anchor
 	};
 	std::vector<SmokeInstance> _smokeInstances;
 	void emitSmokeInstances();
 	void drawSmokeGLPass();
+	/// Calypso: layered tile-smoke murk, drawn PRE-composite (under the CPU HUD/menu
+	/// layer, so it never covers them and isn't clipped). _murkTime freezes while the
+	/// battlescape is not the top state, so the murk holds still under an open menu.
+	void drawMurkGLPass();
+	float _murkTime = 0.0f;
 
 	/// Calypso: gating + clipping for the post-composite overlay passes (internal).
 	bool overlayPassesActive() const;   // false when a modal/other state is on top
