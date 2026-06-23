@@ -29,6 +29,7 @@
 #include "../Interface/Bar.h"
 #include "../Interface/Text.h"
 #include "../Interface/TextButton.h"
+#include "../Engine/TTFUtil.h"
 #include "../Engine/InteractiveSurface.h"
 #include "../Mod/Unit.h"
 #include "../Engine/Options.h"
@@ -274,6 +275,27 @@ UnitInfoState::UnitInfoState(BattleUnit *unit, BattlescapeState *parent, bool fr
 	// Set up objects
 	_game->getMod()->getSurface("UNIBORD.PCK")->blitNShade(_bg, 0, 0);
 
+#ifdef __EMSCRIPTEN__
+	// Calypso: scale this fullscreen info screen to fill the logical buffer.
+	// Snapshot the freshly-painted 320×200 background, scale every widget, then
+	// bilinear-stretch the snapshot back into the (now larger) _bg, and give the
+	// stat labels/numbers/name HD TTF text.
+	{
+		SDL_Surface* s = _bg->getSurface();
+		if (s && s->format->BitsPerPixel == 32)
+		{
+			_bgNative = SDL_ConvertSurface(s, s->format, 0);
+		}
+	}
+	enableUiScaling();   // design canvas 320×200 (default)
+	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
+	if (_bgNative)
+	{
+		TTFUtil::blitStretch(_bgNative, _bg);
+		_bg->setRedraw(false);
+	}
+#endif
+
 	_exit->onMouseClick((ActionHandler)&UnitInfoState::exitClick);
 	_exit->onKeyboardPress((ActionHandler)&UnitInfoState::exitClick, Options::keyCancel);
 	_exit->onKeyboardPress((ActionHandler)&UnitInfoState::exitClick, Options::keyBattleStats);
@@ -479,7 +501,29 @@ UnitInfoState::UnitInfoState(BattleUnit *unit, BattlescapeState *parent, bool fr
  */
 UnitInfoState::~UnitInfoState()
 {
+	if (_bgNative)
+	{
+		SDL_FreeSurface(_bgNative);
+	}
+}
 
+/**
+ * Calypso (Emscripten): rescale the screen to the logical buffer (instead of the
+ * base recenter) and re-stretch the background, so resolution changes keep the
+ * full-screen info panel filled and aligned.
+ */
+void UnitInfoState::resize(int &dX, int &dY)
+{
+#ifdef __EMSCRIPTEN__
+	applyUiScaling();
+	if (_bgNative)
+	{
+		TTFUtil::blitStretch(_bgNative, _bg);
+		_bg->setRedraw(false);
+	}
+#else
+	State::resize(dX, dY);
+#endif
 }
 
 /**

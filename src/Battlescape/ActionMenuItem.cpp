@@ -20,6 +20,7 @@
 #include "../Interface/Text.h"
 #include "../Interface/Frame.h"
 #include "../Engine/Game.h"
+#include "../Engine/TTFFont.h"
 #include "../Mod/Mod.h"
 #include "../Mod/RuleInterface.h"
 
@@ -33,7 +34,10 @@ namespace OpenXcom
  * @param x Position on the x-axis.
  * @param y Position on the y-axis.
  */
-ActionMenuItem::ActionMenuItem(int id, Game *game, int x, int y) : InteractiveSurface(272, 40, x + 24, y - (id*40)), _highlighted(false), _action(BA_NONE), _skill(nullptr), _tu(0)
+ActionMenuItem::ActionMenuItem(int id, Game *game, int x, int y, float scale)
+	: InteractiveSurface((int)(272 * scale + 0.5f), (int)(40 * scale + 0.5f),
+	                     x + (int)(24 * scale + 0.5f), y - (int)(id * 40 * scale + 0.5f)),
+	  _highlighted(false), _action(BA_NONE), _skill(nullptr), _tu(0)
 {
 	Font *big = game->getMod()->getFont("FONT_BIG"), *small = game->getMod()->getFont("FONT_SMALL");
 	Language *lang = game->getLanguage();
@@ -42,30 +46,49 @@ ActionMenuItem::ActionMenuItem(int id, Game *game, int x, int y) : InteractiveSu
 
 	_highlightModifier = actionMenu->TFTDMode ? 12 : 3;
 
+	// Calypso: lay out the box contents at the requested scale (scale = 1.0 on
+	// native / unscaled reproduces the vanilla 272x40 geometry exactly).
+	auto S = [scale](int v) { int r = (int)(v * scale + 0.5f); return r < 1 ? 1 : r; };
+
 	_frame = new Frame(getWidth(), getHeight(), 0, 0);
 	_frame->setHighContrast(true);
 	_frame->setColor(actionMenu->border);
 	_frame->setSecondaryColor(actionMenu->color2);
-	_frame->setThickness(8);
+	_frame->setThickness(S(8));
 
-	_txtDescription = new Text(200, 20, 10, 13);
+	_txtDescription = new Text(S(200), S(20), S(10), S(13));
 	_txtDescription->initText(big, small, lang);
 	_txtDescription->setBig();
 	_txtDescription->setHighContrast(true);
 	_txtDescription->setColor(actionMenu->color);
 	_txtDescription->setVisible(true);
 
-	_txtAcc = new Text(100, 20, 140, 13);
+	_txtAcc = new Text(S(100), S(20), S(140), S(13));
 	_txtAcc->initText(big, small, lang);
 	_txtAcc->setBig();
 	_txtAcc->setHighContrast(true);
 	_txtAcc->setColor(actionMenu->color);
 
-	_txtTU = new Text(80, 20, 210, 13);
+	_txtTU = new Text(S(80), S(20), S(210), S(13));
 	_txtTU->initText(big, small, lang);
 	_txtTU->setBig();
 	_txtTU->setHighContrast(true);
 	_txtTU->setColor(actionMenu->color);
+
+#ifdef __EMSCRIPTEN__
+	// HD TTF labels so the enlarged box stays crisp at any resolution. The bitmap
+	// FONT_BIG/SMALL stay as the fallback (multi-line / no font registered).
+	if (scale > 1.0f)
+	{
+		TTFFont *font = game->getMod()->getTTFFont("FONT_HD_HUD", false);
+		if (font)
+		{
+			_txtDescription->setTTFFont(font, 0.9f);
+			_txtAcc->setTTFFont(font, 0.9f);
+			_txtTU->setTTFFont(font, 0.9f);
+		}
+	}
+#endif
 }
 
 /**

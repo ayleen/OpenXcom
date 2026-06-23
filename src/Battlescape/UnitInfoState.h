@@ -45,6 +45,7 @@ private:
 	bool _fromInventory, _mindProbe;
 
 	Surface *_bg;
+	SDL_Surface *_bgNative = nullptr;  ///< Calypso: 320×200 background snapshot, bilinear-stretched into the scaled _bg
 	InteractiveSurface *_exit;
 	Text *_txtName;
 
@@ -67,6 +68,8 @@ public:
 	~UnitInfoState();
 	/// Updates the unit info.
 	void init() override;
+	/// Calypso: rescale to the logical buffer instead of the base recenter.
+	void resize(int &dX, int &dY) override;
 	/// Handler for clicking the button.
 	void handle(Action *action) override;
 	/// Handler for clicking the Previous button.
