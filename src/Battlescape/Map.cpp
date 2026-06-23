@@ -507,19 +507,28 @@ void Map::init()
 		// Block 11.10: tile-space cursor overlay after tile pass, before sprites.
 		_game->getScreen()->registerGPUPass([this, wf]() {
 			if (!wf.lock()) return;
+			if (!this->overlayPassesActive()) return;   // not over a menu
+			this->beginMapScissor();                     // not over the HUD
 			this->drawCursorOverlayGLPass();
+			this->endMapScissor();
 		});
 		// Block 11.8: projectile pass fires after cursor overlay.
 		_game->getScreen()->registerGPUPass([this, wf]() {
 			if (!wf.lock()) return;
+			if (!this->overlayPassesActive()) return;
+			this->beginMapScissor();
 			this->drawProjectileGLPass();
+			this->endMapScissor();
 		});
 		// Block 11.9: smoke/explosion pass fires after projectile pass
 		// (cursor registered from BattlescapeState ctor last, so order is:
 		//  tiles → cursor overlay → projectiles → smoke → cursor).
 		_game->getScreen()->registerGPUPass([this, wf]() {
 			if (!wf.lock()) return;
+			if (!this->overlayPassesActive()) return;
+			this->beginMapScissor();
 			this->drawSmokeGLPass();
+			this->endMapScissor();
 		});
 
 		// Block 11.13: after context restore, zero stale VAO/VBO handles and
@@ -1942,6 +1951,7 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 					{
 						int vaporX = vaporScreenOriginX + p.getOffsetX();
 						int vaporY = vaporScreenOriginY + p.getOffsetY();
+						if (vaporY >= mapClipBottomY()) continue;   // keep vapor on the map, off the HUD
 						ShaderDrawFunc(
 							[&](Uint32& dest, int size)
 							{
@@ -2027,6 +2037,7 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 					{
 						int vaporX = vaporScreenOriginX + p.getOffsetX();
 						int vaporY = vaporScreenOriginY + p.getOffsetY();
+						if (vaporY >= mapClipBottomY()) continue;   // keep vapor on the map, off the HUD
 						// R1.2 / Q1: see comment on the back-row loop above.
 						ShaderDrawFunc(
 							[&](Uint32& dest, int size)
@@ -4907,6 +4918,46 @@ void Map::drawProjectileGLPass()
  * All sprites are drawn via the shared "textured" shader (same VAO/VBO as projectiles).
  * Thrown items and _flashScreen pixel-flash remain in the CPU path.
  */
+/**
+ * Calypso: the post-composite overlay passes (tile cursor, projectiles, smoke /
+ * underwater explosion) belong to the battlescape. Skip them when a modal/other
+ * state is on top, so the effect never paints over a menu.
+ */
+bool Map::overlayPassesActive() const
+{
+	return !_overlayOwner || (_game && _game->isState(_overlayOwner));
+}
+
+/** Base-res Y where the (HD) HUD starts; the visible map is above this. */
+int Map::mapClipBottomY() const
+{
+	return (_hudTopYBase >= 0) ? _hudTopYBase : _visibleMapHeight;
+}
+
+/** Clip the post-composite GL passes to the map viewport (above the HUD). */
+void Map::beginMapScissor()
+{
+	Screen* screen = _game->getScreen();
+	const float yScale = static_cast<float>(screen->getYScale());
+	const int tbb = screen->getCursorTopBlackBand();
+	const int dW = Options::displayWidth, dH = Options::displayHeight;
+	int scH = (int)(mapClipBottomY() * yScale + 0.5f);
+	if (scH < 0) scH = 0; if (scH > dH) scH = dH;
+	_savedScissorOn = glIsEnabled(GL_SCISSOR_TEST) == GL_TRUE;
+	glGetIntegerv(GL_SCISSOR_BOX, _savedScissorBox);
+	glEnable(GL_SCISSOR_TEST);
+	glScissor(0, dH - tbb - scH, dW, scH);   // GL origin is bottom-left
+}
+
+/** Restore the scissor state saved by beginMapScissor(). */
+void Map::endMapScissor()
+{
+	if (_savedScissorOn)
+		glScissor(_savedScissorBox[0], _savedScissorBox[1], _savedScissorBox[2], _savedScissorBox[3]);
+	else
+		glDisable(GL_SCISSOR_TEST);
+}
+
 void Map::drawSmokeGLPass()
 {
 	if (SDL_GetTicks() - _lastDrawnTicks > 250) return;

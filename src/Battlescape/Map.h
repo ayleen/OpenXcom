@@ -51,6 +51,7 @@ class Text;
 class Tile;
 class UnitSprite;
 class TTFFont;
+class State;
 
 enum CursorType { CT_NONE, CT_NORMAL, CT_AIM, CT_PSI, CT_WAYPOINT, CT_THROW };
 enum TilePart : int;
@@ -112,6 +113,13 @@ private:
 	BattlescapeMessage *_message;
 	Camera *_camera;
 	int _visibleMapHeight;
+	// Calypso: the post-composite GL overlay passes (cursor/projectile/smoke) are
+	// gated to the owning battlescape state and clipped to the map viewport so the
+	// underwater explosion/vapor effect never paints over the HUD or a modal menu.
+	State* _overlayOwner = nullptr;
+	int _hudTopYBase = -1;           // base-res Y of the HUD top (HD panel); -1 = use _visibleMapHeight
+	int _savedScissorBox[4] = {0, 0, 0, 0};
+	bool _savedScissorOn = false;
 	std::vector<Position> _waypoints;
 	bool _unitDying, _smoothCamera, _smoothingEngaged, _flashScreen;
 	int _bgColor;
@@ -288,6 +296,12 @@ private:
 	void emitSmokeInstances();
 	void drawSmokeGLPass();
 
+	/// Calypso: gating + clipping for the post-composite overlay passes (internal).
+	bool overlayPassesActive() const;   // false when a modal/other state is on top
+	int  mapClipBottomY() const;        // base-res bottom of the visible map (above HUD)
+	void beginMapScissor();             // glScissor to the map viewport
+	void endMapScissor();               // restore prior scissor state
+
 	/// Block 11.10 / Phase 16: tile-space cursor marker overlay instance.
 	/// CS_RASTER:         existing sprite path (set + frameIdx).
 	/// CS_MARKER_*:       SDF 4-tip animated path — set/frameIdx unused.
@@ -369,6 +383,10 @@ public:
 	~Map();
 	/// Initializes the map.
 	void init();
+	/// Calypso: owning battlescape state — overlay passes only fire while it is on top.
+	void setOverlayOwner(State* s) { _overlayOwner = s; }
+	/// Calypso: base-res Y of the (HD) HUD top, so overlays/vapor clip above it.
+	void setHudTopY(int y) { _hudTopYBase = y; }
 	/// Handles timers.
 	void think() override;
 	/// Update visibility timestamp and blit.

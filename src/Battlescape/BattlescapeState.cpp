@@ -217,6 +217,10 @@ BattlescapeState::BattlescapeState() :
 	// Create the battlemap view
 	// the actual map height is the total height minus the height of the buttonbar
 	_map = new Map(_game, screenWidth, screenHeight, 0, 0, visibleMapHeight);
+	// Calypso: the map's post-composite overlay passes (cursor/projectile/smoke /
+	// underwater explosion) only fire while this state is on top, so they never
+	// paint over a modal menu.
+	_map->setOverlayOwner(this);
 
 	_numLayers = new NumberText(3, 5, x + 232, y + 6);
 	_rank = new Surface(26, 23, x + 107, y + 33);
@@ -4313,6 +4317,8 @@ void BattlescapeState::layoutHud()
 
 	const int panelX = Options::baseXResolution / 2 - newW / 2;
 	const int panelY = Options::baseYResolution - newH;
+	// Clip the map's overlay/vapor passes to just above the (taller) HD HUD panel.
+	_map->setHudTopY(panelY);
 
 	// Publish the HD "toggled" panel + the live panel transform so a pressed/
 	// toggled BattlescapeButton can blit its own gold region (top-left aligned).
