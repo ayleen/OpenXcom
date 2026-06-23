@@ -29,6 +29,7 @@
 #include "../Engine/Timer.h"
 #include "../Engine/Action.h"
 #include "../Engine/Options.h"
+#include "../Engine/TTFUtil.h"
 #include "../Savegame/SavedBattleGame.h"
 
 namespace OpenXcom
@@ -74,6 +75,28 @@ MiniMapState::MiniMapState (Camera * camera, SavedBattleGame * battleGame)
 		_bg->drawRect(46, 14, 223, 151, Palette::blockOffset(15)+15);
 	}
 
+#ifdef __EMSCRIPTEN__
+	// Calypso: scale the minimap to fill the logical buffer. Snapshot the painted
+	// 320×200 SCANBORD background, scale every widget (the MiniMapView repaints to
+	// fill its larger surface — more map context, same 4px cells), give the level
+	// label HD TTF, then bilinear-stretch the background back into the scaled _bg.
+	// (The trailing _miniMapView->draw() below repaints the view at its new size.)
+	{
+		SDL_Surface* s = _bg->getSurface();
+		if (s && s->format->BitsPerPixel == 32)
+		{
+			_bgNative = SDL_ConvertSurface(s, s->format, 0);
+		}
+	}
+	enableUiScaling();
+	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
+	if (_bgNative)
+	{
+		TTFUtil::blitStretch(_bgNative, _bg);
+		_bg->setRedraw(false);
+	}
+#endif
+
 	_btnLvlUp->onMouseClick((ActionHandler)&MiniMapState::btnLevelUpClick);
 	_btnLvlDwn->onMouseClick((ActionHandler)&MiniMapState::btnLevelDownClick);
 	_btnOk->onMouseClick((ActionHandler)&MiniMapState::btnOkClick);
@@ -94,6 +117,29 @@ MiniMapState::MiniMapState (Camera * camera, SavedBattleGame * battleGame)
 MiniMapState::~MiniMapState()
 {
 	delete _timerAnimate;
+	if (_bgNative)
+	{
+		SDL_FreeSurface(_bgNative);
+	}
+}
+
+/**
+ * Calypso (Emscripten): rescale the minimap to the logical buffer and re-stretch
+ * the background + repaint the view, so resolution changes keep it filled.
+ */
+void MiniMapState::resize(int &dX, int &dY)
+{
+#ifdef __EMSCRIPTEN__
+	applyUiScaling();
+	if (_bgNative)
+	{
+		TTFUtil::blitStretch(_bgNative, _bg);
+		_bg->setRedraw(false);
+	}
+	_miniMapView->draw();
+#else
+	State::resize(dX, dY);
+#endif
 }
 
 /**
