@@ -303,6 +303,21 @@ private:
 	void drawMurkGLPass();
 	float _murkTime = 0.0f;
 
+	// --- Calypso Phase 30: hit/impact FX (Срез A). All Emscripten-only. ---
+	/// Transient additive flash quad at a hit voxel; drawn over the scene in
+	/// drawSmokeGLPass, ages by wall-clock, self-erases.
+	struct ImpactFlash { Position voxel; unsigned int spawnTick; float lifeMs; };
+	std::vector<ImpactFlash> _impactFlashes;
+	/// Per-unit sprite jolt toward bullet travel: a screen-space unit-vector +
+	/// remaining anim frames. Keyed by BattleUnit::getId(). Faction-agnostic.
+	struct UnitShake { float dx, dy; int framesLeft; int totalFrames; };
+	std::map<int, UnitShake> _unitShakeOffset;
+	/// Camera shake (decaying sine); amplitude in surface px, 0 = inactive.
+	/// mutable so currentShakeOffset() (const) can settle it back to 0 on expiry.
+	mutable float _shakeAmp     = 0.0f;
+	unsigned int  _shakeStartMs = 0;
+	Position currentShakeOffset() const;   // (0,0,0) when no shake is active
+
 	/// Calypso: gating + clipping for the post-composite overlay passes (internal).
 	bool overlayPassesActive() const;   // false when a modal/other state is on top
 	int  mapClipBottomY() const;        // base-res bottom of the visible map (above HUD)
@@ -394,6 +409,14 @@ public:
 	void setOverlayOwner(State* s) { _overlayOwner = s; }
 	/// Calypso: base-res Y of the (HD) HUD top, so overlays/vapor clip above it.
 	void setHudTopY(int y) { _hudTopYBase = y; }
+#ifdef __EMSCRIPTEN__
+	/// Calypso Phase 30: trigger hit FX at a contact point (faction-agnostic; unit
+	/// may be absent for terrain/object hits). dirX/dirY = screen-space push for the
+	/// unit jolt (ignored when unitId < 0). Emscripten-only.
+	void triggerHitFx(Position voxelCenter, int power, int unitId, float dirX, float dirY);
+	/// Calypso Phase 30: start a decaying camera shake (base amplitude in native px).
+	void triggerShake(float amplitudePx);
+#endif
 	/// Handles timers.
 	void think() override;
 	/// Update visibility timestamp and blit.

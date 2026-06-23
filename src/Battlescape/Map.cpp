@@ -1192,6 +1192,20 @@ void Map::drawUnit(UnitSprite &unitSprite, Tile *unitTile, Tile *currTile, Posit
 	// draw unit
 	int shade = 0;
 	UnitWalkingOffset offsets = calculateWalkingOffset(bu);
+#ifdef __EMSCRIPTEN__
+	// Calypso P30: hit-jolt — nudge the sprite toward bullet travel, decaying over
+	// a few anim frames. Propagates to the GPU atlas path too (same screen coords).
+	{
+		auto sit = _unitShakeOffset.find(bu->getId());
+		if (sit != _unitShakeOffset.end() && sit->second.framesLeft > 0)
+		{
+			const float t = (float)sit->second.framesLeft / (float)sit->second.totalFrames;
+			const float ampPx = (float)_spriteWidth * 0.14f * t;
+			offsets.ScreenOffset.x += (int)std::lround(sit->second.dx * ampPx);
+			offsets.ScreenOffset.y += (int)std::lround(sit->second.dy * ampPx);
+		}
+	}
+#endif
 	if (moving)
 	{
 		const Position start = bu->getPosition();
@@ -1515,7 +1529,10 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 #endif
 
 	surface->lock();
-	const Position cameraPos = _camera->getMapOffset();
+	Position cameraPos = _camera->getMapOffset();
+#ifdef __EMSCRIPTEN__
+	cameraPos += currentShakeOffset();   // Calypso P30: camera shake (CPU overlay path)
+#endif
 	for (int itZ = beginZ; itZ <= endZ; itZ++)
 	{
 		bool topLayer = itZ == endZ;
@@ -2986,7 +3003,10 @@ void Map::emitTilePass()
 
 	const int mapOffsetX    = getX();
 	const int mapOffsetY    = getY();
-	const Position camOff   = _camera->getMapOffset();
+	Position camOff         = _camera->getMapOffset();
+#ifdef __EMSCRIPTEN__
+	camOff += currentShakeOffset();   // Calypso P30: camera shake (GPU tile pass)
+#endif
 	const int halfAnimFrame = (_animFrame / 2) % 4;
 	SurfaceSet* smokeSet = mod->getSurfaceSet("SMOKE.PCK");
 	static const TilePart parts[4] = { O_FLOOR, O_WESTWALL, O_NORTHWALL, O_OBJECT };
@@ -5118,6 +5138,42 @@ void Map::drawMurkGLPass()
 #endif
 }
 
+/// Calypso Phase 30: current camera-shake screen offset (decaying sine). (0,0,0) idle.
+Position Map::currentShakeOffset() const
+{
+	if (_shakeAmp <= 0.0f) return Position(0, 0, 0);
+	const float elapsed = (float)(SDL_GetTicks() - _shakeStartMs) * 0.001f;
+	const float dur = 0.30f;
+	if (elapsed >= dur) { _shakeAmp = 0.0f; return Position(0, 0, 0); }   // settle (skip future work)
+	float env = 1.0f - elapsed / dur; env *= env;                          // ease-out
+	const float a = _shakeAmp * env;
+	const float w = 46.0f;                                                 // angular freq
+	const int dx = (int)std::lround(std::sin(elapsed * w)               * a);
+	const int dy = (int)std::lround(std::sin(elapsed * w * 1.7f + 1.1f) * a * 0.55f);
+	return Position(dx, dy, 0);
+}
+
+void Map::triggerShake(float amplitudePx)
+{
+	const float es = (float)_spriteWidth / 32.0f;                          // tile-scale aware
+	_shakeAmp = amplitudePx * es;
+	_shakeStartMs = SDL_GetTicks();
+}
+
+void Map::triggerHitFx(Position voxelCenter, int power, int unitId, float dirX, float dirY)
+{
+	// Contact flash at the impact point (works for terrain / object / unit alike).
+	_impactFlashes.push_back(ImpactFlash{ voxelCenter, SDL_GetTicks(), 400.0f });
+	// Camera shake, scaled by power.
+	triggerShake(std::min(6.0f, 1.5f + (float)power * 0.06f));
+	// Sprite jolt for the struck unit (any faction), toward bullet travel.
+	if (unitId >= 0)
+	{
+		const int frames = 3;
+		_unitShakeOffset[unitId] = UnitShake{ dirX, dirY, frames, frames };
+	}
+}
+
 void Map::drawSmokeGLPass()
 {
 	if (SDL_GetTicks() - _lastDrawnTicks > 250) return;
@@ -5126,7 +5182,8 @@ void Map::drawSmokeGLPass()
 	if (!_spriteVAO) return;
 
 	const bool hasExplosionWork = _explosionInFOV && !_flashScreen && !_explosions.empty();
-	if (!hasExplosionWork) return;   // tile-smoke murk is now a separate pre-composite pass
+	const bool hasFlashWork     = !_impactFlashes.empty();   // Calypso P30: impact flashes
+	if (!hasExplosionWork && !hasFlashWork) return;   // tile-smoke murk is a separate pre-composite pass
 
 	Screen* screen = _game->getScreen();
 	const float xScale = static_cast<float>(screen->getXScale());
@@ -5185,20 +5242,22 @@ void Map::drawSmokeGLPass()
 		Mod* mod = _game->getMod();
 		SurfaceSet* x1Set    = mod->getSurfaceSet("X1.PCK");
 		SurfaceSet* hitSet   = mod->getSurfaceSet("HIT.PCK");
-		SurfaceSet* smokeSet = mod->getSurfaceSet("SMOKE.PCK");
+		// Calypso P30: SMOKE.PCK bullet-hit puff render is disabled below (replaced by
+		// the impact-flash animation), so its SurfaceSet is no longer fetched here.
 		const int mapX = getX();
 		const int mapY = getY();
 		// Phase 24: explosion/hit sprites are voxel-anchored effects, not tile-sized.
 		// Scale both their size and their hand-tuned centring offsets with the tile
 		// scale (native 32-wide tile -> es = 1, unchanged).
 		const int es = _spriteWidth / 32;
+		const Position shkE = currentShakeOffset();   // Calypso P30: glue blasts to the shaking scene
 
 		for (const auto* explosion : _explosions)
 		{
 			Position sp;
 			_camera->convertVoxelToScreen(explosion->getPosition(), &sp);
-			const int bsx = sp.x + mapX;
-			const int bsy = sp.y + mapY;
+			const int bsx = sp.x + mapX + shkE.x;
+			const int bsy = sp.y + mapY + shkE.y;
 
 			// Size each blit by the set's LOGICAL frame size, not the texture's: HD
 			// (hd:true) frames are higher-res than 128x64 / 32x40 but must keep the
@@ -5220,11 +5279,54 @@ void Map::drawSmokeGLPass()
 			}
 			else
 			{
-				GpuTexture* tex = getOrUploadSpriteFrame(smokeSet, explosion->getCurrentFrame());
-				if (!tex) continue;
-				drawQuad(tex, bsx - 15 * es, bsy - 15 * es, smokeSet->getWidth() * es, smokeSet->getHeight() * es, 0.0f);
+				// Calypso P30: the vanilla bullet-hit SMOKE puff (SMOKE.PCK 46-55) is
+				// replaced by the impact-flash burst drawn below. Skip its render; the
+				// Explosion object is kept so ExplosionBState timing is unchanged.
+				continue;
 			}
 		}
+	}
+
+	// --- Calypso Phase 30: impact flashes (additive contact pop, anchored to voxel) ---
+	// A 4-frame burst (core -> starburst -> shockwave ring -> dissipating ring),
+	// driven by the instance age. White+alpha PNGs, tinted warm-white here.
+	if (hasFlashWork)
+	{
+		const unsigned int now = SDL_GetTicks();
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE);   // additive glow
+		const int fMapX = getX();
+		const int fMapY = getY();
+		const Position shk = currentShakeOffset();
+		_spriteShader->setUniform3f("u_tint", 1.0f, 0.96f, 0.85f);
+		for (const auto& fl : _impactFlashes)
+		{
+			float age = (float)(now - fl.spawnTick) / fl.lifeMs;
+			if (age < 0.0f) age = 0.0f;
+			if (age >= 1.0f) continue;
+			int fr = (int)(age * 4.0f);
+			if (fr < 0) fr = 0; else if (fr > 3) fr = 3;
+			GpuTexture* tex = getUITexture(
+				std::string("Resources/battlescape/fx/impact/impact-flash-") + std::to_string(fr) + ".png", 0);
+			if (!tex) continue;
+			Position sp;
+			_camera->convertVoxelToScreen(fl.voxel, &sp);
+			const int cx = sp.x + fMapX + shk.x;
+			const int cy = sp.y + fMapY + shk.y;
+			const float scale = 1.0f + 0.20f * age;            // slight overall grow
+			const int side = (int)((float)_spriteWidth * 2.2f * scale);
+			float fade = 1.0f;
+			if (age > 0.7f) fade = 1.0f - (age - 0.7f) / 0.3f; // ease out the tail
+			_spriteShader->setUniform1f("u_alpha", std::max(0.04f, fade));
+			drawQuad(tex, cx - side / 2, cy - side / 2, side, side, 0.0f);
+		}
+		_spriteShader->setUniform1f("u_alpha", 1.0f);
+		_spriteShader->setUniform3f("u_tint", 1.0f, 1.0f, 1.0f);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);   // restore straight-alpha (we switched to additive)
+		// expire spent flashes
+		_impactFlashes.erase(
+			std::remove_if(_impactFlashes.begin(), _impactFlashes.end(),
+				[now](const ImpactFlash& f){ return (now - f.spawnTick) >= (unsigned int)f.lifeMs; }),
+			_impactFlashes.end());
 	}
 
 	glDisable(GL_BLEND);
@@ -5434,6 +5536,22 @@ void Map::animate(bool redraw)
 {
 	_save->nextAnimFrame();
 	_animFrame = _save->getAnimFrame();
+
+#ifdef __EMSCRIPTEN__
+	// Calypso P30: age hit-jolt counters; expire spent impact flashes.
+	for (auto it = _unitShakeOffset.begin(); it != _unitShakeOffset.end(); )
+	{
+		if (--it->second.framesLeft <= 0) it = _unitShakeOffset.erase(it);
+		else ++it;
+	}
+	{
+		const unsigned int now = SDL_GetTicks();
+		_impactFlashes.erase(
+			std::remove_if(_impactFlashes.begin(), _impactFlashes.end(),
+				[now](const ImpactFlash& f){ return (now - f.spawnTick) >= (unsigned int)f.lifeMs; }),
+			_impactFlashes.end());
+	}
+#endif
 
 	// random ambient sounds
 	{
