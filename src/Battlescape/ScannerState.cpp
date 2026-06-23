@@ -25,6 +25,7 @@
 #include "../Engine/Timer.h"
 #include "../Engine/Screen.h"
 #include "../Engine/Options.h"
+#include "../Engine/TTFUtil.h"
 #include "../Savegame/BattleUnit.h"
 #include "../Mod/Mod.h"
 #include "../Savegame/SavedGame.h"
@@ -66,6 +67,24 @@ ScannerState::ScannerState (BattleAction *action) : _action(action)
 
 	_game->getMod()->getSurface("DETBORD.PCK")->blitNShade(_bg, 0, 0);
 	_game->getMod()->getSurface("DETBORD2.PCK")->blitNShade(_scan, 0, 0);
+
+#ifdef __EMSCRIPTEN__
+	// Calypso: scale this popup to fill the logical buffer (0.5x of fill — it is a
+	// small popup like the minimap/medikit per QA). Snapshot both painted 320x200
+	// backgrounds, scale every widget (the ScannerView composites native then
+	// scale-blits), then bilinear-stretch both backgrounds back in.
+	{
+		SDL_Surface* sb = _bg->getSurface();
+		if (sb && sb->format->BitsPerPixel == 32) _bgNative = SDL_ConvertSurface(sb, sb->format, 0);
+		SDL_Surface* ss = _scan->getSurface();
+		if (ss && ss->format->BitsPerPixel == 32) _scanNative = SDL_ConvertSurface(ss, ss->format, 0);
+	}
+	enableUiScaling(320, 200, 0.5f);
+	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
+	if (_bgNative)   { TTFUtil::blitStretch(_bgNative, _bg);   _bg->setRedraw(false); }
+	if (_scanNative) { TTFUtil::blitStretch(_scanNative, _scan); _scan->setRedraw(false); }
+#endif
+
 	_bg->onMouseClick((ActionHandler)&ScannerState::exitClick);
 	_bg->onKeyboardPress((ActionHandler)&ScannerState::exitClick, Options::keyCancel);
 
@@ -79,6 +98,23 @@ ScannerState::ScannerState (BattleAction *action) : _action(action)
 ScannerState::~ScannerState()
 {
 	delete _timerAnimate;
+	if (_bgNative)   SDL_FreeSurface(_bgNative);
+	if (_scanNative) SDL_FreeSurface(_scanNative);
+}
+
+/**
+ * Calypso (Emscripten): rescale to the logical buffer and re-stretch both
+ * backgrounds, so resolution changes keep the scanner popup filled and aligned.
+ */
+void ScannerState::resize(int &dX, int &dY)
+{
+#ifdef __EMSCRIPTEN__
+	applyUiScaling();
+	if (_bgNative)   { TTFUtil::blitStretch(_bgNative, _bg);   _bg->setRedraw(false); }
+	if (_scanNative) { TTFUtil::blitStretch(_scanNative, _scan); _scan->setRedraw(false); }
+#else
+	State::resize(dX, dY);
+#endif
 }
 
 /**
