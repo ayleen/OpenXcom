@@ -88,7 +88,7 @@ MiniMapState::MiniMapState (Camera * camera, SavedBattleGame * battleGame)
 			_bgNative = SDL_ConvertSurface(s, s->format, 0);
 		}
 	}
-	enableUiScaling();
+	enableUiScaling(320, 200, 0.5f);   // QA tuning: MiniMap too big — scale to half
 	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
 	if (_bgNative)
 	{

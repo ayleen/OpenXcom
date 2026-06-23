@@ -287,7 +287,7 @@ UnitInfoState::UnitInfoState(BattleUnit *unit, BattlescapeState *parent, bool fr
 			_bgNative = SDL_ConvertSurface(s, s->format, 0);
 		}
 	}
-	enableUiScaling();   // design canvas 320×200 (default)
+	enableUiScaling(320, 200, 1.5f);   // QA tuning: UnitInfo reads small — scale up 1.5×
 	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
 	if (_bgNative)
 	{

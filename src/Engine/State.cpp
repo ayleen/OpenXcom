@@ -699,11 +699,12 @@ void State::recenter(int dX, int dY)
  * HUD panel art. Vector widgets (Window, *Button, Bar, Text geometry) redraw at
  * the new size for free.
  */
-void State::enableUiScaling(int designW, int designH)
+void State::enableUiScaling(int designW, int designH, float factor)
 {
 	if (_uiCaptured || designW <= 0 || designH <= 0) return;
 	_uiDesignW = designW;
 	_uiDesignH = designH;
+	_uiFactor = factor > 0.0f ? factor : 1.0f;
 	_uiNative.clear();
 	// Undo the centring centerAllSurfaces() applied, recovering design-space
 	// coords. Deterministic: getDX/getDY is always (_base - ORIGINAL)/2.
@@ -729,7 +730,7 @@ void State::applyUiScaling()
 	if (!_uiCaptured) return;
 	const float fx = (float)Options::baseXResolution / (float)_uiDesignW;
 	const float fy = (float)Options::baseYResolution / (float)_uiDesignH;
-	float s = fx < fy ? fx : fy;
+	float s = (fx < fy ? fx : fy) * _uiFactor;
 	if (s < 1.0f) s = 1.0f;
 	_uiScale = s;
 	const int offX = (Options::baseXResolution - (int)(_uiDesignW * s + 0.5f)) / 2;

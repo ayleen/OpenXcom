@@ -39,6 +39,7 @@ class MiniMapView : public InteractiveSurface
 	int _frame;
 	SurfaceSet * _set;
 	int _emptySpaceIndex;
+	int _baseW, _baseH;  ///< Calypso: native view size; when scaled the minimap is rendered native then scale-blitted
 	// these two are required for right-button scrolling on the minimap
 	bool _isMouseScrolling;
 	bool _isMouseScrolled;
@@ -56,6 +57,9 @@ class MiniMapView : public InteractiveSurface
 	void mouseOver(Action *action, State *state) override;
 	/// Handles moving the mouse into the MiniMap surface.
 	void mouseIn(Action *action, State *state) override;
+	/// Calypso: renders the minimap into a target surface at a given size (so a
+	/// scaled view can render native then scale-blit, keeping cell size scaled).
+	void renderMinimap(Surface* dst, int viewW, int viewH);
 public:
 	/// Creates the MiniMapView.
 	MiniMapView(int w, int h, int x, int y, Game * game, Camera * camera, SavedBattleGame * battleGame);
