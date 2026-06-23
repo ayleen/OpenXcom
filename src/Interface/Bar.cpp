@@ -203,6 +203,44 @@ void Bar::draw()
 		square.w = (Uint16)(_scale * _value);
 		drawRect(&square, _color);
 	}
+
+#ifdef __EMSCRIPTEN__
+	// Calypso: shade the filled portion left->right from dark to light. drawRect
+	// has written ARGB straight into _surface in this build, so we re-modulate the
+	// non-transparent fill pixels by a horizontal position ramp.
+	if (_gradient)
+	{
+		SDL_Surface* s = getSurface();
+		if (s && s->format && s->format->BitsPerPixel == 32)
+		{
+			const double fv = _value > _value2 ? _value : _value2;
+			int fillW = (int)(_scale * fv);
+			if (fillW > s->w) fillW = s->w;
+			const int hh = getHeight();
+			if (fillW > 1)
+			{
+				SDL_LockSurface(s);
+				for (int yy = 1; yy < hh - 1 && yy < s->h; ++yy)
+				{
+					Uint32* row = (Uint32*)((Uint8*)s->pixels + yy * s->pitch);
+					for (int xx = 1; xx < fillW; ++xx)
+					{
+						const Uint32 px = row[xx];
+						if ((px >> 24) == 0) continue;           // skip empty/transparent
+						const float t = (float)(xx - 1) / (float)(fillW - 1);  // 0 left .. 1 right
+						const float f = 0.40f + 0.60f * t;        // dark -> light
+						const Uint8 a = (px >> 24) & 0xFF;
+						const Uint8 r = (Uint8)(((px >> 16) & 0xFF) * f);
+						const Uint8 g = (Uint8)(((px >>  8) & 0xFF) * f);
+						const Uint8 b = (Uint8)(( px        & 0xFF) * f);
+						row[xx] = ((Uint32)a << 24) | ((Uint32)r << 16) | ((Uint32)g << 8) | b;
+					}
+				}
+				SDL_UnlockSurface(s);
+			}
+		}
+	}
+#endif
 }
 
 /**

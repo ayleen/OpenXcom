@@ -34,7 +34,10 @@ private:
 	Uint8 _color, _color2, _borderColor;
 	double _scale, _max, _value, _value2;
 	bool _secondOnTop;
+	bool _gradient = false;   // Calypso (Emscripten): left->right dark->light fill
 public:
+	/// Calypso: enable a left-to-right dark->light gradient over the filled bar.
+	void setGradient(bool g) { _gradient = g; }
 	/// Creates a new bar with the specified size and position.
 	Bar(int width, int height, int x = 0, int y = 0);
 	/// Cleans up the bar.

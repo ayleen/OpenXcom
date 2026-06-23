@@ -40,6 +40,7 @@ class BattleItem;
 class Timer;
 class WarningMessage;
 class BattlescapeGame;
+class TTFFont;
 
 /**
  * Battlescape screen which shows the tactical battle.
@@ -303,6 +304,14 @@ public:
 	/// Blit the soldier's inventory look sprite (head/shoulders crop, round-masked)
 	/// into the HUD portrait cell. Null/non-soldier clears it. Emscripten-only.
 	void applyPortrait(BattleUnit* unit);
+	/// Lazy-resolve the large Oxanium HUD font (FONT_HD_HUD).
+	TTFFont* getHudFont();
+	/// Render the soldier name into _txtName via the TTF HUD font (scalable).
+	void applyHudName(BattleUnit* unit);
+	/// Draw one stat number as a TTF value inside a coloured rounded box.
+	void applyHudNumber(NumberText* w, int value, Uint32 accentArgb);
+	/// Render the TU/Energy/Health/Morale number boxes for a unit (null clears).
+	void applyHudNumbers(BattleUnit* unit);
 	struct HudNativeRect { Surface* surf; int dx; int dy; int w; int h; };
 	std::vector<HudNativeRect> _hudNative;
 	int _hudNativeIconsW = 0;
@@ -311,6 +320,7 @@ public:
 	float _hudScale = 1.0f;
 	bool _hudCaptured = false;
 	int _hudRankIndex = -1;
+	TTFFont* _hudFont = nullptr;
 };
 
 }
