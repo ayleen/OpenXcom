@@ -5313,7 +5313,7 @@ void Map::drawSmokeGLPass()
 			const int cx = sp.x + fMapX + shk.x;
 			const int cy = sp.y + fMapY + shk.y;
 			const float scale = 1.0f + 0.20f * age;            // slight overall grow
-			const int side = (int)((float)_spriteWidth * 2.2f * scale);
+			const int side = (int)((float)_spriteWidth * 1.1f * scale);
 			float fade = 1.0f;
 			if (age > 0.7f) fade = 1.0f - (age - 0.7f) / 0.3f; // ease out the tail
 			_spriteShader->setUniform1f("u_alpha", std::max(0.04f, fade));
