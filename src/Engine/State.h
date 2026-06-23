@@ -34,6 +34,7 @@ class Action;
 class SavedBattleGame;
 class RuleInterface;
 class Sound;
+class TTFFont;
 
 enum SoldierGender : char;
 
@@ -62,6 +63,22 @@ protected:
 
 	SDL_Color _palette[256];
 	Uint8 _cursorColor;
+#ifdef __EMSCRIPTEN__
+	/// Calypso: one captured native (design-space) rect for uniform UI scaling.
+	struct UiScaledRect { Surface* surf; int x, y, w, h; };
+	std::vector<UiScaledRect> _uiNative;   ///< native (design-space) geometry, captured once
+	int _uiDesignW = 0;                    ///< design canvas width  (e.g. 320)
+	int _uiDesignH = 0;                    ///< design canvas height (e.g. 200)
+	bool _uiCaptured = false;
+	float _uiScale = 1.0f;                 ///< last applied uniform scale
+	/// Calypso: capture native geometry of every added surface (call AFTER
+	/// centerAllSurfaces) and lay the state out scaled to fill the logical buffer.
+	void enableUiScaling(int designW = 320, int designH = 200);
+	/// Calypso: re-apply the uniform UI scale (call from a resize() override).
+	void applyUiScaling();
+	/// Calypso: opt every Text / TextButton in the state into HD TTF rendering.
+	void applyTTFToTexts(TTFFont* font, float fillFrac = 1.0f);
+#endif
 public:
 	/// Creates a new state linked to a game.
 	State();

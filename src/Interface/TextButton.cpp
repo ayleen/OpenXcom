@@ -101,6 +101,11 @@ void TextButton::setTextColorRGB(Uint32 argb)
 	_text->setColorRGB(argb);
 	_redraw = true;
 }
+void TextButton::setTTFFont(TTFFont *font, float fillFrac)
+{
+	_text->setTTFFont(font, fillFrac);
+	_redraw = true;
+}
 
 /**
  * Changes the text to use the big-size font.

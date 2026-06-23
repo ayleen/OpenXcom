@@ -27,6 +27,7 @@ class Font;
 class Language;
 class Sound;
 class ComboBox;
+class TTFFont;
 
 /**
  * Coloured button with a text label.
@@ -61,6 +62,8 @@ public:
 	void setTextColor(Uint8 color);
 	/// Sets the text button's text color as 32-bit ARGB.
 	void setTextColorRGB(Uint32 argb);
+	/// Calypso: opt the label into HD TTF rendering (forwarded to the inner Text).
+	void setTTFFont(TTFFont *font, float fillFrac = 1.0f);
 	/// Sets the text size to big.
 	void setBig();
 	/// Sets the text size to small.

@@ -25,6 +25,8 @@
 #include "../Engine/ShaderDraw.h"
 #include "../Engine/ShaderMove.h"
 #include "../Engine/Action.h"
+#include "../Engine/TTFFont.h"
+#include "../Engine/TTFUtil.h"
 
 namespace OpenXcom
 {
@@ -245,6 +247,21 @@ void Text::setColorRGB(Uint32 argb)
 void Text::setColorRGB2(Uint32 argb)
 {
 	_colorRGB2 = argb;
+	_redraw = true;
+}
+
+/**
+ * Calypso: opt this label into HD TrueType rendering. While a font is set,
+ * single-line text is rasterised via TTF and fit-blitted (the bitmap Font path
+ * is kept intact and used for null / multi-line). @a fillFrac shrinks the glyph
+ * block within the widget box.
+ * @param font HD font (or null to restore the bitmap path).
+ * @param fillFrac Fraction of the fit box to fill (0 < fillFrac <= 1).
+ */
+void Text::setTTFFont(TTFFont *font, float fillFrac)
+{
+	_ttf = font;
+	_ttfFill = fillFrac > 0.0f ? fillFrac : 1.0f;
 	_redraw = true;
 }
 
@@ -514,6 +531,75 @@ int Text::getLineX(int line) const
  * Draws all the characters in the text with a really
  * nasty complex gritty text rendering algorithm logic stuff.
  */
+#ifdef __EMSCRIPTEN__
+/**
+ * Calypso: rasterise the label via the opt-in TTF font and fit-blit it into this
+ * surface. Returns false (keep the bitmap path) for multi-line text, a missing
+ * palette, or a failed render. Colour comes from the explicit ARGB color when
+ * set, otherwise the brightest step of the widget's palette colour ramp — the
+ * same texel the bitmap glyph core would use — so TTF labels match their theme.
+ */
+bool Text::drawTTF()
+{
+	if (!_ttf || getNumLines() > 1)
+	{
+		return false;
+	}
+	SDL_Color rgba;
+	if (_useRGB)
+	{
+		rgba.r = (_colorRGB >> 16) & 0xFF;
+		rgba.g = (_colorRGB >> 8) & 0xFF;
+		rgba.b = _colorRGB & 0xFF;
+		rgba.a = (_colorRGB >> 24) & 0xFF;
+		if (rgba.a == 0) rgba.a = 0xFF;
+	}
+	else
+	{
+		const SDL_Color *pal = getEffectivePalette();
+		if (!pal)
+		{
+			return false;
+		}
+		const int mul = _contrast ? 3 : 1;
+		int idx = (int)_color + 4 * mul;
+		if (idx < 0) idx = 0; else if (idx > 255) idx = 255;
+		rgba = pal[idx];
+		rgba.a = 0xFF;
+	}
+	// Strip OXCE control tokens (TOK_COLOR_FLIP=1, TOK_NL_SMALL=2,
+	// TOK_CUSTOM_FORMAT=27, …) — SDL_ttf has no glyph and would render tofu (□).
+	// All are < 0x20 (single-byte, so UTF-8 multi-byte sequences stay intact).
+	// The colour-flip distinction is moot here: TTF labels render in one colour.
+	std::string clean;
+	clean.reserve(_text.size());
+	for (char c : _text)
+	{
+		if ((unsigned char)c >= 0x20)
+		{
+			clean += c;
+		}
+	}
+	if (clean.empty())
+	{
+		return false;
+	}
+	SDL_Surface *rendered = _ttf->renderText(clean, rgba);
+	if (!rendered)
+	{
+		return false;
+	}
+	const TTFUtil::HAlign h = (_align == ALIGN_CENTER) ? TTFUtil::H_CENTER
+	                        : (_align == ALIGN_RIGHT)  ? TTFUtil::H_RIGHT
+	                                                   : TTFUtil::H_LEFT;
+	const TTFUtil::VAlign v = (_valign == ALIGN_MIDDLE) ? TTFUtil::V_MIDDLE
+	                        : (_valign == ALIGN_BOTTOM) ? TTFUtil::V_BOTTOM
+	                                                    : TTFUtil::V_TOP;
+	TTFUtil::blitFit(rendered, this, h, v, _ttfFill);
+	return true;
+}
+#endif
+
 void Text::draw()
 {
 	Surface::draw();
@@ -521,6 +607,15 @@ void Text::draw()
 	{
 		return;
 	}
+
+#ifdef __EMSCRIPTEN__
+	// Calypso: HD TTF path (opt-in). Single-line labels/buttons only; multi-line
+	// or a failed render falls through to the bitmap glyph path below.
+	if (_ttf && drawTTF())
+	{
+		return;
+	}
+#endif
 
 	// Show text borders for debugging
 	if (Options::debugUi)

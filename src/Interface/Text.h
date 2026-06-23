@@ -27,6 +27,7 @@ namespace OpenXcom
 
 class Font;
 class Language;
+class TTFFont;
 
 enum TextHAlign { ALIGN_LEFT, ALIGN_CENTER, ALIGN_RIGHT };
 enum TextVAlign { ALIGN_TOP, ALIGN_MIDDLE, ALIGN_BOTTOM };
@@ -53,11 +54,17 @@ private:
 	Uint32 _colorRGB = 0;
 	Uint32 _colorRGB2 = 0;
 	bool _useRGB = false;
+	TTFFont *_ttf = nullptr;     ///< Calypso: opt-in HD font; null = legacy bitmap path
+	float _ttfFill = 1.0f;       ///< Calypso: shrink factor within the fit box
 
 	/// Processes the contained text.
 	void processText();
 	/// Gets the X position of a text line.
 	int getLineX(int line) const;
+#ifdef __EMSCRIPTEN__
+	/// Calypso: render the (single-line) string via TTF; false ⇒ fall back to bitmap.
+	bool drawTTF();
+#endif
 public:
 	/// Creates a new text with the specified size and position.
 	Text(int width, int height, int x = 0, int y = 0);
@@ -97,6 +104,8 @@ public:
 	void setColorRGB(Uint32 argb);
 	/// Sets the text's ARGB secondary color (for TOK_COLOR_FLIP).
 	void setColorRGB2(Uint32 argb);
+	/// Calypso: opt into HD TTF rendering for this label (null restores the bitmap path).
+	void setTTFFont(TTFFont *font, float fillFrac = 1.0f);
 	/// Sets the text's secondary color.
 	void setSecondaryColor(Uint8 color) override;
 	/// Gets the text's secondary color.

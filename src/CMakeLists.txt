@@ -184,6 +184,7 @@ set ( engine_src
   Engine/Timer.cpp
   Engine/TouchState.cpp
   Engine/TTFFont.cpp
+  Engine/TTFUtil.cpp
   Engine/Unicode.cpp
   Engine/Yaml.cpp
   Engine/Zoom.cpp
