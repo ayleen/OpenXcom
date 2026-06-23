@@ -511,6 +511,15 @@ void Map::init()
 			if (!wf.lock()) return;
 			this->drawMurkGLPass();
 		});
+		// Calypso P30 Срез B: blood plume PRE-composite (after murk, in the water scene,
+		// under the HUD). Drifts up + fades; spawned on a flesh-wounding hit. Scissored
+		// to the map so the rising plume can't bleed up into the letterbox/HUD strip.
+		_game->getScreen()->registerGPUPassPreComposite([this, wf]() {
+			if (!wf.lock()) return;
+			this->beginMapScissor();
+			this->drawBloodGLPass();
+			this->endMapScissor();
+		});
 		// Block 11.10: tile-space cursor overlay after tile pass, before sprites.
 		_game->getScreen()->registerGPUPass([this, wf]() {
 			if (!wf.lock()) return;
@@ -535,6 +544,15 @@ void Map::init()
 			if (!this->overlayPassesActive()) return;
 			this->beginMapScissor();
 			this->drawSmokeGLPass();
+			this->endMapScissor();
+		});
+		// Calypso P30 Срез B: wound-glow POST-composite (over wounded units), gated +
+		// scissored to the map. Stateless — pulses on any living wounded unit.
+		_game->getScreen()->registerGPUPass([this, wf]() {
+			if (!wf.lock()) return;
+			if (!this->overlayPassesActive()) return;
+			this->beginMapScissor();
+			this->drawWoundGlowGLPass();
 			this->endMapScissor();
 		});
 
@@ -5135,6 +5153,207 @@ void Map::drawMurkGLPass()
 	_spriteShader->setUniform1f("u_alpha", 1.0f);
 	_spriteShader->setUniform2f("u_uvScroll", 0.0f, 0.0f);
 	if (prevProgram) glUseProgram((GLuint)prevProgram);
+#endif
+}
+
+// ---- Calypso Phase 30 Срез B: aftermath FX ---------------------------------
+
+void Map::spawnBloodFx(Position unitTile, int healthDamage, int faction)
+{
+#ifdef __EMSCRIPTEN__
+	if (healthDamage <= 0) return;
+	if (_bloodFx.size() >= 64) return;   // cheap cap against multi-wound spam
+	float seed = std::sin((float)(unitTile.x * 12.9898f + unitTile.y * 78.233f)
+		+ (float)SDL_GetTicks() * 0.013f) * 43758.5453f;
+	seed -= std::floor(seed);           // [0,1) phase
+	_bloodFx.push_back(BloodFx{ unitTile, SDL_GetTicks(), 2200u, seed, faction });
+#else
+	(void)unitTile; (void)healthDamage; (void)faction;
+#endif
+}
+
+/**
+ * Calypso Phase 30 (Срез B): underwater blood plume — a drifting crimson cloud per
+ * wounding hit. PRE-composite (under the HUD, in the water scene). Rises + expands +
+ * fades over ~2.2 s; tinted by faction (X-COM crimson / hostile green ichor). Plays a
+ * 4-frame ink-diffusion sequence by age. No-ops until the art is present.
+ */
+void Map::drawBloodGLPass()
+{
+#ifdef __EMSCRIPTEN__
+	if (_bloodFx.empty()) return;
+	const unsigned int now = SDL_GetTicks();
+	// Purge expired entries first — independent of GL readiness — so the 64-entry
+	// spawn cap can never deadlock if GL is briefly unavailable (e.g. context loss).
+	_bloodFx.erase(std::remove_if(_bloodFx.begin(), _bloodFx.end(),
+		[now](const BloodFx& f){ return (now - f.spawnTick) >= f.lifeMs; }), _bloodFx.end());
+	if (_bloodFx.empty()) return;
+	if (SDL_GetTicks() - _lastDrawnTicks > 250) return;   // don't animate over a stale scene
+	if (!_spriteGLInit) initSpriteGL();
+	if (!_spriteShader || !_spriteShader->isValid() || !_spriteVAO) return;
+
+	Screen* screen = _game->getScreen();
+	const float xScale = (float)screen->getXScale();
+	const float yScale = (float)screen->getYScale();
+	const int   lbb = screen->getCursorLeftBlackBand();
+	const int   tbb = screen->getCursorTopBlackBand();
+	const int   dW = Options::displayWidth, dH = Options::displayHeight;
+	const int   mapX = getX(), mapY = getY();
+	const Position camOff = _camera->getMapOffset() + currentShakeOffset();
+
+	GLint prevProgram = 0;
+	glGetIntegerv(GL_CURRENT_PROGRAM, &prevProgram);
+	glDisable(GL_DEPTH_TEST);
+	glDepthMask(GL_FALSE);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	_spriteShader->use();
+	_spriteShader->setUniform1i("u_tex", 0);
+	_spriteShader->setUniform2f("u_uvScroll", 0.0f, 0.0f);
+
+	auto drawQuad = [&](GpuTexture* tex, int gx, int gy, int fw, int fh)
+	{
+		const float dispX = (float)gx * xScale + (float)lbb;
+		const float dispY = (float)gy * yScale + (float)tbb;
+		const float dispW = (float)fw * xScale, dispH = (float)fh * yScale;
+		const float x0 =  2.0f * dispX / (float)dW - 1.0f;
+		const float y0 = -(2.0f * dispY / (float)dH - 1.0f);
+		const float x1 =  2.0f * (dispX + dispW) / (float)dW - 1.0f;
+		const float y1 = -(2.0f * (dispY + dispH) / (float)dH - 1.0f);
+		const float verts[6 * 4] = {
+			x0,y0, 0,0,  x1,y0, 1,0,  x0,y1, 0,1,
+			x0,y1, 0,1,  x1,y0, 1,0,  x1,y1, 1,1,
+		};
+		glBindBuffer(GL_ARRAY_BUFFER, _spriteVBO);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)sizeof(verts), verts);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		tex->bind(0);
+		_spriteShader->setUniform1f("u_darken", 0.0f);
+		glBindVertexArray(_spriteVAO);
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+		glBindVertexArray(0);
+	};
+
+	const int kBloodFrames = 4;
+	for (const auto& bf : _bloodFx)
+	{
+		float age = (float)(now - bf.spawnTick) / bf.lifeMs;
+		if (age < 0.0f) age = 0.0f;
+		if (age >= 1.0f) continue;
+		int fr = (int)(age * kBloodFrames);
+		if (fr < 0) fr = 0; else if (fr >= kBloodFrames) fr = kBloodFrames - 1;
+		GpuTexture* tex = getUITexture(
+			std::string("Resources/battlescape/fx/blood/blood-") + std::to_string(fr) + ".png", 0);
+		if (!tex) continue;
+		Position sp;
+		_camera->convertMapToScreen(bf.tile, &sp);
+		sp += camOff;
+		const float drift = age * (float)_spriteHeight * 0.45f;          // blood rises
+		const int cx = sp.x + mapX + _spriteWidth / 2;
+		const int cy = sp.y + mapY + _spriteHeight / 2 - (int)drift;
+		const float scale = 0.6f + 0.9f * age;                           // diffuses outward
+		const int side = (int)((float)_spriteWidth * 1.6f * scale);
+		float fade = 1.0f;
+		if (age < 0.12f) fade = age / 0.12f;                             // quick fade-in
+		else if (age > 0.55f) fade = 1.0f - (age - 0.55f) / 0.45f;       // long fade-out
+		float r, g, b;
+		if (bf.faction == FACTION_HOSTILE) { r = 0.45f; g = 0.62f; b = 0.20f; }  // green ichor
+		else                               { r = 0.62f; g = 0.05f; b = 0.07f; }  // crimson
+		_spriteShader->setUniform3f("u_tint", r, g, b);
+		_spriteShader->setUniform1f("u_alpha", std::max(0.0f, fade) * 0.85f);
+		drawQuad(tex, cx - side / 2, cy - side / 2, side, side);
+	}
+
+	_spriteShader->setUniform3f("u_tint", 1.0f, 1.0f, 1.0f);
+	_spriteShader->setUniform1f("u_alpha", 1.0f);
+	_spriteShader->setUniform2f("u_uvScroll", 0.0f, 0.0f);
+	glUseProgram((GLuint)prevProgram);
+#endif
+}
+
+/**
+ * Calypso Phase 30 (Срез B): residual wound-glow — a pulsing crimson glow on living
+ * wounded units, intensity from getFatalWounds(). POST-composite (over the unit),
+ * gated + scissored to the map by the registration. Stateless: derived from the unit
+ * list each frame, so it appears when wounded and vanishes when healed/dead.
+ */
+void Map::drawWoundGlowGLPass()
+{
+#ifdef __EMSCRIPTEN__
+	if (!_spriteGLInit) initSpriteGL();
+	if (!_spriteShader || !_spriteShader->isValid() || !_spriteVAO) return;
+	std::vector<BattleUnit*>* units = _save->getUnits();
+	if (!units || units->empty()) return;
+	GpuTexture* glow = getUITexture("Resources/battlescape/fx/blood/wound-glow.png", 0);
+	if (!glow) return;
+
+	Screen* screen = _game->getScreen();
+	const float xScale = (float)screen->getXScale();
+	const float yScale = (float)screen->getYScale();
+	const int   lbb = screen->getCursorLeftBlackBand();
+	const int   tbb = screen->getCursorTopBlackBand();
+	const int   dW = Options::displayWidth, dH = Options::displayHeight;
+	const int   mapX = getX(), mapY = getY();
+	const Position camOff = _camera->getMapOffset() + currentShakeOffset();
+	const float t = (float)SDL_GetTicks() * 0.001f;
+
+	GLint prevProgram = 0;
+	glGetIntegerv(GL_CURRENT_PROGRAM, &prevProgram);
+	glDisable(GL_DEPTH_TEST);
+	glDepthMask(GL_FALSE);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE);   // additive glow
+	_spriteShader->use();
+	_spriteShader->setUniform1i("u_tex", 0);
+	_spriteShader->setUniform2f("u_uvScroll", 0.0f, 0.0f);
+	_spriteShader->setUniform3f("u_tint", 0.65f, 0.04f, 0.05f);   // crimson
+	glow->bind(0);
+
+	auto drawQuad = [&](int gx, int gy, int fw, int fh)
+	{
+		const float dispX = (float)gx * xScale + (float)lbb;
+		const float dispY = (float)gy * yScale + (float)tbb;
+		const float dispW = (float)fw * xScale, dispH = (float)fh * yScale;
+		const float x0 =  2.0f * dispX / (float)dW - 1.0f;
+		const float y0 = -(2.0f * dispY / (float)dH - 1.0f);
+		const float x1 =  2.0f * (dispX + dispW) / (float)dW - 1.0f;
+		const float y1 = -(2.0f * (dispY + dispH) / (float)dH - 1.0f);
+		const float verts[6 * 4] = {
+			x0,y0, 0,0,  x1,y0, 1,0,  x0,y1, 0,1,
+			x0,y1, 0,1,  x1,y0, 1,0,  x1,y1, 1,1,
+		};
+		glBindBuffer(GL_ARRAY_BUFFER, _spriteVBO);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)sizeof(verts), verts);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		_spriteShader->setUniform1f("u_darken", 0.0f);
+		glBindVertexArray(_spriteVAO);
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+		glBindVertexArray(0);
+	};
+
+	for (BattleUnit* u : *units)
+	{
+		if (!u || u->isOut() || u->getFatalWounds() <= 0) continue;
+		if (!(u->getVisible() || _save->getDebugMode())) continue;
+		Position sp;
+		_camera->convertMapToScreen(u->getPosition(), &sp);
+		sp += camOff;
+		const int cx = sp.x + mapX + _spriteWidth / 2;
+		const int cy = sp.y + mapY + _spriteHeight / 2;          // torso-ish anchor
+		float intensity = (float)u->getFatalWounds() / 6.0f;
+		if (intensity > 1.0f) intensity = 1.0f;
+		// golden-angle phase per unit id so nearby units don't pulse in sync
+		const float ph = (float)u->getId() * 2.39996323f;
+		const float pulse = 0.6f + 0.4f * std::sin(t * 3.0f + ph);
+		const int side = (int)((float)_spriteWidth * 0.7f);
+		_spriteShader->setUniform1f("u_alpha", std::max(0.0f, 0.16f + 0.32f * intensity * pulse));
+		drawQuad(cx - side / 2, cy - side / 2, side, side);
+	}
+
+	_spriteShader->setUniform3f("u_tint", 1.0f, 1.0f, 1.0f);
+	_spriteShader->setUniform1f("u_alpha", 1.0f);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);   // restore straight-alpha
+	glUseProgram((GLuint)prevProgram);
 #endif
 }
 

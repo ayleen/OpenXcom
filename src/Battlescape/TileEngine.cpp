@@ -3150,6 +3150,20 @@ bool TileEngine::hitUnit(BattleActionAttack attack, BattleUnit *target, const Po
 	const int healthDamage = healthOrig - target->getHealth();
 	const int stunDamage = target->getStunlevel() - stunLevelOrig;
 
+#ifdef __EMSCRIPTEN__
+	// Calypso P30 Срез B: spawn an underwater blood plume when a unit's flesh is
+	// actually wounded — HP lost, the unit can bleed (isWoundable excludes mechanical/
+	// large/non-bleeders), and it is not fire (DT_IN does HP damage but no blood).
+	// Covers direct hits and explosion splash (both reach hitUnit).
+	if (healthDamage > 0 && target->isWoundable() && type->ResistType != DT_IN)
+	{
+		if (BattlescapeState* bs = _save->getBattleState())
+			if (BattlescapeGame* bg = bs->getBattleGame())
+				if (Map* fxMap = bg->getMap())
+					fxMap->spawnBloodFx(target->getPosition(), healthDamage, (int)target->getFaction());
+	}
+#endif
+
 	// hit log
 	if (attack.attacker)
 	{

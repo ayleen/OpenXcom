@@ -318,6 +318,17 @@ private:
 	unsigned int  _shakeStartMs = 0;
 	Position currentShakeOffset() const;   // (0,0,0) when no shake is active
 
+	// --- Calypso Phase 30 Срез B: aftermath FX (blood plume + wound-glow). ---
+	/// Underwater blood plume: a drifting crimson cloud spawned when a unit's flesh
+	/// is wounded; PRE-composite (under HUD), drifts up + expands + fades over ~2.2 s.
+	struct BloodFx { Position tile; unsigned int spawnTick; unsigned int lifeMs; float seed; int faction; };
+	std::vector<BloodFx> _bloodFx;
+	void drawBloodGLPass();
+	/// Residual wound-glow: a pulsing crimson glow on living wounded units, intensity
+	/// from getFatalWounds(); POST-composite, scissored to the map. Stateless (derived
+	/// each frame from the unit list — appears when wounded, gone when healed/dead).
+	void drawWoundGlowGLPass();
+
 	/// Calypso: gating + clipping for the post-composite overlay passes (internal).
 	bool overlayPassesActive() const;   // false when a modal/other state is on top
 	int  mapClipBottomY() const;        // base-res bottom of the visible map (above HUD)
@@ -416,6 +427,9 @@ public:
 	void triggerHitFx(Position voxelCenter, int power, int unitId, float dirX, float dirY);
 	/// Calypso Phase 30: start a decaying camera shake (base amplitude in native px).
 	void triggerShake(float amplitudePx);
+	/// Calypso Phase 30 (Срез B): spawn a blood plume at a wounded unit's tile.
+	/// Called from TileEngine::hitUnit on a flesh-wounding hit (any faction).
+	void spawnBloodFx(Position unitTile, int healthDamage, int faction);
 #endif
 	/// Handles timers.
 	void think() override;
