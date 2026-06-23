@@ -5162,11 +5162,23 @@ void Map::spawnBloodFx(Position unitTile, int healthDamage, int faction)
 {
 #ifdef __EMSCRIPTEN__
 	if (healthDamage <= 0) return;
-	if (_bloodFx.size() >= 64) return;   // cheap cap against multi-wound spam
 	float seed = std::sin((float)(unitTile.x * 12.9898f + unitTile.y * 78.233f)
 		+ (float)SDL_GetTicks() * 0.013f) * 43758.5453f;
 	seed -= std::floor(seed);           // [0,1) phase
-	_bloodFx.push_back(BloodFx{ unitTile, SDL_GetTicks(), 2200u, seed, faction });
+	if (_save->getDepth() > 0)
+	{
+		// Underwater: a transient rising, diffusing plume.
+		if (_bloodFx.size() >= 64) return;   // cheap cap against multi-wound spam
+		_bloodFx.push_back(BloodFx{ unitTile, SDL_GetTicks(), 2200u, seed, faction });
+	}
+	else
+	{
+		// Dry land: a persistent floor pool (kept until mission end). Cap by dropping
+		// the oldest so a long, bloody mission never grows unbounded.
+		if (_bloodPools.size() >= 200) _bloodPools.erase(_bloodPools.begin());
+		const unsigned int h = (unsigned int)(unitTile.x * 73856093) ^ (unsigned int)(unitTile.y * 19349663) ^ SDL_GetTicks();
+		_bloodPools.push_back(BloodPool{ unitTile, SDL_GetTicks(), seed, faction, (int)(h % 4u) });
+	}
 #else
 	(void)unitTile; (void)healthDamage; (void)faction;
 #endif
@@ -5181,13 +5193,14 @@ void Map::spawnBloodFx(Position unitTile, int healthDamage, int faction)
 void Map::drawBloodGLPass()
 {
 #ifdef __EMSCRIPTEN__
-	if (_bloodFx.empty()) return;
+	if (_bloodFx.empty() && _bloodPools.empty()) return;
 	const unsigned int now = SDL_GetTicks();
-	// Purge expired entries first — independent of GL readiness — so the 64-entry
-	// spawn cap can never deadlock if GL is briefly unavailable (e.g. context loss).
+	// Purge expired plumes first — independent of GL readiness — so the 64-entry plume
+	// cap can never deadlock if GL is briefly unavailable (e.g. context loss). Pools are
+	// persistent (kept until mission end) and bounded by the spawn-time drop-oldest cap.
 	_bloodFx.erase(std::remove_if(_bloodFx.begin(), _bloodFx.end(),
 		[now](const BloodFx& f){ return (now - f.spawnTick) >= f.lifeMs; }), _bloodFx.end());
-	if (_bloodFx.empty()) return;
+	if (_bloodFx.empty() && _bloodPools.empty()) return;
 	if (SDL_GetTicks() - _lastDrawnTicks > 250) return;   // don't animate over a stale scene
 	if (!_spriteGLInit) initSpriteGL();
 	if (!_spriteShader || !_spriteShader->isValid() || !_spriteVAO) return;
@@ -5234,7 +5247,34 @@ void Map::drawBloodGLPass()
 		glBindVertexArray(0);
 	};
 
-	const int kBloodFrames = 4;
+	// --- dry-land blood pools: persistent flat decals on the floor, drying over time ---
+	for (const auto& bp : _bloodPools)
+	{
+		const float ageS = (float)(now - bp.spawnTick) * 0.001f;
+		GpuTexture* tex = getUITexture(
+			std::string("Resources/battlescape/fx/blood/pool-") + std::to_string(bp.variant) + ".png", 0);
+		if (!tex) tex = getUITexture("Resources/battlescape/fx/blood/pool-0.png", 0);   // fallback
+		if (!tex) continue;
+		Position sp;
+		_camera->convertMapToScreen(bp.tile, &sp);
+		sp += camOff;
+		const int cx = sp.x + mapX + _spriteWidth / 2;
+		const int cy = sp.y + mapY + (int)((float)_spriteHeight * 0.62f);   // near the tile floor
+		const float grow = std::min(1.0f, ageS / 0.5f);                     // spreads over 0.5 s
+		const int side = (int)((float)_spriteWidth * 1.3f * (0.45f + 0.55f * grow));
+		const float fadeIn = std::min(1.0f, ageS / 0.3f);
+		const float dry = std::min(1.0f, ageS / 25.0f);                     // dries over 25 s
+		float r, g, b;
+		if (bp.faction == FACTION_HOSTILE)                                  // green ichor -> dark
+		{ r = 0.40f - 0.22f * dry; g = 0.55f - 0.34f * dry; b = 0.16f - 0.08f * dry; }
+		else                                                               // crimson -> dark brown
+		{ r = 0.55f - 0.32f * dry; g = 0.04f + 0.05f * dry; b = 0.05f + 0.02f * dry; }
+		_spriteShader->setUniform3f("u_tint", r, g, b);
+		_spriteShader->setUniform1f("u_alpha", 0.88f * fadeIn);
+		drawQuad(tex, cx - side / 2, cy - side / 2, side, side);
+	}
+
+	const int kBloodFrames = 6;
 	for (const auto& bf : _bloodFx)
 	{
 		float age = (float)(now - bf.spawnTick) / bf.lifeMs;
