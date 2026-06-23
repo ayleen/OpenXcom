@@ -504,6 +504,13 @@ void Map::init()
 			if (!wf.lock()) return;
 			this->drawTileGLPass();
 		});
+		// Calypso: tile-smoke murk fires PRE-composite, right after the tiles, so it
+		// sits in the scene (under the CPU HUD/menu layer) — never over them, never
+		// clipped to the map viewport, and held still by a frozen clock under a menu.
+		_game->getScreen()->registerGPUPassPreComposite([this, wf]() {
+			if (!wf.lock()) return;
+			this->drawMurkGLPass();
+		});
 		// Block 11.10: tile-space cursor overlay after tile pass, before sprites.
 		_game->getScreen()->registerGPUPass([this, wf]() {
 			if (!wf.lock()) return;
@@ -4991,6 +4998,97 @@ void Map::endMapScissor()
 		glDisable(GL_SCISSOR_TEST);
 }
 
+/**
+ * Calypso: layered tile-smoke MURK, drawn PRE-composite (right after the tiles)
+ * so it sits in the scene — under the CPU HUD/menu layer (never over them, never
+ * clipped), and held still by a frozen clock while a menu is open. Authored
+ * grayscale cloud (8-frame swirl) + particle PNGs, tinted per layer (silty mud /
+ * deep water / drifting sediment). Strength = tile smoke density (decays over
+ * turns, so the murk dissolves). Uses the textured shader (context-loss safe).
+ */
+void Map::drawMurkGLPass()
+{
+#ifdef __EMSCRIPTEN__
+	if (!_spriteGLInit) initSpriteGL();
+	if (!_spriteShader || !_spriteShader->isValid() || !_spriteVAO) return;
+	if (_smokeInstances.empty()) return;
+
+	// Freeze the murk clock while the battlescape is not the top state, so the haze
+	// holds still under an open menu (Options / Drop item) instead of animating.
+	if (overlayPassesActive()) _murkTime = (float)SDL_GetTicks() * 0.001f;
+	const float t = _murkTime;
+
+	Screen* screen = _game->getScreen();
+	const float xScale = (float)screen->getXScale();
+	const float yScale = (float)screen->getYScale();
+	const int   lbb = screen->getCursorLeftBlackBand();
+	const int   tbb = screen->getCursorTopBlackBand();
+	const int   dW = Options::displayWidth, dH = Options::displayHeight;
+
+	GLint prevProgram = 0;
+	glGetIntegerv(GL_CURRENT_PROGRAM, &prevProgram);
+	glDisable(GL_DEPTH_TEST);
+	glDepthMask(GL_FALSE);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	_spriteShader->use();
+	_spriteShader->setUniform1i("u_tex", 0);
+
+	auto drawQuad = [&](GpuTexture* tex, int gx, int gy, int fw, int fh)
+	{
+		const float dispX = (float)gx * xScale + (float)lbb;
+		const float dispY = (float)gy * yScale + (float)tbb;
+		const float dispW = (float)fw * xScale, dispH = (float)fh * yScale;
+		const float x0 =  2.0f * dispX / (float)dW - 1.0f;
+		const float y0 = -(2.0f * dispY / (float)dH - 1.0f);
+		const float x1 =  2.0f * (dispX + dispW) / (float)dW - 1.0f;
+		const float y1 = -(2.0f * (dispY + dispH) / (float)dH - 1.0f);
+		const float verts[6 * 4] = { x0,y0,0,0, x1,y0,1,0, x0,y1,0,1, x0,y1,0,1, x1,y0,1,0, x1,y1,1,1 };
+		glBindBuffer(GL_ARRAY_BUFFER, _spriteVBO);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)sizeof(verts), verts);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		tex->bind(0);
+		_spriteShader->setUniform1f("u_darken", 0.0f);
+		glBindVertexArray(_spriteVAO);
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+		glBindVertexArray(0);
+	};
+
+	const int kCloudFrames = 8;
+	GpuTexture* cloud[kCloudFrames];
+	for (int f = 0; f < kCloudFrames; ++f)
+		cloud[f] = getUITexture("Resources/battlescape/fx/murk/cloud-" + std::to_string(f) + ".png");
+	GpuTexture* parts = getUITexture("Resources/battlescape/fx/murk/particles.png", /*wrap=*/1);
+	auto layer = [&](GpuTexture* tex, int cx, int cy, int side, float r, float g, float b, float alpha, float scrollY)
+	{
+		if (!tex || alpha <= 0.01f) return;
+		_spriteShader->setUniform3f("u_tint", r, g, b);
+		_spriteShader->setUniform1f("u_alpha", alpha);
+		_spriteShader->setUniform2f("u_uvScroll", 0.0f, scrollY);
+		drawQuad(tex, cx - side / 2, cy - side / 2, side, side);
+	};
+	for (const auto& si : _smokeInstances)
+	{
+		const int   cx = si.screenX + _spriteWidth  / 2;
+		const int   cy = si.screenY + _spriteHeight / 2;
+		const float d  = si.density;                          // 0..1
+		const float ph = si.seedX * 0.7f + si.seedY * 1.3f;   // per-tile phase (anti-sync)
+		int fr = (int)(t * 1.5f + ph) % kCloudFrames; if (fr < 0) fr = 0; // ~1.5 fps swirl cycle
+		const float pulse = 1.0f + 0.08f * std::sin(t * 0.8f + ph);
+		const int   base  = (int)(_spriteWidth * 1.3f * pulse);
+		const float sed   = -(t * 0.05f + ph * 0.03f);        // sediment drifts upward, per-tile offset
+		layer(cloud[fr],                       cx, cy, base,                0.42f, 0.34f, 0.24f, d * 0.38f, 0.0f); // silty mud
+		layer(cloud[(fr + 3) % kCloudFrames],  cx, cy, (int)(base * 1.15f), 0.12f, 0.20f, 0.22f, d * 0.20f, 0.0f); // deep water
+		layer(parts,                cx, cy, (int)(base * 0.95f), 0.62f, 0.66f, 0.60f, d * 0.26f, sed);  // drifting sediment
+	}
+	// reset shared uniforms so other textured passes are unaffected
+	_spriteShader->setUniform3f("u_tint", 1.0f, 1.0f, 1.0f);
+	_spriteShader->setUniform1f("u_alpha", 1.0f);
+	_spriteShader->setUniform2f("u_uvScroll", 0.0f, 0.0f);
+	if (prevProgram) glUseProgram((GLuint)prevProgram);
+#endif
+}
+
 void Map::drawSmokeGLPass()
 {
 	if (SDL_GetTicks() - _lastDrawnTicks > 250) return;
@@ -4998,9 +5096,8 @@ void Map::drawSmokeGLPass()
 	if (!_spriteShader || !_spriteShader->isValid()) return;
 	if (!_spriteVAO) return;
 
-	const bool hasSmokeWork     = !_smokeInstances.empty();
 	const bool hasExplosionWork = _explosionInFOV && !_flashScreen && !_explosions.empty();
-	if (!hasSmokeWork && !hasExplosionWork) return;
+	if (!hasExplosionWork) return;   // tile-smoke murk is now a separate pre-composite pass
 
 	Screen* screen = _game->getScreen();
 	const float xScale = static_cast<float>(screen->getXScale());
@@ -5050,49 +5147,8 @@ void Map::drawSmokeGLPass()
 	_spriteShader->setUniform1i("u_tex", 0);
 	_spriteShader->setUniform3f("u_tint", 1.0f, 1.0f, 1.0f);  // untinted (Phase 24 u_tint)
 
-	// --- Tile smoke: layered MURK (Calypso) ---
-	// Lingering tile smoke reads as turbid, sediment-laden water that gently
-	// obscures the scene, not cartoon puffs. Authored grayscale cloud/particle PNGs
-	// are tinted per layer (silty mud + deep water + light sediment) and drawn with
-	// the textured sprite shader — which survives a context loss, unlike a bespoke
-	// shader (that crashed on resolution change). Strength = smoke density; the game
-	// decays the density over turns, so the murk dissolves on its own.
-	if (hasSmokeWork)
-	{
-		const float t = (float)SDL_GetTicks() * 0.001f;
-		const int kCloudFrames = 8;
-		GpuTexture* cloud[kCloudFrames];
-		for (int f = 0; f < kCloudFrames; ++f)
-			cloud[f] = getUITexture("Resources/battlescape/fx/murk/cloud-" + std::to_string(f) + ".png");
-		GpuTexture* parts = getUITexture("Resources/battlescape/fx/murk/particles.png", /*wrap=*/1);
-		// scrollY drifts a layer's UV (sediment rises); 0 = static.
-		auto layer = [&](GpuTexture* tex, int cx, int cy, int side, float r, float g, float b, float alpha, float scrollY)
-		{
-			if (!tex || alpha <= 0.01f) return;
-			_spriteShader->setUniform3f("u_tint", r, g, b);
-			_spriteShader->setUniform1f("u_alpha", alpha);
-			_spriteShader->setUniform2f("u_uvScroll", 0.0f, scrollY);
-			drawQuad(tex, cx - side / 2, cy - side / 2, side, side, 0.0f);
-		};
-		for (const auto& si : _smokeInstances)
-		{
-			const int   cx = si.screenX + _spriteWidth  / 2;
-			const int   cy = si.screenY + _spriteHeight / 2;
-			const float d  = si.density;                          // 0..1
-			const float ph = si.seedX * 0.7f + si.seedY * 1.3f;   // per-tile phase (anti-sync)
-			int fr = (int)(t * 1.5f + ph) % kCloudFrames; if (fr < 0) fr = 0; // ~1.5 fps swirl cycle
-			const float pulse = 1.0f + 0.08f * std::sin(t * 0.8f + ph);
-			const int   base  = (int)(_spriteWidth * 1.3f * pulse);
-			const float sed   = -(t * 0.05f + ph * 0.03f);        // sediment drifts upward, per-tile offset
-			layer(cloud[fr],                       cx, cy, base,                0.42f, 0.34f, 0.24f, d * 0.38f, 0.0f); // silty mud
-			layer(cloud[(fr + 3) % kCloudFrames],  cx, cy, (int)(base * 1.15f), 0.12f, 0.20f, 0.22f, d * 0.20f, 0.0f); // deep water
-			layer(parts,                cx, cy, (int)(base * 0.95f), 0.62f, 0.66f, 0.60f, d * 0.26f, sed);  // drifting sediment
-		}
-		// restore tint/alpha/scroll for the explosion pass below
-		_spriteShader->setUniform3f("u_tint", 1.0f, 1.0f, 1.0f);
-		_spriteShader->setUniform1f("u_alpha", 1.0f);
-		_spriteShader->setUniform2f("u_uvScroll", 0.0f, 0.0f);
-	}
+	// Tile-smoke MURK now renders in drawMurkGLPass() (PRE-composite, under the HUD/
+	// menu). Only explosions remain in this post-composite pass.
 
 	// --- Explosion effects (X1.PCK, HIT.PCK, SMOKE.PCK) ---
 	if (hasExplosionWork)

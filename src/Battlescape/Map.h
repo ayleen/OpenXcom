@@ -297,6 +297,11 @@ private:
 	std::vector<SmokeInstance> _smokeInstances;
 	void emitSmokeInstances();
 	void drawSmokeGLPass();
+	/// Calypso: layered tile-smoke murk, drawn PRE-composite (under the CPU HUD/menu
+	/// layer, so it never covers them and isn't clipped). _murkTime freezes while the
+	/// battlescape is not the top state, so the murk holds still under an open menu.
+	void drawMurkGLPass();
+	float _murkTime = 0.0f;
 
 	/// Calypso: gating + clipping for the post-composite overlay passes (internal).
 	bool overlayPassesActive() const;   // false when a modal/other state is on top
