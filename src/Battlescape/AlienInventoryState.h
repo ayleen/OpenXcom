@@ -36,6 +36,7 @@ class AlienInventoryState : public State
 {
 private:
 	Surface *_bg, *_soldier;
+	SDL_Surface *_bgNative = nullptr, *_soldierNative = nullptr;  ///< Calypso: bg/paperdoll snapshots, bilinear-stretched into the scaled surfaces
 	BattlescapeButton *_btnArmor;
 	Text *_txtName;
 	Text *_txtFatalWounds;
@@ -49,6 +50,8 @@ public:
 	AlienInventoryState(BattleUnit *unit);
 	/// Cleans up the AlienInventory state.
 	~AlienInventoryState();
+	/// Calypso: rescale to the logical buffer instead of the base recenter.
+	void resize(int &dX, int &dY) override;
 	/// Handler for clicking the OK button.
 	void btnOkClick(Action *action);
 	/// Handler for clicking the [Toggle] button.

@@ -24,6 +24,7 @@
 #include "../Engine/Options.h"
 #include "../Engine/Screen.h"
 #include "../Engine/Surface.h"
+#include "../Engine/TTFUtil.h"
 #include "../Interface/BattlescapeButton.h"
 #include "../Interface/Text.h"
 #include "../Mod/Mod.h"
@@ -244,6 +245,23 @@ AlienInventoryState::AlienInventoryState(BattleUnit *unit)
 		tmp->blitNShade(_soldier, 112, 32);
 	}
 
+#ifdef __EMSCRIPTEN__
+	// Calypso: scale this fullscreen alien-info screen (placed before the debug
+	// early-return so it runs in the common case). Snapshot the painted bg +
+	// paperdoll, scale every widget (the AlienInventory view composites native then
+	// scale-blits), HD-TTF the labels, then bilinear-stretch the bitmaps back in.
+	{
+		SDL_Surface* sb = _bg->getSurface();
+		if (sb && sb->format->BitsPerPixel == 32) _bgNative = SDL_ConvertSurface(sb, sb->format, 0);
+		SDL_Surface* ss = _soldier->getSurface();
+		if (ss && ss->format->BitsPerPixel == 32) _soldierNative = SDL_ConvertSurface(ss, ss->format, 0);
+	}
+	enableUiScaling(320, 200, 0.75f);
+	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
+	if (_bgNative)      { TTFUtil::blitStretch(_bgNative, _bg);           _bg->setRedraw(false); }
+	if (_soldierNative) { TTFUtil::blitStretch(_soldierNative, _soldier); _soldier->setRedraw(false); }
+#endif
+
 	// --------------------- DEBUG INDICATORS ---------------------
 	if (!Options::debug)
 		return;
@@ -311,6 +329,23 @@ AlienInventoryState::~AlienInventoryState()
 		Screen::updateScale(Options::battlescapeScale, Options::baseXBattlescape, Options::baseYBattlescape, true);
 		_game->getScreen()->resetDisplay(false);
 	}
+	if (_bgNative)      SDL_FreeSurface(_bgNative);
+	if (_soldierNative) SDL_FreeSurface(_soldierNative);
+}
+
+/**
+ * Calypso (Emscripten): rescale to the logical buffer and re-stretch the bg +
+ * paperdoll, so resolution changes keep the alien-info screen filled and aligned.
+ */
+void AlienInventoryState::resize(int &dX, int &dY)
+{
+#ifdef __EMSCRIPTEN__
+	applyUiScaling();
+	if (_bgNative)      { TTFUtil::blitStretch(_bgNative, _bg);           _bg->setRedraw(false); }
+	if (_soldierNative) { TTFUtil::blitStretch(_soldierNative, _soldier); _soldier->setRedraw(false); }
+#else
+	State::resize(dX, dY);
+#endif
 }
 
 void AlienInventoryState::calculateMeleeWeapon(BattleUnit* unit, BattleItem* weapon, Text* label)

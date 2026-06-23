@@ -39,6 +39,7 @@ private:
 	BattleUnit *_selUnit;
 	int _dynamicOffset;
 	int _animFrame;
+	int _baseW, _baseH;  ///< Calypso: native grid/items canvas; when scaled the composite is rendered native then scale-blitted
 	Timer* _animTimer;
 	/// Gets the slot in the specified position.
 	RuleInventory *getSlotInPosition(int *x, int *y) const;

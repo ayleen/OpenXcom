@@ -44,7 +44,7 @@ namespace OpenXcom
  * @param x X position in pixels.
  * @param y Y position in pixels.
  */
-AlienInventory::AlienInventory(Game *game, int width, int height, int x, int y) : InteractiveSurface(width, height, x, y), _game(game), _selUnit(0), _dynamicOffset(0), _animFrame(0)
+AlienInventory::AlienInventory(Game *game, int width, int height, int x, int y) : InteractiveSurface(width, height, x, y), _game(game), _selUnit(0), _dynamicOffset(0), _animFrame(0), _baseW(width), _baseH(height)
 {
 	_grid = new Surface(width, height, 0, 0);
 	_items = new Surface(width, height, 0, 0);
@@ -214,6 +214,27 @@ RuleInventory *AlienInventory::getSlotInPosition(int *x, int *y) const
 void AlienInventory::blit(SDL_Surface *surface)
 {
 	clear();
+#ifdef __EMSCRIPTEN__
+	// Calypso: when scaled up, composite grid+items at native size into a scratch,
+	// then scale-blit to fill — so the alien paperdoll grid/items scale with the UI.
+	if (getWidth() != _baseW || getHeight() != _baseH)
+	{
+		Surface scratch(_baseW, _baseH, 0, 0);
+		const SDL_Color* pal = getEffectivePalette();
+		if (pal)
+		{
+			scratch.setPalette(pal);
+		}
+		_grid->blitNShade(&scratch, 0, 0);
+		_items->blitNShade(&scratch, 0, 0);
+		if (scratch.getSurface() && this->getSurface())
+		{
+			SDL_BlitScaled(scratch.getSurface(), nullptr, this->getSurface(), nullptr);
+		}
+		Surface::blit(surface);
+		return;
+	}
+#endif
 	_grid->blitNShade(this, 0, 0);
 	_items->blitNShade(this, 0, 0);
 	Surface::blit(surface);
@@ -242,6 +263,11 @@ void AlienInventory::mouseClick(Action *action, State *state)
 		int x = (int)floor(action->getAbsoluteXMouse()) - getX(),
 			y = (int)floor(action->getAbsoluteYMouse()) - getY();
 
+#ifdef __EMSCRIPTEN__
+		// map scaled-view coords back to native content space for the slot math
+		if (getWidth()  > 0 && getWidth()  != _baseW) x = x * _baseW / getWidth();
+		if (getHeight() > 0 && getHeight() != _baseH) y = y * _baseH / getHeight();
+#endif
 		if (x >= Screen::ORIGINAL_WIDTH / 2)
 			x -= _dynamicOffset;
 		else
