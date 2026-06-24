@@ -5508,7 +5508,7 @@ void Map::triggerAoEFx(Position voxelCenter, int power, bool underwater)
 	// the signature underwater element, replaces the sharp burst so it doesn't read as a
 	// space explosion. Land = the fiery sharp burst (kind 0).
 	const float fsize = std::min(4.0f, 2.2f + p * 0.012f);
-	if (underwater) _impactFlashes.push_back(ImpactFlash{ voxelCenter, t0, 900.0f, fsize * 0.60f, 0.80f, 0.96f, 1.00f, 1 }); // glassy turquoise bubble (6-frame sprite)
+	if (underwater) _impactFlashes.push_back(ImpactFlash{ voxelCenter, t0, 900.0f, fsize * 0.60f, 0.30f, 0.82f, 1.00f, 1 }); // glassy turquoise bubble (6-frame sprite)
 	else            _impactFlashes.push_back(ImpactFlash{ voxelCenter, t0, 440.0f, fsize,         1.00f, 0.80f, 0.32f, 0 }); // fiery yellow-white
 
 	// GL particle burst. Non-game PRNG (hash of tick+index) so we never advance the
