@@ -586,6 +586,14 @@ void Map::init()
 			_cursorGLInit = false;
 			_unitAtlasGroups.clear();
 			_game->getMod()->clearUnitAtlases();
+			// Drop cached GpuTextures whose GL handles died with the context — else
+			// getUITexture / getOrUploadSpriteFrame keep returning dead textures and every
+			// FX that uses them (blood pools/scorch, murk, fire, particles, …) renders
+			// nothing after a resolution change. Clearing forces a lazy re-upload.
+			for (auto& p : _uiTexCache)      delete p.second;
+			_uiTexCache.clear();
+			for (auto& p : _spriteFrameCache) delete p.second;
+			_spriteFrameCache.clear();
 		});
 	}
 #endif
@@ -5317,6 +5325,8 @@ void Map::drawBloodGLPass()
 	// --- E3: charred-ground decals (land AoE aftermath), persistent, under the blood ---
 	for (const auto& sd : _scorchDecals)
 	{
+		const Tile* st = _save->getTile(sd.tile);
+		if (!st || !st->isDiscovered(O_FLOOR)) continue;        // hide on fogged/unexplored tiles
 		GpuTexture* tex = getUITexture(
 			std::string("Resources/battlescape/fx/scorch/scorch-") + std::to_string(sd.variant & 3) + ".png", 0);
 		if (!tex) tex = getUITexture("Resources/battlescape/fx/scorch/scorch-0.png", 0);   // fallback
@@ -5337,6 +5347,8 @@ void Map::drawBloodGLPass()
 	// --- dry-land blood pools: persistent flat decals on the floor, drying over time ---
 	for (const auto& bp : _bloodPools)
 	{
+		const Tile* pt = _save->getTile(bp.tile);
+		if (!pt || !pt->isDiscovered(O_FLOOR)) continue;        // hide on fogged/unexplored tiles
 		const float ageS = (float)(now - bp.spawnTick) * 0.001f;
 		GpuTexture* tex = getUITexture(
 			std::string("Resources/battlescape/fx/blood/pool-") + std::to_string(bp.variant) + ".png", 0);
@@ -5368,6 +5380,8 @@ void Map::drawBloodGLPass()
 		float age = (float)(now - bf.spawnTick) / bf.lifeMs;
 		if (age < 0.0f) age = 0.0f;
 		if (age >= 1.0f) continue;
+		const Tile* bt = _save->getTile(bf.tile);
+		if (!bt || !bt->isDiscovered(O_FLOOR)) continue;        // hide on fogged/unexplored tiles
 		int fr = (int)(age * kBloodFrames);
 		if (fr < 0) fr = 0; else if (fr >= kBloodFrames) fr = kBloodFrames - 1;
 		GpuTexture* tex = getUITexture(
@@ -5613,8 +5627,10 @@ void Map::triggerAoEFx(Position voxelCenter, int power, int radius, bool underwa
 	// the signature underwater element, replaces the sharp burst so it doesn't read as a
 	// space explosion. Land = an 8-frame FIREBALL sprite (kind 3, colour preserved, additive).
 	const float fsize = std::min(4.0f, 2.2f + p * 0.012f);
+	// Fireball scales with the grenade's blast radius — a bigger bomb = a bigger fireball.
+	const float fireSize = std::min(6.0f, 1.5f + (float)std::max(1, radius) * 0.45f);
 	if (underwater) _impactFlashes.push_back(ImpactFlash{ voxelCenter, t0, 0u, 900.0f, fsize * 0.60f, 0.30f, 0.82f, 1.00f, 1 }); // glassy turquoise bubble (6-frame sprite)
-	else            _impactFlashes.push_back(ImpactFlash{ voxelCenter, t0, 0u, 720.0f, fsize * 0.85f, 1.00f, 1.00f, 1.00f, 3 }); // fiery 8-frame fireball (white tint = keep colour)
+	else            _impactFlashes.push_back(ImpactFlash{ voxelCenter, t0, 0u, 720.0f, fireSize,      1.00f, 1.00f, 1.00f, 3 }); // fiery 8-frame fireball (size ∝ radius)
 
 	// E2: underwater hydraulic shockwave — an expanding scene-distortion ring (grade pass).
 	if (underwater)
@@ -5713,7 +5729,7 @@ void Map::triggerAoEFx(Position voxelCenter, int power, int radius, bool underwa
 		}
 		_fxParticles.push_back(fp);
 	}
-	const int nSec = std::min(26, 8 + power / 6);        // debris (land) / rising foam (underwater)
+	const int nSec = std::min(52, 16 + power / 3);       // debris (land) / rising foam (underwater) — 2× count
 	for (int i = 0; i < nSec; ++i)
 	{
 		const float h0 = frand(t0 * 7u + (unsigned)i * 2246822519u + 101u);
@@ -5745,7 +5761,7 @@ void Map::triggerAoEFx(Position voxelCenter, int power, int radius, bool underwa
 	// smoke-tail fades under additive, so these carry the plume). Underwater uses foam instead.
 	if (!underwater)
 	{
-		const int nSmoke = std::min(16, 6 + radius);
+		const int nSmoke = std::min(32, 12 + radius * 2);    // 2× smoke count
 		for (int i = 0; i < nSmoke; ++i)
 		{
 			const float h0 = frand(t0 * 11u + (unsigned)i * 2654435761u + 211u);
@@ -5765,8 +5781,8 @@ void Map::triggerAoEFx(Position voxelCenter, int power, int radius, bool underwa
 			_fxParticles.push_back(fp);
 		}
 	}
-	if (_fxParticles.size() > 360)   // bound chain-explosion spam (caps per-frame draw calls)
-		_fxParticles.erase(_fxParticles.begin(), _fxParticles.begin() + (_fxParticles.size() - 360));
+	if (_fxParticles.size() > 520)   // bound chain-explosion spam (caps per-frame draw calls)
+		_fxParticles.erase(_fxParticles.begin(), _fxParticles.begin() + (_fxParticles.size() - 520));
 }
 
 /**
