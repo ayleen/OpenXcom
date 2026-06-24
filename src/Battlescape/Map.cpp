@@ -513,16 +513,17 @@ void Map::init()
 			if (!wf.lock()) return;
 			this->drawMurkGLPass();
 		});
-		// Calypso P30 Срез B: blood plume PRE-composite (after murk, in the water scene,
-		// under the HUD). Drifts up + fades; spawned on a flesh-wounding hit. Scissored
-		// to the map so the rising plume can't bleed up into the letterbox/HUD strip.
+		// Calypso P30 Срез B: blood plume + pools + scorch PRE-composite (after murk, in
+		// the scene). NO scissor — exactly like murk: these sit under the CPU HUD/menu
+		// composite, so the HUD overdraws them at the bottom instead of a hard scissor cut
+		// at the HUD's top edge. Position-anchored to blast/wound tiles, so they never
+		// reach the top/side letterbox.
 		_game->getScreen()->registerGPUPassPreComposite([this, wf]() {
 			if (!wf.lock()) return;
-			this->beginMapScissor();
 			this->drawBloodGLPass();
-			this->endMapScissor();
 		});
-		// Block 11.10: tile-space cursor overlay after tile pass, before sprites.
+		// Block 11.10: tile-space cursor overlay — kept POST-composite (it is interactive
+		// UI, wants to stay crisp over everything; scissored + menu-gated).
 		_game->getScreen()->registerGPUPass([this, wf]() {
 			if (!wf.lock()) return;
 			if (!this->overlayPassesActive()) return;   // not over a menu
@@ -530,40 +531,28 @@ void Map::init()
 			this->drawCursorOverlayGLPass();
 			this->endMapScissor();
 		});
-		// Block 11.8: projectile pass fires after cursor overlay.
-		_game->getScreen()->registerGPUPass([this, wf]() {
+		// Calypso P30: ALL battlescape FX (projectile, explosion flash/fireball/bubble,
+		// wound-glow, particle burst) fire PRE-composite WITHOUT a scissor — exactly like
+		// murk. They draw over the GL scene (tiles + units are emitted inside
+		// drawTileGLPass), and the CPU HUD/menu composite then draws over them. This is
+		// what stops every effect being hard-clipped at the HUD's top edge (the old POST +
+		// beginMapScissor path cut them at mapClipBottomY). Order: projectile → flash/
+		// fireball → wound-glow → particles.
+		_game->getScreen()->registerGPUPassPreComposite([this, wf]() {
 			if (!wf.lock()) return;
-			if (!this->overlayPassesActive()) return;
-			this->beginMapScissor();
 			this->drawProjectileGLPass();
-			this->endMapScissor();
 		});
-		// Block 11.9: smoke/explosion pass fires after projectile pass
-		// (cursor registered from BattlescapeState ctor last, so order is:
-		//  tiles → cursor overlay → projectiles → smoke → cursor).
-		_game->getScreen()->registerGPUPass([this, wf]() {
+		_game->getScreen()->registerGPUPassPreComposite([this, wf]() {
 			if (!wf.lock()) return;
-			if (!this->overlayPassesActive()) return;
-			this->beginMapScissor();
 			this->drawSmokeGLPass();
-			this->endMapScissor();
 		});
-		// Calypso P30 Срез B: wound-glow POST-composite (over wounded units), gated +
-		// scissored to the map. Stateless — pulses on any living wounded unit.
-		_game->getScreen()->registerGPUPass([this, wf]() {
+		_game->getScreen()->registerGPUPassPreComposite([this, wf]() {
 			if (!wf.lock()) return;
-			if (!this->overlayPassesActive()) return;
-			this->beginMapScissor();
 			this->drawWoundGlowGLPass();
-			this->endMapScissor();
 		});
-		// Calypso explosion FX: GL particle burst POST-composite (over scene, under HUD).
-		_game->getScreen()->registerGPUPass([this, wf]() {
+		_game->getScreen()->registerGPUPassPreComposite([this, wf]() {
 			if (!wf.lock()) return;
-			if (!this->overlayPassesActive()) return;
-			this->beginMapScissor();
 			this->drawFxParticlesGLPass();
-			this->endMapScissor();
 		});
 
 		// Block 11.13: after context restore, zero stale VAO/VBO handles and
