@@ -5218,11 +5218,13 @@ void Map::spawnBloodFx(Position unitTile, int healthDamage, int faction)
 	}
 	else
 	{
-		// Dry land: a persistent floor pool (kept until mission end). Cap by dropping
+		// Dry land: a persistent floor pool (kept until mission end). Stored on
+		// SavedBattleGame so it survives a Map teardown (resolution change). Cap by dropping
 		// the oldest so a long, bloody mission never grows unbounded.
-		if (_bloodPools.size() >= 200) _bloodPools.erase(_bloodPools.begin());
+		auto& pools = _save->getCalypsoBloodPools();
+		if (pools.size() >= 200) pools.erase(pools.begin());
 		const unsigned int h = (unsigned int)(unitTile.x * 73856093) ^ (unsigned int)(unitTile.y * 19349663) ^ SDL_GetTicks();
-		_bloodPools.push_back(BloodPool{ unitTile, SDL_GetTicks(), seed, faction, (int)(h % 6u) });   // 6 pool variants
+		pools.push_back(CalypsoBloodPool{ unitTile, SDL_GetTicks(), seed, faction, (int)(h % 6u) });   // 6 pool variants
 	}
 #else
 	(void)unitTile; (void)healthDamage; (void)faction;
@@ -5238,14 +5240,17 @@ void Map::spawnBloodFx(Position unitTile, int healthDamage, int faction)
 void Map::drawBloodGLPass()
 {
 #ifdef __EMSCRIPTEN__
-	if (_bloodFx.empty() && _bloodPools.empty() && _scorchDecals.empty()) return;
+	// Persistent pools + scorch live on SavedBattleGame (survive a Map teardown / res change).
+	auto& bloodPools = _save->getCalypsoBloodPools();
+	auto& scorchDecals = _save->getCalypsoScorchDecals();
+	if (_bloodFx.empty() && bloodPools.empty() && scorchDecals.empty()) return;
 	const unsigned int now = SDL_GetTicks();
 	// Purge expired plumes first — independent of GL readiness — so the 64-entry plume
 	// cap can never deadlock if GL is briefly unavailable (e.g. context loss). Pools are
 	// persistent (kept until mission end) and bounded by the spawn-time drop-oldest cap.
 	_bloodFx.erase(std::remove_if(_bloodFx.begin(), _bloodFx.end(),
 		[now](const BloodFx& f){ return (now - f.spawnTick) >= f.lifeMs; }), _bloodFx.end());
-	if (_bloodFx.empty() && _bloodPools.empty() && _scorchDecals.empty()) return;
+	if (_bloodFx.empty() && bloodPools.empty() && scorchDecals.empty()) return;
 	if (SDL_GetTicks() - _lastDrawnTicks > 250) return;   // don't animate over a stale scene
 	if (!_spriteGLInit) initSpriteGL();
 	if (!_spriteShader || !_spriteShader->isValid() || !_spriteVAO) return;
@@ -5311,8 +5316,29 @@ void Map::drawBloodGLPass()
 		glBindVertexArray(0);
 	};
 
+	// Calypso P30: floor decals are drawn PRE-composite OVER the scene, so the quad bleeds
+	// upward (toward the N/W neighbour) onto whatever is there. When the neighbour is hidden
+	// by a CLOSED door the bleed lands on the door sprite — "blood on the door", intentional
+	// and atmospheric, so we keep it. But once a UFO/sliding door on the decal's own north or
+	// west wall OPENS, the floor of the tile beyond becomes visible and the bleed would paint
+	// onto it ("blood on the floor behind the open door"). When that happens, clip the quad's
+	// TOP with a GL scissor at the doorway base (tile floor back edge) so only the near-floor
+	// decal in front of the doorway survives. Returns true if a scissor was enabled (caller
+	// must glDisable it after the draw). `sp` is the camera-relative screen anchor of the tile.
+	auto clipBehindOpenDoor = [&](const Tile* t, const Position& sp) -> bool {
+		if (!t || (!t->isUfoDoorOpen(O_NORTHWALL) && !t->isUfoDoorOpen(O_WESTWALL))) return false;
+		const float kDoorwayBaseFrac = 0.45f;   // tile floor back edge ≈ where wall meets floor
+		const int   clipGY = sp.y + mapY + (int)((float)_spriteHeight * kDoorwayBaseFrac);
+		const float dispClipY = (float)clipGY * yScale + (float)tbb;
+		GLint keepH = (GLint)((float)dH - dispClipY);   // keep display rows [dispClipY, dH]
+		if (keepH < 0) keepH = 0;
+		glEnable(GL_SCISSOR_TEST);
+		glScissor(0, 0, dW, keepH);                     // cut everything above the doorway base
+		return true;
+	};
+
 	// --- E3: charred-ground decals (land AoE aftermath), persistent, under the blood ---
-	for (const auto& sd : _scorchDecals)
+	for (const auto& sd : scorchDecals)
 	{
 		const Tile* st = _save->getTile(sd.tile);
 		if (!st || !st->isDiscovered(O_FLOOR)) continue;        // hide on fogged/unexplored tiles
@@ -5330,11 +5356,13 @@ void Map::drawBloodGLPass()
 		const int side = std::max(1, (int)((float)_spriteWidth * sd.size));
 		_spriteShader->setUniform3f("u_tint", 0.09f, 0.07f, 0.05f);         // dark char
 		_spriteShader->setUniform1f("u_alpha", 0.82f * fadeIn);
+		const bool clipped = clipBehindOpenDoor(st, sp);
 		drawQuad(tex, cx - side / 2, cy - side / 2, side, side, sd.variant);
+		if (clipped) glDisable(GL_SCISSOR_TEST);
 	}
 
 	// --- dry-land blood pools: persistent flat decals on the floor, drying over time ---
-	for (const auto& bp : _bloodPools)
+	for (const auto& bp : bloodPools)
 	{
 		const Tile* pt = _save->getTile(bp.tile);
 		if (!pt || !pt->isDiscovered(O_FLOOR)) continue;        // hide on fogged/unexplored tiles
@@ -5359,7 +5387,9 @@ void Map::drawBloodGLPass()
 		{ r = 0.55f - 0.32f * dry; g = 0.04f + 0.05f * dry; b = 0.05f + 0.02f * dry; }
 		_spriteShader->setUniform3f("u_tint", r, g, b);
 		_spriteShader->setUniform1f("u_alpha", 0.88f * fadeIn);
+		const bool clipped = clipBehindOpenDoor(pt, sp);   // hide the bleed onto an open doorway's floor
 		drawQuad(tex, cx - side / 2, cy - side / 2, side, side, (int)(bp.seed * 8.0f) & 7);
+		if (clipped) glDisable(GL_SCISSOR_TEST);
 	}
 
 	const int kBloodFrames = 6;
@@ -5669,8 +5699,9 @@ void Map::triggerAoEFx(Position voxelCenter, int power, int radius, bool underwa
 		// persistent (kept until mission end). Spawned at blast time.
 		const int r  = std::max(1, radius);
 		const Position baseTile = voxelCenter.toTile();
+		auto& scorch = _save->getCalypsoScorchDecals();   // on SavedBattleGame — survives res change
 		// big centre patch
-		_scorchDecals.push_back(ScorchDecal{ baseTile, t0, (float)r * 1.6f, (int)(frand(t0) * 4.0f) & 3 });
+		scorch.push_back(CalypsoScorchDecal{ baseTile, t0, (float)r * 1.6f, (int)(frand(t0) * 4.0f) & 3 });
 		for (int dy = -r; dy <= r; dy += 2)
 		for (int dx = -r; dx <= r; dx += 2)
 		{
@@ -5682,10 +5713,10 @@ void Map::triggerAoEFx(Position voxelCenter, int power, int radius, bool underwa
 			if (dn > 0.65f && h > 0.5f) continue;            // ragged edge (drop ~half of the rim)
 			Position ct(baseTile.x + dx, baseTile.y + dy, baseTile.z);
 			const float sz = std::max(1.0f, (float)r * (0.9f - 0.5f * dn) * (0.7f + 0.5f * h)); // smaller out + jitter
-			_scorchDecals.push_back(ScorchDecal{ ct, t0, sz, (int)(h * 4.0f) & 3 });
+			scorch.push_back(CalypsoScorchDecal{ ct, t0, sz, (int)(h * 4.0f) & 3 });
 		}
-		if (_scorchDecals.size() > 220)   // bound across many blasts (persistent)
-			_scorchDecals.erase(_scorchDecals.begin(), _scorchDecals.begin() + (_scorchDecals.size() - 220));
+		if (scorch.size() > 220)   // bound across many blasts (persistent)
+			scorch.erase(scorch.begin(), scorch.begin() + (scorch.size() - 220));
 	}
 
 	// GL particle burst (frand defined above).

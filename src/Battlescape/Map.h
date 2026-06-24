@@ -327,17 +327,11 @@ private:
 	/// is wounded; PRE-composite (under HUD), drifts up + expands + fades over ~2.2 s.
 	struct BloodFx { Position tile; unsigned int spawnTick; unsigned int lifeMs; float seed; int faction; };
 	std::vector<BloodFx> _bloodFx;
-	/// Land blood pool (depth==0): a persistent flat decal on the floor that grows then
-	/// dries (crimson→brown), kept until mission end. Capped (oldest dropped). Drawn by
-	/// drawBloodGLPass alongside the underwater plumes (only one list is ever populated
-	/// per mission — depth is fixed).
-	struct BloodPool { Position tile; unsigned int spawnTick; float seed; int faction; int variant; };
-	std::vector<BloodPool> _bloodPools;
-	/// E3: charred-ground decal (land AoE aftermath) — a persistent flat char patch over
-	/// the blast area, kept until mission end. Drawn in drawBloodGLPass (PRE-composite),
-	/// tinted dark. `size` in _spriteWidth units, `variant` picks texture + orientation.
-	struct ScorchDecal { Position tile; unsigned int spawnTick; float size; int variant; };
-	std::vector<ScorchDecal> _scorchDecals;
+	// Land blood pools (depth==0) + charred-ground scorch decals are PERSISTENT (kept until
+	// mission end) and now live on SavedBattleGame (CalypsoBloodPool / CalypsoScorchDecal,
+	// via _save->getCalypsoBloodPools() / getCalypsoScorchDecals()), NOT here — a Map member
+	// would be lost when an in-game resolution change tears down the Map. The transient
+	// underwater plume (_bloodFx) stays Map-local (short-lived, fine to drop on a res change).
 	void drawBloodGLPass();
 	/// Residual wound-glow: a pulsing crimson glow on living wounded units, intensity
 	/// from getFatalWounds(); POST-composite, scissored to the map. Stateless (derived
