@@ -5508,7 +5508,7 @@ void Map::triggerAoEFx(Position voxelCenter, int power, bool underwater)
 	// the signature underwater element, replaces the sharp burst so it doesn't read as a
 	// space explosion. Land = the fiery sharp burst (kind 0).
 	const float fsize = std::min(4.0f, 2.2f + p * 0.012f);
-	if (underwater) _impactFlashes.push_back(ImpactFlash{ voxelCenter, t0, 760.0f, fsize * 0.60f, 0.62f, 0.95f, 1.00f, 1 }); // turquoise bubble (~half — was too big)
+	if (underwater) _impactFlashes.push_back(ImpactFlash{ voxelCenter, t0, 900.0f, fsize * 0.60f, 0.80f, 0.96f, 1.00f, 1 }); // glassy turquoise bubble (6-frame sprite)
 	else            _impactFlashes.push_back(ImpactFlash{ voxelCenter, t0, 440.0f, fsize,         1.00f, 0.80f, 0.32f, 0 }); // fiery yellow-white
 
 	// GL particle burst. Non-game PRNG (hash of tick+index) so we never advance the
@@ -5532,7 +5532,7 @@ void Map::triggerAoEFx(Position voxelCenter, int power, bool underwater)
 			const float spd = (50.0f + 130.0f * h1) * es;
 			fp.vx = std::cos(ang) * spd; fp.vy = std::sin(ang) * spd * 0.5f - (90.0f + 90.0f * h1) * es;
 			fp.ay = -420.0f * es;                                   // strong buoyancy (rises fast)
-			fp.delayMs = (unsigned int)(120.0f + 360.0f * h2);      // emerge AFTER the big bubble forms
+			fp.delayMs = (unsigned int)(350.0f + 400.0f * h2);      // rise AFTER the bubble bursts
 			fp.lifeMs = 600.0f + 600.0f * h2; fp.size = (6.0f + 8.0f * h2) * es;
 			fp.r = 0.70f; fp.g = 0.92f; fp.b = 1.00f; fp.additive = true;   // cyan-white
 		}
@@ -5559,7 +5559,7 @@ void Map::triggerAoEFx(Position voxelCenter, int power, bool underwater)
 			const float spd = (40.0f + 120.0f * h1) * es;
 			fp.vx = std::cos(ang) * spd * 0.5f; fp.vy = -(120.0f + 180.0f * h1) * es;
 			fp.ay = -120.0f * es;                                   // buoyant foam, floats off
-			fp.delayMs = (unsigned int)(280.0f + 420.0f * h2);      // foam rises after the small bubbles
+			fp.delayMs = (unsigned int)(520.0f + 450.0f * h2);      // foam rises last, after the small bubbles
 			fp.lifeMs = 900.0f + 700.0f * h2; fp.size = (10.0f + 13.0f * h2) * es;
 			fp.r = 0.92f; fp.g = 0.97f; fp.b = 1.00f; fp.additive = false;  // soft white
 		}
@@ -5818,21 +5818,21 @@ void Map::drawSmokeGLPass()
 			_spriteShader->setUniform3f("u_tint", fl.r, fl.g, fl.b);
 			if (fl.kind == 1)
 			{
-				// underwater vapor bubble: inflate → hold → collapse, glowing rim
-				GpuTexture* tex = getUITexture("Resources/battlescape/fx/explosion/bubble.png", 0);
+				// underwater vapor bubble: 6-frame sprite (form → grow → burst-to-froth).
+				// Frames carry the growth, so the quad is constant size; drawn STRAIGHT-ALPHA
+				// (glassy translucent, not additive), centred on the blast point + slight rise.
+				int fr = (int)(age * 6.0f); if (fr < 0) fr = 0; else if (fr > 5) fr = 5;
+				GpuTexture* tex = getUITexture(
+					std::string("Resources/battlescape/fx/explosion/bubble-") + std::to_string(fr) + ".png", 0);
 				if (!tex) continue;
-				const float bs = (age < 0.30f) ? (0.35f + 0.65f * (age / 0.30f))
-				               : (age < 0.60f) ? 1.0f
-				               : std::max(0.40f, 1.0f - 0.55f * ((age - 0.60f) / 0.40f));
-				const int side = (int)((float)_spriteWidth * fl.sizeMul * bs);
-				const float a = (age < 0.10f) ? (0.50f + 4.0f * age)              // hydraulic flash
-				              : (age < 0.62f) ? 0.55f                             // the bubble
-				              : 0.55f * std::max(0.0f, 1.0f - (age - 0.62f) / 0.38f); // collapse
-				_spriteShader->setUniform1f("u_alpha", std::max(0.02f, a));
-				// grow UP from the blast point: bottom edge anchored at (cx, cy), lifting
-				// slightly off the floor as it matures — not a centred ball.
-				const int rise = (int)(age * (float)_spriteHeight * 0.30f);
-				drawQuad(tex, cx - side / 2, cy - side - rise, side, side, 0.0f);
+				const int side = (int)((float)_spriteWidth * fl.sizeMul);
+				const int rise = (int)(age * (float)_spriteHeight * 0.30f);      // buoyant lift
+				float a = 0.92f;
+				if (age > 0.85f) a *= std::max(0.0f, 1.0f - (age - 0.85f) / 0.15f); // dissolve froth tail
+				glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);                  // glassy translucent
+				_spriteShader->setUniform1f("u_alpha", a);
+				drawQuad(tex, cx - side / 2, (cy - rise) - side / 2, side, side, 0.0f);
+				glBlendFunc(GL_SRC_ALPHA, GL_ONE);                                  // restore additive for burst flashes
 			}
 			else
 			{
