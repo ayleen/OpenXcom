@@ -511,6 +511,15 @@ void Map::init()
 			if (!wf.lock()) return;
 			this->drawMurkGLPass();
 		});
+		// Calypso P30 Срез B: blood plume PRE-composite (after murk, in the water scene,
+		// under the HUD). Drifts up + fades; spawned on a flesh-wounding hit. Scissored
+		// to the map so the rising plume can't bleed up into the letterbox/HUD strip.
+		_game->getScreen()->registerGPUPassPreComposite([this, wf]() {
+			if (!wf.lock()) return;
+			this->beginMapScissor();
+			this->drawBloodGLPass();
+			this->endMapScissor();
+		});
 		// Block 11.10: tile-space cursor overlay after tile pass, before sprites.
 		_game->getScreen()->registerGPUPass([this, wf]() {
 			if (!wf.lock()) return;
@@ -535,6 +544,15 @@ void Map::init()
 			if (!this->overlayPassesActive()) return;
 			this->beginMapScissor();
 			this->drawSmokeGLPass();
+			this->endMapScissor();
+		});
+		// Calypso P30 Срез B: wound-glow POST-composite (over wounded units), gated +
+		// scissored to the map. Stateless — pulses on any living wounded unit.
+		_game->getScreen()->registerGPUPass([this, wf]() {
+			if (!wf.lock()) return;
+			if (!this->overlayPassesActive()) return;
+			this->beginMapScissor();
+			this->drawWoundGlowGLPass();
 			this->endMapScissor();
 		});
 
@@ -1192,6 +1210,20 @@ void Map::drawUnit(UnitSprite &unitSprite, Tile *unitTile, Tile *currTile, Posit
 	// draw unit
 	int shade = 0;
 	UnitWalkingOffset offsets = calculateWalkingOffset(bu);
+#ifdef __EMSCRIPTEN__
+	// Calypso P30: hit-jolt — nudge the sprite toward bullet travel, decaying over
+	// a few anim frames. Propagates to the GPU atlas path too (same screen coords).
+	{
+		auto sit = _unitShakeOffset.find(bu->getId());
+		if (sit != _unitShakeOffset.end() && sit->second.framesLeft > 0)
+		{
+			const float t = (float)sit->second.framesLeft / (float)sit->second.totalFrames;
+			const float ampPx = (float)_spriteWidth * 0.14f * t;
+			offsets.ScreenOffset.x += (int)std::lround(sit->second.dx * ampPx);
+			offsets.ScreenOffset.y += (int)std::lround(sit->second.dy * ampPx);
+		}
+	}
+#endif
 	if (moving)
 	{
 		const Position start = bu->getPosition();
@@ -1515,7 +1547,10 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 #endif
 
 	surface->lock();
-	const Position cameraPos = _camera->getMapOffset();
+	Position cameraPos = _camera->getMapOffset();
+#ifdef __EMSCRIPTEN__
+	cameraPos += currentShakeOffset();   // Calypso P30: camera shake (CPU overlay path)
+#endif
 	for (int itZ = beginZ; itZ <= endZ; itZ++)
 	{
 		bool topLayer = itZ == endZ;
@@ -2986,7 +3021,10 @@ void Map::emitTilePass()
 
 	const int mapOffsetX    = getX();
 	const int mapOffsetY    = getY();
-	const Position camOff   = _camera->getMapOffset();
+	Position camOff         = _camera->getMapOffset();
+#ifdef __EMSCRIPTEN__
+	camOff += currentShakeOffset();   // Calypso P30: camera shake (GPU tile pass)
+#endif
 	const int halfAnimFrame = (_animFrame / 2) % 4;
 	SurfaceSet* smokeSet = mod->getSurfaceSet("SMOKE.PCK");
 	static const TilePart parts[4] = { O_FLOOR, O_WESTWALL, O_NORTHWALL, O_OBJECT };
@@ -5118,6 +5156,333 @@ void Map::drawMurkGLPass()
 #endif
 }
 
+// ---- Calypso Phase 30 Срез B: aftermath FX ---------------------------------
+
+void Map::spawnBloodFx(Position unitTile, int healthDamage, int faction)
+{
+#ifdef __EMSCRIPTEN__
+	if (healthDamage <= 0) return;
+	float seed = std::sin((float)(unitTile.x * 12.9898f + unitTile.y * 78.233f)
+		+ (float)SDL_GetTicks() * 0.013f) * 43758.5453f;
+	seed -= std::floor(seed);           // [0,1) phase
+	if (_save->getDepth() > 0)
+	{
+		// Underwater: a transient rising, diffusing plume.
+		if (_bloodFx.size() >= 64) return;   // cheap cap against multi-wound spam
+		_bloodFx.push_back(BloodFx{ unitTile, SDL_GetTicks(), 2200u, seed, faction });
+	}
+	else
+	{
+		// Dry land: a persistent floor pool (kept until mission end). Cap by dropping
+		// the oldest so a long, bloody mission never grows unbounded.
+		if (_bloodPools.size() >= 200) _bloodPools.erase(_bloodPools.begin());
+		const unsigned int h = (unsigned int)(unitTile.x * 73856093) ^ (unsigned int)(unitTile.y * 19349663) ^ SDL_GetTicks();
+		_bloodPools.push_back(BloodPool{ unitTile, SDL_GetTicks(), seed, faction, (int)(h % 6u) });   // 6 pool variants
+	}
+#else
+	(void)unitTile; (void)healthDamage; (void)faction;
+#endif
+}
+
+/**
+ * Calypso Phase 30 (Срез B): underwater blood plume — a drifting crimson cloud per
+ * wounding hit. PRE-composite (under the HUD, in the water scene). Rises + expands +
+ * fades over ~2.2 s; tinted by faction (X-COM crimson / hostile green ichor). Plays a
+ * 4-frame ink-diffusion sequence by age. No-ops until the art is present.
+ */
+void Map::drawBloodGLPass()
+{
+#ifdef __EMSCRIPTEN__
+	if (_bloodFx.empty() && _bloodPools.empty()) return;
+	const unsigned int now = SDL_GetTicks();
+	// Purge expired plumes first — independent of GL readiness — so the 64-entry plume
+	// cap can never deadlock if GL is briefly unavailable (e.g. context loss). Pools are
+	// persistent (kept until mission end) and bounded by the spawn-time drop-oldest cap.
+	_bloodFx.erase(std::remove_if(_bloodFx.begin(), _bloodFx.end(),
+		[now](const BloodFx& f){ return (now - f.spawnTick) >= f.lifeMs; }), _bloodFx.end());
+	if (_bloodFx.empty() && _bloodPools.empty()) return;
+	if (SDL_GetTicks() - _lastDrawnTicks > 250) return;   // don't animate over a stale scene
+	if (!_spriteGLInit) initSpriteGL();
+	if (!_spriteShader || !_spriteShader->isValid() || !_spriteVAO) return;
+
+	Screen* screen = _game->getScreen();
+	const float xScale = (float)screen->getXScale();
+	const float yScale = (float)screen->getYScale();
+	const int   lbb = screen->getCursorLeftBlackBand();
+	const int   tbb = screen->getCursorTopBlackBand();
+	const int   dW = Options::displayWidth, dH = Options::displayHeight;
+	const int   mapX = getX(), mapY = getY();
+	const Position camOff = _camera->getMapOffset() + currentShakeOffset();
+
+	GLint prevProgram = 0;
+	glGetIntegerv(GL_CURRENT_PROGRAM, &prevProgram);
+	glDisable(GL_DEPTH_TEST);
+	glDepthMask(GL_FALSE);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	_spriteShader->use();
+	_spriteShader->setUniform1i("u_tex", 0);
+	_spriteShader->setUniform2f("u_uvScroll", 0.0f, 0.0f);
+	_spriteShader->setUniform1f("u_radial", 0.0f);   // pools are flat; plumes turn it on below
+
+	// Dihedral UV transform: variant 0-7 = 90° rotation (low 2 bits) + optional mirror
+	// (bit 2). Re-orienting the cloud per spawn so no two plumes look alike.
+	auto uvT = [](float u, float v, int variant, float& ou, float& ov)
+	{
+		float cu = u - 0.5f, cv = v - 0.5f;
+		if (variant & 4) cu = -cu;
+		switch (variant & 3)
+		{
+			case 1:  ou = -cv; ov =  cu; break;
+			case 2:  ou = -cu; ov = -cv; break;
+			case 3:  ou =  cv; ov = -cu; break;
+			default: ou =  cu; ov =  cv; break;
+		}
+		ou += 0.5f; ov += 0.5f;
+	};
+	auto drawQuad = [&](GpuTexture* tex, int gx, int gy, int fw, int fh, int variant)
+	{
+		const float dispX = (float)gx * xScale + (float)lbb;
+		const float dispY = (float)gy * yScale + (float)tbb;
+		const float dispW = (float)fw * xScale, dispH = (float)fh * yScale;
+		const float x0 =  2.0f * dispX / (float)dW - 1.0f;
+		const float y0 = -(2.0f * dispY / (float)dH - 1.0f);
+		const float x1 =  2.0f * (dispX + dispW) / (float)dW - 1.0f;
+		const float y1 = -(2.0f * (dispY + dispH) / (float)dH - 1.0f);
+		float a0,b0, a1,b1, a2,b2, a3,b3;
+		uvT(0,0,variant,a0,b0); uvT(1,0,variant,a1,b1);
+		uvT(0,1,variant,a2,b2); uvT(1,1,variant,a3,b3);
+		const float verts[6 * 4] = {
+			x0,y0, a0,b0,  x1,y0, a1,b1,  x0,y1, a2,b2,
+			x0,y1, a2,b2,  x1,y0, a1,b1,  x1,y1, a3,b3,
+		};
+		glBindBuffer(GL_ARRAY_BUFFER, _spriteVBO);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)sizeof(verts), verts);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		tex->bind(0);
+		_spriteShader->setUniform1f("u_darken", 0.0f);
+		glBindVertexArray(_spriteVAO);
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+		glBindVertexArray(0);
+	};
+
+	// --- dry-land blood pools: persistent flat decals on the floor, drying over time ---
+	for (const auto& bp : _bloodPools)
+	{
+		const float ageS = (float)(now - bp.spawnTick) * 0.001f;
+		GpuTexture* tex = getUITexture(
+			std::string("Resources/battlescape/fx/blood/pool-") + std::to_string(bp.variant) + ".png", 0);
+		if (!tex) tex = getUITexture("Resources/battlescape/fx/blood/pool-0.png", 0);   // fallback
+		if (!tex) continue;
+		Position sp;
+		_camera->convertMapToScreen(bp.tile, &sp);
+		sp += camOff;
+		const int cx = sp.x + mapX + _spriteWidth / 2;
+		const int cy = sp.y + mapY + (int)((float)_spriteHeight * 0.62f);   // near the tile floor
+		const float grow = std::min(1.0f, ageS / 0.5f);                     // spreads over 0.5 s
+		const int side = (int)((float)_spriteWidth * 1.3f * (0.45f + 0.55f * grow));
+		const float fadeIn = std::min(1.0f, ageS / 0.3f);
+		const float dry = std::min(1.0f, ageS / 25.0f);                     // dries over 25 s
+		float r, g, b;
+		if (bp.faction == FACTION_HOSTILE)                                  // green ichor -> dark
+		{ r = 0.40f - 0.22f * dry; g = 0.55f - 0.34f * dry; b = 0.16f - 0.08f * dry; }
+		else                                                               // crimson -> dark brown
+		{ r = 0.55f - 0.32f * dry; g = 0.04f + 0.05f * dry; b = 0.05f + 0.02f * dry; }
+		_spriteShader->setUniform3f("u_tint", r, g, b);
+		_spriteShader->setUniform1f("u_alpha", 0.88f * fadeIn);
+		drawQuad(tex, cx - side / 2, cy - side / 2, side, side, (int)(bp.seed * 8.0f) & 7);
+	}
+
+	const int kBloodFrames = 6;
+	_spriteShader->setUniform1f("u_radial", 1.30f);   // shader radial colour ramp (plumes only)
+	for (const auto& bf : _bloodFx)
+	{
+		float age = (float)(now - bf.spawnTick) / bf.lifeMs;
+		if (age < 0.0f) age = 0.0f;
+		if (age >= 1.0f) continue;
+		int fr = (int)(age * kBloodFrames);
+		if (fr < 0) fr = 0; else if (fr >= kBloodFrames) fr = kBloodFrames - 1;
+		GpuTexture* tex = getUITexture(
+			std::string("Resources/battlescape/fx/blood/blood-") + std::to_string(fr) + ".png", 0);
+		if (!tex) continue;
+
+		// Per-spawn shape distortion from the stored seed: dihedral orientation, an
+		// area-stable squash/stretch, a breathing wobble, and one offset satellite lobe
+		// that disperses with age → an irregular, asymmetric silhouette unique to each.
+		const float s  = bf.seed;
+		float h2 = s * 131.7f + 0.37f; h2 -= std::floor(h2);
+		float h3 = s * 71.3f  + 0.91f; h3 -= std::floor(h3);
+		float h5 = s * 97.7f  + 0.57f; h5 -= std::floor(h5);
+		const int   vEdge  = (int)(s * 8.0f) & 7;                               // dihedral orient/mirror
+		const float wob    = 1.0f + 0.16f * std::sin(age * 6.0f + s * 6.2832f); // breathing churn
+		const float aspect = std::sqrt(0.50f + 1.00f * h2) * wob;              // area-stable skew
+
+		Position sp;
+		_camera->convertMapToScreen(bf.tile, &sp);
+		sp += camOff;
+		const float drift = age * (float)_spriteHeight * 0.45f;                 // blood rises
+		const int cx = sp.x + mapX + _spriteWidth  / 2;
+		const int cy = sp.y + mapY + _spriteHeight / 2 - (int)drift;
+		const float scale = 0.6f + 0.9f * age;
+		const int baseW = (int)((float)_spriteWidth * 1.0f * scale * aspect);
+		const int baseH = (int)((float)_spriteWidth * 1.0f * scale / aspect);
+		const float spread = (0.14f + 0.42f * age) * (float)_spriteWidth;       // satellite disperses
+		const float a2 = h5 * 6.2832f;
+		const int o2x = (int)(std::cos(a2) * spread), o2y = (int)(std::sin(a2) * spread * 0.7f);
+		float fade = 1.0f;
+		if (age < 0.12f) fade = age / 0.12f;                                    // quick fade-in
+		else if (age > 0.55f) fade = 1.0f - (age - 0.55f) / 0.45f;              // long fade-out
+		fade = std::max(0.0f, fade);
+		const float bri = 0.82f + 0.36f * h3;                                   // per-spawn brightness
+
+		// Strong radial colour ramp (shader): bright saturated core → very dark rim.
+		float cr, cg, cb, er, eg, eb;
+		if (bf.faction == FACTION_HOSTILE)                                      // green ichor
+		{ cr = 0.55f; cg = 0.95f; cb = 0.22f;  er = 0.07f; eg = 0.18f; eb = 0.04f; }
+		else                                                                    // crimson
+		{ cr = 0.95f; cg = 0.13f; cb = 0.10f;  er = 0.13f; eg = 0.00f; eb = 0.01f; }
+		_spriteShader->setUniform3f("u_tint",     cr * bri, cg * bri, cb * bri);
+		_spriteShader->setUniform3f("u_tintEdge", er * bri, eg * bri, eb * bri);
+		// MAIN lobe — full, centred on the wound
+		_spriteShader->setUniform1f("u_alpha", fade * 0.85f);
+		drawQuad(tex, cx - baseW / 2, cy - baseH / 2, baseW, baseH, vEdge);
+		// SATELLITE lobe — smaller, offset in a per-spawn direction (asymmetry)
+		const int sw = (int)(baseW * 0.55f), sh = (int)(baseH * 0.55f);
+		_spriteShader->setUniform1f("u_alpha", fade * 0.70f);
+		drawQuad(tex, cx + o2x - sw / 2, cy + o2y - sh / 2, sw, sh, vEdge ^ 3);
+	}
+	_spriteShader->setUniform1f("u_radial", 0.0f);   // back to flat tint for any later caller
+
+	_spriteShader->setUniform3f("u_tint", 1.0f, 1.0f, 1.0f);
+	_spriteShader->setUniform1f("u_alpha", 1.0f);
+	_spriteShader->setUniform2f("u_uvScroll", 0.0f, 0.0f);
+	glUseProgram((GLuint)prevProgram);
+#endif
+}
+
+/**
+ * Calypso Phase 30 (Срез B): residual wound-glow — a pulsing crimson glow on living
+ * wounded units, intensity from getFatalWounds(). POST-composite (over the unit),
+ * gated + scissored to the map by the registration. Stateless: derived from the unit
+ * list each frame, so it appears when wounded and vanishes when healed/dead.
+ */
+void Map::drawWoundGlowGLPass()
+{
+#ifdef __EMSCRIPTEN__
+	if (!_spriteGLInit) initSpriteGL();
+	if (!_spriteShader || !_spriteShader->isValid() || !_spriteVAO) return;
+	std::vector<BattleUnit*>* units = _save->getUnits();
+	if (!units || units->empty()) return;
+	GpuTexture* glow = getUITexture("Resources/battlescape/fx/blood/wound-glow.png", 0);
+	if (!glow) return;
+
+	Screen* screen = _game->getScreen();
+	const float xScale = (float)screen->getXScale();
+	const float yScale = (float)screen->getYScale();
+	const int   lbb = screen->getCursorLeftBlackBand();
+	const int   tbb = screen->getCursorTopBlackBand();
+	const int   dW = Options::displayWidth, dH = Options::displayHeight;
+	const int   mapX = getX(), mapY = getY();
+	const Position camOff = _camera->getMapOffset() + currentShakeOffset();
+	const float t = (float)SDL_GetTicks() * 0.001f;
+
+	GLint prevProgram = 0;
+	glGetIntegerv(GL_CURRENT_PROGRAM, &prevProgram);
+	glDisable(GL_DEPTH_TEST);
+	glDepthMask(GL_FALSE);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE);   // additive glow
+	_spriteShader->use();
+	_spriteShader->setUniform1i("u_tex", 0);
+	_spriteShader->setUniform2f("u_uvScroll", 0.0f, 0.0f);
+	_spriteShader->setUniform1f("u_radial", 0.0f);   // flat tint (defensive; blood resets too)
+	_spriteShader->setUniform3f("u_tint", 0.65f, 0.04f, 0.05f);   // crimson
+	glow->bind(0);
+
+	auto drawQuad = [&](int gx, int gy, int fw, int fh)
+	{
+		const float dispX = (float)gx * xScale + (float)lbb;
+		const float dispY = (float)gy * yScale + (float)tbb;
+		const float dispW = (float)fw * xScale, dispH = (float)fh * yScale;
+		const float x0 =  2.0f * dispX / (float)dW - 1.0f;
+		const float y0 = -(2.0f * dispY / (float)dH - 1.0f);
+		const float x1 =  2.0f * (dispX + dispW) / (float)dW - 1.0f;
+		const float y1 = -(2.0f * (dispY + dispH) / (float)dH - 1.0f);
+		const float verts[6 * 4] = {
+			x0,y0, 0,0,  x1,y0, 1,0,  x0,y1, 0,1,
+			x0,y1, 0,1,  x1,y0, 1,0,  x1,y1, 1,1,
+		};
+		glBindBuffer(GL_ARRAY_BUFFER, _spriteVBO);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)sizeof(verts), verts);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		_spriteShader->setUniform1f("u_darken", 0.0f);
+		glBindVertexArray(_spriteVAO);
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+		glBindVertexArray(0);
+	};
+
+	for (BattleUnit* u : *units)
+	{
+		if (!u || u->isOut() || u->getFatalWounds() <= 0) continue;
+		if (!(u->getVisible() || _save->getDebugMode())) continue;
+		Position sp;
+		_camera->convertMapToScreen(u->getPosition(), &sp);
+		sp += camOff;
+		const int cx = sp.x + mapX + _spriteWidth / 2;
+		const int cy = sp.y + mapY + _spriteHeight / 2;          // torso-ish anchor
+		float intensity = (float)u->getFatalWounds() / 6.0f;
+		if (intensity > 1.0f) intensity = 1.0f;
+		// golden-angle phase per unit id so nearby units don't pulse in sync
+		const float ph = (float)u->getId() * 2.39996323f;
+		const float pulse = 0.6f + 0.4f * std::sin(t * 3.0f + ph);
+		const int side = (int)((float)_spriteWidth * 0.7f);
+		_spriteShader->setUniform1f("u_alpha", std::max(0.0f, 0.16f + 0.32f * intensity * pulse));
+		drawQuad(cx - side / 2, cy - side / 2, side, side);
+	}
+
+	_spriteShader->setUniform3f("u_tint", 1.0f, 1.0f, 1.0f);
+	_spriteShader->setUniform1f("u_alpha", 1.0f);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);   // restore straight-alpha
+	glUseProgram((GLuint)prevProgram);
+#endif
+}
+
+/// Calypso Phase 30: current camera-shake screen offset (decaying sine). (0,0,0) idle.
+Position Map::currentShakeOffset() const
+{
+	if (_shakeAmp <= 0.0f) return Position(0, 0, 0);
+	const float elapsed = (float)(SDL_GetTicks() - _shakeStartMs) * 0.001f;
+	const float dur = 0.30f;
+	if (elapsed >= dur) { _shakeAmp = 0.0f; return Position(0, 0, 0); }   // settle (skip future work)
+	float env = 1.0f - elapsed / dur; env *= env;                          // ease-out
+	const float a = _shakeAmp * env;
+	const float w = 46.0f;                                                 // angular freq
+	const int dx = (int)std::lround(std::sin(elapsed * w)               * a);
+	const int dy = (int)std::lround(std::sin(elapsed * w * 1.7f + 1.1f) * a * 0.55f);
+	return Position(dx, dy, 0);
+}
+
+void Map::triggerShake(float amplitudePx)
+{
+	const float es = (float)_spriteWidth / 32.0f;                          // tile-scale aware
+	_shakeAmp = amplitudePx * es;
+	_shakeStartMs = SDL_GetTicks();
+}
+
+void Map::triggerHitFx(Position voxelCenter, int power, int unitId, float dirX, float dirY)
+{
+	// Contact flash at the impact point (works for terrain / object / unit alike).
+	_impactFlashes.push_back(ImpactFlash{ voxelCenter, SDL_GetTicks(), 400.0f });
+	// Camera shake, scaled by power.
+	triggerShake(std::min(6.0f, 1.5f + (float)power * 0.06f));
+	// Sprite jolt for the struck unit (any faction), toward bullet travel.
+	if (unitId >= 0)
+	{
+		const int frames = 3;
+		_unitShakeOffset[unitId] = UnitShake{ dirX, dirY, frames, frames };
+	}
+}
+
 void Map::drawSmokeGLPass()
 {
 	if (SDL_GetTicks() - _lastDrawnTicks > 250) return;
@@ -5126,7 +5491,8 @@ void Map::drawSmokeGLPass()
 	if (!_spriteVAO) return;
 
 	const bool hasExplosionWork = _explosionInFOV && !_flashScreen && !_explosions.empty();
-	if (!hasExplosionWork) return;   // tile-smoke murk is now a separate pre-composite pass
+	const bool hasFlashWork     = !_impactFlashes.empty();   // Calypso P30: impact flashes
+	if (!hasExplosionWork && !hasFlashWork) return;   // tile-smoke murk is a separate pre-composite pass
 
 	Screen* screen = _game->getScreen();
 	const float xScale = static_cast<float>(screen->getXScale());
@@ -5185,20 +5551,22 @@ void Map::drawSmokeGLPass()
 		Mod* mod = _game->getMod();
 		SurfaceSet* x1Set    = mod->getSurfaceSet("X1.PCK");
 		SurfaceSet* hitSet   = mod->getSurfaceSet("HIT.PCK");
-		SurfaceSet* smokeSet = mod->getSurfaceSet("SMOKE.PCK");
+		// Calypso P30: SMOKE.PCK bullet-hit puff render is disabled below (replaced by
+		// the impact-flash animation), so its SurfaceSet is no longer fetched here.
 		const int mapX = getX();
 		const int mapY = getY();
 		// Phase 24: explosion/hit sprites are voxel-anchored effects, not tile-sized.
 		// Scale both their size and their hand-tuned centring offsets with the tile
 		// scale (native 32-wide tile -> es = 1, unchanged).
 		const int es = _spriteWidth / 32;
+		const Position shkE = currentShakeOffset();   // Calypso P30: glue blasts to the shaking scene
 
 		for (const auto* explosion : _explosions)
 		{
 			Position sp;
 			_camera->convertVoxelToScreen(explosion->getPosition(), &sp);
-			const int bsx = sp.x + mapX;
-			const int bsy = sp.y + mapY;
+			const int bsx = sp.x + mapX + shkE.x;
+			const int bsy = sp.y + mapY + shkE.y;
 
 			// Size each blit by the set's LOGICAL frame size, not the texture's: HD
 			// (hd:true) frames are higher-res than 128x64 / 32x40 but must keep the
@@ -5220,11 +5588,54 @@ void Map::drawSmokeGLPass()
 			}
 			else
 			{
-				GpuTexture* tex = getOrUploadSpriteFrame(smokeSet, explosion->getCurrentFrame());
-				if (!tex) continue;
-				drawQuad(tex, bsx - 15 * es, bsy - 15 * es, smokeSet->getWidth() * es, smokeSet->getHeight() * es, 0.0f);
+				// Calypso P30: the vanilla bullet-hit SMOKE puff (SMOKE.PCK 46-55) is
+				// replaced by the impact-flash burst drawn below. Skip its render; the
+				// Explosion object is kept so ExplosionBState timing is unchanged.
+				continue;
 			}
 		}
+	}
+
+	// --- Calypso Phase 30: impact flashes (additive contact pop, anchored to voxel) ---
+	// A 4-frame burst (core -> starburst -> shockwave ring -> dissipating ring),
+	// driven by the instance age. White+alpha PNGs, tinted warm-white here.
+	if (hasFlashWork)
+	{
+		const unsigned int now = SDL_GetTicks();
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE);   // additive glow
+		const int fMapX = getX();
+		const int fMapY = getY();
+		const Position shk = currentShakeOffset();
+		_spriteShader->setUniform3f("u_tint", 1.0f, 0.96f, 0.85f);
+		for (const auto& fl : _impactFlashes)
+		{
+			float age = (float)(now - fl.spawnTick) / fl.lifeMs;
+			if (age < 0.0f) age = 0.0f;
+			if (age >= 1.0f) continue;
+			int fr = (int)(age * 4.0f);
+			if (fr < 0) fr = 0; else if (fr > 3) fr = 3;
+			GpuTexture* tex = getUITexture(
+				std::string("Resources/battlescape/fx/impact/impact-flash-") + std::to_string(fr) + ".png", 0);
+			if (!tex) continue;
+			Position sp;
+			_camera->convertVoxelToScreen(fl.voxel, &sp);
+			const int cx = sp.x + fMapX + shk.x;
+			const int cy = sp.y + fMapY + shk.y;
+			const float scale = 1.0f + 0.20f * age;            // slight overall grow
+			const int side = (int)((float)_spriteWidth * 1.1f * scale);
+			float fade = 1.0f;
+			if (age > 0.7f) fade = 1.0f - (age - 0.7f) / 0.3f; // ease out the tail
+			_spriteShader->setUniform1f("u_alpha", std::max(0.04f, fade));
+			drawQuad(tex, cx - side / 2, cy - side / 2, side, side, 0.0f);
+		}
+		_spriteShader->setUniform1f("u_alpha", 1.0f);
+		_spriteShader->setUniform3f("u_tint", 1.0f, 1.0f, 1.0f);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);   // restore straight-alpha (we switched to additive)
+		// expire spent flashes
+		_impactFlashes.erase(
+			std::remove_if(_impactFlashes.begin(), _impactFlashes.end(),
+				[now](const ImpactFlash& f){ return (now - f.spawnTick) >= (unsigned int)f.lifeMs; }),
+			_impactFlashes.end());
 	}
 
 	glDisable(GL_BLEND);
@@ -5434,6 +5845,22 @@ void Map::animate(bool redraw)
 {
 	_save->nextAnimFrame();
 	_animFrame = _save->getAnimFrame();
+
+#ifdef __EMSCRIPTEN__
+	// Calypso P30: age hit-jolt counters; expire spent impact flashes.
+	for (auto it = _unitShakeOffset.begin(); it != _unitShakeOffset.end(); )
+	{
+		if (--it->second.framesLeft <= 0) it = _unitShakeOffset.erase(it);
+		else ++it;
+	}
+	{
+		const unsigned int now = SDL_GetTicks();
+		_impactFlashes.erase(
+			std::remove_if(_impactFlashes.begin(), _impactFlashes.end(),
+				[now](const ImpactFlash& f){ return (now - f.spawnTick) >= (unsigned int)f.lifeMs; }),
+			_impactFlashes.end());
+	}
+#endif
 
 	// random ambient sounds
 	{
