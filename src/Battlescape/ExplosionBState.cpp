@@ -29,6 +29,7 @@
 #include "../Savegame/Tile.h"
 #include "../Mod/Mod.h"
 #include "../Mod/RuleItem.h"
+#include "../Mod/RuleDamageType.h"
 #include "../Mod/Armor.h"
 #include "../Engine/RNG.h"
 #include <cmath>
@@ -237,7 +238,8 @@ void ExplosionBState::init()
 			// big coloured flash + GL particle burst (sparks/debris land, bubble-jets/foam
 			// underwater). Anchored to _center, fired once (the EGA flash is suppressed
 			// in this fork). Cosmetic only — damage already resolved in explode() above.
-			_parent->getMap()->triggerAoEFx(_center, powerForAnimation, _radius, _parent->getDepth() > 0);
+			_parent->getMap()->triggerAoEFx(_center, powerForAnimation, _radius, _parent->getDepth() > 0,
+				_damageType ? (int)_damageType->ResistType : (int)DT_HE);
 #endif
 			int lowerLimit = std::max(1, powerForAnimation / 5);
 			for (int i = 0; i < lowerLimit; i++)

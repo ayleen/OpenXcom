@@ -48,6 +48,7 @@
 #include "../Savegame/BattleItem.h"
 #include "../Ufopaedia/Ufopaedia.h"
 #include "../Mod/RuleItem.h"
+#include "../Mod/RuleDamageType.h"
 #include "../Mod/RuleInterface.h"
 #include "../Mod/MapDataSet.h"
 #include "../Mod/MapData.h"
@@ -5552,7 +5553,7 @@ void Map::triggerHitFx(Position voxelCenter, int power, int unitId, float dirX, 
 	}
 }
 
-void Map::triggerAoEFx(Position voxelCenter, int power, int radius, bool underwater)
+void Map::triggerAoEFx(Position voxelCenter, int power, int radius, bool underwater, int damageType)
 {
 	const unsigned int t0 = SDL_GetTicks();
 	const float p  = (float)power;
@@ -5564,6 +5565,43 @@ void Map::triggerAoEFx(Position voxelCenter, int power, int radius, bool underwa
 		s ^= 61u ^ (s >> 16); s *= 9u; s ^= s >> 4; s *= 0x27d4eb2du; s ^= s >> 15;
 		return (float)(s & 0xffffffu) / (float)0x1000000u;
 	};
+
+	// Stun / smoke blasts (e.g. Thermal Shok Launcher) are NOT fiery and leave no burn:
+	// a soft gas cloud over the area + a gentle nudge — no fire flash, no scorch, no hot
+	// sparks / vapor bubble / shockwave. The lingering tile smoke carries the cloud after.
+	if (damageType == DT_STUN || damageType == DT_SMOKE)
+	{
+		triggerShake(std::min(5.0f, 1.5f + p * 0.03f), 30.0f, 0.30f);
+		float gr, gg, gb;
+		if (damageType == DT_STUN) { gr = 0.55f; gg = 0.95f; gb = 0.70f; }  // pale green stun gas
+		else                        { gr = 0.72f; gg = 0.75f; gb = 0.78f; }  // grey smoke
+		const int rT = std::max(1, radius);
+		const int puffs = std::min(22, 8 + rT * 2);
+		for (int i = 0; i < puffs; ++i)
+		{
+			const float h0 = frand(t0 + (unsigned)i * 2654435761u + 3u);
+			const float h1 = frand(t0 * 3u + (unsigned)i * 40503u + 19u);
+			const float h2 = frand(t0 + (unsigned)i * 668265263u + 41u);
+			const float ang = h0 * 6.2832f;
+			const float dist = (float)rT * 16.0f * 0.8f * std::sqrt(h1);    // over the blast area
+			FxParticle fp{};
+			fp.origin = voxelCenter;
+			fp.origin.x += (int)(std::cos(ang) * dist);
+			fp.origin.y += (int)(std::sin(ang) * dist);
+			fp.spawnTick = t0;
+			fp.delayMs = (unsigned int)(h2 * 300.0f);
+			fp.vx = std::cos(ang) * 20.0f * es;
+			fp.vy = std::sin(ang) * 14.0f * es - 30.0f * es;               // slow drift, slight rise
+			fp.ay = -40.0f * es;                                           // gentle buoyancy
+			fp.lifeMs = 1400.0f + 900.0f * h2;
+			fp.size = (14.0f + 16.0f * h2) * es;                           // big soft gas blobs
+			fp.r = gr; fp.g = gg; fp.b = gb; fp.additive = false;          // translucent, not glowing
+			_fxParticles.push_back(fp);
+		}
+		if (_fxParticles.size() > 320)
+			_fxParticles.erase(_fxParticles.begin(), _fxParticles.begin() + (_fxParticles.size() - 320));
+		return;   // no fiery flash / scorch / bubble / shockwave / hot particles
+	}
 
 	// Camera shake: sharp/high-freq rattle on land, heavy/low-freq sway underwater.
 	const float amp = std::min(10.0f, 2.5f + p * 0.06f);

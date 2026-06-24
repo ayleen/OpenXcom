@@ -463,7 +463,7 @@ public:
 	/// Calypso explosion FX: depth-split AoE blast — camera shake + big coloured flash
 	/// + a GL particle burst, plus (underwater) a scatter of small bubble-bursts over the
 	/// blast radius. Called once at blast start from ExplosionBState::init. radius = tiles.
-	void triggerAoEFx(Position voxelCenter, int power, int radius, bool underwater);
+	void triggerAoEFx(Position voxelCenter, int power, int radius, bool underwater, int damageType);
 #endif
 	/// Handles timers.
 	void think() override;
