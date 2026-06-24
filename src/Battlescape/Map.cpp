@@ -5203,6 +5203,26 @@ void Map::drawMurkGLPass()
 
 // ---- Calypso Phase 30 Срез B: aftermath FX ---------------------------------
 
+#ifdef __EMSCRIPTEN__
+// True if any UFO/sliding door bounding tile `p` is currently open. Shared by the spawn sites
+// (to mark a decal "floor-only" when it is created while the doorway is open) and the draw
+// pass (to diamond-clip a decal whose door is open right now). Checks the 4 walls bounding the
+// tile (own W/N, east neighbour's W, south neighbour's N) plus bigwall O_OBJECT doors on the
+// tile and its 4 orthogonal neighbours.
+static bool calypsoDoorwayOpen(SavedBattleGame* save, Position p)
+{
+	auto open = [&](int dx, int dy, TilePart part) {
+		const Tile* x = save->getTile(p + Position(dx, dy, 0));
+		return x && x->isUfoDoorOpen(part);
+	};
+	return open(0, 0, O_WESTWALL) || open(0, 0, O_NORTHWALL)
+	    || open(1, 0, O_WESTWALL) || open(0, 1, O_NORTHWALL)
+	    || open(0, 0, O_OBJECT)
+	    || open(-1, 0, O_OBJECT) || open(1, 0, O_OBJECT)
+	    || open(0, -1, O_OBJECT) || open(0, 1, O_OBJECT);
+}
+#endif
+
 void Map::spawnBloodFx(Position unitTile, int healthDamage, int faction)
 {
 #ifdef __EMSCRIPTEN__
@@ -5224,7 +5244,8 @@ void Map::spawnBloodFx(Position unitTile, int healthDamage, int faction)
 		auto& pools = _save->getCalypsoBloodPools();
 		if (pools.size() >= 200) pools.erase(pools.begin());
 		const unsigned int h = (unsigned int)(unitTile.x * 73856093) ^ (unsigned int)(unitTile.y * 19349663) ^ SDL_GetTicks();
-		pools.push_back(CalypsoBloodPool{ unitTile, SDL_GetTicks(), seed, faction, (int)(h % 6u) });   // 6 pool variants
+		const int floorOnly = calypsoDoorwayOpen(_save, unitTile) ? 1 : 0;   // bled while the doorway was open → keep it on the floor
+		pools.push_back(CalypsoBloodPool{ unitTile, SDL_GetTicks(), seed, faction, (int)(h % 6u), floorOnly });   // 6 pool variants
 	}
 #else
 	(void)unitTile; (void)healthDamage; (void)faction;
@@ -5326,30 +5347,13 @@ void Map::drawBloodGLPass()
 	// TOP with a GL scissor at the doorway base (tile floor back edge) so only the near-floor
 	// decal in front of the doorway survives. Returns true if a scissor was enabled (caller
 	// must glDisable it after the draw). `sp` is the camera-relative screen anchor of the tile.
-	// Calypso P30: floor decals are drawn PRE-composite OVER the scene, so a pool sitting in/at
-	// a doorway shows over the CLOSED door sprite (atmospheric — kept) and then, when the door
-	// slides OPEN, shows on the now-revealed floor of the neighbour beyond it (unwanted — the
-	// blood appears to teleport onto the floor behind the door). Because the revealed neighbour
-	// can be in ANY screen direction (a west-wall door reveals up-LEFT at the same screen Y, so a
-	// horizontal clip can't separate it), the robust rule is: if ANY UFO/sliding door bounding
-	// the pool's own tile is currently open, hide the whole decal. The unit bled in the doorway,
-	// so the blood was only ever "on the door" — once the door is gone there is nothing to paint
-	// it onto. Checks the 4 walls bounding the tile (own W/N, east neighbour's W, south
-	// neighbour's N) plus bigwall/object doors on the tile and its 4 orthogonal neighbours.
-	// (Triton hatch = open UFO door on the doorway tile's own O_WESTWALL, confirmed via diag.)
-	auto doorOpenAround = [&](const Tile* t) -> bool {
-		if (!t) return false;
-		const Position p = t->getPosition();
-		auto open = [&](int dx, int dy, TilePart part) {
-			const Tile* x = _save->getTile(p + Position(dx, dy, 0));
-			return x && x->isUfoDoorOpen(part);
-		};
-		return open(0, 0, O_WESTWALL) || open(0, 0, O_NORTHWALL)     // own west/north edge
-		    || open(1, 0, O_WESTWALL) || open(0, 1, O_NORTHWALL)     // east/south edge (neighbour's wall)
-		    || open(0, 0, O_OBJECT)                                  // bigwall door on the tile
-		    || open(-1, 0, O_OBJECT) || open(1, 0, O_OBJECT)         // bigwall door on W/E neighbour
-		    || open(0, -1, O_OBJECT) || open(0, 1, O_OBJECT);        // bigwall door on N/S neighbour
-	};
+	// Calypso P30: floor decals are drawn PRE-composite OVER the scene, so a pool in/at a doorway
+	// shows over a CLOSED door (atmospheric — kept) and would otherwise bleed onto the revealed
+	// floor when the door OPENS. Clip a decal to its own tile's iso floor diamond when either:
+	//   (a) it was created while the doorway was OPEN (decal.floorOnly) → "ground blood", always
+	//       confined so it never paints the door even after the door later closes; or
+	//   (b) a bounding UFO door is open RIGHT NOW (calypsoDoorwayOpen) → drop only the past-door
+	//       bleed while keeping the on-ground part.
 	// When a bounding door is open, confine the decal to its OWN tile's iso floor diamond
 	// (centre + half-extents in window pixels → textured.frag discards fragments outside it).
 	// This keeps the on-the-ground part of the splat and drops only the part that bled past
@@ -5380,7 +5384,7 @@ void Map::drawBloodGLPass()
 		const int cx = sp.x + mapX + _spriteWidth / 2;
 		const int cy = sp.y + mapY + (int)((float)_spriteHeight * 0.55f);   // on the floor
 		const int side = std::max(1, (int)((float)_spriteWidth * sd.size));
-		const bool clipDoor = doorOpenAround(st);                          // in a doorway whose door is open
+		const bool clipDoor = sd.floorOnly || calypsoDoorwayOpen(_save, sd.tile);   // ground char, or door open now
 		_spriteShader->setUniform3f("u_tint", 0.09f, 0.07f, 0.05f);         // dark char
 		_spriteShader->setUniform1f("u_alpha", 0.82f * fadeIn);
 		if (clipDoor) setDiamondClip(cx, cy);                              // confine to own tile, drop the bleed past the door
@@ -5412,7 +5416,7 @@ void Map::drawBloodGLPass()
 		{ r = 0.40f - 0.22f * dry; g = 0.55f - 0.34f * dry; b = 0.16f - 0.08f * dry; }
 		else                                                               // crimson -> dark brown
 		{ r = 0.55f - 0.32f * dry; g = 0.04f + 0.05f * dry; b = 0.05f + 0.02f * dry; }
-		const bool clipDoor = doorOpenAround(pt);          // in a doorway whose door is open
+		const bool clipDoor = bp.floorOnly || calypsoDoorwayOpen(_save, bp.tile);   // ground blood, or door open now
 		_spriteShader->setUniform3f("u_tint", r, g, b);
 		_spriteShader->setUniform1f("u_alpha", 0.88f * fadeIn);
 		if (clipDoor) setDiamondClip(cx, cy);              // keep the on-floor part, drop the bleed past the door
@@ -5729,7 +5733,8 @@ void Map::triggerAoEFx(Position voxelCenter, int power, int radius, bool underwa
 		const Position baseTile = voxelCenter.toTile();
 		auto& scorch = _save->getCalypsoScorchDecals();   // on SavedBattleGame — survives res change
 		// big centre patch
-		scorch.push_back(CalypsoScorchDecal{ baseTile, t0, (float)r * 1.6f, (int)(frand(t0) * 4.0f) & 3 });
+		scorch.push_back(CalypsoScorchDecal{ baseTile, t0, (float)r * 1.6f, (int)(frand(t0) * 4.0f) & 3,
+			calypsoDoorwayOpen(_save, baseTile) ? 1 : 0 });
 		for (int dy = -r; dy <= r; dy += 2)
 		for (int dx = -r; dx <= r; dx += 2)
 		{
@@ -5741,7 +5746,7 @@ void Map::triggerAoEFx(Position voxelCenter, int power, int radius, bool underwa
 			if (dn > 0.65f && h > 0.5f) continue;            // ragged edge (drop ~half of the rim)
 			Position ct(baseTile.x + dx, baseTile.y + dy, baseTile.z);
 			const float sz = std::max(1.0f, (float)r * (0.9f - 0.5f * dn) * (0.7f + 0.5f * h)); // smaller out + jitter
-			scorch.push_back(CalypsoScorchDecal{ ct, t0, sz, (int)(h * 4.0f) & 3 });
+			scorch.push_back(CalypsoScorchDecal{ ct, t0, sz, (int)(h * 4.0f) & 3, calypsoDoorwayOpen(_save, ct) ? 1 : 0 });
 		}
 		if (scorch.size() > 220)   // bound across many blasts (persistent)
 			scorch.erase(scorch.begin(), scorch.begin() + (scorch.size() - 220));

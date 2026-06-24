@@ -56,8 +56,11 @@ struct BattlescapeTally;
 // down the BattlescapeState + its Map (OptionsBaseState::restart) — a Map-owned vector
 // would be lost. SavedBattleGame survives that teardown, so the decals persist across
 // resolution changes (and, as a bonus, the same fields could be serialised for save/load).
-struct CalypsoBloodPool { Position tile; unsigned int spawnTick; float seed; int faction; int variant; };
-struct CalypsoScorchDecal { Position tile; unsigned int spawnTick; float size; int variant; };
+// floorOnly = the doorway's UFO door was OPEN at spawn time (the unit bled / the blast charred
+// while the door was already open) → the decal is "on the ground" and is ALWAYS diamond-clipped
+// to its own tile, so it never paints onto the door even if the door is later closed.
+struct CalypsoBloodPool { Position tile; unsigned int spawnTick; float seed; int faction; int variant; int floorOnly; };
+struct CalypsoScorchDecal { Position tile; unsigned int spawnTick; float size; int variant; int floorOnly; };
 #endif
 
 /**
