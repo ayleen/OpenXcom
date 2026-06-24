@@ -5535,13 +5535,18 @@ void Map::triggerAoEFx(Position voxelCenter, int power, int radius, bool underwa
 			if (d > (float)r) continue;                       // disc only
 			const float dn = d / (float)r;                    // 0 centre .. 1 edge
 			const float h  = frand(t0 + (unsigned)((dx + 64) * 131 + (dy + 64) * 977));
+			const float h2 = frand(t0 + (unsigned)((dx + 96) * 733 + (dy + 96) * 317) + 5u);
 			Position cv;
 			cv.x = (baseTile.x + dx) * 16 + 8;                // cell-centre voxel
 			cv.y = (baseTile.y + dy) * 16 + 8;
 			cv.z = voxelCenter.z;
-			const float sz = bigSize * std::max(0.18f, 1.0f - 0.80f * dn);     // smaller farther out
+			const float sz = bigSize * std::max(0.18f, 1.0f - 0.80f * dn) * (0.85f + 0.30f * h2); // falloff + jitter
 			const unsigned int delay = (unsigned int)(dn * 300.0f + h * 120.0f); // ripple outward + jitter
-			_impactFlashes.push_back(ImpactFlash{ cv, t0, delay, 480.0f, sz, 0.30f, 0.82f, 1.00f, 1 });
+			// iridescent turquoise: hue/value wanders per cell (cyan ↔ blue ↔ teal)
+			const float tr = 0.22f + 0.26f * h;               // 0.22 .. 0.48
+			const float tg = 0.74f + 0.18f * h2;              // 0.74 .. 0.92
+			const float tb = 0.92f + 0.08f * (1.0f - h);      // 0.92 .. 1.00
+			_impactFlashes.push_back(ImpactFlash{ cv, t0, delay, 480.0f, sz, tr, tg, tb, 1 });
 		}
 		if (_impactFlashes.size() > 400)   // bound chained-blast spam
 			_impactFlashes.erase(_impactFlashes.begin(), _impactFlashes.begin() + (_impactFlashes.size() - 400));
@@ -5735,8 +5740,18 @@ void Map::drawSmokeGLPass()
 	const int   dW     = Options::displayWidth;
 	const int   dH     = Options::displayHeight;
 
+	// Dihedral UV transform (variant 0-7: 90° rotation + optional mirror) for per-sprite
+	// orientation variety — bubble highlights land in a different spot on each one.
+	auto uvT = [](float u, float v, int variant, float& ou, float& ov)
+	{
+		float cu = u - 0.5f, cv = v - 0.5f;
+		if (variant & 4) cu = -cu;
+		switch (variant & 3) { case 1: ou = -cv; ov = cu; break; case 2: ou = -cu; ov = -cv; break;
+		                       case 3: ou = cv; ov = -cu; break; default: ou = cu; ov = cv; break; }
+		ou += 0.5f; ov += 0.5f;
+	};
 	// Helper: issue one draw call for a sprite placed at (gx, gy) in SDL-surface coords.
-	auto drawQuad = [&](GpuTexture* tex, int gx, int gy, int fw, int fh, float darken)
+	auto drawQuad = [&](GpuTexture* tex, int gx, int gy, int fw, int fh, float darken, int variant)
 	{
 		const float dispX = static_cast<float>(gx) * xScale + static_cast<float>(lbb);
 		const float dispY = static_cast<float>(gy) * yScale + static_cast<float>(tbb);
@@ -5748,13 +5763,16 @@ void Map::drawSmokeGLPass()
 		const float ndcX1 =  2.0f * (dispX + dispW) / static_cast<float>(dW) - 1.0f;
 		const float ndcY1 = -(2.0f * (dispY + dispH) / static_cast<float>(dH) - 1.0f);
 
+		float a0,b0, a1,b1, a2,b2, a3,b3;
+		uvT(0,0,variant,a0,b0); uvT(1,0,variant,a1,b1);
+		uvT(0,1,variant,a2,b2); uvT(1,1,variant,a3,b3);
 		const float verts[6 * 4] = {
-			ndcX0, ndcY0,  0.0f, 0.0f,
-			ndcX1, ndcY0,  1.0f, 0.0f,
-			ndcX0, ndcY1,  0.0f, 1.0f,
-			ndcX0, ndcY1,  0.0f, 1.0f,
-			ndcX1, ndcY0,  1.0f, 0.0f,
-			ndcX1, ndcY1,  1.0f, 1.0f,
+			ndcX0, ndcY0,  a0, b0,
+			ndcX1, ndcY0,  a1, b1,
+			ndcX0, ndcY1,  a2, b2,
+			ndcX0, ndcY1,  a2, b2,
+			ndcX1, ndcY0,  a1, b1,
+			ndcX1, ndcY1,  a3, b3,
 		};
 		glBindBuffer(GL_ARRAY_BUFFER, _spriteVBO);
 		glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)sizeof(verts), verts);
@@ -5815,7 +5833,7 @@ void Map::drawSmokeGLPass()
 			{
 				GpuTexture* tex = getOrUploadSpriteFrame(hitSet, explosion->getCurrentFrame());
 				if (!tex) continue;
-				drawQuad(tex, bsx - 15 * es, bsy - 25 * es, hitSet->getWidth() * es, hitSet->getHeight() * es, 0.0f);
+				drawQuad(tex, bsx - 15 * es, bsy - 25 * es, hitSet->getWidth() * es, hitSet->getHeight() * es, 0.0f, 0);
 			}
 			else
 			{
@@ -5863,7 +5881,8 @@ void Map::drawSmokeGLPass()
 				if (age > 0.85f) a *= std::max(0.0f, 1.0f - (age - 0.85f) / 0.15f); // dissolve froth tail
 				glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);                  // glassy translucent
 				_spriteShader->setUniform1f("u_alpha", a);
-				drawQuad(tex, cx - side / 2, (cy - rise) - side / 2, side, side, 0.0f);
+				const int bvar = ((fl.voxel.x / 16) * 3 + (fl.voxel.y / 16) * 7) & 7;  // per-cell orientation
+				drawQuad(tex, cx - side / 2, (cy - rise) - side / 2, side, side, 0.0f, bvar);
 				glBlendFunc(GL_SRC_ALPHA, GL_ONE);                                  // restore additive for burst flashes
 			}
 			else
@@ -5879,7 +5898,7 @@ void Map::drawSmokeGLPass()
 				float fade = 1.0f;
 				if (age > 0.7f) fade = 1.0f - (age - 0.7f) / 0.3f;
 				_spriteShader->setUniform1f("u_alpha", std::max(0.04f, fade));
-				drawQuad(tex, cx - side / 2, cy - side / 2, side, side, 0.0f);
+				drawQuad(tex, cx - side / 2, cy - side / 2, side, side, 0.0f, 0);
 			}
 		}
 		_spriteShader->setUniform1f("u_alpha", 1.0f);
