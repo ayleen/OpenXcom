@@ -306,7 +306,9 @@ private:
 	// --- Calypso Phase 30: hit/impact FX (Срез A). All Emscripten-only. ---
 	/// Transient additive flash quad at a hit voxel; drawn over the scene in
 	/// drawSmokeGLPass, ages by wall-clock, self-erases.
-	struct ImpactFlash { Position voxel; unsigned int spawnTick; float lifeMs; float sizeMul; float r, g, b; };
+	// kind: 0 = sharp 4-frame burst (hits / land blast); 1 = underwater vapor bubble
+	// (single texture, expand→hold→collapse size curve).
+	struct ImpactFlash { Position voxel; unsigned int spawnTick; float lifeMs; float sizeMul; float r, g, b; int kind; };
 	std::vector<ImpactFlash> _impactFlashes;
 	/// Per-unit sprite jolt toward bullet travel: a screen-space unit-vector +
 	/// remaining anim frames. Keyed by BattleUnit::getId(). Faction-agnostic.

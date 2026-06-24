@@ -5482,7 +5482,7 @@ void Map::triggerShake(float amplitudePx, float freq, float durSec)
 void Map::triggerHitFx(Position voxelCenter, int power, int unitId, float dirX, float dirY)
 {
 	// Contact flash at the impact point (works for terrain / object / unit alike).
-	_impactFlashes.push_back(ImpactFlash{ voxelCenter, SDL_GetTicks(), 400.0f, 1.1f, 1.0f, 0.96f, 0.85f });
+	_impactFlashes.push_back(ImpactFlash{ voxelCenter, SDL_GetTicks(), 400.0f, 1.1f, 1.0f, 0.96f, 0.85f, 0 });
 	// Camera shake, scaled by power.
 	triggerShake(std::min(6.0f, 1.5f + (float)power * 0.06f));
 	// Sprite jolt for the struck unit (any faction), toward bullet travel.
@@ -5504,10 +5504,12 @@ void Map::triggerAoEFx(Position voxelCenter, int power, bool underwater)
 	if (underwater) triggerShake(amp * 1.15f, 22.0f, 0.55f);
 	else            triggerShake(amp,         56.0f, 0.26f);
 
-	// Big coloured flash at the blast centre (reuses the impact-flash burst path).
+	// Centre body: underwater = a smooth expanding/collapsing VAPOR BUBBLE (kind 1) —
+	// the signature underwater element, replaces the sharp burst so it doesn't read as a
+	// space explosion. Land = the fiery sharp burst (kind 0).
 	const float fsize = std::min(4.0f, 2.2f + p * 0.012f);
-	if (underwater) _impactFlashes.push_back(ImpactFlash{ voxelCenter, t0, 480.0f, fsize, 0.55f, 0.95f, 1.00f }); // turquoise-white
-	else            _impactFlashes.push_back(ImpactFlash{ voxelCenter, t0, 440.0f, fsize, 1.00f, 0.80f, 0.32f }); // fiery yellow-white
+	if (underwater) _impactFlashes.push_back(ImpactFlash{ voxelCenter, t0, 760.0f, fsize * 1.25f, 0.62f, 0.95f, 1.00f, 1 }); // turquoise bubble
+	else            _impactFlashes.push_back(ImpactFlash{ voxelCenter, t0, 440.0f, fsize,         1.00f, 0.80f, 0.32f, 0 }); // fiery yellow-white
 
 	// GL particle burst. Non-game PRNG (hash of tick+index) so we never advance the
 	// deterministic game RNG (would desync replays/saves).
@@ -5525,10 +5527,12 @@ void Map::triggerAoEFx(Position voxelCenter, int power, bool underwater)
 		FxParticle fp{}; fp.origin = voxelCenter; fp.spawnTick = t0;
 		if (underwater)
 		{
-			const float spd = (120.0f + 280.0f * h1) * es;
-			fp.vx = std::cos(ang) * spd; fp.vy = std::sin(ang) * spd * 0.7f - 60.0f * es;
-			fp.ay = -260.0f * es;                                   // buoyancy (rises)
-			fp.lifeMs = 550.0f + 550.0f * h2; fp.size = (6.0f + 8.0f * h2) * es;
+			// bubbles: gentle outward (water drag) then rise fast (buoyancy) — columns,
+			// not a radial spray, so it reads underwater rather than like a space blast.
+			const float spd = (50.0f + 130.0f * h1) * es;
+			fp.vx = std::cos(ang) * spd; fp.vy = std::sin(ang) * spd * 0.5f - (90.0f + 90.0f * h1) * es;
+			fp.ay = -420.0f * es;                                   // strong buoyancy (rises fast)
+			fp.lifeMs = 600.0f + 600.0f * h2; fp.size = (6.0f + 8.0f * h2) * es;
 			fp.r = 0.70f; fp.g = 0.92f; fp.b = 1.00f; fp.additive = true;   // cyan-white
 		}
 		else
@@ -5797,22 +5801,41 @@ void Map::drawSmokeGLPass()
 			float age = (float)(now - fl.spawnTick) / fl.lifeMs;
 			if (age < 0.0f) age = 0.0f;
 			if (age >= 1.0f) continue;
-			int fr = (int)(age * 4.0f);
-			if (fr < 0) fr = 0; else if (fr > 3) fr = 3;
-			GpuTexture* tex = getUITexture(
-				std::string("Resources/battlescape/fx/impact/impact-flash-") + std::to_string(fr) + ".png", 0);
-			if (!tex) continue;
 			Position sp;
 			_camera->convertVoxelToScreen(fl.voxel, &sp);
 			const int cx = sp.x + fMapX + shk.x;
 			const int cy = sp.y + fMapY + shk.y;
-			const float scale = 1.0f + 0.20f * age;            // slight overall grow
-			const int side = (int)((float)_spriteWidth * fl.sizeMul * scale);
-			float fade = 1.0f;
-			if (age > 0.7f) fade = 1.0f - (age - 0.7f) / 0.3f; // ease out the tail
 			_spriteShader->setUniform3f("u_tint", fl.r, fl.g, fl.b);
-			_spriteShader->setUniform1f("u_alpha", std::max(0.04f, fade));
-			drawQuad(tex, cx - side / 2, cy - side / 2, side, side, 0.0f);
+			if (fl.kind == 1)
+			{
+				// underwater vapor bubble: inflate → hold → collapse, glowing rim
+				GpuTexture* tex = getUITexture("Resources/battlescape/fx/explosion/bubble.png", 0);
+				if (!tex) continue;
+				const float bs = (age < 0.30f) ? (0.35f + 0.65f * (age / 0.30f))
+				               : (age < 0.60f) ? 1.0f
+				               : std::max(0.40f, 1.0f - 0.55f * ((age - 0.60f) / 0.40f));
+				const int side = (int)((float)_spriteWidth * fl.sizeMul * bs);
+				const float a = (age < 0.10f) ? (0.50f + 4.0f * age)              // hydraulic flash
+				              : (age < 0.62f) ? 0.55f                             // the bubble
+				              : 0.55f * std::max(0.0f, 1.0f - (age - 0.62f) / 0.38f); // collapse
+				_spriteShader->setUniform1f("u_alpha", std::max(0.02f, a));
+				drawQuad(tex, cx - side / 2, cy - side / 2, side, side, 0.0f);
+			}
+			else
+			{
+				// sharp 4-frame burst (hits / land blast)
+				int fr = (int)(age * 4.0f);
+				if (fr < 0) fr = 0; else if (fr > 3) fr = 3;
+				GpuTexture* tex = getUITexture(
+					std::string("Resources/battlescape/fx/impact/impact-flash-") + std::to_string(fr) + ".png", 0);
+				if (!tex) continue;
+				const float scale = 1.0f + 0.20f * age;
+				const int side = (int)((float)_spriteWidth * fl.sizeMul * scale);
+				float fade = 1.0f;
+				if (age > 0.7f) fade = 1.0f - (age - 0.7f) / 0.3f;
+				_spriteShader->setUniform1f("u_alpha", std::max(0.04f, fade));
+				drawQuad(tex, cx - side / 2, cy - side / 2, side, side, 0.0f);
+			}
 		}
 		_spriteShader->setUniform1f("u_alpha", 1.0f);
 		_spriteShader->setUniform3f("u_tint", 1.0f, 1.0f, 1.0f);
