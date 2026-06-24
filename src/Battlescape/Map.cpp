@@ -5518,25 +5518,33 @@ void Map::triggerAoEFx(Position voxelCenter, int power, int radius, bool underwa
 	if (underwater) _impactFlashes.push_back(ImpactFlash{ voxelCenter, t0, 0u, 900.0f, fsize * 0.60f, 0.30f, 0.82f, 1.00f, 1 }); // glassy turquoise bubble (6-frame sprite)
 	else            _impactFlashes.push_back(ImpactFlash{ voxelCenter, t0, 0u, 440.0f, fsize,         1.00f, 0.80f, 0.32f, 0 }); // fiery yellow-white
 
-	// Underwater: scatter small bubble-bursts (~1/3 the big bubble) across the grenade's
-	// blast radius, staggered in time → the explosion reads as an AREA, not one bubble.
+	// Underwater: a bubble-burst in EVERY cell of the blast disc — smaller the farther
+	// from the centre, popping in a wave from the centre outward → the explosion fills
+	// the whole grenade area. (Step up the stride for huge radii to bound the count.)
 	if (underwater)
 	{
-		const int rTiles = std::max(1, radius);
-		const int nMini  = std::min(28, 6 + rTiles * 2);
-		for (int i = 0; i < nMini; ++i)
+		const int r  = std::max(1, radius);
+		const int st = (r > 7) ? 2 : 1;                       // bound cell count for huge blasts
+		const Position baseTile = voxelCenter.toTile();
+		const float bigSize = fsize * 0.60f;
+		for (int dy = -r; dy <= r; dy += st)
+		for (int dx = -r; dx <= r; dx += st)
 		{
-			const float a0 = frand(t0 * 2u + (unsigned)i * 2654435761u + 11u);
-			const float a1 = frand(t0 + (unsigned)i * 40503u + 71u);
-			const float a2 = frand(t0 * 5u + (unsigned)i * 19349663u + 3u);
-			const float ang  = a0 * 6.2832f;
-			const float dist = (float)rTiles * 16.0f * 0.9f * std::sqrt(a1);   // voxels, uniform over area
-			Position mv = voxelCenter;
-			mv.x += (int)(std::cos(ang) * dist);
-			mv.y += (int)(std::sin(ang) * dist);
-			const unsigned int delay = (unsigned int)(40.0f + 620.0f * a2);    // pop progressively
-			_impactFlashes.push_back(ImpactFlash{ mv, t0, delay, 550.0f, fsize * 0.20f, 0.30f, 0.82f, 1.00f, 1 });
+			if (dx == 0 && dy == 0) continue;                 // centre cell = the big bubble
+			const float d = std::sqrt((float)(dx * dx + dy * dy));
+			if (d > (float)r) continue;                       // disc only
+			const float dn = d / (float)r;                    // 0 centre .. 1 edge
+			const float h  = frand(t0 + (unsigned)((dx + 64) * 131 + (dy + 64) * 977));
+			Position cv;
+			cv.x = (baseTile.x + dx) * 16 + 8;                // cell-centre voxel
+			cv.y = (baseTile.y + dy) * 16 + 8;
+			cv.z = voxelCenter.z;
+			const float sz = bigSize * std::max(0.18f, 1.0f - 0.80f * dn);     // smaller farther out
+			const unsigned int delay = (unsigned int)(dn * 300.0f + h * 120.0f); // ripple outward + jitter
+			_impactFlashes.push_back(ImpactFlash{ cv, t0, delay, 480.0f, sz, 0.30f, 0.82f, 1.00f, 1 });
 		}
+		if (_impactFlashes.size() > 400)   // bound chained-blast spam
+			_impactFlashes.erase(_impactFlashes.begin(), _impactFlashes.begin() + (_impactFlashes.size() - 400));
 	}
 
 	// GL particle burst (frand defined above).
