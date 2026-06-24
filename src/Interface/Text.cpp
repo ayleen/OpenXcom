@@ -534,14 +534,18 @@ int Text::getLineX(int line) const
 #ifdef __EMSCRIPTEN__
 /**
  * Calypso: rasterise the label via the opt-in TTF font and fit-blit it into this
- * surface. Returns false (keep the bitmap path) for multi-line text, a missing
- * palette, or a failed render. Colour comes from the explicit ARGB color when
- * set, otherwise the brightest step of the widget's palette colour ramp — the
- * same texel the bitmap glyph core would use — so TTF labels match their theme.
+ * surface. Handles both single-line labels and word-wrapped multi-line text
+ * (combobox dropdowns, the Advanced/Controls option lists): for multi-line the
+ * already-wrapped _processedText line breaks are reused, each line is rasterised
+ * and stacked into one ARGB block, then blitFit does the fit/align/fill. Returns
+ * false (keep the bitmap path) for a missing palette or a failed render. Colour
+ * comes from the explicit ARGB color when set, otherwise the brightest step of
+ * the widget's palette colour ramp — the same texel the bitmap glyph core would
+ * use — so TTF labels match their theme.
  */
 bool Text::drawTTF()
 {
-	if (!_ttf || getNumLines() > 1)
+	if (!_ttf)
 	{
 		return false;
 	}
@@ -567,35 +571,92 @@ bool Text::drawTTF()
 		rgba = pal[idx];
 		rgba.a = 0xFF;
 	}
-	// Strip OXCE control tokens (TOK_COLOR_FLIP=1, TOK_NL_SMALL=2,
-	// TOK_CUSTOM_FORMAT=27, …) — SDL_ttf has no glyph and would render tofu (□).
-	// All are < 0x20 (single-byte, so UTF-8 multi-byte sequences stay intact).
-	// The colour-flip distinction is moot here: TTF labels render in one colour.
-	std::string clean;
-	clean.reserve(_text.size());
-	for (char c : _text)
-	{
-		if ((unsigned char)c >= 0x20)
-		{
-			clean += c;
-		}
-	}
-	if (clean.empty())
-	{
-		return false;
-	}
-	SDL_Surface *rendered = _ttf->renderText(clean, rgba);
-	if (!rendered)
-	{
-		return false;
-	}
 	const TTFUtil::HAlign h = (_align == ALIGN_CENTER) ? TTFUtil::H_CENTER
 	                        : (_align == ALIGN_RIGHT)  ? TTFUtil::H_RIGHT
 	                                                   : TTFUtil::H_LEFT;
 	const TTFUtil::VAlign v = (_valign == ALIGN_MIDDLE) ? TTFUtil::V_MIDDLE
 	                        : (_valign == ALIGN_BOTTOM) ? TTFUtil::V_BOTTOM
 	                                                    : TTFUtil::V_TOP;
-	TTFUtil::blitFit(rendered, this, h, v, _ttfFill);
+	// Strip OXCE control tokens (TOK_COLOR_FLIP=1, TOK_NL_SMALL=2,
+	// TOK_CUSTOM_FORMAT=27, …) — SDL_ttf has no glyph and would render tofu (□).
+	// All are < 0x20 (single-byte, so UTF-8 multi-byte sequences stay intact).
+	// The colour-flip distinction is moot here: TTF labels render in one colour.
+	auto strip = [](const std::string &in) {
+		std::string out;
+		out.reserve(in.size());
+		for (char c : in)
+		{
+			if ((unsigned char)c >= 0x20) out += c;
+		}
+		return out;
+	};
+
+	// Single-line fast path: rasterise _text directly.
+	if (getNumLines() <= 1)
+	{
+		std::string clean = strip(_text);
+		if (clean.empty())
+		{
+			return false;
+		}
+		SDL_Surface *rendered = _ttf->renderText(clean, rgba);
+		if (!rendered)
+		{
+			return false;
+		}
+		TTFUtil::blitFit(rendered, this, h, v, _ttfFill);
+		return true;
+	}
+
+	// Multi-line path: _processedText (UTF-32) already carries the wrap line
+	// breaks processText() computed for the bitmap layout — reuse them so the
+	// TTF wrapping matches the row geometry the rest of the engine assumes.
+	std::vector<SDL_Surface*> rendered; // owned by the TTFFont cache — do NOT free
+	const UString &s = _processedText;
+	size_t start = 0;
+	int blockW = 0;
+	for (size_t i = 0; i <= s.size(); ++i)
+	{
+		if (i == s.size() || Unicode::isLinebreak(s[i]))
+		{
+			std::string clean = strip(Unicode::convUtf32ToUtf8(s.substr(start, i - start)));
+			start = i + 1;
+			SDL_Surface *line = clean.empty() ? 0 : _ttf->renderText(clean, rgba);
+			if (line && line->w > blockW) blockW = line->w;
+			rendered.push_back(line);
+		}
+	}
+	int lineH = _ttf->lineHeight();
+	if (lineH <= 0) lineH = 1;
+	if (rendered.empty() || blockW <= 0)
+	{
+		return false;
+	}
+	// Compose all lines into one transparent ARGB block, then let blitFit scale
+	// the whole block into the widget (downscale-only, aligned, * _ttfFill).
+	SDL_Surface *block = SDL_CreateRGBSurfaceWithFormat(0, blockW, (int)rendered.size() * lineH, 32, SDL_PIXELFORMAT_ARGB8888);
+	if (!block)
+	{
+		return false;
+	}
+	SDL_FillRect(block, 0, SDL_MapRGBA(block->format, 0, 0, 0, 0));
+	int ly = 0;
+	for (SDL_Surface *line : rendered)
+	{
+		if (line)
+		{
+			int lx = (h == TTFUtil::H_CENTER) ? (blockW - line->w) / 2
+			       : (h == TTFUtil::H_RIGHT)  ? (blockW - line->w)
+			                                  : 0;
+			if (lx < 0) lx = 0;
+			SDL_Rect dst = { lx, ly, line->w, line->h };
+			SDL_SetSurfaceBlendMode(line, SDL_BLENDMODE_NONE); // copy RGBA verbatim
+			SDL_BlitSurface(line, 0, block, &dst);
+		}
+		ly += lineH;
+	}
+	TTFUtil::blitFit(block, this, h, v, _ttfFill);
+	SDL_FreeSurface(block);
 	return true;
 }
 #endif

@@ -406,10 +406,25 @@ void TextList::addRow(int cols, ...)
 	}
 
 	// ensure all elements in this row are the same height
+#ifdef __EMSCRIPTEN__
+	// Calypso: the row Text boxes were created at scaled height, but rowHeight is
+	// measured from the (unscaled) bitmap font — so scale it back up. Without this
+	// the box collapses to native height and the HD TTF glyphs get downscaled to a
+	// tiny block at the top of a tall, mostly-empty row (this is what made combobox
+	// dropdowns + the Advanced/Controls option lists render as small text). The
+	// stride math in draw()/blit()/updateVisible already reads getHeight() and
+	// scales _font metrics by scale(), so a scaled box keeps everything aligned.
+	const int scaledRowHeight = (int)Round(rowHeight * scale());
+	for (int i = 0; i < cols; ++i)
+	{
+		temp[i]->setHeight(scaledRowHeight);
+	}
+#else
 	for (int i = 0; i < cols; ++i)
 	{
 		temp[i]->setHeight(rowHeight);
 	}
+#endif
 
 	_texts.push_back(temp);
 	for (int i = 0; i < rows; ++i)
