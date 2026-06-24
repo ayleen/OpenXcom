@@ -125,6 +125,8 @@ Inventory::~Inventory()
 	delete _warning;
 	delete _stackNumber;
 	delete _animTimer;
+	delete _scaleScratch;
+	delete _stackLayer;
 }
 
 /**
@@ -368,8 +370,22 @@ void Inventory::drawItems()
 			}
 		}
 
-		Surface stackLayer(getWidth(), getHeight(), 0, 0);
-		stackLayer.setPalette(getPalette());
+		// Calypso: size this transient layer to the NATIVE content (_baseW/_baseH), not
+		// getWidth()/getHeight() — which, when the inventory is HD-scaled, return the full
+		// canvas (e.g. 1920×1080 ≈ 8 MB) and were being re-allocated every animation frame,
+		// fragmenting the wasm heap until "Out of memory". The stack numbers are composited
+		// into the native _items surface at native coords, so native size is correct (and
+		// identical to the original on a non-scaled build, where getWidth()==_baseW).
+		// Calypso: reuse a single stack-number layer instead of allocating a fresh
+		// 256 KB surface every drawItems() (this runs ~per-frame via animate()/draw(),
+		// and the churn fragmented the wasm heap until "Out of memory").
+		if (!_stackLayer)
+		{
+			_stackLayer = new Surface(_baseW, _baseH, 0, 0);
+			_stackLayer->setPalette(getPalette());
+		}
+		_stackLayer->clear();
+		Surface& stackLayer = *_stackLayer;
 
 		// Ground items
 		int fatalWounds = 0;
@@ -648,19 +664,45 @@ void Inventory::blit(SDL_Surface *surface)
 	// so slot hit-tests and the drag sprite stay aligned under the cursor.
 	if (getWidth() != _baseW || getHeight() != _baseH)
 	{
-		Surface scratch(_baseW, _baseH, 0, 0);
-		const SDL_Color* pal = getEffectivePalette();
-		if (pal)
+		// Calypso: composite at native size into a REUSED scratch (never allocate per
+		// frame — that churned the wasm heap into OOM), then nearest-neighbour upscale
+		// into this surface with a zero-allocation loop (SDL_BlitScaled on a blend source
+		// allocated a large intermediate each call). Mouse coords are remapped
+		// (nativeMouseX/Y) so slot hit-tests and the drag sprite stay aligned.
+		if (!_scaleScratch)
 		{
-			scratch.setPalette(pal);
+			_scaleScratch = new Surface(_baseW, _baseH, 0, 0);
+			const SDL_Color* pal = getEffectivePalette();
+			if (pal)
+			{
+				_scaleScratch->setPalette(pal);
+			}
 		}
-		_grid->blitNShade(&scratch, 0, 0);
-		_items->blitNShade(&scratch, 0, 0);
-		_gridLabels->blitNShade(&scratch, 0, 0);
-		_selection->blitNShade(&scratch, _selection->getX(), _selection->getY());
-		if (scratch.getSurface() && this->getSurface())
+		_scaleScratch->clear();
+		_grid->blitNShade(_scaleScratch, 0, 0);
+		_items->blitNShade(_scaleScratch, 0, 0);
+		_gridLabels->blitNShade(_scaleScratch, 0, 0);
+		_selection->blitNShade(_scaleScratch, _selection->getX(), _selection->getY());
+		SDL_Surface* src = _scaleScratch->getSurface();
+		SDL_Surface* dst = this->getSurface();
+		if (src && dst && src->format->BitsPerPixel == 32 && dst->format->BitsPerPixel == 32)
 		{
-			SDL_BlitScaled(scratch.getSurface(), nullptr, this->getSurface(), nullptr);
+			SDL_LockSurface(src);
+			SDL_LockSurface(dst);
+			const int dW = dst->w, dH = dst->h, sW = src->w, sH = src->h;
+			for (int y = 0; y < dH; ++y)
+			{
+				int sy = (sH > 0) ? y * sH / dH : 0; if (sy >= sH) sy = sH - 1;
+				Uint32* drow = (Uint32*)((Uint8*)dst->pixels + y * dst->pitch);
+				const Uint32* srow = (const Uint32*)((const Uint8*)src->pixels + sy * src->pitch);
+				for (int x = 0; x < dW; ++x)
+				{
+					int sx = (sW > 0) ? x * sW / dW : 0; if (sx >= sW) sx = sW - 1;
+					drow[x] = srow[sx];
+				}
+			}
+			SDL_UnlockSurface(dst);
+			SDL_UnlockSurface(src);
 		}
 		_warning->blit(this->getSurface());
 		Surface::blit(surface);

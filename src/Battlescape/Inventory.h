@@ -58,6 +58,8 @@ private:
 	int _depth, _groundSlotsX, _groundSlotsY;
 	int _xMax;
 	int _baseW, _baseH;  ///< Calypso: native canvas; when scaled the grid/items/selection are rendered native then scale-blitted, and mouse coords remapped
+	Surface *_scaleScratch = nullptr;  ///< Calypso: reused native-size composite buffer for the scaled blit (allocated once, never per-frame)
+	Surface *_stackLayer = nullptr;    ///< Calypso: reused ground-item stack-number layer (drawItems ran every frame allocating a fresh 256 KB surface, fragmenting the wasm heap → OOM)
 	RuleInventory *_inventorySlotRightHand = nullptr;
 	RuleInventory *_inventorySlotLeftHand = nullptr;
 	RuleInventory *_inventorySlotBackPack = nullptr;

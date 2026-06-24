@@ -683,6 +683,10 @@ if(EMSCRIPTEN)
     -sWASM=1
     -sALLOW_MEMORY_GROWTH=1
     -sINITIAL_MEMORY=268435456
+    # Calypso: lift the heap ceiling from the 2 GB default to the wasm32 max (4 GB).
+    # HD tiles + HD-scaled battlescape/menus can push a busy mission past 2 GB and
+    # crash with "Cannot enlarge memory ... limit is 2147483648". Grows on demand.
+    -sMAXIMUM_MEMORY=4294967296
     -sFORCE_FILESYSTEM=1
     # Phase 8b: GPU shader pipeline requires WebGL2 / GLES 3.0 (preamble emits
     # `#version 300 es`). Without these, SDL2 creates a WebGL1 context and
