@@ -5326,7 +5326,19 @@ void Map::drawBloodGLPass()
 	// decal in front of the doorway survives. Returns true if a scissor was enabled (caller
 	// must glDisable it after the draw). `sp` is the camera-relative screen anchor of the tile.
 	auto clipBehindOpenDoor = [&](const Tile* t, const Position& sp) -> bool {
-		if (!t || (!t->isUfoDoorOpen(O_NORTHWALL) && !t->isUfoDoorOpen(O_WESTWALL))) return false;
+		if (!t) return false;
+		// The bleed goes up-screen toward the N/W neighbours. A UFO/sliding door along that
+		// back edge may be stored on the tile's OWN north/west/object part OR as an object
+		// door on the immediate north/west neighbour (craft & sub hatches like the Triton's
+		// are objects, not thin walls) — so check all of those for "currently open".
+		const Position p = t->getPosition();
+		const Tile* tn = _save->getTile(p + Position(0, -1, 0));   // north neighbour (Y-1)
+		const Tile* tw = _save->getTile(p + Position(-1, 0, 0));   // west neighbour (X-1)
+		const bool doorOpen =
+			   t->isUfoDoorOpen(O_NORTHWALL) || t->isUfoDoorOpen(O_WESTWALL) || t->isUfoDoorOpen(O_OBJECT)
+			|| (tn && tn->isUfoDoorOpen(O_OBJECT))
+			|| (tw && tw->isUfoDoorOpen(O_OBJECT));
+		if (!doorOpen) return false;
 		const float kDoorwayBaseFrac = 0.45f;   // tile floor back edge ≈ where wall meets floor
 		const int   clipGY = sp.y + mapY + (int)((float)_spriteHeight * kDoorwayBaseFrac);
 		const float dispClipY = (float)clipGY * yScale + (float)tbb;
