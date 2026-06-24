@@ -61,7 +61,7 @@ namespace OpenXcom
  * @param y Y position in pixels.
  * @param base Is the inventory being called from the basescape?
  */
-Inventory::Inventory(Game *game, int width, int height, int x, int y, bool base) : InteractiveSurface(width, height, x, y), _game(game), _selUnit(0), _selItem(0), _tu(true), _base(base), _mouseOverItem(0), _groundOffset(0), _animFrame(0)
+Inventory::Inventory(Game *game, int width, int height, int x, int y, bool base) : InteractiveSurface(width, height, x, y), _game(game), _selUnit(0), _selItem(0), _tu(true), _base(base), _mouseOverItem(0), _groundOffset(0), _animFrame(0), _baseW(width), _baseH(height)
 {
 	_twoHandedRed = _game->getMod()->getInterface("battlescape")->getElement("twoHandedRed")->color;
 	_twoHandedGreen = _game->getMod()->getInterface("battlescape")->getElement("twoHandedGreen")->color;
@@ -641,6 +641,32 @@ void Inventory::think()
 void Inventory::blit(SDL_Surface *surface)
 {
 	clear();
+#ifdef __EMSCRIPTEN__
+	// Calypso: when scaled up, composite grid/items/labels/dragged-item at native
+	// size into a scratch then SDL_BlitScaled to fill — so the slot grid, items and
+	// the dragged sprite scale with the UI. Mouse coords are remapped (nativeMouseX/Y)
+	// so slot hit-tests and the drag sprite stay aligned under the cursor.
+	if (getWidth() != _baseW || getHeight() != _baseH)
+	{
+		Surface scratch(_baseW, _baseH, 0, 0);
+		const SDL_Color* pal = getEffectivePalette();
+		if (pal)
+		{
+			scratch.setPalette(pal);
+		}
+		_grid->blitNShade(&scratch, 0, 0);
+		_items->blitNShade(&scratch, 0, 0);
+		_gridLabels->blitNShade(&scratch, 0, 0);
+		_selection->blitNShade(&scratch, _selection->getX(), _selection->getY());
+		if (scratch.getSurface() && this->getSurface())
+		{
+			SDL_BlitScaled(scratch.getSurface(), nullptr, this->getSurface(), nullptr);
+		}
+		_warning->blit(this->getSurface());
+		Surface::blit(surface);
+		return;
+	}
+#endif
 	_grid->blitNShade(this, 0, 0);
 	_items->blitNShade(this, 0, 0);
 	_gridLabels->blitNShade(this, 0, 0);
@@ -650,19 +676,39 @@ void Inventory::blit(SDL_Surface *surface)
 }
 
 /**
+ * Calypso: view-local mouse coords (absolute mouse minus the view origin) remapped
+ * to native content space. Identity on native / when the view is not scaled, so the
+ * slot pixel math (RuleInventory) works unchanged under scaling.
+ */
+int Inventory::nativeMouseX(Action *action) const
+{
+	int vx = (int)floor(action->getAbsoluteXMouse());
+	vx -= getX();
+	if (getWidth() > 0 && getWidth() != _baseW) vx = vx * _baseW / getWidth();
+	return vx;
+}
+int Inventory::nativeMouseY(Action *action) const
+{
+	int vy = (int)floor(action->getAbsoluteYMouse());
+	vy -= getY();
+	if (getHeight() > 0 && getHeight() != _baseH) vy = vy * _baseH / getHeight();
+	return vy;
+}
+
+/**
  * Moves the selected item.
  * @param action Pointer to an action.
  * @param state State that the action handlers belong to.
  */
 void Inventory::mouseOver(Action *action, State *state)
 {
-	_selection->setX((int)floor(action->getAbsoluteXMouse()) - _selection->getWidth()/2 - getX());
-	_selection->setY((int)floor(action->getAbsoluteYMouse()) - _selection->getHeight()/2 - getY());
+	_selection->setX(nativeMouseX(action) - _selection->getWidth()/2);
+	_selection->setY(nativeMouseY(action) - _selection->getHeight()/2);
 	if (_selUnit == 0)
 		return;
 
-	int x = (int)floor(action->getAbsoluteXMouse()) - getX(),
-		y = (int)floor(action->getAbsoluteYMouse()) - getY();
+	int x = nativeMouseX(action),
+		y = nativeMouseY(action);
 	RuleInventory *slot = getSlotInPosition(&x, &y);
 	if (slot != 0)
 	{
@@ -678,8 +724,8 @@ void Inventory::mouseOver(Action *action, State *state)
 		setMouseOverItem(0);
 	}
 
-	_selection->setX((int)floor(action->getAbsoluteXMouse()) - _selection->getWidth()/2 - getX());
-	_selection->setY((int)floor(action->getAbsoluteYMouse()) - _selection->getHeight()/2 - getY());
+	_selection->setX(nativeMouseX(action) - _selection->getWidth()/2);
+	_selection->setY(nativeMouseY(action) - _selection->getHeight()/2);
 	InteractiveSurface::mouseOver(action, state);
 }
 
@@ -697,8 +743,8 @@ void Inventory::mouseClick(Action *action, State *state)
 		// Pickup item
 		if (_selItem == 0)
 		{
-			int x = (int)floor(action->getAbsoluteXMouse()) - getX(),
-				y = (int)floor(action->getAbsoluteYMouse()) - getY();
+			int x = nativeMouseX(action),
+				y = nativeMouseY(action);
 			RuleInventory *slot = getSlotInPosition(&x, &y);
 			if (slot != 0)
 			{
@@ -1070,8 +1116,8 @@ void Inventory::mouseClick(Action *action, State *state)
 			else
 			{
 				// try again, using the position of the mouse cursor, not the item (slightly more intuitive for stacking)
-				x = (int)floor(action->getAbsoluteXMouse()) - getX();
-				y = (int)floor(action->getAbsoluteYMouse()) - getY();
+				x = nativeMouseX(action);
+				y = nativeMouseY(action);
 				slot = getSlotInPosition(&x, &y);
 				if (slot != 0 && slot->getType() == INV_GROUND)
 				{
@@ -1103,8 +1149,8 @@ void Inventory::mouseClick(Action *action, State *state)
 			{
 				if (!_tu)
 				{
-					int x = (int)floor(action->getAbsoluteXMouse()) - getX(),
-						y = (int)floor(action->getAbsoluteYMouse()) - getY();
+					int x = nativeMouseX(action),
+						y = nativeMouseY(action);
 					RuleInventory *slot = getSlotInPosition(&x, &y);
 					if (slot != 0)
 					{
@@ -1171,8 +1217,8 @@ void Inventory::mouseClick(Action *action, State *state)
 		if (_selUnit == 0)
 			return;
 
-		int x = (int)floor(action->getAbsoluteXMouse()) - getX(),
-			y = (int)floor(action->getAbsoluteYMouse()) - getY();
+		int x = nativeMouseX(action),
+			y = nativeMouseY(action);
 		RuleInventory *slot = getSlotInPosition(&x, &y);
 		if (slot != 0)
 		{

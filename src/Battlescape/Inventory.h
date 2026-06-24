@@ -57,6 +57,7 @@ private:
 	Timer *_animTimer;
 	int _depth, _groundSlotsX, _groundSlotsY;
 	int _xMax;
+	int _baseW, _baseH;  ///< Calypso: native canvas; when scaled the grid/items/selection are rendered native then scale-blitted, and mouse coords remapped
 	RuleInventory *_inventorySlotRightHand = nullptr;
 	RuleInventory *_inventorySlotLeftHand = nullptr;
 	RuleInventory *_inventorySlotBackPack = nullptr;
@@ -71,6 +72,9 @@ private:
 	RuleInventory *getSlotInPosition(int *x, int *y) const;
 	/// Play a sound.
 	void playSound(int sound);
+	/// Calypso: view-local mouse X/Y remapped to native content space (identity on native / when unscaled).
+	int nativeMouseX(Action *action) const;
+	int nativeMouseY(Action *action) const;
 public:
 	/// Creates a new inventory view at the specified position and size.
 	Inventory(Game *game, int width, int height, int x = 0, int y = 0, bool base = false);

@@ -32,6 +32,7 @@
 #include "../Engine/Screen.h"
 #include "../Engine/Palette.h"
 #include "../Engine/Surface.h"
+#include "../Engine/TTFUtil.h"
 #include "../Engine/Collections.h"
 #include "../Interface/Text.h"
 #include "../Interface/TextEdit.h"
@@ -67,6 +68,21 @@ namespace OpenXcom
 static const int _templateBtnX = 288;
 static const int _createTemplateBtnY = 90;
 static const int _applyTemplateBtnY  = 113;
+
+#ifdef __EMSCRIPTEN__
+namespace
+{
+/// Calypso: bilinear-stretch a native-size scratch into a (possibly enlarged) display
+/// surface. No-op when the display has not been scaled up (the native paint stands).
+void stretchInto(Surface* nat, Surface* disp)
+{
+	if (!nat || !disp || !disp->getSurface() || !nat->getSurface()) return;
+	if (disp->getWidth() == nat->getWidth() && disp->getHeight() == nat->getHeight()) return;
+	TTFUtil::blitStretch(nat->getSurface(), disp);
+	disp->setRedraw(false);
+}
+}
+#endif
 
 /**
  * Initializes all the elements in the Inventory screen.
@@ -344,6 +360,35 @@ InventoryState::InventoryState(bool tu, BattlescapeState *parent, Base *base, bo
 	_txtStatLine2->setVisible(Options::showMoreStatsInInventoryView && !_tu);
 	_txtStatLine3->setVisible(Options::showMoreStatsInInventoryView && !_tu);
 	_txtStatLine4->setVisible(Options::showMoreStatsInInventoryView && !_tu);
+
+#ifdef __EMSCRIPTEN__
+	// Calypso: HD menu scaling. The 320×200 inventory fills the (larger) logical
+	// canvas at high resolution. Snapshot the static chrome, scale widget geometry,
+	// switch text to TTF, then bilinear-stretch the sprite layers into their enlarged
+	// buffers. _inv self-scales (native render + SDL_BlitScaled in Inventory::blit()).
+	{
+		SDL_Surface* s = _bg->getSurface();
+		if (s && s->format->BitsPerPixel == 32)
+		{
+			_bgNative = SDL_ConvertSurface(s, s->format, 0);
+		}
+	}
+	// Native-size scratches for the sprite layers repainted in init()/think().
+	_soldierNat = new Surface(320, 200, 0, 0);
+	_btnRankNat = new Surface(_btnRank->getWidth(), _btnRank->getHeight(), 0, 0);
+	_selAmmoNat = new Surface(_selAmmo->getWidth(), _selAmmo->getHeight(), 0, 0);
+	_soldierNat->setPalette(_bg->getPalette(), 0, 256);
+	_btnRankNat->setPalette(_bg->getPalette(), 0, 256);
+	_selAmmoNat->setPalette(_bg->getPalette(), 0, 256);
+
+	enableUiScaling(320, 200, 1.0f);   // fill the canvas ("≈4× bigger" at high base res)
+	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
+	if (_bgNative)
+	{
+		TTFUtil::blitStretch(_bgNative, _bg);
+		_bg->setRedraw(false);
+	}
+#endif
 }
 
 static void _clearInventoryTemplate(std::vector<EquipmentLayoutItem*> &inventoryTemplate)
@@ -356,6 +401,13 @@ static void _clearInventoryTemplate(std::vector<EquipmentLayoutItem*> &inventory
  */
 InventoryState::~InventoryState()
 {
+#ifdef __EMSCRIPTEN__
+	// Calypso: free HD-scaling snapshots/scratches (not in _surfaces, so not auto-deleted).
+	if (_bgNative) SDL_FreeSurface(_bgNative);
+	delete _soldierNat;
+	delete _btnRankNat;
+	delete _selAmmoNat;
+#endif
 	_clearInventoryTemplate(_curInventoryTemplate);
 	_clearInventoryTemplate(_tempInventoryTemplate);
 
@@ -390,6 +442,25 @@ void InventoryState::setGlobalLayoutIndex(int index, bool armorChanged)
 	{
 		_reloadUnit = true;
 	}
+}
+
+/**
+ * Calypso: re-apply HD UI scaling after a display resize.
+ */
+void InventoryState::resize(int &dX, int &dY)
+{
+#ifdef __EMSCRIPTEN__
+	applyUiScaling();
+	if (_bgNative)
+	{
+		TTFUtil::blitStretch(_bgNative, _bg);
+		_bg->setRedraw(false);
+	}
+	// Re-stretch sprite layers (paperdoll/rank only repaint on init(); _selAmmo on think()).
+	stretchInto(_soldierNat, _soldier);
+	stretchInto(_btnRankNat, _btnRank);
+#endif
+	State::resize(dX, dY);
 }
 
 /**
@@ -430,8 +501,21 @@ void InventoryState::init()
 		}
 	}
 
-	_soldier->clear();
-	_btnRank->clear();
+	// Calypso (Emscripten): when the inventory is HD-scaled, paint the paperdoll and
+	// rank badge at native size into scratches, then bilinear-stretch into the enlarged
+	// display buffers at the end of init(); native build paints straight to the surfaces.
+	Surface* soldierTgt = _soldier;
+	Surface* rankTgt = _btnRank;
+#ifdef __EMSCRIPTEN__
+	const bool invScaled = (_bg->getWidth() != 320 || _bg->getHeight() != 200);
+	if (invScaled)
+	{
+		soldierTgt = _soldierNat;
+		rankTgt = _btnRankNat;
+	}
+#endif
+	soldierTgt->clear();
+	rankTgt->clear();
 
 	if (Options::oxceInventoryShowUnitSlot)
 	{
@@ -513,14 +597,14 @@ void InventoryState::init()
 		auto* frame = texture->getFrame(s->getRankSpriteBattlescape());
 		if (frame)
 		{
-			frame->blitNShade(_btnRank, 0, 0);
+			frame->blitNShade(rankTgt, 0, 0);
 		}
 
 		if (s->getArmor()->hasLayersDefinition())
 		{
 			for (const auto& layer : s->getArmorLayers())
 			{
-				_game->getMod()->getSurface(layer, true)->blitNShade(_soldier, 0, 0);
+				_game->getMod()->getSurface(layer, true)->blitNShade(soldierTgt, 0, 0);
 			}
 		}
 		else
@@ -554,7 +638,7 @@ void InventoryState::init()
 			{
 				surf = _game->getMod()->getSurface(look, true);
 			}
-			surf->blitNShade(_soldier, 0, 0);
+			surf->blitNShade(soldierTgt, 0, 0);
 		}
 	}
 	else
@@ -570,7 +654,7 @@ void InventoryState::init()
 		}
 		if (armorSurface)
 		{
-			armorSurface->blitNShade(_soldier, 0, 0);
+			armorSurface->blitNShade(soldierTgt, 0, 0);
 		}
 	}
 
@@ -586,6 +670,12 @@ void InventoryState::init()
 
 	updateStats();
 	refreshMouse();
+
+#ifdef __EMSCRIPTEN__
+	// Calypso: stretch the native paperdoll / rank scratches into the scaled buffers.
+	stretchInto(_soldierNat, _soldier);
+	stretchInto(_btnRankNat, _btnRank);
+#endif
 }
 
 /**
@@ -2201,18 +2291,26 @@ void InventoryState::think()
 		if (firstAmmo)
 		{
 			_txtAmmo->setText(tr("STR_AMMO_ROUNDS_LEFT").arg(firstAmmo->getAmmoQuantity()));
+			Surface* ammoTgt = _selAmmo;
+#ifdef __EMSCRIPTEN__
+			// Calypso: paint native, stretch into the scaled ammo-preview buffer.
+			if (_bg->getWidth() != 320 || _bg->getHeight() != 200) ammoTgt = _selAmmoNat;
+#endif
 			SDL_Rect r;
 			r.x = 0;
 			r.y = 0;
 			r.w = RuleInventory::HAND_W * RuleInventory::SLOT_W;
 			r.h = RuleInventory::HAND_H * RuleInventory::SLOT_H;
-			_selAmmo->drawRect(&r, _game->getMod()->getInterface("inventory")->getElement("grid")->color);
+			ammoTgt->drawRect(&r, _game->getMod()->getInterface("inventory")->getElement("grid")->color);
 			r.x++;
 			r.y++;
 			r.w -= 2;
 			r.h -= 2;
-			_selAmmo->drawRect(&r, Palette::blockOffset(0)+15);
-			firstAmmo->getRules()->drawHandSprite(_game->getMod()->getSurfaceSet("BIGOBS.PCK"), _selAmmo, firstAmmo, _game->getSavedGame()->getSavedBattle(), anim);
+			ammoTgt->drawRect(&r, Palette::blockOffset(0)+15);
+			firstAmmo->getRules()->drawHandSprite(_game->getMod()->getSurfaceSet("BIGOBS.PCK"), ammoTgt, firstAmmo, _game->getSavedGame()->getSavedBattle(), anim);
+#ifdef __EMSCRIPTEN__
+			stretchInto(_selAmmoNat, _selAmmo);
+#endif
 		}
 		else
 		{
