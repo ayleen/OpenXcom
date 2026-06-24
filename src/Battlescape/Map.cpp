@@ -5224,7 +5224,22 @@ void Map::drawBloodGLPass()
 	_spriteShader->setUniform1i("u_tex", 0);
 	_spriteShader->setUniform2f("u_uvScroll", 0.0f, 0.0f);
 
-	auto drawQuad = [&](GpuTexture* tex, int gx, int gy, int fw, int fh)
+	// Dihedral UV transform: variant 0-7 = 90° rotation (low 2 bits) + optional mirror
+	// (bit 2). Re-orienting the cloud per spawn so no two plumes look alike.
+	auto uvT = [](float u, float v, int variant, float& ou, float& ov)
+	{
+		float cu = u - 0.5f, cv = v - 0.5f;
+		if (variant & 4) cu = -cu;
+		switch (variant & 3)
+		{
+			case 1:  ou = -cv; ov =  cu; break;
+			case 2:  ou = -cu; ov = -cv; break;
+			case 3:  ou =  cv; ov = -cu; break;
+			default: ou =  cu; ov =  cv; break;
+		}
+		ou += 0.5f; ov += 0.5f;
+	};
+	auto drawQuad = [&](GpuTexture* tex, int gx, int gy, int fw, int fh, int variant)
 	{
 		const float dispX = (float)gx * xScale + (float)lbb;
 		const float dispY = (float)gy * yScale + (float)tbb;
@@ -5233,9 +5248,12 @@ void Map::drawBloodGLPass()
 		const float y0 = -(2.0f * dispY / (float)dH - 1.0f);
 		const float x1 =  2.0f * (dispX + dispW) / (float)dW - 1.0f;
 		const float y1 = -(2.0f * (dispY + dispH) / (float)dH - 1.0f);
+		float a0,b0, a1,b1, a2,b2, a3,b3;
+		uvT(0,0,variant,a0,b0); uvT(1,0,variant,a1,b1);
+		uvT(0,1,variant,a2,b2); uvT(1,1,variant,a3,b3);
 		const float verts[6 * 4] = {
-			x0,y0, 0,0,  x1,y0, 1,0,  x0,y1, 0,1,
-			x0,y1, 0,1,  x1,y0, 1,0,  x1,y1, 1,1,
+			x0,y0, a0,b0,  x1,y0, a1,b1,  x0,y1, a2,b2,
+			x0,y1, a2,b2,  x1,y0, a1,b1,  x1,y1, a3,b3,
 		};
 		glBindBuffer(GL_ARRAY_BUFFER, _spriteVBO);
 		glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)sizeof(verts), verts);
@@ -5271,7 +5289,7 @@ void Map::drawBloodGLPass()
 		{ r = 0.55f - 0.32f * dry; g = 0.04f + 0.05f * dry; b = 0.05f + 0.02f * dry; }
 		_spriteShader->setUniform3f("u_tint", r, g, b);
 		_spriteShader->setUniform1f("u_alpha", 0.88f * fadeIn);
-		drawQuad(tex, cx - side / 2, cy - side / 2, side, side);
+		drawQuad(tex, cx - side / 2, cy - side / 2, side, side, (int)(bp.seed * 8.0f) & 7);
 	}
 
 	const int kBloodFrames = 6;
@@ -5285,23 +5303,48 @@ void Map::drawBloodGLPass()
 		GpuTexture* tex = getUITexture(
 			std::string("Resources/battlescape/fx/blood/blood-") + std::to_string(fr) + ".png", 0);
 		if (!tex) continue;
+
+		// Per-spawn distortion from the stored seed → every plume is oriented, squashed
+		// and offset differently, plus a slow life-churn wobble, so no two look alike.
+		const float s  = bf.seed;
+		float h2 = s * 131.7f + 0.37f; h2 -= std::floor(h2);
+		float h3 = s * 71.3f  + 0.91f; h3 -= std::floor(h3);
+		const int   variant = (int)(s * 8.0f) & 7;                              // dihedral orient/mirror
+		const float wob    = 1.0f + 0.10f * std::sin(age * 7.0f + s * 6.2832f); // breathing churn
+		const float aspect = (0.80f + 0.40f * h2) * wob;                        // squash/stretch
+
 		Position sp;
 		_camera->convertMapToScreen(bf.tile, &sp);
 		sp += camOff;
-		const float drift = age * (float)_spriteHeight * 0.45f;          // blood rises
-		const int cx = sp.x + mapX + _spriteWidth / 2;
-		const int cy = sp.y + mapY + _spriteHeight / 2 - (int)drift;
-		const float scale = 0.6f + 0.9f * age;                           // diffuses outward
-		const int side = (int)((float)_spriteWidth * 1.6f * scale);
+		const float drift = age * (float)_spriteHeight * 0.45f;                 // blood rises
+		const int jx = (int)((h2 - 0.5f) * 0.24f * _spriteWidth);               // position jitter
+		const int jy = (int)((h3 - 0.5f) * 0.24f * _spriteHeight);
+		const int cx = sp.x + mapX + _spriteWidth  / 2 + jx;
+		const int cy = sp.y + mapY + _spriteHeight / 2 - (int)drift + jy;
+		const float scale = 0.6f + 0.9f * age;                                  // diffuses outward
+		// -25% vs the old 1.6 base; aspect skews one axis for an organic, non-round shape
+		const int baseW = (int)((float)_spriteWidth * 1.2f * scale * aspect);
+		const int baseH = (int)((float)_spriteWidth * 1.2f * scale / aspect);
 		float fade = 1.0f;
-		if (age < 0.12f) fade = age / 0.12f;                             // quick fade-in
-		else if (age > 0.55f) fade = 1.0f - (age - 0.55f) / 0.45f;       // long fade-out
-		float r, g, b;
-		if (bf.faction == FACTION_HOSTILE) { r = 0.45f; g = 0.62f; b = 0.20f; }  // green ichor
-		else                               { r = 0.62f; g = 0.05f; b = 0.07f; }  // crimson
-		_spriteShader->setUniform3f("u_tint", r, g, b);
-		_spriteShader->setUniform1f("u_alpha", std::max(0.0f, fade) * 0.85f);
-		drawQuad(tex, cx - side / 2, cy - side / 2, side, side);
+		if (age < 0.12f) fade = age / 0.12f;                                    // quick fade-in
+		else if (age > 0.55f) fade = 1.0f - (age - 0.55f) / 0.45f;              // long fade-out
+		fade = std::max(0.0f, fade);
+		const float bri = 0.85f + 0.30f * h3;                                   // per-spawn brightness
+
+		// Non-linear radial gradient: a darker, full-size EDGE layer under a brighter,
+		// smaller CORE layer drawn at a different orientation, so colour ramps centre→rim.
+		float cr, cg, cb, er, eg, eb;
+		if (bf.faction == FACTION_HOSTILE)                                      // green ichor
+		{ cr = 0.50f; cg = 0.80f; cb = 0.20f;  er = 0.16f; eg = 0.34f; eb = 0.10f; }
+		else                                                                    // crimson
+		{ cr = 0.78f; cg = 0.07f; cb = 0.07f;  er = 0.28f; eg = 0.02f; eb = 0.03f; }
+		_spriteShader->setUniform3f("u_tint", er * bri, eg * bri, eb * bri);
+		_spriteShader->setUniform1f("u_alpha", fade * 0.55f);
+		drawQuad(tex, cx - baseW / 2, cy - baseH / 2, baseW, baseH, variant);
+		const int cw = (int)(baseW * 0.62f), ch = (int)(baseH * 0.62f);
+		_spriteShader->setUniform3f("u_tint", cr * bri, cg * bri, cb * bri);
+		_spriteShader->setUniform1f("u_alpha", fade * 0.90f);
+		drawQuad(tex, cx - cw / 2, cy - ch / 2, cw, ch, variant ^ 5);           // diff orient
 	}
 
 	_spriteShader->setUniform3f("u_tint", 1.0f, 1.0f, 1.0f);
