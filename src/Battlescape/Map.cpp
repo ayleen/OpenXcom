@@ -4405,6 +4405,11 @@ void Map::drawSceneGrade()
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, _ssaaColorTex);
 	_gradeShader->setUniform1i("u_scene", 0);
+	// Only underwater missions get the grade + beauty FX. On dry land (depth 0) the pass
+	// is a plain passthrough (it still IS the SSAA downsample) — otherwise the caustics /
+	// god-ray shafts / refraction "waves" leak onto land. (strength is a console knob, not
+	// depth-driven, so we gate by the actual depth here.)
+	_gradeShader->setUniform1i("u_underwater", (_save && _save->getDepth() > 0) ? 1 : 0);
 	_gradeShader->setUniform1f("u_strength", g_calypsoUnderwaterStrength);
 	_gradeShader->setUniform1f("u_time", (float)SDL_GetTicks() * 0.001f);
 	_gradeShader->setUniform2f("u_res", (float)Options::displayWidth,
@@ -5570,7 +5575,7 @@ void Map::triggerAoEFx(Position voxelCenter, int power, int radius, bool underwa
 	// space explosion. Land = the fiery sharp burst (kind 0).
 	const float fsize = std::min(4.0f, 2.2f + p * 0.012f);
 	if (underwater) _impactFlashes.push_back(ImpactFlash{ voxelCenter, t0, 0u, 900.0f, fsize * 0.60f, 0.30f, 0.82f, 1.00f, 1 }); // glassy turquoise bubble (6-frame sprite)
-	else            _impactFlashes.push_back(ImpactFlash{ voxelCenter, t0, 0u, 440.0f, fsize,         1.00f, 0.80f, 0.32f, 0 }); // fiery yellow-white
+	else            _impactFlashes.push_back(ImpactFlash{ voxelCenter, t0, 0u, 440.0f, fsize * 0.5f,  1.00f, 0.80f, 0.32f, 0 }); // fiery yellow-white (rings halved)
 
 	// E2: underwater hydraulic shockwave — an expanding scene-distortion ring (grade pass).
 	if (underwater)

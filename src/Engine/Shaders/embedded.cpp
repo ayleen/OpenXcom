@@ -724,6 +724,7 @@ void main()
 
 static const char* kUnderwater_gradeFragSrc = R"glsl(
 uniform sampler2D u_scene;
+uniform int       u_underwater;       // 1 = underwater mission (grade on); 0 = dry land (passthrough)
 uniform float     u_strength;
 uniform float     u_time;
 uniform vec2      u_res;
@@ -878,6 +879,13 @@ vec3 bloomGlow(vec2 uv, float radius, float aspect)
 
 void main()
 {
+    // Dry-land missions: this pass is just the SSAA downsample — no underwater grade,
+    // caustics, god-rays, refraction or snow (they read as "rays/waves in the air").
+    if (u_underwater == 0)
+    {
+        out_color = vec4(texture(u_scene, v_uv).rgb, 1.0);
+        return;
+    }
     float s = clamp(u_strength, 0.0, 1.0);
     float aspect = u_res.x / max(u_res.y, 1.0);
     float breath = 1.0 + u_breath * 0.08 * sin(u_time * 0.6);   // slow light pulse
