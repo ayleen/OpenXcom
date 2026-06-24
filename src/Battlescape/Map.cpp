@@ -88,6 +88,7 @@ extern "C" float g_calypsoUwGodray;
 extern "C" float g_calypsoUwBloom;
 extern "C" float g_calypsoUwBreath;
 extern "C" float g_calypsoUwChroma;
+extern "C" float g_calypsoUwShock;
 /* Phase-14 railings debug: one-shot tile dump flag.
  * Set to 1 by Module._calypso_dump_emit_once() before forcing a redraw;
  * emitTilePass() and Map::draw() painter pass each log every visible tile
@@ -4453,6 +4454,39 @@ void Map::drawSceneGrade()
 	}
 	_gradeShader->setUniform1i("u_unitCount", unitCount);
 
+	// E2: underwater explosion shockwave rings. Project each active blast voxel to v_uv
+	// (same transform as the bubbles) + pass its age; the shader warps the scene in an
+	// expanding ring. Gated by u_strength>0 (dry land) inside the shader.
+	_gradeShader->setUniform1f("u_shock", g_calypsoUwShock);
+	static const char* kSwCenter[4] = { "u_swCenter[0]", "u_swCenter[1]", "u_swCenter[2]", "u_swCenter[3]" };
+	static const char* kSwAge[4]    = { "u_swAge[0]",    "u_swAge[1]",    "u_swAge[2]",    "u_swAge[3]" };
+	int swCount = 0;
+	if (scr && _camera && _save && !_shockwaves.empty())
+	{
+		const float xS = (float)scr->getXScale(), yS = (float)scr->getYScale();
+		const float lbb = (float)scr->getCursorLeftBlackBand();
+		const float tbb = (float)scr->getCursorTopBlackBand();
+		const float dW = (float)Options::displayWidth, dH = (float)Options::displayHeight;
+		const unsigned int now = SDL_GetTicks();
+		for (const auto& sw : _shockwaves)
+		{
+			if (swCount >= 4) break;
+			const float age = (float)(now - sw.spawnTick) / sw.lifeMs;
+			if (age < 0.0f || age >= 1.0f) continue;
+			Position sp;
+			_camera->convertMapToScreen(sw.voxel.toTile(), &sp);
+			sp += _camera->getMapOffset();
+			const float dispX = (float)sp.x * xS + lbb + (float)_spriteWidth  * xS * 0.5f;
+			const float dispY = (float)sp.y * yS + tbb + (float)_spriteHeight * yS * 0.5f;
+			const float uvx = dispX / dW;
+			const float uvy = 1.0f - dispY / dH;
+			_gradeShader->setUniform2f(kSwCenter[swCount], uvx, uvy);
+			_gradeShader->setUniform1f(kSwAge[swCount], age);
+			++swCount;
+		}
+	}
+	_gradeShader->setUniform1i("u_swCount", swCount);
+
 	glBindVertexArray(_gradeVAO);
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 	glBindVertexArray(0);
@@ -5518,6 +5552,14 @@ void Map::triggerAoEFx(Position voxelCenter, int power, int radius, bool underwa
 	if (underwater) _impactFlashes.push_back(ImpactFlash{ voxelCenter, t0, 0u, 900.0f, fsize * 0.60f, 0.30f, 0.82f, 1.00f, 1 }); // glassy turquoise bubble (6-frame sprite)
 	else            _impactFlashes.push_back(ImpactFlash{ voxelCenter, t0, 0u, 440.0f, fsize,         1.00f, 0.80f, 0.32f, 0 }); // fiery yellow-white
 
+	// E2: underwater hydraulic shockwave — an expanding scene-distortion ring (grade pass).
+	if (underwater)
+	{
+		_shockwaves.push_back(Shockwave{ voxelCenter, t0, 700.0f });
+		if (_shockwaves.size() > 4)   // only a few project to the shader (cap uniforms)
+			_shockwaves.erase(_shockwaves.begin(), _shockwaves.begin() + (_shockwaves.size() - 4));
+	}
+
 	// Underwater: a bubble-burst in EVERY cell of the blast disc — smaller the farther
 	// from the centre, popping in a wave from the centre outward → the explosion fills
 	// the whole grenade area. (Step up the stride for huge radii to bound the count.)
@@ -6136,6 +6178,10 @@ void Map::animate(bool redraw)
 			std::remove_if(_fxParticles.begin(), _fxParticles.end(),
 				[now](const FxParticle& p){ return (now - p.spawnTick) >= p.delayMs + (unsigned int)p.lifeMs; }),
 			_fxParticles.end());
+		_shockwaves.erase(
+			std::remove_if(_shockwaves.begin(), _shockwaves.end(),
+				[now](const Shockwave& w){ return (now - w.spawnTick) >= (unsigned int)w.lifeMs; }),
+			_shockwaves.end());
 	}
 #endif
 

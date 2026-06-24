@@ -28,6 +28,10 @@ uniform float     u_chroma;           // subtle chromatic aberration at edges
 uniform float     u_unitbub;          // aquanaut breathing-bubble amount (own knob)
 uniform int       u_unitCount;        // # of visible aquanauts
 uniform vec2      u_unitPos[12];      // their screen UV (v_uv space; y up)
+uniform float     u_shock;            // E2: explosion shockwave-ring distortion amount
+uniform int       u_swCount;          // # active shockwaves
+uniform vec2      u_swCenter[4];      // their v_uv centres
+uniform float     u_swAge[4];         // 0..1 ring expansion
 in      vec2      v_uv;
 out     vec4      out_color;
 
@@ -175,6 +179,22 @@ void main()
         float w = 0.0018 * u_refract;
         uv += vec2(sin(v_uv.y * 11.0 + u_time * 1.3),
                    cos(v_uv.x * 13.0 + u_time * 1.1)) * w;
+    }
+    // 0b. E2 shockwave: each blast warps the scene in an expanding ring (a hydraulic
+    //     compression wave). Underwater only (s>0). Sample UV pushed outward at the front.
+    if (u_shock > 0.0 && s > 0.0)
+    {
+        for (int i = 0; i < 4; ++i)
+        {
+            if (i >= u_swCount) break;
+            vec2  rel = v_uv - u_swCenter[i];
+            float dd  = length(vec2(rel.x * aspect, rel.y));   // circular in screen space
+            float rad = u_swAge[i] * 0.55;                      // ring expands outward
+            float ring  = exp(-pow((dd - rad) / 0.05, 2.0));    // thin gaussian front
+            float decay = 1.0 - u_swAge[i];                     // fades as it grows
+            vec2  dir = dd > 1e-4 ? rel / dd : vec2(0.0);
+            uv += dir * ring * decay * u_shock * 0.03;
+        }
     }
     vec3 c;
     if (u_chroma > 0.0)

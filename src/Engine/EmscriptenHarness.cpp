@@ -133,6 +133,7 @@ float g_calypsoUwGodray   = 0.1f;    // batch 2: light shafts — subtle
 float g_calypsoUwBloom    = 0.5f;    // batch 2: glow on bright spots
 float g_calypsoUwBreath   = 0.6f;    // batch 2: slow global light pulse
 float g_calypsoUwChroma   = 0.0f;    // OFF — no visible effect (scene edges are void)
+float g_calypsoUwShock    = 0.7f;    // E2: explosion shockwave-ring distortion (underwater)
 
 static float clamp01p(float v) { return v < 0.0f ? 0.0f : (v > 2.0f ? 2.0f : v); }
 
@@ -145,6 +146,7 @@ EMSCRIPTEN_KEEPALIVE void calypso_set_uw_godray  (float v) { g_calypsoUwGodray  
 EMSCRIPTEN_KEEPALIVE void calypso_set_uw_bloom   (float v) { g_calypsoUwBloom    = clamp01p(v); }
 EMSCRIPTEN_KEEPALIVE void calypso_set_uw_breath  (float v) { g_calypsoUwBreath   = clamp01p(v); }
 EMSCRIPTEN_KEEPALIVE void calypso_set_uw_chroma  (float v) { g_calypsoUwChroma   = clamp01p(v); }
+EMSCRIPTEN_KEEPALIVE void calypso_set_uw_shock   (float v) { g_calypsoUwShock    = clamp01p(v); }
 
 /* Phase-14 railings debug: one-shot tile/painter dump.
  * JS toggles via Module._calypso_dump_emit_once() before forcing a redraw;

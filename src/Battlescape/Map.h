@@ -347,6 +347,11 @@ private:
 		float vx, vy, ax, ay; float size; float r, g, b; bool additive; };
 	std::vector<FxParticle> _fxParticles;
 	void drawFxParticlesGLPass();
+	/// E2: underwater shockwave — an expanding radial distortion ring of the scene,
+	/// applied in the grade pass (drawSceneGrade reads these, projects to UV, feeds
+	/// underwater_grade.frag). Spawned on an underwater AoE blast.
+	struct Shockwave { Position voxel; unsigned int spawnTick; float lifeMs; };
+	std::vector<Shockwave> _shockwaves;
 
 	/// Calypso: gating + clipping for the post-composite overlay passes (internal).
 	bool overlayPassesActive() const;   // false when a modal/other state is on top
