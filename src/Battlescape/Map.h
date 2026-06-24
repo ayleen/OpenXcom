@@ -348,8 +348,10 @@ private:
 	/// GL transient particles: sparks/debris (land), bubble-jets/foam (underwater).
 	/// Screen-space ballistics anchored to a spawn voxel (the burst pans with the
 	/// camera); HD colour via the sprite shader (the CPU Particle path can't do additive).
+	// texCode: 0 = soft dot (particle.png — sparks/bubbles/foam/gas); 100+v = smoke-v;
+	// 200+v = debris-v (rock sprites). Selects the per-particle texture in the draw pass.
 	struct FxParticle { Position origin; unsigned int spawnTick; unsigned int delayMs; float lifeMs;
-		float vx, vy, ax, ay; float size; float r, g, b; bool additive; };
+		float vx, vy, ax, ay; float size; float r, g, b; bool additive; int texCode; };
 	std::vector<FxParticle> _fxParticles;
 	void drawFxParticlesGLPass();
 	/// E2: underwater shockwave — an expanding radial distortion ring of the scene,

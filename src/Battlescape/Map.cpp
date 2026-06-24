@@ -5596,6 +5596,7 @@ void Map::triggerAoEFx(Position voxelCenter, int power, int radius, bool underwa
 			fp.lifeMs = 1400.0f + 900.0f * h2;
 			fp.size = (14.0f + 16.0f * h2) * es;                           // big soft gas blobs
 			fp.r = gr; fp.g = gg; fp.b = gb; fp.additive = false;          // translucent, not glowing
+			fp.texCode = 100 + ((int)(h0 * 53.0f) % 4);                    // smoke-puff sprite
 			_fxParticles.push_back(fp);
 		}
 		if (_fxParticles.size() > 320)
@@ -5610,10 +5611,10 @@ void Map::triggerAoEFx(Position voxelCenter, int power, int radius, bool underwa
 
 	// Centre body: underwater = a smooth expanding/collapsing VAPOR BUBBLE (kind 1) —
 	// the signature underwater element, replaces the sharp burst so it doesn't read as a
-	// space explosion. Land = the fiery sharp burst (kind 0).
+	// space explosion. Land = an 8-frame FIREBALL sprite (kind 3, colour preserved, additive).
 	const float fsize = std::min(4.0f, 2.2f + p * 0.012f);
 	if (underwater) _impactFlashes.push_back(ImpactFlash{ voxelCenter, t0, 0u, 900.0f, fsize * 0.60f, 0.30f, 0.82f, 1.00f, 1 }); // glassy turquoise bubble (6-frame sprite)
-	else            _impactFlashes.push_back(ImpactFlash{ voxelCenter, t0, 0u, 440.0f, fsize * 0.5f,  1.00f, 0.80f, 0.32f, 0 }); // fiery yellow-white (rings halved)
+	else            _impactFlashes.push_back(ImpactFlash{ voxelCenter, t0, 0u, 720.0f, fsize * 0.85f, 1.00f, 1.00f, 1.00f, 3 }); // fiery 8-frame fireball (white tint = keep colour)
 
 	// E2: underwater hydraulic shockwave — an expanding scene-distortion ring (grade pass).
 	if (underwater)
@@ -5734,13 +5735,38 @@ void Map::triggerAoEFx(Position voxelCenter, int power, int radius, bool underwa
 			const float spd = (120.0f + 260.0f * h1) * es;
 			fp.vx = std::cos(ang) * spd; fp.vy = std::sin(ang) * spd * 0.7f - 120.0f * es;
 			fp.ay = 760.0f * es;                                    // strong gravity (parabola)
-			fp.lifeMs = 600.0f + 500.0f * h2; fp.size = (5.0f + 6.0f * h2) * es;
-			fp.r = 0.22f + 0.12f * h2; fp.g = 0.16f + 0.08f * h2; fp.b = 0.12f; fp.additive = false; // dark earth
+			fp.lifeMs = 600.0f + 500.0f * h2; fp.size = (7.0f + 9.0f * h2) * es;
+			fp.r = 0.55f + 0.10f * h2; fp.g = 0.48f + 0.08f * h2; fp.b = 0.40f; fp.additive = false; // dirt tone over the grey rock
+			fp.texCode = 200 + ((int)(h0 * 97.0f) % 8);            // rock-debris sprite variant
 		}
 		_fxParticles.push_back(fp);
 	}
-	if (_fxParticles.size() > 320)   // bound chain-explosion spam (caps per-frame draw calls)
-		_fxParticles.erase(_fxParticles.begin(), _fxParticles.begin() + (_fxParticles.size() - 320));
+	// Land smoke plume: dark puffs rising + lingering after the fireball (the fireball's own
+	// smoke-tail fades under additive, so these carry the plume). Underwater uses foam instead.
+	if (!underwater)
+	{
+		const int nSmoke = std::min(16, 6 + radius);
+		for (int i = 0; i < nSmoke; ++i)
+		{
+			const float h0 = frand(t0 * 11u + (unsigned)i * 2654435761u + 211u);
+			const float h1 = frand(t0 + (unsigned)i * 40503u + 307u);
+			const float h2 = frand(t0 * 5u + (unsigned)i * 19349663u + 13u);
+			const float ang = h0 * 6.2832f;
+			FxParticle fp{}; fp.origin = voxelCenter; fp.spawnTick = t0;
+			fp.origin.x += (int)(std::cos(ang) * (float)std::max(1, radius) * 16.0f * 0.5f * std::sqrt(h1));
+			fp.origin.y += (int)(std::sin(ang) * (float)std::max(1, radius) * 16.0f * 0.5f * std::sqrt(h1));
+			fp.vx = std::cos(ang) * 24.0f * es; fp.vy = -(70.0f + 90.0f * h1) * es;  // rise + slight spread
+			fp.ay = -60.0f * es;                                   // buoyant
+			fp.delayMs = (unsigned int)(180.0f + 360.0f * h2);     // after the fireball blooms
+			fp.lifeMs = 1300.0f + 900.0f * h2; fp.size = (12.0f + 14.0f * h2) * es;
+			const float v = 0.18f + 0.16f * h2;                    // dark grey, slight value variety
+			fp.r = v; fp.g = v; fp.b = v * 1.05f; fp.additive = false;
+			fp.texCode = 100 + ((int)(h0 * 53.0f) % 4);            // smoke-puff sprite variant
+			_fxParticles.push_back(fp);
+		}
+	}
+	if (_fxParticles.size() > 360)   // bound chain-explosion spam (caps per-frame draw calls)
+		_fxParticles.erase(_fxParticles.begin(), _fxParticles.begin() + (_fxParticles.size() - 360));
 }
 
 /**
@@ -5759,8 +5785,6 @@ void Map::drawFxParticlesGLPass()
 	if (now - _lastDrawnTicks > 250) return;
 	if (!_spriteGLInit) initSpriteGL();
 	if (!_spriteShader || !_spriteShader->isValid() || !_spriteVAO) return;
-	GpuTexture* tex = getUITexture("Resources/battlescape/fx/explosion/particle.png", 0);
-	if (!tex) return;
 
 	Screen* screen = _game->getScreen();
 	const float xScale = (float)screen->getXScale();
@@ -5781,7 +5805,14 @@ void Map::drawFxParticlesGLPass()
 	_spriteShader->setUniform2f("u_uvScroll", 0.0f, 0.0f);
 	_spriteShader->setUniform1f("u_radial", 0.0f);
 	_spriteShader->setUniform1f("u_darken", 0.0f);
-	tex->bind(0);
+
+	// Per-particle texture (cached by getUITexture; bind only when it changes).
+	auto texFor = [&](int code) -> GpuTexture* {
+		if (code >= 200) return getUITexture("Resources/battlescape/fx/explosion/debris-" + std::to_string(code - 200) + ".png", 0);
+		if (code >= 100) return getUITexture("Resources/battlescape/fx/explosion/smoke-"  + std::to_string(code - 100) + ".png", 0);
+		return getUITexture("Resources/battlescape/fx/explosion/particle.png", 0);
+	};
+	int boundCode = -1;
 
 	auto drawQuad = [&](int gx, int gy, int fw, int fh)
 	{
@@ -5835,6 +5866,8 @@ void Map::drawFxParticlesGLPass()
 				fade *= std::max(0.0f, 1.0f - k);
 			}
 			const int side = std::max(1, (int)(fp.size * sizeMul));
+			if (fp.texCode != boundCode)
+			{ GpuTexture* t = texFor(fp.texCode); if (!t) continue; t->bind(0); boundCode = fp.texCode; }
 			_spriteShader->setUniform3f("u_tint", fp.r, fp.g, fp.b);
 			_spriteShader->setUniform1f("u_alpha", std::max(0.02f, fade * (additivePass ? 1.0f : 0.7f)));
 			drawQuad(cx - side / 2, cy - side / 2, side, side);
@@ -6014,6 +6047,22 @@ void Map::drawSmokeGLPass()
 				const int bvar = ((fl.voxel.x / 16) * 3 + (fl.voxel.y / 16) * 7) & 7;  // per-cell orientation
 				drawQuad(tex, cx - side / 2, (cy - rise) - side / 2, side, side, 0.0f, bvar);
 				glBlendFunc(GL_SRC_ALPHA, GL_ONE);                                  // restore additive for burst flashes
+			}
+			else if (fl.kind == 3)
+			{
+				// land fireball: 8-frame COLOUR sprite (flash → fireball → smoke burnout),
+				// additive, colour preserved (u_tint is white). Slight grow + tail fade; the
+				// dark smoke tail naturally fades out under additive (smoke particles take over).
+				int fr = (int)(age * 8.0f); if (fr < 0) fr = 0; else if (fr > 7) fr = 7;
+				GpuTexture* tex = getUITexture(
+					std::string("Resources/battlescape/fx/explosion/fire-") + std::to_string(fr) + ".png", 0);
+				if (!tex) continue;
+				const float scale = 1.0f + 0.25f * age;
+				const int side = (int)((float)_spriteWidth * fl.sizeMul * scale);
+				float fade = 1.0f;
+				if (age > 0.75f) fade = 1.0f - (age - 0.75f) / 0.25f;
+				_spriteShader->setUniform1f("u_alpha", std::max(0.02f, fade));
+				drawQuad(tex, cx - side / 2, cy - side / 2, side, side, 0.0f, 0);
 			}
 			else
 			{
