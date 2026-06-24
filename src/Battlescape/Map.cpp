@@ -5515,7 +5515,7 @@ void Map::triggerAoEFx(Position voxelCenter, int power, bool underwater)
 		s ^= 61u ^ (s >> 16); s *= 9u; s ^= s >> 4; s *= 0x27d4eb2du; s ^= s >> 15;
 		return (float)(s & 0xffffffu) / (float)0x1000000u;
 	};
-	const int nMain = std::min(40, 12 + power / 4);     // sparks (land) / bubble-jets (underwater)
+	const int nMain = std::min(54, 18 + power / 3);     // sparks (land) / bubble-jets (underwater)
 	for (int i = 0; i < nMain; ++i)
 	{
 		const float h0 = frand(t0 + (unsigned)i * 2654435761u);
@@ -5525,23 +5525,23 @@ void Map::triggerAoEFx(Position voxelCenter, int power, bool underwater)
 		FxParticle fp{}; fp.origin = voxelCenter; fp.spawnTick = t0;
 		if (underwater)
 		{
-			const float spd = (120.0f + 260.0f * h1) * es;
+			const float spd = (120.0f + 280.0f * h1) * es;
 			fp.vx = std::cos(ang) * spd; fp.vy = std::sin(ang) * spd * 0.7f - 60.0f * es;
 			fp.ay = -260.0f * es;                                   // buoyancy (rises)
-			fp.lifeMs = 500.0f + 500.0f * h2; fp.size = (3.0f + 4.0f * h2) * es;
+			fp.lifeMs = 550.0f + 550.0f * h2; fp.size = (6.0f + 8.0f * h2) * es;
 			fp.r = 0.70f; fp.g = 0.92f; fp.b = 1.00f; fp.additive = true;   // cyan-white
 		}
 		else
 		{
-			const float spd = (180.0f + 420.0f * h1) * es;
+			const float spd = (180.0f + 440.0f * h1) * es;
 			fp.vx = std::cos(ang) * spd; fp.vy = std::sin(ang) * spd * 0.7f;
 			fp.ay = 620.0f * es;                                    // gravity (falls)
-			fp.lifeMs = 320.0f + 360.0f * h2; fp.size = (3.0f + 3.0f * h2) * es;
+			fp.lifeMs = 340.0f + 380.0f * h2; fp.size = (4.0f + 5.0f * h2) * es;
 			fp.r = 1.00f; fp.g = 0.55f + 0.35f * h2; fp.b = 0.12f; fp.additive = true; // yellow→orange
 		}
 		_fxParticles.push_back(fp);
 	}
-	const int nSec = std::min(18, 6 + power / 8);        // debris (land) / rising foam (underwater)
+	const int nSec = std::min(26, 8 + power / 6);        // debris (land) / rising foam (underwater)
 	for (int i = 0; i < nSec; ++i)
 	{
 		const float h0 = frand(t0 * 7u + (unsigned)i * 2246822519u + 101u);
@@ -5554,7 +5554,7 @@ void Map::triggerAoEFx(Position voxelCenter, int power, bool underwater)
 			const float spd = (40.0f + 120.0f * h1) * es;
 			fp.vx = std::cos(ang) * spd * 0.5f; fp.vy = -(120.0f + 180.0f * h1) * es;
 			fp.ay = -120.0f * es;                                   // buoyant foam, floats off
-			fp.lifeMs = 900.0f + 700.0f * h2; fp.size = (7.0f + 8.0f * h2) * es;
+			fp.lifeMs = 900.0f + 700.0f * h2; fp.size = (10.0f + 13.0f * h2) * es;
 			fp.r = 0.92f; fp.g = 0.97f; fp.b = 1.00f; fp.additive = false;  // soft white
 		}
 		else
@@ -5562,13 +5562,13 @@ void Map::triggerAoEFx(Position voxelCenter, int power, bool underwater)
 			const float spd = (120.0f + 260.0f * h1) * es;
 			fp.vx = std::cos(ang) * spd; fp.vy = std::sin(ang) * spd * 0.7f - 120.0f * es;
 			fp.ay = 760.0f * es;                                    // strong gravity (parabola)
-			fp.lifeMs = 600.0f + 500.0f * h2; fp.size = (4.0f + 5.0f * h2) * es;
+			fp.lifeMs = 600.0f + 500.0f * h2; fp.size = (5.0f + 6.0f * h2) * es;
 			fp.r = 0.22f + 0.12f * h2; fp.g = 0.16f + 0.08f * h2; fp.b = 0.12f; fp.additive = false; // dark earth
 		}
 		_fxParticles.push_back(fp);
 	}
-	if (_fxParticles.size() > 256)   // bound chain-explosion spam (caps per-frame draw calls)
-		_fxParticles.erase(_fxParticles.begin(), _fxParticles.begin() + (_fxParticles.size() - 256));
+	if (_fxParticles.size() > 320)   // bound chain-explosion spam (caps per-frame draw calls)
+		_fxParticles.erase(_fxParticles.begin(), _fxParticles.begin() + (_fxParticles.size() - 320));
 }
 
 /**
@@ -5737,10 +5737,10 @@ void Map::drawSmokeGLPass()
 	if (hasExplosionWork)
 	{
 		Mod* mod = _game->getMod();
-		SurfaceSet* x1Set    = mod->getSurfaceSet("X1.PCK");
 		SurfaceSet* hitSet   = mod->getSurfaceSet("HIT.PCK");
-		// Calypso P30: SMOKE.PCK bullet-hit puff render is disabled below (replaced by
-		// the impact-flash animation), so its SurfaceSet is no longer fetched here.
+		// Calypso P30: X1.PCK (big blast) and SMOKE.PCK 46-55 (bullet puff) renders are
+		// disabled below — replaced by the depth-split explosion FX (flash + particle
+		// burst) and the impact-flash burst. Only HIT.PCK (melee) is still drawn here.
 		const int mapX = getX();
 		const int mapY = getY();
 		// Phase 24: explosion/hit sprites are voxel-anchored effects, not tile-sized.
@@ -5761,12 +5761,10 @@ void Map::drawSmokeGLPass()
 			// vanilla footprint. For 8-bpp frames set size == tex size, so unchanged.
 			if (explosion->isBig())
 			{
-				const int f = explosion->getCurrentFrame();
-				if (f < 0) continue;
-				GpuTexture* tex = getOrUploadSpriteFrame(x1Set, f);
-				if (!tex) continue;
-				const int lw = x1Set->getWidth() * es, lh = x1Set->getHeight() * es;
-				drawQuad(tex, bsx - lw / 2, bsy - lh / 2, lw, lh, 0.0f);
+				// Calypso P30: the old HD X1.PCK blast sprite is disabled — the depth-split
+				// explosion FX (triggerAoEFx: flash + particle burst) replaces it. The
+				// Explosion object is kept so ExplosionBState timing is unchanged.
+				continue;
 			}
 			else if (explosion->isHit())
 			{
