@@ -5325,39 +5325,29 @@ void Map::drawBloodGLPass()
 	// TOP with a GL scissor at the doorway base (tile floor back edge) so only the near-floor
 	// decal in front of the doorway survives. Returns true if a scissor was enabled (caller
 	// must glDisable it after the draw). `sp` is the camera-relative screen anchor of the tile.
-	// Calypso P30: floor decals are drawn PRE-composite OVER the scene, so a pool can show over
-	// a CLOSED door (atmospheric — kept) and then, when the door OPENS, show on the now-revealed
-	// floor (unwanted). Classify by where the open UFO door sits relative to the pool tile:
-	//   mode 1 — door up-screen (pool tile's OWN N/W back wall, or a bigwall door on the N/W
-	//            neighbour): the pool is in FRONT of the door; only its top BLEEDS onto the
-	//            revealed far floor → clip the quad top at the doorway base.
-	//   mode 2 — door down-screen / camera-side (between the pool tile and its S/E neighbour, or
-	//            a bigwall door on the pool / S / E tile): the pool sits on the floor that was
-	//            HIDDEN behind the door and only showed by drawing over the closed door sprite →
-	//            hide the whole decal once that door opens. (Triton hatch is this case.)
-	auto doorMode = [&](const Tile* t) -> int {
-		if (!t) return 0;
+	// Calypso P30: floor decals are drawn PRE-composite OVER the scene, so a pool sitting in/at
+	// a doorway shows over the CLOSED door sprite (atmospheric — kept) and then, when the door
+	// slides OPEN, shows on the now-revealed floor of the neighbour beyond it (unwanted — the
+	// blood appears to teleport onto the floor behind the door). Because the revealed neighbour
+	// can be in ANY screen direction (a west-wall door reveals up-LEFT at the same screen Y, so a
+	// horizontal clip can't separate it), the robust rule is: if ANY UFO/sliding door bounding
+	// the pool's own tile is currently open, hide the whole decal. The unit bled in the doorway,
+	// so the blood was only ever "on the door" — once the door is gone there is nothing to paint
+	// it onto. Checks the 4 walls bounding the tile (own W/N, east neighbour's W, south
+	// neighbour's N) plus bigwall/object doors on the tile and its 4 orthogonal neighbours.
+	// (Triton hatch = open UFO door on the doorway tile's own O_WESTWALL, confirmed via diag.)
+	auto doorOpenAround = [&](const Tile* t) -> bool {
+		if (!t) return false;
 		const Position p = t->getPosition();
 		auto open = [&](int dx, int dy, TilePart part) {
 			const Tile* x = _save->getTile(p + Position(dx, dy, 0));
 			return x && x->isUfoDoorOpen(part);
 		};
-		if (open(0, 0, O_OBJECT) || open(0, 1, O_NORTHWALL) || open(1, 0, O_WESTWALL)
-		    || open(0, 1, O_OBJECT) || open(1, 0, O_OBJECT))
-			return 2;   // camera-side door open → pool is the revealed floor behind it
-		if (open(0, 0, O_NORTHWALL) || open(0, 0, O_WESTWALL)
-		    || open(0, -1, O_OBJECT) || open(-1, 0, O_OBJECT))
-			return 1;   // far-side door open → only the upward bleed lands on revealed floor
-		return 0;
-	};
-	auto enableTopClip = [&](const Position& sp) {
-		const float kDoorwayBaseFrac = 0.45f;   // tile floor back edge ≈ where wall meets floor
-		const int   clipGY = sp.y + mapY + (int)((float)_spriteHeight * kDoorwayBaseFrac);
-		const float dispClipY = (float)clipGY * yScale + (float)tbb;
-		GLint keepH = (GLint)((float)dH - dispClipY);   // keep display rows [dispClipY, dH]
-		if (keepH < 0) keepH = 0;
-		glEnable(GL_SCISSOR_TEST);
-		glScissor(0, 0, dW, keepH);                     // cut everything above the doorway base
+		return open(0, 0, O_WESTWALL) || open(0, 0, O_NORTHWALL)     // own west/north edge
+		    || open(1, 0, O_WESTWALL) || open(0, 1, O_NORTHWALL)     // east/south edge (neighbour's wall)
+		    || open(0, 0, O_OBJECT)                                  // bigwall door on the tile
+		    || open(-1, 0, O_OBJECT) || open(1, 0, O_OBJECT)         // bigwall door on W/E neighbour
+		    || open(0, -1, O_OBJECT) || open(0, 1, O_OBJECT);        // bigwall door on N/S neighbour
 	};
 
 	// --- E3: charred-ground decals (land AoE aftermath), persistent, under the blood ---
@@ -5377,13 +5367,10 @@ void Map::drawBloodGLPass()
 		const int cx = sp.x + mapX + _spriteWidth / 2;
 		const int cy = sp.y + mapY + (int)((float)_spriteHeight * 0.55f);   // on the floor
 		const int side = std::max(1, (int)((float)_spriteWidth * sd.size));
-		const int dm = doorMode(st);
-		if (dm == 2) continue;                                              // on the floor behind an open door
+		if (doorOpenAround(st)) continue;                                  // in a doorway whose door is open
 		_spriteShader->setUniform3f("u_tint", 0.09f, 0.07f, 0.05f);         // dark char
 		_spriteShader->setUniform1f("u_alpha", 0.82f * fadeIn);
-		if (dm == 1) enableTopClip(sp);
 		drawQuad(tex, cx - side / 2, cy - side / 2, side, side, sd.variant);
-		if (dm == 1) glDisable(GL_SCISSOR_TEST);
 	}
 
 	// --- dry-land blood pools: persistent flat decals on the floor, drying over time ---
@@ -5413,10 +5400,9 @@ void Map::drawBloodGLPass()
 		{ r = 0.40f - 0.22f * dry; g = 0.55f - 0.34f * dry; b = 0.16f - 0.08f * dry; }
 		else                                                               // crimson -> dark brown
 		{ r = 0.55f - 0.32f * dry; g = 0.04f + 0.05f * dry; b = 0.05f + 0.02f * dry; }
-		const int dm = doorMode(pt);
-		// TEMP DIAG (remove once the Triton-door geometry is confirmed): once every ~1.5 s, log
-		// any open UFO door within 2 tiles of a pool — its offset + part + classified mode — so
-		// the real door placement is visible in the browser console ([INFO] lines).
+		const bool hideForDoor = doorOpenAround(pt);
+		// TEMP DIAG (remove once confirmed): once every ~1.5 s, log any open UFO door within 2
+		// tiles of a pool — offset + part + whether we hide it — to the browser console.
 		if (diagDoors)
 		{
 			for (int dy = -2; dy <= 2; ++dy)
@@ -5427,15 +5413,13 @@ void Map::drawBloodGLPass()
 				for (int prt = 1; prt <= 3; ++prt)
 					if (nt->isUfoDoorOpen((TilePart)prt))
 						Log(LOG_INFO) << "[BLOOD-DOOR] pool(" << bp.tile.x << "," << bp.tile.y
-							<< ") openUfoDoor off(" << dx << "," << dy << ") part=" << prt << " mode=" << dm;
+							<< ") openUfoDoor off(" << dx << "," << dy << ") part=" << prt << " hide=" << (hideForDoor ? 1 : 0);
 			}
 		}
-		if (dm == 2) continue;                             // pool sits on the floor revealed behind an open door
+		if (hideForDoor) continue;                         // pool is in a doorway whose door is open → hide
 		_spriteShader->setUniform3f("u_tint", r, g, b);
 		_spriteShader->setUniform1f("u_alpha", 0.88f * fadeIn);
-		if (dm == 1) enableTopClip(sp);                    // clip the bleed onto an open doorway's far floor
 		drawQuad(tex, cx - side / 2, cy - side / 2, side, side, (int)(bp.seed * 8.0f) & 7);
-		if (dm == 1) glDisable(GL_SCISSOR_TEST);
 	}
 
 	const int kBloodFrames = 6;
