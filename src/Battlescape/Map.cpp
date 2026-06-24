@@ -5532,6 +5532,7 @@ void Map::triggerAoEFx(Position voxelCenter, int power, bool underwater)
 			const float spd = (50.0f + 130.0f * h1) * es;
 			fp.vx = std::cos(ang) * spd; fp.vy = std::sin(ang) * spd * 0.5f - (90.0f + 90.0f * h1) * es;
 			fp.ay = -420.0f * es;                                   // strong buoyancy (rises fast)
+			fp.delayMs = (unsigned int)(120.0f + 360.0f * h2);      // emerge AFTER the big bubble forms
 			fp.lifeMs = 600.0f + 600.0f * h2; fp.size = (6.0f + 8.0f * h2) * es;
 			fp.r = 0.70f; fp.g = 0.92f; fp.b = 1.00f; fp.additive = true;   // cyan-white
 		}
@@ -5558,6 +5559,7 @@ void Map::triggerAoEFx(Position voxelCenter, int power, bool underwater)
 			const float spd = (40.0f + 120.0f * h1) * es;
 			fp.vx = std::cos(ang) * spd * 0.5f; fp.vy = -(120.0f + 180.0f * h1) * es;
 			fp.ay = -120.0f * es;                                   // buoyant foam, floats off
+			fp.delayMs = (unsigned int)(280.0f + 420.0f * h2);      // foam rises after the small bubbles
 			fp.lifeMs = 900.0f + 700.0f * h2; fp.size = (10.0f + 13.0f * h2) * es;
 			fp.r = 0.92f; fp.g = 0.97f; fp.b = 1.00f; fp.additive = false;  // soft white
 		}
@@ -5586,7 +5588,7 @@ void Map::drawFxParticlesGLPass()
 	if (_fxParticles.empty()) return;
 	const unsigned int now = SDL_GetTicks();
 	_fxParticles.erase(std::remove_if(_fxParticles.begin(), _fxParticles.end(),
-		[now](const FxParticle& p){ return (now - p.spawnTick) >= (unsigned int)p.lifeMs; }), _fxParticles.end());
+		[now](const FxParticle& p){ return (now - p.spawnTick) >= p.delayMs + (unsigned int)p.lifeMs; }), _fxParticles.end());
 	if (_fxParticles.empty()) return;
 	if (now - _lastDrawnTicks > 250) return;
 	if (!_spriteGLInit) initSpriteGL();
@@ -5646,8 +5648,10 @@ void Map::drawFxParticlesGLPass()
 		for (const auto& fp : _fxParticles)
 		{
 			if (fp.additive != additivePass) continue;
-			const float t = (float)(now - fp.spawnTick) * 0.001f;
-			float age = (float)(now - fp.spawnTick) / fp.lifeMs;
+			const unsigned int e = now - fp.spawnTick;
+			if (e < fp.delayMs) continue;                          // not born yet (staggered)
+			const float t = (float)(e - fp.delayMs) * 0.001f;      // seconds since birth
+			float age = (float)(e - fp.delayMs) / fp.lifeMs;
 			if (age >= 1.0f) continue;
 			if (!memoOk || fp.origin.x != memoOrigin.x || fp.origin.y != memoOrigin.y || fp.origin.z != memoOrigin.z)
 			{ _camera->convertVoxelToScreen(fp.origin, &memoSp); memoOrigin = fp.origin; memoOk = true; }
@@ -5656,8 +5660,14 @@ void Map::drawFxParticlesGLPass()
 			const int oy = (int)(fp.vy * t + 0.5f * fp.ay * t * t);
 			const int cx = sp.x + mapX + shk.x + ox;
 			const int cy = sp.y + mapY + shk.y + oy;
-			const float fade = 1.0f - age;
-			const float sizeMul = additivePass ? 1.0f : (0.7f + 0.6f * age);   // debris/foam swell
+			float fade = 1.0f - age;
+			float sizeMul = additivePass ? 1.0f : (0.7f + 0.6f * age);   // debris/foam swell
+			if (additivePass && age > 0.80f)                            // bubbles/sparks POP: swell + wink out
+			{
+				const float k = (age - 0.80f) / 0.20f;
+				sizeMul *= 1.0f + 1.8f * k;
+				fade *= std::max(0.0f, 1.0f - k);
+			}
 			const int side = std::max(1, (int)(fp.size * sizeMul));
 			_spriteShader->setUniform3f("u_tint", fp.r, fp.g, fp.b);
 			_spriteShader->setUniform1f("u_alpha", std::max(0.02f, fade * (additivePass ? 1.0f : 0.7f)));
@@ -5819,7 +5829,10 @@ void Map::drawSmokeGLPass()
 				              : (age < 0.62f) ? 0.55f                             // the bubble
 				              : 0.55f * std::max(0.0f, 1.0f - (age - 0.62f) / 0.38f); // collapse
 				_spriteShader->setUniform1f("u_alpha", std::max(0.02f, a));
-				drawQuad(tex, cx - side / 2, cy - side / 2, side, side, 0.0f);
+				// grow UP from the blast point: bottom edge anchored at (cx, cy), lifting
+				// slightly off the floor as it matures — not a centred ball.
+				const int rise = (int)(age * (float)_spriteHeight * 0.30f);
+				drawQuad(tex, cx - side / 2, cy - side - rise, side, side, 0.0f);
 			}
 			else
 			{
@@ -6070,7 +6083,7 @@ void Map::animate(bool redraw)
 			_impactFlashes.end());
 		_fxParticles.erase(
 			std::remove_if(_fxParticles.begin(), _fxParticles.end(),
-				[now](const FxParticle& p){ return (now - p.spawnTick) >= (unsigned int)p.lifeMs; }),
+				[now](const FxParticle& p){ return (now - p.spawnTick) >= p.delayMs + (unsigned int)p.lifeMs; }),
 			_fxParticles.end());
 	}
 #endif
