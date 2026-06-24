@@ -163,6 +163,16 @@ std::string TextEdit::getText() const
 }
 
 /**
+ * Returns the pixel width of the current text (bitmap font), used to size the
+ * edit's clickable hit-area to its content.
+ * @return Text width in pixels.
+ */
+int TextEdit::getTextWidth() const
+{
+	return _text ? _text->getTextWidth() : 0;
+}
+
+/**
  * Enables/disables text wordwrapping. When enabled, lines of
  * text are automatically split to ensure they stay within the
  * drawing area, otherwise they simply go off the edge.

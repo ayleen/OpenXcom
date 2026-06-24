@@ -459,9 +459,31 @@ void InventoryState::resize(int &dX, int &dY)
 	// Re-stretch sprite layers (paperdoll/rank only repaint on init(); _selAmmo on think()).
 	stretchInto(_soldierNat, _soldier);
 	stretchInto(_btnRankNat, _btnRank);
+	fitNameField();
 #endif
 	State::resize(dX, dY);
 }
+
+#ifdef __EMSCRIPTEN__
+/**
+ * Calypso: shrink the soldier-name TextEdit's clickable area to ≈ the rendered name.
+ * applyUiScaling() blows the field up to (210 x 17) * uiScale, a wide band that catches
+ * button / grid / drag clicks and steals modal+keyboard focus. The name is left-aligned
+ * and short, so the right part is dead space — clip the hit-area to the text extent
+ * (the visible text is unchanged; only the empty padding is removed).
+ */
+void InventoryState::fitNameField()
+{
+	if (!_uiCaptured) return;
+	int tw = _txtName->getTextWidth();                 // native bitmap width of the name
+	if (tw < 8) tw = 8;
+	int w = (int)((tw + 8) * _uiScale + 0.5f);         // text + small margin, scaled
+	int full = (int)(210 * _uiScale + 0.5f);           // original (design 210) scaled width
+	if (w > full) w = full;                            // never exceed the original field
+	if (w < 1) w = 1;
+	_txtName->setWidth(w);
+}
+#endif
 
 /**
  * Updates all soldier stats when the soldier changes.
@@ -545,6 +567,9 @@ void InventoryState::init()
 
 	_txtName->setBig();
 	_txtName->setText(unit->getName(_game->getLanguage()));
+#ifdef __EMSCRIPTEN__
+	fitNameField();   // shrink the (scaled) name field's hit-area to the new name
+#endif
 
 	_btnLinks->setVisible(Options::oxceLinks);
 
@@ -684,6 +709,14 @@ void InventoryState::init()
  */
 void InventoryState::edtSoldierPress(Action *action)
 {
+#ifdef __EMSCRIPTEN__
+	// Calypso: TextEdit::mousePress() just called _state->setModal(this), which makes
+	// State::handle() route EVERY subsequent event to _txtName alone — locking out all
+	// buttons. When HD-scaled the name field is a large band that's easy to hit, so the
+	// whole inventory appeared dead. Release the modal lock immediately; the field keeps
+	// keyboard focus (typing still works) and TextEdit still blurs on an outside click.
+	setModal(0);
+#endif
 	if (_btnLinks->getVisible())
 	{
 		double mx = action->getAbsoluteXMouse();
@@ -2252,6 +2285,18 @@ void InventoryState::handle(Action *action)
  */
 void InventoryState::think()
 {
+#ifdef __EMSCRIPTEN__
+	// Calypso: a TextEdit (soldier-name field / quick-search) grabs the State modal lock on
+	// click (TextEdit::setFocus -> State::setModal(this)). While modal, State::handle routes
+	// EVERY event to that one surface, freezing all buttons. When HD-scaled the field is a
+	// large band that gets hit incidentally (e.g. while dragging items), so never let a
+	// TextEdit hold the modal lock on this screen. Keyboard focus + blur-on-outside-click
+	// still work (they key off the TextEdit's own _isFocused/_modal members, not State::_modal).
+	if (_modal == (InteractiveSurface*)_txtName || _modal == (InteractiveSurface*)_btnQuickSearch)
+	{
+		setModal(0);
+	}
+#endif
 	if (_mouseHoverItem)
 	{
 		int anim = _inv->getAnimFrame();

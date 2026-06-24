@@ -80,6 +80,11 @@ private:
 	void _createInventoryTemplate(std::vector<EquipmentLayoutItem*> &inventoryTemplate);
 	/// Helper method for Apply Template button
 	void _applyInventoryTemplate(std::vector<EquipmentLayoutItem*> &inventoryTemplate);
+#ifdef __EMSCRIPTEN__
+	/// Calypso: shrink the soldier-name TextEdit's hit-area to ≈ the name text so a
+	/// scaled field doesn't catch button/grid/drag clicks and grab keyboard focus.
+	void fitNameField();
+#endif
 public:
 	/// Creates the Inventory state.
 	InventoryState(bool tu, BattlescapeState *parent, Base *base, bool noCraft = false);
