@@ -80,6 +80,14 @@ PauseState::PauseState(OptionsOrigin origin) : _origin(origin)
 
 	centerAllSurfaces();
 
+#ifdef __EMSCRIPTEN__
+	// Calypso: scale the in-battle pause popup (Window-based; border vector-scales,
+	// bg tiles — no snapshot needed). No composite widgets here, so per-surface scaling
+	// is sufficient.
+	enableUiScaling(320, 200, 0.75f);
+	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
+#endif
+
 	// Set up objects
 	setWindowBackground(_window, "pauseMenu");
 
@@ -157,6 +165,18 @@ PauseState::PauseState(OptionsOrigin origin) : _origin(origin)
 PauseState::~PauseState()
 {
 
+}
+
+/**
+ * Calypso (Emscripten): rescale to the logical buffer instead of the base recenter.
+ */
+void PauseState::resize(int &dX, int &dY)
+{
+#ifdef __EMSCRIPTEN__
+	applyUiScaling();
+#else
+	State::resize(dX, dY);
+#endif
 }
 
 /**

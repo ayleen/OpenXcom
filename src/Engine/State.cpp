@@ -37,6 +37,9 @@
 #include "../Interface/TextList.h"
 #include "../Interface/BattlescapeButton.h"
 #include "../Interface/ComboBox.h"
+#ifdef __EMSCRIPTEN__
+#include "../Interface/Slider.h"
+#endif
 #include "../Interface/Cursor.h"
 #include "../Interface/FpsCounter.h"
 #include "../Savegame/SavedBattleGame.h"
@@ -765,6 +768,18 @@ void State::applyTTFToTexts(TTFFont* font, float fillFrac)
 		else if (auto* b = dynamic_cast<TextButton*>(surf))
 		{
 			b->setTTFFont(font, fillFrac);
+		}
+		else if (auto* sl = dynamic_cast<Slider*>(surf))
+		{
+			sl->setTTFFont(font, fillFrac);
+		}
+		else if (auto* cb = dynamic_cast<ComboBox*>(surf))
+		{
+			cb->setTTFFont(font, fillFrac);
+		}
+		else if (auto* tl = dynamic_cast<TextList*>(surf))
+		{
+			tl->setTTFFont(font, fillFrac);
 		}
 	}
 }

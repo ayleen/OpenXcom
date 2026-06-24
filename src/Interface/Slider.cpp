@@ -22,6 +22,9 @@
 #include "TextButton.h"
 #include "Text.h"
 #include "Frame.h"
+#ifdef __EMSCRIPTEN__
+#include "../Engine/TTFFont.h"
+#endif
 
 namespace OpenXcom
 {
@@ -35,6 +38,10 @@ namespace OpenXcom
  */
 Slider::Slider(int width, int height, int x, int y) : InteractiveSurface(width, height, x, y), _pos(0.0), _min(0), _max(100), _pressed(false), _change(0), _offsetX(0)
 {
+#ifdef __EMSCRIPTEN__
+	_nativeW = width;
+	_nativeH = height;
+#endif
 	_thickness = 5;
 	_textness = 8;
 	_txtMinus = new Text(_textness, height - 2, x - 1, y);
@@ -76,6 +83,9 @@ Slider::~Slider()
 void Slider::setX(int x)
 {
 	Surface::setX(x);
+#ifdef __EMSCRIPTEN__
+	relayout();
+#else
 	_txtMinus->setX(x - 1);
 	_txtPlus->setX(x + getWidth() - _textness);
 	_frame->setX(getX() + _textness);
@@ -83,6 +93,7 @@ void Slider::setX(int x)
 	_minX = _frame->getX();
 	_maxX = _frame->getX() + _frame->getWidth() - _button->getWidth();
 	setValue(_pos);
+#endif
 }
 
 /**
@@ -92,11 +103,67 @@ void Slider::setX(int x)
 void Slider::setY(int y)
 {
 	Surface::setY(y);
+#ifdef __EMSCRIPTEN__
+	relayout();
+#else
 	_txtMinus->setY(y);
 	_txtPlus->setY(y);
 	_frame->setY(getY() + (getHeight() - _thickness) / 2);
 	_button->setY(getY());
+#endif
 }
+
+#ifdef __EMSCRIPTEN__
+/**
+ * Calypso: re-lay-out the slider's children at the current HD scale (s = getWidth()/native).
+ * Track / handle / +/- boxes and their hit range (_minX/_maxX, in base-resolution space) all
+ * scale together, so the existing getAbsoluteXMouse()-based hit math needs no change.
+ */
+void Slider::relayout()
+{
+	const float s = scale();
+	_textness = (int)Round(8 * s);
+	_thickness = (int)Round(5 * s);
+	const int x = getX(), y = getY(), w = getWidth(), h = getHeight();
+	_txtMinus->setX(x - (int)Round(1 * s));
+	_txtMinus->setY(y);
+	_txtMinus->setWidth(_textness);
+	_txtMinus->setHeight(h - 2);
+	_txtPlus->setX(x + w - _textness);
+	_txtPlus->setY(y);
+	_txtPlus->setWidth(_textness);
+	_txtPlus->setHeight(h - 2);
+	_frame->setX(x + _textness);
+	_frame->setY(y + (h - _thickness) / 2);
+	_frame->setWidth(w - _textness * 2);
+	_frame->setHeight(_thickness);
+	_frame->setThickness(_thickness);
+	_button->setWidth((int)Round(10 * s));
+	_button->setHeight(h);
+	_button->setY(y);
+	_minX = _frame->getX();
+	_maxX = _frame->getX() + _frame->getWidth() - _button->getWidth();
+	setValue(_value);
+}
+
+void Slider::setWidth(int width)
+{
+	Surface::setWidth(width);
+	relayout();
+}
+
+void Slider::setHeight(int height)
+{
+	Surface::setHeight(height);
+	relayout();
+}
+
+void Slider::setTTFFont(TTFFont *font, float fillFrac)
+{
+	_txtMinus->setTTFFont(font, fillFrac);
+	_txtPlus->setTTFFont(font, fillFrac);
+}
+#endif
 
 /**
  * Changes the various resources needed for text rendering.

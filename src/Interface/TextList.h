@@ -30,6 +30,9 @@ enum ArrowOrientation { ARROW_VERTICAL, ARROW_HORIZONTAL };
 class ArrowButton;
 class ComboBox;
 class ScrollBar;
+#ifdef __EMSCRIPTEN__
+class TTFFont;
+#endif
 
 /**
  * List of Text's split into columns.
@@ -60,6 +63,12 @@ private:
 	int _arrowsLeftEdge, _arrowsRightEdge;
 	int _noScrollLeftEdge, _noScrollRightEdge;
 	ComboBox *_comboBox;
+#ifdef __EMSCRIPTEN__
+	int _nativeW = 0, _nativeH = 0;
+	float scale() const { return _nativeW > 0 ? (float)getWidth() / (float)_nativeW : 1.0f; }
+	TTFFont* _ttfFont = nullptr;   ///< Calypso: HD TTF applied to every row, incl. ones added after setTTFFont
+	float _ttfFrac = 1.0f;
+#endif
 
 	/// Updates the arrow buttons.
 	void updateArrows();
@@ -116,6 +125,12 @@ public:
 	void initText(Font *big, Font *small, Language *lang) override;
 	/// Sets the height of the surface.
 	void setHeight(int height) override;
+#ifdef __EMSCRIPTEN__
+	/// Calypso: HD — resize scroll arrows and re-lay out the list.
+	void setWidth(int width) override;
+	/// Calypso: HD — forward TTF font to all text cells.
+	void setTTFFont(TTFFont* font, float fillFrac);
+#endif
 	/// Sets the text color of the text list.
 	void setColor(Uint8 color) override;
 	/// Gets the text color of the text list.

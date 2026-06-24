@@ -28,6 +28,9 @@
 #include "ComboBox.h"
 #include "ScrollBar.h"
 #include "../fmath.h"
+#ifdef __EMSCRIPTEN__
+#include "../Engine/TTFFont.h"
+#endif
 
 namespace OpenXcom
 {
@@ -46,6 +49,10 @@ TextList::TextList(int width, int height, int x, int y) : InteractiveSurface(wid
 	_leftClick(0), _leftPress(0), _leftRelease(0), _rightClick(0), _rightPress(0), _rightRelease(0),
 	_arrowsLeftEdge(0), _arrowsRightEdge(0), _noScrollLeftEdge(0), _noScrollRightEdge(0), _comboBox(0)
 {
+#ifdef __EMSCRIPTEN__
+	_nativeW = width;
+	_nativeH = height;
+#endif
 	_up = new ArrowButton(ARROW_BIG_UP, 13, 14, getX() + getWidth() + _scrollPos, getY());
 	_up->setVisible(false);
 	_up->setTextList(this);
@@ -106,7 +113,11 @@ void TextList::setY(int y)
 {
 	Surface::setY(y);
 	_up->setY(getY());
+#ifdef __EMSCRIPTEN__
+	_down->setY(getY() + getHeight() - (int)Round(14 * scale()));
+#else
 	_down->setY(getY() + getHeight() - 14);
+#endif
 	_scrollbar->setY(_up->getY() + _up->getHeight());
 	if (_selector != 0)
 		_selector->setY(getY());
@@ -297,7 +308,11 @@ void TextList::addRow(int cols, ...)
 	int rowX = 0, rowY = 0, rows = 1, rowHeight = 0;
 	if (!_texts.empty())
 	{
+#ifdef __EMSCRIPTEN__
+		rowY = _texts.back().front()->getY() + _texts.back().front()->getHeight() + (int)Round(_font->getSpacing() * scale());
+#else
 		rowY = _texts.back().front()->getY() + _texts.back().front()->getHeight() + _font->getSpacing();
+#endif
 	}
 
 	for (int i = 0; i < ncols; ++i)
@@ -312,7 +327,13 @@ void TextList::addRow(int cols, ...)
 		{
 			width = _columns[i];
 		}
+#ifdef __EMSCRIPTEN__
+		float s = scale();
+		int tw = _flooding ? (int)Round(340 * s) : (int)Round(_columns[i] * s);
+		Text* txt = new Text(tw, (int)Round(_font->getHeight() * s), (int)Round((_margin + rowX) * s), rowY);
+#else
 		Text* txt = new Text(width, _font->getHeight(), _margin + rowX, rowY);
+#endif
 		txt->setPalette(this->getPalette());
 		txt->initText(_big, _small, _lang);
 		txt->setColor(_color);
@@ -364,6 +385,15 @@ void TextList::addRow(int cols, ...)
 			txt->setText(buf);
 		}
 
+#ifdef __EMSCRIPTEN__
+		// Calypso: give rows added after setTTFFont (Options lists populate in init(),
+		// after applyTTFToTexts) the same crisp HD text — else they render as small
+		// native bitmap glyphs inside the scaled (tall) row box.
+		if (_ttfFont)
+		{
+			txt->setTTFFont(_ttfFont, _ttfFrac);
+		}
+#endif
 		temp.push_back(txt);
 		if (_condensed)
 		{
@@ -527,7 +557,11 @@ void TextList::initText(Font *big, Font *small, Language *lang)
 	_lang = lang;
 
 	delete _selector;
+#ifdef __EMSCRIPTEN__
+	_selector = new Surface(getWidth(), (int)Round((_font->getHeight() + _font->getSpacing()) * scale()), getX(), getY());
+#else
 	_selector = new Surface(getWidth(), _font->getHeight() + _font->getSpacing(), getX(), getY());
+#endif
 	_selector->setPalette(getPalette());
 	_selector->setVisible(false);
 
@@ -673,7 +707,11 @@ void TextList::setBig()
 	_font = _big;
 
 	delete _selector;
+#ifdef __EMSCRIPTEN__
+	_selector = new Surface(getWidth(), (int)Round((_font->getHeight() + _font->getSpacing()) * scale()), getX(), getY());
+#else
 	_selector = new Surface(getWidth(), _font->getHeight() + _font->getSpacing(), getX(), getY());
+#endif
 	_selector->setPalette(getPalette());
 	_selector->setVisible(false);
 
@@ -688,7 +726,11 @@ void TextList::setSmall()
 	_font = _small;
 
 	delete _selector;
+#ifdef __EMSCRIPTEN__
+	_selector = new Surface(getWidth(), (int)Round((_font->getHeight() + _font->getSpacing()) * scale()), getX(), getY());
+#else
 	_selector = new Surface(getWidth(), _font->getHeight() + _font->getSpacing(), getX(), getY());
+#endif
 	_selector->setPalette(getPalette());
 	_selector->setVisible(false);
 
@@ -803,8 +845,14 @@ void TextList::setArrowColumn(int pos, ArrowOrientation type)
 		_arrowsRightEdge = 0;
 		return;
 	}
+#ifdef __EMSCRIPTEN__
+	float s = scale();
+	_arrowsLeftEdge = getX() + (int)Round(_arrowPos * s);
+	_arrowsRightEdge = _arrowsLeftEdge + (int)Round(23 * s);
+#else
 	_arrowsLeftEdge = getX() + _arrowPos;
 	_arrowsRightEdge = _arrowsLeftEdge + 12 + 11;
+#endif
 }
 
 /**
@@ -982,7 +1030,11 @@ void TextList::updateArrows()
 void TextList::updateVisible()
 {
 	_visibleRows = 0;
+#ifdef __EMSCRIPTEN__
+	for (int y = 0; y < getHeight(); y += (int)Round((_font->getHeight() + _font->getSpacing()) * scale()))
+#else
 	for (int y = 0; y < getHeight(); y += _font->getHeight() + _font->getSpacing())
+#endif
 	{
 		_visibleRows++;
 	}
@@ -1019,7 +1071,11 @@ void TextList::draw()
 		// so that the correct row appears at the top
 		for (int row = _scroll; row > 0 && _rows[row] == _rows[row - 1]; --row)
 		{
+#ifdef __EMSCRIPTEN__
+			y -= (int)Round((_font->getHeight() + _font->getSpacing()) * scale());
+#else
 			y -= _font->getHeight() + _font->getSpacing();
+#endif
 		}
 		for (size_t i = _rows[_scroll]; i < _texts.size() && i < _rows[_scroll] + _visibleRows; ++i)
 		{
@@ -1030,11 +1086,19 @@ void TextList::draw()
 			}
 			if (!_texts[i].empty())
 			{
+#ifdef __EMSCRIPTEN__
+				y += _texts[i].front()->getHeight() + (int)Round(_font->getSpacing() * scale());
+#else
 				y += _texts[i].front()->getHeight() + _font->getSpacing();
+#endif
 			}
 			else
 			{
+#ifdef __EMSCRIPTEN__
+				y += (int)Round((_font->getHeight() + _font->getSpacing()) * scale());
+#else
 				y += _font->getHeight() + _font->getSpacing();
+#endif
 			}
 		}
 	}
@@ -1058,7 +1122,11 @@ void TextList::blit(SDL_Surface *surface)
 			int y = getY();
 			for (int row = _scroll; row > 0 && _rows[row] == _rows[row - 1]; --row)
 			{
+#ifdef __EMSCRIPTEN__
+				y -= (int)Round((_font->getHeight() + _font->getSpacing()) * scale());
+#else
 				y -= _font->getHeight() + _font->getSpacing();
+#endif
 			}
 			int maxY = getY() + getHeight();
 			for (size_t i = _rows[_scroll]; i < _texts.size() && i < _rows[_scroll] + _visibleRows && y < maxY; ++i)
@@ -1075,11 +1143,19 @@ void TextList::blit(SDL_Surface *surface)
 
 				if (!_texts[i].empty())
 				{
+#ifdef __EMSCRIPTEN__
+					y += _texts[i].front()->getHeight() + (int)Round(_font->getSpacing() * scale());
+#else
 					y += _texts[i].front()->getHeight() + _font->getSpacing();
+#endif
 				}
 				else
 				{
+#ifdef __EMSCRIPTEN__
+					y += (int)Round((_font->getHeight() + _font->getSpacing()) * scale());
+#else
 					y += _font->getHeight() + _font->getSpacing();
+#endif
 				}
 			}
 		}
@@ -1259,7 +1335,11 @@ void TextList::mouseOver(Action *action, State *state)
 	if (_selectable)
 	{
 		int rowHeight = _font->getHeight() + _font->getSpacing(); //theoretical line height
+#ifdef __EMSCRIPTEN__
+		_selRow = std::max(0, (int)(_scroll + (int)floor(action->getRelativeYMouse() / (rowHeight * scale() * action->getYScale()))));
+#else
 		_selRow = std::max(0, (int)(_scroll + (int)floor(action->getRelativeYMouse() / (rowHeight * action->getYScale()))));
+#endif
 		if (_selRow < _rows.size())
 		{
 			Text *selText = _texts[_rows[_selRow]].front();
@@ -1389,5 +1469,51 @@ void TextList::setIgnoreSeparators(bool ignoreSeparators)
 {
 	_ignoreSeparators = ignoreSeparators;
 }
+
+#ifdef __EMSCRIPTEN__
+/**
+ * Calypso: HD — resize scroll arrows then re-run setY to reposition _down.
+ */
+void TextList::setWidth(int w)
+{
+	Surface::setWidth(w);
+	// Recreate scroll arrows at scaled size.
+	float s = scale();
+	int aw = (int)Round(13 * s);
+	int ah = (int)Round(14 * s);
+	SDL_Color pal[256];
+	std::copy(getPalette(), getPalette() + 256, pal);
+	Uint8 arrowColor = _up->getColor();
+	delete _up;
+	delete _down;
+	_up = new ArrowButton(ARROW_BIG_UP, aw, ah, getX() + w + _scrollPos, getY());
+	_up->setVisible(false);
+	_up->setTextList(this);
+	_up->setPalette(pal);
+	_up->setColor(arrowColor);
+	_down = new ArrowButton(ARROW_BIG_DOWN, aw, ah, getX() + w + _scrollPos, getY() + getHeight() - ah);
+	_down->setVisible(false);
+	_down->setTextList(this);
+	_down->setPalette(pal);
+	_down->setColor(arrowColor);
+	// Reposition _down and recompute scrollbar height.
+	setY(getY());
+	setHeight(getHeight());
+}
+
+/**
+ * Calypso: HD — forward TTF font opt-in to every text cell.
+ */
+void TextList::setTTFFont(TTFFont* font, float fillFrac)
+{
+	// Remember it so rows added LATER (Options lists are populated in the state's init(),
+	// after OptionsBaseState::init() runs applyTTFToTexts) also render crisp HD text.
+	_ttfFont = font;
+	_ttfFrac = fillFrac;
+	for (auto& row : _texts)
+		for (auto* t : row)
+			t->setTTFFont(font, fillFrac);
+}
+#endif
 
 }

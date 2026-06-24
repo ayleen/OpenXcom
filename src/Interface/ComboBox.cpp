@@ -27,6 +27,10 @@
 #include "../Engine/Action.h"
 #include "../Engine/Options.h"
 #include "../Engine/Screen.h"
+#ifdef __EMSCRIPTEN__
+#include "../Engine/TTFFont.h"
+#include "../fmath.h"
+#endif
 
 namespace OpenXcom
 {
@@ -58,6 +62,10 @@ static int getPopupWindowY(int buttonHeight, int buttonY, int popupHeight, bool 
  */
 ComboBox::ComboBox(State *state, int width, int height, int x, int y, bool popupAboveButton) : InteractiveSurface(width, height, x, y), _change(0), _sel(0), _state(state), _lang(0), _toggled(false), _popupAboveButton(popupAboveButton)
 {
+#ifdef __EMSCRIPTEN__
+	_nativeW = width;
+	_nativeH = height;
+#endif
 	_button = new TextButton(width, height, x, y);
 	_button->setComboBox(this);
 
@@ -101,9 +109,18 @@ void ComboBox::setX(int x)
 {
 	Surface::setX(x);
 	_button->setX(x);
+#ifdef __EMSCRIPTEN__
+	float s = scale();
+	_arrow->setX(x + getWidth() - (int)Round(BUTTON_WIDTH * s));
+#else
 	_arrow->setX(x + getWidth() - BUTTON_WIDTH);
+#endif
 	_window->setX(x);
+#ifdef __EMSCRIPTEN__
+	_list->setX(x + (int)Round(HORIZONTAL_MARGIN * s));
+#else
 	_list->setX(x + HORIZONTAL_MARGIN);
+#endif
 }
 
 /**
@@ -114,12 +131,20 @@ void ComboBox::setY(int y)
 {
 	Surface::setY(y);
 	_button->setY(y);
+#ifdef __EMSCRIPTEN__
+	_arrow->setY(y + (int)Round(4 * scale()));
+#else
 	_arrow->setY(y + 4);
+#endif
 
 	int popupHeight = _window->getHeight();
 	int popupY = getPopupWindowY(getHeight(), y, popupHeight, _popupAboveButton);
 	_window->setY(popupY);
+#ifdef __EMSCRIPTEN__
+	_list->setY(popupY + (int)Round(VERTICAL_MARGIN * scale()));
+#else
 	_list->setY(popupY + VERTICAL_MARGIN);
+#endif
 }
 
 /**
@@ -194,31 +219,38 @@ void ComboBox::drawArrow()
 	if (color == 256)
 		color++;
 
+#ifdef __EMSCRIPTEN__
+	float s = scale();
+	auto px = [&](int v) -> int { return (int)Round(v * s); };
+#else
+	auto px = [](int v) -> int { return v; };
+#endif
+
 	// Draw arrow triangle 1
-	square.x = 1;
-	square.y = 2;
-	square.w = 9;
+	square.x = px(1);
+	square.y = px(2);
+	square.w = px(9);
 	square.h = 1;
 
-	for (; square.w > 1; square.w -= 2)
+	for (; square.w > px(1); square.w -= px(2))
 	{
 		_arrow->drawRect(&square, color + 2);
-		square.x++;
-		square.y++;
+		square.x += px(1);
+		square.y += px(1);
 	}
 	_arrow->drawRect(&square, color + 2);
 
 	// Draw arrow triangle 2
-	square.x = 2;
-	square.y = 2;
-	square.w = 7;
+	square.x = px(2);
+	square.y = px(2);
+	square.w = px(7);
 	square.h = 1;
 
-	for (; square.w > 1; square.w -= 2)
+	for (; square.w > px(1); square.w -= px(2))
 	{
 		_arrow->drawRect(&square, color);
-		square.x++;
-		square.y++;
+		square.x += px(1);
+		square.y += px(1);
 	}
 	_arrow->drawRect(&square, color);
 }
@@ -299,16 +331,32 @@ void ComboBox::setDropdown(int options)
 	int items = std::min(options, MAX_ITEMS);
 	int h = _button->getFont()->getHeight() + _button->getFont()->getSpacing();
 	int dy = (Options::baseYResolution - 200) / 2;
+#ifdef __EMSCRIPTEN__
+	float s = scale();
+	// The dropdown rows are built scaled (TextList::addRow uses font*s), so the per-row
+	// stride must be scaled too — otherwise the list box is too short for the rows.
+	h = (int)Round(h * s);
+	while (_window->getY() + items * h + (int)Round(VERTICAL_MARGIN * 2 * s) > (int)Round((200 + dy) * s))
+#else
 	while (_window->getY() + items * h + VERTICAL_MARGIN * 2 > 200 + dy)
+#endif
 	{
 		items--;
 	}
 
+#ifdef __EMSCRIPTEN__
+	int popupHeight = items * h + (int)Round(VERTICAL_MARGIN * 2 * s);
+#else
 	int popupHeight = items * h + VERTICAL_MARGIN * 2;
+#endif
 	int popupY = getPopupWindowY(getHeight(), getY(), popupHeight, _popupAboveButton);
 	_window->setY(popupY);
 	_window->setHeight(popupHeight);
+#ifdef __EMSCRIPTEN__
+	_list->setY(popupY + (int)Round(VERTICAL_MARGIN * s));
+#else
 	_list->setY(popupY + VERTICAL_MARGIN);
+#endif
 	_list->setHeight(items * h);
 }
 
@@ -319,6 +367,10 @@ void ComboBox::setDropdown(int options)
  */
 void ComboBox::setOptions(const std::vector<std::string> &options, bool translate)
 {
+#ifdef __EMSCRIPTEN__
+	_optionsCache = options;
+	_optionsCacheTranslate = translate;
+#endif
 	setDropdown(options.size());
 	_list->clearList();
 	for (const auto& option : options)
@@ -452,5 +504,81 @@ void ComboBox::onListMouseOver(ActionHandler handler)
 {
 	_list->onMouseOver(handler);
 }
+
+#ifdef __EMSCRIPTEN__
+/**
+ * Calypso: HD — re-lay out all children at the current scale.
+ * Called from setWidth/setHeight after applyUiScaling enlarges the outer surface.
+ * Also re-populates the dropdown list so rows are built at the new scale.
+ */
+void ComboBox::relayout()
+{
+	float s = scale();
+	int bw = (int)Round(BUTTON_WIDTH * s);
+	int hm = (int)Round(HORIZONTAL_MARGIN * s);
+	int vm = (int)Round(VERTICAL_MARGIN * s);
+
+	// Resize the button to the full outer rect.
+	_button->setWidth(getWidth());
+	_button->setHeight(getHeight());
+
+	// Recreate _arrow at scaled size + position.
+	delete _arrow;
+	_arrow = new Surface((int)Round(11 * s), (int)Round(8 * s),
+	                     getX() + getWidth() - bw,
+	                     getY() + (int)Round(4 * s));
+	_arrow->setPalette(getPalette());
+
+	// Resize _list outer width (scaled), but declare its single column in NATIVE units —
+	// TextList::addRow multiplies the column width by its own scale(), so passing the
+	// scaled width here would double-scale the row text.
+	int listW = getWidth() - hm * 2 - bw + 1;
+	_list->setWidth(listW);
+	_list->setColumns(1, _nativeW - HORIZONTAL_MARGIN * 2 - BUTTON_WIDTH + 1);
+
+	// Resize _window width (height is recomputed by setDropdown).
+	_window->setWidth(getWidth());
+
+	// Re-run positional helpers to propagate new sizes.
+	setX(getX());
+	setY(getY());
+
+	// Draw the arrow at the new scale.
+	drawArrow();
+
+	// Re-populate the dropdown list so rows are sized at s (not s=1).
+	if (!_optionsCache.empty())
+	{
+		setDropdown((int)_optionsCache.size());
+		_list->clearList();
+		for (const auto& option : _optionsCache)
+		{
+			if (_optionsCacheTranslate)
+				_list->addRow(1, _lang->getString(option).c_str());
+			else
+				_list->addRow(1, option.c_str());
+		}
+		setSelected(_sel);
+	}
+}
+
+void ComboBox::setWidth(int w)
+{
+	Surface::setWidth(w);
+	relayout();
+}
+
+void ComboBox::setHeight(int h)
+{
+	Surface::setHeight(h);
+	relayout();
+}
+
+void ComboBox::setTTFFont(TTFFont* font, float fillFrac)
+{
+	_button->setTTFFont(font, fillFrac);
+	if (_list) _list->setTTFFont(font, fillFrac);
+}
+#endif
 
 }

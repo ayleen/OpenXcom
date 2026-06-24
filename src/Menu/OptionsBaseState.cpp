@@ -180,6 +180,21 @@ void OptionsBaseState::init()
 	{
 		applyBattlescapeTheme("optionsMenu");
 	}
+#ifdef __EMSCRIPTEN__
+	// Calypso: scale the whole Options chain (global — also in Geoscape). Window-
+	// based, so the border vector-scales and the background tiles; no bg snapshot
+	// needed. Runs once (enableUiScaling is guarded); subclasses call
+	// centerAllSurfaces() in their ctors before init(), so the capture is correct.
+	// Composite widgets (ComboBox/Slider/TextList) scale their own internals + hit
+	// math off getWidth()/native (see those classes); subclasses populate TextLists
+	// in init() AFTER this, so rows are built at the scaled size.
+	// Set TTF BEFORE scaling: composite widgets store the font, so rows they (re)populate
+	// get crisp HD text. Critically, ComboBox dropdowns are re-populated INSIDE
+	// enableUiScaling()'s relayout — if applyTTFToTexts ran after, those rows would be
+	// built before the font was stored and render as tiny native bitmap glyphs.
+	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
+	enableUiScaling(320, 200, 1.0f);   // fill (was 0.75 — text read too small)
+#endif
 }
 
 /**
@@ -358,7 +373,11 @@ void OptionsBaseState::resize(int &dX, int &dY)
 {
 	Options::newDisplayWidth = Options::displayWidth;
 	Options::newDisplayHeight = Options::displayHeight;
+#ifdef __EMSCRIPTEN__
+	applyUiScaling();
+#else
 	State::resize(dX, dY);
+#endif
 }
 
 }
