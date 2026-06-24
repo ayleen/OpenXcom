@@ -44,6 +44,8 @@ public:
 	PauseState(OptionsOrigin origin);
 	/// Cleans up the Pause state.
 	~PauseState();
+	/// Calypso: rescale to the logical buffer instead of the base recenter.
+	void resize(int &dX, int &dY) override;
 	/// Handler for clicking the Load Game button.
 	void btnLoadClick(Action *action);
 	/// Handler for clicking the Save Game button.

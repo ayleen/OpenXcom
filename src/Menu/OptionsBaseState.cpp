@@ -180,6 +180,14 @@ void OptionsBaseState::init()
 	{
 		applyBattlescapeTheme("optionsMenu");
 	}
+#ifdef __EMSCRIPTEN__
+	// Calypso: scale the whole Options chain (global — also in Geoscape). Window-
+	// based, so the border vector-scales and the background tiles; no bg snapshot
+	// needed. Runs once (enableUiScaling is guarded); subclasses call
+	// centerAllSurfaces() in their ctors before init(), so the capture is correct.
+	enableUiScaling(320, 200, 0.75f);
+	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
+#endif
 }
 
 /**
@@ -358,7 +366,11 @@ void OptionsBaseState::resize(int &dX, int &dY)
 {
 	Options::newDisplayWidth = Options::displayWidth;
 	Options::newDisplayHeight = Options::displayHeight;
+#ifdef __EMSCRIPTEN__
+	applyUiScaling();
+#else
 	State::resize(dX, dY);
+#endif
 }
 
 }
