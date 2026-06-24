@@ -308,7 +308,7 @@ private:
 	/// drawSmokeGLPass, ages by wall-clock, self-erases.
 	// kind: 0 = sharp 4-frame burst (hits / land blast); 1 = underwater vapor bubble
 	// (single texture, expand→hold→collapse size curve).
-	struct ImpactFlash { Position voxel; unsigned int spawnTick; float lifeMs; float sizeMul; float r, g, b; int kind; };
+	struct ImpactFlash { Position voxel; unsigned int spawnTick; unsigned int delayMs; float lifeMs; float sizeMul; float r, g, b; int kind; };
 	std::vector<ImpactFlash> _impactFlashes;
 	/// Per-unit sprite jolt toward bullet travel: a screen-space unit-vector +
 	/// remaining anim frames. Keyed by BattleUnit::getId(). Faction-agnostic.
@@ -451,8 +451,9 @@ public:
 	/// Called from TileEngine::hitUnit on a flesh-wounding hit (any faction).
 	void spawnBloodFx(Position unitTile, int healthDamage, int faction);
 	/// Calypso explosion FX: depth-split AoE blast — camera shake + big coloured flash
-	/// + a GL particle burst. Called once at blast start from ExplosionBState::init.
-	void triggerAoEFx(Position voxelCenter, int power, bool underwater);
+	/// + a GL particle burst, plus (underwater) a scatter of small bubble-bursts over the
+	/// blast radius. Called once at blast start from ExplosionBState::init. radius = tiles.
+	void triggerAoEFx(Position voxelCenter, int power, int radius, bool underwater);
 #endif
 	/// Handles timers.
 	void think() override;

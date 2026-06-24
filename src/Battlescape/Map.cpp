@@ -5482,7 +5482,7 @@ void Map::triggerShake(float amplitudePx, float freq, float durSec)
 void Map::triggerHitFx(Position voxelCenter, int power, int unitId, float dirX, float dirY)
 {
 	// Contact flash at the impact point (works for terrain / object / unit alike).
-	_impactFlashes.push_back(ImpactFlash{ voxelCenter, SDL_GetTicks(), 400.0f, 1.1f, 1.0f, 0.96f, 0.85f, 0 });
+	_impactFlashes.push_back(ImpactFlash{ voxelCenter, SDL_GetTicks(), 0u, 400.0f, 1.1f, 1.0f, 0.96f, 0.85f, 0 });
 	// Camera shake, scaled by power.
 	triggerShake(std::min(6.0f, 1.5f + (float)power * 0.06f));
 	// Sprite jolt for the struck unit (any faction), toward bullet travel.
@@ -5493,11 +5493,18 @@ void Map::triggerHitFx(Position voxelCenter, int power, int unitId, float dirX, 
 	}
 }
 
-void Map::triggerAoEFx(Position voxelCenter, int power, bool underwater)
+void Map::triggerAoEFx(Position voxelCenter, int power, int radius, bool underwater)
 {
 	const unsigned int t0 = SDL_GetTicks();
 	const float p  = (float)power;
 	const float es = (float)_spriteWidth / 32.0f;
+
+	// Non-game PRNG (hash of tick+index) so we never advance the deterministic game RNG
+	// (would desync replays/saves). Used for the mini-bubble scatter and the particle burst.
+	auto frand = [](unsigned int s) {
+		s ^= 61u ^ (s >> 16); s *= 9u; s ^= s >> 4; s *= 0x27d4eb2du; s ^= s >> 15;
+		return (float)(s & 0xffffffu) / (float)0x1000000u;
+	};
 
 	// Camera shake: sharp/high-freq rattle on land, heavy/low-freq sway underwater.
 	const float amp = std::min(10.0f, 2.5f + p * 0.06f);
@@ -5508,15 +5515,31 @@ void Map::triggerAoEFx(Position voxelCenter, int power, bool underwater)
 	// the signature underwater element, replaces the sharp burst so it doesn't read as a
 	// space explosion. Land = the fiery sharp burst (kind 0).
 	const float fsize = std::min(4.0f, 2.2f + p * 0.012f);
-	if (underwater) _impactFlashes.push_back(ImpactFlash{ voxelCenter, t0, 900.0f, fsize * 0.60f, 0.30f, 0.82f, 1.00f, 1 }); // glassy turquoise bubble (6-frame sprite)
-	else            _impactFlashes.push_back(ImpactFlash{ voxelCenter, t0, 440.0f, fsize,         1.00f, 0.80f, 0.32f, 0 }); // fiery yellow-white
+	if (underwater) _impactFlashes.push_back(ImpactFlash{ voxelCenter, t0, 0u, 900.0f, fsize * 0.60f, 0.30f, 0.82f, 1.00f, 1 }); // glassy turquoise bubble (6-frame sprite)
+	else            _impactFlashes.push_back(ImpactFlash{ voxelCenter, t0, 0u, 440.0f, fsize,         1.00f, 0.80f, 0.32f, 0 }); // fiery yellow-white
 
-	// GL particle burst. Non-game PRNG (hash of tick+index) so we never advance the
-	// deterministic game RNG (would desync replays/saves).
-	auto frand = [](unsigned int s) {
-		s ^= 61u ^ (s >> 16); s *= 9u; s ^= s >> 4; s *= 0x27d4eb2du; s ^= s >> 15;
-		return (float)(s & 0xffffffu) / (float)0x1000000u;
-	};
+	// Underwater: scatter small bubble-bursts (~1/3 the big bubble) across the grenade's
+	// blast radius, staggered in time → the explosion reads as an AREA, not one bubble.
+	if (underwater)
+	{
+		const int rTiles = std::max(1, radius);
+		const int nMini  = std::min(28, 6 + rTiles * 2);
+		for (int i = 0; i < nMini; ++i)
+		{
+			const float a0 = frand(t0 * 2u + (unsigned)i * 2654435761u + 11u);
+			const float a1 = frand(t0 + (unsigned)i * 40503u + 71u);
+			const float a2 = frand(t0 * 5u + (unsigned)i * 19349663u + 3u);
+			const float ang  = a0 * 6.2832f;
+			const float dist = (float)rTiles * 16.0f * 0.9f * std::sqrt(a1);   // voxels, uniform over area
+			Position mv = voxelCenter;
+			mv.x += (int)(std::cos(ang) * dist);
+			mv.y += (int)(std::sin(ang) * dist);
+			const unsigned int delay = (unsigned int)(40.0f + 620.0f * a2);    // pop progressively
+			_impactFlashes.push_back(ImpactFlash{ mv, t0, delay, 550.0f, fsize * 0.20f, 0.30f, 0.82f, 1.00f, 1 });
+		}
+	}
+
+	// GL particle burst (frand defined above).
 	const int nMain = std::min(54, 18 + power / 3);     // sparks (land) / bubble-jets (underwater)
 	for (int i = 0; i < nMain; ++i)
 	{
@@ -5808,8 +5831,9 @@ void Map::drawSmokeGLPass()
 		const Position shk = currentShakeOffset();
 		for (const auto& fl : _impactFlashes)
 		{
-			float age = (float)(now - fl.spawnTick) / fl.lifeMs;
-			if (age < 0.0f) age = 0.0f;
+			const unsigned int e = now - fl.spawnTick;
+			if (e < fl.delayMs) continue;                  // not born yet (staggered mini-bursts)
+			float age = (float)(e - fl.delayMs) / fl.lifeMs;
 			if (age >= 1.0f) continue;
 			Position sp;
 			_camera->convertVoxelToScreen(fl.voxel, &sp);
@@ -5856,7 +5880,7 @@ void Map::drawSmokeGLPass()
 		// expire spent flashes
 		_impactFlashes.erase(
 			std::remove_if(_impactFlashes.begin(), _impactFlashes.end(),
-				[now](const ImpactFlash& f){ return (now - f.spawnTick) >= (unsigned int)f.lifeMs; }),
+				[now](const ImpactFlash& f){ return (now - f.spawnTick) >= f.delayMs + (unsigned int)f.lifeMs; }),
 			_impactFlashes.end());
 	}
 
@@ -6079,7 +6103,7 @@ void Map::animate(bool redraw)
 		const unsigned int now = SDL_GetTicks();
 		_impactFlashes.erase(
 			std::remove_if(_impactFlashes.begin(), _impactFlashes.end(),
-				[now](const ImpactFlash& f){ return (now - f.spawnTick) >= (unsigned int)f.lifeMs; }),
+				[now](const ImpactFlash& f){ return (now - f.spawnTick) >= f.delayMs + (unsigned int)f.lifeMs; }),
 			_impactFlashes.end());
 		_fxParticles.erase(
 			std::remove_if(_fxParticles.begin(), _fxParticles.end(),

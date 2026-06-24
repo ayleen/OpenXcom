@@ -237,7 +237,7 @@ void ExplosionBState::init()
 			// big coloured flash + GL particle burst (sparks/debris land, bubble-jets/foam
 			// underwater). Anchored to _center, fired once (the EGA flash is suppressed
 			// in this fork). Cosmetic only — damage already resolved in explode() above.
-			_parent->getMap()->triggerAoEFx(_center, powerForAnimation, _parent->getDepth() > 0);
+			_parent->getMap()->triggerAoEFx(_center, powerForAnimation, _radius, _parent->getDepth() > 0);
 #endif
 			int lowerLimit = std::max(1, powerForAnimation / 5);
 			for (int i = 0; i < lowerLimit; i++)
