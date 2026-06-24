@@ -5177,7 +5177,7 @@ void Map::spawnBloodFx(Position unitTile, int healthDamage, int faction)
 		// the oldest so a long, bloody mission never grows unbounded.
 		if (_bloodPools.size() >= 200) _bloodPools.erase(_bloodPools.begin());
 		const unsigned int h = (unsigned int)(unitTile.x * 73856093) ^ (unsigned int)(unitTile.y * 19349663) ^ SDL_GetTicks();
-		_bloodPools.push_back(BloodPool{ unitTile, SDL_GetTicks(), seed, faction, (int)(h % 4u) });
+		_bloodPools.push_back(BloodPool{ unitTile, SDL_GetTicks(), seed, faction, (int)(h % 6u) });   // 6 pool variants
 	}
 #else
 	(void)unitTile; (void)healthDamage; (void)faction;
