@@ -5239,6 +5239,20 @@ static int calypsoDoorClipEdges(SavedBattleGame* save, Position p, bool floorOnl
 	edge(8, 0, 1, O_NORTHWALL); edge(8, 0, 1, O_OBJECT);    // south edge: S-neighbour N wall / object door
 	return mask;
 }
+
+// A floor decal on tile p is hidden when a higher level in the SAME column carries a floor and
+// that level is currently drawn (z <= the camera view level). Such a floor — an upper-deck or
+// roof (e.g. above the Triton's lower deck) — occludes the decal from the top-down iso view, so
+// the PRE-composite splat (which ignores z-ordering) must not paint over it on the level above.
+static bool calypsoDecalCovered(SavedBattleGame* save, Position p, int viewLevel)
+{
+	for (int z = p.z + 1; z <= viewLevel; ++z)
+	{
+		const Tile* up = save->getTile(Position(p.x, p.y, z));
+		if (up && up->getMapData(O_FLOOR)) return true;
+	}
+	return false;
+}
 #endif
 
 void Map::spawnBloodFx(Position unitTile, int healthDamage, int faction)
@@ -5269,6 +5283,7 @@ void Map::spawnBloodFx(Position unitTile, int healthDamage, int faction)
 	(void)unitTile; (void)healthDamage; (void)faction;
 #endif
 }
+
 
 /**
  * Calypso Phase 30 (Срез B): underwater blood plume — a drifting crimson cloud per
@@ -5376,11 +5391,15 @@ void Map::drawBloodGLPass()
 		_spriteShader->setUniform2f("u_clipHalf", (float)(_spriteWidth / 2) * xScale, (float)(_spriteWidth / 4) * yScale);
 	};
 
+	const int viewLevel = _camera->getViewLevel();              // floor decals above this level aren't drawn
+
 	// --- E3: charred-ground decals (land AoE aftermath), persistent, under the blood ---
 	for (const auto& sd : scorchDecals)
 	{
 		const Tile* st = _save->getTile(sd.tile);
 		if (!st || !st->isDiscovered(O_FLOOR)) continue;        // hide on fogged/unexplored tiles
+		if (sd.tile.z > viewLevel) continue;                   // above the current view level — not drawn
+		if (calypsoDecalCovered(_save, sd.tile, viewLevel)) continue;   // a drawn floor above occludes it
 		GpuTexture* tex = getUITexture(
 			std::string("Resources/battlescape/fx/scorch/scorch-") + std::to_string(sd.variant & 3) + ".png", 0);
 		if (!tex) tex = getUITexture("Resources/battlescape/fx/scorch/scorch-0.png", 0);   // fallback
@@ -5406,6 +5425,8 @@ void Map::drawBloodGLPass()
 	{
 		const Tile* pt = _save->getTile(bp.tile);
 		if (!pt || !pt->isDiscovered(O_FLOOR)) continue;        // hide on fogged/unexplored tiles
+		if (bp.tile.z > viewLevel) continue;                   // above the current view level — not drawn
+		if (calypsoDecalCovered(_save, bp.tile, viewLevel)) continue;   // a drawn floor above occludes it
 		const float ageS = (float)(now - bp.spawnTick) * 0.001f;
 		GpuTexture* tex = getUITexture(
 			std::string("Resources/battlescape/fx/blood/pool-") + std::to_string(bp.variant) + ".png", 0);
