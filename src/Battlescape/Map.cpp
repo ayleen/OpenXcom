@@ -555,6 +555,14 @@ void Map::init()
 			this->drawWoundGlowGLPass();
 			this->endMapScissor();
 		});
+		// Calypso explosion FX: GL particle burst POST-composite (over scene, under HUD).
+		_game->getScreen()->registerGPUPass([this, wf]() {
+			if (!wf.lock()) return;
+			if (!this->overlayPassesActive()) return;
+			this->beginMapScissor();
+			this->drawFxParticlesGLPass();
+			this->endMapScissor();
+		});
 
 		// Block 11.13: after context restore, zero stale VAO/VBO handles and
 		// reset init flags so the next draw call recreates them via initTileGL /
@@ -5452,27 +5460,29 @@ Position Map::currentShakeOffset() const
 {
 	if (_shakeAmp <= 0.0f) return Position(0, 0, 0);
 	const float elapsed = (float)(SDL_GetTicks() - _shakeStartMs) * 0.001f;
-	const float dur = 0.30f;
+	const float dur = _shakeDur;
 	if (elapsed >= dur) { _shakeAmp = 0.0f; return Position(0, 0, 0); }   // settle (skip future work)
 	float env = 1.0f - elapsed / dur; env *= env;                          // ease-out
 	const float a = _shakeAmp * env;
-	const float w = 46.0f;                                                 // angular freq
+	const float w = _shakeFreq;                                            // angular freq (low = heavy)
 	const int dx = (int)std::lround(std::sin(elapsed * w)               * a);
 	const int dy = (int)std::lround(std::sin(elapsed * w * 1.7f + 1.1f) * a * 0.55f);
 	return Position(dx, dy, 0);
 }
 
-void Map::triggerShake(float amplitudePx)
+void Map::triggerShake(float amplitudePx, float freq, float durSec)
 {
 	const float es = (float)_spriteWidth / 32.0f;                          // tile-scale aware
 	_shakeAmp = amplitudePx * es;
 	_shakeStartMs = SDL_GetTicks();
+	_shakeFreq = freq;
+	_shakeDur = durSec;
 }
 
 void Map::triggerHitFx(Position voxelCenter, int power, int unitId, float dirX, float dirY)
 {
 	// Contact flash at the impact point (works for terrain / object / unit alike).
-	_impactFlashes.push_back(ImpactFlash{ voxelCenter, SDL_GetTicks(), 400.0f });
+	_impactFlashes.push_back(ImpactFlash{ voxelCenter, SDL_GetTicks(), 400.0f, 1.1f, 1.0f, 0.96f, 0.85f });
 	// Camera shake, scaled by power.
 	triggerShake(std::min(6.0f, 1.5f + (float)power * 0.06f));
 	// Sprite jolt for the struck unit (any faction), toward bullet travel.
@@ -5481,6 +5491,184 @@ void Map::triggerHitFx(Position voxelCenter, int power, int unitId, float dirX, 
 		const int frames = 3;
 		_unitShakeOffset[unitId] = UnitShake{ dirX, dirY, frames, frames };
 	}
+}
+
+void Map::triggerAoEFx(Position voxelCenter, int power, bool underwater)
+{
+	const unsigned int t0 = SDL_GetTicks();
+	const float p  = (float)power;
+	const float es = (float)_spriteWidth / 32.0f;
+
+	// Camera shake: sharp/high-freq rattle on land, heavy/low-freq sway underwater.
+	const float amp = std::min(10.0f, 2.5f + p * 0.06f);
+	if (underwater) triggerShake(amp * 1.15f, 22.0f, 0.55f);
+	else            triggerShake(amp,         56.0f, 0.26f);
+
+	// Big coloured flash at the blast centre (reuses the impact-flash burst path).
+	const float fsize = std::min(4.0f, 2.2f + p * 0.012f);
+	if (underwater) _impactFlashes.push_back(ImpactFlash{ voxelCenter, t0, 480.0f, fsize, 0.55f, 0.95f, 1.00f }); // turquoise-white
+	else            _impactFlashes.push_back(ImpactFlash{ voxelCenter, t0, 440.0f, fsize, 1.00f, 0.80f, 0.32f }); // fiery yellow-white
+
+	// GL particle burst. Non-game PRNG (hash of tick+index) so we never advance the
+	// deterministic game RNG (would desync replays/saves).
+	auto frand = [](unsigned int s) {
+		s ^= 61u ^ (s >> 16); s *= 9u; s ^= s >> 4; s *= 0x27d4eb2du; s ^= s >> 15;
+		return (float)(s & 0xffffffu) / (float)0x1000000u;
+	};
+	const int nMain = std::min(40, 12 + power / 4);     // sparks (land) / bubble-jets (underwater)
+	for (int i = 0; i < nMain; ++i)
+	{
+		const float h0 = frand(t0 + (unsigned)i * 2654435761u);
+		const float h1 = frand(t0 * 3u + (unsigned)i * 40503u + 7u);
+		const float h2 = frand(t0 + (unsigned)i * 668265263u + 17u);
+		const float ang = h0 * 6.2832f;
+		FxParticle fp{}; fp.origin = voxelCenter; fp.spawnTick = t0;
+		if (underwater)
+		{
+			const float spd = (120.0f + 260.0f * h1) * es;
+			fp.vx = std::cos(ang) * spd; fp.vy = std::sin(ang) * spd * 0.7f - 60.0f * es;
+			fp.ay = -260.0f * es;                                   // buoyancy (rises)
+			fp.lifeMs = 500.0f + 500.0f * h2; fp.size = (3.0f + 4.0f * h2) * es;
+			fp.r = 0.70f; fp.g = 0.92f; fp.b = 1.00f; fp.additive = true;   // cyan-white
+		}
+		else
+		{
+			const float spd = (180.0f + 420.0f * h1) * es;
+			fp.vx = std::cos(ang) * spd; fp.vy = std::sin(ang) * spd * 0.7f;
+			fp.ay = 620.0f * es;                                    // gravity (falls)
+			fp.lifeMs = 320.0f + 360.0f * h2; fp.size = (3.0f + 3.0f * h2) * es;
+			fp.r = 1.00f; fp.g = 0.55f + 0.35f * h2; fp.b = 0.12f; fp.additive = true; // yellow→orange
+		}
+		_fxParticles.push_back(fp);
+	}
+	const int nSec = std::min(18, 6 + power / 8);        // debris (land) / rising foam (underwater)
+	for (int i = 0; i < nSec; ++i)
+	{
+		const float h0 = frand(t0 * 7u + (unsigned)i * 2246822519u + 101u);
+		const float h1 = frand(t0 + (unsigned)i * 374761393u + 53u);
+		const float h2 = frand(t0 * 5u + (unsigned)i * 88u + 29u);
+		const float ang = h0 * 6.2832f;
+		FxParticle fp{}; fp.origin = voxelCenter; fp.spawnTick = t0;
+		if (underwater)
+		{
+			const float spd = (40.0f + 120.0f * h1) * es;
+			fp.vx = std::cos(ang) * spd * 0.5f; fp.vy = -(120.0f + 180.0f * h1) * es;
+			fp.ay = -120.0f * es;                                   // buoyant foam, floats off
+			fp.lifeMs = 900.0f + 700.0f * h2; fp.size = (7.0f + 8.0f * h2) * es;
+			fp.r = 0.92f; fp.g = 0.97f; fp.b = 1.00f; fp.additive = false;  // soft white
+		}
+		else
+		{
+			const float spd = (120.0f + 260.0f * h1) * es;
+			fp.vx = std::cos(ang) * spd; fp.vy = std::sin(ang) * spd * 0.7f - 120.0f * es;
+			fp.ay = 760.0f * es;                                    // strong gravity (parabola)
+			fp.lifeMs = 600.0f + 500.0f * h2; fp.size = (4.0f + 5.0f * h2) * es;
+			fp.r = 0.22f + 0.12f * h2; fp.g = 0.16f + 0.08f * h2; fp.b = 0.12f; fp.additive = false; // dark earth
+		}
+		_fxParticles.push_back(fp);
+	}
+	if (_fxParticles.size() > 256)   // bound chain-explosion spam (caps per-frame draw calls)
+		_fxParticles.erase(_fxParticles.begin(), _fxParticles.begin() + (_fxParticles.size() - 256));
+}
+
+/**
+ * Calypso explosion FX: GL transient particle burst (sparks/debris on land, bubble-jets/
+ * foam underwater). POST-composite (over the scene, under HUD), gated + scissored.
+ * Screen-space ballistic offset (vel*t + ½·acc·t²) from a camera-anchored spawn voxel.
+ */
+void Map::drawFxParticlesGLPass()
+{
+#ifdef __EMSCRIPTEN__
+	if (_fxParticles.empty()) return;
+	const unsigned int now = SDL_GetTicks();
+	_fxParticles.erase(std::remove_if(_fxParticles.begin(), _fxParticles.end(),
+		[now](const FxParticle& p){ return (now - p.spawnTick) >= (unsigned int)p.lifeMs; }), _fxParticles.end());
+	if (_fxParticles.empty()) return;
+	if (now - _lastDrawnTicks > 250) return;
+	if (!_spriteGLInit) initSpriteGL();
+	if (!_spriteShader || !_spriteShader->isValid() || !_spriteVAO) return;
+	GpuTexture* tex = getUITexture("Resources/battlescape/fx/explosion/particle.png", 0);
+	if (!tex) return;
+
+	Screen* screen = _game->getScreen();
+	const float xScale = (float)screen->getXScale();
+	const float yScale = (float)screen->getYScale();
+	const int   lbb = screen->getCursorLeftBlackBand();
+	const int   tbb = screen->getCursorTopBlackBand();
+	const int   dW = Options::displayWidth, dH = Options::displayHeight;
+	const int   mapX = getX(), mapY = getY();
+	const Position shk = currentShakeOffset();   // convertVoxelToScreen already bakes _mapOffset
+
+	GLint prevProgram = 0;
+	glGetIntegerv(GL_CURRENT_PROGRAM, &prevProgram);
+	glDisable(GL_DEPTH_TEST);
+	glDepthMask(GL_FALSE);
+	glEnable(GL_BLEND);
+	_spriteShader->use();
+	_spriteShader->setUniform1i("u_tex", 0);
+	_spriteShader->setUniform2f("u_uvScroll", 0.0f, 0.0f);
+	_spriteShader->setUniform1f("u_radial", 0.0f);
+	_spriteShader->setUniform1f("u_darken", 0.0f);
+	tex->bind(0);
+
+	auto drawQuad = [&](int gx, int gy, int fw, int fh)
+	{
+		const float dispX = (float)gx * xScale + (float)lbb;
+		const float dispY = (float)gy * yScale + (float)tbb;
+		const float dispW = (float)fw * xScale, dispH = (float)fh * yScale;
+		const float x0 =  2.0f * dispX / (float)dW - 1.0f;
+		const float y0 = -(2.0f * dispY / (float)dH - 1.0f);
+		const float x1 =  2.0f * (dispX + dispW) / (float)dW - 1.0f;
+		const float y1 = -(2.0f * (dispY + dispH) / (float)dH - 1.0f);
+		const float verts[6 * 4] = {
+			x0,y0, 0,0,  x1,y0, 1,0,  x0,y1, 0,1,
+			x0,y1, 0,1,  x1,y0, 1,0,  x1,y1, 1,1,
+		};
+		glBindBuffer(GL_ARRAY_BUFFER, _spriteVBO);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)sizeof(verts), verts);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindVertexArray(_spriteVAO);
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+		glBindVertexArray(0);
+	};
+
+	// additive pass (sparks/bubbles) then straight-alpha pass (debris/foam) — one blend switch.
+	// Memoise convertVoxelToScreen per origin: a whole burst shares one spawn voxel.
+	bool memoOk = false; Position memoOrigin(0, 0, 0), memoSp;
+	for (int pass = 0; pass < 2; ++pass)
+	{
+		const bool additivePass = (pass == 0);
+		glBlendFunc(GL_SRC_ALPHA, additivePass ? GL_ONE : GL_ONE_MINUS_SRC_ALPHA);
+		for (const auto& fp : _fxParticles)
+		{
+			if (fp.additive != additivePass) continue;
+			const float t = (float)(now - fp.spawnTick) * 0.001f;
+			float age = (float)(now - fp.spawnTick) / fp.lifeMs;
+			if (age >= 1.0f) continue;
+			if (!memoOk || fp.origin.x != memoOrigin.x || fp.origin.y != memoOrigin.y || fp.origin.z != memoOrigin.z)
+			{ _camera->convertVoxelToScreen(fp.origin, &memoSp); memoOrigin = fp.origin; memoOk = true; }
+			const Position sp = memoSp;
+			const int ox = (int)(fp.vx * t + 0.5f * fp.ax * t * t);
+			const int oy = (int)(fp.vy * t + 0.5f * fp.ay * t * t);
+			const int cx = sp.x + mapX + shk.x + ox;
+			const int cy = sp.y + mapY + shk.y + oy;
+			const float fade = 1.0f - age;
+			const float sizeMul = additivePass ? 1.0f : (0.7f + 0.6f * age);   // debris/foam swell
+			const int side = std::max(1, (int)(fp.size * sizeMul));
+			_spriteShader->setUniform3f("u_tint", fp.r, fp.g, fp.b);
+			_spriteShader->setUniform1f("u_alpha", std::max(0.02f, fade * (additivePass ? 1.0f : 0.7f)));
+			drawQuad(cx - side / 2, cy - side / 2, side, side);
+		}
+	}
+
+	_spriteShader->setUniform3f("u_tint", 1.0f, 1.0f, 1.0f);
+	_spriteShader->setUniform1f("u_alpha", 1.0f);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glDisable(GL_BLEND);
+	glDepthMask(GL_TRUE);
+	glEnable(GL_DEPTH_TEST);                 // leave canonical state for any later pass
+	glUseProgram((GLuint)prevProgram);
+#endif
 }
 
 void Map::drawSmokeGLPass()
@@ -5606,7 +5794,6 @@ void Map::drawSmokeGLPass()
 		const int fMapX = getX();
 		const int fMapY = getY();
 		const Position shk = currentShakeOffset();
-		_spriteShader->setUniform3f("u_tint", 1.0f, 0.96f, 0.85f);
 		for (const auto& fl : _impactFlashes)
 		{
 			float age = (float)(now - fl.spawnTick) / fl.lifeMs;
@@ -5622,9 +5809,10 @@ void Map::drawSmokeGLPass()
 			const int cx = sp.x + fMapX + shk.x;
 			const int cy = sp.y + fMapY + shk.y;
 			const float scale = 1.0f + 0.20f * age;            // slight overall grow
-			const int side = (int)((float)_spriteWidth * 1.1f * scale);
+			const int side = (int)((float)_spriteWidth * fl.sizeMul * scale);
 			float fade = 1.0f;
 			if (age > 0.7f) fade = 1.0f - (age - 0.7f) / 0.3f; // ease out the tail
+			_spriteShader->setUniform3f("u_tint", fl.r, fl.g, fl.b);
 			_spriteShader->setUniform1f("u_alpha", std::max(0.04f, fade));
 			drawQuad(tex, cx - side / 2, cy - side / 2, side, side, 0.0f);
 		}
@@ -5859,6 +6047,10 @@ void Map::animate(bool redraw)
 			std::remove_if(_impactFlashes.begin(), _impactFlashes.end(),
 				[now](const ImpactFlash& f){ return (now - f.spawnTick) >= (unsigned int)f.lifeMs; }),
 			_impactFlashes.end());
+		_fxParticles.erase(
+			std::remove_if(_fxParticles.begin(), _fxParticles.end(),
+				[now](const FxParticle& p){ return (now - p.spawnTick) >= (unsigned int)p.lifeMs; }),
+			_fxParticles.end());
 	}
 #endif
 

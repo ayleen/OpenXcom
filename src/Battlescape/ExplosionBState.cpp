@@ -233,9 +233,11 @@ void ExplosionBState::init()
 			int counter = std::max(1, (powerForAnimation / 5) / 5);
 			_parent->getMap()->setBlastFlash(true);
 #ifdef __EMSCRIPTEN__
-			// Calypso P30: camera shake on area explosions (the EGA blast flash is
-			// suppressed in this fork — shake is its replacement). Scaled by power.
-			_parent->getMap()->triggerShake(std::min(9.0f, 2.5f + (float)powerForAnimation * 0.06f));
+			// Calypso explosion FX: depth-split AoE blast — camera shake (depth-tuned) +
+			// big coloured flash + GL particle burst (sparks/debris land, bubble-jets/foam
+			// underwater). Anchored to _center, fired once (the EGA flash is suppressed
+			// in this fork). Cosmetic only — damage already resolved in explode() above.
+			_parent->getMap()->triggerAoEFx(_center, powerForAnimation, _parent->getDepth() > 0);
 #endif
 			int lowerLimit = std::max(1, powerForAnimation / 5);
 			for (int i = 0; i < lowerLimit; i++)

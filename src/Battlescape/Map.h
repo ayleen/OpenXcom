@@ -306,7 +306,7 @@ private:
 	// --- Calypso Phase 30: hit/impact FX (Срез A). All Emscripten-only. ---
 	/// Transient additive flash quad at a hit voxel; drawn over the scene in
 	/// drawSmokeGLPass, ages by wall-clock, self-erases.
-	struct ImpactFlash { Position voxel; unsigned int spawnTick; float lifeMs; };
+	struct ImpactFlash { Position voxel; unsigned int spawnTick; float lifeMs; float sizeMul; float r, g, b; };
 	std::vector<ImpactFlash> _impactFlashes;
 	/// Per-unit sprite jolt toward bullet travel: a screen-space unit-vector +
 	/// remaining anim frames. Keyed by BattleUnit::getId(). Faction-agnostic.
@@ -316,6 +316,8 @@ private:
 	/// mutable so currentShakeOffset() (const) can settle it back to 0 on expiry.
 	mutable float _shakeAmp     = 0.0f;
 	unsigned int  _shakeStartMs = 0;
+	float         _shakeFreq    = 46.0f;   // angular frequency (low = heavy/underwater sway)
+	float         _shakeDur     = 0.30f;   // seconds
 	Position currentShakeOffset() const;   // (0,0,0) when no shake is active
 
 	// --- Calypso Phase 30 Срез B: aftermath FX (blood plume + wound-glow). ---
@@ -334,6 +336,15 @@ private:
 	/// from getFatalWounds(); POST-composite, scissored to the map. Stateless (derived
 	/// each frame from the unit list — appears when wounded, gone when healed/dead).
 	void drawWoundGlowGLPass();
+
+	// --- Calypso explosion FX (depth-split AoE). All Emscripten-only. ---
+	/// GL transient particles: sparks/debris (land), bubble-jets/foam (underwater).
+	/// Screen-space ballistics anchored to a spawn voxel (the burst pans with the
+	/// camera); HD colour via the sprite shader (the CPU Particle path can't do additive).
+	struct FxParticle { Position origin; unsigned int spawnTick; float lifeMs;
+		float vx, vy, ax, ay; float size; float r, g, b; bool additive; };
+	std::vector<FxParticle> _fxParticles;
+	void drawFxParticlesGLPass();
 
 	/// Calypso: gating + clipping for the post-composite overlay passes (internal).
 	bool overlayPassesActive() const;   // false when a modal/other state is on top
@@ -431,11 +442,15 @@ public:
 	/// may be absent for terrain/object hits). dirX/dirY = screen-space push for the
 	/// unit jolt (ignored when unitId < 0). Emscripten-only.
 	void triggerHitFx(Position voxelCenter, int power, int unitId, float dirX, float dirY);
-	/// Calypso Phase 30: start a decaying camera shake (base amplitude in native px).
-	void triggerShake(float amplitudePx);
+	/// Calypso Phase 30: start a decaying camera shake. base amplitude in native px;
+	/// freq = angular frequency (low = heavy sway), durSec = duration.
+	void triggerShake(float amplitudePx, float freq = 46.0f, float durSec = 0.30f);
 	/// Calypso Phase 30 (Срез B): spawn a blood plume at a wounded unit's tile.
 	/// Called from TileEngine::hitUnit on a flesh-wounding hit (any faction).
 	void spawnBloodFx(Position unitTile, int healthDamage, int faction);
+	/// Calypso explosion FX: depth-split AoE blast — camera shake + big coloured flash
+	/// + a GL particle burst. Called once at blast start from ExplosionBState::init.
+	void triggerAoEFx(Position voxelCenter, int power, bool underwater);
 #endif
 	/// Handles timers.
 	void think() override;
