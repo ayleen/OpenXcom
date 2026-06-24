@@ -118,7 +118,50 @@ PrimeGrenadeState::PrimeGrenadeState(BattleAction *action, bool inInventoryView,
 	_button[3]->onKeyboardPress((ActionHandler)&PrimeGrenadeState::btnClick, SDLK_3);
 
 	centerAllSurfaces();
+#ifdef __EMSCRIPTEN__
+	// Calypso: scale this overlay popup ~1.25x (factor 0.5 of fill, matching the
+	// action menu). enableUiScaling replaces lowerAllSurfaces, whose extra shift
+	// would corrupt the design-space geometry capture. Re-draw the static bg/button
+	// rects (scaling recreated the surfaces, clearing them) and HD-TTF the labels.
+	enableUiScaling(320, 200, 0.5f);
+	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
+	redrawStatic();
+#else
 	lowerAllSurfaces();
+#endif
+}
+
+/**
+ * Calypso (Emscripten): re-draws the background fill and the 24 button border/fill
+ * rects, which enableUiScaling/applyUiScaling clear when it recreates the surfaces
+ * at the scaled size.
+ */
+void PrimeGrenadeState::redrawStatic()
+{
+	const Element *bg = _game->getMod()->getInterface("battlescape")->getElement("grenadeBackground");
+	_bg->drawRect(0, 0, _bg->getWidth(), _bg->getHeight(), bg->color);
+	for (int i = 0; i < 24; ++i)
+	{
+		SDL_Rect square;
+		square.x = 0; square.y = 0;
+		square.w = _button[i]->getWidth(); square.h = _button[i]->getHeight();
+		_button[i]->drawRect(&square, bg->border);
+		square.x++; square.y++; square.w -= 2; square.h -= 2;
+		_button[i]->drawRect(&square, bg->color2);
+	}
+}
+
+/**
+ * Calypso (Emscripten): rescale to the logical buffer and re-draw the static rects.
+ */
+void PrimeGrenadeState::resize(int &dX, int &dY)
+{
+#ifdef __EMSCRIPTEN__
+	applyUiScaling();
+	redrawStatic();
+#else
+	State::resize(dX, dY);
+#endif
 }
 
 /**

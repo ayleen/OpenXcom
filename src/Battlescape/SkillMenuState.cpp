@@ -55,9 +55,16 @@ SkillMenuState::SkillMenuState(BattleAction *action, int x, int y) : ActionMenuS
 	// Set palette
 	_game->getSavedGame()->getSavedBattle()->setPaletteByDepth(this);
 
+	// Calypso: match the HD HUD scale, same as ActionMenuState (baseX/640).
+	float uiScale = 1.0f;
+#ifdef __EMSCRIPTEN__
+	uiScale = (float)Options::baseXResolution / 640.0f;
+	if (uiScale < 1.0f) uiScale = 1.0f;
+#endif
+
 	for (int i = 0; i < (int)std::size(_actionMenu); ++i)
 	{
-		_actionMenu[i] = new ActionMenuItem(i, _game, x, y);
+		_actionMenu[i] = new ActionMenuItem(i, _game, x, y, uiScale);
 		add(_actionMenu[i]);
 		_actionMenu[i]->setVisible(false);
 		_actionMenu[i]->onMouseClick((ActionHandler)&SkillMenuState::btnActionMenuItemClick);
