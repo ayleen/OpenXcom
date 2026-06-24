@@ -5235,14 +5235,14 @@ void Map::spawnBloodFx(Position unitTile, int healthDamage, int faction)
 void Map::drawBloodGLPass()
 {
 #ifdef __EMSCRIPTEN__
-	if (_bloodFx.empty() && _bloodPools.empty()) return;
+	if (_bloodFx.empty() && _bloodPools.empty() && _scorchDecals.empty()) return;
 	const unsigned int now = SDL_GetTicks();
 	// Purge expired plumes first — independent of GL readiness — so the 64-entry plume
 	// cap can never deadlock if GL is briefly unavailable (e.g. context loss). Pools are
 	// persistent (kept until mission end) and bounded by the spawn-time drop-oldest cap.
 	_bloodFx.erase(std::remove_if(_bloodFx.begin(), _bloodFx.end(),
 		[now](const BloodFx& f){ return (now - f.spawnTick) >= f.lifeMs; }), _bloodFx.end());
-	if (_bloodFx.empty() && _bloodPools.empty()) return;
+	if (_bloodFx.empty() && _bloodPools.empty() && _scorchDecals.empty()) return;
 	if (SDL_GetTicks() - _lastDrawnTicks > 250) return;   // don't animate over a stale scene
 	if (!_spriteGLInit) initSpriteGL();
 	if (!_spriteShader || !_spriteShader->isValid() || !_spriteVAO) return;
@@ -5307,6 +5307,26 @@ void Map::drawBloodGLPass()
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 		glBindVertexArray(0);
 	};
+
+	// --- E3: charred-ground decals (land AoE aftermath), persistent, under the blood ---
+	for (const auto& sd : _scorchDecals)
+	{
+		GpuTexture* tex = getUITexture(
+			std::string("Resources/battlescape/fx/scorch/scorch-") + std::to_string(sd.variant & 3) + ".png", 0);
+		if (!tex) tex = getUITexture("Resources/battlescape/fx/scorch/scorch-0.png", 0);   // fallback
+		if (!tex) continue;
+		const float ageS = (float)(now - sd.spawnTick) * 0.001f;
+		const float fadeIn = std::min(1.0f, ageS / 0.4f);                   // appears as the blast clears
+		Position sp;
+		_camera->convertMapToScreen(sd.tile, &sp);
+		sp += camOff;
+		const int cx = sp.x + mapX + _spriteWidth / 2;
+		const int cy = sp.y + mapY + (int)((float)_spriteHeight * 0.55f);   // on the floor
+		const int side = std::max(1, (int)((float)_spriteWidth * sd.size));
+		_spriteShader->setUniform3f("u_tint", 0.09f, 0.07f, 0.05f);         // dark char
+		_spriteShader->setUniform1f("u_alpha", 0.82f * fadeIn);
+		drawQuad(tex, cx - side / 2, cy - side / 2, side, side, sd.variant);
+	}
 
 	// --- dry-land blood pools: persistent flat decals on the floor, drying over time ---
 	for (const auto& bp : _bloodPools)
@@ -5592,6 +5612,31 @@ void Map::triggerAoEFx(Position voxelCenter, int power, int radius, bool underwa
 		}
 		if (_impactFlashes.size() > 400)   // bound chained-blast spam
 			_impactFlashes.erase(_impactFlashes.begin(), _impactFlashes.begin() + (_impactFlashes.size() - 400));
+	}
+	else
+	{
+		// E3 (land): charred-ground decals over the blast area — a big central char patch
+		// plus overlapping smaller ones (stride 2) so the burn is continuous but cheap;
+		// persistent (kept until mission end). Spawned at blast time.
+		const int r  = std::max(1, radius);
+		const Position baseTile = voxelCenter.toTile();
+		// big centre patch
+		_scorchDecals.push_back(ScorchDecal{ baseTile, t0, (float)r * 1.6f, (int)(frand(t0) * 4.0f) & 3 });
+		for (int dy = -r; dy <= r; dy += 2)
+		for (int dx = -r; dx <= r; dx += 2)
+		{
+			if (dx == 0 && dy == 0) continue;
+			const float d = std::sqrt((float)(dx * dx + dy * dy));
+			if (d > (float)r) continue;
+			const float dn = d / (float)r;
+			const float h  = frand(t0 + (unsigned)((dx + 80) * 211 + (dy + 80) * 503));
+			if (dn > 0.65f && h > 0.5f) continue;            // ragged edge (drop ~half of the rim)
+			Position ct(baseTile.x + dx, baseTile.y + dy, baseTile.z);
+			const float sz = std::max(1.0f, (float)r * (0.9f - 0.5f * dn) * (0.7f + 0.5f * h)); // smaller out + jitter
+			_scorchDecals.push_back(ScorchDecal{ ct, t0, sz, (int)(h * 4.0f) & 3 });
+		}
+		if (_scorchDecals.size() > 220)   // bound across many blasts (persistent)
+			_scorchDecals.erase(_scorchDecals.begin(), _scorchDecals.begin() + (_scorchDecals.size() - 220));
 	}
 
 	// GL particle burst (frand defined above).

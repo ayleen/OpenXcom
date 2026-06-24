@@ -333,6 +333,11 @@ private:
 	/// per mission — depth is fixed).
 	struct BloodPool { Position tile; unsigned int spawnTick; float seed; int faction; int variant; };
 	std::vector<BloodPool> _bloodPools;
+	/// E3: charred-ground decal (land AoE aftermath) — a persistent flat char patch over
+	/// the blast area, kept until mission end. Drawn in drawBloodGLPass (PRE-composite),
+	/// tinted dark. `size` in _spriteWidth units, `variant` picks texture + orientation.
+	struct ScorchDecal { Position tile; unsigned int spawnTick; float size; int variant; };
+	std::vector<ScorchDecal> _scorchDecals;
 	void drawBloodGLPass();
 	/// Residual wound-glow: a pulsing crimson glow on living wounded units, intensity
 	/// from getFatalWounds(); POST-composite, scissored to the map. Stateless (derived
