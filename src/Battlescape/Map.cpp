@@ -5223,6 +5223,7 @@ void Map::drawBloodGLPass()
 	_spriteShader->use();
 	_spriteShader->setUniform1i("u_tex", 0);
 	_spriteShader->setUniform2f("u_uvScroll", 0.0f, 0.0f);
+	_spriteShader->setUniform1f("u_radial", 0.0f);   // pools are flat; plumes turn it on below
 
 	// Dihedral UV transform: variant 0-7 = 90° rotation (low 2 bits) + optional mirror
 	// (bit 2). Re-orienting the cloud per spawn so no two plumes look alike.
@@ -5293,6 +5294,7 @@ void Map::drawBloodGLPass()
 	}
 
 	const int kBloodFrames = 6;
+	_spriteShader->setUniform1f("u_radial", 1.30f);   // shader radial colour ramp (plumes only)
 	for (const auto& bf : _bloodFx)
 	{
 		float age = (float)(now - bf.spawnTick) / bf.lifeMs;
@@ -5304,48 +5306,52 @@ void Map::drawBloodGLPass()
 			std::string("Resources/battlescape/fx/blood/blood-") + std::to_string(fr) + ".png", 0);
 		if (!tex) continue;
 
-		// Per-spawn distortion from the stored seed → every plume is oriented, squashed
-		// and offset differently, plus a slow life-churn wobble, so no two look alike.
+		// Per-spawn shape distortion from the stored seed: dihedral orientation, an
+		// area-stable squash/stretch, a breathing wobble, and one offset satellite lobe
+		// that disperses with age → an irregular, asymmetric silhouette unique to each.
 		const float s  = bf.seed;
 		float h2 = s * 131.7f + 0.37f; h2 -= std::floor(h2);
 		float h3 = s * 71.3f  + 0.91f; h3 -= std::floor(h3);
-		const int   variant = (int)(s * 8.0f) & 7;                              // dihedral orient/mirror
-		const float wob    = 1.0f + 0.10f * std::sin(age * 7.0f + s * 6.2832f); // breathing churn
-		const float aspect = (0.80f + 0.40f * h2) * wob;                        // squash/stretch
+		float h5 = s * 97.7f  + 0.57f; h5 -= std::floor(h5);
+		const int   vEdge  = (int)(s * 8.0f) & 7;                               // dihedral orient/mirror
+		const float wob    = 1.0f + 0.16f * std::sin(age * 6.0f + s * 6.2832f); // breathing churn
+		const float aspect = std::sqrt(0.50f + 1.00f * h2) * wob;              // area-stable skew
 
 		Position sp;
 		_camera->convertMapToScreen(bf.tile, &sp);
 		sp += camOff;
 		const float drift = age * (float)_spriteHeight * 0.45f;                 // blood rises
-		const int jx = (int)((h2 - 0.5f) * 0.24f * _spriteWidth);               // position jitter
-		const int jy = (int)((h3 - 0.5f) * 0.24f * _spriteHeight);
-		const int cx = sp.x + mapX + _spriteWidth  / 2 + jx;
-		const int cy = sp.y + mapY + _spriteHeight / 2 - (int)drift + jy;
-		const float scale = 0.6f + 0.9f * age;                                  // diffuses outward
-		// -25% vs the old 1.6 base; aspect skews one axis for an organic, non-round shape
-		const int baseW = (int)((float)_spriteWidth * 1.2f * scale * aspect);
-		const int baseH = (int)((float)_spriteWidth * 1.2f * scale / aspect);
+		const int cx = sp.x + mapX + _spriteWidth  / 2;
+		const int cy = sp.y + mapY + _spriteHeight / 2 - (int)drift;
+		const float scale = 0.6f + 0.9f * age;
+		const int baseW = (int)((float)_spriteWidth * 1.0f * scale * aspect);
+		const int baseH = (int)((float)_spriteWidth * 1.0f * scale / aspect);
+		const float spread = (0.14f + 0.42f * age) * (float)_spriteWidth;       // satellite disperses
+		const float a2 = h5 * 6.2832f;
+		const int o2x = (int)(std::cos(a2) * spread), o2y = (int)(std::sin(a2) * spread * 0.7f);
 		float fade = 1.0f;
 		if (age < 0.12f) fade = age / 0.12f;                                    // quick fade-in
 		else if (age > 0.55f) fade = 1.0f - (age - 0.55f) / 0.45f;              // long fade-out
 		fade = std::max(0.0f, fade);
-		const float bri = 0.85f + 0.30f * h3;                                   // per-spawn brightness
+		const float bri = 0.82f + 0.36f * h3;                                   // per-spawn brightness
 
-		// Non-linear radial gradient: a darker, full-size EDGE layer under a brighter,
-		// smaller CORE layer drawn at a different orientation, so colour ramps centre→rim.
+		// Strong radial colour ramp (shader): bright saturated core → very dark rim.
 		float cr, cg, cb, er, eg, eb;
 		if (bf.faction == FACTION_HOSTILE)                                      // green ichor
-		{ cr = 0.50f; cg = 0.80f; cb = 0.20f;  er = 0.16f; eg = 0.34f; eb = 0.10f; }
+		{ cr = 0.55f; cg = 0.95f; cb = 0.22f;  er = 0.07f; eg = 0.18f; eb = 0.04f; }
 		else                                                                    // crimson
-		{ cr = 0.78f; cg = 0.07f; cb = 0.07f;  er = 0.28f; eg = 0.02f; eb = 0.03f; }
-		_spriteShader->setUniform3f("u_tint", er * bri, eg * bri, eb * bri);
-		_spriteShader->setUniform1f("u_alpha", fade * 0.55f);
-		drawQuad(tex, cx - baseW / 2, cy - baseH / 2, baseW, baseH, variant);
-		const int cw = (int)(baseW * 0.62f), ch = (int)(baseH * 0.62f);
-		_spriteShader->setUniform3f("u_tint", cr * bri, cg * bri, cb * bri);
-		_spriteShader->setUniform1f("u_alpha", fade * 0.90f);
-		drawQuad(tex, cx - cw / 2, cy - ch / 2, cw, ch, variant ^ 5);           // diff orient
+		{ cr = 0.95f; cg = 0.13f; cb = 0.10f;  er = 0.13f; eg = 0.00f; eb = 0.01f; }
+		_spriteShader->setUniform3f("u_tint",     cr * bri, cg * bri, cb * bri);
+		_spriteShader->setUniform3f("u_tintEdge", er * bri, eg * bri, eb * bri);
+		// MAIN lobe — full, centred on the wound
+		_spriteShader->setUniform1f("u_alpha", fade * 0.85f);
+		drawQuad(tex, cx - baseW / 2, cy - baseH / 2, baseW, baseH, vEdge);
+		// SATELLITE lobe — smaller, offset in a per-spawn direction (asymmetry)
+		const int sw = (int)(baseW * 0.55f), sh = (int)(baseH * 0.55f);
+		_spriteShader->setUniform1f("u_alpha", fade * 0.70f);
+		drawQuad(tex, cx + o2x - sw / 2, cy + o2y - sh / 2, sw, sh, vEdge ^ 3);
 	}
+	_spriteShader->setUniform1f("u_radial", 0.0f);   // back to flat tint for any later caller
 
 	_spriteShader->setUniform3f("u_tint", 1.0f, 1.0f, 1.0f);
 	_spriteShader->setUniform1f("u_alpha", 1.0f);
@@ -5389,6 +5395,7 @@ void Map::drawWoundGlowGLPass()
 	_spriteShader->use();
 	_spriteShader->setUniform1i("u_tex", 0);
 	_spriteShader->setUniform2f("u_uvScroll", 0.0f, 0.0f);
+	_spriteShader->setUniform1f("u_radial", 0.0f);   // flat tint (defensive; blood resets too)
 	_spriteShader->setUniform3f("u_tint", 0.65f, 0.04f, 0.05f);   // crimson
 	glow->bind(0);
 

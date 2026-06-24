@@ -19,6 +19,8 @@ uniform float     u_darken;
 uniform vec3      u_tint;
 uniform float     u_alpha;   // Calypso: overall alpha multiply; unset(0) => 1.0 (callers unaffected)
 uniform vec2      u_uvScroll; // Calypso: UV offset for drifting layers (unset(0) => none)
+uniform vec3      u_tintEdge; // Calypso: radial-gradient outer colour (inner = u_tint)
+uniform float     u_radial;   // Calypso: 0 = flat tint (unset default); >0 = radial mix amount
 in      vec2      v_uv;
 out     vec4      out_color;
 
@@ -28,6 +30,13 @@ void main()
     // Unset uniform (0,0,0) means "no tint" → white, so untinted callers are
     // unaffected; tinted callers pass a non-zero colour.
     vec3 tint = all(equal(u_tint, vec3(0.0))) ? vec3(1.0) : u_tint;
+    // Calypso: radial colour ramp (u_tint at the centre → u_tintEdge at the rim).
+    // u_radial unset (0) leaves every existing caller on the flat-tint path above.
+    if (u_radial > 0.0)
+    {
+        float d = clamp(length(v_uv - vec2(0.5)) * 2.0 * u_radial, 0.0, 1.0);
+        tint = mix(u_tint, u_tintEdge, smoothstep(0.0, 1.0, d));
+    }
     float am = (u_alpha <= 0.0) ? 1.0 : u_alpha;   // unset → opaque
     out_color = vec4(c.rgb * tint * (1.0 - u_darken), c.a * am);
 }
