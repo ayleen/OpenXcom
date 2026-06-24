@@ -511,10 +511,15 @@ uniform float     u_alpha;   // Calypso: overall alpha multiply; unset(0) => 1.0
 uniform vec2      u_uvScroll; // Calypso: UV offset for drifting layers (unset(0) => none)
 uniform vec3      u_tintEdge; // Calypso: radial-gradient outer colour (inner = u_tint)
 uniform float     u_radial;   // Calypso: 0 = flat tint (unset default); >0 = radial mix amount
-// Calypso P30: optional isometric-diamond clip (used to confine a blood/scorch decal to its
-// own tile's floor footprint when an adjacent door opens). u_clipDiamond unset(0) = off, so
-// every other caller is unaffected. Centre + half-extents are in window pixels (gl_FragCoord).
-uniform float     u_clipDiamond;
+// Calypso P30: optional per-edge isometric clip (used to cut a blood/scorch decal along the
+// specific tile edge(s) where a door is, instead of masking the whole tile diamond — that
+// kept the splat's natural shape on the other sides instead of a solid filled diamond).
+// u_clipEdges = (W,N,E,S) flags; unset(0,0,0,0) = no clip, so every other caller is
+// unaffected. Centre + half-extents are the tile floor diamond in window pixels (gl_FragCoord).
+// Each active edge discards the half-plane beyond it (toward that neighbour tile): the four
+// neighbour directions in window coords are W(-hx,+hy) N(+hx,+hy) E(+hx,-hy) S(-hx,-hy); the
+// dividing line is the perpendicular bisector, i.e. dot(frag-centre, dir) > 0.5*|dir|^2.
+uniform vec4      u_clipEdges;
 uniform vec2      u_clipCenter;
 uniform vec2      u_clipHalf;
 in      vec2      v_uv;
@@ -522,10 +527,14 @@ out     vec4      out_color;
 
 void main()
 {
-    if (u_clipDiamond > 0.0)
+    if (any(greaterThan(u_clipEdges, vec4(0.0))))
     {
-        vec2 dd = abs(gl_FragCoord.xy - u_clipCenter) / max(u_clipHalf, vec2(1.0));
-        if (dd.x + dd.y > 1.0) discard;   // outside the tile's floor diamond
+        vec2  f  = gl_FragCoord.xy - u_clipCenter;
+        float r2 = 0.5 * (u_clipHalf.x * u_clipHalf.x + u_clipHalf.y * u_clipHalf.y);
+        if (u_clipEdges.x > 0.0 && dot(f, vec2(-u_clipHalf.x,  u_clipHalf.y)) > r2) discard; // west
+        if (u_clipEdges.y > 0.0 && dot(f, vec2( u_clipHalf.x,  u_clipHalf.y)) > r2) discard; // north
+        if (u_clipEdges.z > 0.0 && dot(f, vec2( u_clipHalf.x, -u_clipHalf.y)) > r2) discard; // east
+        if (u_clipEdges.w > 0.0 && dot(f, vec2(-u_clipHalf.x, -u_clipHalf.y)) > r2) discard; // south
     }
     vec4 c = texture(u_tex, v_uv + u_uvScroll);
     // Unset uniform (0,0,0) means "no tint" → white, so untinted callers are

@@ -5221,6 +5221,24 @@ static bool calypsoDoorwayOpen(SavedBattleGame* save, Position p)
 	    || open(-1, 0, O_OBJECT) || open(1, 0, O_OBJECT)
 	    || open(0, -1, O_OBJECT) || open(0, 1, O_OBJECT);
 }
+
+// Which tile edges a decal should be cut along — a 4-bit mask (1=W, 2=N, 4=E, 8=S). An edge
+// is cut when it carries a UFO door AND that door is open now OR the decal is floorOnly (laid
+// down with the door open, so it must never paint the door even after it shuts). Cutting only
+// the door's edge — not the whole diamond — keeps the splat's natural shape on the other sides.
+static int calypsoDoorClipEdges(SavedBattleGame* save, Position p, bool floorOnly)
+{
+	int mask = 0;
+	auto edge = [&](int bit, int dx, int dy, TilePart part) {
+		const Tile* x = save->getTile(p + Position(dx, dy, 0));
+		if (x && x->isUfoDoor(part) && (x->isUfoDoorOpen(part) || floorOnly)) mask |= bit;
+	};
+	edge(1, 0, 0, O_WESTWALL);  edge(1, -1, 0, O_OBJECT);   // west edge: own W wall / W-neighbour object door
+	edge(2, 0, 0, O_NORTHWALL); edge(2, 0, -1, O_OBJECT);   // north edge: own N wall / N-neighbour object door
+	edge(4, 1, 0, O_WESTWALL);  edge(4, 1, 0, O_OBJECT);    // east edge: E-neighbour W wall / object door
+	edge(8, 0, 1, O_NORTHWALL); edge(8, 0, 1, O_OBJECT);    // south edge: S-neighbour N wall / object door
+	return mask;
+}
 #endif
 
 void Map::spawnBloodFx(Position unitTile, int healthDamage, int faction)
@@ -5295,7 +5313,7 @@ void Map::drawBloodGLPass()
 	_spriteShader->setUniform1i("u_tex", 0);
 	_spriteShader->setUniform2f("u_uvScroll", 0.0f, 0.0f);
 	_spriteShader->setUniform1f("u_radial", 0.0f);   // pools are flat; plumes turn it on below
-	_spriteShader->setUniform1f("u_clipDiamond", 0.0f);   // iso-diamond clip off by default (toggled per door-pool)
+	_spriteShader->setUniform4f("u_clipEdges", 0.0f, 0.0f, 0.0f, 0.0f);   // per-edge clip off by default (toggled per door-pool)
 
 	// Dihedral UV transform: variant 0-7 = 90° rotation (low 2 bits) + optional mirror
 	// (bit 2). Re-orienting the cloud per spawn so no two plumes look alike.
@@ -5338,33 +5356,22 @@ void Map::drawBloodGLPass()
 		glBindVertexArray(0);
 	};
 
-	// Calypso P30: floor decals are drawn PRE-composite OVER the scene, so the quad bleeds
-	// upward (toward the N/W neighbour) onto whatever is there. When the neighbour is hidden
-	// by a CLOSED door the bleed lands on the door sprite — "blood on the door", intentional
-	// and atmospheric, so we keep it. But once a UFO/sliding door on the decal's own north or
-	// west wall OPENS, the floor of the tile beyond becomes visible and the bleed would paint
-	// onto it ("blood on the floor behind the open door"). When that happens, clip the quad's
-	// TOP with a GL scissor at the doorway base (tile floor back edge) so only the near-floor
-	// decal in front of the doorway survives. Returns true if a scissor was enabled (caller
-	// must glDisable it after the draw). `sp` is the camera-relative screen anchor of the tile.
-	// Calypso P30: floor decals are drawn PRE-composite OVER the scene. A decal looks natural
-	// (full sprite shape) in the SAME doorway configuration it was laid down in — over a closed
-	// door if the unit bled with the door shut, or flat on the floor if it bled with the door
-	// open. It only looks wrong when the door's state has FLIPPED since: a closed-at-death pool
-	// would bleed onto the floor revealed by a now-open door, and an open-at-death (ground) pool
-	// would paint a now-closed door. So clip to the tile's iso floor diamond exactly when the
-	// door's current open-state differs from its state at spawn (`!= decal.floorOnly`); otherwise
-	// draw the full splat. (A hard diamond clip shows the splat's opaque centre as a solid
-	// diamond, so we only pay that on the transition, never in the decal's native state.)
-	// When clipping, confine the decal to its OWN tile's iso floor diamond
-	// (centre + half-extents in window pixels → textured.frag discards fragments outside it).
-	// This keeps the on-the-ground part of the splat and drops only the part that bled past
-	// the doorway onto the revealed neighbour floor — in ANY screen direction (a horizontal
-	// scissor couldn't, since a west-wall door reveals the up-LEFT tile at the same screen Y).
-	auto setDiamondClip = [&](int cxp, int cyp) {
+	// Calypso P30: floor decals are drawn PRE-composite OVER the scene, so a splat at a doorway
+	// shows over a closed door (atmospheric — kept) or flat on the floor with the door open. We
+	// only want to drop the part that crosses a door threshold (onto the floor a now-open door
+	// reveals, or onto a now-closed door for a pool laid down with it open). calypsoDoorClipEdges
+	// gives the tile edges to cut (1=W,2=N,4=E,8=S); `setEdgeClip` feeds textured.frag's per-edge
+	// half-planes so the decal is sliced along ONLY those edges — keeping the splat's natural
+	// shape on every other side, instead of masking the whole tile diamond (which showed the
+	// splat's opaque centre as a solid filled diamond). Cutting along the exact iso edge also
+	// works for any direction (a west-wall door reveals the up-LEFT tile at the same screen Y, so
+	// a horizontal scissor couldn't separate it). Centre + half-extents are window pixels.
+	auto setEdgeClip = [&](int cxp, int cyp, int mask) {
 		const float winX = (float)cxp * xScale + (float)lbb;
 		const float winY = (float)dH - ((float)cyp * yScale + (float)tbb);   // gl_FragCoord is bottom-left
-		_spriteShader->setUniform1f("u_clipDiamond", 1.0f);
+		_spriteShader->setUniform4f("u_clipEdges",
+			(mask & 1) ? 1.0f : 0.0f, (mask & 2) ? 1.0f : 0.0f,
+			(mask & 4) ? 1.0f : 0.0f, (mask & 8) ? 1.0f : 0.0f);
 		_spriteShader->setUniform2f("u_clipCenter", winX, winY);
 		_spriteShader->setUniform2f("u_clipHalf", (float)(_spriteWidth / 2) * xScale, (float)(_spriteWidth / 4) * yScale);
 	};
@@ -5386,12 +5393,12 @@ void Map::drawBloodGLPass()
 		const int cx = sp.x + mapX + _spriteWidth / 2;
 		const int cy = sp.y + mapY + (int)((float)_spriteHeight * 0.55f);   // on the floor
 		const int side = std::max(1, (int)((float)_spriteWidth * sd.size));
-		const bool clipDoor = (calypsoDoorwayOpen(_save, sd.tile) ? 1 : 0) != sd.floorOnly;   // door state flipped since spawn
+		const int clipMask = calypsoDoorClipEdges(_save, sd.tile, sd.floorOnly != 0);   // cut along door edge(s)
 		_spriteShader->setUniform3f("u_tint", 0.09f, 0.07f, 0.05f);         // dark char
 		_spriteShader->setUniform1f("u_alpha", 0.82f * fadeIn);
-		if (clipDoor) setDiamondClip(cx, cy);                              // confine to own tile, drop the bleed past the door
+		if (clipMask) setEdgeClip(cx, cy, clipMask);
 		drawQuad(tex, cx - side / 2, cy - side / 2, side, side, sd.variant);
-		if (clipDoor) _spriteShader->setUniform1f("u_clipDiamond", 0.0f);
+		if (clipMask) _spriteShader->setUniform4f("u_clipEdges", 0.0f, 0.0f, 0.0f, 0.0f);
 	}
 
 	// --- dry-land blood pools: persistent flat decals on the floor, drying over time ---
@@ -5418,12 +5425,12 @@ void Map::drawBloodGLPass()
 		{ r = 0.40f - 0.22f * dry; g = 0.55f - 0.34f * dry; b = 0.16f - 0.08f * dry; }
 		else                                                               // crimson -> dark brown
 		{ r = 0.55f - 0.32f * dry; g = 0.04f + 0.05f * dry; b = 0.05f + 0.02f * dry; }
-		const bool clipDoor = (calypsoDoorwayOpen(_save, bp.tile) ? 1 : 0) != bp.floorOnly;   // door state flipped since spawn
+		const int clipMask = calypsoDoorClipEdges(_save, bp.tile, bp.floorOnly != 0);   // cut along door edge(s)
 		_spriteShader->setUniform3f("u_tint", r, g, b);
 		_spriteShader->setUniform1f("u_alpha", 0.88f * fadeIn);
-		if (clipDoor) setDiamondClip(cx, cy);              // keep the on-floor part, drop the bleed past the door
+		if (clipMask) setEdgeClip(cx, cy, clipMask);       // slice off only the past-door bleed, keep the splat shape
 		drawQuad(tex, cx - side / 2, cy - side / 2, side, side, (int)(bp.seed * 8.0f) & 7);
-		if (clipDoor) _spriteShader->setUniform1f("u_clipDiamond", 0.0f);
+		if (clipMask) _spriteShader->setUniform4f("u_clipEdges", 0.0f, 0.0f, 0.0f, 0.0f);
 	}
 
 	const int kBloodFrames = 6;
