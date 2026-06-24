@@ -5274,6 +5274,7 @@ void Map::drawBloodGLPass()
 	_spriteShader->setUniform1i("u_tex", 0);
 	_spriteShader->setUniform2f("u_uvScroll", 0.0f, 0.0f);
 	_spriteShader->setUniform1f("u_radial", 0.0f);   // pools are flat; plumes turn it on below
+	_spriteShader->setUniform1f("u_clipDiamond", 0.0f);   // iso-diamond clip off by default (toggled per door-pool)
 
 	// Dihedral UV transform: variant 0-7 = 90° rotation (low 2 bits) + optional mirror
 	// (bit 2). Re-orienting the cloud per spawn so no two plumes look alike.
@@ -5349,6 +5350,18 @@ void Map::drawBloodGLPass()
 		    || open(-1, 0, O_OBJECT) || open(1, 0, O_OBJECT)         // bigwall door on W/E neighbour
 		    || open(0, -1, O_OBJECT) || open(0, 1, O_OBJECT);        // bigwall door on N/S neighbour
 	};
+	// When a bounding door is open, confine the decal to its OWN tile's iso floor diamond
+	// (centre + half-extents in window pixels → textured.frag discards fragments outside it).
+	// This keeps the on-the-ground part of the splat and drops only the part that bled past
+	// the doorway onto the revealed neighbour floor — in ANY screen direction (a horizontal
+	// scissor couldn't, since a west-wall door reveals the up-LEFT tile at the same screen Y).
+	auto setDiamondClip = [&](int cxp, int cyp) {
+		const float winX = (float)cxp * xScale + (float)lbb;
+		const float winY = (float)dH - ((float)cyp * yScale + (float)tbb);   // gl_FragCoord is bottom-left
+		_spriteShader->setUniform1f("u_clipDiamond", 1.0f);
+		_spriteShader->setUniform2f("u_clipCenter", winX, winY);
+		_spriteShader->setUniform2f("u_clipHalf", (float)(_spriteWidth / 2) * xScale, (float)(_spriteWidth / 4) * yScale);
+	};
 
 	// --- E3: charred-ground decals (land AoE aftermath), persistent, under the blood ---
 	for (const auto& sd : scorchDecals)
@@ -5367,16 +5380,15 @@ void Map::drawBloodGLPass()
 		const int cx = sp.x + mapX + _spriteWidth / 2;
 		const int cy = sp.y + mapY + (int)((float)_spriteHeight * 0.55f);   // on the floor
 		const int side = std::max(1, (int)((float)_spriteWidth * sd.size));
-		if (doorOpenAround(st)) continue;                                  // in a doorway whose door is open
+		const bool clipDoor = doorOpenAround(st);                          // in a doorway whose door is open
 		_spriteShader->setUniform3f("u_tint", 0.09f, 0.07f, 0.05f);         // dark char
 		_spriteShader->setUniform1f("u_alpha", 0.82f * fadeIn);
+		if (clipDoor) setDiamondClip(cx, cy);                              // confine to own tile, drop the bleed past the door
 		drawQuad(tex, cx - side / 2, cy - side / 2, side, side, sd.variant);
+		if (clipDoor) _spriteShader->setUniform1f("u_clipDiamond", 0.0f);
 	}
 
 	// --- dry-land blood pools: persistent flat decals on the floor, drying over time ---
-	static unsigned int s_lastDoorLog = 0;                 // TEMP DIAG rate-limit (see below)
-	const bool diagDoors = (now - s_lastDoorLog > 1500);
-	if (diagDoors) s_lastDoorLog = now;
 	for (const auto& bp : bloodPools)
 	{
 		const Tile* pt = _save->getTile(bp.tile);
@@ -5400,26 +5412,12 @@ void Map::drawBloodGLPass()
 		{ r = 0.40f - 0.22f * dry; g = 0.55f - 0.34f * dry; b = 0.16f - 0.08f * dry; }
 		else                                                               // crimson -> dark brown
 		{ r = 0.55f - 0.32f * dry; g = 0.04f + 0.05f * dry; b = 0.05f + 0.02f * dry; }
-		const bool hideForDoor = doorOpenAround(pt);
-		// TEMP DIAG (remove once confirmed): once every ~1.5 s, log any open UFO door within 2
-		// tiles of a pool — offset + part + whether we hide it — to the browser console.
-		if (diagDoors)
-		{
-			for (int dy = -2; dy <= 2; ++dy)
-			for (int dx = -2; dx <= 2; ++dx)
-			{
-				const Tile* nt = _save->getTile(bp.tile + Position(dx, dy, 0));
-				if (!nt) continue;
-				for (int prt = 1; prt <= 3; ++prt)
-					if (nt->isUfoDoorOpen((TilePart)prt))
-						Log(LOG_INFO) << "[BLOOD-DOOR] pool(" << bp.tile.x << "," << bp.tile.y
-							<< ") openUfoDoor off(" << dx << "," << dy << ") part=" << prt << " hide=" << (hideForDoor ? 1 : 0);
-			}
-		}
-		if (hideForDoor) continue;                         // pool is in a doorway whose door is open → hide
+		const bool clipDoor = doorOpenAround(pt);          // in a doorway whose door is open
 		_spriteShader->setUniform3f("u_tint", r, g, b);
 		_spriteShader->setUniform1f("u_alpha", 0.88f * fadeIn);
+		if (clipDoor) setDiamondClip(cx, cy);              // keep the on-floor part, drop the bleed past the door
 		drawQuad(tex, cx - side / 2, cy - side / 2, side, side, (int)(bp.seed * 8.0f) & 7);
+		if (clipDoor) _spriteShader->setUniform1f("u_clipDiamond", 0.0f);
 	}
 
 	const int kBloodFrames = 6;

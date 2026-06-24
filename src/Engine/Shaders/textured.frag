@@ -21,11 +21,22 @@ uniform float     u_alpha;   // Calypso: overall alpha multiply; unset(0) => 1.0
 uniform vec2      u_uvScroll; // Calypso: UV offset for drifting layers (unset(0) => none)
 uniform vec3      u_tintEdge; // Calypso: radial-gradient outer colour (inner = u_tint)
 uniform float     u_radial;   // Calypso: 0 = flat tint (unset default); >0 = radial mix amount
+// Calypso P30: optional isometric-diamond clip (used to confine a blood/scorch decal to its
+// own tile's floor footprint when an adjacent door opens). u_clipDiamond unset(0) = off, so
+// every other caller is unaffected. Centre + half-extents are in window pixels (gl_FragCoord).
+uniform float     u_clipDiamond;
+uniform vec2      u_clipCenter;
+uniform vec2      u_clipHalf;
 in      vec2      v_uv;
 out     vec4      out_color;
 
 void main()
 {
+    if (u_clipDiamond > 0.0)
+    {
+        vec2 dd = abs(gl_FragCoord.xy - u_clipCenter) / max(u_clipHalf, vec2(1.0));
+        if (dd.x + dd.y > 1.0) discard;   // outside the tile's floor diamond
+    }
     vec4 c = texture(u_tex, v_uv + u_uvScroll);
     // Unset uniform (0,0,0) means "no tint" → white, so untinted callers are
     // unaffected; tinted callers pass a non-zero colour.
