@@ -235,6 +235,13 @@ public:
 		// Owned by TileAtlasSpec; deleted in Mod::clearTileAtlases().
 		std::string       normalFile;             // ruleset key normalFile:; empty = no normal map
 		GpuTexture*       normalAtlas = nullptr;  // nullptr if absent or load failed
+		// Phase 25 R6: material emissive atlas (optional). RGBA Linear NON-sRGB —
+		// RGB = glow colour, A = emission intensity. Added to the lit colour in
+		// tile_atlas_rgba.frag, so it lands in the HDR SSAA buffer (R0) and the
+		// >1.0 highlights survive tonemapping (lava/bioluminescence glow).
+		// Same dims as overlay → shared UVs. Owned here; freed in clearTileAtlases.
+		std::string       emissiveFile;             // ruleset key emissiveFile:; empty = none
+		GpuTexture*       emissiveAtlas = nullptr;  // nullptr if absent or load failed
 		int               width      = 0;
 		int               height     = 0;
 		int               tileWidth  = 64;

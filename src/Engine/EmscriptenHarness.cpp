@@ -138,8 +138,14 @@ float g_calypsoUwShock    = 0.7f;    // E2: explosion shockwave-ring distortion 
 // the existing knob family, but the emissive pass is mission-agnostic — it fires
 // on land maps too (fire tiles), unlike the underwater-only grade/beauty FX.
 float g_calypsoUwEmissive = 1.0f;
+// Phase 25 (R6): HD material-emissive atlas multiplier (lava / bioluminescence).
+// Scales the per-dataset emissiveFile glow added in tile_atlas_rgba.frag, into
+// the HDR SSAA buffer (R0). 0 = off; > ~1 pushes bright texels past 1.0 so the
+// HDR tonemap blooms them. Default subtle; live-tune via _calypso_set_tile_emissive.
+float g_calypsoTileEmissive = 1.5f;
 
 static float clamp01p(float v) { return v < 0.0f ? 0.0f : (v > 2.0f ? 2.0f : v); }
+static float clamp08 (float v) { return v < 0.0f ? 0.0f : (v > 8.0f ? 8.0f : v); }
 
 EMSCRIPTEN_KEEPALIVE void calypso_set_uw_caustics(float v) { g_calypsoUwCaustics = clamp01p(v); }
 EMSCRIPTEN_KEEPALIVE void calypso_set_uw_refract (float v) { g_calypsoUwRefract  = clamp01p(v); }
@@ -152,6 +158,7 @@ EMSCRIPTEN_KEEPALIVE void calypso_set_uw_breath  (float v) { g_calypsoUwBreath  
 EMSCRIPTEN_KEEPALIVE void calypso_set_uw_chroma  (float v) { g_calypsoUwChroma   = clamp01p(v); }
 EMSCRIPTEN_KEEPALIVE void calypso_set_uw_shock   (float v) { g_calypsoUwShock    = clamp01p(v); }
 EMSCRIPTEN_KEEPALIVE void calypso_set_uw_emissive(float v) { g_calypsoUwEmissive = clamp01p(v); }
+EMSCRIPTEN_KEEPALIVE void calypso_set_tile_emissive(float v) { g_calypsoTileEmissive = clamp08(v); } // Phase 25 R6
 
 /* Phase 25 (R3): tangent-space sun direction for normal-map relief. The shader
  * normalises it. In production the engine DRIVES this automatically (a per-turn

@@ -209,6 +209,9 @@ private:
 		// Phase 25 R3: tangent-space normal atlas (non-owning; owned by TileAtlasSpec).
 		GpuTexture*               normalAtlas  = nullptr;  // nullptr = no relief for this dataset
 		bool                      hasNormalMap = false;    // cached null-check for the hot draw loop
+		// Phase 25 R6: material emissive atlas (non-owning; owned by TileAtlasSpec).
+		GpuTexture*               emissiveAtlas = nullptr; // nullptr = no glow for this dataset
+		bool                      hasEmissive   = false;   // cached null-check for the hot draw loop
 		std::vector<TileInstance> overlayInstances;
 		// Phase 20: true when the overlay PNG was written with premultiplied alpha.
 		bool                      premultipliedAlpha = false;

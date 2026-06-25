@@ -20,6 +20,12 @@ uniform vec2      u_tileUVSize;
 uniform sampler2D u_normalMap;
 uniform vec3      u_sunDir;        // normalised in-shader
 uniform int       u_hasNormalMap;  // 0 = skip relief; 1 = apply
+// Phase 25 R6: material emissive (unit 5). RGB = glow colour, A = intensity.
+// Added AFTER shade/relief so the tile self-lights in shadow; lands in the HDR
+// SSAA buffer (R0) where the >1.0 highlights bloom. u_hasEmissive reset per group.
+uniform sampler2D u_emissive;
+uniform int       u_hasEmissive;       // 0 = none; 1 = add glow
+uniform float     u_emissiveStrength;  // global live-tunable multiplier
 
 in vec2  v_uv;
 in vec2  v_localUV;
@@ -79,5 +85,15 @@ void main()
         float ao = nm.a;                                   // R4: ambient occlusion
         relief = ao * (0.6 + 0.4 * max(dot(n, normalize(u_sunDir)), 0.0));
     }
-    fragColor = vec4(c.rgb * shadeF * relief, c.a);
+    vec3 lit = c.rgb * shadeF * relief;
+
+    // Phase 25 R6: add material emission on top of the lit colour (self-lit, so it
+    // survives night/shadow). Premultiplied by its own alpha; the global strength
+    // can push it past 1.0 so the HDR tonemap (R0) blooms lava/bioluminescence.
+    if (u_hasEmissive == 1)
+    {
+        vec4 em = texture(u_emissive, uv);
+        lit += em.rgb * em.a * u_emissiveStrength;
+    }
+    fragColor = vec4(lit, c.a);
 }

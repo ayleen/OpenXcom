@@ -91,6 +91,7 @@ extern "C" float g_calypsoUwBreath;
 extern "C" float g_calypsoUwChroma;
 extern "C" float g_calypsoUwShock;
 extern "C" float g_calypsoUwEmissive;   // Phase 25 (R1): coloured emissive halo amount
+extern "C" float g_calypsoTileEmissive; // Phase 25 (R6): HD material-emissive atlas multiplier
 extern "C" float g_calypsoSunDir[3];    // Phase 25 (R3): tangent-space sun dir for normal relief
 extern "C" int   g_calypsoSunAuto;      // Phase 25 (R3): 1 = engine drives the sun (per-turn sweep)
 /* Phase-14 railings debug: one-shot tile dump flag.
@@ -824,6 +825,9 @@ void Map::setPalette(const SDL_Color *colors, int firstcolor, int ncolors)
 			// Phase 25 R3: propagate the normal atlas (non-owning; Mod owns it).
 			_tileAtlasGroups[i].normalAtlas        = spec->normalAtlas;
 			_tileAtlasGroups[i].hasNormalMap       = (spec->normalAtlas != nullptr);
+			// Phase 25 R6: propagate the emissive atlas (non-owning; Mod owns it).
+			_tileAtlasGroups[i].emissiveAtlas      = spec->emissiveAtlas;
+			_tileAtlasGroups[i].hasEmissive        = (spec->emissiveAtlas != nullptr);
 			// Phase 20.5: propagate sub-layer atlas pointers from spec.
 			_tileAtlasGroups[i].subLayerAtlases    = spec->subLayerAtlases;
 			_tileAtlasGroups[i].subLayerInstances.assign(spec->subLayerAtlases.size(), {});
@@ -4505,16 +4509,32 @@ void Map::drawTileGLPass()
 			{
 				_tileShaderRgba->setUniform1i("u_hasNormalMap", 0);
 			}
+			// Phase 25 R6: per-group material emissive atlas on unit 5. The live
+			// knob g_calypsoTileEmissive scales it (0 = off); the shader adds
+			// emissive AFTER shade/relief, into the HDR SSAA buffer (R0).
+			if (grp.hasEmissive && grp.emissiveAtlas && g_calypsoTileEmissive > 0.0f)
+			{
+				_tileShaderRgba->setUniform1i("u_emissive",    5);
+				_tileShaderRgba->setUniform1i("u_hasEmissive", 1);
+				_tileShaderRgba->setUniform1f("u_emissiveStrength", g_calypsoTileEmissive);
+				grp.emissiveAtlas->bind(5);
+			}
+			else
+			{
+				_tileShaderRgba->setUniform1i("u_hasEmissive", 0);
+			}
 		}
 		drawTileGroup(grp.overlayAtlas, grp.tileUVW, grp.tileUVH,
 		              grp.overlayOffset, grp.overlayInstances.size(), /*isRgba=*/true);
 	}
-	// Phase 25 R3: clear u_hasNormalMap so later _tileShaderRgba draws (sub-layers,
-	// unit shadows) don't inherit a stale 1 and sample the leftover unit-4 binding.
+	// Phase 25 R3/R6: clear u_hasNormalMap + u_hasEmissive so later _tileShaderRgba
+	// draws (sub-layers, unit shadows) don't inherit a stale 1 and sample the
+	// leftover unit-4/5 bindings.
 	if (_tileShaderRgba && _tileShaderRgba->isValid())
 	{
 		_tileShaderRgba->use();
 		_tileShaderRgba->setUniform1i("u_hasNormalMap", 0);
+		_tileShaderRgba->setUniform1i("u_hasEmissive", 0);
 	}
 	// Phase 22.1 §22.8: opt-in glFinish-isolated GPU timing of the blend pass.
 	// The blend pass is purely additive (it does not exist without runtime blend),
@@ -4646,6 +4666,7 @@ void Map::drawTileGLPass()
 		_tileShaderRgba->setUniform1f("u_animFrame", 0.0f);
 		_tileShaderRgba->setUniform1i("u_atlas", 0);
 		_tileShaderRgba->setUniform1i("u_hasNormalMap", 0);  // Phase 25 R3: shadows are flat (order-independent)
+		_tileShaderRgba->setUniform1i("u_hasEmissive", 0);   // Phase 25 R6: shadows do not glow
 		if (_shadeCurveTex && _shadeCurveTex->isValid())
 		{
 			_tileShaderRgba->setUniform1i("u_shadeCurve", 3);

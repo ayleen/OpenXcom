@@ -1109,6 +1109,52 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 		}
 	};
 
+	// Phase 25 R6: load the optional material emissive atlas (-emissive.png).
+	// RGBA Linear NON-sRGB to match the (raw, srgb=false) overlay colour path, so
+	// the glow colour is added in the same space the lit colour is written. Same
+	// dims as the overlay (shared UVs); a mismatch is rejected. Absent = no glow.
+	auto loadEmissiveAtlas = [&name](TileAtlasSpec& spec) {
+		if (spec.emissiveFile.empty() || !FileMap::fileExists(spec.emissiveFile)) return;
+		const FileMap::FileRecord* rec = FileMap::at(spec.emissiveFile);
+		SDL_RWops* rw = rec->getRWops();
+		SDL_Surface* raw = IMG_Load_RW(rw, SDL_TRUE);
+		if (!raw)
+		{
+			Log(LOG_WARNING) << "tileAtlas[" << name << "] emissive IMG_Load_RW failed ("
+			                 << IMG_GetError() << ")";
+			return;
+		}
+		SDL_Surface* rgba = SDL_ConvertSurfaceFormat(raw, SDL_PIXELFORMAT_ABGR8888, 0);
+		SDL_FreeSurface(raw);
+		if (!rgba) return;
+		const int ew = rgba->w, eh = rgba->h;
+		if (spec.width > 0 && spec.height > 0 && (ew != spec.width || eh != spec.height))
+		{
+			Log(LOG_WARNING) << "tileAtlas[" << name << "] emissive " << ew << "x" << eh
+			                 << " != overlay " << spec.width << "x" << spec.height
+			                 << " — skipping (UVs would mismatch)";
+			SDL_FreeSurface(rgba);
+			return;
+		}
+		if (SDL_MUSTLOCK(rgba)) SDL_LockSurface(rgba);
+		GpuTexture* etex = new GpuTexture(/*srgb=*/false,   // raw colour, matches overlay
+		                                  GpuTexture::Wrap::ClampToEdge,
+		                                  GpuTexture::Filter::Linear);  // smooth glow
+		bool ok = etex->uploadRGBA(static_cast<const uint8_t*>(rgba->pixels), ew, eh);
+		if (SDL_MUSTLOCK(rgba)) SDL_UnlockSurface(rgba);
+		SDL_FreeSurface(rgba);
+		if (ok)
+		{
+			spec.emissiveAtlas = etex;
+			Log(LOG_INFO) << "tileAtlas[" << name << "] emissive atlas RGBA " << ew << "x" << eh;
+		}
+		else
+		{
+			delete etex;
+			Log(LOG_WARNING) << "tileAtlas[" << name << "] emissive GPU upload failed";
+		}
+	};
+
 	// Phase 20: baseline:none path — HD-only dataset, load RGBA overlay only.
 	if (specIt != _tileAtlasSpecs.end()
 	    && specIt->second.baseline == BaselineMode::None
@@ -1164,6 +1210,7 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 						}
 						loadSubLayerAtlases(spec);
 						loadNormalAtlas(spec);   // Phase 25 R3
+						loadEmissiveAtlas(spec); // Phase 25 R6
 						Log(LOG_INFO) << "tileAtlas[" << name << "] baseline:none overlay RGBA "
 						              << w << "x" << h;
 						Log(LOG_INFO) << "[CALYPSO] activeDataset " << name;
@@ -1325,6 +1372,7 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 			spec.overlayAtlas  = overlayTex;
 			loadSubLayerAtlases(spec);
 			loadNormalAtlas(spec);   // Phase 25 R3 (spec.width/height set from baseline above)
+			loadEmissiveAtlas(spec); // Phase 25 R6
 			if (spec.tileWidth > 0 && spec.tileHeight > 0 && spec.pckToAtlas.empty())
 			{
 				const int totalCells = (spec.width / spec.tileWidth) * (spec.height / spec.tileHeight);
@@ -1565,6 +1613,12 @@ void Mod::clearTileAtlases()
 		{
 			delete pair.second.normalAtlas;
 			pair.second.normalAtlas = nullptr;
+		}
+		// Phase 25 R6: delete the emissive atlas (owned by TileAtlasSpec, like overlay).
+		if (pair.second.emissiveAtlas)
+		{
+			delete pair.second.emissiveAtlas;
+			pair.second.emissiveAtlas = nullptr;
 		}
 		// Phase 20.5 leak fix: sub-layer atlases are pushed in ensureVanillaAtlas
 		// but were never freed here (only overlayAtlas was). Release them too.
@@ -4291,6 +4345,8 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 		}
 		// Phase 25 R3: normal-map atlas path (optional; applies to all modes).
 		ruleReader["normalFile"].tryReadVal<std::string>(spec.normalFile);
+		// Phase 25 R6: material emissive atlas path (optional; applies to all modes).
+		ruleReader["emissiveFile"].tryReadVal<std::string>(spec.emissiveFile);
 
 		// Phase 20: baseline mode (vanilla = default, none = skip R8 pass)
 		{
