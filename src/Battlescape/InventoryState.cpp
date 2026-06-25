@@ -475,7 +475,11 @@ void InventoryState::resize(int &dX, int &dY)
 void InventoryState::fitNameField()
 {
 	if (!_uiCaptured) return;
-	int tw = _txtName->getTextWidth();                 // native bitmap width of the name
+	// Use _txtNameStatic (Text*), NOT _txtName (TextEdit*): TextEdit::setText() only stores
+	// _value and defers _text->setText() to draw(), so _txtName->getTextWidth() is stale here
+	// (0 on first load) and clipped the field to ~4 chars. _txtNameStatic is a plain Text*
+	// set to the same name immediately above, whose processText() runs synchronously in setText().
+	int tw = _txtNameStatic->getTextWidth();           // native bitmap width of the name
 	if (tw < 8) tw = 8;
 	int w = (int)((tw + 8) * _uiScale + 0.5f);         // text + small margin, scaled
 	int full = (int)(210 * _uiScale + 0.5f);           // original (design 210) scaled width
@@ -700,6 +704,24 @@ void InventoryState::init()
 	// Calypso: stretch the native paperdoll / rank scratches into the scaled buffers.
 	stretchInto(_soldierNat, _soldier);
 	stretchInto(_btnRankNat, _btnRank);
+	// Calypso HD: overpaint the rank slot with the crisp 256×256 shoulder-board
+	// insignia (CALYPSO_RANK_N) at the button's DISPLAY resolution — the SMOKE.PCK
+	// frame stretched above is only 26×23. Mirrors BattlescapeState::applyHdRank().
+	// On Emscripten _btnRank is a 32bpp ARGB surface, so SDL_BlitScaled is safe.
+	if (s && _btnRank && _btnRank->getSurface())
+	{
+		std::ostringstream rankSS;
+		rankSS << "CALYPSO_RANK_" << (int)s->getRank();
+		Surface* hdRank = _game->getMod()->getSurface(rankSS.str(), false);
+		if (hdRank && hdRank->getSurface())
+		{
+			// copy (not blend) so the plate's rounded-corner alpha lands verbatim.
+			SDL_SetSurfaceBlendMode(hdRank->getSurface(), SDL_BLENDMODE_NONE);
+			SDL_Rect dst{ 0, 0, _btnRank->getWidth(), _btnRank->getHeight() };
+			SDL_BlitScaled(hdRank->getSurface(), nullptr, _btnRank->getSurface(), &dst);
+			_btnRank->setRedraw(false);
+		}
+	}
 #endif
 }
 

@@ -284,6 +284,19 @@ private:
 	GpuTexture* getOrUploadSpriteFrame(SurfaceSet* set, int frameIdx);
 	void drawProjectileGLPass();
 
+	// Calypso bug 1: physical-resolution HUD text overlay (selected-unit name + stat
+	// digits). The logical HUD widgets render mushy at the low resolution-menu fractions
+	// because their backing surfaces are sized in LOGICAL px then stretched. These items
+	// (logical widget rect + text + colour, pushed by BattlescapeState::applyHudName /
+	// applyHudNumber) are re-rendered as TTF texture quads at PHYSICAL resolution, OVER the
+	// composited HUD, mirroring drawCursorOverlayGLPass — so the 48px raster is GPU-downscaled
+	// straight to the physical size, never through the small logical buffer.
+	struct HudTextItem { int logX, logY, logW, logH; std::string text; Uint32 colorArgb; bool isName; };
+	std::vector<HudTextItem>            _hudTextItems;
+	std::map<std::string, GpuTexture*>  _hudTextTexCache;   // keyed by "text#argb"
+	GpuTexture* getHudTextTexture(const std::string& text, Uint32 colorArgb);
+	void drawHudTextGLPass();
+
 	/// Smoke/fire/explosion instance collected during emitTilePass() / emitSmokeInstances().
 	struct SmokeInstance
 	{
@@ -345,7 +358,8 @@ private:
 	// texCode: 0 = soft dot (particle.png — sparks/bubbles/foam/gas); 100+v = smoke-v;
 	// 200+v = debris-v (rock sprites). Selects the per-particle texture in the draw pass.
 	struct FxParticle { Position origin; unsigned int spawnTick; unsigned int delayMs; float lifeMs;
-		float vx, vy, ax, ay; float size; float r, g, b; bool additive; int texCode; };
+		float vx, vy, ax, ay; float size; float r, g, b; bool additive; int texCode;
+		float opacity = 1.0f; };   // Calypso: per-particle alpha multiplier (semi-transparent smoke); default 1 = unchanged
 	std::vector<FxParticle> _fxParticles;
 	void drawFxParticlesGLPass();
 	/// E2: underwater shockwave — an expanding radial distortion ring of the scene,
@@ -460,6 +474,10 @@ public:
 	/// + a GL particle burst, plus (underwater) a scatter of small bubble-bursts over the
 	/// blast radius. Called once at blast start from ExplosionBState::init. radius = tiles.
 	void triggerAoEFx(Position voxelCenter, int power, int radius, bool underwater, int damageType);
+	/// Calypso bug 1: HUD text overlay handoff. BattlescapeState clears then re-adds the
+	/// name + 4 stat digits (logical widget rect + text + packed ARGB colour) each refresh.
+	void clearHudTextItems();
+	void addHudTextItem(int logX, int logY, int logW, int logH, const std::string& text, Uint32 colorArgb, bool isName);
 #endif
 	/// Handles timers.
 	void think() override;

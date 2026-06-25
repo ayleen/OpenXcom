@@ -4611,6 +4611,7 @@ void BattlescapeState::applyHudName(BattleUnit* unit)
 #ifdef __EMSCRIPTEN__
 	if (!_txtName || !_txtName->getSurface()) return;
 	_txtName->clear();
+	if (_map) _map->clearHudTextItems();   // bug 1: reset the physical-res overlay list (numbers re-add)
 	TTFFont* font = getHudFont();
 	if (font && unit)
 	{
@@ -4622,6 +4623,9 @@ void BattlescapeState::applyHudName(BattleUnit* unit)
 			SDL_Color col = { 0x7A, 0xC8, 0xFF, 0xFF };
 			SDL_Surface* ttf = font->renderText(name, col);
 			blitTTFFit(ttf, _txtName, 0.551f);  // progressively reduced so it clears the bars
+			// bug 1: queue a physical-resolution copy drawn over the HUD (crisp at low res).
+			if (_map) _map->addHudTextItem(_txtName->getX(), _txtName->getY(),
+			                               _txtName->getWidth(), _txtName->getHeight(), name, 0xFF7AC8FFu, true);
 		}
 	}
 	_txtName->setRedraw(false);
@@ -4753,6 +4757,9 @@ void BattlescapeState::applyHudNumber(NumberText* w, int value, Uint32 accentArg
 		SDL_Surface* ttf = font->renderText(std::to_string(value), accent);
 		blitTTFCenterOver(ttf, w, 0.34f);
 	}
+	// bug 1: queue a physical-resolution copy of the digits drawn over the HUD box (crisp at low res).
+	if (_map) _map->addHudTextItem(w->getX(), w->getY(), w->getWidth(), w->getHeight(),
+	                               std::to_string(value), 0xFF000000u | (accentArgb & 0xFFFFFFu), false);
 	w->setRedraw(false);
 #else
 	(void)w; (void)value; (void)accentArgb;
