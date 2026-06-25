@@ -143,9 +143,15 @@ float g_calypsoUwEmissive = 1.0f;
 // the HDR SSAA buffer (R0). 0 = off; > ~1 pushes bright texels past 1.0 so the
 // HDR tonemap blooms them. Default subtle; live-tune via _calypso_set_tile_emissive.
 float g_calypsoTileEmissive = 1.5f;
+// Phase 25 (R7): unit "fake lighting" amount — a sprite-local vertical AO/relief on
+// unit bodies (in tile_atlas.frag) so they gain volume + a grounding shadow without
+// an RGBA atlas or baked-AO art. 0 = off (legacy flat units); 1 = full. Tiles +
+// floor items are never affected. Live-tune via _calypso_set_unit_shade.
+float g_calypsoUnitShade = 1.0f;
 
 static float clamp01p(float v) { return v < 0.0f ? 0.0f : (v > 2.0f ? 2.0f : v); }
 static float clamp08 (float v) { return v < 0.0f ? 0.0f : (v > 8.0f ? 8.0f : v); }
+static float clamp01 (float v) { return v < 0.0f ? 0.0f : (v > 1.0f ? 1.0f : v); }
 
 EMSCRIPTEN_KEEPALIVE void calypso_set_uw_caustics(float v) { g_calypsoUwCaustics = clamp01p(v); }
 EMSCRIPTEN_KEEPALIVE void calypso_set_uw_refract (float v) { g_calypsoUwRefract  = clamp01p(v); }
@@ -159,6 +165,7 @@ EMSCRIPTEN_KEEPALIVE void calypso_set_uw_chroma  (float v) { g_calypsoUwChroma  
 EMSCRIPTEN_KEEPALIVE void calypso_set_uw_shock   (float v) { g_calypsoUwShock    = clamp01p(v); }
 EMSCRIPTEN_KEEPALIVE void calypso_set_uw_emissive(float v) { g_calypsoUwEmissive = clamp01p(v); }
 EMSCRIPTEN_KEEPALIVE void calypso_set_tile_emissive(float v) { g_calypsoTileEmissive = clamp08(v); } // Phase 25 R6
+EMSCRIPTEN_KEEPALIVE void calypso_set_unit_shade  (float v) { g_calypsoUnitShade   = clamp01(v); } // Phase 25 R7
 
 /* Phase 25 (R3): tangent-space sun direction for normal-map relief. The shader
  * normalises it. In production the engine DRIVES this automatically (a per-turn

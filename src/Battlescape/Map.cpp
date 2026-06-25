@@ -92,6 +92,7 @@ extern "C" float g_calypsoUwChroma;
 extern "C" float g_calypsoUwShock;
 extern "C" float g_calypsoUwEmissive;   // Phase 25 (R1): coloured emissive halo amount
 extern "C" float g_calypsoTileEmissive; // Phase 25 (R6): HD material-emissive atlas multiplier
+extern "C" float g_calypsoUnitShade;    // Phase 25 (R7): unit fake-AO amount (0 = off … 1 = full)
 extern "C" float g_calypsoSunDir[3];    // Phase 25 (R3): tangent-space sun dir for normal relief
 extern "C" int   g_calypsoSunAuto;      // Phase 25 (R3): 1 = engine drives the sun (per-turn sweep)
 /* Phase-14 railings debug: one-shot tile dump flag.
@@ -3755,6 +3756,11 @@ void Map::drawUnitsAtZY(int z, int y, Shader*& activeShader)
 		const float uvH = (float)g.spec->tileHeight / (float)g.spec->atlasH;
 		g.spec->atlas->bind(0);
 		_tileShader->setUniform2f("u_tileUVSize", uvW, uvH);
+		// Phase 25 R7: fake unit lighting on unit bodies + held items, but NOT floor
+		// items (they lie flat — a vertical AO would read wrong). Per-draw (shared
+		// shader); g_calypsoUnitShade scales / disables it.
+		_tileShader->setUniform1f("u_unitShade",
+		                          (g.spec == floorSpec) ? 0.0f : g_calypsoUnitShade);
 		glBindBuffer(GL_ARRAY_BUFFER, _tileIBO);
 		glBufferData(GL_ARRAY_BUFFER,
 		             (GLsizeiptr)(scratch.size() * sizeof(TileInstance)),
@@ -4323,6 +4329,10 @@ void Map::drawTileGLPass()
 		}
 		atlas->bind(0);
 		sh->setUniform2f("u_tileUVSize", uvW, uvH);
+		// Phase 25 R7: tiles never get the unit fake-AO. Set per-draw (not cached) —
+		// _tileShader is shared with the interleaved unit draws, which set it to >0.
+		if (!isRgba)
+			sh->setUniform1f("u_unitShade", 0.0f);
 		glBindBuffer(GL_ARRAY_BUFFER, _tileIBO);
 		glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)(count * sizeof(TileInstance)),
 		             data, GL_DYNAMIC_DRAW);
