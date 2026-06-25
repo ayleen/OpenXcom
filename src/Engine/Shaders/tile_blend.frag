@@ -14,6 +14,10 @@ uniform sampler2D u_noise;       // unit 2: tiling noise (GL_REPEAT)
 uniform sampler2D u_shadeCurve;  // unit 3: 16×1 night ramp
 uniform vec2  u_tileUVSize;
 uniform float u_animFrame;
+// Phase 25 R3: tangent-space normal map (unit 4; LINEAR non-sRGB).
+uniform sampler2D u_normalMap;
+uniform vec3      u_sunDir;
+uniform int       u_hasNormalMap;
 
 in vec2  v_uv;
 in vec2  v_neighbourUV;
@@ -89,5 +93,17 @@ void main()
         return;
     }
     float shadeF = texture(u_shadeCurve, vec2((v_shade + 0.5) / 16.0, 0.5)).r;
-    fragColor = vec4(c.rgb * shadeF, c.a);
+
+    // Phase 25 R3: blend self+neighbour normals with the SAME w (and 0.5 cap) as
+    // the colour mix above so relief lighting stays continuous across the seam,
+    // then Lambert against the sun: shadeF * (0.6 + 0.4 * max(N·L, 0)).
+    float relief = 1.0;
+    if (u_hasNormalMap == 1)
+    {
+        vec3 nSelf = texture(u_normalMap, v_uv          + frameOff).rgb * 2.0 - 1.0;
+        vec3 nNbr  = texture(u_normalMap, v_neighbourUV + frameOff).rgb * 2.0 - 1.0;
+        vec3 n = normalize(mix(nSelf, nNbr, clamp(w, 0.0, 1.0) * 0.5));
+        relief = 0.6 + 0.4 * max(dot(n, normalize(u_sunDir)), 0.0);
+    }
+    fragColor = vec4(c.rgb * shadeF * relief, c.a);
 }

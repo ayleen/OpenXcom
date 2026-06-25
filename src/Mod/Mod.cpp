@@ -1062,6 +1062,53 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 		}
 	};
 
+	// Phase 25 R3: load the optional tangent-space normal-map atlas (-normal.png).
+	// RGBA Linear NON-sRGB — normals are linear direction data; sRGB gamma would
+	// skew the decoded vectors. Same dimensions as the overlay (shared UVs); a
+	// mismatch is rejected. Absent file = no relief for this dataset. Used by
+	// both the baseline:none and hybrid paths.
+	auto loadNormalAtlas = [&name](TileAtlasSpec& spec) {
+		if (spec.normalFile.empty() || !FileMap::fileExists(spec.normalFile)) return;
+		const FileMap::FileRecord* rec = FileMap::at(spec.normalFile);
+		SDL_RWops* rw = rec->getRWops();
+		SDL_Surface* raw = IMG_Load_RW(rw, SDL_TRUE);
+		if (!raw)
+		{
+			Log(LOG_WARNING) << "tileAtlas[" << name << "] normal IMG_Load_RW failed ("
+			                 << IMG_GetError() << ")";
+			return;
+		}
+		SDL_Surface* rgba = SDL_ConvertSurfaceFormat(raw, SDL_PIXELFORMAT_ABGR8888, 0);
+		SDL_FreeSurface(raw);
+		if (!rgba) return;
+		const int nw = rgba->w, nh = rgba->h;
+		if (spec.width > 0 && spec.height > 0 && (nw != spec.width || nh != spec.height))
+		{
+			Log(LOG_WARNING) << "tileAtlas[" << name << "] normal " << nw << "x" << nh
+			                 << " != overlay " << spec.width << "x" << spec.height
+			                 << " — skipping (UVs would mismatch)";
+			SDL_FreeSurface(rgba);
+			return;
+		}
+		if (SDL_MUSTLOCK(rgba)) SDL_LockSurface(rgba);
+		GpuTexture* ntex = new GpuTexture(/*srgb=*/false,   // LINEAR data, not sRGB
+		                                  GpuTexture::Wrap::ClampToEdge,
+		                                  GpuTexture::Filter::Linear);  // smooth normal interp
+		bool ok = ntex->uploadRGBA(static_cast<const uint8_t*>(rgba->pixels), nw, nh);
+		if (SDL_MUSTLOCK(rgba)) SDL_UnlockSurface(rgba);
+		SDL_FreeSurface(rgba);
+		if (ok)
+		{
+			spec.normalAtlas = ntex;
+			Log(LOG_INFO) << "tileAtlas[" << name << "] normal atlas RGBA " << nw << "x" << nh;
+		}
+		else
+		{
+			delete ntex;
+			Log(LOG_WARNING) << "tileAtlas[" << name << "] normal GPU upload failed";
+		}
+	};
+
 	// Phase 20: baseline:none path — HD-only dataset, load RGBA overlay only.
 	if (specIt != _tileAtlasSpecs.end()
 	    && specIt->second.baseline == BaselineMode::None
@@ -1116,6 +1163,7 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 								spec.pckToAtlas[n] = n;
 						}
 						loadSubLayerAtlases(spec);
+						loadNormalAtlas(spec);   // Phase 25 R3
 						Log(LOG_INFO) << "tileAtlas[" << name << "] baseline:none overlay RGBA "
 						              << w << "x" << h;
 						Log(LOG_INFO) << "[CALYPSO] activeDataset " << name;
@@ -1276,6 +1324,7 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 			_tileAtlases[name] = baselineTex;
 			spec.overlayAtlas  = overlayTex;
 			loadSubLayerAtlases(spec);
+			loadNormalAtlas(spec);   // Phase 25 R3 (spec.width/height set from baseline above)
 			if (spec.tileWidth > 0 && spec.tileHeight > 0 && spec.pckToAtlas.empty())
 			{
 				const int totalCells = (spec.width / spec.tileWidth) * (spec.height / spec.tileHeight);
@@ -1511,6 +1560,16 @@ void Mod::clearTileAtlases()
 			delete pair.second.overlayAtlas;
 			pair.second.overlayAtlas = nullptr;
 		}
+		// Phase 25 R3: delete the normal atlas (owned by TileAtlasSpec, like overlay).
+		if (pair.second.normalAtlas)
+		{
+			delete pair.second.normalAtlas;
+			pair.second.normalAtlas = nullptr;
+		}
+		// Phase 20.5 leak fix: sub-layer atlases are pushed in ensureVanillaAtlas
+		// but were never freed here (only overlayAtlas was). Release them too.
+		for (GpuTexture* lt : pair.second.subLayerAtlases) delete lt;
+		pair.second.subLayerAtlases.clear();
 	}
 }
 
@@ -4230,6 +4289,8 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 			ruleReader["baselineFile"].tryReadVal<std::string>(spec.baselineFile);
 			ruleReader["overlayFile"].tryReadVal<std::string>(spec.overlayFile);
 		}
+		// Phase 25 R3: normal-map atlas path (optional; applies to all modes).
+		ruleReader["normalFile"].tryReadVal<std::string>(spec.normalFile);
 
 		// Phase 20: baseline mode (vanilla = default, none = skip R8 pass)
 		{

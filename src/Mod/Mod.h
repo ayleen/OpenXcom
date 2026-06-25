@@ -230,6 +230,11 @@ public:
 		std::string       baselineFile; // R8 PNG (palette indices); used when hybrid=true
 		std::string       overlayFile;  // RGBA PNG (sparse HD overrides); used when hybrid=true
 		GpuTexture*       overlayAtlas = nullptr; // RGBA overlay texture; nullptr for non-hybrid
+		// Phase 25 R3: tangent-space normal-map atlas (optional). RGBA Linear NON-sRGB
+		// (normals are linear direction data). Same dims as overlay → shared UVs.
+		// Owned by TileAtlasSpec; deleted in Mod::clearTileAtlases().
+		std::string       normalFile;             // ruleset key normalFile:; empty = no normal map
+		GpuTexture*       normalAtlas = nullptr;  // nullptr if absent or load failed
 		int               width      = 0;
 		int               height     = 0;
 		int               tileWidth  = 64;

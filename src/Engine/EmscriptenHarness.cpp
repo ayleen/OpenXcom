@@ -153,6 +153,23 @@ EMSCRIPTEN_KEEPALIVE void calypso_set_uw_chroma  (float v) { g_calypsoUwChroma  
 EMSCRIPTEN_KEEPALIVE void calypso_set_uw_shock   (float v) { g_calypsoUwShock    = clamp01p(v); }
 EMSCRIPTEN_KEEPALIVE void calypso_set_uw_emissive(float v) { g_calypsoUwEmissive = clamp01p(v); }
 
+/* Phase 25 (R3): tangent-space sun direction for normal-map relief. The shader
+ * normalises it. Default is a high-Z diagonal so flat (0,0,1) surfaces barely
+ * darken while relief picks up directional light. The relief STRENGTH itself is
+ * baked into the atlas at build time (ruleset normalStrength:), not here.
+ * Live-tunable: Module._calypso_set_sun_dir(x, y, z). */
+float g_calypsoSunDir[3] = { -0.40f, -0.40f, 0.82f };
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_set_sun_dir(float x, float y, float z)
+{
+	// Reject a degenerate zero vector: the shaders do normalize(u_sunDir), and
+	// normalize(vec3(0)) is UB in GLSL ES (NaN on most drivers) — it would
+	// corrupt the relief term for every normal-mapped tile. Keep the prior value.
+	if (x * x + y * y + z * z < 1e-12f) return;
+	g_calypsoSunDir[0] = x; g_calypsoSunDir[1] = y; g_calypsoSunDir[2] = z;
+}
+
 /* Phase-14 railings debug: one-shot tile/painter dump.
  * JS toggles via Module._calypso_dump_emit_once() before forcing a redraw;
  * Map::emitTilePass() and Map::draw() (painter) each log every tile they

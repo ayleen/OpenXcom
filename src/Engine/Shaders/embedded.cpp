@@ -646,6 +646,11 @@ uniform sampler2D u_atlas;
 uniform sampler2D u_shadeCurve;  // unit 3: 16×1 night ramp (Phase 22, P5)
 uniform float     u_animFrame;
 uniform vec2      u_tileUVSize;
+// Phase 25 R3: tangent-space normal map (unit 4; LINEAR non-sRGB). u_hasNormalMap
+// is reset per draw group in Map::drawTileGLPass so non-mapped datasets stay flat.
+uniform sampler2D u_normalMap;
+uniform vec3      u_sunDir;        // normalised in-shader
+uniform int       u_hasNormalMap;  // 0 = skip relief; 1 = apply
 
 in vec2  v_uv;
 in vec2  v_localUV;
@@ -692,7 +697,17 @@ void main()
     // Phase 22 (P5): luminance-ramp darkening from the palette shade table so
     // HD overlay tiles match the brightness of adjacent blend tiles at night.
     float shadeF  = texture(u_shadeCurve, vec2((v_shade + 0.5) / 16.0, 0.5)).r;
-    fragColor = vec4(c.rgb * shadeF, c.a);
+
+    // Phase 25 R3: optional normal-map diffuse relief. Decode the tangent-space
+    // normal (encoding 0.5 + N*0.5) and Lambert against the sun:
+    // shadeF * (0.6 ambient + 0.4 * max(N·L, 0)). u_hasNormalMap==0 → identity.
+    float relief = 1.0;
+    if (u_hasNormalMap == 1)
+    {
+        vec3 n = normalize(texture(u_normalMap, uv).rgb * 2.0 - 1.0);
+        relief = 0.6 + 0.4 * max(dot(n, normalize(u_sunDir)), 0.0);
+    }
+    fragColor = vec4(c.rgb * shadeF * relief, c.a);
 }
 )glsl";
 
@@ -702,6 +717,10 @@ uniform sampler2D u_noise;       // unit 2: tiling noise (GL_REPEAT)
 uniform sampler2D u_shadeCurve;  // unit 3: 16×1 night ramp
 uniform vec2  u_tileUVSize;
 uniform float u_animFrame;
+// Phase 25 R3: tangent-space normal map (unit 4; LINEAR non-sRGB).
+uniform sampler2D u_normalMap;
+uniform vec3      u_sunDir;
+uniform int       u_hasNormalMap;
 
 in vec2  v_uv;
 in vec2  v_neighbourUV;
@@ -777,7 +796,19 @@ void main()
         return;
     }
     float shadeF = texture(u_shadeCurve, vec2((v_shade + 0.5) / 16.0, 0.5)).r;
-    fragColor = vec4(c.rgb * shadeF, c.a);
+
+    // Phase 25 R3: blend self+neighbour normals with the SAME w (and 0.5 cap) as
+    // the colour mix above so relief lighting stays continuous across the seam,
+    // then Lambert against the sun: shadeF * (0.6 + 0.4 * max(N·L, 0)).
+    float relief = 1.0;
+    if (u_hasNormalMap == 1)
+    {
+        vec3 nSelf = texture(u_normalMap, v_uv          + frameOff).rgb * 2.0 - 1.0;
+        vec3 nNbr  = texture(u_normalMap, v_neighbourUV + frameOff).rgb * 2.0 - 1.0;
+        vec3 n = normalize(mix(nSelf, nNbr, clamp(w, 0.0, 1.0) * 0.5));
+        relief = 0.6 + 0.4 * max(dot(n, normalize(u_sunDir)), 0.0);
+    }
+    fragColor = vec4(c.rgb * shadeF * relief, c.a);
 }
 )glsl";
 

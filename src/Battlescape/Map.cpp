@@ -91,6 +91,7 @@ extern "C" float g_calypsoUwBreath;
 extern "C" float g_calypsoUwChroma;
 extern "C" float g_calypsoUwShock;
 extern "C" float g_calypsoUwEmissive;   // Phase 25 (R1): coloured emissive halo amount
+extern "C" float g_calypsoSunDir[3];    // Phase 25 (R3): tangent-space sun dir for normal relief
 /* Phase-14 railings debug: one-shot tile dump flag.
  * Set to 1 by Module._calypso_dump_emit_once() before forcing a redraw;
  * emitTilePass() and Map::draw() painter pass each log every visible tile
@@ -819,6 +820,9 @@ void Map::setPalette(const SDL_Color *colors, int firstcolor, int ncolors)
 			_tileAtlasGroups[i].overlayAtlas       = (spec->hybrid || baselineNone)
 			                                         ? spec->overlayAtlas : nullptr;
 			_tileAtlasGroups[i].premultipliedAlpha = spec->premultipliedAlpha;
+			// Phase 25 R3: propagate the normal atlas (non-owning; Mod owns it).
+			_tileAtlasGroups[i].normalAtlas        = spec->normalAtlas;
+			_tileAtlasGroups[i].hasNormalMap       = (spec->normalAtlas != nullptr);
 			// Phase 20.5: propagate sub-layer atlas pointers from spec.
 			_tileAtlasGroups[i].subLayerAtlases    = spec->subLayerAtlases;
 			_tileAtlasGroups[i].subLayerInstances.assign(spec->subLayerAtlases.size(), {});
@@ -4311,8 +4315,35 @@ void Map::drawTileGLPass()
 			else
 				glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); // straight
 		}
+		// Phase 25 R3: per-group normal atlas on _tileShaderRgba (unit 4). use()
+		// guarantees the uniforms reach this program even on the first group
+		// (before drawTileGroup's activeShader cache binds it); it never touches
+		// the cache, so drawTileGroup still runs its one-time uniform setup.
+		if (_tileShaderRgba && _tileShaderRgba->isValid())
+		{
+			_tileShaderRgba->use();
+			if (grp.hasNormalMap && grp.normalAtlas)
+			{
+				_tileShaderRgba->setUniform1i("u_normalMap",    4);
+				_tileShaderRgba->setUniform1i("u_hasNormalMap", 1);
+				_tileShaderRgba->setUniform3f("u_sunDir",
+				    g_calypsoSunDir[0], g_calypsoSunDir[1], g_calypsoSunDir[2]);
+				grp.normalAtlas->bind(4);
+			}
+			else
+			{
+				_tileShaderRgba->setUniform1i("u_hasNormalMap", 0);
+			}
+		}
 		drawTileGroup(grp.overlayAtlas, grp.tileUVW, grp.tileUVH,
 		              grp.overlayOffset, grp.overlayInstances.size(), /*isRgba=*/true);
+	}
+	// Phase 25 R3: clear u_hasNormalMap so later _tileShaderRgba draws (sub-layers,
+	// unit shadows) don't inherit a stale 1 and sample the leftover unit-4 binding.
+	if (_tileShaderRgba && _tileShaderRgba->isValid())
+	{
+		_tileShaderRgba->use();
+		_tileShaderRgba->setUniform1i("u_hasNormalMap", 0);
 	}
 	// Phase 22.1 §22.8: opt-in glFinish-isolated GPU timing of the blend pass.
 	// The blend pass is purely additive (it does not exist without runtime blend),
@@ -4350,6 +4381,7 @@ void Map::drawTileGLPass()
 		_blendShader->setUniform1i("u_atlas",         0);
 		_blendShader->setUniform1i("u_noise",         2);
 		_blendShader->setUniform1i("u_shadeCurve",    3);
+		_blendShader->setUniform1i("u_hasNormalMap",  0);  // Phase 25 R3: default; set per-group below
 		_noiseTex->bind(2);
 		_shadeCurveTex->bind(3);
 		activeShader = nullptr;  // force drawAtlas to re-bind _tileShaderRgba after this
@@ -4360,6 +4392,19 @@ void Map::drawTileGLPass()
 			if (!grp.overlayAtlas || grp.blendInstances.empty()) continue;
 			grp.overlayAtlas->bind(0);
 			_blendShader->setUniform2f("u_tileUVSize", grp.tileUVW, grp.tileUVH);
+			// Phase 25 R3: blend-pass normal binding (blends self+neighbour normals).
+			if (grp.hasNormalMap && grp.normalAtlas)
+			{
+				_blendShader->setUniform1i("u_normalMap",    4);
+				_blendShader->setUniform1i("u_hasNormalMap", 1);
+				_blendShader->setUniform3f("u_sunDir",
+				    g_calypsoSunDir[0], g_calypsoSunDir[1], g_calypsoSunDir[2]);
+				grp.normalAtlas->bind(4);
+			}
+			else
+			{
+				_blendShader->setUniform1i("u_hasNormalMap", 0);
+			}
 			glBindBuffer(GL_ARRAY_BUFFER, _blendIBO);
 			glBufferData(GL_ARRAY_BUFFER,
 			             (GLsizeiptr)(grp.blendInstances.size() * sizeof(BlendInstance)),
@@ -4430,6 +4475,7 @@ void Map::drawTileGLPass()
 		                              (float)(_spriteWidth / 2) * 0.60f);
 		_tileShaderRgba->setUniform1f("u_animFrame", 0.0f);
 		_tileShaderRgba->setUniform1i("u_atlas", 0);
+		_tileShaderRgba->setUniform1i("u_hasNormalMap", 0);  // Phase 25 R3: shadows are flat (order-independent)
 		if (_shadeCurveTex && _shadeCurveTex->isValid())
 		{
 			_tileShaderRgba->setUniform1i("u_shadeCurve", 3);
