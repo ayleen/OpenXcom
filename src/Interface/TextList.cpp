@@ -1487,7 +1487,8 @@ void TextList::setIgnoreSeparators(bool ignoreSeparators)
 
 #ifdef __EMSCRIPTEN__
 /**
- * Calypso: HD — resize scroll arrows then re-run setY to reposition _down.
+ * Calypso: HD — resize the scroll arrows AND scrollbar at the scaled size, then
+ * re-run setY to reposition them.
  */
 void TextList::setWidth(int w)
 {
@@ -1499,8 +1500,10 @@ void TextList::setWidth(int w)
 	SDL_Color pal[256];
 	std::copy(getPalette(), getPalette() + 256, pal);
 	Uint8 arrowColor = _up->getColor();
+	Uint8 barColor = _scrollbar->getColor();
 	delete _up;
 	delete _down;
+	delete _scrollbar;
 	_up = new ArrowButton(ARROW_BIG_UP, aw, ah, getX() + w + _scrollPos, getY());
 	_up->setVisible(false);
 	_up->setTextList(this);
@@ -1511,6 +1514,19 @@ void TextList::setWidth(int w)
 	_down->setTextList(this);
 	_down->setPalette(pal);
 	_down->setColor(arrowColor);
+	// Recreate the scrollbar at the scaled arrow width and the post-scale X. The
+	// base ctor sized it to the native arrow width and applyUiScaling's setX ran
+	// while getWidth() was still native, so it was left as a thin, mispositioned
+	// bar floating over the list (drawn twice — once direct, once via the
+	// updateArrows blit onto the now-wide list surface that no longer clips it).
+	int sbh = std::max(_down->getY() - _up->getY() - _up->getHeight(), 1);
+	_scrollbar = new ScrollBar(aw, sbh, getX() + w + _scrollPos, _up->getY() + _up->getHeight());
+	_scrollbar->setVisible(false);
+	_scrollbar->setTextList(this);
+	_scrollbar->setPalette(pal);
+	_scrollbar->setColor(barColor);
+	if (_bg) _scrollbar->setBackground(_bg);
+	_scrollbar->setHighContrast(_contrast);
 	// Reposition _down and recompute scrollbar height.
 	setY(getY());
 	setHeight(getHeight());
