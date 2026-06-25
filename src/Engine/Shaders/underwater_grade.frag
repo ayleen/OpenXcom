@@ -33,8 +33,31 @@ uniform float     u_shock;            // E2: explosion shockwave-ring distortion
 uniform int       u_swCount;          // # active shockwaves
 uniform vec2      u_swCenter[4];      // their v_uv centres
 uniform float     u_swAge[4];         // 0..1 ring expansion
+uniform int       u_hdr;              // R0: 1 = u_scene is RGBA16F (values may exceed 1.0) → tonemap
 in      vec2      v_uv;
 out     vec4      out_color;
+
+// R0 tonemap: filmic shoulder. Exact identity below the knee, then a smooth
+// exponential rolloff to 1.0 above it. Applied to the max channel so hue +
+// saturation are preserved and the result can never exceed 1.0 (no clip on the
+// 8-bit default framebuffer). C1-continuous at the knee (slope 1).
+//
+// Identity-below-1 AND a soft rolloff-above-1 that keeps output <= 1 is
+// mathematically impossible (no output headroom above 1), so the shoulder must
+// start a little below 1.0. knee=0.90 makes everything <= 0.90 unchanged and
+// compresses [0.90, 1.0] by at most ~3.7% at pure white — imperceptible, and the
+// graded underwater scene (dimmed + tinted) almost never reaches 0.90 anyway.
+// That small cost buys a coloured (non-clipping) rolloff for the bloom/emissive
+// overbrights, which is the whole point of R0. A no-op in LDR (u_hdr==0).
+vec3 tonemapShoulder(vec3 c)
+{
+    const float knee = 0.90;
+    float m = max(max(c.r, c.g), c.b);
+    if (m <= knee) return c;
+    float range  = 1.0 - knee;                       // output headroom above knee
+    float mapped = knee + range * (1.0 - exp(-(m - knee) / range));
+    return c * (mapped / m);
+}
 
 float hash21(vec2 p)
 {
@@ -173,7 +196,9 @@ void main()
     // caustics, god-rays, refraction or snow (they read as "rays/waves in the air").
     if (u_underwater == 0)
     {
-        out_color = vec4(texture(u_scene, v_uv).rgb, 1.0);
+        vec3 dry = texture(u_scene, v_uv).rgb;
+        if (u_hdr == 1) dry = tonemapShoulder(dry);   // R0: still tonemap on dry land (emissive may blow out)
+        out_color = vec4(dry, 1.0);
         return;
     }
     float s = clamp(u_strength, 0.0, 1.0);
@@ -289,6 +314,11 @@ void main()
     float r   = length(vec2(d.x * 1.05, d.y * 1.25));
     float vig = (0.28 + 0.62 * s) * pow(clamp(r - 0.35, 0.0, 1.0), 2.0);
     c *= (1.0 - vig);
+
+    // R0: HDR→LDR tonemap. The bloom/god-ray/emissive contributions above push c
+    // past 1.0 in the RGBA16F buffer; the shoulder rolls those highlights off
+    // (keeping their colour) before the 8-bit default framebuffer clips them.
+    if (u_hdr == 1) c = tonemapShoulder(c);
 
     out_color = vec4(c, 1.0);
 }

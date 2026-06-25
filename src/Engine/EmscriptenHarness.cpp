@@ -134,6 +134,10 @@ float g_calypsoUwBloom    = 0.5f;    // batch 2: glow on bright spots
 float g_calypsoUwBreath   = 0.6f;    // batch 2: slow global light pulse
 float g_calypsoUwChroma   = 0.0f;    // OFF — no visible effect (scene edges are void)
 float g_calypsoUwShock    = 0.7f;    // E2: explosion shockwave-ring distortion (underwater)
+// Phase 25 (R1): coloured emissive halo amount (fire). The uw_ prefix keeps it in
+// the existing knob family, but the emissive pass is mission-agnostic — it fires
+// on land maps too (fire tiles), unlike the underwater-only grade/beauty FX.
+float g_calypsoUwEmissive = 1.0f;
 
 static float clamp01p(float v) { return v < 0.0f ? 0.0f : (v > 2.0f ? 2.0f : v); }
 
@@ -147,6 +151,7 @@ EMSCRIPTEN_KEEPALIVE void calypso_set_uw_bloom   (float v) { g_calypsoUwBloom   
 EMSCRIPTEN_KEEPALIVE void calypso_set_uw_breath  (float v) { g_calypsoUwBreath   = clamp01p(v); }
 EMSCRIPTEN_KEEPALIVE void calypso_set_uw_chroma  (float v) { g_calypsoUwChroma   = clamp01p(v); }
 EMSCRIPTEN_KEEPALIVE void calypso_set_uw_shock   (float v) { g_calypsoUwShock    = clamp01p(v); }
+EMSCRIPTEN_KEEPALIVE void calypso_set_uw_emissive(float v) { g_calypsoUwEmissive = clamp01p(v); }
 
 /* Phase-14 railings debug: one-shot tile/painter dump.
  * JS toggles via Module._calypso_dump_emit_once() before forcing a redraw;

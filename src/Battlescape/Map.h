@@ -256,6 +256,11 @@ private:
 	int          _ssaaScale   = 2;   // supersample factor on top of display res
 	                                 // (1 = render floor at native display res;
 	                                 //  2 = +2× supersample — 4× fragments)
+	// Phase 25 (R0): when GpuInit::hdr() is available, _ssaaColorTex is GL_RGBA16F
+	// (float, range > 1.0) so bloom/god-rays/emissive can blow out past white;
+	// the grade pass tonemaps HDR→LDR (u_hdr=1). Falls back to GL_RGBA8 (LDR,
+	// u_hdr=0, identity tonemap) when the extension or a complete FBO is absent.
+	bool         _ssaaIsHDR   = false;
 	// Phase 28: underwater colour-grade post-process. The scene (SSAA texture) is
 	// fed through underwater_grade.frag into the default framebuffer (this both
 	// downsamples AND grades, replacing the plain SSAA blit). Fires pre-composite
@@ -264,6 +269,19 @@ private:
 	unsigned int _gradeVAO    = 0;
 	unsigned int _gradeVBO    = 0;
 	void drawSceneGrade();           // fullscreen grade quad: _ssaaColorTex → screen
+
+	// Phase 25 (R1): per-source coloured emissive light. Screen-space additive
+	// halos (one quad per fire-lit tile), drawn into the SSAA scene buffer AFTER
+	// tiles/units but BEFORE the grade/tonemap, so under HDR the halo can exceed
+	// 1.0 and the bloom threshold picks it up (a colour the LDR frame never had).
+	// The engine has no RGB point lights (Tile::_light[] is a scalar uint8), so
+	// the colour is composited in screen space here.
+	struct EmissiveSource { float cx, cy; float intensity; };  // centre (base-res px), 0..1
+	std::vector<EmissiveSource> _emissiveSources;   // rebuilt each emitTilePass()
+	Shader*      _emissiveShader = nullptr;
+	unsigned int _emissiveVAO    = 0;  // inline unit-quad VAO (not shared with tiles)
+	unsigned int _emissiveVBO    = 0;
+	void drawEmissiveGLPass();       // additive coloured halos into the SSAA buffer
 	/// Fractional animation cycle position [0, 1) — set each frame, passed as u_animFrame.
 	float        _animFrameGPU = 0.0f;
 	/// Lifetime flag: reset in ~Map() so the registered GPU-pass lambda becomes a no-op.

@@ -90,6 +90,7 @@ extern "C" float g_calypsoUwBloom;
 extern "C" float g_calypsoUwBreath;
 extern "C" float g_calypsoUwChroma;
 extern "C" float g_calypsoUwShock;
+extern "C" float g_calypsoUwEmissive;   // Phase 25 (R1): coloured emissive halo amount
 /* Phase-14 railings debug: one-shot tile dump flag.
  * Set to 1 by Module._calypso_dump_emit_once() before forcing a redraw;
  * emitTilePass() and Map::draw() painter pass each log every visible tile
@@ -439,6 +440,8 @@ Map::~Map()
 	delete _shadeTableTex;  _shadeTableTex  = nullptr;
 	delete _shadeCurveTex;  _shadeCurveTex  = nullptr;  // Phase 22
 	delete _noiseTex;       _noiseTex       = nullptr;   // Phase 22
+	delete _gradeShader;    _gradeShader    = nullptr;   // Phase 28 (was leaked)
+	delete _emissiveShader; _emissiveShader = nullptr;   // Phase 25 (R1)
 	if (_tileGLInit)
 	{
 		glDeleteBuffers(1, &_tileVBO);
@@ -448,6 +451,10 @@ Map::~Map()
 		if (_blendIBO) { glDeleteBuffers(1,      &_blendIBO); _blendIBO = 0; }
 		if (_tileInstVAO) { glDeleteVertexArrays(1, &_tileInstVAO); _tileInstVAO = 0; }  // Phase 22 (H1)
 		if (_tileInstIBO) { glDeleteBuffers(1,      &_tileInstIBO); _tileInstIBO = 0; }  // Phase 22 (H1)
+		if (_gradeVAO)    { glDeleteVertexArrays(1, &_gradeVAO);    _gradeVAO = 0; }      // Phase 28 (was leaked)
+		if (_gradeVBO)    { glDeleteBuffers(1,      &_gradeVBO);    _gradeVBO = 0; }      // Phase 28
+		if (_emissiveVAO) { glDeleteVertexArrays(1, &_emissiveVAO); _emissiveVAO = 0; }   // Phase 25 (R1)
+		if (_emissiveVBO) { glDeleteBuffers(1,      &_emissiveVBO); _emissiveVBO = 0; }   // Phase 25 (R1)
 	}
 	delete _spriteShader; _spriteShader = nullptr;
 	for (auto& p : _spriteFrameCache) delete p.second;
@@ -567,8 +574,13 @@ void Map::init()
 			_tileBuffersDirty = true;          // force re-upload after context restore
 			_tileGLInit = false;
 			_gradeVAO = _gradeVBO = 0;         // Phase 28: grade quad recreated by initTileGL
+			_emissiveVAO = _emissiveVBO = 0;   // Phase 25 (R1): recreated by initTileGL
 			_ssaaFBO = _ssaaColorTex = _ssaaDepthRB = 0;  // Phase 28: force SSAA recreate
 			_ssaaW = _ssaaH = 0;
+			_ssaaIsHDR = false;                // Phase 25 (R0): re-evaluated on SSAA recreate
+			// Phase 25 (R0): the restored context drops enabled extensions —
+			// re-request EXT_color_buffer_float so the float SSAA target survives.
+			GpuInit::enableExtensions();
 			_spriteVAO = _spriteVBO = 0;
 			_spriteGLInit = false;
 			_cursorVAO = _cursorVBO = _cursorInstanceVBO = 0;
@@ -722,7 +734,8 @@ void Map::draw()
 			}
 			_cursorOverlayInstances.clear();
 			_smokeInstances.clear();
-			// Phase 22 (H1): terrain lists emptied — invalidate the persistent buffer so
+			_emissiveSources.clear();   // Phase 25 (R1): drop stale halos with the rest
+			// Phase 22 (H1): terrain lists emptied— invalidate the persistent buffer so
 			// the dirty-gate invariant holds (no stale offsets/data can be re-drawn).
 			_tileBuffersDirty = true;
 		}
@@ -2980,6 +2993,7 @@ void Map::emitTilePass()
 	}
 	_smokeInstances.clear();
 	_cursorOverlayInstances.clear();
+	_emissiveSources.clear();   // Phase 25 (R1): rebuilt below from fire-lit tiles
 	// Phase 22 (H1): the terrain instance lists are about to be rebuilt — mark the
 	// persistent _tileInstIBO stale so drawTileGLPass re-concatenates and re-uploads.
 	_tileBuffersDirty = true;
@@ -3081,6 +3095,36 @@ void Map::emitTilePass()
 			// their sprite is still on screen — leaving holes in the hull.
 			// 80 px ≈ 2 tile heights, enough for typical hull/awning yOffsets.
 			const int kTopOffsetMargin = 80;
+
+			// Phase 25 (R1): record bright fire-lit cells as coloured emissive
+			// sources. The engine's fire light is a scalar that already falls off
+			// with distance, so a high threshold keeps the halos on (and near) the
+			// actual flames. Centre is the tile diamond centre in base-res pixels;
+			// drawEmissiveGLPass() projects it with the same u_screenSize the tile
+			// pass uses. Discovered cells only (no glow through fog of war). This
+			// runs BEFORE the tile-sprite cull and uses a wider margin (the halo
+			// radius reaches ~2.2 tiles past the centre) so a flame just off-screen
+			// still lights the visible edge instead of popping in/out on scroll.
+			constexpr int kEmissiveLightThreshold = 12;   // 0..15 fire light
+			constexpr size_t kEmissiveMaxSources   = 64;
+			if (tile->isDiscovered(O_FLOOR) && _emissiveSources.size() < kEmissiveMaxSources)
+			{
+				const int em = 3 * _spriteWidth, emY = 3 * _spriteHeight;  // halo cull margin
+				if (screenPos.x > -em && screenPos.x < getWidth()  + em &&
+				    screenPos.y > -emY && screenPos.y < getHeight() + emY)
+				{
+					const int fireLight = tile->getLight(LL_FIRE);
+					if (fireLight >= kEmissiveLightThreshold)
+					{
+						EmissiveSource es;
+						es.cx        = (float)(screenPos.x + mapOffsetX) + (float)_spriteWidth  * 0.5f;
+						es.cy        = (float)(screenPos.y + mapOffsetY) + (float)_spriteHeight * 0.5f;
+						es.intensity = (float)fireLight / 15.0f;
+						_emissiveSources.push_back(es);
+					}
+				}
+			}
+
 			if (screenPos.x <= -_spriteWidth  || screenPos.x >= getWidth()  + _spriteWidth ||
 			    screenPos.y <= -_spriteHeight - kTopOffsetMargin ||
 			    screenPos.y >= getHeight() + _spriteHeight)
@@ -3659,6 +3703,36 @@ void Map::initTileGL()
 		glEnableVertexAttribArray(1);
 		glBindVertexArray(0);
 	}
+	// Phase 25 (R1): coloured emissive halo shader + its own inline unit-quad VAO
+	// (not shared with the tile/grade VAOs — keeps attribute state isolated, P17).
+	// One additive quad per fire source; falls back to no-op if compile fails.
+	if (!_emissiveShader)
+	{
+		_emissiveShader = new Shader();
+		if (!_emissiveShader->loadFromEmbedded("emissive_glow"))
+		{
+			Log(LOG_ERROR) << "Map::initTileGL: emissive_glow shader compile failed";
+			delete _emissiveShader; _emissiveShader = nullptr;
+		}
+	}
+	if (_emissiveShader && !_emissiveVAO)
+	{
+		glGenVertexArrays(1, &_emissiveVAO);
+		glGenBuffers(1, &_emissiveVBO);
+		glBindVertexArray(_emissiveVAO);
+		glBindBuffer(GL_ARRAY_BUFFER, _emissiveVBO);
+		// Unit quad in [0,1]² as two triangles; the vertex shader maps it around
+		// the source centre (a_corner @ location 0).
+		static const float unitQuad[12] = {
+			0.f, 0.f,  1.f, 0.f,  0.f, 1.f,
+			0.f, 1.f,  1.f, 0.f,  1.f, 1.f,
+		};
+		glBufferData(GL_ARRAY_BUFFER, sizeof(unitQuad), unitQuad, GL_STATIC_DRAW);
+		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+		glEnableVertexAttribArray(0);
+		glBindVertexArray(0);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+	}
 	// Phase 22: 256×256 tileable R8 noise texture (GL_REPEAT + GL_LINEAR).
 	// R8 saves 75% VRAM vs RGBA8 (64 KB vs 256 KB); uploadR8 respects
 	// Wrap::Repeat and Filter::Linear set on construction.
@@ -3901,35 +3975,70 @@ bool Map::ensureSsaaTarget(int w, int h)
 		return false;
 	}
 
+	// Phase 25 (R0): prefer a GL_RGBA16F float colour attachment so bloom /
+	// god-rays / emissive (R1) can blow out past 1.0; the grade pass tonemaps
+	// HDR→LDR. Requires EXT_color_buffer_float (renderable) AND the grade shader
+	// (the mandatory tonemap site — without it an HDR buffer would clip straight
+	// to the 8-bit default framebuffer). Builds the FBO once; if the float format
+	// reports incomplete (driver quirk) it transparently retries as RGBA8 so the
+	// grade pass always keeps its scene buffer.
+	const bool wantHDR = GpuInit::hdr() && _gradeShader && _gradeShader->isValid();
+
 	glGenFramebuffers(1, &_ssaaFBO);
 	glBindFramebuffer(GL_FRAMEBUFFER, _ssaaFBO);
 
 	// Phase 28: colour attachment is a TEXTURE (not a renderbuffer) so the
 	// underwater grade pass can sample the finished scene. LINEAR so the grade
 	// pass also performs the SSAA downsample when it samples at display res.
+	// (Half-float linear filtering is core in WebGL2.)
 	glGenTextures(1, &_ssaaColorTex);
-	glBindTexture(GL_TEXTURE_2D, _ssaaColorTex);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, sw, sh, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-	                       GL_TEXTURE_2D, _ssaaColorTex, 0);
+	bool triedHDR = wantHDR;
+	GLenum status = GL_FRAMEBUFFER_UNSUPPORTED;
+	for (int attempt = 0; attempt < 2; ++attempt)
+	{
+		const bool useHDR   = triedHDR && attempt == 0;
+		const GLint  intFmt = useHDR ? GL_RGBA16F : GL_RGBA8;
+		const GLenum pixType = useHDR ? GL_HALF_FLOAT : GL_UNSIGNED_BYTE;
+		glBindTexture(GL_TEXTURE_2D, _ssaaColorTex);
+		glTexImage2D(GL_TEXTURE_2D, 0, intFmt, sw, sh, 0, GL_RGBA, pixType, nullptr);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+		                       GL_TEXTURE_2D, _ssaaColorTex, 0);
 
-	glGenRenderbuffers(1, &_ssaaDepthRB);
-	glBindRenderbuffer(GL_RENDERBUFFER, _ssaaDepthRB);
-	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, sw, sh);
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
-	                          GL_RENDERBUFFER, _ssaaDepthRB);
+		if (attempt == 0)
+		{
+			// Depth attachment is format-independent — create it once.
+			glGenRenderbuffers(1, &_ssaaDepthRB);
+			glBindRenderbuffer(GL_RENDERBUFFER, _ssaaDepthRB);
+			glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, sw, sh);
+			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+			                          GL_RENDERBUFFER, _ssaaDepthRB);
+		}
 
-	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+		status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+		if (status == GL_FRAMEBUFFER_COMPLETE)
+		{
+			_ssaaIsHDR = useHDR;
+			break;
+		}
+		if (useHDR)
+		{
+			Log(LOG_WARNING) << "Map::ensureSsaaTarget: RGBA16F FBO incomplete (status="
+			                 << (int)status << ") — retrying as RGBA8 (no HDR)";
+			continue;   // attempt 1 rebuilds the colour texture as RGBA8
+		}
+		break;          // RGBA8 also failed — give up below
+	}
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	if (status != GL_FRAMEBUFFER_COMPLETE)
 	{
 		Log(LOG_WARNING) << "Map::ensureSsaaTarget: FBO incomplete (status="
 		                 << (int)status << ", " << sw << "x" << sh
 		                 << ") — disabling SSAA";
+		_ssaaIsHDR = false;
 		if (_ssaaFBO)     { glDeleteFramebuffers(1, &_ssaaFBO);      _ssaaFBO = 0; }
 		if (_ssaaColorTex) { glDeleteTextures(1, &_ssaaColorTex); _ssaaColorTex = 0; }
 		if (_ssaaDepthRB) { glDeleteRenderbuffers(1, &_ssaaDepthRB); _ssaaDepthRB = 0; }
@@ -3937,7 +4046,7 @@ bool Map::ensureSsaaTarget(int w, int h)
 	}
 	_ssaaW = sw; _ssaaH = sh;
 	Log(LOG_INFO) << "Map::ensureSsaaTarget: SSAA " << _ssaaScale << "x at "
-	              << sw << "x" << sh;
+	              << sw << "x" << sh << (_ssaaIsHDR ? " (RGBA16F HDR)" : " (RGBA8 LDR)");
 	return true;
 #else
 	(void)w; (void)h;
@@ -3968,6 +4077,7 @@ void Map::drawTileGLPass()
 		for (auto& grp : _unitAtlasGroups) { grp.instances.clear(); grp.zLevels.clear(); grp.yLevels.clear(); }
 		_cursorOverlayInstances.clear();
 		_smokeInstances.clear();
+		_emissiveSources.clear();   // Phase 25 (R1): drop stale halos with the rest
 		_tileBuffersDirty = true;  // Phase 22 (H1): lists emptied — next emit rebuilds the buffer
 		return;
 	}
@@ -4337,6 +4447,13 @@ void Map::drawTileGLPass()
 	glDepthFunc(GL_LESS);
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
+	// Phase 25 (R1): coloured emissive halos — additive, into the SSAA scene
+	// buffer (still bound), so under HDR they exceed 1.0 and the grade's bloom
+	// picks them up. Gated on useSsaa: only meaningful when compositing into the
+	// (HDR or at least off-screen) SSAA target the grade pass then tonemaps.
+	if (useSsaa)
+		drawEmissiveGLPass();
+
 	// --- SSAA downsample: blit the supersampled floor (READ _ssaaW×_ssaaH) into
 	// the prior framebuffer at viewport resolution (DRAW fbW×fbH) with LINEAR
 	// filtering, then restore the prior FBO binding + viewport. ---
@@ -4356,9 +4473,13 @@ void Map::drawTileGLPass()
 			glViewport(0, 0, fbW, fbH);
 			drawSceneGrade();
 		}
-		else
+		else if (!_ssaaIsHDR)
 		{
 			// Fallback (grade shader unavailable): plain linear downsample blit.
+			// R0: only valid when the SSAA buffer is RGBA8 — WebGL2 forbids a
+			// float→normalized blit, and _ssaaIsHDR can only be true when the
+			// grade shader exists (the mandatory tonemap), so this branch is
+			// reached solely in the LDR fallback. The guard documents that.
 			glBindFramebuffer(GL_READ_FRAMEBUFFER, _ssaaFBO);
 			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, (GLuint)prevFBO);
 			glBlitFramebuffer(0, 0, _ssaaW, _ssaaH, 0, 0, fbW, fbH,
@@ -4408,6 +4529,7 @@ void Map::drawSceneGrade()
 	// god-ray shafts / refraction "waves" leak onto land. (strength is a console knob, not
 	// depth-driven, so we gate by the actual depth here.)
 	_gradeShader->setUniform1i("u_underwater", (_save && _save->getDepth() > 0) ? 1 : 0);
+	_gradeShader->setUniform1i("u_hdr", _ssaaIsHDR ? 1 : 0);   // R0: tonemap when scene buffer is RGBA16F
 	_gradeShader->setUniform1f("u_strength", g_calypsoUnderwaterStrength);
 	_gradeShader->setUniform1f("u_time", (float)SDL_GetTicks() * 0.001f);
 	_gradeShader->setUniform2f("u_res", (float)Options::displayWidth,
@@ -4493,6 +4615,77 @@ void Map::drawSceneGrade()
 	glBindVertexArray(_gradeVAO);
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 	glBindVertexArray(0);
+#endif
+}
+
+/**
+ * Phase 25 (R1): per-source coloured emissive light. Draws one additive radial
+ * halo per fire-lit tile (collected in emitTilePass) into the currently-bound
+ * SSAA scene buffer, using the same base-resolution → NDC projection the tile
+ * pass uses. Under HDR (RGBA16F) the halo can exceed 1.0 so the grade's bloom
+ * threshold lifts it into a glow; under LDR it still adds a clamped tint. The
+ * caller leaves _ssaaFBO bound at SSAA viewport, depth test off-able.
+ */
+void Map::drawEmissiveGLPass()
+{
+#ifdef __EMSCRIPTEN__
+	if (!_emissiveShader || !_emissiveShader->isValid() || !_emissiveVAO) return;
+	if (_emissiveSources.empty() || g_calypsoUwEmissive <= 0.0f) return;
+
+	// Base-resolution iso space → NDC (matches drawTileGLPass' u_screenSize).
+	const float SW = (float)Options::baseXResolution;
+	const float SH = (float)Options::baseYResolution;
+
+	// Save the blend func: GpuSmokeState/GlSave save blend-ENABLE but not the
+	// src/dst factors, so an additive pass that doesn't restore leaks GL_ONE,
+	// GL_ONE into later straight-alpha passes (Phase 25 Pitfall 1). Also save the
+	// bound program so the rare grade-unavailable (blit-fallback) path doesn't
+	// leave _emissiveShader bound for a later pass that snapshots GL_CURRENT_PROGRAM.
+	GLboolean prevBlend = glIsEnabled(GL_BLEND);
+	GLint prevSrcRGB = GL_SRC_ALPHA, prevDstRGB = GL_ONE_MINUS_SRC_ALPHA;
+	GLint prevSrcA   = GL_SRC_ALPHA, prevDstA   = GL_ONE_MINUS_SRC_ALPHA;
+	GLint prevProgram = 0;
+	glGetIntegerv(GL_BLEND_SRC_RGB,   &prevSrcRGB);
+	glGetIntegerv(GL_BLEND_DST_RGB,   &prevDstRGB);
+	glGetIntegerv(GL_BLEND_SRC_ALPHA, &prevSrcA);
+	glGetIntegerv(GL_BLEND_DST_ALPHA, &prevDstA);
+	glGetIntegerv(GL_CURRENT_PROGRAM, &prevProgram);
+
+	glDisable(GL_DEPTH_TEST);
+	glDepthMask(GL_FALSE);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_ONE, GL_ONE);                       // additive
+	// Don't write the canvas alpha channel (kept opaque by the tile pass).
+	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_FALSE);
+
+	_emissiveShader->use();
+	_emissiveShader->setUniform2f("u_screenSize", SW, SH);
+	// Fire = warm orange. Engine fire light is the only RGB-less source today;
+	// R6 lava + future coloured sources can vary this per source.
+	const float tintR = 1.00f, tintG = 0.52f, tintB = 0.18f;
+
+	glBindVertexArray(_emissiveVAO);
+	for (const EmissiveSource& es : _emissiveSources)
+	{
+		// Halo radius ≈ a couple of tiles, scaled mildly by source intensity.
+		const float halfX = (float)_spriteWidth  * (1.4f + 0.8f * es.intensity);
+		const float halfY = (float)_spriteHeight * (1.4f + 0.8f * es.intensity);
+		// Core add can exceed 1.0 (HDR) — knob × per-source light × base gain.
+		const float intensity = g_calypsoUwEmissive * es.intensity * 1.8f;
+		_emissiveShader->setUniform2f("u_centerPx", es.cx, es.cy);
+		_emissiveShader->setUniform2f("u_halfPx",   halfX, halfY);
+		_emissiveShader->setUniform3f("u_tint",     tintR, tintG, tintB);
+		_emissiveShader->setUniform1f("u_intensity", intensity);
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+	}
+	glBindVertexArray(0);
+
+	// Restore exact prior blend state + full colour mask + bound program.
+	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+	glBlendFuncSeparate((GLenum)prevSrcRGB, (GLenum)prevDstRGB,
+	                    (GLenum)prevSrcA,   (GLenum)prevDstA);
+	if (!prevBlend) glDisable(GL_BLEND);
+	glUseProgram((GLuint)prevProgram);
 #endif
 }
 
