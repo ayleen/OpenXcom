@@ -94,16 +94,18 @@ void main()
     }
     float shadeF = texture(u_shadeCurve, vec2((v_shade + 0.5) / 16.0, 0.5)).r;
 
-    // Phase 25 R3: blend self+neighbour normals with the SAME w (and 0.5 cap) as
-    // the colour mix above so relief lighting stays continuous across the seam,
-    // then Lambert against the sun: shadeF * (0.6 + 0.4 * max(N·L, 0)).
+    // Phase 25 R3/R4: blend self+neighbour normals AND AO with the SAME w (and 0.5
+    // cap) as the colour mix above so relief + occlusion stay continuous across the
+    // seam, then Lambert: AO * (0.6 + 0.4 * max(N·L, 0)).
     float relief = 1.0;
     if (u_hasNormalMap == 1)
     {
-        vec3 nSelf = texture(u_normalMap, v_uv          + frameOff).rgb * 2.0 - 1.0;
-        vec3 nNbr  = texture(u_normalMap, v_neighbourUV + frameOff).rgb * 2.0 - 1.0;
-        vec3 n = normalize(mix(nSelf, nNbr, clamp(w, 0.0, 1.0) * 0.5));
-        relief = 0.6 + 0.4 * max(dot(n, normalize(u_sunDir)), 0.0);
+        vec4 nmSelf = texture(u_normalMap, v_uv          + frameOff);
+        vec4 nmNbr  = texture(u_normalMap, v_neighbourUV + frameOff);
+        vec4 nm = mix(nmSelf, nmNbr, clamp(w, 0.0, 1.0) * 0.5);
+        vec3  n  = normalize(nm.rgb * 2.0 - 1.0);
+        float ao = nm.a;                                   // R4: ambient occlusion
+        relief = ao * (0.6 + 0.4 * max(dot(n, normalize(u_sunDir)), 0.0));
     }
     fragColor = vec4(c.rgb * shadeF * relief, c.a);
 }
