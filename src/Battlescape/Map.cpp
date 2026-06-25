@@ -92,6 +92,7 @@ extern "C" float g_calypsoUwChroma;
 extern "C" float g_calypsoUwShock;
 extern "C" float g_calypsoUwEmissive;   // Phase 25 (R1): coloured emissive halo amount
 extern "C" float g_calypsoSunDir[3];    // Phase 25 (R3): tangent-space sun dir for normal relief
+extern "C" int   g_calypsoSunAuto;      // Phase 25 (R3): 1 = engine drives the sun (per-turn sweep)
 /* Phase-14 railings debug: one-shot tile dump flag.
  * Set to 1 by Module._calypso_dump_emit_once() before forcing a redraw;
  * emitTilePass() and Map::draw() painter pass each log every visible tile
@@ -4303,6 +4304,31 @@ void Map::drawTileGLPass()
 	glDepthFunc(GL_LEQUAL);
 	// Phase 20.4: track active blend func to avoid redundant GL calls.
 	bool curPremult = false; // false = straight alpha (GL_SRC_ALPHA)
+
+	// Phase 25 R3: resolve the relief sun direction (shared by the overlay + blend
+	// passes). In AUTO mode the engine sweeps the azimuth per turn — a slow "time
+	// of day" — eased so turns transition smoothly, plus a gentle continuous wobble
+	// and elevation bob, staying in the upper hemisphere (underwater light comes
+	// from the surface, coherent with the god-rays). A manual _calypso_set_sun_dir
+	// freezes g_calypsoSunDir instead (dev override; resume with _calypso_set_sun_auto).
+	float sd[3];
+	if (g_calypsoSunAuto)
+	{
+		const int   turn     = _save ? _save->getTurn() : 1;
+		const float t        = (float)SDL_GetTicks() * 0.001f;
+		const float targetAz = (float)turn * 0.40f;                  // ~23 deg / turn
+		_reliefSunAzimuth   += (targetAz - _reliefSunAzimuth) * 0.015f;  // ~2-3 s ease
+		const float az       = _reliefSunAzimuth + 0.12f * std::sin(t * 0.05f);  // wobble
+		const float lat      = 0.45f;                                // lean off vertical
+		sd[0] = lat * std::cos(az);
+		sd[1] = lat * std::sin(az);
+		sd[2] = 0.85f + 0.08f * std::sin(t * 0.03f);                 // gentle elevation bob
+	}
+	else
+	{
+		sd[0] = g_calypsoSunDir[0]; sd[1] = g_calypsoSunDir[1]; sd[2] = g_calypsoSunDir[2];
+	}
+
 	for (auto& grp : _tileAtlasGroups)
 	{
 		if (!grp.overlayAtlas || grp.overlayInstances.empty()) continue;
@@ -4326,8 +4352,7 @@ void Map::drawTileGLPass()
 			{
 				_tileShaderRgba->setUniform1i("u_normalMap",    4);
 				_tileShaderRgba->setUniform1i("u_hasNormalMap", 1);
-				_tileShaderRgba->setUniform3f("u_sunDir",
-				    g_calypsoSunDir[0], g_calypsoSunDir[1], g_calypsoSunDir[2]);
+				_tileShaderRgba->setUniform3f("u_sunDir", sd[0], sd[1], sd[2]);
 				grp.normalAtlas->bind(4);
 			}
 			else
@@ -4397,8 +4422,7 @@ void Map::drawTileGLPass()
 			{
 				_blendShader->setUniform1i("u_normalMap",    4);
 				_blendShader->setUniform1i("u_hasNormalMap", 1);
-				_blendShader->setUniform3f("u_sunDir",
-				    g_calypsoSunDir[0], g_calypsoSunDir[1], g_calypsoSunDir[2]);
+				_blendShader->setUniform3f("u_sunDir", sd[0], sd[1], sd[2]);
 				grp.normalAtlas->bind(4);
 			}
 			else

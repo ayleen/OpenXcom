@@ -154,11 +154,14 @@ EMSCRIPTEN_KEEPALIVE void calypso_set_uw_shock   (float v) { g_calypsoUwShock   
 EMSCRIPTEN_KEEPALIVE void calypso_set_uw_emissive(float v) { g_calypsoUwEmissive = clamp01p(v); }
 
 /* Phase 25 (R3): tangent-space sun direction for normal-map relief. The shader
- * normalises it. Default is a high-Z diagonal so flat (0,0,1) surfaces barely
- * darken while relief picks up directional light. The relief STRENGTH itself is
- * baked into the atlas at build time (ruleset normalStrength:), not here.
- * Live-tunable: Module._calypso_set_sun_dir(x, y, z). */
+ * normalises it. In production the engine DRIVES this automatically (a per-turn
+ * azimuth sweep — "time of day" — in the upper hemisphere, coherent with the
+ * surface god-rays); see Map::drawTileGLPass. g_calypsoSunAuto gates that. The
+ * relief STRENGTH is baked into the atlas at build time (ruleset normalStrength:).
+ * Dev override: Module._calypso_set_sun_dir(x, y, z) freezes a manual direction;
+ * Module._calypso_set_sun_auto(1) resumes the automatic sweep. */
 float g_calypsoSunDir[3] = { -0.40f, -0.40f, 0.82f };
+int   g_calypsoSunAuto   = 1;   // 1 = engine drives the sun; 0 = manual override
 
 EMSCRIPTEN_KEEPALIVE
 void calypso_set_sun_dir(float x, float y, float z)
@@ -168,7 +171,11 @@ void calypso_set_sun_dir(float x, float y, float z)
 	// corrupt the relief term for every normal-mapped tile. Keep the prior value.
 	if (x * x + y * y + z * z < 1e-12f) return;
 	g_calypsoSunDir[0] = x; g_calypsoSunDir[1] = y; g_calypsoSunDir[2] = z;
+	g_calypsoSunAuto = 0;   // a manual set freezes the automatic sweep (dev override)
 }
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_set_sun_auto(int on) { g_calypsoSunAuto = on ? 1 : 0; }
 
 /* Phase-14 railings debug: one-shot tile/painter dump.
  * JS toggles via Module._calypso_dump_emit_once() before forcing a redraw;

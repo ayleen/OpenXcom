@@ -287,6 +287,10 @@ private:
 	void drawEmissiveGLPass();       // additive coloured halos into the SSAA buffer
 	/// Fractional animation cycle position [0, 1) — set each frame, passed as u_animFrame.
 	float        _animFrameGPU = 0.0f;
+	/// Phase 25 R3: eased azimuth of the auto-driven relief sun. Lerps toward a
+	/// per-turn target each frame so the "time of day" sweep transitions smoothly
+	/// instead of snapping at turn boundaries. Per-battle (Map is recreated).
+	float        _reliefSunAzimuth = 0.0f;
 	/// Lifetime flag: reset in ~Map() so the registered GPU-pass lambda becomes a no-op.
 	std::shared_ptr<bool>    _gpuAliveFlag;
 
