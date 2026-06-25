@@ -48,6 +48,7 @@
 #include "../Savegame/BattleItem.h"
 #include "../Ufopaedia/Ufopaedia.h"
 #include "../Mod/RuleItem.h"
+#include "../Mod/RuleDamageType.h"
 #include "../Mod/RuleInterface.h"
 #include "../Mod/MapDataSet.h"
 #include "../Mod/MapData.h"
@@ -88,6 +89,7 @@ extern "C" float g_calypsoUwGodray;
 extern "C" float g_calypsoUwBloom;
 extern "C" float g_calypsoUwBreath;
 extern "C" float g_calypsoUwChroma;
+extern "C" float g_calypsoUwShock;
 /* Phase-14 railings debug: one-shot tile dump flag.
  * Set to 1 by Module._calypso_dump_emit_once() before forcing a redraw;
  * emitTilePass() and Map::draw() painter pass each log every visible tile
@@ -511,16 +513,17 @@ void Map::init()
 			if (!wf.lock()) return;
 			this->drawMurkGLPass();
 		});
-		// Calypso P30 Срез B: blood plume PRE-composite (after murk, in the water scene,
-		// under the HUD). Drifts up + fades; spawned on a flesh-wounding hit. Scissored
-		// to the map so the rising plume can't bleed up into the letterbox/HUD strip.
+		// Calypso P30 Срез B: blood plume + pools + scorch PRE-composite (after murk, in
+		// the scene). NO scissor — exactly like murk: these sit under the CPU HUD/menu
+		// composite, so the HUD overdraws them at the bottom instead of a hard scissor cut
+		// at the HUD's top edge. Position-anchored to blast/wound tiles, so they never
+		// reach the top/side letterbox.
 		_game->getScreen()->registerGPUPassPreComposite([this, wf]() {
 			if (!wf.lock()) return;
-			this->beginMapScissor();
 			this->drawBloodGLPass();
-			this->endMapScissor();
 		});
-		// Block 11.10: tile-space cursor overlay after tile pass, before sprites.
+		// Block 11.10: tile-space cursor overlay — kept POST-composite (it is interactive
+		// UI, wants to stay crisp over everything; scissored + menu-gated).
 		_game->getScreen()->registerGPUPass([this, wf]() {
 			if (!wf.lock()) return;
 			if (!this->overlayPassesActive()) return;   // not over a menu
@@ -528,32 +531,28 @@ void Map::init()
 			this->drawCursorOverlayGLPass();
 			this->endMapScissor();
 		});
-		// Block 11.8: projectile pass fires after cursor overlay.
-		_game->getScreen()->registerGPUPass([this, wf]() {
+		// Calypso P30: ALL battlescape FX (projectile, explosion flash/fireball/bubble,
+		// wound-glow, particle burst) fire PRE-composite WITHOUT a scissor — exactly like
+		// murk. They draw over the GL scene (tiles + units are emitted inside
+		// drawTileGLPass), and the CPU HUD/menu composite then draws over them. This is
+		// what stops every effect being hard-clipped at the HUD's top edge (the old POST +
+		// beginMapScissor path cut them at mapClipBottomY). Order: projectile → flash/
+		// fireball → wound-glow → particles.
+		_game->getScreen()->registerGPUPassPreComposite([this, wf]() {
 			if (!wf.lock()) return;
-			if (!this->overlayPassesActive()) return;
-			this->beginMapScissor();
 			this->drawProjectileGLPass();
-			this->endMapScissor();
 		});
-		// Block 11.9: smoke/explosion pass fires after projectile pass
-		// (cursor registered from BattlescapeState ctor last, so order is:
-		//  tiles → cursor overlay → projectiles → smoke → cursor).
-		_game->getScreen()->registerGPUPass([this, wf]() {
+		_game->getScreen()->registerGPUPassPreComposite([this, wf]() {
 			if (!wf.lock()) return;
-			if (!this->overlayPassesActive()) return;
-			this->beginMapScissor();
 			this->drawSmokeGLPass();
-			this->endMapScissor();
 		});
-		// Calypso P30 Срез B: wound-glow POST-composite (over wounded units), gated +
-		// scissored to the map. Stateless — pulses on any living wounded unit.
-		_game->getScreen()->registerGPUPass([this, wf]() {
+		_game->getScreen()->registerGPUPassPreComposite([this, wf]() {
 			if (!wf.lock()) return;
-			if (!this->overlayPassesActive()) return;
-			this->beginMapScissor();
 			this->drawWoundGlowGLPass();
-			this->endMapScissor();
+		});
+		_game->getScreen()->registerGPUPassPreComposite([this, wf]() {
+			if (!wf.lock()) return;
+			this->drawFxParticlesGLPass();
 		});
 
 		// Block 11.13: after context restore, zero stale VAO/VBO handles and
@@ -576,6 +575,14 @@ void Map::init()
 			_cursorGLInit = false;
 			_unitAtlasGroups.clear();
 			_game->getMod()->clearUnitAtlases();
+			// Drop cached GpuTextures whose GL handles died with the context — else
+			// getUITexture / getOrUploadSpriteFrame keep returning dead textures and every
+			// FX that uses them (blood pools/scorch, murk, fire, particles, …) renders
+			// nothing after a resolution change. Clearing forces a lazy re-upload.
+			for (auto& p : _uiTexCache)      delete p.second;
+			_uiTexCache.clear();
+			for (auto& p : _spriteFrameCache) delete p.second;
+			_spriteFrameCache.clear();
 		});
 	}
 #endif
@@ -4396,6 +4403,11 @@ void Map::drawSceneGrade()
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, _ssaaColorTex);
 	_gradeShader->setUniform1i("u_scene", 0);
+	// Only underwater missions get the grade + beauty FX. On dry land (depth 0) the pass
+	// is a plain passthrough (it still IS the SSAA downsample) — otherwise the caustics /
+	// god-ray shafts / refraction "waves" leak onto land. (strength is a console knob, not
+	// depth-driven, so we gate by the actual depth here.)
+	_gradeShader->setUniform1i("u_underwater", (_save && _save->getDepth() > 0) ? 1 : 0);
 	_gradeShader->setUniform1f("u_strength", g_calypsoUnderwaterStrength);
 	_gradeShader->setUniform1f("u_time", (float)SDL_GetTicks() * 0.001f);
 	_gradeShader->setUniform2f("u_res", (float)Options::displayWidth,
@@ -4444,6 +4456,39 @@ void Map::drawSceneGrade()
 		}
 	}
 	_gradeShader->setUniform1i("u_unitCount", unitCount);
+
+	// E2: underwater explosion shockwave rings. Project each active blast voxel to v_uv
+	// (same transform as the bubbles) + pass its age; the shader warps the scene in an
+	// expanding ring. Gated by u_strength>0 (dry land) inside the shader.
+	_gradeShader->setUniform1f("u_shock", g_calypsoUwShock);
+	static const char* kSwCenter[4] = { "u_swCenter[0]", "u_swCenter[1]", "u_swCenter[2]", "u_swCenter[3]" };
+	static const char* kSwAge[4]    = { "u_swAge[0]",    "u_swAge[1]",    "u_swAge[2]",    "u_swAge[3]" };
+	int swCount = 0;
+	if (scr && _camera && _save && !_shockwaves.empty())
+	{
+		const float xS = (float)scr->getXScale(), yS = (float)scr->getYScale();
+		const float lbb = (float)scr->getCursorLeftBlackBand();
+		const float tbb = (float)scr->getCursorTopBlackBand();
+		const float dW = (float)Options::displayWidth, dH = (float)Options::displayHeight;
+		const unsigned int now = SDL_GetTicks();
+		for (const auto& sw : _shockwaves)
+		{
+			if (swCount >= 4) break;
+			const float age = (float)(now - sw.spawnTick) / sw.lifeMs;
+			if (age < 0.0f || age >= 1.0f) continue;
+			Position sp;
+			_camera->convertMapToScreen(sw.voxel.toTile(), &sp);
+			sp += _camera->getMapOffset();
+			const float dispX = (float)sp.x * xS + lbb + (float)_spriteWidth  * xS * 0.5f;
+			const float dispY = (float)sp.y * yS + tbb + (float)_spriteHeight * yS * 0.5f;
+			const float uvx = dispX / dW;
+			const float uvy = 1.0f - dispY / dH;
+			_gradeShader->setUniform2f(kSwCenter[swCount], uvx, uvy);
+			_gradeShader->setUniform1f(kSwAge[swCount], age);
+			++swCount;
+		}
+	}
+	_gradeShader->setUniform1i("u_swCount", swCount);
 
 	glBindVertexArray(_gradeVAO);
 	glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -5158,6 +5203,58 @@ void Map::drawMurkGLPass()
 
 // ---- Calypso Phase 30 Срез B: aftermath FX ---------------------------------
 
+#ifdef __EMSCRIPTEN__
+// True if any UFO/sliding door bounding tile `p` is currently open. Shared by the spawn sites
+// (to mark a decal "floor-only" when it is created while the doorway is open) and the draw
+// pass (to diamond-clip a decal whose door is open right now). Checks the 4 walls bounding the
+// tile (own W/N, east neighbour's W, south neighbour's N) plus bigwall O_OBJECT doors on the
+// tile and its 4 orthogonal neighbours.
+static bool calypsoDoorwayOpen(SavedBattleGame* save, Position p)
+{
+	auto open = [&](int dx, int dy, TilePart part) {
+		const Tile* x = save->getTile(p + Position(dx, dy, 0));
+		return x && x->isUfoDoorOpen(part);
+	};
+	return open(0, 0, O_WESTWALL) || open(0, 0, O_NORTHWALL)
+	    || open(1, 0, O_WESTWALL) || open(0, 1, O_NORTHWALL)
+	    || open(0, 0, O_OBJECT)
+	    || open(-1, 0, O_OBJECT) || open(1, 0, O_OBJECT)
+	    || open(0, -1, O_OBJECT) || open(0, 1, O_OBJECT);
+}
+
+// Which tile edges a decal should be cut along — a 4-bit mask (1=W, 2=N, 4=E, 8=S). An edge
+// is cut when it carries a UFO door AND that door is open now OR the decal is floorOnly (laid
+// down with the door open, so it must never paint the door even after it shuts). Cutting only
+// the door's edge — not the whole diamond — keeps the splat's natural shape on the other sides.
+static int calypsoDoorClipEdges(SavedBattleGame* save, Position p, bool floorOnly)
+{
+	int mask = 0;
+	auto edge = [&](int bit, int dx, int dy, TilePart part) {
+		const Tile* x = save->getTile(p + Position(dx, dy, 0));
+		if (x && x->isUfoDoor(part) && (x->isUfoDoorOpen(part) || floorOnly)) mask |= bit;
+	};
+	edge(1, 0, 0, O_WESTWALL);  edge(1, -1, 0, O_OBJECT);   // west edge: own W wall / W-neighbour object door
+	edge(2, 0, 0, O_NORTHWALL); edge(2, 0, -1, O_OBJECT);   // north edge: own N wall / N-neighbour object door
+	edge(4, 1, 0, O_WESTWALL);  edge(4, 1, 0, O_OBJECT);    // east edge: E-neighbour W wall / object door
+	edge(8, 0, 1, O_NORTHWALL); edge(8, 0, 1, O_OBJECT);    // south edge: S-neighbour N wall / object door
+	return mask;
+}
+
+// A floor decal on tile p is hidden when a higher level in the SAME column carries a floor and
+// that level is currently drawn (z <= the camera view level). Such a floor — an upper-deck or
+// roof (e.g. above the Triton's lower deck) — occludes the decal from the top-down iso view, so
+// the PRE-composite splat (which ignores z-ordering) must not paint over it on the level above.
+static bool calypsoDecalCovered(SavedBattleGame* save, Position p, int viewLevel)
+{
+	for (int z = p.z + 1; z <= viewLevel; ++z)
+	{
+		const Tile* up = save->getTile(Position(p.x, p.y, z));
+		if (up && up->getMapData(O_FLOOR)) return true;
+	}
+	return false;
+}
+#endif
+
 void Map::spawnBloodFx(Position unitTile, int healthDamage, int faction)
 {
 #ifdef __EMSCRIPTEN__
@@ -5173,16 +5270,20 @@ void Map::spawnBloodFx(Position unitTile, int healthDamage, int faction)
 	}
 	else
 	{
-		// Dry land: a persistent floor pool (kept until mission end). Cap by dropping
+		// Dry land: a persistent floor pool (kept until mission end). Stored on
+		// SavedBattleGame so it survives a Map teardown (resolution change). Cap by dropping
 		// the oldest so a long, bloody mission never grows unbounded.
-		if (_bloodPools.size() >= 200) _bloodPools.erase(_bloodPools.begin());
+		auto& pools = _save->getCalypsoBloodPools();
+		if (pools.size() >= 200) pools.erase(pools.begin());
 		const unsigned int h = (unsigned int)(unitTile.x * 73856093) ^ (unsigned int)(unitTile.y * 19349663) ^ SDL_GetTicks();
-		_bloodPools.push_back(BloodPool{ unitTile, SDL_GetTicks(), seed, faction, (int)(h % 6u) });   // 6 pool variants
+		const int floorOnly = calypsoDoorwayOpen(_save, unitTile) ? 1 : 0;   // bled while the doorway was open → keep it on the floor
+		pools.push_back(CalypsoBloodPool{ unitTile, SDL_GetTicks(), seed, faction, (int)(h % 6u), floorOnly });   // 6 pool variants
 	}
 #else
 	(void)unitTile; (void)healthDamage; (void)faction;
 #endif
 }
+
 
 /**
  * Calypso Phase 30 (Срез B): underwater blood plume — a drifting crimson cloud per
@@ -5193,14 +5294,17 @@ void Map::spawnBloodFx(Position unitTile, int healthDamage, int faction)
 void Map::drawBloodGLPass()
 {
 #ifdef __EMSCRIPTEN__
-	if (_bloodFx.empty() && _bloodPools.empty()) return;
+	// Persistent pools + scorch live on SavedBattleGame (survive a Map teardown / res change).
+	auto& bloodPools = _save->getCalypsoBloodPools();
+	auto& scorchDecals = _save->getCalypsoScorchDecals();
+	if (_bloodFx.empty() && bloodPools.empty() && scorchDecals.empty()) return;
 	const unsigned int now = SDL_GetTicks();
 	// Purge expired plumes first — independent of GL readiness — so the 64-entry plume
 	// cap can never deadlock if GL is briefly unavailable (e.g. context loss). Pools are
 	// persistent (kept until mission end) and bounded by the spawn-time drop-oldest cap.
 	_bloodFx.erase(std::remove_if(_bloodFx.begin(), _bloodFx.end(),
 		[now](const BloodFx& f){ return (now - f.spawnTick) >= f.lifeMs; }), _bloodFx.end());
-	if (_bloodFx.empty() && _bloodPools.empty()) return;
+	if (_bloodFx.empty() && bloodPools.empty() && scorchDecals.empty()) return;
 	if (SDL_GetTicks() - _lastDrawnTicks > 250) return;   // don't animate over a stale scene
 	if (!_spriteGLInit) initSpriteGL();
 	if (!_spriteShader || !_spriteShader->isValid() || !_spriteVAO) return;
@@ -5224,6 +5328,7 @@ void Map::drawBloodGLPass()
 	_spriteShader->setUniform1i("u_tex", 0);
 	_spriteShader->setUniform2f("u_uvScroll", 0.0f, 0.0f);
 	_spriteShader->setUniform1f("u_radial", 0.0f);   // pools are flat; plumes turn it on below
+	_spriteShader->setUniform4f("u_clipEdges", 0.0f, 0.0f, 0.0f, 0.0f);   // per-edge clip off by default (toggled per door-pool)
 
 	// Dihedral UV transform: variant 0-7 = 90° rotation (low 2 bits) + optional mirror
 	// (bit 2). Re-orienting the cloud per spawn so no two plumes look alike.
@@ -5266,9 +5371,62 @@ void Map::drawBloodGLPass()
 		glBindVertexArray(0);
 	};
 
-	// --- dry-land blood pools: persistent flat decals on the floor, drying over time ---
-	for (const auto& bp : _bloodPools)
+	// Calypso P30: floor decals are drawn PRE-composite OVER the scene, so a splat at a doorway
+	// shows over a closed door (atmospheric — kept) or flat on the floor with the door open. We
+	// only want to drop the part that crosses a door threshold (onto the floor a now-open door
+	// reveals, or onto a now-closed door for a pool laid down with it open). calypsoDoorClipEdges
+	// gives the tile edges to cut (1=W,2=N,4=E,8=S); `setEdgeClip` feeds textured.frag's per-edge
+	// half-planes so the decal is sliced along ONLY those edges — keeping the splat's natural
+	// shape on every other side, instead of masking the whole tile diamond (which showed the
+	// splat's opaque centre as a solid filled diamond). Cutting along the exact iso edge also
+	// works for any direction (a west-wall door reveals the up-LEFT tile at the same screen Y, so
+	// a horizontal scissor couldn't separate it). Centre + half-extents are window pixels.
+	auto setEdgeClip = [&](int cxp, int cyp, int mask) {
+		const float winX = (float)cxp * xScale + (float)lbb;
+		const float winY = (float)dH - ((float)cyp * yScale + (float)tbb);   // gl_FragCoord is bottom-left
+		_spriteShader->setUniform4f("u_clipEdges",
+			(mask & 1) ? 1.0f : 0.0f, (mask & 2) ? 1.0f : 0.0f,
+			(mask & 4) ? 1.0f : 0.0f, (mask & 8) ? 1.0f : 0.0f);
+		_spriteShader->setUniform2f("u_clipCenter", winX, winY);
+		_spriteShader->setUniform2f("u_clipHalf", (float)(_spriteWidth / 2) * xScale, (float)(_spriteWidth / 4) * yScale);
+	};
+
+	const int viewLevel = _camera->getViewLevel();              // floor decals above this level aren't drawn
+
+	// --- E3: charred-ground decals (land AoE aftermath), persistent, under the blood ---
+	for (const auto& sd : scorchDecals)
 	{
+		const Tile* st = _save->getTile(sd.tile);
+		if (!st || !st->isDiscovered(O_FLOOR)) continue;        // hide on fogged/unexplored tiles
+		if (sd.tile.z > viewLevel) continue;                   // above the current view level — not drawn
+		if (calypsoDecalCovered(_save, sd.tile, viewLevel)) continue;   // a drawn floor above occludes it
+		GpuTexture* tex = getUITexture(
+			std::string("Resources/battlescape/fx/scorch/scorch-") + std::to_string(sd.variant & 3) + ".png", 0);
+		if (!tex) tex = getUITexture("Resources/battlescape/fx/scorch/scorch-0.png", 0);   // fallback
+		if (!tex) continue;
+		const float ageS = (float)(now - sd.spawnTick) * 0.001f;
+		const float fadeIn = std::min(1.0f, ageS / 0.4f);                   // appears as the blast clears
+		Position sp;
+		_camera->convertMapToScreen(sd.tile, &sp);
+		sp += camOff;
+		const int cx = sp.x + mapX + _spriteWidth / 2;
+		const int cy = sp.y + mapY + (int)((float)_spriteHeight * 0.55f);   // on the floor
+		const int side = std::max(1, (int)((float)_spriteWidth * sd.size));
+		const int clipMask = calypsoDoorClipEdges(_save, sd.tile, sd.floorOnly != 0);   // cut along door edge(s)
+		_spriteShader->setUniform3f("u_tint", 0.09f, 0.07f, 0.05f);         // dark char
+		_spriteShader->setUniform1f("u_alpha", 0.82f * fadeIn);
+		if (clipMask) setEdgeClip(cx, cy, clipMask);
+		drawQuad(tex, cx - side / 2, cy - side / 2, side, side, sd.variant);
+		if (clipMask) _spriteShader->setUniform4f("u_clipEdges", 0.0f, 0.0f, 0.0f, 0.0f);
+	}
+
+	// --- dry-land blood pools: persistent flat decals on the floor, drying over time ---
+	for (const auto& bp : bloodPools)
+	{
+		const Tile* pt = _save->getTile(bp.tile);
+		if (!pt || !pt->isDiscovered(O_FLOOR)) continue;        // hide on fogged/unexplored tiles
+		if (bp.tile.z > viewLevel) continue;                   // above the current view level — not drawn
+		if (calypsoDecalCovered(_save, bp.tile, viewLevel)) continue;   // a drawn floor above occludes it
 		const float ageS = (float)(now - bp.spawnTick) * 0.001f;
 		GpuTexture* tex = getUITexture(
 			std::string("Resources/battlescape/fx/blood/pool-") + std::to_string(bp.variant) + ".png", 0);
@@ -5288,9 +5446,12 @@ void Map::drawBloodGLPass()
 		{ r = 0.40f - 0.22f * dry; g = 0.55f - 0.34f * dry; b = 0.16f - 0.08f * dry; }
 		else                                                               // crimson -> dark brown
 		{ r = 0.55f - 0.32f * dry; g = 0.04f + 0.05f * dry; b = 0.05f + 0.02f * dry; }
+		const int clipMask = calypsoDoorClipEdges(_save, bp.tile, bp.floorOnly != 0);   // cut along door edge(s)
 		_spriteShader->setUniform3f("u_tint", r, g, b);
 		_spriteShader->setUniform1f("u_alpha", 0.88f * fadeIn);
+		if (clipMask) setEdgeClip(cx, cy, clipMask);       // slice off only the past-door bleed, keep the splat shape
 		drawQuad(tex, cx - side / 2, cy - side / 2, side, side, (int)(bp.seed * 8.0f) & 7);
+		if (clipMask) _spriteShader->setUniform4f("u_clipEdges", 0.0f, 0.0f, 0.0f, 0.0f);
 	}
 
 	const int kBloodFrames = 6;
@@ -5300,6 +5461,8 @@ void Map::drawBloodGLPass()
 		float age = (float)(now - bf.spawnTick) / bf.lifeMs;
 		if (age < 0.0f) age = 0.0f;
 		if (age >= 1.0f) continue;
+		const Tile* bt = _save->getTile(bf.tile);
+		if (!bt || !bt->isDiscovered(O_FLOOR)) continue;        // hide on fogged/unexplored tiles
 		int fr = (int)(age * kBloodFrames);
 		if (fr < 0) fr = 0; else if (fr >= kBloodFrames) fr = kBloodFrames - 1;
 		GpuTexture* tex = getUITexture(
@@ -5452,27 +5615,29 @@ Position Map::currentShakeOffset() const
 {
 	if (_shakeAmp <= 0.0f) return Position(0, 0, 0);
 	const float elapsed = (float)(SDL_GetTicks() - _shakeStartMs) * 0.001f;
-	const float dur = 0.30f;
+	const float dur = _shakeDur;
 	if (elapsed >= dur) { _shakeAmp = 0.0f; return Position(0, 0, 0); }   // settle (skip future work)
 	float env = 1.0f - elapsed / dur; env *= env;                          // ease-out
 	const float a = _shakeAmp * env;
-	const float w = 46.0f;                                                 // angular freq
+	const float w = _shakeFreq;                                            // angular freq (low = heavy)
 	const int dx = (int)std::lround(std::sin(elapsed * w)               * a);
 	const int dy = (int)std::lround(std::sin(elapsed * w * 1.7f + 1.1f) * a * 0.55f);
 	return Position(dx, dy, 0);
 }
 
-void Map::triggerShake(float amplitudePx)
+void Map::triggerShake(float amplitudePx, float freq, float durSec)
 {
 	const float es = (float)_spriteWidth / 32.0f;                          // tile-scale aware
 	_shakeAmp = amplitudePx * es;
 	_shakeStartMs = SDL_GetTicks();
+	_shakeFreq = freq;
+	_shakeDur = durSec;
 }
 
 void Map::triggerHitFx(Position voxelCenter, int power, int unitId, float dirX, float dirY)
 {
 	// Contact flash at the impact point (works for terrain / object / unit alike).
-	_impactFlashes.push_back(ImpactFlash{ voxelCenter, SDL_GetTicks(), 400.0f });
+	_impactFlashes.push_back(ImpactFlash{ voxelCenter, SDL_GetTicks(), 0u, 400.0f, 1.1f, 1.0f, 0.96f, 0.85f, 0 });
 	// Camera shake, scaled by power.
 	triggerShake(std::min(6.0f, 1.5f + (float)power * 0.06f));
 	// Sprite jolt for the struck unit (any faction), toward bullet travel.
@@ -5481,6 +5646,341 @@ void Map::triggerHitFx(Position voxelCenter, int power, int unitId, float dirX, 
 		const int frames = 3;
 		_unitShakeOffset[unitId] = UnitShake{ dirX, dirY, frames, frames };
 	}
+}
+
+void Map::triggerAoEFx(Position voxelCenter, int power, int radius, bool underwater, int damageType)
+{
+	const unsigned int t0 = SDL_GetTicks();
+	const float p  = (float)power;
+	const float es = (float)_spriteWidth / 32.0f;
+
+	// Non-game PRNG (hash of tick+index) so we never advance the deterministic game RNG
+	// (would desync replays/saves). Used for the mini-bubble scatter and the particle burst.
+	auto frand = [](unsigned int s) {
+		s ^= 61u ^ (s >> 16); s *= 9u; s ^= s >> 4; s *= 0x27d4eb2du; s ^= s >> 15;
+		return (float)(s & 0xffffffu) / (float)0x1000000u;
+	};
+
+	// Stun / smoke blasts (e.g. Thermal Shok Launcher) are NOT fiery and leave no burn:
+	// a soft gas cloud over the area + a gentle nudge — no fire flash, no scorch, no hot
+	// sparks / vapor bubble / shockwave. The lingering tile smoke carries the cloud after.
+	if (damageType == DT_STUN || damageType == DT_SMOKE)
+	{
+		triggerShake(std::min(5.0f, 1.5f + p * 0.03f), 30.0f, 0.30f);
+		float gr, gg, gb;
+		if (damageType == DT_STUN) { gr = 0.55f; gg = 0.95f; gb = 0.70f; }  // pale green stun gas
+		else                        { gr = 0.72f; gg = 0.75f; gb = 0.78f; }  // grey smoke
+		const int rT = std::max(1, radius);
+		const int puffs = std::min(22, 8 + rT * 2);
+		for (int i = 0; i < puffs; ++i)
+		{
+			const float h0 = frand(t0 + (unsigned)i * 2654435761u + 3u);
+			const float h1 = frand(t0 * 3u + (unsigned)i * 40503u + 19u);
+			const float h2 = frand(t0 + (unsigned)i * 668265263u + 41u);
+			const float ang = h0 * 6.2832f;
+			const float dist = (float)rT * 16.0f * 0.8f * std::sqrt(h1);    // over the blast area
+			FxParticle fp{};
+			fp.origin = voxelCenter;
+			fp.origin.x += (int)(std::cos(ang) * dist);
+			fp.origin.y += (int)(std::sin(ang) * dist);
+			fp.spawnTick = t0;
+			fp.delayMs = (unsigned int)(h2 * 300.0f);
+			fp.vx = std::cos(ang) * 20.0f * es;
+			fp.vy = std::sin(ang) * 14.0f * es - 30.0f * es;               // slow drift, slight rise
+			fp.ay = -40.0f * es;                                           // gentle buoyancy
+			fp.lifeMs = 1400.0f + 900.0f * h2;
+			fp.size = (14.0f + 16.0f * h2) * es;                           // big soft gas blobs
+			fp.r = gr; fp.g = gg; fp.b = gb; fp.additive = false;          // translucent, not glowing
+			fp.texCode = 100 + ((int)(h0 * 53.0f) % 4);                    // smoke-puff sprite
+			_fxParticles.push_back(fp);
+		}
+		if (_fxParticles.size() > 320)
+			_fxParticles.erase(_fxParticles.begin(), _fxParticles.begin() + (_fxParticles.size() - 320));
+		return;   // no fiery flash / scorch / bubble / shockwave / hot particles
+	}
+
+	// Camera shake: sharp/high-freq rattle on land, heavy/low-freq sway underwater.
+	const float amp = std::min(10.0f, 2.5f + p * 0.06f);
+	if (underwater) triggerShake(amp * 1.15f, 22.0f, 0.55f);
+	else            triggerShake(amp,         56.0f, 0.26f);
+
+	// Centre body: underwater = a smooth expanding/collapsing VAPOR BUBBLE (kind 1) —
+	// the signature underwater element, replaces the sharp burst so it doesn't read as a
+	// space explosion. Land = an 8-frame FIREBALL sprite (kind 3, colour preserved, additive).
+	const float fsize = std::min(4.0f, 2.2f + p * 0.012f);
+	// Fireball scales with the grenade's blast radius — a bigger bomb = a bigger fireball.
+	const float fireSize = std::min(6.0f, 1.5f + (float)std::max(1, radius) * 0.45f);
+	if (underwater) _impactFlashes.push_back(ImpactFlash{ voxelCenter, t0, 0u, 900.0f, fsize * 0.60f, 0.30f, 0.82f, 1.00f, 1 }); // glassy turquoise bubble (6-frame sprite)
+	else            _impactFlashes.push_back(ImpactFlash{ voxelCenter, t0, 0u, 720.0f, fireSize,      1.00f, 1.00f, 1.00f, 3 }); // fiery 8-frame fireball (size ∝ radius)
+
+	// E2: underwater hydraulic shockwave — an expanding scene-distortion ring (grade pass).
+	if (underwater)
+	{
+		_shockwaves.push_back(Shockwave{ voxelCenter, t0, 700.0f });
+		if (_shockwaves.size() > 4)   // only a few project to the shader (cap uniforms)
+			_shockwaves.erase(_shockwaves.begin(), _shockwaves.begin() + (_shockwaves.size() - 4));
+	}
+
+	// Underwater: a bubble-burst in EVERY cell of the blast disc — smaller the farther
+	// from the centre, popping in a wave from the centre outward → the explosion fills
+	// the whole grenade area. (Step up the stride for huge radii to bound the count.)
+	if (underwater)
+	{
+		const int r  = std::max(1, radius);
+		const int st = (r > 7) ? 2 : 1;                       // bound cell count for huge blasts
+		const Position baseTile = voxelCenter.toTile();
+		const float bigSize = fsize * 0.60f;
+		for (int dy = -r; dy <= r; dy += st)
+		for (int dx = -r; dx <= r; dx += st)
+		{
+			if (dx == 0 && dy == 0) continue;                 // centre cell = the big bubble
+			const float d = std::sqrt((float)(dx * dx + dy * dy));
+			if (d > (float)r) continue;                       // disc only
+			const float dn = d / (float)r;                    // 0 centre .. 1 edge
+			const float h  = frand(t0 + (unsigned)((dx + 64) * 131 + (dy + 64) * 977));
+			const float h2 = frand(t0 + (unsigned)((dx + 96) * 733 + (dy + 96) * 317) + 5u);
+			Position cv;
+			cv.x = (baseTile.x + dx) * 16 + 8;                // cell-centre voxel
+			cv.y = (baseTile.y + dy) * 16 + 8;
+			cv.z = voxelCenter.z;
+			const float sz = bigSize * std::max(0.18f, 1.0f - 0.80f * dn) * (0.85f + 0.30f * h2); // falloff + jitter
+			const unsigned int delay = (unsigned int)(dn * 300.0f + h * 120.0f); // ripple outward + jitter
+			// iridescent turquoise: hue/value wanders per cell (cyan ↔ blue ↔ teal)
+			const float tr = 0.22f + 0.26f * h;               // 0.22 .. 0.48
+			const float tg = 0.74f + 0.18f * h2;              // 0.74 .. 0.92
+			const float tb = 0.92f + 0.08f * (1.0f - h);      // 0.92 .. 1.00
+			_impactFlashes.push_back(ImpactFlash{ cv, t0, delay, 480.0f, sz, tr, tg, tb, 1 });
+		}
+		if (_impactFlashes.size() > 400)   // bound chained-blast spam
+			_impactFlashes.erase(_impactFlashes.begin(), _impactFlashes.begin() + (_impactFlashes.size() - 400));
+	}
+	else
+	{
+		// E3 (land): charred-ground decals over the blast area — a big central char patch
+		// plus overlapping smaller ones (stride 2) so the burn is continuous but cheap;
+		// persistent (kept until mission end). Spawned at blast time.
+		const int r  = std::max(1, radius);
+		const Position baseTile = voxelCenter.toTile();
+		auto& scorch = _save->getCalypsoScorchDecals();   // on SavedBattleGame — survives res change
+		// big centre patch
+		scorch.push_back(CalypsoScorchDecal{ baseTile, t0, (float)r * 1.6f, (int)(frand(t0) * 4.0f) & 3,
+			calypsoDoorwayOpen(_save, baseTile) ? 1 : 0 });
+		for (int dy = -r; dy <= r; dy += 2)
+		for (int dx = -r; dx <= r; dx += 2)
+		{
+			if (dx == 0 && dy == 0) continue;
+			const float d = std::sqrt((float)(dx * dx + dy * dy));
+			if (d > (float)r) continue;
+			const float dn = d / (float)r;
+			const float h  = frand(t0 + (unsigned)((dx + 80) * 211 + (dy + 80) * 503));
+			if (dn > 0.65f && h > 0.5f) continue;            // ragged edge (drop ~half of the rim)
+			Position ct(baseTile.x + dx, baseTile.y + dy, baseTile.z);
+			const float sz = std::max(1.0f, (float)r * (0.9f - 0.5f * dn) * (0.7f + 0.5f * h)); // smaller out + jitter
+			scorch.push_back(CalypsoScorchDecal{ ct, t0, sz, (int)(h * 4.0f) & 3, calypsoDoorwayOpen(_save, ct) ? 1 : 0 });
+		}
+		if (scorch.size() > 220)   // bound across many blasts (persistent)
+			scorch.erase(scorch.begin(), scorch.begin() + (scorch.size() - 220));
+	}
+
+	// GL particle burst (frand defined above).
+	const int nMain = std::min(54, 18 + power / 3);     // sparks (land) / bubble-jets (underwater)
+	for (int i = 0; i < nMain; ++i)
+	{
+		const float h0 = frand(t0 + (unsigned)i * 2654435761u);
+		const float h1 = frand(t0 * 3u + (unsigned)i * 40503u + 7u);
+		const float h2 = frand(t0 + (unsigned)i * 668265263u + 17u);
+		const float ang = h0 * 6.2832f;
+		FxParticle fp{}; fp.origin = voxelCenter; fp.spawnTick = t0;
+		if (underwater)
+		{
+			// bubbles: gentle outward (water drag) then rise fast (buoyancy) — columns,
+			// not a radial spray, so it reads underwater rather than like a space blast.
+			const float spd = (50.0f + 130.0f * h1) * es;
+			fp.vx = std::cos(ang) * spd; fp.vy = std::sin(ang) * spd * 0.5f - (90.0f + 90.0f * h1) * es;
+			fp.ay = -420.0f * es;                                   // strong buoyancy (rises fast)
+			fp.delayMs = (unsigned int)(350.0f + 400.0f * h2);      // rise AFTER the bubble bursts
+			fp.lifeMs = 600.0f + 600.0f * h2; fp.size = (6.0f + 8.0f * h2) * es;
+			fp.r = 0.70f; fp.g = 0.92f; fp.b = 1.00f; fp.additive = true;   // cyan-white
+		}
+		else
+		{
+			const float spd = (180.0f + 440.0f * h1) * es;
+			fp.vx = std::cos(ang) * spd; fp.vy = std::sin(ang) * spd * 0.7f;
+			fp.ay = 620.0f * es;                                    // gravity (falls)
+			fp.lifeMs = 340.0f + 380.0f * h2; fp.size = (4.0f + 5.0f * h2) * es;
+			fp.r = 1.00f; fp.g = 0.55f + 0.35f * h2; fp.b = 0.12f; fp.additive = true; // yellow→orange
+		}
+		_fxParticles.push_back(fp);
+	}
+	const int nSec = std::min(52, 16 + power / 3);       // debris (land) / rising foam (underwater) — 2× count
+	for (int i = 0; i < nSec; ++i)
+	{
+		const float h0 = frand(t0 * 7u + (unsigned)i * 2246822519u + 101u);
+		const float h1 = frand(t0 + (unsigned)i * 374761393u + 53u);
+		const float h2 = frand(t0 * 5u + (unsigned)i * 88u + 29u);
+		const float ang = h0 * 6.2832f;
+		FxParticle fp{}; fp.origin = voxelCenter; fp.spawnTick = t0;
+		if (underwater)
+		{
+			const float spd = (40.0f + 120.0f * h1) * es;
+			fp.vx = std::cos(ang) * spd * 0.5f; fp.vy = -(120.0f + 180.0f * h1) * es;
+			fp.ay = -120.0f * es;                                   // buoyant foam, floats off
+			fp.delayMs = (unsigned int)(520.0f + 450.0f * h2);      // foam rises last, after the small bubbles
+			fp.lifeMs = 900.0f + 700.0f * h2; fp.size = (10.0f + 13.0f * h2) * es;
+			fp.r = 0.92f; fp.g = 0.97f; fp.b = 1.00f; fp.additive = false;  // soft white
+		}
+		else
+		{
+			const float spd = (120.0f + 260.0f * h1) * es;
+			fp.vx = std::cos(ang) * spd; fp.vy = std::sin(ang) * spd * 0.7f - 120.0f * es;
+			fp.ay = 760.0f * es;                                    // strong gravity (parabola)
+			fp.lifeMs = 600.0f + 500.0f * h2; fp.size = (7.0f + 9.0f * h2) * es;
+			fp.r = 0.55f + 0.10f * h2; fp.g = 0.48f + 0.08f * h2; fp.b = 0.40f; fp.additive = false; // dirt tone over the grey rock
+			fp.texCode = 200 + ((int)(h0 * 97.0f) % 8);            // rock-debris sprite variant
+		}
+		_fxParticles.push_back(fp);
+	}
+	// Land smoke plume: dark puffs rising + lingering after the fireball (the fireball's own
+	// smoke-tail fades under additive, so these carry the plume). Underwater uses foam instead.
+	if (!underwater)
+	{
+		const int nSmoke = std::min(32, 12 + radius * 2);    // 2× smoke count
+		for (int i = 0; i < nSmoke; ++i)
+		{
+			const float h0 = frand(t0 * 11u + (unsigned)i * 2654435761u + 211u);
+			const float h1 = frand(t0 + (unsigned)i * 40503u + 307u);
+			const float h2 = frand(t0 * 5u + (unsigned)i * 19349663u + 13u);
+			const float ang = h0 * 6.2832f;
+			FxParticle fp{}; fp.origin = voxelCenter; fp.spawnTick = t0;
+			fp.origin.x += (int)(std::cos(ang) * (float)std::max(1, radius) * 16.0f * 0.5f * std::sqrt(h1));
+			fp.origin.y += (int)(std::sin(ang) * (float)std::max(1, radius) * 16.0f * 0.5f * std::sqrt(h1));
+			fp.vx = std::cos(ang) * 24.0f * es; fp.vy = -(70.0f + 90.0f * h1) * es;  // rise + slight spread
+			fp.ay = -60.0f * es;                                   // buoyant
+			fp.delayMs = (unsigned int)(180.0f + 360.0f * h2);     // after the fireball blooms
+			fp.lifeMs = 1300.0f + 900.0f * h2; fp.size = (12.0f + 14.0f * h2) * es;
+			const float v = 0.18f + 0.16f * h2;                    // dark grey, slight value variety
+			fp.r = v; fp.g = v; fp.b = v * 1.05f; fp.additive = false;
+			fp.texCode = 100 + ((int)(h0 * 53.0f) % 4);            // smoke-puff sprite variant
+			_fxParticles.push_back(fp);
+		}
+	}
+	if (_fxParticles.size() > 520)   // bound chain-explosion spam (caps per-frame draw calls)
+		_fxParticles.erase(_fxParticles.begin(), _fxParticles.begin() + (_fxParticles.size() - 520));
+}
+
+/**
+ * Calypso explosion FX: GL transient particle burst (sparks/debris on land, bubble-jets/
+ * foam underwater). POST-composite (over the scene, under HUD), gated + scissored.
+ * Screen-space ballistic offset (vel*t + ½·acc·t²) from a camera-anchored spawn voxel.
+ */
+void Map::drawFxParticlesGLPass()
+{
+#ifdef __EMSCRIPTEN__
+	if (_fxParticles.empty()) return;
+	const unsigned int now = SDL_GetTicks();
+	_fxParticles.erase(std::remove_if(_fxParticles.begin(), _fxParticles.end(),
+		[now](const FxParticle& p){ return (now - p.spawnTick) >= p.delayMs + (unsigned int)p.lifeMs; }), _fxParticles.end());
+	if (_fxParticles.empty()) return;
+	if (now - _lastDrawnTicks > 250) return;
+	if (!_spriteGLInit) initSpriteGL();
+	if (!_spriteShader || !_spriteShader->isValid() || !_spriteVAO) return;
+
+	Screen* screen = _game->getScreen();
+	const float xScale = (float)screen->getXScale();
+	const float yScale = (float)screen->getYScale();
+	const int   lbb = screen->getCursorLeftBlackBand();
+	const int   tbb = screen->getCursorTopBlackBand();
+	const int   dW = Options::displayWidth, dH = Options::displayHeight;
+	const int   mapX = getX(), mapY = getY();
+	const Position shk = currentShakeOffset();   // convertVoxelToScreen already bakes _mapOffset
+
+	GLint prevProgram = 0;
+	glGetIntegerv(GL_CURRENT_PROGRAM, &prevProgram);
+	glDisable(GL_DEPTH_TEST);
+	glDepthMask(GL_FALSE);
+	glEnable(GL_BLEND);
+	_spriteShader->use();
+	_spriteShader->setUniform1i("u_tex", 0);
+	_spriteShader->setUniform2f("u_uvScroll", 0.0f, 0.0f);
+	_spriteShader->setUniform1f("u_radial", 0.0f);
+	_spriteShader->setUniform1f("u_darken", 0.0f);
+
+	// Per-particle texture (cached by getUITexture; bind only when it changes).
+	auto texFor = [&](int code) -> GpuTexture* {
+		if (code >= 200) return getUITexture("Resources/battlescape/fx/explosion/debris-" + std::to_string(code - 200) + ".png", 0);
+		if (code >= 100) return getUITexture("Resources/battlescape/fx/explosion/smoke-"  + std::to_string(code - 100) + ".png", 0);
+		return getUITexture("Resources/battlescape/fx/explosion/particle.png", 0);
+	};
+	int boundCode = -1;
+
+	auto drawQuad = [&](int gx, int gy, int fw, int fh)
+	{
+		const float dispX = (float)gx * xScale + (float)lbb;
+		const float dispY = (float)gy * yScale + (float)tbb;
+		const float dispW = (float)fw * xScale, dispH = (float)fh * yScale;
+		const float x0 =  2.0f * dispX / (float)dW - 1.0f;
+		const float y0 = -(2.0f * dispY / (float)dH - 1.0f);
+		const float x1 =  2.0f * (dispX + dispW) / (float)dW - 1.0f;
+		const float y1 = -(2.0f * (dispY + dispH) / (float)dH - 1.0f);
+		const float verts[6 * 4] = {
+			x0,y0, 0,0,  x1,y0, 1,0,  x0,y1, 0,1,
+			x0,y1, 0,1,  x1,y0, 1,0,  x1,y1, 1,1,
+		};
+		glBindBuffer(GL_ARRAY_BUFFER, _spriteVBO);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)sizeof(verts), verts);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindVertexArray(_spriteVAO);
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+		glBindVertexArray(0);
+	};
+
+	// additive pass (sparks/bubbles) then straight-alpha pass (debris/foam) — one blend switch.
+	// Memoise convertVoxelToScreen per origin: a whole burst shares one spawn voxel.
+	bool memoOk = false; Position memoOrigin(0, 0, 0), memoSp;
+	for (int pass = 0; pass < 2; ++pass)
+	{
+		const bool additivePass = (pass == 0);
+		glBlendFunc(GL_SRC_ALPHA, additivePass ? GL_ONE : GL_ONE_MINUS_SRC_ALPHA);
+		for (const auto& fp : _fxParticles)
+		{
+			if (fp.additive != additivePass) continue;
+			const unsigned int e = now - fp.spawnTick;
+			if (e < fp.delayMs) continue;                          // not born yet (staggered)
+			const float t = (float)(e - fp.delayMs) * 0.001f;      // seconds since birth
+			float age = (float)(e - fp.delayMs) / fp.lifeMs;
+			if (age >= 1.0f) continue;
+			if (!memoOk || fp.origin.x != memoOrigin.x || fp.origin.y != memoOrigin.y || fp.origin.z != memoOrigin.z)
+			{ _camera->convertVoxelToScreen(fp.origin, &memoSp); memoOrigin = fp.origin; memoOk = true; }
+			const Position sp = memoSp;
+			const int ox = (int)(fp.vx * t + 0.5f * fp.ax * t * t);
+			const int oy = (int)(fp.vy * t + 0.5f * fp.ay * t * t);
+			const int cx = sp.x + mapX + shk.x + ox;
+			const int cy = sp.y + mapY + shk.y + oy;
+			float fade = 1.0f - age;
+			float sizeMul = additivePass ? 1.0f : (0.7f + 0.6f * age);   // debris/foam swell
+			if (additivePass && age > 0.80f)                            // bubbles/sparks POP: swell + wink out
+			{
+				const float k = (age - 0.80f) / 0.20f;
+				sizeMul *= 1.0f + 1.8f * k;
+				fade *= std::max(0.0f, 1.0f - k);
+			}
+			const int side = std::max(1, (int)(fp.size * sizeMul));
+			if (fp.texCode != boundCode)
+			{ GpuTexture* t = texFor(fp.texCode); if (!t) continue; t->bind(0); boundCode = fp.texCode; }
+			_spriteShader->setUniform3f("u_tint", fp.r, fp.g, fp.b);
+			_spriteShader->setUniform1f("u_alpha", std::max(0.02f, fade * (additivePass ? 1.0f : 0.7f)));
+			drawQuad(cx - side / 2, cy - side / 2, side, side);
+		}
+	}
+
+	_spriteShader->setUniform3f("u_tint", 1.0f, 1.0f, 1.0f);
+	_spriteShader->setUniform1f("u_alpha", 1.0f);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glDisable(GL_BLEND);
+	glDepthMask(GL_TRUE);
+	glEnable(GL_DEPTH_TEST);                 // leave canonical state for any later pass
+	glUseProgram((GLuint)prevProgram);
+#endif
 }
 
 void Map::drawSmokeGLPass()
@@ -5502,8 +6002,18 @@ void Map::drawSmokeGLPass()
 	const int   dW     = Options::displayWidth;
 	const int   dH     = Options::displayHeight;
 
+	// Dihedral UV transform (variant 0-7: 90° rotation + optional mirror) for per-sprite
+	// orientation variety — bubble highlights land in a different spot on each one.
+	auto uvT = [](float u, float v, int variant, float& ou, float& ov)
+	{
+		float cu = u - 0.5f, cv = v - 0.5f;
+		if (variant & 4) cu = -cu;
+		switch (variant & 3) { case 1: ou = -cv; ov = cu; break; case 2: ou = -cu; ov = -cv; break;
+		                       case 3: ou = cv; ov = -cu; break; default: ou = cu; ov = cv; break; }
+		ou += 0.5f; ov += 0.5f;
+	};
 	// Helper: issue one draw call for a sprite placed at (gx, gy) in SDL-surface coords.
-	auto drawQuad = [&](GpuTexture* tex, int gx, int gy, int fw, int fh, float darken)
+	auto drawQuad = [&](GpuTexture* tex, int gx, int gy, int fw, int fh, float darken, int variant)
 	{
 		const float dispX = static_cast<float>(gx) * xScale + static_cast<float>(lbb);
 		const float dispY = static_cast<float>(gy) * yScale + static_cast<float>(tbb);
@@ -5515,13 +6025,16 @@ void Map::drawSmokeGLPass()
 		const float ndcX1 =  2.0f * (dispX + dispW) / static_cast<float>(dW) - 1.0f;
 		const float ndcY1 = -(2.0f * (dispY + dispH) / static_cast<float>(dH) - 1.0f);
 
+		float a0,b0, a1,b1, a2,b2, a3,b3;
+		uvT(0,0,variant,a0,b0); uvT(1,0,variant,a1,b1);
+		uvT(0,1,variant,a2,b2); uvT(1,1,variant,a3,b3);
 		const float verts[6 * 4] = {
-			ndcX0, ndcY0,  0.0f, 0.0f,
-			ndcX1, ndcY0,  1.0f, 0.0f,
-			ndcX0, ndcY1,  0.0f, 1.0f,
-			ndcX0, ndcY1,  0.0f, 1.0f,
-			ndcX1, ndcY0,  1.0f, 0.0f,
-			ndcX1, ndcY1,  1.0f, 1.0f,
+			ndcX0, ndcY0,  a0, b0,
+			ndcX1, ndcY0,  a1, b1,
+			ndcX0, ndcY1,  a2, b2,
+			ndcX0, ndcY1,  a2, b2,
+			ndcX1, ndcY0,  a1, b1,
+			ndcX1, ndcY1,  a3, b3,
 		};
 		glBindBuffer(GL_ARRAY_BUFFER, _spriteVBO);
 		glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)sizeof(verts), verts);
@@ -5549,10 +6062,10 @@ void Map::drawSmokeGLPass()
 	if (hasExplosionWork)
 	{
 		Mod* mod = _game->getMod();
-		SurfaceSet* x1Set    = mod->getSurfaceSet("X1.PCK");
 		SurfaceSet* hitSet   = mod->getSurfaceSet("HIT.PCK");
-		// Calypso P30: SMOKE.PCK bullet-hit puff render is disabled below (replaced by
-		// the impact-flash animation), so its SurfaceSet is no longer fetched here.
+		// Calypso P30: X1.PCK (big blast) and SMOKE.PCK 46-55 (bullet puff) renders are
+		// disabled below — replaced by the depth-split explosion FX (flash + particle
+		// burst) and the impact-flash burst. Only HIT.PCK (melee) is still drawn here.
 		const int mapX = getX();
 		const int mapY = getY();
 		// Phase 24: explosion/hit sprites are voxel-anchored effects, not tile-sized.
@@ -5573,18 +6086,16 @@ void Map::drawSmokeGLPass()
 			// vanilla footprint. For 8-bpp frames set size == tex size, so unchanged.
 			if (explosion->isBig())
 			{
-				const int f = explosion->getCurrentFrame();
-				if (f < 0) continue;
-				GpuTexture* tex = getOrUploadSpriteFrame(x1Set, f);
-				if (!tex) continue;
-				const int lw = x1Set->getWidth() * es, lh = x1Set->getHeight() * es;
-				drawQuad(tex, bsx - lw / 2, bsy - lh / 2, lw, lh, 0.0f);
+				// Calypso P30: the old HD X1.PCK blast sprite is disabled — the depth-split
+				// explosion FX (triggerAoEFx: flash + particle burst) replaces it. The
+				// Explosion object is kept so ExplosionBState timing is unchanged.
+				continue;
 			}
 			else if (explosion->isHit())
 			{
 				GpuTexture* tex = getOrUploadSpriteFrame(hitSet, explosion->getCurrentFrame());
 				if (!tex) continue;
-				drawQuad(tex, bsx - 15 * es, bsy - 25 * es, hitSet->getWidth() * es, hitSet->getHeight() * es, 0.0f);
+				drawQuad(tex, bsx - 15 * es, bsy - 25 * es, hitSet->getWidth() * es, hitSet->getHeight() * es, 0.0f, 0);
 			}
 			else
 			{
@@ -5606,27 +6117,67 @@ void Map::drawSmokeGLPass()
 		const int fMapX = getX();
 		const int fMapY = getY();
 		const Position shk = currentShakeOffset();
-		_spriteShader->setUniform3f("u_tint", 1.0f, 0.96f, 0.85f);
 		for (const auto& fl : _impactFlashes)
 		{
-			float age = (float)(now - fl.spawnTick) / fl.lifeMs;
-			if (age < 0.0f) age = 0.0f;
+			const unsigned int e = now - fl.spawnTick;
+			if (e < fl.delayMs) continue;                  // not born yet (staggered mini-bursts)
+			float age = (float)(e - fl.delayMs) / fl.lifeMs;
 			if (age >= 1.0f) continue;
-			int fr = (int)(age * 4.0f);
-			if (fr < 0) fr = 0; else if (fr > 3) fr = 3;
-			GpuTexture* tex = getUITexture(
-				std::string("Resources/battlescape/fx/impact/impact-flash-") + std::to_string(fr) + ".png", 0);
-			if (!tex) continue;
 			Position sp;
 			_camera->convertVoxelToScreen(fl.voxel, &sp);
 			const int cx = sp.x + fMapX + shk.x;
 			const int cy = sp.y + fMapY + shk.y;
-			const float scale = 1.0f + 0.20f * age;            // slight overall grow
-			const int side = (int)((float)_spriteWidth * 1.1f * scale);
-			float fade = 1.0f;
-			if (age > 0.7f) fade = 1.0f - (age - 0.7f) / 0.3f; // ease out the tail
-			_spriteShader->setUniform1f("u_alpha", std::max(0.04f, fade));
-			drawQuad(tex, cx - side / 2, cy - side / 2, side, side, 0.0f);
+			_spriteShader->setUniform3f("u_tint", fl.r, fl.g, fl.b);
+			if (fl.kind == 1)
+			{
+				// underwater vapor bubble: 6-frame sprite (form → grow → burst-to-froth).
+				// Frames carry the growth, so the quad is constant size; drawn STRAIGHT-ALPHA
+				// (glassy translucent, not additive), centred on the blast point + slight rise.
+				int fr = (int)(age * 6.0f); if (fr < 0) fr = 0; else if (fr > 5) fr = 5;
+				GpuTexture* tex = getUITexture(
+					std::string("Resources/battlescape/fx/explosion/bubble-") + std::to_string(fr) + ".png", 0);
+				if (!tex) continue;
+				const int side = (int)((float)_spriteWidth * fl.sizeMul);
+				const int rise = (int)(age * (float)_spriteHeight * 0.30f);      // buoyant lift
+				float a = 0.92f;
+				if (age > 0.85f) a *= std::max(0.0f, 1.0f - (age - 0.85f) / 0.15f); // dissolve froth tail
+				glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);                  // glassy translucent
+				_spriteShader->setUniform1f("u_alpha", a);
+				const int bvar = ((fl.voxel.x / 16) * 3 + (fl.voxel.y / 16) * 7) & 7;  // per-cell orientation
+				drawQuad(tex, cx - side / 2, (cy - rise) - side / 2, side, side, 0.0f, bvar);
+				glBlendFunc(GL_SRC_ALPHA, GL_ONE);                                  // restore additive for burst flashes
+			}
+			else if (fl.kind == 3)
+			{
+				// land fireball: 8-frame COLOUR sprite (flash → fireball → smoke burnout),
+				// additive, colour preserved (u_tint is white). Slight grow + tail fade; the
+				// dark smoke tail naturally fades out under additive (smoke particles take over).
+				int fr = (int)(age * 8.0f); if (fr < 0) fr = 0; else if (fr > 7) fr = 7;
+				GpuTexture* tex = getUITexture(
+					std::string("Resources/battlescape/fx/explosion/fire-") + std::to_string(fr) + ".png", 0);
+				if (!tex) continue;
+				const float scale = 1.0f + 0.25f * age;
+				const int side = (int)((float)_spriteWidth * fl.sizeMul * scale);
+				float fade = 1.0f;
+				if (age > 0.75f) fade = 1.0f - (age - 0.75f) / 0.25f;
+				_spriteShader->setUniform1f("u_alpha", std::max(0.02f, fade));
+				drawQuad(tex, cx - side / 2, cy - side / 2, side, side, 0.0f, 0);
+			}
+			else
+			{
+				// sharp 4-frame burst (hits / land blast)
+				int fr = (int)(age * 4.0f);
+				if (fr < 0) fr = 0; else if (fr > 3) fr = 3;
+				GpuTexture* tex = getUITexture(
+					std::string("Resources/battlescape/fx/impact/impact-flash-") + std::to_string(fr) + ".png", 0);
+				if (!tex) continue;
+				const float scale = 1.0f + 0.20f * age;
+				const int side = (int)((float)_spriteWidth * fl.sizeMul * scale);
+				float fade = 1.0f;
+				if (age > 0.7f) fade = 1.0f - (age - 0.7f) / 0.3f;
+				_spriteShader->setUniform1f("u_alpha", std::max(0.04f, fade));
+				drawQuad(tex, cx - side / 2, cy - side / 2, side, side, 0.0f, 0);
+			}
 		}
 		_spriteShader->setUniform1f("u_alpha", 1.0f);
 		_spriteShader->setUniform3f("u_tint", 1.0f, 1.0f, 1.0f);
@@ -5634,7 +6185,7 @@ void Map::drawSmokeGLPass()
 		// expire spent flashes
 		_impactFlashes.erase(
 			std::remove_if(_impactFlashes.begin(), _impactFlashes.end(),
-				[now](const ImpactFlash& f){ return (now - f.spawnTick) >= (unsigned int)f.lifeMs; }),
+				[now](const ImpactFlash& f){ return (now - f.spawnTick) >= f.delayMs + (unsigned int)f.lifeMs; }),
 			_impactFlashes.end());
 	}
 
@@ -5857,8 +6408,16 @@ void Map::animate(bool redraw)
 		const unsigned int now = SDL_GetTicks();
 		_impactFlashes.erase(
 			std::remove_if(_impactFlashes.begin(), _impactFlashes.end(),
-				[now](const ImpactFlash& f){ return (now - f.spawnTick) >= (unsigned int)f.lifeMs; }),
+				[now](const ImpactFlash& f){ return (now - f.spawnTick) >= f.delayMs + (unsigned int)f.lifeMs; }),
 			_impactFlashes.end());
+		_fxParticles.erase(
+			std::remove_if(_fxParticles.begin(), _fxParticles.end(),
+				[now](const FxParticle& p){ return (now - p.spawnTick) >= p.delayMs + (unsigned int)p.lifeMs; }),
+			_fxParticles.end());
+		_shockwaves.erase(
+			std::remove_if(_shockwaves.begin(), _shockwaves.end(),
+				[now](const Shockwave& w){ return (now - w.spawnTick) >= (unsigned int)w.lifeMs; }),
+			_shockwaves.end());
 	}
 #endif
 
