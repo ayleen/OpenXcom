@@ -2981,6 +2981,8 @@ void Map::drawTerrainGPU(Surface* surface)
 	// by GPU pre-composite passes; guarded code paths in drawTerrainOverlayCPU
 	// skip the CPU blits for those in HD mode.
 	drawTerrainOverlayCPU(surface);
+	// Phase 25 R5: floating squad HUD (nameplates + HP/TU/energy bars) on top.
+	drawUnitNameplates(surface);
 }
 
 /**
@@ -3551,6 +3553,150 @@ void Map::drawHdNumber(Surface *dest, int x, int y, int value, Uint32 colorArgb)
 		compositeARGB(shadowSurf, x - shadowSurf->w / 2 + 1, y - shadowSurf->h / 2 + 1);
 	if (textSurf)
 		compositeARGB(textSurf, x - textSurf->w / 2, y - textSurf->h / 2);
+}
+
+/**
+ * Phase 25 R5: floating squad HUD.  For every alive player unit, draws three
+ * stacked segmented bars (HP red / TU blue / energy green) plus the unit's name
+ * above its head.  Runs on the CPU ARGB overlay after the GPU scene, so plates
+ * sit on top of the rendered units.  Bar geometry derives from
+ * _spriteWidth/_spriteHeight, so it tracks battlescapeTileScale (Phase 24
+ * invariant).  Per-unit projection mirrors the selected-unit cursor math.
+ * Gated by Mod::getCalypsoHudOverlay() (calypso_hud_overlay: in the ruleset).
+ */
+void Map::drawUnitNameplates(Surface *surface)
+{
+#ifdef __EMSCRIPTEN__
+	if (!_game->getMod()->getCalypsoHudOverlay()) return;
+	if (!_camera || !_save || !surface) return;
+	SDL_Surface *destSurf = surface->getSurface();
+	if (!destSurf || destSurf->format->BitsPerPixel != 32) return;
+
+	const int sw = _spriteWidth;
+	const int sh = _spriteHeight;
+	const int dW = destSurf->w, dH = destSurf->h;
+	const int barW = sw * 7 / 8;                       // plate width
+	const int barH = std::max(2, sh / 18);             // per-bar height
+	const int gap  = std::max(1, sh / 80);             // gap between bars
+	const int viewLevel = _camera->getViewLevel();
+	TTFFont *font = getHdNumberFont();                 // small Oxanium (size 12)
+
+	// Alpha-blend a solid rect into the 32bpp intermediate.  Same caveat as
+	// drawHdNumber: the overlay's alpha is consumed as opacity at Screen::flip,
+	// so we write opaque (a=0xFF) and fold the requested alpha into RGB here.
+	auto fillBlend = [&](int x, int y, int w, int h, Uint8 r, Uint8 g, Uint8 b, int alpha)
+	{
+		for (int j = 0; j < h; ++j)
+		{
+			const int dy = y + j;
+			if (dy < 0 || dy >= dH) continue;
+			Uint32 *row = (Uint32*)((Uint8*)destSurf->pixels + dy * destSurf->pitch);
+			for (int i = 0; i < w; ++i)
+			{
+				const int dx = x + i;
+				if (dx < 0 || dx >= dW) continue;
+				Uint8 dr, dg, db, da;
+				SDL_GetRGBA(row[dx], destSurf->format, &dr, &dg, &db, &da);
+				const int a = alpha, ia = 255 - a;
+				row[dx] = SDL_MapRGBA(destSurf->format,
+					(Uint8)((r * a + dr * ia) / 255),
+					(Uint8)((g * a + dg * ia) / 255),
+					(Uint8)((b * a + db * ia) / 255), 0xFF);
+			}
+		}
+	};
+
+	// One segmented bar: dark border, proportional coloured fill, quarter ticks.
+	auto drawBar = [&](int x, int y, float frac, Uint8 r, Uint8 g, Uint8 b)
+	{
+		frac = frac < 0.0f ? 0.0f : (frac > 1.0f ? 1.0f : frac);
+		fillBlend(x - 1, y - 1, barW + 2, barH + 2, 0, 0, 0, 205);   // border / bg
+		const int fw = (int)(barW * frac + 0.5f);
+		if (fw > 0) fillBlend(x, y, fw, barH, r, g, b, 240);         // fill
+		for (int t = 1; t < 4; ++t)                                  // segment ticks
+			fillBlend(x + barW * t / 4, y, 1, barH, 0, 0, 0, 150);
+	};
+
+	// Manual ARGB composite for the TTF name (mirrors drawHdNumber).
+	auto compositeARGB = [&](SDL_Surface *src, int dstX, int dstY)
+	{
+		if (!src || src->format->BitsPerPixel != 32) return;
+		SDL_LockSurface(src);
+		const int srcW = src->w, srcH = src->h;
+		for (int j = 0; j < srcH; ++j)
+		{
+			const int dy = dstY + j;
+			if (dy < 0 || dy >= dH) continue;
+			Uint32 *srcRow = (Uint32*)((Uint8*)src->pixels + j * src->pitch);
+			Uint32 *dstRow = (Uint32*)((Uint8*)destSurf->pixels + dy * destSurf->pitch);
+			for (int i = 0; i < srcW; ++i)
+			{
+				const int dx = dstX + i;
+				if (dx < 0 || dx >= dW) continue;
+				Uint8 sr, sg, sb, sa;
+				SDL_GetRGBA(srcRow[i], src->format, &sr, &sg, &sb, &sa);
+				if (sa == 0) continue;
+				Uint8 dr, dg, db, da;
+				SDL_GetRGBA(dstRow[dx], destSurf->format, &dr, &dg, &db, &da);
+				const int a = sa, ia = 255 - a;
+				dstRow[dx] = SDL_MapRGBA(destSurf->format,
+					(Uint8)((sr * a + dr * ia) / 255),
+					(Uint8)((sg * a + dg * ia) / 255),
+					(Uint8)((sb * a + db * ia) / 255), 0xFF);
+			}
+		}
+		SDL_UnlockSurface(src);
+	};
+
+	SDL_LockSurface(destSurf);
+	for (BattleUnit *unit : *_save->getUnits())
+	{
+		if (!unit || unit->isOut() || unit->getFaction() != FACTION_PLAYER) continue;
+		if (unit->getPosition().z > viewLevel) continue;
+
+		Position screenPosition;
+		_camera->convertMapToScreen(unit->getPosition(), &screenPosition);
+		screenPosition += _camera->getMapOffset();
+		Position offset = calculateWalkingOffset(unit).ScreenOffset;
+		if (unit->isBigUnit()) offset.y += 4;
+		offset.y += Position::TileZ - (unit->getHeight() + unit->getFloatHeight());
+		if (unit->isKneeled()) offset.y -= 2;
+
+		const int cx = screenPosition.x + offset.x + sw / 2;
+		const int headY = screenPosition.y + offset.y;             // unit's head row
+
+		if (cx < -sw || cx > dW + sw || headY < -sh || headY > dH + sh) continue;
+
+		const UnitStats *st = unit->getBaseStats();
+		const float hpF = (float)unit->getHealth()    / (float)std::max(1, (int)st->health);
+		const float tuF = (float)unit->getTimeUnits() / (float)std::max(1, (int)st->tu);
+		const float enF = (float)unit->getEnergy()    / (float)std::max(1, (int)st->stamina);
+
+		const int bx = cx - barW / 2;
+		const int barTop = headY - (int)(sh * 0.18f) - (barH + gap) * 3;
+		int by = barTop;
+		drawBar(bx, by, hpF, 220,  48,  48); by += barH + gap;     // HP  red
+		drawBar(bx, by, tuF,  72, 138, 230); by += barH + gap;     // TU  blue
+		drawBar(bx, by, enF,  70, 200,  96);                       // EN  green
+
+		// Unit name above the bars (small Oxanium; black shadow + light body).
+		if (font)
+		{
+			const std::string name = unit->getName(_game->getLanguage());
+			SDL_Color fg     = { 232, 238, 248, 255 };
+			SDL_Color shadow = {   0,   0,   0, 220 };
+			SDL_Surface *shadowSurf = font->renderText(name, shadow);
+			SDL_Surface *textSurf   = font->renderText(name, fg);
+			const int nameH = textSurf ? textSurf->h : 0;
+			const int ny = barTop - gap - nameH;
+			if (shadowSurf) compositeARGB(shadowSurf, cx - shadowSurf->w / 2 + 1, ny + 1);
+			if (textSurf)   compositeARGB(textSurf,   cx - textSurf->w / 2,       ny);
+		}
+	}
+	SDL_UnlockSurface(destSurf);
+#else
+	(void)surface;
+#endif
 }
 
 /**

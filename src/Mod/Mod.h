@@ -402,6 +402,9 @@ private:
 	/// Tile render scale factor (1=32×40 native, 2=64×80, 4=128×160).
 	/// Set via battlescapeTileScale: in the mod ruleset.
 	int _battlescapeTileScale = 1;
+	/// Phase 25 R5: draw floating HD nameplates + HP/TU/energy bars over player
+	/// units in the Battlescape. Off by default; set via calypso_hud_overlay:.
+	bool _calypsoHudOverlay = false;
 #endif
 	std::map<std::string, CustomPalettes *> _customPalettes;
 	std::vector<std::pair<std::string, ExtraSounds *> > _extraSounds;
@@ -726,6 +729,8 @@ public:
 	bool hasHDPack() const { return _hdPackActive; }
 	/// Returns the battlescape tile scale factor (1, 2, or 4).
 	int getBattlescapeTileScale() const { return _battlescapeTileScale; }
+	/// Phase 25 R5: true when floating unit nameplates/bars should be drawn.
+	bool getCalypsoHudOverlay() const { return _calypsoHudOverlay; }
 #endif
 	/// Gets a particular music.
 	Music *getMusic(const std::string &name, bool error = true) const;

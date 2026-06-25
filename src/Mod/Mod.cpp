@@ -4520,6 +4520,8 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 		else
 			Log(LOG_WARNING) << "battlescapeTileScale: " << v << " is not supported (use 1, 2, or 4); ignored";
 	}
+	// Phase 25 R5: floating unit nameplates / HP-TU-energy bars (off by default).
+	reader["calypso_hud_overlay"].tryReadVal<bool>(_calypsoHudOverlay);
 #endif /* __EMSCRIPTEN__ */
 	for (const auto& ruleReader : iterateRulesSpecific("customPalettes"))
 	{

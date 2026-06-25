@@ -141,6 +141,9 @@ private:
 	TTFFont *getHdNumberFont();
 
 	void drawHdNumber(Surface *dest, int x, int y, int value, Uint32 colorArgb);
+	/// Phase 25 R5: floating HD nameplate + HP/TU/energy bars over each player
+	/// unit (Emscripten HD path; gated by Mod::getCalypsoHudOverlay).
+	void drawUnitNameplates(Surface *surface);
 	void drawUnit(UnitSprite &unitSprite, Tile *unitTile, Tile *currTile, Position tileScreenPosition, bool topLayer, BattleUnit* movingUnit = nullptr);
 	void drawTerrainOverlayCPU(Surface *surface);
 #ifdef __EMSCRIPTEN__
