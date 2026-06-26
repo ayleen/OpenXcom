@@ -400,6 +400,17 @@ void BattlescapeGame::handleAI(BattleUnit *unit)
 			_playedAggroSound = true;
 		}
 	}
+	// Phase 32: a smart civilian cries out the first time it sees an alien this turn
+	// (reuses the unit's aggroSound as a startled bark).
+	else if (getMod()->getAISmartCivilians()
+		&& unit->getOriginalFaction() == FACTION_NEUTRAL
+		&& unit->hasAggroSound() && !_playedAggroSound
+		&& unit->getAIModule() && unit->getAIModule()->getTarget()
+		&& unit->getAIModule()->getTarget()->getFaction() == FACTION_HOSTILE)
+	{
+		getMod()->getSoundByDepth(_save->getDepth(), unit->getRandomAggroSound())->play(-1, getMap()->getSoundAngle(unit->getPosition()));
+		_playedAggroSound = true;
+	}
 	if (action.type == BA_WALK)
 	{
 		ss << "Walking to " << action.target;
