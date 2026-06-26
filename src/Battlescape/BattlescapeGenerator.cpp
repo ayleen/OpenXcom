@@ -1871,6 +1871,25 @@ BattleUnit *BattlescapeGenerator::addAlien(Unit *rules, int alienRank, bool outs
 BattleUnit *BattlescapeGenerator::addCivilian(Unit *rules, int nodeRank)
 {
 	BattleUnit *unit = _save->createTempUnit(rules, FACTION_NEUTRAL, _unitSequence++);
+
+	// Phase 32: give each civilian a randomized personality so a crowd is not a set of
+	// clones. A brave minority (~1 in 4) holds its nerve, will scavenge a dropped weapon
+	// and shoot back; the timid majority flees to safety and freezes under pressure.
+	if (_save->getMod()->getAISmartCivilians())
+	{
+		if (RNG::percent(25))
+		{
+			unit->setAggression(2);
+			unit->getBaseStats()->bravery = RNG::generate(75, 95);
+			unit->setPickUpWeaponsMoreActively(true);
+		}
+		else
+		{
+			unit->setAggression(0);
+			unit->getBaseStats()->bravery = RNG::generate(45, 65);
+		}
+	}
+
 	Node *node = _save->getSpawnNode(nodeRank, unit);
 
 	if (node)

@@ -617,6 +617,8 @@ public:
 	int getIntelligence() const;
 	/// Get the unit's aggression.
 	int getAggression() const;
+	/// Phase 32: override the unit's aggression at runtime (civilian personality jitter).
+	void setAggression(int aggression) { _aggression = aggression; }
 	/// Get the units's special ability.
 	int getSpecialAbility() const;
 
@@ -876,6 +878,8 @@ public:
 	bool skillMenuCheck() const { return _skillMenuCheck; }
 	/// Is the unit eagerly picking up weapons?
 	bool getPickUpWeaponsMoreActively() const { return _pickUpWeaponsMoreActively; }
+	/// Phase 32: let a brave civilian start scavenging ground weapons at runtime.
+	void setPickUpWeaponsMoreActively(bool active) { _pickUpWeaponsMoreActively = active; }
 	/// Is the unit afraid to pathfind through fire?
 	bool avoidsFire() const;
 	/// Show indicators for this unit or not?
