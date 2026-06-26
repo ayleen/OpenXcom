@@ -83,6 +83,88 @@ void AIModule::setTargetFaction(UnitFaction f)
 }
 
 /**
+ * Phase 32 (Calypso): an organic civilian (FACTION_NEUTRAL) gets the smarter-civilian
+ * behaviors only when the active mod opts in via `ai: { smartCivilians: true }`. This
+ * keeps native OXCE behavior byte-identical when the flag is off and never touches aliens
+ * or mind-controlled units (which differ in current vs. original faction).
+ */
+bool AIModule::isSmartCivilian() const
+{
+	return _unit->getFaction() == FACTION_NEUTRAL
+		&& _unit->getOriginalFaction() == FACTION_NEUTRAL
+		&& _save->getMod()->getAISmartCivilians();
+}
+
+/**
+ * Phase 32 (Calypso): where should a frightened civilian run? Priority:
+ *   1. toward the nearest X-Com soldier it has seen recently (within its intelligence
+ *      memory) — seek protection;
+ *   2. else toward the nearest other living civilian — herd together;
+ *   3. else toward the closest map edge — try to leave the terror site.
+ * Returns false only if the unit is somehow off-map.
+ */
+bool AIModule::findCivilianSafetyTarget(Position& out) const
+{
+	const Position self = _unit->getPosition();
+	if (!_save->getTile(self))
+	{
+		return false;
+	}
+
+	BattleUnit* bestSoldier = nullptr;
+	BattleUnit* bestCivilian = nullptr;
+	int soldierDist = INT_MAX;
+	int civilianDist = INT_MAX;
+	for (auto* bu : *_save->getUnits())
+	{
+		if (bu == _unit || bu->isOut())
+		{
+			continue;
+		}
+		if (bu->getFaction() == FACTION_PLAYER && bu->getOriginalFaction() == FACTION_PLAYER)
+		{
+			// only head toward soldiers we have actually spotted recently, so civilians
+			// don't path omnisciently toward an unseen squad.
+			if (bu->getTurnsSinceSpottedByFaction(FACTION_NEUTRAL) > _intelligence)
+			{
+				continue;
+			}
+			int d = Position::distanceSq(self, bu->getPosition());
+			if (d < soldierDist) { soldierDist = d; bestSoldier = bu; }
+		}
+		else if (bu->getFaction() == FACTION_NEUTRAL)
+		{
+			int d = Position::distanceSq(self, bu->getPosition());
+			if (d < civilianDist) { civilianDist = d; bestCivilian = bu; }
+		}
+	}
+
+	if (bestSoldier)
+	{
+		out = bestSoldier->getPosition();
+		return true;
+	}
+	if (bestCivilian)
+	{
+		out = bestCivilian->getPosition();
+		return true;
+	}
+
+	// no allies known: head for the nearest map edge on the unit's level.
+	const int sx = _save->getMapSizeX();
+	const int sy = _save->getMapSizeY();
+	const int toWest = self.x, toEast = sx - 1 - self.x;
+	const int toNorth = self.y, toSouth = sy - 1 - self.y;
+	const int m = std::min(std::min(toWest, toEast), std::min(toNorth, toSouth));
+	out = self;
+	if (m == toWest) out.x = 0;
+	else if (m == toEast) out.x = sx - 1;
+	else if (m == toNorth) out.y = 0;
+	else out.y = sy - 1;
+	return true;
+}
+
+/**
  * Resets the unsaved AI state.
  */
 void AIModule::reset()
@@ -513,7 +595,9 @@ void AIModule::think(BattleAction *action)
 	BattleItem *grenadeItem = _unit->getGrenadeFromBelt(_save);
 	_grenade = grenadeItem != 0;
 
-	if (_spottingEnemies && !_escapeTUs)
+	// Phase 32: a smart civilian flees as soon as it *sees* an alien, not only once an
+	// alien is confirmed to be looking back at it.
+	if ((_spottingEnemies || (isSmartCivilian() && _visibleEnemies)) && !_escapeTUs)
 	{
 		setupEscape();
 	}
@@ -1120,6 +1204,21 @@ void AIModule::setupEscape()
 	selectNearestTarget();
 	_escapeTUs = 0;
 
+	// Phase 32: a fleeing civilian biases its escape tile toward safety (nearest seen
+	// soldier > civilian cluster > map edge), on top of the away-from-alien / cover terms.
+	bool haveSafety = false;
+	Position safetyTarget(0, 0, 0);
+	const Position selfPos = _unit->getPosition();
+	int curToSafety = 0;
+	if (isSmartCivilian())
+	{
+		haveSafety = findCivilianSafetyTarget(safetyTarget);
+		if (haveSafety)
+		{
+			curToSafety = Position::distance2d(selfPos, safetyTarget);
+		}
+	}
+
 	int dist = _aggroTarget ? Position::distance2d(_unit->getPosition(), _aggroTarget->getPosition()) : 0;
 
 	int bestTileScore = -100000;
@@ -1217,6 +1316,12 @@ void AIModule::setupEscape()
 		else
 		{
 			score += (distanceFromTarget - dist) * 10;
+		}
+		// Phase 32: reward candidate tiles that bring the civilian closer to safety.
+		if (haveSafety)
+		{
+			int candToSafety = Position::distance2d(_escapeAction.target, safetyTarget);
+			score += (curToSafety - candToSafety) * 8;
 		}
 		int spotters = 0;
 		if (!tile)
@@ -1317,7 +1422,9 @@ int AIModule::countKnownTargets() const
 {
 	int knownEnemies = 0;
 
-	if (_unit->getFaction() == FACTION_HOSTILE)
+	// Phase 32: smart civilians also accumulate remembered enemies (within their
+	// intelligence window) so they keep fleeing/fighting a known alien after LOS breaks.
+	if (_unit->getFaction() == FACTION_HOSTILE || isSmartCivilian())
 	{
 		for (auto* bu : *_save->getUnits())
 		{
@@ -1958,6 +2065,28 @@ void AIModule::evaluateAIMode()
 		combatOdds = 0;
 		ambushOdds = 0;
 	}
+
+	// Phase 32: a smart civilian that perceives any alien should run for safety instead of
+	// wandering. Only the brave-and-armed (aggression >= 2) hold their ground and fight.
+	if (isSmartCivilian() && (_visibleEnemies || _knownEnemies || _spottingEnemies))
+	{
+		patrolOdds = 0;
+		bool armedBrave = (_rifle || _melee || _blaster || _grenade) && _unit->getAggression() >= 2;
+		if (!armedBrave)
+		{
+			combatOdds = 0;
+			ambushOdds = 0;
+		}
+		if (_escapeTUs == 0)
+		{
+			setupEscape();
+		}
+		if (_escapeTUs != 0)
+		{
+			escapeOdds = std::max(escapeOdds, 1000);
+		}
+	}
+
 	// generate a random number to represent our decision.
 	int decision = RNG::generate(1, std::max(1, patrolOdds + ambushOdds + escapeOdds + combatOdds));
 

@@ -68,6 +68,10 @@ private:
 	int selectNearestTargetLeeroy(bool canRun);
 	void meleeActionLeeroy(bool canRun);
 	void dont_think(BattleAction *action);
+	/// Phase 32: true for an organic civilian when the mod enables smarter civilian AI.
+	bool isSmartCivilian() const;
+	/// Phase 32: position a fleeing civilian should head toward (nearest soldier > civilian cluster > map edge).
+	bool findCivilianSafetyTarget(Position& out) const;
 public:
 	bool medikit_think(BattleMediKitType healOrStim);
 public:

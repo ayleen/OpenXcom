@@ -1567,6 +1567,18 @@ bool BattlescapeGame::handlePanickingUnit(BattleUnit *unit)
 
 
 	bool flee = RNG::percent(50);
+	// Phase 32: for a smart civilian, nerve decides freeze-vs-flee — a timid civilian
+	// (low bravery) mostly freezes in terror, while a brave one bolts. Soldiers and aliens
+	// keep the vanilla 50/50 coin flip.
+	if (_save->getMod()->getAISmartCivilians()
+		&& unit->getOriginalFaction() == FACTION_NEUTRAL
+		&& unit->getFaction() == FACTION_NEUTRAL)
+	{
+		int fleePct = unit->getBaseStats()->bravery - 30;
+		if (fleePct < 5) fleePct = 5;
+		else if (fleePct > 95) fleePct = 95;
+		flee = RNG::percent(fleePct);
+	}
 	BattleAction ba;
 	ba.actor = unit;
 	if (status == STATUS_PANICKING && flee) // 1/2 chance to freeze and 1/2 chance try to flee, STATUS_BERSERK is handled in the panic state.

@@ -1598,6 +1598,26 @@ void SavedBattleGame::endTurn()
 
 		if (bu->getFaction() == _side)
 		{
+			// Phase 32: a civilian that ends the turn close to an X-Com soldier feels
+			// protected — bump its morale so it panics far less than one left alone in the
+			// open. Applied just before prepareNewTurn()'s morale recovery + panic roll.
+			if (getMod()->getAISmartCivilians()
+				&& bu->getOriginalFaction() == FACTION_NEUTRAL
+				&& bu->getFaction() == FACTION_NEUTRAL)
+			{
+				const int protectionRadius = 4; // tiles
+				for (auto* ally : *getUnits())
+				{
+					if (ally->getFaction() == FACTION_PLAYER
+						&& ally->getOriginalFaction() == FACTION_PLAYER
+						&& !ally->isOut()
+						&& Position::distance2d(bu->getPosition(), ally->getPosition()) <= protectionRadius)
+					{
+						bu->moraleChange(15);
+						break;
+					}
+				}
+			}
 			bu->prepareNewTurn();
 		}
 		else if (bu->getOriginalFaction() == _side)
