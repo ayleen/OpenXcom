@@ -411,6 +411,42 @@ void BattlescapeGame::handleAI(BattleUnit *unit)
 		getMod()->getSoundByDepth(_save->getDepth(), unit->getRandomAggroSound())->play(-1, getMap()->getSoundAngle(unit->getPosition()));
 		_playedAggroSound = true;
 	}
+
+	// Phase 32: a settled civilian ducks behind cover — but ONLY when there is shot-stopping
+	// cover on the edge facing the nearest visible alien, so kneeling actually buys
+	// protection. Skipped while moving (BA_WALK) or attacking, so no kneeling mid-route or
+	// in the open. Because the alien is already visible (canTargetUnit succeeded for the
+	// aggro target), a non-zero HE-blockage on that edge means cover the civilian can see
+	// the alien over yet duck a shot behind — i.e. low cover. The TU guard avoids tripping
+	// kneel()'s reservation path (spurious "not enough TUs" toast) for a low-TU civilian.
+	if (getMod()->getAISmartCivilians()
+		&& unit->getOriginalFaction() == FACTION_NEUTRAL
+		&& action.type == BA_NONE
+		&& !unit->isKneeled()
+		&& unit->getArmor()->allowsKneeling(false)
+		&& unit->getTimeUnits() >= unit->getKneelChangeCost()
+		&& unit->getAIModule() && unit->getAIModule()->getTarget()
+		&& unit->getAIModule()->getTarget()->getFaction() == FACTION_HOSTILE)
+	{
+		const BattleUnit *threat = unit->getAIModule()->getTarget();
+		const Position self = unit->getPosition();
+		int dir = _save->getTileEngine()->getDirectionTo(self, threat->getPosition());
+		Position step;
+		Pathfinding::directionToVector(dir, &step);
+		Tile *here = _save->getTile(self);
+		Tile *toward = _save->getTile(self + step);
+		// For a diagonal threat, horizontalBlockage probes the two cardinal in-between
+		// tiles; guard against off-map intermediates (blockage() reads null tiles as full
+		// cover, which would make a civilian at the map edge kneel with no cover present).
+		bool intermediatesOk = (step.x == 0 || step.y == 0)
+			|| (_save->getTile(self + Position(step.x, 0, 0)) && _save->getTile(self + Position(0, step.y, 0)));
+		if (here && toward && intermediatesOk
+			&& _save->getTileEngine()->horizontalBlockage(here, toward, DT_AP) > 0)
+		{
+			kneel(unit);
+		}
+	}
+
 	if (action.type == BA_WALK)
 	{
 		ss << "Walking to " << action.target;
