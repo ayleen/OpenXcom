@@ -683,8 +683,13 @@ void BattleUnit::load(const YAML::YamlNodeReader& node, const Mod *mod, const Sc
 	// Phase 32 (Calypso): persist the runtime-jittered civilian aggression so the brave
 	// minority (aggression 2) keeps fighting after a mid-battle save/reload instead of
 	// reverting to the rules default (0) and fleeing. Absent in old/vanilla saves -> keep
-	// the rules-derived value set at construction.
-	reader.tryRead("aggression", _aggression);
+	// the rules-derived value set at construction. Only restored while the smart-civilian AI
+	// is active: with the flag off the engine must stay vanilla-identical, so a save written
+	// with Phase 32 on and reloaded with it off keeps the rules-derived aggression.
+	if (mod && mod->getAISmartCivilians())
+	{
+		reader.tryRead("aggression", _aggression);
+	}
 	reader.tryRead("disableIndicators", _disableIndicators);
 	reader.tryRead("movementType", _movementType);
 	if (const auto& moveCost = reader["moveCost"])

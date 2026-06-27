@@ -403,6 +403,7 @@ void BattlescapeGame::handleAI(BattleUnit *unit)
 	// Phase 32: a smart civilian cries out the first time it sees an alien this turn
 	// (reuses the unit's aggroSound as a startled bark).
 	else if (getMod()->getAISmartCivilians()
+		&& unit->getFaction() == FACTION_NEUTRAL
 		&& unit->getOriginalFaction() == FACTION_NEUTRAL
 		&& unit->hasAggroSound() && !_playedAggroSound
 		&& unit->getAIModule() && unit->getAIModule()->getTarget()
@@ -420,6 +421,7 @@ void BattlescapeGame::handleAI(BattleUnit *unit)
 	// the alien over yet duck a shot behind — i.e. low cover. The TU guard avoids tripping
 	// kneel()'s reservation path (spurious "not enough TUs" toast) for a low-TU civilian.
 	if (getMod()->getAISmartCivilians()
+		&& unit->getFaction() == FACTION_NEUTRAL
 		&& unit->getOriginalFaction() == FACTION_NEUTRAL
 		&& action.type == BA_NONE
 		&& !unit->isKneeled()

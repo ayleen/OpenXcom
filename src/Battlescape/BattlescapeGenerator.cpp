@@ -2678,7 +2678,12 @@ void BattlescapeGenerator::deployCivilians(bool markAsVIP, int nodeRank, int max
 						&& _game->getMod()->getAISmartCivilians()
 						&& RNG::percent(_game->getMod()->getAICivilianGuardChance()))
 					{
-						rule = _game->getMod()->getUnit(guardType, true);
+						// fail soft on a mistyped guard type: keep the ordinary civilian rather
+						// than aborting the mission (getUnit(..., true) would throw).
+						if (Unit* guardRule = _game->getMod()->getUnit(guardType, false))
+						{
+							rule = guardRule;
+						}
 					}
 				}
 				BattleUnit* civ = addCivilian(rule, nodeRank);

@@ -2873,6 +2873,7 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 				&& civ->getOriginalFaction() == FACTION_NEUTRAL
 				&& !civ->isOut()
 				&& civ->getVisible()
+				&& civ->getPosition().z <= _camera->getViewLevel() // don't project through floors above
 				&& civ->getMorale() < 50)
 			{
 				_camera->convertMapToScreen(civ->getPosition(), &screenPosition);

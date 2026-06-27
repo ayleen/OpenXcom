@@ -1024,6 +1024,11 @@ void AIModule::setupPatrol()
 	// an alien is perceived, evaluateAIMode steers it to combat instead and this is skipped.
 	if (isCivilianGuard() && !(_visibleEnemies || _knownEnemies || _spottingEnemies))
 	{
+		// Free any patrol node still allocated from an earlier (combat-turn) node-patrol — the
+		// guard advances toward its own objective and never reaches that node, so leaving it
+		// allocated would lock one node per guard for the rest of the battle (and into saves).
+		freePatrolTarget();
+		_toNode = 0;
 		if (setupGuardMove())
 		{
 			return;
@@ -2316,17 +2321,21 @@ void AIModule::evaluateAIMode()
 		bool armedBrave = (_rifle || _melee || _blaster || _grenade) && _unit->getAggression() >= 2;
 		if (!armedBrave)
 		{
+			// timid / unarmed civilian: drop combat and let the forced escape dominate.
 			combatOdds = 0;
 			ambushOdds = 0;
+			if (_escapeTUs == 0)
+			{
+				setupEscape();
+			}
+			if (_escapeTUs != 0)
+			{
+				escapeOdds = std::max(escapeOdds, 1000);
+			}
 		}
-		if (_escapeTUs == 0)
-		{
-			setupEscape();
-		}
-		if (_escapeTUs != 0)
-		{
-			escapeOdds = std::max(escapeOdds, 1000);
-		}
+		// armedBrave: leave the ordinary (small) escapeOdds intact so combat dominates and the
+		// "brave-and-armed hold their ground and fight" behavior actually happens (forcing
+		// escapeOdds to 1000 here would make a brave civilian flee ~95% of the time).
 	}
 
 	// generate a random number to represent our decision.
