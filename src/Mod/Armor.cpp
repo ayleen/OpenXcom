@@ -84,6 +84,10 @@ void Armor::load(const YAML::YamlNodeReader& node, Mod *mod, const ModScript &pa
 	reader.tryRead("ufopediaType", _ufopediaType);
 	reader.tryRead("spriteSheet", _spriteSheet);
 	reader.tryRead("spriteInv", _spriteInv);
+	// S2: recolorMask / recolorRgb live cross-platform after Phase 7.K — guard removed.
+	// R2.1: hdScripts YAML field ignored (no consumers; ARGB VM deferred to Phase 8).
+	reader.tryRead("recolorMask", _recolorMask);
+	reader.tryRead("recolorRgb", _recolorRgb);
 	reader.tryRead("allowInv", _hasInventory);
 	if (reader["corpseItem"])
 	{

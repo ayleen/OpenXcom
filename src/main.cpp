@@ -26,6 +26,7 @@
 #include "Engine/Game.h"
 #include "Engine/Options.h"
 #include "Engine/FileMap.h"
+#include "Engine/Screen.h"
 #include "Menu/StartState.h"
 
 /** @mainpage
@@ -117,12 +118,31 @@ int main(int argc, char *argv[])
 	YAML::setGlobalErrorHandler();
 	CrossPlatform::getErrorDialog();
 	CrossPlatform::processArgs(argc, argv);
+#ifdef __EMSCRIPTEN__
+	// common/ and standard/ are preloaded at /game/ via --preload-file.
+	// Must be set before Options::init() so setFolders() picks it up.
+	Options::setDataFolder("/game/");
+	// /user/ is the IDBFS mount point — mounted from JS before callMain.
+	Options::setUserFolder("/user/");
+#endif
 	if (!Options::init())
 		return EXIT_SUCCESS;
+	printf("[calypso] OpenXcom %s%s init OK\n", OPENXCOM_VERSION_SHORT, OPENXCOM_VERSION_GIT);
 	std::ostringstream title;
 	title << "OpenXcom " << OPENXCOM_VERSION_SHORT << OPENXCOM_VERSION_GIT;
+#ifdef __EMSCRIPTEN__
+	// Lock the logical UI grid to the canonical 320×200 base.  SDL2's
+	// SDL_RenderSetLogicalSize stretches it to fill the physical canvas, so
+	// the main menu (and any other ORIGINAL-size state) fills the browser
+	// window instead of sitting in a tiny corner of a high-resolution canvas.
+	// Geoscape/Battlescape state init still resets baseX/YResolution
+	// dynamically based on geoscapeScale/battlescapeScale.
+	Options::baseXResolution = Screen::ORIGINAL_WIDTH;
+	Options::baseYResolution = Screen::ORIGINAL_HEIGHT;
+#else
 	Options::baseXResolution = Options::displayWidth;
 	Options::baseYResolution = Options::displayHeight;
+#endif
 
 	game = new Game(title.str());
 	State::setGamePtr(game);

@@ -62,7 +62,13 @@ enum ScaleType
 	SCALE_SCREEN_DIV_5,
 	SCALE_SCREEN_DIV_6,
 	SCALE_SCREEN_DIV_8,
-	SCALE_SCREEN_DIV_10
+	SCALE_SCREEN_DIV_10,
+	SCALE_3X,
+	SCALE_4X,
+	SCALE_5X,
+	SCALE_6X,
+	SCALE_8X,
+	SCALE_SCREEN_3_4   // display × 3/4 — fills the Full↔½ gap (Calypso menu)
 };
 /**
  * Container for all the various global game options
@@ -101,6 +107,8 @@ namespace Options
 	const std::vector<std::string> &getDataList();
 	/// Gets the game's user folder.
 	std::string getUserFolder();
+	/// Sets the game's user folder (Emscripten: point at IDBFS mount).
+	void setUserFolder(const std::string &folder);
 	/// Gets the game's config folder.
 	std::string getConfigFolder();
 	/// Gets the game's master mod user folder.

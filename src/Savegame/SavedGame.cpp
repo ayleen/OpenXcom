@@ -23,6 +23,9 @@
 #include <algorithm>
 #include <functional>
 #include <ctime>
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 #include "../Engine/Yaml.h"
 #include "../version.h"
 #include "../Engine/Logger.h"
@@ -916,6 +919,9 @@ void SavedGame::save(const std::string &filename, Mod *mod) const
 	{
 		throw Exception("Failed to save " + filepath);
 	}
+#ifdef __EMSCRIPTEN__
+	EM_ASM(({ FS.syncfs(false, function(err) { if (err) console.error('[calypso] syncfs error', err); }); }));
+#endif
 }
 
 /**

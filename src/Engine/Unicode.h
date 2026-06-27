@@ -26,6 +26,9 @@ namespace OpenXcom
 
 /**
  * Represents a 32-bit Unicode codepoint.
+ * Not technically a character, but close enough for our purposes.
+ * Use char32_t so that std::basic_string<UCode> has a defined char_traits
+ * specialization in both libstdc++ and libc++ (Emscripten/Clang).
  */
 typedef char32_t UCode;
 /**

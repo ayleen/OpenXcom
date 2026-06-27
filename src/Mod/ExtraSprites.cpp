@@ -21,6 +21,7 @@
 #include "ExtraSprites.h"
 #include "../Engine/Surface.h"
 #include "../Engine/SurfaceSet.h"
+#include "../Engine/ShadeTable.h"
 #include "../Engine/FileMap.h"
 #include "../Engine/Logger.h"
 #include "../Engine/Exception.h"
@@ -33,7 +34,7 @@ namespace OpenXcom
 /**
  * Creates a blank set of extra sprite data.
  */
-ExtraSprites::ExtraSprites() : _current(0), _width(320), _height(200), _singleImage(false), _subX(0), _subY(0), _loaded(false)
+ExtraSprites::ExtraSprites() : _current(0), _width(320), _height(200), _singleImage(false), _subX(0), _subY(0), _loaded(false), _hd(false)
 {
 }
 
@@ -76,6 +77,10 @@ void ExtraSprites::load(const YAML::YamlNodeReader& reader, const ModData* curre
 	reader.tryRead("singleImage", _singleImage);
 	reader.tryRead("subX", _subX);
 	reader.tryRead("subY", _subY);
+	reader.tryRead("hd", _hd);
+	// 7.A.4: palette-cycle phase palette names.
+	// Each entry is a Mod palette name used for one cycle phase.
+	reader.tryRead("paletteCycle", _paletteCycle);
 	_current = current;
 }
 
@@ -151,6 +156,11 @@ bool ExtraSprites::isLoaded() const
 	return _loaded;
 }
 
+bool ExtraSprites::isHD() const
+{
+	return _hd;
+}
+
 /**
  * Determines if an image file is an acceptable format for the game.
  * @param filename Image filename.
@@ -166,6 +176,58 @@ bool ExtraSprites::isImageFile(const std::string &filename)
 			return true;
 	}
 	return false;
+}
+
+/**
+ * Builds and attaches cycle-phase ShadeTable objects to every frame of a
+ * surface set.  Called after loadSurfaceSet() by Mod when _paletteCycle is
+ * non-empty.  paletteLookup must resolve a palette name to 256 SDL_Color
+ * entries; returns nullptr for unknown names (cycle phase is skipped).
+ */
+void ExtraSprites::buildCycleTables(SurfaceSet *set,
+                                    const std::function<const SDL_Color*(const std::string&)>& paletteLookup) const
+{
+	if (_paletteCycle.empty() || !set) return;
+
+	std::vector<std::shared_ptr<ShadeTable>> cycleTables;
+	cycleTables.reserve(_paletteCycle.size());
+	for (const auto& palName : _paletteCycle)
+	{
+		auto tbl = std::make_shared<ShadeTable>();
+		const SDL_Color *pal = paletteLookup(palName);
+		if (pal)
+			tbl->buildFromPalette(pal);
+		cycleTables.push_back(std::move(tbl));
+	}
+
+	// Attach the same cycle-table vector to every frame in the set.
+	const int total = (int)set->getTotalFrames();
+	for (int i = 0; i < total; ++i)
+	{
+		Surface *frame = set->getFrame(i);
+		if (frame) frame->attachShadeCycle(cycleTables);
+	}
+}
+
+/**
+ * Overload for single-image surfaces.
+ */
+void ExtraSprites::buildCycleTables(Surface *surface,
+                                    const std::function<const SDL_Color*(const std::string&)>& paletteLookup) const
+{
+	if (_paletteCycle.empty() || !surface) return;
+
+	std::vector<std::shared_ptr<ShadeTable>> cycleTables;
+	cycleTables.reserve(_paletteCycle.size());
+	for (const auto& palName : _paletteCycle)
+	{
+		auto tbl = std::make_shared<ShadeTable>();
+		const SDL_Color *pal = paletteLookup(palName);
+		if (pal)
+			tbl->buildFromPalette(pal);
+		cycleTables.push_back(std::move(tbl));
+	}
+	surface->attachShadeCycle(cycleTables);
 }
 
 /**
@@ -189,7 +251,10 @@ Surface *ExtraSprites::loadSurface(Surface *surface)
 		delete surface;
 	}
 	surface = new Surface(_width, _height);
-	surface->loadImage(_sprites.begin()->second);
+	if (_hd)
+		surface->loadImageHD(_sprites.begin()->second, _width, _height);
+	else
+		surface->loadImage(_sprites.begin()->second);
 	return surface;
 }
 
@@ -241,7 +306,15 @@ SurfaceSet *ExtraSprites::loadSurfaceSet(SurfaceSet *set)
 					continue;
 				try
 				{
-					getFrame(set, offset)->loadImage(fileName + name);
+					Surface* frame = getFrame(set, offset);
+					if (_hd)
+					{
+						frame->loadImageHD(fileName + name);
+						// No setLogicalSize: multi-frame HD sprite sheets must not be
+						// bilinearly squished to per-frame dimensions.
+					}
+					else
+						frame->loadImage(fileName + name);
 					offset++;
 				}
 				catch (Exception &e)
@@ -254,10 +327,22 @@ SurfaceSet *ExtraSprites::loadSurfaceSet(SurfaceSet *set)
 		{
 			if (!subdivision)
 			{
-				getFrame(set, startFrame)->loadImage(fileName);
+				Surface* frame = getFrame(set, startFrame);
+				if (_hd)
+				{
+					frame->loadImageHD(fileName);
+					// No setLogicalSize: multi-frame HD sprite sheets must not be
+					// bilinearly squished to per-frame dimensions.
+				}
+				else
+					frame->loadImage(fileName);
 			}
 			else
 			{
+				if (_hd)
+				{
+					Log(LOG_WARNING) << "ExtraSprites '" << _type << "': hd: true is not supported with subdivision; falling back to 8-bpp.";
+				}
 				Surface temp = Surface(_width, _height);
 				temp.loadImage(fileName);
 				int xDivision = _width / _subX;

@@ -2628,13 +2628,13 @@ void DebriefingState::recoverCivilian(BattleUnit *from, Base *base, Craft* craft
 				else
 				{
 					const RuleItem *ruleLiveAlienItem = ruleItem;
-					bool killPrisonersAutomatically = base->getAvailableContainment(ruleLiveAlienItem->getPrisonType()) == 0;
+					bool killPrisonersAutomatically = base->getAvailableContainment(ruleLiveAlienItem->getPrisonType()) - base->getUsedContainment(ruleLiveAlienItem->getPrisonType()) * _limitsEnforced <= 0;
 					if (killPrisonersAutomatically)
 					{
 						// check also other bases, maybe we can transfer/redirect prisoners there
 						for (auto* xbase : *_game->getSavedGame()->getBases())
 						{
-							if (xbase->getAvailableContainment(ruleLiveAlienItem->getPrisonType()) > 0)
+							if (xbase->getAvailableContainment(ruleLiveAlienItem->getPrisonType()) - xbase->getUsedContainment(ruleLiveAlienItem->getPrisonType()) * _limitsEnforced > 0)
 							{
 								killPrisonersAutomatically = false;
 								break;
@@ -2704,13 +2704,13 @@ void DebriefingState::recoverAlien(BattleUnit *from, Base *base, Craft* craft)
 		throw Exception(ss.str());
 	}
 
-	bool killPrisonersAutomatically = base->getAvailableContainment(ruleLiveAlienItem->getPrisonType()) == 0;
+	bool killPrisonersAutomatically = base->getAvailableContainment(ruleLiveAlienItem->getPrisonType()) - base->getUsedContainment(ruleLiveAlienItem->getPrisonType()) * _limitsEnforced <= 0;
 	if (killPrisonersAutomatically)
 	{
 		// check also other bases, maybe we can transfer/redirect prisoners there
 		for (auto* xbase : *_game->getSavedGame()->getBases())
 		{
-			if (xbase->getAvailableContainment(ruleLiveAlienItem->getPrisonType()) > 0)
+			if (xbase->getAvailableContainment(ruleLiveAlienItem->getPrisonType()) - xbase->getUsedContainment(ruleLiveAlienItem->getPrisonType()) * _limitsEnforced > 0)
 			{
 				killPrisonersAutomatically = false;
 				break;

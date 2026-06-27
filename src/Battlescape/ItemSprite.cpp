@@ -17,13 +17,41 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "ItemSprite.h"
+#include "../Engine/SurfaceSet.h"
 #include "../Mod/Mod.h"
 #include "../Savegame/BattleUnit.h"
 #include "../Savegame/BattleItem.h"
 #include "../Savegame/SavedBattleGame.h"
+#ifdef __EMSCRIPTEN__
+#include "Map.h"  // Map::TileInstance
+#include <vector>
+#endif
 
 namespace OpenXcom
 {
+
+namespace
+{
+
+void ensureIndexedSetPalette(const SurfaceSet *set, const Surface *paletteSource)
+{
+	if (!set || !paletteSource)
+		return;
+	const SDL_Color *colors = paletteSource->getEffectivePalette();
+	if (!colors)
+		return;
+	for (size_t i = 0; i < set->getTotalFrames(); ++i)
+	{
+		const Surface *frame = set->getFrame((int)i);
+		if (frame && !frame->isARGB())
+		{
+			const_cast<SurfaceSet *>(set)->setPalette(colors);
+			return;
+		}
+	}
+}
+
+}
 
 /**
  * Sets up a ItemSprite with the specified size and position.
@@ -55,13 +83,46 @@ ItemSprite::~ItemSprite()
  */
 void ItemSprite::draw(const BattleItem* item, int x, int y, int shade)
 {
+	ensureIndexedSetPalette(_itemSurface, _dest);
 	const Surface* sprite = item->getFloorSprite(_itemSurface, _save, _animationFrame, shade);
-	if (sprite)
+	if (!sprite) return;
+#ifdef __EMSCRIPTEN__
+	if (_emitTarget && _emitSpec && _emitSpec->atlas)
 	{
-		ScriptWorkerBlit work;
-		BattleItem::ScriptFill(&work, item, _save, BODYPART_ITEM_FLOOR, _animationFrame, shade);
-		work.executeBlit(sprite, _dest, x, y, shade);
+		// Use the rules' base FloorSprite PCK index — atlas builder maps
+		// PCK index 1:1 to atlas slot. Script-modulated sprite lookups in
+		// getFloorSprite are not reflected in the atlas, so ScriptFill paths
+		// that rewrite the floor sprite index are visually frozen on the
+		// base sprite for now.
+		const int frameIdx = item->getRules()->getFloorSprite();
+		if (frameIdx < 0) return;
+		auto* vec = static_cast<std::vector<Map::TileInstance>*>(_emitTarget);
+		const int col = frameIdx % _emitSpec->columns;
+		const int row = frameIdx / _emitSpec->columns;
+		const float uvW = (float)_emitSpec->tileWidth  / (float)_emitSpec->atlasW;
+		const float uvH = (float)_emitSpec->tileHeight / (float)_emitSpec->atlasH;
+		Map::TileInstance inst;
+		inst.screenX        = (float)x;
+		inst.screenY        = (float)y;
+		inst.atlasU         = col * uvW;
+		inst.atlasV         = row * uvH;
+		inst.shade          = (float)shade;
+		inst.animFrameCount = 1.0f;
+		inst.alphaMask      = 1.0f;
+		// Floor items: priority between back-tile object and unit body.
+		const int prio = _emitZ * 65536 + _emitY * 1024 + _emitX * 8 + 3;
+		inst.iso = (float)prio / 2000000.0f;
+		vec->push_back(inst);
+		if (_emitZTarget)
+			static_cast<std::vector<int>*>(_emitZTarget)->push_back(_emitZ);
+		if (_emitYTarget)
+			static_cast<std::vector<int>*>(_emitYTarget)->push_back(_emitY);
+		return;
 	}
+#endif
+	ScriptWorkerBlit work;
+	BattleItem::ScriptFill(&work, item, _save, BODYPART_ITEM_FLOOR, _animationFrame, shade);
+	work.executeBlit(sprite, _dest, x, y, shade);
 }
 
 /**
@@ -69,6 +130,7 @@ void ItemSprite::draw(const BattleItem* item, int x, int y, int shade)
  */
 void ItemSprite::drawShadow(const BattleItem* item, int x, int y)
 {
+	ensureIndexedSetPalette(_itemSurface, _dest);
 	const Surface* sprite = item->getFloorSprite(_itemSurface, _save, _animationFrame, 16);
 	if (sprite)
 	{

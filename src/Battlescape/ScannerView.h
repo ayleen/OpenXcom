@@ -35,6 +35,9 @@ class ScannerView : public InteractiveSurface
 	void mouseClick (Action *action, State *state) override;
 	BattleUnit *_unit;
 	int _frame;
+	int _baseW, _baseH;  ///< Calypso: native view size; when scaled the scanner is rendered native then scale-blitted
+	/// Calypso: renders the scanner blobs/arrow into a target surface.
+	void renderScanner(Surface* dst);
 public:
 	/// Create the ScannerView
 	ScannerView (int w, int h, int x, int y, Game * game, BattleUnit *unit);

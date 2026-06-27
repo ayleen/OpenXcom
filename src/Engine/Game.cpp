@@ -21,7 +21,11 @@
 #include <algorithm>
 #include <cmath>
 #include <sstream>
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 #include <SDL_mixer.h>
+#include <SDL_ttf.h>
 #include "State.h"
 #include "Screen.h"
 #include "Sound.h"
@@ -46,6 +50,13 @@
 #include <algorithm>
 #include "../fallthrough.h"
 
+#ifdef __EMSCRIPTEN__
+// The global `game` pointer is defined in main.cpp at global scope (not in a
+// namespace).  Declare it here so getCurrentGame() can return it without
+// requiring every caller to write its own extern declaration.
+extern OpenXcom::Game *game;
+#endif
+
 namespace OpenXcom
 {
 
@@ -57,7 +68,8 @@ const double Game::VOLUME_GRADIENT = 10.0;
  * @param title Title of the game window.
  */
 Game::Game(const std::string &title) : _screen(0), _cursor(0), _lang(0), _save(0), _mod(0), _quit(false), _init(false), _update(false),  _mouseActive(true), _timeUntilNextFrame(0),
-	_ctrl(false), _alt(false), _shift(false), _rmb(false), _mmb(false), _scrollStep(1)
+	_ctrl(false), _alt(false), _shift(false), _rmb(false), _mmb(false), _scrollStep(1),
+	_runningState(RUNNING), _startupEvent(false), _runInitialised(false), _lastMouseMoveEvent(0), _xrel(0), _yrel(0)
 {
 	Options::reload = false;
 	Options::mute = false;
@@ -70,6 +82,13 @@ Game::Game(const std::string &title) : _screen(0), _cursor(0), _lang(0), _save(0
 		throw Exception(SDL_GetError());
 	}
 	Log(LOG_INFO) << "SDL initialized successfully.";
+
+	// Initialize SDL_ttf (for HD TrueType text rendering; Phase 16).
+	if (TTF_Init() < 0)
+	{
+		Log(LOG_ERROR) << "TTF_Init failed: " << TTF_GetError();
+		// Non-fatal: TTFFont will return null handles and the bitmap fallback is used.
+	}
 
 	// Initialize SDL_mixer
 	initAudio();
@@ -130,9 +149,353 @@ Game::~Game()
 	delete _fpsCounter;
 
 	Mix_CloseAudio();
+	TTF_Quit();
 
 	SDL_Quit();
 }
+
+#ifdef __EMSCRIPTEN__
+Game *getCurrentGame() { return ::game; }
+#endif
+
+/**
+ * Executes one iteration of the game loop.
+ * Returns false when the game should quit.
+ */
+bool Game::iterate()
+{
+	static const ApplicationState kbFocusRun[4] = { RUNNING, RUNNING, SLOWED, PAUSED };
+	static const ApplicationState stateRun[4] = { SLOWED, PAUSED, PAUSED, PAUSED };
+
+	if (!_runInitialised)
+	{
+		_runInitialised = true;
+		_runningState = RUNNING;
+		_startupEvent = Options::allowResize;
+	}
+
+	// Clean up states
+	while (!_deleted.empty())
+	{
+		delete _deleted.back();
+		_deleted.pop_back();
+	}
+
+	// Initialize active state
+	if (!_init)
+	{
+		_init = true;
+		_states.back()->init();
+
+		// Unpress buttons
+		_states.back()->resetAll();
+
+		// Refresh mouse position
+		SDL_Event ev;
+		int x, y;
+		SDL_GetMouseState(&x, &y);
+		ev.type = SDL_MOUSEMOTION;
+		ev.motion.x = x;
+		ev.motion.y = y;
+		Action action = Action(&ev, _screen->getXScale(), _screen->getYScale(), _screen->getCursorTopBlackBand(), _screen->getCursorLeftBlackBand());
+		_states.back()->handle(&action);
+	}
+
+	// Process events
+	while (SDL_PollEvent(&_event))
+	{
+		if (CrossPlatform::isQuitShortcut(_event))
+			_event.type = SDL_QUIT;
+		switch (_event.type)
+		{
+			case SDL_QUIT:
+				quit();
+				break;
+#if !SDL_VERSION_ATLEAST(2,0,0)
+			case SDL_ACTIVEEVENT:
+				// An event other than SDL_APPMOUSEFOCUS change happened.
+				if (reinterpret_cast<SDL_ActiveEvent*>(&_event)->state & ~SDL_APPMOUSEFOCUS)
+				{
+					Uint8 currentState = SDL_GetAppState();
+					// Game is minimized
+					if (!(currentState & SDL_APPACTIVE))
+					{
+						_runningState = stateRun[Options::pauseMode];
+						if (Options::backgroundMute)
+						{
+							setVolume(0, 0, 0);
+						}
+					}
+					// Game is not minimized but has no keyboard focus.
+					else if (!(currentState & SDL_APPINPUTFOCUS))
+					{
+						_runningState = kbFocusRun[Options::pauseMode];
+						if (Options::backgroundMute)
+						{
+							setVolume(0, 0, 0);
+						}
+					}
+					// Game has keyboard focus.
+					else
+					{
+						_runningState = RUNNING;
+						if (Options::backgroundMute)
+						{
+							setVolume(Options::soundVolume, Options::musicVolume, Options::uiVolume);
+						}
+					}
+				}
+				break;
+			case SDL_VIDEORESIZE:
+				if (Options::allowResize)
+				{
+					if (!_startupEvent)
+					{
+						Options::newDisplayWidth = Options::displayWidth = std::max(Screen::ORIGINAL_WIDTH, _event.resize.w);
+						Options::newDisplayHeight = Options::displayHeight = std::max(Screen::ORIGINAL_HEIGHT, _event.resize.h);
+						int dX = 0, dY = 0;
+						Screen::updateScale(Options::battlescapeScale, Options::baseXBattlescape, Options::baseYBattlescape, false);
+						Screen::updateScale(Options::geoscapeScale, Options::baseXGeoscape, Options::baseYGeoscape, false);
+						for (auto* state : _states)
+						{
+							state->resize(dX, dY);
+						}
+						_screen->resetDisplay();
+					}
+					else
+					{
+						_startupEvent = false;
+					}
+				}
+				break;
+#else /* SDL2 native or Emscripten — SDL_WINDOWEVENT replaces SDL_ACTIVEEVENT + SDL_VIDEORESIZE */
+			case SDL_WINDOWEVENT:
+				if (_event.window.event == SDL_WINDOWEVENT_RESIZED)
+				{
+					/* SDL_RenderSetLogicalSize scales the fixed-resolution framebuffer
+					 * to the new physical window size automatically — no pipeline
+					 * rebuild needed. Just record the new physical dimensions. */
+					Options::newDisplayWidth = Options::displayWidth =
+					    std::max(Screen::ORIGINAL_WIDTH, _event.window.data1);
+					Options::newDisplayHeight = Options::displayHeight =
+					    std::max(Screen::ORIGINAL_HEIGHT, _event.window.data2);
+				}
+				break;
+#endif /* SDL2 */
+			case SDL_MOUSEMOTION:
+				if (Options::oxceThrottleMouseMoveEvent > 0)
+				{
+					Uint32 last = SDL_GetTicks();
+					if (0 == _lastMouseMoveEvent)
+					{
+						_lastMouseMoveEvent = last;
+					}
+					if (last - _lastMouseMoveEvent < (Uint32)Options::oxceThrottleMouseMoveEvent)
+					{
+						_xrel += _event.motion.xrel;
+						_yrel += _event.motion.yrel;
+						continue;
+					}
+					_lastMouseMoveEvent = 0;
+					_event.motion.xrel += std::exchange(_xrel, 0);
+					_event.motion.yrel += std::exchange(_yrel, 0);
+				}
+				FALLTHROUGH;
+#ifdef __EMSCRIPTEN__
+			case SDL_MOUSEWHEEL:
+				if (!_mouseActive) continue;
+				_runningState = RUNNING;
+				if (_event.type == SDL_MOUSEWHEEL)
+				{
+					// SDL2 delivers mouse-wheel as SDL_MOUSEWHEEL; translate to
+					// a synthetic SDL_MOUSEBUTTONDOWN+UP pair so all existing
+					// BUTTON_WHEELUP/DOWN handlers keep working.
+					// Guard: SDL_MOUSEMOTION falls through here too — skip the
+					// transform in that case or every mouse move becomes a wheel click.
+					//
+					// Both the DOWN and the UP are dispatched inline within this
+					// iteration. Queueing the UP via SDL_PushEvent appends it to
+					// the back of the queue; under bursty wheel input the next
+					// MOUSEBUTTONDOWN gets observed first and InteractiveSurface
+					// sees the synthetic button still latched, dropping the tick.
+					int wheelDir = (_event.wheel.y >= 0) ? 1 : -1;
+					int mx = 0, my = 0;
+					SDL_GetMouseState(&mx, &my);
+					Uint8 wheelBtn = (wheelDir > 0) ? SDL_BUTTON_WHEELUP : SDL_BUTTON_WHEELDOWN;
+
+					SDL_Event ev;
+					SDL_memset(&ev, 0, sizeof(ev));
+					ev.button.button = wheelBtn;
+					ev.button.x = (Sint32)mx;
+					ev.button.y = (Sint32)my;
+					const double sx = _screen->getXScale();
+					const double sy = _screen->getYScale();
+					const int    tb = _screen->getCursorTopBlackBand();
+					const int    lb = _screen->getCursorLeftBlackBand();
+
+					ev.type = SDL_MOUSEBUTTONDOWN;
+					ev.button.state = SDL_PRESSED;
+					{
+						Action a(&ev, sx, sy, tb, lb);
+						_screen->handle(&a);
+						_cursor->handle(&a);
+						_fpsCounter->handle(&a);
+						if (!_states.empty()) _states.back()->handle(&a);
+					}
+					ev.type = SDL_MOUSEBUTTONUP;
+					ev.button.state = SDL_RELEASED;
+					{
+						Action a(&ev, sx, sy, tb, lb);
+						_screen->handle(&a);
+						_cursor->handle(&a);
+						_fpsCounter->handle(&a);
+						if (!_states.empty()) _states.back()->handle(&a);
+					}
+					if (!_init) break;
+					continue;
+				}
+				FALLTHROUGH;
+#endif /* __EMSCRIPTEN__ */
+			case SDL_MOUSEBUTTONDOWN:
+			case SDL_MOUSEBUTTONUP:
+				// Skip mouse events if they're disabled
+				if (!_mouseActive) continue;
+				// re-gain focus on mouse-over or keypress.
+				_runningState = RUNNING;
+				// Go on, feed the event to others
+				FALLTHROUGH;
+			default:
+				Action action = Action(&_event, _screen->getXScale(), _screen->getYScale(), _screen->getCursorTopBlackBand(), _screen->getCursorLeftBlackBand());
+				_screen->handle(&action);
+				_cursor->handle(&action);
+				_fpsCounter->handle(&action);
+				if (action.getDetails()->type == SDL_KEYDOWN)
+				{
+					// "ctrl-g" grab input
+					if (action.getDetails()->key.keysym.sym == SDLK_g && isCtrlPressed())
+					{
+						Options::captureMouse = (SDL_GrabMode)(!Options::captureMouse);
+						SDL_WM_GrabInput(Options::captureMouse);
+					}
+					// "ctrl-n" notes UI
+					else if (action.getDetails()->key.keysym.sym == SDLK_n && isCtrlPressed() && !isAltPressed())
+					{
+						if (_save && !containsNotesState())
+						{
+							if (_save->getSavedBattle())
+							{
+								if (!_save->getSavedBattle()->isBattlescapeStateBusy())
+								{
+									pushState(new NotesState(OPT_BATTLESCAPE));
+								}
+							}
+							else
+							{
+								pushState(new NotesState(OPT_GEOSCAPE));
+							}
+						}
+					}
+					else if (Options::debug)
+					{
+						if (action.getDetails()->key.keysym.sym == SDLK_t && isCtrlPressed())
+						{
+							pushState(new TestState);
+						}
+						// "ctrl-u" debug UI
+						else if (action.getDetails()->key.keysym.sym == SDLK_u && isCtrlPressed())
+						{
+							Options::debugUi = !Options::debugUi;
+							_states.back()->redrawText();
+						}
+					}
+				}
+				_states.back()->handle(&action);
+				break;
+		}
+		if (!_init)
+		{
+			// States stack was changed, break the loop so new state
+			// can be initialized before processing new events
+			break;
+		}
+	}
+
+	// Process rendering
+	if (_runningState != PAUSED)
+	{
+		// Process logic
+		_states.back()->think();
+		_fpsCounter->think();
+		if (Options::FPS > 0 && !(Options::useOpenGL && Options::vSyncForOpenGL))
+		{
+			// Update our FPS delay time based on the time of the last draw.
+#if SDL_VERSION_ATLEAST(2,0,0)
+			int fps = Options::FPS; /* SDL2: no SDL_GetAppState; use FPS for both focused and background */
+#else
+			int fps = SDL_GetAppState() & SDL_APPINPUTFOCUS ? Options::FPS : Options::FPSInactive;
+#endif
+
+			_timeUntilNextFrame = (1000.0f / fps) - (SDL_GetTicks() - _timeOfLastFrame);
+		}
+		else
+		{
+			_timeUntilNextFrame = 0;
+		}
+
+		if (_init && _timeUntilNextFrame <= 0)
+		{
+			// make a note of when this frame update occurred.
+			_timeOfLastFrame = SDL_GetTicks();
+			_fpsCounter->addFrame();
+			_screen->clear();
+			std::list<State*>::iterator i = _states.end();
+			do
+			{
+				--i;
+			}
+			while (i != _states.begin() && !(*i)->isScreen());
+
+			for (; i != _states.end(); ++i)
+			{
+				(*i)->blit();
+			}
+			_fpsCounter->blit(_screen->getSurface());
+			_cursor->blit(_screen->getSurface());
+			_screen->flip();
+		}
+	}
+
+	// Save on CPU — SDL_Delay blocks the browser tab; rAF already paces Emscripten builds.
+#ifndef __EMSCRIPTEN__
+	switch (_runningState)
+	{
+		case RUNNING:
+			SDL_Delay(1); //Save CPU from going 100%
+			break;
+		case SLOWED: case PAUSED:
+			SDL_Delay(100); break; //More slowing down.
+	}
+#endif
+
+	if (_quit)
+		Options::save();
+	return !_quit;
+}
+
+#ifdef __EMSCRIPTEN__
+static void emscriptenIter(void *arg)
+{
+	Game *game = static_cast<Game*>(arg);
+	try {
+		if (!game->iterate()) {
+			emscripten_cancel_main_loop();
+		}
+	} catch (const std::exception &e) {
+		Log(LOG_FATAL) << "iterate() uncaught: " << e.what();
+		emscripten_cancel_main_loop();
+	}
+}
+#endif
 
 /**
  * The state machine takes care of passing all the events from SDL to the
@@ -141,246 +504,12 @@ Game::~Game()
  */
 void Game::run()
 {
-	enum ApplicationState { RUNNING = 0, SLOWED = 1, PAUSED = 2 } runningState = RUNNING;
-	static const ApplicationState kbFocusRun[4] = { RUNNING, RUNNING, SLOWED, PAUSED };
-	static const ApplicationState stateRun[4] = { SLOWED, PAUSED, PAUSED, PAUSED };
-	// this will avoid processing SDL's resize event on startup, workaround for the heap allocation error it causes.
-	bool startupEvent = Options::allowResize;
-	Uint32 lastMouseMoveEvent = 0;
-	Sint16 xrel = 0;
-	Sint16 yrel = 0;
-
-	while (!_quit)
-	{
-		// Clean up states
-		while (!_deleted.empty())
-		{
-			delete _deleted.back();
-			_deleted.pop_back();
-		}
-
-		// Initialize active state
-		if (!_init)
-		{
-			_init = true;
-			_states.back()->init();
-
-			// Unpress buttons
-			_states.back()->resetAll();
-
-			// Refresh mouse position
-			SDL_Event ev;
-			int x, y;
-			SDL_GetMouseState(&x, &y);
-			ev.type = SDL_MOUSEMOTION;
-			ev.motion.x = x;
-			ev.motion.y = y;
-			Action action = Action(&ev, _screen->getXScale(), _screen->getYScale(), _screen->getCursorTopBlackBand(), _screen->getCursorLeftBlackBand());
-			_states.back()->handle(&action);
-		}
-
-		// Process events
-		while (SDL_PollEvent(&_event))
-		{
-			if (CrossPlatform::isQuitShortcut(_event))
-				_event.type = SDL_QUIT;
-			switch (_event.type)
-			{
-				case SDL_QUIT:
-					quit();
-					break;
-				case SDL_ACTIVEEVENT:
-					// An event other than SDL_APPMOUSEFOCUS change happened.
-					if (reinterpret_cast<SDL_ActiveEvent*>(&_event)->state & ~SDL_APPMOUSEFOCUS)
-					{
-						Uint8 currentState = SDL_GetAppState();
-						// Game is minimized
-						if (!(currentState & SDL_APPACTIVE))
-						{
-							runningState = stateRun[Options::pauseMode];
-							if (Options::backgroundMute)
-							{
-								setVolume(0, 0, 0);
-							}
-						}
-						// Game is not minimized but has no keyboard focus.
-						else if (!(currentState & SDL_APPINPUTFOCUS))
-						{
-							runningState = kbFocusRun[Options::pauseMode];
-							if (Options::backgroundMute)
-							{
-								setVolume(0, 0, 0);
-							}
-						}
-						// Game has keyboard focus.
-						else
-						{
-							runningState = RUNNING;
-							if (Options::backgroundMute)
-							{
-								setVolume(Options::soundVolume, Options::musicVolume, Options::uiVolume);
-							}
-						}
-					}
-					break;
-				case SDL_VIDEORESIZE:
-					if (Options::allowResize)
-					{
-						if (!startupEvent)
-						{
-							Options::newDisplayWidth = Options::displayWidth = std::max(Screen::ORIGINAL_WIDTH, _event.resize.w);
-							Options::newDisplayHeight = Options::displayHeight = std::max(Screen::ORIGINAL_HEIGHT, _event.resize.h);
-							int dX = 0, dY = 0;
-							Screen::updateScale(Options::battlescapeScale, Options::baseXBattlescape, Options::baseYBattlescape, false);
-							Screen::updateScale(Options::geoscapeScale, Options::baseXGeoscape, Options::baseYGeoscape, false);
-							for (auto* state : _states)
-							{
-								state->resize(dX, dY);
-							}
-							_screen->resetDisplay();
-						}
-						else
-						{
-							startupEvent = false;
-						}
-					}
-					break;
-				case SDL_MOUSEMOTION:
-					if (Options::oxceThrottleMouseMoveEvent > 0)
-					{
-						Uint32 last = SDL_GetTicks();
-						if (0 == lastMouseMoveEvent)
-						{
-							lastMouseMoveEvent = last;
-						}
-						if (last - lastMouseMoveEvent < (Uint32)Options::oxceThrottleMouseMoveEvent)
-						{
-							xrel += _event.motion.xrel;
-							yrel += _event.motion.yrel;
-							continue;
-						}
-						lastMouseMoveEvent = 0;
-						_event.motion.xrel += std::exchange(xrel, 0);
-						_event.motion.yrel += std::exchange(yrel, 0);
-					}
-					FALLTHROUGH;
-				case SDL_MOUSEBUTTONDOWN:
-				case SDL_MOUSEBUTTONUP:
-					// Skip mouse events if they're disabled
-					if (!_mouseActive) continue;
-					// re-gain focus on mouse-over or keypress.
-					runningState = RUNNING;
-					// Go on, feed the event to others
-					FALLTHROUGH;
-				default:
-					Action action = Action(&_event, _screen->getXScale(), _screen->getYScale(), _screen->getCursorTopBlackBand(), _screen->getCursorLeftBlackBand());
-					_screen->handle(&action);
-					_cursor->handle(&action);
-					_fpsCounter->handle(&action);
-					if (action.getDetails()->type == SDL_KEYDOWN)
-					{
-						// "ctrl-g" grab input
-						if (action.getDetails()->key.keysym.sym == SDLK_g && isCtrlPressed())
-						{
-							Options::captureMouse = (SDL_GrabMode)(!Options::captureMouse);
-							SDL_WM_GrabInput(Options::captureMouse);
-						}
-						// "ctrl-n" notes UI
-						else if (action.getDetails()->key.keysym.sym == SDLK_n && isCtrlPressed() && !isAltPressed())
-						{
-							if (_save && !containsNotesState())
-							{
-								if (_save->getSavedBattle())
-								{
-									if (!_save->getSavedBattle()->isBattlescapeStateBusy())
-									{
-										pushState(new NotesState(OPT_BATTLESCAPE));
-									}
-								}
-								else
-								{
-									pushState(new NotesState(OPT_GEOSCAPE));
-								}
-							}
-						}
-						else if (Options::debug)
-						{
-							if (action.getDetails()->key.keysym.sym == SDLK_t && isCtrlPressed())
-							{
-								pushState(new TestState);
-							}
-							// "ctrl-u" debug UI
-							else if (action.getDetails()->key.keysym.sym == SDLK_u && isCtrlPressed())
-							{
-								Options::debugUi = !Options::debugUi;
-								_states.back()->redrawText();
-							}
-						}
-					}
-					_states.back()->handle(&action);
-					break;
-			}
-			if (!_init)
-			{
-				// States stack was changed, break the loop so new state
-				// can be initialized before processing new events
-				break;
-			}
-		}
-
-		// Process rendering
-		if (runningState != PAUSED)
-		{
-			// Process logic
-			_states.back()->think();
-			_fpsCounter->think();
-			if (Options::FPS > 0 && !(Options::useOpenGL && Options::vSyncForOpenGL))
-			{
-				// Update our FPS delay time based on the time of the last draw.
-				int fps = SDL_GetAppState() & SDL_APPINPUTFOCUS ? Options::FPS : Options::FPSInactive;
-
-				_timeUntilNextFrame = (1000.0f / fps) - (SDL_GetTicks() - _timeOfLastFrame);
-			}
-			else
-			{
-				_timeUntilNextFrame = 0;
-			}
-
-			if (_init && _timeUntilNextFrame <= 0)
-			{
-				// make a note of when this frame update occurred.
-				_timeOfLastFrame = SDL_GetTicks();
-				_fpsCounter->addFrame();
-				_screen->clear();
-				std::list<State*>::iterator i = _states.end();
-				do
-				{
-					--i;
-				}
-				while (i != _states.begin() && !(*i)->isScreen());
-
-				for (; i != _states.end(); ++i)
-				{
-					(*i)->blit();
-				}
-				_fpsCounter->blit(_screen->getSurface());
-				_cursor->blit(_screen->getSurface());
-				_screen->flip();
-			}
-		}
-
-		// Save on CPU
-		switch (runningState)
-		{
-			case RUNNING:
-				SDL_Delay(1); //Save CPU from going 100%
-				break;
-			case SLOWED: case PAUSED:
-				SDL_Delay(100); break; //More slowing down.
-		}
-	}
-
-	Options::save();
+#ifdef __EMSCRIPTEN__
+	// 0 fps = driven by requestAnimationFrame; 1 = simulate_infinite_loop (never returns).
+	emscripten_set_main_loop_arg(emscriptenIter, this, 0, 1);
+#else
+	while (iterate()) {}
+#endif
 }
 
 /**
@@ -469,6 +598,19 @@ void Game::setState(State *state)
  */
 void Game::pushState(State *state)
 {
+	// Any new state defaults to a fully revealed cursor so menus opened mid-Battlescape
+	// (PauseState, UnitInfoState, Inventory, etc.) are reachable even when:
+	//   - _visible was cleared by AI turn / projectile animation in BattlescapeGame, or
+	//   - _hidden was set by Map::draw() while a player unit was selected for movement
+	//     (the "yellow floor ring" mode hides the arrow until Map::draw() runs again,
+	//     but Map::draw() stops running once the menu sits on top — so the flag stays
+	//     stuck and the menu inherits a hidden arrow).
+	// States that want a hidden cursor (Slideshow/Video/Start) override this in init().
+	if (_cursor)
+	{
+		_cursor->setVisible(true);
+		_cursor->setHidden(false);
+	}
 	_states.push_back(state);
 	_init = false;
 }

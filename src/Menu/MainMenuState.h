@@ -25,6 +25,7 @@ namespace OpenXcom
 class TextButton;
 class Window;
 class Text;
+class Surface;
 
 // Utility class for enqueuing a state in the stack that goes to the main menu
 class GoToMainMenuState : public State
@@ -47,6 +48,9 @@ private:
 	TextButton *_btnNewGame, *_btnNewBattle, *_btnLoad, *_btnOptions, *_btnMods, *_btnQuit, *_btnUpdate;
 	Window *_window;
 	Text *_txtTitle, *_txtUpdateInfo;
+	// Calypso HD: fullscreen background surface (rendered under the window).
+	// Owned by State::_surfacesOwned via add(); nullptr when no HD bg available.
+	Surface *_bgFull;
 #ifdef _WIN32
 	bool _debugInVisualStudio;
 	std::string _newVersion;

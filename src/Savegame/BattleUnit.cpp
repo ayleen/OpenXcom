@@ -6194,10 +6194,30 @@ struct burnShadeScript
 {
 	static RetEnum func(int &curr, int burn, int shade)
 	{
-		Uint8 d = curr;
-		Uint8 s = curr;
-		helper::BurnShade::func(d, s, burn, shade);
-		curr = d;
+		// Palette-index burn/shade arithmetic (R3.1: inlined from LEGACY Uint8 helper).
+		const Uint8 src = (Uint8)curr;
+		if (src)
+		{
+			Uint8 n = src;
+			if (burn)
+			{
+				const Uint8 tempBurn = (Uint8)((src & helper::ColorShade) + burn);
+				if (tempBurn <= 26)
+				{
+					const Uint8 base = (tempBurn > 15)
+					    ? helper::ColorShade
+					    : (Uint8)((src & helper::ColorGroup) + tempBurn);
+					const Uint8 ns = (Uint8)(base + shade);
+					n = ((ns ^ base) & helper::ColorGroup) ? helper::ColorShade : ns;
+				}
+			}
+			else
+			{
+				const Uint8 ns = (Uint8)(src + shade);
+				n = ((ns ^ src) & helper::ColorGroup) ? helper::ColorShade : ns;
+			}
+			curr = n;
+		}
 		return RetContinue;
 	}
 };

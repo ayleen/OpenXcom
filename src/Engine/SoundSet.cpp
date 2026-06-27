@@ -21,6 +21,7 @@
 #include "Sound.h"
 #include "Logger.h"
 #include "SDL2Helpers.h"
+#include "FileMap.h"
 #include <climits>
 #include <cassert>
 
@@ -53,9 +54,13 @@ int SoundSet::convertSampleRate(Uint8 *oldsound, size_t oldsize, Uint8 *newsound
 	return newsize;
 }
 
+/* 16-bit signed PCM mono at 11025 Hz.
+ * decodeAudioData (Web Audio API) rejects 8-bit PCM on some engines.
+ * ByteRate = SampleRate * BlockAlign = 11025 * 2 = 22050 = 0x5622.
+ * BlockAlign = 2, BitsPerSample = 16. */
 static const Uint8 header[] = {  'R',  'I',  'F',  'F', 0x00, 0x00, 0x00, 0x00,  'W',  'A',  'V',  'E',
 								 'f',  'm',  't',  ' ', 0x10, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00,
-								0x11, 0x2b, 0x00, 0x00, 0x11, 0x2b, 0x00, 0x00, 0x01, 0x00, 0x08, 0x00,
+								0x11, 0x2b, 0x00, 0x00, 0x22, 0x56, 0x00, 0x00, 0x02, 0x00, 0x10, 0x00,
 								 'd',  'a',  't',  'a', 0x00, 0x00, 0x00, 0x00                           };
 /**
  * Write out a WAV. Resample if needed.
@@ -66,22 +71,40 @@ static const Uint8 header[] = {  'R',  'I',  'F',  'F', 0x00, 0x00, 0x00, 0x00, 
  */
 void SoundSet::writeWAV(SDL_RWops *dest, Uint8 *sound, size_t size, bool resample) const {
 	SDL_RWwrite(dest, header, sizeof(header), 1);
-	int newsize = size;
 
+	/* Expand 8-bit unsigned PCM → 16-bit signed PCM.
+	 * formula: s16 = (u8 - 128) * 256  (preserves silence at 0x80). */
+	auto expand16 = [](Uint8 *src, int count) -> Sint16* {
+		auto out = (Sint16*)SDL_malloc((size_t)count * 2);
+		for (int i = 0; i < count; ++i)
+			out[i] = ((Sint16)src[i] - 128) * 256;
+		return out;
+	};
+
+	int newsize;
 	if (resample) {
-		auto newsound = SDL_malloc(2*size);
-		newsize = convertSampleRate(sound, size, (Uint8 *)newsound);
-		SDL_RWwrite(dest, newsound, newsize, 1);
-		SDL_free(newsound);
+		auto buf8 = (Uint8*)SDL_malloc(2*size);
+		int resampled = convertSampleRate(sound, size, buf8);
+		Sint16 *out = expand16(buf8, resampled);
+		SDL_free(buf8);
+		newsize = resampled * 2;
+		SDL_RWwrite(dest, out, newsize, 1);
+		SDL_free(out);
 	} else {
-		SDL_RWwrite(dest, sound, size, 1);
+		Sint16 *out = expand16(sound, (int)size);
+		newsize = (int)size * 2;
+		SDL_RWwrite(dest, out, newsize, 1);
+		SDL_free(out);
 	}
 
 	// update the header
-	SDL_RWseek(dest, 4, RW_SEEK_SET);	// write WAVE chunk size
+	SDL_RWseek(dest, 4, RW_SEEK_SET);
 	SDL_WriteLE32(dest, newsize + 36);
-	SDL_RWseek(dest, 40, RW_SEEK_SET); 	// write data subchunk size
+	SDL_RWseek(dest, 40, RW_SEEK_SET);
 	SDL_WriteLE32(dest, newsize);
+	// Restore position to end of written data so callers can read bytes_written
+	// via SDL_RWseek(dest, 0, SEEK_CUR) and get the full WAV size, not just 44.
+	SDL_RWseek(dest, 44 + newsize, RW_SEEK_SET);
 }
 
 /**
@@ -231,17 +254,35 @@ void SoundSet::loadCatByIndex(CatFile &catFile, int index, bool tftd)
 			samples[n] = (Uint8) (tftd ? sample + 128 : sample * 4);
 		}
 	}
-	size_t dest_size = 44 + 2 * size; // worst-case estimation
+	size_t dest_size = 44 + 4 * size; // 16-bit resampled worst case: 2× sample count × 2 bytes
 	auto dest_mem = SDL_malloc(dest_size);
-	auto dest_rwops = SDL_RWFromMem(dest_mem, dest_size);
-
-	if (do_resample) {
-		writeWAV(dest_rwops, samples, samplecount, !tftd);
-	} else { // nothing to do.
-		SDL_RWwrite(dest_rwops, sound, size, 1);
+#ifdef __EMSCRIPTEN__
+	// SDL_RWFromMem returns a JS rwops id; C macros (SDL_RWwrite/seek) need a C struct.
+	// Use em_writable_mem_to_rwops for the write phase, then a fresh JS id for Mix_LoadWAV_RW.
+	{
+		auto c_rwops = em_writable_mem_to_rwops(dest_mem, dest_size);
+		if (do_resample) {
+			writeWAV(c_rwops, samples, samplecount, !tftd);
+		} else {
+			SDL_RWwrite(c_rwops, sound, size, 1);
+		}
+		long bytes_written = SDL_RWseek(c_rwops, 0, RW_SEEK_CUR);
+		SDL_RWclose(c_rwops);
+		auto dest_rwops = SDL_RWFromMem(dest_mem, (int)bytes_written);
+		_sounds[set_index].load(dest_rwops);
 	}
-	SDL_RWseek(dest_rwops, 0, RW_SEEK_SET);
-	_sounds[set_index].load(dest_rwops);  // this frees the dest_rwops
+#else
+	{
+		auto dest_rwops = SDL_RWFromMem(dest_mem, dest_size);
+		if (do_resample) {
+			writeWAV(dest_rwops, samples, samplecount, !tftd);
+		} else {
+			SDL_RWwrite(dest_rwops, sound, size, 1);
+		}
+		SDL_RWseek(dest_rwops, 0, RW_SEEK_SET);
+		_sounds[set_index].load(dest_rwops);
+	}
+#endif
 	SDL_free(dest_mem);
 	SDL_free(sound);
 }

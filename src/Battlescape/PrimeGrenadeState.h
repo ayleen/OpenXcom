@@ -45,11 +45,15 @@ private:
 	Frame *_frame;
 	InteractiveSurface *_button[24];
 	Surface *_bg;
+	/// Calypso: re-draws the bg fill + button border/fill rects (cleared by scaling).
+	void redrawStatic();
 public:
 	/// Creates the Prime Grenade state.
 	PrimeGrenadeState(BattleAction *action, bool inInventoryView, BattleItem *grenadeInInventory);
 	/// Cleans up the Prime Grenade state.
 	~PrimeGrenadeState();
+	/// Calypso: rescale to the logical buffer instead of the base recenter.
+	void resize(int &dX, int &dY) override;
 	/// Handler for right-clicking anything.
 	void handle(Action *action) override;
 	/// Handler for clicking a button.

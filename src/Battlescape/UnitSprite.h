@@ -19,6 +19,10 @@
  */
 #include "../Engine/Surface.h"
 #include "../Engine/Script.h"
+#ifdef __EMSCRIPTEN__
+#include <vector>
+#include "../Mod/Mod.h"
+#endif
 
 namespace OpenXcom
 {
@@ -28,6 +32,9 @@ class BattleItem;
 class SavedBattleGame;
 class SurfaceSet;
 class Mod;
+#ifdef __EMSCRIPTEN__
+class GpuTexture;
+#endif
 
 /**
  * A class that renders a specific unit, given its render rules
@@ -42,6 +49,10 @@ private:
 		int bodyPart;
 		int offX;
 		int offY;
+#ifdef __EMSCRIPTEN__
+		int frameIdx = -1;   // PCK frame index within its SurfaceSet (-1 = unknown)
+		bool isItem  = false; // true = from _itemSurface, false = from _unitSurface
+#endif
 
 		Part(int body, const Surface *s = nullptr) : src{ s }, bodyPart{ body }, offX{ 0 }, offY{ 0 } { }
 
@@ -60,6 +71,23 @@ private:
 	int _red, _blue;
 	int _x, _y, _shade, _burn;
 	GraphSubset _mask;
+#ifdef __EMSCRIPTEN__
+	/// Phase 14.2: when non-null, blitBody emits TileInstance records into this
+	/// vector instead of blitting to _dest.  blitItem emits into _emitItemTarget.
+	/// Both pointers are std::vector<Map::TileInstance>* cast to void* to avoid
+	/// a circular header dependency.
+	void*                      _emitTarget     = nullptr;  // body parts
+	void*                      _emitItemTarget = nullptr;  // item hand sprites
+	const Mod::UnitAtlasSpec*  _emitUnitSpec   = nullptr;  // unit body atlas
+	const Mod::UnitAtlasSpec*  _emitItemSpec   = nullptr;  // item (HANDOB.PCK) atlas
+	int                        _emitZ           = 0;        // unit's tile Z, parallel-pushed via zTargets
+	int                        _emitY           = 0;        // unit's tile Y, parallel-pushed via yTargets
+	int                        _emitX           = 0;        // unit's tile X — used to derive instance iso priority
+	void*                      _emitZTargetBody = nullptr;  // std::vector<int>* receiving Z per body emit
+	void*                      _emitZTargetItem = nullptr;  // std::vector<int>* receiving Z per item emit
+	void*                      _emitYTargetBody = nullptr;  // std::vector<int>* receiving Y per body emit
+	void*                      _emitYTargetItem = nullptr;  // std::vector<int>* receiving Y per item emit
+#endif
 
 	/// Drawing routine for XCom soldiers in overalls, sectoids (routine 0),
 	/// mutons (routine 10),
@@ -107,6 +135,8 @@ private:
 	void blitItem(Part& item);
 	/// Blit body sprite.
 	void blitBody(Part& body);
+	/// Composite one HD body-part frame directly into _dest at z-correct position.
+	void blitBodyHD(Part& body);
 public:
 	/// Creates a new UnitSprite at the specified position and size.
 	UnitSprite(Surface* dest, const Mod* mod, const SavedBattleGame* save, int frame, bool helmet, int red, int blue);
@@ -114,6 +144,46 @@ public:
 	~UnitSprite();
 	/// Draws the unit.
 	void draw(const BattleUnit* unit, int part, int x, int y, int shade, GraphSubset mask, bool drawFacingIndicator);
+#ifdef __EMSCRIPTEN__
+	/// Phase 14.2: redirect blitBody into bodyTarget and blitItem into itemTarget.
+	/// Both pointers must be std::vector<Map::TileInstance>* (cast to void*).
+	/// zTargetBody / zTargetItem: optional std::vector<int>* (cast to void*),
+	/// receives one int per emitted instance — the unit's tile Z. Used by
+	/// drawTileGLPass to interleave unit draws between tile Z slices.
+	void setEmitMode(void* bodyTarget, void* itemTarget,
+	                 const Mod::UnitAtlasSpec* unitSpec,
+	                 const Mod::UnitAtlasSpec* itemSpec,
+	                 int emitZ = 0, int emitY = 0, int emitX = 0,
+	                 void* zTargetBody = nullptr, void* zTargetItem = nullptr,
+	                 void* yTargetBody = nullptr, void* yTargetItem = nullptr)
+	{
+		_emitTarget     = bodyTarget;
+		_emitItemTarget = itemTarget;
+		_emitUnitSpec   = unitSpec;
+		_emitItemSpec   = itemSpec;
+		_emitZ          = emitZ;
+		_emitY          = emitY;
+		_emitX          = emitX;
+		_emitZTargetBody = zTargetBody;
+		_emitZTargetItem = zTargetItem;
+		_emitYTargetBody = yTargetBody;
+		_emitYTargetItem = yTargetItem;
+	}
+	void clearEmitMode()
+	{
+		_emitTarget     = nullptr;
+		_emitItemTarget = nullptr;
+		_emitUnitSpec   = nullptr;
+		_emitItemSpec   = nullptr;
+		_emitZ          = 0;
+		_emitY          = 0;
+		_emitX          = 0;
+		_emitZTargetBody = nullptr;
+		_emitZTargetItem = nullptr;
+		_emitYTargetBody = nullptr;
+		_emitYTargetItem = nullptr;
+	}
+#endif
 };
 
 } //namespace OpenXcom

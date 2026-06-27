@@ -21,6 +21,7 @@
 #include <string>
 #include <map>
 #include <SDL.h>
+#include "SDL2Helpers.h"
 
 namespace OpenXcom
 {
@@ -46,8 +47,12 @@ public:
 	OptionInfo(OptionOwner owner, const std::string &id, bool *option, bool def, const std::string &desc = "", const std::string &cat = "");
 	/// Creates a int option.
 	OptionInfo(OptionOwner owner, const std::string &id, int *option, int def, const std::string &desc = "", const std::string &cat = "");
+#if !defined(__EMSCRIPTEN__) && SDL_MAJOR_VERSION < 2
 	/// Creates a key option.
+	/// (Under Emscripten or SDL2, SDLKey == Sint32 == int so this overload would
+	/// be a duplicate of the int overload above; key options fall back to int there.)
 	OptionInfo(OptionOwner owner, const std::string &id, SDLKey *option, SDLKey def, const std::string &desc = "", const std::string &cat = "");
+#endif
 	/// Creates a string option.
 	OptionInfo(OptionOwner owner, const std::string &id, std::string *option, const char *def, const std::string &desc = "", const std::string &cat = "");
 	/// Gets a bool option pointer.

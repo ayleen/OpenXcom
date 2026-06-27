@@ -34,6 +34,7 @@
 #include "RuleAlienMission.h"
 #include "RuleBaseFacilityFunctions.h"
 #include "RuleItem.h"
+#include "MapData.h"            // Phase 21: TilePart enum (O_FLOOR/O_OBJECT)
 
 namespace OpenXcom
 {
@@ -41,6 +42,7 @@ namespace OpenXcom
 class Surface;
 class SurfaceSet;
 class Font;
+class TTFFont;
 class Palette;
 class Music;
 class SoundSet;
@@ -105,6 +107,11 @@ class ModScriptGlobal;
 class ScriptParserBase;
 class ScriptGlobal;
 struct StatAdjustment;
+#ifdef __EMSCRIPTEN__
+class GpuTexture;
+class Tile;
+class SavedBattleGame;
+#endif
 
 enum GameDifficulty : int;
 enum AIAttackWeight : int;
@@ -153,6 +160,175 @@ public:
 	/// Number of opacity levels.
 	constexpr static int TransparenciesOpacityLevels = 4;
 
+#ifdef __EMSCRIPTEN__
+	/// Phase 20: per-cell HD authoring metadata, used by the atlas builder and renderer.
+	struct HDTileSpec
+	{
+		int                    cell      = 0;
+		std::string            image;          // RGBA PNG path (mod-relative)
+		std::string            mask;           // "diamond" | "silhouette" | PNG path
+		float                  opacity   = 1.0f;
+		std::array<int,2>      anchor    = {0, 0}; // tile-native pixels (tileWidth/tileHeight units)
+		int                    zBias     = 0;       // tile-native pixels, for draw ordering
+		std::vector<HDTileSpec> subLayers;           // additional draw passes over this cell
+		// Phase 21: Corner-Wang transition support.
+		// wangType is meaningful only when hasWangType==true. With hasWangType==false the
+		// dataset-level TileAtlasSpec::wangType is used (inheritance). With
+		// hasWangType==true && wangType=="" the cell explicitly opts out of Wang.
+		std::string            wangType;
+		bool                   hasWangType = false;
+		// tilePart hints which TilePart slot the MAP author placed this cell into.
+		// Required when the cell lives in O_OBJECT (e.g. SAND#19 pale-sand, BLANKS#1
+		// brown-debris in vanilla SEABED). hasTilePart==false inherits the dataset-level
+		// TileAtlasSpec::wangTilePart (hard default O_FLOOR).
+		TilePart               tilePart    = O_FLOOR;
+		bool                   hasTilePart = false;
+		// Phase 22: anti-repeat variant count (§22.5). The base cell (this one)
+		// carries all metadata; cells [cell..cell+variants-1] are the visual pool.
+		int                    variants    = 1;
+		// Phase 22 (M1 perf): interned id of this cell's wangType, resolved once at
+		// parse time so computeWangMask compares ints instead of constructing/comparing
+		// std::string on the per-tile emit path (hot during camera scroll). -1 = no
+		// wang (empty string / explicit opt-out). Meaningful only when hasWangType==true;
+		// cells without a per-cell override fall back to TileAtlasSpec::wangTypeIdDefault.
+		int                    wangTypeId  = -1;
+		// Phase 22.7: state-gated sub-layer condition. A sub-layer with a non-Always
+		// condition is emitted only when the underlying tile is in that battle state
+		// (e.g. a scorch overlay shown only while the tile burns). COND_ALWAYS keeps
+		// the legacy unconditional behaviour. Parsed from the sub-layer's `condition:`
+		// string ("fire"); top-level cells ignore it.
+		static constexpr int   COND_ALWAYS = 0;
+		static constexpr int   COND_FIRE   = 1;
+		int                    condition   = COND_ALWAYS;
+	};
+
+	/// Phase 20: controls whether the R8 baseline atlas is built and drawn.
+	enum class BaselineMode { Vanilla, None };
+
+	/// Phase 22: per-neighbour wangSet entry, supporting both bake (Phase 21)
+	/// and runtime blend (Phase 22) modes.
+	struct WangNeighbour
+	{
+		int   variantCells[16];          // bake: per-mask atlas cell (-1 = no variant)
+		bool  blend          = false;    // true → runtime blend path
+		int   surfaceCell    = -1;       // blend: base neighbour-surface cell in atlas
+		int   surfaceVariants = 1;       // blend: anti-repeat cell count from surfaceCell
+		float feather        = 0.18f;   // blend: boundary softness
+		float noiseScale     = 2.71f;   // blend: tiling frequency of u_noise (non-integer avoids tile-grid aliasing)
+		float noiseAmp       = 0.35f;   // blend: noise perturbation of the boundary
+		WangNeighbour() { std::fill(variantCells, variantCells + 16, -1); }
+	};
+
+	/// Atlas layout for a single mapDataSet's GPU tile sheet.
+	struct TileAtlasSpec
+	{
+		enum class Format { Palette, Rgba };
+		std::string       dataset;    // mapDataSet name, e.g. "SAND"
+		std::string       file;       // relative path to PNG (single-file mode)
+		// Phase 17: hybrid dual-atlas mode
+		bool              hybrid       = false;
+		std::string       baselineFile; // R8 PNG (palette indices); used when hybrid=true
+		std::string       overlayFile;  // RGBA PNG (sparse HD overrides); used when hybrid=true
+		GpuTexture*       overlayAtlas = nullptr; // RGBA overlay texture; nullptr for non-hybrid
+		// Phase 25 R3: tangent-space normal-map atlas (optional). RGBA Linear NON-sRGB
+		// (normals are linear direction data). Same dims as overlay → shared UVs.
+		// Owned by TileAtlasSpec; deleted in Mod::clearTileAtlases().
+		std::string       normalFile;             // ruleset key normalFile:; empty = no normal map
+		GpuTexture*       normalAtlas = nullptr;  // nullptr if absent or load failed
+		// Phase 25 R6: material emissive atlas (optional). RGBA Linear NON-sRGB —
+		// RGB = glow colour, A = emission intensity. Added to the lit colour in
+		// tile_atlas_rgba.frag, so it lands in the HDR SSAA buffer (R0) and the
+		// >1.0 highlights survive tonemapping (lava/bioluminescence glow).
+		// Same dims as overlay → shared UVs. Owned here; freed in clearTileAtlases.
+		std::string       emissiveFile;             // ruleset key emissiveFile:; empty = none
+		GpuTexture*       emissiveAtlas = nullptr;  // nullptr if absent or load failed
+		int               width      = 0;
+		int               height     = 0;
+		int               tileWidth  = 64;
+		int               tileHeight = 80;
+		int               columns    = 16;
+		Format            format     = Format::Palette;
+		std::map<int,int> frameMap;    // MCD entry index → atlas tile index (primary frame)
+		std::map<int,int> pckToAtlas;  // PCK frame index → atlas tile index (all frames incl. animation)
+		// Phase 20: declarative HD authoring fields
+		BaselineMode             baseline           = BaselineMode::Vanilla;
+		int                      bleed              = 0;    // transparent gutter px between cells
+		bool                     premultipliedAlpha = false;
+		std::string              fallbackImage;             // default HD image for unlisted cells
+		float                    fallbackOpacity    = 1.0f; // opacity for fallback cells
+		std::vector<HDTileSpec>  hdTiles;                   // per-cell HD metadata
+		// Phase 20 runtime: per-sub-layer overlay atlases (index 0 = base overlay)
+		std::vector<GpuTexture*> subLayerAtlases;           // populated by ensureVanillaAtlas
+		// Phase 20.6: O(1) cell→hdTiles index lookup (built by parser, not serialised).
+		std::unordered_map<int,int> hdTilesByCell;          // cell index → hdTiles[] index
+		// Phase 21/22: Corner-Wang transition support (dataset-level defaults + variant tables).
+		std::string            wangType;                                                  // default neighbour-tag for cells without per-cell override
+		int                    wangTypeIdDefault = -1;                                    // Phase 22 (M1 perf): interned id of dataset-default wangType; -1 = none
+		TilePart               wangTilePart = O_FLOOR;                                    // default TilePart slot for cells without per-cell override
+		std::unordered_map<std::string, WangNeighbour> wangSets;                          // neighbour tag → WangNeighbour (bake or blend)
+		// Phase 27: world-position ground super-tile. groundBase < 0 = disabled.
+		// For every dataset-default-wangType O_FLOOR tile the engine selects atlas
+		// cell  groundBase + (worldY % groundTilesY)*groundTilesX + (worldX % groundTilesX),
+		// reconstructing one big seamless ground (bold relief baked, ripples spanning
+		// many tiles) across the map with no per-tile repeat. atlas-build slices the
+		// groundPool sheet into cells groundBase..groundBase+tilesX*tilesY-1.
+		int                    groundBase   = -1;
+		int                    groundTilesX = 0;
+		int                    groundTilesY = 0;
+
+		// Phase 21: resolve cell-vs-dataset inheritance.
+		// effectiveWangType returns "" iff the cell explicitly opts out (hasWangType + ""),
+		// otherwise the per-cell override, otherwise the dataset default.
+		std::string effectiveWangType(const HDTileSpec& cell) const
+		{
+			return cell.hasWangType ? cell.wangType : wangType;
+		}
+		// Phase 22 (M1 perf): integer-interned counterpart of effectiveWangType, used by
+		// computeWangMask so the per-tile neighbour scan compares ints (no std::string).
+		// Returns -1 for "no wang" (empty / opt-out). Parity with effectiveWangType:
+		// hasWangType ? cell id : dataset-default id (both resolved at parse time).
+		int effectiveWangTypeId(const HDTileSpec& cell) const
+		{
+			return cell.hasWangType ? cell.wangTypeId : wangTypeIdDefault;
+		}
+		// effectiveTilePart returns the per-cell override when present,
+		// otherwise the dataset default (hard default O_FLOOR).
+		TilePart effectiveTilePart(const HDTileSpec& cell) const
+		{
+			return cell.hasTilePart ? cell.tilePart : wangTilePart;
+		}
+	};
+
+	/// Phase 21/22: result of a Corner-Wang lookup for one tile.
+	/// mask is the 4-bit OR-corner mask (NW=8, NE=4, SE=2, SW=1).
+	/// Bake (Phase 21): variantCell is the atlas-cell from the wangSet, or -1.
+	/// Blend (Phase 22): surfaceCell is the neighbour-surface cell; matched points
+	/// to the WangNeighbour for per-instance knobs; neighbourDx/Dy give the
+	/// grid offset to the dominant foreign neighbour tile.
+	struct WangResult
+	{
+		uint8_t mask              = 0;
+		int     variantCell       = -1;          // BAKE: variant cell index; -1 = no transition
+		int     surfaceCell       = -1;          // BLEND: neighbour-surface base cell; -1 = no blend
+		bool    blend             = false;
+		int     neighbourDx       = 0;           // BLEND: grid offset (±1) to dominant neighbour
+		int     neighbourDy       = 0;
+		const WangNeighbour* matched = nullptr;  // BLEND: knobs + surfaceVariants; null if bake/none
+	};
+
+	/// Layout record for a unit-PCK GPU sprite atlas (Phase 14.1).
+	/// atlas_tile_index == PCK_frame_index (frames packed in declaration order).
+	struct UnitAtlasSpec
+	{
+		GpuTexture* atlas      = nullptr;  // R8 palette-index atlas; owned by Mod
+		int         atlasW     = 0;        // atlas pixel width
+		int         atlasH     = 0;        // atlas pixel height
+		int         tileWidth  = 64;       // cell width (2x upscale of 32)
+		int         tileHeight = 80;       // cell height (2x upscale of 40)
+		int         columns    = 16;
+	};
+#endif
+
 private:
 	Music *_muteMusic;
 	Sound *_muteSound;
@@ -160,6 +336,7 @@ private:
 
 	std::map<std::string, Palette*> _palettes;
 	std::map<std::string, Font*> _fonts;
+	std::map<std::string, TTFFont*> _ttfFonts;
 	std::map<std::string, Surface*> _surfaces;
 	std::map<std::string, SurfaceSet*> _sets;
 	std::map<std::string, SoundSet*> _sounds;
@@ -208,6 +385,34 @@ private:
 	std::map<std::string, RuleMissionScript*> _missionScripts;
 	std::map<std::string, RuleMissionScript*> _adhocScripts;
 	std::map<std::string, std::vector<ExtraSprites *> > _extraSprites;
+#ifdef __EMSCRIPTEN__
+	std::map<std::string, GpuTexture*> _globeTextures;
+	std::map<std::string, TileAtlasSpec> _tileAtlasSpecs;
+	/// Synthesised vanilla tile atlases: mapDataSet name -> GpuTexture*.
+	/// Populated lazily by ensureVanillaAtlas() (Block 11.2).
+	std::map<std::string, GpuTexture*> _tileAtlases;
+	/// Phase 22 (M1 perf): global wangType string -> int interning, so computeWangMask
+	/// can compare integer ids on the per-tile emit path instead of constructing and
+	/// comparing std::string for self + four neighbours. Interning is global (one id per
+	/// distinct tag across all datasets) so a cross-dataset "sand"=="sand" still matches.
+	/// _wangTypeNames is the reverse map (id -> tag) for the single wangSet lookup that
+	/// fires only when a transition is actually detected.
+	std::unordered_map<std::string, int> _wangTypeIds;
+	std::vector<std::string>             _wangTypeNames;
+	/// Interns a wangType tag, returning a stable id (>=0); "" returns -1 (no wang).
+	int internWangType(const std::string& tag);
+	/// Unit sprite atlases: SurfaceSet name -> UnitAtlasSpec (Phase 14.1).
+	/// Populated lazily by ensureUnitAtlas().
+	std::map<std::string, UnitAtlasSpec> _unitAtlases;
+	/// True once at least one tileAtlas: YAML entry has been parsed.
+	bool _hdPackActive = false;
+	/// Tile render scale factor (1=32×40 native, 2=64×80, 4=128×160).
+	/// Set via battlescapeTileScale: in the mod ruleset.
+	int _battlescapeTileScale = 1;
+	/// Phase 25 R5: draw floating HD nameplates + HP/TU/energy bars over player
+	/// units in the Battlescape. Off by default; set via calypso_hud_overlay:.
+	bool _calypsoHudOverlay = false;
+#endif
 	std::map<std::string, CustomPalettes *> _customPalettes;
 	std::vector<std::pair<std::string, ExtraSounds *> > _extraSounds;
 	std::map<std::string, ExtraStrings *> _extraStrings;
@@ -391,6 +596,8 @@ private:
 	void loadExtraSprite(ExtraSprites *spritePack);
 	/// Applies mods to vanilla resources.
 	void modResources();
+	/// Builds palette-cycle shade tables for vanilla TFTD assets (7.A.4 stub).
+	void buildVanillaCycleTables();
 	/// Sorts all our lists according to their weight.
 	void sortLists();
 public:
@@ -409,6 +616,9 @@ public:
 	constexpr static int NO_SOUND = -1;
 	/// Special value for default string different to empty one.
 	static const std::string STR_NULL;
+	// R2.2 scope cut: isLoadInProgress / setLoadInProgress removed.
+	// The runtime buildFromPalette cost (~4 KB/setPalette) is acceptable;
+	// gating adds complexity for no visible gain.
 
 	static int ITEM_DROP;
 	static int ITEM_THROW;
@@ -478,10 +688,58 @@ public:
 
 	/// Gets a particular font.
 	Font *getFont(const std::string &name, bool error = true) const;
+	/// Gets a TTF font registered via extraTTFFonts (Phase 16).
+	TTFFont *getTTFFont(const std::string &id, bool error = true) const;
 	/// Gets a particular surface.
 	Surface *getSurface(const std::string &name, bool error = true);
 	/// Gets a particular surface set.
 	SurfaceSet *getSurfaceSet(const std::string &name, bool error = true);
+#ifdef __EMSCRIPTEN__
+	/// Returns true if all four required globeTextures are loaded (HD sphere path active).
+	bool hasGlobeTextures() const {
+		return _globeTextures.count("bathymetry")
+		    && _globeTextures.count("diffuse")
+		    && _globeTextures.count("night")
+		    && _globeTextures.count("clouds");
+	}
+	/// Returns the GpuTexture for the given id, or nullptr if not found.
+	GpuTexture* getGlobeTexture(const std::string& id) const;
+	/// Releases all GpuTextures (called on mod change or disable).
+	void clearGlobeTextures();
+	/// Returns the TileAtlasSpec for the given mapDataSet name, or nullptr if not registered.
+	const TileAtlasSpec* getTileAtlasSpec(const std::string& dataset) const;
+	/// Phase 21.3.1: compute the Corner-Wang transition mask + variant cell for `self`.
+	/// Dual-slot scan (O_FLOOR then O_OBJECT) on self and each orthogonal neighbour;
+	/// OR-corner classification; same-type fast-path; first-found foreign neighbour
+	/// (N→E→S→W) drives the wangSet selection. Returns {mask=0, variantCell=-1} when
+	/// the tile carries no Wang configuration or all neighbours match.
+	WangResult computeWangMask(const TileAtlasSpec* spec,
+	                           const Tile* self,
+	                           SavedBattleGame* save) const;
+	/// Returns the synthesised vanilla atlas for the given mapDataSet, or nullptr if not built.
+	GpuTexture* getTileAtlas(const std::string& dataset) const;
+	/// Build a vanilla atlas for a fully-loaded MapDataSet (Block 11.2).
+	/// Called after MapDataSet::loadData() for datasets that have no tileAtlas: YAML entry.
+	/// palette/ncolors must be the active battlescape palette (PAL_BATTLESCAPE).
+	/// No-op if the atlas was already built or GPU is not ready.
+	void ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncolors);
+	/// Deletes all synthesised vanilla atlases (called in ~Mod and on mod reload).
+	void clearTileAtlases();
+	/// Build or retrieve a unit-sprite atlas for the named SurfaceSet (Phase 14.1).
+	/// No-op if already built.  palette/ncolors = active battlescape palette.
+	void ensureUnitAtlas(SurfaceSet* ss, const std::string& name,
+	                     const SDL_Color* palette, int ncolors);
+	/// Returns the UnitAtlasSpec for the named SurfaceSet, or nullptr if not built.
+	const UnitAtlasSpec* getUnitAtlas(const std::string& name) const;
+	/// Deletes all unit-sprite atlases (called alongside clearTileAtlases).
+	void clearUnitAtlases();
+	/// Returns true when at least one tileAtlas: YAML entry was loaded.
+	bool hasHDPack() const { return _hdPackActive; }
+	/// Returns the battlescape tile scale factor (1, 2, or 4).
+	int getBattlescapeTileScale() const { return _battlescapeTileScale; }
+	/// Phase 25 R5: true when floating unit nameplates/bars should be drawn.
+	bool getCalypsoHudOverlay() const { return _calypsoHudOverlay; }
+#endif
 	/// Gets a particular music.
 	Music *getMusic(const std::string &name, bool error = true) const;
 	/// Gets the available music tracks.

@@ -53,6 +53,25 @@
 #include "../Mod/Texture.h"
 #include "../Interface/Cursor.h"
 #include "../Engine/Screen.h"
+#ifdef __EMSCRIPTEN__
+#  include "../Engine/GpuInit.h"
+#  include "../Engine/GpuTexture.h"
+#  include "../Engine/GpuTimer.h"
+#  include "../Engine/Shader.h"
+#  include "../Engine/Logger.h"
+#  include <GLES3/gl3.h>
+#  include <SDL.h>
+#  include <cmath>
+#  include <algorithm>
+#  include <vector>
+
+/* Phase 8c §C2 perf-log gate.  Definition lives in EmscriptenHarness.cpp
+ * inside `extern "C" { … }`, which puts it in the global namespace.  The
+ * forward declaration must therefore also be in the global namespace and
+ * carry C linkage; placing it outside `namespace OpenXcom { … }` below is
+ * what makes the link symbol resolve. */
+extern "C" int g_calypsoProfileGlobe;
+#endif
 
 namespace OpenXcom
 {
@@ -318,6 +337,57 @@ struct CreateShadowWithoutCache
 	}
 };
 
+// ARGB shadow shaders — operate on 32bpp pixels using the same sun-angle
+// darkness logic as CreateShadow, but write a brightness-scaled ARGB result.
+// Shadow 0=full brightness, shadow 31=fully dark.
+struct CreateShadow32
+{
+	static inline void func(Uint32& dest, const Cord& earth, const Cord& sun, const Sint16& noise)
+	{
+		if (!(dest >> 24) || !earth.z)
+		{
+			dest = 0;
+			return;
+		}
+		const Uint8 shadow = CreateShadow::getShadowValue(earth, sun, noise);
+		// Linear brightness factor: shadow 0 → 1.0, shadow 31 → 0.0
+		const int factor = (32 - shadow) * 8; // 0–256 range, avoid float
+		const Uint8 a = (dest >> 24) & 0xFF;
+		const Uint8 r = ((((dest >> 16) & 0xFF) * factor) >> 8);
+		const Uint8 g = ((((dest >>  8) & 0xFF) * factor) >> 8);
+		const Uint8 b = ((( dest        & 0xFF) * factor) >> 8);
+		dest = (Uint32(a) << 24) | (Uint32(r) << 16) | (Uint32(g) << 8) | b;
+	}
+};
+
+struct CreateShadowWithoutCache32
+{
+	static inline void func(Uint32& dest, const helper::Offset& offset, const Cord& sun, const Sint16& noise, const int& radius)
+	{
+		Cord earth = static_data.circle_norm(0., 0., radius, offset.x, offset.y);
+		CreateShadow32::func(dest, earth, sun, noise);
+	}
+};
+
+static bool isGlobePanButton(Uint8 button)
+{
+#ifdef __EMSCRIPTEN__
+	return button == SDL_BUTTON_LEFT || button == Options::geoDragScrollButton;
+#else
+	return button == Options::geoDragScrollButton;
+#endif
+}
+
+static bool isGlobePanButtonPressed()
+{
+	const Uint32 buttons = SDL_GetMouseState(0, 0);
+#ifdef __EMSCRIPTEN__
+	return (buttons & SDL_BUTTON(SDL_BUTTON_LEFT)) || (buttons & SDL_BUTTON(Options::geoDragScrollButton));
+#else
+	return buttons & SDL_BUTTON(Options::geoDragScrollButton);
+#endif
+}
+
 }//namespace
 
 
@@ -342,6 +412,17 @@ Globe::Globe(Game* game, int cenX, int cenY, int width, int height, int x, int y
 	_markers = new Surface(width, height, x, y);
 	_radars = new Surface(width, height, x, y);
 	_clipper = new FastLineClip(x, x+width, y, y+height);
+
+	// ARGB pipeline: setPixel(idx) only writes to _paletteMirror if it exists.
+	// drawOcean → drawCircle(setPixel(OCEAN_COLOR)), drawLand → drawTexturedPolygon
+	// (setPixel of polygon palette indices) and drawShadow all expect getPixel()
+	// to return palette indices later — XuLine reads them to decide isOcean vs
+	// land shadow.  Without an initialised mirror, getPixel returns the ARGB
+	// B channel and CreateShadow::getLandShadow paints flight paths bright red.
+	initPaletteMirror();
+	_countries->initPaletteMirror();
+	_markers->initPaletteMirror();
+	_radars->initPaletteMirror();
 
 	// Animation timers
 	_blinkTimer = new Timer(100);
@@ -378,6 +459,13 @@ Globe::~Globe()
 	{
 		delete polygon;
 	}
+
+#ifdef __EMSCRIPTEN__
+	delete _globeShader;
+	if (_sphereFBO)    glDeleteFramebuffers(1,  &_sphereFBO);
+	if (_sphereFBOTex) glDeleteTextures(1,      &_sphereFBOTex);
+	if (_sphereVAO)    glDeleteVertexArrays(1,  &_sphereVAO);
+#endif
 }
 
 /**
@@ -955,8 +1043,335 @@ void Globe::rotate()
 	invalidate();
 }
 
+#ifdef __EMSCRIPTEN__
+/* ── GL state save/restore (local helper) ───────────────────────────────── */
+struct GlobeSphereGlSave
+{
+	GLint prog, vao, fbo; GLboolean blend, depth;
+	GLint vp[4];
+	void save()
+	{
+		glGetIntegerv(GL_CURRENT_PROGRAM,      &prog);
+		glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &vao);
+		glGetIntegerv(GL_FRAMEBUFFER_BINDING,  &fbo);
+		glGetIntegerv(GL_VIEWPORT,             vp);
+		blend = glIsEnabled(GL_BLEND);
+		depth = glIsEnabled(GL_DEPTH_TEST);
+	}
+	void restore()
+	{
+		glUseProgram((GLuint)prog);
+		glBindVertexArray((GLuint)vao);
+		glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)fbo);
+		glViewport(vp[0], vp[1], vp[2], vp[3]);
+		if (blend) glEnable(GL_BLEND);      else glDisable(GL_BLEND);
+		if (depth) glEnable(GL_DEPTH_TEST); else glDisable(GL_DEPTH_TEST);
+	}
+};
+
+/**
+ * One-time GPU initialisation for the HD sphere path.
+ * Called lazily from drawSphereGPU() on the first frame.
+ */
+bool Globe::initSphereGPU()
+{
+	if (!GpuInit::ready()) return false;
+
+	_globeShader = new Shader();
+	if (!_globeShader->loadFromEmbedded("globe_sphere"))
+	{
+		Log(LOG_ERROR) << "Globe::initSphereGPU: shader compile failed";
+		delete _globeShader; _globeShader = nullptr;
+		return false;
+	}
+
+	/* Fullscreen-quad VAO (NDC -1..+1, UV 0..1). */
+	float verts[] = {
+		-1.f,-1.f, 0.f,0.f,   1.f,-1.f, 1.f,0.f,  -1.f, 1.f, 0.f,1.f,
+		-1.f, 1.f, 0.f,1.f,   1.f,-1.f, 1.f,0.f,   1.f, 1.f, 1.f,1.f,
+	};
+	GLuint vbo = 0u;
+	glGenVertexArrays(1, &_sphereVAO);
+	glBindVertexArray(_sphereVAO);
+	glGenBuffers(1, &vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW);
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4*sizeof(float), (void*)0);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4*sizeof(float), (void*)(2*sizeof(float)));
+	glEnableVertexAttribArray(1);
+	glBindVertexArray(0);
+	/* VBO is owned by the VAO after bind; no need to keep a separate handle. */
+
+	/* FBO + colour attachment (same size as globe surface). */
+	int w = getWidth(), h = getHeight();
+	glGenTextures(1, &_sphereFBOTex);
+	glBindTexture(GL_TEXTURE_2D, _sphereFBOTex);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glBindTexture(GL_TEXTURE_2D, 0u);
+
+	glGenFramebuffers(1, &_sphereFBO);
+	glBindFramebuffer(GL_FRAMEBUFFER, _sphereFBO);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, _sphereFBOTex, 0);
+	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0u);
+	if (status != GL_FRAMEBUFFER_COMPLETE)
+	{
+		Log(LOG_ERROR) << "Globe::initSphereGPU: FBO incomplete (status=" << (int)status << ")";
+		return false;
+	}
+
+	_gpuSphereOK = true;
+	Log(LOG_INFO) << "Globe::initSphereGPU: ready (" << w << "x" << h << ")";
+	return true;
+}
+
+/**
+ * Sun direction in the fixed world frame the GPU shader uses.
+ * World frame: Y = north pole, X = +90° lon (east), Z = 0° lon (prime meridian).
+ * This is independent of the observer position — unlike getSunDirection(lon, lat)
+ * which returns a camera-relative vector.
+ */
+Cord Globe::getSunDirectionWorld() const
+{
+	const double rot = _game->getSavedGame()->getTime()->getDaylight() * 2*M_PI;
+	double decl = 0;
+	if (Options::globeSeasons)
+	{
+		const int MonthDays1[] = {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365};
+		const int MonthDays2[] = {0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335, 366};
+
+		int year  = _game->getSavedGame()->getTime()->getYear();
+		int month = _game->getSavedGame()->getTime()->getMonth()-1;
+		int day   = _game->getSavedGame()->getTime()->getDay()-1;
+
+		double tm = (double)((_game->getSavedGame()->getTime()->getHour() * 60
+			+ _game->getSavedGame()->getTime()->getMinute()) * 60
+			+ _game->getSavedGame()->getTime()->getSecond()) / 86400.0;
+
+		double CurDay;
+		if (year%4 == 0 && !(year%100 == 0 && year%400 != 0))
+			CurDay = (MonthDays2[month] + day + tm)/366 - 0.219;
+		else
+			CurDay = (MonthDays1[month] + day + tm)/365 - 0.219;
+		if (CurDay < 0) CurDay += 1.;
+
+		decl = -0.261 * sin(CurDay * 2*M_PI);
+	}
+	// Subsolar point lon = π/2 − rot, lat = decl.
+	// getDaylight()=0 corresponds to 6h GMT (sub-solar at 90° E), daylight=0.25
+	// is noon at Greenwich (sub-solar at 0°), so the offset from rot is +π/2.
+	const double sunLon = M_PI / 2.0 - rot;
+	return Cord(cos(decl) * sin(sunLon),
+	            sin(decl),
+	            cos(decl) * cos(sunLon));
+}
+
+void Globe::drawHDStarfield()
+{
+	if (!isARGB()) return;
+
+	const int w = getWidth();
+	const int h = getHeight();
+	const double globeLimit = (_zoomRadius[_zoom] + 5.0) * (_zoomRadius[_zoom] + 5.0);
+
+	lock();
+	for (int y = 0; y < h; ++y)
+	{
+		const float t = (h > 1) ? (float)y / (float)(h - 1) : 0.f;
+		const Uint8 r = (Uint8)(1 + t * 2);
+		const Uint8 g = (Uint8)(5 + t * 9);
+		const Uint8 b = (Uint8)(17 + t * 18);
+		const Uint32 bg = 0xFF000000u | ((Uint32)r << 16) | ((Uint32)g << 8) | (Uint32)b;
+		for (int x = 0; x < w; ++x)
+		{
+			setPixel32(x, y, bg);
+		}
+	}
+
+	/* Deterministic sparse stars: bright enough to give the globe a space
+	 * setting, sparse enough to avoid fighting Geoscape labels and markers. */
+	const float twinkleTime = (float)SDL_GetTicks() * 0.0017f;
+	for (unsigned i = 0; i < 125; ++i)
+	{
+		unsigned n = i * 747796405u + 2891336453u;
+		n = ((n >> ((n >> 28u) + 4u)) ^ n) * 277803737u;
+		n = (n >> 22u) ^ n;
+		const int x = (int)(n % (unsigned)w);
+		const int y = (int)((n / (unsigned)w) % (unsigned)h);
+		const double dx = (double)x - (double)_cenX;
+		const double dy = (double)y - (double)_cenY;
+		if (dx * dx + dy * dy < globeLimit) continue;
+
+		const float phase = (float)((n >> 8u) & 0xFFu) * 0.024543693f;
+		const float pulse = 0.62f + 0.38f * (0.5f + 0.5f * sinf(twinkleTime + phase));
+		const Uint8 v = (Uint8)((100 + (n & 0x7Fu)) * pulse);
+		const Uint32 star = 0xFF000000u
+			| ((Uint32)(v * 78 / 100) << 16)
+			| ((Uint32)(v * 92 / 100) << 8)
+			| (Uint32)v;
+		setPixel32(x, y, star);
+		if ((n & 0x0Fu) == 0 && x + 1 < w) setPixel32(x + 1, y, star);
+		if ((n & 0x1Fu) == 0 && y + 1 < h) setPixel32(x, y + 1, star);
+	}
+	unlock();
+}
+
+/**
+ * Renders the HD sphere using the GPU shader pipeline and reads the pixels
+ * back into this Surface so the existing CPU overlay (polylines, markers,
+ * text) can be composited on top in the same Globe::draw() call.
+ *
+ * Performance: glReadPixels for the globe surface is ~0.2–1 ms on typical
+ * hardware; acceptable for a 60 fps Geoscape.
+ */
+void Globe::drawSphereGPU()
+{
+	if (!_gpuSphereOK && !initSphereGPU()) return;
+
+	Mod* mod = _game->getMod();
+	GpuTexture* bathyTex   = mod->getGlobeTexture("bathymetry");
+	GpuTexture* diffuseTex = mod->getGlobeTexture("diffuse");
+	GpuTexture* nightTex   = mod->getGlobeTexture("night");
+	GpuTexture* cloudsTex  = mod->getGlobeTexture("clouds");
+	if (!bathyTex || !diffuseTex || !nightTex || !cloudsTex) return;
+
+	int w = getWidth(), h = getHeight();
+
+	/* Phase 8c.10 perf instrumentation: wall-clock GPU pass time.  ENTIRELY
+	 * gated on ::g_calypsoProfileGlobe — when the flag is 0 (production
+	 * default) the GpuTimer object is never constructed and steady_clock is
+	 * never read, so the path costs one int load + one branch-not-taken.
+	 * Sampled at the local level instead of Screen::registerGPUPass because
+	 * Globe's draw cycle does FBO render + glReadPixels synchronously into
+	 * _surface; restructuring would have been disproportionate. */
+	const int profileGlobe = ::g_calypsoProfileGlobe;
+	GpuTimer perfTimer;
+	if (profileGlobe) perfTimer.start();
+
+	GlobeSphereGlSave st; st.save();
+
+	/* Render sphere to FBO. */
+	glBindFramebuffer(GL_FRAMEBUFFER, _sphereFBO);
+	glViewport(0, 0, w, h);
+	glClearColor(0.f, 0.f, 0.f, 0.f);
+	glClear(GL_COLOR_BUFFER_BIT);
+	glDisable(GL_BLEND);
+	glDisable(GL_DEPTH_TEST);
+
+	_globeShader->use();
+
+	bathyTex ->bind(0);
+	diffuseTex->bind(1);
+	nightTex ->bind(2);
+	cloudsTex ->bind(3);
+	_globeShader->setUniform1i("u_bathymetry", 0);
+	_globeShader->setUniform1i("u_diffuse",    1);
+	_globeShader->setUniform1i("u_night",      2);
+	_globeShader->setUniform1i("u_clouds",     3);
+
+	/* Viewport and globe geometry. */
+	_globeShader->setUniform2f("u_viewportSize", (float)w, (float)h);
+	_globeShader->setUniform2f("u_globeCenter",  (float)_cenX, (float)_cenY);
+	_globeShader->setUniform1f("u_globeRadius",  (float)_zoomRadius[_zoom]);
+	_globeShader->setUniform1f("u_camLat",       (float)_cenLat);
+	_globeShader->setUniform1f("u_camLon",       (float)_cenLon);
+
+	/* Sun direction in world frame (8c.5 fix: was camera-relative, now world frame). */
+	Cord sd = getSunDirectionWorld();
+	_globeShader->setUniform3f("u_sunDir", (float)sd.x, (float)sd.y, (float)sd.z);
+
+	/* Cloud drift time. */
+	_globeShader->setUniform1f("u_time", (float)SDL_GetTicks() * 0.001f);
+
+	/* Mip level curve: keep the overview detailed enough that land does not
+	 * read as a low-res smear; the globe is small, but 1k mips are too soft. */
+	float mipLvl = std::max(0.f, std::min(1.35f, 1.35f - (float)_zoom * 0.27f));
+	_globeShader->setUniform1f("u_mipLevel", mipLvl);
+
+	glBindVertexArray(_sphereVAO);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+	glBindVertexArray(0u);
+
+	/* Read back RGBA pixels from FBO; FBO rows are bottom-up, SDL is top-down. */
+	std::vector<uint8_t> rgba((size_t)w * h * 4);
+	glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, rgba.data());
+
+	/* Unbind our textures from units 0..3 and reset the active unit to 0.
+	 * SDL2's renderer reuses these units for SDL_Texture rendering and would
+	 * otherwise pick up our globe textures, blasting them across the canvas
+	 * (sphere shader output is overridden by raw bathymetry on UI blits). */
+	for (int i = 3; i >= 0; --i) {
+		glActiveTexture(GL_TEXTURE0 + i);
+		glBindTexture(GL_TEXTURE_2D, 0u);
+	}
+
+	st.restore();
+
+	/* Convert RGBA (GL) → ARGB8888 (SDL little-endian) and flip Y.
+	 * SDL_PIXELFORMAT_ARGB8888 memory layout: byte0=B, byte1=G, byte2=R, byte3=A. */
+	lock();
+	uint8_t* dst   = reinterpret_cast<uint8_t*>(getSurface()->pixels);
+	int      pitch = getSurface()->pitch;
+	for (int y = 0; y < h; ++y)
+	{
+		const uint8_t* src = rgba.data() + (size_t)(h - 1 - y) * w * 4;
+		uint8_t*       row = dst + y * pitch;
+		for (int x = 0; x < w; ++x)
+		{
+			const uint8_t a = src[x*4 + 3];
+			if (a == 0) continue; // discarded by shader — preserve starfield
+			if (a == 255)
+			{
+				row[x*4 + 0] = src[x*4 + 2]; /* B */
+				row[x*4 + 1] = src[x*4 + 1]; /* G */
+				row[x*4 + 2] = src[x*4 + 0]; /* R */
+				row[x*4 + 3] = 255;
+			}
+			else
+			{
+				const int inv = 255 - a;
+				row[x*4 + 0] = (uint8_t)((src[x*4 + 2] * a + row[x*4 + 0] * inv) / 255);
+				row[x*4 + 1] = (uint8_t)((src[x*4 + 1] * a + row[x*4 + 1] * inv) / 255);
+				row[x*4 + 2] = (uint8_t)((src[x*4 + 0] * a + row[x*4 + 2] * inv) / 255);
+				row[x*4 + 3] = 255;
+			}
+		}
+	}
+	unlock();
+
+	/* Perf log is opt-in via JS-side calypso_set_profile_globe(1)
+	 * (EmscriptenHarness).  Production builds never call the setter so
+	 * g_calypsoProfileGlobe stays 0, perfTimer was never started, and
+	 * the entire branch below is skipped — zero clock reads, zero
+	 * accumulator math, zero log output. */
+	if (profileGlobe)
+	{
+		perfTimer.stop();
+		static long long s_accumUs = 0;
+		static unsigned  s_frameCount = 0;
+		s_accumUs += perfTimer.elapsedUs();
+		const unsigned BATCH = 30u;
+		if (++s_frameCount >= BATCH)
+		{
+			Log(LOG_INFO) << "Globe::drawSphereGPU avg: "
+			              << (s_accumUs / (long long)s_frameCount) << " us/frame"
+			              << " (" << w << "x" << h << ", n=" << s_frameCount
+			              << ", readback included)";
+			s_accumUs    = 0;
+			s_frameCount = 0;
+		}
+	}
+}
+#endif /* __EMSCRIPTEN__ */
+
 /**
  * Draws the whole globe, part by part.
+ * When globeTextures are loaded (HD mod active), drawSphereGPU() replaces
+ * drawOcean()+drawLand()+drawShadow().  All CPU overlay passes (radars,
+ * flights, markers, detail/polylines) continue to run on top.
  */
 void Globe::draw()
 {
@@ -965,11 +1380,26 @@ void Globe::draw()
 		cachePolygons();
 	}
 	Surface::draw();
-	drawOcean();
-	drawLand();
+#ifdef __EMSCRIPTEN__
+	if (_game->getMod()->hasGlobeTextures())
+	{
+		drawHDStarfield();
+		drawSphereGPU(); /* renders sphere + reads back; CPU overlays follow */
+	}
+	else
+#endif
+	{
+		drawOcean();
+		drawLand();
+	}
 	drawRadars();
 	drawFlights();
-	drawShadow();
+#ifdef __EMSCRIPTEN__
+	if (!_game->getMod()->hasGlobeTextures())
+#endif
+	{
+		drawShadow(); /* GPU path handles terminator in shader */
+	}
 	drawMarkers();
 	drawDetail();
 }
@@ -1069,26 +1499,29 @@ Cord Globe::getSunDirection(double lon, double lat) const
 
 void Globe::drawShadow()
 {
-	if (Options::globeSurfaceCache)
+	ShaderRepeat<Sint16> noise(SurfaceRaw<Sint16>(
+		static_data.random_noise, static_data.random_surf_size, static_data.random_surf_size));
+	lock();
+	if (_zoom < _earthData.size() && !_earthData[_zoom].empty())
 	{
-		ShaderMove<Cord> earth = ShaderMove<Cord>(SurfaceRaw<Cord>(_earthData[_zoom], getWidth(), getHeight()));
-		ShaderRepeat<Sint16> noise = ShaderRepeat<Sint16>(SurfaceRaw<Sint16>(static_data.random_noise, static_data.random_surf_size, static_data.random_surf_size));
-
-		earth.setMove(_cenX-getWidth()/2, _cenY-getHeight()/2);
-
-		lock();
-		ShaderDraw<CreateShadow>(ShaderSurface(this), earth, ShaderScalar(getSunDirection(_cenLon, _cenLat)), noise);
-		unlock();
+		// Cached: surface normal precomputed per zoom in rebuildEarthData().
+		ShaderDraw<CreateShadow32>(
+			ShaderSurface32(this),
+			ShaderSurface(SurfaceRaw<const Cord>(_earthData[_zoom], getWidth(), getHeight())),
+			ShaderScalar(getSunDirection(_cenLon, _cenLat)),
+			noise);
 	}
 	else
 	{
-		ShaderRepeat<Sint16> noise = ShaderRepeat<Sint16>(SurfaceRaw<Sint16>(static_data.random_noise, static_data.random_surf_size, static_data.random_surf_size));
-
-		lock();
-		ShaderDraw<CreateShadowWithoutCache>(ShaderSurface(this), helper::Offset(_cenX, _cenY), ShaderScalar(getSunDirection(_cenLon, _cenLat)), noise, ShaderScalar(_zoomRadius[_zoom]));
-		unlock();
+		// Fallback: per-pixel recompute (cache empty or zoom out-of-bounds).
+		ShaderDraw<CreateShadowWithoutCache32>(
+			ShaderSurface32(this),
+			helper::Offset(_cenX, _cenY),
+			ShaderScalar(getSunDirection(_cenLon, _cenLat)),
+			noise,
+			ShaderScalar(_zoomRadius[_zoom]));
 	}
-
+	unlock();
 }
 
 
@@ -1396,7 +1829,7 @@ void Globe::drawDetail()
 	if (_zoom >= 2)
 	{
 		Text *label = new Text(150, 9, 0, 0);
-		label->setPalette(getPalette());
+		label->setPalette(getEffectivePalette());
 		label->initText(_game->getMod()->getFont("FONT_BIG"), _game->getMod()->getFont("FONT_SMALL"), _game->getLanguage());
 		label->setAlign(ALIGN_CENTER);
 
@@ -1427,7 +1860,7 @@ void Globe::drawDetail()
 	// Draw extra globe labels
 	{
 		Text *label = new Text(120, 18, 0, 0);
-		label->setPalette(getPalette());
+		label->setPalette(getEffectivePalette());
 		label->initText(_game->getMod()->getFont("FONT_BIG"), _game->getMod()->getFont("FONT_SMALL"), _game->getLanguage());
 		label->setAlign(ALIGN_CENTER);
 
@@ -1462,7 +1895,7 @@ void Globe::drawDetail()
 	if (_zoom >= 3)
 	{
 		Text *label = new Text(100, 9, 0, 0);
-		label->setPalette(getPalette());
+		label->setPalette(getEffectivePalette());
 		label->initText(_game->getMod()->getFont("FONT_BIG"), _game->getMod()->getFont("FONT_SMALL"), _game->getLanguage());
 		label->setAlign(ALIGN_CENTER);
 		label->setColor(CITY_LABEL_COLOR);
@@ -1715,37 +2148,14 @@ void Globe::drawTarget(Target *target, Surface *surface)
 		polarToCart(target->getLongitude(), target->getLatitude(), &x, &y);
 		auto i = target->getMarker();
 		auto marker = _markerSet->getFrame(i);
-		ShaderMove<const Uint8> surf{ marker, x - marker->getWidth() / 2, y - marker->getHeight() / 2 };
-		ShaderMove<Uint8> dest{ surface };
-
-		if (i == CITY_MARKER || _blink > 0)
-		{
-			ShaderDrawFunc(
-				[](Uint8& destStuff, Uint8 srcStuff)
-				{
-					if (srcStuff)
-					{
-						destStuff = srcStuff;
-					}
-				},
-				dest,
-				surf
-			);
-		}
-		else
-		{
-			ShaderDrawFunc(
-				[](Uint8& destStuff, Uint8 srcStuff)
-				{
-					if (srcStuff)
-					{
-						destStuff = srcStuff + 1;
-					}
-				},
-				dest,
-				surf
-			);
-		}
+		// Classic OXCE used a +1 palette-index shift on _blink to give markers a
+		// subtle two-frame colour cycle.  The pre-ARGB code skipped rendering on
+		// blink-off, which made markers flicker on/off — that's far more
+		// distracting than the original gentle pulse.  Approximate the original
+		// effect by varying the shade attenuation in blitNShade instead, so the
+		// marker stays continuously visible but gets a tiny brightness bob.
+		const int shade = (_blink > 0) ? 0 : 1;
+		marker->blitNShade(SurfaceRaw<Uint32>(surface), x - marker->getWidth() / 2, y - marker->getHeight() / 2, shade);
 	}
 }
 
@@ -1827,7 +2237,7 @@ void Globe::mouseOver(Action *action, State *state)
 		// the mouse-release event is missed for any reason.
 		// (checking: is the dragScroll-mouse-button still pressed?)
 		// However if the SDL is also missed the release event, then it is to no avail :(
-		if (0 == (SDL_GetMouseState(0, 0)&SDL_BUTTON(Options::geoDragScrollButton)))
+		if (!isGlobePanButtonPressed())
 		{ // so we missed again the mouse-release :(
 			// Check if we have to revoke the scrolling, because it was too short in time, so it was a click
 			if ((!_mouseMovedOverThreshold) && ((int)(SDL_GetTicks() - _mouseScrollingStartTime) <= (Options::dragScrollTimeTolerance)))
@@ -1841,6 +2251,7 @@ void Globe::mouseOver(Action *action, State *state)
 
 		_isMouseScrolled = true;
 
+#ifndef __EMSCRIPTEN__
 		if (Options::touchEnabled == false)
 		{
 			// Set the mouse cursor back
@@ -1848,6 +2259,7 @@ void Globe::mouseOver(Action *action, State *state)
 			SDL_WarpMouse((_game->getScreen()->getWidth() - 100) / 2 , _game->getScreen()->getHeight() / 2);
 			SDL_EventState(SDL_MOUSEMOTION, SDL_ENABLE);
 		}
+#endif
 
 		// Check the threshold
 		_totalMouseMoveX += action->getDetails()->motion.xrel;
@@ -1870,16 +2282,19 @@ void Globe::mouseOver(Action *action, State *state)
 			center(_cenLon + newLon / (Options::geoScrollSpeed / 10), _cenLat + newLat / (Options::geoScrollSpeed / 10));
 		}
 
+#ifndef __EMSCRIPTEN__
 		if (Options::touchEnabled == false)
 		{
 			// We don't want to see the mouse-cursor jumping :)
 			action->setMouseAction(_xBeforeMouseScrolling, _yBeforeMouseScrolling, getX(), getY());
 			action->getDetails()->motion.x = _xBeforeMouseScrolling; action->getDetails()->motion.y = _yBeforeMouseScrolling;
 		}
+#endif
 
 		_game->getCursor()->handle(action);
 	}
 
+#ifndef __EMSCRIPTEN__
 	if (Options::touchEnabled == false &&
 		_isMouseScrolling &&
 		(action->getDetails()->motion.x != _xBeforeMouseScrolling ||
@@ -1888,6 +2303,7 @@ void Globe::mouseOver(Action *action, State *state)
 		action->setMouseAction(_xBeforeMouseScrolling, _yBeforeMouseScrolling, getX(), getY());
 		action->getDetails()->motion.x = _xBeforeMouseScrolling; action->getDetails()->motion.y = _yBeforeMouseScrolling;
 	}
+#endif
 	// Check for errors
 	if (lat == lat && lon == lon)
 	{
@@ -1902,10 +2318,21 @@ void Globe::mouseOver(Action *action, State *state)
  */
 void Globe::mousePress(Action *action, State *state)
 {
+	if (action->getDetails()->button.button == SDL_BUTTON_WHEELUP)
+	{
+		zoomIn();
+		return;
+	}
+	else if (action->getDetails()->button.button == SDL_BUTTON_WHEELDOWN)
+	{
+		zoomOut();
+		return;
+	}
+
 	double lon, lat;
 	cartToPolar((Sint16)floor(action->getAbsoluteXMouse()), (Sint16)floor(action->getAbsoluteYMouse()), &lon, &lat);
 
-	if (action->getDetails()->button.button == Options::geoDragScrollButton)
+	if (isGlobePanButton(action->getDetails()->button.button))
 	{
 		_isMouseScrolling = true;
 		_isMouseScrolled = false;
@@ -1932,7 +2359,7 @@ void Globe::mouseRelease(Action *action, State *state)
 {
 	double lon, lat;
 	cartToPolar((Sint16)floor(action->getAbsoluteXMouse()), (Sint16)floor(action->getAbsoluteYMouse()), &lon, &lat);
-	if (action->getDetails()->button.button == Options::geoDragScrollButton)
+	if (isGlobePanButton(action->getDetails()->button.button))
 	{
 		stopScrolling(action);
 	}
@@ -1969,8 +2396,8 @@ void Globe::mouseClick(Action *action, State *state)
 	// (this part handles the release if it is missed and now an other button is used)
 	if (_isMouseScrolling)
 	{
-		if (action->getDetails()->button.button != Options::geoDragScrollButton
-			&& 0 == (SDL_GetMouseState(0, 0)&SDL_BUTTON(Options::geoDragScrollButton)))
+		if (!isGlobePanButton(action->getDetails()->button.button)
+			&& !isGlobePanButtonPressed())
 		{ // so we missed again the mouse-release :(
 			// Check if we have to revoke the scrolling, because it was too short in time, so it was a click
 			if ((!_mouseMovedOverThreshold) && ((int)(SDL_GetTicks() - _mouseScrollingStartTime) <= (Options::dragScrollTimeTolerance)))
@@ -1986,7 +2413,7 @@ void Globe::mouseClick(Action *action, State *state)
 	if (_isMouseScrolling)
 	{
 		// While scrolling, other buttons are ineffective
-		if (action->getDetails()->button.button == Options::geoDragScrollButton)
+		if (isGlobePanButton(action->getDetails()->button.button))
 		{
 			_isMouseScrolling = false;
 			stopScrolling(action);
@@ -2116,22 +2543,24 @@ void Globe::setupRadii(int width, int height)
 
 	if (Options::globeSurfaceCache)
 	{
-		_earthData.resize(_zoomRadius.size());
-		//filling normal field for each radius
-
-		for (size_t r = 0; r<_zoomRadius.size(); ++r)
-		{
-			_earthData[r].resize(width * height);
-			for (int j=0; j<height; ++j)
-				for (int i=0; i<width; ++i)
-				{
-					_earthData[r][width*j + i] = static_data.circle_norm(width/2, height/2, _zoomRadius[r], i+.5, j+.5);
-				}
-		}
+		rebuildEarthData();
 	}
 	else
 	{
 		_earthData.clear();
+	}
+}
+
+void Globe::rebuildEarthData()
+{
+	const int w = getWidth(), h = getHeight();
+	_earthData.assign(_zoomRadius.size(), {});
+	for (size_t r = 0; r < _zoomRadius.size(); ++r)
+	{
+		_earthData[r].resize(w * h);
+		for (int j = 0; j < h; ++j)
+			for (int i = 0; i < w; ++i)
+				_earthData[r][w*j + i] = static_data.circle_norm(w/2, h/2, _zoomRadius[r], i+.5, j+.5);
 	}
 }
 

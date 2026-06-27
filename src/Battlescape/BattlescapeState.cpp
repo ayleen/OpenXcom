@@ -59,6 +59,9 @@
 #include "../Engine/Timer.h"
 #include "../Engine/CrossPlatform.h"
 #include "../Interface/Cursor.h"
+#ifdef __EMSCRIPTEN__
+#include "../Engine/GpuInit.h"
+#endif
 #include "../Interface/Text.h"
 #include "../Interface/Bar.h"
 #include "../Interface/BattlescapeButton.h"
@@ -68,6 +71,9 @@
 #include "../Menu/LoadGameState.h"
 #include "../Menu/SaveGameState.h"
 #include "../Mod/Mod.h"
+#include "../Engine/TTFFont.h"
+#include "../Engine/TTFUtil.h"
+#include <cmath>
 #include "../Mod/RuleItem.h"
 #include "../Mod/AlienDeployment.h"
 #include "../Mod/Armor.h"
@@ -92,6 +98,79 @@
 
 namespace OpenXcom
 {
+
+namespace
+{
+void ensureIndexedSurfacePalette(Surface *surface, const SDL_Color *colors)
+{
+	if (surface && colors && !surface->isARGB())
+	{
+		surface->setPalette(colors);
+	}
+}
+
+void ensureIndexedSetPalette(SurfaceSet *set, const SDL_Color *colors)
+{
+	if (!set || !colors)
+	{
+		return;
+	}
+	for (size_t i = 0; i < set->getTotalFrames(); ++i)
+	{
+		Surface *frame = set->getFrame((int)i);
+		if (frame && !frame->isARGB())
+		{
+			set->setPalette(colors);
+			return;
+		}
+	}
+}
+
+void ensureBattlescapeAssetPalettes(Mod *mod, const SDL_Color *colors)
+{
+	if (!mod || !colors)
+	{
+		return;
+	}
+	static const char * const surfaces[] =
+	{
+		"ICONS.PCK",
+		"TFTDReserve",
+		"oxceLinks",
+		"AvatarBackground"
+	};
+	for (const char *name : surfaces)
+	{
+		ensureIndexedSurfacePalette(mod->getSurface(name, false), colors);
+	}
+
+	static const char * const sets[] =
+	{
+		"SPICONS.DAT",
+		"Touch",
+		"KneelButton",
+		"CURSOR.PCK",
+		"SMOKE.PCK",
+		"HIT.PCK",
+		"X1.PCK",
+		"MEDIBITS.DAT",
+		"DETBLOB.DAT",
+		"SCANG.DAT",
+		"BIGOBS.PCK",
+		"HANDOB.PCK",
+		"FLOOROB.PCK",
+		"Projectiles",
+		"UnderwaterProjectiles",
+		"Pathfinding",
+		"TinyRanks"
+	};
+	for (const char *name : sets)
+	{
+		ensureIndexedSetPalette(mod->getSurfaceSet(name, false), colors);
+	}
+}
+
+}
 
 /**
  * Initializes all the elements in the Battlescape screen.
@@ -139,9 +218,17 @@ BattlescapeState::BattlescapeState() :
 	// Create the battlemap view
 	// the actual map height is the total height minus the height of the buttonbar
 	_map = new Map(_game, screenWidth, screenHeight, 0, 0, visibleMapHeight);
+	// Calypso: the map's post-composite overlay passes (cursor/projectile/smoke /
+	// underwater explosion) only fire while this state is on top, so they never
+	// paint over a modal menu.
+	_map->setOverlayOwner(this);
 
 	_numLayers = new NumberText(3, 5, x + 232, y + 6);
 	_rank = new Surface(26, 23, x + 107, y + 33);
+#ifdef __EMSCRIPTEN__
+	// HD soldier portrait cell (sized + filled by layoutHud / applyPortrait).
+	_portrait = new Surface(32, 32, x + 75, y + 32);
+#endif
 
 	// Create buttons
 	_btnUnitUp = new BattlescapeButton(32, 16, x + 48, y);
@@ -187,8 +274,10 @@ BattlescapeState::BattlescapeState() :
 	const int visibleUnitY = _game->getMod()->getInterface("battlescape")->getElement("visibleUnits")->y;
 	for (int i = 0; i < VISIBLE_MAX; ++i)
 	{
-		_btnVisibleUnit[i] = new InteractiveSurface(15, 12, x + visibleUnitX, y + visibleUnitY - (i * 13));
-		_numVisibleUnit[i] = new NumberText(15, 12, _btnVisibleUnit[i]->getX() + 6 , _btnVisibleUnit[i]->getY() + 4);
+		// Phase 24 UX (Stage 4): larger, better-spaced visible-enemy buttons — the
+		// original 15×12 / 13-px-pitch indicators were nearly impossible to click.
+		_btnVisibleUnit[i] = new InteractiveSurface(20, 16, x + visibleUnitX, y + visibleUnitY - (i * 18));
+		_numVisibleUnit[i] = new NumberText(20, 16, _btnVisibleUnit[i]->getX() + 7 , _btnVisibleUnit[i]->getY() + 5);
 	}
 	_numVisibleUnit[9]->setX(_numVisibleUnit[9]->getX() - 2); // center number 10
 	_warning = new WarningMessage(224, 24, x + 48, y + 32);
@@ -267,6 +356,7 @@ BattlescapeState::BattlescapeState() :
 
 	// Set palette
 	_save->setPaletteByDepth(this);
+	ensureBattlescapeAssetPalettes(_game->getMod(), getPalette());
 
 	if (_game->getMod()->getInterface("battlescape")->getElementOptional("pathfinding"))
 	{
@@ -314,6 +404,9 @@ BattlescapeState::BattlescapeState() :
 
 	add(_rank, "rank", "battlescape", _icons);
 	add(_rankTiny, "rank", "battlescape", _icons);
+#ifdef __EMSCRIPTEN__
+	if (_portrait) add(_portrait, "rank", "battlescape", _icons);
+#endif
 	add(_btnUnitUp, "buttonUnitUp", "battlescape", _icons);
 	add(_btnUnitDown, "buttonUnitDown", "battlescape", _icons);
 	add(_btnMapUp, "buttonMapUp", "battlescape", _icons);
@@ -410,6 +503,16 @@ BattlescapeState::BattlescapeState() :
 
 	// Set up objects
 	_map->init();
+#ifdef __EMSCRIPTEN__
+	// Block 11.11/11.7: register GPU passes after map init.
+	// Pass order: tiles → cursor-overlay → projectile → smoke (registered by _map->init())
+	//             → warning (11.11) → cursor (11.7, always last/topmost).
+	if (_game->getMod()->hasHDPack() && GpuInit::ready())
+	{
+		_warning->initGPU(*_game->getScreen());
+		_game->getCursor()->initGPU(*_game->getScreen());
+	}
+#endif
 	_map->onMouseOver((ActionHandler)&BattlescapeState::mapOver);
 	_map->onMousePress((ActionHandler)&BattlescapeState::mapPress);
 	_map->onMouseClick((ActionHandler)&BattlescapeState::mapClick, 0);
@@ -725,6 +828,11 @@ BattlescapeState::BattlescapeState() :
 	_battleGame = new BattlescapeGame(_save, this);
 
 	_barHealthColor = _barHealth->getColor();
+
+	// Calypso (Emscripten): capture the native HUD layout once, then scale the
+	// bottom bar to ~half the screen width (no-op / native on other builds).
+	captureHudNative();
+	layoutHud();
 }
 
 
@@ -2152,6 +2260,12 @@ void BattlescapeState::updateSoldierInfo(bool checkFOV)
 	if (!playableUnit)
 	{
 		_txtName->setText("");
+#ifdef __EMSCRIPTEN__
+		applyHudName(nullptr);
+		applyHudNumbers(nullptr);
+		applyPortrait(nullptr);
+		applyHdRank(-1);
+#endif
 		resetUiButton();
 		toggleKneelButton(0);
 		return;
@@ -2169,6 +2283,13 @@ void BattlescapeState::updateSoldierInfo(bool checkFOV)
 		Surface *customBg = _game->getMod()->getSurface("AvatarBackground", false);
 		if (customBg == 0)
 		{
+#ifdef __EMSCRIPTEN__
+			// Calypso HD HUD: the pixel SMOKE.PCK rank frame (26x23) looks tiny and
+			// blurry on the scaled HD panel. Blit the HD shoulder-board insignia for
+			// this soldier's rank instead (sized + positioned by layoutHud).
+			applyHdRank((int)soldier->getRank());
+			applyPortrait(battleUnit);
+#else
 			// show rank (vanilla behaviour)
 			SurfaceSet *texture = _game->getMod()->getSurfaceSet("SMOKE.PCK");
 			auto* frame = texture->getFrame(soldier->getRankSpriteBattlescape());
@@ -2176,6 +2297,7 @@ void BattlescapeState::updateSoldierInfo(bool checkFOV)
 			{
 				frame->blitNShade(_rank, 0, 0);
 			}
+#endif
 		}
 		else
 		{
@@ -2260,9 +2382,16 @@ void BattlescapeState::updateSoldierInfo(bool checkFOV)
 	}
 	else
 	{
+#ifdef __EMSCRIPTEN__
+		applyHdRank(-1);
+		applyPortrait(nullptr);
+#endif
 		_rank->clear();
 		_rankTiny->clear();
 	}
+#ifdef __EMSCRIPTEN__
+	applyHudName(battleUnit);
+#endif
 	_numTimeUnits->setValue(battleUnit->getTimeUnits());
 	_barTimeUnits->setMax(battleUnit->getBaseStats()->tu);
 	_barTimeUnits->setValue(battleUnit->getTimeUnits());
@@ -2281,6 +2410,9 @@ void BattlescapeState::updateSoldierInfo(bool checkFOV)
 		_barMana->setMax(battleUnit->getBaseStats()->mana);
 		_barMana->setValue(battleUnit->getMana());
 	}
+#ifdef __EMSCRIPTEN__
+	applyHudNumbers(battleUnit);   // TTF stat numbers in coloured boxes (overrides bitmap)
+#endif
 
 	toggleKneelButton(battleUnit);
 
@@ -2464,9 +2596,9 @@ void BattlescapeState::blinkVisibleUnitButtons()
 	{
 		if (_btnVisibleUnit[i]->getVisible() == true)
 		{
-			_btnVisibleUnit[i]->drawRect(0, 0, 15, 12, 15);
+			_btnVisibleUnit[i]->drawRect(0, 0, 20, 16, 15);
 			int bgColor = i < _numberOfDirectlyVisibleUnits ? color : i < _numberOfEnemiesTotal ? _indicatorGreen : i < _numberOfEnemiesTotalPlusWounded ? _indicatorBlue : _indicatorPurple;
-			_btnVisibleUnit[i]->drawRect(1, 1, 13, 10, bgColor);
+			_btnVisibleUnit[i]->drawRect(1, 1, 18, 14, bgColor);
 		}
 	}
 
@@ -2520,7 +2652,7 @@ void BattlescapeState::handleItemClick(BattleItem *item, bool middleClick)
 		else
 		{
 			_battleGame->getCurrentAction()->weapon = item;
-			popup(new ActionMenuState(_battleGame->getCurrentAction(), _icons->getX(), _icons->getY() + 16));
+			popup(new ActionMenuState(_battleGame->getCurrentAction(), _icons->getX(), _icons->getY() + (int)(16 * _hudScale)));
 			if (item->getRules()->getBattleType() == BT_FIREARM)
 			{
 				_battleGame->playUnitResponseSound(_battleGame->getCurrentAction()->actor, 2); // "select weapon" sound
@@ -3167,7 +3299,7 @@ void BattlescapeState::saveAIMap()
 	int w = _save->getMapSizeX();
 	int h = _save->getMapSizeY();
 
-	SDL_Surface *img = SDL_AllocSurface(0, w * 8, h * 8, 24, 0xff, 0xff00, 0xff0000, 0);
+	SDL_Surface *img = SDL_CreateRGBSurface(0, w * 8, h * 8, 24, 0xff, 0xff00, 0xff0000, 0);
 	Log(LOG_INFO) << "unit = " << unit->getId();
 	memset(img->pixels, 0, img->pitch * img->h);
 
@@ -3711,6 +3843,26 @@ bool BattlescapeState::getMouseOverIcons() const
 }
 
 /**
+ * Phase 24 UX: true when the cursor is over (or within `margin` px of) any
+ * currently-visible enemy-indicator button. Lets the map show the system arrow
+ * and stop snapping the tile cursor near those small floating buttons, so they
+ * are easy to click. Coordinates are in base-resolution surface space.
+ */
+bool BattlescapeState::isMouseNearVisibleUnitButton(int mx, int my, int margin) const
+{
+	for (int i = 0; i < VISIBLE_MAX; ++i)
+	{
+		const InteractiveSurface* b = _btnVisibleUnit[i];
+		if (!b || !b->getVisible()) continue;
+		const int x0 = b->getX() - margin, y0 = b->getY() - margin;
+		const int x1 = b->getX() + b->getWidth()  + margin;
+		const int y1 = b->getY() + b->getHeight() + margin;
+		if (mx >= x0 && mx < x1 && my >= y0 && my < y1) return true;
+	}
+	return false;
+}
+
+/**
  * Determines whether the player is allowed to press buttons.
  * Buttons are disabled in the middle of a shot, during the alien turn,
  * and while a player's units are panicking.
@@ -4004,13 +4156,27 @@ void BattlescapeState::resize(int &dX, int &dY)
 {
 	dX = Options::baseXResolution;
 	dY = Options::baseYResolution;
-	int divisor = 1;
 	double pixelRatioY = 1.0;
-
 	if (Options::nonSquarePixelRatio)
 	{
 		pixelRatioY = 1.2;
 	}
+
+#ifdef __EMSCRIPTEN__
+	// Calypso: the canvas is stretched to fill the window, so only proportional
+	// (fraction-of-display) scales keep the aspect ratio — fixed Nx buffers would
+	// distort it. Every scale option maps to display × num/den;
+	// battlescapeTileScale enlarges the tiles (Map.cpp), not the buffer, so the
+	// options never collide into duplicates.
+	{
+		int num = 1, den = 1;
+		Screen::getScreenScaleFraction(Options::battlescapeScale, num, den);
+		Options::baseXResolution = std::max(Screen::ORIGINAL_WIDTH,  Options::displayWidth  * num / den);
+		Options::baseYResolution = std::max(Screen::ORIGINAL_HEIGHT, (int)(Options::displayHeight / pixelRatioY * num / den));
+	}
+#else
+	int divisor = 1;
+	bool fixedRes = false;
 	switch (Options::battlescapeScale)
 	{
 	case SCALE_SCREEN_DIV_10:
@@ -4037,6 +4203,12 @@ void BattlescapeState::resize(int &dX, int &dY)
 	case SCALE_SCREEN:
 		break;
 	default:
+		fixedRes = true;
+		break;
+	}
+
+	if (fixedRes)
+	{
 		dX = 0;
 		dY = 0;
 		return;
@@ -4044,6 +4216,7 @@ void BattlescapeState::resize(int &dX, int &dY)
 
 	Options::baseXResolution = std::max(Screen::ORIGINAL_WIDTH, Options::displayWidth / divisor);
 	Options::baseYResolution = std::max(Screen::ORIGINAL_HEIGHT, (int)(Options::displayHeight / pixelRatioY / divisor));
+#endif
 
 	dX = Options::baseXResolution - dX;
 	dY = Options::baseYResolution - dY;
@@ -4074,6 +4247,547 @@ void BattlescapeState::resize(int &dX, int &dY)
 		pos += dX;
 	}
 
+	// Calypso: re-apply the half-width HUD layout for the new base resolution.
+	layoutHud();
+}
+
+/**
+ * Calypso (Emscripten): record the native HUD layout — every bottom-bar widget's
+ * offset from the icons-panel origin plus its native size — exactly once. These
+ * offsets are resolution-independent, so layoutHud() can rebuild the HUD
+ * absolutely from them at any scale (idempotent; no drift across resizes). The
+ * widget set mirrors resize()'s "centred bottom" group (everything except the
+ * map, the screen-corner modifier buttons, the right-edge action buttons and the
+ * debug text).
+ */
+void BattlescapeState::captureHudNative()
+{
+#ifdef __EMSCRIPTEN__
+	if (_hudCaptured || !_icons) return;
+	_hudNativeIconsW = _icons->getWidth();
+	_hudNativeIconsH = _icons->getHeight();
+	const int ix = _icons->getX(), iy = _icons->getY();
+	for (auto* surf : _surfaces)
+	{
+		if (surf == _map || surf == _txtDebug || surf == _portrait
+			|| surf == _btnCtrl || surf == _btnAlt || surf == _btnShift
+			|| surf == _btnRMB || surf == _btnMMB
+			|| surf == _btnPsi || surf == _btnLaunch
+			|| surf == _btnSpecial || surf == _btnSkills)
+		{
+			continue;
+		}
+		_hudNative.push_back({ surf, surf->getX() - ix, surf->getY() - iy,
+		                       surf->getWidth(), surf->getHeight() });
+	}
+	_hudCaptured = true;
+#endif
+}
+
+/**
+ * Calypso (Emscripten): lay the HUD out scaled so the icons panel spans ~half the
+ * base-resolution width, re-centred along the bottom. Geometry is rebuilt
+ * absolutely from the captured native offsets × scale, so clicks (which are
+ * positional in base-resolution space) stay correct by construction. The panel
+ * background (ICONS.PCK crop) is re-blitted scaled to fill the resized panel.
+ * Interim art is the stretched ICONS sprite; HD panel art replaces it later.
+ */
+void BattlescapeState::layoutHud()
+{
+#ifdef __EMSCRIPTEN__
+	if (!_hudCaptured || _hudNativeIconsW <= 0) return;
+	if (Options::baseXResolution == _hudLastBaseX) return;   // nothing changed
+	_hudLastBaseX = Options::baseXResolution;
+
+	// HD panel art (its aspect differs from the vanilla 320x56 bar — it's taller),
+	// so size the panel to the HD aspect and scale widget geometry NON-uniformly
+	// (sx by width, sy by height) onto it. The HD layout mirrors the vanilla
+	// proportional layout, so the click grid + dynamic widgets land on the art.
+	Surface* panel = _game->getMod()->getSurface("CALYPSO_HUD_PANEL", false);
+	const int pw = (panel && panel->getSurface()) ? panel->getSurface()->w : 0;
+	const int ph = (panel && panel->getSurface()) ? panel->getSurface()->h : 0;
+
+	const int newW = Options::baseXResolution / 2;            // ~half screen width
+	const int newH = (pw > 0 && ph > 0)
+	               ? (int)((float)newW * ph / pw + 0.5f)      // HD panel aspect
+	               : (int)((float)newW * _hudNativeIconsH / _hudNativeIconsW + 0.5f);
+
+	float sx = (float)newW / (float)_hudNativeIconsW; if (sx < 1.0f) sx = 1.0f;
+	float sy = (float)newH / (float)_hudNativeIconsH; if (sy < 1.0f) sy = 1.0f;
+	_hudScale = sx;
+
+	const int panelX = Options::baseXResolution / 2 - newW / 2;
+	const int panelY = Options::baseYResolution - newH;
+	// Clip the map's overlay/vapor passes to just above the (taller) HD HUD panel.
+	_map->setHudTopY(panelY);
+
+	// Publish the HD "toggled" panel + the live panel transform so a pressed/
+	// toggled BattlescapeButton can blit its own gold region (top-left aligned).
+	Surface* toggled = _game->getMod()->getSurface("CALYPSO_HUD_PANEL_TOGGLED", false);
+	if (toggled && toggled->getSurface())
+	{
+		BattlescapeButton::hudToggled = toggled->getSurface();
+		BattlescapeButton::hudSrcW = toggled->getSurface()->w;
+		BattlescapeButton::hudSrcH = toggled->getSurface()->h;
+		BattlescapeButton::hudPanelX = panelX;
+		BattlescapeButton::hudPanelY = panelY;
+		BattlescapeButton::hudPanelW = newW;
+		BattlescapeButton::hudPanelH = newH;
+	}
+	else
+	{
+		BattlescapeButton::hudToggled = nullptr;
+	}
+
+	for (const auto& r : _hudNative)
+	{
+		// _rank holds an externally-blitted sprite that resize()/clear() would
+		// wipe; it is positioned (no resize) by placePos() below — skip it here.
+		if (r.surf == _rank) continue;
+		r.surf->setX(panelX + (int)(r.dx * sx + 0.5f));
+		r.surf->setY(panelY + (int)(r.dy * sy + 0.5f));
+		if (r.surf == _icons)
+		{
+			r.surf->setWidth(newW);
+			r.surf->setHeight(newH);
+		}
+		else
+		{
+			int w = (int)(r.w * sx + 0.5f); if (w < 1) w = 1;
+			int h = (int)(r.h * sy + 0.5f); if (h < 1) h = 1;
+			r.surf->setWidth(w);
+			r.surf->setHeight(h);
+		}
+	}
+
+	// Explicit placement of the centre-slot dynamic widgets into the HD panel
+	// (panel-normalised coords). The HD layout differs from vanilla's, so the
+	// generic scale above only gets these roughly right; pin them to the slot.
+	// (Bars are procedural → scale with the surface; Text/NumberText use bitmap
+	// fonts that don't scale by size yet — HD font is a later step.)
+	auto place = [&](Surface* s, float nx, float ny, float nw, float nh)
+	{
+		if (!s) return;
+		// Only touch widgets that were actually captured (created + added). Some
+		// HUD widgets (e.g. _barMana) are optional and may be an uninitialised
+		// pointer when absent — calling through it would crash ("null function").
+		bool captured = false;
+		for (const auto& r : _hudNative) { if (r.surf == s) { captured = true; break; } }
+		if (!captured) return;
+		s->setX(panelX + (int)(nx * newW + 0.5f));
+		s->setY(panelY + (int)(ny * newH + 0.5f));
+		int w = (int)(nw * newW + 0.5f); if (w < 1) w = 1;
+		int h = (int)(nh * newH + 0.5f); if (h < 1) h = 1;
+		s->setWidth(w); s->setHeight(h);
+	};
+	// HD rank: a square shoulder-board plate (the HD art is 1:1). Size + position
+	// it here, then (re)blit the insignia via applyHdRank AFTER the resize so
+	// Surface::draw()'s clear() doesn't wipe it. _rank is skipped by the generic
+	// loop above so its native 26x23 size is not forced back on.
+	{
+		bool cap = false;
+		for (const auto& r : _hudNative) { if (r.surf == _rank) { cap = true; break; } }
+		if (cap)
+		{
+			// New format: rank anchor moves to the far-RIGHT corner of the slot,
+			// small. (The empty left cell will hold the soldier portrait.)
+			int side = (int)(0.300f * newH + 0.5f); if (side < 1) side = 1;
+			_rank->setX(panelX + (int)(0.775f * newW + 0.5f));
+			_rank->setY(panelY + (int)(0.640f * newH + 0.5f));
+			_rank->setWidth(side);
+			_rank->setHeight(side);
+			applyHdRank(_hudRankIndex);
+		}
+	}
+	// Soldier portrait in the empty cell just left of the slot (panel art cell
+	// ~x 0.355..0.42, y 0.625..0.94). Square; re-filled after the resize.
+	if (_portrait)
+	{
+		int pside = (int)(0.300f * newH + 0.5f); if (pside < 1) pside = 1;
+		_portrait->setX(panelX + (int)(0.344f * newW + 0.5f));
+		_portrait->setY(panelY + (int)(0.640f * newH + 0.5f));
+		_portrait->setWidth(pside);
+		_portrait->setHeight(pside);
+		applyPortrait(_save ? _save->getSelectedUnit() : nullptr);
+	}
+	// Target format: name across the top, bars stacked beneath it (left), a 2x2
+	// number grid to the right, rank anchor in the far-right corner.
+	place(_txtName,     0.435f, 0.620f, 0.250f, 0.130f);  // name, top-left of the slot
+	// bars stacked directly under the name
+	place(_barTimeUnits, 0.435f, 0.72f, 0.210f, 0.040f);
+	place(_barEnergy,    0.435f, 0.77f, 0.210f, 0.040f);
+	place(_barHealth,    0.435f, 0.82f, 0.210f, 0.040f);
+	place(_barMorale,    0.435f, 0.87f, 0.210f, 0.040f);
+	place(_barMana,      0.435f, 0.92f, 0.210f, 0.035f);
+	// Calypso: gradient + calibrate the scale so a value of 100 ends about half a
+	// number-box short of the box grid (which starts at the left column, 0.652).
+	{
+		const float barStartN = 0.435f, boxLeftN = 0.652f, halfBoxN = 0.0416f * 0.5f;
+		const float len100N = (boxLeftN - halfBoxN) - barStartN;   // panel-norm length at value 100
+		const double barScale = (double)(len100N * newW) / 100.0;
+		// Only touch bars that were actually captured (created + added). _barMana is
+		// optional and may be an UNINITIALISED pointer when absent — a bare `if (b)`
+		// passes on garbage and setGradient()/setScale() then write out of bounds
+		// (the resolution-change / restart crash). Mirror place()'s captured guard.
+		auto isCaptured = [&](Surface* s) {
+			for (const auto& r : _hudNative) if (r.surf == s) return true;
+			return false;
+		};
+		Bar* gbars[] = { _barTimeUnits, _barEnergy, _barHealth, _barMorale, _barMana };
+		for (Bar* b : gbars)
+			if (b && isCaptured(b)) { b->setGradient(true); b->setScale(barScale); }
+	}
+	// 2x2 stat-number grid (coloured boxes), right of the bars, left of the rank.
+	place(_numTimeUnits, 0.652f, 0.640f, 0.0416f, 0.136f);
+	place(_numEnergy,    0.712f, 0.640f, 0.0416f, 0.136f);
+	place(_numHealth,    0.652f, 0.790f, 0.0416f, 0.136f);
+	place(_numMorale,    0.712f, 0.790f, 0.0416f, 0.136f);
+	applyHudName(_save ? _save->getSelectedUnit() : nullptr);
+	applyHudNumbers(_save ? _save->getSelectedUnit() : nullptr);
+
+	// Draw the panel background scaled into _icons (32-bit ARGB in this build).
+	// Prefer the HD panel; fall back to a stretched vanilla ICONS crop.
+	if (pw > 0 && _icons->getSurface())
+	{
+		// copy (not blend) so the panel's own alpha — rounded corners + cut-outs —
+		// lands in _icons verbatim; _icons then alpha-composites over the scene.
+		SDL_SetSurfaceBlendMode(panel->getSurface(), SDL_BLENDMODE_NONE);
+		SDL_Rect src{ 0, 0, pw, ph };
+		SDL_Rect dst{ 0, 0, newW, newH };
+		SDL_BlitScaled(panel->getSurface(), &src, _icons->getSurface(), &dst);
+	}
+	else
+	{
+		Surface* icons = _game->getMod()->getSurface("ICONS.PCK", false);
+		if (icons && icons->getSurface() && _icons->getSurface())
+		{
+			SDL_Rect src{ 0, 200 - _hudNativeIconsH, _hudNativeIconsW, _hudNativeIconsH };
+			SDL_Rect dst{ 0, 0, newW, newH };
+			SDL_BlitScaled(icons->getSurface(), &src, _icons->getSurface(), &dst);
+		}
+	}
+	// setWidth() set _redraw on _icons; Surface::draw() would clear() it on the
+	// next blit and wipe the panel we just drew. Keep it.
+	_icons->setRedraw(false);
+#endif
+}
+
+/**
+ * Calypso (Emscripten): blit the HD shoulder-board insignia for SoldierRank
+ * rankIdx (0..5) into the HUD _rank slot, scaled to its current size. rankIdx < 0
+ * clears it. Stores the index so layoutHud can re-apply after a resize (which
+ * clears the surface). Bypasses the pixel SMOKE.PCK rank frames.
+ */
+void BattlescapeState::applyHdRank(int rankIdx)
+{
+#ifdef __EMSCRIPTEN__
+	_hudRankIndex = rankIdx;
+	if (!_rank || !_rank->getSurface()) return;
+	_rank->clear();
+	if (rankIdx >= 0)
+	{
+		std::ostringstream ss;
+		ss << "CALYPSO_RANK_" << rankIdx;
+		Surface* hd = _game->getMod()->getSurface(ss.str(), false);
+		if (hd && hd->getSurface())
+		{
+			// copy (not blend) so the plate's rounded-corner alpha lands verbatim;
+			// _rank then alpha-composites over the panel.
+			SDL_SetSurfaceBlendMode(hd->getSurface(), SDL_BLENDMODE_NONE);
+			SDL_Rect dst{ 0, 0, _rank->getWidth(), _rank->getHeight() };
+			SDL_BlitScaled(hd->getSurface(), nullptr, _rank->getSurface(), &dst);
+		}
+	}
+	_rank->setRedraw(false);
+#else
+	(void)rankIdx;
+#endif
+}
+
+/**
+ * Calypso (Emscripten): blit the soldier's inventory look sprite — the same
+ * paperdoll the inventory screen draws — cropped to the head/shoulders and
+ * round-masked, into the HUD portrait cell. Non-soldier units clear it.
+ */
+void BattlescapeState::applyPortrait(BattleUnit* unit)
+{
+#ifdef __EMSCRIPTEN__
+	if (!_portrait || !_portrait->getSurface()) return;
+	_portrait->clear();
+	Soldier* soldier = unit ? unit->getGeoscapeSoldier() : nullptr;
+	if (soldier)
+	{
+		// Resolve the inventory look sprite (mirrors InventoryState / the avatar
+		// branch): "<inventorySprite><gender><look+variant>.SPK", with fallbacks.
+		const std::string look = soldier->getArmor()->getSpriteInventory();
+		const std::string gender = soldier->getGender() == GENDER_MALE ? "M" : "F";
+		Surface* surf = nullptr;
+		for (int i = 0; i <= RuleSoldier::LookVariantBits; ++i)
+		{
+			std::ostringstream ss;
+			ss << look << gender
+			   << ((int)soldier->getLook() + (soldier->getLookVariant() & (RuleSoldier::LookVariantMask >> i)) * 4)
+			   << ".SPK";
+			surf = _game->getMod()->getSurface(ss.str(), false);
+			if (surf) break;
+		}
+		if (!surf) { surf = _game->getMod()->getSurface(look + ".SPK", false); }
+		if (!surf) { surf = _game->getMod()->getSurface(look, false); }
+		if (surf && surf->getSurface())
+		{
+			// The look .SPK is figure-on-transparent anchored in 320x200 space;
+			// crop head + shoulders (tuned to the inventory paperdoll head).
+			SDL_Surface* src = surf->getSurface();
+			// Head + shoulders only (measured from the rendered paperdoll: the head
+			// sits at sprite ~x74..95, y47..67; widen a touch for the shoulders).
+			SDL_Rect srcR{ 69, 44, 34, 36 };
+			if (srcR.x + srcR.w > src->w) srcR.w = src->w - srcR.x;
+			if (srcR.y + srcR.h > src->h) srcR.h = src->h - srcR.y;
+			SDL_Rect dst{ 0, 0, _portrait->getWidth(), _portrait->getHeight() };
+			SDL_SetSurfaceBlendMode(src, SDL_BLENDMODE_NONE);
+			SDL_BlitScaled(src, &srcR, _portrait->getSurface(), &dst);
+
+			// Round-mask: clear alpha outside the inscribed circle.
+			SDL_Surface* ps = _portrait->getSurface();
+			if (ps->format->BitsPerPixel == 32)
+			{
+				SDL_LockSurface(ps);
+				const float cx = ps->w / 2.0f, cy = ps->h / 2.0f;
+				const float r = (cx < cy ? cx : cy) - 1.0f;
+				for (int yy = 0; yy < ps->h; ++yy)
+				{
+					Uint32* row = (Uint32*)((Uint8*)ps->pixels + yy * ps->pitch);
+					for (int xx = 0; xx < ps->w; ++xx)
+					{
+						const float dx = xx - cx, dy = yy - cy;
+						if (dx * dx + dy * dy > r * r)
+						{
+							Uint8 rr, gg, bb, aa;
+							SDL_GetRGBA(row[xx], ps->format, &rr, &gg, &bb, &aa);
+							row[xx] = SDL_MapRGBA(ps->format, rr, gg, bb, 0);
+						}
+					}
+				}
+				SDL_UnlockSurface(ps);
+			}
+		}
+	}
+	_portrait->setRedraw(false);
+#else
+	(void)unit;
+#endif
+}
+
+#ifdef __EMSCRIPTEN__
+/**
+ * Bilinearly fit an ARGB TTF surface into dest (cleared first), left-aligned and
+ * vertically centred, preserving the glyph alpha so dest composites over the
+ * panel. Scales down to fit dest's width/height; never upscales past native.
+ */
+static void blitTTFFit(SDL_Surface* ttf, Surface* destS, float fillFrac = 1.0f)
+{
+	// Left-aligned, vertically-centred fit-blit — shared via TTFUtil so scaled
+	// menus/buttons/labels reuse the exact same bilinear path as the HUD.
+	TTFUtil::blitFit(ttf, destS, TTFUtil::H_LEFT, TTFUtil::V_MIDDLE, fillFrac);
+}
+#endif
+
+/**
+ * Calypso (Emscripten): lazy-resolve the large Oxanium HUD font.
+ */
+TTFFont* BattlescapeState::getHudFont()
+{
+	if (_hudFont) return _hudFont;
+	_hudFont = _game->getMod()->getTTFFont("FONT_HD_HUD", false);
+	return _hudFont;
+}
+
+/**
+ * Calypso (Emscripten): render the soldier (or unit) name into _txtName via the
+ * scalable TTF HUD font, replacing the bitmap text. Null unit clears it.
+ */
+void BattlescapeState::applyHudName(BattleUnit* unit)
+{
+#ifdef __EMSCRIPTEN__
+	if (!_txtName || !_txtName->getSurface()) return;
+	_txtName->clear();
+	TTFFont* font = getHudFont();
+	if (font && unit)
+	{
+		std::string name = unit->getName(_game->getLanguage(), false);
+		Soldier* s = unit->getGeoscapeSoldier();
+		if (s && s->hasCallsign() && _save && !_save->isNameDisplay()) name = s->getCallsign();
+		if (!name.empty())
+		{
+			SDL_Color col = { 0x7A, 0xC8, 0xFF, 0xFF };
+			SDL_Surface* ttf = font->renderText(name, col);
+			blitTTFFit(ttf, _txtName, 0.551f);  // progressively reduced so it clears the bars
+		}
+	}
+	_txtName->setRedraw(false);
+#else
+	(void)unit;
+#endif
+}
+
+#ifdef __EMSCRIPTEN__
+/**
+ * Fill a 32-bit surface with a rounded rectangle: transparent outside the
+ * rounded corners, an `accent` border ring of width `bw`, and a dark `fill`.
+ */
+static void drawRoundedBox(SDL_Surface* s, SDL_Color fill, SDL_Color accent, int radius, int bw)
+{
+	if (!s || s->format->BitsPerPixel != 32) return;
+	const int W = s->w, H = s->h;
+	if (radius * 2 > W) radius = W / 2;
+	if (radius * 2 > H) radius = H / 2;
+	SDL_LockSurface(s);
+	const Uint32 cTrans  = SDL_MapRGBA(s->format, 0, 0, 0, 0);
+	const Uint32 cAccent = SDL_MapRGBA(s->format, accent.r, accent.g, accent.b, accent.a);
+	const Uint32 cFill   = SDL_MapRGBA(s->format, fill.r, fill.g, fill.b, fill.a);
+	for (int y = 0; y < H; ++y)
+	{
+		Uint32* row = (Uint32*)((Uint8*)s->pixels + y * s->pitch);
+		for (int x = 0; x < W; ++x)
+		{
+			const int dx = (x < radius) ? (radius - x) : (x > W - 1 - radius ? x - (W - 1 - radius) : 0);
+			const int dy = (y < radius) ? (radius - y) : (y > H - 1 - radius ? y - (H - 1 - radius) : 0);
+			if (dx > 0 && dy > 0)
+			{
+				const float dist = std::sqrt((float)(dx * dx + dy * dy));
+				if (dist > radius)            { row[x] = cTrans;  continue; }
+				if (dist > radius - bw)       { row[x] = cAccent; continue; }
+			}
+			else if (x < bw || x >= W - bw || y < bw || y >= H - bw)
+			{
+				row[x] = cAccent; continue;
+			}
+			row[x] = cFill;
+		}
+	}
+	SDL_UnlockSurface(s);
+}
+
+/**
+ * Composite an ARGB TTF surface OVER dest (does not clear), scaled to fit within
+ * dest minus `pad` fraction, centred both ways, with proper alpha-over blending.
+ */
+static void blitTTFCenterOver(SDL_Surface* ttf, Surface* destS, float pad)
+{
+	if (!ttf || !destS || !destS->getSurface()) return;
+	SDL_Surface* dst = destS->getSurface();
+	if (ttf->format->BitsPerPixel != 32 || dst->format->BitsPerPixel != 32) return;
+	const int dW = dst->w, dH = dst->h, sW = ttf->w, sH = ttf->h;
+	if (sW <= 0 || sH <= 0 || dW <= 0 || dH <= 0) return;
+	const float availW = dW * (1.0f - pad), availH = dH * (1.0f - pad);
+	float scale = (availH / sH < availW / sW) ? availH / sH : availW / sW;
+	if (scale > 1.0f) scale = 1.0f;
+	int outW = (int)(sW * scale + 0.5f); if (outW < 1) outW = 1; if (outW > dW) outW = dW;
+	int outH = (int)(sH * scale + 0.5f); if (outH < 1) outH = 1; if (outH > dH) outH = dH;
+	const int ox = (dW - outW) / 2, oy = (dH - outH) / 2;
+	SDL_LockSurface(ttf); SDL_LockSurface(dst);
+	for (int y = 0; y < outH; ++y)
+	{
+		float sy = (y + 0.5f) * sH / outH - 0.5f; if (sy < 0) sy = 0; if (sy > sH - 1) sy = sH - 1;
+		const int y0 = (int)sy; const int y1 = (y0 + 1 < sH) ? y0 + 1 : y0; const float fy = sy - y0;
+		Uint32* drow = (Uint32*)((Uint8*)dst->pixels + (oy + y) * dst->pitch);
+		Uint32* r0 = (Uint32*)((Uint8*)ttf->pixels + y0 * ttf->pitch);
+		Uint32* r1 = (Uint32*)((Uint8*)ttf->pixels + y1 * ttf->pitch);
+		for (int x = 0; x < outW; ++x)
+		{
+			float sx = (x + 0.5f) * sW / outW - 0.5f; if (sx < 0) sx = 0; if (sx > sW - 1) sx = sW - 1;
+			const int x0 = (int)sx; const int x1 = (x0 + 1 < sW) ? x0 + 1 : x0; const float fx = sx - x0;
+			Uint8 ar,ag,ab,aa, br,bg,bb,ba, cr,cg,cb,ca, er,eg,eb,ea;
+			SDL_GetRGBA(r0[x0], ttf->format, &ar,&ag,&ab,&aa);
+			SDL_GetRGBA(r0[x1], ttf->format, &br,&bg,&bb,&ba);
+			SDL_GetRGBA(r1[x0], ttf->format, &cr,&cg,&cb,&ca);
+			SDL_GetRGBA(r1[x1], ttf->format, &er,&eg,&eb,&ea);
+			const float w00=(1-fx)*(1-fy), w10=fx*(1-fy), w01=(1-fx)*fy, w11=fx*fy;
+			const float sr = ar*w00+br*w10+cr*w01+er*w11;
+			const float sg = ag*w00+bg*w10+cg*w01+eg*w11;
+			const float sb = ab*w00+bb*w10+cb*w01+eb*w11;
+			const float sa = (aa*w00+ba*w10+ca*w01+ea*w11) / 255.0f;
+			if (sa <= 0.001f) continue;
+			const int dxp = ox + x; if (dxp < 0 || dxp >= dW) continue;
+			Uint8 dr, dg, db, da;
+			SDL_GetRGBA(drow[dxp], dst->format, &dr, &dg, &db, &da);
+			const float daf = da / 255.0f;
+			const float oa = sa + daf * (1.0f - sa);
+			Uint8 R, G, B, A;
+			if (oa <= 0.001f) { R=G=B=0; A=0; }
+			else
+			{
+				R = (Uint8)((sr * sa + dr * daf * (1.0f - sa)) / oa + 0.5f);
+				G = (Uint8)((sg * sa + dg * daf * (1.0f - sa)) / oa + 0.5f);
+				B = (Uint8)((sb * sa + db * daf * (1.0f - sa)) / oa + 0.5f);
+				A = (Uint8)(oa * 255.0f + 0.5f);
+			}
+			drow[dxp] = SDL_MapRGBA(dst->format, R, G, B, A);
+		}
+	}
+	SDL_UnlockSurface(ttf); SDL_UnlockSurface(dst);
+}
+#endif
+
+/**
+ * Calypso (Emscripten): draw one stat number as a TTF value centred inside a
+ * coloured rounded box (accent border + dark fill), into the NumberText surface.
+ */
+void BattlescapeState::applyHudNumber(NumberText* w, int value, Uint32 accentArgb)
+{
+#ifdef __EMSCRIPTEN__
+	if (!w || !w->getSurface()) return;
+	SDL_Surface* s = w->getSurface();
+	if (s->format->BitsPerPixel != 32) { w->setRedraw(false); return; }
+	w->clear();
+	SDL_Color accent = { (Uint8)((accentArgb >> 16) & 0xFF), (Uint8)((accentArgb >> 8) & 0xFF),
+	                     (Uint8)(accentArgb & 0xFF), 0xFF };
+	SDL_Color fill = { 8, 14, 22, 210 };
+	const int radius = ((s->h < s->w ? s->h : s->w) / 4);
+	const int bw = (s->h >= 22 ? 2 : 1);
+	drawRoundedBox(s, fill, accent, radius, bw);
+	TTFFont* font = getHudFont();
+	if (font)
+	{
+		// digits in the exact same colour as the box/bar
+		SDL_Surface* ttf = font->renderText(std::to_string(value), accent);
+		blitTTFCenterOver(ttf, w, 0.34f);
+	}
+	w->setRedraw(false);
+#else
+	(void)w; (void)value; (void)accentArgb;
+#endif
+}
+
+/**
+ * Calypso (Emscripten): render the four TU/Energy/Health/Morale stat boxes for a
+ * unit (null clears them). Colours echo the bar/mockup semantics.
+ */
+void BattlescapeState::applyHudNumbers(BattleUnit* unit)
+{
+#ifdef __EMSCRIPTEN__
+	if (unit)
+	{
+		// box/digit colour = the exact bar colour (palette index -> RGB).
+		Palette* pal = _game->getMod()->getPalette("PAL_BATTLESCAPE", false);
+		auto barArgb = [&](Bar* b) -> Uint32 {
+			if (!b || !pal) return 0xFFFFFFu;
+			SDL_Color* c = pal->getColors(b->getColor());
+			return ((Uint32)c->r << 16) | ((Uint32)c->g << 8) | (Uint32)c->b;
+		};
+		applyHudNumber(_numTimeUnits, unit->getTimeUnits(), barArgb(_barTimeUnits));
+		applyHudNumber(_numEnergy,    unit->getEnergy(),    barArgb(_barEnergy));
+		applyHudNumber(_numHealth,    unit->getHealth(),    barArgb(_barHealth));
+		applyHudNumber(_numMorale,    unit->getMorale(),    barArgb(_barMorale));
+	}
+	else
+	{
+		NumberText* arr[] = { _numTimeUnits, _numEnergy, _numHealth, _numMorale };
+		for (NumberText* w : arr) { if (w) { w->clear(); w->setRedraw(false); } }
+	}
+#else
+	(void)unit;
+#endif
 }
 
 /**

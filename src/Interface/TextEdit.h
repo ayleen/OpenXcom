@@ -69,6 +69,8 @@ public:
 	void setText(const std::string &text);
 	/// Gets the text edit's string.
 	std::string getText() const;
+	/// Gets the pixel width of the current text (bitmap font), for hit-area sizing.
+	int getTextWidth() const;
 	/// Sets the text edit's wordwrap setting.
 	void setWordWrap(bool wrap);
 	/// Sets the text edit's color invert setting.

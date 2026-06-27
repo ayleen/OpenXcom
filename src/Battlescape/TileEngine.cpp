@@ -3150,6 +3150,22 @@ bool TileEngine::hitUnit(BattleActionAttack attack, BattleUnit *target, const Po
 	const int healthDamage = healthOrig - target->getHealth();
 	const int stunDamage = target->getStunlevel() - stunLevelOrig;
 
+#ifdef __EMSCRIPTEN__
+	// Calypso P30 Срез B: spawn blood when a unit's flesh is actually wounded — HP lost,
+	// the armour can bleed, and it is not fire (DT_IN does HP damage but no blood). We use
+	// the armour's own bleed-immunity (default = can bleed) rather than isWoundable(): the
+	// latter hinges on the alienBleeding GAME OPTION (off by default), which wrongly made
+	// aliens not bleed cosmetically. getBleedImmune(false) is true only for tanks/large
+	// (auto-set) and explicitly bleed-immune (mechanical) armour — organic aliens bleed.
+	if (healthDamage > 0 && !target->getArmor()->getBleedImmune(false) && type->ResistType != DT_IN)
+	{
+		if (BattlescapeState* bs = _save->getBattleState())
+			if (BattlescapeGame* bg = bs->getBattleGame())
+				if (Map* fxMap = bg->getMap())
+					fxMap->spawnBloodFx(target->getPosition(), healthDamage, (int)target->getFaction());
+	}
+#endif
+
 	// hit log
 	if (attack.attacker)
 	{

@@ -51,7 +51,7 @@ const int MAX_FRAME = 2;
  * @param camera The Battlescape camera.
  * @param battleGame Pointer to the SavedBattleGame.
  */
-MiniMapView::MiniMapView(int w, int h, int x, int y, Game * game, Camera * camera, SavedBattleGame * battleGame) : InteractiveSurface(w, h, x, y), _game(game), _camera(camera), _battleGame(battleGame), _frame(0), _isMouseScrolling(false), _isMouseScrolled(false), _xBeforeMouseScrolling(0), _yBeforeMouseScrolling(0), _mouseScrollX(0), _mouseScrollY(0), _mouseScrollingStartTime(0), _totalMouseMoveX(0), _totalMouseMoveY(0), _mouseMovedOverThreshold(false)
+MiniMapView::MiniMapView(int w, int h, int x, int y, Game * game, Camera * camera, SavedBattleGame * battleGame) : InteractiveSurface(w, h, x, y), _game(game), _camera(camera), _battleGame(battleGame), _frame(0), _isMouseScrolling(false), _isMouseScrolled(false), _xBeforeMouseScrolling(0), _yBeforeMouseScrolling(0), _mouseScrollX(0), _mouseScrollY(0), _mouseScrollingStartTime(0), _totalMouseMoveX(0), _totalMouseMoveY(0), _mouseMovedOverThreshold(false), _baseW(w), _baseH(h)
 {
 	_set = _game->getMod()->getSurfaceSet("SCANG.DAT");
 	_emptySpaceIndex = _game->getMod()->getInterface("minimap")->getElement("emptySpace")->color;
@@ -62,16 +62,47 @@ MiniMapView::MiniMapView(int w, int h, int x, int y, Game * game, Camera * camer
  */
 void MiniMapView::draw()
 {
-	int _startX = _camera->getCenterPosition().x - ((getWidth() / CELL_WIDTH) / 2);
-	int _startY = _camera->getCenterPosition().y - ((getHeight() / CELL_HEIGHT) / 2);
-
 	InteractiveSurface::draw();
 	if (!_set)
 	{
 		return;
 	}
-	drawRect(0, 0, getWidth(), getHeight(), 15);
-	this->lock();
+#ifdef __EMSCRIPTEN__
+	// Calypso: when the view has been scaled up (enableUiScaling), render the
+	// minimap at its native size then scale-blit to fill — so the map cells and
+	// objects scale with the UI (instead of showing more map at native cell size).
+	if (getWidth() != _baseW || getHeight() != _baseH)
+	{
+		Surface scratch(_baseW, _baseH, 0, 0);
+		const SDL_Color* pal = getEffectivePalette();
+		if (pal)
+		{
+			scratch.setPalette(pal);
+		}
+		renderMinimap(&scratch, _baseW, _baseH);
+		if (scratch.getSurface() && this->getSurface())
+		{
+			SDL_BlitScaled(scratch.getSurface(), nullptr, this->getSurface(), nullptr);
+		}
+		this->setRedraw(false);
+		return;
+	}
+#endif
+	renderMinimap(this, getWidth(), getHeight());
+}
+
+/**
+ * Renders the minimap (cells, units, items, crosshair) into a target surface at
+ * the given size. Factored out of draw() so a scaled view can render at native
+ * size into a scratch and then scale-blit it (keeps the cell size scaled).
+ */
+void MiniMapView::renderMinimap(Surface* dst, int viewW, int viewH)
+{
+	int _startX = _camera->getCenterPosition().x - ((viewW / CELL_WIDTH) / 2);
+	int _startY = _camera->getCenterPosition().y - ((viewH / CELL_HEIGHT) / 2);
+
+	dst->drawRect(0, 0, viewW, viewH, 15);
+	dst->lock();
 	Surface * emptySpace = _set->getFrame(_emptySpaceIndex);
 	bool isAltPressed = _game->isAltPressed(true);
 	if (Options::isPasswordCorrect())
@@ -81,10 +112,10 @@ void MiniMapView::draw()
 	for (int lvl = 0; lvl <= _camera->getCenterPosition().z; lvl++)
 	{
 		int py = _startY;
-		for (int y = 0; y < getHeight(); y += CELL_HEIGHT)
+		for (int y = 0; y < viewH; y += CELL_HEIGHT)
 		{
 			int px = _startX;
-			for (int x = 0; x < getWidth(); x += CELL_WIDTH)
+			for (int x = 0; x < viewW; x += CELL_WIDTH)
 			{
 				Position p(px, py, lvl);
 				Tile *t = _battleGame->getTile(p);
@@ -92,7 +123,7 @@ void MiniMapView::draw()
 				{
 					if (isAltPressed)
 					{
-						emptySpace->blitNShade(this, x, y, 0);
+						emptySpace->blitNShade(dst, x, y, 0);
 					}
 					px++;
 					continue;
@@ -112,7 +143,7 @@ void MiniMapView::draw()
 								shade = t->getShade();
 								if (shade > 7) shade = 7; //vanilla
 							}
-							s->blitNShade(this, x, y, shade);
+							s->blitNShade(dst, x, y, shade);
 						}
 					}
 				}
@@ -127,11 +158,11 @@ void MiniMapView::draw()
 					Surface * s = _set->getFrame(frame);
 					if (size > 1 && t->getUnit()->getFaction() == FACTION_NEUTRAL)
 					{
-						s->blitNShade(this, x, y, 0, false, Pathfinding::red);
+						s->blitNShade(dst, x, y, 0, false, Pathfinding::red);
 					}
 					else
 					{
-						s->blitNShade(this, x, y, 0);
+						s->blitNShade(dst, x, y, 0);
 					}
 				}
 				// perhaps (at least one) item on this tile?
@@ -160,12 +191,12 @@ void MiniMapView::draw()
 					else if (atLeastOnePrimed)
 					{
 						// dye red
-						s->blitNShade(this, x, y, 0, false, Pathfinding::red);
+						s->blitNShade(dst, x, y, 0, false, Pathfinding::red);
 					}
 					else
 					{
 						// vanilla
-						s->blitNShade(this, x, y, 0);
+						s->blitNShade(dst, x, y, 0);
 					}
 				}
 
@@ -174,22 +205,22 @@ void MiniMapView::draw()
 			py++;
 		}
 	}
-	this->unlock();
-	int centerX = getWidth() / 2 - 1;
-	int centerY = getHeight() / 2 - 1;
+	dst->unlock();
+	int centerX = viewW / 2 - 1;
+	int centerY = viewH / 2 - 1;
 	Uint8 color = 1 + _frame * 3;
 	int xOffset = CELL_WIDTH / 2;
 	int yOffset = CELL_HEIGHT / 2;
-	drawLine(centerX - CELL_WIDTH, centerY - CELL_HEIGHT,
+	dst->drawLine(centerX - CELL_WIDTH, centerY - CELL_HEIGHT,
 		 centerX - xOffset, centerY - yOffset,
 		 color); // top left
-	drawLine(centerX + xOffset, centerY - yOffset,
+	dst->drawLine(centerX + xOffset, centerY - yOffset,
 		 centerX + CELL_WIDTH, centerY - CELL_HEIGHT,
 		 color); // top right
-	drawLine(centerX - CELL_WIDTH, centerY + CELL_HEIGHT,
+	dst->drawLine(centerX - CELL_WIDTH, centerY + CELL_HEIGHT,
 		 centerX - xOffset, centerY + yOffset,
 		 color); // bottom left
-	drawLine(centerX + CELL_WIDTH, centerY + CELL_HEIGHT,
+	dst->drawLine(centerX + CELL_WIDTH, centerY + CELL_HEIGHT,
 		 centerX + xOffset, centerY + yOffset,
 		 color); //bottom right
 }
@@ -302,9 +333,15 @@ void MiniMapView::mouseClick(Action *action, State *state)
 	{
 		int origX = action->getRelativeXMouse() / action->getXScale();
 		int origY = action->getRelativeYMouse() / action->getYScale();
+		int viewW = getWidth(), viewH = getHeight();
+#ifdef __EMSCRIPTEN__
+		// map scaled-view coords back to native content space (cells are scaled)
+		if (viewW != _baseW && viewW > 0) { origX = origX * _baseW / viewW; viewW = _baseW; }
+		if (viewH != _baseH && viewH > 0) { origY = origY * _baseH / viewH; viewH = _baseH; }
+#endif
 		// get offset (in cells) of the click relative to center of screen
-		int xOff = (origX / CELL_WIDTH) - ((getWidth() / 2) / CELL_WIDTH);
-		int yOff = (origY / CELL_HEIGHT) - ((getHeight() / 2) / CELL_HEIGHT);
+		int xOff = (origX / CELL_WIDTH) - ((viewW / 2) / CELL_WIDTH);
+		int yOff = (origY / CELL_HEIGHT) - ((viewH / 2) / CELL_HEIGHT);
 		// center the camera on this new position
 		int newX = _camera->getCenterPosition().x + xOff;
 		int newY = _camera->getCenterPosition().y + yOff;

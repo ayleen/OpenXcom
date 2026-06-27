@@ -63,9 +63,18 @@ ActionMenuState::ActionMenuState(BattleAction *action, int x, int y) : _action(a
 	// Set palette
 	_game->getSavedGame()->getSavedBattle()->setPaletteByDepth(this);
 
+	// Calypso: scale the popup to match the HD HUD. The HUD panel spans
+	// baseXResolution/2 over a 320-wide ICONS strip, i.e. scale = baseX/640;
+	// the action menu mirrors that so it sits proportionally over the HUD.
+	float uiScale = 1.0f;
+#ifdef __EMSCRIPTEN__
+	uiScale = (float)Options::baseXResolution / 640.0f;
+	if (uiScale < 1.0f) uiScale = 1.0f;
+#endif
+
 	for (int i = 0; i < 6; ++i)
 	{
-		_actionMenu[i] = new ActionMenuItem(i, _game, x, y);
+		_actionMenu[i] = new ActionMenuItem(i, _game, x, y, uiScale);
 		add(_actionMenu[i]);
 		_actionMenu[i]->setVisible(false);
 		_actionMenu[i]->onMouseClick((ActionHandler)&ActionMenuState::btnActionMenuItemClick);

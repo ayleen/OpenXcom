@@ -54,6 +54,13 @@ private:
 	BattlescapeButton *_btnLinks;
 	Surface *_selAmmo;
 	Inventory *_inv;
+	// Calypso (Emscripten): HD menu scaling — native-size snapshots/scratches
+	// bilinear-stretched into the scaled display surfaces (declared unconditionally,
+	// used only under #ifdef __EMSCRIPTEN__).
+	SDL_Surface *_bgNative = nullptr;   ///< 320×200 static chrome (TAC01.SCR) snapshot
+	Surface *_soldierNat = nullptr;     ///< native paperdoll scratch
+	Surface *_btnRankNat = nullptr;     ///< native rank-badge scratch
+	Surface *_selAmmoNat = nullptr;     ///< native ammo-preview scratch
 	std::vector<EquipmentLayoutItem*> _curInventoryTemplate, _tempInventoryTemplate;
 	SavedBattleGame *_battleGame;
 	const bool _tu, _noCraft;
@@ -73,6 +80,11 @@ private:
 	void _createInventoryTemplate(std::vector<EquipmentLayoutItem*> &inventoryTemplate);
 	/// Helper method for Apply Template button
 	void _applyInventoryTemplate(std::vector<EquipmentLayoutItem*> &inventoryTemplate);
+#ifdef __EMSCRIPTEN__
+	/// Calypso: shrink the soldier-name TextEdit's hit-area to ≈ the name text so a
+	/// scaled field doesn't catch button/grid/drag clicks and grab keyboard focus.
+	void fitNameField();
+#endif
 public:
 	/// Creates the Inventory state.
 	InventoryState(bool tu, BattlescapeState *parent, Base *base, bool noCraft = false);
@@ -81,6 +93,8 @@ public:
 	/// Updates all soldier info.
 	void setGlobalLayoutIndex(int index, bool armorChanged);
 	void init() override;
+	/// Calypso (Emscripten): re-apply HD UI scaling on display resize.
+	void resize(int &dX, int &dY) override;
 	/// Handler for pressing on the Name edit.
 	void edtSoldierPress(Action *action);
 	/// Handler for changing text on the Name edit.

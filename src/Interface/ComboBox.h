@@ -28,6 +28,9 @@ class TextButton;
 class TextList;
 class Window;
 class Language;
+#ifdef __EMSCRIPTEN__
+class TTFFont;
+#endif
 
 /**
  * Text button with a list dropdown when pressed.
@@ -54,6 +57,13 @@ private:
 	Uint8 _color;
 	bool _toggled;
 	bool _popupAboveButton;
+#ifdef __EMSCRIPTEN__
+	int _nativeW = 0, _nativeH = 0;
+	float scale() const { return _nativeW > 0 ? (float)getWidth() / (float)_nativeW : 1.0f; }
+	void relayout();
+	std::vector<std::string> _optionsCache;
+	bool _optionsCacheTranslate = false;
+#endif
 
 	void drawArrow();
 	void setDropdown(int options);
@@ -66,6 +76,13 @@ public:
 	void setX(int x) override;
 	/// Sets the Y position of the surface.
 	void setY(int y) override;
+#ifdef __EMSCRIPTEN__
+	/// Calypso: HD scaling.
+	void setWidth(int width) override;
+	void setHeight(int height) override;
+	/// Calypso: HD — forward TTF to button and list.
+	void setTTFFont(TTFFont* font, float fillFrac);
+#endif
 	/// Sets the palette of the text list.
 	void setPalette(const SDL_Color *colors, int firstcolor = 0, int ncolors = 256) override;
 	/// Initializes the resources for the text list.

@@ -24,6 +24,7 @@
 #include "../Engine/Palette.h"
 #include "../Interface/Text.h"
 #include "../Engine/Screen.h"
+#include "../Engine/TTFUtil.h"
 #include "../Savegame/BattleItem.h"
 #include "../Savegame/BattleUnit.h"
 #include "../Mod/RuleItem.h"
@@ -176,6 +177,28 @@ MedikitState::MedikitState (BattleUnit *targetUnit, BattleAction *action, TileEn
 	}
 
 	backgroundSprite->blitNShade(_bg, 0, 0);
+
+#ifdef __EMSCRIPTEN__
+	// Calypso: scale this fullscreen info screen to fill the logical buffer.
+	// Snapshot the painted 320×200 background, scale every widget (the MedikitView
+	// composites the body native then scale-blits), give the labels HD TTF, then
+	// bilinear-stretch the background back into the scaled _bg.
+	{
+		SDL_Surface* s = _bg->getSurface();
+		if (s && s->format->BitsPerPixel == 32)
+		{
+			_bgNative = SDL_ConvertSurface(s, s->format, 0);
+		}
+	}
+	enableUiScaling(320, 200, 0.5f);   // QA tuning: Medikit too big — scale to half
+	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
+	if (_bgNative)
+	{
+		TTFUtil::blitStretch(_bgNative, _bg);
+		_bg->setRedraw(false);
+	}
+#endif
+
 	_pkText->setBig();
 	_stimulantTxt->setBig();
 	_healTxt->setBig();
@@ -190,6 +213,37 @@ MedikitState::MedikitState (BattleUnit *targetUnit, BattleAction *action, TileEn
 	_pkButton->onMouseClick((ActionHandler)&MedikitState::onPainKillerClick);
 	_pkButton->onKeyboardPress((ActionHandler)&MedikitState::onPainKillerClick, SDLK_1);
 	update();
+}
+
+/**
+ * Cleans up the MedikitState.
+ */
+MedikitState::~MedikitState()
+{
+#ifdef __EMSCRIPTEN__
+	if (_bgNative)
+	{
+		SDL_FreeSurface(_bgNative);
+	}
+#endif
+}
+
+/**
+ * Calypso (Emscripten): rescale to the logical buffer and re-stretch the
+ * background, so resolution changes keep the medikit screen filled and aligned.
+ */
+void MedikitState::resize(int &dX, int &dY)
+{
+#ifdef __EMSCRIPTEN__
+	applyUiScaling();
+	if (_bgNative)
+	{
+		TTFUtil::blitStretch(_bgNative, _bg);
+		_bg->setRedraw(false);
+	}
+#else
+	State::resize(dX, dY);
+#endif
 }
 
 /**

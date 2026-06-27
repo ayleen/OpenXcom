@@ -27,6 +27,9 @@ class Language;
 class Frame;
 class TextButton;
 class Text;
+#ifdef __EMSCRIPTEN__
+class TTFFont;
+#endif
 
 /**
  * Horizontal slider control to select from a range of values.
@@ -42,6 +45,12 @@ private:
 	bool _pressed;
 	ActionHandler _change;
 	int _thickness, _textness, _minX, _maxX, _offsetX;
+#ifdef __EMSCRIPTEN__
+	int _nativeW = 0, _nativeH = 0;  ///< Calypso: construction size; scale = getWidth()/_nativeW
+	float scale() const { return _nativeW > 0 ? (float)getWidth() / (float)_nativeW : 1.0f; }
+	/// Calypso: re-lay-out children at the current HD scale.
+	void relayout();
+#endif
 
 	/// Sets the slider's position.
 	void setPosition(double pos);
@@ -54,6 +63,13 @@ public:
 	void setX(int x) override;
 	/// Sets the Y position of the surface.
 	void setY(int y) override;
+#ifdef __EMSCRIPTEN__
+	/// Calypso: HD scaling re-lays-out the slider's children on resize.
+	void setWidth(int width) override;
+	void setHeight(int height) override;
+	/// Calypso: HD — forward TTF font to the +/- labels.
+	void setTTFFont(TTFFont *font, float fillFrac);
+#endif
 	/// Initializes the slider's resources.
 	void initText(Font *big, Font *small, Language *lang) override;
 	/// Sets the slider's high contrast color setting.

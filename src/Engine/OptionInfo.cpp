@@ -65,12 +65,14 @@ OptionInfo::OptionInfo(OptionOwner owner, const std::string &id, int *option, in
  * @param desc Language ID for the option description (if any).
  * @param cat Language ID for the option category (if any).
  */
+#if !defined(__EMSCRIPTEN__) && SDL_MAJOR_VERSION < 2
 OptionInfo::OptionInfo(OptionOwner owner, const std::string &id, SDLKey *option, SDLKey def, const std::string &desc, const std::string &cat) :
 	_id(id), _desc(desc), _cat(cat), _type(OPTION_KEY), _owner(owner)
 {
 	_ref.k = option;
 	_def.k = def;
 }
+#endif
 
 /**
  * Creates info for a string option.

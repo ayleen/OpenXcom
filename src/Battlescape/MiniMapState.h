@@ -35,6 +35,9 @@ class SavedBattleGame;
 class MiniMapState : public State
 {
 	Surface * _bg;
+#ifdef __EMSCRIPTEN__
+	SDL_Surface *_bgNative = nullptr;  ///< Calypso: 320×200 bg snapshot, bilinear-stretched into the scaled _bg
+#endif
 	MiniMapView *_miniMapView;
 	BattlescapeButton *_btnLvlUp, *_btnLvlDwn, *_btnOk;
 	Text *_txtLevel;
@@ -52,6 +55,8 @@ public:
 	void btnLevelUpClick (Action * action);
 	/// Handler for the one level down button.
 	void btnLevelDownClick (Action * action);
+	/// Calypso: rescale to the logical buffer instead of the base recenter.
+	void resize(int &dX, int &dY) override;
 	/// Handler for right-clicking anything.
 	void handle(Action *action) override;
 	/// Handles timers.

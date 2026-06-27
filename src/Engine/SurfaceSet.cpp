@@ -81,12 +81,14 @@ void SurfaceSet::loadPck(const std::string &pck, const std::string &tab)
 		for (int frame = 0; frame < nframes; ++frame)
 		{
 			_frames.push_back(Surface(_width, _height));
+			_frames.back().resetToIndexedScratch();
 		}
 	}
 	else
 	{
 		nframes = 1;
 		_frames.push_back(Surface(_width, _height));
+		_frames.back().resetToIndexedScratch();
 	}
 
 	auto imgFile = FileMap::getIStream(pck);
@@ -152,6 +154,9 @@ void SurfaceSet::loadDat(const std::string &filename)
 	for (int i = 0; i < nframes; ++i)
 	{
 		_frames[i] = Surface(_width, _height);
+		// Demote to 8bpp scratch so setPixelIterative stores raw palette indices.
+		// setPalette() will promote back to 32bpp ARGB once a palette is available.
+		_frames[i].resetToIndexedScratch();
 	}
 
 	Uint8 value;

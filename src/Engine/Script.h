@@ -860,6 +860,8 @@ public:
 	void executeBlit(const Surface* src, Surface* dest, int x, int y, int shade);
 	/// Programmable blitting using script.
 	void executeBlit(const Surface* src, Surface* dest, int x, int y, int shade, GraphSubset mask);
+	// R2.1 scope cut: _useHDScripts / setUseHDScripts / getUseHDScripts removed.
+	// No HD mod with hdScripts:true is queued; ARGB VM opcode path deferred to Phase 8.
 
 	/// Clear all worker data.
 	void clear()

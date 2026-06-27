@@ -21,12 +21,17 @@
 #include "../version.h"
 #include "../md5.h"
 #include <SDL.h>
+#if SDL_MAJOR_VERSION < 2
 #include <SDL_keysym.h>
+#endif
 #include <SDL_mixer.h>
 #include <map>
 #include <sstream>
 #include <iostream>
 #include <algorithm>
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 #include "../Engine/Yaml.h"
 #include "Exception.h"
 #include "Logger.h"
@@ -116,12 +121,22 @@ void createOptionsOXC()
 	_info.push_back(OptionInfo(OPTION_OXC, "StereoSound", &StereoSound, true));
 	//_info.push_back(OptionInfo(OPTION_OXC, "baseXResolution", &baseXResolution, Screen::ORIGINAL_WIDTH));
 	//_info.push_back(OptionInfo(OPTION_OXC, "baseYResolution", &baseYResolution, Screen::ORIGINAL_HEIGHT));
-	//_info.push_back(OptionInfo(OPTION_OXC, "baseXGeoscape", &baseXGeoscape, Screen::ORIGINAL_WIDTH));
-	//_info.push_back(OptionInfo(OPTION_OXC, "baseYGeoscape", &baseYGeoscape, Screen::ORIGINAL_HEIGHT));
-	//_info.push_back(OptionInfo(OPTION_OXC, "baseXBattlescape", &baseXBattlescape, Screen::ORIGINAL_WIDTH));
-	//_info.push_back(OptionInfo(OPTION_OXC, "baseYBattlescape", &baseYBattlescape, Screen::ORIGINAL_HEIGHT));
+	_info.push_back(OptionInfo(OPTION_OXC, "baseXGeoscape", &baseXGeoscape, Screen::ORIGINAL_WIDTH));
+	_info.push_back(OptionInfo(OPTION_OXC, "baseYGeoscape", &baseYGeoscape, Screen::ORIGINAL_HEIGHT));
+	_info.push_back(OptionInfo(OPTION_OXC, "baseXBattlescape", &baseXBattlescape, Screen::ORIGINAL_WIDTH));
+	_info.push_back(OptionInfo(OPTION_OXC, "baseYBattlescape", &baseYBattlescape, Screen::ORIGINAL_HEIGHT));
 	_info.push_back(OptionInfo(OPTION_OXC, "geoscapeScale", &geoscapeScale, 0));
+#ifdef __EMSCRIPTEN__
+	// Calypso default: full-display Battlescape (SCALE_SCREEN = 1:1 with the
+	// stretched canvas). Users can lower it in Options if UI/units feel small.
+	// Edge smoothness of the HD floor comes from its supersampled offscreen
+	// pass, not from the Battlescape render-buffer scale.
+	// All Calypso scales are proportional fractions of the canvas, so a fixed
+	// 320x200 buffer (stored 0) would distort the aspect ratio.
+	_info.push_back(OptionInfo(OPTION_OXC, "battlescapeScale", &battlescapeScale, SCALE_SCREEN));
+#else
 	_info.push_back(OptionInfo(OPTION_OXC, "battlescapeScale", &battlescapeScale, 0));
+#endif
 	_info.push_back(OptionInfo(OPTION_OXC, "useScaleFilter", &useScaleFilter, false));
 	_info.push_back(OptionInfo(OPTION_OXC, "useHQXFilter", &useHQXFilter, false));
 	_info.push_back(OptionInfo(OPTION_OXC, "useXBRZFilter", &useXBRZFilter, false));
@@ -150,8 +165,10 @@ void createOptionsOXC()
 	battleXcomSpeedOrig = -1;
 	battleAlienSpeedOrig = -1;
 	_info.push_back(OptionInfo(OPTION_OXC, "battleAlienSpeed", &battleAlienSpeed, 30));
-#ifdef __MOBILE__
-	_info.push_back(OptionInfo(OPTION_OXC, "battleNewPreviewPath", (int*)&battleNewPreviewPath, PATH_FULL)); // for android, set full preview by default
+#if defined(__MOBILE__) || defined(__EMSCRIPTEN__)
+	// Calypso (Phase 24 UX): full path preview on by default — the HD marching path
+	// nodes + running TU cost are a core part of the "where will it go" feedback.
+	_info.push_back(OptionInfo(OPTION_OXC, "battleNewPreviewPath", (int*)&battleNewPreviewPath, PATH_FULL));
 #else
 	_info.push_back(OptionInfo(OPTION_OXC, "battleNewPreviewPath", (int*)&battleNewPreviewPath, PATH_NONE)); // requires double-click to confirm moves
 #endif
@@ -166,7 +183,11 @@ void createOptionsOXC()
 	_info.push_back(OptionInfo(OPTION_OXC, "pauseMode", &pauseMode, 0));
 	_info.push_back(OptionInfo(OPTION_OXC, "battleNotifyDeath", &battleNotifyDeath, false));
 	_info.push_back(OptionInfo(OPTION_OXC, "showFundsOnGeoscape", &showFundsOnGeoscape, false));
+#ifdef __EMSCRIPTEN__
+	_info.push_back(OptionInfo(OPTION_OXC, "allowResize", &allowResize, true));
+#else
 	_info.push_back(OptionInfo(OPTION_OXC, "allowResize", &allowResize, false));
+#endif
 	_info.push_back(OptionInfo(OPTION_OXC, "windowedModePositionX", &windowedModePositionX, 0));
 	_info.push_back(OptionInfo(OPTION_OXC, "windowedModePositionY", &windowedModePositionY, 0));
 	_info.push_back(OptionInfo(OPTION_OXC, "borderless", &borderless, false));
@@ -1344,6 +1365,9 @@ bool save(bool reset, const std::string& filename)
 		Log(LOG_WARNING) << "Failed to save " << filepath;
 		return false;
 	}
+#ifdef __EMSCRIPTEN__
+	EM_ASM(({ FS.syncfs(false, function(err) { if (err) console.error('[calypso] syncfs error', err); }); }));
+#endif
 	return true;
 }
 
@@ -1385,6 +1409,12 @@ const std::vector<std::string> &getDataList()
 std::string getUserFolder()
 {
 	return _userFolder;
+}
+
+void setUserFolder(const std::string &folder)
+{
+	_userFolder = folder;
+	Log(LOG_DEBUG) << "setUserFolder(" << folder << ");";
 }
 
 /**

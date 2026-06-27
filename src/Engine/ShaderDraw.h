@@ -17,7 +17,8 @@
  * You should have received a copy of the GNU General Public License
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include "ShaderDrawHelper.h"
+#include "ShaderDrawHelper.h"  // includes Surface.h transitively
+#include "ShadeTable.h"
 #include <tuple>
 
 namespace OpenXcom
@@ -132,42 +133,29 @@ const Uint8 ColorShade = 0x0F;
  */
 struct ColorReplace
 {
-	/**
-	* Function used by ShaderDraw in Surface::blitNShade
-	* set shade and replace color in that surface
-	* @param dest destination pixel
-	* @param src source pixel
-	* @param shade value of shade of this surface
-	* @param newColor new color to set (it should be offset by 4)
-	*/
-	static inline void func(Uint8& dest, const Uint8& src, const int& shade, const int& newColor)
+	/// 7.B / R1.1: ARGB overload — srcIdx is the original palette index from _paletteMirror.
+	static inline void func(Uint32& dest, const Uint32& src, const Uint8& srcIdx,
+	                        const int& shade, const int& newBaseColor,
+	                        const ShadeTable *table, const ShadeTable *recolouredTable)
 	{
-#ifdef OXCE_VECTORIZATION_FRIENDLY
-		//more vectorization friendly code
-		auto n = dest;
-		if (src)
+		if ((src >> 24) == 0) return;
+		// 8a-fix: srcIdx==0 means no _paletteMirror (or transparent index) — fall
+		// back to ARGB curve so non-transparent pixels don't collapse to table[0]==0.
+		if (srcIdx == 0)
 		{
-			const Uint8 newShade = (src & ColorShade) + shade;
-			if (newShade & ColorGroup)
-				// so dark it would flip over to another color - make it black instead
-				n = ColorShade;
-			else
-				n = newColor | newShade;
+			dest = ::OpenXcom::shadeARGBCurve(src, shade);
+			return;
 		}
-		dest = n;
-#else
-		if (src)
+		if (recolouredTable)
+			dest = recolouredTable->get(srcIdx, shade);
+		else if (table)
 		{
-			const Uint8 newShade = (src & ColorShade) + shade;
-			if (newShade & ColorGroup)
-				// so dark it would flip over to another color - make it black instead
-				dest = ColorShade;
-			else
-				dest = newColor | newShade;
+			const Uint8 newIdx = (Uint8)((srcIdx & ColorShade) | (Uint8)newBaseColor);
+			dest = table->get(newIdx, shade);
 		}
-#endif
+		else
+			dest = ::OpenXcom::shadeARGBCurve(src, shade);
 	}
-
 };
 
 /**
@@ -175,76 +163,51 @@ struct ColorReplace
  */
 struct StandardShade
 {
-	/**
-	* Function used by ShaderDraw in Surface::blitNShade
-	* set shade
-	* @param dest destination pixel
-	* @param src source pixel
-	* @param shade value of shade of this surface
-	* @param not used
-	* @param not used
-	*/
-	static inline void func(Uint8& dest, const Uint8& src, const int& shade)
+	/// 7.B / R1.1: ARGB overload — srcIdx is the original palette index from _paletteMirror.
+	/// If table is null (HD asset), falls back to shadeARGBCurve.
+	static inline void func(Uint32& dest, const Uint32& src, const Uint8& srcIdx,
+	                        const int& shade, const ShadeTable *table)
 	{
-#ifdef OXCE_VECTORIZATION_FRIENDLY
-		//more vectorization friendly code
-		auto n = dest;
-		if (src)
-		{
-			const Uint8 newShade = src + shade;
-			if ((newShade ^ src) & ColorGroup)
-				// so dark it would flip over to another color - make it black instead
-				n = ColorShade;
-			else
-				n = newShade;
-		}
-		dest = n;
-#else
-		if (src)
-		{
-			const Uint8 newShade = src + shade;
-			if ((newShade ^ src) & ColorGroup)
-				// so dark it would flip over to another color - make it black instead
-				dest = ColorShade;
-			else
-				dest = newShade;
-		}
-#endif
+		if ((src >> 24) == 0) return;
+		// 8a-fix: see ColorReplace — srcIdx==0 → ARGB curve, not table[0].
+		if (!table || srcIdx == 0)
+			dest = ::OpenXcom::shadeARGBCurve(src, shade);
+		else
+			dest = table->get(srcIdx, shade);
 	}
-
 };
+
 /**
  * helper class used for blitting dying unit with overkill
  */
 struct BurnShade
 {
-	static inline void func(Uint8& dest, const Uint8& src, const int& burn, const int& shade)
+	/// 7.B / R1.1: ARGB overload — srcIdx is the original palette index from _paletteMirror.
+	static inline void func(Uint32& dest, const Uint32& src, const Uint8& srcIdx,
+	                        const int& burn, const int& shade,
+	                        const ShadeTable *table)
 	{
-		auto n = dest;
-		if (src)
+		if ((src >> 24) == 0) return;
+		if (!table || srcIdx == 0)
 		{
-			if (burn)
-			{
-				const Uint8 tempBurn = (src & ColorShade) + burn;
-				if (tempBurn > 26)
-				{
-					//nothing
-				}
-				else if (tempBurn > 15)
-				{
-					StandardShade::func(n, ColorShade, shade);
-				}
-				else
-				{
-					StandardShade::func(n, (src & ColorGroup) + tempBurn, shade);
-				}
-			}
+			dest = ::OpenXcom::shadeARGBCurve(src, shade);
+			return;
+		}
+		if (burn)
+		{
+			const Uint8 tempBurn = (srcIdx & ColorShade) + (Uint8)burn;
+			if (tempBurn > 26)
+				dest = table->get(srcIdx, shade);
+			else if (tempBurn > 15)
+				dest = table->get(ColorShade, shade);
 			else
 			{
-				StandardShade::func(n, src, shade);
+				const Uint8 burned = (Uint8)((srcIdx & ColorGroup) + tempBurn);
+				dest = table->get(burned, shade);
 			}
 		}
-		dest = n;
+		else
+			dest = table->get(srcIdx, shade);
 	}
 };
 

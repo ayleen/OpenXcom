@@ -22,6 +22,15 @@
 namespace OpenXcom
 {
 
+// Calypso (Emscripten): HD HUD pressed-state art, published by BattlescapeState.
+SDL_Surface* BattlescapeButton::hudToggled = nullptr;
+int BattlescapeButton::hudPanelX = 0;
+int BattlescapeButton::hudPanelY = 0;
+int BattlescapeButton::hudPanelW = 0;
+int BattlescapeButton::hudPanelH = 0;
+int BattlescapeButton::hudSrcW = 0;
+int BattlescapeButton::hudSrcH = 0;
+
 /**
  * Sets up a battlescape button with the specified size and position.
  * @param width Width in pixels.
@@ -147,7 +156,10 @@ void BattlescapeButton::initSurfaces(Surface* custom)
 {
 	delete _altSurface;
 	_altSurface = new Surface(_surface->w, _surface->h, _x, _y);
-	_altSurface->setPalette(getPalette());
+	// getPalette() returns nullptr once a surface has been promoted to ARGB,
+	// which would leave _altSurface palette-less and produce nothing when blit
+	// (the lost-red-highlight bug for kneel/reserve/etc toggle buttons).
+	_altSurface->setPalette(getEffectivePalette());
 
 	if (custom)
 	{
@@ -206,6 +218,40 @@ void BattlescapeButton::initSurfaces(Surface* custom)
  */
 void BattlescapeButton::blit(SDL_Surface *surface)
 {
+#ifdef __EMSCRIPTEN__
+	// Calypso HD HUD: the vanilla inverted-highlight (low-res ICONS recoloured)
+	// looks wrong over the HD panel. When pressed/toggled, blit this button's
+	// region from the HD "toggled" panel art (gold pressed state), top-left
+	// aligned with the button. Falls back to a bright cyan border if that art is
+	// not available.
+	Surface::blit(surface);
+	if (_inverted && surface)
+	{
+		if (hudToggled && hudPanelW > 0 && hudPanelH > 0 && hudSrcW > 0)
+		{
+			const float fx = (float)hudSrcW / (float)hudPanelW;
+			const float fy = (float)hudSrcH / (float)hudPanelH;
+			SDL_Rect src{ (int)((getX() - hudPanelX) * fx + 0.5f),
+			              (int)((getY() - hudPanelY) * fy + 0.5f),
+			              (int)(getWidth()  * fx + 0.5f),
+			              (int)(getHeight() * fy + 0.5f) };
+			SDL_Rect dst{ getX(), getY(), getWidth(), getHeight() };
+			SDL_BlitScaled(hudToggled, &src, surface, &dst);
+		}
+		else
+		{
+			const int t = (getHeight() / 10 > 2) ? getHeight() / 10 : 2;
+			const Uint32 c = SDL_MapRGB(surface->format, 90, 220, 255);
+			SDL_Rect top{ getX(), getY(), getWidth(), t };
+			SDL_Rect bot{ getX(), getY() + getHeight() - t, getWidth(), t };
+			SDL_Rect lft{ getX(), getY(), t, getHeight() };
+			SDL_Rect rgt{ getX() + getWidth() - t, getY(), t, getHeight() };
+			SDL_FillRect(surface, &top, c); SDL_FillRect(surface, &bot, c);
+			SDL_FillRect(surface, &lft, c); SDL_FillRect(surface, &rgt, c);
+		}
+	}
+	return;
+#endif
 	if (_inverted)
 	{
 		_altSurface->blit(surface);

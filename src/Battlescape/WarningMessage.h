@@ -18,6 +18,9 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "../Engine/Surface.h"
+#ifdef __EMSCRIPTEN__
+#include <memory>
+#endif
 
 namespace OpenXcom
 {
@@ -25,6 +28,11 @@ namespace OpenXcom
 class Text;
 class Timer;
 class Font;
+#ifdef __EMSCRIPTEN__
+class Screen;
+class GpuTexture;
+class Shader;
+#endif
 
 /**
  * Coloured box with text inside that fades out after it is displayed.
@@ -36,6 +44,16 @@ private:
 	Text *_text;
 	Timer *_timer;
 	Uint8 _color, _fade;
+#ifdef __EMSCRIPTEN__
+	GpuTexture*           _warnTex    = nullptr;
+	Shader*               _warnShader = nullptr;
+	unsigned int          _warnVAO    = 0;
+	unsigned int          _warnVBO    = 0;
+	bool                  _gpuMode    = false;
+	std::shared_ptr<bool> _gpuAliveFlag;
+	void _uploadWarningPixels();
+	void drawGPUPass(Screen* screen);
+#endif
 public:
 	/// Creates a new warning message with the specified size and position.
 	WarningMessage(int width, int height, int x = 0, int y = 0);
@@ -57,6 +75,12 @@ public:
 	void fade();
 	/// Draws the message.
 	void draw() override;
+#ifdef __EMSCRIPTEN__
+	/// Uploads pixels to GPU and registers a post-flush pass. Call once on battle start.
+	void initGPU(Screen& screen);
+	/// Blits warning; skips when GPU mode is active.
+	void blit(SDL_Surface* surface) override;
+#endif
 };
 
 }

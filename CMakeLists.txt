@@ -11,6 +11,9 @@ set (CMAKE_CXX_STANDARD 17)
 # use std=c++11 rather than std=gnu++11
 #set (CMAKE_CXX_EXTENSIONS OFF)
 
+# Phase 8b: Python3 is used by the embed-shaders.py pre-build script.
+find_package(Python3 COMPONENTS Interpreter)
+
 option ( DEV_BUILD "Development Build. Disable this for release builds" ON )
 option ( DUMP_CORE "Disables exception and segfault handling." OFF )
 option ( BUILD_PACKAGE "Prepares build for creation of a package with CPack" ON )
@@ -70,54 +73,77 @@ endif()
 
 set ( DEPS_DIR "${default_deps_dir}" CACHE STRING "Dependencies directory" )
 
-# Find OpenGL
-set (OpenGL_GL_PREFERENCE LEGACY)
-find_package ( OpenGL )
-if ( NOT OPENGL_FOUND )
-  message ( WARNING "Can't find OpenGL - continuing building without OpenGL support." )
+if(EMSCRIPTEN)
+  # -sUSE_SDL=2 adds -isystem .../include/SDL2 at compile time (real SDL 2.32.x
+  # headers) and links the precompiled libSDL2.a at link time.
+  add_compile_options(-sUSE_SDL=2)
   add_definitions(-D__NO_OPENGL)
-else ()
-  include_directories ( ${OPENGL_INCLUDE_DIR} )
-  message ( STATUS "OpenGL libraries: ${OPENGL_LIBRARIES}" )
-endif ()
+  set(OPENGL_FOUND FALSE)
+  set(OPENGL_INCLUDE_DIR "")
+  set(OPENGL_LIBRARIES "")
+  set(PKG_DEPS_LDFLAGS "")
+else()
+  # Find OpenGL
+  set (OpenGL_GL_PREFERENCE LEGACY)
+  find_package ( OpenGL )
+  if ( NOT OPENGL_FOUND )
+    message ( WARNING "Can't find OpenGL - continuing building without OpenGL support." )
+    add_definitions(-D__NO_OPENGL)
+  else ()
+    include_directories ( ${OPENGL_INCLUDE_DIR} )
+    message ( STATUS "OpenGL libraries: ${OPENGL_LIBRARIES}" )
+  endif ()
+  if ( APPLE )
+    # macOS OpenGL.framework only exposes GL 1.x via SDL_opengl.h; GL2 shader
+    # functions in OpenGL.cpp are needed only for the GPU sphere which is
+    # Emscripten-only. Skip OpenGL.cpp for native macOS builds.
+    add_definitions(-D__NO_OPENGL)
+    set(OPENGL_LIBRARIES "")
+  endif ()
+endif()
 
 # Include rapidyaml lib
 include_directories(${CMAKE_SOURCE_DIR}/libs/rapidyaml)
 
-if(NOT UNIX AND IS_DIRECTORY ${DEPS_DIR})
-   include_directories ( ${DEPS_DIR}/include/SDL ${DEPS_DIR}/include )
-   if ( CMAKE_CL_64 )
-     link_directories ( ${DEPS_DIR}/lib/x64 )
-   else ( )
-     link_directories ( ${DEPS_DIR}/lib/Win32 )
-   endif()
-   set( SDL_LIBRARY SDL )
-   set ( SDLGFX_LIBRARY SDL_gfx )
-   set ( SDLMIXER_LIBRARY SDL_mixer )
-   set ( SDLIMAGE_LIBRARY SDL_image )
-   set ( PKG_DEPS_LDFLAGS ${SDLIMAGE_LIBRARY} ${SDLMIXER_LIBRARY} ${SDLGFX_LIBRARY} ${SDL_LIBRARY} ${OPENGL_LIBRARIES} )
-elseif(UNIX OR MINGW OR CYGWIN)
-  if(IS_DIRECTORY ${DEPS_DIR})
-     set(ENV{PKG_CONFIG_PATH} "${DEPS_DIR}/lib/pkgconfig/")
+if(NOT EMSCRIPTEN)
+  if(NOT UNIX AND IS_DIRECTORY ${DEPS_DIR})
+     include_directories ( ${DEPS_DIR}/include/SDL ${DEPS_DIR}/include )
+     if ( CMAKE_CL_64 )
+       link_directories ( ${DEPS_DIR}/lib/x64 )
+     else ( )
+       link_directories ( ${DEPS_DIR}/lib/Win32 )
+     endif()
+     set( SDL_LIBRARY SDL )
+     set ( SDLGFX_LIBRARY SDL_gfx )
+     set ( SDLMIXER_LIBRARY SDL_mixer )
+     set ( SDLIMAGE_LIBRARY SDL_image )
+     set ( PKG_DEPS_LDFLAGS ${SDLIMAGE_LIBRARY} ${SDLMIXER_LIBRARY} ${SDLGFX_LIBRARY} ${SDL_LIBRARY} ${OPENGL_LIBRARIES} )
+  elseif(UNIX OR MINGW OR CYGWIN)
+    if(IS_DIRECTORY ${DEPS_DIR})
+       set(ENV{PKG_CONFIG_PATH} "${DEPS_DIR}/lib/pkgconfig/")
+    endif()
+
+    include(FindPkgConfig)
+    pkg_check_modules(PKG_SDL REQUIRED sdl2)
+    pkg_check_modules(PKG_ZLIB REQUIRED zlib)
+    pkg_check_modules(PKG_SDLIMAGE REQUIRED SDL2_image)
+    pkg_check_modules(PKG_SDLMIXER REQUIRED SDL2_mixer)
+    pkg_check_modules(PKG_SDLTTF REQUIRED SDL2_ttf)
+    # SDL2_gfx uses SDL_Renderer* API (incompatible with the SDL_Surface* API
+    # that OXCE uses for gfx primitives).  SDL_gfxPrimitives implementations
+    # are provided by SDL2CompatNative.cpp (native) / EmscriptenCompat.cpp (WASM).
+
+    include_directories(${PKG_SDL_INCLUDE_DIRS} ${PKG_ZLIB_INCLUDE_DIRS} ${PKG_SDLIMAGE_INCLUDE_DIRS})
+    include_directories(${PKG_SDLMIXER_INCLUDE_DIRS} ${PKG_SDLTTF_INCLUDE_DIRS})
+    set(PKG_DEPS_LDFLAGS ${PKG_SDL_LDFLAGS} ${PKG_ZLIB_LDFLAGS} ${PKG_SDLIMAGE_LDFLAGS} ${PKG_SDLMIXER_LDFLAGS} ${PKG_SDLTTF_LDFLAGS} ${OPENGL_LIBRARIES})
+
+    if (UNIX)
+      set(PKG_DEPS_LDFLAGS "${PKG_DEPS_LDFLAGS};dl")
+    endif()
+    message ( STATUS "PKG_DEPS_LDFLAGS: ${PKG_DEPS_LDFLAGS} ")
+  else()
+    message ( FATAL_ERROR "pkg-config is not supported on your platform. Use DEPS_DIR" )
   endif()
-
-  include(FindPkgConfig)
-  pkg_check_modules(PKG_SDL REQUIRED sdl)
-  pkg_check_modules(PKG_ZLIB REQUIRED zlib)
-  pkg_check_modules(PKG_SDLIMAGE REQUIRED SDL_image)
-  pkg_check_modules(PKG_SDLGFX REQUIRED SDL_gfx)
-  pkg_check_modules(PKG_SDLMIXER REQUIRED SDL_mixer)
-
-  include_directories(${PKG_SDL_INCLUDE_DIRS} ${PKG_ZLIB_INCLUDE_DIRS} ${PKG_SDLIMAGE_INCLUDE_DIRS})
-  include_directories(${PKG_SDLGFX_INCLUDE_DIRS} ${PKG_SDLMIXER_INCLUDE_DIRS})
-  set(PKG_DEPS_LDFLAGS ${PKG_SDL_LDFLAGS} ${PKG_ZLIB_LDFLAGS} ${PKG_SDLIMAGE_LDFLAGS} ${PKG_SDLGFX_LDFLAGS} ${PKG_SDLMIXER_LDFLAGS} ${OPENGL_LIBRARIES})
-
-  if (UNIX)
-    set(PKG_DEPS_LDFLAGS "${PKG_DEPS_LDFLAGS};dl")
-  endif()
-  message ( STATUS "PKG_DEPS_LDFLAGS: ${PKG_DEPS_LDFLAGS} ")
-else()
-  message ( FATAL_ERROR "pkg-config is not supported on your platform. Use DEPS_DIR" )
 endif()
 
 # Read version number
@@ -239,6 +265,16 @@ if ( NOT WIN32 OR NOT CPACK_GENERATOR STREQUAL "7Z" ) # FIXME: that's to exclude
   install(FILES "${CMAKE_SOURCE_DIR}/res/linux/icons/openxcom.svg"
     DESTINATION "${CMAKE_INSTALL_FULL_DATAROOTDIR}/icons/hicolor/scalable/apps")
 endif ()
+
+# Unit tests — native only.  enable_testing() must be called at the project
+# root so CMake generates build-native/CTestTestfile.cmake with a subdirs()
+# entry pointing at build-native/src/.  Without this, `ctest --test-dir
+# build-native` silently finds no tests (exit 0) because the subdirectory
+# CTestTestfile is invisible from the build root.
+option(BUILD_TESTING "Build unit tests (ignored on Emscripten)" ON)
+if(NOT EMSCRIPTEN AND BUILD_TESTING)
+    enable_testing()
+endif()
 
 add_subdirectory ( docs )
 add_subdirectory ( src )

@@ -1,0 +1,7 @@
+name: "Calypso HD Demo"
+version: "1.0"
+description: "Phase 6b proof-of-life: one HD aquanaut armour variant for testing the HD unit pipeline. All artwork is original (see Resources/Units/AQUANAUT_HD/CREDITS.md). Does NOT override vanilla TFTD content."
+author: "Calypso project"
+id: calypso-hd-demo
+master: xcom2
+isMaster: false

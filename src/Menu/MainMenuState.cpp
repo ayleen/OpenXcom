@@ -66,20 +66,41 @@ MainMenuState::MainMenuState(bool updateCheck)
 	_debugInVisualStudio = false;
 #endif
 
-	// Create objects
+	// Calypso HD: optional fullscreen background (rendered under the window).
+	// Created BEFORE the window so it lands first in _surfaces and renders
+	// underneath every UI element. Skipped (and main menu falls back to the
+	// vanilla cropped Window background) when the HD pack is not active.
+	_bgFull = nullptr;
+	Surface *hdBg = _game->getMod()->getSurface("CALYPSO_BACK01_HD", false);
+	Surface *hdWindow = _game->getMod()->getSurface("CALYPSO_MAINMENU_WINDOW_HD", false);
+	const bool hdMenu = hdBg || hdWindow;
+	if (hdBg)
+	{
+		_bgFull = new Surface(320, 200, 0, 0);
+		SDL_BlitSurface(const_cast<SDL_Surface*>(hdBg->getSurface()), nullptr,
+		                _bgFull->getSurface(), nullptr);
+	}
+
+	// Create objects.
+	// Calypso HD: button rows shifted up (90/118/146 → 76/100/124) so all
+	// six buttons fit inside the inner safe-zone of the HD window panel.
+	// Title moved up the same amount so the layout stays balanced.
+	// Vanilla keeps the legacy popup coordinates when the HD pack is inactive.
 	_window = new Window(this, 256, 160, 32, 20, POPUP_BOTH);
-	_btnNewGame = new TextButton(92, 20, 64, 90);
-	_btnNewBattle = new TextButton(92, 20, 164, 90);
-	_btnLoad = new TextButton(92, 20, 64, 118);
-	_btnOptions = new TextButton(92, 20, 164, 118);
-	_btnMods = new TextButton(92, 20, 64, 146);
-	_btnQuit = new TextButton(92, 20, 164, 146);
+	_btnNewGame = new TextButton(92, 20, 64, hdMenu ? 76 : 90);
+	_btnNewBattle = new TextButton(92, 20, 164, hdMenu ? 76 : 90);
+	_btnLoad = new TextButton(92, 20, 64, hdMenu ? 100 : 118);
+	_btnOptions = new TextButton(92, 20, 164, hdMenu ? 100 : 118);
+	_btnMods = new TextButton(92, 20, 64, hdMenu ? 124 : 146);
+	_btnQuit = new TextButton(92, 20, 164, hdMenu ? 124 : 146);
 	_btnUpdate = new TextButton(72, 16, 209, 27);
 	_txtUpdateInfo = new Text(320, 17, 0, 11);
-	_txtTitle = new Text(256, 30, 32, 45);
+	_txtTitle = new Text(256, hdMenu ? 22 : 30, 32, hdMenu ? 50 : 45);
 
 	// Set palette
 	setInterface("mainMenu");
+
+	if (_bgFull) add(_bgFull);
 
 	add(_window, "window", "mainMenu");
 	add(_btnNewGame, "button", "mainMenu");
@@ -96,6 +117,12 @@ MainMenuState::MainMenuState(bool updateCheck)
 
 	// Set up objects
 	setWindowBackground(_window, "mainMenu");
+
+	// Calypso HD: optional HD window background override.
+	if (hdWindow)
+	{
+	    _window->setBackground(hdWindow);
+	}
 
 	_btnNewGame->setText(tr("STR_NEW_GAME"));
 	_btnNewGame->onMouseClick((ActionHandler)&MainMenuState::btnNewGameClick);

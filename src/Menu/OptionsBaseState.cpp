@@ -180,6 +180,21 @@ void OptionsBaseState::init()
 	{
 		applyBattlescapeTheme("optionsMenu");
 	}
+#ifdef __EMSCRIPTEN__
+	// Calypso: scale the whole Options chain (global — also in Geoscape). Window-
+	// based, so the border vector-scales and the background tiles; no bg snapshot
+	// needed. Runs once (enableUiScaling is guarded); subclasses call
+	// centerAllSurfaces() in their ctors before init(), so the capture is correct.
+	// Composite widgets (ComboBox/Slider/TextList) scale their own internals + hit
+	// math off getWidth()/native (see those classes); subclasses populate TextLists
+	// in init() AFTER this, so rows are built at the scaled size.
+	// Set TTF BEFORE scaling: composite widgets store the font, so rows they (re)populate
+	// get crisp HD text. Critically, ComboBox dropdowns are re-populated INSIDE
+	// enableUiScaling()'s relayout — if applyTTFToTexts ran after, those rows would be
+	// built before the font was stored and render as tiny native bitmap glyphs.
+	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
+	enableUiScaling(320, 200, 1.0f);   // fill (was 0.75 — text read too small)
+#endif
 }
 
 /**
@@ -204,6 +219,18 @@ void OptionsBaseState::setCategory(TextButton *button)
  */
 void OptionsBaseState::btnOkClick(Action *)
 {
+	/* A browser canvas has no SDL video modes: its backing-store size is owned
+	 * by web/src/main.js and Screen::flip() follows it on every frame.  Letting
+	 * the native resolution fields through here makes resetDisplay() destroy and
+	 * recreate the SDL WebGL renderer while the active Battlescape still owns
+	 * GPU resources.  The newly-created context then sees stale handles during
+	 * the state restart (typically just after the textured shader is compiled).
+	 * Keep display resolution in sync with the canvas; the proportional scene
+	 * scale controls below remain fully functional. */
+#ifdef __EMSCRIPTEN__
+	Options::newDisplayWidth = Options::displayWidth;
+	Options::newDisplayHeight = Options::displayHeight;
+#endif
 	Options::switchDisplay();
 	int dX = Options::baseXResolution;
 	int dY = Options::baseYResolution;
@@ -214,7 +241,14 @@ void OptionsBaseState::btnOkClick(Action *)
 	recenter(dX, dY);
 	Options::save();
 	_game->loadLanguages();
+#ifdef __EMSCRIPTEN__
+	/* Preserve the one browser-owned WebGL context. resetDisplay(false) still
+	 * reallocates the software surface and SDL texture when a scene scale
+	 * changes, but never tears down the renderer and its GPU objects. */
+	_game->getScreen()->resetDisplay(false);
+#else
 	_game->getScreen()->resetDisplay();
+#endif
 	SDL_WM_GrabInput(Options::captureMouse);
 	_game->setVolume(Options::soundVolume, Options::musicVolume, Options::uiVolume);
 	if (Options::reload && _origin == OPT_MENU)
@@ -339,7 +373,11 @@ void OptionsBaseState::resize(int &dX, int &dY)
 {
 	Options::newDisplayWidth = Options::displayWidth;
 	Options::newDisplayHeight = Options::displayHeight;
+#ifdef __EMSCRIPTEN__
+	applyUiScaling();
+#else
 	State::resize(dX, dY);
+#endif
 }
 
 }

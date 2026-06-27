@@ -45,8 +45,8 @@ private:
 	Frame *_frame;
 	Text *_txtDescription, *_txtAcc, *_txtTU;
 public:
-	/// Creates a new ActionMenuItem.
-	ActionMenuItem(int id, Game *game, int x, int y);
+	/// Creates a new ActionMenuItem (scale > 1 enlarges the box + HD-TTF text on Emscripten).
+	ActionMenuItem(int id, Game *game, int x, int y, float scale = 1.0f);
 	/// Cleans up the ActionMenuItem.
 	~ActionMenuItem();
 	/// Assigns an action to it.

@@ -36,6 +36,7 @@ class MedikitView : public InteractiveSurface
 	int _selectedPart;
 	BattleUnit *_unit;
 	Text *_partTxt, *_woundTxt;
+	int _baseW, _baseH;  ///< Calypso: native body-canvas size; when scaled up the composite is rendered native then scale-blitted
 public:
 	/// Creates the MedikitView.
 	MedikitView (int w, int h, int x, int y, Game * game, BattleUnit *unit, Text *partTxt, Text *woundTxt);

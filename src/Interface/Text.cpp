@@ -25,6 +25,8 @@
 #include "../Engine/ShaderDraw.h"
 #include "../Engine/ShaderMove.h"
 #include "../Engine/Action.h"
+#include "../Engine/TTFFont.h"
+#include "../Engine/TTFUtil.h"
 
 namespace OpenXcom
 {
@@ -229,6 +231,38 @@ void Text::setColor(Uint8 color)
 Uint8 Text::getColor() const
 {
 	return _color;
+}
+
+/**
+ * Sets an ARGB color for rendering on ARGB surfaces.
+ * @param argb ARGB color value (0xAARRGGBB).
+ */
+void Text::setColorRGB(Uint32 argb)
+{
+	_colorRGB = argb;
+	_useRGB   = true;
+	_redraw = true;
+}
+
+void Text::setColorRGB2(Uint32 argb)
+{
+	_colorRGB2 = argb;
+	_redraw = true;
+}
+
+/**
+ * Calypso: opt this label into HD TrueType rendering. While a font is set,
+ * single-line text is rasterised via TTF and fit-blitted (the bitmap Font path
+ * is kept intact and used for null / multi-line). @a fillFrac shrinks the glyph
+ * block within the widget box.
+ * @param font HD font (or null to restore the bitmap path).
+ * @param fillFrac Fraction of the fit box to fill (0 < fillFrac <= 1).
+ */
+void Text::setTTFFont(TTFFont *font, float fillFrac)
+{
+	_ttf = font;
+	_ttfFill = fillFrac > 0.0f ? fillFrac : 1.0f;
+	_redraw = true;
 }
 
 /**
@@ -497,6 +531,136 @@ int Text::getLineX(int line) const
  * Draws all the characters in the text with a really
  * nasty complex gritty text rendering algorithm logic stuff.
  */
+#ifdef __EMSCRIPTEN__
+/**
+ * Calypso: rasterise the label via the opt-in TTF font and fit-blit it into this
+ * surface. Handles both single-line labels and word-wrapped multi-line text
+ * (combobox dropdowns, the Advanced/Controls option lists): for multi-line the
+ * already-wrapped _processedText line breaks are reused, each line is rasterised
+ * and stacked into one ARGB block, then blitFit does the fit/align/fill. Returns
+ * false (keep the bitmap path) for a missing palette or a failed render. Colour
+ * comes from the explicit ARGB color when set, otherwise the brightest step of
+ * the widget's palette colour ramp — the same texel the bitmap glyph core would
+ * use — so TTF labels match their theme.
+ */
+bool Text::drawTTF()
+{
+	if (!_ttf)
+	{
+		return false;
+	}
+	SDL_Color rgba;
+	if (_useRGB)
+	{
+		rgba.r = (_colorRGB >> 16) & 0xFF;
+		rgba.g = (_colorRGB >> 8) & 0xFF;
+		rgba.b = _colorRGB & 0xFF;
+		rgba.a = (_colorRGB >> 24) & 0xFF;
+		if (rgba.a == 0) rgba.a = 0xFF;
+	}
+	else
+	{
+		const SDL_Color *pal = getEffectivePalette();
+		if (!pal)
+		{
+			return false;
+		}
+		const int mul = _contrast ? 3 : 1;
+		int idx = (int)_color + 4 * mul;
+		if (idx < 0) idx = 0; else if (idx > 255) idx = 255;
+		rgba = pal[idx];
+		rgba.a = 0xFF;
+	}
+	const TTFUtil::HAlign h = (_align == ALIGN_CENTER) ? TTFUtil::H_CENTER
+	                        : (_align == ALIGN_RIGHT)  ? TTFUtil::H_RIGHT
+	                                                   : TTFUtil::H_LEFT;
+	const TTFUtil::VAlign v = (_valign == ALIGN_MIDDLE) ? TTFUtil::V_MIDDLE
+	                        : (_valign == ALIGN_BOTTOM) ? TTFUtil::V_BOTTOM
+	                                                    : TTFUtil::V_TOP;
+	// Strip OXCE control tokens (TOK_COLOR_FLIP=1, TOK_NL_SMALL=2,
+	// TOK_CUSTOM_FORMAT=27, …) — SDL_ttf has no glyph and would render tofu (□).
+	// All are < 0x20 (single-byte, so UTF-8 multi-byte sequences stay intact).
+	// The colour-flip distinction is moot here: TTF labels render in one colour.
+	auto strip = [](const std::string &in) {
+		std::string out;
+		out.reserve(in.size());
+		for (char c : in)
+		{
+			if ((unsigned char)c >= 0x20) out += c;
+		}
+		return out;
+	};
+
+	// Single-line fast path: rasterise _text directly.
+	if (getNumLines() <= 1)
+	{
+		std::string clean = strip(_text);
+		if (clean.empty())
+		{
+			return false;
+		}
+		SDL_Surface *rendered = _ttf->renderText(clean, rgba);
+		if (!rendered)
+		{
+			return false;
+		}
+		TTFUtil::blitFit(rendered, this, h, v, _ttfFill);
+		return true;
+	}
+
+	// Multi-line path: _processedText (UTF-32) already carries the wrap line
+	// breaks processText() computed for the bitmap layout — reuse them so the
+	// TTF wrapping matches the row geometry the rest of the engine assumes.
+	std::vector<SDL_Surface*> rendered; // owned by the TTFFont cache — do NOT free
+	const UString &s = _processedText;
+	size_t start = 0;
+	int blockW = 0;
+	for (size_t i = 0; i <= s.size(); ++i)
+	{
+		if (i == s.size() || Unicode::isLinebreak(s[i]))
+		{
+			std::string clean = strip(Unicode::convUtf32ToUtf8(s.substr(start, i - start)));
+			start = i + 1;
+			SDL_Surface *line = clean.empty() ? 0 : _ttf->renderText(clean, rgba);
+			if (line && line->w > blockW) blockW = line->w;
+			rendered.push_back(line);
+		}
+	}
+	int lineH = _ttf->lineHeight();
+	if (lineH <= 0) lineH = 1;
+	if (rendered.empty() || blockW <= 0)
+	{
+		return false;
+	}
+	// Compose all lines into one transparent ARGB block, then let blitFit scale
+	// the whole block into the widget (downscale-only, aligned, * _ttfFill).
+	SDL_Surface *block = SDL_CreateRGBSurfaceWithFormat(0, blockW, (int)rendered.size() * lineH, 32, SDL_PIXELFORMAT_ARGB8888);
+	if (!block)
+	{
+		return false;
+	}
+	SDL_FillRect(block, 0, SDL_MapRGBA(block->format, 0, 0, 0, 0));
+	int ly = 0;
+	for (SDL_Surface *line : rendered)
+	{
+		if (line)
+		{
+			int lx = (h == TTFUtil::H_CENTER) ? (blockW - line->w) / 2
+			       : (h == TTFUtil::H_RIGHT)  ? (blockW - line->w)
+			                                  : 0;
+			if (lx < 0) lx = 0;
+			SDL_Rect dst = { lx, ly, line->w, line->h };
+			SDL_SetSurfaceBlendMode(line, SDL_BLENDMODE_NONE); // copy RGBA verbatim
+			SDL_BlitSurface(line, 0, block, &dst);
+		}
+		ly += lineH;
+	}
+	TTFUtil::blitFit(block, this, h, v, _ttfFill);
+	SDL_FreeSurface(block);
+	return true;
+}
+#endif
+
 void Text::draw()
 {
 	Surface::draw();
@@ -504,6 +668,15 @@ void Text::draw()
 	{
 		return;
 	}
+
+#ifdef __EMSCRIPTEN__
+	// Calypso: HD TTF path (opt-in). Single-line labels/buttons only; multi-line
+	// or a failed render falls through to the bitmap glyph path below.
+	if (_ttf && drawTTF())
+	{
+		return;
+	}
+#endif
 
 	// Show text borders for debugging
 	if (Options::debugUi)
@@ -635,7 +808,90 @@ void Text::draw()
 			auto chr = font->getChar(*c);
 			chr.setX(x);
 			chr.setY(y);
-			ShaderDraw<PaletteShift>(ShaderSurface(this, 0, 0), ShaderCrop(chr), ShaderScalar(color), ShaderScalar(mul), ShaderScalar(mid));
+			{
+				// 7.F/7.K: unified ARGB glyph blit — reads brightness from the font atlas
+				// (B channel of ARGB8888 LE = grayscale for all TFTD fonts).
+				Uint32 colorARGB;
+				if (_useRGB)
+				{
+					colorARGB = isAltColor ? _colorRGB2 : _colorRGB;
+				}
+				else
+				{
+					const SDL_Color *pal = getEffectivePalette();
+					// R4: use shade +5 (brightest) for inverted text so it contrasts
+					// against the button fill, which stays at _color+3 (mid) after invert.
+					Uint8 palIdx = (Uint8)(color + (mid != 0 ? 5 : 0));
+					colorARGB = pal
+						? (0xFF000000u | ((Uint32)pal[palIdx].r << 16) | ((Uint32)pal[palIdx].g << 8) | (Uint32)pal[palIdx].b)
+						: 0xFFFFFFFFu;
+				}
+				const Surface *glyphAtlas = chr.getSurface();
+				const SDL_Rect *srcR = chr.getCrop();
+				int gx = srcR->x, gy = srcR->y, cw = srcR->w, ch = srcR->h;
+				lock();
+				for (int py = 0; py < ch; ++py)
+					for (int px = 0; px < cw; ++px)
+					{
+						// Read glyph atlas pixel as 8bpp ramp index (1..4 for OXCE fonts)
+						// from the palette mirror when available — this preserves the
+						// authentic per-pixel AA ramp that the legacy 8bpp PaletteShift
+						// shader produced (dest = _color + src*mul + 2*(mid-src)).
+						const Uint8 *mirror = glyphAtlas ? glyphAtlas->getPaletteMirror() : nullptr;
+						Uint8 srcRamp = 0u;
+						if (mirror)
+						{
+							const Uint16 mw = glyphAtlas->getPaletteMirrorWidth();
+							srcRamp = mirror[(size_t)(gy + py) * (size_t)mw + (size_t)(gx + px)];
+						}
+						else if (glyphAtlas)
+						{
+							srcRamp = glyphAtlas->getPixel(gx + px, gy + py);
+						}
+						if (srcRamp == 0) continue;
+
+						if (!_useRGB && mirror)
+						{
+							// Per-pixel palette ramp resolution — matches legacy 8bpp
+							// rendering exactly. Picks a different palette colour for
+							// each AA intensity step instead of alpha-blending one
+							// colour, so glyphs stay solid against any background.
+							const SDL_Color *pal = getEffectivePalette();
+							if (pal)
+							{
+								int rampIdx = (int)color + (int)srcRamp * mul;
+								if (mid != 0) rampIdx += 2 * ((int)mid - (int)srcRamp);
+								if (rampIdx < 0) rampIdx = 0;
+								else if (rampIdx > 255) rampIdx = 255;
+								Uint32 outARGB =
+									0xFF000000u
+									| ((Uint32)pal[rampIdx].r << 16)
+									| ((Uint32)pal[rampIdx].g << 8)
+									| (Uint32)pal[rampIdx].b;
+								setPixel32(x + px, y + py, outARGB);
+								continue;
+							}
+						}
+
+						// Fallback: alpha-mask blend. Two sources of srcRamp:
+						//   * mirror present  → 8bpp ramp index 1..4 → must scale up
+						//     (matches commit 4f8097fd0 alpha mapping) so AA pixels
+						//     don't render as alpha=1..4 (effectively invisible).
+						//   * mirror absent   → blue/alpha channel of HD grayscale
+						//     ARGB atlas, already in 0..255 range, use as-is.
+						Uint8 brightness = mirror
+							? ((srcRamp >= 4u) ? 255u : (Uint8)((Uint32)srcRamp * 255u / 4u))
+							: srcRamp;
+						if (mul > 1)
+						{
+							int boosted = (int)brightness * mul;
+							brightness = boosted > 255 ? (Uint8)255 : (Uint8)boosted;
+						}
+						Uint8 da = (Uint8)(((Uint32)(colorARGB >> 24) * brightness) / 255u);
+						setPixel32(x + px, y + py, (colorARGB & 0x00FFFFFFu) | ((Uint32)da << 24));
+					}
+				unlock();
+			}
 			if (dir > 0)
 				x += dir * font->getCharSize(*c).w;
 		}

@@ -4723,13 +4723,23 @@ void GeoscapeState::resize(int &dX, int &dY)
 		return;
 	dX = Options::baseXResolution;
 	dY = Options::baseYResolution;
-	int divisor = 1;
 	double pixelRatioY = 1.0;
-
 	if (Options::nonSquarePixelRatio)
 	{
 		pixelRatioY = 1.2;
 	}
+
+#ifdef __EMSCRIPTEN__
+	// Calypso: stretched canvas → only proportional (fraction-of-display) scales
+	// keep the aspect ratio. Every scale option maps to display × num/den.
+	{
+		int num = 1, den = 1;
+		Screen::getScreenScaleFraction(Options::geoscapeScale, num, den);
+		Options::baseXResolution = std::max(Screen::ORIGINAL_WIDTH,  Options::displayWidth  * num / den);
+		Options::baseYResolution = std::max(Screen::ORIGINAL_HEIGHT, (int)(Options::displayHeight / pixelRatioY * num / den));
+	}
+#else
+	int divisor = 1;
 	switch (Options::geoscapeScale)
 	{
 	case SCALE_SCREEN_DIV_10:
@@ -4763,6 +4773,7 @@ void GeoscapeState::resize(int &dX, int &dY)
 
 	Options::baseXResolution = std::max(Screen::ORIGINAL_WIDTH, Options::displayWidth / divisor);
 	Options::baseYResolution = std::max(Screen::ORIGINAL_HEIGHT, (int)(Options::displayHeight / pixelRatioY / divisor));
+#endif
 
 	dX = Options::baseXResolution - dX;
 	dY = Options::baseYResolution - dY;

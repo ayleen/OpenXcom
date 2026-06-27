@@ -50,6 +50,19 @@ class HitLog;
 enum HitLogEntryType : int;
 struct BattlescapeTally;
 
+#ifdef __EMSCRIPTEN__
+// Calypso P30: persistent battlescape aftermath decals (dry-land blood pools + scorch).
+// These live on SavedBattleGame, NOT on Map, because an in-game resolution change tears
+// down the BattlescapeState + its Map (OptionsBaseState::restart) — a Map-owned vector
+// would be lost. SavedBattleGame survives that teardown, so the decals persist across
+// resolution changes (and, as a bonus, the same fields could be serialised for save/load).
+// floorOnly = the doorway's UFO door was OPEN at spawn time (the unit bled / the blast charred
+// while the door was already open) → the decal is "on the ground" and is ALWAYS diamond-clipped
+// to its own tile, so it never paints onto the door even if the door is later closed.
+struct CalypsoBloodPool { Position tile; unsigned int spawnTick; float seed; int faction; int variant; int floorOnly; };
+struct CalypsoScorchDecal { Position tile; unsigned int spawnTick; float size; int variant; int floorOnly; };
+#endif
+
 /**
  * The battlescape data that gets written to disk when the game is saved.
  * A saved game holds all the variable info in a game like mapdata,
@@ -668,6 +681,16 @@ public:
 	const HitLog *getHitLog() const;
 	/// Reset all the unit hit state flags.
 	void resetUnitHitStates();
+
+#ifdef __EMSCRIPTEN__
+	/// Calypso P30: persistent aftermath decals, owned here so they survive a Map teardown
+	/// (resolution change). Map reads/writes these instead of local members.
+	std::vector<CalypsoBloodPool> &getCalypsoBloodPools() { return _calypsoBloodPools; }
+	std::vector<CalypsoScorchDecal> &getCalypsoScorchDecals() { return _calypsoScorchDecals; }
+private:
+	std::vector<CalypsoBloodPool> _calypsoBloodPools;
+	std::vector<CalypsoScorchDecal> _calypsoScorchDecals;
+#endif
 };
 
 }

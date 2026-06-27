@@ -27,6 +27,9 @@
 #include "../Mod/RuleInventory.h"
 #include "../Mod/Mod.h"
 #include "../Engine/Exception.h"
+#ifdef __EMSCRIPTEN__
+#include "Map.h"
+#endif
 
 namespace OpenXcom
 {
@@ -72,6 +75,30 @@ namespace
 const int InvalidSpriteIndex = -256;
 
 /**
+ * Vanilla battle sprite sets are loaded as 8bpp index buffers and only become
+ * drawable in the ARGB pipeline after the active Battlescape palette is known.
+ * HD sets are already ARGB and intentionally keep no shade table, so leave them
+ * untouched.
+ */
+void ensureIndexedSetPalette(const SurfaceSet *set, const Surface *paletteSource)
+{
+	if (!set || !paletteSource)
+		return;
+	const SDL_Color *colors = paletteSource->getEffectivePalette();
+	if (!colors)
+		return;
+	for (size_t i = 0; i < set->getTotalFrames(); ++i)
+	{
+		const Surface *frame = set->getFrame((int)i);
+		if (frame && !frame->isARGB())
+		{
+			const_cast<SurfaceSet *>(set)->setPalette(colors);
+			return;
+		}
+	}
+}
+
+/**
  * Get item if can be visible on sprite.
  */
 const BattleItem *getIfVisible(const BattleItem *item)
@@ -108,6 +135,10 @@ void UnitSprite::selectItem(Part& p, const BattleItem *item, int dir)
 	);
 
 	p.src = _itemSurface->getFrame(result);
+#ifdef __EMSCRIPTEN__
+	p.frameIdx = result;
+	p.isItem   = true;
+#endif
 }
 
 /**
@@ -122,6 +153,14 @@ void UnitSprite::selectUnit(Part& p, int index, int dir)
 	//enforce compatibility with basic version
 	if (InvalidSpriteIndex != index && !_unitSurface->getFrame(index + dir))
 	{
+		// HD sprite sheets are single ARGB composites; frame 0 serves all body parts.
+		// blitBody() routes HD surfaces to blitBodyHD(), which ignores per-frame indices.
+		const Surface *frame0 = _unitSurface->getFrame(0);
+		if (frame0 && frame0->getShadeTable() == nullptr)
+		{
+			p.src = frame0;
+			return;
+		}
 		throw Exception("Frame(s) missing in '" + armor->getSpriteSheet() + "' for armor '" + armor->getType() + "'");
 	}
 
@@ -132,6 +171,10 @@ void UnitSprite::selectUnit(Part& p, int index, int dir)
 	);
 
 	p.src = _unitSurface->getFrame(result);
+#ifdef __EMSCRIPTEN__
+	p.frameIdx = result;
+	p.isItem   = false;
+#endif
 }
 
 /**
@@ -144,6 +187,37 @@ void UnitSprite::blitItem(Part& item)
 	{
 		return;
 	}
+#ifdef __EMSCRIPTEN__
+	if (_emitItemTarget && _emitItemSpec && _emitItemSpec->atlas
+	    && item.frameIdx >= 0 && item.src->getShadeTable() != nullptr)
+	{
+		auto* vec = static_cast<std::vector<Map::TileInstance>*>(_emitItemTarget);
+		const int col   = item.frameIdx % _emitItemSpec->columns;
+		const int row   = item.frameIdx / _emitItemSpec->columns;
+		const float uvW = (float)_emitItemSpec->tileWidth  / (float)_emitItemSpec->atlasW;
+		const float uvH = (float)_emitItemSpec->tileHeight / (float)_emitItemSpec->atlasH;
+		Map::TileInstance inst;
+		inst.screenX        = (float)(_x + item.offX);
+		inst.screenY        = (float)(_y + item.offY);
+		inst.atlasU         = col * uvW;
+		inst.atlasV         = row * uvH;
+		inst.shade          = (float)_shade;
+		inst.animFrameCount = 1.0f;
+		inst.alphaMask      = 1.0f;
+		// Held items: priority above unit body but below front-tile object.
+		// Layout: z*65536 + y*1024 + x*8 + part. y_mul=1024 ensures y dominates
+		// x_mul*x_max+part (60*8+6=486) so cells in different y-rows never
+		// collide on prio. Normalisation 1.5e6 keeps iso ∈ [0, 0.92).
+		const int prio = _emitZ * 65536 + _emitY * 1024 + _emitX * 8 + 5;
+		inst.iso = (float)prio / 2000000.0f;
+		vec->push_back(inst);
+		if (_emitZTargetItem)
+			static_cast<std::vector<int>*>(_emitZTargetItem)->push_back(_emitZ);
+		if (_emitYTargetItem)
+			static_cast<std::vector<int>*>(_emitYTargetItem)->push_back(_emitY);
+		return;
+	}
+#endif
 	ScriptWorkerBlit work;
 	BattleItem::ScriptFill(&work, (item.bodyPart == BODYPART_ITEM_RIGHTHAND ? _itemR : _itemL), _save, item.bodyPart, _animationFrame, _shade);
 
@@ -164,6 +238,39 @@ void UnitSprite::blitBody(Part& body)
 	{
 		return;
 	}
+	if (body.src->getShadeTable() == nullptr)
+	{
+		blitBodyHD(body);
+		return;
+	}
+#ifdef __EMSCRIPTEN__
+	if (_emitTarget && _emitUnitSpec && _emitUnitSpec->atlas
+	    && body.frameIdx >= 0)
+	{
+		auto* vec = static_cast<std::vector<Map::TileInstance>*>(_emitTarget);
+		const int col   = body.frameIdx % _emitUnitSpec->columns;
+		const int row   = body.frameIdx / _emitUnitSpec->columns;
+		const float uvW = (float)_emitUnitSpec->tileWidth  / (float)_emitUnitSpec->atlasW;
+		const float uvH = (float)_emitUnitSpec->tileHeight / (float)_emitUnitSpec->atlasH;
+		Map::TileInstance inst;
+		inst.screenX        = (float)(_x + body.offX);
+		inst.screenY        = (float)(_y + body.offY);
+		inst.atlasU         = col * uvW;
+		inst.atlasV         = row * uvH;
+		inst.shade          = (float)_shade;
+		inst.animFrameCount = 1.0f;
+		inst.alphaMask      = 1.0f;
+		// Unit body: priority above floor items, below front-tile object.
+		const int prio = _emitZ * 65536 + _emitY * 1024 + _emitX * 8 + 4;
+		inst.iso = (float)prio / 2000000.0f;
+		vec->push_back(inst);
+		if (_emitZTargetBody)
+			static_cast<std::vector<int>*>(_emitZTargetBody)->push_back(_emitZ);
+		if (_emitYTargetBody)
+			static_cast<std::vector<int>*>(_emitYTargetBody)->push_back(_emitY);
+		return;
+	}
+#endif
 	ScriptWorkerBlit work;
 	BattleUnit::ScriptFill(&work, _unit, _save, body.bodyPart, _animationFrame, _shade, _burn);
 
@@ -172,6 +279,77 @@ void UnitSprite::blitBody(Part& body)
 	work.executeBlit(body.src, _dest,  _x + body.offX, _y + body.offY, _shade, _mask);
 
 	_dest->unlock();
+}
+
+/**
+ * Composite one HD body-part frame directly into _dest at the correct z-order
+ * position. Shade via SDL_SetSurfaceColorMod; recolorMask tint via a temporary
+ * SDL_Surface. No intermediate composite buffer — z-order is maintained by the
+ * draw() call order inside Map::drawTerrain.
+ */
+void UnitSprite::blitBodyHD(Part& body)
+{
+	if (!body.src)
+		return;
+
+	SDL_Surface *src = const_cast<Surface *>(body.src)->getSurface();
+	if (!src)
+		return;
+
+	static const float kShade[16] = {
+		1.00f, 0.93f, 0.87f, 0.80f, 0.74f, 0.67f, 0.60f, 0.53f,
+		0.47f, 0.40f, 0.33f, 0.27f, 0.20f, 0.13f, 0.07f, 0.00f
+	};
+	Uint8 cm = (Uint8)(kShade[_shade & 0x0f] * 255.0f);
+
+	SDL_Surface *dst = _dest->getSurface();
+	SDL_Rect dstRect = { _x + body.offX, _y + body.offY, 0, 0 };
+
+	const auto *armor = _unit->getArmor();
+	const std::string &maskName = armor->getRecolorMask();
+
+	if (!maskName.empty())
+	{
+		// Path 5a: mask multiply — shade body, then tint masked areas with armour RGB.
+		SurfaceSet *maskSet = const_cast<Mod*>(_mod)->getSurfaceSet(maskName, false);
+		const Surface *maskFrame = maskSet ? maskSet->getFrame(body.bodyPart) : nullptr;
+		SDL_Surface   *mask = maskFrame ? const_cast<Surface*>(maskFrame)->getSurface() : nullptr;
+
+		const int fw = (int)_unitSurface->getWidth();
+		const int fh = (int)_unitSurface->getHeight();
+		SDL_Surface *shaded = SDL_CreateRGBSurface(0, fw, fh, 32,
+			0x00FF0000u, 0x0000FF00u, 0x000000FFu, 0xFF000000u);
+		SDL_Rect srcRect = {0, 0, fw, fh};
+
+		SDL_SetSurfaceColorMod(src, cm, cm, cm);
+		SDL_SetSurfaceBlendMode(src, SDL_BLENDMODE_NONE);
+		SDL_BlitSurface(src, &srcRect, shaded, nullptr);
+		SDL_SetSurfaceColorMod(src, 255, 255, 255);
+
+		if (mask)
+		{
+			Uint32 rgb  = armor->getRecolorRgb();
+			Uint8  tr   = (Uint8)((rgb >> 16) & 0xff);
+			Uint8  tg   = (Uint8)((rgb >>  8) & 0xff);
+			Uint8  tb   = (Uint8)( rgb         & 0xff);
+			SDL_SetSurfaceColorMod(mask, tr, tg, tb);
+			SDL_SetSurfaceBlendMode(mask, SDL_BLENDMODE_BLEND);
+			SDL_BlitSurface(mask, nullptr, shaded, nullptr);
+			SDL_SetSurfaceColorMod(mask, 255, 255, 255);
+		}
+
+		SDL_SetSurfaceBlendMode(shaded, SDL_BLENDMODE_BLEND);
+		SDL_BlitSurface(shaded, nullptr, dst, &dstRect);
+		SDL_FreeSurface(shaded);
+	}
+	else
+	{
+		// Path 5b: no mask — sprite ships final colour; apply shade only.
+		SDL_SetSurfaceColorMod(src, cm, cm, cm);
+		SDL_SetSurfaceBlendMode(src, SDL_BLENDMODE_BLEND);
+		SDL_BlitSurface(src, nullptr, dst, &dstRect);
+		SDL_SetSurfaceColorMod(src, 255, 255, 255);
+	}
 }
 
 /**
@@ -200,6 +378,11 @@ void UnitSprite::draw(const BattleUnit* unit, int part, int x, int y, int shade,
 	_itemL = getIfVisible(_unit->getLeftHandWeapon());
 
 	_unitSurface = const_cast<Mod*>(_mod)->getSurfaceSet(armor->getSpriteSheet());
+	ensureIndexedSetPalette(_unitSurface, _dest);
+	ensureIndexedSetPalette(_itemSurface, _dest);
+	ensureIndexedSetPalette(_fireSurface, _dest);
+	ensureIndexedSetPalette(_breathSurface, _dest);
+	ensureIndexedSetPalette(_facingArrowSurface, _dest);
 
 	_drawingRoutine = armor->getDrawingRoutine();
 
@@ -252,6 +435,12 @@ void UnitSprite::draw(const BattleUnit* unit, int part, int x, int y, int shade,
 	{
 		_fireSurface->getFrame(4 + (_animationFrame / 2) % 4)->blitNShade(_dest, _x, _y, 0, _mask);
 	}
+#ifndef __EMSCRIPTEN__
+	// Phase 28: on the HD/web build the underwater post-process renders HD bubbles
+	// DRIVEN BY this same breath animation (getBreathExhaleFrame), so suppress the
+	// low-res pixel SurfaceSet here to avoid doubling. breathe() still advances the
+	// frame regardless, so the HD bubbles keep the exact vanilla cadence. Native
+	// keeps the original pixel effect.
 	if (_breathSurface && _helmet && unit->getBreathExhaleFrame() >= 0 && armor->drawBubbles() && !unit->getFloorAbove())
 	{
 		auto* tmpSurface = _breathSurface->getFrame(unit->getBreathExhaleFrame());
@@ -261,6 +450,7 @@ void UnitSprite::draw(const BattleUnit* unit, int part, int x, int y, int shade,
 			tmpSurface->blitNShade(_dest, _x, _y- 30 + (22 - unit->getHeight()), shade, _mask);
 		}
 	}
+#endif
 	if (drawFacingIndicator && part == 0)
 	{
 		// draw unit facing indicator

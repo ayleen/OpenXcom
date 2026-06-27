@@ -83,3 +83,6 @@ bin/Win32/user*
 bin/user
 /.kdev4/
 /*.kdev4
+#Ignore Python cache (e.g. src/ports/ custom Emscripten ports)
+__pycache__/
+build-em2/

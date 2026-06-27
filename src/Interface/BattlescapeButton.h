@@ -40,6 +40,12 @@ protected:
 	InversionType _toggleMode;
 	Surface *_altSurface;
 public:
+	// Calypso (Emscripten): HD HUD pressed-state art. BattlescapeState::layoutHud
+	// publishes the "toggled" panel surface + the live panel transform here, so a
+	// pressed/toggled button blits its own region from the gold toggled art
+	// instead of the vanilla inverted-ICONS highlight.
+	static SDL_Surface* hudToggled;
+	static int hudPanelX, hudPanelY, hudPanelW, hudPanelH, hudSrcW, hudSrcH;
 	/// Creates a new image button with the specified size and position.
 	BattlescapeButton(int width, int height, int x = 0, int y = 0);
 	/// Cleans up the image button.

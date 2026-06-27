@@ -166,8 +166,16 @@ set ( engine_src
   Engine/Scalers/scale3x.cpp
   Engine/Scalers/scalebit.cpp
   Engine/Scalers/xbrz.cpp
+  Engine/GpuInit.cpp
+  Engine/GpuTexture.cpp
+  Engine/RenderTarget.cpp
   Engine/Screen.cpp
   Engine/Script.cpp
+  Engine/Shader.cpp
+  Engine/Shaders/embedded.cpp
+  Engine/ShadeTable.cpp
+  Engine/ShadeTableCache.cpp
+  Engine/ShaderManager.cpp
   Engine/Sound.cpp
   Engine/SoundSet.cpp
   Engine/State.cpp
@@ -175,6 +183,8 @@ set ( engine_src
   Engine/SurfaceSet.cpp
   Engine/Timer.cpp
   Engine/TouchState.cpp
+  Engine/TTFFont.cpp
+  Engine/TTFUtil.cpp
   Engine/Unicode.cpp
   Engine/Yaml.cpp
   Engine/Zoom.cpp
@@ -280,6 +290,8 @@ set ( menu_src
   Menu/OptionsNoAudioState.cpp
   Menu/OptionsVideoState.cpp
   Menu/PauseState.cpp
+  Menu/CalypsoHDUIState.cpp
+  Menu/CalypsoSplashState.cpp
   Menu/SaveGameState.cpp
   Menu/SetWindowedRootState.cpp
   Menu/SlideshowState.cpp
@@ -304,6 +316,8 @@ set ( mod_src
   Mod/MapData.cpp
   Mod/MapDataSet.cpp
   Mod/MapScript.cpp
+  Mod/TileAtlasBuilder.cpp
+  Mod/UnitSpriteAtlasBuilder.cpp
   Mod/MCDPatch.cpp
   Mod/Mod.cpp
   Mod/Polygon.cpp
@@ -547,6 +561,35 @@ if ( UNIX AND EMBED_ASSETS )
 endif ()
 
 set ( openxcom_src ${c_src} ${cxx_src} ${embed_src} )
+if(EMSCRIPTEN)
+  list(APPEND openxcom_src Engine/EmscriptenCompat.cpp)
+  list(APPEND openxcom_src Engine/EmscriptenHarness.cpp)
+  list(APPEND openxcom_src Engine/GpuSmokeState.cpp)
+
+  # Phase 8b: regenerate embedded shader table before each build when any
+  # *.vert or *.frag file in Engine/Shaders/ has changed.
+  set(_shader_src_dir "${CMAKE_CURRENT_SOURCE_DIR}/Engine/Shaders")
+  set(_embedded_cpp   "${_shader_src_dir}/embedded.cpp")
+  set(_embedded_h     "${_shader_src_dir}/embedded.h")
+  set(_embed_script   "${CMAKE_SOURCE_DIR}/../../scripts/embed-shaders.py")
+
+  file(GLOB _shader_sources
+       "${_shader_src_dir}/*.vert"
+       "${_shader_src_dir}/*.frag")
+  # Remove auto-generated files from the dependency list.
+  list(REMOVE_ITEM _shader_sources "${_embedded_cpp}" "${_embedded_h}")
+
+  add_custom_command(
+    OUTPUT  "${_embedded_cpp}" "${_embedded_h}"
+    COMMAND "${Python3_EXECUTABLE}" "${_embed_script}"
+    DEPENDS ${_shader_sources} "${_embed_script}"
+    COMMENT "Embedding GLSL shaders into embedded.cpp/h"
+    VERBATIM
+  )
+  # Mark generated files as generated so CMake knows not to look for them.
+  set_source_files_properties("${_embedded_cpp}" "${_embedded_h}"
+    PROPERTIES GENERATED TRUE)
+endif()
 set ( install_dest RUNTIME )
 set ( set_exec_path ON )
 set ( install_dest_dir bin )
@@ -558,7 +601,14 @@ if ( UNIX AND NOT APPLE )
   set_property ( SOURCE main.cpp APPEND PROPERTY COMPILE_DEFINITIONS INSTALLDIR="${data_install_dir}/" )
 endif ()
 if ( APPLE )
-  set ( sdl_src "${MACOS_SDLMAIN_M_PATH}" )
+  # SDLMain.m is the SDL1 macOS entry point that calls SDL_main().
+  # SDL2 does not rename main→SDL_main on macOS; it initialises Cocoa
+  # internally.  Skip SDLMain.m for native SDL2 builds.
+  if ( NOT EMSCRIPTEN )
+    set ( sdl_src "" )
+  else ()
+    set ( sdl_src "${MACOS_SDLMAIN_M_PATH}" )
+  endif ()
   set ( openxcom_src ${openxcom_src} ${sdl_src} )
   set ( openxcom_icon "${PROJECT_SOURCE_DIR}/res/mac/AppIcon.icns" )
   if ( CREATE_BUNDLE )
@@ -599,6 +649,79 @@ endif ()
 
 add_executable ( openxcom  ${application_type} ${openxcom_src} ${openxcom_icon} )
 
+if(EMSCRIPTEN)
+  set_target_properties(openxcom PROPERTIES
+    OUTPUT_NAME "calypso"
+    SUFFIX ".js"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+  )
+  target_compile_options(openxcom PRIVATE
+    -fexceptions
+    -sUSE_SDL_TTF=2
+    # libwebp port supplies <webp/decode.h> — needed at compile time for
+    # Mod.cpp (uses WebPDecodeRGBA). --use-port in link options alone only
+    # makes the header available after the port builds during the first
+    # link, which loses the race on clean CI runners where Mod.cpp compiles
+    # before any link step has fired.
+    "--use-port=${CMAKE_CURRENT_SOURCE_DIR}/ports/libwebp.py"
+  )
+  # Stub SDL_gfxPrimitives.h for Emscripten (no SDL2_gfx port; implementations in EmscriptenCompat.cpp).
+  target_include_directories(openxcom PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Engine/compat_sdl)
+  target_link_options(openxcom PRIVATE
+    -sUSE_SDL=2
+    -sUSE_SDL_IMAGE=2
+    -sUSE_SDL_MIXER=2
+    -sUSE_SDL_TTF=2
+    # Phase 8c: libwebp decoder-only port (engine/oxce/src/ports/libwebp.py).
+    # sdl2_image's SUPPORTED_FORMATS has no 'webp', so WebP is loaded directly
+    # via WebPDecodeRGBA() in Mod.cpp — SDL_image never sees the .webp bytes.
+    "--use-port=${CMAKE_CURRENT_SOURCE_DIR}/ports/libwebp.py"
+    "-sSDL2_IMAGE_FORMATS=[\"png\",\"jpg\",\"bmp\"]"
+    "-sSDL2_MIXER_FORMATS=[\"ogg\"]"
+    -sUSE_OGG=1
+    -sUSE_VORBIS=1
+    -sWASM=1
+    -sALLOW_MEMORY_GROWTH=1
+    -sINITIAL_MEMORY=268435456
+    # Calypso: lift the heap ceiling from the 2 GB default to the wasm32 max (4 GB).
+    # HD tiles + HD-scaled battlescape/menus can push a busy mission past 2 GB and
+    # crash with "Cannot enlarge memory ... limit is 2147483648". Grows on demand.
+    -sMAXIMUM_MEMORY=4294967296
+    -sFORCE_FILESYSTEM=1
+    # Phase 8b: GPU shader pipeline requires WebGL2 / GLES 3.0 (preamble emits
+    # `#version 300 es`). Without these, SDL2 creates a WebGL1 context and
+    # shader compile fails with "unsupported shader version".
+    -sMIN_WEBGL_VERSION=2
+    -sMAX_WEBGL_VERSION=2
+    -sFULL_ES3=1
+    "-sEXPORTED_RUNTIME_METHODS=[\"FS\",\"IDBFS\",\"callMain\",\"ccall\",\"cwrap\"]"
+    "-sEXPORTED_FUNCTIONS=[\"_main\",\"_calypso_screenshot\",\"_calypso_screenshot_gpu\",\"_calypso_gpu_smoke_activate\",\"_calypso_push_mouse_motion\",\"_calypso_set_profile_globe\",\"_calypso_set_profile_battlescape\",\"_calypso_set_profile_readback\",\"_calypso_dump_emit_once\"]"
+    -sENVIRONMENT=web
+    -sMODULARIZE=1
+    -sEXPORT_ES6=1
+    -sEXPORT_NAME=initCalypso
+    -lidbfs.js
+    -Wl,--allow-multiple-definition
+    -O2
+    -sASSERTIONS=1
+    --emit-symbol-map
+    -fexceptions
+    -sDISABLE_EXCEPTION_CATCHING=0
+    # Only GPL OXCE engine data is bundled; TFTD and any other proprietary
+    # game files MUST be loaded at runtime via AssetProvider (see
+    # docs/MVP_PLAN.md Phase 4). Never add a --preload-file for game-data/.
+    "--preload-file=${CMAKE_SOURCE_DIR}/bin/common@/game/common"
+    "--preload-file=${CMAKE_SOURCE_DIR}/bin/standard@/game/standard"
+  )
+else()
+  # SDL2_gfx header shim: SDL2_gfx names its header SDL2_gfxPrimitives.h but
+  # the OXCE source uses the SDL1-era name SDL_gfxPrimitives.h.
+  # SDL2CompatNative.cpp provides native implementations of SDL1 APIs that are
+  # stubs in EmscriptenCompat.cpp (e.g. SDL_WarpMouse → SDL_WarpMouseInWindow).
+  target_include_directories(openxcom PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Engine/compat_sdl_native)
+  target_sources(openxcom PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Engine/compat_sdl_native/SDL2CompatNative.cpp)
+endif()
+
 if ( EMBED_ASSETS )
   add_dependencies(openxcom zips)
 endif ()
@@ -618,6 +741,11 @@ endif ()
 # backtrace(3) requires libexecinfo on some *BSD systems
 if (${CMAKE_SYSTEM_NAME} MATCHES FreeBSD OR ${CMAKE_SYSTEM_NAME} MATCHES NetBSD OR ${CMAKE_SYSTEM_NAME} MATCHES OpenBSD)
   set ( system_libs -lexecinfo )
+endif ()
+
+# macOS: SDLMain.m uses Cocoa/CoreFoundation; SDL2_main renamed entry point needs SDL2main
+if (APPLE AND NOT EMSCRIPTEN)
+  set ( system_libs ${system_libs} "-framework Cocoa" "-framework CoreFoundation" "-framework IOKit" )
 endif ()
 
 if (WIN32)
@@ -666,6 +794,32 @@ if ( WIN32 )
     install ( FILES ${dll} DESTINATION bin)
   endforeach()
 endif ()
+
+# ---- Unit test target (native only) ----------------------------------------
+# BUILD_TESTING option and enable_testing() are declared in the parent
+# CMakeLists.txt so that CTestTestfile.cmake is generated at the build root.
+
+if(NOT EMSCRIPTEN AND BUILD_TESTING)
+    # doctest vendored as a single header in engine/oxce/extern/doctest/.
+    # Include path is engine/oxce/extern/ so tests use #include <doctest/doctest.h>.
+    add_library(oxce_test_doctest INTERFACE)
+    target_include_directories(oxce_test_doctest INTERFACE
+        ${CMAKE_SOURCE_DIR}/extern)
+
+    set(OXCE_TEST_SOURCES
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/test_main.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/GlobeMathTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/TileAtlasSpecTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/EmitShade16Test.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/wang_parse_test.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/atlas_cell_resolver_test.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/wang_mask_test.cpp)
+
+    add_executable(oxce_unit_tests ${OXCE_TEST_SOURCES})
+    target_link_libraries(oxce_unit_tests PRIVATE oxce_test_doctest)
+
+    add_test(NAME oxce_unit_tests COMMAND oxce_unit_tests)
+endif()
 
 #Setup source groups for IDE
 if ( MSVC OR "${CMAKE_GENERATOR}" STREQUAL "Xcode" )

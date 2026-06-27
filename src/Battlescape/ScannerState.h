@@ -34,6 +34,9 @@ class ScannerState : public State
 {
 	InteractiveSurface *_bg;
 	Surface *_scan;
+#ifdef __EMSCRIPTEN__
+	SDL_Surface *_bgNative = nullptr, *_scanNative = nullptr;  ///< Calypso: 320×200 bg snapshots, bilinear-stretched into the scaled surfaces
+#endif
 	ScannerView *_scannerView;
 	BattleAction *_action;
 	/// Updates scanner interface.
@@ -45,6 +48,8 @@ public:
 	/// Creates the ScannerState.
 	ScannerState(BattleAction *action);
 	~ScannerState();
+	/// Calypso: rescale to the logical buffer instead of the base recenter.
+	void resize(int &dX, int &dY) override;
 	/// Handler for right-clicking anything.
 	void handle(Action *action) override;
 	/// Handles timers.

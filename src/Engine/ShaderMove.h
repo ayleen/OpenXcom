@@ -127,6 +127,20 @@ inline ShaderMove<Uint8> ShaderSurface(SurfaceRaw<Uint8> s, int x, int y)
 }
 
 /**
+ * 7.D: Create warper from a 32bpp ARGB Surface* for use with Uint32-aware shaders.
+ * Pixel step = sizeof(Uint32) = 4 bytes; row step = pitch bytes.
+ */
+inline ShaderMove<Uint32> ShaderSurface32(Surface* s)
+{
+	return ShaderMove<Uint32>(SurfaceRaw<Uint32>(s));
+}
+
+inline ShaderMove<Uint32> ShaderSurface32(Surface* s, int x, int y)
+{
+	return ShaderMove<Uint32>(SurfaceRaw<Uint32>(s), x, y);
+}
+
+/**
  * Create warper from cropped Surface and provided offset
  * @param s standard 8bit OpenXcom surface
  * @param x offset on x

@@ -38,7 +38,7 @@ namespace OpenXcom
  * @param game Pointer to the core game.
  * @param unit The current unit.
  */
-ScannerView::ScannerView (int w, int h, int x, int y, Game * game, BattleUnit *unit) : InteractiveSurface(w, h, x, y), _game(game), _unit(unit), _frame(0)
+ScannerView::ScannerView (int w, int h, int x, int y, Game * game, BattleUnit *unit) : InteractiveSurface(w, h, x, y), _game(game), _unit(unit), _frame(0), _baseW(w), _baseH(h)
 {
 	_redraw = true;
 }
@@ -48,12 +48,42 @@ ScannerView::ScannerView (int w, int h, int x, int y, Game * game, BattleUnit *u
  */
 void ScannerView::draw()
 {
+#ifdef __EMSCRIPTEN__
+	// Calypso: when scaled up, render the scanner at native size then scale-blit
+	// to fill — the 8px motion blobs/arrow scale with the UI.
+	if (getWidth() != _baseW || getHeight() != _baseH)
+	{
+		Surface scratch(_baseW, _baseH, 0, 0);
+		const SDL_Color* pal = getEffectivePalette();
+		if (pal)
+		{
+			scratch.setPalette(pal);
+		}
+		renderScanner(&scratch);
+		this->clear();
+		if (scratch.getSurface() && this->getSurface())
+		{
+			SDL_BlitScaled(scratch.getSurface(), nullptr, this->getSurface(), nullptr);
+		}
+		this->setRedraw(false);
+		return;
+	}
+#endif
+	renderScanner(this);
+}
+
+/**
+ * Renders the scanner (motion blobs + direction arrow) into a target surface.
+ * Factored out so a scaled view can render native then scale-blit.
+ */
+void ScannerView::renderScanner(Surface* dst)
+{
 	SurfaceSet *set = _game->getMod()->getSurfaceSet("DETBLOB.DAT");
 	Surface *surface = 0;
 
-	clear();
+	dst->clear();
 
-	this->lock();
+	dst->lock();
 	for (int x = -9; x < 10; x++)
 	{
 		for (int y = -9; y < 10; y++)
@@ -69,7 +99,7 @@ void ScannerView::draw()
 						t->getUnit()->setScannedTurn(_game->getSavedGame()->getSavedBattle()->getTurn());
 						if (frame > 5) frame = 5;
 						surface = set->getFrame(frame + _frame);
-						surface->blitNShade(this, ((9+x)*8)-4, ((9+y)*8)-4, 0);
+						surface->blitNShade(dst, ((9+x)*8)-4, ((9+y)*8)-4, 0);
 					}
 				}
 			}
@@ -79,10 +109,8 @@ void ScannerView::draw()
 	// the arrow of the direction the unit is pointed
 	surface = set->getFrame(7 + _unit->getDirection());
 
-	surface->blitNShade(this, (9*8)-4, (9*8)-4, 0);
-	this->unlock();
-
-
+	surface->blitNShade(dst, (9*8)-4, (9*8)-4, 0);
+	dst->unlock();
 }
 
 /**

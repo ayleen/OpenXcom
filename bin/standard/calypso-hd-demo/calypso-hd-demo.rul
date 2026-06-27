@@ -1,0 +1,49 @@
+extraSprites:
+  # Phase 6b: HD unit sprite sheet and recolor mask for the demo aquanaut armour.
+  - type: AQUANAUT_HD
+    width: 128
+    height: 160
+    hd: true
+    files:
+      0: Resources/Units/AQUANAUT_HD/sheet.png
+
+  - type: AQUANAUT_HD_MASK
+    width: 128
+    height: 160
+    hd: true
+    files:
+      0: Resources/Units/AQUANAUT_HD/MASK/mask.png
+
+armors:
+  - type: STR_AQUANAUT_ARMOR_HD_DEMO
+    spriteSheet: AQUANAUT_HD
+    spriteInv: AQUA_PERSONAL_ARMOR.SPK
+    recolorMask: AQUANAUT_HD_MASK
+    recolorRgb: 0x2244AA
+    corpseItem: STR_CORPSE
+    loftemps: 3
+    drawingRoutine: 13
+    movementType: 0
+    size: 1
+    damageModifier:
+      - 1.0
+      - 1.0
+      - 1.0
+      - 1.0
+      - 1.0
+      - 1.0
+      - 1.0
+      - 1.0
+      - 1.0
+      - 1.0
+    frontArmor: 10
+    sideArmor: 6
+    rearArmor: 4
+    underArmor: 4
+    deathFrames: 3
+    constantAnimation: false
+    hasInventory: true
+    standHeight: 22
+    kneelHeight: 14
+    floatHeight: 0
+    listOrder: 9999

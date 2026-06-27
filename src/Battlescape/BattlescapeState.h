@@ -40,6 +40,7 @@ class BattleItem;
 class Timer;
 class WarningMessage;
 class BattlescapeGame;
+class TTFFont;
 
 /**
  * Battlescape screen which shows the tactical battle.
@@ -48,6 +49,7 @@ class BattlescapeState : public State
 {
 private:
 	Surface *_rank, *_rankTiny;
+	Surface *_portrait = nullptr;   // Calypso (Emscripten): HD soldier portrait cell
 	InteractiveSurface *_icons;
 	Map *_map;
 	BattlescapeButton *_btnUnitUp, *_btnUnitDown, *_btnMapUp, *_btnMapDown, *_btnShowMap, *_btnKneel;
@@ -264,6 +266,8 @@ public:
 	void mouseOutIcons(Action *action);
 	/// Checks if the mouse is over the icons.
 	bool getMouseOverIcons() const;
+	/// Phase 24: is (mx,my) over (or within `margin` px of) a visible-enemy button?
+	bool isMouseNearVisibleUnitButton(int mx, int my, int margin = 6) const;
 	/// Is the player allowed to press buttons?
 	bool allowButtons(bool allowSaving = false) const;
 	/// Handler for clicking the reserve TUs to kneel button.
@@ -289,6 +293,34 @@ public:
 	void autosave(int currentTurn);
 	/// Is busy?
 	bool isBusy() const;
+	/// Calypso (Emscripten): capture the native HUD layout once (offsets from the
+	/// icons-panel origin), then re-lay-out the HUD scaled to ~half screen width.
+	void captureHudNative();
+	void layoutHud();
+	/// Blit the HD shoulder-board insignia for SoldierRank rankIdx (0..5) into the
+	/// HUD _rank slot, scaled; rankIdx < 0 clears it. Bypasses the pixel SMOKE.PCK
+	/// rank frames. Stores _hudRankIndex so layoutHud can re-apply it on resize.
+	void applyHdRank(int rankIdx);
+	/// Blit the soldier's inventory look sprite (head/shoulders crop, round-masked)
+	/// into the HUD portrait cell. Null/non-soldier clears it. Emscripten-only.
+	void applyPortrait(BattleUnit* unit);
+	/// Lazy-resolve the large Oxanium HUD font (FONT_HD_HUD).
+	TTFFont* getHudFont();
+	/// Render the soldier name into _txtName via the TTF HUD font (scalable).
+	void applyHudName(BattleUnit* unit);
+	/// Draw one stat number as a TTF value inside a coloured rounded box.
+	void applyHudNumber(NumberText* w, int value, Uint32 accentArgb);
+	/// Render the TU/Energy/Health/Morale number boxes for a unit (null clears).
+	void applyHudNumbers(BattleUnit* unit);
+	struct HudNativeRect { Surface* surf; int dx; int dy; int w; int h; };
+	std::vector<HudNativeRect> _hudNative;
+	int _hudNativeIconsW = 0;
+	int _hudNativeIconsH = 0;
+	int _hudLastBaseX = -1;
+	float _hudScale = 1.0f;
+	bool _hudCaptured = false;
+	int _hudRankIndex = -1;
+	TTFFont* _hudFont = nullptr;
 };
 
 }

@@ -29,8 +29,10 @@
 #include "../Savegame/Tile.h"
 #include "../Mod/Mod.h"
 #include "../Mod/RuleItem.h"
+#include "../Mod/RuleDamageType.h"
 #include "../Mod/Armor.h"
 #include "../Engine/RNG.h"
+#include <cmath>
 
 namespace OpenXcom
 {
@@ -231,6 +233,14 @@ void ExplosionBState::init()
 			int frameDelay = 0;
 			int counter = std::max(1, (powerForAnimation / 5) / 5);
 			_parent->getMap()->setBlastFlash(true);
+#ifdef __EMSCRIPTEN__
+			// Calypso explosion FX: depth-split AoE blast — camera shake (depth-tuned) +
+			// big coloured flash + GL particle burst (sparks/debris land, bubble-jets/foam
+			// underwater). Anchored to _center, fired once (the EGA flash is suppressed
+			// in this fork). Cosmetic only — damage already resolved in explode() above.
+			_parent->getMap()->triggerAoEFx(_center, powerForAnimation, _radius, _parent->getDepth() > 0,
+				_damageType ? (int)_damageType->ResistType : (int)DT_HE);
+#endif
 			int lowerLimit = std::max(1, powerForAnimation / 5);
 			for (int i = 0; i < lowerLimit; i++)
 			{
@@ -351,6 +361,38 @@ void ExplosionBState::init()
 			Explosion *explosion = new Explosion(_center, anim, 0, false, (_hit || _psi), animFrames); // Don't burn the tile
 			_parent->getMap()->getExplosions()->push_back(explosion);
 		}
+#ifdef __EMSCRIPTEN__
+		// Calypso P30: hit FX at the contact point — flash + camera shake always;
+		// a directional sprite jolt when a unit (any faction) is struck. Object/
+		// terrain hits still flash+shake (unit absent). Skip on a clean miss, and on
+		// psi (no physical impact). Covers firearm + melee on aquanaut/alien/object.
+		if (!miss && !_psi)
+		{
+			Map* fxMap = _parent->getMap();
+			Tile* fxTile = _parent->getSave()->getTile(_center.toTile());
+			// TUO_ALWAYS matches the draw path (Map::drawUnit), so big units / a unit
+			// occupying the tile above still register the jolt.
+			BattleUnit* hitUnit = fxTile ? fxTile->getOverlappingUnit(_parent->getSave(), TUO_ALWAYS) : nullptr;
+			float dx = 0.0f, dy = 1.0f;   // default jolt: straight down
+			int unitId = -1;
+			if (hitUnit)
+			{
+				unitId = hitUnit->getId();
+				BattleUnit* attacker = _attack.attacker;
+				if (attacker && attacker != hitUnit)
+				{
+					Position aScr, tScr;
+					fxMap->getCamera()->convertMapToScreen(attacker->getPosition(), &aScr);
+					fxMap->getCamera()->convertMapToScreen(hitUnit->getPosition(), &tScr);
+					const float vx = (float)(tScr.x - aScr.x);
+					const float vy = (float)(tScr.y - aScr.y);
+					const float len = std::sqrt(vx * vx + vy * vy);
+					if (len > 0.001f) { dx = vx / len; dy = vy / len; }
+				}
+			}
+			fxMap->triggerHitFx(_center, _power, unitId, dx, dy);
+		}
+#endif
 		if (_parent->getMap()->getFollowProjectile())
 		{
 			_parent->getMap()->getCamera()->setViewLevel(_center.z / 24);

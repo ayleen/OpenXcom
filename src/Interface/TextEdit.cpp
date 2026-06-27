@@ -163,6 +163,16 @@ std::string TextEdit::getText() const
 }
 
 /**
+ * Returns the pixel width of the current text (bitmap font), used to size the
+ * edit's clickable hit-area to its content.
+ * @return Text width in pixels.
+ */
+int TextEdit::getTextWidth() const
+{
+	return _text ? _text->getTextWidth() : 0;
+}
+
+/**
  * Enables/disables text wordwrapping. When enabled, lines of
  * text are automatically split to ensure they stay within the
  * drawing area, otherwise they simply go off the edge.
@@ -557,7 +567,13 @@ void TextEdit::keyboardPress(Action *action, State *state)
 			}
 			break;
 		default:
+#if SDL_VERSION_ATLEAST(2,0,0)
+			/* SDL2 removed keysym.unicode; SDL_TEXTINPUT events carry text.
+			 * Approximate with the sym keycode for ASCII printable range. */
+			UCode c = (UCode)(action->getDetails()->key.keysym.sym);
+#else
 			UCode c = action->getDetails()->key.keysym.unicode;
+#endif
 			if (isValidChar(c) && !exceedsMaxWidth(c))
 			{
 				_value.insert(_caretPos, 1, c);

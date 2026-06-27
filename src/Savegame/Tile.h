@@ -115,7 +115,7 @@ protected:
 	BattleUnit *_unit = nullptr;
 	std::vector<BattleItem *> _inventory;
 	std::unique_ptr<TileMapDataCache> _mapData = std::make_unique<TileMapDataCache>();
-	SurfaceRaw<const Uint8> _currentSurface[O_MAX] = { };
+	const Surface* _currentSurface[O_MAX] = { };
 	TileObjectCache _objectsCache[O_MAX] = { };
 	TileCache _cache = { };
 	Position _pos;
@@ -288,6 +288,17 @@ public:
 		return _objectsCache[tp].offsetY;
 	}
 
+	/**
+	 * Gets the per-part animation frame (0..7), accounting for UFO-door pause
+	 * states. Use this — not the global Map::_animFrame — when querying a
+	 * MapData's animation slot, otherwise UFO doors and tiles created mid-cycle
+	 * render the wrong frame.
+	 */
+	int getCurrentFrame(TilePart tp) const
+	{
+		return (int)_objectsCache[tp].currentFrame;
+	}
+
 	/// Close ufo door.
 	int closeUfoDoor();
 	/// Sets the black fog of war status of this tile.
@@ -321,7 +332,7 @@ public:
 	/// Update cached value of sprite.
 	void updateSprite(TilePart part);
 	/// Get object sprites.
-	SurfaceRaw<const Uint8> getSprite(TilePart part) const
+	const Surface* getSprite(TilePart part) const
 	{
 		return _currentSurface[part];
 	}

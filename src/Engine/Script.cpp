@@ -535,73 +535,37 @@ void ScriptWorkerBlit::executeBlit(const Surface* src, Surface* dest, int x, int
  */
 void ScriptWorkerBlit::executeBlit(const Surface* src, Surface* dest, int x, int y, int shade, GraphSubset mask)
 {
-	ShaderMove<const Uint8> srcShader(src, x, y);
-	ShaderMove<Uint8> destShader(dest, 0, 0);
-
-	destShader.setDomain(mask);
-
-	if (_proc)
+	// 7.G: ARGB hybrid dispatcher.
+	// All Emscripten surfaces are 32bpp ARGB.  The legacy 8bpp script VM (_proc)
+	// cannot consume Uint32 pixels directly — skip it and fall through to the
+	// shade-table path.  hdScripts:true ARGB VM deferred to Phase 8 (R2.1 scope cut).
+	if (src && src->isARGB())
 	{
-		if (_events)
+		ShaderMove<const Uint32> srcShader(SurfaceRaw<const Uint32>(src), x, y);
+		// Extra parens disambiguate the parse: without them this is read as a
+		// function declaration `destShader(SurfaceRaw<Uint32>)` (most-vexing-parse).
+		ShaderMove<Uint32>       destShader((SurfaceRaw<Uint32>(dest)));
+		destShader.setDomain(mask);
+		const ShadeTable *tbl = src->getShadeTable();
+		const Uint8 *mirrorData = src->getPaletteMirror();
+		if (mirrorData)
 		{
-			ShaderDrawFunc(
-				[&](Uint8& destStuff, const Uint8& srcStuff)
-				{
-					if (srcStuff)
-					{
-						ScriptWorkerBlit::Output arg = { srcStuff, destStuff };
-						set(arg);
-						auto ptr = _events;
-						while (*ptr)
-						{
-							reset(arg);
-							scriptExe(*this, ptr->data());
-							++ptr;
-						}
-						++ptr;
-
-						reset(arg);
-						scriptExe(*this, _proc);
-
-						while (*ptr)
-						{
-							reset(arg);
-							scriptExe(*this, ptr->data());
-							++ptr;
-						}
-						++ptr;
-
-						get(arg);
-						if (arg.getFirst()) destStuff = arg.getFirst();
-					}
-				},
-				destShader,
-				srcShader
-			);
+			SurfaceRaw<const Uint8> mirrorRaw(mirrorData, src->getWidth(), src->getHeight(), src->getWidth());
+			ShaderMove<const Uint8>  idxShader(mirrorRaw, x, y);
+			ShaderDraw<helper::StandardShade>(destShader, srcShader, idxShader,
+			                                  ShaderScalar(shade), ShaderScalar(tbl));
 		}
 		else
 		{
-			ShaderDrawFunc(
-				[&](Uint8& destStuff, const Uint8& srcStuff)
-				{
-					if (srcStuff)
-					{
-						ScriptWorkerBlit::Output arg = { srcStuff, destStuff };
-						set(arg);
-						scriptExe(*this, _proc);
-						get(arg);
-						if (arg.getFirst()) destStuff = arg.getFirst();
-					}
-				},
-				destShader,
-				srcShader
-			);
+			Uint8 zero = 0;
+			ShaderDraw<helper::StandardShade>(destShader, srcShader, ShaderScalar(zero),
+			                                  ShaderScalar(shade), ShaderScalar(tbl));
 		}
+		return;
 	}
-	else
-	{
-		ShaderDraw<helper::StandardShade>(destShader, srcShader, ShaderScalar(shade));
-	}
+
+	// 8bpp fallback removed (R3.1): all surfaces are 32bpp ARGB on Emscripten.
+	// Native build catch-up is out-of-scope per Phase 7 remediation plan.
 }
 
 /**

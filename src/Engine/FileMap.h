@@ -29,6 +29,16 @@
 #include <SDL_rwops.h>
 #include "ModInfo.h"
 
+#ifdef __EMSCRIPTEN__
+#include <cstddef>
+/* Real C-struct SDL_RWops helpers for Emscripten (SDL1 JS mode).
+ * Implemented in FileMap.cpp. Use instead of SDL_RWFromFile/SDL_RWFromConstMem
+ * so that SDL1 C macros (SDL_RWread, SDL_RWseek, etc.) work correctly. */
+SDL_RWops *em_file_to_rwops(const char *path);
+SDL_RWops *em_const_mem_to_rwops(const void *data, size_t size);
+SDL_RWops *em_writable_mem_to_rwops(void *data, size_t size);
+#endif
+
 namespace OpenXcom
 {
 

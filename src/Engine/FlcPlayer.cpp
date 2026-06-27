@@ -163,7 +163,7 @@ bool FlcPlayer::init(const char *filename, void(*frameCallBack)(), Game *game, b
 	}
 	else // Otherwise create a new one
 	{
-		_mainScreen = SDL_AllocSurface(SDL_SWSURFACE, _realScreen->getSurface()->w, _realScreen->getSurface()->h, 8, 0, 0, 0, 0);
+		_mainScreen = SDL_CreateRGBSurface(0, _realScreen->getSurface()->w, _realScreen->getSurface()->h, 8, 0, 0, 0, 0);
 	}
 
 	return true;
@@ -193,6 +193,10 @@ void FlcPlayer::deInit()
  */
 void FlcPlayer::play(bool skipLastFrame)
 {
+#ifdef __EMSCRIPTEN__
+	_playingState = FINISHED; // FLC video not supported in the browser build
+	return;
+#endif
 	_playingState = PLAYING;
 
 	// Vertically center the video
@@ -239,6 +243,7 @@ void FlcPlayer::SDLPolling()
 		case SDL_KEYDOWN:
 			_playingState = SKIPPED;
 			break;
+#if !SDL_VERSION_ATLEAST(2,0,0)
 		case SDL_VIDEORESIZE:
 			if (Options::allowResize)
 			{
@@ -255,6 +260,17 @@ void FlcPlayer::SDLPolling()
 				}
 			}
 			break;
+#else
+		case SDL_WINDOWEVENT:
+			if (event.window.event == SDL_WINDOWEVENT_RESIZED && Options::allowResize)
+			{
+				Options::newDisplayWidth = Options::displayWidth = std::max(Screen::ORIGINAL_WIDTH, event.window.data1);
+				Options::newDisplayHeight = Options::displayHeight = std::max(Screen::ORIGINAL_HEIGHT, event.window.data2);
+				_realScreen->resetDisplay();
+				_mainScreen = _realScreen->getSurface();
+			}
+			break;
+#endif
 		case SDL_QUIT:
 			exit(0);
 		default:

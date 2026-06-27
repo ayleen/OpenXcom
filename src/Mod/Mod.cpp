@@ -23,11 +23,13 @@
 #include <sstream>
 #include <climits>
 #include <cassert>
+#include <cstring>
 #include "../version.h"
 #include "../Engine/CrossPlatform.h"
 #include "../Engine/FileMap.h"
 #include "../Engine/Palette.h"
 #include "../Engine/Font.h"
+#include "../Engine/TTFFont.h"
 #include "../Engine/Surface.h"
 #include "../Engine/SurfaceSet.h"
 #include "../Engine/Music.h"
@@ -47,6 +49,14 @@
 #include "SoundDefinition.h"
 #include "ExtraSprites.h"
 #include "CustomPalettes.h"
+#ifdef __EMSCRIPTEN__
+#  include "../Engine/GpuTexture.h"
+#  include "../Engine/GpuInit.h"
+#  include <SDL_image.h>
+#  include <webp/decode.h>
+#  include "TileAtlasBuilder.h"
+#  include "UnitSpriteAtlasBuilder.h"
+#endif
 #include "ExtraSounds.h"
 #include "../Engine/AdlibMusic.h"
 #include "../Engine/CatFile.h"
@@ -210,6 +220,9 @@ constexpr size_t MaxDifficultyLevels = 5;
 
 /// Special value for default string different to empty one.
 const std::string Mod::STR_NULL = { '\0' };
+
+// R2.2: s_loadInProgress static and isLoadInProgress/setLoadInProgress removed (scope cut).
+
 /// Predefined name for first loaded mod that have all original data
 const std::string ModNameMaster = "master";
 /// Predefined name for current mod that is loading rulesets.
@@ -611,6 +624,10 @@ Mod::~Mod()
 	{
 		delete pair.second;
 	}
+	for (auto& pair : _ttfFonts)
+	{
+		delete pair.second;
+	}
 	for (auto& pair : _surfaces)
 	{
 		delete pair.second;
@@ -762,6 +779,14 @@ Mod::~Mod()
 			delete extraSprites;
 		}
 	}
+#ifdef __EMSCRIPTEN__
+	for (auto& pair : _globeTextures)
+	{
+		delete pair.second;
+	}
+	clearTileAtlases();
+	clearUnitAtlases();
+#endif
 	for (auto& pair : _customPalettes)
 	{
 		delete pair.second;
@@ -867,6 +892,20 @@ Font *Mod::getFont(const std::string &name, bool error) const
 	return getRule(name, "Font", _fonts, error);
 }
 
+TTFFont *Mod::getTTFFont(const std::string &id, bool error) const
+{
+	auto it = _ttfFonts.find(id);
+	if (it != _ttfFonts.end())
+	{
+		return it->second;
+	}
+	if (error)
+	{
+		Log(LOG_WARNING) << "TTFFont not found: " << id;
+	}
+	return nullptr;
+}
+
 /**
  * Loads any extra sprites associated to a surface when
  * it's first requested.
@@ -908,6 +947,720 @@ SurfaceSet *Mod::getSurfaceSet(const std::string &name, bool error)
 	lazyLoadSurface(name);
 	return getRule(name, "Sprite Set", _sets, error);
 }
+
+#ifdef __EMSCRIPTEN__
+GpuTexture* Mod::getGlobeTexture(const std::string& id) const
+{
+	auto it = _globeTextures.find(id);
+	return (it != _globeTextures.end()) ? it->second : nullptr;
+}
+
+void Mod::clearGlobeTextures()
+{
+	for (auto& pair : _globeTextures)
+		delete pair.second;
+	_globeTextures.clear();
+}
+
+const Mod::TileAtlasSpec* Mod::getTileAtlasSpec(const std::string& dataset) const
+{
+	auto it = _tileAtlasSpecs.find(dataset);
+	return it != _tileAtlasSpecs.end() ? &it->second : nullptr;
+}
+
+GpuTexture* Mod::getTileAtlas(const std::string& dataset) const
+{
+	auto it = _tileAtlases.find(dataset);
+	return it != _tileAtlases.end() ? it->second : nullptr;
+}
+
+void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncolors)
+{
+	if (!mds || !palette || ncolors < 1) return;
+	if (!GpuInit::ready()) return;
+
+	const std::string& name = mds->getName();
+
+	// Already built for this dataset in this session.
+	// Note: baseline:none datasets store nullptr in _tileAtlases as a visited sentinel.
+	//
+	// Re-emit the activeDataset marker even on the cached path: Map.cpp calls
+	// ensureVanillaAtlas() for every dataset whenever a battlescape palette is
+	// set, so this function fires on every mission entry. The marker has to
+	// track "active now" (which dataset the user is iterating on), not
+	// "first time loaded". Without this, a session that opens BLANKS after
+	// SAND then returns to SAND leaves window.__activeDataset stuck on BLANKS
+	// and Cmd+Shift+R rebuilds the wrong atlas.
+	if (_tileAtlases.count(name))
+	{
+		Log(LOG_INFO) << "[CALYPSO] activeDataset " << name;
+		return;
+	}
+
+	// If there's an explicit YAML tileAtlas: spec with a file path, try to load
+	// the HD atlas PNG.  On any failure (file missing, decode error, GPU upload
+	// error) we log a warning, erase the stale spec, and fall through to the
+	// vanilla synthesiser below — so terrain always renders.
+	auto specIt = _tileAtlasSpecs.find(name);
+
+	// Phase 20.5: load sequential sub-layer overlays (-L1.png, -L2.png …).
+	// The atlas builder writes them alongside overlayFile when any hdTile
+	// declares subLayers[]. Stops at the first missing index — so absent
+	// files are not an error. Used by both baseline:none and hybrid paths.
+	auto loadSubLayerAtlases = [&name](TileAtlasSpec& spec) {
+		const std::string& base = spec.overlayFile;
+		const size_t extPos = base.rfind(".png");
+		if (extPos == std::string::npos) return;
+		for (int li = 1; li <= 8; ++li)
+		{
+			std::string layerPath = base.substr(0, extPos)
+			                      + "-L" + std::to_string(li) + ".png";
+			// fileExists() probe — FileMap::at() throws on miss; without this
+			// the "stop at the first missing index" contract becomes "first
+			// missing index kills the whole mod load".
+			if (!FileMap::fileExists(layerPath)) break;
+			const FileMap::FileRecord* layerRec = FileMap::at(layerPath);
+			SDL_RWops* layerRw = layerRec->getRWops();
+			SDL_Surface* layerRaw = IMG_Load_RW(layerRw, SDL_TRUE);
+			if (!layerRaw)
+			{
+				Log(LOG_WARNING) << "tileAtlas[" << name << "] sub-layer L" << li
+				                 << " IMG_Load_RW failed (" << IMG_GetError() << ")";
+				break;
+			}
+			SDL_Surface* layerRgba =
+			    SDL_ConvertSurfaceFormat(layerRaw, SDL_PIXELFORMAT_ABGR8888, 0);
+			SDL_FreeSurface(layerRaw);
+			if (!layerRgba) break;
+			const int lw = layerRgba->w, lh = layerRgba->h;
+			if (lw != spec.width || lh != spec.height)
+			{
+				Log(LOG_WARNING) << "tileAtlas[" << name << "] sub-layer L" << li
+				                 << " " << lw << "x" << lh << " != base "
+				                 << spec.width << "x" << spec.height
+				                 << " — skipping remaining sub-layers";
+				SDL_FreeSurface(layerRgba);
+				break;
+			}
+			if (SDL_MUSTLOCK(layerRgba)) SDL_LockSurface(layerRgba);
+			GpuTexture* layerTex = new GpuTexture(/*srgb=*/false,
+			                                      GpuTexture::Wrap::ClampToEdge,
+			                                      GpuTexture::Filter::Linear);  // LINEAR: smooths the anti-aliased diamond alpha edge + HD texture on downscale
+			bool layerOk = layerTex->uploadRGBA(
+			    static_cast<const uint8_t*>(layerRgba->pixels), lw, lh);
+			if (SDL_MUSTLOCK(layerRgba)) SDL_UnlockSurface(layerRgba);
+			SDL_FreeSurface(layerRgba);
+			if (!layerOk)
+			{
+				delete layerTex;
+				Log(LOG_WARNING) << "tileAtlas[" << name << "] sub-layer L" << li
+				                 << " GPU upload failed";
+				break;
+			}
+			spec.subLayerAtlases.push_back(layerTex);
+			Log(LOG_INFO) << "tileAtlas[" << name << "] sub-layer L" << li
+			              << " RGBA " << lw << "x" << lh;
+		}
+	};
+
+	// Phase 25 R3: load the optional tangent-space normal-map atlas (-normal.png).
+	// RGBA Linear NON-sRGB — normals are linear direction data; sRGB gamma would
+	// skew the decoded vectors. Same dimensions as the overlay (shared UVs); a
+	// mismatch is rejected. Absent file = no relief for this dataset. Used by
+	// both the baseline:none and hybrid paths.
+	auto loadNormalAtlas = [&name](TileAtlasSpec& spec) {
+		if (spec.normalFile.empty() || !FileMap::fileExists(spec.normalFile)) return;
+		const FileMap::FileRecord* rec = FileMap::at(spec.normalFile);
+		SDL_RWops* rw = rec->getRWops();
+		SDL_Surface* raw = IMG_Load_RW(rw, SDL_TRUE);
+		if (!raw)
+		{
+			Log(LOG_WARNING) << "tileAtlas[" << name << "] normal IMG_Load_RW failed ("
+			                 << IMG_GetError() << ")";
+			return;
+		}
+		SDL_Surface* rgba = SDL_ConvertSurfaceFormat(raw, SDL_PIXELFORMAT_ABGR8888, 0);
+		SDL_FreeSurface(raw);
+		if (!rgba) return;
+		const int nw = rgba->w, nh = rgba->h;
+		if (spec.width > 0 && spec.height > 0 && (nw != spec.width || nh != spec.height))
+		{
+			Log(LOG_WARNING) << "tileAtlas[" << name << "] normal " << nw << "x" << nh
+			                 << " != overlay " << spec.width << "x" << spec.height
+			                 << " — skipping (UVs would mismatch)";
+			SDL_FreeSurface(rgba);
+			return;
+		}
+		if (SDL_MUSTLOCK(rgba)) SDL_LockSurface(rgba);
+		GpuTexture* ntex = new GpuTexture(/*srgb=*/false,   // LINEAR data, not sRGB
+		                                  GpuTexture::Wrap::ClampToEdge,
+		                                  GpuTexture::Filter::Linear);  // smooth normal interp
+		bool ok = ntex->uploadRGBA(static_cast<const uint8_t*>(rgba->pixels), nw, nh);
+		if (SDL_MUSTLOCK(rgba)) SDL_UnlockSurface(rgba);
+		SDL_FreeSurface(rgba);
+		if (ok)
+		{
+			spec.normalAtlas = ntex;
+			Log(LOG_INFO) << "tileAtlas[" << name << "] normal atlas RGBA " << nw << "x" << nh;
+		}
+		else
+		{
+			delete ntex;
+			Log(LOG_WARNING) << "tileAtlas[" << name << "] normal GPU upload failed";
+		}
+	};
+
+	// Phase 25 R6: load the optional material emissive atlas (-emissive.png).
+	// RGBA Linear NON-sRGB to match the (raw, srgb=false) overlay colour path, so
+	// the glow colour is added in the same space the lit colour is written. Same
+	// dims as the overlay (shared UVs); a mismatch is rejected. Absent = no glow.
+	auto loadEmissiveAtlas = [&name](TileAtlasSpec& spec) {
+		if (spec.emissiveFile.empty() || !FileMap::fileExists(spec.emissiveFile)) return;
+		const FileMap::FileRecord* rec = FileMap::at(spec.emissiveFile);
+		SDL_RWops* rw = rec->getRWops();
+		SDL_Surface* raw = IMG_Load_RW(rw, SDL_TRUE);
+		if (!raw)
+		{
+			Log(LOG_WARNING) << "tileAtlas[" << name << "] emissive IMG_Load_RW failed ("
+			                 << IMG_GetError() << ")";
+			return;
+		}
+		SDL_Surface* rgba = SDL_ConvertSurfaceFormat(raw, SDL_PIXELFORMAT_ABGR8888, 0);
+		SDL_FreeSurface(raw);
+		if (!rgba) return;
+		const int ew = rgba->w, eh = rgba->h;
+		if (spec.width > 0 && spec.height > 0 && (ew != spec.width || eh != spec.height))
+		{
+			Log(LOG_WARNING) << "tileAtlas[" << name << "] emissive " << ew << "x" << eh
+			                 << " != overlay " << spec.width << "x" << spec.height
+			                 << " — skipping (UVs would mismatch)";
+			SDL_FreeSurface(rgba);
+			return;
+		}
+		if (SDL_MUSTLOCK(rgba)) SDL_LockSurface(rgba);
+		GpuTexture* etex = new GpuTexture(/*srgb=*/false,   // raw colour, matches overlay
+		                                  GpuTexture::Wrap::ClampToEdge,
+		                                  GpuTexture::Filter::Linear);  // smooth glow
+		bool ok = etex->uploadRGBA(static_cast<const uint8_t*>(rgba->pixels), ew, eh);
+		if (SDL_MUSTLOCK(rgba)) SDL_UnlockSurface(rgba);
+		SDL_FreeSurface(rgba);
+		if (ok)
+		{
+			spec.emissiveAtlas = etex;
+			Log(LOG_INFO) << "tileAtlas[" << name << "] emissive atlas RGBA " << ew << "x" << eh;
+		}
+		else
+		{
+			delete etex;
+			Log(LOG_WARNING) << "tileAtlas[" << name << "] emissive GPU upload failed";
+		}
+	};
+
+	// Phase 20: baseline:none path — HD-only dataset, load RGBA overlay only.
+	if (specIt != _tileAtlasSpecs.end()
+	    && specIt->second.baseline == BaselineMode::None
+	    && !specIt->second.overlayFile.empty())
+	{
+		TileAtlasSpec& spec = specIt->second;
+		// fileExists() probe — FileMap::at() throws on miss; the fallback to
+		// vanilla atlas only works if we don't unwind through ruleset loading.
+		if (!FileMap::fileExists(spec.overlayFile))
+		{
+			Log(LOG_WARNING) << "tileAtlas[" << name << "] baseline:none overlay not found: "
+			                 << spec.overlayFile;
+			_tileAtlasSpecs.erase(specIt);
+		}
+		else
+		{
+			const FileMap::FileRecord* rec = FileMap::at(spec.overlayFile);
+			SDL_RWops* rw = rec->getRWops();
+			SDL_Surface* raw = IMG_Load_RW(rw, SDL_TRUE);
+			if (!raw)
+			{
+				Log(LOG_WARNING) << "tileAtlas[" << name << "] baseline:none IMG_Load_RW failed ("
+				                 << IMG_GetError() << ")";
+				_tileAtlasSpecs.erase(specIt);
+			}
+			else
+			{
+				SDL_Surface* rgba = SDL_ConvertSurfaceFormat(raw, SDL_PIXELFORMAT_ABGR8888, 0);
+				SDL_FreeSurface(raw);
+				if (rgba)
+				{
+					const int w = rgba->w, h = rgba->h;
+					if (SDL_MUSTLOCK(rgba)) SDL_LockSurface(rgba);
+					GpuTexture* tex = new GpuTexture(/*srgb=*/false,
+					                                 GpuTexture::Wrap::ClampToEdge,
+					                                 GpuTexture::Filter::Linear);  // LINEAR: smooths the anti-aliased diamond alpha edge + HD texture on downscale
+					bool ok = tex->uploadRGBA(
+					              static_cast<const uint8_t*>(rgba->pixels), w, h);
+					if (SDL_MUSTLOCK(rgba)) SDL_UnlockSurface(rgba);
+					SDL_FreeSurface(rgba);
+					if (ok)
+					{
+						spec.overlayAtlas = tex;
+						spec.width  = w;
+						spec.height = h;
+						// Sentinel: mark as visited without a baseline texture.
+						_tileAtlases[name] = nullptr;
+						if (spec.tileWidth > 0 && spec.tileHeight > 0 && spec.pckToAtlas.empty())
+						{
+							const int totalCells = (w / spec.tileWidth) * (h / spec.tileHeight);
+							for (int n = 0; n < totalCells; ++n)
+								spec.pckToAtlas[n] = n;
+						}
+						loadSubLayerAtlases(spec);
+						loadNormalAtlas(spec);   // Phase 25 R3
+						loadEmissiveAtlas(spec); // Phase 25 R6
+						Log(LOG_INFO) << "tileAtlas[" << name << "] baseline:none overlay RGBA "
+						              << w << "x" << h;
+						Log(LOG_INFO) << "[CALYPSO] activeDataset " << name;
+					}
+					else
+					{
+						delete tex;
+						Log(LOG_WARNING) << "tileAtlas[" << name << "] baseline:none GPU upload failed";
+						_tileAtlasSpecs.erase(specIt);
+					}
+				}
+			}
+		}
+		return;
+	}
+
+	// Phase 17: hybrid dual-atlas path (R8 baseline + RGBA sparse overlay).
+	if (specIt != _tileAtlasSpecs.end() && specIt->second.hybrid)
+	{
+		TileAtlasSpec& spec = specIt->second;
+		GpuTexture* baselineTex = nullptr;
+		GpuTexture* overlayTex  = nullptr;
+
+		// Load baseline R8 — palette indices stored directly as greyscale values.
+		{
+			// fileExists() probe — FileMap::at() throws on miss; the hybrid
+			// path's fall-through to vanilla synth only works without unwind.
+			const bool baselineHere =
+			    !spec.baselineFile.empty() && FileMap::fileExists(spec.baselineFile);
+			const FileMap::FileRecord* rec = baselineHere
+			                                 ? FileMap::at(spec.baselineFile) : nullptr;
+			if (!rec)
+			{
+				Log(LOG_WARNING) << "tileAtlas[" << name << "] hybrid: baseline not found: "
+				                 << spec.baselineFile;
+			}
+			else
+			{
+				SDL_RWops* rw  = rec->getRWops();
+				SDL_Surface* raw = IMG_Load_RW(rw, SDL_TRUE);
+				if (!raw)
+				{
+					Log(LOG_WARNING) << "tileAtlas[" << name << "] hybrid: IMG_Load_RW baseline failed ("
+					                 << IMG_GetError() << ")";
+				}
+				else
+				{
+					SDL_Surface* rgba = SDL_ConvertSurfaceFormat(raw, SDL_PIXELFORMAT_ABGR8888, 0);
+					SDL_FreeSurface(raw);
+					if (rgba)
+					{
+						const int w = rgba->w, h = rgba->h;
+						std::vector<uint8_t> r8(static_cast<size_t>(w) * static_cast<size_t>(h), 0u);
+						if (SDL_MUSTLOCK(rgba)) SDL_LockSurface(rgba);
+						const uint8_t* src = static_cast<const uint8_t*>(rgba->pixels);
+						// Greyscale L-mode PNG: R channel holds the palette index directly.
+						for (int y = 0; y < h; ++y)
+						{
+							const uint8_t* row = src + y * rgba->pitch;
+							for (int x = 0; x < w; ++x)
+								r8[y * w + x] = row[x * 4 + 0];
+						}
+						if (SDL_MUSTLOCK(rgba)) SDL_UnlockSurface(rgba);
+						SDL_FreeSurface(rgba);
+						GpuTexture* tex = new GpuTexture(/*srgb=*/false, GpuTexture::Wrap::ClampToEdge, GpuTexture::Filter::Nearest) /* R8 palette: NEAREST only, else index interpolation = rainbow seams */;
+						if (tex->uploadR8(r8.data(), w, h))
+						{
+							baselineTex  = tex;
+							spec.width   = w;
+							spec.height  = h;
+							spec.format  = TileAtlasSpec::Format::Palette;
+							Log(LOG_INFO) << "tileAtlas[" << name << "] hybrid: baseline R8 "
+							              << w << "x" << h;
+						}
+						else
+						{
+							delete tex;
+							Log(LOG_WARNING) << "tileAtlas[" << name << "] hybrid: baseline GPU upload failed";
+						}
+					}
+				}
+			}
+		}
+
+		// Load overlay RGBA — sparse; (0,0,0,0) outside HD cells.
+		if (baselineTex)
+		{
+			// fileExists() probe — FileMap::at() throws on miss.
+			const bool overlayHere =
+			    !spec.overlayFile.empty() && FileMap::fileExists(spec.overlayFile);
+			const FileMap::FileRecord* rec = overlayHere
+			                                 ? FileMap::at(spec.overlayFile) : nullptr;
+			if (!rec)
+			{
+				Log(LOG_WARNING) << "tileAtlas[" << name << "] hybrid: overlay not found: "
+				                 << spec.overlayFile;
+				delete baselineTex; baselineTex = nullptr;
+			}
+			else
+			{
+				SDL_RWops* rw  = rec->getRWops();
+				SDL_Surface* raw = IMG_Load_RW(rw, SDL_TRUE);
+				if (!raw)
+				{
+					Log(LOG_WARNING) << "tileAtlas[" << name << "] hybrid: IMG_Load_RW overlay failed ("
+					                 << IMG_GetError() << ")";
+					delete baselineTex; baselineTex = nullptr;
+				}
+				else
+				{
+					SDL_Surface* rgba = SDL_ConvertSurfaceFormat(raw, SDL_PIXELFORMAT_ABGR8888, 0);
+					SDL_FreeSurface(raw);
+					if (rgba)
+					{
+						const int w = rgba->w, h = rgba->h;
+						if (SDL_MUSTLOCK(rgba)) SDL_LockSurface(rgba);
+						GpuTexture* tex = new GpuTexture(/*srgb=*/false,
+						                                 GpuTexture::Wrap::ClampToEdge,
+						                                 GpuTexture::Filter::Linear);  // LINEAR: smooths the anti-aliased diamond alpha edge + HD texture on downscale
+						bool ok = tex->uploadRGBA(
+						              static_cast<const uint8_t*>(rgba->pixels), w, h);
+						if (SDL_MUSTLOCK(rgba)) SDL_UnlockSurface(rgba);
+						SDL_FreeSurface(rgba);
+						if (ok)
+						{
+							// Reject hybrid pair if overlay dimensions don't match baseline —
+							// otherwise UV mapping would silently drift.  Falls through to
+							// vanilla synth.
+							if (w != spec.width || h != spec.height)
+							{
+								Log(LOG_WARNING) << "tileAtlas[" << name << "] hybrid: overlay "
+								                 << w << "x" << h << " != baseline "
+								                 << spec.width << "x" << spec.height
+								                 << " — rejecting hybrid pair";
+								delete tex;
+								delete baselineTex; baselineTex = nullptr;
+							}
+							else
+							{
+								overlayTex = tex;
+								Log(LOG_INFO) << "tileAtlas[" << name << "] hybrid: overlay RGBA "
+								              << w << "x" << h;
+							}
+						}
+						else
+						{
+							delete tex;
+							Log(LOG_WARNING) << "tileAtlas[" << name << "] hybrid: overlay GPU upload failed";
+							delete baselineTex; baselineTex = nullptr;
+						}
+					}
+				}
+			}
+		}
+
+		if (baselineTex && overlayTex)
+		{
+			_tileAtlases[name] = baselineTex;
+			spec.overlayAtlas  = overlayTex;
+			loadSubLayerAtlases(spec);
+			loadNormalAtlas(spec);   // Phase 25 R3 (spec.width/height set from baseline above)
+			loadEmissiveAtlas(spec); // Phase 25 R6
+			if (spec.tileWidth > 0 && spec.tileHeight > 0 && spec.pckToAtlas.empty())
+			{
+				const int totalCells = (spec.width / spec.tileWidth) * (spec.height / spec.tileHeight);
+				for (int n = 0; n < totalCells; ++n)
+					spec.pckToAtlas[n] = n;
+				Log(LOG_INFO) << "tileAtlas[" << name << "] hybrid: auto-built identity "
+				              << "pckToAtlas (" << totalCells << " entries)";
+			}
+			Log(LOG_INFO) << "[CALYPSO] activeDataset " << name;
+			return;
+		}
+
+		if (baselineTex) { delete baselineTex; }
+		if (overlayTex)  { delete overlayTex;  }
+		_tileAtlasSpecs.erase(specIt);
+		// Fall through to vanilla synthesiser.
+	}
+	else if (specIt != _tileAtlasSpecs.end() && !specIt->second.file.empty())
+	{
+		const std::string& filePath = specIt->second.file;
+		// fileExists() probe — FileMap::at() throws on miss; the legacy
+		// single-file path's fall-through to vanilla synth only works
+		// without unwind.
+		const FileMap::FileRecord* rec = FileMap::fileExists(filePath)
+		                                 ? FileMap::at(filePath) : nullptr;
+		if (!rec)
+		{
+			Log(LOG_WARNING) << "tileAtlas[" << name << "]: file not found: "
+			                 << filePath << " — falling back to vanilla atlas";
+			_tileAtlasSpecs.erase(specIt);
+			// Fall through to vanilla synthesiser.
+		}
+		else
+		{
+			bool loaded = false;
+			SDL_RWops* rw = rec->getRWops();
+			SDL_Surface* raw = IMG_Load_RW(rw, SDL_TRUE); // SDL_TRUE = auto-close rw
+			if (!raw)
+			{
+				Log(LOG_WARNING) << "tileAtlas[" << name << "]: IMG_Load_RW failed ("
+				                 << IMG_GetError() << ") — falling back to vanilla atlas";
+			}
+			else
+			{
+				// Convert to ABGR8888: memory layout [R,G,B,A] on little-endian WASM.
+				SDL_Surface* rgba = SDL_ConvertSurfaceFormat(raw, SDL_PIXELFORMAT_ABGR8888, 0);
+				SDL_FreeSurface(raw);
+				if (!rgba)
+				{
+					Log(LOG_WARNING) << "tileAtlas[" << name
+					                 << "]: ConvertSurface failed — falling back to vanilla atlas";
+				}
+				else
+				{
+					const int w = rgba->w, h = rgba->h;
+
+					if (specIt->second.format == TileAtlasSpec::Format::Rgba)
+					{
+						// RGBA path: upload verbatim, no palette reverse-mapping.
+						if (SDL_MUSTLOCK(rgba)) SDL_LockSurface(rgba);
+						GpuTexture* tex = new GpuTexture(/*srgb=*/false,
+						                                 GpuTexture::Wrap::ClampToEdge,
+						                                 GpuTexture::Filter::Linear);  // LINEAR: smooths the anti-aliased diamond alpha edge + HD texture on downscale
+						loaded = tex->uploadRGBA(static_cast<const uint8_t*>(rgba->pixels), w, h);
+						if (SDL_MUSTLOCK(rgba)) SDL_UnlockSurface(rgba);
+						SDL_FreeSurface(rgba);
+						if (loaded)
+						{
+							_tileAtlases[name] = tex;
+							specIt->second.width  = w;
+							specIt->second.height = h;
+							Log(LOG_INFO) << "tileAtlas[" << name << "]: loaded RGBA atlas "
+							              << w << "x" << h << " (GL_NEAREST filter)";
+						}
+						else
+						{
+							delete tex;
+							Log(LOG_WARNING) << "tileAtlas[" << name
+							                 << "]: RGBA GPU upload failed — falling back to vanilla atlas";
+						}
+					}
+					else
+					{
+						// Palette path: reverse-map RGBA PNG → R8 palette index.
+						std::vector<uint8_t> r8(static_cast<size_t>(w) * static_cast<size_t>(h), 0u);
+
+						// Reverse-palette map for exact hits: RGB packed as r|(g<<8)|(b<<16) → index.
+						// palette[0] is transparent; do not map it.
+						std::map<uint32_t, uint8_t> revPal;
+						for (int i = 1; i < ncolors; ++i)
+						{
+							uint32_t key = (uint32_t)palette[i].r
+							             | ((uint32_t)palette[i].g << 8)
+							             | ((uint32_t)palette[i].b << 16);
+							revPal[key] = (uint8_t)i;
+						}
+
+						if (SDL_MUSTLOCK(rgba)) SDL_LockSurface(rgba);
+						const uint8_t* src = static_cast<const uint8_t*>(rgba->pixels);
+						int nearestCount = 0;
+						for (int y = 0; y < h; ++y)
+						{
+							const uint8_t* row = src + y * rgba->pitch;
+							for (int x = 0; x < w; ++x)
+							{
+								const uint8_t a = row[x * 4 + 3];
+								if (a < 128) { r8[y * w + x] = 0; continue; }
+								const uint8_t pr = row[x * 4 + 0];
+								const uint8_t pg = row[x * 4 + 1];
+								const uint8_t pb = row[x * 4 + 2];
+								uint32_t key = (uint32_t)pr | ((uint32_t)pg << 8) | ((uint32_t)pb << 16);
+								auto it = revPal.find(key);
+								if (it != revPal.end())
+								{
+									r8[y * w + x] = it->second;
+								}
+								else
+								{
+									// Non-palette-exact pixel: nearest palette entry by squared RGB distance.
+									int bestIdx = 1, bestDist = INT_MAX;
+									for (int i = 1; i < ncolors; ++i)
+									{
+										int dr = (int)pr - (int)palette[i].r;
+										int dg = (int)pg - (int)palette[i].g;
+										int db = (int)pb - (int)palette[i].b;
+										int dist = dr*dr + dg*dg + db*db;
+										if (dist < bestDist) { bestDist = dist; bestIdx = i; }
+									}
+									r8[y * w + x] = (uint8_t)bestIdx;
+									++nearestCount;
+								}
+							}
+						}
+						if (SDL_MUSTLOCK(rgba)) SDL_UnlockSurface(rgba);
+						SDL_FreeSurface(rgba);
+						if (nearestCount > 0) {
+							Log(LOG_WARNING) << "tileAtlas[" << name << "]: "
+							                 << nearestCount << " pixel(s) are not exact palette "
+							                 << "matches and were nearest-colour quantised — "
+							                 << "atlas art should use only TFTD palette colours";
+						}
+
+						GpuTexture* tex = new GpuTexture(/*srgb=*/false, GpuTexture::Wrap::ClampToEdge, GpuTexture::Filter::Nearest) /* R8 palette: NEAREST only, else index interpolation = rainbow seams */;
+						if (!tex->uploadR8(r8.data(), w, h))
+						{
+							Log(LOG_WARNING) << "tileAtlas[" << name
+							                 << "]: GPU upload failed — falling back to vanilla atlas";
+							delete tex;
+						}
+						else
+						{
+							_tileAtlases[name] = tex;
+							specIt->second.width  = w;
+							specIt->second.height = h;
+							Log(LOG_INFO) << "tileAtlas[" << name << "]: loaded HD atlas "
+							              << w << "x" << h << " (RGBA PNG → R8 palette)";
+							loaded = true;
+						}
+					}
+				}
+			}
+			if (!loaded) _tileAtlasSpecs.erase(specIt);
+			if (loaded)
+			{
+				// YAML HD specs only describe mcdIdx → atlas cell via frameMap,
+				// but Map.cpp tries pckToAtlas[animPCK] first when resolving
+				// animation frames. Without an entry, every animation step
+				// falls back to frameMap[mcdIdx] = primary frame's cell —
+				// freezing the animation. Vanilla SAND MCD#18 (deep-shadow)
+				// animates through sand-ripple PCK frames; missing this
+				// mapping painted MCD#18 tiles as a constant deep-shadow
+				// sprite (visually black) instead of the cycling sand-ripple.
+				//
+				// Auto-build identity pckToAtlas: assume cell N contains the
+				// sprite for PCK frame N. gen-sand-atlas.py / gen-blanks-atlas.py
+				// both lay out vanilla baseline cells at identity offsets, and
+				// HD overrides occupy the same cells for conceptually-equivalent
+				// sprites — so identity remains correct.
+				TileAtlasSpec& s = specIt->second;
+				if (s.tileWidth > 0 && s.tileHeight > 0 && s.pckToAtlas.empty())
+				{
+					const int totalCells = (s.width / s.tileWidth) * (s.height / s.tileHeight);
+					for (int n = 0; n < totalCells; ++n)
+						s.pckToAtlas[n] = n;
+					Log(LOG_INFO) << "tileAtlas[" << name << "]: auto-built identity "
+					              << "pckToAtlas (" << totalCells << " entries)";
+				}
+				Log(LOG_INFO) << "[CALYPSO] activeDataset " << name;
+				return;
+			}
+			// Fall through to vanilla synthesiser.
+		}
+	}
+	std::map<int,int> frameMap;
+	std::map<int,int> pckToAtlas;
+	GpuTexture* tex = buildVanillaAtlas(*mds, palette, ncolors, frameMap, pckToAtlas);
+	if (!tex) return;
+
+	// Discard any stale entry (shouldn't happen, but be safe).
+	auto old = _tileAtlases.find(name);
+	if (old != _tileAtlases.end())
+	{
+		delete old->second;
+	}
+	_tileAtlases[name] = tex;
+
+	// Store the frame map inside a TileAtlasSpec so downstream code has a
+	// uniform lookup path regardless of whether the atlas came from YAML or
+	// was synthesised here.
+	TileAtlasSpec& spec   = _tileAtlasSpecs[name];
+	spec.dataset          = name;
+	spec.file             = "";           // synthesised — no file path
+	spec.width            = tex->width();
+	spec.height           = tex->height();
+	spec.tileWidth        = 64;
+	spec.tileHeight       = 80;
+	spec.columns          = 16;
+	spec.frameMap         = std::move(frameMap);
+	spec.pckToAtlas       = std::move(pckToAtlas);
+}
+
+void Mod::clearTileAtlases()
+{
+	for (auto& pair : _tileAtlases)
+		delete pair.second;
+	_tileAtlases.clear();
+
+	// Phase 17: delete hybrid overlay atlases stored in TileAtlasSpec (not in _tileAtlases).
+	for (auto& pair : _tileAtlasSpecs)
+	{
+		if (pair.second.overlayAtlas)
+		{
+			delete pair.second.overlayAtlas;
+			pair.second.overlayAtlas = nullptr;
+		}
+		// Phase 25 R3: delete the normal atlas (owned by TileAtlasSpec, like overlay).
+		if (pair.second.normalAtlas)
+		{
+			delete pair.second.normalAtlas;
+			pair.second.normalAtlas = nullptr;
+		}
+		// Phase 25 R6: delete the emissive atlas (owned by TileAtlasSpec, like overlay).
+		if (pair.second.emissiveAtlas)
+		{
+			delete pair.second.emissiveAtlas;
+			pair.second.emissiveAtlas = nullptr;
+		}
+		// Phase 20.5 leak fix: sub-layer atlases are pushed in ensureVanillaAtlas
+		// but were never freed here (only overlayAtlas was). Release them too.
+		for (GpuTexture* lt : pair.second.subLayerAtlases) delete lt;
+		pair.second.subLayerAtlases.clear();
+	}
+}
+
+void Mod::ensureUnitAtlas(SurfaceSet* ss, const std::string& name,
+                           const SDL_Color* palette, int ncolors)
+{
+	if (!GpuInit::ready()) return;
+	if (!ss) return;
+	if (_unitAtlases.count(name)) return;
+
+	int atlasW = 0, atlasH = 0, cols = 0;
+	GpuTexture* tex = buildUnitAtlas(*ss, palette, ncolors, atlasW, atlasH, cols, name);
+	if (!tex) return;
+
+	UnitAtlasSpec& spec = _unitAtlases[name];
+	spec.atlas      = tex;
+	spec.atlasW     = atlasW;
+	spec.atlasH     = atlasH;
+	spec.tileWidth  = 64;
+	spec.tileHeight = 80;
+	spec.columns    = cols;
+}
+
+const Mod::UnitAtlasSpec* Mod::getUnitAtlas(const std::string& name) const
+{
+	auto it = _unitAtlases.find(name);
+	return it != _unitAtlases.end() ? &it->second : nullptr;
+}
+
+void Mod::clearUnitAtlases()
+{
+	for (auto& pair : _unitAtlases)
+		delete pair.second.atlas;
+	_unitAtlases.clear();
+}
+#endif /* __EMSCRIPTEN__ */
 
 /**
  * Returns a specific music from the mod.
@@ -2612,14 +3365,14 @@ void Mod::loadResourceConfigFile(const FileMap::FileRecord &filerec)
 						color.r = loadByteValue(colorReader[0]);
 						color.g = loadByteValue(colorReader[1]);
 						color.b = loadByteValue(colorReader[2]);
-						color.unused = colorReader[3] ? loadByteValue(colorReader[3]): 2;
+						color.a = colorReader[3] ? loadByteValue(colorReader[3]): 2;
 
 						for (int opacity = 0; opacity < TransparenciesOpacityLevels; ++opacity)
 						{
 							// pseudo interpolation of palette color with tint
 							// for small values `op` its should behave same as original TFTD
 							// but for bigger values it make result closer to tint color
-							const int op = Clamp((opacity+1) * color.unused, 0, 64);
+							const int op = Clamp((opacity+1) * color.a, 0, 64);
 							const float co = 1.0f - Sqr(op / 64.0f); // 1.0 -> 0.0
 							const float to = op * 1.0f; // 0.0 -> 64.0
 
@@ -2627,7 +3380,7 @@ void Mod::loadResourceConfigFile(const FileMap::FileRecord &filerec)
 							taint.r = Clamp((int)(color.r * to), 0, 255);
 							taint.g = Clamp((int)(color.g * to), 0, 255);
 							taint.b = Clamp((int)(color.b * to), 0, 255);
-							taint.unused = 255 * co;
+							taint.a = 255 * co;
 							_transparencies[start + curr][opacity] = taint;
 						};
 					}
@@ -2641,7 +3394,7 @@ void Mod::loadResourceConfigFile(const FileMap::FileRecord &filerec)
 							taint.r = loadByteValue(n[0]);
 							taint.g = loadByteValue(n[1]);
 							taint.b = loadByteValue(n[2]);
-							taint.unused = 255 - loadByteValue(n[3]);
+							taint.a = 255 - loadByteValue(n[3]);
 							_transparencies[start + curr][opacity] = taint;
 						};
 						std::reverse(std::begin(_transparencies[start + curr]), std::end(_transparencies[start + curr]));
@@ -3434,6 +4187,404 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 			}
 		}
 	}
+#ifdef __EMSCRIPTEN__
+	for (const auto& ruleReader : iterateRulesSpecific("globeTextures"))
+	{
+		if (!GpuInit::ready()) continue;
+		std::string id;
+		ruleReader["id"].tryReadVal<std::string>(id);
+		if (id.empty()) continue;
+
+		auto filesNode = ruleReader["files"];
+		if (!filesNode) continue;
+
+		// Only mip 0 is required; glGenerateMipmap fills the rest.
+		std::string relPath;
+		filesNode["0"].tryReadVal<std::string>(relPath);
+		if (relPath.empty()) continue;
+
+		bool equirect = false;
+		ruleReader["equirectangular"].tryReadVal<bool>(equirect);
+		const auto wrap = equirect ? GpuTexture::Wrap::RepeatS_ClampT
+		                           : GpuTexture::Wrap::ClampToEdge;
+
+		// FileMap::at() throws Exception on miss, so a plain `!rec` test would
+		// never fire — the throw bubbles all the way up and the entire mod is
+		// disabled by the ruleset loader. Guard with fileExists() so optional
+		// HD globe textures (gitignored, sometimes absent on CI runners) are
+		// soft-missing instead of mod-killing.
+		if (!FileMap::fileExists(relPath))
+		{
+			Log(LOG_WARNING) << "globeTextures[" << id << "]: file not found: " << relPath;
+			continue;
+		}
+		const FileMap::FileRecord* rec = FileMap::at(relPath);
+
+		// WebP: use WebPDecodeRGBA() directly — SDL2_image's sdl2_image port
+		// has no libwebp in SUPPORTED_FORMATS.  Output is R,G,B,A in memory
+		// order, matching GL_RGBA + GL_UNSIGNED_BYTE exactly.
+		const bool isWebP = relPath.size() >= 5 &&
+		                    relPath.compare(relPath.size() - 5, 5, ".webp") == 0;
+		if (isWebP)
+		{
+			SDL_RWops* rw = rec->getRWops();
+			Sint64 fileSize = SDL_RWsize(rw);
+			if (fileSize <= 0)
+			{
+				Log(LOG_WARNING) << "globeTextures[" << id << "]: RWsize failed";
+				SDL_RWclose(rw);
+				continue;
+			}
+			std::vector<uint8_t> buf(static_cast<size_t>(fileSize));
+			if (SDL_RWread(rw, buf.data(), 1, buf.size()) != buf.size())
+			{
+				Log(LOG_WARNING) << "globeTextures[" << id << "]: RWread failed";
+				SDL_RWclose(rw);
+				continue;
+			}
+			SDL_RWclose(rw);
+
+			int w = 0, h = 0;
+			uint8_t* pixels = WebPDecodeRGBA(buf.data(), buf.size(), &w, &h);
+			if (!pixels)
+			{
+				Log(LOG_WARNING) << "globeTextures[" << id << "]: WebPDecodeRGBA failed";
+				continue;
+			}
+
+			delete _globeTextures[id];
+			GpuTexture* tex = new GpuTexture(/*srgb=*/true, wrap);
+			if (!tex->uploadRGBA(pixels, w, h, 0))
+			{
+				Log(LOG_WARNING) << "globeTextures[" << id << "]: GpuTexture upload failed";
+				delete tex;
+			}
+			else
+			{
+				_globeTextures[id] = tex;
+				Log(LOG_INFO) << "globeTextures[" << id << "]: " << w << "x" << h << " uploaded (WebP RGBA)";
+			}
+			WebPFree(pixels);
+			continue;
+		}
+
+		// JPEG / PNG: load via SDL_image, then convert to ABGR8888.
+		// SDL_PIXELFORMAT_ABGR8888 on little-endian (WASM) gives memory layout
+		// [R, G, B, A], which is what GL_RGBA + GL_UNSIGNED_BYTE expects.
+		// (SDL_PIXELFORMAT_RGBA8888 would give [A, B, G, R] — wrong.)
+		SDL_RWops* rw = rec->getRWops();
+		SDL_Surface* raw = IMG_Load_RW(rw, SDL_TRUE); // SDL_TRUE = auto-close rw
+		if (!raw)
+		{
+			Log(LOG_WARNING) << "globeTextures[" << id << "]: IMG_Load_RW failed: " << IMG_GetError();
+			continue;
+		}
+
+		SDL_Surface* rgba = SDL_ConvertSurfaceFormat(raw, SDL_PIXELFORMAT_ABGR8888, 0);
+		SDL_FreeSurface(raw);
+		if (!rgba)
+		{
+			Log(LOG_WARNING) << "globeTextures[" << id << "]: ConvertSurface failed";
+			continue;
+		}
+
+		delete _globeTextures[id]; // overwrite if re-loaded
+		GpuTexture* tex = new GpuTexture(/*srgb=*/true, wrap);
+		if (!tex->uploadRGBA(static_cast<const uint8_t*>(rgba->pixels), rgba->w, rgba->h, 0))
+		{
+			Log(LOG_WARNING) << "globeTextures[" << id << "]: GpuTexture upload failed";
+			delete tex;
+		}
+		else
+		{
+			_globeTextures[id] = tex;
+			Log(LOG_INFO) << "globeTextures[" << id << "]: " << rgba->w << "x" << rgba->h << " uploaded";
+		}
+		SDL_FreeSurface(rgba);
+	}
+	{
+		const char* required[] = {"bathymetry", "diffuse", "night", "clouds"};
+		int loaded = 0;
+		for (auto* k : required) loaded += (int)_globeTextures.count(k);
+		if (loaded > 0 && loaded != 4)
+		{
+			Log(LOG_WARNING) << "Phase 8c: HD globe disabled — loaded "
+			                 << loaded << "/4 required textures";
+			clearGlobeTextures();
+		}
+	}
+	for (const auto& ruleReader : iterateRulesSpecific("tileAtlas"))
+	{
+		std::string dataset;
+		ruleReader["dataset"].tryReadVal<std::string>(dataset);
+		if (dataset.empty()) continue;
+
+		TileAtlasSpec spec;
+		spec.dataset = dataset;
+		ruleReader["file"].tryReadVal<std::string>(spec.file);
+		ruleReader["width"].tryReadVal<int>(spec.width);
+		ruleReader["height"].tryReadVal<int>(spec.height);
+		ruleReader["tileWidth"].tryReadVal<int>(spec.tileWidth);
+		ruleReader["tileHeight"].tryReadVal<int>(spec.tileHeight);
+		ruleReader["columns"].tryReadVal<int>(spec.columns);
+
+		{
+			std::string fmtStr;
+			ruleReader["format"].tryReadVal<std::string>(fmtStr);
+			if (fmtStr == "rgba")
+			{
+				spec.format = TileAtlasSpec::Format::Rgba;
+			}
+			else if (!fmtStr.empty() && fmtStr != "palette")
+			{
+				Log(LOG_WARNING) << "tileAtlas[" << dataset << "]: unknown format '"
+				                 << fmtStr << "', defaulting to palette";
+			}
+		}
+
+		// Phase 17: hybrid dual-atlas fields
+		ruleReader["hybrid"].tryReadVal<bool>(spec.hybrid);
+		if (spec.hybrid)
+		{
+			ruleReader["baselineFile"].tryReadVal<std::string>(spec.baselineFile);
+			ruleReader["overlayFile"].tryReadVal<std::string>(spec.overlayFile);
+		}
+		// Phase 25 R3: normal-map atlas path (optional; applies to all modes).
+		ruleReader["normalFile"].tryReadVal<std::string>(spec.normalFile);
+		// Phase 25 R6: material emissive atlas path (optional; applies to all modes).
+		ruleReader["emissiveFile"].tryReadVal<std::string>(spec.emissiveFile);
+
+		// Phase 20: baseline mode (vanilla = default, none = skip R8 pass)
+		{
+			std::string baselineStr;
+			ruleReader["baseline"].tryReadVal<std::string>(baselineStr);
+			if (baselineStr == "none")
+				spec.baseline = BaselineMode::None;
+			// "vanilla" or missing → BaselineMode::Vanilla (default)
+		}
+
+		// Phase 20: atlas-wide authoring fields
+		ruleReader["bleed"].tryReadVal<int>(spec.bleed);
+		ruleReader["premultipliedAlpha"].tryReadVal<bool>(spec.premultipliedAlpha);
+		ruleReader["fallbackImage"].tryReadVal<std::string>(spec.fallbackImage);
+		ruleReader["fallbackOpacity"].tryReadVal<float>(spec.fallbackOpacity);
+
+		// Phase 27: world-position ground super-tile (base/tilesX/tilesY).
+		auto groundPoolNode = ruleReader["groundPool"];
+		if (groundPoolNode)
+		{
+			groundPoolNode["base"].tryReadVal<int>(spec.groundBase);
+			groundPoolNode["tilesX"].tryReadVal<int>(spec.groundTilesX);
+			groundPoolNode["tilesY"].tryReadVal<int>(spec.groundTilesY);
+		}
+
+		// Phase 20: per-cell hdTiles[] metadata
+		auto hdTilesNode = ruleReader["hdTiles"];
+		if (hdTilesNode)
+		{
+			for (const auto& tileNode : hdTilesNode.children())
+			{
+				HDTileSpec ts;
+				tileNode["cell"].tryReadVal<int>(ts.cell);
+				tileNode["image"].tryReadVal<std::string>(ts.image);
+				tileNode["mask"].tryReadVal<std::string>(ts.mask);
+				tileNode["opacity"].tryReadVal<float>(ts.opacity);
+				tileNode["zBias"].tryReadVal<int>(ts.zBias);
+				auto anchorNode = tileNode["anchor"];
+				if (anchorNode && anchorNode.children().size() == 2)
+				{
+					anchorNode[(size_t)0].tryReadVal<int>(ts.anchor[0]);
+					anchorNode[(size_t)1].tryReadVal<int>(ts.anchor[1]);
+				}
+				// parse subLayers[] recursively
+				auto subLayersNode = tileNode["subLayers"];
+				if (subLayersNode)
+				{
+					for (const auto& slNode : subLayersNode.children())
+					{
+						HDTileSpec sl;
+						slNode["image"].tryReadVal<std::string>(sl.image);
+						slNode["mask"].tryReadVal<std::string>(sl.mask);
+						slNode["opacity"].tryReadVal<float>(sl.opacity);
+						slNode["zBias"].tryReadVal<int>(sl.zBias);
+						auto slAnchorNode = slNode["anchor"];
+						if (slAnchorNode && slAnchorNode.children().size() == 2)
+						{
+							slAnchorNode[(size_t)0].tryReadVal<int>(sl.anchor[0]);
+							slAnchorNode[(size_t)1].tryReadVal<int>(sl.anchor[1]);
+						}
+						// Phase 22.7: state gate. "fire" → emit only while the tile burns;
+						// "always"/absent → unconditional (legacy).
+						std::string slCond;
+						if (slNode["condition"].tryReadVal<std::string>(slCond))
+						{
+							if      (slCond == "fire")   sl.condition = HDTileSpec::COND_FIRE;
+							else if (slCond == "always") sl.condition = HDTileSpec::COND_ALWAYS;
+							else Log(LOG_WARNING) << "tileAtlas[" << dataset
+							                      << "]: subLayer condition '" << slCond
+							                      << "' unknown, treating as always";
+						}
+						ts.subLayers.push_back(std::move(sl));
+					}
+				}
+				// Phase 21: per-cell wangType with presence flag. Empty string is a
+				// meaningful explicit value ("opt-out of Wang"); absence inherits the
+				// dataset default. tryReadVal returns true iff the key was present.
+				if (tileNode["wangType"].tryReadVal<std::string>(ts.wangType))
+				{
+					ts.hasWangType = true;
+					// Phase 22 (M1 perf): intern now so the emit-time neighbour scan
+					// compares ints. internWangType("") returns -1 (explicit opt-out).
+					ts.wangTypeId = internWangType(ts.wangType);
+				}
+				// Phase 21: per-cell TilePart slot hint. Accepts "O_FLOOR" or "O_OBJECT".
+				// Required for cells the MAP places in the object slot (e.g. SAND#19).
+				std::string tilePartStr;
+				if (tileNode["tilePart"].tryReadVal<std::string>(tilePartStr))
+				{
+					if      (tilePartStr == "O_OBJECT") { ts.tilePart = O_OBJECT; ts.hasTilePart = true; }
+					else if (tilePartStr == "O_FLOOR")  { ts.tilePart = O_FLOOR;  ts.hasTilePart = true; }
+					else Log(LOG_WARNING) << "tileAtlas[" << dataset << "]: hdTiles[cell="
+					                      << ts.cell << "].tilePart: unknown value '"
+					                      << tilePartStr << "', leaving default";
+				}
+				// Phase 22: anti-repeat variant count; base cell carries metadata,
+				// cells [cell..cell+variants-1] form the visual pool (§22.5).
+				tileNode["variants"].tryReadVal<int>(ts.variants);
+				if (ts.variants < 1) ts.variants = 1;
+				// Phase 22 (M3): clamp the anti-repeat pool to the atlas grid so a
+				// misauthored variants count cannot push visualCell (cell + hash%variants)
+				// past the atlas and sample a wrong/edge cell on the GPU. Mirrors the
+				// wangSet surfaceVariants guard. spec dimensions are parsed above.
+				if (ts.variants > 1 && spec.tileWidth > 0 && spec.tileHeight > 0
+				 && spec.width > 0 && spec.height > 0)
+				{
+					const int nCells = (spec.width / spec.tileWidth)
+					                 * (spec.height / spec.tileHeight);
+					if (ts.cell < 0 || ts.cell + ts.variants - 1 >= nCells)
+					{
+						Log(LOG_WARNING) << "tileAtlas[" << dataset << "]: hdTiles[cell="
+						                 << ts.cell << "].variants=" << ts.variants
+						                 << " exceeds atlas cell count " << nCells
+						                 << "; clamping to 1";
+						ts.variants = 1;
+					}
+				}
+				spec.hdTiles.push_back(std::move(ts));
+			}
+		}
+
+		auto frameMapNode = ruleReader["frameMap"];
+		if (frameMapNode)
+		{
+			for (const auto& child : frameMapNode.children())
+			{
+				int mcdIdx = 0, atlasIdx = 0;
+				if (child.tryReadKey<int>(mcdIdx) && child.tryReadVal<int>(atlasIdx))
+					spec.frameMap[mcdIdx] = atlasIdx;
+			}
+		}
+
+		// Phase 21: dataset-level wangType + wangTilePart + wangSet[] variant tables.
+		// wangType absence == no default neighbour-tag (cells without an own wangType
+		// then have no Wang transition either). wangSet[] entries map neighbour tag
+		// to per-mask atlas cell; mask is the 4-bit corner-coverage key (0..15).
+		ruleReader["wangType"].tryReadVal<std::string>(spec.wangType);
+		// Phase 22 (M1 perf): intern the dataset-default tag once for effectiveWangTypeId.
+		spec.wangTypeIdDefault = internWangType(spec.wangType);
+		std::string dsTilePartStr;
+		if (ruleReader["wangTilePart"].tryReadVal<std::string>(dsTilePartStr))
+		{
+			if      (dsTilePartStr == "O_OBJECT") spec.wangTilePart = O_OBJECT;
+			else if (dsTilePartStr == "O_FLOOR")  spec.wangTilePart = O_FLOOR;
+			else Log(LOG_WARNING) << "tileAtlas[" << dataset
+			                      << "]: wangTilePart: unknown value '"
+			                      << dsTilePartStr << "', leaving default O_FLOOR";
+		}
+		auto wangSetNode = ruleReader["wangSet"];
+		if (wangSetNode)
+		{
+			for (const auto& wsNode : wangSetNode.children())
+			{
+				std::string neighbour;
+				wsNode["neighbour"].tryReadVal<std::string>(neighbour);
+				if (neighbour.empty()) continue;
+				WangNeighbour wn;
+				// Phase 22: mode field selects bake (default, Phase 21 compat) or blend.
+				std::string mode = "bake";
+				wsNode["mode"].tryReadVal<std::string>(mode);
+				wn.blend = (mode == "blend");
+				if (wn.blend)
+				{
+					wsNode["surfaceCell"].tryReadVal<int>(wn.surfaceCell);
+					wsNode["surfaceVariants"].tryReadVal<int>(wn.surfaceVariants);
+					if (wn.surfaceVariants < 1) wn.surfaceVariants = 1;
+					wsNode["feather"].tryReadVal<float>(wn.feather);
+					wsNode["noiseScale"].tryReadVal<float>(wn.noiseScale);
+					wsNode["noiseAmp"].tryReadVal<float>(wn.noiseAmp);
+				}
+				else
+				{
+					// bake (Phase 21): read atlasCells mask→cell map
+					auto cellsNode = wsNode["atlasCells"];
+					if (cellsNode)
+					{
+						for (const auto& cellNode : cellsNode.children())
+						{
+							int maskKey = 0, cellIdx = -1;
+							if (cellNode.tryReadKey<int>(maskKey)
+							 && cellNode.tryReadVal<int>(cellIdx)
+							 && maskKey >= 0 && maskKey < 16)
+							{
+								wn.variantCells[maskKey] = cellIdx;
+							}
+						}
+					}
+				}
+				// Bounds-check surfaceCell against the atlas grid so an out-of-range
+				// value degrades to no-blend rather than sampling a wrong UV on the GPU.
+				if (wn.blend && spec.tileWidth > 0 && spec.tileHeight > 0
+				 && spec.width > 0 && spec.height > 0)
+				{
+					int nCells = (spec.width / spec.tileWidth) * (spec.height / spec.tileHeight);
+					if (wn.surfaceCell < 0 || wn.surfaceCell >= nCells
+					 || wn.surfaceCell + wn.surfaceVariants - 1 >= nCells)
+					{
+						Log(LOG_WARNING) << "tileAtlas[" << dataset << "]: wangSet neighbour '"
+						                 << neighbour << "': surfaceCell=" << wn.surfaceCell
+						                 << " variants=" << wn.surfaceVariants
+						                 << " out of range [0," << nCells << "); blend disabled";
+						wn.blend = false;
+					}
+				}
+				spec.wangSets[neighbour] = std::move(wn);
+			}
+		}
+
+		// Build O(1) cell→hdTiles index lookup.
+		for (int hi = 0; hi < (int)spec.hdTiles.size(); ++hi)
+			spec.hdTilesByCell[spec.hdTiles[hi].cell] = hi;
+
+		_tileAtlasSpecs[dataset] = std::move(spec);
+		_hdPackActive = true;
+		Log(LOG_INFO) << "tileAtlas[" << dataset << "]: registered "
+		              << _tileAtlasSpecs[dataset].frameMap.size() << " frameMap entries"
+		              << " hdTiles=" << _tileAtlasSpecs[dataset].hdTiles.size()
+		              << " baseline=" << (_tileAtlasSpecs[dataset].baseline == BaselineMode::None ? "none" : "vanilla")
+		              << " wangType='" << _tileAtlasSpecs[dataset].wangType << "'"
+		              << " wangSets=" << _tileAtlasSpecs[dataset].wangSets.size();
+	}
+	{
+		int v = _battlescapeTileScale;
+		reader["battlescapeTileScale"].tryReadVal<int>(v);
+		if (v == 1 || v == 2 || v == 4)
+			_battlescapeTileScale = v;  // assign 1 too, so a later ruleset can reset to native
+		else
+			Log(LOG_WARNING) << "battlescapeTileScale: " << v << " is not supported (use 1, 2, or 4); ignored";
+	}
+	// Phase 25 R5: floating unit nameplates / HP-TU-energy bars (off by default).
+	reader["calypso_hud_overlay"].tryReadVal<bool>(_calypsoHudOverlay);
+#endif /* __EMSCRIPTEN__ */
 	for (const auto& ruleReader : iterateRulesSpecific("customPalettes"))
 	{
 		CustomPalettes* rule = loadRule(ruleReader, &_customPalettes, &_customPalettesIndex);
@@ -3448,6 +4599,27 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 		ExtraSounds *extraSounds = new ExtraSounds();
 		extraSounds->load(ruleReader, _modCurrent);
 		_extraSounds.push_back(std::make_pair(type, extraSounds));
+	}
+	// Phase 16: TrueType fonts for HD text rendering.
+	for (const auto& ruleReader : iterateRulesSpecific("extraTTFFonts"))
+	{
+		std::string id, file;
+		int size = 16;
+		ruleReader["id"].tryReadVal<std::string>(id);
+		ruleReader["file"].tryReadVal<std::string>(file);
+		ruleReader["size"].tryReadVal<int>(size);
+		if (id.empty() || file.empty())
+		{
+			Log(LOG_WARNING) << "extraTTFFonts entry missing id or file — skipped";
+			continue;
+		}
+		if (_ttfFonts.count(id))
+		{
+			delete _ttfFonts[id];
+		}
+		TTFFont* ttf = new TTFFont(file, size);
+		_ttfFonts[id] = ttf;
+		Log(LOG_INFO) << "Loaded TTFFont \"" << id << "\" from \"" << file << "\" size=" << size;
 	}
 	for (const auto& ruleReader : iterateRulesSpecific("extraStrings"))
 	{
@@ -3579,6 +4751,227 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 		lighting.tryRead("enhanced", _enhancedLighting);
 	}
 }
+
+#ifdef __EMSCRIPTEN__
+/*
+ * Phase 21.3.0: animation-blind resolver for the Corner-Wang lookup.
+ *
+ * The render path in Map::emitTilePass resolves the atlas cell from the
+ * tile's *animated* frame index (tile->getCurrentFrame(part)) — required
+ * for UFO doors and animated water tiles that step through PCK frames each
+ * tick. Wang must NOT follow animation: wangType is a static property of
+ * the cell. Returning frame-0's atlas-cell index preserves stable Wang
+ * behaviour through any animation cycle.
+ *
+ * Signature note (deviation from v3 plan §21.3.0): the v3 plan called the
+ * helper with `(spec, md)` only, then did `spec->frameMap.find(md->getObjectType())`.
+ * That is wrong — MapData::getObjectType() returns the TilePart slot
+ * (O_FLOOR/O_OBJECT/...), not the MCD record index that frameMap is keyed
+ * by. The render path obtains the MCD record index via the out-param
+ * overload `tile->getMapData(&mcdIdx, &mdsID, part)`, and Wang's caller
+ * (computeWangMask §21.3.1) must do the same and pass mcdIdx in.
+ */
+static int resolveStaticAtlasCellIndex(const Mod::TileAtlasSpec* spec,
+                                       const MapData* md,
+                                       int mcdIdx)
+{
+	if (!spec || !md) return -1;
+	// Primary-frame PCK index — what the tile "is", independent of
+	// the animation cycle the renderer happens to be on.
+	const int primaryPCK = md->getSprite(0);
+	if (primaryPCK > 0)
+	{
+		auto it = spec->pckToAtlas.find(primaryPCK);
+		if (it != spec->pckToAtlas.end()) return it->second;
+	}
+	// Fallback: MCD-record-indexed primary frame, populated by the
+	// `frameMap:` ruleset block at parse time. Same fallback the render
+	// code uses when pckToAtlas misses (see Map.cpp::emitTilePass).
+	auto fit = spec->frameMap.find(mcdIdx);
+	if (fit != spec->frameMap.end()) return fit->second;
+	return -1;
+}
+#endif /* __EMSCRIPTEN__ */
+
+#ifdef __EMSCRIPTEN__
+/*
+ * Phase 22 (M1 perf): intern a wangType tag to a stable integer id so the
+ * per-tile emit scan in computeWangMask compares ints instead of constructing
+ * and comparing std::string for self + four neighbours. Interning is global
+ * across datasets (same tag → same id) so a cross-dataset "sand" vs "sand"
+ * neighbour comparison still matches. Empty tag → -1 ("no wang" / opt-out).
+ */
+int Mod::internWangType(const std::string& tag)
+{
+	if (tag.empty()) return -1;
+	auto it = _wangTypeIds.find(tag);
+	if (it != _wangTypeIds.end()) return it->second;
+	const int id = (int)_wangTypeNames.size();
+	_wangTypeIds.emplace(tag, id);
+	_wangTypeNames.push_back(tag);
+	return id;
+}
+
+/*
+ * Phase 21.3.1: Corner-Wang mask + variant-cell lookup for one tile.
+ *
+ * Returns:
+ *   mask         — 4-bit OR-corner mask (NW=8, NE=4, SE=2, SW=1)
+ *   variantCell  — atlas-cell index from the matching wangSet, or -1
+ *
+ * Algorithm (mirrors the v3 plan §21.3.1):
+ *   1. Resolve `self`'s wang-capable cell via a dual-slot scan (FLOOR
+ *      then OBJECT). A cell qualifies when its hdTiles[] entry's
+ *      `tilePart` matches the slot it was found in AND its effective
+ *      wangType is non-empty.
+ *   2. typeAt(dx,dy) scans O_OBJECT before O_FLOOR for each orthogonal
+ *      neighbour. A Wang-enabled O_OBJECT is a floor-like surface override
+ *      (not a decorative object), so it must win over the base floor.
+ *   3. Same-type fast-path: if all four orthogonals match self_type,
+ *      no transition fires. Critical for homogeneous floors (SEABED's
+ *      ~90% uniform sand).
+ *   4. OR-corner mask: a corner is foreign if EITHER of its two
+ *      adjacent orthogonals is foreign. See docs §21.4.2 for the rule
+ *      diagram and the OR-vs-strict trade-off recorded in the plan.
+ *   5. First-found collision: when multiple foreign neighbours collide,
+ *      the wangSet of the first foreign one in N→E→S→W order wins.
+ *
+ * `resolveStaticAtlasCellIndex` (§21.3.0) is used everywhere instead of
+ * the renderer's animated resolver — wangType is a static property of
+ * the cell, so Wang must read frame-0 even mid-animation.
+ */
+Mod::WangResult Mod::computeWangMask(const TileAtlasSpec* spec,
+                                     const Tile* self,
+                                     SavedBattleGame* save) const
+{
+	WangResult result;
+	if (!spec || spec->wangSets.empty()) return result;
+	if (!self || !save) return result;
+
+	auto resolveSlot = [](const TileAtlasSpec* s, const MapData* md,
+	                      int mcdIdx, TilePart part, int* outCell) -> bool
+	{
+		if (!md || !md->getDataset()) return false;
+		const int cell = resolveStaticAtlasCellIndex(s, md, mcdIdx);
+		if (cell < 0) return false;
+		auto cellIt = s->hdTilesByCell.find(cell);
+		if (cellIt == s->hdTilesByCell.end()) return false;
+		const int idx = cellIt->second;
+		if (idx < 0 || idx >= (int)s->hdTiles.size()) return false;
+		const auto& cellSpec = s->hdTiles[idx];
+		if (s->effectiveTilePart(cellSpec) != part) return false;
+		if (s->effectiveWangTypeId(cellSpec) < 0) return false;
+		*outCell = cell;
+		return true;
+	};
+
+	// 1. Resolve self. MAP authors may park a wang cell in O_FLOOR or
+	//    O_OBJECT regardless of the MCD Tile_Type hint — see
+	//    docs/qa/phase-21-cross-terrain-floor-inventory.md.
+	int selfCell = -1;
+	for (TilePart part : {O_FLOOR, O_OBJECT})
+	{
+		const MapData* md = self->getMapData(part);
+		int mcdIdx = 0, mdsID = 0;
+		self->getMapData(&mcdIdx, &mdsID, part);
+		if (resolveSlot(spec, md, mcdIdx, part, &selfCell)) break;
+	}
+	if (selfCell < 0) return result;
+
+	const auto& selfSpec = spec->hdTiles[spec->hdTilesByCell.at(selfCell)];
+	const int self_typeId = spec->effectiveWangTypeId(selfSpec);
+
+	// 2. typeAt does the same dual-slot scan for each orthogonal neighbour,
+	//    against that neighbour's own dataset spec (a cross-dataset MAP can
+	//    have SAND under one tile and BLANKS under the next).
+	const Position pos = self->getPosition();
+	auto typeAt = [&](int dx, int dy) -> int {
+		const Tile* t = save->getTile(Position(pos.x + dx, pos.y + dy, pos.z));
+		if (!t) return -1;
+		// Some SEABED surfaces (notably SAND#19 pale-sand) live in O_OBJECT
+		// above a regular O_FLOOR. Check the Wang-enabled override first;
+		// ordinary objects have no Wang type and therefore fall through.
+		for (TilePart part : {O_OBJECT, O_FLOOR})
+		{
+			const MapData* md = t->getMapData(part);
+			if (!md || !md->getDataset()) continue;
+			const auto* nspec = getTileAtlasSpec(md->getDataset()->getName());
+			if (!nspec) continue;
+			int mcdIdx = 0, mdsID = 0;
+			t->getMapData(&mcdIdx, &mdsID, part);
+			int nCell = -1;
+			if (!resolveSlot(nspec, md, mcdIdx, part, &nCell)) continue;
+			const int nTypeId = nspec->effectiveWangTypeId(
+				nspec->hdTiles[nspec->hdTilesByCell.at(nCell)]);
+			if (nTypeId >= 0) return nTypeId;
+		}
+		return -1;
+	};
+
+	const int n_n = typeAt( 0, -1);
+	const int n_e = typeAt( 1,  0);
+	const int n_s = typeAt( 0,  1);
+	const int n_w = typeAt(-1,  0);
+
+	// 3. Same-type fast-path: all four orthogonals match self → no
+	//    transition possible, skip mask + wangSet lookup entirely.
+	if (n_n == self_typeId && n_e == self_typeId
+	 && n_s == self_typeId && n_w == self_typeId)
+		return result;
+
+	auto foreign = [&](int n) {
+		return n >= 0 && n != self_typeId;
+	};
+
+	// 4. OR-corner mask: a corner is foreign iff EITHER adjacent
+	//    orthogonal is foreign. (Strict-corner — both must be foreign —
+	//    is recorded as a deferred alternative in plan §21.4.2.)
+	const bool nw = foreign(n_n) || foreign(n_w);
+	const bool ne = foreign(n_n) || foreign(n_e);
+	const bool se = foreign(n_s) || foreign(n_e);
+	const bool sw = foreign(n_s) || foreign(n_w);
+	result.mask = (uint8_t)((nw << 3) | (ne << 2) | (se << 1) | sw);
+	if (result.mask == 0) return result;
+
+	// 5. First-found collision in N→E→S→W order picks the wangSet.
+	//    §21.4.2: if the tile has no entry for the picked neighbour,
+	//    variantCell stays -1 (renderer falls through to the base cell).
+	int winId = -1;
+	int winDx = 0, winDy = 0;
+	for (int i = 0; i < 4; ++i)
+	{
+		const int n = (i == 0) ? n_n : (i == 1) ? n_e : (i == 2) ? n_s : n_w;
+		if (foreign(n)) {
+			winId = n;
+			if      (i == 0) { winDx =  0; winDy = -1; }
+			else if (i == 1) { winDx =  1; winDy =  0; }
+			else if (i == 2) { winDx =  0; winDy =  1; }
+			else             { winDx = -1; winDy =  0; }
+			break;
+		}
+	}
+	if (winId < 0) return result;
+
+	// Map the winning neighbour id back to its tag for the (rare) wangSet lookup.
+	const std::string& lookup = _wangTypeNames[winId];
+	auto wit = spec->wangSets.find(lookup);
+	if (wit == spec->wangSets.end()) return result;
+	const WangNeighbour& neigh = wit->second;
+	result.blend   = neigh.blend;
+	result.matched = &neigh;
+	if (neigh.blend)
+	{
+		result.surfaceCell  = neigh.surfaceCell;
+		result.neighbourDx  = winDx;
+		result.neighbourDy  = winDy;
+	}
+	else
+	{
+		result.variantCell = neigh.variantCells[result.mask];
+	}
+	return result;
+}
+#endif /* __EMSCRIPTEN__ */
 
 /**
  * Helper function protecting from circular references in node definition.
@@ -3855,7 +5248,7 @@ SavedGame *Mod::newSave(GameDifficulty diff) const
 	}
 
 	// Correct soldier IDs
-	for (auto* soldier : *base->getSoldiers())
+	for (size_t i = 0; i < base->getSoldiers()->size(); ++i)
 	{
 		save->getId("STR_SOLDIER");
 	}
@@ -5465,12 +6858,19 @@ void Mod::loadVanillaResources()
 		//_palettes[s2]->savePalMod("../../../customPalettes.rul", "PAL_BATTLESCAPE_CUSTOM", "PAL_BATTLESCAPE");
 	}
 
-	// Load surfaces
+	// Load surfaces. After ARGB migration each loadScr/loadBdy/loadSpk needs a
+	// setPalette() to promote the 8bpp scratch buffer into ARGB while capturing
+	// the index pixels into _paletteMirror. Without it, blitNShade /
+	// SDL_BlitSurface from these surfaces onto the ARGB screen produces nothing
+	// — Window backgrounds (BACK*.SCR for menus / pedia / dogfight windows)
+	// rendered as white-on-clear instead of their actual graphics.
+	Palette *geoPal = getPalette("PAL_GEOSCAPE", false);
 	{
 		std::string s1 = "GEODATA/INTERWIN.DAT";
 		std::string s2 = "INTERWIN.DAT";
 		_surfaces[s2] = new Surface(160, 600);
 		_surfaces[s2]->loadScr(s1);
+		if (geoPal) _surfaces[s2]->setPalette(geoPal->getColors(), 0, 256);
 	}
 
 	const auto& geographFiles = FileMap::getVFolderContents("GEOGRAPH");
@@ -5481,6 +6881,7 @@ void Mod::loadVanillaResources()
 		std::transform(name.begin(), name.end(), fname.begin(), toupper);
 		_surfaces[fname] = new Surface(320, 200);
 		_surfaces[fname]->loadScr("GEOGRAPH/" + fname);
+		if (geoPal) _surfaces[fname]->setPalette(geoPal->getColors(), 0, 256);
 	}
 	auto bdys = FileMap::filterFiles(geographFiles, "BDY");
 	for (const auto& name : bdys)
@@ -5489,6 +6890,7 @@ void Mod::loadVanillaResources()
 		std::transform(name.begin(), name.end(), fname.begin(), toupper);
 		_surfaces[fname] = new Surface(320, 200);
 		_surfaces[fname]->loadBdy("GEOGRAPH/" + fname);
+		if (geoPal) _surfaces[fname]->setPalette(geoPal->getColors(), 0, 256);
 	}
 
 	auto spks = FileMap::filterFiles(geographFiles, "SPK");
@@ -5498,34 +6900,52 @@ void Mod::loadVanillaResources()
 		std::transform(name.begin(), name.end(), fname.begin(), toupper);
 		_surfaces[fname] = new Surface(320, 200);
 		_surfaces[fname]->loadSpk("GEOGRAPH/" + fname);
+		if (geoPal) _surfaces[fname]->setPalette(geoPal->getColors(), 0, 256);
 	}
 
-	// Load surface sets
-	std::string sets[] = { "BASEBITS.PCK",
-		"INTICON.PCK",
-		"TEXTURE.DAT" };
-
-	for (size_t i = 0; i < ARRAYLEN(sets); ++i)
+	// Load surface sets.  After ARGB migration each loadPck/loadDat needs a
+	// setPalette() so the 8bpp scratch frames promote to 32bpp ARGB and capture
+	// _paletteMirror; without it BaseView/MiniBaseView/Globe minimap render
+	// indexed pixels as if they were ARGB (visible as broken/striped facilities).
+	//
+	// Per-set initial palette MUST match the state palette of the screen that
+	// renders the set; otherwise sprites stay tinted by the wrong palette
+	// (e.g. PAL_GEOSCAPE applied to BASEBITS gives Triton pink instead of
+	// the basescape yellow/green).  The shadeTable is rebuilt on subsequent
+	// state-palette cascades, but for that the sprite must already be ARGB.
+	Palette *basePal = getPalette("PAL_BASESCAPE", false);
+	struct { const char *name; const char *type; Palette *pal; } setLoadInfo[] = {
+		// Basescape sprites: BaseView, MiniBaseView, Ufopaedia base-facility article.
+		{ "BASEBITS.PCK", "PCK", basePal },
+		// Geoscape sidebar icons + UFO/base markers.
+		{ "INTICON.PCK",  "PCK", geoPal  },
+		// Globe terrain texture frames.
+		{ "TEXTURE.DAT",  "DAT", geoPal  },
+	};
+	for (auto &info : setLoadInfo)
 	{
+		std::string n = info.name;
 		std::ostringstream s;
-		s << "GEOGRAPH/" << sets[i];
+		s << "GEOGRAPH/" << n;
 
-		std::string ext = sets[i].substr(sets[i].find_last_of('.') + 1, sets[i].length());
-		if (ext == "PCK")
+		if (std::string(info.type) == "PCK")
 		{
-			std::string tab = CrossPlatform::noExt(sets[i]) + ".TAB";
+			std::string tab = CrossPlatform::noExt(n) + ".TAB";
 			std::ostringstream s2;
 			s2 << "GEOGRAPH/" << tab;
-			_sets[sets[i]] = new SurfaceSet(32, 40);
-			_sets[sets[i]]->loadPck(s.str(), s2.str());
+			_sets[n] = new SurfaceSet(32, 40);
+			_sets[n]->loadPck(s.str(), s2.str());
 		}
 		else
 		{
-			_sets[sets[i]] = new SurfaceSet(32, 32);
-			_sets[sets[i]]->loadDat(s.str());
+			_sets[n] = new SurfaceSet(32, 32);
+			_sets[n]->loadDat(s.str());
 		}
+		if (info.pal) _sets[n]->setPalette(info.pal->getColors(), 0, 256);
 	}
 	{
+		// Battlescape minimap sprites — left in 8bpp scratch here; promoted with
+		// PAL_BATTLESCAPE during BattlescapeState init via ensureBattlescapeAssetPalettes.
 		std::string s1 = "GEODATA/SCANG.DAT";
 		std::string s2 = "SCANG.DAT";
 		_sets[s2] = new SurfaceSet(4, 4);
@@ -5770,6 +7190,17 @@ void Mod::loadBattlescapeResources()
 	{
 		_surfaces[scrs[i]] = new Surface(320, 200);
 		_surfaces[scrs[i]]->loadScr("UFOGRAPH/" + scrs[i]);
+		// loadScr fills 8bpp pixels but never installs a palette; without it
+		// the surface stays 8bpp with empty _paletteMirror, so blitNShade /
+		// SDL_BlitSurface onto an ARGB destination produces nothing — leaving
+		// the Window::draw clear() result (transparent zeroes) which renders
+		// as the parent's fill colour (white in NextTurnState).
+		// Promote via PAL_BATTLESCAPE so the index buffer + shade table are
+		// captured during the 8bpp → ARGB conversion.
+		if (Palette *pal = getPalette("PAL_BATTLESCAPE", false))
+		{
+			_surfaces[scrs[i]]->setPalette(pal->getColors(), 0, 256);
+		}
 	}
 
 	// lower case so we can find them in the contents map
@@ -5803,7 +7234,10 @@ void Mod::loadBattlescapeResources()
 		Surface *tempSurface = new Surface(1, 1);
 		tempSurface->loadImage("UFOGRAPH/" + lbms[i]);
 		_palettes[pals[i]] = new Palette();
-		SDL_Color *colors = tempSurface->getPalette();
+		const SDL_Color *sourceColors = tempSurface->getEffectivePalette();
+		if (!sourceColors) { delete tempSurface; continue; }
+		SDL_Color colors[256];
+		memcpy(colors, sourceColors, sizeof(colors));
 		colors[255] = backPal[i];
 		_palettes[pals[i]]->setColors(colors, 256);
 		createTransparencyLUT(_palettes[pals[i]]);
@@ -5829,6 +7263,16 @@ void Mod::loadBattlescapeResources()
 
 		_surfaces[spks[i]] = new Surface(320, 200);
 		_surfaces[spks[i]]->loadSpk("UFOGRAPH/" + spks[i]);
+		// loadSpk fills 8bpp pixels but never installs a palette; without it
+		// the surface stays 8bpp with empty _paletteMirror, and blitNShade
+		// from this source produces nothing on an ARGB destination
+		// (TAC01.SCR — inventory background — was the visible casualty).
+		// Promote via PAL_BATTLESCAPE so the index buffer + shade table get
+		// captured during the 8bpp → ARGB conversion.
+		if (Palette *pal = getPalette("PAL_BATTLESCAPE", false))
+		{
+			_surfaces[spks[i]]->setPalette(pal->getColors(), 0, 256);
+		}
 	}
 
 	auto bdys = FileMap::filterFiles(ufographContents, "BDY");
@@ -5851,6 +7295,13 @@ void Mod::loadBattlescapeResources()
 		}
 		_surfaces[idxName] = new Surface(320, 200);
 		_surfaces[idxName]->loadBdy("UFOGRAPH/" + name);
+		// loadBdy mirrors loadSpk: 8bpp pixels, no palette → empty mirror,
+		// blitNShade outputs nothing on ARGB. Promote via PAL_BATTLESCAPE so
+		// _paletteMirror + shade table are captured.
+		if (Palette *pal = getPalette("PAL_BATTLESCAPE", false))
+		{
+			_surfaces[idxName]->setPalette(pal->getColors(), 0, 256);
+		}
 	}
 
 	// Load Battlescape inventory
@@ -5861,6 +7312,10 @@ void Mod::loadBattlescapeResources()
 		std::transform(name.begin(), name.end(), fname.begin(), toupper);
 		_surfaces[fname] = new Surface(320, 200);
 		_surfaces[fname]->loadSpk("UFOGRAPH/" + fname);
+		if (Palette *pal = getPalette("PAL_BATTLESCAPE", false))
+		{
+			_surfaces[fname]->setPalette(pal->getColors(), 0, 256);
+		}
 	}
 
 	//"fix" of color index in original solders sprites
@@ -6198,6 +7653,15 @@ void Mod::loadExtraSprite(ExtraSprites *spritePack)
 				_surfaces[spritePack->getType()]->setPalette(_statePalette);
 			}
 		}
+		// 7.A.4: build cycle-phase shade tables if paletteCycle: was specified.
+		if (!spritePack->getPaletteCycle().empty())
+		{
+			spritePack->buildCycleTables(_surfaces[spritePack->getType()],
+				[this](const std::string& name) -> const SDL_Color* {
+					Palette *p = getPalette(name, false);
+					return p ? p->getColors() : nullptr;
+				});
+		}
 	}
 	else
 	{
@@ -6216,7 +7680,42 @@ void Mod::loadExtraSprite(ExtraSprites *spritePack)
 				_sets[spritePack->getType()]->setPalette(_statePalette);
 			}
 		}
+		// 7.A.4: build cycle-phase shade tables if paletteCycle: was specified.
+		if (!spritePack->getPaletteCycle().empty())
+		{
+			spritePack->buildCycleTables(_sets[spritePack->getType()],
+				[this](const std::string& name) -> const SDL_Color* {
+					Palette *p = getPalette(name, false);
+					return p ? p->getColors() : nullptr;
+				});
+		}
 	}
+}
+
+/**
+ * Synthesises palette-cycle ShadeTable arrays for vanilla TFTD assets.
+ *
+ * TODO (7.A.4): catalogue each animated palette group here once the
+ * exact index ranges and per-phase rotations are confirmed against real
+ * TFTD.PAL data.  The groups are:
+ *   - Indices 48-63  (color group 3): Battlescape water animation, 16 phases
+ *   - Indices 96-111 (color group 6): Alien terrain electricity, 16 phases
+ *   - Indices 112-127 (color group 7): Mission countdown clock, 16 phases
+ *   - Indices 16-31  (color group 1): Smoke colour-shift, 16 phases
+ *
+ * For each group: phase N is a left-rotation of the 16 indices by N
+ * steps.  Build a full ShadeTable for each rotation (256×16 entries)
+ * and call SurfaceSet->getFrame(i)->attachShadeCycle(...) for each
+ * affected PCK set.  The primary shade table (non-cycle) stays as-is.
+ */
+void Mod::buildVanillaCycleTables()
+{
+	// TODO Phase 8: populate vanilla TFTD palette-cycle catalogue.
+	// Groups: underwater shimmer (indices 128-143), electricity (96-111),
+	// countdown clock (112-127), smoke shift (16-31). Each group cycles
+	// 16 phases as a left-rotation of the 16 palette indices.
+	// R2.3 decision: structural infrastructure (_shadeCycle, attachShadeCycle,
+	// getShadeTable(int)) retained; catalogue work deferred.
 }
 
 /**
@@ -6433,14 +7932,14 @@ void Mod::createTransparencyLUT(Palette *pal)
 			{
 				SDL_Color desiredColor;
 
-				desiredColor.r = std::min(255, (palColors[currentColor].r * tint.unused / 255) + tint.r);
-				desiredColor.g = std::min(255, (palColors[currentColor].g * tint.unused / 255) + tint.g);
-				desiredColor.b = std::min(255, (palColors[currentColor].b * tint.unused / 255) + tint.b);
+				desiredColor.r = std::min(255, (palColors[currentColor].r * tint.a / 255) + tint.r);
+				desiredColor.g = std::min(255, (palColors[currentColor].g * tint.a / 255) + tint.g);
+				desiredColor.b = std::min(255, (palColors[currentColor].b * tint.a / 255) + tint.b);
 
 				Uint8 closest = currentColor;
 				int lowestDifference = INT_MAX;
 				// if opacity is zero then we stay with current color, transparent color will stay same too
-				if (tint.unused != 0 && currentColor != 0)
+				if (tint.a != 0 && currentColor != 0)
 				{
 					// now compare each color in the palette to find the closest match to our desired one
 					for (int comparator = 1; comparator < TransparenciesPaletteColors; ++comparator)

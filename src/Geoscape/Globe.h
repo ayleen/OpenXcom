@@ -34,6 +34,9 @@ class Target;
 class LocalizedText;
 class RuleGlobe;
 class Craft;
+#ifdef __EMSCRIPTEN__
+class Shader;
+#endif
 
 /**
  * Interactive globe view of the world.
@@ -79,6 +82,24 @@ private:
 	int _totalMouseMoveX, _totalMouseMoveY;
 	bool _mouseMovedOverThreshold;
 
+#ifdef __EMSCRIPTEN__
+	/* Phase 8c — HD GPU sphere */
+	unsigned  _sphereVAO    = 0u;
+	unsigned  _sphereFBO    = 0u;
+	unsigned  _sphereFBOTex = 0u;
+	bool      _gpuSphereOK  = false;
+	Shader*   _globeShader  = nullptr; // owned; created in initSphereGPU()
+
+	/// One-time GPU resource initialisation for the sphere.
+	bool initSphereGPU();
+	/// Draws a deterministic pixel-art space background behind the HD sphere.
+	void drawHDStarfield();
+	/// Renders the sphere via GPU and reads back pixels into this surface.
+	void drawSphereGPU();
+	/// Sun direction in the fixed world frame the shader uses.
+	Cord getSunDirectionWorld() const;
+#endif
+
 	/// Sets the globe zoom factor.
 	void setZoom(size_t zoom);
 	/// Checks if a point is behind the globe.
@@ -103,6 +124,8 @@ private:
 	void drawTarget(Target *target, Surface *surface);
 	/// Set up the radius of earth and stuff.
 	void setupRadii(int width, int height);
+	/// Rebuild the per-zoom surface-normal cache used by drawShadow.
+	void rebuildEarthData();
 public:
 	static Uint8 OCEAN_COLOR;
 	static bool OCEAN_SHADING;

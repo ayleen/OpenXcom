@@ -68,7 +68,7 @@ void Music::load(SDL_RWops *rwops)
 {
 #ifndef __NO_MUSIC
 	_rwops = rwops;
-	_music = Mix_LoadMUS_RW(_rwops);
+	_music = Mix_LoadMUS_RW(_rwops, 0);
 
 	if (_music == 0)
 	{

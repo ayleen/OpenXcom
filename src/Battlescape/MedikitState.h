@@ -36,6 +36,9 @@ struct BattleAction;
 class MedikitState : public State
 {
 	Surface *_bg;
+#ifdef __EMSCRIPTEN__
+	SDL_Surface *_bgNative = nullptr;  ///< Calypso: 320×200 bg snapshot, bilinear-stretched into the scaled _bg
+#endif
 	MedikitView *_medikitView;
 	Text *_pkText, *_stimulantTxt,  *_healTxt, *_partTxt, *_woundTxt;
 	InteractiveSurface *_endButton, *_stimulantButton, *_pkButton, *_healButton;
@@ -56,6 +59,10 @@ class MedikitState : public State
 public:
 	/// Creates the MedikitState.
 	MedikitState(BattleUnit *targetUnit, BattleAction *action, TileEngine *tile);
+	/// Cleans up the MedikitState.
+	~MedikitState();
+	/// Calypso: rescale to the logical buffer instead of the base recenter.
+	void resize(int &dX, int &dY) override;
 	/// Handler for right-clicking anything.
 	void handle(Action *action) override;
 };

@@ -20,6 +20,10 @@
 #include "../Engine/Yaml.h"
 #include <string>
 #include <map>
+#include <vector>
+#include <functional>
+
+struct SDL_Color;
 
 namespace OpenXcom
 {
@@ -41,6 +45,11 @@ private:
 	bool _singleImage;
 	int _subX, _subY;
 	bool _loaded;
+	bool _hd;
+	// Phase 7.A.4: palette-cycle phase palette names.
+	// Each entry names a Mod palette (looked up via paletteLookup in
+	// buildCycleTables). Empty means no palette cycling for this asset.
+	std::vector<std::string> _paletteCycle;
 
 	Surface *getFrame(SurfaceSet *set, int index) const;
 public:
@@ -66,6 +75,17 @@ public:
 	int getSubY() const;
 	/// Has this sprite been loaded?
 	bool isLoaded() const;
+	/// Is this an HD (32-bit RGBA) sprite?
+	bool isHD() const;
+	/// Returns the palette-cycle phase list (may be empty).
+	const std::vector<std::string>& getPaletteCycle() const { return _paletteCycle; }
+	/// Builds and attaches cycle-phase ShadeTable objects to all frames of a surface set.
+	/// paletteLookup(name) must return a pointer to 256 SDL_Color entries or nullptr.
+	void buildCycleTables(SurfaceSet *set,
+	                      const std::function<const SDL_Color*(const std::string&)>& paletteLookup) const;
+	/// Overload for single-image surfaces.
+	void buildCycleTables(Surface *surface,
+	                      const std::function<const SDL_Color*(const std::string&)>& paletteLookup) const;
 	/// Checks if a filename is a valid image file.
 	static bool isImageFile(const std::string &filename);
 	/// Load the external sprite into a surface.

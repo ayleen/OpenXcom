@@ -35,6 +35,10 @@
 #include "../Interface/Text.h"
 #include "MainMenuState.h"
 #include "CutsceneState.h"
+#ifdef __EMSCRIPTEN__
+#include "CalypsoSplashState.h"
+#include "../Mod/Mod.h"
+#endif
 #include <SDL_mixer.h>
 #include <SDL_thread.h>
 
@@ -142,7 +146,7 @@ void StartState::init()
 	}
 
 	// Load the game data in a separate thread
-	_thread = SDL_CreateThread(load, (void*)_game);
+	_thread = SDL_CreateThread(load, "loader", (void*)_game);
 	if (_thread == 0)
 	{
 		// If we can't create the thread, just load it as usual
@@ -179,6 +183,14 @@ void StartState::think()
 		{
 			_game->pushState(new CutsceneState("intro"));
 		}
+#ifdef __EMSCRIPTEN__
+		// Push HD splash on top of GoToMainMenuState so it renders first.
+		// The splash pops itself after 1.5s, yielding to GoToMainMenuState.
+		if (_game->getMod()->getSurface("CALYPSO_SPLASH_HD", false))
+		{
+			_game->pushState(new CalypsoSplashState);
+		}
+#endif
 		if (Options::reload)
 		{
 			Options::reload = false;

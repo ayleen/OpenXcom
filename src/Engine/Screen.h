@@ -19,6 +19,8 @@
  */
 #include <SDL.h>
 #include <string>
+#include <functional>
+#include <vector>
 #include "OpenGL.h"
 #include "Surface.h"
 
@@ -40,11 +42,13 @@ class Screen
 {
 private:
 	SDL_Surface *_screen;
+	SDL_Window   *_window;
+	SDL_Renderer *_renderer;
+	SDL_Texture  *_texture;
 	int _bpp;
 	int _baseWidth, _baseHeight;
 	double _scaleX, _scaleY;
 	int _topBlackBand, _bottomBlackBand, _leftBlackBand, _rightBlackBand, _cursorTopBlackBand, _cursorLeftBlackBand;
-	Uint32 _flags;
 	SDL_Color deferredPalette[256];
 	int _numColors, _firstColor;
 	bool _pushPalette;
@@ -52,7 +56,15 @@ private:
 	OpenGL glOutput;
 	Surface::UniqueBufferPtr _buffer;
 	Surface::UniqueSurfacePtr _surface;
-	/// Sets the _flags and _bpp variables based on game options; needed in more than one place now
+	/** GPU passes that fire BEFORE the SDL surface composite (Phase 13.3). */
+	std::vector<std::function<void()>> _gpuPassesPre;
+	/** GPU passes registered via registerGPUPass — called each frame in flip(). */
+	std::vector<std::function<void()>> _gpuPasses;
+	/** Frame counter for periodic GPU pass timing logs (Phase 8b.9). */
+	unsigned _gpuFrameCount = 0u;
+	/** Accumulated GPU pass wall-clock time for the current 60-frame window (µs). */
+	long long _gpuPassAccumUs = 0;
+	/// Sets _bpp, _baseWidth, _baseHeight from current options.
 	void makeVideoFlags();
 public:
 	static const int ORIGINAL_WIDTH;
@@ -92,14 +104,27 @@ public:
 	int getCursorTopBlackBand() const;
 	/// Gets the screen's left black forbidden to cursor band's width.
 	int getCursorLeftBlackBand() const;
-	/// Takes a screenshot.
+	/// Takes a screenshot from the CPU surface.
 	void screenshot(const std::string &filename) const;
+	/// Takes a screenshot by reading back the GPU framebuffer (Phase 8b).
+	void screenshotGPU(const std::string &filename) const;
+	/** Register a per-frame GPU shader pass.  The callable must save and restore
+	 *  all GL state (program, VAO, blend, depth) around its own GL calls.
+	 *  SDL_RenderFlush is called before the first pass each frame. */
+	void registerGPUPass(std::function<void()> pass);
+	/** Register a pass that fires BEFORE the SDL surface composite (Phase 13.3).
+	 *  Use for HD tile geometry so it renders under CPU-drawn units / HUD. */
+	void registerGPUPassPreComposite(std::function<void()> pass);
 	/// Checks whether a 32bit scaler is requested and works for the selected resolution
 	static bool use32bitScaler();
 	/// Checks whether OpenGL output is requested
 	static bool useOpenGL();
 	/// update the game scale as required.
 	static void updateScale(int type, int &width, int &height, bool change);
+	/// Maps a screen-relative ScaleType to its display fraction (num/den).
+	/// Used by the Battlescape/Geoscape resize() proportional path and the
+	/// Video-menu labels so the canvas keeps the display aspect ratio.
+	static void getScreenScaleFraction(int scaleType, int &num, int &den);
 };
 
 }
