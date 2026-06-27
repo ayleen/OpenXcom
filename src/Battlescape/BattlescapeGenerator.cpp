@@ -1875,8 +1875,10 @@ BattleUnit *BattlescapeGenerator::addCivilian(Unit *rules, int nodeRank)
 	// Phase 32: give each civilian a randomized personality so a crowd is not a set of
 	// clones. A brave minority (~1 in 4) holds its nerve, will scavenge a dropped weapon
 	// and shoot back; the timid majority flees to safety and freezes under pressure.
-	if (_save->getMod()->getAISmartCivilians())
+	if (_save->getMod()->getAISmartCivilians() && !(rules && rules->isCivilianGuard()))
 	{
+		// Guards keep their ruleset personality (high bravery + aggression + built-in weapon);
+		// only the ordinary crowd is jittered into a timid majority and a brave minority.
 		if (RNG::percent(25))
 		{
 			unit->setAggression(2);
@@ -2668,6 +2670,16 @@ void BattlescapeGenerator::deployCivilians(bool markAsVIP, int nodeRank, int max
 				{
 					size_t pick = RNG::generate(0, _terrain->getCivilianTypes().size() - 1);
 					rule = _game->getMod()->getUnit(_terrain->getCivilianTypes().at(pick), true);
+
+					// Phase 32 (Calypso): a minority of the random crowd spawns as armed guards
+					// (only when the mod opts in via ai.civilianGuardType / civilianGuardChance).
+					const std::string& guardType = _game->getMod()->getAICivilianGuardType();
+					if (!guardType.empty()
+						&& _game->getMod()->getAISmartCivilians()
+						&& RNG::percent(_game->getMod()->getAICivilianGuardChance()))
+					{
+						rule = _game->getMod()->getUnit(guardType, true);
+					}
 				}
 				BattleUnit* civ = addCivilian(rule, nodeRank);
 				if (civ)

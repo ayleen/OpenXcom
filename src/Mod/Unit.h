@@ -479,6 +479,7 @@ private:
 	bool _canPanic;
 	bool _canBeMindControlled;
 	int _berserkChance;
+	bool _civilianGuard;
 
 public:
 	/// Creates a blank unit ruleset.
@@ -597,6 +598,8 @@ public:
 	bool canBeMindControlled() const { return _canBeMindControlled; }
 	/// Gets the probability of unit berserking when panicked.
 	int getBerserkChance() const { return _berserkChance; }
+	/// Phase 32 (Calypso): is this civilian an armed guard (protects other civilians)?
+	bool isCivilianGuard() const { return _civilianGuard; }
 
 	/// Name of class used in script.
 	static constexpr const char *ScriptName = "RuleUnit";

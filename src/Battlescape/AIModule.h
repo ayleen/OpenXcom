@@ -72,6 +72,14 @@ private:
 	bool isSmartCivilian() const;
 	/// Phase 32: position a fleeing civilian should head toward (nearest soldier > civilian cluster > map edge).
 	bool findCivilianSafetyTarget(Position& out) const;
+	/// Phase 32: true for an armed civilian guard (a smart civilian whose ruleset sets civilianGuard).
+	bool isCivilianGuard() const;
+	/// Phase 32: nearest distressed civilian a guard can "hear" (panic/low morale/threatened nearby).
+	BattleUnit *findDistressedCivilian() const;
+	/// Phase 32: where a guard should advance when no alien is perceived (rescue civ > regroup with soldier > stay with crowd).
+	bool findGuardObjective(Position& out) const;
+	/// Phase 32: fill _patrolAction with a walk toward the guard objective; returns false if none.
+	bool setupGuardMove();
 public:
 	bool medikit_think(BattleMediKitType healOrStim);
 public:
