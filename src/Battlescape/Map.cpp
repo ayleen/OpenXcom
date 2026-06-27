@@ -4892,6 +4892,14 @@ void Map::drawEmissiveGLPass()
 	glGetIntegerv(GL_BLEND_SRC_ALPHA, &prevSrcA);
 	glGetIntegerv(GL_BLEND_DST_ALPHA, &prevDstA);
 	glGetIntegerv(GL_CURRENT_PROGRAM, &prevProgram);
+	// Save depth-test enable + write-mask too: this pass disables both. Nothing
+	// depth-dependent runs after it this frame (only the SSAA downsample/grade)
+	// and drawTileGLPass re-establishes them next frame, so the disable is
+	// currently benign — but restore symmetrically (like blend/program above) so
+	// a future pass appended after the emissive draw can't inherit a stale state.
+	GLboolean prevDepthTest = glIsEnabled(GL_DEPTH_TEST);
+	GLboolean prevDepthMask = GL_TRUE;
+	glGetBooleanv(GL_DEPTH_WRITEMASK, &prevDepthMask);
 
 	glDisable(GL_DEPTH_TEST);
 	glDepthMask(GL_FALSE);
@@ -4922,11 +4930,13 @@ void Map::drawEmissiveGLPass()
 	}
 	glBindVertexArray(0);
 
-	// Restore exact prior blend state + full colour mask + bound program.
+	// Restore exact prior blend state + full colour mask + bound program + depth.
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 	glBlendFuncSeparate((GLenum)prevSrcRGB, (GLenum)prevDstRGB,
 	                    (GLenum)prevSrcA,   (GLenum)prevDstA);
 	if (!prevBlend) glDisable(GL_BLEND);
+	glDepthMask(prevDepthMask);
+	if (prevDepthTest) glEnable(GL_DEPTH_TEST); else glDisable(GL_DEPTH_TEST);
 	glUseProgram((GLuint)prevProgram);
 #endif
 }
