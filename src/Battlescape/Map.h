@@ -297,6 +297,10 @@ private:
 	/// per-turn target each frame so the "time of day" sweep transitions smoothly
 	/// instead of snapping at turn boundaries. Per-battle (Map is recreated).
 	float        _reliefSunAzimuth = 0.0f;
+	/// Phase 25 R3: last SDL_GetTicks() (seconds) sampled by the relief-sun ease,
+	/// so the lerp uses a real dt (FPS-independent 1 - exp(-dt/tau)). < 0 = first
+	/// frame (no prior sample yet). Per-battle (Map is recreated).
+	float        _reliefSunLastT  = -1.0f;
 	/// Lifetime flag: reset in ~Map() so the registered GPU-pass lambda becomes a no-op.
 	std::shared_ptr<bool>    _gpuAliveFlag;
 

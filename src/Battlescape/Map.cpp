@@ -3589,6 +3589,11 @@ void Map::drawUnitNameplates(Surface *surface)
 	const int barH = std::max(2, sh / 18);             // per-bar height
 	const int gap  = std::max(1, sh / 80);             // gap between bars
 	const int viewLevel = _camera->getViewLevel();
+	// By design the name uses the fixed-size HD-numeral font (FONT_HD_NUMBERS):
+	// like the in-world cursor/TU numerals, the glyph size is resolution-fixed and
+	// intentionally does NOT scale with battlescapeTileScale (the bars below DO, via
+	// _spriteWidth/_spriteHeight). Pronounced only at the experimental tileScale: 4;
+	// scaling the text would need a tileScale-aware TTF size, not done here.
 	TTFFont *font = getHdNumberFont();                 // small Oxanium (size 12)
 
 	// The 32bpp ARGB intermediate's channel layout. The entry guard above proved
@@ -4446,7 +4451,15 @@ void Map::drawTileGLPass()
 		const int   turn     = _save ? _save->getTurn() : 1;
 		const float t        = (float)SDL_GetTicks() * 0.001f;
 		const float targetAz = (float)turn * 0.40f;                  // ~23 deg / turn
-		_reliefSunAzimuth   += (targetAz - _reliefSunAzimuth) * 0.015f;  // ~2-3 s ease
+		// Frame-rate-INDEPENDENT ease toward the per-turn target: a fixed ~1.1 s
+		// time-constant via 1 - exp(-dt/tau), not a per-frame constant (which would
+		// transition faster at high FPS). dt is clamped so a tab-switch / pause
+		// stall can't snap the sun across the map. _reliefSunLastT < 0 = first frame.
+		const float dtRaw    = (_reliefSunLastT < 0.0f) ? (1.0f / 60.0f) : (t - _reliefSunLastT);
+		_reliefSunLastT      = t;
+		const float dt       = std::min(std::max(dtRaw, 0.0f), 0.1f);
+		const float ease     = 1.0f - std::exp(-dt / 1.1f);          // ~1.1 s ease (~2-3 s settle)
+		_reliefSunAzimuth   += (targetAz - _reliefSunAzimuth) * ease;
 		const float az       = _reliefSunAzimuth + 0.12f * std::sin(t * 0.05f);  // wobble
 		const float lat      = 0.45f;                                // lean off vertical
 		sd[0] = lat * std::cos(az);
