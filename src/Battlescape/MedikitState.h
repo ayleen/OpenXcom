@@ -36,7 +36,9 @@ struct BattleAction;
 class MedikitState : public State
 {
 	Surface *_bg;
+#ifdef __EMSCRIPTEN__
 	SDL_Surface *_bgNative = nullptr;  ///< Calypso: 320×200 bg snapshot, bilinear-stretched into the scaled _bg
+#endif
 	MedikitView *_medikitView;
 	Text *_pkText, *_stimulantTxt,  *_healTxt, *_partTxt, *_woundTxt;
 	InteractiveSurface *_endButton, *_stimulantButton, *_pkButton, *_healButton;

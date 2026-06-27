@@ -36,7 +36,9 @@ class AlienInventoryState : public State
 {
 private:
 	Surface *_bg, *_soldier;
+#ifdef __EMSCRIPTEN__
 	SDL_Surface *_bgNative = nullptr, *_soldierNative = nullptr;  ///< Calypso: bg/paperdoll snapshots, bilinear-stretched into the scaled surfaces
+#endif
 	BattlescapeButton *_btnArmor;
 	Text *_txtName;
 	Text *_txtFatalWounds;

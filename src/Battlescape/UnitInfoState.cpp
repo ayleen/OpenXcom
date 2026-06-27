@@ -501,10 +501,12 @@ UnitInfoState::UnitInfoState(BattleUnit *unit, BattlescapeState *parent, bool fr
  */
 UnitInfoState::~UnitInfoState()
 {
+#ifdef __EMSCRIPTEN__
 	if (_bgNative)
 	{
 		SDL_FreeSurface(_bgNative);
 	}
+#endif
 }
 
 /**

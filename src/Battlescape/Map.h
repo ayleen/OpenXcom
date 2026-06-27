@@ -453,10 +453,6 @@ private:
 	std::vector<TileInstance> _unitShadowInst;
 	void emitUnitPass();
 	void drawUnitGLPass();
-	/// Draw unit instances at the given (Z, Y) row. activeShader is in/out so
-	/// we don't rebind/reupload uniforms when called repeatedly within one
-	/// drawTileGLPass loop.
-	void drawUnitsAtZY(int z, int y, Shader*& activeShader);
 #endif
 	int getTerrainLevel(const Position& pos, int size) const;
 	int getWallShade(TilePart part, Tile* tileFrot);

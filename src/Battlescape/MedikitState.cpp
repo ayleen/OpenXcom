@@ -220,10 +220,12 @@ MedikitState::MedikitState (BattleUnit *targetUnit, BattleAction *action, TileEn
  */
 MedikitState::~MedikitState()
 {
+#ifdef __EMSCRIPTEN__
 	if (_bgNative)
 	{
 		SDL_FreeSurface(_bgNative);
 	}
+#endif
 }
 
 /**

@@ -510,9 +510,9 @@ void Map::init()
 		_gpuAliveFlag = std::make_shared<bool>(true);
 		std::weak_ptr<bool> wf = _gpuAliveFlag;
 		// Phase 13.3: tile pass fires BEFORE SDL composite so HD floor renders
-		// under CPU-drawn units / walls / HUD. Tile pass internally interleaves
-		// unit draws via drawUnitsAtZ(z) between Z slices for correct
-		// occlusion (e.g. submarine roof above units inside the cargo bay).
+		// under CPU-drawn units / walls / HUD. Units draw in a depth-ordered
+		// block within the tile pass (GPU depth test resolves occlusion, e.g. the
+		// submarine roof above units inside the cargo bay).
 		_game->getScreen()->registerGPUPassPreComposite([this, wf]() {
 			if (!wf.lock()) return;
 			this->drawTileGLPass();
@@ -3575,7 +3575,12 @@ void Map::drawUnitNameplates(Surface *surface)
 	if (!_game->getMod()->getCalypsoHudOverlay()) return;
 	if (!_camera || !_save || !surface) return;
 	SDL_Surface *destSurf = surface->getSurface();
+	// Require a true 8-bit-per-channel 32bpp format: the direct bit ops below read
+	// each channel as (Uint8)(px >> shift), which is only correct when the channel
+	// is exactly 8 bits (loss == 0). 32bpp alone does NOT imply this (e.g.
+	// ARGB2101010), though the engine's render surfaces are always ARGB8888.
 	if (!destSurf || destSurf->format->BitsPerPixel != 32) return;
+	if (destSurf->format->Rloss || destSurf->format->Gloss || destSurf->format->Bloss) return;
 
 	const int sw = _spriteWidth;
 	const int sh = _spriteHeight;
@@ -3586,11 +3591,22 @@ void Map::drawUnitNameplates(Surface *surface)
 	const int viewLevel = _camera->getViewLevel();
 	TTFFont *font = getHdNumberFont();                 // small Oxanium (size 12)
 
-	// Alpha-blend a solid rect into the 32bpp intermediate.  Same caveat as
-	// drawHdNumber: the overlay's alpha is consumed as opacity at Screen::flip,
-	// so we write opaque (a=0xFF) and fold the requested alpha into RGB here.
+	// The 32bpp ARGB intermediate's channel layout. The entry guard above proved
+	// the RGB channels are a clean 8 bits (Rloss/Gloss/Bloss == 0), so each channel
+	// mask is 0xFF and (Uint8)(px >> shift) extracts it exactly. Deriving the shifts
+	// once lets fillBlend/compositeARGB use direct bit ops instead of per-pixel
+	// SDL_GetRGBA/SDL_MapRGBA — those walk the format's mask/shift/loss fields with
+	// no SIMD, and the pixel count grows O(tileScale²) (M2). Output alpha is opaque
+	// (Amask); the overlay's alpha is consumed as opacity at Screen::flip, so we
+	// fold the requested alpha into RGB here (same caveat as drawHdNumber).
+	const SDL_PixelFormat *dfmt = destSurf->format;
+	const Uint8   dRs = dfmt->Rshift, dGs = dfmt->Gshift, dBs = dfmt->Bshift;
+	const Uint32  dAmask = dfmt->Amask;
+
 	auto fillBlend = [&](int x, int y, int w, int h, Uint8 r, Uint8 g, Uint8 b, int alpha)
 	{
+		const int ia = 255 - alpha;
+		const int ra = r * alpha, ga = g * alpha, ba = b * alpha;
 		for (int j = 0; j < h; ++j)
 		{
 			const int dy = y + j;
@@ -3600,13 +3616,13 @@ void Map::drawUnitNameplates(Surface *surface)
 			{
 				const int dx = x + i;
 				if (dx < 0 || dx >= dW) continue;
-				Uint8 dr, dg, db, da;
-				SDL_GetRGBA(row[dx], destSurf->format, &dr, &dg, &db, &da);
-				const int a = alpha, ia = 255 - a;
-				row[dx] = SDL_MapRGBA(destSurf->format,
-					(Uint8)((r * a + dr * ia) / 255),
-					(Uint8)((g * a + dg * ia) / 255),
-					(Uint8)((b * a + db * ia) / 255), 0xFF);
+				const Uint32 px = row[dx];
+				const Uint8 outR = (Uint8)((ra + (Uint8)(px >> dRs) * ia) / 255);
+				const Uint8 outG = (Uint8)((ga + (Uint8)(px >> dGs) * ia) / 255);
+				const Uint8 outB = (Uint8)((ba + (Uint8)(px >> dBs) * ia) / 255);
+				row[dx] = dAmask | ((Uint32)outR << dRs)
+				                 | ((Uint32)outG << dGs)
+				                 | ((Uint32)outB << dBs);
 			}
 		}
 	};
@@ -3622,11 +3638,14 @@ void Map::drawUnitNameplates(Surface *surface)
 			fillBlend(x + barW * t / 4, y, 1, barH, 0, 0, 0, 150);
 	};
 
-	// Manual ARGB composite for the TTF name (mirrors drawHdNumber).
+	// Manual ARGB composite for the TTF name (mirrors drawHdNumber). src may have a
+	// different 32bpp layout than dest (TTF surface), so derive its shifts per call.
 	auto compositeARGB = [&](SDL_Surface *src, int dstX, int dstY)
 	{
 		if (!src || src->format->BitsPerPixel != 32) return;
 		SDL_LockSurface(src);
+		const SDL_PixelFormat *sfmt = src->format;
+		const Uint8 sRs = sfmt->Rshift, sGs = sfmt->Gshift, sBs = sfmt->Bshift, sAs = sfmt->Ashift;
 		const int srcW = src->w, srcH = src->h;
 		for (int j = 0; j < srcH; ++j)
 		{
@@ -3638,16 +3657,17 @@ void Map::drawUnitNameplates(Surface *surface)
 			{
 				const int dx = dstX + i;
 				if (dx < 0 || dx >= dW) continue;
-				Uint8 sr, sg, sb, sa;
-				SDL_GetRGBA(srcRow[i], src->format, &sr, &sg, &sb, &sa);
-				if (sa == 0) continue;
-				Uint8 dr, dg, db, da;
-				SDL_GetRGBA(dstRow[dx], destSurf->format, &dr, &dg, &db, &da);
-				const int a = sa, ia = 255 - a;
-				dstRow[dx] = SDL_MapRGBA(destSurf->format,
-					(Uint8)((sr * a + dr * ia) / 255),
-					(Uint8)((sg * a + dg * ia) / 255),
-					(Uint8)((sb * a + db * ia) / 255), 0xFF);
+				const Uint32 sp = srcRow[i];
+				const int a = (Uint8)(sp >> sAs);
+				if (a == 0) continue;
+				const int ia = 255 - a;
+				const Uint32 dp = dstRow[dx];
+				const Uint8 outR = (Uint8)(((Uint8)(sp >> sRs) * a + (Uint8)(dp >> dRs) * ia) / 255);
+				const Uint8 outG = (Uint8)(((Uint8)(sp >> sGs) * a + (Uint8)(dp >> dGs) * ia) / 255);
+				const Uint8 outB = (Uint8)(((Uint8)(sp >> sBs) * a + (Uint8)(dp >> dBs) * ia) / 255);
+				dstRow[dx] = dAmask | ((Uint32)outR << dRs)
+				                    | ((Uint32)outG << dGs)
+				                    | ((Uint32)outB << dBs);
 			}
 		}
 		SDL_UnlockSurface(src);
@@ -3705,76 +3725,11 @@ void Map::drawUnitNameplates(Surface *surface)
 }
 
 /**
- * Phase 14.2: legacy single-pass unit draw — kept as no-op since
- * drawTileGLPass now interleaves unit draws via drawUnitsAtZ().
+ * Phase 14.2: legacy single-pass unit draw — kept as a no-op. Units are drawn by
+ * the depth-ordered `drawAtlas` block in drawTileGLPass (GPU depth test resolves
+ * inter-group iso order), not by a per-row interleave.
  */
 void Map::drawUnitGLPass() {}
-
-/**
- * Draw unit instances at the given (Z, Y) row. Filters _unitAtlasGroups
- * instances by (zLevels[i], yLevels[i]) == (z, y). Called from drawTileGLPass
- * between tile (Z, Y) row slices.
- */
-void Map::drawUnitsAtZY(int z, int y, Shader*& activeShader)
-{
-	if (!_shadeTableTex || !_shadeTableTex->isValid()) return;
-	if (!_tileShader   || !_tileShader->isValid())   return;
-
-	const float SW = (float)Options::baseXResolution;
-	const float SH = (float)Options::baseYResolution;
-
-	// Iterate groups in two passes: floor items first (FLOOROB.PCK), then unit
-	// bodies + held items (everything else). Within a (Z, Y) row this gives:
-	// floor items → unit bodies → unit held items, matching iso order.
-	const Mod::UnitAtlasSpec* floorSpec  = _game->getMod()->getUnitAtlas("FLOOROB.PCK");
-
-	auto drawGroup = [&](UnitAtlasGroup& g) {
-		if (g.instances.empty() || !g.spec || !g.spec->atlas) return;
-		if (g.zLevels.size() != g.instances.size()) return;
-		if (g.yLevels.size() != g.instances.size()) return;
-
-		std::vector<TileInstance> scratch;
-		scratch.reserve(g.instances.size());
-		for (size_t i = 0; i < g.instances.size(); ++i)
-			if (g.zLevels[i] == z && g.yLevels[i] == y)
-				scratch.push_back(g.instances[i]);
-		if (scratch.empty()) return;
-
-		if (activeShader != _tileShader)
-		{
-			_tileShader->use();
-			_tileShader->setUniform2f("u_screenSize",    SW, SH);
-			_tileShader->setUniform2f("u_tilePixelSize", (float)_spriteWidth, (float)_spriteHeight);
-			_tileShader->setUniform1f("u_animFrame",     0.0f);
-			_tileShader->setUniform1i("u_atlas",         0);
-			_tileShader->setUniform1i("u_shadeTable",    1);
-			_shadeTableTex->bind(1);
-			activeShader = _tileShader;
-		}
-
-		const float uvW = (float)g.spec->tileWidth  / (float)g.spec->atlasW;
-		const float uvH = (float)g.spec->tileHeight / (float)g.spec->atlasH;
-		g.spec->atlas->bind(0);
-		_tileShader->setUniform2f("u_tileUVSize", uvW, uvH);
-		// Phase 25 R7: fake unit lighting on unit bodies + held items, but NOT floor
-		// items (they lie flat — a vertical AO would read wrong). Per-draw (shared
-		// shader); g_calypsoUnitShade scales / disables it.
-		_tileShader->setUniform1f("u_unitShade",
-		                          (g.spec == floorSpec) ? 0.0f : g_calypsoUnitShade);
-		glBindBuffer(GL_ARRAY_BUFFER, _tileIBO);
-		glBufferData(GL_ARRAY_BUFFER,
-		             (GLsizeiptr)(scratch.size() * sizeof(TileInstance)),
-		             scratch.data(),
-		             GL_DYNAMIC_DRAW);
-		glDrawArraysInstanced(GL_TRIANGLES, 0, 6, (GLsizei)scratch.size());
-	};
-
-	for (auto& g : _unitAtlasGroups)
-		if (g.spec == floorSpec) drawGroup(g);
-
-	for (auto& g : _unitAtlasGroups)
-		if (g.spec != floorSpec) drawGroup(g);
-}
 
 /**
  * Initialise VAO/VBO/IBO for instanced tile draw and compile tile_atlas shader.
@@ -4301,8 +4256,12 @@ void Map::drawTileGLPass()
 
 	Shader* activeShader = nullptr;
 
+	// drawAtlas is the UNIT draw path (called from the _unitAtlasGroups loop with
+	// isRgba=false). unitShade (Phase 25 R7) feeds u_unitShade: g_calypsoUnitShade
+	// for bodies/held items, 0 for floor items / any non-fake-AO draw.
 	auto drawAtlas = [&](GpuTexture* atlas, float uvW, float uvH,
-	                     const TileInstance* data, size_t count, bool isRgba) {
+	                     const TileInstance* data, size_t count, bool isRgba,
+	                     float unitShade) {
 		Shader* sh = isRgba ? _tileShaderRgba : _tileShader;
 		if (!sh || !sh->isValid()) return;
 		// P17: explicit bind so blend draw's _blendVAO doesn't leak into this call.
@@ -4329,10 +4288,10 @@ void Map::drawTileGLPass()
 		}
 		atlas->bind(0);
 		sh->setUniform2f("u_tileUVSize", uvW, uvH);
-		// Phase 25 R7: tiles never get the unit fake-AO. Set per-draw (not cached) —
-		// _tileShader is shared with the interleaved unit draws, which set it to >0.
+		// Phase 25 R7: fake unit lighting. Set per-draw (not in the cached setup) —
+		// _tileShader is shared with the tile draws, which reset it to 0.
 		if (!isRgba)
-			sh->setUniform1f("u_unitShade", 0.0f);
+			sh->setUniform1f("u_unitShade", unitShade);
 		glBindBuffer(GL_ARRAY_BUFFER, _tileIBO);
 		glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)(count * sizeof(TileInstance)),
 		             data, GL_DYNAMIC_DRAW);
@@ -4421,6 +4380,12 @@ void Map::drawTileGLPass()
 		}
 		atlas->bind(0);
 		sh->setUniform2f("u_tileUVSize", uvW, uvH);
+		// Phase 25 R7: tiles never get the unit fake-AO. Reset per-draw because the
+		// R8 _tileShader is shared with the unit draws (which set u_unitShade > 0),
+		// and tiles draw first each frame — they'd otherwise inherit the prior
+		// frame's unit value. RGBA tiles (_tileShaderRgba) have no such uniform.
+		if (!isRgba)
+			sh->setUniform1f("u_unitShade", 0.0f);
 		glBindBuffer(GL_ARRAY_BUFFER, _tileInstIBO);
 		pointTileInstanceAttribs(baseInstance);
 		glDrawArraysInstanced(GL_TRIANGLES, 0, 6, (GLsizei)count);
@@ -4440,13 +4405,17 @@ void Map::drawTileGLPass()
 
 	// Units / floor items / held items (palette unit atlases) — one draw call
 	// per group; depth test handles inter-group ordering.
+	// Phase 25 R7: unit bodies + held items get the fake-AO (g_calypsoUnitShade);
+	// floor items (FLOOROB.PCK) lie flat, so a vertical AO would read wrong → 0.
+	const Mod::UnitAtlasSpec* floorSpec = _game->getMod()->getUnitAtlas("FLOOROB.PCK");
 	for (auto& g : _unitAtlasGroups)
 	{
 		if (!g.spec || !g.spec->atlas || g.instances.empty()) continue;
 		const float uvW = (float)g.spec->tileWidth  / (float)g.spec->atlasW;
 		const float uvH = (float)g.spec->tileHeight / (float)g.spec->atlasH;
+		const float unitShade = (g.spec == floorSpec) ? 0.0f : g_calypsoUnitShade;
 		drawAtlas(g.spec->atlas, uvW, uvH,
-		          g.instances.data(), g.instances.size(), false);
+		          g.instances.data(), g.instances.size(), false, unitShade);
 	}
 
 	// Phase 17: hybrid RGBA overlay pass — drawn after tiles and units with
@@ -4583,6 +4552,7 @@ void Map::drawTileGLPass()
 		_blendShader->setUniform1i("u_noise",         2);
 		_blendShader->setUniform1i("u_shadeCurve",    3);
 		_blendShader->setUniform1i("u_hasNormalMap",  0);  // Phase 25 R3: default; set per-group below
+		_blendShader->setUniform1i("u_hasEmissive",   0);  // Phase 25 R6: default; set per-group below
 		_noiseTex->bind(2);
 		_shadeCurveTex->bind(3);
 		activeShader = nullptr;  // force drawAtlas to re-bind _tileShaderRgba after this
@@ -4604,6 +4574,18 @@ void Map::drawTileGLPass()
 			else
 			{
 				_blendShader->setUniform1i("u_hasNormalMap", 0);
+			}
+			// Phase 25 R6: blend-pass emissive (self-cell glow on transition tiles).
+			if (grp.hasEmissive && grp.emissiveAtlas && g_calypsoTileEmissive > 0.0f)
+			{
+				_blendShader->setUniform1i("u_emissive",    5);
+				_blendShader->setUniform1i("u_hasEmissive", 1);
+				_blendShader->setUniform1f("u_emissiveStrength", g_calypsoTileEmissive);
+				grp.emissiveAtlas->bind(5);
+			}
+			else
+			{
+				_blendShader->setUniform1i("u_hasEmissive", 0);
 			}
 			glBindBuffer(GL_ARRAY_BUFFER, _blendIBO);
 			glBufferData(GL_ARRAY_BUFFER,
@@ -4908,8 +4890,9 @@ void Map::drawEmissiveGLPass()
 	_emissiveShader->use();
 	_emissiveShader->setUniform2f("u_screenSize", SW, SH);
 	// Fire = warm orange. Engine fire light is the only RGB-less source today;
-	// R6 lava + future coloured sources can vary this per source.
-	const float tintR = 1.00f, tintG = 0.52f, tintB = 0.18f;
+	// R6 lava + future coloured sources can vary this per source — until then it is
+	// constant, so set it once above the loop (L6) rather than per source.
+	_emissiveShader->setUniform3f("u_tint", 1.00f, 0.52f, 0.18f);
 
 	glBindVertexArray(_emissiveVAO);
 	for (const EmissiveSource& es : _emissiveSources)
@@ -4921,7 +4904,6 @@ void Map::drawEmissiveGLPass()
 		const float intensity = g_calypsoUwEmissive * es.intensity * 1.8f;
 		_emissiveShader->setUniform2f("u_centerPx", es.cx, es.cy);
 		_emissiveShader->setUniform2f("u_halfPx",   halfX, halfY);
-		_emissiveShader->setUniform3f("u_tint",     tintR, tintG, tintB);
 		_emissiveShader->setUniform1f("u_intensity", intensity);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 	}

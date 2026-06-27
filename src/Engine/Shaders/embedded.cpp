@@ -762,6 +762,11 @@ uniform float u_animFrame;
 uniform sampler2D u_normalMap;
 uniform vec3      u_sunDir;
 uniform int       u_hasNormalMap;
+// Phase 25 R6: material emissive (unit 5) — RGB glow, A intensity. Same as
+// tile_atlas_rgba.frag so Wang-blend transition tiles glow too (no dark seam).
+uniform sampler2D u_emissive;
+uniform int       u_hasEmissive;
+uniform float     u_emissiveStrength;
 
 in vec2  v_uv;
 in vec2  v_neighbourUV;
@@ -851,7 +856,16 @@ void main()
         float ao = nm.a;                                   // R4: ambient occlusion
         relief = ao * (0.6 + 0.4 * max(dot(n, normalize(u_sunDir)), 0.0));
     }
-    fragColor = vec4(c.rgb * shadeF * relief, c.a);
+    vec3 lit = c.rgb * shadeF * relief;
+
+    // Phase 25 R6: self-cell material emission added on top (matches
+    // tile_atlas_rgba.frag), into the HDR buffer (R0) so it blooms.
+    if (u_hasEmissive == 1)
+    {
+        vec4 em = texture(u_emissive, v_uv + frameOff);
+        lit += em.rgb * em.a * u_emissiveStrength;
+    }
+    fragColor = vec4(lit, c.a);
 }
 )glsl";
 
