@@ -4721,9 +4721,9 @@ void BattlescapeState::applyHudNumber(NumberText* w, int value, Uint32 accentArg
 		std::ostringstream k;
 		k << "box#" << pw << "x" << ph << "#" << std::hex << (accentArgb & 0xFFFFFFu);
 		_map->setHudImage(imgSlot, k.str(), box, w->getX(), w->getY(), w->getWidth(), w->getHeight());
-		SDL_FreeSurface(box);
 	}
 	else if (_map) { _map->clearHudImage(imgSlot); }
+	if (box) SDL_FreeSurface(box);   // free regardless of _map — setHudImage uploaded its own copy
 
 	TTFFont* font = getHudFont();
 	const std::string digits = std::to_string(value);
