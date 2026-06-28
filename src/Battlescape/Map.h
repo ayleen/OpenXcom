@@ -300,6 +300,19 @@ private:
 	GpuTexture* getHudTextTexture(const std::string& text, Uint32 colorArgb);
 	void drawHudTextGLPass();
 
+	// Calypso: physical-resolution HUD IMAGE overlay — same idea as the text overlay but for
+	// the non-text HUD art (soldier portrait, HD rank insignia, stat-number ring/box). They too
+	// pixelate at the low resolution-menu fractions because they go through the small logical
+	// widget buffer; here their RGBA source is GPU-sampled (LINEAR) straight to the physical
+	// widget rect. Fixed slots (not a cleared list) so the BattlescapeState apply* calls — which
+	// fire in a different order than the text ones — each own exactly one slot, order-independent.
+public:
+	enum HudImageSlot { HUD_IMG_PORTRAIT, HUD_IMG_RANK, HUD_IMG_TU, HUD_IMG_ENERGY, HUD_IMG_HEALTH, HUD_IMG_MORALE, HUD_IMG_COUNT };
+private:
+	struct HudImageItem { float fitX, fitY, fitW, fitH; GpuTexture* tex; bool active = false; };
+	HudImageItem                        _hudImageSlots[HUD_IMG_COUNT];
+	std::map<std::string, GpuTexture*>  _hudImageTexCache;   // keyed by caller-supplied content/size key
+
 	/// Smoke/fire/explosion instance collected during emitTilePass() / emitSmokeInstances().
 	struct SmokeInstance
 	{
@@ -487,6 +500,13 @@ public:
 	/// name + 4 stat digits (logical widget rect + text + packed ARGB colour) each refresh.
 	void clearHudTextItems();
 	void addHudTextItem(float fitX, float fitY, float fitW, float fitH, const std::string& text, Uint32 colorArgb);
+	/// Calypso: HUD image overlay handoff. Upload (or fetch cached, keyed by `key`) the RGBA
+	/// `src` and bind it to `slot` (HudImageSlot), to be drawn at PHYSICAL res over the logical
+	/// widget rect (x,y,w,h). src==null or w/h<=0 clears the slot. Pass a key that changes when
+	/// the content/size changes (e.g. "rank#3", "portrait#XCOM_0.SPK", "box#120x64#ffcc00").
+	void setHudImage(int slot, const std::string& key, SDL_Surface* src, int x, int y, int w, int h);
+	/// Clear one HUD image slot (slot art no longer applies, e.g. non-soldier unit).
+	void clearHudImage(int slot);
 #endif
 	/// Handles timers.
 	void think() override;

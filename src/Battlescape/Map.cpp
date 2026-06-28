@@ -454,6 +454,9 @@ Map::~Map()
 	_spriteFrameCache.clear();
 	for (auto& p : _hudTextTexCache) delete p.second;
 	_hudTextTexCache.clear();
+	for (auto& p : _hudImageTexCache) delete p.second;
+	_hudImageTexCache.clear();
+	for (int i = 0; i < HUD_IMG_COUNT; ++i) _hudImageSlots[i].active = false;
 	if (_spriteVAO) { glDeleteVertexArrays(1, &_spriteVAO); _spriteVAO = 0; }
 	if (_spriteVBO) { glDeleteBuffers(1, &_spriteVBO);      _spriteVBO = 0; }
 #endif
@@ -596,6 +599,9 @@ void Map::init()
 			_spriteFrameCache.clear();
 			for (auto& p : _hudTextTexCache) delete p.second;
 			_hudTextTexCache.clear();
+			for (auto& p : _hudImageTexCache) delete p.second;
+			_hudImageTexCache.clear();
+			for (int i = 0; i < HUD_IMG_COUNT; ++i) _hudImageSlots[i].active = false;
 		});
 	}
 #endif
@@ -4754,6 +4760,52 @@ void Map::addHudTextItem(float fitX, float fitY, float fitW, float fitH,
 	_hudTextItems.push_back(HudTextItem{ fitX, fitY, fitW, fitH, text, colorArgb });
 }
 
+void Map::clearHudImage(int slot)
+{
+	if (slot >= 0 && slot < HUD_IMG_COUNT) _hudImageSlots[slot].active = false;
+}
+
+void Map::setHudImage(int slot, const std::string& key, SDL_Surface* src, int x, int y, int w, int h)
+{
+	if (slot < 0 || slot >= HUD_IMG_COUNT) return;
+	if (!src || w <= 0 || h <= 0) { _hudImageSlots[slot].active = false; return; }
+
+	// Fetch or upload the source as an RGBA GpuTexture, cached by the caller's content/size key.
+	// The quad's PHYSICAL size comes from (x,y,w,h)+xScale, so the LINEAR-sampled source lands
+	// crisp at any resolution-menu fraction (vs the old SDL_BlitScaled into the small logical
+	// widget surface, which then got stretched a second time → pixelated).
+	GpuTexture* tex = nullptr;
+	auto it = _hudImageTexCache.find(key);
+	if (it != _hudImageTexCache.end())
+	{
+		tex = it->second;
+	}
+	else
+	{
+		if (_hudImageTexCache.size() > 32)   // bound churn (6 ranks + portrait variants + box sizes)
+		{
+			for (auto& p : _hudImageTexCache) delete p.second;
+			_hudImageTexCache.clear();
+		}
+		SDL_Surface* rgba = SDL_ConvertSurfaceFormat(src, SDL_PIXELFORMAT_ABGR8888, 0);
+		if (rgba)
+		{
+			if (SDL_MUSTLOCK(rgba)) SDL_LockSurface(rgba);
+			tex = new GpuTexture(/*srgb=*/false, GpuTexture::Wrap::ClampToEdge, GpuTexture::Filter::Linear);
+			if (!tex->uploadRGBA(static_cast<const uint8_t*>(rgba->pixels), rgba->w, rgba->h))
+			{
+				delete tex; tex = nullptr;
+			}
+			if (SDL_MUSTLOCK(rgba)) SDL_UnlockSurface(rgba);
+			SDL_FreeSurface(rgba);
+		}
+		_hudImageTexCache[key] = tex;   // cache nullptr too (avoid per-frame retry)
+	}
+
+	if (!tex) { _hudImageSlots[slot].active = false; return; }
+	_hudImageSlots[slot] = HudImageItem{ (float)x, (float)y, (float)w, (float)h, tex, true };
+}
+
 /**
  * Render one HUD string (name or stat digits) to a GpuTexture via the HD TTF font, cached
  * by "text#argb". Stat digits change per action, so the cache is capped + flushed wholesale.
@@ -4810,7 +4862,9 @@ GpuTexture* Map::getHudTextTexture(const std::string& text, Uint32 colorArgb)
  */
 void Map::drawHudTextGLPass()
 {
-	if (_hudTextItems.empty() || SDL_GetTicks() - _lastDrawnTicks > 250) return;
+	bool anyImg = false;
+	for (int i = 0; i < HUD_IMG_COUNT; ++i) if (_hudImageSlots[i].active) { anyImg = true; break; }
+	if ((_hudTextItems.empty() && !anyImg) || SDL_GetTicks() - _lastDrawnTicks > 250) return;
 	if (!_spriteGLInit) initSpriteGL();
 	if (!_spriteGLInit || !_spriteShader || !_spriteShader->isValid()) return;
 
@@ -4870,6 +4924,15 @@ void Map::drawHudTextGLPass()
 	_spriteShader->setUniform1f("u_radial", 0.0f);
 	_spriteShader->setUniform2f("u_uvScroll", 0.0f, 0.0f);
 	_spriteShader->setUniform4f("u_clipEdges", 0.0f, 0.0f, 0.0f, 0.0f);
+
+	// Image slots first (portrait / rank / stat-number ring), so the digits text below them
+	// composite on top of the rings. Each source is GPU-sampled (LINEAR) to its physical rect.
+	for (int i = 0; i < HUD_IMG_COUNT; ++i)
+	{
+		const HudImageItem& im = _hudImageSlots[i];
+		if (!im.active || !im.tex || im.fitW <= 0.0f || im.fitH <= 0.0f) continue;
+		drawQuad(im.tex, im.fitX, im.fitY, im.fitW, im.fitH);
+	}
 
 	for (const HudTextItem& item : _hudTextItems)
 	{
