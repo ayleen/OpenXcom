@@ -434,6 +434,9 @@ private:
 	int _aiFireChoiceIntelCoeff, _aiFireChoiceAggroCoeff;
 	bool _aiExtendedFireModeChoice, _aiRespectMaxRange, _aiDestroyBaseFacilities;
 	bool _aiPickUpWeaponsMoreActively, _aiPickUpWeaponsMoreActivelyCiv;
+	bool _aiSmartCivilians;
+	std::string _aiCivilianGuardType;
+	int _aiCivilianGuardChance;
 	int _aiReactionFireThreshold, _aiReactionFireThresholdCiv;
 	AIAttackWeight _aiTargetWeightThreatThreshold = AIAttackWeight{ 50 };
 	AIAttackWeight _aiTargetWeightAsHostile = AIAttackWeight{ 100 };
@@ -1100,6 +1103,12 @@ public:
 	bool getAIPickUpWeaponsMoreActively() const { return _aiPickUpWeaponsMoreActively; }
 	/// Gets whether or not the civilian AI should pick up weapons more actively.
 	bool getAIPickUpWeaponsMoreActivelyCiv() const { return _aiPickUpWeaponsMoreActivelyCiv; }
+	/// Gets whether the Calypso smarter-civilian AI behaviors are enabled (Phase 32; default off).
+	bool getAISmartCivilians() const { return _aiSmartCivilians; }
+	/// Gets the civilian unit type spawned as an armed guard (Phase 32; empty = no guards).
+	const std::string& getAICivilianGuardType() const { return _aiCivilianGuardType; }
+	/// Gets the per-civilian chance (%) of spawning as a guard instead (Phase 32; default 0).
+	int getAICivilianGuardChance() const { return _aiCivilianGuardChance; }
 	/// Gets the reaction fire threshold (default = 0).
 	int getReactionFireThreshold(UnitFaction faction) const;
 	/// Gets weight value that AI use to determine if target is dangerous.

@@ -400,6 +400,55 @@ void BattlescapeGame::handleAI(BattleUnit *unit)
 			_playedAggroSound = true;
 		}
 	}
+	// Phase 32: a smart civilian cries out the first time it sees an alien this turn
+	// (reuses the unit's aggroSound as a startled bark).
+	else if (getMod()->getAISmartCivilians()
+		&& unit->isOrganicCivilian()
+		&& unit->hasAggroSound() && !_playedAggroSound
+		&& unit->getAIModule() && unit->getAIModule()->getTarget()
+		&& unit->getAIModule()->getTarget()->getFaction() == FACTION_HOSTILE)
+	{
+		getMod()->getSoundByDepth(_save->getDepth(), unit->getRandomAggroSound())->play(-1, getMap()->getSoundAngle(unit->getPosition()));
+		_playedAggroSound = true;
+	}
+
+	// Phase 32: a settled civilian ducks behind cover — but ONLY when there is shot-stopping
+	// cover on the edge facing its AI aggro target, so kneeling actually buys protection.
+	// Skipped while moving (BA_WALK) or attacking, so no kneeling mid-route or in the open.
+	// We probe DT_AP (bullet-channel) blockage on that edge — the channel a shot would travel:
+	// a non-zero value means a low obstacle the civilian can still see the alien over yet duck
+	// a shot behind, i.e. low cover worth kneeling for. (The aggro target may be a remembered,
+	// not currently visible, enemy; the worst case is kneeling behind full cover against an
+	// unseen foe, which merely spends the settled civilian's leftover TU — harmless.) The TU
+	// guard avoids tripping kneel()'s reservation path (spurious "not enough TUs" toast).
+	if (getMod()->getAISmartCivilians()
+		&& unit->isOrganicCivilian()
+		&& action.type == BA_NONE
+		&& !unit->isKneeled()
+		&& unit->getArmor()->allowsKneeling(false)
+		&& unit->getTimeUnits() >= unit->getKneelChangeCost()
+		&& unit->getAIModule() && unit->getAIModule()->getTarget()
+		&& unit->getAIModule()->getTarget()->getFaction() == FACTION_HOSTILE)
+	{
+		const BattleUnit *threat = unit->getAIModule()->getTarget();
+		const Position self = unit->getPosition();
+		int dir = _save->getTileEngine()->getDirectionTo(self, threat->getPosition());
+		Position step;
+		Pathfinding::directionToVector(dir, &step);
+		Tile *here = _save->getTile(self);
+		Tile *toward = _save->getTile(self + step);
+		// For a diagonal threat, horizontalBlockage probes the two cardinal in-between
+		// tiles; guard against off-map intermediates (blockage() reads null tiles as full
+		// cover, which would make a civilian at the map edge kneel with no cover present).
+		bool intermediatesOk = (step.x == 0 || step.y == 0)
+			|| (_save->getTile(self + Position(step.x, 0, 0)) && _save->getTile(self + Position(0, step.y, 0)));
+		if (here && toward && intermediatesOk
+			&& _save->getTileEngine()->horizontalBlockage(here, toward, DT_AP) > 0)
+		{
+			kneel(unit);
+		}
+	}
+
 	if (action.type == BA_WALK)
 	{
 		ss << "Walking to " << action.target;
@@ -647,6 +696,27 @@ void BattlescapeGame::endTurn()
 	// fires could have been started, stopped or smoke could reveal/conceal units.
 	_save->getTileEngine()->calculateLighting(LL_FIRE, TileEngine::invalid, 0, true);
 	_save->getTileEngine()->recalculateFOV();
+
+	// Phase 32 (Calypso): keep a civilian-spotted alien revealed to the player through the upcoming
+	// player turn. The civilian's setVisible(true) (TileEngine) is transient — SavedBattleGame::endTurn
+	// just wiped it, and recalculateFOV only re-asserts _visible for hostiles a PLAYER unit (or a
+	// still-in-LOS civilian) sees right now. But _turnsSinceSpotted[FACTION_NEUTRAL] — set by the
+	// civilian spotter and incremented once per round — survives the wipe, so re-reveal every hostile a
+	// civilian spotted this round/last (== "the civilian points at the monster"). _visible is not cleared
+	// again until the next endTurn, so the reveal lasts the whole player turn. Gated on the smart-civilian
+	// flag (vanilla untouched) and only on the transition INTO the player turn.
+	if (_save->getSide() == FACTION_PLAYER && getMod()->getAISmartCivilians())
+	{
+		for (auto* bu : *_save->getUnits())
+		{
+			if (!bu->isOut()
+				&& bu->getFaction() == FACTION_HOSTILE
+				&& bu->getTurnsSinceSpottedByFaction(FACTION_NEUTRAL) <= 1)
+			{
+				bu->setVisible(true);
+			}
+		}
+	}
 
 	// Calculate values
 	BattlescapeTally tally = _save->getBattleGame()->tallyUnits();
@@ -1567,6 +1637,17 @@ bool BattlescapeGame::handlePanickingUnit(BattleUnit *unit)
 
 
 	bool flee = RNG::percent(50);
+	// Phase 32: for a smart civilian, nerve decides freeze-vs-flee — a timid civilian
+	// (low bravery) mostly freezes in terror, while a brave one bolts. Soldiers and aliens
+	// keep the vanilla 50/50 coin flip.
+	if (_save->getMod()->getAISmartCivilians()
+		&& unit->isOrganicCivilian())
+	{
+		int fleePct = unit->getBaseStats()->bravery - 30;
+		if (fleePct < 5) fleePct = 5;
+		else if (fleePct > 95) fleePct = 95;
+		flee = RNG::percent(fleePct);
+	}
 	BattleAction ba;
 	ba.actor = unit;
 	if (status == STATUS_PANICKING && flee) // 1/2 chance to freeze and 1/2 chance try to flee, STATUS_BERSERK is handled in the panic state.

@@ -680,6 +680,16 @@ void BattleUnit::load(const YAML::YamlNodeReader& node, const Mod *mod, const Sc
 	reader.tryRead("summonedPlayerUnit", _summonedPlayerUnit);
 	reader.tryRead("resummonedFakeCivilian", _resummonedFakeCivilian);
 	reader.tryRead("pickUpWeaponsMoreActively", _pickUpWeaponsMoreActively);
+	// Phase 32 (Calypso): persist the runtime-jittered civilian aggression so the brave
+	// minority (aggression 2) keeps fighting after a mid-battle save/reload instead of
+	// reverting to the rules default (0) and fleeing. Absent in old/vanilla saves -> keep
+	// the rules-derived value set at construction. Only restored while the smart-civilian AI
+	// is active: with the flag off the engine must stay vanilla-identical, so a save written
+	// with Phase 32 on and reloaded with it off keeps the rules-derived aggression.
+	if (mod && mod->getAISmartCivilians())
+	{
+		reader.tryRead("aggression", _aggression);
+	}
 	reader.tryRead("disableIndicators", _disableIndicators);
 	reader.tryRead("movementType", _movementType);
 	if (const auto& moveCost = reader["moveCost"])
@@ -821,6 +831,13 @@ void BattleUnit::save(YAML::YamlNodeWriter writer, const ScriptGlobal *shared) c
 		writer.write("resummonedFakeCivilian", _resummonedFakeCivilian);
 	if (_pickUpWeaponsMoreActively)
 		writer.write("pickUpWeaponsMoreActively", _pickUpWeaponsMoreActively);
+	// Phase 32 (Calypso): only organic units (aliens/civilians, _unitRules != null) whose
+	// aggression diverged from the ruleset value -> in practice just the jittered
+	// brave-minority civilians (aggression 2 vs rules 0). Soldiers (_unitRules == null) and
+	// un-jittered units keep the construction default and are skipped, so vanilla saves are
+	// byte-identical.
+	if (_unitRules && _aggression != _unitRules->getAggression())
+		writer.write("aggression", _aggression);
 	if (_disableIndicators)
 		writer.write("disableIndicators", _disableIndicators);
 

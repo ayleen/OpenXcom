@@ -1871,6 +1871,27 @@ BattleUnit *BattlescapeGenerator::addAlien(Unit *rules, int alienRank, bool outs
 BattleUnit *BattlescapeGenerator::addCivilian(Unit *rules, int nodeRank)
 {
 	BattleUnit *unit = _save->createTempUnit(rules, FACTION_NEUTRAL, _unitSequence++);
+
+	// Phase 32: give each civilian a randomized personality so a crowd is not a set of
+	// clones. A brave minority (~1 in 4) holds its nerve, will scavenge a dropped weapon
+	// and shoot back; the timid majority flees to safety and freezes under pressure.
+	if (_save->getMod()->getAISmartCivilians() && !(rules && rules->isCivilianGuard()))
+	{
+		// Guards keep their ruleset personality (high bravery + aggression + built-in weapon);
+		// only the ordinary crowd is jittered into a timid majority and a brave minority.
+		if (RNG::percent(25))
+		{
+			unit->setAggression(2);
+			unit->getBaseStats()->bravery = RNG::generate(75, 95);
+			unit->setPickUpWeaponsMoreActively(true);
+		}
+		else
+		{
+			unit->setAggression(0);
+			unit->getBaseStats()->bravery = RNG::generate(45, 65);
+		}
+	}
+
 	Node *node = _save->getSpawnNode(nodeRank, unit);
 
 	if (node)
@@ -2649,6 +2670,21 @@ void BattlescapeGenerator::deployCivilians(bool markAsVIP, int nodeRank, int max
 				{
 					size_t pick = RNG::generate(0, _terrain->getCivilianTypes().size() - 1);
 					rule = _game->getMod()->getUnit(_terrain->getCivilianTypes().at(pick), true);
+
+					// Phase 32 (Calypso): a minority of the random crowd spawns as armed guards
+					// (only when the mod opts in via ai.civilianGuardType / civilianGuardChance).
+					const std::string& guardType = _game->getMod()->getAICivilianGuardType();
+					if (!guardType.empty()
+						&& _game->getMod()->getAISmartCivilians()
+						&& RNG::percent(_game->getMod()->getAICivilianGuardChance()))
+					{
+						// fail soft on a mistyped guard type: keep the ordinary civilian rather
+						// than aborting the mission (getUnit(..., true) would throw).
+						if (Unit* guardRule = _game->getMod()->getUnit(guardType, false))
+						{
+							rule = guardRule;
+						}
+					}
 				}
 				BattleUnit* civ = addCivilian(rule, nodeRank);
 				if (civ)

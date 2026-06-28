@@ -1492,6 +1492,19 @@ bool TileEngine::calculateUnitsInFOV(BattleUnit* unit, const Position eventPos, 
 							{
 								bu->setVisible(true);
 							}
+							// Phase 32: a smart civilian acts as a spotter — reveal an alien it sees to
+							// the player ("the civilian points at the monster"). This setVisible(true) is
+							// the live cue during the civilian's own turn; it is transient (wiped at the
+							// next endTurn). PERSISTENCE into the player turn is handled in
+							// BattlescapeGame::endTurn, which re-reveals hostiles with a recent
+							// _turnsSinceSpotted[FACTION_NEUTRAL] (set just below at the cross-faction
+							// spotting record) — that counter survives the per-turn visible wipe.
+							else if (bu->getFaction() == FACTION_HOSTILE
+								&& unit->isOrganicCivilian()
+								&& _save->getMod()->getAISmartCivilians())
+							{
+								bu->setVisible(true);
+							}
 							if ((( bu->getFaction() == FACTION_HOSTILE && unit->getFaction() == FACTION_PLAYER )
 								|| ( bu->getFaction() != FACTION_HOSTILE && unit->getFaction() == FACTION_HOSTILE ))
 								&& !unit->hasVisibleUnit(bu))

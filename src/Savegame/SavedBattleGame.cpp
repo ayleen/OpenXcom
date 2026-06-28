@@ -1561,6 +1561,21 @@ void SavedBattleGame::endTurn()
 		}
 	}
 
+	// Phase 32: collect live X-Com soldier positions once, so the per-civilian "feels protected"
+	// morale bump below is O(N_civ × N_soldier) instead of O(N_civ × N_all) — rescanning every unit
+	// for every civilian nested inside this loop was quadratic per turn end.
+	std::vector<Position> soldierPositions;
+	if (getMod()->getAISmartCivilians())
+	{
+		for (auto* u : _units)
+		{
+			if (u->getFaction() == FACTION_PLAYER && u->getOriginalFaction() == FACTION_PLAYER && !u->isOut())
+			{
+				soldierPositions.push_back(u->getPosition());
+			}
+		}
+	}
+
 	// hide all aliens (VOF calculations below will turn them visible again)
 	for (auto* bu : _units)
 	{
@@ -1598,6 +1613,22 @@ void SavedBattleGame::endTurn()
 
 		if (bu->getFaction() == _side)
 		{
+			// Phase 32: a civilian that ends the turn close to an X-Com soldier feels
+			// protected — bump its morale so it panics far less than one left alone in the
+			// open. Applied just before prepareNewTurn()'s morale recovery + panic roll.
+			if (getMod()->getAISmartCivilians()
+				&& bu->isOrganicCivilian())
+			{
+				const int protectionRadius = 4; // tiles
+				for (const Position& allyPos : soldierPositions)
+				{
+					if (Position::distance2d(bu->getPosition(), allyPos) <= protectionRadius)
+					{
+						bu->moraleChange(15);
+						break;
+					}
+				}
+			}
 			bu->prepareNewTurn();
 		}
 		else if (bu->getOriginalFaction() == _side)

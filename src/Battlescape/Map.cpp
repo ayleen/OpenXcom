@@ -2892,6 +2892,39 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 	}
 	delete _numWaypid;
 
+	// Phase 32: fear indicator — a bobbing alarm marker over a visible, terrified civilian
+	// (smart civilian whose morale has cracked), so the player can see who is about to bolt
+	// or freeze. Drawn unconditionally (a persistent status, like a wound), not Alt-gated.
+	if (_save->getMod()->getAISmartCivilians())
+	{
+		for (auto* civ : *_save->getUnits())
+		{
+			if (civ->isOrganicCivilian()
+				&& !civ->isOut()
+				&& civ->getVisible()
+				&& civ->getPosition().z <= _camera->getViewLevel() // don't project through floors above
+				&& civ->getMorale() < 50)
+			{
+				_camera->convertMapToScreen(civ->getPosition(), &screenPosition);
+				screenPosition += _camera->getMapOffset();
+				Position offset = calculateWalkingOffset(civ).ScreenOffset;
+				offset.y += Position::TileZ - (civ->getHeight() + civ->getFloatHeight());
+				if (civ->isKneeled())
+				{
+					offset.y -= 2;
+				}
+				Surface::blitRaw(
+					surface,
+					_arrow,
+					screenPosition.x + offset.x + (_spriteWidth / 2) - (_arrow->getWidth() / 2),
+					screenPosition.y + offset.y - _arrow->getHeight() + getArrowBobForFrame(_animFrame),
+					0,
+					false,
+					_isTFTD ? ArrowColorsTFTD[1] : ArrowColorsUFO[1]); // orange / red = alarm
+			}
+		}
+	}
+
 	// Draw craft deployment preview arrows
 	if (_isAltPressed && _save->isPreview() && this->getCursorType() != CT_NONE)
 	{

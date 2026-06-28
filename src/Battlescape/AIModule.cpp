@@ -83,6 +83,270 @@ void AIModule::setTargetFaction(UnitFaction f)
 }
 
 /**
+ * Phase 32 (Calypso): an organic civilian (FACTION_NEUTRAL) gets the smarter-civilian
+ * behaviors only when the active mod opts in via `ai: { smartCivilians: true }`. This
+ * keeps native OXCE behavior byte-identical when the flag is off and never touches aliens
+ * or mind-controlled units (which differ in current vs. original faction).
+ */
+bool AIModule::isSmartCivilian() const
+{
+	return _unit->isOrganicCivilian()
+		&& _save->getMod()->getAISmartCivilians();
+}
+
+/**
+ * Phase 32 (Calypso): nearest "protector" to head toward — the closest X-Com soldier the
+ * civilians have spotted recently, else the closest other living civilian. Shared by
+ * findCivilianSafetyTarget (flee) and findGuardObjective (regroup). Distance is HORIZONTAL
+ * (distance2d), matching the 2D escape/objective scoring that consumes `out`, so a soldier a
+ * floor above is not mistaken for "nearer" than one on the unit's own level. Returns false
+ * (leaving `out` untouched) when neither a spotted soldier nor another civilian is known.
+ */
+bool AIModule::findNearestProtector(Position& out) const
+{
+	const Position self = _unit->getPosition();
+	BattleUnit* bestSoldier = nullptr;
+	BattleUnit* bestCivilian = nullptr;
+	int soldierDist = INT_MAX;
+	int civilianDist = INT_MAX;
+	for (auto* bu : *_save->getUnits())
+	{
+		if (bu == _unit || bu->isOut())
+		{
+			continue;
+		}
+		if (bu->getFaction() == FACTION_PLAYER && bu->getOriginalFaction() == FACTION_PLAYER)
+		{
+			// only head toward soldiers the civilians have actually spotted recently, so they
+			// don't path omnisciently toward an unseen squad across the whole map.
+			if (bu->getTurnsSinceSpottedByFaction(FACTION_NEUTRAL) > _intelligence)
+			{
+				continue;
+			}
+			int d = Position::distance2d(self, bu->getPosition());
+			if (d < soldierDist) { soldierDist = d; bestSoldier = bu; }
+		}
+		else if (bu->getFaction() == FACTION_NEUTRAL)
+		{
+			int d = Position::distance2d(self, bu->getPosition());
+			if (d < civilianDist) { civilianDist = d; bestCivilian = bu; }
+		}
+	}
+	if (bestSoldier)  { out = bestSoldier->getPosition();  return true; }
+	if (bestCivilian) { out = bestCivilian->getPosition(); return true; }
+	return false;
+}
+
+/**
+ * Phase 32 (Calypso): where should a frightened civilian run? Priority:
+ *   1. toward the nearest X-Com soldier it has seen recently (within its intelligence
+ *      memory) — seek protection;
+ *   2. else toward the nearest other living civilian — herd together;
+ *   3. else toward the closest map edge — try to leave the terror site.
+ * Returns false only if the unit is somehow off-map.
+ */
+bool AIModule::findCivilianSafetyTarget(Position& out) const
+{
+	const Position self = _unit->getPosition();
+	if (!_save->getTile(self))
+	{
+		return false;
+	}
+
+	if (findNearestProtector(out))
+	{
+		return true;
+	}
+
+	// no allies known: head for the nearest map edge on the unit's level.
+	const int sx = _save->getMapSizeX();
+	const int sy = _save->getMapSizeY();
+	const int toWest = self.x, toEast = sx - 1 - self.x;
+	const int toNorth = self.y, toSouth = sy - 1 - self.y;
+	const int m = std::min(std::min(toWest, toEast), std::min(toNorth, toSouth));
+	out = self;
+	if (m == toWest) out.x = 0;
+	else if (m == toEast) out.x = sx - 1;
+	else if (m == toNorth) out.y = 0;
+	else out.y = sy - 1;
+	return true;
+}
+
+/**
+ * Phase 32 (Calypso): an armed civilian guard — a smart civilian whose unit ruleset sets
+ * `civilianGuard: true`. Guards carry a built-in weapon and protect other civilians instead
+ * of fleeing. Stable (ruleset-derived) so it needs no save/load state of its own.
+ */
+bool AIModule::isCivilianGuard() const
+{
+	return isSmartCivilian()
+		&& _unit->getUnitRules()
+		&& _unit->getUnitRules()->isCivilianGuard();
+}
+
+/**
+ * Phase 32 (Calypso): the nearest civilian "crying for help" that a guard can hear. A civilian
+ * is in distress when it is panicking/berserk, its morale has cracked, or a spotted alien is
+ * menacing it. Limited to a hearing radius so a guard reacts to nearby screams, not the whole map.
+ */
+BattleUnit *AIModule::findDistressedCivilian() const
+{
+	const Position self = _unit->getPosition();
+	const int HEAR_RADIUS = 12;   // how far a guard can "hear" a scream (2D tiles)
+	const int THREAT_RADIUS = 6;  // an alien this close to a civilian = that civilian is in danger
+	// Pre-collect the hostiles the civilians have spotted recently — once — so the per-civilian
+	// distress check is O(N_civ × N_spottedHostile) instead of rescanning every hostile inside it.
+	std::vector<Position> spottedHostiles;
+	for (auto* foe : *_save->getUnits())
+	{
+		if (foe->isOut() || foe->getFaction() != FACTION_HOSTILE)
+		{
+			continue;
+		}
+		if (foe->getTurnsSinceSpottedByFaction(FACTION_NEUTRAL) > _intelligence)
+		{
+			continue; // the civilians haven't spotted this alien recently
+		}
+		spottedHostiles.push_back(foe->getPosition());
+	}
+	BattleUnit *best = nullptr;
+	int bestDist = INT_MAX;
+	for (auto* civ : *_save->getUnits())
+	{
+		if (civ == _unit || civ->isOut())
+		{
+			continue;
+		}
+		if (civ->getFaction() != FACTION_NEUTRAL || civ->getOriginalFaction() != FACTION_NEUTRAL)
+		{
+			continue;
+		}
+		int d = Position::distance2d(self, civ->getPosition());
+		if (d > HEAR_RADIUS || d >= bestDist)
+		{
+			continue; // out of earshot or not closer than the best candidate so far
+		}
+		bool distressed = civ->getStatus() == STATUS_PANICKING
+			|| civ->getStatus() == STATUS_BERSERK
+			|| civ->getMorale() < 50;
+		if (!distressed)
+		{
+			// not screaming yet, but is a spotted alien bearing down on it?
+			for (const Position& foePos : spottedHostiles)
+			{
+				if (Position::distance2d(foePos, civ->getPosition()) <= THREAT_RADIUS)
+				{
+					distressed = true;
+					break;
+				}
+			}
+		}
+		if (distressed)
+		{
+			bestDist = d;
+			best = civ;
+		}
+	}
+	return best;
+}
+
+/**
+ * Phase 32 (Calypso): where a guard advances when no alien is in sight. Priority mirrors the
+ * brief: (1) rescue the nearest screaming civilian; (2) all quiet — regroup with the nearest
+ * aquanaut; (3) failing that, stay among the civilians it protects. Unlike a fleeing civilian,
+ * a guard heads toward soldiers proactively (it is their ally, not a frightened bystander).
+ */
+bool AIModule::findGuardObjective(Position& out) const
+{
+	if (BattleUnit* victim = findDistressedCivilian())
+	{
+		out = victim->getPosition();
+		return true;
+	}
+	// all quiet: regroup with the nearest spotted soldier, else stay among the civilians.
+	return findNearestProtector(out);
+}
+
+/**
+ * Phase 32 (Calypso): fill _patrolAction with a step toward the guard's objective. Picks the
+ * reachable tile on the unit's level that gets it closest to the objective (skipping fire and
+ * known-dangerous tiles). When no tile improves the position, it targets its own tile, which the
+ * dispatch in think() collapses to BA_NONE (hold and wait). Returns false only when there is no
+ * objective at all, so the caller can fall back to ordinary node patrol.
+ */
+bool AIModule::setupGuardMove()
+{
+	Position objective(0, 0, 0);
+	if (!findGuardObjective(objective))
+	{
+		return false;
+	}
+
+	const Position self = _unit->getPosition();
+	const int curToObjective = Position::distance2d(self, objective);
+
+	int bestScore = 0; // staying put scores 0; only move when a tile is strictly closer
+	Position bestTile = self;
+
+	std::vector<Position> search = _save->getTileSearch();
+	RNG::shuffle(search);
+
+	for (const auto& off : search)
+	{
+		Position cand(self.x + off.x, self.y + off.y, self.z);
+		if (cand == self)
+		{
+			continue;
+		}
+		Tile* tile = _save->getTile(cand);
+		if (!tile)
+		{
+			continue;
+		}
+		if (std::find(_reachable.begin(), _reachable.end(), _save->getTileIndex(cand)) == _reachable.end())
+		{
+			continue; // not reachable within the unit's TUs this turn
+		}
+		int candToObjective = Position::distance2d(cand, objective);
+		int score = (curToObjective - candToObjective) * 10;
+		if (tile->getFire())
+		{
+			score -= 40;
+		}
+		if (tile->getDangerous())
+		{
+			score -= 100;
+		}
+		if (score > bestScore)
+		{
+			// Score by distance only — membership in _reachable already proves the tile is
+			// reachable within the unit's TUs this turn, so no per-candidate pathfind is needed.
+			bestScore = score;
+			bestTile = cand;
+		}
+	}
+
+	// Pathfind ONCE, to the chosen tile (mirrors the setupPatrol/setupAmbush pattern) — instead of
+	// dozens of calculate()/abortPath() runs inside the 121-offset search above. If even the best
+	// tile has no clean start direction, hold position this turn rather than walk nowhere.
+	if (bestTile != self)
+	{
+		_save->getPathfinding()->calculate(_unit, bestTile, _patrolAction.getMoveType());
+		bool walkable = _save->getPathfinding()->getStartDirection() != -1;
+		_save->getPathfinding()->abortPath();
+		if (!walkable)
+		{
+			bestTile = self;
+		}
+	}
+
+	_patrolAction.actor = _unit;
+	_patrolAction.type = BA_WALK;
+	_patrolAction.target = bestTile;
+	return true;
+}
+
+/**
  * Resets the unsaved AI state.
  */
 void AIModule::reset()
@@ -513,12 +777,24 @@ void AIModule::think(BattleAction *action)
 	BattleItem *grenadeItem = _unit->getGrenadeFromBelt(_save);
 	_grenade = grenadeItem != 0;
 
-	if (_spottingEnemies && !_escapeTUs)
+	// Phase 32: a smart civilian flees as soon as it *sees* an alien, not only once an
+	// alien is confirmed to be looking back at it. Guards are excluded from *both* triggers —
+	// they protect and never flee, so no escape is ever staged for them (a staged escape plus
+	// the spotter odds-multiplier in evaluateAIMode would otherwise give an armed guard a small
+	// chance to bolt mid-fight). Non-guards keep the exact vanilla/Phase-32 condition.
+	if (!isCivilianGuard()
+		&& (_spottingEnemies || (isSmartCivilian() && _visibleEnemies))
+		&& !_escapeTUs)
 	{
 		setupEscape();
 	}
 
-	if (_knownEnemies && !_melee && !_ambushTUs)
+	// Phase 32: smart civilians (and guards) never ambush — a frightened civilian flees and a
+	// brave-armed one holds its ground and fights; AI_AMBUSH (hide and wait) fits neither. Gating
+	// here also skips a wasted findReachable BFS each turn for every civilian (their ambushOdds is
+	// zeroed in evaluateAIMode anyway). countKnownTargets now gives civilians _knownEnemies > 0,
+	// which would otherwise have routed them through setupAmbush.
+	if (_knownEnemies && !_melee && !_ambushTUs && !isSmartCivilian())
 	{
 		setupAmbush();
 	}
@@ -732,6 +1008,26 @@ bool AIModule::getWasHitBy(int attacker) const
 void AIModule::setupPatrol()
 {
 	_patrolAction.clearTU();
+
+	// Phase 32 (Calypso): an armed guard with no attack staged this turn doesn't aimlessly
+	// node-patrol — it advances to protect (rescue a screaming civilian, else regroup with the
+	// aquanauts). Keyed on "no staged attack" (setupAttack ran just above) rather than "no alien
+	// perceived", so a guard whose target is only remembered (LOS broke) or that is out of ammo
+	// still advances instead of node-patrolling away. When it CAN attack, evaluateAIMode steers it
+	// to combat and this is skipped (_attackAction.type != BA_RETHINK).
+	if (isCivilianGuard() && _attackAction.type == BA_RETHINK)
+	{
+		// Free any patrol node still allocated from an earlier (combat-turn) node-patrol — the
+		// guard advances toward its own objective and never reaches that node, so leaving it
+		// allocated would lock one node per guard for the rest of the battle (and into saves).
+		freePatrolTarget();
+		_toNode = 0;
+		if (setupGuardMove())
+		{
+			return;
+		}
+	}
+
 	if (_toNode != 0 && _unit->getPosition() == _toNode->getPosition())
 	{
 		if (_traceAI)
@@ -1118,7 +1414,38 @@ void AIModule::setupEscape()
 	int tries = -1;
 	bool coverFound = false;
 	selectNearestTarget();
+	// Phase 32: a civilian fleeing a remembered-but-unseen alien still needs a direction to flee
+	// FROM. selectNearestTarget() clears _aggroTarget when no enemy is currently visible (civilians
+	// now reach setupEscape on memory-only threats via countKnownTargets), so fall back to the
+	// nearest remembered enemy — otherwise the away-from-alien term below contributes nothing and
+	// the escape is steered only by the safety bias (which can point past/at the alien).
+	if (!_aggroTarget && isSmartCivilian())
+	{
+		selectClosestKnownEnemy();
+	}
 	_escapeTUs = 0;
+
+	// Phase 32: a fleeing civilian biases its escape tile toward safety (nearest seen
+	// soldier > civilian cluster > map edge), on top of the away-from-alien / cover terms.
+	bool haveSafety = false;
+	Position safetyTarget(0, 0, 0);
+	const Position selfPos = _unit->getPosition();
+	int curToSafety = 0;
+	if (isSmartCivilian())
+	{
+		haveSafety = findCivilianSafetyTarget(safetyTarget);
+		// The edge fallback returns self when an ally-less civilian is already on its nearest map
+		// edge. Then curToSafety would be 0 and the safety term becomes -candToSafety*8 — penalizing
+		// ANY step away, which damps (sometimes cancels) the genuine flee bias. Drop it in that case.
+		if (haveSafety && safetyTarget == selfPos)
+		{
+			haveSafety = false;
+		}
+		if (haveSafety)
+		{
+			curToSafety = Position::distance2d(selfPos, safetyTarget);
+		}
+	}
 
 	int dist = _aggroTarget ? Position::distance2d(_unit->getPosition(), _aggroTarget->getPosition()) : 0;
 
@@ -1217,6 +1544,12 @@ void AIModule::setupEscape()
 		else
 		{
 			score += (distanceFromTarget - dist) * 10;
+		}
+		// Phase 32: reward candidate tiles that bring the civilian closer to safety.
+		if (haveSafety)
+		{
+			int candToSafety = Position::distance2d(_escapeAction.target, safetyTarget);
+			score += (curToSafety - candToSafety) * 8;
 		}
 		int spotters = 0;
 		if (!tile)
@@ -1317,7 +1650,9 @@ int AIModule::countKnownTargets() const
 {
 	int knownEnemies = 0;
 
-	if (_unit->getFaction() == FACTION_HOSTILE)
+	// Phase 32: smart civilians also accumulate remembered enemies (within their
+	// intelligence window) so they keep fleeing/fighting a known alien after LOS breaks.
+	if (_unit->getFaction() == FACTION_HOSTILE || isSmartCivilian())
 	{
 		for (auto* bu : *_save->getUnits())
 		{
@@ -1813,7 +2148,9 @@ void AIModule::evaluateAIMode()
 	if (_spottingEnemies)
 	{
 		patrolOdds = 0;
-		if (_escapeTUs == 0)
+		// Phase 32 (Calypso): a guard never escapes (escapeOdds is forced to 0 below), so skip
+		// staging an escape route for it — it would only burn a findReachable BFS each spotted turn.
+		if (_escapeTUs == 0 && !isCivilianGuard())
 		{
 			setupEscape();
 		}
@@ -1837,7 +2174,8 @@ void AIModule::evaluateAIMode()
 			combatOdds *= 1.2;
 		}
 
-		if (_escapeTUs == 0)
+		// Phase 32 (Calypso): guards never escape (escapeOdds forced to 0 below) — don't stage one.
+		if (_escapeTUs == 0 && !isCivilianGuard())
 		{
 			if (selectClosestKnownEnemy())
 			{
@@ -1958,6 +2296,60 @@ void AIModule::evaluateAIMode()
 		combatOdds = 0;
 		ambushOdds = 0;
 	}
+
+	// Phase 32 (Calypso): a guard protects, it does not flee. When it perceives an alien (and
+	// has a weapon in hand) combat dominates; otherwise it advances to its objective via the
+	// patrol move staged in setupPatrol() (rescue a crying civilian / regroup with the aquanauts).
+	if (isCivilianGuard())
+	{
+		// A guard protects, it never flees: escapeOdds and ambushOdds are forced to 0 in every
+		// case (the escape route is never even staged in think(), so any non-zero escapeOdds here
+		// would only waste a turn on an empty escape action). It either stands and fights or
+		// advances to its objective (the protective move staged in setupPatrol()/setupGuardMove()).
+		// Key the choice on whether setupAttack actually STAGED an attack (a target it can hit this
+		// turn), not merely on "an enemy is perceived/remembered": _knownEnemies persists for the
+		// whole intelligence window after LOS breaks, so the old test forced AI_COMBAT → a bare
+		// BA_RETHINK → the guard stood idle for several turns instead of advancing to protect. A
+		// disarmed/out-of-ammo guard likewise has no staged attack → it advances rather than stalls.
+		patrolOdds = 0;
+		ambushOdds = 0;
+		escapeOdds = 0;
+		if (_attackAction.type != BA_RETHINK)
+		{
+			combatOdds = std::max(combatOdds, 1000);
+		}
+		else
+		{
+			// nothing it can shoot this turn: advance to rescue a crying civilian, else regroup.
+			combatOdds = 0;
+			patrolOdds = std::max(patrolOdds, 1000);
+		}
+	}
+	// Phase 32: a smart civilian that perceives any alien should run for safety instead of
+	// wandering. Only the brave-and-armed (aggression >= 2) hold their ground and fight.
+	else if (isSmartCivilian() && (_visibleEnemies || _knownEnemies || _spottingEnemies))
+	{
+		patrolOdds = 0;
+		bool armedBrave = (_rifle || _melee || _blaster || _grenade) && _unit->getAggression() >= 2;
+		if (!armedBrave)
+		{
+			// timid / unarmed civilian: drop combat and let the forced escape dominate.
+			combatOdds = 0;
+			ambushOdds = 0;
+			if (_escapeTUs == 0)
+			{
+				setupEscape();
+			}
+			if (_escapeTUs != 0)
+			{
+				escapeOdds = std::max(escapeOdds, 1000);
+			}
+		}
+		// armedBrave: leave the ordinary (small) escapeOdds intact so combat dominates and the
+		// "brave-and-armed hold their ground and fight" behavior actually happens (forcing
+		// escapeOdds to 1000 here would make a brave civilian flee ~95% of the time).
+	}
+
 	// generate a random number to represent our decision.
 	int decision = RNG::generate(1, std::max(1, patrolOdds + ambushOdds + escapeOdds + combatOdds));
 
@@ -2022,6 +2414,15 @@ void AIModule::evaluateAIMode()
 		}
 		// base defense mission protocol: patrol action becomes an attack action when base modules are sighted
 		if (_patrolAction.type == BA_SNAPSHOT)
+		{
+			return;
+		}
+		// Phase 32 (Calypso): a guard's "patrol" is its protective advance — a BA_WALK toward its
+		// objective staged in setupGuardMove() (which never assigns a patrol _toNode), or a
+		// hold-in-place when it is already closest. It must dispatch as patrol; never cascade a
+		// guard into ambush/escape (that would freeze it on an empty escape action and, because
+		// AI_ESCAPE re-evaluates every quiet turn, lock it there permanently).
+		if (isCivilianGuard())
 		{
 			return;
 		}
