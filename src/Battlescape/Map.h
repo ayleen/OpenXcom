@@ -319,6 +319,35 @@ private:
 	GpuTexture* getOrUploadSpriteFrame(SurfaceSet* set, int frameIdx);
 	void drawProjectileGLPass();
 
+	// Calypso bug 1: physical-resolution HUD text overlay (selected-unit name + stat
+	// digits). The logical HUD widgets render mushy at the low resolution-menu fractions
+	// because their backing surfaces are sized in LOGICAL px then stretched. These items
+	// (logical widget rect + text + colour, pushed by BattlescapeState::applyHudName /
+	// applyHudNumber) are re-rendered as TTF texture quads at PHYSICAL resolution, OVER the
+	// composited HUD, mirroring drawCursorOverlayGLPass — so the 48px raster is GPU-downscaled
+	// straight to the physical size, never through the small logical buffer.
+	// fitX/Y/W/H is the EXACT logical placement rect the CPU path blitted the glyphs at
+	// (computed in applyHudName/applyHudNumber); the overlay reuses it verbatim so the crisp
+	// physical-res copy lands precisely over the logical text — no offset double-image.
+	struct HudTextItem { float fitX, fitY, fitW, fitH; std::string text; Uint32 colorArgb; };
+	std::vector<HudTextItem>            _hudTextItems;
+	std::map<std::string, GpuTexture*>  _hudTextTexCache;   // keyed by "text#argb"
+	GpuTexture* getHudTextTexture(const std::string& text, Uint32 colorArgb);
+	void drawHudTextGLPass();
+
+	// Calypso: physical-resolution HUD IMAGE overlay — same idea as the text overlay but for
+	// the non-text HUD art (soldier portrait, HD rank insignia, stat-number ring/box). They too
+	// pixelate at the low resolution-menu fractions because they go through the small logical
+	// widget buffer; here their RGBA source is GPU-sampled (LINEAR) straight to the physical
+	// widget rect. Fixed slots (not a cleared list) so the BattlescapeState apply* calls — which
+	// fire in a different order than the text ones — each own exactly one slot, order-independent.
+public:
+	enum HudImageSlot { HUD_IMG_PORTRAIT, HUD_IMG_RANK, HUD_IMG_TU, HUD_IMG_ENERGY, HUD_IMG_HEALTH, HUD_IMG_MORALE, HUD_IMG_COUNT };
+private:
+	struct HudImageItem { float fitX, fitY, fitW, fitH; GpuTexture* tex; bool active = false; };
+	HudImageItem                        _hudImageSlots[HUD_IMG_COUNT];
+	std::map<std::string, GpuTexture*>  _hudImageTexCache;   // keyed by caller-supplied content/size key
+
 	/// Smoke/fire/explosion instance collected during emitTilePass() / emitSmokeInstances().
 	struct SmokeInstance
 	{
@@ -380,7 +409,8 @@ private:
 	// texCode: 0 = soft dot (particle.png — sparks/bubbles/foam/gas); 100+v = smoke-v;
 	// 200+v = debris-v (rock sprites). Selects the per-particle texture in the draw pass.
 	struct FxParticle { Position origin; unsigned int spawnTick; unsigned int delayMs; float lifeMs;
-		float vx, vy, ax, ay; float size; float r, g, b; bool additive; int texCode; };
+		float vx, vy, ax, ay; float size; float r, g, b; bool additive; int texCode;
+		float opacity = 1.0f; };   // Calypso: per-particle alpha multiplier (semi-transparent smoke); default 1 = unchanged
 	std::vector<FxParticle> _fxParticles;
 	void drawFxParticlesGLPass();
 	/// E2: underwater shockwave — an expanding radial distortion ring of the scene,
@@ -391,6 +421,12 @@ private:
 
 	/// Calypso: gating + clipping for the post-composite overlay passes (internal).
 	bool overlayPassesActive() const;   // false when a modal/other state is on top
+	/// Calypso bug 1: HUD-text overlay gate — true while the battlescape HUD is actually
+	/// VISIBLE (battlescape is top, OR only a non-fullscreen popup sits over it). Unlike the
+	/// cursor gate it survives action-menu/CANCEL/warning popups, so the name+stat digits stay
+	/// crisp behind them instead of dropping to the mushy logical text. A fullscreen state
+	/// (Inventory/Options/pause) covers the HUD → returns false (don't overdraw it).
+	bool hudOverlayVisible() const;
 	int  mapClipBottomY() const;        // base-res bottom of the visible map (above HUD)
 	void beginMapScissor();             // glScissor to the map viewport
 	void endMapScissor();               // restore prior scissor state
@@ -491,6 +527,17 @@ public:
 	/// + a GL particle burst, plus (underwater) a scatter of small bubble-bursts over the
 	/// blast radius. Called once at blast start from ExplosionBState::init. radius = tiles.
 	void triggerAoEFx(Position voxelCenter, int power, int radius, bool underwater, int damageType);
+	/// Calypso bug 1: HUD text overlay handoff. BattlescapeState clears then re-adds the
+	/// name + 4 stat digits (logical widget rect + text + packed ARGB colour) each refresh.
+	void clearHudTextItems();
+	void addHudTextItem(float fitX, float fitY, float fitW, float fitH, const std::string& text, Uint32 colorArgb);
+	/// Calypso: HUD image overlay handoff. Upload (or fetch cached, keyed by `key`) the RGBA
+	/// `src` and bind it to `slot` (HudImageSlot), to be drawn at PHYSICAL res over the logical
+	/// widget rect (x,y,w,h). src==null or w/h<=0 clears the slot. Pass a key that changes when
+	/// the content/size changes (e.g. "rank#3", "portrait#XCOM_0.SPK", "box#120x64#ffcc00").
+	void setHudImage(int slot, const std::string& key, SDL_Surface* src, int x, int y, int w, int h);
+	/// Clear one HUD image slot (slot art no longer applies, e.g. non-soldier unit).
+	void clearHudImage(int slot);
 #endif
 	/// Handles timers.
 	void think() override;

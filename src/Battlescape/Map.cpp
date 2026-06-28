@@ -463,6 +463,11 @@ Map::~Map()
 	delete _spriteShader; _spriteShader = nullptr;
 	for (auto& p : _spriteFrameCache) delete p.second;
 	_spriteFrameCache.clear();
+	for (auto& p : _hudTextTexCache) delete p.second;
+	_hudTextTexCache.clear();
+	for (auto& p : _hudImageTexCache) delete p.second;
+	_hudImageTexCache.clear();
+	for (int i = 0; i < HUD_IMG_COUNT; ++i) _hudImageSlots[i].active = false;
 	if (_spriteVAO) { glDeleteVertexArrays(1, &_spriteVAO); _spriteVAO = 0; }
 	if (_spriteVBO) { glDeleteBuffers(1, &_spriteVBO);      _spriteVBO = 0; }
 #endif
@@ -542,6 +547,15 @@ void Map::init()
 			this->drawCursorOverlayGLPass();
 			this->endMapScissor();
 		});
+		// Calypso bug 1: crisp HUD name + stat digits at PHYSICAL resolution. POST-composite
+		// (over the stretched logical HUD), menu-gated. No map scissor — the text lives in the
+		// HUD panel, not the map viewport; each item's quad is positioned from its logical
+		// widget rect via the same xScale/yScale path as the cursor.
+		_game->getScreen()->registerGPUPass([this, wf]() {
+			if (!wf.lock()) return;
+			if (!this->hudOverlayVisible()) return;   // survives non-fullscreen popups (keeps text crisp)
+			this->drawHudTextGLPass();
+		});
 		// Calypso P30: ALL battlescape FX (projectile, explosion flash/fireball/bubble,
 		// wound-glow, particle burst) fire PRE-composite WITHOUT a scissor — exactly like
 		// murk. They draw over the GL scene (tiles + units are emitted inside
@@ -599,6 +613,11 @@ void Map::init()
 			_uiTexCache.clear();
 			for (auto& p : _spriteFrameCache) delete p.second;
 			_spriteFrameCache.clear();
+			for (auto& p : _hudTextTexCache) delete p.second;
+			_hudTextTexCache.clear();
+			for (auto& p : _hudImageTexCache) delete p.second;
+			_hudImageTexCache.clear();
+			for (int i = 0; i < HUD_IMG_COUNT; ++i) _hudImageSlots[i].active = false;
 		});
 	}
 #endif
@@ -5173,6 +5192,209 @@ GpuTexture* Map::getUITexture(const std::string& relPath, int wrap)
 }
 
 /**
+ * Calypso bug 1: HUD text overlay handoff. BattlescapeState::applyHudName clears then
+ * re-adds the name + 4 stat digits each refresh (logical widget rect + text + ARGB colour).
+ */
+void Map::clearHudTextItems()
+{
+	_hudTextItems.clear();
+}
+
+void Map::addHudTextItem(float fitX, float fitY, float fitW, float fitH,
+                         const std::string& text, Uint32 colorArgb)
+{
+	_hudTextItems.push_back(HudTextItem{ fitX, fitY, fitW, fitH, text, colorArgb });
+}
+
+void Map::clearHudImage(int slot)
+{
+	if (slot >= 0 && slot < HUD_IMG_COUNT) _hudImageSlots[slot].active = false;
+}
+
+void Map::setHudImage(int slot, const std::string& key, SDL_Surface* src, int x, int y, int w, int h)
+{
+	if (slot < 0 || slot >= HUD_IMG_COUNT) return;
+	if (!src || w <= 0 || h <= 0) { _hudImageSlots[slot].active = false; return; }
+
+	// Fetch or upload the source as an RGBA GpuTexture, cached by the caller's content/size key.
+	// The quad's PHYSICAL size comes from (x,y,w,h)+xScale, so the LINEAR-sampled source lands
+	// crisp at any resolution-menu fraction (vs the old SDL_BlitScaled into the small logical
+	// widget surface, which then got stretched a second time → pixelated).
+	GpuTexture* tex = nullptr;
+	auto it = _hudImageTexCache.find(key);
+	if (it != _hudImageTexCache.end())
+	{
+		tex = it->second;
+	}
+	else
+	{
+		if (_hudImageTexCache.size() > 32)   // bound churn (6 ranks + portrait variants + box sizes)
+		{
+			for (auto& p : _hudImageTexCache) delete p.second;
+			_hudImageTexCache.clear();
+		}
+		SDL_Surface* rgba = SDL_ConvertSurfaceFormat(src, SDL_PIXELFORMAT_ABGR8888, 0);
+		if (rgba)
+		{
+			if (SDL_MUSTLOCK(rgba)) SDL_LockSurface(rgba);
+			tex = new GpuTexture(/*srgb=*/false, GpuTexture::Wrap::ClampToEdge, GpuTexture::Filter::Linear);
+			if (!tex->uploadRGBA(static_cast<const uint8_t*>(rgba->pixels), rgba->w, rgba->h))
+			{
+				delete tex; tex = nullptr;
+			}
+			if (SDL_MUSTLOCK(rgba)) SDL_UnlockSurface(rgba);
+			SDL_FreeSurface(rgba);
+		}
+		_hudImageTexCache[key] = tex;   // cache nullptr too (avoid per-frame retry)
+	}
+
+	if (!tex) { _hudImageSlots[slot].active = false; return; }
+	_hudImageSlots[slot] = HudImageItem{ (float)x, (float)y, (float)w, (float)h, tex, true };
+}
+
+/**
+ * Render one HUD string (name or stat digits) to a GpuTexture via the HD TTF font, cached
+ * by "text#argb". Stat digits change per action, so the cache is capped + flushed wholesale.
+ * Mirrors getUITexture's ABGR8888 upload convention.
+ */
+GpuTexture* Map::getHudTextTexture(const std::string& text, Uint32 colorArgb)
+{
+	std::string key = text;
+	key.push_back('#');
+	key += std::to_string(colorArgb);
+	auto it = _hudTextTexCache.find(key);
+	if (it != _hudTextTexCache.end()) return it->second;
+
+	if (_hudTextTexCache.size() > 64)   // bound the per-action digit churn
+	{
+		for (auto& p : _hudTextTexCache) delete p.second;
+		_hudTextTexCache.clear();
+	}
+
+	GpuTexture* tex = nullptr;
+	TTFFont* font = (_game && _game->getMod()) ? _game->getMod()->getTTFFont("FONT_HD_HUD", false) : nullptr;
+	if (font)
+	{
+		SDL_Color col = { (Uint8)((colorArgb >> 16) & 0xFF), (Uint8)((colorArgb >> 8) & 0xFF),
+		                  (Uint8)(colorArgb & 0xFF), (Uint8)((colorArgb >> 24) & 0xFF) };
+		SDL_Surface* ttf = font->renderText(text, col);   // cached + owned by TTFFont — do NOT free
+		if (ttf && ttf->w > 0 && ttf->h > 0)
+		{
+			// ABGR8888 == [R,G,B,A] byte layout on little-endian WASM, matching
+			// GpuTexture::uploadRGBA (same convention as getUITexture).
+			SDL_Surface* rgba = SDL_ConvertSurfaceFormat(ttf, SDL_PIXELFORMAT_ABGR8888, 0);
+			if (rgba)
+			{
+				if (SDL_MUSTLOCK(rgba)) SDL_LockSurface(rgba);
+				tex = new GpuTexture(/*srgb=*/false, GpuTexture::Wrap::ClampToEdge, GpuTexture::Filter::Linear);
+				if (!tex->uploadRGBA(static_cast<const uint8_t*>(rgba->pixels), rgba->w, rgba->h))
+				{
+					delete tex; tex = nullptr;
+				}
+				if (SDL_MUSTLOCK(rgba)) SDL_UnlockSurface(rgba);
+				SDL_FreeSurface(rgba);
+			}
+		}
+	}
+	_hudTextTexCache[key] = tex;   // cache nullptr too (avoid per-frame retry)
+	return tex;
+}
+
+/**
+ * Calypso bug 1: draw the HUD name + stat digits at PHYSICAL resolution, OVER the stretched
+ * logical HUD. The 48px TTF raster is GPU-downscaled (LINEAR) straight to the physical widget
+ * size, bypassing the small logical surface that made the CPU text mushy at low res fractions.
+ * Mirrors the CS_RASTER quad path of drawCursorOverlayGLPass.
+ */
+void Map::drawHudTextGLPass()
+{
+	bool anyImg = false;
+	for (int i = 0; i < HUD_IMG_COUNT; ++i) if (_hudImageSlots[i].active) { anyImg = true; break; }
+	if ((_hudTextItems.empty() && !anyImg) || SDL_GetTicks() - _lastDrawnTicks > 250) return;
+	if (!_spriteGLInit) initSpriteGL();
+	if (!_spriteGLInit || !_spriteShader || !_spriteShader->isValid()) return;
+
+	Screen* screen = _game->getScreen();
+	const float xScale = static_cast<float>(screen->getXScale());
+	const float yScale = static_cast<float>(screen->getYScale());
+	const int   lbb    = screen->getCursorLeftBlackBand();
+	const int   tbb    = screen->getCursorTopBlackBand();
+	const int   dW     = Options::displayWidth;
+	const int   dH     = Options::displayHeight;
+	if (dW <= 0 || dH <= 0) return;
+
+	GLint prevProgram = 0;
+	glGetIntegerv(GL_CURRENT_PROGRAM, &prevProgram);
+	glDisable(GL_SCISSOR_TEST);   // text is positioned inside the HUD; never clip it
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	// Logical → physical → NDC quad (axis-aligned), identical to the cursor raster path.
+	auto drawQuad = [&](GpuTexture* tex, float gx, float gy, float fw, float fh)
+	{
+		const float dispX = gx * xScale + static_cast<float>(lbb);
+		const float dispY = gy * yScale + static_cast<float>(tbb);
+		const float dispW = fw * xScale;
+		const float dispH = fh * yScale;
+		const float x0 =  2.0f * dispX            / static_cast<float>(dW) - 1.0f;
+		const float y0 = -(2.0f * dispY           / static_cast<float>(dH) - 1.0f);
+		const float x1 =  2.0f * (dispX + dispW)  / static_cast<float>(dW) - 1.0f;
+		const float y1 = -(2.0f * (dispY + dispH) / static_cast<float>(dH) - 1.0f);
+		const float verts[6 * 4] = {
+			x0, y0, 0.0f, 0.0f,
+			x1, y0, 1.0f, 0.0f,
+			x0, y1, 0.0f, 1.0f,
+			x0, y1, 0.0f, 1.0f,
+			x1, y0, 1.0f, 0.0f,
+			x1, y1, 1.0f, 1.0f,
+		};
+		glBindBuffer(GL_ARRAY_BUFFER, _spriteVBO);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)sizeof(verts), verts);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		tex->bind(0);
+		glBindVertexArray(_spriteVAO);
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+		glBindVertexArray(0);
+	};
+
+	_spriteShader->use();
+	_spriteShader->setUniform1i("u_tex", 0);
+	_spriteShader->setUniform1f("u_darken", 0.0f);
+	_spriteShader->setUniform3f("u_tint", 1.0f, 1.0f, 1.0f);   // texture carries its own colour
+	// CRITICAL: the textured shader's "calypso-extension" uniforms (u_alpha/u_radial/
+	// u_uvScroll/u_clipEdges) PERSIST across draws. The pre-composite FX passes
+	// (blood/scorch door-clip, particle plumes) leave them non-neutral, which would
+	// clip/fade/scroll our text into invisibility (this was the "no visible change" bug).
+	// Reset them so the glyphs render clean regardless of prior-pass residue.
+	_spriteShader->setUniform1f("u_alpha", 1.0f);
+	_spriteShader->setUniform1f("u_radial", 0.0f);
+	_spriteShader->setUniform2f("u_uvScroll", 0.0f, 0.0f);
+	_spriteShader->setUniform4f("u_clipEdges", 0.0f, 0.0f, 0.0f, 0.0f);
+
+	// Image slots first (portrait / rank / stat-number ring), so the digits text below them
+	// composite on top of the rings. Each source is GPU-sampled (LINEAR) to its physical rect.
+	for (int i = 0; i < HUD_IMG_COUNT; ++i)
+	{
+		const HudImageItem& im = _hudImageSlots[i];
+		if (!im.active || !im.tex || im.fitW <= 0.0f || im.fitH <= 0.0f) continue;
+		drawQuad(im.tex, im.fitX, im.fitY, im.fitW, im.fitH);
+	}
+
+	for (const HudTextItem& item : _hudTextItems)
+	{
+		if (item.text.empty() || item.fitW <= 0.0f || item.fitH <= 0.0f) continue;
+		GpuTexture* tex = getHudTextTexture(item.text, item.colorArgb);
+		if (!tex) continue;
+		// The placement rect was computed CPU-side (applyHudName/applyHudNumber) from the SAME
+		// TTF raster, so the crisp overlay lands EXACTLY over the logical text — no double-image.
+		drawQuad(tex, item.fitX, item.fitY, item.fitW, item.fitH);
+	}
+
+	glDisable(GL_BLEND);
+	glUseProgram(static_cast<GLuint>(prevProgram));
+}
+
+/**
  * Block 11.10 / Phase 15: GPU post-flush pass that renders cursor-box overlays.
  *
  * Instances are collected during drawTerrainOverlayCPU() into
@@ -5495,6 +5717,18 @@ void Map::drawProjectileGLPass()
 bool Map::overlayPassesActive() const
 {
 	return !_overlayOwner || (_game && _game->isState(_overlayOwner));
+}
+
+bool Map::hudOverlayVisible() const
+{
+	if (!_overlayOwner || !_game) return true;
+	State* top = _game->getTopState();
+	// The battlescape is rendered behind the top state iff that state is the battlescape
+	// itself OR a non-fullscreen popup (action menu / CANCEL / warning). In both cases the
+	// HUD panel shows, so the crisp text overlay must keep drawing over it. A fullscreen
+	// state (Inventory/Options/pause) hides the HUD → skip (the >250ms _lastDrawnTicks guard
+	// in drawHudTextGLPass also covers nested popup-over-fullscreen stacks).
+	return top == _overlayOwner || (top && !top->isScreen());
 }
 
 /** Base-res Y where the (HD) HUD starts; the visible map is above this. */
@@ -6117,31 +6351,53 @@ void Map::triggerAoEFx(Position voxelCenter, int power, int radius, bool underwa
 		if (damageType == DT_STUN) { gr = 0.55f; gg = 0.95f; gb = 0.70f; }  // pale green stun gas
 		else                        { gr = 0.72f; gg = 0.75f; gb = 0.78f; }  // grey smoke
 		const int rT = std::max(1, radius);
-		const int puffs = std::min(22, 8 + rT * 2);
-		for (int i = 0; i < puffs; ++i)
+		// Calypso: stun/smoke rendered as a SOLID translucent smoke mass, not flying scraps —
+		// three layers:
+		//   CORE — a few BIG, slow, semi-transparent puffs hugging the blast centre; overlapping
+		//          (opacity 0.32) they accumulate into a continuous opaque-ish smoke body.
+		//   BODY — medium soft blobs over the blast area (the visible smoke texture).
+		//   HAZE — many small fine puffs filling the gaps (the wispy edge "дымка").
+		const int core = std::min(28, 12 + rT * 4);    // solid translucent smoke body
+		const int body = std::min(56, 20 + rT * 5);    // medium blobs
+		const int haze = std::min(80, 32 + rT * 7);    // fine filler haze
+		const int total = core + body + haze;
+		for (int i = 0; i < total; ++i)
 		{
+			const int layer = (i < core) ? 0 : (i < core + body ? 1 : 2);   // 0=core 1=body 2=haze
 			const float h0 = frand(t0 + (unsigned)i * 2654435761u + 3u);
 			const float h1 = frand(t0 * 3u + (unsigned)i * 40503u + 19u);
 			const float h2 = frand(t0 + (unsigned)i * 668265263u + 41u);
 			const float ang = h0 * 6.2832f;
-			const float dist = (float)rT * 16.0f * 0.8f * std::sqrt(h1);    // over the blast area
+			// core hugs the centre; body fills the blast area; haze spreads widest.
+			const float spread = (layer == 0) ? 0.50f : (layer == 1 ? 0.70f : 1.00f);
+			const float dist = (float)rT * 16.0f * spread * std::sqrt(h1);
 			FxParticle fp{};
 			fp.origin = voxelCenter;
 			fp.origin.x += (int)(std::cos(ang) * dist);
 			fp.origin.y += (int)(std::sin(ang) * dist);
 			fp.spawnTick = t0;
-			fp.delayMs = (unsigned int)(h2 * 300.0f);
-			fp.vx = std::cos(ang) * 20.0f * es;
-			fp.vy = std::sin(ang) * 14.0f * es - 30.0f * es;               // slow drift, slight rise
-			fp.ay = -40.0f * es;                                           // gentle buoyancy
-			fp.lifeMs = 1400.0f + 900.0f * h2;
-			fp.size = (14.0f + 16.0f * h2) * es;                           // big soft gas blobs
-			fp.r = gr; fp.g = gg; fp.b = gb; fp.additive = false;          // translucent, not glowing
-			fp.texCode = 100 + ((int)(h0 * 53.0f) % 4);                    // smoke-puff sprite
+			fp.delayMs = (unsigned int)(h2 * (layer == 0 ? 180.0f : (layer == 1 ? 300.0f : 380.0f)));
+			// core barely drifts (stays a solid mass); body/haze drift + rise a little more.
+			const float vmul = (layer == 0) ? 7.0f : (layer == 1 ? 14.0f : 16.0f);
+			const float rise = (layer == 0) ? 10.0f : (layer == 1 ? 24.0f : 22.0f);
+			fp.vx = std::cos(ang) * vmul * es;
+			fp.vy = std::sin(ang) * 11.0f * es - rise * es;
+			fp.ay = -36.0f * es;                                            // gentle buoyancy
+			fp.lifeMs = (layer == 0 ? 1900.0f : (layer == 1 ? 1400.0f : 1200.0f)) + 1000.0f * h2;
+			// core = big; body = medium; haze = small.
+			fp.size = (layer == 0 ? (26.0f + 26.0f * h2)
+			        :  layer == 1 ? (13.0f + 15.0f * h2)
+			        :               ( 5.0f +  8.0f * h2)) * es;
+			fp.r = gr; fp.g = gg; fp.b = gb; fp.additive = false;           // translucent, not glowing
+			// core is semi-transparent so overlapping puffs build a solid smoke body without a
+			// flat wall; body/haze keep full per-sprite alpha.
+			fp.opacity = (layer == 0) ? 0.32f : 1.0f;
+			fp.texCode = 100 + ((int)(h0 * 53.0f) % 4);                     // smoke-puff sprite
 			_fxParticles.push_back(fp);
 		}
-		if (_fxParticles.size() > 320)
-			_fxParticles.erase(_fxParticles.begin(), _fxParticles.begin() + (_fxParticles.size() - 320));
+		// Cap raised to fit the three-layer cloud (≤164 particles/blast) plus lingering ones.
+		if (_fxParticles.size() > 700)
+			_fxParticles.erase(_fxParticles.begin(), _fxParticles.begin() + (_fxParticles.size() - 700));
 		return;   // no fiery flash / scorch / bubble / shockwave / hot particles
 	}
 
@@ -6414,7 +6670,7 @@ void Map::drawFxParticlesGLPass()
 			if (fp.texCode != boundCode)
 			{ GpuTexture* t = texFor(fp.texCode); if (!t) continue; t->bind(0); boundCode = fp.texCode; }
 			_spriteShader->setUniform3f("u_tint", fp.r, fp.g, fp.b);
-			_spriteShader->setUniform1f("u_alpha", std::max(0.02f, fade * (additivePass ? 1.0f : 0.7f)));
+			_spriteShader->setUniform1f("u_alpha", fp.opacity * std::max(0.02f, fade * (additivePass ? 1.0f : 0.7f)));
 			drawQuad(cx - side / 2, cy - side / 2, side, side);
 		}
 	}
