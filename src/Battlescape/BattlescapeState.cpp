@@ -4483,21 +4483,24 @@ void BattlescapeState::applyHdRank(int rankIdx)
 #ifdef __EMSCRIPTEN__
 	_hudRankIndex = rankIdx;
 	if (!_rank || !_rank->getSurface()) return;
-	_rank->clear();
+	_rank->clear();   // logical slot stays clear; the HD insignia is drawn by the GL overlay
+	bool queued = false;
 	if (rankIdx >= 0)
 	{
 		std::ostringstream ss;
 		ss << "CALYPSO_RANK_" << rankIdx;
 		Surface* hd = _game->getMod()->getSurface(ss.str(), false);
-		if (hd && hd->getSurface())
+		if (hd && hd->getSurface() && _map)
 		{
-			// copy (not blend) so the plate's rounded-corner alpha lands verbatim;
-			// _rank then alpha-composites over the panel.
-			SDL_SetSurfaceBlendMode(hd->getSurface(), SDL_BLENDMODE_NONE);
-			SDL_Rect dst{ 0, 0, _rank->getWidth(), _rank->getHeight() };
-			SDL_BlitScaled(hd->getSurface(), nullptr, _rank->getSurface(), &dst);
+			// Draw the HD insignia at PHYSICAL resolution over the rank slot (crisp at the low
+			// resolution-menu fractions); the source is GPU-stretched to the slot rect, replacing
+			// the SDL_BlitScaled-into-tiny-logical-surface path that pixelated it.
+			_map->setHudImage(Map::HUD_IMG_RANK, ss.str(), hd->getSurface(),
+			                  _rank->getX(), _rank->getY(), _rank->getWidth(), _rank->getHeight());
+			queued = true;
 		}
 	}
+	if (!queued && _map) _map->clearHudImage(Map::HUD_IMG_RANK);
 	_rank->setRedraw(false);
 #else
 	(void)rankIdx;
@@ -4513,7 +4516,8 @@ void BattlescapeState::applyPortrait(BattleUnit* unit)
 {
 #ifdef __EMSCRIPTEN__
 	if (!_portrait || !_portrait->getSurface()) return;
-	_portrait->clear();
+	_portrait->clear();   // logical slot stays clear; the head is drawn by the GL overlay
+	bool queued = false;
 	Soldier* soldier = unit ? unit->getGeoscapeSoldier() : nullptr;
 	if (soldier)
 	{
@@ -4522,6 +4526,7 @@ void BattlescapeState::applyPortrait(BattleUnit* unit)
 		const std::string look = soldier->getArmor()->getSpriteInventory();
 		const std::string gender = soldier->getGender() == GENDER_MALE ? "M" : "F";
 		Surface* surf = nullptr;
+		std::string matched;
 		for (int i = 0; i <= RuleSoldier::LookVariantBits; ++i)
 		{
 			std::ostringstream ss;
@@ -4529,11 +4534,11 @@ void BattlescapeState::applyPortrait(BattleUnit* unit)
 			   << ((int)soldier->getLook() + (soldier->getLookVariant() & (RuleSoldier::LookVariantMask >> i)) * 4)
 			   << ".SPK";
 			surf = _game->getMod()->getSurface(ss.str(), false);
-			if (surf) break;
+			if (surf) { matched = ss.str(); break; }
 		}
-		if (!surf) { surf = _game->getMod()->getSurface(look + ".SPK", false); }
-		if (!surf) { surf = _game->getMod()->getSurface(look, false); }
-		if (surf && surf->getSurface())
+		if (!surf) { surf = _game->getMod()->getSurface(look + ".SPK", false); matched = look + ".SPK"; }
+		if (!surf) { surf = _game->getMod()->getSurface(look, false); matched = look; }
+		if (surf && surf->getSurface() && _map)
 		{
 			// The look .SPK is figure-on-transparent anchored in 320x200 space;
 			// crop head + shoulders (tuned to the inventory paperdoll head).
@@ -4543,54 +4548,48 @@ void BattlescapeState::applyPortrait(BattleUnit* unit)
 			SDL_Rect srcR{ 69, 44, 34, 36 };
 			if (srcR.x + srcR.w > src->w) srcR.w = src->w - srcR.x;
 			if (srcR.y + srcR.h > src->h) srcR.h = src->h - srcR.y;
-			SDL_Rect dst{ 0, 0, _portrait->getWidth(), _portrait->getHeight() };
-			SDL_SetSurfaceBlendMode(src, SDL_BLENDMODE_NONE);
-			SDL_BlitScaled(src, &srcR, _portrait->getSurface(), &dst);
-
-			// Round-mask: clear alpha outside the inscribed circle.
-			SDL_Surface* ps = _portrait->getSurface();
-			if (ps->format->BitsPerPixel == 32)
+			// Copy the crop 1:1 into a small ARGB surface (the SOURCE for the GL overlay), keeping
+			// the original art resolution — never the (shrinking) logical slot, which is what made
+			// it pixelate at low fractions. The GL quad LINEAR-samples this straight to physical.
+			SDL_Surface* crop = SDL_CreateRGBSurfaceWithFormat(0, srcR.w, srcR.h, 32, SDL_PIXELFORMAT_ARGB8888);
+			if (crop)
 			{
-				SDL_LockSurface(ps);
-				const float cx = ps->w / 2.0f, cy = ps->h / 2.0f;
-				const float r = (cx < cy ? cx : cy) - 1.0f;
-				for (int yy = 0; yy < ps->h; ++yy)
+				SDL_FillRect(crop, nullptr, SDL_MapRGBA(crop->format, 0, 0, 0, 0));
+				SDL_SetSurfaceBlendMode(src, SDL_BLENDMODE_NONE);
+				SDL_Rect d0{ 0, 0, srcR.w, srcR.h };
+				SDL_BlitSurface(src, &srcR, crop, &d0);
+				// Round-mask in NORMALISED UV space so it renders as a circle in the square portrait
+				// slot regardless of the 34x36 source aspect; GPU LINEAR then smooths the rim edge.
+				SDL_LockSurface(crop);
+				for (int yy = 0; yy < crop->h; ++yy)
 				{
-					Uint32* row = (Uint32*)((Uint8*)ps->pixels + yy * ps->pitch);
-					for (int xx = 0; xx < ps->w; ++xx)
+					Uint32* row = (Uint32*)((Uint8*)crop->pixels + yy * crop->pitch);
+					const float v = (yy + 0.5f) / crop->h - 0.5f;
+					for (int xx = 0; xx < crop->w; ++xx)
 					{
-						const float dx = xx - cx, dy = yy - cy;
-						if (dx * dx + dy * dy > r * r)
+						const float u = (xx + 0.5f) / crop->w - 0.5f;
+						if (u * u + v * v > 0.25f)
 						{
 							Uint8 rr, gg, bb, aa;
-							SDL_GetRGBA(row[xx], ps->format, &rr, &gg, &bb, &aa);
-							row[xx] = SDL_MapRGBA(ps->format, rr, gg, bb, 0);
+							SDL_GetRGBA(row[xx], crop->format, &rr, &gg, &bb, &aa);
+							row[xx] = SDL_MapRGBA(crop->format, rr, gg, bb, 0);
 						}
 					}
 				}
-				SDL_UnlockSurface(ps);
+				SDL_UnlockSurface(crop);
+				_map->setHudImage(Map::HUD_IMG_PORTRAIT, "portrait#" + matched, crop,
+				                  _portrait->getX(), _portrait->getY(), _portrait->getWidth(), _portrait->getHeight());
+				SDL_FreeSurface(crop);
+				queued = true;
 			}
 		}
 	}
+	if (!queued && _map) _map->clearHudImage(Map::HUD_IMG_PORTRAIT);
 	_portrait->setRedraw(false);
 #else
 	(void)unit;
 #endif
 }
-
-#ifdef __EMSCRIPTEN__
-/**
- * Bilinearly fit an ARGB TTF surface into dest (cleared first), left-aligned and
- * vertically centred, preserving the glyph alpha so dest composites over the
- * panel. Scales down to fit dest's width/height; never upscales past native.
- */
-static void blitTTFFit(SDL_Surface* ttf, Surface* destS, float fillFrac = 1.0f)
-{
-	// Left-aligned, vertically-centred fit-blit — shared via TTFUtil so scaled
-	// menus/buttons/labels reuse the exact same bilinear path as the HUD.
-	TTFUtil::blitFit(ttf, destS, TTFUtil::H_LEFT, TTFUtil::V_MIDDLE, fillFrac);
-}
-#endif
 
 /**
  * Calypso (Emscripten): lazy-resolve the large Oxanium HUD font.
@@ -4611,7 +4610,7 @@ void BattlescapeState::applyHudName(BattleUnit* unit)
 #ifdef __EMSCRIPTEN__
 	if (!_txtName || !_txtName->getSurface()) return;
 	_txtName->clear();
-	if (_map) _map->clearHudTextItems();   // bug 1: reset the physical-res overlay list (numbers re-add)
+	bool queued = false;
 	TTFFont* font = getHudFont();
 	if (font && unit)
 	{
@@ -4621,13 +4620,30 @@ void BattlescapeState::applyHudName(BattleUnit* unit)
 		if (!name.empty())
 		{
 			SDL_Color col = { 0x7A, 0xC8, 0xFF, 0xFF };
-			SDL_Surface* ttf = font->renderText(name, col);
-			blitTTFFit(ttf, _txtName, 0.551f);  // progressively reduced so it clears the bars
-			// bug 1: queue a physical-resolution copy drawn over the HUD (crisp at low res).
-			if (_map) _map->addHudTextItem(_txtName->getX(), _txtName->getY(),
-			                               _txtName->getWidth(), _txtName->getHeight(), name, 0xFF7AC8FFu, true);
+			SDL_Surface* ttf = font->renderText(name, col);   // owned by TTFFont — do NOT free
+			if (ttf && ttf->w > 0 && ttf->h > 0)
+			{
+				// The crisp physical-res GL overlay (Map::drawHudTextGLPass) is the SOLE renderer
+				// of the name now — the logical CPU text is intentionally NOT blitted, so the mushy
+				// stretched copy can never show under the overlay (incl. behind non-fullscreen
+				// popups, where the overlay keeps drawing via hudOverlayVisible()). We still render
+				// the TTF here purely to measure its size and pass the exact fit rect to the overlay.
+				// Height-driven fit (0.72 of the field), width-capped; left-aligned, V-centred.
+				const int W = _txtName->getWidth(), H = _txtName->getHeight();
+				float scale = (H * 0.72f) / ttf->h;
+				if (ttf->w * scale > W) scale = (float)W / ttf->w;   // never overflow the field
+				int outW = (int)(ttf->w * scale + 0.5f); if (outW < 1) outW = 1;
+				int outH = (int)(ttf->h * scale + 0.5f); if (outH < 1) outH = 1;
+				const int ox = 0, oy = (H - outH) / 2;
+				// bug 1: own only the NAME slot — no global clear (the stat-digit slots are owned by
+				// applyHudNumber), so a partial refresh can't accumulate duplicate text items.
+				if (_map) _map->setHudText(Map::HUD_TXT_NAME, (float)(_txtName->getX() + ox),
+				                           (float)(_txtName->getY() + oy), (float)outW, (float)outH, name, 0xFF7AC8FFu);
+				queued = true;
+			}
 		}
 	}
+	if (!queued && _map) _map->clearHudText(Map::HUD_TXT_NAME);
 	_txtName->setRedraw(false);
 #else
 	(void)unit;
@@ -4672,97 +4688,72 @@ static void drawRoundedBox(SDL_Surface* s, SDL_Color fill, SDL_Color accent, int
 	SDL_UnlockSurface(s);
 }
 
-/**
- * Composite an ARGB TTF surface OVER dest (does not clear), scaled to fit within
- * dest minus `pad` fraction, centred both ways, with proper alpha-over blending.
- */
-static void blitTTFCenterOver(SDL_Surface* ttf, Surface* destS, float pad)
-{
-	if (!ttf || !destS || !destS->getSurface()) return;
-	SDL_Surface* dst = destS->getSurface();
-	if (ttf->format->BitsPerPixel != 32 || dst->format->BitsPerPixel != 32) return;
-	const int dW = dst->w, dH = dst->h, sW = ttf->w, sH = ttf->h;
-	if (sW <= 0 || sH <= 0 || dW <= 0 || dH <= 0) return;
-	const float availW = dW * (1.0f - pad), availH = dH * (1.0f - pad);
-	float scale = (availH / sH < availW / sW) ? availH / sH : availW / sW;
-	if (scale > 1.0f) scale = 1.0f;
-	int outW = (int)(sW * scale + 0.5f); if (outW < 1) outW = 1; if (outW > dW) outW = dW;
-	int outH = (int)(sH * scale + 0.5f); if (outH < 1) outH = 1; if (outH > dH) outH = dH;
-	const int ox = (dW - outW) / 2, oy = (dH - outH) / 2;
-	SDL_LockSurface(ttf); SDL_LockSurface(dst);
-	for (int y = 0; y < outH; ++y)
-	{
-		float sy = (y + 0.5f) * sH / outH - 0.5f; if (sy < 0) sy = 0; if (sy > sH - 1) sy = sH - 1;
-		const int y0 = (int)sy; const int y1 = (y0 + 1 < sH) ? y0 + 1 : y0; const float fy = sy - y0;
-		Uint32* drow = (Uint32*)((Uint8*)dst->pixels + (oy + y) * dst->pitch);
-		Uint32* r0 = (Uint32*)((Uint8*)ttf->pixels + y0 * ttf->pitch);
-		Uint32* r1 = (Uint32*)((Uint8*)ttf->pixels + y1 * ttf->pitch);
-		for (int x = 0; x < outW; ++x)
-		{
-			float sx = (x + 0.5f) * sW / outW - 0.5f; if (sx < 0) sx = 0; if (sx > sW - 1) sx = sW - 1;
-			const int x0 = (int)sx; const int x1 = (x0 + 1 < sW) ? x0 + 1 : x0; const float fx = sx - x0;
-			Uint8 ar,ag,ab,aa, br,bg,bb,ba, cr,cg,cb,ca, er,eg,eb,ea;
-			SDL_GetRGBA(r0[x0], ttf->format, &ar,&ag,&ab,&aa);
-			SDL_GetRGBA(r0[x1], ttf->format, &br,&bg,&bb,&ba);
-			SDL_GetRGBA(r1[x0], ttf->format, &cr,&cg,&cb,&ca);
-			SDL_GetRGBA(r1[x1], ttf->format, &er,&eg,&eb,&ea);
-			const float w00=(1-fx)*(1-fy), w10=fx*(1-fy), w01=(1-fx)*fy, w11=fx*fy;
-			const float sr = ar*w00+br*w10+cr*w01+er*w11;
-			const float sg = ag*w00+bg*w10+cg*w01+eg*w11;
-			const float sb = ab*w00+bb*w10+cb*w01+eb*w11;
-			const float sa = (aa*w00+ba*w10+ca*w01+ea*w11) / 255.0f;
-			if (sa <= 0.001f) continue;
-			const int dxp = ox + x; if (dxp < 0 || dxp >= dW) continue;
-			Uint8 dr, dg, db, da;
-			SDL_GetRGBA(drow[dxp], dst->format, &dr, &dg, &db, &da);
-			const float daf = da / 255.0f;
-			const float oa = sa + daf * (1.0f - sa);
-			Uint8 R, G, B, A;
-			if (oa <= 0.001f) { R=G=B=0; A=0; }
-			else
-			{
-				R = (Uint8)((sr * sa + dr * daf * (1.0f - sa)) / oa + 0.5f);
-				G = (Uint8)((sg * sa + dg * daf * (1.0f - sa)) / oa + 0.5f);
-				B = (Uint8)((sb * sa + db * daf * (1.0f - sa)) / oa + 0.5f);
-				A = (Uint8)(oa * 255.0f + 0.5f);
-			}
-			drow[dxp] = SDL_MapRGBA(dst->format, R, G, B, A);
-		}
-	}
-	SDL_UnlockSurface(ttf); SDL_UnlockSurface(dst);
-}
 #endif
 
 /**
  * Calypso (Emscripten): draw one stat number as a TTF value centred inside a
  * coloured rounded box (accent border + dark fill), into the NumberText surface.
  */
-void BattlescapeState::applyHudNumber(NumberText* w, int value, Uint32 accentArgb)
+void BattlescapeState::applyHudNumber(NumberText* w, int value, Uint32 accentArgb, int imgSlot, int txtSlot)
 {
 #ifdef __EMSCRIPTEN__
 	if (!w || !w->getSurface()) return;
 	SDL_Surface* s = w->getSurface();
 	if (s->format->BitsPerPixel != 32) { w->setRedraw(false); return; }
-	w->clear();
+	w->clear();   // logical widget stays clear; the ring + digits are drawn by the GL overlay
 	SDL_Color accent = { (Uint8)((accentArgb >> 16) & 0xFF), (Uint8)((accentArgb >> 8) & 0xFF),
 	                     (Uint8)(accentArgb & 0xFF), 0xFF };
 	SDL_Color fill = { 8, 14, 22, 210 };
-	const int radius = ((s->h < s->w ? s->h : s->w) / 4);
-	const int bw = (s->h >= 22 ? 2 : 1);
-	drawRoundedBox(s, fill, accent, radius, bw);
+
+	// Rounded ring/box rendered at PHYSICAL pixel size, then GPU-sampled to the widget rect —
+	// crisp corners at the low resolution-menu fractions (vs drawing into the tiny logical
+	// surface, which the stretch then pixelated). Cached by physical size + accent colour.
+	const float xs = (float)_game->getScreen()->getXScale();
+	const float ys = (float)_game->getScreen()->getYScale();
+	int pw = (int)(w->getWidth()  * xs + 0.5f); if (pw < 1) pw = 1; if (pw > 1024) pw = 1024;
+	int ph = (int)(w->getHeight() * ys + 0.5f); if (ph < 1) ph = 1; if (ph > 1024) ph = 1024;
+	SDL_Surface* box = SDL_CreateRGBSurfaceWithFormat(0, pw, ph, 32, SDL_PIXELFORMAT_ARGB8888);
+	if (box && _map)
+	{
+		const int radius = ((ph < pw ? ph : pw) / 4);
+		const int bw = (ph >= 44 ? 4 : (ph >= 22 ? 2 : 1));
+		drawRoundedBox(box, fill, accent, radius, bw);
+		std::ostringstream k;
+		k << "box#" << pw << "x" << ph << "#" << std::hex << (accentArgb & 0xFFFFFFu);
+		_map->setHudImage(imgSlot, k.str(), box, w->getX(), w->getY(), w->getWidth(), w->getHeight());
+	}
+	else if (_map) { _map->clearHudImage(imgSlot); }
+	if (box) SDL_FreeSurface(box);   // free regardless of _map — setHudImage uploaded its own copy
+
 	TTFFont* font = getHudFont();
+	const std::string digits = std::to_string(value);
+	bool txtQueued = false;
 	if (font)
 	{
-		// digits in the exact same colour as the box/bar
-		SDL_Surface* ttf = font->renderText(std::to_string(value), accent);
-		blitTTFCenterOver(ttf, w, 0.34f);
+		// digits in the exact same colour as the box/bar. The crisp GL overlay is the SOLE
+		// renderer of the digits — rendered over the ring image slot. We render the TTF here only
+		// to measure it and hand the exact fit rect to the overlay.
+		SDL_Surface* ttf = font->renderText(digits, accent);   // owned by TTFFont — do NOT free
+		if (ttf && ttf->w > 0 && ttf->h > 0)
+		{
+			// Min-dimension fit at 0.88 of the box, centred both ways.
+			const float availW = s->w * 0.88f, availH = s->h * 0.88f;
+			float scale = (availH / ttf->h < availW / ttf->w) ? availH / ttf->h : availW / ttf->w;
+			if (scale > 1.0f) scale = 1.0f;
+			int outW = (int)(ttf->w * scale + 0.5f); if (outW < 1) outW = 1;
+			int outH = (int)(ttf->h * scale + 0.5f); if (outH < 1) outH = 1;
+			const int ox = (s->w - outW) / 2, oy = (s->h - outH) / 2;
+			// bug 1: own only this stat's digit slot — applyHudNumber rebuilds it each refresh, so
+			// even a partial stat update (without a preceding applyHudName) can't accumulate dupes.
+			if (_map) _map->setHudText(txtSlot, (float)(w->getX() + ox), (float)(w->getY() + oy),
+			                           (float)outW, (float)outH, digits, 0xFF000000u | (accentArgb & 0xFFFFFFu));
+			txtQueued = true;
+		}
 	}
-	// bug 1: queue a physical-resolution copy of the digits drawn over the HUD box (crisp at low res).
-	if (_map) _map->addHudTextItem(w->getX(), w->getY(), w->getWidth(), w->getHeight(),
-	                               std::to_string(value), 0xFF000000u | (accentArgb & 0xFFFFFFu), false);
+	if (!txtQueued && _map) _map->clearHudText(txtSlot);
 	w->setRedraw(false);
 #else
-	(void)w; (void)value; (void)accentArgb;
+	(void)w; (void)value; (void)accentArgb; (void)imgSlot; (void)txtSlot;
 #endif
 }
 
@@ -4782,15 +4773,22 @@ void BattlescapeState::applyHudNumbers(BattleUnit* unit)
 			SDL_Color* c = pal->getColors(b->getColor());
 			return ((Uint32)c->r << 16) | ((Uint32)c->g << 8) | (Uint32)c->b;
 		};
-		applyHudNumber(_numTimeUnits, unit->getTimeUnits(), barArgb(_barTimeUnits));
-		applyHudNumber(_numEnergy,    unit->getEnergy(),    barArgb(_barEnergy));
-		applyHudNumber(_numHealth,    unit->getHealth(),    barArgb(_barHealth));
-		applyHudNumber(_numMorale,    unit->getMorale(),    barArgb(_barMorale));
+		applyHudNumber(_numTimeUnits, unit->getTimeUnits(), barArgb(_barTimeUnits), Map::HUD_IMG_TU,     Map::HUD_TXT_TU);
+		applyHudNumber(_numEnergy,    unit->getEnergy(),    barArgb(_barEnergy),    Map::HUD_IMG_ENERGY, Map::HUD_TXT_ENERGY);
+		applyHudNumber(_numHealth,    unit->getHealth(),    barArgb(_barHealth),    Map::HUD_IMG_HEALTH, Map::HUD_TXT_HEALTH);
+		applyHudNumber(_numMorale,    unit->getMorale(),    barArgb(_barMorale),    Map::HUD_IMG_MORALE, Map::HUD_TXT_MORALE);
 	}
 	else
 	{
 		NumberText* arr[] = { _numTimeUnits, _numEnergy, _numHealth, _numMorale };
 		for (NumberText* w : arr) { if (w) { w->clear(); w->setRedraw(false); } }
+		if (_map)
+		{
+			_map->clearHudImage(Map::HUD_IMG_TU);     _map->clearHudImage(Map::HUD_IMG_ENERGY);
+			_map->clearHudImage(Map::HUD_IMG_HEALTH); _map->clearHudImage(Map::HUD_IMG_MORALE);
+			_map->clearHudText(Map::HUD_TXT_TU);      _map->clearHudText(Map::HUD_TXT_ENERGY);
+			_map->clearHudText(Map::HUD_TXT_HEALTH);  _map->clearHudText(Map::HUD_TXT_MORALE);
+		}
 	}
 #else
 	(void)unit;

@@ -98,8 +98,10 @@ ScannerState::ScannerState (BattleAction *action) : _action(action)
 ScannerState::~ScannerState()
 {
 	delete _timerAnimate;
+#ifdef __EMSCRIPTEN__
 	if (_bgNative)   SDL_FreeSurface(_bgNative);
 	if (_scanNative) SDL_FreeSurface(_scanNative);
+#endif
 }
 
 /**

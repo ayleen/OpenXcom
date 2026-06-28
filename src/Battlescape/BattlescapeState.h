@@ -308,8 +308,9 @@ public:
 	TTFFont* getHudFont();
 	/// Render the soldier name into _txtName via the TTF HUD font (scalable).
 	void applyHudName(BattleUnit* unit);
-	/// Draw one stat number as a TTF value inside a coloured rounded box.
-	void applyHudNumber(NumberText* w, int value, Uint32 accentArgb);
+	/// Draw one stat number as a TTF value inside a coloured rounded box (imgSlot = Map
+	/// HudImageSlot for the ring, txtSlot = Map HudTextSlot for the digits).
+	void applyHudNumber(NumberText* w, int value, Uint32 accentArgb, int imgSlot, int txtSlot);
 	/// Render the TU/Energy/Health/Morale number boxes for a unit (null clears).
 	void applyHudNumbers(BattleUnit* unit);
 	struct HudNativeRect { Surface* surf; int dx; int dy; int w; int h; };

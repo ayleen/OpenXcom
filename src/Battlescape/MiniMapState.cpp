@@ -117,10 +117,12 @@ MiniMapState::MiniMapState (Camera * camera, SavedBattleGame * battleGame)
 MiniMapState::~MiniMapState()
 {
 	delete _timerAnimate;
+#ifdef __EMSCRIPTEN__
 	if (_bgNative)
 	{
 		SDL_FreeSurface(_bgNative);
 	}
+#endif
 }
 
 /**

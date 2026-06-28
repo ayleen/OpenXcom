@@ -31,6 +31,7 @@ uniform vec2 u_tilePixelSize;
 uniform vec2 u_tileUVSize;
 
 out vec2  v_uv;
+out vec2  v_localUV;   // Phase 25 R7: sprite-local 0..1 (a_corner) for unit fake-AO
 out float v_shade;
 out float v_animFrameCount;
 out float v_alphaMask;
@@ -56,6 +57,8 @@ void main()
 
     // Atlas UV: base UV offset by this corner's fraction of one tile.
     v_uv = a_atlasUV + a_corner * u_tileUVSize;
+    // Phase 25 R7: pure sprite-local coord (0 top … 1 bottom) for the unit fake-AO.
+    v_localUV = a_corner;
 
     // Pass per-instance data straight through to the fragment shader.
     v_shade          = a_shade;

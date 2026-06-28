@@ -141,6 +141,9 @@ private:
 	TTFFont *getHdNumberFont();
 
 	void drawHdNumber(Surface *dest, int x, int y, int value, Uint32 colorArgb);
+	/// Phase 25 R5: floating HD nameplate + HP/TU/energy bars over each player
+	/// unit (Emscripten HD path; gated by Mod::getCalypsoHudOverlay).
+	void drawUnitNameplates(Surface *surface);
 	void drawUnit(UnitSprite &unitSprite, Tile *unitTile, Tile *currTile, Position tileScreenPosition, bool topLayer, BattleUnit* movingUnit = nullptr);
 	void drawTerrainOverlayCPU(Surface *surface);
 #ifdef __EMSCRIPTEN__
@@ -203,6 +206,12 @@ private:
 
 		// Phase 17: hybrid overlay (RGBA HD overrides drawn after baseline).
 		GpuTexture*               overlayAtlas = nullptr;
+		// Phase 25 R3: tangent-space normal atlas (non-owning; owned by TileAtlasSpec).
+		GpuTexture*               normalAtlas  = nullptr;  // nullptr = no relief for this dataset
+		bool                      hasNormalMap = false;    // cached null-check for the hot draw loop
+		// Phase 25 R6: material emissive atlas (non-owning; owned by TileAtlasSpec).
+		GpuTexture*               emissiveAtlas = nullptr; // nullptr = no glow for this dataset
+		bool                      hasEmissive   = false;   // cached null-check for the hot draw loop
 		std::vector<TileInstance> overlayInstances;
 		// Phase 20: true when the overlay PNG was written with premultiplied alpha.
 		bool                      premultipliedAlpha = false;
@@ -256,6 +265,11 @@ private:
 	int          _ssaaScale   = 2;   // supersample factor on top of display res
 	                                 // (1 = render floor at native display res;
 	                                 //  2 = +2× supersample — 4× fragments)
+	// Phase 25 (R0): when GpuInit::hdr() is available, _ssaaColorTex is GL_RGBA16F
+	// (float, range > 1.0) so bloom/god-rays/emissive can blow out past white;
+	// the grade pass tonemaps HDR→LDR (u_hdr=1). Falls back to GL_RGBA8 (LDR,
+	// u_hdr=0, identity tonemap) when the extension or a complete FBO is absent.
+	bool         _ssaaIsHDR   = false;
 	// Phase 28: underwater colour-grade post-process. The scene (SSAA texture) is
 	// fed through underwater_grade.frag into the default framebuffer (this both
 	// downsamples AND grades, replacing the plain SSAA blit). Fires pre-composite
@@ -264,8 +278,29 @@ private:
 	unsigned int _gradeVAO    = 0;
 	unsigned int _gradeVBO    = 0;
 	void drawSceneGrade();           // fullscreen grade quad: _ssaaColorTex → screen
+
+	// Phase 25 (R1): per-source coloured emissive light. Screen-space additive
+	// halos (one quad per fire-lit tile), drawn into the SSAA scene buffer AFTER
+	// tiles/units but BEFORE the grade/tonemap, so under HDR the halo can exceed
+	// 1.0 and the bloom threshold picks it up (a colour the LDR frame never had).
+	// The engine has no RGB point lights (Tile::_light[] is a scalar uint8), so
+	// the colour is composited in screen space here.
+	struct EmissiveSource { float cx, cy; float intensity; };  // centre (base-res px), 0..1
+	std::vector<EmissiveSource> _emissiveSources;   // rebuilt each emitTilePass()
+	Shader*      _emissiveShader = nullptr;
+	unsigned int _emissiveVAO    = 0;  // inline unit-quad VAO (not shared with tiles)
+	unsigned int _emissiveVBO    = 0;
+	void drawEmissiveGLPass();       // additive coloured halos into the SSAA buffer
 	/// Fractional animation cycle position [0, 1) — set each frame, passed as u_animFrame.
 	float        _animFrameGPU = 0.0f;
+	/// Phase 25 R3: eased azimuth of the auto-driven relief sun. Lerps toward a
+	/// per-turn target each frame so the "time of day" sweep transitions smoothly
+	/// instead of snapping at turn boundaries. Per-battle (Map is recreated).
+	float        _reliefSunAzimuth = 0.0f;
+	/// Phase 25 R3: last SDL_GetTicks() (seconds) sampled by the relief-sun ease,
+	/// so the lerp uses a real dt (FPS-independent 1 - exp(-dt/tau)). < 0 = first
+	/// frame (no prior sample yet). Per-battle (Map is recreated).
+	float        _reliefSunLastT  = -1.0f;
 	/// Lifetime flag: reset in ~Map() so the registered GPU-pass lambda becomes a no-op.
 	std::shared_ptr<bool>    _gpuAliveFlag;
 
@@ -291,11 +326,31 @@ private:
 	// applyHudNumber) are re-rendered as TTF texture quads at PHYSICAL resolution, OVER the
 	// composited HUD, mirroring drawCursorOverlayGLPass — so the 48px raster is GPU-downscaled
 	// straight to the physical size, never through the small logical buffer.
-	struct HudTextItem { int logX, logY, logW, logH; std::string text; Uint32 colorArgb; bool isName; };
+	// fitX/Y/W/H is the EXACT logical placement rect the CPU path blitted the glyphs at
+	// (computed in applyHudName/applyHudNumber); the overlay reuses it verbatim so the crisp
+	// physical-res copy lands precisely over the logical text — no offset double-image.
+	// Each item is owned by a fixed `slot` (name + the 4 stat digits), so its producer
+	// (applyHudName / applyHudNumber) rebuilds ONLY its own item via setHudText() — no
+	// global clear, so a future partial stat refresh can't accumulate duplicate digits.
+	struct HudTextItem { int slot; float fitX, fitY, fitW, fitH; std::string text; Uint32 colorArgb; };
 	std::vector<HudTextItem>            _hudTextItems;
 	std::map<std::string, GpuTexture*>  _hudTextTexCache;   // keyed by "text#argb"
 	GpuTexture* getHudTextTexture(const std::string& text, Uint32 colorArgb);
 	void drawHudTextGLPass();
+
+	// Calypso: physical-resolution HUD IMAGE overlay — same idea as the text overlay but for
+	// the non-text HUD art (soldier portrait, HD rank insignia, stat-number ring/box). They too
+	// pixelate at the low resolution-menu fractions because they go through the small logical
+	// widget buffer; here their RGBA source is GPU-sampled (LINEAR) straight to the physical
+	// widget rect. Fixed slots (not a cleared list) so the BattlescapeState apply* calls — which
+	// fire in a different order than the text ones — each own exactly one slot, order-independent.
+public:
+	enum HudTextSlot  { HUD_TXT_NAME, HUD_TXT_TU, HUD_TXT_ENERGY, HUD_TXT_HEALTH, HUD_TXT_MORALE, HUD_TXT_COUNT };
+	enum HudImageSlot { HUD_IMG_PORTRAIT, HUD_IMG_RANK, HUD_IMG_TU, HUD_IMG_ENERGY, HUD_IMG_HEALTH, HUD_IMG_MORALE, HUD_IMG_COUNT };
+private:
+	struct HudImageItem { float fitX, fitY, fitW, fitH; GpuTexture* tex; bool active = false; };
+	HudImageItem                        _hudImageSlots[HUD_IMG_COUNT];
+	std::map<std::string, GpuTexture*>  _hudImageTexCache;   // keyed by caller-supplied content/size key
 
 	/// Smoke/fire/explosion instance collected during emitTilePass() / emitSmokeInstances().
 	struct SmokeInstance
@@ -370,6 +425,12 @@ private:
 
 	/// Calypso: gating + clipping for the post-composite overlay passes (internal).
 	bool overlayPassesActive() const;   // false when a modal/other state is on top
+	/// Calypso bug 1: HUD-text overlay gate — true while the battlescape HUD is actually
+	/// VISIBLE (battlescape is top, OR only a non-fullscreen popup sits over it). Unlike the
+	/// cursor gate it survives action-menu/CANCEL/warning popups, so the name+stat digits stay
+	/// crisp behind them instead of dropping to the mushy logical text. A fullscreen state
+	/// (Inventory/Options/pause) covers the HUD → returns false (don't overdraw it).
+	bool hudOverlayVisible() const;
 	int  mapClipBottomY() const;        // base-res bottom of the visible map (above HUD)
 	void beginMapScissor();             // glScissor to the map viewport
 	void endMapScissor();               // restore prior scissor state
@@ -436,10 +497,6 @@ private:
 	std::vector<TileInstance> _unitShadowInst;
 	void emitUnitPass();
 	void drawUnitGLPass();
-	/// Draw unit instances at the given (Z, Y) row. activeShader is in/out so
-	/// we don't rebind/reupload uniforms when called repeatedly within one
-	/// drawTileGLPass loop.
-	void drawUnitsAtZY(int z, int y, Shader*& activeShader);
 #endif
 	int getTerrainLevel(const Position& pos, int size) const;
 	int getWallShade(TilePart part, Tile* tileFrot);
@@ -474,10 +531,18 @@ public:
 	/// + a GL particle burst, plus (underwater) a scatter of small bubble-bursts over the
 	/// blast radius. Called once at blast start from ExplosionBState::init. radius = tiles.
 	void triggerAoEFx(Position voxelCenter, int power, int radius, bool underwater, int damageType);
-	/// Calypso bug 1: HUD text overlay handoff. BattlescapeState clears then re-adds the
-	/// name + 4 stat digits (logical widget rect + text + packed ARGB colour) each refresh.
-	void clearHudTextItems();
-	void addHudTextItem(int logX, int logY, int logW, int logH, const std::string& text, Uint32 colorArgb, bool isName);
+	/// Calypso bug 1: HUD text overlay handoff. Set (replace) or clear the text item owned by
+	/// `slot` (HudTextSlot) — applyHudName owns HUD_TXT_NAME, applyHudNumber owns each stat slot,
+	/// so each rebuilds only its own item (no global clear → no duplicate accumulation).
+	void setHudText(int slot, float fitX, float fitY, float fitW, float fitH, const std::string& text, Uint32 colorArgb);
+	void clearHudText(int slot);
+	/// Calypso: HUD image overlay handoff. Upload (or fetch cached, keyed by `key`) the RGBA
+	/// `src` and bind it to `slot` (HudImageSlot), to be drawn at PHYSICAL res over the logical
+	/// widget rect (x,y,w,h). src==null or w/h<=0 clears the slot. Pass a key that changes when
+	/// the content/size changes (e.g. "rank#3", "portrait#XCOM_0.SPK", "box#120x64#ffcc00").
+	void setHudImage(int slot, const std::string& key, SDL_Surface* src, int x, int y, int w, int h);
+	/// Clear one HUD image slot (slot art no longer applies, e.g. non-soldier unit).
+	void clearHudImage(int slot);
 #endif
 	/// Handles timers.
 	void think() override;

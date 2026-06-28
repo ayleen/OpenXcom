@@ -14,6 +14,15 @@ uniform sampler2D u_noise;       // unit 2: tiling noise (GL_REPEAT)
 uniform sampler2D u_shadeCurve;  // unit 3: 16×1 night ramp
 uniform vec2  u_tileUVSize;
 uniform float u_animFrame;
+// Phase 25 R3: tangent-space normal map (unit 4; LINEAR non-sRGB).
+uniform sampler2D u_normalMap;
+uniform vec3      u_sunDir;
+uniform int       u_hasNormalMap;
+// Phase 25 R6: material emissive (unit 5) — RGB glow, A intensity. Same as
+// tile_atlas_rgba.frag so Wang-blend transition tiles glow too (no dark seam).
+uniform sampler2D u_emissive;
+uniform int       u_hasEmissive;
+uniform float     u_emissiveStrength;
 
 in vec2  v_uv;
 in vec2  v_neighbourUV;
@@ -89,5 +98,28 @@ void main()
         return;
     }
     float shadeF = texture(u_shadeCurve, vec2((v_shade + 0.5) / 16.0, 0.5)).r;
-    fragColor = vec4(c.rgb * shadeF, c.a);
+
+    // Phase 25 R3/R4: blend self+neighbour normals AND AO with the SAME w (and 0.5
+    // cap) as the colour mix above so relief + occlusion stay continuous across the
+    // seam, then Lambert: AO * (0.6 + 0.4 * max(N·L, 0)).
+    float relief = 1.0;
+    if (u_hasNormalMap == 1)
+    {
+        vec4 nmSelf = texture(u_normalMap, v_uv          + frameOff);
+        vec4 nmNbr  = texture(u_normalMap, v_neighbourUV + frameOff);
+        vec4 nm = mix(nmSelf, nmNbr, clamp(w, 0.0, 1.0) * 0.5);
+        vec3  n  = normalize(nm.rgb * 2.0 - 1.0);
+        float ao = nm.a;                                   // R4: ambient occlusion
+        relief = ao * (0.6 + 0.4 * max(dot(n, normalize(u_sunDir)), 0.0));
+    }
+    vec3 lit = c.rgb * shadeF * relief;
+
+    // Phase 25 R6: self-cell material emission added on top (matches
+    // tile_atlas_rgba.frag), into the HDR buffer (R0) so it blooms.
+    if (u_hasEmissive == 1)
+    {
+        vec4 em = texture(u_emissive, v_uv + frameOff);
+        lit += em.rgb * em.a * u_emissiveStrength;
+    }
+    fragColor = vec4(lit, c.a);
 }

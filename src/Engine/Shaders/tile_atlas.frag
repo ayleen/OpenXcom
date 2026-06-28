@@ -21,8 +21,15 @@ uniform sampler2D u_atlas;
 uniform sampler2D u_shadeTable;
 uniform float     u_animFrame;
 uniform vec2      u_tileUVSize;
+// Phase 25 R7: unit "fake lighting". 0 = off (tiles + floor items render byte-for-
+// byte as before); > 0 = apply a sprite-local vertical AO/relief to unit bodies so
+// they gain volume + a grounding shadow, matching the lit seabed. Set per draw call
+// (NOT in the cached shader setup — _tileShader is shared by tiles AND units, so a
+// cached value would leak across the interleaved tile/unit row draws).
+uniform float     u_unitShade;
 
 in vec2  v_uv;
+in vec2  v_localUV;   // sprite-local 0..1; .y = 0 top (head) … 1 bottom (feet)
 in float v_shade;
 in float v_animFrameCount;
 in float v_alphaMask;
@@ -61,6 +68,18 @@ void main()
     float shadeU = (v_shade + 0.5) / 16.0;
     float shadeV = (palNorm * 255.0 + 0.5) / 256.0;
     vec4 shaded = texture(u_shadeTable, vec2(shadeU, shadeV));
+
+    // Phase 25 R7: fake unit lighting (off for tiles → identical output). Overhead
+    // ambient + ground-contact occlusion: lift the upper body, sink the feet, on a
+    // soft vertical ramp. Cheap volume with no RGBA atlas / baked-AO art; the knob
+    // (u_unitShade, default 1.0) scales the whole effect toward identity.
+    if (u_unitShade > 0.001)
+    {
+        float t    = clamp(v_localUV.y, 0.0, 1.0);                 // head 0 … feet 1
+        float fake = mix(1.06, 0.82, smoothstep(0.0, 1.0, t));     // +6% head, -18% feet
+        fake       = mix(1.0, fake, clamp(u_unitShade, 0.0, 1.0)); // knob-scaled
+        shaded.rgb = clamp(shaded.rgb * fake, 0.0, 1.0);
+    }
 
     fragColor = vec4(shaded.rgb, shaded.a);
 }

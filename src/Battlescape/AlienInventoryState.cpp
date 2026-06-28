@@ -329,8 +329,10 @@ AlienInventoryState::~AlienInventoryState()
 		Screen::updateScale(Options::battlescapeScale, Options::baseXBattlescape, Options::baseYBattlescape, true);
 		_game->getScreen()->resetDisplay(false);
 	}
+#ifdef __EMSCRIPTEN__
 	if (_bgNative)      SDL_FreeSurface(_bgNative);
 	if (_soldierNative) SDL_FreeSurface(_soldierNative);
+#endif
 }
 
 /**
