@@ -4746,18 +4746,23 @@ GpuTexture* Map::getUITexture(const std::string& relPath, int wrap)
 }
 
 /**
- * Calypso bug 1: HUD text overlay handoff. BattlescapeState::applyHudName clears then
- * re-adds the name + 4 stat digits each refresh (logical widget rect + text + ARGB colour).
+ * Calypso bug 1: HUD text overlay handoff. Each text item is owned by a fixed `slot`
+ * (HudTextSlot: name + 4 stat digits). setHudText replaces the item for that slot in place
+ * (or appends it once); clearHudText drops it. So applyHudName rebuilds only HUD_TXT_NAME and
+ * each applyHudNumber rebuilds only its stat slot — no global clear, no duplicate accumulation.
  */
-void Map::clearHudTextItems()
+void Map::clearHudText(int slot)
 {
-	_hudTextItems.clear();
+	for (auto it = _hudTextItems.begin(); it != _hudTextItems.end(); ++it)
+		if (it->slot == slot) { _hudTextItems.erase(it); return; }
 }
 
-void Map::addHudTextItem(float fitX, float fitY, float fitW, float fitH,
-                         const std::string& text, Uint32 colorArgb)
+void Map::setHudText(int slot, float fitX, float fitY, float fitW, float fitH,
+                     const std::string& text, Uint32 colorArgb)
 {
-	_hudTextItems.push_back(HudTextItem{ fitX, fitY, fitW, fitH, text, colorArgb });
+	for (auto& item : _hudTextItems)
+		if (item.slot == slot) { item = HudTextItem{ slot, fitX, fitY, fitW, fitH, text, colorArgb }; return; }
+	_hudTextItems.push_back(HudTextItem{ slot, fitX, fitY, fitW, fitH, text, colorArgb });
 }
 
 void Map::clearHudImage(int slot)
@@ -4784,8 +4789,22 @@ void Map::setHudImage(int slot, const std::string& key, SDL_Surface* src, int x,
 	{
 		if (_hudImageTexCache.size() > 32)   // bound churn (6 ranks + portrait variants + box sizes)
 		{
-			for (auto& p : _hudImageTexCache) delete p.second;
-			_hudImageTexCache.clear();
+			// CRITICAL: this flush runs MID-refresh (other apply* in the same updateSoldierInfo
+			// may have already bound textures into active slots). Deleting a texture still
+			// referenced by an active slot would dangle it → ~GpuTexture frees the GL handle →
+			// next frame's im.tex->bind(0) is a use-after-free. So evict only the entries NOT
+			// referenced by any active slot; the in-use ones (≤ HUD_IMG_COUNT) stay cached.
+			auto referenced = [this](GpuTexture* t) {
+				for (int i = 0; i < HUD_IMG_COUNT; ++i)
+					if (_hudImageSlots[i].active && _hudImageSlots[i].tex == t) return true;
+				return false;
+			};
+			for (auto cit = _hudImageTexCache.begin(); cit != _hudImageTexCache.end(); )
+			{
+				if (referenced(cit->second)) { ++cit; continue; }
+				delete cit->second;
+				cit = _hudImageTexCache.erase(cit);
+			}
 		}
 		SDL_Surface* rgba = SDL_ConvertSurfaceFormat(src, SDL_PIXELFORMAT_ABGR8888, 0);
 		if (rgba)
