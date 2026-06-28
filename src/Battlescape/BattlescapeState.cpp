@@ -4610,7 +4610,7 @@ void BattlescapeState::applyHudName(BattleUnit* unit)
 #ifdef __EMSCRIPTEN__
 	if (!_txtName || !_txtName->getSurface()) return;
 	_txtName->clear();
-	if (_map) _map->clearHudTextItems();   // bug 1: reset the physical-res overlay list (numbers re-add)
+	bool queued = false;
 	TTFFont* font = getHudFont();
 	if (font && unit)
 	{
@@ -4635,11 +4635,15 @@ void BattlescapeState::applyHudName(BattleUnit* unit)
 				int outW = (int)(ttf->w * scale + 0.5f); if (outW < 1) outW = 1;
 				int outH = (int)(ttf->h * scale + 0.5f); if (outH < 1) outH = 1;
 				const int ox = 0, oy = (H - outH) / 2;
-				if (_map) _map->addHudTextItem((float)(_txtName->getX() + ox), (float)(_txtName->getY() + oy),
-				                               (float)outW, (float)outH, name, 0xFF7AC8FFu);
+				// bug 1: own only the NAME slot — no global clear (the stat-digit slots are owned by
+				// applyHudNumber), so a partial refresh can't accumulate duplicate text items.
+				if (_map) _map->setHudText(Map::HUD_TXT_NAME, (float)(_txtName->getX() + ox),
+				                           (float)(_txtName->getY() + oy), (float)outW, (float)outH, name, 0xFF7AC8FFu);
+				queued = true;
 			}
 		}
 	}
+	if (!queued && _map) _map->clearHudText(Map::HUD_TXT_NAME);
 	_txtName->setRedraw(false);
 #else
 	(void)unit;
@@ -4690,7 +4694,7 @@ static void drawRoundedBox(SDL_Surface* s, SDL_Color fill, SDL_Color accent, int
  * Calypso (Emscripten): draw one stat number as a TTF value centred inside a
  * coloured rounded box (accent border + dark fill), into the NumberText surface.
  */
-void BattlescapeState::applyHudNumber(NumberText* w, int value, Uint32 accentArgb, int imgSlot)
+void BattlescapeState::applyHudNumber(NumberText* w, int value, Uint32 accentArgb, int imgSlot, int txtSlot)
 {
 #ifdef __EMSCRIPTEN__
 	if (!w || !w->getSurface()) return;
@@ -4717,12 +4721,13 @@ void BattlescapeState::applyHudNumber(NumberText* w, int value, Uint32 accentArg
 		std::ostringstream k;
 		k << "box#" << pw << "x" << ph << "#" << std::hex << (accentArgb & 0xFFFFFFu);
 		_map->setHudImage(imgSlot, k.str(), box, w->getX(), w->getY(), w->getWidth(), w->getHeight());
-		SDL_FreeSurface(box);
 	}
 	else if (_map) { _map->clearHudImage(imgSlot); }
+	if (box) SDL_FreeSurface(box);   // free regardless of _map — setHudImage uploaded its own copy
 
 	TTFFont* font = getHudFont();
 	const std::string digits = std::to_string(value);
+	bool txtQueued = false;
 	if (font)
 	{
 		// digits in the exact same colour as the box/bar. The crisp GL overlay is the SOLE
@@ -4738,13 +4743,17 @@ void BattlescapeState::applyHudNumber(NumberText* w, int value, Uint32 accentArg
 			int outW = (int)(ttf->w * scale + 0.5f); if (outW < 1) outW = 1;
 			int outH = (int)(ttf->h * scale + 0.5f); if (outH < 1) outH = 1;
 			const int ox = (s->w - outW) / 2, oy = (s->h - outH) / 2;
-			if (_map) _map->addHudTextItem((float)(w->getX() + ox), (float)(w->getY() + oy),
-			                               (float)outW, (float)outH, digits, 0xFF000000u | (accentArgb & 0xFFFFFFu));
+			// bug 1: own only this stat's digit slot — applyHudNumber rebuilds it each refresh, so
+			// even a partial stat update (without a preceding applyHudName) can't accumulate dupes.
+			if (_map) _map->setHudText(txtSlot, (float)(w->getX() + ox), (float)(w->getY() + oy),
+			                           (float)outW, (float)outH, digits, 0xFF000000u | (accentArgb & 0xFFFFFFu));
+			txtQueued = true;
 		}
 	}
+	if (!txtQueued && _map) _map->clearHudText(txtSlot);
 	w->setRedraw(false);
 #else
-	(void)w; (void)value; (void)accentArgb; (void)imgSlot;
+	(void)w; (void)value; (void)accentArgb; (void)imgSlot; (void)txtSlot;
 #endif
 }
 
@@ -4764,10 +4773,10 @@ void BattlescapeState::applyHudNumbers(BattleUnit* unit)
 			SDL_Color* c = pal->getColors(b->getColor());
 			return ((Uint32)c->r << 16) | ((Uint32)c->g << 8) | (Uint32)c->b;
 		};
-		applyHudNumber(_numTimeUnits, unit->getTimeUnits(), barArgb(_barTimeUnits), Map::HUD_IMG_TU);
-		applyHudNumber(_numEnergy,    unit->getEnergy(),    barArgb(_barEnergy),    Map::HUD_IMG_ENERGY);
-		applyHudNumber(_numHealth,    unit->getHealth(),    barArgb(_barHealth),    Map::HUD_IMG_HEALTH);
-		applyHudNumber(_numMorale,    unit->getMorale(),    barArgb(_barMorale),    Map::HUD_IMG_MORALE);
+		applyHudNumber(_numTimeUnits, unit->getTimeUnits(), barArgb(_barTimeUnits), Map::HUD_IMG_TU,     Map::HUD_TXT_TU);
+		applyHudNumber(_numEnergy,    unit->getEnergy(),    barArgb(_barEnergy),    Map::HUD_IMG_ENERGY, Map::HUD_TXT_ENERGY);
+		applyHudNumber(_numHealth,    unit->getHealth(),    barArgb(_barHealth),    Map::HUD_IMG_HEALTH, Map::HUD_TXT_HEALTH);
+		applyHudNumber(_numMorale,    unit->getMorale(),    barArgb(_barMorale),    Map::HUD_IMG_MORALE, Map::HUD_TXT_MORALE);
 	}
 	else
 	{
@@ -4777,6 +4786,8 @@ void BattlescapeState::applyHudNumbers(BattleUnit* unit)
 		{
 			_map->clearHudImage(Map::HUD_IMG_TU);     _map->clearHudImage(Map::HUD_IMG_ENERGY);
 			_map->clearHudImage(Map::HUD_IMG_HEALTH); _map->clearHudImage(Map::HUD_IMG_MORALE);
+			_map->clearHudText(Map::HUD_TXT_TU);      _map->clearHudText(Map::HUD_TXT_ENERGY);
+			_map->clearHudText(Map::HUD_TXT_HEALTH);  _map->clearHudText(Map::HUD_TXT_MORALE);
 		}
 	}
 #else

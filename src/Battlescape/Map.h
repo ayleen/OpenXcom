@@ -329,7 +329,10 @@ private:
 	// fitX/Y/W/H is the EXACT logical placement rect the CPU path blitted the glyphs at
 	// (computed in applyHudName/applyHudNumber); the overlay reuses it verbatim so the crisp
 	// physical-res copy lands precisely over the logical text — no offset double-image.
-	struct HudTextItem { float fitX, fitY, fitW, fitH; std::string text; Uint32 colorArgb; };
+	// Each item is owned by a fixed `slot` (name + the 4 stat digits), so its producer
+	// (applyHudName / applyHudNumber) rebuilds ONLY its own item via setHudText() — no
+	// global clear, so a future partial stat refresh can't accumulate duplicate digits.
+	struct HudTextItem { int slot; float fitX, fitY, fitW, fitH; std::string text; Uint32 colorArgb; };
 	std::vector<HudTextItem>            _hudTextItems;
 	std::map<std::string, GpuTexture*>  _hudTextTexCache;   // keyed by "text#argb"
 	GpuTexture* getHudTextTexture(const std::string& text, Uint32 colorArgb);
@@ -342,6 +345,7 @@ private:
 	// widget rect. Fixed slots (not a cleared list) so the BattlescapeState apply* calls — which
 	// fire in a different order than the text ones — each own exactly one slot, order-independent.
 public:
+	enum HudTextSlot  { HUD_TXT_NAME, HUD_TXT_TU, HUD_TXT_ENERGY, HUD_TXT_HEALTH, HUD_TXT_MORALE, HUD_TXT_COUNT };
 	enum HudImageSlot { HUD_IMG_PORTRAIT, HUD_IMG_RANK, HUD_IMG_TU, HUD_IMG_ENERGY, HUD_IMG_HEALTH, HUD_IMG_MORALE, HUD_IMG_COUNT };
 private:
 	struct HudImageItem { float fitX, fitY, fitW, fitH; GpuTexture* tex; bool active = false; };
@@ -527,10 +531,11 @@ public:
 	/// + a GL particle burst, plus (underwater) a scatter of small bubble-bursts over the
 	/// blast radius. Called once at blast start from ExplosionBState::init. radius = tiles.
 	void triggerAoEFx(Position voxelCenter, int power, int radius, bool underwater, int damageType);
-	/// Calypso bug 1: HUD text overlay handoff. BattlescapeState clears then re-adds the
-	/// name + 4 stat digits (logical widget rect + text + packed ARGB colour) each refresh.
-	void clearHudTextItems();
-	void addHudTextItem(float fitX, float fitY, float fitW, float fitH, const std::string& text, Uint32 colorArgb);
+	/// Calypso bug 1: HUD text overlay handoff. Set (replace) or clear the text item owned by
+	/// `slot` (HudTextSlot) — applyHudName owns HUD_TXT_NAME, applyHudNumber owns each stat slot,
+	/// so each rebuilds only its own item (no global clear → no duplicate accumulation).
+	void setHudText(int slot, float fitX, float fitY, float fitW, float fitH, const std::string& text, Uint32 colorArgb);
+	void clearHudText(int slot);
 	/// Calypso: HUD image overlay handoff. Upload (or fetch cached, keyed by `key`) the RGBA
 	/// `src` and bind it to `slot` (HudImageSlot), to be drawn at PHYSICAL res over the logical
 	/// widget rect (x,y,w,h). src==null or w/h<=0 clears the slot. Pass a key that changes when
