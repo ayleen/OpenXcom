@@ -697,6 +697,27 @@ void BattlescapeGame::endTurn()
 	_save->getTileEngine()->calculateLighting(LL_FIRE, TileEngine::invalid, 0, true);
 	_save->getTileEngine()->recalculateFOV();
 
+	// Phase 32 (Calypso): keep a civilian-spotted alien revealed to the player through the upcoming
+	// player turn. The civilian's setVisible(true) (TileEngine) is transient — SavedBattleGame::endTurn
+	// just wiped it, and recalculateFOV only re-asserts _visible for hostiles a PLAYER unit (or a
+	// still-in-LOS civilian) sees right now. But _turnsSinceSpotted[FACTION_NEUTRAL] — set by the
+	// civilian spotter and incremented once per round — survives the wipe, so re-reveal every hostile a
+	// civilian spotted this round/last (== "the civilian points at the monster"). _visible is not cleared
+	// again until the next endTurn, so the reveal lasts the whole player turn. Gated on the smart-civilian
+	// flag (vanilla untouched) and only on the transition INTO the player turn.
+	if (_save->getSide() == FACTION_PLAYER && getMod()->getAISmartCivilians())
+	{
+		for (auto* bu : *_save->getUnits())
+		{
+			if (!bu->isOut()
+				&& bu->getFaction() == FACTION_HOSTILE
+				&& bu->getTurnsSinceSpottedByFaction(FACTION_NEUTRAL) <= 1)
+			{
+				bu->setVisible(true);
+			}
+		}
+	}
+
 	// Calculate values
 	BattlescapeTally tally = _save->getBattleGame()->tallyUnits();
 
