@@ -230,6 +230,18 @@ public:
 		std::string       baselineFile; // R8 PNG (palette indices); used when hybrid=true
 		std::string       overlayFile;  // RGBA PNG (sparse HD overrides); used when hybrid=true
 		GpuTexture*       overlayAtlas = nullptr; // RGBA overlay texture; nullptr for non-hybrid
+		// Phase 25 R3: tangent-space normal-map atlas (optional). RGBA Linear NON-sRGB
+		// (normals are linear direction data). Same dims as overlay → shared UVs.
+		// Owned by TileAtlasSpec; deleted in Mod::clearTileAtlases().
+		std::string       normalFile;             // ruleset key normalFile:; empty = no normal map
+		GpuTexture*       normalAtlas = nullptr;  // nullptr if absent or load failed
+		// Phase 25 R6: material emissive atlas (optional). RGBA Linear NON-sRGB —
+		// RGB = glow colour, A = emission intensity. Added to the lit colour in
+		// tile_atlas_rgba.frag, so it lands in the HDR SSAA buffer (R0) and the
+		// >1.0 highlights survive tonemapping (lava/bioluminescence glow).
+		// Same dims as overlay → shared UVs. Owned here; freed in clearTileAtlases.
+		std::string       emissiveFile;             // ruleset key emissiveFile:; empty = none
+		GpuTexture*       emissiveAtlas = nullptr;  // nullptr if absent or load failed
 		int               width      = 0;
 		int               height     = 0;
 		int               tileWidth  = 64;
@@ -397,6 +409,9 @@ private:
 	/// Tile render scale factor (1=32×40 native, 2=64×80, 4=128×160).
 	/// Set via battlescapeTileScale: in the mod ruleset.
 	int _battlescapeTileScale = 1;
+	/// Phase 25 R5: draw floating HD nameplates + HP/TU/energy bars over player
+	/// units in the Battlescape. Off by default; set via calypso_hud_overlay:.
+	bool _calypsoHudOverlay = false;
 #endif
 	std::map<std::string, CustomPalettes *> _customPalettes;
 	std::vector<std::pair<std::string, ExtraSounds *> > _extraSounds;
@@ -413,6 +428,7 @@ private:
 	int _maxStaticLightDistance, _maxDynamicLightDistance, _enhancedLighting;
 	int _costHireEngineer, _costHireScientist;
 	int _costEngineer, _costScientist, _timePersonnel, _hireByCountryOdds, _hireByRegionOdds, _initialFunding;
+	int _globalTransferCostMult, _globalTransferCostDiv;
 
 	int _aiUseDelayBlaster, _aiUseDelayFirearm, _aiUseDelayGrenade, _aiUseDelayProxy, _aiUseDelayMelee, _aiUseDelayPsionic, _aiUseDelayMedikit;
 	int _aiFireChoiceIntelCoeff, _aiFireChoiceAggroCoeff;
@@ -721,6 +737,8 @@ public:
 	bool hasHDPack() const { return _hdPackActive; }
 	/// Returns the battlescape tile scale factor (1, 2, or 4).
 	int getBattlescapeTileScale() const { return _battlescapeTileScale; }
+	/// Phase 25 R5: true when floating unit nameplates/bars should be drawn.
+	bool getCalypsoHudOverlay() const { return _calypsoHudOverlay; }
 #endif
 	/// Gets a particular music.
 	Music *getMusic(const std::string &name, bool error = true) const;
@@ -1048,6 +1066,11 @@ public:
 	int getHireByCountryOdds() const { return _hireByCountryOdds; }
 	/// Gets the odds of hiring soldiers by region.
 	int getHireByRegionOdds() const { return _hireByRegionOdds; }
+
+	/// Gets the global transfer cost multiplier.
+	int getGlobalTransferCostMultiplier() const { return _globalTransferCostMult; }
+	/// Gets the global transfer cost divider.
+	int getGlobalTransferCostDivider() const { return _globalTransferCostDiv; }
 
 	/// Gets first turn when AI can use Blaster launcher.
 	int getAIUseDelayBlaster() const  {return _aiUseDelayBlaster;}

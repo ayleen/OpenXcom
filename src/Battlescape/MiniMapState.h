@@ -35,7 +35,9 @@ class SavedBattleGame;
 class MiniMapState : public State
 {
 	Surface * _bg;
+#ifdef __EMSCRIPTEN__
 	SDL_Surface *_bgNative = nullptr;  ///< Calypso: 320×200 bg snapshot, bilinear-stretched into the scaled _bg
+#endif
 	MiniMapView *_miniMapView;
 	BattlescapeButton *_btnLvlUp, *_btnLvlDwn, *_btnOk;
 	Text *_txtLevel;

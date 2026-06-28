@@ -27,11 +27,19 @@ namespace OpenXcom
 
 /**
  * String with normalized version number.
- * Originally used signed char to distinguish from regular strings, but
- * std::char_traits<signed char> is undefined in libc++ (Emscripten/Clang).
- * Using char preserves identical runtime behaviour; do not mix with std::string.
+ * Char-based (derives from std::string) — keep it that way: the original
+ * std::basic_string<signed char> has no std::char_traits specialization in
+ * libc++ (Emscripten/Clang), so signed char breaks the WASM build.
  */
-typedef std::basic_string<char> ModInfoNormalizedVersion;
+struct ModInfoNormalizedVersion : std::string
+{
+	ModInfoNormalizedVersion() = default;
+	ModInfoNormalizedVersion(ModInfoNormalizedVersion&&) = default;
+	ModInfoNormalizedVersion(const ModInfoNormalizedVersion&) = default;
+
+	ModInfoNormalizedVersion& operator=(ModInfoNormalizedVersion&&) = default;
+	ModInfoNormalizedVersion& operator=(const ModInfoNormalizedVersion&) = default;
+};
 
 /**
  * Version number with normalized value.

@@ -48,6 +48,26 @@ void main()
 }
 )glsl";
 
+static const char* kEmissive_glowVertSrc = R"glsl(
+layout(location=0) in vec2 a_corner;   // unit quad corner [0,1]
+
+uniform vec2 u_screenSize;             // base resolution (px)
+uniform vec2 u_centerPx;               // halo centre (base-res px)
+uniform vec2 u_halfPx;                 // halo half-extent (base-res px)
+
+out vec2 v_local;                      // -1..1 across the quad
+
+void main()
+{
+    vec2 local = a_corner * 2.0 - 1.0;             // [-1,1]
+    v_local = local;
+    vec2 pixelPos = u_centerPx + local * u_halfPx;
+    vec2 ndc = (pixelPos / u_screenSize) * 2.0 - 1.0;
+    ndc.y = -ndc.y;                                // SDL top-left → GL bottom-left
+    gl_Position = vec4(ndc, 0.0, 1.0);
+}
+)glsl";
+
 static const char* kGlobe_sphereVertSrc = R"glsl(
 in vec2 a_pos;   // NDC [-1,+1]
 in vec2 a_uv;    // unused; present so VAO layout matches other passes
@@ -78,6 +98,7 @@ uniform vec2 u_tilePixelSize;
 uniform vec2 u_tileUVSize;
 
 out vec2  v_uv;
+out vec2  v_localUV;   // Phase 25 R7: sprite-local 0..1 (a_corner) for unit fake-AO
 out float v_shade;
 out float v_animFrameCount;
 out float v_alphaMask;
@@ -103,6 +124,8 @@ void main()
 
     // Atlas UV: base UV offset by this corner's fraction of one tile.
     v_uv = a_atlasUV + a_corner * u_tileUVSize;
+    // Phase 25 R7: pure sprite-local coord (0 top … 1 bottom) for the unit fake-AO.
+    v_localUV = a_corner;
 
     // Pass per-instance data straight through to the fragment shader.
     v_shade          = a_shade;
@@ -377,6 +400,25 @@ void main()
 }
 )glsl";
 
+static const char* kEmissive_glowFragSrc = R"glsl(
+uniform vec3  u_tint;
+uniform float u_intensity;
+
+in  vec2 v_local;      // -1..1 across the quad
+out vec4 out_color;
+
+void main()
+{
+    float d = length(v_local);
+    // Bright soft core (gaussian-ish) with a smooth edge cut at the quad border
+    // so the square geometry never shows.
+    float core = exp(-d * d * 2.2);
+    float edge = smoothstep(1.0, 0.0, d);
+    float a = core * edge;
+    out_color = vec4(u_tint * (a * u_intensity), 1.0);
+}
+)glsl";
+
 static const char* kGlobe_sphereFragSrc = R"glsl(
 in  vec2 v_pixel;
 out vec4 fragColor;
@@ -557,8 +599,15 @@ uniform sampler2D u_atlas;
 uniform sampler2D u_shadeTable;
 uniform float     u_animFrame;
 uniform vec2      u_tileUVSize;
+// Phase 25 R7: unit "fake lighting". 0 = off (tiles + floor items render byte-for-
+// byte as before); > 0 = apply a sprite-local vertical AO/relief to unit bodies so
+// they gain volume + a grounding shadow, matching the lit seabed. Set per draw call
+// (NOT in the cached shader setup — _tileShader is shared by tiles AND units, so a
+// cached value would leak across the interleaved tile/unit row draws).
+uniform float     u_unitShade;
 
 in vec2  v_uv;
+in vec2  v_localUV;   // sprite-local 0..1; .y = 0 top (head) … 1 bottom (feet)
 in float v_shade;
 in float v_animFrameCount;
 in float v_alphaMask;
@@ -598,6 +647,18 @@ void main()
     float shadeV = (palNorm * 255.0 + 0.5) / 256.0;
     vec4 shaded = texture(u_shadeTable, vec2(shadeU, shadeV));
 
+    // Phase 25 R7: fake unit lighting (off for tiles → identical output). Overhead
+    // ambient + ground-contact occlusion: lift the upper body, sink the feet, on a
+    // soft vertical ramp. Cheap volume with no RGBA atlas / baked-AO art; the knob
+    // (u_unitShade, default 1.0) scales the whole effect toward identity.
+    if (u_unitShade > 0.001)
+    {
+        float t    = clamp(v_localUV.y, 0.0, 1.0);                 // head 0 … feet 1
+        float fake = mix(1.06, 0.82, smoothstep(0.0, 1.0, t));     // +6% head, -18% feet
+        fake       = mix(1.0, fake, clamp(u_unitShade, 0.0, 1.0)); // knob-scaled
+        shaded.rgb = clamp(shaded.rgb * fake, 0.0, 1.0);
+    }
+
     fragColor = vec4(shaded.rgb, shaded.a);
 }
 )glsl";
@@ -607,6 +668,17 @@ uniform sampler2D u_atlas;
 uniform sampler2D u_shadeCurve;  // unit 3: 16×1 night ramp (Phase 22, P5)
 uniform float     u_animFrame;
 uniform vec2      u_tileUVSize;
+// Phase 25 R3: tangent-space normal map (unit 4; LINEAR non-sRGB). u_hasNormalMap
+// is reset per draw group in Map::drawTileGLPass so non-mapped datasets stay flat.
+uniform sampler2D u_normalMap;
+uniform vec3      u_sunDir;        // normalised in-shader
+uniform int       u_hasNormalMap;  // 0 = skip relief; 1 = apply
+// Phase 25 R6: material emissive (unit 5). RGB = glow colour, A = intensity.
+// Added AFTER shade/relief so the tile self-lights in shadow; lands in the HDR
+// SSAA buffer (R0) where the >1.0 highlights bloom. u_hasEmissive reset per group.
+uniform sampler2D u_emissive;
+uniform int       u_hasEmissive;       // 0 = none; 1 = add glow
+uniform float     u_emissiveStrength;  // global live-tunable multiplier
 
 in vec2  v_uv;
 in vec2  v_localUV;
@@ -653,7 +725,30 @@ void main()
     // Phase 22 (P5): luminance-ramp darkening from the palette shade table so
     // HD overlay tiles match the brightness of adjacent blend tiles at night.
     float shadeF  = texture(u_shadeCurve, vec2((v_shade + 0.5) / 16.0, 0.5)).r;
-    fragColor = vec4(c.rgb * shadeF, c.a);
+
+    // Phase 25 R3/R4: optional normal-map diffuse relief + ambient occlusion.
+    // RGB decodes the tangent-space normal (0.5 + N*0.5) → Lambert against the sun;
+    // A is AO (crevice darkening). relief = AO * (0.6 ambient + 0.4 * max(N·L, 0)).
+    // u_hasNormalMap==0 → identity.
+    float relief = 1.0;
+    if (u_hasNormalMap == 1)
+    {
+        vec4  nm = texture(u_normalMap, uv);
+        vec3  n  = normalize(nm.rgb * 2.0 - 1.0);
+        float ao = nm.a;                                   // R4: ambient occlusion
+        relief = ao * (0.6 + 0.4 * max(dot(n, normalize(u_sunDir)), 0.0));
+    }
+    vec3 lit = c.rgb * shadeF * relief;
+
+    // Phase 25 R6: add material emission on top of the lit colour (self-lit, so it
+    // survives night/shadow). Premultiplied by its own alpha; the global strength
+    // can push it past 1.0 so the HDR tonemap (R0) blooms lava/bioluminescence.
+    if (u_hasEmissive == 1)
+    {
+        vec4 em = texture(u_emissive, uv);
+        lit += em.rgb * em.a * u_emissiveStrength;
+    }
+    fragColor = vec4(lit, c.a);
 }
 )glsl";
 
@@ -663,6 +758,15 @@ uniform sampler2D u_noise;       // unit 2: tiling noise (GL_REPEAT)
 uniform sampler2D u_shadeCurve;  // unit 3: 16×1 night ramp
 uniform vec2  u_tileUVSize;
 uniform float u_animFrame;
+// Phase 25 R3: tangent-space normal map (unit 4; LINEAR non-sRGB).
+uniform sampler2D u_normalMap;
+uniform vec3      u_sunDir;
+uniform int       u_hasNormalMap;
+// Phase 25 R6: material emissive (unit 5) — RGB glow, A intensity. Same as
+// tile_atlas_rgba.frag so Wang-blend transition tiles glow too (no dark seam).
+uniform sampler2D u_emissive;
+uniform int       u_hasEmissive;
+uniform float     u_emissiveStrength;
 
 in vec2  v_uv;
 in vec2  v_neighbourUV;
@@ -738,7 +842,30 @@ void main()
         return;
     }
     float shadeF = texture(u_shadeCurve, vec2((v_shade + 0.5) / 16.0, 0.5)).r;
-    fragColor = vec4(c.rgb * shadeF, c.a);
+
+    // Phase 25 R3/R4: blend self+neighbour normals AND AO with the SAME w (and 0.5
+    // cap) as the colour mix above so relief + occlusion stay continuous across the
+    // seam, then Lambert: AO * (0.6 + 0.4 * max(N·L, 0)).
+    float relief = 1.0;
+    if (u_hasNormalMap == 1)
+    {
+        vec4 nmSelf = texture(u_normalMap, v_uv          + frameOff);
+        vec4 nmNbr  = texture(u_normalMap, v_neighbourUV + frameOff);
+        vec4 nm = mix(nmSelf, nmNbr, clamp(w, 0.0, 1.0) * 0.5);
+        vec3  n  = normalize(nm.rgb * 2.0 - 1.0);
+        float ao = nm.a;                                   // R4: ambient occlusion
+        relief = ao * (0.6 + 0.4 * max(dot(n, normalize(u_sunDir)), 0.0));
+    }
+    vec3 lit = c.rgb * shadeF * relief;
+
+    // Phase 25 R6: self-cell material emission added on top (matches
+    // tile_atlas_rgba.frag), into the HDR buffer (R0) so it blooms.
+    if (u_hasEmissive == 1)
+    {
+        vec4 em = texture(u_emissive, v_uv + frameOff);
+        lit += em.rgb * em.a * u_emissiveStrength;
+    }
+    fragColor = vec4(lit, c.a);
 }
 )glsl";
 
@@ -763,8 +890,31 @@ uniform float     u_shock;            // E2: explosion shockwave-ring distortion
 uniform int       u_swCount;          // # active shockwaves
 uniform vec2      u_swCenter[4];      // their v_uv centres
 uniform float     u_swAge[4];         // 0..1 ring expansion
+uniform int       u_hdr;              // R0: 1 = u_scene is RGBA16F (values may exceed 1.0) → tonemap
 in      vec2      v_uv;
 out     vec4      out_color;
+
+// R0 tonemap: filmic shoulder. Exact identity below the knee, then a smooth
+// exponential rolloff to 1.0 above it. Applied to the max channel so hue +
+// saturation are preserved and the result can never exceed 1.0 (no clip on the
+// 8-bit default framebuffer). C1-continuous at the knee (slope 1).
+//
+// Identity-below-1 AND a soft rolloff-above-1 that keeps output <= 1 is
+// mathematically impossible (no output headroom above 1), so the shoulder must
+// start a little below 1.0. knee=0.90 makes everything <= 0.90 unchanged and
+// compresses [0.90, 1.0] by at most ~3.7% at pure white — imperceptible, and the
+// graded underwater scene (dimmed + tinted) almost never reaches 0.90 anyway.
+// That small cost buys a coloured (non-clipping) rolloff for the bloom/emissive
+// overbrights, which is the whole point of R0. A no-op in LDR (u_hdr==0).
+vec3 tonemapShoulder(vec3 c)
+{
+    const float knee = 0.90;
+    float m = max(max(c.r, c.g), c.b);
+    if (m <= knee) return c;
+    float range  = 1.0 - knee;                       // output headroom above knee
+    float mapped = knee + range * (1.0 - exp(-(m - knee) / range));
+    return c * (mapped / m);
+}
 
 float hash21(vec2 p)
 {
@@ -903,7 +1053,9 @@ void main()
     // caustics, god-rays, refraction or snow (they read as "rays/waves in the air").
     if (u_underwater == 0)
     {
-        out_color = vec4(texture(u_scene, v_uv).rgb, 1.0);
+        vec3 dry = texture(u_scene, v_uv).rgb;
+        if (u_hdr == 1) dry = tonemapShoulder(dry);   // R0: still tonemap on dry land (emissive may blow out)
+        out_color = vec4(dry, 1.0);
         return;
     }
     float s = clamp(u_strength, 0.0, 1.0);
@@ -1020,6 +1172,11 @@ void main()
     float vig = (0.28 + 0.62 * s) * pow(clamp(r - 0.35, 0.0, 1.0), 2.0);
     c *= (1.0 - vig);
 
+    // R0: HDR→LDR tonemap. The bloom/god-ray/emissive contributions above push c
+    // past 1.0 in the RGBA16F buffer; the shoulder rolls those highlights off
+    // (keeping their colour) before the 8-bit default framebuffer clips them.
+    if (u_hdr == 1) c = tonemapShoulder(c);
+
     out_color = vec4(c, 1.0);
 }
 )glsl";
@@ -1033,6 +1190,7 @@ struct Entry { const char* name; const char* vert; const char* frag; };
 static const Entry kTable[] = {
     { "colorquad", kPassthroughVertSrc, kColorquadFragSrc },
     { "cursor", kCursorVertSrc, kCursorFragSrc },
+    { "emissive_glow", kEmissive_glowVertSrc, kEmissive_glowFragSrc },
     { "globe_sphere", kGlobe_sphereVertSrc, kGlobe_sphereFragSrc },
     { "textured", kPassthroughVertSrc, kTexturedFragSrc },
     { "tile_atlas", kTile_atlasVertSrc, kTile_atlasFragSrc },

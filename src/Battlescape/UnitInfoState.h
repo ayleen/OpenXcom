@@ -45,7 +45,9 @@ private:
 	bool _fromInventory, _mindProbe;
 
 	Surface *_bg;
+#ifdef __EMSCRIPTEN__
 	SDL_Surface *_bgNative = nullptr;  ///< Calypso: 320×200 background snapshot, bilinear-stretched into the scaled _bg
+#endif
 	InteractiveSurface *_exit;
 	Text *_txtName;
 

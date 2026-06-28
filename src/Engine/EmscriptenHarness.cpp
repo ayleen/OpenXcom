@@ -134,8 +134,24 @@ float g_calypsoUwBloom    = 0.5f;    // batch 2: glow on bright spots
 float g_calypsoUwBreath   = 0.6f;    // batch 2: slow global light pulse
 float g_calypsoUwChroma   = 0.0f;    // OFF — no visible effect (scene edges are void)
 float g_calypsoUwShock    = 0.7f;    // E2: explosion shockwave-ring distortion (underwater)
+// Phase 25 (R1): coloured emissive halo amount (fire). The uw_ prefix keeps it in
+// the existing knob family, but the emissive pass is mission-agnostic — it fires
+// on land maps too (fire tiles), unlike the underwater-only grade/beauty FX.
+float g_calypsoUwEmissive = 1.0f;
+// Phase 25 (R6): HD material-emissive atlas multiplier (lava / bioluminescence).
+// Scales the per-dataset emissiveFile glow added in tile_atlas_rgba.frag, into
+// the HDR SSAA buffer (R0). 0 = off; > ~1 pushes bright texels past 1.0 so the
+// HDR tonemap blooms them. Default subtle; live-tune via _calypso_set_tile_emissive.
+float g_calypsoTileEmissive = 1.5f;
+// Phase 25 (R7): unit "fake lighting" amount — a sprite-local vertical AO/relief on
+// unit bodies (in tile_atlas.frag) so they gain volume + a grounding shadow without
+// an RGBA atlas or baked-AO art. 0 = off (legacy flat units); 1 = full. Tiles +
+// floor items are never affected. Live-tune via _calypso_set_unit_shade.
+float g_calypsoUnitShade = 1.0f;
 
 static float clamp01p(float v) { return v < 0.0f ? 0.0f : (v > 2.0f ? 2.0f : v); }
+static float clamp08 (float v) { return v < 0.0f ? 0.0f : (v > 8.0f ? 8.0f : v); }
+static float clamp01 (float v) { return v < 0.0f ? 0.0f : (v > 1.0f ? 1.0f : v); }
 
 EMSCRIPTEN_KEEPALIVE void calypso_set_uw_caustics(float v) { g_calypsoUwCaustics = clamp01p(v); }
 EMSCRIPTEN_KEEPALIVE void calypso_set_uw_refract (float v) { g_calypsoUwRefract  = clamp01p(v); }
@@ -147,6 +163,33 @@ EMSCRIPTEN_KEEPALIVE void calypso_set_uw_bloom   (float v) { g_calypsoUwBloom   
 EMSCRIPTEN_KEEPALIVE void calypso_set_uw_breath  (float v) { g_calypsoUwBreath   = clamp01p(v); }
 EMSCRIPTEN_KEEPALIVE void calypso_set_uw_chroma  (float v) { g_calypsoUwChroma   = clamp01p(v); }
 EMSCRIPTEN_KEEPALIVE void calypso_set_uw_shock   (float v) { g_calypsoUwShock    = clamp01p(v); }
+EMSCRIPTEN_KEEPALIVE void calypso_set_uw_emissive(float v) { g_calypsoUwEmissive = clamp01p(v); }
+EMSCRIPTEN_KEEPALIVE void calypso_set_tile_emissive(float v) { g_calypsoTileEmissive = clamp08(v); } // Phase 25 R6
+EMSCRIPTEN_KEEPALIVE void calypso_set_unit_shade  (float v) { g_calypsoUnitShade   = clamp01(v); } // Phase 25 R7
+
+/* Phase 25 (R3): tangent-space sun direction for normal-map relief. The shader
+ * normalises it. In production the engine DRIVES this automatically (a per-turn
+ * azimuth sweep — "time of day" — in the upper hemisphere, coherent with the
+ * surface god-rays); see Map::drawTileGLPass. g_calypsoSunAuto gates that. The
+ * relief STRENGTH is baked into the atlas at build time (ruleset normalStrength:).
+ * Dev override: Module._calypso_set_sun_dir(x, y, z) freezes a manual direction;
+ * Module._calypso_set_sun_auto(1) resumes the automatic sweep. */
+float g_calypsoSunDir[3] = { -0.40f, -0.40f, 0.82f };
+int   g_calypsoSunAuto   = 1;   // 1 = engine drives the sun; 0 = manual override
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_set_sun_dir(float x, float y, float z)
+{
+	// Reject a degenerate zero vector: the shaders do normalize(u_sunDir), and
+	// normalize(vec3(0)) is UB in GLSL ES (NaN on most drivers) — it would
+	// corrupt the relief term for every normal-mapped tile. Keep the prior value.
+	if (x * x + y * y + z * z < 1e-12f) return;
+	g_calypsoSunDir[0] = x; g_calypsoSunDir[1] = y; g_calypsoSunDir[2] = z;
+	g_calypsoSunAuto = 0;   // a manual set freezes the automatic sweep (dev override)
+}
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_set_sun_auto(int on) { g_calypsoSunAuto = on ? 1 : 0; }
 
 /* Phase-14 railings debug: one-shot tile/painter dump.
  * JS toggles via Module._calypso_dump_emit_once() before forcing a redraw;

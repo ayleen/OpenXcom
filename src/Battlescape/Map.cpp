@@ -90,6 +90,11 @@ extern "C" float g_calypsoUwBloom;
 extern "C" float g_calypsoUwBreath;
 extern "C" float g_calypsoUwChroma;
 extern "C" float g_calypsoUwShock;
+extern "C" float g_calypsoUwEmissive;   // Phase 25 (R1): coloured emissive halo amount
+extern "C" float g_calypsoTileEmissive; // Phase 25 (R6): HD material-emissive atlas multiplier
+extern "C" float g_calypsoUnitShade;    // Phase 25 (R7): unit fake-AO amount (0 = off … 1 = full)
+extern "C" float g_calypsoSunDir[3];    // Phase 25 (R3): tangent-space sun dir for normal relief
+extern "C" int   g_calypsoSunAuto;      // Phase 25 (R3): 1 = engine drives the sun (per-turn sweep)
 /* Phase-14 railings debug: one-shot tile dump flag.
  * Set to 1 by Module._calypso_dump_emit_once() before forcing a redraw;
  * emitTilePass() and Map::draw() painter pass each log every visible tile
@@ -439,6 +444,8 @@ Map::~Map()
 	delete _shadeTableTex;  _shadeTableTex  = nullptr;
 	delete _shadeCurveTex;  _shadeCurveTex  = nullptr;  // Phase 22
 	delete _noiseTex;       _noiseTex       = nullptr;   // Phase 22
+	delete _gradeShader;    _gradeShader    = nullptr;   // Phase 28 (was leaked)
+	delete _emissiveShader; _emissiveShader = nullptr;   // Phase 25 (R1)
 	if (_tileGLInit)
 	{
 		glDeleteBuffers(1, &_tileVBO);
@@ -448,6 +455,10 @@ Map::~Map()
 		if (_blendIBO) { glDeleteBuffers(1,      &_blendIBO); _blendIBO = 0; }
 		if (_tileInstVAO) { glDeleteVertexArrays(1, &_tileInstVAO); _tileInstVAO = 0; }  // Phase 22 (H1)
 		if (_tileInstIBO) { glDeleteBuffers(1,      &_tileInstIBO); _tileInstIBO = 0; }  // Phase 22 (H1)
+		if (_gradeVAO)    { glDeleteVertexArrays(1, &_gradeVAO);    _gradeVAO = 0; }      // Phase 28 (was leaked)
+		if (_gradeVBO)    { glDeleteBuffers(1,      &_gradeVBO);    _gradeVBO = 0; }      // Phase 28
+		if (_emissiveVAO) { glDeleteVertexArrays(1, &_emissiveVAO); _emissiveVAO = 0; }   // Phase 25 (R1)
+		if (_emissiveVBO) { glDeleteBuffers(1,      &_emissiveVBO); _emissiveVBO = 0; }   // Phase 25 (R1)
 	}
 	delete _spriteShader; _spriteShader = nullptr;
 	for (auto& p : _spriteFrameCache) delete p.second;
@@ -504,9 +515,9 @@ void Map::init()
 		_gpuAliveFlag = std::make_shared<bool>(true);
 		std::weak_ptr<bool> wf = _gpuAliveFlag;
 		// Phase 13.3: tile pass fires BEFORE SDL composite so HD floor renders
-		// under CPU-drawn units / walls / HUD. Tile pass internally interleaves
-		// unit draws via drawUnitsAtZ(z) between Z slices for correct
-		// occlusion (e.g. submarine roof above units inside the cargo bay).
+		// under CPU-drawn units / walls / HUD. Units draw in a depth-ordered
+		// block within the tile pass (GPU depth test resolves occlusion, e.g. the
+		// submarine roof above units inside the cargo bay).
 		_game->getScreen()->registerGPUPassPreComposite([this, wf]() {
 			if (!wf.lock()) return;
 			this->drawTileGLPass();
@@ -581,8 +592,13 @@ void Map::init()
 			_tileBuffersDirty = true;          // force re-upload after context restore
 			_tileGLInit = false;
 			_gradeVAO = _gradeVBO = 0;         // Phase 28: grade quad recreated by initTileGL
+			_emissiveVAO = _emissiveVBO = 0;   // Phase 25 (R1): recreated by initTileGL
 			_ssaaFBO = _ssaaColorTex = _ssaaDepthRB = 0;  // Phase 28: force SSAA recreate
 			_ssaaW = _ssaaH = 0;
+			_ssaaIsHDR = false;                // Phase 25 (R0): re-evaluated on SSAA recreate
+			// Phase 25 (R0): the restored context drops enabled extensions —
+			// re-request EXT_color_buffer_float so the float SSAA target survives.
+			GpuInit::enableExtensions();
 			_spriteVAO = _spriteVBO = 0;
 			_spriteGLInit = false;
 			_cursorVAO = _cursorVBO = _cursorInstanceVBO = 0;
@@ -741,7 +757,8 @@ void Map::draw()
 			}
 			_cursorOverlayInstances.clear();
 			_smokeInstances.clear();
-			// Phase 22 (H1): terrain lists emptied — invalidate the persistent buffer so
+			_emissiveSources.clear();   // Phase 25 (R1): drop stale halos with the rest
+			// Phase 22 (H1): terrain lists emptied— invalidate the persistent buffer so
 			// the dirty-gate invariant holds (no stale offsets/data can be re-drawn).
 			_tileBuffersDirty = true;
 		}
@@ -825,6 +842,12 @@ void Map::setPalette(const SDL_Color *colors, int firstcolor, int ncolors)
 			_tileAtlasGroups[i].overlayAtlas       = (spec->hybrid || baselineNone)
 			                                         ? spec->overlayAtlas : nullptr;
 			_tileAtlasGroups[i].premultipliedAlpha = spec->premultipliedAlpha;
+			// Phase 25 R3: propagate the normal atlas (non-owning; Mod owns it).
+			_tileAtlasGroups[i].normalAtlas        = spec->normalAtlas;
+			_tileAtlasGroups[i].hasNormalMap       = (spec->normalAtlas != nullptr);
+			// Phase 25 R6: propagate the emissive atlas (non-owning; Mod owns it).
+			_tileAtlasGroups[i].emissiveAtlas      = spec->emissiveAtlas;
+			_tileAtlasGroups[i].hasEmissive        = (spec->emissiveAtlas != nullptr);
 			// Phase 20.5: propagate sub-layer atlas pointers from spec.
 			_tileAtlasGroups[i].subLayerAtlases    = spec->subLayerAtlases;
 			_tileAtlasGroups[i].subLayerInstances.assign(spec->subLayerAtlases.size(), {});
@@ -2628,10 +2651,11 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 							if (_save->getBattleGame()->getCurrentAction()->type == BA_LAUNCH || _save->getBattleGame()->getCurrentAction()->sprayTargeting)
 							{
 								_numWaypid->setValue(waypid);
+								_numWaypid->setBordered(true); // OXCE, not configurable
 								_numWaypid->draw();
 								_numWaypid->blitNShade(surface, screenPosition.x + waypXOff, screenPosition.y + waypYOff, 0);
 
-								waypXOff += waypid > 9 ? 8 : 6;
+								waypXOff += waypid > 9 ? 10 : 6; // OXCE
 								if (waypXOff >= 26)
 								{
 									waypXOff = 2;
@@ -2982,6 +3006,8 @@ void Map::drawTerrainGPU(Surface* surface)
 	// by GPU pre-composite passes; guarded code paths in drawTerrainOverlayCPU
 	// skip the CPU blits for those in HD mode.
 	drawTerrainOverlayCPU(surface);
+	// Phase 25 R5: floating squad HUD (nameplates + HP/TU/energy bars) on top.
+	drawUnitNameplates(surface);
 }
 
 /**
@@ -2999,6 +3025,7 @@ void Map::emitTilePass()
 	}
 	_smokeInstances.clear();
 	_cursorOverlayInstances.clear();
+	_emissiveSources.clear();   // Phase 25 (R1): rebuilt below from fire-lit tiles
 	// Phase 22 (H1): the terrain instance lists are about to be rebuilt — mark the
 	// persistent _tileInstIBO stale so drawTileGLPass re-concatenates and re-uploads.
 	_tileBuffersDirty = true;
@@ -3100,6 +3127,36 @@ void Map::emitTilePass()
 			// their sprite is still on screen — leaving holes in the hull.
 			// 80 px ≈ 2 tile heights, enough for typical hull/awning yOffsets.
 			const int kTopOffsetMargin = 80;
+
+			// Phase 25 (R1): record bright fire-lit cells as coloured emissive
+			// sources. The engine's fire light is a scalar that already falls off
+			// with distance, so a high threshold keeps the halos on (and near) the
+			// actual flames. Centre is the tile diamond centre in base-res pixels;
+			// drawEmissiveGLPass() projects it with the same u_screenSize the tile
+			// pass uses. Discovered cells only (no glow through fog of war). This
+			// runs BEFORE the tile-sprite cull and uses a wider margin (the halo
+			// radius reaches ~2.2 tiles past the centre) so a flame just off-screen
+			// still lights the visible edge instead of popping in/out on scroll.
+			constexpr int kEmissiveLightThreshold = 12;   // 0..15 fire light
+			constexpr size_t kEmissiveMaxSources   = 64;
+			if (tile->isDiscovered(O_FLOOR) && _emissiveSources.size() < kEmissiveMaxSources)
+			{
+				const int em = 3 * _spriteWidth, emY = 3 * _spriteHeight;  // halo cull margin
+				if (screenPos.x > -em && screenPos.x < getWidth()  + em &&
+				    screenPos.y > -emY && screenPos.y < getHeight() + emY)
+				{
+					const int fireLight = tile->getLight(LL_FIRE);
+					if (fireLight >= kEmissiveLightThreshold)
+					{
+						EmissiveSource es;
+						es.cx        = (float)(screenPos.x + mapOffsetX) + (float)_spriteWidth  * 0.5f;
+						es.cy        = (float)(screenPos.y + mapOffsetY) + (float)_spriteHeight * 0.5f;
+						es.intensity = (float)fireLight / 15.0f;
+						_emissiveSources.push_back(es);
+					}
+				}
+			}
+
 			if (screenPos.x <= -_spriteWidth  || screenPos.x >= getWidth()  + _spriteWidth ||
 			    screenPos.y <= -_spriteHeight - kTopOffsetMargin ||
 			    screenPos.y >= getHeight() + _spriteHeight)
@@ -3524,71 +3581,180 @@ void Map::drawHdNumber(Surface *dest, int x, int y, int value, Uint32 colorArgb)
 }
 
 /**
- * Phase 14.2: legacy single-pass unit draw — kept as no-op since
- * drawTileGLPass now interleaves unit draws via drawUnitsAtZ().
+ * Phase 25 R5: floating squad HUD.  For every alive player unit, draws three
+ * stacked segmented bars (HP red / TU blue / energy green) plus the unit's name
+ * above its head.  Runs on the CPU ARGB overlay after the GPU scene, so plates
+ * sit on top of the rendered units.  Bar geometry derives from
+ * _spriteWidth/_spriteHeight, so it tracks battlescapeTileScale (Phase 24
+ * invariant).  Per-unit projection mirrors the selected-unit cursor math.
+ * Gated by Mod::getCalypsoHudOverlay() (calypso_hud_overlay: in the ruleset).
  */
-void Map::drawUnitGLPass() {}
-
-/**
- * Draw unit instances at the given (Z, Y) row. Filters _unitAtlasGroups
- * instances by (zLevels[i], yLevels[i]) == (z, y). Called from drawTileGLPass
- * between tile (Z, Y) row slices.
- */
-void Map::drawUnitsAtZY(int z, int y, Shader*& activeShader)
+void Map::drawUnitNameplates(Surface *surface)
 {
-	if (!_shadeTableTex || !_shadeTableTex->isValid()) return;
-	if (!_tileShader   || !_tileShader->isValid())   return;
+#ifdef __EMSCRIPTEN__
+	if (!_game->getMod()->getCalypsoHudOverlay()) return;
+	if (!_camera || !_save || !surface) return;
+	SDL_Surface *destSurf = surface->getSurface();
+	// Require a true 8-bit-per-channel 32bpp format: the direct bit ops below read
+	// each channel as (Uint8)(px >> shift), which is only correct when the channel
+	// is exactly 8 bits (loss == 0). 32bpp alone does NOT imply this (e.g.
+	// ARGB2101010), though the engine's render surfaces are always ARGB8888.
+	if (!destSurf || destSurf->format->BitsPerPixel != 32) return;
+	if (destSurf->format->Rloss || destSurf->format->Gloss || destSurf->format->Bloss) return;
 
-	const float SW = (float)Options::baseXResolution;
-	const float SH = (float)Options::baseYResolution;
+	const int sw = _spriteWidth;
+	const int sh = _spriteHeight;
+	const int dW = destSurf->w, dH = destSurf->h;
+	const int barW = sw * 7 / 8;                       // plate width
+	const int barH = std::max(2, sh / 18);             // per-bar height
+	const int gap  = std::max(1, sh / 80);             // gap between bars
+	const int viewLevel = _camera->getViewLevel();
+	// By design the name uses the fixed-size HD-numeral font (FONT_HD_NUMBERS):
+	// like the in-world cursor/TU numerals, the glyph size is resolution-fixed and
+	// intentionally does NOT scale with battlescapeTileScale (the bars below DO, via
+	// _spriteWidth/_spriteHeight). Pronounced only at the experimental tileScale: 4;
+	// scaling the text would need a tileScale-aware TTF size, not done here.
+	TTFFont *font = getHdNumberFont();                 // small Oxanium (size 12)
 
-	// Iterate groups in two passes: floor items first (FLOOROB.PCK), then unit
-	// bodies + held items (everything else). Within a (Z, Y) row this gives:
-	// floor items → unit bodies → unit held items, matching iso order.
-	const Mod::UnitAtlasSpec* floorSpec  = _game->getMod()->getUnitAtlas("FLOOROB.PCK");
+	// The 32bpp ARGB intermediate's channel layout. The entry guard above proved
+	// the RGB channels are a clean 8 bits (Rloss/Gloss/Bloss == 0), so each channel
+	// mask is 0xFF and (Uint8)(px >> shift) extracts it exactly. Deriving the shifts
+	// once lets fillBlend/compositeARGB use direct bit ops instead of per-pixel
+	// SDL_GetRGBA/SDL_MapRGBA — those walk the format's mask/shift/loss fields with
+	// no SIMD, and the pixel count grows O(tileScale²) (M2). Output alpha is opaque
+	// (Amask); the overlay's alpha is consumed as opacity at Screen::flip, so we
+	// fold the requested alpha into RGB here (same caveat as drawHdNumber).
+	const SDL_PixelFormat *dfmt = destSurf->format;
+	const Uint8   dRs = dfmt->Rshift, dGs = dfmt->Gshift, dBs = dfmt->Bshift;
+	const Uint32  dAmask = dfmt->Amask;
 
-	auto drawGroup = [&](UnitAtlasGroup& g) {
-		if (g.instances.empty() || !g.spec || !g.spec->atlas) return;
-		if (g.zLevels.size() != g.instances.size()) return;
-		if (g.yLevels.size() != g.instances.size()) return;
-
-		std::vector<TileInstance> scratch;
-		scratch.reserve(g.instances.size());
-		for (size_t i = 0; i < g.instances.size(); ++i)
-			if (g.zLevels[i] == z && g.yLevels[i] == y)
-				scratch.push_back(g.instances[i]);
-		if (scratch.empty()) return;
-
-		if (activeShader != _tileShader)
+	auto fillBlend = [&](int x, int y, int w, int h, Uint8 r, Uint8 g, Uint8 b, int alpha)
+	{
+		const int ia = 255 - alpha;
+		const int ra = r * alpha, ga = g * alpha, ba = b * alpha;
+		for (int j = 0; j < h; ++j)
 		{
-			_tileShader->use();
-			_tileShader->setUniform2f("u_screenSize",    SW, SH);
-			_tileShader->setUniform2f("u_tilePixelSize", (float)_spriteWidth, (float)_spriteHeight);
-			_tileShader->setUniform1f("u_animFrame",     0.0f);
-			_tileShader->setUniform1i("u_atlas",         0);
-			_tileShader->setUniform1i("u_shadeTable",    1);
-			_shadeTableTex->bind(1);
-			activeShader = _tileShader;
+			const int dy = y + j;
+			if (dy < 0 || dy >= dH) continue;
+			Uint32 *row = (Uint32*)((Uint8*)destSurf->pixels + dy * destSurf->pitch);
+			for (int i = 0; i < w; ++i)
+			{
+				const int dx = x + i;
+				if (dx < 0 || dx >= dW) continue;
+				const Uint32 px = row[dx];
+				const Uint8 outR = (Uint8)((ra + (Uint8)(px >> dRs) * ia) / 255);
+				const Uint8 outG = (Uint8)((ga + (Uint8)(px >> dGs) * ia) / 255);
+				const Uint8 outB = (Uint8)((ba + (Uint8)(px >> dBs) * ia) / 255);
+				row[dx] = dAmask | ((Uint32)outR << dRs)
+				                 | ((Uint32)outG << dGs)
+				                 | ((Uint32)outB << dBs);
+			}
 		}
-
-		const float uvW = (float)g.spec->tileWidth  / (float)g.spec->atlasW;
-		const float uvH = (float)g.spec->tileHeight / (float)g.spec->atlasH;
-		g.spec->atlas->bind(0);
-		_tileShader->setUniform2f("u_tileUVSize", uvW, uvH);
-		glBindBuffer(GL_ARRAY_BUFFER, _tileIBO);
-		glBufferData(GL_ARRAY_BUFFER,
-		             (GLsizeiptr)(scratch.size() * sizeof(TileInstance)),
-		             scratch.data(),
-		             GL_DYNAMIC_DRAW);
-		glDrawArraysInstanced(GL_TRIANGLES, 0, 6, (GLsizei)scratch.size());
 	};
 
-	for (auto& g : _unitAtlasGroups)
-		if (g.spec == floorSpec) drawGroup(g);
+	// One segmented bar: dark border, proportional coloured fill, quarter ticks.
+	auto drawBar = [&](int x, int y, float frac, Uint8 r, Uint8 g, Uint8 b)
+	{
+		frac = frac < 0.0f ? 0.0f : (frac > 1.0f ? 1.0f : frac);
+		fillBlend(x - 1, y - 1, barW + 2, barH + 2, 0, 0, 0, 205);   // border / bg
+		const int fw = (int)(barW * frac + 0.5f);
+		if (fw > 0) fillBlend(x, y, fw, barH, r, g, b, 240);         // fill
+		for (int t = 1; t < 4; ++t)                                  // segment ticks
+			fillBlend(x + barW * t / 4, y, 1, barH, 0, 0, 0, 150);
+	};
 
-	for (auto& g : _unitAtlasGroups)
-		if (g.spec != floorSpec) drawGroup(g);
+	// Manual ARGB composite for the TTF name (mirrors drawHdNumber). src may have a
+	// different 32bpp layout than dest (TTF surface), so derive its shifts per call.
+	auto compositeARGB = [&](SDL_Surface *src, int dstX, int dstY)
+	{
+		if (!src || src->format->BitsPerPixel != 32) return;
+		SDL_LockSurface(src);
+		const SDL_PixelFormat *sfmt = src->format;
+		const Uint8 sRs = sfmt->Rshift, sGs = sfmt->Gshift, sBs = sfmt->Bshift, sAs = sfmt->Ashift;
+		const int srcW = src->w, srcH = src->h;
+		for (int j = 0; j < srcH; ++j)
+		{
+			const int dy = dstY + j;
+			if (dy < 0 || dy >= dH) continue;
+			Uint32 *srcRow = (Uint32*)((Uint8*)src->pixels + j * src->pitch);
+			Uint32 *dstRow = (Uint32*)((Uint8*)destSurf->pixels + dy * destSurf->pitch);
+			for (int i = 0; i < srcW; ++i)
+			{
+				const int dx = dstX + i;
+				if (dx < 0 || dx >= dW) continue;
+				const Uint32 sp = srcRow[i];
+				const int a = (Uint8)(sp >> sAs);
+				if (a == 0) continue;
+				const int ia = 255 - a;
+				const Uint32 dp = dstRow[dx];
+				const Uint8 outR = (Uint8)(((Uint8)(sp >> sRs) * a + (Uint8)(dp >> dRs) * ia) / 255);
+				const Uint8 outG = (Uint8)(((Uint8)(sp >> sGs) * a + (Uint8)(dp >> dGs) * ia) / 255);
+				const Uint8 outB = (Uint8)(((Uint8)(sp >> sBs) * a + (Uint8)(dp >> dBs) * ia) / 255);
+				dstRow[dx] = dAmask | ((Uint32)outR << dRs)
+				                    | ((Uint32)outG << dGs)
+				                    | ((Uint32)outB << dBs);
+			}
+		}
+		SDL_UnlockSurface(src);
+	};
+
+	SDL_LockSurface(destSurf);
+	for (BattleUnit *unit : *_save->getUnits())
+	{
+		if (!unit || unit->isOut() || unit->getFaction() != FACTION_PLAYER) continue;
+		if (unit->getPosition().z > viewLevel) continue;
+
+		Position screenPosition;
+		_camera->convertMapToScreen(unit->getPosition(), &screenPosition);
+		screenPosition += _camera->getMapOffset();
+		Position offset = calculateWalkingOffset(unit).ScreenOffset;
+		if (unit->isBigUnit()) offset.y += 4;
+		offset.y += Position::TileZ - (unit->getHeight() + unit->getFloatHeight());
+		if (unit->isKneeled()) offset.y -= 2;
+
+		const int cx = screenPosition.x + offset.x + sw / 2;
+		const int headY = screenPosition.y + offset.y;             // unit's head row
+
+		if (cx < -sw || cx > dW + sw || headY < -sh || headY > dH + sh) continue;
+
+		const UnitStats *st = unit->getBaseStats();
+		const float hpF = (float)unit->getHealth()    / (float)std::max(1, (int)st->health);
+		const float tuF = (float)unit->getTimeUnits() / (float)std::max(1, (int)st->tu);
+		const float enF = (float)unit->getEnergy()    / (float)std::max(1, (int)st->stamina);
+
+		const int bx = cx - barW / 2;
+		const int barTop = headY - (int)(sh * 0.18f) - (barH + gap) * 3;
+		int by = barTop;
+		drawBar(bx, by, hpF, 220,  48,  48); by += barH + gap;     // HP  red
+		drawBar(bx, by, tuF,  72, 138, 230); by += barH + gap;     // TU  blue
+		drawBar(bx, by, enF,  70, 200,  96);                       // EN  green
+
+		// Unit name above the bars (small Oxanium; black shadow + light body).
+		if (font)
+		{
+			const std::string name = unit->getName(_game->getLanguage());
+			SDL_Color fg     = { 232, 238, 248, 255 };
+			SDL_Color shadow = {   0,   0,   0, 220 };
+			SDL_Surface *shadowSurf = font->renderText(name, shadow);
+			SDL_Surface *textSurf   = font->renderText(name, fg);
+			const int nameH = textSurf ? textSurf->h : 0;
+			const int ny = barTop - gap - nameH;
+			if (shadowSurf) compositeARGB(shadowSurf, cx - shadowSurf->w / 2 + 1, ny + 1);
+			if (textSurf)   compositeARGB(textSurf,   cx - textSurf->w / 2,       ny);
+		}
+	}
+	SDL_UnlockSurface(destSurf);
+#else
+	(void)surface;
+#endif
 }
+
+/**
+ * Phase 14.2: legacy single-pass unit draw — kept as a no-op. Units are drawn by
+ * the depth-ordered `drawAtlas` block in drawTileGLPass (GPU depth test resolves
+ * inter-group iso order), not by a per-row interleave.
+ */
+void Map::drawUnitGLPass() {}
 
 /**
  * Initialise VAO/VBO/IBO for instanced tile draw and compile tile_atlas shader.
@@ -3677,6 +3843,36 @@ void Map::initTileGL()
 		                      (void*)(2 * sizeof(float)));
 		glEnableVertexAttribArray(1);
 		glBindVertexArray(0);
+	}
+	// Phase 25 (R1): coloured emissive halo shader + its own inline unit-quad VAO
+	// (not shared with the tile/grade VAOs — keeps attribute state isolated, P17).
+	// One additive quad per fire source; falls back to no-op if compile fails.
+	if (!_emissiveShader)
+	{
+		_emissiveShader = new Shader();
+		if (!_emissiveShader->loadFromEmbedded("emissive_glow"))
+		{
+			Log(LOG_ERROR) << "Map::initTileGL: emissive_glow shader compile failed";
+			delete _emissiveShader; _emissiveShader = nullptr;
+		}
+	}
+	if (_emissiveShader && !_emissiveVAO)
+	{
+		glGenVertexArrays(1, &_emissiveVAO);
+		glGenBuffers(1, &_emissiveVBO);
+		glBindVertexArray(_emissiveVAO);
+		glBindBuffer(GL_ARRAY_BUFFER, _emissiveVBO);
+		// Unit quad in [0,1]² as two triangles; the vertex shader maps it around
+		// the source centre (a_corner @ location 0).
+		static const float unitQuad[12] = {
+			0.f, 0.f,  1.f, 0.f,  0.f, 1.f,
+			0.f, 1.f,  1.f, 0.f,  1.f, 1.f,
+		};
+		glBufferData(GL_ARRAY_BUFFER, sizeof(unitQuad), unitQuad, GL_STATIC_DRAW);
+		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+		glEnableVertexAttribArray(0);
+		glBindVertexArray(0);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
 	}
 	// Phase 22: 256×256 tileable R8 noise texture (GL_REPEAT + GL_LINEAR).
 	// R8 saves 75% VRAM vs RGBA8 (64 KB vs 256 KB); uploadR8 respects
@@ -3920,35 +4116,70 @@ bool Map::ensureSsaaTarget(int w, int h)
 		return false;
 	}
 
+	// Phase 25 (R0): prefer a GL_RGBA16F float colour attachment so bloom /
+	// god-rays / emissive (R1) can blow out past 1.0; the grade pass tonemaps
+	// HDR→LDR. Requires EXT_color_buffer_float (renderable) AND the grade shader
+	// (the mandatory tonemap site — without it an HDR buffer would clip straight
+	// to the 8-bit default framebuffer). Builds the FBO once; if the float format
+	// reports incomplete (driver quirk) it transparently retries as RGBA8 so the
+	// grade pass always keeps its scene buffer.
+	const bool wantHDR = GpuInit::hdr() && _gradeShader && _gradeShader->isValid();
+
 	glGenFramebuffers(1, &_ssaaFBO);
 	glBindFramebuffer(GL_FRAMEBUFFER, _ssaaFBO);
 
 	// Phase 28: colour attachment is a TEXTURE (not a renderbuffer) so the
 	// underwater grade pass can sample the finished scene. LINEAR so the grade
 	// pass also performs the SSAA downsample when it samples at display res.
+	// (Half-float linear filtering is core in WebGL2.)
 	glGenTextures(1, &_ssaaColorTex);
-	glBindTexture(GL_TEXTURE_2D, _ssaaColorTex);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, sw, sh, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-	                       GL_TEXTURE_2D, _ssaaColorTex, 0);
+	bool triedHDR = wantHDR;
+	GLenum status = GL_FRAMEBUFFER_UNSUPPORTED;
+	for (int attempt = 0; attempt < 2; ++attempt)
+	{
+		const bool useHDR   = triedHDR && attempt == 0;
+		const GLint  intFmt = useHDR ? GL_RGBA16F : GL_RGBA8;
+		const GLenum pixType = useHDR ? GL_HALF_FLOAT : GL_UNSIGNED_BYTE;
+		glBindTexture(GL_TEXTURE_2D, _ssaaColorTex);
+		glTexImage2D(GL_TEXTURE_2D, 0, intFmt, sw, sh, 0, GL_RGBA, pixType, nullptr);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+		                       GL_TEXTURE_2D, _ssaaColorTex, 0);
 
-	glGenRenderbuffers(1, &_ssaaDepthRB);
-	glBindRenderbuffer(GL_RENDERBUFFER, _ssaaDepthRB);
-	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, sw, sh);
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
-	                          GL_RENDERBUFFER, _ssaaDepthRB);
+		if (attempt == 0)
+		{
+			// Depth attachment is format-independent — create it once.
+			glGenRenderbuffers(1, &_ssaaDepthRB);
+			glBindRenderbuffer(GL_RENDERBUFFER, _ssaaDepthRB);
+			glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, sw, sh);
+			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+			                          GL_RENDERBUFFER, _ssaaDepthRB);
+		}
 
-	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+		status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+		if (status == GL_FRAMEBUFFER_COMPLETE)
+		{
+			_ssaaIsHDR = useHDR;
+			break;
+		}
+		if (useHDR)
+		{
+			Log(LOG_WARNING) << "Map::ensureSsaaTarget: RGBA16F FBO incomplete (status="
+			                 << (int)status << ") — retrying as RGBA8 (no HDR)";
+			continue;   // attempt 1 rebuilds the colour texture as RGBA8
+		}
+		break;          // RGBA8 also failed — give up below
+	}
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	if (status != GL_FRAMEBUFFER_COMPLETE)
 	{
 		Log(LOG_WARNING) << "Map::ensureSsaaTarget: FBO incomplete (status="
 		                 << (int)status << ", " << sw << "x" << sh
 		                 << ") — disabling SSAA";
+		_ssaaIsHDR = false;
 		if (_ssaaFBO)     { glDeleteFramebuffers(1, &_ssaaFBO);      _ssaaFBO = 0; }
 		if (_ssaaColorTex) { glDeleteTextures(1, &_ssaaColorTex); _ssaaColorTex = 0; }
 		if (_ssaaDepthRB) { glDeleteRenderbuffers(1, &_ssaaDepthRB); _ssaaDepthRB = 0; }
@@ -3956,7 +4187,7 @@ bool Map::ensureSsaaTarget(int w, int h)
 	}
 	_ssaaW = sw; _ssaaH = sh;
 	Log(LOG_INFO) << "Map::ensureSsaaTarget: SSAA " << _ssaaScale << "x at "
-	              << sw << "x" << sh;
+	              << sw << "x" << sh << (_ssaaIsHDR ? " (RGBA16F HDR)" : " (RGBA8 LDR)");
 	return true;
 #else
 	(void)w; (void)h;
@@ -3987,6 +4218,7 @@ void Map::drawTileGLPass()
 		for (auto& grp : _unitAtlasGroups) { grp.instances.clear(); grp.zLevels.clear(); grp.yLevels.clear(); }
 		_cursorOverlayInstances.clear();
 		_smokeInstances.clear();
+		_emissiveSources.clear();   // Phase 25 (R1): drop stale halos with the rest
 		_tileBuffersDirty = true;  // Phase 22 (H1): lists emptied — next emit rebuilds the buffer
 		return;
 	}
@@ -4049,8 +4281,12 @@ void Map::drawTileGLPass()
 
 	Shader* activeShader = nullptr;
 
+	// drawAtlas is the UNIT draw path (called from the _unitAtlasGroups loop with
+	// isRgba=false). unitShade (Phase 25 R7) feeds u_unitShade: g_calypsoUnitShade
+	// for bodies/held items, 0 for floor items / any non-fake-AO draw.
 	auto drawAtlas = [&](GpuTexture* atlas, float uvW, float uvH,
-	                     const TileInstance* data, size_t count, bool isRgba) {
+	                     const TileInstance* data, size_t count, bool isRgba,
+	                     float unitShade) {
 		Shader* sh = isRgba ? _tileShaderRgba : _tileShader;
 		if (!sh || !sh->isValid()) return;
 		// P17: explicit bind so blend draw's _blendVAO doesn't leak into this call.
@@ -4077,6 +4313,10 @@ void Map::drawTileGLPass()
 		}
 		atlas->bind(0);
 		sh->setUniform2f("u_tileUVSize", uvW, uvH);
+		// Phase 25 R7: fake unit lighting. Set per-draw (not in the cached setup) —
+		// _tileShader is shared with the tile draws, which reset it to 0.
+		if (!isRgba)
+			sh->setUniform1f("u_unitShade", unitShade);
 		glBindBuffer(GL_ARRAY_BUFFER, _tileIBO);
 		glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)(count * sizeof(TileInstance)),
 		             data, GL_DYNAMIC_DRAW);
@@ -4165,6 +4405,12 @@ void Map::drawTileGLPass()
 		}
 		atlas->bind(0);
 		sh->setUniform2f("u_tileUVSize", uvW, uvH);
+		// Phase 25 R7: tiles never get the unit fake-AO. Reset per-draw because the
+		// R8 _tileShader is shared with the unit draws (which set u_unitShade > 0),
+		// and tiles draw first each frame — they'd otherwise inherit the prior
+		// frame's unit value. RGBA tiles (_tileShaderRgba) have no such uniform.
+		if (!isRgba)
+			sh->setUniform1f("u_unitShade", 0.0f);
 		glBindBuffer(GL_ARRAY_BUFFER, _tileInstIBO);
 		pointTileInstanceAttribs(baseInstance);
 		glDrawArraysInstanced(GL_TRIANGLES, 0, 6, (GLsizei)count);
@@ -4184,13 +4430,17 @@ void Map::drawTileGLPass()
 
 	// Units / floor items / held items (palette unit atlases) — one draw call
 	// per group; depth test handles inter-group ordering.
+	// Phase 25 R7: unit bodies + held items get the fake-AO (g_calypsoUnitShade);
+	// floor items (FLOOROB.PCK) lie flat, so a vertical AO would read wrong → 0.
+	const Mod::UnitAtlasSpec* floorSpec = _game->getMod()->getUnitAtlas("FLOOROB.PCK");
 	for (auto& g : _unitAtlasGroups)
 	{
 		if (!g.spec || !g.spec->atlas || g.instances.empty()) continue;
 		const float uvW = (float)g.spec->tileWidth  / (float)g.spec->atlasW;
 		const float uvH = (float)g.spec->tileHeight / (float)g.spec->atlasH;
+		const float unitShade = (g.spec == floorSpec) ? 0.0f : g_calypsoUnitShade;
 		drawAtlas(g.spec->atlas, uvW, uvH,
-		          g.instances.data(), g.instances.size(), false);
+		          g.instances.data(), g.instances.size(), false, unitShade);
 	}
 
 	// Phase 17: hybrid RGBA overlay pass — drawn after tiles and units with
@@ -4208,6 +4458,39 @@ void Map::drawTileGLPass()
 	glDepthFunc(GL_LEQUAL);
 	// Phase 20.4: track active blend func to avoid redundant GL calls.
 	bool curPremult = false; // false = straight alpha (GL_SRC_ALPHA)
+
+	// Phase 25 R3: resolve the relief sun direction (shared by the overlay + blend
+	// passes). In AUTO mode the engine sweeps the azimuth per turn — a slow "time
+	// of day" — eased so turns transition smoothly, plus a gentle continuous wobble
+	// and elevation bob, staying in the upper hemisphere (underwater light comes
+	// from the surface, coherent with the god-rays). A manual _calypso_set_sun_dir
+	// freezes g_calypsoSunDir instead (dev override; resume with _calypso_set_sun_auto).
+	float sd[3];
+	if (g_calypsoSunAuto)
+	{
+		const int   turn     = _save ? _save->getTurn() : 1;
+		const float t        = (float)SDL_GetTicks() * 0.001f;
+		const float targetAz = (float)turn * 0.40f;                  // ~23 deg / turn
+		// Frame-rate-INDEPENDENT ease toward the per-turn target: a fixed ~1.1 s
+		// time-constant via 1 - exp(-dt/tau), not a per-frame constant (which would
+		// transition faster at high FPS). dt is clamped so a tab-switch / pause
+		// stall can't snap the sun across the map. _reliefSunLastT < 0 = first frame.
+		const float dtRaw    = (_reliefSunLastT < 0.0f) ? (1.0f / 60.0f) : (t - _reliefSunLastT);
+		_reliefSunLastT      = t;
+		const float dt       = std::min(std::max(dtRaw, 0.0f), 0.1f);
+		const float ease     = 1.0f - std::exp(-dt / 1.1f);          // ~1.1 s ease (~2-3 s settle)
+		_reliefSunAzimuth   += (targetAz - _reliefSunAzimuth) * ease;
+		const float az       = _reliefSunAzimuth + 0.12f * std::sin(t * 0.05f);  // wobble
+		const float lat      = 0.45f;                                // lean off vertical
+		sd[0] = lat * std::cos(az);
+		sd[1] = lat * std::sin(az);
+		sd[2] = 0.85f + 0.08f * std::sin(t * 0.03f);                 // gentle elevation bob
+	}
+	else
+	{
+		sd[0] = g_calypsoSunDir[0]; sd[1] = g_calypsoSunDir[1]; sd[2] = g_calypsoSunDir[2];
+	}
+
 	for (auto& grp : _tileAtlasGroups)
 	{
 		if (!grp.overlayAtlas || grp.overlayInstances.empty()) continue;
@@ -4220,8 +4503,50 @@ void Map::drawTileGLPass()
 			else
 				glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); // straight
 		}
+		// Phase 25 R3: per-group normal atlas on _tileShaderRgba (unit 4). use()
+		// guarantees the uniforms reach this program even on the first group
+		// (before drawTileGroup's activeShader cache binds it); it never touches
+		// the cache, so drawTileGroup still runs its one-time uniform setup.
+		if (_tileShaderRgba && _tileShaderRgba->isValid())
+		{
+			_tileShaderRgba->use();
+			if (grp.hasNormalMap && grp.normalAtlas)
+			{
+				_tileShaderRgba->setUniform1i("u_normalMap",    4);
+				_tileShaderRgba->setUniform1i("u_hasNormalMap", 1);
+				_tileShaderRgba->setUniform3f("u_sunDir", sd[0], sd[1], sd[2]);
+				grp.normalAtlas->bind(4);
+			}
+			else
+			{
+				_tileShaderRgba->setUniform1i("u_hasNormalMap", 0);
+			}
+			// Phase 25 R6: per-group material emissive atlas on unit 5. The live
+			// knob g_calypsoTileEmissive scales it (0 = off); the shader adds
+			// emissive AFTER shade/relief, into the HDR SSAA buffer (R0).
+			if (grp.hasEmissive && grp.emissiveAtlas && g_calypsoTileEmissive > 0.0f)
+			{
+				_tileShaderRgba->setUniform1i("u_emissive",    5);
+				_tileShaderRgba->setUniform1i("u_hasEmissive", 1);
+				_tileShaderRgba->setUniform1f("u_emissiveStrength", g_calypsoTileEmissive);
+				grp.emissiveAtlas->bind(5);
+			}
+			else
+			{
+				_tileShaderRgba->setUniform1i("u_hasEmissive", 0);
+			}
+		}
 		drawTileGroup(grp.overlayAtlas, grp.tileUVW, grp.tileUVH,
 		              grp.overlayOffset, grp.overlayInstances.size(), /*isRgba=*/true);
+	}
+	// Phase 25 R3/R6: clear u_hasNormalMap + u_hasEmissive so later _tileShaderRgba
+	// draws (sub-layers, unit shadows) don't inherit a stale 1 and sample the
+	// leftover unit-4/5 bindings.
+	if (_tileShaderRgba && _tileShaderRgba->isValid())
+	{
+		_tileShaderRgba->use();
+		_tileShaderRgba->setUniform1i("u_hasNormalMap", 0);
+		_tileShaderRgba->setUniform1i("u_hasEmissive", 0);
 	}
 	// Phase 22.1 §22.8: opt-in glFinish-isolated GPU timing of the blend pass.
 	// The blend pass is purely additive (it does not exist without runtime blend),
@@ -4259,6 +4584,8 @@ void Map::drawTileGLPass()
 		_blendShader->setUniform1i("u_atlas",         0);
 		_blendShader->setUniform1i("u_noise",         2);
 		_blendShader->setUniform1i("u_shadeCurve",    3);
+		_blendShader->setUniform1i("u_hasNormalMap",  0);  // Phase 25 R3: default; set per-group below
+		_blendShader->setUniform1i("u_hasEmissive",   0);  // Phase 25 R6: default; set per-group below
 		_noiseTex->bind(2);
 		_shadeCurveTex->bind(3);
 		activeShader = nullptr;  // force drawAtlas to re-bind _tileShaderRgba after this
@@ -4269,6 +4596,30 @@ void Map::drawTileGLPass()
 			if (!grp.overlayAtlas || grp.blendInstances.empty()) continue;
 			grp.overlayAtlas->bind(0);
 			_blendShader->setUniform2f("u_tileUVSize", grp.tileUVW, grp.tileUVH);
+			// Phase 25 R3: blend-pass normal binding (blends self+neighbour normals).
+			if (grp.hasNormalMap && grp.normalAtlas)
+			{
+				_blendShader->setUniform1i("u_normalMap",    4);
+				_blendShader->setUniform1i("u_hasNormalMap", 1);
+				_blendShader->setUniform3f("u_sunDir", sd[0], sd[1], sd[2]);
+				grp.normalAtlas->bind(4);
+			}
+			else
+			{
+				_blendShader->setUniform1i("u_hasNormalMap", 0);
+			}
+			// Phase 25 R6: blend-pass emissive (self-cell glow on transition tiles).
+			if (grp.hasEmissive && grp.emissiveAtlas && g_calypsoTileEmissive > 0.0f)
+			{
+				_blendShader->setUniform1i("u_emissive",    5);
+				_blendShader->setUniform1i("u_hasEmissive", 1);
+				_blendShader->setUniform1f("u_emissiveStrength", g_calypsoTileEmissive);
+				grp.emissiveAtlas->bind(5);
+			}
+			else
+			{
+				_blendShader->setUniform1i("u_hasEmissive", 0);
+			}
 			glBindBuffer(GL_ARRAY_BUFFER, _blendIBO);
 			glBufferData(GL_ARRAY_BUFFER,
 			             (GLsizeiptr)(grp.blendInstances.size() * sizeof(BlendInstance)),
@@ -4339,6 +4690,8 @@ void Map::drawTileGLPass()
 		                              (float)(_spriteWidth / 2) * 0.60f);
 		_tileShaderRgba->setUniform1f("u_animFrame", 0.0f);
 		_tileShaderRgba->setUniform1i("u_atlas", 0);
+		_tileShaderRgba->setUniform1i("u_hasNormalMap", 0);  // Phase 25 R3: shadows are flat (order-independent)
+		_tileShaderRgba->setUniform1i("u_hasEmissive", 0);   // Phase 25 R6: shadows do not glow
 		if (_shadeCurveTex && _shadeCurveTex->isValid())
 		{
 			_tileShaderRgba->setUniform1i("u_shadeCurve", 3);
@@ -4355,6 +4708,13 @@ void Map::drawTileGLPass()
 	}
 	glDepthFunc(GL_LESS);
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+
+	// Phase 25 (R1): coloured emissive halos — additive, into the SSAA scene
+	// buffer (still bound), so under HDR they exceed 1.0 and the grade's bloom
+	// picks them up. Gated on useSsaa: only meaningful when compositing into the
+	// (HDR or at least off-screen) SSAA target the grade pass then tonemaps.
+	if (useSsaa)
+		drawEmissiveGLPass();
 
 	// --- SSAA downsample: blit the supersampled floor (READ _ssaaW×_ssaaH) into
 	// the prior framebuffer at viewport resolution (DRAW fbW×fbH) with LINEAR
@@ -4375,9 +4735,13 @@ void Map::drawTileGLPass()
 			glViewport(0, 0, fbW, fbH);
 			drawSceneGrade();
 		}
-		else
+		else if (!_ssaaIsHDR)
 		{
 			// Fallback (grade shader unavailable): plain linear downsample blit.
+			// R0: only valid when the SSAA buffer is RGBA8 — WebGL2 forbids a
+			// float→normalized blit, and _ssaaIsHDR can only be true when the
+			// grade shader exists (the mandatory tonemap), so this branch is
+			// reached solely in the LDR fallback. The guard documents that.
 			glBindFramebuffer(GL_READ_FRAMEBUFFER, _ssaaFBO);
 			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, (GLuint)prevFBO);
 			glBlitFramebuffer(0, 0, _ssaaW, _ssaaH, 0, 0, fbW, fbH,
@@ -4427,6 +4791,7 @@ void Map::drawSceneGrade()
 	// god-ray shafts / refraction "waves" leak onto land. (strength is a console knob, not
 	// depth-driven, so we gate by the actual depth here.)
 	_gradeShader->setUniform1i("u_underwater", (_save && _save->getDepth() > 0) ? 1 : 0);
+	_gradeShader->setUniform1i("u_hdr", _ssaaIsHDR ? 1 : 0);   // R0: tonemap when scene buffer is RGBA16F
 	_gradeShader->setUniform1f("u_strength", g_calypsoUnderwaterStrength);
 	_gradeShader->setUniform1f("u_time", (float)SDL_GetTicks() * 0.001f);
 	_gradeShader->setUniform2f("u_res", (float)Options::displayWidth,
@@ -4512,6 +4877,87 @@ void Map::drawSceneGrade()
 	glBindVertexArray(_gradeVAO);
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 	glBindVertexArray(0);
+#endif
+}
+
+/**
+ * Phase 25 (R1): per-source coloured emissive light. Draws one additive radial
+ * halo per fire-lit tile (collected in emitTilePass) into the currently-bound
+ * SSAA scene buffer, using the same base-resolution → NDC projection the tile
+ * pass uses. Under HDR (RGBA16F) the halo can exceed 1.0 so the grade's bloom
+ * threshold lifts it into a glow; under LDR it still adds a clamped tint. The
+ * caller leaves _ssaaFBO bound at SSAA viewport, depth test off-able.
+ */
+void Map::drawEmissiveGLPass()
+{
+#ifdef __EMSCRIPTEN__
+	if (!_emissiveShader || !_emissiveShader->isValid() || !_emissiveVAO) return;
+	if (_emissiveSources.empty() || g_calypsoUwEmissive <= 0.0f) return;
+
+	// Base-resolution iso space → NDC (matches drawTileGLPass' u_screenSize).
+	const float SW = (float)Options::baseXResolution;
+	const float SH = (float)Options::baseYResolution;
+
+	// Save the blend func: GpuSmokeState/GlSave save blend-ENABLE but not the
+	// src/dst factors, so an additive pass that doesn't restore leaks GL_ONE,
+	// GL_ONE into later straight-alpha passes (Phase 25 Pitfall 1). Also save the
+	// bound program so the rare grade-unavailable (blit-fallback) path doesn't
+	// leave _emissiveShader bound for a later pass that snapshots GL_CURRENT_PROGRAM.
+	GLboolean prevBlend = glIsEnabled(GL_BLEND);
+	GLint prevSrcRGB = GL_SRC_ALPHA, prevDstRGB = GL_ONE_MINUS_SRC_ALPHA;
+	GLint prevSrcA   = GL_SRC_ALPHA, prevDstA   = GL_ONE_MINUS_SRC_ALPHA;
+	GLint prevProgram = 0;
+	glGetIntegerv(GL_BLEND_SRC_RGB,   &prevSrcRGB);
+	glGetIntegerv(GL_BLEND_DST_RGB,   &prevDstRGB);
+	glGetIntegerv(GL_BLEND_SRC_ALPHA, &prevSrcA);
+	glGetIntegerv(GL_BLEND_DST_ALPHA, &prevDstA);
+	glGetIntegerv(GL_CURRENT_PROGRAM, &prevProgram);
+	// Save depth-test enable + write-mask too: this pass disables both. Nothing
+	// depth-dependent runs after it this frame (only the SSAA downsample/grade)
+	// and drawTileGLPass re-establishes them next frame, so the disable is
+	// currently benign — but restore symmetrically (like blend/program above) so
+	// a future pass appended after the emissive draw can't inherit a stale state.
+	GLboolean prevDepthTest = glIsEnabled(GL_DEPTH_TEST);
+	GLboolean prevDepthMask = GL_TRUE;
+	glGetBooleanv(GL_DEPTH_WRITEMASK, &prevDepthMask);
+
+	glDisable(GL_DEPTH_TEST);
+	glDepthMask(GL_FALSE);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_ONE, GL_ONE);                       // additive
+	// Don't write the canvas alpha channel (kept opaque by the tile pass).
+	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_FALSE);
+
+	_emissiveShader->use();
+	_emissiveShader->setUniform2f("u_screenSize", SW, SH);
+	// Fire = warm orange. Engine fire light is the only RGB-less source today;
+	// R6 lava + future coloured sources can vary this per source — until then it is
+	// constant, so set it once above the loop (L6) rather than per source.
+	_emissiveShader->setUniform3f("u_tint", 1.00f, 0.52f, 0.18f);
+
+	glBindVertexArray(_emissiveVAO);
+	for (const EmissiveSource& es : _emissiveSources)
+	{
+		// Halo radius ≈ a couple of tiles, scaled mildly by source intensity.
+		const float halfX = (float)_spriteWidth  * (1.4f + 0.8f * es.intensity);
+		const float halfY = (float)_spriteHeight * (1.4f + 0.8f * es.intensity);
+		// Core add can exceed 1.0 (HDR) — knob × per-source light × base gain.
+		const float intensity = g_calypsoUwEmissive * es.intensity * 1.8f;
+		_emissiveShader->setUniform2f("u_centerPx", es.cx, es.cy);
+		_emissiveShader->setUniform2f("u_halfPx",   halfX, halfY);
+		_emissiveShader->setUniform1f("u_intensity", intensity);
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+	}
+	glBindVertexArray(0);
+
+	// Restore exact prior blend state + full colour mask + bound program + depth.
+	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+	glBlendFuncSeparate((GLenum)prevSrcRGB, (GLenum)prevDstRGB,
+	                    (GLenum)prevSrcA,   (GLenum)prevDstA);
+	if (!prevBlend) glDisable(GL_BLEND);
+	glDepthMask(prevDepthMask);
+	if (prevDepthTest) glEnable(GL_DEPTH_TEST); else glDisable(GL_DEPTH_TEST);
+	glUseProgram((GLuint)prevProgram);
 #endif
 }
 
