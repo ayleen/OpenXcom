@@ -291,7 +291,10 @@ private:
 	// applyHudNumber) are re-rendered as TTF texture quads at PHYSICAL resolution, OVER the
 	// composited HUD, mirroring drawCursorOverlayGLPass — so the 48px raster is GPU-downscaled
 	// straight to the physical size, never through the small logical buffer.
-	struct HudTextItem { int logX, logY, logW, logH; std::string text; Uint32 colorArgb; bool isName; };
+	// fitX/Y/W/H is the EXACT logical placement rect the CPU path blitted the glyphs at
+	// (computed in applyHudName/applyHudNumber); the overlay reuses it verbatim so the crisp
+	// physical-res copy lands precisely over the logical text — no offset double-image.
+	struct HudTextItem { float fitX, fitY, fitW, fitH; std::string text; Uint32 colorArgb; };
 	std::vector<HudTextItem>            _hudTextItems;
 	std::map<std::string, GpuTexture*>  _hudTextTexCache;   // keyed by "text#argb"
 	GpuTexture* getHudTextTexture(const std::string& text, Uint32 colorArgb);
@@ -370,6 +373,12 @@ private:
 
 	/// Calypso: gating + clipping for the post-composite overlay passes (internal).
 	bool overlayPassesActive() const;   // false when a modal/other state is on top
+	/// Calypso bug 1: HUD-text overlay gate — true while the battlescape HUD is actually
+	/// VISIBLE (battlescape is top, OR only a non-fullscreen popup sits over it). Unlike the
+	/// cursor gate it survives action-menu/CANCEL/warning popups, so the name+stat digits stay
+	/// crisp behind them instead of dropping to the mushy logical text. A fullscreen state
+	/// (Inventory/Options/pause) covers the HUD → returns false (don't overdraw it).
+	bool hudOverlayVisible() const;
 	int  mapClipBottomY() const;        // base-res bottom of the visible map (above HUD)
 	void beginMapScissor();             // glScissor to the map viewport
 	void endMapScissor();               // restore prior scissor state
@@ -477,7 +486,7 @@ public:
 	/// Calypso bug 1: HUD text overlay handoff. BattlescapeState clears then re-adds the
 	/// name + 4 stat digits (logical widget rect + text + packed ARGB colour) each refresh.
 	void clearHudTextItems();
-	void addHudTextItem(int logX, int logY, int logW, int logH, const std::string& text, Uint32 colorArgb, bool isName);
+	void addHudTextItem(float fitX, float fitY, float fitW, float fitH, const std::string& text, Uint32 colorArgb);
 #endif
 	/// Handles timers.
 	void think() override;

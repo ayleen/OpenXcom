@@ -539,7 +539,7 @@ void Map::init()
 		// widget rect via the same xScale/yScale path as the cursor.
 		_game->getScreen()->registerGPUPass([this, wf]() {
 			if (!wf.lock()) return;
-			if (!this->overlayPassesActive()) return;   // not over a menu
+			if (!this->hudOverlayVisible()) return;   // survives non-fullscreen popups (keeps text crisp)
 			this->drawHudTextGLPass();
 		});
 		// Calypso P30: ALL battlescape FX (projectile, explosion flash/fireball/bubble,
@@ -4748,10 +4748,10 @@ void Map::clearHudTextItems()
 	_hudTextItems.clear();
 }
 
-void Map::addHudTextItem(int logX, int logY, int logW, int logH,
-                         const std::string& text, Uint32 colorArgb, bool isName)
+void Map::addHudTextItem(float fitX, float fitY, float fitW, float fitH,
+                         const std::string& text, Uint32 colorArgb)
 {
-	_hudTextItems.push_back(HudTextItem{ logX, logY, logW, logH, text, colorArgb, isName });
+	_hudTextItems.push_back(HudTextItem{ fitX, fitY, fitW, fitH, text, colorArgb });
 }
 
 /**
@@ -4873,35 +4873,12 @@ void Map::drawHudTextGLPass()
 
 	for (const HudTextItem& item : _hudTextItems)
 	{
-		if (item.text.empty() || item.logW <= 0 || item.logH <= 0) continue;
+		if (item.text.empty() || item.fitW <= 0.0f || item.fitH <= 0.0f) continue;
 		GpuTexture* tex = getHudTextTexture(item.text, item.colorArgb);
 		if (!tex) continue;
-		const float srcW = static_cast<float>(tex->width());
-		const float srcH = static_cast<float>(tex->height());
-		if (srcW <= 0.0f || srcH <= 0.0f) continue;
-
-		// Fit the TTF raster into the widget's logical rect. The GL overlay is crisp, but at
-		// the low resolution fractions the glyphs are still physically small, so fill MORE of
-		// the box than the legacy CPU path (0.551/0.66) for readability — bumped to 0.72 (name)
-		// / 0.88 (digits). drawQuad then scales logical → physical.
-		float fitW, fitH, fitX, fitY;
-		if (item.isName)
-		{
-			float scale = (item.logH * 0.72f) / srcH;              // taller than the old 0.551
-			if (srcW * scale > item.logW) scale = item.logW / srcW; // never overflow the field
-			fitW = srcW * scale; fitH = srcH * scale;
-			fitX = static_cast<float>(item.logX);                  // left-aligned (H_LEFT)
-			fitY = item.logY + (item.logH - fitH) * 0.5f;          // vertically centred
-		}
-		else
-		{
-			const float availW = item.logW * 0.88f, availH = item.logH * 0.88f;  // bigger digits
-			float scale = (availH / srcH < availW / srcW) ? availH / srcH : availW / srcW;
-			fitW = srcW * scale; fitH = srcH * scale;
-			fitX = item.logX + (item.logW - fitW) * 0.5f;          // centred both ways
-			fitY = item.logY + (item.logH - fitH) * 0.5f;
-		}
-		drawQuad(tex, fitX, fitY, fitW, fitH);
+		// The placement rect was computed CPU-side (applyHudName/applyHudNumber) from the SAME
+		// TTF raster, so the crisp overlay lands EXACTLY over the logical text — no double-image.
+		drawQuad(tex, item.fitX, item.fitY, item.fitW, item.fitH);
 	}
 
 	glDisable(GL_BLEND);
@@ -5231,6 +5208,18 @@ void Map::drawProjectileGLPass()
 bool Map::overlayPassesActive() const
 {
 	return !_overlayOwner || (_game && _game->isState(_overlayOwner));
+}
+
+bool Map::hudOverlayVisible() const
+{
+	if (!_overlayOwner || !_game) return true;
+	State* top = _game->getTopState();
+	// The battlescape is rendered behind the top state iff that state is the battlescape
+	// itself OR a non-fullscreen popup (action menu / CANCEL / warning). In both cases the
+	// HUD panel shows, so the crisp text overlay must keep drawing over it. A fullscreen
+	// state (Inventory/Options/pause) hides the HUD → skip (the >250ms _lastDrawnTicks guard
+	// in drawHudTextGLPass also covers nested popup-over-fullscreen stacks).
+	return top == _overlayOwner || (top && !top->isScreen());
 }
 
 /** Base-res Y where the (HD) HUD starts; the visible map is above this. */
