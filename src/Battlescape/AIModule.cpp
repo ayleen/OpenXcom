@@ -96,6 +96,49 @@ bool AIModule::isSmartCivilian() const
 }
 
 /**
+ * Phase 32 (Calypso): nearest "protector" to head toward — the closest X-Com soldier the
+ * civilians have spotted recently, else the closest other living civilian. Shared by
+ * findCivilianSafetyTarget (flee) and findGuardObjective (regroup). Distance is HORIZONTAL
+ * (distance2d), matching the 2D escape/objective scoring that consumes `out`, so a soldier a
+ * floor above is not mistaken for "nearer" than one on the unit's own level. Returns false
+ * (leaving `out` untouched) when neither a spotted soldier nor another civilian is known.
+ */
+bool AIModule::findNearestProtector(Position& out) const
+{
+	const Position self = _unit->getPosition();
+	BattleUnit* bestSoldier = nullptr;
+	BattleUnit* bestCivilian = nullptr;
+	int soldierDist = INT_MAX;
+	int civilianDist = INT_MAX;
+	for (auto* bu : *_save->getUnits())
+	{
+		if (bu == _unit || bu->isOut())
+		{
+			continue;
+		}
+		if (bu->getFaction() == FACTION_PLAYER && bu->getOriginalFaction() == FACTION_PLAYER)
+		{
+			// only head toward soldiers the civilians have actually spotted recently, so they
+			// don't path omnisciently toward an unseen squad across the whole map.
+			if (bu->getTurnsSinceSpottedByFaction(FACTION_NEUTRAL) > _intelligence)
+			{
+				continue;
+			}
+			int d = Position::distance2d(self, bu->getPosition());
+			if (d < soldierDist) { soldierDist = d; bestSoldier = bu; }
+		}
+		else if (bu->getFaction() == FACTION_NEUTRAL)
+		{
+			int d = Position::distance2d(self, bu->getPosition());
+			if (d < civilianDist) { civilianDist = d; bestCivilian = bu; }
+		}
+	}
+	if (bestSoldier)  { out = bestSoldier->getPosition();  return true; }
+	if (bestCivilian) { out = bestCivilian->getPosition(); return true; }
+	return false;
+}
+
+/**
  * Phase 32 (Calypso): where should a frightened civilian run? Priority:
  *   1. toward the nearest X-Com soldier it has seen recently (within its intelligence
  *      memory) — seek protection;
@@ -111,42 +154,8 @@ bool AIModule::findCivilianSafetyTarget(Position& out) const
 		return false;
 	}
 
-	BattleUnit* bestSoldier = nullptr;
-	BattleUnit* bestCivilian = nullptr;
-	int soldierDist = INT_MAX;
-	int civilianDist = INT_MAX;
-	for (auto* bu : *_save->getUnits())
+	if (findNearestProtector(out))
 	{
-		if (bu == _unit || bu->isOut())
-		{
-			continue;
-		}
-		if (bu->getFaction() == FACTION_PLAYER && bu->getOriginalFaction() == FACTION_PLAYER)
-		{
-			// only head toward soldiers we have actually spotted recently, so civilians
-			// don't path omnisciently toward an unseen squad.
-			if (bu->getTurnsSinceSpottedByFaction(FACTION_NEUTRAL) > _intelligence)
-			{
-				continue;
-			}
-			int d = Position::distanceSq(self, bu->getPosition());
-			if (d < soldierDist) { soldierDist = d; bestSoldier = bu; }
-		}
-		else if (bu->getFaction() == FACTION_NEUTRAL)
-		{
-			int d = Position::distanceSq(self, bu->getPosition());
-			if (d < civilianDist) { civilianDist = d; bestCivilian = bu; }
-		}
-	}
-
-	if (bestSoldier)
-	{
-		out = bestSoldier->getPosition();
-		return true;
-	}
-	if (bestCivilian)
-	{
-		out = bestCivilian->getPosition();
 		return true;
 	}
 
@@ -248,48 +257,8 @@ bool AIModule::findGuardObjective(Position& out) const
 		out = victim->getPosition();
 		return true;
 	}
-
-	const Position self = _unit->getPosition();
-	BattleUnit* bestSoldier = nullptr;
-	BattleUnit* bestCivilian = nullptr;
-	int soldierDist = INT_MAX;
-	int civilianDist = INT_MAX;
-	for (auto* bu : *_save->getUnits())
-	{
-		if (bu == _unit || bu->isOut())
-		{
-			continue;
-		}
-		if (bu->getFaction() == FACTION_PLAYER && bu->getOriginalFaction() == FACTION_PLAYER)
-		{
-			// only regroup toward soldiers the civilians have actually spotted recently — no
-			// omniscient pathing toward an unseen squad across the whole map (mirrors the gate in
-			// findCivilianSafetyTarget). Until a soldier is seen, the guard stays with the crowd.
-			if (bu->getTurnsSinceSpottedByFaction(FACTION_NEUTRAL) > _intelligence)
-			{
-				continue;
-			}
-			int d = Position::distanceSq(self, bu->getPosition());
-			if (d < soldierDist) { soldierDist = d; bestSoldier = bu; }
-		}
-		else if (bu->getFaction() == FACTION_NEUTRAL)
-		{
-			int d = Position::distanceSq(self, bu->getPosition());
-			if (d < civilianDist) { civilianDist = d; bestCivilian = bu; }
-		}
-	}
-
-	if (bestSoldier)
-	{
-		out = bestSoldier->getPosition();
-		return true;
-	}
-	if (bestCivilian)
-	{
-		out = bestCivilian->getPosition();
-		return true;
-	}
-	return false;
+	// all quiet: regroup with the nearest spotted soldier, else stay among the civilians.
+	return findNearestProtector(out);
 }
 
 /**

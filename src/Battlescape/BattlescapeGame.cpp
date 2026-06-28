@@ -414,12 +414,14 @@ void BattlescapeGame::handleAI(BattleUnit *unit)
 	}
 
 	// Phase 32: a settled civilian ducks behind cover — but ONLY when there is shot-stopping
-	// cover on the edge facing the nearest visible alien, so kneeling actually buys
-	// protection. Skipped while moving (BA_WALK) or attacking, so no kneeling mid-route or
-	// in the open. Because the alien is already visible (canTargetUnit succeeded for the
-	// aggro target), a non-zero HE-blockage on that edge means cover the civilian can see
-	// the alien over yet duck a shot behind — i.e. low cover. The TU guard avoids tripping
-	// kneel()'s reservation path (spurious "not enough TUs" toast) for a low-TU civilian.
+	// cover on the edge facing its AI aggro target, so kneeling actually buys protection.
+	// Skipped while moving (BA_WALK) or attacking, so no kneeling mid-route or in the open.
+	// We probe DT_AP (bullet-channel) blockage on that edge — the channel a shot would travel:
+	// a non-zero value means a low obstacle the civilian can still see the alien over yet duck
+	// a shot behind, i.e. low cover worth kneeling for. (The aggro target may be a remembered,
+	// not currently visible, enemy; the worst case is kneeling behind full cover against an
+	// unseen foe, which merely spends the settled civilian's leftover TU — harmless.) The TU
+	// guard avoids tripping kneel()'s reservation path (spurious "not enough TUs" toast).
 	if (getMod()->getAISmartCivilians()
 		&& unit->getFaction() == FACTION_NEUTRAL
 		&& unit->getOriginalFaction() == FACTION_NEUTRAL

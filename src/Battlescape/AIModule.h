@@ -70,6 +70,9 @@ private:
 	void dont_think(BattleAction *action);
 	/// Phase 32: true for an organic civilian when the mod enables smarter civilian AI.
 	bool isSmartCivilian() const;
+	/// Phase 32: nearest "protector" to head toward — closest recently-spotted soldier, else closest
+	/// civilian. Horizontal (2D) distance to match the escape/objective scoring. False if none known.
+	bool findNearestProtector(Position& out) const;
 	/// Phase 32: position a fleeing civilian should head toward (nearest soldier > civilian cluster > map edge).
 	bool findCivilianSafetyTarget(Position& out) const;
 	/// Phase 32: true for an armed civilian guard (a smart civilian whose ruleset sets civilianGuard).
