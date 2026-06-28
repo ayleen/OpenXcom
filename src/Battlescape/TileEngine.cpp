@@ -1495,8 +1495,7 @@ bool TileEngine::calculateUnitsInFOV(BattleUnit* unit, const Position eventPos, 
 							// Phase 32: a smart civilian acts as a spotter — reveal an alien
 							// it sees to the player ("the civilian points at the monster").
 							else if (bu->getFaction() == FACTION_HOSTILE
-								&& unit->getFaction() == FACTION_NEUTRAL
-								&& unit->getOriginalFaction() == FACTION_NEUTRAL
+								&& unit->isOrganicCivilian()
 								&& _save->getMod()->getAISmartCivilians())
 							{
 								bu->setVisible(true);

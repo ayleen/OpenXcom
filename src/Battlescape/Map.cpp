@@ -2899,8 +2899,7 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 	{
 		for (auto* civ : *_save->getUnits())
 		{
-			if (civ->getFaction() == FACTION_NEUTRAL
-				&& civ->getOriginalFaction() == FACTION_NEUTRAL
+			if (civ->isOrganicCivilian()
 				&& !civ->isOut()
 				&& civ->getVisible()
 				&& civ->getPosition().z <= _camera->getViewLevel() // don't project through floors above

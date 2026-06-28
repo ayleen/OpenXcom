@@ -403,8 +403,7 @@ void BattlescapeGame::handleAI(BattleUnit *unit)
 	// Phase 32: a smart civilian cries out the first time it sees an alien this turn
 	// (reuses the unit's aggroSound as a startled bark).
 	else if (getMod()->getAISmartCivilians()
-		&& unit->getFaction() == FACTION_NEUTRAL
-		&& unit->getOriginalFaction() == FACTION_NEUTRAL
+		&& unit->isOrganicCivilian()
 		&& unit->hasAggroSound() && !_playedAggroSound
 		&& unit->getAIModule() && unit->getAIModule()->getTarget()
 		&& unit->getAIModule()->getTarget()->getFaction() == FACTION_HOSTILE)
@@ -423,8 +422,7 @@ void BattlescapeGame::handleAI(BattleUnit *unit)
 	// unseen foe, which merely spends the settled civilian's leftover TU — harmless.) The TU
 	// guard avoids tripping kneel()'s reservation path (spurious "not enough TUs" toast).
 	if (getMod()->getAISmartCivilians()
-		&& unit->getFaction() == FACTION_NEUTRAL
-		&& unit->getOriginalFaction() == FACTION_NEUTRAL
+		&& unit->isOrganicCivilian()
 		&& action.type == BA_NONE
 		&& !unit->isKneeled()
 		&& unit->getArmor()->allowsKneeling(false)
@@ -1622,8 +1620,7 @@ bool BattlescapeGame::handlePanickingUnit(BattleUnit *unit)
 	// (low bravery) mostly freezes in terror, while a brave one bolts. Soldiers and aliens
 	// keep the vanilla 50/50 coin flip.
 	if (_save->getMod()->getAISmartCivilians()
-		&& unit->getOriginalFaction() == FACTION_NEUTRAL
-		&& unit->getFaction() == FACTION_NEUTRAL)
+		&& unit->isOrganicCivilian())
 	{
 		int fleePct = unit->getBaseStats()->bravery - 30;
 		if (fleePct < 5) fleePct = 5;

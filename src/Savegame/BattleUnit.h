@@ -717,6 +717,10 @@ public:
 
 	/// Get this unit's original faction
 	UnitFaction getOriginalFaction() const;
+	/// Phase 32 (Calypso): true for an "organic" civilian — currently AND originally neutral
+	/// (excludes mind-controlled / converted units). Pairs with Mod::getAISmartCivilians() at the
+	/// smart-civilian call sites that previously re-inlined this two-faction check.
+	bool isOrganicCivilian() const { return getFaction() == FACTION_NEUTRAL && getOriginalFaction() == FACTION_NEUTRAL; }
 	/// Get alien/HWP unit.
 	const Unit *getUnitRules() const { return _unitRules; }
 	Position lastCover;
