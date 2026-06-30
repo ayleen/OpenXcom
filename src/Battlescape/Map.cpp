@@ -2787,12 +2787,12 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 		Position offset = calculateWalkingOffset(selectedUnit).ScreenOffset;
 		if (selectedUnit->isBigUnit())
 		{
-			offset.y += 4;
+			offset.y += _spriteHeight / 10;   // scales with tileScale (4 at native sh=40)
 		}
 		offset.y += Position::TileZ - (selectedUnit->getHeight() + selectedUnit->getFloatHeight());
 		if (selectedUnit->isKneeled())
 		{
-			offset.y -= 2;
+			offset.y -= _spriteHeight / 20;   // scales with tileScale (2 at native sh=40)
 		}
 		if (this->getCursorType() != CT_NONE)
 		{
@@ -2854,7 +2854,7 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 				//calculateWalkingOffset(myUnit, &offset);
 				if (myUnit->isBigUnit())
 				{
-					offset.y += 4;
+					offset.y += _spriteHeight / 10;   // scales with tileScale (4 at native sh=40)
 				}
 				if (motionScan)
 				{
@@ -2866,7 +2866,7 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 				}
 				if (myUnit->isKneeled())
 				{
-					offset.y -= 2;
+					offset.y -= _spriteHeight / 20;   // scales with tileScale (2 at native sh=40)
 				}
 				if (motionScan)
 				{
@@ -2911,7 +2911,7 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 				offset.y += Position::TileZ - (civ->getHeight() + civ->getFloatHeight());
 				if (civ->isKneeled())
 				{
-					offset.y -= 2;
+					offset.y -= _spriteHeight / 20;   // scales with tileScale (2 at native sh=40)
 				}
 				Surface::blitRaw(
 					surface,
@@ -3543,6 +3543,50 @@ TTFFont* Map::getHdNumberFont()
 }
 
 /**
+ * Manual ARGB8888 alpha composite of a 32bpp TTF surface onto the 32bpp ARGB
+ * intermediate. SDL_BlitSurface would alpha-composite correctly on a single-pass
+ * surface, but by the time `dst` reaches Screen::flip its alpha channel is consumed
+ * as opacity, so src pixels with a=0 (TTF background) would overwrite dst.a=255 and
+ * the glyph would end up fully transparent. So we write OPAQUE output alpha. Locks
+ * both surfaces (SDL_LockSurface is refcounted — safe inside an outer dst lock).
+ * Shared by drawHdNumber and drawUnitNameplates.
+ */
+void Map::alphaOverARGB(SDL_Surface *src, SDL_Surface *dst, int dstX, int dstY)
+{
+	if (!src || !dst || src->format->BitsPerPixel != 32 || dst->format->BitsPerPixel != 32)
+		return;
+	SDL_LockSurface(src);
+	SDL_LockSurface(dst);
+	const int srcW = src->w, srcH = src->h;
+	const int dW = dst->w, dH = dst->h;
+	for (int j = 0; j < srcH; ++j)
+	{
+		const int dy = dstY + j;
+		if (dy < 0 || dy >= dH) continue;
+		Uint32* srcRow = (Uint32*)((Uint8*)src->pixels + j * src->pitch);
+		Uint32* dstRow = (Uint32*)((Uint8*)dst->pixels + dy * dst->pitch);
+		for (int i = 0; i < srcW; ++i)
+		{
+			const int dx = dstX + i;
+			if (dx < 0 || dx >= dW) continue;
+			Uint8 sr, sg, sb, sa;
+			SDL_GetRGBA(srcRow[i], src->format, &sr, &sg, &sb, &sa);
+			if (sa == 0) continue;
+			Uint8 dr, dg, db, da;
+			SDL_GetRGBA(dstRow[dx], dst->format, &dr, &dg, &db, &da);
+			const int a = sa;
+			const int ia = 255 - a;
+			const Uint8 outR = (Uint8)((sr * a + dr * ia) / 255);
+			const Uint8 outG = (Uint8)((sg * a + dg * ia) / 255);
+			const Uint8 outB = (Uint8)((sb * a + db * ia) / 255);
+			dstRow[dx] = SDL_MapRGBA(dst->format, outR, outG, outB, 0xFF);
+		}
+	}
+	SDL_UnlockSurface(dst);
+	SDL_UnlockSurface(src);
+}
+
+/**
  * Phase 16: Draws a numeric value centred at (x, y) via the TTF pipeline.
  * Two blits: black shadow at +1 px offset, then the coloured text on top.
  * Both calls are cache-hits after the first frame — steady-state cost is two
@@ -3566,60 +3610,22 @@ void Map::drawHdNumber(Surface *dest, int x, int y, int value, Uint32 colorArgb)
 	SDL_Surface* destSurf = dest->getSurface();
 	if (!destSurf) return;
 
-	// Manual ARGB8888 alpha composite: SDL_BlitSurface with TTF_Blended
-	// surfaces produces correct alpha compositing on a single-pass surface,
-	// but our `dest` is a 32bpp ARGB intermediate — by the time it reaches
-	// Screen::flip the alpha channel is consumed as opacity, so pixels with
-	// src.a=0 (TTF background) overwrite dest.a=255 → final glyph is fully
-	// transparent.  Manual composite writes opaque ARGB into dest.
-	auto compositeARGB = [&](SDL_Surface* src, int dstX, int dstY)
-	{
-		if (!src || src->format->BitsPerPixel != 32 || destSurf->format->BitsPerPixel != 32)
-			return;
-		SDL_LockSurface(src);
-		SDL_LockSurface(destSurf);
-		const int srcW = src->w, srcH = src->h;
-		const int dW = destSurf->w, dH = destSurf->h;
-		for (int j = 0; j < srcH; ++j)
-		{
-			const int dy = dstY + j;
-			if (dy < 0 || dy >= dH) continue;
-			Uint32* srcRow = (Uint32*)((Uint8*)src->pixels + j * src->pitch);
-			Uint32* dstRow = (Uint32*)((Uint8*)destSurf->pixels + dy * destSurf->pitch);
-			for (int i = 0; i < srcW; ++i)
-			{
-				const int dx = dstX + i;
-				if (dx < 0 || dx >= dW) continue;
-				Uint8 sr, sg, sb, sa;
-				SDL_GetRGBA(srcRow[i], src->format, &sr, &sg, &sb, &sa);
-				if (sa == 0) continue;
-				Uint8 dr, dg, db, da;
-				SDL_GetRGBA(dstRow[dx], destSurf->format, &dr, &dg, &db, &da);
-				const int a = sa;
-				const int ia = 255 - a;
-				const Uint8 outR = (Uint8)((sr * a + dr * ia) / 255);
-				const Uint8 outG = (Uint8)((sg * a + dg * ia) / 255);
-				const Uint8 outB = (Uint8)((sb * a + db * ia) / 255);
-				dstRow[dx] = SDL_MapRGBA(destSurf->format, outR, outG, outB, 0xFF);
-			}
-		}
-		SDL_UnlockSurface(destSurf);
-		SDL_UnlockSurface(src);
-	};
-
 	if (shadowSurf)
-		compositeARGB(shadowSurf, x - shadowSurf->w / 2 + 1, y - shadowSurf->h / 2 + 1);
+		alphaOverARGB(shadowSurf, destSurf, x - shadowSurf->w / 2 + 1, y - shadowSurf->h / 2 + 1);
 	if (textSurf)
-		compositeARGB(textSurf, x - textSurf->w / 2, y - textSurf->h / 2);
+		alphaOverARGB(textSurf, destSurf, x - textSurf->w / 2, y - textSurf->h / 2);
 }
 
 /**
- * Phase 25 R5: floating squad HUD.  For every alive player unit, draws three
- * stacked segmented bars (HP red / TU blue / energy green) plus the unit's name
- * above its head.  Runs on the CPU ARGB overlay after the GPU scene, so plates
- * sit on top of the rendered units.  Bar geometry derives from
- * _spriteWidth/_spriteHeight, so it tracks battlescapeTileScale (Phase 24
- * invariant).  Per-unit projection mirrors the selected-unit cursor math.
+ * Phase 25 R5 (redesigned): floating squad HUD. Two passes so the selected unit's
+ * plate composites on top of everything: pass 1 draws a single compact TU bar over
+ * every visible non-selected player unit; pass 2 draws the SELECTED unit's full
+ * frosted plate — name + three bars in HUD order (TU / Energy / Health) coloured
+ * from the same PAL_BATTLESCAPE indices as the bottom HUD, on a rounded gradient
+ * body with a drop shadow and a top highlight. Runs on the CPU ARGB overlay after
+ * the GPU scene, so plates sit on top of the rendered units. All geometry derives
+ * from _spriteWidth/_spriteHeight, so it tracks battlescapeTileScale (Phase 24
+ * invariant). Per-unit projection mirrors the selected-unit cursor math.
  * Gated by Mod::getCalypsoHudOverlay() (calypso_hud_overlay: in the ruleset).
  */
 void Map::drawUnitNameplates(Surface *surface)
@@ -3644,6 +3650,9 @@ void Map::drawUnitNameplates(Surface *surface)
 	const int padX    = std::max(4, sw / 14);          // plate inner horizontal margin
 	const int padY    = std::max(2, sh / 22);          // plate inner vertical margin
 	const int cornerR = std::max(2, sh / 18);          // rounded-corner skip radius
+	// Vertical head clearance as a fraction of sh (how far above the head each element sits).
+	constexpr float kCompactBarHeadClear = 0.12f;      // compact TU bar (non-selected units)
+	constexpr float kPlateHeadClear      = 0.18f;      // full plate (selected unit)
 	const int viewLevel = _camera->getViewLevel();
 	// By design the name uses the fixed-size HD-numeral font (FONT_HD_NUMBERS):
 	// like the in-world cursor/TU numerals, the glyph size is resolution-fixed and
@@ -3655,7 +3664,7 @@ void Map::drawUnitNameplates(Surface *surface)
 	// The 32bpp ARGB intermediate's channel layout. The entry guard above proved
 	// the RGB channels are a clean 8 bits (Rloss/Gloss/Bloss == 0), so each channel
 	// mask is 0xFF and (Uint8)(px >> shift) extracts it exactly. Deriving the shifts
-	// once lets fillBlend/compositeARGB use direct bit ops instead of per-pixel
+	// once lets fillBlend/roundedFillGradV use direct bit ops instead of per-pixel
 	// SDL_GetRGBA/SDL_MapRGBA — those walk the format's mask/shift/loss fields with
 	// no SIMD, and the pixel count grows O(tileScale²) (M2). Output alpha is opaque
 	// (Amask); the overlay's alpha is consumed as opacity at Screen::flip, so we
@@ -3691,26 +3700,31 @@ void Map::drawUnitNameplates(Surface *surface)
 	// HUD-matched bar colours: read the SAME palette indices the bottom HUD uses
 	// (interface "battlescape" elements barTUs/barEnergy/barHealth -> PAL_BATTLESCAPE),
 	// so the floating bars are coloured identically to BattlescapeState::applyHudNumbers
-	// instead of the old invented RGB constants (TFTD's underwater palette made the old
-	// "TU = blue" wrong). Resolved once, before the per-unit loop.
-	Palette *bsPal = _game->getMod()->getPalette("PAL_BATTLESCAPE", false);
-	RuleInterface *bsIface = _game->getMod()->getInterface("battlescape", false);
-	// fr/fg/fb is a per-bar fallback (kept DISTINCT so TU/Energy/Health stay
-	// distinguishable) used only when the palette or the "battlescape" interface is
-	// unavailable — otherwise the exact HUD palette colour is used.
-	auto hudRGB = [&](const char *id, Uint8 fr, Uint8 fg, Uint8 fb, Uint8 &r, Uint8 &g, Uint8 &b)
+	// instead of invented RGB constants (TFTD's underwater palette made the old "TU = blue"
+	// wrong). Resolved ONCE into Map members (the palette and "battlescape" interface are
+	// constant during a mission), then reused every frame. Retries until both are available
+	// (mirrors getHdNumberFont's lazy-cache), keeping a distinct per-bar fallback meanwhile.
+	if (!_nameplateColoursReady)
 	{
-		r = fr; g = fg; b = fb;
-		if (!bsPal || !bsIface) return;
-		const Element *el = bsIface->getElementOptional(id);
-		if (!el || el->color < 0 || el->color >= 256) return;
-		SDL_Color *c = bsPal->getColors(el->color);
-		if (c) { r = c->r; g = c->g; b = c->b; }
-	};
-	Uint8 tuR, tuG, tuB, enR, enG, enB, hpR, hpG, hpB;
-	hudRGB("barTUs",    230, 200,  60, tuR, tuG, tuB);   // gold / green / red fallbacks
-	hudRGB("barEnergy",  70, 200,  96, enR, enG, enB);
-	hudRGB("barHealth", 220,  48,  48, hpR, hpG, hpB);
+		Palette *bsPal = _game->getMod()->getPalette("PAL_BATTLESCAPE", false);
+		RuleInterface *bsIface = _game->getMod()->getInterface("battlescape", false);
+		auto hudRGB = [&](const char *id, Uint8 fr, Uint8 fg, Uint8 fb, Uint8 &r, Uint8 &g, Uint8 &b)
+		{
+			r = fr; g = fg; b = fb;   // distinct fallback if rule/pal missing
+			if (!bsPal || !bsIface) return;
+			const Element *el = bsIface->getElementOptional(id);
+			if (!el || el->color < 0 || el->color >= 256) return;
+			SDL_Color *c = bsPal->getColors(el->color);
+			if (c) { r = c->r; g = c->g; b = c->b; }
+		};
+		hudRGB("barTUs",    230, 200,  60, _npTuR, _npTuG, _npTuB);   // gold / green / red fallbacks
+		hudRGB("barEnergy",  70, 200,  96, _npEnR, _npEnG, _npEnB);
+		hudRGB("barHealth", 220,  48,  48, _npHpR, _npHpG, _npHpB);
+		if (bsPal && bsIface) _nameplateColoursReady = true;         // cache only a real resolve
+	}
+	const Uint8 tuR = _npTuR, tuG = _npTuG, tuB = _npTuB;
+	const Uint8 enR = _npEnR, enG = _npEnG, enB = _npEnB;
+	const Uint8 hpR = _npHpR, hpG = _npHpG, hpB = _npHpB;
 
 	// Vertical-gradient fill with integer corner rounding (no float math): the row
 	// colour lerps (r0,g0,b0)@alphaTop -> (r1,g1,b1)@alphaBot; corner pixels outside the
@@ -3778,41 +3792,6 @@ void Map::drawUnitNameplates(Surface *surface)
 		}
 	};
 
-	// Manual ARGB composite for the TTF name (mirrors drawHdNumber). src may have a
-	// different 32bpp layout than dest (TTF surface), so derive its shifts per call.
-	auto compositeARGB = [&](SDL_Surface *src, int dstX, int dstY)
-	{
-		if (!src || src->format->BitsPerPixel != 32) return;
-		SDL_LockSurface(src);
-		const SDL_PixelFormat *sfmt = src->format;
-		const Uint8 sRs = sfmt->Rshift, sGs = sfmt->Gshift, sBs = sfmt->Bshift, sAs = sfmt->Ashift;
-		const int srcW = src->w, srcH = src->h;
-		for (int j = 0; j < srcH; ++j)
-		{
-			const int dy = dstY + j;
-			if (dy < 0 || dy >= dH) continue;
-			Uint32 *srcRow = (Uint32*)((Uint8*)src->pixels + j * src->pitch);
-			Uint32 *dstRow = (Uint32*)((Uint8*)destSurf->pixels + dy * destSurf->pitch);
-			for (int i = 0; i < srcW; ++i)
-			{
-				const int dx = dstX + i;
-				if (dx < 0 || dx >= dW) continue;
-				const Uint32 sp = srcRow[i];
-				const int a = (Uint8)(sp >> sAs);
-				if (a == 0) continue;
-				const int ia = 255 - a;
-				const Uint32 dp = dstRow[dx];
-				const Uint8 outR = (Uint8)(((Uint8)(sp >> sRs) * a + (Uint8)(dp >> dRs) * ia) / 255);
-				const Uint8 outG = (Uint8)(((Uint8)(sp >> sGs) * a + (Uint8)(dp >> dGs) * ia) / 255);
-				const Uint8 outB = (Uint8)(((Uint8)(sp >> sBs) * a + (Uint8)(dp >> dBs) * ia) / 255);
-				dstRow[dx] = dAmask | ((Uint32)outR << dRs)
-				                    | ((Uint32)outG << dGs)
-				                    | ((Uint32)outB << dBs);
-			}
-		}
-		SDL_UnlockSurface(src);
-	};
-
 	// Declutter model: only the *selected* aquanaut gets the full plate (name + all
 	// three bars); every other visible player unit shows a single very-compact TU bar.
 	// Drawn in TWO passes so the selected unit's plate is composited LAST and therefore
@@ -3841,6 +3820,26 @@ void Map::drawUnitNameplates(Surface *surface)
 		    && u->getPosition().z <= viewLevel;
 	};
 
+	// Render the selected unit's name BEFORE locking destSurf: renderText may allocate or
+	// LRU-evict (SDL_FreeSurface) TTF surfaces, which should stay out of the destSurf
+	// critical section (matches drawHdNumber). The name string is cached on the Map and
+	// rebuilt only when the selection changes, avoiding a per-frame std::string + getName.
+	SDL_Surface *shadowSurf = nullptr, *textSurf = nullptr;
+	int nameH = 0;
+	if (font && isPlated(selected))
+	{
+		if (selected != _nameplateUnit)
+		{
+			_nameplateUnit = selected;
+			_nameplateName = selected->getName(_game->getLanguage());
+		}
+		SDL_Color fg     = { 232, 238, 248, 255 };
+		SDL_Color shadow = {   0,   0,   0, 220 };
+		shadowSurf = font->renderText(_nameplateName, shadow);   // cached + owned by TTFFont — do NOT free
+		textSurf   = font->renderText(_nameplateName, fg);       //  (LRU eviction handles lifetime)
+		nameH = textSurf ? textSurf->h : 0;
+	}
+
 	SDL_LockSurface(destSurf);
 
 	// Pass 1 — compact TU bar for every visible non-selected player unit. TU is the
@@ -3859,13 +3858,14 @@ void Map::drawUnitNameplates(Surface *surface)
 		const float tuF = std::min(1.0f, std::max(0.0f,
 			(float)unit->getTimeUnits() / (float)std::max(1, (int)st->tu)));
 		const int cX = cx - cW / 2;
-		const int cY = headY - (int)(sh * 0.12f) - cH;
+		const int cY = headY - (int)(sh * kCompactBarHeadClear) - cH;
 		fillBlend(cX - 1, cY - 1, cW + 2, cH + 2, 0, 0, 0, 175);    // dark trough / outline
 		const int fw = (int)(cW * tuF + 0.5f);
 		if (fw > 0) fillBlend(cX, cY, fw, cH, tuR, tuG, tuB, 235);
 	}
 
 	// Pass 2 — the selected aquanaut's full frosted plate, composited last (on top).
+	// Uses the name surfaces rendered above (before the lock).
 	int cx, headY;
 	if (isPlated(selected) && projectHead(selected, cx, headY))
 	{
@@ -3874,28 +3874,19 @@ void Map::drawUnitNameplates(Surface *surface)
 		const float enF = (float)selected->getEnergy()    / (float)std::max(1, (int)st->stamina);
 		const float hpF = (float)selected->getHealth()    / (float)std::max(1, (int)st->health);
 
-		// Render the name first so the plate height can include the text row.
-		SDL_Surface *shadowSurf = nullptr, *textSurf = nullptr;
-		int nameH = 0;
-		if (font)
-		{
-			const std::string name = selected->getName(_game->getLanguage());
-			SDL_Color fg     = { 232, 238, 248, 255 };
-			SDL_Color shadow = {   0,   0,   0, 220 };
-			shadowSurf = font->renderText(name, shadow);   // cached + owned by TTFFont — do NOT free
-			textSurf   = font->renderText(name, fg);       //  (LRU eviction handles lifetime)
-			nameH = textSurf ? textSurf->h : 0;
-		}
-
 		const int plateW = barW + 2 * padX;
-		const int sepH = 1;                                  // name/bars separator thickness
-		const int plateH = padY + nameH + gap + sepH + gap   // top margin + name + separator
-		                 + (barH + gap) * 3 - gap + padY;    // 3 bars (2 inter-gaps) + bottom
+		const int sepH   = 1;                                         // name/bars separator thickness
+		const int sepGap = (nameH > 0) ? (gap + sepH + gap) : 0;      // no name -> no reserved strip
+		const int plateH = padY + nameH + sepGap
+		                 + (barH + gap) * 3 - gap + padY;             // 3 bars (2 inter-gaps) + margins
 		const int plateX = cx - plateW / 2;
-		const int plateY = headY - (int)(sh * 0.18f) - plateH - gap;
+		const int plateY = headY - (int)(sh * kPlateHeadClear) - plateH - gap;
 
-		// Drop shadow first; the plate body covers all but the offset sliver.
-		fillBlend(plateX + 2, plateY + 3, plateW, plateH, 0, 0, 0, 65);
+		// Drop shadow first — rounded with the SAME radius as the plate so its square
+		// corners don't bleed through the plate's arcs; offsets derive from sw/sh so they
+		// scale with tileScale (sw/16 -> 2px, sh/13 -> 3px at native).
+		roundedFillGradV(plateX + sw / 16, plateY + sh / 13, plateW, plateH,
+		                 0, 0, 0,  0, 0, 0,  65, 65, cornerR);
 		// Frosted gradient body with rounded corners (dark navy top -> deeper bottom).
 		roundedFillGradV(plateX, plateY, plateW, plateH,
 		                 10, 22, 40,  5, 12, 24,  185, 215, cornerR);
@@ -3904,17 +3895,18 @@ void Map::drawUnitNameplates(Surface *surface)
 
 		// Name (black shadow + light body) on the plate's top row.
 		const int nameY = plateY + padY;
-		if (shadowSurf) compositeARGB(shadowSurf, cx - shadowSurf->w / 2 + 1, nameY + 1);
-		if (textSurf)   compositeARGB(textSurf,   cx - textSurf->w / 2,       nameY);
+		if (shadowSurf) alphaOverARGB(shadowSurf, destSurf, cx - shadowSurf->w / 2 + 1, nameY + 1);
+		if (textSurf)   alphaOverARGB(textSurf,   destSurf, cx - textSurf->w / 2,       nameY);
 
-		// Thin separator between the name and the bars (only when a name was actually drawn;
-		// otherwise it would be an orphaned rule near the plate top).
+		// Thin separator between the name and the bars (only when a name was drawn).
 		if (nameH > 0)
 			fillBlend(plateX + padX, nameY + nameH + gap, barW, sepH, 255, 255, 255, 28);
 
 		// Three bars in HUD order (TU -> Energy -> Health), HUD-matched colours.
-		// Mirror the HUD's wound pulse (blinkHealthBar): brighten the health bar on
-		// alternate animation frames while the unit has fatal wounds.
+		// Wound pulse: mirror the HUD's blinkHealthBar IN SPIRIT — brighten the health bar
+		// on alternate animation frames while the unit has fatal wounds. Intentional
+		// divergence from the HUD: an RGB brightness boost (not the PAL_BATTLESCAPE index
+		// walk) and an _animFrame toggle (not the HUD's think()-rate 4-state cycle).
 		Uint8 hbR = hpR, hbG = hpG, hbB = hpB;
 		if (selected->getFatalWounds() > 0 && (_animFrame & 1))
 		{
@@ -3923,7 +3915,7 @@ void Map::drawUnitNameplates(Surface *surface)
 			hbB = (Uint8)std::min(255, (int)hpB + 50);
 		}
 		const int barX = plateX + padX;
-		int barY = nameY + nameH + gap + sepH + gap;
+		int barY = nameY + nameH + sepGap;
 		drawBar2(barX, barY, tuF, tuR, tuG, tuB); barY += barH + gap;   // Time Units
 		drawBar2(barX, barY, enF, enR, enG, enB); barY += barH + gap;   // Energy
 		drawBar2(barX, barY, hpF, hbR, hbG, hbB);                       // Health (pulses when bleeding)

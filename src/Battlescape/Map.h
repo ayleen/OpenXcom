@@ -140,10 +140,28 @@ private:
 	/// absent — callers fall back to the bitmap path in that case.
 	TTFFont *getHdNumberFont();
 
+	/// Manual alpha-over composite of a 32bpp TTF surface onto a 32bpp ARGB
+	/// destination, writing opaque output alpha (the overlay alpha is consumed as
+	/// opacity at Screen::flip). Locks both surfaces (SDL_LockSurface is refcounted,
+	/// so it is safe to call inside an outer destination lock). Shared by
+	/// drawHdNumber and drawUnitNameplates.
+	static void alphaOverARGB(SDL_Surface *src, SDL_Surface *dst, int dstX, int dstY);
+
 	void drawHdNumber(Surface *dest, int x, int y, int value, Uint32 colorArgb);
 	/// Phase 25 R5: floating HD nameplate + HP/TU/energy bars over each player
 	/// unit (Emscripten HD path; gated by Mod::getCalypsoHudOverlay).
 	void drawUnitNameplates(Surface *surface);
+#ifdef __EMSCRIPTEN__
+	/// drawUnitNameplates caches (per battle): the selected unit's name surface key
+	/// (rebuilt only on selection change, not every frame) and the HUD bar colours
+	/// resolved from PAL_BATTLESCAPE (resolved once; the palette is constant in-battle).
+	BattleUnit *_nameplateUnit = nullptr;
+	std::string _nameplateName;
+	bool _nameplateColoursReady = false;
+	Uint8 _npTuR = 0, _npTuG = 0, _npTuB = 0;
+	Uint8 _npEnR = 0, _npEnG = 0, _npEnB = 0;
+	Uint8 _npHpR = 0, _npHpG = 0, _npHpB = 0;
+#endif
 	void drawUnit(UnitSprite &unitSprite, Tile *unitTile, Tile *currTile, Position tileScreenPosition, bool topLayer, BattleUnit* movingUnit = nullptr);
 	void drawTerrainOverlayCPU(Surface *surface);
 #ifdef __EMSCRIPTEN__
