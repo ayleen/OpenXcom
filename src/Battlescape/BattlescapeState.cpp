@@ -1107,6 +1107,15 @@ void BattlescapeState::mapOver(Action *action)
  */
 void BattlescapeState::mapPress(Action *action)
 {
+#ifdef __EMSCRIPTEN__
+	// Calypso: the mouse wheel zooms the battlescape (steps the display fraction).
+	// Wheel-up zooms in, wheel-down zooms out; z-level stays on PageUp/PageDown
+	// and the on-screen Up/Down buttons.
+	const Uint8 wheelBtn = action->getDetails()->button.button;
+	if (wheelBtn == SDL_BUTTON_WHEELUP)   { zoom(+1); return; }
+	if (wheelBtn == SDL_BUTTON_WHEELDOWN) { zoom(-1); return; }
+#endif
+
 	// don't handle mouseclicks over the buttons (it overlaps with map surface)
 	if (_mouseOverIcons) return;
 
@@ -2856,6 +2865,19 @@ inline void BattlescapeState::handle(Action *action)
 				bool shiftPressed = _game->isShiftPressed();
 				bool altPressed = _game->isAltPressed();
 
+#ifdef __EMSCRIPTEN__
+				// Calypso: +/- (the same keys as Geoscape zoom) and keypad +/-
+				// zoom the battlescape, mirroring the mouse wheel.
+				if (key == Options::keyGeoZoomIn || key == SDLK_KP_PLUS || key == SDLK_EQUALS)
+				{
+					zoom(+1);
+				}
+				else if (key == Options::keyGeoZoomOut || key == SDLK_KP_MINUS)
+				{
+					zoom(-1);
+				}
+#endif
+
 				// "shift-hotkey" - select without centering
 				if (shiftPressed)
 				{
@@ -4251,6 +4273,43 @@ void BattlescapeState::resize(int &dX, int &dY)
 	layoutHud();
 }
 
+#ifdef __EMSCRIPTEN__
+/**
+ * Calypso (Emscripten): step the battlescape "zoom" by changing the display
+ * fraction (Options::battlescapeScale) along the Video menu's Full↔¼ ladder. A
+ * smaller buffer is stretched to the same canvas, so it reads as zooming in.
+ * direction > 0 zooms in (toward ¼); < 0 zooms out (toward Full). resize()
+ * recomputes baseX/YResolution from the new scale and re-lays-out the HUD +
+ * camera; resetDisplay(false) reallocates the render surface to the new size
+ * without tearing down the GL context.
+ */
+void BattlescapeState::zoom(int direction)
+{
+	// Ordered zoomed-OUT (biggest buffer) -> zoomed-IN (smallest buffer).
+	static const int ladder[] = {
+		SCALE_SCREEN, SCALE_SCREEN_3_4, SCALE_SCREEN_DIV_2,
+		SCALE_SCREEN_DIV_3, SCALE_SCREEN_DIV_4
+	};
+	const int N = (int)(sizeof(ladder) / sizeof(ladder[0]));
+
+	int idx = 0;
+	for (int i = 0; i < N; ++i)
+	{
+		if (ladder[i] == Options::battlescapeScale) { idx = i; break; }
+	}
+	int next = idx + (direction > 0 ? 1 : -1);
+	if (next < 0) next = 0;
+	if (next > N - 1) next = N - 1;
+	if (ladder[next] == Options::battlescapeScale) return;   // already at the rail end
+
+	Options::battlescapeScale = ladder[next];
+	int dX = 0, dY = 0;
+	resize(dX, dY);
+	_game->getScreen()->resetDisplay(false);
+	_map->draw();
+}
+#endif
+
 /**
  * Calypso (Emscripten): record the native HUD layout — every bottom-bar widget's
  * offset from the icons-panel origin plus its native size — exactly once. These
@@ -4357,6 +4416,28 @@ void BattlescapeState::layoutHud()
 			int h = (int)(r.h * sy + 0.5f); if (h < 1) h = 1;
 			r.surf->setWidth(w);
 			r.surf->setHeight(h);
+		}
+	}
+
+	// Calypso: pin the visible-enemy indicator column to a constant on-screen
+	// gap so it doesn't fan out as the battlescape resolution (zoom) changes. The
+	// generic scale above stacks the boxes with pitch 18*sy, so the gap between
+	// them grows with resolution; instead keep button 0 where the scale placed it
+	// (anchored to the HUD) and stack the rest with pitch = scaled box height + a
+	// fixed 2px gap, carrying each number along by the same delta so it stays
+	// centred on its box.
+	if (_btnVisibleUnit[0])
+	{
+		const int pitch = _btnVisibleUnit[0]->getHeight() + 2;
+		const int baseY = _btnVisibleUnit[0]->getY();
+		for (int i = 1; i < VISIBLE_MAX; ++i)
+		{
+			if (!_btnVisibleUnit[i]) continue;
+			const int wantY = baseY - i * pitch;
+			const int delta = wantY - _btnVisibleUnit[i]->getY();
+			_btnVisibleUnit[i]->setY(wantY);
+			if (_numVisibleUnit[i])
+				_numVisibleUnit[i]->setY(_numVisibleUnit[i]->getY() + delta);
 		}
 	}
 

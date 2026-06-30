@@ -81,6 +81,10 @@ void Camera::mousePress(Action *action, State *)
 	}
 	else if (Options::battleDragScrollButton != SDL_BUTTON_MIDDLE || (SDL_GetMouseState(0,0)&SDL_BUTTON(Options::battleDragScrollButton)) == 0)
 	{
+#ifndef __EMSCRIPTEN__
+		// Native: the mouse wheel changes the viewing z-level. On Emscripten the
+		// wheel is repurposed for zoom (BattlescapeState::mapPress); z-level there
+		// stays on PageUp/PageDown and the on-screen Up/Down buttons.
 		if (action->getDetails()->button.button == SDL_BUTTON_WHEELUP)
 		{
 			up();
@@ -89,6 +93,7 @@ void Camera::mousePress(Action *action, State *)
 		{
 			down();
 		}
+#endif
 	}
 }
 
