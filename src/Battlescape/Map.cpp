@@ -3695,9 +3695,12 @@ void Map::drawUnitNameplates(Surface *surface)
 	// "TU = blue" wrong). Resolved once, before the per-unit loop.
 	Palette *bsPal = _game->getMod()->getPalette("PAL_BATTLESCAPE", false);
 	RuleInterface *bsIface = _game->getMod()->getInterface("battlescape", false);
-	auto hudRGB = [&](const char *id, Uint8 &r, Uint8 &g, Uint8 &b)
+	// fr/fg/fb is a per-bar fallback (kept DISTINCT so TU/Energy/Health stay
+	// distinguishable) used only when the palette or the "battlescape" interface is
+	// unavailable — otherwise the exact HUD palette colour is used.
+	auto hudRGB = [&](const char *id, Uint8 fr, Uint8 fg, Uint8 fb, Uint8 &r, Uint8 &g, Uint8 &b)
 	{
-		r = 180; g = 180; b = 180;                     // safe fallback if rule/pal missing
+		r = fr; g = fg; b = fb;
 		if (!bsPal || !bsIface) return;
 		const Element *el = bsIface->getElementOptional(id);
 		if (!el || el->color < 0 || el->color >= 256) return;
@@ -3705,13 +3708,14 @@ void Map::drawUnitNameplates(Surface *surface)
 		if (c) { r = c->r; g = c->g; b = c->b; }
 	};
 	Uint8 tuR, tuG, tuB, enR, enG, enB, hpR, hpG, hpB;
-	hudRGB("barTUs",    tuR, tuG, tuB);
-	hudRGB("barEnergy", enR, enG, enB);
-	hudRGB("barHealth", hpR, hpG, hpB);
+	hudRGB("barTUs",    230, 200,  60, tuR, tuG, tuB);   // gold / green / red fallbacks
+	hudRGB("barEnergy",  70, 200,  96, enR, enG, enB);
+	hudRGB("barHealth", 220,  48,  48, hpR, hpG, hpB);
 
 	// Vertical-gradient fill with integer corner rounding (no float math): the row
-	// colour lerps (r0,g0,b0)@alphaTop -> (r1,g1,b1)@alphaBot; corner pixels where
-	// ci^2 + cj^2 > radius^2 are skipped so the plate reads as a rounded card, not a box.
+	// colour lerps (r0,g0,b0)@alphaTop -> (r1,g1,b1)@alphaBot; corner pixels outside the
+	// quarter-circle centred at the arc centre (radius,radius) inside each corner are
+	// skipped so the plate reads as a rounded card, not a box.
 	auto roundedFillGradV = [&](int x, int y, int w, int h,
 	                            int r0, int g0, int b0, int r1, int g1, int b1,
 	                            int alphaTop, int alphaBot, int radius)
@@ -3728,13 +3732,26 @@ void Map::drawUnitNameplates(Surface *surface)
 			const int ia = 255 - aa;
 			const int ra = rr * aa, ga = gg * aa, ba = bb * aa;
 			Uint32 *row = (Uint32*)((Uint8*)destSurf->pixels + dy * destSurf->pitch);
+			// Corner rounding (row-invariant part hoisted): ay = this row's distance INTO a
+			// corner from the nearest outer edge (== radius outside the corner bands, so the
+			// body is never clipped). A pixel is outside the rounded corner iff its distance
+			// from the arc centre (radius,radius) exceeds radius. cornerDy2 = (radius-ay)^2,
+			// or -1 when this row is not in a corner band.
+			const int ay = (j < radius) ? j : (j >= h - radius ? (h - 1 - j) : radius);
+			const int cornerDy2 = (ay < radius) ? (radius - ay) * (radius - ay) : -1;
 			for (int i = 0; i < w; ++i)
 			{
 				const int dx = x + i;
 				if (dx < 0 || dx >= dW) continue;
-				const int ci = (i < radius) ? i : (i >= w - radius ? i - (w - radius) : -1);
-				const int cj = (j < radius) ? j : (j >= h - radius ? j - (h - radius) : -1);
-				if (ci >= 0 && cj >= 0 && ci * ci + cj * cj > radius * radius) continue;
+				if (cornerDy2 >= 0)
+				{
+					const int ax = (i < radius) ? i : (i >= w - radius ? (w - 1 - i) : radius);
+					if (ax < radius)
+					{
+						const int cornerDx = radius - ax;
+						if (cornerDx * cornerDx + cornerDy2 > radius * radius) continue;
+					}
+				}
 				const Uint32 px = row[dx];
 				row[dx] = dAmask
 				    | ((Uint32)((Uint8)((ra + (Uint8)(px >> dRs) * ia) / 255)) << dRs)
@@ -3809,9 +3826,9 @@ void Map::drawUnitNameplates(Surface *surface)
 		_camera->convertMapToScreen(u->getPosition(), &screenPosition);
 		screenPosition += _camera->getMapOffset();
 		Position offset = calculateWalkingOffset(u).ScreenOffset;
-		if (u->isBigUnit()) offset.y += 4;
+		if (u->isBigUnit()) offset.y += sh / 10;   // screen-px nudge; scales with tileScale (was 4)
 		offset.y += Position::TileZ - (u->getHeight() + u->getFloatHeight());
-		if (u->isKneeled()) offset.y -= 2;
+		if (u->isKneeled()) offset.y -= sh / 20;   // scales with tileScale (was 2)
 		cx = screenPosition.x + offset.x + sw / 2;
 		headY = screenPosition.y + offset.y;                       // unit's head row
 		return !(cx < -sw || cx > dW + sw || headY < -sh || headY > dH + sh);
@@ -3828,6 +3845,8 @@ void Map::drawUnitNameplates(Surface *surface)
 
 	// Pass 1 — compact TU bar for every visible non-selected player unit. TU is the
 	// at-a-glance stat that matters for squadmates that have not acted yet.
+	const int cW = sw * 5 / 8;             // compact-bar geometry (loop-invariant)
+	const int cH = std::max(2, sh / 20);
 	for (BattleUnit *unit : *_save->getUnits())
 	{
 		if (!isPlated(unit) || unit == selected) continue;
@@ -3835,9 +3854,10 @@ void Map::drawUnitNameplates(Surface *surface)
 		if (!projectHead(unit, cx, headY)) continue;
 
 		const UnitStats *st = unit->getBaseStats();
-		const float tuF = (float)unit->getTimeUnits() / (float)std::max(1, (int)st->tu);
-		const int cW = sw * 5 / 8;
-		const int cH = std::max(2, sh / 20);
+		// Clamp to [0,1]: OXCE bonuses can push current TU above the base-stat cap, which
+		// would otherwise overflow the fill past the bar outline (drawBar2 clamps likewise).
+		const float tuF = std::min(1.0f, std::max(0.0f,
+			(float)unit->getTimeUnits() / (float)std::max(1, (int)st->tu)));
 		const int cX = cx - cW / 2;
 		const int cY = headY - (int)(sh * 0.12f) - cH;
 		fillBlend(cX - 1, cY - 1, cW + 2, cH + 2, 0, 0, 0, 175);    // dark trough / outline
@@ -3868,8 +3888,9 @@ void Map::drawUnitNameplates(Surface *surface)
 		}
 
 		const int plateW = barW + 2 * padX;
-		const int plateH = padY + nameH + gap + 1 + gap     // top margin + name + separator
-		                 + (barH + gap) * 3 - gap + padY;   // 3 bars (2 inter-gaps) + bottom
+		const int sepH = 1;                                  // name/bars separator thickness
+		const int plateH = padY + nameH + gap + sepH + gap   // top margin + name + separator
+		                 + (barH + gap) * 3 - gap + padY;    // 3 bars (2 inter-gaps) + bottom
 		const int plateX = cx - plateW / 2;
 		const int plateY = headY - (int)(sh * 0.18f) - plateH - gap;
 
@@ -3886,15 +3907,26 @@ void Map::drawUnitNameplates(Surface *surface)
 		if (shadowSurf) compositeARGB(shadowSurf, cx - shadowSurf->w / 2 + 1, nameY + 1);
 		if (textSurf)   compositeARGB(textSurf,   cx - textSurf->w / 2,       nameY);
 
-		// Thin separator between the name and the bars.
-		fillBlend(plateX + padX, nameY + nameH + gap, barW, 1, 255, 255, 255, 28);
+		// Thin separator between the name and the bars (only when a name was actually drawn;
+		// otherwise it would be an orphaned rule near the plate top).
+		if (nameH > 0)
+			fillBlend(plateX + padX, nameY + nameH + gap, barW, sepH, 255, 255, 255, 28);
 
 		// Three bars in HUD order (TU -> Energy -> Health), HUD-matched colours.
+		// Mirror the HUD's wound pulse (blinkHealthBar): brighten the health bar on
+		// alternate animation frames while the unit has fatal wounds.
+		Uint8 hbR = hpR, hbG = hpG, hbB = hpB;
+		if (selected->getFatalWounds() > 0 && (_animFrame & 1))
+		{
+			hbR = (Uint8)std::min(255, (int)hpR + 90);
+			hbG = (Uint8)std::min(255, (int)hpG + 50);
+			hbB = (Uint8)std::min(255, (int)hpB + 50);
+		}
 		const int barX = plateX + padX;
-		int barY = nameY + nameH + gap + 1 + gap;
+		int barY = nameY + nameH + gap + sepH + gap;
 		drawBar2(barX, barY, tuF, tuR, tuG, tuB); barY += barH + gap;   // Time Units
 		drawBar2(barX, barY, enF, enR, enG, enB); barY += barH + gap;   // Energy
-		drawBar2(barX, barY, hpF, hpR, hpG, hpB);                       // Health
+		drawBar2(barX, barY, hpF, hbR, hbG, hbB);                       // Health (pulses when bleeding)
 	}
 	SDL_UnlockSurface(destSurf);
 #else
