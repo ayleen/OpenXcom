@@ -17,6 +17,7 @@
 
 #include <emscripten.h>
 #include <SDL.h>
+#include <SDL_mixer.h>
 #include <cstring>
 #include "Game.h"
 #include "Screen.h"
@@ -24,6 +25,14 @@
 #include "GpuSmokeState.h"
 #include "Logger.h"
 #include "../Interface/Cursor.h"
+// HTML main-menu bridge (Phase 2): the JS overlay drives these to push the same
+// OXCE states the vanilla MainMenuState buttons would.
+#include "../Menu/NewGameState.h"
+#include "../Menu/NewBattleState.h"
+#include "../Menu/ListLoadState.h"
+#include "../Menu/ModListState.h"
+#include "../Menu/OptionsVideoState.h"
+#include "../Menu/OptionsBaseState.h"   // OptionsOrigin / OPT_MENU
 
 using namespace OpenXcom;
 
@@ -74,6 +83,24 @@ void calypso_gpu_smoke_activate(const char *path)
 	}
 	OpenXcom::GpuSmokeState::activate(g->getScreen(), path ? path : "/tmp/gpu-smoke.png");
 }
+
+/* ---- HTML main-menu bridge (Phase 2) ----------------------------------------
+ * The JS menu overlay (web/public/menu.js) calls these to push the same OXCE
+ * states the vanilla MainMenuState buttons would. Called from JS between frames;
+ * pushState is applied on the next Game::run iteration. `using namespace OpenXcom`
+ * (above) resolves Game/getCurrentGame/the State classes/OPT_MENU. */
+EMSCRIPTEN_KEEPALIVE void calypso_menu_new_game()   { if (Game *g = getCurrentGame()) g->pushState(new NewGameState); }
+EMSCRIPTEN_KEEPALIVE void calypso_menu_new_battle() { if (Game *g = getCurrentGame()) g->pushState(new NewBattleState); }
+EMSCRIPTEN_KEEPALIVE void calypso_menu_load()       { if (Game *g = getCurrentGame()) g->pushState(new ListLoadState(OPT_MENU)); }
+EMSCRIPTEN_KEEPALIVE void calypso_menu_mods()       { if (Game *g = getCurrentGame()) g->pushState(new ModListState); }
+EMSCRIPTEN_KEEPALIVE void calypso_menu_options()    { if (Game *g = getCurrentGame()) g->pushState(new OptionsVideoState(OPT_MENU)); }
+
+/* Silence the engine's menu music while the HTML menu (with its own water-ambience
+ * audio) is shown; restore the engine volume when a menu action hands control to a
+ * game state. Saved-volume guard makes repeated mute calls idempotent. */
+static int s_calypsoSavedMusicVol = -1;
+EMSCRIPTEN_KEEPALIVE void calypso_music_mute()   { if (s_calypsoSavedMusicVol < 0) s_calypsoSavedMusicVol = Mix_VolumeMusic(-1); Mix_VolumeMusic(0); }
+EMSCRIPTEN_KEEPALIVE void calypso_music_unmute() { if (s_calypsoSavedMusicVol >= 0) { Mix_VolumeMusic(s_calypsoSavedMusicVol); s_calypsoSavedMusicVol = -1; } }
 
 /* The SDL2 Emscripten port routes WebGL-canvas pointermove events as
  * SDL_MOUSEBUTTONDOWN (buttonless), not SDL_MOUSEMOTION, which leaves the
