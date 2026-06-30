@@ -303,6 +303,12 @@ public:
 	/// icons-panel origin), then re-lay-out the HUD scaled to ~half screen width.
 	void captureHudNative();
 	void layoutHud();
+#ifdef __EMSCRIPTEN__
+	/// Calypso (Emscripten): draw the visible-enemy indicator digit (i+1) crisp +
+	/// scalable via the TTF GL overlay (Map HUD_TXT_VISIBLE_0+i), replacing the
+	/// bitmap NumberText so it stays a constant on-screen size at any zoom.
+	void drawVisibleUnitDigit(int i);
+#endif
 	/// Blit the HD shoulder-board insignia for SoldierRank rankIdx (0..5) into the
 	/// HUD _rank slot, scaled; rankIdx < 0 clears it. Bypasses the pixel SMOKE.PCK
 	/// rank frames. Stores _hudRankIndex so layoutHud can re-apply it on resize.
