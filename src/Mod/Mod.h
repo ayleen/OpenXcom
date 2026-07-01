@@ -412,6 +412,10 @@ private:
 	/// Phase 25 R5: draw floating HD nameplates + HP/TU/energy bars over player
 	/// units in the Battlescape. Off by default; set via calypso_hud_overlay:.
 	bool _calypsoHudOverlay = false;
+	/// L5: globe GL handles were evicted on battle entry; restore on geoscape return.
+	bool _globeGpuEvicted     = false;
+	/// L5: tile + unit atlas GL handles were evicted on geoscape; restore on battle entry.
+	bool _tileAtlasGpuEvicted = false;
 #endif
 	std::map<std::string, CustomPalettes *> _customPalettes;
 	std::vector<std::pair<std::string, ExtraSounds *> > _extraSounds;
@@ -728,6 +732,18 @@ public:
 	void ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncolors);
 	/// Deletes all synthesised vanilla atlases (called in ~Mod and on mod reload).
 	void clearTileAtlases();
+	/// L5: evict globe GL handles to free VRAM during a battle.
+	/// Guard-flagged: repeated calls before a matching restore are no-ops.
+	void evictGlobeGL();
+	/// L5: restore previously-evicted globe GL handles (called from GeoscapeState::init()).
+	/// No-op when the globe was not evicted.
+	void restoreGlobeGL();
+	/// L5: evict tile + unit atlas GL handles to free battle VRAM on geoscape.
+	/// Guard-flagged: repeated calls (popup closes, etc.) are O(1) no-ops.
+	void evictTileAtlasGL();
+	/// L5: restore previously-evicted tile + unit atlas GL handles (called before battle).
+	/// No-op when nothing was evicted.
+	void restoreTileAtlasGL();
 	/// Build or retrieve a unit-sprite atlas for the named SurfaceSet (Phase 14.1).
 	/// No-op if already built.  palette/ncolors = active battlescape palette.
 	void ensureUnitAtlas(SurfaceSet* ss, const std::string& name,

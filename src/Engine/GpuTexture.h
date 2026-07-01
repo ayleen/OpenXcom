@@ -40,6 +40,11 @@ public:
     /* Called by ShaderManager on SDL_RENDER_TARGETS_RESET. */
     void reupload();
 
+    /* L5: evict the GL handle without destroying CPU state or ShaderManager
+     * registration. Subsequent bind() calls reach texture name 0 (benign black).
+     * Restore with reupload(). No-op if the texture was never uploaded (_tex == 0). */
+    void evictGL();
+
     /* L3/L4: skip storing _cachedData for large textures that carry a reload CB.
      * Dropping any already-cached mirror keeps the skip-cache invariant structural
      * even if a caller ever sets this after a prior cached upload. */

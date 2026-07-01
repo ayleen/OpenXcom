@@ -56,6 +56,7 @@
 #  include <webp/decode.h>
 #  include "TileAtlasBuilder.h"
 #  include "UnitSpriteAtlasBuilder.h"
+#  include <set>
 #endif
 #include "ExtraSounds.h"
 #include "../Engine/AdlibMusic.h"
@@ -963,6 +964,26 @@ void Mod::clearGlobeTextures()
 	_globeTextures.clear();
 }
 
+void Mod::evictGlobeGL()
+{
+	if (_globeGpuEvicted) return;
+	int n = 0;
+	for (auto& pair : _globeTextures)
+		if (pair.second) { pair.second->evictGL(); ++n; }
+	_globeGpuEvicted = true;
+	Log(LOG_INFO) << "[L5] evictGlobeGL: released " << n << " globe GL handle(s)";
+}
+
+void Mod::restoreGlobeGL()
+{
+	if (!_globeGpuEvicted) return;
+	int n = 0;
+	for (auto& pair : _globeTextures)
+		if (pair.second) { pair.second->reupload(); ++n; }
+	_globeGpuEvicted = false;
+	Log(LOG_INFO) << "[L5] restoreGlobeGL: reuploaded " << n << " globe GL handle(s)";
+}
+
 const Mod::TileAtlasSpec* Mod::getTileAtlasSpec(const std::string& dataset) const
 {
 	auto it = _tileAtlasSpecs.find(dataset);
@@ -1655,6 +1676,57 @@ void Mod::clearTileAtlases()
 		for (GpuTexture* lt : pair.second.subLayerAtlases) delete lt;
 		pair.second.subLayerAtlases.clear();
 	}
+}
+
+void Mod::evictTileAtlasGL()
+{
+	if (_tileAtlasGpuEvicted) return;
+	// Deduplicate: collect every non-null GpuTexture* before calling evictGL()
+	// so a pointer aliased across _tileAtlases and _tileAtlasSpecs is only evicted once.
+	std::set<GpuTexture*> seen;
+	int n = 0;
+	auto evictOne = [&](GpuTexture* t) {
+		if (t && seen.insert(t).second) { t->evictGL(); ++n; }
+	};
+	for (auto& pair : _tileAtlases)
+		evictOne(pair.second);
+	for (auto& pair : _tileAtlasSpecs)
+	{
+		auto& s = pair.second;
+		evictOne(s.overlayAtlas);
+		evictOne(s.normalAtlas);
+		evictOne(s.emissiveAtlas);
+		for (GpuTexture* lt : s.subLayerAtlases) evictOne(lt);
+	}
+	// Unit atlases are battle-only; free them on geoscape too.
+	for (auto& pair : _unitAtlases)
+		evictOne(pair.second.atlas);
+	_tileAtlasGpuEvicted = true;
+	Log(LOG_INFO) << "[L5] evictTileAtlasGL: released " << n << " atlas GL handle(s)";
+}
+
+void Mod::restoreTileAtlasGL()
+{
+	if (!_tileAtlasGpuEvicted) return;
+	std::set<GpuTexture*> seen;
+	int n = 0;
+	auto restoreOne = [&](GpuTexture* t) {
+		if (t && seen.insert(t).second) { t->reupload(); ++n; }
+	};
+	for (auto& pair : _tileAtlases)
+		restoreOne(pair.second);
+	for (auto& pair : _tileAtlasSpecs)
+	{
+		auto& s = pair.second;
+		restoreOne(s.overlayAtlas);
+		restoreOne(s.normalAtlas);
+		restoreOne(s.emissiveAtlas);
+		for (GpuTexture* lt : s.subLayerAtlases) restoreOne(lt);
+	}
+	for (auto& pair : _unitAtlases)
+		restoreOne(pair.second.atlas);
+	_tileAtlasGpuEvicted = false;
+	Log(LOG_INFO) << "[L5] restoreTileAtlasGL: reuploaded " << n << " atlas GL handle(s)";
 }
 
 void Mod::ensureUnitAtlas(SurfaceSet* ss, const std::string& name,
