@@ -4362,7 +4362,16 @@ void BattlescapeState::zoom(int direction)
 
 	Options::battlescapeScale = ladder[next];
 	int dX = 0, dY = 0;
-	resize(dX, dY);
+	resize(dX, dY);   // recomputes Options::baseX/YResolution from the new scale
+	// Keep the SAVED battlescape base dims in lockstep with the live zoom. Other
+	// battlescape sub-states (inventory, minimap, unit-info, …) and the flip()
+	// canvas-resize poll use Options::baseX/YBattlescape as the battlescape's
+	// authoritative resolution: e.g. Screen::flip() decides "are we in battle?"
+	// via `_surface->w == baseXBattlescape`. If we leave it stale, a window
+	// resize after a zoom mis-detects the context and applies the geoscape scale
+	// to the battlescape (and BriefingState/LoadGame snap back to the old dims).
+	Options::baseXBattlescape = Options::baseXResolution;
+	Options::baseYBattlescape = Options::baseYResolution;
 	_game->getScreen()->resetDisplay(false);
 	_map->draw();
 }
