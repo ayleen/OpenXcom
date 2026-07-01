@@ -9,6 +9,8 @@
  * Instances register themselves with ShaderManager for lost-context recovery.
  */
 #include <cstdint>
+#include <functional>
+#include <string>
 #include <vector>
 
 namespace OpenXcom
@@ -38,6 +40,11 @@ public:
     /* Called by ShaderManager on SDL_RENDER_TARGETS_RESET. */
     void reupload();
 
+    /* L3/L4: skip storing _cachedData for large textures that carry a reload CB. */
+    void setSkipCache(bool s) { _skipCache = s; }
+    /* L3/L4: re-decode + re-upload callback used when _cachedData is empty on context loss. */
+    void setReloadCb(std::function<void()> cb) { _reloadCb = std::move(cb); }
+
 private:
     unsigned             _tex     = 0u;
     int                  _w       = 0;
@@ -46,9 +53,11 @@ private:
     Wrap                 _wrap    = Wrap::ClampToEdge;
     Filter               _filter  = Filter::Linear;
     bool                 _isR8    = false;
-    std::vector<uint8_t> _cachedData;  // owned copy for lost-context recovery
+    std::vector<uint8_t> _cachedData;   // owned copy for lost-context recovery
     int                  _cachedW = 0;
     int                  _cachedH = 0;
+    bool                 _skipCache = false;    // L3/L4: skip _cachedData for textures with a reload CB
+    std::function<void()> _reloadCb;            // L3/L4: re-decode + re-upload on context loss
 
     void release();
 };

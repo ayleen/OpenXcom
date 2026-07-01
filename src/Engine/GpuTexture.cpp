@@ -56,7 +56,7 @@ bool GpuTexture::uploadRGBA(const uint8_t* data, int w, int h, int mipLevel)
     if (mipLevel == 0)
     {
         glGenerateMipmap(GL_TEXTURE_2D);
-        _cachedData.assign(data, data + (size_t)w * h * 4);
+        if (!_skipCache) _cachedData.assign(data, data + (size_t)w * h * 4);
         _cachedW = w; _cachedH = h;
         _w = w; _h = h;
     }
@@ -90,7 +90,7 @@ bool GpuTexture::uploadR8(const uint8_t* data, int w, int h)
         glBindTexture(GL_TEXTURE_2D, _tex);
     }
     glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, w, h, 0, GL_RED, GL_UNSIGNED_BYTE, data);
-    _cachedData.assign(data, data + (size_t)w * h);
+    if (!_skipCache) _cachedData.assign(data, data + (size_t)w * h);
     _cachedW = w; _cachedH = h;
     _w = w; _h = h;
     _isR8 = true;
@@ -114,15 +114,25 @@ void GpuTexture::bind(int textureUnit)
 
 void GpuTexture::reupload()
 {
-    if (_cachedData.empty()) return;
+    if (!_cachedData.empty())
+    {
+        /* Existing cached re-upload path: GL handle is stale; delete + re-gen. */
 #ifdef __EMSCRIPTEN__
-    glDeleteTextures(1, &_tex);
-    _tex = 0u;
+        glDeleteTextures(1, &_tex);
+        _tex = 0u;
 #endif
-    if (_isR8)
-        uploadR8(_cachedData.data(), _cachedW, _cachedH);
-    else
-        uploadRGBA(_cachedData.data(), _cachedW, _cachedH, 0);
+        if (_isR8)
+            uploadR8(_cachedData.data(), _cachedW, _cachedH);
+        else
+            uploadRGBA(_cachedData.data(), _cachedW, _cachedH, 0);
+        return;
+    }
+    /* L3/L4 callback path: _cachedData deliberately empty (_skipCache=true).
+     * Do NOT glDeleteTextures — the context is gone; the handle is already
+     * invalid.  Null it so uploadRGBA/uploadR8 will call glGenTextures. */
+#ifdef __EMSCRIPTEN__
+    if (_reloadCb) { _tex = 0u; _reloadCb(); }
+#endif
 }
 
 void GpuTexture::release()
