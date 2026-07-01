@@ -4260,7 +4260,6 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 		if (isWebP)
 		{
 			/* L3: skip _cachedData; re-decode from MEMFS on context loss. */
-			delete _globeTextures[id];
 			GpuTexture* tex = new GpuTexture(/*srgb=*/true, wrap);
 			tex->setSkipCache(true);
 			auto doUpload = [this, tex, relPath, id]() {
@@ -4302,9 +4301,12 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 			tex->setReloadCb(doUpload);
 			doUpload();
 			if (tex->isValid())
+			{
+				delete _globeTextures[id]; // free any previous only after the new one succeeds
 				_globeTextures[id] = tex;
+			}
 			else
-				delete tex;
+				delete tex; // keep any previous texture intact on failure
 			continue;
 		}
 
@@ -4313,7 +4315,6 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 		// [R, G, B, A], which is what GL_RGBA + GL_UNSIGNED_BYTE expects.
 		// (SDL_PIXELFORMAT_RGBA8888 would give [A, B, G, R] — wrong.)
 		/* L3: skip _cachedData; re-decode from MEMFS on context loss. */
-		delete _globeTextures[id]; // overwrite if re-loaded
 		GpuTexture* tex = new GpuTexture(/*srgb=*/true, wrap);
 		tex->setSkipCache(true);
 		auto doUpload = [this, tex, relPath, id]() {
@@ -4346,9 +4347,12 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 		tex->setReloadCb(doUpload);
 		doUpload();
 		if (tex->isValid())
+		{
+			delete _globeTextures[id]; // free any previous only after the new one succeeds
 			_globeTextures[id] = tex;
+		}
 		else
-			delete tex;
+			delete tex; // keep any previous texture intact on failure
 	}
 	{
 		const char* required[] = {"bathymetry", "diffuse", "night", "clouds"};
