@@ -1461,8 +1461,9 @@ bool fileExists(const std::string &relativeFilePath) {
 
 // Calypso: runtime asset-audit mode. When enabled, every relpath successfully
 // resolved by at() is logged once (per session) as either VANILLA (served from
-// the streamed TFTD payload, i.e. its resolved fullpath contains "/TFTD/") or
-// REPLACED (served from a Calypso mod overlay). web/src/main.js parses the
+// the streamed TFTD payload — "/TFTD/"), HD (a calypso-hd-pack override —
+// "/calypso-hd-pack/"), or COMMON (OXCE's own GPL common/standard resources,
+// which have no TFTD equivalent). web/src/main.js parses the
 // "[CALYPSO] ASSET ..." marker so a coverage tracker can be auto-generated;
 // see scripts/gen-asset-coverage.py. Emscripten-only: native builds just store
 // the flag (setAuditMode is defined unconditionally so it links everywhere),
@@ -1482,8 +1483,11 @@ const FileRecord *at(const std::string &relativeFilePath) {
 	}
 #ifdef __EMSCRIPTEN__
 	if (_auditMode && _auditSeen.insert(relativeFilePath).second) {
-		bool vanilla = frec->fullpath.find("/TFTD/") != std::string::npos;
-		Log(LOG_INFO) << "[CALYPSO] ASSET " << (vanilla ? "VANILLA" : "REPLACED") << " " << relativeFilePath;
+		const std::string &fp = frec->fullpath;
+		const char *origin = fp.find("/TFTD/") != std::string::npos ? "VANILLA"
+		                   : fp.find("/calypso-hd-pack/") != std::string::npos ? "HD"
+		                   : "COMMON";
+		Log(LOG_INFO) << "[CALYPSO] ASSET " << origin << " " << relativeFilePath;
 	}
 #endif
 	return frec;
