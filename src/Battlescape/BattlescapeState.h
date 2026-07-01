@@ -287,6 +287,12 @@ public:
 	void txtTooltipOut(Action *action);
 	/// Update the resolution settings, we just resized the window.
 	void resize(int &dX, int &dY) override;
+#ifdef __EMSCRIPTEN__
+	/// Calypso (Emscripten): step the battlescape display fraction (zoom) by
+	/// `direction` along the Full↔¼ ladder. >0 zooms in (smaller buffer, bigger
+	/// apparent pixels); <0 zooms out. Wired to the mouse wheel + zoom keys.
+	void zoom(int direction);
+#endif
 	/// Move the mouse back to where it started after we finish drag scrolling.
 	void stopScrolling(Action *action);
 	/// Autosave next turn.
@@ -297,6 +303,12 @@ public:
 	/// icons-panel origin), then re-lay-out the HUD scaled to ~half screen width.
 	void captureHudNative();
 	void layoutHud();
+#ifdef __EMSCRIPTEN__
+	/// Calypso (Emscripten): draw the visible-enemy indicator digit (i+1) crisp +
+	/// scalable via the TTF GL overlay (Map HUD_TXT_VISIBLE_0+i), replacing the
+	/// bitmap NumberText so it stays a constant on-screen size at any zoom.
+	void drawVisibleUnitDigit(int i);
+#endif
 	/// Blit the HD shoulder-board insignia for SoldierRank rankIdx (0..5) into the
 	/// HUD _rank slot, scaled; rankIdx < 0 clears it. Bypasses the pixel SMOKE.PCK
 	/// rank frames. Stores _hudRankIndex so layoutHud can re-apply it on resize.

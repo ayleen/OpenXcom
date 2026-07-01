@@ -363,7 +363,9 @@ private:
 	// widget rect. Fixed slots (not a cleared list) so the BattlescapeState apply* calls — which
 	// fire in a different order than the text ones — each own exactly one slot, order-independent.
 public:
-	enum HudTextSlot  { HUD_TXT_NAME, HUD_TXT_TU, HUD_TXT_ENERGY, HUD_TXT_HEALTH, HUD_TXT_MORALE, HUD_TXT_COUNT };
+	// HUD_TXT_VISIBLE_0..+9 are the 10 visible-enemy indicator digits (Calypso:
+	// rendered crisp + scalable via the TTF GL overlay instead of the bitmap font).
+	enum HudTextSlot  { HUD_TXT_NAME, HUD_TXT_TU, HUD_TXT_ENERGY, HUD_TXT_HEALTH, HUD_TXT_MORALE, HUD_TXT_VISIBLE_0, HUD_TXT_COUNT = HUD_TXT_VISIBLE_0 + 10 };
 	enum HudImageSlot { HUD_IMG_PORTRAIT, HUD_IMG_RANK, HUD_IMG_TU, HUD_IMG_ENERGY, HUD_IMG_HEALTH, HUD_IMG_MORALE, HUD_IMG_COUNT };
 private:
 	struct HudImageItem { float fitX, fitY, fitW, fitH; GpuTexture* tex; bool active = false; };

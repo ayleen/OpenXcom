@@ -2596,10 +2596,20 @@ void BattlescapeState::blinkVisibleUnitButtons()
 	{
 		if (_btnVisibleUnit[i]->getVisible() == true)
 		{
-			_btnVisibleUnit[i]->drawRect(0, 0, 20, 16, 15);
+			// Calypso: the box is now resolution-scaled (layoutHud), so draw the
+			// border/fill at the widget's actual size instead of a hardcoded 20x16.
+			const int w = _btnVisibleUnit[i]->getWidth();
+			const int h = _btnVisibleUnit[i]->getHeight();
+			_btnVisibleUnit[i]->drawRect(0, 0, w, h, 15);
 			int bgColor = i < _numberOfDirectlyVisibleUnits ? color : i < _numberOfEnemiesTotal ? _indicatorGreen : i < _numberOfEnemiesTotalPlusWounded ? _indicatorBlue : _indicatorPurple;
-			_btnVisibleUnit[i]->drawRect(1, 1, 18, 14, bgColor);
+			_btnVisibleUnit[i]->drawRect(1, 1, w - 2, h - 2, bgColor);
+#ifdef __EMSCRIPTEN__
+			drawVisibleUnitDigit(i);   // crisp scalable TTF digit via the GL overlay
+#endif
 		}
+#ifdef __EMSCRIPTEN__
+		else if (_map) { _map->clearHudText(Map::HUD_TXT_VISIBLE_0 + i); }
+#endif
 	}
 
 	if (color == 44) delta = -2;
@@ -2607,6 +2617,42 @@ void BattlescapeState::blinkVisibleUnitButtons()
 
 	color += delta;
 }
+
+#ifdef __EMSCRIPTEN__
+/**
+ * Calypso (Emscripten): render the visible-enemy indicator digit (i+1) into the
+ * TTF GL overlay (Map HUD_TXT_VISIBLE_0+i), auto-fit + centred in the (resolution-
+ * scaled) box. Crisp at every zoom and always fits, unlike the fixed-size bitmap
+ * NumberText, which we keep hidden.
+ */
+void BattlescapeState::drawVisibleUnitDigit(int i)
+{
+	if (!_map || !_btnVisibleUnit[i]) return;
+	_numVisibleUnit[i]->setVisible(false);   // GL digit is the sole renderer now
+	const int bx = _btnVisibleUnit[i]->getX(), by = _btnVisibleUnit[i]->getY();
+	const int bw = _btnVisibleUnit[i]->getWidth(), bh = _btnVisibleUnit[i]->getHeight();
+	TTFFont* font = getHudFont();
+	const std::string digits = std::to_string(i + 1);
+	if (font)
+	{
+		SDL_Color white = { 255, 255, 255, 255 };
+		SDL_Surface* ttf = font->renderText(digits, white);   // cached by TTFFont — do NOT free
+		if (ttf && ttf->w > 0 && ttf->h > 0)
+		{
+			const float availW = bw * 0.8f, availH = bh * 0.8f;
+			float scale = (availH / ttf->h < availW / ttf->w) ? availH / ttf->h : availW / ttf->w;
+			if (scale > 1.0f) scale = 1.0f;
+			int outW = (int)(ttf->w * scale + 0.5f); if (outW < 1) outW = 1;
+			int outH = (int)(ttf->h * scale + 0.5f); if (outH < 1) outH = 1;
+			const int ox = (bw - outW) / 2, oy = (bh - outH) / 2;
+			_map->setHudText(Map::HUD_TXT_VISIBLE_0 + i, (float)(bx + ox), (float)(by + oy),
+			                 (float)outW, (float)outH, digits, 0xFFFFFFFFu);
+			return;
+		}
+	}
+	_map->clearHudText(Map::HUD_TXT_VISIBLE_0 + i);
+}
+#endif
 
 /**
  * Shifts the colors of the health bar when unit has fatal wounds.
@@ -2830,6 +2876,27 @@ inline void BattlescapeState::handle(Action *action)
 	{
 		if (_game->getCursor()->getVisible() || ((action->getDetails()->type == SDL_MOUSEBUTTONDOWN || action->getDetails()->type == SDL_MOUSEBUTTONUP) && _game->isRightClick(action)))
 		{
+#ifdef __EMSCRIPTEN__
+			// Calypso: the mouse wheel zooms the battlescape. SDL2's wheel arrives
+			// (translated in Game.cpp) as a synthetic mouse button 4/5
+			// (WHEELUP/WHEELDOWN) — the SAME numbers as X1/X2 — so unless we consume
+			// it here, the oxceThumbButtons block below reads it as thumb-button
+			// unit cycling. Intercept it before State::handle (map/camera) and the
+			// thumb-button handler; zoom on press, swallow the paired release.
+			{
+				const Uint32 et = action->getDetails()->type;
+				if (et == SDL_MOUSEBUTTONDOWN || et == SDL_MOUSEBUTTONUP)
+				{
+					const Uint8 wb = action->getDetails()->button.button;
+					if (wb == SDL_BUTTON_WHEELUP || wb == SDL_BUTTON_WHEELDOWN)
+					{
+						if (et == SDL_MOUSEBUTTONDOWN)
+							zoom(wb == SDL_BUTTON_WHEELUP ? +1 : -1);
+						return;
+					}
+				}
+			}
+#endif
 			State::handle(action);
 
 			if (Options::touchEnabled == false && _isMouseScrolling && !Options::battleDragScrollInvert)
@@ -2855,6 +2922,19 @@ inline void BattlescapeState::handle(Action *action)
 				bool ctrlPressed = _game->isCtrlPressed();
 				bool shiftPressed = _game->isShiftPressed();
 				bool altPressed = _game->isAltPressed();
+
+#ifdef __EMSCRIPTEN__
+				// Calypso: +/- (the same keys as Geoscape zoom) and keypad +/-
+				// zoom the battlescape, mirroring the mouse wheel.
+				if (key == Options::keyGeoZoomIn || key == SDLK_KP_PLUS || key == SDLK_EQUALS)
+				{
+					zoom(+1);
+				}
+				else if (key == Options::keyGeoZoomOut || key == SDLK_KP_MINUS)
+				{
+					zoom(-1);
+				}
+#endif
 
 				// "shift-hotkey" - select without centering
 				if (shiftPressed)
@@ -4251,6 +4331,52 @@ void BattlescapeState::resize(int &dX, int &dY)
 	layoutHud();
 }
 
+#ifdef __EMSCRIPTEN__
+/**
+ * Calypso (Emscripten): step the battlescape "zoom" by changing the display
+ * fraction (Options::battlescapeScale) along the Video menu's Full↔¼ ladder. A
+ * smaller buffer is stretched to the same canvas, so it reads as zooming in.
+ * direction > 0 zooms in (toward ¼); < 0 zooms out (toward Full). resize()
+ * recomputes baseX/YResolution from the new scale and re-lays-out the HUD +
+ * camera; resetDisplay(false) reallocates the render surface to the new size
+ * without tearing down the GL context.
+ */
+void BattlescapeState::zoom(int direction)
+{
+	// Ordered zoomed-OUT (biggest buffer) -> zoomed-IN (smallest buffer).
+	static const int ladder[] = {
+		SCALE_SCREEN, SCALE_SCREEN_3_4, SCALE_SCREEN_DIV_2,
+		SCALE_SCREEN_DIV_3, SCALE_SCREEN_DIV_4
+	};
+	const int N = (int)(sizeof(ladder) / sizeof(ladder[0]));
+
+	int idx = 0;
+	for (int i = 0; i < N; ++i)
+	{
+		if (ladder[i] == Options::battlescapeScale) { idx = i; break; }
+	}
+	int next = idx + (direction > 0 ? 1 : -1);
+	if (next < 0) next = 0;
+	if (next > N - 1) next = N - 1;
+	if (ladder[next] == Options::battlescapeScale) return;   // already at the rail end
+
+	Options::battlescapeScale = ladder[next];
+	int dX = 0, dY = 0;
+	resize(dX, dY);   // recomputes Options::baseX/YResolution from the new scale
+	// Keep the SAVED battlescape base dims in lockstep with the live zoom. Other
+	// battlescape sub-states (inventory, minimap, unit-info, …) and the flip()
+	// canvas-resize poll use Options::baseX/YBattlescape as the battlescape's
+	// authoritative resolution: e.g. Screen::flip() decides "are we in battle?"
+	// via `_surface->w == baseXBattlescape`. If we leave it stale, a window
+	// resize after a zoom mis-detects the context and applies the geoscape scale
+	// to the battlescape (and BriefingState/LoadGame snap back to the old dims).
+	Options::baseXBattlescape = Options::baseXResolution;
+	Options::baseYBattlescape = Options::baseYResolution;
+	_game->getScreen()->resetDisplay(false);
+	_map->draw();
+}
+#endif
+
 /**
  * Calypso (Emscripten): record the native HUD layout — every bottom-bar widget's
  * offset from the icons-panel origin plus its native size — exactly once. These
@@ -4357,6 +4483,36 @@ void BattlescapeState::layoutHud()
 			int h = (int)(r.h * sy + 0.5f); if (h < 1) h = 1;
 			r.surf->setWidth(w);
 			r.surf->setHeight(h);
+		}
+	}
+
+	// Calypso: the visible-enemy indicator column. The generic loop above scaled
+	// these boxes by the HUD panel's sy (~half screen) — huge boxes, and the
+	// 18*sy pitch fanned the column off-screen. Instead give them a CONSTANT
+	// on-screen size + pitch: the buffer size is the target canvas px scaled by
+	// baseX/displayWidth, so the stretch-to-canvas cancels and the cubes look
+	// identical at every zoom level. The digit is drawn crisp + auto-fit by the
+	// TTF GL overlay (drawVisibleUnitDigit) so the bitmap NumberText is hidden.
+	{
+		const int dispW = std::max(1, Options::displayWidth);
+		const int boxW = std::max(6, 22 * Options::baseXResolution / dispW);
+		const int boxH = std::max(5, 18 * Options::baseXResolution / dispW);
+		const int step = std::max(boxH + 1, 21 * Options::baseXResolution / dispW);
+		if (_btnVisibleUnit[0])
+		{
+			const int rightX = _btnVisibleUnit[0]->getX() + _btnVisibleUnit[0]->getWidth();
+			const int topY   = _btnVisibleUnit[0]->getY() + _btnVisibleUnit[0]->getHeight();
+			for (int i = 0; i < VISIBLE_MAX; ++i)
+			{
+				if (_btnVisibleUnit[i])
+				{
+					_btnVisibleUnit[i]->setX(rightX - boxW);
+					_btnVisibleUnit[i]->setY(topY - boxH - i * step);
+					_btnVisibleUnit[i]->setWidth(boxW);
+					_btnVisibleUnit[i]->setHeight(boxH);
+				}
+				if (_numVisibleUnit[i]) _numVisibleUnit[i]->setVisible(false);  // replaced by the GL digit
+			}
 		}
 	}
 
