@@ -185,6 +185,13 @@ BattlescapeState::BattlescapeState() :
 	_autosave(0),
 	_numberOfDirectlyVisibleUnits(0), _numberOfEnemiesTotal(0), _numberOfEnemiesTotalPlusWounded(0)
 {
+#ifdef __EMSCRIPTEN__
+	// L7: ensure all battle-only SurfaceSets are present before any UI element
+	// tries to getSurfaceSet().  On the first entry this is a no-op (sets were
+	// loaded at startup); on subsequent entries after unloadBattlescapeResources()
+	// it re-decodes the PCK/DAT files from MEMFS (~100-300 ms, acceptable).
+	_game->getMod()->ensureBattlescapeResources();
+#endif
 	_save = _game->getSavedGame()->getSavedBattle();
 
 	std::fill_n(_visibleUnit, 10, (BattleUnit*)(0));
@@ -846,6 +853,24 @@ BattlescapeState::~BattlescapeState()
 	delete _battleGame;
 
 	resetPalettes();
+
+#ifdef __EMSCRIPTEN__
+	// L7: release battle-only SurfaceSets now that the battlescape is gone.
+	// Ordering notes:
+	//  - _battleGame and Map (owned by State base) are deleted above/by ~State();
+	//    Map::~Map() deletes GpuTextures from _spriteFrameCache by iterating
+	//    (SurfaceSet* key, GpuTexture* value) pairs — the key pointer is never
+	//    dereferenced during that loop, so dangling keys are safe.
+	//  - _projectileSet in Map is a raw non-owning pointer; it is not touched in
+	//    Map::~Map(), so a dangling value there is harmless.
+	//  - DebriefingState (pushed next on the normal battle-end path) uses no
+	//    SurfaceSet whatsoever — safe to unload here.
+	//  - For multi-stage missions the destructor also fires between stages; the
+	//    next BattlescapeState ctor calls ensureBattlescapeResources() to reload.
+	//  - Save-load into a battle and OptionsBaseState mid-battle are also handled:
+	//    both destroy then re-create BattlescapeState, triggering unload+reload.
+	_game->getMod()->unloadBattlescapeResources();
+#endif
 }
 
 void BattlescapeState::resetPalettes()
