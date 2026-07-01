@@ -88,19 +88,37 @@ void calypso_gpu_smoke_activate(const char *path)
  * The JS menu overlay (web/public/menu.js) calls these to push the same OXCE
  * states the vanilla MainMenuState buttons would. Called from JS between frames;
  * pushState is applied on the next Game::run iteration. `using namespace OpenXcom`
- * (above) resolves Game/getCurrentGame/the State classes/OPT_MENU. */
-EMSCRIPTEN_KEEPALIVE void calypso_menu_new_game()   { if (Game *g = getCurrentGame()) g->pushState(new NewGameState); }
-EMSCRIPTEN_KEEPALIVE void calypso_menu_new_battle() { if (Game *g = getCurrentGame()) g->pushState(new NewBattleState); }
-EMSCRIPTEN_KEEPALIVE void calypso_menu_load()       { if (Game *g = getCurrentGame()) g->pushState(new ListLoadState(OPT_MENU)); }
-EMSCRIPTEN_KEEPALIVE void calypso_menu_mods()       { if (Game *g = getCurrentGame()) g->pushState(new ModListState); }
-EMSCRIPTEN_KEEPALIVE void calypso_menu_options()    { if (Game *g = getCurrentGame()) g->pushState(new OptionsVideoState(OPT_MENU)); }
+ * (above) resolves Game/getCurrentGame/the State classes/OPT_MENU.
+ *
+ * Each returns int: 1 when a live Game handled the call, 0 when the engine isn't
+ * ready yet (called before callMain / audio init). The JS bridge treats only a 1
+ * as success, so a click that lands before boot is a safe no-op instead of a
+ * false "navigated" that would tear the overlay down over a blank canvas. */
+EMSCRIPTEN_KEEPALIVE int calypso_menu_new_game()   { if (Game *g = getCurrentGame()) { g->pushState(new NewGameState);            return 1; } return 0; }
+EMSCRIPTEN_KEEPALIVE int calypso_menu_new_battle() { if (Game *g = getCurrentGame()) { g->pushState(new NewBattleState);          return 1; } return 0; }
+EMSCRIPTEN_KEEPALIVE int calypso_menu_load()       { if (Game *g = getCurrentGame()) { g->pushState(new ListLoadState(OPT_MENU)); return 1; } return 0; }
+EMSCRIPTEN_KEEPALIVE int calypso_menu_mods()       { if (Game *g = getCurrentGame()) { g->pushState(new ModListState);            return 1; } return 0; }
+EMSCRIPTEN_KEEPALIVE int calypso_menu_options()    { if (Game *g = getCurrentGame()) { g->pushState(new OptionsVideoState(OPT_MENU)); return 1; } return 0; }
 
 /* Silence the engine's menu music while the HTML menu (with its own water-ambience
  * audio) is shown; restore the engine volume when a menu action hands control to a
- * game state. Saved-volume guard makes repeated mute calls idempotent. */
+ * game state. Gated on a live Game so a pre-boot mute (audio not opened yet) can't
+ * poison the saved volume — returns 0 until the engine is up, matching the menu_*
+ * exports. Saved-volume guard makes repeated mute calls idempotent. */
 static int s_calypsoSavedMusicVol = -1;
-EMSCRIPTEN_KEEPALIVE void calypso_music_mute()   { if (s_calypsoSavedMusicVol < 0) s_calypsoSavedMusicVol = Mix_VolumeMusic(-1); Mix_VolumeMusic(0); }
-EMSCRIPTEN_KEEPALIVE void calypso_music_unmute() { if (s_calypsoSavedMusicVol >= 0) { Mix_VolumeMusic(s_calypsoSavedMusicVol); s_calypsoSavedMusicVol = -1; } }
+EMSCRIPTEN_KEEPALIVE int calypso_music_mute()
+{
+	if (!getCurrentGame()) return 0;
+	if (s_calypsoSavedMusicVol < 0) { s_calypsoSavedMusicVol = Mix_VolumeMusic(-1); }
+	Mix_VolumeMusic(0);
+	return 1;
+}
+EMSCRIPTEN_KEEPALIVE int calypso_music_unmute()
+{
+	if (!getCurrentGame()) return 0;
+	if (s_calypsoSavedMusicVol >= 0) { Mix_VolumeMusic(s_calypsoSavedMusicVol); s_calypsoSavedMusicVol = -1; }
+	return 1;
+}
 
 /* The SDL2 Emscripten port routes WebGL-canvas pointermove events as
  * SDL_MOUSEBUTTONDOWN (buttonless), not SDL_MOUSEMOTION, which leaves the

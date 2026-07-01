@@ -272,22 +272,33 @@ MainMenuState::MainMenuState(bool updateCheck)
 void MainMenuState::init()
 {
 	State::init();
-#ifdef __EMSCRIPTEN__
-	// Calypso: the real main menu is an HTML overlay (web/public/menu.js). Notify
-	// JS whenever the engine (re)enters this state — at boot and when returning
-	// from Options/Mods/Load — so the overlay re-appears over the canvas.
-	EM_ASM({ if (typeof window !== 'undefined' && window.calypsoOnMainMenu) { window.calypsoOnMainMenu(); } });
-#endif
+	// Calypso: the real main menu is an HTML overlay (web/public/menu.js). When the
+	// engine auto-navigates straight to the Load list (load-last-save on startup) we
+	// must NOT show the overlay — it would cover ListLoadState — and we must hide it
+	// if the intro already revealed it. Otherwise (staying on the menu) show it.
 	if (Options::getLoadLastSave() && !Options::getLoadThisSave().empty())
 	{
 		Log(LOG_INFO) << "Loading saved game passed as parameter";
+#ifdef __EMSCRIPTEN__
+		EM_ASM({ if (typeof window !== 'undefined' && window.calypsoHideMainMenu) { window.calypsoHideMainMenu(); } });
+#endif
 		btnLoadClick(NULL);
+		return;
 	}
-	else if (Options::getLoadLastSave() && _game->getSavedGame()->getList(_game->getLanguage(), true).size() > 0)
+	if (Options::getLoadLastSave() && _game->getSavedGame()->getList(_game->getLanguage(), true).size() > 0)
 	{
 		Log(LOG_INFO) << "Loading last saved game";
+#ifdef __EMSCRIPTEN__
+		EM_ASM({ if (typeof window !== 'undefined' && window.calypsoHideMainMenu) { window.calypsoHideMainMenu(); } });
+#endif
 		btnLoadClick(NULL);
+		return;
 	}
+#ifdef __EMSCRIPTEN__
+	// Staying on the menu — reveal the HTML overlay over the canvas. Fired on every
+	// (re)entry (boot + return from Options/Mods/Load); show() in JS is idempotent.
+	EM_ASM({ if (typeof window !== 'undefined' && window.calypsoOnMainMenu) { window.calypsoOnMainMenu(); } });
+#endif
 }
 
 /**
