@@ -145,6 +145,11 @@ void GpuTexture::reupload()
 #endif
 }
 
+void GpuTexture::evictGL()
+{
+    release(); // glDeleteTextures + _tex = 0; no-op when _tex is already 0
+}
+
 void GpuTexture::release()
 {
 #ifdef __EMSCRIPTEN__

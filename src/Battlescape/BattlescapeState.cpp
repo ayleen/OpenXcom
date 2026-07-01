@@ -367,6 +367,12 @@ BattlescapeState::BattlescapeState() :
 		Pathfinding::red = pathing->border;
 	}
 
+#ifdef __EMSCRIPTEN__
+	// L5: restore previously-evicted tile/unit atlas GL handles before add(_map)
+	// triggers Map::setPalette() → ensureVanillaAtlas(), which skips rebuild for
+	// atlases already in _tileAtlases. Evicted atlases need live GL handles first.
+	_game->getMod()->restoreTileAtlasGL();
+#endif
 	add(_map);
 	add(_icons);
 
@@ -504,6 +510,9 @@ BattlescapeState::BattlescapeState() :
 	// Set up objects
 	_map->init();
 #ifdef __EMSCRIPTEN__
+	// L5: globe GL handles are not needed during a battle; evict them now that
+	// the battlescape asset pipeline is fully initialised.
+	_game->getMod()->evictGlobeGL();
 	// Block 11.11/11.7: register GPU passes after map init.
 	// Pass order: tiles → cursor-overlay → projectile → smoke (registered by _map->init())
 	//             → warning (11.11) → cursor (11.7, always last/topmost).

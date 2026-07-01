@@ -708,6 +708,14 @@ void GeoscapeState::handle(Action *action)
 void GeoscapeState::init()
 {
 	State::init();
+#ifdef __EMSCRIPTEN__
+	// L5: on returning from a battle the globe GL handles were evicted; restore
+	// them before Globe::draw() fires below. Tile/unit atlases are not needed on
+	// the geoscape; evict them to free VRAM. Both calls are guarded by flags so
+	// repeated init() invocations from popup closes are O(1) no-ops.
+	_game->getMod()->restoreGlobeGL();
+	_game->getMod()->evictTileAtlasGL();
+#endif
 	timeDisplay();
 	updateSlackingIndicator();
 
