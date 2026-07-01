@@ -224,6 +224,18 @@ EMSCRIPTEN_KEEPALIVE void calypso_set_uw_emissive(float v) { g_calypsoUwEmissive
 EMSCRIPTEN_KEEPALIVE void calypso_set_tile_emissive(float v) { g_calypsoTileEmissive = clamp08(v); } // Phase 25 R6
 EMSCRIPTEN_KEEPALIVE void calypso_set_unit_shade  (float v) { g_calypsoUnitShade   = clamp01(v); } // Phase 25 R7
 
+/* L2 (memory-reduction): runtime SSAA supersample-factor override.
+ * 0 = "unset" — Map::ensureSsaaTarget falls back to _ssaaScale (default 2×).
+ * calypso_set_ssaa_scale(1) disables supersampling (HDR retained), freeing
+ * ~105 MiB GPU VRAM at FHD.  Valid clamped range: 1–4. */
+int g_calypsoSsaaScale = 0;
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_set_ssaa_scale(int s)
+{
+	g_calypsoSsaaScale = s < 1 ? 0 : (s > 4 ? 4 : s);
+}
+
 /* Phase 25 (R3): tangent-space sun direction for normal-map relief. The shader
  * normalises it. In production the engine DRIVES this automatically (a per-turn
  * azimuth sweep — "time of day" — in the upper hemisphere, coherent with the
