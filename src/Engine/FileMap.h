@@ -117,6 +117,10 @@ namespace FileMap
 	/// sets up VFS according to the mod sequence given (rescans common resources). does call clear().
 	void setup(const std::vector<const ModInfo *>& active, bool embeddedOnly);
 
+	/// Calypso: toggles asset-audit logging (each resolved relpath logged once as
+	/// "[CALYPSO] ASSET VANILLA|REPLACED <relpath>"). No-op on native builds.
+	void setAuditMode(bool on);
+
 	/// lowercase it
 	std::string canonicalize(const std::string& fname);
 

@@ -1458,6 +1458,21 @@ std::string canonicalize(const std::string &in)
 bool fileExists(const std::string &relativeFilePath) {
 	return ( TheVFS.at(relativeFilePath) != NULL);
 }
+
+// Calypso: runtime asset-audit mode. When enabled, every relpath successfully
+// resolved by at() is logged once (per session) as either VANILLA (served from
+// the streamed TFTD payload, i.e. its resolved fullpath contains "/TFTD/") or
+// REPLACED (served from a Calypso mod overlay). web/src/main.js parses the
+// "[CALYPSO] ASSET ..." marker so a coverage tracker can be auto-generated;
+// see scripts/gen-asset-coverage.py. Emscripten-only: native builds just store
+// the flag (setAuditMode is defined unconditionally so it links everywhere),
+// but never act on it since nothing ever sets it to true off that build.
+static bool _auditMode = false;
+#ifdef __EMSCRIPTEN__
+static std::unordered_set<std::string> _auditSeen;
+#endif
+void setAuditMode(bool on) { _auditMode = on; }
+
 const FileRecord *at(const std::string &relativeFilePath) {
 	auto frec = TheVFS.at(relativeFilePath);
 	if (frec == NULL) {
@@ -1465,6 +1480,12 @@ const FileRecord *at(const std::string &relativeFilePath) {
 		Log(LOG_FATAL) << fail;
 		throw Exception(fail);
 	}
+#ifdef __EMSCRIPTEN__
+	if (_auditMode && _auditSeen.insert(relativeFilePath).second) {
+		bool vanilla = frec->fullpath.find("/TFTD/") != std::string::npos;
+		Log(LOG_INFO) << "[CALYPSO] ASSET " << (vanilla ? "VANILLA" : "REPLACED") << " " << relativeFilePath;
+	}
+#endif
 	return frec;
 }
 

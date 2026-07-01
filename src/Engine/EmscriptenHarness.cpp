@@ -24,6 +24,7 @@
 #include "ShaderManager.h"
 #include "GpuSmokeState.h"
 #include "Logger.h"
+#include "FileMap.h"
 #include "../Interface/Cursor.h"
 // HTML main-menu bridge (Phase 2): the JS overlay drives these to push the same
 // OXCE states the vanilla MainMenuState buttons would.
@@ -153,6 +154,17 @@ EMSCRIPTEN_KEEPALIVE
 void calypso_set_profile_readback(int on)
 {
 	g_calypsoProfileReadback = on ? 1 : 0;
+}
+
+/* Asset-audit mode: logs every resolved asset relpath once, tagged VANILLA
+ * (served from the streamed TFTD payload) or REPLACED (served from a Calypso
+ * mod overlay). JS toggles via ?audit=1 -> calypso_set_audit_mode(1); the
+ * printErr handler in main.js parses the "[CALYPSO] ASSET ..." marker into
+ * window.__assetAudit. See FileMap::at() and scripts/gen-asset-coverage.py. */
+EMSCRIPTEN_KEEPALIVE
+void calypso_set_audit_mode(int on)
+{
+	FileMap::setAuditMode(on != 0);
 }
 
 /* Phase 28: underwater colour-grade strength (0 = neutral .. 1 = deepest).
