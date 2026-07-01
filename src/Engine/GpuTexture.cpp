@@ -121,24 +121,27 @@ void GpuTexture::bind(int textureUnit)
 
 void GpuTexture::reupload()
 {
+#ifdef __EMSCRIPTEN__
+    /* Drop the stale GL handle first — shared by both paths below. On a real
+     * context loss glDeleteTextures is a harmless no-op (the name is already
+     * invalid); on a reset without a true loss it prevents leaking the old
+     * texture object. Nulling _tex makes uploadRGBA/uploadR8 re-gen it. */
+    glDeleteTextures(1, &_tex);
+    _tex = 0u;
+#endif
     if (!_cachedData.empty())
     {
-        /* Existing cached re-upload path: GL handle is stale; delete + re-gen. */
-#ifdef __EMSCRIPTEN__
-        glDeleteTextures(1, &_tex);
-        _tex = 0u;
-#endif
+        /* Cached re-upload path (textures without a reload callback). */
         if (_isR8)
             uploadR8(_cachedData.data(), _cachedW, _cachedH);
         else
             uploadRGBA(_cachedData.data(), _cachedW, _cachedH, 0);
         return;
     }
-    /* L3/L4 callback path: _cachedData deliberately empty (_skipCache=true).
-     * Do NOT glDeleteTextures — the context is gone; the handle is already
-     * invalid.  Null it so uploadRGBA/uploadR8 will call glGenTextures. */
+    /* L3/L4 callback path: _cachedData deliberately empty (_skipCache=true);
+     * re-decode the source from MEMFS and re-upload. */
 #ifdef __EMSCRIPTEN__
-    if (_reloadCb) { _tex = 0u; _reloadCb(); }
+    if (_reloadCb) _reloadCb();
 #endif
 }
 
