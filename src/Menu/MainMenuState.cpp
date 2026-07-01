@@ -35,6 +35,9 @@
 #include "../Engine/FileMap.h"
 #include "../Engine/SDL2Helpers.h"
 #include <fstream>
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 
 namespace OpenXcom
 {
@@ -269,6 +272,12 @@ MainMenuState::MainMenuState(bool updateCheck)
 void MainMenuState::init()
 {
 	State::init();
+#ifdef __EMSCRIPTEN__
+	// Calypso: the real main menu is an HTML overlay (web/public/menu.js). Notify
+	// JS whenever the engine (re)enters this state — at boot and when returning
+	// from Options/Mods/Load — so the overlay re-appears over the canvas.
+	EM_ASM({ if (typeof window !== 'undefined' && window.calypsoOnMainMenu) { window.calypsoOnMainMenu(); } });
+#endif
 	if (Options::getLoadLastSave() && !Options::getLoadThisSave().empty())
 	{
 		Log(LOG_INFO) << "Loading saved game passed as parameter";
