@@ -101,9 +101,15 @@ jobs:
       - name: Configure ccache
         run: ccache --max-size=1G --zero-stats
 
+      # -DBUILD_TESTING=OFF is required: the root CMakeLists.txt defaults
+      # BUILD_TESTING to ON, which pulls in oxce_unit_tests whose sources
+      # only exist in the calypso repo (see ci.yml's header comment) — a
+      # fatal CMake configure error, not just an unbuilt target, in a
+      # standalone checkout of this fork.
       - name: Configure
         run: |
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_TESTING=OFF \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 

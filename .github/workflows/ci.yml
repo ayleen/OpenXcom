@@ -13,7 +13,12 @@ name: Engine CI
 #     `tests/unit_tests/` directory of the parent calypso checkout, two
 #     levels above this repo's root when checked out as its submodule at
 #     `engine/oxce`). A standalone checkout of this fork has no such
-#     directory, so `-DBUILD_TESTING=ON` is intentionally never passed here.
+#     directory. The root CMakeLists.txt's `option(BUILD_TESTING ... ON)`
+#     defaults that target ON, so the Configure step below MUST pass
+#     `-DBUILD_TESTING=OFF` explicitly — leaving it unset (relying on
+#     "just don't build the target") is not enough, because CMake fails at
+#     *configure* time (`add_executable` with a nonexistent source file),
+#     before any target selection happens.
 #   - The WASM build requires Emscripten, `--preload-file` assets, and the
 #     calypso web shell; it is validated by calypso's own `build.yml` any
 #     time the `engine/oxce` submodule pointer is bumped there.
@@ -88,9 +93,16 @@ jobs:
       - name: Configure ccache
         run: ccache --max-size=1G --zero-stats
 
+      # -DBUILD_TESTING=OFF is required, not optional: the root
+      # CMakeLists.txt declares `option(BUILD_TESTING ... ON)`, so leaving
+      # it unset pulls in `add_executable(oxce_unit_tests ...)` at
+      # *configure* time with sources that only exist in the calypso repo
+      # (see the header comment above) — a fatal CMake configure error in
+      # a standalone checkout of this fork, not just an unbuilt target.
       - name: Configure
         run: |
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_TESTING=OFF \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
