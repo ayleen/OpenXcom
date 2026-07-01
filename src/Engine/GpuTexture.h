@@ -40,8 +40,10 @@ public:
     /* Called by ShaderManager on SDL_RENDER_TARGETS_RESET. */
     void reupload();
 
-    /* L3/L4: skip storing _cachedData for large textures that carry a reload CB. */
-    void setSkipCache(bool s) { _skipCache = s; }
+    /* L3/L4: skip storing _cachedData for large textures that carry a reload CB.
+     * Dropping any already-cached mirror keeps the skip-cache invariant structural
+     * even if a caller ever sets this after a prior cached upload. */
+    void setSkipCache(bool s) { _skipCache = s; if (s) { _cachedData.clear(); _cachedData.shrink_to_fit(); } }
     /* L3/L4: re-decode + re-upload callback used when _cachedData is empty on context loss. */
     void setReloadCb(std::function<void()> cb) { _reloadCb = std::move(cb); }
 

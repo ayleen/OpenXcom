@@ -56,7 +56,11 @@ bool GpuTexture::uploadRGBA(const uint8_t* data, int w, int h, int mipLevel)
     if (mipLevel == 0)
     {
         glGenerateMipmap(GL_TEXTURE_2D);
-        if (!_skipCache) _cachedData.assign(data, data + (size_t)w * h * 4);
+        // Guard against self-assign: the cached reupload() path passes
+        // _cachedData.data() back in, and assigning a vector from its own storage
+        // is UB. Skip the no-op copy when the source already aliases the cache.
+        if (!_skipCache && data != _cachedData.data())
+            _cachedData.assign(data, data + (size_t)w * h * 4);
         _cachedW = w; _cachedH = h;
         _w = w; _h = h;
     }
@@ -90,7 +94,10 @@ bool GpuTexture::uploadR8(const uint8_t* data, int w, int h)
         glBindTexture(GL_TEXTURE_2D, _tex);
     }
     glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, w, h, 0, GL_RED, GL_UNSIGNED_BYTE, data);
-    if (!_skipCache) _cachedData.assign(data, data + (size_t)w * h);
+    // Guard against self-assign (see uploadRGBA): reupload() feeds _cachedData
+    // back in, and assigning a vector from its own storage is UB.
+    if (!_skipCache && data != _cachedData.data())
+        _cachedData.assign(data, data + (size_t)w * h);
     _cachedW = w; _cachedH = h;
     _w = w; _h = h;
     _isR8 = true;
