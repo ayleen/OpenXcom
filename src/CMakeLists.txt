@@ -694,8 +694,8 @@ if(EMSCRIPTEN)
     -sMIN_WEBGL_VERSION=2
     -sMAX_WEBGL_VERSION=2
     -sFULL_ES3=1
-    "-sEXPORTED_RUNTIME_METHODS=[\"FS\",\"IDBFS\",\"callMain\",\"ccall\",\"cwrap\"]"
-    "-sEXPORTED_FUNCTIONS=[\"_main\",\"_calypso_screenshot\",\"_calypso_screenshot_gpu\",\"_calypso_gpu_smoke_activate\",\"_calypso_push_mouse_motion\",\"_calypso_set_profile_globe\",\"_calypso_set_profile_battlescape\",\"_calypso_set_profile_readback\",\"_calypso_dump_emit_once\",\"_calypso_set_ssaa_scale\"]"
+    "-sEXPORTED_RUNTIME_METHODS=[\"FS\",\"IDBFS\",\"callMain\",\"ccall\",\"cwrap\",\"wasmMemory\"]"
+    "-sEXPORTED_FUNCTIONS=[\"_main\",\"_calypso_screenshot\",\"_calypso_screenshot_gpu\",\"_calypso_gpu_smoke_activate\",\"_calypso_push_mouse_motion\",\"_calypso_set_profile_globe\",\"_calypso_set_profile_battlescape\",\"_calypso_set_profile_readback\",\"_calypso_dump_emit_once\",\"_calypso_set_ssaa_scale\",\"_calypso_log_heap\",\"_calypso_heap_used\",\"_calypso_heap_total\"]"
     -sENVIRONMENT=web
     -sMODULARIZE=1
     -sEXPORT_ES6=1

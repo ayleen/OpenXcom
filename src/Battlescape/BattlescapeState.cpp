@@ -61,6 +61,7 @@
 #include "../Interface/Cursor.h"
 #ifdef __EMSCRIPTEN__
 #include "../Engine/GpuInit.h"
+extern "C" void calypso_log_heap(const char *tag);  // M5: defined in EmscriptenHarness.cpp
 #endif
 #include "../Interface/Text.h"
 #include "../Interface/Bar.h"
@@ -849,6 +850,11 @@ BattlescapeState::BattlescapeState() :
 	// bottom bar to ~half the screen width (no-op / native on other builds).
 	captureHudNative();
 	layoutHud();
+#ifdef __EMSCRIPTEN__
+	// M5: log heap once on first battlescape entry (ensureBattlescapeResources
+	// re-loaded the battle SurfaceSets on entry; this captures peak allocation).
+	{ static bool s_once = false; if (!s_once) { s_once = true; calypso_log_heap("battlescape-ctor"); } }
+#endif
 }
 
 
