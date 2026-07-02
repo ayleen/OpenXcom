@@ -67,6 +67,12 @@ private:
 	/// Sets _bpp, _baseWidth, _baseHeight from current options.
 	void makeVideoFlags();
 #ifdef __EMSCRIPTEN__
+	/// Force the canvas-size rebase block in flip() to run on the next frame even
+	/// when the polled canvas dimensions match Options::displayWidth/Height.
+	/// Set by recreateRendererGL() after a successful context recovery so
+	/// Screen::updateScale re-derives all scale state without the side effect of
+	/// computing a fake old-size of 0 that shifts the battlescape HUD off-screen.
+	bool _forceCanvasRebase = false;
 	/// Destroys and re-creates _renderer + _texture after a WebGL context restore.
 	/// Called by handle() on SDL_RENDER_TARGETS_RESET before ShaderManager::reuploadAll().
 	void recreateRendererGL();
