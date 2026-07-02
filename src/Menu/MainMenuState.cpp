@@ -89,7 +89,16 @@ MainMenuState::MainMenuState(bool updateCheck)
 	// six buttons fit inside the inner safe-zone of the HD window panel.
 	// Title moved up the same amount so the layout stays balanced.
 	// Vanilla keeps the legacy popup coordinates when the HD pack is inactive.
+#ifdef __EMSCRIPTEN__
+	// The HTML overlay (menu.js) replaces the OXCE menu entirely in Emscripten.
+	// POPUP_NONE skips the open animation and its accompanying sound effect so
+	// the player never hears the vanilla window-open SFX while the HTML menu
+	// is in charge. calypso_music_mute (fired via calypsoOnMainMenu in init())
+	// handles music suppression separately.
+	_window = new Window(this, 256, 160, 32, 20, POPUP_NONE);
+#else
 	_window = new Window(this, 256, 160, 32, 20, POPUP_BOTH);
+#endif
 	_btnNewGame = new TextButton(92, 20, 64, hdMenu ? 76 : 90);
 	_btnNewBattle = new TextButton(92, 20, 164, hdMenu ? 76 : 90);
 	_btnLoad = new TextButton(92, 20, 64, hdMenu ? 100 : 118);
