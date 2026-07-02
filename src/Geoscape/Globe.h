@@ -19,6 +19,9 @@
  */
 #include <vector>
 #include <list>
+#ifdef __EMSCRIPTEN__
+#  include <memory>
+#endif
 #include "../Engine/InteractiveSurface.h"
 #include "../Engine/FastLineClip.h"
 #include "Cord.h"
@@ -89,6 +92,7 @@ private:
 	unsigned  _sphereFBOTex = 0u;
 	bool      _gpuSphereOK  = false;
 	Shader*   _globeShader  = nullptr; // owned; created in initSphereGPU()
+	std::shared_ptr<bool> _gpuAliveFlag;   // M6: lifetime token for the ShaderManager reset callback
 
 	/// One-time GPU resource initialisation for the sphere.
 	bool initSphereGPU();

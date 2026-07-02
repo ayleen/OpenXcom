@@ -272,6 +272,22 @@ void calypso_dump_emit_once()
 	g_calypsoDumpEmit = 1;
 }
 
+/* M6: WebGL context-loss recovery.
+ * The JS shell calls this from the canvas 'webglcontextrestored' event handler
+ * (which also calls e.preventDefault() on 'webglcontextlost' so the browser
+ * actually fires the restore event).  We push SDL_RENDER_TARGETS_RESET so the
+ * existing Screen::handle path fires ShaderManager::reuploadAll(), which
+ * re-compiles shaders, re-uploads GpuTextures, rebuilds RenderTargets, and
+ * runs all registered VAO/FBO reset callbacks. */
+EMSCRIPTEN_KEEPALIVE
+void calypso_gl_context_restored(void)
+{
+	SDL_Event e;
+	SDL_zero(e);
+	e.type = SDL_RENDER_TARGETS_RESET;
+	SDL_PushEvent(&e);
+}
+
 EMSCRIPTEN_KEEPALIVE
 void calypso_push_mouse_motion(int x, int y)
 {
