@@ -863,23 +863,14 @@ BattlescapeState::~BattlescapeState()
 
 	resetPalettes();
 
-#ifdef __EMSCRIPTEN__
-	// L7: release battle-only SurfaceSets now that the battlescape is gone.
-	// Ordering notes:
-	//  - _battleGame and Map (owned by State base) are deleted above/by ~State();
-	//    Map::~Map() deletes GpuTextures from _spriteFrameCache by iterating
-	//    (SurfaceSet* key, GpuTexture* value) pairs — the key pointer is never
-	//    dereferenced during that loop, so dangling keys are safe.
-	//  - _projectileSet in Map is a raw non-owning pointer; it is not touched in
-	//    Map::~Map(), so a dangling value there is harmless.
-	//  - DebriefingState (pushed next on the normal battle-end path) uses no
-	//    SurfaceSet whatsoever — safe to unload here.
-	//  - For multi-stage missions the destructor also fires between stages; the
-	//    next BattlescapeState ctor calls ensureBattlescapeResources() to reload.
-	//  - Save-load into a battle and OptionsBaseState mid-battle are also handled:
-	//    both destroy then re-create BattlescapeState, triggering unload+reload.
-	_game->getMod()->unloadBattlescapeResources();
-#endif
+	// L7 NOTE: battle-only SurfaceSets are deliberately NOT unloaded here.
+	// The dtor also fires while a battle is still live: applying video options
+	// (resolution change) does setState(new BattlescapeState) — the NEW state is
+	// constructed (ensure sees the loaded flag, no-op) BEFORE the old one is
+	// destroyed, so a dtor-side unload rips CURSOR.PCK etc. out from under the
+	// live battle ("Sprite Set CURSOR.PCK not found" FATAL). Same hazard between
+	// multi-stage mission stages. Unload instead happens in GeoscapeState::init()
+	// — the battle is provably over when the geoscape becomes the top state.
 }
 
 void BattlescapeState::resetPalettes()

@@ -715,6 +715,14 @@ void GeoscapeState::init()
 	// repeated init() invocations from popup closes are O(1) no-ops.
 	_game->getMod()->restoreGlobeGL();
 	_game->getMod()->evictTileAtlasGL();
+	// L7: free battle-only SurfaceSets here rather than in ~BattlescapeState —
+	// the dtor also runs mid-battle (video-options apply recreates the state;
+	// multi-stage missions), where an unload breaks the live battle. Once the
+	// geoscape is the top state the battle is provably over. Guarded by
+	// _battlescapeResourcesLoaded, so popup-close re-inits are O(1) no-ops.
+	// Side effect: the sets are also freed on the very first geoscape entry
+	// (before any battle) — the first battle pays the ~100-300 ms re-decode.
+	_game->getMod()->unloadBattlescapeResources();
 #endif
 	timeDisplay();
 	updateSlackingIndicator();
