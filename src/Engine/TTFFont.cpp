@@ -34,6 +34,50 @@ size_t TTFFont::KeyHash::operator()(const Key& k) const
 
 // ── TTFFont ───────────────────────────────────────────────────────────────────
 
+#ifdef __EMSCRIPTEN__
+
+TTFFont::TTFFont(const std::string& vfsPath, int pixelSize)
+	: _vfsPath(vfsPath), _pixelSize(pixelSize), _fontAttempted(false), _font(nullptr)
+{
+	// L12 memory-reduction: defer TTF_OpenFontRW to the first renderText() /
+	// lineHeight() call.  FreeType glyph-outline structures are created eagerly
+	// at open time and account for the bulk of the extra/fonts heap spike; by
+	// deferring we avoid paying for battlescape-only sizes (e.g. FONT_HD_HUD
+	// at 48 px) during boot and geoscape sessions where they are never drawn.
+}
+
+void TTFFont::ensureFont() const
+{
+	if (_fontAttempted) return;
+	_fontAttempted = true;
+
+	if (!FileMap::fileExists(_vfsPath))
+	{
+		Log(LOG_ERROR) << "TTFFont: file not found in VFS: \"" << _vfsPath << "\"";
+		return;
+	}
+	SDL_RWops* rw = FileMap::getRWops(_vfsPath);
+	if (!rw)
+	{
+		Log(LOG_ERROR) << "TTFFont: getRWops failed for \"" << _vfsPath << "\"";
+		return;
+	}
+	_font = TTF_OpenFontRW(rw, /*freesrc=*/1, _pixelSize);
+	if (!_font)
+	{
+		Log(LOG_ERROR) << "TTFFont: TTF_OpenFontRW failed for \""
+		               << _vfsPath << "\" size=" << _pixelSize
+		               << ": " << TTF_GetError();
+	}
+	else
+	{
+		Log(LOG_INFO) << "TTFFont: opened \"" << _vfsPath
+		              << "\" size=" << _pixelSize << " (lazy init)";
+	}
+}
+
+#else // !__EMSCRIPTEN__
+
 TTFFont::TTFFont(const std::string& vfsPath, int pixelSize)
 	: _font(nullptr)
 {
@@ -57,6 +101,8 @@ TTFFont::TTFFont(const std::string& vfsPath, int pixelSize)
 	}
 }
 
+#endif // __EMSCRIPTEN__
+
 TTFFont::~TTFFont()
 {
 	for (auto& kv : _cache)
@@ -67,6 +113,9 @@ TTFFont::~TTFFont()
 
 SDL_Surface* TTFFont::renderText(const std::string& utf8, SDL_Color rgba)
 {
+#ifdef __EMSCRIPTEN__
+	ensureFont();
+#endif
 	if (!_font) return nullptr;
 
 	uint32_t packed = ((uint32_t)rgba.a << 24) | ((uint32_t)rgba.r << 16)
@@ -105,6 +154,9 @@ SDL_Surface* TTFFont::renderText(const std::string& utf8, SDL_Color rgba)
 
 int TTFFont::lineHeight() const
 {
+#ifdef __EMSCRIPTEN__
+	ensureFont();
+#endif
 	return _font ? TTF_FontLineSkip(_font) : 0;
 }
 

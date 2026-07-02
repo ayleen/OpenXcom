@@ -37,6 +37,12 @@ namespace OpenXcom
  *
  * Cache is bounded at 256 entries (FIFO eviction).  The cursor-text working
  * set is ~50 strings × 2 colours, so 256 is a comfortable ceiling.
+ *
+ * L12 memory-reduction: font face is opened lazily on the first renderText() /
+ * lineHeight() call under __EMSCRIPTEN__.  Construction stores the VFS path and
+ * pixel size but does NOT call TTF_OpenFontRW, deferring the FreeType heap cost
+ * until the font is actually needed (battlescape-only sizes pay nothing on boot).
+ * On native builds the eager path is kept unchanged.
  */
 class TTFFont
 {
@@ -51,7 +57,17 @@ public:
 	int lineHeight() const;
 
 private:
+#ifdef __EMSCRIPTEN__
+	/** Deferred open: attempts TTF_OpenFontRW on the first call, then noops. */
+	void ensureFont() const;
+
+	std::string       _vfsPath;
+	int               _pixelSize;
+	mutable bool      _fontAttempted; // true once ensureFont() has run
+	mutable TTF_Font* _font;
+#else
 	TTF_Font* _font;
+#endif
 
 	struct Key
 	{

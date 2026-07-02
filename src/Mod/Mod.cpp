@@ -4840,6 +4840,9 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 		_extraSounds.push_back(std::make_pair(type, extraSounds));
 	}
 	// Phase 16: TrueType fonts for HD text rendering.
+#ifdef __EMSCRIPTEN__
+	calypso_log_heap("extra/fonts-ttf-pre");  // L12: heap before extraTTFFonts registration
+#endif
 	for (const auto& ruleReader : iterateRulesSpecific("extraTTFFonts"))
 	{
 		std::string id, file;
@@ -4860,6 +4863,9 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 		_ttfFonts[id] = ttf;
 		Log(LOG_INFO) << "Loaded TTFFont \"" << id << "\" from \"" << file << "\" size=" << size;
 	}
+#ifdef __EMSCRIPTEN__
+	calypso_log_heap("extra/fonts-ttf-post"); // L12: heap after extraTTFFonts; lazy=near-zero, eager=FreeType cost
+#endif
 	for (const auto& ruleReader : iterateRulesSpecific("extraStrings"))
 	{
 		std::string type = ruleReader["type"].readVal<std::string>();
@@ -7844,6 +7850,9 @@ void Mod::unloadBattlescapeResources()
 void Mod::loadExtraResources()
 {
 	// Load fonts
+#ifdef __EMSCRIPTEN__
+	calypso_log_heap("extra/fonts-bmp-pre");  // L12: heap before YAML parse + bitmap fonts
+#endif
 	YAML::YamlRootNodeReader reader = FileMap::getYAML("Language/" + _fontName);
 	Log(LOG_INFO) << "Loading fonts... " << _fontName;
 	for (const auto& fontReader : reader["fonts"].children())
