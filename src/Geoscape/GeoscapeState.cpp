@@ -134,6 +134,11 @@
 #include "../Mod/Texture.h"
 #include "../fmath.h"
 #include "../fallthrough.h"
+#ifdef __EMSCRIPTEN__
+#include "../Engine/Logger.h"
+extern "C" void calypso_log_heap(const char *tag);  // M5: defined in EmscriptenHarness.cpp
+extern "C" int  g_calypsoTabHiddenPause;            // M6h: set by calypso_on_tab_hidden()
+#endif
 
 namespace OpenXcom
 {
@@ -708,6 +713,28 @@ void GeoscapeState::handle(Action *action)
 void GeoscapeState::init()
 {
 	State::init();
+#ifdef __EMSCRIPTEN__
+	// M5: log heap once on first geoscape entry to catch post-boot allocations.
+	{ static bool s_once = false; if (!s_once) { s_once = true; calypso_log_heap("geoscape-init"); } }
+	// M6h: clear any stale tab-hide flag so a visibility-change that fired while
+	// on the geoscape (or during a loading screen) does not open the pause menu
+	// when the player enters the next battle.
+	g_calypsoTabHiddenPause = 0;
+	// L5: on returning from a battle the globe GL handles were evicted; restore
+	// them before Globe::draw() fires below. Tile/unit atlases are not needed on
+	// the geoscape; evict them to free VRAM. Both calls are guarded by flags so
+	// repeated init() invocations from popup closes are O(1) no-ops.
+	_game->getMod()->restoreGlobeGL();
+	_game->getMod()->evictTileAtlasGL();
+	// L7: free battle-only SurfaceSets here rather than in ~BattlescapeState —
+	// the dtor also runs mid-battle (video-options apply recreates the state;
+	// multi-stage missions), where an unload breaks the live battle. Once the
+	// geoscape is the top state the battle is provably over. Guarded by
+	// _battlescapeResourcesLoaded, so popup-close re-inits are O(1) no-ops.
+	// Side effect: the sets are also freed on the very first geoscape entry
+	// (before any battle) — the first battle pays the ~100-300 ms re-decode.
+	_game->getMod()->unloadBattlescapeResources();
+#endif
 	timeDisplay();
 	updateSlackingIndicator();
 

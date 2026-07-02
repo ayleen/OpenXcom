@@ -56,7 +56,11 @@ bool GpuTexture::uploadRGBA(const uint8_t* data, int w, int h, int mipLevel)
     if (mipLevel == 0)
     {
         glGenerateMipmap(GL_TEXTURE_2D);
-        _cachedData.assign(data, data + (size_t)w * h * 4);
+        // Guard against self-assign: the cached reupload() path passes
+        // _cachedData.data() back in, and assigning a vector from its own storage
+        // is UB. Skip the no-op copy when the source already aliases the cache.
+        if (!_skipCache && data != _cachedData.data())
+            _cachedData.assign(data, data + (size_t)w * h * 4);
         _cachedW = w; _cachedH = h;
         _w = w; _h = h;
     }
@@ -90,7 +94,10 @@ bool GpuTexture::uploadR8(const uint8_t* data, int w, int h)
         glBindTexture(GL_TEXTURE_2D, _tex);
     }
     glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, w, h, 0, GL_RED, GL_UNSIGNED_BYTE, data);
-    _cachedData.assign(data, data + (size_t)w * h);
+    // Guard against self-assign (see uploadRGBA): reupload() feeds _cachedData
+    // back in, and assigning a vector from its own storage is UB.
+    if (!_skipCache && data != _cachedData.data())
+        _cachedData.assign(data, data + (size_t)w * h);
     _cachedW = w; _cachedH = h;
     _w = w; _h = h;
     _isR8 = true;
@@ -114,15 +121,33 @@ void GpuTexture::bind(int textureUnit)
 
 void GpuTexture::reupload()
 {
-    if (_cachedData.empty()) return;
 #ifdef __EMSCRIPTEN__
+    /* Drop the stale GL handle first — shared by both paths below. On a real
+     * context loss glDeleteTextures is a harmless no-op (the name is already
+     * invalid); on a reset without a true loss it prevents leaking the old
+     * texture object. Nulling _tex makes uploadRGBA/uploadR8 re-gen it. */
     glDeleteTextures(1, &_tex);
     _tex = 0u;
 #endif
-    if (_isR8)
-        uploadR8(_cachedData.data(), _cachedW, _cachedH);
-    else
-        uploadRGBA(_cachedData.data(), _cachedW, _cachedH, 0);
+    if (!_cachedData.empty())
+    {
+        /* Cached re-upload path (textures without a reload callback). */
+        if (_isR8)
+            uploadR8(_cachedData.data(), _cachedW, _cachedH);
+        else
+            uploadRGBA(_cachedData.data(), _cachedW, _cachedH, 0);
+        return;
+    }
+    /* L3/L4 callback path: _cachedData deliberately empty (_skipCache=true);
+     * re-decode the source from MEMFS and re-upload. */
+#ifdef __EMSCRIPTEN__
+    if (_reloadCb) _reloadCb();
+#endif
+}
+
+void GpuTexture::evictGL()
+{
+    release(); // glDeleteTextures + _tex = 0; no-op when _tex is already 0
 }
 
 void GpuTexture::release()

@@ -412,6 +412,28 @@ private:
 	/// Phase 25 R5: draw floating HD nameplates + HP/TU/energy bars over player
 	/// units in the Battlescape. Off by default; set via calypso_hud_overlay:.
 	bool _calypsoHudOverlay = false;
+	/// L5: globe GL handles were evicted on battle entry; restore on geoscape return.
+	bool _globeGpuEvicted     = false;
+	/// L5: tile + unit atlas GL handles were evicted on geoscape; restore on battle entry.
+	bool _tileAtlasGpuEvicted = false;
+	/// L7: true once loadBattlescapeResources() has finished; cleared on unload.
+	bool _battlescapeResourcesLoaded = false;
+	/// L7: keys of every _sets entry that was registered as battle-only and can
+	/// be freed when returning to the geoscape.  Populated by
+	/// loadBattlescapeResources(), cleared by unloadBattlescapeResources().
+	std::vector<std::string> _battlescapeOnlySets;
+	/// L10: source-file format tag for a deferred geo/flat surface.
+	enum class LazyGeoFormat { Scr, Bdy, Spk };
+	struct LazyGeoEntry
+	{
+		std::string   vfsPath;   ///< VFS path used by load* calls (stays in MEMFS).
+		LazyGeoFormat format;
+		int           w, h;
+	};
+	/// L10: surfaces registered but not yet decoded; erased on first getSurface() call.
+	std::map<std::string, LazyGeoEntry> _lazyGeoSurfaces;
+	/// L10: decodes a registered lazy geo surface on first request.
+	void materializeGeoSurface(const std::string &name);
 #endif
 	std::map<std::string, CustomPalettes *> _customPalettes;
 	std::vector<std::pair<std::string, ExtraSounds *> > _extraSounds;
@@ -728,6 +750,18 @@ public:
 	void ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncolors);
 	/// Deletes all synthesised vanilla atlases (called in ~Mod and on mod reload).
 	void clearTileAtlases();
+	/// L5: evict globe GL handles to free VRAM during a battle.
+	/// Guard-flagged: repeated calls before a matching restore are no-ops.
+	void evictGlobeGL();
+	/// L5: restore previously-evicted globe GL handles (called from GeoscapeState::init()).
+	/// No-op when the globe was not evicted.
+	void restoreGlobeGL();
+	/// L5: evict tile + unit atlas GL handles to free battle VRAM on geoscape.
+	/// Guard-flagged: repeated calls (popup closes, etc.) are O(1) no-ops.
+	void evictTileAtlasGL();
+	/// L5: restore previously-evicted tile + unit atlas GL handles (called before battle).
+	/// No-op when nothing was evicted.
+	void restoreTileAtlasGL();
 	/// Build or retrieve a unit-sprite atlas for the named SurfaceSet (Phase 14.1).
 	/// No-op if already built.  palette/ncolors = active battlescape palette.
 	void ensureUnitAtlas(SurfaceSet* ss, const std::string& name,
@@ -742,6 +776,14 @@ public:
 	int getBattlescapeTileScale() const { return _battlescapeTileScale; }
 	/// Phase 25 R5: true when floating unit nameplates/bars should be drawn.
 	bool getCalypsoHudOverlay() const { return _calypsoHudOverlay; }
+	/// L7: ensures battlescape-only SurfaceSets are resident.
+	/// Delegates to the private loadBattlescapeResources(); idempotent (guarded
+	/// by _battlescapeResourcesLoaded).  Called from BattlescapeState ctor.
+	void ensureBattlescapeResources() { loadBattlescapeResources(); }
+	/// L7: releases all battle-only SurfaceSets so WASM heap is not held during
+	/// long geoscape sessions.  Sets _battlescapeResourcesLoaded=false so a
+	/// subsequent ensureBattlescapeResources() call will reload them.
+	void unloadBattlescapeResources();
 #endif
 	/// Gets a particular music.
 	Music *getMusic(const std::string &name, bool error = true) const;

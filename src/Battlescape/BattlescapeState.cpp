@@ -61,6 +61,8 @@
 #include "../Interface/Cursor.h"
 #ifdef __EMSCRIPTEN__
 #include "../Engine/GpuInit.h"
+extern "C" void calypso_log_heap(const char *tag);  // M5: defined in EmscriptenHarness.cpp
+extern "C" int  g_calypsoTabHiddenPause;            // M6h: set by calypso_on_tab_hidden()
 #endif
 #include "../Interface/Text.h"
 #include "../Interface/Bar.h"
@@ -185,6 +187,13 @@ BattlescapeState::BattlescapeState() :
 	_autosave(0),
 	_numberOfDirectlyVisibleUnits(0), _numberOfEnemiesTotal(0), _numberOfEnemiesTotalPlusWounded(0)
 {
+#ifdef __EMSCRIPTEN__
+	// L7: ensure all battle-only SurfaceSets are present before any UI element
+	// tries to getSurfaceSet().  On the first entry this is a no-op (sets were
+	// loaded at startup); on subsequent entries after unloadBattlescapeResources()
+	// it re-decodes the PCK/DAT files from MEMFS (~100-300 ms, acceptable).
+	_game->getMod()->ensureBattlescapeResources();
+#endif
 	_save = _game->getSavedGame()->getSavedBattle();
 
 	std::fill_n(_visibleUnit, 10, (BattleUnit*)(0));
@@ -367,6 +376,12 @@ BattlescapeState::BattlescapeState() :
 		Pathfinding::red = pathing->border;
 	}
 
+#ifdef __EMSCRIPTEN__
+	// L5: restore previously-evicted tile/unit atlas GL handles before add(_map)
+	// triggers Map::setPalette() → ensureVanillaAtlas(), which skips rebuild for
+	// atlases already in _tileAtlases. Evicted atlases need live GL handles first.
+	_game->getMod()->restoreTileAtlasGL();
+#endif
 	add(_map);
 	add(_icons);
 
@@ -504,6 +519,9 @@ BattlescapeState::BattlescapeState() :
 	// Set up objects
 	_map->init();
 #ifdef __EMSCRIPTEN__
+	// L5: globe GL handles are not needed during a battle; evict them now that
+	// the battlescape asset pipeline is fully initialised.
+	_game->getMod()->evictGlobeGL();
 	// Block 11.11/11.7: register GPU passes after map init.
 	// Pass order: tiles → cursor-overlay → projectile → smoke (registered by _map->init())
 	//             → warning (11.11) → cursor (11.7, always last/topmost).
@@ -833,6 +851,11 @@ BattlescapeState::BattlescapeState() :
 	// bottom bar to ~half the screen width (no-op / native on other builds).
 	captureHudNative();
 	layoutHud();
+#ifdef __EMSCRIPTEN__
+	// M5: log heap once on first battlescape entry (ensureBattlescapeResources
+	// re-loaded the battle SurfaceSets on entry; this captures peak allocation).
+	{ static bool s_once = false; if (!s_once) { s_once = true; calypso_log_heap("battlescape-ctor"); } }
+#endif
 }
 
 
@@ -846,6 +869,15 @@ BattlescapeState::~BattlescapeState()
 	delete _battleGame;
 
 	resetPalettes();
+
+	// L7 NOTE: battle-only SurfaceSets are deliberately NOT unloaded here.
+	// The dtor also fires while a battle is still live: applying video options
+	// (resolution change) does setState(new BattlescapeState) — the NEW state is
+	// constructed (ensure sees the loaded flag, no-op) BEFORE the old one is
+	// destroyed, so a dtor-side unload rips CURSOR.PCK etc. out from under the
+	// live battle ("Sprite Set CURSOR.PCK not found" FATAL). Same hazard between
+	// multi-stage mission stages. Unload instead happens in GeoscapeState::init()
+	// — the battle is provably over when the geoscape becomes the top state.
 }
 
 void BattlescapeState::resetPalettes()
@@ -968,6 +1000,26 @@ void BattlescapeState::init()
 void BattlescapeState::think()
 {
 	static bool popped = false;
+
+#ifdef __EMSCRIPTEN__
+	/* M6h: open the pause menu when the browser tab is hidden.
+	 *
+	 * The flag is set by calypso_on_tab_hidden() (JS visibilitychange) and must
+	 * be consumed here, not in handle(), because the export runs outside the
+	 * engine loop — touching game states there is unsafe.
+	 *
+	 * Guard: only act when this state is the top state (nothing already covers
+	 * the map) and allowButtons(true) passes (mirrors the ESC / Options button
+	 * guard at BattlescapeState::btnOptionsClick, line ~1586).  If the
+	 * battlescape is buried under an inventory or confirm dialog the map is
+	 * already idle, so the flag is cleared without opening a second menu. */
+	if (g_calypsoTabHiddenPause)
+	{
+		g_calypsoTabHiddenPause = 0;
+		if (_game->isState(this) && allowButtons(true))
+			_game->pushState(new PauseState(OPT_BATTLESCAPE));
+	}
+#endif
 
 	if (_gameTimer->isRunning())
 	{

@@ -38,6 +38,15 @@ struct FontImage
 	Surface *surface;
 };
 
+#ifdef __EMSCRIPTEN__
+/// Metadata for a not-yet-decoded font atlas image (L12b lazy loading).
+struct DeferredFontImage
+{
+	std::string file;   // "Language/<name>.png" — empty once materialised
+	UString chars;      // char list from YAML (needed to run init() after decode)
+};
+#endif
+
 /**
  * Takes care of loading and storing each character in a sprite font.
  * Sprite fonts consist of a set of characters split in fixed-size regions.
@@ -52,6 +61,14 @@ private:
 	bool _monospace;
 	/// Determines the size and position of each character in the font.
 	void init(size_t index, const UString &str);
+#ifdef __EMSCRIPTEN__
+	/// Parallel to _images: entry with empty .file means already decoded.
+	std::vector<DeferredFontImage> _deferred;
+	/// Maps each deferred glyph codepoint to its _images index (erased on materialise).
+	std::unordered_map<UCode, size_t> _deferredCharToSlot;
+	/// L12b: decode a deferred atlas PNG on first glyph access.
+	void materializeFontImage(size_t imageIdx);
+#endif
 public:
 
 	/// Default palette for terminal text.
@@ -66,15 +83,17 @@ public:
 	/// Generate the terminal font.
 	void loadTerminal();
 	/// Gets a particular character from the font, with its real size.
-	SurfaceCrop getChar(UCode c) const;
+	/// Non-const: may trigger lazy atlas decode under Emscripten (L12b).
+	SurfaceCrop getChar(UCode c);
 	/// Gets the font's character width.
 	int getWidth() const;
 	/// Gets the font's character height.
 	int getHeight() const;
 	/// Gets the spacing between characters.
 	int getSpacing() const;
-	/// Gets the size of a particular character;
-	SDL_Rect getCharSize(UCode c) const;
+	/// Gets the size of a particular character.
+	/// Non-const: may trigger lazy atlas decode under Emscripten (L12b).
+	SDL_Rect getCharSize(UCode c);
 };
 
 }

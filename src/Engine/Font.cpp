@@ -21,6 +21,7 @@
 #include "Surface.h"
 #include "FileMap.h"
 #include "Unicode.h"
+#include "Logger.h"
 
 namespace OpenXcom
 {
@@ -47,6 +48,11 @@ Font::~Font()
 
 /**
  * Loads the font from a YAML file.
+ * Under Emscripten (L12b) the first atlas image per font is decoded eagerly
+ * (it carries ASCII + Latin + Cyrillic, including the '?' fallback glyph).
+ * All subsequent images (CJK, Korean, zh-TW, …) are registered as deferred
+ * records and decoded on first glyph access via materializeFontImage().
+ * The native path is byte-identical to the pre-L12b code.
  * @param node YAML node.
  */
 void Font::load(const YAML::YamlNodeReader& reader)
@@ -63,12 +69,73 @@ void Font::load(const YAML::YamlNodeReader& reader)
 		image.spacing = imageReader["spacing"].readVal(spacing);
 		std::string file = "Language/" + imageReader["file"].readVal<std::string>();
 		UString chars = Unicode::convUtf8ToUtf32(imageReader["chars"].readVal<std::string>());
+#ifdef __EMSCRIPTEN__
+		size_t idx = _images.size();
+		if (idx == 0)
+		{
+			// First image: always eager — contains ASCII fallback '?' and
+			// the Latin/Cyrillic block needed from the very first frame.
+			image.surface = new Surface(image.width, image.height);
+			image.surface->loadImage(file);
+			_images.push_back(image);
+			_deferred.push_back({"", {}});   // placeholder: already materialised
+			init(idx, chars);
+		}
+		else
+		{
+			// Subsequent images (CJK, Korean, zh-TW …): defer decode.
+			// surface == nullptr is the deferred marker; destructor skips it safely.
+			image.surface = nullptr;
+			_images.push_back(image);
+			_deferred.push_back({file, chars});
+			for (UCode c : chars)
+				_deferredCharToSlot[c] = idx;
+		}
+#else
 		image.surface = new Surface(image.width, image.height);
 		image.surface->loadImage(file);
 		_images.push_back(image);
 		init(_images.size() - 1, chars);
+#endif
 	}
 }
+
+#ifdef __EMSCRIPTEN__
+/**
+ * L12b: Materialises a deferred font atlas on first glyph access.
+ * Decodes the PNG from MEMFS (files are never unlinked), promotes 8bpp pixels
+ * to 32bpp ARGB via the image's own embedded palette (handled inside
+ * Surface::loadImage — no external game-state palette required), then runs
+ * Font::init() to compute per-glyph SDL_Rects and populate _chars.
+ *
+ * Palette note: bitmap font atlases carry their colour data in the PNG palette
+ * itself (loadImage calls setPalette(png_palette) internally).  Text colours
+ * come from the Text widget's getEffectivePalette(), not from the atlas
+ * surface — so materialising at any point after construction is correct.
+ *
+ * @param imageIdx Index into _images / _deferred (must be > 0; image 0 is eager).
+ */
+void Font::materializeFontImage(size_t imageIdx)
+{
+	if (imageIdx >= _deferred.size() || _deferred[imageIdx].file.empty())
+		return; // already materialised or was eager (index 0)
+
+	const std::string &file = _deferred[imageIdx].file;
+	Log(LOG_INFO) << "[L12b] materialized font image " << file;
+
+	FontImage &img = _images[imageIdx];
+	img.surface = new Surface(img.width, img.height);
+	img.surface->loadImage(file);        // setPalette(png_palette) called inside
+	init(imageIdx, _deferred[imageIdx].chars);
+
+	// Remove deferred chars from lookup map — future calls go straight to _chars.
+	for (UCode c : _deferred[imageIdx].chars)
+		_deferredCharToSlot.erase(c);
+
+	_deferred[imageIdx].file.clear();
+	_deferred[imageIdx].chars.clear();
+}
+#endif /* __EMSCRIPTEN__ */
 
 /**
  * Generates a pre-defined Codepage 437 (MS-DOS terminal) font.
@@ -179,15 +246,28 @@ void Font::init(size_t index, const UString &str)
 
 /**
  * Returns a particular character from the set stored in the font.
+ * Under Emscripten (L12b) the atlas containing the requested glyph is decoded
+ * on first access; subsequent calls for the same image are O(1) unordered_map
+ * lookups with no branch overhead once the deferred map is empty.
  * @param c Character to use for size/position.
- * @return Pointer to the font's surface with the respective
- * cropping rectangle set up.
+ * @return Pointer to the font's surface with the respective cropping rectangle set up.
  */
-SurfaceCrop Font::getChar(UCode c) const
+SurfaceCrop Font::getChar(UCode c)
 {
 	auto f = _chars.find(c);
 	if (f == _chars.end())
-		f = _chars.find('?');
+	{
+#ifdef __EMSCRIPTEN__
+		auto df = _deferredCharToSlot.find(c);
+		if (df != _deferredCharToSlot.end())
+		{
+			materializeFontImage(df->second);
+			f = _chars.find(c);
+		}
+#endif
+		if (f == _chars.end())
+			f = _chars.find('?');
+	}
 	auto surfaceCrop = _images[f->second.first].surface->getCrop();
 	*surfaceCrop.getCrop() = f->second.second;
 	return surfaceCrop;
@@ -224,17 +304,30 @@ int Font::getSpacing() const
 
 /**
  * Returns the dimensions of a particular character in the font.
+ * Under Emscripten (L12b) the atlas containing the requested glyph is decoded
+ * on first access (same lazy path as getChar).
  * @param c Font character.
  * @return Width and Height dimensions (X and Y are ignored).
  */
-SDL_Rect Font::getCharSize(UCode c) const
+SDL_Rect Font::getCharSize(UCode c)
 {
 	SDL_Rect size = { 0, 0, 0, 0 };
 	if (Unicode::isPrintable(c))
 	{
 		auto f = _chars.find(c);
 		if (f == _chars.end())
-			f = _chars.find('?');
+		{
+#ifdef __EMSCRIPTEN__
+			auto df = _deferredCharToSlot.find(c);
+			if (df != _deferredCharToSlot.end())
+			{
+				materializeFontImage(df->second);
+				f = _chars.find(c);
+			}
+#endif
+			if (f == _chars.end())
+				f = _chars.find('?');
+		}
 
 		const FontImage *image = &_images[f->second.first];
 		size.w = f->second.second.w + image->spacing;

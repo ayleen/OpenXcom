@@ -45,6 +45,10 @@
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #include <GLES3/gl3.h>
+/* M6c: context-lost flag; C-linkage definition lives in EmscriptenHarness.cpp.
+ * Declared at file scope (extern "C" is not allowed at block scope) — same
+ * pattern as g_calypsoSsaaScale in Map.cpp. */
+extern "C" int g_calypsoContextLost;
 #endif
 
 namespace OpenXcom
@@ -93,6 +97,111 @@ Screen::~Screen()
 	if (_screen)   { SDL_FreeSurface(_screen);       _screen   = nullptr; }
 }
 
+#ifdef __EMSCRIPTEN__
+/**
+ * Destroys and re-creates the SDL renderer and streaming screen texture
+ * after a real WebGL context loss (webglcontextrestored event path).
+ *
+ * Why this is necessary
+ * ---------------------
+ * Every SDL_Texture and every internal SDL_Renderer object (shader program,
+ * vertex buffer, etc.) carries a GL object ID that was allocated in the DEAD
+ * context.  Even though the browser revives those GL IDs if the hardware
+ * permits, SDL2's Emscripten/GLES2 backend has no webglcontextrestored
+ * handling — it never rebinds or regenerates its own GL objects.  The first
+ * SDL_RenderCopy after restore therefore triggers:
+ *   "bindTexture: object does not belong to this context"
+ *   "bindBuffer: object does not belong to this context"
+ *   "drawArrays: no valid shader program in use"
+ * and the screen stays black.
+ *
+ * Emscripten GL table safety
+ * --------------------------
+ * Re-creating the renderer calls SDL_GL_CreateContext on the same canvas.
+ * The browser returns the SAME (now-restored) WebGL context object.
+ * Emscripten's GL object tables (GL.textures / GL.buffers / GL.programs)
+ * are module-global, not per-context, so numeric IDs that our engine
+ * allocated via GpuTexture / ShaderManager remain valid after this call.
+ * ShaderManager::reuploadAll() (called immediately after) re-populates
+ * those IDs with fresh GPU objects, completing the restore.
+ *
+ * Ordering constraint
+ * -------------------
+ * This function MUST run before ShaderManager::reuploadAll().  reuploadAll()
+ * makes raw GL calls that need a live GL context; the new renderer provides it.
+ */
+void Screen::recreateRendererGL()
+{
+	/* M6c Task 2 — dead-mouse fix.
+	 *
+	 * Root cause of the dead mouse after context restore:
+	 *   SDL_DestroyRenderer → GLES2_DestroyRenderer → SDL_GL_DeleteContext →
+	 *   Emscripten GL.deleteContext → JSEvents.removeAllHandlersOnTarget(canvas)
+	 *
+	 * GL.deleteContext strips EVERY handler registered via Emscripten's
+	 * JSEvents infrastructure from the canvas — including SDL's own mouse and
+	 * keyboard event listeners registered by Emscripten_RegisterEventHandlers
+	 * (called from Emscripten_CreateWindow).  SDL_CreateRenderer does NOT
+	 * re-register them because GLES2_CreateRenderer's SDL_RecreateWindow
+	 * branch is skipped once the window already carries an OpenGL ES profile.
+	 *
+	 * Fix: use the full resetDisplay(true, …) path which destroys the SDL
+	 * window too.  SDL_CreateWindow → Emscripten_CreateWindow →
+	 * Emscripten_RegisterEventHandlers re-registers all mouse/key handlers on
+	 * the canvas, restoring input to the identical state as initial boot.
+	 * resetDisplay also calls GpuInit::init() (re-enables float extensions),
+	 * recalculates _scaleX/_scaleY, and resets all SDL surface/texture state.
+	 *
+	 * ShaderManager::reuploadAll() is still called by Screen::handle() after
+	 * this returns to rebuild GPU resources. */
+	try
+	{
+		resetDisplay(true, false);
+
+		/* M6h: force the canvas-size rebase block in flip() to run on the next
+		 * frame even though the polled canvas dimensions will equal
+		 * Options::displayWidth/Height (resetDisplay just wrote them back).
+		 *
+		 * The previous M6g approach zeroed displayWidth/Height to trick the
+		 * canvas-poll condition (wW != Options::displayWidth) into firing.  That
+		 * worked for scale re-derivation but introduced Defect M6h: with the old
+		 * value recorded as 0, BattlescapeState::resize(dX, dY) (called from
+		 * zoom() during the same tick) computed a huge delta (new – 0 = canvas
+		 * width) and shifted the entire battlescape HUD off-screen.
+		 *
+		 * Using a flag instead leaves Options::displayWidth/Height intact (correct
+		 * values set by resetDisplay above).  When the forced rebase pass runs in
+		 * flip(), it assigns displayWidth = wW (same value → delta 0) and then
+		 * calls Screen::updateScale for both scales — re-deriving
+		 * baseXBattlescape / baseYBattlescape / baseXGeoscape / baseYGeoscape from
+		 * the current (correct) display size without displacing any state. */
+		_forceCanvasRebase = true;
+	}
+	catch (Exception &e)
+	{
+		/* M6g Defect 2: on a second GPU crash Chrome throttles WebGL context
+		 * creation, so SDL_CreateRenderer fails inside resetDisplay and throws.
+		 * Never let this exception escape iterate() — catch it here, log it, then
+		 * re-enter the lost state so the JS 13-s reload fallback takes over.
+		 *
+		 * Ordering safety: calypso_gl_context_restored() resumed the main loop
+		 * just before the SDL_RENDER_TARGETS_RESET event was dispatched to this
+		 * handler.  Setting g_calypsoContextLost = 1 here and calling
+		 * emscripten_pause_main_loop() ensures:
+		 *   (a) flip()'s guard at the top ("if (g_calypsoContextLost) return;")
+		 *       skips every GL call in the remainder of this iterate() tick — the
+		 *       flag is set synchronously inside this catch block, before flip()
+		 *       is reached in the same Game::run() iteration, so no GL call slips
+		 *       through between resume and re-pause.
+		 *   (b) The main loop is paused after this iterate() tick completes,
+		 *       giving the JS 13-s reload timer a chance to fire. */
+		Log(LOG_ERROR) << "M6g: recreateRendererGL failed — " << e.what();
+		g_calypsoContextLost = 1;
+		emscripten_pause_main_loop();
+	}
+}
+#endif /* __EMSCRIPTEN__ */
+
 /**
  * Returns the screen's internal buffer surface. Any
  * contents that need to be shown will be blitted to this.
@@ -125,8 +234,21 @@ void Screen::handle(Action *action)
 
 	if (action->getDetails()->type == SDL_RENDER_TARGETS_RESET)
 	{
-		/* WebGL context has been restored after a tab-suspend. Re-upload all
-		 * GPU resources so shaders/textures/FBOs are valid again. */
+		/* WebGL context has been restored after a tab-suspend or chrome://gpucrash.
+		 *
+		 * The SDL renderer and its streaming screen texture both hold internal GLES2
+		 * objects (shader programs, vertex buffer, texture handle) that were created
+		 * in the dead context.  SDL2's Emscripten/GLES2 backend has no
+		 * webglcontextrestored handling, so those objects are permanently stale.
+		 *
+		 * Destroy and re-create the renderer chain first, then let reuploadAll()
+		 * restore our own GPU resources (GpuTexture atlases, ShaderManager programs,
+		 * FBOs).  The order is critical: recreateRendererGL() must run before
+		 * reuploadAll() so the new renderer establishes the fresh GL context that
+		 * reuploadAll() uploads into. */
+#ifdef __EMSCRIPTEN__
+		recreateRendererGL();
+#endif
 		ShaderManager::instance().reuploadAll();
 	}
 	else if (action->getDetails()->type == SDL_KEYDOWN && action->getDetails()->key.keysym.sym == SDLK_RETURN && (SDL_GetModState() & KMOD_ALT) != 0)
@@ -161,6 +283,13 @@ void Screen::handle(Action *action)
 void Screen::flip()
 {
 #ifdef __EMSCRIPTEN__
+	/* M6c: do not issue any GL calls while the WebGL context is dead.
+	 * calypso_gl_context_lost() pauses the main loop, but this guard also
+	 * covers the brief window between emscripten_resume_main_loop() and the
+	 * first frame processed after Screen::handle() finishes recreating the
+	 * renderer (the event is consumed in the same loop tick as the resume). */
+	if (g_calypsoContextLost) return;
+
 	/* Browser canvas resize: poll canvas.width each frame (physical pixels).
 	 * SDL_GetWindowSize returns CSS logical pixels in Emscripten, which differ
 	 * from Options::displayWidth (physical) on HiDPI/Retina screens (DPR > 1),
@@ -171,8 +300,9 @@ void Screen::flip()
 		int wW = (int)EM_ASM_INT({ return document.getElementById('canvas').width; });
 		int wH = (int)EM_ASM_INT({ return document.getElementById('canvas').height; });
 		if (wW > 0 && wH > 0 &&
-		    (wW != Options::displayWidth || wH != Options::displayHeight))
+		    (wW != Options::displayWidth || wH != Options::displayHeight || _forceCanvasRebase))
 		{
+			_forceCanvasRebase = false;
 			Options::displayWidth     = wW;
 			Options::displayHeight    = wH;
 			Options::newDisplayWidth  = wW;

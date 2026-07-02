@@ -100,6 +100,9 @@ extern "C" int   g_calypsoSunAuto;      // Phase 25 (R3): 1 = engine drives the 
  * emitTilePass() and Map::draw() painter pass each log every visible tile
  * and reset the flag, so production runs at zero cost. */
 extern "C" int g_calypsoDumpEmit;
+/* L2 (memory-reduction): JS-side SSAA scale override; 0 = use Map default.
+ * Definition in EmscriptenHarness.cpp; set via calypso_set_ssaa_scale(). */
+extern "C" int g_calypsoSsaaScale;
 #endif /* __EMSCRIPTEN__ */
 
 
@@ -4278,8 +4281,10 @@ void Map::initTileGL()
 bool Map::ensureSsaaTarget(int w, int h)
 {
 #ifdef __EMSCRIPTEN__
-	if (w <= 0 || h <= 0 || _ssaaScale < 1) return false;
-	const int sw = w * _ssaaScale, sh = h * _ssaaScale;
+	// L2: JS may override the scale at runtime (0 = "unset", use member default).
+	const int scale = (g_calypsoSsaaScale > 0) ? g_calypsoSsaaScale : _ssaaScale;
+	if (w <= 0 || h <= 0 || scale < 1) return false;
+	const int sw = w * scale, sh = h * scale;
 	if (_ssaaFBO && _ssaaW == sw && _ssaaH == sh) return true;
 
 	// Size changed (or first use) — tear down any previous target.
@@ -4367,7 +4372,7 @@ bool Map::ensureSsaaTarget(int w, int h)
 		return false;
 	}
 	_ssaaW = sw; _ssaaH = sh;
-	Log(LOG_INFO) << "Map::ensureSsaaTarget: SSAA " << _ssaaScale << "x at "
+	Log(LOG_INFO) << "Map::ensureSsaaTarget: SSAA " << scale << "x at "
 	              << sw << "x" << sh << (_ssaaIsHDR ? " (RGBA16F HDR)" : " (RGBA8 LDR)");
 	return true;
 #else

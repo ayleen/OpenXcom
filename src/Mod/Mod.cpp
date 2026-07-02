@@ -56,6 +56,9 @@
 #  include <webp/decode.h>
 #  include "TileAtlasBuilder.h"
 #  include "UnitSpriteAtlasBuilder.h"
+#  include <set>
+// M5: heap-attribution marks (function defined in EmscriptenHarness.cpp)
+extern "C" void calypso_log_heap(const char *tag);
 #endif
 #include "ExtraSounds.h"
 #include "../Engine/AdlibMusic.h"
@@ -927,6 +930,41 @@ void Mod::lazyLoadSurface(const std::string &name)
 	}
 }
 
+#ifdef __EMSCRIPTEN__
+/**
+ * L10: Materialises a deferred geo/flat surface on first getSurface() call.
+ * Decodes the file from MEMFS (which stays resident — files are never unlinked),
+ * promotes 8bpp pixels to ARGB via PAL_GEOSCAPE, and inserts the result into
+ * _surfaces.  The lazy-registry entry is erased so subsequent calls skip this
+ * function immediately.
+ *
+ * Palette note: PAL_GEOSCAPE is loaded eagerly before the geo/flat block, so
+ * getPalette("PAL_GEOSCAPE") is always valid here.  The palette never changes
+ * after load() completes, so applying it at materialisation time is identical
+ * to the eager path's immediate setPalette() call.
+ */
+void Mod::materializeGeoSurface(const std::string &name)
+{
+	auto it = _lazyGeoSurfaces.find(name);
+	if (it == _lazyGeoSurfaces.end()) return;
+
+	const LazyGeoEntry &e = it->second;
+	Surface *s = new Surface(e.w, e.h);
+	switch (e.format)
+	{
+	case LazyGeoFormat::Scr: s->loadScr(e.vfsPath); break;
+	case LazyGeoFormat::Bdy: s->loadBdy(e.vfsPath); break;
+	case LazyGeoFormat::Spk: s->loadSpk(e.vfsPath); break;
+	}
+	Palette *geoPal = getPalette("PAL_GEOSCAPE", false);
+	if (geoPal) s->setPalette(geoPal->getColors(), 0, 256);
+
+	_surfaces[name] = s;
+	_lazyGeoSurfaces.erase(it);
+	Log(LOG_DEBUG) << "[L10] materialized geo surface: " << name;
+}
+#endif /* __EMSCRIPTEN__ */
+
 /**
  * Returns a specific surface from the mod.
  * @param name Name of the surface.
@@ -935,6 +973,9 @@ void Mod::lazyLoadSurface(const std::string &name)
 Surface *Mod::getSurface(const std::string &name, bool error)
 {
 	lazyLoadSurface(name);
+#ifdef __EMSCRIPTEN__
+	materializeGeoSurface(name);
+#endif
 	return getRule(name, "Sprite", _surfaces, error);
 }
 
@@ -961,6 +1002,26 @@ void Mod::clearGlobeTextures()
 	for (auto& pair : _globeTextures)
 		delete pair.second;
 	_globeTextures.clear();
+}
+
+void Mod::evictGlobeGL()
+{
+	if (_globeGpuEvicted) return;
+	int n = 0;
+	for (auto& pair : _globeTextures)
+		if (pair.second) { pair.second->evictGL(); ++n; }
+	_globeGpuEvicted = true;
+	Log(LOG_INFO) << "[L5] evictGlobeGL: released " << n << " globe GL handle(s)";
+}
+
+void Mod::restoreGlobeGL()
+{
+	if (!_globeGpuEvicted) return;
+	int n = 0;
+	for (auto& pair : _globeTextures)
+		if (pair.second) { pair.second->reupload(); ++n; }
+	_globeGpuEvicted = false;
+	Log(LOG_INFO) << "[L5] restoreGlobeGL: reuploaded " << n << " globe GL handle(s)";
 }
 
 const Mod::TileAtlasSpec* Mod::getTileAtlasSpec(const std::string& dataset) const
@@ -1020,47 +1081,65 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 			// the "stop at the first missing index" contract becomes "first
 			// missing index kills the whole mod load".
 			if (!FileMap::fileExists(layerPath)) break;
-			const FileMap::FileRecord* layerRec = FileMap::at(layerPath);
-			SDL_RWops* layerRw = layerRec->getRWops();
-			SDL_Surface* layerRaw = IMG_Load_RW(layerRw, SDL_TRUE);
-			if (!layerRaw)
-			{
-				Log(LOG_WARNING) << "tileAtlas[" << name << "] sub-layer L" << li
-				                 << " IMG_Load_RW failed (" << IMG_GetError() << ")";
-				break;
-			}
-			SDL_Surface* layerRgba =
-			    SDL_ConvertSurfaceFormat(layerRaw, SDL_PIXELFORMAT_ABGR8888, 0);
-			SDL_FreeSurface(layerRaw);
-			if (!layerRgba) break;
-			const int lw = layerRgba->w, lh = layerRgba->h;
-			if (lw != spec.width || lh != spec.height)
-			{
-				Log(LOG_WARNING) << "tileAtlas[" << name << "] sub-layer L" << li
-				                 << " " << lw << "x" << lh << " != base "
-				                 << spec.width << "x" << spec.height
-				                 << " — skipping remaining sub-layers";
-				SDL_FreeSurface(layerRgba);
-				break;
-			}
-			if (SDL_MUSTLOCK(layerRgba)) SDL_LockSurface(layerRgba);
+			/* L4b: skip _cachedData; re-decode sub-layer PNG from MEMFS on context loss. */
+			const std::string capturedLayerPath = layerPath;
+			const std::string capturedLayerName = name;
+			const int         capturedSpecW     = spec.width;
+			const int         capturedSpecH     = spec.height;
 			GpuTexture* layerTex = new GpuTexture(/*srgb=*/false,
 			                                      GpuTexture::Wrap::ClampToEdge,
 			                                      GpuTexture::Filter::Linear);  // LINEAR: smooths the anti-aliased diamond alpha edge + HD texture on downscale
-			bool layerOk = layerTex->uploadRGBA(
-			    static_cast<const uint8_t*>(layerRgba->pixels), lw, lh);
-			if (SDL_MUSTLOCK(layerRgba)) SDL_UnlockSurface(layerRgba);
-			SDL_FreeSurface(layerRgba);
-			if (!layerOk)
+			layerTex->setSkipCache(true);
+			auto doLayerUpload = [layerTex, capturedLayerPath, capturedLayerName]() {
+				if (!FileMap::fileExists(capturedLayerPath))
+				{
+					Log(LOG_WARNING) << "tileAtlas[" << capturedLayerName
+					                 << "] sub-layer not found on reload: " << capturedLayerPath;
+					return;
+				}
+				const FileMap::FileRecord* layerRec2 = FileMap::at(capturedLayerPath);
+				SDL_RWops* layerRw = layerRec2->getRWops();
+				SDL_Surface* layerRaw = IMG_Load_RW(layerRw, SDL_TRUE);
+				if (!layerRaw)
+				{
+					Log(LOG_WARNING) << "tileAtlas[" << capturedLayerName
+					                 << "] sub-layer IMG_Load_RW failed (" << IMG_GetError() << ")";
+					return;
+				}
+				SDL_Surface* layerRgba =
+				    SDL_ConvertSurfaceFormat(layerRaw, SDL_PIXELFORMAT_ABGR8888, 0);
+				SDL_FreeSurface(layerRaw);
+				if (!layerRgba) return;
+				if (SDL_MUSTLOCK(layerRgba)) SDL_LockSurface(layerRgba);
+				bool layerOk = layerTex->uploadRGBA(
+				    static_cast<const uint8_t*>(layerRgba->pixels), layerRgba->w, layerRgba->h);
+				if (SDL_MUSTLOCK(layerRgba)) SDL_UnlockSurface(layerRgba);
+				SDL_FreeSurface(layerRgba);
+				if (!layerOk)
+					Log(LOG_WARNING) << "tileAtlas[" << capturedLayerName
+					                 << "] sub-layer GPU upload failed";
+			};
+			layerTex->setReloadCb(doLayerUpload);
+			doLayerUpload();
+			if (!layerTex->isValid())
 			{
 				delete layerTex;
-				Log(LOG_WARNING) << "tileAtlas[" << name << "] sub-layer L" << li
+				Log(LOG_WARNING) << "tileAtlas[" << capturedLayerName << "] sub-layer L" << li
 				                 << " GPU upload failed";
 				break;
 			}
+			if (layerTex->width() != capturedSpecW || layerTex->height() != capturedSpecH)
+			{
+				Log(LOG_WARNING) << "tileAtlas[" << capturedLayerName << "] sub-layer L" << li
+				                 << " " << layerTex->width() << "x" << layerTex->height()
+				                 << " != base " << capturedSpecW << "x" << capturedSpecH
+				                 << " — skipping remaining sub-layers";
+				delete layerTex;
+				break;
+			}
 			spec.subLayerAtlases.push_back(layerTex);
-			Log(LOG_INFO) << "tileAtlas[" << name << "] sub-layer L" << li
-			              << " RGBA " << lw << "x" << lh;
+			Log(LOG_INFO) << "tileAtlas[" << capturedLayerName << "] sub-layer L" << li
+			              << " RGBA " << layerTex->width() << "x" << layerTex->height();
 		}
 	};
 
@@ -1071,44 +1150,62 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 	// both the baseline:none and hybrid paths.
 	auto loadNormalAtlas = [&name](TileAtlasSpec& spec) {
 		if (spec.normalFile.empty() || !FileMap::fileExists(spec.normalFile)) return;
-		const FileMap::FileRecord* rec = FileMap::at(spec.normalFile);
-		SDL_RWops* rw = rec->getRWops();
-		SDL_Surface* raw = IMG_Load_RW(rw, SDL_TRUE);
-		if (!raw)
-		{
-			Log(LOG_WARNING) << "tileAtlas[" << name << "] normal IMG_Load_RW failed ("
-			                 << IMG_GetError() << ")";
-			return;
-		}
-		SDL_Surface* rgba = SDL_ConvertSurfaceFormat(raw, SDL_PIXELFORMAT_ABGR8888, 0);
-		SDL_FreeSurface(raw);
-		if (!rgba) return;
-		const int nw = rgba->w, nh = rgba->h;
-		if (spec.width > 0 && spec.height > 0 && (nw != spec.width || nh != spec.height))
-		{
-			Log(LOG_WARNING) << "tileAtlas[" << name << "] normal " << nw << "x" << nh
-			                 << " != overlay " << spec.width << "x" << spec.height
-			                 << " — skipping (UVs would mismatch)";
-			SDL_FreeSurface(rgba);
-			return;
-		}
-		if (SDL_MUSTLOCK(rgba)) SDL_LockSurface(rgba);
+		/* L4b: skip _cachedData; re-decode normal-map PNG from MEMFS on context loss. */
+		const std::string capturedNormalFile = spec.normalFile;
+		const std::string capturedName       = name;
+		const int         capturedSpecW      = spec.width;
+		const int         capturedSpecH      = spec.height;
 		GpuTexture* ntex = new GpuTexture(/*srgb=*/false,   // LINEAR data, not sRGB
 		                                  GpuTexture::Wrap::ClampToEdge,
 		                                  GpuTexture::Filter::Linear);  // smooth normal interp
-		bool ok = ntex->uploadRGBA(static_cast<const uint8_t*>(rgba->pixels), nw, nh);
-		if (SDL_MUSTLOCK(rgba)) SDL_UnlockSurface(rgba);
-		SDL_FreeSurface(rgba);
-		if (ok)
-		{
-			spec.normalAtlas = ntex;
-			Log(LOG_INFO) << "tileAtlas[" << name << "] normal atlas RGBA " << nw << "x" << nh;
-		}
-		else
+		ntex->setSkipCache(true);
+		auto doNormalUpload = [ntex, capturedNormalFile, capturedName]() {
+			if (!FileMap::fileExists(capturedNormalFile))
+			{
+				Log(LOG_WARNING) << "tileAtlas[" << capturedName
+				                 << "] normal not found on reload: " << capturedNormalFile;
+				return;
+			}
+			const FileMap::FileRecord* rec2 = FileMap::at(capturedNormalFile);
+			SDL_RWops* rw = rec2->getRWops();
+			SDL_Surface* raw = IMG_Load_RW(rw, SDL_TRUE);
+			if (!raw)
+			{
+				Log(LOG_WARNING) << "tileAtlas[" << capturedName << "] normal IMG_Load_RW failed ("
+				                 << IMG_GetError() << ")";
+				return;
+			}
+			SDL_Surface* rgba = SDL_ConvertSurfaceFormat(raw, SDL_PIXELFORMAT_ABGR8888, 0);
+			SDL_FreeSurface(raw);
+			if (!rgba) return;
+			if (SDL_MUSTLOCK(rgba)) SDL_LockSurface(rgba);
+			bool ok = ntex->uploadRGBA(static_cast<const uint8_t*>(rgba->pixels), rgba->w, rgba->h);
+			if (SDL_MUSTLOCK(rgba)) SDL_UnlockSurface(rgba);
+			SDL_FreeSurface(rgba);
+			if (!ok)
+				Log(LOG_WARNING) << "tileAtlas[" << capturedName << "] normal GPU upload failed";
+		};
+		ntex->setReloadCb(doNormalUpload);
+		doNormalUpload();
+		if (!ntex->isValid())
 		{
 			delete ntex;
-			Log(LOG_WARNING) << "tileAtlas[" << name << "] normal GPU upload failed";
+			Log(LOG_WARNING) << "tileAtlas[" << capturedName << "] normal GPU upload failed";
+			return;
 		}
+		if (capturedSpecW > 0 && capturedSpecH > 0
+		    && (ntex->width() != capturedSpecW || ntex->height() != capturedSpecH))
+		{
+			Log(LOG_WARNING) << "tileAtlas[" << capturedName << "] normal "
+			                 << ntex->width() << "x" << ntex->height()
+			                 << " != overlay " << capturedSpecW << "x" << capturedSpecH
+			                 << " — skipping (UVs would mismatch)";
+			delete ntex;
+			return;
+		}
+		spec.normalAtlas = ntex;
+		Log(LOG_INFO) << "tileAtlas[" << capturedName << "] normal atlas RGBA "
+		              << ntex->width() << "x" << ntex->height();
 	};
 
 	// Phase 25 R6: load the optional material emissive atlas (-emissive.png).
@@ -1117,44 +1214,62 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 	// dims as the overlay (shared UVs); a mismatch is rejected. Absent = no glow.
 	auto loadEmissiveAtlas = [&name](TileAtlasSpec& spec) {
 		if (spec.emissiveFile.empty() || !FileMap::fileExists(spec.emissiveFile)) return;
-		const FileMap::FileRecord* rec = FileMap::at(spec.emissiveFile);
-		SDL_RWops* rw = rec->getRWops();
-		SDL_Surface* raw = IMG_Load_RW(rw, SDL_TRUE);
-		if (!raw)
-		{
-			Log(LOG_WARNING) << "tileAtlas[" << name << "] emissive IMG_Load_RW failed ("
-			                 << IMG_GetError() << ")";
-			return;
-		}
-		SDL_Surface* rgba = SDL_ConvertSurfaceFormat(raw, SDL_PIXELFORMAT_ABGR8888, 0);
-		SDL_FreeSurface(raw);
-		if (!rgba) return;
-		const int ew = rgba->w, eh = rgba->h;
-		if (spec.width > 0 && spec.height > 0 && (ew != spec.width || eh != spec.height))
-		{
-			Log(LOG_WARNING) << "tileAtlas[" << name << "] emissive " << ew << "x" << eh
-			                 << " != overlay " << spec.width << "x" << spec.height
-			                 << " — skipping (UVs would mismatch)";
-			SDL_FreeSurface(rgba);
-			return;
-		}
-		if (SDL_MUSTLOCK(rgba)) SDL_LockSurface(rgba);
+		/* L4b: skip _cachedData; re-decode emissive PNG from MEMFS on context loss. */
+		const std::string capturedEmissiveFile = spec.emissiveFile;
+		const std::string capturedName         = name;
+		const int         capturedSpecW        = spec.width;
+		const int         capturedSpecH        = spec.height;
 		GpuTexture* etex = new GpuTexture(/*srgb=*/false,   // raw colour, matches overlay
 		                                  GpuTexture::Wrap::ClampToEdge,
 		                                  GpuTexture::Filter::Linear);  // smooth glow
-		bool ok = etex->uploadRGBA(static_cast<const uint8_t*>(rgba->pixels), ew, eh);
-		if (SDL_MUSTLOCK(rgba)) SDL_UnlockSurface(rgba);
-		SDL_FreeSurface(rgba);
-		if (ok)
-		{
-			spec.emissiveAtlas = etex;
-			Log(LOG_INFO) << "tileAtlas[" << name << "] emissive atlas RGBA " << ew << "x" << eh;
-		}
-		else
+		etex->setSkipCache(true);
+		auto doEmissiveUpload = [etex, capturedEmissiveFile, capturedName]() {
+			if (!FileMap::fileExists(capturedEmissiveFile))
+			{
+				Log(LOG_WARNING) << "tileAtlas[" << capturedName
+				                 << "] emissive not found on reload: " << capturedEmissiveFile;
+				return;
+			}
+			const FileMap::FileRecord* rec2 = FileMap::at(capturedEmissiveFile);
+			SDL_RWops* rw = rec2->getRWops();
+			SDL_Surface* raw = IMG_Load_RW(rw, SDL_TRUE);
+			if (!raw)
+			{
+				Log(LOG_WARNING) << "tileAtlas[" << capturedName << "] emissive IMG_Load_RW failed ("
+				                 << IMG_GetError() << ")";
+				return;
+			}
+			SDL_Surface* rgba = SDL_ConvertSurfaceFormat(raw, SDL_PIXELFORMAT_ABGR8888, 0);
+			SDL_FreeSurface(raw);
+			if (!rgba) return;
+			if (SDL_MUSTLOCK(rgba)) SDL_LockSurface(rgba);
+			bool ok = etex->uploadRGBA(static_cast<const uint8_t*>(rgba->pixels), rgba->w, rgba->h);
+			if (SDL_MUSTLOCK(rgba)) SDL_UnlockSurface(rgba);
+			SDL_FreeSurface(rgba);
+			if (!ok)
+				Log(LOG_WARNING) << "tileAtlas[" << capturedName << "] emissive GPU upload failed";
+		};
+		etex->setReloadCb(doEmissiveUpload);
+		doEmissiveUpload();
+		if (!etex->isValid())
 		{
 			delete etex;
-			Log(LOG_WARNING) << "tileAtlas[" << name << "] emissive GPU upload failed";
+			Log(LOG_WARNING) << "tileAtlas[" << capturedName << "] emissive GPU upload failed";
+			return;
 		}
+		if (capturedSpecW > 0 && capturedSpecH > 0
+		    && (etex->width() != capturedSpecW || etex->height() != capturedSpecH))
+		{
+			Log(LOG_WARNING) << "tileAtlas[" << capturedName << "] emissive "
+			                 << etex->width() << "x" << etex->height()
+			                 << " != overlay " << capturedSpecW << "x" << capturedSpecH
+			                 << " — skipping (UVs would mismatch)";
+			delete etex;
+			return;
+		}
+		spec.emissiveAtlas = etex;
+		Log(LOG_INFO) << "tileAtlas[" << capturedName << "] emissive atlas RGBA "
+		              << etex->width() << "x" << etex->height();
 	};
 
 	// Phase 20: baseline:none path — HD-only dataset, load RGBA overlay only.
@@ -1173,57 +1288,65 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 		}
 		else
 		{
-			const FileMap::FileRecord* rec = FileMap::at(spec.overlayFile);
-			SDL_RWops* rw = rec->getRWops();
-			SDL_Surface* raw = IMG_Load_RW(rw, SDL_TRUE);
-			if (!raw)
+			/* L4: skip _cachedData; re-decode overlay PNG from MEMFS on context loss. */
+			const std::string capturedOverlayFile = spec.overlayFile;
+			const std::string capturedName        = name;
+			GpuTexture* tex = new GpuTexture(/*srgb=*/false,
+			                                 GpuTexture::Wrap::ClampToEdge,
+			                                 GpuTexture::Filter::Linear);  // LINEAR: smooths the anti-aliased diamond alpha edge + HD texture on downscale
+			tex->setSkipCache(true);
+			auto doOverlayUpload = [this, tex, capturedOverlayFile, capturedName]() {
+				if (!FileMap::fileExists(capturedOverlayFile))
+				{
+					Log(LOG_WARNING) << "tileAtlas[" << capturedName << "] baseline:none overlay not found on reload: " << capturedOverlayFile;
+					return;
+				}
+				const FileMap::FileRecord* rec2 = FileMap::at(capturedOverlayFile);
+				SDL_RWops* rw = rec2->getRWops();
+				SDL_Surface* raw = IMG_Load_RW(rw, SDL_TRUE);
+				if (!raw)
+				{
+					Log(LOG_WARNING) << "tileAtlas[" << capturedName << "] baseline:none IMG_Load_RW failed ("
+					                 << IMG_GetError() << ")";
+					return;
+				}
+				SDL_Surface* rgba = SDL_ConvertSurfaceFormat(raw, SDL_PIXELFORMAT_ABGR8888, 0);
+				SDL_FreeSurface(raw);
+				if (!rgba) return;
+				if (SDL_MUSTLOCK(rgba)) SDL_LockSurface(rgba);
+				bool ok = tex->uploadRGBA(static_cast<const uint8_t*>(rgba->pixels), rgba->w, rgba->h);
+				if (SDL_MUSTLOCK(rgba)) SDL_UnlockSurface(rgba);
+				SDL_FreeSurface(rgba);
+				if (!ok)
+					Log(LOG_WARNING) << "tileAtlas[" << capturedName << "] baseline:none GPU upload failed";
+			};
+			tex->setReloadCb(doOverlayUpload);
+			doOverlayUpload();
+			if (tex->isValid())
 			{
-				Log(LOG_WARNING) << "tileAtlas[" << name << "] baseline:none IMG_Load_RW failed ("
-				                 << IMG_GetError() << ")";
-				_tileAtlasSpecs.erase(specIt);
+				spec.overlayAtlas = tex;
+				spec.width  = tex->width();
+				spec.height = tex->height();
+				// Sentinel: mark as visited without a baseline texture.
+				_tileAtlases[name] = nullptr;
+				if (spec.tileWidth > 0 && spec.tileHeight > 0 && spec.pckToAtlas.empty())
+				{
+					const int totalCells = (spec.width / spec.tileWidth) * (spec.height / spec.tileHeight);
+					for (int n = 0; n < totalCells; ++n)
+						spec.pckToAtlas[n] = n;
+				}
+				loadSubLayerAtlases(spec);
+				loadNormalAtlas(spec);   // Phase 25 R3
+				loadEmissiveAtlas(spec); // Phase 25 R6
+				Log(LOG_INFO) << "tileAtlas[" << name << "] baseline:none overlay RGBA "
+				              << spec.width << "x" << spec.height;
+				Log(LOG_INFO) << "[CALYPSO] activeDataset " << name;
 			}
 			else
 			{
-				SDL_Surface* rgba = SDL_ConvertSurfaceFormat(raw, SDL_PIXELFORMAT_ABGR8888, 0);
-				SDL_FreeSurface(raw);
-				if (rgba)
-				{
-					const int w = rgba->w, h = rgba->h;
-					if (SDL_MUSTLOCK(rgba)) SDL_LockSurface(rgba);
-					GpuTexture* tex = new GpuTexture(/*srgb=*/false,
-					                                 GpuTexture::Wrap::ClampToEdge,
-					                                 GpuTexture::Filter::Linear);  // LINEAR: smooths the anti-aliased diamond alpha edge + HD texture on downscale
-					bool ok = tex->uploadRGBA(
-					              static_cast<const uint8_t*>(rgba->pixels), w, h);
-					if (SDL_MUSTLOCK(rgba)) SDL_UnlockSurface(rgba);
-					SDL_FreeSurface(rgba);
-					if (ok)
-					{
-						spec.overlayAtlas = tex;
-						spec.width  = w;
-						spec.height = h;
-						// Sentinel: mark as visited without a baseline texture.
-						_tileAtlases[name] = nullptr;
-						if (spec.tileWidth > 0 && spec.tileHeight > 0 && spec.pckToAtlas.empty())
-						{
-							const int totalCells = (w / spec.tileWidth) * (h / spec.tileHeight);
-							for (int n = 0; n < totalCells; ++n)
-								spec.pckToAtlas[n] = n;
-						}
-						loadSubLayerAtlases(spec);
-						loadNormalAtlas(spec);   // Phase 25 R3
-						loadEmissiveAtlas(spec); // Phase 25 R6
-						Log(LOG_INFO) << "tileAtlas[" << name << "] baseline:none overlay RGBA "
-						              << w << "x" << h;
-						Log(LOG_INFO) << "[CALYPSO] activeDataset " << name;
-					}
-					else
-					{
-						delete tex;
-						Log(LOG_WARNING) << "tileAtlas[" << name << "] baseline:none GPU upload failed";
-						_tileAtlasSpecs.erase(specIt);
-					}
-				}
+				delete tex;
+				Log(LOG_WARNING) << "tileAtlas[" << name << "] baseline:none GPU upload failed";
+				_tileAtlasSpecs.erase(specIt);
 			}
 		}
 		return;
@@ -1242,57 +1365,67 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 			// path's fall-through to vanilla synth only works without unwind.
 			const bool baselineHere =
 			    !spec.baselineFile.empty() && FileMap::fileExists(spec.baselineFile);
-			const FileMap::FileRecord* rec = baselineHere
-			                                 ? FileMap::at(spec.baselineFile) : nullptr;
-			if (!rec)
+			if (!baselineHere)
 			{
 				Log(LOG_WARNING) << "tileAtlas[" << name << "] hybrid: baseline not found: "
 				                 << spec.baselineFile;
 			}
 			else
 			{
-				SDL_RWops* rw  = rec->getRWops();
-				SDL_Surface* raw = IMG_Load_RW(rw, SDL_TRUE);
-				if (!raw)
+				/* L4: skip _cachedData; re-decode baseline R8 from MEMFS on context loss. */
+				const std::string capturedBaselineFile = spec.baselineFile;
+				const std::string capturedName         = name;
+				GpuTexture* tex = new GpuTexture(/*srgb=*/false, GpuTexture::Wrap::ClampToEdge, GpuTexture::Filter::Nearest) /* R8 palette: NEAREST only, else index interpolation = rainbow seams */;
+				tex->setSkipCache(true);
+				auto doBaselineUpload = [this, tex, capturedBaselineFile, capturedName]() {
+					if (!FileMap::fileExists(capturedBaselineFile))
+					{
+						Log(LOG_WARNING) << "tileAtlas[" << capturedName << "] hybrid: baseline not found on reload: "
+						                 << capturedBaselineFile;
+						return;
+					}
+					const FileMap::FileRecord* rec2 = FileMap::at(capturedBaselineFile);
+					SDL_RWops* rw  = rec2->getRWops();
+					SDL_Surface* raw = IMG_Load_RW(rw, SDL_TRUE);
+					if (!raw)
+					{
+						Log(LOG_WARNING) << "tileAtlas[" << capturedName << "] hybrid: IMG_Load_RW baseline failed ("
+						                 << IMG_GetError() << ")";
+						return;
+					}
+					SDL_Surface* rgba = SDL_ConvertSurfaceFormat(raw, SDL_PIXELFORMAT_ABGR8888, 0);
+					SDL_FreeSurface(raw);
+					if (!rgba) return;
+					const int w = rgba->w, h = rgba->h;
+					std::vector<uint8_t> r8(static_cast<size_t>(w) * static_cast<size_t>(h), 0u);
+					if (SDL_MUSTLOCK(rgba)) SDL_LockSurface(rgba);
+					const uint8_t* src = static_cast<const uint8_t*>(rgba->pixels);
+					// Greyscale L-mode PNG: R channel holds the palette index directly.
+					for (int y = 0; y < h; ++y)
+					{
+						const uint8_t* row = src + y * rgba->pitch;
+						for (int x = 0; x < w; ++x)
+							r8[y * w + x] = row[x * 4 + 0];
+					}
+					if (SDL_MUSTLOCK(rgba)) SDL_UnlockSurface(rgba);
+					SDL_FreeSurface(rgba);
+					if (!tex->uploadR8(r8.data(), w, h))
+						Log(LOG_WARNING) << "tileAtlas[" << capturedName << "] hybrid: baseline GPU upload failed";
+					else
+						Log(LOG_INFO) << "tileAtlas[" << capturedName << "] hybrid: baseline R8 " << w << "x" << h;
+				};
+				tex->setReloadCb(doBaselineUpload);
+				doBaselineUpload();
+				if (tex->isValid())
 				{
-					Log(LOG_WARNING) << "tileAtlas[" << name << "] hybrid: IMG_Load_RW baseline failed ("
-					                 << IMG_GetError() << ")";
+					baselineTex  = tex;
+					spec.width   = tex->width();
+					spec.height  = tex->height();
+					spec.format  = TileAtlasSpec::Format::Palette;
 				}
 				else
 				{
-					SDL_Surface* rgba = SDL_ConvertSurfaceFormat(raw, SDL_PIXELFORMAT_ABGR8888, 0);
-					SDL_FreeSurface(raw);
-					if (rgba)
-					{
-						const int w = rgba->w, h = rgba->h;
-						std::vector<uint8_t> r8(static_cast<size_t>(w) * static_cast<size_t>(h), 0u);
-						if (SDL_MUSTLOCK(rgba)) SDL_LockSurface(rgba);
-						const uint8_t* src = static_cast<const uint8_t*>(rgba->pixels);
-						// Greyscale L-mode PNG: R channel holds the palette index directly.
-						for (int y = 0; y < h; ++y)
-						{
-							const uint8_t* row = src + y * rgba->pitch;
-							for (int x = 0; x < w; ++x)
-								r8[y * w + x] = row[x * 4 + 0];
-						}
-						if (SDL_MUSTLOCK(rgba)) SDL_UnlockSurface(rgba);
-						SDL_FreeSurface(rgba);
-						GpuTexture* tex = new GpuTexture(/*srgb=*/false, GpuTexture::Wrap::ClampToEdge, GpuTexture::Filter::Nearest) /* R8 palette: NEAREST only, else index interpolation = rainbow seams */;
-						if (tex->uploadR8(r8.data(), w, h))
-						{
-							baselineTex  = tex;
-							spec.width   = w;
-							spec.height  = h;
-							spec.format  = TileAtlasSpec::Format::Palette;
-							Log(LOG_INFO) << "tileAtlas[" << name << "] hybrid: baseline R8 "
-							              << w << "x" << h;
-						}
-						else
-						{
-							delete tex;
-							Log(LOG_WARNING) << "tileAtlas[" << name << "] hybrid: baseline GPU upload failed";
-						}
-					}
+					delete tex;
 				}
 			}
 		}
@@ -1303,9 +1436,7 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 			// fileExists() probe — FileMap::at() throws on miss.
 			const bool overlayHere =
 			    !spec.overlayFile.empty() && FileMap::fileExists(spec.overlayFile);
-			const FileMap::FileRecord* rec = overlayHere
-			                                 ? FileMap::at(spec.overlayFile) : nullptr;
-			if (!rec)
+			if (!overlayHere)
 			{
 				Log(LOG_WARNING) << "tileAtlas[" << name << "] hybrid: overlay not found: "
 				                 << spec.overlayFile;
@@ -1313,57 +1444,69 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 			}
 			else
 			{
-				SDL_RWops* rw  = rec->getRWops();
-				SDL_Surface* raw = IMG_Load_RW(rw, SDL_TRUE);
-				if (!raw)
+				/* L4: skip _cachedData; re-decode overlay RGBA from MEMFS on context loss. */
+				const std::string capturedOverlayFile = spec.overlayFile;
+				const std::string capturedName        = name;
+				const int         capturedW           = spec.width;
+				const int         capturedH           = spec.height;
+				GpuTexture* tex = new GpuTexture(/*srgb=*/false,
+				                                 GpuTexture::Wrap::ClampToEdge,
+				                                 GpuTexture::Filter::Linear);  // LINEAR: smooths the anti-aliased diamond alpha edge + HD texture on downscale
+				tex->setSkipCache(true);
+				auto doOverlayUpload = [this, tex, capturedOverlayFile, capturedName]() {
+					if (!FileMap::fileExists(capturedOverlayFile))
+					{
+						Log(LOG_WARNING) << "tileAtlas[" << capturedName << "] hybrid: overlay not found on reload: "
+						                 << capturedOverlayFile;
+						return;
+					}
+					const FileMap::FileRecord* rec2 = FileMap::at(capturedOverlayFile);
+					SDL_RWops* rw  = rec2->getRWops();
+					SDL_Surface* raw = IMG_Load_RW(rw, SDL_TRUE);
+					if (!raw)
+					{
+						Log(LOG_WARNING) << "tileAtlas[" << capturedName << "] hybrid: IMG_Load_RW overlay failed ("
+						                 << IMG_GetError() << ")";
+						return;
+					}
+					SDL_Surface* rgba = SDL_ConvertSurfaceFormat(raw, SDL_PIXELFORMAT_ABGR8888, 0);
+					SDL_FreeSurface(raw);
+					if (!rgba) return;
+					if (SDL_MUSTLOCK(rgba)) SDL_LockSurface(rgba);
+					bool ok = tex->uploadRGBA(static_cast<const uint8_t*>(rgba->pixels), rgba->w, rgba->h);
+					if (SDL_MUSTLOCK(rgba)) SDL_UnlockSurface(rgba);
+					SDL_FreeSurface(rgba);
+					if (!ok)
+						Log(LOG_WARNING) << "tileAtlas[" << capturedName << "] hybrid: overlay GPU upload failed";
+				};
+				tex->setReloadCb(doOverlayUpload);
+				doOverlayUpload();
+				if (tex->isValid())
 				{
-					Log(LOG_WARNING) << "tileAtlas[" << name << "] hybrid: IMG_Load_RW overlay failed ("
-					                 << IMG_GetError() << ")";
-					delete baselineTex; baselineTex = nullptr;
+					// Reject hybrid pair if overlay dimensions don't match baseline —
+					// otherwise UV mapping would silently drift.  Falls through to
+					// vanilla synth.
+					if (tex->width() != capturedW || tex->height() != capturedH)
+					{
+						Log(LOG_WARNING) << "tileAtlas[" << name << "] hybrid: overlay "
+						                 << tex->width() << "x" << tex->height() << " != baseline "
+						                 << capturedW << "x" << capturedH
+						                 << " — rejecting hybrid pair";
+						delete tex;
+						delete baselineTex; baselineTex = nullptr;
+					}
+					else
+					{
+						overlayTex = tex;
+						Log(LOG_INFO) << "tileAtlas[" << name << "] hybrid: overlay RGBA "
+						              << tex->width() << "x" << tex->height();
+					}
 				}
 				else
 				{
-					SDL_Surface* rgba = SDL_ConvertSurfaceFormat(raw, SDL_PIXELFORMAT_ABGR8888, 0);
-					SDL_FreeSurface(raw);
-					if (rgba)
-					{
-						const int w = rgba->w, h = rgba->h;
-						if (SDL_MUSTLOCK(rgba)) SDL_LockSurface(rgba);
-						GpuTexture* tex = new GpuTexture(/*srgb=*/false,
-						                                 GpuTexture::Wrap::ClampToEdge,
-						                                 GpuTexture::Filter::Linear);  // LINEAR: smooths the anti-aliased diamond alpha edge + HD texture on downscale
-						bool ok = tex->uploadRGBA(
-						              static_cast<const uint8_t*>(rgba->pixels), w, h);
-						if (SDL_MUSTLOCK(rgba)) SDL_UnlockSurface(rgba);
-						SDL_FreeSurface(rgba);
-						if (ok)
-						{
-							// Reject hybrid pair if overlay dimensions don't match baseline —
-							// otherwise UV mapping would silently drift.  Falls through to
-							// vanilla synth.
-							if (w != spec.width || h != spec.height)
-							{
-								Log(LOG_WARNING) << "tileAtlas[" << name << "] hybrid: overlay "
-								                 << w << "x" << h << " != baseline "
-								                 << spec.width << "x" << spec.height
-								                 << " — rejecting hybrid pair";
-								delete tex;
-								delete baselineTex; baselineTex = nullptr;
-							}
-							else
-							{
-								overlayTex = tex;
-								Log(LOG_INFO) << "tileAtlas[" << name << "] hybrid: overlay RGBA "
-								              << w << "x" << h;
-							}
-						}
-						else
-						{
-							delete tex;
-							Log(LOG_WARNING) << "tileAtlas[" << name << "] hybrid: overlay GPU upload failed";
-							delete baselineTex; baselineTex = nullptr;
-						}
-					}
+					delete tex;
+					Log(LOG_WARNING) << "tileAtlas[" << name << "] hybrid: overlay GPU upload failed";
+					delete baselineTex; baselineTex = nullptr;
 				}
 			}
 		}
@@ -1434,20 +1577,53 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 					if (specIt->second.format == TileAtlasSpec::Format::Rgba)
 					{
 						// RGBA path: upload verbatim, no palette reverse-mapping.
-						if (SDL_MUSTLOCK(rgba)) SDL_LockSurface(rgba);
+						// L4b: free the already-decoded surface; lambda re-decodes on
+						// initial upload and on context-loss reload.
+						SDL_FreeSurface(rgba);
+						const std::string capturedFilePath2 = std::string(filePath);
+						const std::string capturedName2     = name;
 						GpuTexture* tex = new GpuTexture(/*srgb=*/false,
 						                                 GpuTexture::Wrap::ClampToEdge,
 						                                 GpuTexture::Filter::Linear);  // LINEAR: smooths the anti-aliased diamond alpha edge + HD texture on downscale
-						loaded = tex->uploadRGBA(static_cast<const uint8_t*>(rgba->pixels), w, h);
-						if (SDL_MUSTLOCK(rgba)) SDL_UnlockSurface(rgba);
-						SDL_FreeSurface(rgba);
+						tex->setSkipCache(true);
+						auto doRgbaUpload = [this, tex, capturedFilePath2, capturedName2]() {
+							if (!FileMap::fileExists(capturedFilePath2))
+							{
+								Log(LOG_WARNING) << "tileAtlas[" << capturedName2
+								                 << "]: not found on reload: " << capturedFilePath2;
+								return;
+							}
+							const FileMap::FileRecord* rec2 = FileMap::at(capturedFilePath2);
+							SDL_RWops* rw2 = rec2->getRWops();
+							SDL_Surface* raw2 = IMG_Load_RW(rw2, SDL_TRUE);
+							if (!raw2)
+							{
+								Log(LOG_WARNING) << "tileAtlas[" << capturedName2
+								                 << "]: IMG_Load_RW failed (" << IMG_GetError() << ")";
+								return;
+							}
+							SDL_Surface* rgba2 = SDL_ConvertSurfaceFormat(raw2, SDL_PIXELFORMAT_ABGR8888, 0);
+							SDL_FreeSurface(raw2);
+							if (!rgba2) return;
+							if (SDL_MUSTLOCK(rgba2)) SDL_LockSurface(rgba2);
+							bool ok = tex->uploadRGBA(
+							    static_cast<const uint8_t*>(rgba2->pixels), rgba2->w, rgba2->h);
+							if (SDL_MUSTLOCK(rgba2)) SDL_UnlockSurface(rgba2);
+							SDL_FreeSurface(rgba2);
+							if (!ok)
+								Log(LOG_WARNING) << "tileAtlas[" << capturedName2
+								                 << "]: RGBA GPU upload failed";
+						};
+						tex->setReloadCb(doRgbaUpload);
+						doRgbaUpload();
+						loaded = tex->isValid();
 						if (loaded)
 						{
 							_tileAtlases[name] = tex;
-							specIt->second.width  = w;
-							specIt->second.height = h;
+							specIt->second.width  = tex->width();
+							specIt->second.height = tex->height();
 							Log(LOG_INFO) << "tileAtlas[" << name << "]: loaded RGBA atlas "
-							              << w << "x" << h << " (GL_NEAREST filter)";
+							              << tex->width() << "x" << tex->height() << " (GL_NEAREST filter)";
 						}
 						else
 						{
@@ -1517,8 +1693,21 @@ void Mod::ensureVanillaAtlas(MapDataSet* mds, const SDL_Color* palette, int ncol
 							                 << "atlas art should use only TFTD palette colours";
 						}
 
+						/* L4b: skip _cachedData; re-upload R8 palette buffer on context loss.
+						 * r8 is moved into the lambda — no re-quantisation needed on reload. */
+						const std::string capturedName3 = name;
 						GpuTexture* tex = new GpuTexture(/*srgb=*/false, GpuTexture::Wrap::ClampToEdge, GpuTexture::Filter::Nearest) /* R8 palette: NEAREST only, else index interpolation = rainbow seams */;
-						if (!tex->uploadR8(r8.data(), w, h))
+						tex->setSkipCache(true);
+						auto doR8Upload = [tex, capturedName3,
+						                   capturedW = w, capturedH = h,
+						                   capturedR8 = std::move(r8)]() {
+							if (!tex->uploadR8(capturedR8.data(), capturedW, capturedH))
+								Log(LOG_WARNING) << "tileAtlas[" << capturedName3
+								                 << "]: R8 GPU upload failed";
+						};
+						tex->setReloadCb(doR8Upload);
+						doR8Upload();
+						if (!tex->isValid())
 						{
 							Log(LOG_WARNING) << "tileAtlas[" << name
 							                 << "]: GPU upload failed — falling back to vanilla atlas";
@@ -1627,6 +1816,57 @@ void Mod::clearTileAtlases()
 		for (GpuTexture* lt : pair.second.subLayerAtlases) delete lt;
 		pair.second.subLayerAtlases.clear();
 	}
+}
+
+void Mod::evictTileAtlasGL()
+{
+	if (_tileAtlasGpuEvicted) return;
+	// Deduplicate: collect every non-null GpuTexture* before calling evictGL()
+	// so a pointer aliased across _tileAtlases and _tileAtlasSpecs is only evicted once.
+	std::set<GpuTexture*> seen;
+	int n = 0;
+	auto evictOne = [&](GpuTexture* t) {
+		if (t && seen.insert(t).second) { t->evictGL(); ++n; }
+	};
+	for (auto& pair : _tileAtlases)
+		evictOne(pair.second);
+	for (auto& pair : _tileAtlasSpecs)
+	{
+		auto& s = pair.second;
+		evictOne(s.overlayAtlas);
+		evictOne(s.normalAtlas);
+		evictOne(s.emissiveAtlas);
+		for (GpuTexture* lt : s.subLayerAtlases) evictOne(lt);
+	}
+	// Unit atlases are battle-only; free them on geoscape too.
+	for (auto& pair : _unitAtlases)
+		evictOne(pair.second.atlas);
+	_tileAtlasGpuEvicted = true;
+	Log(LOG_INFO) << "[L5] evictTileAtlasGL: released " << n << " atlas GL handle(s)";
+}
+
+void Mod::restoreTileAtlasGL()
+{
+	if (!_tileAtlasGpuEvicted) return;
+	std::set<GpuTexture*> seen;
+	int n = 0;
+	auto restoreOne = [&](GpuTexture* t) {
+		if (t && seen.insert(t).second) { t->reupload(); ++n; }
+	};
+	for (auto& pair : _tileAtlases)
+		restoreOne(pair.second);
+	for (auto& pair : _tileAtlasSpecs)
+	{
+		auto& s = pair.second;
+		restoreOne(s.overlayAtlas);
+		restoreOne(s.normalAtlas);
+		restoreOne(s.emissiveAtlas);
+		for (GpuTexture* lt : s.subLayerAtlases) restoreOne(lt);
+	}
+	for (auto& pair : _unitAtlases)
+		restoreOne(pair.second.atlas);
+	_tileAtlasGpuEvicted = false;
+	Log(LOG_INFO) << "[L5] restoreTileAtlasGL: reuploaded " << n << " atlas GL handle(s)";
 }
 
 void Mod::ensureUnitAtlas(SurfaceSet* ss, const std::string& name,
@@ -2929,6 +3169,9 @@ void Mod::loadAll()
 	const auto& mods = FileMap::getRulesets();
 
 	Log(LOG_INFO) << "Loading begins...";
+#ifdef __EMSCRIPTEN__
+	calypso_log_heap("engine-start");  // M5: baseline before any resource loading
+#endif
 	if (Options::oxceModValidationLevel < LOG_ERROR)
 	{
 		Log(LOG_ERROR) << "Validation of mod data disabled, game can crash when run";
@@ -3011,6 +3254,9 @@ void Mod::loadAll()
 		}
 	}
 	Log(LOG_INFO) << "Loading rulesets done.";
+#ifdef __EMSCRIPTEN__
+	calypso_log_heap("rulesets");  // M5: after YAML ruleset parse + globeTextures uploads
+#endif
 
 	//back master
 	_modCurrent = &_modData.at(0);
@@ -3055,7 +3301,9 @@ void Mod::loadAll()
 	}
 
 	loadExtraResources();
-
+#ifdef __EMSCRIPTEN__
+	calypso_log_heap("extra-resources");  // M5: after fonts, music, HD sprites, TTF fonts
+#endif
 
 	Log(LOG_INFO) << "After load.";
 	// cross link rule objects
@@ -4192,6 +4440,7 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 		}
 	}
 #ifdef __EMSCRIPTEN__
+	int _globeTexUploaded = 0;  // M5b: count uploads to suppress the mark on ruleset files with no globeTextures
 	for (const auto& ruleReader : iterateRulesSpecific("globeTextures"))
 	{
 		if (!GpuInit::ready()) continue;
@@ -4231,44 +4480,55 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 		                    relPath.compare(relPath.size() - 5, 5, ".webp") == 0;
 		if (isWebP)
 		{
-			SDL_RWops* rw = rec->getRWops();
-			Sint64 fileSize = SDL_RWsize(rw);
-			if (fileSize <= 0)
-			{
-				Log(LOG_WARNING) << "globeTextures[" << id << "]: RWsize failed";
-				SDL_RWclose(rw);
-				continue;
-			}
-			std::vector<uint8_t> buf(static_cast<size_t>(fileSize));
-			if (SDL_RWread(rw, buf.data(), 1, buf.size()) != buf.size())
-			{
-				Log(LOG_WARNING) << "globeTextures[" << id << "]: RWread failed";
-				SDL_RWclose(rw);
-				continue;
-			}
-			SDL_RWclose(rw);
-
-			int w = 0, h = 0;
-			uint8_t* pixels = WebPDecodeRGBA(buf.data(), buf.size(), &w, &h);
-			if (!pixels)
-			{
-				Log(LOG_WARNING) << "globeTextures[" << id << "]: WebPDecodeRGBA failed";
-				continue;
-			}
-
-			delete _globeTextures[id];
+			/* L3: skip _cachedData; re-decode from MEMFS on context loss. */
 			GpuTexture* tex = new GpuTexture(/*srgb=*/true, wrap);
-			if (!tex->uploadRGBA(pixels, w, h, 0))
+			tex->setSkipCache(true);
+			auto doUpload = [this, tex, relPath, id]() {
+				if (!FileMap::fileExists(relPath))
+				{
+					Log(LOG_WARNING) << "globeTextures[" << id << "]: file not found on reload: " << relPath;
+					return;
+				}
+				const FileMap::FileRecord* rec2 = FileMap::at(relPath);
+				SDL_RWops* rw = rec2->getRWops();
+				Sint64 fileSize = SDL_RWsize(rw);
+				if (fileSize <= 0)
+				{
+					Log(LOG_WARNING) << "globeTextures[" << id << "]: RWsize failed";
+					SDL_RWclose(rw);
+					return;
+				}
+				std::vector<uint8_t> buf(static_cast<size_t>(fileSize));
+				if (SDL_RWread(rw, buf.data(), 1, buf.size()) != buf.size())
+				{
+					Log(LOG_WARNING) << "globeTextures[" << id << "]: RWread failed";
+					SDL_RWclose(rw);
+					return;
+				}
+				SDL_RWclose(rw);
+				int w = 0, h = 0;
+				uint8_t* pixels = WebPDecodeRGBA(buf.data(), buf.size(), &w, &h);
+				if (!pixels)
+				{
+					Log(LOG_WARNING) << "globeTextures[" << id << "]: WebPDecodeRGBA failed";
+					return;
+				}
+				if (!tex->uploadRGBA(pixels, w, h, 0))
+					Log(LOG_WARNING) << "globeTextures[" << id << "]: GpuTexture upload failed";
+				else
+					Log(LOG_INFO) << "globeTextures[" << id << "]: " << w << "x" << h << " uploaded (WebP RGBA)";
+				WebPFree(pixels);
+			};
+			tex->setReloadCb(doUpload);
+			doUpload();
+			if (tex->isValid())
 			{
-				Log(LOG_WARNING) << "globeTextures[" << id << "]: GpuTexture upload failed";
-				delete tex;
+				delete _globeTextures[id]; // free any previous only after the new one succeeds
+				_globeTextures[id] = tex;
+				++_globeTexUploaded;  // M5b
 			}
 			else
-			{
-				_globeTextures[id] = tex;
-				Log(LOG_INFO) << "globeTextures[" << id << "]: " << w << "x" << h << " uploaded (WebP RGBA)";
-			}
-			WebPFree(pixels);
+				delete tex; // keep any previous texture intact on failure
 			continue;
 		}
 
@@ -4276,35 +4536,46 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 		// SDL_PIXELFORMAT_ABGR8888 on little-endian (WASM) gives memory layout
 		// [R, G, B, A], which is what GL_RGBA + GL_UNSIGNED_BYTE expects.
 		// (SDL_PIXELFORMAT_RGBA8888 would give [A, B, G, R] — wrong.)
-		SDL_RWops* rw = rec->getRWops();
-		SDL_Surface* raw = IMG_Load_RW(rw, SDL_TRUE); // SDL_TRUE = auto-close rw
-		if (!raw)
-		{
-			Log(LOG_WARNING) << "globeTextures[" << id << "]: IMG_Load_RW failed: " << IMG_GetError();
-			continue;
-		}
-
-		SDL_Surface* rgba = SDL_ConvertSurfaceFormat(raw, SDL_PIXELFORMAT_ABGR8888, 0);
-		SDL_FreeSurface(raw);
-		if (!rgba)
-		{
-			Log(LOG_WARNING) << "globeTextures[" << id << "]: ConvertSurface failed";
-			continue;
-		}
-
-		delete _globeTextures[id]; // overwrite if re-loaded
+		/* L3: skip _cachedData; re-decode from MEMFS on context loss. */
 		GpuTexture* tex = new GpuTexture(/*srgb=*/true, wrap);
-		if (!tex->uploadRGBA(static_cast<const uint8_t*>(rgba->pixels), rgba->w, rgba->h, 0))
+		tex->setSkipCache(true);
+		auto doUpload = [this, tex, relPath, id]() {
+			if (!FileMap::fileExists(relPath))
+			{
+				Log(LOG_WARNING) << "globeTextures[" << id << "]: file not found on reload: " << relPath;
+				return;
+			}
+			const FileMap::FileRecord* rec2 = FileMap::at(relPath);
+			SDL_RWops* rw = rec2->getRWops();
+			SDL_Surface* raw = IMG_Load_RW(rw, SDL_TRUE); // SDL_TRUE = auto-close rw
+			if (!raw)
+			{
+				Log(LOG_WARNING) << "globeTextures[" << id << "]: IMG_Load_RW failed: " << IMG_GetError();
+				return;
+			}
+			SDL_Surface* rgba = SDL_ConvertSurfaceFormat(raw, SDL_PIXELFORMAT_ABGR8888, 0);
+			SDL_FreeSurface(raw);
+			if (!rgba)
+			{
+				Log(LOG_WARNING) << "globeTextures[" << id << "]: ConvertSurface failed";
+				return;
+			}
+			if (!tex->uploadRGBA(static_cast<const uint8_t*>(rgba->pixels), rgba->w, rgba->h, 0))
+				Log(LOG_WARNING) << "globeTextures[" << id << "]: GpuTexture upload failed";
+			else
+				Log(LOG_INFO) << "globeTextures[" << id << "]: " << rgba->w << "x" << rgba->h << " uploaded";
+			SDL_FreeSurface(rgba);
+		};
+		tex->setReloadCb(doUpload);
+		doUpload();
+		if (tex->isValid())
 		{
-			Log(LOG_WARNING) << "globeTextures[" << id << "]: GpuTexture upload failed";
-			delete tex;
+			delete _globeTextures[id]; // free any previous only after the new one succeeds
+			_globeTextures[id] = tex;
+			++_globeTexUploaded;  // M5b
 		}
 		else
-		{
-			_globeTextures[id] = tex;
-			Log(LOG_INFO) << "globeTextures[" << id << "]: " << rgba->w << "x" << rgba->h << " uploaded";
-		}
-		SDL_FreeSurface(rgba);
+			delete tex; // keep any previous texture intact on failure
 	}
 	{
 		const char* required[] = {"bathymetry", "diffuse", "night", "clouds"};
@@ -4317,6 +4588,8 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 			clearGlobeTextures();
 		}
 	}
+	if (_globeTexUploaded > 0)
+		calypso_log_heap("globe-textures");  // M5: after GPU upload; only fires when ≥1 texture uploaded this file
 	for (const auto& ruleReader : iterateRulesSpecific("tileAtlas"))
 	{
 		std::string dataset;
@@ -4605,6 +4878,12 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 		_extraSounds.push_back(std::make_pair(type, extraSounds));
 	}
 	// Phase 16: TrueType fonts for HD text rendering.
+#ifdef __EMSCRIPTEN__
+	// L12: loadFile() runs for every ruleset file — log the pre/post heap marks
+	// only when this file actually registered TTF fonts (same anti-spam guard as
+	// the globe-textures mark).
+	int _ttfRegistered = 0;
+#endif
 	for (const auto& ruleReader : iterateRulesSpecific("extraTTFFonts"))
 	{
 		std::string id, file;
@@ -4624,7 +4903,14 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 		TTFFont* ttf = new TTFFont(file, size);
 		_ttfFonts[id] = ttf;
 		Log(LOG_INFO) << "Loaded TTFFont \"" << id << "\" from \"" << file << "\" size=" << size;
+#ifdef __EMSCRIPTEN__
+		++_ttfRegistered;
+#endif
 	}
+#ifdef __EMSCRIPTEN__
+	if (_ttfRegistered > 0)
+		calypso_log_heap("extra/fonts-ttf-post"); // L12: after extraTTFFonts; lazy=near-zero, eager=FreeType cost
+#endif
 	for (const auto& ruleReader : iterateRulesSpecific("extraStrings"))
 	{
 		std::string type = ruleReader["type"].readVal<std::string>();
@@ -6861,6 +7147,9 @@ void Mod::loadVanillaResources()
 		}
 		//_palettes[s2]->savePalMod("../../../customPalettes.rul", "PAL_BATTLESCAPE_CUSTOM", "PAL_BATTLESCAPE");
 	}
+#ifdef __EMSCRIPTEN__
+	calypso_log_heap("palettes");  // M5: after GEODATA/PALETTES.DAT + BACKPALS.DAT loaded
+#endif
 
 	// Load surfaces. After ARGB migration each loadScr/loadBdy/loadSpk needs a
 	// setPalette() to promote the 8bpp scratch buffer into ARGB while capturing
@@ -6869,6 +7158,35 @@ void Mod::loadVanillaResources()
 	// — Window backgrounds (BACK*.SCR for menus / pedia / dogfight windows)
 	// rendered as white-on-clear instead of their actual graphics.
 	Palette *geoPal = getPalette("PAL_GEOSCAPE", false);
+#ifdef __EMSCRIPTEN__
+	// L10: defer all geo/flat decodes; register for on-demand materialisation via
+	// getSurface() → materializeGeoSurface().  PAL_GEOSCAPE is applied at decode
+	// time (always available since palettes are loaded eagerly above).
+	// MEMFS files are never unlinked, so the VFS paths remain valid indefinitely.
+	_lazyGeoSurfaces["INTERWIN.DAT"] = {"GEODATA/INTERWIN.DAT", LazyGeoFormat::Scr, 160, 600};
+	{
+		const auto& geographFiles = FileMap::getVFolderContents("GEOGRAPH");
+		for (const auto& name : FileMap::filterFiles(geographFiles, "SCR"))
+		{
+			std::string fname = name;
+			std::transform(name.begin(), name.end(), fname.begin(), toupper);
+			_lazyGeoSurfaces[fname] = {"GEOGRAPH/" + fname, LazyGeoFormat::Scr, 320, 200};
+		}
+		for (const auto& name : FileMap::filterFiles(geographFiles, "BDY"))
+		{
+			std::string fname = name;
+			std::transform(name.begin(), name.end(), fname.begin(), toupper);
+			_lazyGeoSurfaces[fname] = {"GEOGRAPH/" + fname, LazyGeoFormat::Bdy, 320, 200};
+		}
+		for (const auto& name : FileMap::filterFiles(geographFiles, "SPK"))
+		{
+			std::string fname = name;
+			std::transform(name.begin(), name.end(), fname.begin(), toupper);
+			_lazyGeoSurfaces[fname] = {"GEOGRAPH/" + fname, LazyGeoFormat::Spk, 320, 200};
+		}
+	}
+	calypso_log_heap("geo/flat-surfaces");  // M5b: ≈0 delta now (L10: all surfaces deferred)
+#else
 	{
 		std::string s1 = "GEODATA/INTERWIN.DAT";
 		std::string s2 = "INTERWIN.DAT";
@@ -6906,6 +7224,7 @@ void Mod::loadVanillaResources()
 		_surfaces[fname]->loadSpk("GEOGRAPH/" + fname);
 		if (geoPal) _surfaces[fname]->setPalette(geoPal->getColors(), 0, 256);
 	}
+#endif /* __EMSCRIPTEN__ */
 
 	// Load surface sets.  After ARGB migration each loadPck/loadDat needs a
 	// setPalette() so the 8bpp scratch frames promote to 32bpp ARGB and capture
@@ -6955,6 +7274,10 @@ void Mod::loadVanillaResources()
 		_sets[s2] = new SurfaceSet(4, 4);
 		_sets[s2]->loadDat(s1);
 	}
+#ifdef __EMSCRIPTEN__
+	calypso_log_heap("geo/pck-sets");       // M5b: BASEBITS.PCK/INTICON.PCK/TEXTURE.DAT/SCANG.DAT decoded
+	calypso_log_heap("geoscape-surfaces");  // M5: after GEOGRAPH SCR/BDY/SPK + PCK/DAT sets
+#endif
 
 	// construct sound sets
 	_sounds["GEO.CAT"] = new SoundSet();
@@ -7053,8 +7376,16 @@ void Mod::loadVanillaResources()
 		}
 	}
 
-	loadBattlescapeResources(); // TODO load this at battlescape start, unload at battlescape end?
-
+	// Initial load at startup.  On WASM, BattlescapeState ctor/dtor call
+	// ensureBattlescapeResources()/unloadBattlescapeResources() for subsequent
+	// battle entries so the heap is freed between battles (L7 lazy-load).
+#ifdef __EMSCRIPTEN__
+	calypso_log_heap("sounds");  // M5: after GEO.CAT / BATTLE.CAT / INTRO.CAT loaded
+#endif
+	loadBattlescapeResources();
+#ifdef __EMSCRIPTEN__
+	calypso_log_heap("battlescape-resources");  // M5: after the ~55 MB battle SurfaceSets
+#endif
 
 	//update number of shared indexes in surface sets and sound sets
 	{
@@ -7136,29 +7467,62 @@ void Mod::loadVanillaResources()
  */
 void Mod::loadBattlescapeResources()
 {
+#ifdef __EMSCRIPTEN__
+	// Idempotent guard: BattlescapeState ctor calls this on every battle entry.
+	// On the first call _battlescapeResourcesLoaded is false (startup path from
+	// loadVanillaResources).  On subsequent entries it is reset to false by
+	// unloadBattlescapeResources() so the reload runs correctly.
+	if (_battlescapeResourcesLoaded)
+		return;
+	// Helper: record a set key as battle-only so unloadBattlescapeResources()
+	// knows what to free.  BIGOBS.PCK and SMOKE.PCK are excluded — they are
+	// used by InventoryState (geoscape-reachable, see keep-list comment below).
+	auto trackBattleOnly = [&](const std::string &key) {
+		_battlescapeOnlySets.push_back(key);
+	};
+#else
+	// On native builds the lambda is a no-op so the compiler can inline it away.
+	auto trackBattleOnly = [](const std::string &) {};
+#endif
+
 	// Load Battlescape ICONS
 	_sets["SPICONS.DAT"] = new SurfaceSet(32, 24);
 	_sets["SPICONS.DAT"]->loadDat("UFOGRAPH/SPICONS.DAT");
+	trackBattleOnly("SPICONS.DAT");
 	_sets["CURSOR.PCK"] = new SurfaceSet(32, 40);
 	_sets["CURSOR.PCK"]->loadPck("UFOGRAPH/CURSOR.PCK", "UFOGRAPH/CURSOR.TAB");
+	trackBattleOnly("CURSOR.PCK");
+	// KEEP: SMOKE.PCK — InventoryState (SoldiersState→equip / CraftEquipmentState)
+	// draws rank sprites from this set (InventoryState.cpp:625).
 	_sets["SMOKE.PCK"] = new SurfaceSet(32, 40);
 	_sets["SMOKE.PCK"]->loadPck("UFOGRAPH/SMOKE.PCK", "UFOGRAPH/SMOKE.TAB");
 	_sets["HIT.PCK"] = new SurfaceSet(32, 40);
 	_sets["HIT.PCK"]->loadPck("UFOGRAPH/HIT.PCK", "UFOGRAPH/HIT.TAB");
+	trackBattleOnly("HIT.PCK");
 	_sets["X1.PCK"] = new SurfaceSet(128, 64);
 	_sets["X1.PCK"]->loadPck("UFOGRAPH/X1.PCK", "UFOGRAPH/X1.TAB");
+	trackBattleOnly("X1.PCK");
 	_sets["MEDIBITS.DAT"] = new SurfaceSet(52, 58);
 	_sets["MEDIBITS.DAT"]->loadDat("UFOGRAPH/MEDIBITS.DAT");
+	trackBattleOnly("MEDIBITS.DAT");
 	_sets["DETBLOB.DAT"] = new SurfaceSet(16, 16);
 	_sets["DETBLOB.DAT"]->loadDat("UFOGRAPH/DETBLOB.DAT");
+	trackBattleOnly("DETBLOB.DAT");
 	_sets["Projectiles"] = new SurfaceSet(3, 3);
+	trackBattleOnly("Projectiles");
 	_sets["UnderwaterProjectiles"] = new SurfaceSet(3, 3);
+	trackBattleOnly("UnderwaterProjectiles");
 
 	// Load Battlescape Terrain (only blanks are loaded, others are loaded just in time)
 	_sets["BLANKS.PCK"] = new SurfaceSet(32, 40);
 	_sets["BLANKS.PCK"]->loadPck("TERRAIN/BLANKS.PCK", "TERRAIN/BLANKS.TAB");
+	trackBattleOnly("BLANKS.PCK");
 
-	// Load Battlescape units
+	// Load Battlescape units.
+	// KEEP: BIGOBS.PCK — ArticleStateItem (Ufopaedia, geoscape-reachable) draws
+	// item hand-sprites from it (ArticleStateItem.cpp:185/408); InventoryState
+	// (SoldiersState / CraftEquipmentState) also uses it (Inventory.cpp:323/495,
+	// InventoryState.cpp:2377).  All other UNITS PCKs are battle-only.
 	const auto& unitsContents = FileMap::getVFolderContents("UNITS");
 	auto usets = FileMap::filterFiles(unitsContents, "PCK");
 	for (const auto& name : usets)
@@ -7170,6 +7534,9 @@ void Mod::loadBattlescapeResources()
 		else
 			_sets[fname] = new SurfaceSet(32, 48);
 		_sets[fname]->loadPck("UNITS/" + name, "UNITS/" + CrossPlatform::noExt(name) + ".TAB");
+		// All unit PCKs except BIGOBS.PCK are battle-only.
+		if (fname != "BIGOBS.PCK")
+			trackBattleOnly(fname);
 	}
 	// incomplete chryssalid set: 1.0 data: stop loading.
 	if (_sets.find("CHRYS.PCK") != _sets.end() && !_sets["CHRYS.PCK"]->getFrame(225))
@@ -7178,15 +7545,36 @@ void Mod::loadBattlescapeResources()
 		throw Exception("Invalid CHRYS.PCK, please patch your X-COM data to the latest version");
 	}
 	// TFTD uses the loftemps dat from the terrain folder, but still has enemy unknown's version in the geodata folder, which is short by 2 entries.
-	const auto& terrainContents = FileMap::getVFolderContents("TERRAIN");
-	if (terrainContents.find("loftemps.dat") != terrainContents.end())
+	// L7 reload guard: loadLOFTEMPS appends with push_back, so skip on reload to
+	// avoid doubling the voxel data.  _voxelData is populated exactly once.
+	if (_voxelData.empty())
 	{
-		MapDataSet::loadLOFTEMPS("TERRAIN/LOFTEMPS.DAT", &_voxelData);
+		const auto& terrainContents = FileMap::getVFolderContents("TERRAIN");
+		if (terrainContents.find("loftemps.dat") != terrainContents.end())
+		{
+			MapDataSet::loadLOFTEMPS("TERRAIN/LOFTEMPS.DAT", &_voxelData);
+		}
+		else
+		{
+			MapDataSet::loadLOFTEMPS("GEODATA/LOFTEMPS.DAT", &_voxelData);
+		}
 	}
-	else
+#ifdef __EMSCRIPTEN__
+	calypso_log_heap("bs/sets");        // M5b: battle icon sets + BLANKS.PCK + UNITS/*.PCK + LOFTEMPS
+#endif
+
+	// L7 reload guard: _surfaces and _palettes are not freed by
+	// unloadBattlescapeResources(), so they are still valid on reload.
+	// Re-creating them would leak the old objects and corrupt PAL_BATTLESCAPE.
+	// battleHairBleach below runs unconditionally (it operates on the freshly
+	// decoded _sets, which are empty until this reload).
+#ifdef __EMSCRIPTEN__
+	const bool _shouldCreateSurfaces = (_surfaces.find("TAC00.SCR") == _surfaces.end());
+#else
+	const bool _shouldCreateSurfaces = true;
+#endif
+	if (_shouldCreateSurfaces)
 	{
-		MapDataSet::loadLOFTEMPS("GEODATA/LOFTEMPS.DAT", &_voxelData);
-	}
 
 	std::string scrs[] = { "TAC00.SCR" };
 
@@ -7322,6 +7710,11 @@ void Mod::loadBattlescapeResources()
 		}
 	}
 
+	} // end if (_shouldCreateSurfaces)
+#ifdef __EMSCRIPTEN__
+	calypso_log_heap("bs/surfaces");    // M5b: TAC00/TAC01 + battle SPK/BDY/LBM surfaces decoded
+#endif
+
 	//"fix" of color index in original solders sprites
 	if (Options::battleHairBleach)
 	{
@@ -7454,7 +7847,74 @@ void Mod::loadBattlescapeResources()
 			}
 		}
 	}
+
+#ifdef __EMSCRIPTEN__
+	// Re-apply shared-frame counts so reloaded sets work identically to their
+	// initial-load counterparts.  loadVanillaResources() also does this for the
+	// startup path; calling it here too (idempotent) handles the reload path.
+	//
+	// Sets that stay resident (BIGOBS.PCK, SMOKE.PCK) are included because they
+	// still need the counts set correctly on the very first load when the function
+	// is reached from loadVanillaResources() BEFORE the outer setMaxSharedFrames
+	// block runs.  The outer block calling them again is harmless.
+	{
+		const char *countNames[] = {
+			"BIGOBS.PCK", "FLOOROB.PCK", "HANDOB.PCK", "SMOKE.PCK", "HIT.PCK"
+		};
+		for (const auto *n : countNames)
+		{
+			SurfaceSet *s = _sets[n];
+			if (s) s->setMaxSharedFrames((int)s->getTotalFrames());
+		}
+		if (SurfaceSet *s = _sets["Projectiles"])          s->setMaxSharedFrames(385);
+		if (SurfaceSet *s = _sets["UnderwaterProjectiles"]) s->setMaxSharedFrames(385);
+		// X1.PCK must share SMOKE.PCK's offset (hitAnimation item offset hack).
+		if (SurfaceSet *smoke = _sets["SMOKE.PCK"])
+			if (SurfaceSet *x1 = _sets["X1.PCK"])
+				x1->setMaxSharedFrames(smoke->getMaxSharedFrames());
+	}
+
+	size_t keepCount = 2u; // BIGOBS.PCK + SMOKE.PCK always stay resident
+	Log(LOG_INFO) << "[mem-L7] loadBattlescapeResources: registered "
+	              << _battlescapeOnlySets.size() << " battle-only sets ("
+	              << keepCount << " KEEP sets remain resident)";
+	_battlescapeResourcesLoaded = true;
+#endif
 }
+
+/**
+ * Releases all battle-only SurfaceSets so the WASM heap is not occupied during
+ * geoscape play.  The sets tracked in _battlescapeOnlySets are deleted; the
+ * KEEP sets (BIGOBS.PCK, SMOKE.PCK) and all _surfaces entries are left intact.
+ *
+ * After this call loadBattlescapeResources() (via ensureBattlescapeResources())
+ * will re-decode the sets from MEMFS on the next battle entry.
+ *
+ * No-op on native builds (compile-time guard).
+ */
+#ifdef __EMSCRIPTEN__
+void Mod::unloadBattlescapeResources()
+{
+	if (!_battlescapeResourcesLoaded)
+		return;
+
+	size_t count = _battlescapeOnlySets.size();
+	for (const auto &key : _battlescapeOnlySets)
+	{
+		auto it = _sets.find(key);
+		if (it != _sets.end())
+		{
+			delete it->second;
+			_sets.erase(it);
+		}
+	}
+	_battlescapeOnlySets.clear();
+	_battlescapeResourcesLoaded = false;
+
+	Log(LOG_INFO) << "[mem-L7] unloadBattlescapeResources: freed " << count
+	              << " battle-only SurfaceSets";
+}
+#endif
 
 /**
  * Loads the extra resources defined in rulesets.
@@ -7462,6 +7922,9 @@ void Mod::loadBattlescapeResources()
 void Mod::loadExtraResources()
 {
 	// Load fonts
+#ifdef __EMSCRIPTEN__
+	calypso_log_heap("extra/fonts-bmp-pre");  // L12: heap before YAML parse + bitmap fonts
+#endif
 	YAML::YamlRootNodeReader reader = FileMap::getYAML("Language/" + _fontName);
 	Log(LOG_INFO) << "Loading fonts... " << _fontName;
 	for (const auto& fontReader : reader["fonts"].children())
@@ -7471,6 +7934,9 @@ void Mod::loadExtraResources()
 		font->load(fontReader);
 		_fonts[id] = font;
 	}
+#ifdef __EMSCRIPTEN__
+	calypso_log_heap("extra/fonts");    // M5b: bitmap font atlas surfaces decoded from Language/*.yml
+#endif
 
 #ifndef __NO_MUSIC
 	// Load musics
@@ -7519,6 +7985,12 @@ void Mod::loadExtraResources()
 		delete aintrocat;
 	}
 #endif
+#ifdef __EMSCRIPTEN__
+	// OGG files: em_file_to_rwops reads the entire file into a malloc buffer;
+	// Mix_LoadMUS_RW holds a pointer to that buffer and decodes lazily at playback.
+	// Memory cost = compressed OGG size (not decoded PCM) per track, resident until shutdown.
+	calypso_log_heap("extra/music");    // M5b: OGG/MIDI music opened; raw bytes pinned in Music::_rwops
+#endif
 
 	Log(LOG_INFO) << "Lazy loading: " << Options::lazyLoadResources;
 	if (!Options::lazyLoadResources)
@@ -7532,6 +8004,9 @@ void Mod::loadExtraResources()
 			}
 		}
 	}
+#ifdef __EMSCRIPTEN__
+	calypso_log_heap("extra/sprites");  // M5b: extraSprites HD PNG/PCK decoded + GPU-uploaded
+#endif
 
 	if (!Options::mute)
 	{
@@ -7549,6 +8024,9 @@ void Mod::loadExtraResources()
 			_sounds[setName] = soundPack->loadSoundSet(set);
 		}
 	}
+#ifdef __EMSCRIPTEN__
+	calypso_log_heap("extra/sounds");   // M5b: extraSounds PCM samples decoded into SoundSet buffers
+#endif
 
 	Log(LOG_INFO) << "Loading custom palettes from ruleset...";
 	for (const auto& pair : _customPalettes)

@@ -9,6 +9,8 @@
  * Instances register themselves with ShaderManager for lost-context recovery.
  */
 #include <cstdint>
+#include <functional>
+#include <string>
 #include <vector>
 
 namespace OpenXcom
@@ -38,6 +40,18 @@ public:
     /* Called by ShaderManager on SDL_RENDER_TARGETS_RESET. */
     void reupload();
 
+    /* L5: evict the GL handle without destroying CPU state or ShaderManager
+     * registration. Subsequent bind() calls reach texture name 0 (benign black).
+     * Restore with reupload(). No-op if the texture was never uploaded (_tex == 0). */
+    void evictGL();
+
+    /* L3/L4: skip storing _cachedData for large textures that carry a reload CB.
+     * Dropping any already-cached mirror keeps the skip-cache invariant structural
+     * even if a caller ever sets this after a prior cached upload. */
+    void setSkipCache(bool s) { _skipCache = s; if (s) { _cachedData.clear(); _cachedData.shrink_to_fit(); } }
+    /* L3/L4: re-decode + re-upload callback used when _cachedData is empty on context loss. */
+    void setReloadCb(std::function<void()> cb) { _reloadCb = std::move(cb); }
+
 private:
     unsigned             _tex     = 0u;
     int                  _w       = 0;
@@ -46,9 +60,11 @@ private:
     Wrap                 _wrap    = Wrap::ClampToEdge;
     Filter               _filter  = Filter::Linear;
     bool                 _isR8    = false;
-    std::vector<uint8_t> _cachedData;  // owned copy for lost-context recovery
+    std::vector<uint8_t> _cachedData;   // owned copy for lost-context recovery
     int                  _cachedW = 0;
     int                  _cachedH = 0;
+    bool                 _skipCache = false;    // L3/L4: skip _cachedData for textures with a reload CB
+    std::function<void()> _reloadCb;            // L3/L4: re-decode + re-upload on context loss
 
     void release();
 };

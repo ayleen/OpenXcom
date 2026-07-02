@@ -38,6 +38,7 @@
 #ifdef __EMSCRIPTEN__
 #include "CalypsoSplashState.h"
 #include "../Mod/Mod.h"
+extern "C" void calypso_log_heap(const char *tag);  // M5: heap attribution
 #endif
 #include <SDL_mixer.h>
 #include <SDL_thread.h>
@@ -59,9 +60,23 @@ StartState::StartState() : _anim(0)
 	Options::newDisplayHeight = Options::displayHeight;
 	Screen::updateScale(Options::geoscapeScale, Options::baseXGeoscape, Options::baseYGeoscape, false);
 	Screen::updateScale(Options::battlescapeScale, Options::baseXBattlescape, Options::baseYBattlescape, false);
+#ifdef __EMSCRIPTEN__
+	// L11: On Emscripten the loading terminal renders at 320x200 base and is
+	// scaled up by SDL_BlitScaled to fill the canvas.  Setting baseXResolution to
+	// displayWidth here would (a) reallocate Screen::_surface from 320x200 to the
+	// full physical canvas size (~33 MB at 4K) and (b) create _text at the same
+	// enormous size — together these account for ~68 MB of avoidable boot
+	// allocation.  Keep the 320x200 base that main.cpp established; GoToMainMenuState
+	// resets it to the appropriate geoscape base resolution after loading completes.
+	calypso_log_heap("pre/ss-update-scale");  // L11: after updateScale; before base-res change
+#else
 	Options::baseXResolution = Options::displayWidth;
 	Options::baseYResolution = Options::displayHeight;
+#endif
 	_game->getScreen()->resetDisplay(false, true);
+#ifdef __EMSCRIPTEN__
+	calypso_log_heap("pre/ss-reset-display"); // L11: after resetDisplay — _surface realloc if base changed
+#endif
 
 	// Create objects
 	_thread = 0;
@@ -71,13 +86,28 @@ StartState::StartState() : _anim(0)
 
 	_font = new Font();
 	_font->loadTerminal();
+#ifdef __EMSCRIPTEN__
+	calypso_log_heap("pre/ss-font");          // L11: after Font::loadTerminal (BMP decode + glyph rects)
+#endif
 	_lang = new Language();
+#ifdef __EMSCRIPTEN__
+	calypso_log_heap("pre/ss-lang");          // L11: after Language() ctor
+#endif
 
 	_text = new Text(Options::baseXResolution, Options::baseYResolution, 0, 0);
+#ifdef __EMSCRIPTEN__
+	calypso_log_heap("pre/ss-text");          // L11: after _text Surface (baseX x baseY x 4 bytes)
+#endif
 	_cursor = new Text(_font->getWidth(), _font->getHeight(), 0, 0);
 	_timer = new Timer(150);
+#ifdef __EMSCRIPTEN__
+	calypso_log_heap("pre/ss-cursor-timer");  // L11: after cursor Text + Timer (should be tiny)
+#endif
 
 	setStatePalette(Font::TerminalColors, 0, std::size(Font::TerminalColors));
+#ifdef __EMSCRIPTEN__
+	calypso_log_heap("pre/ss-palette");       // L11: after setStatePalette (shade-table init?)
+#endif
 
 	add(_text);
 	add(_cursor);
@@ -93,6 +123,9 @@ StartState::StartState() : _anim(0)
 
 	_timer->onTimer((StateHandler)&StartState::animate);
 	_timer->start();
+#ifdef __EMSCRIPTEN__
+	calypso_log_heap("pre/ss-init-text");     // L11: after add/initText/setText (processText alloc?)
+#endif
 
 	// Hide UI
 	_game->getCursor()->setVisible(false);
@@ -319,11 +352,17 @@ int StartState::load(void *game_ptr)
 	{
 		Log(LOG_INFO) << "Loading data...";
 		Options::updateMods();
+#ifdef __EMSCRIPTEN__
+		calypso_log_heap("pre/update-mods");  // M5b: after FileMap scan + mod list; before Mod ctor
+#endif
 		game->loadMods();
 		Log(LOG_INFO) << "Data loaded successfully.";
 		Log(LOG_INFO) << "Loading language...";
 		game->loadLanguages();
 		Log(LOG_INFO) << "Language loaded successfully.";
+#ifdef __EMSCRIPTEN__
+		calypso_log_heap("boot-complete");  // M5: main menu reached; all startup alloc done
+#endif
 		loading = LOADING_SUCCESSFUL;
 	}
 	catch (std::exception &e)

@@ -16,6 +16,8 @@
 #ifdef __EMSCRIPTEN__
 
 #include <emscripten.h>
+#include <emscripten/heap.h>
+#include <malloc.h>
 #include <SDL.h>
 #include <SDL_mixer.h>
 #include <cstring>
@@ -37,7 +39,54 @@
 
 using namespace OpenXcom;
 
+/* ---- M5: heap-stats primitives -----------------------------------------------
+ * mallinfo() fields are signed int — cast through unsigned to avoid negative
+ * wrap when the dlmalloc arena grows past 2 GB (ALLOW_MEMORY_GROWTH). */
+static size_t s_heapPrevUsed = 0;
+
+static size_t heapUsedBytes()
+{
+    struct mallinfo mi = mallinfo();
+    return (size_t)(unsigned int)mi.uordblks;
+}
+
 extern "C" {
+
+/* Log one [HEAP] line: total / used / free in MB (1 decimal) + delta vs the
+ * previous calypso_log_heap() call (first call's baseline is 0). */
+EMSCRIPTEN_KEEPALIVE
+void calypso_log_heap(const char *tag)
+{
+    const size_t MiB = 1048576;
+    size_t total  = (size_t)emscripten_get_heap_size();
+    size_t used   = heapUsedBytes();
+    size_t free_  = total > used ? total - used : 0;
+    long long delta  = (long long)used - (long long)s_heapPrevUsed;
+    s_heapPrevUsed   = used;
+    size_t adelta = (size_t)(delta >= 0 ? delta : -delta);
+    char   sign   = delta >= 0 ? '+' : '-';
+    auto   mb     = [MiB](size_t b) { return (long long)(b / MiB); };
+    auto   mb1    = [MiB](size_t b) { return (long long)((b % MiB) * 10 / MiB); };
+    Log(LOG_INFO) << "[HEAP] " << tag
+                  << ": total=" << mb(total)  << "." << mb1(total)  << "MB"
+                  << " used="   << mb(used)   << "." << mb1(used)   << "MB"
+                  << " free="   << mb(free_)  << "." << mb1(free_)  << "MB"
+                  << " delta="  << sign       << mb(adelta) << "." << mb1(adelta) << "MB";
+}
+
+/* Return heap utilisation / total linear-memory size in bytes as double for
+ * JS-side polling: Module.ccall('calypso_heap_used', 'number', [], []). */
+EMSCRIPTEN_KEEPALIVE
+double calypso_heap_used(void)
+{
+    return (double)heapUsedBytes();
+}
+
+EMSCRIPTEN_KEEPALIVE
+double calypso_heap_total(void)
+{
+    return (double)(size_t)emscripten_get_heap_size();
+}
 
 EMSCRIPTEN_KEEPALIVE
 void calypso_screenshot(const char *path)
@@ -224,6 +273,18 @@ EMSCRIPTEN_KEEPALIVE void calypso_set_uw_emissive(float v) { g_calypsoUwEmissive
 EMSCRIPTEN_KEEPALIVE void calypso_set_tile_emissive(float v) { g_calypsoTileEmissive = clamp08(v); } // Phase 25 R6
 EMSCRIPTEN_KEEPALIVE void calypso_set_unit_shade  (float v) { g_calypsoUnitShade   = clamp01(v); } // Phase 25 R7
 
+/* L2 (memory-reduction): runtime SSAA supersample-factor override.
+ * 0 = "unset" — Map::ensureSsaaTarget falls back to _ssaaScale (default 2×).
+ * calypso_set_ssaa_scale(1) disables supersampling (HDR retained), freeing
+ * ~105 MiB GPU VRAM at FHD.  Valid clamped range: 1–4. */
+int g_calypsoSsaaScale = 0;
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_set_ssaa_scale(int s)
+{
+	g_calypsoSsaaScale = s < 1 ? 0 : (s > 4 ? 4 : s);
+}
+
 /* Phase 25 (R3): tangent-space sun direction for normal-map relief. The shader
  * normalises it. In production the engine DRIVES this automatically (a per-turn
  * azimuth sweep — "time of day" — in the upper hemisphere, coherent with the
@@ -258,6 +319,68 @@ EMSCRIPTEN_KEEPALIVE
 void calypso_dump_emit_once()
 {
 	g_calypsoDumpEmit = 1;
+}
+
+/* M6h: tab-hide pause.
+ *
+ * Called by the JS visibilitychange listener when document.hidden becomes
+ * true.  Sets a flag that BattlescapeState::think() polls each tick: if the
+ * battlescape is the top state and buttons are allowed, it opens the
+ * PauseState menu.  The pause menu stops map redraws so the GL context sits
+ * idle — Chrome classifies a quiet context-loss as "innocent" and
+ * auto-restores it cleanly, converting the hard recovery path into the easy
+ * one.  GeoscapeState::init() clears the flag so a tab-switch on the
+ * geoscape cannot pop a menu when the player later enters a new battle. */
+int g_calypsoTabHiddenPause = 0;
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_on_tab_hidden(void)
+{
+	g_calypsoTabHiddenPause = 1;
+}
+
+/* M6c: WebGL context-loss / restore freeze.
+ *
+ * g_calypsoContextLost is tested at the top of Screen::flip() (and any other
+ * per-frame GL entry) so the engine skips ALL GL calls while the context is
+ * dead.  JS sets this flag synchronously on the 'webglcontextlost' event
+ * (before the browser discards the GL objects) and clears it on restore.
+ *
+ * Emscripten's main loop is paused so the event / timer callbacks that drive
+ * the game loop stop firing; only the SDL event queue (which is safe on a dead
+ * context) and the two canvas event listeners continue to run.
+ *
+ * Edge cases handled:
+ *   • Double-loss  — guard in calypso_gl_context_lost prevents double-pause.
+ *   • Restore without prior loss — SDL_RENDER_TARGETS_RESET is still pushed;
+ *     emscripten_resume_main_loop is a no-op when the loop is already running.
+ *   • Loss before callMain — emscripten_pause_main_loop is a no-op when no
+ *     loop exists yet; emscripten_resume_main_loop is likewise safe. */
+int g_calypsoContextLost = 0;
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_gl_context_lost(void)
+{
+	if (!g_calypsoContextLost)
+	{
+		g_calypsoContextLost = 1;
+		emscripten_pause_main_loop();
+	}
+}
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_gl_context_restored(void)
+{
+	const int wasLost = g_calypsoContextLost;
+	g_calypsoContextLost = 0;
+
+	SDL_Event e;
+	SDL_zero(e);
+	e.type = SDL_RENDER_TARGETS_RESET;
+	SDL_PushEvent(&e);
+
+	if (wasLost)
+		emscripten_resume_main_loop();
 }
 
 EMSCRIPTEN_KEEPALIVE
