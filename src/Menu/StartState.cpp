@@ -68,6 +68,17 @@ StartState::StartState() : _anim(0)
 	// enormous size — together these account for ~68 MB of avoidable boot
 	// allocation.  Keep the 320x200 base that main.cpp established; GoToMainMenuState
 	// resets it to the appropriate geoscape base resolution after loading completes.
+	//
+	// Apply the skip only where it actually saves memory: above ~1 MP the two
+	// surfaces cost tens of MB (4K Retina ≈ 66 MB); below it (the 640x400
+	// regression harness, small windows) they cost ~2 MB and the reference
+	// screenshots bake the display-res terminal — keep vanilla behavior there
+	// so the GPL regression fixtures render bit-identically to their refs.
+	if ((long long)Options::displayWidth * (long long)Options::displayHeight <= 1000000LL)
+	{
+		Options::baseXResolution = Options::displayWidth;
+		Options::baseYResolution = Options::displayHeight;
+	}
 	calypso_log_heap("pre/ss-update-scale");  // L11: after updateScale; before base-res change
 #else
 	Options::baseXResolution = Options::displayWidth;
