@@ -574,14 +574,14 @@ public:
 	}
 
 	/// Constructor, SFINAE enable it only for non const `PixelType`
-	template<typename = std::enable_if<std::is_const<Pixel>::value == false, void>>
+	template<typename T = Pixel, typename std::enable_if<std::is_const<T>::value == false, int>::type* = nullptr>
 	SurfaceRaw(std::vector<Pixel>& vec, int width, int height) : SurfaceRaw{ vec.data(), width, height, static_cast<Uint16>(width*sizeof(Pixel)) }
 	{
 		assert((size_t)(width*height) <= vec.size() && "Incorrect dimensions compared to vector size");
 	}
 
 	/// Constructor, SFINAE enable it only for `const PixelType`
-	template<typename = std::enable_if<std::is_const<Pixel>::value, void>>
+	template<typename T = Pixel, typename std::enable_if<std::is_const<T>::value, int>::type* = nullptr>
 	SurfaceRaw(const std::vector<typename std::remove_const<Pixel>::type>& vec, int width, int height) : SurfaceRaw{ vec.data(), width, height, static_cast<Uint16>(width*sizeof(Pixel)) }
 	{
 		assert((size_t)(width*height) <= vec.size() && "Incorrect dimensions compared to vector size");
