@@ -41,12 +41,12 @@ on:
   push:
     branches: [oxce-plus]
 
-# A new push to a PR branch (or to oxce-plus itself) supersedes the previous
-# run's result, so cancel it — mirrors calypso's build.yml practice. Unlike
-# calypso's wasm build.yml, no downstream job looks up a push run's
-# artifact/cache by exact commit SHA here, so pushes to oxce-plus are safe
-# to cancel too; only pull_request runs are restricted to avoid surprising
-# a reviewer mid-look, matching calypso's conditional exactly.
+# A new push to a PR branch supersedes the previous run's result, so
+# pull_request runs cancel-and-supersede. Push runs to oxce-plus are
+# deliberately left to finish: an uncancelled push run is what saves the
+# default-branch-scope ccache that pull_request runs (and engine-release.yml
+# tag runs) restore from. The conditional matches calypso's build.yml
+# verbatim.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
