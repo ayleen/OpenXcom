@@ -158,21 +158,24 @@ void Screen::recreateRendererGL()
 	{
 		resetDisplay(true, false);
 
-		/* M6g Defect 1: force the canvas-size poll in flip() to re-run the full
-		 * rebase / resize chain on the next frame after a successful swap recovery.
+		/* M6h: force the canvas-size rebase block in flip() to run on the next
+		 * frame even though the polled canvas dimensions will equal
+		 * Options::displayWidth/Height (resetDisplay just wrote them back).
 		 *
-		 * resetDisplay() writes the current screen dimensions back into
-		 * Options::displayWidth/Height.  flip()'s canvas poll compares the live
-		 * canvas.width against Options::displayWidth: since the replacement canvas
-		 * has identical pixel dimensions the comparison is always false, so
-		 * Screen::updateScale + the State::resize chain never fire — leaving stale
-		 * battlescape scale factors (unit sprites rendered at the wrong scale).
+		 * The previous M6g approach zeroed displayWidth/Height to trick the
+		 * canvas-poll condition (wW != Options::displayWidth) into firing.  That
+		 * worked for scale re-derivation but introduced Defect M6h: with the old
+		 * value recorded as 0, BattlescapeState::resize(dX, dY) (called from
+		 * zoom() during the same tick) computed a huge delta (new – 0 = canvas
+		 * width) and shifted the entire battlescape HUD off-screen.
 		 *
-		 * Zeroing both cached values makes the next flip() see an apparent size
-		 * "change" (canvas_W != 0) and unconditionally re-derives all scale state
-		 * by executing the existing rebase block, without duplicating any logic. */
-		Options::displayWidth  = 0;
-		Options::displayHeight = 0;
+		 * Using a flag instead leaves Options::displayWidth/Height intact (correct
+		 * values set by resetDisplay above).  When the forced rebase pass runs in
+		 * flip(), it assigns displayWidth = wW (same value → delta 0) and then
+		 * calls Screen::updateScale for both scales — re-deriving
+		 * baseXBattlescape / baseYBattlescape / baseXGeoscape / baseYGeoscape from
+		 * the current (correct) display size without displacing any state. */
+		_forceCanvasRebase = true;
 	}
 	catch (Exception &e)
 	{
@@ -297,8 +300,9 @@ void Screen::flip()
 		int wW = (int)EM_ASM_INT({ return document.getElementById('canvas').width; });
 		int wH = (int)EM_ASM_INT({ return document.getElementById('canvas').height; });
 		if (wW > 0 && wH > 0 &&
-		    (wW != Options::displayWidth || wH != Options::displayHeight))
+		    (wW != Options::displayWidth || wH != Options::displayHeight || _forceCanvasRebase))
 		{
+			_forceCanvasRebase = false;
 			Options::displayWidth     = wW;
 			Options::displayHeight    = wH;
 			Options::newDisplayWidth  = wW;
