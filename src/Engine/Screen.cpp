@@ -45,6 +45,10 @@
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #include <GLES3/gl3.h>
+/* M6c: context-lost flag; C-linkage definition lives in EmscriptenHarness.cpp.
+ * Declared at file scope (extern "C" is not allowed at block scope) — same
+ * pattern as g_calypsoSsaaScale in Map.cpp. */
+extern "C" int g_calypsoContextLost;
 #endif
 
 namespace OpenXcom
@@ -240,10 +244,7 @@ void Screen::flip()
 	 * covers the brief window between emscripten_resume_main_loop() and the
 	 * first frame processed after Screen::handle() finishes recreating the
 	 * renderer (the event is consumed in the same loop tick as the resume). */
-	{
-		extern int g_calypsoContextLost;
-		if (g_calypsoContextLost) return;
-	}
+	if (g_calypsoContextLost) return;
 
 	/* Browser canvas resize: poll canvas.width each frame (physical pixels).
 	 * SDL_GetWindowSize returns CSS logical pixels in Emscripten, which differ
