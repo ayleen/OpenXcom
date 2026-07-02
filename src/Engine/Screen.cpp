@@ -128,48 +128,29 @@ Screen::~Screen()
  */
 void Screen::recreateRendererGL()
 {
-	// Read current display dimensions from _screen (alive — it is a plain
-	// CPU-side SDL_Surface, untouched by context loss).
-	const int w = _screen ? _screen->w : Options::displayWidth;
-	const int h = _screen ? _screen->h : Options::displayHeight;
-
-	// Destroy stale SDL objects.  SDL_Destroy* are safe at the C++ level on
-	// a dead GL context: SDL tracks its own object list and will not attempt
-	// to call any GL entry point for an already-dead context on Emscripten.
-	if (_texture)  { SDL_DestroyTexture(_texture);   _texture  = nullptr; }
-	if (_renderer) { SDL_DestroyRenderer(_renderer); _renderer = nullptr; }
-
-	// Re-create the renderer with the same flags as the original
-	// SDL_CreateRenderer call in resetDisplay() (see Screen.cpp ~line 518).
-	_renderer = SDL_CreateRenderer(_window, -1,
-	    SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-	if (!_renderer)
-	{
-		Log(LOG_ERROR) << "recreateRendererGL: SDL_CreateRenderer failed: " << SDL_GetError();
-		return;
-	}
-
-	// Re-create the streaming screen texture with identical parameters to
-	// both creation sites in resetDisplay() (lines ~452 and ~534).
-	//
-	// SDL_BLENDMODE_BLEND — lets pre-composite GPU tile content show through
-	//     transparent regions of the CPU surface (Phase 13.3 requirement).
-	// SDL_ScaleModeNearest — preScaleHDBilinear() sets the SDL scale-quality
-	//     hint to "1" globally and never resets it; without an explicit
-	//     Nearest override SDL bilinear-blurs the base→display upscale and
-	//     produces thin dark seams between HD tile diamonds.
-	_texture = SDL_CreateTexture(_renderer, SDL_PIXELFORMAT_ARGB8888,
-	    SDL_TEXTUREACCESS_STREAMING, w, h);
-	if (!_texture)
-	{
-		Log(LOG_ERROR) << "recreateRendererGL: SDL_CreateTexture failed: " << SDL_GetError();
-		return;
-	}
-	SDL_SetTextureBlendMode(_texture, SDL_BLENDMODE_BLEND);
-	SDL_SetTextureScaleMode(_texture, SDL_ScaleModeNearest);
-
-	Log(LOG_INFO) << "recreateRendererGL: SDL renderer+texture rebuilt ("
-	              << w << "x" << h << ")";
+	/* M6c Task 2 — dead-mouse fix.
+	 *
+	 * Root cause of the dead mouse after context restore:
+	 *   SDL_DestroyRenderer → GLES2_DestroyRenderer → SDL_GL_DeleteContext →
+	 *   Emscripten GL.deleteContext → JSEvents.removeAllHandlersOnTarget(canvas)
+	 *
+	 * GL.deleteContext strips EVERY handler registered via Emscripten's
+	 * JSEvents infrastructure from the canvas — including SDL's own mouse and
+	 * keyboard event listeners registered by Emscripten_RegisterEventHandlers
+	 * (called from Emscripten_CreateWindow).  SDL_CreateRenderer does NOT
+	 * re-register them because GLES2_CreateRenderer's SDL_RecreateWindow
+	 * branch is skipped once the window already carries an OpenGL ES profile.
+	 *
+	 * Fix: use the full resetDisplay(true, …) path which destroys the SDL
+	 * window too.  SDL_CreateWindow → Emscripten_CreateWindow →
+	 * Emscripten_RegisterEventHandlers re-registers all mouse/key handlers on
+	 * the canvas, restoring input to the identical state as initial boot.
+	 * resetDisplay also calls GpuInit::init() (re-enables float extensions),
+	 * recalculates _scaleX/_scaleY, and resets all SDL surface/texture state.
+	 *
+	 * ShaderManager::reuploadAll() is still called by Screen::handle() after
+	 * this returns to rebuild GPU resources. */
+	resetDisplay(true, false);
 }
 #endif /* __EMSCRIPTEN__ */
 
@@ -254,6 +235,16 @@ void Screen::handle(Action *action)
 void Screen::flip()
 {
 #ifdef __EMSCRIPTEN__
+	/* M6c: do not issue any GL calls while the WebGL context is dead.
+	 * calypso_gl_context_lost() pauses the main loop, but this guard also
+	 * covers the brief window between emscripten_resume_main_loop() and the
+	 * first frame processed after Screen::handle() finishes recreating the
+	 * renderer (the event is consumed in the same loop tick as the resume). */
+	{
+		extern int g_calypsoContextLost;
+		if (g_calypsoContextLost) return;
+	}
+
 	/* Browser canvas resize: poll canvas.width each frame (physical pixels).
 	 * SDL_GetWindowSize returns CSS logical pixels in Emscripten, which differ
 	 * from Options::displayWidth (physical) on HiDPI/Retina screens (DPR > 1),
