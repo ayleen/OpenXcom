@@ -7273,7 +7273,10 @@ void Mod::loadVanillaResources()
 		}
 	}
 
-	loadBattlescapeResources(); // TODO load this at battlescape start, unload at battlescape end?
+	// Initial load at startup.  On WASM, BattlescapeState ctor/dtor call
+	// ensureBattlescapeResources()/unloadBattlescapeResources() for subsequent
+	// battle entries so the heap is freed between battles (L7 lazy-load).
+	loadBattlescapeResources();
 
 
 	//update number of shared indexes in surface sets and sound sets
@@ -7356,29 +7359,62 @@ void Mod::loadVanillaResources()
  */
 void Mod::loadBattlescapeResources()
 {
+#ifdef __EMSCRIPTEN__
+	// Idempotent guard: BattlescapeState ctor calls this on every battle entry.
+	// On the first call _battlescapeResourcesLoaded is false (startup path from
+	// loadVanillaResources).  On subsequent entries it is reset to false by
+	// unloadBattlescapeResources() so the reload runs correctly.
+	if (_battlescapeResourcesLoaded)
+		return;
+	// Helper: record a set key as battle-only so unloadBattlescapeResources()
+	// knows what to free.  BIGOBS.PCK and SMOKE.PCK are excluded — they are
+	// used by InventoryState (geoscape-reachable, see keep-list comment below).
+	auto trackBattleOnly = [&](const std::string &key) {
+		_battlescapeOnlySets.push_back(key);
+	};
+#else
+	// On native builds the lambda is a no-op so the compiler can inline it away.
+	auto trackBattleOnly = [](const std::string &) {};
+#endif
+
 	// Load Battlescape ICONS
 	_sets["SPICONS.DAT"] = new SurfaceSet(32, 24);
 	_sets["SPICONS.DAT"]->loadDat("UFOGRAPH/SPICONS.DAT");
+	trackBattleOnly("SPICONS.DAT");
 	_sets["CURSOR.PCK"] = new SurfaceSet(32, 40);
 	_sets["CURSOR.PCK"]->loadPck("UFOGRAPH/CURSOR.PCK", "UFOGRAPH/CURSOR.TAB");
+	trackBattleOnly("CURSOR.PCK");
+	// KEEP: SMOKE.PCK — InventoryState (SoldiersState→equip / CraftEquipmentState)
+	// draws rank sprites from this set (InventoryState.cpp:625).
 	_sets["SMOKE.PCK"] = new SurfaceSet(32, 40);
 	_sets["SMOKE.PCK"]->loadPck("UFOGRAPH/SMOKE.PCK", "UFOGRAPH/SMOKE.TAB");
 	_sets["HIT.PCK"] = new SurfaceSet(32, 40);
 	_sets["HIT.PCK"]->loadPck("UFOGRAPH/HIT.PCK", "UFOGRAPH/HIT.TAB");
+	trackBattleOnly("HIT.PCK");
 	_sets["X1.PCK"] = new SurfaceSet(128, 64);
 	_sets["X1.PCK"]->loadPck("UFOGRAPH/X1.PCK", "UFOGRAPH/X1.TAB");
+	trackBattleOnly("X1.PCK");
 	_sets["MEDIBITS.DAT"] = new SurfaceSet(52, 58);
 	_sets["MEDIBITS.DAT"]->loadDat("UFOGRAPH/MEDIBITS.DAT");
+	trackBattleOnly("MEDIBITS.DAT");
 	_sets["DETBLOB.DAT"] = new SurfaceSet(16, 16);
 	_sets["DETBLOB.DAT"]->loadDat("UFOGRAPH/DETBLOB.DAT");
+	trackBattleOnly("DETBLOB.DAT");
 	_sets["Projectiles"] = new SurfaceSet(3, 3);
+	trackBattleOnly("Projectiles");
 	_sets["UnderwaterProjectiles"] = new SurfaceSet(3, 3);
+	trackBattleOnly("UnderwaterProjectiles");
 
 	// Load Battlescape Terrain (only blanks are loaded, others are loaded just in time)
 	_sets["BLANKS.PCK"] = new SurfaceSet(32, 40);
 	_sets["BLANKS.PCK"]->loadPck("TERRAIN/BLANKS.PCK", "TERRAIN/BLANKS.TAB");
+	trackBattleOnly("BLANKS.PCK");
 
-	// Load Battlescape units
+	// Load Battlescape units.
+	// KEEP: BIGOBS.PCK — ArticleStateItem (Ufopaedia, geoscape-reachable) draws
+	// item hand-sprites from it (ArticleStateItem.cpp:185/408); InventoryState
+	// (SoldiersState / CraftEquipmentState) also uses it (Inventory.cpp:323/495,
+	// InventoryState.cpp:2377).  All other UNITS PCKs are battle-only.
 	const auto& unitsContents = FileMap::getVFolderContents("UNITS");
 	auto usets = FileMap::filterFiles(unitsContents, "PCK");
 	for (const auto& name : usets)
@@ -7390,6 +7426,9 @@ void Mod::loadBattlescapeResources()
 		else
 			_sets[fname] = new SurfaceSet(32, 48);
 		_sets[fname]->loadPck("UNITS/" + name, "UNITS/" + CrossPlatform::noExt(name) + ".TAB");
+		// All unit PCKs except BIGOBS.PCK are battle-only.
+		if (fname != "BIGOBS.PCK")
+			trackBattleOnly(fname);
 	}
 	// incomplete chryssalid set: 1.0 data: stop loading.
 	if (_sets.find("CHRYS.PCK") != _sets.end() && !_sets["CHRYS.PCK"]->getFrame(225))
@@ -7398,15 +7437,33 @@ void Mod::loadBattlescapeResources()
 		throw Exception("Invalid CHRYS.PCK, please patch your X-COM data to the latest version");
 	}
 	// TFTD uses the loftemps dat from the terrain folder, but still has enemy unknown's version in the geodata folder, which is short by 2 entries.
-	const auto& terrainContents = FileMap::getVFolderContents("TERRAIN");
-	if (terrainContents.find("loftemps.dat") != terrainContents.end())
+	// L7 reload guard: loadLOFTEMPS appends with push_back, so skip on reload to
+	// avoid doubling the voxel data.  _voxelData is populated exactly once.
+	if (_voxelData.empty())
 	{
-		MapDataSet::loadLOFTEMPS("TERRAIN/LOFTEMPS.DAT", &_voxelData);
+		const auto& terrainContents = FileMap::getVFolderContents("TERRAIN");
+		if (terrainContents.find("loftemps.dat") != terrainContents.end())
+		{
+			MapDataSet::loadLOFTEMPS("TERRAIN/LOFTEMPS.DAT", &_voxelData);
+		}
+		else
+		{
+			MapDataSet::loadLOFTEMPS("GEODATA/LOFTEMPS.DAT", &_voxelData);
+		}
 	}
-	else
+
+	// L7 reload guard: _surfaces and _palettes are not freed by
+	// unloadBattlescapeResources(), so they are still valid on reload.
+	// Re-creating them would leak the old objects and corrupt PAL_BATTLESCAPE.
+	// battleHairBleach below runs unconditionally (it operates on the freshly
+	// decoded _sets, which are empty until this reload).
+#ifdef __EMSCRIPTEN__
+	const bool _shouldCreateSurfaces = (_surfaces.find("TAC00.SCR") == _surfaces.end());
+#else
+	const bool _shouldCreateSurfaces = true;
+#endif
+	if (_shouldCreateSurfaces)
 	{
-		MapDataSet::loadLOFTEMPS("GEODATA/LOFTEMPS.DAT", &_voxelData);
-	}
 
 	std::string scrs[] = { "TAC00.SCR" };
 
@@ -7542,6 +7599,8 @@ void Mod::loadBattlescapeResources()
 		}
 	}
 
+	} // end if (_shouldCreateSurfaces)
+
 	//"fix" of color index in original solders sprites
 	if (Options::battleHairBleach)
 	{
@@ -7674,7 +7733,74 @@ void Mod::loadBattlescapeResources()
 			}
 		}
 	}
+
+#ifdef __EMSCRIPTEN__
+	// Re-apply shared-frame counts so reloaded sets work identically to their
+	// initial-load counterparts.  loadVanillaResources() also does this for the
+	// startup path; calling it here too (idempotent) handles the reload path.
+	//
+	// Sets that stay resident (BIGOBS.PCK, SMOKE.PCK) are included because they
+	// still need the counts set correctly on the very first load when the function
+	// is reached from loadVanillaResources() BEFORE the outer setMaxSharedFrames
+	// block runs.  The outer block calling them again is harmless.
+	{
+		const char *countNames[] = {
+			"BIGOBS.PCK", "FLOOROB.PCK", "HANDOB.PCK", "SMOKE.PCK", "HIT.PCK"
+		};
+		for (const auto *n : countNames)
+		{
+			SurfaceSet *s = _sets[n];
+			if (s) s->setMaxSharedFrames((int)s->getTotalFrames());
+		}
+		if (SurfaceSet *s = _sets["Projectiles"])          s->setMaxSharedFrames(385);
+		if (SurfaceSet *s = _sets["UnderwaterProjectiles"]) s->setMaxSharedFrames(385);
+		// X1.PCK must share SMOKE.PCK's offset (hitAnimation item offset hack).
+		if (SurfaceSet *smoke = _sets["SMOKE.PCK"])
+			if (SurfaceSet *x1 = _sets["X1.PCK"])
+				x1->setMaxSharedFrames(smoke->getMaxSharedFrames());
+	}
+
+	size_t keepCount = 2u; // BIGOBS.PCK + SMOKE.PCK always stay resident
+	Log(LOG_INFO) << "[mem-L7] loadBattlescapeResources: registered "
+	              << _battlescapeOnlySets.size() << " battle-only sets ("
+	              << keepCount << " KEEP sets remain resident)";
+	_battlescapeResourcesLoaded = true;
+#endif
 }
+
+/**
+ * Releases all battle-only SurfaceSets so the WASM heap is not occupied during
+ * geoscape play.  The sets tracked in _battlescapeOnlySets are deleted; the
+ * KEEP sets (BIGOBS.PCK, SMOKE.PCK) and all _surfaces entries are left intact.
+ *
+ * After this call loadBattlescapeResources() (via ensureBattlescapeResources())
+ * will re-decode the sets from MEMFS on the next battle entry.
+ *
+ * No-op on native builds (compile-time guard).
+ */
+#ifdef __EMSCRIPTEN__
+void Mod::unloadBattlescapeResources()
+{
+	if (!_battlescapeResourcesLoaded)
+		return;
+
+	size_t count = _battlescapeOnlySets.size();
+	for (const auto &key : _battlescapeOnlySets)
+	{
+		auto it = _sets.find(key);
+		if (it != _sets.end())
+		{
+			delete it->second;
+			_sets.erase(it);
+		}
+	}
+	_battlescapeOnlySets.clear();
+	_battlescapeResourcesLoaded = false;
+
+	Log(LOG_INFO) << "[mem-L7] unloadBattlescapeResources: freed " << count
+	              << " battle-only SurfaceSets";
+}
+#endif
 
 /**
  * Loads the extra resources defined in rulesets.

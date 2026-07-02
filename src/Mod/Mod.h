@@ -416,6 +416,12 @@ private:
 	bool _globeGpuEvicted     = false;
 	/// L5: tile + unit atlas GL handles were evicted on geoscape; restore on battle entry.
 	bool _tileAtlasGpuEvicted = false;
+	/// L7: true once loadBattlescapeResources() has finished; cleared on unload.
+	bool _battlescapeResourcesLoaded = false;
+	/// L7: keys of every _sets entry that was registered as battle-only and can
+	/// be freed when returning to the geoscape.  Populated by
+	/// loadBattlescapeResources(), cleared by unloadBattlescapeResources().
+	std::vector<std::string> _battlescapeOnlySets;
 #endif
 	std::map<std::string, CustomPalettes *> _customPalettes;
 	std::vector<std::pair<std::string, ExtraSounds *> > _extraSounds;
@@ -758,6 +764,14 @@ public:
 	int getBattlescapeTileScale() const { return _battlescapeTileScale; }
 	/// Phase 25 R5: true when floating unit nameplates/bars should be drawn.
 	bool getCalypsoHudOverlay() const { return _calypsoHudOverlay; }
+	/// L7: ensures battlescape-only SurfaceSets are resident.
+	/// Delegates to the private loadBattlescapeResources(); idempotent (guarded
+	/// by _battlescapeResourcesLoaded).  Called from BattlescapeState ctor.
+	void ensureBattlescapeResources() { loadBattlescapeResources(); }
+	/// L7: releases all battle-only SurfaceSets so WASM heap is not held during
+	/// long geoscape sessions.  Sets _battlescapeResourcesLoaded=false so a
+	/// subsequent ensureBattlescapeResources() call will reload them.
+	void unloadBattlescapeResources();
 #endif
 	/// Gets a particular music.
 	Music *getMusic(const std::string &name, bool error = true) const;
