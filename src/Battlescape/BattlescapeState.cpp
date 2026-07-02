@@ -62,6 +62,7 @@
 #ifdef __EMSCRIPTEN__
 #include "../Engine/GpuInit.h"
 extern "C" void calypso_log_heap(const char *tag);  // M5: defined in EmscriptenHarness.cpp
+extern "C" int  g_calypsoTabHiddenPause;            // M6h: set by calypso_on_tab_hidden()
 #endif
 #include "../Interface/Text.h"
 #include "../Interface/Bar.h"
@@ -999,6 +1000,26 @@ void BattlescapeState::init()
 void BattlescapeState::think()
 {
 	static bool popped = false;
+
+#ifdef __EMSCRIPTEN__
+	/* M6h: open the pause menu when the browser tab is hidden.
+	 *
+	 * The flag is set by calypso_on_tab_hidden() (JS visibilitychange) and must
+	 * be consumed here, not in handle(), because the export runs outside the
+	 * engine loop — touching game states there is unsafe.
+	 *
+	 * Guard: only act when this state is the top state (nothing already covers
+	 * the map) and allowButtons(true) passes (mirrors the ESC / Options button
+	 * guard at BattlescapeState::btnOptionsClick, line ~1586).  If the
+	 * battlescape is buried under an inventory or confirm dialog the map is
+	 * already idle, so the flag is cleared without opening a second menu. */
+	if (g_calypsoTabHiddenPause)
+	{
+		g_calypsoTabHiddenPause = 0;
+		if (_game->isState(this) && allowButtons(true))
+			_game->pushState(new PauseState(OPT_BATTLESCAPE));
+	}
+#endif
 
 	if (_gameTimer->isRunning())
 	{

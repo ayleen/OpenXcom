@@ -321,6 +321,24 @@ void calypso_dump_emit_once()
 	g_calypsoDumpEmit = 1;
 }
 
+/* M6h: tab-hide pause.
+ *
+ * Called by the JS visibilitychange listener when document.hidden becomes
+ * true.  Sets a flag that BattlescapeState::think() polls each tick: if the
+ * battlescape is the top state and buttons are allowed, it opens the
+ * PauseState menu.  The pause menu stops map redraws so the GL context sits
+ * idle — Chrome classifies a quiet context-loss as "innocent" and
+ * auto-restores it cleanly, converting the hard recovery path into the easy
+ * one.  GeoscapeState::init() clears the flag so a tab-switch on the
+ * geoscape cannot pop a menu when the player later enters a new battle. */
+int g_calypsoTabHiddenPause = 0;
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_on_tab_hidden(void)
+{
+	g_calypsoTabHiddenPause = 1;
+}
+
 /* M6c: WebGL context-loss / restore freeze.
  *
  * g_calypsoContextLost is tested at the top of Screen::flip() (and any other
