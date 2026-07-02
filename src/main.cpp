@@ -28,6 +28,9 @@
 #include "Engine/FileMap.h"
 #include "Engine/Screen.h"
 #include "Menu/StartState.h"
+#ifdef __EMSCRIPTEN__
+extern "C" void calypso_log_heap(const char *tag);  // M5b: defined in EmscriptenHarness.cpp
+#endif
 
 /** @mainpage
  * @author OpenXcom Developers
@@ -124,9 +127,13 @@ int main(int argc, char *argv[])
 	Options::setDataFolder("/game/");
 	// /user/ is the IDBFS mount point — mounted from JS before callMain.
 	Options::setUserFolder("/user/");
+	calypso_log_heap("pre/main-start");  // M5b: after arg parsing, before Options::init
 #endif
 	if (!Options::init())
 		return EXIT_SUCCESS;
+#ifdef __EMSCRIPTEN__
+	calypso_log_heap("pre/options");     // M5b: after Options::init (cfg parsed, mod list built)
+#endif
 	printf("[calypso] OpenXcom %s%s init OK\n", OPENXCOM_VERSION_SHORT, OPENXCOM_VERSION_GIT);
 	std::ostringstream title;
 	title << "OpenXcom " << OPENXCOM_VERSION_SHORT << OPENXCOM_VERSION_GIT;
@@ -145,8 +152,14 @@ int main(int argc, char *argv[])
 #endif
 
 	game = new Game(title.str());
+#ifdef __EMSCRIPTEN__
+	calypso_log_heap("pre/game-ctor");   // M5b: after Game ctor (SDL, TTF, audio, Screen, Cursor)
+#endif
 	State::setGamePtr(game);
 	game->setState(new StartState);
+#ifdef __EMSCRIPTEN__
+	calypso_log_heap("pre/start-state"); // M5b: after StartState ctor (Font, Text, Language widgets)
+#endif
 	game->run();
 
 	bool startUpdate = game->getUpdateFlag();

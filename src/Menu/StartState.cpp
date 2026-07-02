@@ -320,6 +320,9 @@ int StartState::load(void *game_ptr)
 	{
 		Log(LOG_INFO) << "Loading data...";
 		Options::updateMods();
+#ifdef __EMSCRIPTEN__
+		calypso_log_heap("pre/update-mods");  // M5b: after FileMap scan + mod list; before Mod ctor
+#endif
 		game->loadMods();
 		Log(LOG_INFO) << "Data loaded successfully.";
 		Log(LOG_INFO) << "Loading language...";
