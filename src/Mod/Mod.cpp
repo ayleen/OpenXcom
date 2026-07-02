@@ -4402,6 +4402,7 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 		}
 	}
 #ifdef __EMSCRIPTEN__
+	int _globeTexUploaded = 0;  // M5b: count uploads to suppress the mark on ruleset files with no globeTextures
 	for (const auto& ruleReader : iterateRulesSpecific("globeTextures"))
 	{
 		if (!GpuInit::ready()) continue;
@@ -4486,6 +4487,7 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 			{
 				delete _globeTextures[id]; // free any previous only after the new one succeeds
 				_globeTextures[id] = tex;
+				++_globeTexUploaded;  // M5b
 			}
 			else
 				delete tex; // keep any previous texture intact on failure
@@ -4532,6 +4534,7 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 		{
 			delete _globeTextures[id]; // free any previous only after the new one succeeds
 			_globeTextures[id] = tex;
+			++_globeTexUploaded;  // M5b
 		}
 		else
 			delete tex; // keep any previous texture intact on failure
@@ -4547,7 +4550,8 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 			clearGlobeTextures();
 		}
 	}
-	calypso_log_heap("globe-textures");  // M5: after GPU upload of all globeTextures entries
+	if (_globeTexUploaded > 0)
+		calypso_log_heap("globe-textures");  // M5: after GPU upload; only fires when ≥1 texture uploaded this file
 	for (const auto& ruleReader : iterateRulesSpecific("tileAtlas"))
 	{
 		std::string dataset;
@@ -7140,6 +7144,9 @@ void Mod::loadVanillaResources()
 		_surfaces[fname]->loadSpk("GEOGRAPH/" + fname);
 		if (geoPal) _surfaces[fname]->setPalette(geoPal->getColors(), 0, 256);
 	}
+#ifdef __EMSCRIPTEN__
+	calypso_log_heap("geo/flat-surfaces");  // M5b: INTERWIN.DAT + GEOGRAPH *.SCR/*.BDY/*.SPK decoded
+#endif
 
 	// Load surface sets.  After ARGB migration each loadPck/loadDat needs a
 	// setPalette() so the 8bpp scratch frames promote to 32bpp ARGB and capture
@@ -7190,6 +7197,7 @@ void Mod::loadVanillaResources()
 		_sets[s2]->loadDat(s1);
 	}
 #ifdef __EMSCRIPTEN__
+	calypso_log_heap("geo/pck-sets");       // M5b: BASEBITS.PCK/INTICON.PCK/TEXTURE.DAT/SCANG.DAT decoded
 	calypso_log_heap("geoscape-surfaces");  // M5: after GEOGRAPH SCR/BDY/SPK + PCK/DAT sets
 #endif
 
@@ -7473,6 +7481,9 @@ void Mod::loadBattlescapeResources()
 			MapDataSet::loadLOFTEMPS("GEODATA/LOFTEMPS.DAT", &_voxelData);
 		}
 	}
+#ifdef __EMSCRIPTEN__
+	calypso_log_heap("bs/sets");        // M5b: battle icon sets + BLANKS.PCK + UNITS/*.PCK + LOFTEMPS
+#endif
 
 	// L7 reload guard: _surfaces and _palettes are not freed by
 	// unloadBattlescapeResources(), so they are still valid on reload.
@@ -7622,6 +7633,9 @@ void Mod::loadBattlescapeResources()
 	}
 
 	} // end if (_shouldCreateSurfaces)
+#ifdef __EMSCRIPTEN__
+	calypso_log_heap("bs/surfaces");    // M5b: TAC00/TAC01 + battle SPK/BDY/LBM surfaces decoded
+#endif
 
 	//"fix" of color index in original solders sprites
 	if (Options::battleHairBleach)
@@ -7839,6 +7853,9 @@ void Mod::loadExtraResources()
 		font->load(fontReader);
 		_fonts[id] = font;
 	}
+#ifdef __EMSCRIPTEN__
+	calypso_log_heap("extra/fonts");    // M5b: bitmap font atlas surfaces decoded from Language/*.yml
+#endif
 
 #ifndef __NO_MUSIC
 	// Load musics
@@ -7887,6 +7904,12 @@ void Mod::loadExtraResources()
 		delete aintrocat;
 	}
 #endif
+#ifdef __EMSCRIPTEN__
+	// OGG files: em_file_to_rwops reads the entire file into a malloc buffer;
+	// Mix_LoadMUS_RW holds a pointer to that buffer and decodes lazily at playback.
+	// Memory cost = compressed OGG size (not decoded PCM) per track, resident until shutdown.
+	calypso_log_heap("extra/music");    // M5b: OGG/MIDI music opened; raw bytes pinned in Music::_rwops
+#endif
 
 	Log(LOG_INFO) << "Lazy loading: " << Options::lazyLoadResources;
 	if (!Options::lazyLoadResources)
@@ -7900,6 +7923,9 @@ void Mod::loadExtraResources()
 			}
 		}
 	}
+#ifdef __EMSCRIPTEN__
+	calypso_log_heap("extra/sprites");  // M5b: extraSprites HD PNG/PCK decoded + GPU-uploaded
+#endif
 
 	if (!Options::mute)
 	{
@@ -7917,6 +7943,9 @@ void Mod::loadExtraResources()
 			_sounds[setName] = soundPack->loadSoundSet(set);
 		}
 	}
+#ifdef __EMSCRIPTEN__
+	calypso_log_heap("extra/sounds");   // M5b: extraSounds PCM samples decoded into SoundSet buffers
+#endif
 
 	Log(LOG_INFO) << "Loading custom palettes from ruleset...";
 	for (const auto& pair : _customPalettes)
