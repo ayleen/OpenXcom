@@ -66,6 +66,11 @@ private:
 	long long _gpuPassAccumUs = 0;
 	/// Sets _bpp, _baseWidth, _baseHeight from current options.
 	void makeVideoFlags();
+#ifdef __EMSCRIPTEN__
+	/// Destroys and re-creates _renderer + _texture after a WebGL context restore.
+	/// Called by handle() on SDL_RENDER_TARGETS_RESET before ShaderManager::reuploadAll().
+	void recreateRendererGL();
+#endif
 public:
 	static const int ORIGINAL_WIDTH;
 	static const int ORIGINAL_HEIGHT;

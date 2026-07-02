@@ -93,6 +93,86 @@ Screen::~Screen()
 	if (_screen)   { SDL_FreeSurface(_screen);       _screen   = nullptr; }
 }
 
+#ifdef __EMSCRIPTEN__
+/**
+ * Destroys and re-creates the SDL renderer and streaming screen texture
+ * after a real WebGL context loss (webglcontextrestored event path).
+ *
+ * Why this is necessary
+ * ---------------------
+ * Every SDL_Texture and every internal SDL_Renderer object (shader program,
+ * vertex buffer, etc.) carries a GL object ID that was allocated in the DEAD
+ * context.  Even though the browser revives those GL IDs if the hardware
+ * permits, SDL2's Emscripten/GLES2 backend has no webglcontextrestored
+ * handling — it never rebinds or regenerates its own GL objects.  The first
+ * SDL_RenderCopy after restore therefore triggers:
+ *   "bindTexture: object does not belong to this context"
+ *   "bindBuffer: object does not belong to this context"
+ *   "drawArrays: no valid shader program in use"
+ * and the screen stays black.
+ *
+ * Emscripten GL table safety
+ * --------------------------
+ * Re-creating the renderer calls SDL_GL_CreateContext on the same canvas.
+ * The browser returns the SAME (now-restored) WebGL context object.
+ * Emscripten's GL object tables (GL.textures / GL.buffers / GL.programs)
+ * are module-global, not per-context, so numeric IDs that our engine
+ * allocated via GpuTexture / ShaderManager remain valid after this call.
+ * ShaderManager::reuploadAll() (called immediately after) re-populates
+ * those IDs with fresh GPU objects, completing the restore.
+ *
+ * Ordering constraint
+ * -------------------
+ * This function MUST run before ShaderManager::reuploadAll().  reuploadAll()
+ * makes raw GL calls that need a live GL context; the new renderer provides it.
+ */
+void Screen::recreateRendererGL()
+{
+	// Read current display dimensions from _screen (alive — it is a plain
+	// CPU-side SDL_Surface, untouched by context loss).
+	const int w = _screen ? _screen->w : Options::displayWidth;
+	const int h = _screen ? _screen->h : Options::displayHeight;
+
+	// Destroy stale SDL objects.  SDL_Destroy* are safe at the C++ level on
+	// a dead GL context: SDL tracks its own object list and will not attempt
+	// to call any GL entry point for an already-dead context on Emscripten.
+	if (_texture)  { SDL_DestroyTexture(_texture);   _texture  = nullptr; }
+	if (_renderer) { SDL_DestroyRenderer(_renderer); _renderer = nullptr; }
+
+	// Re-create the renderer with the same flags as the original
+	// SDL_CreateRenderer call in resetDisplay() (see Screen.cpp ~line 518).
+	_renderer = SDL_CreateRenderer(_window, -1,
+	    SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+	if (!_renderer)
+	{
+		Log(LOG_ERROR) << "recreateRendererGL: SDL_CreateRenderer failed: " << SDL_GetError();
+		return;
+	}
+
+	// Re-create the streaming screen texture with identical parameters to
+	// both creation sites in resetDisplay() (lines ~452 and ~534).
+	//
+	// SDL_BLENDMODE_BLEND — lets pre-composite GPU tile content show through
+	//     transparent regions of the CPU surface (Phase 13.3 requirement).
+	// SDL_ScaleModeNearest — preScaleHDBilinear() sets the SDL scale-quality
+	//     hint to "1" globally and never resets it; without an explicit
+	//     Nearest override SDL bilinear-blurs the base→display upscale and
+	//     produces thin dark seams between HD tile diamonds.
+	_texture = SDL_CreateTexture(_renderer, SDL_PIXELFORMAT_ARGB8888,
+	    SDL_TEXTUREACCESS_STREAMING, w, h);
+	if (!_texture)
+	{
+		Log(LOG_ERROR) << "recreateRendererGL: SDL_CreateTexture failed: " << SDL_GetError();
+		return;
+	}
+	SDL_SetTextureBlendMode(_texture, SDL_BLENDMODE_BLEND);
+	SDL_SetTextureScaleMode(_texture, SDL_ScaleModeNearest);
+
+	Log(LOG_INFO) << "recreateRendererGL: SDL renderer+texture rebuilt ("
+	              << w << "x" << h << ")";
+}
+#endif /* __EMSCRIPTEN__ */
+
 /**
  * Returns the screen's internal buffer surface. Any
  * contents that need to be shown will be blitted to this.
@@ -125,8 +205,21 @@ void Screen::handle(Action *action)
 
 	if (action->getDetails()->type == SDL_RENDER_TARGETS_RESET)
 	{
-		/* WebGL context has been restored after a tab-suspend. Re-upload all
-		 * GPU resources so shaders/textures/FBOs are valid again. */
+		/* WebGL context has been restored after a tab-suspend or chrome://gpucrash.
+		 *
+		 * The SDL renderer and its streaming screen texture both hold internal GLES2
+		 * objects (shader programs, vertex buffer, texture handle) that were created
+		 * in the dead context.  SDL2's Emscripten/GLES2 backend has no
+		 * webglcontextrestored handling, so those objects are permanently stale.
+		 *
+		 * Destroy and re-create the renderer chain first, then let reuploadAll()
+		 * restore our own GPU resources (GpuTexture atlases, ShaderManager programs,
+		 * FBOs).  The order is critical: recreateRendererGL() must run before
+		 * reuploadAll() so the new renderer establishes the fresh GL context that
+		 * reuploadAll() uploads into. */
+#ifdef __EMSCRIPTEN__
+		recreateRendererGL();
+#endif
 		ShaderManager::instance().reuploadAll();
 	}
 	else if (action->getDetails()->type == SDL_KEYDOWN && action->getDetails()->key.keysym.sym == SDLK_RETURN && (SDL_GetModState() & KMOD_ALT) != 0)
