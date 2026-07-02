@@ -4841,7 +4841,10 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 	}
 	// Phase 16: TrueType fonts for HD text rendering.
 #ifdef __EMSCRIPTEN__
-	calypso_log_heap("extra/fonts-ttf-pre");  // L12: heap before extraTTFFonts registration
+	// L12: loadFile() runs for every ruleset file — log the pre/post heap marks
+	// only when this file actually registered TTF fonts (same anti-spam guard as
+	// the globe-textures mark).
+	int _ttfRegistered = 0;
 #endif
 	for (const auto& ruleReader : iterateRulesSpecific("extraTTFFonts"))
 	{
@@ -4862,9 +4865,13 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 		TTFFont* ttf = new TTFFont(file, size);
 		_ttfFonts[id] = ttf;
 		Log(LOG_INFO) << "Loaded TTFFont \"" << id << "\" from \"" << file << "\" size=" << size;
+#ifdef __EMSCRIPTEN__
+		++_ttfRegistered;
+#endif
 	}
 #ifdef __EMSCRIPTEN__
-	calypso_log_heap("extra/fonts-ttf-post"); // L12: heap after extraTTFFonts; lazy=near-zero, eager=FreeType cost
+	if (_ttfRegistered > 0)
+		calypso_log_heap("extra/fonts-ttf-post"); // L12: after extraTTFFonts; lazy=near-zero, eager=FreeType cost
 #endif
 	for (const auto& ruleReader : iterateRulesSpecific("extraStrings"))
 	{
