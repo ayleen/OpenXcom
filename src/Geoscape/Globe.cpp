@@ -58,6 +58,7 @@
 #  include "../Engine/GpuTexture.h"
 #  include "../Engine/GpuTimer.h"
 #  include "../Engine/Shader.h"
+#  include "../Engine/ShaderManager.h"
 #  include "../Engine/Logger.h"
 #  include <GLES3/gl3.h>
 #  include <SDL.h>
@@ -461,6 +462,7 @@ Globe::~Globe()
 	}
 
 #ifdef __EMSCRIPTEN__
+	_gpuAliveFlag.reset();  // M6: expire reset callback before deleting GL objects
 	delete _globeShader;
 	if (_sphereFBO)    glDeleteFramebuffers(1,  &_sphereFBO);
 	if (_sphereFBOTex) glDeleteTextures(1,      &_sphereFBOTex);
@@ -1125,6 +1127,20 @@ bool Globe::initSphereGPU()
 
 	_gpuSphereOK = true;
 	Log(LOG_INFO) << "Globe::initSphereGPU: ready (" << w << "x" << h << ")";
+
+	/* M6: register a ShaderManager reset callback so a real WebGL context
+	 * loss (GPU crash, iOS tab switch) is handled correctly.  On restore,
+	 * reuploadAll() re-compiles _globeShader via Shader::reupload(); this
+	 * callback nulls the raw GL handles and clears _gpuSphereOK so the
+	 * next drawSphereGPU() call re-runs initSphereGPU() to rebuild them. */
+	_gpuAliveFlag = std::make_shared<bool>(true);
+	ShaderManager::instance().registerResetCallback(_gpuAliveFlag, [this]() {
+		_sphereVAO    = 0u;
+		_sphereFBO    = 0u;
+		_sphereFBOTex = 0u;
+		_gpuSphereOK  = false;
+	});
+
 	return true;
 }
 
