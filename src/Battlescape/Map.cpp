@@ -2042,7 +2042,9 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 					{
 						int vaporX = vaporScreenOriginX + p.getOffsetX();
 						int vaporY = vaporScreenOriginY + p.getOffsetY();
+#ifdef __EMSCRIPTEN__
 						if (vaporY >= mapClipBottomY()) continue;   // keep vapor on the map, off the HUD
+#endif
 						ShaderDrawFunc(
 							[&](Uint32& dest, int size)
 							{
@@ -2128,7 +2130,9 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 					{
 						int vaporX = vaporScreenOriginX + p.getOffsetX();
 						int vaporY = vaporScreenOriginY + p.getOffsetY();
+#ifdef __EMSCRIPTEN__
 						if (vaporY >= mapClipBottomY()) continue;   // keep vapor on the map, off the HUD
+#endif
 						// R1.2 / Q1: see comment on the back-row loop above.
 						ShaderDrawFunc(
 							[&](Uint32& dest, int size)
