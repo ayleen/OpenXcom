@@ -1,0 +1,116 @@
+name: Engine CI
+
+# Fast native-path compile check for changes to this fork's `oxce-plus`
+# branch (the branch calypso's `engine/oxce` submodule tracks).
+#
+# This workflow builds ONLY the native `openxcom` binary with the host
+# compiler (gcc/g++) via the default CMake target. It deliberately does
+# NOT build or run the doctest-based `oxce_unit_tests` target, and it does
+# NOT build the Emscripten/WASM artefact:
+#   - The unit test sources live in the calypso repo, not here (see
+#     `src/CMakeLists.txt`'s "Unit test target (native only)" block, which
+#     reads `${CMAKE_SOURCE_DIR}/../../tests/unit_tests/*.cpp` — i.e. the
+#     `tests/unit_tests/` directory of the parent calypso checkout, two
+#     levels above this repo's root when checked out as its submodule at
+#     `engine/oxce`). A standalone checkout of this fork has no such
+#     directory. The root CMakeLists.txt's `option(BUILD_TESTING ... ON)`
+#     defaults that target ON, so the Configure step below MUST pass
+#     `-DBUILD_TESTING=OFF` explicitly — leaving it unset (relying on
+#     "just don't build the target") is not enough, because CMake fails at
+#     *configure* time (`add_executable` with a nonexistent source file),
+#     before any target selection happens.
+#   - The WASM build requires Emscripten, `--preload-file` assets, and the
+#     calypso web shell; it is validated by calypso's own `build.yml` any
+#     time the `engine/oxce` submodule pointer is bumped there.
+# In short: this workflow is a quick "does the engine still compile
+# natively" smoke check for PRs against `oxce-plus`. Full validation (WASM
+# build + Playwright regression + unit tests + tool tests) happens
+# downstream in the calypso repo once a submodule-bump PR picks up the
+# commit this workflow validated.
+#
+# The `push` trigger on `oxce-plus` (in addition to `pull_request`) exists
+# to seed the ccache Actions cache from the default branch: GitHub Actions
+# cache scoping shares a default-branch cache with every other ref, so a
+# push-triggered run here keeps `pull_request` runs (and `engine-release.yml`
+# tag runs, which reuse the same cache key namespace) warm instead of
+# starting from an empty ccache every time.
+
+on:
+  pull_request:
+    branches: [oxce-plus]
+  push:
+    branches: [oxce-plus]
+
+# A new push to a PR branch supersedes the previous run's result, so
+# pull_request runs cancel-and-supersede. Push runs to oxce-plus are
+# deliberately left to finish: an uncancelled push run is what saves the
+# default-branch-scope ccache that pull_request runs (and engine-release.yml
+# tag runs) restore from. The conditional matches calypso's build.yml
+# verbatim.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  native-build:
+    name: Native compile check
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    # ccache defaults to identifying the compiler by mtime+size. Runner
+    # images/apt installs give gcc/g++ a fresh mtime every run, so ccache
+    # would treat it as a "different" compiler each time and miss 100% of
+    # the time despite a restored cache — see the identical note in
+    # calypso's build.yml. Hash the compiler content instead.
+    env:
+      CCACHE_COMPILERCHECK: content
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # SDL2 (+ image/mixer/ttf) and zlib are required by CMakeLists.txt's
+      # native (non-Emscripten) branch via pkg_check_modules(... REQUIRED).
+      # rapidyaml is vendored under libs/rapidyaml, so no yaml package is
+      # needed. OpenGL is optional (CMakeLists.txt falls back to
+      # `-D__NO_OPENGL` with a warning if not found), so it is intentionally
+      # not installed here — this job only needs the binary to compile and
+      # link, not to render.
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential cmake ninja-build ccache pkg-config \
+            zlib1g-dev \
+            libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev
+
+      - name: Cache ccache compiler cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: ccache-engine-native-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            ccache-engine-native-${{ runner.os }}-
+
+      - name: Configure ccache
+        run: ccache --max-size=1G --zero-stats
+
+      # -DBUILD_TESTING=OFF is required, not optional: the root
+      # CMakeLists.txt declares `option(BUILD_TESTING ... ON)`, so leaving
+      # it unset pulls in `add_executable(oxce_unit_tests ...)` at
+      # *configure* time with sources that only exist in the calypso repo
+      # (see the header comment above) — a fatal CMake configure error in
+      # a standalone checkout of this fork, not just an unbuilt target.
+      - name: Configure
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_TESTING=OFF \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+
+      # Default target (no --target): builds the `openxcom` binary, the
+      # same target the Emscripten build renames to `calypso`. Never an
+      # unbounded -j — cap at the runner's own core count.
+      - name: Build
+        run: cmake --build build -j$(nproc)
+
+      - name: Show ccache stats
+        run: ccache --show-stats

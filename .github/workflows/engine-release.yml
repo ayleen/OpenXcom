@@ -1,0 +1,133 @@
+name: Engine Release
+
+# Publishes a source-only GitHub Release for this OXCE fork on every
+# `engine-vX.Y.Z` tag push.
+#
+# Design: engine releases are identified purely by tag, not by a built
+# artefact — this fork has no CI-produced binary of its own (the WASM
+# build, the only binary calypso ships, is produced by the calypso repo,
+# not here). The calypso repo's `engine/oxce` submodule pointer is meant to
+# always sit on a commit that has an `engine-vX.Y.Z` tag here, and
+# calypso's own `release.yml` enforces that: it refuses to publish a
+# calypso release (`vA.B.C`) whose submodule gitlink does not resolve to a
+# tagged engine release. In other words, this workflow's tag is the
+# contract calypso's release pipeline verifies against.
+#
+# The `engine-v` prefix is required (not a plain `vX.Y.Z`) because this
+# fork inherits upstream OpenXcom's own history and tags — upstream already
+# used bare `v0.1` .. `v1.0` for its own releases (2012-2014), so plain
+# SemVer tags on this fork would collide with (or be confused for) those.
+#
+# This workflow does not build or attach any binary asset: it validates
+# the tag, confirms the tagged commit is actually reachable from
+# `oxce-plus` (so nobody can tag an abandoned branch or an unmerged PR head
+# as a "release"), runs the same native compile smoke check as `ci.yml` to
+# catch a build-breaking tag before it's published, and then publishes a
+# GitHub Release with auto-generated notes. The calypso repo is the only
+# place a binary is ever produced from a given engine commit.
+
+on:
+  push:
+    tags:
+      - 'engine-v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CCACHE_COMPILERCHECK: content
+    steps:
+      - name: Validate tag is strict SemVer
+        id: semver
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -e
+          if [[ ! "$TAG" =~ ^engine-v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            echo "::error::Tag '$TAG' is not a valid engine release version. Engine release tags must be strict SemVer prefixed with 'engine-v': engine-vMAJOR.MINOR.PATCH (e.g. engine-v0.1.0) — no pre-release or build-metadata suffix. The 'engine-v' prefix is required: this fork inherits upstream OpenXcom's own v0.1-v1.0 tags, which a plain vX.Y.Z tag would collide with."
+            exit 1
+          fi
+          echo "semver=${TAG#engine-v}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Annotated tags point at a tag object, not a commit — `^{commit}`
+      # peels through that to the actual commit either way (a no-op for
+      # lightweight tags). Then confirm that commit is reachable from
+      # oxce-plus: a release must name a commit that's actually merged into
+      # the branch calypso's submodule tracks, not an abandoned branch tip
+      # or an unmerged PR head.
+      - name: Verify tagged commit is on oxce-plus
+        id: resolve
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          TAGGED_COMMIT=$(git rev-parse "${TAG}^{commit}")
+          git fetch origin oxce-plus
+          if ! git merge-base --is-ancestor "$TAGGED_COMMIT" origin/oxce-plus; then
+            echo "::error::Tag '$TAG' points at commit $TAGGED_COMMIT, which is not an ancestor of origin/oxce-plus. Engine release tags must name a commit already merged into oxce-plus — merge the PR containing this commit first, then tag the resulting oxce-plus commit."
+            exit 1
+          fi
+          echo "commit=$TAGGED_COMMIT" >> "$GITHUB_OUTPUT"
+
+      # Same recipe and ccache key namespace as ci.yml's "Native compile
+      # check" job — this reuses that job's warm cache (seeded by ci.yml's
+      # push-to-oxce-plus runs) rather than starting cold, and catches a
+      # build-breaking tag before it's published as a release.
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential cmake ninja-build ccache pkg-config \
+            zlib1g-dev \
+            libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev
+
+      - name: Cache ccache compiler cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: ccache-engine-native-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            ccache-engine-native-${{ runner.os }}-
+
+      - name: Configure ccache
+        run: ccache --max-size=1G --zero-stats
+
+      # -DBUILD_TESTING=OFF is required: the root CMakeLists.txt defaults
+      # BUILD_TESTING to ON, which pulls in oxce_unit_tests whose sources
+      # only exist in the calypso repo (see ci.yml's header comment) — a
+      # fatal CMake configure error, not just an unbuilt target, in a
+      # standalone checkout of this fork.
+      - name: Configure
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_TESTING=OFF \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+
+      - name: Build (smoke check)
+        run: cmake --build build -j$(nproc)
+
+      - name: Show ccache stats
+        run: ccache --show-stats
+
+      - name: Compute release name
+        id: release_meta
+        env:
+          SEMVER: ${{ steps.semver.outputs.semver }}
+          TAG: ${{ github.ref_name }}
+        run: echo "release_name=Engine ${SEMVER} (${TAG})" >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ steps.release_meta.outputs.release_name }}
+          generate_release_notes: true
