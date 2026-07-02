@@ -930,6 +930,41 @@ void Mod::lazyLoadSurface(const std::string &name)
 	}
 }
 
+#ifdef __EMSCRIPTEN__
+/**
+ * L10: Materialises a deferred geo/flat surface on first getSurface() call.
+ * Decodes the file from MEMFS (which stays resident — files are never unlinked),
+ * promotes 8bpp pixels to ARGB via PAL_GEOSCAPE, and inserts the result into
+ * _surfaces.  The lazy-registry entry is erased so subsequent calls skip this
+ * function immediately.
+ *
+ * Palette note: PAL_GEOSCAPE is loaded eagerly before the geo/flat block, so
+ * getPalette("PAL_GEOSCAPE") is always valid here.  The palette never changes
+ * after load() completes, so applying it at materialisation time is identical
+ * to the eager path's immediate setPalette() call.
+ */
+void Mod::materializeGeoSurface(const std::string &name)
+{
+	auto it = _lazyGeoSurfaces.find(name);
+	if (it == _lazyGeoSurfaces.end()) return;
+
+	const LazyGeoEntry &e = it->second;
+	Surface *s = new Surface(e.w, e.h);
+	switch (e.format)
+	{
+	case LazyGeoFormat::Scr: s->loadScr(e.vfsPath); break;
+	case LazyGeoFormat::Bdy: s->loadBdy(e.vfsPath); break;
+	case LazyGeoFormat::Spk: s->loadSpk(e.vfsPath); break;
+	}
+	Palette *geoPal = getPalette("PAL_GEOSCAPE", false);
+	if (geoPal) s->setPalette(geoPal->getColors(), 0, 256);
+
+	_surfaces[name] = s;
+	_lazyGeoSurfaces.erase(it);
+	Log(LOG_DEBUG) << "[L10] materialized geo surface: " << name;
+}
+#endif /* __EMSCRIPTEN__ */
+
 /**
  * Returns a specific surface from the mod.
  * @param name Name of the surface.
@@ -938,6 +973,9 @@ void Mod::lazyLoadSurface(const std::string &name)
 Surface *Mod::getSurface(const std::string &name, bool error)
 {
 	lazyLoadSurface(name);
+#ifdef __EMSCRIPTEN__
+	materializeGeoSurface(name);
+#endif
 	return getRule(name, "Sprite", _surfaces, error);
 }
 
@@ -7120,6 +7158,35 @@ void Mod::loadVanillaResources()
 	// — Window backgrounds (BACK*.SCR for menus / pedia / dogfight windows)
 	// rendered as white-on-clear instead of their actual graphics.
 	Palette *geoPal = getPalette("PAL_GEOSCAPE", false);
+#ifdef __EMSCRIPTEN__
+	// L10: defer all geo/flat decodes; register for on-demand materialisation via
+	// getSurface() → materializeGeoSurface().  PAL_GEOSCAPE is applied at decode
+	// time (always available since palettes are loaded eagerly above).
+	// MEMFS files are never unlinked, so the VFS paths remain valid indefinitely.
+	_lazyGeoSurfaces["INTERWIN.DAT"] = {"GEODATA/INTERWIN.DAT", LazyGeoFormat::Scr, 160, 600};
+	{
+		const auto& geographFiles = FileMap::getVFolderContents("GEOGRAPH");
+		for (const auto& name : FileMap::filterFiles(geographFiles, "SCR"))
+		{
+			std::string fname = name;
+			std::transform(name.begin(), name.end(), fname.begin(), toupper);
+			_lazyGeoSurfaces[fname] = {"GEOGRAPH/" + fname, LazyGeoFormat::Scr, 320, 200};
+		}
+		for (const auto& name : FileMap::filterFiles(geographFiles, "BDY"))
+		{
+			std::string fname = name;
+			std::transform(name.begin(), name.end(), fname.begin(), toupper);
+			_lazyGeoSurfaces[fname] = {"GEOGRAPH/" + fname, LazyGeoFormat::Bdy, 320, 200};
+		}
+		for (const auto& name : FileMap::filterFiles(geographFiles, "SPK"))
+		{
+			std::string fname = name;
+			std::transform(name.begin(), name.end(), fname.begin(), toupper);
+			_lazyGeoSurfaces[fname] = {"GEOGRAPH/" + fname, LazyGeoFormat::Spk, 320, 200};
+		}
+	}
+	calypso_log_heap("geo/flat-surfaces");  // M5b: ≈0 delta now (L10: all surfaces deferred)
+#else
 	{
 		std::string s1 = "GEODATA/INTERWIN.DAT";
 		std::string s2 = "INTERWIN.DAT";
@@ -7157,9 +7224,7 @@ void Mod::loadVanillaResources()
 		_surfaces[fname]->loadSpk("GEOGRAPH/" + fname);
 		if (geoPal) _surfaces[fname]->setPalette(geoPal->getColors(), 0, 256);
 	}
-#ifdef __EMSCRIPTEN__
-	calypso_log_heap("geo/flat-surfaces");  // M5b: INTERWIN.DAT + GEOGRAPH *.SCR/*.BDY/*.SPK decoded
-#endif
+#endif /* __EMSCRIPTEN__ */
 
 	// Load surface sets.  After ARGB migration each loadPck/loadDat needs a
 	// setPalette() so the 8bpp scratch frames promote to 32bpp ARGB and capture

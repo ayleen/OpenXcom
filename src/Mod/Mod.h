@@ -422,6 +422,18 @@ private:
 	/// be freed when returning to the geoscape.  Populated by
 	/// loadBattlescapeResources(), cleared by unloadBattlescapeResources().
 	std::vector<std::string> _battlescapeOnlySets;
+	/// L10: source-file format tag for a deferred geo/flat surface.
+	enum class LazyGeoFormat { Scr, Bdy, Spk };
+	struct LazyGeoEntry
+	{
+		std::string   vfsPath;   ///< VFS path used by load* calls (stays in MEMFS).
+		LazyGeoFormat format;
+		int           w, h;
+	};
+	/// L10: surfaces registered but not yet decoded; erased on first getSurface() call.
+	std::map<std::string, LazyGeoEntry> _lazyGeoSurfaces;
+	/// L10: decodes a registered lazy geo surface on first request.
+	void materializeGeoSurface(const std::string &name);
 #endif
 	std::map<std::string, CustomPalettes *> _customPalettes;
 	std::vector<std::pair<std::string, ExtraSounds *> > _extraSounds;
