@@ -154,7 +154,48 @@ void Screen::recreateRendererGL()
 	 *
 	 * ShaderManager::reuploadAll() is still called by Screen::handle() after
 	 * this returns to rebuild GPU resources. */
-	resetDisplay(true, false);
+	try
+	{
+		resetDisplay(true, false);
+
+		/* M6g Defect 1: force the canvas-size poll in flip() to re-run the full
+		 * rebase / resize chain on the next frame after a successful swap recovery.
+		 *
+		 * resetDisplay() writes the current screen dimensions back into
+		 * Options::displayWidth/Height.  flip()'s canvas poll compares the live
+		 * canvas.width against Options::displayWidth: since the replacement canvas
+		 * has identical pixel dimensions the comparison is always false, so
+		 * Screen::updateScale + the State::resize chain never fire — leaving stale
+		 * battlescape scale factors (unit sprites rendered at the wrong scale).
+		 *
+		 * Zeroing both cached values makes the next flip() see an apparent size
+		 * "change" (canvas_W != 0) and unconditionally re-derives all scale state
+		 * by executing the existing rebase block, without duplicating any logic. */
+		Options::displayWidth  = 0;
+		Options::displayHeight = 0;
+	}
+	catch (Exception &e)
+	{
+		/* M6g Defect 2: on a second GPU crash Chrome throttles WebGL context
+		 * creation, so SDL_CreateRenderer fails inside resetDisplay and throws.
+		 * Never let this exception escape iterate() — catch it here, log it, then
+		 * re-enter the lost state so the JS 13-s reload fallback takes over.
+		 *
+		 * Ordering safety: calypso_gl_context_restored() resumed the main loop
+		 * just before the SDL_RENDER_TARGETS_RESET event was dispatched to this
+		 * handler.  Setting g_calypsoContextLost = 1 here and calling
+		 * emscripten_pause_main_loop() ensures:
+		 *   (a) flip()'s guard at the top ("if (g_calypsoContextLost) return;")
+		 *       skips every GL call in the remainder of this iterate() tick — the
+		 *       flag is set synchronously inside this catch block, before flip()
+		 *       is reached in the same Game::run() iteration, so no GL call slips
+		 *       through between resume and re-pause.
+		 *   (b) The main loop is paused after this iterate() tick completes,
+		 *       giving the JS 13-s reload timer a chance to fire. */
+		Log(LOG_ERROR) << "M6g: recreateRendererGL failed — " << e.what();
+		g_calypsoContextLost = 1;
+		emscripten_pause_main_loop();
+	}
 }
 #endif /* __EMSCRIPTEN__ */
 
