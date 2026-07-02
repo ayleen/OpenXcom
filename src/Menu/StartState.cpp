@@ -38,6 +38,7 @@
 #ifdef __EMSCRIPTEN__
 #include "CalypsoSplashState.h"
 #include "../Mod/Mod.h"
+extern "C" void calypso_log_heap(const char *tag);  // M5: heap attribution
 #endif
 #include <SDL_mixer.h>
 #include <SDL_thread.h>
@@ -324,6 +325,9 @@ int StartState::load(void *game_ptr)
 		Log(LOG_INFO) << "Loading language...";
 		game->loadLanguages();
 		Log(LOG_INFO) << "Language loaded successfully.";
+#ifdef __EMSCRIPTEN__
+		calypso_log_heap("boot-complete");  // M5: main menu reached; all startup alloc done
+#endif
 		loading = LOADING_SUCCESSFUL;
 	}
 	catch (std::exception &e)

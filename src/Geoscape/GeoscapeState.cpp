@@ -134,6 +134,10 @@
 #include "../Mod/Texture.h"
 #include "../fmath.h"
 #include "../fallthrough.h"
+#ifdef __EMSCRIPTEN__
+#include "../Engine/Logger.h"
+extern "C" void calypso_log_heap(const char *tag);  // M5: defined in EmscriptenHarness.cpp
+#endif
 
 namespace OpenXcom
 {
@@ -709,6 +713,8 @@ void GeoscapeState::init()
 {
 	State::init();
 #ifdef __EMSCRIPTEN__
+	// M5: log heap once on first geoscape entry to catch post-boot allocations.
+	{ static bool s_once = false; if (!s_once) { s_once = true; calypso_log_heap("geoscape-init"); } }
 	// L5: on returning from a battle the globe GL handles were evicted; restore
 	// them before Globe::draw() fires below. Tile/unit atlases are not needed on
 	// the geoscape; evict them to free VRAM. Both calls are guarded by flags so

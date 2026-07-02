@@ -57,6 +57,8 @@
 #  include "TileAtlasBuilder.h"
 #  include "UnitSpriteAtlasBuilder.h"
 #  include <set>
+// M5: heap-attribution marks (function defined in EmscriptenHarness.cpp)
+extern "C" void calypso_log_heap(const char *tag);
 #endif
 #include "ExtraSounds.h"
 #include "../Engine/AdlibMusic.h"
@@ -3129,6 +3131,9 @@ void Mod::loadAll()
 	const auto& mods = FileMap::getRulesets();
 
 	Log(LOG_INFO) << "Loading begins...";
+#ifdef __EMSCRIPTEN__
+	calypso_log_heap("engine-start");  // M5: baseline before any resource loading
+#endif
 	if (Options::oxceModValidationLevel < LOG_ERROR)
 	{
 		Log(LOG_ERROR) << "Validation of mod data disabled, game can crash when run";
@@ -3211,6 +3216,9 @@ void Mod::loadAll()
 		}
 	}
 	Log(LOG_INFO) << "Loading rulesets done.";
+#ifdef __EMSCRIPTEN__
+	calypso_log_heap("rulesets");  // M5: after YAML ruleset parse + globeTextures uploads
+#endif
 
 	//back master
 	_modCurrent = &_modData.at(0);
@@ -3255,7 +3263,9 @@ void Mod::loadAll()
 	}
 
 	loadExtraResources();
-
+#ifdef __EMSCRIPTEN__
+	calypso_log_heap("extra-resources");  // M5: after fonts, music, HD sprites, TTF fonts
+#endif
 
 	Log(LOG_INFO) << "After load.";
 	// cross link rule objects
@@ -4537,6 +4547,7 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 			clearGlobeTextures();
 		}
 	}
+	calypso_log_heap("globe-textures");  // M5: after GPU upload of all globeTextures entries
 	for (const auto& ruleReader : iterateRulesSpecific("tileAtlas"))
 	{
 		std::string dataset;
@@ -7081,6 +7092,9 @@ void Mod::loadVanillaResources()
 		}
 		//_palettes[s2]->savePalMod("../../../customPalettes.rul", "PAL_BATTLESCAPE_CUSTOM", "PAL_BATTLESCAPE");
 	}
+#ifdef __EMSCRIPTEN__
+	calypso_log_heap("palettes");  // M5: after GEODATA/PALETTES.DAT + BACKPALS.DAT loaded
+#endif
 
 	// Load surfaces. After ARGB migration each loadScr/loadBdy/loadSpk needs a
 	// setPalette() to promote the 8bpp scratch buffer into ARGB while capturing
@@ -7175,6 +7189,9 @@ void Mod::loadVanillaResources()
 		_sets[s2] = new SurfaceSet(4, 4);
 		_sets[s2]->loadDat(s1);
 	}
+#ifdef __EMSCRIPTEN__
+	calypso_log_heap("geoscape-surfaces");  // M5: after GEOGRAPH SCR/BDY/SPK + PCK/DAT sets
+#endif
 
 	// construct sound sets
 	_sounds["GEO.CAT"] = new SoundSet();
@@ -7276,8 +7293,13 @@ void Mod::loadVanillaResources()
 	// Initial load at startup.  On WASM, BattlescapeState ctor/dtor call
 	// ensureBattlescapeResources()/unloadBattlescapeResources() for subsequent
 	// battle entries so the heap is freed between battles (L7 lazy-load).
+#ifdef __EMSCRIPTEN__
+	calypso_log_heap("sounds");  // M5: after GEO.CAT / BATTLE.CAT / INTRO.CAT loaded
+#endif
 	loadBattlescapeResources();
-
+#ifdef __EMSCRIPTEN__
+	calypso_log_heap("battlescape-resources");  // M5: after the ~55 MB battle SurfaceSets
+#endif
 
 	//update number of shared indexes in surface sets and sound sets
 	{

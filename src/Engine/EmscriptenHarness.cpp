@@ -16,6 +16,8 @@
 #ifdef __EMSCRIPTEN__
 
 #include <emscripten.h>
+#include <emscripten/heap.h>
+#include <malloc.h>
 #include <SDL.h>
 #include <SDL_mixer.h>
 #include <cstring>
@@ -37,7 +39,54 @@
 
 using namespace OpenXcom;
 
+/* ---- M5: heap-stats primitives -----------------------------------------------
+ * mallinfo() fields are signed int — cast through unsigned to avoid negative
+ * wrap when the dlmalloc arena grows past 2 GB (ALLOW_MEMORY_GROWTH). */
+static size_t s_heapPrevUsed = 0;
+
+static size_t heapUsedBytes()
+{
+    struct mallinfo mi = mallinfo();
+    return (size_t)(unsigned int)mi.uordblks;
+}
+
 extern "C" {
+
+/* Log one [HEAP] line: total / used / free in MB (1 decimal) + delta vs the
+ * previous calypso_log_heap() call (first call's baseline is 0). */
+EMSCRIPTEN_KEEPALIVE
+void calypso_log_heap(const char *tag)
+{
+    const size_t MiB = 1048576;
+    size_t total  = (size_t)emscripten_get_heap_size();
+    size_t used   = heapUsedBytes();
+    size_t free_  = total > used ? total - used : 0;
+    long long delta  = (long long)used - (long long)s_heapPrevUsed;
+    s_heapPrevUsed   = used;
+    size_t adelta = (size_t)(delta >= 0 ? delta : -delta);
+    char   sign   = delta >= 0 ? '+' : '-';
+    auto   mb     = [MiB](size_t b) { return (long long)(b / MiB); };
+    auto   mb1    = [MiB](size_t b) { return (long long)((b % MiB) * 10 / MiB); };
+    Log(LOG_INFO) << "[HEAP] " << tag
+                  << ": total=" << mb(total)  << "." << mb1(total)  << "MB"
+                  << " used="   << mb(used)   << "." << mb1(used)   << "MB"
+                  << " free="   << mb(free_)  << "." << mb1(free_)  << "MB"
+                  << " delta="  << sign       << mb(adelta) << "." << mb1(adelta) << "MB";
+}
+
+/* Return heap utilisation / total linear-memory size in bytes as double for
+ * JS-side polling: Module.ccall('calypso_heap_used', 'number', [], []). */
+EMSCRIPTEN_KEEPALIVE
+double calypso_heap_used(void)
+{
+    return (double)heapUsedBytes();
+}
+
+EMSCRIPTEN_KEEPALIVE
+double calypso_heap_total(void)
+{
+    return (double)(size_t)emscripten_get_heap_size();
+}
 
 EMSCRIPTEN_KEEPALIVE
 void calypso_screenshot(const char *path)
