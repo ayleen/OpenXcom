@@ -83,6 +83,9 @@ private:
 	bool findGuardObjective(Position& out) const;
 	/// Phase 32: fill _patrolAction with a walk toward the guard objective; returns false if none.
 	bool setupGuardMove();
+	/// Phase 34.4: true for an unengaged (no known enemy) hostile alien when the mod enables
+	/// ai.terrorHuntCivilians -- biases patrol node choice toward the civilian-hunt zone.
+	bool wantsToHuntCivilians() const;
 public:
 	bool medikit_think(BattleMediKitType healOrStim);
 public:

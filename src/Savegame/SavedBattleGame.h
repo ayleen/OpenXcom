@@ -120,6 +120,11 @@ private:
 	int _vipSurvivalPercentage, _vipsSaved, _vipsLost, _vipsWaitingOutside, _vipsSavedScore, _vipsLostScore, _vipsWaitingOutsideScore;
 	int _objectiveType, _objectivesDestroyed, _objectivesNeeded;
 	std::vector<BattleUnit*> _exposedUnits;
+	// Phase 34.4 (Calypso): ai.terrorHuntCivilians zone cache -- transient, not saved,
+	// trivially re-derivable from the live FACTION_NEUTRAL units each turn.
+	Position _huntCiviliansZone;
+	int _huntCiviliansZoneTurn = -1;
+	bool _huntCiviliansZoneValid = false;
 	std::list<BattleUnit*> _fallingUnits;
 	bool _unitsFalling, _cheating;
 	std::vector<Position> _tileSearch, _storageSpace;
@@ -490,6 +495,13 @@ public:
 	Node *getSpawnNode(int nodeRank, BattleUnit *unit, const Position &anchor);
 	/// Gets a patrol node.
 	Node *getPatrolNode(bool scout, BattleUnit *unit, Node *fromNode);
+	/// Gets a patrol node biased toward a zone (Phase 34.4: ai.terrorHuntCivilians) -- same
+	/// candidate set as the base overload above, nearest-to-zone pick with a tie fallback to
+	/// vanilla behavior.
+	Node *getPatrolNode(bool scout, BattleUnit *unit, Node *fromNode, const Position &zoneAnchor);
+	/// Gets the quantized civilian-hunt zone centroid for Phase 34.4's ai.terrorHuntCivilians
+	/// (10-tile grid; cached once per turn, transient, never saved, trivially re-derivable).
+	bool getCivilianHuntZone(Position &out);
 	/// Carries out new turn preparations.
 	void prepareNewTurn();
 	/// Revives unconscious units (health check).
