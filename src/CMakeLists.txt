@@ -817,7 +817,8 @@ if(NOT EMSCRIPTEN AND BUILD_TESTING)
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/AIFairAliensTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/ClusteredSpawnTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/TerrorHuntCiviliansTest.cpp
-        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/BrutalAITest.cpp)
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/BrutalAITest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/RealisticAccuracyTest.cpp)
 
     add_executable(oxce_unit_tests ${OXCE_TEST_SOURCES})
     target_link_libraries(oxce_unit_tests PRIVATE oxce_test_doctest)
