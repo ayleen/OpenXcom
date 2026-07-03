@@ -1266,6 +1266,7 @@ void scanModDir(const std::string& dirname, const std::string& basename, bool pr
 		"XCOM_Damage",
 		"calypso-hd-demo",
 		"calypso-hd-pack",
+		"calypso-lore",
 		"calypso-test-master"
 	};
 
