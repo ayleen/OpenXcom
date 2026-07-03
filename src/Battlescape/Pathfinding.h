@@ -46,16 +46,18 @@ private:
 
 	SavedBattleGame *_save;
 	std::vector<PathfindingNode> _nodes;
+	std::vector<PathfindingNode> _altNodes; // Brutal-AI: parallel node set for position-to-position pathing
 	int _size;
 	BattleUnit *_unit;
 	bool _pathPreviewed;
 	bool _strafeMove;
 	bool _ctrlUsed = false;
 	bool _altUsed = false;
+	bool _ignoreFriends = false; // Brutal-AI: when set, reachability search paths through allies
 	PathfindingCost _totalTUCost;
 
-	/// Gets the node at certain position.
-	PathfindingNode *getNode(Position pos);
+	/// Gets the node at certain position (alt = the parallel node set).
+	PathfindingNode *getNode(Position pos, bool alt = false);
 
 	/// Gets movement type of unit or movement of missile.
 	MovementType getMovementType(const BattleUnit *unit, const BattleUnit *missileTarget, BattleActionMove bam) const;
@@ -196,6 +198,8 @@ public:
 	static int red;
 	static int green;
 	static int yellow;
+	static int brown; // Brutal-AI (adapted from Brutal-OXCE by Xilmi)
+	static int white; // Brutal-AI (adapted from Brutal-OXCE by Xilmi)
 
 	/// Creates a new Pathfinding class.
 	Pathfinding(SavedBattleGame *save);
@@ -203,6 +207,10 @@ public:
 	~Pathfinding();
 	/// Calculates the shortest path.
 	void calculate(BattleUnit *unit, Position endPosition, BattleActionMove bam, const BattleUnit *missileTarget = 0, int maxTUCost = 1000);
+	/// Brutal-AI: calculates the shortest path between two explicit positions.
+	void calculate(BattleUnit *unit, Position startPosition, Position endPosition, BattleActionMove bam, const BattleUnit *missileTarget = 0, int maxTUCost = 1000);
+	/// Brutal-AI: whether the reachability search should path through friendly units.
+	void setIgnoreFriends(bool ignore) { _ignoreFriends = ignore; }
 
 	/**
 	 * Converts direction to a vector. Direction starts north = 0 and goes clockwise.
@@ -265,8 +273,10 @@ public:
 
 	/// Sets _unit in order to abuse low-level pathfinding functions from outside the class.
 	void setUnit(BattleUnit *unit);
-	/// Gets all reachable tiles, based on cost.
-	std::vector<int> findReachable(const BattleUnit *unit, const BattleActionCost &cost);
+	/// Gets all reachable tiles, based on cost. (Brutal-AI: added ranOutOfTUs out-param.)
+	std::vector<int> findReachable(BattleUnit *unit, const BattleActionCost &cost, bool &ranOutOfTUs);
+	/// Brutal-AI (adapted from Brutal-OXCE by Xilmi): gets all reachable pathfinding nodes with their cost.
+	std::vector<PathfindingNode*> findReachablePathFindingNodes(BattleUnit *unit, const BattleActionCost &cost, bool &ranOutOfTus, bool entireMap = false, const BattleUnit* missileTarget = NULL, const Position* alternateStart = NULL, bool justCheckIfAnyMovementIsPossible = false, bool useMaxTUs = false, BattleActionMove bam = BattleActionMove(0) /* BAM_NORMAL */);
 	/// Gets _totalTUCost; finds out whether we can hike somewhere in this turn or not.
 	int getTotalTUCost() const { return _totalTUCost.time; }
 	/// Gets the path preview setting.
