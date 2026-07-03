@@ -90,6 +90,10 @@ private:
 	std::map<RuleTerrain*, int> _loadedTerrains;
 	std::vector<std::pair<MapBlock*, Position> > _verticalLevelSegments;
 	std::vector<Tile*> _backupInventoryTiles;
+	// Phase 34.3 (Calypso): ai.clusteredSpawn anchor, computed once per battle (this
+	// generator instance is per-battle) and memoized -- never recomputed mid-deploy.
+	bool _clusterAnchorComputed = false;
+	Position _clusterAnchor;
 
 	/// sets the map size and associated vars
 	void init(bool resetTerrain);
@@ -102,7 +106,10 @@ private:
 	/// Tries to set a custom craft inventory tile.
 	void setCustomCraftInventoryTile();
 	/// Adds an alien to the game.
-	BattleUnit *addAlien(Unit *rules, int alienRank, bool outside);
+	BattleUnit *addAlien(Unit *rules, int alienRank, bool outside, const Position *clusterAnchor = nullptr);
+	/// Gets (and memoizes) the ai.clusteredSpawn anchor: the alien-usable spawn node farthest
+	/// from the X-Com deploy centroid, computed once per battle.
+	Position getClusterAnchor();
 	/// Adds a civilian to the game.
 	BattleUnit *addCivilian(Unit *rules, int nodeRank);
 	/// Places an item on a soldier based on equipment layout.

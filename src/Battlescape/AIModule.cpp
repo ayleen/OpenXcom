@@ -185,6 +185,22 @@ bool AIModule::isCivilianGuard() const
 }
 
 /**
+ * Phase 34.4 (Calypso): should this alien bias its patrol toward the civilian-hunt zone
+ * instead of a random/highest-value node? Only a genuine alien (both current and original
+ * faction HOSTILE -- excludes an MC'd civilian, which should keep behaving like a civilian)
+ * with no known enemy (an engaged alien fights; this is purely for the "nothing to do yet"
+ * case), gated on the mod flag. The actual civilian-alive check happens in
+ * SavedBattleGame::getCivilianHuntZone (false when none are alive).
+ */
+bool AIModule::wantsToHuntCivilians() const
+{
+	return _save->getMod()->getAITerrorHuntCivilians()
+		&& _unit->getFaction() == FACTION_HOSTILE
+		&& _unit->getOriginalFaction() == FACTION_HOSTILE
+		&& _knownEnemies == 0;
+}
+
+/**
  * Phase 32 (Calypso): the nearest civilian "crying for help" that a guard can hear. A civilian
  * is in distress when it is panicking/berserk, its morale has cracked, or a spotted alien is
  * menacing it. Limited to a hearing radius so a guard reacts to nearby screams, not the whole map.
@@ -1028,6 +1044,13 @@ void AIModule::setupPatrol()
 		}
 	}
 
+	// Phase 34.4 (Calypso): an unengaged terror-mission alien biases its patrol-node choice
+	// toward the (quantized) civilian-hunt zone instead of picking randomly/highest-value.
+	// `huntZoneKnown` gates the two getPatrolNode call sites further down; when it's false
+	// (flag off, alien engaged, or no civilians alive) they behave exactly as vanilla.
+	Position huntZone;
+	bool huntZoneKnown = wantsToHuntCivilians() && _save->getCivilianHuntZone(huntZone);
+
 	if (_toNode != 0 && _unit->getPosition() == _toNode->getPosition())
 	{
 		if (_traceAI)
@@ -1161,10 +1184,12 @@ void AIModule::setupPatrol()
 
 		if (_toNode == 0)
 		{
-			_toNode = _save->getPatrolNode(scout, _unit, _fromNode);
+			_toNode = huntZoneKnown ? _save->getPatrolNode(scout, _unit, _fromNode, huntZone)
+									: _save->getPatrolNode(scout, _unit, _fromNode);
 			if (_toNode == 0)
 			{
-				_toNode = _save->getPatrolNode(!scout, _unit, _fromNode);
+				_toNode = huntZoneKnown ? _save->getPatrolNode(!scout, _unit, _fromNode, huntZone)
+										: _save->getPatrolNode(!scout, _unit, _fromNode);
 			}
 		}
 

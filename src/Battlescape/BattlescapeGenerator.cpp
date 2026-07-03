@@ -1696,6 +1696,15 @@ void BattlescapeGenerator::deployAliens(const AlienDeployment *deployment)
 	// and reset memory at each stage
 	_save->getReinforcementsMemory().clear();
 
+	// Phase 34.3 (Calypso): ai.clusteredSpawn -- anchor every alien in this deployment away
+	// from the X-Com landing zone. Computed once (memoized on this per-battle generator).
+	bool clusteredSpawn = deployment->getClusteredSpawn();
+	Position clusterAnchor;
+	if (clusteredSpawn)
+	{
+		clusterAnchor = getClusterAnchor();
+	}
+
 	for (auto& dd : *deployment->getDeploymentData())
 	{
 		int quantity;
@@ -1741,7 +1750,7 @@ void BattlescapeGenerator::deployAliens(const AlienDeployment *deployment)
 				outside = false;
 			}
 			Unit *rule = _game->getMod()->getUnit(alienName, true);
-			BattleUnit *unit = addAlien(rule, dd.alienRank, outside);
+			BattleUnit *unit = addAlien(rule, dd.alienRank, outside, clusteredSpawn ? &clusterAnchor : nullptr);
 			size_t itemLevel = (size_t)(_game->getMod()->getAlienItemLevels().at(_save->getAlienItemLevel()).at(RNG::generate(0,9)));
 			if (unit)
 			{
@@ -1788,9 +1797,13 @@ void BattlescapeGenerator::deployAliens(const AlienDeployment *deployment)
  * @param rules Pointer to the Unit which holds info about the alien .
  * @param alienRank The rank of the alien, used for spawn point search.
  * @param outside Whether the alien should spawn outside or inside the UFO.
+ * @param clusterAnchor Phase 34.3 (Calypso): non-null for ai.clusteredSpawn deployments --
+ *        biases the spawn node toward this position instead of picking uniformly at random.
+ *        Bypassed when `outside` is true (the outside-UFO path always uses node rank 0
+ *        unclustered; see the load-time warning in AlienDeployment::load).
  * @return Pointer to the created unit.
  */
-BattleUnit *BattlescapeGenerator::addAlien(Unit *rules, int alienRank, bool outside)
+BattleUnit *BattlescapeGenerator::addAlien(Unit *rules, int alienRank, bool outside, const Position *clusterAnchor)
 {
 	BattleUnit *unit = _save->createTempUnit(rules, FACTION_HOSTILE, _unitSequence++);
 	Node *node = 0;
@@ -1805,6 +1818,8 @@ BattleUnit *BattlescapeGenerator::addAlien(Unit *rules, int alienRank, bool outs
 	{
 		if (outside)
 			node = _save->getSpawnNode(0, unit); // when alien is instructed to spawn outside, we only look for node 0 spawnpoints
+		else if (clusterAnchor)
+			node = _save->getSpawnNode(Node::nodeRank[alienRank][i], unit, *clusterAnchor);
 		else
 			node = _save->getSpawnNode(Node::nodeRank[alienRank][i], unit);
 	}
@@ -1861,6 +1876,61 @@ BattleUnit *BattlescapeGenerator::addAlien(Unit *rules, int alienRank, bool outs
 	}
 
 	return unit;
+}
+
+/**
+ * Phase 34.3 (Calypso): the ai.clusteredSpawn anchor -- the alien-usable spawn node
+ * (priority > 0, not dummy) farthest from the X-Com deploy centroid. The centroid is
+ * averaged from the already-placed FACTION_PLAYER units in _save->getUnits() (deployAliens
+ * runs after deployXcom) rather than from NR_XCOM nodes, so it still works on craft-less
+ * maps. Computed once per battle: this generator is a per-battle instance, so a simple
+ * memo flag is enough -- no per-turn invalidation needed.
+ * @return The anchor position (falls back to the X-Com centroid itself if no alien-usable node exists).
+ */
+Position BattlescapeGenerator::getClusterAnchor()
+{
+	if (_clusterAnchorComputed)
+	{
+		return _clusterAnchor;
+	}
+	_clusterAnchorComputed = true;
+
+	long sx = 0, sy = 0, sz = 0;
+	int count = 0;
+	for (auto* bu : *_save->getUnits())
+	{
+		if (bu->getFaction() == FACTION_PLAYER)
+		{
+			sx += bu->getPosition().x;
+			sy += bu->getPosition().y;
+			sz += bu->getPosition().z;
+			++count;
+		}
+	}
+	Position centroid(0, 0, 0);
+	if (count > 0)
+	{
+		centroid = Position((int)(sx / count), (int)(sy / count), (int)(sz / count));
+	}
+
+	Position anchor = centroid;
+	int bestDist = -1;
+	for (auto* node : *_save->getNodes())
+	{
+		if (node->isDummy() || node->getPriority() <= 0)
+		{
+			continue;
+		}
+		int d = Position::distance2d(node->getPosition(), centroid);
+		if (d > bestDist)
+		{
+			bestDist = d;
+			anchor = node->getPosition();
+		}
+	}
+
+	_clusterAnchor = anchor;
+	return _clusterAnchor;
 }
 
 /**

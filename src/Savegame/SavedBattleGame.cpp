@@ -17,6 +17,7 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include <assert.h>
+#include <climits>
 #include <vector>
 #include "BattleItem.h"
 #include "ItemContainer.h"
@@ -2335,6 +2336,63 @@ Node *SavedBattleGame::getSpawnNode(int nodeRank, BattleUnit *unit)
 }
 
 /**
+ * Phase 34.3 (Calypso): same candidate-node search as the base getSpawnNode above, for
+ * ai.clusteredSpawn deployments. Never modifies the base overload (it also spawns X-Com
+ * and civilians) and never narrows its candidate set -- narrowing could return null where
+ * the base overload wouldn't, which silently deletes the alien outside Demigod
+ * (BattlescapeGenerator::addAlien). The only change is the final pick: nearest to `anchor`
+ * instead of uniform-random, jittered among the nearest min(3, candidates) so it isn't
+ * perfectly deterministic.
+ * @param nodeRank Rank of the node (this is not the rank of the alien!).
+ * @param unit Pointer to the unit (to get its position).
+ * @param anchor Position to cluster spawns away from (the X-Com-farthest alien-usable node).
+ * @return Pointer to the chosen node.
+ */
+Node *SavedBattleGame::getSpawnNode(int nodeRank, BattleUnit *unit, const Position &anchor)
+{
+	int highestPriority = -1;
+	std::vector<Node*> compliantNodes;
+
+	for (auto* node : *getNodes())
+	{
+		if (node->isDummy())
+		{
+			continue;
+		}
+		if (node->getRank() == nodeRank								// ranks must match
+			&& (!(node->getType() & Node::TYPE_SMALL)
+				|| unit->isSmallUnit())								// the small unit bit is not set or the unit is small
+			&& (!(node->getType() & Node::TYPE_FLYING)
+				|| unit->getMovementType() == MT_FLY)				// the flying unit bit is not set or the unit can fly
+			&& node->getPriority() > 0								// priority 0 is no spawn place
+			&& setUnitPosition(unit, node->getPosition(), true))	// check if not already occupied
+		{
+			if (node->getPriority() > highestPriority)
+			{
+				highestPriority = node->getPriority();
+				compliantNodes.clear(); // drop the last nodes, as we found a higher priority now
+			}
+			if (node->getPriority() == highestPriority)
+			{
+				compliantNodes.push_back(node);
+			}
+		}
+	}
+
+	if (compliantNodes.empty()) return 0;
+
+	std::sort(compliantNodes.begin(), compliantNodes.end(), [&anchor](Node* a, Node* b)
+	{
+		return Position::distance2d(a->getPosition(), anchor) < Position::distance2d(b->getPosition(), anchor);
+	});
+
+	size_t jitterPool = std::min<size_t>(3, compliantNodes.size());
+	int n = RNG::generate(0, (int)jitterPool - 1);
+
+	return compliantNodes[n];
+}
+
+/**
  * Finds a fitting node where a unit can patrol to.
  * @param scout Is the unit scouting?
  * @param unit Pointer to the unit (to get its position).
@@ -2412,6 +2470,157 @@ Node *SavedBattleGame::getPatrolNode(bool scout, BattleUnit *unit, Node *fromNod
 		if (Options::traceAI) { Log(LOG_INFO) << "Choosing node flagged " << preferred->getFlags(); }
 		return preferred;
 	}
+}
+
+/**
+ * Phase 34.4 (Calypso): same candidate-node search as the base getPatrolNode above, for
+ * ai.terrorHuntCivilians. Never modifies the base overload and never narrows its candidate
+ * set (identical filters, identical "compliantNodes empty -> big-unit scout retry / null"
+ * fallback) -- the only change is the final pick: nearest to the (quantized) civilian-hunt
+ * `zoneAnchor` instead of scout-random / non-scout-highest-flags. An exact tie for nearest
+ * falls back to that same vanilla pick among the tied subset.
+ * @param scout Is the unit scouting?
+ * @param unit Pointer to the unit (to get its position).
+ * @param fromNode Pointer to the node the unit is at.
+ * @param zoneAnchor The (quantized) civilian-hunt zone to bias toward.
+ * @return Pointer to the chosen node.
+ */
+Node *SavedBattleGame::getPatrolNode(bool scout, BattleUnit *unit, Node *fromNode, const Position &zoneAnchor)
+{
+	std::vector<Node *> compliantNodes;
+	Node *preferred = 0;
+
+	if (fromNode == 0)
+	{
+		if (Options::traceAI) { Log(LOG_INFO) << "This alien got lost. :("; }
+		fromNode = getNodes()->at(RNG::generate(0, getNodes()->size() - 1));
+		while (fromNode->isDummy())
+		{
+			fromNode = getNodes()->at(RNG::generate(0, getNodes()->size() - 1));
+		}
+	}
+
+	const int end = scout ? getNodes()->size() : fromNode->getNodeLinks()->size();
+
+	for (int i = 0; i < end; ++i)
+	{
+		if (!scout && fromNode->getNodeLinks()->at(i) < 1) continue;
+
+		Node *n = getNodes()->at(scout ? i : fromNode->getNodeLinks()->at(i));
+		if ( !n->isDummy()
+			&& (n->getFlags() > 0 || n->getRank() > 0 || scout)
+			&& (!(n->getType() & Node::TYPE_SMALL) || unit->isSmallUnit())
+			&& (!(n->getType() & Node::TYPE_FLYING) || unit->getMovementType() == MT_FLY)
+			&& !n->isAllocated()
+			&& !(n->getType() & Node::TYPE_DANGEROUS)
+			&& setUnitPosition(unit, n->getPosition(), true)
+			&& getTile(n->getPosition()) && !getTile(n->getPosition())->getFire()
+			&& (unit->getFaction() != FACTION_HOSTILE || !getTile(n->getPosition())->getDangerous())
+			&& (!scout || n != fromNode)
+			&& n->getPosition().x > 0 && n->getPosition().y > 0)
+		{
+			if (!preferred
+				|| (unit->getRankInt() >=0 &&
+					preferred->getRank() == Node::nodeRank[unit->getRankInt()][0] &&
+					preferred->getFlags() < n->getFlags())
+				|| preferred->getFlags() < n->getFlags())
+			{
+				preferred = n;
+			}
+			compliantNodes.push_back(n);
+		}
+	}
+
+	if (compliantNodes.empty())
+	{
+		if (Options::traceAI) { Log(LOG_INFO) << (scout ? "Scout " : "Guard") << " found on patrol node! XXX XXX XXX"; }
+		if (unit->isBigUnit() && !scout)
+		{
+			return getPatrolNode(true, unit, fromNode, zoneAnchor);
+		}
+		else
+			return 0;
+	}
+
+	int bestDist = INT_MAX;
+	std::vector<Node*> nearest;
+	for (auto* n : compliantNodes)
+	{
+		int d = Position::distance2d(n->getPosition(), zoneAnchor);
+		if (d < bestDist)
+		{
+			bestDist = d;
+			nearest.clear();
+			nearest.push_back(n);
+		}
+		else if (d == bestDist)
+		{
+			nearest.push_back(n);
+		}
+	}
+
+	if (nearest.size() == 1)
+	{
+		return nearest[0];
+	}
+
+	// exact tie for nearest: fall back to vanilla behavior among the tied subset.
+	if (scout)
+	{
+		return nearest[RNG::generate(0, (int)nearest.size() - 1)];
+	}
+	for (auto* n : nearest)
+	{
+		if (n == preferred)
+		{
+			return preferred;
+		}
+	}
+	return nearest[0];
+}
+
+/**
+ * Phase 34.4 (Calypso): the "zone" a hostile alien can sense living civilians in, for
+ * ai.terrorHuntCivilians. Centroid of every living FACTION_NEUTRAL unit's position,
+ * quantized to a 10-tile grid so aliens know a neighbourhood, never a tile -- fairness
+ * stance mirrors 34.1's "no positional omniscience". Cached on this SavedBattleGame,
+ * recomputed at most once per turn (not per unit) -- transient, never saved, trivially
+ * re-derivable from the unit list.
+ * @param out Filled with the quantized zone position when civilians are alive.
+ * @return false (out left untouched) when no civilian is alive.
+ */
+bool SavedBattleGame::getCivilianHuntZone(Position &out)
+{
+	if (_huntCiviliansZoneTurn != _turn)
+	{
+		_huntCiviliansZoneTurn = _turn;
+
+		long sx = 0, sy = 0, sz = 0;
+		int count = 0;
+		for (auto* bu : _units)
+		{
+			if (!bu->isOut() && bu->getFaction() == FACTION_NEUTRAL)
+			{
+				sx += bu->getPosition().x;
+				sy += bu->getPosition().y;
+				sz += bu->getPosition().z;
+				++count;
+			}
+		}
+
+		_huntCiviliansZoneValid = count > 0;
+		if (_huntCiviliansZoneValid)
+		{
+			const int GRID = 10;
+			int cx = (int)(sx / count);
+			int cy = (int)(sy / count);
+			int cz = (int)(sz / count);
+			_huntCiviliansZone = Position((cx / GRID) * GRID, (cy / GRID) * GRID, cz);
+		}
+	}
+
+	out = _huntCiviliansZone;
+	return _huntCiviliansZoneValid;
 }
 
 /**
