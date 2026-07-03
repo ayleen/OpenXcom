@@ -1536,7 +1536,10 @@ void SavedBattleGame::endTurn()
 
 	if ((_turn > _cheatTurn / 2 && tally.liveAliens <= 2) || _turn > _cheatTurn)
 	{
-		_cheating = true;
+		if (!getMod()->getAIFairAliens())
+		{
+			_cheating = true;
+		}
 	}
 
 	if (_side == FACTION_PLAYER)
