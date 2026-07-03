@@ -326,14 +326,6 @@ void BattlescapeGame::handleAI(BattleUnit *unit)
 				_debugPlay = true;
 			}
 		}
-		// Phase 34.5 Brutal-AI (adapted from Brutal-OXCE by Xilmi): honour a brutal unit's request
-		// to let a specific teammate act next (turn-order coordination). Only ever set by brutalThink,
-		// so this is inert when brutalAI is off.
-		if (getNextUnitToSelect() != NULL)
-		{
-			_save->setSelectedUnit(getNextUnitToSelect());
-			setNextUnitToSelect(NULL);
-		}
 		if (_save->getSelectedUnit())
 		{
 			_parentState->updateSoldierInfo();
@@ -530,6 +522,28 @@ void BattlescapeGame::handleAI(BattleUnit *unit)
 			{
 				_AISecondMove = true;
 			}
+		}
+	}
+
+	// Phase 34.5 Brutal-AI (adapted from Brutal-OXCE by Xilmi, his BattlescapeGame.cpp:514-527):
+	// a brutal unit yields its turn to a chosen teammate via BA_WAIT + setNextUnitToSelect. Without
+	// this consumer the BA_WAIT return matches no action block above and is a silent no-op (handleAI
+	// re-fires on the same unit -> broken coordination / AI-turn soft-lock). Only brutalThink emits
+	// BA_WAIT, so this is unreachable when brutalAI is off. setNextUnitToSelect(NULL) keeps the hint
+	// from going stale (dedupes the earlier reselect-block consumer, now removed).
+	if (action.type == BA_WAIT)
+	{
+		if (getNextUnitToSelect() != NULL)
+		{
+			_save->setSelectedUnit(getNextUnitToSelect());
+			setNextUnitToSelect(NULL);
+		}
+		else
+			_save->selectNextPlayerUnit(true);
+		if (_save->getSelectedUnit())
+		{
+			_parentState->updateSoldierInfo();
+			getMap()->getCamera()->centerOnPosition(_save->getSelectedUnit()->getPosition());
 		}
 	}
 }

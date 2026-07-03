@@ -367,7 +367,11 @@ PathfindingStep Pathfinding::getTUCost(Position startPosition, int direction, co
 				if (unit->getFaction() != FACTION_PLAYER &&
 					std::find(unit->getUnitsSpottedThisTurn().begin(), unit->getUnitsSpottedThisTurn().end(), overlaping) != unit->getUnitsSpottedThisTurn().end())
 					knowsOfOverlapping = true;
-				if (overlaping != missileTarget && knowsOfOverlapping)
+				// Xilmi's "path through the missile target" exemption must apply to brutal units ONLY:
+				// ungating it would let vanilla (brutalAI off) BAM_MISSILE routing pass through a tile
+				// overlapped by the target big-unit, which base code blocks -> byte-identical violation.
+				bool exemptMissileTarget = unit->isBrutal() && overlaping == missileTarget;
+				if (knowsOfOverlapping && !exemptMissileTarget)
 				{
 					return {{INVALID_MOVE_COST, 0}};
 				}
