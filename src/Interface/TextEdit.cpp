@@ -24,6 +24,15 @@
 #include "../Engine/Options.h"
 #include "../fallthrough.h"
 
+#ifdef __EMSCRIPTEN__
+// Phase 33 (mobile): virtual-keyboard bridge. setFocus notifies JS via this
+// harness hook (defined in Engine/EmscriptenHarness.cpp, C linkage), and the
+// harness writes back through g_calypsoFocusedTextEdit (C++ linkage, defined
+// here — the harness references it with a matching namespaced extern).
+extern "C" void calypso_notify_text_focus(int focused, int x, int y, int w, int h, const char *utf8);
+namespace OpenXcom { TextEdit *g_calypsoFocusedTextEdit = nullptr; }
+#endif
+
 namespace OpenXcom
 {
 
@@ -53,6 +62,9 @@ TextEdit::TextEdit(State *state, int width, int height, int x, int y) : Interact
  */
 TextEdit::~TextEdit()
 {
+#ifdef __EMSCRIPTEN__
+	if (g_calypsoFocusedTextEdit == this) g_calypsoFocusedTextEdit = nullptr;
+#endif
 	delete _text;
 	delete _caret;
 	delete _timer;
@@ -98,6 +110,11 @@ void TextEdit::setFocus(bool focus, bool modal)
 			_timer->start();
 			if (_modal)
 				_state->setModal(this);
+#ifdef __EMSCRIPTEN__
+			g_calypsoFocusedTextEdit = this;
+			calypso_notify_text_focus(1, getX(), getY(), getWidth(), getHeight(),
+				Unicode::convUtf32ToUtf8(_value).c_str());
+#endif
 		}
 		else
 		{
@@ -106,6 +123,10 @@ void TextEdit::setFocus(bool focus, bool modal)
 			SDL_EnableKeyRepeat(0, SDL_DEFAULT_REPEAT_INTERVAL);
 			if (_modal)
 				_state->setModal(0);
+#ifdef __EMSCRIPTEN__
+			if (g_calypsoFocusedTextEdit == this) g_calypsoFocusedTextEdit = nullptr;
+			calypso_notify_text_focus(0, 0, 0, 0, 0, "");
+#endif
 		}
 	}
 }
@@ -152,6 +173,43 @@ void TextEdit::setText(const std::string &text)
 	_caretPos = _value.length();
 	_redraw = true;
 }
+
+#ifdef __EMSCRIPTEN__
+/**
+ * Phase 33 (Emscripten): replaces the whole value from the JS input overlay.
+ * Mirrors the keydown insertion path: per-character isValidChar (numeric
+ * constraints) + exceedsMaxWidth clamp, then fires the state's onChange
+ * handler exactly like keyboardPress does — several states (base/soldier
+ * rename) write the model from onChange, not from the final value, so an
+ * engine-initiated unfocus must not lose the edit.
+ * @param utf8 New value as a UTF-8 string.
+ */
+void TextEdit::setTextExternal(const std::string &utf8)
+{
+	const std::u32string incoming = Unicode::convUtf8ToUtf32(utf8);
+	_value.clear();
+	_caretPos = 0;
+	for (UCode c : incoming)
+	{
+		if (isValidChar(c) && !exceedsMaxWidth(c))
+		{
+			_value.insert(_caretPos, 1, c);
+			_caretPos++;
+		}
+	}
+	_redraw = true;
+	if (_change && _state)
+	{
+		/* Zeroed KEYDOWN (sym = SDLK_UNKNOWN): handlers that special-case
+		 * Enter/Escape take their normal-typing branch. */
+		SDL_Event fakeEv;
+		SDL_zero(fakeEv);
+		fakeEv.type = SDL_KEYDOWN;
+		Action fake(&fakeEv, 0.0, 0.0, 0, 0);
+		(_state->*_change)(&fake);
+	}
+}
+#endif
 
 /**
  * Returns the string displayed on screen.

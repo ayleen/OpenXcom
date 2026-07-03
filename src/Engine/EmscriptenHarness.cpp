@@ -23,11 +23,15 @@
 #include <cstring>
 #include "Game.h"
 #include "Screen.h"
+#include "Options.h"
 #include "ShaderManager.h"
 #include "GpuSmokeState.h"
 #include "Logger.h"
 #include "FileMap.h"
 #include "../Interface/Cursor.h"
+// Phase 33 (mobile): pinch-zoom bridge + virtual-keyboard bridge for TextEdit.
+#include "../Interface/TextEdit.h"
+#include "../Battlescape/BattlescapeState.h"
 // HTML main-menu bridge (Phase 2): the JS overlay drives these to push the same
 // OXCE states the vanilla MainMenuState buttons would.
 #include "../Menu/NewGameState.h"
@@ -38,6 +42,14 @@
 #include "../Menu/OptionsBaseState.h"   // OptionsOrigin / OPT_MENU
 
 using namespace OpenXcom;
+
+/* Phase 33 (mobile): the currently-focused TextEdit, set by TextEdit::setFocus
+ * (see Interface/TextEdit.cpp). Declared OUTSIDE the extern "C" block below so
+ * it keeps C++ language linkage and resolves to the namespaced definition
+ * (_ZN8OpenXcom24g_calypsoFocusedTextEditE) — declaring it inside extern "C"
+ * would give it C linkage and fail to link. The JS text-set bridge writes
+ * through it. */
+namespace OpenXcom { extern TextEdit *g_calypsoFocusedTextEdit; }
 
 /* ---- M5: heap-stats primitives -----------------------------------------------
  * mallinfo() fields are signed int — cast through unsigned to avoid negative
@@ -399,6 +411,94 @@ void calypso_push_mouse_motion(int x, int y)
 	if (sy <= 0.0) sy = 1.0;
 	c->setX((int)(x / sx));
 	c->setY((int)(y / sy));
+}
+
+/* Phase 33: one-time touch-device defaults.  Called by JS after callMain
+ * (options.cfg is loaded by then), and ONLY on the first visit from a touch
+ * device (JS guards with a localStorage marker) so later user changes in
+ * Options are never stomped.  profile: 1 = tablet, 2 = phone. */
+EMSCRIPTEN_KEEPALIVE
+int calypso_apply_touch_defaults(int profile)
+{
+	using namespace OpenXcom;
+	if (!getCurrentGame()) return 0;
+	Options::touchEnabled = true;                    /* drag-scroll: no selector chase */
+	Options::oxceFatFingerLinks = true;              /* bigger extended-links buttons */
+	Options::oxceBattleTouchButtonsEnabled = true;   /* on-screen RMB/CTRL/ALT/SHIFT   */
+	Options::oxceBaseTouchButtons = true;
+	if (Options::battleDragScrollButton == 0)
+		Options::battleDragScrollButton = SDL_BUTTON_LEFT;
+	/* Bigger UI on small screens; user can change it in Options → Video. */
+	Options::battlescapeScale = (profile >= 2) ? SCALE_SCREEN_DIV_3 : SCALE_SCREEN_DIV_2;
+	Options::geoscapeScale    = (profile >= 2) ? SCALE_SCREEN_DIV_3 : SCALE_SCREEN_DIV_2;
+	Options::save();
+	return 1;
+}
+
+/* Phase 33: pinch-zoom bridge.  Steps the Battlescape display-fraction ladder
+ * (same path as the mouse wheel — BattlescapeState::zoom, Emscripten-only).
+ * Returns 0 when the top state is not a battle (harmless no-op for JS). */
+EMSCRIPTEN_KEEPALIVE
+int calypso_battlescape_zoom(int direction)
+{
+	OpenXcom::Game *g = OpenXcom::getCurrentGame();
+	if (!g) return 0;
+	OpenXcom::BattlescapeState *bs =
+		dynamic_cast<OpenXcom::BattlescapeState *>(g->getTopState());
+	if (!bs) return 0;
+	bs->zoom(direction > 0 ? 1 : -1);
+	return 1;
+}
+
+/* Phase 33: virtual-keyboard bridge.  TextEdit::setFocus calls
+ * calypso_notify_text_focus; it forwards to the JS hook
+ * globalThis.__calypsoTextFocus (no-op when the hook is absent, i.e. desktop).
+ * Coordinates are converted base-resolution → canvas pixels here, mirroring
+ * calypso_push_mouse_motion in reverse. */
+EMSCRIPTEN_KEEPALIVE
+void calypso_notify_text_focus(int focused, int x, int y, int w, int h, const char *utf8)
+{
+	OpenXcom::Game *g = OpenXcom::getCurrentGame();
+	double sx = 1.0, sy = 1.0;
+	if (g && g->getScreen())
+	{
+		sx = g->getScreen()->getXScale(); if (sx <= 0.0) sx = 1.0;
+		sy = g->getScreen()->getYScale(); if (sy <= 0.0) sy = 1.0;
+	}
+	EM_ASM({
+		if (globalThis.__calypsoTextFocus)
+			globalThis.__calypsoTextFocus($0, $1, $2, $3, $4, UTF8ToString($5));
+	}, focused, (int)(x * sx), (int)(y * sy), (int)(w * sx), (int)(h * sy), utf8);
+}
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_text_set(const char *utf8)
+{
+	if (OpenXcom::g_calypsoFocusedTextEdit)
+		OpenXcom::g_calypsoFocusedTextEdit->setTextExternal(utf8 ? utf8 : "");
+}
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_text_commit(void)
+{
+	SDL_Event e;
+	SDL_zero(e);
+	e.type = SDL_KEYDOWN;
+	e.key.keysym.sym = SDLK_RETURN;
+	SDL_PushEvent(&e);          /* routes through the normal keydown path →
+	                               TextEdit ENTER handling (TextEdit.cpp:561) */
+}
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_text_cancel(void)
+{
+	SDL_Event e;
+	SDL_zero(e);
+	e.type = SDL_KEYDOWN;
+	e.key.keysym.sym = SDLK_ESCAPE;
+	SDL_PushEvent(&e);          /* TextEdit ESCAPE path: clears the value,
+	                               fires the enter-action, unfocuses — same
+	                               as a hardware Esc (TextEdit.cpp:590) */
 }
 
 } /* extern "C" */
