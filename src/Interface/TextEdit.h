@@ -109,6 +109,10 @@ public:
 	void onEnter(ActionHandler handler);
 	/// Sets the text edit's background drawing setting.
 	void setDrawBackground(bool drawBackground) { _drawBackground = drawBackground; }
+#ifdef __EMSCRIPTEN__
+	/// Phase 33 (Emscripten): replace the whole value from the JS input overlay.
+	void setTextExternal(const std::string &utf8);
+#endif
 };
 
 }
