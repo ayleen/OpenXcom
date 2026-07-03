@@ -2093,6 +2093,27 @@ const std::vector<std::vector<Uint8> > *Mod::getLUTs() const
 	return &_transparencyLUTs;
 }
 
+/**
+ * Returns the Realistic Accuracy hit-chances lookup table for a given unit size.
+ * @return Pointer to the lookup table, or nullptr if none was loaded for that size.
+ */
+const std::vector<int>* Mod::getHitChancesTable(int size) const
+{
+	auto it = _hitChancesTable.find(size);
+	if (it != _hitChancesTable.end()) return &it->second;
+
+	return nullptr;
+}
+
+/**
+ * Returns the struct with Realistic Accuracy mod parameters.
+ * @return Pointer to the Realistic Accuracy mod parameters struct.
+ */
+const Mod::AccuracyModConfig *Mod::getAccuracyModConfig() const
+{
+	return &_realisticAccuracyConfig;
+}
+
 
 /**
  * Check for obsolete error based on year.
@@ -4284,6 +4305,72 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 		nodeHealth.tryRead("replenishAfterMission", _healthReplenishAfterMission);
 	}
 
+	// Realistic Accuracy (Joy Narical's RA v3.0, adapted from Brutal-OXCE by Xilmi).
+	// Override any settings if present in realisticAccuracy:
+	if (const auto& nodeRA = loadDocInfoHelper("realisticAccuracy"))
+	{
+		nodeRA.tryRead("peekDistance", _realisticAccuracyConfig.peekDistance);
+		nodeRA.tryRead("suicideProtectionDistance", _realisticAccuracyConfig.suicideProtectionDistance);
+
+		// Override "Normal" fire spread option
+		nodeRA.tryRead("distanceDeviation", _realisticAccuracyConfig.distanceDeviation[1]);
+		nodeRA.tryRead("oneHandWeaponDeviation", _realisticAccuracyConfig.oneHandWeaponDeviation[1]);
+		nodeRA.tryRead("kneelDeviation", _realisticAccuracyConfig.kneelDeviation[1]);
+		nodeRA.tryRead("aimedDeviation", _realisticAccuracyConfig.aimedDeviation[1]);
+		nodeRA.tryRead("snapDeviation", _realisticAccuracyConfig.snapDeviation[1]);
+		nodeRA.tryRead("autoDeviation", _realisticAccuracyConfig.autoDeviation[1]);
+
+		nodeRA.tryRead("horizontalSpreadCoeff", _realisticAccuracyConfig.horizontalSpreadCoeff[1]);
+		nodeRA.tryRead("verticalSpreadCoeff", _realisticAccuracyConfig.verticalSpreadCoeff[1]);
+	}
+
+	if (const auto& hitChancesNode = reader["hitChancesTable"])
+	{
+		// hitchance file should contain two tables for small and large units
+		// each table has 40 rows, each row represents one distance
+		// each row has 61 values for accuracies from 0 to 120%, step 2%
+		int constexpr TOTAL_TABLE_SIZE = Mod::distanceRows * Mod::accPerRowCount;
+
+		_hitChancesTable.clear();
+		bool initState = true;
+
+		for (const auto& tableEntryNode : hitChancesNode.children())
+		{
+			int unitSize = 0;
+			if (!tableEntryNode["unitSize"].tryReadVal(unitSize))
+			{
+				initState = false;
+				continue;
+			}
+
+			std::vector<int> distanceTable;
+			const auto& distancesNode = tableEntryNode["distances"];
+			if (distancesNode.isMap())
+			{
+				for (const auto& distanceRowNode : distancesNode.children())
+				{
+					std::vector<int> rowValues;
+					loadInts("hitChancesTable", rowValues, distanceRowNode);
+					distanceTable.insert(distanceTable.end(), rowValues.begin(), rowValues.end());
+				}
+			}
+
+			if ((int)distanceTable.size() == TOTAL_TABLE_SIZE)
+			{
+				_hitChancesTable[unitSize] = distanceTable;
+			}
+			else
+			{
+				Log(LOG_ERROR) << "Incorrect hitchances lookup table for units with size " << unitSize;
+				initState = false;
+			}
+		}
+
+		if (!initState)
+		{
+			Log(LOG_ERROR) << "Error loading hitchances lookup data!";
+		}
+	}
 
 	if (const auto& nodeGameOver = loadDocInfoHelper("gameOver"))
 	{

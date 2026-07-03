@@ -60,6 +60,12 @@ private:
 	bool _reversed;
 	int _vaporColor, _vaporDensity, _vaporProbability;
 	void applyAccuracy(Position origin, Position *target, double accuracy, bool keepRange, bool extendLine);
+	/// Realistic Accuracy: cover-aware accuracy resolution (Joy Narical's RA, from Brutal-OXCE by Xilmi).
+	void applyAccuracyRealistic(Position origin, Position *target, double accuracy, bool keepRange, bool extendLine);
+	/// Realistic Accuracy: finds a plausible miss trajectory.
+	Position calculateMissingTrajectoryRA(const Position& origin, const Position* target, BattleUnit* shooterUnit, const BattleUnit* targetUnit, int distanceVoxels, const std::vector<Position>& exposedVoxels);
+	/// Realistic Accuracy: strips protected voxels from the covered set (friendly-fire/suicide guard).
+	bool shotNeedsProtection(const Position &origin, std::vector<Position>& coveredVoxels, UnitFaction faction, int distanceVoxels);
 public:
 	/// Creates a new Projectile.
 	Projectile(Mod *mod, SavedBattleGame *save, BattleAction action, Position origin, Position target, BattleItem *ammo);
@@ -92,6 +98,8 @@ public:
 	bool isReversed() const;
 	/// adds a cloud of particles at the projectile's location
 	void addVaporCloud();
+	/// Realistic Accuracy: converts final accuracy to a chance-to-hit via the mod lookup table.
+	static int getHitChance(int distance, int accuracy, const std::vector<int>* lookupTable);
 };
 
 }

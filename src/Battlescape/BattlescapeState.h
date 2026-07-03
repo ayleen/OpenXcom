@@ -228,8 +228,8 @@ public:
 	Game *getGame() const;
 	/// Gets map.
 	Map *getMap() const;
-	/// Show debug message.
-	void debug(const std::string &message);
+	/// Show debug message (override forces display outside debug mode; used by Realistic Accuracy display-rolls).
+	void debug(const std::string &message, bool override = false);
 	/// Show bug hunt message.
 	void bugHuntMessage();
 	/// Show warning message.

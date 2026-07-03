@@ -2115,73 +2115,217 @@ bool TileEngine::isTileInLOS(BattleAction *action, Tile *tile, bool drawing)
  * @param excludeAllBut [Optional] is unit which is the only one to be considered for ray hits.
  * @return Degree of exposure (as percent).
  */
-int TileEngine::checkVoxelExposure(Position *originVoxel, Tile *tile, BattleUnit *excludeUnit, BattleUnit *excludeAllBut)
+double TileEngine::checkVoxelExposure(Position *originVoxel, Tile *tile, BattleUnit *excludeUnit, bool isDebug,
+                                    std::vector<Position> *exposedVoxels, std::vector<Position> *coveredVoxels, bool isSimpleMode)
 {
-	Position targetVoxel = tile->getPosition().toVoxel() + Position(8, 8, 0);
-	Position scanVoxel;
+	// Realistic Accuracy (Joy Narical's RA v3.0, adapted from Brutal-OXCE by Xilmi). Returns the
+	// fraction (0..1) of the target's voxels with a clear line of fire from the given origin, and
+	// optionally fills the exposed/covered voxel lists used by the RA aim resolver.
+	isDebug = isDebug && _save->getDebugMode();
+	if (excludeUnit && excludeUnit->isAIControlled()) isSimpleMode = true;
+
 	std::vector<Position> _trajectory;
-	BattleUnit *otherUnit = tile->getUnit();
-	if (otherUnit == 0) return 0; //no unit in this tile, even if it elevated and appearing in it.
-	if (otherUnit == excludeUnit) return 0; //skip self
+	Position scanVoxel;
+	BattleUnit *targetUnit = tile->getUnit();
+	if (targetUnit == nullptr) return 0; //no unit in this tile, even if it elevated and appearing in it.
+	if (targetUnit == excludeUnit) return 0; //skip self
+	Position targetVoxel = targetUnit->getPosition().toVoxel();
 
 	int targetMinHeight = targetVoxel.z - tile->getTerrainLevel();
-	if (otherUnit)
-		 targetMinHeight += otherUnit->getFloatHeight();
+	int targetFloatHeight = targetUnit->getFloatHeight();
+	targetMinHeight += targetFloatHeight;
 
-	// if there is an other unit on target tile, we assume we want to check against this unit's height
 	int heightRange;
+	if (!targetUnit->isOut())
+		heightRange = targetUnit->getHeight();
+	else
+		heightRange = 12;
 
-	int unitRadius = otherUnit->getLoftemps(); //width == loft in default loftemps set
-	if (otherUnit->isBigUnit())
-	{
-		unitRadius = 3;
-	}
+	int targetMaxHeight = targetMinHeight + heightRange;
+
+	int unitRadius = targetUnit->getRadiusVoxels();
+	int targetSize = targetUnit->getArmor()->getSize();
+	targetVoxel += Position(8*targetSize, 8*targetSize, 0); // center of unit
+
+	int unitMin_X = targetVoxel.x - unitRadius - 1;
+	int unitMin_Y = targetVoxel.y - unitRadius - 1;
+	int unitMax_X = targetVoxel.x + unitRadius + 1;
+	int unitMax_Y = targetVoxel.y + unitRadius + 1;
+
+	// sliceTargets[ unitRadius ] = {0, 0} and won't be overwritten further
+	int sliceTargetsX[ BattleUnit::BIG_MAX_RADIUS*2 + 1 ] = { 0 };
+	int sliceTargetsY[ BattleUnit::BIG_MAX_RADIUS*2 + 1 ] = { 0 };
 
 	// vector manipulation to make scan work in view-space
 	Position relPos = targetVoxel - *originVoxel;
-	float normal = unitRadius/sqrt((float)(relPos.x*relPos.x + relPos.y*relPos.y));
-	int relX = floor(((float)relPos.y)*normal+0.5);
-	int relY = floor(((float)-relPos.x)*normal+0.5);
 
-	int sliceTargets[] = {0,0, relX,relY, -relX,-relY};
+	for ( int testRadius = unitRadius; testRadius > 0; --testRadius) // slice for every voxel of a radius!
+	{
+		double normal = testRadius/sqrt((double)(relPos.x*relPos.x + relPos.y*relPos.y));
+		int relX = (int)floor(((double)relPos.y)*normal+0.5);
+		int relY = (int)floor(((double)-relPos.x)*normal+0.5);
 
-	if (!otherUnit->isOut())
-	{
-		heightRange = otherUnit->getHeight();
-	}
-	else
-	{
-		heightRange = 12;
+		sliceTargetsX[ unitRadius - testRadius ] = relX;
+		sliceTargetsY[ unitRadius - testRadius ] = relY;
+		sliceTargetsX[ unitRadius + testRadius ] = -relX;
+		sliceTargetsY[ unitRadius + testRadius ] = -relY;
 	}
 
-	int targetMaxHeight=targetMinHeight+heightRange;
-	// scan ray from top to bottom  plus different parts of target cylinder
+	int relX = sliceTargetsX[0];
+	int relY = sliceTargetsY[0];
+	int sliceTargetsTopBottom[] = { relY, -relX, -relY, relX }; // front/back scan points
+
+	std::vector<std::string> scanArray;
+	scanArray.reserve(24);
+	const char symbols[] = {'.','_','/','\\','o','u','x'};
+
+	// scan rays from top to bottom, every voxel of target cylinder
 	int total=0;
 	int visible=0;
-	for (int i = heightRange; i >=0; i-=2)
+
+	// for examlpe hovertank/plasma has floating height of 6, so its bottom is on level 7, with voxels 0-6 below it.
+	int bottomHeight = targetMinHeight + 1;
+
+	int floorElevation = targetMinHeight % Position::TileZ;
+	if (floorElevation < 2)
 	{
-		++total;
-		scanVoxel.z=targetMinHeight+i;
-		for (int j = 0; j < 3; ++j)
+		bottomHeight = targetMinHeight - floorElevation + 2; // can't check height 0-1 (bug?)
+	}
+
+	// Reduce number of checks in simple mode
+	int simplifyDivider = unitRadius;
+	if (targetSize == 2) simplifyDivider = 4;
+	int peekDistanceSq = _save->getMod()->getAccuracyModConfig()->peekDistance * _save->getMod()->getAccuracyModConfig()->peekDistance;
+
+	for (int height = targetMaxHeight; height >= bottomHeight; height -= 2)
+	{
+		std::string scanLine;
+		scanVoxel.z = height;
+
+		for (int j = 0; j <= unitRadius*2; ++j)
 		{
-			scanVoxel.x=targetVoxel.x + sliceTargets[j*2];
-			scanVoxel.y=targetVoxel.y + sliceTargets[j*2+1];
+			// Skip voxels in "simple" mode. usually to speed up AI calculations
+			if (isSimpleMode && (height + j) % simplifyDivider != 0)
+			{
+				scanLine += '.';
+				continue; // scan every N-th voxel
+			}
+
+			++total;
+			scanVoxel.x = targetVoxel.x + sliceTargetsX[j];
+			scanVoxel.y = targetVoxel.y + sliceTargetsY[j];
+
 			_trajectory.clear();
-			int test = calculateLineVoxel(*originVoxel, scanVoxel, false, &_trajectory, excludeUnit, excludeAllBut);
+			int test = calculateLineVoxel(*originVoxel, scanVoxel, false, &_trajectory, excludeUnit);
+
+			bool peekBehindCover = false;
+			if (!_trajectory.empty())
+			{
+				peekBehindCover = (Position::distanceSq(*originVoxel, _trajectory.at(0)) <= peekDistanceSq);
+			}
+
 			if (test == V_UNIT)
 			{
-				//voxel of hit must be inside of scanned box
-				if (_trajectory.at(0).x/16 == scanVoxel.x/16 &&
-					_trajectory.at(0).y/16 == scanVoxel.y/16 &&
-					_trajectory.at(0).z >= targetMinHeight &&
-					_trajectory.at(0).z <= targetMaxHeight)
+				int impactX = _trajectory.at(0).x;
+				int impactY = _trajectory.at(0).y;
+				int impactZ = _trajectory.at(0).z;
+
+				if (impactX >= unitMin_X && impactX <= unitMax_X &&
+					impactY >= unitMin_Y && impactY <= unitMax_Y &&
+					impactZ >= targetMinHeight+1 && impactZ <= targetMaxHeight)
 				{
 					++visible;
+					if (exposedVoxels) exposedVoxels->emplace_back(scanVoxel);
+					scanLine += '#';
 				}
+				else
+				{
+					if (peekBehindCover) --total;
+					else if (coveredVoxels) coveredVoxels->emplace_back(_trajectory.at(0));
+					scanLine += symbols[ test+1 ]; // overlapped by another unit
+				}
+			}
+
+			else
+			{
+				if ( test == V_EMPTY || peekBehindCover ) --total;
+				else if (coveredVoxels) coveredVoxels->emplace_back(_trajectory.at(0)); // Target can't be covered by void
+
+				scanLine += symbols[ test+1 ]; // V_EMPTY = -1
+			}
+		}
+		scanLine += " " + std::to_string( height % Position::TileZ );
+		scanArray.emplace_back( scanLine );
+
+		// Additional bottom layer for units with odd height
+		if (targetFloatHeight > 1 && heightRange % 2 == 0 && height - bottomHeight == 1) ++height;
+	}
+	double exposure = total > 0 ? (double)visible / total : 0.0;
+
+	if (isDebug)
+	{
+		Log(LOG_INFO) << " ";
+		for ( const auto &line : scanArray )
+			Log(LOG_INFO) << line;
+		Log(LOG_INFO) << " ";
+	}
+
+	if (exposure < 0.1) // Check near/far parts of target cylinder
+	{
+		bool aimFromAbove = originVoxel->z > targetMaxHeight;
+		bool aimFromBelow = originVoxel->z < targetMinHeight + 1;
+		if (!aimFromAbove && !aimFromBelow) return exposure; // Aiming horizontally, cannot see any additional voxels
+
+		// sliceTargetsTopBottom[] points order: front, back
+		// If aiming from above: check "top back" and "bottom front" points
+		int heights[] = { targetMinHeight+1, targetMaxHeight };
+
+		// If aiming from below: check "bottom back" and "top front" points
+		if (aimFromBelow) std::swap( heights[0], heights[1] );
+
+		for ( int i = 0; i < 2; ++i)
+		{
+			scanVoxel.z = heights[ i ];
+			scanVoxel.x = targetVoxel.x + sliceTargetsTopBottom[ i * 2 ];
+			scanVoxel.y = targetVoxel.y + sliceTargetsTopBottom[ i * 2 + 1];
+
+			_trajectory.clear();
+			int test = calculateLineVoxel(*originVoxel, scanVoxel, false, &_trajectory, excludeUnit);
+
+			bool peekBehindCover = false;
+			if (!_trajectory.empty())
+			{
+				peekBehindCover = (Position::distanceSq(*originVoxel, _trajectory.at(0)) <= peekDistanceSq);
+			}
+
+			if (test == V_UNIT)
+			{
+				int impactX = _trajectory.at(0).x;
+				int impactY = _trajectory.at(0).y;
+				int impactZ = _trajectory.at(0).z;
+
+				if (impactX >= unitMin_X && impactX <= unitMax_X &&
+					impactY >= unitMin_Y && impactY <= unitMax_Y &&
+					impactZ >= targetMinHeight+1 && impactZ <= targetMaxHeight)
+				{
+					exposure += 0.05;
+					if (exposedVoxels) exposedVoxels->emplace_back(scanVoxel);
+				}
+				else
+				{
+					if (peekBehindCover) --total;
+					else if (coveredVoxels) coveredVoxels->emplace_back(_trajectory.at(0));
+				}
+			}
+			else if (test != V_EMPTY)
+			{
+				if ( peekBehindCover ) --total;
+				else if (coveredVoxels) coveredVoxels->emplace_back(_trajectory.at(0)); // Target can't be covered by void
 			}
 		}
 	}
-	return (visible*100)/total;
+
+	return exposure;
 }
 
 /**

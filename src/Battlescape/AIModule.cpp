@@ -4000,9 +4000,9 @@ void AIModule::brutalThink(BattleAction* action)
 		if (targetPosition == unitToWalkTo->getPosition())
 		{
 			iHaveLof = _save->getTileEngine()->canTargetUnit(&origin, unitToWalkTo->getTile(), nullptr, _unit, false);
-			if (iHaveLof && false /*CALYPSO: RA is slice 34.5b, off here*/)
+			if (iHaveLof && Options::battleRealisticAccuracy)
 			{
-				if (_save->getTileEngine()->checkVoxelExposure(&origin, unitToWalkTo->getTile(), _unit, nullptr) < EPSILON)
+				if (_save->getTileEngine()->checkVoxelExposure(&origin, unitToWalkTo->getTile(), _unit) < EPSILON)
 					iHaveLof = false;
 			}
 		}
@@ -4279,10 +4279,9 @@ void AIModule::brutalThink(BattleAction* action)
 							BattleAction* throwAction = grenadeThrowAction(originAction.target);
 							if (throwAction && !lineOfFire &&!_save->getTile(originAction.target)->getDangerous())
 								lineOfFire = validateArcingShot(throwAction, tile);
-							if (lineOfFire && false /*CALYPSO: RA is slice 34.5b, off here*/)
+							if (lineOfFire && Options::battleRealisticAccuracy)
 							{
-								// TODO(34.5b): /100.0 when RA re-enabled -- checkVoxelExposure is 0..100 here (RA's is 0..1)
-								exposureMod = std::max(exposureMod, (float)_save->getTileEngine()->checkVoxelExposure(&origin, unit->getTile(), _unit, nullptr));
+								exposureMod = std::max(exposureMod, (float)_save->getTileEngine()->checkVoxelExposure(&origin, unit->getTile(), _unit));
 								if (exposureMod < EPSILON)
 									lineOfFire = false;
 							}
@@ -4388,7 +4387,7 @@ void AIModule::brutalThink(BattleAction* action)
 						highestDamage = 1;
 					attackScore = remainingTimeUnits * highestDamage;
 					me.attackPotential = highestDamage;
-					if (false /*CALYPSO: RA is slice 34.5b, off here*/ && !specialDoorCase)
+					if (Options::battleRealisticAccuracy && !specialDoorCase)
 					{
 						attackScore *= exposureMod;
 						me.attackPotential *= exposureMod;
@@ -4938,9 +4937,9 @@ void AIModule::brutalThink(BattleAction* action)
 			originAction.target = target->getPosition();
 			Position origin = _save->getTileEngine()->getOriginVoxel(originAction, myTile);
 			haveLof = _save->getTileEngine()->canTargetUnit(&origin, target->getTile(), nullptr, _unit, false);
-			if (haveLof && false /*CALYPSO: RA is slice 34.5b, off here*/)
+			if (haveLof && Options::battleRealisticAccuracy)
 			{
-				if (_save->getTileEngine()->checkVoxelExposure(&origin, target->getTile(), _unit, nullptr) < EPSILON)
+				if (_save->getTileEngine()->checkVoxelExposure(&origin, target->getTile(), _unit) < EPSILON)
 					haveLof = false;
 			}
 		}
@@ -5753,7 +5752,7 @@ float AIModule::brutalScoreFiringMode(BattleAction* action, BattleUnit* target, 
 	accuracy /= 100.0;
 
 	// Apply a modifier for higher/lower hit-chance when closer/further from the target. But not for melee-attacks.
-	if (action->type != BA_HIT && !false /*CALYPSO: RA is slice 34.5b, off here*/)
+	if (action->type != BA_HIT && !Options::battleRealisticAccuracy)
 	{
 		if (accuracy > 0)
 			accuracy += std::max(1 - accuracy, 0.0f) / distance;
@@ -5778,10 +5777,9 @@ float AIModule::brutalScoreFiringMode(BattleAction* action, BattleUnit* target, 
 			{
 				if (!_save->getTileEngine()->canTargetUnit(&origin, target->getTile(), nullptr, _unit, false))
 					return 0;
-				if (false /*CALYPSO: RA is slice 34.5b, off here*/)
+				if (Options::battleRealisticAccuracy)
 				{
-					// TODO(34.5b): /100.0 when RA re-enabled -- checkVoxelExposure is 0..100 here (RA's is 0..1)
-					targetQuality = _save->getTileEngine()->checkVoxelExposure(&origin, target->getTile(), _unit, nullptr);
+					targetQuality = _save->getTileEngine()->checkVoxelExposure(&origin, target->getTile(), _unit);
 					if (targetQuality < EPSILON)
 						return 0;
 				}
@@ -7599,7 +7597,7 @@ float AIModule::damagePotential(Position pos, BattleUnit* target, int tuTotal, i
 
 			accuracy /= 100.0;
 			// Apply a modifier for higher/lower hit-chance when closer/further from the target. But not for melee-attacks.
-			if (bat != BA_HIT && !false /*CALYPSO: RA is slice 34.5b, off here*/)
+			if (bat != BA_HIT && !Options::battleRealisticAccuracy)
 			{
 				if (accuracy > 0)
 					accuracy += std::max(1 - accuracy, 0.0f) / distance;
