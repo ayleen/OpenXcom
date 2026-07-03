@@ -5676,8 +5676,10 @@ bool BattleUnit::isBrutal() const
 	if (getFaction() == FACTION_HOSTILE)
 		brutal = _mod && _mod->getAIBrutalAI();
 	// Civilians (FACTION_NEUTRAL) are deliberately NOT made brutal: Phase 32 owns civilian smartness
-	// and a brutal-thinking civilian would bypass those hooks. Player autoplay is out of scope.
-	if (_unitRules && _unitRules->isBrutal())
+	// and a brutal-thinking civilian would bypass those hooks. The per-unit force-brutal override is
+	// therefore guarded against NEUTRAL so a modded civilian type can't structurally escape Phase 32.
+	// (isNotBrutal can only turn it OFF, so it needs no guard.) Player autoplay is out of scope.
+	if (_unitRules && _unitRules->isBrutal() && getFaction() != FACTION_NEUTRAL)
 		brutal = true;
 	if (_unitRules && _unitRules->isNotBrutal())
 		brutal = false;
@@ -5702,7 +5704,11 @@ bool BattleUnit::isCheatOnMovement()
 	bool cheat = false;
 	if (getFaction() == FACTION_HOSTILE)
 		cheat = aiCheatMode() > 0;
-	if (_unitRules && _unitRules->isCheatOnMovement())
+	// The per-unit cheat-on-movement override honours the fairness clamp: it may only grant
+	// real-position pathing when the (mod-load-clamped) aiCheatMode already permits cheating.
+	// Since Calypso clamps aiCheatMode <= 0, this override is structurally inert today -- closing
+	// the last residual omniscience path. aiCheatMode() returns 0 for non-hostiles by design.
+	if (_unitRules && _unitRules->isCheatOnMovement() && aiCheatMode() > 0)
 		cheat = true;
 	return cheat;
 }
@@ -5783,15 +5789,14 @@ void BattleUnit::updateEnemyKnowledge(int index, bool clue, bool door)
 	}
 	setTileLastSpotted(index, FACTION_NEUTRAL);
 	setTileLastSpotted(index, FACTION_NEUTRAL, true);
-	// Calypso: the updateTurnsSinceSeenByClue engine option is not ported; use its default (off),
-	// i.e. an indirect clue does not by itself reset the turns-since-seen counter.
-	if (!clue)
-	{
-		setTurnsSinceSeen(0, FACTION_HOSTILE);
-		if (!door)
-			setTurnsSinceSeen(0, FACTION_PLAYER);
-		setTurnsSinceSeen(0, FACTION_NEUTRAL);
-	}
+	// Calypso: Xilmi guards these resets with (!clue || Options::updateTurnsSinceSeenByClue). We do
+	// not port that engine option, and its Brutal-OXCE default is TRUE -- so at parity settings the
+	// guard is always satisfied and the reset always runs. Reproduce that (drop the clue guard);
+	// keep only the inner `door` gate (a door-clue must not reveal the opener to the player).
+	setTurnsSinceSeen(0, FACTION_HOSTILE);
+	if (!door)
+		setTurnsSinceSeen(0, FACTION_PLAYER);
+	setTurnsSinceSeen(0, FACTION_NEUTRAL);
 }
 
 bool BattleUnit::hasPanickedLastTurn() const

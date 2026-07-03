@@ -4281,6 +4281,7 @@ void AIModule::brutalThink(BattleAction* action)
 								lineOfFire = validateArcingShot(throwAction, tile);
 							if (lineOfFire && false /*CALYPSO: RA is slice 34.5b, off here*/)
 							{
+								// TODO(34.5b): /100.0 when RA re-enabled -- checkVoxelExposure is 0..100 here (RA's is 0..1)
 								exposureMod = std::max(exposureMod, (float)_save->getTileEngine()->checkVoxelExposure(&origin, unit->getTile(), _unit, nullptr));
 								if (exposureMod < EPSILON)
 									lineOfFire = false;
@@ -5779,6 +5780,7 @@ float AIModule::brutalScoreFiringMode(BattleAction* action, BattleUnit* target, 
 					return 0;
 				if (false /*CALYPSO: RA is slice 34.5b, off here*/)
 				{
+					// TODO(34.5b): /100.0 when RA re-enabled -- checkVoxelExposure is 0..100 here (RA's is 0..1)
 					targetQuality = _save->getTileEngine()->checkVoxelExposure(&origin, target->getTile(), _unit, nullptr);
 					if (targetQuality < EPSILON)
 						return 0;

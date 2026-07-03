@@ -184,7 +184,7 @@ public:
 	/// Frees up the destination node for another Unit to select
 	void freePatrolTarget();
 
-	/// Everything below belongs tu Brutal-AI (adapted from Brutal-OXCE by Xilmi, github.com/Xilmi/OpenXcom)
+	/// Everything below belongs to Brutal-AI (adapted from Brutal-OXCE by Xilmi, github.com/Xilmi/OpenXcom)
 	/// Checks whether anyone on our team can see the target
 	bool visibleToAnyFriend(BattleUnit *target) const;
 	/// Handles behavior of brutalAI
