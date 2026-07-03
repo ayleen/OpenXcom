@@ -594,7 +594,22 @@ void createOptionsOTHER()
 
 void createAdvancedOptionsOTHER()
 {
-	// your fork's advanced options here
+	// Realistic Accuracy (Joy Narical's RA v3.0, adapted from Brutal-OXCE by Xilmi;
+	// github.com/Xilmi/OpenXcom). Player-facing ballistics options; option names kept
+	// verbatim to ease future syncs. All gated at runtime by battleRealisticAccuracy.
+	_info.push_back(OptionInfo(OPTION_OTHER, "useChanceToHit", &useChanceToHit, true, "STR_BATTLECHANCETOHIT", "STR_BATTLESCAPE"));
+#ifdef __EMSCRIPTEN__
+	// CALYPSO: candidate for hard-enable — Realistic Accuracy is the browser build's default.
+	_info.push_back(OptionInfo(OPTION_OTHER, "battleRealisticAccuracy", &battleRealisticAccuracy, true, "STR_BATTLEREALISTICACCURACY", "STR_BATTLESCAPE"));
+#else
+	_info.push_back(OptionInfo(OPTION_OTHER, "battleRealisticAccuracy", &battleRealisticAccuracy, false, "STR_BATTLEREALISTICACCURACY", "STR_BATTLESCAPE"));
+#endif
+	_info.push_back(OptionInfo(OPTION_OTHER, "battleRealisticImprovedAimed", &battleRealisticImprovedAimed, true, "STR_BATTLEREALISTICIMPAIMED", "STR_BATTLESCAPE"));
+	_info.push_back(OptionInfo(OPTION_OTHER, "battleRealisticImprovedLof", &battleRealisticImprovedLof, false, "STR_BATTLEREALISTICIMPLOF", "STR_BATTLESCAPE"));
+	_info.push_back(OptionInfo(OPTION_OTHER, "battleRealisticShotDispersion", &battleRealisticShotDispersion, 1, "STR_BATTLEREALISTICSHOTDISPERSION", "STR_BATTLESCAPE"));
+	_info.push_back(OptionInfo(OPTION_OTHER, "battleRealisticCoverEfficiency", &battleRealisticCoverEfficiency, 3, "STR_BATTLEREALISTICCOVEREFFICIENCY", "STR_BATTLESCAPE"));
+	_info.push_back(OptionInfo(OPTION_OTHER, "battleRealisticDisplayRolls", &battleRealisticDisplayRolls, false, "STR_BATTLEREALISTICDISPLAYROLLS", "STR_BATTLESCAPE"));
+	_info.push_back(OptionInfo(OPTION_OTHER, "battleRealisticDisplayOthersRolls", &battleRealisticDisplayOthersRolls, false, "STR_BATTLEREALISTICDISPLAYOTHERSROLLS", "STR_BATTLESCAPE"));
 }
 
 void createControlsOTHER()
