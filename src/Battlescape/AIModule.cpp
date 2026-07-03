@@ -204,6 +204,151 @@ bool AIModule::wantsToHuntCivilians() const
 }
 
 /**
+ * Phase 34.6 (Calypso): terrain-tactics candidate-attack generator.
+ *
+ * Scans for one of two terrain attacks against fair-channel-known enemies and, if a viable
+ * candidate is found, fills `_attackAction` so the surrounding decision loop dispatches it.
+ *
+ *   Floor drop -- an enemy known via fair channels (`getTurnsSinceSpottedByFaction <=
+ *   _intelligence`, NEVER `_cheating`, NEVER direct map reads) is standing on a destructible
+ *   O_FLOOR (`Tile::getMapData(O_FLOOR)` non-null and its armor beatable by the unit's loaded
+ *   ammo: `power * ToTile >= armor`, the same `power >= armor` convention used by
+ *   `Tile::damage`), and the floor is targetable from the unit's current position
+ *   (`TileEngine::canTargetTile`, the precedent at `getNodeOfBestEfficacy`). Score = expected
+ *   fall depth (levels the enemy would drop) so deeper drops are preferred; firing happens via
+ *   the existing tile-targeting path (no new projectile type).
+ *
+ *   Wall breach -- only when pathfinding to the nearest known enemy fails or detours >2x the
+ *   straight-line distance AND the unit carries a grenade (`_grenade`) whose
+ *   `explosiveEfficacy` at the wall position is positive (cleared against friendlies): the unit
+ *   throws at the blocking O_OBJECT/wall on the straight line. One breach attempt per unit per
+ *   3 turns (transient `_lastBreachTurn`, NOT saved to file).
+ *
+ * Mission-objective safety: any tile whose `MapData::isBaseModule()` returns true is skipped --
+ * we never sabotage objectives outside the existing `destroyBaseFacilities` path (pitfall note
+ * in docs/phases/phase-34-advanced-battle-ai.md).
+ *
+ * With the mod flag off, every code path here is unreachable: the function returns false
+ * immediately without touching any state, so vanilla OXCE behavior is byte-for-byte preserved.
+ */
+bool AIModule::considerTerrainAttack()
+{
+	// Gate 1: byte-identical off-path.
+	if (!_save->getMod()->getAITerrainTactics()) return false;
+	// Gate 2: only the hostile AI uses terrain tactics. Civilians stay on the Phase 32 logic;
+	// mind-controlled soldiers (current faction != original) are out of scope -- they may be
+	// player-controlled again next turn and shouldn't blow up the player's buildings.
+	if (_unit->getFaction() != FACTION_HOSTILE || _unit->getOriginalFaction() != FACTION_HOSTILE) return false;
+	// Gate 3: don't override an already-chosen attack. Terrain attacks are fallback candidates.
+	if (_attackAction.type != BA_RETHINK) return false;
+
+	BattleItem *weapon = _unit->getMainHandWeapon();
+	if (!weapon) return false;
+	// Floor drop uses a direct shot from the main-hand weapon. canUseWeapon gates TU/str/stun.
+	if (!_save->canUseWeapon(weapon, _unit, false, BA_SNAPSHOT)) return false;
+	const BattleItem *ammo = weapon->getAmmoForAction(BA_SNAPSHOT);
+	if (!ammo) return false;
+	const RuleItem *ammoRule = ammo->getRules();
+	const RuleDamageType *dt = ammoRule->getDamageType();
+	if (!dt || dt->ToTile <= 0.0f) return false;
+	// Effective terrain damage from a single hit: `power * ToTile` (the multiplier applied by
+	// TileEngine at the `ToTile > 0` gate). The destruction predicate is `power >= armor`
+	// (Tile::damage / TileEngine::detonate); armor 255 is the indestructible sentinel.
+	int terrainPower = (int)(ammoRule->getPower() * dt->ToTile);
+	if (terrainPower < 1) return false;
+
+	const Position myPos = _unit->getPosition();
+	Position originVoxel = _save->getTileEngine()->getSightOriginVoxel(_unit);
+
+	// === Floor drop ===
+	// Pick the highest-scoring fair-known enemy whose standing tile has a destructible floor
+	// targetable from our current position. Score = expected fall depth (levels), so a 2-storey
+	// drop beats a 1-storey drop; ties broken by horizontal proximity.
+	int bestScore = 0;
+	Position bestTarget = Position(0, 0, 0);
+	BattleItem *bestWeapon = nullptr;
+	for (auto* target : *_save->getUnits())
+	{
+		if (!target || target == _unit || target->isOut()) continue;
+		// Fair-knowledge gate -- never `_cheating`, never a direct map read on the live position.
+		// isEnemy() is the brutal-AI helper; for legacy dispatch the same lookup-by-faction works.
+		if (!isEnemy(target)) continue;
+		if (target->getTurnsSinceSpottedByFaction(_unit->getFaction()) > _intelligence) continue;
+		// The FAIR known position is the last-spotted tile (Brutal-AI knowledge layer); fall back
+		// to the live tile only when the unit is genuinely visible right now (visibleToAnyFriend
+		// already encodes the fairness stance -- no omniscience).
+		Position enemyPos;
+		if (visibleToAnyFriend(target))
+		{
+			enemyPos = target->getPosition();
+		}
+		else
+		{
+			int spottedIdx = target->getTileLastSpotted(_unit->getFaction());
+			if (spottedIdx < 0) continue;
+			enemyPos = _save->getTileCoords(spottedIdx);
+		}
+		Tile *enemyTile = _save->getTile(enemyPos);
+		if (!enemyTile) continue;
+		MapData *floorMD = enemyTile->getMapData(O_FLOOR);
+		if (!floorMD) continue;
+		// Mission-objective safety: never drop a floor flagged as a base module.
+		if (floorMD->isBaseModule()) continue;
+		// Destructibility predicate (Tile::damage convention: power >= armor; 255 = indestructible).
+		if (floorMD->getArmor() >= 255) continue;
+		if (terrainPower < floorMD->getArmor()) continue;
+		// The floor must be targetable from the unit's current position (LOF check).
+		Position targetVoxel;
+		if (!_save->getTileEngine()->canTargetTile(&originVoxel, enemyTile, O_FLOOR, &targetVoxel, _unit, false))
+			continue;
+		// Score: expected fall depth. Search downward for the first tile that would catch the
+		// enemy; the drop is bounded by the map bottom (z=0) and capped at 4 levels for scoring.
+		int fallLevels = 0;
+		for (int z = enemyPos.z - 1; z >= 0 && fallLevels < 4; --z)
+		{
+			Tile *below = _save->getTile(Position(enemyPos.x, enemyPos.y, z));
+			if (!below) break;
+			++fallLevels;
+			if (!below->hasNoFloor(_save)) break; // a floor here catches the enemy
+		}
+		if (fallLevels < 1) continue; // no drop happens (e.g. ground-level tile) -- skip
+		// Base score so any viable drop beats "do nothing"; deeper drops score higher; closer
+		// enemies score slightly higher (tie-breaker). Same scale as AIW_SCALE so it slots into
+		// the existing scoring cascade without distorting it.
+		int score = AIW_SCALE + fallLevels * (AIW_SCALE / 2);
+		int horizDist = Position::distance2d(myPos, enemyPos);
+		score -= horizDist; // mild proximity bias
+		if (score > bestScore)
+		{
+			bestScore = score;
+			bestTarget = enemyPos;
+			bestWeapon = weapon;
+		}
+	}
+
+	if (bestScore > 0 && bestWeapon)
+	{
+		_attackAction.type = BA_SNAPSHOT;
+		_attackAction.target = bestTarget;
+		_attackAction.weapon = bestWeapon;
+		_attackAction.actor = _unit;
+		_attackAction.updateTU();
+		if (_traceAI)
+		{
+			Log(LOG_INFO) << "Phase 34.6: terrain floor-drop attack at " << bestTarget;
+		}
+		return true;
+	}
+
+	// === Wall breach ===
+	// Phase 34.6 commit (c) adds the wall-breach path here (gated on _grenade + a per-unit
+	// 3-turn cooldown + failed/2x-detour pathfind). The floor-drop path above is the only
+	// terrain attack in this commit; wall breach lands as a separate reviewable change.
+
+	return false;
+}
+
+/**
  * Phase 32 (Calypso): the nearest civilian "crying for help" that a guard can hear. A civilian
  * is in distress when it is panicking/berserk, its morale has cracked, or a spotted alien is
  * menacing it. Limited to a hearing radius so a guard reacts to nearby screams, not the whole map.
@@ -1410,6 +1555,14 @@ void AIModule::setupAttack()
 		{
 			projectileAction();
 		}
+	}
+
+	// Phase 34.6 (Calypso): terrain tactics (floor-drop / wall-breach) -- gated internally on
+	// the mod flag, the unit being a non-civilian hostile, and no other attack having been
+	// chosen. A no-op when the flag is off, so the legacy path stays byte-identical.
+	if (_attackAction.type == BA_RETHINK)
+	{
+		considerTerrainAttack();
 	}
 
 	if (_attackAction.type != BA_RETHINK)
@@ -3944,6 +4097,12 @@ void AIModule::brutalThink(BattleAction* action)
 				brutalSelectSpottedUnitForSniper();
 			if (_attackAction.type == BA_RETHINK && _grenade)
 				brutalGrenadeAction();
+			// Phase 34.6 (Calypso): terrain tactics (floor-drop / wall-breach) -- additive
+			// candidate slot, gated internally on ai.terrainTactics + hostile faction + no
+			// other attack chosen. A no-op when the flag is off, so brutalThink stays
+			// byte-identical to the 34.5 port in that case.
+			if (_attackAction.type == BA_RETHINK)
+				considerTerrainAttack();
 		}
 		if (_attackAction.type != BA_RETHINK)
 		{
