@@ -459,6 +459,12 @@ private:
 	bool _aiSmartCivilians;
 	bool _aiFairAliens;
 	bool _aiTerrorHuntCivilians;
+	// Phase 34.5: Brutal-AI port knobs (adapted from Brutal-OXCE by Xilmi). Folded into the
+	// per-mod ai: block instead of global engine Options for parity with smartCivilians.
+	bool _aiBrutalAI;
+	int _aiCheatMode;
+	bool _aiAvoidMines;
+	bool _aiPerformanceOptimization;
 	std::string _aiCivilianGuardType;
 	int _aiCivilianGuardChance;
 	int _aiReactionFireThreshold, _aiReactionFireThresholdCiv;
@@ -1153,6 +1159,14 @@ public:
 	bool getAIFairAliens() const { return _aiFairAliens; }
 	/// Gets whether unengaged terror-mission aliens bias patrol toward the (quantized) civilian zone (Phase 34.4; default off).
 	bool getAITerrorHuntCivilians() const { return _aiTerrorHuntCivilians; }
+	/// Brutal-AI (Phase 34.5): master switch for the ported Brutal-OXCE hostile AI (default off -> byte-identical vanilla).
+	bool getAIBrutalAI() const { return _aiBrutalAI; }
+	/// Brutal-AI: hostile omniscience level (-1 no squadsight .. 0 fair .. 2 wallhack). Default 0 (fair). Only fair levels are enabled in the mod.
+	int getAICheatMode() const { return _aiCheatMode; }
+	/// Brutal-AI: whether brutal units avoid known proximity mines/grenades (default true; only applies when brutalAI is on).
+	bool getAIAvoidMines() const { return _aiAvoidMines; }
+	/// Brutal-AI: whether to trim the per-turn option set the brutal AI evaluates, to cut turn time (default false).
+	bool getAIPerformanceOptimization() const { return _aiPerformanceOptimization; }
 	/// Gets the civilian unit type spawned as an armed guard (Phase 32; empty = no guards).
 	const std::string& getAICivilianGuardType() const { return _aiCivilianGuardType; }
 	/// Gets the per-civilian chance (%) of spawning as a guard instead (Phase 32; default 0).

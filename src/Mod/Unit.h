@@ -40,7 +40,12 @@ enum MovementType : int;
 
 
 enum ForcedTorso : Uint8 { TORSO_USE_GENDER, TORSO_ALWAYS_MALE, TORSO_ALWAYS_FEMALE };
-enum UnitSide : Uint8 { SIDE_FRONT, SIDE_LEFT, SIDE_RIGHT, SIDE_REAR, SIDE_UNDER, SIDE_MAX };
+// Phase 34.5 (Brutal-AI, adapted from Brutal-OXCE by Xilmi): the four diagonal sides are used
+// only by the AI's facing logic (getSideFacingToPosition), never as armor/fatal-wound array
+// indices. They are appended AFTER SIDE_MAX so SIDE_MAX stays 5 — keeping armor arrays and the
+// per-side save format unchanged (Xilmi places them before SIDE_MAX, which would grow both).
+enum UnitSide : Uint8 { SIDE_FRONT, SIDE_LEFT, SIDE_RIGHT, SIDE_REAR, SIDE_UNDER, SIDE_MAX,
+	SIDE_LEFT_FRONT = SIDE_MAX, SIDE_LEFT_REAR, SIDE_RIGHT_FRONT, SIDE_RIGHT_REAR };
 enum UnitStatus {STATUS_STANDING, STATUS_WALKING, STATUS_FLYING, STATUS_TURNING, STATUS_AIMING, STATUS_COLLAPSING, STATUS_DEAD, STATUS_UNCONSCIOUS, STATUS_PANICKING, STATUS_BERSERK, STATUS_IGNORE_ME};
 
 /**
@@ -478,6 +483,8 @@ private:
 	bool _cosmetic, _ignoredByAI;
 	bool _canPanic;
 	bool _canBeMindControlled;
+	// Phase 34.5 Brutal-AI per-unit overrides (adapted from Brutal-OXCE by Xilmi).
+	bool _isBrutal, _isNotBrutal, _isCheatOnMovement;
 	int _berserkChance;
 	bool _civilianGuard;
 
@@ -600,6 +607,12 @@ public:
 	int getBerserkChance() const { return _berserkChance; }
 	/// Phase 32 (Calypso): is this civilian an armed guard (protects other civilians)?
 	bool isCivilianGuard() const { return _civilianGuard; }
+	/// Brutal-AI per-unit override: force this unit type to use the brutal AI regardless of the mod master switch.
+	bool isBrutal() const { return _isBrutal; }
+	/// Brutal-AI per-unit override: forbid this unit type from using the brutal AI regardless of the mod master switch.
+	bool isNotBrutal() const { return _isNotBrutal; }
+	/// Brutal-AI per-unit override: allow this unit type to cheat on movement (knows player locations for pathing).
+	bool isCheatOnMovement() const { return _isCheatOnMovement; }
 
 	/// Name of class used in script.
 	static constexpr const char *ScriptName = "RuleUnit";

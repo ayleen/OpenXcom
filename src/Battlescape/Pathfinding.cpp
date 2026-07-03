@@ -38,7 +38,9 @@ constexpr int Pathfinding::dir_z[Pathfinding::dir_max];
 
 int Pathfinding::red = 3;
 int Pathfinding::yellow = 10;
+int Pathfinding::brown = 11; // Brutal-AI (adapted from Brutal-OXCE by Xilmi)
 int Pathfinding::green = 4;
+int Pathfinding::white = 6; // Brutal-AI (adapted from Brutal-OXCE by Xilmi)
 
 /**
  * Sets up a Pathfinding.
@@ -49,9 +51,11 @@ Pathfinding::Pathfinding(SavedBattleGame *save) : _save(save), _unit(0), _pathPr
 	_size = _save->getMapSizeXYZ();
 	// Initialize one node per tile
 	_nodes.reserve(_size);
+	_altNodes.reserve(_size); // Brutal-AI: parallel node set for position-to-position pathing
 	for (int i = 0; i < _size; ++i)
 	{
 		_nodes.push_back(PathfindingNode(_save->getTileCoords(i)));
+		_altNodes.push_back(PathfindingNode(_save->getTileCoords(i)));
 	}
 }
 
@@ -69,8 +73,10 @@ Pathfinding::~Pathfinding()
  * @param pos Position.
  * @return Pointer to node.
  */
-PathfindingNode *Pathfinding::getNode(Position pos)
+PathfindingNode *Pathfinding::getNode(Position pos, bool alt)
 {
+	if (alt) // Brutal-AI: alternate node set for position-to-position pathing
+		return &_altNodes[_save->getTileIndex(pos)];
 	return &_nodes[_save->getTileIndex(pos)];
 }
 
@@ -83,6 +89,21 @@ PathfindingNode *Pathfinding::getNode(Position pos)
  */
 void Pathfinding::calculate(BattleUnit *unit, Position endPosition, BattleActionMove bam, const BattleUnit *missileTarget, int maxTUCost)
 {
+	// Brutal-AI (adapted from Brutal-OXCE by Xilmi): delegate to the position-to-position overload,
+	// starting from the unit's own tile -- byte-identical to the legacy single-start behaviour.
+	calculate(unit, unit->getPosition(), endPosition, bam, missileTarget, maxTUCost);
+}
+
+/**
+ * Calculates the shortest path between two explicit positions (Brutal-AI overload).
+ * @param unit Unit taking the path.
+ * @param startPosition The position we want to start from.
+ * @param endPosition The position we want to reach.
+ * @param missileTarget Target of the path.
+ * @param maxTUCost Maximum time units the path can cost.
+ */
+void Pathfinding::calculate(BattleUnit *unit, Position startPosition, Position endPosition, BattleActionMove bam, const BattleUnit *missileTarget, int maxTUCost)
+{
 	_totalTUCost = {};
 	_path.clear();
 
@@ -91,9 +112,9 @@ void Pathfinding::calculate(BattleUnit *unit, Position endPosition, BattleAction
 	// i'm DONE with these out of bounds errors.
 	if (endPosition.x > _save->getMapSizeX() - size || endPosition.y > _save->getMapSizeY() - size || endPosition.x < 0 || endPosition.y < 0) return;
 
-	bool sneak = Options::sneakyAI && unit->getFaction() == FACTION_HOSTILE;
+	// Brutal units path optimally rather than sneaking; non-brutal keeps vanilla behaviour.
+	bool sneak = Options::sneakyAI && unit->getFaction() == FACTION_HOSTILE && !unit->isBrutal();
 
-	Position startPosition = unit->getPosition();
 	MovementType movementType = getMovementType(unit, missileTarget, bam);
 	if (missileTarget != 0 && maxTUCost == -1 && bam == BAM_MISSILE)  // pathfinding for missile
 	{
@@ -108,7 +129,8 @@ void Pathfinding::calculate(BattleUnit *unit, Position endPosition, BattleAction
 
 	// the following check avoids that the unit walks behind the stairs if we click behind the stairs to make it go up the stairs.
 	// it only works if the unit is on one of the 2 tiles on the stairs, or on the tile right in front of the stairs.
-	if (isOnStairs(startPosition, endPosition))
+	// Brutal-AI: a brutal AI unit may legitimately want to path behind stairs, so it skips this snap-up.
+	if (isOnStairs(startPosition, endPosition) && (unit->getFaction() == FACTION_PLAYER || !unit->isBrutal()))
 	{
 		endPosition.z++;
 		destinationTile = _save->getTile(endPosition);
@@ -158,7 +180,8 @@ void Pathfinding::calculate(BattleUnit *unit, Position endPosition, BattleAction
 	}
 
 	// look for a possible fast and accurate bresenham path and skip A*
-	if (bresenhamPath(startPosition, endPosition, bam, missileTarget, sneak))
+	// Brutal-AI: brutal units skip the bresenham shortcut so their reachable-node search stays exact.
+	if (!unit->isBrutal() && bresenhamPath(startPosition, endPosition, bam, missileTarget, sneak))
 	{
 		std::reverse(_path.begin(), _path.end()); //paths are stored in reverse order
 		return;
@@ -332,9 +355,26 @@ PathfindingStep Pathfinding::getTUCost(Position startPosition, int direction, co
 		{
 			// 2 or more voxels poking into this tile = no go
 			BattleUnit* overlaping = destinationTile[i]->getOverlappingUnit(_save, TUO_IGNORE_SMALL);
+			// Brutal-AI (adapted from Brutal-OXCE by Xilmi): a fair AI only blocks on an overlapping
+			// unit it actually knows about; vanilla (non-brutal) keeps blocking on any overlapping unit.
 			if (overlaping && overlaping != unit)
 			{
-				return {{INVALID_MOVE_COST, 0}};
+				bool knowsOfOverlapping = !unit->isBrutal();
+				if (unit->getFaction() == FACTION_PLAYER && overlaping->getVisible())
+					knowsOfOverlapping = true; // player knows all visible units
+				if (unit->getFaction() == overlaping->getFaction() && !_ignoreFriends)
+					knowsOfOverlapping = true;
+				if (unit->getFaction() != FACTION_PLAYER &&
+					std::find(unit->getUnitsSpottedThisTurn().begin(), unit->getUnitsSpottedThisTurn().end(), overlaping) != unit->getUnitsSpottedThisTurn().end())
+					knowsOfOverlapping = true;
+				// Xilmi's "path through the missile target" exemption must apply to brutal units ONLY:
+				// ungating it would let vanilla (brutalAI off) BAM_MISSILE routing pass through a tile
+				// overlapped by the target big-unit, which base code blocks -> byte-identical violation.
+				bool exemptMissileTarget = unit->isBrutal() && overlaping == missileTarget;
+				if (knowsOfOverlapping && !exemptMissileTarget)
+				{
+					return {{INVALID_MOVE_COST, 0}};
+				}
 			}
 		}
 
@@ -867,7 +907,9 @@ bool Pathfinding::isBlocked(const BattleUnit *unit, const Tile *tile, const int 
 	}
 	if (part == O_FLOOR)
 	{
-		if (tile->getUnit())
+		// Brutal-AI: _ignoreFriends lets a brutal unit's reachability search path through allies;
+		// it defaults false, so vanilla pathing is unchanged.
+		if (tile->getUnit() && !_ignoreFriends)
 		{
 			BattleUnit *u = tile->getUnit();
 			if (u == unit || u == missileTarget || u->isOut())
@@ -1461,38 +1503,103 @@ bool Pathfinding::bresenhamPath(Position origin, Position target, BattleActionMo
  * @param tuMax The maximum cost of the path to each tile.
  * @return An array of reachable tiles, sorted in ascending order of cost. The first tile is the start location.
  */
-std::vector<int> Pathfinding::findReachable(const BattleUnit *unit, const BattleActionCost &cost)
+std::vector<int> Pathfinding::findReachable(BattleUnit *unit, const BattleActionCost &cost, bool &ranOutOfTUs)
 {
-	const Position start = unit->getPosition();
+	// Brutal-AI (adapted from Brutal-OXCE by Xilmi): delegate to the node-returning search and map
+	// nodes back to tile indices. With default arguments this is byte-identical to the legacy Dijkstra.
+	std::vector<PathfindingNode *> reachable = findReachablePathFindingNodes(unit, cost, ranOutOfTUs);
+	std::vector<int> tiles;
+	tiles.reserve(reachable.size());
+	for (std::vector<PathfindingNode*>::const_iterator it = reachable.begin(); it != reachable.end(); ++it)
+	{
+		tiles.push_back(_save->getTileIndex((*it)->getPosition()));
+	}
+	return tiles;
+}
+
+/**
+ * Locates all tiles reachable to @a *unit, returning the pathfinding nodes (with cost) themselves.
+ * Uses Dijkstra's algorithm. Brutal-AI (adapted from Brutal-OXCE by Xilmi).
+ * @param unit Pointer to the unit.
+ * @param cost Reserved action cost subtracted from the unit's TU/energy budget.
+ * @param ranOutOfTUs Out-param: set true if the search was bounded by the unit's TU/energy.
+ * @param entireMap Ignore TU constraints and build nodes for (most of) the map from the start.
+ * @param missileTarget A unit we may path into (to hit it).
+ * @param alternateStart Optional alternate start position (uses the parallel node set).
+ * @param justCheckIfAnyMovementIsPossible Stop as soon as a single move is found.
+ * @param useMaxTUs Budget from the unit's max stats rather than current TU/energy.
+ * @param bam Movement mode.
+ * @return A vector of pathfinding-nodes, sorted in ascending order of cost. The first tile is the start location.
+ */
+std::vector<PathfindingNode*> Pathfinding::findReachablePathFindingNodes(BattleUnit* unit, const BattleActionCost& cost, bool& ranOutOfTUs, bool entireMap, const BattleUnit* missileTarget, const Position* alternateStart, bool justCheckIfAnyMovementIsPossible, bool useMaxTUs, BattleActionMove bam)
+{
+	_unit = unit;
+	Position start = unit->getPosition();
+	if (alternateStart)
+		start = *alternateStart;
 	int tuMax = unit->getTimeUnits() - cost.Time;
 	int energyMax = unit->getEnergy() - cost.Energy;
+	if (useMaxTUs)
+	{
+		tuMax = unit->getBaseStats()->tu;
+		energyMax = unit->getBaseStats()->stamina;
+	}
 
 	PathfindingCost costMax = { tuMax, energyMax };
 
-	for (auto& pn : _nodes)
+	if (alternateStart)
 	{
-		pn.reset();
+		for (auto& pn : _altNodes)
+		{
+			pn.reset();
+		}
 	}
-	PathfindingNode *startNode = getNode(start);
+	else
+	{
+		for (auto& pn : _nodes)
+		{
+			pn.reset();
+		}
+	}
+	PathfindingNode *startNode = getNode(start, alternateStart);
 	startNode->connect({}, 0, 0);
 	PathfindingOpenSet unvisited;
 	unvisited.push(startNode);
 	std::vector<PathfindingNode*> reachable;
+	int maxTilesToReturn = _size;
+	if (_save->getMod()->getAIPerformanceOptimization())
+	{
+		int myUnits = 0;
+		for (BattleUnit *bu : *(_save->getUnits()))
+		{
+			if (bu->getFaction() == unit->getFaction() && !bu->isOut())
+				++myUnits;
+		}
+		float scaleFactor = (float)60 * 60 * 4 * 30 / (_save->getMapSizeXYZ() * std::max(1, myUnits));
+		if (scaleFactor < 1)
+			maxTilesToReturn *= scaleFactor;
+	}
 	while (!unvisited.empty())
 	{
 		PathfindingNode *currentNode = unvisited.pop();
 		Position const &currentPos = currentNode->getPosition();
 
+		if ((int)reachable.size() > maxTilesToReturn)
+			entireMap = false;
+
 		// Try all reachable neighbours.
 		for (int direction = 0; direction < 10; direction++)
 		{
-			PathfindingStep r = getTUCost(currentPos, direction, unit, 0, BAM_NORMAL);
+			PathfindingStep r = getTUCost(currentPos, direction, unit, missileTarget, bam);
 			if (r.cost.time == INVALID_MOVE_COST) // Skip unreachable / blocked
 				continue;
 			PathfindingCost totalTuCost = currentNode->getTUCost(false) + r.cost + r.penalty;
-			if (!(totalTuCost <= costMax)) // Run out of TUs/Energy
+			if (!(totalTuCost <= costMax) && !entireMap) // Run out of TUs/Energy
+			{
+				ranOutOfTUs = true;
 				continue;
-			PathfindingNode *nextNode = getNode(r.pos);
+			}
+			PathfindingNode *nextNode = getNode(r.pos, alternateStart);
 			if (nextNode->isChecked()) // Our algorithm means this node is already at minimum cost.
 				continue;
 			// If this node is unvisited or visited from a better path.
@@ -1504,15 +1611,11 @@ std::vector<int> Pathfinding::findReachable(const BattleUnit *unit, const Battle
 		}
 		currentNode->setChecked();
 		reachable.push_back(currentNode);
+		if (justCheckIfAnyMovementIsPossible && reachable.size() > 1)
+			break;
 	}
 	std::sort(reachable.begin(), reachable.end(), MinNodeCosts());
-	std::vector<int> tiles;
-	tiles.reserve(reachable.size());
-	for (auto* pn : reachable)
-	{
-		tiles.push_back(_save->getTileIndex(pn->getPosition()));
-	}
-	return tiles;
+	return reachable;
 }
 
 /**

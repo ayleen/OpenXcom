@@ -444,7 +444,9 @@ Mod::Mod() :
 	_aiUseDelayBlaster(3), _aiUseDelayFirearm(0), _aiUseDelayGrenade(3), _aiUseDelayProxy(999), _aiUseDelayMelee(0), _aiUseDelayPsionic(0), _aiUseDelayMedikit(999),
 	_aiFireChoiceIntelCoeff(5), _aiFireChoiceAggroCoeff(5), _aiExtendedFireModeChoice(false), _aiRespectMaxRange(false), _aiDestroyBaseFacilities(false),
 	_aiPickUpWeaponsMoreActively(false), _aiPickUpWeaponsMoreActivelyCiv(false),
-	_aiSmartCivilians(false), _aiFairAliens(false), _aiTerrorHuntCivilians(false), _aiCivilianGuardChance(0),
+	_aiSmartCivilians(false), _aiFairAliens(false), _aiTerrorHuntCivilians(false),
+	_aiBrutalAI(false), _aiCheatMode(0), _aiAvoidMines(true), _aiPerformanceOptimization(false),
+	_aiCivilianGuardChance(0),
 	_aiReactionFireThreshold(0), _aiReactionFireThresholdCiv(0),
 	_maxLookVariant(0), _tooMuchSmokeThreshold(10), _customTrainingFactor(100),
 	_chanceToStopRetaliation(0), _chanceToDetectAlienBaseEachMonth(20), _lessAliensDuringBaseDefense(false),
@@ -4220,6 +4222,13 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 		nodeAI.tryRead("smartCivilians", _aiSmartCivilians);
 		nodeAI.tryRead("fairAliens", _aiFairAliens);
 		nodeAI.tryRead("terrorHuntCivilians", _aiTerrorHuntCivilians);
+		// Phase 34.5: Brutal-AI port knobs (adapted from Brutal-OXCE by Xilmi).
+		nodeAI.tryRead("brutalAI", _aiBrutalAI);
+		nodeAI.tryRead("aiCheatMode", _aiCheatMode);
+		nodeAI.tryRead("avoidMines", _aiAvoidMines);
+		nodeAI.tryRead("aiPerformanceOptimization", _aiPerformanceOptimization);
+		// Fairness guard: only fair cheat levels (<= 0) are honoured from the mod for now (Phase 34.1 stance).
+		if (_aiCheatMode > 0) { _aiCheatMode = 0; }
 		nodeAI.tryRead("civilianGuardType", _aiCivilianGuardType);
 		nodeAI.tryRead("civilianGuardChance", _aiCivilianGuardChance);
 		nodeAI.tryRead("reactionFireThreshold", _aiReactionFireThreshold);

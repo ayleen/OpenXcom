@@ -140,6 +140,26 @@ inline std::ostream& operator<<(std::ostream& out, const Position& pos)
 	return out;
 }
 
+// Brutal-AI: strict weak ordering so Position can key an std::map/std::set.
+// Adapted from Brutal-OXCE by Xilmi (github.com/Xilmi/OpenXcom).
+struct PositionComparator
+{
+	bool operator()(const Position& pos1, const Position& pos2) const
+	{
+		if (pos1.x < pos2.x)
+			return true;
+		if (pos1.x > pos2.x)
+			return false;
+
+		if (pos1.y < pos2.y)
+			return true;
+		if (pos1.y > pos2.y)
+			return false;
+
+		return pos1.z < pos2.z;
+	}
+};
+
 typedef Position Vector3i;
 
 
