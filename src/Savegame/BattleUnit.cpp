@@ -1011,6 +1011,108 @@ Position BattleUnit::getPositionVexels() const
 }
 
 /**
+ * Calculates precise distance between the unit and a given position (Realistic Accuracy).
+ * Uses the unit's voxel bounding box rather than a point-to-point measure.
+ * @param pos The position.
+ * @return Distance in voxels.
+ */
+int BattleUnit::distance3dToPositionPrecise(const Position &pos) const
+{
+	Position unitCenter = getPositionVexels(); // returns bottom center
+	int height = getHeight();
+	int floatHeight = getFloatHeight();
+	int terrainLevel = getTile()->getTerrainLevel();
+	int unitRadius = getRadiusVoxels();
+
+	struct // Bounding box
+	{
+		int Xmin = -1;
+		int Xmax = -1;
+		int Ymin = -1;
+		int Ymax = -1;
+		int top    = -1;
+		int middle = -1;
+		int bottom = -1;
+
+	} unitBox;
+
+	unitBox.Xmin = unitCenter.x - unitRadius;
+	unitBox.Xmax = unitCenter.x + unitRadius;
+	unitBox.Ymin = unitCenter.y - unitRadius;
+	unitBox.Ymax = unitCenter.y + unitRadius;
+	unitBox.bottom = unitCenter.z + floatHeight - terrainLevel;
+	unitBox.middle = unitBox.bottom + height / 2;
+	unitBox.top    = unitBox.bottom + height;
+
+	bool isAbove = pos.z > unitBox.top;
+	bool isBelow = pos.z < unitBox.bottom;
+	bool isSameLevel = !isAbove && !isBelow;
+	bool isInside = pos.x >= unitBox.Xmin && pos.x <= unitBox.Xmax && pos.y >= unitBox.Ymin && pos.y <= unitBox.Ymax;
+	bool isOutside = !isInside; // Relative to X/Y boundaries
+
+	int distance = 0;
+
+	if (isInside && isAbove)
+	{
+		distance = pos.z - unitBox.top;
+	}
+	else if (isInside && isBelow)
+	{
+		distance = unitBox.bottom - pos.z;
+	}
+	else if (isOutside)
+	{
+		int dX = unitCenter.x - pos.x;
+		int dY = unitCenter.y - pos.y;
+		int hor_distance = (int)ceil(sqrt( dX*dX + dY*dY )) - unitRadius;
+
+		if (isSameLevel)
+		{
+			distance = hor_distance;
+		}
+		else if (isAbove)
+		{
+			int ver_distance = pos.z - unitBox.top;
+			distance = (int)ceil(sqrt( hor_distance*hor_distance + ver_distance*ver_distance ));
+		}
+		else if (isBelow)
+		{
+			int ver_distance = unitBox.bottom - pos.z;
+			distance = (int)ceil(sqrt( hor_distance*hor_distance + ver_distance*ver_distance ));
+		}
+	}
+	else
+	{
+		distance = 0;
+	}
+	return distance;
+}
+
+/**
+ * Gets radius of unit in voxels (Realistic Accuracy).
+ * @return radius in voxels
+ */
+int BattleUnit::getRadiusVoxels() const
+{
+	int unitRadius = this->getLoftemps(); // width == loft in default loftemps set
+	int targetSize = this->getArmor()->getSize();
+
+	if (targetSize == 1)
+	{
+		if (unitRadius > SMALL_MAX_RADIUS) // For small units - fix if their loft was mistakenly set to >5
+			unitRadius = SMALL_MAX_RADIUS;
+	}
+	else if (targetSize == 2)
+	{
+		unitRadius = BIG_MAX_RADIUS; // For large 2x2 units
+	}
+	else
+		assert(false); // Crash immediately if someone, someday makes a unit of other size
+
+	return unitRadius;
+}
+
+/**
  * Gets the BattleUnit's destination.
  * @return destination
  */

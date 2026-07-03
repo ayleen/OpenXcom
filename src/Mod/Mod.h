@@ -160,6 +160,28 @@ public:
 	/// Number of opacity levels.
 	constexpr static int TransparenciesOpacityLevels = 4;
 
+	// Realistic Accuracy mod configuration (Joy Narical's Realistic Accuracy v3.0,
+	// adapted from Brutal-OXCE by Xilmi; github.com/Xilmi/OpenXcom).
+	struct AccuracyModConfig
+	{
+		int peekDistance = 25;
+		int suicideProtectionDistance = 50;
+
+		// Deviation in voxels per 10 tiles of shot trajectory
+		// first for "realistic", second for "normal"
+		int distanceDeviation[2]       = { 13, 13 };
+		int oneHandWeaponDeviation[2]  = { 3, 3 };
+		int kneelDeviation[2]          = { -2, -2 };
+		int aimedDeviation[2]          = { 1, 1 };
+		int snapDeviation[2]           = { 4, 4 };
+		int autoDeviation[2]           = { 7, 7 };
+
+		float horizontalSpreadCoeff[2] = { 1.2f, 1.6f };
+		float verticalSpreadCoeff[2]   = { 0.65f, 0.65f };
+
+		int coverEfficiency[5] = { 0, 30, 50, 70, 100 };
+	};
+
 #ifdef __EMSCRIPTEN__
 	/// Phase 20: per-cell HD authoring metadata, used by the atlas builder and renderer.
 	struct HDTileSpec
@@ -522,6 +544,10 @@ private:
 	std::string _hireScientistsUnlockResearch, _hireEngineersUnlockResearch;
 	RuleBaseFacilityFunctions _hireScientistsRequiresBaseFunc, _hireEngineersRequiresBaseFunc;
 
+	// Realistic Accuracy: mod-tunable parameters + per-unit-size distance/accuracy -> hit% lookup tables.
+	AccuracyModConfig _realisticAccuracyConfig;
+	std::map<int, std::vector<int>> _hitChancesTable;
+
 	std::string _destroyedFacility;
 	YAML::YamlString _startingBaseDefault, _startingBaseBeginner, _startingBaseExperienced, _startingBaseVeteran, _startingBaseGenius, _startingBaseSuperhuman;
 	Collections::NamesToIndex _baseFunctionNames;
@@ -697,6 +723,11 @@ public:
 	static bool EXTENDED_FORCE_SPAWN;
 	static int EXTENDED_SMOKE_OFFSET;
 
+	// Realistic Accuracy hit-chance lookup-table dimensions.
+	static const int distanceRows = 40;
+	static const int maxAccuracy = 120; // Should be even number
+	static const int accPerRowCount = 61; // Accuracy from 0% to 120%, with 2% step
+
 
 	/// Return `true` when given string is empty or pseudo null value.
 	static bool isEmptyRuleName(const std::string& s)
@@ -813,6 +844,10 @@ public:
 	Sound *getSoundByDepth(unsigned int depth, unsigned int sound) const;
 	/// Gets list of LUT data.
 	const std::vector<std::vector<Uint8> > *getLUTs() const;
+	/// Gets parameters for the Realistic Accuracy mod.
+	const AccuracyModConfig *getAccuracyModConfig() const;
+	/// Gets the Realistic Accuracy hit-chances lookup table for a given unit size.
+	const std::vector<int>* getHitChancesTable(int size) const;
 
 
 	/// Check for obsolete error based on year.
