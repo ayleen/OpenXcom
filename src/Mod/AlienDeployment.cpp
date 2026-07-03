@@ -18,6 +18,7 @@
  */
 #include "AlienDeployment.h"
 #include "MapScript.h"
+#include "../Engine/Logger.h"
 #include "../Engine/RNG.h"
 #include "../Mod/Mod.h"
 #include "../fmath.h"
@@ -31,7 +32,7 @@ namespace OpenXcom
  * @param type String defining the type.
  */
 AlienDeployment::AlienDeployment(const std::string &type) :
-	_type(type), _missionBountyItemCount(1), _bughuntMinTurn(0), _forcePercentageOutsideUfo(false),
+	_type(type), _missionBountyItemCount(1), _bughuntMinTurn(0), _forcePercentageOutsideUfo(false), _clusteredSpawn(false),
 	_width(0), _length(0), _height(0), _civilians(0), _ignoreLivingCivilians(false), _markCiviliansAsVIP(false), _civilianSpawnNodeRank(0),
 	_shade(-1), _minShade(-1), _maxShade(-1), _finalDestination(false), _isAlienBase(false), _isHidden(false), _fakeUnderwaterSpawnChance(0),
 	_alert("STR_ALIENS_TERRORISE"), _alertBackground("BACK03.SCR"), _alertDescription(""), _alertSound(-1),
@@ -168,6 +169,7 @@ void AlienDeployment::load(const YAML::YamlNodeReader& node, Mod *mod)
 	reader.tryRead("abortPenalty", _abortPenalty);
 	reader.tryRead("points", _points);
 	reader.tryRead("cheatTurn", _cheatTurn);
+	reader.tryRead("clusteredSpawn", _clusteredSpawn);
 	reader.tryRead("turnLimit", _turnLimit);
 	reader.tryRead("chronoTrigger", _chronoTrigger);
 	reader.tryRead("alienBase", _isAlienBase);
@@ -216,6 +218,14 @@ void AlienDeployment::load(const YAML::YamlNodeReader& node, Mod *mod)
 		);
 	}
 	reader.tryRead("noWeaponPile", _noWeaponPile);
+
+	// Phase 34.3 (Calypso): forcePercentageOutsideUfo pushes aliens onto the outside-UFO
+	// spawn path (BattlescapeGenerator::addAlien), which bypasses the cluster anchor
+	// entirely -- combining the two silently defeats clusteredSpawn for most of the deployment.
+	if (_clusteredSpawn && _forcePercentageOutsideUfo)
+	{
+		Log(LOG_WARNING) << "AlienDeployment '" << _type << "': clusteredSpawn is combined with forcePercentageOutsideUfo; the outside-UFO spawn path bypasses the cluster anchor.";
+	}
 }
 
 /**

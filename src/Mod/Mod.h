@@ -457,6 +457,8 @@ private:
 	bool _aiExtendedFireModeChoice, _aiRespectMaxRange, _aiDestroyBaseFacilities;
 	bool _aiPickUpWeaponsMoreActively, _aiPickUpWeaponsMoreActivelyCiv;
 	bool _aiSmartCivilians;
+	bool _aiFairAliens;
+	bool _aiTerrorHuntCivilians;
 	std::string _aiCivilianGuardType;
 	int _aiCivilianGuardChance;
 	int _aiReactionFireThreshold, _aiReactionFireThresholdCiv;
@@ -1147,6 +1149,10 @@ public:
 	bool getAIPickUpWeaponsMoreActivelyCiv() const { return _aiPickUpWeaponsMoreActivelyCiv; }
 	/// Gets whether the Calypso smarter-civilian AI behaviors are enabled (Phase 32; default off).
 	bool getAISmartCivilians() const { return _aiSmartCivilians; }
+	/// Gets whether the Calypso fair-aliens behavior is enabled: disables the positional cheat (Phase 34; default off).
+	bool getAIFairAliens() const { return _aiFairAliens; }
+	/// Gets whether unengaged terror-mission aliens bias patrol toward the (quantized) civilian zone (Phase 34.4; default off).
+	bool getAITerrorHuntCivilians() const { return _aiTerrorHuntCivilians; }
 	/// Gets the civilian unit type spawned as an armed guard (Phase 32; empty = no guards).
 	const std::string& getAICivilianGuardType() const { return _aiCivilianGuardType; }
 	/// Gets the per-civilian chance (%) of spawning as a guard instead (Phase 32; default 0).
