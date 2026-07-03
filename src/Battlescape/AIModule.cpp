@@ -242,102 +242,117 @@ bool AIModule::considerTerrainAttack()
 	// Gate 3: don't override an already-chosen attack. Terrain attacks are fallback candidates.
 	if (_attackAction.type != BA_RETHINK) return false;
 
-	BattleItem *weapon = _unit->getMainHandWeapon();
-	if (!weapon) return false;
-	// Floor drop uses a direct shot from the main-hand weapon. canUseWeapon gates TU/str/stun.
-	if (!_save->canUseWeapon(weapon, _unit, false, BA_SNAPSHOT)) return false;
-	const BattleItem *ammo = weapon->getAmmoForAction(BA_SNAPSHOT);
-	if (!ammo) return false;
-	const RuleItem *ammoRule = ammo->getRules();
-	const RuleDamageType *dt = ammoRule->getDamageType();
-	if (!dt || dt->ToTile <= 0.0f) return false;
-	// Effective terrain damage from a single hit: `power * ToTile` (the multiplier applied by
-	// TileEngine at the `ToTile > 0` gate). The destruction predicate is `power >= armor`
-	// (Tile::damage / TileEngine::detonate); armor 255 is the indestructible sentinel.
-	int terrainPower = (int)(ammoRule->getPower() * dt->ToTile);
-	if (terrainPower < 1) return false;
-
 	const Position myPos = _unit->getPosition();
-	Position originVoxel = _save->getTileEngine()->getSightOriginVoxel(_unit);
 
 	// === Floor drop ===
 	// Pick the highest-scoring fair-known enemy whose standing tile has a destructible floor
 	// targetable from our current position. Score = expected fall depth (levels), so a 2-storey
 	// drop beats a 1-storey drop; ties broken by horizontal proximity.
-	int bestScore = 0;
-	Position bestTarget = Position(0, 0, 0);
-	BattleItem *bestWeapon = nullptr;
-	for (auto* target : *_save->getUnits())
+	//
+	// Section-local gates: floor drop fires a direct shot from the main-hand weapon, so the
+	// weapon / ammo / ToTile / terrainPower checks live HERE -- not at the top of the function.
+	// A unit carrying only a grenade (no serviceable main-hand weapon for terrain damage) must
+	// still be allowed to reach the wall-breach section below.
+	BattleItem *weapon = _unit->getMainHandWeapon();
+	int terrainPower = 0;
+	bool floorDropViable = false;
+	if (weapon && _save->canUseWeapon(weapon, _unit, false, BA_SNAPSHOT))
 	{
-		if (!target || target == _unit || target->isOut()) continue;
-		// Fair-knowledge gate -- never `_cheating`, never a direct map read on the live position.
-		// isEnemy() is the brutal-AI helper; for legacy dispatch the same lookup-by-faction works.
-		if (!isEnemy(target)) continue;
-		if (target->getTurnsSinceSpottedByFaction(_unit->getFaction()) > _intelligence) continue;
-		// The FAIR known position is the last-spotted tile (Brutal-AI knowledge layer); fall back
-		// to the live tile only when the unit is genuinely visible right now (visibleToAnyFriend
-		// already encodes the fairness stance -- no omniscience).
-		Position enemyPos;
-		if (visibleToAnyFriend(target))
+		const BattleItem *ammo = weapon->getAmmoForAction(BA_SNAPSHOT);
+		if (ammo)
 		{
-			enemyPos = target->getPosition();
-		}
-		else
-		{
-			int spottedIdx = target->getTileLastSpotted(_unit->getFaction());
-			if (spottedIdx < 0) continue;
-			enemyPos = _save->getTileCoords(spottedIdx);
-		}
-		Tile *enemyTile = _save->getTile(enemyPos);
-		if (!enemyTile) continue;
-		MapData *floorMD = enemyTile->getMapData(O_FLOOR);
-		if (!floorMD) continue;
-		// Mission-objective safety: never drop a floor flagged as a base module.
-		if (floorMD->isBaseModule()) continue;
-		// Destructibility predicate (Tile::damage convention: power >= armor; 255 = indestructible).
-		if (floorMD->getArmor() >= 255) continue;
-		if (terrainPower < floorMD->getArmor()) continue;
-		// The floor must be targetable from the unit's current position (LOF check).
-		Position targetVoxel;
-		if (!_save->getTileEngine()->canTargetTile(&originVoxel, enemyTile, O_FLOOR, &targetVoxel, _unit, false))
-			continue;
-		// Score: expected fall depth. Search downward for the first tile that would catch the
-		// enemy; the drop is bounded by the map bottom (z=0) and capped at 4 levels for scoring.
-		int fallLevels = 0;
-		for (int z = enemyPos.z - 1; z >= 0 && fallLevels < 4; --z)
-		{
-			Tile *below = _save->getTile(Position(enemyPos.x, enemyPos.y, z));
-			if (!below) break;
-			++fallLevels;
-			if (!below->hasNoFloor(_save)) break; // a floor here catches the enemy
-		}
-		if (fallLevels < 1) continue; // no drop happens (e.g. ground-level tile) -- skip
-		// Base score so any viable drop beats "do nothing"; deeper drops score higher; closer
-		// enemies score slightly higher (tie-breaker). Same scale as AIW_SCALE so it slots into
-		// the existing scoring cascade without distorting it.
-		int score = AIW_SCALE + fallLevels * (AIW_SCALE / 2);
-		int horizDist = Position::distance2d(myPos, enemyPos);
-		score -= horizDist; // mild proximity bias
-		if (score > bestScore)
-		{
-			bestScore = score;
-			bestTarget = enemyPos;
-			bestWeapon = weapon;
+			const RuleItem *ammoRule = ammo->getRules();
+			const RuleDamageType *dt = ammoRule->getDamageType();
+			if (dt && dt->ToTile > 0.0f)
+			{
+				// Effective terrain damage from a single hit: `power * ToTile` (the multiplier
+				// applied by TileEngine at the `ToTile > 0` gate). The destruction predicate is
+				// `power >= armor` (Tile::damage / TileEngine::detonate); armor 255 is the
+				// indestructible sentinel.
+				terrainPower = (int)(ammoRule->getPower() * dt->ToTile);
+				if (terrainPower >= 1) floorDropViable = true;
+			}
 		}
 	}
 
-	if (bestScore > 0 && bestWeapon)
+	if (floorDropViable)
 	{
-		_attackAction.type = BA_SNAPSHOT;
-		_attackAction.target = bestTarget;
-		_attackAction.weapon = bestWeapon;
-		_attackAction.actor = _unit;
-		_attackAction.updateTU();
-		if (_traceAI)
+		Position originVoxel = _save->getTileEngine()->getSightOriginVoxel(_unit);
+		int bestScore = 0;
+		Position bestTarget = Position(0, 0, 0);
+		BattleItem *bestWeapon = nullptr;
+		for (auto* target : *_save->getUnits())
 		{
-			Log(LOG_INFO) << "Phase 34.6: terrain floor-drop attack at " << bestTarget;
+			if (!target || target == _unit || target->isOut()) continue;
+			// Fair-knowledge gate -- never `_cheating`, never a direct map read on the live position.
+			// isEnemy() is the brutal-AI helper; for legacy dispatch the same lookup-by-faction works.
+			if (!isEnemy(target)) continue;
+			if (target->getTurnsSinceSpottedByFaction(_unit->getFaction()) > _intelligence) continue;
+			// The FAIR known position is the last-spotted tile (Brutal-AI knowledge layer); fall back
+			// to the live tile only when the unit is genuinely visible right now (visibleToAnyFriend
+			// already encodes the fairness stance -- no omniscience).
+			Position enemyPos;
+			if (visibleToAnyFriend(target))
+			{
+				enemyPos = target->getPosition();
+			}
+			else
+			{
+				int spottedIdx = target->getTileLastSpotted(_unit->getFaction());
+				if (spottedIdx < 0) continue;
+				enemyPos = _save->getTileCoords(spottedIdx);
+			}
+			Tile *enemyTile = _save->getTile(enemyPos);
+			if (!enemyTile) continue;
+			MapData *floorMD = enemyTile->getMapData(O_FLOOR);
+			if (!floorMD) continue;
+			// Mission-objective safety: never drop a floor flagged as a base module.
+			if (floorMD->isBaseModule()) continue;
+			// Destructibility predicate (Tile::damage convention: power >= armor; 255 = indestructible).
+			if (floorMD->getArmor() >= 255) continue;
+			if (terrainPower < floorMD->getArmor()) continue;
+			// The floor must be targetable from the unit's current position (LOF check).
+			Position targetVoxel;
+			if (!_save->getTileEngine()->canTargetTile(&originVoxel, enemyTile, O_FLOOR, &targetVoxel, _unit, false))
+				continue;
+			// Score: expected fall depth. Search downward for the first tile that would catch the
+			// enemy; the drop is bounded by the map bottom (z=0) and capped at 4 levels for scoring.
+			int fallLevels = 0;
+			for (int z = enemyPos.z - 1; z >= 0 && fallLevels < 4; --z)
+			{
+				Tile *below = _save->getTile(Position(enemyPos.x, enemyPos.y, z));
+				if (!below) break;
+				++fallLevels;
+				if (!below->hasNoFloor(_save)) break; // a floor here catches the enemy
+			}
+			if (fallLevels < 1) continue; // no drop happens (e.g. ground-level tile) -- skip
+			// Base score so any viable drop beats "do nothing"; deeper drops score higher; closer
+			// enemies score slightly higher (tie-breaker). Same scale as AIW_SCALE so it slots into
+			// the existing scoring cascade without distorting it.
+			int score = AIW_SCALE + fallLevels * (AIW_SCALE / 2);
+			int horizDist = Position::distance2d(myPos, enemyPos);
+			score -= horizDist; // mild proximity bias
+			if (score > bestScore)
+			{
+				bestScore = score;
+				bestTarget = enemyPos;
+				bestWeapon = weapon;
+			}
 		}
-		return true;
+
+		if (bestScore > 0 && bestWeapon)
+		{
+			_attackAction.type = BA_SNAPSHOT;
+			_attackAction.target = bestTarget;
+			_attackAction.weapon = bestWeapon;
+			_attackAction.actor = _unit;
+			_attackAction.updateTU();
+			if (_traceAI)
+			{
+				Log(LOG_INFO) << "Phase 34.6: terrain floor-drop attack at " << bestTarget;
+			}
+			return true;
+		}
 	}
 
 	// === Wall breach ===
@@ -347,6 +362,9 @@ bool AIModule::considerTerrainAttack()
 	// O_OBJECT / wall sits on the straight line between the unit and the objective. The
 	// friendly-fire check reuses explosiveEfficacy (the same convention grenadeAction uses) so
 	// an alien never collapses a wall onto its own squad.
+	//
+	// Independent of the main-hand weapon: the breach is a grenade THROW, so a unit carrying
+	// only a grenade (or whose main-hand weapon can't damage terrain) can still breach.
 	if (_grenade && (_save->getTurn() - _lastBreachTurn) >= 3)
 	{
 		BattleItem *grenade = _unit->getGrenadeFromBelt(_save);
@@ -401,12 +419,16 @@ bool AIModule::considerTerrainAttack()
 					int steps = std::max(std::abs(dx), std::abs(dy));
 					if (steps > 0)
 					{
-						int range = weapon->getRules()->getMaxRange(); // 0 = unlimited
+						// Cap the walk at the grenade's own throw range (RuleItem::getThrowRange,
+						// default 200 = effectively unlimited on standard maps) -- this is a
+						// THROW, not a main-hand-weapon shot, so the weapon's getMaxRange would
+						// be the wrong cap. Bounded by the 32-tile perf cap below as a hard stop.
+						int throwRange = grenade->getRules()->getThrowRange();
 						int checkedSteps = 0;
 						for (int s = 1; s <= steps; ++s)
 						{
 							Position p(myPos.x + (dx * s) / steps, myPos.y + (dy * s) / steps, myPos.z);
-							if (range > 0 && Position::distance2d(myPos, p) > range) break;
+							if (Position::distance2d(myPos, p) > throwRange) break;
 							Tile *t = _save->getTile(p);
 							if (!t) continue;
 							// Try the O_OBJECT slot first (the typical "wall" on TFTD terrains
