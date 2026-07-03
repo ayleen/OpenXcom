@@ -137,6 +137,9 @@ private:
 	BattlescapeState *_parentState;
 	std::list<BattleState*> _states, _deleted;
 	bool _playerPanicHandled;
+	// Phase 34.5 Brutal-AI (adapted from Brutal-OXCE by Xilmi): the AI's hint for which friendly unit
+	// should act next (used for turn-order coordination). Transient, not serialized.
+	BattleUnit *_nextUnitToSelect = nullptr;
 	int _AIActionCounter;
 	BattleAction _currentAction;
 	bool _AISecondMove, _playedAggroSound;
@@ -192,6 +195,9 @@ public:
 	bool checkReservedTU(BattleUnit *bu, int tu, int energy, bool justChecking = false);
 	/// Handles unit AI.
 	void handleAI(BattleUnit *unit);
+	/// Brutal-AI (adapted from Brutal-OXCE by Xilmi): AI hint for which friendly unit should act next.
+	void setNextUnitToSelect(BattleUnit *unit) { _nextUnitToSelect = unit; }
+	BattleUnit *getNextUnitToSelect() { return _nextUnitToSelect; }
 	/// Drops an item and affects it with gravity.
 	void dropItem(Position position, BattleItem *item, bool removeItem = false, bool updateLight = true);
 	/// Converts a unit into a unit of another type.

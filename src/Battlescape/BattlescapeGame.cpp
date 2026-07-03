@@ -304,13 +304,16 @@ void BattlescapeGame::handleAI(BattleUnit *unit)
 {
 	std::ostringstream ss;
 
-	if (unit->getTimeUnits() <= 5)
+	// Phase 34.5 Brutal-AI (adapted from Brutal-OXCE by Xilmi): a brutal unit manages its own TU
+	// budget (no forced end at <=5 TU) but honours its own "want to end turn" decision. All added
+	// terms are inert when brutalAI is off (isBrutal()==false, getWantToEndTurn()==false).
+	if ((unit->getTimeUnits() <= 5 && !unit->isBrutal()) || unit->getTimeUnits() < 1 || unit->getWantToEndTurn())
 	{
 		unit->dontReselect();
 	}
-	if (_AIActionCounter >= 2 || !unit->reselectAllowed() || unit->getTurnsSinceStunned() == 0) //stun check for restoring OXC behavior that AI does not attack after waking up even having full TU
+	if (_AIActionCounter >= 2 || !unit->reselectAllowed() || (unit->getTurnsSinceStunned() == 0 && !unit->isBrutal())) //stun check for restoring OXC behavior that AI does not attack after waking up even having full TU
 	{
-		if (_save->selectNextPlayerUnit(true, _AISecondMove) == 0)
+		if (_save->selectNextPlayerUnit(true, _AISecondMove || unit->getWantToEndTurn()) == 0)
 		{
 			if (!_save->getDebugMode())
 			{
@@ -322,6 +325,14 @@ void BattlescapeGame::handleAI(BattleUnit *unit)
 				_save->selectNextPlayerUnit();
 				_debugPlay = true;
 			}
+		}
+		// Phase 34.5 Brutal-AI (adapted from Brutal-OXCE by Xilmi): honour a brutal unit's request
+		// to let a specific teammate act next (turn-order coordination). Only ever set by brutalThink,
+		// so this is inert when brutalAI is off.
+		if (getNextUnitToSelect() != NULL)
+		{
+			_save->setSelectedUnit(getNextUnitToSelect());
+			setNextUnitToSelect(NULL);
 		}
 		if (_save->getSelectedUnit())
 		{
