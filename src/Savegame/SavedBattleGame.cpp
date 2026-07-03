@@ -2335,6 +2335,63 @@ Node *SavedBattleGame::getSpawnNode(int nodeRank, BattleUnit *unit)
 }
 
 /**
+ * Phase 34.3 (Calypso): same candidate-node search as the base getSpawnNode above, for
+ * ai.clusteredSpawn deployments. Never modifies the base overload (it also spawns X-Com
+ * and civilians) and never narrows its candidate set -- narrowing could return null where
+ * the base overload wouldn't, which silently deletes the alien outside Demigod
+ * (BattlescapeGenerator::addAlien). The only change is the final pick: nearest to `anchor`
+ * instead of uniform-random, jittered among the nearest min(3, candidates) so it isn't
+ * perfectly deterministic.
+ * @param nodeRank Rank of the node (this is not the rank of the alien!).
+ * @param unit Pointer to the unit (to get its position).
+ * @param anchor Position to cluster spawns away from (the X-Com-farthest alien-usable node).
+ * @return Pointer to the chosen node.
+ */
+Node *SavedBattleGame::getSpawnNode(int nodeRank, BattleUnit *unit, const Position &anchor)
+{
+	int highestPriority = -1;
+	std::vector<Node*> compliantNodes;
+
+	for (auto* node : *getNodes())
+	{
+		if (node->isDummy())
+		{
+			continue;
+		}
+		if (node->getRank() == nodeRank								// ranks must match
+			&& (!(node->getType() & Node::TYPE_SMALL)
+				|| unit->isSmallUnit())								// the small unit bit is not set or the unit is small
+			&& (!(node->getType() & Node::TYPE_FLYING)
+				|| unit->getMovementType() == MT_FLY)				// the flying unit bit is not set or the unit can fly
+			&& node->getPriority() > 0								// priority 0 is no spawn place
+			&& setUnitPosition(unit, node->getPosition(), true))	// check if not already occupied
+		{
+			if (node->getPriority() > highestPriority)
+			{
+				highestPriority = node->getPriority();
+				compliantNodes.clear(); // drop the last nodes, as we found a higher priority now
+			}
+			if (node->getPriority() == highestPriority)
+			{
+				compliantNodes.push_back(node);
+			}
+		}
+	}
+
+	if (compliantNodes.empty()) return 0;
+
+	std::sort(compliantNodes.begin(), compliantNodes.end(), [&anchor](Node* a, Node* b)
+	{
+		return Position::distance2d(a->getPosition(), anchor) < Position::distance2d(b->getPosition(), anchor);
+	});
+
+	size_t jitterPool = std::min<size_t>(3, compliantNodes.size());
+	int n = RNG::generate(0, (int)jitterPool - 1);
+
+	return compliantNodes[n];
+}
+
+/**
  * Finds a fitting node where a unit can patrol to.
  * @param scout Is the unit scouting?
  * @param unit Pointer to the unit (to get its position).

@@ -484,6 +484,10 @@ public:
 	int *getCurrentItemId();
 	/// Gets a spawn node.
 	Node *getSpawnNode(int nodeRank, BattleUnit *unit);
+	/// Gets a spawn node biased toward an anchor (Phase 34.3: ai.clusteredSpawn) -- same candidate
+	/// set as the base overload above, nearest-to-anchor pick jittered among the closest few.
+	/// Never narrows the candidate set, so it never returns null where the base overload wouldn't.
+	Node *getSpawnNode(int nodeRank, BattleUnit *unit, const Position &anchor);
 	/// Gets a patrol node.
 	Node *getPatrolNode(bool scout, BattleUnit *unit, Node *fromNode);
 	/// Carries out new turn preparations.

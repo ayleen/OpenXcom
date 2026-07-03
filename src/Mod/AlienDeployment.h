@@ -100,6 +100,7 @@ private:
 	int _missionBountyItemCount;
 	int _bughuntMinTurn;
 	bool _forcePercentageOutsideUfo;
+	bool _clusteredSpawn;
 	std::vector<DeploymentData> _data;
 	std::vector<ReinforcementsData> _reinforcements;
 	int _width, _length, _height, _civilians;
@@ -183,6 +184,8 @@ public:
 	int getBughuntMinTurn() const;
 	/// Should `percentageOutsideUfo` be forced for all kinds of missions? (instead of just UFO crash/landing sites)
 	bool getForcePercentageOutsideUfo() const { return _forcePercentageOutsideUfo; }
+	/// Gets whether aliens deployed here should cluster on one side of the map, anchored away from X-Com (Phase 34.3; default off).
+	bool getClusteredSpawn() const { return _clusteredSpawn; }
 	/// Gets a pointer to the data.
 	const std::vector<DeploymentData>* getDeploymentData() const;
 	/// Gets the highest used alien rank.
