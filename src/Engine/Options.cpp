@@ -597,11 +597,15 @@ void createAdvancedOptionsOTHER()
 	// Realistic Accuracy (Joy Narical's RA v3.0, adapted from Brutal-OXCE by Xilmi;
 	// github.com/Xilmi/OpenXcom). Player-facing ballistics options; option names kept
 	// verbatim to ease future syncs. All gated at runtime by battleRealisticAccuracy.
-	_info.push_back(OptionInfo(OPTION_OTHER, "useChanceToHit", &useChanceToHit, true, "STR_BATTLECHANCETOHIT", "STR_BATTLESCAPE"));
 #ifdef __EMSCRIPTEN__
+	// CALYPSO: default the chance-to-hit readout ON in the browser build — RA is on there, so
+	// the crosshair number matches the RA resolver. Native keeps base-OXCE behavior (see #else).
+	_info.push_back(OptionInfo(OPTION_OTHER, "useChanceToHit", &useChanceToHit, true, "STR_BATTLECHANCETOHIT", "STR_BATTLESCAPE"));
 	// CALYPSO: candidate for hard-enable — Realistic Accuracy is the browser build's default.
 	_info.push_back(OptionInfo(OPTION_OTHER, "battleRealisticAccuracy", &battleRealisticAccuracy, true, "STR_BATTLEREALISTICACCURACY", "STR_BATTLESCAPE"));
 #else
+	// Native keeps vanilla ballistics AND the vanilla crosshair number (byte-identical to base OXCE).
+	_info.push_back(OptionInfo(OPTION_OTHER, "useChanceToHit", &useChanceToHit, false, "STR_BATTLECHANCETOHIT", "STR_BATTLESCAPE"));
 	_info.push_back(OptionInfo(OPTION_OTHER, "battleRealisticAccuracy", &battleRealisticAccuracy, false, "STR_BATTLEREALISTICACCURACY", "STR_BATTLESCAPE"));
 #endif
 	_info.push_back(OptionInfo(OPTION_OTHER, "battleRealisticImprovedAimed", &battleRealisticImprovedAimed, true, "STR_BATTLEREALISTICIMPAIMED", "STR_BATTLESCAPE"));
