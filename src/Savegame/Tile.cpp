@@ -44,7 +44,10 @@ Tile::SerializationKey Tile::serializationKey =
  1, // _fire
  1, // _smoke
  1,	// one 8-bit bool field
- 4 + 2*4 + 2*4 + 1 + 1 + 1 // total bytes to save one tile
+ 2, // _lastExploredByHostile (Brutal-AI, adapted from Brutal-OXCE by Xilmi)
+ 2, // _lastExploredByNeutral
+ 2, // _lastExploredByPlayer
+ 4 + 2*4 + 2*4 + 1 + 1 + 1 + 2 + 2 + 2 // total bytes to save one tile
 };
 
 /**
@@ -145,6 +148,15 @@ void Tile::loadBinary(Uint8 *buffer, Tile::SerializationKey& serKey)
 	_objectsCache[O_FLOOR].discovered = (boolFields & 4) ? 1 : 0;
 	_objectsCache[O_WESTWALL].currentFrame = (boolFields & 8) ? 7 : 0;
 	_objectsCache[O_NORTHWALL].currentFrame = (boolFields & 0x10) ? 7 : 0;
+	// Phase 34.5 Brutal-AI (adapted from Brutal-OXCE by Xilmi): additive tail fields. Pre-34.5 saves
+	// carry a serKey with these sizes == 0, so the reads are skipped and the record advances by the
+	// save's own totalBytes (see SavedBattleGame tile-load loop).
+	if (serKey._lastExploredByHostile != 0)
+		_lastExploredByHostile = unserializeInt(&buffer, serKey._lastExploredByHostile);
+	if (serKey._lastExploredByNeutral != 0)
+		_lastExploredByNeutral = unserializeInt(&buffer, serKey._lastExploredByNeutral);
+	if (serKey._lastExploredByPlayer != 0)
+		_lastExploredByPlayer = unserializeInt(&buffer, serKey._lastExploredByPlayer);
 	if (_fire || _smoke)
 	{
 		_animationOffset = RNG::seedless(0, 3);
@@ -208,6 +220,44 @@ void Tile::saveBinary(Uint8** buffer) const
 	boolFields |= isUfoDoorOpen(O_WESTWALL) ? 8 : 0; // west
 	boolFields |= isUfoDoorOpen(O_NORTHWALL) ? 0x10 : 0; // north?
 	serializeInt(buffer, serializationKey.boolFields, boolFields);
+	// Phase 34.5 Brutal-AI (adapted from Brutal-OXCE by Xilmi): additive tail fields.
+	serializeInt(buffer, serializationKey._lastExploredByHostile, _lastExploredByHostile);
+	serializeInt(buffer, serializationKey._lastExploredByNeutral, _lastExploredByNeutral);
+	serializeInt(buffer, serializationKey._lastExploredByPlayer, _lastExploredByPlayer);
+}
+
+/**
+ * Brutal-AI (adapted from Brutal-OXCE by Xilmi): mark this tile explored by the active faction
+ * on the current turn. Only the faction whose turn it is may update its own memory.
+ */
+void Tile::setLastExplored(UnitFaction faction)
+{
+	if (_save->getSide() != faction)
+		return;
+	if (faction == FACTION_PLAYER)
+		_lastExploredByPlayer = _save->getTurn();
+	else if (faction == FACTION_NEUTRAL)
+		_lastExploredByNeutral = _save->getTurn();
+	else
+		_lastExploredByHostile = _save->getTurn();
+}
+
+/**
+ * Brutal-AI: the turn a faction last had line of sight to this tile (0 if never; stale future
+ * values from a reloaded save are clamped to 0).
+ */
+int Tile::getLastExplored(UnitFaction faction)
+{
+	int lastExplored = 0;
+	if (faction == FACTION_PLAYER)
+		lastExplored = _lastExploredByPlayer;
+	else if (faction == FACTION_NEUTRAL)
+		lastExplored = _lastExploredByNeutral;
+	else
+		lastExplored = _lastExploredByHostile;
+	if (lastExplored > _save->getTurn())
+		lastExplored = 0;
+	return lastExplored;
 }
 
 /**

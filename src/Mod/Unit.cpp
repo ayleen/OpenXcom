@@ -37,7 +37,8 @@ Unit::Unit(const std::string &type) :
 	_psiWeapon("ALIEN_PSI_WEAPON"), _capturable(true), _canSurrender(false), _autoSurrender(false),
 	_isLeeroyJenkins(false), _waitIfOutsideWeaponRange(false), _pickUpWeaponsMoreActively(-1), _avoidsFire(defBoolNullable),
 	_vip(false), _cosmetic(false), _ignoredByAI(false),
-	_canPanic(true), _canBeMindControlled(true), _berserkChance(-1), _civilianGuard(false)
+	_canPanic(true), _canBeMindControlled(true), _berserkChance(-1), _civilianGuard(false),
+	_isBrutal(false), _isNotBrutal(false), _isCheatOnMovement(false)
 {
 }
 
@@ -99,6 +100,10 @@ void Unit::load(const YAML::YamlNodeReader& node, Mod *mod)
 	reader.tryRead("autoSurrender", _autoSurrender);
 	reader.tryRead("isLeeroyJenkins", _isLeeroyJenkins);
 	reader.tryRead("civilianGuard", _civilianGuard); // Phase 32 (Calypso): armed civilian guard
+	// Phase 34.5 Brutal-AI per-unit overrides (adapted from Brutal-OXCE by Xilmi).
+	reader.tryRead("isBrutal", _isBrutal);
+	reader.tryRead("isNotBrutal", _isNotBrutal);
+	reader.tryRead("isCheatOnMovement", _isCheatOnMovement);
 	reader.tryRead("waitIfOutsideWeaponRange", _waitIfOutsideWeaponRange);
 	reader.tryRead("pickUpWeaponsMoreActively", _pickUpWeaponsMoreActively);
 	loadBoolNullable(_avoidsFire, reader["avoidsFire"]);

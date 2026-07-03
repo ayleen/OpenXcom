@@ -1520,6 +1520,11 @@ bool TileEngine::calculateUnitsInFOV(BattleUnit* unit, const Position eventPos, 
 									unit->getFaction(),
 									std::max(unit->getSpotterDuration(), bu->getTurnsLeftSpottedForSnipersByFaction(unit->getFaction()))
 								); // defaults to 0 = no information given to snipers
+								// Phase 34.5 Brutal-AI (adapted from Brutal-OXCE by Xilmi): record where the
+								// spotted unit was seen and reset the spotter faction's "turns since seen".
+								bu->setTileLastSpotted(_save->getTileIndex(bu->getPosition()), unit->getFaction());
+								bu->setTileLastSpotted(_save->getTileIndex(bu->getPosition()), unit->getFaction(), true);
+								bu->setTurnsSinceSeen(0, unit->getFaction());
 							}
 
 							x = y = sizeOther; //If a unit's tile is visible there's no need to check the others: break the loops.
@@ -3321,6 +3326,7 @@ void TileEngine::hit(BattleActionAttack attack, Position center, int power, cons
 	//Recalculate relevant item/unit locations and visibility depending on what happened during the hit
 	if (terrainChanged || effectGenerated)
 	{
+		resetVisibilityCache(); // Brutal-AI (adapted from Brutal-OXCE by Xilmi): terrain change invalidates cached LOS
 		applyGravity(tile);
 		LightLayers layer = LL_ITEMS;
 		if (part == V_FLOOR && _save->getTile(tilePos - Position(0, 0, 1)))
@@ -4244,6 +4250,10 @@ int TileEngine::unitOpensDoor(BattleUnit *unit, bool rClick, int dir)
 				calculateLighting(LL_FIRE, doorCentre, doorsOpened, true);
 				// Update FOV through the doorway.
 				calculateFOV(doorCentre, doorsOpened, true, true);
+				// Phase 34.5 Brutal-AI (adapted from Brutal-OXCE by Xilmi): opening a door changes LOS
+				// (invalidate the cache) and gives the opener's rough position away as a door clue.
+				resetVisibilityCache();
+				unit->updateEnemyKnowledge(_save->getTileIndex(unit->getPosition()), true, true);
 			}
 			else return 4;
 		}
@@ -4326,6 +4336,8 @@ int TileEngine::closeUfoDoors()
 		doorsclosed += _save->getTile(i)->closeUfoDoor();
 	}
 
+	if (doorsclosed > 0)
+		resetVisibilityCache(); // Brutal-AI (adapted from Brutal-OXCE by Xilmi): closing doors invalidates cached LOS
 	return doorsclosed;
 }
 
@@ -5118,6 +5130,13 @@ bool TileEngine::tryConcealUnit(BattleUnit* unit)
 	}
 
 	unit->setTurnsSinceSpotted(255);
+	// Phase 34.5 Brutal-AI (adapted from Brutal-OXCE by Xilmi): a successfully concealed unit is
+	// forgotten by the other factions' knowledge model too.
+	for (UnitFaction faction : {UnitFaction::FACTION_PLAYER, UnitFaction::FACTION_HOSTILE, UnitFaction::FACTION_NEUTRAL})
+	{
+		if (faction != unit->getFaction())
+			unit->setTurnsSinceSeen(255, faction);
+	}
 	unit->setTurnsLeftSpottedForSnipers(0);
 
 	return true;
@@ -6076,6 +6095,149 @@ void TileEngine::updateGameStateAfterScript(BattleActionAttack battleActionAttac
 		calculateLighting(LL_ITEMS, pos, 2, true);
 		calculateFOV(pos, 1, false);
 	}
+}
+
+// ===== Brutal-AI helpers (adapted from Brutal-OXCE by Xilmi, github.com/Xilmi/OpenXcom) =====
+
+bool TileEngine::isNextToDoor(Tile* tile, bool flipDoor)
+{
+	if (tile == NULL)
+		return false;
+	if (tile->isDoor(O_NORTHWALL) || tile->isDoor(O_WESTWALL) || ((tile->isUfoDoor(O_NORTHWALL) || tile->isUfoDoor(O_WESTWALL)) && !flipDoor))
+		return true;
+	Position neighbourSouth = tile->getPosition();
+	neighbourSouth += Position(0, 1, 0);
+	Tile* tileSouth = _save->getTile(neighbourSouth);
+	if (tileSouth != NULL && (tileSouth->isDoor(O_NORTHWALL) || (tileSouth->isUfoDoor(O_NORTHWALL) && !flipDoor)))
+		return true;
+	Position neighbourEast = tile->getPosition();
+	neighbourEast += Position(1, 0, 0);
+	Tile *tileEast = _save->getTile(neighbourEast);
+	if (tileEast != NULL && (tileEast->isDoor(O_WESTWALL) || (tileEast->isUfoDoor(O_WESTWALL) && !flipDoor)))
+		return true;
+	return false;
+}
+
+void TileEngine::resetVisibilityCache()
+{
+	_visibilityCache.clear();
+}
+
+bool TileEngine::hasEntry(Position from, Position to)
+{
+	std::pair<int, int> key = std::make_pair(_save->getTileIndex(from), _save->getTileIndex(to));
+	return _visibilityCache.find(key) != _visibilityCache.end();
+}
+
+void TileEngine::setVisibilityCache(Position from, Position to, bool visible)
+{
+	std::pair<int, int> key = std::make_pair(_save->getTileIndex(from), _save->getTileIndex(to));
+	_visibilityCache.insert({key, visible});
+}
+
+bool TileEngine::getVisibilityCache(Position from, Position to)
+{
+	std::pair<int, int> key = std::make_pair(_save->getTileIndex(from), _save->getTileIndex(to));
+	return _visibilityCache[key];
+}
+
+std::set<Tile*> TileEngine::visibleTilesFrom(BattleUnit* unit, Position pos, int direction, bool onlyNew, bool ignoreAirTiles)
+{
+	std::set<Tile*> visibleFrom;
+
+	std::vector<Position> _trajectory;
+	bool swap = (direction == 0 || direction == 4);
+	const int signX[8] = {+1, +1, +1, +1, -1, -1, -1, -1};
+	const int signY[8] = {-1, -1, -1, +1, +1, +1, -1, -1};
+	int y1, y2;
+	Position posTest;
+
+	if ((unit->getHeight() + unit->getFloatHeight() + -_save->getTile(pos)->getTerrainLevel()) >= 24 + 4)
+	{
+		Tile* tileAbove = _save->getTile(pos + Position(0, 0, 1));
+		if (tileAbove && tileAbove->hasNoFloor(0))
+		{
+			++pos.z;
+		}
+	}
+
+	// Test all tiles within view cone for visibility.
+	int maxDist = getMaxViewDistance();
+	if (_save->getMod()->getAIPerformanceOptimization())
+	{
+		int myUnits = 0;
+		for (BattleUnit* bu : *(_save->getUnits()))
+		{
+			if (bu->getFaction() == unit->getFaction() && !bu->isOut())
+				++myUnits;
+		}
+		float scaleFactor = (float)60 * 60 * 4 * 30 / (_save->getMapSizeXYZ() * std::max(1, myUnits));
+		maxDist = std::min(60, getMaxViewDistance());
+		if (scaleFactor < 1)
+			maxDist *= scaleFactor;
+	}
+	for (int x = 0; x <= maxDist; ++x)
+	{
+		if (direction & 1)
+		{
+			y1 = 0;
+			y2 = maxDist;
+		}
+		else
+		{
+			y1 = -x;
+			y2 = x;
+		}
+		for (int y = y1; y <= y2; ++y)
+		{
+			const int distanceSqr = x * x + y * y;
+			if (distanceSqr >= 0)
+			{
+				posTest.x = pos.x + signX[direction] * (swap ? y : x);
+				posTest.y = pos.y + signY[direction] * (swap ? x : y);
+				for (int z = 0; z < _save->getMapSizeZ(); z++)
+				{
+					posTest.z = z;
+
+					if (_save->getTile(posTest)) // inside map?
+					{
+						if (ignoreAirTiles)
+						{
+							if (_save->getTile(posTest)->hasNoFloor())
+								continue;
+						}
+						// large units have "4 pairs of eyes"
+						int size = unit->getArmor()->getSize();
+						for (int xo = 0; xo < size; xo++)
+						{
+							for (int yo = 0; yo < size; yo++)
+							{
+								Position poso = pos + Position(xo, yo, 0);
+								_trajectory.clear();
+								int tst = calculateLineTile(poso, posTest, _trajectory);
+								if (tst > 127)
+								{
+									_trajectory.pop_back();
+								}
+								for (const auto& posVisited : _trajectory)
+								{
+									if (x <= getMaxViewDistance() && y <= getMaxViewDistance() && distanceSqr <= getMaxViewDistanceSq())
+									{
+										Tile* tile = _save->getTile(posVisited);
+										if (tile->getUnit())
+											continue;
+										if (!onlyNew || tile->getLastExplored(unit->getFaction()) < _save->getTurn())
+											visibleFrom.insert(tile);
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return visibleFrom;
 }
 
 }

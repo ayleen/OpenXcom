@@ -18,6 +18,9 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include <vector>
+#include <map> // Phase 34.5 Brutal-AI: visibility cache
+#include <set> // Phase 34.5 Brutal-AI: visibleTilesFrom
+#include <utility> // Phase 34.5 Brutal-AI: std::pair key
 #include "Position.h"
 #include "BattlescapeGame.h"
 #include "../Mod/RuleItem.h"
@@ -126,6 +129,8 @@ private:
 	const int _maxDynamicLightDistance;
 	const int _enhancedLighting;
 	Position _eventVisibilitySectorL, _eventVisibilitySectorR, _eventVisibilityObserverPos;
+	// Phase 34.5 Brutal-AI (adapted from Brutal-OXCE by Xilmi): per-turn tile-to-tile visibility memo.
+	std::map<std::pair<int, int>, bool> _visibilityCache;
 	std::vector<BattleUnit*> _movingUnitPrev;
 	BattleUnit* _movingUnit = nullptr;
 
@@ -205,6 +210,16 @@ public:
 	int closeUfoDoors();
 	/// Calculates a line trajectory in tile space.
 	int calculateLineTile(Position origin, Position target, std::vector<Position> &trajectory);
+	// Phase 34.5 Brutal-AI helpers (adapted from Brutal-OXCE by Xilmi).
+	/// Whether the tile (or its S/E neighbour) carries a door — used by the AI to avoid camping doorways.
+	bool isNextToDoor(Tile *tile, bool flipDoor = false);
+	/// The set of tiles a unit would see standing at pos facing direction (onlyNew = drop already-explored ones).
+	std::set<Tile*> visibleTilesFrom(BattleUnit* unit, Position pos, int direction, bool onlyNew = false, bool ignoreAirTiles = true);
+	/// Per-turn tile-to-tile visibility memo (avoids recomputing LOS during a single AI turn).
+	void setVisibilityCache(Position from, Position to, bool visible);
+	bool getVisibilityCache(Position from, Position to);
+	bool hasEntry(Position from, Position to);
+	void resetVisibilityCache();
 	/// Calculates a line trajectory in voxel space.
 	VoxelType calculateLineVoxel(Position origin, Position target, bool storeTrajectory, std::vector<Position> *trajectory, BattleUnit *excludeUnit, BattleUnit *excludeAllBut = 0, bool onlyVisible = false);
 	/// Calculates a parabola trajectory.

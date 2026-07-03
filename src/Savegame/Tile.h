@@ -69,6 +69,11 @@ public:
 		Uint8 _smoke;
 		Uint8 _fire;
 		Uint8 boolFields;
+		// Phase 34.5 Brutal-AI (adapted from Brutal-OXCE by Xilmi): per-faction last-explored turn.
+		// Additive tail fields; old saves omit these header sizes (loaded as 0 -> reads skipped).
+		Uint8 _lastExploredByHostile;
+		Uint8 _lastExploredByNeutral;
+		Uint8 _lastExploredByPlayer;
 		Uint32 totalBytes; // per structure, including any data not mentioned here and accounting for all array members!
 	} serializationKey;
 
@@ -132,6 +137,10 @@ protected:
 	Sint16 _EnergyMarker = -1;
 	Sint8 _preview = -1;
 	Uint8 _overlaps = 0;
+	// Phase 34.5 Brutal-AI (adapted from Brutal-OXCE by Xilmi): per-faction turn a unit last had LOS to this tile.
+	int _lastExploredByPlayer = 0;
+	int _lastExploredByHostile = 0;
+	int _lastExploredByNeutral = 0;
 
 
 public:
@@ -149,6 +158,10 @@ public:
 	void save(YAML::YamlNodeWriter writer) const;
 	/// Saves the tile to binary
 	void saveBinary(Uint8** buffer) const;
+	/// Brutal-AI (adapted from Brutal-OXCE by Xilmi): mark this tile explored by the active faction this turn.
+	void setLastExplored(UnitFaction faction);
+	/// Brutal-AI: turn a faction last had line of sight to this tile (0 = never / stale).
+	int getLastExplored(UnitFaction faction);
 
 	/**
 	 * Get the MapData pointer of a part of the tile.

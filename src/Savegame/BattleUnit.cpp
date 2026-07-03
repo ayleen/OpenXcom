@@ -62,6 +62,7 @@ namespace OpenXcom
  * @param depth the depth of the battlefield (used to determine movement type in case of MT_FLOAT).
  */
 BattleUnit::BattleUnit(const Mod *mod, Soldier *soldier, int depth, const RuleStartingCondition* sc) :
+	_mod(mod),
 	_faction(FACTION_PLAYER), _originalFaction(FACTION_PLAYER), _killedBy(FACTION_PLAYER), _id(0), _tile(0),
 	_lastPos(Position()), _direction(0), _toDirection(0), _directionTurret(0), _toDirectionTurret(0),
 	_verticalDirection(0), _status(STATUS_STANDING), _wantsToSurrender(false), _isSurrendering(false), _walkPhase(0), _fallPhase(0), _kneeled(false), _floating(false),
@@ -412,6 +413,7 @@ void BattleUnit::prepareBannedFlag(const RuleStartingCondition* sc)
  * @param depth the depth of the battlefield (used to determine movement type in case of MT_FLOAT).
  */
 BattleUnit::BattleUnit(const Mod *mod, const Unit *unit, UnitFaction faction, int id, const RuleEnviroEffects* enviro, const Armor *armor, StatAdjustment *adjustment, int depth, const RuleStartingCondition* sc) :
+	_mod(mod),
 	_faction(faction), _originalFaction(faction), _killedBy(faction), _id(id),
 	_tile(0), _lastPos(Position()), _direction(0), _toDirection(0), _directionTurret(0),
 	_toDirectionTurret(0), _verticalDirection(0), _status(STATUS_STANDING), _wantsToSurrender(false), _isSurrendering(false), _walkPhase(0),
@@ -603,6 +605,18 @@ void BattleUnit::load(const YAML::YamlNodeReader& node, const Mod *mod, const Sc
 	reader.tryRead("status", _status);
 	reader.tryRead("wantsToSurrender", _wantsToSurrender);
 	reader.tryRead("isSurrendering", _isSurrendering);
+	// Phase 34.5 Brutal-AI knowledge layer (adapted from Brutal-OXCE by Xilmi). Additive, self-
+	// describing keys: absent in pre-34.5 saves, so tryReadAs leaves the in-class defaults.
+	reader.tryReadAs<int>("turnsSinceSeenByHostile", _turnsSinceSeenByHostile);
+	reader.tryReadAs<int>("turnsSinceSeenByNeutral", _turnsSinceSeenByNeutral);
+	reader.tryReadAs<int>("turnsSinceSeenByPlayer", _turnsSinceSeenByPlayer);
+	reader.tryReadAs<int>("tileLastSpottedByHostile", _tileLastSpottedByHostile);
+	reader.tryReadAs<int>("tileLastSpottedByNeutral", _tileLastSpottedByNeutral);
+	reader.tryReadAs<int>("tileLastSpottedByPlayer", _tileLastSpottedByPlayer);
+	reader.tryReadAs<int>("tileLastSpottedForBlindShotByHostile", _tileLastSpottedForBlindShotByHostile);
+	reader.tryReadAs<int>("tileLastSpottedForBlindShotByNeutral", _tileLastSpottedForBlindShotByNeutral);
+	reader.tryReadAs<int>("tileLastSpottedForBlindShotByPlayer", _tileLastSpottedForBlindShotByPlayer);
+	reader.tryRead("hasPanickedLastTurn", _hasPanickedLastTurn);
 	reader.tryRead("position", _pos);
 	reader.tryRead("direction", _direction);
 	_toDirection = _direction;
@@ -717,6 +731,17 @@ void BattleUnit::save(YAML::YamlNodeWriter writer, const ScriptGlobal *shared) c
 	writer.write("genUnitArmor", _armor->getType());
 	writer.write("faction", _faction);
 	writer.write("status", _status);
+	// Phase 34.5 Brutal-AI knowledge layer (adapted from Brutal-OXCE by Xilmi). Additive keys.
+	writer.write("turnsSinceSeenByHostile", _turnsSinceSeenByHostile);
+	writer.write("turnsSinceSeenByNeutral", _turnsSinceSeenByNeutral);
+	writer.write("turnsSinceSeenByPlayer", _turnsSinceSeenByPlayer);
+	writer.write("tileLastSpottedByHostile", _tileLastSpottedByHostile);
+	writer.write("tileLastSpottedByNeutral", _tileLastSpottedByNeutral);
+	writer.write("tileLastSpottedByPlayer", _tileLastSpottedByPlayer);
+	writer.write("tileLastSpottedForBlindShotByHostile", _tileLastSpottedForBlindShotByHostile);
+	writer.write("tileLastSpottedForBlindShotByNeutral", _tileLastSpottedForBlindShotByNeutral);
+	writer.write("tileLastSpottedForBlindShotByPlayer", _tileLastSpottedForBlindShotByPlayer);
+	writer.write("hasPanickedLastTurn", _hasPanickedLastTurn);
 	if (_wantsToSurrender)
 		writer.write("wantsToSurrender", _wantsToSurrender);
 	if (_isSurrendering)
@@ -2418,6 +2443,7 @@ void BattleUnit::clearVisibleUnits()
  */
 bool BattleUnit::addToVisibleTiles(Tile *tile)
 {
+	tile->setLastExplored(getFaction()); // Brutal-AI (adapted from Brutal-OXCE by Xilmi): record LOS to this tile
 	//Only add once, otherwise we're going to mess up the visibility value and make trouble for the AI (if sneaky).
 	if (_visibleTilesLookup.insert(tile).second)
 	{
@@ -2745,6 +2771,7 @@ void BattleUnit::prepareStun(int stun)
  */
 void BattleUnit::prepareMorale(int morale)
 {
+	_hasPanickedLastTurn = false; // Brutal-AI (adapted from Brutal-OXCE by Xilmi): reset panic history each turn-prep
 	if (!isOut())
 	{
 		moraleChange(morale);
@@ -2763,6 +2790,7 @@ void BattleUnit::prepareMorale(int morale)
 			}
 			_status = (berserk ? STATUS_BERSERK : STATUS_PANICKING); // 33% chance of berserk, panic can mean freeze or flee, but that is determined later
 			_wantsToSurrender = true;
+			_hasPanickedLastTurn = true; // Brutal-AI: record panic for the AI's read-back
 		}
 		else
 		{
@@ -5637,6 +5665,183 @@ void BattleUnit::setMindControllerId(int id)
 int BattleUnit::getMindControllerId() const
 {
 	return _mindControllerID;
+}
+
+// Phase 34.5 Brutal-AI (adapted from Brutal-OXCE by Xilmi, github.com/Xilmi/OpenXcom).
+// The global toggles Xilmi keeps in Options:: are folded into Calypso's per-mod ai: ruleset
+// block (Mod::getAIBrutalAI / getAICheatMode / getAIAvoidMines) for parity with smartCivilians.
+bool BattleUnit::isBrutal() const
+{
+	bool brutal = false;
+	if (getFaction() == FACTION_HOSTILE)
+		brutal = _mod && _mod->getAIBrutalAI();
+	// Civilians (FACTION_NEUTRAL) are deliberately NOT made brutal: Phase 32 owns civilian smartness
+	// and a brutal-thinking civilian would bypass those hooks. Player autoplay is out of scope.
+	if (_unitRules && _unitRules->isBrutal())
+		brutal = true;
+	if (_unitRules && _unitRules->isNotBrutal())
+		brutal = false;
+	return brutal;
+}
+
+bool BattleUnit::isAvoidMines() const
+{
+	if (!isBrutal())
+		return false;
+	if (isLeeroyJenkins())
+		return false;
+	if (getOriginalFaction() != getFaction())
+		return false;
+	if (_mod && _mod->getAIAvoidMines())
+		return true;
+	return false;
+}
+
+bool BattleUnit::isCheatOnMovement()
+{
+	bool cheat = false;
+	if (getFaction() == FACTION_HOSTILE)
+		cheat = aiCheatMode() > 0;
+	if (_unitRules && _unitRules->isCheatOnMovement())
+		cheat = true;
+	return cheat;
+}
+
+int BattleUnit::aiCheatMode()
+{
+	// Only hostiles may cheat; players/neutrals are locked to the fair (0) level.
+	if (getFaction() != FACTION_HOSTILE)
+		return 0;
+	return _mod ? _mod->getAICheatMode() : 0;
+}
+
+// --- Brutal-AI knowledge/bookkeeping layer (adapted from Brutal-OXCE by Xilmi) ---
+
+void BattleUnit::setTurnsSinceSeen(int turns, UnitFaction faction)
+{
+	if (faction == FACTION_HOSTILE)
+		_turnsSinceSeenByHostile = turns;
+	else if (faction == FACTION_NEUTRAL)
+		_turnsSinceSeenByNeutral = turns;
+	else
+		_turnsSinceSeenByPlayer = turns;
+}
+
+int BattleUnit::getTurnsSinceSeen(UnitFaction faction) const
+{
+	if (faction == FACTION_HOSTILE)
+		return _turnsSinceSeenByHostile;
+	else if (faction == FACTION_NEUTRAL)
+		return _turnsSinceSeenByNeutral;
+	else
+		return _turnsSinceSeenByPlayer;
+}
+
+void BattleUnit::setTileLastSpotted(int index, UnitFaction faction, bool forBlindShot)
+{
+	if (faction == FACTION_HOSTILE)
+	{
+		if (forBlindShot)
+			_tileLastSpottedForBlindShotByHostile = index;
+		else
+			_tileLastSpottedByHostile = index;
+	}
+	else if (faction == FACTION_NEUTRAL)
+	{
+		if (forBlindShot)
+			_tileLastSpottedForBlindShotByNeutral = index;
+		else
+			_tileLastSpottedByNeutral = index;
+	}
+	else
+	{
+		if (forBlindShot)
+			_tileLastSpottedForBlindShotByPlayer = index;
+		else
+			_tileLastSpottedByPlayer = index;
+	}
+}
+
+int BattleUnit::getTileLastSpotted(UnitFaction faction, bool forBlindShot) const
+{
+	if (faction == FACTION_HOSTILE)
+		return forBlindShot ? _tileLastSpottedForBlindShotByHostile : _tileLastSpottedByHostile;
+	else if (faction == FACTION_NEUTRAL)
+		return forBlindShot ? _tileLastSpottedForBlindShotByNeutral : _tileLastSpottedByNeutral;
+	else
+		return forBlindShot ? _tileLastSpottedForBlindShotByPlayer : _tileLastSpottedByPlayer;
+}
+
+void BattleUnit::updateEnemyKnowledge(int index, bool clue, bool door)
+{
+	setTileLastSpotted(index, FACTION_HOSTILE);
+	setTileLastSpotted(index, FACTION_HOSTILE, true);
+	if (!door)
+	{
+		setTileLastSpotted(index, FACTION_PLAYER);
+		setTileLastSpotted(index, FACTION_PLAYER, true);
+	}
+	setTileLastSpotted(index, FACTION_NEUTRAL);
+	setTileLastSpotted(index, FACTION_NEUTRAL, true);
+	// Calypso: the updateTurnsSinceSeenByClue engine option is not ported; use its default (off),
+	// i.e. an indirect clue does not by itself reset the turns-since-seen counter.
+	if (!clue)
+	{
+		setTurnsSinceSeen(0, FACTION_HOSTILE);
+		if (!door)
+			setTurnsSinceSeen(0, FACTION_PLAYER);
+		setTurnsSinceSeen(0, FACTION_NEUTRAL);
+	}
+}
+
+bool BattleUnit::hasPanickedLastTurn() const
+{
+	return _hasPanickedLastTurn;
+}
+
+bool BattleUnit::isAIControlled() const
+{
+	// Calypso has no player autoplay (SoldiersAIState is out of scope); every non-player unit is AI-driven.
+	return _faction != FACTION_PLAYER;
+}
+
+void BattleUnit::setWantToEndTurn(bool wantToEndTurn)
+{
+	if (_currentAIState)
+		_currentAIState->setWantToEndTurn(wantToEndTurn);
+}
+
+bool BattleUnit::getWantToEndTurn()
+{
+	if (_currentAIState)
+		return _currentAIState->getWantToEndTurn();
+	return false;
+}
+
+void BattleUnit::setReachablePositions(std::map<Position, int, PositionComparator> reachable)
+{
+	_reachablePositions = reachable;
+}
+
+std::map<Position, int, PositionComparator> BattleUnit::getReachablePositions()
+{
+	return _reachablePositions;
+}
+
+void BattleUnit::setPositionOfUpdate(Position pos, bool withMaxTUs)
+{
+	_positionWhenReachableWasUpdated = pos;
+	_maxTUsWhenReachableWasUpdated = withMaxTUs;
+}
+
+Position BattleUnit::getPositionOfUpdate()
+{
+	return _positionWhenReachableWasUpdated;
+}
+
+bool BattleUnit::wasMaxTusOfUpdate()
+{
+	return _maxTUsWhenReachableWasUpdated;
 }
 
 /**

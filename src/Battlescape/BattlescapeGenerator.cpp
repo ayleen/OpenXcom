@@ -664,6 +664,14 @@ void BattlescapeGenerator::nextStage()
 				}
 			}
 		}
+		// Phase 34.5 Brutal-AI (adapted from Brutal-OXCE by Xilmi): freshly-deployed units start
+		// unknown to every faction (redundant with the in-class defaults, but mirrors Xilmi's reset).
+		for (UnitFaction faction : {UnitFaction::FACTION_PLAYER, UnitFaction::FACTION_HOSTILE, UnitFaction::FACTION_NEUTRAL})
+		{
+			bu->setTurnsSinceSeen(255, faction);
+			bu->setTileLastSpotted(-1, faction);
+			bu->setTileLastSpotted(-1, faction, true);
+		}
 	}
 	if (soldiersPlaced == 0)
 	{

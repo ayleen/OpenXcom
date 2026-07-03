@@ -208,6 +208,11 @@ void SavedBattleGame::load(const YAML::YamlNodeReader& node, Mod *mod, SavedGame
 		serKey._mapDataID = reader["tileIDSize"].readVal<char>(serKey._mapDataID);
 		serKey._mapDataSetID = reader["tileSetIDSize"].readVal<char>(serKey._mapDataSetID);
 		serKey.boolFields = reader["tileBoolFieldsSize"].readVal<char>(1); // boolean flags used to be stored in an unmentioned byte (Uint8) :|
+		// Phase 34.5 Brutal-AI (adapted from Brutal-OXCE by Xilmi): additive tail sizes; default 0 for
+		// pre-34.5 saves so Tile::loadBinary skips the (absent) last-explored bytes.
+		serKey._lastExploredByHostile = reader["tileLastExploredHostileSize"].readVal<char>(0);
+		serKey._lastExploredByNeutral = reader["tileLastExploredNeutralSize"].readVal<char>(0);
+		serKey._lastExploredByPlayer = reader["tileLastExploredPlayerSize"].readVal<char>(0);
 
 		// load binary tile data!
 		std::vector<char> binTiles = reader["binTiles"].readValBase64();
@@ -560,6 +565,10 @@ void SavedBattleGame::save(YAML::YamlNodeWriter writer) const
 	writer.write("tileIDSize", static_cast<char>(Tile::serializationKey._mapDataID)).setAsQuotedAndEscaped();
 	writer.write("tileSetIDSize", static_cast<char>(Tile::serializationKey._mapDataSetID)).setAsQuotedAndEscaped();
 	writer.write("tileBoolFieldsSize", static_cast<char>(Tile::serializationKey.boolFields)).setAsQuotedAndEscaped();
+	// Phase 34.5 Brutal-AI (adapted from Brutal-OXCE by Xilmi): additive tail sizes.
+	writer.write("tileLastExploredHostileSize", static_cast<char>(Tile::serializationKey._lastExploredByHostile)).setAsQuotedAndEscaped();
+	writer.write("tileLastExploredNeutralSize", static_cast<char>(Tile::serializationKey._lastExploredByNeutral)).setAsQuotedAndEscaped();
+	writer.write("tileLastExploredPlayerSize", static_cast<char>(Tile::serializationKey._lastExploredByPlayer)).setAsQuotedAndEscaped();
 
 	size_t tileDataSize = Tile::serializationKey.totalBytes * _mapsize_z * _mapsize_y * _mapsize_x;
 	Uint8* tileData = (Uint8*) calloc(tileDataSize, 1);
@@ -1577,6 +1586,16 @@ void SavedBattleGame::endTurn()
 			{
 				soldierPositions.push_back(u->getPosition());
 			}
+		}
+	}
+
+	// Phase 34.5 Brutal-AI (adapted from Brutal-OXCE by Xilmi): age every unit's per-faction
+	// "turns since seen" on each half-turn, so a fair AI forgets briefly-glimpsed positions.
+	for (std::vector<BattleUnit *>::iterator i = _units.begin(); i != _units.end(); ++i)
+	{
+		if ((*i)->getTurnsSinceSeen(_side) < 255)
+		{
+			(*i)->setTurnsSinceSeen((*i)->getTurnsSinceSeen(_side) + 1, _side);
 		}
 	}
 

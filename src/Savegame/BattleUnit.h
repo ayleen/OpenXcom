@@ -20,6 +20,7 @@
 #include <vector>
 #include <string>
 #include <unordered_set>
+#include <map> // Phase 34.5 Brutal-AI: reachable-position cache
 #include "../Battlescape/Position.h"
 #include "../Mod/Armor.h"
 #include "../Mod/RuleItem.h"
@@ -169,6 +170,17 @@ private:
 	Soldier *_geoscapeSoldier;
 	std::vector<int> _loftempsSet;
 	const Unit *_unitRules;
+	const Mod *_mod; // Brutal-AI: for resolving the brutalAI/aiCheatMode ruleset knobs per unit.
+	// Phase 34.5 Brutal-AI knowledge/bookkeeping state (adapted from Brutal-OXCE by Xilmi). Per-faction
+	// memory of when/where this unit was last seen, a panic-history flag, and a reachable-position cache.
+	int _turnsSinceSeenByHostile = 255, _turnsSinceSeenByNeutral = 255, _turnsSinceSeenByPlayer = 255;
+	int _tileLastSpottedByHostile = -1, _tileLastSpottedByNeutral = -1, _tileLastSpottedByPlayer = -1;
+	int _tileLastSpottedForBlindShotByHostile = -1, _tileLastSpottedForBlindShotByNeutral = -1, _tileLastSpottedForBlindShotByPlayer = -1;
+	bool _hasPanickedLastTurn = false;
+	std::map<Position, int, PositionComparator> _reachablePositions;
+	Position _positionWhenReachableWasUpdated;
+	bool _maxTUsWhenReachableWasUpdated = false;
+	bool _ranOutOfTUs = false;
 	int _rankInt;
 	int _rankIntUnified = 0;
 	int _turretType;
@@ -834,6 +846,39 @@ public:
 	int getMindControllerId() const;
 	/// Get the unit leeroyJenkins flag
 	bool isLeeroyJenkins() const { return _isLeeroyJenkins; };
+	/// Brutal-AI (adapted from Brutal-OXCE by Xilmi): whether this unit is driven by the ported brutal AI.
+	bool isBrutal() const;
+	/// Brutal-AI: whether this unit should avoid known proximity mines/grenades.
+	bool isAvoidMines() const;
+	/// Brutal-AI: whether this unit may cheat on movement (knows player locations for pathing) -- fair by default.
+	bool isCheatOnMovement();
+	/// Brutal-AI: hostile-only omniscience level (0 = fair, no cheating); other factions locked to 0.
+	int aiCheatMode();
+	/// Brutal-AI knowledge layer (adapted from Brutal-OXCE by Xilmi): per-faction turns since this unit was last seen.
+	int getTurnsSinceSeen(UnitFaction faction) const;
+	/// Brutal-AI: set per-faction turns since this unit was last seen.
+	void setTurnsSinceSeen(int turns, UnitFaction faction);
+	/// Brutal-AI: tile index where this unit was last seen by a faction (forBlindShot = the fuzzier blind-fire memory).
+	int getTileLastSpotted(UnitFaction faction, bool forBlindShot = false) const;
+	/// Brutal-AI: set the tile index where this unit was last seen by a faction.
+	void setTileLastSpotted(int index, UnitFaction faction, bool forBlindShot = false);
+	/// Brutal-AI: record that this unit's position became known to the other factions (clue = indirect, door = seen opening a door).
+	void updateEnemyKnowledge(int index, bool clue = false, bool door = false);
+	/// Brutal-AI: whether this unit panicked/berserked last turn.
+	bool hasPanickedLastTurn() const;
+	/// Brutal-AI: whether this unit is AI-driven (all non-player units; Calypso has no player autoplay).
+	bool isAIControlled() const;
+	/// Brutal-AI: relay the AI's "want to end turn" intent to/from the unit's AIModule.
+	void setWantToEndTurn(bool wantToEndTurn);
+	bool getWantToEndTurn();
+	/// Brutal-AI: reachable-position cache (rebuilt lazily by the AI within a turn).
+	void setReachablePositions(std::map<Position, int, PositionComparator> reachable);
+	std::map<Position, int, PositionComparator> getReachablePositions();
+	void setPositionOfUpdate(Position pos, bool withMaxTUs);
+	Position getPositionOfUpdate();
+	bool wasMaxTusOfUpdate();
+	void setRanOutOfTUs(bool ranOutOfTUs) { _ranOutOfTUs = ranOutOfTUs; }
+	bool getRanOutOfTUs() { return _ranOutOfTUs; }
 	/// Gets the spotter score. This is the number of turns sniper AI units can use spotting info from this unit.
 	int getSpotterDuration() const;
 	/// Remembers the unit's XP (used for shotguns).
