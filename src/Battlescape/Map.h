@@ -102,6 +102,11 @@ private:
 	bool _cacheIsCtrlPressed;
 	Position _cacheCursorPosition;
 	int _cacheHasLOS; // -1 = unknown, 0 = no LOS, 1 = has LOS
+	// Realistic Accuracy cursor hit-% cache (Joy Narical's RA, from Brutal-OXCE by Xilmi).
+	int _cacheAccuracy = -1; // -1 = unknown
+	int _cacheAccuracyTextColor = -1; // -1 = unknown
+	bool _cacheIsKneeled = false;
+	bool _cacheTargetSelf = false;
 	int _animFrame;
 	Projectile *_projectile;
 	bool _followProjectile;
