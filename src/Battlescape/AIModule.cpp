@@ -341,9 +341,118 @@ bool AIModule::considerTerrainAttack()
 	}
 
 	// === Wall breach ===
-	// Phase 34.6 commit (c) adds the wall-breach path here (gated on _grenade + a per-unit
-	// 3-turn cooldown + failed/2x-detour pathfind). The floor-drop path above is the only
-	// terrain attack in this commit; wall breach lands as a separate reviewable change.
+	// Triggered only when pathing to the nearest fair-known enemy fails or severely detours,
+	// the unit carries a grenade ready in the belt, the breach cooldown allows another attempt
+	// this turn (one per 3 turns per unit, transient -- NOT saved), and a destructible
+	// O_OBJECT / wall sits on the straight line between the unit and the objective. The
+	// friendly-fire check reuses explosiveEfficacy (the same convention grenadeAction uses) so
+	// an alien never collapses a wall onto its own squad.
+	if (_grenade && (_save->getTurn() - _lastBreachTurn) >= 3)
+	{
+		BattleItem *grenade = _unit->getGrenadeFromBelt(_save);
+		if (grenade)
+		{
+			// Find the nearest fair-known enemy as the breach objective (same fair-knowledge
+			// gates as the floor-drop scan -- visibleToAnyFriend OR getTileLastSpotted).
+			Position objectivePos;
+			bool haveObjective = false;
+			int bestObjDist = INT_MAX;
+			for (auto* target : *_save->getUnits())
+			{
+				if (!target || target == _unit || target->isOut()) continue;
+				if (!isEnemy(target)) continue;
+				if (target->getTurnsSinceSpottedByFaction(_unit->getFaction()) > _intelligence) continue;
+				Position enemyPos;
+				if (visibleToAnyFriend(target))
+				{
+					enemyPos = target->getPosition();
+				}
+				else
+				{
+					int spottedIdx = target->getTileLastSpotted(_unit->getFaction());
+					if (spottedIdx < 0) continue;
+					enemyPos = _save->getTileCoords(spottedIdx);
+				}
+				int d = Position::distance2d(myPos, enemyPos);
+				if (d < bestObjDist) { bestObjDist = d; objectivePos = enemyPos; haveObjective = true; }
+			}
+			if (haveObjective)
+			{
+				// Detect a blocking wall via the legacy Pathfinding::calculate + getStartDirection
+				// path (the same one setupPatrol uses). tuCostToReachPosition is Brutal-AI-only
+				// and depends on _allPathFindingNodes which may not be populated at this insertion
+				// point in brutalThink, so we use the engine primitive directly to stay safe in
+				// both decision paths. getStartDirection() == -1 means unreachable (path failed).
+				_save->getPathfinding()->calculate(_unit, objectivePos, BAM_NORMAL);
+				int startDir = _save->getPathfinding()->getStartDirection();
+				int pathTUs = _save->getPathfinding()->getTotalTUCost();
+				_save->getPathfinding()->abortPath();
+				int straightLine = Position::distance2d(myPos, objectivePos);
+				bool pathFailed = (startDir == -1);
+				// Detour heuristic: typical OXCE tile move cost is ~4 TU; treat a path costing
+				// >2x the straight-line expectation as a "blocked approach" worth breaching.
+				bool bigDetour = (straightLine > 0) && (pathTUs > 2 * straightLine * 4);
+				if (pathFailed || bigDetour)
+				{
+					// Walk the straight line tile-by-tile (2D Bresenham on the unit's z-level)
+					// and target the first destructible O_OBJECT or wall blocking the advance.
+					int dx = objectivePos.x - myPos.x;
+					int dy = objectivePos.y - myPos.y;
+					int steps = std::max(std::abs(dx), std::abs(dy));
+					if (steps > 0)
+					{
+						int range = weapon->getRules()->getMaxRange(); // 0 = unlimited
+						int checkedSteps = 0;
+						for (int s = 1; s <= steps; ++s)
+						{
+							Position p(myPos.x + (dx * s) / steps, myPos.y + (dy * s) / steps, myPos.z);
+							if (range > 0 && Position::distance2d(myPos, p) > range) break;
+							Tile *t = _save->getTile(p);
+							if (!t) continue;
+							// Try the O_OBJECT slot first (the typical "wall" on TFTD terrains
+							// is an O_OBJECT big-wall), then the two wall slots.
+							TilePart parts[3] = { O_OBJECT, O_WESTWALL, O_NORTHWALL };
+							for (int pi = 0; pi < 3; ++pi)
+							{
+								MapData *md = t->getMapData(parts[pi]);
+								if (!md) continue;
+								if (md->isBaseModule()) continue; // mission-objective safety
+								if (md->getArmor() >= 255) continue; // indestructible sentinel
+								const RuleDamageType *gDt = grenade->getRules()->getDamageType();
+								int grenadeTerrainPower = gDt ? (int)(grenade->getRules()->getPower() * gDt->ToTile) : 0;
+								if (grenadeTerrainPower < md->getArmor()) continue;
+								// Friendly-fire check: same convention as grenadeAction. The
+								// radius comes from the grenade's own rules so the efficacy
+								// math matches what would actually happen on impact.
+								BattleAction probeAction;
+								probeAction.type = BA_THROW;
+								probeAction.actor = _unit;
+								probeAction.weapon = grenade;
+								int radius = grenade->getRules()->getExplosionRadius(
+									BattleActionAttack::GetBeforeShoot(probeAction));
+								if (explosiveEfficacy(p, _unit, radius, _attackAction.diff, true) <= 0) continue;
+								// Found a viable breach target.
+								_attackAction.type = BA_THROW;
+								_attackAction.target = p;
+								_attackAction.weapon = grenade;
+								_attackAction.actor = _unit;
+								_attackAction.updateTU();
+								_attackAction.Time += 4; // grenade prime/swap cost, same as grenadeAction
+								_attackAction += _unit->getActionTUs(BA_PRIME, grenade);
+								_lastBreachTurn = _save->getTurn();
+								if (_traceAI)
+								{
+									Log(LOG_INFO) << "Phase 34.6: terrain wall-breach attack at " << p;
+								}
+								return true;
+							}
+							if (++checkedSteps > 32) break; // perf cap -- 32 tiles max
+						}
+					}
+				}
+			}
+		}
+	}
 
 	return false;
 }
