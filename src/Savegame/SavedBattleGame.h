@@ -524,6 +524,16 @@ public:
 	/// out position is the chosen event's source quantized to an 8-tile grid cell -- hearing
 	/// gives a zone/direction, never a wallhack tile. Returns false if none hearable.
 	bool getNewestHearableNoise(const Position &hearerPos, int intelligence, Position &outZone);
+	/// Phase 34.7 (Calypso): scan a projectile's voxel trajectory for near-miss victims and
+	/// apply the suppression mechanic (morale/energy pin) to each. GATED AT THE SEAM: the
+	/// near-miss mechanic changes unit state, so unlike 34.8's unconditional noise emission
+	/// the master-switch gate is checked HERE (first line), making the flag-off path a single
+	/// branch and byte-identical. `shooter` and `targetUnit` (the shot's actual target) are
+	/// excluded -- a hit is not a near-miss, and the shooter's own muzzle blast doesn't pin it.
+	/// A unit counts as near-missed when the trajectory visits a tile within 1 tile (3D
+	/// Chebyshev distance <= 1) of the unit's tile. Engine-symmetric: any faction suppresses
+	/// any faction. Per-victim per-turn cap enforced in BattleUnit::addNearMiss.
+	void applySuppression(const std::vector<Position>& trajectoryVoxels, BattleUnit* shooter, BattleUnit* targetUnit);
 	/// Carries out new turn preparations.
 	void prepareNewTurn();
 	/// Revives unconscious units (health check).

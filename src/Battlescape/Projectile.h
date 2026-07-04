@@ -80,6 +80,10 @@ public:
 	bool move();
 	/// Gets the current position in voxel space.
 	Position getPosition(int offset = 0) const;
+	/// Phase 34.7 (Calypso): read-only access to the precomputed voxel trajectory. Used by
+	/// SavedBattleGame::applySuppression to scan for near-miss victims (units within 1 tile of
+	/// any trajectory voxel). The trajectory is finalized in the constructor / calculateTrajectory.
+	const std::vector<Position>& getTrajectory() const { return _trajectory; }
 	/// Gets the two last position in voxel space.
 	LastPositions getLastPositions(int offset = 0) const { return LastPositions(getPosition(offset), getPosition(offset + ItemDropVoxelOffset)); }
 	/// Gets a particle from the particle array.

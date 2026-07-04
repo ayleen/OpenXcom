@@ -218,6 +218,13 @@ public:
 	float brutalExtendedFireModeChoice(BattleActionCost &costAuto, BattleActionCost &costSnap, BattleActionCost &costAimed, BattleActionCost &costThrow, BattleActionCost &costHit, bool checkLOF = false, float previousHighScore = 0);
 	/// Scores a firing mode action based on distance to target, accuracy and overall Damage dealt, also supports melee-hits
 	float brutalScoreFiringMode(BattleAction *action, BattleUnit *target, bool checkLOF, bool reactionCheck = false);
+	/// Phase 34.7 (Calypso): the suppression value of one auto-volley from `weapon` -- the
+	/// pinning payoff of volume fire, independent of direct hit chance. Returns 0 when the
+	/// ai.suppression flag is off, when the weapon has no auto-fire config, or when the
+	/// loaded ammo is too scarce to spare on suppression (no margin: needs >= 2 full volleys
+	/// worth). Additive-only: callers add this to an auto-shot's base score so volume fire is
+	/// preferred over holding fire when direct hit chance is poor but a target is exposed.
+	float suppressionVolleyValue(BattleItem* weapon) const;
 	/// Used as multiplier for the throw-action in brutalScoreFiringMode
 	float brutalExplosiveEfficacy(Position targetPos, BattleUnit *attackingUnit, int radius, bool grenade = false, bool validOnly = false) const;
 	/// An inaccurate simplified check for line of fire from a specific position to a specific target

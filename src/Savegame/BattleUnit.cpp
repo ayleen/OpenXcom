@@ -2927,6 +2927,10 @@ void BattleUnit::prepareNewTurn(bool fullProcess)
 	_dontReselect = false;
 	_aiMedikitUsed = false;
 	_motionPoints = 0;
+	// Phase 34.7 (Calypso): reset the per-turn near-miss counter in the turn-prep path
+	// (alongside the hasPanickedLastTurn reset that prepareMorale runs below via
+	// updateUnitStats). Transient state, never saved -- a freshly loaded save starts at 0.
+	_nearMissesThisTurn = 0;
 
 	if (!isOut())
 	{
@@ -5904,6 +5908,37 @@ void BattleUnit::updateEnemyKnowledge(int index, bool clue, bool door)
 bool BattleUnit::hasPanickedLastTurn() const
 {
 	return _hasPanickedLastTurn;
+}
+
+// Phase 34.7 (Calypso): apply one near-miss suppression event. The per-turn cap
+// (SUPPRESSION_CAP_PER_TURN) is the safety valve -- it stops a single auto-volley or a
+// shotgun pellet cluster from panic-locking a victim in one frame. Morale uses the existing
+// bounded moraleChange() (clamps to [0,100]); energy drains directly to a 0 floor. Returns
+// false once the cap is hit so the caller (SavedBattleGame::applySuppression) can stop
+// tracking further events for this unit this turn.
+bool BattleUnit::addNearMiss(int moraleLoss, int energyLoss)
+{
+	if (_nearMissesThisTurn >= SUPPRESSION_CAP_PER_TURN)
+	{
+		return false;
+	}
+	if (moraleLoss > 0)
+	{
+		moraleChange(-moraleLoss);
+	}
+	if (energyLoss > 0)
+	{
+		_energy = std::max(0, _energy - energyLoss);
+	}
+	++_nearMissesThisTurn;
+	return true;
+}
+
+// Phase 34.7 (Calypso): pinned = under sustained volume fire this turn (>= PINNED_THRESHOLD
+// near-misses). Transient per-turn state; never serialized.
+bool BattleUnit::isPinned() const
+{
+	return _nearMissesThisTurn >= PINNED_THRESHOLD;
 }
 
 bool BattleUnit::isAIControlled() const

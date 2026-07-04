@@ -18,6 +18,8 @@
  */
 #include <assert.h>
 #include <climits>
+#include <cstdlib>
+#include <set>
 #include <vector>
 #include "BattleItem.h"
 #include "ItemContainer.h"
@@ -2689,6 +2691,70 @@ bool SavedBattleGame::getNewestHearableNoise(const Position &hearerPos, int inte
 	const int GRID = 8;
 	outZone = Position((best->pos.x / GRID) * GRID, (best->pos.y / GRID) * GRID, best->pos.z);
 	return true;
+}
+
+/**
+ * Phase 34.7 (Calypso): scan a projectile's precomputed voxel trajectory for near-miss
+ * victims and apply the suppression mechanic (morale hit + energy drain) to each. This is
+ * the "mechanic" half of the slice; the "AI usage" half lives in AIModule's fire-mode
+ * scoring (slice c).
+ *
+ * Gating: the master-switch gate is the FIRST line of this function. Unlike 34.8's noise
+ * emission (unconditional transient bookkeeping), the near-miss mechanic CHANGES unit state
+ * (morale/energy), so the gate MUST be at the seam -- with ai.suppression off, no state
+ * changes and behavior is byte-identical.
+ *
+ * Near-miss definition: a unit (any faction -- engine-symmetric, soldiers pin aliens too)
+ * counts as near-missed when the trajectory visits a tile within 1 tile (3D Chebyshev
+ * distance <= 1: the unit's own tile plus its 26 neighbours) of the unit's position tile.
+ * The shooter and the shot's actual target are excluded (a hit is not a near-miss; the
+ * shooter's own muzzle blast doesn't pin it). Large units use their anchor tile -- the 1-tile
+ * band already generously covers a size-2 footprint on most approaches; suppression is a
+ * heuristic, not an exact physical model.
+ *
+ * Per-victim per-turn cap (BattleUnit::SUPPRESSION_CAP_PER_TURN) is enforced in addNearMiss;
+ * once a victim has taken the cap this turn, further events are a no-op. The knobs (morale/
+ * energy loss per near-miss) come from the mod's ai: block.
+ */
+void SavedBattleGame::applySuppression(const std::vector<Position>& trajectoryVoxels, BattleUnit* shooter, BattleUnit* targetUnit)
+{
+	// GATED AT THE SEAM -- first line, single branch. Flag off => byte-identical.
+	if (!getMod()->getAISuppression()) return;
+	if (trajectoryVoxels.empty()) return;
+
+	const int moraleLoss = getMod()->getAISuppressionMorale();
+	const int energyLoss = getMod()->getAISuppressionEnergy();
+
+	// Collect the unique tiles the trajectory visits (voxel -> tile). Dedup shrinks the
+	// inner loop from O(voxels) to O(unique tiles) -- a straight bullet traces ~16 voxels
+	// per tile, so this is a real saving on long-range shots and auto-fire volleys.
+	std::set<Position, PositionComparator> visitedTiles;
+	for (const auto& vox : trajectoryVoxels)
+	{
+		visitedTiles.insert(vox.toTile());
+	}
+
+	// Any faction can suppress any faction -- the engine-symmetric design. The per-victim
+	// cap stops a single volley from panic-locking; the pinned threshold flags sustained fire.
+	for (BattleUnit* unit : _units)
+	{
+		if (!unit || unit == shooter || unit == targetUnit) continue;
+		if (unit->isOut()) continue; // dead / unconscious / gone units can't be suppressed
+		const Position up = unit->getPosition();
+		bool nearMiss = false;
+		for (const auto& vt : visitedTiles)
+		{
+			if (std::abs(up.x - vt.x) <= 1 && std::abs(up.y - vt.y) <= 1 && std::abs(up.z - vt.z) <= 1)
+			{
+				nearMiss = true;
+				break;
+			}
+		}
+		if (nearMiss)
+		{
+			unit->addNearMiss(moraleLoss, energyLoss);
+		}
+	}
 }
 
 /**
