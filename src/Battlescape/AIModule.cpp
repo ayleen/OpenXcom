@@ -204,6 +204,21 @@ bool AIModule::wantsToHuntCivilians() const
 }
 
 /**
+ * Phase 34.8 (Calypso): should this alien bias its patrol toward the newest in-range
+ * noise zone instead of a random/highest-value node? Same hostile / no-known-enemy gates
+ * as wantsToHuntCivilians (34.4), gated on the mod's ai.hearing flag instead. With the
+ * flag off this returns false and every code path it gates stays unreachable, so vanilla
+ * OXCE behavior (native AND WASM) is byte-for-byte preserved.
+ */
+bool AIModule::wantsToInvestigateNoise() const
+{
+	return _save->getMod()->getAIHearing()
+		&& _unit->getFaction() == FACTION_HOSTILE
+		&& _unit->getOriginalFaction() == FACTION_HOSTILE
+		&& _knownEnemies == 0;
+}
+
+/**
  * Phase 34.6 (Calypso): terrain-tactics candidate-attack generator.
  *
  * Scans for one of two terrain attacks against fair-channel-known enemies and, if a viable
@@ -1345,6 +1360,19 @@ void AIModule::setupPatrol()
 	// (flag off, alien engaged, or no civilians alive) they behave exactly as vanilla.
 	Position huntZone;
 	bool huntZoneKnown = wantsToHuntCivilians() && _save->getCivilianHuntZone(huntZone);
+	// Phase 34.8 (Calypso): FALLBACK bias -- when no civilian-hunt zone applies (34.4 flag
+	// off, no civilians alive, or this isn't a terror mission), an unengaged hostile that
+	// hears a recent noise biases toward the newest in-range noise zone instead of wandering
+	// randomly. The two behaviours are disjoint: noise investigation runs only when the
+	// civilian-hunt zone is unknown, so 34.8 never undermines the 34.4 terror-mission race.
+	// Reuses the SAME getPatrolNode(scout, unit, fromNode, zoneAnchor) overload 34.4 added --
+	// no new BFS, no new reachable-tile walk. `biasZone` is whichever (if any) zone is known.
+	Position noiseZone;
+	bool noiseZoneKnown = !huntZoneKnown
+		&& wantsToInvestigateNoise()
+		&& _save->getNewestHearableNoise(_unit->getPosition(), _intelligence, noiseZone);
+	const Position &biasZone = huntZoneKnown ? huntZone : noiseZone;
+	const bool biasZoneKnown = huntZoneKnown || noiseZoneKnown;
 
 	if (_toNode != 0 && _unit->getPosition() == _toNode->getPosition())
 	{
@@ -1479,11 +1507,11 @@ void AIModule::setupPatrol()
 
 		if (_toNode == 0)
 		{
-			_toNode = huntZoneKnown ? _save->getPatrolNode(scout, _unit, _fromNode, huntZone)
+			_toNode = biasZoneKnown ? _save->getPatrolNode(scout, _unit, _fromNode, biasZone)
 									: _save->getPatrolNode(scout, _unit, _fromNode);
 			if (_toNode == 0)
 			{
-				_toNode = huntZoneKnown ? _save->getPatrolNode(!scout, _unit, _fromNode, huntZone)
+				_toNode = biasZoneKnown ? _save->getPatrolNode(!scout, _unit, _fromNode, biasZone)
 										: _save->getPatrolNode(!scout, _unit, _fromNode);
 			}
 		}
