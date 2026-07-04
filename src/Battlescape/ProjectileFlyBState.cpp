@@ -665,9 +665,14 @@ bool ProjectileFlyBState::createNewProjectile()
 	// Auto-fire emits one scan per projectile, which is correct: each bullet is its own
 	// near-miss opportunity and the per-victim per-turn cap (in BattleUnit::addNearMiss) is
 	// the safety valve against volley abuse.
-	if (_action.type != BA_THROW)
+	// Reviewer fix (34.7 review): gate the whole block -- the target-tile lookup must not run
+	// with the flag off, and getTile returns null for an out-of-map target (a null deref here
+	// would crash regardless of the ai.suppression setting). Defense-in-depth: applySuppression
+	// keeps its own first-line gate.
+	if (_action.type != BA_THROW && _parent->getSave()->getMod()->getAISuppression())
 	{
-		BattleUnit* shotTarget = _parent->getSave()->getTile(_action.target)->getUnit();
+		Tile* shotTargetTile = _parent->getSave()->getTile(_action.target);
+		BattleUnit* shotTarget = shotTargetTile ? shotTargetTile->getUnit() : nullptr;
 		_parent->getSave()->applySuppression(projectile->getTrajectory(), _unit, shotTarget);
 	}
 
