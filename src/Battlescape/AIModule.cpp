@@ -3401,7 +3401,17 @@ void AIModule::extendedFireModeChoice(BattleActionCost& costAuto, BattleActionCo
 			// gated inside suppressionVolleyValue; flag off => +0 => byte-identical.
 			if (newScore > 0)
 			{
-				newScore += (int)suppressionVolleyValue(_attackAction.weapon);
+				const int suppressVal = (int)suppressionVolleyValue(_attackAction.weapon);
+				newScore += suppressVal;
+				// Phase 34.9 (Calypso): prefer suppressing a target a teammate has declared intent
+				// to FLANK -- pin it so the flanker can close (the F.E.A.R.-style flank/suppress
+				// loop). Doubles the suppression value on that target. Additive + gated; +0 when
+				// off, when suppression is off (suppressVal 0), or when no teammate is flanking it.
+				if (suppressVal > 0 && _save->getMod()->getAISquadCoordination() && _aggroTarget
+					&& _save->getSquadHasFlankIntent(_unit->getFaction(), _aggroTarget->getId()))
+				{
+					newScore += suppressVal;
+				}
 			}
 		}
 
@@ -3754,6 +3764,20 @@ AIAttackWeight AIModule::getTargetAttackWeight(BattleUnit* target) const
 		weight, weight,
 		_unit, target, _save
 	);
+
+	// Phase 34.9 (Calypso): pin-and-flank (legacy path). There is no distinct "flanking move" seam
+	// in either AI path (grep 'flank' -> 0 hits; the brutal AI uses cover-quality scoring, the
+	// legacy AI none), so the plan's "a unit choosing a flanking move prefers pinned targets" is
+	// realized as a target preference: an enemy pinned by suppression fire (34.7) is the one to
+	// press, so it gets a small weight bonus in selection. Guarded on weight > AIW_IGNORED so it
+	// only nudges already-known targets (never resurrects an ignored one). Gated; +0 off => identical.
+	if (_save->getMod()->getAISquadCoordination()
+		&& weight > AIW_IGNORED
+		&& target->getFaction() != _unit->getFaction()
+		&& target->isPinned())
+	{
+		weight = (AIAttackWeight)(weight + AIW_SCALE / 2);
+	}
 
 	// Phase 34.9 (Calypso): soft focus-fire cap (legacy path). A target that >= 2 squadmates have
 	// already committed to is down-weighted so a fresh target outscores it and fire spreads -- but
@@ -5446,6 +5470,13 @@ bool AIModule::brutalSelectSpottedUnitForSniper()
 				{
 					score *= 0.5f;
 				}
+				// Phase 34.9 (Calypso): pin-and-flank (ported path) -- press a target pinned by
+				// suppression (34.7). No distinct flanking-move seam exists, so the preference is
+				// applied here at target ranking. Gated; unchanged when off (byte-identical).
+				if (score > 0.0f && _save->getMod()->getAISquadCoordination() && (*i)->isPinned())
+				{
+					score *= 1.25f;
+				}
 				if (score > bestScore)
 				{
 					bestScore = score;
@@ -6268,6 +6299,14 @@ float AIModule::brutalScoreFiringMode(BattleAction* action, BattleUnit* target, 
 	// alone (those bullets never reach the target, so no near-miss). Additive + gated inside
 	// suppressionVolleyValue; flag off => +0, byte-identical.
 	float suppressionBonus = (action->type == BA_AUTOSHOT && accuracy > 0.0f) ? suppressionVolleyValue(action->weapon) : 0.0f;
+	// Phase 34.9 (Calypso): prefer suppressing a target a teammate has declared intent to FLANK --
+	// pin it so the flanker can close (the F.E.A.R.-style flank/suppress loop). Doubles the
+	// suppression bonus on that target. Gated; +0 when off, suppression off, or no teammate flanking.
+	if (suppressionBonus > 0.0f && _save->getMod()->getAISquadCoordination() && target
+		&& _save->getSquadHasFlankIntent(_unit->getFaction(), target->getId()))
+	{
+		suppressionBonus *= 2.0f;
+	}
 	return (damage + armorPreDamage) * accuracy * numberOfShots * dangerMod * explosionMod * targetQuality * damageTypeMod + suppressionBonus;
 }
 
