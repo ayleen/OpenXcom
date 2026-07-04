@@ -125,6 +125,16 @@ private:
 	Position _huntCiviliansZone;
 	int _huntCiviliansZoneTurn = -1;
 	bool _huntCiviliansZoneValid = false;
+	// Phase 34.8 (Calypso): transient noise-event list for ai.hearing -- never serialized
+	// (pruned by age in prepareNewTurn, re-derivable as empty on load), so saves stay
+	// format-stable regardless of the flag.
+	struct NoiseEvent
+	{
+		Position pos;
+		int turn;
+		int loudness;
+	};
+	std::vector<NoiseEvent> _noiseEvents;
 	std::list<BattleUnit*> _fallingUnits;
 	bool _unitsFalling, _cheating;
 	std::vector<Position> _tileSearch, _storageSpace;
@@ -502,6 +512,18 @@ public:
 	/// Gets the quantized civilian-hunt zone centroid for Phase 34.4's ai.terrorHuntCivilians
 	/// (10-tile grid; cached once per turn, transient, never saved, trivially re-derivable).
 	bool getCivilianHuntZone(Position &out);
+	/// Phase 34.8 (Calypso): record a transient noise event for ai.hearing. Emission is
+	/// UNCONDITIONAL bookkeeping (mirrors the 34.5 knowledge-layer convention): nothing
+	/// reads the list when the mod's ai.hearing flag is off, so behavior stays byte-identical
+	/// with the flag off. `loudness` <= 0 is a no-op. The list itself is private.
+	void emitNoise(const Position &pos, int loudness);
+	/// Phase 34.8 (Calypso): newest noise a hearer at `hearerPos` can still perceive, for
+	/// the AI read path (which gates on Mod::getAIHearing). A noise is hearable when it is
+	/// within the hearer's intelligence-scaled memory window (`turn - event.turn <=
+	/// intelligence`, the decay predicate) AND within the event's loudness radius (2D). The
+	/// out position is the chosen event's source quantized to an 8-tile grid cell -- hearing
+	/// gives a zone/direction, never a wallhack tile. Returns false if none hearable.
+	bool getNewestHearableNoise(const Position &hearerPos, int intelligence, Position &outZone);
 	/// Carries out new turn preparations.
 	void prepareNewTurn();
 	/// Revives unconscious units (health check).
