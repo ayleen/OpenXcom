@@ -1818,6 +1818,31 @@ void AIModule::setupEscape()
 		}
 	}
 
+	// Phase 34.9 (Calypso): a badly wounded hostile (health < 1/3 of max) biases its escape toward
+	// the nearest friendly cluster centroid -- mirrors the Phase 32 civilian safety bias above
+	// (same shape, same weight 8). Gated + hostile-only; the centroid is the live squadmates'
+	// average position (the blackboard "knows member positions"). Off => haveCluster false =>
+	// the bias term below is skipped => byte-identical.
+	bool haveCluster = false;
+	Position clusterTarget(0, 0, 0);
+	int curToCluster = 0;
+	if (_save->getMod()->getAISquadCoordination()
+		&& _unit->getFaction() == FACTION_HOSTILE
+		&& _unit->getHealth() * 3 < _unit->getBaseStats()->health)
+	{
+		haveCluster = _save->getFriendlyClusterCentroid(FACTION_HOSTILE, _unit, clusterTarget);
+		// If the centroid is the unit's own tile the term would just penalize any step (mirrors
+		// the Phase 32 self==safety guard) -- drop it.
+		if (haveCluster && clusterTarget == selfPos)
+		{
+			haveCluster = false;
+		}
+		if (haveCluster)
+		{
+			curToCluster = Position::distance2d(selfPos, clusterTarget);
+		}
+	}
+
 	int dist = _aggroTarget ? Position::distance2d(_unit->getPosition(), _aggroTarget->getPosition()) : 0;
 
 	int bestTileScore = -100000;
@@ -1921,6 +1946,12 @@ void AIModule::setupEscape()
 		{
 			int candToSafety = Position::distance2d(_escapeAction.target, safetyTarget);
 			score += (curToSafety - candToSafety) * 8;
+		}
+		// Phase 34.9: reward tiles that bring a wounded alien closer to its squad cluster.
+		if (haveCluster)
+		{
+			int candToCluster = Position::distance2d(_escapeAction.target, clusterTarget);
+			score += (curToCluster - candToCluster) * 8;
 		}
 		int spotters = 0;
 		if (!tile)
