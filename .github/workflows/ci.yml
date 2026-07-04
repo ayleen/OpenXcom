@@ -66,6 +66,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Calypso ifdef placement guard
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch origin ${{ github.base_ref }}
+          python3 tools/calypso-ifdef-guard.py --base "origin/${{ github.base_ref }}"
 
       # SDL2 (+ image/mixer/ttf) and zlib are required by CMakeLists.txt's
       # native (non-Emscripten) branch via pkg_check_modules(... REQUIRED).
