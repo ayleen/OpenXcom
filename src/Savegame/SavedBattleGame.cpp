@@ -1545,9 +1545,13 @@ void SavedBattleGame::endTurn()
 	}
 
 	// Phase 34.9 (Calypso): rebuild the squad-coordination blackboard for the faction whose turn
-	// just began (the _side switch above set it). Transient, once per faction turn, O(units);
-	// gated inside rebuildSquadBlackboard so with ai.squadCoordination off it just clears the board.
-	rebuildSquadBlackboard(_side);
+	// just began (the _side switch above set it). Transient, once per faction turn, O(units).
+	// GATED AT THE SEAM so with ai.squadCoordination off there are zero writes and the board stays
+	// default-empty (rebuildSquadBlackboard keeps its own first-line gate as defense-in-depth).
+	if (getMod()->getAISquadCoordination())
+	{
+		rebuildSquadBlackboard(_side);
+	}
 
 	BattlescapeTally tally = _battleState->getBattleGame()->tallyUnits();
 
