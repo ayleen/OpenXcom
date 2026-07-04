@@ -624,7 +624,13 @@ void Screen::resetDisplay(bool resetVideo, bool noShaders)
 		// usually include depth=true, but setting this explicitly is safer.
 		SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 #endif
+#ifdef __EMSCRIPTEN__
+		// SDL2's emscripten backend mirrors the window title into document.title,
+		// which would otherwise overwrite the web shell's own <title> at boot.
+		_window = SDL_CreateWindow("Project Calypso — The depths are hungry", posX, posY, width, height, winFlags);
+#else
 		_window = SDL_CreateWindow("OpenXcom Extended", posX, posY, width, height, winFlags);
+#endif
 		if (!_window)
 		{
 			Log(LOG_ERROR) << "SDL_CreateWindow failed: " << SDL_GetError();
