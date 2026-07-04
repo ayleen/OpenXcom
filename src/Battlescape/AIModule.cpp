@@ -3377,6 +3377,17 @@ void AIModule::extendedFireModeChoice(BattleActionCost& costAuto, BattleActionCo
 		if (i == BA_AUTOSHOT)
 		{
 			newScore = newScore * (100 + (_unit->getAggression() - 1) * _save->getMod()->getAIFireChoiceAggroCoeff()) / 100;
+
+			// Phase 34.7 (Calypso): suppression-aware auto-fire (legacy path). Add the volley's
+			// pinning value so volume fire is preferred over holding fire when direct hit chance
+			// is poor but the target is exposed. `newScore > 0` is the exposed-target proxy here:
+			// scoreFiringMode returns > 0 only when the LOF check passed and accuracy is nonzero,
+			// so a no-line-of-fire shot (score 0) does NOT pick up a suppression bonus. Additive +
+			// gated inside suppressionVolleyValue; flag off => +0 => byte-identical.
+			if (newScore > 0)
+			{
+				newScore += (int)suppressionVolleyValue(_attackAction.weapon);
+			}
 		}
 
 		if (newScore > score)
@@ -5841,6 +5852,38 @@ float AIModule::brutalExtendedFireModeChoice(BattleActionCost &costAuto, BattleA
 }
 
 /**
+ * Phase 34.7 (Calypso): the suppression value of one auto-volley from `weapon`. This is the
+ * "AI usage" half of the suppression slice -- when direct hit chance is poor but a target is
+ * exposed, volume fire still has pinning value (morale/energy drain on near-misses), so the
+ * AI should take the auto-shot instead of holding fire.
+ *
+ * The value is the per-near-miss knob sum (ai.suppressionMorale + ai.suppressionEnergy)
+ * scaled by the volley's shot count -- an auto-volley that throws 3 bullets can pin via 3
+ * near-misses. Returns 0 (no bonus) when:
+ *   - ai.suppression is off (the gate; flag off => byte-identical, the caller adds 0),
+ *   - the weapon has no auto-fire config (no volley to value),
+ *   - ammo margin is insufficient: the shooter must be able to spare this volley AND still
+ *     have at least one full spare volley left (`ammoQty >= 2 * autoShots`). This stops the
+ *     AI from burning its last rounds on speculative suppression.
+ * The magnitude is deliberately small relative to a high-damage direct hit's score, so the
+ * bonus only tips the balance for marginal (low-accuracy) shots -- exactly the design intent.
+ */
+float AIModule::suppressionVolleyValue(BattleItem* weapon) const
+{
+	// Gated by the master switch; flag off => +0 => byte-identical.
+	if (!_save->getMod()->getAISuppression()) return 0.0f;
+	if (!weapon) return 0.0f;
+	const auto* conf = weapon->getRules()->getConfigAuto();
+	const int autoShots = conf ? conf->shots : 0;
+	if (autoShots <= 0) return 0.0f;
+	// Ammo margin: keep at least one full spare volley. getAmmoForAction(BA_AUTOSHOT) returns
+	// the loaded ammo clip (or null) without spending it.
+	BattleItem* ammo = weapon->getAmmoForAction(BA_AUTOSHOT);
+	if (!ammo || ammo->getAmmoQuantity() < 2 * autoShots) return 0.0f;
+	return float(_save->getMod()->getAISuppressionMorale() + _save->getMod()->getAISuppressionEnergy()) * float(autoShots);
+}
+
+/**
  * Scores a firing mode for a particular target based on a damage / TUs ratio
  * @param action Pointer to the BattleAction determining the firing mode
  * @param target Pointer to the BattleUnit we're trying to target
@@ -6133,7 +6176,16 @@ float AIModule::brutalScoreFiringMode(BattleAction* action, BattleUnit* target, 
 	//				  << " damageTypeMod: " << damageTypeMod
 	//				  << " score: " << damage * accuracy * numberOfShots * dangerMod * explosionMod * targetQuality;
 	//}
-	return (damage + armorPreDamage) * accuracy * numberOfShots * dangerMod * explosionMod * targetQuality * damageTypeMod;
+	// Phase 34.7 (Calypso): suppression-aware auto-fire (ported path). Add the volley's
+	// pinning value to auto-shots so volume fire is preferred over holding fire when direct
+	// hit chance is poor but the target is exposed (we reached here past the LOF /
+	// targetQuality / accuracy gates above). The bonus is small relative to a high-damage
+	// direct hit, so it only tips marginal (low-accuracy) shots -- the design intent. The
+	// accuracy>0 guard stops an out-of-range shot (accuracy 0) from scoring on suppression
+	// alone (those bullets never reach the target, so no near-miss). Additive + gated inside
+	// suppressionVolleyValue; flag off => +0, byte-identical.
+	float suppressionBonus = (action->type == BA_AUTOSHOT && accuracy > 0.0f) ? suppressionVolleyValue(action->weapon) : 0.0f;
+	return (damage + armorPreDamage) * accuracy * numberOfShots * dangerMod * explosionMod * targetQuality * damageTypeMod + suppressionBonus;
 }
 
 /**
