@@ -51,7 +51,7 @@ public:
 	void markShown(const std::string& stepId);
 	void disableForCampaign();
 	bool isActive(const Game* game) const;               // option && campaign flag
-	void save(YAML::YamlNodeWriter& writer) const;       // persistence (wired in 37.4)
+	void save(YAML::YamlNodeWriter writer) const;        // persistence (wired in 37.4); by value (matches AlienStrategy::save)
 	void load(const YAML::YamlNodeReader& reader);
 	void resetCampaign();                                // new game / no node
 	// hold flag for dogfight (used in 37.5; declare now, default false)

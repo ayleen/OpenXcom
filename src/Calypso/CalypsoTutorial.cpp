@@ -133,8 +133,9 @@ void CalypsoTutorial::resetCampaign()
 	_popupActive = false;
 }
 
-void CalypsoTutorial::save(YAML::YamlNodeWriter& writer) const
+void CalypsoTutorial::save(YAML::YamlNodeWriter writer) const
 {
+	writer.setAsMap();                                  // ensure the node is a map
 	writer.write("enabled", _campaignEnabled);
 	// _shown is std::set<std::string>; serialize as a sequence of strings.
 	// YamlNodeWriter::write(key, vec) works for std::vector<std::string>
