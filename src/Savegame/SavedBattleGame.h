@@ -63,6 +63,21 @@ struct CalypsoBloodPool { Position tile; unsigned int spawnTick; float seed; int
 struct CalypsoScorchDecal { Position tile; unsigned int spawnTick; float size; int variant; int floorOnly; };
 #endif
 
+// Phase 34.9 (Calypso): squad-coordination blackboard. A per-faction, fully transient
+// scratchpad rebuilt at the start of each faction's turn (never serialized -> save/load safe by
+// construction). Members declare intent as they act; other members read it later the same turn.
+// Fair-knowledge only (34.5 channels) -- no _cheating, no direct position reads. With
+// ai.squadCoordination off the board stays empty and every read degrades to its pre-34.9 value.
+enum class SquadIntent : int { NONE = 0, ATTACK, FLANK, SUPPRESS, RETREAT };
+struct SquadMemberIntent { int memberId; SquadIntent intent; int targetId; };
+struct SquadTarget { int unitId; int assignedAttackers; int flankIntentCount; };
+struct SquadBlackboard
+{
+	int builtTurn = -1;
+	std::vector<SquadTarget> targets;        // fair-known enemy targets of this faction
+	std::vector<SquadMemberIntent> intents;  // each member's declared intent this turn
+};
+
 /**
  * The battlescape data that gets written to disk when the game is saved.
  * A saved game holds all the variable info in a game like mapdata,
@@ -135,6 +150,10 @@ private:
 		int loudness;
 	};
 	std::vector<NoiseEvent> _noiseEvents;
+	// Phase 34.9 (Calypso): per-faction squad-coordination blackboard (index by UnitFaction:
+	// PLAYER/HOSTILE/NEUTRAL). Transient, never serialized -- rebuilt each faction turn, a fresh
+	// save loads it empty. Only the acting faction's board is populated (rebuild is gated).
+	SquadBlackboard _squadBlackboards[FACTION_MAX];
 	std::list<BattleUnit*> _fallingUnits;
 	bool _unitsFalling, _cheating;
 	std::vector<Position> _tileSearch, _storageSpace;
@@ -534,6 +553,30 @@ public:
 	/// Chebyshev distance <= 1) of the unit's tile. Engine-symmetric: any faction suppresses
 	/// any faction. Per-victim per-turn cap enforced in BattleUnit::addNearMiss.
 	void applySuppression(const std::vector<Position>& trajectoryVoxels, BattleUnit* shooter, BattleUnit* targetUnit);
+	/// Phase 34.9 (Calypso): rebuild the squad-coordination blackboard for `faction` at its
+	/// turn start. GATED on Mod::getAISquadCoordination -- with the flag off the board is cleared
+	/// and left empty (byte-identical). Populates the fair-known enemy targets (getTileLastSpotted
+	/// >= 0, a 34.5 fair channel) with zeroed attacker/flank counts and clears all member intents.
+	void rebuildSquadBlackboard(UnitFaction faction);
+	/// Phase 34.9 (Calypso): drop `memberId`'s prior intent for this faction turn (called at the
+	/// unit's think() start), decrementing the counters on whatever target it had committed to.
+	/// This self-exclusion means the focus-fire/flank reads during the unit's OWN think see only
+	/// its squadmates' commitments. No-op when the flag is off (board empty).
+	void clearSquadMemberIntent(UnitFaction faction, int memberId);
+	/// Phase 34.9 (Calypso): record `memberId`'s declared intent (called at the unit's think()
+	/// tail). ATTACK/FLANK bump the target's assignedAttackers; FLANK additionally bumps its
+	/// flankIntentCount. Assumes clearSquadMemberIntent already ran this cycle (per-member dedup).
+	void declareSquadIntent(UnitFaction faction, int memberId, SquadIntent intent, int targetId);
+	/// Phase 34.9 (Calypso): how many squadmates of `faction` have committed to attacking the
+	/// unit with id `targetId` (soft focus-fire cap read). 0 when the board is empty / flag off.
+	int getSquadAssignedAttackers(UnitFaction faction, int targetId) const;
+	/// Phase 34.9 (Calypso): whether any squadmate of `faction` has declared FLANK intent on the
+	/// unit with id `targetId` (suppression prefers pinning a target a teammate is flanking).
+	bool getSquadHasFlankIntent(UnitFaction faction, int targetId) const;
+	/// Phase 34.9 (Calypso): centroid of `faction`'s live members (excluding `exclude`), the
+	/// "nearest friendly cluster" a wounded unit retreats toward. Returns false (out untouched)
+	/// when the unit has no live squadmate.
+	bool getFriendlyClusterCentroid(UnitFaction faction, const BattleUnit* exclude, Position& out) const;
 	/// Carries out new turn preparations.
 	void prepareNewTurn();
 	/// Revives unconscious units (health check).

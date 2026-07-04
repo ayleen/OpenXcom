@@ -1544,6 +1544,11 @@ void SavedBattleGame::endTurn()
 		_lastSelectedUnit = nullptr;
 	}
 
+	// Phase 34.9 (Calypso): rebuild the squad-coordination blackboard for the faction whose turn
+	// just began (the _side switch above set it). Transient, once per faction turn, O(units);
+	// gated inside rebuildSquadBlackboard so with ai.squadCoordination off it just clears the board.
+	rebuildSquadBlackboard(_side);
+
 	BattlescapeTally tally = _battleState->getBattleGame()->tallyUnits();
 
 	if ((_turn > _cheatTurn / 2 && tally.liveAliens <= 2) || _turn > _cheatTurn)
@@ -2755,6 +2760,144 @@ void SavedBattleGame::applySuppression(const std::vector<Position>& trajectoryVo
 			unit->addNearMiss(moraleLoss, energyLoss);
 		}
 	}
+}
+
+/**
+ * Phase 34.9 (Calypso): rebuild the squad-coordination blackboard for a faction at the start of
+ * its turn. Called from endTurn() right after _side is switched. The board is a transient
+ * per-faction scratchpad (never serialized); this clears it and, when ai.squadCoordination is on,
+ * seeds it with the faction's fair-known enemy targets (getTileLastSpotted >= 0 -- a 34.5 fair
+ * channel; NO _cheating, NO direct position read for membership) at zeroed counts, and clears all
+ * member intents. GATED: with the flag off the board is left empty, so behavior is byte-identical.
+ * O(units) once per faction turn -- zero per-frame cost.
+ */
+void SavedBattleGame::rebuildSquadBlackboard(UnitFaction faction)
+{
+	if (faction < FACTION_PLAYER || faction >= FACTION_MAX) return;
+	SquadBlackboard& bb = _squadBlackboards[faction];
+	bb.builtTurn = _turn;
+	bb.targets.clear();
+	bb.intents.clear();
+	if (!getMod()->getAISquadCoordination()) return; // flag off => empty board => byte-identical
+	for (auto* bu : _units)
+	{
+		if (!bu || bu->isOut()) continue;
+		// Enemy of `faction`? Hostiles fight everyone else; everyone else fights hostiles
+		// (TFTD aliens target both X-Com and civilians). Current faction (mind-control aware).
+		const bool isEnemy = (faction == FACTION_HOSTILE) ? (bu->getFaction() != FACTION_HOSTILE)
+		                                                  : (bu->getFaction() == FACTION_HOSTILE);
+		if (!isEnemy) continue;
+		// Fair-known only: a fair sighting-memory position exists for this faction (34.5 channel).
+		if (bu->getTileLastSpotted(faction) < 0) continue;
+		bb.targets.push_back(SquadTarget{ bu->getId(), 0, 0 });
+	}
+}
+
+/**
+ * Phase 34.9 (Calypso): forget a member's prior intent for this faction turn, undoing its
+ * contribution to whatever target it had committed to. Called at the member's think() start so
+ * the focus-fire / flank reads during its OWN think reflect only its squadmates' commitments
+ * (per-member self-exclusion). No-op when the board is empty (flag off) or the member has no
+ * record. At most one intent record per member.
+ */
+void SavedBattleGame::clearSquadMemberIntent(UnitFaction faction, int memberId)
+{
+	if (faction < FACTION_PLAYER || faction >= FACTION_MAX) return;
+	SquadBlackboard& bb = _squadBlackboards[faction];
+	for (auto it = bb.intents.begin(); it != bb.intents.end(); ++it)
+	{
+		if (it->memberId != memberId) continue;
+		if (it->intent == SquadIntent::ATTACK || it->intent == SquadIntent::FLANK)
+		{
+			for (auto& t : bb.targets)
+			{
+				if (t.unitId == it->targetId)
+				{
+					if (t.assignedAttackers > 0) --t.assignedAttackers;
+					if (it->intent == SquadIntent::FLANK && t.flankIntentCount > 0) --t.flankIntentCount;
+					break;
+				}
+			}
+		}
+		bb.intents.erase(it);
+		return;
+	}
+}
+
+/**
+ * Phase 34.9 (Calypso): record a member's declared intent for this faction turn (called at the
+ * member's think() tail). ATTACK/FLANK bump the target's assignedAttackers (the focus-fire
+ * signal); FLANK additionally bumps flankIntentCount (read by suppression scoring). Assumes
+ * clearSquadMemberIntent already ran this cycle, so no per-member duplicate accumulates. A target
+ * committed to but absent from the fair-known list at build time (just spotted this turn) gets a
+ * lazy slot. NONE is a no-op.
+ */
+void SavedBattleGame::declareSquadIntent(UnitFaction faction, int memberId, SquadIntent intent, int targetId)
+{
+	if (faction < FACTION_PLAYER || faction >= FACTION_MAX) return;
+	if (intent == SquadIntent::NONE) return;
+	SquadBlackboard& bb = _squadBlackboards[faction];
+	bb.intents.push_back(SquadMemberIntent{ memberId, intent, targetId });
+	if (intent == SquadIntent::ATTACK || intent == SquadIntent::FLANK)
+	{
+		SquadTarget* slot = nullptr;
+		for (auto& t : bb.targets) { if (t.unitId == targetId) { slot = &t; break; } }
+		if (!slot)
+		{
+			bb.targets.push_back(SquadTarget{ targetId, 0, 0 });
+			slot = &bb.targets.back();
+		}
+		++slot->assignedAttackers;
+		if (intent == SquadIntent::FLANK) ++slot->flankIntentCount;
+	}
+}
+
+/**
+ * Phase 34.9 (Calypso): squadmates of `faction` committed to attacking unit id `targetId`.
+ * Returns 0 when the board is empty (flag off) or the target has no committed attackers.
+ */
+int SavedBattleGame::getSquadAssignedAttackers(UnitFaction faction, int targetId) const
+{
+	if (faction < FACTION_PLAYER || faction >= FACTION_MAX) return 0;
+	const SquadBlackboard& bb = _squadBlackboards[faction];
+	for (const auto& t : bb.targets) { if (t.unitId == targetId) return t.assignedAttackers; }
+	return 0;
+}
+
+/**
+ * Phase 34.9 (Calypso): whether any squadmate of `faction` has declared FLANK intent on unit id
+ * `targetId`. False when the board is empty (flag off). The querying unit self-excludes because
+ * its own intent was cleared at its think() start.
+ */
+bool SavedBattleGame::getSquadHasFlankIntent(UnitFaction faction, int targetId) const
+{
+	if (faction < FACTION_PLAYER || faction >= FACTION_MAX) return false;
+	const SquadBlackboard& bb = _squadBlackboards[faction];
+	for (const auto& t : bb.targets) { if (t.unitId == targetId) return t.flankIntentCount > 0; }
+	return false;
+}
+
+/**
+ * Phase 34.9 (Calypso): centroid of `faction`'s live members (excluding `exclude`) -- the
+ * friendly cluster a wounded unit retreats toward. Reads live positions directly (cheap;
+ * re-derivable, nothing cached). Returns false (out untouched) when there is no live squadmate.
+ */
+bool SavedBattleGame::getFriendlyClusterCentroid(UnitFaction faction, const BattleUnit* exclude, Position& out) const
+{
+	long sx = 0, sy = 0, sz = 0;
+	int count = 0;
+	for (auto* bu : _units)
+	{
+		if (!bu || bu->isOut() || bu == exclude) continue;
+		if (bu->getFaction() != faction) continue;
+		sx += bu->getPosition().x;
+		sy += bu->getPosition().y;
+		sz += bu->getPosition().z;
+		++count;
+	}
+	if (count == 0) return false;
+	out = Position((int)(sx / count), (int)(sy / count), (int)(sz / count));
+	return true;
 }
 
 /**

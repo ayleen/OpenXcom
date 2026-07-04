@@ -1006,6 +1006,15 @@ void AIModule::think(BattleAction *action)
 	_escapeAction.number = action->number;
 	_knownEnemies = countKnownTargets();
 	_visibleEnemies = selectNearestTarget();
+
+	// Phase 34.9 (Calypso): drop this unit's stale intent from the faction blackboard before it
+	// (re-)thinks, so the focus-fire / flank reads during its own target scoring below reflect
+	// only its squadmates' commitments (per-member self-exclusion). Runs before the brutal
+	// dispatch so it covers both paths. Gated + hostile-only; a no-op with the flag off.
+	if (_save->getMod()->getAISquadCoordination() && _unit->getFaction() == FACTION_HOSTILE)
+	{
+		_save->clearSquadMemberIntent(FACTION_HOSTILE, _unit->getId());
+	}
 	_spottingEnemies = getSpottingUnits(_unit->getPosition());
 	_melee = (_unit->getUtilityWeapon(BT_MELEE) != 0);
 	_rifle = false;
@@ -1100,6 +1109,8 @@ void AIModule::think(BattleAction *action)
 	if (_unit->isBrutal())
 	{
 		brutalThink(action);
+		// Phase 34.9 (Calypso): record the brutal path's finalized action on the squad blackboard.
+		declareSquadIntentFromAction(action);
 		return;
 	}
 
@@ -1298,6 +1309,10 @@ void AIModule::think(BattleAction *action)
 			action->type = BA_NONE;
 		}
 	}
+
+	// Phase 34.9 (Calypso): record the legacy path's finalized action on the squad blackboard
+	// (the brutal path records its own above, before returning).
+	declareSquadIntentFromAction(action);
 }
 
 
@@ -5881,6 +5896,45 @@ float AIModule::suppressionVolleyValue(BattleItem* weapon) const
 	BattleItem* ammo = weapon->getAmmoForAction(BA_AUTOSHOT);
 	if (!ammo || ammo->getAmmoQuantity() < 2 * autoShots) return 0.0f;
 	return float(_save->getMod()->getAISuppressionMorale() + _save->getMod()->getAISuppressionEnergy()) * float(autoShots);
+}
+
+/**
+ * Phase 34.9 (Calypso): record this hostile's declared squad intent from its finalized action on
+ * the faction blackboard. Called at the tail of both the legacy dispatch and the ported brutal
+ * path. Classification from the action type: a direct attack (incl. a suppressing auto-volley)
+ * on _aggroTarget is ATTACK; a walk while a known enemy is selected is FLANK (repositioning /
+ * closing on it -- there is no distinct "flanking helper" in either path, so the move-while-
+ * -targeting is the faithful flank signal); a desperate escape is RETREAT. GATED: no-op unless
+ * ai.squadCoordination is on and the unit is FACTION_HOSTILE (squad coordination is a hostile-AI
+ * behavior per the DoD -- civilians stay on Phase 32 logic), so the flag-off path is byte-identical.
+ */
+void AIModule::declareSquadIntentFromAction(const BattleAction* action) const
+{
+	if (!_save->getMod()->getAISquadCoordination()) return;
+	if (_unit->getFaction() != FACTION_HOSTILE) return;
+	const BattleActionType t = action->type;
+	const bool isAttack = (t == BA_SNAPSHOT || t == BA_AUTOSHOT || t == BA_AIMEDSHOT ||
+	                       t == BA_HIT || t == BA_THROW || t == BA_LAUNCH);
+	SquadIntent intent = SquadIntent::NONE;
+	int targetId = -1;
+	if (isAttack && _aggroTarget)
+	{
+		intent = SquadIntent::ATTACK;
+		targetId = _aggroTarget->getId();
+	}
+	else if (t == BA_WALK && _aggroTarget)
+	{
+		intent = SquadIntent::FLANK;
+		targetId = _aggroTarget->getId();
+	}
+	else if (action->desperate)
+	{
+		intent = SquadIntent::RETREAT;
+	}
+	if (intent != SquadIntent::NONE)
+	{
+		_save->declareSquadIntent(FACTION_HOSTILE, _unit->getId(), intent, targetId);
+	}
 }
 
 /**
