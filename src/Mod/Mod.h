@@ -484,6 +484,10 @@ private:
 	// Phase 34.6 (Calypso): terrain-tactics master switch -- deliberate floor-drops and
 	// wall-breaches by the hostile AI. Default off -> byte-identical vanilla when no mod opts in.
 	bool _aiTerrainTactics;
+	// Phase 34.8 (Calypso): hearing master switch -- transient noise events on weapon fire /
+	// explosions + zone-quantized investigation patrol bias for blind hostiles. Default off ->
+	// byte-identical vanilla when no mod opts in.
+	bool _aiHearing;
 	// Phase 34.5: Brutal-AI port knobs (adapted from Brutal-OXCE by Xilmi). Folded into the
 	// per-mod ai: block instead of global engine Options for parity with smartCivilians.
 	bool _aiBrutalAI;
@@ -1200,6 +1204,11 @@ public:
 	/// Phase 34.6 (Calypso): master switch for hostile-AI terrain tactics (floor-drop and wall-breach targeting).
 	/// Default off; with the flag off, native AND WASM behavior is byte-for-byte unchanged.
 	bool getAITerrainTactics() const { return _aiTerrainTactics; }
+	/// Phase 34.8 (Calypso): master switch for hostile-AI hearing (noise events + investigation
+	/// patrol bias). Default off; with the flag off the AI read path is never reached, so native
+	/// AND WASM behavior is byte-for-byte unchanged (noise emission is unconditional transient
+	/// bookkeeping, mirroring the 34.5 knowledge-layer convention -- nothing reads it when off).
+	bool getAIHearing() const { return _aiHearing; }
 	/// Brutal-AI (Phase 34.5): master switch for the ported Brutal-OXCE hostile AI (default off -> byte-identical vanilla).
 	bool getAIBrutalAI() const { return _aiBrutalAI; }
 	/// Brutal-AI: hostile omniscience level (-1 no squadsight .. 0 fair .. 2 wallhack). Default 0 (fair). Only fair levels are enabled in the mod.
