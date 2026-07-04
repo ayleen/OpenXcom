@@ -308,6 +308,15 @@ public:
 	/// scalable via the TTF GL overlay (Map HUD_TXT_VISIBLE_0+i), replacing the
 	/// bitmap NumberText so it stays a constant on-screen size at any zoom.
 	void drawVisibleUnitDigit(int i);
+	/// Phase 36: emscripten-only HD HUD bodies extracted from BattlescapeState.cpp
+	/// into Calypso/BattlescapeHud.cpp; the public wrappers hook these under #ifdef.
+	void captureHudNativeGl();
+	void layoutHudGl();
+	void applyHdRankGl(int rankIdx);
+	void applyPortraitGl(BattleUnit* unit);
+	void applyHudNameGl(BattleUnit* unit);
+	void applyHudNumberGl(NumberText* w, int value, Uint32 accentArgb, int imgSlot, int txtSlot);
+	void applyHudNumbersGl(BattleUnit* unit);
 #endif
 	/// Blit the HD shoulder-board insignia for SoldierRank rankIdx (0..5) into the
 	/// HUD _rank slot, scaled; rankIdx < 0 clears it. Bypasses the pixel SMOKE.PCK

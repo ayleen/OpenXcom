@@ -5,6 +5,7 @@ set ( root_src
   md5.cpp
 )
 set ( calypso_src
+  Calypso/BattlescapeHud.cpp
   Calypso/MapGl.cpp
   Calypso/ModHd.cpp
 )
