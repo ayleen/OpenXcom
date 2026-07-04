@@ -52,11 +52,14 @@ public:
 	// hold flag for dogfight (used in 37.5; declare now, default false)
 	void setHoldWhileDogfight(bool v) { _holdWhileDogfight = v; }
 	void dump() const; // logs step table + shown-set (called by calypso_tutorial_dump export)
+	/// Called by the popup state on destruction so pump() can push the next batch.
+	void notifyPopupClosed() { _popupActive = false; }
 private:
 	CalypsoTutorial() {}
 	std::set<std::string> _shown;
 	bool _campaignEnabled = true;
 	bool _holdWhileDogfight = false;
+	bool _popupActive = false; ///< a CalypsoTutorialState is on the stack; suppress re-push
 	std::deque<const CalypsoTutorialStep*> _queue;
 	std::map<std::string, SDL_Rect> _anchors;
 };

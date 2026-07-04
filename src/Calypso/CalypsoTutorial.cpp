@@ -3,15 +3,18 @@
  * Phase 37 (Calypso): tutorial manager implementation.
  * Whole file is Emscripten-only — the native desktop build never sees it.
  *
- * The popup push (CalypsoTutorialState) lands in 37.2; for now pump() leaves
- * the actual pushState line commented so this file links standalone.
+ * pump() drains the queue into a CalypsoTutorialState (37.2) which walks the
+ * batch page-by-page; the state's dtor calls notifyPopupClosed() so the next
+ * batch can push on the following frame.
  */
 
 #include <emscripten.h>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "CalypsoTutorial.h"
+#include "CalypsoTutorialState.h"
 #include "../Engine/Game.h"
 #include "../Engine/Options.h"
 #include "../Engine/Logger.h"
@@ -62,14 +65,15 @@ void CalypsoTutorial::pump(Game* game)
 {
 	if (_queue.empty()) return;
 	if (_holdWhileDogfight) return;
-	// TODO(37.2): if the topmost game state is already CalypsoTutorialState,
-	//             return here to avoid popup-over-popup. The state class does
-	//             not exist yet, so this dedup check lands alongside it.
-	// TODO(37.2): drain _queue into CalypsoTutorialState — pop the head step
-	//             and pushState(new CalypsoTutorialState(this, step, ...)).
-	//             The header include is intentionally omitted until the state
-	//             exists; for now pump() is implemented but does not push.
-	(void)game;
+	if (_popupActive) return; // popup-over-popup guard (state resets this in its dtor)
+
+	// Drain the entire queue into one popup; steps are shown back-to-back and
+	// the state pops itself when the batch is exhausted. Its dtor calls
+	// notifyPopupClosed() so a fresh batch can push on the next frame.
+	std::vector<const CalypsoTutorialStep*> batch(_queue.begin(), _queue.end());
+	_queue.clear();
+	_popupActive = true;
+	game->pushState(new CalypsoTutorialState(std::move(batch)));
 }
 
 void CalypsoTutorial::anchor(const std::string& key, int x, int y, int w, int h)
@@ -102,6 +106,7 @@ void CalypsoTutorial::resetCampaign()
 	_campaignEnabled = true;
 	_queue.clear();
 	_holdWhileDogfight = false;
+	_popupActive = false;
 }
 
 void CalypsoTutorial::save(YAML::YamlNodeWriter& writer) const
