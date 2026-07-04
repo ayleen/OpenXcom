@@ -447,6 +447,7 @@ Mod::Mod() :
 	_aiSmartCivilians(false), _aiFairAliens(false), _aiTerrorHuntCivilians(false),
 	_aiTerrainTactics(false),
 	_aiHearing(false),
+	_aiSuppression(false), _aiSuppressionMorale(5), _aiSuppressionEnergy(10),
 	_aiBrutalAI(false), _aiCheatMode(0), _aiAvoidMines(true), _aiPerformanceOptimization(false),
 	_aiCivilianGuardChance(0),
 	_aiReactionFireThreshold(0), _aiReactionFireThresholdCiv(0),
@@ -4249,6 +4250,12 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 		nodeAI.tryRead("terrainTactics", _aiTerrainTactics);
 		// Phase 34.8 (Calypso): hostile-AI hearing -- noise events + investigation patrol bias.
 		nodeAI.tryRead("hearing", _aiHearing);
+		// Phase 34.7 (Calypso): near-miss suppression fire -- morale/energy pin (engine-symmetric)
+		// + AI suppression-aware fire-mode scoring. Mechanic is gated at the seam (applySuppression),
+		// so with the master switch off no unit state changes and behavior is byte-identical.
+		nodeAI.tryRead("suppression", _aiSuppression);
+		nodeAI.tryRead("suppressionMorale", _aiSuppressionMorale);
+		nodeAI.tryRead("suppressionEnergy", _aiSuppressionEnergy);
 		// Phase 34.5: Brutal-AI port knobs (adapted from Brutal-OXCE by Xilmi).
 		nodeAI.tryRead("brutalAI", _aiBrutalAI);
 		nodeAI.tryRead("aiCheatMode", _aiCheatMode);

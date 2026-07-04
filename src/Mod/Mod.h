@@ -488,6 +488,14 @@ private:
 	// explosions + zone-quantized investigation patrol bias for blind hostiles. Default off ->
 	// byte-identical vanilla when no mod opts in.
 	bool _aiHearing;
+	// Phase 34.7 (Calypso): suppression master switch -- near-miss projectile fire applies a
+	// morale hit + energy drain (engine-symmetric: any faction can suppress any faction; the
+	// shot's target is excluded, a hit is not a near-miss). Default off -> byte-identical.
+	bool _aiSuppression;
+	// Phase 34.7 (Calypso): per-near-miss morale loss / energy drain knobs. Applied flat (the
+	// knob IS the tuning point), capped per turn per victim (see BattleUnit::addNearMiss).
+	int _aiSuppressionMorale;
+	int _aiSuppressionEnergy;
 	// Phase 34.5: Brutal-AI port knobs (adapted from Brutal-OXCE by Xilmi). Folded into the
 	// per-mod ai: block instead of global engine Options for parity with smartCivilians.
 	bool _aiBrutalAI;
@@ -1209,6 +1217,17 @@ public:
 	/// AND WASM behavior is byte-for-byte unchanged (noise emission is unconditional transient
 	/// bookkeeping, mirroring the 34.5 knowledge-layer convention -- nothing reads it when off).
 	bool getAIHearing() const { return _aiHearing; }
+	/// Phase 34.7 (Calypso): master switch for near-miss suppression fire (morale/energy pin,
+	/// engine-symmetric). Unlike 34.8's noise emission, the near-miss mechanic CHANGES unit
+	/// state, so the gate lives at the mechanic seam (SavedBattleGame::applySuppression), not
+	/// only on the read path. Default off; with the flag off no state changes, byte-identical.
+	bool getAISuppression() const { return _aiSuppression; }
+	/// Phase 34.7 (Calypso): per-near-miss morale loss (default 5). Flat; the knob is the
+	/// tuning point, capped per turn per victim in BattleUnit::addNearMiss.
+	int getAISuppressionMorale() const { return _aiSuppressionMorale; }
+	/// Phase 34.7 (Calypso): per-near-miss energy drain (default 10). Flat; the knob is the
+	/// tuning point, capped per turn per victim in BattleUnit::addNearMiss.
+	int getAISuppressionEnergy() const { return _aiSuppressionEnergy; }
 	/// Brutal-AI (Phase 34.5): master switch for the ported Brutal-OXCE hostile AI (default off -> byte-identical vanilla).
 	bool getAIBrutalAI() const { return _aiBrutalAI; }
 	/// Brutal-AI: hostile omniscience level (-1 no squadsight .. 0 fair .. 2 wallhack). Default 0 (fair). Only fair levels are enabled in the mod.
