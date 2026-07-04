@@ -16,6 +16,20 @@ CLI:
 
 Default base (when --base omitted):
     output of `git merge-base HEAD origin/oxce-plus`
+
+Known limitations (accepted; the guard is a per-PR tripwire, not a proof):
+  1. A native `#ifndef __EMSCRIPTEN__` block nested INSIDE an emscripten
+     `#ifdef __EMSCRIPTEN__` region is counted as emscripten footprint (the
+     whole outer span is marked). This fails *safe* — it can only over-reject
+     an unusual large native addition sitting inside an emscripten block, never
+     let real emscripten code through.
+  2. Wrapping large *pre-existing, unchanged* native code in a brand-new
+     `#ifdef __EMSCRIPTEN__ … #endif` adds only the two directive lines to the
+     diff (neither is a block member), so the run is 0 and it passes. This
+     requires turning native code emscripten-only — a semantic change the
+     native compile-check job and a human reviewer both catch.
+Both are contrived; the realistic threat (adding NEW in-place emscripten code,
+i.e. a contiguous run of added member lines) is always caught.
 """
 
 import argparse
