@@ -4,6 +4,9 @@ set ( root_src
   main.cpp
   md5.cpp
 )
+set ( calypso_src
+  Calypso/MapGl.cpp
+)
 set ( basescape_src
   Basescape/BaseInfoState.cpp
   Basescape/BasescapeState.cpp
@@ -455,6 +458,7 @@ set ( rapidyaml_src
 
 set ( cxx_src
     ${root_src}
+    ${calypso_src}
     ${basescape_src}
     ${battlescape_src}
     ${engine_src}
