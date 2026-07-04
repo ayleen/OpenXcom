@@ -445,6 +445,8 @@ Mod::Mod() :
 	_aiFireChoiceIntelCoeff(5), _aiFireChoiceAggroCoeff(5), _aiExtendedFireModeChoice(false), _aiRespectMaxRange(false), _aiDestroyBaseFacilities(false),
 	_aiPickUpWeaponsMoreActively(false), _aiPickUpWeaponsMoreActivelyCiv(false),
 	_aiSmartCivilians(false), _aiFairAliens(false), _aiTerrorHuntCivilians(false),
+	_aiTerrainTactics(false),
+	_aiHearing(false),
 	_aiBrutalAI(false), _aiCheatMode(0), _aiAvoidMines(true), _aiPerformanceOptimization(false),
 	_aiCivilianGuardChance(0),
 	_aiReactionFireThreshold(0), _aiReactionFireThresholdCiv(0),
@@ -4243,6 +4245,10 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 		nodeAI.tryRead("smartCivilians", _aiSmartCivilians);
 		nodeAI.tryRead("fairAliens", _aiFairAliens);
 		nodeAI.tryRead("terrorHuntCivilians", _aiTerrorHuntCivilians);
+		// Phase 34.6 (Calypso): hostile-AI terrain tactics -- floor-drops and wall-breaches.
+		nodeAI.tryRead("terrainTactics", _aiTerrainTactics);
+		// Phase 34.8 (Calypso): hostile-AI hearing -- noise events + investigation patrol bias.
+		nodeAI.tryRead("hearing", _aiHearing);
 		// Phase 34.5: Brutal-AI port knobs (adapted from Brutal-OXCE by Xilmi).
 		nodeAI.tryRead("brutalAI", _aiBrutalAI);
 		nodeAI.tryRead("aiCheatMode", _aiCheatMode);

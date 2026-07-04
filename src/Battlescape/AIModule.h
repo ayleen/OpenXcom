@@ -62,6 +62,7 @@ private:
 	int _AIMode, _intelligence, _closestDist;
 	Node *_fromNode, *_toNode;
 	bool _foundBaseModuleToDestroy;
+	int _lastBreachTurn = -1000; // Phase 34.6 (Calypso): transient, NOT saved -- gates wall-breaches to one attempt per 3 turns.
 	std::vector<int> _reachable, _reachableWithAttack, _wasHitBy;
 	std::vector<PathfindingNode*> _allPathFindingNodes; // Brutal-AI
 	Position _positionAtStartOfTurn; // Brutal-AI
@@ -97,6 +98,18 @@ private:
 	/// Phase 34.4: true for an unengaged (no known enemy) hostile alien when the mod enables
 	/// ai.terrorHuntCivilians -- biases patrol node choice toward the civilian-hunt zone.
 	bool wantsToHuntCivilians() const;
+	/// Phase 34.8 (Calypso): true for an unengaged (no known enemy) hostile alien when the
+	/// mod enables ai.hearing -- biases patrol node choice toward the newest in-range noise
+	/// zone (quantized to an 8-tile grid). Same faction / known-enemies gates as
+	/// wantsToHuntCivilians; used only as a fallback when no civilian-hunt zone (34.4) applies,
+	/// so the two behaviours stay disjoint and each remains gated on its own flag.
+	bool wantsToInvestigateNoise() const;
+	/// Phase 34.6 (Calypso): terrain-tactics candidate-attack generator (floor-drop + wall-breach).
+	/// Returns true and fills _attackAction only when the mod's ai.terrainTactics flag is on, the
+	/// unit is a non-civilian hostile, no other attack has been chosen yet (_attackAction.type ==
+	/// BA_RETHINK), and a fair-channel-known enemy stands on a destructible floor or a wall is
+	/// blocking the path to a known objective. With the flag off it is a no-op (byte-identical).
+	bool considerTerrainAttack();
 public:
 	bool medikit_think(BattleMediKitType healOrStim);
 public:

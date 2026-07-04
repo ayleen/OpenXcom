@@ -3516,6 +3516,13 @@ void TileEngine::explode(BattleActionAttack attack, Position center, int power, 
 	std::vector<BattleItem*> toRemove;
 	std::pair<std::map<Tile*, int>::iterator, bool> ret;
 
+	// Phase 34.8 (Calypso): emit a transient noise event at the blast site. Explosions
+	// are loud -- louder than single shots -- so the hearing radius scales with the blast
+	// radius (the `10 + maxRadius*2` formula is a tuning constant: radius-5 grenade -> 20,
+	// radius-11 blaster -> 32). Emission is unconditional bookkeeping; the AI read path
+	// gates on Mod::getAIHearing, so with the flag off this is dead data pruned each turn.
+	_save->emitNoise(centetTile, 10 + maxRadius * 2);
+
 	if (type->FireBlastCalc)
 	{
 		power /= 2;

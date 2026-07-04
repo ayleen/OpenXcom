@@ -2643,12 +2643,74 @@ bool SavedBattleGame::getCivilianHuntZone(Position &out)
 }
 
 /**
+ * Phase 34.8 (Calypso): record a transient noise event for ai.hearing. Emission is
+ * unconditional bookkeeping (the AI read path gates on Mod::getAIHearing, so with the
+ * flag off nothing consumes this list and behavior is byte-identical). The list is never
+ * serialized; prepareNewTurn prunes by age and a fresh save loads it as empty. A non-
+ * positive loudness is a no-op (callers derive loudness from weapon/explosion parameters).
+ */
+void SavedBattleGame::emitNoise(const Position &pos, int loudness)
+{
+	if (loudness <= 0) return;
+	_noiseEvents.push_back(NoiseEvent{pos, _turn, loudness});
+}
+
+/**
+ * Phase 34.8 (Calypso): newest noise a hearer at `hearerPos` can still perceive, for the
+ * ai.hearing AI read path. A noise is hearable when BOTH:
+ *   (a) it is inside the hearer's intelligence-scaled memory window (the decay predicate
+ *       `_turn - event.turn <= intelligence`) -- smarter units remember noises longer; AND
+ *   (b) the hearer stands within the event's loudness radius (`loudness` = hearing radius,
+ *       2D tile distance) -- loud noises travel farther.
+ * Among the hearable set, pick the NEWEST (max event.turn); ties break toward the loudest,
+ * then the nearest. The returned position is the chosen event's source quantized to an
+ * 8-tile grid cell -- hearing gives a zone/direction, never a wallhack tile (mirrors the
+ * 34.4 civilian-zone fairness stance). Returns false (out untouched) when nothing hearable.
+ */
+bool SavedBattleGame::getNewestHearableNoise(const Position &hearerPos, int intelligence, Position &outZone)
+{
+	const NoiseEvent *best = nullptr;
+	for (const auto &ev : _noiseEvents)
+	{
+		if (_turn - ev.turn > intelligence) continue; // decayed out of this hearer's memory
+		if (Position::distance2d(hearerPos, ev.pos) > ev.loudness) continue; // out of earshot
+		// Newest wins; on tie, loudest; on tie, nearest. Pure comparisons -> deterministic.
+		bool take = false;
+		if (!best) take = true;
+		else if (ev.turn != best->turn) take = (ev.turn > best->turn);
+		else if (ev.loudness != best->loudness) take = (ev.loudness > best->loudness);
+		else take = (Position::distance2d(hearerPos, ev.pos) < Position::distance2d(hearerPos, best->pos));
+		if (take) best = &ev;
+	}
+	if (!best) return false;
+	// Phase 34.8: quantize the source to an 8-tile grid cell so investigators get a
+	// neighbourhood, never the exact tile. (34.4's civilian zone uses a 10-tile grid; the
+	// convention being mirrored is "quantize to a grid", not the specific grid size.)
+	const int GRID = 8;
+	outZone = Position((best->pos.x / GRID) * GRID, (best->pos.y / GRID) * GRID, best->pos.z);
+	return true;
+}
+
+/**
  * Carries out new turn preparations such as fire and smoke spreading.
  */
 void SavedBattleGame::prepareNewTurn()
 {
 	std::vector<Tile*> tilesOnFire;
 	std::vector<Tile*> tilesOnSmoke;
+
+	// Phase 34.8 (Calypso): prune decayed noise events. The per-hearer decay check in
+	// getNewestHearableNoise uses each unit's own intelligence, so this global prune only
+	// bounds unbounded growth -- the cap is well above any unit's intelligence (cheatTurn
+	// default 20), so a noise a unit could still hear is never dropped here.
+	if (!_noiseEvents.empty())
+	{
+		const int NOISE_MAX_AGE_TURNS = 20;
+		_noiseEvents.erase(
+			std::remove_if(_noiseEvents.begin(), _noiseEvents.end(),
+				[this](const NoiseEvent &ev) { return _turn - ev.turn > NOISE_MAX_AGE_TURNS; }),
+			_noiseEvents.end());
+	}
 
 	// prepare a list of tiles on fire
 	for (int i = 0; i < _mapsize_x * _mapsize_y * _mapsize_z; ++i)

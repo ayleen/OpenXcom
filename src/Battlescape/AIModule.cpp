@@ -204,6 +204,297 @@ bool AIModule::wantsToHuntCivilians() const
 }
 
 /**
+ * Phase 34.8 (Calypso): should this alien bias its patrol toward the newest in-range
+ * noise zone instead of a random/highest-value node? Same hostile / no-known-enemy gates
+ * as wantsToHuntCivilians (34.4), gated on the mod's ai.hearing flag instead. With the
+ * flag off this returns false and every code path it gates stays unreachable, so vanilla
+ * OXCE behavior (native AND WASM) is byte-for-byte preserved.
+ */
+bool AIModule::wantsToInvestigateNoise() const
+{
+	return _save->getMod()->getAIHearing()
+		&& _unit->getFaction() == FACTION_HOSTILE
+		&& _unit->getOriginalFaction() == FACTION_HOSTILE
+		&& _knownEnemies == 0;
+}
+
+/**
+ * Phase 34.6 (Calypso): terrain-tactics candidate-attack generator.
+ *
+ * Scans for one of two terrain attacks against fair-channel-known enemies and, if a viable
+ * candidate is found, fills `_attackAction` so the surrounding decision loop dispatches it.
+ *
+ *   Floor drop -- an enemy known via fair channels (`getTurnsSinceSpottedByFaction <=
+ *   _intelligence`, NEVER `_cheating`, NEVER direct map reads) is standing on a destructible
+ *   O_FLOOR (`Tile::getMapData(O_FLOOR)` non-null and its armor beatable by the unit's loaded
+ *   ammo: `power * ToTile >= armor`, the same `power >= armor` convention used by
+ *   `Tile::damage`), and the floor is targetable from the unit's current position
+ *   (`TileEngine::canTargetTile`, the precedent at `getNodeOfBestEfficacy`). Score = expected
+ *   fall depth (levels the enemy would drop) so deeper drops are preferred; firing happens via
+ *   the existing tile-targeting path (no new projectile type).
+ *
+ *   Wall breach -- only when pathfinding to the nearest known enemy fails or detours >2x the
+ *   straight-line distance AND the unit carries a grenade (`_grenade`) whose
+ *   `explosiveEfficacy` at the wall position is positive (cleared against friendlies): the unit
+ *   throws at the blocking O_OBJECT/wall on the straight line. One breach attempt per unit per
+ *   3 turns (transient `_lastBreachTurn`, NOT saved to file).
+ *
+ * Mission-objective safety: any tile whose `MapData::isBaseModule()` returns true is skipped --
+ * we never sabotage objectives outside the existing `destroyBaseFacilities` path (pitfall note
+ * in docs/phases/phase-34-advanced-battle-ai.md).
+ *
+ * With the mod flag off, every code path here is unreachable: the function returns false
+ * immediately without touching any state, so vanilla OXCE behavior is byte-for-byte preserved.
+ */
+bool AIModule::considerTerrainAttack()
+{
+	// Gate 1: byte-identical off-path.
+	if (!_save->getMod()->getAITerrainTactics()) return false;
+	// Gate 2: only the hostile AI uses terrain tactics. Civilians stay on the Phase 32 logic;
+	// mind-controlled soldiers (current faction != original) are out of scope -- they may be
+	// player-controlled again next turn and shouldn't blow up the player's buildings.
+	if (_unit->getFaction() != FACTION_HOSTILE || _unit->getOriginalFaction() != FACTION_HOSTILE) return false;
+	// Gate 3: don't override an already-chosen attack. Terrain attacks are fallback candidates.
+	if (_attackAction.type != BA_RETHINK) return false;
+
+	const Position myPos = _unit->getPosition();
+
+	// === Floor drop ===
+	// Pick the highest-scoring fair-known enemy whose standing tile has a destructible floor
+	// targetable from our current position. Score = expected fall depth (levels), so a 2-storey
+	// drop beats a 1-storey drop; ties broken by horizontal proximity.
+	//
+	// Section-local gates: floor drop fires a direct shot from the main-hand weapon, so the
+	// weapon / ammo / ToTile / terrainPower checks live HERE -- not at the top of the function.
+	// A unit carrying only a grenade (no serviceable main-hand weapon for terrain damage) must
+	// still be allowed to reach the wall-breach section below.
+	BattleItem *weapon = _unit->getMainHandWeapon();
+	int terrainPower = 0;
+	bool floorDropViable = false;
+	if (weapon && _save->canUseWeapon(weapon, _unit, false, BA_SNAPSHOT))
+	{
+		const BattleItem *ammo = weapon->getAmmoForAction(BA_SNAPSHOT);
+		if (ammo)
+		{
+			const RuleItem *ammoRule = ammo->getRules();
+			const RuleDamageType *dt = ammoRule->getDamageType();
+			if (dt && dt->ToTile > 0.0f)
+			{
+				// Effective terrain damage from a single hit: `power * ToTile` (the multiplier
+				// applied by TileEngine at the `ToTile > 0` gate). The destruction predicate is
+				// `power >= armor` (Tile::damage / TileEngine::detonate); armor 255 is the
+				// indestructible sentinel.
+				terrainPower = (int)(ammoRule->getPower() * dt->ToTile);
+				if (terrainPower >= 1) floorDropViable = true;
+			}
+		}
+	}
+
+	if (floorDropViable)
+	{
+		Position originVoxel = _save->getTileEngine()->getSightOriginVoxel(_unit);
+		int bestScore = 0;
+		Position bestTarget = Position(0, 0, 0);
+		BattleItem *bestWeapon = nullptr;
+		for (auto* target : *_save->getUnits())
+		{
+			if (!target || target == _unit || target->isOut()) continue;
+			// Fair-knowledge gate -- never `_cheating`, never a direct map read on the live position.
+			// isEnemy() is the brutal-AI helper; for legacy dispatch the same lookup-by-faction works.
+			if (!isEnemy(target)) continue;
+			if (target->getTurnsSinceSpottedByFaction(_unit->getFaction()) > _intelligence) continue;
+			// The FAIR known position is the last-spotted tile (Brutal-AI knowledge layer); fall back
+			// to the live tile only when the unit is genuinely visible right now (visibleToAnyFriend
+			// already encodes the fairness stance -- no omniscience).
+			Position enemyPos;
+			if (visibleToAnyFriend(target))
+			{
+				enemyPos = target->getPosition();
+			}
+			else
+			{
+				int spottedIdx = target->getTileLastSpotted(_unit->getFaction());
+				if (spottedIdx < 0) continue;
+				enemyPos = _save->getTileCoords(spottedIdx);
+			}
+			Tile *enemyTile = _save->getTile(enemyPos);
+			if (!enemyTile) continue;
+			MapData *floorMD = enemyTile->getMapData(O_FLOOR);
+			if (!floorMD) continue;
+			// Mission-objective safety: never drop a floor flagged as a base module.
+			if (floorMD->isBaseModule()) continue;
+			// Destructibility predicate (Tile::damage convention: power >= armor; 255 = indestructible).
+			if (floorMD->getArmor() >= 255) continue;
+			if (terrainPower < floorMD->getArmor()) continue;
+			// The floor must be targetable from the unit's current position (LOF check).
+			Position targetVoxel;
+			if (!_save->getTileEngine()->canTargetTile(&originVoxel, enemyTile, O_FLOOR, &targetVoxel, _unit, false))
+				continue;
+			// Score: expected fall depth. Search downward for the first tile that would catch the
+			// enemy; the drop is bounded by the map bottom (z=0) and capped at 4 levels for scoring.
+			int fallLevels = 0;
+			for (int z = enemyPos.z - 1; z >= 0 && fallLevels < 4; --z)
+			{
+				Tile *below = _save->getTile(Position(enemyPos.x, enemyPos.y, z));
+				if (!below) break;
+				++fallLevels;
+				if (!below->hasNoFloor(_save)) break; // a floor here catches the enemy
+			}
+			if (fallLevels < 1) continue; // no drop happens (e.g. ground-level tile) -- skip
+			// Base score so any viable drop beats "do nothing"; deeper drops score higher; closer
+			// enemies score slightly higher (tie-breaker). Same scale as AIW_SCALE so it slots into
+			// the existing scoring cascade without distorting it.
+			int score = AIW_SCALE + fallLevels * (AIW_SCALE / 2);
+			int horizDist = Position::distance2d(myPos, enemyPos);
+			score -= horizDist; // mild proximity bias
+			if (score > bestScore)
+			{
+				bestScore = score;
+				bestTarget = enemyPos;
+				bestWeapon = weapon;
+			}
+		}
+
+		if (bestScore > 0 && bestWeapon)
+		{
+			_attackAction.type = BA_SNAPSHOT;
+			_attackAction.target = bestTarget;
+			_attackAction.weapon = bestWeapon;
+			_attackAction.actor = _unit;
+			_attackAction.updateTU();
+			if (_traceAI)
+			{
+				Log(LOG_INFO) << "Phase 34.6: terrain floor-drop attack at " << bestTarget;
+			}
+			return true;
+		}
+	}
+
+	// === Wall breach ===
+	// Triggered only when pathing to the nearest fair-known enemy fails or severely detours,
+	// the unit carries a grenade ready in the belt, the breach cooldown allows another attempt
+	// this turn (one per 3 turns per unit, transient -- NOT saved), and a destructible
+	// O_OBJECT / wall sits on the straight line between the unit and the objective. The
+	// friendly-fire check reuses explosiveEfficacy (the same convention grenadeAction uses) so
+	// an alien never collapses a wall onto its own squad.
+	//
+	// Independent of the main-hand weapon: the breach is a grenade THROW, so a unit carrying
+	// only a grenade (or whose main-hand weapon can't damage terrain) can still breach.
+	if (_grenade && (_save->getTurn() - _lastBreachTurn) >= 3)
+	{
+		BattleItem *grenade = _unit->getGrenadeFromBelt(_save);
+		if (grenade)
+		{
+			// Find the nearest fair-known enemy as the breach objective (same fair-knowledge
+			// gates as the floor-drop scan -- visibleToAnyFriend OR getTileLastSpotted).
+			Position objectivePos;
+			bool haveObjective = false;
+			int bestObjDist = INT_MAX;
+			for (auto* target : *_save->getUnits())
+			{
+				if (!target || target == _unit || target->isOut()) continue;
+				if (!isEnemy(target)) continue;
+				if (target->getTurnsSinceSpottedByFaction(_unit->getFaction()) > _intelligence) continue;
+				Position enemyPos;
+				if (visibleToAnyFriend(target))
+				{
+					enemyPos = target->getPosition();
+				}
+				else
+				{
+					int spottedIdx = target->getTileLastSpotted(_unit->getFaction());
+					if (spottedIdx < 0) continue;
+					enemyPos = _save->getTileCoords(spottedIdx);
+				}
+				int d = Position::distance2d(myPos, enemyPos);
+				if (d < bestObjDist) { bestObjDist = d; objectivePos = enemyPos; haveObjective = true; }
+			}
+			if (haveObjective)
+			{
+				// Detect a blocking wall via the legacy Pathfinding::calculate + getStartDirection
+				// path (the same one setupPatrol uses). tuCostToReachPosition is Brutal-AI-only
+				// and depends on _allPathFindingNodes which may not be populated at this insertion
+				// point in brutalThink, so we use the engine primitive directly to stay safe in
+				// both decision paths. getStartDirection() == -1 means unreachable (path failed).
+				_save->getPathfinding()->calculate(_unit, objectivePos, BAM_NORMAL);
+				int startDir = _save->getPathfinding()->getStartDirection();
+				int pathTUs = _save->getPathfinding()->getTotalTUCost();
+				_save->getPathfinding()->abortPath();
+				int straightLine = Position::distance2d(myPos, objectivePos);
+				bool pathFailed = (startDir == -1);
+				// Detour heuristic: typical OXCE tile move cost is ~4 TU; treat a path costing
+				// >2x the straight-line expectation as a "blocked approach" worth breaching.
+				bool bigDetour = (straightLine > 0) && (pathTUs > 2 * straightLine * 4);
+				if (pathFailed || bigDetour)
+				{
+					// Walk the straight line tile-by-tile (2D Bresenham on the unit's z-level)
+					// and target the first destructible O_OBJECT or wall blocking the advance.
+					int dx = objectivePos.x - myPos.x;
+					int dy = objectivePos.y - myPos.y;
+					int steps = std::max(std::abs(dx), std::abs(dy));
+					if (steps > 0)
+					{
+						// Cap the walk at the grenade's own throw range (RuleItem::getThrowRange,
+						// default 200 = effectively unlimited on standard maps) -- this is a
+						// THROW, not a main-hand-weapon shot, so the weapon's getMaxRange would
+						// be the wrong cap. Bounded by the 32-tile perf cap below as a hard stop.
+						int throwRange = grenade->getRules()->getThrowRange();
+						int checkedSteps = 0;
+						for (int s = 1; s <= steps; ++s)
+						{
+							Position p(myPos.x + (dx * s) / steps, myPos.y + (dy * s) / steps, myPos.z);
+							if (Position::distance2d(myPos, p) > throwRange) break;
+							Tile *t = _save->getTile(p);
+							if (!t) continue;
+							// Try the O_OBJECT slot first (the typical "wall" on TFTD terrains
+							// is an O_OBJECT big-wall), then the two wall slots.
+							TilePart parts[3] = { O_OBJECT, O_WESTWALL, O_NORTHWALL };
+							for (int pi = 0; pi < 3; ++pi)
+							{
+								MapData *md = t->getMapData(parts[pi]);
+								if (!md) continue;
+								if (md->isBaseModule()) continue; // mission-objective safety
+								if (md->getArmor() >= 255) continue; // indestructible sentinel
+								const RuleDamageType *gDt = grenade->getRules()->getDamageType();
+								int grenadeTerrainPower = gDt ? (int)(grenade->getRules()->getPower() * gDt->ToTile) : 0;
+								if (grenadeTerrainPower < md->getArmor()) continue;
+								// Friendly-fire check: same convention as grenadeAction. The
+								// radius comes from the grenade's own rules so the efficacy
+								// math matches what would actually happen on impact.
+								BattleAction probeAction;
+								probeAction.type = BA_THROW;
+								probeAction.actor = _unit;
+								probeAction.weapon = grenade;
+								int radius = grenade->getRules()->getExplosionRadius(
+									BattleActionAttack::GetBeforeShoot(probeAction));
+								if (explosiveEfficacy(p, _unit, radius, _attackAction.diff, true) <= 0) continue;
+								// Found a viable breach target.
+								_attackAction.type = BA_THROW;
+								_attackAction.target = p;
+								_attackAction.weapon = grenade;
+								_attackAction.actor = _unit;
+								_attackAction.updateTU();
+								_attackAction.Time += 4; // grenade prime/swap cost, same as grenadeAction
+								_attackAction += _unit->getActionTUs(BA_PRIME, grenade);
+								_lastBreachTurn = _save->getTurn();
+								if (_traceAI)
+								{
+									Log(LOG_INFO) << "Phase 34.6: terrain wall-breach attack at " << p;
+								}
+								return true;
+							}
+							if (++checkedSteps > 32) break; // perf cap -- 32 tiles max
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return false;
+}
+
+/**
  * Phase 32 (Calypso): the nearest civilian "crying for help" that a guard can hear. A civilian
  * is in distress when it is panicking/berserk, its morale has cracked, or a spotted alien is
  * menacing it. Limited to a hearing radius so a guard reacts to nearby screams, not the whole map.
@@ -1069,6 +1360,19 @@ void AIModule::setupPatrol()
 	// (flag off, alien engaged, or no civilians alive) they behave exactly as vanilla.
 	Position huntZone;
 	bool huntZoneKnown = wantsToHuntCivilians() && _save->getCivilianHuntZone(huntZone);
+	// Phase 34.8 (Calypso): FALLBACK bias -- when no civilian-hunt zone applies (34.4 flag
+	// off, no civilians alive, or this isn't a terror mission), an unengaged hostile that
+	// hears a recent noise biases toward the newest in-range noise zone instead of wandering
+	// randomly. The two behaviours are disjoint: noise investigation runs only when the
+	// civilian-hunt zone is unknown, so 34.8 never undermines the 34.4 terror-mission race.
+	// Reuses the SAME getPatrolNode(scout, unit, fromNode, zoneAnchor) overload 34.4 added --
+	// no new BFS, no new reachable-tile walk. `biasZone` is whichever (if any) zone is known.
+	Position noiseZone;
+	bool noiseZoneKnown = !huntZoneKnown
+		&& wantsToInvestigateNoise()
+		&& _save->getNewestHearableNoise(_unit->getPosition(), _intelligence, noiseZone);
+	const Position &biasZone = huntZoneKnown ? huntZone : noiseZone;
+	const bool biasZoneKnown = huntZoneKnown || noiseZoneKnown;
 
 	if (_toNode != 0 && _unit->getPosition() == _toNode->getPosition())
 	{
@@ -1203,11 +1507,11 @@ void AIModule::setupPatrol()
 
 		if (_toNode == 0)
 		{
-			_toNode = huntZoneKnown ? _save->getPatrolNode(scout, _unit, _fromNode, huntZone)
+			_toNode = biasZoneKnown ? _save->getPatrolNode(scout, _unit, _fromNode, biasZone)
 									: _save->getPatrolNode(scout, _unit, _fromNode);
 			if (_toNode == 0)
 			{
-				_toNode = huntZoneKnown ? _save->getPatrolNode(!scout, _unit, _fromNode, huntZone)
+				_toNode = biasZoneKnown ? _save->getPatrolNode(!scout, _unit, _fromNode, biasZone)
 										: _save->getPatrolNode(!scout, _unit, _fromNode);
 			}
 		}
@@ -1410,6 +1714,14 @@ void AIModule::setupAttack()
 		{
 			projectileAction();
 		}
+	}
+
+	// Phase 34.6 (Calypso): terrain tactics (floor-drop / wall-breach) -- gated internally on
+	// the mod flag, the unit being a non-civilian hostile, and no other attack having been
+	// chosen. A no-op when the flag is off, so the legacy path stays byte-identical.
+	if (_attackAction.type == BA_RETHINK)
+	{
+		considerTerrainAttack();
 	}
 
 	if (_attackAction.type != BA_RETHINK)
@@ -3944,6 +4256,12 @@ void AIModule::brutalThink(BattleAction* action)
 				brutalSelectSpottedUnitForSniper();
 			if (_attackAction.type == BA_RETHINK && _grenade)
 				brutalGrenadeAction();
+			// Phase 34.6 (Calypso): terrain tactics (floor-drop / wall-breach) -- additive
+			// candidate slot, gated internally on ai.terrainTactics + hostile faction + no
+			// other attack chosen. A no-op when the flag is off, so brutalThink stays
+			// byte-identical to the 34.5 port in that case.
+			if (_attackAction.type == BA_RETHINK)
+				considerTerrainAttack();
 		}
 		if (_attackAction.type != BA_RETHINK)
 		{
