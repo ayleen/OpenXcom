@@ -531,10 +531,10 @@ public:
 	/// Gets the quantized civilian-hunt zone centroid for Phase 34.4's ai.terrorHuntCivilians
 	/// (10-tile grid; cached once per turn, transient, never saved, trivially re-derivable).
 	bool getCivilianHuntZone(Position &out);
-	/// Phase 34.8 (Calypso): record a transient noise event for ai.hearing. Emission is
-	/// UNCONDITIONAL bookkeeping (mirrors the 34.5 knowledge-layer convention): nothing
-	/// reads the list when the mod's ai.hearing flag is off, so behavior stays byte-identical
-	/// with the flag off. `loudness` <= 0 is a no-op. The list itself is private.
+	/// Phase 34.8 (Calypso): record a transient noise event for ai.hearing. GATED at this
+	/// seam since the post-34.9 hardening: with the mod's ai.hearing flag off the call is a
+	/// no-op (zero writes -- the phase's final gating standard), so callers may invoke it
+	/// unconditionally. `loudness` <= 0 is a no-op. The list itself is private.
 	void emitNoise(const Position &pos, int loudness);
 	/// Phase 34.8 (Calypso): newest noise a hearer at `hearerPos` can still perceive, for
 	/// the AI read path (which gates on Mod::getAIHearing). A noise is hearable when it is
