@@ -645,9 +645,9 @@ bool ProjectileFlyBState::createNewProjectile()
 	// Phase 34.8 (Calypso): emit a transient noise event at the shooter's position on
 	// every successful ranged shot (NOT a throw -- a grenade toss is quiet; its detonation
 	// emits via TileEngine::explode). Hearing radius scales mildly with ammo power
-	// (`8 + power/16`: a power-80 sonic weapon -> 13, a power-40 pistol -> 10). Emission is
-	// unconditional bookkeeping; the AI read path gates on Mod::getAIHearing, so with the
-	// flag off this is dead data pruned each turn. Auto-fire emits once per projectile --
+	// (`8 + power/16`: a power-80 sonic weapon -> 13, a power-40 pistol -> 10). emitNoise is
+	// gated internally on Mod::getAIHearing (zero writes when off -- post-34.9 hardening), so
+	// this call site stays unconditional. Auto-fire emits once per projectile --
 	// harmless duplicates (same pos/turn) that the read path de-factors on the newest tie.
 	if (_action.type != BA_THROW)
 	{
