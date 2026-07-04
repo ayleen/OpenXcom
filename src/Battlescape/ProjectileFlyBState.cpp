@@ -655,6 +655,22 @@ bool ProjectileFlyBState::createNewProjectile()
 		_parent->getSave()->emitNoise(_unit->getPosition(), 8 + ammoPower / 16);
 	}
 
+	// Phase 34.7 (Calypso): near-miss suppression scan. Same seam family as 34.8's noise
+	// emission above -- at this point the trajectory is finalized and the projectile is
+	// committed to fly, so its voxel path is the ground truth of which tiles it visits. The
+	// scan (gated at the mechanic inside applySuppression: flag off => single-branch no-op,
+	// byte-identical) finds units within 1 tile of the trajectory and applies the morale/energy
+	// pin. Same `!= BA_THROW` gate as noise: a grenade toss isn't volume fire (its detonation
+	// is a separate event that 34.7 does NOT suppress -- out of scope for this slice).
+	// Auto-fire emits one scan per projectile, which is correct: each bullet is its own
+	// near-miss opportunity and the per-victim per-turn cap (in BattleUnit::addNearMiss) is
+	// the safety valve against volley abuse.
+	if (_action.type != BA_THROW)
+	{
+		BattleUnit* shotTarget = _parent->getSave()->getTile(_action.target)->getUnit();
+		_parent->getSave()->applySuppression(projectile->getTrajectory(), _unit, shotTarget);
+	}
+
 	return true;
 }
 

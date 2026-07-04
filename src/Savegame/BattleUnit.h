@@ -88,6 +88,12 @@ class BattleUnit
 {
 private:
 	static const int SPEC_WEAPON_MAX = 4;
+	// Phase 34.7 (Calypso): suppression tuning constants. The per-turn cap stops a single
+	// auto-volley from panic-locking a victim (3 near-misses/turn); the pinned threshold flags
+	// units under sustained volume fire (>=2/turn) for the AI's suppression-aware scoring and,
+	// in 34.9, squad pin-and-flank. Chosen sanely per the plan; tune here if QA rebalances.
+	static const int SUPPRESSION_CAP_PER_TURN = 3;
+	static const int PINNED_THRESHOLD = 2;
 
 	UnitFaction _faction, _originalFaction;
 	UnitFaction _killedBy;
@@ -177,6 +183,11 @@ private:
 	int _tileLastSpottedByHostile = -1, _tileLastSpottedByNeutral = -1, _tileLastSpottedByPlayer = -1;
 	int _tileLastSpottedForBlindShotByHostile = -1, _tileLastSpottedForBlindShotByNeutral = -1, _tileLastSpottedForBlindShotByPlayer = -1;
 	bool _hasPanickedLastTurn = false;
+	// Phase 34.7 (Calypso): per-turn transient near-miss counter for ai.suppression. NOT
+	// serialized (reset in prepareNewTurn alongside _hasPanickedLastTurn's reset path) -- a
+	// loaded save starts every unit at 0 near-misses, which is correct (a new turn prepped
+	// since). A unit with >= PINNED_THRESHOLD near-misses this turn counts as pinned.
+	int _nearMissesThisTurn = 0;
 	std::map<Position, int, PositionComparator> _reachablePositions;
 	Position _positionWhenReachableWasUpdated;
 	bool _maxTUsWhenReachableWasUpdated = false;
@@ -873,6 +884,17 @@ public:
 	void updateEnemyKnowledge(int index, bool clue = false, bool door = false);
 	/// Brutal-AI: whether this unit panicked/berserked last turn.
 	bool hasPanickedLastTurn() const;
+	/// Phase 34.7 (Calypso): apply one near-miss suppression event to this unit (morale hit
+	/// + energy drain, per the mod's ai.suppressionMorale / ai.suppressionEnergy knobs). The
+	/// per-turn cap (SUPPRESSION_CAP_PER_TURN) is enforced here: once the cap is reached
+	/// further near-misses this turn are a no-op (returns false). Engine-symmetric: any
+	/// faction can suppress any faction; the caller excludes the shooter and the shot's target.
+	bool addNearMiss(int moraleLoss, int energyLoss);
+	/// Phase 34.7 (Calypso): a unit that took >= PINNED_THRESHOLD near-misses this turn is
+	/// pinned (under sustained volume fire). Transient per-turn state, never saved.
+	bool isPinned() const;
+	/// Phase 34.7 (Calypso): this turn's near-miss count (for AI read-back / tracing).
+	int getNearMissesThisTurn() const { return _nearMissesThisTurn; }
 	/// Brutal-AI: whether this unit is AI-driven (all non-player units; Calypso has no player autoplay).
 	bool isAIControlled() const;
 	/// Brutal-AI: relay the AI's "want to end turn" intent to/from the unit's AIModule.
