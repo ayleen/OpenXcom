@@ -61,6 +61,9 @@
 #include "TileEngine.h"
 #include "../Mod/RuleInterface.h"
 #include "../Ufopaedia/Ufopaedia.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoTutorial.h"
+#endif
 
 namespace OpenXcom
 {
@@ -722,6 +725,12 @@ void InventoryState::init()
 			_btnRank->setRedraw(false);
 		}
 	}
+#endif
+#ifdef __EMSCRIPTEN__
+	CalypsoTutorial::get().anchorAll({
+		{"inv.btnUnload", _btnUnload}, {"inv.txtWeight", _txtWeight},
+		{"inv.btnGround", _btnGround} });
+	CalypsoTutorial::get().fire(_game, "inventory.open");
 #endif
 }
 

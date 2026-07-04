@@ -55,6 +55,9 @@
 #include "../Savegame/SavedBattleGame.h"
 #include "../Mod/RuleInterface.h"
 #include "../Ufopaedia/Ufopaedia.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoTutorial.h"
+#endif
 
 namespace OpenXcom
 {
@@ -289,6 +292,9 @@ void CraftEquipmentState::init()
 	_firstInit = false;
 
 	touchComponentsRefresh();
+#ifdef __EMSCRIPTEN__
+	CalypsoTutorial::get().fire(_game, "craftequip.open");
+#endif
 }
 
 /**
