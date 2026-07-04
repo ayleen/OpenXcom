@@ -821,7 +821,8 @@ if(NOT EMSCRIPTEN AND BUILD_TESTING)
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/RealisticAccuracyTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/TerrainTacticsTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/HearingTest.cpp
-        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/SuppressionTest.cpp)
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/SuppressionTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/SquadCoordinationTest.cpp)
 
     add_executable(oxce_unit_tests ${OXCE_TEST_SOURCES})
     target_link_libraries(oxce_unit_tests PRIVATE oxce_test_doctest)

@@ -1006,6 +1006,15 @@ void AIModule::think(BattleAction *action)
 	_escapeAction.number = action->number;
 	_knownEnemies = countKnownTargets();
 	_visibleEnemies = selectNearestTarget();
+
+	// Phase 34.9 (Calypso): drop this unit's stale intent from the faction blackboard before it
+	// (re-)thinks, so the focus-fire / flank reads during its own target scoring below reflect
+	// only its squadmates' commitments (per-member self-exclusion). Runs before the brutal
+	// dispatch so it covers both paths. Gated + hostile-only; a no-op with the flag off.
+	if (_save->getMod()->getAISquadCoordination() && _unit->getFaction() == FACTION_HOSTILE)
+	{
+		_save->clearSquadMemberIntent(FACTION_HOSTILE, _unit->getId());
+	}
 	_spottingEnemies = getSpottingUnits(_unit->getPosition());
 	_melee = (_unit->getUtilityWeapon(BT_MELEE) != 0);
 	_rifle = false;
@@ -1100,6 +1109,8 @@ void AIModule::think(BattleAction *action)
 	if (_unit->isBrutal())
 	{
 		brutalThink(action);
+		// Phase 34.9 (Calypso): record the brutal path's finalized action on the squad blackboard.
+		declareSquadIntentFromAction(action);
 		return;
 	}
 
@@ -1298,6 +1309,10 @@ void AIModule::think(BattleAction *action)
 			action->type = BA_NONE;
 		}
 	}
+
+	// Phase 34.9 (Calypso): record the legacy path's finalized action on the squad blackboard
+	// (the brutal path records its own above, before returning).
+	declareSquadIntentFromAction(action);
 }
 
 
@@ -1803,6 +1818,31 @@ void AIModule::setupEscape()
 		}
 	}
 
+	// Phase 34.9 (Calypso): a badly wounded hostile (health < 1/3 of max) biases its escape toward
+	// the nearest friendly cluster centroid -- mirrors the Phase 32 civilian safety bias above
+	// (same shape, same weight 8). Gated + hostile-only; the centroid is the live squadmates'
+	// average position (the blackboard "knows member positions"). Off => haveCluster false =>
+	// the bias term below is skipped => byte-identical.
+	bool haveCluster = false;
+	Position clusterTarget(0, 0, 0);
+	int curToCluster = 0;
+	if (_save->getMod()->getAISquadCoordination()
+		&& _unit->getFaction() == FACTION_HOSTILE
+		&& _unit->getHealth() * 3 < _unit->getBaseStats()->health)
+	{
+		haveCluster = _save->getFriendlyClusterCentroid(FACTION_HOSTILE, _unit, clusterTarget);
+		// If the centroid is the unit's own tile the term would just penalize any step (mirrors
+		// the Phase 32 self==safety guard) -- drop it.
+		if (haveCluster && clusterTarget == selfPos)
+		{
+			haveCluster = false;
+		}
+		if (haveCluster)
+		{
+			curToCluster = Position::distance2d(selfPos, clusterTarget);
+		}
+	}
+
 	int dist = _aggroTarget ? Position::distance2d(_unit->getPosition(), _aggroTarget->getPosition()) : 0;
 
 	int bestTileScore = -100000;
@@ -1906,6 +1946,12 @@ void AIModule::setupEscape()
 		{
 			int candToSafety = Position::distance2d(_escapeAction.target, safetyTarget);
 			score += (curToSafety - candToSafety) * 8;
+		}
+		// Phase 34.9: reward tiles that bring a wounded alien closer to its squad cluster.
+		if (haveCluster)
+		{
+			int candToCluster = Position::distance2d(_escapeAction.target, clusterTarget);
+			score += (curToCluster - candToCluster) * 8;
 		}
 		int spotters = 0;
 		if (!tile)
@@ -3386,7 +3432,17 @@ void AIModule::extendedFireModeChoice(BattleActionCost& costAuto, BattleActionCo
 			// gated inside suppressionVolleyValue; flag off => +0 => byte-identical.
 			if (newScore > 0)
 			{
-				newScore += (int)suppressionVolleyValue(_attackAction.weapon);
+				const int suppressVal = (int)suppressionVolleyValue(_attackAction.weapon);
+				newScore += suppressVal;
+				// Phase 34.9 (Calypso): prefer suppressing a target a teammate has declared intent
+				// to FLANK -- pin it so the flanker can close (the F.E.A.R.-style flank/suppress
+				// loop). Doubles the suppression value on that target. Additive + gated; +0 when
+				// off, when suppression is off (suppressVal 0), or when no teammate is flanking it.
+				if (suppressVal > 0 && _save->getMod()->getAISquadCoordination() && _aggroTarget
+					&& _save->getSquadHasFlankIntent(_unit->getFaction(), _aggroTarget->getId()))
+				{
+					newScore += suppressVal;
+				}
 			}
 		}
 
@@ -3739,6 +3795,41 @@ AIAttackWeight AIModule::getTargetAttackWeight(BattleUnit* target) const
 		weight, weight,
 		_unit, target, _save
 	);
+
+	// Phase 34.9 (Calypso): pin-and-flank (legacy path). There is no distinct "flanking move" seam
+	// in either AI path (grep 'flank' -> 0 hits; the brutal AI uses cover-quality scoring, the
+	// legacy AI none), so the plan's "a unit choosing a flanking move prefers pinned targets" is
+	// realized as a target preference: an enemy pinned by suppression fire (34.7) is the one to
+	// press, so it gets a small weight bonus in selection. Guarded on weight > AIW_IGNORED so it
+	// only nudges already-known targets (never resurrects an ignored one). Hostile-only, like every
+	// sibling 34.9 hook: getTargetAttackWeight is reachable by civilian AI (Phase 32), which must
+	// stay on Phase 32 logic and never enter squad logic. Gated; +0 off => identical.
+	if (_save->getMod()->getAISquadCoordination()
+		&& _unit->getFaction() == FACTION_HOSTILE
+		&& weight > AIW_IGNORED
+		&& target->getFaction() != _unit->getFaction()
+		&& target->isPinned())
+	{
+		weight = (AIAttackWeight)(weight + AIW_SCALE / 2);
+	}
+
+	// Phase 34.9 (Calypso): soft focus-fire cap (legacy path). A target that >= 2 squadmates have
+	// already committed to is down-weighted so a fresh target outscores it and fire spreads -- but
+	// the floor (just above the threat threshold) keeps it a VALID target, so if it is the only
+	// option it is still engaged ("unless no alternative exists"). The reduction never increases
+	// the weight (weight/2 < weight for positive weights). Gated; the board reads empty when off,
+	// so the value is unchanged => byte-identical. Enemy targets only (friendly-AoE weights are
+	// non-positive and already below the floor).
+	if (_save->getMod()->getAISquadCoordination()
+		&& target->getFaction() != _unit->getFaction())
+	{
+		const AIAttackWeight floor = (AIAttackWeight)(_save->getMod()->getAITargetWeightThreatThreshold() + 1);
+		if (weight > floor
+			&& _save->getSquadAssignedAttackers(_unit->getFaction(), target->getId()) >= 2)
+		{
+			weight = std::max(floor, (AIAttackWeight)(weight / 2));
+		}
+	}
 
 	return weight;
 }
@@ -5402,6 +5493,24 @@ bool AIModule::brutalSelectSpottedUnitForSniper()
 					costHit.Energy += _energyCostToReachClosestPositionToBreakLos;
 				}
 				float score = brutalExtendedFireModeChoice(costAuto, costSnap, costAimed, costThrow, costHit, true, bestScore);
+				// Phase 34.9 (Calypso): soft focus-fire cap (ported path). The plan's anchor
+				// "brutalValidTarget" is a bool validity filter; the actual target RANKING happens
+				// here, so the down-weight lands on this score. A target >= 2 squadmates already
+				// committed to is halved so fire spreads; a single dogpiled target still competes
+				// (score stays > 0 => still chosen if it is the only viable one). Gated; empty
+				// board when off => no change => byte-identical.
+				if (score > 0.0f && _save->getMod()->getAISquadCoordination()
+					&& _save->getSquadAssignedAttackers(_unit->getFaction(), (*i)->getId()) >= 2)
+				{
+					score *= 0.5f;
+				}
+				// Phase 34.9 (Calypso): pin-and-flank (ported path) -- press a target pinned by
+				// suppression (34.7). No distinct flanking-move seam exists, so the preference is
+				// applied here at target ranking. Gated; unchanged when off (byte-identical).
+				if (score > 0.0f && _save->getMod()->getAISquadCoordination() && (*i)->isPinned())
+				{
+					score *= 1.25f;
+				}
 				if (score > bestScore)
 				{
 					bestScore = score;
@@ -5884,6 +5993,45 @@ float AIModule::suppressionVolleyValue(BattleItem* weapon) const
 }
 
 /**
+ * Phase 34.9 (Calypso): record this hostile's declared squad intent from its finalized action on
+ * the faction blackboard. Called at the tail of both the legacy dispatch and the ported brutal
+ * path. Classification from the action type: a direct attack (incl. a suppressing auto-volley)
+ * on _aggroTarget is ATTACK; a walk while a known enemy is selected is FLANK (repositioning /
+ * closing on it -- there is no distinct "flanking helper" in either path, so the move-while-
+ * -targeting is the faithful flank signal); a desperate escape is RETREAT. GATED: no-op unless
+ * ai.squadCoordination is on and the unit is FACTION_HOSTILE (squad coordination is a hostile-AI
+ * behavior per the DoD -- civilians stay on Phase 32 logic), so the flag-off path is byte-identical.
+ */
+void AIModule::declareSquadIntentFromAction(const BattleAction* action) const
+{
+	if (!_save->getMod()->getAISquadCoordination()) return;
+	if (_unit->getFaction() != FACTION_HOSTILE) return;
+	const BattleActionType t = action->type;
+	const bool isAttack = (t == BA_SNAPSHOT || t == BA_AUTOSHOT || t == BA_AIMEDSHOT ||
+	                       t == BA_HIT || t == BA_THROW || t == BA_LAUNCH);
+	SquadIntent intent = SquadIntent::NONE;
+	int targetId = -1;
+	if (isAttack && _aggroTarget)
+	{
+		intent = SquadIntent::ATTACK;
+		targetId = _aggroTarget->getId();
+	}
+	else if (t == BA_WALK && _aggroTarget)
+	{
+		intent = SquadIntent::FLANK;
+		targetId = _aggroTarget->getId();
+	}
+	else if (action->desperate)
+	{
+		intent = SquadIntent::RETREAT;
+	}
+	if (intent != SquadIntent::NONE)
+	{
+		_save->declareSquadIntent(FACTION_HOSTILE, _unit->getId(), intent, targetId);
+	}
+}
+
+/**
  * Scores a firing mode for a particular target based on a damage / TUs ratio
  * @param action Pointer to the BattleAction determining the firing mode
  * @param target Pointer to the BattleUnit we're trying to target
@@ -6185,6 +6333,14 @@ float AIModule::brutalScoreFiringMode(BattleAction* action, BattleUnit* target, 
 	// alone (those bullets never reach the target, so no near-miss). Additive + gated inside
 	// suppressionVolleyValue; flag off => +0, byte-identical.
 	float suppressionBonus = (action->type == BA_AUTOSHOT && accuracy > 0.0f) ? suppressionVolleyValue(action->weapon) : 0.0f;
+	// Phase 34.9 (Calypso): prefer suppressing a target a teammate has declared intent to FLANK --
+	// pin it so the flanker can close (the F.E.A.R.-style flank/suppress loop). Doubles the
+	// suppression bonus on that target. Gated; +0 when off, suppression off, or no teammate flanking.
+	if (suppressionBonus > 0.0f && _save->getMod()->getAISquadCoordination() && target
+		&& _save->getSquadHasFlankIntent(_unit->getFaction(), target->getId()))
+	{
+		suppressionBonus *= 2.0f;
+	}
 	return (damage + armorPreDamage) * accuracy * numberOfShots * dangerMod * explosionMod * targetQuality * damageTypeMod + suppressionBonus;
 }
 

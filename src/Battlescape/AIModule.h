@@ -225,6 +225,11 @@ public:
 	/// worth). Additive-only: callers add this to an auto-shot's base score so volume fire is
 	/// preferred over holding fire when direct hit chance is poor but a target is exposed.
 	float suppressionVolleyValue(BattleItem* weapon) const;
+	/// Phase 34.9 (Calypso): record this hostile unit's declared squad intent from its finalized
+	/// action, on the faction blackboard (attack types -> ATTACK on _aggroTarget, BA_WALK toward a
+	/// known enemy -> FLANK, desperate escape -> RETREAT). Gated on ai.squadCoordination and
+	/// FACTION_HOSTILE; a no-op otherwise. Called at the tail of both the legacy and brutal paths.
+	void declareSquadIntentFromAction(const BattleAction* action) const;
 	/// Used as multiplier for the throw-action in brutalScoreFiringMode
 	float brutalExplosiveEfficacy(Position targetPos, BattleUnit *attackingUnit, int radius, bool grenade = false, bool validOnly = false) const;
 	/// An inaccurate simplified check for line of fire from a specific position to a specific target

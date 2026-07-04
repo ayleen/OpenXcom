@@ -496,6 +496,11 @@ private:
 	// knob IS the tuning point), capped per turn per victim (see BattleUnit::addNearMiss).
 	int _aiSuppressionMorale;
 	int _aiSuppressionEnergy;
+	// Phase 34.9 (Calypso): master switch for the squad-coordination blackboard (soft focus-fire
+	// cap, pin-and-flank preference, wounded retreat toward the friendly cluster). Default off;
+	// with the flag off the per-faction blackboard stays empty and every AI read hook degrades
+	// to its pre-34.9 value, so native AND WASM behavior is byte-for-byte unchanged.
+	bool _aiSquadCoordination;
 	// Phase 34.5: Brutal-AI port knobs (adapted from Brutal-OXCE by Xilmi). Folded into the
 	// per-mod ai: block instead of global engine Options for parity with smartCivilians.
 	bool _aiBrutalAI;
@@ -1228,6 +1233,11 @@ public:
 	/// Phase 34.7 (Calypso): per-near-miss energy drain (default 10). Flat; the knob is the
 	/// tuning point, capped per turn per victim in BattleUnit::addNearMiss.
 	int getAISuppressionEnergy() const { return _aiSuppressionEnergy; }
+	/// Phase 34.9 (Calypso): master switch for squad coordination (blackboard-lite: soft
+	/// focus-fire cap, pin-and-flank preference, wounded retreat toward the friendly cluster).
+	/// Default off; with the flag off the blackboard stays empty and every read hook degrades
+	/// to its pre-34.9 value, so behavior is byte-identical.
+	bool getAISquadCoordination() const { return _aiSquadCoordination; }
 	/// Brutal-AI (Phase 34.5): master switch for the ported Brutal-OXCE hostile AI (default off -> byte-identical vanilla).
 	bool getAIBrutalAI() const { return _aiBrutalAI; }
 	/// Brutal-AI: hostile omniscience level (-1 no squadsight .. 0 fair .. 2 wallhack). Default 0 (fair). Only fair levels are enabled in the mod.
