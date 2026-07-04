@@ -6,6 +6,7 @@ set ( root_src
 )
 set ( calypso_src
   Calypso/MapGl.cpp
+  Calypso/ModHd.cpp
 )
 set ( basescape_src
   Basescape/BaseInfoState.cpp
