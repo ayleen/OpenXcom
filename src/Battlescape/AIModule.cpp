@@ -3801,8 +3801,11 @@ AIAttackWeight AIModule::getTargetAttackWeight(BattleUnit* target) const
 	// legacy AI none), so the plan's "a unit choosing a flanking move prefers pinned targets" is
 	// realized as a target preference: an enemy pinned by suppression fire (34.7) is the one to
 	// press, so it gets a small weight bonus in selection. Guarded on weight > AIW_IGNORED so it
-	// only nudges already-known targets (never resurrects an ignored one). Gated; +0 off => identical.
+	// only nudges already-known targets (never resurrects an ignored one). Hostile-only, like every
+	// sibling 34.9 hook: getTargetAttackWeight is reachable by civilian AI (Phase 32), which must
+	// stay on Phase 32 logic and never enter squad logic. Gated; +0 off => identical.
 	if (_save->getMod()->getAISquadCoordination()
+		&& _unit->getFaction() == FACTION_HOSTILE
 		&& weight > AIW_IGNORED
 		&& target->getFaction() != _unit->getFaction()
 		&& target->isPinned())
