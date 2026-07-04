@@ -1739,6 +1739,37 @@ void Mod::loadFileCalypso(YAML::YamlNodeReader& reader)
 	}
 	// Phase 25 R5: floating unit nameplates / HP-TU-energy bars (off by default).
 	reader["calypso_hud_overlay"].tryReadVal<bool>(_calypsoHudOverlay);
+	// Phase 37 (Calypso): parse the top-level `tutorial:` block (content lives
+	// in the calypso-tutorial mod). Each step is built from its mapping; a
+	// step missing id/trigger/pages is logged and skipped per the ruleset
+	// schema (phase-37-tutorial.md §2). chainDelayMs is read+discarded.
+	if (reader["tutorial"])
+	{
+		auto tutorialReader = reader["tutorial"];
+		if (tutorialReader["steps"])
+		{
+			for (const auto& entry : tutorialReader["steps"].children())
+			{
+				CalypsoTutorialStep step;
+				step.id         = entry["id"].readVal<std::string>("");
+				step.trigger    = entry["trigger"].readVal<std::string>("");
+				step.triggerArg = entry["triggerArg"].readVal<std::string>("");
+				step.anchor     = entry["anchor"].readVal<std::string>("");
+				step.pages      = entry["pages"].readVal<std::vector<std::string>>(std::vector<std::string>{});
+				step.pageAnchors= entry["pageAnchors"].readVal<std::vector<std::string>>(std::vector<std::string>{});
+				// chainDelayMs is reserved for future use — read + discard.
+				int chainDelayMs = 0;
+				entry["chainDelayMs"].tryReadVal<int>(chainDelayMs);
+				(void)chainDelayMs;
+				if (step.id.empty() || step.trigger.empty() || step.pages.empty())
+				{
+					Log(LOG_WARNING) << "tutorial: step missing id/trigger/pages; skipped";
+					continue;
+				}
+				_calypsoTutorialSteps.push_back(std::move(step));
+			}
+		}
+	}
 }
 
 } // namespace OpenXcom
