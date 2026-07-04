@@ -3755,6 +3755,24 @@ AIAttackWeight AIModule::getTargetAttackWeight(BattleUnit* target) const
 		_unit, target, _save
 	);
 
+	// Phase 34.9 (Calypso): soft focus-fire cap (legacy path). A target that >= 2 squadmates have
+	// already committed to is down-weighted so a fresh target outscores it and fire spreads -- but
+	// the floor (just above the threat threshold) keeps it a VALID target, so if it is the only
+	// option it is still engaged ("unless no alternative exists"). The reduction never increases
+	// the weight (weight/2 < weight for positive weights). Gated; the board reads empty when off,
+	// so the value is unchanged => byte-identical. Enemy targets only (friendly-AoE weights are
+	// non-positive and already below the floor).
+	if (_save->getMod()->getAISquadCoordination()
+		&& target->getFaction() != _unit->getFaction())
+	{
+		const AIAttackWeight floor = (AIAttackWeight)(_save->getMod()->getAITargetWeightThreatThreshold() + 1);
+		if (weight > floor
+			&& _save->getSquadAssignedAttackers(_unit->getFaction(), target->getId()) >= 2)
+		{
+			weight = std::max(floor, (AIAttackWeight)(weight / 2));
+		}
+	}
+
 	return weight;
 }
 
@@ -5417,6 +5435,17 @@ bool AIModule::brutalSelectSpottedUnitForSniper()
 					costHit.Energy += _energyCostToReachClosestPositionToBreakLos;
 				}
 				float score = brutalExtendedFireModeChoice(costAuto, costSnap, costAimed, costThrow, costHit, true, bestScore);
+				// Phase 34.9 (Calypso): soft focus-fire cap (ported path). The plan's anchor
+				// "brutalValidTarget" is a bool validity filter; the actual target RANKING happens
+				// here, so the down-weight lands on this score. A target >= 2 squadmates already
+				// committed to is halved so fire spreads; a single dogpiled target still competes
+				// (score stays > 0 => still chosen if it is the only viable one). Gated; empty
+				// board when off => no change => byte-identical.
+				if (score > 0.0f && _save->getMod()->getAISquadCoordination()
+					&& _save->getSquadAssignedAttackers(_unit->getFaction(), (*i)->getId()) >= 2)
+				{
+					score *= 0.5f;
+				}
 				if (score > bestScore)
 				{
 					bestScore = score;
