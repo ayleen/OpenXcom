@@ -74,6 +74,9 @@
 #include "../Savegame/MissionStatistics.h"
 #include "../Savegame/BattleUnitStatistics.h"
 #include "../fallthrough.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoTutorial.h"
+#endif
 
 namespace OpenXcom
 {
@@ -800,6 +803,17 @@ void DebriefingState::init()
 	{
 		_game->getMod()->playMusic(Mod::DEBRIEF_MUSIC_BAD);
 	}
+#ifdef __EMSCRIPTEN__
+	CalypsoTutorial::get().fire(_game, "battle.debriefing");
+	for (const auto& pair : _recoveredItems)
+	{
+		if (pair.first && pair.first->isAlien() && pair.first->getPrisonType() > 0)
+		{
+			CalypsoTutorial::get().fire(_game, "alien.captured");
+			break;
+		}
+	}
+#endif
 }
 
 /**

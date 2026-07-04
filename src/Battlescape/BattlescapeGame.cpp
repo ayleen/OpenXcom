@@ -59,6 +59,9 @@
 #include "../Savegame/BattleUnitStatistics.h"
 #include "ConfirmEndMissionState.h"
 #include "../fmath.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoTutorial.h"
+#endif
 
 namespace OpenXcom
 {
@@ -2177,6 +2180,9 @@ void BattlescapeGame::psiAttackMessage(BattleActionAttack attack, BattleUnit *vi
 			// show a little infobox with the name of the unit and "... is under alien control"
 			if (attack.type == BA_MINDCONTROL)
 				game->pushState(new InfoboxState(game->getLanguage()->getString("STR_IS_UNDER_ALIEN_CONTROL", victim->getGender()).arg(victim->getName(game->getLanguage()))));
+#ifdef __EMSCRIPTEN__
+				CalypsoTutorial::get().fire(game, "battle.mcAttack");
+#endif
 		}
 		else
 		{

@@ -60,6 +60,9 @@
 #include "../Engine/CrossPlatform.h"
 #include "../Interface/Cursor.h"
 #ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoTutorial.h"
+#endif
+#ifdef __EMSCRIPTEN__
 #include "../Engine/GpuInit.h"
 extern "C" void calypso_log_heap(const char *tag);  // M5: defined in EmscriptenHarness.cpp
 extern "C" int  g_calypsoTabHiddenPause;            // M6h: set by calypso_on_tab_hidden()
@@ -992,6 +995,19 @@ void BattlescapeState::init()
 			_game->pushState(new SaveGameState(OPT_BATTLESCAPE, SAVE_AUTO_BATTLESCAPE, _palette, currentTurn));
 		}
 	}
+#ifdef __EMSCRIPTEN__
+	CalypsoTutorial::get().anchorAll({
+		{"bs.numTU", _numTimeUnits}, {"bs.btnKneel", _btnKneel},
+		{"bs.btnEndTurn", _btnEndTurn}, {"bs.btnInventory", _btnInventory},
+		{"bs.btnCenter", _btnCenter}, {"bs.btnNextSoldier", _btnNextSoldier},
+		{"bs.btnAbort", _btnAbort},
+		{"bs.reserveRow", _btnReserveNone, _btnReserveAuto},
+		{"bs.hands", _btnLeftHandItem, _btnRightHandItem},
+		{"bs.btnMapUpDown", _btnMapUp, _btnMapDown} });
+	CalypsoTutorial::get().fire(_game, "battle.start");
+	if (_save->getGlobalShade() >= 9)
+		CalypsoTutorial::get().fire(_game, "battle.night");
+#endif
 }
 
 /**
@@ -2467,6 +2483,10 @@ void BattlescapeState::updateSoldierInfo(bool checkFOV)
 #endif
 
 	toggleKneelButton(battleUnit);
+#ifdef __EMSCRIPTEN__
+	if (battleUnit->getFatalWounds() > 0)
+		CalypsoTutorial::get().fire(_game, "battle.fatalWounds");
+#endif
 
 	if (checkFOV)
 	{
@@ -2487,6 +2507,10 @@ void BattlescapeState::updateSoldierInfo(bool checkFOV)
 
 	// remember where red indicators turn green
 	_numberOfDirectlyVisibleUnits = j;
+#ifdef __EMSCRIPTEN__
+	if (_numberOfDirectlyVisibleUnits > 0)
+		CalypsoTutorial::get().fire(_game, "battle.enemySpotted");
+#endif
 
 	// go through all units on the map
 	for (auto* bu : *_save->getUnits())
