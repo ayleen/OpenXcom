@@ -2662,6 +2662,12 @@ bool SavedBattleGame::getCivilianHuntZone(Position &out)
  */
 void SavedBattleGame::emitNoise(const Position &pos, int loudness)
 {
+	// Post-34.9 hardening (Codex review): gate the write itself. Originally emission was
+	// unconditional transient bookkeeping (the 34.5 knowledge-layer convention), but 34.7/34.9
+	// tightened the standard to zero-writes-when-off, and unlike the shared knowledge layer this
+	// list has exactly one consumer behind exactly this flag -- so the gate is free and makes the
+	// off path write-silent too.
+	if (!getMod()->getAIHearing()) return;
 	if (loudness <= 0) return;
 	_noiseEvents.push_back(NoiseEvent{pos, _turn, loudness});
 }
