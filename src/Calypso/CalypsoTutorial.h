@@ -20,6 +20,7 @@
 #include <set>
 #include <deque>
 #include <map>
+#include <initializer_list>
 #include <SDL.h>
 
 namespace OpenXcom
@@ -28,12 +29,15 @@ namespace OpenXcom
 // Forward declarations to keep this header light.
 namespace YAML { class YamlNodeReader; class YamlNodeWriter; }
 class Game;
+class Surface;
 struct CalypsoTutorialStep {
 	std::string id, trigger, triggerArg;
 	std::vector<std::string> pages;       // extraStrings ids
 	std::vector<std::string> pageAnchors; // "" or anchor keys; empty vector ok
 	std::string anchor;                   // default anchor for all pages
 };
+
+struct CalypsoAnchorSpec { std::string key; Surface* a; Surface* b = nullptr; };
 
 class CalypsoTutorial {
 public:
@@ -42,6 +46,7 @@ public:
 	          const std::string& arg = "");              // queue matching steps
 	void pump(Game* game);                               // per-frame; pushes popup if queued
 	void anchor(const std::string& key, int x, int y, int w, int h);
+	void anchorAll(std::initializer_list<CalypsoAnchorSpec> specs);
 	bool anchorRect(const std::string& key, SDL_Rect& out) const;
 	void markShown(const std::string& stepId);
 	void disableForCampaign();

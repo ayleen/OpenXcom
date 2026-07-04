@@ -42,6 +42,10 @@
 #include "../Mod/RuleInterface.h"
 #include "../Mod/RuleVideo.h"
 
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoTutorial.h"
+#endif
+
 namespace OpenXcom
 {
 /**
@@ -301,6 +305,9 @@ MonthlyReportState::MonthlyReportState(Globe *globe) : _gameOver(0), _ratingTota
 			_game->getSavedGame()->spawnEvent(exTraitor->getRejoinedXcomEvent());
 		}
 	}
+#ifdef __EMSCRIPTEN__
+	CalypsoTutorial::get().fire(_game, "monthly.report");
+#endif
 }
 
 /**

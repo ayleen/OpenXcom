@@ -59,6 +59,10 @@
 #include "../Geoscape/Globe.h"
 #include "../Mod/RuleGlobe.h"
 
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoTutorial.h"
+#endif
+
 namespace OpenXcom
 {
 
@@ -246,6 +250,14 @@ void BasescapeState::init()
 			_btnNewBase->setVisible(false);
 		}
 	}
+#ifdef __EMSCRIPTEN__
+	CalypsoTutorial::get().anchorAll({
+		{"base.view", _view}, {"base.btnResearch", _btnResearch},
+		{"base.btnManufacture", _btnManufacture}, {"base.btnPurchase", _btnPurchase},
+		{"base.btnSell", _btnSell}, {"base.btnCrafts", _btnCrafts},
+		{"base.btnSoldiers", _btnSoldiers} });
+	CalypsoTutorial::get().fire(_game, "basescape.enter");
+#endif
 }
 
 /**

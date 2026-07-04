@@ -12,8 +12,10 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <algorithm>
 
 #include "CalypsoTutorial.h"
+#include "../Engine/Surface.h"
 #include "CalypsoTutorialState.h"
 #include "../Engine/Game.h"
 #include "../Engine/Options.h"
@@ -79,6 +81,28 @@ void CalypsoTutorial::pump(Game* game)
 void CalypsoTutorial::anchor(const std::string& key, int x, int y, int w, int h)
 {
 	_anchors[key] = SDL_Rect{x, y, w, h};
+}
+
+void CalypsoTutorial::anchorAll(std::initializer_list<CalypsoAnchorSpec> specs)
+{
+	for (const auto& s : specs)
+	{
+		if (!s.a) continue;
+		int x = s.a->getX(), y = s.a->getY();
+		int w = s.a->getWidth(), h = s.a->getHeight();
+		if (s.b)
+		{
+			int ax2 = s.a->getX() + s.a->getWidth();
+			int ay2 = s.a->getY() + s.a->getHeight();
+			int bx2 = s.b->getX() + s.b->getWidth();
+			int by2 = s.b->getY() + s.b->getHeight();
+			x = std::min(s.a->getX(), s.b->getX());
+			y = std::min(s.a->getY(), s.b->getY());
+			w = std::max(ax2, bx2) - x;
+			h = std::max(ay2, by2) - y;
+		}
+		anchor(s.key, x, y, w, h);
+	}
 }
 
 bool CalypsoTutorial::anchorRect(const std::string& key, SDL_Rect& out) const
