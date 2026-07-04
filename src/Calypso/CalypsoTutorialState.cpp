@@ -49,7 +49,7 @@ CalypsoTutorialState::CalypsoTutorialState(std::vector<const CalypsoTutorialStep
 
 	// Create objects — highlight first so it sits behind the window (add() order
 	// is ascending Z). Sizes/positions are in 320x200 design space.
-	_highlight = new Surface(320, 200, 0, 0);
+	_highlight = new Surface(Options::baseXResolution, Options::baseYResolution, 0, 0);
 	_window    = new Window(this, 240, 72, 40, 124, POPUP_BOTH);
 	_txtTitle  = new Text(228, 16, 46, 130);
 	_txtBody   = new Text(228, 40, 46, 148);
@@ -78,6 +78,15 @@ CalypsoTutorialState::CalypsoTutorialState(std::vector<const CalypsoTutorialStep
 
 	enableUiScaling(320, 200, 0.75f);
 	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
+
+	// The highlight overlay is drawn in base-resolution pixel space (anchors are
+	// full-framebuffer coords), so it must NOT be UI-scaled like the popup panel.
+	excludeFromUiScaling(_highlight);
+	_highlight->setX(0);
+	_highlight->setY(0);
+	_highlight->setWidth(Options::baseXResolution);
+	_highlight->setHeight(Options::baseYResolution);
+	_highlight->setPalette(getPalette());
 
 	// Set up objects
 	setWindowBackground(_window, "pauseMenu");
@@ -236,55 +245,33 @@ std::string CalypsoTutorialState::curAnchorKey() const
 }
 
 /**
- * Redraws the pulsing 2px border around the current page's anchor rect.
+ * Redraws the pulsing border around the current page's anchor rect.
  * Clears the overlay to transparent first; if there is no anchor for this
  * page the popup simply shows without a border.
- *
- * Coordinate space: the highlight surface is resized by enableUiScaling to
- * fill the logical buffer, while anchors are registered in 320x200 design
- * space. We derive the live scale (surface / 320x200) and draw in surface
- * pixel space so the border lines up with the on-screen element. Border
- * thickness/gap are in screen pixels (constant regardless of scale).
  */
 void CalypsoTutorialState::drawHighlight()
 {
 	_highlight->clear();
 
 	SDL_Rect r;
-	if (!CalypsoTutorial::get().anchorRect(curAnchorKey(), r)) return; // no anchor → no border
+	if (!CalypsoTutorial::get().anchorRect(curAnchorKey(), r)) return; // no anchor -> no border
 
-	// Pulse colour: alternate the pauseMenu window element colour with a +4
-	// offset every 15 think() ticks. getElementOptional + INT_MAX guard keeps
-	// this safe if the interface element is ever absent.
-	RuleInterface* iface = _game->getMod()->getInterface("pauseMenu", false);
-	const Element* el = iface ? iface->getElementOptional("window") : nullptr;
-	Uint8 base = (el && el->color != INT_MAX) ? (Uint8)el->color : 13;
-	Uint8 alt  = (Uint8)(base + 4);
-	Uint8 color = (((_pulse / 15) % 2) == 0) ? base : alt;
-
-	// Design→pixel scale (uniform; enableUiScaling preserves aspect).
-	float sx = (float)_highlight->getWidth()  / 320.0f;
-	float sy = (float)_highlight->getHeight() / 200.0f;
-	float s = (sx < sy ? sx : sy);
-	if (s <= 0.0f) s = 1.0f;
-
-	// 2px screen-space frame around the anchor, inflated by 2px so it surrounds
-	// (not covers) the element. Surface::drawRect clamps to the surface bounds,
-	// so out-of-bounds edges (anchors near the screen edge) are safely clipped.
-	const int pad = 2;    // screen px gap around the anchor
-	const int thick = 2;  // screen px border thickness
-	int ax = (int)(r.x * s) - pad;
-	int ay = (int)(r.y * s) - pad;
-	int aw = (int)(r.w * s) + 2 * pad;
-	int ah = (int)(r.h * s) + 2 * pad;
+	// Anchors are in base-resolution pixel space and the overlay is a full-frame,
+	// un-scaled surface, so draw the frame at the raw rect. Palette index 1 is a
+	// bright UI colour that stays visible across the game's palettes; a small pad
+	// pulse (every ~12 ticks) gives a "targeting reticle" breathing effect.
+	const Uint8 color = 1;
+	const int pad = 4 + (((_pulse / 12) % 2) ? 3 : 0);
+	const int thick = 3;
+	int ax = r.x - pad, ay = r.y - pad;
+	int aw = r.w + 2 * pad, ah = r.h + 2 * pad;
 	if (aw < 1) aw = 1;
 	if (ah < 1) ah = 1;
 
-	SDL_Rect top   { ax,           ay,            aw, thick };
-	SDL_Rect bottom{ ax,           ay + ah - thick, aw, thick };
-	SDL_Rect left  { ax,           ay,            thick, ah };
-	SDL_Rect right { ax + aw - thick, ay,          thick, ah };
-
+	SDL_Rect top    { ax,              ay,               aw,    thick };
+	SDL_Rect bottom { ax,              ay + ah - thick,  aw,    thick };
+	SDL_Rect left   { ax,              ay,               thick, ah };
+	SDL_Rect right  { ax + aw - thick, ay,               thick, ah };
 	_highlight->drawRect(&top, color);
 	_highlight->drawRect(&bottom, color);
 	_highlight->drawRect(&left, color);
