@@ -448,6 +448,7 @@ Mod::Mod() :
 	_aiTerrainTactics(false),
 	_aiHearing(false),
 	_aiSuppression(false), _aiSuppressionMorale(5), _aiSuppressionEnergy(10),
+	_aiSquadCoordination(false),
 	_aiBrutalAI(false), _aiCheatMode(0), _aiAvoidMines(true), _aiPerformanceOptimization(false),
 	_aiCivilianGuardChance(0),
 	_aiReactionFireThreshold(0), _aiReactionFireThresholdCiv(0),
@@ -4256,6 +4257,9 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 		nodeAI.tryRead("suppression", _aiSuppression);
 		nodeAI.tryRead("suppressionMorale", _aiSuppressionMorale);
 		nodeAI.tryRead("suppressionEnergy", _aiSuppressionEnergy);
+		// Phase 34.9 (Calypso): squad-coordination blackboard master switch (focus-fire cap,
+		// pin-and-flank, wounded retreat). Off => blackboard stays empty, byte-identical.
+		nodeAI.tryRead("squadCoordination", _aiSquadCoordination);
 		// Phase 34.5: Brutal-AI port knobs (adapted from Brutal-OXCE by Xilmi).
 		nodeAI.tryRead("brutalAI", _aiBrutalAI);
 		nodeAI.tryRead("aiCheatMode", _aiCheatMode);
