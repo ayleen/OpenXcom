@@ -50,7 +50,13 @@ void CalypsoTutorial::fire(Game* game, const std::string& event, const std::stri
 	for (const auto& step : steps)
 	{
 		if (step.trigger != event) continue;
-		if (!step.triggerArg.empty() && step.triggerArg != arg) continue;
+		if (!step.triggerArgs.empty())
+		{
+			bool hit = false;
+			for (const auto& a : step.triggerArgs) if (a == arg) { hit = true; break; }
+			if (!hit) continue;
+		}
+		else if (!step.triggerArg.empty() && step.triggerArg != arg) continue;
 		if (_shown.count(step.id) != 0) continue;
 		// Skip if already queued (match by id).
 		bool alreadyQueued = false;

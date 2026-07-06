@@ -32,6 +32,7 @@ class Game;
 class Surface;
 struct CalypsoTutorialStep {
 	std::string id, trigger, triggerArg;
+	std::vector<std::string> triggerArgs; // OR-match; overrides triggerArg if non-empty
 	std::vector<std::string> pages;       // extraStrings ids
 	std::vector<std::string> pageAnchors; // "" or anchor keys; empty vector ok
 	std::string anchor;                   // default anchor for all pages
