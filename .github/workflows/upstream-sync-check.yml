@@ -1,0 +1,39 @@
+name: Upstream sync check
+on:
+  schedule:
+    - cron: '0 6 1 * *'   # 06:00 UTC, 1st of every month
+  workflow_dispatch: {}
+permissions:
+  contents: read
+  issues: write
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Count pending upstream commits
+        id: cnt
+        run: |
+          git remote add upstream https://github.com/MeridianOXC/OpenXcom.git
+          git fetch upstream oxce-plus --quiet
+          echo "count=$(git rev-list --count HEAD..upstream/oxce-plus)" >> "$GITHUB_OUTPUT"
+      - name: Open or update reminder issue
+        if: steps.cnt.outputs.count != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COUNT: ${{ steps.cnt.outputs.count }}
+        run: |
+          gh label create upstream-sync --force --color FBCA04 \
+            --description "Monthly upstream OXCE merge reminder"
+          existing=$(gh issue list --label upstream-sync --state open \
+                     --json number --jq '.[0].number // empty')
+          body="Upstream has $COUNT commit(s) not in oxce-plus. Follow the ritual in calypso docs/ci-and-releases.md § Upstream sync."
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "$(date +%Y-%m): still pending — $body"
+          else
+            gh issue create --label upstream-sync \
+              --title "Upstream sync $(date +%Y-%m): $COUNT commits pending" \
+              --body "$body"
+          fi

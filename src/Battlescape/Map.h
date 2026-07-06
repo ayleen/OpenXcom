@@ -153,10 +153,12 @@ private:
 	static void alphaOverARGB(SDL_Surface *src, SDL_Surface *dst, int dstX, int dstY);
 
 	void drawHdNumber(Surface *dest, int x, int y, int value, Uint32 colorArgb);
-	/// Phase 25 R5: floating HD nameplate + HP/TU/energy bars over each player
-	/// unit (Emscripten HD path; gated by Mod::getCalypsoHudOverlay).
-	void drawUnitNameplates(Surface *surface);
 #ifdef __EMSCRIPTEN__
+	/// Phase 25 R5: floating HD nameplate + HP/TU/energy bars over each player
+	/// unit (Emscripten HD path; gated by Mod::getCalypsoHudOverlay). Defined in
+	/// Calypso/MapGl.cpp; declared here under the guard so a native build cannot
+	/// reference a symbol that has no native definition (Phase 36).
+	void drawUnitNameplates(Surface *surface);
 	/// drawUnitNameplates caches (per battle): the selected unit's name surface key
 	/// (rebuilt only on selection change, not every frame) and the HUD bar colours
 	/// resolved from PAL_BATTLESCAPE (resolved once; the palette is constant in-battle).

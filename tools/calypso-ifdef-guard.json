@@ -1,0 +1,9 @@
+{
+  "defaultMaxLines": 20,
+  "hookMaxLines": 5,
+  "frozen": [
+    "src/Battlescape/Map.cpp",
+    "src/Mod/Mod.cpp",
+    "src/Battlescape/BattlescapeState.cpp"
+  ]
+}

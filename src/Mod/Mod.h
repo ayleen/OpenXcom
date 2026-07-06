@@ -456,6 +456,9 @@ private:
 	std::map<std::string, LazyGeoEntry> _lazyGeoSurfaces;
 	/// L10: decodes a registered lazy geo surface on first request.
 	void materializeGeoSurface(const std::string &name);
+	/// Phase 36: Calypso-only ruleset keys (globeTextures/tileAtlas/hdTiles/
+	/// battlescapeTileScale/...) parsed out of loadFile; body in Calypso/ModHd.cpp.
+	void loadFileCalypso(YAML::YamlNodeReader& reader);
 #endif
 	std::map<std::string, CustomPalettes *> _customPalettes;
 	std::vector<std::pair<std::string, ExtraSounds *> > _extraSounds;
