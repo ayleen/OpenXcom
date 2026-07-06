@@ -50,6 +50,9 @@ public:
 	void anchorAll(std::initializer_list<CalypsoAnchorSpec> specs);
 	bool anchorRect(const std::string& key, SDL_Rect& out) const;
 	void markShown(const std::string& stepId);
+	bool wasShown(const std::string& id) const { return _shown.count(id) != 0; }
+	bool checklistOpen() const { return _checklistOpen; }
+	void setChecklistOpen(bool v) { _checklistOpen = v; }
 	void disableForCampaign();
 	bool isActive(const Game* game) const;               // option && campaign flag
 	void save(YAML::YamlNodeWriter writer) const;        // persistence (wired in 37.4); by value (matches AlienStrategy::save)
@@ -64,6 +67,7 @@ private:
 	CalypsoTutorial() {}
 	std::set<std::string> _shown;
 	bool _campaignEnabled = true;
+	bool _checklistOpen = false; ///< persisted panel open/closed state (39.4)
 	bool _holdWhileDogfight = false;
 	bool _popupActive = false; ///< a CalypsoTutorialState is on the stack; suppress re-push
 	std::deque<const CalypsoTutorialStep*> _queue;

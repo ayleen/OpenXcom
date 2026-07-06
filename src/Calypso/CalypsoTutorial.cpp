@@ -137,6 +137,7 @@ void CalypsoTutorial::resetCampaign()
 	_queue.clear();
 	_holdWhileDogfight = false;
 	_popupActive = false;
+	_checklistOpen = false;
 }
 
 void CalypsoTutorial::save(YAML::YamlNodeWriter writer) const
@@ -148,6 +149,7 @@ void CalypsoTutorial::save(YAML::YamlNodeWriter writer) const
 	// (matches the SavedGame.cpp "mods" precedent); convert here.
 	std::vector<std::string> shownVec(_shown.begin(), _shown.end());
 	writer.write("shown", shownVec);
+	writer.write("checklistOpen", _checklistOpen);
 }
 
 void CalypsoTutorial::load(const YAML::YamlNodeReader& reader)
@@ -161,6 +163,7 @@ void CalypsoTutorial::load(const YAML::YamlNodeReader& reader)
 		auto shownVec = reader["shown"].readVal<std::vector<std::string>>(std::vector<std::string>{});
 		for (const auto& id : shownVec) _shown.insert(id);
 	}
+	_checklistOpen = reader["checklistOpen"].readVal<bool>(false);
 }
 
 void CalypsoTutorial::dump() const
