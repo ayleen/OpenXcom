@@ -810,6 +810,8 @@ void DebriefingState::init()
 		if (pair.first && pair.first->isAlien() && pair.first->getPrisonType() > 0)
 		{
 			CalypsoTutorial::get().fire(_game, "alien.captured");
+			if (_base && _base->getFreeContainment(pair.first->getPrisonType()) <= 0)
+				CalypsoTutorial::get().fire(_game, "alien.capturedNoContainment");
 			break;
 		}
 	}
