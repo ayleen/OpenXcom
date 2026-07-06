@@ -23,6 +23,7 @@
 #include <string>
 #include <time.h>
 #include <stdint.h>
+#include <memory>
 #include "GameTime.h"
 #include "../Mod/RuleAlienMission.h"
 #include "../Mod/RuleEvent.h"
@@ -37,6 +38,7 @@ namespace OpenXcom
 {
 
 class Mod;
+namespace Calypso { class Economy; }
 class GameTime;
 class Country;
 class Base;
@@ -178,9 +180,17 @@ private:
 	bool _alienContainmentChecked;
 	ScriptValues<SavedGame> _scriptValues;
 
+#ifdef __EMSCRIPTEN__
+	std::unique_ptr<Calypso::Economy> _calypsoEconomy;   // Phase 38: per-campaign economy state
+#endif
+
 	static SaveInfo getSaveInfo(const std::string &file, Language *lang);
 public:
 	static const std::string AUTOSAVE_GEOSCAPE, AUTOSAVE_BATTLESCAPE, QUICKSAVE;
+#ifdef __EMSCRIPTEN__
+	/// Phase 38 (Calypso): per-campaign economy runtime. Never null under emscripten.
+	Calypso::Economy* getCalypsoEconomy() const { return _calypsoEconomy.get(); }
+#endif
 	/// Creates a new saved game.
 	SavedGame();
 	/// Cleans up the saved game.

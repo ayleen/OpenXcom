@@ -30,6 +30,9 @@
 #include "../version.h"
 #include "../Engine/Logger.h"
 #include "../Mod/Mod.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoEconomy.h"
+#endif
 #include "../Engine/RNG.h"
 #include "../Engine/Exception.h"
 #include "../Engine/Options.h"
@@ -130,6 +133,9 @@ SavedGame::SavedGame() :
 	{
 		_globalCraftLoadout[j] = new ItemContainer();
 	}
+#ifdef __EMSCRIPTEN__
+	_calypsoEconomy = std::make_unique<Calypso::Economy>();
+#endif
 }
 
 /**
@@ -612,6 +618,12 @@ void SavedGame::load(const std::string &filename, Mod *mod, Language *lang)
 	reader.tryRead("hiddenPurchaseItems", _hiddenPurchaseItemsMap);
 	reader.tryRead("customRuleCraftDeployments", _customRuleCraftDeployments);
 
+#ifdef __EMSCRIPTEN__
+	if (auto ecoNode = reader["calypsoEconomy"])
+		_calypsoEconomy->load(ecoNode);
+	_calypsoEconomy->bindRules(&mod->getCalypsoEconomyRules());
+#endif
+
 	for (const auto& base : reader["bases"].children())
 	{
 		Base *b = new Base(mod);
@@ -902,6 +914,11 @@ void SavedGame::save(const std::string &filename, Mod *mod) const
 	if (_battleGame)
 		_battleGame->save(writer["battleGame"]);
 	_scriptValues.save(writer.toBase(), mod->getScriptGlobal());
+
+#ifdef __EMSCRIPTEN__
+	if (_calypsoEconomy)
+		_calypsoEconomy->save(writer["calypsoEconomy"]);
+#endif
 
 	// concatenate header + separator + body
 	// per yaml standard, "bare documents" in a yaml "stream" can be separated by either a "document end" or "directives end" marker line
