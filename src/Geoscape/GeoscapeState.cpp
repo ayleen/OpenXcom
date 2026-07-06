@@ -489,6 +489,9 @@ GeoscapeState::GeoscapeState() : _pause(false), _zoomInEffectDone(false), _zoomO
 	}
 
 	timeDisplay();
+#ifdef __EMSCRIPTEN__
+	calypsoChecklistBuild();   // Phase 39: task-checklist chip
+#endif
 }
 
 /**
@@ -791,6 +794,7 @@ void GeoscapeState::init()
 		{"geo.btnGraphs", _btnGraphs}, {"geo.btnUfopaedia", _btnUfopaedia},
 		{"geo.btnFunding", _btnFunding}, {"geo.timeButtons", _btn5Secs, _btn1Day} });
 	CalypsoTutorial::get().fire(_game, "geoscape.enter");
+	calypsoChecklistRefresh();   // Phase 39: refresh checklist on geoscape entry
 #endif
 }
 
@@ -2893,6 +2897,9 @@ void GeoscapeState::time1Day()
 			popup(new CraftErrorState(this, msg, false));
 		}
 	}
+#ifdef __EMSCRIPTEN__
+	calypsoChecklistRefresh();   // Phase 39: checklist day tick
+#endif
 }
 
 /**

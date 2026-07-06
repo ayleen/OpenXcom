@@ -28,6 +28,7 @@ class Globe;
 class TextButton;
 class InteractiveSurface;
 class Text;
+class Window;
 class ComboBox;
 class Timer;
 class DogfightState;
@@ -65,6 +66,15 @@ private:
 	std::vector<Craft*> _activeCrafts;
 	size_t _minimizedDogfights;
 	int _slowdownCounter;
+#ifdef __EMSCRIPTEN__
+	// Phase 39: tutorial task-checklist chip + panel (bodies in Calypso/GeoscapeChecklist.cpp).
+	TextButton *_btnCalTasks = nullptr;
+	Window *_calTaskWindow = nullptr;
+	Text *_calTaskText = nullptr;
+	void calypsoChecklistBuild();
+	void calypsoChecklistRefresh();
+	void btnCalTasksClick(Action *action);
+#endif
 
 	/// Update list of active crafts.
 	const std::vector<Craft*>* updateActiveCrafts();
