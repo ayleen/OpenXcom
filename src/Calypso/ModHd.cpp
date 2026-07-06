@@ -1773,6 +1773,30 @@ void Mod::loadFileCalypso(YAML::YamlNodeReader& reader)
 				_calypsoTutorialSteps.push_back(std::move(step));
 			}
 		}
+		if (tutorialReader["checklist"])
+		{
+			for (const auto& entry : tutorialReader["checklist"].children())
+			{
+				CalypsoChecklistItem item;
+				item.id        = entry["id"].readVal<std::string>("");
+				item.label     = entry["label"].readVal<std::string>("");
+				item.check     = entry["check"].readVal<std::string>("");
+				item.checkArg  = entry["checkArg"].readVal<std::string>("");
+				item.afterStep = entry["afterStep"].readVal<std::string>("");
+				if (item.id.empty() || item.label.empty() || item.check.empty())
+				{
+					Log(LOG_WARNING) << "tutorial: checklist item missing id/label/check; skipped";
+					continue;
+				}
+				if (item.check != "researched" && item.check != "facilityBuilt"
+					&& item.check != "itemInStores" && item.check != "stepShown")
+				{
+					Log(LOG_WARNING) << "tutorial: checklist item '" << item.id
+						<< "' has unknown check '" << item.check << "'; will read as not-done";
+				}
+				_calypsoChecklist.push_back(std::move(item));
+			}
+		}
 	}
 }
 
