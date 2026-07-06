@@ -51,6 +51,9 @@
 #include "../Battlescape/CannotReequipState.h"
 #include "../Savegame/Country.h"
 #include "../Mod/RuleCountry.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoMarket.h"
+#endif
 
 namespace OpenXcom
 {
@@ -76,7 +79,7 @@ inline constexpr auto allOf(Functions... funcs)
  * @param game Pointer to the core game.
  * @param base Pointer to the base to get info from.
  */
-PurchaseState::PurchaseState(Base *base, CannotReequipState *parent) : _base(base), _parent(parent), _sel(0), _total(0), _pQty(0), _cQty(0), _iQty(0.0), _ammoColor(0)
+PurchaseState::PurchaseState(Base *base, CannotReequipState *parent, const std::string& counterparty) : _base(base), _parent(parent), _counterparty(counterparty), _sel(0), _total(0), _pQty(0), _cQty(0), _iQty(0.0), _ammoColor(0)
 {
 	_autoBuyDone = false;
 	if (_parent)
@@ -275,7 +278,13 @@ PurchaseState::PurchaseState(Base *base, CannotReequipState *parent) : _base(bas
 		RuleItem *rule = _game->getMod()->getItem(itemType);
 		if (itemFilter(rule))
 		{
+#ifdef __EMSCRIPTEN__
+			if (!_counterparty.empty() && !Calypso::marketCanBuy(_game, _counterparty, rule)) continue;
+#endif
 			TransferRow row = { TRANSFER_ITEM, rule, tr(rule->getType()), rule->getBuyCostAdjusted(_base, _game->getSavedGame()), _base->getStorageItems()->getItem(rule), 0, 0, rule->getListOrder(), 0, 0, 0 };
+#ifdef __EMSCRIPTEN__
+			if (!_counterparty.empty() && Calypso::marketActive(_game)) row.cost = (int)Calypso::marketBuyPrice(_game, _counterparty, rule);
+#endif
 			_items.push_back(row);
 			std::string cat = getCategory(_items.size() - 1);
 			if (std::find(_cats.begin(), _cats.end(), cat) == _cats.end())
@@ -854,6 +863,9 @@ void PurchaseState::btnOkClick(Action *)
 					t = new Transfer(rule->getTransferTime());
 					t->setItems(rule, transferRow.amount);
 					_base->getTransfers()->push_back(t);
+#ifdef __EMSCRIPTEN__
+					if (!_counterparty.empty()) Calypso::marketRecordBuy(_game, _counterparty, rule, transferRow.amount);
+#endif
 					if (_parent && !_missingItemsMap.empty() && _missingItemsMap.find(rule) != _missingItemsMap.end())
 					{
 						// remember the decreased amount for next buy
@@ -1210,6 +1222,13 @@ void PurchaseState::increaseByValue(int change)
 					int maxByLimit = std::max(0, rule->getMonthlyBuyLimit() - itemPurchaseLimitLog[rule->getType()] - getRow().amount);
 					change = std::min(maxByLimit, change);
 				}
+#ifdef __EMSCRIPTEN__
+				if (!_counterparty.empty() && Calypso::marketActive(_game))
+				{
+					int stockLeft = Calypso::marketStock(_game, _counterparty, rule) - getRow().amount;
+					change = std::min(stockLeft, change);
+				}
+#endif
 				int p = rule->getPrisonType();
 				if (rule->isAlien())
 				{

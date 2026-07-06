@@ -57,6 +57,10 @@
 #include "../Ufopaedia/Ufopaedia.h"
 #include "../Menu/ErrorMessageState.h"
 #include "../Engine/Sound.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoMarket.h"
+#include "../Calypso/CalypsoEconomy.h"
+#endif
 
 namespace OpenXcom
 {
@@ -67,9 +71,13 @@ namespace OpenXcom
  * @param base Pointer to the base to get info from.
  * @param origin Game section that originated this state.
  */
-SellState::SellState(Base *base, DebriefingState *debriefingState, OptionsOrigin origin) : _base(base), _debriefingState(debriefingState), _sel(0), _total(0), _spaceChange(0), _origin(origin),
+SellState::SellState(Base *base, DebriefingState *debriefingState, OptionsOrigin origin, const std::string& counterparty) : _base(base), _debriefingState(debriefingState), _counterparty(counterparty), _sel(0), _total(0), _spaceChange(0), _origin(origin),
 	_reset(false), _sellAllButOne(false), _delayedInitDone(false), _previousSort(TransferSortDirection::BY_LIST_ORDER), _currentSort(TransferSortDirection::BY_LIST_ORDER)
 {
+#ifdef __EMSCRIPTEN__
+	// Debriefing sales are always fenced to the black market (its rates, no standing/demand effects).
+	if (_debriefingState) _counterparty = Calypso::BLACK_MARKET;
+#endif
 	_timerInc = new Timer(250);
 	_timerInc->onTimer((StateHandler)&SellState::increase);
 	_timerDec = new Timer(250);
@@ -156,6 +164,10 @@ void SellState::delayedInit()
 	_txtTitle->setBig();
 	_txtTitle->setAlign(ALIGN_CENTER);
 	_txtTitle->setText(tr("STR_SELL_ITEMS_SACK_PERSONNEL"));
+#ifdef __EMSCRIPTEN__
+	if (_counterparty == Calypso::BLACK_MARKET && Calypso::marketActive(_game))
+		_txtTitle->setText(tr("STR_CAL_MARKET_BLACK_RATES"));
+#endif
 
 	_txtFunds->setText(tr("STR_FUNDS").arg(Unicode::formatFunding(_game->getSavedGame()->getFunds())));
 
@@ -273,7 +285,17 @@ void SellState::delayedInit()
 		}
 		if (qty > 0 && (Options::canSellLiveAliens || !rule->isAlien()))
 		{
+#ifdef __EMSCRIPTEN__
+			if (!_counterparty.empty() && Calypso::marketActive(_game) && !Calypso::marketCanSell(_game, _counterparty, rule)) continue;
+#endif
 			TransferRow row = { TRANSFER_ITEM, rule, tr(itemType), rule->getSellCostAdjusted(_base, _game->getSavedGame()), qty, 0, 0, rule->getListOrder(), rule->getSize(), qty * rule->getSize(), (int64_t)qty * rule->getSellCostAdjusted(_base, _game->getSavedGame()) };
+#ifdef __EMSCRIPTEN__
+			if (!_counterparty.empty() && Calypso::marketActive(_game))
+			{
+				row.cost = (int)Calypso::marketSellPrice(_game, _counterparty, rule);
+				row.totalCost = (int64_t)row.qtySrc * row.cost;
+			}
+#endif
 			if ((_debriefingState != 0) && (_game->getSavedGame()->getAutosell(rule)))
 			{
 				row.amount = qty;
@@ -783,6 +805,9 @@ void SellState::btnOkClick(Action *)
 			case TRANSFER_ITEM:
 				RuleItem *item = (RuleItem*)transferRow.rule;
 				{
+#ifdef __EMSCRIPTEN__
+					if (!_counterparty.empty()) Calypso::marketRecordSell(_game, _counterparty, item, transferRow.amount);
+#endif
 					// remove all of said items from base
 					int toRemove = cleanUpContainer(_base->getStorageItems(), item, transferRow.amount);
 
@@ -1162,6 +1187,10 @@ void SellState::changeByValue(int change, int dir)
 	{
 		if (0 >= change || getRow().qtySrc <= getRow().amount) return;
 		change = std::min(getRow().qtySrc - getRow().amount, change);
+#ifdef __EMSCRIPTEN__
+		if (!_counterparty.empty() && Calypso::marketActive(_game) && getRow().type == TRANSFER_ITEM)
+			change = std::min(Calypso::marketDemand(_game, _counterparty, (const RuleItem*)getRow().rule) - getRow().amount, change);
+#endif
 		if (_sellAllButOne && change > 0)
 		{
 			--change;

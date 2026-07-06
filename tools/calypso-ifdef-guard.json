@@ -4,6 +4,8 @@
   "frozen": [
     "src/Battlescape/Map.cpp",
     "src/Mod/Mod.cpp",
-    "src/Battlescape/BattlescapeState.cpp"
+    "src/Battlescape/BattlescapeState.cpp",
+    "src/Basescape/PurchaseState.cpp",
+    "src/Basescape/SellState.cpp"
   ]
 }
