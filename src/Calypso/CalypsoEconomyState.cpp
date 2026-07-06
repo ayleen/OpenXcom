@@ -34,6 +34,7 @@
 #include "../Savegame/SavedGame.h"
 #include "../Engine/Options.h"
 #include "CalypsoEconomy.h"
+#include "CalypsoTutorial.h"
 
 namespace OpenXcom
 {
@@ -106,6 +107,12 @@ CalypsoEconomyState::CalypsoEconomyState() : _tab(0), _tabGroupHack(nullptr)
 void CalypsoEconomyState::init()
 {
 	State::init();
+	CalypsoTutorial::get().anchorAll({
+		{"econ.tabGrants", _btnGrants},
+		{"econ.tabContracts", _btnContracts},
+		{"econ.tabStanding", _btnStanding},
+		{"econ.list", _lstMain}});
+	CalypsoTutorial::get().fire(_game, "economy.enter");
 
 	showTab(_tab);
 }
@@ -164,6 +171,7 @@ void CalypsoEconomyState::showTab(int tab)
 	case 2: populateStanding(); break;
 	default: break;
 	}
+	if (tab == 1) CalypsoTutorial::get().fire(_game, "economy.contracts.enter");
 }
 
 /**

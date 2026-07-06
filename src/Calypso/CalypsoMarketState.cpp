@@ -34,6 +34,7 @@
 #include "../Savegame/SavedGame.h"
 #include "../Engine/Options.h"
 #include "CalypsoEconomy.h"
+#include "CalypsoTutorial.h"
 #include "../Basescape/PurchaseState.h"
 #include "../Basescape/SellState.h"
 
@@ -95,7 +96,13 @@ CalypsoMarketState::CalypsoMarketState(Base* base, bool sellMode) : _base(base),
 /**
  * Initialises the screen -- repopulates the counterparty list.
  */
-void CalypsoMarketState::init() { State::init(); refresh(); }
+void CalypsoMarketState::init()
+{
+	State::init();
+	refresh();
+	CalypsoTutorial::get().anchorAll({{"market.list", _lstCounterparties}});
+	CalypsoTutorial::get().fire(_game, "market.picker.enter");
+}
 
 /**
  * List all conglomerates (id + standing tier) in ruleset order, then the always-open black market.
@@ -133,6 +140,7 @@ void CalypsoMarketState::lstCounterpartyClick(Action*)
 	size_t row = _lstCounterparties->getSelectedRow();
 	if (row >= _rowCp.size()) return;
 	const std::string& cp = _rowCp[row];
+	if (cp == Calypso::BLACK_MARKET) CalypsoTutorial::get().fire(_game, "market.blackmarket.enter");
 	if (_sellMode)
 		_game->pushState(new SellState(_base, 0, OPT_GEOSCAPE, cp));
 	else
