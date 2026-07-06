@@ -18,6 +18,7 @@
 #include "CalypsoAdvisor.h"
 #include "../Engine/Surface.h"
 #include "CalypsoTutorialState.h"
+#include "CalypsoTutorialAskState.h"
 #include "../Engine/Game.h"
 #include "../Engine/Options.h"
 #include "../Engine/Logger.h"
@@ -72,9 +73,18 @@ void CalypsoTutorial::fire(Game* game, const std::string& event, const std::stri
 
 void CalypsoTutorial::pump(Game* game)
 {
-	if (_queue.empty()) return;
+	if (_queue.empty() && !_askPending) return;
 	if (_holdWhileDogfight) return;
 	if (_popupActive) return; // popup-over-popup guard (state resets this in its dtor)
+
+	if (_askPending)
+	{
+		_askPending = false;
+		if (!Options::calypsoTutorial) return;  // globally off: never ask
+		_popupActive = true;
+		game->pushState(new CalypsoTutorialAskState());
+		return;   // queued steps (geoWelcome) show after the ask closes
+	}
 
 	// Drain the entire queue into one popup; steps are shown back-to-back and
 	// the state pops itself when the batch is exhausted. Its dtor calls

@@ -58,6 +58,7 @@ public:
 	void save(YAML::YamlNodeWriter writer) const;        // persistence (wired in 37.4); by value (matches AlienStrategy::save)
 	void load(const YAML::YamlNodeReader& reader);
 	void resetCampaign();                                // new game / no node
+	void requestAsk() { _askPending = true; }   // one-shot; New Game only (39.9)
 	// hold flag for dogfight (used in 37.5; declare now, default false)
 	void setHoldWhileDogfight(bool v) { _holdWhileDogfight = v; }
 	void dump() const; // logs step table + shown-set (called by calypso_tutorial_dump export)
@@ -70,6 +71,7 @@ private:
 	bool _checklistOpen = false; ///< persisted panel open/closed state (39.4)
 	bool _holdWhileDogfight = false;
 	bool _popupActive = false; ///< a CalypsoTutorialState is on the stack; suppress re-push
+	bool _askPending = false; ///< first-run ask queued (39.9); NOT persisted
 	std::deque<const CalypsoTutorialStep*> _queue;
 	std::map<std::string, SDL_Rect> _anchors;
 };
