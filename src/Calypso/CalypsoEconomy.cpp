@@ -28,13 +28,22 @@
 
 #include "CalypsoEconomy.h"
 
+#include <algorithm>
+#include <set>
 #include <utility>
 
+#include "../Engine/RNG.h"
 #include "../Engine/Yaml.h"
 #include "../Mod/Mod.h"
 #include "../Mod/RuleCountry.h"
+#include "../Mod/RuleItem.h"
+#include "../Mod/RuleManufacture.h"
+#include "../Savegame/Base.h"
 #include "../Savegame/Country.h"
+#include "../Savegame/ItemContainer.h"
 #include "../Savegame/SavedGame.h"
+
+#include "CalypsoContractGen.h"
 
 namespace OpenXcom
 {
@@ -181,6 +190,18 @@ void Economy::addStanding(const std::string& countryId, int delta)
 	_standing[countryId] = Calypso::clampStanding(getStanding(countryId) + delta);
 }
 
+// Number of contract offers a tier earns per month (0 for hostile/distrusted).
+int Economy::offersForTier(StandingTier tier, const EconomyRules& r) const
+{
+	switch (tier)
+	{
+		case StandingTier::Neutral:   return r.perTierNeutral;
+		case StandingTier::Preferred: return r.perTierPreferred;
+		case StandingTier::Trusted:   return r.perTierTrusted;
+		default:                      return 0;   // Hostile / Distrusted: no contracts
+	}
+}
+
 // ---- contracts ----
 
 bool Economy::accept(int contractId)
@@ -196,10 +217,20 @@ bool Economy::accept(int contractId)
 	return false;
 }
 
-bool Economy::deliver(int /*contractId*/, Base* /*base*/, SavedGame* /*save*/, const EconomyRules& /*r*/)
+bool Economy::deliver(int contractId, Base* base, SavedGame* save, const EconomyRules& r)
 {
-	// TODO(38.2): move items from base stockpile into the contract, pay the
-	// reward, flip status to Delivered, and apply onContractDelivered standing.
+	if (!base || !save) return false;
+	for (auto& c : _contracts)
+	{
+		if (c.id != contractId || c.status != Contract::Status::Accepted) continue;
+		ItemContainer* store = base->getStorageItems();
+		if (store->getItem(c.itemId) < c.qty) return false;   // not enough in this base
+		store->removeItem(c.itemId, c.qty);
+		save->setFunds(save->getFunds() + c.rewardTotal);
+		addStanding(c.countryId, r.onContractDelivered);
+		c.status = Contract::Status::Delivered;
+		return true;
+	}
 	return false;
 }
 
@@ -226,6 +257,18 @@ void Economy::onTerrorSite(const std::string& /*regionId*/, const EconomyRules& 
 
 // ---- monthly tick ----
 
+// File-scope helper: does this counterparty buy the given item? Match by explicit
+// item id OR by category intersection. (Phase 38 -- buys-catalog match.)
+static bool issuerBuys(const CounterpartyRules& cp, const RuleItem* item)
+{
+	for (const std::string& id : cp.buys.items)
+		if (id == item->getType()) return true;
+	for (const std::string& cat : cp.buys.categories)
+		for (const std::string& ic : item->getCategories())
+			if (cat == ic) return true;
+	return false;
+}
+
 void Economy::onNewMonth(SavedGame* save, const Mod* mod)
 {
 	if (!save || !mod) return;
@@ -249,21 +292,101 @@ void Economy::onNewMonth(SavedGame* save, const Mod* mod)
 		}
 	}
 
-	// 2. Expire overdue contracts.
+	// 2. Build the set of pacted-country ids once -- used by both the expiry
+	//    loop (P7: pacted conglomerates cancel Accepted contracts without a
+	//    standing penalty) and the generation loop (pacted issuers offer none).
+	std::set<std::string> pacted;
+	for (auto* c : *save->getCountries())
+	{
+		if (c->getPact()) pacted.insert(c->getRules()->getType());
+	}
+
+	// 3. Expire overdue contracts.
 	for (auto& c : _contracts)
 	{
 		if (c.deadlineMonth > now) continue;
 		if (c.status == Contract::Status::Accepted)
 		{
 			c.status = Contract::Status::Expired;
-			addStanding(c.countryId, r.onContractExpired);
+			if (!pacted.count(c.countryId)) addStanding(c.countryId, r.onContractExpired);
 		}
 		else if (c.status == Contract::Status::Offered)
 		{
 			c.status = Contract::Status::Expired;
 		}
 	}
-	// TODO(38.2): contract generation.  TODO(slice B): market stock/demand refresh.
+
+	// 4. Contract generation (P4-deterministic). Precompute campaign-wide
+	//    inputs ONCE: total engineers, the pacted set (built above), and the
+	//    union of available productions across all bases (dedup by pointer).
+	if (now >= r.contractsStartMonth)
+	{
+		int totalEngineers = 0;
+		std::set<RuleManufacture*> prodSet;
+		for (auto* b : *save->getBases())
+		{
+			totalEngineers += b->getTotalEngineers();
+			std::vector<RuleManufacture*> tmp;
+			save->getAvailableProductions(tmp, mod, b);
+			for (auto* p : tmp) prodSet.insert(p);
+		}
+
+		// Iterate issuers in RULESET order (P4 determinism) -- not map order.
+		for (const CounterpartyRules& cp : r.counterparties)
+		{
+			const std::string& issuerId = cp.country;
+			if (pacted.count(issuerId)) continue;            // P7: pacted -> no offers, no RNG consumed
+			int offers = offersForTier(getTier(issuerId, r), r);
+			if (offers <= 0) continue;                       // no RNG consumed
+
+			// Build candidate list from the producible items the issuer buys.
+			std::vector<ContractCandidate> cands;
+			for (RuleManufacture* p : prodSet)
+			{
+				for (const auto& kv : p->getProducedItems())
+				{
+					const RuleItem* item = kv.first;
+					if (item->getSellCost() > 0 && issuerBuys(cp, item))
+					{
+						ContractCandidate cc;
+						cc.itemId = item->getType();
+						cc.sellCost = item->getSellCost();
+						cc.manufactureTime = p->getManufactureTime();
+						cands.push_back(std::move(cc));
+					}
+				}
+			}
+			// DEDUP + SORT by itemId -- getProducedItems is a map keyed by
+			// RuleItem* whose iteration order is pointer-based / non-deterministic.
+			std::sort(cands.begin(), cands.end(),
+				[](const ContractCandidate& a, const ContractCandidate& b){ return a.itemId < b.itemId; });
+			cands.erase(std::unique(cands.begin(), cands.end(),
+				[](const ContractCandidate& a, const ContractCandidate& b){ return a.itemId == b.itemId; }),
+				cands.end());
+			if (cands.empty()) continue;
+
+			// Generate offers. RNG functors wrap engine RNG; the pure core
+			// picks THEN prices each offer, so global RNG advances in a fixed order.
+			auto gen = generateContracts(cands, offers, r.qtyFactor, totalEngineers,
+				r.priceMultMin, r.priceMultMax,
+				[](int n){ return RNG::generate(0, n - 1); },
+				[](double lo, double hi){ return RNG::generate(lo, hi); });
+
+			for (const GeneratedContract& g : gen)
+			{
+				Contract ct;
+				ct.id = _nextContractId++;
+				ct.countryId = issuerId;
+				ct.itemId = g.itemId;
+				ct.qty = g.qty;
+				ct.rewardTotal = g.reward;
+				ct.deadlineMonth = now + r.deadlineMonths;
+				ct.status = Contract::Status::Offered;
+				_contracts.push_back(std::move(ct));
+			}
+		}
+	}
+	// TODO(slice B): market stock/demand refresh.
 }
 
 // ---- persistence ----

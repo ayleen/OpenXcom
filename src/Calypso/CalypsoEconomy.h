@@ -180,6 +180,8 @@ public:
 	void save(YAML::YamlNodeWriter writer) const;
 
 private:
+	int offersForTier(StandingTier tier, const EconomyRules& r) const;   // contract offers for a tier (0 for hostile/distrusted)
+
 	const EconomyRules* _rules = nullptr;   // non-owning, not serialised
 
 	std::map<std::string,int>     _grantBase;   // countryId -> campaign-start funding
