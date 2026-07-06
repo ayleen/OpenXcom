@@ -1757,6 +1757,7 @@ void Mod::loadFileCalypso(YAML::YamlNodeReader& reader)
 				step.id         = entry["id"].readVal<std::string>("");
 				step.trigger    = entry["trigger"].readVal<std::string>("");
 				step.triggerArg = entry["triggerArg"].readVal<std::string>("");
+				step.triggerArgs = entry["triggerArgs"].readVal<std::vector<std::string>>(std::vector<std::string>{});
 				step.anchor     = entry["anchor"].readVal<std::string>("");
 				step.pages      = entry["pages"].readVal<std::vector<std::string>>(std::vector<std::string>{});
 				step.pageAnchors= entry["pageAnchors"].readVal<std::vector<std::string>>(std::vector<std::string>{});
