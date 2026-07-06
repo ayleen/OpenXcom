@@ -36,6 +36,10 @@
 #include "TechTreeViewerState.h"
 #include <algorithm>
 
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoTutorial.h"
+#endif
+
 namespace OpenXcom
 {
 
@@ -244,6 +248,10 @@ void ResearchState::init()
 	{
 		_lstResearch->setNoScrollArea(0, 0);
 	}
+#ifdef __EMSCRIPTEN__
+	CalypsoTutorial::get().anchorAll({ {"res.btnNew", _btnNew} });
+	CalypsoTutorial::get().fire(_game, "research.open");
+#endif
 }
 
 /**

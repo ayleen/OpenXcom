@@ -30,6 +30,9 @@
 #include "../Mod/Mod.h"
 #include "../Mod/RuleInterface.h"
 #include "../Engine/Sound.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoTutorial.h"
+#endif
 
 namespace OpenXcom
 {
@@ -128,6 +131,9 @@ PrimeGrenadeState::PrimeGrenadeState(BattleAction *action, bool inInventoryView,
 	redrawStatic();
 #else
 	lowerAllSurfaces();
+#endif
+#ifdef __EMSCRIPTEN__
+	CalypsoTutorial::get().fire(_game, "grenade.prime");
 #endif
 }
 

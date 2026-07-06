@@ -751,6 +751,19 @@ void State::applyUiScaling()
 }
 
 /**
+ * Calypso (Emscripten): remove a surface from the UI-scaling capture so later
+ * applyUiScaling() calls do not reposition/resize it (used for full-frame
+ * overlays drawn directly in base-resolution space).
+ */
+void State::excludeFromUiScaling(Surface* surf)
+{
+	for (auto it = _uiNative.begin(); it != _uiNative.end(); ++it)
+	{
+		if (it->surf == surf) { _uiNative.erase(it); break; }
+	}
+}
+
+/**
  * Calypso (Emscripten): opt every Text / TextButton added to this state into HD
  * TTF rendering, so scaled menus get resolution-independent labels in one call.
  * The bitmap Font path is preserved (TTF is per-label opt-in; multi-line / no

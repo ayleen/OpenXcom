@@ -30,6 +30,9 @@
 #include "../Engine/Options.h"
 #include "../Savegame/SavedGame.h"
 #include "../Savegame/Base.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoTutorial.h"
+#endif
 
 namespace OpenXcom
 {
@@ -171,6 +174,9 @@ void NewGameState::btnOkClick(Action *)
 	save->setDifficulty(diff);
 	save->setIronman(_btnIronman->getPressed());
 	_game->setSavedGame(save);
+#ifdef __EMSCRIPTEN__
+	CalypsoTutorial::get().resetCampaign();
+#endif
 
 	GeoscapeState *gs = new GeoscapeState;
 	_game->setState(gs);

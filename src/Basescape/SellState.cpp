@@ -62,6 +62,10 @@
 #include "../Calypso/CalypsoEconomy.h"
 #endif
 
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoTutorial.h"
+#endif
+
 namespace OpenXcom
 {
 
@@ -408,6 +412,9 @@ void SellState::init()
 	}
 
 	touchComponentsRefresh();
+#ifdef __EMSCRIPTEN__
+	CalypsoTutorial::get().fire(_game, "sell.open");
+#endif
 }
 
 /**

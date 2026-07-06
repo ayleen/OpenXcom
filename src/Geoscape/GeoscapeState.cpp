@@ -140,6 +140,7 @@
 #include "../fallthrough.h"
 #ifdef __EMSCRIPTEN__
 #include "../Engine/Logger.h"
+#include "../Calypso/CalypsoTutorial.h"
 extern "C" void calypso_log_heap(const char *tag);  // M5: defined in EmscriptenHarness.cpp
 extern "C" int  g_calypsoTabHiddenPause;            // M6h: set by calypso_on_tab_hidden()
 #endif
@@ -784,6 +785,13 @@ void GeoscapeState::init()
 		determineAlienMissions();
 		_game->getSavedGame()->setFunds(_game->getSavedGame()->getFunds() - (_game->getSavedGame()->getBaseMaintenance() - _game->getSavedGame()->getBases()->front()->getPersonnelMaintenance()));
 	}
+#ifdef __EMSCRIPTEN__
+	CalypsoTutorial::get().anchorAll({
+		{"geo.btnIntercept", _btnIntercept}, {"geo.btnBases", _btnBases},
+		{"geo.btnGraphs", _btnGraphs}, {"geo.btnUfopaedia", _btnUfopaedia},
+		{"geo.btnFunding", _btnFunding}, {"geo.timeButtons", _btn5Secs, _btn1Day} });
+	CalypsoTutorial::get().fire(_game, "geoscape.enter");
+#endif
 }
 
 /**
@@ -2561,6 +2569,9 @@ void GeoscapeState::time1Day()
 			}
 			// 3e. handle research complete popup + ufopedia article popups (topic+bonus)
 			popup(new ResearchCompleteState(newResearch, bonus, research, xbase));
+#ifdef __EMSCRIPTEN__
+			CalypsoTutorial::get().fire(_game, "research.complete", research->getName());
+#endif
 			// 3f. reset timer
 			timerReset();
 			// 3g. warning if weapon is researched before its clip

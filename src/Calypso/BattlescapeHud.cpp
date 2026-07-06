@@ -91,6 +91,7 @@ extern "C" int  g_calypsoTabHiddenPause;            // M6h: set by calypso_on_ta
 #include "../Savegame/Craft.h"
 #include "../Savegame/SavedGame.h"
 #include "../Savegame/SavedBattleGame.h"
+#include "../Calypso/CalypsoTutorial.h"
 #include "../Savegame/Tile.h"
 #include "../Savegame/BattleUnit.h"
 #include "../Savegame/Soldier.h"
@@ -639,6 +640,26 @@ void BattlescapeState::applyHudNumbersGl(BattleUnit* unit)
 			_map->clearHudText(Map::HUD_TXT_HEALTH);  _map->clearHudText(Map::HUD_TXT_MORALE);
 		}
 	}
+}
+
+/**
+ * Phase 37: register the battlescape tutorial anchor rects and fire the
+ * battle-entry triggers. Extracted from BattlescapeState::init() so the
+ * frozen upstream file keeps only a <=5-line hook (policy R2/R8).
+ */
+void BattlescapeState::calypsoTutorialBattleInit()
+{
+	CalypsoTutorial::get().anchorAll({
+		{"bs.numTU", _numTimeUnits}, {"bs.btnKneel", _btnKneel},
+		{"bs.btnEndTurn", _btnEndTurn}, {"bs.btnInventory", _btnInventory},
+		{"bs.btnCenter", _btnCenter}, {"bs.btnNextSoldier", _btnNextSoldier},
+		{"bs.btnAbort", _btnAbort},
+		{"bs.reserveRow", _btnReserveNone, _btnReserveAuto},
+		{"bs.hands", _btnLeftHandItem, _btnRightHandItem},
+		{"bs.btnMapUpDown", _btnMapUp, _btnMapDown} });
+	CalypsoTutorial::get().fire(_game, "battle.start");
+	if (_save->getGlobalShade() >= 9)
+		CalypsoTutorial::get().fire(_game, "battle.night");
 }
 
 } // namespace OpenXcom

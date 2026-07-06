@@ -23,6 +23,7 @@
 #include <sstream>
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
+#include "../Calypso/CalypsoTutorial.h"
 #endif
 #include <SDL_mixer.h>
 #include <SDL_ttf.h>
@@ -425,6 +426,9 @@ bool Game::iterate()
 	{
 		// Process logic
 		_states.back()->think();
+#ifdef __EMSCRIPTEN__
+		CalypsoTutorial::get().pump(this);
+#endif
 		_fpsCounter->think();
 		if (Options::FPS > 0 && !(Options::useOpenGL && Options::vSyncForOpenGL))
 		{
