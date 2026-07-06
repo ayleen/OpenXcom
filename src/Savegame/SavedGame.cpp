@@ -58,6 +58,9 @@
 #include "MissionSite.h"
 #include "AlienBase.h"
 #include "AlienStrategy.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoTutorial.h"
+#endif
 #include "AlienMission.h"
 #include "GeoscapeEvent.h"
 #include "../Mod/RuleCountry.h"
@@ -658,6 +661,12 @@ void SavedGame::load(const std::string &filename, Mod *mod, Language *lang)
 		}
 	}
 	_alienStrategy->load(reader["alienStrategy"], mod);
+#ifdef __EMSCRIPTEN__
+	if (reader["calypsoTutorial"])
+		CalypsoTutorial::get().load(reader["calypsoTutorial"]);
+	else
+		CalypsoTutorial::get().resetCampaign();   // pre-tutorial save → fresh campaign state
+#endif
 
 	for (const auto& weHardlyKnewYe : reader["deadSoldiers"].children())
 	{
@@ -858,6 +867,9 @@ void SavedGame::save(const std::string &filename, Mod *mod) const
 	writer.write("hiddenPurchaseItems", _hiddenPurchaseItemsMap);
 	writer.write("customRuleCraftDeployments", _customRuleCraftDeployments);
 	_alienStrategy->save(writer["alienStrategy"]);
+#ifdef __EMSCRIPTEN__
+	CalypsoTutorial::get().save(writer["calypsoTutorial"]);
+#endif
 
 	saveVector(writer, _deadSoldiers, "deadSoldiers", mod->getScriptGlobal());
 	for (int j = 0; j < Options::oxceMaxEquipmentLayoutTemplates; ++j)

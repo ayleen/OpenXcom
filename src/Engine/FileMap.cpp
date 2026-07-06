@@ -1267,7 +1267,8 @@ void scanModDir(const std::string& dirname, const std::string& basename, bool pr
 		"calypso-hd-demo",
 		"calypso-hd-pack",
 		"calypso-lore",
-		"calypso-test-master"
+		"calypso-test-master",
+		"calypso-tutorial"
 	};
 
 	std::string log_ctx = "scanModDir('" + dirname + "', '" + basename + "'): ";

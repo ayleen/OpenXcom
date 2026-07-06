@@ -35,6 +35,9 @@
 #include "../Savegame/AlienMission.h"
 #include "InterceptState.h"
 #include "../Mod/RuleCraft.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoTutorial.h"
+#endif
 
 namespace OpenXcom
 {
@@ -213,6 +216,9 @@ UfoDetectedState::UfoDetectedState(Ufo *ufo, GeoscapeState *state, bool detected
 	ss.str("");
 	ss << Unicode::TOK_COLOR_FLIP << tr(_ufo->getMission()->getRegion());
 	_lstInfo2->addRow(2, tr("STR_ZONE").c_str(), ss.str().c_str());
+#ifdef __EMSCRIPTEN__
+	CalypsoTutorial::get().fire(_game, "ufo.detected");
+#endif
 }
 
 /**

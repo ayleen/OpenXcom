@@ -58,6 +58,10 @@
 #include "../Menu/ErrorMessageState.h"
 #include "../Engine/Sound.h"
 
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoTutorial.h"
+#endif
+
 namespace OpenXcom
 {
 
@@ -382,6 +386,9 @@ void SellState::init()
 	}
 
 	touchComponentsRefresh();
+#ifdef __EMSCRIPTEN__
+	CalypsoTutorial::get().fire(_game, "sell.open");
+#endif
 }
 
 /**

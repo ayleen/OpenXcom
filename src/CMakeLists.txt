@@ -571,6 +571,8 @@ if(EMSCRIPTEN)
   list(APPEND openxcom_src Engine/EmscriptenCompat.cpp)
   list(APPEND openxcom_src Engine/EmscriptenHarness.cpp)
   list(APPEND openxcom_src Engine/GpuSmokeState.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoTutorial.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoTutorialState.cpp)
 
   # Phase 8b: regenerate embedded shader table before each build when any
   # *.vert or *.frag file in Engine/Shaders/ has changed.

@@ -79,6 +79,10 @@ OPT bool oxceBattleTouchButtonsEnabled;
 OPT bool oxceQuickSearchButton;
 OPT bool oxceHighlightNewTopics;
 OPT bool oxcePediaShowClipSize;
+// Phase 37 (Calypso): global kill-switch for the in-engine tutorial (Emscripten
+// only, but the declaration is ungated like the other oxce* options so the
+// Advanced Options UI works the same on native + web).
+OPT bool calypsoTutorial;
 OPT int oxcePediaSortResistances; // hidden, unhide if becomes popular?
 
 OPT int oxceInterceptTableSize;

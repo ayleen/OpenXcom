@@ -54,6 +54,9 @@
 #include "DogfightErrorState.h"
 #include "../Mod/RuleInterface.h"
 #include "../Mod/Mod.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoTutorial.h"
+#endif
 
 namespace OpenXcom
 {
@@ -719,6 +722,10 @@ DogfightState::DogfightState(GeoscapeState *state, Craft *craft, Ufo *ufo, bool 
 	{
 		_ufo->setShieldRechargeHandle(_interceptionNumber);
 	}
+#ifdef __EMSCRIPTEN__
+	CalypsoTutorial::get().anchorAll({ {"dog.modeButtons", _btnStandoff, _btnAggressive} });
+	CalypsoTutorial::get().fire(_game, "dogfight.start");
+#endif
 }
 
 /**
@@ -1689,6 +1696,9 @@ void DogfightState::update()
 				if (_ufo->getShotDownByCraftId() == _craft->getUniqueId())
 				{
 					setStatus("STR_UFO_CRASH_LANDS");
+#ifdef __EMSCRIPTEN__
+					CalypsoTutorial::get().fire(_game, "ufo.crashed");
+#endif
 					_game->getMod()->getSound("GEO.CAT", Mod::UFO_CRASH)->play(); //10
 					for (auto* country : *_game->getSavedGame()->getCountries())
 					{

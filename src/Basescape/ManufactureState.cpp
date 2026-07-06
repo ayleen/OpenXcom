@@ -38,6 +38,10 @@
 #include "../Ufopaedia/Ufopaedia.h"
 #include <algorithm>
 
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoTutorial.h"
+#endif
+
 namespace OpenXcom
 {
 
@@ -152,6 +156,9 @@ void ManufactureState::init()
 	{
 		_lstManufacture->setNoScrollArea(0, 0);
 	}
+#ifdef __EMSCRIPTEN__
+	CalypsoTutorial::get().fire(_game, "manufacture.open");
+#endif
 }
 
 /**

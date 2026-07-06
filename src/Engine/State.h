@@ -80,6 +80,9 @@ protected:
 	void applyUiScaling();
 	/// Calypso: opt every Text / TextButton in the state into HD TTF rendering.
 	void applyTTFToTexts(TTFFont* font, float fillFrac = 1.0f);
+	/// Calypso: drop a surface from the UI-scaling capture so applyUiScaling
+	/// leaves its geometry alone (e.g. a full-frame overlay in base-res space).
+	void excludeFromUiScaling(Surface* surf);
 #endif
 public:
 	/// Creates a new state linked to a game.

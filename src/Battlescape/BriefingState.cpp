@@ -38,6 +38,9 @@
 #include "../Engine/Options.h"
 #include "../Engine/RNG.h"
 #include "../Engine/Screen.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoTutorial.h"
+#endif
 #include "../Menu/CutsceneState.h"
 #include "../Savegame/AlienMission.h"
 #include "../Mod/RuleAlienMission.h"
@@ -261,6 +264,9 @@ void BriefingState::init()
 	{
 		_game->getMod()->playMusic(_musicId);
 	}
+#ifdef __EMSCRIPTEN__
+	CalypsoTutorial::get().fire(_game, "battle.briefing");
+#endif
 }
 
 /**
