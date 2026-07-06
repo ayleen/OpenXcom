@@ -55,6 +55,8 @@ int marketStock(Game* game, const std::string& cp, const RuleItem* item);    // 
 int marketDemand(Game* game, const std::string& cp, const RuleItem* item);   // remaining sell cap this month
 void marketRecordBuy(Game* game, const std::string& cp, const RuleItem* item, int qty);
 void marketRecordSell(Game* game, const std::string& cp, const RuleItem* item, int qty);
+/// " +" if the item's dynamic price modifier is above base, " -" if below, else "" (trend arrow).
+std::string marketTrendMarker(Game* game, const RuleItem* item);
 } // namespace Calypso
 } // namespace OpenXcom
 

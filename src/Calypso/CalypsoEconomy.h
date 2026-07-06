@@ -186,7 +186,9 @@ public:
 	void    recordSale(const std::string& cp, const RuleItem* item, int qty, const EconomyRules& r);
 
 	// dynamic events (slice C)
-	void onTerrorSite(const std::string& regionId, const EconomyRules& r);
+	void onTerrorSite(const std::string& regionId, int monthsPassed, const EconomyRules& r);
+	/// Global demand/price modifier for an item (priceMod * active terror factor); for the market UI trend arrow.
+	double effectivePriceMod(const RuleItem* item, const EconomyRules& r) const;
 
 	// persistence
 	void load(const YAML::YamlNodeReader& reader);
@@ -197,6 +199,8 @@ private:
 
 	const CounterpartyRules* findCounterparty(const std::string& cp) const;  // nullptr for black market / unknown
 	double priceMod(const std::string& itemId) const;                        // _priceMods lookup, default 1.0
+	bool   terrorActive() const;                                             // true while >=1 terror boost is live
+	double terrorFactor(const RuleItem* item, const EconomyRules& r) const;  // 1.0, or 1+boost for terror-category items
 
 	const EconomyRules* _rules = nullptr;   // non-owning, not serialised
 

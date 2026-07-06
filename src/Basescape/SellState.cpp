@@ -296,6 +296,10 @@ void SellState::delayedInit()
 				row.totalCost = (int64_t)row.qtySrc * row.cost;
 			}
 #endif
+#ifdef __EMSCRIPTEN__
+			if (!_counterparty.empty() && Calypso::marketActive(_game))
+				row.name += Calypso::marketTrendMarker(_game, rule);
+#endif
 			if ((_debriefingState != 0) && (_game->getSavedGame()->getAutosell(rule)))
 			{
 				row.amount = qty;

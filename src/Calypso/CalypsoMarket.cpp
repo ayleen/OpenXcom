@@ -117,6 +117,16 @@ void marketRecordSell(Game* game, const std::string& cp, const RuleItem* item, i
 	if (e) e->recordSale(cp, item, qty, game->getMod()->getCalypsoEconomyRules());
 }
 
+std::string marketTrendMarker(Game* game, const RuleItem* item)
+{
+	Economy* e = eco(game);
+	if (!e) return "";
+	double m = e->effectivePriceMod(item, game->getMod()->getCalypsoEconomyRules());
+	if (m > 1.001) return " +";   // demand up (terror / scarcity)
+	if (m < 0.999) return " -";   // flooded / suppressed
+	return "";
+}
+
 } // namespace Calypso
 } // namespace OpenXcom
 

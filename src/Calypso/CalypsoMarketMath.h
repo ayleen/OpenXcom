@@ -22,4 +22,8 @@ inline double applySellPressure(double mod, int qty, double perUnit, double floo
 inline double decayPriceMod(double mod, double fraction)
 { return mod + (1.0 - mod) * fraction; }
 
+/// Demand/price multiplier while a terror boost is active for the item's category.
+inline double terrorMultiplier(bool active, double boost)
+{ return active ? 1.0 + boost : 1.0; }
+
 } }

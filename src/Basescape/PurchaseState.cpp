@@ -283,7 +283,11 @@ PurchaseState::PurchaseState(Base *base, CannotReequipState *parent, const std::
 #endif
 			TransferRow row = { TRANSFER_ITEM, rule, tr(rule->getType()), rule->getBuyCostAdjusted(_base, _game->getSavedGame()), _base->getStorageItems()->getItem(rule), 0, 0, rule->getListOrder(), 0, 0, 0 };
 #ifdef __EMSCRIPTEN__
-			if (!_counterparty.empty() && Calypso::marketActive(_game)) row.cost = (int)Calypso::marketBuyPrice(_game, _counterparty, rule);
+			if (!_counterparty.empty() && Calypso::marketActive(_game))
+			{
+				row.cost = (int)Calypso::marketBuyPrice(_game, _counterparty, rule);
+				row.name += Calypso::marketTrendMarker(_game, rule);
+			}
 #endif
 			_items.push_back(row);
 			std::string cat = getCategory(_items.size() - 1);

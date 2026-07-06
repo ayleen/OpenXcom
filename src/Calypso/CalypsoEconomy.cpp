@@ -303,6 +303,7 @@ int Economy::getDemand(const std::string& cp, const RuleItem* item, const SavedG
 	int di = static_cast<int>(save->getDifficulty());
 	double dm = (di >= 0 && di < static_cast<int>(r.difficultyStockMult.size())) ? r.difficultyStockMult[di] : 1.0;
 	int cap = stockCap(r.baseDemand, c->buys.demandMult, dm);
+	cap = static_cast<int>(std::llround(cap * terrorFactor(item, r)));   // terror lifts demand caps
 	auto it = _demandUsed.find(cp + "/" + item->getType());
 	int used = (it != _demandUsed.end()) ? it->second : 0;
 	int rem = cap - used;
@@ -312,13 +313,15 @@ int Economy::getDemand(const std::string& cp, const RuleItem* item, const SavedG
 int64_t Economy::buyPrice(const std::string& cp, const RuleItem* item, const EconomyRules& r) const
 {
 	double mult = (cp == BLACK_MARKET) ? r.bmBuyMult : 1.0;
-	return marketPrice(item->getBuyCost(), mult, priceMod(item->getType()));
+	double tf = (cp == BLACK_MARKET) ? 1.0 : terrorFactor(item, r);   // black market is a stable floor
+	return marketPrice(item->getBuyCost(), mult, priceMod(item->getType()) * tf);
 }
 
 int64_t Economy::sellPrice(const std::string& cp, const RuleItem* item, const EconomyRules& r) const
 {
 	double mult = (cp == BLACK_MARKET) ? r.bmSellMult : 1.0;
-	return marketPrice(item->getSellCost(), mult, priceMod(item->getType()));
+	double tf = (cp == BLACK_MARKET) ? 1.0 : terrorFactor(item, r);
+	return marketPrice(item->getSellCost(), mult, priceMod(item->getType()) * tf);
 }
 
 void Economy::recordPurchase(const std::string& cp, const RuleItem* item, int qty)
@@ -339,9 +342,30 @@ void Economy::recordSale(const std::string& cp, const RuleItem* item, int qty, c
 
 // ---- dynamic events (slice C) ----
 
-void Economy::onTerrorSite(const std::string& /*regionId*/, const EconomyRules& /*r*/)
+void Economy::onTerrorSite(const std::string& regionId, int monthsPassed, const EconomyRules& r)
 {
-	// TODO(slice C): register a TerrorBoost expiring after terrorDurationMonths.
+	if (!active() || r.terrorDurationMonths <= 0) return;
+	// A terror event lifts demand/prices for the ruleset's terror categories until it expires.
+	_terrorBoosts.push_back(TerrorBoost{ regionId, monthsPassed + r.terrorDurationMonths });
+}
+
+bool Economy::terrorActive() const
+{
+	return !_terrorBoosts.empty();   // expired boosts are pruned in onNewMonth
+}
+
+double Economy::terrorFactor(const RuleItem* item, const EconomyRules& r) const
+{
+	if (r.terrorCategories.empty() || !terrorActive()) return 1.0;
+	for (const std::string& cat : r.terrorCategories)
+		for (const std::string& ic : item->getCategories())
+			if (cat == ic) return terrorMultiplier(true, r.terrorDemandBoost);
+	return 1.0;
+}
+
+double Economy::effectivePriceMod(const RuleItem* item, const EconomyRules& r) const
+{
+	return priceMod(item->getType()) * terrorFactor(item, r);
 }
 
 // ---- monthly tick ----
@@ -486,6 +510,11 @@ void Economy::onNewMonth(SavedGame* save, const Mod* mod)
 	_demandUsed.clear();
 	for (auto& kv : _priceMods)
 		kv.second = decayPriceMod(kv.second, r.monthlyDecay);
+	// Expire terror demand boosts whose window has elapsed.
+	_terrorBoosts.erase(
+		std::remove_if(_terrorBoosts.begin(), _terrorBoosts.end(),
+			[now](const TerrorBoost& t) { return t.expires <= now; }),
+		_terrorBoosts.end());
 }
 
 // ---- persistence ----
