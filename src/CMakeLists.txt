@@ -9,6 +9,7 @@ set ( calypso_src
   Calypso/CalypsoContractDeliverState.cpp
   Calypso/CalypsoEconomy.cpp
   Calypso/CalypsoEconomyState.cpp
+  Calypso/CalypsoMarket.cpp
   Calypso/MapGl.cpp
   Calypso/ModHd.cpp
 )
