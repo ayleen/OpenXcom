@@ -317,6 +317,9 @@ public:
 	void applyHudNameGl(BattleUnit* unit);
 	void applyHudNumberGl(NumberText* w, int value, Uint32 accentArgb, int imgSlot, int txtSlot);
 	void applyHudNumbersGl(BattleUnit* unit);
+	/// Phase 37: register tutorial anchor rects + fire battle-entry triggers
+	/// (battle.start / battle.night); body in Calypso/BattlescapeHud.cpp.
+	void calypsoTutorialBattleInit();
 #endif
 	/// Blit the HD shoulder-board insignia for SoldierRank rankIdx (0..5) into the
 	/// HUD _rank slot, scaled; rankIdx < 0 clears it. Bypasses the pixel SMOKE.PCK

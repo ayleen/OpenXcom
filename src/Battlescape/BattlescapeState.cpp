@@ -996,17 +996,7 @@ void BattlescapeState::init()
 		}
 	}
 #ifdef __EMSCRIPTEN__
-	CalypsoTutorial::get().anchorAll({
-		{"bs.numTU", _numTimeUnits}, {"bs.btnKneel", _btnKneel},
-		{"bs.btnEndTurn", _btnEndTurn}, {"bs.btnInventory", _btnInventory},
-		{"bs.btnCenter", _btnCenter}, {"bs.btnNextSoldier", _btnNextSoldier},
-		{"bs.btnAbort", _btnAbort},
-		{"bs.reserveRow", _btnReserveNone, _btnReserveAuto},
-		{"bs.hands", _btnLeftHandItem, _btnRightHandItem},
-		{"bs.btnMapUpDown", _btnMapUp, _btnMapDown} });
-	CalypsoTutorial::get().fire(_game, "battle.start");
-	if (_save->getGlobalShade() >= 9)
-		CalypsoTutorial::get().fire(_game, "battle.night");
+	calypsoTutorialBattleInit();  // Phase 37: anchors + battle.start/night triggers
 #endif
 }
 
