@@ -10,6 +10,7 @@ set ( calypso_src
   Calypso/CalypsoEconomy.cpp
   Calypso/CalypsoEconomyState.cpp
   Calypso/CalypsoMarket.cpp
+  Calypso/CalypsoMarketState.cpp
   Calypso/MapGl.cpp
   Calypso/ModHd.cpp
 )

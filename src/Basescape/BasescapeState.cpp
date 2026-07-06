@@ -58,6 +58,11 @@
 #include "../Savegame/SavedBattleGame.h"
 #include "../Geoscape/Globe.h"
 #include "../Mod/RuleGlobe.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoMarketState.h"
+#include "../Savegame/SavedGame.h"
+#include "../Calypso/CalypsoEconomy.h"
+#endif
 
 namespace OpenXcom
 {
@@ -357,6 +362,10 @@ void BasescapeState::btnManufactureClick(Action *)
  */
 void BasescapeState::btnPurchaseClick(Action *)
 {
+#ifdef __EMSCRIPTEN__
+	if (auto* eco = _game->getSavedGame()->getCalypsoEconomy())
+		if (eco->active()) { _game->pushState(new CalypsoMarketState(_base, false)); return; }
+#endif
 	_game->pushState(new PurchaseState(_base));
 }
 
@@ -366,6 +375,10 @@ void BasescapeState::btnPurchaseClick(Action *)
  */
 void BasescapeState::btnSellClick(Action *)
 {
+#ifdef __EMSCRIPTEN__
+	if (auto* eco = _game->getSavedGame()->getCalypsoEconomy())
+		if (eco->active()) { _game->pushState(new CalypsoMarketState(_base, true)); return; }
+#endif
 	_game->pushState(new SellState(_base, 0));
 }
 
