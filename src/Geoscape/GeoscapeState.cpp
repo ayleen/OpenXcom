@@ -29,6 +29,7 @@
 #include "../Mod/Mod.h"
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoEconomy.h"
+#include "../Calypso/CalypsoEconomyState.h"
 #endif
 #include "../Engine/LocalizedText.h"
 #include "../Engine/Screen.h"
@@ -3204,6 +3205,18 @@ void GeoscapeState::btnFundingClick(Action *)
 	}
 	else
 	{
+#ifdef __EMSCRIPTEN__
+		auto* eco = _game->getSavedGame()->getCalypsoEconomy();
+		if (eco)
+		{
+			eco->ensureInitialized(_game->getSavedGame(), _game->getMod());
+			if (eco->active())
+			{
+				_game->pushState(new CalypsoEconomyState);
+				return;
+			}
+		}
+#endif
 		_game->pushState(new FundingState);
 	}
 }

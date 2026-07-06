@@ -6,7 +6,9 @@ set ( root_src
 )
 set ( calypso_src
   Calypso/BattlescapeHud.cpp
+  Calypso/CalypsoContractDeliverState.cpp
   Calypso/CalypsoEconomy.cpp
+  Calypso/CalypsoEconomyState.cpp
   Calypso/MapGl.cpp
   Calypso/ModHd.cpp
 )

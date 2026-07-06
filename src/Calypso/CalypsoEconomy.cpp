@@ -269,21 +269,27 @@ static bool issuerBuys(const CounterpartyRules& cp, const RuleItem* item)
 	return false;
 }
 
-void Economy::onNewMonth(SavedGame* save, const Mod* mod)
+void Economy::ensureInitialized(SavedGame* save, const Mod* mod)
 {
 	if (!save || !mod) return;
 	bindRules(&mod->getCalypsoEconomyRules());
+	if (!active()) return;
+	for (auto* c : *save->getCountries())
+		seedGrantBase(c->getRules()->getType(), c->getFunding().back());
+}
+
+void Economy::onNewMonth(SavedGame* save, const Mod* mod)
+{
+	if (!save || !mod) return;
+	ensureInitialized(save, mod);
 	if (!active()) return;                       // kill-switch: no calypsoEconomy: key -> no-op
 	const EconomyRules& r = rules();
 	const int now = save->getMonthsPassed();
 
-	// 1. Seed each country's campaign-start funding ONCE (idempotent) and fold last
-	//    month's per-country activity into standing. Read activity BEFORE Country::newMonth
-	//    (which runs later this tick in MonthlyReportState) resets it.
+	// Fold last month's per-country activity into standing (read BEFORE Country::newMonth resets it).
 	for (auto* c : *save->getCountries())
 	{
 		const std::string& id = c->getRules()->getType();
-		seedGrantBase(id, c->getFunding().back());
 		if (r.activityDivisor > 0 && !c->getActivityXcom().empty() && !c->getActivityAlien().empty())
 		{
 			const int dx = c->getActivityXcom().back() / r.activityDivisor;
@@ -292,7 +298,7 @@ void Economy::onNewMonth(SavedGame* save, const Mod* mod)
 		}
 	}
 
-	// 2. Build the set of pacted-country ids once -- used by both the expiry
+	// 1. Build the set of pacted-country ids once -- used by both the expiry
 	//    loop (P7: pacted conglomerates cancel Accepted contracts without a
 	//    standing penalty) and the generation loop (pacted issuers offer none).
 	std::set<std::string> pacted;
@@ -301,7 +307,7 @@ void Economy::onNewMonth(SavedGame* save, const Mod* mod)
 		if (c->getPact()) pacted.insert(c->getRules()->getType());
 	}
 
-	// 3. Expire overdue contracts.
+	// 2. Expire overdue contracts.
 	for (auto& c : _contracts)
 	{
 		if (c.deadlineMonth > now) continue;
@@ -316,7 +322,7 @@ void Economy::onNewMonth(SavedGame* save, const Mod* mod)
 		}
 	}
 
-	// 4. Contract generation (P4-deterministic). Precompute campaign-wide
+	// 3. Contract generation (P4-deterministic). Precompute campaign-wide
 	//    inputs ONCE: total engineers, the pacted set (built above), and the
 	//    union of available productions across all bases (dedup by pointer).
 	if (now >= r.contractsStartMonth)

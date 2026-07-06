@@ -151,6 +151,10 @@ public:
 	bool active() const { return _rules && _rules->enabled; }
 	const EconomyRules& rules() const { return *_rules; }   // only call when active()
 
+	/// Bind ruleset config + seed each country's grant base (idempotent). Safe to call
+	/// on every campaign entry (Geoscape ctor) and every monthly tick.
+	void ensureInitialized(SavedGame* save, const Mod* mod);
+
 	// monthly tick (implemented incrementally; A1 = expiry+standing only, contracts/market are later tasks)
 	void onNewMonth(SavedGame* save, const Mod* mod);
 
