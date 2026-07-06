@@ -15,6 +15,7 @@
 #include <algorithm>
 
 #include "CalypsoTutorial.h"
+#include "CalypsoAdvisor.h"
 #include "../Engine/Surface.h"
 #include "CalypsoTutorialState.h"
 #include "../Engine/Game.h"
@@ -138,6 +139,7 @@ void CalypsoTutorial::resetCampaign()
 	_holdWhileDogfight = false;
 	_popupActive = false;
 	_checklistOpen = false;
+	CalypsoAdvisor::get().resetCounters();
 }
 
 void CalypsoTutorial::save(YAML::YamlNodeWriter writer) const

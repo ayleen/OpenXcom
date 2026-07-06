@@ -1797,6 +1797,31 @@ void Mod::loadFileCalypso(YAML::YamlNodeReader& reader)
 				_calypsoChecklist.push_back(std::move(item));
 			}
 		}
+		if (tutorialReader["advisors"])
+		{
+			for (const auto& entry : tutorialReader["advisors"].children())
+			{
+				CalypsoAdvisorRule rule;
+				rule.id       = entry["id"].readVal<std::string>("");
+				rule.check    = entry["check"].readVal<std::string>("");
+				rule.checkArg = entry["checkArg"].readVal<std::string>("");
+				entry["afterMonth"].tryReadVal<int>(rule.afterMonth);
+				entry["graceDays"].tryReadVal<int>(rule.graceDays);
+				if (rule.id.empty() || rule.check.empty())
+				{
+					Log(LOG_WARNING) << "tutorial: advisor rule missing id/check; skipped";
+					continue;
+				}
+				if (rule.check != "idleScientists" && rule.check != "idleEngineers"
+					&& rule.check != "noFacility" && rule.check != "craftWeaponEquipped"
+					&& rule.check != "singleBase" && rule.check != "facilityBuilt")
+				{
+					Log(LOG_WARNING) << "tutorial: advisor rule '" << rule.id
+						<< "' has unknown check '" << rule.check << "'; will never fire";
+				}
+				_calypsoAdvisors.push_back(std::move(rule));
+			}
+		}
 	}
 }
 

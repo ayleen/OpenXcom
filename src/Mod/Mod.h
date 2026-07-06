@@ -39,6 +39,7 @@
 #  include "../Calypso/CalypsoEconomy.h"   // Phase 38: Calypso::EconomyRules (ruleset config type)
 #  include "../Calypso/CalypsoTutorial.h"  // Phase 37: Calypso tutorial steps
 #  include "../Calypso/CalypsoChecklist.h" // Phase 39: Calypso checklist items
+#  include "../Calypso/CalypsoAdvisor.h"   // Phase 39: Calypso strategic advisor rules
 #endif
 
 namespace OpenXcom
@@ -448,6 +449,7 @@ private:
 	/// save/load round-trips without re-parsing. Gated like battlescapeTileScale.
 	std::vector<CalypsoTutorialStep> _calypsoTutorialSteps;
 	std::vector<CalypsoChecklistItem> _calypsoChecklist;
+	std::vector<CalypsoAdvisorRule> _calypsoAdvisors;
 #endif
 	/// L5: globe GL handles were evicted on battle entry; restore on geoscape return.
 	bool _globeGpuEvicted     = false;
@@ -859,6 +861,7 @@ public:
 	/// Phase 37 (Calypso): tutorial step table parsed from the ruleset.
 	const std::vector<CalypsoTutorialStep>& getCalypsoTutorialSteps() const { return _calypsoTutorialSteps; }
 	const std::vector<CalypsoChecklistItem>& getCalypsoChecklist() const { return _calypsoChecklist; }
+	const std::vector<CalypsoAdvisorRule>& getCalypsoAdvisors() const { return _calypsoAdvisors; }
 	/// L7: ensures battlescape-only SurfaceSets are resident.
 	/// Delegates to the private loadBattlescapeResources(); idempotent (guarded
 	/// by _battlescapeResourcesLoaded).  Called from BattlescapeState ctor.
