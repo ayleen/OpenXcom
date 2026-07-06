@@ -44,6 +44,7 @@
 #include "../Savegame/SavedGame.h"
 
 #include "CalypsoContractGen.h"
+#include "CalypsoMarketMath.h"
 
 namespace OpenXcom
 {
@@ -100,6 +101,8 @@ bool loadEconomyRules(const YAML::YamlNodeReader& node, EconomyRules& out)
 	// ---- market (counterparties + difficulty + black market) ----
 	if (auto market = node["market"])
 	{
+		market["baseStock"].tryReadVal<int>(out.baseStock);
+		market["baseDemand"].tryReadVal<int>(out.baseDemand);
 		market["difficultyStockMult"].tryReadVal<std::vector<double> >(out.difficultyStockMult);
 
 		if (auto cps = market["counterparties"])
@@ -236,16 +239,102 @@ bool Economy::deliver(int contractId, Base* base, SavedGame* save, const Economy
 
 // ---- counterparty market (slice B) ----
 
-bool Economy::sellsToPlayer(const std::string& /*cp*/, const RuleItem* /*item*/, const EconomyRules& /*r*/) const
+// File-scope helper: does this catalog match the given item? Used by both the
+// sells/buys-side counterparty queries and the black-market survival kit.
+static bool catalogMatches(const CounterpartyCatalog& cat, const RuleItem* item)
 {
-	// TODO(38.4): consult the counterparty's sells catalog + stock accounting.
-	return true;
+	if (cat.everything) return true;
+	for (const std::string& id : cat.items) if (id == item->getType()) return true;
+	for (const std::string& c : cat.categories)
+		for (const std::string& ic : item->getCategories())
+			if (c == ic) return true;
+	return false;
 }
 
-bool Economy::buysFromPlayer(const std::string& /*cp*/, const RuleItem* /*item*/, const EconomyRules& /*r*/) const
+const CounterpartyRules* Economy::findCounterparty(const std::string& cp) const
 {
-	// TODO(38.4): consult the counterparty's buys catalog + demand accounting.
-	return true;
+	if (!_rules) return nullptr;
+	for (const CounterpartyRules& c : _rules->counterparties)
+		if (c.country == cp) return &c;
+	return nullptr;
+}
+
+double Economy::priceMod(const std::string& itemId) const
+{
+	auto it = _priceMods.find(itemId);
+	return (it != _priceMods.end()) ? it->second : 1.0;
+}
+
+bool Economy::sellsToPlayer(const std::string& cp, const RuleItem* item, const EconomyRules& r) const
+{
+	if (cp == BLACK_MARKET) return catalogMatches(r.bmSells, item);
+	if (getTier(cp, r) < StandingTier::Neutral) return false;   // below Neutral: they stop selling
+	const CounterpartyRules* c = findCounterparty(cp);
+	return c && catalogMatches(c->sells, item);
+}
+
+bool Economy::buysFromPlayer(const std::string& cp, const RuleItem* item, const EconomyRules& r) const
+{
+	if (cp == BLACK_MARKET) return true;                        // black market buys anything
+	if (getTier(cp, r) <= StandingTier::Hostile) return false;  // Hostile: they stop buying
+	const CounterpartyRules* c = findCounterparty(cp);
+	return c && catalogMatches(c->buys, item);
+}
+
+int Economy::getStock(const std::string& cp, const RuleItem* item, const SavedGame* save, const EconomyRules& r) const
+{
+	if (cp == BLACK_MARKET) return 1000000;   // survival floor -- never stock-limited
+	const CounterpartyRules* c = findCounterparty(cp);
+	if (!c) return 0;
+	int di = static_cast<int>(save->getDifficulty());
+	double dm = (di >= 0 && di < static_cast<int>(r.difficultyStockMult.size())) ? r.difficultyStockMult[di] : 1.0;
+	int cap = stockCap(r.baseStock, c->sells.stockMult, dm);
+	auto it = _stockUsed.find(cp + "/" + item->getType());
+	int used = (it != _stockUsed.end()) ? it->second : 0;
+	int rem = cap - used;
+	return rem < 0 ? 0 : rem;
+}
+
+int Economy::getDemand(const std::string& cp, const RuleItem* item, const SavedGame* save, const EconomyRules& r) const
+{
+	if (cp == BLACK_MARKET) return 1000000;
+	const CounterpartyRules* c = findCounterparty(cp);
+	if (!c) return 0;
+	int di = static_cast<int>(save->getDifficulty());
+	double dm = (di >= 0 && di < static_cast<int>(r.difficultyStockMult.size())) ? r.difficultyStockMult[di] : 1.0;
+	int cap = stockCap(r.baseDemand, c->buys.demandMult, dm);
+	auto it = _demandUsed.find(cp + "/" + item->getType());
+	int used = (it != _demandUsed.end()) ? it->second : 0;
+	int rem = cap - used;
+	return rem < 0 ? 0 : rem;
+}
+
+int64_t Economy::buyPrice(const std::string& cp, const RuleItem* item, const EconomyRules& r) const
+{
+	double mult = (cp == BLACK_MARKET) ? r.bmBuyMult : 1.0;
+	return marketPrice(item->getBuyCost(), mult, priceMod(item->getType()));
+}
+
+int64_t Economy::sellPrice(const std::string& cp, const RuleItem* item, const EconomyRules& r) const
+{
+	double mult = (cp == BLACK_MARKET) ? r.bmSellMult : 1.0;
+	return marketPrice(item->getSellCost(), mult, priceMod(item->getType()));
+}
+
+void Economy::recordPurchase(const std::string& cp, const RuleItem* item, int qty)
+{
+	if (cp == BLACK_MARKET || qty <= 0) return;   // black market never depletes
+	_stockUsed[cp + "/" + item->getType()] += qty;
+}
+
+void Economy::recordSale(const std::string& cp, const RuleItem* item, int qty, const EconomyRules& r)
+{
+	if (qty <= 0) return;
+	const std::string& id = item->getType();
+	// price pressure applies to ALL sales (global per-item modifier).
+	_priceMods[id] = applySellPressure(priceMod(id), qty, r.sellPressure, r.priceFloor, r.priceCeil);
+	if (cp == BLACK_MARKET) return;               // black market has no monthly demand cap
+	_demandUsed[cp + "/" + id] += qty;
 }
 
 // ---- dynamic events (slice C) ----
@@ -392,7 +481,11 @@ void Economy::onNewMonth(SavedGame* save, const Mod* mod)
 			}
 		}
 	}
-	// TODO(slice B): market stock/demand refresh.
+	// Monthly market refresh: clear per-counterparty stock/demand usage, relax price mods toward 1.0.
+	_stockUsed.clear();
+	_demandUsed.clear();
+	for (auto& kv : _priceMods)
+		kv.second = decayPriceMod(kv.second, r.monthlyDecay);
 }
 
 // ---- persistence ----

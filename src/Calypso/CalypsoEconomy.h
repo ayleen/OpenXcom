@@ -95,6 +95,8 @@ struct EconomyRules
 	int    deadlineMonths = 2;
 
 	// market
+	int baseStock = 20;
+	int baseDemand = 20;
 	std::vector<double> difficultyStockMult { 1.3, 1.15, 1.0, 0.85, 0.7 };
 	std::vector<CounterpartyRules> counterparties;
 	// black market
@@ -176,6 +178,13 @@ public:
 	bool    sellsToPlayer(const std::string& cp, const RuleItem* item, const EconomyRules& r) const;
 	bool    buysFromPlayer(const std::string& cp, const RuleItem* item, const EconomyRules& r) const;
 
+	int     getStock(const std::string& cp, const RuleItem* item, const SavedGame* save, const EconomyRules& r) const;
+	int     getDemand(const std::string& cp, const RuleItem* item, const SavedGame* save, const EconomyRules& r) const;
+	int64_t buyPrice(const std::string& cp, const RuleItem* item, const EconomyRules& r) const;
+	int64_t sellPrice(const std::string& cp, const RuleItem* item, const EconomyRules& r) const;
+	void    recordPurchase(const std::string& cp, const RuleItem* item, int qty);
+	void    recordSale(const std::string& cp, const RuleItem* item, int qty, const EconomyRules& r);
+
 	// dynamic events (slice C)
 	void onTerrorSite(const std::string& regionId, const EconomyRules& r);
 
@@ -185,6 +194,9 @@ public:
 
 private:
 	int offersForTier(StandingTier tier, const EconomyRules& r) const;   // contract offers for a tier (0 for hostile/distrusted)
+
+	const CounterpartyRules* findCounterparty(const std::string& cp) const;  // nullptr for black market / unknown
+	double priceMod(const std::string& itemId) const;                        // _priceMods lookup, default 1.0
 
 	const EconomyRules* _rules = nullptr;   // non-owning, not serialised
 
