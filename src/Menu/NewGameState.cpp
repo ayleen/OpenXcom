@@ -176,6 +176,7 @@ void NewGameState::btnOkClick(Action *)
 	_game->setSavedGame(save);
 #ifdef __EMSCRIPTEN__
 	CalypsoTutorial::get().resetCampaign();
+	CalypsoTutorial::get().requestAsk();   // Phase 39: first-run enable prompt
 #endif
 
 	GeoscapeState *gs = new GeoscapeState;
