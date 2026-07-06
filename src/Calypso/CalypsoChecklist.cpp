@@ -54,6 +54,21 @@ bool isVisible(const Game* game, const CalypsoChecklistItem& item)
 	return item.afterStep.empty() || CalypsoTutorial::get().wasShown(item.afterStep);
 }
 
+// Debug helper: logs each item's visible/done state (Log macro must be used
+// inside the namespace so Logger/LOG_INFO resolve).
+void dumpAll(const Game* game)
+{
+	if (!game) { Log(LOG_INFO) << "[checklist] no game"; return; }
+	const auto& items = game->getMod()->getCalypsoChecklist();
+	Log(LOG_INFO) << "[checklist] " << items.size() << " items";
+	for (const auto& it : items)
+	{
+		Log(LOG_INFO) << "[checklist] id='" << it.id
+			<< "' visible=" << (isVisible(game, it) ? "1" : "0")
+			<< " done=" << (isDone(game, it) ? "1" : "0");
+	}
+}
+
 } // namespace CalypsoChecklist
 
 } // namespace OpenXcom
@@ -64,16 +79,7 @@ extern "C" {
 EMSCRIPTEN_KEEPALIVE
 void calypso_checklist_dump()
 {
-	OpenXcom::Game* g = OpenXcom::getCurrentGame();
-	if (!g) { OpenXcom::Log(OpenXcom::LOG_INFO) << "[checklist] no game"; return; }
-	const auto& items = g->getMod()->getCalypsoChecklist();
-	OpenXcom::Log(OpenXcom::LOG_INFO) << "[checklist] " << items.size() << " items";
-	for (const auto& it : items)
-	{
-		OpenXcom::Log(OpenXcom::LOG_INFO) << "[checklist] id='" << it.id
-			<< "' visible=" << (OpenXcom::CalypsoChecklist::isVisible(g, it) ? "1" : "0")
-			<< " done=" << (OpenXcom::CalypsoChecklist::isDone(g, it) ? "1" : "0");
-	}
+	OpenXcom::CalypsoChecklist::dumpAll(OpenXcom::getCurrentGame());
 }
 
 } /* extern "C" */
