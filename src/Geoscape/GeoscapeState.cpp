@@ -141,6 +141,7 @@
 #ifdef __EMSCRIPTEN__
 #include "../Engine/Logger.h"
 #include "../Calypso/CalypsoTutorial.h"
+#include "../Calypso/CalypsoAdvisor.h"
 extern "C" void calypso_log_heap(const char *tag);  // M5: defined in EmscriptenHarness.cpp
 extern "C" int  g_calypsoTabHiddenPause;            // M6h: set by calypso_on_tab_hidden()
 #endif
@@ -2898,6 +2899,7 @@ void GeoscapeState::time1Day()
 		}
 	}
 #ifdef __EMSCRIPTEN__
+	CalypsoAdvisor::get().daily(_game);   // Phase 39: advisor poll
 	calypsoChecklistRefresh();   // Phase 39: checklist day tick
 #endif
 }
