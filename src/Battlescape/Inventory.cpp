@@ -48,6 +48,9 @@
 #include "../Engine/Screen.h"
 #include "../Engine/CrossPlatform.h"
 #include "TileEngine.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoTutorial.h"
+#endif
 
 namespace OpenXcom
 {
@@ -522,6 +525,17 @@ std::vector<std::vector<char>>* Inventory::clearOccupiedSlotsCache()
 void Inventory::moveItem(BattleItem *item, const RuleInventory *slot, int x, int y)
 {
 	_game->getSavedGame()->getSavedBattle()->getTileEngine()->itemMoveInventory(_selUnit->getTile(), _selUnit, item, slot, x, y);
+#ifdef __EMSCRIPTEN__
+	// Phase 39: two-handed-penalty hint - same condition as the real accuracy
+	// penalty in BattleUnit::getFiringAccuracy (BattleUnit.cpp:2659-2669).
+	if (_selUnit)
+	{
+		BattleItem *r = _selUnit->getRightHandWeapon();
+		BattleItem *l = _selUnit->getLeftHandWeapon();
+		if (r && l && (r->getRules()->isTwoHanded() || l->getRules()->isTwoHanded()))
+			CalypsoTutorial::get().fire(_game, "inventory.twoHanded");
+	}
+#endif
 }
 
 /**
