@@ -1696,9 +1696,10 @@ void DogfightState::update()
 				if (_ufo->getShotDownByCraftId() == _craft->getUniqueId())
 				{
 					setStatus("STR_UFO_CRASH_LANDS");
-#ifdef __EMSCRIPTEN__
+				#ifdef __EMSCRIPTEN__
 					CalypsoTutorial::get().fire(_game, "ufo.crashed");
-#endif
+					CalypsoTutorial::get().fire(_game, "ufo.recoveryNeeded");
+				#endif
 					_game->getMod()->getSound("GEO.CAT", Mod::UFO_CRASH)->play(); //10
 					for (auto* country : *_game->getSavedGame()->getCountries())
 					{
