@@ -34,6 +34,9 @@
 #include "../Mod/RuleGlobe.h"
 #include "../Mod/Texture.h"
 #include "SavedGame.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoEconomy.h"
+#endif
 #include "MissionSite.h"
 #include "Ufo.h"
 #include "Craft.h"
@@ -1463,6 +1466,10 @@ MissionSite *AlienMission::spawnMissionSite(SavedGame &game, const Mod &mod, con
 		missionSite->setTexture(area.texture);
 		missionSite->setCity(area.name);
 		game.getMissionSites()->push_back(missionSite);
+#ifdef __EMSCRIPTEN__
+		if (auto* eco = game.getCalypsoEconomy())
+			if (eco->active()) eco->onTerrorSite(_region, game.getMonthsPassed(), mod.getCalypsoEconomyRules());
+#endif
 
 		if (Options::oxceGeoscapeDebugLogMaxEntries > 0)
 		{

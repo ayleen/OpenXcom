@@ -27,6 +27,10 @@
 #include "../Engine/Game.h"
 #include "../Engine/Action.h"
 #include "../Mod/Mod.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoEconomy.h"
+#include "../Calypso/CalypsoEconomyState.h"
+#endif
 #include "../Engine/LocalizedText.h"
 #include "../Engine/Screen.h"
 #include "../Engine/Sound.h"
@@ -2899,6 +2903,13 @@ void GeoscapeState::time1Month()
 {
 	_game->getSavedGame()->addMonth();
 
+#ifdef __EMSCRIPTEN__
+	// Phase 38: Calypso economy monthly tick (seed grants, fold activity into standing,
+	// expire contracts) BEFORE monthlyFunding()/MonthlyReportState read country funding.
+	if (auto* eco = _game->getSavedGame()->getCalypsoEconomy())
+		eco->onNewMonth(_game->getSavedGame(), _game->getMod());
+#endif
+
 	// Determine alien mission for this month.
 	determineAlienMissions();
 
@@ -3205,6 +3216,18 @@ void GeoscapeState::btnFundingClick(Action *)
 	}
 	else
 	{
+#ifdef __EMSCRIPTEN__
+		auto* eco = _game->getSavedGame()->getCalypsoEconomy();
+		if (eco)
+		{
+			eco->ensureInitialized(_game->getSavedGame(), _game->getMod());
+			if (eco->active())
+			{
+				_game->pushState(new CalypsoEconomyState);
+				return;
+			}
+		}
+#endif
 		_game->pushState(new FundingState);
 	}
 }

@@ -22,6 +22,9 @@
 #include "../Engine/RNG.h"
 #include "../Engine/ScriptBind.h"
 #include "../Savegame/SavedGame.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoEconomy.h"
+#endif
 
 namespace OpenXcom
 {
@@ -256,6 +259,16 @@ void Country::newMonth(int xcomTotal, int alienTotal, int pactScore, int average
 	_cancelPact = false;
 
 	// set the new funding and reset the activity meters
+#ifdef __EMSCRIPTEN__
+	Calypso::Economy* eco = save ? save->getCalypsoEconomy() : nullptr;
+	if (eco && eco->active() && !_pact)
+	{
+		// Phase 38: grant schedule replaces the vanilla funding delta. Pact
+		// countries still get 0 (they fall through to the vanilla branch below).
+		_funding.push_back(eco->grantForMonth(getRules()->getType(), save->getMonthsPassed(), eco->rules()));
+	}
+	else
+#endif
 	if (_pact)
 		_funding.push_back(0); // yes, hardcoded!
 	else

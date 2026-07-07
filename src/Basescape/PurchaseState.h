@@ -44,6 +44,7 @@ class PurchaseState : public TouchState
 {
 private:
 	Base *_base;
+	std::string _counterparty;   // Phase 38: empty = vanilla single market; else conglomerate/BLACK_MARKET id
 	CannotReequipState *_parent;
 	bool _autoBuyDone;
 	std::map<RuleItem*, int> _missingItemsMap;
@@ -78,7 +79,7 @@ private:
 	TransferRow &getRow() { return _items[_rows[_sel]]; }
 public:
 	/// Creates the Purchase state.
-	PurchaseState(Base *base, CannotReequipState *parent = nullptr);
+	PurchaseState(Base *base, CannotReequipState *parent = nullptr, const std::string& counterparty = "");
 	/// Cleans up the Purchase state.
 	~PurchaseState();
 	/// Resets state.

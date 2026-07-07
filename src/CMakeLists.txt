@@ -6,6 +6,11 @@ set ( root_src
 )
 set ( calypso_src
   Calypso/BattlescapeHud.cpp
+  Calypso/CalypsoContractDeliverState.cpp
+  Calypso/CalypsoEconomy.cpp
+  Calypso/CalypsoEconomyState.cpp
+  Calypso/CalypsoMarket.cpp
+  Calypso/CalypsoMarketState.cpp
   Calypso/MapGl.cpp
   Calypso/ModHd.cpp
 )
@@ -830,7 +835,8 @@ if(NOT EMSCRIPTEN AND BUILD_TESTING)
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/TerrainTacticsTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/HearingTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/SuppressionTest.cpp
-        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/SquadCoordinationTest.cpp)
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/SquadCoordinationTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoEconomySimTest.cpp)
 
     add_executable(oxce_unit_tests ${OXCE_TEST_SOURCES})
     target_link_libraries(oxce_unit_tests PRIVATE oxce_test_doctest)

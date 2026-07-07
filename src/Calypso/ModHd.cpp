@@ -24,6 +24,7 @@
 #ifdef __EMSCRIPTEN__
 
 #include "../Mod/Mod.h"
+#include "CalypsoEconomy.h"
 #include "../Mod/ModScript.h"
 #include <algorithm>
 #include <functional>
@@ -1739,6 +1740,8 @@ void Mod::loadFileCalypso(YAML::YamlNodeReader& reader)
 	}
 	// Phase 25 R5: floating unit nameplates / HP-TU-energy bars (off by default).
 	reader["calypso_hud_overlay"].tryReadVal<bool>(_calypsoHudOverlay);
+	// Phase 38: trade & economy ruleset. Disabled unless the key is present (kill-switch).
+	Calypso::loadEconomyRules(reader["calypsoEconomy"], _calypsoEconomyRules);
 	// Phase 37 (Calypso): parse the top-level `tutorial:` block (content lives
 	// in the calypso-tutorial mod). Each step is built from its mapping; a
 	// step missing id/trigger/pages is logged and skipped per the ruleset

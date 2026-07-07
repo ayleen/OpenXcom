@@ -36,7 +36,8 @@
 #include "RuleItem.h"
 #include "MapData.h"            // Phase 21: TilePart enum (O_FLOOR/O_OBJECT)
 #ifdef __EMSCRIPTEN__
-#include "../Calypso/CalypsoTutorial.h"
+#  include "../Calypso/CalypsoEconomy.h"   // Phase 38: Calypso::EconomyRules (ruleset config type)
+#  include "../Calypso/CalypsoTutorial.h"  // Phase 37: Calypso tutorial steps
 #endif
 
 namespace OpenXcom
@@ -437,12 +438,14 @@ private:
 	/// Phase 25 R5: draw floating HD nameplates + HP/TU/energy bars over player
 	/// units in the Battlescape. Off by default; set via calypso_hud_overlay:.
 	bool _calypsoHudOverlay = false;
-#ifdef __EMSCRIPTEN__
+	/// Phase 38 (Calypso): parsed trade/economy ruleset config (disabled
+	/// sentinel when the `calypsoEconomy:` key is absent). Body lives in
+	/// Calypso/ModHd.cpp::loadFileCalypso; type defined in Calypso/CalypsoEconomy.h.
+	Calypso::EconomyRules _calypsoEconomyRules;
 	/// Phase 37 (Calypso): parsed tutorial steps from the `tutorial:` top-level
 	/// ruleset key. Lives on Mod so it loads once at mod-load time and survives
 	/// save/load round-trips without re-parsing. Gated like battlescapeTileScale.
 	std::vector<CalypsoTutorialStep> _calypsoTutorialSteps;
-#endif
 	/// L5: globe GL handles were evicted on battle entry; restore on geoscape return.
 	bool _globeGpuEvicted     = false;
 	/// L5: tile + unit atlas GL handles were evicted on geoscape; restore on battle entry.
@@ -847,10 +850,11 @@ public:
 	int getBattlescapeTileScale() const { return _battlescapeTileScale; }
 	/// Phase 25 R5: true when floating unit nameplates/bars should be drawn.
 	bool getCalypsoHudOverlay() const { return _calypsoHudOverlay; }
-#ifdef __EMSCRIPTEN__
+	/// Phase 38 (Calypso): parsed trade/economy ruleset config (disabled
+	/// sentinel when the `calypsoEconomy:` key is absent).
+	const Calypso::EconomyRules& getCalypsoEconomyRules() const { return _calypsoEconomyRules; }
 	/// Phase 37 (Calypso): tutorial step table parsed from the ruleset.
 	const std::vector<CalypsoTutorialStep>& getCalypsoTutorialSteps() const { return _calypsoTutorialSteps; }
-#endif
 	/// L7: ensures battlescape-only SurfaceSets are resident.
 	/// Delegates to the private loadBattlescapeResources(); idempotent (guarded
 	/// by _battlescapeResourcesLoaded).  Called from BattlescapeState ctor.

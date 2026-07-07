@@ -46,6 +46,7 @@ class SellState : public TouchState
 private:
 	Base *_base;
 	DebriefingState *_debriefingState;
+	std::string _counterparty;   // Phase 38: "" = vanilla; conglomerate id; or BLACK_MARKET (debriefing)
 	TextButton *_btnOk, *_btnCancel, *_btnTransfer;
 	TextEdit *_btnQuickSearch;
 	Window *_window;
@@ -77,7 +78,7 @@ private:
 	TransferRow &getRow() { return _items[_rows[_sel]]; }
 public:
 	/// Creates the Sell state.
-	SellState(Base *base, DebriefingState *debriefingState, OptionsOrigin origin = OPT_GEOSCAPE);
+	SellState(Base *base, DebriefingState *debriefingState, OptionsOrigin origin = OPT_GEOSCAPE, const std::string& counterparty = "");
 	void delayedInit();
 	/// Cleans up the Sell state.
 	~SellState();
