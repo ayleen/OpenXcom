@@ -450,7 +450,6 @@ private:
 	std::vector<CalypsoTutorialStep> _calypsoTutorialSteps;
 	std::vector<CalypsoChecklistItem> _calypsoChecklist;
 	std::vector<CalypsoAdvisorRule> _calypsoAdvisors;
-#endif
 	/// L5: globe GL handles were evicted on battle entry; restore on geoscape return.
 	bool _globeGpuEvicted     = false;
 	/// L5: tile + unit atlas GL handles were evicted on geoscape; restore on battle entry.
