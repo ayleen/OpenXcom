@@ -1522,14 +1522,14 @@ void stackTrace(void *ctx)
 			demangled = NULL;
 			mangled = dl_info.dli_sname;
 			if ( mangled != NULL) {
-				sym_offset = (char *)frames[i] - (char *)dl_info.dli_saddr;
+				sym_offset = (size_t)((char *)frames[i] - (char *)dl_info.dli_saddr);
 				demangled = abi::__cxa_demangle( dl_info.dli_sname, NULL, 0, &status);
 				snprintf(buf, sizeof(buf), "%s(%s+0x%zx) [%p]",
 						dl_info.dli_fname,
 						status == 0 ? demangled : mangled,
 						sym_offset, frames[i] );
 			} else { // symbol not found
-				sym_offset = (char *)frames[i] - (char *)dl_info.dli_fbase;
+				sym_offset = (size_t)((char *)frames[i] - (char *)dl_info.dli_fbase);
 				snprintf(buf, sizeof(buf), "%s(+0x%zx) [%p]", dl_info.dli_fname, sym_offset, frames[i]);
 			}
 			free(demangled);

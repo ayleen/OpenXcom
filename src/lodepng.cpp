@@ -2709,7 +2709,7 @@ size_t lodepng_get_raw_size(unsigned w, unsigned h, const LodePNGColorMode* colo
 {
   /*will not overflow for any color type if roughly w * h < 268435455*/
   size_t bpp = lodepng_get_bpp(color);
-  size_t n = w * h;
+  size_t n = (size_t)w * h;
   return ((n / 8) * bpp) + ((n & 7) * bpp + 7) / 8;
 }
 
@@ -2717,7 +2717,7 @@ size_t lodepng_get_raw_size_lct(unsigned w, unsigned h, LodePNGColorType colorty
 {
   /*will not overflow for any color type if roughly w * h < 268435455*/
   size_t bpp = lodepng_get_bpp_lct(colortype, bitdepth);
-  size_t n = w * h;
+  size_t n = (size_t)w * h;
   return ((n / 8) * bpp) + ((n & 7) * bpp + 7) / 8;
 }
 
@@ -3462,7 +3462,7 @@ unsigned lodepng_convert(unsigned char* out, const unsigned char* in,
 {
   size_t i;
   ColorTree tree;
-  size_t numpixels = w * h;
+  size_t numpixels = (size_t)w * h;
   unsigned error = 0;
 
   if(lodepng_color_mode_equal(mode_out, mode_in))
@@ -3573,7 +3573,7 @@ unsigned lodepng_get_color_profile(LodePNGColorProfile* profile,
   unsigned error = 0;
   size_t i;
   ColorTree tree;
-  size_t numpixels = w * h;
+  size_t numpixels = (size_t)w * h;
 
   unsigned colored_done = lodepng_is_greyscale_type(mode) ? 1 : 0;
   unsigned alpha_done = lodepng_can_have_alpha(mode) ? 0 : 1;
@@ -3887,11 +3887,11 @@ static void Adam7_getpassvalues(unsigned passw[7], unsigned passh[7], size_t fil
   {
     /*if passw[i] is 0, it's 0 bytes, not 1 (no filtertype-byte)*/
     filter_passstart[i + 1] = filter_passstart[i]
-                            + ((passw[i] && passh[i]) ? passh[i] * (1 + (passw[i] * bpp + 7) / 8) : 0);
+                            + ((passw[i] && passh[i]) ? (size_t)passh[i] * (1 + ((size_t)passw[i] * bpp + 7) / 8) : 0);
     /*bits padded if needed to fill full byte at end of each scanline*/
-    padded_passstart[i + 1] = padded_passstart[i] + passh[i] * ((passw[i] * bpp + 7) / 8);
+    padded_passstart[i + 1] = padded_passstart[i] + (size_t)passh[i] * (((size_t)passw[i] * bpp + 7) / 8);
     /*only padded at end of reduced image*/
-    passstart[i + 1] = passstart[i] + (passh[i] * passw[i] * bpp + 7) / 8;
+    passstart[i + 1] = passstart[i] + ((size_t)passh[i] * passw[i] * bpp + 7) / 8;
   }
 }
 
@@ -4182,7 +4182,7 @@ static unsigned postProcessScanlines(unsigned char* out, unsigned char* in,
     if(bpp < 8 && w * bpp != ((w * bpp + 7) / 8) * 8)
     {
       CERROR_TRY_RETURN(unfilter(in, in, w, h, bpp));
-      removePaddingBits(out, in, w * bpp, ((w * bpp + 7) / 8) * 8, h);
+      removePaddingBits(out, in, (size_t)w * bpp, (((size_t)w * bpp + 7) / 8) * 8, h);
     }
     /*we can immediately filter into the out buffer, no other steps needed*/
     else CERROR_TRY_RETURN(unfilter(out, in, w, h, bpp));
@@ -4203,8 +4203,8 @@ static unsigned postProcessScanlines(unsigned char* out, unsigned char* in,
       {
         /*remove padding bits in scanlines; after this there still may be padding
         bits between the different reduced images: each reduced image still starts nicely at a byte*/
-        removePaddingBits(&in[passstart[i]], &in[padded_passstart[i]], passw[i] * bpp,
-                          ((passw[i] * bpp + 7) / 8) * 8, passh[i]);
+        removePaddingBits(&in[passstart[i]], &in[padded_passstart[i]], (size_t)passw[i] * bpp,
+                          (((size_t)passw[i] * bpp + 7) / 8) * 8, passh[i]);
       }
     }
 
@@ -4546,7 +4546,7 @@ static void decodeGeneric(unsigned char** out, unsigned* w, unsigned* h,
   state->error = lodepng_inspect(w, h, state, in, insize); /*reads header and resets other parameters in state->info_png*/
   if(state->error) return;
 
-  numpixels = *w * *h;
+  numpixels = (size_t)*w * *h;
 
   /*multiplication overflow*/
   if(*h != 0 && numpixels / *h != *w) CERROR_RETURN(state->error, 92);
@@ -5548,11 +5548,11 @@ static unsigned preProcessScanlines(unsigned char** out, size_t* outsize, const 
       /*non multiple of 8 bits per scanline, padding bits needed per scanline*/
       if(bpp < 8 && w * bpp != ((w * bpp + 7) / 8) * 8)
       {
-        unsigned char* padded = (unsigned char*)lodepng_malloc(h * ((w * bpp + 7) / 8));
+        unsigned char* padded = (unsigned char*)lodepng_malloc((size_t)h * (((size_t)w * bpp + 7) / 8));
         if(!padded) error = 83; /*alloc fail*/
         if(!error)
         {
-          addPaddingBits(padded, in, ((w * bpp + 7) / 8) * 8, w * bpp, h);
+          addPaddingBits(padded, in, (((size_t)w * bpp + 7) / 8) * 8, (size_t)w * bpp, h);
           error = filter(*out, padded, w, h, &info_png->color, settings);
         }
         lodepng_free(padded);
@@ -5591,7 +5591,7 @@ static unsigned preProcessScanlines(unsigned char** out, size_t* outsize, const 
           unsigned char* padded = (unsigned char*)lodepng_malloc(padded_passstart[i + 1] - padded_passstart[i]);
           if(!padded) ERROR_BREAK(83); /*alloc fail*/
           addPaddingBits(padded, &adam7[passstart[i]],
-                         ((passw[i] * bpp + 7) / 8) * 8, passw[i] * bpp, passh[i]);
+                         (((size_t)passw[i] * bpp + 7) / 8) * 8, (size_t)passw[i] * bpp, passh[i]);
           error = filter(&(*out)[filter_passstart[i]], padded,
                          passw[i], passh[i], &info_png->color, settings);
           lodepng_free(padded);
@@ -5697,7 +5697,7 @@ unsigned lodepng_encode(unsigned char** out, size_t* outsize,
     if(!lodepng_color_mode_equal(&state->info_raw, &info.color))
     {
       unsigned char* converted;
-      size_t size = (w * h * (size_t)lodepng_get_bpp(&info.color) + 7) / 8;
+      size_t size = ((size_t)w * h * lodepng_get_bpp(&info.color) + 7) / 8;
 
       converted = (unsigned char*)lodepng_malloc(size);
       if(!converted && size) state->error = 83; /*alloc fail*/

@@ -7280,7 +7280,11 @@ mz_bool mz_zip_add_mem_to_archive_file_in_place_v2(const char *pZip_filename, co
 
     if ((!status) && (created_new_archive))
     {
-        /* It's a new archive and something went wrong, so just delete it. */
+        /* It's a new archive and something went wrong, so just delete it.
+         This is best-effort cleanup; a TOCTOU between the earlier file check
+         and this remove() is harmless — the worst case is the file was already
+         gone, in which case remove() simply returns -1/ENOENT. */
+        // lgtm[cpp/toctou-race-condition]
         int ignoredStatus = MZ_DELETE_FILE(pZip_filename);
         (void)ignoredStatus;
     }
