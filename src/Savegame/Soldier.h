@@ -77,6 +77,9 @@ private:
 	int _manaMissing = 0;   // amount of mana missing until full mana recovery
 	float _recovery = 0.0;  // amount of hospital attention soldier needs... used to calculate recovery time
 	bool _recentlyPromoted, _psiTraining, _training, _returnToTrainingWhenHealed;
+#ifdef __EMSCRIPTEN__
+	int _calypsoDrillDays = 0; // Phase 40: days toward the next Drill Deck cycle
+#endif
 	Armor *_armor;
 	Armor *_replacedArmor;
 	Armor *_transformedArmor;
@@ -278,6 +281,11 @@ public:
 	bool getReturnToTrainingWhenHealed() const;
 	/// Sets whether the soldier should return to martial training automatically when fully healed.
 	void setReturnToTrainingWhenHealed(bool returnToTrainingWhenHealed);
+#ifdef __EMSCRIPTEN__
+	/// Phase 40: Drill Deck cycle counter (persisted; survives pauses).
+	int getCalypsoDrillDays() const { return _calypsoDrillDays; }
+	void setCalypsoDrillDays(int days) { _calypsoDrillDays = days; }
+#endif
 	/// Sets whether the soldier's body was recovered from a battle
 	void setCorpseRecovered(bool corpseRecovered);
 	/// Gets the previous transformations performed on this soldier

@@ -30,6 +30,7 @@
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoEconomy.h"
 #include "../Calypso/CalypsoEconomyState.h"
+#include "../Calypso/CalypsoTraining.h"
 #endif
 #include "../Engine/LocalizedText.h"
 #include "../Engine/Screen.h"
@@ -2680,7 +2681,11 @@ void GeoscapeState::time1Day()
 
 			if (soldier->isInTraining())
 			{
+#ifdef __EMSCRIPTEN__
+				Calypso::drillDeckDailyTick(soldier); // Phase 40: 3-day Drill Deck cycle
+#else
 				soldier->trainPhys(_game->getMod()->getCustomTrainingFactor());
+#endif
 				soldier->calcStatString(_game->getMod()->getStatStrings(), psiStrengthEval);
 				if (soldier->isFullyTrained())
 				{
