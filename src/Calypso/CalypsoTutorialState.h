@@ -1,79 +1,66 @@
 #ifdef __EMSCRIPTEN__
 #pragma once
 /*
- * Phase 37.2 (Calypso): tutorial popup state.
+ * Phase 37.2 (Calypso): tutorial popup state — DOM overlay edition.
  * Whole file is Emscripten-only — the native desktop build never sees it.
  *
- * Modal, non-fullscreen state (_screen = false, modelled on PauseState).
- * Receives an ordered batch of queued steps from CalypsoTutorial::pump() and
- * walks them page-by-page with a pulsing 2px highlight border around the
- * current page's anchor rect. Slice A ships border-only: no dim overlay
- * (no new alpha/blending path).
+ * The state machine (queue, step walking, persistence) stays in C++; only the
+ * visual rendering moved to a DOM overlay (tutorial-overlay.js).  The C++ side
+ * pushes page data to JS via calypso_notify_tutorial_show() and receives
+ * button callbacks through the EMSCRIPTEN_KEEPALIVE exports at the bottom of
+ * the .cpp.  The state itself is an invisible modal: _screen=false, no child
+ * surfaces, so the underlying game frame stays visible behind the HTML popup.
  */
 
+#include <cstddef>
 #include <vector>
+#include <string>
 #include "../Engine/State.h"
 #include "CalypsoTutorial.h"  // for CalypsoTutorialStep
 
 namespace OpenXcom
 {
 
-class Window;
-class Text;
-class TextButton;
-class Surface;
-class Action;
-
 class CalypsoTutorialState : public State
 {
 private:
 	std::vector<const CalypsoTutorialStep*> _steps;
-	size_t _stepIdx = 0;   ///< current step index into _steps
-	size_t _pageIdx = 0;   ///< current page index within the current step
-	int    _pulse  = 0;    ///< think() tick counter driving the border pulse
+	size_t _stepIdx = 0;
+	size_t _pageIdx = 0;
 
-	Window*      _window;
-	Text*        _txtTitle;
-	Text*        _txtBody;
-	TextButton*  _btnNext;
-	TextButton*  _btnStop;
-	Surface*     _highlight;   ///< full logical-size overlay for the pulsing border
+	/// Cached translated strings (computed in showPage, sent to JS).
+	std::string _curTitle;
+	std::string _curBody;
+	std::string _curNextLabel;
+	int _curPageNum = 1;
+	int _curTotalPages = 1;
+
+	/// Singleton-style pointer so JS exports can find the active popup.
+	static CalypsoTutorialState* _active;
 
 public:
-	/// Creates the tutorial popup state with an ordered batch of steps.
 	explicit CalypsoTutorialState(std::vector<const CalypsoTutorialStep*> steps);
-	/// Cleans up the tutorial popup state.
 	~CalypsoTutorialState();
-	/// Initializes the state (base init + first page).
 	void init() override;
-	/// Per-frame: pulse the border.
-	void think() override;
-	/// Calypso (Emscripten): rescale to the logical buffer instead of the base recenter.
-	void resize(int& dX, int& dY) override;
 
-	/// Handler for clicking NEXT / GOT IT.
-	void btnNextClick(Action* action);
-	/// Handler for clicking STOP SHOWING HINTS.
-	void btnStopClick(Action* action);
-	/// Handler for Esc — skips the rest of the current step, then advances.
-	void btnEscClick(Action* action);
+	/// Returns the currently active popup, or nullptr (used by JS exports).
+	static CalypsoTutorialState* getActive() { return _active; }
+
+	// The state is invisible — no blit, no think beyond defaults.
+	// Input blocking comes from State's modal flag (_screen=false, _modal-driven).
+
+	/// Handler for NEXT / GOT IT (called from JS export).
+	void btnNextClick();
+	/// Handler for DISABLE HELP (called from JS export).
+	void btnStopClick();
+	/// Handler for CLOSE / Esc (called from JS export).
+	void btnEscClick();
 
 private:
-	/// Render the current page's text + button labels into the panel.
 	void showPage();
-	/// Advance one page (or step), popping the state at the end of the batch.
 	void advance();
-	/// Mark the current step shown and move on.
 	void finishCurrentStep();
-	/// Redraw the pulsing border around the current anchor (no-op if no anchor).
-	void drawHighlight();
-	/// Place the panel in the half of the screen opposite the anchor. Decided
-	/// once at construction (pre-scaling) so enableUiScaling stays correct.
-	void placeForAnchor();
-	/// Returns the current step or nullptr if past the end.
 	const CalypsoTutorialStep* cur() const;
-	/// Resolves the anchor key for the current page (page override if present).
-	std::string curAnchorKey() const;
 };
 
 } // namespace OpenXcom
