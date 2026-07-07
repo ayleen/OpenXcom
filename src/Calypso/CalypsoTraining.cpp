@@ -52,6 +52,7 @@ void drillDeckDailyTick(Soldier* soldier)
 		case DRILL_FIRING:   cur->firing = next; break;
 		case DRILL_THROWING: cur->throwing = next; break;
 		case DRILL_MELEE:    cur->melee = next; break;
+		default:            break; // unreachable — drillPickWeakest returns [0..DRILL_STAT_COUNT-1]
 	}
 }
 
