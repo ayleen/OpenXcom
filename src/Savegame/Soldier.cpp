@@ -199,6 +199,9 @@ void Soldier::load(const YAML::YamlNodeReader& node, const Mod *mod, SavedGame *
 	reader.tryRead("psiTraining", _psiTraining);
 	reader.tryRead("training", _training);
 	reader.tryRead("returnToTrainingWhenHealed", _returnToTrainingWhenHealed);
+#ifdef __EMSCRIPTEN__
+	reader.tryRead("calypsoDrillDays", _calypsoDrillDays);
+#endif
 
 	reader.tryRead("improvement", _improvement);
 	reader.tryRead("psiStrImprovement", _psiStrImprovement);
@@ -317,6 +320,10 @@ void Soldier::save(YAML::YamlNodeWriter writer, const ScriptGlobal *shared) cons
 		writer.write("training", _training);
 	if (_returnToTrainingWhenHealed)
 		writer.write("returnToTrainingWhenHealed", _returnToTrainingWhenHealed);
+#ifdef __EMSCRIPTEN__
+	if (_calypsoDrillDays)
+		writer.write("calypsoDrillDays", _calypsoDrillDays);
+#endif
 	writer.write("improvement", _improvement);
 	writer.write("psiStrImprovement", _psiStrImprovement);
 	writer.write("equipmentLayout", _equipmentLayout,
