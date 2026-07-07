@@ -41,6 +41,11 @@ on:
   push:
     branches: [oxce-plus]
 
+# Limit the GITHUB_TOKEN to read-only — this workflow only checks out
+# code and compiles; it never pushes artifacts or writes to the API.
+permissions:
+  contents: read
+
 # A new push to a PR branch supersedes the previous run's result, so
 # pull_request runs cancel-and-supersede. Push runs to oxce-plus are
 # deliberately left to finish: an uncancelled push run is what saves the
