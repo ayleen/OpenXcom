@@ -73,6 +73,7 @@ private:
 	Text *_calTaskText = nullptr;
 	void calypsoChecklistBuild();
 	void calypsoChecklistRefresh();
+	void calypsoTutorialTriggers();
 	void btnCalTasksClick(Action *action);
 #endif
 

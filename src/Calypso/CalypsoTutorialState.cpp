@@ -43,17 +43,18 @@ static void calypso_notify_tutorial_show(
 	int pageNum, int totalPages,
 	const std::string& title, const std::string& body,
 	const std::string& nextLabel,
-	bool isLastStep)
+	bool isLastStep,
+	bool disabled)
 {
 	EM_ASM_({
 		if (globalThis.__calypsoTutorialShow)
 			globalThis.__calypsoTutorialShow(
 				$0, $1,
 				UTF8ToString($2), UTF8ToString($3),
-				UTF8ToString($4), $5);
+				UTF8ToString($4), $5, $6);
 	}, pageNum, totalPages,
 	   title.c_str(), body.c_str(),
-	   nextLabel.c_str(), isLastStep ? 1 : 0);
+	   nextLabel.c_str(), isLastStep ? 1 : 0, disabled ? 1 : 0);
 }
 
 static void calypso_notify_tutorial_hide()
@@ -117,7 +118,8 @@ void CalypsoTutorialState::showPage()
 		_curPageNum, _curTotalPages,
 		_curTitle, _curBody,
 		_curNextLabel,
-		lastPageOfLastStep);
+		lastPageOfLastStep,
+		!CalypsoTutorial::get().isActive(_game));
 }
 
 void CalypsoTutorialState::advance()
@@ -151,16 +153,19 @@ void CalypsoTutorialState::btnNextClick() { advance(); }
 
 void CalypsoTutorialState::btnEscClick()
 {
-	calypso_notify_tutorial_hide();
+	// Close = mark current step as shown, then close the popup entirely.
+	// Unlike advance(), this does NOT skip to the next step — it just hides
+	// the popup and pops the state.
 	finishCurrentStep();
-	advance();
+	calypso_notify_tutorial_hide();
+	_game->popState();
 }
 
 void CalypsoTutorialState::btnStopClick()
 {
-	calypso_notify_tutorial_hide();
-	CalypsoTutorial::get().disableForCampaign();
-	_game->popState();
+	// "Don't show again" toggle — flips the campaign-wide flag but does NOT
+	// close the popup.  The user can still read/close the current page.
+	CalypsoTutorial::get().toggleDisabled();
 }
 
 const CalypsoTutorialStep* CalypsoTutorialState::cur() const

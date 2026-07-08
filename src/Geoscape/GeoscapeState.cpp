@@ -796,32 +796,7 @@ void GeoscapeState::init()
 		{"geo.btnFunding", _btnFunding}, {"geo.timeButtons", _btn5Secs, _btn1Day} });
 	CalypsoTutorial::get().fire(_game, "geoscape.enter");
 	calypsoChecklistRefresh();   // Phase 39: refresh checklist on geoscape entry
-
-	// Idle-research check: if any base has free scientists and zero active
-	// projects, remind the player to assign them.
-	if (_game->getSavedGame())
-	{
-		for (auto* base : *_game->getSavedGame()->getBases())
-		{
-			if (base->getAvailableScientists() > 0 && base->getResearch().empty())
-			{
-				CalypsoTutorial::get().fire(_game, "geoscape.idleResearch");
-				break;
-			}
-		}
-
-		// Idle-time hint: no detected UFOs and no dogfights in progress —
-		// the player should speed up time instead of waiting in real-time.
-		bool hasUfo = false;
-		for (auto* ufo : *_game->getSavedGame()->getUfos())
-		{
-			if (!ufo->isCrashed() && !ufo->isDestroyed()) { hasUfo = true; break; }
-		}
-		if (!hasUfo)
-		{
-			CalypsoTutorial::get().fire(_game, "geoscape.idleTime");
-		}
-	}
+	calypsoTutorialTriggers();   // Phase 37.3: idle-research / idle-time triggers
 #endif
 }
 
