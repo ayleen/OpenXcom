@@ -1702,6 +1702,7 @@ Position TileEngine::getSightOriginVoxel(BattleUnit *currentUnit)
 {
 	const Position pos = currentUnit->getPosition();
 	auto* tile = currentUnit->getTile();
+	if (tile == 0) return pos.toVoxel() + Position(8, 8, 0); // Calypso: guard against null tile
 
 	// determine the origin and target voxels for the raytrace
 	Position originVoxel;
@@ -2121,6 +2122,7 @@ double TileEngine::checkVoxelExposure(Position *originVoxel, Tile *tile, BattleU
 	// Realistic Accuracy (Joy Narical's RA v3.0, adapted from Brutal-OXCE by Xilmi). Returns the
 	// fraction (0..1) of the target's voxels with a clear line of fire from the given origin, and
 	// optionally fills the exposed/covered voxel lists used by the RA aim resolver.
+	if (tile == 0) return 0; // Calypso: guard against null tile
 	isDebug = isDebug && _save->getDebugMode();
 	if (excludeUnit && excludeUnit->isAIControlled()) isSimpleMode = true;
 
@@ -2340,8 +2342,11 @@ double TileEngine::checkVoxelExposure(Position *originVoxel, Tile *tile, BattleU
  */
 bool TileEngine::canTargetUnit(Position *originVoxel, Tile *tile, Position *scanVoxel, BattleUnit *excludeUnit, bool rememberObstacles, BattleUnit *potentialUnit)
 {
+	if (tile == 0) return false; // Calypso: guard against null tile (OOB positions from AI pathfinding)
 	Position targetVoxel = tile->getPosition().toVoxel() + Position(8, 8, 0);
 	std::vector<Position> _trajectory;
+	Position localScanVoxel; // Calypso: fallback when caller passes nullptr for scanVoxel
+	if (scanVoxel == 0) scanVoxel = &localScanVoxel;
 	bool hypothetical = potentialUnit != 0;
 	if (potentialUnit == 0)
 	{
@@ -2444,6 +2449,7 @@ bool TileEngine::canTargetUnit(Position *originVoxel, Tile *tile, Position *scan
  */
 bool TileEngine::canTargetTile(Position *originVoxel, Tile *tile, int part, Position *scanVoxel, BattleUnit *excludeUnit, bool rememberObstacles)
 {
+	if (tile == 0) return false; // Calypso: guard against null tile
 	static int sliceObjectSpiral[82] = {8,8, 8,6, 10,6, 10,8, 10,10, 8,10, 6,10, 6,8, 6,6, //first circle
 		8,4, 10,4, 12,4, 12,6, 12,8, 12,10, 12,12, 10,12, 8,12, 6,12, 4,12, 4,10, 4,8, 4,6, 4,4, 6,4, //second circle
 		8,1, 12,1, 15,1, 15,4, 15,8, 15,12, 15,15, 12,15, 8,15, 4,15, 1,15, 1,12, 1,8, 1,4, 1,1, 4,1}; //third circle
@@ -6030,6 +6036,7 @@ Position TileEngine::getOriginVoxel(BattleAction &action, Tile *tile)
 	{
 		tile = action.actor->getTile();
 	}
+	if (!tile) return action.actor->getPosition().toVoxel() + Position(8, 8, 0); // Calypso: guard against null tile
 
 	Position origin = tile->getPosition();
 	Tile *tileAbove = _save->getTile(origin + Position(0,0,1));

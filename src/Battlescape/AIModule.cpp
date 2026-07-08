@@ -4242,6 +4242,7 @@ void AIModule::brutalThink(BattleAction* action)
 			targetPosition = _save->getTileCoords(target->getTileLastSpotted(_unit->getFaction()));
 			Tile* targetTile = _save->getTile(targetPosition);
 			bool tileChecked = false;
+			if (targetTile == 0) continue; // Calypso: guard against null tile (OOB last-spotted position)
 			if (targetTile->getLastExplored(_unit->getFaction()) == _save->getTurn() && targetTile->getSmoke() == 0)
 				tileChecked = true;
 			else if (targetTile->getUnit() && targetTile->getUnit()->getFaction() == _unit->getFaction())
