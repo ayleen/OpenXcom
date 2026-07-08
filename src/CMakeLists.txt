@@ -719,6 +719,7 @@ if(EMSCRIPTEN)
     -sEXPORT_NAME=initCalypso
     -lidbfs.js
     -Wl,--allow-multiple-definition
+    -sSTACK_SIZE=8388608
     -O2
     -sASSERTIONS=1
     --emit-symbol-map
