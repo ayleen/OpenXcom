@@ -141,6 +141,19 @@ void CalypsoTutorial::disableForCampaign()
 	_queue.clear();
 }
 
+void CalypsoTutorial::toggleDisabled()
+{
+	if (_campaignEnabled)
+	{
+		_campaignEnabled = false;
+		_queue.clear();
+	}
+	else
+	{
+		_campaignEnabled = true;
+	}
+}
+
 void CalypsoTutorial::resetCampaign()
 {
 	_shown.clear();

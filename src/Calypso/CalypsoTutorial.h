@@ -54,6 +54,7 @@ public:
 	bool checklistOpen() const { return _checklistOpen; }
 	void setChecklistOpen(bool v) { _checklistOpen = v; }
 	void disableForCampaign();
+	void toggleDisabled();                            // flip campaign flag without closing popup
 	bool isActive(const Game* game) const;               // option && campaign flag
 	void save(YAML::YamlNodeWriter writer) const;        // persistence (wired in 37.4); by value (matches AlienStrategy::save)
 	void load(const YAML::YamlNodeReader& reader);

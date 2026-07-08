@@ -34,6 +34,9 @@
 #include "../Interface/Window.h"
 #include "../Interface/Text.h"
 #include "../Mod/Mod.h"
+#include "../Savegame/SavedGame.h"
+#include "../Savegame/Base.h"
+#include "../Savegame/Ufo.h"
 #include <sstream>
 
 namespace OpenXcom
@@ -102,6 +105,37 @@ void GeoscapeState::btnCalTasksClick(Action *)
 	CalypsoTutorial::get().setChecklistOpen(open);
 	_calTaskWindow->setVisible(open);
 	_calTaskText->setVisible(open);
+}
+
+/**
+ * Fire tutorial triggers that depend on geoscape state (Phase 37.3).
+ * Called from GeoscapeState::init() on every geoscape entry.
+ */
+void GeoscapeState::calypsoTutorialTriggers()
+{
+	auto* save = _game->getSavedGame();
+	if (!save) return;
+
+	// Idle-research: free scientists with zero active projects.
+	for (auto* base : *save->getBases())
+	{
+		if (base->getAvailableScientists() > 0 && base->getResearch().empty())
+		{
+			CalypsoTutorial::get().fire(_game, "geoscape.idleResearch");
+			break;
+		}
+	}
+
+	// Idle-time: no active UFOs — player should speed up time.
+	bool hasUfo = false;
+	for (auto* ufo : *save->getUfos())
+	{
+		if (!ufo->isCrashed() && !ufo->isDestroyed()) { hasUfo = true; break; }
+	}
+	if (!hasUfo)
+	{
+		CalypsoTutorial::get().fire(_game, "geoscape.idleTime");
+	}
 }
 
 } // namespace OpenXcom
