@@ -40,6 +40,20 @@ const char *calypso_newgame_info(void);
 int calypso_newgame_start(int difficulty, int ironman);
 int calypso_newgame_cancel(void);
 
+/* Slice A2 — Load/Save/Delete overlay (pattern 1: pure data-bridge). No
+ * native state is pushed to read the list; the action exports mirror the
+ * small native handler logic themselves (ListLoadState/ListSaveState/
+ * DeleteGameState) and push the *result* states (LoadGameState/
+ * SaveGameState) directly. */
+const char *calypso_saves_json(void);
+/* Returns 1 = pushed LoadGameState, 2 = mods mismatch (retry with force=1),
+ * 0 = no live Game. */
+int calypso_save_load(const char *file, int origin, int force);
+/* Returns 1 on success, 0 on failure (delete failed / no live Game). */
+int calypso_save_delete(const char *file);
+/* In-game only (needs a live SavedGame). Returns 1 on success, 0 otherwise. */
+int calypso_save_write(const char *displayName, int origin);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif

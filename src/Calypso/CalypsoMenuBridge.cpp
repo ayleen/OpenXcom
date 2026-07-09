@@ -22,12 +22,20 @@
 #include <emscripten.h>
 #include <string>
 #include <cstdio>
+#include <algorithm>
+#include <vector>
 
 #include "CalypsoMenuBridge.h"
 #include "../Engine/Game.h"
 #include "../Engine/Language.h"
+#include "../Engine/CrossPlatform.h"
+#include "../Engine/Options.h"
+#include "../Engine/Screen.h"
 #include "../Mod/Mod.h"
 #include "../Menu/NewGameState.h"
+#include "../Menu/LoadGameState.h"
+#include "../Menu/SaveGameState.h"
+#include "../Savegame/SavedGame.h"
 #include "../Interface/ToggleTextButton.h"
 
 namespace OpenXcom
@@ -165,6 +173,128 @@ int calypso_newgame_cancel()
 	NewGameState *s = CalypsoNewGameBridge::top(g);
 	if (!s) return 0;
 	s->btnCancelClick(nullptr);
+	return 1;
+}
+
+/* Slice A2 — Load/Save/Delete overlay exports (pattern 1: pure data-bridge,
+ * plan §A2). No native state is pushed to read the list; each export mirrors
+ * a small piece of native handler logic and pushes the *result* state
+ * (LoadGameState/SaveGameState) directly, exactly like ListLoadState /
+ * ListSaveState / DeleteGameState do from their own button handlers. */
+
+/* Save list, sorted by timestamp descending (mirrors what the native list UI
+ * shows, newest first) — SavedGame::getList (Savegame/SavedGame.h:201-202;
+ * SaveInfo struct at SavedGame.h:90-99). */
+EMSCRIPTEN_KEEPALIVE
+const char *calypso_saves_json()
+{
+	static std::string s_buf;
+	Game *g = getCurrentGame();
+	if (!g) { s_buf = ""; return s_buf.c_str(); }
+
+	std::vector<SaveInfo> saves = SavedGame::getList(g->getLanguage(), true);
+	std::sort(saves.begin(), saves.end(), [](const SaveInfo &a, const SaveInfo &b) { return a.timestamp > b.timestamp; });
+
+	std::string out = "[";
+	for (size_t i = 0; i < saves.size(); ++i)
+	{
+		const SaveInfo &s = saves[i];
+		if (i > 0) out += ",";
+		out += "{\"file\":\"" + jsonEscape(s.fileName) + "\"";
+		out += ",\"name\":\"" + jsonEscape(s.displayName) + "\"";
+		out += ",\"date\":\"" + jsonEscape(s.isoDate) + "\"";
+		out += ",\"time\":\"" + jsonEscape(s.isoTime) + "\"";
+		out += ",\"details\":\"" + jsonEscape(s.details) + "\"";
+		out += ",\"mods\":[";
+		for (size_t m = 0; m < s.mods.size(); ++m)
+		{
+			if (m > 0) out += ",";
+			out += "\"" + jsonEscape(s.mods[m]) + "\"";
+		}
+		out += "]";
+		out += ",\"reserved\":" + std::string(s.reserved ? "true" : "false") + "}";
+	}
+	out += "]";
+	s_buf = out;
+	return s_buf.c_str();
+}
+
+/* Loads a save. Mirrors ListLoadState::loadSave (Menu/ListLoadState.cpp:87-99):
+ * when force==0, confirm before loading a save whose mod list doesn't match
+ * the currently active mods (both sides normalised through
+ * SavedGame::sanitizeModName, as the native check does). Returns 2 for JS to
+ * show its own confirm and retry with force=1; 1 once LoadGameState is
+ * pushed; 0 if there's no live Game. */
+EMSCRIPTEN_KEEPALIVE
+int calypso_save_load(const char *file, int origin, int force)
+{
+	Game *g = getCurrentGame();
+	if (!g || !file || !*file) return 0;
+	std::string fileName(file);
+
+	if (!force)
+	{
+		std::vector<SaveInfo> saves = SavedGame::getList(g->getLanguage(), true);
+		auto it = std::find_if(saves.begin(), saves.end(), [&](const SaveInfo &s) { return s.fileName == fileName; });
+		if (it != saves.end())
+		{
+			for (const auto &modName : it->mods)
+			{
+				std::string name = SavedGame::sanitizeModName(modName);
+				if (std::find(Options::mods.begin(), Options::mods.end(), std::make_pair(name, true)) == Options::mods.end())
+				{
+					return 2;
+				}
+			}
+		}
+	}
+
+	g->pushState(new LoadGameState((OptionsOrigin)origin, fileName, g->getScreen()->getPalette()));
+	return 1;
+}
+
+/* Deletes exactly one save file. Mirrors DeleteGameState::btnYesClick
+ * (Menu/DeleteGameState.cpp:97-107): delete via CrossPlatform::deleteFile,
+ * then flush IDBFS with the same EM_ASM syncfs snippet SavedGame::save() uses
+ * (Savegame/SavedGame.cpp:951-953) so the removal survives a reload. Never
+ * touches any other file. */
+EMSCRIPTEN_KEEPALIVE
+int calypso_save_delete(const char *file)
+{
+	Game *g = getCurrentGame();
+	if (!g || !file || !*file) return 0;
+
+	bool ok = CrossPlatform::deleteFile(Options::getMasterUserFolder() + file);
+	if (ok)
+	{
+		EM_ASM(({ FS.syncfs(false, function(err) { if (err) console.error('[calypso] syncfs error', err); }); }));
+	}
+	return ok ? 1 : 0;
+}
+
+/* Writes a new save under a fresh, deduplicated filename. Mirrors the
+ * new-slot branch of ListSaveState::saveGame (Menu/ListSaveState.cpp:168-190):
+ * set the SavedGame's display name, sanitize it to a filename
+ * (CrossPlatform::sanitizeFilename, as ListSaveState.cpp:172), and append "_"
+ * until the ".sav" name is free instead of silently overwriting. In-game
+ * only — the JS overlay never reaches this screen without a live SavedGame.
+ * SavedGame::save() (called from SaveGameState::think) already flushes IDBFS
+ * itself, so no extra JS is needed here. */
+EMSCRIPTEN_KEEPALIVE
+int calypso_save_write(const char *displayName, int origin)
+{
+	Game *g = getCurrentGame();
+	if (!g || !g->getSavedGame() || !displayName) return 0;
+
+	g->getSavedGame()->setName(displayName);
+	std::string fileName = CrossPlatform::sanitizeFilename(displayName);
+	while (CrossPlatform::fileExists(Options::getMasterUserFolder() + fileName + ".sav"))
+	{
+		fileName += "_";
+	}
+	fileName += ".sav";
+
+	g->pushState(new SaveGameState((OptionsOrigin)origin, fileName, g->getScreen()->getPalette()));
 	return 1;
 }
 
