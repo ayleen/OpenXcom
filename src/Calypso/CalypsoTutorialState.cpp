@@ -190,7 +190,7 @@ std::string CalypsoTutorialState::curAnchorKey() const
 {
 	const CalypsoTutorialStep* s = cur();
 	if (!s) return "";
-	if (!s->pageAnchors.empty() && _pageIdx < s->pageAnchors.size() && !s->pageAnchors[_pageIdx].empty())
+	if (!s->pageAnchors.empty() && _pageIdx < s->pageAnchors.size())
 		return s->pageAnchors[_pageIdx];
 	return s->anchor;
 }
