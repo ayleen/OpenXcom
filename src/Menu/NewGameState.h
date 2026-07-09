@@ -50,6 +50,9 @@ public:
 	void btnOkClick(Action *action);
 	/// Handler for clicking the Cancel button.
 	void btnCancelClick(Action *action);
+#ifdef __EMSCRIPTEN__
+	friend struct CalypsoNewGameBridge;   // Phase 41 HTML overlay driver
+#endif
 };
 
 }

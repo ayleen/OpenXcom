@@ -32,6 +32,14 @@ extern "C" {
  * {"ok":1}. Pure constant — no Game dependency, works before callMain. */
 const char *calypso_bridge_ping(void);
 
+/* Slice A1 — New Game overlay. Drives the native NewGameState (pushed by
+ * calypso_menu_new_game() in Engine/EmscriptenHarness.cpp) through the
+ * friend struct CalypsoNewGameBridge defined in CalypsoMenuBridge.cpp. */
+int calypso_newgame_ready(void);
+const char *calypso_newgame_info(void);
+int calypso_newgame_start(int difficulty, int ironman);
+int calypso_newgame_cancel(void);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif
