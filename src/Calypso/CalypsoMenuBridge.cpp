@@ -24,6 +24,11 @@
 #include <cstdio>
 
 #include "CalypsoMenuBridge.h"
+#include "../Engine/Game.h"
+#include "../Engine/Language.h"
+#include "../Mod/Mod.h"
+#include "../Menu/NewGameState.h"
+#include "../Interface/ToggleTextButton.h"
 
 namespace OpenXcom
 {
@@ -50,7 +55,50 @@ static std::string jsonEscape(const std::string &in)
 	return out;
 }
 
+/* Slice A1 — New Game overlay driver. Static helpers only; friended by
+ * NewGameState (Menu/NewGameState.h) so the exports below can reach into its
+ * private members without widening NewGameState's own public interface. */
+struct CalypsoNewGameBridge
+{
+	/* The engine's own NewGameState if it's the current top state, else null. */
+	static NewGameState *top(Game *g) { return dynamic_cast<NewGameState *>(g->getTopState()); }
+
+	/* All private-member access lives HERE — this struct is the friend of
+	 * NewGameState, the extern "C" exports are not, so they must delegate. */
+
+	/* Build the New Game info JSON (reads the private ironman toggle state). */
+	static std::string infoJson(Game *g, NewGameState *s)
+	{
+		Language *lang = g->getLanguage();
+		static const char *ids[5] = {
+			"STR_1_BEGINNER", "STR_2_EXPERIENCED", "STR_3_VETERAN", "STR_4_GENIUS", "STR_5_SUPERHUMAN"
+		};
+		std::string out = "{\"difficulties\":[";
+		for (int i = 0; i < 5; ++i)
+		{
+			if (i > 0) out += ",";
+			out += "\"" + jsonEscape(lang->getString(ids[i])) + "\"";
+		}
+		out += "],\"selected\":" + std::to_string((int)g->getMod()->getStartingDifficulty());
+		out += ",\"ironman\":" + std::string(s->_btnIronman->getPressed() ? "1" : "0");
+		out += "}";
+		return out;
+	}
+
+	/* Select the difficulty radio + ironman toggle, then fire the native OK
+	 * handler (difficulty is pre-validated to 0..4 by the caller). */
+	static void start(NewGameState *s, int difficulty, int ironman)
+	{
+		TextButton *btns[5] = { s->_btnBeginner, s->_btnExperienced, s->_btnVeteran, s->_btnGenius, s->_btnSuperhuman };
+		s->_difficulty = btns[difficulty];
+		s->_btnIronman->setPressed(ironman != 0);
+		s->btnOkClick(nullptr);
+	}
+};
+
 } // namespace OpenXcom
+
+using namespace OpenXcom;   // exports below reach Game/NewGameState/etc. unqualified
 
 extern "C" {
 
@@ -61,17 +109,63 @@ extern "C" {
  *   (c) UTF8ToString marshals a const char* return through Module.ccall.
  * Pure constant — no Game dependency, so it works before callMain too.
  *
- * jsonEscape is defined above but unused until the first JSON export lands in
- * slice A1; it is kept compiled so the helper is present and ready. (Calypso
- * TUs are not built with -Wall/-Werror — see src/CMakeLists.txt: the per-source
- * warning flags are applied only to ${cxx_src}, before the Calypso files are
- * appended to openxcom_src — so an unused static helper here is harmless.) */
+ * jsonEscape (defined above) gets its first real caller in
+ * calypso_newgame_info() below (slice A1). */
 EMSCRIPTEN_KEEPALIVE
 const char *calypso_bridge_ping()
 {
 	static std::string s_buf;
 	s_buf = "{\"ok\":1}";
 	return s_buf.c_str();
+}
+
+/* Slice A1 — New Game overlay exports. Every export starts by resolving the
+ * live Game and, where relevant, the live NewGameState — a null either means
+ * the engine isn't booted yet or the state has already been popped/replaced
+ * (e.g. the user hit Start/Cancel through the native fallback while the HTML
+ * overlay still thought it was open). */
+
+EMSCRIPTEN_KEEPALIVE
+int calypso_newgame_ready()
+{
+	Game *g = getCurrentGame();
+	if (!g) return 0;
+	return CalypsoNewGameBridge::top(g) != nullptr ? 1 : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+const char *calypso_newgame_info()
+{
+	static std::string s_buf;
+	Game *g = getCurrentGame();
+	if (!g) { s_buf = ""; return s_buf.c_str(); }
+	NewGameState *s = CalypsoNewGameBridge::top(g);
+	if (!s) { s_buf = ""; return s_buf.c_str(); }
+	s_buf = CalypsoNewGameBridge::infoJson(g, s);
+	return s_buf.c_str();
+}
+
+EMSCRIPTEN_KEEPALIVE
+int calypso_newgame_start(int difficulty, int ironman)
+{
+	Game *g = getCurrentGame();
+	if (!g) return 0;
+	NewGameState *s = CalypsoNewGameBridge::top(g);
+	if (!s) return 0;
+	if (difficulty < 0 || difficulty > 4) return 0;
+	CalypsoNewGameBridge::start(s, difficulty, ironman);
+	return 1;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int calypso_newgame_cancel()
+{
+	Game *g = getCurrentGame();
+	if (!g) return 0;
+	NewGameState *s = CalypsoNewGameBridge::top(g);
+	if (!s) return 0;
+	s->btnCancelClick(nullptr);
+	return 1;
 }
 
 } /* extern "C" */
