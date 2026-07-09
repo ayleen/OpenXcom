@@ -57,6 +57,7 @@
 #include "../fallthrough.h"
 #include "../fmath.h"
 #include "../Engine/Language.h"
+#include "../Calypso/CalypsoDirector.h"
 
 namespace OpenXcom
 {
@@ -447,6 +448,10 @@ void SavedBattleGame::load(const YAML::YamlNodeReader& node, Mod *mod, SavedGame
 			break;
 		}
 	}
+#ifdef __EMSCRIPTEN__
+	if (reader["calypsoScene"]) // Phase 41: rebuild the active scene from the save
+		CalypsoDirector::get().load(reader["calypsoScene"], this);
+#endif
 }
 
 /**
@@ -631,6 +636,10 @@ void SavedBattleGame::save(YAML::YamlNodeWriter writer) const
 	writer.write("toggleNightVision", _toggleNightVision);
 	writer.write("toggleBrightness", _toggleBrightness);
 	_scriptValues.save(writer, _rule->getScriptGlobal());
+#ifdef __EMSCRIPTEN__
+	if (CalypsoDirector::get().active()) // Phase 41: persist the active scene under calypsoScene
+		CalypsoDirector::get().save(writer["calypsoScene"]);
+#endif
 }
 
 /**
@@ -1682,6 +1691,9 @@ void SavedBattleGame::endTurn()
 
 	if (_side != FACTION_PLAYER)
 		selectNextPlayerUnit();
+#ifdef __EMSCRIPTEN__
+	CalypsoDirector::get().onEndTurn(this); // Phase 41: dispatch per-faction turn start to the active scene
+#endif
 }
 
 /**

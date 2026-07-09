@@ -27,6 +27,7 @@
 #include "../Savegame/SavedBattleGame.h"
 #include "BattlescapeGame.h"
 #include "BattlescapeState.h"
+#include "../Calypso/CalypsoDirector.h"
 #include "../Engine/Options.h"
 #include "../Mod/AlienDeployment.h"
 #include "../Mod/MapScript.h"
@@ -179,6 +180,9 @@ AbortMissionState::AbortMissionState(SavedBattleGame *battleGame, BattlescapeSta
 	_btnCancel->onMouseClick((ActionHandler)&AbortMissionState::btnCancelClick);
 	_btnCancel->onKeyboardPress((ActionHandler)&AbortMissionState::btnCancelClick, Options::keyCancel);
 	_btnCancel->onKeyboardPress((ActionHandler)&AbortMissionState::btnCancelClick, Options::keyBattleAbort);
+#ifdef __EMSCRIPTEN__
+	{ std::string t, o, c; if (CalypsoDirector::get().abortStrings(&t, &o, &c)) { _txtAbort->setText(t); _btnOk->setText(o); _btnCancel->setText(c); } } // Phase 41: scene opt-in string swap
+#endif
 
 	centerAllSurfaces();
 }
@@ -213,6 +217,10 @@ void AbortMissionState::btnOkClick(Action *)
 		_game->popState();
 		return;
 	}
+
+#ifdef __EMSCRIPTEN__
+	if (CalypsoDirector::get().onAbortRequested(_state)) { _game->popState(); return; } // Phase 41: scene consumed the abort (routes its own ending)
+#endif
 
 	_game->popState();
 	_battleGame->setAborted(true);

@@ -61,6 +61,7 @@
 #include "../fmath.h"
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoTutorial.h"
+#include "../Calypso/CalypsoDirector.h"
 #endif
 
 namespace OpenXcom
@@ -936,6 +937,9 @@ void BattlescapeGame::checkForCasualties(const RuleDamageType *damageType, Battl
 		{
 			if (victim->getHealth() <= 0)
 			{
+#ifdef __EMSCRIPTEN__
+				CalypsoDirector::get().onUnitDied(this, victim, murderer); // Phase 41: notify active scene (fires once per new death)
+#endif
 				int moraleLossModifierWhenKilled = _save->getMoraleLossModifierWhenKilled(victim);
 
 				if (murderer)
