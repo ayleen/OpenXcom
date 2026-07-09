@@ -33,6 +33,9 @@
 #include "../Savegame/SavedBattleGame.h"
 #include "../Battlescape/BattlescapeGame.h"
 #include "../version.h"
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 
 namespace OpenXcom
 {
@@ -185,6 +188,14 @@ void PauseState::resize(int &dX, int &dY)
  */
 void PauseState::btnLoadClick(Action *)
 {
+#ifdef __EMSCRIPTEN__
+	// Phase 41: route to the HTML overlay when the hook exists (fallback: native).
+	int handled = EM_ASM_INT({
+		return (typeof window !== 'undefined' && window.calypsoOpenLoad)
+			? (window.calypsoOpenLoad($0), 1) : 0;
+	}, (int)_origin);
+	if (handled) return;
+#endif
 	_game->pushState(new ListLoadState(_origin));
 }
 
@@ -194,6 +205,14 @@ void PauseState::btnLoadClick(Action *)
  */
 void PauseState::btnSaveClick(Action *)
 {
+#ifdef __EMSCRIPTEN__
+	// Phase 41: route to the HTML overlay when the hook exists (fallback: native).
+	int handled = EM_ASM_INT({
+		return (typeof window !== 'undefined' && window.calypsoOpenSave)
+			? (window.calypsoOpenSave($0), 1) : 0;
+	}, (int)_origin);
+	if (handled) return;
+#endif
 	_game->pushState(new ListSaveState(_origin));
 }
 
