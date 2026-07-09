@@ -61,6 +61,7 @@
 #include "../Interface/Cursor.h"
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoTutorial.h"
+#include "../Calypso/CalypsoDirector.h"
 #endif
 #ifdef __EMSCRIPTEN__
 #include "../Engine/GpuInit.h"
@@ -974,6 +975,9 @@ void BattlescapeState::init()
 			_map->getCamera()->centerOnPosition(_save->getSelectedUnit()->getPosition());
 		}
 		_firstInit = false;
+#ifdef __EMSCRIPTEN__
+		CalypsoDirector::get().onBattleStart(this, _battleGame, _save); // Phase 41: activate scene + onBattleStart
+#endif
 		_btnReserveNone->setGroup(&_reserve);
 		_btnReserveSnap->setGroup(&_reserve);
 		_btnReserveAimed->setGroup(&_reserve);
@@ -3858,6 +3862,9 @@ void BattlescapeState::finishBattle(bool abort, int inExitArea)
 			_game->getMod()->playMusic("GMGEO");
 			return;
 		}
+#ifdef __EMSCRIPTEN__
+		if (CalypsoDirector::get().interceptFinishBattle(this)) return; // Phase 41: scene end state instead of debrief
+#endif
 		_game->pushState(new DebriefingState);
 		std::string cutscene;
 		if (ruleDeploy)
