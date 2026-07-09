@@ -61,6 +61,7 @@ private:
 	void advance();
 	void finishCurrentStep();
 	const CalypsoTutorialStep* cur() const;
+	std::string curAnchorKey() const;
 };
 
 } // namespace OpenXcom

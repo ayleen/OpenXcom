@@ -1698,7 +1698,6 @@ void DogfightState::update()
 					setStatus("STR_UFO_CRASH_LANDS");
 				#ifdef __EMSCRIPTEN__
 					CalypsoTutorial::get().fire(_game, "ufo.crashed");
-					CalypsoTutorial::get().fire(_game, "ufo.recoveryNeeded");
 				#endif
 					_game->getMod()->getSound("GEO.CAT", Mod::UFO_CRASH)->play(); //10
 					for (auto* country : *_game->getSavedGame()->getCountries())
@@ -1743,6 +1742,9 @@ void DogfightState::update()
 				}
 				else
 				{
+				#ifdef __EMSCRIPTEN__
+					CalypsoTutorial::get().fire(_game, "ufo.recoveryNeeded");
+				#endif
 					_ufo->setSecondsRemaining(RNG::generate(24, 96)*3600);
 					_ufo->setAltitude("STR_GROUND");
 					if (_ufo->getCrashId() == 0)
