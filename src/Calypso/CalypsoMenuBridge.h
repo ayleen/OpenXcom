@@ -54,6 +54,21 @@ int calypso_save_delete(const char *file);
 /* In-game only (needs a live SavedGame). Returns 1 on success, 0 otherwise. */
 int calypso_save_write(const char *displayName, int origin);
 
+/* Slice A3 — Mods overlay (pattern 1: pure data-bridge, mirrors
+ * ModListState). No native ModListState is pushed; the exports read/write
+ * Options::mods directly and mirror ModListState's small handler bodies. */
+const char *calypso_mods_json(void);
+/* Returns 1 if the mod was found and toggled, 0 otherwise. */
+int calypso_mod_set(const char *id, int active);
+/* Moves a mod by one position (delta<0 = up/earlier, delta>0 = down/later).
+ * Returns 1 if moved, 0 if not found or already at the end. */
+int calypso_mod_move(const char *id, int delta);
+/* Mirrors ModListState::btnOkClick. Returns 1 (no live Game returns 0). */
+int calypso_mods_apply(void);
+/* Mirrors the state-restoring half of ModListState::btnCancelClick (no
+ * popState — the overlay has no native state pushed). Returns 1. */
+int calypso_mods_revert(void);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif

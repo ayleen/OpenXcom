@@ -35,6 +35,7 @@
 #include "../Menu/NewGameState.h"
 #include "../Menu/LoadGameState.h"
 #include "../Menu/SaveGameState.h"
+#include "../Menu/StartState.h"
 #include "../Savegame/SavedGame.h"
 #include "../Interface/ToggleTextButton.h"
 
@@ -295,6 +296,151 @@ int calypso_save_write(const char *displayName, int origin)
 	fileName += ".sav";
 
 	g->pushState(new SaveGameState((OptionsOrigin)origin, fileName, g->getScreen()->getPalette()));
+	return 1;
+}
+
+/* Slice A3 — Mods overlay exports (pattern 1: pure data-bridge, plan §A3).
+ * No native ModListState is pushed; each export mirrors a small piece of
+ * ModListState's own handler logic (Menu/ModListState.cpp) directly against
+ * Options::mods. */
+
+/* Mods list, in Options::mods priority order (low->high), with the active
+ * master's id. Mirrors the master-scan in ModListState::ModListState
+ * (Menu/ModListState.cpp:92-118) to find the current master id, then the
+ * masters-excluded filter in ModListState::lstModsRefresh (cpp:222-238) to
+ * build the list. Unlike lstModsRefresh, this does NOT filter out mods that
+ * fail canActivate(curMasterId) -- it reports canActivate per-row instead, so
+ * JS can grey out the toggle rather than hide the mod. */
+EMSCRIPTEN_KEEPALIVE
+const char *calypso_mods_json()
+{
+	static std::string s_buf;
+	Game *g = getCurrentGame();
+	if (!g) { s_buf = ""; return s_buf.c_str(); }
+
+	const std::map<std::string, ModInfo> &modInfos = Options::getModInfos();
+
+	std::string curMasterId;
+	for (const auto &pair : Options::mods)
+	{
+		auto search = modInfos.find(pair.first);
+		if (search == modInfos.end() || !search->second.isMaster()) continue;
+		if (pair.second) { curMasterId = pair.first; break; }
+	}
+
+	std::string out = "{\"master\":\"" + jsonEscape(curMasterId) + "\",\"list\":[";
+	bool first = true;
+	for (const auto &pair : Options::mods)
+	{
+		auto search = modInfos.find(pair.first);
+		if (search == modInfos.end()) continue;
+		const ModInfo &modInfo = search->second;
+		if (modInfo.isMaster()) continue;
+
+		if (!first) out += ",";
+		first = false;
+		out += "{\"id\":\"" + jsonEscape(pair.first) + "\"";
+		out += ",\"name\":\"" + jsonEscape(modInfo.getName()) + "\"";
+		out += ",\"version\":\"" + jsonEscape(modInfo.getVersion()) + "\"";
+		out += ",\"active\":" + std::string(pair.second ? "true" : "false");
+		out += ",\"isMaster\":false";
+		out += ",\"canActivate\":" + std::string(modInfo.canActivate(curMasterId) ? "true" : "false");
+		out += "}";
+	}
+	out += "]}";
+	s_buf = out;
+	return s_buf.c_str();
+}
+
+/* Mirrors ModListState::toggleMod (Menu/ModListState.cpp:280-298), minus the
+ * ListView row update. Returns 1 if the mod was found and flipped. */
+EMSCRIPTEN_KEEPALIVE
+int calypso_mod_set(const char *id, int active)
+{
+	if (!id || !*id) return 0;
+	std::string modId(id);
+	for (auto &pair : Options::mods)
+	{
+		if (pair.first != modId) continue;
+		pair.second = (active != 0);
+		Options::reload = true;
+		return 1;
+	}
+	return 0;
+}
+
+/* Reorders a mod within Options::mods by one position. Mirrors the
+ * erase/insert swap ModListState::moveModUp/moveModDown perform via
+ * _moveAbove/_moveBelow (Menu/ModListState.cpp:318-339,397-418), simplified
+ * to move-by-one against the immediate neighbour instead of the row-based
+ * scroll math (there's no ListView here). delta<0 = up/earlier,
+ * delta>0 = down/later. Returns 1 if moved, 0 if not found / already at the
+ * end in that direction. */
+EMSCRIPTEN_KEEPALIVE
+int calypso_mod_move(const char *id, int delta)
+{
+	if (!id || !*id || delta == 0) return 0;
+	std::string modId(id);
+
+	auto it = std::find_if(Options::mods.begin(), Options::mods.end(),
+		[&](const std::pair<std::string, bool> &p) { return p.first == modId; });
+	if (it == Options::mods.end()) return 0;
+
+	// Reorder only within the non-master rows, exactly like the native ListView
+	// does: masters live in the same Options::mods vector, so swap against the
+	// NEAREST non-master neighbour and step over any master entry — never drag a
+	// mod across the master boundary (that would silently drop its override
+	// priority below the active master).
+	const std::map<std::string, ModInfo> &modInfos = Options::getModInfos();
+	auto isMasterEntry = [&](const std::pair<std::string, bool> &p) {
+		auto s = modInfos.find(p.first);
+		return s != modInfos.end() && s->second.isMaster();
+	};
+
+	if (delta < 0)
+	{
+		for (auto j = it; j != Options::mods.begin(); )
+		{
+			--j;
+			if (!isMasterEntry(*j)) { std::iter_swap(it, j); Options::reload = true; return 1; }
+		}
+		return 0;
+	}
+	else
+	{
+		for (auto j = it + 1; j != Options::mods.end(); ++j)
+		{
+			if (!isMasterEntry(*j)) { std::iter_swap(it, j); Options::reload = true; return 1; }
+		}
+		return 0;
+	}
+}
+
+/* Mirrors ModListState::btnOkClick (Menu/ModListState.cpp:492-503). The
+ * overlay has no native state pushed (MainMenuState stays underneath), so
+ * unlike the native handler this never calls popState -- StartState is
+ * pushed directly, or nothing happens if nothing changed. */
+EMSCRIPTEN_KEEPALIVE
+int calypso_mods_apply()
+{
+	Game *g = getCurrentGame();
+	if (!g) return 0;
+	Options::save();
+	if (Options::reload)
+	{
+		g->setState(new StartState);
+	}
+	return 1;
+}
+
+/* Mirrors the state-restoring half of ModListState::btnCancelClick
+ * (Menu/ModListState.cpp:519-524) -- no popState, since no native state was
+ * pushed for this overlay. */
+EMSCRIPTEN_KEEPALIVE
+int calypso_mods_revert()
+{
+	Options::reload = false;
+	Options::load();
 	return 1;
 }
 
