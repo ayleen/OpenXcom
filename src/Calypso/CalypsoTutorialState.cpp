@@ -44,17 +44,21 @@ static void calypso_notify_tutorial_show(
 	const std::string& title, const std::string& body,
 	const std::string& nextLabel,
 	bool isLastStep,
-	bool disabled)
+	bool disabled,
+	bool hasAnchor,
+	const SDL_Rect& anchor)
 {
 	EM_ASM_({
 		if (globalThis.__calypsoTutorialShow)
 			globalThis.__calypsoTutorialShow(
 				$0, $1,
 				UTF8ToString($2), UTF8ToString($3),
-				UTF8ToString($4), $5, $6);
+				UTF8ToString($4), $5, $6,
+				$7, $8, $9, $10, $11);
 	}, pageNum, totalPages,
 	   title.c_str(), body.c_str(),
-	   nextLabel.c_str(), isLastStep ? 1 : 0, disabled ? 1 : 0);
+	   nextLabel.c_str(), isLastStep ? 1 : 0, disabled ? 1 : 0,
+	   hasAnchor ? 1 : 0, anchor.x, anchor.y, anchor.w, anchor.h);
 }
 
 static void calypso_notify_tutorial_hide()
@@ -114,12 +118,15 @@ void CalypsoTutorialState::showPage()
 	_curPageNum = static_cast<int>(_pageIdx + 1);
 	_curTotalPages = static_cast<int>(s->pages.size());
 
+	SDL_Rect anchor = {0, 0, 0, 0};
+	bool hasAnchor = CalypsoTutorial::get().anchorRect(curAnchorKey(), anchor);
 	calypso_notify_tutorial_show(
 		_curPageNum, _curTotalPages,
 		_curTitle, _curBody,
 		_curNextLabel,
 		lastPageOfLastStep,
-		!CalypsoTutorial::get().isActive(_game));
+		!CalypsoTutorial::get().isActive(_game),
+		hasAnchor, anchor);
 }
 
 void CalypsoTutorialState::advance()
@@ -154,9 +161,15 @@ void CalypsoTutorialState::btnNextClick() { advance(); }
 void CalypsoTutorialState::btnEscClick()
 {
 	// Close = mark current step as shown, then close the popup entirely.
-	// Unlike advance(), this does NOT skip to the next step — it just hides
-	// the popup and pops the state.
+	// Preserve later steps from the drained batch so Close postpones rather
+	// than silently discards them.
 	finishCurrentStep();
+	if (_stepIdx + 1 < _steps.size())
+	{
+		std::vector<const CalypsoTutorialStep*> remaining(
+			_steps.begin() + _stepIdx + 1, _steps.end());
+		CalypsoTutorial::get().deferSteps(remaining);
+	}
 	calypso_notify_tutorial_hide();
 	_game->popState();
 }
@@ -171,6 +184,15 @@ void CalypsoTutorialState::btnStopClick()
 const CalypsoTutorialStep* CalypsoTutorialState::cur() const
 {
 	return _stepIdx < _steps.size() ? _steps[_stepIdx] : nullptr;
+}
+
+std::string CalypsoTutorialState::curAnchorKey() const
+{
+	const CalypsoTutorialStep* s = cur();
+	if (!s) return "";
+	if (!s->pageAnchors.empty() && _pageIdx < s->pageAnchors.size() && !s->pageAnchors[_pageIdx].empty())
+		return s->pageAnchors[_pageIdx];
+	return s->anchor;
 }
 
 } // namespace OpenXcom

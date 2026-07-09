@@ -48,6 +48,22 @@ void CalypsoTutorial::fire(Game* game, const std::string& event, const std::stri
 	// FIRST LINE: zero cost when disabled — must run before any allocation/lookup.
 	if (!isActive(game)) return;
 
+	// Close postpones the rest of a popup until the player reaches another
+	// tutorial event. Moving deferred steps here keeps Close from immediately
+	// reopening a new popup on the next frame.
+	while (!_deferred.empty())
+	{
+		const auto* step = _deferred.front();
+		_deferred.pop_front();
+		bool alreadyQueued = false;
+		for (const auto* queued : _queue)
+		{
+			if (queued->id == step->id) { alreadyQueued = true; break; }
+		}
+		if (_shown.count(step->id) == 0 && !alreadyQueued)
+			_queue.push_back(step);
+	}
+
 	const auto& steps = game->getMod()->getCalypsoTutorialSteps();
 	for (const auto& step : steps)
 	{
@@ -135,10 +151,34 @@ void CalypsoTutorial::markShown(const std::string& stepId)
 	_shown.insert(stepId);
 }
 
+void CalypsoTutorial::deferSteps(const std::vector<const CalypsoTutorialStep*>& steps)
+{
+	// Disabling help while the popup is open is an explicit request to discard
+	// the rest of that popup, not defer it until a later re-enable.
+	if (!_campaignEnabled || !Options::calypsoTutorial) return;
+
+	for (const auto* step : steps)
+	{
+		if (!step || _shown.count(step->id) != 0) continue;
+
+		bool duplicate = false;
+		for (const auto* deferred : _deferred)
+		{
+			if (deferred->id == step->id) { duplicate = true; break; }
+		}
+		for (const auto* queued : _queue)
+		{
+			if (queued->id == step->id) { duplicate = true; break; }
+		}
+		if (!duplicate) _deferred.push_back(step);
+	}
+}
+
 void CalypsoTutorial::disableForCampaign()
 {
 	_campaignEnabled = false;
 	_queue.clear();
+	_deferred.clear();
 }
 
 void CalypsoTutorial::toggleDisabled()
@@ -147,6 +187,7 @@ void CalypsoTutorial::toggleDisabled()
 	{
 		_campaignEnabled = false;
 		_queue.clear();
+		_deferred.clear();
 	}
 	else
 	{
@@ -159,6 +200,7 @@ void CalypsoTutorial::resetCampaign()
 	_shown.clear();
 	_campaignEnabled = true;
 	_queue.clear();
+	_deferred.clear();
 	_holdWhileDogfight = false;
 	_popupActive = false;
 	_checklistOpen = false;
@@ -182,6 +224,8 @@ void CalypsoTutorial::load(const YAML::YamlNodeReader& reader)
 	// Always reset _shown first to avoid cross-campaign bleed when the same
 	// singleton is reused across loads.
 	_shown.clear();
+	_queue.clear();
+	_deferred.clear();
 	_campaignEnabled = reader["enabled"].readVal<bool>(true);
 	if (reader["shown"])
 	{
@@ -209,7 +253,8 @@ void CalypsoTutorial::dump() const
 	}
 	Log(LOG_INFO) << "[tutorial] shown=" << _shown.size()
 	              << " campaignEnabled=" << (_campaignEnabled ? "yes" : "no")
-	              << " queue=" << _queue.size();
+	              << " queue=" << _queue.size()
+	              << " deferred=" << _deferred.size();
 }
 
 } // namespace OpenXcom

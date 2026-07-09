@@ -50,6 +50,8 @@ public:
 	void anchorAll(std::initializer_list<CalypsoAnchorSpec> specs);
 	bool anchorRect(const std::string& key, SDL_Rect& out) const;
 	void markShown(const std::string& stepId);
+	/// Preserve an interrupted popup's unshown steps until the next event.
+	void deferSteps(const std::vector<const CalypsoTutorialStep*>& steps);
 	bool wasShown(const std::string& id) const { return _shown.count(id) != 0; }
 	bool checklistOpen() const { return _checklistOpen; }
 	void setChecklistOpen(bool v) { _checklistOpen = v; }
@@ -74,6 +76,7 @@ private:
 	bool _popupActive = false; ///< a CalypsoTutorialState is on the stack; suppress re-push
 	bool _askPending = false; ///< first-run ask queued (39.9); NOT persisted
 	std::deque<const CalypsoTutorialStep*> _queue;
+	std::deque<const CalypsoTutorialStep*> _deferred;
 	std::map<std::string, SDL_Rect> _anchors;
 };
 
