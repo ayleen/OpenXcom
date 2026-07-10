@@ -416,8 +416,11 @@ void CalypsoPrologueScene::checkNikosPathCost(BattlescapeGame *bg)
 	bool reachable = !pf->getPath().empty();
 	int cost = pf->getTotalTUCost();
 
+	// Arrival turn = ceil(cost / tu); the guarantee is arrival >= turn
+	// NIKOS_MIN_TURNS, i.e. cost must EXCEED (N-1) full turn budgets (the
+	// calibrated map: 146 > 4*35=140 -> arrives on turn 5 -- satisfied).
 	int tu = nikos->getBaseStats()->tu;
-	int requiredCost = NIKOS_MIN_TURNS * tu; // single mover: the player
+	int requiredCost = (NIKOS_MIN_TURNS - 1) * tu; // single mover: the player
 
 	if (!reachable || cost > requiredCost)
 	{
