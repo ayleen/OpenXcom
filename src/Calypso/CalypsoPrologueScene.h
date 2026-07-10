@@ -60,9 +60,10 @@ public:
 	void onUnitDied(BattlescapeGame *bg, BattleUnit *victim, BattleUnit *killer) override;
 	bool onAbortRequested(BattlescapeState *bs) override;
 	bool abortStrings(std::string *title, std::string *ok, std::string *cancel) override;
-	State *makeEndState() override; // returns nullptr in this commit (see 41.5, commit 4)
+	State *makeEndState() override; // Commit 4: CalypsoPrologueEndState ("six months later")
 	void save(YAML::YamlNodeWriter writer) const override;
 	void load(const YAML::YamlNodeReader &reader) override;
+	bool blocksSaveLoad() const override { return true; } // D3/D6: no player-driven save/load during the prologue
 
 private:
 	/// Script phases (design doc mechanical chronicle, docs/tutorial-mission-design.md).
@@ -130,6 +131,14 @@ private:
 	int _activeHerderIdx = -1;      ///< index into _herderIds currently being steered
 
 	int _lastNagStage = -1;         ///< last escalationStage() value a nag line fired for
+
+	/// The outcome last passed to CalypsoDirector::endScene(). Set right before
+	/// that call (both call sites: resolvePendingEnding and onAbortRequested)
+	/// so makeEndState() -- called synchronously from within the same endScene
+	/// -> finishBattle -> interceptFinishBattle chain -- knows which ending to
+	/// stage. Not persisted: never valid across a save/load (the battle is over
+	/// by the time it matters, and the scene is torn down right after).
+	int _finishedOutcome = -1;
 };
 
 } // namespace OpenXcom

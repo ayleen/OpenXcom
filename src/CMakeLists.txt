@@ -592,6 +592,9 @@ if(EMSCRIPTEN)
   list(APPEND openxcom_src Calypso/CalypsoRadioLineState.cpp)
   list(APPEND openxcom_src Calypso/CalypsoPrologueScene.cpp)
   list(APPEND openxcom_src Calypso/CalypsoSceneRegistry.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoPrologueCampaign.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoPrologueAskState.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoPrologueEndState.cpp)
 
   # Phase 8b: regenerate embedded shader table before each build when any
   # *.vert or *.frag file in Engine/Shaders/ has changed.
