@@ -552,6 +552,11 @@ void Map::init()
 			this->drawCursorOverlayGLPass();
 			this->endMapScissor();
 		});
+		// Calypso Phase 41 (4.5): scene-preview coordinate readout (§41.1c).
+		_game->getScreen()->registerGPUPass([this, wf]() {
+			if (!wf.lock()) return;
+			this->updateScenePreviewCoordHud();
+		});
 		// Calypso bug 1: crisp HUD name + stat digits at PHYSICAL resolution. POST-composite
 		// (over the stretched logical HUD), menu-gated. No map scissor — the text lives in the
 		// HUD panel, not the map viewport; each item's quad is positioned from its logical

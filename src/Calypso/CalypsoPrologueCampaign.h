@@ -78,11 +78,23 @@ GameDifficulty stashedDifficulty();
 /// handler and (via the shared internal tail helper) finishPrologue().
 void vanillaNewGameTail(Game *game, GameDifficulty diff);
 
-/// Launches the throwaway prologue battle: fresh SavedGame (monthsPassed
-/// stays at the ctor default -1), one STR_TRITON, exactly three fixed
-/// soldiers (Leader created first), STR_CALYPSO_PROLOGUE deployment. Mirrors
-/// NewBattleState::initSave + btnOkClick (D4). Call site: the ask state's
-/// Yes handler (after the not-yet-wired intro-clip trigger, see commit 6).
+/// Launches a scripted throwaway battle for `deploymentId`: fresh SavedGame
+/// (monthsPassed stays at the ctor default -1), one STR_TRITON, exactly three
+/// fixed soldiers (Leader created first). Mirrors NewBattleState::initSave +
+/// btnOkClick (D4). When `preview` is true (Phase 41 commit 4.5, plan
+/// §41.1c): suppresses the CalypsoDirector scene BEFORE generation (so the
+/// scripted scene never activates), fully reveals the map
+/// (SavedBattleGame::setDebugMode), and skips BriefingState/InventoryState --
+/// goes straight into BattlescapeState the way BriefingState::btnOkClick does
+/// (verified in BriefingState.cpp) minus the briefing screen itself. Preview
+/// suppression is reset by CalypsoDirector::onBattleStart once a genuinely
+/// different battle starts, so it survives the whole preview session (every
+/// turn), not just the first frame.
+void launchScriptedBattle(Game *game, const std::string &deploymentId, bool preview);
+
+/// Thin wrapper: launchScriptedBattle(game, STR_CALYPSO_PROLOGUE, false).
+/// Call site: the ask state's Yes handler (after the not-yet-wired intro-clip
+/// trigger, see commit 6). Behavior is unchanged from before commit 4.5.
 void launchPrologueBattle(Game *game);
 
 /// Records one surviving player soldier's name + stats at cast-off

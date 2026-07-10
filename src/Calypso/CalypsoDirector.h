@@ -133,8 +133,15 @@ public:
 	CalypsoScene *active() const;
 
 	/// Scene-preview mode: while set, the director activates no scene (the map
-	/// boots inert for inspection). See phase plan 41.1c.
+	/// boots inert for inspection). See phase plan 41.1c. Setting `true` also
+	/// rebinds the "which battle owns this suppression" tracking (see
+	/// onBattleStart) to the next battle that starts.
 	void setPreviewSuppressed(bool suppressed);
+
+	/// True while scene-preview mode is active -- sticky for the whole preview
+	/// battle (not just its first frame). Read by the dev-only tile-coordinate
+	/// readout HUD overlay (Map::updateScenePreviewCoordHud, commit 4.5).
+	bool isPreviewActive() const { return _previewSuppressed; }
 
 	// ---- battle lifecycle (called from the upstream hooks) -----------------
 
@@ -233,6 +240,12 @@ private:
 	std::string _activeDeploymentId;             ///< mission type of the running scene
 	std::map<std::string, SceneFactory> _registry;
 	bool _previewSuppressed = false;
+	/// The SavedBattleGame the current preview suppression belongs to (commit
+	/// 4.5) -- lets onBattleStart tell "still the same preview battle" (keep
+	/// suppressed) from "a new battle started" (clear it) without a manual
+	/// reset call at the preview's end (its end site is not single-sited: the
+	/// player may abort, win, or lose the preview battle).
+	SavedBattleGame *_previewBattle = nullptr;
 	int _outcome = -1;                           ///< <0 = no scene outcome pending
 
 	/// Cached for the lifetime of one battle (set in onBattleStart). Pointers

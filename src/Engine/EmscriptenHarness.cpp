@@ -40,6 +40,7 @@
 #include "../Menu/ModListState.h"
 #include "../Menu/OptionsVideoState.h"
 #include "../Menu/OptionsBaseState.h"   // OptionsOrigin / OPT_MENU
+#include "../Calypso/CalypsoPrologueCampaign.h" // Phase 41 (commit 4.5): launchScriptedBattle
 
 using namespace OpenXcom;
 
@@ -499,6 +500,25 @@ void calypso_text_cancel(void)
 	SDL_PushEvent(&e);          /* TextEdit ESCAPE path: clears the value,
 	                               fires the enter-action, unfocuses — same
 	                               as a hardware Esc (TextEdit.cpp:590) */
+}
+
+/* Phase 41 (commit 4.5): dev-only scene-preview bridge (plan §41.1c). Boots
+ * straight into the named deployment's battlescape with the CalypsoDirector
+ * suppressed, the map fully revealed, and a tile-coordinate readout under the
+ * cursor -- lets a mapScript/MAP/RMP edit be checked without playing through
+ * the whole scripted mission. Called from web/src/main.js off
+ * ?scenePreview=<deploymentId>; no menu entry. */
+EMSCRIPTEN_KEEPALIVE
+void calypso_scene_preview(const char *deploymentId)
+{
+	Game *g = getCurrentGame();
+	if (!g || !g->getMod() || !deploymentId || !*deploymentId) return;
+	if (!g->getMod()->getDeployment(deploymentId))
+	{
+		Log(LOG_ERROR) << "[scene-preview] unknown deployment '" << deploymentId << "'";
+		return;
+	}
+	Calypso::launchScriptedBattle(g, deploymentId, /*preview=*/true);
 }
 
 } /* extern "C" */
