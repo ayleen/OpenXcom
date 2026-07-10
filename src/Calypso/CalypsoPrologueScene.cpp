@@ -29,6 +29,7 @@
 #include "../Savegame/BattleUnit.h"
 #include "../Savegame/Soldier.h"  // getGeoscapeSoldier() survivor snapshot
 #include "../Savegame/Tile.h"     // review round 2 finding 1: START_POINT slot scan
+#include "../Savegame/BattleItem.h" // amendment #10: corpse-item collection
 #include "../Mod/Unit.h"          // UnitFaction, SpecialTileType, UnitStats
 #include "../Mod/MapData.h"       // SpecialTileType::START_POINT, MovementType::MT_WALK
 #include "../Mod/RuleDamageType.h"
@@ -447,6 +448,10 @@ void CalypsoPrologueScene::onPlayerTurnStart(BattlescapeGame *bg)
 	// Panic-driven loss of control would fight the direction (41.3).
 	CalypsoDirector::get().pinMorale(save, FACTION_PLAYER);
 
+	// Amendment #10: the water collects last turn's fallen -- before the
+	// autosave below, so a reload never resurrects a collected body.
+	collectTakenBodies(bg);
+
 	// D6: rolling anti-savescum autosave -- one slot, overwritten every player
 	// turn. Safe to skip once an ending is armed/executing (Ph::Ended has no
 	// further turns; a fresh write here would just get deleted moments later
@@ -625,6 +630,17 @@ bool CalypsoPrologueScene::stepGauntlet(BattlescapeGame *bg)
 
 	if (_gauntletStep == 1)
 	{
+		// Amendment #9: consume a bought turn -- the Choir spends it releasing
+		// the replacement herder (steerActiveHerder above already did that),
+		// no victim is picked. Never consumed against the FIRST post-Assessor
+		// loss: that beat (design doc s8 #2) is uncancellable, so the reprieve
+		// is simply held until the first loss has happened.
+		if (_currentVictimId < 0 && _herderReprieveTurns > 0 && _firstDeathDone)
+		{
+			--_herderReprieveTurns;
+			_gauntletStep = 2;
+			return true;
+		}
 		if (_currentVictimId < 0)
 		{
 			_currentVictimId = pickGauntletTarget(save);
@@ -815,6 +831,17 @@ void CalypsoPrologueScene::onUnitDied(BattlescapeGame *bg, BattleUnit *victim, B
 		return;
 	}
 
+	// Amendment #9 (design doc s8 #9): a dead herder buys one Choir turn --
+	// the replacement-release turn picks no victim. Counted here (reaction
+	// fire on the Choir turn and player fire both arrive through
+	// checkForCasualties), consumed in stepGauntlet.
+	if (std::find(_herderIds.begin(), _herderIds.end(), id) != _herderIds.end())
+	{
+		++_herderReprieveTurns;
+		checkBranchB(bg);
+		return;
+	}
+
 	if (id == _leaderId && !_firstDeathDone && _phase == Ph::Gauntlet)
 	{
 		// D2: guaranteed payoff regardless of a 1-shot or 2-shot kill.
@@ -824,6 +851,18 @@ void CalypsoPrologueScene::onUnitDied(BattlescapeGame *bg, BattleUnit *victim, B
 	else if (id == _currentVictimId)
 	{
 		_firstDeathDone = true; // later gauntlet deaths are silent
+	}
+
+	// Amendment #10 (design doc s8 #10): gauntlet losses among the crew are
+	// TAKEN -- queue the body for collection at the next player-turn start.
+	// The Assessor is deliberately NOT queued (his corpse stays: the ambush
+	// needs it -- demonstration vs collection); ending-context deaths never
+	// reach this line (the _endingTriggered early-return above).
+	if (_phase == Ph::Gauntlet
+		&& (id == _leaderId || id == _nikosId
+			|| std::find(_diverIds.begin(), _diverIds.end(), id) != _diverIds.end()))
+	{
+		_pendingTakenIds.push_back(id);
 	}
 
 	if (id == _currentVictimId) _currentVictimId = -1;
@@ -935,6 +974,39 @@ void CalypsoPrologueScene::forceKill(BattlescapeGame *bg, BattleUnit *victim, Ba
 	bg->checkForCasualties(dt, attack, false, false);
 }
 
+// Amendment #10 (design doc s8 #10, "taken, not corpses"): the scripted drop
+// runs the REAL lethal pipeline (beats, morale, sound unchanged) -- making the
+// victims mechanically unconscious instead would break "aboard = safe" (an
+// unconscious body could be carried to the boat and rescued). The taking is
+// the cleanup: remove the corpse BattleItems linked to each queued unit, so
+// the body is simply gone when the player's turn starts. Dropped equipment
+// stays on the quay by design -- the sea keeps what it takes; gear is not
+// what it came for. SavedBattleGame::removeItem handles the tile unlink
+// itself (moveToOwner(nullptr) -> Tile::removeItem) and frees the item, so
+// the corpse-item list is snapshotted before removal.
+void CalypsoPrologueScene::collectTakenBodies(BattlescapeGame *bg)
+{
+	if (_pendingTakenIds.empty() || !bg) return;
+	SavedBattleGame *save = bg->getSave();
+	if (!save) return;
+
+	for (int id : _pendingTakenIds)
+	{
+		BattleUnit *u = findUnit(save, id);
+		if (!u) continue;
+		std::vector<BattleItem*> corpses;
+		for (BattleItem *bi : *save->getItems())
+		{
+			if (bi->getUnit() == u) corpses.push_back(bi);
+		}
+		for (BattleItem *bi : corpses)
+		{
+			save->removeItem(bi);
+		}
+	}
+	_pendingTakenIds.clear();
+}
+
 void CalypsoPrologueScene::radio(const std::string &stringId) const
 {
 	CalypsoDirector::get().radioLine(getCurrentGame(), stringId);
@@ -966,6 +1038,8 @@ void CalypsoPrologueScene::save(YAML::YamlNodeWriter writer) const
 	writer.write("shotsThisTurn", _shotsThisTurn);
 	writer.write("activeHerderIdx", _activeHerderIdx);
 	writer.write("lastNagStage", _lastNagStage);
+	writer.write("herderReprieveTurns", _herderReprieveTurns);
+	writer.write("pendingTakenIds", _pendingTakenIds);
 }
 
 void CalypsoPrologueScene::load(const YAML::YamlNodeReader &reader)
@@ -989,6 +1063,8 @@ void CalypsoPrologueScene::load(const YAML::YamlNodeReader &reader)
 	_shotsThisTurn = reader["shotsThisTurn"].readVal<int>(0);
 	_activeHerderIdx = reader["activeHerderIdx"].readVal<int>(-1);
 	_lastNagStage = reader["lastNagStage"].readVal<int>(-1);
+	_herderReprieveTurns = reader["herderReprieveTurns"].readVal<int>(0);
+	_pendingTakenIds = reader["pendingTakenIds"].readVal<std::vector<int>>(std::vector<int>{});
 }
 
 } // namespace OpenXcom
