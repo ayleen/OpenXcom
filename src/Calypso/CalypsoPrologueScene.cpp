@@ -22,6 +22,7 @@
 
 #include "../Battlescape/BattlescapeGame.h"
 #include "../Battlescape/BattlescapeState.h"
+#include "../Battlescape/TileEngine.h" // calculateFOV() after the marksman teleport
 #include "../Savegame/SavedBattleGame.h"
 #include "../Savegame/SavedGame.h"
 #include "../Savegame/BattleUnit.h"
@@ -38,18 +39,33 @@ namespace OpenXcom
 {
 
 // --------------------------------------------------------------------------- //
-// tunables -- placeholders until the real map is assembled and measured
-// (phase plan 41.1a step 5); every use site below is marked TUNE(41.1a step 5).
+// tunables -- calibrated against the real assembled map (QA round 1, browser
+// measurement via ?scenePreview + a quicksave unit-position dump; see
+// docs/phases/phase-41-tutorial-mission.md §41.1a step 5 for the grid). Every
+// use site below used to be marked TUNE(41.1a step 5) -- that pass is done.
 // --------------------------------------------------------------------------- //
 
-// Craft (Nereid) exit/deployment zone, in tile coordinates. NE corner of the
-// port per the design doc's map plan (docs/tutorial-mission-design.md §5).
-static const Calypso::Rect EXIT_AREA{ 27, 2, 29, 4 };
-static const Position EXIT_AREA_CENTER(28, 3, 0);
+// Craft (Nereid) exit/deployment zone, in tile coordinates. The mapScript
+// places the TRITON craft block at grid [4,0] w1 h2 (10x20 tiles = x40-49,
+// y0-19; calypso-prologue.rul mapScripts comment). The craft hull only fills
+// part of that block -- measured via the scene-preview coordinate readout by
+// hovering the hull's four extremes (41,9) (47,6) (43,11) (45,1) and cross-
+// checked against a quicksave dump of the 3 SOLDIER spawn tiles, which
+// clustered tightly at (45,7) (44,7) (45,6) -- comfortably inside this rect.
+static const Calypso::Rect EXIT_AREA{ 40, 0, 48, 12 };
+static const Position EXIT_AREA_CENTER(44, 6, 0);
 
 // Distance (Chebyshev tiles) the Assessor + one other unit must clear from the
-// Nereid before the ambush can trigger -- "~two full TU sprints" (41.1a).
-static const int TRIGGER_DIST = 8;
+// Nereid before the ambush can trigger. Office cluster occupies grid [0,0]
+// w2 h2 (x0-19, y0-19); its nearest edge (x=19) to EXIT_AREA's nearest edge
+// (x=40) is 21 tiles -- the total craft-to-office march. "Roughly two full TU
+// sprints" (41.1a) would overshoot that at ~12-15 tiles/turn, so the trigger
+// is set to ~2/3 of the total distance instead: far enough that turn-1 (spawn
+// distance 0) never fires, close enough to the office that the squad is
+// genuinely "en route" (not arrived) when the ambush hits, matching the
+// turns-3-5 window design (FIRST_NAG_TURN=3 below already fires on schedule --
+// unaffected, it's turn-based not distance-based).
+static const int TRIGGER_DIST = 14;
 // Unconditional ambush turn if the distance trigger never fires (sabotage fallback).
 static const int FALLBACK_TURN = 8;
 // First player turn an escalating nag radio line can fire (see escalationStage()).
@@ -57,16 +73,47 @@ static const int FIRST_NAG_TURN = 3;
 // Repeat-fire shots at one victim before the direct-damage fallback kicks in.
 static const int SHOT_CAP_PER_TURN = 4;
 
-// Herder waypoints: pen -> squad midpoint -> the Nereid itself. A single
-// midpoint is enough for commit 3; the real map may need more via 41.1a.
-static const Position HERDER_WAYPOINT_MID(15, 15, 0);
+// Herder waypoints: pen -> squad midpoint -> the Nereid itself. Midpoint of
+// the craft-to-office march (EXIT_AREA_CENTER (44,6) <-> office center
+// roughly (10,10)) along the row0/row1 filler blocks (grid cols 2-3) the
+// squad actually crosses -- NOT the row2 (y20-29) "open gauntlet path" cells,
+// which sit south of both the craft and the office and are off the direct
+// route (mapScript comment describing row2 as the gauntlet path predates the
+// final craft/office grid placement; both landmarks ended up in the top band).
+static const Position HERDER_WAYPOINT_MID(27, 8, 0);
 
-// Reserved for the map-tuning pass: alternate marksman perches used if the
-// primary trajectory is blocked. directedShot() does not pre-validate the
-// line in this commit (see CalypsoDirector.cpp notes); wiring a perch switch
-// is deferred to when the real map exists to validate trajectories against.
-[[maybe_unused]] static const Position MARKSMAN_PERCH_A(5, 5, 0);
-[[maybe_unused]] static const Position MARKSMAN_PERCH_B(5, 25, 0);
+// Marksman perch (QA round 1 bug 7): every populated RMP node in every PORT
+// block is rank 0 (ground-level, civilian/scout) -- there is no elevated or
+// alien-specific spawn node anywhere on this terrain, so the marksman's
+// natural spawn is just wherever the generic node picker lands (observed at
+// (7,4,0), inside the office block -- not a sniper nest by any definition).
+// Per the QA-approved fallback (docs/phases/phase-41-tutorial-mission.md,
+// "prefer NOT teleporting" revisited), CalypsoPrologueScene::onBattleStart
+// now teleports the marksman onto a fixed ground tile along the squad's march
+// route instead: open yard tiles in the row0/row1 filler blocks, close enough
+// to the path for directedShot()'s real projectile pipeline to have a clear
+// line once the ambush fires near HERDER_WAYPOINT_MID. PERCH_B is the
+// fallback if PERCH_A is occupied/blocked (SavedBattleGame::setUnitPosition
+// returns false and the scene tries the next candidate).
+static const Position MARKSMAN_PERCH_A(30, 5, 0);
+static const Position MARKSMAN_PERCH_B(20, 12, 0);
+
+// Named-actor scripted tiles (review round 1, P1): the terrain has only
+// rank-0 civilian RMP nodes, so Nikos/the Assessor/the herders spawn wherever
+// the generic node picker lands -- but the whole scenario depends on their
+// geometry (Nikos SE and >= 5 turns out, Assessor disembarking WITH the
+// squad, herders penned off-path and out of turn-0 sight range). Same
+// candidate-list + setUnitPosition pattern as the marksman perch above; each
+// actor gets three candidates because exact tile walkability on the
+// assembled blocks is only verifiable in the scene preview (QA round 2 item).
+// Grid recap (calypso-prologue.rul mapScripts): office x0-19/y0-19, craft
+// hull inside x40-48/y0-12, open band y20-29.
+static const Position NIKOS_POST[3]    = { Position(46, 26, 0), Position(44, 26, 0), Position(47, 23, 0) }; // SE guard post
+static const Position ASSESSOR_POST[3] = { Position(44, 9, 0),  Position(43, 9, 0),  Position(45, 9, 0)  }; // at the Nereid's ramp, beside the squad
+static const Position HERDER_PEN[2][3] = {
+	{ Position(2, 26, 0), Position(4, 26, 0), Position(2, 24, 0) },  // pen, far SW -- ~42 tiles from the squad, beyond sight range
+	{ Position(6, 26, 0), Position(8, 26, 0), Position(6, 24, 0) },
+};
 
 static const char *STR_PROLOGUE_RADIO_LANDING   = "STR_PROLOGUE_RADIO_LANDING";
 static const char *STR_PROLOGUE_RADIO_OBJECTIVE = "STR_PROLOGUE_RADIO_OBJECTIVE";
@@ -154,10 +201,82 @@ void CalypsoPrologueScene::onBattleStart(BattlescapeGame *bg)
 		_inert = true;
 		return;
 	}
+	placeMarksman(bg);
+	placeNamedActors(bg);
+	// Review round 1 (P1): the Assessor must be escortable -- as a neutral
+	// civilian the player physically cannot "walk him to the office" and the
+	// distance trigger would depend on civilian-AI wandering. Hand him to the
+	// player from turn 0 (same convertToFaction primitive as the Nikos
+	// handoff; _originalFaction stays neutral for the debrief tally). He is
+	// NOT in allPlayerIds()/_diverIds (resolved above, by faction, before
+	// this call), so the gauntlet picker and Branch B never count him.
+	if (BattleUnit *assessor = findUnit(bg->getSave(), _assessorId))
+		CalypsoDirector::get().handoffToPlayer(bg, assessor);
 	// D2: rolled once, drives which pattern the first post-Assessor death uses.
 	_leaderDiesFirst = RNG::percent(50);
 	_phase = Ph::MoveToOffice;
 	radio(STR_PROLOGUE_RADIO_LANDING);
+}
+
+// QA round 1 bug 7: the terrain has no elevated/alien-specific RMP nodes, so
+// the marksman's generic-node spawn lands wherever (observed inside the
+// office block). Teleport him onto a fixed perch along the march route
+// instead. SavedBattleGame::setUnitPosition is the same relink primitive
+// BattlescapeGenerator::addXCOMUnit's craft-inventory-tile repositioning and
+// SavedBattleGame::resetUnitTiles use -- it validates the destination (tile
+// exists, unoccupied, not a big-wall object, has floor) and on success calls
+// BattleUnit::setTile() + setPosition(), which fully relinks both directions
+// (old tile's getUnit() cleared, new tile's getUnit() set to this unit) --
+// see BattleUnit::setTile (src/Savegame/BattleUnit.cpp). PERCH_B is tried if
+// PERCH_A is blocked; if both fail the marksman just stays at his spawn node
+// (inert-safe, not a hard failure -- directedShot only needs *a* position).
+void CalypsoPrologueScene::placeMarksman(BattlescapeGame *bg)
+{
+	SavedBattleGame *save = bg->getSave();
+	BattleUnit *marksman = findUnit(save, _marksmanId);
+	if (!marksman) return;
+
+	if (!save->setUnitPosition(marksman, MARKSMAN_PERCH_A)
+		&& !save->setUnitPosition(marksman, MARKSMAN_PERCH_B))
+	{
+		Log(LOG_WARNING) << "[prologue] marksman perch teleport failed (both candidates blocked) -- "
+			<< "leaving spawn position " << marksman->getPosition();
+		return;
+	}
+	// Mirrors the "newly-placed unit" FOV-population pattern used when aliens
+	// are spawned mid-battle (BattlescapeGame.cpp:377) -- the generator's own
+	// initial placement doesn't need this (a full recalc runs once at battle
+	// start), but a scene-side reposition after that point does.
+	save->getTileEngine()->calculateFOV(marksman);
+}
+
+// Review round 1 (P1): teleport the remaining named actors onto their
+// scripted tiles (see the NIKOS_POST/ASSESSOR_POST/HERDER_PEN comment above).
+// Failure is a loud warning, not inert: a mis-placed actor degrades the
+// staging but every script beat still works from any position.
+void CalypsoPrologueScene::placeNamedActors(BattlescapeGame *bg)
+{
+	SavedBattleGame *save = bg->getSave();
+
+	auto placeAt = [save](BattleUnit *u, const Position *candidates, int n, const char *who)
+	{
+		if (!u) return;
+		for (int i = 0; i < n; ++i)
+		{
+			if (save->setUnitPosition(u, candidates[i]))
+			{
+				save->getTileEngine()->calculateFOV(u);
+				return;
+			}
+		}
+		Log(LOG_WARNING) << "[prologue] " << who << " scripted-tile teleport failed (all candidates blocked) -- "
+			<< "leaving spawn position " << u->getPosition();
+	};
+
+	placeAt(findUnit(save, _nikosId), NIKOS_POST, 3, "nikos");
+	placeAt(findUnit(save, _assessorId), ASSESSOR_POST, 3, "assessor");
+	for (size_t h = 0; h < _herderIds.size() && h < 2; ++h)
+		placeAt(findUnit(save, _herderIds[h]), HERDER_PEN[h], 3, "herder");
 }
 
 void CalypsoPrologueScene::onPlayerTurnStart(BattlescapeGame *bg)
@@ -412,8 +531,17 @@ void CalypsoPrologueScene::steerActiveHerder(BattlescapeGame *bg)
 	}
 	if (!active) return; // both herders dead -- no visible pursuer, kills continue
 
-	Position target = Calypso::chebyshevToRect(active->getPosition().x, active->getPosition().y, EXIT_AREA) <= 1
-		? EXIT_AREA_CENTER : HERDER_WAYPOINT_MID;
+	// Waypoint progression (review round 1, P1): promote the target to the
+	// Nereid once the midpoint is reached or passed. The old test ("target
+	// the boat only when already within 1 tile of the boat") could never
+	// promote past the midpoint, so Branch B was unreachable. The pen is
+	// west of the midpoint and the boat east of it, so "x beyond the
+	// midpoint" is a monotonic progress test that also survives save/load.
+	const Position herderPos = active->getPosition();
+	const Calypso::Rect midRect{ HERDER_WAYPOINT_MID.x, HERDER_WAYPOINT_MID.y, HERDER_WAYPOINT_MID.x, HERDER_WAYPOINT_MID.y };
+	bool pastMid = herderPos.x >= HERDER_WAYPOINT_MID.x
+		|| Calypso::chebyshevToRect(herderPos.x, herderPos.y, midRect) <= 2;
+	Position target = pastMid ? EXIT_AREA_CENTER : HERDER_WAYPOINT_MID;
 	CalypsoDirector::get().steerUnit(bg, active, target);
 	checkBranchB(bg);
 }
