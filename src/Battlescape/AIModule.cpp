@@ -273,8 +273,11 @@ bool AIModule::considerTerrainAttack()
 	bool floorDropViable = false;
 	if (weapon && _save->canUseWeapon(weapon, _unit, false, BA_SNAPSHOT))
 	{
+		// Phase 43 (C2 trigger): the floor drop fires a snap shot -- if the unit can't afford it,
+		// the candidate would be re-picked verbatim every think with zero TU spent (infinite loop).
+		BattleActionCost snapCost(BA_SNAPSHOT, _unit, weapon);
 		const BattleItem *ammo = weapon->getAmmoForAction(BA_SNAPSHOT);
-		if (ammo)
+		if (ammo && snapCost.haveTU())
 		{
 			const RuleItem *ammoRule = ammo->getRules();
 			const RuleDamageType *dt = ammoRule->getDamageType();
@@ -292,7 +295,12 @@ bool AIModule::considerTerrainAttack()
 
 	if (floorDropViable)
 	{
-		Position originVoxel = _save->getTileEngine()->getSightOriginVoxel(_unit);
+		// Phase 43 (C2 trigger, bug B): validate LOF from the weapon MUZZLE, not the eye. The muzzle
+		// voxel depends on the aim direction, so it is recomputed per candidate below.
+		BattleAction originAction;
+		originAction.actor = _unit;
+		originAction.weapon = weapon;
+		originAction.type = BA_SNAPSHOT;
 		int bestScore = 0;
 		Position bestTarget = Position(0, 0, 0);
 		BattleItem *bestWeapon = nullptr;
@@ -326,7 +334,9 @@ bool AIModule::considerTerrainAttack()
 			// Destructibility predicate (Tile::damage convention: power >= armor; 255 = indestructible).
 			if (floorMD->getArmor() >= 255) continue;
 			if (terrainPower < floorMD->getArmor()) continue;
-			// The floor must be targetable from the unit's current position (LOF check).
+			// The floor must be targetable from the unit's weapon muzzle (LOF check).
+			originAction.target = enemyPos;
+			Position originVoxel = _save->getTileEngine()->getOriginVoxel(originAction, 0);
 			Position targetVoxel;
 			if (!_save->getTileEngine()->canTargetTile(&originVoxel, enemyTile, O_FLOOR, &targetVoxel, _unit, false))
 				continue;

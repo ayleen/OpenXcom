@@ -485,6 +485,20 @@ void BattlescapeGame::handleAI(BattleUnit *unit)
 		}
 	}
 
+	// Phase 43 (C2): snapshot TU right before the action executes. popState compares against this;
+	// if the whole BState sequence spends nothing, the cycle made no progress and must terminate.
+	action.tuBefore = unit->getTimeUnits();
+
+	// Phase 43 (H6): consume BA_TURN -- turn the brutal unit toward the threat. Without this the
+	// action is silently dropped, the unit never turns, and brutalThink re-emits it every cycle
+	// (burning two full-map think passes each time). BA_TURN is only emitted by brutalThink, so
+	// this block is inert when brutal AI is off.
+	if (action.type == BA_TURN && action.actor->isBrutal())
+	{
+		if (Options::traceAI) { Log(LOG_INFO) << "Phase 43 (H6): #" << unit->getId() << " turns toward " << action.target; }
+		statePushBack(new UnitTurnBState(this, action));
+	}
+
 	if (action.type == BA_WALK)
 	{
 		ss << "Walking to " << action.target;
@@ -533,6 +547,9 @@ void BattlescapeGame::handleAI(BattleUnit *unit)
 	if (action.type == BA_NONE)
 	{
 		_parentState->debug("Idle");
+		// Phase 43 (H1): a brutal unit with nothing to do must end its turn, otherwise it is never
+		// marked done and can ping-pong (BA_WAIT<->BA_NONE) with a neighbour at a doorway forever.
+		if (action.actor->isBrutal()) action.actor->setWantToEndTurn(true);
 		_AIActionCounter = 0;
 		if (_save->selectNextPlayerUnit(true, _AISecondMove) == 0)
 		{
@@ -1399,6 +1416,18 @@ void BattlescapeGame::popState()
 		{
 			if (_save->getSide() != FACTION_PLAYER && !_debugPlay)
 			{
+				// Phase 43 (C2): zero-TU progress guard. If this brutal actor's whole action sequence
+				// completed without spending any TU, the think->execute cycle made no progress and would
+				// repeat forever. BA_NONE / BA_WAIT are legitimate zero-TU terminal actions and must NOT
+				// trip the guard. Gated on isBrutal() so the vanilla off-path stays byte-identical.
+				if (action.actor && action.actor->isBrutal()
+					&& action.type != BA_NONE && action.type != BA_WAIT
+					&& action.tuBefore == action.actor->getTimeUnits())
+				{
+					if (Options::traceAI) { Log(LOG_INFO) << "Phase 43 (C2): #" << action.actor->getId() << " made no TU progress -> ending its turn"; }
+					action.actor->setWantToEndTurn(true);
+				}
+
 				// AI does three things per unit, before switching to the next, or it got killed before doing the second thing
 				if (_AIActionCounter > 2 || _save->getSelectedUnit() == 0 || _save->getSelectedUnit()->isOut())
 				{
@@ -2748,6 +2777,8 @@ bool BattlescapeGame::findItem(BattleAction *action, bool pickUpWeaponsMoreActiv
 						_save->getTileEngine()->calculateLighting(LL_ITEMS, action->actor->getPosition());
 						_save->getTileEngine()->calculateFOV(action->actor->getPosition(), targetItem->getVisibilityUpdateRange(), false);
 					}
+					// Phase 43 (C1): a brutal unit that just picked up a weapon must be allowed to act again.
+					if (action->actor->isBrutal()) action->actor->setWantToEndTurn(false);
 					return true;
 				}
 			}
@@ -2757,6 +2788,8 @@ bool BattlescapeGame::findItem(BattleAction *action, bool pickUpWeaponsMoreActiv
 				action->target = targetItem->getTile()->getPosition();
 				action->type = BA_WALK;
 				walkToItem = true;
+				// Phase 43 (C1): a brutal unit walking to grab a weapon must not stay ended-out.
+				if (action->actor->isBrutal()) action->actor->setWantToEndTurn(false);
 				if (pickUpWeaponsMoreActively)
 				{
 					// don't end the turn after walking 1-2 tiles... pick up a weapon and shoot!

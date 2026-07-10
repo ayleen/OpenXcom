@@ -5010,6 +5010,8 @@ bool TileEngine::psiAttack(BattleActionAttack attack, BattleUnit *victim)
 			}
 			victim->recoverTimeUnits();
 			victim->allowReselect();
+			// Phase 43 (C1): a freshly mind-controlled brutal unit must be able to act this turn.
+			if (victim->isBrutal()) victim->setWantToEndTurn(false);
 			victim->abortTurn(); // resets unit status to STANDING
 			// if all units from either faction are mind controlled - auto-end the mission.
 			if (_save->getSide() == FACTION_PLAYER && Options::allowPsionicCapture)
