@@ -113,6 +113,12 @@ void CalypsoDirector::onUnitDied(BattlescapeGame *bg, BattleUnit *victim, Battle
 	_scene->onUnitDied(bg, victim, killer);
 }
 
+bool CalypsoDirector::onEnemyTurnIdle(BattlescapeGame *bg)
+{
+	if (!_scene) return false;
+	return _scene->onEnemyTurnIdle(bg);
+}
+
 bool CalypsoDirector::onAbortRequested(BattlescapeState *bs)
 {
 	if (!_scene) return false;

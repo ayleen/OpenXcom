@@ -306,6 +306,21 @@ void BattlescapeGame::init()
  */
 void BattlescapeGame::handleAI(BattleUnit *unit)
 {
+#ifdef __EMSCRIPTEN__
+	// Phase 41: a scripted scene owns ALL hostile/neutral acting -- no genuine AI
+	// runs while it is active. Called once per think() tick, i.e. exactly when the
+	// state queue has just drained (see BattlescapeGame::think). False = scene is
+	// idle this turn -> end it the same way vanilla AI does below.
+	if (CalypsoDirector::get().active() && _save->getSide() != FACTION_PLAYER)
+	{
+		if (!CalypsoDirector::get().onEnemyTurnIdle(this) && !_save->getDebugMode())
+		{
+			_endTurnRequested = true;
+			statePushBack(0); // end scripted turn
+		}
+		return;
+	}
+#endif
 	std::ostringstream ss;
 
 	// Phase 34.5 Brutal-AI (adapted from Brutal-OXCE by Xilmi): a brutal unit manages its own TU
