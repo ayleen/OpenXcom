@@ -219,6 +219,19 @@ BattlescapeGame::~BattlescapeGame()
 int BattlescapeGame::think()
 {
 	int ret = -1;
+#ifdef __EMSCRIPTEN__
+	// Phase 41: BattlescapeState::think() calls both this and (via its game
+	// timer) handleState() in the same tick, so a scripted scene ending
+	// resolved a few lines below (finishBattle -> pushState, synchronously,
+	// still mid-unwind) does not stop this same call, or a later frame's
+	// think(), from still driving AI turns against a battle that already has
+	// something else on top of it. Once that happens, no more AI processing
+	// -- scripted or vanilla -- is valid for this battle.
+	if (!_parentState->getGame()->isState(_parentState))
+	{
+		return ret;
+	}
+#endif
 	// nothing is happening - see if we need some alien AI or units panicking or what have you
 	if (_states.empty())
 	{
@@ -310,10 +323,20 @@ void BattlescapeGame::handleAI(BattleUnit *unit)
 	// Phase 41: a scripted scene owns ALL hostile/neutral acting -- no genuine AI
 	// runs while it is active. Called once per think() tick, i.e. exactly when the
 	// state queue has just drained (see BattlescapeGame::think). False = scene is
-	// idle this turn -> end it the same way vanilla AI does below.
+	// idle this turn -> end it the same way vanilla AI does below -- UNLESS the
+	// scene used this same pump to resolve an ending (CalypsoScene::onEnemyTurnIdle
+	// returning false is ambiguous between "nothing to do" and "just tore the
+	// battle down via endScene/finishBattle"). finishBattle() runs synchronously,
+	// still inside this call stack, and pushes the scene's end state; a stray
+	// statePushBack(0) here would run BattlescapeGame::endTurn() on top of that
+	// mid-unwind and push a second NextTurnState burying the end state (browser
+	// QA: "TURN 1 SIDE: The Choir" reappearing instead of the ending screen).
+	// endBattleCleanup() (called from interceptFinishBattle) nulls the active
+	// scene, so re-checking active() after the pump disambiguates the two cases.
 	if (CalypsoDirector::get().active() && _save->getSide() != FACTION_PLAYER)
 	{
-		if (!CalypsoDirector::get().onEnemyTurnIdle(this) && !_save->getDebugMode())
+		bool pumped = CalypsoDirector::get().onEnemyTurnIdle(this);
+		if (!pumped && !_save->getDebugMode() && CalypsoDirector::get().active())
 		{
 			_endTurnRequested = true;
 			statePushBack(0); // end scripted turn
