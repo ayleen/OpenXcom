@@ -387,13 +387,19 @@ int calypso_save_delete(const char *file)
  * The save is performed inline rather than by pushing a SaveGameState. The
  * native SaveGameState::think (Menu/SaveGameState.cpp:149) pops three states
  * for a non-Ironman SAVE_DEFAULT — itself, the save-list (ListSaveState), and
- * the pause screen. The HTML overlay flow has no native ListSaveState on the
- * stack, so that third popState() would tear down the live Geoscape/
- * Battlescape underneath the pause screen. Instead we mirror only the atomic
- * backup->save->moveFile body (SaveGameState.cpp:186-195) and push/pop nothing:
- * SavedGame::save() already flushes IDBFS itself (Savegame/SavedGame.cpp:
- * 951-953), and the JS overlay owns its own close. `origin` is unused (the
- * inline save needs no OptionsOrigin) but kept for the JS ABI. */
+ * the pause screen. The HTML overlay flow has no native SaveGameState or
+ * ListSaveState on the stack (PauseState::btnSaveClick routes to the HTML
+ * overlay and returns without pushing ListSaveState), so blindly replaying
+ * three popStates would tear down the live Geoscape/Battlescape underneath the
+ * pause screen. Instead we mirror the atomic backup->save->moveFile body
+ * (SaveGameState.cpp:186-195) inline, then reproduce only the *last* of the
+ * native pops: for a non-Ironman game pop the PauseState left on top so the
+ * player lands back in the Geoscape/Battlescape (SaveGameState.cpp:166-170);
+ * for Ironman leave it (native never exposes Save from an Ironman PauseState —
+ * PauseState.cpp:139-144). SavedGame::save() already flushes IDBFS itself
+ * (Savegame/SavedGame.cpp:951-953), and the JS overlay owns its own close.
+ * `origin` is unused (the inline save needs no OptionsOrigin) but kept for the
+ * JS ABI. */
 EMSCRIPTEN_KEEPALIVE
 int calypso_save_write(const char *displayName, int origin)
 {
@@ -424,6 +430,14 @@ int calypso_save_write(const char *displayName, int origin)
 	{
 		Log(LOG_ERROR) << "calypso_save_write: " << e.what();
 		return 0;
+	}
+
+	// Non-Ironman: pop the PauseState the overlay left on top so the player
+	// returns to the live Geoscape/Battlescape (mirrors the pause pop in
+	// SaveGameState::think). Ironman keeps the pause screen up.
+	if (!g->getSavedGame()->isIronman())
+	{
+		g->popState();
 	}
 	return 1;
 }
