@@ -5518,7 +5518,12 @@ bool AIModule::brutalSelectSpottedUnitForSniper()
 				// Phase 34.9 (Calypso): pin-and-flank (ported path) -- press a target pinned by
 				// suppression (34.7). No distinct flanking-move seam exists, so the preference is
 				// applied here at target ranking. Gated; unchanged when off (byte-identical).
-				if (score > 0.0f && _save->getMod()->getAISquadCoordination() && (*i)->isPinned())
+				// Phase 43 (H4): only boost a pinned target if this candidate actually produced a firing
+				// action. brutalExtendedFireModeChoice leaves _attackAction.type == BA_RETHINK (and returns
+				// the incoming bestScore unchanged) when there is no viable fire mode; multiplying that
+				// pass-through by 1.25 would let an unreachable pinned unit beat a real attack and be chosen
+				// with a BA_RETHINK action (the valid attack silently discarded).
+				if (score > 0.0f && _attackAction.type != BA_RETHINK && _save->getMod()->getAISquadCoordination() && (*i)->isPinned())
 				{
 					score *= 1.25f;
 				}

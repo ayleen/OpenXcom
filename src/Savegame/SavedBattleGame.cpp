@@ -2767,6 +2767,11 @@ void SavedBattleGame::applySuppression(const std::vector<Position>& trajectoryVo
 	{
 		if (!unit || unit == shooter || unit == targetUnit) continue;
 		if (unit->isOut()) continue; // dead / unconscious / gone units can't be suppressed
+		// Phase 43 (H3): a unit is never suppressed by its OWN side's outgoing fire. Without this, a
+		// burst passing an adjacent squadmate pins it and the AI then targets its own ally next turn
+		// (self-suppression feedback loop). Cross-faction suppression (the engine-symmetric design) is
+		// unaffected. Use current faction so a mind-controlled unit counts with the side it fights for.
+		if (shooter && unit->getFaction() == shooter->getFaction()) continue;
 		const Position up = unit->getPosition();
 		bool nearMiss = false;
 		for (const auto& vt : visitedTiles)
