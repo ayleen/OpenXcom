@@ -5010,8 +5010,13 @@ bool TileEngine::psiAttack(BattleActionAttack attack, BattleUnit *victim)
 			}
 			victim->recoverTimeUnits();
 			victim->allowReselect();
-			// Phase 43 (C1): a freshly mind-controlled brutal unit must be able to act this turn.
-			if (victim->isBrutal()) victim->setWantToEndTurn(false);
+			// Phase 43 (C1): a freshly mind-controlled unit gets a fresh turn (recoverTimeUnits +
+			// allowReselect above), so clear any stale brutal "want to end turn". Unconditional on
+			// purpose: convertToFaction() has already run, so isBrutal() would reflect the NEW faction
+			// and skip the reset for a unit converted away from brutal (e.g. hostile -> neutral).
+			// setWantToEndTurn(false) is a no-op for non-brutal / vanilla units, so this stays byte-
+			// identical off the brutal path.
+			victim->setWantToEndTurn(false);
 			victim->abortTurn(); // resets unit status to STANDING
 			// if all units from either faction are mind controlled - auto-end the mission.
 			if (_save->getSide() == FACTION_PLAYER && Options::allowPsionicCapture)

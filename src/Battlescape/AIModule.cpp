@@ -5291,10 +5291,11 @@ void AIModule::brutalThink(BattleAction* action)
 	}
 
 	// Phase 43 (H2): revive the civilian-hunt (34.4) / hearing (34.8) biases on the brutal path.
-	// brutalThink never reaches setupPatrol, so an unengaged brutal alien that found no attack or
-	// cover move (travelTarget still == myPos) would idle. Steer it toward the fair-knowledge hunt/
-	// noise zone instead -- same helpers and gates as setupPatrol, fair-knowledge only (no cheat).
-	if (travelTarget == myPos)
+	// brutalThink synthesises a spawn-tile "last seen" for never-spotted enemies (getClosestSpawnTileId
+	// above), so travelTarget is rarely myPos even with no genuinely known enemy -- it advances on the
+	// X-Com spawn. The hunt/noise helpers gate on _knownEnemies == 0, so when a zone is known there is
+	// no real target and the bias must OVERRIDE that synthetic-spawn advance (same intent as legacy
+	// setupPatrol). Fair-knowledge only, no cheat.
 	{
 		Position huntZone;
 		bool huntZoneKnown = wantsToHuntCivilians() && _save->getCivilianHuntZone(huntZone);
@@ -5305,9 +5306,15 @@ void AIModule::brutalThink(BattleAction* action)
 		{
 			const Position& biasZone = huntZoneKnown ? huntZone : noiseZone;
 			BattleActionCost biasReserve = BattleActionCost(_unit);
-			travelTarget = furthestToGoTowards(biasZone, biasReserve, _allPathFindingNodes);
-			if (_traceAI)
-				Log(LOG_INFO) << "Phase 43 (H2): brutal unit biasing toward " << (huntZoneKnown ? "hunt" : "noise") << " zone " << biasZone;
+			Position biased = furthestToGoTowards(biasZone, biasReserve, _allPathFindingNodes);
+			// Only override the cascade's travelTarget when the bias yields a real reachable step;
+			// otherwise keep what the cascade chose rather than forcing the unit to idle.
+			if (biased != myPos)
+			{
+				travelTarget = biased;
+				if (_traceAI)
+					Log(LOG_INFO) << "Phase 43 (H2): brutal unit biasing toward " << (huntZoneKnown ? "hunt" : "noise") << " zone " << biasZone;
+			}
 		}
 	}
 
