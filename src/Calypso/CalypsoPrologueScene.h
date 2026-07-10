@@ -74,6 +74,12 @@ private:
 	static BattleUnit *findUnit(SavedBattleGame *save, int id);
 	std::vector<int> allPlayerIds() const; // leader + both divers (never Nikos)
 	int activeHerderId() const;
+	/// QA round 1 bug 7: teleport the marksman onto a fixed perch -- see the
+	/// .cpp for why (no elevated RMP nodes on this terrain).
+	void placeMarksman(BattlescapeGame *bg);
+	/// Review round 1 (P1): teleport Nikos / the Assessor / the herders onto
+	/// their scripted tiles (SE post, Nereid ramp, off-path pen).
+	void placeNamedActors(BattlescapeGame *bg);
 
 	// ---- turn-idle step machine (onEnemyTurnIdle dispatch) -----------------
 	bool stepMoveToOffice(BattlescapeGame *bg);

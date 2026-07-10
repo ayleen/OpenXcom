@@ -191,6 +191,24 @@ void launchScriptedBattle(Game *game, const std::string &deploymentId, bool prev
 	// the marker DebriefingState/CutsceneState use to detect "no real
 	// campaign" (D7 anchor: DebriefingState.cpp:881-886); left untouched.
 	SavedGame *save = new SavedGame();
+	// Review round 1 (P1): the New Game screen's difficulty/ironman choice
+	// must survive a page reload mid-prologue. The statics above are
+	// process-local; the throwaway save is the only thing the rolling
+	// autosave persists -- so carry the choice ON the save (SavedGame::save
+	// serializes both fields), and finishPrologue() reads it back from the
+	// loaded save rather than from the statics.
+	save->setDifficulty(s_stashedDiff);
+	save->setIronman(s_stashedIronman);
+	// Review round 1 (P2): the generic five-page battlescape tutorial fires
+	// during the prologue and contradicts the directed scene (it teaches
+	// shooting/kneeling and promises the mission ends when the Choir is
+	// neutralized). Suppress it for the scripted battle -- finishPrologue()
+	// (and the decline path) call resetCampaign()+requestAsk(), so the real
+	// campaign still gets its Phase 39 first-run tutorial ask. Prologue-
+	// specific micro-prompts (move/camera/end-turn before the ambush,
+	// cast-off highlight at evacuation) are a deferred follow-up.
+	if (!preview) // preview already disabled it above
+		CalypsoTutorial::get().disableForCampaign();
 	Base *base = new Base(mod);
 	YAML::YamlRootNodeReader startingBaseReader(mod->getDefaultStartingBase(), "(prologue starting base template)");
 	base->load(startingBaseReader, save, true, true);
@@ -300,9 +318,20 @@ void finishPrologue(Game *game, int outcome)
 	(void)outcome; // survivor injection is driven by stash contents, not the raw outcome value
 	if (!game) return;
 
-	SavedGame *save = game->getMod()->newSave(s_stashedDiff);
-	save->setDifficulty(s_stashedDiff);
-	save->setIronman(s_stashedIronman); // honor the New Game screen's toggle
+	// Review round 1 (P1): after a page reload + prologue-autosave load the
+	// statics are back at their defaults -- the authoritative copy of the
+	// New Game choice lives on the throwaway save (see launchScriptedBattle).
+	GameDifficulty diff = s_stashedDiff;
+	bool ironman = s_stashedIronman;
+	if (SavedGame *prologueSave = game->getSavedGame())
+	{
+		diff = prologueSave->getDifficulty();
+		ironman = prologueSave->isIronman();
+	}
+
+	SavedGame *save = game->getMod()->newSave(diff);
+	save->setDifficulty(diff);
+	save->setIronman(ironman); // honor the New Game screen's toggle
 	game->setSavedGame(save);
 
 	// D7: replace the first N default starting-base soldiers with the
