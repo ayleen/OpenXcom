@@ -30,6 +30,7 @@
 #include "../Savegame/SavedBattleGame.h"
 #include "../Savegame/Base.h"
 #include "../Savegame/Craft.h"
+#include "../Savegame/ItemContainer.h" // Craft::getItems() (bug 3: sidearm stocking)
 #include "../Savegame/Soldier.h"
 #include "../Battlescape/BattlescapeGenerator.h"
 #include "../Battlescape/BattlescapeGame.h"
@@ -58,6 +59,23 @@ namespace
 	// player-purchasable (no costBuy) -- keeps the prologue's Triton out
 	// of the fresh campaign's own Triton pool after the scripted battle.
 	static const char *PROLOGUE_CRAFT = "STR_NEREID";
+
+	// Bug 3 fix (QA round 1): the divers deployed unarmed, so the killable
+	// Herder (DoD requirement) could never actually be killed. Vanilla
+	// STR_DART_PISTOL/STR_DART_POD (xcom2 items.rul) is deliberately the
+	// weakest sidearm in the game -- 40/80 accuracy, power 16 -- so the
+	// three divers can down a Herder (55 HP, near-zero armor) in a few hits
+	// without trivializing the scripted Marksman ambush. One pistol + two
+	// clips per soldier, stocked on the craft the same way
+	// NewBattleState::initSave stocks base/craft items (Craft::getItems());
+	// BattlescapeGenerator::run then copies craft items onto the craft
+	// inventory tile and autoEquip() (Options::disableAutoEquip defaults
+	// false, and these fresh soldiers have no equipment-layout template)
+	// puts one pistol + spare clip in each soldier's hands automatically.
+	static const char *PROLOGUE_SIDEARM = "STR_DART_PISTOL";
+	static const char *PROLOGUE_SIDEARM_AMMO = "STR_DART_POD";
+	static const int PROLOGUE_SIDEARM_COUNT = 3;
+	static const int PROLOGUE_SIDEARM_AMMO_COUNT = 6; // 2 clips per soldier
 
 	// Stashed between maybeOfferPrologue (accept) and finishPrologue -- the
 	// real campaign is not created until the prologue battle is over (D4).
@@ -159,6 +177,14 @@ void launchScriptedBattle(Game *game, const std::string &deploymentId, bool prev
 		// looks the deployment up in its scene registry (plan §41.1c: the
 		// preview map boots inert, no script, no kills).
 		CalypsoDirector::get().setPreviewSuppressed(true);
+
+		// Bug 6 fix (QA round 1): the preview session is dev-only and should
+		// show nothing but the map -- the campaign tutorial's normal
+		// battle-start popups (armed via calypso-tutorial's mod triggers)
+		// otherwise still fire because CalypsoTutorial is a process-wide
+		// singleton with no notion of "this is a preview save". Heavy-handed
+		// is fine here: this only ever runs for a throwaway preview session.
+		CalypsoTutorial::get().disableForCampaign();
 	}
 
 	// Fresh throwaway SavedGame -- ctor default _monthsPassed=-1 is exactly
@@ -202,10 +228,14 @@ void launchScriptedBattle(Game *game, const std::string &deploymentId, bool prev
 		}
 	}
 
-	// No item/research setup (NewBattleState's "generate items" + "make all
-	// research discovered" loops): this is a scripted battle with a fixed,
-	// mod-defined deployment -- it has no base inventory or tech tree to
-	// stock, and the throwaway save is discarded when the battle ends anyway.
+	// No research setup (NewBattleState's "make all research discovered"
+	// loop): this is a scripted battle with a fixed, mod-defined deployment
+	// -- it has no tech tree to stock, and the throwaway save is discarded
+	// when the battle ends anyway. It DOES need a sidearm per diver (bug 3
+	// above), stocked directly on the craft, same call NewBattleState.cpp
+	// uses (Craft::getItems()->addItem).
+	craft->getItems()->addItem(mod->getItem(PROLOGUE_SIDEARM, true), PROLOGUE_SIDEARM_COUNT);
+	craft->getItems()->addItem(mod->getItem(PROLOGUE_SIDEARM_AMMO, true), PROLOGUE_SIDEARM_AMMO_COUNT);
 
 	game->setSavedGame(save);
 

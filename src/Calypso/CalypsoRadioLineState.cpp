@@ -30,34 +30,23 @@ CalypsoRadioLineState::~CalypsoRadioLineState()
 {
 	// Hide the overlay in case the state was popped without think() finishing
 	// (e.g. load-game, state-stack reset) -- mirrors CalypsoTutorialState's dtor.
-	EM_ASM_({ if (globalThis.__calypsoTutorialHide) globalThis.__calypsoTutorialHide(); });
+	EM_ASM_({ if (globalThis.__calypsoRadioHide) globalThis.__calypsoRadioHide(); });
 }
 
 void CalypsoRadioLineState::init()
 {
 	State::init();
 	std::string body = std::string(tr(_stringId));
-	// Reuse the tutorial overlay: single page, last step, no anchor, no disable
-	// toggle. The overlay's Next/Got-it buttons route to the tutorial EMSCRIPTEN
-	// exports (a no-op against this non-tutorial state); the toast self-dismisses
-	// via think(), so those buttons being inert is harmless for this commit.
+	// Bug 4 fix (QA round 1): radio lines used to reuse the tutorial popup's
+	// __calypsoTutorialShow channel, which a same-frame tutorial popup could
+	// clobber (battle start fires both). Dedicated non-modal toast channel
+	// now -- see web/public/radio-overlay.js.
 	EM_ASM_(
 	{
-		if (globalThis.__calypsoTutorialShow)
-			globalThis.__calypsoTutorialShow(
-				$0, $1,
-				UTF8ToString($2), UTF8ToString($3),
-				UTF8ToString($4), $5, $6,
-				$7, $8, $9, $10, $11);
+		if (globalThis.__calypsoRadioShow)
+			globalThis.__calypsoRadioShow(UTF8ToString($0));
 	},
-		1, 1,            // pageNum, totalPages
-		"",              // title -- a radio line has none
-		body.c_str(),    // body = tr(stringId)
-		"",              // nextLabel
-		1,               // isLastStep
-		0,               // disabled flag
-		0,               // hasAnchor
-		0, 0, 0, 0);     // anchor rect (unused)
+		body.c_str());
 }
 
 void CalypsoRadioLineState::think()
@@ -65,7 +54,7 @@ void CalypsoRadioLineState::think()
 	State::think();
 	if (++_ticks >= RADIO_LINE_TICKS)
 	{
-		EM_ASM_({ if (globalThis.__calypsoTutorialHide) globalThis.__calypsoTutorialHide(); });
+		EM_ASM_({ if (globalThis.__calypsoRadioHide) globalThis.__calypsoRadioHide(); });
 		_game->popState();
 	}
 }

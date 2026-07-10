@@ -320,19 +320,10 @@ void BattlescapeGame::init()
 void BattlescapeGame::handleAI(BattleUnit *unit)
 {
 #ifdef __EMSCRIPTEN__
-	// Phase 41: a scripted scene owns ALL hostile/neutral acting -- no genuine AI
-	// runs while it is active. Called once per think() tick, i.e. exactly when the
-	// state queue has just drained (see BattlescapeGame::think). False = scene is
-	// idle this turn -> end it the same way vanilla AI does below -- UNLESS the
-	// scene used this same pump to resolve an ending (CalypsoScene::onEnemyTurnIdle
-	// returning false is ambiguous between "nothing to do" and "just tore the
-	// battle down via endScene/finishBattle"). finishBattle() runs synchronously,
-	// still inside this call stack, and pushes the scene's end state; a stray
-	// statePushBack(0) here would run BattlescapeGame::endTurn() on top of that
-	// mid-unwind and push a second NextTurnState burying the end state (browser
-	// QA: "TURN 1 SIDE: The Choir" reappearing instead of the ending screen).
-	// endBattleCleanup() (called from interceptFinishBattle) nulls the active
-	// scene, so re-checking active() after the pump disambiguates the two cases.
+	// Phase 41: a scripted scene owns ALL hostile/neutral acting -- no genuine
+	// AI runs while it is active. The post-pump active() re-check tells "scene
+	// idle -> end the turn" apart from "scene just ended the battle" (full
+	// rationale: CalypsoScene::onEnemyTurnIdle docs in CalypsoDirector.h).
 	if (CalypsoDirector::get().active() && _save->getSide() != FACTION_PLAYER)
 	{
 		bool pumped = CalypsoDirector::get().onEnemyTurnIdle(this);
