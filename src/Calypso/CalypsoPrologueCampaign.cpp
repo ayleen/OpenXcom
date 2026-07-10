@@ -24,6 +24,7 @@
 #include "../Engine/RNG.h"
 #include "../Engine/Yaml.h"
 #include "../Mod/Mod.h"
+#include "../Mod/AlienDeployment.h" // deployment race -> setAlienRace (launchScriptedBattle)
 #include "../Mod/RuleSoldier.h"
 #include "../Savegame/SavedGame.h"
 #include "../Savegame/SavedBattleGame.h"
@@ -214,13 +215,19 @@ void launchScriptedBattle(Game *game, const std::string &deploymentId, bool prev
 
 	BattlescapeGenerator bgen(game);
 	bgen.setCraft(craft);
-	// No setTerrain/setAlienRace/setAlienItemlevel/setWorldShade: all four
-	// default from the deployment itself (verified, BattlescapeGenerator.cpp:
-	// _terrain==0 picks from ruleDeploy->getTerrains(), _alienRace defaults
-	// from ruleDeploy->getRace(), shade from ruleDeploy->getShade()/min/
-	// maxShade, depth via the internal setDepth(ruleDeploy,...) call at the
-	// top of run()) -- exactly like an alien-base/mission-site battle
-	// launched off a deployment, no NewBattleState UI involved.
+	// Race must be passed EXPLICITLY (browser-QA finding): the
+	// `_alienRace = ruleDeploy->getRace()` assignment lives in nextStage()
+	// (multi-stage missions), NOT in run(); and deployAliens()'s own
+	// deployment-race fallback is gated on getMonthsPassed() > -1 -- which
+	// deliberately excludes New-Battle-style saves like this one. Without
+	// setAlienRace the generator throws "Unknown race:  defined in
+	// deployment". Terrain/shade/depth DO default from the deployment in
+	// run() itself.
+	const AlienDeployment *ruleDeploy = mod->getDeployment(deploymentId);
+	if (ruleDeploy && !ruleDeploy->getRace().empty())
+	{
+		bgen.setAlienRace(ruleDeploy->getRace());
+	}
 	craft->setSpeed(0);
 	bgen.run();
 

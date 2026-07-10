@@ -98,16 +98,25 @@ void CalypsoDirector::onBattleStart(BattlescapeState *bs, BattlescapeGame *bg, S
 	if (_previewSuppressed)
 	{
 		_previewBattle = save;  // bind the suppression to this preview battle
+		Log(LOG_INFO) << "[director] battle start (preview) -- scenes suppressed";
 		return;                 // scene-preview: director stays inert
 	}
 	if (!save) return;
 
 	const std::string &mission = save->getMissionType();
 	auto it = _registry.find(mission);
-	if (it == _registry.end() || !it->second) return;  // not a scripted battle
+	if (it == _registry.end() || !it->second)
+	{
+		// One line per battle -- cheap, and "scene never activated" vs
+		// "scene activated then broke" is the first question every scripted-
+		// mission bug report needs answered.
+		Log(LOG_INFO) << "[director] battle start '" << mission << "' -- no scene registered (" << _registry.size() << " in registry)";
+		return;  // not a scripted battle
+	}
 
 	_scene = it->second();
 	_activeDeploymentId = mission;
+	Log(LOG_INFO) << "[director] scene activated for '" << mission << "'";
 	if (_scene) _scene->onBattleStart(bg);
 }
 
