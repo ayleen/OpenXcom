@@ -69,6 +69,36 @@ int calypso_mods_apply(void);
  * popState — the overlay has no native state pushed). Returns 1. */
 int calypso_mods_revert(void);
 
+/* Slice A4 — Options overlay (pattern 1: generic registry bridge). No
+ * native Options*State is pushed; the exports read/write the OptionInfo
+ * registry (Engine/OptionInfo.h) directly and mirror OptionsBaseState's
+ * btnOkClick/btnCancelClick bodies. */
+/* Mirrors MainMenuState.cpp:352-356. Returns 1. */
+int calypso_options_open(void);
+/* Enumerates Options::getOptionInfo(), skipping category()=="HIDDEN" and
+ * duplicate ids (first occurrence wins). */
+const char *calypso_options_json(void);
+/* Generic typed setters. Verify type() matches, refuse fixed-by-mod options
+ * and the four new*-backed display/scale ids (see calypso_video_set_scale).
+ * Return 1 on success, 0 otherwise. No Options::save() here — apply does it. */
+int calypso_option_set_bool(const char *id, int value);
+int calypso_option_set_int(const char *id, int value);
+int calypso_option_set_string(const char *id, const char *value);
+/* Writes Options::newBattlescapeScale/newGeoscapeScale (battlescape!=0
+ * selects the former). Mirrors OptionsVideoState::updateBattlescapeScale/
+ * updateGeoscapeScale. calypso_options_apply's switchDisplay() commits it. */
+int calypso_video_set_scale(int battlescape, int value);
+/* Curated video-tab data: proportional display fractions (the same ladder
+ * OptionsVideoState builds under __EMSCRIPTEN__), current scales, and the
+ * language list/selection. */
+const char *calypso_video_json(void);
+/* Mirrors the __EMSCRIPTEN__ branch of OptionsBaseState::btnOkClick. Returns
+ * 1 (no live Game returns 0). */
+int calypso_options_apply(int origin);
+/* Mirrors OptionsBaseState::btnCancelClick, minus popState (no native state
+ * was pushed for this overlay). Returns 1 (no live Game returns 0). */
+int calypso_options_cancel(int origin);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif

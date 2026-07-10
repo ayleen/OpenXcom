@@ -223,6 +223,14 @@ void PauseState::btnSaveClick(Action *)
 void PauseState::btnOptionsClick(Action *)
 {
 	Options::backupDisplay();
+#ifdef __EMSCRIPTEN__
+	// Phase 41: route to the HTML overlay when the hook exists (fallback: native).
+	int handled = EM_ASM_INT({
+		return (typeof window !== 'undefined' && window.calypsoOpenOptions)
+			? (window.calypsoOpenOptions($0), 1) : 0;
+	}, (int)_origin);
+	if (handled) return;
+#endif
 	if (_origin == OPT_GEOSCAPE)
 	{
 		_game->pushState(new OptionsGeoscapeState(_origin));

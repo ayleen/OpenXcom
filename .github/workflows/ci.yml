@@ -80,6 +80,13 @@ jobs:
           git fetch origin ${{ github.base_ref }}
           python3 tools/calypso-ifdef-guard.py --base "origin/${{ github.base_ref }}"
 
+      # Phase 41: fail if any upstream handler body mirrored by a Calypso HTML
+      # bridge export (CalypsoMenuBridge.cpp) has drifted from its recorded
+      # hash — the monthly upstream sync would otherwise silently desync the
+      # mirror. Not diff-based: it validates the baseline on every run.
+      - name: Calypso mirror-drift guard
+        run: python3 tools/calypso-mirror-guard.py
+
       # SDL2 (+ image/mixer/ttf) and zlib are required by CMakeLists.txt's
       # native (non-Emscripten) branch via pkg_check_modules(... REQUIRED).
       # rapidyaml is vendored under libs/rapidyaml, so no yaml package is
