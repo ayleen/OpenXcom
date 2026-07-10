@@ -30,14 +30,17 @@
 #include "../Engine/Language.h"
 #include "../Engine/CrossPlatform.h"
 #include "../Engine/Options.h"
+#include "../Engine/OptionInfo.h"
 #include "../Engine/Screen.h"
 #include "../Mod/Mod.h"
 #include "../Menu/NewGameState.h"
 #include "../Menu/LoadGameState.h"
 #include "../Menu/SaveGameState.h"
 #include "../Menu/StartState.h"
+#include "../Menu/OptionsBaseState.h"
 #include "../Savegame/SavedGame.h"
 #include "../Interface/ToggleTextButton.h"
+#include <set>
 
 namespace OpenXcom
 {
@@ -441,6 +444,291 @@ int calypso_mods_revert()
 {
 	Options::reload = false;
 	Options::load();
+	return 1;
+}
+
+/* Slice A4 — Options overlay exports (pattern 1: generic registry bridge,
+ * plan §A4). No native Options*State is pushed; the exports read/write the
+ * OptionInfo registry (Engine/OptionInfo.h) directly and mirror
+ * OptionsBaseState's btnOkClick/btnCancelClick bodies
+ * (Menu/OptionsBaseState.cpp:220-290). */
+
+/* The 5-entry proportional display-fraction ladder Calypso's video tab
+ * offers, combobox display order Full/3/4/1/2/1/3/1/4 — mirrors the
+ * __EMSCRIPTEN__ branch of OptionsVideoState's ctor (Menu/OptionsVideoState.cpp:
+ * 322-327) so the bridge and the native menu never drift out of sync. */
+static const int CALYPSO_VIDEO_SCALE_LADDER[5] = {
+	SCALE_SCREEN, SCALE_SCREEN_3_4, SCALE_SCREEN_DIV_2, SCALE_SCREEN_DIV_3, SCALE_SCREEN_DIV_4
+};
+
+/* Forward map: internal ScaleType (Engine/Options.h's 17-entry enum) to a
+ * ladder index above, for legacy/off-ladder values already sitting in an old
+ * options.cfg. Mirrors OptionsVideoState's _scales table verbatim
+ * (Menu/OptionsVideoState.cpp:333-349). */
+static const int CALYPSO_VIDEO_SCALE_FORWARD[17] = {
+	2, 2, 2, 3, 2, 0, 4, 4, 4, 4, 4, 2, 2, 2, 2, 2, 1
+};
+
+static int calypsoVideoScaleToLadder(int scaleType)
+{
+	if (scaleType < 0 || scaleType > 16) return 2; // SCALE_SCREEN_DIV_2 default
+	return CALYPSO_VIDEO_SCALE_FORWARD[scaleType];
+}
+
+/* Linear lookup by id in the OptionInfo registry. Returns a pointer into the
+ * live (persistent, never reallocated after Options::create()) registry
+ * vector, or null. */
+static const OptionInfo *calypsoFindOption(const std::string &id)
+{
+	for (const OptionInfo &info : Options::getOptionInfo())
+	{
+		if (info.id() == id) return &info;
+	}
+	return nullptr;
+}
+
+/* Scale trap guard (plan §A4 grounding): battlescapeScale/geoscapeScale/
+ * displayWidth/displayHeight are new*-backed display fields. Writing them
+ * through the generic setter and then letting calypso_options_apply call
+ * switchDisplay() would revert the change — they MUST go through
+ * calypso_video_set_scale instead. */
+static bool calypsoOptionIsScaleGuarded(const std::string &id)
+{
+	return id == "battlescapeScale" || id == "geoscapeScale" || id == "displayWidth" || id == "displayHeight";
+}
+
+/* Mirrors MainMenuState.cpp:352-356. */
+EMSCRIPTEN_KEEPALIVE
+int calypso_options_open()
+{
+	Options::backupDisplay();
+	return 1;
+}
+
+/* Enumerates Options::getOptionInfo(), skipping category()=="HIDDEN" entries
+ * and duplicate ids (some base options are pushed under more than one ifdef
+ * branch of Options::create() — first occurrence wins, per plan pitfall #12). */
+EMSCRIPTEN_KEEPALIVE
+const char *calypso_options_json()
+{
+	static std::string s_buf;
+	Game *g = getCurrentGame();
+	if (!g) { s_buf = ""; return s_buf.c_str(); }
+
+	Language *lang = g->getLanguage();
+	const std::map<std::string, std::string> &fixed = g->getMod()->getFixedUserOptions();
+
+	std::string out = "[";
+	bool first = true;
+	std::set<std::string> seen;
+	for (const OptionInfo &info : Options::getOptionInfo())
+	{
+		if (info.category() == "HIDDEN") continue;
+		if (!seen.insert(info.id()).second) continue;
+
+		std::string typeStr, valueJson;
+		switch (info.type())
+		{
+		case OPTION_BOOL:
+			typeStr = "bool";
+			valueJson = *info.asBool() ? "true" : "false";
+			break;
+		case OPTION_INT:
+			typeStr = "int";
+			valueJson = std::to_string(*info.asInt());
+			break;
+		case OPTION_STRING:
+			typeStr = "string";
+			valueJson = "\"" + jsonEscape(*info.asString()) + "\"";
+			break;
+		default:
+			// OPTION_KEY: the key ctor is disabled under Emscripten
+			// (OptionInfo.h:50-55) -- keybindings register as OPTION_INT
+			// instead, so this branch should never see live data. Skip
+			// defensively rather than call the wrong as*() accessor
+			// (pitfall #3: throws on type mismatch).
+			continue;
+		}
+
+		if (!first) out += ",";
+		first = false;
+		out += "{\"id\":\"" + jsonEscape(info.id()) + "\"";
+		out += ",\"type\":\"" + typeStr + "\"";
+		out += ",\"value\":" + valueJson;
+		out += ",\"cat\":\"" + (info.category().empty() ? std::string() : jsonEscape(lang->getString(info.category()))) + "\"";
+		out += ",\"desc\":\"" + (info.description().empty() ? std::string() : jsonEscape(lang->getString(info.description()))) + "\"";
+		out += ",\"owner\":" + std::to_string((int)info.owner());
+		out += ",\"fixed\":" + std::string(fixed.count(info.id()) ? "true" : "false");
+		out += ",\"isKey\":" + std::string(info.id().rfind("key", 0) == 0 ? "true" : "false");
+		out += "}";
+	}
+	out += "]";
+	s_buf = out;
+	return s_buf.c_str();
+}
+
+/* Generic typed setters. Verify type() first (pitfall #3), refuse
+ * mod-fixed options and the scale-trap ids (above), then write through the
+ * matching as*() accessor. No Options::save() here -- calypso_options_apply
+ * does that, same as the native OK button. */
+EMSCRIPTEN_KEEPALIVE
+int calypso_option_set_bool(const char *id, int value)
+{
+	Game *g = getCurrentGame();
+	if (!g || !id || !*id) return 0;
+	std::string optId(id);
+	if (calypsoOptionIsScaleGuarded(optId)) return 0;
+	if (g->getMod()->getFixedUserOptions().count(optId)) return 0;
+	const OptionInfo *info = calypsoFindOption(optId);
+	if (!info || info->type() != OPTION_BOOL) return 0;
+	*info->asBool() = (value != 0);
+	return 1;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int calypso_option_set_int(const char *id, int value)
+{
+	Game *g = getCurrentGame();
+	if (!g || !id || !*id) return 0;
+	std::string optId(id);
+	if (calypsoOptionIsScaleGuarded(optId)) return 0;
+	if (g->getMod()->getFixedUserOptions().count(optId)) return 0;
+	const OptionInfo *info = calypsoFindOption(optId);
+	if (!info || info->type() != OPTION_INT) return 0;
+	*info->asInt() = value;
+	return 1;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int calypso_option_set_string(const char *id, const char *value)
+{
+	Game *g = getCurrentGame();
+	if (!g || !id || !*id || !value) return 0;
+	std::string optId(id);
+	if (calypsoOptionIsScaleGuarded(optId)) return 0;
+	if (g->getMod()->getFixedUserOptions().count(optId)) return 0;
+	const OptionInfo *info = calypsoFindOption(optId);
+	if (!info || info->type() != OPTION_STRING) return 0;
+	*info->asString() = value;
+	return 1;
+}
+
+/* Writes the new*-backed scale twin. Mirrors OptionsVideoState::
+ * updateBattlescapeScale/updateGeoscapeScale (Menu/OptionsVideoState.cpp:
+ * 701-717) -- those write `_reverseScales[selected]`, i.e. the ScaleType for
+ * a ladder index, never the raw index. calypso_options_apply's
+ * switchDisplay() call is what makes the value live (scale trap, plan §A4
+ * grounding). `value` is a ladder index (0..4), not a ScaleType. */
+EMSCRIPTEN_KEEPALIVE
+int calypso_video_set_scale(int battlescape, int value)
+{
+	Game *g = getCurrentGame();
+	if (!g) return 0;
+	if (value < 0 || value > 4) return 0;
+	int scaleType = CALYPSO_VIDEO_SCALE_LADDER[value];
+	if (battlescape) Options::newBattlescapeScale = scaleType;
+	else Options::newGeoscapeScale = scaleType;
+	return 1;
+}
+
+/* Curated video-tab data. The fraction labels and pixelRatioY math mirror
+ * OptionsVideoState's __EMSCRIPTEN__ ctor branch verbatim
+ * (Menu/OptionsVideoState.cpp:302-327); geoscapeScale/battlescapeScale are
+ * reported as ladder indices (0..4), matching what calypso_video_set_scale
+ * expects back. */
+EMSCRIPTEN_KEEPALIVE
+const char *calypso_video_json()
+{
+	static std::string s_buf;
+	Game *g = getCurrentGame();
+	if (!g) { s_buf = ""; return s_buf.c_str(); }
+
+	double pixelRatioY = 1.0;
+	if (Options::nonSquarePixelRatio && !Options::allowResize) pixelRatioY = 1.2;
+
+	std::string out = "{\"fractions\":[";
+	for (int i = 0; i < 5; ++i)
+	{
+		int num = 1, den = 1;
+		Screen::getScreenScaleFraction(CALYPSO_VIDEO_SCALE_LADDER[i], num, den);
+		int w = Options::displayWidth * num / den;
+		int h = (int)(Options::displayHeight / pixelRatioY * num / den);
+		if (i > 0) out += ",";
+		out += "\"" + std::to_string(w) + "x" + std::to_string(h) + "\"";
+	}
+	out += "]";
+	out += ",\"geoscapeScale\":" + std::to_string(calypsoVideoScaleToLadder(Options::geoscapeScale));
+	out += ",\"battlescapeScale\":" + std::to_string(calypsoVideoScaleToLadder(Options::battlescapeScale));
+
+	std::vector<std::string> langCodes, langNames;
+	Language::getList(langCodes, langNames);
+	out += ",\"languages\":[";
+	for (size_t i = 0; i < langCodes.size(); ++i)
+	{
+		if (i > 0) out += ",";
+		out += "{\"id\":\"" + jsonEscape(langCodes[i]) + "\",\"name\":\"" + jsonEscape(langNames[i]) + "\"}";
+	}
+	out += "]";
+	out += ",\"language\":\"" + jsonEscape(Options::language) + "\"";
+	out += "}";
+	s_buf = out;
+	return s_buf.c_str();
+}
+
+/* Mirrors the __EMSCRIPTEN__ branch of OptionsBaseState::btnOkClick
+ * (Menu/OptionsBaseState.cpp:220-275), transcribed step by step. Two verified
+ * deviations from the native body: recenter(dX, dY) is skipped -- it
+ * recenters the options state itself, which does not exist in the HTML flow
+ * (restart(origin) rebuilds the origin state at the new resolution anyway);
+ * and the OptionsConfirmState branch can never fire here -- display width/
+ * height are pinned to the canvas and scale fields are not part of its
+ * comparison -- so this always goes straight to the reload check / restart. */
+EMSCRIPTEN_KEEPALIVE
+int calypso_options_apply(int origin)
+{
+	Game *g = getCurrentGame();
+	if (!g) return 0;
+	OptionsOrigin o = (OptionsOrigin)origin;
+
+	Options::newDisplayWidth = Options::displayWidth;
+	Options::newDisplayHeight = Options::displayHeight;
+	Options::switchDisplay();
+	Screen::updateScale(Options::battlescapeScale, Options::baseXBattlescape, Options::baseYBattlescape, o == OPT_BATTLESCAPE);
+	Screen::updateScale(Options::geoscapeScale, Options::baseXGeoscape, Options::baseYGeoscape, o != OPT_BATTLESCAPE);
+	Options::save();
+	g->loadLanguages();
+	// NEVER the no-arg resetDisplay() -- it tears down the one WebGL context (pitfall #4).
+	g->getScreen()->resetDisplay(false);
+	SDL_WM_GrabInput(Options::captureMouse);
+	g->setVolume(Options::soundVolume, Options::musicVolume, Options::uiVolume);
+
+	if (Options::reload && o == OPT_MENU)
+	{
+		g->setState(new StartState);
+		return 1;
+	}
+	OptionsBaseState::restart(o);
+	return 1;
+}
+
+/* Mirrors OptionsBaseState::btnCancelClick (Menu/OptionsBaseState.cpp:
+ * 281-290), minus popState -- no native state was pushed for this overlay.
+ * Takes origin (unlike the native no-arg handler) because updateScale's
+ * change flag needs it -- an intentional, noted deviation from the plan's
+ * no-arg signature. */
+EMSCRIPTEN_KEEPALIVE
+int calypso_options_cancel(int origin)
+{
+	Game *g = getCurrentGame();
+	if (!g) return 0;
+	OptionsOrigin o = (OptionsOrigin)origin;
+
+	Options::reload = false;
+	Options::load();
+	SDL_WM_GrabInput(Options::captureMouse);
+	Screen::updateScale(Options::battlescapeScale, Options::baseXBattlescape, Options::baseYBattlescape, o == OPT_BATTLESCAPE);
+	Screen::updateScale(Options::geoscapeScale, Options::baseXGeoscape, Options::baseYGeoscape, o != OPT_BATTLESCAPE);
+	g->setVolume(Options::soundVolume, Options::musicVolume, Options::uiVolume);
 	return 1;
 }
 

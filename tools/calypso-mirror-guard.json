@@ -1,0 +1,46 @@
+{
+  "mirrors": [
+    {
+      "file": "src/Menu/OptionsBaseState.cpp",
+      "symbol": "OptionsBaseState::btnOkClick",
+      "mirroredBy": "CalypsoMenuBridge.cpp: calypso_options_apply",
+      "sha256": "9e2cc4046a8a497f372bdab14313224ac28ab6acc97b018a3527fcb79053e62e"
+    },
+    {
+      "file": "src/Menu/OptionsBaseState.cpp",
+      "symbol": "OptionsBaseState::btnCancelClick",
+      "mirroredBy": "CalypsoMenuBridge.cpp: calypso_options_cancel",
+      "sha256": "18dd2b9618df7e1ee511ccea1a6c42823ae8ec6eab7c9797431858104acc0f9b"
+    },
+    {
+      "file": "src/Engine/Options.cpp",
+      "symbol": "switchDisplay",
+      "mirroredBy": "calypso_options_apply / calypso_video_set_scale",
+      "sha256": "382cc3cb929aecd3dc0c5450536e13c3dcf3bc94133b7891e13add3ca0d88af5"
+    },
+    {
+      "file": "src/Engine/Options.cpp",
+      "symbol": "backupDisplay",
+      "mirroredBy": "calypso_options_open",
+      "sha256": "6b68b3309c91a6a8e2e4ac60d29eb535220c58685a092ac831a6dc0dd3eea529"
+    },
+    {
+      "file": "src/Menu/ModListState.cpp",
+      "symbol": "ModListState::btnOkClick",
+      "mirroredBy": "calypso_mods_apply",
+      "sha256": "2d6373da555213544c5c2b6fa4099ad846c5bb97600086d8baddfa96fda02d6e"
+    },
+    {
+      "file": "src/Menu/ListLoadState.cpp",
+      "symbol": "ListLoadState::loadSave",
+      "mirroredBy": "calypso_save_load",
+      "sha256": "14f75567e04666210976227fcc2b2a0c233e89777d7a21b11e928969425d2a0d"
+    },
+    {
+      "file": "src/Menu/ListSaveState.cpp",
+      "symbol": "ListSaveState::saveGame",
+      "mirroredBy": "calypso_save_write",
+      "sha256": "5b41f78620866647421a6abdcb92feb1e696de781ba231e84a1d0a69a17934a3"
+    }
+  ]
+}
