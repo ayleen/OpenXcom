@@ -86,6 +86,9 @@ public:
 	void setValue(int value);
 	/// Gets the slider's value.
 	int getValue() const;
+	/// Calypso: HTML overlay bridge — reads the slider's dynamic range.
+	int getMin() const;
+	int getMax() const;
 	/// Blits the slider onto another surface.
 	void blit(SDL_Surface *surface) override;
 	/// Moves the slider.

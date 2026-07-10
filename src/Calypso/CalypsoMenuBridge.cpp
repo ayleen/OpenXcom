@@ -34,12 +34,15 @@
 #include "../Engine/Screen.h"
 #include "../Mod/Mod.h"
 #include "../Menu/NewGameState.h"
+#include "../Menu/NewBattleState.h"
 #include "../Menu/LoadGameState.h"
 #include "../Menu/SaveGameState.h"
 #include "../Menu/StartState.h"
 #include "../Menu/OptionsBaseState.h"
 #include "../Savegame/SavedGame.h"
 #include "../Interface/ToggleTextButton.h"
+#include "../Interface/ComboBox.h"
+#include "../Interface/Slider.h"
 #include <set>
 
 namespace OpenXcom
@@ -106,6 +109,103 @@ struct CalypsoNewGameBridge
 		s->_btnIronman->setPressed(ironman != 0);
 		s->btnOkClick(nullptr);
 	}
+};
+
+/* Slice A5 — New Battle overlay driver (pattern 2, the heaviest — plan §A5).
+ * Static helpers only; friended by NewBattleState (Menu/NewBattleState.h) so
+ * the exports below can reach into its private members. ComboBox has no
+ * option-list getter, so the option strings are rebuilt from NewBattleState's
+ * own backing vectors (_missionTypes/_crafts/_terrainTypes/_alienRaces),
+ * translated exactly the way the ctor/handlers populate the comboboxes. */
+struct CalypsoNewBattleBridge
+{
+	/* The engine's own NewBattleState if it's the current top state, else null. */
+	static NewBattleState *top(Game *g) { return dynamic_cast<NewBattleState *>(g->getTopState()); }
+
+	/* Emits {"options":[...],"selected":N,"visible":bool} for one combobox,
+	 * translating each backing-vector entry through lang->getString (with an
+	 * optional "MAP_" prefix for terrain, matching cbxMissionChange:780). */
+	static std::string comboJson(Language *lang, const std::vector<std::string> &backing,
+		const std::string &prefix, size_t selected, bool visible)
+	{
+		std::string out = "{\"options\":[";
+		for (size_t i = 0; i < backing.size(); ++i)
+		{
+			if (i > 0) out += ",";
+			out += "\"" + jsonEscape(lang->getString(prefix + backing[i])) + "\"";
+		}
+		out += "],\"selected\":" + std::to_string((int)selected);
+		out += ",\"visible\":" + std::string(visible ? "true" : "false") + "}";
+		return out;
+	}
+
+	/* Difficulty is NOT vector-backed -- mirror the 5 literal strings the ctor
+	 * fills it with (NewBattleState.cpp:271-277) verbatim. */
+	static std::string difficultyJson(Language *lang, size_t selected)
+	{
+		static const char *ids[5] = {
+			"STR_1_BEGINNER", "STR_2_EXPERIENCED", "STR_3_VETERAN", "STR_4_GENIUS", "STR_5_SUPERHUMAN"
+		};
+		std::string out = "{\"options\":[";
+		for (int i = 0; i < 5; ++i)
+		{
+			if (i > 0) out += ",";
+			out += "\"" + jsonEscape(lang->getString(ids[i])) + "\"";
+		}
+		out += "],\"selected\":" + std::to_string((int)selected) + ",\"visible\":true}";
+		return out;
+	}
+
+	static std::string sliderJson(Slider *s)
+	{
+		std::string out = "{\"min\":" + std::to_string(s->getMin());
+		out += ",\"max\":" + std::to_string(s->getMax());
+		out += ",\"value\":" + std::to_string(s->getValue());
+		out += ",\"visible\":" + std::string(s->getVisible() ? "true" : "false") + "}";
+		return out;
+	}
+
+	/* Build the full New Battle UI model. All private access lives HERE. */
+	static std::string json(Game *g, NewBattleState *s)
+	{
+		Language *lang = g->getLanguage();
+		std::string out = "{";
+		out += "\"mission\":" + comboJson(lang, s->_missionTypes, "", s->_cbxMission->getSelected(), s->_cbxMission->getVisible());
+		out += ",\"craft\":" + comboJson(lang, s->_crafts, "", s->_cbxCraft->getSelected(), s->_cbxCraft->getVisible());
+		out += ",\"terrain\":" + comboJson(lang, s->_terrainTypes, "MAP_", s->_cbxTerrain->getSelected(), s->_cbxTerrain->getVisible());
+		out += ",\"difficulty\":" + difficultyJson(lang, s->_cbxDifficulty->getSelected());
+		out += ",\"race\":" + comboJson(lang, s->_alienRaces, "", s->_cbxAlienRace->getSelected(), s->_cbxAlienRace->getVisible());
+		out += ",\"darkness\":" + sliderJson(s->_slrDarkness);
+		out += ",\"alienTech\":" + sliderJson(s->_slrAlienTech);
+		out += ",\"depth\":" + sliderJson(s->_slrDepth);
+		out += ",\"ufoLanded\":{\"pressed\":" + std::string(s->_btnUfoLanded->getPressed() ? "true" : "false");
+		out += ",\"visible\":" + std::string(s->_btnUfoLanded->getVisible() ? "true" : "false") + "}";
+		out += "}";
+		return out;
+	}
+
+	/* Field->widget->handler table (plan §A5, verified against
+	 * NewBattleState.cpp: only three onChange handlers exist and
+	 * btnAlienRaceChange derefs its Action* so it must never be called here). */
+	static bool set(NewBattleState *s, const std::string &field, int value)
+	{
+		if (field == "mission") { s->_cbxMission->setSelected(value); s->cbxMissionChange(nullptr); }
+		else if (field == "craft") { s->_cbxCraft->setSelected(value); s->cbxCraftChange(nullptr); }
+		else if (field == "terrain") { s->_cbxTerrain->setSelected(value); s->cbxTerrainChange(nullptr); }
+		else if (field == "difficulty") { s->_cbxDifficulty->setSelected(value); }
+		else if (field == "race") { s->_cbxAlienRace->setSelected(value); }
+		else if (field == "darkness") { s->_slrDarkness->setValue(value); }
+		else if (field == "alienTech") { s->_slrAlienTech->setValue(value); }
+		else if (field == "depth") { s->_slrDepth->setValue(value); }
+		else if (field == "ufoLanded") { s->_btnUfoLanded->setPressed(value != 0); }
+		else return false;
+		return true;
+	}
+
+	static void random(NewBattleState *s) { s->btnRandomClick(nullptr); }
+	static void equip(NewBattleState *s) { s->btnEquipClick(nullptr); }
+	static void start(NewBattleState *s) { s->btnOkClick(nullptr); }
+	static void cancel(NewBattleState *s) { s->btnCancelClick(nullptr); }
 };
 
 } // namespace OpenXcom
@@ -729,6 +829,86 @@ int calypso_options_cancel(int origin)
 	Screen::updateScale(Options::battlescapeScale, Options::baseXBattlescape, Options::baseYBattlescape, o == OPT_BATTLESCAPE);
 	Screen::updateScale(Options::geoscapeScale, Options::baseXGeoscape, Options::baseYGeoscape, o != OPT_BATTLESCAPE);
 	g->setVolume(Options::soundVolume, Options::musicVolume, Options::uiVolume);
+	return 1;
+}
+
+/* Slice A5 — New Battle overlay exports (pattern 2, friend bridge, plan §A5).
+ * Every export resolves the live Game and the live NewBattleState (a null
+ * either means the engine isn't booted or the state was already popped/
+ * replaced) then delegates to CalypsoNewBattleBridge, which alone has the
+ * friend access into NewBattleState's private members. */
+
+EMSCRIPTEN_KEEPALIVE
+int calypso_newbattle_ready()
+{
+	Game *g = getCurrentGame();
+	if (!g) return 0;
+	return CalypsoNewBattleBridge::top(g) != nullptr ? 1 : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+const char *calypso_newbattle_json()
+{
+	static std::string s_buf;
+	Game *g = getCurrentGame();
+	if (!g) { s_buf = ""; return s_buf.c_str(); }
+	NewBattleState *s = CalypsoNewBattleBridge::top(g);
+	if (!s) { s_buf = ""; return s_buf.c_str(); }
+	s_buf = CalypsoNewBattleBridge::json(g, s);
+	return s_buf.c_str();
+}
+
+EMSCRIPTEN_KEEPALIVE
+int calypso_newbattle_set(const char *field, int value)
+{
+	Game *g = getCurrentGame();
+	if (!g || !field) return 0;
+	NewBattleState *s = CalypsoNewBattleBridge::top(g);
+	if (!s) return 0;
+	return CalypsoNewBattleBridge::set(s, field, value) ? 1 : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int calypso_newbattle_random()
+{
+	Game *g = getCurrentGame();
+	if (!g) return 0;
+	NewBattleState *s = CalypsoNewBattleBridge::top(g);
+	if (!s) return 0;
+	CalypsoNewBattleBridge::random(s);
+	return 1;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int calypso_newbattle_equip()
+{
+	Game *g = getCurrentGame();
+	if (!g) return 0;
+	NewBattleState *s = CalypsoNewBattleBridge::top(g);
+	if (!s) return 0;
+	CalypsoNewBattleBridge::equip(s);
+	return 1;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int calypso_newbattle_start()
+{
+	Game *g = getCurrentGame();
+	if (!g) return 0;
+	NewBattleState *s = CalypsoNewBattleBridge::top(g);
+	if (!s) return 0;
+	CalypsoNewBattleBridge::start(s);
+	return 1;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int calypso_newbattle_cancel()
+{
+	Game *g = getCurrentGame();
+	if (!g) return 0;
+	NewBattleState *s = CalypsoNewBattleBridge::top(g);
+	if (!s) return 0;
+	CalypsoNewBattleBridge::cancel(s);
 	return 1;
 }
 

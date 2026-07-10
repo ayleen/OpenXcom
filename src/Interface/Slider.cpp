@@ -312,6 +312,22 @@ int Slider::getValue() const
 }
 
 /**
+ * Calypso: HTML overlay bridge (Phase 41, slice A5) — the range set by
+ * setRange has no getter upstream; the New Battle overlay needs it to build
+ * the slider's JSON model (ranges are dynamic, re-set per terrain/mission).
+ * @return Minimum/maximum value.
+ */
+int Slider::getMin() const
+{
+	return _min;
+}
+
+int Slider::getMax() const
+{
+	return _max;
+}
+
+/**
  * Blits the slider contents
  * @param surface Pointer to surface to blit onto.
  */
