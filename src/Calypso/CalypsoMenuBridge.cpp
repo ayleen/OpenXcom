@@ -37,6 +37,7 @@
 #include "../Menu/NewBattleState.h"
 #include "../Menu/LoadGameState.h"
 #include "../Menu/StartState.h"
+#include "../Menu/PauseState.h"
 #include "../Menu/OptionsBaseState.h"
 #include "../Savegame/SavedGame.h"
 #include "../Engine/Exception.h"
@@ -434,8 +435,11 @@ int calypso_save_write(const char *displayName, int origin)
 
 	// Non-Ironman: pop the PauseState the overlay left on top so the player
 	// returns to the live Geoscape/Battlescape (mirrors the pause pop in
-	// SaveGameState::think). Ironman keeps the pause screen up.
-	if (!g->getSavedGame()->isIronman())
+	// SaveGameState::think). Ironman keeps the pause screen up. The dynamic_cast
+	// is a guard: it ensures we only ever pop the pause screen, never a live
+	// Geoscape/Battlescape, if this export is somehow reached with something
+	// other than PauseState on top (a stray second call, a future JS regression).
+	if (!g->getSavedGame()->isIronman() && dynamic_cast<PauseState*>(g->getTopState()))
 	{
 		g->popState();
 	}

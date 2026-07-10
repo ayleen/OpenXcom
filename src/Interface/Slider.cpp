@@ -311,6 +311,7 @@ int Slider::getValue() const
 	return _value;
 }
 
+#ifdef __EMSCRIPTEN__
 /**
  * Calypso: HTML overlay bridge (Phase 41, slice A5) — the range set by
  * setRange has no getter upstream; the New Battle overlay needs it to build
@@ -326,6 +327,7 @@ int Slider::getMax() const
 {
 	return _max;
 }
+#endif
 
 /**
  * Blits the slider contents
