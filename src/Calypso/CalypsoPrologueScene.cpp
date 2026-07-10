@@ -599,7 +599,8 @@ int CalypsoPrologueScene::pickGauntletTarget(SavedBattleGame *save) const
 			for (int id : _diverIds)
 			{
 				BattleUnit *u = findUnit(save, id);
-				if (u && !u->isOut()) candidates.push_back({ id, u->getPosition().x, u->getPosition().y });
+				if (u && !u->isOut()) candidates.push_back({ id, u->getPosition().x, u->getPosition().y,
+					u->isInExitArea(START_POINT) });
 			}
 			if (!candidates.empty())
 				return Calypso::pickGauntletVictim(candidates, EXIT_AREA, _nikosId);
@@ -612,7 +613,8 @@ int CalypsoPrologueScene::pickGauntletTarget(SavedBattleGame *save) const
 	for (int id : allPlayerIds())
 	{
 		BattleUnit *u = findUnit(save, id);
-		if (u && !u->isOut()) candidates.push_back({ id, u->getPosition().x, u->getPosition().y });
+		if (u && !u->isOut()) candidates.push_back({ id, u->getPosition().x, u->getPosition().y,
+			u->isInExitArea(START_POINT) });
 	}
 	return Calypso::pickGauntletVictim(candidates, EXIT_AREA, _nikosId);
 }
@@ -630,6 +632,12 @@ bool CalypsoPrologueScene::stepGauntlet(BattlescapeGame *bg)
 
 	if (_gauntletStep == 1)
 	{
+		// The walk queued by step 0 has completed before this pump. Re-check the
+		// boarding ending against the herder's NEW position before selecting or
+		// shooting another victim; otherwise Branch B gets one spurious kill.
+		checkBranchB(bg);
+		if (resolvePendingEnding(bg)) return false;
+
 		// Amendment #9: consume a bought turn -- the Choir spends it releasing
 		// the replacement herder (steerActiveHerder above already did that),
 		// no victim is picked. Never consumed against the FIRST post-Assessor
@@ -923,6 +931,31 @@ bool CalypsoPrologueScene::onAbortRequested(BattlescapeState *bs)
 	// the exact call site vanilla itself invokes finishBattle from.
 	_finishedOutcome = OutcomeCastOff;
 	CalypsoDirector::get().endScene(bg, OutcomeCastOff);
+	return true;
+}
+
+bool CalypsoPrologueScene::onUnexpectedFinish(BattlescapeState *bs, int *outcome)
+{
+	if (_inert || !bs) return false;
+	BattlescapeGame *bg = bs->getBattleGame();
+	SavedBattleGame *save = bg ? bg->getSave() : nullptr;
+	if (!save) return false;
+
+	// Neutralizing every Choir actor is not the prologue's victory condition:
+	// surviving crew must still get back onto real START_POINT tiles and cast
+	// off. Consume vanilla liveAliens==0 completion while anyone remains alive.
+	for (int id : allPlayerIds())
+	{
+		BattleUnit *u = findUnit(save, id);
+		if (u && !u->isOut()) return true;
+	}
+
+	// If vanilla reached us because the last crew member died before the normal
+	// gauntlet detector could arm its ending, convert the same finish into the
+	// prologue's all-taken outcome instead of falling into DebriefingState.
+	_endingTriggered = true;
+	_finishedOutcome = OutcomeAllTaken;
+	if (outcome) *outcome = OutcomeAllTaken;
 	return true;
 }
 

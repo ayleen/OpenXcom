@@ -17,6 +17,7 @@
 #include "../Interface/Text.h"
 #include "../Interface/TextButton.h"
 #include "../Mod/Mod.h"
+#include <emscripten.h>
 
 namespace OpenXcom
 {
@@ -105,6 +106,7 @@ void CalypsoPrologueAskState::btnYesClick(Action*)
 	// Commit 6 inserts the intro-clip trigger (JS overlay EM_ASM call) right
 	// here, before the battle launches -- this is the single documented call
 	// site the phase plan (41.5b) points at.
+	EM_ASM_({ if (globalThis.__calypsoPlayPrologueIntro) globalThis.__calypsoPlayPrologueIntro(); });
 	Calypso::launchPrologueBattle(_game);
 }
 

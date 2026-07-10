@@ -59,6 +59,7 @@ public:
 	bool onEnemyTurnIdle(BattlescapeGame *bg) override;
 	void onUnitDied(BattlescapeGame *bg, BattleUnit *victim, BattleUnit *killer) override;
 	bool onAbortRequested(BattlescapeState *bs) override;
+	bool onUnexpectedFinish(BattlescapeState *bs, int *outcome) override;
 	bool abortStrings(std::string *title, std::string *ok, std::string *cancel) override;
 	State *makeEndState() override; // Commit 4: CalypsoPrologueEndState ("six months later")
 	void save(YAML::YamlNodeWriter writer) const override;
