@@ -193,11 +193,11 @@ bool CalypsoDirector::interceptFinishBattle(BattlescapeState *bs)
 	return consume;
 }
 
-bool CalypsoDirector::interceptUnexpectedFinish(BattlescapeState *bs)
+bool CalypsoDirector::interceptUnexpectedFinish(BattlescapeState *bs, bool abort)
 {
 	if (!_scene || _outcome >= 0) return false;
 	int outcome = -1;
-	if (!_scene->onUnexpectedFinish(bs, &outcome)) return false;
+	if (!_scene->onUnexpectedFinish(bs, abort, &outcome)) return false;
 	if (outcome >= 0)
 	{
 		// The scene converted vanilla completion into one of its own outcomes.

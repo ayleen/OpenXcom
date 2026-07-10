@@ -97,15 +97,17 @@ public:
 	/// Fires exactly once per actual new death (never for already-dead units).
 	virtual void onUnitDied(BattlescapeGame *, BattleUnit *victim, BattleUnit *killer) {}
 	/// Mission-abort was confirmed by the player. Return true if the scene
-	/// consumes the abort -- it then routes the ending itself via endScene(); the
-	/// vanilla finishBattle(true,...) is NOT called.
+	/// consumes the click -- it may route a valid extraction via endScene() or
+	/// simply reject an abort whose scene conditions are not met. The vanilla
+	/// finishBattle(true,...) path is skipped either way.
 	virtual bool onAbortRequested(BattlescapeState *) { return false; }
-	/// Vanilla is about to finish the battle without a scene-selected outcome
+	/// Vanilla is about to finish the battle without a scene-selected outcome.
+	/// `abort` distinguishes a manual/forced abort from automatic completion.
 	/// (for example, because every hostile was neutralized). Return true to
 	/// consume that finish. Leave `outcome` negative to keep the battle running,
 	/// or set it to a scene outcome to let the same finish call proceed through
 	/// makeEndState(). Return false to allow the normal debrief unchanged.
-	virtual bool onUnexpectedFinish(BattlescapeState *, int *outcome) { return false; }
+	virtual bool onUnexpectedFinish(BattlescapeState *, bool abort, int *outcome) { return false; }
 	/// Opt-in: override the abort-confirmation window strings. Populate the three
 	/// ids with extraStrings keys and return true; the director translates them.
 	virtual bool abortStrings(std::string *title, std::string *ok, std::string *cancel) { return false; }
@@ -192,7 +194,7 @@ public:
 	/// true when the scene consumed the attempt and the caller must return. A
 	/// scene may instead set an outcome, in which case this returns false and the
 	/// same finish call proceeds into interceptFinishBattle().
-	bool interceptUnexpectedFinish(BattlescapeState *bs);
+	bool interceptUnexpectedFinish(BattlescapeState *bs, bool abort);
 
 	/// Deactivate + delete the active scene. Called from interceptFinishBattle
 	/// (and safe to call when no scene is active).
