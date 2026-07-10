@@ -88,18 +88,17 @@ private:
 	/// ASSESSOR_POST guesswork, which could land on an already-occupied crew
 	/// slot. Returns false (no free slot found) -- the caller must go inert.
 	bool placeAssessorOnFreeCraftSlot(BattlescapeGame *bg);
-	/// Review round 2 (P1, finding 2): real Pathfinding-cost gate on Nikos's
-	/// scripted post -- see the .cpp for the rationale (pacing, not survival:
-	/// he is unconditionally force-killed on any ending regardless of
-	/// position). Sets _nikosPinnedTurnsLeft.
-	void computeNikosSafetyDelay(BattlescapeGame *bg);
+	/// Review round 3 (P1): real Pathfinding-cost DIAGNOSTIC on Nikos's
+	/// scripted post (log-only; the player is his only mover after the
+	/// handoff, so the guarantee is path cost / his per-turn TU). Not a
+	/// survival gate -- he is force-killed on any ending regardless.
+	void checkNikosPathCost(BattlescapeGame *bg);
 
 	// ---- turn-idle step machine (onEnemyTurnIdle dispatch) -----------------
 	bool stepMoveToOffice(BattlescapeGame *bg);
 	bool stepAmbushed(BattlescapeGame *bg);
 	bool stepGauntlet(BattlescapeGame *bg);
 	void steerActiveHerder(BattlescapeGame *bg);
-	void steerNikos(BattlescapeGame *bg);
 	int pickGauntletTarget(SavedBattleGame *save) const;
 
 	// ---- endings ------------------------------------------------------------
@@ -148,11 +147,6 @@ private:
 	int _currentVictimId = -1;      ///< unit being shot this Choir turn (persists across idle pumps)
 	int _shotsThisTurn = 0;         ///< repeat-fire counter -> SHOT_CAP_PER_TURN -> forceKill
 	int _activeHerderIdx = -1;      ///< index into _herderIds currently being steered
-
-	/// Review round 2 (P1, finding 2): Choir turns left to withhold
-	/// steerNikos()'s own walk call -- computed once at onBattleStart by
-	/// computeNikosSafetyDelay, decremented in steerNikos.
-	int _nikosPinnedTurnsLeft = 0;
 
 	int _lastNagStage = -1;         ///< last escalationStage() value a nag line fired for
 
