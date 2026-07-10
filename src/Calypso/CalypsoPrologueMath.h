@@ -33,8 +33,11 @@ namespace OpenXcom
 namespace Calypso
 {
 
-/// Position + identity of a live unit, as the scene sees it.
-struct UnitPos { int id; int x; int y; };
+/// Position + identity of a live unit, as the scene sees it. `aboard` comes
+/// from BattleUnit::isInExitArea(START_POINT); it must not be inferred from a
+/// coarse craft bounding rectangle because only real deployment tiles count
+/// for extraction.
+struct UnitPos { int id; int x; int y; bool aboard = false; };
 
 /// Inclusive tile rectangle (the craft's exit/deployment zone).
 struct Rect { int x0; int y0; int x1; int y1; };
@@ -61,8 +64,8 @@ inline int pickGauntletVictim(const std::vector<UnitPos>& alive, const Rect& exi
 	for (const auto& u : alive)
 	{
 		if (u.id == nikosId) continue;
+		if (u.aboard) continue; // real START_POINT exit tile, never a victim
 		int dist = chebyshevToRect(u.x, u.y, exitArea);
-		if (dist == 0) continue; // aboard, never a victim
 		if (dist > bestDist || (dist == bestDist && u.id < bestId))
 		{
 			bestDist = dist;

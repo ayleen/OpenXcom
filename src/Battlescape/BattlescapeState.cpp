@@ -3762,6 +3762,13 @@ void BattlescapeState::popup(State *state)
  */
 void BattlescapeState::finishBattle(bool abort, int inExitArea)
 {
+#ifdef __EMSCRIPTEN__
+	// Phase 41: vanilla auto-end (notably liveAliens == 0) must not tear down a
+	// scripted battle before its scene has selected an outcome. This check is
+	// deliberately before every cleanup/pop below; endScene() sets an outcome
+	// first, so scene-owned endings still pass through to the intercept below.
+	if (CalypsoDirector::get().interceptUnexpectedFinish(this)) return;
+#endif
 	bool isPreview = _save->isPreview();
 
 	while (!_game->isState(this))

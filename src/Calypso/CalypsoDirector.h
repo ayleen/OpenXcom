@@ -100,6 +100,12 @@ public:
 	/// consumes the abort -- it then routes the ending itself via endScene(); the
 	/// vanilla finishBattle(true,...) is NOT called.
 	virtual bool onAbortRequested(BattlescapeState *) { return false; }
+	/// Vanilla is about to finish the battle without a scene-selected outcome
+	/// (for example, because every hostile was neutralized). Return true to
+	/// consume that finish. Leave `outcome` negative to keep the battle running,
+	/// or set it to a scene outcome to let the same finish call proceed through
+	/// makeEndState(). Return false to allow the normal debrief unchanged.
+	virtual bool onUnexpectedFinish(BattlescapeState *, int *outcome) { return false; }
 	/// Opt-in: override the abort-confirmation window strings. Populate the three
 	/// ids with extraStrings keys and return true; the director translates them.
 	virtual bool abortStrings(std::string *title, std::string *ok, std::string *cancel) { return false; }
@@ -181,6 +187,12 @@ public:
 	/// pushed the scene's end state (the caller must `return` and skip Debriefing).
 	/// Always tears down the active scene (the battle is over either way).
 	bool interceptFinishBattle(BattlescapeState *bs);
+
+	/// Handle a vanilla finish attempt before destructive battle cleanup. Returns
+	/// true when the scene consumed the attempt and the caller must return. A
+	/// scene may instead set an outcome, in which case this returns false and the
+	/// same finish call proceeds into interceptFinishBattle().
+	bool interceptUnexpectedFinish(BattlescapeState *bs);
 
 	/// Deactivate + delete the active scene. Called from interceptFinishBattle
 	/// (and safe to call when no scene is active).

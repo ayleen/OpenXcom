@@ -193,6 +193,22 @@ bool CalypsoDirector::interceptFinishBattle(BattlescapeState *bs)
 	return consume;
 }
 
+bool CalypsoDirector::interceptUnexpectedFinish(BattlescapeState *bs)
+{
+	if (!_scene || _outcome >= 0) return false;
+	int outcome = -1;
+	if (!_scene->onUnexpectedFinish(bs, &outcome)) return false;
+	if (outcome >= 0)
+	{
+		// The scene converted vanilla completion into one of its own outcomes.
+		// Let this same finishBattle call continue; the late intercept will build
+		// the scene end state after the normal battlescape cleanup.
+		_outcome = outcome;
+		return false;
+	}
+	return true; // consumed without outcome: keep the scripted battle running
+}
+
 void CalypsoDirector::endBattleCleanup()
 {
 	delete _scene;
@@ -244,6 +260,11 @@ bool CalypsoDirector::directedShot(BattlescapeGame *bg, BattleUnit *shooter, Bat
 	action.actor = shooter;
 	action.weapon = weapon;
 	action.type = BA_SNAPSHOT;
+	// ProjectileFlyBState rejects an action whose cost was never populated:
+	// BattleActionCost::haveTU() returns false when Time <= 0. AI attacks call
+	// updateTU() before queueing the same turn/projectile pair; scripted shots
+	// must do so too. The TU refill above guarantees the computed cost fits.
+	action.updateTU();
 	action.target = aim;
 	action.cameraPosition = Position(0, 0, -1);
 
