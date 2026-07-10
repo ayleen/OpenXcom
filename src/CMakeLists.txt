@@ -586,6 +586,8 @@ if(EMSCRIPTEN)
   # Phase 41: HTML meta-menu bridge — JS overlay screens drive the engine through
   # EMSCRIPTEN_KEEPALIVE exports defined here. Slice A0 ships calypso_bridge_ping.
   list(APPEND openxcom_src Calypso/CalypsoMenuBridge.cpp)
+  # Phase 41 Slice B2: HD Geoscape side panel (friend bridge for GeoscapeState).
+  list(APPEND openxcom_src Calypso/CalypsoGeoscapeHd.cpp)
 
   # Phase 8b: regenerate embedded shader table before each build when any
   # *.vert or *.frag file in Engine/Shaders/ has changed.

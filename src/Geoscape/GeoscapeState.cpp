@@ -143,6 +143,7 @@
 #include "../Engine/Logger.h"
 #include "../Calypso/CalypsoTutorial.h"
 #include "../Calypso/CalypsoAdvisor.h"
+#include "../Calypso/CalypsoGeoscapeHd.h"
 extern "C" void calypso_log_heap(const char *tag);  // M5: defined in EmscriptenHarness.cpp
 extern "C" int  g_calypsoTabHiddenPause;            // M6h: set by calypso_on_tab_hidden()
 #endif
@@ -493,6 +494,8 @@ GeoscapeState::GeoscapeState() : _pause(false), _zoomInEffectDone(false), _zoomO
 	timeDisplay();
 #ifdef __EMSCRIPTEN__
 	calypsoChecklistBuild();   // Phase 39: task-checklist chip
+	CalypsoGeoscapeHd::applyTtf(this);   // Phase 41 B2: HD side panel
+	CalypsoGeoscapeHd::layout(this);
 #endif
 }
 
@@ -4877,6 +4880,9 @@ void GeoscapeState::resize(int &dX, int &dY)
 	_sideLine->setHeight(Options::baseYResolution);
 	_sideLine->setY(0);
 	_sideLine->drawRect(0, 0, _sideLine->getWidth(), _sideLine->getHeight(), 15);
+#ifdef __EMSCRIPTEN__
+	CalypsoGeoscapeHd::layout(this);   // Phase 41 B2: re-run HD panel scale + plate blit
+#endif
 }
 bool GeoscapeState::buttonsDisabled()
 {
