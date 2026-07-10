@@ -67,6 +67,8 @@
 #include "../Interface/NumberText.h"
 #include "../Interface/Text.h"
 #include "../fmath.h"
+#include "CalypsoDirector.h" // Phase 41 (commit 4.5): isPreviewActive()
+#include <sstream>
 
 #ifdef __EMSCRIPTEN__
 #  include "../Engine/GpuTimer.h"
@@ -2608,6 +2610,41 @@ GpuTexture* Map::getHudTextTexture(const std::string& text, Uint32 colorArgb)
 	}
 	_hudTextTexCache[key] = tex;   // cache nullptr too (avoid per-frame retry)
 	return tex;
+}
+
+/**
+ * Phase 41 (commit 4.5): dev-only tile-coordinate readout under the cursor
+ * (§41.1c). Updates the HUD_TXT_PREVIEW_COORD slot each frame via the generic
+ * HUD text overlay (setHudText/drawHudTextGLPass below) -- no dedicated GL
+ * pass, so it costs nothing in normal play (the slot is cleared and
+ * CalypsoDirector::isPreviewActive() short-circuits immediately).
+ */
+void Map::updateScenePreviewCoordHud()
+{
+	if (!CalypsoDirector::get().isPreviewActive())
+	{
+		clearHudText(HUD_TXT_PREVIEW_COORD);
+		return;
+	}
+
+	Position sel;
+	getSelectorPosition(&sel);
+	std::ostringstream ss;
+	ss << sel.x << "," << sel.y << "," << sel.z;
+	const std::string text = ss.str();
+
+	TTFFont* font = (_game && _game->getMod()) ? _game->getMod()->getTTFFont("FONT_HD_HUD", false) : nullptr;
+	if (!font) { clearHudText(HUD_TXT_PREVIEW_COORD); return; }
+	SDL_Color white = { 255, 255, 255, 255 };
+	SDL_Surface* ttf = font->renderText(text, white);   // cached by TTFFont — do NOT free
+	if (!ttf || ttf->w <= 0 || ttf->h <= 0) { clearHudText(HUD_TXT_PREVIEW_COORD); return; }
+
+	// Fixed top-left readout box, constant on-screen height (same auto-fit-by-
+	// height idea as BattlescapeState::drawVisibleUnitDigit).
+	const float boxH = 20.0f;
+	const float scale = boxH / (float)ttf->h;
+	const float boxW = ttf->w * scale;
+	setHudText(HUD_TXT_PREVIEW_COORD, 8.0f, 8.0f, boxW, boxH, text, 0xFFFFFFFFu);
 }
 
 /**

@@ -14,9 +14,11 @@
 #include "CalypsoPrologueCampaign.h"
 #include "CalypsoPrologueAskState.h"
 #include "CalypsoTutorial.h"
+#include "CalypsoDirector.h"
 
 #include "../Engine/Game.h"
 #include "../Engine/Options.h"
+#include "../Engine/Screen.h"
 #include "../Engine/CrossPlatform.h"
 #include "../Engine/Logger.h"
 #include "../Engine/RNG.h"
@@ -29,7 +31,10 @@
 #include "../Savegame/Craft.h"
 #include "../Savegame/Soldier.h"
 #include "../Battlescape/BattlescapeGenerator.h"
+#include "../Battlescape/BattlescapeGame.h"
+#include "../Battlescape/BattlescapeState.h"
 #include "../Battlescape/BriefingState.h"
+#include "../Battlescape/NextTurnState.h"
 #include "../Geoscape/GeoscapeState.h"
 #include "../Geoscape/BuildNewBaseState.h"
 #include "../Geoscape/BaseNameState.h"
@@ -137,10 +142,20 @@ void vanillaNewGameTail(Game *game, GameDifficulty diff)
 	pushGeoscapeAndBaseChain(game, save);
 }
 
-void launchPrologueBattle(Game *game)
+void launchScriptedBattle(Game *game, const std::string &deploymentId, bool preview)
 {
 	if (!game) return;
 	const Mod *mod = game->getMod();
+
+	if (preview)
+	{
+		// Suppress BEFORE generation -- BattlescapeState::init (pushed below,
+		// preview branch) fires CalypsoDirector::onBattleStart on its first
+		// frame, and the director must already see the flag set before it
+		// looks the deployment up in its scene registry (plan §41.1c: the
+		// preview map boots inert, no script, no kills).
+		CalypsoDirector::get().setPreviewSuppressed(true);
+	}
 
 	// Fresh throwaway SavedGame -- ctor default _monthsPassed=-1 is exactly
 	// the marker DebriefingState/CutsceneState use to detect "no real
@@ -179,34 +194,60 @@ void launchPrologueBattle(Game *game)
 		}
 		else
 		{
-			Log(LOG_ERROR) << "[prologue] " << names[i] << " did not fit on " << PROLOGUE_CRAFT;
+			Log(LOG_ERROR) << "[scripted-battle] " << names[i] << " did not fit on " << PROLOGUE_CRAFT;
 		}
 	}
 
 	// No item/research setup (NewBattleState's "generate items" + "make all
 	// research discovered" loops): this is a scripted battle with a fixed,
 	// mod-defined deployment -- it has no base inventory or tech tree to
-	// stock, and the throwaway save is discarded at finishPrologue anyway.
+	// stock, and the throwaway save is discarded when the battle ends anyway.
 
 	game->setSavedGame(save);
 
 	SavedBattleGame *bgame = new SavedBattleGame(game->getMod(), game->getLanguage());
 	save->setBattleGame(bgame);
-	bgame->setMissionType(PROLOGUE_DEPLOYMENT);
+	bgame->setMissionType(deploymentId);
 
 	BattlescapeGenerator bgen(game);
 	bgen.setCraft(craft);
 	// No setTerrain/setAlienRace/setAlienItemlevel/setWorldShade: all four
-	// default from the STR_CALYPSO_PROLOGUE deployment itself (verified,
-	// BattlescapeGenerator.cpp: _terrain==0 picks from ruleDeploy->getTerrains(),
-	// _alienRace defaults from ruleDeploy->getRace(), shade from
-	// ruleDeploy->getShade()/min/maxShade, depth via the internal setDepth(ruleDeploy,...)
-	// call at the top of run()) -- exactly like an alien-base/mission-site
-	// battle launched off a deployment, no NewBattleState UI involved.
+	// default from the deployment itself (verified, BattlescapeGenerator.cpp:
+	// _terrain==0 picks from ruleDeploy->getTerrains(), _alienRace defaults
+	// from ruleDeploy->getRace(), shade from ruleDeploy->getShade()/min/
+	// maxShade, depth via the internal setDepth(ruleDeploy,...) call at the
+	// top of run()) -- exactly like an alien-base/mission-site battle
+	// launched off a deployment, no NewBattleState UI involved.
 	craft->setSpeed(0);
 	bgen.run();
 
+	if (preview)
+	{
+		// Plan §41.1c: full map reveal + straight into BattlescapeState,
+		// skipping BriefingState and InventoryState -- replicates the push
+		// sequence BriefingState::btnOkClick runs on OK (verified in
+		// BriefingState.cpp), minus the briefing screen itself.
+		bgame->setDebugMode(); // revealMap() + _debugMode = true (free camera/zoom)
+
+		Options::baseXResolution = Options::baseXBattlescape;
+		Options::baseYResolution = Options::baseYBattlescape;
+		game->getScreen()->resetDisplay(false);
+
+		BattlescapeState *bs = new BattlescapeState;
+		bs->getBattleGame()->spawnFromPrimedItems();
+		game->pushState(bs);
+		bgame->setBattleState(bs);
+		game->pushState(new NextTurnState(bgame, bs));
+		bgame->startFirstTurn();
+		return;
+	}
+
 	game->pushState(new BriefingState(craft, base));
+}
+
+void launchPrologueBattle(Game *game)
+{
+	launchScriptedBattle(game, PROLOGUE_DEPLOYMENT, false);
 }
 
 void stashSurvivor(const std::string &name, const UnitStats &stats)

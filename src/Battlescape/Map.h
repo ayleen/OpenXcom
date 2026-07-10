@@ -362,6 +362,10 @@ private:
 	std::map<std::string, GpuTexture*>  _hudTextTexCache;   // keyed by "text#argb"
 	GpuTexture* getHudTextTexture(const std::string& text, Uint32 colorArgb);
 	void drawHudTextGLPass();
+	/// Calypso Phase 41 (commit 4.5): dev-only scene-preview tile-coordinate
+	/// readout under the cursor (§41.1c) -- drives the generic HUD text
+	/// overlay above via setHudText/clearHudText, no dedicated GL pass.
+	void updateScenePreviewCoordHud();
 
 	// Calypso: physical-resolution HUD IMAGE overlay — same idea as the text overlay but for
 	// the non-text HUD art (soldier portrait, HD rank insignia, stat-number ring/box). They too
@@ -372,7 +376,9 @@ private:
 public:
 	// HUD_TXT_VISIBLE_0..+9 are the 10 visible-enemy indicator digits (Calypso:
 	// rendered crisp + scalable via the TTF GL overlay instead of the bitmap font).
-	enum HudTextSlot  { HUD_TXT_NAME, HUD_TXT_TU, HUD_TXT_ENERGY, HUD_TXT_HEALTH, HUD_TXT_MORALE, HUD_TXT_VISIBLE_0, HUD_TXT_COUNT = HUD_TXT_VISIBLE_0 + 10 };
+	// HUD_TXT_PREVIEW_COORD (Phase 41 commit 4.5): dev-only scene-preview readout.
+	enum HudTextSlot  { HUD_TXT_NAME, HUD_TXT_TU, HUD_TXT_ENERGY, HUD_TXT_HEALTH, HUD_TXT_MORALE, HUD_TXT_VISIBLE_0,
+	                    HUD_TXT_PREVIEW_COORD = HUD_TXT_VISIBLE_0 + 10, HUD_TXT_COUNT };
 	enum HudImageSlot { HUD_IMG_PORTRAIT, HUD_IMG_RANK, HUD_IMG_TU, HUD_IMG_ENERGY, HUD_IMG_HEALTH, HUD_IMG_MORALE, HUD_IMG_COUNT };
 private:
 	struct HudImageItem { float fitX, fitY, fitW, fitH; GpuTexture* tex; bool active = false; };

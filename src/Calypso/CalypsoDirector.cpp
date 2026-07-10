@@ -65,6 +65,7 @@ CalypsoScene *CalypsoDirector::active() const
 void CalypsoDirector::setPreviewSuppressed(bool suppressed)
 {
 	_previewSuppressed = suppressed;
+	if (suppressed) _previewBattle = nullptr;  // fresh preview -- rebind on the next onBattleStart
 }
 
 // --------------------------------------------------------------------------- //
@@ -73,6 +74,19 @@ void CalypsoDirector::setPreviewSuppressed(bool suppressed)
 
 void CalypsoDirector::onBattleStart(BattlescapeState *bs, BattlescapeGame *bg, SavedBattleGame *save)
 {
+	// A preview suppression sticks for the whole preview battle (every turn,
+	// so the coordinate readout keeps working) but must not leak into
+	// whatever battle comes after it. onBattleStart fires once per battle
+	// (BattlescapeState's _firstInit guard), so "a different save than the
+	// one the suppression was bound to" means a new battle has started --
+	// clear it. _previewBattle stays null until the preview battle's own
+	// first call below binds it, so this can't fire prematurely.
+	if (_previewSuppressed && _previewBattle != nullptr && _previewBattle != save)
+	{
+		_previewSuppressed = false;
+		_previewBattle = nullptr;
+	}
+
 	// Always cache the fresh battle pointers (valid for one battle's lifetime).
 	_battleState = bs;
 	_battleGame = bg;
@@ -81,7 +95,11 @@ void CalypsoDirector::onBattleStart(BattlescapeState *bs, BattlescapeGame *bg, S
 	// Resume from save: load() already rebuilt + activated the scene; do NOT
 	// re-run its first-frame setup (that would re-roll RNG, re-spawn, etc.).
 	if (_scene) return;
-	if (_previewSuppressed) return;  // scene-preview: director stays inert
+	if (_previewSuppressed)
+	{
+		_previewBattle = save;  // bind the suppression to this preview battle
+		return;                 // scene-preview: director stays inert
+	}
 	if (!save) return;
 
 	const std::string &mission = save->getMissionType();
