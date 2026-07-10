@@ -53,7 +53,10 @@ const std::string PROLOGUE_AUTOSAVE_FILENAME = "calypso-prologue-auto.sav";
 namespace
 {
 	static const char *PROLOGUE_DEPLOYMENT = "STR_CALYPSO_PROLOGUE";
-	static const char *PROLOGUE_CRAFT = "STR_TRITON";
+	// commit 5: dedicated craft type (calypso-prologue mod), never
+	// player-purchasable (no costBuy) -- keeps the prologue's Triton out
+	// of the fresh campaign's own Triton pool after the scripted battle.
+	static const char *PROLOGUE_CRAFT = "STR_NEREID";
 
 	// Stashed between maybeOfferPrologue (accept) and finishPrologue -- the
 	// real campaign is not created until the prologue battle is over (D4).
