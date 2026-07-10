@@ -5290,6 +5290,27 @@ void AIModule::brutalThink(BattleAction* action)
 		shouldEndTurnAfterMove = true;
 	}
 
+	// Phase 43 (H2): revive the civilian-hunt (34.4) / hearing (34.8) biases on the brutal path.
+	// brutalThink never reaches setupPatrol, so an unengaged brutal alien that found no attack or
+	// cover move (travelTarget still == myPos) would idle. Steer it toward the fair-knowledge hunt/
+	// noise zone instead -- same helpers and gates as setupPatrol, fair-knowledge only (no cheat).
+	if (travelTarget == myPos)
+	{
+		Position huntZone;
+		bool huntZoneKnown = wantsToHuntCivilians() && _save->getCivilianHuntZone(huntZone);
+		Position noiseZone;
+		bool noiseZoneKnown = !huntZoneKnown && wantsToInvestigateNoise()
+			&& _save->getNewestHearableNoise(_unit->getPosition(), _intelligence, noiseZone);
+		if (huntZoneKnown || noiseZoneKnown)
+		{
+			const Position& biasZone = huntZoneKnown ? huntZone : noiseZone;
+			BattleActionCost biasReserve = BattleActionCost(_unit);
+			travelTarget = furthestToGoTowards(biasZone, biasReserve, _allPathFindingNodes);
+			if (_traceAI)
+				Log(LOG_INFO) << "Phase 43 (H2): brutal unit biasing toward " << (huntZoneKnown ? "hunt" : "noise") << " zone " << biasZone;
+		}
+	}
+
 	if (travelTarget == myPos && saveDistance)
 	{
 		if (wantToPrime)
@@ -5550,7 +5571,7 @@ bool AIModule::brutalSelectSpottedUnitForSniper()
 	return _aggroTarget != 0;
 }
 
-int AIModule::tuCostToReachPosition(Position pos, const std::vector<PathfindingNode*> nodeVector, BattleUnit* actor, bool forceExactPosition, bool energyInsteadOfTU)
+int AIModule::tuCostToReachPosition(Position pos, const std::vector<PathfindingNode*>& nodeVector, BattleUnit* actor, bool forceExactPosition, bool energyInsteadOfTU)
 {
 	float closestDistToTarget = 3;
 	int tuCostToClosestNode = 10000;
@@ -5586,7 +5607,7 @@ int AIModule::tuCostToReachPosition(Position pos, const std::vector<PathfindingN
 	return tuCostToClosestNode;
 }
 
-Position AIModule::furthestToGoTowards(Position target, BattleActionCost reserved, std::vector<PathfindingNode *> nodeVector, bool encircleTileMode, Tile *encircleTile)
+Position AIModule::furthestToGoTowards(Position target, BattleActionCost reserved, const std::vector<PathfindingNode *>& nodeVector, bool encircleTileMode, Tile *encircleTile)
 {
 	//consider time-units we already spent
 	reserved.Time = _unit->getTimeUnits() - reserved.Time;
@@ -6025,21 +6046,35 @@ void AIModule::declareSquadIntentFromAction(const BattleAction* action) const
 	const BattleActionType t = action->type;
 	const bool isAttack = (t == BA_SNAPSHOT || t == BA_AUTOSHOT || t == BA_AIMEDSHOT ||
 	                       t == BA_HIT || t == BA_THROW || t == BA_LAUNCH);
+	const int turn = _save->getTurn();
 	SquadIntent intent = SquadIntent::NONE;
 	int targetId = -1;
 	if (isAttack && _aggroTarget)
 	{
 		intent = SquadIntent::ATTACK;
 		targetId = _aggroTarget->getId();
+		// Phase 43 (H5a): remember this turn's committed attack so a later idle (BA_NONE) think in
+		// the same activation does not blank the attacker off the board.
+		_committedAttackTargetId = targetId;
+		_committedAttackTurn = turn;
 	}
-	else if (t == BA_WALK && _aggroTarget)
+	else if (t == BA_WALK && _aggroTarget && isEnemy(_aggroTarget))
 	{
+		// Phase 43 (H5b): only declare FLANK against a real enemy -- on the brutal path _aggroTarget
+		// during a move can be a stale legacy selectNearestTarget() pick (including a civilian).
 		intent = SquadIntent::FLANK;
 		targetId = _aggroTarget->getId();
 	}
 	else if (action->desperate)
 	{
 		intent = SquadIntent::RETREAT;
+	}
+	else if (_committedAttackTurn == turn && _committedAttackTargetId >= 0)
+	{
+		// Phase 43 (H5a): this think produced no fresh intent, but the unit already committed to an
+		// attack earlier this turn -- re-declare it so squadmates still read the real attacker.
+		intent = SquadIntent::ATTACK;
+		targetId = _committedAttackTargetId;
 	}
 	if (intent != SquadIntent::NONE)
 	{
@@ -7695,7 +7730,7 @@ int AIModule::requiredWayPointCount(Position to, const std::vector<PathfindingNo
 	return directionChanges;
 }
 
-std::vector<Position> AIModule::getPositionsOnPathTo(Position target, const std::vector<PathfindingNode*> nodeVector)
+std::vector<Position> AIModule::getPositionsOnPathTo(Position target, const std::vector<PathfindingNode*>& nodeVector)
 {
 	PathfindingNode* targetNode = NULL;
 	for (auto pn : nodeVector)

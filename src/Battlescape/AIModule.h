@@ -73,6 +73,8 @@ private:
 	BattleActionType _reserve;
 	UnitFaction _targetFaction;
 	UnitFaction _myFaction = FACTION_HOSTILE; // Brutal-AI
+	mutable int _committedAttackTargetId = -1; // Phase 43 (H5): target this unit committed to attacking this turn (-1 = none)
+	mutable int _committedAttackTurn = -1;     // Phase 43 (H5): the turn number _committedAttackTargetId was recorded for
 
 	BattleAction _escapeAction, _ambushAction, _attackAction, _patrolAction, _psiAction;
 
@@ -205,9 +207,9 @@ public:
 	/// Like selectSpottedUnitForSniper but works for everyone
 	bool brutalSelectSpottedUnitForSniper();
 	/// look up in _allPathFindingNodes how many time-units we need to get to a specific position
-	int tuCostToReachPosition(Position pos, const std::vector<PathfindingNode *> nodeVector, BattleUnit* actor = NULL, bool forceExactPosition = false, bool energyInsteadOfTU = false);
+	int tuCostToReachPosition(Position pos, const std::vector<PathfindingNode *>& nodeVector, BattleUnit* actor = NULL, bool forceExactPosition = false, bool energyInsteadOfTU = false);
 	/// find the cloest Position to our target we can reach while reserving for a BattleAction
-	Position furthestToGoTowards(Position target, BattleActionCost reserve, const std::vector<PathfindingNode *> nodeVector, bool encircleTileMode = false, Tile *encircleTile = NULL);
+	Position furthestToGoTowards(Position target, BattleActionCost reserve, const std::vector<PathfindingNode *>& nodeVector, bool encircleTileMode = false, Tile *encircleTile = NULL);
 	/// find the closest Position that isn't our current position which is on the way to a target
 	Position closestToGoTowards(Position target, const std::vector<PathfindingNode *> nodeVector, Position myPos, bool peakMode = false);
 	/// checks if the path to a position is save
@@ -297,7 +299,7 @@ public:
 	/// returns the amount of blaster-waypoints to reach a target-positon
 	int requiredWayPointCount(Position to, const std::vector<PathfindingNode*> nodeVector);
 	/// returns a vector of all positions we'd have to walk towards a specific location
-	std::vector<Position> getPositionsOnPathTo(Position target, const std::vector<PathfindingNode*> nodeVector);
+	std::vector<Position> getPositionsOnPathTo(Position target, const std::vector<PathfindingNode*>& nodeVector);
 	/// returns fear of smoke
 	std::map<Position, int, PositionComparator> getSmokeFearMap();
 	/// returns how urgent it is to get rid of a grenade
