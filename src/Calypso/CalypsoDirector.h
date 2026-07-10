@@ -86,6 +86,12 @@ public:
 	/// Return true if the scene queued more work (states pushed this call);
 	/// false when the scene has nothing left to do this turn -- the director
 	/// then ends the side's turn the vanilla way.
+	/// Ending the battle from inside this callback (endScene(), directly or
+	/// via resolvePendingEnding) is SAFE and needs no special return value:
+	/// finishBattle runs synchronously and tears the scene down, and the
+	/// handleAI hook re-checks active() after the pump, so the false you
+	/// return afterwards does NOT additionally end the turn (browser-QA fix,
+	/// Phase 41 round 1).
 	virtual bool onEnemyTurnIdle(BattlescapeGame *) { return false; }
 	/// A unit died this frame. `killer` may be null (bleed-out, environment).
 	/// Fires exactly once per actual new death (never for already-dead units).
