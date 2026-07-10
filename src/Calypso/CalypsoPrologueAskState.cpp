@@ -44,7 +44,28 @@ CalypsoPrologueAskState::CalypsoPrologueAskState()
 	enableUiScaling(320, 200, 0.75f);
 	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
 
-	setWindowBackground(_window, "pauseMenu");
+	// Review round 2 (P2, finding 4): NO setWindowBackground() here (unlike
+	// the structurally-cloned CalypsoTutorialAskState). Window::draw()'s
+	// non-ARGB background path (src/Interface/Window.cpp) crops a region out
+	// of the interface's fixed 320x200 BACK01.SCR image sized to the
+	// window's CURRENT (post-UI-scale) width/height -- but enableUiScaling()
+	// above already stretched this window to fill a real HD canvas (e.g.
+	// ~3x at 1280x720), so the crop rectangle massively exceeds BACK01.SCR's
+	// actual bounds. That produced the review screenshot (afterok.png): only
+	// the small, correctly-in-bounds sliver near the crop origin renders (the
+	// stray green fragment top-left of the title), the rest of the window
+	// gets nothing, and the title/body text -- which position correctly,
+	// they scale with the same UI-scaling geometry -- end up floating over
+	// broken/absent background art instead of a clean fill, reading as
+	// "oversized"/overlapping. CalypsoPrologueEndState (cited in the finding
+	// as the working reference) sidesteps this the same way: it never adds a
+	// Window at all. Dropping the background image here leaves the window's
+	// normal themed bevel fill (still driven by the "pauseMenu" interface's
+	// per-element `color:`, applied via add()/setInterface() above,
+	// independent of setWindowBackground) -- solid, scale-correct at any
+	// resolution, and fully readable. This is scoped to THIS state; the
+	// identical pattern in CalypsoTutorialAskState.cpp is a pre-existing,
+	// separate bug left untouched per this review's scope.
 
 	_txtTitle->setAlign(ALIGN_CENTER);
 	_txtTitle->setBig();
