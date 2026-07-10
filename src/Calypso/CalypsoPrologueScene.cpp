@@ -75,8 +75,9 @@ static const int FALLBACK_TURN = 8;
 static const int FIRST_NAG_TURN = 3;
 // Repeat-fire shots at one victim before the direct-damage fallback kicks in.
 static const int SHOT_CAP_PER_TURN = 4;
-// Review round 2 (P1, finding 2): minimum number of Choir/game rounds Nikos's
-// scripted post must keep him from the Nereid -- see computeNikosSafetyDelay.
+// Review round 3 (P1): minimum number of PLAYER turns Nikos's scripted post
+// must keep him from the Nereid (he has no other mover) -- see
+// checkNikosPathCost.
 static const int NIKOS_MIN_TURNS = 5;
 
 // Herder waypoints: pen -> squad midpoint -> the Nereid itself. Midpoint of
@@ -124,7 +125,7 @@ static const Position MARKSMAN_PERCH_B(20, 12, 0);
 // path (CalypsoDirector suppresses scene construction entirely in preview
 // mode, so placeNamedActors never runs there) -- MAP-parsing was the
 // reviewer-sanctioned fallback for this reason. A real Pathfinding-cost gate
-// (computeNikosSafetyDelay, called right after placement) is the actual
+// (checkNikosPathCost, called right after placement) is the actual
 // safety net, not raw tile distance -- see that function for why.
 static const Position NIKOS_POST[3]    = { Position(40, 40, 0), Position(44, 46, 0), Position(42, 42, 0) }; // SE guard post (PORT18 block interior)
 // Review round 2 (P1, finding 1): fixed candidates removed -- the Assessor is
@@ -240,7 +241,7 @@ void CalypsoPrologueScene::onBattleStart(BattlescapeGame *bg)
 		return;
 	}
 	placeNamedActors(bg);
-	computeNikosSafetyDelay(bg); // review round 2 (P1, finding 2) -- after Nikos is placed
+	checkNikosPathCost(bg); // review round 3 (P1) -- diagnostic, after Nikos is placed
 	// Review round 1 (P1): the Assessor must be escortable -- as a neutral
 	// civilian the player physically cannot "walk him to the office" and the
 	// distance trigger would depend on civilian-AI wandering. Hand him to the
@@ -384,44 +385,29 @@ bool CalypsoPrologueScene::placeAssessorOnFreeCraftSlot(BattlescapeGame *bg)
 	return false;
 }
 
-// Review round 2 (P1, finding 2): the previous ambush-trigger-style
-// Chebyshev-distance assumption gave no real guarantee that Nikos's post
-// keeps him >= NIKOS_MIN_TURNS game rounds from the Nereid -- his actual walk
-// path may snake around obstacles the straight-line distance ignores. This
-// runs the SAME Pathfinding the director's own steerUnit() primitive uses
-// (Pathfinding::calculate + getTotalTUCost) to get the real walking TU cost
-// from Nikos's scripted post to the exit area.
+// Review round 3 (P1): the scene does NOT walk Nikos after the handoff --
+// the player is his only mover. The earlier design (director steerNikos()
+// each Choir turn + a pinned-turns delay) double-dipped: the player moved
+// him on player turns AND the director refilled his TU and moved him again
+// on Choir turns, so the pin arithmetic undercounted and a measured 146-TU
+// path collapsed to ~3 game rounds; worse, a Nikos who DID reach the boat
+// was then inexplicably force-killed by the ending. With a single mover the
+// guarantee is plain division: path cost / his per-turn TU (146 / 35 -> 5
+// player turns on the calibrated map). This check verifies that ratio
+// against NIKOS_MIN_TURNS at battle start and logs the verdict -- it is a
+// map-calibration DIAGNOSTIC, not a runtime gate (nothing is pinned).
 //
-// The required margin accounts for BOTH movers per game round: Nikos is
-// handed off to FACTION_PLAYER at the ambush (stepAmbushed, before Gauntlet
-// even starts), so the player can walk him toward the boat on their OWN turn
-// in addition to the director's steerNikos() call on the Choir turn -- two
-// TU-budget's worth of movement per round, not one.
-//
-// IMPORTANT: this delay is a PACING device, not a survival gate. Nikos is
-// unconditionally force-killed by killNikosIfAlive()/onAbortRequested()
-// whenever any ending resolves, regardless of where he is standing (design
-// doc §8 #1: "Branch В is closed" -- verified in this file, both ending
-// paths call killNikosIfAlive unconditionally). So even if the map's real
-// geometry cannot achieve the full margin (a 50x50 map cannot always fit a
-// >= 350 TU path), the only thing at stake is the story beat: he must not
-// visibly plant himself next to the Nereid before the retreat resolves. When
-// the check comes up short, withhold the director's OWN steerNikos() walk
-// call for the missing number of Choir turns instead of forcing the scene
-// inert -- the player's own control of him is unaffected (an accepted,
-// documented gap: a player who deliberately drags Nikos toward the boat on
-// their own turns can still park him there early; he simply never survives
-// the ending either way).
-void CalypsoPrologueScene::computeNikosSafetyDelay(BattlescapeGame *bg)
+// It is still not a survival gate: Nikos is unconditionally force-killed by
+// killNikosIfAlive()/onAbortRequested() whenever any ending resolves
+// (design doc §8 #1: "Branch В is closed"). A player sprinting him
+// boat-ward arrives no earlier than NIKOS_MIN_TURNS rounds -- by which time
+// the gauntlet has resolved the retreat one way or the other.
+void CalypsoPrologueScene::checkNikosPathCost(BattlescapeGame *bg)
 {
 	SavedBattleGame *save = bg->getSave();
 	BattleUnit *nikos = findUnit(save, _nikosId);
 	Pathfinding *pf = save ? save->getPathfinding() : nullptr;
-	if (!nikos || !pf)
-	{
-		_nikosPinnedTurnsLeft = 0;
-		return;
-	}
+	if (!nikos || !pf) return;
 
 	// maxTUCost=100000: we want the TRUE path cost, not one capped at some
 	// unit's remaining TU (the default cap is 1000, already generous, but an
@@ -431,21 +417,22 @@ void CalypsoPrologueScene::computeNikosSafetyDelay(BattlescapeGame *bg)
 	int cost = pf->getTotalTUCost();
 
 	int tu = nikos->getBaseStats()->tu;
-	int requiredCost = NIKOS_MIN_TURNS * 2 * tu; // 2 movers/round -- see above
+	int requiredCost = NIKOS_MIN_TURNS * tu; // single mover: the player
 
 	if (!reachable || cost > requiredCost)
 	{
-		_nikosPinnedTurnsLeft = 0;
 		Log(LOG_INFO) << "[prologue] nikos path-cost check: reachable=" << reachable
-			<< " cost=" << cost << " required>" << requiredCost << " -- no delay needed";
-		return;
+			<< " cost=" << cost << " required>" << requiredCost
+			<< " -- >= " << NIKOS_MIN_TURNS << " player turns guaranteed";
 	}
-
-	int roundsAtDoubleRate = (cost + (2 * tu) - 1) / (2 * tu); // ceil-div
-	_nikosPinnedTurnsLeft = std::max(0, NIKOS_MIN_TURNS - roundsAtDoubleRate);
-	Log(LOG_WARNING) << "[prologue] nikos path-cost check: reachable=" << reachable
-		<< " cost=" << cost << " required>" << requiredCost
-		<< " -- pinning steerNikos for " << _nikosPinnedTurnsLeft << " Choir turn(s)";
+	else
+	{
+		// Map-calibration regression: move NIKOS_POST further from the boat.
+		Log(LOG_WARNING) << "[prologue] nikos path-cost check: reachable=" << reachable
+			<< " cost=" << cost << " required>" << requiredCost
+			<< " -- Nikos can reach the boat in under " << NIKOS_MIN_TURNS
+			<< " player turns; recalibrate NIKOS_POST (41.1a step 5)";
+	}
 }
 
 void CalypsoPrologueScene::onPlayerTurnStart(BattlescapeGame *bg)
@@ -680,13 +667,11 @@ bool CalypsoPrologueScene::stepGauntlet(BattlescapeGame *bg)
 		return true;
 	}
 
-	if (_gauntletStep == 2)
-	{
-		steerNikos(bg);
-		_gauntletStep = 3;
-		return true;
-	}
-
+	// (Review round 3, P1: there is deliberately no steerNikos step here --
+	// after the handoff the PLAYER is Nikos's only mover. The director
+	// walking him too doubled his effective speed and broke the >= 5-turn
+	// guarantee; see checkNikosPathCost. Old saves with _gauntletStep == 2/3
+	// fall through to idle harmlessly.)
 	return false; // step machine idle -- end the Choir turn
 }
 
@@ -722,25 +707,6 @@ void CalypsoPrologueScene::steerActiveHerder(BattlescapeGame *bg)
 	Position target = pastMid ? EXIT_AREA_CENTER : HERDER_WAYPOINT_MID;
 	CalypsoDirector::get().steerUnit(bg, active, target);
 	checkBranchB(bg);
-}
-
-void CalypsoPrologueScene::steerNikos(BattlescapeGame *bg)
-{
-	// Review round 2 (P1, finding 2): withhold the director's own walk call
-	// while computeNikosSafetyDelay's path-cost check came up short (see that
-	// function for why this is a pacing device, not a survival gate).
-	if (_nikosPinnedTurnsLeft > 0)
-	{
-		--_nikosPinnedTurnsLeft;
-		return;
-	}
-	SavedBattleGame *save = bg->getSave();
-	BattleUnit *nikos = findUnit(save, _nikosId);
-	if (!nikos || nikos->isOut()) return;
-	// The scripted post + path-cost gate keep him genuinely out of reach for
-	// the design's window, but the scene walks him regardless of who
-	// "controls" him (handoffToPlayer only swaps camera/selection ownership).
-	CalypsoDirector::get().steerUnit(bg, nikos, EXIT_AREA_CENTER);
 }
 
 // --------------------------------------------------------------------------- //
@@ -997,7 +963,6 @@ void CalypsoPrologueScene::save(YAML::YamlNodeWriter writer) const
 	writer.write("shotsThisTurn", _shotsThisTurn);
 	writer.write("activeHerderIdx", _activeHerderIdx);
 	writer.write("lastNagStage", _lastNagStage);
-	writer.write("nikosPinnedTurnsLeft", _nikosPinnedTurnsLeft);
 }
 
 void CalypsoPrologueScene::load(const YAML::YamlNodeReader &reader)
@@ -1021,7 +986,6 @@ void CalypsoPrologueScene::load(const YAML::YamlNodeReader &reader)
 	_shotsThisTurn = reader["shotsThisTurn"].readVal<int>(0);
 	_activeHerderIdx = reader["activeHerderIdx"].readVal<int>(-1);
 	_lastNagStage = reader["lastNagStage"].readVal<int>(-1);
-	_nikosPinnedTurnsLeft = reader["nikosPinnedTurnsLeft"].readVal<int>(0);
 }
 
 } // namespace OpenXcom
