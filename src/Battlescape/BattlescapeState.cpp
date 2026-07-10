@@ -986,7 +986,11 @@ void BattlescapeState::init()
 	_txtTooltip->setText("");
 	_btnReserveKneel->toggle(_save->getKneelReserved());
 	_battleGame->setKneelReserved(_save->getKneelReserved());
-	if (_autosave > 0 && !_save->isPreview())
+	bool prologueBlocksSave = false;
+#ifdef __EMSCRIPTEN__
+	prologueBlocksSave = CalypsoDirector::get().activeSceneBlocksSaveLoad(); // Phase 41: D6 -- no vanilla autosave during the scripted scene
+#endif
+	if (_autosave > 0 && !_save->isPreview() && !prologueBlocksSave)
 	{
 		int currentTurn = _autosave;
 		_autosave = 0;
@@ -1613,6 +1617,9 @@ void BattlescapeState::btnHelpClick(Action *)
 		// 2. loading could be enabled, but needs changes in the Game's _states management; make sure you know what you're doing!
 		return;
 	}
+#ifdef __EMSCRIPTEN__
+	if (CalypsoDirector::get().activeSceneBlocksSaveLoad()) return; // Phase 41: prologue blocks the pause menu (mirrors isPreview above)
+#endif
 
 	if (allowButtons(true))
 		_game->pushState(new PauseState(OPT_BATTLESCAPE));
@@ -3375,7 +3382,11 @@ inline void BattlescapeState::handle(Action *action)
 					}
 				}
 				// quick save and quick load
-				if (!_game->getSavedGame()->isIronman() && !_save->isPreview())
+				bool prologueBlocksQuickSave = false;
+#ifdef __EMSCRIPTEN__
+				prologueBlocksQuickSave = CalypsoDirector::get().activeSceneBlocksSaveLoad(); // Phase 41: D3/D6
+#endif
+				if (!_game->getSavedGame()->isIronman() && !_save->isPreview() && !prologueBlocksQuickSave)
 				{
 					if (key == Options::keyQuickSave)
 					{

@@ -28,6 +28,7 @@
 #include "../Battlescape/Map.h"               // getCamera() for handoffToPlayer
 #include "../Battlescape/Camera.h"            // centerOnPosition()
 #include "../Savegame/SavedBattleGame.h"
+#include "../Savegame/SavedGame.h"             // forceAutosave()
 #include "../Savegame/BattleUnit.h"
 #include "../Mod/Unit.h"                      // UnitFaction values, UnitStats
 #include "../Engine/Game.h"                   // getCurrentGame(), pushState, getLanguage
@@ -305,6 +306,22 @@ void CalypsoDirector::endScene(BattlescapeGame *bg, int outcome)
 	// does. A later commit validates this under the real scene; the primitive's
 	// contract is just to route the end through finishBattle.
 	if (_battleState) _battleState->finishBattle(false, 0);
+}
+
+bool CalypsoDirector::activeSceneBlocksSaveLoad() const
+{
+	return _scene && _scene->blocksSaveLoad();
+}
+
+void CalypsoDirector::forceAutosave(Game *game, const std::string &filename) const
+{
+	if (!game) return;
+	SavedGame *save = game->getSavedGame();
+	if (!save) return;
+	// setName() only affects the label shown in a save list; this slot is
+	// never surfaced there (D6 -- written/deleted directly, no SaveGameState).
+	save->setName(filename);
+	save->save(filename, game->getMod()); // flushes IDBFS itself on Emscripten
 }
 
 // --------------------------------------------------------------------------- //

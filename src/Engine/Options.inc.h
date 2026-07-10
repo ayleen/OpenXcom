@@ -83,6 +83,10 @@ OPT bool oxcePediaShowClipSize;
 // only, but the declaration is ungated like the other oxce* options so the
 // Advanced Options UI works the same on native + web).
 OPT bool calypsoTutorial;
+// Phase 41 (Calypso): "was the prologue mission already offered" persistent
+// flag. Hidden (no Advanced Options UI entry) -- set internally the first
+// time the ask resolves; a second campaign skips the ask.
+OPT bool calypsoPrologueSeen;
 OPT int oxcePediaSortResistances; // hidden, unhide if becomes popular?
 
 OPT int oxceInterceptTableSize;

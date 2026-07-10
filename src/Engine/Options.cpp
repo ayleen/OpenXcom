@@ -481,6 +481,9 @@ void createAdvancedOptionsOXCE()
 	_info.push_back(OptionInfo(OPTION_OXCE, "calypsoTutorial", &calypsoTutorial, true, "STR_CAL_TUT_OPTION", "STR_GENERAL"));
 #endif
 
+	// Phase 41 (Calypso): hidden, no UI entry -- see Options.inc.h.
+	_info.push_back(OptionInfo(OPTION_OXCE, "calypsoPrologueSeen", &calypsoPrologueSeen, false, "", "HIDDEN"));
+
 	_info.push_back(OptionInfo(OPTION_OXCE, "oxceHighlightNewTopics", &oxceHighlightNewTopics, true, "STR_HIGHLIGHT_NEW", "STR_GENERAL"));
 	_info.push_back(OptionInfo(OPTION_OXCE, "oxcePediaShowClipSize", &oxcePediaShowClipSize, false, "STR_PEDIA_SHOW_CLIP_SIZE", "STR_GENERAL"));
 	_info.push_back(OptionInfo(OPTION_OXCE, "oxcePediaSortResistances", &oxcePediaSortResistances, 0, "STR_PEDIA_SORT_RESISTANCES", "HIDDEN"));

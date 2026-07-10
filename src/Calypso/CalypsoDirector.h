@@ -105,6 +105,11 @@ public:
 	virtual void save(YAML::YamlNodeWriter) const {}
 	/// Restore scene-owned state. Unit pointers are NOT valid yet -- re-resolve by id.
 	virtual void load(const YAML::YamlNodeReader &) {}
+	/// Opt-in: true suppresses every battlescape save/load entry point (pause
+	/// menu, quick-save/quick-load, the vanilla per-turn autosave) while this
+	/// scene is active. Scenes that roll their own forced autosave (D6) want
+	/// this so the player cannot savescum around the scripted outcome.
+	virtual bool blocksSaveLoad() const { return false; }
 };
 
 /**
@@ -200,6 +205,16 @@ public:
 	/// consumed by interceptFinishBattle (hooked in BattlescapeState::finishBattle),
 	/// which pushes the scene's makeEndState() instead of the vanilla debrief.
 	void endScene(BattlescapeGame *bg, int outcome);
+
+	/// True while the active scene opts into blocking save/load (see
+	/// CalypsoScene::blocksSaveLoad). False (no gate) when no scene is active.
+	bool activeSceneBlocksSaveLoad() const;
+
+	/// Write `game`'s current SavedGame directly to `filename` -- no UI, no
+	/// SaveGameState. Used for a scene's own rolling anti-savescum autosave
+	/// (D6); SavedGame::save() already flushes IDBFS on Emscripten. Scene-
+	/// agnostic: the caller supplies the slot name.
+	void forceAutosave(Game *game, const std::string &filename) const;
 
 	// ---- persistence (dispatches to the active scene) ----------------------
 

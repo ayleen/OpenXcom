@@ -17,12 +17,16 @@
 
 #include "CalypsoPrologueScene.h"
 #include "CalypsoPrologueMath.h"
+#include "CalypsoPrologueCampaign.h"
+#include "CalypsoPrologueEndState.h"
 
 #include "../Battlescape/BattlescapeGame.h"
 #include "../Battlescape/BattlescapeState.h"
 #include "../Savegame/SavedBattleGame.h"
+#include "../Savegame/SavedGame.h"
 #include "../Savegame/BattleUnit.h"
-#include "../Mod/Unit.h"          // UnitFaction, SpecialTileType
+#include "../Savegame/Soldier.h"  // getGeoscapeSoldier() survivor snapshot
+#include "../Mod/Unit.h"          // UnitFaction, SpecialTileType, UnitStats
 #include "../Mod/RuleDamageType.h"
 #include "../Mod/Mod.h"
 #include "../Engine/RNG.h"
@@ -164,6 +168,15 @@ void CalypsoPrologueScene::onPlayerTurnStart(BattlescapeGame *bg)
 
 	// Panic-driven loss of control would fight the direction (41.3).
 	CalypsoDirector::get().pinMorale(save, FACTION_PLAYER);
+
+	// D6: rolling anti-savescum autosave -- one slot, overwritten every player
+	// turn. Safe to skip once an ending is armed/executing (Ph::Ended has no
+	// further turns; a fresh write here would just get deleted moments later
+	// by finishPrologue anyway, but skipping avoids a pointless disk write).
+	if (!_endingTriggered)
+	{
+		CalypsoDirector::get().forceAutosave(getCurrentGame(), Calypso::PROLOGUE_AUTOSAVE_FILENAME);
+	}
 
 	if (_phase == Ph::MoveToOffice)
 	{
@@ -478,6 +491,11 @@ bool CalypsoPrologueScene::resolvePendingEnding(BattlescapeGame *bg)
 	}
 	_pendingTaking = false;
 	killNikosIfAlive(bg);
+	// OutcomeAllTaken never reaches here with a non-empty survivor stash --
+	// killEveryoneAboard() (Branch Б) and the "nobody made it aboard" arm
+	// path both leave no one alive to snapshot; only OutcomeCastOff
+	// (onAbortRequested) ever calls Calypso::stashSurvivor.
+	_finishedOutcome = outcome;
 	CalypsoDirector::get().endScene(bg, outcome);
 	return true;
 }
@@ -565,8 +583,23 @@ bool CalypsoPrologueScene::onAbortRequested(BattlescapeState *bs)
 		}
 	}
 
+	// D7 survivor stash: snapshot every player soldier that made it aboard,
+	// BEFORE the throwaway SavedGame is torn down (the real campaign, created
+	// later by finishPrologue, is a totally separate SavedGame -- these
+	// Soldier objects will not survive past this battle).
+	for (int id : allPlayerIds())
+	{
+		BattleUnit *u = findUnit(save, id);
+		if (!u || u->isOut() || !u->isInExitArea(START_POINT)) continue;
+		if (Soldier *geoscapeSoldier = u->getGeoscapeSoldier())
+		{
+			Calypso::stashSurvivor(geoscapeSoldier->getName(), *geoscapeSoldier->getCurrentStatsEditable());
+		}
+	}
+
 	// Synchronous endScene is safe here: this is AbortMissionState::btnOkClick,
 	// the exact call site vanilla itself invokes finishBattle from.
+	_finishedOutcome = OutcomeCastOff;
 	CalypsoDirector::get().endScene(bg, OutcomeCastOff);
 	return true;
 }
@@ -583,10 +616,11 @@ bool CalypsoPrologueScene::abortStrings(std::string *title, std::string *ok, std
 
 State *CalypsoPrologueScene::makeEndState()
 {
-	// Commit 4 adds CalypsoPrologueEndState ("Six months later" interstitial).
-	// Null here just means "no custom end state yet" -- interceptFinishBattle
-	// still consumes the outcome and suppresses the vanilla debrief.
-	return nullptr;
+	// _finishedOutcome was set immediately before the endScene() call that
+	// led here (same call stack: endScene -> finishBattle ->
+	// interceptFinishBattle -> makeEndState), so it always reflects the
+	// outcome the director is currently intercepting.
+	return new CalypsoPrologueEndState(_finishedOutcome);
 }
 
 // --------------------------------------------------------------------------- //

@@ -32,6 +32,7 @@
 #include "../Savegame/Base.h"
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoTutorial.h"
+#include "../Calypso/CalypsoPrologueCampaign.h"
 #endif
 
 namespace OpenXcom
@@ -169,6 +170,10 @@ void NewGameState::btnOkClick(Action *)
 
 	// Reset touch flags
 	_game->resetTouchButtonFlags();
+
+#ifdef __EMSCRIPTEN__
+	if (Calypso::maybeOfferPrologue(_game, diff, _btnIronman->getPressed())) return; // Phase 41: detour through the prologue ask
+#endif
 
 	SavedGame *save = _game->getMod()->newSave(diff);
 	save->setDifficulty(diff);
