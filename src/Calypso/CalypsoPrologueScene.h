@@ -77,9 +77,22 @@ private:
 	/// QA round 1 bug 7: teleport the marksman onto a fixed perch -- see the
 	/// .cpp for why (no elevated RMP nodes on this terrain).
 	void placeMarksman(BattlescapeGame *bg);
-	/// Review round 1 (P1): teleport Nikos / the Assessor / the herders onto
-	/// their scripted tiles (SE post, Nereid ramp, off-path pen).
+	/// Review round 1 (P1): teleport Nikos / the herders onto their scripted
+	/// tiles (SE post, off-path pen). The Assessor is placed separately (see
+	/// placeAssessorOnFreeCraftSlot) -- review round 2 finding 1.
 	void placeNamedActors(BattlescapeGame *bg);
+	/// Review round 2 (P1, finding 1): scan the Nereid's real START_POINT
+	/// deployment tiles for one that is free (same predicate
+	/// BattlescapeGenerator::canPlaceXCOMUnit uses for real crew placement)
+	/// and teleport the Assessor onto it -- replaces the old fixed-tile
+	/// ASSESSOR_POST guesswork, which could land on an already-occupied crew
+	/// slot. Returns false (no free slot found) -- the caller must go inert.
+	bool placeAssessorOnFreeCraftSlot(BattlescapeGame *bg);
+	/// Review round 2 (P1, finding 2): real Pathfinding-cost gate on Nikos's
+	/// scripted post -- see the .cpp for the rationale (pacing, not survival:
+	/// he is unconditionally force-killed on any ending regardless of
+	/// position). Sets _nikosPinnedTurnsLeft.
+	void computeNikosSafetyDelay(BattlescapeGame *bg);
 
 	// ---- turn-idle step machine (onEnemyTurnIdle dispatch) -----------------
 	bool stepMoveToOffice(BattlescapeGame *bg);
@@ -135,6 +148,11 @@ private:
 	int _currentVictimId = -1;      ///< unit being shot this Choir turn (persists across idle pumps)
 	int _shotsThisTurn = 0;         ///< repeat-fire counter -> SHOT_CAP_PER_TURN -> forceKill
 	int _activeHerderIdx = -1;      ///< index into _herderIds currently being steered
+
+	/// Review round 2 (P1, finding 2): Choir turns left to withhold
+	/// steerNikos()'s own walk call -- computed once at onBattleStart by
+	/// computeNikosSafetyDelay, decremented in steerNikos.
+	int _nikosPinnedTurnsLeft = 0;
 
 	int _lastNagStage = -1;         ///< last escalationStage() value a nag line fired for
 

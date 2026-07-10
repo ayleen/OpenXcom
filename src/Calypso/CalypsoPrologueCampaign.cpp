@@ -204,9 +204,12 @@ void launchScriptedBattle(Game *game, const std::string &deploymentId, bool prev
 	// shooting/kneeling and promises the mission ends when the Choir is
 	// neutralized). Suppress it for the scripted battle -- finishPrologue()
 	// (and the decline path) call resetCampaign()+requestAsk(), so the real
-	// campaign still gets its Phase 39 first-run tutorial ask. Prologue-
-	// specific micro-prompts (move/camera/end-turn before the ambush,
-	// cast-off highlight at evacuation) are a deferred follow-up.
+	// campaign still gets its Phase 39 first-run tutorial ask. Review round 2
+	// (P1, finding 3): prologue-specific micro-prompts (move/camera/TU
+	// before the ambush) are NOT deferred anymore -- CalypsoPrologueScene::
+	// onBattleStart fires them itself, through the radio-toast primitive,
+	// independently of this flag (see that comment for why reusing
+	// CalypsoTutorialState directly would have been the wrong call here).
 	if (!preview) // preview already disabled it above
 		CalypsoTutorial::get().disableForCampaign();
 	Base *base = new Base(mod);
