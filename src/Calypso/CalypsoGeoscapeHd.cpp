@@ -104,9 +104,14 @@ void CalypsoGeoscapeHd::layout(GeoscapeState *s)
 	s->_btnZoomOut->setWidth(13 * sc); s->_btnZoomOut->setHeight(17 * sc);
 	s->_btnZoomOut->setX(screenWidth - 20 * sc); s->_btnZoomOut->setY(screenHeight / 2 + 82 * sc);
 
-	// Side fillers: same "gap above/below the panel" formula as the ctor,
-	// with the fixed height offset scaled by sc too so it grows with the panel.
-	const int fillerHeight = ((screenHeight - Screen::ORIGINAL_HEIGHT) / 2 + 10) * sc;
+	// Side fillers: the "gap above/below the panel" from the ctor formula, but
+	// the panel is now ORIGINAL_HEIGHT*sc tall, so the gap is measured against
+	// the *scaled* panel height and only the fixed +10 overlap is multiplied by
+	// sc. The old ((screenHeight - ORIGINAL_HEIGHT)/2 + 10) * sc multiplied the
+	// whole (already screen-sized) gap by sc a second time — quadratic growth
+	// that produced ~620 px fillers at 800 px / sc=2 (should be ~210) and ever
+	// larger invisible SDL surfaces at higher resolutions.
+	const int fillerHeight = (screenHeight - Screen::ORIGINAL_HEIGHT * sc) / 2 + 10 * sc;
 	s->_sideTop->setWidth(63 * sc); s->_sideTop->setHeight(fillerHeight);
 	s->_sideTop->setX(screenWidth - 63 * sc); s->_sideTop->setY(s->_sidebar->getY() - fillerHeight - 1);
 	s->_sideBottom->setWidth(63 * sc); s->_sideBottom->setHeight(fillerHeight);

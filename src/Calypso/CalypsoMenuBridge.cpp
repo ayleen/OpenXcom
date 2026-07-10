@@ -36,10 +36,11 @@
 #include "../Menu/NewGameState.h"
 #include "../Menu/NewBattleState.h"
 #include "../Menu/LoadGameState.h"
-#include "../Menu/SaveGameState.h"
 #include "../Menu/StartState.h"
 #include "../Menu/OptionsBaseState.h"
 #include "../Savegame/SavedGame.h"
+#include "../Engine/Exception.h"
+#include "../Engine/Logger.h"
 #include "../Interface/ToggleTextButton.h"
 #include "../Interface/ComboBox.h"
 #include "../Interface/Slider.h"
@@ -382,11 +383,21 @@ int calypso_save_delete(const char *file)
  * (CrossPlatform::sanitizeFilename, as ListSaveState.cpp:172), and append "_"
  * until the ".sav" name is free instead of silently overwriting. In-game
  * only — the JS overlay never reaches this screen without a live SavedGame.
- * SavedGame::save() (called from SaveGameState::think) already flushes IDBFS
- * itself, so no extra JS is needed here. */
+ *
+ * The save is performed inline rather than by pushing a SaveGameState. The
+ * native SaveGameState::think (Menu/SaveGameState.cpp:149) pops three states
+ * for a non-Ironman SAVE_DEFAULT — itself, the save-list (ListSaveState), and
+ * the pause screen. The HTML overlay flow has no native ListSaveState on the
+ * stack, so that third popState() would tear down the live Geoscape/
+ * Battlescape underneath the pause screen. Instead we mirror only the atomic
+ * backup->save->moveFile body (SaveGameState.cpp:186-195) and push/pop nothing:
+ * SavedGame::save() already flushes IDBFS itself (Savegame/SavedGame.cpp:
+ * 951-953), and the JS overlay owns its own close. `origin` is unused (the
+ * inline save needs no OptionsOrigin) but kept for the JS ABI. */
 EMSCRIPTEN_KEEPALIVE
 int calypso_save_write(const char *displayName, int origin)
 {
+	(void)origin;
 	Game *g = getCurrentGame();
 	if (!g || !g->getSavedGame() || !displayName) return 0;
 
@@ -398,7 +409,22 @@ int calypso_save_write(const char *displayName, int origin)
 	}
 	fileName += ".sav";
 
-	g->pushState(new SaveGameState((OptionsOrigin)origin, fileName, g->getScreen()->getPalette()));
+	try
+	{
+		std::string backup = fileName + ".bak";
+		g->getSavedGame()->save(backup, g->getMod());
+		std::string fullPath = Options::getMasterUserFolder() + fileName;
+		std::string bakPath = Options::getMasterUserFolder() + backup;
+		if (!CrossPlatform::moveFile(bakPath, fullPath))
+		{
+			throw Exception("Save backed up in " + backup);
+		}
+	}
+	catch (std::exception &e)
+	{
+		Log(LOG_ERROR) << "calypso_save_write: " << e.what();
+		return 0;
+	}
 	return 1;
 }
 
@@ -522,7 +548,13 @@ int calypso_mod_move(const char *id, int delta)
 /* Mirrors ModListState::btnOkClick (Menu/ModListState.cpp:492-503). The
  * overlay has no native state pushed (MainMenuState stays underneath), so
  * unlike the native handler this never calls popState -- StartState is
- * pushed directly, or nothing happens if nothing changed. */
+ * pushed directly, or nothing happens if nothing changed.
+ *
+ * Return distinguishes the two success paths so the JS overlay hides the
+ * HTML main menu only when a restart actually began: 2 = restart started
+ * (StartState will reload and re-fire calypsoOnMainMenu, which re-shows the
+ * overlay); 1 = no-op (reload == false, MainMenuState stays live, so the
+ * overlay must stay visible or it would never come back); 0 = no game. */
 EMSCRIPTEN_KEEPALIVE
 int calypso_mods_apply()
 {
@@ -532,6 +564,7 @@ int calypso_mods_apply()
 	if (Options::reload)
 	{
 		g->setState(new StartState);
+		return 2;
 	}
 	return 1;
 }
