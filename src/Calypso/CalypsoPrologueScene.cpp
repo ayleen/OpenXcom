@@ -267,11 +267,14 @@ void CalypsoPrologueScene::onBattleStart(BattlescapeGame *bg)
 	// UI, no dependency on CalypsoTutorial's disabled singleton (so nothing
 	// here can accidentally re-enable it, unlike reusing CalypsoTutorialState
 	// directly would -- its "disable" button flips that shared flag).
-	// Pushed in REVERSE of on-screen order: the State stack is LIFO and
-	// CalypsoRadioLineState auto-dismisses itself after ~2s, so the
-	// last-pushed state is the first one shown.
-	radio(STR_PROLOGUE_HINT_TU);
-	radio(STR_PROLOGUE_HINT_CAMERA);
+	// STAGED, not burst (review polish): a four-toast LIFO pile-up at battle
+	// start (~2s each, stacked on the landing line) reads as a splash screen,
+	// not teaching. One beat per player turn instead, each at the moment it
+	// becomes relevant: MOVE here on turn 1 (the first thing the player must
+	// do), CAMERA on turn 2, TU on turn 3 -- see onPlayerTurnStart; the later
+	// beats are gated on Ph::MoveToOffice so a firefight never gets a
+	// tutorial toast. Pushed in REVERSE of on-screen order (LIFO stack): the
+	// landing line shows first, then the movement hint.
 	radio(STR_PROLOGUE_HINT_MOVE);
 	radio(STR_PROLOGUE_RADIO_LANDING);
 }
@@ -465,6 +468,15 @@ void CalypsoPrologueScene::onPlayerTurnStart(BattlescapeGame *bg)
 
 	if (_phase == Ph::MoveToOffice)
 	{
+		// Review round 2 (P1, finding 3), staged hint beats 2 and 3 -- see the
+		// onBattleStart comment. Turn numbers are unique and this dispatch
+		// fires once per player turn, so no one-shot flags are needed; the
+		// Ph::MoveToOffice gate above keeps hints out of the post-ambush
+		// firefight. On turn 3 the first nag line (below) may push after the
+		// TU hint -- two short toasts on one turn, nag first (LIFO), is fine.
+		if (save->getTurn() == 2)      radio(STR_PROLOGUE_HINT_CAMERA);
+		else if (save->getTurn() == 3) radio(STR_PROLOGUE_HINT_TU);
+
 		int stage = Calypso::escalationStage(save->getTurn(), FIRST_NAG_TURN, FALLBACK_TURN);
 		if (stage >= 0 && stage != _lastNagStage)
 		{
