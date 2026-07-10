@@ -23,11 +23,14 @@
 #include "../Battlescape/BattlescapeGame.h"
 #include "../Battlescape/BattlescapeState.h"
 #include "../Battlescape/TileEngine.h" // calculateFOV() after the marksman teleport
+#include "../Battlescape/Pathfinding.h" // review round 2 finding 2: real path-cost gate
 #include "../Savegame/SavedBattleGame.h"
 #include "../Savegame/SavedGame.h"
 #include "../Savegame/BattleUnit.h"
 #include "../Savegame/Soldier.h"  // getGeoscapeSoldier() survivor snapshot
+#include "../Savegame/Tile.h"     // review round 2 finding 1: START_POINT slot scan
 #include "../Mod/Unit.h"          // UnitFaction, SpecialTileType, UnitStats
+#include "../Mod/MapData.h"       // SpecialTileType::START_POINT, MovementType::MT_WALK
 #include "../Mod/RuleDamageType.h"
 #include "../Mod/Mod.h"
 #include "../Engine/RNG.h"
@@ -72,6 +75,9 @@ static const int FALLBACK_TURN = 8;
 static const int FIRST_NAG_TURN = 3;
 // Repeat-fire shots at one victim before the direct-damage fallback kicks in.
 static const int SHOT_CAP_PER_TURN = 4;
+// Review round 2 (P1, finding 2): minimum number of Choir/game rounds Nikos's
+// scripted post must keep him from the Nereid -- see computeNikosSafetyDelay.
+static const int NIKOS_MIN_TURNS = 5;
 
 // Herder waypoints: pen -> squad midpoint -> the Nereid itself. Midpoint of
 // the craft-to-office march (EXIT_AREA_CENTER (44,6) <-> office center
@@ -98,18 +104,33 @@ static const Position HERDER_WAYPOINT_MID(27, 8, 0);
 static const Position MARKSMAN_PERCH_A(30, 5, 0);
 static const Position MARKSMAN_PERCH_B(20, 12, 0);
 
-// Named-actor scripted tiles (review round 1, P1): the terrain has only
-// rank-0 civilian RMP nodes, so Nikos/the Assessor/the herders spawn wherever
-// the generic node picker lands -- but the whole scenario depends on their
-// geometry (Nikos SE and >= 5 turns out, Assessor disembarking WITH the
-// squad, herders penned off-path and out of turn-0 sight range). Same
-// candidate-list + setUnitPosition pattern as the marksman perch above; each
-// actor gets three candidates because exact tile walkability on the
-// assembled blocks is only verifiable in the scene preview (QA round 2 item).
-// Grid recap (calypso-prologue.rul mapScripts): office x0-19/y0-19, craft
-// hull inside x40-48/y0-12, open band y20-29.
-static const Position NIKOS_POST[3]    = { Position(46, 26, 0), Position(44, 26, 0), Position(47, 23, 0) }; // SE guard post
-static const Position ASSESSOR_POST[3] = { Position(44, 9, 0),  Position(43, 9, 0),  Position(45, 9, 0)  }; // at the Nereid's ramp, beside the squad
+// Named-actor scripted tiles (review round 1, P1). Grid recap
+// (calypso-prologue.rul mapScripts): office x0-19/y0-19, craft hull inside
+// x40-48/y0-12, PORT18 SE guard post block at grid cell [3,3] w2 h2 == tiles
+// x30-49/y30-49 (NOT the y20-29 open band -- that is filler PORT10-16
+// blocks, one grid row further north).
+//
+// Review round 2 (P1, finding 2): the previous NIKOS_POST candidates
+// (46,26)/(44,26)/(47,23) sit in that y20-29 filler band, OUTSIDE the actual
+// SE guard-post block -- only 11-14 tiles from the Nereid, not the designed
+// >= 5 turns. Fixed by hand from a direct parse of PORT18.MAP (the tileset's
+// own floor/object grid -- the same "floor present, no O_OBJECT" predicate
+// BattlescapeGenerator::canPlaceXCOMUnit uses, see the tool this review used:
+// scripts are throwaway, the parsed coordinates are the deliverable): local
+// (10,10)/(14,16)/(12,12) on PORT18 are plain open floor tiles (MCD floor
+// id 36/37/37, no object), offset by the block's grid placement (+30,+30) to
+// map coordinates. All three land well inside x30-49/y30-49. The scene
+// preview (?scenePreview=STR_CALYPSO_PROLOGUE) does not exercise this code
+// path (CalypsoDirector suppresses scene construction entirely in preview
+// mode, so placeNamedActors never runs there) -- MAP-parsing was the
+// reviewer-sanctioned fallback for this reason. A real Pathfinding-cost gate
+// (computeNikosSafetyDelay, called right after placement) is the actual
+// safety net, not raw tile distance -- see that function for why.
+static const Position NIKOS_POST[3]    = { Position(40, 40, 0), Position(44, 46, 0), Position(42, 42, 0) }; // SE guard post (PORT18 block interior)
+// Review round 2 (P1, finding 1): fixed candidates removed -- the Assessor is
+// now placed by placeAssessorOnFreeCraftSlot(), which scans the Nereid's real
+// START_POINT deployment tiles for a free one instead of guessing fixed
+// coordinates that could land on an already-occupied crew slot.
 static const Position HERDER_PEN[2][3] = {
 	{ Position(2, 26, 0), Position(4, 26, 0), Position(2, 24, 0) },  // pen, far SW -- ~42 tiles from the squad, beyond sight range
 	{ Position(6, 26, 0), Position(8, 26, 0), Position(6, 24, 0) },
@@ -125,6 +146,12 @@ static const char *STR_PROLOGUE_LEADER_NAME     = "STR_PROLOGUE_LEADER_NAME";
 static const char *STR_PROLOGUE_DIVER_LINE      = "STR_PROLOGUE_DIVER_LINE";
 static const char *STR_PROLOGUE_NIKOS_LINE      = "STR_PROLOGUE_NIKOS_LINE";
 static const char *STR_PROLOGUE_RADIO_SILENCE   = "STR_PROLOGUE_RADIO_SILENCE";
+// Review round 2 (P1, finding 3): HYBRID design contract -- prologue-specific
+// hint beats (movement/camera/TU), delivered through the same radio-toast
+// primitive as the narrative lines above. See the onBattleStart comment.
+static const char *STR_PROLOGUE_HINT_MOVE       = "STR_PROLOGUE_HINT_MOVE";
+static const char *STR_PROLOGUE_HINT_CAMERA     = "STR_PROLOGUE_HINT_CAMERA";
+static const char *STR_PROLOGUE_HINT_TU         = "STR_PROLOGUE_HINT_TU";
 
 // --------------------------------------------------------------------------- //
 // actor resolution
@@ -202,7 +229,18 @@ void CalypsoPrologueScene::onBattleStart(BattlescapeGame *bg)
 		return;
 	}
 	placeMarksman(bg);
+	// Review round 2 (P1, finding 1): the Assessor MUST land on a real free
+	// craft deployment slot -- a mis-placed Assessor breaks the ambush-
+	// trigger geometry (TRIGGER_DIST is measured from EXIT_AREA/the Nereid).
+	// No free slot is a hard failure -- go inert rather than continue with
+	// broken staging (same contract as resolveActors()).
+	if (!placeAssessorOnFreeCraftSlot(bg))
+	{
+		_inert = true;
+		return;
+	}
 	placeNamedActors(bg);
+	computeNikosSafetyDelay(bg); // review round 2 (P1, finding 2) -- after Nikos is placed
 	// Review round 1 (P1): the Assessor must be escortable -- as a neutral
 	// civilian the player physically cannot "walk him to the office" and the
 	// distance trigger would depend on civilian-AI wandering. Hand him to the
@@ -215,6 +253,26 @@ void CalypsoPrologueScene::onBattleStart(BattlescapeGame *bg)
 	// D2: rolled once, drives which pattern the first post-Assessor death uses.
 	_leaderDiesFirst = RNG::percent(50);
 	_phase = Ph::MoveToOffice;
+
+	// Review round 2 (P1, finding 3): the generic Phase 37/39 battlescape
+	// tutorial is correctly suppressed for the whole prologue battle
+	// (CalypsoPrologueCampaign.cpp, launchScriptedBattle) -- its content
+	// promises the wrong mission-end condition and teaches shooting/kneeling
+	// this scene never needs. But the phase plan's HYBRID design (Goal
+	// section) still requires the prologue to teach movement, camera, and TU
+	// before the ambush -- "a good prologue but not a tutorial" was the
+	// review-round-2 finding. These three beats are prologue-specific
+	// content delivered through the SAME radio-toast primitive already used
+	// for narrative lines (radio() / CalypsoDirector::radioLine) -- no new
+	// UI, no dependency on CalypsoTutorial's disabled singleton (so nothing
+	// here can accidentally re-enable it, unlike reusing CalypsoTutorialState
+	// directly would -- its "disable" button flips that shared flag).
+	// Pushed in REVERSE of on-screen order: the State stack is LIFO and
+	// CalypsoRadioLineState auto-dismisses itself after ~2s, so the
+	// last-pushed state is the first one shown.
+	radio(STR_PROLOGUE_HINT_TU);
+	radio(STR_PROLOGUE_HINT_CAMERA);
+	radio(STR_PROLOGUE_HINT_MOVE);
 	radio(STR_PROLOGUE_RADIO_LANDING);
 }
 
@@ -251,9 +309,11 @@ void CalypsoPrologueScene::placeMarksman(BattlescapeGame *bg)
 }
 
 // Review round 1 (P1): teleport the remaining named actors onto their
-// scripted tiles (see the NIKOS_POST/ASSESSOR_POST/HERDER_PEN comment above).
-// Failure is a loud warning, not inert: a mis-placed actor degrades the
-// staging but every script beat still works from any position.
+// scripted tiles (see the NIKOS_POST/HERDER_PEN comment above). Failure is a
+// loud warning, not inert: a mis-placed actor degrades the staging but every
+// script beat still works from any position. (The Assessor is placed
+// separately by placeAssessorOnFreeCraftSlot -- review round 2 finding 1 --
+// because his placement failure IS a hard inert condition.)
 void CalypsoPrologueScene::placeNamedActors(BattlescapeGame *bg)
 {
 	SavedBattleGame *save = bg->getSave();
@@ -274,9 +334,115 @@ void CalypsoPrologueScene::placeNamedActors(BattlescapeGame *bg)
 	};
 
 	placeAt(findUnit(save, _nikosId), NIKOS_POST, 3, "nikos");
-	placeAt(findUnit(save, _assessorId), ASSESSOR_POST, 3, "assessor");
 	for (size_t h = 0; h < _herderIds.size() && h < 2; ++h)
 		placeAt(findUnit(save, _herderIds[h]), HERDER_PEN[h], 3, "herder");
+}
+
+// Review round 2 (P1, finding 1): the fixed ASSESSOR_POST candidates could
+// land on an already-occupied Nereid crew slot (the 3 regular soldiers spawn
+// there first) and left the Assessor stranded at his generic RMP spawn
+// (observed in browser QA: "leaving spawn position (2,33,0)"). The Nereid's
+// craft ruleset (calypso-prologue.rul `deployment:`) defines 4 START_POINT
+// tiles for 3 regular crew, so exactly one is guaranteed free -- scan for it
+// using the SAME predicate BattlescapeGenerator::canPlaceXCOMUnit applies when
+// the generator itself places real crew (BattlescapeGenerator.cpp,
+// canPlaceXCOMUnit): a tile whose floor carries the START_POINT special type,
+// has no O_OBJECT (no big-wall/clutter blocking it), and has a walkable floor
+// TU cost. setUnitPosition() re-validates occupancy/walkability itself, so
+// this is safe to call on every START_POINT tile in map order and just take
+// the first one that succeeds.
+bool CalypsoPrologueScene::placeAssessorOnFreeCraftSlot(BattlescapeGame *bg)
+{
+	SavedBattleGame *save = bg->getSave();
+	BattleUnit *assessor = findUnit(save, _assessorId);
+	if (!assessor)
+	{
+		Log(LOG_ERROR) << "[prologue] assessor: unit missing before slot search -- scene going inert";
+		return false;
+	}
+
+	for (int i = 0; i < save->getMapSizeXYZ(); ++i)
+	{
+		Tile *t = save->getTile(i);
+		if (!t || t->getFloorSpecialTileType() != START_POINT) continue;
+		if (t->getMapData(O_OBJECT)) continue;
+		MapData *floor = t->getMapData(O_FLOOR);
+		if (!floor || floor->getTUCost(MT_WALK) == Pathfinding::INVALID_MOVE_COST) continue;
+
+		if (save->setUnitPosition(assessor, t->getPosition()))
+		{
+			save->getTileEngine()->calculateFOV(assessor);
+			return true;
+		}
+	}
+
+	Log(LOG_ERROR) << "[prologue] assessor: no free Nereid deployment slot found (all START_POINT "
+		<< "tiles occupied/blocked) -- scene going inert";
+	return false;
+}
+
+// Review round 2 (P1, finding 2): the previous ambush-trigger-style
+// Chebyshev-distance assumption gave no real guarantee that Nikos's post
+// keeps him >= NIKOS_MIN_TURNS game rounds from the Nereid -- his actual walk
+// path may snake around obstacles the straight-line distance ignores. This
+// runs the SAME Pathfinding the director's own steerUnit() primitive uses
+// (Pathfinding::calculate + getTotalTUCost) to get the real walking TU cost
+// from Nikos's scripted post to the exit area.
+//
+// The required margin accounts for BOTH movers per game round: Nikos is
+// handed off to FACTION_PLAYER at the ambush (stepAmbushed, before Gauntlet
+// even starts), so the player can walk him toward the boat on their OWN turn
+// in addition to the director's steerNikos() call on the Choir turn -- two
+// TU-budget's worth of movement per round, not one.
+//
+// IMPORTANT: this delay is a PACING device, not a survival gate. Nikos is
+// unconditionally force-killed by killNikosIfAlive()/onAbortRequested()
+// whenever any ending resolves, regardless of where he is standing (design
+// doc §8 #1: "Branch В is closed" -- verified in this file, both ending
+// paths call killNikosIfAlive unconditionally). So even if the map's real
+// geometry cannot achieve the full margin (a 50x50 map cannot always fit a
+// >= 350 TU path), the only thing at stake is the story beat: he must not
+// visibly plant himself next to the Nereid before the retreat resolves. When
+// the check comes up short, withhold the director's OWN steerNikos() walk
+// call for the missing number of Choir turns instead of forcing the scene
+// inert -- the player's own control of him is unaffected (an accepted,
+// documented gap: a player who deliberately drags Nikos toward the boat on
+// their own turns can still park him there early; he simply never survives
+// the ending either way).
+void CalypsoPrologueScene::computeNikosSafetyDelay(BattlescapeGame *bg)
+{
+	SavedBattleGame *save = bg->getSave();
+	BattleUnit *nikos = findUnit(save, _nikosId);
+	Pathfinding *pf = save ? save->getPathfinding() : nullptr;
+	if (!nikos || !pf)
+	{
+		_nikosPinnedTurnsLeft = 0;
+		return;
+	}
+
+	// maxTUCost=100000: we want the TRUE path cost, not one capped at some
+	// unit's remaining TU (the default cap is 1000, already generous, but an
+	// unreachable/very long route must resolve as "safe", not as cost 0).
+	pf->calculate(nikos, EXIT_AREA_CENTER, BAM_NORMAL, nullptr, 100000);
+	bool reachable = !pf->getPath().empty();
+	int cost = pf->getTotalTUCost();
+
+	int tu = nikos->getBaseStats()->tu;
+	int requiredCost = NIKOS_MIN_TURNS * 2 * tu; // 2 movers/round -- see above
+
+	if (!reachable || cost > requiredCost)
+	{
+		_nikosPinnedTurnsLeft = 0;
+		Log(LOG_INFO) << "[prologue] nikos path-cost check: reachable=" << reachable
+			<< " cost=" << cost << " required>" << requiredCost << " -- no delay needed";
+		return;
+	}
+
+	int roundsAtDoubleRate = (cost + (2 * tu) - 1) / (2 * tu); // ceil-div
+	_nikosPinnedTurnsLeft = std::max(0, NIKOS_MIN_TURNS - roundsAtDoubleRate);
+	Log(LOG_WARNING) << "[prologue] nikos path-cost check: reachable=" << reachable
+		<< " cost=" << cost << " required>" << requiredCost
+		<< " -- pinning steerNikos for " << _nikosPinnedTurnsLeft << " Choir turn(s)";
 }
 
 void CalypsoPrologueScene::onPlayerTurnStart(BattlescapeGame *bg)
@@ -548,11 +714,19 @@ void CalypsoPrologueScene::steerActiveHerder(BattlescapeGame *bg)
 
 void CalypsoPrologueScene::steerNikos(BattlescapeGame *bg)
 {
+	// Review round 2 (P1, finding 2): withhold the director's own walk call
+	// while computeNikosSafetyDelay's path-cost check came up short (see that
+	// function for why this is a pacing device, not a survival gate).
+	if (_nikosPinnedTurnsLeft > 0)
+	{
+		--_nikosPinnedTurnsLeft;
+		return;
+	}
 	SavedBattleGame *save = bg->getSave();
 	BattleUnit *nikos = findUnit(save, _nikosId);
 	if (!nikos || nikos->isOut()) return;
-	// The map guarantees >=5 turns from his SE start (41.1a step 5) -- he never
-	// reaches the boat in time, but the scene walks him regardless of who
+	// The scripted post + path-cost gate keep him genuinely out of reach for
+	// the design's window, but the scene walks him regardless of who
 	// "controls" him (handoffToPlayer only swaps camera/selection ownership).
 	CalypsoDirector::get().steerUnit(bg, nikos, EXIT_AREA_CENTER);
 }
@@ -811,6 +985,7 @@ void CalypsoPrologueScene::save(YAML::YamlNodeWriter writer) const
 	writer.write("shotsThisTurn", _shotsThisTurn);
 	writer.write("activeHerderIdx", _activeHerderIdx);
 	writer.write("lastNagStage", _lastNagStage);
+	writer.write("nikosPinnedTurnsLeft", _nikosPinnedTurnsLeft);
 }
 
 void CalypsoPrologueScene::load(const YAML::YamlNodeReader &reader)
@@ -834,6 +1009,7 @@ void CalypsoPrologueScene::load(const YAML::YamlNodeReader &reader)
 	_shotsThisTurn = reader["shotsThisTurn"].readVal<int>(0);
 	_activeHerderIdx = reader["activeHerderIdx"].readVal<int>(-1);
 	_lastNagStage = reader["lastNagStage"].readVal<int>(-1);
+	_nikosPinnedTurnsLeft = reader["nikosPinnedTurnsLeft"].readVal<int>(0);
 }
 
 } // namespace OpenXcom
