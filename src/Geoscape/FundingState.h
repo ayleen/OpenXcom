@@ -86,6 +86,10 @@ public:
 	void sortFundingClick(Action* action);
 	/// Handler for clicking the Change arrow.
 	void sortChangeClick(Action* action);
+#ifdef __EMSCRIPTEN__
+	/// Phase 41: apply HD UI scaling on resize.
+	void resize(int &dX, int &dY) override { applyUiScaling(); }
+#endif
 };
 
 }

@@ -63,6 +63,10 @@ public:
 	void lstCraftsRightClick(Action *action);
 	/// Handler for middle clicking the Crafts list.
 	void lstCraftsMiddleClick(Action *action);
+#ifdef __EMSCRIPTEN__
+	/// Phase 41: apply HD UI scaling on resize.
+	void resize(int &dX, int &dY) override { applyUiScaling(); }
+#endif
 };
 
 }

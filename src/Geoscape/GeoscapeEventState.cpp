@@ -80,6 +80,11 @@ GeoscapeEventState::GeoscapeEventState(const RuleEvent& eventRule) : _eventRule(
 	add(_lstTransfers, "list", "geoscapeEvent");
 
 	centerAllSurfaces();
+#ifdef __EMSCRIPTEN__
+	// Phase 41: HD scaling + TTF labels (see docs/phases/phase-29-menu-scaling.md).
+	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
+	enableUiScaling(320, 200, 1.0f);
+#endif
 
 	// Set up objects
 	_window->setBackground(_game->getMod()->getSurface(_eventRule.getBackground()));

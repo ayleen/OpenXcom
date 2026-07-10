@@ -58,6 +58,10 @@ public:
 	void btnInfoClick(Action *action);
 	/// Handler for changing the text on the Name edit.
 	void edtTitleChange(Action *action);
+#ifdef __EMSCRIPTEN__
+	/// Phase 41: apply HD UI scaling on resize.
+	void resize(int &dX, int &dY) override { applyUiScaling(); }
+#endif
 };
 
 }

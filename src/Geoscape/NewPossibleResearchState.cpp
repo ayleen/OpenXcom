@@ -59,6 +59,11 @@ NewPossibleResearchState::NewPossibleResearchState(Base * base, const std::vecto
 	add(_lstPossibilities, "text2", "geoResearch");
 
 	centerAllSurfaces();
+#ifdef __EMSCRIPTEN__
+	// Phase 41: HD scaling + TTF labels (see docs/phases/phase-29-menu-scaling.md).
+	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
+	enableUiScaling(320, 200, 1.0f);
+#endif
 
 	// Set up objects
 	setWindowBackground(_window, "geoResearch");

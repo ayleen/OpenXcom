@@ -50,6 +50,10 @@ public:
 	void btnOkClick(Action *action);
 	/// Handler for clicking the Purchase button.
 	void btnPurchaseClick(Action *action);
+#ifdef __EMSCRIPTEN__
+	/// Phase 41: apply HD UI scaling on resize.
+	void resize(int &dX, int &dY) override { applyUiScaling(); }
+#endif
 };
 
 }
