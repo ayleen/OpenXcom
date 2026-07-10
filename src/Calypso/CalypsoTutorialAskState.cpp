@@ -3,7 +3,8 @@
  * Phase 39 (Calypso): first-run enable-tutorial prompt implementation.
  * Whole file Emscripten-only. Cloned structurally from CalypsoTutorialState:
  * setInterface("pauseMenu") + add(*, id, "pauseMenu"), centerAllSurfaces(),
- * enableUiScaling(320,200,0.75f), applyTTFToTexts, setWindowBackground.
+ * enableUiScaling(320,200,0.75f), applyTTFToTexts. NO setWindowBackground --
+ * it breaks under enableUiScaling (see the note at the former call site).
  */
 #include "CalypsoTutorialAskState.h"
 #include "CalypsoTutorial.h"
@@ -42,7 +43,13 @@ CalypsoTutorialAskState::CalypsoTutorialAskState()
 	enableUiScaling(320, 200, 0.75f);
 	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
 
-	setWindowBackground(_window, "pauseMenu");
+	// NO setWindowBackground() here -- same bug as CalypsoPrologueAskState
+	// (Phase 41 review round 2, finding 4): Window::draw()'s background path
+	// crops the fixed 320x200 BACK01.SCR to the window's post-enableUiScaling
+	// size, which at HD resolutions overruns the source image and renders a
+	// broken sliver with text floating over it. The themed bevel fill from
+	// add()/setInterface() is scale-correct on its own; full root-cause
+	// analysis at the matching site in CalypsoPrologueAskState.cpp.
 
 	_txtTitle->setAlign(ALIGN_CENTER);
 	_txtTitle->setBig();
