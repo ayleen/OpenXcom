@@ -39,8 +39,14 @@
     {
       "file": "src/Menu/ListSaveState.cpp",
       "symbol": "ListSaveState::saveGame",
-      "mirroredBy": "calypso_save_write",
+      "mirroredBy": "calypso_save_write (new-slot filename dedup)",
       "sha256": "5b41f78620866647421a6abdcb92feb1e696de781ba231e84a1d0a69a17934a3"
+    },
+    {
+      "file": "src/Menu/SaveGameState.cpp",
+      "symbol": "SaveGameState::think",
+      "mirroredBy": "calypso_save_write (inline backup->save->moveFile + non-Ironman pause pop)",
+      "sha256": "b927bcdd51f0d06105aa2757ec0bb9e7b37c911c29dd5c60cfa4ae265c67174a"
     }
   ]
 }
