@@ -120,6 +120,12 @@ private:
 	/// repeat-fire loop hits SHOT_CAP_PER_TURN, and for scripted off-screen
 	/// deaths (Nikos). `attacker` may be null (unattributed, environment-style).
 	static void forceKill(BattlescapeGame *bg, BattleUnit *victim, BattleUnit *attacker);
+	/// Design amendment #10 ("taken, not corpses", design doc s8 #10): remove
+	/// the corpse items of units queued in _pendingTakenIds -- the water
+	/// collects the fallen. Runs at player-turn start (clean stack, right
+	/// after the Choir turn that dropped them), before the rolling autosave so
+	/// a reload never resurrects a collected body.
+	void collectTakenBodies(BattlescapeGame *bg);
 	void radio(const std::string &stringId) const;
 
 	// ---- state ----------------------------------------------------------------
@@ -149,6 +155,15 @@ private:
 	int _activeHerderIdx = -1;      ///< index into _herderIds currently being steered
 
 	int _lastNagStage = -1;         ///< last escalationStage() value a nag line fired for
+
+	/// Design amendment #9 (design doc s8 #9): Choir turns bought by killing
+	/// herders. Incremented in onUnitDied per dead herder (max 2 herders =
+	/// max 2), consumed in stepGauntlet's victim step -- but never against
+	/// the FIRST post-Assessor loss (that beat is uncancellable).
+	int _herderReprieveTurns = 0;
+	/// Design amendment #10: gauntlet victims whose bodies the water has not
+	/// collected yet -- processed by collectTakenBodies() at player-turn start.
+	std::vector<int> _pendingTakenIds;
 
 	/// The outcome last passed to CalypsoDirector::endScene(). Set right before
 	/// that call (both call sites: resolvePendingEnding and onAbortRequested)
