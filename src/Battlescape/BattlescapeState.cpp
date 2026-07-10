@@ -3767,7 +3767,7 @@ void BattlescapeState::finishBattle(bool abort, int inExitArea)
 	// scripted battle before its scene has selected an outcome. This check is
 	// deliberately before every cleanup/pop below; endScene() sets an outcome
 	// first, so scene-owned endings still pass through to the intercept below.
-	if (CalypsoDirector::get().interceptUnexpectedFinish(this)) return;
+	if (CalypsoDirector::get().interceptUnexpectedFinish(this, abort)) return;
 #endif
 	bool isPreview = _save->isPreview();
 

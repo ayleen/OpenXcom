@@ -228,6 +228,8 @@ void CalypsoPrologueScene::onBattleStart(BattlescapeGame *bg)
 	if (!resolveActors(bg))
 	{
 		_inert = true;
+		_endingTriggered = true;
+		_pendingOutcome = OutcomeAllTaken;
 		return;
 	}
 	placeMarksman(bg);
@@ -239,6 +241,8 @@ void CalypsoPrologueScene::onBattleStart(BattlescapeGame *bg)
 	if (!placeAssessorOnFreeCraftSlot(bg))
 	{
 		_inert = true;
+		_endingTriggered = true;
+		_pendingOutcome = OutcomeAllTaken;
 		return;
 	}
 	placeNamedActors(bg);
@@ -441,7 +445,9 @@ void CalypsoPrologueScene::checkNikosPathCost(BattlescapeGame *bg)
 
 void CalypsoPrologueScene::onPlayerTurnStart(BattlescapeGame *bg)
 {
-	if (_inert || !bg) return;
+	if (!bg) return;
+	if (resolvePendingEnding(bg)) return;
+	if (_inert) return;
 	SavedBattleGame *save = bg->getSave();
 	if (!save) return;
 
@@ -500,9 +506,10 @@ void CalypsoPrologueScene::onEnemyTurnStart(BattlescapeGame *bg)
 
 bool CalypsoPrologueScene::onEnemyTurnIdle(BattlescapeGame *bg)
 {
-	if (_inert || !bg) return false;
+	if (!bg) return false;
 	// An armed ending outranks the step machine; it tears the battle down.
 	if (resolvePendingEnding(bg)) return false;
+	if (_inert || _evacOnly) return false;
 	switch (_phase)
 	{
 		case Ph::MoveToOffice: return stepMoveToOffice(bg);
@@ -565,10 +572,10 @@ bool CalypsoPrologueScene::stepAmbushed(BattlescapeGame *bg)
 	}
 
 	BattleUnit *marksman = findUnit(save, _marksmanId);
-	if (!marksman)
+	if (!marksman || marksman->isOut())
 	{
-		Log(LOG_ERROR) << "[prologue] marksman missing mid-ambush -- scene going inert";
-		_inert = true;
+		Log(LOG_INFO) << "[prologue] marksman neutralized mid-ambush -- switching to extraction-only tail";
+		enterEvacOnly(bg, true);
 		return false;
 	}
 
@@ -592,7 +599,9 @@ int CalypsoPrologueScene::pickGauntletTarget(SavedBattleGame *save) const
 		if (_leaderDiesFirst)
 		{
 			BattleUnit *leader = findUnit(save, _leaderId);
-			if (leader && !leader->isOut()) return _leaderId;
+			if (leader && !leader->isOut()) candidates.push_back({ _leaderId,
+				leader->getPosition().x, leader->getPosition().y,
+				leader->isInExitArea(START_POINT) });
 		}
 		else
 		{
@@ -602,8 +611,11 @@ int CalypsoPrologueScene::pickGauntletTarget(SavedBattleGame *save) const
 				if (u && !u->isOut()) candidates.push_back({ id, u->getPosition().x, u->getPosition().y,
 					u->isInExitArea(START_POINT) });
 			}
-			if (!candidates.empty())
-				return Calypso::pickGauntletVictim(candidates, EXIT_AREA, _nikosId);
+		}
+		if (!candidates.empty())
+		{
+			int forced = Calypso::pickGauntletVictim(candidates, EXIT_AREA, _nikosId);
+			if (forced >= 0) return forced;
 		}
 		// Forced target already gone (edge case, e.g. reaction fire) -- fall
 		// through to the normal farthest-first pick below.
@@ -669,10 +681,10 @@ bool CalypsoPrologueScene::stepGauntlet(BattlescapeGame *bg)
 		}
 
 		BattleUnit *marksman = findUnit(save, _marksmanId);
-		if (!marksman)
+		if (!marksman || marksman->isOut())
 		{
-			Log(LOG_ERROR) << "[prologue] marksman missing mid-gauntlet -- scene going inert";
-			_inert = true;
+			Log(LOG_INFO) << "[prologue] marksman neutralized mid-gauntlet -- switching to extraction-only tail";
+			enterEvacOnly(bg, false);
 			return false;
 		}
 
@@ -739,6 +751,23 @@ void CalypsoPrologueScene::steerActiveHerder(BattlescapeGame *bg)
 // --------------------------------------------------------------------------- //
 // endings
 // --------------------------------------------------------------------------- //
+
+void CalypsoPrologueScene::enterEvacOnly(BattlescapeGame *bg, bool announceObjective)
+{
+	if (_evacOnly || !bg) return;
+	SavedBattleGame *save = bg->getSave();
+	_evacOnly = true;
+	_phase = Ph::Gauntlet; // keeps the reskinned cast-off path enabled
+	_gauntletStep = 2;
+	_currentVictimId = -1;
+	if (save)
+	{
+		if (BattleUnit *nikos = findUnit(save, _nikosId))
+			if (!nikos->isOut() && nikos->getFaction() != FACTION_PLAYER)
+				CalypsoDirector::get().handoffToPlayer(bg, nikos);
+	}
+	if (announceObjective) radio(STR_PROLOGUE_RADIO_OBJECTIVE);
+}
 
 void CalypsoPrologueScene::checkBranchB(BattlescapeGame *bg)
 {
@@ -880,8 +909,12 @@ void CalypsoPrologueScene::onUnitDied(BattlescapeGame *bg, BattleUnit *victim, B
 
 bool CalypsoPrologueScene::onAbortRequested(BattlescapeState *bs)
 {
-	if (_inert || !bs) return false;
-	if (_phase != Ph::Ambushed && _phase != Ph::Gauntlet) return false;
+	if (!bs) return false;
+	// While a fallback outcome is pending, or before the ambush has made
+	// cast-off available, dismiss the confirmation without entering vanilla's
+	// abort path (which would set SavedBattleGame::_aborted before the director
+	// gets another chance to block finishBattle).
+	if (_inert || (_phase != Ph::Ambushed && _phase != Ph::Gauntlet)) return true;
 
 	BattlescapeGame *bg = bs->getBattleGame();
 	if (!bg) return false;
@@ -894,10 +927,11 @@ bool CalypsoPrologueScene::onAbortRequested(BattlescapeState *bs)
 		BattleUnit *u = findUnit(save, id);
 		if (u && !u->isOut() && u->isInExitArea(START_POINT)) { anyoneAboard = true; break; }
 	}
-	// Nobody aboard -- let vanilla abort-mission rules handle it (the scene
-	// does not consume the confirmation; whether the vanilla flow itself
-	// blocks an empty-boat abort is verified at browser QA, not statically).
-	if (!anyoneAboard) return false;
+	// Nobody aboard: consume the click but keep the battle running. Vanilla's
+	// abort handler does not reject this case itself; it sets _aborted and calls
+	// finishBattle, which would poison the rolling save even if completion were
+	// subsequently blocked.
+	if (!anyoneAboard) return true;
 
 	// Set the guard BEFORE the kill: Nikos's death re-enters onUnitDied, and an
 	// unguarded checkBranchB there could arm Branch Б mid-cast-off (e.g. the
@@ -934,12 +968,29 @@ bool CalypsoPrologueScene::onAbortRequested(BattlescapeState *bs)
 	return true;
 }
 
-bool CalypsoPrologueScene::onUnexpectedFinish(BattlescapeState *bs, int *outcome)
+bool CalypsoPrologueScene::onUnexpectedFinish(BattlescapeState *bs, bool abort, int *outcome)
 {
-	if (_inert || !bs) return false;
+	if (!bs) return false;
 	BattlescapeGame *bg = bs->getBattleGame();
 	SavedBattleGame *save = bg ? bg->getSave() : nullptr;
 	if (!save) return false;
+
+	// Staging/runtime failure is a deterministic fallback, never a passive
+	// pseudo-battle: convert the same vanilla finish into the prologue end state
+	// so the real campaign is still created. This also recovers old saves whose
+	// inert flag predates _pendingOutcome.
+	if (_inert || _pendingOutcome >= 0)
+	{
+		int fallback = _pendingOutcome >= 0 ? _pendingOutcome : OutcomeAllTaken;
+		_finishedOutcome = fallback;
+		if (outcome) *outcome = fallback;
+		return true;
+	}
+
+	// A manual abort that was not accepted by onAbortRequested is never an
+	// alternate completion route. Keep the scene unchanged; valid cast-off has
+	// already set a director outcome and therefore never reaches this callback.
+	if (abort) return true;
 
 	// Neutralizing every Choir actor is not the prologue's victory condition:
 	// surviving crew must still get back onto real START_POINT tiles and cast
@@ -947,7 +998,17 @@ bool CalypsoPrologueScene::onUnexpectedFinish(BattlescapeState *bs, int *outcome
 	for (int id : allPlayerIds())
 	{
 		BattleUnit *u = findUnit(save, id);
-		if (u && !u->isOut()) return true;
+		if (u && !u->isOut())
+		{
+			// With no Choir left there is no actor to pump the scripted step
+			// machine. Switch once to an explicit extraction-only state: hand Nikos
+			// to the player, stop all scripted attacks, and leave cast-off enabled.
+			if (!_evacOnly)
+			{
+				enterEvacOnly(bg, _phase != Ph::Gauntlet);
+			}
+			return true;
+		}
 	}
 
 	// If vanilla reached us because the last crew member died before the normal
@@ -1057,6 +1118,7 @@ void CalypsoPrologueScene::save(YAML::YamlNodeWriter writer) const
 	writer.write("endingTriggered", _endingTriggered);
 	writer.write("pendingOutcome", _pendingOutcome);
 	writer.write("pendingTaking", _pendingTaking);
+	writer.write("evacOnly", _evacOnly);
 	writer.write("leaderId", _leaderId);
 	writer.write("diverIds", _diverIds);
 	writer.write("assessorId", _assessorId);
@@ -1082,6 +1144,7 @@ void CalypsoPrologueScene::load(const YAML::YamlNodeReader &reader)
 	_endingTriggered = reader["endingTriggered"].readVal<bool>(false);
 	_pendingOutcome = reader["pendingOutcome"].readVal<int>(-1);
 	_pendingTaking = reader["pendingTaking"].readVal<bool>(false);
+	_evacOnly = reader["evacOnly"].readVal<bool>(false);
 	_leaderId = reader["leaderId"].readVal<int>(-1);
 	_diverIds = reader["diverIds"].readVal<std::vector<int>>(std::vector<int>{});
 	_assessorId = reader["assessorId"].readVal<int>(-1);

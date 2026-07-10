@@ -59,7 +59,7 @@ public:
 	bool onEnemyTurnIdle(BattlescapeGame *bg) override;
 	void onUnitDied(BattlescapeGame *bg, BattleUnit *victim, BattleUnit *killer) override;
 	bool onAbortRequested(BattlescapeState *bs) override;
-	bool onUnexpectedFinish(BattlescapeState *bs, int *outcome) override;
+	bool onUnexpectedFinish(BattlescapeState *bs, bool abort, int *outcome) override;
 	bool abortStrings(std::string *title, std::string *ok, std::string *cancel) override;
 	State *makeEndState() override; // Commit 4: CalypsoPrologueEndState ("six months later")
 	void save(YAML::YamlNodeWriter writer) const override;
@@ -107,6 +107,9 @@ private:
 	/// from inside checkForCasualties (via onUnitDied), where nested kills or
 	/// finishBattle would re-enter the casualty loop.
 	void checkBranchB(BattlescapeGame *bg);
+	/// Switch to a non-hostile extraction-only tail after the player removes the
+	/// scripted threat. No further gauntlet actions run; cast-off stays active.
+	void enterEvacOnly(BattlescapeGame *bg, bool announceObjective);
 	/// Execution -- runs the armed ending (radio, takings, endScene) from a
 	/// clean stack: the onEnemyTurnIdle pump or onPlayerTurnStart, the same
 	/// contexts vanilla itself calls finishBattle from. Returns true if an
@@ -135,6 +138,7 @@ private:
 	bool _endingTriggered = false;  ///< an ending is armed or executed -- the script stops
 	int _pendingOutcome = -1;       ///< armed ending awaiting a safe stack (resolvePendingEnding)
 	bool _pendingTaking = false;    ///< armed ending is the Branch Б boarding flavor
+	bool _evacOnly = false;         ///< Choir neutralized early: no more scripted attacks, cast-off remains available
 
 	// actor ids (never pointers -- re-resolved every call)
 	int _leaderId = -1;
