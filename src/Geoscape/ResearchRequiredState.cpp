@@ -50,6 +50,11 @@ ResearchRequiredState::ResearchRequiredState(RuleItem *item)
 	add(_txtTitle, "text1", "geoResearchRequired");
 
 	centerAllSurfaces();
+#ifdef __EMSCRIPTEN__
+	// Phase 41: HD scaling + TTF labels (see docs/phases/phase-29-menu-scaling.md).
+	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
+	enableUiScaling(320, 200, 1.0f);
+#endif
 
 	std::string weapon = item->getType();
 	std::string clip = item->getPrimaryCompatibleAmmo()->front()->getType();

@@ -55,6 +55,11 @@ DogfightErrorState::DogfightErrorState(Craft *craft, const std::string &msg) : _
 	add(_txtMessage, "text", "dogfightInfo");
 
 	centerAllSurfaces();
+#ifdef __EMSCRIPTEN__
+	// Phase 41: HD scaling + TTF labels (see docs/phases/phase-29-menu-scaling.md).
+	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
+	enableUiScaling(320, 200, 1.0f);
+#endif
 
 	// Set up objects
 	setWindowBackground(_window, "dogfightInfo");

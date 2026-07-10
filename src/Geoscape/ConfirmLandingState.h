@@ -58,6 +58,10 @@ public:
 	void btnNoClick(Action *action);
 	/// Handler for pressing/releasing CTRL.
 	void togglePatrolButton(Action *action);
+#ifdef __EMSCRIPTEN__
+	/// Phase 41: apply HD UI scaling on resize.
+	void resize(int &dX, int &dY) override { applyUiScaling(); }
+#endif
 };
 
 }
