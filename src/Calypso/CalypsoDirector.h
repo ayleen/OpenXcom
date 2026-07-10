@@ -80,6 +80,13 @@ public:
 	virtual void onEnemyTurnStart(BattlescapeGame *) {}
 	/// A new neutral turn has just begun (empty by default; most scenes ignore it).
 	virtual void onNeutralTurnStart(BattlescapeGame *) {}
+	/// Called instead of vanilla AI, once per think() tick, whenever a scripted
+	/// scene is active and the acting side is hostile or neutral (the director
+	/// suppresses AI entirely for both -- scripted actors have no autonomy).
+	/// Return true if the scene queued more work (states pushed this call);
+	/// false when the scene has nothing left to do this turn -- the director
+	/// then ends the side's turn the vanilla way.
+	virtual bool onEnemyTurnIdle(BattlescapeGame *) { return false; }
 	/// A unit died this frame. `killer` may be null (bleed-out, environment).
 	/// Fires exactly once per actual new death (never for already-dead units).
 	virtual void onUnitDied(BattlescapeGame *, BattleUnit *victim, BattleUnit *killer) {}
@@ -138,6 +145,10 @@ public:
 
 	/// A unit died (forwarded from the casualty pipeline). Killer may be null.
 	void onUnitDied(BattlescapeGame *bg, BattleUnit *victim, BattleUnit *killer);
+
+	/// Forwards to the active scene's onEnemyTurnIdle (see CalypsoScene). Returns
+	/// false (let vanilla AI/end-turn proceed) when no scene is active.
+	bool onEnemyTurnIdle(BattlescapeGame *bg);
 
 	/// Abort confirmed by the player. Returns true if the scene consumed it.
 	bool onAbortRequested(BattlescapeState *bs);

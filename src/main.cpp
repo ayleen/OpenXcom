@@ -29,6 +29,7 @@
 #include "Engine/Screen.h"
 #include "Menu/StartState.h"
 #ifdef __EMSCRIPTEN__
+#include "Calypso/CalypsoSceneRegistry.h"
 extern "C" void calypso_log_heap(const char *tag);  // M5b: defined in EmscriptenHarness.cpp
 #endif
 
@@ -127,6 +128,7 @@ int main(int argc, char *argv[])
 	Options::setDataFolder("/game/");
 	// /user/ is the IDBFS mount point — mounted from JS before callMain.
 	Options::setUserFolder("/user/");
+	registerCalypsoScenes(); // Phase 41: register scripted-scene factories with CalypsoDirector
 	calypso_log_heap("pre/main-start");  // M5b: after arg parsing, before Options::init
 #endif
 	if (!Options::init())
