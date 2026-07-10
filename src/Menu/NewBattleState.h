@@ -117,6 +117,10 @@ public:
 	/// Handlers for Quick Search.
 	void btnQuickSearchToggle(Action *action);
 	void btnQuickSearchApply(Action *action);
+
+#ifdef __EMSCRIPTEN__
+	friend struct CalypsoNewBattleBridge;   // Phase 41 HTML overlay driver
+#endif
 };
 
 }

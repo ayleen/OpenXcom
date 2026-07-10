@@ -99,6 +99,23 @@ int calypso_options_apply(int origin);
  * was pushed for this overlay). Returns 1 (no live Game returns 0). */
 int calypso_options_cancel(int origin);
 
+/* Slice A5 — New Battle overlay (pattern 2: friend bridge, mirrors A1). The
+ * native NewBattleState is pushed by calypso_menu_new_battle() (Engine/
+ * EmscriptenHarness.cpp); the exports below drive it through the friend
+ * struct CalypsoNewBattleBridge defined in CalypsoMenuBridge.cpp. */
+int calypso_newbattle_ready(void);
+const char *calypso_newbattle_json(void);
+/* field in {"mission","craft","terrain","difficulty","race","darkness",
+ * "alienTech","depth","ufoLanded"}. Returns 1 on success, 0 on unknown field
+ * or no live NewBattleState. */
+int calypso_newbattle_set(const char *field, int value);
+int calypso_newbattle_random(void);
+/* Pushes the native CraftInfoState; the HTML overlay closes fully afterward
+ * (known UX seam — see docs/html-menu-screens.md). */
+int calypso_newbattle_equip(void);
+int calypso_newbattle_start(void);
+int calypso_newbattle_cancel(void);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif
