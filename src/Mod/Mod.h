@@ -1283,6 +1283,9 @@ public:
 	/// Brutal-AI: whether to trim the per-turn option set the brutal AI evaluates, to cut turn time (default false).
 	bool getAIPerformanceOptimization() const { return _aiPerformanceOptimization; }
 	bool getAIFailureMemory() const { return _aiFailureMemory; }
+#ifdef __EMSCRIPTEN__
+	void setAIFailureMemoryForHarness(bool enabled) { _aiFailureMemory = enabled; }
+#endif
 	/// Gets the civilian unit type spawned as an armed guard (Phase 32; empty = no guards).
 	const std::string& getAICivilianGuardType() const { return _aiCivilianGuardType; }
 	/// Gets the per-civilian chance (%) of spawning as a guard instead (Phase 32; default 0).

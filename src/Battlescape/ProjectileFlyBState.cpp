@@ -44,6 +44,10 @@
 namespace OpenXcom
 {
 
+#ifdef __EMSCRIPTEN__
+extern "C" int calypso_consume_ai_failure_probe(int unitId, int actionType);
+#endif
+
 /**
  * Sets up an ProjectileFlyBState.
  */
@@ -98,6 +102,19 @@ void ProjectileFlyBState::init()
 	}
 
 	_unit = _action.actor;
+
+#ifdef __EMSCRIPTEN__
+	// Regression harness only: force one exact hostile AI projectile candidate
+	// through the real failure-memory path without spending TU/ammo or changing
+	// the world revision.  The probe is dormant unless JS explicitly arms it.
+	if (_unit->getFaction() == FACTION_HOSTILE && _action.aiHasFilteredFallback
+		&& calypso_consume_ai_failure_probe(_unit->getId(), static_cast<int>(_action.type)))
+	{
+		_action.aiFailure = AIFailureReason::NO_LOF;
+		_parent->popState();
+		return;
+	}
+#endif
 
 	bool reactionShoot = _unit->getFaction() != _parent->getSave()->getSide();
 	if (_action.type != BA_THROW)

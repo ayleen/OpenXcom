@@ -28,6 +28,9 @@
 #include "GpuSmokeState.h"
 #include "Logger.h"
 #include "FileMap.h"
+#include "../Mod/Mod.h"
+#include "../Savegame/SavedGame.h"
+#include "../Savegame/SavedBattleGame.h"
 #include "../Interface/Cursor.h"
 // Phase 33 (mobile): pinch-zoom bridge + virtual-keyboard bridge for TextEdit.
 #include "../Interface/TextEdit.h"
@@ -64,6 +67,57 @@ static size_t heapUsedBytes()
 }
 
 extern "C" {
+
+/* One-shot deterministic AI failure probe for regression scenarios.  Normal
+ * gameplay never arms it; the harness opts in after loading a scenario save.
+ * ProjectileFlyBState consumes an exact unit/action match before the action
+ * spends TU or ammo, then follows the production failure-memory path. */
+static int s_aiFailureProbeUnitId = -1;
+static int s_aiFailureProbeAction = -1;
+static bool s_aiFailureProbeArmed = false;
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_arm_ai_failure_probe(int unitId, int actionType)
+{
+	s_aiFailureProbeUnitId = unitId;
+	s_aiFailureProbeAction = actionType;
+	s_aiFailureProbeArmed = true;
+}
+
+int calypso_consume_ai_failure_probe(int unitId, int actionType)
+{
+	if (!s_aiFailureProbeArmed || unitId != s_aiFailureProbeUnitId
+		|| (s_aiFailureProbeAction != -1 && actionType != s_aiFailureProbeAction))
+	{
+		return 0;
+	}
+	s_aiFailureProbeArmed = false;
+	return 1;
+}
+
+/* Re-apply the dev-only AI trace opt-in after callMain unwinds to JS and before
+ * subsequent engine frames process a deterministic harness scenario. */
+EMSCRIPTEN_KEEPALIVE
+void calypso_set_trace_ai(int enabled)
+{
+	OpenXcom::Options::traceAI = enabled != 0;
+}
+
+/* Enable the decision-affecting failure-memory gate for an explicit regression
+ * scenario without changing the shipped ruleset default. */
+EMSCRIPTEN_KEEPALIVE
+int calypso_set_ai_failure_memory(int enabled)
+{
+	Game *g = getCurrentGame();
+	SavedBattleGame *battle = g && g->getSavedGame() ? g->getSavedGame()->getSavedBattle() : nullptr;
+	Mod *gameMod = g ? g->getMod() : nullptr;
+	Mod *battleMod = battle ? const_cast<Mod *>(battle->getMod()) : nullptr;
+	if (!gameMod || !battleMod) return 0;
+	gameMod->setAIFailureMemoryForHarness(enabled != 0);
+	battleMod->setAIFailureMemoryForHarness(enabled != 0);
+	return gameMod->getAIFailureMemory() == (enabled != 0)
+		&& battleMod->getAIFailureMemory() == (enabled != 0) ? 1 : 0;
+}
 
 /* Log one [HEAP] line: total / used / free in MB (1 decimal) + delta vs the
  * previous calypso_log_heap() call (first call's baseline is 0). */

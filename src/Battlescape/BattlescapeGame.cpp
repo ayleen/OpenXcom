@@ -1445,6 +1445,7 @@ void BattlescapeGame::popState()
 	if (_states.empty()) return;
 
 	auto* first = _states.front();
+	const bool turnSetupState = dynamic_cast<UnitTurnBState *>(first) != nullptr;
 	BattleAction action = first->getAction();
 	if (action.actor && action.actor->getFaction() != FACTION_PLAYER && action.actor->getAIModule()
 		&& action.aiFailure != AIFailureReason::NONE)
@@ -1502,10 +1503,13 @@ void BattlescapeGame::popState()
 			{
 				// Phase 43 (C2): zero-TU progress guard. If this brutal actor's whole action sequence
 				// completed without spending any TU, the think->execute cycle made no progress and would
-				// repeat forever. BA_NONE / BA_WAIT are legitimate zero-TU terminal actions and must NOT
-				// trip the guard. Gated on isBrutal() so the vanilla off-path stays byte-identical.
+				// repeat forever. BA_NONE / BA_WAIT are legitimate zero-TU terminal actions, while
+				// BA_TURN and UnitTurnBState are zero-TU setup states that may precede a queued shot
+				// (the latter retains the shot's action type); none may trip the guard. Gated on
+				// isBrutal() so the vanilla off-path stays byte-identical.
 				if (action.actor && action.actor->isBrutal()
-					&& action.type != BA_NONE && action.type != BA_WAIT
+					&& action.type != BA_NONE && action.type != BA_WAIT && action.type != BA_TURN
+					&& !turnSetupState
 					&& !hasProvenFilteredFallback(getMod()->getAIFailureMemory(),
 						action.aiHasFilteredFallback, action.aiFailure)
 					&& action.tuBefore == action.actor->getTimeUnits())
