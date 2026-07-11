@@ -583,11 +583,6 @@ if(EMSCRIPTEN)
   list(APPEND openxcom_src Calypso/GeoscapeChecklist.cpp)
   list(APPEND openxcom_src Calypso/CalypsoAdvisor.cpp)
   list(APPEND openxcom_src Calypso/CalypsoTutorialAskState.cpp)
-  # Phase 41: HTML meta-menu bridge — JS overlay screens drive the engine through
-  # EMSCRIPTEN_KEEPALIVE exports defined here. Slice A0 ships calypso_bridge_ping.
-  list(APPEND openxcom_src Calypso/CalypsoMenuBridge.cpp)
-  # Phase 41 Slice B2: HD Geoscape side panel (friend bridge for GeoscapeState).
-  list(APPEND openxcom_src Calypso/CalypsoGeoscapeHd.cpp)
   list(APPEND openxcom_src Calypso/CalypsoDirector.cpp)
   list(APPEND openxcom_src Calypso/CalypsoRadioLineState.cpp)
   list(APPEND openxcom_src Calypso/CalypsoPrologueScene.cpp)
@@ -595,6 +590,11 @@ if(EMSCRIPTEN)
   list(APPEND openxcom_src Calypso/CalypsoPrologueCampaign.cpp)
   list(APPEND openxcom_src Calypso/CalypsoPrologueAskState.cpp)
   list(APPEND openxcom_src Calypso/CalypsoPrologueEndState.cpp)
+  # Phase 41: HTML meta-menu bridge — JS overlay screens drive the engine through
+  # EMSCRIPTEN_KEEPALIVE exports defined here. Slice A0 ships calypso_bridge_ping.
+  list(APPEND openxcom_src Calypso/CalypsoMenuBridge.cpp)
+  # Phase 41 Slice B2: HD Geoscape side panel (friend bridge for GeoscapeState).
+  list(APPEND openxcom_src Calypso/CalypsoGeoscapeHd.cpp)
 
   # Phase 8b: regenerate embedded shader table before each build when any
   # *.vert or *.frag file in Engine/Shaders/ has changed.

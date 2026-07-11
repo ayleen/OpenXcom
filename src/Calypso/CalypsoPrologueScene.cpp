@@ -910,12 +910,6 @@ void CalypsoPrologueScene::onUnitDied(BattlescapeGame *bg, BattleUnit *victim, B
 bool CalypsoPrologueScene::onAbortRequested(BattlescapeState *bs)
 {
 	if (!bs) return false;
-	// While a fallback outcome is pending, or before the ambush has made
-	// cast-off available, dismiss the confirmation without entering vanilla's
-	// abort path (which would set SavedBattleGame::_aborted before the director
-	// gets another chance to block finishBattle).
-	if (_inert || (_phase != Ph::Ambushed && _phase != Ph::Gauntlet)) return true;
-
 	BattlescapeGame *bg = bs->getBattleGame();
 	if (!bg) return false;
 	SavedBattleGame *save = bg->getSave();
@@ -927,11 +921,12 @@ bool CalypsoPrologueScene::onAbortRequested(BattlescapeState *bs)
 		BattleUnit *u = findUnit(save, id);
 		if (u && !u->isOut() && u->isInExitArea(START_POINT)) { anyoneAboard = true; break; }
 	}
-	// Nobody aboard: consume the click but keep the battle running. Vanilla's
-	// abort handler does not reject this case itself; it sets _aborted and calls
-	// finishBattle, which would poison the rolling save even if completion were
-	// subsequently blocked.
-	if (!anyoneAboard) return true;
+	// While a fallback is pending, before the ambush enables cast-off, or with
+	// nobody aboard, consume the click without entering vanilla's abort path.
+	// Vanilla would set SavedBattleGame::_aborted before finishBattle, poisoning
+	// the rolling save even if the director subsequently blocked completion.
+	bool castOffAvailable = _phase == Ph::Ambushed || _phase == Ph::Gauntlet;
+	if (Calypso::consumeAbortRequest(_inert, castOffAvailable, anyoneAboard)) return true;
 
 	// Set the guard BEFORE the kill: Nikos's death re-enters onUnitDied, and an
 	// unguarded checkBranchB there could arm Branch Б mid-cast-off (e.g. the
@@ -975,40 +970,38 @@ bool CalypsoPrologueScene::onUnexpectedFinish(BattlescapeState *bs, bool abort, 
 	SavedBattleGame *save = bg ? bg->getSave() : nullptr;
 	if (!save) return false;
 
-	// Staging/runtime failure is a deterministic fallback, never a passive
-	// pseudo-battle: convert the same vanilla finish into the prologue end state
-	// so the real campaign is still created. This also recovers old saves whose
-	// inert flag predates _pendingOutcome.
-	if (_inert || _pendingOutcome >= 0)
-	{
-		int fallback = _pendingOutcome >= 0 ? _pendingOutcome : OutcomeAllTaken;
-		_finishedOutcome = fallback;
-		if (outcome) *outcome = fallback;
-		return true;
-	}
-
-	// A manual abort that was not accepted by onAbortRequested is never an
-	// alternate completion route. Keep the scene unchanged; valid cast-off has
-	// already set a director outcome and therefore never reaches this callback.
-	if (abort) return true;
-
-	// Neutralizing every Choir actor is not the prologue's victory condition:
-	// surviving crew must still get back onto real START_POINT tiles and cast
-	// off. Consume vanilla liveAliens==0 completion while anyone remains alive.
+	bool anyCrewAlive = false;
 	for (int id : allPlayerIds())
 	{
 		BattleUnit *u = findUnit(save, id);
-		if (u && !u->isOut())
+		if (u && !u->isOut()) { anyCrewAlive = true; break; }
+	}
+
+	switch (Calypso::decideUnexpectedFinish(_inert, _pendingOutcome >= 0,
+		abort, anyCrewAlive, _evacOnly))
+	{
+		case Calypso::UnexpectedFinishAction::FallbackOutcome:
 		{
-			// With no Choir left there is no actor to pump the scripted step
-			// machine. Switch once to an explicit extraction-only state: hand Nikos
-			// to the player, stop all scripted attacks, and leave cast-off enabled.
-			if (!_evacOnly)
-			{
-				enterEvacOnly(bg, _phase != Ph::Gauntlet);
-			}
+			// Staging/runtime failure is deterministic, never a passive
+			// pseudo-battle. Also recovers old inert saves without pendingOutcome.
+			int fallback = _pendingOutcome >= 0 ? _pendingOutcome : OutcomeAllTaken;
+			_finishedOutcome = fallback;
+			if (outcome) *outcome = fallback;
 			return true;
 		}
+		case Calypso::UnexpectedFinishAction::ConsumeAbort:
+			// Valid cast-off already selected a director outcome and never arrives
+			// here; any other manual abort must leave the scene unchanged.
+			return true;
+		case Calypso::UnexpectedFinishAction::EnterEvacOnly:
+			// Neutralizing the Choir is not victory. With no hostile actor left to
+			// pump the script, hand Nikos over and keep cast-off as the only exit.
+			enterEvacOnly(bg, _phase != Ph::Gauntlet);
+			return true;
+		case Calypso::UnexpectedFinishAction::KeepEvacOnly:
+			return true;
+		case Calypso::UnexpectedFinishAction::AllTakenOutcome:
+			break;
 	}
 
 	// If vanilla reached us because the last crew member died before the normal
