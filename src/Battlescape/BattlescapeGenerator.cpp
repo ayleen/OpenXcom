@@ -236,6 +236,8 @@ void BattlescapeGenerator::setMissionSite(MissionSite *mission)
  */
 void BattlescapeGenerator::nextStage()
 {
+	// Stage-1 noise events must not leak into stage 2 (aliens would chase phantom noise).
+	_save->clearNoiseEvents();
 	// check if the unit is available in the next stage
 	auto isUnitStillActive = [](const BattleUnit* u)
 	{

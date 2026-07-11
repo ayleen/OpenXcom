@@ -5963,12 +5963,12 @@ bool BattleUnit::getWantToEndTurn()
 	return false;
 }
 
-void BattleUnit::setReachablePositions(std::map<Position, int, PositionComparator> reachable)
+void BattleUnit::setReachablePositions(const std::map<Position, int, PositionComparator>& reachable)
 {
 	_reachablePositions = reachable;
 }
 
-std::map<Position, int, PositionComparator> BattleUnit::getReachablePositions()
+const std::map<Position, int, PositionComparator>& BattleUnit::getReachablePositions()
 {
 	return _reachablePositions;
 }

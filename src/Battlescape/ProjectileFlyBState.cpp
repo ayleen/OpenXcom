@@ -132,6 +132,10 @@ void ProjectileFlyBState::init()
 	Tile *endTile = _parent->getSave()->getTile(_action.target);
 	int distanceSq = _action.actor->distance3dToPositionSq(_action.target);
 	bool isPlayer = _parent->getSave()->getSide() == FACTION_PLAYER;
+	// M1 (Calypso): LOF strictness must key off the SHOOTER's faction, not whose turn it is —
+	// otherwise a player unit's reaction shot on the alien turn is treated as an AI shot and
+	// dropped as "no line of fire". `isPlayer` (whose turn) still drives UI/obstacle display.
+	bool isPlayerShooter = (_unit->getFaction() == FACTION_PLAYER);
 	if (isPlayer) _parent->getMap()->resetObstacles();
 	switch (_action.type)
 	{
@@ -331,7 +335,7 @@ void ProjectileFlyBState::init()
 				BattleActionOrigin bestOriginType = BattleActionOrigin::CENTRE;
 				Position bestTargetPos = _targetVoxel;
 
-				_parent->getTileEngine()->checkVoxelExposure(&originVoxel, targetTile, _unit, isPlayer, &exposedVoxels, nullptr, !isPlayer);
+				_parent->getTileEngine()->checkVoxelExposure(&originVoxel, targetTile, _unit, isPlayerShooter, &exposedVoxels, nullptr, !isPlayerShooter);
 
 				if (!exposedVoxels.empty())
 				{
@@ -348,7 +352,7 @@ void ProjectileFlyBState::init()
 						exposedVoxels.clear();
 						_action.relativeOrigin = rel_pos;
 						originVoxel = _parent->getTileEngine()->getOriginVoxel(_action, _parent->getSave()->getTile(_origin));
-						_parent->getTileEngine()->checkVoxelExposure(&originVoxel, targetTile, _unit, isPlayer, &exposedVoxels, nullptr, !isPlayer);
+						_parent->getTileEngine()->checkVoxelExposure(&originVoxel, targetTile, _unit, isPlayerShooter, &exposedVoxels, nullptr, !isPlayerShooter);
 
 						if (exposedVoxels.size() <= bestExposedCount) continue;
 

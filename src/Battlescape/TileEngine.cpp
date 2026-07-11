@@ -6297,6 +6297,11 @@ bool TileEngine::hasEntry(Position from, Position to)
 void TileEngine::setVisibilityCache(Position from, Position to, bool visible)
 {
 	std::pair<int, int> key = std::make_pair(_save->getTileIndex(from), _save->getTileIndex(to));
+	// H7: bound this memoization cache — it is only cleared on terrain change, so over a
+	// long battle it grows to 1e5–1e6 entries (the heap-fragmentation pattern that OOM'd
+	// the project once). Dropping it early only forces a recompute, never a wrong answer.
+	if (_visibilityCache.size() >= 200000)
+		_visibilityCache.clear();
 	_visibilityCache.insert({key, visible});
 }
 

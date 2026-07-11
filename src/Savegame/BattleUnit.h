@@ -901,8 +901,8 @@ public:
 	void setWantToEndTurn(bool wantToEndTurn);
 	bool getWantToEndTurn();
 	/// Brutal-AI: reachable-position cache (rebuilt lazily by the AI within a turn).
-	void setReachablePositions(std::map<Position, int, PositionComparator> reachable);
-	std::map<Position, int, PositionComparator> getReachablePositions();
+	void setReachablePositions(const std::map<Position, int, PositionComparator>& reachable);
+	const std::map<Position, int, PositionComparator>& getReachablePositions();
 	void setPositionOfUpdate(Position pos, bool withMaxTUs);
 	Position getPositionOfUpdate();
 	bool wasMaxTusOfUpdate();

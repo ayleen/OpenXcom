@@ -4211,7 +4211,7 @@ void AIModule::brutalThink(BattleAction* action)
 			if (target != _unit)
 			{
 				_save->getPathfinding()->setIgnoreFriends(true);
-				for (auto& reachablePosOfTarget : getReachableBy(target, _ranOutOfTUs, false, true))
+				for (const auto& reachablePosOfTarget : getReachableBy(target, _ranOutOfTUs, false, true))
 				{
 					friendReachable[reachablePosOfTarget.first] += reachablePosOfTarget.second;
 					bestFriendReachable[reachablePosOfTarget.first] = std::max(bestFriendReachable[reachablePosOfTarget.first], reachablePosOfTarget.second);
@@ -4301,7 +4301,7 @@ void AIModule::brutalThink(BattleAction* action)
 		if (!target->hasPanickedLastTurn())
 		{
 			_save->getPathfinding()->setIgnoreFriends(true);
-			for (auto& reachablePosOfTarget : getReachableBy(target, _ranOutOfTUs, false, true, false))
+			for (const auto& reachablePosOfTarget : getReachableBy(target, _ranOutOfTUs, false, true, false))
 			{
 				Tile* checkStartTile = _save->getTile(reachablePosOfTarget.first);
 				if (checkStartTile->getFloorSpecialTileType() == START_POINT)
@@ -5261,7 +5261,11 @@ void AIModule::brutalThink(BattleAction* action)
 		travelTarget = bestFallbackPosition;
 		shouldEndTurnAfterMove = true;
 	}
-	else if (bestPeekPreserveScore > 0 && bestFriendReachable[peekPreserveCompromise] <= getReachableBy(_unit, _ranOutOfTUs, false, true)[peekPreserveCompromise])
+	else if (bestPeekPreserveScore > 0 && bestFriendReachable[peekPreserveCompromise] <= [&]() {
+		const std::map<Position, int, PositionComparator>& selfReach = getReachableBy(_unit, _ranOutOfTUs, false, true);
+		auto srIt = selfReach.find(peekPreserveCompromise);
+		return srIt != selfReach.end() ? srIt->second : 0;
+	}())
 	{
 		if (_traceAI)
 			Log(LOG_INFO) << "peekPreserveCompromise: " << peekPreserveCompromise << " score: " << bestPeekPreserveScore;
@@ -5518,10 +5522,15 @@ bool AIModule::brutalSelectSpottedUnitForSniper()
 				BattleActionCost costSnap(BA_SNAPSHOT, _attackAction.actor, weapon);
 				BattleActionCost costAimed(BA_AIMEDSHOT, _attackAction.actor, weapon);
 				BattleActionCost costHit(BA_HIT, _attackAction.actor, weapon);
+				// M4 (Calypso): costThrow is declared once OUTSIDE this target×weapon loop, so
+				// adding the break-LOS cost to it here compounded every iteration (phantom TU for
+				// late candidates). Add it to a fresh per-candidate copy instead; the per-shot
+				// costs below are already re-made each iteration so they stay correct.
+				BattleActionCost costThrowIter = costThrow;
 				if (_tuCostToReachClosestPositionToBreakLos > 0)
 				{
-					costThrow.Time += _tuCostToReachClosestPositionToBreakLos;
-					costThrow.Energy += _energyCostToReachClosestPositionToBreakLos;
+					costThrowIter.Time += _tuCostToReachClosestPositionToBreakLos;
+					costThrowIter.Energy += _energyCostToReachClosestPositionToBreakLos;
 					costAuto.Time += _tuCostToReachClosestPositionToBreakLos;
 					costAuto.Energy += _energyCostToReachClosestPositionToBreakLos;
 					costSnap.Time += _tuCostToReachClosestPositionToBreakLos;
@@ -5531,7 +5540,7 @@ bool AIModule::brutalSelectSpottedUnitForSniper()
 					costHit.Time += _tuCostToReachClosestPositionToBreakLos;
 					costHit.Energy += _energyCostToReachClosestPositionToBreakLos;
 				}
-				float score = brutalExtendedFireModeChoice(costAuto, costSnap, costAimed, costThrow, costHit, true, bestScore);
+				float score = brutalExtendedFireModeChoice(costAuto, costSnap, costAimed, costThrowIter, costHit, true, bestScore);
 				// Phase 34.9 (Calypso): soft focus-fire cap (ported path). The plan's anchor
 				// "brutalValidTarget" is a bool validity filter; the actual target RANKING happens
 				// here, so the down-weight lands on this score. A target >= 2 squadmates already
@@ -5713,7 +5722,7 @@ Position AIModule::furthestToGoTowards(Position target, BattleActionCost reserve
 	return _unit->getPosition();
 }
 
-Position AIModule::closestToGoTowards(Position target, std::vector<PathfindingNode *> nodeVector, Position myPos, bool peakMode)
+Position AIModule::closestToGoTowards(Position target, const std::vector<PathfindingNode *>& nodeVector, Position myPos, bool peakMode)
 {
 	PathfindingNode *targetNode = NULL;
 	float closestDistToTarget = 255;
@@ -7612,14 +7621,17 @@ int AIModule::getEnergyRecovery(BattleUnit* unit)
 	return recovery;
 }
 
-std::map<Position, int, PositionComparator> AIModule::getReachableBy(BattleUnit* unit, bool& ranOutOfTUs, bool forceRecalc, bool useMaxTUs, bool pruneAirTiles)
+const std::map<Position, int, PositionComparator>& AIModule::getReachableBy(BattleUnit* unit, bool& ranOutOfTUs, bool forceRecalc, bool useMaxTUs, bool pruneAirTiles)
 {
 	std::map<Position, int, PositionComparator> tuAtPositionMap;
 	Position startPosition = _save->getTileCoords(unit->getTileLastSpotted(_unit->getFaction()));
 	if (_unit->isCheatOnMovement() || unit->getFaction() == _unit->getFaction())
 		startPosition = unit->getPosition();
 	if (startPosition == TileEngine::invalid)
-		return tuAtPositionMap;
+	{
+		static const std::map<Position, int, PositionComparator> s_empty;
+		return s_empty;
+	}
 	if (unit->getPositionOfUpdate() == startPosition && unit->wasMaxTusOfUpdate() == useMaxTUs && !forceRecalc)
 	{
 		ranOutOfTUs = unit->getRanOutOfTUs();
@@ -7645,7 +7657,7 @@ std::map<Position, int, PositionComparator> AIModule::getReachableBy(BattleUnit*
 	unit->setPositionOfUpdate(startPosition, useMaxTUs);
 	unit->setReachablePositions(tuAtPositionMap);
 	unit->setRanOutOfTUs(ranOutOfTUs);
-	return tuAtPositionMap;
+	return unit->getReachablePositions();
 }
 
 std::map<Position, int, PositionComparator> AIModule::getSmokeFearMap()

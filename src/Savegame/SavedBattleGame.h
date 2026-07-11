@@ -543,6 +543,9 @@ public:
 	/// out position is the chosen event's source quantized to an 8-tile grid cell -- hearing
 	/// gives a zone/direction, never a wallhack tile. Returns false if none hearable.
 	bool getNewestHearableNoise(const Position &hearerPos, int intelligence, Position &outZone);
+	/// Calypso: drop all pending noise events. Used when advancing to the next multi-stage
+	/// battle stage so stage-1 noise does not leak into stage 2 (aliens chasing phantom noise).
+	void clearNoiseEvents();
 	/// Phase 34.7 (Calypso): scan a projectile's voxel trajectory for near-miss victims and
 	/// apply the suppression mechanic (morale/energy pin) to each. GATED AT THE SEAM: the
 	/// near-miss mechanic changes unit state, so unlike 34.8's unconditional noise emission

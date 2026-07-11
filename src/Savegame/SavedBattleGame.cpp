@@ -2684,6 +2684,11 @@ void SavedBattleGame::emitNoise(const Position &pos, int loudness)
 	_noiseEvents.push_back(NoiseEvent{pos, _turn, loudness});
 }
 
+void SavedBattleGame::clearNoiseEvents()
+{
+	_noiseEvents.clear();
+}
+
 /**
  * Phase 34.8 (Calypso): newest noise a hearer at `hearerPos` can still perceive, for the
  * ai.hearing AI read path. A noise is hearable when BOTH:
