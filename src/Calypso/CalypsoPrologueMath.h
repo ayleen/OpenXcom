@@ -42,6 +42,37 @@ struct UnitPos { int id; int x; int y; bool aboard = false; };
 /// Inclusive tile rectangle (the craft's exit/deployment zone).
 struct Rect { int x0; int y0; int x1; int y1; };
 
+/// Scene-independent result of a vanilla finish attempt. The Battlescape
+/// adapter maps these decisions to director outcomes and engine calls.
+enum class UnexpectedFinishAction
+{
+	FallbackOutcome,
+	ConsumeAbort,
+	EnterEvacOnly,
+	KeepEvacOnly,
+	AllTakenOutcome
+};
+
+/// An abort confirmation must be consumed unless cast-off is currently
+/// available and at least one live crew member occupies a real START_POINT.
+inline bool consumeAbortRequest(bool inert, bool castOffAvailable, bool anyoneAboard)
+{
+	return inert || !castOffAvailable || !anyoneAboard;
+}
+
+/// Pure ordering contract for CalypsoPrologueScene::onUnexpectedFinish.
+/// Fallback state outranks abort; an automatic zero-hostiles finish with live
+/// crew transitions once into extraction-only; no live crew means all taken.
+inline UnexpectedFinishAction decideUnexpectedFinish(bool inert, bool hasPendingOutcome,
+	bool abort, bool anyCrewAlive, bool evacOnly)
+{
+	if (inert || hasPendingOutcome) return UnexpectedFinishAction::FallbackOutcome;
+	if (abort) return UnexpectedFinishAction::ConsumeAbort;
+	if (anyCrewAlive)
+		return evacOnly ? UnexpectedFinishAction::KeepEvacOnly : UnexpectedFinishAction::EnterEvacOnly;
+	return UnexpectedFinishAction::AllTakenOutcome;
+}
+
 /// Inclusive containment test.
 inline bool inRect(int x, int y, const Rect& r)
 {
