@@ -110,6 +110,7 @@ void UnitWalkBState::think()
 			{
 				_action.result = "STR_NOT_ENOUGH_TIME_UNITS";
 			}
+			_action.aiFailure = AIFailureReason::NOT_ENOUGH_TU;
 			_pf->abortPath();
 			_parent->popState();
 			return;
@@ -300,6 +301,7 @@ void UnitWalkBState::think()
 
 			if (tu == Pathfinding::INVALID_MOVE_COST)
 			{
+				_action.aiFailure = AIFailureReason::PATH_BLOCKED;
 				return cancelCurentMove();
 			}
 
@@ -309,6 +311,7 @@ void UnitWalkBState::think()
 				{
 					_action.result = "STR_NOT_ENOUGH_TIME_UNITS";
 				}
+				_action.aiFailure = AIFailureReason::NOT_ENOUGH_TU;
 				return cancelCurentMove();
 			}
 
@@ -318,11 +321,13 @@ void UnitWalkBState::think()
 				{
 					_action.result = "STR_NOT_ENOUGH_ENERGY";
 				}
+				_action.aiFailure = AIFailureReason::NOT_ENOUGH_ENERGY;
 				return cancelCurentMove();
 			}
 
 			if (_parent->getPanicHandled() && !_falling && _parent->checkReservedTU(_unit, tu, energy) == false)
 			{
+				_action.aiFailure = AIFailureReason::TU_RESERVED;
 				return cancelCurentMove();
 			}
 
@@ -350,6 +355,16 @@ void UnitWalkBState::think()
 				{
 					_parent->getMod()->getSoundByDepth(_parent->getDepth(), Mod::SLIDING_DOOR_OPEN)->play(-1, _parent->getMap()->getSoundAngle(_unit->getPosition())); // ufo door
 					return; // don't start walking yet, wait for the ufo door to open
+				}
+				if (door == 4)
+				{
+					_action.aiFailure = doorFailureReason(door);
+					return cancelCurentMove();
+				}
+				if (door == 5)
+				{
+					_action.aiFailure = doorFailureReason(door);
+					return cancelCurentMove();
 				}
 			}
 			for (int x = size; x >= 0; --x)

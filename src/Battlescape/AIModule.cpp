@@ -16,9 +16,11 @@
  * You should have received a copy of the GNU General Public License
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
+#include <chrono>
 #include <climits>
 #include <algorithm>
 #include "AIModule.h"
+#include "../Mod/AITuning.h"
 #include "../Savegame/BattleItem.h"
 #include "../Savegame/Node.h"
 #include "../Savegame/SavedBattleGame.h"
@@ -41,6 +43,31 @@ namespace OpenXcom
 
 // Phase 34.5 (Brutal-AI, adapted from Brutal-OXCE by Xilmi): small tolerance for float compares.
 static const double EPSILON = 0.00001;
+
+namespace {
+// Phase 43.0: zero-allocation RAII scope timer for AIModule::brutalThink. Constructed on entry,
+// destroyed on every scope exit (including the many early returns). Logs elapsed microseconds via
+// steady_clock when Options::traceAI is on; produces no log and mutates no state otherwise.
+struct AITimingScope
+{
+	bool _enabled;
+	int _unitId;
+	std::chrono::steady_clock::time_point _start;
+	explicit AITimingScope(int unitId) :
+		_enabled(Options::traceAI), _unitId(unitId),
+		_start(_enabled ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point()) {}
+	~AITimingScope()
+	{
+		if (!_enabled)
+			return;
+		auto end = std::chrono::steady_clock::now();
+		auto us = std::chrono::duration_cast<std::chrono::microseconds>(end - _start).count();
+		Log(LOG_INFO) << "AI_TIMING brutalThink_us=" << us << " unit=" << _unitId;
+	}
+	AITimingScope(const AITimingScope&) = delete;
+	AITimingScope& operator=(const AITimingScope&) = delete;
+};
+}
 
 /**
  * Sets up a BattleAIState.
@@ -75,6 +102,64 @@ AIModule::AIModule(SavedBattleGame *save, BattleUnit *unit, Node *node) :
 AIModule::~AIModule()
 {
 
+}
+
+void AIModule::beginActivation()
+{
+	_failureMemory.clear();
+	_auditReason.clear();
+	_auditRunnerUp.clear();
+	_auditBestScore = 0.0f;
+	_auditRunnerUpScore = 0.0f;
+	_auditBestTerms = {{0, 0, 0}};
+	_auditTermLabels = {{"damage", "hit", "context"}};
+}
+
+void AIModule::recordFailedAttempt(const BattleAction& action)
+{
+	if (action.aiFailure == AIFailureReason::NONE || action.type == BA_RETHINK) return;
+	AIFailedAttempt failed;
+	failed.action = static_cast<int>(action.type);
+	failed.targetId = action.aiTargetId;
+	failed.position = action.aiAttemptPosition;
+	failed.reason = action.aiFailure;
+	failed.worldRevision = _save->getBattleGame()->getAIWorldRevision();
+	if (_save->getMod()->getAIFailureMemory()) _failureMemory.record(failed);
+	if (_traceAI)
+	{
+		Log(LOG_INFO) << "AI_FAILURE unit=" << _unit->getId() << " action=" << failed.action
+			<< " target=" << failed.targetId << " pos=" << failed.position
+			<< " reason=" << static_cast<int>(failed.reason) << " revision=" << failed.worldRevision;
+	}
+}
+
+bool AIModule::candidateAllowed(BattleActionType type, int targetId, const Position& position) const
+{
+	return !_save->getMod()->getAIFailureMemory()
+		|| _failureMemory.allows(static_cast<int>(type), targetId, position,
+			_save->getBattleGame()->getAIWorldRevision());
+}
+
+void AIModule::prepareAIAudit(BattleAction *action)
+{
+	action->aiAttemptPosition = action->target;
+}
+
+void AIModule::emitAIAudit(const BattleAction& action) const
+{
+	if (!_traceAI || action.type == BA_RETHINK) return;
+	const char *reason = _auditReason.empty()
+		? (action.type == BA_WALK ? "move-best-position" : action.type == BA_NONE ? "no-valid-candidate" : "best-valid-action")
+		: _auditReason.c_str();
+	Log(LOG_INFO) << "AI_DECISION unit=" << _unit->getId() << " reason=" << reason
+		<< " action=" << static_cast<int>(action.type) << " target=" << action.aiTargetId
+		<< " pos=" << action.target << " score=" << _auditBestScore
+		<< " runnerUp=" << (_auditRunnerUp.empty() ? "none" : _auditRunnerUp)
+		<< " runnerScore=" << _auditRunnerUpScore
+		<< " terms=" << _auditTermLabels[0] << ":" << _auditBestTerms[0]
+		<< "," << _auditTermLabels[1] << ":" << _auditBestTerms[1]
+		<< "," << _auditTermLabels[2] << ":" << _auditBestTerms[2]
+		<< " decisive=score_delta:" << (_auditBestScore - _auditRunnerUpScore);
 }
 
 /**
@@ -233,8 +318,8 @@ bool AIModule::wantsToInvestigateNoise() const
  *   fall depth (levels the enemy would drop) so deeper drops are preferred; firing happens via
  *   the existing tile-targeting path (no new projectile type).
  *
- *   Wall breach -- only when pathfinding to the nearest known enemy fails or detours >2x the
- *   straight-line distance AND the unit carries a grenade (`_grenade`) whose
+ *   Wall breach -- only when pathfinding to the nearest known enemy fails or detours > breachDetourMultiplier x
+ *   the straight-line distance AND the unit carries a grenade (`_grenade`) whose
  *   `explosiveEfficacy` at the wall position is positive (cleared against friendlies): the unit
  *   throws at the blocking O_OBJECT/wall on the straight line. One breach attempt per unit per
  *   3 turns (transient `_lastBreachTurn`, NOT saved to file).
@@ -303,6 +388,7 @@ bool AIModule::considerTerrainAttack()
 		originAction.type = BA_SNAPSHOT;
 		int bestScore = 0;
 		Position bestTarget = Position(0, 0, 0);
+		int bestTargetId = -1;
 		BattleItem *bestWeapon = nullptr;
 		for (auto* target : *_save->getUnits())
 		{
@@ -327,6 +413,7 @@ bool AIModule::considerTerrainAttack()
 			}
 			Tile *enemyTile = _save->getTile(enemyPos);
 			if (!enemyTile) continue;
+			if (!candidateAllowed(BA_SNAPSHOT, target->getId(), enemyPos)) continue;
 			MapData *floorMD = enemyTile->getMapData(O_FLOOR);
 			if (!floorMD) continue;
 			// Mission-objective safety: never drop a floor flagged as a base module.
@@ -361,6 +448,7 @@ bool AIModule::considerTerrainAttack()
 			{
 				bestScore = score;
 				bestTarget = enemyPos;
+				bestTargetId = target->getId();
 				bestWeapon = weapon;
 			}
 		}
@@ -371,6 +459,8 @@ bool AIModule::considerTerrainAttack()
 			_attackAction.target = bestTarget;
 			_attackAction.weapon = bestWeapon;
 			_attackAction.actor = _unit;
+			_attackAction.aiTargetId = bestTargetId;
+			_attackAction.aiHasFilteredFallback = true;
 			_attackAction.updateTU();
 			if (_traceAI)
 			{
@@ -399,6 +489,7 @@ bool AIModule::considerTerrainAttack()
 			// gates as the floor-drop scan -- visibleToAnyFriend OR getTileLastSpotted).
 			Position objectivePos;
 			bool haveObjective = false;
+			int objectiveTargetId = -1;
 			int bestObjDist = INT_MAX;
 			for (auto* target : *_save->getUnits())
 			{
@@ -417,7 +508,7 @@ bool AIModule::considerTerrainAttack()
 					enemyPos = _save->getTileCoords(spottedIdx);
 				}
 				int d = Position::distance2d(myPos, enemyPos);
-				if (d < bestObjDist) { bestObjDist = d; objectivePos = enemyPos; haveObjective = true; }
+				if (d < bestObjDist) { bestObjDist = d; objectivePos = enemyPos; objectiveTargetId = target->getId(); haveObjective = true; }
 			}
 			if (haveObjective)
 			{
@@ -433,8 +524,9 @@ bool AIModule::considerTerrainAttack()
 				int straightLine = Position::distance2d(myPos, objectivePos);
 				bool pathFailed = (startDir == -1);
 				// Detour heuristic: typical OXCE tile move cost is ~4 TU; treat a path costing
-				// >2x the straight-line expectation as a "blocked approach" worth breaching.
-				bool bigDetour = (straightLine > 0) && (pathTUs > 2 * straightLine * 4);
+				// > breachDetourMultiplier x the straight-line expectation as a "blocked approach" worth breaching
+				// (Phase 43.0 item 7: the multiplier is now mod-tunable, default 2).
+				bool bigDetour = AITuning::isBigDetour(pathTUs, straightLine, _save->getMod()->getAIBreachDetourMultiplier());
 				if (pathFailed || bigDetour)
 				{
 					// Walk the straight line tile-by-tile (2D Bresenham on the unit's z-level)
@@ -454,6 +546,7 @@ bool AIModule::considerTerrainAttack()
 						{
 							Position p(myPos.x + (dx * s) / steps, myPos.y + (dy * s) / steps, myPos.z);
 							if (Position::distance2d(myPos, p) > throwRange) break;
+							if (!candidateAllowed(BA_THROW, objectiveTargetId, p)) continue;
 							Tile *t = _save->getTile(p);
 							if (!t) continue;
 							// Try the O_OBJECT slot first (the typical "wall" on TFTD terrains
@@ -483,6 +576,8 @@ bool AIModule::considerTerrainAttack()
 								_attackAction.target = p;
 								_attackAction.weapon = grenade;
 								_attackAction.actor = _unit;
+								_attackAction.aiTargetId = objectiveTargetId;
+								_attackAction.aiHasFilteredFallback = true;
 								_attackAction.updateTU();
 								_attackAction.Time += 4; // grenade prime/swap cost, same as grenadeAction
 								_attackAction += _unit->getActionTUs(BA_PRIME, grenade);
@@ -674,6 +769,7 @@ void AIModule::reset()
 	// these variables are not saved in save() and also not initiated in think()
 	_escapeTUs = 0;
 	_ambushTUs = 0;
+	beginActivation();
 }
 
 /**
@@ -1005,6 +1101,18 @@ bool AIModule::medikit_think(BattleMediKitType healOrStim)
  */
 void AIModule::think(BattleAction *action)
 {
+	// BattleAction is reused across immediate rethink/pickup passes. Execution metadata and
+	// audit scratch belong to exactly one pass and must never leak into the next candidate.
+	action->aiTargetId = -1;
+	action->aiAttemptPosition = Position();
+	action->aiFailure = AIFailureReason::NONE;
+	action->aiHasFilteredFallback = false;
+	_auditReason.clear();
+	_auditRunnerUp.clear();
+	_auditBestScore = 0.0f;
+	_auditRunnerUpScore = 0.0f;
+	_auditBestTerms = {{0, 0, 0}};
+	_auditTermLabels = {{"damage", "hit", "context"}};
 	action->type = BA_RETHINK;
 	action->actor = _unit;
 	action->weapon = _unit->getMainHandWeapon(false);
@@ -1012,6 +1120,8 @@ void AIModule::think(BattleAction *action)
 	_attackAction.actor = _unit;
 	_attackAction.run = false;
 	_attackAction.weapon = action->weapon;
+	_attackAction.aiTargetId = -1;
+	_attackAction.aiHasFilteredFallback = false;
 	_attackAction.number = action->number;
 	_escapeAction.number = action->number;
 	_knownEnemies = countKnownTargets();
@@ -1072,6 +1182,7 @@ void AIModule::think(BattleAction *action)
 	if (_unit->isLeeroyJenkins())
 	{
 		dont_think(action);
+		prepareAIAudit(action);
 		return;
 	}
 
@@ -1119,6 +1230,7 @@ void AIModule::think(BattleAction *action)
 	if (_unit->isBrutal())
 	{
 		brutalThink(action);
+		prepareAIAudit(action);
 		// Phase 34.9 (Calypso): record the brutal path's finalized action on the squad blackboard.
 		declareSquadIntentFromAction(action);
 		return;
@@ -1157,6 +1269,7 @@ void AIModule::think(BattleAction *action)
 		action->number -= 1;
 		action->weapon = _psiAction.weapon;
 		action->updateTU();
+		prepareAIAudit(action);
 		return;
 	}
 	else
@@ -1268,6 +1381,10 @@ void AIModule::think(BattleAction *action)
 		action->target = _attackAction.target;
 		// this may have changed to a grenade.
 		action->weapon = _attackAction.weapon;
+		// Failure-memory identity belongs to the selected candidate. Do not reconstruct it
+		// later from _aggroTarget: that pointer can refer to the last candidate evaluated.
+		action->aiTargetId = _attackAction.aiTargetId;
+		action->aiHasFilteredFallback = _attackAction.aiHasFilteredFallback;
 		if (action->weapon && action->type == BA_THROW && action->weapon->getRules()->isGrenadeOrProxy())
 		{
 			_unit->spendCost(_unit->getActionTUs(BA_PRIME, action->weapon));
@@ -1323,6 +1440,7 @@ void AIModule::think(BattleAction *action)
 	// Phase 34.9 (Calypso): record the legacy path's finalized action on the squad blackboard
 	// (the brutal path records its own above, before returning).
 	declareSquadIntentFromAction(action);
+	prepareAIAudit(action);
 }
 
 
@@ -3823,21 +3941,24 @@ AIAttackWeight AIModule::getTargetAttackWeight(BattleUnit* target) const
 		weight = (AIAttackWeight)(weight + AIW_SCALE / 2);
 	}
 
-	// Phase 34.9 (Calypso): soft focus-fire cap (legacy path). A target that >= 2 squadmates have
-	// already committed to is down-weighted so a fresh target outscores it and fire spreads -- but
-	// the floor (just above the threat threshold) keeps it a VALID target, so if it is the only
-	// option it is still engaged ("unless no alternative exists"). The reduction never increases
-	// the weight (weight/2 < weight for positive weights). Gated; the board reads empty when off,
-	// so the value is unchanged => byte-identical. Enemy targets only (friendly-AoE weights are
-	// non-positive and already below the floor).
+	// Phase 34.9 (Calypso): soft focus-fire cap (legacy path). A target that >= focusFireCommitThreshold
+	// squadmates have already committed to is down-weighted so a fresh target outscores it and fire
+	// spreads -- but the floor (just above the threat threshold) keeps it a VALID target, so if it is
+	// the only option it is still engaged ("unless no alternative exists"). The reduction never
+	// increases the weight (weight*keepPercent/100 < weight for positive weights, keepPercent<=100).
+	// Gated; the board reads empty when off, so the value is unchanged => byte-identical. Enemy
+	// targets only (friendly-AoE weights are non-positive and already below the floor).
 	if (_save->getMod()->getAISquadCoordination()
 		&& target->getFaction() != _unit->getFaction())
 	{
 		const AIAttackWeight floor = (AIAttackWeight)(_save->getMod()->getAITargetWeightThreatThreshold() + 1);
+		// Phase 43.0 item 7: commit count + reduction percent are now mod-tunable (defaults 2 / 50).
+		const int commitThreshold = _save->getMod()->getAIFocusFireCommitThreshold();
+		const int keepPercent = _save->getMod()->getAIFocusFireScorePercent();
 		if (weight > floor
-			&& _save->getSquadAssignedAttackers(_unit->getFaction(), target->getId()) >= 2)
+			&& _save->getSquadAssignedAttackers(_unit->getFaction(), target->getId()) >= commitThreshold)
 		{
-			weight = std::max(floor, (AIAttackWeight)(weight / 2));
+			weight = std::max(floor, (AIAttackWeight)AITuning::applyPercent(static_cast<int>(weight), keepPercent));
 		}
 	}
 
@@ -4023,6 +4144,7 @@ bool AIModule::visibleToAnyFriend(BattleUnit* target) const
 
 void AIModule::brutalThink(BattleAction* action)
 {
+	AITimingScope _aiTiming(_unit->getId());
 	// Step 1: Check whether we wait for someone else on our team to move first
 	int myReachable = getReachableBy(_unit, _ranOutOfTUs, true).size();
 	float myDist = 0;
@@ -4381,12 +4503,15 @@ void AIModule::brutalThink(BattleAction* action)
 			action->type = _attackAction.type;
 			action->target = _attackAction.target;
 			action->weapon = _attackAction.weapon;
+			action->aiTargetId = _attackAction.aiTargetId;
+			action->aiHasFilteredFallback = _attackAction.aiHasFilteredFallback;
 			action->number -= 1;
 			if (action->weapon && action->type == BA_THROW && action->weapon->getRules()->getBattleType() == BT_GRENADE && !action->weapon->isFuseEnabled())
 			{
 				_unit->spendCost(_unit->getActionTUs(BA_PRIME, action->weapon));
 				action->weapon->setFuseTimer(0); // don't just spend the TUs for nothing! If we already circumvent the API anyways, we might as well actually prime the damn thing!
 				_unit->spendTimeUnits(action->weapon->getMoveToCost(_save->getMod()->getInventoryLeftHand()));
+				_save->getBattleGame()->markAIWorldChanged();
 			}
 			action->updateTU();
 			if (_traceAI)
@@ -4530,6 +4655,7 @@ void AIModule::brutalThink(BattleAction* action)
 				_unit->spendTimeUnits(grenade->getMoveToCost(_save->getMod()->getInventoryLeftHand()));
 				_unit->spendCost(_unit->getActionTUs(BA_PRIME, grenade));
 				grenade->setFuseTimer(0); // don't just spend the TUs for nothing! If we already circumvent the API anyways, we might as well actually prime the damn thing!
+				_save->getBattleGame()->markAIWorldChanged();
 				if (_traceAI)
 					Log(LOG_INFO) << "I spent " << primeCost << " time-units on priming a grenade.";
 				action->type = BA_RETHINK;
@@ -4560,10 +4686,12 @@ void AIModule::brutalThink(BattleAction* action)
 		attackENE = hitCost.Energy;
 	}
 	Position travelTarget = myPos;
+	int selectedMoveTargetId = unitToWalkTo ? unitToWalkTo->getId() : -1;
 	bool enemyHasHighGround = false;
 	std::unordered_map<int, MoveEvaluation> moveMap;
 	if (unitToWalkTo != NULL)
 	{
+		const int moveTargetId = selectedMoveTargetId;
 		Position attackDirection = targetPosition;
 		BattleActionCost reserved = BattleActionCost(_unit);
 		Position travelTarget = furthestToGoTowards(targetPosition, reserved, _allPathFindingNodes);
@@ -4577,8 +4705,8 @@ void AIModule::brutalThink(BattleAction* action)
 		std::vector<Tile*> corpseTiles = getCorpseTiles(_allPathFindingNodes);
 		float visiblePathFromMyPos = 0;
 		bool pathThroughLift = false;
-		std::vector<Position> pathToEnemyPositions = getPositionsOnPathTo(targetPosition, _allPathFindingNodes);
-		for (auto pathPos : pathToEnemyPositions)
+		getPositionsOnPathTo(targetPosition, _allPathFindingNodes, _pathToEnemyPositions);
+		for (auto pathPos : _pathToEnemyPositions)
 		{
 			Tile* pathTile = _save->getTile(pathPos);
 			if (pathTile->getMapData(O_FLOOR) && pathTile->getMapData(O_FLOOR)->isGravLift())
@@ -4592,6 +4720,7 @@ void AIModule::brutalThink(BattleAction* action)
 		for (auto pu : _allPathFindingNodes)
 		{
 			Position pos = pu->getPosition();
+			if (!candidateAllowed(BA_WALK, moveTargetId, pos)) continue;
 			Tile* tile = _save->getTile(pos);
 			if (tile == NULL)
 				continue;
@@ -4782,7 +4911,8 @@ void AIModule::brutalThink(BattleAction* action)
 			float fallbackScore = 0;
 			int crossEnemyVision = 0;
 			bool pathInvolvesFalling = false;
-			for (auto pathPos : getPositionsOnPathTo(pos, _allPathFindingNodes))
+			getPositionsOnPathTo(pos, _allPathFindingNodes, _pathToPosBuffer);
+			for (auto pathPos : _pathToPosBuffer)
 			{
 				if (_save->getTile(pathPos)->hasNoFloor() && _unit->getMovementType() != MT_FLY)
 				{
@@ -4836,7 +4966,7 @@ void AIModule::brutalThink(BattleAction* action)
 			//only add visiblePath-bonus for positions closer to target than our current position as otherwise we are unnecessarily prolong the path
 			if (tuDistFromTarget < myTuDistFromTarget)
 			{
-				for (auto pathPos : getPositionsOnPathTo(targetPosition, _allPathFindingNodes))
+				for (auto pathPos : _pathToEnemyPositions)
 				{
 					if (hasTileSight(pos, pathPos))
 						visiblePath += 1;
@@ -4858,7 +4988,7 @@ void AIModule::brutalThink(BattleAction* action)
 					}
 					else
 					{
-						for (Position pathToEnemyPos : pathToEnemyPositions)
+						for (Position pathToEnemyPos : _pathToEnemyPositions)
 						{
 							if (pos == pathToEnemyPos)
 							{
@@ -5249,15 +5379,21 @@ void AIModule::brutalThink(BattleAction* action)
 	}
 	if (bestAttackScore > 0 && haveTUToAttack)
 	{
+		_auditReason = "move-attack-position";
+		_auditBestScore = bestAttackScore;
 		_allowedToCheckAttack = true;
 		travelTarget = bestAttackPosition;
 	}
 	else if (bestDirectPeakScore > 0 && newVisibleTilesDirect > 0 && haveTUToAttack)
 	{
+		_auditReason = "move-direct-peak";
+		_auditBestScore = bestDirectPeakScore;
 		travelTarget = bestDirectPeakPosition;
 	}
 	else if (sweepMode && bestFallbackScore > 0)
 	{
+		_auditReason = "move-sweep-fallback";
+		_auditBestScore = bestFallbackScore;
 		travelTarget = bestFallbackPosition;
 		shouldEndTurnAfterMove = true;
 	}
@@ -5267,6 +5403,8 @@ void AIModule::brutalThink(BattleAction* action)
 		return srIt != selfReach.end() ? srIt->second : 0;
 	}())
 	{
+		_auditReason = "move-peek-preserve";
+		_auditBestScore = bestPeekPreserveScore;
 		if (_traceAI)
 			Log(LOG_INFO) << "peekPreserveCompromise: " << peekPreserveCompromise << " score: " << bestPeekPreserveScore;
 		travelTarget = peekPreserveCompromise;
@@ -5274,24 +5412,57 @@ void AIModule::brutalThink(BattleAction* action)
 	}
 	else if (bestGreatCoverScore > 0)
 	{
+		_auditReason = "move-great-cover";
+		_auditBestScore = bestGreatCoverScore;
 		travelTarget = bestGreatCoverPosition;
 		if (!wantToPrime)
 			shouldEndTurnAfterMove = true;
 	}
 	else if (bestGoodCoverScore > 0)
 	{
+		_auditReason = "move-good-cover";
+		_auditBestScore = bestGoodCoverScore;
 		travelTarget = bestGoodCoverPosition;
 		shouldEndTurnAfterMove = true;
 	}
 	else if (bestOkayCoverScore > 0)
 	{
+		_auditReason = "move-okay-cover";
+		_auditBestScore = bestOkayCoverScore;
 		travelTarget = bestOkayCoverPosition;
 		shouldEndTurnAfterMove = true;
 	}
 	else if (bestFallbackScore > 0)
 	{
+		_auditReason = "move-fallback";
+		_auditBestScore = bestFallbackScore;
 		travelTarget = bestFallbackPosition;
 		shouldEndTurnAfterMove = true;
+	}
+	_auditBestTerms = {{_auditBestScore, bestAttackScore,
+		std::max(bestGreatCoverScore, std::max(bestGoodCoverScore, bestOkayCoverScore))}};
+	_auditTermLabels = {{"chosen", "attack", "cover"}};
+	if (_traceAI)
+	{
+		auto orderedNext = [&](bool valid, const char *label, float score, const Position& pos)
+		{
+			if (!valid || !_auditRunnerUp.empty() || pos == travelTarget) return;
+			_auditRunnerUp = std::string("ordered-next:") + label + "@"
+				+ std::to_string(pos.x) + "," + std::to_string(pos.y) + "," + std::to_string(pos.z);
+			_auditRunnerUpScore = score;
+		};
+		orderedNext(bestAttackScore > 0 && haveTUToAttack, "attack", bestAttackScore, bestAttackPosition);
+		orderedNext(bestDirectPeakScore > 0 && newVisibleTilesDirect > 0 && haveTUToAttack,
+			"direct-peak", bestDirectPeakScore, bestDirectPeakPosition);
+		orderedNext(sweepMode && bestFallbackScore > 0, "sweep-fallback", bestFallbackScore, bestFallbackPosition);
+		// The peek branch's friend-reachability predicate is short-circuited when an earlier
+		// bucket wins. Do not rerun it for tracing; label the existing scored bucket honestly.
+		orderedNext(bestPeekPreserveScore > 0, "peek-unvalidated", bestPeekPreserveScore, peekPreserveCompromise);
+		orderedNext(bestGreatCoverScore > 0, "great-cover", bestGreatCoverScore, bestGreatCoverPosition);
+		orderedNext(bestGoodCoverScore > 0, "good-cover", bestGoodCoverScore, bestGoodCoverPosition);
+		orderedNext(bestOkayCoverScore > 0, "okay-cover", bestOkayCoverScore, bestOkayCoverPosition);
+		orderedNext(bestFallbackScore > 0, "fallback", bestFallbackScore, bestFallbackPosition);
+		if (_auditRunnerUp.empty()) _auditRunnerUp = "ordered-next:none";
 	}
 
 	// Phase 43 (H2): revive the civilian-hunt (34.4) / hearing (34.8) biases on the brutal path.
@@ -5313,9 +5484,18 @@ void AIModule::brutalThink(BattleAction* action)
 			Position biased = furthestToGoTowards(biasZone, biasReserve, _allPathFindingNodes);
 			// Only override the cascade's travelTarget when the bias yields a real reachable step;
 			// otherwise keep what the cascade chose rather than forcing the unit to idle.
-			if (biased != myPos)
+			if (biased != myPos && candidateAllowed(BA_WALK, -1, biased))
 			{
+				if (_traceAI && travelTarget != myPos)
+				{
+					_auditRunnerUp = std::string("ordered-next:") + (_auditReason.empty() ? "cascade" : _auditReason)
+						+ "@" + std::to_string(travelTarget.x) + "," + std::to_string(travelTarget.y)
+						+ "," + std::to_string(travelTarget.z);
+					_auditRunnerUpScore = _auditBestScore;
+				}
 				travelTarget = biased;
+				selectedMoveTargetId = -1;
+				_auditReason = huntZoneKnown ? "move-hunt-zone" : "move-noise-zone";
 				if (_traceAI)
 					Log(LOG_INFO) << "Phase 43 (H2): brutal unit biasing toward " << (huntZoneKnown ? "hunt" : "noise") << " zone " << biasZone;
 			}
@@ -5333,6 +5513,7 @@ void AIModule::brutalThink(BattleAction* action)
 				_unit->spendTimeUnits(grenade->getMoveToCost(_save->getMod()->getInventoryLeftHand()));
 				_unit->spendCost(_unit->getActionTUs(BA_PRIME, grenade));
 				grenade->setFuseTimer(0); // don't just spend the TUs for nothing! If we already circumvent the API anyways, we might as well actually prime the damn thing!
+				_save->getBattleGame()->markAIWorldChanged();
 				if (_traceAI)
 					Log(LOG_INFO) << "I spent " << primeCost << " time-units on priming a grenade.";
 				action->type = BA_RETHINK;
@@ -5358,6 +5539,8 @@ void AIModule::brutalThink(BattleAction* action)
 		action->target = furthestToGoTowards(travelTarget, reserved, _allPathFindingNodes);
 		action->type = BA_WALK;
 		action->run = wantToRun();
+		action->aiTargetId = selectedMoveTargetId;
+		action->aiHasFilteredFallback = true;
 	} else
 	{
 		tryToPickUpGrenade(_unit->getTile(), action);
@@ -5540,17 +5723,22 @@ bool AIModule::brutalSelectSpottedUnitForSniper()
 					costHit.Time += _tuCostToReachClosestPositionToBreakLos;
 					costHit.Energy += _energyCostToReachClosestPositionToBreakLos;
 				}
-				float score = brutalExtendedFireModeChoice(costAuto, costSnap, costAimed, costThrowIter, costHit, true, bestScore);
+				float evaluatedScore = 0.0f;
+				BattleActionType evaluatedAction = BA_RETHINK;
+				std::array<float, 3> evaluatedTerms{{0, 0, 0}};
+				float score = brutalExtendedFireModeChoice(costAuto, costSnap, costAimed, costThrowIter, costHit, true, bestScore, &evaluatedScore, &evaluatedAction, &evaluatedTerms);
 				// Phase 34.9 (Calypso): soft focus-fire cap (ported path). The plan's anchor
 				// "brutalValidTarget" is a bool validity filter; the actual target RANKING happens
-				// here, so the down-weight lands on this score. A target >= 2 squadmates already
-				// committed to is halved so fire spreads; a single dogpiled target still competes
-				// (score stays > 0 => still chosen if it is the only viable one). Gated; empty
-				// board when off => no change => byte-identical.
+				// here, so the down-weight lands on this score. A target >= focusFireCommitThreshold
+				// squadmates already committed to is reduced by focusFireScorePercent/100.0f so fire
+				// spreads; a single dogpiled target still competes (score stays > 0 => still chosen
+				// if it is the only viable one). Gated; empty board when off => no change => byte-identical.
 				if (score > 0.0f && _save->getMod()->getAISquadCoordination()
-					&& _save->getSquadAssignedAttackers(_unit->getFaction(), (*i)->getId()) >= 2)
+					&& _save->getSquadAssignedAttackers(_unit->getFaction(), (*i)->getId()) >= _save->getMod()->getAIFocusFireCommitThreshold())
 				{
-					score *= 0.5f;
+					// Phase 43.0 item 7: commit count + reduction percent are now mod-tunable (defaults 2 / 50 => 0.5f).
+					score *= _save->getMod()->getAIFocusFireScorePercent() / 100.0f;
+					evaluatedScore *= _save->getMod()->getAIFocusFireScorePercent() / 100.0f;
 				}
 				// Phase 34.9 (Calypso): pin-and-flank (ported path) -- press a target pinned by
 				// suppression (34.7). No distinct flanking-move seam exists, so the preference is
@@ -5563,12 +5751,25 @@ bool AIModule::brutalSelectSpottedUnitForSniper()
 				if (score > 0.0f && _attackAction.type != BA_RETHINK && _save->getMod()->getAISquadCoordination() && (*i)->isPinned())
 				{
 					score *= 1.25f;
+					evaluatedScore *= 1.25f;
 				}
 				if (score > bestScore)
 				{
+					_auditRunnerUp = bestScore > 0.0f
+						? (std::to_string(static_cast<int>(chosenAction.type)) + ":" + std::to_string(chosenTarget ? chosenTarget->getId() : -1))
+						: "none";
+					_auditRunnerUpScore = _auditBestScore;
+					_auditReason = "highest-fire-score";
+					_auditBestScore = score;
+					_auditBestTerms = evaluatedTerms;
 					bestScore = score;
 					chosenAction = _attackAction;
 					chosenTarget = _aggroTarget;
+				}
+				else if (evaluatedScore > _auditRunnerUpScore)
+				{
+					_auditRunnerUp = std::to_string(static_cast<int>(evaluatedAction)) + ":" + std::to_string((*i)->getId());
+					_auditRunnerUpScore = evaluatedScore;
 				}
 			}
 		}
@@ -5577,6 +5778,8 @@ bool AIModule::brutalSelectSpottedUnitForSniper()
 	_attackAction.type = chosenAction.type;
 	_attackAction.weapon = chosenAction.weapon;
 	_attackAction.target = chosenAction.target;
+	_attackAction.aiTargetId = chosenAction.aiTargetId;
+	_attackAction.aiHasFilteredFallback = chosenAction.aiHasFilteredFallback;
 
 	if (bestScore == 0)
 	{
@@ -5967,7 +6170,7 @@ bool AIModule::brutalPsiAction()
 	return false;
 }
 
-float AIModule::brutalExtendedFireModeChoice(BattleActionCost &costAuto, BattleActionCost &costSnap, BattleActionCost &costAimed, BattleActionCost &costThrow, BattleActionCost &costHit, bool checkLOF, float previousHighScore)
+float AIModule::brutalExtendedFireModeChoice(BattleActionCost &costAuto, BattleActionCost &costSnap, BattleActionCost &costAimed, BattleActionCost &costThrow, BattleActionCost &costHit, bool checkLOF, float previousHighScore, float *evaluatedBestScore, BattleActionType *evaluatedBestAction, std::array<float, 3> *evaluatedTerms)
 {
 	std::vector<BattleActionType> attackOptions = {};
 	if (costAimed.haveTU())
@@ -5995,21 +6198,45 @@ float AIModule::brutalExtendedFireModeChoice(BattleActionCost &costAuto, BattleA
 	BattleAction testAction = _attackAction;
 	BattleAction chosenBattleAction = _attackAction;
 	float score = previousHighScore;
+	float candidateBest = 0.0f;
+	BattleActionType candidateBestAction = BA_RETHINK;
+	std::array<float, 3> candidateBestTerms{{0, 0, 0}};
 	Position originPosition = _unit->getPosition();
 	//first check our actions from the current tile
 	for (auto &i : attackOptions)
 	{
 		testAction.type = i;
+		if (!candidateAllowed(i, _aggroTarget ? _aggroTarget->getId() : -1, testAction.target))
+		{
+			if (_traceAI)
+			{
+				Log(LOG_INFO) << "AI_FAILURE_BLOCK action=" << static_cast<int>(i)
+					<< " target=" << (_aggroTarget ? _aggroTarget->getId() : -1)
+					<< " pos=" << testAction.target;
+			}
+			continue;
+		}
 		float newScore = brutalScoreFiringMode(&testAction, _aggroTarget, checkLOF);
+		if (newScore > candidateBest)
+		{
+			candidateBest = newScore;
+			candidateBestAction = i;
+			candidateBestTerms = _lastScoreTerms;
+		}
 
 		if (newScore > score)
 		{
 			score = newScore;
 			chosenBattleAction.type = i;
 			chosenBattleAction.weapon = _attackAction.weapon;
+			chosenBattleAction.aiTargetId = _aggroTarget ? _aggroTarget->getId() : -1;
+			chosenBattleAction.aiHasFilteredFallback = true;
 		}
 	}
 	_attackAction = chosenBattleAction;
+	if (evaluatedBestScore) *evaluatedBestScore = candidateBest;
+	if (evaluatedBestAction) *evaluatedBestAction = candidateBestAction;
+	if (evaluatedTerms) *evaluatedTerms = candidateBestTerms;
 	return score;
 }
 
@@ -6408,6 +6635,8 @@ float AIModule::brutalScoreFiringMode(BattleAction* action, BattleUnit* target, 
 	{
 		suppressionBonus *= 2.0f;
 	}
+	_lastScoreTerms = {{damage + armorPreDamage, accuracy * numberOfShots,
+		static_cast<float>(dangerMod * explosionMod * targetQuality * damageTypeMod + suppressionBonus)}};
 	return (damage + armorPreDamage) * accuracy * numberOfShots * dangerMod * explosionMod * targetQuality * damageTypeMod + suppressionBonus;
 }
 
@@ -6817,6 +7046,7 @@ void AIModule::brutalGrenadeAction()
 	auto radius = grenade->getRules()->getExplosionRadius(BattleActionAttack::GetBeforeShoot(action));
 	Position bestReachablePosition;
 	float bestScore = 0;
+	BattleUnit *bestTarget = nullptr;
 	int actionTimeBefore = action.Time;
 	for (BattleUnit *target : *(_save->getUnits()))
 	{
@@ -6835,6 +7065,7 @@ void AIModule::brutalGrenadeAction()
 				int dist = Position::distance2d(currentPosition, target->getPosition());
 				if (dist <= radius)
 				{
+					if (!candidateAllowed(BA_THROW, target->getId(), currentPosition)) continue;
 					// take into account we might have to turn towards our target
 					action.Time = actionTimeBefore;
 					action.Time += getTurnCostTowards(currentPosition);
@@ -6849,6 +7080,7 @@ void AIModule::brutalGrenadeAction()
 						{
 							bestReachablePosition = currentPosition;
 							bestScore = currentEfficacy;
+							bestTarget = target;
 						}
 					}
 				}
@@ -6876,6 +7108,8 @@ void AIModule::brutalGrenadeAction()
 			if (!action.haveTU())
 				continue;
 			action.target = pos;
+			if (!candidateAllowed(BA_THROW, target->getId(), pos))
+				continue;
 			if (!validateArcingShot(&action))
 				continue;
 			if (brutalExplosiveEfficacy(pos, _unit, radius, true, true) < 0)
@@ -6885,17 +7119,20 @@ void AIModule::brutalGrenadeAction()
 			{
 				bestScore = score;
 				bestReachablePosition = pos;
-				_aggroTarget = target;
+				bestTarget = target;
 			}
 		}
 	}
 	if (bestScore > 0)
 	{
+		_aggroTarget = bestTarget;
 		if (_aggroTarget)
 			_aggroTarget->setTileLastSpotted(-1, _unit->getFaction(), true);
 		_attackAction.weapon = grenade;
 		_attackAction.target = bestReachablePosition;
 		_attackAction.type = BA_THROW;
+		_attackAction.aiTargetId = bestTarget ? bestTarget->getId() : -1;
+		_attackAction.aiHasFilteredFallback = true;
 		_rifle = false;
 		_melee = false;
 		if (_traceAI)
@@ -7005,6 +7242,8 @@ void AIModule::blindFire()
 				_attackAction.type = targetAction.second.type;
 				_attackAction.weapon = targetAction.second.weapon;
 				_attackAction.target = _save->getTileCoords(_aggroTarget->getTileLastSpotted(_unit->getFaction(), true));
+				_attackAction.aiTargetId = targetAction.second.aiTargetId;
+				_attackAction.aiHasFilteredFallback = targetAction.second.aiHasFilteredFallback;
 			}
 		}
 		if (_aggroTarget)
@@ -7749,8 +7988,9 @@ int AIModule::requiredWayPointCount(Position to, const std::vector<PathfindingNo
 	return directionChanges;
 }
 
-std::vector<Position> AIModule::getPositionsOnPathTo(Position target, const std::vector<PathfindingNode*>& nodeVector)
+void AIModule::getPositionsOnPathTo(Position target, const std::vector<PathfindingNode*>& nodeVector, std::vector<Position>& out)
 {
+	out.clear();
 	PathfindingNode* targetNode = NULL;
 	for (auto pn : nodeVector)
 	{
@@ -7760,12 +8000,11 @@ std::vector<Position> AIModule::getPositionsOnPathTo(Position target, const std:
 			break;
 		}
 	}
-	std::vector<Position> positions;
 	if (targetNode != NULL)
 	{
 		while (targetNode->getPrevNode() != NULL)
 		{
-			positions.push_back(targetNode->getPosition());
+			out.push_back(targetNode->getPosition());
 			//if (_traceAI)
 			//{
 			//	Tile* tile = _save->getTile(_save->getTileIndex(targetNode->getPosition()));
@@ -7776,7 +8015,6 @@ std::vector<Position> AIModule::getPositionsOnPathTo(Position target, const std:
 			targetNode = targetNode->getPrevNode();
 		}
 	}
-	return positions;
 }
 
 float AIModule::grenadeRiddingUrgency()
@@ -7946,6 +8184,7 @@ bool AIModule::improveItemization(float currentItemScore, BattleAction* action)
 			}
 		} while (additionalPickup);
 	}
+	if (pickedSomethingUp) _save->getBattleGame()->markAIWorldChanged();
 	return pickedSomethingUp;
 }
 

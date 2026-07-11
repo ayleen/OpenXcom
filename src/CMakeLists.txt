@@ -857,6 +857,8 @@ if(NOT EMSCRIPTEN AND BUILD_TESTING)
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoEconomySimTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoTrainingMathTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoPrologueMathTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/AITuningTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/AIFailureMemoryTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/Phase43CompositionTest.cpp)
 
     add_executable(oxce_unit_tests ${OXCE_TEST_SOURCES})

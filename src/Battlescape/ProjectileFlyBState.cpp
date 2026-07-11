@@ -18,6 +18,7 @@
  */
 #include <algorithm>
 #include "ProjectileFlyBState.h"
+#include "../Mod/AITuning.h"
 #include "ExplosionBState.h"
 #include "Projectile.h"
 #include "TileEngine.h"
@@ -75,12 +76,14 @@ void ProjectileFlyBState::init()
 
 	if (!weapon) // can't shoot without weapon
 	{
+		_action.aiFailure = AIFailureReason::NO_AMMO;
 		_parent->popState();
 		return;
 	}
 
 	if (!_parent->getSave()->getTile(_action.target)) // invalid target position
 	{
+		_action.aiFailure = AIFailureReason::INVALID_TARGET;
 		_parent->popState();
 		return;
 	}
@@ -88,6 +91,8 @@ void ProjectileFlyBState::init()
 	//test TU only on first lunch waypoint or normal shoot
 	if (_range == 0 && !_action.haveTU(&_action.result))
 	{
+		_action.aiFailure = _action.actor->getTimeUnits() < _action.Time
+			? AIFailureReason::NOT_ENOUGH_TU : AIFailureReason::NOT_ENOUGH_ENERGY;
 		_parent->popState();
 		return;
 	}
@@ -100,6 +105,7 @@ void ProjectileFlyBState::init()
 		_ammo = _action.weapon->getAmmoForAction(_action.type, reactionShoot ? nullptr : &_action.result);
 		if (!_ammo)
 		{
+			_action.aiFailure = AIFailureReason::NO_AMMO;
 			_parent->popState();
 			return;
 		}
@@ -147,6 +153,7 @@ void ProjectileFlyBState::init()
 		{
 			// out of range
 			_action.result = "STR_OUT_OF_RANGE";
+			_action.aiFailure = AIFailureReason::OUT_OF_RANGE;
 			_parent->popState();
 			return;
 		}
@@ -156,6 +163,7 @@ void ProjectileFlyBState::init()
 		{
 			// out of range
 			_action.result = "STR_OUT_OF_RANGE";
+			_action.aiFailure = AIFailureReason::OUT_OF_RANGE;
 			_parent->popState();
 			return;
 		}
@@ -554,6 +562,7 @@ bool ProjectileFlyBState::createNewProjectile()
 			delete projectile;
 			_parent->getMap()->setProjectile(0);
 			_action.result = "STR_UNABLE_TO_THROW_HERE";
+			_action.aiFailure = AIFailureReason::INVALID_THROW;
 			_action.clearTU();
 			_parent->popState();
 			return false;
@@ -589,6 +598,7 @@ bool ProjectileFlyBState::createNewProjectile()
 			{
 				_action.result = "STR_NO_TRAJECTORY";
 			}
+			_action.aiFailure = AIFailureReason::NO_TRAJECTORY;
 			_unit->abortTurn();
 			_parent->popState();
 			return false;
@@ -631,6 +641,7 @@ bool ProjectileFlyBState::createNewProjectile()
 			{
 				_action.result = "STR_NO_LINE_OF_FIRE";
 			}
+			_action.aiFailure = AIFailureReason::NO_LOF;
 			_unit->abortTurn();
 			_parent->popState();
 			return false;
@@ -649,21 +660,24 @@ bool ProjectileFlyBState::createNewProjectile()
 	// Phase 34.8 (Calypso): emit a transient noise event at the shooter's position on
 	// every successful ranged shot (NOT a throw -- a grenade toss is quiet; its detonation
 	// emits via TileEngine::explode). Hearing radius scales mildly with ammo power
-	// (`8 + power/16`: a power-80 sonic weapon -> 13, a power-40 pistol -> 10). emitNoise is
-	// gated internally on Mod::getAIHearing (zero writes when off -- post-34.9 hardening), so
-	// this call site stays unconditional. Auto-fire emits once per projectile --
-	// harmless duplicates (same pos/turn) that the read path de-factors on the newest tie.
+	// (`hearingNoiseBase + power/hearingPowerDivisor`: with the defaults 8 + power/16 a
+	// power-80 sonic weapon -> 13, a power-40 pistol -> 10). emitNoise is gated internally
+	// on Mod::getAIHearing (zero writes when off -- post-34.9 hardening), so this call
+	// site stays unconditional. Auto-fire emits once per projectile -- harmless duplicates
+	// (same pos/turn) that the read path de-factors on the newest tie.
 	if (_action.type != BA_THROW)
 	{
 		const int ammoPower = _ammo ? _ammo->getRules()->getPower() : 0;
-		_parent->getSave()->emitNoise(_unit->getPosition(), 8 + ammoPower / 16);
+		auto* mod = _parent->getSave()->getMod();
+		_parent->getSave()->emitNoise(_unit->getPosition(), AITuning::hearingLoudness(
+			mod->getAIHearingNoiseBase(), ammoPower, mod->getAIHearingPowerDivisor()));
 	}
 
 	// Phase 34.7 (Calypso): near-miss suppression scan. Same seam family as 34.8's noise
 	// emission above -- at this point the trajectory is finalized and the projectile is
 	// committed to fly, so its voxel path is the ground truth of which tiles it visits. The
 	// scan (gated at the mechanic inside applySuppression: flag off => single-branch no-op,
-	// byte-identical) finds units within 1 tile of the trajectory and applies the morale/energy
+	// byte-identical) finds units within suppressionRadius tile(s) of the trajectory and applies the morale/energy
 	// pin. Same `!= BA_THROW` gate as noise: a grenade toss isn't volume fire (its detonation
 	// is a separate event that 34.7 does NOT suppress -- out of scope for this slice).
 	// Auto-fire emits one scan per projectile, which is correct: each bullet is its own

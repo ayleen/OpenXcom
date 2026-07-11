@@ -21,9 +21,11 @@
 #include "BattlescapeGame.h"
 #include "Position.h"
 #include "Pathfinding.h" // Brutal-AI: PathfindingNode, PositionComparator
+#include "AIFailureMemory.h"
 #include "../Savegame/BattleUnit.h"
 #include <vector>
 #include <set> // Brutal-AI
+#include <array>
 
 
 namespace OpenXcom
@@ -65,6 +67,8 @@ private:
 	int _lastBreachTurn = -1000; // Phase 34.6 (Calypso): transient, NOT saved -- gates wall-breaches to one attempt per 3 turns.
 	std::vector<int> _reachable, _reachableWithAttack, _wasHitBy;
 	std::vector<PathfindingNode*> _allPathFindingNodes; // Brutal-AI
+	std::vector<Position> _pathToEnemyPositions; // Phase 43.0: reusable buffer for getPositionsOnPathTo (targetPosition path), kept valid across the node loop
+	std::vector<Position> _pathToPosBuffer; // Phase 43.0: reusable buffer for getPositionsOnPathTo (per-node path, distinct so it never clobbers _pathToEnemyPositions)
 	Position _positionAtStartOfTurn; // Brutal-AI
 	int _tuCostToReachClosestPositionToBreakLos = 0; // Brutal-AI
 	int _energyCostToReachClosestPositionToBreakLos = 0; // Brutal-AI
@@ -75,6 +79,12 @@ private:
 	UnitFaction _myFaction = FACTION_HOSTILE; // Brutal-AI
 	mutable int _committedAttackTargetId = -1; // Phase 43 (H5): target this unit committed to attacking this turn (-1 = none)
 	mutable int _committedAttackTurn = -1;     // Phase 43 (H5): the turn number _committedAttackTargetId was recorded for
+	AIFailureMemory _failureMemory;
+	std::string _auditReason, _auditRunnerUp;
+	float _auditBestScore = 0.0f, _auditRunnerUpScore = 0.0f;
+	std::array<float, 3> _lastScoreTerms{{0, 0, 0}};
+	std::array<float, 3> _auditBestTerms{{0, 0, 0}};
+	std::array<const char*, 3> _auditTermLabels{{"damage", "hit", "context"}};
 
 	BattleAction _escapeAction, _ambushAction, _attackAction, _patrolAction, _psiAction;
 
@@ -112,7 +122,12 @@ private:
 	/// BA_RETHINK), and a fair-channel-known enemy stands on a destructible floor or a wall is
 	/// blocking the path to a known objective. With the flag off it is a no-op (byte-identical).
 	bool considerTerrainAttack();
+	bool candidateAllowed(BattleActionType type, int targetId, const Position& position) const;
+	void prepareAIAudit(BattleAction *action);
 public:
+	void beginActivation();
+	void recordFailedAttempt(const BattleAction& action);
+	void emitAIAudit(const BattleAction& action) const;
 	bool medikit_think(BattleMediKitType healOrStim);
 public:
 	/// Creates a new AIModule linked to the game and a certain unit.
@@ -217,7 +232,7 @@ public:
 	/// Performs a psionic attack but allow multiple per turn and take success-chance into consideration
 	bool brutalPsiAction();
 	/// Chooses a firing mode for the AI based on expected damage dealt
-	float brutalExtendedFireModeChoice(BattleActionCost &costAuto, BattleActionCost &costSnap, BattleActionCost &costAimed, BattleActionCost &costThrow, BattleActionCost &costHit, bool checkLOF = false, float previousHighScore = 0);
+	float brutalExtendedFireModeChoice(BattleActionCost &costAuto, BattleActionCost &costSnap, BattleActionCost &costAimed, BattleActionCost &costThrow, BattleActionCost &costHit, bool checkLOF = false, float previousHighScore = 0, float *evaluatedBestScore = nullptr, BattleActionType *evaluatedBestAction = nullptr, std::array<float, 3> *evaluatedTerms = nullptr);
 	/// Scores a firing mode action based on distance to target, accuracy and overall Damage dealt, also supports melee-hits
 	float brutalScoreFiringMode(BattleAction *action, BattleUnit *target, bool checkLOF, bool reactionCheck = false);
 	/// Phase 34.7 (Calypso): the suppression value of one auto-volley from `weapon` -- the
@@ -299,7 +314,8 @@ public:
 	/// returns the amount of blaster-waypoints to reach a target-positon
 	int requiredWayPointCount(Position to, const std::vector<PathfindingNode*> nodeVector);
 	/// returns a vector of all positions we'd have to walk towards a specific location
-	std::vector<Position> getPositionsOnPathTo(Position target, const std::vector<PathfindingNode*>& nodeVector);
+	/// (writes into caller-supplied `out`, which it clears first)
+	void getPositionsOnPathTo(Position target, const std::vector<PathfindingNode*>& nodeVector, std::vector<Position>& out);
 	/// returns fear of smoke
 	std::map<Position, int, PositionComparator> getSmokeFearMap();
 	/// returns how urgent it is to get rid of a grenade

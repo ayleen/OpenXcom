@@ -16,6 +16,8 @@
  * You should have received a copy of the GNU General Public License
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
+#include <chrono>
+#include <map>
 #include <sstream>
 #include "BattlescapeGame.h"
 #include "BattlescapeState.h"
@@ -306,6 +308,15 @@ int BattlescapeGame::think()
  */
 void BattlescapeGame::init()
 {
+	// Start hostile-turn timing only once the turn-transition overlay has closed and
+	// control returns here. This also covers loaded saves and hostile-first scenarios.
+	// init() is called again after other overlay states, so never restart an active window.
+	if (Options::traceAI && _save->getSide() == FACTION_HOSTILE && !_aiTurnTimingActive)
+	{
+		_aiTurnStart = std::chrono::steady_clock::now();
+		_aiTurnThinkUs.clear();
+		_aiTurnTimingActive = true;
+	}
 	if (_save->getSide() == FACTION_PLAYER && _save->getTurn() > 1)
 	{
 		_playerPanicHandled = false;
@@ -317,6 +328,24 @@ void BattlescapeGame::init()
  * Handles the processing of the AI states of a unit.
  * @param unit Pointer to a unit.
  */
+void BattlescapeGame::thinkHostileTimed(BattleUnit *unit, BattleAction *action)
+{
+	// Phase 43.0: while a hostile faction turn is being timed, accumulate the wall-time spent
+	// inside unit->think() per hostile unit. When tracing is off (or outside a hostile turn) the
+	// call is made unchanged, so non-trace behaviour is identical.
+	if (_aiTurnTimingActive && unit->getFaction() == FACTION_HOSTILE && Options::traceAI)
+	{
+		auto t0 = std::chrono::steady_clock::now();
+		unit->think(action);
+		auto us = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - t0).count();
+		_aiTurnThinkUs[unit->getId()] += us;
+	}
+	else
+	{
+		unit->think(action);
+	}
+}
+
 void BattlescapeGame::handleAI(BattleUnit *unit)
 {
 #ifdef __EMSCRIPTEN__
@@ -387,8 +416,9 @@ void BattlescapeGame::handleAI(BattleUnit *unit)
 		ai = unit->getAIModule();
 	}
 	_AIActionCounter++;
-	if (_AIActionCounter == 1)
+	if (beginsNewActivationAfterIncrement(_AIActionCounter))
 	{
+		if (unit->getAIModule()) unit->getAIModule()->beginActivation();
 		_playedAggroSound = false;
 		unit->setHiding(false);
 		if (Options::traceAI) { Log(LOG_INFO) << "#" << unit->getId() << "--" << unit->getType(); }
@@ -397,12 +427,12 @@ void BattlescapeGame::handleAI(BattleUnit *unit)
 	BattleAction action;
 	action.actor = unit;
 	action.number = _AIActionCounter;
-	unit->think(&action);
+	thinkHostileTimed(unit, &action);
 
 	if (action.type == BA_RETHINK)
 	{
 		_parentState->debug("Rethink");
-		unit->think(&action);
+		thinkHostileTimed(unit, &action);
 	}
 
 	_AIActionCounter = action.number;
@@ -425,8 +455,10 @@ void BattlescapeGame::handleAI(BattleUnit *unit)
 		// you have just picked up a weapon... use it if you can!
 		_parentState->debug("Re-Rethink");
 		unit->getAIModule()->setWeaponPickedUp();
-		unit->think(&action);
+		thinkHostileTimed(unit, &action);
 	}
+	// Emit once, after initial/rethink/pickup passes have converged on the executable action.
+	if (unit->getAIModule()) unit->getAIModule()->emitAIAudit(action);
 
 	if (unit->getCharging() != 0)
 	{
@@ -517,6 +549,16 @@ void BattlescapeGame::handleAI(BattleUnit *unit)
 		{
 			// impossible to walk to this tile, don't try to pick up an item from there for the rest of the turn
 			targetTile->setDangerous(true);
+		}
+		else if (unit->getAIModule())
+		{
+			action.aiFailure = AIFailureReason::PATH_UNREACHABLE;
+			action.aiAttemptPosition = action.target;
+			unit->getAIModule()->recordFailedAttempt(action);
+			const bool fallback = hasProvenFilteredFallback(getMod()->getAIFailureMemory(),
+				action.aiHasFilteredFallback, action.aiFailure);
+			_AIActionCounter = preserveActivationCounterForFallback(_AIActionCounter, fallback);
+			action.type = BA_RETHINK;
 		}
 	}
 
@@ -743,7 +785,32 @@ void BattlescapeGame::endTurn()
 		}
 
 
+		UnitFaction sideBefore = _save->getSide();
 		_save->endTurn();
+		// Phase 43.0: close hostile faction-turn timing at the actual side transition.
+		// The matching start happens in init(), after the turn-transition overlay closes,
+		// so modal "Aliens turn" display time is excluded from the measurement.
+		// Gated on Options::traceAI so non-trace behaviour is unchanged and no state is touched.
+		if (Options::traceAI)
+		{
+			if (sideBefore == FACTION_HOSTILE && _aiTurnTimingActive)
+			{
+				// Leaving the hostile faction turn: emit the per-unit aggregate + the turn total, then reset.
+				auto turnEnd = std::chrono::steady_clock::now();
+				long long totalUs = std::chrono::duration_cast<std::chrono::microseconds>(turnEnd - _aiTurnStart).count();
+				std::ostringstream ss;
+				ss << "AI_TIMING factionTurn_us=" << totalUs << " think_us={";
+				for (auto it = _aiTurnThinkUs.begin(); it != _aiTurnThinkUs.end(); ++it)
+				{
+					if (it != _aiTurnThinkUs.begin()) ss << ",";
+					ss << it->first << ":" << it->second;
+				}
+				ss << "}";
+				Log(LOG_INFO) << ss.str();
+				_aiTurnThinkUs.clear();
+				_aiTurnTimingActive = false;
+			}
+		}
 		t = _save->getTileEngine()->checkForTerrainExplosions();
 		if (t)
 		{
@@ -1379,6 +1446,14 @@ void BattlescapeGame::popState()
 
 	auto* first = _states.front();
 	BattleAction action = first->getAction();
+	if (action.actor && action.actor->getFaction() != FACTION_PLAYER && action.actor->getAIModule()
+		&& action.aiFailure != AIFailureReason::NONE)
+	{
+		action.actor->getAIModule()->recordFailedAttempt(action);
+		const bool fallback = hasProvenFilteredFallback(getMod()->getAIFailureMemory(),
+			action.aiHasFilteredFallback, action.aiFailure);
+		_AIActionCounter = preserveActivationCounterForFallback(_AIActionCounter, fallback);
+	}
 
 	if (action.actor && !action.result.empty() && action.actor->getFaction() == FACTION_PLAYER
 		&& _playerPanicHandled && (_save->getSide() == FACTION_PLAYER || _debugPlay))
@@ -1393,6 +1468,15 @@ void BattlescapeGame::popState()
 	// handle the end of this unit's actions
 	if (action.actor && noActionsPending(action.actor))
 	{
+		// Any successful action can invalidate an AI candidate, including player reaction fire
+		// during the hostile turn. Failure states deliberately leave the revision unchanged.
+		if (action.aiFailure == AIFailureReason::NONE && action.type != BA_NONE && action.type != BA_WAIT
+			&& (action.tuBefore != action.actor->getTimeUnits() || action.type == BA_THROW
+				|| action.type == BA_SNAPSHOT || action.type == BA_AUTOSHOT || action.type == BA_AIMEDSHOT
+				|| action.type == BA_LAUNCH || action.type == BA_USE))
+		{
+			markAIWorldChanged();
+		}
 		if (action.actor->getFaction() == FACTION_PLAYER)
 		{
 			if (_save->getSide() == FACTION_PLAYER)
@@ -1422,6 +1506,8 @@ void BattlescapeGame::popState()
 				// trip the guard. Gated on isBrutal() so the vanilla off-path stays byte-identical.
 				if (action.actor && action.actor->isBrutal()
 					&& action.type != BA_NONE && action.type != BA_WAIT
+					&& !hasProvenFilteredFallback(getMod()->getAIFailureMemory(),
+						action.aiHasFilteredFallback, action.aiFailure)
 					&& action.tuBefore == action.actor->getTimeUnits())
 				{
 					if (Options::traceAI) { Log(LOG_INFO) << "Phase 43 (C2): #" << action.actor->getId() << " made no TU progress -> ending its turn"; }

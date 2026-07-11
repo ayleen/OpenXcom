@@ -2737,12 +2737,12 @@ bool SavedBattleGame::getNewestHearableNoise(const Position &hearerPos, int inte
  * changes and behavior is byte-identical.
  *
  * Near-miss definition: a unit (any faction -- engine-symmetric, soldiers pin aliens too)
- * counts as near-missed when the trajectory visits a tile within 1 tile (3D Chebyshev
- * distance <= 1: the unit's own tile plus its 26 neighbours) of the unit's position tile.
- * The shooter and the shot's actual target are excluded (a hit is not a near-miss; the
- * shooter's own muzzle blast doesn't pin it). Large units use their anchor tile -- the 1-tile
- * band already generously covers a size-2 footprint on most approaches; suppression is a
- * heuristic, not an exact physical model.
+ * counts as near-missed when the trajectory visits a tile within suppressionRadius tile(s)
+ * (3D Chebyshev distance <= suppressionRadius: at the default radius 1, the unit's own tile
+ * plus its 26 neighbours) of the unit's position tile. The shooter and the shot's actual
+ * target are excluded (a hit is not a near-miss; the shooter's own muzzle blast doesn't pin
+ * it). Large units use their anchor tile -- at radius 1 the band already generously covers a
+ * size-2 footprint on most approaches; suppression is a heuristic, not an exact physical model.
  *
  * Per-victim per-turn cap (BattleUnit::SUPPRESSION_CAP_PER_TURN) is enforced in addNearMiss;
  * once a victim has taken the cap this turn, further events are a no-op. The knobs (morale/
@@ -2756,6 +2756,8 @@ void SavedBattleGame::applySuppression(const std::vector<Position>& trajectoryVo
 
 	const int moraleLoss = getMod()->getAISuppressionMorale();
 	const int energyLoss = getMod()->getAISuppressionEnergy();
+	// Phase 43.0 item 7: Chebyshev near-miss radius (tiles). Previously a literal 1.
+	const int radius = getMod()->getAISuppressionRadius();
 
 	// Collect the unique tiles the trajectory visits (voxel -> tile). Dedup shrinks the
 	// inner loop from O(voxels) to O(unique tiles) -- a straight bullet traces ~16 voxels
@@ -2781,7 +2783,7 @@ void SavedBattleGame::applySuppression(const std::vector<Position>& trajectoryVo
 		bool nearMiss = false;
 		for (const auto& vt : visitedTiles)
 		{
-			if (std::abs(up.x - vt.x) <= 1 && std::abs(up.y - vt.y) <= 1 && std::abs(up.z - vt.z) <= 1)
+			if (std::abs(up.x - vt.x) <= radius && std::abs(up.y - vt.y) <= radius && std::abs(up.z - vt.z) <= radius)
 			{
 				nearMiss = true;
 				break;

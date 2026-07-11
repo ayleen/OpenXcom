@@ -526,6 +526,7 @@ private:
 	int _aiCheatMode;
 	bool _aiAvoidMines;
 	bool _aiPerformanceOptimization;
+	bool _aiFailureMemory;
 	std::string _aiCivilianGuardType;
 	int _aiCivilianGuardChance;
 	int _aiReactionFireThreshold, _aiReactionFireThresholdCiv;
@@ -534,6 +535,15 @@ private:
 	AIAttackWeight _aiTargetWeightAsHostileCivilians = AIAttackWeight{ 50 };
 	AIAttackWeight _aiTargetWeightAsFriendly = AIAttackWeight{ -200 };
 	AIAttackWeight _aiTargetWeightAsNeutral = AIAttackWeight{ -100 };
+	// Phase 43.0 item 7 (Calypso): tunable numeric knobs that were previously hardcoded magic
+	// constants at the consumer sites. Defaults reproduce the pre-43.0 behavior exactly; the
+	// mod can override each one via the ai: block. See getters below for per-knob semantics.
+	int _aiHearingNoiseBase;         // base loudness added on each ranged shot (previously literal 8)
+	int _aiHearingPowerDivisor;      // divisor applied to ammo power in the shot-noise formula (previously 16)
+	int _aiSuppressionRadius;        // Chebyshev radius (tiles) for the near-miss suppression scan (previously 1)
+	int _aiFocusFireCommitThreshold; // squad-attackers count at which focus-fire down-weighting kicks in (previously 2)
+	int _aiFocusFireScorePercent;    // percent of weight/score a dogpiled target keeps (previously 50, i.e. halve)
+	int _aiBreachDetourMultiplier;   // path-vs-straight-line detour ratio that triggers a wall breach (previously 2)
 
 	int _maxLookVariant, _tooMuchSmokeThreshold, _customTrainingFactor;
 	int _chanceToStopRetaliation;
@@ -1272,6 +1282,7 @@ public:
 	bool getAIAvoidMines() const { return _aiAvoidMines; }
 	/// Brutal-AI: whether to trim the per-turn option set the brutal AI evaluates, to cut turn time (default false).
 	bool getAIPerformanceOptimization() const { return _aiPerformanceOptimization; }
+	bool getAIFailureMemory() const { return _aiFailureMemory; }
 	/// Gets the civilian unit type spawned as an armed guard (Phase 32; empty = no guards).
 	const std::string& getAICivilianGuardType() const { return _aiCivilianGuardType; }
 	/// Gets the per-civilian chance (%) of spawning as a guard instead (Phase 32; default 0).
@@ -1288,6 +1299,19 @@ public:
 	AIAttackWeight getAITargetWeightAsFriendly() const { return _aiTargetWeightAsFriendly; }
 	/// Gets default weight value of neutral unit (xcom to civ or vice versa).
 	AIAttackWeight getAITargetWeightAsNeutral() const { return _aiTargetWeightAsNeutral; }
+
+	/// Phase 43.0 item 7: base loudness added to ammo-power/divisor on each ranged shot (default 8, >=0).
+	int getAIHearingNoiseBase() const { return _aiHearingNoiseBase; }
+	/// Phase 43.0 item 7: divisor applied to ammo power in the shot-noise formula (default 16, >=1).
+	int getAIHearingPowerDivisor() const { return _aiHearingPowerDivisor; }
+	/// Phase 43.0 item 7: Chebyshev radius (tiles) for the near-miss suppression scan (default 1, >=0).
+	int getAISuppressionRadius() const { return _aiSuppressionRadius; }
+	/// Phase 43.0 item 7: squad-attackers count at which focus-fire down-weighting kicks in (default 2, >=1).
+	int getAIFocusFireCommitThreshold() const { return _aiFocusFireCommitThreshold; }
+	/// Phase 43.0 item 7: percent of weight/score a dogpiled target keeps (default 50, clamped 1..100).
+	int getAIFocusFireScorePercent() const { return _aiFocusFireScorePercent; }
+	/// Phase 43.0 item 7: detour ratio (pathTUs vs straight-line) that triggers a wall breach (default 2, >=1).
+	int getAIBreachDetourMultiplier() const { return _aiBreachDetourMultiplier; }
 
 	/// Gets maximum supported lookVariant.
 	int getMaxLookVariant() const;

@@ -17,6 +17,7 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "Mod.h"
+#include "AITuning.h"
 #include "ModScript.h"
 #include <algorithm>
 #include <functional>
@@ -449,9 +450,15 @@ Mod::Mod() :
 	_aiHearing(false),
 	_aiSuppression(false), _aiSuppressionMorale(5), _aiSuppressionEnergy(10),
 	_aiSquadCoordination(false),
-	_aiBrutalAI(false), _aiCheatMode(0), _aiAvoidMines(true), _aiPerformanceOptimization(false),
+	_aiBrutalAI(false), _aiCheatMode(0), _aiAvoidMines(true), _aiPerformanceOptimization(false), _aiFailureMemory(false),
 	_aiCivilianGuardChance(0),
 	_aiReactionFireThreshold(0), _aiReactionFireThresholdCiv(0),
+	// Phase 43.0 item 7 (Calypso): externalized AI magic constants -- defaults match pre-43.0 behavior.
+	_aiHearingNoiseBase(AITuning::DEFAULT_HEARING_NOISE_BASE), _aiHearingPowerDivisor(AITuning::DEFAULT_HEARING_POWER_DIVISOR),
+	_aiSuppressionRadius(AITuning::DEFAULT_SUPPRESSION_RADIUS),
+	_aiFocusFireCommitThreshold(AITuning::DEFAULT_FOCUS_FIRE_COMMIT_THRESHOLD),
+	_aiFocusFireScorePercent(AITuning::DEFAULT_FOCUS_FIRE_SCORE_PERCENT),
+	_aiBreachDetourMultiplier(AITuning::DEFAULT_BREACH_DETOUR_MULTIPLIER),
 	_maxLookVariant(0), _tooMuchSmokeThreshold(10), _customTrainingFactor(100),
 	_chanceToStopRetaliation(0), _chanceToDetectAlienBaseEachMonth(20), _lessAliensDuringBaseDefense(false),
 	_allowCountriesToCancelAlienPact(false), _buildInfiltrationBaseCloseToTheCountry(false), _infiltrateRandomCountryInTheRegion(false), _allowAlienBasesOnWrongTextures(true),
@@ -3319,12 +3326,29 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 		nodeAI.tryRead("aiCheatMode", _aiCheatMode);
 		nodeAI.tryRead("avoidMines", _aiAvoidMines);
 		nodeAI.tryRead("aiPerformanceOptimization", _aiPerformanceOptimization);
+		nodeAI.tryRead("failureMemory", _aiFailureMemory);
 		// Fairness guard: only fair cheat levels (<= 0) are honoured from the mod for now (Phase 34.1 stance).
 		if (_aiCheatMode > 0) { _aiCheatMode = 0; }
 		nodeAI.tryRead("civilianGuardType", _aiCivilianGuardType);
 		nodeAI.tryRead("civilianGuardChance", _aiCivilianGuardChance);
 		nodeAI.tryRead("reactionFireThreshold", _aiReactionFireThreshold);
 		nodeAI.tryRead("reactionFireThresholdCiv", _aiReactionFireThresholdCiv);
+		// Phase 43.0 item 7 (Calypso): externalize previously-hardcoded AI magic constants. Defaults
+		// (set in the ctor above) reproduce pre-43.0 behavior; the clamps below guard against a bogus
+		// mod value ever crashing the engine or inverting a heuristic. Upper-range arithmetic
+		// is handled by the overflow-safe production helpers at the consumer sites.
+		nodeAI.tryRead("hearingNoiseBase", _aiHearingNoiseBase);
+		nodeAI.tryRead("hearingPowerDivisor", _aiHearingPowerDivisor);
+		nodeAI.tryRead("suppressionRadius", _aiSuppressionRadius);
+		nodeAI.tryRead("focusFireCommitThreshold", _aiFocusFireCommitThreshold);
+		nodeAI.tryRead("focusFireScorePercent", _aiFocusFireScorePercent);
+		nodeAI.tryRead("breachDetourMultiplier", _aiBreachDetourMultiplier);
+		_aiHearingNoiseBase = AITuning::clampNonNegative(_aiHearingNoiseBase);
+		_aiHearingPowerDivisor = AITuning::clampAtLeastOne(_aiHearingPowerDivisor);
+		_aiSuppressionRadius = AITuning::clampNonNegative(_aiSuppressionRadius);
+		_aiFocusFireCommitThreshold = AITuning::clampAtLeastOne(_aiFocusFireCommitThreshold);
+		_aiFocusFireScorePercent = AITuning::clampPercent(_aiFocusFireScorePercent);
+		_aiBreachDetourMultiplier = AITuning::clampAtLeastOne(_aiBreachDetourMultiplier);
 
 		nodeAI.tryRead("targetWeightThreatThreshold", _aiTargetWeightThreatThreshold);
 		nodeAI.tryRead("targetWeightAsHostile", _aiTargetWeightAsHostile);
