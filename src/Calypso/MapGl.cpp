@@ -48,6 +48,7 @@
 #include "../Engine/Palette.h"
 #include "../Engine/Game.h"
 #include "../Engine/Screen.h"
+#include "../Engine/HdUnitBattleSpike.h"
 #include "../Engine/ShaderDraw.h"
 #include "../Engine/ShaderMove.h"
 #include "../Savegame/SavedBattleGame.h"
@@ -145,6 +146,7 @@ void Map::drawTerrainGPU(Surface* surface)
 	const Uint32 ticks = SDL_GetTicks();
 	_animFrameGPU = static_cast<float>(ticks % TILE_ANIM_PERIOD_MS)
 	                / static_cast<float>(TILE_ANIM_PERIOD_MS);
+	HdUnitBattleSpike::beginRenderFrame();
 	emitTilePass();
 	emitUnitPass();
 	// drawTerrainOverlayCPU collects unit emit records (via drawUnit/setEmitMode)
@@ -401,6 +403,12 @@ void Map::emitTilePass()
 				}
 				const int prio = itZ * 65536 + itY * 1024 + mapPos.x * 8 + partPrio;
 				const float iso = (float)prio / 2000000.0f;
+				if (partPrio == 6 && HdUnitBattleSpike::active())
+					HdUnitBattleSpike::recordForegroundOccluder(
+						mapPos.x, itY, itZ, partPrio,
+						(float)(screenPos.x + mapOffsetX),
+						(float)(screenPos.y - tile->getYOffset(part) + mapOffsetY),
+						(float)_spriteWidth, (float)_spriteHeight);
 
 				TileInstance inst;
 				inst.screenX       = (float)(screenPos.x + mapOffsetX);
@@ -637,6 +645,7 @@ void Map::emitUnitPass()
 		g.instances.clear();
 		g.zLevels.clear();
 		g.yLevels.clear();
+		g.g0OverlayInstances.clear();
 	}
 	_unitShadowInst.clear();   // Phase 27.5: refilled by drawUnit this frame
 }
@@ -1508,7 +1517,7 @@ void Map::drawTileGLPass()
 			grp.blendInstances.clear();  // Phase 22
 			for (auto& sv : grp.subLayerInstances) sv.clear();
 		}
-		for (auto& grp : _unitAtlasGroups) { grp.instances.clear(); grp.zLevels.clear(); grp.yLevels.clear(); }
+		for (auto& grp : _unitAtlasGroups) { grp.instances.clear(); grp.zLevels.clear(); grp.yLevels.clear(); grp.g0OverlayInstances.clear(); }
 		_cursorOverlayInstances.clear();
 		_smokeInstances.clear();
 		_emissiveSources.clear();   // Phase 25 (R1): drop stale halos with the rest
@@ -1749,6 +1758,19 @@ void Map::drawTileGLPass()
 	// shared edge pixels. LEQUAL lets the overlay (drawn after baseline)
 	// claim those pixels and overwrite the palette-shaded R8 color.
 	glDepthFunc(GL_LEQUAL);
+	// Phase-42 disposable G0: exact-alignment RGBA body overlays. Baseline body
+	// and HANDOB instances have already populated depth in their real routine-0
+	// sequence; overlay depth writes stay off so terrain priority 6 still wins.
+	for (auto& g : _unitAtlasGroups)
+	{
+		if (!g.spec || !g.spec->g0OverlayAtlas || g.g0OverlayInstances.empty()) continue;
+		const float uvW = (float)g.spec->tileWidth / (float)g.spec->atlasW;
+		const float uvH = (float)g.spec->tileHeight / (float)g.spec->atlasH;
+		drawAtlas(g.spec->g0OverlayAtlas, uvW, uvH,
+		          g.g0OverlayInstances.data(), g.g0OverlayInstances.size(), true, 0.0f);
+	}
+	if (HdUnitBattleSpike::active())
+		HdUnitBattleSpike::recordGlError((unsigned)glGetError());
 	// Phase 20.4: track active blend func to avoid redundant GL calls.
 	bool curPremult = false; // false = straight alpha (GL_SRC_ALPHA)
 

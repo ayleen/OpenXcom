@@ -87,6 +87,8 @@ private:
 	void*                      _emitZTargetItem = nullptr;  // std::vector<int>* receiving Z per item emit
 	void*                      _emitYTargetBody = nullptr;  // std::vector<int>* receiving Y per body emit
 	void*                      _emitYTargetItem = nullptr;  // std::vector<int>* receiving Y per item emit
+	void*                      _emitG0OverlayTarget = nullptr;
+	int                        _emitSequence = 0;
 #endif
 
 	/// Drawing routine for XCom soldiers in overalls, sectoids (routine 0),
@@ -155,7 +157,8 @@ public:
 	                 const Mod::UnitAtlasSpec* itemSpec,
 	                 int emitZ = 0, int emitY = 0, int emitX = 0,
 	                 void* zTargetBody = nullptr, void* zTargetItem = nullptr,
-	                 void* yTargetBody = nullptr, void* yTargetItem = nullptr)
+	                 void* yTargetBody = nullptr, void* yTargetItem = nullptr,
+	                 void* g0OverlayTarget = nullptr)
 	{
 		_emitTarget     = bodyTarget;
 		_emitItemTarget = itemTarget;
@@ -168,6 +171,7 @@ public:
 		_emitZTargetItem = zTargetItem;
 		_emitYTargetBody = yTargetBody;
 		_emitYTargetItem = yTargetItem;
+		_emitG0OverlayTarget = g0OverlayTarget;
 	}
 	void clearEmitMode()
 	{
@@ -182,9 +186,10 @@ public:
 		_emitZTargetItem = nullptr;
 		_emitYTargetBody = nullptr;
 		_emitYTargetItem = nullptr;
+		_emitG0OverlayTarget = nullptr;
+		_emitSequence = 0;
 	}
 #endif
 };
 
 } //namespace OpenXcom
-

@@ -26,6 +26,8 @@
 #include "Options.h"
 #include "ShaderManager.h"
 #include "GpuSmokeState.h"
+#include "HdUnitSpikeState.h"
+#include "HdUnitBattleSpike.h"
 #include "Logger.h"
 #include "FileMap.h"
 #include "../Interface/Cursor.h"
@@ -145,6 +147,61 @@ void calypso_gpu_smoke_activate(const char *path)
 		return;
 	}
 	OpenXcom::GpuSmokeState::activate(g->getScreen(), path ? path : "/tmp/gpu-smoke.png");
+}
+
+/* Disposable Phase-42 G0 synthetic HD-unit diagnostic. The PNG must already
+ * exist in MEMFS and contain the documented 4x3 body/RH/LH/sentinel atlas.
+ * Returns 1 only after decode, shader compile, upload and forced reload have
+ * succeeded and the three-frame capture pass has been registered. */
+EMSCRIPTEN_KEEPALIVE
+int calypso_hd_unit_spike_activate(const char *assetPath, const char *outPath,
+	                              const char *metricsPath)
+{
+	OpenXcom::Game *g = OpenXcom::getCurrentGame();
+	if (!g || !g->getScreen())
+	{
+		EM_ASM({ console.error('calypso_hd_unit_spike_activate: game not running'); });
+		return 0;
+	}
+	return OpenXcom::HdUnitSpikeState::activate(
+		g->getScreen(),
+		assetPath ? assetPath : "/tmp/hd-unit-atlas.png",
+		outPath ? outPath : "/tmp/hd-unit-spike.png",
+		metricsPath ? metricsPath : "/tmp/hd-unit-spike.json") ? 1 : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int calypso_hd_unit_battle_g0_activate(const char *assetPath, const char *metricsPath)
+{
+	Game *g = getCurrentGame();
+	return g && HdUnitBattleSpike::activate(g, assetPath, metricsPath) ? 1 : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int calypso_hd_unit_battle_g0_select(int unitId, int activeHand, int aiming, int center)
+{
+	Game *g = getCurrentGame();
+	return g ? HdUnitBattleSpike::select(g, unitId, activeHand, aiming, center != 0) : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int calypso_hd_unit_battle_g0_find_occluder_target(int unitId, const char *outJson)
+{
+	Game *g = getCurrentGame();
+	return g && HdUnitBattleSpike::findOccluderTarget(g, unitId, outJson) ? 1 : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int calypso_hd_unit_battle_g0_checkpoint(const char *label)
+{
+	return HdUnitBattleSpike::checkpoint(label) ? 1 : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int calypso_hd_unit_battle_g0_finish(const char *outPng)
+{
+	Game *g = getCurrentGame();
+	return g && HdUnitBattleSpike::finish(g, outPng) ? 1 : 0;
 }
 
 /* ---- HTML main-menu bridge (Phase 2) ----------------------------------------

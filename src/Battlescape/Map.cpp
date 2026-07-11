@@ -1333,7 +1333,8 @@ void Map::drawUnit(UnitSprite &unitSprite, Tile *unitTile, Tile *currTile, Posit
 			    &_unitAtlasGroups[bodyIdx].zLevels,
 			    haveItem ? &_unitAtlasGroups[itemIdx].zLevels : nullptr,
 			    &_unitAtlasGroups[bodyIdx].yLevels,
-			    haveItem ? &_unitAtlasGroups[itemIdx].yLevels : nullptr
+			    haveItem ? &_unitAtlasGroups[itemIdx].yLevels : nullptr,
+			    &_unitAtlasGroups[bodyIdx].g0OverlayInstances
 			);
 			unitSprite.draw(bu, part, tileScreenPosition.x + offsets.ScreenOffset.x, tileScreenPosition.y + offsets.ScreenOffset.y, shade, mask, _isAltPressed && !_isCtrlPressed);
 			unitSprite.clearEmitMode();

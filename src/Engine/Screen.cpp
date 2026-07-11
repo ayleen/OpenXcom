@@ -91,6 +91,13 @@ Screen::Screen() : _screen(nullptr), _window(nullptr), _renderer(nullptr), _text
  */
 Screen::~Screen()
 {
+#ifdef __EMSCRIPTEN__
+	/* GPU passes own Shader/GpuTexture/VAO objects. Destroy their closures while
+	 * SDL's WebGL context is still alive; member destruction happens after this
+	 * destructor body and would otherwise issue glDelete* against a dead context. */
+	_gpuPasses.clear();
+	_gpuPassesPre.clear();
+#endif
 	if (_texture)  { SDL_DestroyTexture(_texture);   _texture  = nullptr; }
 	if (_renderer) { SDL_DestroyRenderer(_renderer); _renderer = nullptr; }
 	if (_window)   { SDL_DestroyWindow(_window);     _window   = nullptr; }
