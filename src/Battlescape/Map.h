@@ -520,6 +520,7 @@ private:
 		/// drawTileGLPass interleave unit draws per (Z, Y) row so walls of
 		/// camera-near rows (Y > unit's Y) can occlude the unit from in front.
 		std::vector<int>           yLevels;
+		std::vector<TileInstance>  g0OverlayInstances;
 	};
 	std::vector<UnitAtlasGroup> _unitAtlasGroups;
 	// Phase 27.5: soft contact-shadow ellipse under each unit so HD sprites read

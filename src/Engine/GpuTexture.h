@@ -9,6 +9,7 @@
  * Instances register themselves with ShaderManager for lost-context recovery.
  */
 #include <cstdint>
+#include <cstddef>
 #include <functional>
 #include <string>
 #include <vector>
@@ -36,6 +37,10 @@ public:
     int  width()  const { return _w; }
     int  height() const { return _h; }
     bool isValid() const { return _tex != 0u; }
+    /* Developer-harness accounting hook. This reports only the owned CPU
+     * mirror used for context-loss recovery; it does not estimate driver
+     * allocations. Production callers need not use it. */
+    size_t debugCachedBytes() const { return _cachedData.size(); }
 
     /* Called by ShaderManager on SDL_RENDER_TARGETS_RESET. */
     void reupload();

@@ -29,6 +29,7 @@
 #include "../Engine/Exception.h"
 #ifdef __EMSCRIPTEN__
 #include "Map.h"
+#include "../Engine/HdUnitBattleSpike.h"
 #endif
 
 namespace OpenXcom
@@ -185,6 +186,11 @@ void UnitSprite::blitItem(Part& item)
 {
 	if (!item.src)
 	{
+#ifdef __EMSCRIPTEN__
+		// G0 sequence tracks the routine's attempted call order, including an
+		// empty hand slot, so RH/LH ordering remains distinguishable in metrics.
+		if (_emitItemTarget && HdUnitBattleSpike::active()) ++_emitSequence;
+#endif
 		return;
 	}
 #ifdef __EMSCRIPTEN__
@@ -208,9 +214,20 @@ void UnitSprite::blitItem(Part& item)
 		// Layout: z*65536 + y*1024 + x*8 + part. y_mul=1024 ensures y dominates
 		// x_mul*x_max+part (60*8+6=486) so cells in different y-rows never
 		// collide on prio. Normalisation 1.5e6 keeps iso ∈ [0, 0.92).
-		const int prio = _emitZ * 65536 + _emitY * 1024 + _emitX * 8 + 5;
-		inst.iso = (float)prio / 2000000.0f;
+		const bool g0 = HdUnitBattleSpike::active() && _emitUnitSpec
+		             && _emitUnitSpec->g0OverlayAtlas;
+		const int sequence = _emitSequence;
+		const float localPriority = g0 ? 4.0f + sequence * 0.25f : 5.0f;
+		const float prio = (float)(_emitZ * 65536 + _emitY * 1024 + _emitX * 8) + localPriority;
+		inst.iso = prio / 2000000.0f;
 		vec->push_back(inst);
+		if (g0)
+		{
+			HdUnitBattleSpike::recordEmit(_unit ? _unit->getId() : -1,
+				_unit ? _unit->getDirection() : -1, sequence, "HANDOB",
+				item.frameIdx, localPriority, false);
+			++_emitSequence;
+		}
 		if (_emitZTargetItem)
 			static_cast<std::vector<int>*>(_emitZTargetItem)->push_back(_emitZ);
 		if (_emitYTargetItem)
@@ -236,6 +253,9 @@ void UnitSprite::blitBody(Part& body)
 {
 	if (!body.src)
 	{
+#ifdef __EMSCRIPTEN__
+		if (_emitTarget && HdUnitBattleSpike::active()) ++_emitSequence;
+#endif
 		return;
 	}
 	if (body.src->getShadeTable() == nullptr)
@@ -261,9 +281,34 @@ void UnitSprite::blitBody(Part& body)
 		inst.animFrameCount = 1.0f;
 		inst.alphaMask      = 1.0f;
 		// Unit body: priority above floor items, below front-tile object.
-		const int prio = _emitZ * 65536 + _emitY * 1024 + _emitX * 8 + 4;
-		inst.iso = (float)prio / 2000000.0f;
+		const bool g0 = HdUnitBattleSpike::active() && _emitUnitSpec
+		             && _emitUnitSpec->g0OverlayAtlas;
+		const int sequence = _emitSequence;
+		const float localPriority = g0 ? 4.0f + sequence * 0.25f : 4.0f;
+		const float prio = (float)(_emitZ * 65536 + _emitY * 1024 + _emitX * 8) + localPriority;
+		inst.iso = prio / 2000000.0f;
 		vec->push_back(inst);
+		if (g0)
+		{
+			HdUnitBattleSpike::recordEmit(_unit ? _unit->getId() : -1,
+				_unit ? _unit->getDirection() : -1, sequence, "body",
+				body.frameIdx, localPriority, false);
+			if (_emitG0OverlayTarget && _emitUnitSpec->g0OverlayAtlas
+			 && (size_t)body.frameIdx < _emitUnitSpec->g0OverlayMask.size()
+			 && _emitUnitSpec->g0OverlayMask[(size_t)body.frameIdx])
+			{
+				Map::TileInstance overlay = inst;
+				overlay.iso = (prio + 0.125f) / 2000000.0f;
+				static_cast<std::vector<Map::TileInstance>*>(_emitG0OverlayTarget)->push_back(overlay);
+				HdUnitBattleSpike::recordOverlayGeometry(_unit ? _unit->getId() : -1,
+					overlay.screenX, overlay.screenY,
+					(float)_emitUnitSpec->tileWidth, (float)_emitUnitSpec->tileHeight);
+				HdUnitBattleSpike::recordEmit(_unit ? _unit->getId() : -1,
+					_unit ? _unit->getDirection() : -1, sequence, "body",
+					body.frameIdx, localPriority + 0.125f, true);
+			}
+			++_emitSequence;
+		}
 		if (_emitZTargetBody)
 			static_cast<std::vector<int>*>(_emitZTargetBody)->push_back(_emitZ);
 		if (_emitYTargetBody)
@@ -358,10 +403,16 @@ void UnitSprite::blitBodyHD(Part& body)
  */
 void UnitSprite::draw(const BattleUnit* unit, int part, int x, int y, int shade, GraphSubset mask, bool drawFacingIndicator)
 {
+#ifdef __EMSCRIPTEN__
+	_emitSequence = 0;
+#endif
 	_x = x;
 	_y = y;
 
 	_unit = unit;
+#ifdef __EMSCRIPTEN__
+	HdUnitBattleSpike::recordDrawStart(_unit ? _unit->getId() : -1);
+#endif
 	_part = part;
 	_shade = shade;
 	_mask = mask;

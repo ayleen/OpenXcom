@@ -354,6 +354,10 @@ public:
 		int         tileWidth  = 64;       // cell width (2x upscale of 32)
 		int         tileHeight = 80;       // cell height (2x upscale of 40)
 		int         columns    = 16;
+		// Disposable Phase-42 real-battle G0 probe. Never populated by rulesets:
+		// the Emscripten harness temporarily borrows a MEMFS-backed RGBA atlas.
+		GpuTexture* g0OverlayAtlas = nullptr;
+		std::vector<uint8_t> g0OverlayMask;
 	};
 #endif
 
