@@ -1019,7 +1019,11 @@ void Mod::evictTileAtlasGL()
 	}
 	// Unit atlases are battle-only; free them on geoscape too.
 	for (auto& pair : _unitAtlases)
+	{
 		evictOne(pair.second.atlas);
+		// Phase 42 E1: RGBA overlay pages.
+		for (GpuTexture* p : pair.second.rgbaOverlayPages) evictOne(p);
+	}
 	_tileAtlasGpuEvicted = true;
 	Log(LOG_INFO) << "[L5] evictTileAtlasGL: released " << n << " atlas GL handle(s)";
 }
@@ -1043,9 +1047,190 @@ void Mod::restoreTileAtlasGL()
 		for (GpuTexture* lt : s.subLayerAtlases) restoreOne(lt);
 	}
 	for (auto& pair : _unitAtlases)
+	{
 		restoreOne(pair.second.atlas);
+		// Phase 42 E1: RGBA overlay pages re-decode via their MEMFS reload cb.
+		for (GpuTexture* p : pair.second.rgbaOverlayPages) restoreOne(p);
+	}
 	_tileAtlasGpuEvicted = false;
 	Log(LOG_INFO) << "[L5] restoreTileAtlasGL: reuploaded " << n << " atlas GL handle(s)";
+}
+
+void Mod::buildUnitRgbaOverlay(UnitAtlasSpec& spec, const std::string& name,
+                               int frameCount)
+{
+	if (!GpuInit::ready()) return;
+	const int cap = spec.maxPageSize > 0 ? spec.maxPageSize : 4096;
+	if (spec.frameWidth <= 0 || spec.frameHeight <= 0 || spec.rgbaColumns <= 0
+	 || frameCount <= 0 || cap <= 0 || spec.frameWidth > cap / spec.rgbaColumns)
+	{
+		Log(LOG_WARNING) << "unitAtlas[" << name << "]: invalid rgba-overlay "
+		                 << "frame/page geometry; using R8 fallback";
+		return;
+	}
+	const int pageW = spec.rgbaColumns * spec.frameWidth;
+	if (spec.pages.empty() || spec.pages.size() > (size_t)INT_MAX)
+	{
+		Log(LOG_WARNING) << "unitAtlas[" << name
+		                 << "]: invalid page count; using R8 fallback";
+		return;
+	}
+	std::vector<GpuTexture*> pageTextures;
+	pageTextures.reserve(spec.pages.size());
+	int totalHdFrames = 0;
+	std::vector<uint8_t> hasHd((size_t)frameCount, 0);
+	std::vector<int> pageOf((size_t)frameCount, -1);
+	std::set<std::string> uniquePaths;
+	int pageH = 0;
+	int rowsPerPage = 0;
+	int framesPerPage = 0;
+	auto fail = [&](const std::string& why) {
+		for (GpuTexture* tex : pageTextures) delete tex;
+		pageTextures.clear();
+		Log(LOG_WARNING) << "unitAtlas[" << name << "]: " << why
+		                 << "; production overlay disabled, R8 fallback remains";
+	};
+
+	for (int pi = 0; pi < (int)spec.pages.size(); ++pi)
+	{
+		const std::string& path = spec.pages[(size_t)pi];
+		if (!uniquePaths.insert(path).second || !FileMap::fileExists(path))
+		{
+			fail("duplicate or missing page " + path);
+			return;
+		}
+		const FileMap::FileRecord* rec = FileMap::at(path);
+		SDL_RWops* rw = rec->getRWops();
+		SDL_Surface* raw = IMG_Load_RW(rw, SDL_TRUE);
+		if (!raw)
+		{
+			fail("page decode failed: " + path);
+			return;
+		}
+		SDL_Surface* rgbaSurf = SDL_ConvertSurfaceFormat(raw, SDL_PIXELFORMAT_ABGR8888, 0);
+		SDL_FreeSurface(raw);
+		if (!rgbaSurf)
+		{
+			fail("page conversion failed: " + path);
+			return;
+		}
+		if (rgbaSurf->w != pageW || rgbaSurf->h <= 0 || rgbaSurf->h > cap
+		 || rgbaSurf->h % spec.frameHeight != 0)
+		{
+			SDL_FreeSurface(rgbaSurf);
+			fail("page geometry is not a bounded whole-frame grid: " + path);
+			return;
+		}
+		if (pi == 0)
+		{
+			pageH = rgbaSurf->h;
+			rowsPerPage = pageH / spec.frameHeight;
+			if (rowsPerPage <= 0 || rowsPerPage > INT_MAX / spec.rgbaColumns)
+			{
+				SDL_FreeSurface(rgbaSurf);
+				fail("page grid overflows");
+				return;
+			}
+			framesPerPage = rowsPerPage * spec.rgbaColumns;
+			const int maxPages = (frameCount - 1) / framesPerPage + 1;
+			if (spec.pages.size() > (size_t)maxPages)
+			{
+				SDL_FreeSurface(rgbaSurf);
+				fail("configured pages exceed the PCK frame range");
+				return;
+			}
+		}
+		else if (rgbaSurf->h != pageH)
+		{
+			SDL_FreeSurface(rgbaSurf);
+			fail("all configured pages must use identical dimensions");
+			return;
+		}
+		if (SDL_MUSTLOCK(rgbaSurf)) SDL_LockSurface(rgbaSurf);
+		for (int cell = 0; cell < framesPerPage; ++cell)
+		{
+			const int frameIdx = pi * framesPerPage + cell;
+			if (frameIdx >= frameCount) break;
+			const int cx = (cell % spec.rgbaColumns) * spec.frameWidth;
+			const int cy = (cell / spec.rgbaColumns) * spec.frameHeight;
+			bool anyOpaque = false;
+			for (int y = 0; y < spec.frameHeight && !anyOpaque; ++y)
+			{
+				const uint8_t* row = static_cast<const uint8_t*>(rgbaSurf->pixels)
+				                   + (size_t)(cy + y) * rgbaSurf->pitch
+				                   + (size_t)cx * 4u + 3u; // alpha byte (ABGR8888)
+				for (int x = 0; x < spec.frameWidth; ++x)
+				{
+					if (row[(size_t)x * 4u] != 0) { anyOpaque = true; break; }
+				}
+			}
+			if (anyOpaque)
+			{
+				hasHd[(size_t)frameIdx] = 1;
+				pageOf[(size_t)frameIdx] = pi;
+				++totalHdFrames;
+			}
+		}
+
+		GpuTexture* tex = new GpuTexture(true, GpuTexture::Wrap::ClampToEdge,
+		                                 GpuTexture::Filter::Linear);
+		tex->setSkipCache(true);
+		const bool uploaded = tex->uploadRGBA(
+		    static_cast<const uint8_t*>(rgbaSurf->pixels), rgbaSurf->w, rgbaSurf->h);
+		if (SDL_MUSTLOCK(rgbaSurf)) SDL_UnlockSurface(rgbaSurf);
+		SDL_FreeSurface(rgbaSurf);
+		if (!uploaded)
+		{
+			delete tex;
+			fail("GPU upload failed for page " + path);
+			return;
+		}
+		const std::string capturedPath = path;
+		const std::string capturedName = name;
+		const int expectedW = pageW, expectedH = pageH;
+		tex->setReloadCb([tex, capturedPath, capturedName, expectedW, expectedH]() {
+			if (!FileMap::fileExists(capturedPath)) return;
+			SDL_RWops* reloadRw = FileMap::at(capturedPath)->getRWops();
+			SDL_Surface* reloadRaw = IMG_Load_RW(reloadRw, SDL_TRUE);
+			if (!reloadRaw) return;
+			SDL_Surface* reloadRgba = SDL_ConvertSurfaceFormat(
+			    reloadRaw, SDL_PIXELFORMAT_ABGR8888, 0);
+			SDL_FreeSurface(reloadRaw);
+			if (!reloadRgba) return;
+			if (reloadRgba->w != expectedW || reloadRgba->h != expectedH)
+			{
+				Log(LOG_WARNING) << "unitAtlas[" << capturedName
+				                 << "]: page geometry changed during reload";
+				SDL_FreeSurface(reloadRgba);
+				return;
+			}
+			if (SDL_MUSTLOCK(reloadRgba)) SDL_LockSurface(reloadRgba);
+			tex->uploadRGBA(static_cast<const uint8_t*>(reloadRgba->pixels),
+			                reloadRgba->w, reloadRgba->h);
+			if (SDL_MUSTLOCK(reloadRgba)) SDL_UnlockSurface(reloadRgba);
+			SDL_FreeSurface(reloadRgba);
+		});
+		pageTextures.push_back(tex);
+	}
+
+	if (pageTextures.empty() || framesPerPage <= 0)
+	{
+		fail("no RGBA overlay pages loaded");
+		return;
+	}
+
+	spec.rgbaOverlayPages  = std::move(pageTextures);
+	spec.rgbaHasHd         = std::move(hasHd);
+	spec.rgbaPageOf        = std::move(pageOf);
+	spec.rgbaFramesPerPage = framesPerPage;
+	spec.rgbaRowsPerPage   = rowsPerPage;
+	spec.rgbaPageW         = pageW;
+	spec.rgbaPageH         = pageH;
+
+	Log(LOG_INFO) << "unitAtlas[" << name << "]: rgba-overlay "
+	              << spec.rgbaOverlayPages.size() << " page(s) "
+	              << pageW << "x" << pageH << ", " << totalHdFrames
+	              << " HD frames / " << frameCount << " PCK frames";
 }
 
 void Mod::ensureUnitAtlas(SurfaceSet* ss, const std::string& name,
@@ -1053,19 +1238,36 @@ void Mod::ensureUnitAtlas(SurfaceSet* ss, const std::string& name,
 {
 	if (!GpuInit::ready()) return;
 	if (!ss) return;
-	if (_unitAtlases.count(name)) return;
 
-	int atlasW = 0, atlasH = 0, cols = 0;
-	GpuTexture* tex = buildUnitAtlas(*ss, palette, ncolors, atlasW, atlasH, cols, name);
-	if (!tex) return;
-
+	// A `unitAtlas:` YAML entry may have pre-created this record (carrying RGBA
+	// overlay config but no R8 atlas yet). Access-or-create so the declarative
+	// overlay config is preserved while the R8 baseline is built into it.
 	UnitAtlasSpec& spec = _unitAtlases[name];
-	spec.atlas      = tex;
-	spec.atlasW     = atlasW;
-	spec.atlasH     = atlasH;
-	spec.tileWidth  = 64;
-	spec.tileHeight = 80;
-	spec.columns    = cols;
+
+	// R8 baseline (idempotent — never rebuild once atlas != null).
+	if (!spec.atlas)
+	{
+		int atlasW = 0, atlasH = 0, cols = 0;
+		GpuTexture* tex = buildUnitAtlas(*ss, palette, ncolors, atlasW, atlasH, cols, name);
+		if (tex)
+		{
+			spec.atlas      = tex;
+			spec.atlasW     = atlasW;
+			spec.atlasH     = atlasH;
+			spec.tileWidth  = 64;
+			spec.tileHeight = 80;
+			spec.columns    = cols;
+		}
+	}
+
+	// Phase 42 E1: build/load the optional RGBA overlay pages (idempotent —
+	// never rebuild once rgbaOverlayPages is non-empty).
+	if (spec.rgbaFormat == UnitAtlasSpec::RgbaOverlayFormat::RgbaOverlay
+	 && spec.rgbaOverlayPages.empty()
+	 && !spec.pages.empty())
+	{
+		buildUnitRgbaOverlay(spec, name, static_cast<int>(ss->getTotalFrames()));
+	}
 }
 
 const Mod::UnitAtlasSpec* Mod::getUnitAtlas(const std::string& name) const
@@ -1077,8 +1279,28 @@ const Mod::UnitAtlasSpec* Mod::getUnitAtlas(const std::string& name) const
 void Mod::clearUnitAtlases()
 {
 	for (auto& pair : _unitAtlases)
+	{
 		delete pair.second.atlas;
-	_unitAtlases.clear();
+		pair.second.atlas = nullptr;
+		pair.second.atlasW = 0;
+		pair.second.atlasH = 0;
+		// Phase 42 E1: delete production RGBA overlay pages (owned by Mod).
+		for (GpuTexture* p : pair.second.rgbaOverlayPages) delete p;
+		pair.second.rgbaOverlayPages.clear();
+		pair.second.rgbaHasHd.clear();
+		pair.second.rgbaPageOf.clear();
+		pair.second.rgbaFramesPerPage = 0;
+		pair.second.rgbaRowsPerPage = 0;
+		pair.second.rgbaPageW = 0;
+		pair.second.rgbaPageH = 0;
+		// Disposable G0 spike atlas (harness-owned lifetime, but cleared here on
+		// full mod teardown so a stale pointer can't survive a reload).
+		pair.second.g0OverlayAtlas = nullptr;
+		pair.second.g0OverlayMask.clear();
+	}
+	// Keep declarative unitAtlas configuration across Map::setPalette rebuilds.
+	// Runtime pointers and metadata above are reset; config-only records are
+	// harmless during Mod destruction and are rebuilt on the next battle entry.
 }
 
 /*
@@ -1737,6 +1959,64 @@ void Mod::loadFileCalypso(YAML::YamlNodeReader& reader)
 			_battlescapeTileScale = v;  // assign 1 too, so a later ruleset can reset to native
 		else
 			Log(LOG_WARNING) << "battlescapeTileScale: " << v << " is not supported (use 1, 2, or 4); ignored";
+	}
+	// Phase 42 E1: production sparse per-PCK-frame RGBA overlay pages.
+	// Configures the EXISTING Mod::UnitAtlasSpec for a unit spriteSheet with an
+	// optional rgba-overlay (HD frames layered over the R8 baseline). The R8
+	// atlas + RGBA pages are built later by ensureUnitAtlas() at battle time
+	// (GPU-ready, SurfaceSet loaded). `sheet:` is the SurfaceSet name (e.g.
+	// TDXCOM_0.PCK / HANDOB.PCK). Per D1 there is no second pose key: each PCK
+	// frame keeps its index; missing/transparent overlay slots fall back to R8.
+	for (const auto& ruleReader : iterateRulesSpecific("unitAtlas"))
+	{
+		std::string sheet;
+		ruleReader["sheet"].tryReadVal<std::string>(sheet);
+		if (sheet.empty())
+		{
+			Log(LOG_WARNING) << "unitAtlas: entry missing 'sheet'; skipped";
+			continue;
+		}
+		UnitAtlasSpec& spec = _unitAtlases[sheet]; // access-or-create (atlas built later)
+		// A later ruleset entry replaces the declarative overlay configuration for
+		// this sheet. Runtime textures are built only after all rules load.
+		spec.rgbaFormat = UnitAtlasSpec::RgbaOverlayFormat::None;
+		spec.frameWidth = 0;
+		spec.frameHeight = 0;
+		spec.rgbaColumns = 16;
+		spec.maxPageSize = 4096;
+		spec.pages.clear();
+		{
+			std::string fmtStr;
+			ruleReader["format"].tryReadVal<std::string>(fmtStr);
+			if (fmtStr == "rgba-overlay")
+				spec.rgbaFormat = UnitAtlasSpec::RgbaOverlayFormat::RgbaOverlay;
+			else if (!fmtStr.empty())
+				Log(LOG_WARNING) << "unitAtlas[" << sheet << "]: unknown format '"
+				                 << fmtStr << "' (expected 'rgba-overlay'); ignored";
+		}
+		ruleReader["frameWidth"].tryReadVal<int>(spec.frameWidth);
+		ruleReader["frameHeight"].tryReadVal<int>(spec.frameHeight);
+		ruleReader["columns"].tryReadVal<int>(spec.rgbaColumns);
+		ruleReader["maxPageSize"].tryReadVal<int>(spec.maxPageSize);
+		if (spec.rgbaColumns <= 0) spec.rgbaColumns = 16;
+		if (spec.maxPageSize <= 0) spec.maxPageSize = 4096;
+		auto pagesNode = ruleReader["pages"];
+		if (pagesNode)
+		{
+			for (const auto& pNode : pagesNode.children())
+			{
+				std::string path;
+				pNode.tryReadVal<std::string>(path);
+				if (!path.empty()) spec.pages.push_back(path);
+			}
+		}
+		_hdPackActive = true;
+		Log(LOG_INFO) << "unitAtlas[" << sheet << "]: registered rgba-overlay "
+		              << "format=" << (spec.rgbaFormat == UnitAtlasSpec::RgbaOverlayFormat::RgbaOverlay ? "rgba-overlay" : "none")
+		              << " frame=" << spec.frameWidth << "x" << spec.frameHeight
+		              << " columns=" << spec.rgbaColumns
+		              << " maxPageSize=" << spec.maxPageSize
+		              << " pages=" << spec.pages.size();
 	}
 	// Phase 25 R5: floating unit nameplates / HP-TU-energy bars (off by default).
 	reader["calypso_hud_overlay"].tryReadVal<bool>(_calypsoHudOverlay);

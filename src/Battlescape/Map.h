@@ -509,6 +509,11 @@ private:
 	/// Keyed by atlas texture pointer (one draw call per unit PCK set).
 	struct UnitAtlasGroup
 	{
+		struct RgbaOverlayInstance
+		{
+			TileInstance instance;
+			size_t baselineIndex = 0; // matching entry in instances[]
+		};
 		const Mod::UnitAtlasSpec* spec = nullptr;
 		std::vector<TileInstance>  instances;
 		/// zLevels[i] = map Z of instances[i]. Same length as instances.
@@ -521,6 +526,10 @@ private:
 		/// camera-near rows (Y > unit's Y) can occlude the unit from in front.
 		std::vector<int>           yLevels;
 		std::vector<TileInstance>  g0OverlayInstances;
+		// Phase 42 E1: production RGBA overlay instances, one vector per overlay
+		// page (indexed in lockstep with Mod::UnitAtlasSpec::rgbaOverlayPages).
+		// Sized when the group is created from the spec's page count.
+		std::vector<std::vector<RgbaOverlayInstance>> rgbaOverlayInstances;
 	};
 	std::vector<UnitAtlasGroup> _unitAtlasGroups;
 	// Phase 27.5: soft contact-shadow ellipse under each unit so HD sprites read

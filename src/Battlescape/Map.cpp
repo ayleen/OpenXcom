@@ -1312,6 +1312,10 @@ void Map::drawUnit(UnitSprite &unitSprite, Tile *unitTile, Tile *currTile, Posit
 					if (_unitAtlasGroups[i].spec == spec) return i;
 				_unitAtlasGroups.push_back({});
 				_unitAtlasGroups.back().spec = spec;
+				// Phase 42 E1: size the per-page RGBA overlay instance vectors
+				// to match the spec's page count so the emit path can index them.
+				_unitAtlasGroups.back().rgbaOverlayInstances.resize(
+				    spec ? spec->rgbaOverlayPages.size() : 0);
 				return _unitAtlasGroups.size() - 1;
 			};
 			const size_t bodyIdx = ensureGroup(gpuUnitSpec);
@@ -1334,7 +1338,9 @@ void Map::drawUnit(UnitSprite &unitSprite, Tile *unitTile, Tile *currTile, Posit
 			    haveItem ? &_unitAtlasGroups[itemIdx].zLevels : nullptr,
 			    &_unitAtlasGroups[bodyIdx].yLevels,
 			    haveItem ? &_unitAtlasGroups[itemIdx].yLevels : nullptr,
-			    &_unitAtlasGroups[bodyIdx].g0OverlayInstances
+			    &_unitAtlasGroups[bodyIdx].g0OverlayInstances,
+			    &_unitAtlasGroups[bodyIdx].rgbaOverlayInstances,
+			    haveItem ? &_unitAtlasGroups[itemIdx].rgbaOverlayInstances : nullptr
 			);
 			unitSprite.draw(bu, part, tileScreenPosition.x + offsets.ScreenOffset.x, tileScreenPosition.y + offsets.ScreenOffset.y, shade, mask, _isAltPressed && !_isCtrlPressed);
 			unitSprite.clearEmitMode();
@@ -1870,6 +1876,9 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 								{
 									_unitAtlasGroups.push_back({});
 									_unitAtlasGroups.back().spec = itemAtlasSpec;
+									// Phase 42 E1: per-page RGBA overlay instance vectors.
+									_unitAtlasGroups.back().rgbaOverlayInstances.resize(
+									    itemAtlasSpec ? itemAtlasSpec->rgbaOverlayPages.size() : 0);
 								}
 								itemSprite.setEmitMode(
 								    &_unitAtlasGroups[idx].instances,

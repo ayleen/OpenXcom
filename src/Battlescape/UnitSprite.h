@@ -88,7 +88,14 @@ private:
 	void*                      _emitYTargetBody = nullptr;  // std::vector<int>* receiving Y per body emit
 	void*                      _emitYTargetItem = nullptr;  // std::vector<int>* receiving Y per item emit
 	void*                      _emitG0OverlayTarget = nullptr;
+	void*                      _emitRgbaOverlayBodyPages = nullptr; // per-page Map::UnitAtlasGroup::RgbaOverlayInstance vectors
+	void*                      _emitRgbaOverlayItemPages = nullptr; // per-page Map::UnitAtlasGroup::RgbaOverlayInstance vectors
 	int                        _emitSequence = 0;
+	/// Emit one production RGBA sibling instance. void pointers keep Map.h out
+	/// of this header; UnitSprite is a Map friend and casts them in the .cpp.
+	static void emitRgbaOverlay(const Mod::UnitAtlasSpec* spec, int frameIdx,
+	                            const void* baseInstance, float basePriority,
+	                            size_t baselineIndex, void* pagesTarget);
 #endif
 
 	/// Drawing routine for XCom soldiers in overalls, sectoids (routine 0),
@@ -147,18 +154,32 @@ public:
 	/// Draws the unit.
 	void draw(const BattleUnit* unit, int part, int x, int y, int shade, GraphSubset mask, bool drawFacingIndicator);
 #ifdef __EMSCRIPTEN__
+	/// Phase 42 E1 harness helpers. They expose the exact production priority
+	/// math so browser probes cannot drift from the renderer implementation.
+	static float debugE1LocalPriority(int sequence, bool overlay);
+	static unsigned int debugE1DepthCode(int basePriority, int sequence, bool overlay);
+	static bool debugE1DepthProof();
+	static bool e1PainterOrderLess(float lhsIso, float rhsIso) { return lhsIso < rhsIso; }
+	static unsigned int debugE1FractionalPixel(bool reverseBuckets);
 	/// Phase 14.2: redirect blitBody into bodyTarget and blitItem into itemTarget.
 	/// Both pointers must be std::vector<Map::TileInstance>* (cast to void*).
 	/// zTargetBody / zTargetItem: optional std::vector<int>* (cast to void*),
 	/// receives one int per emitted instance — the unit's tile Z. Used by
 	/// drawTileGLPass to interleave unit draws between tile Z slices.
+	/// rgbaOverlayBodyPages/ItemPages: optional
+	/// std::vector<std::vector<Map::TileInstance>>* (cast to void*) — Phase 42
+	/// E1 production RGBA overlay emit targets (per-page instance lists). When
+	/// the selected frame has an HD overlay slot, blitBody/blitItem emit an
+	/// additional RGBA instance into the matching page vector.
 	void setEmitMode(void* bodyTarget, void* itemTarget,
 	                 const Mod::UnitAtlasSpec* unitSpec,
 	                 const Mod::UnitAtlasSpec* itemSpec,
 	                 int emitZ = 0, int emitY = 0, int emitX = 0,
 	                 void* zTargetBody = nullptr, void* zTargetItem = nullptr,
 	                 void* yTargetBody = nullptr, void* yTargetItem = nullptr,
-	                 void* g0OverlayTarget = nullptr)
+	                 void* g0OverlayTarget = nullptr,
+	                 void* rgbaOverlayBodyPages = nullptr,
+	                 void* rgbaOverlayItemPages = nullptr)
 	{
 		_emitTarget     = bodyTarget;
 		_emitItemTarget = itemTarget;
@@ -172,6 +193,8 @@ public:
 		_emitYTargetBody = yTargetBody;
 		_emitYTargetItem = yTargetItem;
 		_emitG0OverlayTarget = g0OverlayTarget;
+		_emitRgbaOverlayBodyPages = rgbaOverlayBodyPages;
+		_emitRgbaOverlayItemPages = rgbaOverlayItemPages;
 	}
 	void clearEmitMode()
 	{
@@ -187,6 +210,8 @@ public:
 		_emitYTargetBody = nullptr;
 		_emitYTargetItem = nullptr;
 		_emitG0OverlayTarget = nullptr;
+		_emitRgbaOverlayBodyPages = nullptr;
+		_emitRgbaOverlayItemPages = nullptr;
 		_emitSequence = 0;
 	}
 #endif

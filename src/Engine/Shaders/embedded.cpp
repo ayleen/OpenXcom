@@ -146,6 +146,9 @@ layout(location=6) in float a_iso;
 uniform vec2 u_screenSize;
 uniform vec2 u_tilePixelSize;
 uniform vec2 u_tileUVSize;
+// Unit RGBA frames must use the exact same 1px-per-side expansion as their R8
+// fallback/mask. Terrain RGBA keeps its established 2px expansion.
+uniform int  u_unitGeometry;
 
 out vec2  v_uv;
 out vec2  v_localUV;
@@ -159,7 +162,7 @@ void main()
     // sub-pixel gaps. We do NOT expand UVs; instead we slightly stretch the 
     // texture over the expanded quad. This prevents sampling neighbor cells 
     // in the unguttered atlas while ensuring adjacent quads overlap.
-    vec2 overdraw = vec2(2.0);
+    vec2 overdraw = vec2(u_unitGeometry == 1 ? 1.0 : 2.0);
     vec2 offset = (a_corner * 2.0 - 1.0) * overdraw;
     vec2 pixelPos = a_screenPos + a_corner * u_tilePixelSize + offset;
 
@@ -597,6 +600,14 @@ void main()
 static const char* kTile_atlasFragSrc = R"glsl(
 uniform sampler2D u_atlas;
 uniform sampler2D u_shadeTable;
+// Phase 42 E1: optional production RGBA alpha mask for an HD-backed unit
+// emission. Where the RGBA frame has any coverage, discard the R8 baseline so
+// fractional authored edges blend with the previously painted behind part,
+// not with their own opaque vanilla fallback. Transparent RGBA texels retain
+// the R8 fallback. Unit painter draws set this per emission; terrain resets it.
+uniform sampler2D u_hdMask;
+uniform int       u_hasHdMask;
+uniform vec4      u_hdMaskUv; // xy=frame origin, zw=frame UV size
 uniform float     u_animFrame;
 uniform vec2      u_tileUVSize;
 // Phase 25 R7: unit "fake lighting". 0 = off (tiles + floor items render byte-for-
@@ -622,6 +633,13 @@ void main()
     // Resolve the current animation frame and offset the UV horizontally.
     float frame = floor(u_animFrame * v_animFrameCount);
     vec2 uv = v_uv + vec2(frame * u_tileUVSize.x, 0.0);
+
+    if (u_hasHdMask == 1)
+    {
+        float hdAlpha = texture(u_hdMask,
+            u_hdMaskUv.xy + v_localUV * u_hdMaskUv.zw).a;
+        if (hdAlpha >= 0.01) discard;
+    }
 
     // Sample atlas: R channel holds the palette index normalised to [0, 1].
     // Multiply by 255 and round to recover the integer index.
