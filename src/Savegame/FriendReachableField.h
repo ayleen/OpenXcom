@@ -118,6 +118,10 @@ public:
 		return it == aggregateSum.end() ? 0 : it->second;
 	}
 
+	/// Read-only sparse aggregate view for consumers that need to iterate every
+	/// contributed tile (for example the shared enemy-reachability producer).
+	const Contribution& getAggregate() const { return aggregateSum; }
+
 	/// Maximum per-unit reachability weight at a tile, ignoring excludeUnitId.
 	/// Starts at 0 so a position contributed only by negative weights yields 0.
 	int maxAtExcluding(const Position& pos, int excludeUnitId) const

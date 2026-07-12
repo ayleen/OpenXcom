@@ -40,18 +40,17 @@ namespace OpenXcom
  * default-invalid state, and they are (re)armed at each faction-turn seam.
  *
  * Dirty policy (per the 43.1 field table):
- *   - threat field, friendReachable aggregate, and terrain-LOF negative cache each
+ *   - threat field, friend/enemy reachable aggregates, and terrain-LOF negative cache each
  *     have an independent dirty flag; a single clean method affects only its flag.
- *   - all three are dirtied at faction-turn start (beginTurn) and on every terrain
+ *   - all four are dirtied at faction-turn start (beginTurn) and on every terrain
  *     mutation (onTerrainChanged).
  *   - terrainRevision is a monotonic counter bumped ONLY by terrain mutations; it is
  *     never reset by beginTurn, so a mutation that happened before a turn still
  *     reads as "newer" than any cached field.
  *
- * The live friendReachable accumulator (FriendReachableField, phase 43.1D) is owned
- * here and is wiped by beginTurn and onTerrainChanged (its content is recomputed by
- * the field builder on the next read). markFriendReachableClean only clears the dirty
- * flag -- it must NOT wipe the accumulated field.
+ * The live friendReachable and enemyReachable accumulators (FriendReachableField,
+ * phases 43.1D/43.1Q) are owned here and wiped by beginTurn and onTerrainChanged.
+ * Their clean methods only clear dirty flags and must NOT wipe accumulated fields.
  *
  * The live threat accumulator (ThreatField, phase 43.1F) and the live negative-only
  * terrain-LOF cache (TerrainLofNegativeCache, phase 43.1G) are likewise owned here and
@@ -67,6 +66,7 @@ struct FactionTurnCache
 	int activeTurn = -1;               // faction turn this cache was last armed for; -1 == invalid
 	bool threatDirty = true;           // threat field stale -> rebuild lazily on next query
 	bool friendReachableDirty = true;  // friendReachable aggregate stale -> rebuild lazily
+	bool enemyReachableDirty = true;   // enemyReachable aggregate stale -> rebuild lazily
 	bool terrainLofDirty = true;       // terrain-LOF negative cache stale -> flush on read
 	unsigned int terrainRevision = 0;  // monotonically increasing terrain mutation counter
 	bool threatProfileValid = false;   // whether the shared threat memo has an actor geometry profile
@@ -77,6 +77,10 @@ struct FactionTurnCache
 	/// Live friendReachable aggregate accumulator (phase 43.1D). Stamped/un-stamped by
 	/// the field builder; wiped on turn start and on terrain mutation (see friendReachableDirty).
 	FriendReachableField friendReachable;
+
+	/// Per-enemy reachability slices and their exact aggregate sum. The existing
+	/// accumulator is intentionally reused: its accounting is faction-agnostic.
+	FriendReachableField enemyReachable;
 
 	/// Live threat accumulator (phase 43.1F). Stamped by the threat field builder;
 	/// wiped on turn start and on terrain mutation (see threatDirty).
@@ -97,6 +101,10 @@ struct FactionTurnCache
 	FriendReachableField& getFriendReachable() { return friendReachable; }
 	/// Const access to the friendReachable accumulator.
 	const FriendReachableField& getFriendReachable() const { return friendReachable; }
+	/// Mutable access to the shared enemyReachable accumulator.
+	FriendReachableField& getEnemyReachable() { return enemyReachable; }
+	/// Const access to the shared enemyReachable accumulator.
+	const FriendReachableField& getEnemyReachable() const { return enemyReachable; }
 
 	/// Mutable access to the threat accumulator (field builders stamp here).
 	ThreatField& getThreatField() { return threat; }
@@ -162,8 +170,10 @@ struct FactionTurnCache
 		activeTurn = turn;
 		threatDirty = true;
 		friendReachableDirty = true;
+		enemyReachableDirty = true;
 		terrainLofDirty = true;
 		friendReachable.clear();
+		enemyReachable.clear();
 		threat.clear();
 		clearThreatProfile();
 		pendingThreatSightings.clear();
@@ -175,6 +185,7 @@ struct FactionTurnCache
 
 	bool isThreatDirty() const { return threatDirty; }
 	bool isFriendReachableDirty() const { return friendReachableDirty; }
+	bool isEnemyReachableDirty() const { return enemyReachableDirty; }
 	bool isTerrainLofDirty() const { return terrainLofDirty; }
 	unsigned int getTerrainRevision() const { return terrainRevision; }
 
@@ -182,6 +193,8 @@ struct FactionTurnCache
 	void markThreatClean() { threatDirty = false; }
 	/// Clear only the friendReachable aggregate's dirty flag.
 	void markFriendReachableClean() { friendReachableDirty = false; }
+	/// Clear only the enemyReachable aggregate's dirty flag.
+	void markEnemyReachableClean() { enemyReachableDirty = false; }
 	/// Clear only the terrain-LOF negative cache's dirty flag.
 	void markTerrainLofClean() { terrainLofDirty = false; }
 
@@ -197,17 +210,25 @@ struct FactionTurnCache
 		friendReachable.removeContribution(unitId);
 	}
 
+	/// Remove one enemy's reachability slice without disturbing other enemies.
+	void invalidateEnemyContribution(int unitId)
+	{
+		enemyReachable.removeContribution(unitId);
+	}
+
 	/// Terrain mutation (explosion / wall destruction / door state): bump the global revision
 	/// and dirty every terrain-sensitive field. Independent of the armed turn. The
-	/// friendReachable accumulator, threat accumulator, and terrain-LOF negative cache
+	/// friend/enemy reachable accumulators, threat accumulator, and terrain-LOF negative cache
 	/// are wiped (their content is terrain-keyed and must be rebuilt).
 	void onTerrainChanged()
 	{
 		++terrainRevision;
 		threatDirty = true;
 		friendReachableDirty = true;
+		enemyReachableDirty = true;
 		terrainLofDirty = true;
 		friendReachable.clear();
+		enemyReachable.clear();
 		threat.clear();
 		clearThreatProfile();
 		// A full terrain-driven threat rebuild must read authoritative current
