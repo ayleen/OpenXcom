@@ -6784,7 +6784,7 @@ bool AIModule::quickLineOfFire(Position pos, BattleUnit* target, bool beOkayWith
 			// Never cache V_UNIT / V_EMPTY / V_OUTOFBOUNDS -- the cache is negative-only.
 			if (terrainLofCache && lofTest >= V_FLOOR && lofTest <= V_OBJECT)
 			{
-				terrainLofCache->rememberBlocked(originVoxel, targetVoxel);
+				terrainLofCache->rememberBlocked(originVoxel, targetVoxel, trajectory.at(0));
 			}
 			if (lofTest == V_UNIT)
 			{
@@ -6826,7 +6826,7 @@ bool AIModule::clearSight(Position pos, Position target)
 	// V_EMPTY / V_UNIT / V_OUTOFBOUNDS -- the cache is negative-only.
 	if (terrainLofCache && lofTest >= V_FLOOR && lofTest <= V_OBJECT)
 	{
-		terrainLofCache->rememberBlocked(originVoxel, targetVoxel);
+		terrainLofCache->rememberBlocked(originVoxel, targetVoxel, trajectory.at(0));
 	}
 	// Original return: true only for V_EMPTY, byte-for-byte.
 	if (lofTest == V_EMPTY)

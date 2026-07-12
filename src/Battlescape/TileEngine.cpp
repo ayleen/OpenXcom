@@ -2126,6 +2126,24 @@ double TileEngine::checkVoxelExposure(Position *originVoxel, Tile *tile, BattleU
 	isDebug = isDebug && _save->getDebugMode();
 	if (excludeUnit && excludeUnit->isAIControlled()) isSimpleMode = true;
 
+	// Phase 43.1J: checkVoxelExposure can reuse blocked rays only when the
+	// stored first-impact voxel is available. Debug scans bypass the cache so
+	// their per-ray terrain symbols remain exact.
+	TerrainLofNegativeCache* terrainLofCache = 0;
+	if (_save->getMod()->getAISharedFields() && !isDebug && excludeUnit && excludeUnit->isAIControlled())
+	{
+		FactionTurnCache* ftc = _save->getFactionTurnCache(excludeUnit->getFaction());
+		if (ftc && ftc->isValid())
+		{
+			if (ftc->isTerrainLofDirty())
+			{
+				ftc->getTerrainLofCache().clear();
+				ftc->markTerrainLofClean();
+			}
+			terrainLofCache = &ftc->getTerrainLofCache();
+		}
+	}
+
 	std::vector<Position> _trajectory;
 	Position scanVoxel;
 	BattleUnit *targetUnit = tile->getUnit();
@@ -2217,8 +2235,24 @@ double TileEngine::checkVoxelExposure(Position *originVoxel, Tile *tile, BattleU
 			scanVoxel.x = targetVoxel.x + sliceTargetsX[j];
 			scanVoxel.y = targetVoxel.y + sliceTargetsY[j];
 
+			if (terrainLofCache)
+			{
+				const Position* cachedImpact = terrainLofCache->blockedImpact(*originVoxel, scanVoxel);
+				if (cachedImpact)
+				{
+					if (Position::distanceSq(*originVoxel, *cachedImpact) <= peekDistanceSq)
+						--total;
+					else if (coveredVoxels)
+						coveredVoxels->emplace_back(*cachedImpact);
+					scanLine += 'x'; // debug mode bypasses the cache; placeholder is never rendered
+					continue;
+				}
+			}
+
 			_trajectory.clear();
 			int test = calculateLineVoxel(*originVoxel, scanVoxel, false, &_trajectory, excludeUnit);
+			if (terrainLofCache && test >= V_FLOOR && test <= V_OBJECT && !_trajectory.empty())
+				terrainLofCache->rememberBlocked(*originVoxel, scanVoxel, _trajectory.at(0));
 
 			bool peekBehindCover = false;
 			if (!_trajectory.empty())
@@ -2291,8 +2325,23 @@ double TileEngine::checkVoxelExposure(Position *originVoxel, Tile *tile, BattleU
 			scanVoxel.x = targetVoxel.x + sliceTargetsTopBottom[ i * 2 ];
 			scanVoxel.y = targetVoxel.y + sliceTargetsTopBottom[ i * 2 + 1];
 
+			if (terrainLofCache)
+			{
+				const Position* cachedImpact = terrainLofCache->blockedImpact(*originVoxel, scanVoxel);
+				if (cachedImpact)
+				{
+					if (Position::distanceSq(*originVoxel, *cachedImpact) <= peekDistanceSq)
+						--total;
+					else if (coveredVoxels)
+						coveredVoxels->emplace_back(*cachedImpact);
+					continue;
+				}
+			}
+
 			_trajectory.clear();
 			int test = calculateLineVoxel(*originVoxel, scanVoxel, false, &_trajectory, excludeUnit);
+			if (terrainLofCache && test >= V_FLOOR && test <= V_OBJECT && !_trajectory.empty())
+				terrainLofCache->rememberBlocked(*originVoxel, scanVoxel, _trajectory.at(0));
 
 			bool peekBehindCover = false;
 			if (!_trajectory.empty())
@@ -2443,7 +2492,10 @@ bool TileEngine::canTargetUnit(Position *originVoxel, Tile *tile, Position *scan
 			// negative-only; absence of an entry means "unknown", never "clear".
 			if (terrainLofCache && test >= V_FLOOR && test <= V_OBJECT)
 			{
-				terrainLofCache->rememberBlocked(*originVoxel, *scanVoxel);
+				// Negative-only: store the first terrain impact voxel along the
+				// ray (calculateLineVoxel guarantees a populated trajectory for
+				// V_FLOOR..V_OBJECT inclusive).
+				terrainLofCache->rememberBlocked(*originVoxel, *scanVoxel, _trajectory.at(0));
 			}
 			if (test == V_UNIT)
 			{

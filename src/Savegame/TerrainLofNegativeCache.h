@@ -17,18 +17,17 @@
  * You should have received a copy of the GNU General Public License
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
-
 #include "../Battlescape/Position.h"
 #include <cstddef>
-#include <set>
+#include <map>
 #include <utility>
 
 namespace OpenXcom
 {
 
 /**
- * Phase 43.1G (Calypso): per-faction negative-only terrain line-of-fire (LOF)
- * cache foundation.
+ * Phase 43.1J-A (Calypso): per-faction negative-only terrain line-of-fire (LOF)
+ * cache with impact metadata.
  *
  * A pure, dependency-free, transient cache for the `terrainLof` negative set
  * (phase 43.1). It stores directed voxel-line endpoint pairs -- a from Position
@@ -38,29 +37,43 @@ namespace OpenXcom
  * confirmed "no line of fire" results. There is no positive/cleared entry and
  * deliberately no rememberClear / positive API -- the only writers are
  * rememberBlocked() (insert) and the lifecycle clears (beginTurn /
- * onTerrainChanged); absence from the set is simply "unknown", never "clear".
+ * onTerrainChanged); absence of an entry is simply "unknown", never "clear".
  *
- * This slice ONLY records and queries directed endpoint pairs; it does NOT
- * compute any voxel line, does NOT read terrain state, and does NOT change any
- * AI decision. Everything here is transient and intentionally NOT serialized.
+ * This slice records and queries directed endpoint pairs AND the first terrain
+ * impact voxel along each blocked ray. The impact is the voxel where the terrain
+ * blocking was first confirmed (the head of the calculateLineVoxel trajectory,
+ * trajectory.at(0), for V_FLOOR..V_OBJECT inclusive). It lets consumers such as
+ * checkVoxelExposure locate where a ray stopped without re-walking it. The
+ * impact is advisory metadata attached to
+ * a negative entry; it does NOT change the negative-only semantics -- only
+ * confirmed terrain-blocked rays are ever inserted, never positive/cleared.
+ *
+ * Nothing here computes a voxel line, reads terrain state, or changes an AI
+ * decision. Everything here is transient and intentionally NOT serialized.
  *
  * Directionality: the pair (from, to) is DIRECTED and asymmetry is NOT assumed.
- * rememberBlocked(A, B) records only the A->B ray; the reverse B->A ray is a
- * distinct entry that must be remembered separately. The comparator orders by
- * the from endpoint first, then the to endpoint, using the existing
- * PositionComparator for each so ordering is deterministic and independent of
- * std::pair's default lexicographic tie-break quirks across toolchains.
+ * rememberBlocked(A, B, imp) records only the A->B ray; the reverse B->A ray is
+ * a distinct entry that must be remembered separately with its own impact. The
+ * comparator orders by the from endpoint first, then the to endpoint, using the
+ * existing PositionComparator for each so ordering is deterministic and
+ * independent of std::pair's default lexicographic tie-break quirks across
+ * toolchains.
  *
  * Semantics:
- *   - rememberBlocked(from, to) inserts the directed pair; inserting the same
- *     directed pair again is a no-op (dedupe -- std::set stores each once).
+ *   - rememberBlocked(from, to, impact) inserts the directed pair mapped to its
+ *     first terrain impact voxel. Repeating the same directed pair is a no-op at
+ *     the map level (emplace), so the FIRST impact recorded is preserved and any
+ *     later impact for the same ray is ignored.
  *   - isKnownBlocked(from, to) returns true iff that exact directed pair has
  *     been remembered; the reverse pair is NOT consulted.
+ *   - blockedImpact(from, to) returns a pointer to the stored impact voxel, or
+ *     nullptr if that directed pair is not remembered. The reverse ray is NOT
+ *     consulted.
  *   - clear() wipes every remembered pair; empty()/size() report its state.
  *
  * Contrast with ThreatField (43.1F) and FriendReachableField (43.1D), which
- * accumulate signed/positive values: this cache is a pure presence set of
- * directed blocked rays and carries no value payload.
+ * accumulate signed/positive values: this cache carries minimal metadata (a
+ * single impact voxel) attached to each directed blocked ray.
  */
 class TerrainLofNegativeCache
 {
@@ -70,7 +83,7 @@ public:
 
 	/// Deterministic strict-weak ordering over directed pairs: order by the from
 	/// endpoint using PositionComparator, then by the to endpoint. Asymmetry is
-	/// preserved (from and to are NOT interchangeable); this only makes the set
+	/// preserved (from and to are NOT interchangeable); this only makes the map
 	/// ordering deterministic and well-defined.
 	struct DirectedPairComparator
 	{
@@ -86,13 +99,18 @@ public:
 		}
 	};
 
-	using Cache = std::set<BlockedPair, DirectedPairComparator>;
+	/// Map of directed blocked ray -> first terrain impact voxel. Storing a map
+	/// (rather than a set) lets us carry the impact metadata while keeping the
+	/// directed-pair key and asymmetric ordering unchanged.
+	using Cache = std::map<BlockedPair, Position, DirectedPairComparator>;
 
-	/// Remember that the directed ray from -> to is blocked by terrain. Repeating
-	/// the same directed pair is a harmless no-op (dedupe at the set level).
-	void rememberBlocked(const Position& from, const Position& to)
+	/// Remember that the directed ray from -> to is blocked by terrain, recording
+	/// its first terrain impact voxel. Repeating the same directed pair is a
+	/// harmless no-op (emplace): the FIRST impact wins and is preserved; any
+	/// later impact for the same ray is ignored.
+	void rememberBlocked(const Position& from, const Position& to, const Position& impact)
 	{
-		cache.insert(BlockedPair(from, to));
+		cache.emplace(BlockedPair(from, to), impact);
 	}
 
 	/// True iff the exact directed pair from -> to has been remembered as
@@ -100,6 +118,17 @@ public:
 	bool isKnownBlocked(const Position& from, const Position& to) const
 	{
 		return cache.find(BlockedPair(from, to)) != cache.end();
+	}
+
+	/// Returns a pointer to the stored first terrain impact voxel for the exact
+	/// directed pair from -> to, or nullptr if that ray is not remembered. The
+	/// reverse to -> from ray is NOT consulted (asymmetry).
+	const Position* blockedImpact(const Position& from, const Position& to) const
+	{
+		auto it = cache.find(BlockedPair(from, to));
+		if (it == cache.end())
+			return nullptr;
+		return &it->second;
 	}
 
 	/// Wipe every remembered blocked pair immediately.
