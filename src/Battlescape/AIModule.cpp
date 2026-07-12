@@ -19,7 +19,10 @@
 #include <chrono>
 #include <climits>
 #include <algorithm>
+#include <utility>
 #include "AIModule.h"
+#include "AICandidateOrder.h"
+#include "AIEvaluationBudget.h"
 #include "../Mod/AITuning.h"
 #include "../Savegame/BattleItem.h"
 #include "../Savegame/Node.h"
@@ -4735,8 +4738,35 @@ void AIModule::brutalThink(BattleAction* action)
 		if (pathThroughLift && targetPosition.z > myPos.z && !IAmMindControlled)
 			enemyHasHighGround = true;
 		ThreatField* sharedThreatField = prepareSharedThreatField(enemyReachable);
+		const bool useDeterministicEvalBudget = _save->getMod()->getAISharedFields();
+		std::vector<PathfindingNode*> orderedMovementCandidates;
+		const std::vector<PathfindingNode*>* movementCandidates = &_allPathFindingNodes;
+		if (useDeterministicEvalBudget)
+		{
+			typedef std::pair<AICandidateRank, PathfindingNode*> RankedMovementCandidate;
+			std::vector<RankedMovementCandidate> rankedCandidates;
+			rankedCandidates.reserve(_allPathFindingNodes.size());
+			for (PathfindingNode* candidate : _allPathFindingNodes)
+			{
+				const Position pos = candidate->getPosition();
+				rankedCandidates.push_back(RankedMovementCandidate(
+					AICandidateRank{sharedThreatField ? sharedThreatField->threatAt(pos) : 0.0f,
+						Position::distanceSq(pos, targetPosition), pos}, candidate));
+			}
+			std::sort(rankedCandidates.begin(), rankedCandidates.end(),
+				[](const RankedMovementCandidate& lhs, const RankedMovementCandidate& rhs)
+				{
+					return AICandidateRankLess()(lhs.first, rhs.first);
+				});
+			orderedMovementCandidates.reserve(rankedCandidates.size());
+			for (const RankedMovementCandidate& candidate : rankedCandidates)
+				orderedMovementCandidates.push_back(candidate.second);
+			movementCandidates = &orderedMovementCandidates;
+		}
+		AIEvaluationBudget movementEvalBudget(
+			useDeterministicEvalBudget ? _save->getMod()->getAIEvalBudget() : 0, 0);
 
-		for (auto pu : _allPathFindingNodes)
+		for (auto pu : *movementCandidates)
 		{
 			Position pos = pu->getPosition();
 			if (!candidateAllowed(BA_WALK, moveTargetId, pos)) continue;
@@ -4759,6 +4789,8 @@ void AIModule::brutalThink(BattleAction* action)
 			isPathToPositionSave(pos, saveForProxies);
 			if (!saveForProxies)
 				continue;
+			if (useDeterministicEvalBudget && !movementEvalBudget.consumeEvaluation())
+				break;
 			float closestEnemyDistValid = FLT_MAX;
 			float closestEnemyDistAssumed = FLT_MAX;
 			float targetDist = Position::distance(pos, targetPosition);
