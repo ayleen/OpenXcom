@@ -544,6 +544,12 @@ private:
 	int _aiFocusFireCommitThreshold; // squad-attackers count at which focus-fire down-weighting kicks in (previously 2)
 	int _aiFocusFireScorePercent;    // percent of weight/score a dogpiled target keeps (previously 50, i.e. halve)
 	int _aiBreachDetourMultiplier;   // path-vs-straight-line detour ratio that triggers a wall breach (previously 2)
+	// Phase 43.1 (Calypso): shared-fields gate + work-budget schema. Defaults keep the
+	// feature off and the budgets unbounded, so behavior is byte-identical to pre-43.1;
+	// the mod can override each one via the ai: block. See getters below for semantics.
+	bool _aiSharedFields;      // gate for the per-faction-turn shared spatial fields (off = old code paths)
+	int  _aiEvalBudget;        // top-K candidate-evaluation count cap (0 = unbounded)
+	int  _aiTurnBudgetMs;      // wall-clock alien-turn deadline backstop in ms (0 = off)
 
 	int _maxLookVariant, _tooMuchSmokeThreshold, _customTrainingFactor;
 	int _chanceToStopRetaliation;
@@ -1315,6 +1321,12 @@ public:
 	int getAIFocusFireScorePercent() const { return _aiFocusFireScorePercent; }
 	/// Phase 43.0 item 7: detour ratio (pathTUs vs straight-line) that triggers a wall breach (default 2, >=1).
 	int getAIBreachDetourMultiplier() const { return _aiBreachDetourMultiplier; }
+	/// Phase 43.1: gate for the per-faction-turn shared spatial fields (default false, off = old code paths).
+	bool getAISharedFields() const { return _aiSharedFields; }
+	/// Phase 43.1: top-K candidate-evaluation count cap (default 0 = unbounded, >=0).
+	int getAIEvalBudget() const { return _aiEvalBudget; }
+	/// Phase 43.1: wall-clock alien-turn deadline backstop in ms (default 0 = off, >=0).
+	int getAITurnBudgetMs() const { return _aiTurnBudgetMs; }
 
 	/// Gets maximum supported lookVariant.
 	int getMaxLookVariant() const;

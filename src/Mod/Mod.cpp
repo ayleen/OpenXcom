@@ -459,6 +459,9 @@ Mod::Mod() :
 	_aiFocusFireCommitThreshold(AITuning::DEFAULT_FOCUS_FIRE_COMMIT_THRESHOLD),
 	_aiFocusFireScorePercent(AITuning::DEFAULT_FOCUS_FIRE_SCORE_PERCENT),
 	_aiBreachDetourMultiplier(AITuning::DEFAULT_BREACH_DETOUR_MULTIPLIER),
+	// Phase 43.1 (Calypso): shared-fields gate + work-budget schema -- defaults keep the
+	// feature off and the budgets unbounded (byte-identical to pre-43.1).
+	_aiSharedFields(false), _aiEvalBudget(0), _aiTurnBudgetMs(0),
 	_maxLookVariant(0), _tooMuchSmokeThreshold(10), _customTrainingFactor(100),
 	_chanceToStopRetaliation(0), _chanceToDetectAlienBaseEachMonth(20), _lessAliensDuringBaseDefense(false),
 	_allowCountriesToCancelAlienPact(false), _buildInfiltrationBaseCloseToTheCountry(false), _infiltrateRandomCountryInTheRegion(false), _allowAlienBasesOnWrongTextures(true),
@@ -3349,6 +3352,15 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 		_aiFocusFireCommitThreshold = AITuning::clampAtLeastOne(_aiFocusFireCommitThreshold);
 		_aiFocusFireScorePercent = AITuning::clampPercent(_aiFocusFireScorePercent);
 		_aiBreachDetourMultiplier = AITuning::clampAtLeastOne(_aiBreachDetourMultiplier);
+		// Phase 43.1 (Calypso): shared-fields gate + deterministic/wall-clock work budgets.
+		// Defaults (set in the ctor above) keep the feature off and the budgets unbounded, so
+		// behavior is byte-identical to pre-43.1; the non-negative clamp guards a bogus mod
+		// value from inverting the budget semantics (0 is the meaningful "off/unbounded" sentinel).
+		nodeAI.tryRead("sharedFields", _aiSharedFields);
+		nodeAI.tryRead("evalBudget", _aiEvalBudget);
+		nodeAI.tryRead("turnBudgetMs", _aiTurnBudgetMs);
+		_aiEvalBudget = AITuning::clampNonNegative(_aiEvalBudget);
+		_aiTurnBudgetMs = AITuning::clampNonNegative(_aiTurnBudgetMs);
 
 		nodeAI.tryRead("targetWeightThreatThreshold", _aiTargetWeightThreatThreshold);
 		nodeAI.tryRead("targetWeightAsHostile", _aiTargetWeightAsHostile);
