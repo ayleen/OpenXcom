@@ -358,6 +358,44 @@ public:
 		// the Emscripten harness temporarily borrows a MEMFS-backed RGBA atlas.
 		GpuTexture* g0OverlayAtlas = nullptr;
 		std::vector<uint8_t> g0OverlayMask;
+
+		// ---- Phase 42 E1: production sparse per-PCK-frame RGBA overlay pages ----
+		// The R8 baseline atlas above is always built; zero or more RGBA overlay
+		// PAGES carry authored HD frames. Each PCK frame may have an opaque RGBA
+		// slot (hasHd=1); missing/transparent slots fall back to the R8 baseline.
+		// Configured by the `unitAtlas:` ruleset key (parsed in ModHd.cpp), built
+		// lazily by ensureUnitAtlas(). Pages are owned by Mod (deleted in
+		// clearUnitAtlases, evicted/restored with the other battle atlases).
+		enum class RgbaOverlayFormat : unsigned char { None, RgbaOverlay };
+		RgbaOverlayFormat rgbaFormat = RgbaOverlayFormat::None;
+		int               frameWidth      = 0;   // RGBA overlay cell W (e.g. 128)
+		int               frameHeight     = 0;   // RGBA overlay cell H (e.g. 160)
+		int               rgbaColumns     = 16;  // columns per page
+		int               maxPageSize     = 4096;// portable page dimension cap
+		std::vector<std::string> pages;          // mod-relative PNG paths (one per page)
+		// Runtime (populated by ensureUnitAtlas once pages[] are configured):
+		std::vector<GpuTexture*> rgbaOverlayPages; // one texture per page; sRGB, LINEAR
+		std::vector<uint8_t>     rgbaHasHd;        // per-PCK-frame: 1 = opaque RGBA slot, 0 = R8 fallback
+		std::vector<int>         rgbaPageOf;       // per-PCK-frame: page index, -1 = no overlay
+		int                      rgbaFramesPerPage = 0;
+		int                      rgbaRowsPerPage   = 0;
+		int                      rgbaPageW         = 0; // page pixel width  (rgbaColumns * frameWidth)
+		int                      rgbaPageH         = 0; // page pixel height (rgbaRowsPerPage * frameHeight)
+
+		/// True when at least one RGBA overlay page is configured AND loaded.
+		bool hasRgbaOverlay() const {
+			return rgbaFormat == RgbaOverlayFormat::RgbaOverlay && !rgbaOverlayPages.empty();
+		}
+		/// Bounds-safe per-frame HD lookup (false for absent/out-of-range frames).
+		bool frameHasHd(int frame) const {
+			return frame >= 0 && (size_t)frame < rgbaHasHd.size()
+			    && rgbaHasHd[(size_t)frame] != 0;
+		}
+		/// Bounds-safe per-frame page index (-1 when absent/out-of-range).
+		int framePageOf(int frame) const {
+			return (frame >= 0 && (size_t)frame < rgbaPageOf.size())
+			       ? rgbaPageOf[(size_t)frame] : -1;
+		}
 	};
 #endif
 
@@ -479,6 +517,12 @@ private:
 	/// Phase 36: Calypso-only ruleset keys (globeTextures/tileAtlas/hdTiles/
 	/// battlescapeTileScale/...) parsed out of loadFile; body in Calypso/ModHd.cpp.
 	void loadFileCalypso(YAML::YamlNodeReader& reader);
+	/// Phase 42 E1: decode + upload the optional RGBA overlay pages for one
+	/// UnitAtlasSpec, compute the per-PCK-frame hasHd mask (transparent slots
+	/// fall back to R8), and wire MEMFS-backed reload callbacks for context
+	/// loss recovery. No-op when GPU is not ready or pages[] is empty.
+	void buildUnitRgbaOverlay(UnitAtlasSpec& spec, const std::string& name,
+	                          int frameCount);
 #endif
 	std::map<std::string, CustomPalettes *> _customPalettes;
 	std::vector<std::pair<std::string, ExtraSounds *> > _extraSounds;

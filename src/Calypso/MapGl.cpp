@@ -82,6 +82,7 @@
 #  include <GLES3/gl3.h>
 #  include <set>
 #  include <vector>
+#  include <algorithm>
 #  include <cstddef>   // offsetof — instance-layout static_asserts in initTileGL
 /* Phase 11.0 CPU perf gate; Phase 11.1 readback-cost probe gate.
  * Definitions live in EmscriptenHarness.cpp inside extern "C" {},
@@ -647,6 +648,7 @@ void Map::emitUnitPass()
 		g.zLevels.clear();
 		g.yLevels.clear();
 		g.g0OverlayInstances.clear();
+		for (auto& v : g.rgbaOverlayInstances) v.clear(); // Phase 42 E1
 	}
 	_unitShadowInst.clear();   // Phase 27.5: refilled by drawUnit this frame
 }
@@ -1518,7 +1520,10 @@ void Map::drawTileGLPass()
 			grp.blendInstances.clear();  // Phase 22
 			for (auto& sv : grp.subLayerInstances) sv.clear();
 		}
-		for (auto& grp : _unitAtlasGroups) { grp.instances.clear(); grp.zLevels.clear(); grp.yLevels.clear(); grp.g0OverlayInstances.clear(); }
+		for (auto& grp : _unitAtlasGroups) {
+			grp.instances.clear(); grp.zLevels.clear(); grp.yLevels.clear(); grp.g0OverlayInstances.clear();
+			for (auto& v : grp.rgbaOverlayInstances) v.clear(); // Phase 42 E1
+		}
 		_cursorOverlayInstances.clear();
 		_smokeInstances.clear();
 		_emissiveSources.clear();   // Phase 25 (R1): drop stale halos with the rest
@@ -1589,7 +1594,8 @@ void Map::drawTileGLPass()
 	// for bodies/held items, 0 for floor items / any non-fake-AO draw.
 	auto drawAtlas = [&](GpuTexture* atlas, float uvW, float uvH,
 	                     const TileInstance* data, size_t count, bool isRgba,
-	                     float unitShade) {
+	                     float unitShade, GpuTexture* hdMask,
+	                     float maskU, float maskV, float maskUvW, float maskUvH) {
 		Shader* sh = isRgba ? _tileShaderRgba : _tileShader;
 		if (!sh || !sh->isValid()) return;
 		// P17: explicit bind so blend draw's _blendVAO doesn't leak into this call.
@@ -1616,10 +1622,21 @@ void Map::drawTileGLPass()
 		}
 		atlas->bind(0);
 		sh->setUniform2f("u_tileUVSize", uvW, uvH);
+		if (isRgba)
+			sh->setUniform1i("u_unitGeometry", 1);
 		// Phase 25 R7: fake unit lighting. Set per-draw (not in the cached setup) —
 		// _tileShader is shared with the tile draws, which reset it to 0.
 		if (!isRgba)
+		{
 			sh->setUniform1f("u_unitShade", unitShade);
+			sh->setUniform1i("u_hasHdMask", hdMask ? 1 : 0);
+			if (hdMask)
+			{
+				sh->setUniform1i("u_hdMask", 6);
+				sh->setUniform4f("u_hdMaskUv", maskU, maskV, maskUvW, maskUvH);
+				hdMask->bind(6);
+			}
+		}
 		glBindBuffer(GL_ARRAY_BUFFER, _tileIBO);
 		glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)(count * sizeof(TileInstance)),
 		             data, GL_DYNAMIC_DRAW);
@@ -1708,12 +1725,17 @@ void Map::drawTileGLPass()
 		}
 		atlas->bind(0);
 		sh->setUniform2f("u_tileUVSize", uvW, uvH);
+		if (isRgba)
+			sh->setUniform1i("u_unitGeometry", 0);
 		// Phase 25 R7: tiles never get the unit fake-AO. Reset per-draw because the
 		// R8 _tileShader is shared with the unit draws (which set u_unitShade > 0),
 		// and tiles draw first each frame — they'd otherwise inherit the prior
 		// frame's unit value. RGBA tiles (_tileShaderRgba) have no such uniform.
 		if (!isRgba)
+		{
 			sh->setUniform1f("u_unitShade", 0.0f);
+			sh->setUniform1i("u_hasHdMask", 0);
+		}
 		glBindBuffer(GL_ARRAY_BUFFER, _tileInstIBO);
 		pointTileInstanceAttribs(baseInstance);
 		glDrawArraysInstanced(GL_TRIANGLES, 0, 6, (GLsizei)count);
@@ -1731,33 +1753,121 @@ void Map::drawTileGLPass()
 	}
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
-	// Units / floor items / held items (palette unit atlases) — one draw call
-	// per group; depth test handles inter-group ordering.
-	// Phase 25 R7: unit bodies + held items get the fake-AO (g_calypsoUnitShade);
-	// floor items (FLOOROB.PCK) lie flat, so a vertical AO would read wrong → 0.
+	// Phase 42 E1: collect EVERY unit/floor/HANDOB R8 emission and production
+	// RGBA sibling into one painter list. Atlas/page buckets are upload/storage
+	// details only; colour compositing must follow global emission priority.
+	struct UnitPainterDraw
+	{
+		GpuTexture* atlas = nullptr;
+		float uvW = 0.0f, uvH = 0.0f;
+		TileInstance instance{};
+		bool rgba = false;
+		float unitShade = 0.0f;
+		GpuTexture* hdMask = nullptr;
+		float maskU = 0.0f, maskV = 0.0f, maskUvW = 0.0f, maskUvH = 0.0f;
+	};
+	std::vector<UnitPainterDraw> unitPainter;
 	const Mod::UnitAtlasSpec* floorSpec = _game->getMod()->getUnitAtlas("FLOOROB.PCK");
 	for (auto& g : _unitAtlasGroups)
 	{
-		if (!g.spec || !g.spec->atlas || g.instances.empty()) continue;
+		if (!g.spec || !g.spec->atlas || g.spec->atlasW <= 0 || g.spec->atlasH <= 0) continue;
 		const float uvW = (float)g.spec->tileWidth  / (float)g.spec->atlasW;
 		const float uvH = (float)g.spec->tileHeight / (float)g.spec->atlasH;
 		const float unitShade = (g.spec == floorSpec) ? 0.0f : g_calypsoUnitShade;
-		drawAtlas(g.spec->atlas, uvW, uvH,
-		          g.instances.data(), g.instances.size(), false, unitShade);
-	}
+		std::vector<UnitPainterDraw> baselines;
+		baselines.reserve(g.instances.size());
+		for (const TileInstance& instance : g.instances)
+			baselines.push_back({g.spec->atlas, uvW, uvH, instance, false, unitShade});
 
-	// Phase 17: hybrid RGBA overlay pass — drawn after tiles and units with
-	// depth-write disabled so the depth buffer (already written by baseline and
-	// units) determines occlusion.  Alpha-discard in tile_atlas_rgba.frag
-	// ensures vanilla cells (transparent in overlay) show through to baseline.
+		if (!g.spec->hasRgbaOverlay()
+		 || g.spec->frameWidth <= 0 || g.spec->frameHeight <= 0
+		 || g.spec->rgbaPageW <= 0 || g.spec->rgbaPageH <= 0)
+		{
+			unitPainter.insert(unitPainter.end(), baselines.begin(), baselines.end());
+			continue;
+		}
+		const float rgbaUvW = (float)g.spec->frameWidth  / (float)g.spec->rgbaPageW;
+		const float rgbaUvH = (float)g.spec->frameHeight / (float)g.spec->rgbaPageH;
+		for (size_t page = 0; page < g.spec->rgbaOverlayPages.size(); ++page)
+		{
+			if (page >= g.rgbaOverlayInstances.size()) break;
+			GpuTexture* atlas = g.spec->rgbaOverlayPages[page];
+			if (!atlas) continue;
+			for (const auto& overlay : g.rgbaOverlayInstances[page])
+			{
+				if (overlay.baselineIndex < baselines.size())
+				{
+					UnitPainterDraw& baseline = baselines[overlay.baselineIndex];
+					baseline.hdMask = atlas;
+					baseline.maskU = overlay.instance.atlasU;
+					baseline.maskV = overlay.instance.atlasV;
+					baseline.maskUvW = rgbaUvW;
+					baseline.maskUvH = rgbaUvH;
+				}
+				unitPainter.push_back({atlas, rgbaUvW, rgbaUvH,
+				                       overlay.instance, true, 0.0f});
+			}
+		}
+		unitPainter.insert(unitPainter.end(), baselines.begin(), baselines.end());
+	}
+	std::stable_sort(unitPainter.begin(), unitPainter.end(),
+		[](const UnitPainterDraw& a, const UnitPainterDraw& b) {
+			return UnitSprite::e1PainterOrderLess(a.instance.iso, b.instance.iso);
+		});
+
+	// Unit colour pass: terrain-only depth is still resident because units have
+	// not written depth yet. Draw the globally sorted list back-to-front with
+	// depth writes off. Thus a fractional-alpha front RGBA edge blends over the
+	// already drawn behind R8/RGBA emission regardless of source atlas bucket.
+	// Foreground terrain (priority 6) still rejects units through GL_LESS.
+	// Use true Porter-Duff source-over for the alpha channel. The canvas alpha is
+	// normally masked here, but keeping the factors correct makes off-screen/readback
+	// targets and the production FBO proof agree at fractional RGBA edges.
+	glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA,
+	                    GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 	glDepthMask(GL_FALSE);
-	// Canvas alpha-channel protection.
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_FALSE);
-	// Overlay needs GL_LEQUAL: iso bump (0.5/2000000 ≈ 2.5e-7) is below
-	// 24-bit depth-buffer float precision, so GL_LESS treats overlay
-	// fragments as equal-or-greater than baseline and rejects them at
-	// shared edge pixels. LEQUAL lets the overlay (drawn after baseline)
-	// claim those pixels and overwrite the palette-shaded R8 color.
+	glDepthFunc(GL_LESS);
+	// Phase 42 E1: explicitly reset the RGBA (tile_atlas_rgba) shader's
+	// normal/emissive binds BEFORE the unit overlay pass. Unit overlays carry no
+	// normal-map or emissive atlas; without this reset, the previous frame's
+	// terrain-overlay u_hasNormalMap/u_hasEmissive state could leak into the
+	// first unit overlay draw. The manual bind invalidates activeShader so
+	// drawAtlas performs its full uniform setup on the first sorted draw. Shade semantics
+	// are preserved per-instance (inst.shade) + via u_shadeCurve; recolour is
+	// N/A — RGBA overlays ship final colour (matches blitBodyHD Path 5b).
+	if (_tileShaderRgba && _tileShaderRgba->isValid())
+	{
+		_tileShaderRgba->use();
+		_tileShaderRgba->setUniform1i("u_hasNormalMap", 0);
+		_tileShaderRgba->setUniform1i("u_hasEmissive", 0);
+		// Manual use() changes the real GL program behind the draw helper cache.
+		// Invalidate it so the first globally sorted draw always binds its own
+		// R8/RGBA program and complete uniform set.
+		activeShader = nullptr;
+	}
+	for (const UnitPainterDraw& draw : unitPainter)
+		drawAtlas(draw.atlas, draw.uvW, draw.uvH, &draw.instance, 1,
+		          draw.rgba, draw.unitShade, draw.hdMask,
+		          draw.maskU, draw.maskV, draw.maskUvW, draw.maskUvH);
+
+	// Depth prepass over the same alpha-discard geometry. It runs after colour,
+	// with colour writes disabled, so the nearest visible unit texel becomes the
+	// depth owner for later terrain overlays/contact shadows without changing
+	// the correct source-over colour result above.
+	glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+	glDepthMask(GL_TRUE);
+	glDepthFunc(GL_LESS);
+	for (const UnitPainterDraw& draw : unitPainter)
+		drawAtlas(draw.atlas, draw.uvW, draw.uvH, &draw.instance, 1,
+		          draw.rgba, draw.unitShade, draw.hdMask,
+		          draw.maskU, draw.maskV, draw.maskUvW, draw.maskUvH);
+	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_FALSE);
+
+	// The disposable G0 overlay remains a colour-only diagnostic over its exact
+	// vanilla geometry. Restore its legacy state before drawing it and the later
+	// terrain hybrid overlay passes.
+	glDepthMask(GL_FALSE);
 	glDepthFunc(GL_LEQUAL);
 	// Phase-42 disposable G0: exact-alignment RGBA body overlays. Baseline body
 	// and HANDOB instances have already populated depth in their real routine-0
@@ -1768,7 +1878,8 @@ void Map::drawTileGLPass()
 		const float uvW = (float)g.spec->tileWidth / (float)g.spec->atlasW;
 		const float uvH = (float)g.spec->tileHeight / (float)g.spec->atlasH;
 		drawAtlas(g.spec->g0OverlayAtlas, uvW, uvH,
-		          g.g0OverlayInstances.data(), g.g0OverlayInstances.size(), true, 0.0f);
+		          g.g0OverlayInstances.data(), g.g0OverlayInstances.size(), true, 0.0f,
+		          nullptr, 0.0f, 0.0f, 0.0f, 0.0f);
 	}
 	if (HdUnitBattleSpike::active())
 		HdUnitBattleSpike::captureForegroundPixelProof(
@@ -2012,6 +2123,7 @@ void Map::drawTileGLPass()
 		_tileShaderRgba->setUniform1i("u_atlas", 0);
 		_tileShaderRgba->setUniform1i("u_hasNormalMap", 0);  // Phase 25 R3: shadows are flat (order-independent)
 		_tileShaderRgba->setUniform1i("u_hasEmissive", 0);   // Phase 25 R6: shadows do not glow
+		_tileShaderRgba->setUniform1i("u_unitGeometry", 1);  // unit shadow uses the unit 1px-per-side footprint
 		if (_shadeCurveTex && _shadeCurveTex->isValid())
 		{
 			_tileShaderRgba->setUniform1i("u_shadeCurve", 3);

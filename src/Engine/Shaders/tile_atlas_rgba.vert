@@ -18,6 +18,9 @@ layout(location=6) in float a_iso;
 uniform vec2 u_screenSize;
 uniform vec2 u_tilePixelSize;
 uniform vec2 u_tileUVSize;
+// Unit RGBA frames must use the exact same 1px-per-side expansion as their R8
+// fallback/mask. Terrain RGBA keeps its established 2px expansion.
+uniform int  u_unitGeometry;
 
 out vec2  v_uv;
 out vec2  v_localUV;
@@ -31,7 +34,7 @@ void main()
     // sub-pixel gaps. We do NOT expand UVs; instead we slightly stretch the 
     // texture over the expanded quad. This prevents sampling neighbor cells 
     // in the unguttered atlas while ensuring adjacent quads overlap.
-    vec2 overdraw = vec2(2.0);
+    vec2 overdraw = vec2(u_unitGeometry == 1 ? 1.0 : 2.0);
     vec2 offset = (a_corner * 2.0 - 1.0) * overdraw;
     vec2 pixelPos = a_screenPos + a_corner * u_tilePixelSize + offset;
 

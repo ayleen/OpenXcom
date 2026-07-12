@@ -21,15 +21,25 @@
 #include <SDL.h>
 #include <SDL_mixer.h>
 #include <cstring>
+#include <fstream>
+#include <sstream>
+#include <array>
+#include <vector>
+#include <algorithm>
 #include "Game.h"
 #include "Screen.h"
 #include "Options.h"
 #include "ShaderManager.h"
+#include "GpuTexture.h"
+#include "GpuInit.h"
+#include "Shader.h"
 #include "GpuSmokeState.h"
 #include "HdUnitSpikeState.h"
 #include "HdUnitBattleSpike.h"
 #include "Logger.h"
 #include "FileMap.h"
+#include "../Mod/Mod.h"
+#include "../Battlescape/UnitSprite.h"
 #include "../Interface/Cursor.h"
 // Phase 33 (mobile): pinch-zoom bridge + virtual-keyboard bridge for TextEdit.
 #include "../Interface/TextEdit.h"
@@ -43,6 +53,7 @@
 #include "../Menu/OptionsVideoState.h"
 #include "../Menu/OptionsBaseState.h"   // OptionsOrigin / OPT_MENU
 #include "../Calypso/CalypsoPrologueCampaign.h" // Phase 41 (commit 4.5): launchScriptedBattle
+#include <GLES3/gl3.h>
 
 using namespace OpenXcom;
 
@@ -63,6 +74,265 @@ static size_t heapUsedBytes()
 {
     struct mallinfo mi = mallinfo();
     return (size_t)(unsigned int)mi.uordblks;
+}
+
+struct E1GpuEdgeSample
+{
+    int alpha = 0;
+    std::array<unsigned char, 4> naturalCenter{};
+    std::array<unsigned char, 4> reversedCenter{};
+    std::array<unsigned char, 4> naturalEdge{};
+    std::array<unsigned char, 4> naturalOutside{};
+};
+
+struct E1GpuEdgeProof
+{
+    bool available = false;
+    bool passed = false;
+    unsigned glError = 0;
+    std::vector<E1GpuEdgeSample> samples;
+};
+
+static E1GpuEdgeProof runE1GpuEdgeProof()
+{
+    E1GpuEdgeProof result;
+    if (!GpuInit::ready()) return result;
+
+    GLint prevFbo = 0, prevRenderbuffer = 0, prevProgram = 0, prevVao = 0, prevArrayBuffer = 0;
+    GLint prevViewport[4] = {0, 0, 0, 0};
+    GLint prevDepthFunc = GL_LESS, prevBlendSrcRgb = GL_ONE, prevBlendDstRgb = GL_ZERO;
+    GLint prevBlendSrcAlpha = GL_ONE, prevBlendDstAlpha = GL_ZERO, prevActiveTexture = GL_TEXTURE0;
+    GLboolean prevDepthMask = GL_TRUE, prevColorMask[4] = {GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE};
+    GLfloat prevClearColor[4] = {0, 0, 0, 0};
+    const GLboolean prevBlend = glIsEnabled(GL_BLEND);
+    const GLboolean prevDepth = glIsEnabled(GL_DEPTH_TEST);
+    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prevFbo);
+    glGetIntegerv(GL_RENDERBUFFER_BINDING, &prevRenderbuffer);
+    glGetIntegerv(GL_CURRENT_PROGRAM, &prevProgram);
+    glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &prevVao);
+    glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &prevArrayBuffer);
+    glGetIntegerv(GL_VIEWPORT, prevViewport);
+    glGetIntegerv(GL_DEPTH_FUNC, &prevDepthFunc);
+    glGetBooleanv(GL_DEPTH_WRITEMASK, &prevDepthMask);
+    glGetBooleanv(GL_COLOR_WRITEMASK, prevColorMask);
+    glGetFloatv(GL_COLOR_CLEAR_VALUE, prevClearColor);
+    glGetIntegerv(GL_BLEND_SRC_RGB, &prevBlendSrcRgb);
+    glGetIntegerv(GL_BLEND_DST_RGB, &prevBlendDstRgb);
+    glGetIntegerv(GL_BLEND_SRC_ALPHA, &prevBlendSrcAlpha);
+    glGetIntegerv(GL_BLEND_DST_ALPHA, &prevBlendDstAlpha);
+    glGetIntegerv(GL_ACTIVE_TEXTURE, &prevActiveTexture);
+    const int units[] = {0, 1, 3, 6};
+    GLint prevTex[4] = {0, 0, 0, 0};
+    for (int i = 0; i < 4; ++i)
+    {
+        glActiveTexture(GL_TEXTURE0 + units[i]);
+        glGetIntegerv(GL_TEXTURE_BINDING_2D, &prevTex[i]);
+    }
+    auto restoreState = [&]() {
+        for (int i = 0; i < 4; ++i)
+        {
+            glActiveTexture(GL_TEXTURE0 + units[i]);
+            glBindTexture(GL_TEXTURE_2D, (GLuint)prevTex[i]);
+        }
+        glActiveTexture((GLenum)prevActiveTexture);
+        glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prevFbo);
+        glBindRenderbuffer(GL_RENDERBUFFER, (GLuint)prevRenderbuffer);
+        glUseProgram((GLuint)prevProgram);
+        glBindVertexArray((GLuint)prevVao);
+        glBindBuffer(GL_ARRAY_BUFFER, (GLuint)prevArrayBuffer);
+        glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
+        if (prevBlend) glEnable(GL_BLEND); else glDisable(GL_BLEND);
+        if (prevDepth) glEnable(GL_DEPTH_TEST); else glDisable(GL_DEPTH_TEST);
+        glBlendFuncSeparate((GLenum)prevBlendSrcRgb, (GLenum)prevBlendDstRgb,
+                            (GLenum)prevBlendSrcAlpha, (GLenum)prevBlendDstAlpha);
+        glDepthFunc((GLenum)prevDepthFunc);
+        glDepthMask(prevDepthMask);
+        glColorMask(prevColorMask[0], prevColorMask[1], prevColorMask[2], prevColorMask[3]);
+        glClearColor(prevClearColor[0], prevClearColor[1], prevClearColor[2], prevClearColor[3]);
+    };
+    while (glGetError() != GL_NO_ERROR) {}
+
+    Shader r8Shader, rgbaShader;
+    if (!r8Shader.loadFromEmbedded("tile_atlas")
+     || !rgbaShader.loadFromEmbedded("tile_atlas_rgba"))
+    {
+        restoreState();
+        return result;
+    }
+
+    GpuTexture r8Atlas(false, GpuTexture::Wrap::ClampToEdge, GpuTexture::Filter::Nearest);
+    GpuTexture rgbaAtlas(false, GpuTexture::Wrap::ClampToEdge, GpuTexture::Filter::Linear);
+    GpuTexture shadeTable(false, GpuTexture::Wrap::ClampToEdge, GpuTexture::Filter::Nearest);
+    GpuTexture shadeCurve(false, GpuTexture::Wrap::ClampToEdge, GpuTexture::Filter::Nearest);
+    const unsigned char r8Pixel = 1;
+    std::vector<unsigned char> shades(16u * 256u * 4u, 0u);
+    for (int shade = 0; shade < 16; ++shade)
+    {
+        const size_t off = ((size_t)1 * 16u + (size_t)shade) * 4u;
+        shades[off + 1] = 255u; shades[off + 3] = 255u; // index 1 -> opaque green
+    }
+    std::vector<unsigned char> curve(16u, 255u);
+    if (!r8Atlas.uploadR8(&r8Pixel, 1, 1)
+     || !shadeTable.uploadRGBA(shades.data(), 16, 256)
+     || !shadeCurve.uploadR8(curve.data(), 16, 1))
+    {
+        restoreState();
+        return result;
+    }
+
+    GLuint fbo = 0, color = 0, depth = 0, vao = 0, cornerVbo = 0, instanceVbo = 0;
+    glGenFramebuffers(1, &fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glGenTextures(1, &color);
+    glBindTexture(GL_TEXTURE_2D, color);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 16, 8, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, color, 0);
+    glGenRenderbuffers(1, &depth);
+    glBindRenderbuffer(GL_RENDERBUFFER, depth);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, 16, 8);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depth);
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+    {
+        glDeleteRenderbuffers(1, &depth);
+        glDeleteTextures(1, &color);
+        glDeleteFramebuffers(1, &fbo);
+        restoreState();
+        return result;
+    }
+
+    const float corners[12] = {0,0, 1,0, 0,1, 0,1, 1,0, 1,1};
+    const float baselineInstance[8] = {4,2, 0,0, 0,1,1, 0.20f};
+    const float overlayInstance[8]  = {4,2, 0,0, 0,1,1, 0.25f};
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
+    glGenBuffers(1, &cornerVbo);
+    glBindBuffer(GL_ARRAY_BUFFER, cornerVbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(corners), corners, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
+    glGenBuffers(1, &instanceVbo);
+    glBindBuffer(GL_ARRAY_BUFFER, instanceVbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(baselineInstance), baselineInstance, GL_DYNAMIC_DRAW);
+    const GLsizei stride = 8 * (GLsizei)sizeof(float);
+    for (int attr = 1; attr <= 6; ++attr)
+    {
+        const int components = attr <= 2 ? 2 : 1;
+        const int floatOffset = attr == 1 ? 0 : attr == 2 ? 2 : attr + 1;
+        glEnableVertexAttribArray((GLuint)attr);
+        glVertexAttribPointer((GLuint)attr, components, GL_FLOAT, GL_FALSE, stride,
+                              (const void*)((size_t)floatOffset * sizeof(float)));
+        glVertexAttribDivisor((GLuint)attr, 1);
+    }
+
+    auto configureCommon = [](Shader& shader) {
+        shader.setUniform2f("u_screenSize", 16.0f, 8.0f);
+        shader.setUniform2f("u_tilePixelSize", 8.0f, 4.0f);
+        shader.setUniform2f("u_tileUVSize", 1.0f, 1.0f);
+        shader.setUniform1f("u_animFrame", 0.0f);
+        shader.setUniform1i("u_atlas", 0);
+    };
+    auto drawBaseline = [&]() {
+        r8Shader.use(); configureCommon(r8Shader);
+        r8Shader.setUniform1i("u_shadeTable", 1);
+        r8Shader.setUniform1f("u_unitShade", 0.0f);
+        r8Shader.setUniform1i("u_hasHdMask", 1);
+        r8Shader.setUniform1i("u_hdMask", 6);
+        r8Shader.setUniform4f("u_hdMaskUv", 0, 0, 1, 1);
+        r8Atlas.bind(0); shadeTable.bind(1); rgbaAtlas.bind(6);
+        glBindBuffer(GL_ARRAY_BUFFER, instanceVbo);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(baselineInstance), baselineInstance);
+        glDrawArraysInstanced(GL_TRIANGLES, 0, 6, 1);
+    };
+    auto drawOverlay = [&]() {
+        rgbaShader.use(); configureCommon(rgbaShader);
+        rgbaShader.setUniform1i("u_shadeCurve", 3);
+        rgbaShader.setUniform1i("u_hasNormalMap", 0);
+        rgbaShader.setUniform1i("u_hasEmissive", 0);
+        rgbaShader.setUniform1i("u_unitGeometry", 1);
+        rgbaAtlas.bind(0); shadeCurve.bind(3);
+        glBindBuffer(GL_ARRAY_BUFFER, instanceVbo);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(overlayInstance), overlayInstance);
+        glDrawArraysInstanced(GL_TRIANGLES, 0, 6, 1);
+    };
+
+    glViewport(0, 0, 16, 8);
+    glEnable(GL_BLEND);
+    // Straight-alpha source-over: RGB is weighted by source alpha, while alpha
+    // itself uses the Porter-Duff source-over equation (srcA + dstA*(1-srcA)).
+    glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA,
+                        GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    const int alphas[] = {0, 2, 3, 64, 128, 191};
+    for (int alpha : alphas)
+    {
+        E1GpuEdgeSample sample; sample.alpha = alpha;
+        const unsigned char rgba[4] = {255u, 0u, 0u, (unsigned char)alpha};
+        rgbaAtlas.uploadRGBA(rgba, 1, 1);
+        for (int reversed = 0; reversed < 2; ++reversed)
+        {
+            glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+            glClearColor(0, 0, 1, 1);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            struct Cmd { float iso; int kind; } cmds[2] = {{0.20f, 0}, {0.25f, 1}};
+            if (reversed) std::swap(cmds[0], cmds[1]);
+            std::stable_sort(cmds, cmds + 2, [](const Cmd& a, const Cmd& b) {
+                return UnitSprite::e1PainterOrderLess(a.iso, b.iso);
+            });
+            for (const Cmd& cmd : cmds)
+            {
+                if (cmd.kind == 0) drawBaseline();
+                else drawOverlay();
+            }
+            std::array<unsigned char, 4> center{}, edge{}, outside{};
+            glReadPixels(8, 4, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, center.data());
+            glReadPixels(3, 4, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, edge.data());
+            glReadPixels(2, 4, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, outside.data());
+            if (!reversed)
+            {
+                sample.naturalCenter = center;
+                sample.naturalEdge = edge;
+                sample.naturalOutside = outside;
+            }
+            else sample.reversedCenter = center;
+        }
+        result.samples.push_back(sample);
+    }
+    result.glError = (unsigned)glGetError();
+    result.available = true;
+    result.passed = result.glError == GL_NO_ERROR;
+    const std::array<unsigned char, 4> blue = {0,0,255,255};
+    const std::array<unsigned char, 4> green = {0,255,0,255};
+    for (const E1GpuEdgeSample& sample : result.samples)
+    {
+        std::array<unsigned char, 4> expected = sample.alpha < 3
+            ? green : std::array<unsigned char, 4>{(unsigned char)sample.alpha, 0,
+                (unsigned char)(255 - sample.alpha), 255};
+        auto close = [](const std::array<unsigned char,4>& a,
+                        const std::array<unsigned char,4>& b) {
+            for (int i = 0; i < 4; ++i)
+                if (((int)a[i] > (int)b[i] ? (int)a[i] - (int)b[i]
+                                            : (int)b[i] - (int)a[i]) > 1) return false;
+            return true;
+        };
+        result.passed = result.passed
+            && close(sample.naturalCenter, expected)
+            && close(sample.reversedCenter, expected)
+            && close(sample.naturalEdge, expected)
+            && close(sample.naturalOutside, blue);
+    }
+
+    glDeleteBuffers(1, &instanceVbo);
+    glDeleteBuffers(1, &cornerVbo);
+    glDeleteVertexArrays(1, &vao);
+    glDeleteRenderbuffers(1, &depth);
+    glDeleteTextures(1, &color);
+    glDeleteFramebuffers(1, &fbo);
+    restoreState();
+    return result;
 }
 
 extern "C" {
@@ -216,6 +486,147 @@ int calypso_hd_unit_battle_g0_finish(const char *outPng)
 {
 	Game *g = getCurrentGame();
 	return g && HdUnitBattleSpike::finish(g, outPng) ? 1 : 0;
+}
+
+/* ---- Phase 42 E1: production unit-atlas overlay probe -----------------------
+ * Writes a JSON snapshot of ONE unit sprite atlas (R8 baseline + sparse
+ * per-PCK-frame RGBA overlay state) to `outJsonPath`. `sheet` is the SurfaceSet
+ * name (e.g. "TDXCOM_0.PCK"). Lets the JS harness verify — without a screenshot
+ * — that the `unitAtlas:` ruleset key built the expected pages, frame
+ * dimensions and per-frame hasHd coverage, and that the GpuTexture skip-cache
+ * invariant holds (debugCachedBytes()==0). Returns 1 when the file was written,
+ * 0 on failure (no game / unknown sheet / bad path). */
+EMSCRIPTEN_KEEPALIVE
+int calypso_unit_atlas_probe(const char *sheet, const char *outJsonPath)
+{
+	Game *g = getCurrentGame();
+	if (!g || !g->getMod() || !sheet || !outJsonPath) return 0;
+	const Mod::UnitAtlasSpec *spec = g->getMod()->getUnitAtlas(sheet);
+	std::ostringstream o;
+	o << "{\"sheet\":\"" << sheet << "\"";
+	o << ",\"hasAtlas\":" << (spec && spec->atlas ? "true" : "false");
+	if (spec)
+	{
+		o << ",\"r8\":{\"w\":" << spec->atlasW << ",\"h\":" << spec->atlasH
+		  << ",\"tileW\":" << spec->tileWidth << ",\"tileH\":" << spec->tileHeight
+		  << ",\"columns\":" << spec->columns << "}";
+		o << ",\"rgba\":{\"format\":\""
+		  << (spec->rgbaFormat == Mod::UnitAtlasSpec::RgbaOverlayFormat::RgbaOverlay ? "rgba-overlay" : "none")
+		  << "\",\"hasOverlay\":" << (spec->hasRgbaOverlay() ? "true" : "false")
+		  << ",\"frameW\":" << spec->frameWidth << ",\"frameH\":" << spec->frameHeight
+		  << ",\"columns\":" << spec->rgbaColumns << ",\"maxPageSize\":" << spec->maxPageSize
+		  << ",\"pages\":" << spec->pages.size()
+		  << ",\"loadedPages\":" << spec->rgbaOverlayPages.size()
+		  << ",\"pageW\":" << spec->rgbaPageW << ",\"pageH\":" << spec->rgbaPageH
+		  << ",\"framesPerPage\":" << spec->rgbaFramesPerPage
+		  << ",\"rowsPerPage\":" << spec->rgbaRowsPerPage << "}";
+		int hdCount = 0;
+		for (uint8_t v : spec->rgbaHasHd) if (v) ++hdCount;
+		const int fallbackCount = (int)spec->rgbaHasHd.size() - hdCount;
+		o << ",\"hdFrames\":" << hdCount;
+		o << ",\"totalSlots\":" << spec->rgbaHasHd.size();
+		o << ",\"fallbackFrames\":" << fallbackCount;
+		o << ",\"mixedFallback\":"
+		  << (hdCount > 0 && fallbackCount > 0 ? "true" : "false");
+		// skip-cache invariant: production RGBA pages must keep no CPU mirror.
+		int cachedPages = 0;
+		size_t cachedBytes = 0;
+		for (GpuTexture *p : spec->rgbaOverlayPages)
+			if (p) { cachedBytes += p->debugCachedBytes(); if (p->debugCachedBytes()) ++cachedPages; }
+		o << ",\"rgbaCachedBytes\":" << cachedBytes;
+		o << ",\"rgbaCachedPages\":" << cachedPages;
+		// Exercise the exact context-loss lifecycle used by ShaderManager: every
+		// page must become unavailable after eviction and reappear through its
+		// MEMFS-backed reload callback without creating a CPU mirror.
+		bool availableBefore = !spec->rgbaOverlayPages.empty();
+		for (GpuTexture *p : spec->rgbaOverlayPages)
+			availableBefore = availableBefore && p && p->isValid();
+		for (GpuTexture *p : spec->rgbaOverlayPages) if (p) p->evictGL();
+		bool unavailableAfterEvict = !spec->rgbaOverlayPages.empty();
+		for (GpuTexture *p : spec->rgbaOverlayPages)
+			unavailableAfterEvict = unavailableAfterEvict && p && !p->isValid();
+		for (GpuTexture *p : spec->rgbaOverlayPages) if (p) p->reupload();
+		bool availableAfterRestore = !spec->rgbaOverlayPages.empty();
+		size_t cachedAfterRestore = 0;
+		for (GpuTexture *p : spec->rgbaOverlayPages)
+		{
+			availableAfterRestore = availableAfterRestore && p && p->isValid();
+			if (p) cachedAfterRestore += p->debugCachedBytes();
+		}
+		o << ",\"contextRecovery\":{\"availableBefore\":"
+		  << (availableBefore ? "true" : "false")
+		  << ",\"unavailableAfterEvict\":"
+		  << (unavailableAfterEvict ? "true" : "false")
+		  << ",\"availableAfterRestore\":"
+		  << (availableAfterRestore ? "true" : "false")
+		  << ",\"cachedBytesAfterRestore\":" << cachedAfterRestore
+		  << ",\"passed\":"
+		  << (availableBefore && unavailableAfterEvict && availableAfterRestore
+		      && cachedAfterRestore == 0 ? "true" : "false") << "}";
+
+		// Shared renderer helpers provide body/HANDOB call-order evidence and an
+		// exhaustive proof over the real z/y/x base-priority lattice.
+		const int proofBase = 3 * 65536 + 47 * 1024 + 47 * 8;
+		o << ",\"subpriorityProof\":{\"depth24Distinct\":"
+		  << (UnitSprite::debugE1DepthProof() ? "true" : "false")
+		  << ",\"basePriority\":" << proofBase
+		  << ",\"surroundingSlots\":[3,6],\"emissions\":[";
+		for (int sequence = 0; sequence < 8; ++sequence)
+		{
+			if (sequence) o << ",";
+			o << "{\"sequence\":" << sequence
+			  << ",\"baselinePriority\":"
+			  << UnitSprite::debugE1LocalPriority(sequence, false)
+			  << ",\"overlayPriority\":"
+			  << UnitSprite::debugE1LocalPriority(sequence, true)
+			  << ",\"baselineDepth24\":"
+			  << UnitSprite::debugE1DepthCode(proofBase, sequence, false)
+			  << ",\"overlayDepth24\":"
+			  << UnitSprite::debugE1DepthCode(proofBase, sequence, true) << "}";
+		}
+		o << "]}";
+		const unsigned int expectedFractional = 0x80007FFFu; // RGBA [128,0,127,255]
+		const unsigned int naturalBuckets = UnitSprite::debugE1FractionalPixel(false);
+		const unsigned int reversedBuckets = UnitSprite::debugE1FractionalPixel(true);
+		o << ",\"fractionalAlphaPixelCase\":{\"behind\":[0,0,255,255]"
+		  << ",\"front\":[255,0,0,128],\"expected\":[128,0,127,255]"
+		  << ",\"frontR8FallbackMaskedByRgbaAlpha\":true"
+		  << ",\"naturalPackedRgba\":" << naturalBuckets
+		  << ",\"reversedPackedRgba\":" << reversedBuckets
+		  << ",\"passed\":"
+		  << (naturalBuckets == expectedFractional
+		      && reversedBuckets == expectedFractional ? "true" : "false") << "}";
+		const E1GpuEdgeProof gpuEdge = runE1GpuEdgeProof();
+		auto emitRgba = [&o](const std::array<unsigned char, 4>& rgba) {
+			o << "[" << (unsigned)rgba[0] << "," << (unsigned)rgba[1]
+			  << "," << (unsigned)rgba[2] << "," << (unsigned)rgba[3] << "]";
+		};
+		o << ",\"gpuEdgePixelProof\":{\"available\":"
+		  << (gpuEdge.available ? "true" : "false")
+		  << ",\"passed\":" << (gpuEdge.passed ? "true" : "false")
+		  << ",\"glError\":" << gpuEdge.glError
+		  << ",\"unitRgbaOverdrawPerSide\":1"
+		  << ",\"terrainRgbaOverdrawPerSide\":2,\"samples\":[";
+		for (size_t i = 0; i < gpuEdge.samples.size(); ++i)
+		{
+			if (i) o << ",";
+			const E1GpuEdgeSample& sample = gpuEdge.samples[i];
+			o << "{\"alpha\":" << sample.alpha << ",\"naturalCenter\":";
+			emitRgba(sample.naturalCenter);
+			o << ",\"reversedCenter\":"; emitRgba(sample.reversedCenter);
+			o << ",\"naturalEdge\":"; emitRgba(sample.naturalEdge);
+			o << ",\"naturalOutside\":"; emitRgba(sample.naturalOutside);
+			o << "}";
+		}
+		o << "]}";
+		// g0 spike overlay (disposable) presence for parity diagnostics.
+		o << ",\"g0Overlay\":" << (spec->g0OverlayAtlas ? "true" : "false");
+	}
+	o << "}";
+	std::ofstream f(outJsonPath, std::ios::binary | std::ios::trunc);
+	if (!f) return 0;
+	f << o.str();
+	return 1;
 }
 
 /* ---- HTML main-menu bridge (Phase 2) ----------------------------------------
