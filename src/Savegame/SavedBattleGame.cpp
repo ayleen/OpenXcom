@@ -2795,14 +2795,42 @@ bool SavedBattleGame::getCivilianHuntZone(Position &out)
 	return _huntCiviliansZoneValid;
 }
 
+// Phase 34.8 / 43.1 noise-occupancy (Calypso): file-local helper that quantizes a noise
+// source to an 8-tile grid cell. SHARED by the transient-noise read path
+// (getNewestHearableNoise) and the fair occupancy producer spike (emitNoise) so the two
+// can NEVER drift apart for one event -- whoever resolves the zone for a given event gets
+// the identical cell. Hearing gives a zone/direction, never a wallhack tile (mirrors the
+// 34.4 civilian-zone fairness stance; note 34.4 uses a 10-tile grid for a DIFFERENT zone,
+// so that path is intentionally NOT routed through here). Kept local to this TU so a grid-
+// size change updates both call sites identically and no other translation unit observes it.
+namespace {
+inline Position quantizeNoiseZone(const Position &src)
+{
+	const int GRID = 8; // 8-tile grid (NOT 34.4's 10; the convention mirrored is "quantize to a grid")
+	return Position((src.x / GRID) * GRID, (src.y / GRID) * GRID, src.z);
+}
+} // namespace
+
 /**
- * Phase 34.8 (Calypso): record a transient noise event for ai.hearing. Emission is
- * unconditional bookkeeping (the AI read path gates on Mod::getAIHearing, so with the
- * flag off nothing consumes this list and behavior is byte-identical). The list is never
- * serialized; prepareNewTurn prunes by age and a fresh save loads it as empty. A non-
- * positive loudness is a no-op (callers derive loudness from weapon/explosion parameters).
+ * Phase 34.8 (Calypso): record a transient noise event for ai.hearing, and (Phase 43.1)
+ * optionally feed the fair per-faction occupancy caches. The transient-list emission is
+ * bookkeeping (the AI read path gates on Mod::getAIHearing, so with that flag off nothing
+ * consumes this list and that half is byte-identical); the list is never serialized,
+ * prepareNewTurn prunes by age and a fresh save loads it empty. A non-positive loudness is
+ * a no-op (callers derive loudness from weapon/explosion parameters). The Phase 43.1
+ * occupancy producer runs AFTER the push and is independently gated on ai.sharedFields +
+ * occupancyNoiseSpike, so with either off the whole call is byte-identical to pre-43.1.
+ *
+ * `sourceFaction` (Phase 43.1 fairness fix) is the faction that EMITTED the noise, or
+ * FACTION_NONE for an unknown/neutral source. It is NOT stored on the transient NoiseEvent
+ * (schema/read semantics are unchanged -- NoiseEvent still carries only pos/turn/loudness);
+ * it only steers the occupancy producer's self-noise exemption below: a real source faction
+ * ([FACTION_PLAYER, FACTION_MAX)) is never spiked by its own event, while every other faction
+ * still requires a living hearer exactly as before. FACTION_NONE is outside that range, so
+ * the default/unknown-source path (explosions via TileEngine, and all pre-fix two-argument
+ * callers) is byte-identical to the pre-fix form.
  */
-void SavedBattleGame::emitNoise(const Position &pos, int loudness)
+void SavedBattleGame::emitNoise(const Position &pos, int loudness, UnitFaction sourceFaction)
 {
 	// Post-34.9 hardening (Codex review): gate the write itself. Originally emission was
 	// unconditional transient bookkeeping (the 34.5 knowledge-layer convention), but 34.7/34.9
@@ -2812,6 +2840,69 @@ void SavedBattleGame::emitNoise(const Position &pos, int loudness)
 	if (!getMod()->getAIHearing()) return;
 	if (loudness <= 0) return;
 	_noiseEvents.push_back(NoiseEvent{pos, _turn, loudness});
+
+	// ---- Phase 43.1 fair noise-occupancy producer (Calypso) ----------------------------
+	// The transient NoiseEvent above was just recorded at age zero (`ev.turn == _turn`). For
+	// each faction INDEPENDENTLY, decide whether AT LEAST ONE living / non-out unit of that
+	// faction can hear it NOW, using the SAME per-event conditions getNewestHearableNoise
+	// evaluates at age zero:
+	//   (a) the decay window is open at age 0  <=>  `_turn - ev.turn(=0) <= intelligence`
+	//                                            <=>  intelligence >= 0; AND
+	//   (b) the hearer stands within earshot    <=>  Position::distance2d(unitPos, pos) <= loudness.
+	// Every hearing faction then has its occupancy field spiked EXACTLY ONCE (not once per
+	// hearing unit) at the quantized 8-tile zone -- the SAME quantizeNoiseZone helper
+	// getNewestHearableNoise uses, so the producer spike and the consumer read land on the
+	// identical cell and cannot drift apart.
+	//
+	// GATED on ai.sharedFields (the per-faction occupancy-cache feature flag) AND a positive
+	// occupancyNoiseSpike: with EITHER off there are zero cache writes and shipped behavior is
+	// byte-identical. The transient _noiseEvents push above is completely unaffected either way
+	// (NoiseEvent stays unserialized; only the accumulated occupancy in the per-faction
+	// FactionTurnCache persists, and that persistence path predates this producer).
+	const int noiseSpike = getMod()->getAIOccupancyNoiseSpike();
+	if (!getMod()->getAISharedFields() || noiseSpike <= 0)
+		return; // feature off or producer disabled -> no cache mutation, _noiseEvents unchanged
+	// Resolve the zone ONCE via the shared helper: the identical cell a hearer's
+	// getNewestHearableNoise call would resolve to for this same event.
+	const Position zone = quantizeNoiseZone(pos);
+	// One "heard" flag per faction. Value initialization ({}) zeros every slot, so this stays
+	// correct regardless of the FACTION_MAX enumeration cardinality (mirrors the dimension-
+	// agnostic `bool factionSeen[FACTION_MAX] = {};` used in the occupancy load path). A
+	// faction with no living hearer stays false and is NOT spiked below -> the event never
+	// leaks to a faction that cannot hear it.
+	bool heard[FACTION_MAX] = {};
+	for (auto* bu : _units)
+	{
+		if (!bu || bu->isOut()) continue; // dead / unconscious / gone units hear nothing
+		// Age-zero hearing test -- identical to getNewestHearableNoise's two per-event skips
+		// evaluated for an event whose turn == _turn and loudness == loudness:
+		if (bu->getIntelligence() < 0) continue;                          // (a) decay window closed
+		if (Position::distance2d(bu->getPosition(), pos) > loudness) continue; // (b) out of earshot
+		const UnitFaction f = bu->getFaction();
+		// Existing faction validation (mirrors factionTurnCacheValid / spikeFactionOccupancy):
+		// FACTION_NONE and any value >= FACTION_MAX can never index the cache array.
+		if (f < FACTION_PLAYER || f >= FACTION_MAX) continue;
+		heard[f] = true; // first living hearer of this faction is enough -- spike once, not per unit
+	}
+	// Spike each hearing faction's occupancy field exactly once at the shared zone.
+	// spikeFactionOccupancy re-checks ai.sharedFields + faction range + amount > 0 + on-map
+	// tile (getTile != null), so this stays a safe idempotent no-op if any precondition is
+	// violated upstream; the redundant gates compose to a harmless branch on the same boolean.
+	//
+	// Self-noise exemption (Phase 43.1 fairness fix): the source faction is NEVER spiked by
+	// its own emitted noise. A unit's own gunfire must not inflate its side's occupancy map
+	// at its own zone -- otherwise the producer becomes a source of self-poisoning rather
+	// than a fair signal. `sourceFaction` defaults to FACTION_NONE, which is outside
+	// [FACTION_PLAYER, FACTION_MAX), so the loop value `f` can never equal it and the guard
+	// is inert for unknown-source callers (explosions via TileEngine) and every pre-fix
+	// two-argument call site -> byte-identical to the pre-fix form. Every OTHER faction still
+	// requires the living-hearer check above (`heard[f]`) exactly as implemented.
+	for (int f = FACTION_PLAYER; f < FACTION_MAX; ++f)
+	{
+		if (!heard[f]) continue; // no living hearer in this faction -> do not leak the event
+		if (f == sourceFaction) continue; // never spike the source faction's own occupancy
+		spikeFactionOccupancy(static_cast<UnitFaction>(f), zone, noiseSpike);
+	}
 }
 
 void SavedBattleGame::clearNoiseEvents()
@@ -2847,11 +2938,13 @@ bool SavedBattleGame::getNewestHearableNoise(const Position &hearerPos, int inte
 		if (take) best = &ev;
 	}
 	if (!best) return false;
-	// Phase 34.8: quantize the source to an 8-tile grid cell so investigators get a
-	// neighbourhood, never the exact tile. (34.4's civilian zone uses a 10-tile grid; the
+	// Phase 34.8: quantize the source to an 8-tile grid cell via the SHARED helper so
+	// investigators get a neighbourhood, never the exact tile. The same helper is used by the
+	// emitNoise occupancy producer, so a spike recorded for one event lands on the identical
+	// cell a hearer's getNewestHearableNoise call would resolve to -- the zone cannot drift
+	// between producer and consumer. (34.4's civilian zone uses a separate 10-tile grid; the
 	// convention being mirrored is "quantize to a grid", not the specific grid size.)
-	const int GRID = 8;
-	outZone = Position((best->pos.x / GRID) * GRID, (best->pos.y / GRID) * GRID, best->pos.z);
+	outZone = quantizeNoiseZone(best->pos);
 	return true;
 }
 

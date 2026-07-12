@@ -597,7 +597,17 @@ public:
 	/// seam since the post-34.9 hardening: with the mod's ai.hearing flag off the call is a
 	/// no-op (zero writes -- the phase's final gating standard), so callers may invoke it
 	/// unconditionally. `loudness` <= 0 is a no-op. The list itself is private.
-	void emitNoise(const Position &pos, int loudness);
+	///
+	/// `sourceFaction` (Phase 43.1 fairness fix, default FACTION_NONE) identifies the faction
+	/// that EMITTED the noise (e.g. the shooter on a gunshot). When it is a real faction
+	/// ([FACTION_PLAYER, FACTION_MAX)) the Phase 43.1 occupancy producer exempts that one
+	/// faction from its own spike so a side's own gunfire cannot poison its occupancy map at
+	/// its own zone (self-noise); every OTHER faction still needs a living hearer exactly as
+	/// before. FACTION_NONE (or any non-faction value) makes the occupancy half byte-identical
+	/// to the pre-fix two-argument form, so existing two-argument callers are unchanged. The
+	/// transient NoiseEvent list is never affected by this parameter (it carries no faction;
+	/// schema/read semantics unchanged).
+	void emitNoise(const Position &pos, int loudness, UnitFaction sourceFaction = FACTION_NONE);
 	/// Phase 34.8 (Calypso): newest noise a hearer at `hearerPos` can still perceive, for
 	/// the AI read path (which gates on Mod::getAIHearing). A noise is hearable when it is
 	/// within the hearer's intelligence-scaled memory window (`turn - event.turn <=

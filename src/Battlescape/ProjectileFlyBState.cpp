@@ -682,12 +682,18 @@ bool ProjectileFlyBState::createNewProjectile()
 	// on Mod::getAIHearing (zero writes when off -- post-34.9 hardening), so this call
 	// site stays unconditional. Auto-fire emits once per projectile -- harmless duplicates
 	// (same pos/turn) that the read path de-factors on the newest tie.
+	//
+	// Phase 43.1 fairness fix: pass the SHOOTER's faction as sourceFaction -- this call
+	// emits from _unit->getPosition(), i.e. the shooter, so _unit->getFaction() is the
+	// emitting faction. That faction is then exempt from the Phase 43.1 occupancy spike so
+	// its own gunfire can't self-poison its occupancy map at its own zone; opposing factions
+	// still hear it normally when they have a living hearer in earshot.
 	if (_action.type != BA_THROW)
 	{
 		const int ammoPower = _ammo ? _ammo->getRules()->getPower() : 0;
 		auto* mod = _parent->getSave()->getMod();
 		_parent->getSave()->emitNoise(_unit->getPosition(), AITuning::hearingLoudness(
-			mod->getAIHearingNoiseBase(), ammoPower, mod->getAIHearingPowerDivisor()));
+			mod->getAIHearingNoiseBase(), ammoPower, mod->getAIHearingPowerDivisor()), _unit->getFaction());
 	}
 
 	// Phase 34.7 (Calypso): near-miss suppression scan. Same seam family as 34.8's noise
