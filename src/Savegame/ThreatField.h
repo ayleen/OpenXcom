@@ -21,6 +21,7 @@
 #include "../Battlescape/Position.h"
 #include <cstddef>
 #include <map>
+#include <set>
 
 namespace OpenXcom
 {
@@ -42,12 +43,13 @@ namespace OpenXcom
  * intentionally NOT serialized.
  *
  * Semantics:
- *   - stampMax(Position, value) keeps the maximum danger already stamped at the
- *     tile, starting from a baseline of 0. A non-positive stamp does NOT create
- *     a cell (a zero/negative threat is "no threat" and is represented by
- *     absence).
+ *   - stampMax(Position, value) marks the tile evaluated and keeps the maximum
+ *     danger already stamped there, starting from a baseline of 0. A
+ *     non-positive stamp does NOT create a danger cell, but remains
+ *     distinguishable from a tile that has never been evaluated.
  *   - threatAt(Position) returns 0 when the tile is absent from the map.
- *   - clear() wipes the map, empty()/size() report its state.
+ *   - clear() wipes danger and evaluation state; empty()/size() report only
+ *     the sparse positive-danger map.
  *
  * Contrast with FriendReachableField (43.1D), which aggregates per-unit integer
  * contributions: this field is a single max-keyed accumulator for the owning
@@ -63,6 +65,7 @@ public:
 	/// current stored value (or 0 for an absent tile) is recorded.
 	void stampMax(const Position& pos, float value)
 	{
+		evaluated.insert(pos);
 		auto it = field.find(pos);
 		if (it == field.end())
 		{
@@ -73,6 +76,20 @@ public:
 		{
 			it->second = value;
 		}
+	}
+
+	/// Mark a tile evaluated without assigning positive danger. Useful when a
+	/// lazy producer has completed a probe whose exact result is zero.
+	void markEvaluated(const Position& pos)
+	{
+		evaluated.insert(pos);
+	}
+
+	/// True after a producer explicitly evaluated or stamped this tile. False
+	/// means unknown; it must never be interpreted as known-safe.
+	bool isEvaluated(const Position& pos) const
+	{
+		return evaluated.find(pos) != evaluated.end();
 	}
 
 	/// Maximum danger at a tile (0 when the tile has never been stamped with a
@@ -87,6 +104,7 @@ public:
 	void clear()
 	{
 		field.clear();
+		evaluated.clear();
 	}
 
 	/// True when no tile carries any stamped (positive) danger.
@@ -101,8 +119,16 @@ public:
 		return field.size();
 	}
 
+	/// Number of tiles with a completed producer evaluation, including known-zero
+	/// tiles that have no entry in the positive danger map.
+	std::size_t evaluatedSize() const
+	{
+		return evaluated.size();
+	}
+
 private:
 	Field field;
+	std::set<Position, PositionComparator> evaluated;
 };
 
 } // namespace OpenXcom
