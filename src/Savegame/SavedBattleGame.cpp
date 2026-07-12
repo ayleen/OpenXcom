@@ -452,6 +452,78 @@ void SavedBattleGame::load(const YAML::YamlNodeReader& node, Mod *mod, SavedGame
 	if (reader["calypsoScene"]) // Phase 41: rebuild the active scene from the save
 		CalypsoDirector::get().load(reader["calypsoScene"], this);
 #endif
+
+	// Phase 43.1 occupancy persistence: restore the optional aiOccupancy snapshot REGARDLESS of
+	// the ai.sharedFields feature flag, so a battle saved with the flag on is not silently lost
+	// when the flag is later turned off. Old saves that predate this key have no such child and
+	// every cache stays in its default-empty state. This runs after initMap (so _mapsize_x/y/z
+	// are known) and after `turn` is read (so the marker clamp below has a real ceiling).
+	if (const auto& occSeq = reader["aiOccupancy"])
+	{
+		// "first block per faction wins; duplicates are ignored": track accepted factions so a
+		// later duplicate block for the same faction cannot overwrite the accepted one. Value
+		// initialization ({}) zeros every slot, so this stays correct regardless of the
+		// FACTION_MAX enumeration cardinality.
+		bool factionSeen[FACTION_MAX] = {};
+		for (const auto& factionBlock : occSeq.children())
+		{
+			// Validate faction via the existing range guard exposed by getFactionTurnCache: a
+			// missing/out-of-range/FACTION_NONE value yields nullptr and the whole block is
+			// downgraded to the default empty entry, never indexed into _factionTurnCaches.
+			int faction = factionBlock["faction"].readVal<int>(-1);
+			FactionTurnCache* cache = getFactionTurnCache(static_cast<UnitFaction>(faction));
+			if (!cache)
+				continue; // invalid/missing/malformed faction -> ignored default entry
+			if (factionSeen[faction])
+				continue; // duplicate block for an already-accepted faction -> ignored
+			factionSeen[faction] = true;
+
+			// Clamp the serialized arm marker to [-1, _turn]: -1 is the disarmed floor and a
+			// corrupted FUTURE marker must not suppress decay on the next faction-turn arm.
+			int lastTurn = factionBlock["lastAdvancedTurn"].readVal<int>(-1);
+			if (lastTurn < -1)
+				lastTurn = -1;
+			else if (lastTurn > _turn)
+				lastTurn = _turn;
+
+			// Replay cells into a sparse map; later duplicate positions overwrite earlier ones
+			// within this accepted block (std::map::operator[]). Cap accepted records per faction
+			// at _tiles.size(): this is the authoritative tile count already allocated by initMap
+			// (one cell per tile is the dense upper bound, and the product x*y*z is by construction
+			// representable since the allocation succeeded), so a pathological save cannot drive
+			// unbounded allocation; records past the cap are dropped.
+			OccupancyField::CellMap cells;
+			if (const auto& cellsSeq = factionBlock["cells"])
+			{
+				const size_t cap = _tiles.size();
+				size_t accepted = 0;
+				for (const auto& cellReader : cellsSeq.children())
+				{
+					if (accepted >= cap)
+						break; // degenerate map or pathological record count: stop accepting
+					// A cell missing either key is malformed and skipped entirely; in particular
+					// a present `value` must never be paired with a defaulted Position(0,0,0).
+					// The tolerant readVal defaults below apply only AFTER both keys are confirmed
+					// present, so a present-but-malformed scalar still downgrades to a default
+					// rather than aborting the whole load.
+					const auto& posNode = cellReader["position"];
+					const auto& valueNode = cellReader["value"];
+					if (!posNode || !valueNode)
+						continue; // missing position or value -> skip cell entirely
+					Position pos = posNode.readVal(Position(0, 0, 0));
+					int value = valueNode.readVal<int>(0);
+					cells[pos] = value; // last duplicate position within the accepted block wins
+					++accepted;
+				}
+			}
+
+			// setOccupancyState is the validated load seam: it clears the field, clamps the
+			// marker to >= -1, drops out-of-bounds AND non-positive cells, and clamps every
+			// stored value DOWN to the fixed max 1000, so corrupt values/bounds are normalized
+			// rather than trusted.
+			cache->setOccupancyState(lastTurn, cells, _mapsize_x, _mapsize_y, _mapsize_z, 1000);
+		}
+	}
 }
 
 /**
@@ -640,6 +712,52 @@ void SavedBattleGame::save(YAML::YamlNodeWriter writer) const
 	if (CalypsoDirector::get().active()) // Phase 41: persist the active scene under calypsoScene
 		CalypsoDirector::get().save(writer["calypsoScene"]);
 #endif
+
+	// Phase 43.1 occupancy persistence (aiOccupancy): emit a per-faction snapshot of the live
+	// OccupancyField accumulators so a battle saved mid-decay reloads with its occupancy state
+	// intact. This is emitted REGARDLESS of the current ai.sharedFields feature flag so that a
+	// battle saved with the flag on is not silently lost when the flag is later turned off; with
+	// the flag off every field is empty (no producer spikes cells), the block is omitted, and the
+	// save stays byte-identical to a pre-43.1-occupancy save. Only factions whose field currently
+	// holds at least one non-zero cell are written, in numeric faction order, so empty factions
+	// never produce a block.
+	bool anyOccupancy = false;
+	for (int f = FACTION_PLAYER; f < FACTION_MAX; ++f)
+	{
+		if (!_factionTurnCaches[f].getOccupancyField().empty())
+		{
+			anyOccupancy = true;
+			break;
+		}
+	}
+	if (anyOccupancy)
+	{
+		YAML::YamlNodeWriter occSeq = writer["aiOccupancy"];
+		occSeq.setAsSeq();
+		for (int f = FACTION_PLAYER; f < FACTION_MAX; ++f)
+		{
+			const OccupancyField& field = _factionTurnCaches[f].getOccupancyField();
+			if (field.empty())
+				continue; // empty field -> no block emitted (stays byte-identical when absent)
+			YAML::YamlNodeWriter block = occSeq.write();
+			block.setAsMap();
+			block.write("faction", f);
+			block.write("lastAdvancedTurn", _factionTurnCaches[f].getOccupancyLastAdvancedTurn());
+			// cells: sparse sequence of { position, value } maps. `position` is written via the
+			// production Position serializer, so it round-trips through readVal<Position>()
+			// unchanged. Only non-zero cells are ever stored by OccupancyField, so every emitted
+			// cell carries a strictly-positive value.
+			YAML::YamlNodeWriter cellsSeq = block["cells"];
+			cellsSeq.setAsSeq();
+			for (const auto& cell : field.getCells())
+			{
+				YAML::YamlNodeWriter cellWriter = cellsSeq.write();
+				cellWriter.setAsMap();
+				cellWriter.write("position", cell.first);
+				cellWriter.write("value", cell.second);
+			}
+		}
+	}
 }
 
 /**
