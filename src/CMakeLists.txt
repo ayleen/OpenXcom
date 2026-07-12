@@ -869,6 +869,7 @@ if(NOT EMSCRIPTEN AND BUILD_TESTING)
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/AIEvaluationBudgetTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/AITargetRankTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/AIOccupancyClueTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/AIOccupancyPeakTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/SpotterCountFieldTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/OccupancyFieldTest.cpp)
 
