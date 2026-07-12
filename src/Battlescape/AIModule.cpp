@@ -2066,6 +2066,23 @@ void AIModule::setupEscape()
 			randomTileSearch.push_back(candidate.second);
 	}
 
+	// Phase 43.1 (Calypso): mirror the brutalThink movement AIEvaluationBudget for the escape
+	// tile search. When ai.sharedFields is on, cap full candidate evaluations (the heavy
+	// getSpottingUnits / LOF scoring) at ai.evalBudget (0 = unbounded) with an optional
+	// wall-clock backstop ai.turnBudgetMs (0 = clock-free). With the flag off the budget is
+	// built 0/0 so it is inert and every code path stays identical to the original.
+	const bool useDeterministicEvalBudget = _save->getMod()->getAISharedFields();
+	AIEvaluationBudget escapeEvalBudget(
+		useDeterministicEvalBudget ? _save->getMod()->getAIEvalBudget() : 0,
+		useDeterministicEvalBudget ? _save->getMod()->getAITurnBudgetMs() : 0);
+	// Local steady_clock start, sampled only when the wall-clock backstop is armed. We do NOT
+	// reuse AITimingScope here: its destructor logs "AI_TIMING brutalThink_us=..." which would
+	// mislabel this escape pass. No RAII / no destructor log -- just a raw time_point read
+	// between candidates.
+	const std::chrono::steady_clock::time_point escapeEvalStart =
+		escapeEvalBudget.isTimeLimitEnabled() ? std::chrono::steady_clock::now()
+		                                      : std::chrono::steady_clock::time_point();
+
 	while (tries < 150 && !coverFound)
 	{
 		_escapeAction.target = _unit->getPosition(); // start looking in a direction away from the enemy
@@ -2164,10 +2181,42 @@ void AIModule::setupEscape()
 		}
 		else
 		{
-			spotters = getSpottingUnits(_escapeAction.target);
+			// Phase 43.1 (Calypso): reject unreachable tiles before the spotter sweep.
+			// getSpottingUnits() is side-effect-free w.r.t. game state, so reordering keeps
+			// the feature-off decision identical while letting rejected off-map/unreachable
+			// candidates consume zero evaluation-budget slots (the gate is below).
 			if (std::find(_reachable.begin(), _reachable.end(), _save->getTileIndex(_escapeAction.target))  == _reachable.end())
 				continue; // just ignore unreachable tiles
 
+			// Phase 43.1 (Calypso): deterministic-first evaluation-budget gate, mirroring the
+			// brutalThink movement loop. Checked between candidates AFTER the cheap
+			// off-map/reachable rejections and immediately before the heavy getSpottingUnits /
+			// full scoring. Count exhaustion breaks silently; only wall-clock expiry (when the
+			// count was NOT yet exhausted) emits AI_EVAL_BUDGET_TIME_EXPIRED under traceAI.
+			if (useDeterministicEvalBudget)
+			{
+				int elapsedMs = 0;
+				if (escapeEvalBudget.isTimeLimitEnabled())
+				{
+					const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+						std::chrono::steady_clock::now() - escapeEvalStart).count();
+					elapsedMs = elapsed > INT_MAX ? INT_MAX : static_cast<int>(elapsed);
+				}
+				const bool countExhausted = !escapeEvalBudget.canEvaluate();
+				if (escapeEvalBudget.shouldStopBeforeNext(elapsedMs))
+				{
+					if (!countExhausted && escapeEvalBudget.isTimeExpired(elapsedMs) && _traceAI)
+					{
+						Log(LOG_INFO) << "AI_EVAL_BUDGET_TIME_EXPIRED elapsed_ms=" << elapsedMs
+							<< " evaluations_used=" << escapeEvalBudget.evaluationsUsed()
+							<< " unit=" << _unit->getId();
+					}
+					break;
+				}
+				escapeEvalBudget.consumeEvaluation();
+			}
+
+			spotters = getSpottingUnits(_escapeAction.target);
 			if (_spottingEnemies || spotters)
 			{
 				if (_spottingEnemies <= spotters)
@@ -2219,7 +2268,10 @@ void AIModule::setupEscape()
 				}
 			}
 			_save->getPathfinding()->abortPath();
-			if (bestTileScore > FAST_PASS_THRESHOLD) coverFound = true; // good enough, gogogo
+			// Phase 43.1 (Calypso): keep the FAST_PASS early-exit only when the deterministic
+			// budget is OFF; with sharedFields on the budget gate above decides when to stop,
+			// so the deterministic top-K (or all candidates, when unbounded) is fully considered.
+			if (bestTileScore > FAST_PASS_THRESHOLD && !useDeterministicEvalBudget) coverFound = true; // good enough, gogogo
 		}
 	}
 	_escapeAction.target = bestTile;
