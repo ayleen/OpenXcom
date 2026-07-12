@@ -54,11 +54,20 @@ namespace {
 struct AITimingScope
 {
 	bool _enabled;
+	bool _measuring;
 	int _unitId;
 	std::chrono::steady_clock::time_point _start;
-	explicit AITimingScope(int unitId) :
-		_enabled(Options::traceAI), _unitId(unitId),
-		_start(_enabled ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point()) {}
+	explicit AITimingScope(int unitId, bool measure = false) :
+		_enabled(Options::traceAI), _measuring(_enabled || measure), _unitId(unitId),
+		_start(_measuring ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point()) {}
+	int elapsedMs() const
+	{
+		if (!_measuring)
+			return 0;
+		const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+			std::chrono::steady_clock::now() - _start).count();
+		return elapsed > INT_MAX ? INT_MAX : static_cast<int>(elapsed);
+	}
 	~AITimingScope()
 	{
 		if (!_enabled)
@@ -4147,7 +4156,9 @@ bool AIModule::visibleToAnyFriend(BattleUnit* target) const
 
 void AIModule::brutalThink(BattleAction* action)
 {
-	AITimingScope _aiTiming(_unit->getId());
+	const bool measureEvalBudget = _save->getMod()->getAISharedFields()
+		&& _save->getMod()->getAITurnBudgetMs() > 0;
+	AITimingScope _aiTiming(_unit->getId(), measureEvalBudget);
 	// Step 1: Check whether we wait for someone else on our team to move first
 	int myReachable = getReachableBy(_unit, _ranOutOfTUs, true).size();
 	float myDist = 0;
@@ -4764,7 +4775,8 @@ void AIModule::brutalThink(BattleAction* action)
 			movementCandidates = &orderedMovementCandidates;
 		}
 		AIEvaluationBudget movementEvalBudget(
-			useDeterministicEvalBudget ? _save->getMod()->getAIEvalBudget() : 0, 0);
+			useDeterministicEvalBudget ? _save->getMod()->getAIEvalBudget() : 0,
+			useDeterministicEvalBudget ? _save->getMod()->getAITurnBudgetMs() : 0);
 
 		for (auto pu : *movementCandidates)
 		{
@@ -4789,8 +4801,22 @@ void AIModule::brutalThink(BattleAction* action)
 			isPathToPositionSave(pos, saveForProxies);
 			if (!saveForProxies)
 				continue;
-			if (useDeterministicEvalBudget && !movementEvalBudget.consumeEvaluation())
-				break;
+			if (useDeterministicEvalBudget)
+			{
+				const int elapsedMs = movementEvalBudget.isTimeLimitEnabled() ? _aiTiming.elapsedMs() : 0;
+				const bool countExhausted = !movementEvalBudget.canEvaluate();
+				if (movementEvalBudget.shouldStopBeforeNext(elapsedMs))
+				{
+					if (!countExhausted && movementEvalBudget.isTimeExpired(elapsedMs) && _traceAI)
+					{
+						Log(LOG_INFO) << "AI_EVAL_BUDGET_TIME_EXPIRED elapsed_ms=" << elapsedMs
+							<< " evaluations_used=" << movementEvalBudget.evaluationsUsed()
+							<< " unit=" << _unit->getId();
+					}
+					break;
+				}
+				movementEvalBudget.consumeEvaluation();
+			}
 			float closestEnemyDistValid = FLT_MAX;
 			float closestEnemyDistAssumed = FLT_MAX;
 			float targetDist = Position::distance(pos, targetPosition);
