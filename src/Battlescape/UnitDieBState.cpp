@@ -236,6 +236,7 @@ void UnitDieBState::think()
 	else if (_unit->isOut())
 	{
 		_extraFrame = 1;
+		_parent->getSave()->notifyFactionTurnUnitDied(_unit);
 		if (!_noSound && !_damageType->isDirect() && _unit->getStatus() != STATUS_UNCONSCIOUS)
 		{
 			playDeathSound();

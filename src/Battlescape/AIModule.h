@@ -36,6 +36,7 @@ class BattleUnit;
 struct BattleAction;
 class BattlescapeState;
 class Node;
+class FriendReachableField; // Phase 43.1E (Calypso): shared friendReachable field, defined in Savegame/FriendReachableField.h
 
 enum AIMode { AI_PATROL, AI_AMBUSH, AI_COMBAT, AI_ESCAPE };
 enum AIAttackWeight : int
@@ -124,6 +125,12 @@ private:
 	bool considerTerrainAttack();
 	bool candidateAllowed(BattleActionType type, int targetId, const Position& position) const;
 	void prepareAIAudit(BattleAction *action);
+	/// Phase 43.1E (Calypso): returns the live shared friendReachable field for this
+	/// unit's faction when the mod enables ai.sharedFields and a valid faction turn-cache
+	/// exists, rebuilding it lazily (dirty -> full recompute, clean -> stamp only missing
+	/// contributions); returns nullptr otherwise so callers fall back to the legacy
+	/// per-unit local map. Never overwrites _ranOutOfTUs (uses a local flag).
+	FriendReachableField* prepareSharedFriendReachable();
 public:
 	void beginActivation();
 	void recordFailedAttempt(const BattleAction& action);

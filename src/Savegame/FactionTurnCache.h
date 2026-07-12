@@ -96,6 +96,18 @@ struct FactionTurnCache
 	/// Clear only the terrain-LOF negative cache's dirty flag.
 	void markTerrainLofClean() { terrainLofDirty = false; }
 
+	/// Remove ONLY a single unit's contribution from the live friendReachable
+	/// accumulator. Contrast beginTurn / onTerrainChanged, which wipe the whole
+	/// field: this leaves every other unit's contribution intact and does NOT
+	/// touch any dirty flag (the rest of the cached field is still valid). A
+	/// missing id is a harmless no-op. Used by the Phase 43.1E unit-lifecycle
+	/// notifications so one unit moving / dying / spawning invalidates only its
+	/// own slice while the other units' cached contributions stay valid.
+	void invalidateFriendContribution(int unitId)
+	{
+		friendReachable.removeContribution(unitId);
+	}
+
 	/// Terrain mutation (explosion / wall destruction / door state): bump the global revision
 	/// and dirty every terrain-sensitive field. Independent of the armed turn. The
 	/// friendReachable accumulator is wiped (its underlying BFS memo is terrain-keyed and

@@ -3257,6 +3257,7 @@ inline void BattlescapeState::handle(Action *action)
 
 							unit->setTile(_save->getTile(newPos), _save);
 							unit->setPosition(newPos);
+							_save->notifyFactionTurnUnitMoved(unit);
 
 							//free refresh as bonus
 							unit->updateUnitStats(true, false);
@@ -3361,7 +3362,9 @@ inline void BattlescapeState::handle(Action *action)
 								if (unitUnderTheCursor->getFaction() != FACTION_PLAYER)
 								{
 									debug("My mind to your mind, my thoughts to your thoughts.");
+									const UnitFaction oldFaction = unitUnderTheCursor->getFaction();
 									unitUnderTheCursor->convertToFaction(FACTION_PLAYER);
+									_save->notifyFactionTurnUnitChangedFaction(unitUnderTheCursor, oldFaction);
 									//unitUnderTheCursor->recoverTimeUnits();
 									unitUnderTheCursor->allowReselect();
 									unitUnderTheCursor->abortTurn(); // resets unit status to STANDING

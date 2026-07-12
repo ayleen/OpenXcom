@@ -4998,6 +4998,7 @@ bool TileEngine::psiAttack(BattleActionAttack attack, BattleUnit *victim)
 				}
 			}
 			victim->setMindControllerId(attack.attacker->getId());
+			const UnitFaction oldFaction = victim->getFaction();
 			if (attack.weapon_item->getRules()->convertToCivilian() && victim->getOriginalFaction() == FACTION_HOSTILE)
 			{
 				victim->convertToFaction(FACTION_NEUTRAL);
@@ -5013,6 +5014,7 @@ bool TileEngine::psiAttack(BattleActionAttack attack, BattleUnit *victim)
 				calculateLighting(LL_UNITS, victim->getPosition());
 				calculateFOV(victim->getPosition()); //happens fairly rarely, so do a full recalc for units in range to handle the potential unit visible cache issues.
 			}
+			_save->notifyFactionTurnUnitChangedFaction(victim, oldFaction);
 			victim->recoverTimeUnits();
 			victim->allowReselect();
 			// Phase 43 (C1): a freshly mind-controlled unit gets a fresh turn (recoverTimeUnits +

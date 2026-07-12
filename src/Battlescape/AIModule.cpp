@@ -4324,21 +4324,28 @@ void AIModule::brutalThink(BattleAction* action)
 	bool visibleToEnemy = false;
 	bool enemyFarAwayFromStart = false;
 	float damagePotentialFromCurrentPosition = 0;
+	// Phase 43.1E (Calypso): when a shared friendReachable field is available we skip the
+	// legacy per-ally local-map merge below (the field already holds every ally's contribution);
+	// when it is null we run the original local-map code byte-for-byte. Enemy handling is unchanged.
+	FriendReachableField* sharedField = prepareSharedFriendReachable();
 	for (BattleUnit* target : *(_save->getUnits()))
 	{
 		if (target->isOut())
 			continue;
 		if (isAlly(target))
 		{
-			if (target != _unit)
+			if (sharedField == nullptr)
 			{
-				_save->getPathfinding()->setIgnoreFriends(true);
-				for (const auto& reachablePosOfTarget : getReachableBy(target, _ranOutOfTUs, false, true))
+				if (target != _unit)
 				{
-					friendReachable[reachablePosOfTarget.first] += reachablePosOfTarget.second;
-					bestFriendReachable[reachablePosOfTarget.first] = std::max(bestFriendReachable[reachablePosOfTarget.first], reachablePosOfTarget.second);
+					_save->getPathfinding()->setIgnoreFriends(true);
+					for (const auto& reachablePosOfTarget : getReachableBy(target, _ranOutOfTUs, false, true))
+					{
+						friendReachable[reachablePosOfTarget.first] += reachablePosOfTarget.second;
+						bestFriendReachable[reachablePosOfTarget.first] = std::max(bestFriendReachable[reachablePosOfTarget.first], reachablePosOfTarget.second);
+					}
+					_save->getPathfinding()->setIgnoreFriends(false);
 				}
-				_save->getPathfinding()->setIgnoreFriends(false);
 			}
 		}
 		Position targetPosition = target->getPosition();
@@ -5397,7 +5404,7 @@ void AIModule::brutalThink(BattleAction* action)
 		travelTarget = bestFallbackPosition;
 		shouldEndTurnAfterMove = true;
 	}
-	else if (bestPeekPreserveScore > 0 && bestFriendReachable[peekPreserveCompromise] <= [&]() {
+	else if (bestPeekPreserveScore > 0 && (sharedField != nullptr ? sharedField->maxAtExcluding(peekPreserveCompromise, _unit->getId()) : bestFriendReachable[peekPreserveCompromise]) <= [&]() {
 		const std::map<Position, int, PositionComparator>& selfReach = getReachableBy(_unit, _ranOutOfTUs, false, true);
 		auto srIt = selfReach.find(peekPreserveCompromise);
 		return srIt != selfReach.end() ? srIt->second : 0;
@@ -7858,6 +7865,55 @@ int AIModule::getEnergyRecovery(BattleUnit* unit)
 	}
 	recovery = _unit->getArmor()->getEnergyRecovery(unit, recovery);
 	return recovery;
+}
+
+/**
+ * Phase 43.1E (Calypso): shared friendReachable integration.
+ *
+ * Returns the live friendReachable accumulator for this unit's faction when the
+ * mod enables ai.sharedFields and a valid faction turn-cache exists; otherwise
+ * returns nullptr so the brutalThink legacy per-ally local map is used.
+ *
+ * Rebuild policy (lazy, mirroring FactionTurnCache's dirty flag):
+ *   - Dirty cache: clear the field, then scan every living unit of exactly this
+ *     faction, compute its reachability (ignoreFriends on, forceRecalc + useMaxTUs),
+ *     and replaceContribution(id, result); then markFriendReachableClean.
+ *   - Clean cache: same scan, but only units missing a contribution are recomputed
+ *     (forceRecalc=false, useMaxTUs=true); already-stamped units are left intact.
+ * A local ran-out flag is used so _ranOutOfTUs is never overwritten.
+ */
+FriendReachableField* AIModule::prepareSharedFriendReachable()
+{
+	if (!_save->getMod()->getAISharedFields())
+		return nullptr;
+	FactionTurnCache* cache = _save->getFactionTurnCache(_unit->getFaction());
+	if (cache == nullptr || !cache->isValid())
+		return nullptr;
+	FriendReachableField& field = cache->getFriendReachable();
+	const bool dirty = cache->isFriendReachableDirty();
+	if (dirty)
+	{
+		field.clear();
+	}
+	for (BattleUnit* ally : *(_save->getUnits()))
+	{
+		if (ally->getFaction() != _unit->getFaction())
+			continue;
+		if (ally->isOut())
+			continue;
+		if (!dirty && field.hasContribution(ally->getId()))
+			continue;
+		bool localRanOut = false;
+		_save->getPathfinding()->setIgnoreFriends(true);
+		const std::map<Position, int, PositionComparator>& result = getReachableBy(ally, localRanOut, dirty, true);
+		field.replaceContribution(ally->getId(), result);
+		_save->getPathfinding()->setIgnoreFriends(false);
+	}
+	if (dirty)
+	{
+		cache->markFriendReachableClean();
+	}
+	return &field;
 }
 
 const std::map<Position, int, PositionComparator>& AIModule::getReachableBy(BattleUnit* unit, bool& ranOutOfTUs, bool forceRecalc, bool useMaxTUs, bool pruneAirTiles)

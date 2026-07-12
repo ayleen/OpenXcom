@@ -486,6 +486,23 @@ public:
 	/// ai.sharedFields: with the flag off this is a no-op. Mirrors the existing resetVisibilityCache
 	/// seams in TileEngine -- called from exactly those sites, preserving the reset.
 	void notifyFactionTurnTerrainChanged();
+	/// Phase 43.1E (Calypso): notify that a unit moved within its faction. Removes only its
+	/// contribution from the CURRENT faction's friendReachable cache (no whole-field dirty; the
+	/// other units' contributions stay valid). GATED on ai.sharedFields; a null unit is a harmless
+	/// no-op (there is no id to remove).
+	void notifyFactionTurnUnitMoved(BattleUnit *unit);
+	/// Phase 43.1E (Calypso): notify that a unit died. Removes its contribution DEFENSIVELY from
+	/// EVERY valid faction cache (its faction is ambiguous at death time, so all are scrubbed).
+	/// GATED on ai.sharedFields; a null unit is a harmless no-op.
+	void notifyFactionTurnUnitDied(BattleUnit *unit);
+	/// Phase 43.1E (Calypso): notify that a unit spawned. Removes any stale contribution for its id
+	/// from the CURRENT faction's cache (a spawn may reuse a recently-freed id). GATED on
+	/// ai.sharedFields; a null unit is a harmless no-op.
+	void notifyFactionTurnUnitSpawned(BattleUnit *unit);
+	/// Phase 43.1E (Calypso): notify that a unit changed faction. Removes its contribution from BOTH
+	/// the old and the current faction cache. GATED on ai.sharedFields; a null unit is a harmless
+	/// no-op.
+	void notifyFactionTurnUnitChangedFaction(BattleUnit *unit, UnitFaction oldFaction);
 	/// Gets animation frame.
 	int getAnimFrame() const;
 	/// Increase animation frame.

@@ -1314,6 +1314,7 @@ void BattleUnit::keepWalking(SavedBattleGame *savedBattleGame, bool fullWalkCycl
 	if (!fullWalkCycle || (_walkPhase == middle))
 	{
 		setTile(savedBattleGame->getTile(_destination), savedBattleGame);
+		savedBattleGame->notifyFactionTurnUnitMoved(this);
 	}
 
 	if (_walkPhase >= end)

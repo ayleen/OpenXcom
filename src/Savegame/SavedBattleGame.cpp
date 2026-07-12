@@ -2231,6 +2231,8 @@ BattleUnit *SavedBattleGame::convertUnit(BattleUnit *unit)
 		return nullptr;
 	}
 
+	notifyFactionTurnUnitDied(unit);
+
 	getTileEngine()->itemDropInventory(tile, unit, false, true);
 
 	// remove unit-tile link
@@ -2252,6 +2254,7 @@ BattleUnit *SavedBattleGame::convertUnit(BattleUnit *unit)
 	getTileEngine()->calculateFOV(newUnit->getPosition());  //happens fairly rarely, so do a full recalc for units in range to handle the potential unit visible cache issues.
 	getTileEngine()->applyGravity(newUnit->getTile());
 	newUnit->dontReselect();
+	notifyFactionTurnUnitSpawned(newUnit);
 	return newUnit;
 }
 
@@ -2968,6 +2971,65 @@ void SavedBattleGame::notifyFactionTurnTerrainChanged()
 	}
 }
 
+// Phase 43.1E (Calypso): unit-lifecycle notifications for the per-faction
+// friendReachable accumulator. Each method first gates on ai.sharedFields
+// (matching beginFactionTurnCache / notifyFactionTurnTerrainChanged), tolerates
+// a null unit, and only removes the unit's OWN contribution -- it never dirties
+// or clears the rest of the cached field. The cache accessor enforces the
+// faction range guard, so an out-of-range faction simply yields a no-op.
+
+/// Scrub a unit's contribution from one faction's cache (no-op when the faction
+/// is invalid or the cache is unreachable).
+static void factionTurnRemoveContribution(FactionTurnCache* cache, int unitId)
+{
+	if (!cache)
+		return;
+	cache->invalidateFriendContribution(unitId);
+}
+
+void SavedBattleGame::notifyFactionTurnUnitMoved(BattleUnit *unit)
+{
+	if (!getMod()->getAISharedFields())
+		return;
+	if (!unit)
+		return;
+	factionTurnRemoveContribution(getFactionTurnCache(unit->getFaction()), unit->getId());
+}
+
+void SavedBattleGame::notifyFactionTurnUnitDied(BattleUnit *unit)
+{
+	if (!getMod()->getAISharedFields())
+		return;
+	if (!unit)
+		return;
+	// Defensive: the dead unit's faction is ambiguous at death time, so scrub it
+	// from every valid faction cache rather than guessing.
+	for (int f = FACTION_PLAYER; f < FACTION_MAX; ++f)
+		factionTurnRemoveContribution(getFactionTurnCache(static_cast<UnitFaction>(f)), unit->getId());
+}
+
+void SavedBattleGame::notifyFactionTurnUnitSpawned(BattleUnit *unit)
+{
+	if (!getMod()->getAISharedFields())
+		return;
+	if (!unit)
+		return;
+	// A spawn may reuse a recently-freed id; remove any stale slice first so the
+	// upcoming contribution is not double-counted.
+	factionTurnRemoveContribution(getFactionTurnCache(unit->getFaction()), unit->getId());
+}
+
+void SavedBattleGame::notifyFactionTurnUnitChangedFaction(BattleUnit *unit, UnitFaction oldFaction)
+{
+	if (!getMod()->getAISharedFields())
+		return;
+	if (!unit)
+		return;
+	// Remove from both the faction it left and the faction it joined.
+	factionTurnRemoveContribution(getFactionTurnCache(oldFaction), unit->getId());
+	factionTurnRemoveContribution(getFactionTurnCache(unit->getFaction()), unit->getId());
+}
+
 /**
  * Phase 34.9 (Calypso): centroid of `faction`'s live members (excluding `exclude`) -- the
  * friendly cluster a wounded unit retreats toward. Reads live positions directly (cheap;
@@ -3288,6 +3350,8 @@ bool SavedBattleGame::setUnitPosition(BattleUnit *bu, Position position, bool te
 
 	bu->setTile(getTile(position + zOffset), this);
 	bu->setPosition(position + zOffset);
+
+	notifyFactionTurnUnitMoved(bu);
 
 	return true;
 }
