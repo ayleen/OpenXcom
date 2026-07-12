@@ -3099,9 +3099,72 @@ void SavedBattleGame::notifyFactionTurnTerrainChanged()
 	}
 }
 
+void SavedBattleGame::spikeFactionOccupancy(UnitFaction faction, const Position& pos, int amount)
+{
+	// Feature gate: with ai.sharedFields off the caches stay default-invalid and
+	// shipped behavior is byte-identical (no mutation). Checked once here so the
+	// method is safe to call from any seam without every caller repeating the gate
+	// (an outer gate + this inner gate compose to a harmless idempotent no-op when
+	// the feature is off -- the same boolean is tested, so there is no double-gating
+	// hazard, only a cheap redundant branch).
+	if (!getMod()->getAISharedFields())
+		return;
+	// Reject an out-of-range faction (FACTION_NONE / >= FACTION_MAX) safely:
+	// getFactionTurnCache returns nullptr for those, so no slot is ever indexed.
+	FactionTurnCache* cache = getFactionTurnCache(faction);
+	if (!cache)
+		return;
+	// Reject a non-positive amount: matching OccupancyField::spike, a bad amount
+	// can never create, lower, or erase a cell (it is a strict no-op there).
+	if (amount <= 0)
+		return;
+	// Producer precondition (see the OccupancyField INTEGRATION PRECONDITION in
+	// OccupancyField.h): every Position MUST be validated against the live map
+	// extent BEFORE spiking, so consumers iterating getCells() never observe an
+	// out-of-range cell. getTile(pos) returns null for any off-map or
+	// not-yet-loaded tile, so this IS the bounds check.
+	if (!getTile(pos))
+		return;
+	// Deliberately NOT guarded on cache->isValid() (the armed marker): a fair
+	// off-side event may arrive BEFORE that faction's own beginTurn arms the cache,
+	// and the occupancy field is preserved across beginTurn / onTerrainChanged and
+	// decays on its own explicit cadence via advanceOccupancyToTurn. The fixed cap
+	// 1000 is the OccupancyField scale (NOT a separate ruleset key here). No
+	// terrain/threat dirty flags are touched -- occupancy advances independently of
+	// those aggregates (see FactionTurnCache occupancy ownership notes).
+	cache->getOccupancyField().spike(pos, amount, 1000);
+}
+
 void SavedBattleGame::notifyFactionTurnKnowledgeChanged(UnitFaction observerFaction, BattleUnit *enemy, const Position& knownTile)
 {
-	if (!getMod()->getAISharedFields() || !enemy || observerFaction != _side)
+	// Gate BOTH the fair occupancy spike and the active-side threat queue on the
+	// shared-fields feature and a non-null enemy. Feature-off builds stay
+	// byte-identical (no cache mutation); a null enemy has no id/tile to record.
+	// NOTE: the active-side check (observerFaction != _side) is intentionally NOT
+	// in this gate -- it is applied AFTER the occupancy spike below, so the spike
+	// fires for any observer faction (fair for off-side reactions too).
+	if (!getMod()->getAISharedFields() || !enemy)
+		return;
+
+	// Fair occupancy spike: every real TileEngine visibility callback (and the
+	// AI-module sighting seams that route through this method) spikes the OBSERVER
+	// faction's occupancy field at the fair-known tile. This is fair for ANY
+	// observer faction -- including off-side reactions during the active side's
+	// turn -- because `knownTile` is where the enemy was SEEN, never a live/cheat
+	// position. spikeFactionOccupancy is itself ai.sharedFields-gated and rejects
+	// an invalid faction / non-positive amount / null tile, so it is safe to call
+	// here for any observerFaction value. The amount comes from the ruleset key
+	// ai.occupancySightingSpike (default 1000, clamped 0..1000 by Mod).
+	spikeFactionOccupancy(observerFaction, knownTile, getMod()->getAIOccupancySightingSpike());
+
+	// The active-side threat producer queue stays EXACTLY as before this slice:
+	// only the faction currently taking its turn (observerFaction == _side) records
+	// the sighting. Off-side factions return HERE -- after the occupancy spike --
+	// because their authoritative BattleUnit knowledge was already updated at the
+	// call site (TileEngine / AIModule), and their next beginTurn rebuilds the
+	// threat field from that authoritative state (no off-side producer input is
+	// queued). This preserves the original active-side-only semantics.
+	if (observerFaction != _side)
 		return;
 	FactionTurnCache* cache = getFactionTurnCache(observerFaction);
 	if (!cache)

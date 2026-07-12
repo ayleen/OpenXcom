@@ -486,9 +486,25 @@ public:
 	/// ai.sharedFields: with the flag off this is a no-op. Mirrors the existing resetVisibilityCache
 	/// seams in TileEngine -- called from exactly those sites, preserving the reset.
 	void notifyFactionTurnTerrainChanged();
+	/// Phase 43.1 (Calypso): spike `faction`'s occupancy field at `pos` by `amount`,
+	/// clamped DOWN to the fixed OccupancyField cap (1000). GATED on ai.sharedFields:
+	/// with the flag off this is a no-op (caches stay byte-identical). Rejects an
+	/// invalid faction range (FACTION_NONE / >= FACTION_MAX), a non-positive amount,
+	/// and any position whose getTile(pos) is null (off-map / not-yet-loaded) so the
+	/// producer honors the OccupancyField INTEGRATION PRECONDITION (consumers never
+	/// observe an out-of-range cell). Does NOT require the cache to be armed: a fair
+	/// off-side sighting may arrive before that faction's own beginTurn (the field is
+	/// preserved across beginTurn / onTerrainChanged and decays on its own explicit
+	/// cadence via advanceOccupancyToTurn). Touches NO terrain/threat dirty flags --
+	/// occupancy is independent of those aggregates.
+	void spikeFactionOccupancy(UnitFaction faction, const Position& pos, int amount);
 	/// Phase 43.1K (Calypso): queue a new/updated fair-knowledge enemy sighting for
-	/// the observer faction's active threat producer. GATED on ai.sharedFields;
-	/// invalid/off-side factions, null enemies, and unarmed caches are harmless no-ops.
+	/// the observer faction's active threat producer, and (for ANY observer faction)
+	/// spike that faction's occupancy field at the fair-known tile. GATED on
+	/// ai.sharedFields; invalid/off-side factions, null enemies, and unarmed caches
+	/// are harmless no-ops. The occupancy spike is fair for every observer faction;
+	/// the threat-producer queue (recordKnowledgeChanged) is active-side-only
+	/// (observerFaction == _side), exactly as before this slice.
 	void notifyFactionTurnKnowledgeChanged(UnitFaction observerFaction, BattleUnit *enemy, const Position& knownTile);
 	/// Phase 43.1E (Calypso): notify that a unit moved within its faction. Removes only its
 	/// contribution from the CURRENT faction's friendReachable cache (no whole-field dirty; the
