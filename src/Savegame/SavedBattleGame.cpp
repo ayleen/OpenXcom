@@ -3000,6 +3000,13 @@ static void factionTurnRemoveContribution(FactionTurnCache* cache, int unitId)
 	cache->invalidateFriendContribution(unitId);
 }
 
+static void factionTurnRemoveEnemyContribution(FactionTurnCache* cache, int unitId)
+{
+	if (!cache)
+		return;
+	cache->invalidateEnemyContribution(unitId);
+}
+
 void SavedBattleGame::notifyFactionTurnUnitMoved(BattleUnit *unit)
 {
 	if (!getMod()->getAISharedFields())
@@ -3007,6 +3014,8 @@ void SavedBattleGame::notifyFactionTurnUnitMoved(BattleUnit *unit)
 	if (!unit)
 		return;
 	factionTurnRemoveContribution(getFactionTurnCache(unit->getFaction()), unit->getId());
+	for (int f = FACTION_PLAYER; f < FACTION_MAX; ++f)
+		factionTurnRemoveEnemyContribution(getFactionTurnCache(static_cast<UnitFaction>(f)), unit->getId());
 }
 
 void SavedBattleGame::notifyFactionTurnUnitDied(BattleUnit *unit)
@@ -3030,6 +3039,8 @@ void SavedBattleGame::notifyFactionTurnUnitSpawned(BattleUnit *unit)
 	// A spawn may reuse a recently-freed id; remove any stale slice first so the
 	// upcoming contribution is not double-counted.
 	factionTurnRemoveContribution(getFactionTurnCache(unit->getFaction()), unit->getId());
+	for (int f = FACTION_PLAYER; f < FACTION_MAX; ++f)
+		factionTurnRemoveEnemyContribution(getFactionTurnCache(static_cast<UnitFaction>(f)), unit->getId());
 }
 
 void SavedBattleGame::notifyFactionTurnUnitChangedFaction(BattleUnit *unit, UnitFaction oldFaction)

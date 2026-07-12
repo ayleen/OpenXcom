@@ -73,6 +73,8 @@ struct FactionTurnCache
 	int threatProfileSize = 0;         // armor footprint used by the exact legacy-equivalent probe
 	int threatProfileHeight = 0;       // eye-height input used by AIModule::hasTileSight
 	bool threatProfileMovementCheat = false; // fair-known vs live-position reachability mode
+	bool enemyReachableProfileValid = false;
+	bool enemyReachableProfileMovementCheat = false;
 
 	/// Live friendReachable aggregate accumulator (phase 43.1D). Stamped/un-stamped by
 	/// the field builder; wiped on turn start and on terrain mutation (see friendReachableDirty).
@@ -122,6 +124,7 @@ struct FactionTurnCache
 		if (!isValid())
 			return;
 		pendingThreatSightings[enemyId] = knownTile;
+		invalidateEnemyContribution(enemyId);
 	}
 
 	/// Called after a threat producer has absorbed every queued sighting.
@@ -155,6 +158,24 @@ struct FactionTurnCache
 		threatProfileMovementCheat = false;
 	}
 
+	void setEnemyReachableProfile(bool movementCheat)
+	{
+		enemyReachableProfileValid = true;
+		enemyReachableProfileMovementCheat = movementCheat;
+	}
+
+	bool matchesEnemyReachableProfile(bool movementCheat) const
+	{
+		return enemyReachableProfileValid
+			&& enemyReachableProfileMovementCheat == movementCheat;
+	}
+
+	void clearEnemyReachableProfile()
+	{
+		enemyReachableProfileValid = false;
+		enemyReachableProfileMovementCheat = false;
+	}
+
 	/// Mutable access to the terrain-LOF negative cache (field builders remember
 	/// directed blocked rays here).
 	TerrainLofNegativeCache& getTerrainLofCache() { return terrainLof; }
@@ -174,6 +195,7 @@ struct FactionTurnCache
 		terrainLofDirty = true;
 		friendReachable.clear();
 		enemyReachable.clear();
+		clearEnemyReachableProfile();
 		threat.clear();
 		clearThreatProfile();
 		pendingThreatSightings.clear();
@@ -229,6 +251,7 @@ struct FactionTurnCache
 		terrainLofDirty = true;
 		friendReachable.clear();
 		enemyReachable.clear();
+		clearEnemyReachableProfile();
 		threat.clear();
 		clearThreatProfile();
 		// A full terrain-driven threat rebuild must read authoritative current

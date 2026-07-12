@@ -4343,7 +4343,8 @@ void AIModule::brutalThink(BattleAction* action)
 	// when it is null we run the original local-map code byte-for-byte. Enemy handling is unchanged.
 	FriendReachableField* sharedField = prepareSharedFriendReachable();
 	bool forceEnemyReachability = false;
-	if (_save->getMod()->getAISharedFields())
+	FriendReachableField* sharedEnemyField = prepareSharedEnemyReachable(forceEnemyReachability);
+	if (sharedEnemyField == nullptr && _save->getMod()->getAISharedFields())
 	{
 		const FactionTurnCache* threatCache = _save->getFactionTurnCache(_unit->getFaction());
 		forceEnemyReachability = threatCache != nullptr && threatCache->isValid() && threatCache->isThreatDirty();
@@ -4455,14 +4456,37 @@ void AIModule::brutalThink(BattleAction* action)
 		if (!target->hasPanickedLastTurn())
 		{
 			_save->getPathfinding()->setIgnoreFriends(true);
-			for (const auto& reachablePosOfTarget : getReachableBy(target, _ranOutOfTUs, forceEnemyReachability, true, false))
+			const FriendReachableField::Contribution* targetReachable =
+				sharedEnemyField ? sharedEnemyField->getContribution(target->getId()) : nullptr;
+			if (targetReachable == nullptr)
+			{
+				bool enemyRanOutOfTUs = false;
+				bool& ranOutFlag = sharedEnemyField ? enemyRanOutOfTUs : _ranOutOfTUs;
+				const FriendReachableField::Contribution& calculated =
+					getReachableBy(target, ranOutFlag, forceEnemyReachability, true, false);
+				if (sharedEnemyField)
+				{
+					sharedEnemyField->replaceContribution(target->getId(), calculated);
+					targetReachable = sharedEnemyField->getContribution(target->getId());
+				}
+				else
+				{
+					targetReachable = &calculated;
+				}
+			}
+			for (const auto& reachablePosOfTarget : *targetReachable)
 			{
 				Tile* checkStartTile = _save->getTile(reachablePosOfTarget.first);
 				if (checkStartTile->getFloorSpecialTileType() == START_POINT)
 					isFarAwayFromStart = false;
-				enemyReachable[reachablePosOfTarget.first] += reachablePosOfTarget.second;
+				if (sharedEnemyField == nullptr)
+					enemyReachable[reachablePosOfTarget.first] += reachablePosOfTarget.second;
 			}
 			_save->getPathfinding()->setIgnoreFriends(false);
+		}
+		else if (sharedEnemyField && !sharedEnemyField->hasContribution(target->getId()))
+		{
+			sharedEnemyField->replaceContribution(target->getId(), FriendReachableField::Contribution());
 		}
 		BattleUnit* LoFCheckUnitForPath = NULL;
 		if (_unit->isCheatOnMovement())
@@ -4483,6 +4507,8 @@ void AIModule::brutalThink(BattleAction* action)
 			enemyFarAwayFromStart = isFarAwayFromStart;
 		}
 	}
+	if (sharedEnemyField)
+		enemyReachable = sharedEnemyField->getAggregate();
 	int myMaxTU = getMaxTU(_unit);
 	//Log(LOG_INFO) << "friendReachable[myPos]: " << friendReachable[myPos]
 	//			  << " myMaxTU: " << myMaxTU;
@@ -8070,6 +8096,29 @@ FriendReachableField* AIModule::prepareSharedFriendReachable()
 		cache->markFriendReachableClean();
 	}
 	return &field;
+}
+
+FriendReachableField* AIModule::prepareSharedEnemyReachable(bool& forceRebuild)
+{
+	forceRebuild = false;
+	if (!_save->getMod()->getAISharedFields() || !_unit->isAIControlled())
+		return nullptr;
+	FactionTurnCache* cache = _save->getFactionTurnCache(_unit->getFaction());
+	if (cache == nullptr || !cache->isValid())
+		return nullptr;
+	const bool movementCheat = _unit->isCheatOnMovement();
+	if (cache->isEnemyReachableDirty())
+	{
+		cache->getEnemyReachable().clear();
+		cache->setEnemyReachableProfile(movementCheat);
+		cache->markEnemyReachableClean();
+		forceRebuild = true;
+	}
+	else if (!cache->matchesEnemyReachableProfile(movementCheat))
+	{
+		return nullptr;
+	}
+	return &cache->getEnemyReachable();
 }
 
 /**

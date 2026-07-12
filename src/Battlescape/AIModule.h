@@ -133,6 +133,9 @@ private:
 	/// contributions); returns nullptr otherwise so callers fall back to the legacy
 	/// per-unit local map. Never overwrites _ranOutOfTUs (uses a local flag).
 	FriendReachableField* prepareSharedFriendReachable();
+	/// Resolve the exact shared enemyReachable accumulator for this actor's
+	/// fair-knowledge profile. `forceRebuild` is true after a dirty full clear.
+	FriendReachableField* prepareSharedEnemyReachable(bool& forceRebuild);
 	/// Exact legacy discoverThreat calculation for one base candidate. The
 	/// shared and fallback paths both call this helper so feature-off behavior
 	/// and footprint/LOF semantics cannot drift.

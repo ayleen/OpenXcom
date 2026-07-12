@@ -102,6 +102,13 @@ public:
 		return byUnit.find(unitId) != byUnit.end();
 	}
 
+	/// Read one unit's stored slice, or nullptr when it has not been stamped.
+	const Contribution* getContribution(int unitId) const
+	{
+		auto it = byUnit.find(unitId);
+		return it == byUnit.end() ? nullptr : &it->second;
+	}
+
 	/// Number of units with a stored contribution.
 	std::size_t unitCount() const { return byUnit.size(); }
 
