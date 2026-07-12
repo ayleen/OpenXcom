@@ -6,6 +6,8 @@
 #include "GpuTexture.h"
 #include "Logger.h"
 #include "Screen.h"
+#include "Surface.h"
+#include "ShadeTable.h"
 #include "../Mod/Mod.h"
 #include "../Savegame/SavedGame.h"
 #include "../Savegame/SavedBattleGame.h"
@@ -17,11 +19,13 @@
 #include "../Battlescape/Pathfinding.h"
 #include "../Battlescape/BattlescapeGame.h"
 #include "../Mod/Armor.h"
+#include "../Mod/MapDataSet.h"
 
 #include <GLES3/gl3.h>
 #include <SDL.h>
 #include <SDL_image.h>
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <fstream>
 #include <memory>
@@ -41,6 +45,36 @@ struct Sample
 };
 
 struct Rect { float x = 0, y = 0, w = 0, h = 0; };
+
+struct ForegroundGeometry
+{
+	Rect rect;
+	const Surface *source = nullptr;
+	int shade = 0, partPriority = 0;
+	float depthPriority = 0.0f;
+};
+
+struct OverlayGeometry
+{
+	Rect rect;
+	int frame = -1;
+	float depthPriority = 0.0f;
+};
+
+struct PixelProof
+{
+	bool available = false, passed = false;
+	std::string reason = "no exact opaque source-pixel intersection was emitted";
+	int screenX = -1, screenY = -1, framebufferX = -1, framebufferY = -1;
+	int overlaySourceX = -1, overlaySourceY = -1, overlayFrame = -1;
+	int foregroundSourceX = -1, foregroundSourceY = -1;
+	int overlayR = 0, overlayG = 0, overlayB = 0, overlayA = 0;
+	int foregroundPaletteIndex = 0, foregroundShade = 0;
+	int expectedR = 0, expectedG = 0, expectedB = 0, expectedA = 0;
+	int framebufferR = 0, framebufferG = 0, framebufferB = 0, framebufferA = 0;
+	float overlayPriority = 0.0f, foregroundPriority = 0.0f;
+	int tolerance = 1;
+};
 
 static bool overlaps(const Rect &a, const Rect &b)
 {
@@ -65,6 +99,11 @@ struct Probe
 	int autoSelectedUnitId = -1;
 	Position autoSelectedPosition;
 	std::vector<Rect> foregroundRects, overlayRects;
+	std::vector<ForegroundGeometry> foregroundGeometry;
+	std::vector<OverlayGeometry> overlayGeometry;
+	std::vector<uint8_t> overlayPixels;
+	int overlayAtlasW = 0, overlayAtlasH = 0;
+	PixelProof pixelProof;
 	bool orderPreserved = true;
 	int drawSerial = 0;
 	GLenum glError = GL_NO_ERROR;
@@ -98,14 +137,15 @@ struct Probe
 
 	bool upload()
 	{
-		int w = 0, h = 0; std::vector<uint8_t> pixels;
-		if (!decode(assetPath, w, h, pixels, error)) return false;
+		int w = 0, h = 0;
+		if (!decode(assetPath, w, h, overlayPixels, error)) return false;
 		if (w != 1024 || h != 1440)
 		{
 			error = "G0 overlay must exactly match the 16x18 64x80 TDXCOM_0 probe atlas (1024x1440)";
 			return false;
 		}
-		if (!atlas->uploadRGBA(pixels.data(), w, h, 0))
+		overlayAtlasW = w; overlayAtlasH = h;
+		if (!atlas->uploadRGBA(overlayPixels.data(), w, h, 0))
 		{
 			error = "G0 RGBA upload failed"; return false;
 		}
@@ -154,6 +194,7 @@ static void writeMetrics(Probe &p)
 	const bool handob = !p.handobFrames.empty();
 	const bool mixed = p.overlayHits > 0 && p.fallbackHits > 0;
 	const bool foregroundCandidateGeometry = p.foregroundOccluderCandidates > 0;
+	const bool foregroundPixelProof = p.pixelProof.passed;
 	const bool gl0 = p.glError == GL_NO_ERROR;
 	const bool screenshot = p.screenshotBytes > 0;
 	std::ostringstream o;
@@ -182,8 +223,32 @@ static void writeMetrics(Probe &p)
 	  << ",\"orderPreserved\":" << (p.orderPreserved ? "true" : "false")
 	  << ",\"mixedFallback\":" << (mixed ? "true" : "false")
 	  << ",\"foregroundCandidateGeometry\":" << (foregroundCandidateGeometry ? "true" : "false")
+	  << ",\"foregroundPixelProof\":" << (foregroundPixelProof ? "true" : "false")
 	  << ",\"gl0\":" << (gl0 ? "true" : "false")
 	  << ",\"screenshot\":" << (screenshot ? "true" : "false") << "},\n"
+	  << "  \"foregroundPixelProof\":{\"method\":\"cpu-source-intersection-plus-webgl-fbo-readback\","
+	     "\"version\":1,\"available\":" << (p.pixelProof.available ? "true" : "false")
+	  << ",\"passed\":" << (p.pixelProof.passed ? "true" : "false")
+	  << ",\"reason\":\"" << escapeJson(p.pixelProof.reason) << "\""
+	  << ",\"screen\":{\"x\":" << p.pixelProof.screenX << ",\"y\":" << p.pixelProof.screenY << "}"
+	  << ",\"framebuffer\":{\"x\":" << p.pixelProof.framebufferX << ",\"y\":" << p.pixelProof.framebufferY
+	  << ",\"rgba\":[" << p.pixelProof.framebufferR << ',' << p.pixelProof.framebufferG << ','
+	  << p.pixelProof.framebufferB << ',' << p.pixelProof.framebufferA << "]}"
+	  << ",\"overlaySource\":{\"frame\":" << p.pixelProof.overlayFrame
+	  << ",\"x\":" << p.pixelProof.overlaySourceX << ",\"y\":" << p.pixelProof.overlaySourceY
+	  << ",\"rgba\":[" << p.pixelProof.overlayR << ',' << p.pixelProof.overlayG << ','
+	  << p.pixelProof.overlayB << ',' << p.pixelProof.overlayA << "]}"
+	  << ",\"foregroundSource\":{\"x\":" << p.pixelProof.foregroundSourceX
+	  << ",\"y\":" << p.pixelProof.foregroundSourceY
+	  << ",\"paletteIndex\":" << p.pixelProof.foregroundPaletteIndex
+	  << ",\"shade\":" << p.pixelProof.foregroundShade
+	  << ",\"expectedRgba\":[" << p.pixelProof.expectedR << ',' << p.pixelProof.expectedG << ','
+	  << p.pixelProof.expectedB << ',' << p.pixelProof.expectedA << "]}"
+	  << ",\"depth\":{\"overlayPriority\":" << p.pixelProof.overlayPriority
+	  << ",\"foregroundPriority\":" << p.pixelProof.foregroundPriority
+	  << ",\"foregroundStrictlyInFront\":"
+	  << (p.pixelProof.foregroundPriority > p.pixelProof.overlayPriority ? "true" : "false") << "}"
+	  << ",\"rgbTolerance\":" << p.pixelProof.tolerance << "},\n"
 	  << "  \"screenshotPath\":\"" << escapeJson(p.screenshotPath) << "\",\n"
 	  << "  \"screenshotBytes\":" << p.screenshotBytes << ",\n"
 	  << "  \"error\":\"" << escapeJson(p.error) << "\"\n}\n";
@@ -269,6 +334,8 @@ int HdUnitBattleSpike::select(Game *game, int unitId, int activeHand, int aiming
 	g_probe->selectedPosition = unit->getPosition();
 	g_probe->foregroundRects.clear();
 	g_probe->overlayRects.clear();
+	g_probe->foregroundGeometry.clear();
+	g_probe->overlayGeometry.clear();
 	if (unitId != -2)
 	{
 		if (activeHand == 0) unit->setActiveRightHand();
@@ -313,7 +380,7 @@ bool HdUnitBattleSpike::findOccluderTarget(Game *game, int unitId, const char *o
 
 	bool found = false;
 	Position best;
-	int bestCost = 1000000, bestEnergy = 0, bestSteps = 0;
+	int bestCost = 1000000, bestEnergy = 0, bestSteps = 0, bestFinalDirection = -1;
 	const Position origin = unit->getPosition();
 	for (int y = 0; y < save->getMapSizeY(); ++y)
 	for (int x = 0; x < save->getMapSizeX(); ++x)
@@ -321,16 +388,62 @@ bool HdUnitBattleSpike::findOccluderTarget(Game *game, int unitId, const char *o
 		Position target(x, y, origin.z);
 		if (target == origin) continue;
 		Tile *tile = save->getTile(target);
-		if (!tile || !tile->getSprite(O_OBJECT) || tile->isBackTileObject(O_OBJECT)) continue;
+		const Surface *objectSource = tile ? tile->getSprite(O_OBJECT) : nullptr;
+		if (!objectSource || tile->isBackTileObject(O_OBJECT)
+		 || !objectSource->getShadeTable()) continue;
+		// The closing proof is specifically a vanilla palette/R8 object. Reject
+		// RGBA-only atlas groups here instead of discovering after a long walk
+		// that recordForegroundOccluder quite correctly ignored the draw.
+		int mcdId = -1, mdsId = -1;
+		tile->getMapData(&mcdId, &mdsId, O_OBJECT);
+		auto *sets = save->getMapDataSets();
+		if (!sets || mdsId < 0 || mdsId >= (int)sets->size()) continue;
+		const Mod::TileAtlasSpec *tileSpec = game->getMod()->getTileAtlasSpec((*sets)[mdsId]->getName());
+		if (!tileSpec || tileSpec->baseline == Mod::BaselineMode::None
+		 || !game->getMod()->getTileAtlas((*sets)[mdsId]->getName())
+		 || (!tileSpec->hybrid && tileSpec->format != Mod::TileAtlasSpec::Format::Palette)) continue;
+		bool opaqueVanillaTexel = false;
+		for (int sy = 0; sy < objectSource->getHeight() && !opaqueVanillaTexel; ++sy)
+		for (int sx = 0; sx < objectSource->getWidth(); ++sx)
+		{
+			const Uint8 paletteIndex = objectSource->getPixel(sx, sy);
+			if (paletteIndex && ((objectSource->getShadeTable()->get(paletteIndex, 0) >> 24) & 0xffu) == 255u)
+			{
+				opaqueVanillaTexel = true;
+				break;
+			}
+		}
+		if (!opaqueVanillaTexel) continue;
+		// Direction 6 always emits torso frame 38. Its G0 cell is a deliberately
+		// opaque, original-art proof backdrop, so every projected opaque object
+		// texel inside the shared 64x80 cell has an alpha-255 RGBA counterpart.
+		// The live capture still repeats the exact CPU texel test and must match
+		// the R8 shade-table colour through glReadPixels before the gate passes.
+		const int proofFrame = 38;
+		if (!g_probe || g_probe->overlayPixels.empty()
+		 || g_probe->overlayAtlasW <= 0 || g_probe->overlayAtlasH <= 0) continue;
+		bool proofCellFullyOpaque = true;
+		const int proofOx = (proofFrame % 16) * 64, proofOy = (proofFrame / 16) * 80;
+		for (int py = 0; py < 80 && proofCellFullyOpaque; ++py)
+		for (int px = 0; px < 64; ++px)
+		{
+			const size_t oi = ((size_t)(proofOy + py) * (size_t)g_probe->overlayAtlasW
+			                 + (size_t)(proofOx + px)) * 4u;
+			if (g_probe->overlayPixels[oi + 3] != 255) { proofCellFullyOpaque = false; break; }
+		}
+		if (!proofCellFullyOpaque) continue;
 		pf->calculate(unit, target, BAM_NORMAL, nullptr, unit->getTimeUnits());
 		const int cost = pf->getTotalTUCost();
 		const int energy = pf->getTotalEnergyCost();
 		const int steps = (int)pf->getPath().size();
+		const int finalDirection = steps > 0 ? pf->getPath().front() : -1;
 		pf->abortPath();
-		if (steps <= 0 || cost <= 0 || cost > unit->getTimeUnits() || energy > unit->getEnergy()) continue;
+		if (steps <= 0 || cost <= 0
+		 || cost > unit->getTimeUnits() || energy > unit->getEnergy()) continue;
 		if (!found || cost < bestCost)
 		{
-			found = true; best = target; bestCost = cost; bestEnergy = energy; bestSteps = steps;
+			found = true; best = target; bestCost = cost; bestEnergy = energy;
+			bestSteps = steps; bestFinalDirection = finalDirection;
 		}
 	}
 	if (!found) return fail("no reachable live front-object tile within current TU budget");
@@ -356,13 +469,178 @@ bool HdUnitBattleSpike::findOccluderTarget(Game *game, int unitId, const char *o
 		}
 	}
 	if (!clickFound) return fail("reachable target has no verified current-camera click point");
+	const int viewportW = battle->getMap()->getWidth();
+	const int viewportH = battle->getMap()->getHeight();
+	if (clickX < 0 || clickX >= viewportW || clickY < 0 || clickY >= viewportH)
+	{
+		camera->centerOnPosition(best);
+		std::ofstream pending(path, std::ios::binary | std::ios::trunc);
+		if (pending)
+			pending << "{\"ok\":false,\"error\":\"camera centering\",\"cameraCenterRequested\":true"
+			        << ",\"unitId\":" << unitId
+			        << ",\"target\":{\"x\":" << best.x << ",\"y\":" << best.y << ",\"z\":" << best.z << "}}\n";
+		return false;
+	}
+	// A natural right-click on the direction-6 neighbour turns the unit after
+	// walking onto the object. This keeps the fixed sparse overlay cell opaque
+	// without mutating BattleUnit direction from the harness.
+	Position faceTarget = best;
+	Position faceStep;
+	Pathfinding::directionToVector(6, &faceStep);
+	faceTarget += faceStep;
+	if (!save->getTile(faceTarget)) return fail("direction-6 facing tile is outside the map");
+	Position faceRaw;
+	camera->convertMapToScreen(faceTarget, &faceRaw);
+	const int faceExpectedX = faceRaw.x + offset.x + 32;
+	const int faceExpectedY = faceRaw.y + offset.y + 20;
+	int faceClickX = faceExpectedX, faceClickY = faceExpectedY;
+	bool faceClickFound = false;
+	for (int radius = 0; radius <= 48 && !faceClickFound; ++radius)
+	for (int dy = -radius; dy <= radius && !faceClickFound; ++dy)
+	for (int dx = -radius; dx <= radius; ++dx)
+	{
+		if (std::max(std::abs(dx), std::abs(dy)) != radius) continue;
+		int mx = -1, my = -1;
+		camera->convertScreenToMap(faceExpectedX + dx, faceExpectedY + dy + 20, &mx, &my);
+		if (mx == faceTarget.x && my == faceTarget.y)
+		{
+			faceClickX = faceExpectedX + dx; faceClickY = faceExpectedY + dy;
+			faceClickFound = true; break;
+		}
+	}
+	if (!faceClickFound || faceClickX < 0 || faceClickX >= viewportW
+	 || faceClickY < 0 || faceClickY >= viewportH)
+		return fail("direction-6 facing click is not visible after camera centering");
 	std::ofstream f(path, std::ios::binary | std::ios::trunc);
 	if (!f) return false;
 	f << "{\"ok\":true,\"unitId\":" << unitId
+	  << ",\"logicalSize\":{\"width\":" << viewportW << ",\"height\":" << viewportH << "}"
+	  << ",\"target\":{\"x\":" << best.x << ",\"y\":" << best.y << ",\"z\":" << best.z << "}"
+	  << ",\"clickBase\":{\"x\":" << clickX << ",\"y\":" << clickY << "}"
+	  << ",\"faceDirection6ClickBase\":{\"x\":" << faceClickX << ",\"y\":" << faceClickY << "}"
+	  << ",\"pathSteps\":" << bestSteps << ",\"finalDirection\":" << bestFinalDirection
+	  << ",\"proofEligibility\":{\"vanillaR8\":true,\"foregroundOpaqueTexel\":true"
+	     ",\"overlayFrame\":38,\"overlayCellFullyOpaque\":true}"
+	  << ",\"tuCost\":" << bestCost
+	  << ",\"energyCost\":" << bestEnergy << "}\n";
+	return true;
+}
+
+bool HdUnitBattleSpike::findWalkTarget(Game *game, int unitId, const char *outJson)
+{
+	const std::string path = outJson ? outJson : "/tmp/hd-unit-walk-target.json";
+	auto fail = [&](const std::string &why) {
+		std::ofstream f(path, std::ios::binary | std::ios::trunc);
+		if (f) f << "{\"ok\":false,\"error\":\"" << escapeJson(why) << "\"}\n";
+		return false;
+	};
+	if (!active() || !game || !game->getSavedGame()) return fail("probe or game unavailable");
+	SavedBattleGame *save = game->getSavedGame()->getSavedBattle();
+	auto *battle = dynamic_cast<BattlescapeState *>(game->getTopState());
+	if (!save || !battle || !battle->getMap()) return fail("battlescape unavailable");
+	BattleUnit *unit = nullptr;
+	for (BattleUnit *candidate : *save->getUnits())
+		if (candidate && candidate->getId() == unitId) { unit = candidate; break; }
+	if (!unit || unit != save->getSelectedUnit() || !unit->getVisible() || unit->isOut())
+		return fail("requested unit is not the live visible selection");
+	BattlescapeGame *battleGame = battle->getBattleGame();
+	if (!battleGame || battleGame->isBusy()) return fail("battle busy; retry when idle");
+	if (battleGame->getReservedAction() != BA_NONE || save->getKneelReserved())
+		return fail("TU reservation active; reachable click would not be deterministic");
+
+	Pathfinding scratch(save);
+	bool found = false;
+	Position best;
+	int bestCost = 1000000, bestEnergy = 0, bestSteps = 0, bestDirection = -1;
+	const Position origin = unit->getPosition();
+	for (int y = 0; y < save->getMapSizeY(); ++y)
+	for (int x = 0; x < save->getMapSizeX(); ++x)
+	{
+		const Position target(x, y, origin.z);
+		if (target == origin || !save->getTile(target)) continue;
+		scratch.calculate(unit, target, BAM_NORMAL, nullptr, unit->getTimeUnits());
+		const int cost = scratch.getTotalTUCost();
+		const int energy = scratch.getTotalEnergyCost();
+		const int steps = (int)scratch.getPath().size();
+		const int firstDirection = steps > 0 ? scratch.getPath().back() : -1;
+		scratch.abortPath();
+		// One natural tile executes the complete routine-13 walking animation
+		// cycle (phases 0..7). Prefer the cheapest exact-arrival target instead
+		// of assuming PATH_FULL will queue every tile in a multi-step preview.
+		if (steps < 1 || cost <= 0 || cost > unit->getTimeUnits() || energy > unit->getEnergy()) continue;
+		// The fixed semantic gate is direction 6: frames 184/192/200 plus
+		// phases 3 and 7. Prefer that natural adjacent step when reachable;
+		// other directions remain a fail-closed diagnostic fallback.
+		const bool preferredDirection = firstDirection == 6 && bestDirection != 6;
+		const bool samePreference = (firstDirection == 6) == (bestDirection == 6);
+		if (!found || preferredDirection
+		 || (samePreference && (cost < bestCost || (cost == bestCost && steps < bestSteps))))
+		{
+			found = true; best = target; bestCost = cost; bestEnergy = energy;
+			bestSteps = steps; bestDirection = firstDirection;
+		}
+	}
+	if (!found) return fail("no reachable same-level natural step in current TU/energy budget");
+
+	Camera *camera = battle->getMap()->getCamera();
+	if (camera->getViewLevel() != best.z) return fail("walk target is not on the current camera level");
+	Position raw, offset = camera->getMapOffset();
+	camera->convertMapToScreen(best, &raw);
+	const int expectedX = raw.x + offset.x + 32;
+	const int expectedY = raw.y + offset.y + 20;
+	int clickX = expectedX, clickY = expectedY;
+	bool clickFound = false;
+	for (int radius = 0; radius <= 48 && !clickFound; ++radius)
+	for (int dy = -radius; dy <= radius && !clickFound; ++dy)
+	for (int dx = -radius; dx <= radius; ++dx)
+	{
+		if (std::max(std::abs(dx), std::abs(dy)) != radius) continue;
+		int mx = -1, my = -1;
+		camera->convertScreenToMap(expectedX + dx, expectedY + dy + 20, &mx, &my);
+		if (mx == best.x && my == best.y)
+		{
+			clickX = expectedX + dx; clickY = expectedY + dy; clickFound = true; break;
+		}
+	}
+	if (!clickFound) return fail("walk target has no verified current-camera click point");
+	std::ofstream f(path, std::ios::binary | std::ios::trunc);
+	if (!f) return false;
+	f << "{\"ok\":true,\"unitId\":" << unitId
+	  << ",\"logicalSize\":{\"width\":" << battle->getMap()->getWidth()
+	  << ",\"height\":" << battle->getMap()->getHeight() << "}"
 	  << ",\"target\":{\"x\":" << best.x << ",\"y\":" << best.y << ",\"z\":" << best.z << "}"
 	  << ",\"clickBase\":{\"x\":" << clickX << ",\"y\":" << clickY << "}"
 	  << ",\"pathSteps\":" << bestSteps << ",\"tuCost\":" << bestCost
-	  << ",\"energyCost\":" << bestEnergy << "}\n";
+	  << ",\"moveDirection\":" << bestDirection
+	  << ",\"energyCost\":" << bestEnergy << ",\"currentTu\":" << unit->getTimeUnits()
+	  << ",\"currentEnergy\":" << unit->getEnergy() << "}\n";
+	return true;
+}
+
+bool HdUnitBattleSpike::inspectInput(Game *game, const char *outJson)
+{
+	const std::string path = outJson ? outJson : "/tmp/hd-unit-input-state.json";
+	if (!active() || !game || !game->getSavedGame()) return false;
+	SavedBattleGame *save = game->getSavedGame()->getSavedBattle();
+	auto *battle = dynamic_cast<BattlescapeState *>(game->getTopState());
+	if (!save || !battle || !battle->getMap()) return false;
+	Map *map = battle->getMap();
+	Position selector;
+	map->getSelectorPosition(&selector);
+	BattleUnit *selected = save->getSelectedUnit();
+	std::ofstream f(path, std::ios::binary | std::ios::trunc);
+	if (!f) return false;
+	f << "{\"ok\":true,\"logicalSize\":{\"width\":" << map->getWidth()
+	  << ",\"height\":" << map->getHeight() << "},\"selector\":{\"x\":" << selector.x << ",\"y\":" << selector.y
+	  << ",\"z\":" << selector.z << "},\"cursorType\":" << (int)map->getCursorType()
+	  << ",\"busy\":" << (battle->getBattleGame() && battle->getBattleGame()->isBusy() ? "true" : "false")
+	  << ",\"selectedUnitId\":" << (selected ? selected->getId() : -1)
+	  << ",\"selectedPosition\":{\"x\":" << (selected ? selected->getPosition().x : -1)
+	  << ",\"y\":" << (selected ? selected->getPosition().y : -1)
+	  << ",\"z\":" << (selected ? selected->getPosition().z : -1) << "}"
+	  << ",\"selectedDirection\":" << (selected ? selected->getDirection() : -1)
+	  << ",\"selectedTu\":" << (selected ? selected->getTimeUnits() : -1)
+	  << ",\"selectedEnergy\":" << (selected ? selected->getEnergy() : -1) << "}\n";
 	return true;
 }
 
@@ -378,6 +656,8 @@ void HdUnitBattleSpike::beginRenderFrame()
 	if (!active()) return;
 	g_probe->foregroundRects.clear();
 	g_probe->overlayRects.clear();
+	g_probe->foregroundGeometry.clear();
+	g_probe->overlayGeometry.clear();
 }
 
 void HdUnitBattleSpike::recordDrawStart(int unitId)
@@ -446,24 +726,158 @@ void HdUnitBattleSpike::recordGlError(unsigned error)
 }
 
 void HdUnitBattleSpike::recordForegroundOccluder(int x, int y, int z, int priority,
+	                                             float depthPriority, int shade, const Surface *source,
+	                                             bool verifiedVanillaR8,
 	                                             float screenX, float screenY, float w, float h)
 {
-	if (!active() || g_probe->selectedUnitId < 0 || priority != 6) return;
+	if (!active() || g_probe->selectedUnitId < 0 || priority != 6 || !source
+	 || !verifiedVanillaR8) return;
 	const Position &p = g_probe->selectedPosition;
 	if (p.x != x || p.y != y || p.z != z) return;
 	Rect front{screenX, screenY, w, h};
 	g_probe->foregroundRects.push_back(front);
+	ForegroundGeometry geometry;
+	geometry.rect = front; geometry.source = source; geometry.shade = shade;
+	geometry.partPriority = priority; geometry.depthPriority = depthPriority;
+	g_probe->foregroundGeometry.push_back(geometry);
 	for (const Rect &overlay : g_probe->overlayRects)
 		if (overlaps(front, overlay)) { ++g_probe->foregroundOccluderCandidates; break; }
 }
 
-void HdUnitBattleSpike::recordOverlayGeometry(int unitId, float screenX, float screenY, float w, float h)
+void HdUnitBattleSpike::recordOverlayGeometry(int unitId, int frame, float depthPriority,
+	                                          float screenX, float screenY, float w, float h)
 {
 	if (!active() || unitId != g_probe->selectedUnitId) return;
 	Rect overlay{screenX, screenY, w, h};
 	g_probe->overlayRects.push_back(overlay);
+	OverlayGeometry geometry;
+	geometry.rect = overlay; geometry.frame = frame; geometry.depthPriority = depthPriority;
+	g_probe->overlayGeometry.push_back(geometry);
 	for (const Rect &front : g_probe->foregroundRects)
 		if (overlaps(front, overlay)) { ++g_probe->foregroundOccluderCandidates; break; }
+}
+
+void HdUnitBattleSpike::captureForegroundPixelProof(int framebufferW, int framebufferH,
+	                                                 int logicalW, int logicalH,
+	                                                 bool floatingPointTarget)
+{
+	if (!active() || g_probe->pixelProof.passed || framebufferW <= 0 || framebufferH <= 0
+	 || logicalW <= 0 || logicalH <= 0) return;
+	Probe &p = *g_probe;
+	PixelProof candidate;
+	for (const OverlayGeometry &overlay : p.overlayGeometry)
+	{
+		if (overlay.frame < 0 || p.overlayPixels.empty()) continue;
+		const int atlasCol = overlay.frame % 16, atlasRow = overlay.frame / 16;
+		for (const ForegroundGeometry &front : p.foregroundGeometry)
+		{
+			if (!front.source || front.depthPriority <= overlay.depthPriority) continue;
+			const int left = std::max(0, (int)std::ceil(std::max(overlay.rect.x, front.rect.x)));
+			const int top = std::max(0, (int)std::ceil(std::max(overlay.rect.y, front.rect.y)));
+			const int right = std::min(logicalW - 1,
+				(int)std::floor(std::min(overlay.rect.x + overlay.rect.w,
+				                         front.rect.x + front.rect.w) - 1.0f));
+			const int bottom = std::min(logicalH - 1,
+				(int)std::floor(std::min(overlay.rect.y + overlay.rect.h,
+				                         front.rect.y + front.rect.h) - 1.0f));
+			for (int sy = top; sy <= bottom; ++sy)
+			for (int sx = left; sx <= right; ++sx)
+			{
+				// Match the two vertex shaders exactly: RGBA quads overdraw by two
+				// logical pixels per edge; palette terrain quads by one.
+				const float ou = ((float)sx + 0.5f - (overlay.rect.x - 2.0f)) / (overlay.rect.w + 4.0f);
+				const float ov = ((float)sy + 0.5f - (overlay.rect.y - 2.0f)) / (overlay.rect.h + 4.0f);
+				const int ox = std::min(63, std::max(0, (int)std::floor(ou * 64.0f)));
+				const int oy = std::min(79, std::max(0, (int)std::floor(ov * 80.0f)));
+				const int ax = atlasCol * 64 + ox, ay = atlasRow * 80 + oy;
+				if (ax < 0 || ax >= p.overlayAtlasW || ay < 0 || ay >= p.overlayAtlasH) continue;
+				const size_t oi = ((size_t)ay * (size_t)p.overlayAtlasW + (size_t)ax) * 4u;
+				// A partially-transparent source can round to the same framebuffer
+				// value as the foreground and would not prove that depth won.
+				if (p.overlayPixels[oi + 3] != 255) continue;
+
+				const int fw = front.source->getWidth(), fh = front.source->getHeight();
+				const float fu = ((float)sx + 0.5f - (front.rect.x - 1.0f)) / (front.rect.w + 2.0f);
+				const float fv = ((float)sy + 0.5f - (front.rect.y - 1.0f)) / (front.rect.h + 2.0f);
+				const int fx = std::min(fw - 1, std::max(0, (int)std::floor(fu * fw)));
+				const int fy = std::min(fh - 1, std::max(0, (int)std::floor(fv * fh)));
+				const Uint8 paletteIndex = front.source->getPixel(fx, fy);
+				const ShadeTable *shadeTable = front.source->getShadeTable();
+				if (!paletteIndex || !shadeTable) continue;
+				const Uint32 expected = shadeTable->get(paletteIndex, front.shade);
+				if (((expected >> 24) & 0xffu) != 255u) continue;
+				const int expectedR = (expected >> 16) & 0xffu;
+				const int expectedG = (expected >> 8) & 0xffu;
+				const int expectedB = expected & 0xffu;
+				// If both sources already have the same RGB this pixel cannot prove
+				// which draw won, even with a perfect readback. Fail it as ambiguous.
+				if (std::abs((int)p.overlayPixels[oi] - expectedR) <= candidate.tolerance
+				 && std::abs((int)p.overlayPixels[oi + 1] - expectedG) <= candidate.tolerance
+				 && std::abs((int)p.overlayPixels[oi + 2] - expectedB) <= candidate.tolerance)
+					continue;
+
+				candidate.available = true; candidate.reason.clear();
+				candidate.screenX = sx; candidate.screenY = sy;
+				candidate.overlaySourceX = ox; candidate.overlaySourceY = oy;
+				candidate.overlayFrame = overlay.frame;
+				candidate.overlayR = p.overlayPixels[oi]; candidate.overlayG = p.overlayPixels[oi + 1];
+				candidate.overlayB = p.overlayPixels[oi + 2]; candidate.overlayA = p.overlayPixels[oi + 3];
+				candidate.foregroundSourceX = fx; candidate.foregroundSourceY = fy;
+				candidate.foregroundPaletteIndex = paletteIndex; candidate.foregroundShade = front.shade;
+				candidate.expectedR = expectedR; candidate.expectedG = expectedG;
+				candidate.expectedB = expectedB; candidate.expectedA = (expected >> 24) & 0xffu;
+				candidate.overlayPriority = overlay.depthPriority;
+				candidate.foregroundPriority = front.depthPriority;
+				goto found;
+			}
+		}
+	}
+found:
+	if (!candidate.available) { p.pixelProof = candidate; return; }
+
+	const float scaleX = (float)framebufferW / (float)logicalW;
+	const float scaleY = (float)framebufferH / (float)logicalH;
+	candidate.framebufferX = std::min(framebufferW - 1,
+		std::max(0, (int)std::floor(((float)candidate.screenX + 0.5f) * scaleX)));
+	const int topY = std::min(framebufferH - 1,
+		std::max(0, (int)std::floor(((float)candidate.screenY + 0.5f) * scaleY)));
+	candidate.framebufferY = framebufferH - 1 - topY;
+	GLint oldPack = 4; glGetIntegerv(GL_PACK_ALIGNMENT, &oldPack); glPixelStorei(GL_PACK_ALIGNMENT, 1);
+	GLenum errBefore = glGetError();
+	if (errBefore != GL_NO_ERROR) recordGlError((unsigned)errBefore);
+	if (floatingPointTarget)
+	{
+		float rgba[4] = {0, 0, 0, 0};
+		glReadPixels(candidate.framebufferX, candidate.framebufferY, 1, 1, GL_RGBA, GL_FLOAT, rgba);
+		candidate.framebufferR = (int)std::lround(std::min(1.0f, std::max(0.0f, rgba[0])) * 255.0f);
+		candidate.framebufferG = (int)std::lround(std::min(1.0f, std::max(0.0f, rgba[1])) * 255.0f);
+		candidate.framebufferB = (int)std::lround(std::min(1.0f, std::max(0.0f, rgba[2])) * 255.0f);
+		candidate.framebufferA = (int)std::lround(std::min(1.0f, std::max(0.0f, rgba[3])) * 255.0f);
+	}
+	else
+	{
+		uint8_t rgba[4] = {0, 0, 0, 0};
+		glReadPixels(candidate.framebufferX, candidate.framebufferY, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, rgba);
+		candidate.framebufferR = rgba[0]; candidate.framebufferG = rgba[1];
+		candidate.framebufferB = rgba[2]; candidate.framebufferA = rgba[3];
+	}
+	const GLenum readError = glGetError();
+	glPixelStorei(GL_PACK_ALIGNMENT, oldPack);
+	if (readError != GL_NO_ERROR)
+	{
+		recordGlError((unsigned)readError);
+		candidate.reason = "glReadPixels failed";
+		p.pixelProof = candidate;
+		return;
+	}
+	auto near = [&](int a, int b) { return std::abs(a - b) <= candidate.tolerance; };
+	candidate.passed = candidate.foregroundPriority > candidate.overlayPriority
+	                && near(candidate.framebufferR, candidate.expectedR)
+	                && near(candidate.framebufferG, candidate.expectedG)
+	                && near(candidate.framebufferB, candidate.expectedB);
+	candidate.reason = candidate.passed ? "foreground source color won exact WebGL depth test"
+	                                    : "WebGL readback did not match the opaque foreground source";
+	p.pixelProof = candidate;
 }
 
 bool HdUnitBattleSpike::finish(Game *game, const char *outPng)
