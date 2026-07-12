@@ -19,6 +19,7 @@
  */
 
 #include "../Battlescape/Position.h"
+#include <algorithm>
 #include <cstddef>
 #include <map>
 #include <set>
@@ -59,6 +60,35 @@ class ThreatField
 {
 public:
 	using Field = std::map<Position, float, PositionComparator>;
+	using Reachability = std::map<Position, int, PositionComparator>;
+	using EvaluatedPositions = std::set<Position, PositionComparator>;
+
+	/// Exact pure form of brutalThink's legacy discoverThreat loop. Distance is
+	/// intentionally measured from the base candidate before applying footprint
+	/// offsets; visibility is supplied by the caller so production can use the
+	/// existing hasTileSight path and unit tests can exercise the math directly.
+	template<typename VisibilityFn>
+	static float calculateThreatAt(const Position& candidate, const Reachability& enemyReachable,
+		int footprintSize, VisibilityFn visible)
+	{
+		float discoverThreat = 0.0f;
+		for (const auto& reachable : enemyReachable)
+		{
+			for (int x = 0; x < footprintSize; ++x)
+			{
+				for (int y = 0; y < footprintSize; ++y)
+				{
+					Position compPos = candidate;
+					const float currThreat = reachable.second / (Position::distance(reachable.first, compPos) + 1);
+					compPos.x += x;
+					compPos.y += y;
+					if (currThreat > discoverThreat && visible(compPos, reachable.first))
+						discoverThreat = currThreat;
+				}
+			}
+		}
+		return std::max(0.0f, discoverThreat);
+	}
 
 	/// Keep the maximum danger stamped at a tile (baseline 0). A non-positive
 	/// stamp does not create a cell -- only a value strictly greater than the
@@ -126,9 +156,16 @@ public:
 		return evaluated.size();
 	}
 
+	/// Stable ordered view of evaluated positions. Producers use this to
+	/// conservatively re-stamp already memoized tiles after new knowledge.
+	const EvaluatedPositions& getEvaluatedPositions() const
+	{
+		return evaluated;
+	}
+
 private:
 	Field field;
-	std::set<Position, PositionComparator> evaluated;
+	EvaluatedPositions evaluated;
 };
 
 } // namespace OpenXcom

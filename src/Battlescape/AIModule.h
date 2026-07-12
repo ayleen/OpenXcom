@@ -37,6 +37,7 @@ struct BattleAction;
 class BattlescapeState;
 class Node;
 class FriendReachableField; // Phase 43.1E (Calypso): shared friendReachable field, defined in Savegame/FriendReachableField.h
+class ThreatField; // Phase 43.1M (Calypso): shared exact discoverThreat memo, defined in Savegame/ThreatField.h
 class TerrainLofNegativeCache; // Phase 43.1I (Calypso): shared negative terrain-LOF cache, defined in Savegame/TerrainLofNegativeCache.h
 
 enum AIMode { AI_PATROL, AI_AMBUSH, AI_COMBAT, AI_ESCAPE };
@@ -132,6 +133,14 @@ private:
 	/// contributions); returns nullptr otherwise so callers fall back to the legacy
 	/// per-unit local map. Never overwrites _ranOutOfTUs (uses a local flag).
 	FriendReachableField* prepareSharedFriendReachable();
+	/// Exact legacy discoverThreat calculation for one base candidate. The
+	/// shared and fallback paths both call this helper so feature-off behavior
+	/// and footprint/LOF semantics cannot drift.
+	float calculateDiscoverThreat(const Position& candidate, const std::map<Position, int, PositionComparator>& enemyReachable);
+	/// Return the compatible per-faction threat memo, lazily initialize it, and
+	/// conservatively re-stamp evaluated tiles after queued knowledge updates.
+	/// Returns nullptr for feature-off, invalid cache, or actor-profile mismatch.
+	ThreatField* prepareSharedThreatField(const std::map<Position, int, PositionComparator>& enemyReachable);
 	/// Phase 43.1I (Calypso): returns the live shared negative terrain-LOF cache
 	/// for this unit's faction when the mod enables ai.sharedFields and a valid
 	/// faction turn-cache exists, flushing it lazily (dirty -> clear + mark

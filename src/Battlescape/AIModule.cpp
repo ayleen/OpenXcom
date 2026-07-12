@@ -4328,6 +4328,12 @@ void AIModule::brutalThink(BattleAction* action)
 	// legacy per-ally local-map merge below (the field already holds every ally's contribution);
 	// when it is null we run the original local-map code byte-for-byte. Enemy handling is unchanged.
 	FriendReachableField* sharedField = prepareSharedFriendReachable();
+	bool forceEnemyReachability = false;
+	if (_save->getMod()->getAISharedFields())
+	{
+		const FactionTurnCache* threatCache = _save->getFactionTurnCache(_unit->getFaction());
+		forceEnemyReachability = threatCache != nullptr && threatCache->isValid() && threatCache->isThreatDirty();
+	}
 	for (BattleUnit* target : *(_save->getUnits()))
 	{
 		if (target->isOut())
@@ -4353,7 +4359,10 @@ void AIModule::brutalThink(BattleAction* action)
 		{
 			if (target->getTileLastSpotted(_unit->getFaction()) == -1)
 			{
-				target->setTileLastSpotted(getClosestSpawnTileId(), _unit->getFaction());
+				const int spawnIndex = getClosestSpawnTileId();
+				target->setTileLastSpotted(spawnIndex, _unit->getFaction());
+				if (spawnIndex >= 0)
+					_save->notifyFactionTurnKnowledgeChanged(_unit->getFaction(), target, _save->getTileCoords(spawnIndex));
 			}
 			if (target->getTileLastSpotted(_unit->getFaction()) == -1)
 				continue;
@@ -4420,6 +4429,8 @@ void AIModule::brutalThink(BattleAction* action)
 					//_save->getTile(newIndex)->setTUMarker(target->getId());
 				}
 				target->setTileLastSpotted(newIndex, _unit->getFaction());
+				if (newIndex >= 0)
+					_save->notifyFactionTurnKnowledgeChanged(_unit->getFaction(), target, _save->getTileCoords(newIndex));
 				// We clear it for blind-shot in this case, as it makes no sense to still try and shoot there
 				target->setTileLastSpotted(-1, _unit->getFaction(), true);
 				if (newIndex == -1)
@@ -4430,7 +4441,7 @@ void AIModule::brutalThink(BattleAction* action)
 		if (!target->hasPanickedLastTurn())
 		{
 			_save->getPathfinding()->setIgnoreFriends(true);
-			for (const auto& reachablePosOfTarget : getReachableBy(target, _ranOutOfTUs, false, true, false))
+			for (const auto& reachablePosOfTarget : getReachableBy(target, _ranOutOfTUs, forceEnemyReachability, true, false))
 			{
 				Tile* checkStartTile = _save->getTile(reachablePosOfTarget.first);
 				if (checkStartTile->getFloorSpecialTileType() == START_POINT)
@@ -4723,6 +4734,7 @@ void AIModule::brutalThink(BattleAction* action)
 		}
 		if (pathThroughLift && targetPosition.z > myPos.z && !IAmMindControlled)
 			enemyHasHighGround = true;
+		ThreatField* sharedThreatField = prepareSharedThreatField(enemyReachable);
 
 		for (auto pu : _allPathFindingNodes)
 		{
@@ -5067,22 +5079,16 @@ void AIModule::brutalThink(BattleAction* action)
 				validCover = false;
 			if (!sweepMode && validCover)
 			{
-				for (auto& reachable : enemyReachable)
+				if (sharedThreatField && sharedThreatField->isEvaluated(pos))
 				{
-					for (int x = 0; x < _unit->getArmor()->getSize(); ++x)
-					{
-						for (int y = 0; y < _unit->getArmor()->getSize(); ++y)
-						{
-							Position compPos = pos;
-							float currThreat = reachable.second / (Position::distance(reachable.first, compPos) + 1);
-							compPos.x += x;
-							compPos.y += y;
-							if (currThreat > discoverThreat && hasTileSight(compPos, reachable.first))
-								discoverThreat = currThreat;
-						}
-					}
+					discoverThreat = sharedThreatField->threatAt(pos);
 				}
-				discoverThreat = std::max(0.0f, discoverThreat);
+				else
+				{
+					discoverThreat = calculateDiscoverThreat(pos, enemyReachable);
+					if (sharedThreatField)
+						sharedThreatField->stampMax(pos, discoverThreat);
+				}
 				if (discoverThreat == 0)
 				{
 					if (!_save->getTileEngine()->isNextToDoor(tile) || contact)
@@ -7899,6 +7905,62 @@ int AIModule::getEnergyRecovery(BattleUnit* unit)
 	}
 	recovery = _unit->getArmor()->getEnergyRecovery(unit, recovery);
 	return recovery;
+}
+
+/**
+ * Phase 43.1M (Calypso): exact extraction of brutalThink's legacy
+ * discoverThreat loop. Both the shared memo and the feature-off fallback call
+ * this function, preserving the original distance-before-footprint-offset and
+ * currThreat-before-LOF ordering.
+ */
+float AIModule::calculateDiscoverThreat(const Position& candidate, const std::map<Position, int, PositionComparator>& enemyReachable)
+{
+	return ThreatField::calculateThreatAt(candidate, enemyReachable, _unit->getArmor()->getSize(),
+		[this](const Position& from, const Position& to) { return hasTileSight(from, to); });
+}
+
+/**
+ * Phase 43.1M (Calypso): prepare the exact per-faction discoverThreat memo.
+ * Actor footprint/height affect the legacy LOF probe, so the first user binds
+ * a profile for this turn and incompatible actors retain the legacy path.
+ * Queued new/updated knowledge never lowers danger: already evaluated tiles
+ * are recomputed from the current fair-known aggregate and stampMax keeps the
+ * conservative maximum.
+ */
+ThreatField* AIModule::prepareSharedThreatField(const std::map<Position, int, PositionComparator>& enemyReachable)
+{
+	if (!_save->getMod()->getAISharedFields() || !_unit->isAIControlled())
+		return nullptr;
+	FactionTurnCache* cache = _save->getFactionTurnCache(_unit->getFaction());
+	if (cache == nullptr || !cache->isValid())
+		return nullptr;
+
+	const int footprint = _unit->getArmor()->getSize();
+	const int height = _unit->getHeight();
+	const bool movementCheat = _unit->isCheatOnMovement();
+	ThreatField& field = cache->getThreatField();
+	if (cache->isThreatDirty())
+	{
+		field.clear();
+		cache->setThreatProfile(footprint, height, movementCheat);
+		cache->markThreatClean();
+		// The current aggregate already reflects all authoritative knowledge, and
+		// there are no evaluated tiles to update after the clear.
+		cache->clearPendingThreatSightings();
+		return &field;
+	}
+	if (!cache->matchesThreatProfile(footprint, height, movementCheat))
+		return nullptr;
+
+	if (!cache->getPendingThreatSightings().empty())
+	{
+		const std::vector<Position> evaluated(
+			field.getEvaluatedPositions().begin(), field.getEvaluatedPositions().end());
+		for (const Position& pos : evaluated)
+			field.stampMax(pos, calculateDiscoverThreat(pos, enemyReachable));
+		cache->clearPendingThreatSightings();
+	}
+	return &field;
 }
 
 /**

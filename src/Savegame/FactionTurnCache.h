@@ -69,6 +69,10 @@ struct FactionTurnCache
 	bool friendReachableDirty = true;  // friendReachable aggregate stale -> rebuild lazily
 	bool terrainLofDirty = true;       // terrain-LOF negative cache stale -> flush on read
 	unsigned int terrainRevision = 0;  // monotonically increasing terrain mutation counter
+	bool threatProfileValid = false;   // whether the shared threat memo has an actor geometry profile
+	int threatProfileSize = 0;         // armor footprint used by the exact legacy-equivalent probe
+	int threatProfileHeight = 0;       // eye-height input used by AIModule::hasTileSight
+	bool threatProfileMovementCheat = false; // fair-known vs live-position reachability mode
 
 	/// Live friendReachable aggregate accumulator (phase 43.1D). Stamped/un-stamped by
 	/// the field builder; wiped on turn start and on terrain mutation (see friendReachableDirty).
@@ -115,6 +119,34 @@ struct FactionTurnCache
 	/// Called after a threat producer has absorbed every queued sighting.
 	void clearPendingThreatSightings() { pendingThreatSightings.clear(); }
 
+	/// Bind a freshly-cleared threat memo to the actor-dependent geometry inputs
+	/// used by the legacy discoverThreat loop.
+	void setThreatProfile(int size, int height, bool movementCheat)
+	{
+		threatProfileValid = true;
+		threatProfileSize = size;
+		threatProfileHeight = height;
+		threatProfileMovementCheat = movementCheat;
+	}
+
+	/// Exact reuse is safe only for actors whose legacy threat probe uses the
+	/// same footprint, eye height, and fair/cheat reachability mode.
+	bool matchesThreatProfile(int size, int height, bool movementCheat) const
+	{
+		return threatProfileValid
+			&& threatProfileSize == size
+			&& threatProfileHeight == height
+			&& threatProfileMovementCheat == movementCheat;
+	}
+
+	void clearThreatProfile()
+	{
+		threatProfileValid = false;
+		threatProfileSize = 0;
+		threatProfileHeight = 0;
+		threatProfileMovementCheat = false;
+	}
+
 	/// Mutable access to the terrain-LOF negative cache (field builders remember
 	/// directed blocked rays here).
 	TerrainLofNegativeCache& getTerrainLofCache() { return terrainLof; }
@@ -133,6 +165,7 @@ struct FactionTurnCache
 		terrainLofDirty = true;
 		friendReachable.clear();
 		threat.clear();
+		clearThreatProfile();
 		pendingThreatSightings.clear();
 		terrainLof.clear();
 	}
@@ -176,6 +209,7 @@ struct FactionTurnCache
 		terrainLofDirty = true;
 		friendReachable.clear();
 		threat.clear();
+		clearThreatProfile();
 		// A full terrain-driven threat rebuild must read authoritative current
 		// knowledge, so queued incremental inputs are redundant after this point.
 		pendingThreatSightings.clear();

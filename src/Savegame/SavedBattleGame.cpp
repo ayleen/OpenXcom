@@ -3041,6 +3041,11 @@ void SavedBattleGame::notifyFactionTurnUnitChangedFaction(BattleUnit *unit, Unit
 	// Remove from both the faction it left and the faction it joined.
 	factionTurnRemoveContribution(getFactionTurnCache(oldFaction), unit->getId());
 	factionTurnRemoveContribution(getFactionTurnCache(unit->getFaction()), unit->getId());
+	// If a live unit leaves the active faction it becomes a newly-known enemy at
+	// the position that faction knew while it was still an ally. No FOV event is
+	// required for this transition, so queue the threat update explicitly.
+	if (oldFaction == _side && unit->getFaction() != oldFaction && !unit->isOut())
+		notifyFactionTurnKnowledgeChanged(oldFaction, unit, unit->getPosition());
 }
 
 /**
