@@ -441,6 +441,14 @@ private:
 	/// sentinel when the `calypsoEconomy:` key is absent). Body lives in
 	/// Calypso/ModHd.cpp::loadFileCalypso; type defined in Calypso/CalypsoEconomy.h.
 	Calypso::EconomyRules _calypsoEconomyRules;
+	/// Phase 43.1.3 (Calypso): parsed HD UI family rollout gate from the
+	/// `hdUiFamilies:` ruleset key. A sorted, deduplicated sequence of valid
+	/// F01..F38 ids; empty by default (shipped ruleset list is empty; a family
+	/// id is added only in the commit that passes its implementation
+	/// checkpoint). Lives on Mod so it parses once at mod-load and survives
+	/// save/load round-trips without re-parsing or any campaign-save write.
+	/// Validation/lookup logic lives in the pure header CalypsoUiFamilies.h.
+	std::vector<std::string> _hdUiFamilies;
 	/// Phase 37 (Calypso): parsed tutorial steps from the `tutorial:` top-level
 	/// ruleset key. Lives on Mod so it loads once at mod-load time and survives
 	/// save/load round-trips without re-parsing. Gated like battlescapeTileScale.
@@ -470,7 +478,8 @@ private:
 	/// L10: decodes a registered lazy geo surface on first request.
 	void materializeGeoSurface(const std::string &name);
 	/// Phase 36: Calypso-only ruleset keys (globeTextures/tileAtlas/hdTiles/
-	/// battlescapeTileScale/...) parsed out of loadFile; body in Calypso/ModHd.cpp.
+	/// battlescapeTileScale/hdUiFamilies/...) parsed out of loadFile; body in
+	/// Calypso/ModHd.cpp.
 	void loadFileCalypso(YAML::YamlNodeReader& reader);
 	/// Phase 42 E1: decode + upload the optional RGBA overlay pages for one
 	/// UnitAtlasSpec, compute the per-PCK-frame hasHd mask (transparent slots
@@ -864,6 +873,16 @@ public:
 	const std::vector<CalypsoTutorialStep>& getCalypsoTutorialSteps() const { return _calypsoTutorialSteps; }
 	const std::vector<CalypsoChecklistItem>& getCalypsoChecklist() const { return _calypsoChecklist; }
 	const std::vector<CalypsoAdvisorRule>& getCalypsoAdvisors() const { return _calypsoAdvisors; }
+	/// Phase 43.1.3 (Calypso): the single engine API family adapters call to
+	/// ask "is family Fxx's HD layout enabled?". Fail-safe: true only when the
+	/// HD pack is active AND `familyId` is a valid, listed F01..F38 id in the
+	/// parsed `hdUiFamilies:` ruleset key; false otherwise (legacy layout). A
+	/// missing/inactive HD pack forces false for every family even if listed.
+	/// The native build has no such accessor (the whole HD UI path is
+	/// Emscripten-only); the pure fail-safe core Calypso::isHdUiFamilyEnabled
+	/// (native/missing-HD-pack paths) is unit-tested directly. No per-call
+	/// allocation, no mutation of the parsed list.
+	bool isHdUiFamilyEnabled(const std::string& familyId) const;
 	/// L7: ensures battlescape-only SurfaceSets are resident.
 	/// Delegates to the private loadBattlescapeResources(); idempotent (guarded
 	/// by _battlescapeResourcesLoaded).  Called from BattlescapeState ctor.
