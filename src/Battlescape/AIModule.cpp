@@ -23,6 +23,7 @@
 #include "AIModule.h"
 #include "AICandidateOrder.h"
 #include "AIEvaluationBudget.h"
+#include "AITargetRank.h" // Phase 43.1S (Calypso): deterministic total order for the Phase-1 enemy scan
 #include "../Mod/AITuning.h"
 #include "../Savegame/BattleItem.h"
 #include "../Savegame/Node.h"
@@ -4349,7 +4350,71 @@ void AIModule::brutalThink(BattleAction* action)
 		const FactionTurnCache* threatCache = _save->getFactionTurnCache(_unit->getFaction());
 		forceEnemyReachability = threatCache != nullptr && threatCache->isValid() && threatCache->isThreatDirty();
 	}
-	for (BattleUnit* target : *(_save->getUnits()))
+	// Phase 43.1S (Calypso): deterministic top-K ordering for the Phase-1 enemy scan.
+	// Under ai.sharedFields only, non-enemies are emitted first in their original order
+	// (they consume no budget slot and still drive the legacy friendReachable merge below),
+	// then live enemies are sorted by AITargetRank -- engaged -> known -> closer distanceSq
+	// -> unitId, a strict total order. With the flag off the original _save->getUnits()
+	// vector is iterated unchanged so brutalThink stays byte-identical.
+	const bool useOrderedTargets = _save->getMod()->getAISharedFields();
+	std::vector<BattleUnit*> orderedTargets;
+	if (useOrderedTargets)
+	{
+		orderedTargets.reserve(_save->getUnits()->size());
+		typedef std::pair<AITargetRank, BattleUnit*> RankedTarget;
+		std::vector<RankedTarget> rankedEnemies;
+		for (BattleUnit* candidate : *(_save->getUnits()))
+		{
+			if (candidate->isOut())
+				continue;
+			if (!isEnemy(candidate))
+			{
+				// Non-enemies first, original order, no budget slot consumed.
+				orderedTargets.push_back(candidate);
+				continue;
+			}
+			// engaged: the actor sees the target OR the target currently sees the actor.
+			const bool engaged = _unit->hasVisibleUnit(candidate)
+				|| (std::find(candidate->getVisibleUnits()->begin(), candidate->getVisibleUnits()->end(), _unit) != candidate->getVisibleUnits()->end());
+			const int tileLastSpotted = candidate->getTileLastSpotted(_unit->getFaction());
+			// known: engaged, movement-cheat, or any last-spotted tile on record.
+			const bool known = engaged || _unit->isCheatOnMovement() || tileLastSpotted >= 0;
+			// Distance basis: actual position when the actor can see the target or is
+			// movement-cheating; otherwise the last-spotted tile when one is known; else the
+			// actor's own position (distanceSq 0). Unknown targets sort after known ones via
+			// the `known` flag, never via this zero distance.
+			Position rankPos;
+			if (_unit->isCheatOnMovement() || _unit->hasVisibleUnit(candidate))
+				rankPos = candidate->getPosition();
+			else if (tileLastSpotted >= 0)
+				rankPos = _save->getTileCoords(tileLastSpotted);
+			else
+				rankPos = myPos;
+			AITargetRank rank;
+			rank.engaged = engaged;
+			rank.known = known;
+			rank.distanceSq = Position::distanceSq(myPos, rankPos);
+			rank.unitId = candidate->getId();
+			rankedEnemies.push_back(RankedTarget(rank, candidate));
+		}
+		std::sort(rankedEnemies.begin(), rankedEnemies.end(),
+			[](const RankedTarget& lhs, const RankedTarget& rhs)
+			{
+				return AITargetRankLess()(lhs.first, rhs.first);
+			});
+		for (const RankedTarget& rt : rankedEnemies)
+			orderedTargets.push_back(rt.second);
+	}
+	// Count-only budget bounding the expensive per-enemy ops. Feature-off and the shipped
+	// ai.evalBudget=0 default are both unbounded (every live enemy fully scored); a positive
+	// ai.evalBudget bounds the skip-listed ops below to the top-K enemies by AITargetRank.
+	// The zero time-budget means this primitive never consults a clock -- determinism is owned
+	// by the count alone, matching the 43.1 discipline.
+	AIEvaluationBudget targetEvalBudget(
+		useOrderedTargets ? _save->getMod()->getAIEvalBudget() : 0, 0);
+	const std::vector<BattleUnit*>& originalUnits = *(_save->getUnits());
+	const std::vector<BattleUnit*>* scanOrder = useOrderedTargets ? &orderedTargets : &originalUnits;
+	for (BattleUnit* target : *scanOrder)
 	{
 		if (target->isOut())
 			continue;
@@ -4385,15 +4450,26 @@ void AIModule::brutalThink(BattleAction* action)
 		// Seems redundant but isn't. This is necessary because we also don't want to attack the units that we have mind-controlled
 		if (!isEnemy(target))
 			continue;
-		if (brutalValidTarget(target))
+		// Phase 43.1S (Calypso): consume one count-budget slot per live enemy. Feature-off and
+		// ai.evalBudget=0 are unbounded, so withinTargetBudget is always true then and this
+		// changes nothing. Only the three expensive ops -- current-position damage potential,
+		// the target-sees-actor stamp, and the walk-path/closest-position selection -- are gated
+		// on it. Fair-knowledge normalization, immobileEnemies detection, the tileChecked /
+		// new-guess logic, the START_POINT scan, and the exact shared enemyReachable stamping
+		// below all run for every enemy unconditionally, so the loop's side effects never break.
+		const bool withinTargetBudget = targetEvalBudget.consumeEvaluation();
+		if (withinTargetBudget && brutalValidTarget(target))
 			damagePotentialFromCurrentPosition = std::max(damagePotential(myPos, target, _unit->getTimeUnits(), _unit->getEnergy()), damagePotentialFromCurrentPosition);
-		for (BattleUnit* visble : *target->getVisibleUnits())
+		if (withinTargetBudget)
 		{
-			if (visble == _unit)
+			for (BattleUnit* visble : *target->getVisibleUnits())
 			{
-				visibleToEnemy = true;
-				visibleFromPosition = target->getPosition();
-				break;
+				if (visble == _unit)
+				{
+					visibleToEnemy = true;
+					visibleFromPosition = target->getPosition();
+					break;
+				}
 			}
 		}
 		if (!target->getArmor()->allowsMoving() || target->getBaseStats()->stamina == 0)
@@ -4491,20 +4567,26 @@ void AIModule::brutalThink(BattleAction* action)
 		BattleUnit* LoFCheckUnitForPath = NULL;
 		if (_unit->isCheatOnMovement())
 			LoFCheckUnitForPath = target;
-		int currentWalkPath = tuCostToReachPosition(targetPosition, _allPathFindingNodes) + turnsLastSeen * getMaxTU(_unit);
-		Position posUnitCouldReach = closestPositionEnemyCouldReach(target);
-		float distToPosUnitCouldReach = Position::distance(myPos, posUnitCouldReach);
-		if (distToPosUnitCouldReach < closestDistanceofFurthestPosition)
+		// Phase 43.1S (Calypso): the expensive walk-path / closest-reachable / furthest-reach
+		// selection runs only for enemies inside the top-K budget. Feature-off and
+		// ai.evalBudget=0 leave withinTargetBudget always true, so this is a no-op there.
+		if (withinTargetBudget)
 		{
-			furthestPositionEnemyCanReach = posUnitCouldReach;
-			closestDistanceofFurthestPosition = distToPosUnitCouldReach;
-			targetDistanceTofurthestReach = Position::distance(posUnitCouldReach, targetPosition);
-		}
-		if (currentWalkPath < shortestWalkingPath)
-		{
-			shortestWalkingPath = currentWalkPath;
-			unitToWalkTo = target;
-			enemyFarAwayFromStart = isFarAwayFromStart;
+			int currentWalkPath = tuCostToReachPosition(targetPosition, _allPathFindingNodes) + turnsLastSeen * getMaxTU(_unit);
+			Position posUnitCouldReach = closestPositionEnemyCouldReach(target);
+			float distToPosUnitCouldReach = Position::distance(myPos, posUnitCouldReach);
+			if (distToPosUnitCouldReach < closestDistanceofFurthestPosition)
+			{
+				furthestPositionEnemyCanReach = posUnitCouldReach;
+				closestDistanceofFurthestPosition = distToPosUnitCouldReach;
+				targetDistanceTofurthestReach = Position::distance(posUnitCouldReach, targetPosition);
+			}
+			if (currentWalkPath < shortestWalkingPath)
+			{
+				shortestWalkingPath = currentWalkPath;
+				unitToWalkTo = target;
+				enemyFarAwayFromStart = isFarAwayFromStart;
+			}
 		}
 	}
 	if (sharedEnemyField)
