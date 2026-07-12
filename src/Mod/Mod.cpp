@@ -462,6 +462,11 @@ Mod::Mod() :
 	// Phase 43.1 (Calypso): shared-fields gate + work-budget schema -- defaults keep the
 	// feature off and the budgets unbounded (byte-identical to pre-43.1).
 	_aiSharedFields(false), _aiEvalBudget(0), _aiTurnBudgetMs(0),
+	// Phase 43.1 (Calypso): occupancy-field tuning schema -- engine defaults use a
+	// sighting spike equal to the fixed field scale 1000. Same gate as above;
+	// no consumer reads these in this slice, so behavior stays byte-identical to pre-43.1.
+	_aiOccupancyRetainPercent(75), _aiOccupancySpreadPercent(25),
+	_aiOccupancySightingSpike(1000), _aiOccupancyNoiseSpike(500), _aiOccupancyHitSpike(700),
 	_maxLookVariant(0), _tooMuchSmokeThreshold(10), _customTrainingFactor(100),
 	_chanceToStopRetaliation(0), _chanceToDetectAlienBaseEachMonth(20), _lessAliensDuringBaseDefense(false),
 	_allowCountriesToCancelAlienPact(false), _buildInfiltrationBaseCloseToTheCountry(false), _infiltrateRandomCountryInTheRegion(false), _allowAlienBasesOnWrongTextures(true),
@@ -3361,6 +3366,24 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 		nodeAI.tryRead("turnBudgetMs", _aiTurnBudgetMs);
 		_aiEvalBudget = AITuning::clampNonNegative(_aiEvalBudget);
 		_aiTurnBudgetMs = AITuning::clampNonNegative(_aiTurnBudgetMs);
+		// Phase 43.1 (Calypso): occupancy-field tuning knobs (retain/spread percent and
+		// the sighting/noise/hit spike magnitudes). Same tryRead-then-clamp shape as the
+		// sibling Phase 43.1 keys above; the two percent keys clamp to 0..100 and the
+		// three spike keys clamp to 0..1000 -- the fixed OccupancyField scale, NOT a
+		// separate ruleset key. Mirrors the [0,100] idiom already used by the consumer
+		// (OccupancyField::decayAndSpread). Schema-only here: nothing reads these until a
+		// later slice wires the OccupancyField behind ai.sharedFields, so flag-off
+		// behavior and old saves/rulesets stay byte-identical to pre-43.1.
+		nodeAI.tryRead("occupancyRetainPercent", _aiOccupancyRetainPercent);
+		nodeAI.tryRead("occupancySpreadPercent", _aiOccupancySpreadPercent);
+		nodeAI.tryRead("occupancySightingSpike", _aiOccupancySightingSpike);
+		nodeAI.tryRead("occupancyNoiseSpike", _aiOccupancyNoiseSpike);
+		nodeAI.tryRead("occupancyHitSpike", _aiOccupancyHitSpike);
+		_aiOccupancyRetainPercent = std::min(100,  AITuning::clampNonNegative(_aiOccupancyRetainPercent));
+		_aiOccupancySpreadPercent = std::min(100,  AITuning::clampNonNegative(_aiOccupancySpreadPercent));
+		_aiOccupancySightingSpike = std::min(1000, AITuning::clampNonNegative(_aiOccupancySightingSpike));
+		_aiOccupancyNoiseSpike    = std::min(1000, AITuning::clampNonNegative(_aiOccupancyNoiseSpike));
+		_aiOccupancyHitSpike      = std::min(1000, AITuning::clampNonNegative(_aiOccupancyHitSpike));
 
 		nodeAI.tryRead("targetWeightThreatThreshold", _aiTargetWeightThreatThreshold);
 		nodeAI.tryRead("targetWeightAsHostile", _aiTargetWeightAsHostile);

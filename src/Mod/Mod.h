@@ -550,6 +550,17 @@ private:
 	bool _aiSharedFields;      // gate for the per-faction-turn shared spatial fields (off = old code paths)
 	int  _aiEvalBudget;        // top-K candidate-evaluation count cap (0 = unbounded)
 	int  _aiTurnBudgetMs;      // wall-clock alien-turn deadline backstop in ms (0 = off)
+	// Phase 43.1 (Calypso): occupancy-field tuning schema. The two percent knobs
+	// clamp to 0..100 and the three spike magnitudes clamp to 0..1000 -- the fixed
+	// OccupancyField scale, NOT a separate ruleset key. These are engine defaults;
+	// this slice is schema-only (no consumer reads these yet), and
+	// the whole block stays gated by _aiSharedFields, so old saves/rulesets and
+	// flag-off behavior remain byte-identical to pre-43.1. See getters below.
+	int _aiOccupancyRetainPercent; // fraction of each cell retained per decay pass (default 75)
+	int _aiOccupancySpreadPercent; // fraction of retained mass diffused to neighbors (default 25)
+	int _aiOccupancySightingSpike; // occupancy added on a fresh sighting (default 1000 == field scale)
+	int _aiOccupancyNoiseSpike;    // occupancy added on a heard noise (default 500)
+	int _aiOccupancyHitSpike;      // occupancy added on a confirmed hit/casualty (default 700)
 
 	int _maxLookVariant, _tooMuchSmokeThreshold, _customTrainingFactor;
 	int _chanceToStopRetaliation;
@@ -1327,6 +1338,16 @@ public:
 	int getAIEvalBudget() const { return _aiEvalBudget; }
 	/// Phase 43.1: wall-clock alien-turn deadline backstop in ms (default 0 = off, >=0).
 	int getAITurnBudgetMs() const { return _aiTurnBudgetMs; }
+	/// Phase 43.1: fraction of each occupancy cell retained per decay pass (default 75, clamped 0..100).
+	int getAIOccupancyRetainPercent() const { return _aiOccupancyRetainPercent; }
+	/// Phase 43.1: fraction of retained occupancy mass diffused to neighbors (default 25, clamped 0..100).
+	int getAIOccupancySpreadPercent() const { return _aiOccupancySpreadPercent; }
+	/// Phase 43.1: occupancy added on a fresh sighting (default 1000, clamped 0..1000 = field scale).
+	int getAIOccupancySightingSpike() const { return _aiOccupancySightingSpike; }
+	/// Phase 43.1: occupancy added on a heard noise (default 500, clamped 0..1000).
+	int getAIOccupancyNoiseSpike() const { return _aiOccupancyNoiseSpike; }
+	/// Phase 43.1: occupancy added on a confirmed hit/casualty (default 700, clamped 0..1000).
+	int getAIOccupancyHitSpike() const { return _aiOccupancyHitSpike; }
 
 	/// Gets maximum supported lookVariant.
 	int getMaxLookVariant() const;
