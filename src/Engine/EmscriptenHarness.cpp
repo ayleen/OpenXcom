@@ -192,6 +192,20 @@ int calypso_hd_unit_battle_g0_find_occluder_target(int unitId, const char *outJs
 }
 
 EMSCRIPTEN_KEEPALIVE
+int calypso_hd_unit_battle_g0_find_walk_target(int unitId, const char *outJson)
+{
+	Game *g = getCurrentGame();
+	return g && HdUnitBattleSpike::findWalkTarget(g, unitId, outJson) ? 1 : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int calypso_hd_unit_battle_g0_inspect_input(const char *outJson)
+{
+	Game *g = getCurrentGame();
+	return g && HdUnitBattleSpike::inspectInput(g, outJson) ? 1 : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
 int calypso_hd_unit_battle_g0_checkpoint(const char *label)
 {
 	return HdUnitBattleSpike::checkpoint(label) ? 1 : 0;

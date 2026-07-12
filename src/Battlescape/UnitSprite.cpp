@@ -301,6 +301,7 @@ void UnitSprite::blitBody(Part& body)
 				overlay.iso = (prio + 0.125f) / 2000000.0f;
 				static_cast<std::vector<Map::TileInstance>*>(_emitG0OverlayTarget)->push_back(overlay);
 				HdUnitBattleSpike::recordOverlayGeometry(_unit ? _unit->getId() : -1,
+					body.frameIdx, prio + 0.125f,
 					overlay.screenX, overlay.screenY,
 					(float)_emitUnitSpec->tileWidth, (float)_emitUnitSpec->tileHeight);
 				HdUnitBattleSpike::recordEmit(_unit ? _unit->getId() : -1,

@@ -405,7 +405,8 @@ void Map::emitTilePass()
 				const float iso = (float)prio / 2000000.0f;
 				if (partPrio == 6 && HdUnitBattleSpike::active())
 					HdUnitBattleSpike::recordForegroundOccluder(
-						mapPos.x, itY, itZ, partPrio,
+						mapPos.x, itY, itZ, partPrio, (float)prio, shade,
+						tile->getSprite(part), !grp.isRgba,
 						(float)(screenPos.x + mapOffsetX),
 						(float)(screenPos.y - tile->getYOffset(part) + mapOffsetY),
 						(float)_spriteWidth, (float)_spriteHeight);
@@ -1769,6 +1770,10 @@ void Map::drawTileGLPass()
 		drawAtlas(g.spec->g0OverlayAtlas, uvW, uvH,
 		          g.g0OverlayInstances.data(), g.g0OverlayInstances.size(), true, 0.0f);
 	}
+	if (HdUnitBattleSpike::active())
+		HdUnitBattleSpike::captureForegroundPixelProof(
+			useSsaa ? _ssaaW : prevVp[2], useSsaa ? _ssaaH : prevVp[3],
+			(int)SW, (int)SH, useSsaa && _ssaaIsHDR);
 	if (HdUnitBattleSpike::active())
 		HdUnitBattleSpike::recordGlError((unsigned)glGetError());
 	// Phase 20.4: track active blend func to avoid redundant GL calls.
