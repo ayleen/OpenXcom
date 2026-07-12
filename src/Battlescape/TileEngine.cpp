@@ -2356,6 +2356,29 @@ bool TileEngine::canTargetUnit(Position *originVoxel, Tile *tile, Position *scan
 
 	if (potentialUnit == excludeUnit) return false; //skip self
 
+	// Phase 43.1H: resolve the negative terrain-LOF cache for the acting faction.
+	// Only armed when the AI-shared-fields feature is on, obstacle reporting is not
+	// requested, the excluded unit is AI-controlled (and defines the faction), and that
+	// faction's turn cache exists and is valid. Calls with rememberObstacles=true need
+	// the original trajectory side effect and therefore bypass this prefilter. If the
+	// terrain-LOF slice is dirty we flush it and mark clean before use, mirroring the
+	// lazy-rebuild policy of the other per-faction fields. A null pointer here means
+	// "feature off / no cache" -> original path runs unchanged.
+	TerrainLofNegativeCache* terrainLofCache = 0;
+	if (_save->getMod()->getAISharedFields() && !rememberObstacles && excludeUnit != 0 && excludeUnit->isAIControlled())
+	{
+		FactionTurnCache* ftc = _save->getFactionTurnCache(excludeUnit->getFaction());
+		if (ftc != 0 && ftc->isValid())
+		{
+			if (ftc->isTerrainLofDirty())
+			{
+				ftc->getTerrainLofCache().clear();
+				ftc->markTerrainLofClean();
+			}
+			terrainLofCache = &ftc->getTerrainLofCache();
+		}
+	}
+
 	int targetMinHeight = targetVoxel.z - tile->getTerrainLevel();
 	targetMinHeight += potentialUnit->getFloatHeight();
 
@@ -2405,7 +2428,23 @@ bool TileEngine::canTargetUnit(Position *originVoxel, Tile *tile, Position *scan
 			scanVoxel->x=targetVoxel.x + sliceTargets[j*2];
 			scanVoxel->y=targetVoxel.y + sliceTargets[j*2+1];
 			_trajectory.clear();
+			// Phase 43.1H: negative terrain-LOF short-circuit. If the directed ray
+			// origin->scanVoxel is already known to be terrain-blocked, skip it
+			// without re-walking the voxel line. When the cache is absent (null)
+			// this test is skipped and the original path runs byte-for-byte.
+			if (terrainLofCache && terrainLofCache->isKnownBlocked(*originVoxel, *scanVoxel))
+			{
+				continue;
+			}
 			int test = calculateLineVoxel(*originVoxel, *scanVoxel, false, &_trajectory, excludeUnit);
+			// Phase 43.1H: remember only confirmed terrain-blocked rays (V_FLOOR
+			// through V_OBJECT inclusive). Never cache V_UNIT, V_EMPTY,
+			// V_OUTOFBOUNDS, or any clear/positive result -- the cache is
+			// negative-only; absence of an entry means "unknown", never "clear".
+			if (terrainLofCache && test >= V_FLOOR && test <= V_OBJECT)
+			{
+				terrainLofCache->rememberBlocked(*originVoxel, *scanVoxel);
+			}
 			if (test == V_UNIT)
 			{
 				for (int x = 0; x <= targetSize; ++x)
