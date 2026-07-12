@@ -1244,6 +1244,53 @@ void Mod::ensureUnitAtlas(SurfaceSet* ss, const std::string& name,
 	// overlay config is preserved while the R8 baseline is built into it.
 	UnitAtlasSpec& spec = _unitAtlases[name];
 
+	// Phase 42 E2: derive the routine-offset scale from actual source-frame
+	// dimensions, not from hard-coded 32x40 constants. Every selected PCK frame
+	// shares the same frame box; a malformed heterogeneous SurfaceSet or a
+	// non-integral/non-uniform RGBA ratio disables the overlay fail-closed.
+	spec.sourceFrameWidth = 0;
+	spec.sourceFrameHeight = 0;
+	spec.partOffsetScale = 1;
+	spec.partOffsetScaleConfigured =
+	    spec.rgbaFormat == UnitAtlasSpec::RgbaOverlayFormat::RgbaOverlay;
+	spec.partOffsetScaleValid = true;
+	for (size_t i = 0; i < ss->getTotalFrames(); ++i)
+	{
+		const Surface* frame = ss->getFrame((int)i);
+		if (!frame) continue;
+		const int w = frame->getWidth();
+		const int h = frame->getHeight();
+		if (spec.sourceFrameWidth == 0)
+		{
+			spec.sourceFrameWidth = w;
+			spec.sourceFrameHeight = h;
+		}
+		else if (w != spec.sourceFrameWidth || h != spec.sourceFrameHeight)
+		{
+			spec.partOffsetScaleValid = false;
+			break;
+		}
+	}
+	if (spec.partOffsetScaleConfigured)
+	{
+		const bool dimensionsValid = spec.sourceFrameWidth > 0 && spec.sourceFrameHeight > 0
+		    && spec.frameWidth > 0 && spec.frameHeight > 0
+		    && spec.frameWidth % spec.sourceFrameWidth == 0
+		    && spec.frameHeight % spec.sourceFrameHeight == 0;
+		const int scaleX = dimensionsValid ? spec.frameWidth / spec.sourceFrameWidth : 0;
+		const int scaleY = dimensionsValid ? spec.frameHeight / spec.sourceFrameHeight : 0;
+		spec.partOffsetScaleValid = spec.partOffsetScaleValid
+		    && dimensionsValid && scaleX > 0 && scaleX == scaleY;
+		if (spec.partOffsetScaleValid)
+			spec.partOffsetScale = scaleX;
+		else
+			Log(LOG_WARNING) << "unitAtlas[" << name << "]: RGBA frame "
+			                 << spec.frameWidth << "x" << spec.frameHeight
+			                 << " is not a uniform integer scale of source frame "
+			                 << spec.sourceFrameWidth << "x" << spec.sourceFrameHeight
+			                 << "; overlay and scaled part offsets disabled";
+	}
+
 	// R8 baseline (idempotent — never rebuild once atlas != null).
 	if (!spec.atlas)
 	{
@@ -1263,6 +1310,7 @@ void Mod::ensureUnitAtlas(SurfaceSet* ss, const std::string& name,
 	// Phase 42 E1: build/load the optional RGBA overlay pages (idempotent —
 	// never rebuild once rgbaOverlayPages is non-empty).
 	if (spec.rgbaFormat == UnitAtlasSpec::RgbaOverlayFormat::RgbaOverlay
+	 && spec.partOffsetScaleValid
 	 && spec.rgbaOverlayPages.empty()
 	 && !spec.pages.empty())
 	{
@@ -1293,6 +1341,11 @@ void Mod::clearUnitAtlases()
 		pair.second.rgbaRowsPerPage = 0;
 		pair.second.rgbaPageW = 0;
 		pair.second.rgbaPageH = 0;
+		pair.second.sourceFrameWidth = 0;
+		pair.second.sourceFrameHeight = 0;
+		pair.second.partOffsetScale = 1;
+		pair.second.partOffsetScaleConfigured = false;
+		pair.second.partOffsetScaleValid = true;
 		// Disposable G0 spike atlas (harness-owned lifetime, but cleared here on
 		// full mod teardown so a stale pointer can't survive a reload).
 		pair.second.g0OverlayAtlas = nullptr;

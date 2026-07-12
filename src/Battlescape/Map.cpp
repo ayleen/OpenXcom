@@ -1303,7 +1303,18 @@ void Map::drawUnit(UnitSprite &unitSprite, Tile *unitTile, Tile *currTile, Posit
 			const std::string& sheetName = bu->getArmor()->getSpriteSheet();
 			gpuUnitSpec = _game->getMod()->getUnitAtlas(sheetName);
 		}
-		if (gpuUnitSpec && gpuUnitSpec->atlas)
+		const Mod::UnitAtlasSpec* gpuItemSpec =
+		    gpuUnitAvail ? _game->getMod()->getUnitAtlas("HANDOB.PCK") : nullptr;
+		const int partOffsetScale = gpuUnitSpec
+		    ? gpuUnitSpec->partScaleForFrame(_spriteWidth, _spriteHeight) : 0;
+		const bool bodyScaleOk = partOffsetScale > 0;
+		// HANDOB without its own RGBA declaration inherits the body scale so a
+		// mixed HD-body/R8-weapon pilot stays attached. If HANDOB declares HD
+		// geometry, it must agree with both the body and live quad or the whole
+		// GPU unit emission fails closed to the existing CPU path.
+		const bool itemScaleOk = !gpuItemSpec
+		    || gpuItemSpec->partScaleForFrame(_spriteWidth, _spriteHeight) == partOffsetScale;
+		if (gpuUnitSpec && gpuUnitSpec->atlas && bodyScaleOk && itemScaleOk)
 		{
 			// Find or create UnitAtlasGroups; use indices to avoid iterator
 			// invalidation if push_back causes a vector reallocation.
@@ -1319,7 +1330,6 @@ void Map::drawUnit(UnitSprite &unitSprite, Tile *unitTile, Tile *currTile, Posit
 				return _unitAtlasGroups.size() - 1;
 			};
 			const size_t bodyIdx = ensureGroup(gpuUnitSpec);
-			const Mod::UnitAtlasSpec* gpuItemSpec = _game->getMod()->getUnitAtlas("HANDOB.PCK");
 			const bool haveItem = gpuItemSpec && gpuItemSpec->atlas;
 			const size_t itemIdx = haveItem ? ensureGroup(gpuItemSpec) : _unitAtlasGroups.size();
 			// Pass currTile's (Z, Y, X) so the GPU shader can derive an iso
@@ -1340,7 +1350,8 @@ void Map::drawUnit(UnitSprite &unitSprite, Tile *unitTile, Tile *currTile, Posit
 			    haveItem ? &_unitAtlasGroups[itemIdx].yLevels : nullptr,
 			    &_unitAtlasGroups[bodyIdx].g0OverlayInstances,
 			    &_unitAtlasGroups[bodyIdx].rgbaOverlayInstances,
-			    haveItem ? &_unitAtlasGroups[itemIdx].rgbaOverlayInstances : nullptr
+			    haveItem ? &_unitAtlasGroups[itemIdx].rgbaOverlayInstances : nullptr,
+			    partOffsetScale
 			);
 			unitSprite.draw(bu, part, tileScreenPosition.x + offsets.ScreenOffset.x, tileScreenPosition.y + offsets.ScreenOffset.y, shade, mask, _isAltPressed && !_isCtrlPressed);
 			unitSprite.clearEmitMode();

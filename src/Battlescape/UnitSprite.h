@@ -91,6 +91,7 @@ private:
 	void*                      _emitRgbaOverlayBodyPages = nullptr; // per-page Map::UnitAtlasGroup::RgbaOverlayInstance vectors
 	void*                      _emitRgbaOverlayItemPages = nullptr; // per-page Map::UnitAtlasGroup::RgbaOverlayInstance vectors
 	int                        _emitSequence = 0;
+	int                        _emitPartOffsetScale = 1; // E2: source-PCK offset -> live unit-quad pixels
 	/// Emit one production RGBA sibling instance. void pointers keep Map.h out
 	/// of this header; UnitSprite is a Map friend and casts them in the .cpp.
 	static void emitRgbaOverlay(const Mod::UnitAtlasSpec* spec, int frameIdx,
@@ -161,6 +162,9 @@ public:
 	static bool debugE1DepthProof();
 	static bool e1PainterOrderLess(float lhsIso, float rhsIso) { return lhsIso < rhsIso; }
 	static unsigned int debugE1FractionalPixel(bool reverseBuckets);
+	/// Phase 42 E2 harness helpers share the production offset transform.
+	static int debugE2ScaledOffset(int logicalOffset, int scale);
+	static bool debugE2OffsetProof();
 	/// Phase 14.2: redirect blitBody into bodyTarget and blitItem into itemTarget.
 	/// Both pointers must be std::vector<Map::TileInstance>* (cast to void*).
 	/// zTargetBody / zTargetItem: optional std::vector<int>* (cast to void*),
@@ -179,7 +183,8 @@ public:
 	                 void* yTargetBody = nullptr, void* yTargetItem = nullptr,
 	                 void* g0OverlayTarget = nullptr,
 	                 void* rgbaOverlayBodyPages = nullptr,
-	                 void* rgbaOverlayItemPages = nullptr)
+	                 void* rgbaOverlayItemPages = nullptr,
+	                 int partOffsetScale = 1)
 	{
 		_emitTarget     = bodyTarget;
 		_emitItemTarget = itemTarget;
@@ -195,6 +200,7 @@ public:
 		_emitG0OverlayTarget = g0OverlayTarget;
 		_emitRgbaOverlayBodyPages = rgbaOverlayBodyPages;
 		_emitRgbaOverlayItemPages = rgbaOverlayItemPages;
+		_emitPartOffsetScale = partOffsetScale > 0 ? partOffsetScale : 1;
 	}
 	void clearEmitMode()
 	{
@@ -213,6 +219,7 @@ public:
 		_emitRgbaOverlayBodyPages = nullptr;
 		_emitRgbaOverlayItemPages = nullptr;
 		_emitSequence = 0;
+		_emitPartOffsetScale = 1;
 	}
 #endif
 };

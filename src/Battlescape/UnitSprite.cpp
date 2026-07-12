@@ -31,6 +31,7 @@
 #include "Map.h"
 #include "../Engine/HdUnitBattleSpike.h"
 #include <algorithm>
+#include <cmath>
 #endif
 
 namespace OpenXcom
@@ -157,6 +158,13 @@ inline float boundedSubpriority(int sequence)
 	return kSubprioBase + (float)sequence * kSubprioStep;
 }
 
+inline bool scalePartOffset(int logicalOffset, int scale, float& scaled)
+{
+	if (scale <= 0) return false;
+	scaled = (float)logicalOffset * (float)scale;
+	return std::isfinite(scaled);
+}
+
 /**
  * Phase 42 E1: emit one production RGBA overlay instance for a body/item frame
  * into the matching per-page instance vector. No-op when the spec carries no
@@ -245,6 +253,26 @@ unsigned int UnitSprite::debugE1FractionalPixel(bool reverseBuckets)
 		a = src.a + (a * (255u - src.a) + 127u) / 255u;
 	}
 	return (r << 24) | (g << 16) | (b << 8) | a;
+}
+
+int UnitSprite::debugE2ScaledOffset(int logicalOffset, int scale)
+{
+	float scaled = 0.0f;
+	return scalePartOffset(logicalOffset, scale, scaled) ? (int)scaled : 0;
+}
+
+bool UnitSprite::debugE2OffsetProof()
+{
+	// Representative negative/zero/positive values cover direction tables,
+	// walk bob, kneel and item-height adjustment through their shared emit seam.
+	const int logical[] = {-7, -6, -2, -1, 0, 1, 2, 5, 7, 22};
+	for (int value : logical)
+	{
+		float scaled = 0.0f;
+		if (!scalePartOffset(value, 4, scaled) || scaled != (float)(value * 4)) return false;
+	}
+	float ignored = 0.0f;
+	return !scalePartOffset(1, 0, ignored);
 }
 
 void UnitSprite::emitRgbaOverlay(const Mod::UnitAtlasSpec* spec, int frameIdx,
@@ -352,8 +380,12 @@ void UnitSprite::blitItem(Part& item)
 		return;
 	}
 #ifdef __EMSCRIPTEN__
+	float emitOffX = 0.0f, emitOffY = 0.0f;
+	const bool emitOffsetsValid = scalePartOffset(item.offX, _emitPartOffsetScale, emitOffX)
+	                           && scalePartOffset(item.offY, _emitPartOffsetScale, emitOffY);
 	if (_emitItemTarget && _emitItemSpec && _emitItemSpec->atlas
-	    && item.frameIdx >= 0 && item.src->getShadeTable() != nullptr)
+	    && item.frameIdx >= 0 && item.src->getShadeTable() != nullptr
+	    && emitOffsetsValid)
 	{
 		auto* vec = static_cast<std::vector<Map::TileInstance>*>(_emitItemTarget);
 		const int col   = item.frameIdx % _emitItemSpec->columns;
@@ -361,8 +393,8 @@ void UnitSprite::blitItem(Part& item)
 		const float uvW = (float)_emitItemSpec->tileWidth  / (float)_emitItemSpec->atlasW;
 		const float uvH = (float)_emitItemSpec->tileHeight / (float)_emitItemSpec->atlasH;
 		Map::TileInstance inst;
-		inst.screenX        = (float)(_x + item.offX);
-		inst.screenY        = (float)(_y + item.offY);
+		inst.screenX        = (float)_x + emitOffX;
+		inst.screenY        = (float)_y + emitOffY;
 		inst.atlasU         = col * uvW;
 		inst.atlasV         = row * uvH;
 		inst.shade          = (float)_shade;
@@ -433,8 +465,11 @@ void UnitSprite::blitBody(Part& body)
 		return;
 	}
 #ifdef __EMSCRIPTEN__
+	float emitOffX = 0.0f, emitOffY = 0.0f;
+	const bool emitOffsetsValid = scalePartOffset(body.offX, _emitPartOffsetScale, emitOffX)
+	                           && scalePartOffset(body.offY, _emitPartOffsetScale, emitOffY);
 	if (_emitTarget && _emitUnitSpec && _emitUnitSpec->atlas
-	    && body.frameIdx >= 0)
+	    && body.frameIdx >= 0 && emitOffsetsValid)
 	{
 		auto* vec = static_cast<std::vector<Map::TileInstance>*>(_emitTarget);
 		const int col   = body.frameIdx % _emitUnitSpec->columns;
@@ -442,8 +477,8 @@ void UnitSprite::blitBody(Part& body)
 		const float uvW = (float)_emitUnitSpec->tileWidth  / (float)_emitUnitSpec->atlasW;
 		const float uvH = (float)_emitUnitSpec->tileHeight / (float)_emitUnitSpec->atlasH;
 		Map::TileInstance inst;
-		inst.screenX        = (float)(_x + body.offX);
-		inst.screenY        = (float)(_y + body.offY);
+		inst.screenX        = (float)_x + emitOffX;
+		inst.screenY        = (float)_y + emitOffY;
 		inst.atlasU         = col * uvW;
 		inst.atlasV         = row * uvH;
 		inst.shade          = (float)_shade;
