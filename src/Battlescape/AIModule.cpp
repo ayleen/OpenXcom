@@ -1114,6 +1114,14 @@ bool AIModule::medikit_think(BattleMediKitType healOrStim)
  */
 void AIModule::think(BattleAction *action)
 {
+	// Phase 43.1 (Calypso): wipe this actor's per-think spotter-count memo before anything else
+	// runs. think() is re-entered on every immediate rethink/pickup pass, and the world (unit
+	// positions, visibility, terrain) can change between those passes, so a cached count must
+	// never be reused across them. Placed first so it precedes every getSpottingUnits() call in
+	// this pass (the first is _spottingEnemies below) and, because brutalThink() is dispatched
+	// from within think(), the brutal path is covered by the same clear. No-op-sized when empty
+	// (ai.sharedFields off -> the memo is never populated).
+	_spotterCountMemo.clear();
 	// BattleAction is reused across immediate rethink/pickup passes. Execution metadata and
 	// audit scratch belong to exactly one pass and must never leak into the next candidate.
 	action->aiTargetId = -1;
@@ -2215,6 +2223,19 @@ int AIModule::countKnownTargets() const
  */
 int AIModule::getSpottingUnits(const Position& pos) const
 {
+	// Phase 43.1 (Calypso): when ai.sharedFields is on, memoize the exact spotter tally for
+	// `pos` for the lifetime of this single think() pass. The memo is per-AIModule because the
+	// result is actor-specific (this unit's validTarget/knowledge + the `_unit` stand-in used
+	// for the virtual LOF geometry), and it was cleared at the top of think() so a cached value
+	// always reflects the current world state of this pass. isEvaluated() is the gate so an
+	// UNKNOWN tile is never consumed: countAt() would return an optimistic 0 for one (the
+	// "nobody sees me" side, NOT decision-safe), so only an already-computed exact count --
+	// including a confirmed zero -- is returned here. With ai.sharedFields OFF the guard below
+	// short-circuits false and the original un-memoized sweep + return run unchanged.
+	if (_save->getMod()->getAISharedFields() && _spotterCountMemo.isEvaluated(pos))
+	{
+		return _spotterCountMemo.countAt(pos);
+	}
 	// if we don't actually occupy the position being checked, we need to do a virtual LOF check.
 	bool checking = pos != _unit->getPosition();
 	int tally = 0;
@@ -2242,6 +2263,15 @@ int AIModule::getSpottingUnits(const Position& pos) const
 				}
 			}
 		}
+	}
+	// Phase 43.1 (Calypso): record the exact tally (VERBATIM, including a confirmed zero) so the
+	// other callers of getSpottingUnits(pos) during this think() pass -- setupAmbush,
+	// setupEscape, findFirePoint and the _spottingEnemies seed in think() -- reuse it instead of
+	// re-walking every potential spotter's visibility. Gated on ai.sharedFields to keep the
+	// feature-off path byte-identical to the original un-memoized computation.
+	if (_save->getMod()->getAISharedFields())
+	{
+		_spotterCountMemo.storeExact(pos, tally);
 	}
 	return tally;
 }

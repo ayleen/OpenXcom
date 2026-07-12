@@ -22,6 +22,7 @@
 #include "Position.h"
 #include "Pathfinding.h" // Brutal-AI: PathfindingNode, PositionComparator
 #include "AIFailureMemory.h"
+#include "SpotterCountField.h" // Phase 43.1 (Calypso): per-actor exact spotter-count memo (by-value member)
 #include "../Savegame/BattleUnit.h"
 #include <vector>
 #include <set> // Brutal-AI
@@ -82,6 +83,17 @@ private:
 	UnitFaction _myFaction = FACTION_HOSTILE; // Brutal-AI
 	mutable int _committedAttackTargetId = -1; // Phase 43 (H5): target this unit committed to attacking this turn (-1 = none)
 	mutable int _committedAttackTurn = -1;     // Phase 43 (H5): the turn number _committedAttackTargetId was recorded for
+	// Phase 43.1 (Calypso): per-AIModule exact spotter-count memo. Owned per-actor and NOT in
+	// FactionTurnCache because getSpottingUnits()'s result is actor-specific -- it depends on
+	// this unit's validTarget()/knowledge profile and on the virtual target geometry handed to
+	// canTargetUnit (the `_unit` stand-in placed at a non-occupied pos). Lifetime is a SINGLE
+	// think() pass: cleared at the very top of think() so a cached count never survives world
+	// changes between immediate rethink passes. Written and read only inside getSpottingUnits()
+	// and only when ai.sharedFields is on; with the flag off the member stays empty and unused.
+	// Mutable because getSpottingUnits() is const. An unknown tile is NEVER consumed -- the
+	// isEvaluated() gate is the only thing that separates a confirmed (incl. zero) count from
+	// a never-evaluated tile whose countAt() would optimistically read 0 (see SpotterCountField.h).
+	mutable SpotterCountField _spotterCountMemo;
 	AIFailureMemory _failureMemory;
 	std::string _auditReason, _auditRunnerUp;
 	float _auditBestScore = 0.0f, _auditRunnerUpScore = 0.0f;
