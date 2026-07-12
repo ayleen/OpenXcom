@@ -130,6 +130,14 @@ public:
 		return it == field.end() ? 0.0f : it->second;
 	}
 
+	/// Conservative prefilter: only a completed strictly-positive evaluation can
+	/// confirm danger. Unknown and evaluated-zero both return false so callers
+	/// must run their original full visibility check.
+	bool confirmsDangerAt(const Position& pos) const
+	{
+		return isEvaluated(pos) && threatAt(pos) > 0.0f;
+	}
+
 	/// Wipe all stamped danger immediately.
 	void clear()
 	{

@@ -5075,7 +5075,9 @@ void AIModule::brutalThink(BattleAction* action)
 				if (!isNode && getCoverValue(tile, _unit, 3) == 0)
 					validCover = false;
 			}
-			if (_unit->getMainHandWeapon() != NULL && outOfRangeForShortRangeWeapon && isPositionVisibleToEnemy(pos, true))
+			const bool sharedThreatConfirmsDanger = sharedThreatField && sharedThreatField->confirmsDangerAt(pos);
+			if (_unit->getMainHandWeapon() != NULL && outOfRangeForShortRangeWeapon
+				&& (sharedThreatConfirmsDanger || isPositionVisibleToEnemy(pos, true)))
 				validCover = false;
 			if (!sweepMode && validCover)
 			{
