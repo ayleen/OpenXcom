@@ -862,6 +862,7 @@ if(NOT EMSCRIPTEN AND BUILD_TESTING)
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/Phase43CompositionTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/FactionTurnCacheTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/FriendReachableFieldTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/ThreatFieldTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/AIEvaluationBudgetTest.cpp)
 
     add_executable(oxce_unit_tests ${OXCE_TEST_SOURCES})

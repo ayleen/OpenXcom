@@ -19,6 +19,7 @@
  */
 
 #include "FriendReachableField.h"
+#include "ThreatField.h"
 
 namespace OpenXcom
 {
@@ -64,14 +65,24 @@ struct FactionTurnCache
 	/// the field builder; wiped on turn start and on terrain mutation (see friendReachableDirty).
 	FriendReachableField friendReachable;
 
+	/// Live threat accumulator (phase 43.1F). Stamped by the threat field builder;
+	/// wiped on turn start and on terrain mutation (see threatDirty).
+	ThreatField threat;
+
 	/// Mutable access to the friendReachable accumulator (field builders stamp/un-stamp here).
 	FriendReachableField& getFriendReachable() { return friendReachable; }
 	/// Const access to the friendReachable accumulator.
 	const FriendReachableField& getFriendReachable() const { return friendReachable; }
 
+	/// Mutable access to the threat accumulator (field builders stamp here).
+	ThreatField& getThreatField() { return threat; }
+	/// Const access to the threat accumulator.
+	const ThreatField& getThreatField() const { return threat; }
+
 	/// Arm the cache for the start of a faction turn: record the turn and mark every
 	/// terrain-sensitive field dirty. terrainRevision is left untouched (see class note).
-	/// The friendReachable accumulator is wiped so it is rebuilt lazily on first read.
+	/// The friendReachable accumulator and threat accumulator are wiped so they are
+	/// rebuilt lazily on first read.
 	void beginTurn(int turn)
 	{
 		activeTurn = turn;
@@ -79,6 +90,7 @@ struct FactionTurnCache
 		friendReachableDirty = true;
 		terrainLofDirty = true;
 		friendReachable.clear();
+		threat.clear();
 	}
 
 	/// True once beginTurn has armed the cache for a real turn; false in the default state.
@@ -110,8 +122,8 @@ struct FactionTurnCache
 
 	/// Terrain mutation (explosion / wall destruction / door state): bump the global revision
 	/// and dirty every terrain-sensitive field. Independent of the armed turn. The
-	/// friendReachable accumulator is wiped (its underlying BFS memo is terrain-keyed and
-	/// must be rebuilt).
+	/// friendReachable accumulator and threat accumulator are wiped (their content is
+	/// terrain-keyed and must be rebuilt).
 	void onTerrainChanged()
 	{
 		++terrainRevision;
@@ -119,6 +131,7 @@ struct FactionTurnCache
 		friendReachableDirty = true;
 		terrainLofDirty = true;
 		friendReachable.clear();
+		threat.clear();
 	}
 };
 
