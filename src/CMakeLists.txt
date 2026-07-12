@@ -865,7 +865,8 @@ if(NOT EMSCRIPTEN AND BUILD_TESTING)
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/TerrainLofNegativeCacheTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/ThreatFieldTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/AICandidateOrderTest.cpp
-        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/AIEvaluationBudgetTest.cpp)
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/AIEvaluationBudgetTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/AITargetRankTest.cpp)
 
     add_executable(oxce_unit_tests ${OXCE_TEST_SOURCES})
     target_link_libraries(oxce_unit_tests PRIVATE oxce_test_doctest)
