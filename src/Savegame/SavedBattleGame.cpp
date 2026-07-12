@@ -2956,7 +2956,17 @@ void SavedBattleGame::beginFactionTurnCache(UnitFaction faction)
 		return;
 	if (!factionTurnCacheValid(faction))
 		return; // invalid faction rejected safely -- no write
-	_factionTurnCaches[faction].beginTurn(_turn);
+	FactionTurnCache& cache = _factionTurnCaches[faction];
+	// beginTurn PRESERVES the occupancy field and its arm marker (it only arms the
+	// cache and dirties the terrain-sensitive aggregates), so advance the occupancy
+	// cadence AFTER it. advanceOccupancyToTurn is idempotent per its contract: the
+	// first arm stamps the baseline without decaying, a repeat for the same turn is a
+	// no-op (no double-decay), and any skipped turns are caught up by the method.
+	cache.beginTurn(_turn);
+	cache.advanceOccupancyToTurn(_turn, _mapsize_x, _mapsize_y, _mapsize_z,
+		getMod()->getAIOccupancyRetainPercent(),
+		getMod()->getAIOccupancySpreadPercent(),
+		1000);
 }
 
 void SavedBattleGame::notifyFactionTurnTerrainChanged()
