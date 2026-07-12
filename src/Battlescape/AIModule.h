@@ -37,6 +37,7 @@ struct BattleAction;
 class BattlescapeState;
 class Node;
 class FriendReachableField; // Phase 43.1E (Calypso): shared friendReachable field, defined in Savegame/FriendReachableField.h
+class TerrainLofNegativeCache; // Phase 43.1I (Calypso): shared negative terrain-LOF cache, defined in Savegame/TerrainLofNegativeCache.h
 
 enum AIMode { AI_PATROL, AI_AMBUSH, AI_COMBAT, AI_ESCAPE };
 enum AIAttackWeight : int
@@ -131,6 +132,14 @@ private:
 	/// contributions); returns nullptr otherwise so callers fall back to the legacy
 	/// per-unit local map. Never overwrites _ranOutOfTUs (uses a local flag).
 	FriendReachableField* prepareSharedFriendReachable();
+	/// Phase 43.1I (Calypso): returns the live shared negative terrain-LOF cache
+	/// for this unit's faction when the mod enables ai.sharedFields and a valid
+	/// faction turn-cache exists, flushing it lazily (dirty -> clear + mark
+	/// clean) before returning the live cache; returns nullptr otherwise so
+	/// callers fall back to the original uncached trace. Mirrors the lazy-rebuild
+	/// policy of prepareSharedFriendReachable but is a pure read/remember surface
+	/// that never recomputes terrain state.
+	TerrainLofNegativeCache* prepareSharedTerrainLofCache();
 public:
 	void beginActivation();
 	void recordFailedAttempt(const BattleAction& action);

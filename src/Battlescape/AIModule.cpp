@@ -6757,6 +6757,10 @@ bool AIModule::quickLineOfFire(Position pos, BattleUnit* target, bool beOkayWith
 	// In fleeMode we don't ignore ourselves because otherwise we think we can take cover behind ourselves
 	if (fleeMode && pos != _unit->getPosition())
 		unitToIgnore = NULL;
+	// Phase 43.1I (Calypso): shared negative terrain-LOF cache for this faction.
+	// Obtained once; a null pointer (feature off / no cache) makes every ray
+	// fall through to the original uncached trace, byte-for-byte.
+	TerrainLofNegativeCache* terrainLofCache = prepareSharedTerrainLofCache();
 	for (int x = 0; x < target->getArmor()->getSize(); ++x)
 		for (int y = 0; y < target->getArmor()->getSize(); ++y)
 		{
@@ -6769,7 +6773,20 @@ bool AIModule::quickLineOfFire(Position pos, BattleUnit* target, bool beOkayWith
 			targetVoxel += TileEngine::voxelTileCenter;
 			targetVoxel.z -= targetTile->getTerrainLevel();
 			std::vector<Position> trajectory;
-			if (_save->getTileEngine()->calculateLineVoxel(originVoxel, targetVoxel, false, &trajectory, unitToIgnore, NULL, false) == V_UNIT)
+			// Negative cache short-circuit: if the directed ray origin->targetVoxel
+			// is already known terrain-blocked, skip it without re-walking the line.
+			if (terrainLofCache && terrainLofCache->isKnownBlocked(originVoxel, targetVoxel))
+			{
+				continue;
+			}
+			int lofTest = _save->getTileEngine()->calculateLineVoxel(originVoxel, targetVoxel, false, &trajectory, unitToIgnore, NULL, false);
+			// Remember only confirmed terrain-blocked rays (V_FLOOR..V_OBJECT).
+			// Never cache V_UNIT / V_EMPTY / V_OUTOFBOUNDS -- the cache is negative-only.
+			if (terrainLofCache && lofTest >= V_FLOOR && lofTest <= V_OBJECT)
+			{
+				terrainLofCache->rememberBlocked(originVoxel, targetVoxel);
+			}
+			if (lofTest == V_UNIT)
 			{
 				if (targetVoxel.toTile() == trajectory.begin()->toTile())
 					return true;
@@ -6794,8 +6811,25 @@ bool AIModule::clearSight(Position pos, Position target)
 	originVoxel.z -= tile->getTerrainLevel();
 	Position targetVoxel = target.toVoxel() + TileEngine::voxelTileCenter;
 	targetVoxel.z -= targetTile->getTerrainLevel();
+	// Phase 43.1I (Calypso): shared negative terrain-LOF cache for this faction.
+	// Obtained once; a null pointer (feature off / no cache) falls through to the
+	// original uncached trace, byte-for-byte.
+	TerrainLofNegativeCache* terrainLofCache = prepareSharedTerrainLofCache();
+	// Negative cache short-circuit: a known terrain-blocked ray has no clear sight.
+	if (terrainLofCache && terrainLofCache->isKnownBlocked(originVoxel, targetVoxel))
+	{
+		return false;
+	}
 	std::vector<Position> trajectory;
-	if (_save->getTileEngine()->calculateLineVoxel(originVoxel, targetVoxel, false, &trajectory, _unit, NULL, false) == V_EMPTY)
+	int lofTest = _save->getTileEngine()->calculateLineVoxel(originVoxel, targetVoxel, false, &trajectory, _unit, NULL, false);
+	// Remember only confirmed terrain-blocked rays (V_FLOOR..V_OBJECT). Never cache
+	// V_EMPTY / V_UNIT / V_OUTOFBOUNDS -- the cache is negative-only.
+	if (terrainLofCache && lofTest >= V_FLOOR && lofTest <= V_OBJECT)
+	{
+		terrainLofCache->rememberBlocked(originVoxel, targetVoxel);
+	}
+	// Original return: true only for V_EMPTY, byte-for-byte.
+	if (lofTest == V_EMPTY)
 		return true;
 	return false;
 }
@@ -7914,6 +7948,39 @@ FriendReachableField* AIModule::prepareSharedFriendReachable()
 		cache->markFriendReachableClean();
 	}
 	return &field;
+}
+
+/**
+ * Phase 43.1I (Calypso): returns the live shared negative terrain-LOF cache for
+ * this unit's faction, or nullptr when the feature is off / no cache applies.
+ *
+ * Mirrors the gating of prepareSharedFriendReachable / the TileEngine prefilter:
+ *   - the mod must enable ai.sharedFields;
+ *   - the calling unit must be AI-controlled (it defines the faction whose
+ *     cache we are consulting);
+ *   - the faction's turn cache must exist and be valid.
+ * When the per-faction terrain-LOF slice is dirty we flush it once and mark it
+ * clean (lazy rebuild, matching the other per-faction fields); otherwise we
+ * return the live cache as-is. A null return means "feature off / no cache",
+ * and every caller must fall back to the original uncached trace (byte-identical
+ * behavior). The cache is a pure remember/query surface -- this helper never
+ * walks a voxel line or changes an AI decision.
+ */
+TerrainLofNegativeCache* AIModule::prepareSharedTerrainLofCache()
+{
+	if (!_save->getMod()->getAISharedFields())
+		return nullptr;
+	if (!_unit->isAIControlled())
+		return nullptr;
+	FactionTurnCache* cache = _save->getFactionTurnCache(_unit->getFaction());
+	if (cache == nullptr || !cache->isValid())
+		return nullptr;
+	if (cache->isTerrainLofDirty())
+	{
+		cache->getTerrainLofCache().clear();
+		cache->markTerrainLofClean();
+	}
+	return &cache->getTerrainLofCache();
 }
 
 const std::map<Position, int, PositionComparator>& AIModule::getReachableBy(BattleUnit* unit, bool& ranOutOfTUs, bool forceRecalc, bool useMaxTUs, bool pruneAirTiles)
