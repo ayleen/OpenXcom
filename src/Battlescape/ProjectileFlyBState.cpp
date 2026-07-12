@@ -35,6 +35,7 @@
 #include "../Mod/RuleItem.h"
 #include "../Engine/Options.h"
 #include "AIModule.h"
+#include "AIOccupancyClue.h"
 #include "Camera.h"
 #include "Explosion.h"
 #include "BattlescapeState.h"
@@ -1099,6 +1100,39 @@ void ProjectileFlyBState::projectileHitUnit(Position pos)
 	BattleUnit *targetVictim = _parent->getSave()->getTile(_action.target)->getUnit(); // Who we were aiming at (not necessarily who we hit)
 	if (victim && !victim->isOut())
 	{
+		// Phase 43.1 (Calypso): directional-hit occupancy clue. A confirmed hit tells
+		// the VICTIM's faction that a hostile gun lies somewhere along the victim ->
+		// shot-origin ray. We never feed the exact attacker tile to the occupancy
+		// map: the pure helper below walks at most 8 Chebyshev steps from the victim
+		// toward the shooter, and collapses to the victim tile itself when the two
+		// coincide (no usable direction). Only the victim's faction map is spiked,
+		// at the bounded clue tile -- never at _unit->getPosition() directly.
+		//
+		// Gate order is deliberate: ai.sharedFields is the cheap feature gate, so with
+		// the flag off we stop there and do no occupancy work at all (no clue math, no
+		// spike). The current-faction test -- NOT original faction -- excludes self and
+		// friendly-fire in the presence of mind control: a shot fired by a unit that is
+		// currently on the victim's faction carries no enemy-direction information.
+		// spikeFactionOccupancy re-checks ai.sharedFields and validates the faction
+		// range, on-map bounds (getTile), and amount, so we deliberately do NOT
+		// re-check getTile(clue) or clamp here -- it owns the final validation.
+		if (_unit && _parent->getSave()->getMod()->getAISharedFields()
+			&& _unit->getFaction() != victim->getFaction())
+		{
+			const int hitSpike = _parent->getSave()->getMod()->getAIOccupancyHitSpike();
+			if (hitSpike > 0)
+			{
+				const Position clue = projectDirectionalHitClue(victim->getPosition(), _unit->getPosition(), 8);
+				// Skip the no-direction degenerate case (helper returned the victim
+				// tile): spiking the victim's own tile with a hit-signal would be
+				// noise, not a direction hint.
+				if (clue != victim->getPosition())
+				{
+					_parent->getSave()->spikeFactionOccupancy(victim->getFaction(), clue, hitSpike);
+				}
+			}
+		}
+
 		victim->getStatistics()->hitCounter++;
 		if (_unit->getOriginalFaction() == FACTION_PLAYER && victim->getOriginalFaction() == FACTION_PLAYER)
 		{
