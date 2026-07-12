@@ -28,6 +28,8 @@
 #include <algorithm>
 #include "Game.h"
 #include "Screen.h"
+#include "Surface.h"
+#include "SurfaceSet.h"
 #include "Options.h"
 #include "ShaderManager.h"
 #include "GpuTexture.h"
@@ -520,6 +522,54 @@ int calypso_unit_atlas_probe(const char *sheet, const char *outJsonPath)
 		  << ",\"pageW\":" << spec->rgbaPageW << ",\"pageH\":" << spec->rgbaPageH
 		  << ",\"framesPerPage\":" << spec->rgbaFramesPerPage
 		  << ",\"rowsPerPage\":" << spec->rgbaRowsPerPage << "}";
+		const int liveTileScale = g->getMod()->getBattlescapeTileScale();
+		const SurfaceSet* blanks = g->getMod()->getSurfaceSet("BLANKS.PCK", false);
+		const Surface* blankFrame = blanks ? blanks->getFrame(0) : nullptr;
+		// Match Map construction exactly: the live unit quad is based on the
+		// BLANKS frame box, not on the body sheet being probed.
+		const int liveFrameW = blankFrame ? blankFrame->getWidth() * liveTileScale : 0;
+		const int liveFrameH = blankFrame ? blankFrame->getHeight() * liveTileScale : 0;
+		const int bodyRuntimeScale = spec->partScaleForFrame(liveFrameW, liveFrameH);
+		const Mod::UnitAtlasSpec* handobSpec = g->getMod()->getUnitAtlas("HANDOB.PCK");
+		const int handobRuntimeScale = handobSpec
+		    ? handobSpec->partScaleForFrame(liveFrameW, liveFrameH)
+		    : bodyRuntimeScale;
+		const bool handobScaleCompatible = handobRuntimeScale == bodyRuntimeScale;
+		const bool r8FallbackScaled = bodyRuntimeScale > 0;
+		Mod::UnitAtlasSpec mismatchedHandob;
+		mismatchedHandob.sourceFrameWidth = 16;
+		mismatchedHandob.sourceFrameHeight = 20;
+		const bool mismatchRejected = mismatchedHandob.partScaleForFrame(128, 160) != 4;
+		const bool declaredScaleCompatible = !spec->partOffsetScaleConfigured
+		    || (spec->partOffsetScaleValid && spec->partOffsetScale == bodyRuntimeScale);
+		const bool e2Passed = UnitSprite::debugE2OffsetProof()
+		    && r8FallbackScaled && bodyRuntimeScale == liveTileScale
+		    && declaredScaleCompatible && handobScaleCompatible && mismatchRejected;
+		o << ",\"e2PartOffsetScale\":{\"sourceFrame\":["
+		  << spec->sourceFrameWidth << "," << spec->sourceFrameHeight << "]"
+		  << ",\"declaredFrame\":[" << spec->frameWidth << "," << spec->frameHeight << "]"
+		  << ",\"liveRenderFrame\":[" << liveFrameW << "," << liveFrameH << "]"
+		  << ",\"configured\":" << (spec->partOffsetScaleConfigured ? "true" : "false")
+		  << ",\"valid\":" << (spec->partOffsetScaleValid ? "true" : "false")
+		  << ",\"declaredScale\":" << spec->partOffsetScale
+		  << ",\"runtimeScale\":" << bodyRuntimeScale
+		  << ",\"handobRuntimeScale\":" << handobRuntimeScale
+		  << ",\"representativeLogicalOffsets\":[-7,-2,-1,0,1,2,7,22]"
+		  << ",\"representativeScale4Offsets\":["
+		  << UnitSprite::debugE2ScaledOffset(-7, 4) << ","
+		  << UnitSprite::debugE2ScaledOffset(-2, 4) << ","
+		  << UnitSprite::debugE2ScaledOffset(-1, 4) << ","
+		  << UnitSprite::debugE2ScaledOffset(0, 4) << ","
+		  << UnitSprite::debugE2ScaledOffset(1, 4) << ","
+		  << UnitSprite::debugE2ScaledOffset(2, 4) << ","
+		  << UnitSprite::debugE2ScaledOffset(7, 4) << ","
+		  << UnitSprite::debugE2ScaledOffset(22, 4) << "]"
+		  << ",\"sharedBodyHandobScale\":" << (handobScaleCompatible ? "true" : "false")
+		  << ",\"mismatchedHandobRejected\":" << (mismatchRejected ? "true" : "false")
+		  << ",\"appliesToR8Fallback\":" << (r8FallbackScaled ? "true" : "false")
+		  << ",\"centralEmitSeam\":\"blitBody+blitItem\""
+		  << ",\"passed\":" << (e2Passed ? "true" : "false")
+		  << "}";
 		int hdCount = 0;
 		for (uint8_t v : spec->rgbaHasHd) if (v) ++hdCount;
 		const int fallbackCount = (int)spec->rgbaHasHd.size() - hdCount;

@@ -381,6 +381,13 @@ public:
 		int                      rgbaRowsPerPage   = 0;
 		int                      rgbaPageW         = 0; // page pixel width  (rgbaColumns * frameWidth)
 		int                      rgbaPageH         = 0; // page pixel height (rgbaRowsPerPage * frameHeight)
+		// Phase 42 E2: drawRoutine* offsets are source-PCK pixels. Derive one
+		// uniform scale from the declared RGBA cell and the real source frame.
+		int                      sourceFrameWidth  = 0;
+		int                      sourceFrameHeight = 0;
+		int                      partOffsetScale   = 1;
+		bool                     partOffsetScaleConfigured = false;
+		bool                     partOffsetScaleValid      = true;
 
 		/// True when at least one RGBA overlay page is configured AND loaded.
 		bool hasRgbaOverlay() const {
@@ -395,6 +402,22 @@ public:
 		int framePageOf(int frame) const {
 			return (frame >= 0 && (size_t)frame < rgbaPageOf.size())
 			       ? rgbaPageOf[(size_t)frame] : -1;
+		}
+		/// Resolve the source-PCK-pixel -> live-quad scale for every sheet,
+		/// including R8-only fallback. A declared RGBA scale must match it.
+		int partScaleForFrame(int renderW, int renderH) const {
+			if (!partOffsetScaleValid || sourceFrameWidth <= 0 || sourceFrameHeight <= 0
+			 || renderW <= 0 || renderH <= 0
+			 || renderW % sourceFrameWidth != 0 || renderH % sourceFrameHeight != 0)
+				return 0;
+			const int scaleX = renderW / sourceFrameWidth;
+			const int scaleY = renderH / sourceFrameHeight;
+			if (scaleX <= 0 || scaleX != scaleY) return 0;
+			if (partOffsetScaleConfigured && scaleX != partOffsetScale) return 0;
+			return scaleX;
+		}
+		bool partScaleMatchesFrame(int renderW, int renderH) const {
+			return partScaleForFrame(renderW, renderH) > 0;
 		}
 	};
 #endif
