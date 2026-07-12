@@ -2035,6 +2035,16 @@ void AIModule::setupEscape()
 		{
 			threatField = prepareSharedThreatField(enemyField->getAggregate());
 		}
+		// Phase 43.1 (Calypso): live occupancy lookup. This block already runs only
+		// under ai.sharedFields, so the acting-faction cache (armed at the faction-
+		// turn seam) is the compatible source. Obtain it ONCE per ranking block and
+		// read it const-only -- this rank consumes occupancy, it never spikes or
+		// advances the field (no mutation of occupancy/occupancyLastAdvancedTurn).
+		// A null/invalid cache degrades to the field's zero baseline, identical to
+		// the old placeholder 0, so feature-off / cache-miss ordering is unchanged.
+		const FactionTurnCache* occupancyCache = _save->getFactionTurnCache(_unit->getFaction());
+		const OccupancyField* occupancyField =
+			(occupancyCache != nullptr && occupancyCache->isValid()) ? &occupancyCache->getOccupancyField() : nullptr;
 		const Position actorPos = _unit->getPosition();
 		const bool hasAggroTarget = _aggroTarget != nullptr;
 		const Position aggroPos = hasAggroTarget ? _aggroTarget->getPosition() : Position(0, 0, 0);
@@ -2049,7 +2059,7 @@ void AIModule::setupEscape()
 			rankedOffsets.push_back(RankedEscapeCandidate(
 				AIEscapeCandidateRank{
 					threatField ? threatField->threatAt(pos) : 0.0f,
-					0,
+					occupancyField ? occupancyField->valueAt(pos) : 0,
 					hasAggroTarget,
 					hasAggroTarget ? Position::distanceSq(pos, aggroPos) : 0,
 					Position::distanceSq(pos, actorPos),
@@ -5000,6 +5010,17 @@ void AIModule::brutalThink(BattleAction* action)
 		const std::vector<PathfindingNode*>* movementCandidates = &_allPathFindingNodes;
 		if (useDeterministicEvalBudget)
 		{
+			// Phase 43.1 (Calypso): live occupancy lookup. This block already runs
+			// only under ai.sharedFields (via useDeterministicEvalBudget), so the
+			// acting-faction cache (armed at the faction-turn seam) is the compatible
+			// source. Obtain it ONCE per ranking block and read it const-only -- this
+			// rank consumes occupancy, it never spikes or advances the field (no
+			// mutation of occupancy / occupancyLastAdvancedTurn). A null/invalid cache
+			// degrades to the field's zero baseline, identical to the old placeholder
+			// 0, so cache-miss ordering is unchanged; feature-off never reaches here.
+			const FactionTurnCache* occupancyCache = _save->getFactionTurnCache(_unit->getFaction());
+			const OccupancyField* occupancyField =
+				(occupancyCache != nullptr && occupancyCache->isValid()) ? &occupancyCache->getOccupancyField() : nullptr;
 			typedef std::pair<AICandidateRank, PathfindingNode*> RankedMovementCandidate;
 			std::vector<RankedMovementCandidate> rankedCandidates;
 			rankedCandidates.reserve(_allPathFindingNodes.size());
@@ -5008,7 +5029,7 @@ void AIModule::brutalThink(BattleAction* action)
 				const Position pos = candidate->getPosition();
 				rankedCandidates.push_back(RankedMovementCandidate(
 					AICandidateRank{sharedThreatField ? sharedThreatField->threatAt(pos) : 0.0f,
-						0,
+						occupancyField ? occupancyField->valueAt(pos) : 0,
 						Position::distanceSq(pos, targetPosition), pos}, candidate));
 			}
 			std::sort(rankedCandidates.begin(), rankedCandidates.end(),
