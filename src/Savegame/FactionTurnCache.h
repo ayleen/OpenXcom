@@ -21,6 +21,7 @@
 #include "FriendReachableField.h"
 #include "TerrainLofNegativeCache.h"
 #include "ThreatField.h"
+#include <map>
 
 namespace OpenXcom
 {
@@ -61,6 +62,8 @@ namespace OpenXcom
  */
 struct FactionTurnCache
 {
+	using PendingThreatSightings = std::map<int, Position>;
+
 	int activeTurn = -1;               // faction turn this cache was last armed for; -1 == invalid
 	bool threatDirty = true;           // threat field stale -> rebuild lazily on next query
 	bool friendReachableDirty = true;  // friendReachable aggregate stale -> rebuild lazily
@@ -74,6 +77,11 @@ struct FactionTurnCache
 	/// Live threat accumulator (phase 43.1F). Stamped by the threat field builder;
 	/// wiped on turn start and on terrain mutation (see threatDirty).
 	ThreatField threat;
+
+	/// New or updated fair-knowledge sightings that a clean threat producer has not
+	/// absorbed yet. The latest tile wins per enemy id, so repeated FOV refreshes do
+	/// not grow the queue. This is transient producer input, not serialized state.
+	PendingThreatSightings pendingThreatSightings;
 
 	/// Live negative-only terrain-LOF cache (phase 43.1G). Remembers directed
 	/// terrain-blocked voxel rays; flushed on turn start and on terrain mutation
@@ -90,6 +98,22 @@ struct FactionTurnCache
 	ThreatField& getThreatField() { return threat; }
 	/// Const access to the threat accumulator.
 	const ThreatField& getThreatField() const { return threat; }
+
+	/// Latest pending fair-known tile for each newly/again spotted enemy.
+	const PendingThreatSightings& getPendingThreatSightings() const { return pendingThreatSightings; }
+
+	/// Record producer input only for an armed faction cache. This deliberately does
+	/// not mutate the threat field or its dirty flag: the later producer owns the
+	/// exact gameplay formula and can consume these events incrementally.
+	void recordKnowledgeChanged(int enemyId, const Position& knownTile)
+	{
+		if (!isValid())
+			return;
+		pendingThreatSightings[enemyId] = knownTile;
+	}
+
+	/// Called after a threat producer has absorbed every queued sighting.
+	void clearPendingThreatSightings() { pendingThreatSightings.clear(); }
 
 	/// Mutable access to the terrain-LOF negative cache (field builders remember
 	/// directed blocked rays here).
@@ -109,6 +133,7 @@ struct FactionTurnCache
 		terrainLofDirty = true;
 		friendReachable.clear();
 		threat.clear();
+		pendingThreatSightings.clear();
 		terrainLof.clear();
 	}
 
@@ -151,6 +176,9 @@ struct FactionTurnCache
 		terrainLofDirty = true;
 		friendReachable.clear();
 		threat.clear();
+		// A full terrain-driven threat rebuild must read authoritative current
+		// knowledge, so queued incremental inputs are redundant after this point.
+		pendingThreatSightings.clear();
 		terrainLof.clear();
 	}
 };

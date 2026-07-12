@@ -1525,6 +1525,7 @@ bool TileEngine::calculateUnitsInFOV(BattleUnit* unit, const Position eventPos, 
 								bu->setTileLastSpotted(_save->getTileIndex(bu->getPosition()), unit->getFaction());
 								bu->setTileLastSpotted(_save->getTileIndex(bu->getPosition()), unit->getFaction(), true);
 								bu->setTurnsSinceSeen(0, unit->getFaction());
+								_save->notifyFactionTurnKnowledgeChanged(unit->getFaction(), bu, bu->getPosition());
 							}
 
 							x = y = sizeOther; //If a unit's tile is visible there's no need to check the others: break the loops.

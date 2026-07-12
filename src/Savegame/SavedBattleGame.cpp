@@ -2971,6 +2971,19 @@ void SavedBattleGame::notifyFactionTurnTerrainChanged()
 	}
 }
 
+void SavedBattleGame::notifyFactionTurnKnowledgeChanged(UnitFaction observerFaction, BattleUnit *enemy, const Position& knownTile)
+{
+	if (!getMod()->getAISharedFields() || !enemy || observerFaction != _side)
+		return;
+	FactionTurnCache* cache = getFactionTurnCache(observerFaction);
+	if (!cache)
+		return;
+	// recordKnowledgeChanged also rejects an unarmed cache. Off-side reaction FOV
+	// updates authoritative BattleUnit knowledge above, but need not queue producer
+	// input: that faction's next beginTurn rebuilds from the authoritative state.
+	cache->recordKnowledgeChanged(enemy->getId(), knownTile);
+}
+
 // Phase 43.1E (Calypso): unit-lifecycle notifications for the per-faction
 // friendReachable accumulator. Each method first gates on ai.sharedFields
 // (matching beginFactionTurnCache / notifyFactionTurnTerrainChanged), tolerates
