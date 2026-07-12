@@ -22,6 +22,7 @@
 #include <utility>
 #include "AIModule.h"
 #include "AICandidateOrder.h"
+#include "AIEscapeCandidateOrder.h" // Phase 43.1 (Calypso): deterministic order for the setupEscape tile search
 #include "AIEvaluationBudget.h"
 #include "AITargetRank.h" // Phase 43.1S (Calypso): deterministic total order for the Phase-1 enemy scan
 #include "../Mod/AITuning.h"
@@ -2010,6 +2011,60 @@ void AIModule::setupEscape()
 
 	std::vector<Position> randomTileSearch = _save->getTileSearch();
 	RNG::shuffle(randomTileSearch);
+
+	// Phase 43.1 (Calypso): when ai.sharedFields is on, replace the RNG-shuffled escape
+	// tile order with a deterministic one. We reuse the existing compatible shared
+	// enemyReachable + ThreatField -- prepareSharedEnemyReachable(bool&) returns the live
+	// per-faction accumulator (or nullptr) and prepareSharedThreatField(enemyField->getAggregate())
+	// returns the live threat memo (or nullptr). No new producer is built here and the
+	// forceRebuild out-parameter is intentionally not acted on. Each systematic offset's
+	// absolute candidate position (actor position + offset.x/y, mirroring the loop below
+	// which only applies x and y) is ranked by threatAt(pos), the aggro-target escape bias
+	// (present/absent, then squared distance from _aggroTarget when present), squared
+	// movement distance from the actor, and finally position; offsets are then sorted by
+	// AIEscapeCandidateRankLess and the deterministic order replaces randomTileSearch. A
+	// nullptr or empty enemyReachable/ThreatField degrades to threat 0 everywhere, so the
+	// order is still fully determined by the remaining fields. Feature-off leaves the
+	// RNG-shuffled vector byte-identical to the original.
+	if (_save->getMod()->getAISharedFields())
+	{
+		bool forceRebuild = false;
+		FriendReachableField* enemyField = prepareSharedEnemyReachable(forceRebuild);
+		ThreatField* threatField = nullptr;
+		if (enemyField != nullptr)
+		{
+			threatField = prepareSharedThreatField(enemyField->getAggregate());
+		}
+		const Position actorPos = _unit->getPosition();
+		const bool hasAggroTarget = _aggroTarget != nullptr;
+		const Position aggroPos = hasAggroTarget ? _aggroTarget->getPosition() : Position(0, 0, 0);
+		typedef std::pair<AIEscapeCandidateRank, Position> RankedEscapeCandidate;
+		std::vector<RankedEscapeCandidate> rankedOffsets;
+		rankedOffsets.reserve(randomTileSearch.size());
+		for (const Position& offset : randomTileSearch)
+		{
+			Position pos = actorPos;
+			pos.x += offset.x;
+			pos.y += offset.y;
+			rankedOffsets.push_back(RankedEscapeCandidate(
+				AIEscapeCandidateRank{
+					threatField ? threatField->threatAt(pos) : 0.0f,
+					hasAggroTarget,
+					hasAggroTarget ? Position::distanceSq(pos, aggroPos) : 0,
+					Position::distanceSq(pos, actorPos),
+					pos},
+				offset));
+		}
+		std::sort(rankedOffsets.begin(), rankedOffsets.end(),
+			[](const RankedEscapeCandidate& lhs, const RankedEscapeCandidate& rhs)
+			{
+				return AIEscapeCandidateRankLess()(lhs.first, rhs.first);
+			});
+		randomTileSearch.clear();
+		randomTileSearch.reserve(rankedOffsets.size());
+		for (const RankedEscapeCandidate& candidate : rankedOffsets)
+			randomTileSearch.push_back(candidate.second);
+	}
 
 	while (tries < 150 && !coverFound)
 	{
