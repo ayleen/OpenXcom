@@ -24,6 +24,7 @@
 #include "AICandidateOrder.h"
 #include "AIEscapeCandidateOrder.h" // Phase 43.1 (Calypso): deterministic order for the setupEscape tile search
 #include "AIEvaluationBudget.h"
+#include "AIOccupancyPeak.h" // Phase 43.1 (Calypso): deterministic occupancy-peak selector for the setupPatrol persistent fallback
 #include "AITargetRank.h" // Phase 43.1S (Calypso): deterministic total order for the Phase-1 enemy scan
 #include "../Mod/AITuning.h"
 #include "../Savegame/BattleItem.h"
@@ -1536,8 +1537,44 @@ void AIModule::setupPatrol()
 	bool noiseZoneKnown = !huntZoneKnown
 		&& wantsToInvestigateNoise()
 		&& _save->getNewestHearableNoise(_unit->getPosition(), _intelligence, noiseZone);
-	const Position &biasZone = huntZoneKnown ? huntZone : noiseZone;
-	const bool biasZoneKnown = huntZoneKnown || noiseZoneKnown;
+	// Phase 43.1 (Calypso): THIRD-tier persistent fallback. When neither the
+	// civilian-hunt zone (34.4) nor a fresh noise zone (34.8) is known, an
+	// unengaged hostile under ai.sharedFields biases toward the densest known-
+	// enemy occupancy peak held in its acting-faction turn-cache instead of
+	// wandering at random. Fixed precedence: civilian hunt > fresh noise >
+	// persistent occupancy peak, so this never overrides an active terror-
+	// mission race or a live sound investigation. It reuses the SAME
+	// getPatrolNode(scout, unit, fromNode, zoneAnchor) overload 34.4 added --
+	// candidate filters, path validation, and the RNG fallback below are untouched.
+	//
+	// Fairness / lifecycle: the OccupancyField is read CONST-ONLY here --
+	// selectOccupancyPeak never spikes, decays, or advances the field (no
+	// mutation of occupancy / occupancyLastAdvancedTurn); the producer side
+	// (spike + advance at the faction-turn seam) stays the sole owner. With
+	// ai.sharedFields OFF, _knownEnemies > 0 (engaged), a non-hostile actor,
+	// or a missing/invalid cache, occupancyZoneKnown stays false and the
+	// getPatrolNode calls below behave exactly as vanilla (no bias, no field
+	// read) -- feature-off and engaged behavior are byte-identical.
+	Position occupancyZone;
+	bool occupancyZoneKnown = false;
+	if (!huntZoneKnown && !noiseZoneKnown
+		&& _save->getMod()->getAISharedFields()
+		&& _unit->getFaction() == FACTION_HOSTILE
+		&& _knownEnemies == 0)
+	{
+		const FactionTurnCache* occupancyCache = _save->getFactionTurnCache(_unit->getFaction());
+		// Null / invalid cache -> "no peak": occupancyZoneKnown stays false and
+		// the patrol falls through to the vanilla unbiased RNG path below.
+		if (occupancyCache != nullptr && occupancyCache->isValid())
+		{
+			occupancyZoneKnown = selectOccupancyPeak(
+				occupancyCache->getOccupancyField(), _unit->getPosition(), occupancyZone);
+		}
+	}
+	const Position &biasZone = huntZoneKnown ? huntZone
+							: noiseZoneKnown ? noiseZone
+							: occupancyZone;
+	const bool biasZoneKnown = huntZoneKnown || noiseZoneKnown || occupancyZoneKnown;
 
 	if (_toNode != 0 && _unit->getPosition() == _toNode->getPosition())
 	{
