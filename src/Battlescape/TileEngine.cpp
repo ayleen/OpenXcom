@@ -3477,6 +3477,7 @@ void TileEngine::hit(BattleActionAttack attack, Position center, int power, cons
 	if (terrainChanged || effectGenerated)
 	{
 		resetVisibilityCache(); // Brutal-AI (adapted from Brutal-OXCE by Xilmi): terrain change invalidates cached LOS
+		_save->notifyFactionTurnTerrainChanged(); // Phase 43.1B (Calypso): same terrain-mutation seam dirties the per-faction turn-caches (gated, reset preserved)
 		applyGravity(tile);
 		LightLayers layer = LL_ITEMS;
 		if (part == V_FLOOR && _save->getTile(tilePos - Position(0, 0, 1)))
@@ -4410,6 +4411,7 @@ int TileEngine::unitOpensDoor(BattleUnit *unit, bool rClick, int dir)
 				// Phase 34.5 Brutal-AI (adapted from Brutal-OXCE by Xilmi): opening a door changes LOS
 				// (invalidate the cache) and gives the opener's rough position away as a door clue.
 				resetVisibilityCache();
+				_save->notifyFactionTurnTerrainChanged(); // Phase 43.1B (Calypso): same seam dirties the per-faction turn-caches (gated, reset preserved)
 				unit->updateEnemyKnowledge(_save->getTileIndex(unit->getPosition()), true, true);
 			}
 			else return 4;
@@ -4494,7 +4496,10 @@ int TileEngine::closeUfoDoors()
 	}
 
 	if (doorsclosed > 0)
+	{
 		resetVisibilityCache(); // Brutal-AI (adapted from Brutal-OXCE by Xilmi): closing doors invalidates cached LOS
+		_save->notifyFactionTurnTerrainChanged(); // Phase 43.1B (Calypso): same seam dirties the per-faction turn-caches (gated, reset preserved)
+	}
 	return doorsclosed;
 }
 

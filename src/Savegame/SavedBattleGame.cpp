@@ -1562,6 +1562,15 @@ void SavedBattleGame::endTurn()
 		rebuildSquadBlackboard(_side);
 	}
 
+	// Phase 43.1B (Calypso): arm the per-faction turn-cache invalidation state for the side whose
+	// turn just began (the _side switch above set it). Transient, once per faction turn. GATED so
+	// with ai.sharedFields off there are zero writes and the caches stay default-invalid -- no
+	// field is built and no decision changes. Mirrors the 34.9 squad-board seam directly above.
+	if (getMod()->getAISharedFields())
+	{
+		beginFactionTurnCache(_side);
+	}
+
 	BattlescapeTally tally = _battleState->getBattleGame()->tallyUnits();
 
 	if ((_turn > _cheatTurn / 2 && tally.liveAliens <= 2) || _turn > _cheatTurn)
@@ -2909,6 +2918,54 @@ bool SavedBattleGame::getSquadHasFlankIntent(UnitFaction faction, int targetId) 
 	const SquadBlackboard& bb = _squadBlackboards[faction];
 	for (const auto& t : bb.targets) { if (t.unitId == targetId) return t.flankIntentCount > 0; }
 	return false;
+}
+
+// ---- Phase 43.1B (Calypso): per-faction turn-cache invalidation state -------------------
+// Pure transient bookkeeping beside the 34.9 SquadBlackboard. These methods build no field and
+// change no AI decision; they are gated on ai.sharedFields so that with the flag off the caches
+// stay default-invalid and shipped behavior is byte-identical. Not serialized (see header).
+
+namespace {
+// Inline range guard shared by the FactionTurnCache accessors. FACTION_NONE (-1) and any value
+// >= FACTION_MAX are out of range and must never index _factionTurnCaches.
+inline bool factionTurnCacheValid(UnitFaction faction)
+{
+	return faction >= FACTION_PLAYER && faction < FACTION_MAX;
+}
+} // namespace
+
+FactionTurnCache* SavedBattleGame::getFactionTurnCache(UnitFaction faction)
+{
+	if (!factionTurnCacheValid(faction)) return nullptr;
+	return &_factionTurnCaches[faction];
+}
+
+const FactionTurnCache* SavedBattleGame::getFactionTurnCache(UnitFaction faction) const
+{
+	if (!factionTurnCacheValid(faction)) return nullptr;
+	return &_factionTurnCaches[faction];
+}
+
+void SavedBattleGame::beginFactionTurnCache(UnitFaction faction)
+{
+	// Feature off: do not mutate caches (keeps default-invalid, byte-identical behavior).
+	if (!getMod()->getAISharedFields())
+		return;
+	if (!factionTurnCacheValid(faction))
+		return; // invalid faction rejected safely -- no write
+	_factionTurnCaches[faction].beginTurn(_turn);
+}
+
+void SavedBattleGame::notifyFactionTurnTerrainChanged()
+{
+	// Feature off: do not mutate caches. Mirrors the resetVisibilityCache seams it rides along
+	// with; the reset is preserved in TileEngine regardless of this gate.
+	if (!getMod()->getAISharedFields())
+		return;
+	for (int f = FACTION_PLAYER; f < FACTION_MAX; ++f)
+	{
+		_factionTurnCaches[f].onTerrainChanged();
+	}
 }
 
 /**

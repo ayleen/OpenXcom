@@ -24,6 +24,7 @@
 #include "Tile.h"
 #include "../Mod/AlienDeployment.h"
 #include "../Mod/RuleCraft.h"
+#include "FactionTurnCache.h"
 
 namespace OpenXcom
 {
@@ -154,6 +155,12 @@ private:
 	// PLAYER/HOSTILE/NEUTRAL). Transient, never serialized -- rebuilt each faction turn, a fresh
 	// save loads it empty. Only the acting faction's board is populated (rebuild is gated).
 	SquadBlackboard _squadBlackboards[FACTION_MAX];
+	// Phase 43.1B (Calypso): per-faction turn-cache invalidation state (index by UnitFaction:
+	// PLAYER/HOSTILE/NEUTRAL). Transient, never serialized -- loads default-invalid and is (re)
+	// armed each faction turn (gated on ai.sharedFields). Pure bookkeeping only: tracks which
+	// shared spatial fields are stale + a terrain mutation revision; builds no field and changes
+	// no decision. Only the acting faction's cache is armed (beginFactionTurnCache is gated).
+	FactionTurnCache _factionTurnCaches[FACTION_MAX];
 	std::list<BattleUnit*> _fallingUnits;
 	bool _unitsFalling, _cheating;
 	std::vector<Position> _tileSearch, _storageSpace;
@@ -461,6 +468,24 @@ public:
 	const RuleCraftDeployment& getCustomDeployment(const RuleCraft* rule) const;
 	/// Ends the turn.
 	void endTurn();
+
+	// ---- Phase 43.1B (Calypso): per-faction turn-cache invalidation state ----------------
+	// Pure transient bookkeeping beside the 34.9 SquadBlackboard. These accessors/methods do not
+	// build any field or change any AI decision; they exist for later (ai.sharedFields-gated)
+	// field builders and for tests. Invalid faction values are rejected safely (nullptr / no-op).
+	/// Mutable access to a faction's turn-cache, or nullptr for an out-of-range faction
+	/// (e.g. FACTION_NONE). Never allocates; returns the per-faction slot when valid.
+	FactionTurnCache* getFactionTurnCache(UnitFaction faction);
+	/// Const access to a faction's turn-cache, or nullptr for an out-of-range faction.
+	const FactionTurnCache* getFactionTurnCache(UnitFaction faction) const;
+	/// Arm the turn-cache for `faction` at this faction's turn start. GATED on ai.sharedFields:
+	/// with the flag off this is a no-op (caches stay default-invalid, byte-identical behavior).
+	/// Invalid factions are rejected safely.
+	void beginFactionTurnCache(UnitFaction faction);
+	/// Notify every valid faction cache that terrain mutated (explosion / wall / door). GATED on
+	/// ai.sharedFields: with the flag off this is a no-op. Mirrors the existing resetVisibilityCache
+	/// seams in TileEngine -- called from exactly those sites, preserving the reset.
+	void notifyFactionTurnTerrainChanged();
 	/// Gets animation frame.
 	int getAnimFrame() const;
 	/// Increase animation frame.

@@ -859,7 +859,8 @@ if(NOT EMSCRIPTEN AND BUILD_TESTING)
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoPrologueMathTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/AITuningTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/AIFailureMemoryTest.cpp
-        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/Phase43CompositionTest.cpp)
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/Phase43CompositionTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/FactionTurnCacheTest.cpp)
 
     add_executable(oxce_unit_tests ${OXCE_TEST_SOURCES})
     target_link_libraries(oxce_unit_tests PRIVATE oxce_test_doctest)
