@@ -24,13 +24,14 @@ namespace OpenXcom
  * AIEscapeCandidateOrderTest.cpp). Lower rank sorts before higher rank. The
  * ordering is, in priority order:
  *   1. threat              -- lower threat (safer tile) sorts first;
- *   2. aggro target        -- only compared when an aggro target exists; a
+ *   2. occupancy           -- lower occupancy (less-crowded tile) sorts first;
+ *   3. aggro target        -- only compared when an aggro target exists; a
  *                            candidate carrying an aggro target sorts before
  *                            one without, and among two that both carry one the
  *                            candidate farther from the target (larger
  *                            distanceSqFromTarget) sorts first (escape-aligned);
- *   3. distanceSqFromActor -- smaller squared movement distance sorts first;
- *   4. position            -- x, then y, then z total deterministic tie-break.
+ *   4. distanceSqFromActor -- smaller squared movement distance sorts first;
+ *   5. position            -- x, then y, then z total deterministic tie-break.
  *
  * Target absence is represented explicitly by `hasAggroTarget` so callers never
  * feed a sentinel into `distanceSqFromTarget` arithmetic: when the flag is false
@@ -46,6 +47,7 @@ namespace OpenXcom
 struct AIEscapeCandidateRank
 {
 	float threat;
+	int occupancy;
 	bool hasAggroTarget;
 	int distanceSqFromTarget;   // meaningful only when hasAggroTarget == true
 	int distanceSqFromActor;
@@ -74,6 +76,8 @@ struct AIEscapeCandidateRankLess
 	{
 		if (lhs.threat != rhs.threat)
 			return lhs.threat < rhs.threat;                                  // lower threat first
+		if (lhs.occupancy != rhs.occupancy)
+			return lhs.occupancy < rhs.occupancy;                            // lower occupancy first
 		if (lhs.hasAggroTarget != rhs.hasAggroTarget)
 			return lhs.hasAggroTarget;                                        // target-known candidate first
 		if (lhs.hasAggroTarget)                                               // both carry a target

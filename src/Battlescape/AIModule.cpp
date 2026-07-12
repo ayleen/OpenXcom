@@ -2049,6 +2049,7 @@ void AIModule::setupEscape()
 			rankedOffsets.push_back(RankedEscapeCandidate(
 				AIEscapeCandidateRank{
 					threatField ? threatField->threatAt(pos) : 0.0f,
+					0,
 					hasAggroTarget,
 					hasAggroTarget ? Position::distanceSq(pos, aggroPos) : 0,
 					Position::distanceSq(pos, actorPos),
@@ -5007,6 +5008,7 @@ void AIModule::brutalThink(BattleAction* action)
 				const Position pos = candidate->getPosition();
 				rankedCandidates.push_back(RankedMovementCandidate(
 					AICandidateRank{sharedThreatField ? sharedThreatField->threatAt(pos) : 0.0f,
+						0,
 						Position::distanceSq(pos, targetPosition), pos}, candidate));
 			}
 			std::sort(rankedCandidates.begin(), rankedCandidates.end(),
