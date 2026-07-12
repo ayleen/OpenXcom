@@ -19,6 +19,7 @@
  */
 
 #include "FriendReachableField.h"
+#include "TerrainLofNegativeCache.h"
 #include "ThreatField.h"
 
 namespace OpenXcom
@@ -51,6 +52,11 @@ namespace OpenXcom
  * the field builder on the next read). markFriendReachableClean only clears the dirty
  * flag -- it must NOT wipe the accumulated field.
  *
+ * The live threat accumulator (ThreatField, phase 43.1F) and the live negative-only
+ * terrain-LOF cache (TerrainLofNegativeCache, phase 43.1G) are likewise owned here and
+ * wiped by beginTurn / onTerrainChanged. markThreatClean and markTerrainLofClean clear
+ * only their dirty flags and must NOT wipe their respective content.
+ *
  * Default state: invalid (activeTurn == -1) and every field dirty.
  */
 struct FactionTurnCache
@@ -69,6 +75,12 @@ struct FactionTurnCache
 	/// wiped on turn start and on terrain mutation (see threatDirty).
 	ThreatField threat;
 
+	/// Live negative-only terrain-LOF cache (phase 43.1G). Remembers directed
+	/// terrain-blocked voxel rays; flushed on turn start and on terrain mutation
+	/// (see terrainLofDirty). LOF probes populate and read it; it is wiped by
+	/// beginTurn / onTerrainChanged, never by markTerrainLofClean.
+	TerrainLofNegativeCache terrainLof;
+
 	/// Mutable access to the friendReachable accumulator (field builders stamp/un-stamp here).
 	FriendReachableField& getFriendReachable() { return friendReachable; }
 	/// Const access to the friendReachable accumulator.
@@ -79,10 +91,16 @@ struct FactionTurnCache
 	/// Const access to the threat accumulator.
 	const ThreatField& getThreatField() const { return threat; }
 
+	/// Mutable access to the terrain-LOF negative cache (field builders remember
+	/// directed blocked rays here).
+	TerrainLofNegativeCache& getTerrainLofCache() { return terrainLof; }
+	/// Const access to the terrain-LOF negative cache.
+	const TerrainLofNegativeCache& getTerrainLofCache() const { return terrainLof; }
+
 	/// Arm the cache for the start of a faction turn: record the turn and mark every
 	/// terrain-sensitive field dirty. terrainRevision is left untouched (see class note).
-	/// The friendReachable accumulator and threat accumulator are wiped so they are
-	/// rebuilt lazily on first read.
+	/// The friendReachable accumulator, threat accumulator, and terrain-LOF negative
+	/// cache are wiped so they are rebuilt lazily on first read.
 	void beginTurn(int turn)
 	{
 		activeTurn = turn;
@@ -91,6 +109,7 @@ struct FactionTurnCache
 		terrainLofDirty = true;
 		friendReachable.clear();
 		threat.clear();
+		terrainLof.clear();
 	}
 
 	/// True once beginTurn has armed the cache for a real turn; false in the default state.
@@ -122,8 +141,8 @@ struct FactionTurnCache
 
 	/// Terrain mutation (explosion / wall destruction / door state): bump the global revision
 	/// and dirty every terrain-sensitive field. Independent of the armed turn. The
-	/// friendReachable accumulator and threat accumulator are wiped (their content is
-	/// terrain-keyed and must be rebuilt).
+	/// friendReachable accumulator, threat accumulator, and terrain-LOF negative cache
+	/// are wiped (their content is terrain-keyed and must be rebuilt).
 	void onTerrainChanged()
 	{
 		++terrainRevision;
@@ -132,6 +151,7 @@ struct FactionTurnCache
 		terrainLofDirty = true;
 		friendReachable.clear();
 		threat.clear();
+		terrainLof.clear();
 	}
 };
 
