@@ -20,8 +20,10 @@
 #include <cmath>
 #include "../Engine/Action.h"
 #include "../Engine/Font.h"
+#include "../Engine/TTFFont.h"
 #include "../Engine/Timer.h"
 #include "../Engine/Options.h"
+#include "../Calypso/CalypsoTextEditLayout.h"
 #include "../fallthrough.h"
 
 #ifdef __EMSCRIPTEN__
@@ -36,6 +38,58 @@ namespace OpenXcom { TextEdit *g_calypsoFocusedTextEdit = nullptr; }
 namespace OpenXcom
 {
 
+namespace
+{
+
+int textEditScaleMetric(int value, float fill)
+{
+	return std::max(0, static_cast<int>(value * fill + 0.5f));
+}
+
+Calypso::CalypsoTextEditLayout textEditLayout(const UString &value, int width,
+	Text *text, TTFFont *ttf, float fill)
+{
+	Calypso::CalypsoTextEditMetrics metrics;
+	if (ttf && ttf->measureGlyphs(value, metrics.advances, metrics.kerningBefore))
+		return Calypso::calypsoLayoutTextEdit(value, width, metrics, fill);
+	metrics.advances.reserve(value.size());
+	metrics.kerningBefore.assign(value.size(), 0);
+	for (UCode c : value) metrics.advances.push_back(text->getFont()->getCharSize(c).w);
+	return Calypso::calypsoLayoutTextEdit(value, width, metrics);
+}
+
+int textEditLineHeight(Text *text, TTFFont *ttf, float fill)
+{
+	if (ttf) return std::max(1, textEditScaleMetric(ttf->lineHeight(), fill));
+	return std::max(1, text->getFont()->getCharSize('\n').h);
+}
+
+int textEditLineX(Text *text, int editorWidth, int lineWidth)
+{
+	switch (text->getAlign())
+	{
+	case ALIGN_CENTER: return (editorWidth - lineWidth) / 2;
+	case ALIGN_RIGHT: return editorWidth - lineWidth;
+	case ALIGN_LEFT: default: return 0;
+	}
+}
+
+int textEditBlockY(Text *text, int editorHeight, int lineCount, int lineHeight,
+	size_t firstVisibleLine)
+{
+	const int contentHeight = lineCount * lineHeight;
+	if (contentHeight > editorHeight || firstVisibleLine != 0)
+		return -static_cast<int>(firstVisibleLine) * lineHeight;
+	switch (text->getVerticalAlign())
+	{
+	case ALIGN_MIDDLE: return (editorHeight - contentHeight) / 2;
+	case ALIGN_BOTTOM: return editorHeight - contentHeight;
+	case ALIGN_TOP: default: return 0;
+	}
+}
+
+} // namespace
+
 /**
  * Sets up a blank text edit with the specified size and position.
  * @param state Pointer to state the text edit belongs to.
@@ -46,7 +100,11 @@ namespace OpenXcom
  */
 TextEdit::TextEdit(State *state, int width, int height, int x, int y) : InteractiveSurface(width, height, x, y),
 	_blink(true), _modal(true), _drawBackground(true),
-	_char('A'), _caretPos(0), _textEditConstraint(TEC_NONE),
+	_multiline(false), _highContrast(false), _ttf(nullptr), _ttfFill(1.0f),
+	_char('A'), _caretPos(0), _firstVisibleLine(0), _preferredCaretX(-1),
+	_enterPolicy(TEEP_INSERT_NEWLINE), _textEditConstraint(TEC_NONE),
+	_multilineLayoutValid(false), _multilineDirectTTF(false),
+	_multilineMetricTTF(nullptr), _multilineLineHeight(1),
 	_change(0), _enter(0), _state(state)
 {
 	_isFocused = false;
@@ -138,6 +196,7 @@ void TextEdit::setBig()
 {
 	_text->setBig();
 	_caret->setBig();
+	invalidateMultilineLayout();
 }
 
 /**
@@ -147,6 +206,21 @@ void TextEdit::setSmall()
 {
 	_text->setSmall();
 	_caret->setSmall();
+	invalidateMultilineLayout();
+}
+
+void TextEdit::setWidth(int width)
+{
+	Surface::setWidth(width);
+	if (_multiline) _text->setWidth(width);
+	invalidateMultilineLayout();
+}
+
+void TextEdit::setHeight(int height)
+{
+	Surface::setHeight(height);
+	if (_multiline) _text->setHeight(height);
+	invalidateMultilineLayout();
 }
 
 /**
@@ -161,6 +235,7 @@ void TextEdit::initText(Font *big, Font *small, Language *lang)
 {
 	_text->initText(big, small, lang);
 	_caret->initText(big, small, lang);
+	invalidateMultilineLayout();
 }
 
 /**
@@ -169,8 +244,12 @@ void TextEdit::initText(Font *big, Font *small, Language *lang)
  */
 void TextEdit::setText(const std::string &text)
 {
-	_value = Unicode::convUtf8ToUtf32(text);
+	const UString incoming = Unicode::convUtf8ToUtf32(text);
+	_value = _multiline ? Calypso::calypsoNormalizeTextEditNewlines(incoming) : incoming;
 	_caretPos = _value.length();
+	_firstVisibleLine = 0;
+	_preferredCaretX = -1;
+	invalidateMultilineLayout();
 	_redraw = true;
 }
 
@@ -189,14 +268,30 @@ void TextEdit::setTextExternal(const std::string &utf8)
 	const std::u32string incoming = Unicode::convUtf8ToUtf32(utf8);
 	_value.clear();
 	_caretPos = 0;
-	for (UCode c : incoming)
+	if (!_multiline)
 	{
-		if (isValidChar(c) && !exceedsMaxWidth(c))
+		for (UCode c : incoming)
 		{
-			_value.insert(_caretPos, 1, c);
-			_caretPos++;
+			if (isValidChar(c) && !exceedsMaxWidth(c))
+			{
+				_value.insert(_caretPos, 1, c);
+				_caretPos++;
+			}
 		}
 	}
+	else
+	{
+		for (UCode c : Calypso::calypsoNormalizeTextEditNewlines(incoming))
+		{
+			if ((c == '\n' && _textEditConstraint == TEC_NONE) || isValidChar(c))
+			{
+				_value.insert(_caretPos++, 1, c);
+			}
+		}
+	}
+	_firstVisibleLine = 0;
+	_preferredCaretX = -1;
+	invalidateMultilineLayout();
 	_redraw = true;
 	if (_change && _state)
 	{
@@ -241,6 +336,32 @@ void TextEdit::setWordWrap(bool wrap)
 	_text->setWordWrap(wrap);
 }
 
+void TextEdit::setMultiline(bool multiline)
+{
+	if (_multiline == multiline) return;
+	_multiline = multiline;
+	if (_multiline)
+	{
+		_value = Calypso::calypsoNormalizeTextEditNewlines(_value);
+		_caretPos = std::min(_caretPos, _value.size());
+		_text->setWidth(getWidth());
+		_text->setHeight(getHeight());
+	}
+	_firstVisibleLine = 0;
+	_preferredCaretX = -1;
+	if (_multiline) _text->setWordWrap(false);
+	invalidateMultilineLayout();
+	_redraw = true;
+}
+
+void TextEdit::setTTFFont(TTFFont *font, float fillFrac)
+{
+	_ttf = font;
+	_ttfFill = fillFrac > 0.0f ? std::min(1.0f, fillFrac) : 1.0f;
+	_text->setTTFFont(font, fillFrac);
+	invalidateMultilineLayout();
+}
+
 /**
  * Enables/disables color inverting. Mostly used to make
  * button text look pressed along with the button.
@@ -259,6 +380,7 @@ void TextEdit::setInvert(bool invert)
  */
 void TextEdit::setHighContrast(bool contrast)
 {
+	_highContrast = contrast;
 	_text->setHighContrast(contrast);
 	_caret->setHighContrast(contrast);
 }
@@ -341,9 +463,13 @@ Uint8 TextEdit::getSecondaryColor() const
  */
 void TextEdit::setPalette(const SDL_Color *colors, int firstcolor, int ncolors)
 {
+	const bool hadEffectivePalette = getEffectivePalette() != nullptr;
 	Surface::setPalette(colors, firstcolor, ncolors);
 	_text->setPalette(colors, firstcolor, ncolors);
 	_caret->setPalette(colors, firstcolor, ncolors);
+	// Palette colors do not affect metrics; only first-time availability can switch
+	// the cached renderer from bitmap fallback to authoritative direct TTF.
+	if (hadEffectivePalette != (getEffectivePalette() != nullptr)) invalidateMultilineLayout();
 }
 
 /**
@@ -364,6 +490,32 @@ void TextEdit::blink()
 	_redraw = true;
 }
 
+void TextEdit::invalidateMultilineLayout()
+{
+	_multilineLayoutValid = false;
+}
+
+void TextEdit::ensureMultilineLayout()
+{
+	if (_multilineLayoutValid || !_multiline || !_text->getFont()) return;
+	_multilineDirectTTF = _ttf && isARGB() && getEffectivePalette() && _ttf->lineHeight() > 0;
+	_multilineMetricTTF = _multilineDirectTTF ? _ttf : nullptr;
+	_multilineLayout = textEditLayout(_value, getWidth(), _text, _multilineMetricTTF, _ttfFill);
+	_multilineLineHeight = textEditLineHeight(_text, _multilineMetricTTF, _ttfFill);
+	_multilineLayoutValid = true;
+}
+
+void TextEdit::updateMultilineViewport()
+{
+	if (!_multiline || !_text->getFont()) return;
+	ensureMultilineLayout();
+	if (!_multilineLayoutValid) return;
+	const auto caret = Calypso::calypsoLocateTextEditCaret(_multilineLayout, _caretPos);
+	_firstVisibleLine = Calypso::calypsoTextEditFirstVisibleLine(
+		_multilineLayout.lines.size(), caret.line, _firstVisibleLine,
+		std::max<size_t>(1, getHeight() / _multilineLineHeight));
+}
+
 /**
  * Adds a flashing | caret to the text
  * to show when it's focused and editable.
@@ -371,66 +523,124 @@ void TextEdit::blink()
 void TextEdit::draw()
 {
 	Surface::draw();
-	UString newValue = _value;
-	if (Options::keyboardMode == KEYBOARD_OFF)
+	if (!_multiline)
 	{
-		if (_isFocused && _blink)
+		UString newValue = _value;
+		if (Options::keyboardMode == KEYBOARD_OFF && _isFocused && _blink) newValue += _char;
+		_text->setText(Unicode::convUtf32ToUtf8(newValue));
+		clear();
+		if (_enter && _drawBackground)
 		{
-			newValue += _char;
+			SDL_Rect square = {0, 0, getWidth(), getHeight()};
+			drawRect(&square, getColor());
 		}
-	}
-	_text->setText(Unicode::convUtf32ToUtf8(newValue));
-	clear();
-
-	// TODO: this whole thing is old and ugly, rework later
-	if (_enter && _drawBackground)
-	{
-		SDL_Rect square;
-		square.x = 0;
-		square.y = 0;
-		square.w = getWidth();
-		square.h = getHeight();
-		drawRect(&square, getColor());
-	}
-
-	_text->blit(this->getSurface());
-	if (Options::keyboardMode == KEYBOARD_ON)
-	{
-		if (_isFocused && _blink)
+		_text->blit(this->getSurface());
+		if (Options::keyboardMode == KEYBOARD_ON && _isFocused && _blink)
 		{
 			int x = 0;
 			switch (_text->getAlign())
 			{
-			case ALIGN_LEFT:
-				x = 0;
-				break;
-			case ALIGN_CENTER:
-				x = (_text->getWidth() - _text->getTextWidth()) / 2;
-				break;
-			case ALIGN_RIGHT:
-				x = _text->getWidth() - _text->getTextWidth();
-				break;
+			case ALIGN_LEFT: break;
+			case ALIGN_CENTER: x = (_text->getWidth() - _text->getTextWidth()) / 2; break;
+			case ALIGN_RIGHT: x = _text->getWidth() - _text->getTextWidth(); break;
 			}
-			for (size_t i = 0; i < _caretPos; ++i)
-			{
-				x += _text->getFont()->getCharSize(_value[i]).w;
-			}
+			for (size_t i = 0; i < _caretPos; ++i) x += _text->getFont()->getCharSize(_value[i]).w;
 			_caret->setX(x);
 			int y = 0;
 			switch (_text->getVerticalAlign())
 			{
-			case ALIGN_TOP:
-				y = 0;
-				break;
-			case ALIGN_MIDDLE:
-				y = (int)ceil((getHeight() - _text->getTextHeight()) / 2.0);
-				break;
-			case ALIGN_BOTTOM:
-				y = getHeight() - _text->getTextHeight();
-				break;
+			case ALIGN_TOP: y = 0; break;
+			case ALIGN_MIDDLE: y = (int)ceil((getHeight() - _text->getTextHeight()) / 2.0); break;
+			case ALIGN_BOTTOM: y = getHeight() - _text->getTextHeight(); break;
 			}
 			_caret->setY(y);
 			_caret->blit(this->getSurface());
+		}
+		return;
+	}
+
+	SDL_Color rgba = {0, 0, 0, 255};
+	const SDL_Color *palette = getEffectivePalette();
+	ensureMultilineLayout();
+	if (!_multilineLayoutValid) return;
+	const bool directTTF = _multilineDirectTTF;
+	if (directTTF)
+	{
+		int idx = static_cast<int>(getColor()) + 4 * (_highContrast ? 3 : 1);
+		idx = std::max(0, std::min(255, idx));
+		rgba = palette[idx];
+		rgba.a = 255;
+	}
+	const auto &layout = _multilineLayout;
+	const auto caret = Calypso::calypsoLocateTextEditCaret(layout, _caretPos);
+	const int lineHeight = _multilineLineHeight;
+	const size_t visibleLines = std::max<size_t>(1, getHeight() / lineHeight);
+	_firstVisibleLine = Calypso::calypsoTextEditFirstVisibleLine(
+		layout.lines.size(), caret.line, _firstVisibleLine, visibleLines);
+	const int blockY = textEditBlockY(_text, getHeight(), static_cast<int>(layout.lines.size()),
+		lineHeight, _firstVisibleLine);
+
+	clear();
+	if (_enter && _drawBackground)
+	{
+		SDL_Rect square = {0, 0, getWidth(), getHeight()};
+		drawRect(&square, getColor());
+	}
+	if (directTTF)
+	{
+		for (size_t row = _firstVisibleLine; row < layout.lines.size(); ++row)
+		{
+			const int y = blockY + static_cast<int>(row) * lineHeight;
+			if (y >= getHeight()) break;
+			if (y + lineHeight <= 0) continue;
+			const auto &line = layout.lines[row];
+			const std::string utf8 = Unicode::convUtf32ToUtf8(_value.substr(line.start, line.end - line.start));
+			if (utf8.empty()) continue;
+			SDL_Surface *rendered = _ttf->renderText(utf8, rgba);
+			if (!rendered) continue;
+			SDL_SetSurfaceBlendMode(rendered, SDL_BLENDMODE_BLEND);
+			SDL_Rect dst = {textEditLineX(_text, getWidth(), line.width()), y,
+				std::max(1, textEditScaleMetric(rendered->w, _ttfFill)),
+				std::max(1, textEditScaleMetric(rendered->h, _ttfFill))};
+			SDL_BlitScaled(rendered, nullptr, getSurface(), &dst);
+		}
+	}
+	else
+	{
+		_text->setTTFFont(nullptr);
+		UString display;
+		const bool clipped = layout.lines.size() > visibleLines;
+		const size_t first = clipped ? _firstVisibleLine : 0;
+		const size_t last = clipped ? std::min(layout.lines.size(), first + visibleLines) : layout.lines.size();
+		for (size_t row = first; row < last; ++row)
+		{
+			const auto &line = layout.lines[row];
+			display.append(_value, line.start, line.end - line.start);
+			if (row + 1 < last) display.push_back('\n');
+		}
+		const TextVAlign oldAlign = _text->getVerticalAlign();
+		if (clipped) _text->setVerticalAlign(ALIGN_TOP);
+		_text->setText(Unicode::convUtf32ToUtf8(display));
+		_text->blit(getSurface());
+		if (clipped) _text->setVerticalAlign(oldAlign);
+		_text->setTTFFont(_ttf, _ttfFill);
+	}
+
+	if (Options::keyboardMode == KEYBOARD_ON && _isFocused && _blink)
+	{
+		const auto &line = layout.lines[caret.line];
+		const int x = textEditLineX(_text, getWidth(), line.width()) + caret.x;
+		const int y = blockY + static_cast<int>(caret.line) * lineHeight;
+		if (directTTF)
+		{
+			SDL_Rect caretRect = {x, y, std::max(1, textEditScaleMetric(2, _ttfFill)), lineHeight};
+			SDL_FillRect(getSurface(), &caretRect, SDL_MapRGBA(getSurface()->format, rgba.r, rgba.g, rgba.b, rgba.a));
+		}
+		else
+		{
+			_caret->setX(x);
+			_caret->setY(y);
+			_caret->blit(getSurface());
 		}
 	}
 }
@@ -507,6 +717,30 @@ void TextEdit::mousePress(Action *action, State *state)
 		}
 		else
 		{
+			if (_multiline)
+			{
+				ensureMultilineLayout();
+				if (!_multilineLayoutValid) return;
+				const auto &layout = _multilineLayout;
+				const double sx = action->getXScale() > 0.0 ? action->getXScale() : 1.0;
+				const double sy = action->getYScale() > 0.0 ? action->getYScale() : 1.0;
+				const int lineHeight = _multilineLineHeight;
+				const size_t visibleLines = std::max<size_t>(1, getHeight() / lineHeight);
+				const auto currentCaret = Calypso::calypsoLocateTextEditCaret(layout, _caretPos);
+				_firstVisibleLine = Calypso::calypsoTextEditFirstVisibleLine(
+					layout.lines.size(), currentCaret.line, _firstVisibleLine, visibleLines);
+				const int blockY = textEditBlockY(_text, getHeight(), static_cast<int>(layout.lines.size()),
+					lineHeight, _firstVisibleLine);
+				const int line = std::max(0, std::min(static_cast<int>(layout.lines.size()) - 1,
+					static_cast<int>(((action->getRelativeYMouse() / sy) - blockY) / lineHeight)));
+				const int lineX = textEditLineX(_text, getWidth(), layout.lines[line].width());
+				_caretPos = Calypso::calypsoTextEditPositionAtX(
+					layout.lines[line], static_cast<int>(action->getRelativeXMouse() / sx) - lineX);
+				_preferredCaretX = -1;
+				updateMultilineViewport();
+				InteractiveSurface::mousePress(action, state);
+				return;
+			}
 			double mouseX = action->getRelativeXMouse();
 			double scaleX = action->getXScale();
 			double w = 0;
@@ -539,6 +773,114 @@ void TextEdit::mousePress(Action *action, State *state)
  */
 void TextEdit::keyboardPress(Action *action, State *state)
 {
+	if (_multiline && Options::keyboardMode == KEYBOARD_ON)
+	{
+		ensureMultilineLayout();
+		if (!_multilineLayoutValid)
+		{
+			InteractiveSurface::keyboardPress(action, state);
+			return;
+		}
+		bool changed = false;
+		bool commitPressed = false;
+		const SDL_Keycode key = action->getDetails()->key.keysym.sym;
+		auto layout = [this]() -> const Calypso::CalypsoTextEditLayout& {
+			return _multilineLayout;
+		};
+		switch (key)
+		{
+		case SDLK_LEFT:
+			if (_caretPos > 0) --_caretPos;
+			_preferredCaretX = -1;
+			break;
+		case SDLK_RIGHT:
+			if (_caretPos < _value.length()) ++_caretPos;
+			_preferredCaretX = -1;
+			break;
+		case SDLK_HOME:
+			{
+				const auto &l = layout();
+				_caretPos = l.lines[Calypso::calypsoLocateTextEditCaret(l, _caretPos).line].start;
+				_preferredCaretX = -1;
+			}
+			break;
+		case SDLK_END:
+			{
+				const auto &l = layout();
+				_caretPos = l.lines[Calypso::calypsoLocateTextEditCaret(l, _caretPos).line].end;
+				_preferredCaretX = -1;
+			}
+			break;
+		case SDLK_UP:
+		case SDLK_DOWN:
+			{
+				const auto move = Calypso::calypsoMoveTextEditVertically(
+					layout(), _caretPos, key == SDLK_UP ? -1 : 1, _preferredCaretX);
+				_caretPos = move.position;
+				_preferredCaretX = move.preferredX;
+			}
+			break;
+		case SDLK_BACKSPACE:
+			if (_caretPos > 0)
+			{
+				_value.erase(_caretPos - 1, 1);
+				--_caretPos;
+				changed = true;
+			}
+			_preferredCaretX = -1;
+			break;
+		case SDLK_DELETE:
+			if (_caretPos < _value.length())
+			{
+				_value.erase(_caretPos, 1);
+				changed = true;
+			}
+			_preferredCaretX = -1;
+			break;
+		case SDLK_RETURN:
+		case SDLK_KP_ENTER:
+			if (_enterPolicy == TEEP_COMMIT &&
+				(action->getDetails()->key.keysym.mod & KMOD_SHIFT) == 0)
+			{
+				commitPressed = true;
+			}
+			else if (_textEditConstraint == TEC_NONE)
+			{
+				_value.insert(_caretPos++, 1, '\n');
+				changed = true;
+			}
+			_preferredCaretX = -1;
+			break;
+		case SDLK_ESCAPE:
+			// The owning state decides whether Escape cancels, closes, or is ignored.
+			break;
+		default:
+			{
+				const UCode c = static_cast<UCode>(key);
+				if (isValidChar(c))
+				{
+					_value.insert(_caretPos++, 1, c);
+					changed = true;
+				}
+				_preferredCaretX = -1;
+			}
+			break;
+		}
+		if (changed) invalidateMultilineLayout();
+		updateMultilineViewport();
+		_redraw = true;
+		if (changed && _change) (state->*_change)(action);
+		if (commitPressed)
+		{
+			// Terminal callback: it may pop the owner and delete this TextEdit.
+			// The commit key is owned here and is not dispatched a second time.
+			commit(action);
+			return;
+		}
+		InteractiveSurface::keyboardPress(action, state);
+		return;
+	}
+
 	bool enterPressed = false;
 	if (Options::keyboardMode == KEYBOARD_OFF)
 	{
@@ -669,6 +1011,14 @@ void TextEdit::onChange(ActionHandler handler)
 void TextEdit::onEnter(ActionHandler handler)
 {
 	_enter = handler;
+}
+
+void TextEdit::commit(Action *action)
+{
+	if (!_enter || !_state) return;
+	setFocus(false);
+	// Treat the callback as terminal: it may synchronously destroy the owner.
+	(_state->*_enter)(action);
 }
 
 }

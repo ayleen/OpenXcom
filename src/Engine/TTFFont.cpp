@@ -18,6 +18,7 @@
  */
 #include "TTFFont.h"
 #include "Logger.h"
+#include <algorithm>
 #include <functional>
 
 namespace OpenXcom
@@ -150,6 +151,43 @@ SDL_Surface* TTFFont::renderText(const std::string& utf8, SDL_Color rgba)
 	_cache.emplace(key, surf);
 	_order.push_back(key);
 	return surf;
+}
+
+bool TTFFont::measureGlyphs(const std::u32string& text, std::vector<int>& advances,
+	std::vector<int>& kerningBefore) const
+{
+#ifdef __EMSCRIPTEN__
+	ensureFont();
+#endif
+	advances.assign(text.size(), 0);
+	kerningBefore.assign(text.size(), 0);
+	if (!_font) return false;
+	Uint32 previous = 0;
+	bool havePrevious = false;
+	const bool useKerning = TTF_GetFontKerning(_font) != 0;
+	for (size_t i = 0; i < text.size(); ++i)
+	{
+		const Uint32 codepoint = static_cast<Uint32>(text[i]);
+		if (codepoint == '\n' || codepoint == '\r' || codepoint == 2)
+		{
+			havePrevious = false;
+			continue;
+		}
+		int advance = 0;
+		if (TTF_GlyphMetrics32(_font, codepoint, nullptr, nullptr, nullptr, nullptr, &advance) != 0)
+		{
+			// Match SDL_ttf's visible replacement behavior for unsupported glyphs.
+			if (TTF_GlyphMetrics32(_font, 0xFFFDu, nullptr, nullptr, nullptr, nullptr, &advance) != 0 &&
+				TTF_GlyphMetrics32(_font, static_cast<Uint32>('?'), nullptr, nullptr, nullptr, nullptr, &advance) != 0)
+				advance = 0;
+		}
+		advances[i] = std::max(0, advance);
+		if (havePrevious && useKerning)
+			kerningBefore[i] = TTF_GetFontKerningSizeGlyphs32(_font, previous, codepoint);
+		previous = codepoint;
+		havePrevious = true;
+	}
+	return true;
 }
 
 int TTFFont::lineHeight() const

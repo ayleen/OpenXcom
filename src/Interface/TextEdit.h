@@ -20,12 +20,15 @@
 #include "../Engine/InteractiveSurface.h"
 #include "Text.h"
 #include "../Engine/Unicode.h"
+#include "../Calypso/CalypsoTextEditLayout.h"
 
 namespace OpenXcom
 {
 
 class Timer;
+class TTFFont;
 enum TextEditConstraint { TEC_NONE, TEC_NUMERIC_POSITIVE, TEC_NUMERIC };
+enum TextEditEnterPolicy { TEEP_INSERT_NEWLINE, TEEP_COMMIT };
 
 /**
  * Editable version of Text.
@@ -39,10 +42,24 @@ private:
 	UString _value;
 	bool _blink, _modal;
 	bool _drawBackground;
+	bool _multiline;
+	bool _highContrast;
 	Timer *_timer;
+	TTFFont *_ttf;
+	float _ttfFill;
 	UCode _char;
 	size_t _caretPos;
+	size_t _firstVisibleLine;
+	int _preferredCaretX;
+	TextEditEnterPolicy _enterPolicy;
 	TextEditConstraint _textEditConstraint;
+	// Cached reflow contract: invalidated only by value, size, font/TTF/fill, or
+	// renderer-availability changes. Blink/caret-only redraws must reuse it.
+	Calypso::CalypsoTextEditLayout _multilineLayout;
+	bool _multilineLayoutValid;
+	bool _multilineDirectTTF;
+	TTFFont *_multilineMetricTTF;
+	int _multilineLineHeight;
 	ActionHandler _change;
 	ActionHandler _enter;
 	State *_state;
@@ -50,6 +67,12 @@ private:
 	bool exceedsMaxWidth(UCode c) const;
 	/// Checks if character is valid to be inserted at caret position.
 	bool isValidChar(UCode c) const;
+	/// Keeps the multiline caret inside the vertically visible row window.
+	void updateMultilineViewport();
+	/// Invalidates cached wrapping/metrics after a layout input changes.
+	void invalidateMultilineLayout();
+	/// Rebuilds cached wrapping/metrics only after invalidation.
+	void ensureMultilineLayout();
 public:
 	/// Creates a new text edit with the specified size and position.
 	TextEdit(State *state, int width, int height, int x = 0, int y = 0);
@@ -63,6 +86,10 @@ public:
 	void setBig();
 	/// Sets the text size to small.
 	void setSmall();
+	/// Resizes and invalidates cached wrapping.
+	void setWidth(int width) override;
+	/// Resizes and invalidates cached vertical capacity.
+	void setHeight(int height) override;
 	/// Initializes the text edit's resources.
 	void initText(Font *big, Font *small, Language *lang) override;
 	/// Sets the text's string.
@@ -73,6 +100,14 @@ public:
 	int getTextWidth() const;
 	/// Sets the text edit's wordwrap setting.
 	void setWordWrap(bool wrap);
+	/// Enables opt-in multiline editing. Disabled preserves the legacy contract.
+	void setMultiline(bool multiline);
+	/// Returns whether opt-in multiline editing is enabled.
+	bool isMultiline() const { return _multiline; }
+	/// Opts the rendered value and caret into the HD TTF path.
+	void setTTFFont(TTFFont *font, float fillFrac = 1.0f);
+	/// Selects whether Enter commits or inserts a newline in multiline mode.
+	void setEnterPolicy(TextEditEnterPolicy policy) { _enterPolicy = policy; }
 	/// Sets the text edit's color invert setting.
 	void setInvert(bool invert);
 	/// Sets the text edit's high contrast color setting.
@@ -107,6 +142,9 @@ public:
 	void onChange(ActionHandler handler);
 	/// Sets a function to be called every time ENTER is pressed.
 	void onEnter(ActionHandler handler);
+	/// Explicitly commits through the legacy enter callback. The callback is terminal
+	/// and may synchronously destroy this edit or its owning state.
+	void commit(Action *action);
 	/// Sets the text edit's background drawing setting.
 	void setDrawBackground(bool drawBackground) { _drawBackground = drawBackground; }
 #ifdef __EMSCRIPTEN__
