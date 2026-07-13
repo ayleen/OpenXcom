@@ -18,14 +18,14 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 /*
- * Phase 43.1.3 (Calypso) -- ruleset-owned HD UI family rollout gate.
+ * Phase 46.1.3 (Calypso) -- ruleset-owned HD UI family rollout gate.
  *
  * Pure, dependency-free validation + fail-safe lookup + deduplicating parse
  * helper for the `hdUiFamilies:` ruleset key. The approved program partitions
  * the 149 in-scope native state classes into families F01..F38
  * (docs/hd-ui-family-tracker.md); this gate lets each family's HD layout be
  * turned on or off per-mod without 38 player options, compile-time forks, or
- * campaign-save writes (plan §43.1.3 + implementer contract #6).
+ * campaign-save writes (plan §46.1.3 + implementer contract #6).
  *
  * Deliberately NOT wrapped in #ifdef __EMSCRIPTEN__: it is a pure helper with
  * no Emscripten-specific behavior, matching the established Calypso pure-helper
@@ -37,7 +37,7 @@
  * allocation, has no callers, and therefore leaves native OXCE behavior
  * byte-for-byte unchanged.
  *
- * Fail-safe contract (plan §43.1.3): missing or inactive HD pack, missing
+ * Fail-safe contract (plan §46.1.3): missing or inactive HD pack, missing
  * config key, native build, malformed id, or unknown family all return false
  * (legacy layout). Only an Emscripten build with an active HD pack that parsed
  * a valid, listed F01..F38 id returns true. The native path and the

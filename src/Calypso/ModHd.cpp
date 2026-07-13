@@ -2182,7 +2182,7 @@ void Mod::loadFileCalypso(YAML::YamlNodeReader& reader)
 			}
 		}
 	}
-	// Phase 43.1.3 (Calypso): parse the top-level `hdUiFamilies:` sequence into
+	// Phase 46.1.3 (Calypso): parse the top-level `hdUiFamilies:` sequence into
 	// the sorted, deduplicated _hdUiFamilies gate. Fail-safe behavior per node
 	// shape (single node lookup, no throw on any path):
 	//   * key absent             -> guard skips this block; _hdUiFamilies is left
@@ -2228,7 +2228,7 @@ void Mod::loadFileCalypso(YAML::YamlNodeReader& reader)
 	}
 }
 
-/// Phase 43.1.3 (Calypso): the single engine API family adapters call. Delegates
+/// Phase 46.1.3 (Calypso): the single engine API family adapters call. Delegates
 /// to the pure fail-safe core (CalypsoUiFamilies.h). _hdPackActive is the hard
 /// gate: a missing/inactive HD pack forces false for every family even when the
 /// id is valid and listed, so a mod that ships `hdUiFamilies:` without the HD

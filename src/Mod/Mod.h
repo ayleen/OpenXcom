@@ -441,7 +441,7 @@ private:
 	/// sentinel when the `calypsoEconomy:` key is absent). Body lives in
 	/// Calypso/ModHd.cpp::loadFileCalypso; type defined in Calypso/CalypsoEconomy.h.
 	Calypso::EconomyRules _calypsoEconomyRules;
-	/// Phase 43.1.3 (Calypso): parsed HD UI family rollout gate from the
+	/// Phase 46.1.3 (Calypso): parsed HD UI family rollout gate from the
 	/// `hdUiFamilies:` ruleset key. A sorted, deduplicated sequence of valid
 	/// F01..F38 ids; empty by default (shipped ruleset list is empty; a family
 	/// id is added only in the commit that passes its implementation
@@ -873,7 +873,7 @@ public:
 	const std::vector<CalypsoTutorialStep>& getCalypsoTutorialSteps() const { return _calypsoTutorialSteps; }
 	const std::vector<CalypsoChecklistItem>& getCalypsoChecklist() const { return _calypsoChecklist; }
 	const std::vector<CalypsoAdvisorRule>& getCalypsoAdvisors() const { return _calypsoAdvisors; }
-	/// Phase 43.1.3 (Calypso): the single engine API family adapters call to
+	/// Phase 46.1.3 (Calypso): the single engine API family adapters call to
 	/// ask "is family Fxx's HD layout enabled?". Fail-safe: true only when the
 	/// HD pack is active AND `familyId` is a valid, listed F01..F38 id in the
 	/// parsed `hdUiFamilies:` ruleset key; false otherwise (legacy layout). A

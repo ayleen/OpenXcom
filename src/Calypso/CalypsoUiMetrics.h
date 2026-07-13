@@ -2,13 +2,13 @@
 /*
  * Copyright 2010-2016 OpenXcom Developers.
  *
- * Phase 43.1.1 (Calypso) -- pure viewport metrics and safe-area foundation.
+ * Phase 46.1.1 (Calypso) -- pure viewport metrics and safe-area foundation.
  *
  * Header-only and dependency-free at the engine layer: the only standard
  * header pulled in is <cstdint> (for the wide generation-counter type). There
  * are no SDL, browser, engine, YAML, or GL includes, so the native doctest
- * suite exercises the real formulas. Family adapters (43.1.2+), the resolution
- * floor (43.1.5), and the focus/scroll primitives (43.1.4) consume these
+ * suite exercises the real formulas. Family adapters (46.1.2+), the resolution
+ * floor (46.1.5), and the focus/scroll primitives (46.1.4) consume these
  * values. This slice performs no gameplay mutation, performs no per-frame
  * allocation, has no callers, and therefore leaves native OXCE behavior
  * byte-for-byte unchanged.
@@ -33,7 +33,7 @@ namespace Calypso
 
 // --- Approved constants ----------------------------------------------------
 
-/// Approved compact landscape floor (logical px). The resolution gate (43.1.5)
+/// Approved compact landscape floor (logical px). The resolution gate (46.1.5)
 /// enforces this; the metrics helper only reports against it.
 constexpr int CALYPSO_COMPACT_FLOOR_WIDTH  = 740;
 constexpr int CALYPSO_COMPACT_FLOOR_HEIGHT = 360;
