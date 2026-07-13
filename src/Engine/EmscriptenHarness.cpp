@@ -171,6 +171,32 @@ int calypso_set_ai_turn_budget_ms(int budgetMs)
 		&& battleMod->getAITurnBudgetMs() == clamped ? 1 : 0;
 }
 
+/* Phase 43.1 QA harness: arm OXCE's supported alien Quick Mode semantics for
+ * the PORT/Superhuman DoD run, without changing the production default or the
+ * off-capture comparison. Options::battleAlienSpeed is the SAME knob Ctrl+S
+ * toggles in BattlescapeState::keyRelease for the alien side: it drives
+ * setStateInterval (UnitWalk/Fall/TurnBState) — lower is faster, and 1 is the
+ * value Ctrl+S assigns when Quick Mode activates. The root architecture
+ * decision for this run is that the engine faction timer INCLUDES action
+ * presentation, so the DoD drive runs the alien turn at the Quick Mode speed
+ * (Options::battleAlienSpeed=1) exactly as a Ctrl+S player would.
+ *
+ * The export clamps the input to the same [1,40] range the Ctrl+S restore guard
+ * accepts (battleAlienSpeedOrig >= 1 && <= 40 in BattlescapeState.cpp) and
+ * returns the applied value so the JS harness can assert the clamp held. It
+ * does NOT touch battleAlienSpeedOrig: the harness owns the knob for the whole
+ * run, so the save/restore dance Ctrl+S uses would only interfere with a later
+ * manual toggle. Production behaviour is unchanged — the export is
+ * __EMSCRIPTEN__-gated and only the harness calls it; the shipped default (30)
+ * is restored on the next normal options.cfg load. */
+EMSCRIPTEN_KEEPALIVE
+int calypso_set_alien_speed(int speed)
+{
+	const int clamped = speed < 1 ? 1 : (speed > 40 ? 40 : speed);
+	Options::battleAlienSpeed = clamped;
+	return Options::battleAlienSpeed;
+}
+
 /* ---- Phase 43.1 QA: occupancy save/reload roundtrip harness exports ----------
  *
  * These five exports let a Playwright regression script seed a known sparse
