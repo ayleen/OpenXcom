@@ -45,7 +45,7 @@
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #include <GLES3/gl3.h>
-/* M6c: context-lost flag; C-linkage definition lives in EmscriptenHarness.cpp.
+/* M6c: context-lost flag; C-linkage definition lives in Calypso/EmscriptenHarness.cpp.
  * Declared at file scope (extern "C" is not allowed at block scope) — same
  * pattern as g_calypsoSsaaScale in Map.cpp. */
 extern "C" int g_calypsoContextLost;

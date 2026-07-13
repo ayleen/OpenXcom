@@ -260,7 +260,7 @@ void CalypsoTutorial::dump() const
 } // namespace OpenXcom
 
 /* ---- Debug exports (extern "C", EMSCRIPTEN_KEEPALIVE) ----------------------
- * Same style as src/Engine/EmscriptenHarness.cpp's calypso_menu_* knobs. These
+ * Same style as src/Calypso/EmscriptenHarness.cpp's calypso_menu_* knobs. These
  * let the JS console / Playwright drive the tutorial for QA without engine
  * rebuilds. OpenXcom::getCurrentGame() (declared in Engine/Game.h) returns the
  * live Game* or null before boot completes — every export null-checks it. */

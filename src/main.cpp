@@ -30,7 +30,7 @@
 #include "Menu/StartState.h"
 #ifdef __EMSCRIPTEN__
 #include "Calypso/CalypsoSceneRegistry.h"
-extern "C" void calypso_log_heap(const char *tag);  // M5b: defined in EmscriptenHarness.cpp
+extern "C" void calypso_log_heap(const char *tag);  // M5b: defined in Calypso/EmscriptenHarness.cpp
 #endif
 
 /** @mainpage

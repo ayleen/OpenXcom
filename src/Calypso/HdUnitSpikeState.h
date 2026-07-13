@@ -5,7 +5,7 @@
  * This is deliberately not a production State. It is compiled only for
  * Emscripten and registers a short-lived GPU pass, following GpuSmokeState.
  */
-#ifdef __EMSCRIPTEN__
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_HD_UNIT_SPIKE)
 
 #include <string>
 

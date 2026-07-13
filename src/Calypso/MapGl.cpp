@@ -48,7 +48,7 @@
 #include "../Engine/Palette.h"
 #include "../Engine/Game.h"
 #include "../Engine/Screen.h"
-#include "../Engine/HdUnitBattleSpike.h"
+#include "HdUnitBattleSpike.h"
 #include "../Engine/ShaderDraw.h"
 #include "../Engine/ShaderMove.h"
 #include "../Savegame/SavedBattleGame.h"
@@ -69,6 +69,7 @@
 #include "../Interface/Text.h"
 #include "../fmath.h"
 #include "CalypsoDirector.h" // Phase 41 (commit 4.5): isPreviewActive()
+#include "HdUnitRenderPlan.h"
 #include <sstream>
 
 #ifdef __EMSCRIPTEN__
@@ -85,7 +86,7 @@
 #  include <algorithm>
 #  include <cstddef>   // offsetof — instance-layout static_asserts in initTileGL
 /* Phase 11.0 CPU perf gate; Phase 11.1 readback-cost probe gate.
- * Definitions live in EmscriptenHarness.cpp inside extern "C" {},
+ * Definitions live in Calypso/EmscriptenHarness.cpp inside extern "C" {},
  * so forward-declarations must carry C linkage (global namespace). */
 extern "C" int g_calypsoProfileBattlescape;
 extern "C" int g_calypsoProfileReadback;
@@ -113,7 +114,7 @@ extern "C" int   g_calypsoSunAuto;      // Phase 25 (R3): 1 = engine drives the 
  * and reset the flag, so production runs at zero cost. */
 extern "C" int g_calypsoDumpEmit;
 /* L2 (memory-reduction): JS-side SSAA scale override; 0 = use Map default.
- * Definition in EmscriptenHarness.cpp; set via calypso_set_ssaa_scale(). */
+ * Definition in Calypso/EmscriptenHarness.cpp; set via calypso_set_ssaa_scale(). */
 extern "C" int g_calypsoSsaaScale;
 #endif /* __EMSCRIPTEN__ */
 
@@ -403,7 +404,7 @@ void Map::emitTilePass()
 					default:          partPrio = 2; break;
 				}
 				const int prio = itZ * 65536 + itY * 1024 + mapPos.x * 8 + partPrio;
-				const float iso = (float)prio / 2000000.0f;
+				const float iso = (float)prio / HdUnitRenderPlan::kIsoDivisor;
 				if (partPrio == 6 && HdUnitBattleSpike::active())
 					HdUnitBattleSpike::recordForegroundOccluder(
 						mapPos.x, itY, itZ, partPrio, (float)prio, shade,
@@ -430,7 +431,7 @@ void Map::emitTilePass()
 				if (grp.overlayAtlas)
 				{
 					TileInstance ov = inst;
-					ov.iso = inst.iso + (0.5f / 2000000.0f);
+					ov.iso = inst.iso + (0.5f / HdUnitRenderPlan::kIsoDivisor);
 
 					// One hdTilesByCell lookup for all per-cell work below (sub-layers,
 					// Wang, anchor/zBias). Sub-layers use the *original* atlasTileIdx so
@@ -476,7 +477,7 @@ void Map::emitTilePass()
 						}
 						if (ts.zBias)
 						{
-							ov.iso += (float)ts.zBias * zStep / 2000000.0f;
+							ov.iso += (float)ts.zBias * zStep / HdUnitRenderPlan::kIsoDivisor;
 						}
 						// Phase 20.5: sub-layer instances (always use original atlasTileIdx UVs).
 						for (size_t li = 0; li < ts.subLayers.size(); ++li)
@@ -496,7 +497,7 @@ void Map::emitTilePass()
 							}
 							if (sub.zBias)
 							{
-								sl.iso += (float)sub.zBias * zStep / 2000000.0f;
+								sl.iso += (float)sub.zBias * zStep / HdUnitRenderPlan::kIsoDivisor;
 							}
 							grp.subLayerInstances[li].push_back(sl);
 						}
@@ -1589,11 +1590,34 @@ void Map::drawTileGLPass()
 
 	Shader* activeShader = nullptr;
 
+	// Both the persistent terrain buffer and the streamed unit buffer use the
+	// same eight-float instance layout. The caller binds the intended VAO/buffer
+	// before selecting the first instance for a draw run.
+	auto pointInstanceAttribs = [](size_t baseInstance) {
+		const GLsizei  stride = 8 * (GLsizei)sizeof(float);
+		const GLintptr base   = (GLintptr)(baseInstance * sizeof(TileInstance));
+		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, (const void*)(base + 0));
+		glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (const void*)(base + 2 * sizeof(float)));
+		glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, stride, (const void*)(base + 4 * sizeof(float)));
+		glVertexAttribPointer(4, 1, GL_FLOAT, GL_FALSE, stride, (const void*)(base + 5 * sizeof(float)));
+		glVertexAttribPointer(5, 1, GL_FLOAT, GL_FALSE, stride, (const void*)(base + 6 * sizeof(float)));
+		glVertexAttribPointer(6, 1, GL_FLOAT, GL_FALSE, stride, (const void*)(base + 7 * sizeof(float)));
+	};
+
+	auto uploadUnitInstances = [&](const TileInstance* data, size_t count) {
+		glBindVertexArray(0);
+		glBindBuffer(GL_ARRAY_BUFFER, _tileIBO);
+		glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)(count * sizeof(TileInstance)),
+		             count == 0 ? nullptr : data, GL_DYNAMIC_DRAW);
+	};
+
 	// drawAtlas is the UNIT draw path (called from the _unitAtlasGroups loop with
-	// isRgba=false). unitShade (Phase 25 R7) feeds u_unitShade: g_calypsoUnitShade
-	// for bodies/held items, 0 for floor items / any non-fake-AO draw.
+	// isRgba=false). Instance data is uploaded separately, once per atlas group
+	// on the legacy fast path or once for the complete sorted mixed-overlay list.
+	// unitShade (Phase 25 R7) feeds u_unitShade: g_calypsoUnitShade for bodies/
+	// held items, 0 for floor items / any non-fake-AO draw.
 	auto drawAtlas = [&](GpuTexture* atlas, float uvW, float uvH,
-	                     const TileInstance* data, size_t count, bool isRgba,
+	                     size_t baseInstance, size_t count, bool isRgba,
 	                     float unitShade, GpuTexture* hdMask,
 	                     float maskU, float maskV, float maskUvW, float maskUvH) {
 		Shader* sh = isRgba ? _tileShaderRgba : _tileShader;
@@ -1638,8 +1662,7 @@ void Map::drawTileGLPass()
 			}
 		}
 		glBindBuffer(GL_ARRAY_BUFFER, _tileIBO);
-		glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)(count * sizeof(TileInstance)),
-		             data, GL_DYNAMIC_DRAW);
+		pointInstanceAttribs(baseInstance);
 		glDrawArraysInstanced(GL_TRIANGLES, 0, 6, (GLsizei)count);
 	};
 
@@ -1681,19 +1704,6 @@ void Map::drawTileGLPass()
 		             GL_DYNAMIC_DRAW);
 		_tileBuffersDirty = false;
 	}
-
-	// Phase 22 (H1): re-point the terrain VAO's per-instance attrs (locs 1–6) to a
-	// byte offset within _tileInstIBO. Caller must bind _tileInstVAO + _tileInstIBO.
-	auto pointTileInstanceAttribs = [](size_t baseInstance) {
-		const GLsizei  stride = 8 * (GLsizei)sizeof(float);
-		const GLintptr base   = (GLintptr)(baseInstance * sizeof(TileInstance));
-		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, (const void*)(base + 0));
-		glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (const void*)(base + 2 * sizeof(float)));
-		glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, stride, (const void*)(base + 4 * sizeof(float)));
-		glVertexAttribPointer(4, 1, GL_FLOAT, GL_FALSE, stride, (const void*)(base + 5 * sizeof(float)));
-		glVertexAttribPointer(5, 1, GL_FLOAT, GL_FALSE, stride, (const void*)(base + 6 * sizeof(float)));
-		glVertexAttribPointer(6, 1, GL_FLOAT, GL_FALSE, stride, (const void*)(base + 7 * sizeof(float)));
-	};
 
 	// Phase 22 (H1): draw one terrain list from the resident _tileInstIBO at the
 	// given instance offset — no per-draw upload. Shares activeShader/uniform
@@ -1737,7 +1747,7 @@ void Map::drawTileGLPass()
 			sh->setUniform1i("u_hasHdMask", 0);
 		}
 		glBindBuffer(GL_ARRAY_BUFFER, _tileInstIBO);
-		pointTileInstanceAttribs(baseInstance);
+		pointInstanceAttribs(baseInstance);
 		glDrawArraysInstanced(GL_TRIANGLES, 0, 6, (GLsizei)count);
 	};
 
@@ -1753,115 +1763,158 @@ void Map::drawTileGLPass()
 	}
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
-	// Phase 42 E1: collect EVERY unit/floor/HANDOB R8 emission and production
-	// RGBA sibling into one painter list. Atlas/page buckets are upload/storage
-	// details only; colour compositing must follow global emission priority.
-	struct UnitPainterDraw
-	{
-		GpuTexture* atlas = nullptr;
-		float uvW = 0.0f, uvH = 0.0f;
-		TileInstance instance{};
-		bool rgba = false;
-		float unitShade = 0.0f;
-		GpuTexture* hdMask = nullptr;
-		float maskU = 0.0f, maskV = 0.0f, maskUvW = 0.0f, maskUvH = 0.0f;
-	};
-	std::vector<UnitPainterDraw> unitPainter;
 	const Mod::UnitAtlasSpec* floorSpec = _game->getMod()->getUnitAtlas("FLOOROB.PCK");
-	for (auto& g : _unitAtlasGroups)
-	{
-		if (!g.spec || !g.spec->atlas || g.spec->atlasW <= 0 || g.spec->atlasH <= 0) continue;
-		const float uvW = (float)g.spec->tileWidth  / (float)g.spec->atlasW;
-		const float uvH = (float)g.spec->tileHeight / (float)g.spec->atlasH;
-		const float unitShade = (g.spec == floorSpec) ? 0.0f : g_calypsoUnitShade;
-		std::vector<UnitPainterDraw> baselines;
-		baselines.reserve(g.instances.size());
-		for (const TileInstance& instance : g.instances)
-			baselines.push_back({g.spec->atlas, uvW, uvH, instance, false, unitShade});
-
-		if (!g.spec->hasRgbaOverlay()
-		 || g.spec->frameWidth <= 0 || g.spec->frameHeight <= 0
-		 || g.spec->rgbaPageW <= 0 || g.spec->rgbaPageH <= 0)
-		{
-			unitPainter.insert(unitPainter.end(), baselines.begin(), baselines.end());
-			continue;
-		}
-		const float rgbaUvW = (float)g.spec->frameWidth  / (float)g.spec->rgbaPageW;
-		const float rgbaUvH = (float)g.spec->frameHeight / (float)g.spec->rgbaPageH;
-		for (size_t page = 0; page < g.spec->rgbaOverlayPages.size(); ++page)
-		{
-			if (page >= g.rgbaOverlayInstances.size()) break;
-			GpuTexture* atlas = g.spec->rgbaOverlayPages[page];
-			if (!atlas) continue;
-			for (const auto& overlay : g.rgbaOverlayInstances[page])
-			{
-				if (overlay.baselineIndex < baselines.size())
-				{
-					UnitPainterDraw& baseline = baselines[overlay.baselineIndex];
-					baseline.hdMask = atlas;
-					baseline.maskU = overlay.instance.atlasU;
-					baseline.maskV = overlay.instance.atlasV;
-					baseline.maskUvW = rgbaUvW;
-					baseline.maskUvH = rgbaUvH;
-				}
-				unitPainter.push_back({atlas, rgbaUvW, rgbaUvH,
-				                       overlay.instance, true, 0.0f});
-			}
-		}
-		unitPainter.insert(unitPainter.end(), baselines.begin(), baselines.end());
-	}
-	std::stable_sort(unitPainter.begin(), unitPainter.end(),
-		[](const UnitPainterDraw& a, const UnitPainterDraw& b) {
-			return UnitSprite::e1PainterOrderLess(a.instance.iso, b.instance.iso);
+	const bool hasRgbaThisFrame = std::any_of(
+		_unitAtlasGroups.begin(), _unitAtlasGroups.end(),
+		[](const UnitAtlasGroup& group) {
+			return std::any_of(group.rgbaOverlayInstances.begin(),
+			                   group.rgbaOverlayInstances.end(),
+			                   [](const std::vector<UnitAtlasGroup::RgbaOverlayInstance>& page) {
+				                   return !page.empty();
+			                   });
 		});
 
-	// Unit colour pass: terrain-only depth is still resident because units have
-	// not written depth yet. Draw the globally sorted list back-to-front with
-	// depth writes off. Thus a fractional-alpha front RGBA edge blends over the
-	// already drawn behind R8/RGBA emission regardless of source atlas bucket.
-	// Foreground terrain (priority 6) still rejects units through GL_LESS.
-	// Use true Porter-Duff source-over for the alpha channel. The canvas alpha is
-	// normally masked here, but keeping the factors correct makes off-screen/readback
-	// targets and the production FBO proof agree at fractional RGBA edges.
+	if (!hasRgbaThisFrame)
+	{
+		// Common production path: preserve the pre-E1 atlas-group batching and its
+		// single combined colour/depth draw. Each group uploads once, never once per
+		// instance; no global painter plan is allocated or sorted.
+		glDepthMask(GL_TRUE);
+		glDepthFunc(GL_LESS);
+		for (auto& g : _unitAtlasGroups)
+		{
+			if (!g.spec || !g.spec->atlas || g.instances.empty()
+			 || g.spec->atlasW <= 0 || g.spec->atlasH <= 0) continue;
+			const float uvW = (float)g.spec->tileWidth  / (float)g.spec->atlasW;
+			const float uvH = (float)g.spec->tileHeight / (float)g.spec->atlasH;
+			const float unitShade = (g.spec == floorSpec) ? 0.0f : g_calypsoUnitShade;
+			uploadUnitInstances(g.instances.data(), g.instances.size());
+			drawAtlas(g.spec->atlas, uvW, uvH, 0, g.instances.size(), false,
+			          unitShade, nullptr, 0.0f, 0.0f, 0.0f, 0.0f);
+		}
+	}
+	else
+	{
+		// Phase 42 E1: collect every unit/floor/HANDOB R8 emission and its
+		// production RGBA sibling into one painter list. Atlas/page buckets are
+		// storage details only; colour compositing follows global emission priority.
+		struct UnitPainterDraw
+		{
+			GpuTexture* atlas = nullptr;
+			float uvW = 0.0f, uvH = 0.0f;
+			TileInstance instance{};
+			bool rgba = false;
+			float unitShade = 0.0f;
+			GpuTexture* hdMask = nullptr;
+			float maskU = 0.0f, maskV = 0.0f, maskUvW = 0.0f, maskUvH = 0.0f;
+		};
+		std::vector<UnitPainterDraw> unitPainter;
+		for (auto& g : _unitAtlasGroups)
+		{
+			if (!g.spec || !g.spec->atlas || g.spec->atlasW <= 0 || g.spec->atlasH <= 0) continue;
+			const float uvW = (float)g.spec->tileWidth  / (float)g.spec->atlasW;
+			const float uvH = (float)g.spec->tileHeight / (float)g.spec->atlasH;
+			const float unitShade = (g.spec == floorSpec) ? 0.0f : g_calypsoUnitShade;
+			std::vector<UnitPainterDraw> baselines;
+			baselines.reserve(g.instances.size());
+			for (const TileInstance& instance : g.instances)
+				baselines.push_back({g.spec->atlas, uvW, uvH, instance, false, unitShade});
+
+			if (!g.spec->hasRgbaOverlay()
+			 || g.spec->frameWidth <= 0 || g.spec->frameHeight <= 0
+			 || g.spec->rgbaPageW <= 0 || g.spec->rgbaPageH <= 0)
+			{
+				unitPainter.insert(unitPainter.end(), baselines.begin(), baselines.end());
+				continue;
+			}
+			const float rgbaUvW = (float)g.spec->frameWidth  / (float)g.spec->rgbaPageW;
+			const float rgbaUvH = (float)g.spec->frameHeight / (float)g.spec->rgbaPageH;
+			for (size_t page = 0; page < g.spec->rgbaOverlayPages.size(); ++page)
+			{
+				if (page >= g.rgbaOverlayInstances.size()) break;
+				GpuTexture* atlas = g.spec->rgbaOverlayPages[page];
+				if (!atlas) continue;
+				for (const auto& overlay : g.rgbaOverlayInstances[page])
+				{
+					if (overlay.baselineIndex < baselines.size())
+					{
+						UnitPainterDraw& baseline = baselines[overlay.baselineIndex];
+						baseline.hdMask = atlas;
+						baseline.maskU = overlay.instance.atlasU;
+						baseline.maskV = overlay.instance.atlasV;
+						baseline.maskUvW = rgbaUvW;
+						baseline.maskUvH = rgbaUvH;
+					}
+					unitPainter.push_back({atlas, rgbaUvW, rgbaUvH,
+					                       overlay.instance, true, 0.0f});
+				}
+			}
+			unitPainter.insert(unitPainter.end(), baselines.begin(), baselines.end());
+		}
+		std::stable_sort(unitPainter.begin(), unitPainter.end(),
+			[](const UnitPainterDraw& a, const UnitPainterDraw& b) {
+				return UnitSprite::e1PainterOrderLess(a.instance.iso, b.instance.iso);
+			});
+
+		auto compatible = [](const UnitPainterDraw& a, const UnitPainterDraw& b) {
+			return a.atlas == b.atlas && a.uvW == b.uvW && a.uvH == b.uvH
+			    && a.rgba == b.rgba && a.unitShade == b.unitShade
+			    && a.hdMask == b.hdMask
+			    && a.maskU == b.maskU && a.maskV == b.maskV
+			    && a.maskUvW == b.maskUvW && a.maskUvH == b.maskUvH;
+		};
+		const std::vector<HdUnitRenderPlan::Run> runs =
+			HdUnitRenderPlan::consecutiveRuns(unitPainter, compatible);
+		std::vector<TileInstance> unitUpload;
+		unitUpload.reserve(unitPainter.size());
+		for (const UnitPainterDraw& draw : unitPainter)
+			unitUpload.push_back(draw.instance);
+		if (!unitUpload.empty())
+			uploadUnitInstances(unitUpload.data(), unitUpload.size());
+
+		// Unit colour pass: terrain-only depth is still resident because units have
+		// not written depth yet. Draw the globally sorted list back-to-front with
+		// depth writes off. Fractional-alpha RGBA edges therefore blend over the
+		// already drawn emission behind them, independent of its source atlas.
+		glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA,
+		                    GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+		glDepthMask(GL_FALSE);
+		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_FALSE);
+		glDepthFunc(GL_LESS);
+		// Unit overlays have neither a normal nor emissive atlas. Invalidate the
+		// helper cache after touching the RGBA program directly so its first run
+		// receives the complete uniform setup.
+		if (_tileShaderRgba && _tileShaderRgba->isValid())
+		{
+			_tileShaderRgba->use();
+			_tileShaderRgba->setUniform1i("u_hasNormalMap", 0);
+			_tileShaderRgba->setUniform1i("u_hasEmissive", 0);
+			activeShader = nullptr;
+		}
+		auto drawRuns = [&]() {
+			for (const HdUnitRenderPlan::Run& run : runs)
+			{
+				const UnitPainterDraw& draw = unitPainter[run.first];
+				drawAtlas(draw.atlas, draw.uvW, draw.uvH, run.first, run.count,
+				          draw.rgba, draw.unitShade, draw.hdMask,
+				          draw.maskU, draw.maskV, draw.maskUvW, draw.maskUvH);
+			}
+		};
+		drawRuns();
+
+		// Depth prepass reuses the same uploaded instance buffer and compatible
+		// runs. With colour writes disabled, nearest visible unit texels become
+		// depth owners without changing the source-over colour result.
+		glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+		glDepthMask(GL_TRUE);
+		glDepthFunc(GL_LESS);
+		drawRuns();
+	}
+
+	// The diagnostic G0 overlay and later hybrid terrain passes expect straight
+	// alpha, colour-alpha locking, and LEQUAL with depth writes disabled.
 	glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA,
 	                    GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-	glDepthMask(GL_FALSE);
-	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_FALSE);
-	glDepthFunc(GL_LESS);
-	// Phase 42 E1: explicitly reset the RGBA (tile_atlas_rgba) shader's
-	// normal/emissive binds BEFORE the unit overlay pass. Unit overlays carry no
-	// normal-map or emissive atlas; without this reset, the previous frame's
-	// terrain-overlay u_hasNormalMap/u_hasEmissive state could leak into the
-	// first unit overlay draw. The manual bind invalidates activeShader so
-	// drawAtlas performs its full uniform setup on the first sorted draw. Shade semantics
-	// are preserved per-instance (inst.shade) + via u_shadeCurve; recolour is
-	// N/A — RGBA overlays ship final colour (matches blitBodyHD Path 5b).
-	if (_tileShaderRgba && _tileShaderRgba->isValid())
-	{
-		_tileShaderRgba->use();
-		_tileShaderRgba->setUniform1i("u_hasNormalMap", 0);
-		_tileShaderRgba->setUniform1i("u_hasEmissive", 0);
-		// Manual use() changes the real GL program behind the draw helper cache.
-		// Invalidate it so the first globally sorted draw always binds its own
-		// R8/RGBA program and complete uniform set.
-		activeShader = nullptr;
-	}
-	for (const UnitPainterDraw& draw : unitPainter)
-		drawAtlas(draw.atlas, draw.uvW, draw.uvH, &draw.instance, 1,
-		          draw.rgba, draw.unitShade, draw.hdMask,
-		          draw.maskU, draw.maskV, draw.maskUvW, draw.maskUvH);
-
-	// Depth prepass over the same alpha-discard geometry. It runs after colour,
-	// with colour writes disabled, so the nearest visible unit texel becomes the
-	// depth owner for later terrain overlays/contact shadows without changing
-	// the correct source-over colour result above.
-	glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-	glDepthMask(GL_TRUE);
-	glDepthFunc(GL_LESS);
-	for (const UnitPainterDraw& draw : unitPainter)
-		drawAtlas(draw.atlas, draw.uvW, draw.uvH, &draw.instance, 1,
-		          draw.rgba, draw.unitShade, draw.hdMask,
-		          draw.maskU, draw.maskV, draw.maskUvW, draw.maskUvH);
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_FALSE);
 
 	// The disposable G0 overlay remains a colour-only diagnostic over its exact
@@ -1877,8 +1930,9 @@ void Map::drawTileGLPass()
 		if (!g.spec || !g.spec->g0OverlayAtlas || g.g0OverlayInstances.empty()) continue;
 		const float uvW = (float)g.spec->tileWidth / (float)g.spec->atlasW;
 		const float uvH = (float)g.spec->tileHeight / (float)g.spec->atlasH;
-		drawAtlas(g.spec->g0OverlayAtlas, uvW, uvH,
-		          g.g0OverlayInstances.data(), g.g0OverlayInstances.size(), true, 0.0f,
+		uploadUnitInstances(g.g0OverlayInstances.data(), g.g0OverlayInstances.size());
+		drawAtlas(g.spec->g0OverlayAtlas, uvW, uvH, 0,
+		          g.g0OverlayInstances.size(), true, 0.0f,
 		          nullptr, 0.0f, 0.0f, 0.0f, 0.0f);
 	}
 	if (HdUnitBattleSpike::active())
@@ -2135,6 +2189,10 @@ void Map::drawTileGLPass()
 		glBufferData(GL_ARRAY_BUFFER,
 		             (GLsizeiptr)(_unitShadowInst.size() * sizeof(TileInstance)),
 		             _unitShadowInst.data(), GL_DYNAMIC_DRAW);
+		// Mixed HD-unit runs re-point _tileVAO's instance attributes at non-zero
+		// offsets in _tileIBO. A new upload does not reset VAO pointer state, so the
+		// shadow draw must explicitly select its freshly uploaded first instance.
+		pointInstanceAttribs(0);
 		glDrawArraysInstanced(GL_TRIANGLES, 0, 6, (GLsizei)_unitShadowInst.size());
 		activeShader = nullptr;
 	}
