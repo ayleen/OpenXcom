@@ -28,10 +28,7 @@
 #include "../Mod/Mod.h"
 #include "../Engine/Exception.h"
 #ifdef __EMSCRIPTEN__
-#include "Map.h"
-#include "../Engine/HdUnitBattleSpike.h"
-#include <algorithm>
-#include <cmath>
+#include "../Calypso/HdUnitBattleSpike.h"
 #endif
 
 namespace OpenXcom
@@ -113,190 +110,7 @@ const BattleItem *getIfVisible(const BattleItem *item)
 	return 0;
 }
 
-#ifdef __EMSCRIPTEN__
-/**
- * Phase 42 E1: bounded per-emission GPU depth subpriority.
- *
- * The drawRoutine* call sequence (blitBody/blitItem order) IS the correct
- * painter order — it encodes the direction-dependent body/HANDOB interleaving
- * the routines were authored for (e.g. routine 0 dir 1 draws
- * leftArm, legs, itemL, torso, itemR, rightArm). The old coarse split
- * (body=+4 / item=+5) flattened that, drawing ALL items above ALL bodies.
- *
- * This reserves eight ordered body/HANDOB emission slots in [4.0, 6.0)
- * so it NEVER crosses the surrounding priority slots:
- *   - floor items (ItemSprite, FLOOROB.PCK) sit at +3 (below body/item);
- *   - front-tile O_OBJECT occluders sit at +6 (above body/item).
- * Eight steps of 0.25 cover the observed routine maximum with headroom; the
- * clamp to 7 keeps
- * degenerate authoring from leaking past +6. Both the
- * R8 baseline and the RGBA overlay (see emitRgbaOverlay) derive from this so a
- * body part and its HD overlay share a depth neighbourhood.
- *
- *   SUBPRIO_BASE        = 4.0   (above floor-item +3)
- *   SUBPRIO_STEP        = 0.25  (8 observed emissions before +6)
- *   SUBPRIO_OVERLAY_EPS = 0.125 (one 24-bit depth quantum plus margin)
- */
-constexpr float kSubprioBase        = 4.0f;
-constexpr float kSubprioStep        = 0.25f;
-constexpr int   kSubprioMaxSequence = 7;
-constexpr float kSubprioOverlayEps  = 0.125f;
-constexpr float kIsoDivisor         = 2000000.0f;
-constexpr double kDepth24Max        = 16777215.0;
-static_assert(kSubprioBase > 3.0f, "unit emissions must remain above floor items");
-static_assert(kSubprioBase + kSubprioMaxSequence * kSubprioStep
-              + kSubprioOverlayEps < 6.0f,
-              "unit emissions must remain below foreground objects");
-static_assert((double)kSubprioOverlayEps / (double)kIsoDivisor
-              > 1.0 / kDepth24Max,
-              "baseline and overlay must occupy distinct 24-bit depth levels");
-
-inline float boundedSubpriority(int sequence)
-{
-	if (sequence < 0) sequence = 0;
-	if (sequence > kSubprioMaxSequence) sequence = kSubprioMaxSequence;
-	return kSubprioBase + (float)sequence * kSubprioStep;
-}
-
-inline bool scalePartOffset(int logicalOffset, int scale, float& scaled)
-{
-	if (scale <= 0) return false;
-	scaled = (float)logicalOffset * (float)scale;
-	return std::isfinite(scaled);
-}
-
-/**
- * Phase 42 E1: emit one production RGBA overlay instance for a body/item frame
- * into the matching per-page instance vector. No-op when the spec carries no
- * overlay, the frame has no HD slot, or the target was not wired. The overlay
- * instance copies the R8 baseline's geometry/shade and is offset by
- * kSubprioOverlayEps so it sits just above its own R8 baseline and below the
- * next emission slot. Production RGBA fragments alpha-discard transparent
- * texels and write depth, including outside the vanilla silhouette.
- * Shade is preserved verbatim (inst.shade). The pilot RGBA pages ship final
- * colour, so armor-mask tint is intentionally not implemented here; frames
- * without an overlay retain the existing R8 recolour path.
- */
-#endif
-
 } //namespace
-
-#ifdef __EMSCRIPTEN__
-float UnitSprite::debugE1LocalPriority(int sequence, bool overlay)
-{
-	return boundedSubpriority(sequence) + (overlay ? kSubprioOverlayEps : 0.0f);
-}
-
-unsigned int UnitSprite::debugE1DepthCode(int basePriority, int sequence, bool overlay)
-{
-	const float priority = (float)basePriority + debugE1LocalPriority(sequence, overlay);
-	const float iso = priority / kIsoDivisor;
-	const double depth = 1.0 - (double)iso;
-	if (depth <= 0.0) return 0u;
-	if (depth >= 1.0) return 0xFFFFFFu;
-	return (unsigned int)(depth * kDepth24Max + 0.5);
-}
-
-bool UnitSprite::debugE1DepthProof()
-{
-	// Exhaust the actual integer base-priority lattice over deliberately broad
-	// Battlescape bounds. A later emission must always map closer (smaller depth
-	// code), with its overlay strictly between its baseline and the next emit.
-	for (int z = 0; z <= 15; ++z)
-	for (int y = 0; y <= 255; ++y)
-	for (int x = 0; x <= 255; ++x)
-	{
-		const int base = z * 65536 + y * 1024 + x * 8;
-		for (int sequence = 0; sequence <= kSubprioMaxSequence; ++sequence)
-		{
-			const unsigned int baseline = debugE1DepthCode(base, sequence, false);
-			const unsigned int overlay = debugE1DepthCode(base, sequence, true);
-			if (!(overlay < baseline)) return false;
-			if (sequence < kSubprioMaxSequence)
-			{
-				const unsigned int next = debugE1DepthCode(base, sequence + 1, false);
-				if (!(next < overlay)) return false;
-			}
-		}
-	}
-	return true;
-}
-
-unsigned int UnitSprite::debugE1FractionalPixel(bool reverseBuckets)
-{
-	// Two atlas/spec buckets deliberately arrive in either order. Each has an
-	// R8 fallback followed by its RGBA sibling. At a covered RGBA texel the R8
-	// shader mask discards the fallback; then the shared painter comparator must
-	// place opaque blue behind 50%-alpha red.
-	struct Layer { float iso; unsigned r, g, b, a; bool maskedR8; };
-	Layer layers[4] = {
-		{debugE1LocalPriority(1, false), 0u, 255u, 0u, 255u, true},
-		{debugE1LocalPriority(1, true),  0u, 0u, 255u, 255u, false},
-		{debugE1LocalPriority(2, false), 255u, 255u, 0u, 255u, true},
-		{debugE1LocalPriority(2, true),  255u, 0u, 0u, 128u, false}
-	};
-	if (reverseBuckets)
-	{
-		std::swap(layers[0], layers[2]);
-		std::swap(layers[1], layers[3]);
-	}
-	std::stable_sort(layers, layers + 4, [](const Layer& lhs, const Layer& rhs) {
-		return UnitSprite::e1PainterOrderLess(lhs.iso, rhs.iso);
-	});
-	unsigned r = 0, g = 0, b = 0, a = 0;
-	for (const Layer& src : layers)
-	{
-		if (src.maskedR8) continue;
-		r = (src.r * src.a + r * (255u - src.a) + 127u) / 255u;
-		g = (src.g * src.a + g * (255u - src.a) + 127u) / 255u;
-		b = (src.b * src.a + b * (255u - src.a) + 127u) / 255u;
-		a = src.a + (a * (255u - src.a) + 127u) / 255u;
-	}
-	return (r << 24) | (g << 16) | (b << 8) | a;
-}
-
-int UnitSprite::debugE2ScaledOffset(int logicalOffset, int scale)
-{
-	float scaled = 0.0f;
-	return scalePartOffset(logicalOffset, scale, scaled) ? (int)scaled : 0;
-}
-
-bool UnitSprite::debugE2OffsetProof()
-{
-	// Representative negative/zero/positive values cover direction tables,
-	// walk bob, kneel and item-height adjustment through their shared emit seam.
-	const int logical[] = {-7, -6, -2, -1, 0, 1, 2, 5, 7, 22};
-	for (int value : logical)
-	{
-		float scaled = 0.0f;
-		if (!scalePartOffset(value, 4, scaled) || scaled != (float)(value * 4)) return false;
-	}
-	float ignored = 0.0f;
-	return !scalePartOffset(1, 0, ignored);
-}
-
-void UnitSprite::emitRgbaOverlay(const Mod::UnitAtlasSpec* spec, int frameIdx,
-                                 const void* baseInstance, float basePrio,
-                                 size_t baselineIndex, void* pagesTarget)
-{
-	if (!spec || !spec->hasRgbaOverlay() || !baseInstance || !pagesTarget) return;
-	if (!spec->frameHasHd(frameIdx)) return;
-	const int page = spec->framePageOf(frameIdx);
-	if (page < 0 || page >= (int)spec->rgbaOverlayPages.size()) return;
-	auto* pagesVec = static_cast<std::vector<std::vector<Map::UnitAtlasGroup::RgbaOverlayInstance>>*>(pagesTarget);
-	if (page >= (int)pagesVec->size()) return;
-	const int idxInPage = frameIdx - page * spec->rgbaFramesPerPage;
-	const int col = idxInPage % spec->rgbaColumns;
-	const int row = idxInPage / spec->rgbaColumns;
-	const float uvW = (float)spec->frameWidth  / (float)spec->rgbaPageW;
-	const float uvH = (float)spec->frameHeight / (float)spec->rgbaPageH;
-	Map::TileInstance ov = *static_cast<const Map::TileInstance*>(baseInstance);
-	ov.atlasU = col * uvW;
-	ov.atlasV = row * uvH;
-	ov.iso = (basePrio + kSubprioOverlayEps) / kIsoDivisor;
-	(*pagesVec)[(size_t)page].push_back({ov, baselineIndex});
-}
-#endif
 
 /**
  * Get item sprite for item.
@@ -372,66 +186,16 @@ void UnitSprite::blitItem(Part& item)
 	if (!item.src)
 	{
 #ifdef __EMSCRIPTEN__
-		// Phase 42 E1: track the routine's attempted call order (including an
-		// empty hand slot) so RH/LH ordering stays distinguishable in the
-		// per-emission subpriority — for ALL units, not only the G0 spike.
-		if (_emitItemTarget && _emitItemSpec && _emitItemSpec->atlas) ++_emitSequence;
+		advanceHdUnitEmitSequence(_hdEmit, HdUnitPartKind::Item);
 #endif
 		return;
 	}
 #ifdef __EMSCRIPTEN__
-	float emitOffX = 0.0f, emitOffY = 0.0f;
-	const bool emitOffsetsValid = scalePartOffset(item.offX, _emitPartOffsetScale, emitOffX)
-	                           && scalePartOffset(item.offY, _emitPartOffsetScale, emitOffY);
-	if (_emitItemTarget && _emitItemSpec && _emitItemSpec->atlas
-	    && item.frameIdx >= 0 && item.src->getShadeTable() != nullptr
-	    && emitOffsetsValid)
-	{
-		auto* vec = static_cast<std::vector<Map::TileInstance>*>(_emitItemTarget);
-		const int col   = item.frameIdx % _emitItemSpec->columns;
-		const int row   = item.frameIdx / _emitItemSpec->columns;
-		const float uvW = (float)_emitItemSpec->tileWidth  / (float)_emitItemSpec->atlasW;
-		const float uvH = (float)_emitItemSpec->tileHeight / (float)_emitItemSpec->atlasH;
-		Map::TileInstance inst;
-		inst.screenX        = (float)_x + emitOffX;
-		inst.screenY        = (float)_y + emitOffY;
-		inst.atlasU         = col * uvW;
-		inst.atlasV         = row * uvH;
-		inst.shade          = (float)_shade;
-		inst.animFrameCount = 1.0f;
-		inst.alphaMask      = 1.0f;
-		// Phase 42 E1: bounded per-emission subpriority replaces the coarse
-		// body=+4/item=+5 split so the routine's real body/HANDOB interleaving
-		// is preserved across R8/RGBA groups (see boundedSubpriority). The
-		// floor-item (+3) and front-object (+6) slots are not crossed.
-		const bool g0 = HdUnitBattleSpike::active() && _emitUnitSpec
-		             && _emitUnitSpec->g0OverlayAtlas;
-		const int sequence = _emitSequence;
-		const float localPriority = boundedSubpriority(sequence);
-		const float prio = (float)(_emitZ * 65536 + _emitY * 1024 + _emitX * 8) + localPriority;
-		inst.iso = prio / kIsoDivisor;
-		vec->push_back(inst);
-		// Phase 42 E1: production RGBA overlay (per-PCK-frame). Transparent /
-		// absent slots are a no-op here → the R8 instance above stands alone.
-		emitRgbaOverlay(_emitItemSpec, item.frameIdx, &inst, prio,
-		                vec->size() - 1, _emitRgbaOverlayItemPages);
-		if (g0)
-		{
-			HdUnitBattleSpike::recordEmit(_unit ? _unit->getId() : -1,
-				_unit ? _unit->getDirection() : -1, sequence, "HANDOB",
-				item.frameIdx, localPriority, false);
-			++_emitSequence;
-		}
-		else if (_emitItemTarget)
-		{
-			++_emitSequence;
-		}
-		if (_emitZTargetItem)
-			static_cast<std::vector<int>*>(_emitZTargetItem)->push_back(_emitZ);
-		if (_emitYTargetItem)
-			static_cast<std::vector<int>*>(_emitYTargetItem)->push_back(_emitY);
+	if (emitHdUnitPart(_hdEmit, HdUnitPartKind::Item, item.frameIdx,
+	    item.offX, item.offY, item.src->getShadeTable() != nullptr,
+	    _x, _y, _shade, _unit ? _unit->getId() : -1,
+	    _unit ? _unit->getDirection() : -1))
 		return;
-	}
 #endif
 	ScriptWorkerBlit work;
 	BattleItem::ScriptFill(&work, (item.bodyPart == BODYPART_ITEM_RIGHTHAND ? _itemR : _itemL), _save, item.bodyPart, _animationFrame, _shade);
@@ -452,10 +216,7 @@ void UnitSprite::blitBody(Part& body)
 	if (!body.src)
 	{
 #ifdef __EMSCRIPTEN__
-		// Phase 42 E1: advance the per-emission sequence for attempted (but
-		// empty) body slots too, so the bounded subpriority reflects the real
-		// routine call order — for ALL units, not only the G0 spike.
-		if (_emitTarget && _emitUnitSpec && _emitUnitSpec->atlas) ++_emitSequence;
+		advanceHdUnitEmitSequence(_hdEmit, HdUnitPartKind::Body);
 #endif
 		return;
 	}
@@ -465,71 +226,10 @@ void UnitSprite::blitBody(Part& body)
 		return;
 	}
 #ifdef __EMSCRIPTEN__
-	float emitOffX = 0.0f, emitOffY = 0.0f;
-	const bool emitOffsetsValid = scalePartOffset(body.offX, _emitPartOffsetScale, emitOffX)
-	                           && scalePartOffset(body.offY, _emitPartOffsetScale, emitOffY);
-	if (_emitTarget && _emitUnitSpec && _emitUnitSpec->atlas
-	    && body.frameIdx >= 0 && emitOffsetsValid)
-	{
-		auto* vec = static_cast<std::vector<Map::TileInstance>*>(_emitTarget);
-		const int col   = body.frameIdx % _emitUnitSpec->columns;
-		const int row   = body.frameIdx / _emitUnitSpec->columns;
-		const float uvW = (float)_emitUnitSpec->tileWidth  / (float)_emitUnitSpec->atlasW;
-		const float uvH = (float)_emitUnitSpec->tileHeight / (float)_emitUnitSpec->atlasH;
-		Map::TileInstance inst;
-		inst.screenX        = (float)_x + emitOffX;
-		inst.screenY        = (float)_y + emitOffY;
-		inst.atlasU         = col * uvW;
-		inst.atlasV         = row * uvH;
-		inst.shade          = (float)_shade;
-		inst.animFrameCount = 1.0f;
-		inst.alphaMask      = 1.0f;
-		// Phase 42 E1: bounded per-emission subpriority (replaces fixed +4) so
-		// the routine's body/HANDOB call order is the painter order. Stays in
-		// [4.0, 5.9] — below the front-object slot (+6), above floor items (+3).
-		const bool g0 = HdUnitBattleSpike::active() && _emitUnitSpec
-		             && _emitUnitSpec->g0OverlayAtlas;
-		const int sequence = _emitSequence;
-		const float localPriority = boundedSubpriority(sequence);
-		const float prio = (float)(_emitZ * 65536 + _emitY * 1024 + _emitX * 8) + localPriority;
-		inst.iso = prio / kIsoDivisor;
-		vec->push_back(inst);
-		// Phase 42 E1: production RGBA overlay (per-PCK-frame). Transparent or
-		// absent slots are a no-op → the R8 baseline instance stands alone.
-		emitRgbaOverlay(_emitUnitSpec, body.frameIdx, &inst, prio,
-		                vec->size() - 1, _emitRgbaOverlayBodyPages);
-		if (g0)
-		{
-			HdUnitBattleSpike::recordEmit(_unit ? _unit->getId() : -1,
-				_unit ? _unit->getDirection() : -1, sequence, "body",
-				body.frameIdx, localPriority, false);
-			if (_emitG0OverlayTarget && _emitUnitSpec->g0OverlayAtlas
-			 && (size_t)body.frameIdx < _emitUnitSpec->g0OverlayMask.size()
-			 && _emitUnitSpec->g0OverlayMask[(size_t)body.frameIdx])
-			{
-				Map::TileInstance overlay = inst;
-				overlay.iso = (prio + kSubprioOverlayEps) / 2000000.0f;
-				static_cast<std::vector<Map::TileInstance>*>(_emitG0OverlayTarget)->push_back(overlay);
-				HdUnitBattleSpike::recordOverlayGeometry(_unit ? _unit->getId() : -1,
-					body.frameIdx, prio + kSubprioOverlayEps,
-					overlay.screenX, overlay.screenY,
-					(float)_emitUnitSpec->tileWidth, (float)_emitUnitSpec->tileHeight);
-				HdUnitBattleSpike::recordEmit(_unit ? _unit->getId() : -1,
-					_unit ? _unit->getDirection() : -1, sequence, "body",
-					body.frameIdx, localPriority + kSubprioOverlayEps, true);
-			}
-			++_emitSequence;
-		}
-		else if (_emitTarget)
-		{
-			++_emitSequence;
-		}
-		if (_emitZTargetBody)
-			static_cast<std::vector<int>*>(_emitZTargetBody)->push_back(_emitZ);
-		if (_emitYTargetBody)
-			static_cast<std::vector<int>*>(_emitYTargetBody)->push_back(_emitY);
+	if (emitHdUnitPart(_hdEmit, HdUnitPartKind::Body, body.frameIdx,
+	    body.offX, body.offY, true, _x, _y, _shade,
+	    _unit ? _unit->getId() : -1, _unit ? _unit->getDirection() : -1))
 		return;
-	}
 #endif
 	ScriptWorkerBlit work;
 	BattleUnit::ScriptFill(&work, _unit, _save, body.bodyPart, _animationFrame, _shade, _burn);
@@ -619,7 +319,7 @@ void UnitSprite::blitBodyHD(Part& body)
 void UnitSprite::draw(const BattleUnit* unit, int part, int x, int y, int shade, GraphSubset mask, bool drawFacingIndicator)
 {
 #ifdef __EMSCRIPTEN__
-	_emitSequence = 0;
+	_hdEmit.sequence = 0;
 #endif
 	_x = x;
 	_y = y;

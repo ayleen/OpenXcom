@@ -20,8 +20,7 @@
 #include "../Engine/Surface.h"
 #include "../Engine/Script.h"
 #ifdef __EMSCRIPTEN__
-#include <vector>
-#include "../Mod/Mod.h"
+#include "../Calypso/HdUnitEmit.h"
 #endif
 
 namespace OpenXcom
@@ -72,31 +71,7 @@ private:
 	int _x, _y, _shade, _burn;
 	GraphSubset _mask;
 #ifdef __EMSCRIPTEN__
-	/// Phase 14.2: when non-null, blitBody emits TileInstance records into this
-	/// vector instead of blitting to _dest.  blitItem emits into _emitItemTarget.
-	/// Both pointers are std::vector<Map::TileInstance>* cast to void* to avoid
-	/// a circular header dependency.
-	void*                      _emitTarget     = nullptr;  // body parts
-	void*                      _emitItemTarget = nullptr;  // item hand sprites
-	const Mod::UnitAtlasSpec*  _emitUnitSpec   = nullptr;  // unit body atlas
-	const Mod::UnitAtlasSpec*  _emitItemSpec   = nullptr;  // item (HANDOB.PCK) atlas
-	int                        _emitZ           = 0;        // unit's tile Z, parallel-pushed via zTargets
-	int                        _emitY           = 0;        // unit's tile Y, parallel-pushed via yTargets
-	int                        _emitX           = 0;        // unit's tile X — used to derive instance iso priority
-	void*                      _emitZTargetBody = nullptr;  // std::vector<int>* receiving Z per body emit
-	void*                      _emitZTargetItem = nullptr;  // std::vector<int>* receiving Z per item emit
-	void*                      _emitYTargetBody = nullptr;  // std::vector<int>* receiving Y per body emit
-	void*                      _emitYTargetItem = nullptr;  // std::vector<int>* receiving Y per item emit
-	void*                      _emitG0OverlayTarget = nullptr;
-	void*                      _emitRgbaOverlayBodyPages = nullptr; // per-page Map::UnitAtlasGroup::RgbaOverlayInstance vectors
-	void*                      _emitRgbaOverlayItemPages = nullptr; // per-page Map::UnitAtlasGroup::RgbaOverlayInstance vectors
-	int                        _emitSequence = 0;
-	int                        _emitPartOffsetScale = 1; // E2: source-PCK offset -> live unit-quad pixels
-	/// Emit one production RGBA sibling instance. void pointers keep Map.h out
-	/// of this header; UnitSprite is a Map friend and casts them in the .cpp.
-	static void emitRgbaOverlay(const Mod::UnitAtlasSpec* spec, int frameIdx,
-	                            const void* baseInstance, float basePriority,
-	                            size_t baselineIndex, void* pagesTarget);
+	HdUnitEmitState _hdEmit;
 #endif
 
 	/// Drawing routine for XCom soldiers in overalls, sectoids (routine 0),
@@ -165,62 +140,10 @@ public:
 	/// Phase 42 E2 harness helpers share the production offset transform.
 	static int debugE2ScaledOffset(int logicalOffset, int scale);
 	static bool debugE2OffsetProof();
-	/// Phase 14.2: redirect blitBody into bodyTarget and blitItem into itemTarget.
-	/// Both pointers must be std::vector<Map::TileInstance>* (cast to void*).
-	/// zTargetBody / zTargetItem: optional std::vector<int>* (cast to void*),
-	/// receives one int per emitted instance — the unit's tile Z. Used by
-	/// drawTileGLPass to interleave unit draws between tile Z slices.
-	/// rgbaOverlayBodyPages/ItemPages: optional
-	/// std::vector<std::vector<Map::TileInstance>>* (cast to void*) — Phase 42
-	/// E1 production RGBA overlay emit targets (per-page instance lists). When
-	/// the selected frame has an HD overlay slot, blitBody/blitItem emit an
-	/// additional RGBA instance into the matching page vector.
-	void setEmitMode(void* bodyTarget, void* itemTarget,
-	                 const Mod::UnitAtlasSpec* unitSpec,
-	                 const Mod::UnitAtlasSpec* itemSpec,
-	                 int emitZ = 0, int emitY = 0, int emitX = 0,
-	                 void* zTargetBody = nullptr, void* zTargetItem = nullptr,
-	                 void* yTargetBody = nullptr, void* yTargetItem = nullptr,
-	                 void* g0OverlayTarget = nullptr,
-	                 void* rgbaOverlayBodyPages = nullptr,
-	                 void* rgbaOverlayItemPages = nullptr,
-	                 int partOffsetScale = 1)
-	{
-		_emitTarget     = bodyTarget;
-		_emitItemTarget = itemTarget;
-		_emitUnitSpec   = unitSpec;
-		_emitItemSpec   = itemSpec;
-		_emitZ          = emitZ;
-		_emitY          = emitY;
-		_emitX          = emitX;
-		_emitZTargetBody = zTargetBody;
-		_emitZTargetItem = zTargetItem;
-		_emitYTargetBody = yTargetBody;
-		_emitYTargetItem = yTargetItem;
-		_emitG0OverlayTarget = g0OverlayTarget;
-		_emitRgbaOverlayBodyPages = rgbaOverlayBodyPages;
-		_emitRgbaOverlayItemPages = rgbaOverlayItemPages;
-		_emitPartOffsetScale = partOffsetScale > 0 ? partOffsetScale : 1;
-	}
-	void clearEmitMode()
-	{
-		_emitTarget     = nullptr;
-		_emitItemTarget = nullptr;
-		_emitUnitSpec   = nullptr;
-		_emitItemSpec   = nullptr;
-		_emitZ          = 0;
-		_emitY          = 0;
-		_emitX          = 0;
-		_emitZTargetBody = nullptr;
-		_emitZTargetItem = nullptr;
-		_emitYTargetBody = nullptr;
-		_emitYTargetItem = nullptr;
-		_emitG0OverlayTarget = nullptr;
-		_emitRgbaOverlayBodyPages = nullptr;
-		_emitRgbaOverlayItemPages = nullptr;
-		_emitSequence = 0;
-		_emitPartOffsetScale = 1;
-	}
+	/// Typed Map -> UnitSprite GPU emit seam; no private Map types or void casts.
+	void setEmitMode(const HdUnitEmitTargets& targets, int partOffsetScale = 1)
+	{ setHdUnitEmitTargets(_hdEmit, targets, partOffsetScale); }
+	void clearEmitMode() { clearHdUnitEmitTargets(_hdEmit); }
 #endif
 };
 

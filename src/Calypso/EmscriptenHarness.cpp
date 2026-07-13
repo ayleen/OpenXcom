@@ -26,20 +26,22 @@
 #include <array>
 #include <vector>
 #include <algorithm>
-#include "Game.h"
-#include "Screen.h"
-#include "Surface.h"
-#include "SurfaceSet.h"
-#include "Options.h"
-#include "ShaderManager.h"
-#include "GpuTexture.h"
-#include "GpuInit.h"
-#include "Shader.h"
-#include "GpuSmokeState.h"
+#include "../Engine/Game.h"
+#include "../Engine/Screen.h"
+#include "../Engine/Surface.h"
+#include "../Engine/SurfaceSet.h"
+#include "../Engine/Options.h"
+#include "../Engine/ShaderManager.h"
+#include "../Engine/GpuTexture.h"
+#include "../Engine/GpuInit.h"
+#include "../Engine/Shader.h"
+#include "../Engine/GpuSmokeState.h"
+#ifdef CALYPSO_HD_UNIT_SPIKE
 #include "HdUnitSpikeState.h"
 #include "HdUnitBattleSpike.h"
-#include "Logger.h"
-#include "FileMap.h"
+#endif
+#include "../Engine/Logger.h"
+#include "../Engine/FileMap.h"
 #include "../Mod/Mod.h"
 #include "../Battlescape/UnitSprite.h"
 #include "../Interface/Cursor.h"
@@ -54,7 +56,7 @@
 #include "../Menu/ModListState.h"
 #include "../Menu/OptionsVideoState.h"
 #include "../Menu/OptionsBaseState.h"   // OptionsOrigin / OPT_MENU
-#include "../Calypso/CalypsoPrologueCampaign.h" // Phase 41 (commit 4.5): launchScriptedBattle
+#include "CalypsoPrologueCampaign.h" // Phase 41 (commit 4.5): launchScriptedBattle
 #include <GLES3/gl3.h>
 
 using namespace OpenXcom;
@@ -78,6 +80,7 @@ static size_t heapUsedBytes()
     return (size_t)(unsigned int)mi.uordblks;
 }
 
+#ifdef CALYPSO_HD_UNIT_SPIKE
 struct E1GpuEdgeSample
 {
     int alpha = 0;
@@ -336,6 +339,7 @@ static E1GpuEdgeProof runE1GpuEdgeProof()
     restoreState();
     return result;
 }
+#endif
 
 extern "C" {
 
@@ -421,6 +425,7 @@ void calypso_gpu_smoke_activate(const char *path)
 	OpenXcom::GpuSmokeState::activate(g->getScreen(), path ? path : "/tmp/gpu-smoke.png");
 }
 
+#ifdef CALYPSO_HD_UNIT_SPIKE
 /* Disposable Phase-42 G0 synthetic HD-unit diagnostic. The PNG must already
  * exist in MEMFS and contain the documented 4x3 body/RH/LH/sentinel atlas.
  * Returns 1 only after decode, shader compile, upload and forced reload have
@@ -678,6 +683,7 @@ int calypso_unit_atlas_probe(const char *sheet, const char *outJsonPath)
 	f << o.str();
 	return 1;
 }
+#endif
 
 /* ---- HTML main-menu bridge (Phase 2) ----------------------------------------
  * The JS menu overlay (web/public/menu.js) calls these to push the same OXCE

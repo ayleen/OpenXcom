@@ -1,6 +1,6 @@
 #pragma once
 
-#ifdef __EMSCRIPTEN__
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_HD_UNIT_SPIKE)
 #include <string>
 
 namespace OpenXcom
@@ -35,6 +35,24 @@ public:
 	static void captureForegroundPixelProof(int framebufferW, int framebufferH,
 	                                        int logicalW, int logicalH,
 	                                        bool floatingPointTarget);
+};
+}
+#elif defined(__EMSCRIPTEN__)
+namespace OpenXcom
+{
+class Surface;
+class HdUnitBattleSpike
+{
+public:
+	static bool active() { return false; }
+	static void beginRenderFrame() {}
+	static void recordDrawStart(int) {}
+	static void recordEmit(int, int, int, const char*, int, float, bool) {}
+	static void recordGlError(unsigned) {}
+	static void recordForegroundOccluder(int, int, int, int, float, int,
+	                                     const Surface*, bool, float, float, float, float) {}
+	static void recordOverlayGeometry(int, int, float, float, float, float, float) {}
+	static void captureForegroundPixelProof(int, int, int, int, bool) {}
 };
 }
 #endif

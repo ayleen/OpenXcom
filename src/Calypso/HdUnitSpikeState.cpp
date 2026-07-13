@@ -10,15 +10,15 @@
  *
  * It does not inspect rulesets, replace any production atlas, or run natively.
  */
-#ifdef __EMSCRIPTEN__
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_HD_UNIT_SPIKE)
 
 #include "HdUnitSpikeState.h"
-#include "GpuInit.h"
-#include "GpuTexture.h"
-#include "Logger.h"
-#include "Screen.h"
-#include "Shader.h"
-#include "ShaderManager.h"
+#include "../Engine/GpuInit.h"
+#include "../Engine/GpuTexture.h"
+#include "../Engine/Logger.h"
+#include "../Engine/Screen.h"
+#include "../Engine/Shader.h"
+#include "../Engine/ShaderManager.h"
 
 #include <GLES3/gl3.h>
 #include <SDL.h>

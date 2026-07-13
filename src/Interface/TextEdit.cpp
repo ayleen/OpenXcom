@@ -26,7 +26,7 @@
 
 #ifdef __EMSCRIPTEN__
 // Phase 33 (mobile): virtual-keyboard bridge. setFocus notifies JS via this
-// harness hook (defined in Engine/EmscriptenHarness.cpp, C linkage), and the
+// harness hook (defined in Calypso/EmscriptenHarness.cpp, C linkage), and the
 // harness writes back through g_calypsoFocusedTextEdit (C++ linkage, defined
 // here — the harness references it with a matching namespaced extern).
 extern "C" void calypso_notify_text_focus(int focused, int x, int y, int w, int h, const char *utf8);

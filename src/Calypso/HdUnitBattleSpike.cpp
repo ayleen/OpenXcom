@@ -1,13 +1,13 @@
 /* Disposable Phase-42 G0: sparse RGBA overlay on the real Battlescape unit path. */
-#ifdef __EMSCRIPTEN__
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_HD_UNIT_SPIKE)
 
 #include "HdUnitBattleSpike.h"
-#include "Game.h"
-#include "GpuTexture.h"
-#include "Logger.h"
-#include "Screen.h"
-#include "Surface.h"
-#include "ShadeTable.h"
+#include "../Engine/Game.h"
+#include "../Engine/GpuTexture.h"
+#include "../Engine/Logger.h"
+#include "../Engine/Screen.h"
+#include "../Engine/Surface.h"
+#include "../Engine/ShadeTable.h"
 #include "../Mod/Mod.h"
 #include "../Savegame/SavedGame.h"
 #include "../Savegame/SavedBattleGame.h"
