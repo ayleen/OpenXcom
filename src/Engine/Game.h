@@ -66,6 +66,9 @@ private:
 	bool _runInitialised;
 	Uint32 _lastMouseMoveEvent;
 	Sint16 _xrel, _yrel;
+#ifdef __EMSCRIPTEN__
+	void reflowEmscriptenViewport(int physicalWidth, int physicalHeight);
+#endif
 
 public:
 	/// Creates a new game and initializes SDL.

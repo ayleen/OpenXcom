@@ -44,6 +44,7 @@
 #include <algorithm>
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
+#include "../Calypso/CalypsoViewportRuntime.h"
 #include <GLES3/gl3.h>
 /* M6c: context-lost flag; C-linkage definition lives in Calypso/EmscriptenHarness.cpp.
  * Declared at file scope (extern "C" is not allowed at block scope) — same
@@ -309,24 +310,27 @@ void Screen::flip()
 		if (wW > 0 && wH > 0 &&
 		    (wW != Options::displayWidth || wH != Options::displayHeight || _forceCanvasRebase))
 		{
-			_forceCanvasRebase = false;
-			Options::displayWidth     = wW;
-			Options::displayHeight    = wH;
-			Options::newDisplayWidth  = wW;
-			Options::newDisplayHeight = wH;
-			/* Detect active rendering context by comparing the current surface
-			 * dimensions against the stored battlescape base (before update). */
-			const bool inBattle = _surface &&
-			                      _surface->w == Options::baseXBattlescape &&
-			                      _surface->h == Options::baseYBattlescape;
-			Screen::updateScale(Options::battlescapeScale,
-			                    Options::baseXBattlescape,
-			                    Options::baseYBattlescape,
-			                    inBattle);
-			Screen::updateScale(Options::geoscapeScale,
-			                    Options::baseXGeoscape,
-			                    Options::baseYGeoscape,
-			                    !inBattle);
+			const bool bridgeHandled = Calypso::calypsoNotifyCanvasFallback(wW, wH);
+			if (bridgeHandled)
+			{
+				_forceCanvasRebase = false;
+			}
+			else if (_forceCanvasRebase)
+			{
+				/* Context recovery can require a scale rebase even when canvas size
+				 * is unchanged and therefore no viewport event is queued. Preserve
+				 * that established fallback without starting a second state reflow. */
+				_forceCanvasRebase = false;
+				const bool inBattle = _surface &&
+				                      _surface->w == Options::baseXBattlescape &&
+				                      _surface->h == Options::baseYBattlescape;
+				Screen::updateScale(Options::battlescapeScale,
+				                    Options::baseXBattlescape,
+				                    Options::baseYBattlescape, inBattle);
+				Screen::updateScale(Options::geoscapeScale,
+				                    Options::baseXGeoscape,
+				                    Options::baseYGeoscape, !inBattle);
+			}
 		}
 	}
 #endif
