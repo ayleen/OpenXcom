@@ -2188,13 +2188,14 @@ void Mod::loadFileCalypso(YAML::YamlNodeReader& reader)
 	//   * key absent             -> guard skips this block; _hdUiFamilies is left
 	//                               untouched (default-constructed empty on a
 	//                               fresh Mod);
-	//   * empty sequence `[]`    -> readVal returns the empty default and
-	//                               overwrites _hdUiFamilies with an empty list;
+	//   * empty sequence `[]`    -> overwrites _hdUiFamilies with an empty list;
 	//   * valid sequence         -> invalid ids are dropped with one LOG_WARNING
 	//                               per distinct id, valid ids kept sorted+deduped;
+	//   * non-scalar element     -> drop that element with a warning; never ask
+	//                               ryml to deserialize a map/sequence as string;
 	//   * present but NOT a seq  -> fail-safe: one LOG_WARNING, clear _hdUiFamilies
-	//                               to empty, do NOT call readVal on it (avoids the
-	//                               ryml type-error throw tryReadVal would raise),
+	//                               to empty, do NOT deserialize it (avoids the
+	//                               ryml type-error throw readVal would raise),
 	//                               and continue with the legacy layout.
 	// The key is owned by calypso-hd-pack; only a file that carries the key
 	// touches _hdUiFamilies (last-wins, matching battlescapeTileScale), so an
@@ -2212,9 +2213,25 @@ void Mod::loadFileCalypso(YAML::YamlNodeReader& reader)
 		}
 		else
 		{
-			std::vector<std::string> rawFamilies =
-				hdNode.readVal<std::vector<std::string>>(
-					std::vector<std::string>{});
+			std::vector<std::string> rawFamilies;
+			rawFamilies.reserve(hdNode.childrenCount());
+			size_t entryIndex = 0;
+			for (const auto& familyNode : hdNode.children())
+			{
+				if (!familyNode.hasVal())
+				{
+					Log(LOG_WARNING) << "hdUiFamilies: ignoring non-string entry at index "
+					                 << entryIndex;
+				}
+				else
+				{
+					// val() is a non-deserializing scalar view. It cannot trigger the
+					// ryml type error that readVal<vector<string>>() raises when a
+					// sequence element is itself a map or sequence.
+					rawFamilies.emplace_back(familyNode.val());
+				}
+				++entryIndex;
+			}
 			Calypso::ParsedHdUiFamilies parsed = Calypso::parseHdUiFamilies(rawFamilies);
 			for (const std::string& bad : parsed.rejected)
 			{

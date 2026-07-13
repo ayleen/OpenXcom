@@ -12,6 +12,7 @@
  */
 
 #include <algorithm>
+#include <cassert>
 #include <string>
 #include <vector>
 
@@ -225,6 +226,12 @@ int CalypsoPrologueScene::activeHerderId() const
 
 void CalypsoPrologueScene::onBattleStart(BattlescapeGame *bg)
 {
+	// Deployment invariant: STR_CALYPSO_PROLOGUE must not define turnLimit (or
+	// a chronoTrigger that depends on it). BattlescapeGame's timer expiry calls
+	// finishBattle() directly, bypassing onAbortRequested(); ConsumeAbort in
+	// onUnexpectedFinish() would then consume that external finish on every
+	// subsequent turn and soft-lock the scene. Keep the ruleset timer-free.
+	assert(bg && bg->getSave() && bg->getSave()->getTurnLimit() <= 0);
 	if (!resolveActors(bg))
 	{
 		_inert = true;
