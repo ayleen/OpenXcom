@@ -1302,6 +1302,17 @@ public:
 	bool getAIFailureMemory() const { return _aiFailureMemory; }
 #ifdef __EMSCRIPTEN__
 	void setAIFailureMemoryForHarness(bool enabled) { _aiFailureMemory = enabled; }
+	/// Phase 43.1 QA harness: arm the per-faction-turn shared spatial fields for one
+	/// explicit regression scenario WITHOUT changing the shipped ruleset default. The
+	/// three Phase-43.1 knobs mirror the existing failureMemory harness setter: the JS
+	/// harness calls these after callMain + ruleset load (see EmscriptenHarness.cpp's
+	/// calypso_set_ai_shared_fields / _eval_budget / _turn_budget_ms), so production
+	/// behaviour and the shipped .rul values stay byte-identical when no harness runs.
+	/// Negative int budgets fold to 0 (the "off / unbounded" sentinel), matching the
+	/// AITuning::clampNonNegative clamp applied at ruleset load (Mod.cpp).
+	void setAISharedFieldsForHarness(bool enabled) { _aiSharedFields = enabled; }
+	void setAIEvalBudgetForHarness(int budget) { _aiEvalBudget = budget < 0 ? 0 : budget; }
+	void setAITurnBudgetMsForHarness(int budgetMs) { _aiTurnBudgetMs = budgetMs < 0 ? 0 : budgetMs; }
 #endif
 	/// Gets the civilian unit type spawned as an armed guard (Phase 32; empty = no guards).
 	const std::string& getAICivilianGuardType() const { return _aiCivilianGuardType; }

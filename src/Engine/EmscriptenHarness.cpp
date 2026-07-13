@@ -31,6 +31,7 @@
 #include "../Mod/Mod.h"
 #include "../Savegame/SavedGame.h"
 #include "../Savegame/SavedBattleGame.h"
+#include "../Savegame/FactionTurnCache.h"   // Phase 43.1 QA: occupancy seed/read/advance exports
 #include "../Interface/Cursor.h"
 // Phase 33 (mobile): pinch-zoom bridge + virtual-keyboard bridge for TextEdit.
 #include "../Interface/TextEdit.h"
@@ -117,6 +118,157 @@ int calypso_set_ai_failure_memory(int enabled)
 	battleMod->setAIFailureMemoryForHarness(enabled != 0);
 	return gameMod->getAIFailureMemory() == (enabled != 0)
 		&& battleMod->getAIFailureMemory() == (enabled != 0) ? 1 : 0;
+}
+
+/* Phase 43.1 QA harness: arm the shared per-faction spatial fields for one
+ * explicit regression scenario without changing the shipped ruleset default.
+ * The three calypso_set_ai_* exports below mirror calypso_set_ai_failure_memory
+ * exactly (apply to BOTH the Game-level Mod and the active SavedBattleGame's Mod
+ * so reads from either holder agree) and are intended to be called by the JS
+ * harness after callMain + ruleset load, before the alien turn runs. Production
+ * behaviour is unchanged when no harness calls them. */
+EMSCRIPTEN_KEEPALIVE
+int calypso_set_ai_shared_fields(int enabled)
+{
+	Game *g = getCurrentGame();
+	SavedBattleGame *battle = g && g->getSavedGame() ? g->getSavedGame()->getSavedBattle() : nullptr;
+	Mod *gameMod = g ? g->getMod() : nullptr;
+	Mod *battleMod = battle ? const_cast<Mod *>(battle->getMod()) : nullptr;
+	if (!gameMod || !battleMod) return 0;
+	gameMod->setAISharedFieldsForHarness(enabled != 0);
+	battleMod->setAISharedFieldsForHarness(enabled != 0);
+	return gameMod->getAISharedFields() == (enabled != 0)
+		&& battleMod->getAISharedFields() == (enabled != 0) ? 1 : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int calypso_set_ai_eval_budget(int budget)
+{
+	Game *g = getCurrentGame();
+	SavedBattleGame *battle = g && g->getSavedGame() ? g->getSavedGame()->getSavedBattle() : nullptr;
+	Mod *gameMod = g ? g->getMod() : nullptr;
+	Mod *battleMod = battle ? const_cast<Mod *>(battle->getMod()) : nullptr;
+	if (!gameMod || !battleMod) return 0;
+	const int clamped = budget < 0 ? 0 : budget;
+	gameMod->setAIEvalBudgetForHarness(clamped);
+	battleMod->setAIEvalBudgetForHarness(clamped);
+	return gameMod->getAIEvalBudget() == clamped
+		&& battleMod->getAIEvalBudget() == clamped ? 1 : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int calypso_set_ai_turn_budget_ms(int budgetMs)
+{
+	Game *g = getCurrentGame();
+	SavedBattleGame *battle = g && g->getSavedGame() ? g->getSavedGame()->getSavedBattle() : nullptr;
+	Mod *gameMod = g ? g->getMod() : nullptr;
+	Mod *battleMod = battle ? const_cast<Mod *>(battle->getMod()) : nullptr;
+	if (!gameMod || !battleMod) return 0;
+	const int clamped = budgetMs < 0 ? 0 : budgetMs;
+	gameMod->setAITurnBudgetMsForHarness(clamped);
+	battleMod->setAITurnBudgetMsForHarness(clamped);
+	return gameMod->getAITurnBudgetMs() == clamped
+		&& battleMod->getAITurnBudgetMs() == clamped ? 1 : 0;
+}
+
+/* ---- Phase 43.1 QA: occupancy save/reload roundtrip harness exports ----------
+ *
+ * These five exports let a Playwright regression script seed a known sparse
+ * occupancy state for a faction (the hostile side), advance its decay marker to
+ * a known turn, trigger a REAL production save (SavedGame::save), and — after a
+ * fresh browser context reloads that .sav through the normal harness
+ * `-load` → SavedGame/SavedBattleGame::load path — read the exact cells +
+ * lastAdvancedTurn back to verify they survived the REAL production reload
+ * (SavedBattleGame::load is the authoritative deserializer; these exports never
+ * substitute a mirrored parser or a direct setOccupancyState call for it).
+ *
+ * They NEVER run in normal gameplay: the JS QA harness is the only caller, they
+ * are compiled only under __EMSCRIPTEN__, and they touch no production default.
+ * The seeding path (spikeFactionOccupancy) is itself ai.sharedFields-gated in
+ * production, so a script must call calypso_set_ai_shared_fields(1) first; the
+ * advance/read exports operate on the FactionTurnCache directly so the test can
+ * arm a deterministic marker without driving a full faction turn.
+ */
+
+EMSCRIPTEN_KEEPALIVE
+int calypso_spike_occupancy(int faction, int x, int y, int z, int amount)
+{
+	Game *g = getCurrentGame();
+	SavedBattleGame *battle = g && g->getSavedGame() ? g->getSavedGame()->getSavedBattle() : nullptr;
+	if (!battle) return 0;
+	// Production spike (SavedBattleGame::spikeFactionOccupancy) validates faction,
+	// map bounds, and the ai.sharedFields gate internally; it is a silent no-op when
+	// the gate is off, so a script that forgot to arm sharedFields reads 0 back and
+	// fails loudly on the subsequent assertion.
+	battle->spikeFactionOccupancy(static_cast<UnitFaction>(faction), Position(x, y, z), amount);
+	return 1;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int calypso_advance_occupancy(int faction, int turn)
+{
+	Game *g = getCurrentGame();
+	SavedBattleGame *battle = g && g->getSavedGame() ? g->getSavedGame()->getSavedBattle() : nullptr;
+	if (!battle) return 0;
+	FactionTurnCache *cache = battle->getFactionTurnCache(static_cast<UnitFaction>(faction));
+	if (!cache) return 0;
+	// Direct cache advance (FactionTurnCache::advanceOccupancyToTurn) using the live
+	// mod's decay knobs + the fixed 1000 OccupancyField scale. Idempotent per its
+	// contract: first call arms the marker without decaying, repeats are no-ops.
+	cache->advanceOccupancyToTurn(turn,
+		battle->getMapSizeX(), battle->getMapSizeY(), battle->getMapSizeZ(),
+		battle->getMod() ? battle->getMod()->getAIOccupancyRetainPercent() : 75,
+		battle->getMod() ? battle->getMod()->getAIOccupancySpreadPercent() : 25,
+		1000);
+	return 1;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int calypso_read_occupancy(int faction, int x, int y, int z)
+{
+	Game *g = getCurrentGame();
+	SavedBattleGame *battle = g && g->getSavedGame() ? g->getSavedGame()->getSavedBattle() : nullptr;
+	if (!battle) return 0;
+	const FactionTurnCache *cache = battle->getFactionTurnCache(static_cast<UnitFaction>(faction));
+	if (!cache) return 0;
+	return cache->getOccupancyField().valueAt(Position(x, y, z));
+}
+
+EMSCRIPTEN_KEEPALIVE
+int calypso_occupancy_last_turn(int faction)
+{
+	Game *g = getCurrentGame();
+	SavedBattleGame *battle = g && g->getSavedGame() ? g->getSavedGame()->getSavedBattle() : nullptr;
+	if (!battle) return -2;   // distinct from the valid -1 disarmed marker
+	const FactionTurnCache *cache = battle->getFactionTurnCache(static_cast<UnitFaction>(faction));
+	if (!cache) return -2;
+	return cache->getOccupancyLastAdvancedTurn();
+}
+
+/* Trigger a REAL production save (SavedGame::save) of the live game to
+ * `<masterUserFolder>/<filename>` (i.e. /user/<master>/<filename> in MEMFS).
+ * The QA occupancy script reads the bytes back via Module.FS.readFile (which
+ * reads MEMFS synchronously) and ships them to Node, which writes a temp .sav
+ * a SECOND fresh browser context then loads through the normal harness
+ * `-load` → SavedGame/SavedBattleGame::load path — the real reload, not an
+ * in-memory mirror. SavedGame::save also queues an async IDBFS syncfs as a side
+ * effect; the QA flow does not rely on it (it reads MEMFS directly). Returns 1
+ * on success, 0 on any failure (no live game, empty filename, save throw). */
+EMSCRIPTEN_KEEPALIVE
+int calypso_trigger_save(const char *filename)
+{
+	Game *g = getCurrentGame();
+	if (!g || !g->getSavedGame() || !g->getMod() || !filename || !*filename) return 0;
+	try
+	{
+		g->getSavedGame()->save(std::string(filename), g->getMod());
+		return 1;
+	}
+	catch (const std::exception &e)
+	{
+		Log(LOG_ERROR) << "calypso_trigger_save: " << e.what();
+		return 0;
+	}
 }
 
 /* Log one [HEAP] line: total / used / free in MB (1 decimal) + delta vs the
