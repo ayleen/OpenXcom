@@ -141,9 +141,14 @@ private:
 	void prepareAIAudit(BattleAction *action);
 	/// Phase 43.1E (Calypso): returns the live shared friendReachable field for this
 	/// unit's faction when the mod enables ai.sharedFields and a valid faction turn-cache
-	/// exists, rebuilding it lazily (dirty -> full recompute, clean -> stamp only missing
+	/// exists, rebuilding it lazily (dirty -> recompute, clean -> stamp only missing
 	/// contributions); returns nullptr otherwise so callers fall back to the legacy
-	/// per-unit local map. Never overwrites _ranOutOfTUs (uses a local flag).
+	/// per-unit local map. Never overwrites _ranOutOfTUs (uses a local flag). When
+	/// ai.evalBudget > 0 the rebuild is bounded to at most evalBudget actual BFS stamps
+	/// per call (the acting unit first, only if its slice is missing; otherwise the full
+	/// evalBudget is spent on missing allies), leaving the rest missing as a documented
+	/// shared-field approximation that later brutalThinks fill incrementally; evalBudget == 0
+	/// is the unbounded byte-identical original full rebuild.
 	FriendReachableField* prepareSharedFriendReachable();
 	/// Resolve the exact shared enemyReachable accumulator for this actor's
 	/// fair-knowledge profile. `forceRebuild` is true after a dirty full clear.

@@ -4346,8 +4346,44 @@ void AIModule::brutalThink(BattleAction* action)
 	const bool measureEvalBudget = _save->getMod()->getAISharedFields()
 		&& _save->getMod()->getAITurnBudgetMs() > 0;
 	AITimingScope _aiTiming(_unit->getId(), measureEvalBudget);
-	// Step 1: Check whether we wait for someone else on our team to move first
-	int myReachable = getReachableBy(_unit, _ranOutOfTUs, true).size();
+	// Step 1: Check whether we wait for someone else on our team to move first.
+	// Phase 43.1 (Calypso): build the shared friendReachable field FIRST. On a valid
+	// sharedField we derive myReachable AND the coordination ran-out flag from the SAME
+	// self max-TU stamp performed inside prepareSharedFriendReachable -- one self BFS,
+	// shared with the field bootstrap, so count and ran-out describe one TU-profile (the
+	// legacy path ran a forced current-TU self BFS here and then a second max-TU self BFS
+	// inside the field). The legacy forced current-TU BFS is still run byte-for-byte for
+	// the feature-off / null-cache fallback, and as a safe fallback if a valid sharedField
+	// is somehow missing the self contribution. _ranOutOfTUs itself is left untouched on
+	// the shared-field path (it keeps the findReachable value); the coordination loop below
+	// uses myRanOutOfTUs, which always matches the profile myReachable was counted on.
+	FriendReachableField* sharedField = prepareSharedFriendReachable();
+	int myReachable = 0;
+	bool myRanOutOfTUs = false; // coordination flag: matches the profile myReachable counted on
+	if (sharedField != nullptr)
+	{
+		const FriendReachableField::Contribution* selfContrib = sharedField->getContribution(_unit->getId());
+		if (selfContrib != nullptr)
+		{
+			// One self max-TU BFS (the field's self stamp) supplies both the count and the
+			// ran-out flag; getReachableBy cached that flag on _unit via setRanOutOfTUs.
+			myReachable = static_cast<int>(selfContrib->size());
+			myRanOutOfTUs = _unit->getRanOutOfTUs();
+		}
+		else
+		{
+			// Defensive: sharedField exists but self contribution is unexpectedly missing --
+			// fall back to the legacy forced current-TU BFS so myReachable is never stale.
+			myReachable = getReachableBy(_unit, _ranOutOfTUs, true).size();
+			myRanOutOfTUs = _ranOutOfTUs;
+		}
+	}
+	else
+	{
+		// Feature-off / null cache: the original step-1 forced current-TU BFS, byte-for-byte.
+		myReachable = getReachableBy(_unit, _ranOutOfTUs, true).size();
+		myRanOutOfTUs = _ranOutOfTUs;
+	}
 	float myDist = 0;
 	bool IAmMindControlled = false;
 	if (_unit->getFaction() != _unit->getOriginalFaction())
@@ -4379,6 +4415,10 @@ void AIModule::brutalThink(BattleAction* action)
 			myDist += Position::distance(myPos, enemyPos);
 		}
 	}
+
+	// Phase 43.1 (Calypso): sharedField was built at step 1 (above) from a single self
+	// max-TU BFS; the coordination loop below reads each ally's count from it and compares
+	// against myReachable + myRanOutOfTUs (one max-TU profile). See the step-1 block.
 
 	for (BattleUnit* ally : *(_save->getUnits()))
 	{
@@ -4444,8 +4484,37 @@ void AIModule::brutalThink(BattleAction* action)
 			allyDist += Position::distance(ally->getPosition(), enemyPos);
 		}
 
-		allyReachable = getReachableBy(ally, allyRanOutOfTUs).size();
-		if (_ranOutOfTUs == false)
+		// Phase 43.1 (Calypso): read the ally's reachable count from the shared
+		// friendReachable field when it is available (its max-TU contribution), avoiding a
+		// per-ally current-TU BFS on every brutalThink. allyRanOutOfTUs is taken from the
+		// ally's last cached max-TU search -- the same profile as allyReachable, mirroring
+		// the self side (myReachable + myRanOutOfTUs above) so the comparison below never
+		// pairs a max-TU count with a current-TU flag. An ally not yet stamped into a
+		// (bounded) partial field reads as zero reachable / not ran-out, so the actor never
+		// waits for an unknown ally (it acts first -> never idle). Feature-off falls back to
+		// getReachableBy.
+		if (sharedField != nullptr)
+		{
+			const FriendReachableField::Contribution* allyContrib = sharedField->getContribution(ally->getId());
+			if (allyContrib != nullptr)
+			{
+				allyReachable = static_cast<int>(allyContrib->size());
+				allyRanOutOfTUs = ally->getRanOutOfTUs();
+			}
+			else
+			{
+				allyReachable = 0;
+				allyRanOutOfTUs = false;
+			}
+		}
+		else
+		{
+			allyReachable = getReachableBy(ally, allyRanOutOfTUs).size();
+		}
+		// Compare on myRanOutOfTUs (the flag matching the profile myReachable was counted
+		// on) -- never the stale _ranOutOfTUs, which on the shared-field path still holds
+		// the pre-step findReachable value, not the self max-TU stamp.
+		if (myRanOutOfTUs == false)
 		{
 			if (myReachable < allyReachable)
 			{
@@ -4459,7 +4528,7 @@ void AIModule::brutalThink(BattleAction* action)
 				return;
 			}
 		}
-		else if (_ranOutOfTUs == true && allyRanOutOfTUs == true)
+		else if (myRanOutOfTUs == true && allyRanOutOfTUs == true)
 		{
 			if (myDist > allyDist)
 			{
@@ -4525,10 +4594,10 @@ void AIModule::brutalThink(BattleAction* action)
 	bool visibleToEnemy = false;
 	bool enemyFarAwayFromStart = false;
 	float damagePotentialFromCurrentPosition = 0;
-	// Phase 43.1E (Calypso): when a shared friendReachable field is available we skip the
-	// legacy per-ally local-map merge below (the field already holds every ally's contribution);
-	// when it is null we run the original local-map code byte-for-byte. Enemy handling is unchanged.
-	FriendReachableField* sharedField = prepareSharedFriendReachable();
+	// Phase 43.1E (Calypso): sharedField was built above the coordination loop so the loop
+	// could read ally counts from it. When it is non-null we skip the legacy per-ally
+	// local-map merge below (the field already holds every ally's contribution); when it is
+	// null we run the original local-map code byte-for-byte. Enemy handling is unchanged.
 	bool forceEnemyReachability = false;
 	FriendReachableField* sharedEnemyField = prepareSharedEnemyReachable(forceEnemyReachability);
 	if (sharedEnemyField == nullptr && _save->getMod()->getAISharedFields())
@@ -5797,6 +5866,20 @@ void AIModule::brutalThink(BattleAction* action)
 		shouldEndTurnAfterMove = true;
 	}
 	else if (bestPeekPreserveScore > 0 && (sharedField != nullptr ? sharedField->maxAtExcluding(peekPreserveCompromise, _unit->getId()) : bestFriendReachable[peekPreserveCompromise]) <= [&]() {
+		// Phase 43.1 (Calypso): read self's max-TU reach from the shared field when it is
+		// available -- prepareSharedFriendReachable already stamped _unit's contribution at
+		// its current position, so this avoids a redundant max-TU BFS that the legacy path
+		// would re-run via getReachableBy. Feature-off / null field falls back to the
+		// original getReachableBy call (byte-for-byte).
+		if (sharedField != nullptr)
+		{
+			const FriendReachableField::Contribution* selfContrib = sharedField->getContribution(_unit->getId());
+			if (selfContrib != nullptr)
+			{
+				auto srIt = selfContrib->find(peekPreserveCompromise);
+				return srIt != selfContrib->end() ? srIt->second : 0;
+			}
+		}
 		const std::map<Position, int, PositionComparator>& selfReach = getReachableBy(_unit, _ranOutOfTUs, false, true);
 		auto srIt = selfReach.find(peekPreserveCompromise);
 		return srIt != selfReach.end() ? srIt->second : 0;
@@ -8372,11 +8455,21 @@ ThreatField* AIModule::prepareSharedThreatField(const std::map<Position, int, Po
  * returns nullptr so the brutalThink legacy per-ally local map is used.
  *
  * Rebuild policy (lazy, mirroring FactionTurnCache's dirty flag):
- *   - Dirty cache: clear the field, then scan every living unit of exactly this
- *     faction, compute its reachability (ignoreFriends on, forceRecalc + useMaxTUs),
- *     and replaceContribution(id, result); then markFriendReachableClean.
- *   - Clean cache: same scan, but only units missing a contribution are recomputed
- *     (forceRecalc=false, useMaxTUs=true); already-stamped units are left intact.
+ *   - Dirty cache: clear the field, then stamp the acting unit first (forceRecalc +
+ *     useMaxTUs) so every self-read this brutalThink is valid, then scan the remaining
+ *     living units of exactly this faction and replaceContribution(id, result); then
+ *     markFriendReachableClean.
+ *   - Clean cache: the acting unit is re-stamped only if its slice is missing (it moved);
+ *     every other missing ally is then recomputed (forceRecalc=false, useMaxTUs=true);
+ *     already-stamped units are left intact.
+ *   - Bounded bootstrap: when ai.evalBudget > 0, at most evalBudget ACTUAL BFS stamps run
+ *     per call -- the acting unit first (only if its slice is missing/moved), then allies
+ *     in getUnits() order. When the self stamp runs it consumes one evalBudget slot; when
+ *     _unit's slice is already current (clean path, self did not move) the full evalBudget
+ *     is spent on missing allies. The rest stay missing and are filled incrementally by
+ *     later brutalThinks' clean path. evalBudget == 0 (the shipped default) is unbounded
+ *     and byte-identical to the original full rebuild. A partial field is the documented
+ *     shared-field approximation -- see the inline notes.
  * A local ran-out flag is used so _ranOutOfTUs is never overwritten.
  */
 FriendReachableField* AIModule::prepareSharedFriendReachable()
@@ -8392,19 +8485,60 @@ FriendReachableField* AIModule::prepareSharedFriendReachable()
 	{
 		field.clear();
 	}
+	// Phase 43.1 (Calypso): bound the monolithic first-use rebuild by ai.evalBudget so a
+	// single brutalThink never pays the full N-ally max-TU BFS upfront. evalBudget == 0
+	// (the shipped default) is UNBOUNDED -- every ally is stamped, byte-identical to the
+	// original full rebuild. evalBudget > 0 runs at most evalBudget ACTUAL BFS stamps per
+	// call: the acting unit first only if its slice is missing/moved (else that slot is
+	// freed for an ally), then allies in getUnits() order; the rest are left missing and
+	// the field is marked clean so later brutalThinks (the clean path) fill the gaps
+	// incrementally. A partial field is the documented shared-field approximation:
+	// maxAtExcluding / getContribution simply do not see unstamped allies, which can only
+	// make the peek-preserve condition more conservative and the coordination loop skip
+	// waiting for unknown allies (the actor acts instead -> never idle / never coward).
+	// No stale cache: move/death/spawn/faction/terrain invalidation still remove a unit's
+	// slice; the clean path re-stamps any missing unit on its next brutalThink.
+	const int evalBudget = _save->getMod()->getAIEvalBudget();
+	const bool boundRebuild = evalBudget > 0;
+	// Stamp the acting unit first: the coordination loop and the later self max-TU read
+	// both rely on _unit's contribution being current. This stamp consumes one evalBudget
+	// slot when it runs (see stampsRemaining below); in the clean path it is a no-op when
+	// _unit's slice is still present (it has not moved), freeing that slot for an ally.
+	const bool stampSelf = dirty || !field.hasContribution(_unit->getId());
+	if (stampSelf)
+	{
+		bool localRanOut = false;
+		_save->getPathfinding()->setIgnoreFriends(true);
+		const std::map<Position, int, PositionComparator>& selfResult = getReachableBy(_unit, localRanOut, dirty, true);
+		field.replaceContribution(_unit->getId(), selfResult);
+		_save->getPathfinding()->setIgnoreFriends(false);
+	}
+	// stampsRemaining counts ACTUAL BFS stamps remaining in the budget. The self stamp
+	// consumes one only when it actually ran (stampSelf); when _unit's slice was already
+	// current (clean path, self did not move) no stamp was spent, so the full evalBudget is
+	// available for missing allies. Either way the field never accumulates more than
+	// evalBudget actual stamps per call. !boundRebuild leaves this at 0 (the unbounded
+	// sentinel: the loop's boundRebuild guard is skipped and every ally is stamped).
+	int stampsRemaining = boundRebuild ? (evalBudget - (stampSelf ? 1 : 0)) : 0;
 	for (BattleUnit* ally : *(_save->getUnits()))
 	{
+		if (ally == _unit)
+			continue; // already stamped above
 		if (ally->getFaction() != _unit->getFaction())
 			continue;
 		if (ally->isOut())
 			continue;
 		if (!dirty && field.hasContribution(ally->getId()))
-			continue;
+			continue; // clean path: only stamp missing contributions
+		if (boundRebuild && stampsRemaining <= 0)
+			continue; // budget exhausted: leave this ally missing (partial field)
 		bool localRanOut = false;
 		_save->getPathfinding()->setIgnoreFriends(true);
 		const std::map<Position, int, PositionComparator>& result = getReachableBy(ally, localRanOut, dirty, true);
 		field.replaceContribution(ally->getId(), result);
 		_save->getPathfinding()->setIgnoreFriends(false);
+		if (boundRebuild)
+			--stampsRemaining;
 	}
 	if (dirty)
 	{
