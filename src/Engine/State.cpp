@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <climits>
 #include "InteractiveSurface.h"
+#include "Action.h"
 #include "Game.h"
 #include "Screen.h"
 #include "Surface.h"
@@ -352,18 +353,82 @@ void State::think()
  */
 void State::handle(Action *action)
 {
-	if (!_modal)
-	{
-		for (std::vector<Surface*>::reverse_iterator i = _surfaces.rbegin(); i != _surfaces.rend(); ++i)
-		{
-			InteractiveSurface* j = dynamic_cast<InteractiveSurface*>(*i);
-			if (j != 0)
-				j->handle(action, this);
-		}
-	}
-	else
+	// Existing modal controls (notably TextEdit) remain strictly first: their
+	// raw keyboard semantics must never be reinterpreted as semantic traversal.
+	if (_modal)
 	{
 		_modal->handle(action, this);
+		return;
+	}
+
+	if (_calypsoFocus)
+	{
+		SDL_Event* event = action->getDetails();
+		auto keyBit = [](SDLKey key) -> Uint8
+		{
+			switch (key)
+			{
+			case SDLK_TAB:      return 1u << 0;
+			case SDLK_RETURN:   return 1u << 1;
+			case SDLK_KP_ENTER: return 1u << 2;
+			case SDLK_SPACE:    return 1u << 3;
+			default:            return 0;
+			}
+		};
+
+		if (event->type == SDL_KEYUP)
+		{
+			const Uint8 bit = keyBit(event->key.keysym.sym);
+			if (bit && (_calypsoConsumedFocusKeys & bit))
+			{
+				_calypsoConsumedFocusKeys &= ~bit;
+				// State subclasses commonly continue inspecting Action after calling
+				// State::handle(). Mark the shared event consumed so their direct
+				// hotkey paths cannot observe the paired KEYUP a second time.
+				event->type = SDL_NOEVENT;
+				return;
+			}
+		}
+		else if (event->type == SDL_KEYDOWN)
+		{
+			Calypso::CalypsoFocusKey key = Calypso::CalypsoFocusKey::Other;
+			switch (event->key.keysym.sym)
+			{
+			case SDLK_TAB:      key = Calypso::CalypsoFocusKey::Tab; break;
+			case SDLK_RETURN:   key = Calypso::CalypsoFocusKey::Return; break;
+			case SDLK_KP_ENTER: key = Calypso::CalypsoFocusKey::KeypadEnter; break;
+			case SDLK_SPACE:    key = Calypso::CalypsoFocusKey::Space; break;
+			default: break;
+			}
+			const SDL_Keymod mod = static_cast<SDL_Keymod>(event->key.keysym.mod);
+			bool repeat = false;
+#if SDL_VERSION_ATLEAST(2,0,0)
+			repeat = event->key.repeat != 0;
+#endif
+			const Calypso::CalypsoFocusKeyDecision decision =
+				Calypso::calypsoClassifyFocusKeyDown(
+					key, (mod & KMOD_SHIFT) != 0, (mod & KMOD_CTRL) != 0,
+					(mod & KMOD_ALT) != 0, (mod & KMOD_GUI) != 0, repeat);
+			if (decision.recognized)
+			{
+				_calypsoConsumedFocusKeys |= keyBit(event->key.keysym.sym);
+				if (decision.invokeCommand)
+					(void)_calypsoFocus->command(decision.command,
+						_calypsoFocus->generation(), true);
+				// Returning only stops base dispatch; derived State::handle methods
+				// continue after this call. Mutating the already-classified event to
+				// SDL_NOEVENT is the established OXCE consumed-action signal.
+				event->type = SDL_NOEVENT;
+				return;
+			}
+		}
+	}
+
+	for (std::vector<Surface*>::reverse_iterator i = _surfaces.rbegin(); i != _surfaces.rend(); ++i)
+	{
+		InteractiveSurface* j = dynamic_cast<InteractiveSurface*>(*i);
+		if (j != 0)
+			j->handle(action, this);
 	}
 }
 
@@ -572,7 +637,60 @@ bool State::hasOnlyOneScrollableTextList() const
  */
 void State::setModal(InteractiveSurface *surface)
 {
+	if (surface != _modal)
+	{
+		_calypsoConsumedFocusKeys = 0;
+		if (_calypsoFocus) _calypsoFocus->modalChanged(surface);
+	}
 	_modal = surface;
+}
+
+void State::enableCalypsoFocus()
+{
+	_calypsoConsumedFocusKeys = 0;
+	if (!_calypsoFocus)
+		_calypsoFocus = std::make_unique<Calypso::CalypsoFocusCoordinator>();
+	if (_modal) _calypsoFocus->modalChanged(_modal);
+}
+
+void State::disableCalypsoFocus()
+{
+	_calypsoConsumedFocusKeys = 0;
+	_calypsoFocus.reset();
+}
+
+bool State::rebuildCalypsoFocus(std::vector<Calypso::CalypsoFocusBinding> bindings,
+	                             std::uint64_t generation)
+{
+	return _calypsoFocus && _calypsoFocus->rebuild(std::move(bindings), generation);
+}
+
+bool State::restoreCalypsoFocus(const std::string& id, std::uint64_t generation)
+{
+	return _calypsoFocus && _calypsoFocus->restore(id, generation);
+}
+
+bool State::handleCalypsoFocusCommand(Calypso::CalypsoFocusCommand command,
+	                                   std::uint64_t generation, bool wrap)
+{
+	return _calypsoFocus && _calypsoFocus->command(command, generation, wrap);
+}
+
+const std::string* State::getCalypsoFocusedId() const
+{
+	return _calypsoFocus ? _calypsoFocus->focusedId() : nullptr;
+}
+
+InteractiveSurface* State::getCalypsoFocusedTarget() const
+{
+	return _calypsoFocus
+		? static_cast<InteractiveSurface*>(_calypsoFocus->focusedTarget())
+		: nullptr;
+}
+
+std::uint64_t State::getCalypsoFocusGeneration() const
+{
+	return _calypsoFocus ? _calypsoFocus->generation() : 0;
 }
 
 /**
