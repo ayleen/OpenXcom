@@ -54,7 +54,7 @@ private:
 	Surface *_bg, *_selector;
 	ArrowButton *_up, *_down;
 	ScrollBar *_scrollbar;
-	int _margin;
+	int _margin, _minimumRowHeight;
 	bool _scrolling;
 	std::vector<ArrowButton*> _arrowLeft, _arrowRight;
 	int _arrowPos, _scrollPos;
@@ -93,6 +93,10 @@ public:
 	void setCellColor(size_t row, size_t column, Uint8 color);
 	/// Sets the text color of a certain row.
 	void setRowColor(size_t row, Uint8 color);
+	/// Sets the ARGB text color of a certain cell.
+	void setCellColorRGB(size_t row, size_t column, Uint32 argb);
+	/// Sets the ARGB text color of a certain row.
+	void setRowColorRGB(size_t row, Uint32 argb);
 	/// Gets the text of a certain cell.
 	std::string getCellText(size_t row, size_t column) const;
 	/// Sets the text of a certain cell.
@@ -119,6 +123,8 @@ public:
 	void removeLastRow();
 	/// Sets the columns in the text list.
 	void setColumns(int cols, ...);
+	/// Sets a minimum row height for touch-sized list items.
+	void setMinimumRowHeight(int height);
 	/// Sets the palette of the text list.
 	void setPalette(const SDL_Color *colors, int firstcolor = 0, int ncolors = 256) override;
 	/// Initializes the resources for the text list.
