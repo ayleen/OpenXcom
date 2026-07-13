@@ -172,6 +172,37 @@ int calypso_set_ai_turn_budget_ms(int budgetMs)
 		&& battleMod->getAITurnBudgetMs() == clamped ? 1 : 0;
 }
 
+/* Phase 43.1 off-from-load proof: read the values from the Mod attached to the
+ * active SavedBattleGame after callMain + harness settle. These exports are
+ * deliberately read-only; -1 means there is no current battle Mod yet. */
+static const Mod *calypso_current_battle_mod()
+{
+	Game *g = getCurrentGame();
+	SavedBattleGame *battle = g && g->getSavedGame() ? g->getSavedGame()->getSavedBattle() : nullptr;
+	return battle ? battle->getMod() : nullptr;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int calypso_get_ai_shared_fields()
+{
+	const Mod *battleMod = calypso_current_battle_mod();
+	return battleMod ? (battleMod->getAISharedFields() ? 1 : 0) : -1;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int calypso_get_ai_eval_budget()
+{
+	const Mod *battleMod = calypso_current_battle_mod();
+	return battleMod ? battleMod->getAIEvalBudget() : -1;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int calypso_get_ai_turn_budget_ms()
+{
+	const Mod *battleMod = calypso_current_battle_mod();
+	return battleMod ? battleMod->getAITurnBudgetMs() : -1;
+}
+
 /* Phase 43.1 QA harness: arm OXCE's supported alien Quick Mode semantics for
  * the PORT/Superhuman DoD run, without changing the production default or the
  * off-capture comparison. Options::battleAlienSpeed is the SAME knob Ctrl+S

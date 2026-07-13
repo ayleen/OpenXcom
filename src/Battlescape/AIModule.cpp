@@ -4660,9 +4660,10 @@ void AIModule::brutalThink(BattleAction* action)
 		for (const RankedTarget& rt : rankedEnemies)
 			orderedTargets.push_back(rt.second);
 	}
-	// Count-only budget bounding the expensive per-enemy ops. Feature-off and the shipped
-	// ai.evalBudget=0 default are both unbounded (every live enemy fully scored); a positive
-	// ai.evalBudget bounds the skip-listed ops below to the top-K enemies by AITargetRank.
+	// Count-only budget bounding the expensive per-enemy ops. Feature-off and the config
+	// default ai.evalBudget=0 are both unbounded (every live enemy fully scored); the Calypso
+	// HD pack ships 4. A positive budget bounds the skip-listed ops below to the top-K enemies
+	// by AITargetRank.
 	// The zero time-budget means this primitive never consults a clock -- determinism is owned
 	// by the count alone, matching the 43.1 discipline.
 	AIEvaluationBudget targetEvalBudget(
@@ -8467,9 +8468,9 @@ ThreatField* AIModule::prepareSharedThreatField(const std::map<Position, int, Po
  *     in getUnits() order. When the self stamp runs it consumes one evalBudget slot; when
  *     _unit's slice is already current (clean path, self did not move) the full evalBudget
  *     is spent on missing allies. The rest stay missing and are filled incrementally by
- *     later brutalThinks' clean path. evalBudget == 0 (the shipped default) is unbounded
- *     and byte-identical to the original full rebuild. A partial field is the documented
- *     shared-field approximation -- see the inline notes.
+ *     later brutalThinks' clean path. evalBudget == 0 (the config default) is unbounded and
+ *     byte-identical to the original full rebuild; the Calypso HD pack ships 4. A partial
+ *     field is the documented shared-field approximation -- see the inline notes.
  * A local ran-out flag is used so _ranOutOfTUs is never overwritten.
  */
 FriendReachableField* AIModule::prepareSharedFriendReachable()
@@ -8487,12 +8488,13 @@ FriendReachableField* AIModule::prepareSharedFriendReachable()
 	}
 	// Phase 43.1 (Calypso): bound the monolithic first-use rebuild by ai.evalBudget so a
 	// single brutalThink never pays the full N-ally max-TU BFS upfront. evalBudget == 0
-	// (the shipped default) is UNBOUNDED -- every ally is stamped, byte-identical to the
-	// original full rebuild. evalBudget > 0 runs at most evalBudget ACTUAL BFS stamps per
-	// call: the acting unit first only if its slice is missing/moved (else that slot is
-	// freed for an ally), then allies in getUnits() order; the rest are left missing and
-	// the field is marked clean so later brutalThinks (the clean path) fill the gaps
-	// incrementally. A partial field is the documented shared-field approximation:
+	// (the config default) is UNBOUNDED -- every ally is stamped, byte-identical to the
+	// original full rebuild; the Calypso HD pack ships 4. evalBudget > 0 runs at most
+	// evalBudget ACTUAL BFS stamps per call: the acting unit first only if its slice is
+	// missing/moved (else that slot is freed for an ally), then allies in getUnits() order;
+	// the rest are left missing and the field is marked clean so later brutalThinks' clean
+	// path fills the gaps incrementally. A partial field is the documented shared-field
+	// approximation:
 	// maxAtExcluding / getContribution simply do not see unstamped allies, which can only
 	// make the peek-preserve condition more conservative and the coordination loop skip
 	// waiting for unknown allies (the actor acts instead -> never idle / never coward).
