@@ -24,6 +24,7 @@
 #include "AICandidateOrder.h"
 #include "AIEscapeCandidateOrder.h" // Phase 43.1 (Calypso): deterministic order for the setupEscape tile search
 #include "AIEvaluationBudget.h"
+#include "AIEvalBudgetNoProgress.h" // Phase 43.1 (Calypso): no-progress resolution for deterministic eval budgets
 #include "AIOccupancyPeak.h" // Phase 43.1 (Calypso): deterministic occupancy-peak selector for the setupPatrol persistent fallback
 #include "AITargetRank.h" // Phase 43.1S (Calypso): deterministic total order for the Phase-1 enemy scan
 #include "../Mod/AITuning.h"
@@ -4599,6 +4600,13 @@ void AIModule::brutalThink(BattleAction* action)
 		useOrderedTargets ? _save->getMod()->getAIEvalBudget() : 0, 0);
 	const std::vector<BattleUnit*>& originalUnits = *(_save->getUnits());
 	const std::vector<BattleUnit*>* scanOrder = useOrderedTargets ? &orderedTargets : &originalUnits;
+	// Phase-1 (Calypso): records whether the live-enemy scan below truncated
+	// before scoring every enemy (the ai.evalBudget top-K cap was hit and live
+	// enemies were skipped). Stays false for ai.evalBudget == 0 / sharedFields
+	// off / a budget that covered every candidate. Combined with the movement-
+	// count truncation below to drive the no-progress resolution at the final
+	// dispatch.
+	bool targetBudgetTruncated = false;
 	for (BattleUnit* target : *scanOrder)
 	{
 		if (target->isOut())
@@ -4643,6 +4651,8 @@ void AIModule::brutalThink(BattleAction* action)
 		// new-guess logic, the START_POINT scan, and the exact shared enemyReachable stamping
 		// below all run for every enemy unconditionally, so the loop's side effects never break.
 		const bool withinTargetBudget = targetEvalBudget.consumeEvaluation();
+		if (!withinTargetBudget)
+			targetBudgetTruncated = true;
 		if (withinTargetBudget && brutalValidTarget(target))
 			damagePotentialFromCurrentPosition = std::max(damagePotential(myPos, target, _unit->getTimeUnits(), _unit->getEnergy()), damagePotentialFromCurrentPosition);
 		if (withinTargetBudget)
@@ -5014,6 +5024,12 @@ void AIModule::brutalThink(BattleAction* action)
 	int selectedMoveTargetId = unitToWalkTo ? unitToWalkTo->getId() : -1;
 	bool enemyHasHighGround = false;
 	std::unordered_map<int, MoveEvaluation> moveMap;
+	// Phase 43.1 (Calypso): set when the deterministic movement eval budget
+	// (ai.sharedFields on, ai.evalBudget > 0) runs out before a committable
+	// candidate is found. Drives the no-progress resolution at the final
+	// dispatch below; stays false for ai.evalBudget == 0 / sharedFields off /
+	// an untruncated budget, so their behaviour is byte-identical.
+	bool movementBudgetTruncated = false;
 	if (unitToWalkTo != NULL)
 	{
 		const int moveTargetId = selectedMoveTargetId;
@@ -5118,6 +5134,11 @@ void AIModule::brutalThink(BattleAction* action)
 							<< " evaluations_used=" << movementEvalBudget.evaluationsUsed()
 							<< " unit=" << _unit->getId();
 					}
+					// Phase 43.1 (Calypso): remember that a *count* truncation
+					// occurred (the deterministic, reproducible cap). This is the
+					// only signal that flips the no-progress resolution below; the
+					// non-deterministic time backstop is irrelevant to it.
+					movementBudgetTruncated = movementBudgetTruncated || countExhausted;
 					break;
 				}
 				movementEvalBudget.consumeEvaluation();
@@ -5923,12 +5944,27 @@ void AIModule::brutalThink(BattleAction* action)
 	{
 		tryToPickUpGrenade(_unit->getTile(), action);
 		action->target = myPos;
-		if (!checkedAttack)
-			action->type = BA_RETHINK;
-		else
+		// Phase 43.1 (Calypso): when a deterministic count budget ran out with
+		// no committable action (travelTarget == myPos, no attack / turn /
+		// pickup), never emit a no-progress BA_RETHINK -- BattlescapeGame re-
+		// dispatches brutalThink on the SAME unit, which (nothing changed) re-emits
+		// BA_RETHINK forever (AI-turn soft-lock; PORT/Superhuman with
+		// sharedFields=1, evalBudget=8, turnBudgetMs=0 reproduced a >180s hang).
+		// Terminate the activation instead (BA_NONE + number--), exactly the legacy
+		// checkedAttack==true path. The truncation flag is the OR of two
+		// deterministic count caps: the Phase-1 target-enemy scan
+		// (targetBudgetTruncated) and the movement-candidate scan
+		// (movementBudgetTruncated). Each is only set on a genuine count
+		// truncation, so ai.evalBudget==0 / sharedFields-off / an untruncated
+		// budget keep the byte-identical BA_RETHINK behaviour via the helper.
+		if (aiEvalBudgetShouldEndActivation(checkedAttack, targetBudgetTruncated || movementBudgetTruncated))
 		{
 			action->number -= 1;
 			action->type = BA_NONE;
+		}
+		else
+		{
+			action->type = BA_RETHINK;
 		}
 	}
 	
