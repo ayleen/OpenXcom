@@ -31,7 +31,8 @@
 // harness hook (defined in Calypso/EmscriptenHarness.cpp, C linkage), and the
 // harness writes back through g_calypsoFocusedTextEdit (C++ linkage, defined
 // here — the harness references it with a matching namespaced extern).
-extern "C" void calypso_notify_text_focus(int focused, int x, int y, int w, int h, const char *utf8);
+extern "C" void calypso_notify_text_focus(int focused, int x, int y, int w, int h,
+	const char *utf8, int multiline, int enterPolicy);
 namespace OpenXcom { TextEdit *g_calypsoFocusedTextEdit = nullptr; }
 #endif
 
@@ -171,7 +172,8 @@ void TextEdit::setFocus(bool focus, bool modal)
 #ifdef __EMSCRIPTEN__
 			g_calypsoFocusedTextEdit = this;
 			calypso_notify_text_focus(1, getX(), getY(), getWidth(), getHeight(),
-				Unicode::convUtf32ToUtf8(_value).c_str());
+				Unicode::convUtf32ToUtf8(_value).c_str(), _multiline ? 1 : 0,
+				static_cast<int>(_enterPolicy));
 #endif
 		}
 		else
@@ -183,7 +185,7 @@ void TextEdit::setFocus(bool focus, bool modal)
 				_state->setModal(0);
 #ifdef __EMSCRIPTEN__
 			if (g_calypsoFocusedTextEdit == this) g_calypsoFocusedTextEdit = nullptr;
-			calypso_notify_text_focus(0, 0, 0, 0, 0, "");
+			calypso_notify_text_focus(0, 0, 0, 0, 0, "", 0, 0);
 #endif
 		}
 	}
@@ -1015,10 +1017,12 @@ void TextEdit::onEnter(ActionHandler handler)
 
 void TextEdit::commit(Action *action)
 {
-	if (!_enter || !_state) return;
+	State *state = _state;
+	ActionHandler enter = _enter;
 	setFocus(false);
+	if (!enter || !state) return;
 	// Treat the callback as terminal: it may synchronously destroy the owner.
-	(_state->*_enter)(action);
+	(state->*enter)(action);
 }
 
 }
