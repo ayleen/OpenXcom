@@ -714,17 +714,24 @@ void SavedBattleGame::save(YAML::YamlNodeWriter writer) const
 #endif
 
 	// Phase 43.1 occupancy persistence (aiOccupancy): emit a per-faction snapshot of the live
-	// OccupancyField accumulators so a battle saved mid-decay reloads with its occupancy state
-	// intact. This is emitted REGARDLESS of the current ai.sharedFields feature flag so that a
-	// battle saved with the flag on is not silently lost when the flag is later turned off; with
-	// the flag off every field is empty (no producer spikes cells), the block is omitted, and the
-	// save stays byte-identical to a pre-43.1-occupancy save. Only factions whose field currently
-	// holds at least one non-zero cell are written, in numeric faction order, so empty factions
-	// never produce a block.
+	// OccupancyField accumulators + their armed decay marker so a battle saved mid-decay reloads
+	// with its occupancy state intact. This is emitted REGARDLESS of the current ai.sharedFields
+	// feature flag so that a battle saved with the flag on is not silently lost when the flag is
+	// later turned off. With the flag off, no producer ever spikes a cell AND the decay marker is
+	// never armed (beginFactionTurnCache is the sole production advanceOccupancyToTurn caller and
+	// it is feature-gated), so every faction is (empty field, lastAdvancedTurn == -1) and the whole
+	// block is omitted — the save stays byte-identical to a pre-43.1-occupancy save.
+	//
+	// A faction is emitted when EITHER it holds at least one non-zero cell OR its decay marker is
+	// armed (lastAdvancedTurn >= 0). An armed-but-empty field is STATEFUL: on reload the marker
+	// must survive so the next faction-turn advance does NOT re-stamp a fresh first-arm baseline
+	// (which would skip a decay pass that should have run). Such a faction round-trips with an
+	// empty `cells:` sequence. Factions are written in numeric faction order.
 	bool anyOccupancy = false;
 	for (int f = FACTION_PLAYER; f < FACTION_MAX; ++f)
 	{
-		if (!_factionTurnCaches[f].getOccupancyField().empty())
+		const auto &cacheF = _factionTurnCaches[f];
+		if (!cacheF.getOccupancyField().empty() || cacheF.getOccupancyLastAdvancedTurn() >= 0)
 		{
 			anyOccupancy = true;
 			break;
@@ -737,16 +744,21 @@ void SavedBattleGame::save(YAML::YamlNodeWriter writer) const
 		for (int f = FACTION_PLAYER; f < FACTION_MAX; ++f)
 		{
 			const OccupancyField& field = _factionTurnCaches[f].getOccupancyField();
-			if (field.empty())
-				continue; // empty field -> no block emitted (stays byte-identical when absent)
+			const int lastAdvancedTurn = _factionTurnCaches[f].getOccupancyLastAdvancedTurn();
+			// Skip only a truly default faction: empty field AND disarmed marker. An
+			// armed-but-empty field (lastAdvancedTurn >= 0, no cells) is still emitted below
+			// with an empty cells sequence so the marker survives save/load.
+			if (field.empty() && lastAdvancedTurn < 0)
+				continue;
 			YAML::YamlNodeWriter block = occSeq.write();
 			block.setAsMap();
 			block.write("faction", f);
-			block.write("lastAdvancedTurn", _factionTurnCaches[f].getOccupancyLastAdvancedTurn());
+			block.write("lastAdvancedTurn", lastAdvancedTurn);
 			// cells: sparse sequence of { position, value } maps. `position` is written via the
 			// production Position serializer, so it round-trips through readVal<Position>()
 			// unchanged. Only non-zero cells are ever stored by OccupancyField, so every emitted
-			// cell carries a strictly-positive value.
+			// cell carries a strictly-positive value. An armed-but-empty field emits zero cells
+			// (the `cells:` sequence is present but empty).
 			YAML::YamlNodeWriter cellsSeq = block["cells"];
 			cellsSeq.setAsSeq();
 			for (const auto& cell : field.getCells())
