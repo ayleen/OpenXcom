@@ -46,6 +46,7 @@
 #include "../lodepng.h"
 #include "../Geoscape/SelectMusicTrackState.h"
 #include "../Engine/Game.h"
+#include "../Engine/CalypsoAlienPacing.h"
 #include "../Engine/Options.h"
 #include "../Engine/LocalizedText.h"
 #include "../Engine/Palette.h"
@@ -1040,6 +1041,9 @@ void BattlescapeState::think()
 		if (_popups.empty())
 		{
 			State::think();
+#ifdef __EMSCRIPTEN__
+			Game *const calypsoGame = _game;
+#endif
 			int ret = _battleGame->think();
 			if (ret > -1)
 			{
@@ -1052,6 +1056,59 @@ void BattlescapeState::think()
 				_battleGame->handleNonTargetAction();
 				popped = false;
 			}
+#ifdef __EMSCRIPTEN__
+			/* Fixed internal drain: advance at most three ADDITIONAL queued action
+			 * states after the normal think/timers above. It is not configurable and
+			 * does not call the planner more than once per Game iteration. Scheduling
+			 * can still change when later iterations happen, so same-seed browser QA
+			 * owns the behavior verdict. The loop revalidates lifecycle and the full
+			 * production gate before every handleState() call. */
+			if (calypsoGame->isState(this))
+			{
+				const int calypsoAdditionalStates = calypsoAlienPacingAdditionalStateCount(
+					_gameTimer->isRunning(),
+					_popups.empty(),
+					_save->getSide() == FACTION_HOSTILE,
+					Options::battleAlienSpeed,
+					calypsoGame->getMod()->getAISharedFields(),
+					calypsoGame->getMod()->getAIEvalBudget(),
+					_battleGame->isBusy());
+				for (int i = 0; i < calypsoAdditionalStates
+					&& calypsoGame->isState(this)
+					&& _gameTimer->isRunning()
+					&& _popups.empty()
+					&& _save->getSide() == FACTION_HOSTILE
+					&& Options::battleAlienSpeed == 1
+					&& calypsoGame->getMod()->getAISharedFields()
+					&& calypsoGame->getMod()->getAIEvalBudget() > 0
+					&& _battleGame->isBusy(); ++i)
+				{
+					_battleGame->handleState();
+				}
+			}
+
+			if (calypsoGame->isState(this))
+			{
+				/* Emscripten-only pacing for the Phase 43.1 feature itself. The pure
+				 * gate requires Quick Mode plus both deterministic AI feature knobs;
+				 * feature-off/default-speed paths never lease the fast scheduler. This
+				 * request changes loop scheduling/presentation; same-seed QA verifies
+				 * the resulting AI decision stream. Game revalidates requester/state
+				 * after tutorial pumping. At 75 ms it requests RAF, and fast mode cannot
+				 * resume until an actual render. */
+				const bool calypsoFastMainLoopEligible = calypsoAlienPacingEligible(
+					_gameTimer->isRunning(),
+					_popups.empty(),
+					_save->getSide() == FACTION_HOSTILE,
+					Options::battleAlienSpeed,
+					calypsoGame->getMod()->getAISharedFields(),
+					calypsoGame->getMod()->getAIEvalBudget());
+				if (calypsoFastMainLoopEligible)
+				{
+					calypsoGame->requestFastMainLoop(this);
+				}
+			}
+#endif
 		}
 		else
 		{

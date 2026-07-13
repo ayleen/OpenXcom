@@ -17,6 +17,9 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "Game.h"
+#ifdef __EMSCRIPTEN__
+#include "CalypsoAlienPacing.h"
+#endif
 #include "../resource.h"
 #include <algorithm>
 #include <cmath>
@@ -72,6 +75,11 @@ Game::Game(const std::string &title) : _screen(0), _cursor(0), _lang(0), _save(0
 	_ctrl(false), _alt(false), _shift(false), _rmb(false), _mmb(false), _scrollStep(1),
 	_runningState(RUNNING), _startupEvent(false), _runInitialised(false), _lastMouseMoveEvent(0), _xrel(0), _yrel(0)
 {
+#ifdef __EMSCRIPTEN__
+	_fastMainLoopRequester = 0;
+	_fastMainLoopApplied = false;
+	_fastMainLoopLastRenderMs = 0;
+#endif
 	Options::reload = false;
 	Options::mute = false;
 
@@ -167,6 +175,14 @@ bool Game::iterate()
 {
 	static const ApplicationState kbFocusRun[4] = { RUNNING, RUNNING, SLOWED, PAUSED };
 	static const ApplicationState stateRun[4] = { SLOWED, PAUSED, PAUSED, PAUSED };
+#ifdef __EMSCRIPTEN__
+	// The fast-loop lease is one-shot even when this iteration is paused,
+	// initializes or changes state, or is not due to draw. A request made during
+	// think() below replaces this local before the end-of-iteration timing choice.
+	State *calypsoFastMainLoopRequester = _fastMainLoopRequester;
+	_fastMainLoopRequester = 0;
+	bool calypsoRenderedThisIteration = false;
+#endif
 
 	if (!_runInitialised)
 	{
@@ -428,6 +444,17 @@ bool Game::iterate()
 		_states.back()->think();
 #ifdef __EMSCRIPTEN__
 		CalypsoTutorial::get().pump(this);
+		if (_fastMainLoopRequester != 0)
+		{
+			calypsoFastMainLoopRequester = _fastMainLoopRequester;
+		}
+		_fastMainLoopRequester = 0;
+		// Tutorial pump may push a popup after Battlescape renews the lease. A
+		// state transition invalidates it so the new top state returns to RAF.
+		if (calypsoFastMainLoopRequester != 0 && !isState(calypsoFastMainLoopRequester))
+		{
+			calypsoFastMainLoopRequester = 0;
+		}
 #endif
 		_fpsCounter->think();
 		if (Options::FPS > 0 && !(Options::useOpenGL && Options::vSyncForOpenGL))
@@ -446,7 +473,15 @@ bool Game::iterate()
 			_timeUntilNextFrame = 0;
 		}
 
-		if (_init && _timeUntilNextFrame <= 0)
+		if (_init && _timeUntilNextFrame <= 0
+#ifdef __EMSCRIPTEN__
+			// Rendering from a non-rAF callback can cause long tasks. Preserve the
+			// last rAF-presented framebuffer for every immediate tick; the fixed
+			// 75 ms threshold below requests RAF; fast mode cannot resume until an
+			// actual render occurs.
+			&& !_fastMainLoopApplied
+#endif
+		)
 		{
 			// make a note of when this frame update occurred.
 			_timeOfLastFrame = SDL_GetTicks();
@@ -466,6 +501,10 @@ bool Game::iterate()
 			_fpsCounter->blit(_screen->getSurface());
 			_cursor->blit(_screen->getSurface());
 			_screen->flip();
+#ifdef __EMSCRIPTEN__
+			_fastMainLoopLastRenderMs = SDL_GetTicks();
+			calypsoRenderedThisIteration = true;
+#endif
 		}
 	}
 
@@ -483,8 +522,54 @@ bool Game::iterate()
 
 	if (_quit)
 		Options::save();
+#ifdef __EMSCRIPTEN__
+	/* Phase 43.1 Emscripten pacing. A valid requester leases a
+	 * setImmediate-driven next tick; every other path restores requestAnimationFrame.
+	 * The request was consumed above even when paused/no draw was due, so the
+	 * Battlescape must renew the lease on every eligible tick. Validate the top
+	 * state again here, after all logic and rendering, immediately before changing
+	 * the scheduler that Emscripten will use for the next iteration. At 75 ms
+	 * since the last actual render it requests RAF. That request is not
+	 * itself a hard presentation deadline; fast mode cannot resume until a later
+	 * RAF iteration actually renders. */
+	const bool calypsoFastMainLoopLeaseValid =
+		!_quit
+		&& _init
+		&& calypsoFastMainLoopRequester != 0
+		&& isState(calypsoFastMainLoopRequester);
+	const bool calypsoFastMainLoopRequested =
+		calypsoFastMainLoopLeaseValid
+		&& calypsoAlienPacingBeforeRafThreshold(SDL_GetTicks(), _fastMainLoopLastRenderMs)
+		&& (_fastMainLoopApplied || calypsoRenderedThisIteration);
+	if (calypsoFastMainLoopRequested != _fastMainLoopApplied)
+	{
+		const int calypsoTimingResult = emscripten_set_main_loop_timing(
+			calypsoFastMainLoopRequested ? EM_TIMING_SETIMMEDIATE : EM_TIMING_RAF,
+			calypsoFastMainLoopRequested ? 0 : 1);
+		if (calypsoTimingResult == 0)
+		{
+			_fastMainLoopApplied = calypsoFastMainLoopRequested;
+		}
+		else
+		{
+			Log(LOG_ERROR) << "Calypso: failed to change main-loop timing; keeping tracked mode unchanged";
+		}
+	}
+#endif
 	return !_quit;
 }
+
+#ifdef __EMSCRIPTEN__
+/**
+ * Requests a one-iteration fast-loop lease for requester. iterate() consumes
+ * the request unconditionally and honors it only while requester remains the
+ * top state after tutorial pumping and at the end-of-iteration timing switch.
+ */
+void Game::requestFastMainLoop(State *requester)
+{
+	_fastMainLoopRequester = requester;
+}
+#endif
 
 #ifdef __EMSCRIPTEN__
 static void emscriptenIter(void *arg)

@@ -120,13 +120,14 @@ int calypso_set_ai_failure_memory(int enabled)
 		&& battleMod->getAIFailureMemory() == (enabled != 0) ? 1 : 0;
 }
 
-/* Phase 43.1 QA harness: arm the shared per-faction spatial fields for one
- * explicit regression scenario without changing the shipped ruleset default.
+/* Phase 43.1 QA harness: override the shared per-faction spatial fields for one
+ * explicit regression scenario after the shipped ruleset has loaded.
  * The three calypso_set_ai_* exports below mirror calypso_set_ai_failure_memory
  * exactly (apply to BOTH the Game-level Mod and the active SavedBattleGame's Mod
  * so reads from either holder agree) and are intended to be called by the JS
- * harness after callMain + ruleset load, before the alien turn runs. Production
- * behaviour is unchanged when no harness calls them. */
+ * harness after callMain + ruleset load, before the alien turn runs. They accept
+ * the schema sentinels false/0 as well as armed values, so QA can explicitly
+ * exercise either profile without mutating the ruleset bytes. */
 EMSCRIPTEN_KEEPALIVE
 int calypso_set_ai_shared_fields(int enabled)
 {

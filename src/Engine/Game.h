@@ -52,6 +52,11 @@ private:
 	SavedGame *_save;
 	Mod *_mod;
 	bool _quit, _init, _update;
+#ifdef __EMSCRIPTEN__
+	State *_fastMainLoopRequester;
+	bool _fastMainLoopApplied;
+	unsigned int _fastMainLoopLastRenderMs;
+#endif
 	FpsCounter *_fpsCounter;
 	bool _mouseActive;
 	unsigned int _timeOfLastFrame;
@@ -76,6 +81,10 @@ public:
 	void run();
 	/// Executes one frame of the game loop; returns false when the game should quit.
 	bool iterate();
+#ifdef __EMSCRIPTEN__
+	/// Leases setImmediate scheduling to the current state for the next iteration.
+	void requestFastMainLoop(State *requester);
+#endif
 	/// Quits the game.
 	void quit();
 	/// Sets the game's audio volume.
