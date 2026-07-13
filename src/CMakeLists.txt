@@ -877,6 +877,7 @@ if(NOT EMSCRIPTEN AND BUILD_TESTING)
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoFocusModelTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoFocusCoordinatorTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoViewportRuntimeTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoResolutionFloorTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoTextEditLayoutTest.cpp)
 
     add_executable(oxce_unit_tests ${OXCE_TEST_SOURCES})

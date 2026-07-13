@@ -212,6 +212,112 @@ EMSCRIPTEN_KEEPALIVE int calypso_viewport_logical_width()
 	const auto& runtime = OpenXcom::Calypso::calypsoViewportRuntime();
 	return runtime.hasLayout() ? runtime.current().logicalWidth : 0;
 }
+
+static int s_calypsoViewportBlocked = 0;
+static int s_calypsoMainLoopStarted = 0;
+static int s_calypsoMainLoopPaused = 0;
+extern int g_calypsoContextLost;
+
+void calypso_reset_main_loop_state(void)
+{
+	s_calypsoMainLoopStarted = 0;
+	s_calypsoMainLoopPaused = 0;
+}
+
+int calypso_pause_main_loop_before_iterate(void)
+{
+	// Reaching the callback is the first authoritative proof that Emscripten has
+	// installed MainLoop.func. A flag set before set_main_loop_arg is too early:
+	// JS can run between those points and resume a still-null loop.
+	s_calypsoMainLoopStarted = 1;
+	if (!s_calypsoViewportBlocked && !g_calypsoContextLost)
+		return 0;
+	// pause_main_loop only prevents future callbacks; the current callback must
+	// return explicitly so no simulation/render iteration slips through.
+	if (!s_calypsoMainLoopPaused)
+	{
+		s_calypsoMainLoopPaused = 1;
+		emscripten_pause_main_loop();
+	}
+	return 1;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_set_viewport_supported(int supported)
+{
+	const int blocked = supported ? 0 : 1;
+	const bool changed = blocked != s_calypsoViewportBlocked;
+	s_calypsoViewportBlocked = blocked;
+	// Always record the latest gate and drop held/stale browser input. During
+	// callMain startup the rAF loop may not exist yet, so pause/resume is deferred
+	// until the first registered callback proves MainLoop.func exists.
+	SDL_FlushEvents(SDL_KEYDOWN, SDL_MULTIGESTURE);
+	SDL_ResetKeyboard();
+	if (!changed || !s_calypsoMainLoopStarted) return;
+	if (blocked)
+	{
+		if (!s_calypsoMainLoopPaused)
+		{
+			s_calypsoMainLoopPaused = 1;
+			emscripten_pause_main_loop();
+		}
+	}
+	else if (!g_calypsoContextLost && s_calypsoMainLoopPaused)
+	{
+		s_calypsoMainLoopPaused = 0;
+		emscripten_resume_main_loop();
+	}
+}
+
+EMSCRIPTEN_KEEPALIVE
+const char *calypso_viewport_gate_json()
+{
+	static std::string out;
+	Game *g = getCurrentGame();
+	if (!g || !g->getLanguage()) { out = ""; return out.c_str(); }
+	auto escaped = [](const std::string& in) {
+		std::string value;
+		for (unsigned char c : in)
+		{
+			switch (c)
+			{
+			case '\\': value += "\\\\"; break;
+			case '"': value += "\\\""; break;
+			case '\n': value += "\\n"; break;
+			case '\r': value += "\\r"; break;
+			case '\t': value += "\\t"; break;
+			default: if (c >= 0x20) value += static_cast<char>(c); break;
+			}
+		}
+		return value;
+	};
+	Language *lang = g->getLanguage();
+	const char *ids[] = {
+		"STR_CAL_HD_VIEWPORT_TITLE", "STR_CAL_HD_VIEWPORT_BODY",
+		"STR_CAL_HD_ROTATE_TITLE", "STR_CAL_HD_ROTATE_BODY",
+		"STR_CAL_HD_VIEWPORT_CURRENT", "STR_CAL_HD_VIEWPORT_REQUIRED"
+	};
+	std::string values[6];
+	for (int i = 0; i < 6; ++i)
+	{
+		values[i] = std::string(lang->getString(ids[i]));
+		// Language::getString returns the id itself until the owning mod's
+		// extraStrings are loaded. Empty output asks JS to retain its safe English
+		// fallback and retry instead of ever painting raw STR_* keys.
+		if (values[i].empty() || values[i] == ids[i])
+		{
+			out.clear();
+			return out.c_str();
+		}
+	}
+	out = "{\"sizeTitle\":\"" + escaped(values[0])
+	    + "\",\"sizeBody\":\"" + escaped(values[1])
+	    + "\",\"rotateTitle\":\"" + escaped(values[2])
+	    + "\",\"rotateBody\":\"" + escaped(values[3])
+	    + "\",\"current\":\"" + escaped(values[4])
+	    + "\",\"required\":\"" + escaped(values[5]) + "\"}";
+	return out.c_str();
+}
 EMSCRIPTEN_KEEPALIVE int calypso_viewport_logical_height()
 {
 	const auto& runtime = OpenXcom::Calypso::calypsoViewportRuntime();
@@ -538,10 +644,9 @@ void calypso_on_tab_hidden(void)
  *
  * Edge cases handled:
  *   • Double-loss  — guard in calypso_gl_context_lost prevents double-pause.
- *   • Restore without prior loss — SDL_RENDER_TARGETS_RESET is still pushed;
- *     emscripten_resume_main_loop is a no-op when the loop is already running.
- *   • Loss before callMain — emscripten_pause_main_loop is a no-op when no
- *     loop exists yet; emscripten_resume_main_loop is likewise safe. */
+ *   • Restore without prior loss — SDL_RENDER_TARGETS_RESET is still pushed.
+ *   • Loss before Game::run — the flag is recorded without touching a missing
+ *     loop; the first registered callback pauses and returns before iterate(). */
 int g_calypsoContextLost = 0;
 
 EMSCRIPTEN_KEEPALIVE
@@ -550,7 +655,11 @@ void calypso_gl_context_lost(void)
 	if (!g_calypsoContextLost)
 	{
 		g_calypsoContextLost = 1;
-		emscripten_pause_main_loop();
+		if (s_calypsoMainLoopStarted && !s_calypsoMainLoopPaused)
+		{
+			s_calypsoMainLoopPaused = 1;
+			emscripten_pause_main_loop();
+		}
 	}
 }
 
@@ -565,8 +674,12 @@ void calypso_gl_context_restored(void)
 	e.type = SDL_RENDER_TARGETS_RESET;
 	SDL_PushEvent(&e);
 
-	if (wasLost)
+	if (wasLost && s_calypsoMainLoopStarted && s_calypsoMainLoopPaused
+	    && !s_calypsoViewportBlocked)
+	{
+		s_calypsoMainLoopPaused = 0;
 		emscripten_resume_main_loop();
+	}
 }
 
 EMSCRIPTEN_KEEPALIVE

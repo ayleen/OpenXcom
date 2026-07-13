@@ -314,6 +314,9 @@ void ComboBox::setText(const std::string &text)
  */
 void ComboBox::setSelected(size_t sel)
 {
+#ifdef __EMSCRIPTEN__
+	if (sel < _optionEnabled.size() && !_optionEnabled[sel]) return;
+#endif
 	_sel = sel;
 	if (_sel < _list->getTexts())
 	{
@@ -370,6 +373,7 @@ void ComboBox::setOptions(const std::vector<std::string> &options, bool translat
 #ifdef __EMSCRIPTEN__
 	_optionsCache = options;
 	_optionsCacheTranslate = translate;
+	_optionEnabled.assign(options.size(), true);
 #endif
 	setDropdown(options.size());
 	_list->clearList();
@@ -382,6 +386,13 @@ void ComboBox::setOptions(const std::vector<std::string> &options, bool translat
 	}
 	setSelected(_sel);
 }
+
+#ifdef __EMSCRIPTEN__
+void ComboBox::setOptionEnabled(size_t index, bool enabled)
+{
+	if (index < _optionEnabled.size()) _optionEnabled[index] = enabled;
+}
+#endif
 
 /**
  * Blits the combo box components.

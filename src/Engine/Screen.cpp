@@ -17,6 +17,9 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "Screen.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoResolutionFloor.h"
+#endif
 #include "Game.h"
 #include "../Mod/Mod.h"
 #include <algorithm>
@@ -947,25 +950,13 @@ int Screen::getDY() const
  */
 void Screen::updateScale(int type, int &width, int &height, bool change)
 {
-	double pixelRatioY = 1.0;
-
-	if (Options::nonSquarePixelRatio)
-	{
-		pixelRatioY = 1.2;
-	}
-
 #ifdef __EMSCRIPTEN__
-	// Calypso: every scale is a proportional fraction of the display (see
-	// getScreenScaleFraction). Routing updateScale through the same helper keeps
-	// it in lockstep with the Battlescape/Geoscape resize() paths for any stored
-	// value — including legacy fixed scales from an old options.cfg.
-	{
-		int num = 1, den = 1;
-		getScreenScaleFraction(type, num, den);
-		width  = Options::displayWidth  * num / den;
-		height = (int)(Options::displayHeight / pixelRatioY * num / den);
-	}
+	const Calypso::CalypsoScaleResult scale = Calypso::calypsoPromoteScale(
+		Options::displayWidth, Options::displayHeight, Options::nonSquarePixelRatio, type);
+	width = scale.width;
+	height = scale.height;
 #else
+	double pixelRatioY = Options::nonSquarePixelRatio ? 1.2 : 1.0;
 	switch (type)
 	{
 	case SCALE_15X:
@@ -1051,6 +1042,32 @@ void Screen::updateScale(int type, int &width, int &height, bool change)
 	}
 }
 
+#ifdef __EMSCRIPTEN__
+void Screen::normalizeBrowserScales()
+{
+	const bool normalizedNonSquare =
+		Calypso::calypsoNormalizeBrowserNonSquarePixels(Options::nonSquarePixelRatio);
+	if (Options::nonSquarePixelRatio != normalizedNonSquare)
+	{
+		Options::nonSquarePixelRatio = normalizedNonSquare;
+		Log(LOG_WARNING) << "[ui-resolution] ignored native-only nonSquarePixelRatio in browser options";
+	}
+	auto normalize = [](int& live, int& pending, const char *scene) {
+		const Calypso::CalypsoScaleResult result = Calypso::calypsoPromoteScale(
+			Options::displayWidth, Options::displayHeight, Options::nonSquarePixelRatio, live);
+		const bool promoted = live != result.scaleType;
+		live = pending = result.scaleType;
+		if (promoted)
+		{
+			Log(LOG_WARNING) << "[ui-resolution] promoted " << scene << " scale to "
+			                 << result.width << "x" << result.height;
+		}
+	};
+	normalize(Options::geoscapeScale, Options::newGeoscapeScale, "Geoscape");
+	normalize(Options::battlescapeScale, Options::newBattlescapeScale, "Battlescape");
+}
+#endif
+
 /**
  * Maps a screen-relative ScaleType to its display fraction (num/den), e.g.
  * SCALE_SCREEN -> 1/1, SCALE_SCREEN_3_4 -> 3/4, SCALE_SCREEN_DIV_2 -> 1/2.
@@ -1061,6 +1078,9 @@ void Screen::updateScale(int type, int &width, int &height, bool change)
  */
 void Screen::getScreenScaleFraction(int type, int &num, int &den)
 {
+#ifdef __EMSCRIPTEN__
+	Calypso::calypsoScaleFraction(type, num, den);
+#else
 	switch (type)
 	{
 	case SCALE_SCREEN:        num = 1; den = 1;  break;
@@ -1074,6 +1094,7 @@ void Screen::getScreenScaleFraction(int type, int &num, int &den)
 	case SCALE_SCREEN_DIV_10: num = 1; den = 10; break;
 	default:                  num = 1; den = 2;  break; // fixed/legacy → ½ fallback
 	}
+#endif
 }
 
 /**

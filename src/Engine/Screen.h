@@ -136,6 +136,10 @@ public:
 	/// Used by the Battlescape/Geoscape resize() proportional path and the
 	/// Video-menu labels so the canvas keeps the display aspect ratio.
 	static void getScreenScaleFraction(int scaleType, int &num, int &den);
+#ifdef __EMSCRIPTEN__
+	/// Promote invalid stored scene fractions and synchronize their pending twins.
+	static void normalizeBrowserScales();
+#endif
 };
 
 }

@@ -62,6 +62,7 @@ private:
 	float scale() const { return _nativeW > 0 ? (float)getWidth() / (float)_nativeW : 1.0f; }
 	void relayout();
 	std::vector<std::string> _optionsCache;
+	std::vector<bool> _optionEnabled;
 	bool _optionsCacheTranslate = false;
 #endif
 
@@ -108,6 +109,9 @@ public:
 	void setSelected(size_t sel);
 	/// Sets the list of options.
 	void setOptions(const std::vector<std::string> &options, bool translate = false);
+#ifdef __EMSCRIPTEN__
+	void setOptionEnabled(size_t index, bool enabled);
+#endif
 	/// Blits the combo box onto another surface.
 	void blit(SDL_Surface *surface) override;
 	/// Thinks arrow buttons.

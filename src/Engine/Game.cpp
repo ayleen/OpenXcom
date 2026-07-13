@@ -58,6 +58,8 @@
 // namespace).  Declare it here so getCurrentGame() can return it without
 // requiring every caller to write its own extern declaration.
 extern OpenXcom::Game *game;
+extern "C" void calypso_reset_main_loop_state(void);
+extern "C" int calypso_pause_main_loop_before_iterate(void);
 #endif
 
 namespace OpenXcom
@@ -189,6 +191,9 @@ void Game::reflowEmscriptenViewport(int physicalWidth, int physicalHeight)
 		std::max(Screen::ORIGINAL_WIDTH, physicalWidth);
 	Options::newDisplayHeight = Options::displayHeight =
 		std::max(Screen::ORIGINAL_HEIGHT, physicalHeight);
+#ifdef __EMSCRIPTEN__
+	Screen::normalizeBrowserScales();
+#endif
 
 	BattlescapeState *battleRoot = nullptr;
 	GeoscapeState *geoRoot = nullptr;
@@ -602,13 +607,19 @@ bool Game::iterate()
 #ifdef __EMSCRIPTEN__
 static void emscriptenIter(void *arg)
 {
+	// A viewport/context-loss event can arrive before Game::run registers the
+	// browser loop. Apply that recorded state in the first callback and do not
+	// let one game iteration escape before the pause takes effect.
+	if (calypso_pause_main_loop_before_iterate()) return;
 	Game *game = static_cast<Game*>(arg);
 	try {
 		if (!game->iterate()) {
+			calypso_reset_main_loop_state();
 			emscripten_cancel_main_loop();
 		}
 	} catch (const std::exception &e) {
 		Log(LOG_FATAL) << "iterate() uncaught: " << e.what();
+		calypso_reset_main_loop_state();
 		emscripten_cancel_main_loop();
 	}
 }
@@ -623,6 +634,9 @@ void Game::run()
 {
 #ifdef __EMSCRIPTEN__
 	// 0 fps = driven by requestAnimationFrame; 1 = simulate_infinite_loop (never returns).
+	// Only the first callback may mark the loop started; before registration even
+	// a synchronous JS unblock must not call emscripten_resume_main_loop().
+	calypso_reset_main_loop_state();
 	emscripten_set_main_loop_arg(emscriptenIter, this, 0, 1);
 #else
 	while (iterate()) {}
