@@ -602,6 +602,13 @@ if(EMSCRIPTEN)
   list(APPEND openxcom_src Calypso/CalypsoMenuBridge.cpp)
   # Phase 41 Slice B2: HD Geoscape side panel (friend bridge for GeoscapeState).
   list(APPEND openxcom_src Calypso/CalypsoGeoscapeHd.cpp)
+  # Phase 46.1 (policy R3): browser-only extractions from the oversized in-place
+  # #ifdef __EMSCRIPTEN__ regions of Engine/{EmscriptenHarness,Game,Screen}.cpp.
+  # Each is a whole-file emscripten TU (empty on native). Relocation-only.
+  list(APPEND openxcom_src Calypso/CalypsoViewportBridge.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoMainLoopGate.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoGameReflow.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoBrowserScale.cpp)
 
   # Phase 8b: regenerate embedded shader table before each build when any
   # *.vert or *.frag file in Engine/Shaders/ has changed.

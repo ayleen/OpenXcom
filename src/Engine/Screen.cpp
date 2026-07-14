@@ -47,9 +47,8 @@
 #include <algorithm>
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
-#include "../Calypso/CalypsoViewportRuntime.h"
 #include <GLES3/gl3.h>
-/* M6c: context-lost flag; C-linkage definition lives in Calypso/EmscriptenHarness.cpp.
+/* M6c: context-lost flag; C-linkage definition lives in ../Calypso/CalypsoMainLoopGate.cpp.
  * Declared at file scope (extern "C" is not allowed at block scope) — same
  * pattern as g_calypsoSsaaScale in Map.cpp. */
 extern "C" int g_calypsoContextLost;
@@ -313,27 +312,7 @@ void Screen::flip()
 		if (wW > 0 && wH > 0 &&
 		    (wW != Options::displayWidth || wH != Options::displayHeight || _forceCanvasRebase))
 		{
-			const bool bridgeHandled = Calypso::calypsoNotifyCanvasFallback(wW, wH);
-			if (bridgeHandled)
-			{
-				_forceCanvasRebase = false;
-			}
-			else if (_forceCanvasRebase)
-			{
-				/* Context recovery can require a scale rebase even when canvas size
-				 * is unchanged and therefore no viewport event is queued. Preserve
-				 * that established fallback without starting a second state reflow. */
-				_forceCanvasRebase = false;
-				const bool inBattle = _surface &&
-				                      _surface->w == Options::baseXBattlescape &&
-				                      _surface->h == Options::baseYBattlescape;
-				Screen::updateScale(Options::battlescapeScale,
-				                    Options::baseXBattlescape,
-				                    Options::baseYBattlescape, inBattle);
-				Screen::updateScale(Options::geoscapeScale,
-				                    Options::baseXGeoscape,
-				                    Options::baseYGeoscape, !inBattle);
-			}
+			reflowCanvasFallback(wW, wH);
 		}
 	}
 #endif
@@ -1041,32 +1020,6 @@ void Screen::updateScale(int type, int &width, int &height, bool change)
 		Options::baseYResolution = height;
 	}
 }
-
-#ifdef __EMSCRIPTEN__
-void Screen::normalizeBrowserScales()
-{
-	const bool normalizedNonSquare =
-		Calypso::calypsoNormalizeBrowserNonSquarePixels(Options::nonSquarePixelRatio);
-	if (Options::nonSquarePixelRatio != normalizedNonSquare)
-	{
-		Options::nonSquarePixelRatio = normalizedNonSquare;
-		Log(LOG_WARNING) << "[ui-resolution] ignored native-only nonSquarePixelRatio in browser options";
-	}
-	auto normalize = [](int& live, int& pending, const char *scene) {
-		const Calypso::CalypsoScaleResult result = Calypso::calypsoPromoteScale(
-			Options::displayWidth, Options::displayHeight, Options::nonSquarePixelRatio, live);
-		const bool promoted = live != result.scaleType;
-		live = pending = result.scaleType;
-		if (promoted)
-		{
-			Log(LOG_WARNING) << "[ui-resolution] promoted " << scene << " scale to "
-			                 << result.width << "x" << result.height;
-		}
-	};
-	normalize(Options::geoscapeScale, Options::newGeoscapeScale, "Geoscape");
-	normalize(Options::battlescapeScale, Options::newBattlescapeScale, "Battlescape");
-}
-#endif
 
 /**
  * Maps a screen-relative ScaleType to its display fraction (num/den), e.g.

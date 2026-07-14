@@ -139,6 +139,10 @@ public:
 #ifdef __EMSCRIPTEN__
 	/// Promote invalid stored scene fractions and synchronize their pending twins.
 	static void normalizeBrowserScales();
+	/// Apply one bridge-authorized canvas-size change (flip() resize path) as a
+	/// single reflow via the Calypso viewport bridge. Body lives in
+	/// src/Calypso/CalypsoBrowserScale.cpp (policy R3).
+	void reflowCanvasFallback(int canvasWidth, int canvasHeight);
 #endif
 };
 
