@@ -17,9 +17,6 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "Game.h"
-#ifdef __EMSCRIPTEN__
-#include "CalypsoAlienPacing.h"
-#endif
 #include "../resource.h"
 #include <algorithm>
 #include <cmath>
@@ -523,53 +520,10 @@ bool Game::iterate()
 	if (_quit)
 		Options::save();
 #ifdef __EMSCRIPTEN__
-	/* Phase 43.1 Emscripten pacing. A valid requester leases a
-	 * setImmediate-driven next tick; every other path restores requestAnimationFrame.
-	 * The request was consumed above even when paused/no draw was due, so the
-	 * Battlescape must renew the lease on every eligible tick. Validate the top
-	 * state again here, after all logic and rendering, immediately before changing
-	 * the scheduler that Emscripten will use for the next iteration. At 75 ms
-	 * since the last actual render it requests RAF. That request is not
-	 * itself a hard presentation deadline; fast mode cannot resume until a later
-	 * RAF iteration actually renders. */
-	const bool calypsoFastMainLoopLeaseValid =
-		!_quit
-		&& _init
-		&& calypsoFastMainLoopRequester != 0
-		&& isState(calypsoFastMainLoopRequester);
-	const bool calypsoFastMainLoopRequested =
-		calypsoFastMainLoopLeaseValid
-		&& calypsoAlienPacingBeforeRafThreshold(SDL_GetTicks(), _fastMainLoopLastRenderMs)
-		&& (_fastMainLoopApplied || calypsoRenderedThisIteration);
-	if (calypsoFastMainLoopRequested != _fastMainLoopApplied)
-	{
-		const int calypsoTimingResult = emscripten_set_main_loop_timing(
-			calypsoFastMainLoopRequested ? EM_TIMING_SETIMMEDIATE : EM_TIMING_RAF,
-			calypsoFastMainLoopRequested ? 0 : 1);
-		if (calypsoTimingResult == 0)
-		{
-			_fastMainLoopApplied = calypsoFastMainLoopRequested;
-		}
-		else
-		{
-			Log(LOG_ERROR) << "Calypso: failed to change main-loop timing; keeping tracked mode unchanged";
-		}
-	}
+	calypsoApplyFastMainLoopTiming(calypsoFastMainLoopRequester, calypsoRenderedThisIteration);
 #endif
 	return !_quit;
 }
-
-#ifdef __EMSCRIPTEN__
-/**
- * Requests a one-iteration fast-loop lease for requester. iterate() consumes
- * the request unconditionally and honors it only while requester remains the
- * top state after tutorial pumping and at the end-of-iteration timing switch.
- */
-void Game::requestFastMainLoop(State *requester)
-{
-	_fastMainLoopRequester = requester;
-}
-#endif
 
 #ifdef __EMSCRIPTEN__
 static void emscriptenIter(void *arg)

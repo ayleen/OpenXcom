@@ -61,9 +61,14 @@ namespace OpenXcom
  * The live occupancy accumulator (OccupancyField, phase 43.1 occupancy slice) is owned
  * here BY VALUE together with its `occupancyLastAdvancedTurn` arm marker. UNLIKE every
  * other owned field, occupancy is NEVER cleared or mutated by beginTurn, onTerrainChanged,
- * the knowledge / unit-lifecycle paths, or any dirty policy: it is advanced explicitly by
- * advanceOccupancyToTurn and replaced explicitly by setOccupancyState. The marker starts
- * at -1 (disarmed) and is preserved across turn / terrain / knowledge boundaries.
+ * the knowledge / unit-lifecycle paths, or any dirty policy: it is STAGE-SCOPED
+ * map-position state that PERSISTS across turns within a stage (advanceOccupancyToTurn only
+ * decays/spreads it on its own explicit cadence) and is REPLACED only by the
+ * setOccupancyState load seam. The one exception is the stage-transition boundary:
+ * resetOccupancyStageTransition empties the field and disarms the marker so stage-1 cells
+ * never leak into a new stage that rebuilds its own map. The marker starts at -1 (disarmed)
+ * and is preserved across turn / terrain / knowledge boundaries (and is reset back to -1
+ * only by resetOccupancyStageTransition, at a stage transition).
  *
  * Default state: invalid (activeTurn == -1) and every field dirty.
  */
@@ -110,10 +115,14 @@ struct FactionTurnCache
 	/// Live occupancy accumulator (phase 43.1 occupancy slice). Owned by value and
 	/// SPIKED by a later occupancy producer. Unlike the threat / reachable / terrain-LOF
 	/// fields, this field is NEVER cleared or mutated by beginTurn, onTerrainChanged, or
-	/// any knowledge / unit-lifecycle / dirty path: it advances ONLY via
-	/// advanceOccupancyToTurn (exact integer decay+spread catch-up) and is replaced ONLY
-	/// via the setOccupancyState load seam. Its arm marker starts at -1 (disarmed) and is
-	/// likewise preserved across every other cache transition.
+	/// any knowledge / unit-lifecycle / dirty path: it is STAGE-SCOPED map-position state
+	/// that PERSISTS across turns within a stage, advances ONLY via
+	/// advanceOccupancyToTurn (exact integer decay+spread catch-up), and is replaced ONLY
+	/// via the setOccupancyState load seam. Its sole clearing exception is the
+	/// stage-transition path resetOccupancyStageTransition, which empties the field and
+	/// disarms the marker so a prior stage's cells never carry into a new stage. Its arm
+	/// marker starts at -1 (disarmed) and is likewise preserved across every other cache
+	/// transition (and reset back to -1 only by resetOccupancyStageTransition).
 	OccupancyField occupancy;
 	/// Last faction turn the occupancy field was advanced to; -1 == disarmed (the field
 	/// has never been caught up to a real turn yet, so the first advance arms the marker
@@ -204,7 +213,8 @@ struct FactionTurnCache
 	const TerrainLofNegativeCache& getTerrainLofCache() const { return terrainLof; }
 
 	/// Mutable access to the occupancy accumulator (a producer spikes cells here; the
-	/// catch-up advance and the load seam mutate it directly).
+	/// catch-up advance (advanceOccupancyToTurn), the load seam (setOccupancyState), and
+	/// the stage-transition clearing (resetOccupancyStageTransition) mutate it directly).
 	OccupancyField& getOccupancyField() { return occupancy; }
 	/// Const access to the occupancy accumulator.
 	const OccupancyField& getOccupancyField() const { return occupancy; }
@@ -297,8 +307,10 @@ struct FactionTurnCache
 
 	/// Advance the occupancy field's decay/spread cadence up to `currentTurn`, applying
 	/// EXACTLY ONE OccupancyField::decayAndSpread pass per missed integer turn. This is
-	/// the ONLY path (besides setOccupancyState) that mutates the occupancy field, and it
-	/// is independent of beginTurn / onTerrainChanged / knowledge / unit-lifecycle.
+	/// the ONLY per-turn path (besides the setOccupancyState load seam and the
+	/// resetOccupancyStageTransition stage-transition clearing) that mutates the occupancy
+	/// field, and it is independent of beginTurn / onTerrainChanged / knowledge /
+	/// unit-lifecycle.
 	///
 	/// Contract:
 	///   - currentTurn < 0: NO-OP (a not-yet-real turn never advances the field).
@@ -369,6 +381,33 @@ struct FactionTurnCache
 			// non-positive maxValue spike is a no-op and nothing is stored.
 			occupancy.spike(pos, value, maxValue);
 		}
+	}
+
+	/// Wipe the live occupancy field and disarm its marker for a STAGE TRANSITION
+	/// (multi-stage mission boundary, e.g. BattlescapeGenerator::nextStage). The
+	/// occupancy field is STAGE-SCOPED map-position state: it PERSISTS across turns within
+	/// a stage but MUST be cleared between stages, so stage-1 cells or a stale
+	/// armed/last-advanced marker must NOT survive into the next stage (the new stage
+	/// rebuilds its own map and re-arms occupancy via the normal turn seam). This is the
+	/// ONLY lifecycle path -- besides the default-invalid construction and the
+	/// setOccupancyState load seam -- that empties occupancy, and it is the ONLY one that
+	/// resets the marker back to -1 (disarmed) outside of construction.
+	///
+	/// Contract (everything else is preserved):
+	///   - occupancy.clear()           -> every stage-1 cell is dropped.
+	///   - occupancyLastAdvancedTurn = -1  -> the arm marker is disarmed (the next
+	///     advanceOccupancyToTurn re-arms WITHOUT decaying, as on a fresh cache).
+	///   - activeTurn, the four dirty flags, terrainRevision, the threat / friend /
+	///     enemy reachable accumulators, the terrain-LOF negative cache, the pending
+	///     sightings, and the threat / reachability profiles are ALL left untouched: a
+	///     stage transition does not invalidate the other shared fields' semantics, and
+	///     they are re-armed / rebuilt by the new stage's turn seam exactly as usual.
+	/// Resetting an already-empty field (e.g. when the shared-field AI is off and no
+	/// occupancy was ever produced) is a harmless no-op and keeps byte-identical behavior.
+	void resetOccupancyStageTransition()
+	{
+		occupancy.clear();
+		occupancyLastAdvancedTurn = -1;
 	}
 };
 

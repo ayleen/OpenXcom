@@ -238,6 +238,19 @@ void BattlescapeGenerator::nextStage()
 {
 	// Stage-1 noise events must not leak into stage 2 (aliens would chase phantom noise).
 	_save->clearNoiseEvents();
+	// Phase 43.1 occupancy: a stage transition must not carry stage-1 occupancy cells or a
+	// stale armed/last-advanced marker into the next stage -- occupancy is STAGE-SCOPED
+	// map-position state that PERSISTS across turns within a stage but MUST be cleared between
+	// stages (the new stage rebuilds its own map). Reset ONLY each faction's occupancy slice
+	// via resetOccupancyStageTransition; every other FactionTurnCache / shared-field semantic
+	// (armed turn, dirty flags, terrainRevision, the threat / reachable / terrain-LOF
+	// accumulators) is preserved and re-armed / rebuilt by the new stage's turn seam. Resetting
+	// an empty field (shared-field AI off) is a harmless no-op.
+	for (int f = FACTION_PLAYER; f < FACTION_MAX; ++f)
+	{
+		if (FactionTurnCache* cache = _save->getFactionTurnCache(static_cast<UnitFaction>(f)))
+			cache->resetOccupancyStageTransition();
+	}
 	// check if the unit is available in the next stage
 	auto isUnitStillActive = [](const BattleUnit* u)
 	{

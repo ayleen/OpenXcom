@@ -56,6 +56,7 @@ private:
 	State *_fastMainLoopRequester;
 	bool _fastMainLoopApplied;
 	unsigned int _fastMainLoopLastRenderMs;
+	void calypsoApplyFastMainLoopTiming(State *requester, bool renderedThisIteration);
 #endif
 	FpsCounter *_fpsCounter;
 	bool _mouseActive;
