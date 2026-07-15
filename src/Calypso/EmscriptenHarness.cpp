@@ -71,6 +71,7 @@ using namespace OpenXcom;
  * would give it C linkage and fail to link. The JS text-set bridge writes
  * through it. */
 namespace OpenXcom { extern TextEdit *g_calypsoFocusedTextEdit; }
+extern "C" int calypso_viewport_input_blocked(void);
 
 /* ---- M5: heap-stats primitives -----------------------------------------------
  * mallinfo() fields are signed int — cast through unsigned to avoid negative
@@ -1170,7 +1171,8 @@ int calypso_battlescape_zoom(int direction)
  * Coordinates are converted base-resolution → canvas pixels here, mirroring
  * calypso_push_mouse_motion in reverse. */
 EMSCRIPTEN_KEEPALIVE
-void calypso_notify_text_focus(int focused, int x, int y, int w, int h, const char *utf8)
+void calypso_notify_text_focus(int focused, int x, int y, int w, int h,
+	const char *utf8, int multiline, int enterPolicy)
 {
 	OpenXcom::Game *g = OpenXcom::getCurrentGame();
 	double sx = 1.0, sy = 1.0;
@@ -1181,13 +1183,15 @@ void calypso_notify_text_focus(int focused, int x, int y, int w, int h, const ch
 	}
 	EM_ASM({
 		if (globalThis.__calypsoTextFocus)
-			globalThis.__calypsoTextFocus($0, $1, $2, $3, $4, UTF8ToString($5));
-	}, focused, (int)(x * sx), (int)(y * sy), (int)(w * sx), (int)(h * sy), utf8);
+			globalThis.__calypsoTextFocus($0, $1, $2, $3, $4, UTF8ToString($5), $6, $7);
+	}, focused, (int)(x * sx), (int)(y * sy), (int)(w * sx), (int)(h * sy), utf8,
+		multiline, enterPolicy);
 }
 
 EMSCRIPTEN_KEEPALIVE
 void calypso_text_set(const char *utf8)
 {
+	if (calypso_viewport_input_blocked()) return;
 	if (OpenXcom::g_calypsoFocusedTextEdit)
 		OpenXcom::g_calypsoFocusedTextEdit->setTextExternal(utf8 ? utf8 : "");
 }
@@ -1195,6 +1199,7 @@ void calypso_text_set(const char *utf8)
 EMSCRIPTEN_KEEPALIVE
 void calypso_text_commit(void)
 {
+	if (calypso_viewport_input_blocked()) return;
 	SDL_Event e;
 	SDL_zero(e);
 	e.type = SDL_KEYDOWN;
@@ -1204,15 +1209,31 @@ void calypso_text_commit(void)
 }
 
 EMSCRIPTEN_KEEPALIVE
+void calypso_text_commit_multiline(void)
+{
+	if (calypso_viewport_input_blocked()) return;
+	OpenXcom::TextEdit *edit = OpenXcom::g_calypsoFocusedTextEdit;
+	if (!edit || !edit->isMultiline()) return;
+	SDL_Event e;
+	SDL_zero(e);
+	e.type = SDL_KEYDOWN;
+	e.key.keysym.sym = SDLK_RETURN;
+	OpenXcom::Action action(&e, 1.0, 1.0, 0, 0);
+	// Terminal operation: commit may synchronously pop the owner and delete edit.
+	edit->commit(&action);
+}
+
+EMSCRIPTEN_KEEPALIVE
 void calypso_text_cancel(void)
 {
+	if (calypso_viewport_input_blocked()) return;
 	SDL_Event e;
 	SDL_zero(e);
 	e.type = SDL_KEYDOWN;
 	e.key.keysym.sym = SDLK_ESCAPE;
-	SDL_PushEvent(&e);          /* TextEdit ESCAPE path: clears the value,
-	                               fires the enter-action, unfocuses — same
-	                               as a hardware Esc (TextEdit.cpp:590) */
+	SDL_PushEvent(&e);          /* Route through the hardware-Escape path.
+	                               Legacy single-line edits clear and commit;
+	                               multiline edits defer to their owner. */
 }
 
 /* Phase 41 (commit 4.5): dev-only scene-preview bridge (plan §41.1c). Boots
