@@ -152,7 +152,11 @@ private:
 	FriendReachableField* prepareSharedFriendReachable();
 	/// Resolve the exact shared enemyReachable accumulator for this actor's
 	/// fair-knowledge profile. `forceRebuild` is true after a dirty full clear.
-	FriendReachableField* prepareSharedEnemyReachable(bool& forceRebuild);
+	/// When `allowReset` is false (the read-only mode used by setupEscape) a dirty
+	/// field is NOT cleared / marked clean without producing it -- the caller falls
+	/// back to the degraded ranking and brutalThink remains the authoritative producer
+	/// that may clear / start the rebuild.
+	FriendReachableField* prepareSharedEnemyReachable(bool& forceRebuild, bool allowReset = true);
 	/// Exact legacy discoverThreat calculation for one base candidate. The
 	/// shared and fallback paths both call this helper so feature-off behavior
 	/// and footprint/LOF semantics cannot drift.
@@ -172,6 +176,10 @@ private:
 public:
 	void beginActivation();
 	void recordFailedAttempt(const BattleAction& action);
+	/// Read-only view of this unit's AI failure memory (Phase 43 one-retry fix).
+	/// Used by BattlescapeGame to decide whether an eligible candidate failure is the
+	/// FIRST at the current world revision (before recordFailedAttempt is called).
+	const AIFailureMemory& getFailureMemory() const { return _failureMemory; }
 	void emitAIAudit(const BattleAction& action) const;
 	bool medikit_think(BattleMediKitType healOrStim);
 public:

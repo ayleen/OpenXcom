@@ -554,10 +554,17 @@ void BattlescapeGame::handleAI(BattleUnit *unit)
 		{
 			action.aiFailure = AIFailureReason::PATH_UNREACHABLE;
 			action.aiAttemptPosition = action.target;
+			// Phase 43 one-retry fix: grant the bounded same-activation retry only on the
+			// FIRST eligible candidate failure at the CURRENT world revision. We read the
+			// failure memory BEFORE recordFailedAttempt so the candidate we are about to
+			// record cannot already count as the prior failure. A later eligible failure at
+			// the same revision must NOT preserve the counter (it re-dispatches think but
+			// the activation then terminates normally instead of scheduling another C).
+			const bool firstRetry = isFirstBoundedRetry(getMod()->getAIFailureMemory(),
+				action.aiFailureMemoryCandidate, action.aiFailure,
+				unit->getAIModule()->getFailureMemory().hasFailureForRevision(getAIWorldRevision()));
 			unit->getAIModule()->recordFailedAttempt(action);
-			const bool fallback = hasProvenFilteredFallback(getMod()->getAIFailureMemory(),
-				action.aiHasFilteredFallback, action.aiFailure);
-			_AIActionCounter = preserveActivationCounterForFallback(_AIActionCounter, fallback);
+			_AIActionCounter = preserveActivationCounterForBoundedRetry(_AIActionCounter, firstRetry);
 			action.type = BA_RETHINK;
 		}
 	}
@@ -1441,6 +1448,12 @@ void BattlescapeGame::popState()
 		Log(LOG_INFO) << "BattlescapeGame::popState() #" << _AIActionCounter << " with " << (_save->getSelectedUnit() ? _save->getSelectedUnit()->getTimeUnits() : -9999) << " TU";
 	}
 	bool actionFailed = false;
+	// Phase 43 one-retry fix: captured BEFORE recordFailedAttempt. True only when this
+	// eligible candidate failure is the FIRST at the current world revision; used both to
+	// preserve the activation counter (the single same-activation retry) and to grant the
+	// C2 zero-TU bypass below. A later eligible failure leaves this false so the activation
+	// terminates normally instead of scheduling another C.
+	bool firstBoundedRetry = false;
 
 	if (_states.empty()) return;
 
@@ -1450,10 +1463,13 @@ void BattlescapeGame::popState()
 	if (action.actor && action.actor->getFaction() != FACTION_PLAYER && action.actor->getAIModule()
 		&& action.aiFailure != AIFailureReason::NONE)
 	{
+		// Decide eligibility BEFORE recording, so the attempt we are about to record cannot
+		// retro-claim the "first" slot at this revision.
+		firstBoundedRetry = isFirstBoundedRetry(getMod()->getAIFailureMemory(),
+			action.aiFailureMemoryCandidate, action.aiFailure,
+			action.actor->getAIModule()->getFailureMemory().hasFailureForRevision(getAIWorldRevision()));
 		action.actor->getAIModule()->recordFailedAttempt(action);
-		const bool fallback = hasProvenFilteredFallback(getMod()->getAIFailureMemory(),
-			action.aiHasFilteredFallback, action.aiFailure);
-		_AIActionCounter = preserveActivationCounterForFallback(_AIActionCounter, fallback);
+		_AIActionCounter = preserveActivationCounterForBoundedRetry(_AIActionCounter, firstBoundedRetry);
 	}
 
 	if (action.actor && !action.result.empty() && action.actor->getFaction() == FACTION_PLAYER
@@ -1510,8 +1526,7 @@ void BattlescapeGame::popState()
 				if (action.actor && action.actor->isBrutal()
 					&& action.type != BA_NONE && action.type != BA_WAIT && action.type != BA_TURN
 					&& !turnSetupState
-					&& !hasProvenFilteredFallback(getMod()->getAIFailureMemory(),
-						action.aiHasFilteredFallback, action.aiFailure)
+					&& !firstBoundedRetry
 					&& action.tuBefore == action.actor->getTimeUnits())
 				{
 					if (Options::traceAI) { Log(LOG_INFO) << "Phase 43 (C2): #" << action.actor->getId() << " made no TU progress -> ending its turn"; }

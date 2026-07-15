@@ -34,10 +34,13 @@ namespace OpenXcom
  * attacker-position read.
  *
  * Contract (deliberately narrow):
- *   - Returns the EXACT attacker tile when the attacker is within range, i.e. when
- *     the Chebyshev span of the (attacker - victim) delta is <= maxSteps.
+ *   - NEVER reveals the exact hidden attacker tile, even when the attacker is within
+ *     range (Chebyshev span <= maxSteps). The returned tile always stops STRICTLY
+ *     short of the attacker: when span <= maxSteps it lands at Chebyshev distance
+ *     span - 1 from the victim (span - 1 >= 0), and when span == 1 (an adjacent
+ *     attacker) it degrades to the victim tile itself (no usable direction / no clue).
  *   - NEVER reveals the exact attacker tile when the attacker is farther than
- *     maxSteps. The returned tile lies strictly on the near side: its Chebyshev
+ *     maxSteps either. The returned tile lies strictly on the near side: its Chebyshev
  *     distance from the victim is exactly `min(maxSteps, span)` (so <= maxSteps),
  *     and when span > maxSteps it is strictly less than `span`, hence != attacker.
  *   - Pure and deterministic: identical inputs always yield identical output on
@@ -47,7 +50,10 @@ namespace OpenXcom
  * Algorithm:
  *   dx/dy/dz = attacker - victim; span = max(|dx|,|dy|,|dz|) (Chebyshev distance).
  *   If maxSteps <= 0 or span == 0, return victim unchanged (no usable direction).
- *   steps = min(maxSteps, span); return victim + delta * steps / span per axis.
+ *   steps = min(maxSteps, span); when steps == span (the attacker is within range)
+ *   the clue would otherwise land exactly on the attacker, so step back by one to
+ *   steps = span - 1 (an adjacent attacker yields steps == 0 -> the victim tile).
+ *   Return victim + delta * steps / span per axis.
  *
  * Truncation is C integer truncation, which (a) is deterministic, and (b) lands on
  * a tile that is on the straight Chebyshev ray toward the attacker. The dominant
@@ -67,15 +73,18 @@ namespace OpenXcom
  *     "the attacker is at tile X" leaks more than the clue is meant to convey. The
  *     intended consumer treats it as one noisy occupancy observation along a ray.
  *
- * This slice does NOT integrate into AIModule / brutalThink; it only exposes the
- * pure projection so later slices can wire it in behind the AI gates.
+ * This slice IS integrated: ProjectileFlyBState::hit() calls it (behind the
+ * ai.sharedFields gate, via spikeFactionOccupancy) to leave a bounded directional
+ * occupancy clue for the victim's faction when a unit is hit. The projection is
+ * the same pure, dependency-free helper described above; only its consumer changed.
  *
  * @param victimPos    Tile the hit was taken on.
  * @param attackerPos  Tile the shot originated from.
  * @param maxSteps     Chebyshev-step cap on how far the clue may reach from the
  *                     victim. Non-positive => return victim (no clue). Default 8.
  * @return A deterministic tile on the victim->attacker ray, at most maxSteps
- *         Chebyshev steps from victim; the exact attacker when within range.
+ *         Chebyshev steps from victim; NEVER the exact attacker tile, even when
+ *         the attacker is within range (it stops strictly short, see the Contract).
  */
 inline Position projectDirectionalHitClue(
 	const Position& victimPos,
@@ -104,6 +113,14 @@ inline Position projectDirectionalHitClue(
 	// the exact attacker when the attacker is beyond maxSteps.
 	long long steps = static_cast<long long>(maxSteps);
 	if (steps > span) steps = span;
+	// Stop STRICTLY short of the attacker. When the attacker is within range
+	// (steps == span) the clue would otherwise land exactly on the attacker tile;
+	// step back by one so it never reveals the hidden attacker. An adjacent
+	// attacker (span == 1) yields steps == 0 -> the victim tile (no clue).
+	if (steps >= span)
+		steps = span - 1;
+	if (steps <= 0)
+		return victimPos;
 
 	// victim + delta * steps / span, all in long long. The dominant axis yields
 	// exactly ±steps, so the result is exactly `steps` Chebyshev steps away.

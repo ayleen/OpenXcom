@@ -97,7 +97,7 @@ struct BattleAction : BattleActionCost
 	int aiTargetId = -1; // Phase 43.0: transient execution metadata, never serialized
 	Position aiAttemptPosition;
 	AIFailureReason aiFailure = AIFailureReason::NONE;
-	bool aiHasFilteredFallback = false; // set only by generators that applied candidateAllowed before selection
+	bool aiFailureMemoryCandidate = false; // set only by generators that applied candidateAllowed before selection; honest bounded-retry eligibility (NOT proof an alternate exists)
 
 	/// Default constructor
 	BattleAction() : target(-1, -1, -1), targeting(false), value(0), diff(0), autoShotCounter(0), cameraPosition(0, 0, -1), desperate(false), finalFacing(-1), finalAction(false), number(0), sprayTargeting(false) { }

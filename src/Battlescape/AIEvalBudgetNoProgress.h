@@ -31,7 +31,7 @@ namespace OpenXcom
  * candidate scored zero -- e.g. the top-K ranked tiles were all dangerous or
  * uncovered) and there is no attack / turn / pickup to fall back to.
  *
- * Two count caps feed this decision: the Phase-1 target-enemy scan (top-K ranked
+ * Two caps feed this decision: the Phase-1 target-enemy scan (top-K ranked
  * live enemies by AITargetRank) and the movement-candidate scan. Either being
  * truncated means work was skipped -- e.g. some live enemies were never fully
  * scored, or some candidate move tiles were never evaluated. Emitting the legacy
@@ -41,25 +41,29 @@ namespace OpenXcom
  * reproduced a >180s hang this way.
  *
  * This is a pure, header-only, dependency-free decision: given whether the unit
- * opened an attack this activation (checkedAttack) and whether a deterministic
- * count budget actually truncated (deterministicBudgetTruncated = Phase-1 target
- * OR movement count truncation), it returns true iff the activation must be
- * terminated (BA_NONE + number--) instead of emitting a no-progress BA_RETHINK.
+ * opened an attack this activation (checkedAttack) and whether an evaluation
+ * budget actually truncated (budgetTruncated = Phase-1 target OR movement
+ * truncation). Review fix #3: a truncation is ANY shouldStopBeforeNext trigger --
+ * a deterministic count exhaustion OR a non-deterministic wall-clock time-expiry
+ * -- because both mean candidate work was skipped. It returns true iff the
+ * activation must be terminated (BA_NONE + number--) instead of emitting a
+ * no-progress BA_RETHINK.
  *
  * Byte-identical guarantee: returns false (== legacy BA_RETHINK) whenever NO
- * deterministic budget truncated -- i.e. always for ai.evalBudget == 0 /
- * ai.sharedFields off / budgets that comfortably covered every candidate. Only a
- * genuine truncation flips the decision, matching the 43.1 "emergency degradation
- * only" discipline. The non-deterministic wall-clock time backstop never feeds
- * this flag (reproducibility is owned by the count caps alone).
+ * budget truncated -- i.e. always for ai.evalBudget == 0 / ai.sharedFields off /
+ * untruncated scans / turnBudgetMs == 0 (the default, time backstop off). Only a
+ * genuine truncation (count OR time) flips the decision, matching the 43.1
+ * "emergency degradation only" discipline. The determinism of the COUNT cap is
+ * unaffected; the time backstop is a non-deterministic EMERGENCY that, when it
+ * alone fires, still terminates the activation rather than looping forever.
  */
-inline bool aiEvalBudgetShouldEndActivation(bool checkedAttack, bool deterministicBudgetTruncated)
+inline bool aiEvalBudgetShouldEndActivation(bool checkedAttack, bool budgetTruncated)
 {
 	// Legacy path: a unit that never opened an attack still gets BA_RETHINK so the
-	// engine can re-think. Only when a deterministic count budget actually
-	// truncated do we force a terminating end-activation rather than an endless
-	// BA_RETHINK loop.
-	if (!checkedAttack && !deterministicBudgetTruncated)
+	// engine can re-think. Only when an evaluation budget actually truncated (count
+	// exhaustion OR wall-clock time-expiry) do we force a terminating end-activation
+	// rather than an endless BA_RETHINK loop.
+	if (!checkedAttack && !budgetTruncated)
 		return false;
 	return true;
 }

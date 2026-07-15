@@ -49,6 +49,16 @@ namespace OpenXcom
  *     never reset by beginTurn, so a mutation that happened before a turn still
  *     reads as "newer" than any cached field.
  *
+ * Terrain-refresh pending state (per the 43.1 field table, Phase 43 review fix #1):
+ *   - onTerrainChanged also flips terrainRefreshPending = true. After a terrain mutation the
+ *     live friendReachable aggregate was wiped, so every live same-faction contribution must
+ *     be restamped with a FRESH getReachableBy BFS (not a pre-terrain BattleUnit memo) before
+ *     the refresh is "complete". beginTurn does NOT clear this flag -- only the live producer
+ *     (prepareSharedFriendReachable) clears it once EVERY live same-faction unit has a current
+ *     contribution, regardless of how many evalBudget-bounded batches that took. The flag is
+ *     consumed iteratively: it forces forceRecalc for every restamped contribution until all
+ *     are present; it must NOT be cleared after only the first K.
+ *
  * The live friendReachable and enemyReachable accumulators (FriendReachableField,
  * phases 43.1D/43.1Q) are owned here and wiped by beginTurn and onTerrainChanged.
  * Their clean methods only clear dirty flags and must NOT wipe accumulated fields.
@@ -82,6 +92,7 @@ struct FactionTurnCache
 	bool enemyReachableDirty = true;   // enemyReachable aggregate stale -> rebuild lazily
 	bool terrainLofDirty = true;       // terrain-LOF negative cache stale -> flush on read
 	unsigned int terrainRevision = 0;  // monotonically increasing terrain mutation counter
+	bool terrainRefreshPending = false;// terrain mutation requires a fresh BFS restamp of every live same-faction contribution
 	bool threatProfileValid = false;   // whether the shared threat memo has an actor geometry profile
 	int threatProfileSize = 0;         // armor footprint used by the exact legacy-equivalent probe
 	int threatProfileHeight = 0;       // eye-height input used by AIModule::hasTileSight
@@ -252,6 +263,15 @@ struct FactionTurnCache
 	bool isTerrainLofDirty() const { return terrainLofDirty; }
 	unsigned int getTerrainRevision() const { return terrainRevision; }
 
+	/// True while a terrain-mutation rebuild of the friendReachable aggregate is still
+	/// in progress: the live producer must restamp every live same-faction contribution
+	/// with a fresh BFS before clearing this. beginTurn never clears it (it is terrain
+	/// keyed); onTerrainChanged sets it; the producer clears it once all are restamped.
+	bool isTerrainRefreshPending() const { return terrainRefreshPending; }
+	/// Producer-only: mark the terrain refresh complete (all live same-faction
+	/// contributions restamped). Set by onTerrainChanged; cleared here.
+	void setTerrainRefreshPending(bool v) { terrainRefreshPending = v; }
+
 	/// Clear only the threat field's dirty flag (a field builder calls this after a rebuild).
 	void markThreatClean() { threatDirty = false; }
 	/// Clear only the friendReachable aggregate's dirty flag.
@@ -288,6 +308,11 @@ struct FactionTurnCache
 	void onTerrainChanged()
 	{
 		++terrainRevision;
+		// A terrain mutation wipes the terrain-keyed aggregates; every live
+		// same-faction friendReachable contribution must be restamped with a fresh
+		// BFS (never a pre-terrain BattleUnit memo). Keep the refresh "in progress"
+		// until the live producer has restamped all of them -- see setTerrainRefreshPending.
+		terrainRefreshPending = true;
 		threatDirty = true;
 		friendReachableDirty = true;
 		enemyReachableDirty = true;

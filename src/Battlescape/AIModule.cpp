@@ -476,7 +476,7 @@ bool AIModule::considerTerrainAttack()
 			_attackAction.weapon = bestWeapon;
 			_attackAction.actor = _unit;
 			_attackAction.aiTargetId = bestTargetId;
-			_attackAction.aiHasFilteredFallback = true;
+			_attackAction.aiFailureMemoryCandidate = true;
 			_attackAction.updateTU();
 			if (_traceAI)
 			{
@@ -593,7 +593,7 @@ bool AIModule::considerTerrainAttack()
 								_attackAction.weapon = grenade;
 								_attackAction.actor = _unit;
 								_attackAction.aiTargetId = objectiveTargetId;
-								_attackAction.aiHasFilteredFallback = true;
+								_attackAction.aiFailureMemoryCandidate = true;
 								_attackAction.updateTU();
 								_attackAction.Time += 4; // grenade prime/swap cost, same as grenadeAction
 								_attackAction += _unit->getActionTUs(BA_PRIME, grenade);
@@ -1130,7 +1130,7 @@ void AIModule::think(BattleAction *action)
 	action->aiTargetId = -1;
 	action->aiAttemptPosition = Position();
 	action->aiFailure = AIFailureReason::NONE;
-	action->aiHasFilteredFallback = false;
+	action->aiFailureMemoryCandidate = false;
 	_auditReason.clear();
 	_auditRunnerUp.clear();
 	_auditBestScore = 0.0f;
@@ -1145,7 +1145,7 @@ void AIModule::think(BattleAction *action)
 	_attackAction.run = false;
 	_attackAction.weapon = action->weapon;
 	_attackAction.aiTargetId = -1;
-	_attackAction.aiHasFilteredFallback = false;
+	_attackAction.aiFailureMemoryCandidate = false;
 	_attackAction.number = action->number;
 	_escapeAction.number = action->number;
 	_knownEnemies = countKnownTargets();
@@ -1408,7 +1408,7 @@ void AIModule::think(BattleAction *action)
 		// Failure-memory identity belongs to the selected candidate. Do not reconstruct it
 		// later from _aggroTarget: that pointer can refer to the last candidate evaluated.
 		action->aiTargetId = _attackAction.aiTargetId;
-		action->aiHasFilteredFallback = _attackAction.aiHasFilteredFallback;
+		action->aiFailureMemoryCandidate = _attackAction.aiFailureMemoryCandidate;
 		if (action->weapon && action->type == BA_THROW && action->weapon->getRules()->isGrenadeOrProxy())
 		{
 			_unit->spendCost(_unit->getActionTUs(BA_PRIME, action->weapon));
@@ -2067,7 +2067,12 @@ void AIModule::setupEscape()
 	if (_save->getMod()->getAISharedFields())
 	{
 		bool forceRebuild = false;
-		FriendReachableField* enemyField = prepareSharedEnemyReachable(forceRebuild);
+		// Phase 43 review fix #2: setupEscape reads the shared enemyReachable in a
+		// READ-ONLY mode (allowReset == false). It must NOT clear / mark-clean a dirty
+		// field without producing it -- brutalThink is the authoritative producer and
+		// owns the rebuild. When the field is dirty, this returns nullptr and the
+		// ranking degrades to threat 0 (still fully determined by the remaining fields).
+		FriendReachableField* enemyField = prepareSharedEnemyReachable(forceRebuild, false);
 		ThreatField* threatField = nullptr;
 		if (enemyField != nullptr)
 		{
@@ -4909,7 +4914,7 @@ void AIModule::brutalThink(BattleAction* action)
 			action->target = _attackAction.target;
 			action->weapon = _attackAction.weapon;
 			action->aiTargetId = _attackAction.aiTargetId;
-			action->aiHasFilteredFallback = _attackAction.aiHasFilteredFallback;
+			action->aiFailureMemoryCandidate = _attackAction.aiFailureMemoryCandidate;
 			action->number -= 1;
 			if (action->weapon && action->type == BA_THROW && action->weapon->getRules()->getBattleType() == BT_GRENADE && !action->weapon->isFuseEnabled())
 			{
@@ -5100,6 +5105,7 @@ void AIModule::brutalThink(BattleAction* action)
 	// dispatch below; stays false for ai.evalBudget == 0 / sharedFields off /
 	// an untruncated budget, so their behaviour is byte-identical.
 	bool movementBudgetTruncated = false;
+	const bool useDeterministicEvalBudget = _save->getMod()->getAISharedFields();
 	if (unitToWalkTo != NULL)
 	{
 		const int moveTargetId = selectedMoveTargetId;
@@ -5128,7 +5134,6 @@ void AIModule::brutalThink(BattleAction* action)
 		if (pathThroughLift && targetPosition.z > myPos.z && !IAmMindControlled)
 			enemyHasHighGround = true;
 		ThreatField* sharedThreatField = prepareSharedThreatField(enemyReachable);
-		const bool useDeterministicEvalBudget = _save->getMod()->getAISharedFields();
 		std::vector<PathfindingNode*> orderedMovementCandidates;
 		const std::vector<PathfindingNode*>* movementCandidates = &_allPathFindingNodes;
 		if (useDeterministicEvalBudget)
@@ -5204,11 +5209,16 @@ void AIModule::brutalThink(BattleAction* action)
 							<< " evaluations_used=" << movementEvalBudget.evaluationsUsed()
 							<< " unit=" << _unit->getId();
 					}
-					// Phase 43.1 (Calypso): remember that a *count* truncation
-					// occurred (the deterministic, reproducible cap). This is the
-					// only signal that flips the no-progress resolution below; the
-					// non-deterministic time backstop is irrelevant to it.
-					movementBudgetTruncated = movementBudgetTruncated || countExhausted;
+					// Phase 43.1 (Calypso) + review fix #3: any shouldStopBeforeNext
+					// triggered by a *count* exhaustion OR a *wall-clock time* expiry is a
+					// real truncation of the candidate scan. Both must arm the no-progress
+					// signal so the final dispatch emits BA_NONE instead of an endless
+					// BA_RETHINK when no candidate was committed. The time-expiry trace
+					// marker above is preserved (it logs only when the count was NOT yet
+					// exhausted, i.e. the time backstop was the sole cause).
+					movementBudgetTruncated = movementBudgetTruncated
+						|| countExhausted
+						|| movementEvalBudget.isTimeExpired(elapsedMs);
 					break;
 				}
 				movementEvalBudget.consumeEvaluation();
@@ -5800,6 +5810,14 @@ void AIModule::brutalThink(BattleAction* action)
 	}
 	float bestPeekPreserveScore = -1.0f;
 	Position peekPreserveCompromise = _unit->getPosition();
+	// Phase 43 review fix #5: moveMap is an unordered container keyed by int tile
+	// index, so its iteration order is nondeterministic. Under the deterministic eval
+	// budget (sharedFields on) an equal peekPreserveScore must pick a STABLE tile
+	// independent of that order: we remember the best tile's Position and break ties
+	// by explicit Position order via PositionComparator on getTileCoords(move.first).
+	// With the budget OFF (feature off) the strict first-wins behaviour is preserved
+	// exactly -- an equal score never overrides the current best.
+	Position bestPeekKey = _unit->getPosition();
 	if (!contact && bestAttackScore <= 0)
 	{
 		int maxScout = 0;
@@ -5838,9 +5856,17 @@ void AIModule::brutalThink(BattleAction* action)
 			//	tile->setPreview(10);
 			//	tile->setTUMarker(move.second.visibleTiles);
 			//}
-			if (peekPreserveScore > bestPeekPreserveScore && move.second.visibleTiles > 0)
+			// Phase 43 review fix #5: a stable, order-independent tie-break. Equal
+			// scores are resolved by the lowest tile key (PositionComparator), so the
+			// chosen peek tile never depends on unordered_map iteration order.
+			if (move.second.visibleTiles > 0
+				&& (peekPreserveScore > bestPeekPreserveScore
+					|| (useDeterministicEvalBudget
+						&& peekPreserveScore == bestPeekPreserveScore
+						&& PositionComparator()(_save->getTileCoords(move.first), bestPeekKey))))
 			{
 				bestPeekPreserveScore = peekPreserveScore;
+				bestPeekKey = _save->getTileCoords(move.first);
 				peekPreserveCompromise = _save->getTileCoords(move.first);
 				peakDirection = move.second.bestDirection;
 			}
@@ -6023,24 +6049,25 @@ void AIModule::brutalThink(BattleAction* action)
 		action->type = BA_WALK;
 		action->run = wantToRun();
 		action->aiTargetId = selectedMoveTargetId;
-		action->aiHasFilteredFallback = true;
+		action->aiFailureMemoryCandidate = true;
 	} else
 	{
 		tryToPickUpGrenade(_unit->getTile(), action);
 		action->target = myPos;
-		// Phase 43.1 (Calypso): when a deterministic count budget ran out with
-		// no committable action (travelTarget == myPos, no attack / turn /
+		// Phase 43.1 (Calypso) + review fix #3: when an evaluation budget ran out
+		// with no committable action (travelTarget == myPos, no attack / turn /
 		// pickup), never emit a no-progress BA_RETHINK -- BattlescapeGame re-
 		// dispatches brutalThink on the SAME unit, which (nothing changed) re-emits
 		// BA_RETHINK forever (AI-turn soft-lock; PORT/Superhuman with
 		// sharedFields=1, evalBudget=8, turnBudgetMs=0 reproduced a >180s hang).
 		// Terminate the activation instead (BA_NONE + number--), exactly the legacy
-		// checkedAttack==true path. The truncation flag is the OR of two
-		// deterministic count caps: the Phase-1 target-enemy scan
-		// (targetBudgetTruncated) and the movement-candidate scan
-		// (movementBudgetTruncated). Each is only set on a genuine count
-		// truncation, so ai.evalBudget==0 / sharedFields-off / an untruncated
-		// budget keep the byte-identical BA_RETHINK behaviour via the helper.
+		// checkedAttack==true path. The truncation flag is the OR of two caps: the
+		// Phase-1 target-enemy scan (targetBudgetTruncated) and the movement-candidate
+		// scan (movementBudgetTruncated). EACH is set on a genuine count exhaustion OR
+		// a wall-clock time-expiry (review fix #3) -- both are real truncations of the
+		// candidate scan, so either arms BA_NONE. ai.evalBudget==0 / sharedFields-off /
+		// an untruncated budget (and turnBudgetMs==0, the default) keep the
+		// byte-identical BA_RETHINK behaviour via the helper.
 		if (aiEvalBudgetShouldEndActivation(checkedAttack, targetBudgetTruncated || movementBudgetTruncated))
 		{
 			action->number -= 1;
@@ -6048,7 +6075,28 @@ void AIModule::brutalThink(BattleAction* action)
 		}
 		else
 		{
-			action->type = BA_RETHINK;
+			// Phase 43 review fix #4: AI failure-memory hardlock. The failure memory is
+			// per-unit (this AIModule's _failureMemory) and revision-scoped. If it has
+			// already recorded a failure for the CURRENT world revision, then a candidate
+			// failed and the bounded same-activation retry (preserveActivationCounterForBoundedRetry
+			// in BattlescapeGame) produced NO committable action: emitting BA_RETHINK here
+			// would re-dispatch brutalThink on the SAME unit forever (a hardlock). Terminate
+			// the activation with BA_NONE instead. When failure memory is off, or no
+			// current-revision failure exists (a genuine no-candidate situation, or a retry
+			// that found an alternate -- handled above), the legacy BA_RETHINK behaviour is
+			// preserved. The deterministic QA sequence AI_FAILURE -> AI_FAILURE_BLOCK ->
+			// alternate action (when an alternate exists) and the Emscripten failure probe
+			// are untouched.
+			if (failureMemoryEndsActivation(_save->getMod()->getAIFailureMemory(),
+				_failureMemory.hasFailureForRevision(_save->getBattleGame()->getAIWorldRevision())))
+			{
+				action->number -= 1;
+				action->type = BA_NONE;
+			}
+			else
+			{
+				action->type = BA_RETHINK;
+			}
 		}
 	}
 	
@@ -6277,7 +6325,7 @@ bool AIModule::brutalSelectSpottedUnitForSniper()
 	_attackAction.weapon = chosenAction.weapon;
 	_attackAction.target = chosenAction.target;
 	_attackAction.aiTargetId = chosenAction.aiTargetId;
-	_attackAction.aiHasFilteredFallback = chosenAction.aiHasFilteredFallback;
+	_attackAction.aiFailureMemoryCandidate = chosenAction.aiFailureMemoryCandidate;
 
 	if (bestScore == 0)
 	{
@@ -6728,7 +6776,7 @@ float AIModule::brutalExtendedFireModeChoice(BattleActionCost &costAuto, BattleA
 			chosenBattleAction.type = i;
 			chosenBattleAction.weapon = _attackAction.weapon;
 			chosenBattleAction.aiTargetId = _aggroTarget ? _aggroTarget->getId() : -1;
-			chosenBattleAction.aiHasFilteredFallback = true;
+			chosenBattleAction.aiFailureMemoryCandidate = true;
 		}
 	}
 	_attackAction = chosenBattleAction;
@@ -7664,7 +7712,7 @@ void AIModule::brutalGrenadeAction()
 		_attackAction.target = bestReachablePosition;
 		_attackAction.type = BA_THROW;
 		_attackAction.aiTargetId = bestTarget ? bestTarget->getId() : -1;
-		_attackAction.aiHasFilteredFallback = true;
+		_attackAction.aiFailureMemoryCandidate = true;
 		_rifle = false;
 		_melee = false;
 		if (_traceAI)
@@ -7775,7 +7823,7 @@ void AIModule::blindFire()
 				_attackAction.weapon = targetAction.second.weapon;
 				_attackAction.target = _save->getTileCoords(_aggroTarget->getTileLastSpotted(_unit->getFaction(), true));
 				_attackAction.aiTargetId = targetAction.second.aiTargetId;
-				_attackAction.aiHasFilteredFallback = targetAction.second.aiHasFilteredFallback;
+				_attackAction.aiFailureMemoryCandidate = targetAction.second.aiFailureMemoryCandidate;
 			}
 		}
 		if (_aggroTarget)
@@ -8471,6 +8519,14 @@ ThreatField* AIModule::prepareSharedThreatField(const std::map<Position, int, Po
  *     later brutalThinks' clean path. evalBudget == 0 (the config default) is unbounded and
  *     byte-identical to the original full rebuild; the Calypso HD pack ships 4. A partial
  *     field is the documented shared-field approximation -- see the inline notes.
+ *   - Terrain-refresh fairness (Phase 43 review fix #1): after onTerrainChanged wipes the
+ *     aggregate, the cache arms a terrainRefreshPending flag. Every missing same-faction
+ *     contribution restamped while that flag is set is forced through getReachableBy with
+ *     forceRecalc=true, so a unit that has not moved since before the mutation never reuses
+ *     its pre-terrain reachable-position memo. The flag is cleared only once ALL live
+ *     same-faction units (actor included) have a current contribution -- never after only
+ *     the first K. beginTurn without a terrain mutation leaves the flag false, so the
+ *     clean-path fill may still reuse a valid memo (byte-identical to the original).
  * A local ran-out flag is used so _ranOutOfTUs is never overwritten.
  */
 FriendReachableField* AIModule::prepareSharedFriendReachable()
@@ -8482,9 +8538,15 @@ FriendReachableField* AIModule::prepareSharedFriendReachable()
 		return nullptr;
 	FriendReachableField& field = cache->getFriendReachable();
 	const bool dirty = cache->isFriendReachableDirty();
+	const bool terrainRefreshPending = cache->isTerrainRefreshPending();
 	if (dirty)
 	{
 		field.clear();
+		// Consume the dirty flag immediately: the rebuild is incremental and may span
+		// several evalBudget-bounded brutalThinks. The terrainRefreshPending flag (set by
+		// onTerrainChanged) keeps forcing a fresh BFS for every restamped contribution
+		// until the refresh is genuinely complete -- see the completion check below.
+		cache->markFriendReachableClean();
 	}
 	// Phase 43.1 (Calypso): bound the monolithic first-use rebuild by ai.evalBudget so a
 	// single brutalThink never pays the full N-ally max-TU BFS upfront. evalBudget == 0
@@ -8492,14 +8554,24 @@ FriendReachableField* AIModule::prepareSharedFriendReachable()
 	// original full rebuild; the Calypso HD pack ships 4. evalBudget > 0 runs at most
 	// evalBudget ACTUAL BFS stamps per call: the acting unit first only if its slice is
 	// missing/moved (else that slot is freed for an ally), then allies in getUnits() order;
-	// the rest are left missing and the field is marked clean so later brutalThinks' clean
-	// path fills the gaps incrementally. A partial field is the documented shared-field
-	// approximation:
+	// the rest are left missing and later brutalThinks' clean path fills the gaps
+	// incrementally. A partial field is the documented shared-field approximation:
 	// maxAtExcluding / getContribution simply do not see unstamped allies, which can only
 	// make the peek-preserve condition more conservative and the coordination loop skip
 	// waiting for unknown allies (the actor acts instead -> never idle / never coward).
 	// No stale cache: move/death/spawn/faction/terrain invalidation still remove a unit's
 	// slice; the clean path re-stamps any missing unit on its next brutalThink.
+	//
+	// Phase 43 review fix #1 (terrain-refresh fairness): a fresh BFS is mandatory whenever
+	// the field was dirty (turn start / terrain mutation) OR a terrain refresh is still in
+	// progress. A unit that has NOT moved since before a terrain mutation must NOT reuse its
+	// pre-terrain getReachableBy memo -- getReachableBy with forceRecalc=true bypasses the
+	// per-unit reachable-position memo. beginTurn without a terrain mutation leaves
+	// terrainRefreshPending false, so a clean-path restamp of a missing ally that has not
+	// moved may still reuse a valid memo (byte-identical to the original). A terrain
+	// mutation sets terrainRefreshPending, forcing forceRecalc=true for the restamp so the
+	// stale pre-terrain memo is never returned.
+	const bool forceRecalc = dirty || terrainRefreshPending;
 	const int evalBudget = _save->getMod()->getAIEvalBudget();
 	const bool boundRebuild = evalBudget > 0;
 	// Stamp the acting unit first: the coordination loop and the later self max-TU read
@@ -8511,7 +8583,7 @@ FriendReachableField* AIModule::prepareSharedFriendReachable()
 	{
 		bool localRanOut = false;
 		_save->getPathfinding()->setIgnoreFriends(true);
-		const std::map<Position, int, PositionComparator>& selfResult = getReachableBy(_unit, localRanOut, dirty, true);
+		const std::map<Position, int, PositionComparator>& selfResult = getReachableBy(_unit, localRanOut, forceRecalc, true);
 		field.replaceContribution(_unit->getId(), selfResult);
 		_save->getPathfinding()->setIgnoreFriends(false);
 	}
@@ -8536,20 +8608,42 @@ FriendReachableField* AIModule::prepareSharedFriendReachable()
 			continue; // budget exhausted: leave this ally missing (partial field)
 		bool localRanOut = false;
 		_save->getPathfinding()->setIgnoreFriends(true);
-		const std::map<Position, int, PositionComparator>& result = getReachableBy(ally, localRanOut, dirty, true);
+		const std::map<Position, int, PositionComparator>& result = getReachableBy(ally, localRanOut, forceRecalc, true);
 		field.replaceContribution(ally->getId(), result);
 		_save->getPathfinding()->setIgnoreFriends(false);
 		if (boundRebuild)
 			--stampsRemaining;
 	}
-	if (dirty)
+	// Phase 43 review fix #1: terrain-refresh completion. After onTerrainChanged the
+	// aggregate was wiped, so every live same-faction contribution must be restamped with a
+	// fresh (post-terrain) BFS before the refresh is considered done. Do NOT mark the
+	// refresh complete after only the first evalBudget batch: keep terrainRefreshPending set
+	// until ALL live same-faction units (the actor included) have a current contribution.
+	// Once complete, clear it so later clean-path fills (and memo reuse) behave normally.
+	if (terrainRefreshPending)
 	{
-		cache->markFriendReachableClean();
+		bool allRestamped = field.hasContribution(_unit->getId());
+		for (BattleUnit* ally : *(_save->getUnits()))
+		{
+			if (ally == _unit)
+				continue;
+			if (ally->getFaction() != _unit->getFaction())
+				continue;
+			if (ally->isOut())
+				continue;
+			if (!field.hasContribution(ally->getId()))
+			{
+				allRestamped = false;
+				break;
+			}
+		}
+		if (allRestamped)
+			cache->setTerrainRefreshPending(false);
 	}
 	return &field;
 }
 
-FriendReachableField* AIModule::prepareSharedEnemyReachable(bool& forceRebuild)
+FriendReachableField* AIModule::prepareSharedEnemyReachable(bool& forceRebuild, bool allowReset)
 {
 	forceRebuild = false;
 	if (!_save->getMod()->getAISharedFields() || !_unit->isAIControlled())
@@ -8560,6 +8654,14 @@ FriendReachableField* AIModule::prepareSharedEnemyReachable(bool& forceRebuild)
 	const bool movementCheat = _unit->isCheatOnMovement();
 	if (cache->isEnemyReachableDirty())
 	{
+		// Phase 43 review fix #2: setupEscape calls this in a READ-ONLY mode. A dirty
+		// field means the shared enemyReachable has not been built yet this turn; clearing
+		// / marking it clean here WITHOUT producing it would both discard valid work and
+		// wrongly report a clean (built) field to later readers. Read-only callers fall
+		// back to the degraded (threat 0) ranking instead. brutalThink is the authoritative
+		// producer and calls with allowReset == true, so it clears and starts the rebuild.
+		if (!allowReset)
+			return nullptr;
 		cache->getEnemyReachable().clear();
 		cache->setEnemyReachableProfile(movementCheat);
 		cache->markEnemyReachableClean();

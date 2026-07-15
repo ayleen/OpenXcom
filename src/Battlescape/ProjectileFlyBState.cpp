@@ -108,7 +108,7 @@ void ProjectileFlyBState::init()
 	// Regression harness only: force one exact hostile AI projectile candidate
 	// through the real failure-memory path without spending TU/ammo or changing
 	// the world revision.  The probe is dormant unless JS explicitly arms it.
-	if (_unit->getFaction() == FACTION_HOSTILE && _action.aiHasFilteredFallback
+	if (_unit->getFaction() == FACTION_HOSTILE && _action.aiFailureMemoryCandidate
 		&& calypso_consume_ai_failure_probe(_unit->getId(), static_cast<int>(_action.type)))
 	{
 		_action.aiFailure = AIFailureReason::NO_LOF;
@@ -1123,9 +1123,12 @@ void ProjectileFlyBState::projectileHitUnit(Position pos)
 			if (hitSpike > 0)
 			{
 				const Position clue = projectDirectionalHitClue(victim->getPosition(), _unit->getPosition(), 8);
-				// Skip the no-direction degenerate case (helper returned the victim
-				// tile): spiking the victim's own tile with a hit-signal would be
-				// noise, not a direction hint.
+				// Skip the no-direction / adjacent-attacker degenerate case: the
+				// helper never returns the exact attacker tile and degrades an
+				// adjacent attacker (or coincident tile) to the victim tile. Spiking
+				// the victim's own tile with a hit-signal would be noise, not a
+				// direction hint, so skip it. (Directional-hit-clue fairness fix:
+				// the clue stops strictly short of the hidden attacker.)
 				if (clue != victim->getPosition())
 				{
 					_parent->getSave()->spikeFactionOccupancy(victim->getFaction(), clue, hitSpike);
