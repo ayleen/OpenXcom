@@ -845,7 +845,9 @@ void State::enableUiScaling(int designW, int designH, float factor)
  * Calypso (Emscripten): re-apply the uniform UI scale from the captured native
  * geometry. Surfaces are repositioned/resized absolutely (so clicks — which are
  * positional in base-resolution space — stay correct), centred with letterbox
- * margins. Scale is uniform (preserves aspect) and never shrinks below native.
+ * margins. Scale is uniform (preserves aspect). Persistent safe-area insets
+ * and temporary keyboard occlusion may shrink it below native so every control
+ * remains inside the currently visible rectangle.
  */
 void State::applyUiScaling()
 {
@@ -853,20 +855,22 @@ void State::applyUiScaling()
 	Calypso::CalypsoBaseSafeRect safe{0, 0, Options::baseXResolution, Options::baseYResolution};
 	(void)Calypso::calypsoProjectedSafeRectForLayout(
 		Options::baseXResolution, Options::baseYResolution, safe);
-	const float fx = (float)safe.width / (float)_uiDesignW;
-	const float fy = (float)safe.height / (float)_uiDesignH;
-	float s = (fx < fy ? fx : fy) * _uiFactor;
-	if (s < 1.0f) s = 1.0f;
+	const float s = static_cast<float>(Calypso::calypsoFitUiScale(
+		safe, _uiDesignW, _uiDesignH, _uiFactor));
 	_uiScale = s;
 	const int offX = safe.x + (safe.width - (int)(_uiDesignW * s + 0.5f)) / 2;
 	const int offY = safe.y + (safe.height - (int)(_uiDesignH * s + 0.5f)) / 2;
 	for (const auto& r : _uiNative)
 	{
 		if (!r.surf) continue;
-		r.surf->setX(offX + (int)(r.x * s + 0.5f));
-		r.surf->setY(offY + (int)(r.y * s + 0.5f));
-		int w = (int)(r.w * s + 0.5f); if (w < 1) w = 1;
-		int h = (int)(r.h * s + 0.5f); if (h < 1) h = 1;
+		const int left = (int)(r.x * s + 0.5f);
+		const int top = (int)(r.y * s + 0.5f);
+		const int right = (int)((r.x + r.w) * s + 0.5f);
+		const int bottom = (int)((r.y + r.h) * s + 0.5f);
+		r.surf->setX(offX + left);
+		r.surf->setY(offY + top);
+		int w = right - left; if (w < 1) w = 1;
+		int h = bottom - top; if (h < 1) h = 1;
 		r.surf->setWidth(w);   // setWidth/setHeight recreate the surface and
 		r.surf->setHeight(h);  // already mark _redraw — no explicit setRedraw needed
 	}

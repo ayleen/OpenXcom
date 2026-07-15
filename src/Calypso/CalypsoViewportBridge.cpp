@@ -36,7 +36,7 @@ CalypsoViewportRuntime& calypsoViewportRuntime()
 static CalypsoVisualContext currentViewportContext()
 {
 	Game *g = getCurrentGame();
-	return (g && g->hasActiveBattlescapeRoot())
+	return (g && g->calypsoViewportAffinity() == CalypsoViewportAffinity::Tactical)
 		? CalypsoVisualContext::Tactical
 		: CalypsoVisualContext::Strategic;
 }

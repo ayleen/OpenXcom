@@ -325,6 +325,7 @@ void TextEdit::setText(const std::string &text)
  */
 void TextEdit::setTextExternal(const std::string &utf8)
 {
+	const UString previousValue = _value;
 	const std::u32string incoming = Unicode::convUtf8ToUtf32(utf8);
 	_value.clear();
 	_caretPos = 0;
@@ -353,7 +354,7 @@ void TextEdit::setTextExternal(const std::string &utf8)
 	_preferredCaretX = -1;
 	invalidateMultilineLayout();
 	_redraw = true;
-	if (_change && _state)
+	if (_change && _state && _value != previousValue)
 	{
 		/* Zeroed KEYDOWN (sym = SDLK_UNKNOWN): handlers that special-case
 		 * Enter/Escape take their normal-typing branch. */
@@ -941,6 +942,7 @@ void TextEdit::keyboardPress(Action *action, State *state)
 		return;
 	}
 
+	const UString previousValue = _value;
 	bool enterPressed = false;
 	if (Options::keyboardMode == KEYBOARD_OFF)
 	{
@@ -1032,7 +1034,7 @@ void TextEdit::keyboardPress(Action *action, State *state)
 		}
 	}
 	_redraw = true;
-	if (_change)
+	if (_change && _value != previousValue)
 	{
 		(state->*_change)(action);
 	}

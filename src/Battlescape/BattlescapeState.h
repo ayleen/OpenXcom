@@ -288,6 +288,10 @@ public:
 	/// Update the resolution settings, we just resized the window.
 	void resize(int &dX, int &dY) override;
 #ifdef __EMSCRIPTEN__
+	Calypso::CalypsoViewportAffinity calypsoViewportAffinity() const override
+	{
+		return Calypso::CalypsoViewportAffinity::Tactical;
+	}
 	/// Calypso (Emscripten): step the battlescape display fraction (zoom) by
 	/// `direction` along the Full↔¼ ladder. >0 zooms in (smaller buffer, bigger
 	/// apparent pixels); <0 zooms out. Wired to the mouse wheel + zoom keys.

@@ -20,6 +20,9 @@
 #include <list>
 #include <string>
 #include <SDL.h>
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoViewportOwner.h"
+#endif
 
 namespace OpenXcom
 {
@@ -114,8 +117,8 @@ public:
 	/// Returns the top (current) state, or nullptr if the stack is empty.
 	State *getTopState() const { return _states.empty() ? nullptr : _states.back(); }
 #ifdef __EMSCRIPTEN__
-	/// True only when the visible stack contains the tactical root itself.
-	bool hasActiveBattlescapeRoot() const;
+	/// Visible strategic/tactical viewport context, resolved top-to-bottom.
+	Calypso::CalypsoViewportAffinity calypsoViewportAffinity() const;
 #endif
 	/// Returns whether a UfopaediaStartState is in the background.
 	bool containsUfopaediaStartState() const;

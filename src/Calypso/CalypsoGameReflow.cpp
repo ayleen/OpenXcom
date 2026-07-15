@@ -44,11 +44,13 @@ bool calypsoProjectedSafeRectForLayout(int baseWidth, int baseHeight,
 
 extern TextEdit *g_calypsoFocusedTextEdit;
 
-bool Game::hasActiveBattlescapeRoot() const
+Calypso::CalypsoViewportAffinity Game::calypsoViewportAffinity() const
 {
-	for (State *state : _states)
-		if (dynamic_cast<BattlescapeState *>(state)) return true;
-	return false;
+	std::vector<Calypso::CalypsoViewportAffinity> topDown;
+	topDown.reserve(_states.size());
+	for (auto it = _states.rbegin(); it != _states.rend(); ++it)
+		topDown.push_back((*it)->calypsoViewportAffinity());
+	return Calypso::calypsoResolveViewportAffinity(topDown);
 }
 
 /**
@@ -96,13 +98,23 @@ void Game::reflowEmscriptenViewport(int physicalWidth, int physicalHeight)
 
 	BattlescapeState *battleRoot = nullptr;
 	GeoscapeState *geoRoot = nullptr;
+	State *visibleBoundary = nullptr;
 	for (State *state : _states)
 	{
 		if (auto *battle = dynamic_cast<BattlescapeState *>(state)) battleRoot = battle;
 		if (auto *geo = dynamic_cast<GeoscapeState *>(state)) geoRoot = geo;
 	}
+	const Calypso::CalypsoViewportAffinity affinity = calypsoViewportAffinity();
+	for (auto it = _states.rbegin(); it != _states.rend(); ++it)
+	{
+		if ((*it)->calypsoViewportAffinity() != Calypso::CalypsoViewportAffinity::Inherit)
+		{
+			visibleBoundary = *it;
+			break;
+		}
+	}
 	const Calypso::CalypsoViewportOwner owner = Calypso::calypsoViewportOwner(
-		battleRoot != nullptr, geoRoot != nullptr,
+		affinity, visibleBoundary == battleRoot, visibleBoundary == geoRoot,
 		_save && _save->getSavedBattle() != nullptr);
 	const bool tactical = owner == Calypso::CalypsoViewportOwner::TacticalRoot;
 	State *root = owner == Calypso::CalypsoViewportOwner::TacticalRoot
@@ -146,8 +158,11 @@ void Game::reflowEmscriptenViewport(int physicalWidth, int physicalHeight)
 		Options::baseYGeoscape = targetBaseHeight;
 	}
 
+	bool visibleSegment = visibleBoundary == nullptr;
 	for (State *state : _states)
 	{
+		if (state == visibleBoundary) visibleSegment = true;
+		if (!visibleSegment) continue;
 		if (state == root) continue;
 		int stateDX = dX;
 		int stateDY = dY;

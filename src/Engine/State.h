@@ -24,6 +24,9 @@
 #include "SDL2Helpers.h"
 #include "LocalizedText.h"
 #include "../Calypso/CalypsoFocusCoordinator.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoViewportOwner.h"
+#endif
 
 namespace OpenXcom
 {
@@ -182,6 +185,14 @@ public:
 
 	/// Let the state know the window has been resized.
 	virtual void resize(int &dX, int &dY);
+#ifdef __EMSCRIPTEN__
+	/// Declares which base-resolution family this visible state owns. Most
+	/// overlays inherit the first explicit state below them.
+	virtual Calypso::CalypsoViewportAffinity calypsoViewportAffinity() const
+	{
+		return Calypso::CalypsoViewportAffinity::Inherit;
+	}
+#endif
 	/// Re-orients all the surfaces in the state.
 	virtual void recenter(int dX, int dY);
 

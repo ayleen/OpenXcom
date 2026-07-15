@@ -201,6 +201,19 @@ inline CalypsoBaseSafeRect calypsoProjectSafeRect(
 	return result;
 }
 
+/// Uniformly fit an authored UI canvas inside a projected safe rectangle.
+/// A supported device may still expose less temporary space while the virtual
+/// keyboard is open, so scales below 1 are intentional and required.
+inline double calypsoFitUiScale(const CalypsoBaseSafeRect& safe,
+	int designWidth, int designHeight, double factor = 1.0)
+{
+	if (designWidth <= 0 || designHeight <= 0 || factor <= 0.0) return 0.0;
+	const double fitX = static_cast<double>(safe.width) / designWidth;
+	const double fitY = static_cast<double>(safe.height) / designHeight;
+	const double scale = std::min(fitX, fitY) * factor;
+	return scale > 0.0 ? scale : 0.0;
+}
+
 /// Compute a fully-contained safe axis. Given a leading inset (left/top), a
 /// trailing inset (right/bottom), and the viewport extent (width/height) on
 /// that axis, writes the safe origin and size with the invariants

@@ -609,6 +609,7 @@ if(EMSCRIPTEN)
   list(APPEND openxcom_src Calypso/CalypsoMainLoopGate.cpp)
   list(APPEND openxcom_src Calypso/CalypsoGameReflow.cpp)
   list(APPEND openxcom_src Calypso/CalypsoBrowserScale.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoTextInputHarnessState.cpp)
 
   # Phase 8b: regenerate embedded shader table before each build when any
   # *.vert or *.frag file in Engine/Shaders/ has changed.
