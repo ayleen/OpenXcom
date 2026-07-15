@@ -193,7 +193,8 @@ void UnitSprite::blitItem(Part& item)
 #ifdef __EMSCRIPTEN__
 	if (emitHdUnitPart(_hdEmit, HdUnitPartKind::Item, item.frameIdx,
 	    item.offX, item.offY, item.src->getShadeTable() != nullptr,
-	    _x, _y, _shade, _unit ? _unit->getId() : -1,
+	    _x, _y, _shade, _mask.beg_x, _mask.end_x, _mask.beg_y, _mask.end_y,
+	    _unit ? _unit->getId() : -1,
 	    _unit ? _unit->getDirection() : -1))
 		return;
 #endif
@@ -228,6 +229,7 @@ void UnitSprite::blitBody(Part& body)
 #ifdef __EMSCRIPTEN__
 	if (emitHdUnitPart(_hdEmit, HdUnitPartKind::Body, body.frameIdx,
 	    body.offX, body.offY, true, _x, _y, _shade,
+	    _mask.beg_x, _mask.end_x, _mask.beg_y, _mask.end_y,
 	    _unit ? _unit->getId() : -1, _unit ? _unit->getDirection() : -1))
 		return;
 #endif

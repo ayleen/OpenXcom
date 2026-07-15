@@ -526,7 +526,8 @@ private:
 	};
 	std::vector<UnitAtlasGroup> _unitAtlasGroups;
 	HdUnitEmitTargets makeHdUnitEmitTargets(size_t bodyIdx, bool haveItem,
-	                                      size_t itemIdx, int z, int y, int x);
+	                                      size_t itemIdx, int z, int y, int x,
+	                                      int renderWidth, int renderHeight);
 	// Phase 27.5: soft contact-shadow ellipse under each unit so HD sprites read
 	// as planted, not floating. One shared RGBA texture (black, soft-ellipse
 	// alpha) + a per-frame instance list filled in drawUnit and rendered in the

@@ -1073,8 +1073,8 @@ void Map::initTileGL()
 	// these structs are tightly packed (no padding). Lock that assumption at compile
 	// time so a future field reorder/insertion fails the build instead of silently
 	// desynchronising the GPU instance read.
-	static_assert(sizeof(TileInstance) == 32,
-	              "tile VAO stride assumes a 32-byte TileInstance (8 floats)");
+	static_assert(sizeof(TileInstance) == 48,
+	              "tile VAO stride assumes a 48-byte TileInstance (12 floats)");
 	static_assert(sizeof(BlendInstance) == 64,
 	              "blend VAO stride assumes a 64-byte BlendInstance (16 x 4 bytes)");
 	static_assert(offsetof(BlendInstance, wangMask) == 32,
@@ -1253,10 +1253,10 @@ void Map::initTileGL()
 	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
 	glVertexAttribDivisor(0, 0);
 
-	// attrs 1–6 — per-instance (stride = 8 floats = 32 bytes; +1 float for iso)
+	// attrs 1–7 — per-instance (12 floats: legacy fields + unit clip rect)
 	glGenBuffers(1, &_tileIBO);
 	glBindBuffer(GL_ARRAY_BUFFER, _tileIBO);
-	const GLsizei stride = 8 * (GLsizei)sizeof(float);
+	const GLsizei stride = 12 * (GLsizei)sizeof(float);
 	glEnableVertexAttribArray(1);
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, (const void*)0);
 	glVertexAttribDivisor(1, 1);
@@ -1281,11 +1281,15 @@ void Map::initTileGL()
 	glVertexAttribPointer(6, 1, GL_FLOAT, GL_FALSE, stride, (const void*)(7 * sizeof(float)));
 	glVertexAttribDivisor(6, 1);
 
+	glEnableVertexAttribArray(7);
+	glVertexAttribPointer(7, 4, GL_FLOAT, GL_FALSE, stride, (const void*)(8 * sizeof(float)));
+	glVertexAttribDivisor(7, 1);
+
 	glBindVertexArray(0);
 
 	// Phase 22 (H1): terrain instance VAO/buffer — identical TileInstance layout to
 	// _tileVAO/_tileIBO, but persistent and dirty-gated. Baseline/overlay/sub-layer
-	// draws re-point attrs 1–6 to a per-(group,list) byte offset within this one
+	// draws re-point attrs 1–7 to a per-(group,list) byte offset within this one
 	// buffer (concatenated in drawTileGLPass), so a clean frame issues zero uploads.
 	// Units keep streaming into _tileIBO via drawAtlas, so they are unaffected.
 	glGenVertexArrays(1, &_tileInstVAO);
@@ -1295,7 +1299,7 @@ void Map::initTileGL()
 	glEnableVertexAttribArray(0);
 	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
 	glVertexAttribDivisor(0, 0);
-	// attrs 1–6 — per-instance, base offset 0 here; re-pointed per sub-draw.
+	// attrs 1–7 — per-instance, base offset 0 here; re-pointed per sub-draw.
 	glGenBuffers(1, &_tileInstIBO);
 	glBindBuffer(GL_ARRAY_BUFFER, _tileInstIBO);
 	glEnableVertexAttribArray(1);
@@ -1316,6 +1320,9 @@ void Map::initTileGL()
 	glEnableVertexAttribArray(6);
 	glVertexAttribPointer(6, 1, GL_FLOAT, GL_FALSE, stride, (const void*)(7 * sizeof(float)));
 	glVertexAttribDivisor(6, 1);
+	glEnableVertexAttribArray(7);
+	glVertexAttribPointer(7, 4, GL_FLOAT, GL_FALSE, stride, (const void*)(8 * sizeof(float)));
+	glVertexAttribDivisor(7, 1);
 	glBindVertexArray(0);
 	_tileBuffersDirty = true;  // force a rebuild on the first draw after (re)init
 
@@ -1591,10 +1598,10 @@ void Map::drawTileGLPass()
 	Shader* activeShader = nullptr;
 
 	// Both the persistent terrain buffer and the streamed unit buffer use the
-	// same eight-float instance layout. The caller binds the intended VAO/buffer
+	// same twelve-float instance layout. The caller binds the intended VAO/buffer
 	// before selecting the first instance for a draw run.
 	auto pointInstanceAttribs = [](size_t baseInstance) {
-		const GLsizei  stride = 8 * (GLsizei)sizeof(float);
+		const GLsizei  stride = 12 * (GLsizei)sizeof(float);
 		const GLintptr base   = (GLintptr)(baseInstance * sizeof(TileInstance));
 		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, (const void*)(base + 0));
 		glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (const void*)(base + 2 * sizeof(float)));
@@ -1602,6 +1609,7 @@ void Map::drawTileGLPass()
 		glVertexAttribPointer(4, 1, GL_FLOAT, GL_FALSE, stride, (const void*)(base + 5 * sizeof(float)));
 		glVertexAttribPointer(5, 1, GL_FLOAT, GL_FALSE, stride, (const void*)(base + 6 * sizeof(float)));
 		glVertexAttribPointer(6, 1, GL_FLOAT, GL_FALSE, stride, (const void*)(base + 7 * sizeof(float)));
+		glVertexAttribPointer(7, 4, GL_FLOAT, GL_FALSE, stride, (const void*)(base + 8 * sizeof(float)));
 	};
 
 	auto uploadUnitInstances = [&](const TileInstance* data, size_t count) {

@@ -7,7 +7,8 @@ namespace OpenXcom
 {
 
 HdUnitEmitTargets Map::makeHdUnitEmitTargets(size_t bodyIdx, bool haveItem,
-	                                         size_t itemIdx, int z, int y, int x)
+	                                         size_t itemIdx, int z, int y, int x,
+	                                         int renderWidth, int renderHeight)
 {
 	HdUnitEmitTargets targets;
 	UnitAtlasGroup& body = _unitAtlasGroups[bodyIdx];
@@ -18,6 +19,8 @@ HdUnitEmitTargets Map::makeHdUnitEmitTargets(size_t bodyIdx, bool haveItem,
 	targets.emitZ = z;
 	targets.emitY = y;
 	targets.emitX = x;
+	targets.renderWidth = renderWidth;
+	targets.renderHeight = renderHeight;
 	targets.zTargetBody = &body.zLevels;
 	targets.zTargetItem = haveItem ? &_unitAtlasGroups[itemIdx].zLevels : nullptr;
 	targets.yTargetBody = &body.yLevels;
