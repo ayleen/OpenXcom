@@ -27,6 +27,7 @@
 #include <array>
 #include <vector>
 #include <algorithm>
+#include "../Engine/Action.h"
 #include "../Engine/Game.h"
 #include "../Engine/Screen.h"
 #include "../Engine/Surface.h"
