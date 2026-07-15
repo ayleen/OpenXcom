@@ -31,9 +31,7 @@
 #include "../Interface/ComboBox.h"
 #include "../Engine/Game.h"
 #include "SetWindowedRootState.h"
-#ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoResolutionFloor.h"
-#endif
 
 namespace OpenXcom
 {
@@ -301,62 +299,10 @@ OptionsVideoState::OptionsVideoState(OptionsOrigin origin) : OptionsBaseState(or
 	_cbxDisplayMode->onMouseOut((ActionHandler)&OptionsVideoState::txtTooltipOut);
 
 	_txtGeoScale->setText(tr("STR_GEOSCAPE_SCALE"));
+	_txtBattleScale->setText(tr("STR_BATTLESCAPE_SCALE"));
 
+#ifndef __EMSCRIPTEN__
 	std::vector<std::string> scales;
-#ifdef __EMSCRIPTEN__
-	// Calypso: the canvas is stretched to fill the window, so fixed Nx buffers
-	// (640x400 etc.) would distort the aspect ratio. The menu offers only
-	// proportional fractions of the current display, labelled with their real
-	// pixel size. The engine resolves each ScaleType to its fraction in
-	// Screen::getScreenScaleFraction — keep this list in sync with that.
-	auto fracRes = [&](int scaleType) -> std::string {
-		const Calypso::CalypsoScaleResult result = Calypso::calypsoEvaluateScale(
-			Options::displayWidth, Options::displayHeight,
-			Options::nonSquarePixelRatio, scaleType);
-		std::string label = std::to_string(result.width) + "x" + std::to_string(result.height);
-		if (!result.eligible) label += " — " + std::string(tr("STR_CAL_HD_MINIMUM_SCALE"));
-		return label;
-	};
-
-	// Combobox display order (index 0..4): proportional fractions, largest first.
-	scales.push_back(fracRes(SCALE_SCREEN));        // 0 Full (1/1)
-	scales.push_back(fracRes(SCALE_SCREEN_3_4));    // 1 3/4
-	scales.push_back(fracRes(SCALE_SCREEN_DIV_2));  // 2 1/2
-	scales.push_back(fracRes(SCALE_SCREEN_DIV_3));  // 3 1/3
-	scales.push_back(fracRes(SCALE_SCREEN_DIV_4));  // 4 1/4
-
-	// _scales[internal ScaleType value] = combobox display index. Every ScaleType
-	// must map to a valid index; legacy fixed/screen-div scales no longer in the
-	// menu fall back to the nearest proportional entry, so an old options.cfg
-	// still selects something sane (and migrates to it on the next save).
-	_scales.push_back(2);  //  0 SCALE_ORIGINAL     → 1/2 (legacy)
-	_scales.push_back(2);  //  1 SCALE_15X          → 1/2 (legacy)
-	_scales.push_back(2);  //  2 SCALE_2X           → 1/2 (legacy)
-	_scales.push_back(3);  //  3 SCALE_SCREEN_DIV_3 → 1/3
-	_scales.push_back(2);  //  4 SCALE_SCREEN_DIV_2 → 1/2
-	_scales.push_back(0);  //  5 SCALE_SCREEN       → Full
-	_scales.push_back(4);  //  6 SCALE_SCREEN_DIV_4 → 1/4
-	_scales.push_back(4);  //  7 SCALE_SCREEN_DIV_5 → 1/4 (legacy)
-	_scales.push_back(4);  //  8 SCALE_SCREEN_DIV_6 → 1/4 (legacy)
-	_scales.push_back(4);  //  9 SCALE_SCREEN_DIV_8 → 1/4 (legacy)
-	_scales.push_back(4);  // 10 SCALE_SCREEN_DIV_10→ 1/4 (legacy)
-	_scales.push_back(2);  // 11 SCALE_3X           → 1/2 (legacy)
-	_scales.push_back(2);  // 12 SCALE_4X           → 1/2 (legacy)
-	_scales.push_back(2);  // 13 SCALE_5X           → 1/2 (legacy)
-	_scales.push_back(2);  // 14 SCALE_6X           → 1/2 (legacy)
-	_scales.push_back(2);  // 15 SCALE_8X           → 1/2 (legacy)
-	_scales.push_back(1);  // 16 SCALE_SCREEN_3_4   → 3/4
-
-	// _reverseScales[combobox display index] = internal ScaleType value
-	_reverseScales.push_back(SCALE_SCREEN);        // 0 Full
-	_reverseScales.push_back(SCALE_SCREEN_3_4);    // 1 3/4
-	_reverseScales.push_back(SCALE_SCREEN_DIV_2);  // 2 1/2
-	_reverseScales.push_back(SCALE_SCREEN_DIV_3);  // 3 1/3
-	_reverseScales.push_back(SCALE_SCREEN_DIV_4);  // 4 1/4
-
-	if (Options::geoscapeScale < 0 || Options::geoscapeScale > 16) Options::geoscapeScale = SCALE_SCREEN_DIV_2;
-	if (Options::battlescapeScale < 0 || Options::battlescapeScale > 16) Options::battlescapeScale = SCALE_SCREEN_DIV_2;
-#else
 	// Native calculation remains byte-for-byte equivalent to the original UI.
 	double pixelRatioY = 1.0;
 	if (Options::nonSquarePixelRatio && !Options::allowResize) pixelRatioY = 1.2;
@@ -425,34 +371,20 @@ OptionsVideoState::OptionsVideoState(OptionsOrigin origin) : OptionsBaseState(or
 
 	if (Options::geoscapeScale < 0 || Options::geoscapeScale > 16) Options::geoscapeScale = 0;
 	if (Options::battlescapeScale < 0 || Options::battlescapeScale > 16) Options::battlescapeScale = 0;
+	_cbxGeoScale->setOptions(scales);
+	_cbxGeoScale->setSelected(_scales[Options::geoscapeScale]);
+	_cbxBattleScale->setOptions(scales);
+	_cbxBattleScale->setSelected(_scales[Options::battlescapeScale]);
 #endif
 
 #ifdef __EMSCRIPTEN__
-	Screen::normalizeBrowserScales();
+	refreshScaleOptions();
 #endif
-	_cbxGeoScale->setOptions(scales);
-#ifdef __EMSCRIPTEN__
-	for (int i = 0; i < 5; ++i)
-		_cbxGeoScale->setOptionEnabled(i, Calypso::calypsoEvaluateScale(
-			Options::displayWidth, Options::displayHeight, Options::nonSquarePixelRatio,
-			_reverseScales[i]).eligible);
-#endif
-	_cbxGeoScale->setSelected(_scales[Options::geoscapeScale]);
 	_cbxGeoScale->onChange((ActionHandler)&OptionsVideoState::updateGeoscapeScale);
 	_cbxGeoScale->setTooltip("STR_GEOSCAPESCALE_SCALE_DESC");
 	_cbxGeoScale->onMouseIn((ActionHandler)&OptionsVideoState::txtTooltipIn);
 	_cbxGeoScale->onMouseOut((ActionHandler)&OptionsVideoState::txtTooltipOut);
 
-	_txtBattleScale->setText(tr("STR_BATTLESCAPE_SCALE"));
-
-	_cbxBattleScale->setOptions(scales);
-#ifdef __EMSCRIPTEN__
-	for (int i = 0; i < 5; ++i)
-		_cbxBattleScale->setOptionEnabled(i, Calypso::calypsoEvaluateScale(
-			Options::displayWidth, Options::displayHeight, Options::nonSquarePixelRatio,
-			_reverseScales[i]).eligible);
-#endif
-	_cbxBattleScale->setSelected(_scales[Options::battlescapeScale]);
 	_cbxBattleScale->onChange((ActionHandler)&OptionsVideoState::updateBattlescapeScale);
 	_cbxBattleScale->setTooltip("STR_BATTLESCAPE_SCALE_DESC");
 	_cbxBattleScale->onMouseIn((ActionHandler)&OptionsVideoState::txtTooltipIn);
@@ -466,6 +398,45 @@ OptionsVideoState::OptionsVideoState(OptionsOrigin origin) : OptionsBaseState(or
 OptionsVideoState::~OptionsVideoState()
 {
 
+}
+
+/**
+ * Rebuilds the browser proportional-scale controls for the live viewport.
+ * Native builds retain their constructor-only OXCE scale list.
+ */
+void OptionsVideoState::refreshScaleOptions()
+{
+#ifdef __EMSCRIPTEN__
+	Screen::normalizeBrowserScales();
+#endif
+	const Calypso::CalypsoScaleOptionModel model = Calypso::calypsoBuildScaleOptionModel(
+		Options::displayWidth, Options::displayHeight, Options::nonSquarePixelRatio,
+		Options::newGeoscapeScale, Options::newBattlescapeScale);
+	_reverseScales.clear();
+	for (int i = 0; i < Calypso::CALYPSO_BROWSER_SCALE_COUNT; ++i)
+	{
+		_reverseScales.push_back(model.options[i].scaleType);
+	}
+	_scales.assign(model.scaleToOption.begin(), model.scaleToOption.end());
+
+	std::vector<std::string> labels;
+	const std::string minimumLabel = std::string(tr("STR_CAL_HD_MINIMUM_SCALE"));
+	for (int i = 0; i < Calypso::CALYPSO_BROWSER_SCALE_COUNT; ++i)
+	{
+		labels.push_back(Calypso::calypsoScaleOptionLabel(model.options[i], minimumLabel));
+	}
+
+	_cbxGeoScale->setOptions(labels);
+	_cbxBattleScale->setOptions(labels);
+#ifdef __EMSCRIPTEN__
+	for (int i = 0; i < Calypso::CALYPSO_BROWSER_SCALE_COUNT; ++i)
+	{
+		_cbxGeoScale->setOptionEnabled(i, model.options[i].eligible);
+		_cbxBattleScale->setOptionEnabled(i, model.options[i].eligible);
+	}
+#endif
+	_cbxGeoScale->setSelected(model.geoscapeSelection);
+	_cbxBattleScale->setSelected(model.battlescapeSelection);
 }
 
 /**
@@ -765,6 +736,9 @@ void OptionsVideoState::resize(int &dX, int &dY)
 	ss.str("");
 	ss << Options::displayHeight;
 	_txtDisplayHeight->setText(ss.str());
+#ifdef __EMSCRIPTEN__
+	refreshScaleOptions();
+#endif
 }
 
 /**

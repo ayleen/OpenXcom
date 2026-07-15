@@ -73,6 +73,8 @@ private:
 	void invalidateMultilineLayout();
 	/// Rebuilds cached wrapping/metrics only after invalidation.
 	void ensureMultilineLayout();
+	/// Inserts validated SDL_TEXTINPUT payload at the caret.
+	void textInput(Action *action, State *state);
 public:
 	/// Creates a new text edit with the specified size and position.
 	TextEdit(State *state, int width, int height, int x = 0, int y = 0);
@@ -150,6 +152,8 @@ public:
 #ifdef __EMSCRIPTEN__
 	/// Phase 33 (Emscripten): replace the whole value from the JS input overlay.
 	void setTextExternal(const std::string &utf8);
+	/// Re-send geometry only after a browser reflow without replacing the draft.
+	void refreshExternalGeometry();
 #endif
 };
 

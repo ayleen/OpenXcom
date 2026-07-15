@@ -4,8 +4,8 @@
  *
  * Phase 46.1.1 (Calypso) -- pure viewport metrics and safe-area foundation.
  *
- * Header-only and dependency-free at the engine layer: the only standard
- * header pulled in is <cstdint> (for the wide generation-counter type). There
+ * Header-only and dependency-free at the engine layer: only small standard
+ * utility headers are used for clamping and the wide generation counter. There
  * are no SDL, browser, engine, YAML, or GL includes, so the native doctest
  * suite exercises the real formulas. Family adapters (46.1.2+), the resolution
  * floor (46.1.5), and the focus/scroll primitives (46.1.4) consume these
@@ -24,6 +24,7 @@
  * calypsoSafeAxis) so any combination of `int` viewport/inset inputs --
  * including INT_MIN and INT_MAX -- is free of signed-integer-overflow UB.
  */
+#include <algorithm>
 #include <cstdint>
 
 namespace OpenXcom
@@ -138,6 +139,17 @@ struct CalypsoLayoutMetrics
 	CalypsoSpacingMetrics spacing;
 };
 
+/// Safe rectangle projected from CSS-logical coordinates into the engine's
+/// current base framebuffer. This is the coordinate space used by State-owned
+/// widgets and hit testing.
+struct CalypsoBaseSafeRect
+{
+	int x = 0;
+	int y = 0;
+	int width = 0;
+	int height = 0;
+};
+
 // --- Pure helpers ----------------------------------------------------------
 
 /// Saturating increment for a 64-bit counter: returns v+1, or the maximum
@@ -153,6 +165,41 @@ inline std::uint64_t calypsoSaturatingIncrement(std::uint64_t v)
 
 /// Clamp to the nonnegative range.
 inline int calypsoClampNonneg(int v) { return v < 0 ? 0 : v; }
+
+inline void calypsoProjectSafeAxis(int safePos, int safeSize, int logicalExtent,
+	                                int baseExtent, int* basePos, int* baseSize)
+{
+	const long long logical = calypsoClampNonneg(logicalExtent);
+	const long long base = calypsoClampNonneg(baseExtent);
+	if (logical == 0 || base == 0)
+	{
+		*basePos = 0;
+		*baseSize = 0;
+		return;
+	}
+	const long long start = std::min<long long>(logical, calypsoClampNonneg(safePos));
+	const long long available = logical - start;
+	const long long size = std::min<long long>(available, calypsoClampNonneg(safeSize));
+	const long long end = start + size;
+	const long long projectedStart = start * base / logical;
+	const long long projectedEnd = end * base / logical;
+	*basePos = static_cast<int>(projectedStart);
+	*baseSize = static_cast<int>(projectedEnd - projectedStart);
+}
+
+/// Project a clamped CSS safe rectangle into base-framebuffer coordinates.
+/// Integer endpoint projection keeps the result contained and makes the
+/// no-inset case exactly equal to the full base framebuffer.
+inline CalypsoBaseSafeRect calypsoProjectSafeRect(
+	const CalypsoLayoutMetrics& metrics, int baseWidth, int baseHeight)
+{
+	CalypsoBaseSafeRect result;
+	calypsoProjectSafeAxis(metrics.safeX, metrics.safeWidth, metrics.logicalWidth,
+		baseWidth, &result.x, &result.width);
+	calypsoProjectSafeAxis(metrics.safeY, metrics.safeHeight, metrics.logicalHeight,
+		baseHeight, &result.y, &result.height);
+	return result;
+}
 
 /// Compute a fully-contained safe axis. Given a leading inset (left/top), a
 /// trailing inset (right/bottom), and the viewport extent (width/height) on

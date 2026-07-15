@@ -52,6 +52,7 @@ using namespace OpenXcom;
  * would give it C linkage and fail to link. The JS text-set bridge writes
  * through it. */
 namespace OpenXcom { extern TextEdit *g_calypsoFocusedTextEdit; }
+extern "C" int calypso_viewport_input_blocked(void);
 
 /* ---- M5: heap-stats primitives -----------------------------------------------
  * mallinfo() fields are signed int — cast through unsigned to avoid negative
@@ -434,6 +435,7 @@ void calypso_notify_text_focus(int focused, int x, int y, int w, int h,
 EMSCRIPTEN_KEEPALIVE
 void calypso_text_set(const char *utf8)
 {
+	if (calypso_viewport_input_blocked()) return;
 	if (OpenXcom::g_calypsoFocusedTextEdit)
 		OpenXcom::g_calypsoFocusedTextEdit->setTextExternal(utf8 ? utf8 : "");
 }
@@ -441,6 +443,7 @@ void calypso_text_set(const char *utf8)
 EMSCRIPTEN_KEEPALIVE
 void calypso_text_commit(void)
 {
+	if (calypso_viewport_input_blocked()) return;
 	SDL_Event e;
 	SDL_zero(e);
 	e.type = SDL_KEYDOWN;
@@ -452,6 +455,7 @@ void calypso_text_commit(void)
 EMSCRIPTEN_KEEPALIVE
 void calypso_text_commit_multiline(void)
 {
+	if (calypso_viewport_input_blocked()) return;
 	OpenXcom::TextEdit *edit = OpenXcom::g_calypsoFocusedTextEdit;
 	if (!edit || !edit->isMultiline()) return;
 	SDL_Event e;
@@ -466,6 +470,7 @@ void calypso_text_commit_multiline(void)
 EMSCRIPTEN_KEEPALIVE
 void calypso_text_cancel(void)
 {
+	if (calypso_viewport_input_blocked()) return;
 	SDL_Event e;
 	SDL_zero(e);
 	e.type = SDL_KEYDOWN;

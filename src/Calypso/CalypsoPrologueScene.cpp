@@ -12,7 +12,6 @@
  */
 
 #include <algorithm>
-#include <cassert>
 #include <string>
 #include <vector>
 
@@ -230,8 +229,21 @@ void CalypsoPrologueScene::onBattleStart(BattlescapeGame *bg)
 	// a chronoTrigger that depends on it). BattlescapeGame's timer expiry calls
 	// finishBattle() directly, bypassing onAbortRequested(); ConsumeAbort in
 	// onUnexpectedFinish() would then consume that external finish on every
-	// subsequent turn and soft-lock the scene. Keep the ruleset timer-free.
-	assert(bg && bg->getSave() && bg->getSave()->getTurnLimit() <= 0);
+	// subsequent turn and soft-lock the scene. Validate this in release builds,
+	// too: a malformed deployment goes inert and resolves through the existing
+	// controlled all-taken fallback on the next safe director callback.
+	SavedBattleGame *save = bg ? bg->getSave() : nullptr;
+	if (!save || !Calypso::prologueTurnLimitIsSafe(save->getTurnLimit()))
+	{
+		Log(LOG_ERROR) << "[prologue] invalid battle start: "
+			<< (!save ? "missing battlescape save" : "turnLimit must be disabled")
+			<< (!save ? "" : " (configured value " + std::to_string(save->getTurnLimit()) + ")")
+			<< "; arming all-taken fallback";
+		_inert = true;
+		_endingTriggered = true;
+		_pendingOutcome = OutcomeAllTaken;
+		return;
+	}
 	if (!resolveActors(bg))
 	{
 		_inert = true;

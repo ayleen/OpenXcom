@@ -113,6 +113,10 @@ public:
 	bool isState(State *state) const;
 	/// Returns the top (current) state, or nullptr if the stack is empty.
 	State *getTopState() const { return _states.empty() ? nullptr : _states.back(); }
+#ifdef __EMSCRIPTEN__
+	/// True only when the visible stack contains the tactical root itself.
+	bool hasActiveBattlescapeRoot() const;
+#endif
 	/// Returns whether a UfopaediaStartState is in the background.
 	bool containsUfopaediaStartState() const;
 	/// Returns whether a NotesState is in the background.

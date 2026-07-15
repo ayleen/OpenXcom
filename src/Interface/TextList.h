@@ -74,6 +74,8 @@ private:
 	void updateArrows();
 	/// Updates the visible rows.
 	void updateVisible();
+	/// Rebuilds the selector at the current visible selected row.
+	void updateSelector();
 public:
 	/// Creates a text list with the specified size and position.
 	TextList(int width, int height, int x = 0, int y = 0);
@@ -165,6 +167,8 @@ public:
 	void setBackground(Surface *bg);
 	/// Gets the selected row in the list.
 	unsigned int getSelectedRow() const;
+	/// Selects and reveals a logical row for keyboard navigation.
+	void setSelectedRow(size_t row);
 	/// Sets the margin of the text list.
 	void setMargin(int margin);
 	/// Gets the margin of the text list.

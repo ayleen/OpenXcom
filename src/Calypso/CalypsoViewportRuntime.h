@@ -19,11 +19,15 @@ struct CalypsoViewportUpdate
 {
 	bool logicalChanged = false;
 	bool physicalChanged = false;
+	bool hadPreviousLayout = false;
 	int previousLogicalWidth = 0;
 	int previousLogicalHeight = 0;
 	int previousPhysicalWidth = 0;
 	int previousPhysicalHeight = 0;
 	std::uint64_t previousGeneration = 0;
+	std::uint64_t generation = 0;
+	CalypsoLayoutMetrics previousMetrics;
+	CalypsoLayoutMetrics metrics;
 
 	bool anyChanged() const { return logicalChanged || physicalChanged; }
 };
@@ -37,6 +41,8 @@ public:
 	                              CalypsoVisualContext context)
 	{
 		CalypsoViewportUpdate result;
+		result.hadPreviousLayout = _metrics.hasLayout();
+		if (result.hadPreviousLayout) result.previousMetrics = _metrics.current();
 		result.previousLogicalWidth = _metrics.hasLayout() ? _metrics.current().logicalWidth : 0;
 		result.previousLogicalHeight = _metrics.hasLayout() ? _metrics.current().logicalHeight : 0;
 		result.previousPhysicalWidth = _physicalWidth;
@@ -44,6 +50,8 @@ public:
 		result.previousGeneration = _metrics.generation();
 
 		result.logicalChanged = _metrics.recompute(logicalWidth, logicalHeight, insets, context);
+		result.metrics = _metrics.current();
+		result.generation = _metrics.generation();
 		const int nextPhysicalWidth = calypsoClampNonneg(physicalWidth);
 		const int nextPhysicalHeight = calypsoClampNonneg(physicalHeight);
 		result.physicalChanged = !_hasPhysical
@@ -77,6 +85,7 @@ struct CalypsoPendingViewportResize
 {
 	bool logicalChanged = false;
 	bool physicalChanged = false;
+	bool hadPreviousLayout = false;
 	int previousLogicalWidth = 0;
 	int previousLogicalHeight = 0;
 	int logicalWidth = 0;
@@ -86,12 +95,16 @@ struct CalypsoPendingViewportResize
 	int physicalWidth = 0;
 	int physicalHeight = 0;
 	std::uint64_t generation = 0;
+	CalypsoLayoutMetrics previousMetrics;
+	CalypsoLayoutMetrics metrics;
 };
 
 CalypsoViewportRuntime& calypsoViewportRuntime();
 bool calypsoConsumePendingViewportResize(int physicalWidth, int physicalHeight,
 	                                     CalypsoPendingViewportResize& out);
 bool calypsoNotifyCanvasFallback(int physicalWidth, int physicalHeight);
+bool calypsoProjectedSafeRectForLayout(int baseWidth, int baseHeight,
+	                                   CalypsoBaseSafeRect& out);
 #endif
 
 } // namespace Calypso

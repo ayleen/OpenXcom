@@ -1,5 +1,8 @@
 #pragma once
 /* Phase 46.1.5 -- pure browser HD resolution-floor calculation. */
+#include <array>
+#include <string>
+
 #include "../Engine/Options.h"
 
 namespace OpenXcom
@@ -9,6 +12,8 @@ namespace Calypso
 
 static const int CALYPSO_HD_MIN_WIDTH = 740;
 static const int CALYPSO_HD_MIN_HEIGHT = 360;
+static const int CALYPSO_BROWSER_SCALE_COUNT = 5;
+static const int CALYPSO_SCALE_TYPE_COUNT = SCALE_SCREEN_3_4 + 1;
 
 struct CalypsoScaleResult
 {
@@ -16,6 +21,14 @@ struct CalypsoScaleResult
 	int width = 0;
 	int height = 0;
 	bool eligible = false;
+};
+
+struct CalypsoScaleOptionModel
+{
+	std::array<CalypsoScaleResult, CALYPSO_BROWSER_SCALE_COUNT> options;
+	std::array<int, CALYPSO_SCALE_TYPE_COUNT> scaleToOption;
+	int geoscapeSelection = 0;
+	int battlescapeSelection = 0;
 };
 
 /// The browser canvas already has square CSS/backing-store pixels. The native
@@ -64,16 +77,39 @@ inline CalypsoScaleResult calypsoEvaluateScale(int displayWidth, int displayHeig
 	return result;
 }
 
-inline int calypsoScaleLadderIndex(int scaleType)
+/// Maps every persisted ScaleType onto the browser's supported proportional
+/// ladder. Keep browser runtime migration and the Video Options combobox
+/// grounded in this one mapping so legacy values cannot disagree between the
+/// two surfaces.
+inline int calypsoSupportedScaleType(int scaleType)
 {
 	switch (scaleType)
 	{
-	case SCALE_SCREEN: return 0;
-	case SCALE_SCREEN_3_4: return 1;
+	case SCALE_SCREEN:       return SCALE_SCREEN;
+	case SCALE_SCREEN_3_4:   return SCALE_SCREEN_3_4;
+	case SCALE_SCREEN_DIV_2: return SCALE_SCREEN_DIV_2;
+	case SCALE_SCREEN_DIV_3: return SCALE_SCREEN_DIV_3;
+	case SCALE_SCREEN_DIV_4:
+	case SCALE_SCREEN_DIV_5:
+	case SCALE_SCREEN_DIV_6:
+	case SCALE_SCREEN_DIV_8:
+	case SCALE_SCREEN_DIV_10:
+		return SCALE_SCREEN_DIV_4;
+	default:
+		return SCALE_SCREEN_DIV_2;
+	}
+}
+
+inline int calypsoScaleLadderIndex(int scaleType)
+{
+	switch (calypsoSupportedScaleType(scaleType))
+	{
+	case SCALE_SCREEN:       return 0;
+	case SCALE_SCREEN_3_4:   return 1;
 	case SCALE_SCREEN_DIV_2: return 2;
 	case SCALE_SCREEN_DIV_3: return 3;
 	case SCALE_SCREEN_DIV_4: return 4;
-	default: return 2; // legacy/fixed values normalize from the 1/2 rung
+	default:                 return 2;
 	}
 }
 
@@ -96,6 +132,50 @@ inline CalypsoScaleResult calypsoPromoteScale(int displayWidth, int displayHeigh
 	}
 	// Full is the truthful proportional result even when the CSS gate must block.
 	return calypsoEvaluateScale(displayWidth, displayHeight, nonSquarePixels, SCALE_SCREEN);
+}
+
+inline void calypsoNormalizeBrowserScaleSnapshot(
+	int displayWidth, int displayHeight, bool nonSquarePixels,
+	int& geoscapeLive, int& geoscapePending,
+	int& battlescapeLive, int& battlescapePending)
+{
+	geoscapeLive = calypsoPromoteScale(
+		displayWidth, displayHeight, nonSquarePixels, geoscapeLive).scaleType;
+	geoscapePending = calypsoPromoteScale(
+		displayWidth, displayHeight, nonSquarePixels, geoscapePending).scaleType;
+	battlescapeLive = calypsoPromoteScale(
+		displayWidth, displayHeight, nonSquarePixels, battlescapeLive).scaleType;
+	battlescapePending = calypsoPromoteScale(
+		displayWidth, displayHeight, nonSquarePixels, battlescapePending).scaleType;
+}
+
+inline CalypsoScaleOptionModel calypsoBuildScaleOptionModel(
+	int displayWidth, int displayHeight, bool nonSquarePixels,
+	int geoscapePending, int battlescapePending)
+{
+	CalypsoScaleOptionModel model;
+	for (int i = 0; i < CALYPSO_BROWSER_SCALE_COUNT; ++i)
+	{
+		model.options[i] = calypsoEvaluateScale(
+			displayWidth, displayHeight, nonSquarePixels, calypsoScaleAtLadderIndex(i));
+	}
+	for (int scaleType = SCALE_ORIGINAL; scaleType < CALYPSO_SCALE_TYPE_COUNT; ++scaleType)
+	{
+		model.scaleToOption[scaleType] = calypsoScaleLadderIndex(scaleType);
+	}
+	model.geoscapeSelection = calypsoScaleLadderIndex(calypsoPromoteScale(
+		displayWidth, displayHeight, nonSquarePixels, geoscapePending).scaleType);
+	model.battlescapeSelection = calypsoScaleLadderIndex(calypsoPromoteScale(
+		displayWidth, displayHeight, nonSquarePixels, battlescapePending).scaleType);
+	return model;
+}
+
+inline std::string calypsoScaleOptionLabel(
+	const CalypsoScaleResult& option, const std::string& minimumLabel)
+{
+	std::string label = std::to_string(option.width) + "x" + std::to_string(option.height);
+	if (!option.eligible && !minimumLabel.empty()) label += " — " + minimumLabel;
+	return label;
 }
 
 inline bool calypsoUsableViewportSupported(int logicalWidth, int logicalHeight,

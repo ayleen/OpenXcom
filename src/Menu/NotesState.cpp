@@ -22,6 +22,9 @@
 #include "../Engine/Game.h"
 #include "../Engine/LocalizedText.h"
 #include "../Engine/Options.h"
+#include "../Engine/Unicode.h"
+#include "../Calypso/CalypsoNotePreview.h"
+#include "../Calypso/CalypsoNotesInput.h"
 #ifdef __EMSCRIPTEN__
 #include "../Mod/Mod.h"
 #endif
@@ -44,7 +47,7 @@ NotesState::NotesState(OptionsOrigin origin) :
 	_btnNew(nullptr), _btnKeep(nullptr), _txtOriginGeo(nullptr), _txtOriginBattle(nullptr),
 	_hdFont(nullptr),
 	_origin(origin), _previousSelectedRow(-1), _selectedRow(-1),
-	_hdLayout(false), _hdNotesLoaded(false), _deleteRow(-1), _focusGeneration(0)
+	_hdLayout(false), _hdNotesLoaded(false), _deleteRow(-1), _hdListSelection(0), _focusGeneration(0)
 {
 	_screen = false;
 
@@ -315,6 +318,34 @@ void NotesState::applyHdVisualStyle()
  */
 void NotesState::handle(Action* action)
 {
+	const std::string focusedBefore = getCalypsoFocusedId() ? *getCalypsoFocusedId() : "";
+	if (_hdLayout && !_edtNote->isFocused() && action->getDetails()->type == SDL_KEYDOWN)
+	{
+		const std::string* focused = getCalypsoFocusedId();
+		const SDL_Keymod mod = static_cast<SDL_Keymod>(action->getDetails()->key.keysym.mod);
+		if (focused && *focused == "notes.list" && (mod & (KMOD_CTRL | KMOD_ALT | KMOD_GUI)) == 0)
+		{
+			const int last = static_cast<int>(_workingNotes.size());
+			int next = _hdListSelection;
+			bool recognized = true;
+			switch (action->getDetails()->key.keysym.sym)
+			{
+			case SDLK_UP:   next = std::max(0, next - 1); break;
+			case SDLK_DOWN: next = std::min(last, next + 1); break;
+			case SDLK_HOME: next = 0; break;
+			case SDLK_END:  next = last; break;
+			default: recognized = false; break;
+			}
+			if (recognized)
+			{
+				_hdListSelection = next;
+				_lstNotes->setSelectedRow(static_cast<size_t>(next));
+				updateHdListSelectionIndicator();
+				action->getDetails()->type = SDL_NOEVENT;
+				return;
+			}
+		}
+	}
 	if (_hdLayout && _edtNote->isFocused()
 		&& action->getDetails()->type == SDL_MOUSEBUTTONDOWN)
 	{
@@ -342,6 +373,8 @@ void NotesState::handle(Action* action)
 		}
 	}
 	State::handle(action);
+	const std::string focusedAfter = getCalypsoFocusedId() ? *getCalypsoFocusedId() : "";
+	if (_hdLayout && focusedBefore != focusedAfter) updateHdListSelectionIndicator();
 }
 
 /**
@@ -391,8 +424,10 @@ void NotesState::updateHdList()
 	_lstNotes->clearList();
 	for (size_t i = 0; i < _workingNotes.size(); ++i)
 	{
-		const bool editing = _edtNote->isFocused() && _selectedRow == static_cast<int>(i);
-		_lstNotes->addRow(2, editing ? "\n\n\n" : _workingNotes[i].c_str(), "...");
+		const bool editing = _edtNote->getVisible() && _selectedRow == static_cast<int>(i);
+		const std::string preview = Unicode::convUtf32ToUtf8(Calypso::calypsoNotePreview(
+			Unicode::convUtf8ToUtf32(_workingNotes[i]), 52));
+		_lstNotes->addRow(2, editing ? " " : preview.c_str(), "...");
 		_lstNotes->setCellColorRGB(i, 0, 0xFFE8FFF2u);
 		_lstNotes->setCellColorRGB(i, 1, 0xFF74FFB0u);
 	}
@@ -402,6 +437,10 @@ void NotesState::updateHdList()
 		_lstNotes->setRowColor(_lstNotes->getLastRowIndex(), _lstNotes->getSecondaryColor());
 	}
 	_lstNotes->setRowColorRGB(_lstNotes->getLastRowIndex(), 0xFF74FFB0u);
+	_hdListSelection = std::max(0, std::min(_hdListSelection,
+		static_cast<int>(_workingNotes.size())));
+	_lstNotes->setSelectedRow(static_cast<size_t>(_hdListSelection));
+	updateHdListSelectionIndicator();
 #ifdef __EMSCRIPTEN__
 	// clearList/addRow must never regress the HD list back to tiny bitmap glyphs.
 	if (_hdFont) _lstNotes->setTTFFont(_hdFont, 0.42f);
@@ -409,6 +448,20 @@ void NotesState::updateHdList()
 	if (_selectedRow >= 0 && _selectedRow < _lstNotes->getLastRowIndex())
 	{
 		_lstNotes->scrollTo(static_cast<size_t>(_selectedRow));
+	}
+}
+
+void NotesState::updateHdListSelectionIndicator()
+{
+	if (!_hdLayout || _lstNotes->getTexts() == 0) return;
+	const std::string* focused = getCalypsoFocusedId();
+	const bool listFocused = focused && *focused == "notes.list";
+	for (size_t row = 0; row < _lstNotes->getTexts(); ++row)
+	{
+		const bool selected = row == static_cast<size_t>(_hdListSelection);
+		const bool existing = row < _workingNotes.size();
+		_lstNotes->setCellText(row, 1,
+			Calypso::calypsoNotesSelectionMarker(selected, listFocused, existing));
 	}
 }
 
@@ -427,13 +480,16 @@ void NotesState::beginHdEdit(int row)
 	updateHdStatus();
 	rebuildHdFocus();
 	_selectedRow = row;
+	_hdListSelection = row;
 	_selectedNote = row < static_cast<int>(_workingNotes.size()) ? _workingNotes[row] : "";
 	_edtNote->setText(_selectedNote);
 	_edtNote->setVisible(true);
-	_edtNote->setFocus(true, true);
-	_lstNotes->setScrolling(false);
 	updateHdList();
+	_lstNotes->setScrolling(true);
+	_lstNotes->setSelectedRow(static_cast<size_t>(row));
 	positionHdEditor();
+	_lstNotes->setScrolling(false);
+	_edtNote->setFocus(true, true);
 }
 
 /**
@@ -443,7 +499,7 @@ void NotesState::beginHdEdit(int row)
  */
 void NotesState::positionHdEditor()
 {
-	if (!_hdLayout || !_edtNote->isFocused() || _selectedRow < 0) return;
+	if (!_hdLayout || !_edtNote->getVisible() || _selectedRow < 0) return;
 	const size_t row = static_cast<size_t>(_selectedRow);
 	const size_t scroll = _lstNotes->getScroll();
 	if (row > static_cast<size_t>(_lstNotes->getLastRowIndex())) return;
@@ -466,7 +522,8 @@ void NotesState::rebuildHdFocus()
 	++_focusGeneration;
 	std::vector<Calypso::CalypsoFocusBinding> bindings;
 	bindings.push_back({{"notes.list", true, true}, _lstNotes, [this]() {
-		const int row = static_cast<int>(_lstNotes->getSelectedRow());
+		const int row = Calypso::calypsoNotesActivationRow(
+			_hdListSelection, static_cast<int>(_lstNotes->getSelectedRow()));
 		if (row < 0 || row > static_cast<int>(_workingNotes.size())) return false;
 		beginHdEdit(row);
 		return true;
@@ -599,6 +656,8 @@ void NotesState::lstNotesPress(Action* action)
 		if (button != SDL_BUTTON_LEFT && button != SDL_BUTTON_RIGHT) return;
 		const int row = static_cast<int>(_lstNotes->getSelectedRow());
 		if (row < 0 || row > static_cast<int>(_workingNotes.size())) return;
+		_hdListSelection = row;
+		updateHdListSelectionIndicator();
 		// Compare in one coordinate space. Normalize the absolute pointer against
 		// the scaled list itself instead of mixing it with child-row coordinates
 		// rebuilt by TextList (438/490 is margin+col0 in the design geometry).

@@ -137,7 +137,7 @@ public:
 	/// Video-menu labels so the canvas keeps the display aspect ratio.
 	static void getScreenScaleFraction(int scaleType, int &num, int &den);
 #ifdef __EMSCRIPTEN__
-	/// Promote invalid stored scene fractions and synchronize their pending twins.
+	/// Independently promote invalid live and pending browser scene fractions.
 	static void normalizeBrowserScales();
 	/// Apply one bridge-authorized canvas-size change (flip() resize path) as a
 	/// single reflow via the Calypso viewport bridge. Body lives in

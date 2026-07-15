@@ -36,7 +36,7 @@ CalypsoViewportRuntime& calypsoViewportRuntime()
 static CalypsoVisualContext currentViewportContext()
 {
 	Game *g = getCurrentGame();
-	return (g && g->getSavedGame() && g->getSavedGame()->getSavedBattle())
+	return (g && g->hasActiveBattlescapeRoot())
 		? CalypsoVisualContext::Tactical
 		: CalypsoVisualContext::Strategic;
 }
@@ -53,6 +53,11 @@ static bool queueViewportEvent(const CalypsoViewportUpdate& change)
 	                                || (previouslyQueued && previousPending.logicalChanged);
 	s_pendingViewport.physicalChanged = change.physicalChanged
 	                                 || (previouslyQueued && previousPending.physicalChanged);
+	s_pendingViewport.hadPreviousLayout = previouslyQueued
+		? previousPending.hadPreviousLayout : change.hadPreviousLayout;
+	s_pendingViewport.previousMetrics = previouslyQueued
+		? previousPending.previousMetrics : change.previousMetrics;
+	s_pendingViewport.metrics = change.metrics;
 	s_pendingViewport.previousLogicalWidth = previouslyQueued
 		? previousPending.previousLogicalWidth : change.previousLogicalWidth;
 	s_pendingViewport.previousLogicalHeight = previouslyQueued
@@ -65,7 +70,7 @@ static bool queueViewportEvent(const CalypsoViewportUpdate& change)
 		? previousPending.previousPhysicalHeight : change.previousPhysicalHeight;
 	s_pendingViewport.physicalWidth = s_viewportRuntime.physicalWidth();
 	s_pendingViewport.physicalHeight = s_viewportRuntime.physicalHeight();
-	s_pendingViewport.generation = s_viewportRuntime.generation();
+	s_pendingViewport.generation = change.generation;
 	s_hasPendingViewport = true;
 
 	// An event for the same physical dimensions is already in SDL's queue.
@@ -127,7 +132,6 @@ bool calypsoNotifyCanvasFallback(int physicalWidth, int physicalHeight)
 		insets.left = current.safeX;
 		insets.right = current.logicalWidth - current.safeX - current.safeWidth;
 		insets.bottom = current.logicalHeight - current.safeY - current.safeHeight;
-		context = current.visualContext;
 	}
 	const CalypsoViewportUpdate change = s_viewportRuntime.update(
 		logicalWidth, logicalHeight, physicalWidth, physicalHeight, insets, context);

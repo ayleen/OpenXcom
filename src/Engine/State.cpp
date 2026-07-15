@@ -43,6 +43,7 @@
 #endif
 #include "../Interface/Cursor.h"
 #include "../Interface/FpsCounter.h"
+#include "../Calypso/CalypsoViewportRuntime.h"
 #include "../Savegame/SavedBattleGame.h"
 #include "../Mod/RuleInterface.h"
 
@@ -849,13 +850,16 @@ void State::enableUiScaling(int designW, int designH, float factor)
 void State::applyUiScaling()
 {
 	if (!_uiCaptured) return;
-	const float fx = (float)Options::baseXResolution / (float)_uiDesignW;
-	const float fy = (float)Options::baseYResolution / (float)_uiDesignH;
+	Calypso::CalypsoBaseSafeRect safe{0, 0, Options::baseXResolution, Options::baseYResolution};
+	(void)Calypso::calypsoProjectedSafeRectForLayout(
+		Options::baseXResolution, Options::baseYResolution, safe);
+	const float fx = (float)safe.width / (float)_uiDesignW;
+	const float fy = (float)safe.height / (float)_uiDesignH;
 	float s = (fx < fy ? fx : fy) * _uiFactor;
 	if (s < 1.0f) s = 1.0f;
 	_uiScale = s;
-	const int offX = (Options::baseXResolution - (int)(_uiDesignW * s + 0.5f)) / 2;
-	const int offY = (Options::baseYResolution - (int)(_uiDesignH * s + 0.5f)) / 2;
+	const int offX = safe.x + (safe.width - (int)(_uiDesignW * s + 0.5f)) / 2;
+	const int offY = safe.y + (safe.height - (int)(_uiDesignH * s + 0.5f)) / 2;
 	for (const auto& r : _uiNative)
 	{
 		if (!r.surf) continue;

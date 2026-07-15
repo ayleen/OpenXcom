@@ -803,6 +803,47 @@ unsigned int TextList::getSelectedRow() const
 	}
 }
 
+void TextList::setSelectedRow(size_t row)
+{
+	if (!_selectable || row >= _texts.size()) return;
+	for (size_t i = 0; i < _rows.size(); ++i)
+	{
+		if (_rows[i] != row) continue;
+		if (i < _scroll) scrollTo(i);
+		else if (_visibleRows > 0 && i >= _scroll + _visibleRows)
+			scrollTo(i - _visibleRows + 1);
+		_selRow = i;
+		updateSelector();
+		return;
+	}
+}
+
+void TextList::updateSelector()
+{
+	if (!_selectable || _selRow >= _rows.size())
+	{
+		_selector->setVisible(false);
+		return;
+	}
+	Text *selText = _texts[_rows[_selRow]].front();
+	int y = getY() + selText->getY();
+	int actualHeight = selText->getHeight() + _font->getSpacing();
+	if (y < getY() || y + actualHeight > getY() + getHeight()) actualHeight /= 2;
+	if (y < getY()) y = getY();
+	if (_selector->getHeight() != actualHeight)
+	{
+		delete _selector;
+		_selector = new Surface(getWidth(), actualHeight, getX(), y);
+		_selector->setPalette(getPalette());
+	}
+	_selector->setY(y);
+	_selector->copy(_bg);
+	if (_contrast) _selector->offsetBlock(-5);
+	else if (_comboBox) _selector->offset(+1, Palette::backPos);
+	else _selector->offsetBlock(-10);
+	_selector->setVisible(true);
+}
+
 /**
  * Changes the surface used to draw the background of the selector.
  * @param bg New background.
@@ -1385,46 +1426,7 @@ void TextList::mouseOver(Action *action, State *state)
 #else
 		_selRow = std::max(0, (int)(_scroll + (int)floor(action->getRelativeYMouse() / (rowHeight * action->getYScale()))));
 #endif
-		if (_selRow < _rows.size())
-		{
-			Text *selText = _texts[_rows[_selRow]].front();
-			int y = getY() + selText->getY();
-			int actualHeight = selText->getHeight() + _font->getSpacing(); //current line height
-			if (y < getY() || y + actualHeight > getY() + getHeight())
-			{
-				actualHeight /= 2;
-			}
-			if (y < getY())
-			{
-				y = getY();
-			}
-			if (_selector->getHeight() != actualHeight)
-			{
-				// resizing doesn't work, but recreating does, so let's do that!
-				delete _selector;
-				_selector = new Surface(getWidth(), actualHeight, getX(), y);
-				_selector->setPalette(getPalette());
-			}
-			_selector->setY(y);
-			_selector->copy(_bg);
-			if (_contrast)
-			{
-				_selector->offsetBlock(-5);
-			}
-			else if (_comboBox)
-			{
-				_selector->offset(+1, Palette::backPos);
-			}
-			else
-			{
-				_selector->offsetBlock(-10);
-			}
-			_selector->setVisible(true);
-		}
-		else
-		{
-			_selector->setVisible(false);
-		}
+		updateSelector();
 	}
 
 	InteractiveSurface::mouseOver(action, state);

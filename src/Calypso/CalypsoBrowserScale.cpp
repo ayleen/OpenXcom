@@ -1,13 +1,11 @@
 #ifdef __EMSCRIPTEN__
 /*
- * Calypso browser canvas/scale handling (Phase 46.1.5) -- extracted verbatim
- * from Engine/Screen.cpp (policy R3 / R6 relocation-only).
- *   - normalizeBrowserScales: promote invalid stored scene fractions and
- *     synchronise their pending twins via the pure CalypsoResolutionFloor
- *     helpers.
+ * Calypso browser canvas/scale handling (Phase 46.1.5), extracted from
+ * Engine/Screen.cpp under policy R3 / R6.
+ *   - normalizeBrowserScales: independently promote invalid live and pending
+ *     scene fractions via the pure CalypsoResolutionFloor helpers.
  *   - reflowCanvasFallback: the flip() canvas-size resize path, routed through
  *     the Calypso viewport bridge (calypsoNotifyCanvasFallback).
- * Behaviour unchanged; see `git diff --color-moved`.
  */
 #include <SDL.h>
 
@@ -29,19 +27,29 @@ void Screen::normalizeBrowserScales()
 		Options::nonSquarePixelRatio = normalizedNonSquare;
 		Log(LOG_WARNING) << "[ui-resolution] ignored native-only nonSquarePixelRatio in browser options";
 	}
-	auto normalize = [](int& live, int& pending, const char *scene) {
-		const Calypso::CalypsoScaleResult result = Calypso::calypsoPromoteScale(
-			Options::displayWidth, Options::displayHeight, Options::nonSquarePixelRatio, live);
-		const bool promoted = live != result.scaleType;
-		live = pending = result.scaleType;
-		if (promoted)
+	const int storedGeoscapeLive = Options::geoscapeScale;
+	const int storedGeoscapePending = Options::newGeoscapeScale;
+	const int storedBattlescapeLive = Options::battlescapeScale;
+	const int storedBattlescapePending = Options::newBattlescapeScale;
+	Calypso::calypsoNormalizeBrowserScaleSnapshot(
+		Options::displayWidth, Options::displayHeight, Options::nonSquarePixelRatio,
+		Options::geoscapeScale, Options::newGeoscapeScale,
+		Options::battlescapeScale, Options::newBattlescapeScale);
+
+	auto logPromotion = [](int storedScale, int normalizedScale, const char *scene, const char *setting) {
+		if (storedScale != normalizedScale)
 		{
-			Log(LOG_WARNING) << "[ui-resolution] promoted " << scene << " scale to "
+			const Calypso::CalypsoScaleResult result = Calypso::calypsoEvaluateScale(
+				Options::displayWidth, Options::displayHeight,
+				Options::nonSquarePixelRatio, normalizedScale);
+			Log(LOG_WARNING) << "[ui-resolution] promoted " << scene << " " << setting << " scale to "
 			                 << result.width << "x" << result.height;
 		}
 	};
-	normalize(Options::geoscapeScale, Options::newGeoscapeScale, "Geoscape");
-	normalize(Options::battlescapeScale, Options::newBattlescapeScale, "Battlescape");
+	logPromotion(storedGeoscapeLive, Options::geoscapeScale, "Geoscape", "live");
+	logPromotion(storedGeoscapePending, Options::newGeoscapeScale, "Geoscape", "pending");
+	logPromotion(storedBattlescapeLive, Options::battlescapeScale, "Battlescape", "live");
+	logPromotion(storedBattlescapePending, Options::newBattlescapeScale, "Battlescape", "pending");
 }
 
 void Screen::reflowCanvasFallback(int wW, int wH)

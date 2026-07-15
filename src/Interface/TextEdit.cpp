@@ -24,6 +24,7 @@
 #include "../Engine/Timer.h"
 #include "../Engine/Options.h"
 #include "../Calypso/CalypsoTextEditLayout.h"
+#include "../Calypso/CalypsoTextInput.h"
 #include "../fallthrough.h"
 
 #ifdef __EMSCRIPTEN__
@@ -121,15 +122,33 @@ TextEdit::TextEdit(State *state, int width, int height, int x, int y) : Interact
  */
 TextEdit::~TextEdit()
 {
+	const Calypso::CalypsoTextFocusTeardown teardown =
+		Calypso::calypsoPlanTextFocusTeardown(_isFocused,
 #ifdef __EMSCRIPTEN__
-	if (g_calypsoFocusedTextEdit == this) g_calypsoFocusedTextEdit = nullptr;
+			g_calypsoFocusedTextEdit == this);
+#else
+			false);
+#endif
+	if (teardown.stopTextInput)
+	{
+		// Do not call setFocus(false) here: State may be part-way through its
+		// reverse surface destruction, so modal/focus callbacks are unsafe.
+		InteractiveSurface::setFocus(false);
+		_blink = false;
+		_timer->stop();
+		SDL_StopTextInput();
+		SDL_EnableKeyRepeat(0, SDL_DEFAULT_REPEAT_INTERVAL);
+	}
+#ifdef __EMSCRIPTEN__
+	if (teardown.dismissBridge)
+	{
+		g_calypsoFocusedTextEdit = nullptr;
+		calypso_notify_text_focus(0, 0, 0, 0, 0, "", 0, 0);
+	}
 #endif
 	delete _text;
 	delete _caret;
 	delete _timer;
-	// In case it was left focused
-	SDL_EnableKeyRepeat(0, SDL_DEFAULT_REPEAT_INTERVAL);
-	_state->setModal(0);
 }
 
 /**
@@ -140,6 +159,11 @@ TextEdit::~TextEdit()
 void TextEdit::handle(Action *action, State *state)
 {
 	InteractiveSurface::handle(action, state);
+	if (_isFocused && action->getDetails()->type == SDL_TEXTINPUT)
+	{
+		textInput(action, state);
+		return;
+	}
 	if (_isFocused && _modal && action->getDetails()->type == SDL_MOUSEBUTTONDOWN &&
 		(action->getAbsoluteXMouse() < getX() || action->getAbsoluteXMouse() >= getX() + getWidth() ||
 		 action->getAbsoluteYMouse() < getY() || action->getAbsoluteYMouse() >= getY() + getHeight()))
@@ -163,6 +187,7 @@ void TextEdit::setFocus(bool focus, bool modal)
 		InteractiveSurface::setFocus(focus);
 		if (_isFocused)
 		{
+			SDL_StartTextInput();
 			SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY, SDL_DEFAULT_REPEAT_INTERVAL);
 			_caretPos = _value.length();
 			_blink = true;
@@ -178,6 +203,7 @@ void TextEdit::setFocus(bool focus, bool modal)
 		}
 		else
 		{
+			SDL_StopTextInput();
 			_blink = false;
 			_timer->stop();
 			SDL_EnableKeyRepeat(0, SDL_DEFAULT_REPEAT_INTERVAL);
@@ -189,6 +215,38 @@ void TextEdit::setFocus(bool focus, bool modal)
 #endif
 		}
 	}
+}
+
+void TextEdit::textInput(Action *action, State *state)
+{
+	if (Options::keyboardMode != KEYBOARD_ON
+		|| !Calypso::calypsoTextEventMayInsert(Calypso::CalypsoTextEventSource::TextInput))
+		return;
+	const UString incoming = Calypso::calypsoNormalizeTextInput(
+		Unicode::convUtf8ToUtf32(action->getDetails()->text.text),
+		_multiline && _textEditConstraint == TEC_NONE);
+	bool changed = false;
+	for (UCode c : incoming)
+	{
+		if (c == '\n')
+		{
+			_value.insert(_caretPos++, 1, c);
+			changed = true;
+			continue;
+		}
+		if (!isValidChar(c) || (!_multiline && exceedsMaxWidth(c))) continue;
+		_value.insert(_caretPos++, 1, c);
+		changed = true;
+	}
+	if (!changed) return;
+	_preferredCaretX = -1;
+	if (_multiline)
+	{
+		invalidateMultilineLayout();
+		updateMultilineViewport();
+	}
+	_redraw = true;
+	if (_change) (state->*_change)(action);
 }
 
 /**
@@ -305,6 +363,13 @@ void TextEdit::setTextExternal(const std::string &utf8)
 		Action fake(&fakeEv, 0.0, 0.0, 0, 0);
 		(_state->*_change)(&fake);
 	}
+}
+
+void TextEdit::refreshExternalGeometry()
+{
+	if (!_isFocused || g_calypsoFocusedTextEdit != this) return;
+	calypso_notify_text_focus(2, getX(), getY(), getWidth(), getHeight(), "",
+		_multiline ? 1 : 0, static_cast<int>(_enterPolicy));
 }
 #endif
 
@@ -677,6 +742,7 @@ bool TextEdit::exceedsMaxWidth(UCode c) const
  */
 bool TextEdit::isValidChar(UCode c) const
 {
+	if (!Calypso::calypsoIsUnicodeScalar(c)) return false;
 	switch (_textEditConstraint)
 	{
 	case TEC_NUMERIC_POSITIVE:
@@ -857,15 +923,7 @@ void TextEdit::keyboardPress(Action *action, State *state)
 			// The owning state decides whether Escape cancels, closes, or is ignored.
 			break;
 		default:
-			{
-				const UCode c = static_cast<UCode>(key);
-				if (isValidChar(c))
-				{
-					_value.insert(_caretPos++, 1, c);
-					changed = true;
-				}
-				_preferredCaretX = -1;
-			}
+			// SDL2 printable input arrives separately as SDL_TEXTINPUT.
 			break;
 		}
 		if (changed) invalidateMultilineLayout();
@@ -969,18 +1027,7 @@ void TextEdit::keyboardPress(Action *action, State *state)
 			}
 			break;
 		default:
-#if SDL_VERSION_ATLEAST(2,0,0)
-			/* SDL2 removed keysym.unicode; SDL_TEXTINPUT events carry text.
-			 * Approximate with the sym keycode for ASCII printable range. */
-			UCode c = (UCode)(action->getDetails()->key.keysym.sym);
-#else
-			UCode c = action->getDetails()->key.keysym.unicode;
-#endif
-			if (isValidChar(c) && !exceedsMaxWidth(c))
-			{
-				_value.insert(_caretPos, 1, c);
-				_caretPos++;
-			}
+			// SDL2 printable input arrives separately as SDL_TEXTINPUT.
 			break;
 		}
 	}

@@ -59,6 +59,7 @@ protected:
 	bool _hdLayout;
 	bool _hdNotesLoaded;
 	int _deleteRow;
+	int _hdListSelection;
 	std::uint64_t _focusGeneration;
 	std::vector<std::string> _originalNotes;
 	std::vector<std::string> _workingNotes;
@@ -67,6 +68,8 @@ protected:
 	void updateList();
 	/// Updates the HD working-copy list without touching the campaign save.
 	void updateHdList();
+	/// Keeps the keyboard-selected fixed row visibly marked.
+	void updateHdListSelectionIndicator();
 	/// Starts inline editing for a working-copy row (size() means new note).
 	void beginHdEdit(int row);
 	/// Applies the active HD row edit to the working copy.

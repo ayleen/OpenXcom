@@ -16,10 +16,40 @@
 #include "../Battlescape/BattlescapeState.h"
 #include "../Geoscape/GeoscapeState.h"
 #include "../Savegame/SavedGame.h"
+#include "../Interface/TextEdit.h"
 #include "CalypsoViewportRuntime.h"
+#include "CalypsoViewportOwner.h"
 
 namespace OpenXcom
 {
+
+namespace Calypso
+{
+static const CalypsoLayoutMetrics *s_activeReflowMetrics = nullptr;
+
+bool calypsoProjectedSafeRectForLayout(int baseWidth, int baseHeight,
+	                                   CalypsoBaseSafeRect& out)
+{
+	const CalypsoLayoutMetrics *metrics = s_activeReflowMetrics;
+	if (!metrics)
+	{
+		CalypsoViewportRuntime& runtime = calypsoViewportRuntime();
+		if (!runtime.hasLayout()) return false;
+		metrics = &runtime.current();
+	}
+	out = calypsoProjectSafeRect(*metrics, baseWidth, baseHeight);
+	return true;
+}
+} // namespace Calypso
+
+extern TextEdit *g_calypsoFocusedTextEdit;
+
+bool Game::hasActiveBattlescapeRoot() const
+{
+	for (State *state : _states)
+		if (dynamic_cast<BattlescapeState *>(state)) return true;
+	return false;
+}
 
 /**
  * Apply one bridge-authorized physical viewport resize as a single reflow.
@@ -40,6 +70,7 @@ void Game::reflowEmscriptenViewport(int physicalWidth, int physicalHeight)
 	}
 	if (physicalWidth <= 0 || physicalHeight <= 0)
 		return;
+	Calypso::s_activeReflowMetrics = &transition.metrics;
 
 	const int oldPhysicalWidth = Options::displayWidth;
 	const int oldPhysicalHeight = Options::displayHeight;
@@ -52,6 +83,17 @@ void Game::reflowEmscriptenViewport(int physicalWidth, int physicalHeight)
 		std::max(Screen::ORIGINAL_HEIGHT, physicalHeight);
 	Screen::normalizeBrowserScales();
 
+	int geoscapeWidth = Options::baseXGeoscape;
+	int geoscapeHeight = Options::baseYGeoscape;
+	int battlescapeWidth = Options::baseXBattlescape;
+	int battlescapeHeight = Options::baseYBattlescape;
+	Screen::updateScale(Options::geoscapeScale, geoscapeWidth, geoscapeHeight, false);
+	Screen::updateScale(Options::battlescapeScale, battlescapeWidth, battlescapeHeight, false);
+	Options::baseXGeoscape = geoscapeWidth;
+	Options::baseYGeoscape = geoscapeHeight;
+	Options::baseXBattlescape = battlescapeWidth;
+	Options::baseYBattlescape = battlescapeHeight;
+
 	BattlescapeState *battleRoot = nullptr;
 	GeoscapeState *geoRoot = nullptr;
 	for (State *state : _states)
@@ -59,10 +101,14 @@ void Game::reflowEmscriptenViewport(int physicalWidth, int physicalHeight)
 		if (auto *battle = dynamic_cast<BattlescapeState *>(state)) battleRoot = battle;
 		if (auto *geo = dynamic_cast<GeoscapeState *>(state)) geoRoot = geo;
 	}
-	const bool tactical = battleRoot != nullptr
-		|| (_save && _save->getSavedBattle() != nullptr);
-	State *root = tactical ? static_cast<State *>(battleRoot)
-	                       : static_cast<State *>(geoRoot);
+	const Calypso::CalypsoViewportOwner owner = Calypso::calypsoViewportOwner(
+		battleRoot != nullptr, geoRoot != nullptr,
+		_save && _save->getSavedBattle() != nullptr);
+	const bool tactical = owner == Calypso::CalypsoViewportOwner::TacticalRoot;
+	State *root = owner == Calypso::CalypsoViewportOwner::TacticalRoot
+		? static_cast<State *>(battleRoot)
+		: (owner == Calypso::CalypsoViewportOwner::StrategicRoot
+			? static_cast<State *>(geoRoot) : nullptr);
 
 	int dX = 0;
 	int dY = 0;
@@ -84,6 +130,11 @@ void Game::reflowEmscriptenViewport(int physicalWidth, int physicalHeight)
 
 	const int targetBaseWidth = oldBaseWidth + dX;
 	const int targetBaseHeight = oldBaseHeight + dY;
+	// Rootless stacks do not have a scene resize override to commit the active
+	// base before their overlays run. Publish it now so applyUiScaling projects
+	// the immutable safe rect against the new framebuffer, not the stale one.
+	Options::baseXResolution = targetBaseWidth;
+	Options::baseYResolution = targetBaseHeight;
 	if (tactical)
 	{
 		Options::baseXBattlescape = targetBaseWidth;
@@ -102,17 +153,15 @@ void Game::reflowEmscriptenViewport(int physicalWidth, int physicalHeight)
 		int stateDY = dY;
 		state->resize(stateDX, stateDY);
 	}
-	// Rootless stacks (boot/menu/briefing) may contain no state that owns the
-	// active base. Commit the precomputed target after their resize hooks.
-	Options::baseXResolution = targetBaseWidth;
-	Options::baseYResolution = targetBaseHeight;
-
 	const bool displayChanged = Options::displayWidth != oldPhysicalWidth
 	                         || Options::displayHeight != oldPhysicalHeight;
 	const bool baseChanged = Options::baseXResolution != oldBaseWidth
 	                      || Options::baseYResolution != oldBaseHeight;
 	if (displayChanged || baseChanged)
 		_screen->resetDisplay(false, false);
+	if (g_calypsoFocusedTextEdit)
+		g_calypsoFocusedTextEdit->refreshExternalGeometry();
+	Calypso::s_activeReflowMetrics = nullptr;
 	Log(LOG_INFO) << "[ui-resize] logical="
 	              << transition.previousLogicalWidth << "x" << transition.previousLogicalHeight
 	              << "->" << transition.logicalWidth << "x" << transition.logicalHeight

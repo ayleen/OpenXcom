@@ -43,6 +43,11 @@ int calypso_pause_main_loop_before_iterate(void)
 	return 1;
 }
 
+int calypso_viewport_input_blocked(void)
+{
+	return s_calypsoViewportBlocked;
+}
+
 EMSCRIPTEN_KEEPALIVE
 void calypso_set_viewport_supported(int supported)
 {
