@@ -19,6 +19,8 @@
 
 namespace OpenXcom
 {
+class GpuTexture;
+
 /// Per-tile / per-unit GPU instance record submitted to the tile_atlas shader.
 /// Relocated verbatim from Map::TileInstance (Phase 36 R6). The instance layout
 /// (12 floats) is asserted in MapGl.cpp::initTileGL — do not reorder fields.
@@ -43,6 +45,21 @@ struct HdRgbaOverlayInstance
 {
 	HdTileInstance instance;
 	size_t baselineIndex = 0; // matching entry in the group's instances[]
+};
+
+/// One record in Map's reusable mixed R8/RGBA painter scratch buffer.
+/// `sourceOrder` makes an in-place std::sort equivalent to the old stable_sort
+/// without letting the standard library allocate a temporary merge buffer.
+struct HdUnitPainterDraw
+{
+	GpuTexture* atlas = nullptr;
+	float uvW = 0.0f, uvH = 0.0f;
+	HdTileInstance instance{};
+	bool rgba = false;
+	float unitShade = 0.0f;
+	GpuTexture* hdMask = nullptr;
+	float maskU = 0.0f, maskV = 0.0f, maskUvW = 0.0f, maskUvH = 0.0f;
+	size_t sourceOrder = 0;
 };
 
 /// Typed bundle of emit targets handed to UnitSprite::setEmitMode (replacing the

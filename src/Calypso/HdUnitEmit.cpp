@@ -23,6 +23,9 @@ namespace
 
 constexpr float kSubprioBase        = 4.0f;
 constexpr float kSubprioStep        = 0.25f;
+// Every draw routine must consume at most eight ordered parts (sequence 0..7).
+// If a routine is added or extended beyond that, later parts clamp to the same
+// depth and can no longer express their relative layering in the depth prepass.
 constexpr int   kSubprioMaxSequence = 7;
 constexpr float kSubprioOverlayEps  = 0.125f;
 constexpr double kDepth24Max        = 16777215.0;

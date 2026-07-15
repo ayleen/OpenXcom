@@ -1806,33 +1806,27 @@ void Map::drawTileGLPass()
 		// Phase 42 E1: collect every unit/floor/HANDOB R8 emission and its
 		// production RGBA sibling into one painter list. Atlas/page buckets are
 		// storage details only; colour compositing follows global emission priority.
-		struct UnitPainterDraw
-		{
-			GpuTexture* atlas = nullptr;
-			float uvW = 0.0f, uvH = 0.0f;
-			TileInstance instance{};
-			bool rgba = false;
-			float unitShade = 0.0f;
-			GpuTexture* hdMask = nullptr;
-			float maskU = 0.0f, maskV = 0.0f, maskUvW = 0.0f, maskUvH = 0.0f;
-		};
-		std::vector<UnitPainterDraw> unitPainter;
+		// Scratch capacity survives redraws. It grows only when a battle first
+		// exceeds its previous high-water mark, rather than allocating every frame.
+		std::vector<HdUnitPainterDraw>& unitPainter = _unitPainterScratch;
+		unitPainter.clear();
+		size_t sourceOrder = 0;
 		for (auto& g : _unitAtlasGroups)
 		{
 			if (!g.spec || !g.spec->atlas || g.spec->atlasW <= 0 || g.spec->atlasH <= 0) continue;
 			const float uvW = (float)g.spec->tileWidth  / (float)g.spec->atlasW;
 			const float uvH = (float)g.spec->tileHeight / (float)g.spec->atlasH;
 			const float unitShade = (g.spec == floorSpec) ? 0.0f : g_calypsoUnitShade;
-			std::vector<UnitPainterDraw> baselines;
-			baselines.reserve(g.instances.size());
+			const size_t baselineFirst = unitPainter.size();
 			for (const TileInstance& instance : g.instances)
-				baselines.push_back({g.spec->atlas, uvW, uvH, instance, false, unitShade});
+				unitPainter.push_back({g.spec->atlas, uvW, uvH, instance, false, unitShade});
 
 			if (!g.spec->hasRgbaOverlay()
 			 || g.spec->frameWidth <= 0 || g.spec->frameHeight <= 0
 			 || g.spec->rgbaPageW <= 0 || g.spec->rgbaPageH <= 0)
 			{
-				unitPainter.insert(unitPainter.end(), baselines.begin(), baselines.end());
+				for (size_t i = 0; i < g.instances.size(); ++i)
+					unitPainter[baselineFirst + i].sourceOrder = sourceOrder++;
 				continue;
 			}
 			const float rgbaUvW = (float)g.spec->frameWidth  / (float)g.spec->rgbaPageW;
@@ -1844,9 +1838,9 @@ void Map::drawTileGLPass()
 				if (!atlas) continue;
 				for (const auto& overlay : g.rgbaOverlayInstances[page])
 				{
-					if (overlay.baselineIndex < baselines.size())
+					if (overlay.baselineIndex < g.instances.size())
 					{
-						UnitPainterDraw& baseline = baselines[overlay.baselineIndex];
+						HdUnitPainterDraw& baseline = unitPainter[baselineFirst + overlay.baselineIndex];
 						baseline.hdMask = atlas;
 						baseline.maskU = overlay.instance.atlasU;
 						baseline.maskV = overlay.instance.atlasV;
@@ -1854,28 +1848,35 @@ void Map::drawTileGLPass()
 						baseline.maskUvH = rgbaUvH;
 					}
 					unitPainter.push_back({atlas, rgbaUvW, rgbaUvH,
-					                       overlay.instance, true, 0.0f});
+					                       overlay.instance, true, 0.0f,
+					                       nullptr, 0.0f, 0.0f, 0.0f, 0.0f,
+					                       sourceOrder++});
 				}
 			}
-			unitPainter.insert(unitPainter.end(), baselines.begin(), baselines.end());
+			// Match the old stable input order: this group's overlays were appended
+			// before its baselines. Physical storage can differ because sourceOrder
+			// is the explicit tie-breaker below.
+			for (size_t i = 0; i < g.instances.size(); ++i)
+				unitPainter[baselineFirst + i].sourceOrder = sourceOrder++;
 		}
-		std::stable_sort(unitPainter.begin(), unitPainter.end(),
-			[](const UnitPainterDraw& a, const UnitPainterDraw& b) {
-				return UnitSprite::e1PainterOrderLess(a.instance.iso, b.instance.iso);
+		std::sort(unitPainter.begin(), unitPainter.end(),
+			[](const HdUnitPainterDraw& a, const HdUnitPainterDraw& b) {
+				if (UnitSprite::e1PainterOrderLess(a.instance.iso, b.instance.iso)) return true;
+				if (UnitSprite::e1PainterOrderLess(b.instance.iso, a.instance.iso)) return false;
+				return a.sourceOrder < b.sourceOrder;
 			});
 
-		auto compatible = [](const UnitPainterDraw& a, const UnitPainterDraw& b) {
+		auto compatible = [](const HdUnitPainterDraw& a, const HdUnitPainterDraw& b) {
 			return a.atlas == b.atlas && a.uvW == b.uvW && a.uvH == b.uvH
 			    && a.rgba == b.rgba && a.unitShade == b.unitShade
 			    && a.hdMask == b.hdMask
 			    && a.maskU == b.maskU && a.maskV == b.maskV
 			    && a.maskUvW == b.maskUvW && a.maskUvH == b.maskUvH;
 		};
-		const std::vector<HdUnitRenderPlan::Run> runs =
-			HdUnitRenderPlan::consecutiveRuns(unitPainter, compatible);
-		std::vector<TileInstance> unitUpload;
+		std::vector<TileInstance>& unitUpload = _unitUploadScratch;
+		unitUpload.clear();
 		unitUpload.reserve(unitPainter.size());
-		for (const UnitPainterDraw& draw : unitPainter)
+		for (const HdUnitPainterDraw& draw : unitPainter)
 			unitUpload.push_back(draw.instance);
 		if (!unitUpload.empty())
 			uploadUnitInstances(unitUpload.data(), unitUpload.size());
@@ -1900,12 +1901,16 @@ void Map::drawTileGLPass()
 			activeShader = nullptr;
 		}
 		auto drawRuns = [&]() {
-			for (const HdUnitRenderPlan::Run& run : runs)
+			for (size_t first = 0; first < unitPainter.size(); )
 			{
-				const UnitPainterDraw& draw = unitPainter[run.first];
-				drawAtlas(draw.atlas, draw.uvW, draw.uvH, run.first, run.count,
+				size_t end = first + 1;
+				while (end < unitPainter.size() && compatible(unitPainter[end - 1], unitPainter[end]))
+					++end;
+				const HdUnitPainterDraw& draw = unitPainter[first];
+				drawAtlas(draw.atlas, draw.uvW, draw.uvH, first, end - first,
 				          draw.rgba, draw.unitShade, draw.hdMask,
 				          draw.maskU, draw.maskV, draw.maskUvW, draw.maskUvH);
+				first = end;
 			}
 		};
 		drawRuns();

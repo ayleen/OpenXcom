@@ -525,6 +525,8 @@ private:
 		std::vector<std::vector<RgbaOverlayInstance>> rgbaOverlayInstances;
 	};
 	std::vector<UnitAtlasGroup> _unitAtlasGroups;
+	std::vector<HdUnitPainterDraw> _unitPainterScratch; // retained hot-path capacity
+	std::vector<TileInstance> _unitUploadScratch;       // retained hot-path capacity
 	HdUnitEmitTargets makeHdUnitEmitTargets(size_t bodyIdx, bool haveItem,
 	                                      size_t itemIdx, int z, int y, int x,
 	                                      int renderWidth, int renderHeight);
