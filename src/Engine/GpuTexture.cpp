@@ -10,56 +10,11 @@
 
 #ifdef __EMSCRIPTEN__
 #  include <GLES3/gl3.h>
+#  include "../Calypso/GpuTextureValidation.h"
 #endif
 
 namespace OpenXcom
 {
-
-#ifdef __EMSCRIPTEN__
-namespace
-{
-void drainPriorGlErrors(const char* operation)
-{
-    for (GLenum error = glGetError(); error != GL_NO_ERROR; error = glGetError())
-        Log(LOG_WARNING) << "GpuTexture::" << operation
-                         << ": clearing pre-existing GL error 0x"
-                         << std::hex << (unsigned)error << std::dec;
-}
-
-GLenum takeGlError()
-{
-    const GLenum first = glGetError();
-    for (GLenum error = glGetError(); error != GL_NO_ERROR; error = glGetError()) {}
-    return first;
-}
-
-bool dimensionsFitRuntime(const char* operation, const uint8_t* data, int w, int h,
-                          int bytesPerPixel)
-{
-    if (!data || w <= 0 || h <= 0 || bytesPerPixel <= 0
-     || (size_t)w > SIZE_MAX / (size_t)h
-     || (size_t)w * (size_t)h > SIZE_MAX / (size_t)bytesPerPixel)
-    {
-        Log(LOG_ERROR) << "GpuTexture::" << operation
-                       << ": invalid upload dimensions/data " << w << "x" << h;
-        return false;
-    }
-    GLint maxTextureSize = 0;
-    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxTextureSize);
-    const GLenum queryError = takeGlError();
-    if (queryError != GL_NO_ERROR || maxTextureSize <= 0
-     || w > maxTextureSize || h > maxTextureSize)
-    {
-        Log(LOG_ERROR) << "GpuTexture::" << operation << ": " << w << "x" << h
-                       << " exceeds/failed runtime GL_MAX_TEXTURE_SIZE="
-                       << maxTextureSize << " (GL error 0x" << std::hex
-                       << (unsigned)queryError << std::dec << ")";
-        return false;
-    }
-    return true;
-}
-} // namespace
-#endif
 
 GpuTexture::GpuTexture(bool srgb, Wrap wrap, Filter filter) : _srgb(srgb), _wrap(wrap), _filter(filter)
 {
@@ -81,8 +36,9 @@ bool GpuTexture::uploadRGBA(const uint8_t* data, int w, int h, int mipLevel)
         Log(LOG_ERROR) << "GpuTexture::uploadRGBA: negative mip level";
         return false;
     }
-    drainPriorGlErrors("uploadRGBA");
-    if (!dimensionsFitRuntime("uploadRGBA", data, w, h, 4)) return false;
+    CalypsoGpuTextureValidation::drainPriorGlErrors("uploadRGBA");
+    if (!CalypsoGpuTextureValidation::dimensionsFitRuntime(
+            "uploadRGBA", data, w, h, 4)) return false;
 
     if (!_tex)
     {
@@ -112,7 +68,7 @@ bool GpuTexture::uploadRGBA(const uint8_t* data, int w, int h, int mipLevel)
     {
         glGenerateMipmap(GL_TEXTURE_2D);
     }
-    const GLenum uploadError = takeGlError();
+    const unsigned int uploadError = CalypsoGpuTextureValidation::takeGlError();
     if (uploadError != GL_NO_ERROR)
     {
         Log(LOG_ERROR) << "GpuTexture::uploadRGBA: GL upload failed for "
@@ -147,8 +103,9 @@ bool GpuTexture::uploadR8(const uint8_t* data, int w, int h)
 {
 #ifdef __EMSCRIPTEN__
     if (!GpuInit::ready()) return false;
-    drainPriorGlErrors("uploadR8");
-    if (!dimensionsFitRuntime("uploadR8", data, w, h, 1)) return false;
+    CalypsoGpuTextureValidation::drainPriorGlErrors("uploadR8");
+    if (!CalypsoGpuTextureValidation::dimensionsFitRuntime(
+            "uploadR8", data, w, h, 1)) return false;
     if (!_tex)
     {
         glGenTextures(1, &_tex);
@@ -167,7 +124,7 @@ bool GpuTexture::uploadR8(const uint8_t* data, int w, int h)
         glBindTexture(GL_TEXTURE_2D, _tex);
     }
     glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, w, h, 0, GL_RED, GL_UNSIGNED_BYTE, data);
-    const GLenum uploadError = takeGlError();
+    const unsigned int uploadError = CalypsoGpuTextureValidation::takeGlError();
     if (uploadError != GL_NO_ERROR)
     {
         Log(LOG_ERROR) << "GpuTexture::uploadR8: GL upload failed for "
