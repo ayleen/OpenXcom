@@ -4414,6 +4414,7 @@ void BattlescapeState::zoom(int direction)
 	// to the battlescape (and BriefingState/LoadGame snap back to the old dims).
 	Options::baseXBattlescape = Options::baseXResolution;
 	Options::baseYBattlescape = Options::baseYResolution;
+	_game->calypsoNotifyViewportRootApplied(this);
 	_game->getScreen()->resetDisplay(false);
 	_map->draw();
 }

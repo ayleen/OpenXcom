@@ -94,6 +94,7 @@ struct CalypsoPendingViewportResize
 	int previousPhysicalHeight = 0;
 	int physicalWidth = 0;
 	int physicalHeight = 0;
+	std::uint64_t previousGeneration = 0;
 	std::uint64_t generation = 0;
 	CalypsoLayoutMetrics previousMetrics;
 	CalypsoLayoutMetrics metrics;
@@ -102,6 +103,7 @@ struct CalypsoPendingViewportResize
 CalypsoViewportRuntime& calypsoViewportRuntime();
 bool calypsoConsumePendingViewportResize(int physicalWidth, int physicalHeight,
 	                                     CalypsoPendingViewportResize& out);
+bool calypsoPendingViewportSize(int& physicalWidth, int& physicalHeight);
 bool calypsoNotifyCanvasFallback(int physicalWidth, int physicalHeight);
 bool calypsoProjectedSafeRectForLayout(int baseWidth, int baseHeight,
 	                                   CalypsoBaseSafeRect& out);

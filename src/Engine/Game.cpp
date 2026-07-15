@@ -188,7 +188,11 @@ bool Game::iterate()
 	if (!_init)
 	{
 		_init = true;
+#ifdef __EMSCRIPTEN__
+		initializeEmscriptenTopState();
+#else
 		_states.back()->init();
+#endif
 
 		// Unpress buttons
 		_states.back()->resetAll();
@@ -635,6 +639,9 @@ void Game::pushState(State *state)
 		_cursor->setHidden(false);
 	}
 	_states.push_back(state);
+#ifdef __EMSCRIPTEN__
+	trackEmscriptenViewportState(state);
+#endif
 	_init = false;
 }
 

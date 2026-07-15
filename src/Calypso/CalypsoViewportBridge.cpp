@@ -70,6 +70,8 @@ static bool queueViewportEvent(const CalypsoViewportUpdate& change)
 		? previousPending.previousPhysicalHeight : change.previousPhysicalHeight;
 	s_pendingViewport.physicalWidth = s_viewportRuntime.physicalWidth();
 	s_pendingViewport.physicalHeight = s_viewportRuntime.physicalHeight();
+	s_pendingViewport.previousGeneration = previouslyQueued
+		? previousPending.previousGeneration : change.previousGeneration;
 	s_pendingViewport.generation = change.generation;
 	s_hasPendingViewport = true;
 
@@ -107,6 +109,14 @@ bool calypsoConsumePendingViewportResize(int physicalWidth, int physicalHeight,
 		return false;
 	out = s_pendingViewport;
 	s_hasPendingViewport = false;
+	return true;
+}
+
+bool calypsoPendingViewportSize(int& physicalWidth, int& physicalHeight)
+{
+	if (!s_hasPendingViewport) return false;
+	physicalWidth = s_pendingViewport.physicalWidth;
+	physicalHeight = s_pendingViewport.physicalHeight;
 	return true;
 }
 
