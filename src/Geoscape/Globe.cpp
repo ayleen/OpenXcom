@@ -66,7 +66,7 @@
 #  include <algorithm>
 #  include <vector>
 
-/* Phase 8c §C2 perf-log gate.  Definition lives in EmscriptenHarness.cpp
+/* Phase 8c §C2 perf-log gate. Definition lives in Calypso/EmscriptenHarness.cpp
  * inside `extern "C" { … }`, which puts it in the global namespace.  The
  * forward declaration must therefore also be in the global namespace and
  * carry C linkage; placing it outside `namespace OpenXcom { … }` below is

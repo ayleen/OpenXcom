@@ -8,7 +8,7 @@
  * live inside namespace OpenXcom; exports live in one extern "C" block. This
  * mirrors the structure of CalypsoTutorial.cpp (whole-file guard, namespace
  * helpers, trailing extern "C" exports) and the calypso_menu_* knobs in
- * Engine/EmscriptenHarness.cpp.
+ * Calypso/EmscriptenHarness.cpp.
  *
  * String/JSON returns build into a function-local `static std::string s_buf`
  * so the returned const char* stays valid until the next call (single-threaded

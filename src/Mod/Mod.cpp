@@ -58,7 +58,7 @@
 #  include "TileAtlasBuilder.h"
 #  include "UnitSpriteAtlasBuilder.h"
 #  include <set>
-// M5: heap-attribution marks (function defined in EmscriptenHarness.cpp)
+// M5: heap-attribution marks (function defined in Calypso/EmscriptenHarness.cpp)
 extern "C" void calypso_log_heap(const char *tag);
 #endif
 #include "ExtraSounds.h"

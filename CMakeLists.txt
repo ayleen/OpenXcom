@@ -21,6 +21,7 @@ set ( TARGET_PLATFORM CACHE STRING "Target platform to include in the package na
 option ( EMBED_ASSETS "Embed common and standard into the executable" OFF )
 option ( FATAL_WARNING "Treat warnings as errors" OFF )
 option ( ENABLE_CLANG_ANALYSIS "When building with clang, enable the static analyzer" OFF )
+option ( CALYPSO_HD_UNIT_SPIKE "Build disposable Phase-42 HD-unit browser probes" OFF )
 option ( CHECK_CCACHE "Check if ccache is installed and use it" OFF )
 set ( MSVC_WARNING_LEVEL 3 CACHE STRING "Visual Studio warning levels" )
 option ( FORCE_INSTALL_DATA_TO_BIN "Force installation of data to binary directory" OFF )

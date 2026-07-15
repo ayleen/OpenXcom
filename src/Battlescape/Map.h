@@ -29,6 +29,7 @@
 #include <vector>
 #ifdef __EMSCRIPTEN__
 #include "../Mod/Mod.h"
+#include "../Calypso/HdUnitEmit.h"   // Phase 42 review #6: typed HdTileInstance / HdRgbaOverlayInstance
 #endif
 
 namespace OpenXcom
@@ -172,7 +173,6 @@ private:
 	void drawUnit(UnitSprite &unitSprite, Tile *unitTile, Tile *currTile, Position tileScreenPosition, bool topLayer, BattleUnit* movingUnit = nullptr);
 	void drawTerrainOverlayCPU(Surface *surface);
 #ifdef __EMSCRIPTEN__
-	friend class UnitSprite; // needs Map::TileInstance for emit targets
 	friend class ItemSprite; // ditto — emits floor items into pre-composite
 	void drawTerrainGPU(Surface *surface);
 	void emitTilePass();
@@ -182,15 +182,10 @@ private:
 	bool ensureSsaaTarget(int w, int h);
 
 	/// Per-tile GPU instance record submitted to the tile_atlas shader.
-	struct TileInstance
-	{
-		float screenX, screenY;   // top-left of tile in screen pixels
-		float atlasU,  atlasV;    // UV of primary frame top-left in atlas
-		float shade;              // 0..15
-		float animFrameCount;     // total anim frames (>=1)
-		float alphaMask;          // MCD opacity flag (0 or 1)
-		float iso;                // iso priority [0..1]; larger = closer to camera
-	};
+	/// Definition in src/Calypso/HdUnitEmit.h (Phase 42 review #6: shared typed
+	/// with UnitSprite so the Map→UnitSprite emit seam carries typed pointers,
+	/// not void*). The 8-float layout is asserted in MapGl.cpp::initTileGL.
+	using TileInstance = HdTileInstance;
 
 	/// Phase 22: per-tile instance for the runtime blend shader (tile_blend).
 	/// Kept separate from TileInstance so the ~99% non-blend path is unaffected.
@@ -509,6 +504,9 @@ private:
 	/// Keyed by atlas texture pointer (one draw call per unit PCK set).
 	struct UnitAtlasGroup
 	{
+		/// Phase 42 E1: production RGBA overlay sibling instance. Definition in
+		/// src/Calypso/HdUnitEmit.h (review #6 — typed, shared with UnitSprite).
+		using RgbaOverlayInstance = HdRgbaOverlayInstance;
 		const Mod::UnitAtlasSpec* spec = nullptr;
 		std::vector<TileInstance>  instances;
 		/// zLevels[i] = map Z of instances[i]. Same length as instances.
@@ -520,8 +518,18 @@ private:
 		/// drawTileGLPass interleave unit draws per (Z, Y) row so walls of
 		/// camera-near rows (Y > unit's Y) can occlude the unit from in front.
 		std::vector<int>           yLevels;
+		std::vector<TileInstance>  g0OverlayInstances;
+		// Phase 42 E1: production RGBA overlay instances, one vector per overlay
+		// page (indexed in lockstep with Mod::UnitAtlasSpec::rgbaOverlayPages).
+		// Sized when the group is created from the spec's page count.
+		std::vector<std::vector<RgbaOverlayInstance>> rgbaOverlayInstances;
 	};
 	std::vector<UnitAtlasGroup> _unitAtlasGroups;
+	std::vector<HdUnitPainterDraw> _unitPainterScratch; // retained hot-path capacity
+	std::vector<TileInstance> _unitUploadScratch;       // retained hot-path capacity
+	HdUnitEmitTargets makeHdUnitEmitTargets(size_t bodyIdx, bool haveItem,
+	                                      size_t itemIdx, int z, int y, int x,
+	                                      int renderWidth, int renderHeight);
 	// Phase 27.5: soft contact-shadow ellipse under each unit so HD sprites read
 	// as planted, not floating. One shared RGBA texture (black, soft-ellipse
 	// alpha) + a per-frame instance list filled in drawUnit and rendered in the

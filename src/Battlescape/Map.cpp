@@ -73,7 +73,7 @@
 #  include <vector>
 #  include <cstddef>   // offsetof — instance-layout static_asserts in initTileGL
 /* Phase 11.0 CPU perf gate; Phase 11.1 readback-cost probe gate.
- * Definitions live in EmscriptenHarness.cpp inside extern "C" {},
+ * Definitions live in Calypso/EmscriptenHarness.cpp inside extern "C" {},
  * so forward-declarations must carry C linkage (global namespace). */
 extern "C" int g_calypsoProfileBattlescape;
 extern "C" int g_calypsoProfileReadback;
@@ -101,7 +101,7 @@ extern "C" int   g_calypsoSunAuto;      // Phase 25 (R3): 1 = engine drives the 
  * and reset the flag, so production runs at zero cost. */
 extern "C" int g_calypsoDumpEmit;
 /* L2 (memory-reduction): JS-side SSAA scale override; 0 = use Map default.
- * Definition in EmscriptenHarness.cpp; set via calypso_set_ssaa_scale(). */
+ * Definition in Calypso/EmscriptenHarness.cpp; set via calypso_set_ssaa_scale(). */
 extern "C" int g_calypsoSsaaScale;
 #endif /* __EMSCRIPTEN__ */
 
@@ -1303,7 +1303,10 @@ void Map::drawUnit(UnitSprite &unitSprite, Tile *unitTile, Tile *currTile, Posit
 			const std::string& sheetName = bu->getArmor()->getSpriteSheet();
 			gpuUnitSpec = _game->getMod()->getUnitAtlas(sheetName);
 		}
-		if (gpuUnitSpec && gpuUnitSpec->atlas)
+		const HdUnitScalePlan scalePlan = makeHdUnitScalePlan(gpuUnitSpec,
+		    gpuUnitAvail ? _game->getMod()->getUnitAtlas("HANDOB.PCK") : nullptr,
+		    _spriteWidth, _spriteHeight);
+		if (gpuUnitSpec && gpuUnitSpec->atlas && scalePlan.valid)
 		{
 			// Find or create UnitAtlasGroups; use indices to avoid iterator
 			// invalidation if push_back causes a vector reallocation.
@@ -1312,29 +1315,24 @@ void Map::drawUnit(UnitSprite &unitSprite, Tile *unitTile, Tile *currTile, Posit
 					if (_unitAtlasGroups[i].spec == spec) return i;
 				_unitAtlasGroups.push_back({});
 				_unitAtlasGroups.back().spec = spec;
+				// Phase 42 E1: size the per-page RGBA overlay instance vectors
+				// to match the spec's page count so the emit path can index them.
+				_unitAtlasGroups.back().rgbaOverlayInstances.resize(
+				    spec ? spec->rgbaOverlayPages.size() : 0);
 				return _unitAtlasGroups.size() - 1;
 			};
 			const size_t bodyIdx = ensureGroup(gpuUnitSpec);
-			const Mod::UnitAtlasSpec* gpuItemSpec = _game->getMod()->getUnitAtlas("HANDOB.PCK");
-			const bool haveItem = gpuItemSpec && gpuItemSpec->atlas;
-			const size_t itemIdx = haveItem ? ensureGroup(gpuItemSpec) : _unitAtlasGroups.size();
+			const bool haveItem = scalePlan.itemSpec && scalePlan.itemSpec->atlas;
+			const size_t itemIdx = haveItem ? ensureGroup(scalePlan.itemSpec) : _unitAtlasGroups.size();
 			// Pass currTile's (Z, Y, X) so the GPU shader can derive an iso
 			// priority and use depth-test for correct iso z-ordering between
 			// units / items / tiles (no per-cell bucketing needed).
 			const int unitZ = currTile ? currTile->getPosition().z : 0;
 			const int unitY = currTile ? currTile->getPosition().y : 0;
 			const int unitX = currTile ? currTile->getPosition().x : 0;
-			unitSprite.setEmitMode(
-			    &_unitAtlasGroups[bodyIdx].instances,
-			    haveItem ? &_unitAtlasGroups[itemIdx].instances : nullptr,
-			    gpuUnitSpec,
-			    gpuItemSpec,
-			    unitZ, unitY, unitX,
-			    &_unitAtlasGroups[bodyIdx].zLevels,
-			    haveItem ? &_unitAtlasGroups[itemIdx].zLevels : nullptr,
-			    &_unitAtlasGroups[bodyIdx].yLevels,
-			    haveItem ? &_unitAtlasGroups[itemIdx].yLevels : nullptr
-			);
+			unitSprite.setEmitMode(makeHdUnitEmitTargets(bodyIdx, haveItem, itemIdx,
+			    unitZ, unitY, unitX, _spriteWidth, _spriteHeight),
+			    scalePlan.partOffsetScale);
 			unitSprite.draw(bu, part, tileScreenPosition.x + offsets.ScreenOffset.x, tileScreenPosition.y + offsets.ScreenOffset.y, shade, mask, _isAltPressed && !_isCtrlPressed);
 			unitSprite.clearEmitMode();
 
@@ -1869,6 +1867,9 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 								{
 									_unitAtlasGroups.push_back({});
 									_unitAtlasGroups.back().spec = itemAtlasSpec;
+									// Phase 42 E1: per-page RGBA overlay instance vectors.
+									_unitAtlasGroups.back().rgbaOverlayInstances.resize(
+									    itemAtlasSpec ? itemAtlasSpec->rgbaOverlayPages.size() : 0);
 								}
 								itemSprite.setEmitMode(
 								    &_unitAtlasGroups[idx].instances,

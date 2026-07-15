@@ -28,7 +28,7 @@
 #include "../Mod/Mod.h"
 #include "../Engine/Exception.h"
 #ifdef __EMSCRIPTEN__
-#include "Map.h"
+#include "../Calypso/HdUnitBattleSpike.h"
 #endif
 
 namespace OpenXcom
@@ -185,38 +185,18 @@ void UnitSprite::blitItem(Part& item)
 {
 	if (!item.src)
 	{
+#ifdef __EMSCRIPTEN__
+		advanceHdUnitEmitSequence(_hdEmit, HdUnitPartKind::Item);
+#endif
 		return;
 	}
 #ifdef __EMSCRIPTEN__
-	if (_emitItemTarget && _emitItemSpec && _emitItemSpec->atlas
-	    && item.frameIdx >= 0 && item.src->getShadeTable() != nullptr)
-	{
-		auto* vec = static_cast<std::vector<Map::TileInstance>*>(_emitItemTarget);
-		const int col   = item.frameIdx % _emitItemSpec->columns;
-		const int row   = item.frameIdx / _emitItemSpec->columns;
-		const float uvW = (float)_emitItemSpec->tileWidth  / (float)_emitItemSpec->atlasW;
-		const float uvH = (float)_emitItemSpec->tileHeight / (float)_emitItemSpec->atlasH;
-		Map::TileInstance inst;
-		inst.screenX        = (float)(_x + item.offX);
-		inst.screenY        = (float)(_y + item.offY);
-		inst.atlasU         = col * uvW;
-		inst.atlasV         = row * uvH;
-		inst.shade          = (float)_shade;
-		inst.animFrameCount = 1.0f;
-		inst.alphaMask      = 1.0f;
-		// Held items: priority above unit body but below front-tile object.
-		// Layout: z*65536 + y*1024 + x*8 + part. y_mul=1024 ensures y dominates
-		// x_mul*x_max+part (60*8+6=486) so cells in different y-rows never
-		// collide on prio. Normalisation 1.5e6 keeps iso ∈ [0, 0.92).
-		const int prio = _emitZ * 65536 + _emitY * 1024 + _emitX * 8 + 5;
-		inst.iso = (float)prio / 2000000.0f;
-		vec->push_back(inst);
-		if (_emitZTargetItem)
-			static_cast<std::vector<int>*>(_emitZTargetItem)->push_back(_emitZ);
-		if (_emitYTargetItem)
-			static_cast<std::vector<int>*>(_emitYTargetItem)->push_back(_emitY);
+	if (emitHdUnitPart(_hdEmit, HdUnitPartKind::Item, item.frameIdx,
+	    item.offX, item.offY, item.src->getShadeTable() != nullptr,
+	    _x, _y, _shade, _mask.beg_x, _mask.end_x, _mask.beg_y, _mask.end_y,
+	    _unit ? _unit->getId() : -1,
+	    _unit ? _unit->getDirection() : -1))
 		return;
-	}
 #endif
 	ScriptWorkerBlit work;
 	BattleItem::ScriptFill(&work, (item.bodyPart == BODYPART_ITEM_RIGHTHAND ? _itemR : _itemL), _save, item.bodyPart, _animationFrame, _shade);
@@ -236,6 +216,9 @@ void UnitSprite::blitBody(Part& body)
 {
 	if (!body.src)
 	{
+#ifdef __EMSCRIPTEN__
+		advanceHdUnitEmitSequence(_hdEmit, HdUnitPartKind::Body);
+#endif
 		return;
 	}
 	if (body.src->getShadeTable() == nullptr)
@@ -244,32 +227,11 @@ void UnitSprite::blitBody(Part& body)
 		return;
 	}
 #ifdef __EMSCRIPTEN__
-	if (_emitTarget && _emitUnitSpec && _emitUnitSpec->atlas
-	    && body.frameIdx >= 0)
-	{
-		auto* vec = static_cast<std::vector<Map::TileInstance>*>(_emitTarget);
-		const int col   = body.frameIdx % _emitUnitSpec->columns;
-		const int row   = body.frameIdx / _emitUnitSpec->columns;
-		const float uvW = (float)_emitUnitSpec->tileWidth  / (float)_emitUnitSpec->atlasW;
-		const float uvH = (float)_emitUnitSpec->tileHeight / (float)_emitUnitSpec->atlasH;
-		Map::TileInstance inst;
-		inst.screenX        = (float)(_x + body.offX);
-		inst.screenY        = (float)(_y + body.offY);
-		inst.atlasU         = col * uvW;
-		inst.atlasV         = row * uvH;
-		inst.shade          = (float)_shade;
-		inst.animFrameCount = 1.0f;
-		inst.alphaMask      = 1.0f;
-		// Unit body: priority above floor items, below front-tile object.
-		const int prio = _emitZ * 65536 + _emitY * 1024 + _emitX * 8 + 4;
-		inst.iso = (float)prio / 2000000.0f;
-		vec->push_back(inst);
-		if (_emitZTargetBody)
-			static_cast<std::vector<int>*>(_emitZTargetBody)->push_back(_emitZ);
-		if (_emitYTargetBody)
-			static_cast<std::vector<int>*>(_emitYTargetBody)->push_back(_emitY);
+	if (emitHdUnitPart(_hdEmit, HdUnitPartKind::Body, body.frameIdx,
+	    body.offX, body.offY, true, _x, _y, _shade,
+	    _mask.beg_x, _mask.end_x, _mask.beg_y, _mask.end_y,
+	    _unit ? _unit->getId() : -1, _unit ? _unit->getDirection() : -1))
 		return;
-	}
 #endif
 	ScriptWorkerBlit work;
 	BattleUnit::ScriptFill(&work, _unit, _save, body.bodyPart, _animationFrame, _shade, _burn);
@@ -358,10 +320,16 @@ void UnitSprite::blitBodyHD(Part& body)
  */
 void UnitSprite::draw(const BattleUnit* unit, int part, int x, int y, int shade, GraphSubset mask, bool drawFacingIndicator)
 {
+#ifdef __EMSCRIPTEN__
+	_hdEmit.sequence = 0;
+#endif
 	_x = x;
 	_y = y;
 
 	_unit = unit;
+#ifdef __EMSCRIPTEN__
+	HdUnitBattleSpike::recordDrawStart(_unit ? _unit->getId() : -1);
+#endif
 	_part = part;
 	_shade = shade;
 	_mask = mask;

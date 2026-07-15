@@ -279,6 +279,10 @@ public:
 	std::vector<PathfindingNode*> findReachablePathFindingNodes(BattleUnit *unit, const BattleActionCost &cost, bool &ranOutOfTus, bool entireMap = false, const BattleUnit* missileTarget = NULL, const Position* alternateStart = NULL, bool justCheckIfAnyMovementIsPossible = false, bool useMaxTUs = false, BattleActionMove bam = BattleActionMove(0) /* BAM_NORMAL */);
 	/// Gets _totalTUCost; finds out whether we can hike somewhere in this turn or not.
 	int getTotalTUCost() const { return _totalTUCost.time; }
+#ifdef __EMSCRIPTEN__
+	/// Disposable harness query; calculate()/abortPath() still own the state.
+	int getTotalEnergyCost() const { return _totalTUCost.energy; }
+#endif
 	/// Gets the path preview setting.
 	bool isPathPreviewed() const;
 	/// Gets the modifier setting.

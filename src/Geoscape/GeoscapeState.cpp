@@ -144,7 +144,7 @@
 #include "../Calypso/CalypsoTutorial.h"
 #include "../Calypso/CalypsoAdvisor.h"
 #include "../Calypso/CalypsoGeoscapeHd.h"
-extern "C" void calypso_log_heap(const char *tag);  // M5: defined in EmscriptenHarness.cpp
+extern "C" void calypso_log_heap(const char *tag);  // M5: defined in Calypso/EmscriptenHarness.cpp
 extern "C" int  g_calypsoTabHiddenPause;            // M6h: set by calypso_on_tab_hidden()
 #endif
 

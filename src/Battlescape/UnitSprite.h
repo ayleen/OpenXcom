@@ -20,8 +20,7 @@
 #include "../Engine/Surface.h"
 #include "../Engine/Script.h"
 #ifdef __EMSCRIPTEN__
-#include <vector>
-#include "../Mod/Mod.h"
+#include "../Calypso/HdUnitEmit.h"
 #endif
 
 namespace OpenXcom
@@ -72,21 +71,7 @@ private:
 	int _x, _y, _shade, _burn;
 	GraphSubset _mask;
 #ifdef __EMSCRIPTEN__
-	/// Phase 14.2: when non-null, blitBody emits TileInstance records into this
-	/// vector instead of blitting to _dest.  blitItem emits into _emitItemTarget.
-	/// Both pointers are std::vector<Map::TileInstance>* cast to void* to avoid
-	/// a circular header dependency.
-	void*                      _emitTarget     = nullptr;  // body parts
-	void*                      _emitItemTarget = nullptr;  // item hand sprites
-	const Mod::UnitAtlasSpec*  _emitUnitSpec   = nullptr;  // unit body atlas
-	const Mod::UnitAtlasSpec*  _emitItemSpec   = nullptr;  // item (HANDOB.PCK) atlas
-	int                        _emitZ           = 0;        // unit's tile Z, parallel-pushed via zTargets
-	int                        _emitY           = 0;        // unit's tile Y, parallel-pushed via yTargets
-	int                        _emitX           = 0;        // unit's tile X — used to derive instance iso priority
-	void*                      _emitZTargetBody = nullptr;  // std::vector<int>* receiving Z per body emit
-	void*                      _emitZTargetItem = nullptr;  // std::vector<int>* receiving Z per item emit
-	void*                      _emitYTargetBody = nullptr;  // std::vector<int>* receiving Y per body emit
-	void*                      _emitYTargetItem = nullptr;  // std::vector<int>* receiving Y per item emit
+	HdUnitEmitState _hdEmit;
 #endif
 
 	/// Drawing routine for XCom soldiers in overalls, sectoids (routine 0),
@@ -145,46 +130,21 @@ public:
 	/// Draws the unit.
 	void draw(const BattleUnit* unit, int part, int x, int y, int shade, GraphSubset mask, bool drawFacingIndicator);
 #ifdef __EMSCRIPTEN__
-	/// Phase 14.2: redirect blitBody into bodyTarget and blitItem into itemTarget.
-	/// Both pointers must be std::vector<Map::TileInstance>* (cast to void*).
-	/// zTargetBody / zTargetItem: optional std::vector<int>* (cast to void*),
-	/// receives one int per emitted instance — the unit's tile Z. Used by
-	/// drawTileGLPass to interleave unit draws between tile Z slices.
-	void setEmitMode(void* bodyTarget, void* itemTarget,
-	                 const Mod::UnitAtlasSpec* unitSpec,
-	                 const Mod::UnitAtlasSpec* itemSpec,
-	                 int emitZ = 0, int emitY = 0, int emitX = 0,
-	                 void* zTargetBody = nullptr, void* zTargetItem = nullptr,
-	                 void* yTargetBody = nullptr, void* yTargetItem = nullptr)
-	{
-		_emitTarget     = bodyTarget;
-		_emitItemTarget = itemTarget;
-		_emitUnitSpec   = unitSpec;
-		_emitItemSpec   = itemSpec;
-		_emitZ          = emitZ;
-		_emitY          = emitY;
-		_emitX          = emitX;
-		_emitZTargetBody = zTargetBody;
-		_emitZTargetItem = zTargetItem;
-		_emitYTargetBody = yTargetBody;
-		_emitYTargetItem = yTargetItem;
-	}
-	void clearEmitMode()
-	{
-		_emitTarget     = nullptr;
-		_emitItemTarget = nullptr;
-		_emitUnitSpec   = nullptr;
-		_emitItemSpec   = nullptr;
-		_emitZ          = 0;
-		_emitY          = 0;
-		_emitX          = 0;
-		_emitZTargetBody = nullptr;
-		_emitZTargetItem = nullptr;
-		_emitYTargetBody = nullptr;
-		_emitYTargetItem = nullptr;
-	}
+	/// Phase 42 E1 harness helpers. They expose the exact production priority
+	/// math so browser probes cannot drift from the renderer implementation.
+	static float debugE1LocalPriority(int sequence, bool overlay);
+	static unsigned int debugE1DepthCode(int basePriority, int sequence, bool overlay);
+	static bool debugE1DepthProof();
+	static bool e1PainterOrderLess(float lhsIso, float rhsIso) { return lhsIso < rhsIso; }
+	static unsigned int debugE1FractionalPixel(bool reverseBuckets);
+	/// Phase 42 E2 harness helpers share the production offset transform.
+	static int debugE2ScaledOffset(int logicalOffset, int scale);
+	static bool debugE2OffsetProof();
+	/// Typed Map -> UnitSprite GPU emit seam; no private Map types or void casts.
+	void setEmitMode(const HdUnitEmitTargets& targets, int partOffsetScale = 1)
+	{ setHdUnitEmitTargets(_hdEmit, targets, partOffsetScale); }
+	void clearEmitMode() { clearHdUnitEmitTargets(_hdEmit); }
 #endif
 };
 
 } //namespace OpenXcom
-

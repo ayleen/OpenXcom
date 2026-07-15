@@ -40,6 +40,7 @@
 #  include "../Calypso/CalypsoTutorial.h"  // Phase 37: Calypso tutorial steps
 #  include "../Calypso/CalypsoChecklist.h" // Phase 39: Calypso checklist items
 #  include "../Calypso/CalypsoAdvisor.h"   // Phase 39: Calypso strategic advisor rules
+#  include "../Calypso/HdUnitAtlas.h"      // Phase 42: UnitAtlasSpec (relocated, review #2/#6)
 #endif
 
 namespace OpenXcom
@@ -346,15 +347,11 @@ public:
 
 	/// Layout record for a unit-PCK GPU sprite atlas (Phase 14.1).
 	/// atlas_tile_index == PCK_frame_index (frames packed in declaration order).
-	struct UnitAtlasSpec
-	{
-		GpuTexture* atlas      = nullptr;  // R8 palette-index atlas; owned by Mod
-		int         atlasW     = 0;        // atlas pixel width
-		int         atlasH     = 0;        // atlas pixel height
-		int         tileWidth  = 64;       // cell width (2x upscale of 32)
-		int         tileHeight = 80;       // cell height (2x upscale of 40)
-		int         columns    = 16;
-	};
+	/// Definition lives in src/Calypso/HdUnitAtlas.h (Phase 42 review #2: the
+	/// struct grew past the in-place #ifdef limit once RGBA overlay pages were
+	/// added). Exposed here as `Mod::UnitAtlasSpec` so all call sites —
+	/// getUnitAtlas(), Map, UnitSprite, ModHd — compile unchanged.
+	using UnitAtlasSpec = HdUnitAtlasSpec;
 #endif
 
 private:
@@ -475,6 +472,12 @@ private:
 	/// Phase 36: Calypso-only ruleset keys (globeTextures/tileAtlas/hdTiles/
 	/// battlescapeTileScale/...) parsed out of loadFile; body in Calypso/ModHd.cpp.
 	void loadFileCalypso(YAML::YamlNodeReader& reader);
+	/// Phase 42 E1: decode + upload the optional RGBA overlay pages for one
+	/// UnitAtlasSpec, compute the per-PCK-frame hasHd mask (transparent slots
+	/// fall back to R8), and wire MEMFS-backed reload callbacks for context
+	/// loss recovery. No-op when GPU is not ready or pages[] is empty.
+	void buildUnitRgbaOverlay(UnitAtlasSpec& spec, const std::string& name,
+	                          int frameCount);
 #endif
 	std::map<std::string, CustomPalettes *> _customPalettes;
 	std::vector<std::pair<std::string, ExtraSounds *> > _extraSounds;

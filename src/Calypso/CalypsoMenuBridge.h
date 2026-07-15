@@ -10,7 +10,7 @@
  * Load/Save, Mods, Options) is defined EMSCRIPTEN_KEEPALIVE in
  * CalypsoMenuBridge.cpp. The KEEPALIVE attribute — NOT the EXPORTED_FUNCTIONS
  * list — is what survives wasm dead-stripping (plan §5.1; same trick the
- * calypso_menu_* knobs in Engine/EmscriptenHarness.cpp rely on). JS reaches
+ * calypso_menu_* knobs in Calypso/EmscriptenHarness.cpp rely on). JS reaches
  * them through Module.ccall / Module.cwrap.
  *
  * String/JSON returns build into a function-local `static std::string s_buf`
@@ -33,7 +33,7 @@ extern "C" {
 const char *calypso_bridge_ping(void);
 
 /* Slice A1 — New Game overlay. Drives the native NewGameState (pushed by
- * calypso_menu_new_game() in Engine/EmscriptenHarness.cpp) through the
+ * calypso_menu_new_game() in Calypso/EmscriptenHarness.cpp) through the
  * friend struct CalypsoNewGameBridge defined in CalypsoMenuBridge.cpp. */
 int calypso_newgame_ready(void);
 const char *calypso_newgame_info(void);
@@ -129,7 +129,7 @@ int calypso_options_cancel(int origin);
 
 /* Slice A5 — New Battle overlay (pattern 2: friend bridge, mirrors A1). The
  * native NewBattleState is pushed by calypso_menu_new_battle() (Engine/
- * EmscriptenHarness.cpp); the exports below drive it through the friend
+ * Calypso/EmscriptenHarness.cpp); the exports below drive it through the friend
  * struct CalypsoNewBattleBridge defined in CalypsoMenuBridge.cpp. */
 int calypso_newbattle_ready(void);
 const char *calypso_newbattle_json(void);
