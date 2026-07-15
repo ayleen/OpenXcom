@@ -511,17 +511,17 @@ public:
 	/// other units' contributions stay valid). GATED on ai.sharedFields; a null unit is a harmless
 	/// no-op (there is no id to remove).
 	void notifyFactionTurnUnitMoved(BattleUnit *unit);
-	/// Phase 43.1E (Calypso): notify that a unit died. Removes its contribution DEFENSIVELY from
-	/// EVERY valid faction cache (its faction is ambiguous at death time, so all are scrubbed).
-	/// GATED on ai.sharedFields; a null unit is a harmless no-op.
+	/// Phase 43.1E/Q (Calypso): notify that a unit died. Removes both friend and enemy
+	/// contributions defensively from EVERY valid faction cache, then invalidates the max-only
+	/// derived threat field. GATED on ai.sharedFields; a null unit is a harmless no-op.
 	void notifyFactionTurnUnitDied(BattleUnit *unit);
 	/// Phase 43.1E (Calypso): notify that a unit spawned. Removes any stale contribution for its id
 	/// from the CURRENT faction's cache (a spawn may reuse a recently-freed id). GATED on
 	/// ai.sharedFields; a null unit is a harmless no-op.
 	void notifyFactionTurnUnitSpawned(BattleUnit *unit);
-	/// Phase 43.1E (Calypso): notify that a unit changed faction. Removes its contribution from BOTH
-	/// the old and the current faction cache. GATED on ai.sharedFields; a null unit is a harmless
-	/// no-op.
+	/// Phase 43.1E/Q (Calypso): notify that a unit changed faction. Removes friend contributions
+	/// from old/current caches, scrubs the old enemy slice from EVERY observer cache, and
+	/// invalidates derived threat. GATED on ai.sharedFields; a null unit is a harmless no-op.
 	void notifyFactionTurnUnitChangedFaction(BattleUnit *unit, UnitFaction oldFaction);
 	/// Gets animation frame.
 	int getAnimFrame() const;

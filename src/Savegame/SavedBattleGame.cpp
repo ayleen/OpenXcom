@@ -3280,12 +3280,11 @@ void SavedBattleGame::notifyFactionTurnKnowledgeChanged(UnitFaction observerFact
 	cache->recordKnowledgeChanged(enemy->getId(), knownTile);
 }
 
-// Phase 43.1E (Calypso): unit-lifecycle notifications for the per-faction
-// friendReachable accumulator. Each method first gates on ai.sharedFields
-// (matching beginFactionTurnCache / notifyFactionTurnTerrainChanged), tolerates
-// a null unit, and only removes the unit's OWN contribution -- it never dirties
-// or clears the rest of the cached field. The cache accessor enforces the
-// faction range guard, so an out-of-range faction simply yields a no-op.
+// Phase 43.1E/Q (Calypso): unit-lifecycle notifications for per-faction reachable
+// accumulators. Friend slices are removed narrowly. Death and faction conversion also
+// remove the unit's enemy slice from every observer cache and invalidate the max-only
+// derived threat field, which cannot decrement itself after a contribution disappears.
+// The cache accessor enforces the faction range guard, so an out-of-range faction is a no-op.
 
 /// Scrub a unit's contribution from one faction's cache (no-op when the faction
 /// is invalid or the cache is unreachable).
@@ -3301,6 +3300,18 @@ static void factionTurnRemoveEnemyContribution(FactionTurnCache* cache, int unit
 	if (!cache)
 		return;
 	cache->invalidateEnemyContribution(unitId);
+}
+
+/// Scrub an enemy slice after a relationship-ending lifecycle event. Any queued sighting
+/// for this unit describes the superseded relationship, and the max-only threat field must
+/// be rebuilt because removing the slice can lower the exact derived danger.
+static void factionTurnRemoveEnemyContributionAndInvalidateThreat(FactionTurnCache* cache, int unitId)
+{
+	if (!cache)
+		return;
+	cache->discardPendingThreatSighting(unitId);
+	cache->invalidateEnemyContribution(unitId);
+	cache->invalidateThreat();
 }
 
 void SavedBattleGame::notifyFactionTurnUnitMoved(BattleUnit *unit)
@@ -3323,7 +3334,11 @@ void SavedBattleGame::notifyFactionTurnUnitDied(BattleUnit *unit)
 	// Defensive: the dead unit's faction is ambiguous at death time, so scrub it
 	// from every valid faction cache rather than guessing.
 	for (int f = FACTION_PLAYER; f < FACTION_MAX; ++f)
-		factionTurnRemoveContribution(getFactionTurnCache(static_cast<UnitFaction>(f)), unit->getId());
+	{
+		FactionTurnCache* cache = getFactionTurnCache(static_cast<UnitFaction>(f));
+		factionTurnRemoveContribution(cache, unit->getId());
+		factionTurnRemoveEnemyContributionAndInvalidateThreat(cache, unit->getId());
+	}
 }
 
 void SavedBattleGame::notifyFactionTurnUnitSpawned(BattleUnit *unit)
@@ -3348,6 +3363,12 @@ void SavedBattleGame::notifyFactionTurnUnitChangedFaction(BattleUnit *unit, Unit
 	// Remove from both the faction it left and the faction it joined.
 	factionTurnRemoveContribution(getFactionTurnCache(oldFaction), unit->getId());
 	factionTurnRemoveContribution(getFactionTurnCache(unit->getFaction()), unit->getId());
+	// Every observer cache may contain this unit under the old relationship. Remove those
+	// slices before rebuilding under the live faction relationship, and invalidate the
+	// max-only threat memo so stale danger cannot survive mind control / conversion.
+	for (int f = FACTION_PLAYER; f < FACTION_MAX; ++f)
+		factionTurnRemoveEnemyContributionAndInvalidateThreat(
+			getFactionTurnCache(static_cast<UnitFaction>(f)), unit->getId());
 	// If a live unit leaves the active faction it becomes a newly-known enemy at
 	// the position that faction knew while it was still an ally. No FOV event is
 	// required for this transition, so queue the threat update explicitly.

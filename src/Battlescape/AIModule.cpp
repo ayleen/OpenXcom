@@ -2069,9 +2069,9 @@ void AIModule::setupEscape()
 		bool forceRebuild = false;
 		// Phase 43 review fix #2: setupEscape reads the shared enemyReachable in a
 		// READ-ONLY mode (allowReset == false). It must NOT clear / mark-clean a dirty
-		// field without producing it -- brutalThink is the authoritative producer and
-		// owns the rebuild. When the field is dirty, this returns nullptr and the
-		// ranking degrades to threat 0 (still fully determined by the remaining fields).
+		// enemy or threat field, nor consume a pending incomplete generation -- brutalThink
+		// is the authoritative producer and owns the rebuild. Until that state is complete,
+		// this returns nullptr and ranking degrades deterministically to threat 0.
 		FriendReachableField* enemyField = prepareSharedEnemyReachable(forceRebuild, false);
 		ThreatField* threatField = nullptr;
 		if (enemyField != nullptr)
@@ -8472,6 +8472,12 @@ ThreatField* AIModule::prepareSharedThreatField(const std::map<Position, int, Po
 	const int height = _unit->getHeight();
 	const bool movementCheat = _unit->isCheatOnMovement();
 	ThreatField& field = cache->getThreatField();
+	// Knowledge updates invalidate individual enemyReachable slices before queuing their
+	// threat restamps. A bounded brutalThink may not restore every queued slice in one pass;
+	// keep both the threat dirty state and the queue intact until the authoritative enemy
+	// producer has restored them all.
+	if (!cache->arePendingEnemyContributionsRestored())
+		return nullptr;
 	if (cache->isThreatDirty())
 	{
 		field.clear();
@@ -8519,14 +8525,13 @@ ThreatField* AIModule::prepareSharedThreatField(const std::map<Position, int, Po
  *     later brutalThinks' clean path. evalBudget == 0 (the config default) is unbounded and
  *     byte-identical to the original full rebuild; the Calypso HD pack ships 4. A partial
  *     field is the documented shared-field approximation -- see the inline notes.
- *   - Terrain-refresh fairness (Phase 43 review fix #1): after onTerrainChanged wipes the
- *     aggregate, the cache arms a terrainRefreshPending flag. Every missing same-faction
- *     contribution restamped while that flag is set is forced through getReachableBy with
- *     forceRecalc=true, so a unit that has not moved since before the mutation never reuses
- *     its pre-terrain reachable-position memo. The flag is cleared only once ALL live
+ *   - Generation freshness (Phase 43 review fix #1): after beginTurn / onTerrainChanged
+ *     wipes the aggregate, the cache arms friendReachableRefreshPending. Every missing
+ *     same-faction contribution restamped while that flag is set is forced through
+ *     getReachableBy with forceRecalc=true, so a stationary unit never reuses a pre-turn or
+ *     pre-terrain reachable-position memo. The flag is cleared only once ALL live
  *     same-faction units (actor included) have a current contribution -- never after only
- *     the first K. beginTurn without a terrain mutation leaves the flag false, so the
- *     clean-path fill may still reuse a valid memo (byte-identical to the original).
+ *     the first K.
  * A local ran-out flag is used so _ranOutOfTUs is never overwritten.
  */
 FriendReachableField* AIModule::prepareSharedFriendReachable()
@@ -8538,14 +8543,14 @@ FriendReachableField* AIModule::prepareSharedFriendReachable()
 		return nullptr;
 	FriendReachableField& field = cache->getFriendReachable();
 	const bool dirty = cache->isFriendReachableDirty();
-	const bool terrainRefreshPending = cache->isTerrainRefreshPending();
+	const bool friendRefreshPending = cache->isFriendReachableRefreshPending();
 	if (dirty)
 	{
 		field.clear();
 		// Consume the dirty flag immediately: the rebuild is incremental and may span
-		// several evalBudget-bounded brutalThinks. The terrainRefreshPending flag (set by
-		// onTerrainChanged) keeps forcing a fresh BFS for every restamped contribution
-		// until the refresh is genuinely complete -- see the completion check below.
+		// several evalBudget-bounded brutalThinks. friendReachableRefreshPending keeps
+		// forcing a fresh BFS for every restamped contribution until the generation is
+		// genuinely complete -- see the completion check below.
 		cache->markFriendReachableClean();
 	}
 	// Phase 43.1 (Calypso): bound the monolithic first-use rebuild by ai.evalBudget so a
@@ -8562,16 +8567,12 @@ FriendReachableField* AIModule::prepareSharedFriendReachable()
 	// No stale cache: move/death/spawn/faction/terrain invalidation still remove a unit's
 	// slice; the clean path re-stamps any missing unit on its next brutalThink.
 	//
-	// Phase 43 review fix #1 (terrain-refresh fairness): a fresh BFS is mandatory whenever
-	// the field was dirty (turn start / terrain mutation) OR a terrain refresh is still in
-	// progress. A unit that has NOT moved since before a terrain mutation must NOT reuse its
-	// pre-terrain getReachableBy memo -- getReachableBy with forceRecalc=true bypasses the
-	// per-unit reachable-position memo. beginTurn without a terrain mutation leaves
-	// terrainRefreshPending false, so a clean-path restamp of a missing ally that has not
-	// moved may still reuse a valid memo (byte-identical to the original). A terrain
-	// mutation sets terrainRefreshPending, forcing forceRecalc=true for the restamp so the
-	// stale pre-terrain memo is never returned.
-	const bool forceRecalc = dirty || terrainRefreshPending;
+	// Phase 43 review fix #1 (generation freshness): a fresh BFS is mandatory whenever
+	// the field was dirtied at turn start / by terrain mutation OR an incremental refresh
+	// is still in progress. getReachableBy(forceRecalc=true) bypasses the per-unit memo, so
+	// allies beyond the first evalBudget batch cannot reuse pre-turn reachability after
+	// their max-TU inputs changed, and cannot reuse pre-terrain reachability either.
+	const bool forceRecalc = dirty || friendRefreshPending;
 	const int evalBudget = _save->getMod()->getAIEvalBudget();
 	const bool boundRebuild = evalBudget > 0;
 	// Stamp the acting unit first: the coordination loop and the later self max-TU read
@@ -8614,13 +8615,10 @@ FriendReachableField* AIModule::prepareSharedFriendReachable()
 		if (boundRebuild)
 			--stampsRemaining;
 	}
-	// Phase 43 review fix #1: terrain-refresh completion. After onTerrainChanged the
-	// aggregate was wiped, so every live same-faction contribution must be restamped with a
-	// fresh (post-terrain) BFS before the refresh is considered done. Do NOT mark the
-	// refresh complete after only the first evalBudget batch: keep terrainRefreshPending set
-	// until ALL live same-faction units (the actor included) have a current contribution.
-	// Once complete, clear it so later clean-path fills (and memo reuse) behave normally.
-	if (terrainRefreshPending)
+	// Phase 43 review fix #1: generation completion. Every live same-faction contribution
+	// must be restamped with a fresh post-turn / post-terrain BFS before the refresh is done.
+	// Do NOT clear after only the first evalBudget batch.
+	if (friendRefreshPending)
 	{
 		bool allRestamped = field.hasContribution(_unit->getId());
 		for (BattleUnit* ally : *(_save->getUnits()))
@@ -8638,7 +8636,7 @@ FriendReachableField* AIModule::prepareSharedFriendReachable()
 			}
 		}
 		if (allRestamped)
-			cache->setTerrainRefreshPending(false);
+			cache->setFriendReachableRefreshPending(false);
 	}
 	return &field;
 }
@@ -8671,6 +8669,12 @@ FriendReachableField* AIModule::prepareSharedEnemyReachable(bool& forceRebuild, 
 	{
 		return nullptr;
 	}
+	// A knowledge update can leave a clean but incomplete enemy generation; death/faction
+	// lifecycle removal dirties the max-only threat field. A read-only setupEscape must not
+	// expose either state or let prepareSharedThreatField become the first producer:
+	// brutalThink restores the invalidated slices and rebuilds threat before reuse.
+	if (!allowReset && (cache->isThreatDirty() || !cache->isEnemyReachableReadComplete()))
+		return nullptr;
 	return &cache->getEnemyReachable();
 }
 

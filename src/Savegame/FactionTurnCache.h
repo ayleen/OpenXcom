@@ -49,15 +49,16 @@ namespace OpenXcom
  *     never reset by beginTurn, so a mutation that happened before a turn still
  *     reads as "newer" than any cached field.
  *
- * Terrain-refresh pending state (per the 43.1 field table, Phase 43 review fix #1):
- *   - onTerrainChanged also flips terrainRefreshPending = true. After a terrain mutation the
- *     live friendReachable aggregate was wiped, so every live same-faction contribution must
- *     be restamped with a FRESH getReachableBy BFS (not a pre-terrain BattleUnit memo) before
- *     the refresh is "complete". beginTurn does NOT clear this flag -- only the live producer
- *     (prepareSharedFriendReachable) clears it once EVERY live same-faction unit has a current
- *     contribution, regardless of how many evalBudget-bounded batches that took. The flag is
- *     consumed iteratively: it forces forceRecalc for every restamped contribution until all
- *     are present; it must NOT be cleared after only the first K.
+ * friendReachable-refresh pending state (per the 43.1 field table, Phase 43 review fix #1):
+ *   - onTerrainChanged and beginTurn both arm friendReachableRefreshPending = true. After a
+ *     terrain mutation (or at the faction-turn seam) the live friendReachable aggregate was
+ *     wiped, so every live same-faction contribution must be restamped with a FRESH
+ *     getReachableBy BFS (not a pre-terrain / pre-turn BattleUnit memo) before the refresh is
+ *     "complete". Only the live producer (prepareSharedFriendReachable) clears it once EVERY
+ *     live same-faction unit has a current contribution, regardless of how many
+ *     evalBudget-bounded batches that took. The flag is consumed iteratively: it forces
+ *     forceRecalc for every restamped contribution until all are present; it must NOT be
+ *     cleared after only the first K.
  *
  * The live friendReachable and enemyReachable accumulators (FriendReachableField,
  * phases 43.1D/43.1Q) are owned here and wiped by beginTurn and onTerrainChanged.
@@ -92,7 +93,7 @@ struct FactionTurnCache
 	bool enemyReachableDirty = true;   // enemyReachable aggregate stale -> rebuild lazily
 	bool terrainLofDirty = true;       // terrain-LOF negative cache stale -> flush on read
 	unsigned int terrainRevision = 0;  // monotonically increasing terrain mutation counter
-	bool terrainRefreshPending = false;// terrain mutation requires a fresh BFS restamp of every live same-faction contribution
+	bool friendReachableRefreshPending = false; // incremental generation requires a fresh BFS for every live ally
 	bool threatProfileValid = false;   // whether the shared threat memo has an actor geometry profile
 	int threatProfileSize = 0;         // armor footprint used by the exact legacy-equivalent probe
 	int threatProfileHeight = 0;       // eye-height input used by AIModule::hasTileSight
@@ -170,6 +171,8 @@ struct FactionTurnCache
 
 	/// Called after a threat producer has absorbed every queued sighting.
 	void clearPendingThreatSightings() { pendingThreatSightings.clear(); }
+	/// Drop one queued sighting when a lifecycle transition makes that exact event obsolete.
+	void discardPendingThreatSighting(int enemyId) { pendingThreatSightings.erase(enemyId); }
 
 	/// Bind a freshly-cleared threat memo to the actor-dependent geometry inputs
 	/// used by the legacy discoverThreat loop.
@@ -238,6 +241,9 @@ struct FactionTurnCache
 	/// cache are wiped so they are rebuilt lazily on first read. The occupancy field and
 	/// its occupancyLastAdvancedTurn marker are PRESERVED (occupancy advances on its own
 	/// explicit cadence via advanceOccupancyToTurn, independent of the armed turn).
+	/// friendReachableRefreshPending is armed so the fresh-turn friendReachable bootstrap
+	/// force-recalculates every live same-faction contribution with a fresh BFS (never a
+	/// pre-turn memo); the live producer clears it once every live ally is restamped.
 	void beginTurn(int turn)
 	{
 		activeTurn = turn;
@@ -245,6 +251,7 @@ struct FactionTurnCache
 		friendReachableDirty = true;
 		enemyReachableDirty = true;
 		terrainLofDirty = true;
+		friendReachableRefreshPending = true;
 		friendReachable.clear();
 		enemyReachable.clear();
 		clearEnemyReachableProfile();
@@ -263,17 +270,44 @@ struct FactionTurnCache
 	bool isTerrainLofDirty() const { return terrainLofDirty; }
 	unsigned int getTerrainRevision() const { return terrainRevision; }
 
-	/// True while a terrain-mutation rebuild of the friendReachable aggregate is still
-	/// in progress: the live producer must restamp every live same-faction contribution
-	/// with a fresh BFS before clearing this. beginTurn never clears it (it is terrain
-	/// keyed); onTerrainChanged sets it; the producer clears it once all are restamped.
-	bool isTerrainRefreshPending() const { return terrainRefreshPending; }
-	/// Producer-only: mark the terrain refresh complete (all live same-faction
-	/// contributions restamped). Set by onTerrainChanged; cleared here.
-	void setTerrainRefreshPending(bool v) { terrainRefreshPending = v; }
+	/// True while a terrain-mutation (or turn-start) rebuild of the friendReachable
+	/// aggregate is still in progress: the live producer must restamp every live
+	/// same-faction contribution with a fresh BFS before clearing this. beginTurn and
+	/// onTerrainChanged both arm it; the producer clears it once all are restamped.
+	bool isFriendReachableRefreshPending() const { return friendReachableRefreshPending; }
+	/// Producer-only: mark the friendReachable refresh complete (all live same-faction
+	/// contributions restamped). Armed by beginTurn / onTerrainChanged; cleared here.
+	void setFriendReachableRefreshPending(bool v) { friendReachableRefreshPending = v; }
+
+	/// Read-only consumer gate for the shared enemyReachable field. A queued sighting
+	/// invalidates its enemy slice, so brutalThink must restore that slice before
+	/// setupEscape may consume the aggregate or let the threat producer clear the queue.
+	bool isEnemyReachableReadComplete() const { return pendingThreatSightings.empty(); }
+
+	/// True once the authoritative enemy producer has restored every slice invalidated
+	/// by the queued knowledge updates. The threat producer must not consume the queue
+	/// before this becomes true, including when its own field is still dirty.
+	bool arePendingEnemyContributionsRestored() const
+	{
+		for (const auto& pending : pendingThreatSightings)
+		{
+			if (!enemyReachable.hasContribution(pending.first))
+				return false;
+		}
+		return true;
+	}
 
 	/// Clear only the threat field's dirty flag (a field builder calls this after a rebuild).
 	void markThreatClean() { threatDirty = false; }
+	/// Invalidate a max-only derived threat field after an enemy slice is removed. Clearing
+	/// is required because stampMax cannot lower danger that belonged only to that slice.
+	/// Pending sightings for other enemies remain queued for the authoritative producer.
+	void invalidateThreat()
+	{
+		threatDirty = true;
+		threat.clear();
+		clearThreatProfile();
+	}
 	/// Clear only the friendReachable aggregate's dirty flag.
 	void markFriendReachableClean() { friendReachableDirty = false; }
 	/// Clear only the enemyReachable aggregate's dirty flag.
@@ -311,8 +345,9 @@ struct FactionTurnCache
 		// A terrain mutation wipes the terrain-keyed aggregates; every live
 		// same-faction friendReachable contribution must be restamped with a fresh
 		// BFS (never a pre-terrain BattleUnit memo). Keep the refresh "in progress"
-		// until the live producer has restamped all of them -- see setTerrainRefreshPending.
-		terrainRefreshPending = true;
+		// until the live producer has restamped all of them -- see
+		// setFriendReachableRefreshPending.
+		friendReachableRefreshPending = true;
 		threatDirty = true;
 		friendReachableDirty = true;
 		enemyReachableDirty = true;
