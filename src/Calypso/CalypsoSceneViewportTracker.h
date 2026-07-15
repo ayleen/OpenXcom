@@ -13,6 +13,26 @@ enum class CalypsoViewportScene
 	Tactical
 };
 
+struct CalypsoViewportRootSeed
+{
+	int width = 0;
+	int height = 0;
+};
+
+/// Return the geometry a newly constructed explicit scene root actually used.
+/// Tactical roots consume the active framebuffer. GeoscapeState constructs its
+/// surfaces from the independently stored strategic base even when created
+/// while Battlescape remains the active framebuffer.
+inline CalypsoViewportRootSeed calypsoViewportRootSeed(
+	CalypsoViewportScene scene,
+	int activeWidth, int activeHeight,
+	int strategicWidth, int strategicHeight)
+{
+	return scene == CalypsoViewportScene::Strategic
+		? CalypsoViewportRootSeed{strategicWidth, strategicHeight}
+		: CalypsoViewportRootSeed{activeWidth, activeHeight};
+}
+
 struct CalypsoViewportGeometry
 {
 	int width = 0;

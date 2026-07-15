@@ -77,13 +77,21 @@ void Game::trackEmscriptenViewportState(State *state)
 	const std::uint64_t generation = Calypso::calypsoViewportRuntime().generation();
 	if (dynamic_cast<BattlescapeState *>(state))
 	{
+		const Calypso::CalypsoViewportRootSeed seed = Calypso::calypsoViewportRootSeed(
+			Calypso::CalypsoViewportScene::Tactical,
+			Options::baseXResolution, Options::baseYResolution,
+			Options::baseXGeoscape, Options::baseYGeoscape);
 		_calypsoViewportScenes.observeRoot(Calypso::CalypsoViewportScene::Tactical,
-			state, Options::baseXResolution, Options::baseYResolution, generation);
+			state, seed.width, seed.height, generation);
 	}
 	else if (dynamic_cast<GeoscapeState *>(state))
 	{
+		const Calypso::CalypsoViewportRootSeed seed = Calypso::calypsoViewportRootSeed(
+			Calypso::CalypsoViewportScene::Strategic,
+			Options::baseXResolution, Options::baseYResolution,
+			Options::baseXGeoscape, Options::baseYGeoscape);
 		_calypsoViewportScenes.observeRoot(Calypso::CalypsoViewportScene::Strategic,
-			state, Options::baseXResolution, Options::baseYResolution, generation);
+			state, seed.width, seed.height, generation);
 	}
 }
 
