@@ -1331,7 +1331,8 @@ void Map::drawUnit(UnitSprite &unitSprite, Tile *unitTile, Tile *currTile, Posit
 			const int unitY = currTile ? currTile->getPosition().y : 0;
 			const int unitX = currTile ? currTile->getPosition().x : 0;
 			unitSprite.setEmitMode(makeHdUnitEmitTargets(bodyIdx, haveItem, itemIdx,
-			    unitZ, unitY, unitX), scalePlan.partOffsetScale);
+			    unitZ, unitY, unitX, _spriteWidth, _spriteHeight),
+			    scalePlan.partOffsetScale);
 			unitSprite.draw(bu, part, tileScreenPosition.x + offsets.ScreenOffset.x, tileScreenPosition.y + offsets.ScreenOffset.y, shade, mask, _isAltPressed && !_isCtrlPressed);
 			unitSprite.clearEmitMode();
 

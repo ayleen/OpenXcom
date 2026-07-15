@@ -11,6 +11,7 @@
 #include "HdUnitBattleSpike.h"
 #include "HdUnitRenderPlan.h"
 #include "../Battlescape/UnitSprite.h"
+#include "../Engine/GpuTexture.h"
 
 #include <algorithm>
 #include <cmath>
@@ -52,7 +53,7 @@ void emitRgbaOverlay(const HdUnitAtlasSpec* spec, int frameIdx,
 	                 size_t baselineIndex,
 	                 std::vector<std::vector<HdRgbaOverlayInstance>>* pages)
 {
-	if (!spec || !spec->hasRgbaOverlay() || !pages || !spec->frameHasHd(frameIdx)) return;
+	if (!pages || !hdUnitRgbaPageUsable(spec, frameIdx)) return;
 	const int page = spec->framePageOf(frameIdx);
 	if (page < 0 || page >= (int)spec->rgbaOverlayPages.size()
 	 || page >= (int)pages->size() || spec->rgbaFramesPerPage <= 0
@@ -71,6 +72,17 @@ void emitRgbaOverlay(const HdUnitAtlasSpec* spec, int frameIdx,
 }
 
 } // namespace
+
+bool hdUnitRgbaPageUsable(const HdUnitAtlasSpec* spec, int frameIdx)
+{
+	if (!spec || !spec->hasRgbaOverlay() || !spec->frameHasHd(frameIdx)) return false;
+	const int page = spec->framePageOf(frameIdx);
+	if (page < 0 || page >= (int)spec->rgbaOverlayPages.size()) return false;
+	GpuTexture* texture = spec->rgbaOverlayPages[(size_t)page];
+	// A failed context-restore upload leaves the registered object alive but
+	// clears its GL name. The emitter must leave the baseline unmasked then.
+	return texture && texture->isValid();
+}
 
 HdUnitScalePlan makeHdUnitScalePlan(const HdUnitAtlasSpec* bodySpec,
 	                                const HdUnitAtlasSpec* itemSpec,
@@ -109,6 +121,7 @@ void advanceHdUnitEmitSequence(HdUnitEmitState& state, HdUnitPartKind kind)
 bool emitHdUnitPart(HdUnitEmitState& state, HdUnitPartKind kind,
 	                int frameIdx, int logicalOffX, int logicalOffY,
 	                bool indexedSource, int screenX, int screenY, int shade,
+	                int maskBegX, int maskEndX, int maskBegY, int maskEndY,
 	                int unitId, int direction)
 {
 	const bool item = kind == HdUnitPartKind::Item;
@@ -128,12 +141,26 @@ bool emitHdUnitPart(HdUnitEmitState& state, HdUnitPartKind kind,
 	const float uvH = (float)spec->tileHeight / (float)spec->atlasH;
 	const int sequence = state.sequence;
 	const float localPriority = boundedSubpriority(sequence);
+	const float emittedX = (float)screenX + offX;
+	const float emittedY = (float)screenY + offY;
+	const HdUnitRenderPlan::QuadClip clip = HdUnitRenderPlan::clipQuad(
+		emittedX, emittedY, (float)state.targets.renderWidth,
+		(float)state.targets.renderHeight,
+		maskBegX, maskEndX, maskBegY, maskEndY);
+	if (!clip.visible)
+	{
+		// The CPU GraphSubset path consumes a fully clipped part without drawing.
+		// Preserve routine ordering while keeping all GPU colour/depth lists empty.
+		++state.sequence;
+		return true;
+	}
 	const float priority = (float)(state.targets.emitZ * 65536
 		+ state.targets.emitY * 1024 + state.targets.emitX * 8) + localPriority;
 	HdTileInstance instance = {
-		(float)screenX + offX, (float)screenY + offY,
+		emittedX, emittedY,
 		col * uvW, row * uvH, (float)shade, 1.0f, 1.0f,
-		priority / HdUnitRenderPlan::kIsoDivisor
+		priority / HdUnitRenderPlan::kIsoDivisor,
+		clip.x, clip.y, clip.w, clip.h
 	};
 	instances->push_back(instance);
 

@@ -21,6 +21,7 @@
 #include <SDL.h>
 #include <SDL_mixer.h>
 #include <cstring>
+#include <cmath>
 #include <fstream>
 #include <sstream>
 #include <array>
@@ -44,6 +45,8 @@
 #include "../Engine/FileMap.h"
 #include "../Mod/Mod.h"
 #include "../Battlescape/UnitSprite.h"
+#include "HdUnitEmit.h"
+#include "HdUnitRenderPlan.h"
 #include "../Interface/Cursor.h"
 // Phase 33 (mobile): pinch-zoom bridge + virtual-keyboard bridge for TextEdit.
 #include "../Interface/TextEdit.h"
@@ -80,7 +83,6 @@ static size_t heapUsedBytes()
     return (size_t)(unsigned int)mi.uordblks;
 }
 
-#ifdef CALYPSO_HD_UNIT_SPIKE
 struct E1GpuEdgeSample
 {
     int alpha = 0;
@@ -96,6 +98,11 @@ struct E1GpuEdgeProof
     bool passed = false;
     unsigned glError = 0;
     std::vector<E1GpuEdgeSample> samples;
+    std::array<unsigned char, 4> clippedInside{};
+    std::array<unsigned char, 4> clippedAdjacent{};
+    std::array<unsigned char, 4> clippedOutside{};
+    std::array<unsigned char, 4> foregroundOccluded{};
+    bool tileCrossingEmit = false;
 };
 
 static E1GpuEdgeProof runE1GpuEdgeProof()
@@ -104,19 +111,22 @@ static E1GpuEdgeProof runE1GpuEdgeProof()
     if (!GpuInit::ready()) return result;
 
     GLint prevFbo = 0, prevRenderbuffer = 0, prevProgram = 0, prevVao = 0, prevArrayBuffer = 0;
-    GLint prevViewport[4] = {0, 0, 0, 0};
+    GLint prevViewport[4] = {0, 0, 0, 0}, prevScissorBox[4] = {0, 0, 0, 0};
     GLint prevDepthFunc = GL_LESS, prevBlendSrcRgb = GL_ONE, prevBlendDstRgb = GL_ZERO;
     GLint prevBlendSrcAlpha = GL_ONE, prevBlendDstAlpha = GL_ZERO, prevActiveTexture = GL_TEXTURE0;
     GLboolean prevDepthMask = GL_TRUE, prevColorMask[4] = {GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE};
     GLfloat prevClearColor[4] = {0, 0, 0, 0};
     const GLboolean prevBlend = glIsEnabled(GL_BLEND);
     const GLboolean prevDepth = glIsEnabled(GL_DEPTH_TEST);
+    const GLboolean prevScissor = glIsEnabled(GL_SCISSOR_TEST);
+    const GLboolean prevCull = glIsEnabled(GL_CULL_FACE);
     glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prevFbo);
     glGetIntegerv(GL_RENDERBUFFER_BINDING, &prevRenderbuffer);
     glGetIntegerv(GL_CURRENT_PROGRAM, &prevProgram);
     glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &prevVao);
     glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &prevArrayBuffer);
     glGetIntegerv(GL_VIEWPORT, prevViewport);
+    glGetIntegerv(GL_SCISSOR_BOX, prevScissorBox);
     glGetIntegerv(GL_DEPTH_FUNC, &prevDepthFunc);
     glGetBooleanv(GL_DEPTH_WRITEMASK, &prevDepthMask);
     glGetBooleanv(GL_COLOR_WRITEMASK, prevColorMask);
@@ -148,6 +158,10 @@ static E1GpuEdgeProof runE1GpuEdgeProof()
         glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
         if (prevBlend) glEnable(GL_BLEND); else glDisable(GL_BLEND);
         if (prevDepth) glEnable(GL_DEPTH_TEST); else glDisable(GL_DEPTH_TEST);
+        glScissor(prevScissorBox[0], prevScissorBox[1],
+                  prevScissorBox[2], prevScissorBox[3]);
+        if (prevScissor) glEnable(GL_SCISSOR_TEST); else glDisable(GL_SCISSOR_TEST);
+        if (prevCull) glEnable(GL_CULL_FACE); else glDisable(GL_CULL_FACE);
         glBlendFuncSeparate((GLenum)prevBlendSrcRgb, (GLenum)prevBlendDstRgb,
                             (GLenum)prevBlendSrcAlpha, (GLenum)prevBlendDstAlpha);
         glDepthFunc((GLenum)prevDepthFunc);
@@ -208,8 +222,8 @@ static E1GpuEdgeProof runE1GpuEdgeProof()
     }
 
     const float corners[12] = {0,0, 1,0, 0,1, 0,1, 1,0, 1,1};
-    const float baselineInstance[8] = {4,2, 0,0, 0,1,1, 0.20f};
-    const float overlayInstance[8]  = {4,2, 0,0, 0,1,1, 0.25f};
+    const float baselineInstance[12] = {4,2, 0,0, 0,1,1, 0.20f, 0,0,1,1};
+    const float overlayInstance[12]  = {4,2, 0,0, 0,1,1, 0.25f, 0,0,1,1};
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
     glGenBuffers(1, &cornerVbo);
@@ -220,7 +234,7 @@ static E1GpuEdgeProof runE1GpuEdgeProof()
     glGenBuffers(1, &instanceVbo);
     glBindBuffer(GL_ARRAY_BUFFER, instanceVbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(baselineInstance), baselineInstance, GL_DYNAMIC_DRAW);
-    const GLsizei stride = 8 * (GLsizei)sizeof(float);
+    const GLsizei stride = 12 * (GLsizei)sizeof(float);
     for (int attr = 1; attr <= 6; ++attr)
     {
         const int components = attr <= 2 ? 2 : 1;
@@ -230,6 +244,10 @@ static E1GpuEdgeProof runE1GpuEdgeProof()
                               (const void*)((size_t)floatOffset * sizeof(float)));
         glVertexAttribDivisor((GLuint)attr, 1);
     }
+    glEnableVertexAttribArray(7);
+    glVertexAttribPointer(7, 4, GL_FLOAT, GL_FALSE, stride,
+                          (const void*)(8u * sizeof(float)));
+    glVertexAttribDivisor(7, 1);
 
     auto configureCommon = [](Shader& shader) {
         shader.setUniform2f("u_screenSize", 16.0f, 8.0f);
@@ -238,7 +256,7 @@ static E1GpuEdgeProof runE1GpuEdgeProof()
         shader.setUniform1f("u_animFrame", 0.0f);
         shader.setUniform1i("u_atlas", 0);
     };
-    auto drawBaseline = [&]() {
+    auto drawBaseline = [&](const void* instance) {
         r8Shader.use(); configureCommon(r8Shader);
         r8Shader.setUniform1i("u_shadeTable", 1);
         r8Shader.setUniform1f("u_unitShade", 0.0f);
@@ -247,10 +265,10 @@ static E1GpuEdgeProof runE1GpuEdgeProof()
         r8Shader.setUniform4f("u_hdMaskUv", 0, 0, 1, 1);
         r8Atlas.bind(0); shadeTable.bind(1); rgbaAtlas.bind(6);
         glBindBuffer(GL_ARRAY_BUFFER, instanceVbo);
-        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(baselineInstance), baselineInstance);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(baselineInstance), instance);
         glDrawArraysInstanced(GL_TRIANGLES, 0, 6, 1);
     };
-    auto drawOverlay = [&]() {
+    auto drawOverlay = [&](const void* instance) {
         rgbaShader.use(); configureCommon(rgbaShader);
         rgbaShader.setUniform1i("u_shadeCurve", 3);
         rgbaShader.setUniform1i("u_hasNormalMap", 0);
@@ -258,11 +276,23 @@ static E1GpuEdgeProof runE1GpuEdgeProof()
         rgbaShader.setUniform1i("u_unitGeometry", 1);
         rgbaAtlas.bind(0); shadeCurve.bind(3);
         glBindBuffer(GL_ARRAY_BUFFER, instanceVbo);
-        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(overlayInstance), overlayInstance);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(overlayInstance), instance);
+        glDrawArraysInstanced(GL_TRIANGLES, 0, 6, 1);
+    };
+    auto drawForeground = [&](const void* instance) {
+        r8Shader.use(); configureCommon(r8Shader);
+        r8Shader.setUniform1i("u_shadeTable", 1);
+        r8Shader.setUniform1f("u_unitShade", 0.0f);
+        r8Shader.setUniform1i("u_hasHdMask", 0);
+        r8Atlas.bind(0); shadeTable.bind(1);
+        glBindBuffer(GL_ARRAY_BUFFER, instanceVbo);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(baselineInstance), instance);
         glDrawArraysInstanced(GL_TRIANGLES, 0, 6, 1);
     };
 
     glViewport(0, 0, 16, 8);
+    glDisable(GL_SCISSOR_TEST);
+    glDisable(GL_CULL_FACE);
     glEnable(GL_BLEND);
     // Straight-alpha source-over: RGB is weighted by source alpha, while alpha
     // itself uses the Porter-Duff source-over equation (srcA + dstA*(1-srcA)).
@@ -289,8 +319,8 @@ static E1GpuEdgeProof runE1GpuEdgeProof()
             });
             for (const Cmd& cmd : cmds)
             {
-                if (cmd.kind == 0) drawBaseline();
-                else drawOverlay();
+                if (cmd.kind == 0) drawBaseline(baselineInstance);
+                else drawOverlay(overlayInstance);
             }
             std::array<unsigned char, 4> center{}, edge{}, outside{};
             glReadPixels(8, 4, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, center.data());
@@ -306,29 +336,116 @@ static E1GpuEdgeProof runE1GpuEdgeProof()
         }
         result.samples.push_back(sample);
     }
+
+    // Exercise the production UnitSprite -> Calypso emit seam, not a hand-authored
+    // clip attribute. A walking unit is submitted once for each tile it crosses;
+    // two complementary GraphSubsets must produce two clipped siblings while a
+    // third, fully disjoint tile is consumed without emitting colour or depth.
+    const unsigned char clipRgba[4] = {255u, 0u, 0u, 128u};
+    const bool clipTextureUploaded = rgbaAtlas.uploadRGBA(clipRgba, 1, 1);
+    HdUnitAtlasSpec emitSpec;
+    emitSpec.atlas = &r8Atlas;
+    emitSpec.atlasW = emitSpec.atlasH = 1;
+    emitSpec.tileWidth = emitSpec.tileHeight = 1;
+    emitSpec.columns = 1;
+    emitSpec.rgbaFormat = HdUnitAtlasSpec::RgbaOverlayFormat::RgbaOverlay;
+    emitSpec.frameWidth = emitSpec.frameHeight = 1;
+    emitSpec.rgbaColumns = 1;
+    emitSpec.rgbaOverlayPages = {&rgbaAtlas};
+    emitSpec.rgbaHasHd = {1};
+    emitSpec.rgbaPageOf = {0};
+    emitSpec.rgbaFramesPerPage = emitSpec.rgbaRowsPerPage = 1;
+    emitSpec.rgbaPageW = emitSpec.rgbaPageH = 1;
+    std::vector<HdTileInstance> emittedBaselines;
+    std::vector<std::vector<HdRgbaOverlayInstance>> emittedOverlays(1);
+    HdUnitEmitTargets emitTargets;
+    emitTargets.bodyInstances = &emittedBaselines;
+    emitTargets.bodySpec = &emitSpec;
+    emitTargets.rgbaOverlayBodyPages = &emittedOverlays;
+    emitTargets.renderWidth = 8;
+    emitTargets.renderHeight = 4;
+    auto emitTilePart = [&](int maskBegX, int maskEndX) {
+        HdUnitEmitState state;
+        setHdUnitEmitTargets(state, emitTargets, 1);
+        return emitHdUnitPart(state, HdUnitPartKind::Body, 0, 0, 0, true,
+                              4, 2, 0, maskBegX, maskEndX, 2, 6, 7, 2);
+    };
+    const bool emitsConsumed = emitTilePart(4, 8)
+                            && emitTilePart(8, 12)
+                            && emitTilePart(12, 16);
+    result.tileCrossingEmit = clipTextureUploaded && emitsConsumed
+        && emittedBaselines.size() == 2 && emittedOverlays[0].size() == 2
+        && emittedOverlays[0][0].baselineIndex == 0
+        && emittedOverlays[0][1].baselineIndex == 1
+        && std::abs(emittedBaselines[0].clipX) < 0.0001f
+        && std::abs(emittedBaselines[0].clipW - 0.5f) < 0.0001f
+        && std::abs(emittedBaselines[1].clipX - 0.5f) < 0.0001f
+        && std::abs(emittedBaselines[1].clipW - 0.5f) < 0.0001f;
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glClearColor(0, 0, 1, 1);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    if (result.tileCrossingEmit)
+    for (size_t i = 0; i < emittedBaselines.size(); ++i)
+    {
+        drawBaseline(&emittedBaselines[i]);
+        drawOverlay(&emittedOverlays[0][i].instance);
+    }
+    glReadPixels(6, 4, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, result.clippedInside.data());
+    glReadPixels(10, 4, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, result.clippedAdjacent.data());
+    glReadPixels(3, 4, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, result.clippedOutside.data());
+
+    // Production-equivalent depth proof: a priority-6 foreground wall/object
+    // first owns depth, then the priority-4.125 fractional RGBA unit colour
+    // replay runs under GL_LESS with depth writes off. The pixel must remain
+    // the opaque green foreground, not turn into a red/green blend.
+    const float foregroundIso = 6.0f / HdUnitRenderPlan::kIsoDivisor;
+    const float unitIso = 4.125f / HdUnitRenderPlan::kIsoDivisor;
+    const float foregroundInstance[12] = {
+        4,2, 0,0, 0,1,1, foregroundIso, 0,0,1,1};
+    HdTileInstance occludedUnitInstance = emittedOverlays[0].empty()
+        ? HdTileInstance{4,2, 0,0, 0,1,1, unitIso, 0,0,1,1}
+        : emittedOverlays[0][0].instance;
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glDepthMask(GL_TRUE);
+    glClearColor(0, 0, 1, 1);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
+    drawForeground(foregroundInstance);
+    glDepthMask(GL_FALSE);
+    drawOverlay(&occludedUnitInstance);
+    glReadPixels(6, 4, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE,
+                 result.foregroundOccluded.data());
+    glDisable(GL_DEPTH_TEST);
     result.glError = (unsigned)glGetError();
     result.available = true;
     result.passed = result.glError == GL_NO_ERROR;
     const std::array<unsigned char, 4> blue = {0,0,255,255};
     const std::array<unsigned char, 4> green = {0,255,0,255};
+    auto close = [](const std::array<unsigned char,4>& a,
+                    const std::array<unsigned char,4>& b) {
+        for (int i = 0; i < 4; ++i)
+            if (((int)a[i] > (int)b[i] ? (int)a[i] - (int)b[i]
+                                        : (int)b[i] - (int)a[i]) > 1) return false;
+        return true;
+    };
     for (const E1GpuEdgeSample& sample : result.samples)
     {
         std::array<unsigned char, 4> expected = sample.alpha < 3
             ? green : std::array<unsigned char, 4>{(unsigned char)sample.alpha, 0,
                 (unsigned char)(255 - sample.alpha), 255};
-        auto close = [](const std::array<unsigned char,4>& a,
-                        const std::array<unsigned char,4>& b) {
-            for (int i = 0; i < 4; ++i)
-                if (((int)a[i] > (int)b[i] ? (int)a[i] - (int)b[i]
-                                            : (int)b[i] - (int)a[i]) > 1) return false;
-            return true;
-        };
         result.passed = result.passed
             && close(sample.naturalCenter, expected)
             && close(sample.reversedCenter, expected)
             && close(sample.naturalEdge, expected)
             && close(sample.naturalOutside, blue);
     }
+    result.passed = result.passed
+        && result.tileCrossingEmit
+        && close(result.clippedInside, {128,0,127,255})
+        && close(result.clippedAdjacent, {128,0,127,255})
+        && close(result.clippedOutside, blue)
+        && close(result.foregroundOccluded, green);
 
     glDeleteBuffers(1, &instanceVbo);
     glDeleteBuffers(1, &cornerVbo);
@@ -339,7 +456,6 @@ static E1GpuEdgeProof runE1GpuEdgeProof()
     restoreState();
     return result;
 }
-#endif
 
 extern "C" {
 
@@ -423,6 +539,25 @@ void calypso_gpu_smoke_activate(const char *path)
 		return;
 	}
 	OpenXcom::GpuSmokeState::activate(g->getScreen(), path ? path : "/tmp/gpu-smoke.png");
+}
+
+/* Phase 42 E1 regression: exercise the production R8/RGBA unit shaders with
+ * fractional alpha, a moving GraphSubset clip and a foreground depth owner.
+ * The GPL gpu-smoke browser scenario calls this in normal (non-spike) builds,
+ * so the __EMSCRIPTEN__ path is a CI regression rather than diagnostic-only
+ * JSON hidden behind CALYPSO_HD_UNIT_SPIKE. */
+EMSCRIPTEN_KEEPALIVE
+int calypso_hd_unit_e1_gpu_probe()
+{
+	const E1GpuEdgeProof proof = runE1GpuEdgeProof();
+	if (!proof.available || !proof.passed)
+	{
+		Log(LOG_ERROR) << "Phase 42 E1 GPU probe failed: available="
+		               << (proof.available ? "true" : "false")
+		               << " glError=" << proof.glError;
+		return 0;
+	}
+	return 1;
 }
 
 #ifdef CALYPSO_HD_UNIT_SPIKE
@@ -594,9 +729,14 @@ int calypso_unit_atlas_probe(const char *sheet, const char *outJsonPath)
 		// page must become unavailable after eviction and reappear through its
 		// MEMFS-backed reload callback without creating a CPU mirror.
 		bool availableBefore = !spec->rgbaOverlayPages.empty();
+		int recoveryFrame = -1;
+		for (size_t i = 0; i < spec->rgbaHasHd.size(); ++i)
+			if (spec->rgbaHasHd[i]) { recoveryFrame = (int)i; break; }
 		for (GpuTexture *p : spec->rgbaOverlayPages)
 			availableBefore = availableBefore && p && p->isValid();
 		for (GpuTexture *p : spec->rgbaOverlayPages) if (p) p->evictGL();
+		const bool r8FallbackAfterEvict = recoveryFrame >= 0
+		    && !hdUnitRgbaPageUsable(spec, recoveryFrame);
 		bool unavailableAfterEvict = !spec->rgbaOverlayPages.empty();
 		for (GpuTexture *p : spec->rgbaOverlayPages)
 			unavailableAfterEvict = unavailableAfterEvict && p && !p->isValid();
@@ -608,15 +748,22 @@ int calypso_unit_atlas_probe(const char *sheet, const char *outJsonPath)
 			availableAfterRestore = availableAfterRestore && p && p->isValid();
 			if (p) cachedAfterRestore += p->debugCachedBytes();
 		}
+		const bool overlayAfterRestore = recoveryFrame >= 0
+		    && hdUnitRgbaPageUsable(spec, recoveryFrame);
 		o << ",\"contextRecovery\":{\"availableBefore\":"
 		  << (availableBefore ? "true" : "false")
 		  << ",\"unavailableAfterEvict\":"
 		  << (unavailableAfterEvict ? "true" : "false")
+		  << ",\"r8FallbackAfterEvict\":"
+		  << (r8FallbackAfterEvict ? "true" : "false")
 		  << ",\"availableAfterRestore\":"
 		  << (availableAfterRestore ? "true" : "false")
+		  << ",\"overlayAfterRestore\":"
+		  << (overlayAfterRestore ? "true" : "false")
 		  << ",\"cachedBytesAfterRestore\":" << cachedAfterRestore
 		  << ",\"passed\":"
-		  << (availableBefore && unavailableAfterEvict && availableAfterRestore
+		  << (availableBefore && unavailableAfterEvict && r8FallbackAfterEvict
+		      && availableAfterRestore && overlayAfterRestore
 		      && cachedAfterRestore == 0 ? "true" : "false") << "}";
 
 		// Shared renderer helpers provide body/HANDOB call-order evidence and an
@@ -651,6 +798,28 @@ int calypso_unit_atlas_probe(const char *sheet, const char *outJsonPath)
 		  << ",\"passed\":"
 		  << (naturalBuckets == expectedFractional
 		      && reversedBuckets == expectedFractional ? "true" : "false") << "}";
+		const HdUnitRenderPlan::QuadClip movingClip = HdUnitRenderPlan::clipQuad(
+			100.0f, 50.0f, 128.0f, 160.0f, 132, 196, 70, 190);
+		const HdUnitRenderPlan::Rgba8 clippedEdge = HdUnitRenderPlan::sourceOver(
+			{220, 100, 40, 128}, {20, 40, 60, 255});
+		const bool clipPassed = movingClip.visible && movingClip.clipped
+		    && std::abs(movingClip.x - 0.25f) < 0.0001f
+		    && std::abs(movingClip.y - 0.125f) < 0.0001f
+		    && std::abs(movingClip.w - 0.5f) < 0.0001f
+		    && std::abs(movingClip.h - 0.75f) < 0.0001f
+		    && clippedEdge.r == 120 && clippedEdge.g == 70
+		    && clippedEdge.b == 50 && clippedEdge.a == 255
+		    && HdUnitRenderPlan::foregroundOccludes(6.0f, 4.125f);
+		o << ",\"movingClipReplayProof\":{\"clipRect\":["
+		  << movingClip.x << "," << movingClip.y << ","
+		  << movingClip.w << "," << movingClip.h << "]"
+		  << ",\"sharedBy\":[\"r8-color\",\"rgba-color\",\"depth\"]"
+		  << ",\"fractionalEdgeAfterClip\":[" << (unsigned)clippedEdge.r << ","
+		  << (unsigned)clippedEdge.g << "," << (unsigned)clippedEdge.b << ","
+		  << (unsigned)clippedEdge.a << "]"
+		  << ",\"foregroundPriority6Occludes\":"
+		  << (HdUnitRenderPlan::foregroundOccludes(6.0f, 4.125f) ? "true" : "false")
+		  << ",\"passed\":" << (clipPassed ? "true" : "false") << "}";
 		const E1GpuEdgeProof gpuEdge = runE1GpuEdgeProof();
 		auto emitRgba = [&o](const std::array<unsigned char, 4>& rgba) {
 			o << "[" << (unsigned)rgba[0] << "," << (unsigned)rgba[1]
@@ -673,7 +842,13 @@ int calypso_unit_atlas_probe(const char *sheet, const char *outJsonPath)
 			o << ",\"naturalOutside\":"; emitRgba(sample.naturalOutside);
 			o << "}";
 		}
-		o << "]}";
+		o << "],\"tileCrossingEmit\":"
+		  << (gpuEdge.tileCrossingEmit ? "true" : "false");
+		o << ",\"movingClipInside\":"; emitRgba(gpuEdge.clippedInside);
+		o << ",\"movingClipAdjacent\":"; emitRgba(gpuEdge.clippedAdjacent);
+		o << ",\"movingClipOutside\":"; emitRgba(gpuEdge.clippedOutside);
+		o << ",\"foregroundOccluded\":"; emitRgba(gpuEdge.foregroundOccluded);
+		o << "}";
 		// g0 spike overlay (disposable) presence for parity diagnostics.
 		o << ",\"g0Overlay\":" << (spec->g0OverlayAtlas ? "true" : "false");
 	}

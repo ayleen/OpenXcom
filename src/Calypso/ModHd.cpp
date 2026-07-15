@@ -28,6 +28,7 @@
 #include "../Mod/ModScript.h"
 #include <algorithm>
 #include <functional>
+#include <iomanip>
 #include <sstream>
 #include <climits>
 #include <cassert>
@@ -61,6 +62,7 @@
 #  include "../Engine/GpuTexture.h"
 #  include "../Engine/GpuInit.h"
 #  include <SDL_image.h>
+#  include <GLES3/gl3.h>
 #  include <webp/decode.h>
 #  include "../Mod/TileAtlasBuilder.h"
 #  include "../Mod/UnitSpriteAtlasBuilder.h"
@@ -1060,7 +1062,23 @@ void Mod::buildUnitRgbaOverlay(UnitAtlasSpec& spec, const std::string& name,
                                int frameCount)
 {
 	if (!GpuInit::ready()) return;
-	const int cap = spec.maxPageSize > 0 ? spec.maxPageSize : 4096;
+	for (GLenum stale = glGetError(); stale != GL_NO_ERROR; stale = glGetError())
+		Log(LOG_WARNING) << "unitAtlas[" << name
+		                 << "]: clearing pre-existing GL error 0x" << std::hex
+		                 << (unsigned)stale << std::dec;
+	GLint runtimeMaxTextureSize = 0;
+	glGetIntegerv(GL_MAX_TEXTURE_SIZE, &runtimeMaxTextureSize);
+	const GLenum sizeQueryError = glGetError();
+	if (sizeQueryError != GL_NO_ERROR || runtimeMaxTextureSize <= 0)
+	{
+		Log(LOG_WARNING) << "unitAtlas[" << name
+		                 << "]: cannot query runtime GL_MAX_TEXTURE_SIZE (error 0x"
+		                 << std::hex << (unsigned)sizeQueryError << std::dec
+		                 << "); using R8 fallback";
+		return;
+	}
+	const int configuredCap = spec.maxPageSize > 0 ? spec.maxPageSize : 4096;
+	const int cap = std::min(configuredCap, (int)runtimeMaxTextureSize);
 	if (spec.frameWidth <= 0 || spec.frameHeight <= 0 || spec.rgbaColumns <= 0
 	 || frameCount <= 0 || cap <= 0 || spec.frameWidth > cap / spec.rgbaColumns)
 	{
@@ -1189,14 +1207,19 @@ void Mod::buildUnitRgbaOverlay(UnitAtlasSpec& spec, const std::string& name,
 		const std::string capturedName = name;
 		const int expectedW = pageW, expectedH = pageH;
 		tex->setReloadCb([tex, capturedPath, capturedName, expectedW, expectedH]() {
-			if (!FileMap::fileExists(capturedPath)) return;
+			auto reloadFailed = [&capturedName, &capturedPath](const char* why) {
+				Log(LOG_WARNING) << "unitAtlas[" << capturedName << "]: page "
+				                 << capturedPath << " unavailable after context restore: "
+				                 << why << "; using R8 fallback";
+			};
+			if (!FileMap::fileExists(capturedPath)) { reloadFailed("missing source"); return; }
 			SDL_RWops* reloadRw = FileMap::at(capturedPath)->getRWops();
 			SDL_Surface* reloadRaw = IMG_Load_RW(reloadRw, SDL_TRUE);
-			if (!reloadRaw) return;
+			if (!reloadRaw) { reloadFailed("decode failed"); return; }
 			SDL_Surface* reloadRgba = SDL_ConvertSurfaceFormat(
 			    reloadRaw, SDL_PIXELFORMAT_ABGR8888, 0);
 			SDL_FreeSurface(reloadRaw);
-			if (!reloadRgba) return;
+			if (!reloadRgba) { reloadFailed("conversion failed"); return; }
 			if (reloadRgba->w != expectedW || reloadRgba->h != expectedH)
 			{
 				Log(LOG_WARNING) << "unitAtlas[" << capturedName
@@ -1205,10 +1228,12 @@ void Mod::buildUnitRgbaOverlay(UnitAtlasSpec& spec, const std::string& name,
 				return;
 			}
 			if (SDL_MUSTLOCK(reloadRgba)) SDL_LockSurface(reloadRgba);
-			tex->uploadRGBA(static_cast<const uint8_t*>(reloadRgba->pixels),
-			                reloadRgba->w, reloadRgba->h);
+			const bool restored = tex->uploadRGBA(
+				static_cast<const uint8_t*>(reloadRgba->pixels),
+				reloadRgba->w, reloadRgba->h);
 			if (SDL_MUSTLOCK(reloadRgba)) SDL_UnlockSurface(reloadRgba);
 			SDL_FreeSurface(reloadRgba);
+			if (!restored) reloadFailed("GPU upload failed");
 		});
 		pageTextures.push_back(tex);
 	}

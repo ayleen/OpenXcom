@@ -21,7 +21,7 @@ namespace OpenXcom
 {
 /// Per-tile / per-unit GPU instance record submitted to the tile_atlas shader.
 /// Relocated verbatim from Map::TileInstance (Phase 36 R6). The instance layout
-/// (8 floats) is asserted in MapGl.cpp::initTileGL — do not reorder fields.
+/// (12 floats) is asserted in MapGl.cpp::initTileGL — do not reorder fields.
 struct HdTileInstance
 {
 	float screenX, screenY;   // top-left of tile in screen pixels
@@ -30,6 +30,9 @@ struct HdTileInstance
 	float animFrameCount;     // total anim frames (>=1)
 	float alphaMask;          // MCD opacity flag (0 or 1)
 	float iso;                // iso priority [0..1]; larger = closer to camera
+	// Normalised source/geometry sub-rect. clipW/H <= 0 means the legacy full
+	// quad (terrain records predate this field); unit emits always set it.
+	float clipX = 0.0f, clipY = 0.0f, clipW = 0.0f, clipH = 0.0f;
 };
 
 /// One production RGBA overlay sibling instance: the overlay's own geometry
@@ -67,6 +70,8 @@ struct HdUnitEmitTargets
 	std::vector<std::vector<HdRgbaOverlayInstance>>* rgbaOverlayBodyPages = nullptr;
 	std::vector<std::vector<HdRgbaOverlayInstance>>* rgbaOverlayItemPages = nullptr;
 	int partOffsetScale = 1;  // E2: source-PCK offset -> live unit-quad pixels
+	int renderWidth = 0;      // live unit quad dimensions used by GraphSubset
+	int renderHeight = 0;
 };
 
 /// Mutable state owned by UnitSprite while a draw routine emits GPU instances.
@@ -92,6 +97,10 @@ HdUnitScalePlan makeHdUnitScalePlan(const HdUnitAtlasSpec* bodySpec,
 	                                const HdUnitAtlasSpec* itemSpec,
 	                                int renderW, int renderH);
 
+/// True only when the authored frame's exact RGBA page has a live GL handle.
+/// Context-loss recovery uses this to fall back to R8 page-by-page.
+bool hdUnitRgbaPageUsable(const HdUnitAtlasSpec* spec, int frameIdx);
+
 void setHdUnitEmitTargets(HdUnitEmitState& state, const HdUnitEmitTargets& targets,
 	                      int partOffsetScale);
 void clearHdUnitEmitTargets(HdUnitEmitState& state);
@@ -102,6 +111,7 @@ void advanceHdUnitEmitSequence(HdUnitEmitState& state, HdUnitPartKind kind);
 bool emitHdUnitPart(HdUnitEmitState& state, HdUnitPartKind kind,
 	                int frameIdx, int logicalOffX, int logicalOffY,
 	                bool indexedSource, int screenX, int screenY, int shade,
+	                int maskBegX, int maskEndX, int maskBegY, int maskEndY,
 	                int unitId, int direction);
 
 float hdUnitDebugE1LocalPriority(int sequence, bool overlay);
