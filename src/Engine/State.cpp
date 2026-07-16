@@ -28,6 +28,7 @@
 #include "Language.h"
 #include "LocalizedText.h"
 #include "Palette.h"
+#include "../Calypso/CalypsoFocusInput.h"
 #include "../Engine/Sound.h"
 #include "../Engine/Collections.h"
 #include "../Mod/Mod.h"
@@ -38,12 +39,8 @@
 #include "../Interface/TextList.h"
 #include "../Interface/BattlescapeButton.h"
 #include "../Interface/ComboBox.h"
-#ifdef __EMSCRIPTEN__
-#include "../Interface/Slider.h"
-#endif
 #include "../Interface/Cursor.h"
 #include "../Interface/FpsCounter.h"
-#include "../Calypso/CalypsoViewportRuntime.h"
 #include "../Savegame/SavedBattleGame.h"
 #include "../Mod/RuleInterface.h"
 
@@ -362,68 +359,8 @@ void State::handle(Action *action)
 		return;
 	}
 
-	if (_calypsoFocus)
-	{
-		SDL_Event* event = action->getDetails();
-		auto keyBit = [](SDLKey key) -> Uint8
-		{
-			switch (key)
-			{
-			case SDLK_TAB:      return 1u << 0;
-			case SDLK_RETURN:   return 1u << 1;
-			case SDLK_KP_ENTER: return 1u << 2;
-			case SDLK_SPACE:    return 1u << 3;
-			default:            return 0;
-			}
-		};
-
-		if (event->type == SDL_KEYUP)
-		{
-			const Uint8 bit = keyBit(event->key.keysym.sym);
-			if (bit && (_calypsoConsumedFocusKeys & bit))
-			{
-				_calypsoConsumedFocusKeys &= ~bit;
-				// State subclasses commonly continue inspecting Action after calling
-				// State::handle(). Mark the shared event consumed so their direct
-				// hotkey paths cannot observe the paired KEYUP a second time.
-				event->type = SDL_NOEVENT;
-				return;
-			}
-		}
-		else if (event->type == SDL_KEYDOWN)
-		{
-			Calypso::CalypsoFocusKey key = Calypso::CalypsoFocusKey::Other;
-			switch (event->key.keysym.sym)
-			{
-			case SDLK_TAB:      key = Calypso::CalypsoFocusKey::Tab; break;
-			case SDLK_RETURN:   key = Calypso::CalypsoFocusKey::Return; break;
-			case SDLK_KP_ENTER: key = Calypso::CalypsoFocusKey::KeypadEnter; break;
-			case SDLK_SPACE:    key = Calypso::CalypsoFocusKey::Space; break;
-			default: break;
-			}
-			const SDL_Keymod mod = static_cast<SDL_Keymod>(event->key.keysym.mod);
-			bool repeat = false;
-#if SDL_VERSION_ATLEAST(2,0,0)
-			repeat = event->key.repeat != 0;
-#endif
-			const Calypso::CalypsoFocusKeyDecision decision =
-				Calypso::calypsoClassifyFocusKeyDown(
-					key, (mod & KMOD_SHIFT) != 0, (mod & KMOD_CTRL) != 0,
-					(mod & KMOD_ALT) != 0, (mod & KMOD_GUI) != 0, repeat);
-			if (decision.recognized)
-			{
-				_calypsoConsumedFocusKeys |= keyBit(event->key.keysym.sym);
-				if (decision.invokeCommand)
-					(void)_calypsoFocus->command(decision.command,
-						_calypsoFocus->generation(), true);
-				// Returning only stops base dispatch; derived State::handle methods
-				// continue after this call. Mutating the already-classified event to
-				// SDL_NOEVENT is the established OXCE consumed-action signal.
-				event->type = SDL_NOEVENT;
-				return;
-			}
-		}
-	}
+	if (_calypsoFocus && Calypso::calypsoHandleFocusEvent(action->getDetails(),
+		*_calypsoFocus, _calypsoConsumedFocusKeys)) return;
 
 	for (std::vector<Surface*>::reverse_iterator i = _surfaces.rbegin(); i != _surfaces.rend(); ++i)
 	{
@@ -646,6 +583,14 @@ void State::setModal(InteractiveSurface *surface)
 	_modal = surface;
 }
 
+void State::clearModal(InteractiveSurface *surface)
+{
+	if (_modal == surface)
+	{
+		setModal(0);
+	}
+}
+
 void State::enableCalypsoFocus()
 {
 	_calypsoConsumedFocusKeys = 0;
@@ -799,130 +744,6 @@ void State::recenter(int dX, int dY)
 		surface->setY(surface->getY() + dY / 2);
 	}
 }
-
-#ifdef __EMSCRIPTEN__
-/**
- * Calypso (Emscripten): capture the native (design-space) geometry of every
- * surface added so far, then lay the state out scaled to fill the logical buffer.
- * Generalises the proven HUD scaler (BattlescapeState::captureHudNative +
- * layoutHud) to any State.
- *
- * Contract: call this AFTER centerAllSurfaces() (the standard end-of-constructor
- * spot every fullscreen state already uses). The captured x/y are normalised
- * back to design space by removing the screen centring offset (Screen::getDX/
- * getDY), so the helper composes with the centring the state already did and
- * applyUiScaling() then re-centres at the scaled size. Keep the existing
- * centerAllSurfaces() call — do NOT remove it (that is what makes the capture
- * deterministic regardless of buffer size).
- *
- * Note: surfaces whose pixels are blitted once at construction (raw bitmap
- * backgrounds, custom views) are resized here but their content is NOT rescaled
- * — those need a per-state scaled re-blit + setRedraw(false), exactly like the
- * HUD panel art. Vector widgets (Window, *Button, Bar, Text geometry) redraw at
- * the new size for free.
- */
-void State::enableUiScaling(int designW, int designH, float factor)
-{
-	if (_uiCaptured || designW <= 0 || designH <= 0) return;
-	_uiDesignW = designW;
-	_uiDesignH = designH;
-	_uiFactor = factor > 0.0f ? factor : 1.0f;
-	_uiNative.clear();
-	// Undo the centring centerAllSurfaces() applied, recovering design-space
-	// coords. Deterministic: getDX/getDY is always (_base - ORIGINAL)/2.
-	const int dx = _game->getScreen()->getDX();
-	const int dy = _game->getScreen()->getDY();
-	for (auto* surf : _surfaces)
-	{
-		_uiNative.push_back({ surf, surf->getX() - dx, surf->getY() - dy,
-		                      surf->getWidth(), surf->getHeight() });
-	}
-	_uiCaptured = true;
-	applyUiScaling();
-}
-
-/**
- * Calypso (Emscripten): re-apply the uniform UI scale from the captured native
- * geometry. Surfaces are repositioned/resized absolutely (so clicks — which are
- * positional in base-resolution space — stay correct), centred with letterbox
- * margins. Scale is uniform (preserves aspect). Persistent safe-area insets
- * and temporary keyboard occlusion may shrink it below native so every control
- * remains inside the currently visible rectangle.
- */
-void State::applyUiScaling()
-{
-	if (!_uiCaptured) return;
-	Calypso::CalypsoBaseSafeRect safe{0, 0, Options::baseXResolution, Options::baseYResolution};
-	(void)Calypso::calypsoProjectedSafeRectForLayout(
-		Options::baseXResolution, Options::baseYResolution, safe);
-	const float s = static_cast<float>(Calypso::calypsoFitUiScale(
-		safe, _uiDesignW, _uiDesignH, _uiFactor));
-	_uiScale = s;
-	const int offX = safe.x + (safe.width - (int)(_uiDesignW * s + 0.5f)) / 2;
-	const int offY = safe.y + (safe.height - (int)(_uiDesignH * s + 0.5f)) / 2;
-	for (const auto& r : _uiNative)
-	{
-		if (!r.surf) continue;
-		const int left = (int)(r.x * s + 0.5f);
-		const int top = (int)(r.y * s + 0.5f);
-		const int right = (int)((r.x + r.w) * s + 0.5f);
-		const int bottom = (int)((r.y + r.h) * s + 0.5f);
-		r.surf->setX(offX + left);
-		r.surf->setY(offY + top);
-		int w = right - left; if (w < 1) w = 1;
-		int h = bottom - top; if (h < 1) h = 1;
-		r.surf->setWidth(w);   // setWidth/setHeight recreate the surface and
-		r.surf->setHeight(h);  // already mark _redraw — no explicit setRedraw needed
-	}
-}
-
-/**
- * Calypso (Emscripten): remove a surface from the UI-scaling capture so later
- * applyUiScaling() calls do not reposition/resize it (used for full-frame
- * overlays drawn directly in base-resolution space).
- */
-void State::excludeFromUiScaling(Surface* surf)
-{
-	for (auto it = _uiNative.begin(); it != _uiNative.end(); ++it)
-	{
-		if (it->surf == surf) { _uiNative.erase(it); break; }
-	}
-}
-
-/**
- * Calypso (Emscripten): opt every Text / TextButton added to this state into HD
- * TTF rendering, so scaled menus get resolution-independent labels in one call.
- * The bitmap Font path is preserved (TTF is per-label opt-in; multi-line / no
- * font / failed render fall back).
- */
-void State::applyTTFToTexts(TTFFont* font, float fillFrac)
-{
-	if (!font) return;
-	for (auto* surf : _surfaces)
-	{
-		if (auto* t = dynamic_cast<Text*>(surf))
-		{
-			t->setTTFFont(font, fillFrac);
-		}
-		else if (auto* b = dynamic_cast<TextButton*>(surf))
-		{
-			b->setTTFFont(font, fillFrac);
-		}
-		else if (auto* sl = dynamic_cast<Slider*>(surf))
-		{
-			sl->setTTFFont(font, fillFrac);
-		}
-		else if (auto* cb = dynamic_cast<ComboBox*>(surf))
-		{
-			cb->setTTFFont(font, fillFrac);
-		}
-		else if (auto* tl = dynamic_cast<TextList*>(surf))
-		{
-			tl->setTTFFont(font, fillFrac);
-		}
-	}
-}
-#endif
 
 int State::getCursorX() const
 {

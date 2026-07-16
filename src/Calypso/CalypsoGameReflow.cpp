@@ -65,11 +65,12 @@ static Calypso::CalypsoSafeInsets retainedSafeInsets(
 
 Calypso::CalypsoViewportAffinity Game::calypsoViewportAffinity() const
 {
-	std::vector<Calypso::CalypsoViewportAffinity> topDown;
-	topDown.reserve(_states.size());
 	for (auto it = _states.rbegin(); it != _states.rend(); ++it)
-		topDown.push_back((*it)->calypsoViewportAffinity());
-	return Calypso::calypsoResolveViewportAffinity(topDown);
+	{
+		const Calypso::CalypsoViewportAffinity affinity = (*it)->calypsoViewportAffinity();
+		if (affinity != Calypso::CalypsoViewportAffinity::Inherit) return affinity;
+	}
+	return Calypso::CalypsoViewportAffinity::Strategic;
 }
 
 void Game::trackEmscriptenViewportState(State *state)

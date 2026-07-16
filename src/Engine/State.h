@@ -156,6 +156,8 @@ public:
 	static void setGamePtr(Game* game);
 	/// Sets a modal surface.
 	void setModal(InteractiveSurface *surface);
+	/// Clears the modal only when it still belongs to the supplied surface.
+	void clearModal(InteractiveSurface *surface);
 
 	/// Opt-in semantic focus for HD family adapters. Disabled legacy states keep
 	/// the original InteractiveSurface dispatch unchanged.

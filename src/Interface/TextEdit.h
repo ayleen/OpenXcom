@@ -27,6 +27,7 @@ namespace OpenXcom
 
 class Timer;
 class TTFFont;
+namespace Calypso { class CalypsoTextEdit; }
 enum TextEditConstraint { TEC_NONE, TEC_NUMERIC_POSITIVE, TEC_NUMERIC };
 enum TextEditEnterPolicy { TEEP_INSERT_NEWLINE, TEEP_COMMIT };
 
@@ -37,6 +38,7 @@ enum TextEditEnterPolicy { TEEP_INSERT_NEWLINE, TEEP_COMMIT };
  */
 class TextEdit : public InteractiveSurface
 {
+	friend class Calypso::CalypsoTextEdit;
 private:
 	Text *_text, *_caret;
 	UString _value;
@@ -67,14 +69,6 @@ private:
 	bool exceedsMaxWidth(UCode c) const;
 	/// Checks if character is valid to be inserted at caret position.
 	bool isValidChar(UCode c) const;
-	/// Keeps the multiline caret inside the vertically visible row window.
-	void updateMultilineViewport();
-	/// Invalidates cached wrapping/metrics after a layout input changes.
-	void invalidateMultilineLayout();
-	/// Rebuilds cached wrapping/metrics only after invalidation.
-	void ensureMultilineLayout();
-	/// Inserts validated SDL_TEXTINPUT payload at the caret.
-	void textInput(Action *action, State *state);
 public:
 	/// Creates a new text edit with the specified size and position.
 	TextEdit(State *state, int width, int height, int x = 0, int y = 0);

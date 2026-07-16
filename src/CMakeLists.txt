@@ -609,6 +609,8 @@ if(EMSCRIPTEN)
   list(APPEND openxcom_src Calypso/CalypsoMainLoopGate.cpp)
   list(APPEND openxcom_src Calypso/CalypsoGameReflow.cpp)
   list(APPEND openxcom_src Calypso/CalypsoBrowserScale.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoStateUi.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoTextEdit.cpp)
   list(APPEND openxcom_src Calypso/CalypsoTextInputHarnessState.cpp)
 
   # Phase 8b: regenerate embedded shader table before each build when any
@@ -884,6 +886,7 @@ if(NOT EMSCRIPTEN AND BUILD_TESTING)
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoUiFamiliesTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoFocusModelTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoFocusCoordinatorTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoComboBoxTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoViewportRuntimeTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoResolutionFloorTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoTextEditLayoutTest.cpp

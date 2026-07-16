@@ -278,11 +278,9 @@ bool Game::iterate()
 #else /* SDL2 native or Emscripten — SDL_WINDOWEVENT replaces SDL_ACTIVEEVENT + SDL_VIDEORESIZE */
 			case SDL_WINDOWEVENT:
 #ifdef __EMSCRIPTEN__
-				if (_event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED
-				    || _event.window.event == SDL_WINDOWEVENT_RESIZED)
-				{
+				if (_event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED ||
+				    _event.window.event == SDL_WINDOWEVENT_RESIZED)
 					reflowEmscriptenViewport(_event.window.data1, _event.window.data2);
-				}
 #else
 				if (_event.window.event == SDL_WINDOWEVENT_RESIZED)
 				{

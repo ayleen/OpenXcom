@@ -127,8 +127,11 @@ public:
 		if (_modalTarget)
 		{
 			CalypsoFocusBinding* modal = focusModalTarget();
-			if (command == CalypsoFocusCommand::Activate && modal && modal->activate)
-				(void)modal->activate();
+			if (command == CalypsoFocusCommand::Activate && modal)
+			{
+				auto activate = modal->activate;
+				if (activate) (void)activate();
+			}
 			return true; // unregistered modal blocks background commands too
 		}
 
@@ -139,7 +142,11 @@ public:
 		else
 		{
 			CalypsoFocusBinding* binding = focusedBinding();
-			if (binding && binding->activate) (void)binding->activate();
+			if (binding)
+			{
+				auto activate = binding->activate;
+				if (activate) (void)activate();
+			}
 		}
 		return true;
 	}

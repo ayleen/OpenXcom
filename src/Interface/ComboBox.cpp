@@ -29,6 +29,7 @@
 #include "../Engine/Screen.h"
 #ifdef __EMSCRIPTEN__
 #include "../Engine/TTFFont.h"
+#include "../Calypso/CalypsoComboBox.h"
 #include "../fmath.h"
 #endif
 
@@ -315,13 +316,22 @@ void ComboBox::setText(const std::string &text)
 void ComboBox::setSelected(size_t sel)
 {
 #ifdef __EMSCRIPTEN__
-	if (sel < _optionEnabled.size() && !_optionEnabled[sel]) return;
+	if (!Calypso::calypsoComboOptionEnabled(_optionEnabled, sel)) return;
 #endif
 	_sel = sel;
 	if (_sel < _list->getTexts())
 	{
 		_button->setText(_list->getCellText(_sel, 0));
 	}
+}
+
+void ComboBox::selectOptionFromList(size_t sel)
+{
+#ifdef __EMSCRIPTEN__
+	if (!Calypso::calypsoComboOptionEnabled(_optionEnabled, sel)) return;
+#endif
+	setSelected(sel);
+	toggle(false, true);
 }
 
 /**
