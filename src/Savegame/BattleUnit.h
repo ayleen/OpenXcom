@@ -902,6 +902,9 @@ public:
 	bool getWantToEndTurn();
 	/// Brutal-AI: reachable-position cache (rebuilt lazily by the AI within a turn).
 	void setReachablePositions(const std::map<Position, int, PositionComparator>& reachable);
+	/// CONTRACT: the returned reference is invalidated by the next
+	/// setReachablePositions on this unit (e.g. via AIModule::getReachableBy
+	/// recomputing this unit). Copy the map to retain it across a rebuild.
 	const std::map<Position, int, PositionComparator>& getReachablePositions();
 	void setPositionOfUpdate(Position pos, bool withMaxTUs);
 	Position getPositionOfUpdate();

@@ -20,7 +20,7 @@
 
 #include "../Battlescape/BattlescapeGame.h"
 #include "../Battlescape/BattlescapeState.h"
-#include "../Engine/CalypsoAlienPacing.h"
+#include "CalypsoAlienPacing.h"
 #include "../Engine/Game.h"
 #include "../Engine/Logger.h"
 #include "../Engine/Options.h"

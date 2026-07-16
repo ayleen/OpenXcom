@@ -3808,6 +3808,7 @@ void TileEngine::explode(BattleActionAttack attack, Position center, int power, 
 			if (j)
 				applyGravity(j);
 		}
+		_save->notifyFactionTurnTerrainChanged(); // Phase 43.1B (Calypso): blast terrain destruction dirties the per-faction turn-caches (gated), same seam as hit()/doors — else stale negative-LOF entries survive the rest of the faction turn
 	}
 	calculateLighting(LL_AMBIENT, centetTile, maxRadius + 1, true); // roofs could have been destroyed and fires could have been started
 	calculateFOV(centetTile, maxRadius + 1, true, true);

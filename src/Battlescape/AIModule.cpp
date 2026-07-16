@@ -4591,7 +4591,6 @@ void AIModule::brutalThink(BattleAction* action)
 	}
 	float targetDistanceTofurthestReach = FLT_MAX;
 	std::map<Position, int, PositionComparator> enemyReachable;
-	std::map<Position, int, PositionComparator> friendReachable;
 	std::map<Position, int, PositionComparator> bestFriendReachable;
 	bool immobileEnemies = false;
 
@@ -4695,7 +4694,6 @@ void AIModule::brutalThink(BattleAction* action)
 					_save->getPathfinding()->setIgnoreFriends(true);
 					for (const auto& reachablePosOfTarget : getReachableBy(target, _ranOutOfTUs, false, true))
 					{
-						friendReachable[reachablePosOfTarget.first] += reachablePosOfTarget.second;
 						bestFriendReachable[reachablePosOfTarget.first] = std::max(bestFriendReachable[reachablePosOfTarget.first], reachablePosOfTarget.second);
 					}
 					_save->getPathfinding()->setIgnoreFriends(false);
@@ -4862,8 +4860,6 @@ void AIModule::brutalThink(BattleAction* action)
 	if (sharedEnemyField)
 		enemyReachable = sharedEnemyField->getAggregate();
 	int myMaxTU = getMaxTU(_unit);
-	//Log(LOG_INFO) << "friendReachable[myPos]: " << friendReachable[myPos]
-	//			  << " myMaxTU: " << myMaxTU;
 	int weaponRange = maxExtenderRangeWith(_unit, getMaxTU(_unit));
 	bool sweepMode = _unit->isLeeroyJenkins() || immobile;
 	_unit->setCharging(nullptr);

@@ -503,9 +503,10 @@ void SavedBattleGame::load(const YAML::YamlNodeReader& node, Mod *mod, SavedGame
 						break; // degenerate map or pathological record count: stop accepting
 					// A cell missing either key is malformed and skipped entirely; in particular
 					// a present `value` must never be paired with a defaulted Position(0,0,0).
-					// The tolerant readVal defaults below apply only AFTER both keys are confirmed
-					// present, so a present-but-malformed scalar still downgrades to a default
-					// rather than aborting the whole load.
+					// The readVal defaults below rescue only a fully-absent node (already
+					// handled by the guard). A present-but-structurally-malformed position
+					// seq still throws inside Position::read() and aborts the load — same
+					// tolerance as every other readVal<Position> in the codebase.
 					const auto& posNode = cellReader["position"];
 					const auto& valueNode = cellReader["value"];
 					if (!posNode || !valueNode)
