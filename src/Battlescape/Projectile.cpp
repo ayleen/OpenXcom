@@ -53,7 +53,9 @@ bool Projectile::shotNeedsProtection(const Position &origin, std::vector<Positio
 	int coveredVoxelsCount = coveredVoxels.size();
 	if (coveredVoxelsCount == 0) return true; // Doesn't matter, just return from here
 
-	bool isCtrlPressed = _save->isCtrlPressed(true); // Don't protect forced shots
+	// M2 (Calypso): only a deliberate player-turn shot by a human-controlled unit may treat Ctrl
+	// as "forced" — otherwise live keyboard state leaks into AI/reaction shot resolution.
+	bool isCtrlPressed = _save->getSide() == FACTION_PLAYER && _action.actor && !_action.actor->isAIControlled() && _save->isCtrlPressed(true); // Don't protect forced shots
 	if (isCtrlPressed) return false;
 
 	auto ammo = _action.weapon->getAmmoForAction(_action.type);
@@ -111,7 +113,9 @@ bool Projectile::shotNeedsProtection(const Position &origin, std::vector<Positio
  */
 Position Projectile::calculateMissingTrajectoryRA(const Position &origin, const Position* target, BattleUnit *shooterUnit, const BattleUnit* targetUnit, int distanceVoxels, const std::vector<Position>& exposedVoxels)
 {
-	bool isCtrlPressed = _save->isCtrlPressed(true);
+	// M2 (Calypso): gate live Ctrl to a deliberate player-turn, human-controlled shot; AI and
+	// reaction shots must not read the keyboard (also required for deterministic/lockstep RNG).
+	bool isCtrlPressed = _save->getSide() == FACTION_PLAYER && shooterUnit && !shooterUnit->isAIControlled() && _save->isCtrlPressed(true);
 	bool isPlayer = (shooterUnit->getFaction() == FACTION_PLAYER);
 	const Mod::AccuracyModConfig* AccuracyMod = _mod->getAccuracyModConfig();
 

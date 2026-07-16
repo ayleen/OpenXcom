@@ -538,6 +538,7 @@ private:
 	int _aiCheatMode;
 	bool _aiAvoidMines;
 	bool _aiPerformanceOptimization;
+	bool _aiFailureMemory;
 	std::string _aiCivilianGuardType;
 	int _aiCivilianGuardChance;
 	int _aiReactionFireThreshold, _aiReactionFireThresholdCiv;
@@ -546,6 +547,32 @@ private:
 	AIAttackWeight _aiTargetWeightAsHostileCivilians = AIAttackWeight{ 50 };
 	AIAttackWeight _aiTargetWeightAsFriendly = AIAttackWeight{ -200 };
 	AIAttackWeight _aiTargetWeightAsNeutral = AIAttackWeight{ -100 };
+	// Phase 43.0 item 7 (Calypso): tunable numeric knobs that were previously hardcoded magic
+	// constants at the consumer sites. Defaults reproduce the pre-43.0 behavior exactly; the
+	// mod can override each one via the ai: block. See getters below for per-knob semantics.
+	int _aiHearingNoiseBase;         // base loudness added on each ranged shot (previously literal 8)
+	int _aiHearingPowerDivisor;      // divisor applied to ammo power in the shot-noise formula (previously 16)
+	int _aiSuppressionRadius;        // Chebyshev radius (tiles) for the near-miss suppression scan (previously 1)
+	int _aiFocusFireCommitThreshold; // squad-attackers count at which focus-fire down-weighting kicks in (previously 2)
+	int _aiFocusFireScorePercent;    // percent of weight/score a dogpiled target keeps (previously 50, i.e. halve)
+	int _aiBreachDetourMultiplier;   // path-vs-straight-line detour ratio that triggers a wall breach (previously 2)
+	// Phase 43.1 (Calypso): shared-fields gate + work-budget schema. Defaults keep the
+	// feature off and the budgets unbounded, so behavior is byte-identical to pre-43.1;
+	// the mod can override each one via the ai: block. See getters below for semantics.
+	bool _aiSharedFields;      // gate for the per-faction-turn shared spatial fields (off = old code paths)
+	int  _aiEvalBudget;        // top-K candidate-evaluation count cap (0 = unbounded)
+	int  _aiTurnBudgetMs;      // wall-clock alien-turn deadline backstop in ms (0 = off)
+	// Phase 43.1 (Calypso): occupancy-field tuning schema. The two percent knobs
+	// clamp to 0..100 and the three spike magnitudes clamp to 0..1000 -- the fixed
+	// OccupancyField scale, NOT a separate ruleset key. These are engine defaults;
+	// this slice is schema-only (no consumer reads these yet), and
+	// the whole block stays gated by _aiSharedFields, so old saves/rulesets and
+	// flag-off behavior remain byte-identical to pre-43.1. See getters below.
+	int _aiOccupancyRetainPercent; // fraction of each cell retained per decay pass (default 75)
+	int _aiOccupancySpreadPercent; // fraction of retained mass diffused to neighbors (default 25)
+	int _aiOccupancySightingSpike; // occupancy added on a fresh sighting (default 1000 == field scale)
+	int _aiOccupancyNoiseSpike;    // occupancy added on a heard noise (default 500)
+	int _aiOccupancyHitSpike;      // occupancy added on a confirmed hit/casualty (default 700)
 
 	int _maxLookVariant, _tooMuchSmokeThreshold, _customTrainingFactor;
 	int _chanceToStopRetaliation;
@@ -1294,6 +1321,22 @@ public:
 	bool getAIAvoidMines() const { return _aiAvoidMines; }
 	/// Brutal-AI: whether to trim the per-turn option set the brutal AI evaluates, to cut turn time (default false).
 	bool getAIPerformanceOptimization() const { return _aiPerformanceOptimization; }
+	bool getAIFailureMemory() const { return _aiFailureMemory; }
+#ifdef __EMSCRIPTEN__
+	void setAIFailureMemoryForHarness(bool enabled) { _aiFailureMemory = enabled; }
+	/// Phase 43.1 QA harness: override the per-faction-turn shared spatial fields for one
+	/// explicit regression scenario after the shipped ruleset loads. The
+	/// three Phase-43.1 knobs mirror the existing failureMemory harness setter: the JS
+	/// harness calls these after callMain + ruleset load (see CalypsoAiQaHarness.cpp's
+	/// calypso_set_ai_shared_fields / _eval_budget / _turn_budget_ms). False/zero restore
+	/// the schema's feature-off sentinels for an explicit QA comparison without changing
+	/// the shipped .rul bytes.
+	/// Negative int budgets fold to 0 (the "off / unbounded" sentinel), matching the
+	/// AITuning::clampNonNegative clamp applied at ruleset load (Mod.cpp).
+	void setAISharedFieldsForHarness(bool enabled) { _aiSharedFields = enabled; }
+	void setAIEvalBudgetForHarness(int budget) { _aiEvalBudget = budget < 0 ? 0 : budget; }
+	void setAITurnBudgetMsForHarness(int budgetMs) { _aiTurnBudgetMs = budgetMs < 0 ? 0 : budgetMs; }
+#endif
 	/// Gets the civilian unit type spawned as an armed guard (Phase 32; empty = no guards).
 	const std::string& getAICivilianGuardType() const { return _aiCivilianGuardType; }
 	/// Gets the per-civilian chance (%) of spawning as a guard instead (Phase 32; default 0).
@@ -1310,6 +1353,35 @@ public:
 	AIAttackWeight getAITargetWeightAsFriendly() const { return _aiTargetWeightAsFriendly; }
 	/// Gets default weight value of neutral unit (xcom to civ or vice versa).
 	AIAttackWeight getAITargetWeightAsNeutral() const { return _aiTargetWeightAsNeutral; }
+
+	/// Phase 43.0 item 7: base loudness added to ammo-power/divisor on each ranged shot (default 8, >=0).
+	int getAIHearingNoiseBase() const { return _aiHearingNoiseBase; }
+	/// Phase 43.0 item 7: divisor applied to ammo power in the shot-noise formula (default 16, >=1).
+	int getAIHearingPowerDivisor() const { return _aiHearingPowerDivisor; }
+	/// Phase 43.0 item 7: Chebyshev radius (tiles) for the near-miss suppression scan (default 1, >=0).
+	int getAISuppressionRadius() const { return _aiSuppressionRadius; }
+	/// Phase 43.0 item 7: squad-attackers count at which focus-fire down-weighting kicks in (default 2, >=1).
+	int getAIFocusFireCommitThreshold() const { return _aiFocusFireCommitThreshold; }
+	/// Phase 43.0 item 7: percent of weight/score a dogpiled target keeps (default 50, clamped 1..100).
+	int getAIFocusFireScorePercent() const { return _aiFocusFireScorePercent; }
+	/// Phase 43.0 item 7: detour ratio (pathTUs vs straight-line) that triggers a wall breach (default 2, >=1).
+	int getAIBreachDetourMultiplier() const { return _aiBreachDetourMultiplier; }
+	/// Phase 43.1: gate for the per-faction-turn shared spatial fields (default false, off = old code paths).
+	bool getAISharedFields() const { return _aiSharedFields; }
+	/// Phase 43.1: top-K candidate-evaluation count cap (default 0 = unbounded, >=0).
+	int getAIEvalBudget() const { return _aiEvalBudget; }
+	/// Phase 43.1: wall-clock alien-turn deadline backstop in ms (default 0 = off, >=0).
+	int getAITurnBudgetMs() const { return _aiTurnBudgetMs; }
+	/// Phase 43.1: fraction of each occupancy cell retained per decay pass (default 75, clamped 0..100).
+	int getAIOccupancyRetainPercent() const { return _aiOccupancyRetainPercent; }
+	/// Phase 43.1: fraction of retained occupancy mass diffused to neighbors (default 25, clamped 0..100).
+	int getAIOccupancySpreadPercent() const { return _aiOccupancySpreadPercent; }
+	/// Phase 43.1: occupancy added on a fresh sighting (default 1000, clamped 0..1000 = field scale).
+	int getAIOccupancySightingSpike() const { return _aiOccupancySightingSpike; }
+	/// Phase 43.1: occupancy added on a heard noise (default 500, clamped 0..1000).
+	int getAIOccupancyNoiseSpike() const { return _aiOccupancyNoiseSpike; }
+	/// Phase 43.1: occupancy added on a confirmed hit/casualty (default 700, clamped 0..1000).
+	int getAIOccupancyHitSpike() const { return _aiOccupancyHitSpike; }
 
 	/// Gets maximum supported lookVariant.
 	int getMaxLookVariant() const;

@@ -18,6 +18,7 @@
  */
 #include <algorithm>
 #include "ProjectileFlyBState.h"
+#include "../Mod/AITuning.h"
 #include "ExplosionBState.h"
 #include "Projectile.h"
 #include "TileEngine.h"
@@ -34,6 +35,7 @@
 #include "../Mod/RuleItem.h"
 #include "../Engine/Options.h"
 #include "AIModule.h"
+#include "AIOccupancyClue.h"
 #include "Camera.h"
 #include "Explosion.h"
 #include "BattlescapeState.h"
@@ -42,6 +44,10 @@
 
 namespace OpenXcom
 {
+
+#ifdef __EMSCRIPTEN__
+extern "C" int calypso_consume_ai_failure_probe(int unitId, int actionType);
+#endif
 
 /**
  * Sets up an ProjectileFlyBState.
@@ -75,12 +81,14 @@ void ProjectileFlyBState::init()
 
 	if (!weapon) // can't shoot without weapon
 	{
+		_action.aiFailure = AIFailureReason::NO_AMMO;
 		_parent->popState();
 		return;
 	}
 
 	if (!_parent->getSave()->getTile(_action.target)) // invalid target position
 	{
+		_action.aiFailure = AIFailureReason::INVALID_TARGET;
 		_parent->popState();
 		return;
 	}
@@ -88,11 +96,26 @@ void ProjectileFlyBState::init()
 	//test TU only on first lunch waypoint or normal shoot
 	if (_range == 0 && !_action.haveTU(&_action.result))
 	{
+		_action.aiFailure = _action.actor->getTimeUnits() < _action.Time
+			? AIFailureReason::NOT_ENOUGH_TU : AIFailureReason::NOT_ENOUGH_ENERGY;
 		_parent->popState();
 		return;
 	}
 
 	_unit = _action.actor;
+
+#ifdef __EMSCRIPTEN__
+	// Regression harness only: force one exact hostile AI projectile candidate
+	// through the real failure-memory path without spending TU/ammo or changing
+	// the world revision.  The probe is dormant unless JS explicitly arms it.
+	if (_unit->getFaction() == FACTION_HOSTILE && _action.aiFailureMemoryCandidate
+		&& calypso_consume_ai_failure_probe(_unit->getId(), static_cast<int>(_action.type)))
+	{
+		_action.aiFailure = AIFailureReason::NO_LOF;
+		_parent->popState();
+		return;
+	}
+#endif
 
 	bool reactionShoot = _unit->getFaction() != _parent->getSave()->getSide();
 	if (_action.type != BA_THROW)
@@ -100,6 +123,7 @@ void ProjectileFlyBState::init()
 		_ammo = _action.weapon->getAmmoForAction(_action.type, reactionShoot ? nullptr : &_action.result);
 		if (!_ammo)
 		{
+			_action.aiFailure = AIFailureReason::NO_AMMO;
 			_parent->popState();
 			return;
 		}
@@ -132,6 +156,10 @@ void ProjectileFlyBState::init()
 	Tile *endTile = _parent->getSave()->getTile(_action.target);
 	int distanceSq = _action.actor->distance3dToPositionSq(_action.target);
 	bool isPlayer = _parent->getSave()->getSide() == FACTION_PLAYER;
+	// M1 (Calypso): LOF strictness must key off the SHOOTER's faction, not whose turn it is —
+	// otherwise a player unit's reaction shot on the alien turn is treated as an AI shot and
+	// dropped as "no line of fire". `isPlayer` (whose turn) still drives UI/obstacle display.
+	bool isPlayerShooter = (_unit->getFaction() == FACTION_PLAYER);
 	if (isPlayer) _parent->getMap()->resetObstacles();
 	switch (_action.type)
 	{
@@ -143,6 +171,7 @@ void ProjectileFlyBState::init()
 		{
 			// out of range
 			_action.result = "STR_OUT_OF_RANGE";
+			_action.aiFailure = AIFailureReason::OUT_OF_RANGE;
 			_parent->popState();
 			return;
 		}
@@ -152,6 +181,7 @@ void ProjectileFlyBState::init()
 		{
 			// out of range
 			_action.result = "STR_OUT_OF_RANGE";
+			_action.aiFailure = AIFailureReason::OUT_OF_RANGE;
 			_parent->popState();
 			return;
 		}
@@ -331,7 +361,7 @@ void ProjectileFlyBState::init()
 				BattleActionOrigin bestOriginType = BattleActionOrigin::CENTRE;
 				Position bestTargetPos = _targetVoxel;
 
-				_parent->getTileEngine()->checkVoxelExposure(&originVoxel, targetTile, _unit, isPlayer, &exposedVoxels, nullptr, !isPlayer);
+				_parent->getTileEngine()->checkVoxelExposure(&originVoxel, targetTile, _unit, isPlayerShooter, &exposedVoxels, nullptr, !isPlayerShooter);
 
 				if (!exposedVoxels.empty())
 				{
@@ -348,7 +378,7 @@ void ProjectileFlyBState::init()
 						exposedVoxels.clear();
 						_action.relativeOrigin = rel_pos;
 						originVoxel = _parent->getTileEngine()->getOriginVoxel(_action, _parent->getSave()->getTile(_origin));
-						_parent->getTileEngine()->checkVoxelExposure(&originVoxel, targetTile, _unit, isPlayer, &exposedVoxels, nullptr, !isPlayer);
+						_parent->getTileEngine()->checkVoxelExposure(&originVoxel, targetTile, _unit, isPlayerShooter, &exposedVoxels, nullptr, !isPlayerShooter);
 
 						if (exposedVoxels.size() <= bestExposedCount) continue;
 
@@ -550,6 +580,7 @@ bool ProjectileFlyBState::createNewProjectile()
 			delete projectile;
 			_parent->getMap()->setProjectile(0);
 			_action.result = "STR_UNABLE_TO_THROW_HERE";
+			_action.aiFailure = AIFailureReason::INVALID_THROW;
 			_action.clearTU();
 			_parent->popState();
 			return false;
@@ -585,6 +616,7 @@ bool ProjectileFlyBState::createNewProjectile()
 			{
 				_action.result = "STR_NO_TRAJECTORY";
 			}
+			_action.aiFailure = AIFailureReason::NO_TRAJECTORY;
 			_unit->abortTurn();
 			_parent->popState();
 			return false;
@@ -627,6 +659,7 @@ bool ProjectileFlyBState::createNewProjectile()
 			{
 				_action.result = "STR_NO_LINE_OF_FIRE";
 			}
+			_action.aiFailure = AIFailureReason::NO_LOF;
 			_unit->abortTurn();
 			_parent->popState();
 			return false;
@@ -645,21 +678,30 @@ bool ProjectileFlyBState::createNewProjectile()
 	// Phase 34.8 (Calypso): emit a transient noise event at the shooter's position on
 	// every successful ranged shot (NOT a throw -- a grenade toss is quiet; its detonation
 	// emits via TileEngine::explode). Hearing radius scales mildly with ammo power
-	// (`8 + power/16`: a power-80 sonic weapon -> 13, a power-40 pistol -> 10). emitNoise is
-	// gated internally on Mod::getAIHearing (zero writes when off -- post-34.9 hardening), so
-	// this call site stays unconditional. Auto-fire emits once per projectile --
-	// harmless duplicates (same pos/turn) that the read path de-factors on the newest tie.
+	// (`hearingNoiseBase + power/hearingPowerDivisor`: with the defaults 8 + power/16 a
+	// power-80 sonic weapon -> 13, a power-40 pistol -> 10). emitNoise is gated internally
+	// on Mod::getAIHearing (zero writes when off -- post-34.9 hardening), so this call
+	// site stays unconditional. Auto-fire emits once per projectile -- harmless duplicates
+	// (same pos/turn) that the read path de-factors on the newest tie.
+	//
+	// Phase 43.1 fairness fix: pass the SHOOTER's faction as sourceFaction -- this call
+	// emits from _unit->getPosition(), i.e. the shooter, so _unit->getFaction() is the
+	// emitting faction. That faction is then exempt from the Phase 43.1 occupancy spike so
+	// its own gunfire can't self-poison its occupancy map at its own zone; opposing factions
+	// still hear it normally when they have a living hearer in earshot.
 	if (_action.type != BA_THROW)
 	{
 		const int ammoPower = _ammo ? _ammo->getRules()->getPower() : 0;
-		_parent->getSave()->emitNoise(_unit->getPosition(), 8 + ammoPower / 16);
+		auto* mod = _parent->getSave()->getMod();
+		_parent->getSave()->emitNoise(_unit->getPosition(), AITuning::hearingLoudness(
+			mod->getAIHearingNoiseBase(), ammoPower, mod->getAIHearingPowerDivisor()), _unit->getFaction());
 	}
 
 	// Phase 34.7 (Calypso): near-miss suppression scan. Same seam family as 34.8's noise
 	// emission above -- at this point the trajectory is finalized and the projectile is
 	// committed to fly, so its voxel path is the ground truth of which tiles it visits. The
 	// scan (gated at the mechanic inside applySuppression: flag off => single-branch no-op,
-	// byte-identical) finds units within 1 tile of the trajectory and applies the morale/energy
+	// byte-identical) finds units within suppressionRadius tile(s) of the trajectory and applies the morale/energy
 	// pin. Same `!= BA_THROW` gate as noise: a grenade toss isn't volume fire (its detonation
 	// is a separate event that 34.7 does NOT suppress -- out of scope for this slice).
 	// Auto-fire emits one scan per projectile, which is correct: each bullet is its own
@@ -1058,6 +1100,42 @@ void ProjectileFlyBState::projectileHitUnit(Position pos)
 	BattleUnit *targetVictim = _parent->getSave()->getTile(_action.target)->getUnit(); // Who we were aiming at (not necessarily who we hit)
 	if (victim && !victim->isOut())
 	{
+		// Phase 43.1 (Calypso): directional-hit occupancy clue. A confirmed hit tells
+		// the VICTIM's faction that a hostile gun lies somewhere along the victim ->
+		// shot-origin ray. We never feed the exact attacker tile to the occupancy
+		// map: the pure helper below walks at most 8 Chebyshev steps from the victim
+		// toward the shooter, and collapses to the victim tile itself when the two
+		// coincide (no usable direction). Only the victim's faction map is spiked,
+		// at the bounded clue tile -- never at _unit->getPosition() directly.
+		//
+		// Gate order is deliberate: ai.sharedFields is the cheap feature gate, so with
+		// the flag off we stop there and do no occupancy work at all (no clue math, no
+		// spike). The current-faction test -- NOT original faction -- excludes self and
+		// friendly-fire in the presence of mind control: a shot fired by a unit that is
+		// currently on the victim's faction carries no enemy-direction information.
+		// spikeFactionOccupancy re-checks ai.sharedFields and validates the faction
+		// range, on-map bounds (getTile), and amount, so we deliberately do NOT
+		// re-check getTile(clue) or clamp here -- it owns the final validation.
+		if (_unit && _parent->getSave()->getMod()->getAISharedFields()
+			&& _unit->getFaction() != victim->getFaction())
+		{
+			const int hitSpike = _parent->getSave()->getMod()->getAIOccupancyHitSpike();
+			if (hitSpike > 0)
+			{
+				const Position clue = projectDirectionalHitClue(victim->getPosition(), _unit->getPosition(), 8);
+				// Skip the no-direction / adjacent-attacker degenerate case: the
+				// helper never returns the exact attacker tile and degrades an
+				// adjacent attacker (or coincident tile) to the victim tile. Spiking
+				// the victim's own tile with a hit-signal would be noise, not a
+				// direction hint, so skip it. (Directional-hit-clue fairness fix:
+				// the clue stops strictly short of the hidden attacker.)
+				if (clue != victim->getPosition())
+				{
+					_parent->getSave()->spikeFactionOccupancy(victim->getFaction(), clue, hitSpike);
+				}
+			}
+		}
+
 		victim->getStatistics()->hitCounter++;
 		if (_unit->getOriginalFaction() == FACTION_PLAYER && victim->getOriginalFaction() == FACTION_PLAYER)
 		{

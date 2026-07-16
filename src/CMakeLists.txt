@@ -6,6 +6,8 @@ set ( root_src
 )
 set ( calypso_src
   Calypso/BattlescapeHud.cpp
+  Calypso/CalypsoAiQaHarness.cpp
+  Calypso/CalypsoAlienPacing.cpp
   Calypso/CalypsoContractDeliverState.cpp
   Calypso/CalypsoEconomy.cpp
   Calypso/CalypsoEconomyState.cpp
@@ -748,7 +750,7 @@ if(EMSCRIPTEN)
     -sMIN_WEBGL_VERSION=2
     -sMAX_WEBGL_VERSION=2
     -sFULL_ES3=1
-    "-sEXPORTED_RUNTIME_METHODS=[\"FS\",\"IDBFS\",\"callMain\",\"ccall\",\"cwrap\",\"wasmMemory\",\"UTF8ToString\"]"
+    "-sEXPORTED_RUNTIME_METHODS=[\"FS\",\"IDBFS\",\"callMain\",\"ccall\",\"cwrap\",\"wasmMemory\",\"UTF8ToString\",\"HEAPU8\"]"
     "-sEXPORTED_FUNCTIONS=[\"_main\",\"_calypso_screenshot\",\"_calypso_screenshot_gpu\",\"_calypso_gpu_smoke_activate\",\"_calypso_hd_unit_e1_gpu_probe\"${CALYPSO_HD_UNIT_SPIKE_EXPORTED_FUNCTIONS},\"_calypso_push_mouse_motion\",\"_calypso_set_profile_globe\",\"_calypso_set_profile_battlescape\",\"_calypso_set_profile_readback\",\"_calypso_dump_emit_once\",\"_calypso_set_ssaa_scale\",\"_calypso_gl_context_lost\",\"_calypso_gl_context_restored\",\"_calypso_log_heap\",\"_calypso_heap_used\",\"_calypso_heap_total\",\"_calypso_on_tab_hidden\",\"_calypso_apply_touch_defaults\",\"_calypso_battlescape_zoom\",\"_calypso_text_set\",\"_calypso_text_commit\",\"_calypso_text_commit_multiline\",\"_calypso_text_cancel\",\"_calypso_tutorial_advance\",\"_calypso_tutorial_stop\",\"_calypso_tutorial_close\"]"
     -sENVIRONMENT=web
     -sMODULARIZE=1
@@ -881,7 +883,6 @@ if(NOT EMSCRIPTEN AND BUILD_TESTING)
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoEconomySimTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoTrainingMathTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoPrologueMathTest.cpp
-        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/HdUnitRenderPlanTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoUiMetricsTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoUiFamiliesTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoFocusModelTest.cpp
@@ -890,7 +891,24 @@ if(NOT EMSCRIPTEN AND BUILD_TESTING)
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoViewportRuntimeTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoResolutionFloorTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoTextEditLayoutTest.cpp
-        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHudLayoutCacheTest.cpp)
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHudLayoutCacheTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/AITuningTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/AIFailureMemoryTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/Phase43CompositionTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/FactionTurnCacheTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/FriendReachableFieldTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/TerrainLofNegativeCacheTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/ThreatFieldTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/AICandidateOrderTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/AIEscapeCandidateOrderTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/AIEvaluationBudgetTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoAlienPacingTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/AITargetRankTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/AIOccupancyClueTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/AIOccupancyPeakTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/SpotterCountFieldTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/OccupancyFieldTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/HdUnitRenderPlanTest.cpp)
 
     add_executable(oxce_unit_tests ${OXCE_TEST_SOURCES})
     target_link_libraries(oxce_unit_tests PRIVATE oxce_test_doctest)

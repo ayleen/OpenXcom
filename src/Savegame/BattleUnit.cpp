@@ -1314,6 +1314,7 @@ void BattleUnit::keepWalking(SavedBattleGame *savedBattleGame, bool fullWalkCycl
 	if (!fullWalkCycle || (_walkPhase == middle))
 	{
 		setTile(savedBattleGame->getTile(_destination), savedBattleGame);
+		savedBattleGame->notifyFactionTurnUnitMoved(this);
 	}
 
 	if (_walkPhase >= end)
@@ -2925,6 +2926,9 @@ void BattleUnit::prepareNewTurn(bool fullProcess)
 
 	_hitByFire = false;
 	_dontReselect = false;
+	// Phase 43 (C1): reset the brutal "want to end turn" flag every turn, otherwise a unit that
+	// ended its turn once stays passive for the rest of the mission (Brutal-OXCE resets it here).
+	if (isBrutal()) setWantToEndTurn(false);
 	_aiMedikitUsed = false;
 	_motionPoints = 0;
 	// Phase 34.7 (Calypso): reset the per-turn near-miss counter in the turn-prep path
@@ -5960,12 +5964,12 @@ bool BattleUnit::getWantToEndTurn()
 	return false;
 }
 
-void BattleUnit::setReachablePositions(std::map<Position, int, PositionComparator> reachable)
+void BattleUnit::setReachablePositions(const std::map<Position, int, PositionComparator>& reachable)
 {
 	_reachablePositions = reachable;
 }
 
-std::map<Position, int, PositionComparator> BattleUnit::getReachablePositions()
+const std::map<Position, int, PositionComparator>& BattleUnit::getReachablePositions()
 {
 	return _reachablePositions;
 }

@@ -24,6 +24,7 @@
 #include "Tile.h"
 #include "../Mod/AlienDeployment.h"
 #include "../Mod/RuleCraft.h"
+#include "FactionTurnCache.h"
 
 namespace OpenXcom
 {
@@ -154,6 +155,12 @@ private:
 	// PLAYER/HOSTILE/NEUTRAL). Transient, never serialized -- rebuilt each faction turn, a fresh
 	// save loads it empty. Only the acting faction's board is populated (rebuild is gated).
 	SquadBlackboard _squadBlackboards[FACTION_MAX];
+	// Phase 43.1B (Calypso): per-faction turn-cache invalidation state (index by UnitFaction:
+	// PLAYER/HOSTILE/NEUTRAL). Transient, never serialized -- loads default-invalid and is (re)
+	// armed each faction turn (gated on ai.sharedFields). Pure bookkeeping only: tracks which
+	// shared spatial fields are stale + a terrain mutation revision; builds no field and changes
+	// no decision. Only the acting faction's cache is armed (beginFactionTurnCache is gated).
+	FactionTurnCache _factionTurnCaches[FACTION_MAX];
 	std::list<BattleUnit*> _fallingUnits;
 	bool _unitsFalling, _cheating;
 	std::vector<Position> _tileSearch, _storageSpace;
@@ -461,6 +468,61 @@ public:
 	const RuleCraftDeployment& getCustomDeployment(const RuleCraft* rule) const;
 	/// Ends the turn.
 	void endTurn();
+
+	// ---- Phase 43.1B (Calypso): per-faction turn-cache invalidation state ----------------
+	// Pure transient bookkeeping beside the 34.9 SquadBlackboard. These accessors/methods do not
+	// build any field or change any AI decision; they exist for later (ai.sharedFields-gated)
+	// field builders and for tests. Invalid faction values are rejected safely (nullptr / no-op).
+	/// Mutable access to a faction's turn-cache, or nullptr for an out-of-range faction
+	/// (e.g. FACTION_NONE). Never allocates; returns the per-faction slot when valid.
+	FactionTurnCache* getFactionTurnCache(UnitFaction faction);
+	/// Const access to a faction's turn-cache, or nullptr for an out-of-range faction.
+	const FactionTurnCache* getFactionTurnCache(UnitFaction faction) const;
+	/// Arm the turn-cache for `faction` at this faction's turn start. GATED on ai.sharedFields:
+	/// with the flag off this is a no-op (caches stay default-invalid, byte-identical behavior).
+	/// Invalid factions are rejected safely.
+	void beginFactionTurnCache(UnitFaction faction);
+	/// Notify every valid faction cache that terrain mutated (explosion / wall / door). GATED on
+	/// ai.sharedFields: with the flag off this is a no-op. Mirrors the existing resetVisibilityCache
+	/// seams in TileEngine -- called from exactly those sites, preserving the reset.
+	void notifyFactionTurnTerrainChanged();
+	/// Phase 43.1 (Calypso): spike `faction`'s occupancy field at `pos` by `amount`,
+	/// clamped DOWN to the fixed OccupancyField cap (1000). GATED on ai.sharedFields:
+	/// with the flag off this is a no-op (caches stay byte-identical). Rejects an
+	/// invalid faction range (FACTION_NONE / >= FACTION_MAX), a non-positive amount,
+	/// and any position whose getTile(pos) is null (off-map / not-yet-loaded) so the
+	/// producer honors the OccupancyField INTEGRATION PRECONDITION (consumers never
+	/// observe an out-of-range cell). Does NOT require the cache to be armed: a fair
+	/// off-side sighting may arrive before that faction's own beginTurn (the field is
+	/// preserved across beginTurn / onTerrainChanged and decays on its own explicit
+	/// cadence via advanceOccupancyToTurn). Touches NO terrain/threat dirty flags --
+	/// occupancy is independent of those aggregates.
+	void spikeFactionOccupancy(UnitFaction faction, const Position& pos, int amount);
+	/// Phase 43.1K (Calypso): queue a new/updated fair-knowledge enemy sighting for
+	/// the observer faction's active threat producer, and (for ANY observer faction)
+	/// spike that faction's occupancy field at the fair-known tile. GATED on
+	/// ai.sharedFields; invalid/off-side factions, null enemies, and unarmed caches
+	/// are harmless no-ops. The occupancy spike is fair for every observer faction;
+	/// the threat-producer queue (recordKnowledgeChanged) is active-side-only
+	/// (observerFaction == _side), exactly as before this slice.
+	void notifyFactionTurnKnowledgeChanged(UnitFaction observerFaction, BattleUnit *enemy, const Position& knownTile);
+	/// Phase 43.1E (Calypso): notify that a unit moved within its faction. Removes only its
+	/// contribution from the CURRENT faction's friendReachable cache (no whole-field dirty; the
+	/// other units' contributions stay valid). GATED on ai.sharedFields; a null unit is a harmless
+	/// no-op (there is no id to remove).
+	void notifyFactionTurnUnitMoved(BattleUnit *unit);
+	/// Phase 43.1E/Q (Calypso): notify that a unit died. Removes both friend and enemy
+	/// contributions defensively from EVERY valid faction cache, then invalidates the max-only
+	/// derived threat field. GATED on ai.sharedFields; a null unit is a harmless no-op.
+	void notifyFactionTurnUnitDied(BattleUnit *unit);
+	/// Phase 43.1E (Calypso): notify that a unit spawned. Removes any stale contribution for its id
+	/// from the CURRENT faction's cache (a spawn may reuse a recently-freed id). GATED on
+	/// ai.sharedFields; a null unit is a harmless no-op.
+	void notifyFactionTurnUnitSpawned(BattleUnit *unit);
+	/// Phase 43.1E/Q (Calypso): notify that a unit changed faction. Removes friend contributions
+	/// from old/current caches, scrubs the old enemy slice from EVERY observer cache, and
+	/// invalidates derived threat. GATED on ai.sharedFields; a null unit is a harmless no-op.
+	void notifyFactionTurnUnitChangedFaction(BattleUnit *unit, UnitFaction oldFaction);
 	/// Gets animation frame.
 	int getAnimFrame() const;
 	/// Increase animation frame.
@@ -535,7 +597,17 @@ public:
 	/// seam since the post-34.9 hardening: with the mod's ai.hearing flag off the call is a
 	/// no-op (zero writes -- the phase's final gating standard), so callers may invoke it
 	/// unconditionally. `loudness` <= 0 is a no-op. The list itself is private.
-	void emitNoise(const Position &pos, int loudness);
+	///
+	/// `sourceFaction` (Phase 43.1 fairness fix, default FACTION_NONE) identifies the faction
+	/// that EMITTED the noise (e.g. the shooter on a gunshot). When it is a real faction
+	/// ([FACTION_PLAYER, FACTION_MAX)) the Phase 43.1 occupancy producer exempts that one
+	/// faction from its own spike so a side's own gunfire cannot poison its occupancy map at
+	/// its own zone (self-noise); every OTHER faction still needs a living hearer exactly as
+	/// before. FACTION_NONE (or any non-faction value) makes the occupancy half byte-identical
+	/// to the pre-fix two-argument form, so existing two-argument callers are unchanged. The
+	/// transient NoiseEvent list is never affected by this parameter (it carries no faction;
+	/// schema/read semantics unchanged).
+	void emitNoise(const Position &pos, int loudness, UnitFaction sourceFaction = FACTION_NONE);
 	/// Phase 34.8 (Calypso): newest noise a hearer at `hearerPos` can still perceive, for
 	/// the AI read path (which gates on Mod::getAIHearing). A noise is hearable when it is
 	/// within the hearer's intelligence-scaled memory window (`turn - event.turn <=
@@ -543,6 +615,9 @@ public:
 	/// out position is the chosen event's source quantized to an 8-tile grid cell -- hearing
 	/// gives a zone/direction, never a wallhack tile. Returns false if none hearable.
 	bool getNewestHearableNoise(const Position &hearerPos, int intelligence, Position &outZone);
+	/// Calypso: drop all pending noise events. Used when advancing to the next multi-stage
+	/// battle stage so stage-1 noise does not leak into stage 2 (aliens chasing phantom noise).
+	void clearNoiseEvents();
 	/// Phase 34.7 (Calypso): scan a projectile's voxel trajectory for near-miss victims and
 	/// apply the suppression mechanic (morale/energy pin) to each. GATED AT THE SEAM: the
 	/// near-miss mechanic changes unit state, so unlike 34.8's unconditional noise emission

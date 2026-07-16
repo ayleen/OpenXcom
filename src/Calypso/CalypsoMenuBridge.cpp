@@ -23,6 +23,7 @@
 #include <string>
 #include <cstdio>
 #include <algorithm>
+#include <limits>
 #include <vector>
 
 #include "CalypsoMenuBridge.h"
@@ -398,8 +399,9 @@ int calypso_save_delete(const char *file)
  * native pops: for a non-Ironman game pop the PauseState left on top so the
  * player lands back in the Geoscape/Battlescape (SaveGameState.cpp:166-170);
  * for Ironman leave it (native never exposes Save from an Ironman PauseState —
- * PauseState.cpp:139-144). SavedGame::save() already flushes IDBFS itself
- * (Savegame/SavedGame.cpp:951-953), and the JS overlay owns its own close.
+ * PauseState.cpp:139-144). SavedGame::save() flushes the temporary backup name
+ * (Savegame/SavedGame.cpp:951-953); after moving it to the final .sav name we
+ * flush once more so IDBFS persists the rename. The JS overlay owns its close.
  * `origin` is unused (the inline save needs no OptionsOrigin) but kept for the
  * JS ABI. */
 EMSCRIPTEN_KEEPALIVE
@@ -427,6 +429,22 @@ int calypso_save_write(const char *displayName, int origin)
 		{
 			throw Exception("Save backed up in " + backup);
 		}
+		// SavedGame::save() flushes while the file still has its temporary
+		// .bak name. Persist the post-rename filesystem state as well; otherwise
+		// a reload restores only the ignored .bak entry and loses the visible
+		// .sav slot that this bridge just reported as successfully written.
+		EM_ASM({
+			setTimeout(function flushRenamedSave(attempt) {
+				if (FS.syncFSRequests > 0) {
+					var delay = Math.min(1000, 50 * (attempt + 1));
+					setTimeout(function() { flushRenamedSave(attempt + 1); }, delay);
+					return;
+				}
+				FS.syncfs(false, function(err) {
+					if (err) console.error('[calypso] syncfs error', err);
+				});
+			}, 0, 0);
+		});
 	}
 	catch (std::exception &e)
 	{
@@ -445,6 +463,136 @@ int calypso_save_write(const char *displayName, int origin)
 		g->popState();
 	}
 	return 1;
+}
+
+/* Downloads one validated save as a browser file. The security boundary is
+ * SavedGame::getList(g->getLanguage(), true): only a filename that is exactly
+ * present in that list is accepted. This rejects null/empty input and any path
+ * traversal or out-of-tree name — "../foo", absolute paths, and names the
+ * engine didn't enumerate never match a SaveInfo::fileName, so the constructed
+ * read path can only be Options::getMasterUserFolder() + a known-good basename.
+ * The EM_ASM block then reads that exact MEMFS/IDBFS path via FS.readFile,
+ * wraps the bytes in an application/x-yaml Blob, triggers a download with the
+ * validated basename as the filename, and revokes the object URL
+ * asynchronously. JS-side errors are caught/logged; a C++ try guard covers the
+ * rest. Returns 1 on success, 0 on any failure. */
+EMSCRIPTEN_KEEPALIVE
+int calypso_save_download(const char *file)
+{
+	Game *g = getCurrentGame();
+	if (!g || !file || !*file) return 0;
+	std::string fileName(file);
+
+	std::vector<SaveInfo> saves = SavedGame::getList(g->getLanguage(), true);
+	auto it = std::find_if(saves.begin(), saves.end(), [&](const SaveInfo &s) { return s.fileName == fileName; });
+	if (it == saves.end()) return 0;
+
+	std::string fullPath = Options::getMasterUserFolder() + fileName;
+	try
+	{
+		int ok = EM_ASM_INT({
+			try {
+				var path = UTF8ToString($0);
+				var name = UTF8ToString($1);
+				var data = FS.readFile(path);
+				var blob = new Blob([data], { type: 'application/x-yaml' });
+				var url = URL.createObjectURL(blob);
+				var a = document.createElement('a');
+				a.href = url;
+				a.download = name;
+				document.body.appendChild(a);
+				a.click();
+				setTimeout(function() {
+					if (a.parentNode) a.parentNode.removeChild(a);
+					URL.revokeObjectURL(url);
+				}, 1000);
+				return 1;
+			} catch (e) {
+				console.error('[calypso] save download failed', e);
+				return 0;
+			}
+		}, fullPath.c_str(), fileName.c_str());
+		return ok;
+	}
+	catch (std::exception &e)
+	{
+		Log(LOG_ERROR) << "calypso_save_download: " << e.what();
+		return 0;
+	}
+}
+
+/* TU-local cache shared by calypso_save_export_prepare / _bytes. File-scope
+ * `static` = internal-linkage, one instance for the whole TU. The prepare call
+ * is the sole writer (it clears, then assigns); _bytes is read-only. Lifetime
+ * contract: the bytes stay valid until the NEXT calypso_save_export_prepare,
+ * which overwrites them — JS must copy out of HEAPU8 before any further engine
+ * call. Single-threaded JS↔WASM, no reentrancy, so this is the only alias.
+ * Distinct from every other export's function-local s_buf on purpose: this one
+ * must outlive a single function call so a second export can read it back. */
+static std::string s_saveExportBuf;
+
+/* Prepares the raw bytes of one validated save for binary-safe export. Same
+ * path-traversal boundary as calypso_save_download — only a filename exactly
+ * present in SavedGame::getList(g->getLanguage(), true) is accepted (rejects
+ * null/empty input and any "../foo", absolute, or out-of-tree name, since none
+ * of those ever match a SaveInfo::fileName). The file is read via
+ * CrossPlatform::readFileRaw (full bytes — no NUL truncation or small fixed
+ * cap) and cached in the TU-local s_saveExportBuf. Files larger than INT_MAX
+ * are rejected because the paired wasm32 length ABI is signed. Returns the byte length on success;
+ * 0 on any failure (no live Game / unknown filename / read error / empty file).
+ * After a successful call the JS side reads the cached bytes through
+ * calypso_save_export_bytes() — see that export for the pointer lifetime. */
+EMSCRIPTEN_KEEPALIVE
+int calypso_save_export_prepare(const char *file)
+{
+	s_saveExportBuf.clear();
+	Game *g = getCurrentGame();
+	if (!g || !file || !*file) return 0;
+	std::string fileName(file);
+
+	std::vector<SaveInfo> saves = SavedGame::getList(g->getLanguage(), true);
+	auto it = std::find_if(saves.begin(), saves.end(), [&](const SaveInfo &s) { return s.fileName == fileName; });
+	if (it == saves.end()) return 0;
+
+	std::string fullPath = Options::getMasterUserFolder() + fileName;
+	try
+	{
+		RawData raw = CrossPlatform::readFileRaw(fullPath);
+		if (raw.size() == 0) return 0;
+		if (raw.size() > static_cast<size_t>(std::numeric_limits<int>::max()))
+		{
+			Log(LOG_ERROR) << "calypso_save_export_prepare: save is too large for the wasm32 length ABI";
+			return 0;
+		}
+		s_saveExportBuf.assign(static_cast<const char*>(raw.data()), raw.size());
+	}
+	catch (std::exception &e)
+	{
+		Log(LOG_ERROR) << "calypso_save_export_prepare: " << e.what();
+		s_saveExportBuf.clear();
+		return 0;
+	}
+	return (int)s_saveExportBuf.size();
+}
+
+/* Returns a pointer into wasm linear memory to the bytes cached by the most
+ * recent successful calypso_save_export_prepare call. Pair the two calls:
+ *   int len  = calypso_save_export_prepare(file);   // 0 = failure
+ *   const char *p = calypso_save_export_bytes();    // valid for `len` bytes
+ *
+ * POINTER LIFETIME: the returned address is into the TU-local s_saveExportBuf,
+ * which is overwritten by the NEXT calypso_save_export_prepare (the sole
+ * writer). Single-threaded JS↔WASM, no reentrancy. The JS caller MUST copy the
+ * bytes out of Module.HEAPU8 synchronously (e.g.
+ * new Uint8Array(HEAPU8.subarray(ptr, ptr+len))) as the very first thing it
+ * does, before any other engine export is called — growing the wasm heap
+ * (emscripten_resize_heap) between prepare and copy would invalidate the
+ * address, and the next _prepare call reassigns the buffer. Returns nullptr if
+ * no save has been prepared or the last prepare failed. */
+EMSCRIPTEN_KEEPALIVE
+const char *calypso_save_export_bytes(void)
+{
+	return s_saveExportBuf.empty() ? nullptr : s_saveExportBuf.data();
 }
 
 /* Slice A3 — Mods overlay exports (pattern 1: pure data-bridge, plan §A3).
