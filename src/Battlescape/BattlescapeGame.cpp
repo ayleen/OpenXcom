@@ -63,6 +63,9 @@
 #include "../Calypso/CalypsoTutorial.h"
 #include "../Calypso/CalypsoDirector.h"
 #endif
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+#include "../Calypso/CalypsoVoiceG05.h"
+#endif
 
 namespace OpenXcom
 {
@@ -184,6 +187,9 @@ BattlescapeGame::BattlescapeGame(SavedBattleGame *save, BattlescapeState *parent
 	_playerPanicHandled(true), _AIActionCounter(0), _AISecondMove(false), _playedAggroSound(false),
 	_endTurnRequested(false), _endConfirmationHandled(false), _allEnemiesNeutralized(false)
 {
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+	CalypsoVoiceG05::beginMission();
+#endif
 	if (_save->isPreview())
 	{
 		_allEnemiesNeutralized = true; // just in case
@@ -206,6 +212,9 @@ BattlescapeGame::BattlescapeGame(SavedBattleGame *save, BattlescapeState *parent
  */
 BattlescapeGame::~BattlescapeGame()
 {
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+	CalypsoVoiceG05::endMission();
+#endif
 	for (auto* bs : _states)
 	{
 		delete bs;
@@ -1106,6 +1115,9 @@ void BattlescapeGame::checkForCasualties(const RuleDamageType *damageType, Battl
 				}
 			}
 		}
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+		CalypsoVoiceG05::onCasualtyResolved(victim);
+#endif
 	}
 
 	BattleUnit *bu = _save->getSelectedUnit();
@@ -2069,7 +2081,14 @@ void BattlescapeGame::primaryAction(Position pos)
 		BattleUnit *unit = _save->selectUnit(pos);
 		if (unit && unit == _save->getSelectedUnit() && (unit->getVisible() || _debugPlay))
 		{
-			playUnitResponseSound(unit, 3); // "annoyed" sound
+			bool pilotHandled = false;
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+			pilotHandled = CalypsoVoiceG05::handleSelection(unit, true);
+#endif
+			if (!pilotHandled)
+			{
+				playUnitResponseSound(unit, 3); // "annoyed" sound
+			}
 		}
 		if (unit && unit != _save->getSelectedUnit() && (unit->getVisible() || _debugPlay))
 		{
@@ -2081,7 +2100,14 @@ void BattlescapeGame::primaryAction(Position pos)
 				cancelCurrentAction();
 				setupCursor();
 				_currentAction.actor = unit;
-				playUnitResponseSound(unit, 0); // "select unit" sound
+				bool pilotHandled = false;
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+				pilotHandled = CalypsoVoiceG05::handleSelection(unit, false);
+#endif
+				if (!pilotHandled)
+				{
+					playUnitResponseSound(unit, 0); // "select unit" sound
+				}
 			}
 		}
 		else if (playableUnitSelected())

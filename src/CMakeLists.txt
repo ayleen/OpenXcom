@@ -584,6 +584,9 @@ if(EMSCRIPTEN)
     list(APPEND openxcom_src Calypso/HdUnitSpikeState.cpp)
     list(APPEND openxcom_src Calypso/HdUnitBattleSpike.cpp)
   endif()
+  if(CALYPSO_VOICE_G0_5)
+    list(APPEND openxcom_src Calypso/CalypsoVoiceG05.cpp)
+  endif()
   list(APPEND openxcom_src Calypso/CalypsoTutorial.cpp)
   list(APPEND openxcom_src Calypso/CalypsoTutorialState.cpp)
   list(APPEND openxcom_src Calypso/CalypsoChecklist.cpp)
@@ -709,6 +712,18 @@ if(EMSCRIPTEN)
       ",\"_calypso_hd_unit_spike_activate\",\"_calypso_hd_unit_battle_g0_activate\",\"_calypso_hd_unit_battle_g0_select\",\"_calypso_hd_unit_battle_g0_find_occluder_target\",\"_calypso_hd_unit_battle_g0_find_walk_target\",\"_calypso_hd_unit_battle_g0_inspect_input\",\"_calypso_hd_unit_battle_g0_checkpoint\",\"_calypso_hd_unit_battle_g0_finish\",\"_calypso_unit_atlas_probe\""
     )
   endif()
+  set(CALYPSO_VOICE_G0_5_EXPORTED_FUNCTIONS "")
+  if(CALYPSO_VOICE_G0_5)
+    get_filename_component(CALYPSO_VOICE_G0_5_ASSET_DIR
+      "${CMAKE_SOURCE_DIR}/../../voice/pilot/g0.5" ABSOLUTE)
+    if(NOT EXISTS "${CALYPSO_VOICE_G0_5_ASSET_DIR}/slice-manifest.json")
+      message(FATAL_ERROR "CALYPSO_VOICE_G0_5 requires the verified voice/pilot/g0.5 asset slice")
+    endif()
+    target_compile_definitions(openxcom PRIVATE CALYPSO_VOICE_G0_5=1)
+    set(CALYPSO_VOICE_G0_5_EXPORTED_FUNCTIONS
+      ",\"_calypso_voice_g05_enabled\""
+    )
+  endif()
   # Stub SDL_gfxPrimitives.h for Emscripten (no SDL2_gfx port; implementations in EmscriptenCompat.cpp).
   target_include_directories(openxcom PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Engine/compat_sdl)
   target_link_options(openxcom PRIVATE
@@ -739,7 +754,7 @@ if(EMSCRIPTEN)
     -sMAX_WEBGL_VERSION=2
     -sFULL_ES3=1
     "-sEXPORTED_RUNTIME_METHODS=[\"FS\",\"IDBFS\",\"callMain\",\"ccall\",\"cwrap\",\"wasmMemory\",\"UTF8ToString\"]"
-    "-sEXPORTED_FUNCTIONS=[\"_main\",\"_calypso_screenshot\",\"_calypso_screenshot_gpu\",\"_calypso_gpu_smoke_activate\",\"_calypso_hd_unit_e1_gpu_probe\"${CALYPSO_HD_UNIT_SPIKE_EXPORTED_FUNCTIONS},\"_calypso_push_mouse_motion\",\"_calypso_set_profile_globe\",\"_calypso_set_profile_battlescape\",\"_calypso_set_profile_readback\",\"_calypso_dump_emit_once\",\"_calypso_set_ssaa_scale\",\"_calypso_gl_context_lost\",\"_calypso_gl_context_restored\",\"_calypso_log_heap\",\"_calypso_heap_used\",\"_calypso_heap_total\",\"_calypso_on_tab_hidden\",\"_calypso_apply_touch_defaults\",\"_calypso_battlescape_zoom\",\"_calypso_text_set\",\"_calypso_text_commit\",\"_calypso_text_cancel\",\"_calypso_tutorial_advance\",\"_calypso_tutorial_stop\",\"_calypso_tutorial_close\"]"
+    "-sEXPORTED_FUNCTIONS=[\"_main\",\"_calypso_screenshot\",\"_calypso_screenshot_gpu\",\"_calypso_gpu_smoke_activate\",\"_calypso_hd_unit_e1_gpu_probe\"${CALYPSO_HD_UNIT_SPIKE_EXPORTED_FUNCTIONS}${CALYPSO_VOICE_G0_5_EXPORTED_FUNCTIONS},\"_calypso_push_mouse_motion\",\"_calypso_set_profile_globe\",\"_calypso_set_profile_battlescape\",\"_calypso_set_profile_readback\",\"_calypso_dump_emit_once\",\"_calypso_set_ssaa_scale\",\"_calypso_gl_context_lost\",\"_calypso_gl_context_restored\",\"_calypso_log_heap\",\"_calypso_heap_used\",\"_calypso_heap_total\",\"_calypso_on_tab_hidden\",\"_calypso_apply_touch_defaults\",\"_calypso_battlescape_zoom\",\"_calypso_text_set\",\"_calypso_text_commit\",\"_calypso_text_cancel\",\"_calypso_tutorial_advance\",\"_calypso_tutorial_stop\",\"_calypso_tutorial_close\"]"
     -sENVIRONMENT=web
     -sMODULARIZE=1
     -sEXPORT_ES6=1

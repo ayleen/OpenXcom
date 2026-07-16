@@ -35,6 +35,9 @@
 #include "InfoboxOKState.h"
 #include "InfoboxState.h"
 #include "../Savegame/Node.h"
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+#include "../Calypso/CalypsoVoiceG05.h"
+#endif
 
 namespace OpenXcom
 {
@@ -357,6 +360,12 @@ void UnitDieBState::convertUnitToCorpse()
  */
 void UnitDieBState::playDeathSound()
 {
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+	if (CalypsoVoiceG05::onDeath(_unit))
+	{
+		return;
+	}
+#endif
 	const std::vector<int> &sounds = _unit->getDeathSounds();
 	if (!sounds.empty())
 	{
