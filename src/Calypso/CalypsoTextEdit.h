@@ -1,5 +1,7 @@
 #pragma once
 
+#ifdef __EMSCRIPTEN__
+
 namespace OpenXcom
 {
 class Action;
@@ -33,3 +35,5 @@ public:
 
 } // namespace Calypso
 } // namespace OpenXcom
+
+#endif // __EMSCRIPTEN__
