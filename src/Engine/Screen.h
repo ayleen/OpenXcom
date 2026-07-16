@@ -136,6 +136,14 @@ public:
 	/// Used by the Battlescape/Geoscape resize() proportional path and the
 	/// Video-menu labels so the canvas keeps the display aspect ratio.
 	static void getScreenScaleFraction(int scaleType, int &num, int &den);
+#ifdef __EMSCRIPTEN__
+	/// Independently promote invalid live and pending browser scene fractions.
+	static void normalizeBrowserScales();
+	/// Apply one bridge-authorized canvas-size change (flip() resize path) as a
+	/// single reflow via the Calypso viewport bridge. Body lives in
+	/// src/Calypso/CalypsoBrowserScale.cpp (policy R3).
+	void reflowCanvasFallback(int canvasWidth, int canvasHeight);
+#endif
 };
 
 }

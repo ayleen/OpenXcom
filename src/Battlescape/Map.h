@@ -138,6 +138,8 @@ private:
 	TTFFont *_fontHdNumbers; // Phase 16: TTF font for HD cursor TU/AP numerals (lazy-cached, see getHdNumberFont)
 	/// Timestamp (SDL_GetTicks) of the last blit() call — used by GPU overlay guards.
 	Uint32 _lastDrawnTicks = 0u;
+	/// Diagnostic counter: completed HUD image/text GPU passes for the live Map.
+	unsigned _hudGlDrawCount = 0u;
 
 	/// Phase 16: returns the HD cursor-numeral font, lazily caching it on first
 	/// successful lookup.  Resilient to mid-session timing where the mod's TTF
@@ -557,6 +559,10 @@ public:
 	void setOverlayOwner(State* s) { _overlayOwner = s; }
 	/// Calypso: base-res Y of the (HD) HUD top, so overlays/vapor clip above it.
 	void setHudTopY(int y) { _hudTopYBase = y; }
+	/// Calypso: read back the base-res Y of the (HD) HUD top (scissor boundary).
+	/// Diagnostic/test-only consumers (calypso_hud_layout_probe) use this to
+	/// assert the scissor tracks the panel top across resizes.
+	int getHudTopY() const { return _hudTopYBase; }
 #ifdef __EMSCRIPTEN__
 	/// Calypso Phase 30: trigger hit FX at a contact point (faction-agnostic; unit
 	/// may be absent for terrain/object hits). dirX/dirY = screen-space push for the
@@ -584,6 +590,17 @@ public:
 	void setHudImage(int slot, const std::string& key, SDL_Surface* src, int x, int y, int w, int h);
 	/// Clear one HUD image slot (slot art no longer applies, e.g. non-soldier unit).
 	void clearHudImage(int slot);
+	/// Calypso: read back the base-resolution rect (x, y, w, h) last pushed for a
+	/// HUD text slot. Returns false when the slot is inactive/unknown. Diagnostic/
+	/// test-only (calypso_hud_layout_probe) — used to verify the GL overlay rect
+	/// stays aligned with the CPU HUD widget after a resize.
+	bool getHudTextRect(int slot, int* x, int* y, int* w, int* h) const;
+	/// Calypso: read back the base-resolution rect (x, y, w, h) last pushed for a
+	/// HUD image slot. Returns false when the slot is inactive/unknown. Diagnostic/
+	/// test-only (calypso_hud_layout_probe).
+	bool getHudImageRect(int slot, int* x, int* y, int* w, int* h) const;
+	/// Test/diagnostic proof that the registered HUD GPU pass reached its draw path.
+	unsigned getHudGlDrawCount() const { return _hudGlDrawCount; }
 #endif
 	/// Handles timers.
 	void think() override;

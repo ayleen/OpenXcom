@@ -53,6 +53,13 @@ enum class UnexpectedFinishAction
 	AllTakenOutcome
 };
 
+/// The scripted prologue owns its ending and therefore cannot coexist with
+/// the vanilla battlescape turn timer. Zero and negative values mean disabled.
+inline bool prologueTurnLimitIsSafe(int turnLimit)
+{
+	return turnLimit <= 0;
+}
+
 /// An abort confirmation must be consumed unless cast-off is currently
 /// available and at least one live crew member occupies a real START_POINT.
 inline bool consumeAbortRequest(bool inert, bool castOffAvailable, bool anyoneAboard)

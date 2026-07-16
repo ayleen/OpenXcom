@@ -56,6 +56,8 @@
 // namespace).  Declare it here so getCurrentGame() can return it without
 // requiring every caller to write its own extern declaration.
 extern OpenXcom::Game *game;
+extern "C" void calypso_reset_main_loop_state(void);
+extern "C" int calypso_pause_main_loop_before_iterate(void);
 #endif
 
 namespace OpenXcom
@@ -199,7 +201,11 @@ bool Game::iterate()
 	if (!_init)
 	{
 		_init = true;
+#ifdef __EMSCRIPTEN__
+		initializeEmscriptenTopState();
+#else
 		_states.back()->init();
+#endif
 
 		// Unpress buttons
 		_states.back()->resetAll();
@@ -284,6 +290,11 @@ bool Game::iterate()
 				break;
 #else /* SDL2 native or Emscripten — SDL_WINDOWEVENT replaces SDL_ACTIVEEVENT + SDL_VIDEORESIZE */
 			case SDL_WINDOWEVENT:
+#ifdef __EMSCRIPTEN__
+				if (_event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED ||
+				    _event.window.event == SDL_WINDOWEVENT_RESIZED)
+					reflowEmscriptenViewport(_event.window.data1, _event.window.data2);
+#else
 				if (_event.window.event == SDL_WINDOWEVENT_RESIZED)
 				{
 					/* SDL_RenderSetLogicalSize scales the fixed-resolution framebuffer
@@ -294,6 +305,7 @@ bool Game::iterate()
 					Options::newDisplayHeight = Options::displayHeight =
 					    std::max(Screen::ORIGINAL_HEIGHT, _event.window.data2);
 				}
+#endif
 				break;
 #endif /* SDL2 */
 			case SDL_MOUSEMOTION:
@@ -528,13 +540,19 @@ bool Game::iterate()
 #ifdef __EMSCRIPTEN__
 static void emscriptenIter(void *arg)
 {
+	// A viewport/context-loss event can arrive before Game::run registers the
+	// browser loop. Apply that recorded state in the first callback and do not
+	// let one game iteration escape before the pause takes effect.
+	if (calypso_pause_main_loop_before_iterate()) return;
 	Game *game = static_cast<Game*>(arg);
 	try {
 		if (!game->iterate()) {
+			calypso_reset_main_loop_state();
 			emscripten_cancel_main_loop();
 		}
 	} catch (const std::exception &e) {
 		Log(LOG_FATAL) << "iterate() uncaught: " << e.what();
+		calypso_reset_main_loop_state();
 		emscripten_cancel_main_loop();
 	}
 }
@@ -549,6 +567,9 @@ void Game::run()
 {
 #ifdef __EMSCRIPTEN__
 	// 0 fps = driven by requestAnimationFrame; 1 = simulate_infinite_loop (never returns).
+	// Only the first callback may mark the loop started; before registration even
+	// a synchronous JS unblock must not call emscripten_resume_main_loop().
+	calypso_reset_main_loop_state();
 	emscripten_set_main_loop_arg(emscriptenIter, this, 0, 1);
 #else
 	while (iterate()) {}
@@ -655,6 +676,9 @@ void Game::pushState(State *state)
 		_cursor->setHidden(false);
 	}
 	_states.push_back(state);
+#ifdef __EMSCRIPTEN__
+	trackEmscriptenViewportState(state);
+#endif
 	_init = false;
 }
 

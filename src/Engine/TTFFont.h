@@ -20,6 +20,7 @@
 #include <string>
 #include <unordered_map>
 #include <list>
+#include <vector>
 #include <SDL_ttf.h>
 #include <SDL.h>
 #include "FileMap.h"
@@ -53,6 +54,10 @@ public:
 	/** Returns a cached, owned ARGB surface.  Caller blits, does not free.
 	 *  Returns nullptr if the font failed to load. */
 	SDL_Surface* renderText(const std::string& utf8, SDL_Color rgba);
+
+	/** Computes per-codepoint advances and kerning in O(n), without rendering. */
+	bool measureGlyphs(const std::u32string& text, std::vector<int>& advances,
+	                  std::vector<int>& kerningBefore) const;
 
 	int lineHeight() const;
 

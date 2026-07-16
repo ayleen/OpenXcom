@@ -45,7 +45,7 @@ namespace OpenXcom
 TextList::TextList(int width, int height, int x, int y) : InteractiveSurface(width, height, x, y),
 	_big(0), _small(0), _font(0), _lang(nullptr), _scroll(0), _visibleRows(0), _selRow(0), _color(0), _color2(0),
 	_dot(false), _selectable(false), _condensed(false), _contrast(false), _wrap(false), _flooding(false), _ignoreSeparators(false),
-	_bg(0), _selector(0), _margin(0), _scrolling(true), _arrowPos(-1), _scrollPos(4), _arrowType(ARROW_VERTICAL),
+	_bg(0), _selector(0), _margin(0), _minimumRowHeight(0), _scrolling(true), _arrowPos(-1), _scrollPos(4), _arrowType(ARROW_VERTICAL),
 	_leftClick(0), _leftPress(0), _leftRelease(0), _rightClick(0), _rightPress(0), _rightRelease(0),
 	_arrowsLeftEdge(0), _arrowsRightEdge(0), _noScrollLeftEdge(0), _noScrollRightEdge(0), _comboBox(0)
 {
@@ -180,6 +180,21 @@ void TextList::setRowColor(size_t row, Uint8 color)
 	for (auto* text : _texts[row])
 	{
 		text->setColor(color);
+	}
+	_redraw = true;
+}
+
+void TextList::setCellColorRGB(size_t row, size_t column, Uint32 argb)
+{
+	_texts[row][column]->setColorRGB(argb);
+	_redraw = true;
+}
+
+void TextList::setRowColorRGB(size_t row, Uint32 argb)
+{
+	for (auto* text : _texts[row])
+	{
+		text->setColorRGB(argb);
 	}
 	_redraw = true;
 }
@@ -414,12 +429,14 @@ void TextList::addRow(int cols, ...)
 	// dropdowns + the Advanced/Controls option lists render as small text). The
 	// stride math in draw()/blit()/updateVisible already reads getHeight() and
 	// scales _font metrics by scale(), so a scaled box keeps everything aligned.
-	const int scaledRowHeight = (int)Round(rowHeight * scale());
+	const int scaledRowHeight = std::max((int)Round(rowHeight * scale()),
+		(int)Round(_minimumRowHeight * scale()));
 	for (int i = 0; i < cols; ++i)
 	{
 		temp[i]->setHeight(scaledRowHeight);
 	}
 #else
+	rowHeight = std::max(rowHeight, _minimumRowHeight);
 	for (int i = 0; i < cols; ++i)
 	{
 		temp[i]->setHeight(rowHeight);
@@ -521,6 +538,13 @@ void TextList::setColumns(int cols, ...)
 	}
 
 	va_end(args);
+}
+
+void TextList::setMinimumRowHeight(int height)
+{
+	_minimumRowHeight = std::max(0, height);
+	if (_font) updateVisible();
+	_redraw = true;
 }
 
 /**
@@ -777,6 +801,47 @@ unsigned int TextList::getSelectedRow() const
 	{
 		return _rows[_selRow];
 	}
+}
+
+void TextList::setSelectedRow(size_t row)
+{
+	if (!_selectable || row >= _texts.size()) return;
+	for (size_t i = 0; i < _rows.size(); ++i)
+	{
+		if (_rows[i] != row) continue;
+		if (i < _scroll) scrollTo(i);
+		else if (_visibleRows > 0 && i >= _scroll + _visibleRows)
+			scrollTo(i - _visibleRows + 1);
+		_selRow = i;
+		updateSelector();
+		return;
+	}
+}
+
+void TextList::updateSelector()
+{
+	if (!_selectable || _selRow >= _rows.size())
+	{
+		_selector->setVisible(false);
+		return;
+	}
+	Text *selText = _texts[_rows[_selRow]].front();
+	int y = getY() + selText->getY();
+	int actualHeight = selText->getHeight() + _font->getSpacing();
+	if (y < getY() || y + actualHeight > getY() + getHeight()) actualHeight /= 2;
+	if (y < getY()) y = getY();
+	if (_selector->getHeight() != actualHeight)
+	{
+		delete _selector;
+		_selector = new Surface(getWidth(), actualHeight, getX(), y);
+		_selector->setPalette(getPalette());
+	}
+	_selector->setY(y);
+	_selector->copy(_bg);
+	if (_contrast) _selector->offsetBlock(-5);
+	else if (_comboBox) _selector->offset(+1, Palette::backPos);
+	else _selector->offsetBlock(-10);
+	_selector->setVisible(true);
 }
 
 /**
@@ -1046,9 +1111,14 @@ void TextList::updateVisible()
 {
 	_visibleRows = 0;
 #ifdef __EMSCRIPTEN__
-	for (int y = 0; y < getHeight(); y += (int)Round((_font->getHeight() + _font->getSpacing()) * scale()))
+	const int stride = std::max(1, std::max(
+		(int)Round((_font->getHeight() + _font->getSpacing()) * scale()),
+		(int)Round((_minimumRowHeight + _font->getSpacing()) * scale())));
+	for (int y = 0; y < getHeight(); y += stride)
 #else
-	for (int y = 0; y < getHeight(); y += _font->getHeight() + _font->getSpacing())
+	const int stride = std::max(1, std::max(_font->getHeight() + _font->getSpacing(),
+		_minimumRowHeight + _font->getSpacing()));
+	for (int y = 0; y < getHeight(); y += stride)
 #endif
 	{
 		_visibleRows++;
@@ -1329,8 +1399,7 @@ void TextList::mouseClick(Action *action, State *state)
 			InteractiveSurface::mouseClick(action, state);
 			if (_comboBox && action->getDetails()->button.button == SDL_BUTTON_LEFT)
 			{
-				_comboBox->setSelected(_selRow);
-				_comboBox->toggle(false, true);
+				_comboBox->selectOptionFromList(_selRow);
 			}
 		}
 	}
@@ -1349,52 +1418,14 @@ void TextList::mouseOver(Action *action, State *state)
 {
 	if (_selectable)
 	{
-		int rowHeight = _font->getHeight() + _font->getSpacing(); //theoretical line height
+		int rowHeight = std::max(_font->getHeight(), _minimumRowHeight)
+			+ _font->getSpacing(); // theoretical line height
 #ifdef __EMSCRIPTEN__
 		_selRow = std::max(0, (int)(_scroll + (int)floor(action->getRelativeYMouse() / (rowHeight * scale() * action->getYScale()))));
 #else
 		_selRow = std::max(0, (int)(_scroll + (int)floor(action->getRelativeYMouse() / (rowHeight * action->getYScale()))));
 #endif
-		if (_selRow < _rows.size())
-		{
-			Text *selText = _texts[_rows[_selRow]].front();
-			int y = getY() + selText->getY();
-			int actualHeight = selText->getHeight() + _font->getSpacing(); //current line height
-			if (y < getY() || y + actualHeight > getY() + getHeight())
-			{
-				actualHeight /= 2;
-			}
-			if (y < getY())
-			{
-				y = getY();
-			}
-			if (_selector->getHeight() != actualHeight)
-			{
-				// resizing doesn't work, but recreating does, so let's do that!
-				delete _selector;
-				_selector = new Surface(getWidth(), actualHeight, getX(), y);
-				_selector->setPalette(getPalette());
-			}
-			_selector->setY(y);
-			_selector->copy(_bg);
-			if (_contrast)
-			{
-				_selector->offsetBlock(-5);
-			}
-			else if (_comboBox)
-			{
-				_selector->offset(+1, Palette::backPos);
-			}
-			else
-			{
-				_selector->offsetBlock(-10);
-			}
-			_selector->setVisible(true);
-		}
-		else
-		{
-			_selector->setVisible(false);
-		}
+		updateSelector();
 	}
 
 	InteractiveSurface::mouseOver(action, state);

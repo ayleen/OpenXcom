@@ -29,6 +29,7 @@
 #include "../Engine/Screen.h"
 #ifdef __EMSCRIPTEN__
 #include "../Engine/TTFFont.h"
+#include "../Calypso/CalypsoComboBox.h"
 #include "../fmath.h"
 #endif
 
@@ -314,11 +315,23 @@ void ComboBox::setText(const std::string &text)
  */
 void ComboBox::setSelected(size_t sel)
 {
+#ifdef __EMSCRIPTEN__
+	if (!Calypso::calypsoComboOptionEnabled(_optionEnabled, sel)) return;
+#endif
 	_sel = sel;
 	if (_sel < _list->getTexts())
 	{
 		_button->setText(_list->getCellText(_sel, 0));
 	}
+}
+
+void ComboBox::selectOptionFromList(size_t sel)
+{
+#ifdef __EMSCRIPTEN__
+	if (!Calypso::calypsoComboOptionEnabled(_optionEnabled, sel)) return;
+#endif
+	setSelected(sel);
+	toggle(false, true);
 }
 
 /**
@@ -370,6 +383,7 @@ void ComboBox::setOptions(const std::vector<std::string> &options, bool translat
 #ifdef __EMSCRIPTEN__
 	_optionsCache = options;
 	_optionsCacheTranslate = translate;
+	_optionEnabled.assign(options.size(), true);
 #endif
 	setDropdown(options.size());
 	_list->clearList();
@@ -382,6 +396,13 @@ void ComboBox::setOptions(const std::vector<std::string> &options, bool translat
 	}
 	setSelected(_sel);
 }
+
+#ifdef __EMSCRIPTEN__
+void ComboBox::setOptionEnabled(size_t index, bool enabled)
+{
+	if (index < _optionEnabled.size()) _optionEnabled[index] = enabled;
+}
+#endif
 
 /**
  * Blits the combo box components.

@@ -46,6 +46,7 @@
 #include "../Interface/ToggleTextButton.h"
 #include "../Interface/ComboBox.h"
 #include "../Interface/Slider.h"
+#include "CalypsoResolutionFloor.h"
 #include <set>
 
 namespace OpenXcom
@@ -752,14 +753,6 @@ int calypso_mods_revert()
  * OptionsBaseState's btnOkClick/btnCancelClick bodies
  * (Menu/OptionsBaseState.cpp:220-290). */
 
-/* The 5-entry proportional display-fraction ladder Calypso's video tab
- * offers, combobox display order Full/3/4/1/2/1/3/1/4 — mirrors the
- * __EMSCRIPTEN__ branch of OptionsVideoState's ctor (Menu/OptionsVideoState.cpp:
- * 322-327) so the bridge and the native menu never drift out of sync. */
-static const int CALYPSO_VIDEO_SCALE_LADDER[5] = {
-	SCALE_SCREEN, SCALE_SCREEN_3_4, SCALE_SCREEN_DIV_2, SCALE_SCREEN_DIV_3, SCALE_SCREEN_DIV_4
-};
-
 /* Forward map: internal ScaleType (Engine/Options.h's 17-entry enum) to a
  * ladder index above, for legacy/off-ladder values already sitting in an old
  * options.cfg. Mirrors OptionsVideoState's _scales table verbatim
@@ -924,7 +917,10 @@ int calypso_video_set_scale(int battlescape, int value)
 	Game *g = getCurrentGame();
 	if (!g) return 0;
 	if (value < 0 || value > 4) return 0;
-	int scaleType = CALYPSO_VIDEO_SCALE_LADDER[value];
+	int scaleType = Calypso::calypsoScaleAtLadderIndex(value);
+	if (!Calypso::calypsoEvaluateScale(Options::displayWidth, Options::displayHeight,
+	                                  Options::nonSquarePixelRatio, scaleType).eligible)
+		return 0;
 	if (battlescape) Options::newBattlescapeScale = scaleType;
 	else Options::newGeoscapeScale = scaleType;
 	return 1;
@@ -942,20 +938,19 @@ const char *calypso_video_json()
 	Game *g = getCurrentGame();
 	if (!g) { s_buf = ""; return s_buf.c_str(); }
 
-	double pixelRatioY = 1.0;
-	if (Options::nonSquarePixelRatio && !Options::allowResize) pixelRatioY = 1.2;
-
 	std::string out = "{\"fractions\":[";
 	for (int i = 0; i < 5; ++i)
 	{
-		int num = 1, den = 1;
-		Screen::getScreenScaleFraction(CALYPSO_VIDEO_SCALE_LADDER[i], num, den);
-		int w = Options::displayWidth * num / den;
-		int h = (int)(Options::displayHeight / pixelRatioY * num / den);
+		const Calypso::CalypsoScaleResult result = Calypso::calypsoEvaluateScale(
+			Options::displayWidth, Options::displayHeight,
+			Options::nonSquarePixelRatio, Calypso::calypsoScaleAtLadderIndex(i));
 		if (i > 0) out += ",";
-		out += "\"" + std::to_string(w) + "x" + std::to_string(h) + "\"";
+		out += "{\"id\":" + std::to_string(i)
+		     + ",\"label\":\"" + std::to_string(result.width) + "x" + std::to_string(result.height) + "\""
+		     + ",\"enabled\":" + std::string(result.eligible ? "true" : "false") + "}";
 	}
 	out += "]";
+	out += ",\"minimumScaleReason\":\"" + jsonEscape(g->getLanguage()->getString("STR_CAL_HD_MINIMUM_SCALE")) + "\"";
 	out += ",\"geoscapeScale\":" + std::to_string(calypsoVideoScaleToLadder(Options::geoscapeScale));
 	out += ",\"battlescapeScale\":" + std::to_string(calypsoVideoScaleToLadder(Options::battlescapeScale));
 

@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <climits>
 #include "InteractiveSurface.h"
+#include "Action.h"
 #include "Game.h"
 #include "Screen.h"
 #include "Surface.h"
@@ -27,6 +28,7 @@
 #include "Language.h"
 #include "LocalizedText.h"
 #include "Palette.h"
+#include "../Calypso/CalypsoFocusInput.h"
 #include "../Engine/Sound.h"
 #include "../Engine/Collections.h"
 #include "../Mod/Mod.h"
@@ -37,9 +39,6 @@
 #include "../Interface/TextList.h"
 #include "../Interface/BattlescapeButton.h"
 #include "../Interface/ComboBox.h"
-#ifdef __EMSCRIPTEN__
-#include "../Interface/Slider.h"
-#endif
 #include "../Interface/Cursor.h"
 #include "../Interface/FpsCounter.h"
 #include "../Savegame/SavedBattleGame.h"
@@ -352,18 +351,22 @@ void State::think()
  */
 void State::handle(Action *action)
 {
-	if (!_modal)
-	{
-		for (std::vector<Surface*>::reverse_iterator i = _surfaces.rbegin(); i != _surfaces.rend(); ++i)
-		{
-			InteractiveSurface* j = dynamic_cast<InteractiveSurface*>(*i);
-			if (j != 0)
-				j->handle(action, this);
-		}
-	}
-	else
+	// Existing modal controls (notably TextEdit) remain strictly first: their
+	// raw keyboard semantics must never be reinterpreted as semantic traversal.
+	if (_modal)
 	{
 		_modal->handle(action, this);
+		return;
+	}
+
+	if (_calypsoFocus && Calypso::calypsoHandleFocusEvent(action->getDetails(),
+		*_calypsoFocus, _calypsoConsumedFocusKeys)) return;
+
+	for (std::vector<Surface*>::reverse_iterator i = _surfaces.rbegin(); i != _surfaces.rend(); ++i)
+	{
+		InteractiveSurface* j = dynamic_cast<InteractiveSurface*>(*i);
+		if (j != 0)
+			j->handle(action, this);
 	}
 }
 
@@ -572,7 +575,68 @@ bool State::hasOnlyOneScrollableTextList() const
  */
 void State::setModal(InteractiveSurface *surface)
 {
+	if (surface != _modal)
+	{
+		_calypsoConsumedFocusKeys = 0;
+		if (_calypsoFocus) _calypsoFocus->modalChanged(surface);
+	}
 	_modal = surface;
+}
+
+void State::clearModal(InteractiveSurface *surface)
+{
+	if (_modal == surface)
+	{
+		setModal(0);
+	}
+}
+
+void State::enableCalypsoFocus()
+{
+	_calypsoConsumedFocusKeys = 0;
+	if (!_calypsoFocus)
+		_calypsoFocus = std::make_unique<Calypso::CalypsoFocusCoordinator>();
+	if (_modal) _calypsoFocus->modalChanged(_modal);
+}
+
+void State::disableCalypsoFocus()
+{
+	_calypsoConsumedFocusKeys = 0;
+	_calypsoFocus.reset();
+}
+
+bool State::rebuildCalypsoFocus(std::vector<Calypso::CalypsoFocusBinding> bindings,
+	                             std::uint64_t generation)
+{
+	return _calypsoFocus && _calypsoFocus->rebuild(std::move(bindings), generation);
+}
+
+bool State::restoreCalypsoFocus(const std::string& id, std::uint64_t generation)
+{
+	return _calypsoFocus && _calypsoFocus->restore(id, generation);
+}
+
+bool State::handleCalypsoFocusCommand(Calypso::CalypsoFocusCommand command,
+	                                   std::uint64_t generation, bool wrap)
+{
+	return _calypsoFocus && _calypsoFocus->command(command, generation, wrap);
+}
+
+const std::string* State::getCalypsoFocusedId() const
+{
+	return _calypsoFocus ? _calypsoFocus->focusedId() : nullptr;
+}
+
+InteractiveSurface* State::getCalypsoFocusedTarget() const
+{
+	return _calypsoFocus
+		? static_cast<InteractiveSurface*>(_calypsoFocus->focusedTarget())
+		: nullptr;
+}
+
+std::uint64_t State::getCalypsoFocusGeneration() const
+{
+	return _calypsoFocus ? _calypsoFocus->generation() : 0;
 }
 
 /**
@@ -680,123 +744,6 @@ void State::recenter(int dX, int dY)
 		surface->setY(surface->getY() + dY / 2);
 	}
 }
-
-#ifdef __EMSCRIPTEN__
-/**
- * Calypso (Emscripten): capture the native (design-space) geometry of every
- * surface added so far, then lay the state out scaled to fill the logical buffer.
- * Generalises the proven HUD scaler (BattlescapeState::captureHudNative +
- * layoutHud) to any State.
- *
- * Contract: call this AFTER centerAllSurfaces() (the standard end-of-constructor
- * spot every fullscreen state already uses). The captured x/y are normalised
- * back to design space by removing the screen centring offset (Screen::getDX/
- * getDY), so the helper composes with the centring the state already did and
- * applyUiScaling() then re-centres at the scaled size. Keep the existing
- * centerAllSurfaces() call — do NOT remove it (that is what makes the capture
- * deterministic regardless of buffer size).
- *
- * Note: surfaces whose pixels are blitted once at construction (raw bitmap
- * backgrounds, custom views) are resized here but their content is NOT rescaled
- * — those need a per-state scaled re-blit + setRedraw(false), exactly like the
- * HUD panel art. Vector widgets (Window, *Button, Bar, Text geometry) redraw at
- * the new size for free.
- */
-void State::enableUiScaling(int designW, int designH, float factor)
-{
-	if (_uiCaptured || designW <= 0 || designH <= 0) return;
-	_uiDesignW = designW;
-	_uiDesignH = designH;
-	_uiFactor = factor > 0.0f ? factor : 1.0f;
-	_uiNative.clear();
-	// Undo the centring centerAllSurfaces() applied, recovering design-space
-	// coords. Deterministic: getDX/getDY is always (_base - ORIGINAL)/2.
-	const int dx = _game->getScreen()->getDX();
-	const int dy = _game->getScreen()->getDY();
-	for (auto* surf : _surfaces)
-	{
-		_uiNative.push_back({ surf, surf->getX() - dx, surf->getY() - dy,
-		                      surf->getWidth(), surf->getHeight() });
-	}
-	_uiCaptured = true;
-	applyUiScaling();
-}
-
-/**
- * Calypso (Emscripten): re-apply the uniform UI scale from the captured native
- * geometry. Surfaces are repositioned/resized absolutely (so clicks — which are
- * positional in base-resolution space — stay correct), centred with letterbox
- * margins. Scale is uniform (preserves aspect) and never shrinks below native.
- */
-void State::applyUiScaling()
-{
-	if (!_uiCaptured) return;
-	const float fx = (float)Options::baseXResolution / (float)_uiDesignW;
-	const float fy = (float)Options::baseYResolution / (float)_uiDesignH;
-	float s = (fx < fy ? fx : fy) * _uiFactor;
-	if (s < 1.0f) s = 1.0f;
-	_uiScale = s;
-	const int offX = (Options::baseXResolution - (int)(_uiDesignW * s + 0.5f)) / 2;
-	const int offY = (Options::baseYResolution - (int)(_uiDesignH * s + 0.5f)) / 2;
-	for (const auto& r : _uiNative)
-	{
-		if (!r.surf) continue;
-		r.surf->setX(offX + (int)(r.x * s + 0.5f));
-		r.surf->setY(offY + (int)(r.y * s + 0.5f));
-		int w = (int)(r.w * s + 0.5f); if (w < 1) w = 1;
-		int h = (int)(r.h * s + 0.5f); if (h < 1) h = 1;
-		r.surf->setWidth(w);   // setWidth/setHeight recreate the surface and
-		r.surf->setHeight(h);  // already mark _redraw — no explicit setRedraw needed
-	}
-}
-
-/**
- * Calypso (Emscripten): remove a surface from the UI-scaling capture so later
- * applyUiScaling() calls do not reposition/resize it (used for full-frame
- * overlays drawn directly in base-resolution space).
- */
-void State::excludeFromUiScaling(Surface* surf)
-{
-	for (auto it = _uiNative.begin(); it != _uiNative.end(); ++it)
-	{
-		if (it->surf == surf) { _uiNative.erase(it); break; }
-	}
-}
-
-/**
- * Calypso (Emscripten): opt every Text / TextButton added to this state into HD
- * TTF rendering, so scaled menus get resolution-independent labels in one call.
- * The bitmap Font path is preserved (TTF is per-label opt-in; multi-line / no
- * font / failed render fall back).
- */
-void State::applyTTFToTexts(TTFFont* font, float fillFrac)
-{
-	if (!font) return;
-	for (auto* surf : _surfaces)
-	{
-		if (auto* t = dynamic_cast<Text*>(surf))
-		{
-			t->setTTFFont(font, fillFrac);
-		}
-		else if (auto* b = dynamic_cast<TextButton*>(surf))
-		{
-			b->setTTFFont(font, fillFrac);
-		}
-		else if (auto* sl = dynamic_cast<Slider*>(surf))
-		{
-			sl->setTTFFont(font, fillFrac);
-		}
-		else if (auto* cb = dynamic_cast<ComboBox*>(surf))
-		{
-			cb->setTTFFont(font, fillFrac);
-		}
-		else if (auto* tl = dynamic_cast<TextList*>(surf))
-		{
-			tl->setTTFFont(font, fillFrac);
-		}
-	}
-}
-#endif
 
 int State::getCursorX() const
 {
