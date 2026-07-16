@@ -23,6 +23,8 @@
 #include <vector>
 #include <string>
 
+#include "../Calypso/CalypsoHudLayoutCache.h"   // HD HUD layout cache (PR #78 / P2)
+
 namespace OpenXcom
 {
 
@@ -316,6 +318,13 @@ public:
 	/// into Calypso/BattlescapeHud.cpp; the public wrappers hook these under #ifdef.
 	void captureHudNativeGl();
 	void layoutHudGl();
+	/// PR #78 / P2 (test/diagnostic only): serialize the current HD HUD geometry
+	/// to `out` as JSON so a WASM regression can assert the HD panel top / Map
+	/// scissor / BattlescapeButton transform and the portrait/name/stat GL
+	/// overlay rectangles stay aligned with the CPU HUD widgets across resizes.
+	/// Reads no live game state beyond the already-laid-out HUD; safe to call
+	/// any time after captureHudNativeGl() + one layoutHudGl().
+	void debugHudLayoutProbe(std::string& out);
 	void applyHdRankGl(int rankIdx);
 	void applyPortraitGl(BattleUnit* unit);
 	void applyHudNameGl(BattleUnit* unit);
@@ -345,7 +354,10 @@ public:
 	std::vector<HudNativeRect> _hudNative;
 	int _hudNativeIconsW = 0;
 	int _hudNativeIconsH = 0;
-	int _hudLastBaseX = -1;
+	// Both-dimension HD HUD layout cache (PR #78 / P2): keyed on base width AND
+	// height so a width-preserving height resize still rebuilds. See
+	// CalypsoHudLayoutCache.h for the policy.
+	CalypsoHudLayoutCache _hudLayoutCache;
 	float _hudScale = 1.0f;
 	bool _hudCaptured = false;
 	int _hudRankIndex = -1;

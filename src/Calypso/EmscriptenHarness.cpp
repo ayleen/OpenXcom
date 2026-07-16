@@ -45,6 +45,8 @@
 #include "../Engine/Logger.h"
 #include "../Engine/FileMap.h"
 #include "../Mod/Mod.h"
+#include "../Savegame/SavedGame.h"
+#include "../Savegame/SavedBattleGame.h"
 #include "../Battlescape/UnitSprite.h"
 #include "HdUnitEmit.h"
 #include "HdUnitRenderPlan.h"
@@ -1254,6 +1256,31 @@ void calypso_scene_preview(const char *deploymentId)
 		return;
 	}
 	Calypso::launchScriptedBattle(g, deploymentId, /*preview=*/true);
+}
+
+/* PR #78 / P2 — test/diagnostic only: serialize the live HD HUD layout geometry.
+ * Writes a JSON file to `outJsonPath` (Emscripten MEMFS) describing the HD panel
+ * top / Map scissor / BattlescapeButton transform and representative portrait/
+ * name/stat GL overlay rectangles vs their CPU HUD widgets. A WASM regression
+ * (scripts/test-battlescape-hud-resize.js) resizes the viewport height and reads this
+ * probe after each resize to assert the GL overlay stays aligned with the CPU
+ * widgets — the exact P2 bug (width-preserving height resize left the HUD stale).
+ * Returns 1 when the file was written, 0 when there is no live battlescape. */
+EMSCRIPTEN_KEEPALIVE
+int calypso_hud_layout_probe(const char *outJsonPath)
+{
+	if (!outJsonPath || !*outJsonPath) return 0;   // test/diagnostic: guard null/empty path
+	Game *g = getCurrentGame();
+	if (!g || !g->getSavedGame()) return 0;
+	OpenXcom::SavedBattleGame *battle = g->getSavedGame()->getSavedBattle();
+	if (!battle || !battle->getBattleState()) return 0;
+	OpenXcom::BattlescapeState *bs = battle->getBattleState();
+	std::string out;
+	bs->debugHudLayoutProbe(out);
+	std::ofstream f(outJsonPath, std::ios::binary | std::ios::trunc);
+	if (!f) return 0;
+	f << out;
+	return 1;
 }
 
 } /* extern "C" */
