@@ -138,6 +138,8 @@ private:
 	TTFFont *_fontHdNumbers; // Phase 16: TTF font for HD cursor TU/AP numerals (lazy-cached, see getHdNumberFont)
 	/// Timestamp (SDL_GetTicks) of the last blit() call — used by GPU overlay guards.
 	Uint32 _lastDrawnTicks = 0u;
+	/// Diagnostic counter: completed HUD image/text GPU passes for the live Map.
+	unsigned _hudGlDrawCount = 0u;
 
 	/// Phase 16: returns the HD cursor-numeral font, lazily caching it on first
 	/// successful lookup.  Resilient to mid-session timing where the mod's TTF
@@ -597,6 +599,8 @@ public:
 	/// HUD image slot. Returns false when the slot is inactive/unknown. Diagnostic/
 	/// test-only (calypso_hud_layout_probe).
 	bool getHudImageRect(int slot, int* x, int* y, int* w, int* h) const;
+	/// Test/diagnostic proof that the registered HUD GPU pass reached its draw path.
+	unsigned getHudGlDrawCount() const { return _hudGlDrawCount; }
 #endif
 	/// Handles timers.
 	void think() override;

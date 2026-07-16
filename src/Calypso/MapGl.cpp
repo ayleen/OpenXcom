@@ -2974,6 +2974,7 @@ void Map::drawHudTextGLPass()
 		// TTF raster, so the crisp overlay lands EXACTLY over the logical text — no double-image.
 		drawQuad(tex, item.fitX, item.fitY, item.fitW, item.fitH);
 	}
+	++_hudGlDrawCount;
 
 	glDisable(GL_BLEND);
 	glUseProgram(static_cast<GLuint>(prevProgram));

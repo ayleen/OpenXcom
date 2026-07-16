@@ -673,7 +673,10 @@ void BattlescapeState::debugHudLayoutProbe(std::string& out)
 	std::ostringstream o;
 	o << "{";
 	o << "\"baseX\":" << Options::baseXResolution
-	  << ",\"baseY\":" << Options::baseYResolution;
+	  << ",\"baseY\":" << Options::baseYResolution
+	  << ",\"hdPackActive\":" << (_game && _game->getMod()->hasHDPack() ? "true" : "false")
+	  << ",\"gpuReady\":" << (GpuInit::ready() ? "true" : "false")
+	  << ",\"hudGlDrawCount\":" << (_map ? _map->getHudGlDrawCount() : 0u);
 	// HD panel rect (== _icons surface rect after layoutHudGl).
 	if (_icons)
 	{

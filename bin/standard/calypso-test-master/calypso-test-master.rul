@@ -15,8 +15,134 @@ extraSprites:
     hd: true
     files:
       0: Resources/calypso-ui-panel.png
+  # GPL-only Battlescape fixture resources. They intentionally reuse the
+  # project-owned panel image: the regression asserts geometry, not art.
+  - type: CALYPSO_HUD_PANEL
+    width: 480
+    height: 160
+    singleImage: true
+    hd: true
+    files:
+      0: Resources/calypso-hud-test-pal8.png
+  - type: CALYPSO_HUD_PANEL_TOGGLED
+    width: 480
+    height: 160
+    singleImage: true
+    hd: true
+    files:
+      0: Resources/calypso-hud-test-pal8.png
+  - type: ICONS.PCK
+    width: 320
+    height: 200
+    singleImage: true
+    files:
+      0: Resources/calypso-hud-test-pal8.png
+  - type: Touch
+    width: 64
+    height: 120
+    subX: 32
+    subY: 24
+    files:
+      0: Resources/calypso-hud-touch-pal8.png
+  - type: KneelButton
+    width: 32
+    height: 32
+    subX: 32
+    subY: 16
+    files:
+      0: Resources/calypso-hud-kneel-pal8.png
+  - type: Projectiles
+    width: 960
+    height: 320
+    subX: 32
+    subY: 32
+    files:
+      0: Resources/calypso-hud-test-pal8.png
+  - type: TEST_UNIT.PCK
+    width: 960
+    height: 320
+    subX: 32
+    subY: 40
+    files:
+      0: Resources/calypso-hud-test-pal8.png
+  - type: TEST_INVENTORYM0.SPK
+    width: 320
+    height: 200
+    singleImage: true
+    hd: true
+    files:
+      0: Resources/calypso-hud-test-pal8.png
+
+extraTTFFonts:
+  - id: FONT_HD_HUD
+    file: Resources/oxanium-hud-test.ttf
+    size: 48
+
+soldiers:
+  - type: STR_SOLDIER
+    minStats: {tu: 50, stamina: 50, health: 30, bravery: 50, reactions: 50, firing: 50, throwing: 50, strength: 30, psiStrength: 30, psiSkill: 0, melee: 0}
+    maxStats: {tu: 50, stamina: 50, health: 30, bravery: 50, reactions: 50, firing: 50, throwing: 50, strength: 30, psiStrength: 30, psiSkill: 0, melee: 0}
+    statCaps: {tu: 80, stamina: 100, health: 60, bravery: 100, reactions: 100, firing: 120, throwing: 120, strength: 70, psiStrength: 100, psiSkill: 100, melee: 120}
+    armor: STR_TEST_ARMOR
+    standHeight: 22
+    kneelHeight: 14
+    soldierNames:
+      - SoldierName/
+
+armors:
+  - type: STR_TEST_ARMOR
+    spriteSheet: TEST_UNIT.PCK
+    spriteInv: TEST_INVENTORY
+    corpseBattle: [STR_TEST_CORPSE]
+    frontArmor: 10
+    sideArmor: 6
+    rearArmor: 4
+    underArmor: 4
+    # The save has no tiles and never submits the unit to voxel collision. -1
+    # is the explicit no-template sentinel for this geometry-only fixture.
+    loftempsSet: [-1]
+
+items:
+  - type: STR_TEST_CORPSE
+    weight: 20
+    bigSprite: 0
+    floorSprite: 0
+    invWidth: 2
+    invHeight: 3
+    battleType: 11
+    recover: false
+
+# The normal save loader asks the active master for the ground inventory even
+# when this synthetic battle contains no equipment.
+invs:
+  - id: STR_GROUND
+    x: 0
+    y: 152
+    type: 2
 
 interfaces:
+  - type: geoscape
+    palette: PAL_GEOSCAPE
+    elements:
+      - {id: textLoad, color: 15}
+      - {id: slackingIndicator, color: 15}
+      - {id: trainingIndicator, color: 15}
+  - type: errorMessages
+    elements:
+      - {id: geoscapePalette, color: 6}
+      - {id: battlescapePalette, color: -1}
+      - {id: geoscapeColor, color: 138}
+      - {id: battlescapeColor, color: 0}
+  - type: saveMenus
+    backgroundImage: BACK01.SCR
+    elements:
+      - {id: palette, color: 6}
+      - {id: window, color: 133}
+      - {id: text, color: 239, color2: 138}
+      - {id: list, color: 138, color2: 133, border: 133}
+      - {id: button, color: 133}
+      - {id: confirmLoad, color: 239}
+      - {id: confirmDelete, color: 138}
   - type: mainMenu
     backgroundImage: BACK01.SCR
     elements:
@@ -45,3 +171,60 @@ interfaces:
         color: 138
       - id: button
         color: 133
+  - type: battlescape
+    palette: PAL_BATTLESCAPE
+    elements:
+      - {id: textName, color: 128}
+      - {id: numTUs, color: 64}
+      - {id: numEnergy, color: 16}
+      - {id: numHealth, color: 32}
+      - {id: numMorale, color: 192}
+      - {id: barTUs, color: 64}
+      - {id: barEnergy, color: 16}
+      - {id: barHealth, color: 32, color2: 82}
+      - {id: barMorale, color: 192}
+      - {id: barMana, color: 208}
+      - {id: numAmmoLeft, color: 2}
+      - {id: numAmmoRight, color: 2}
+      - {id: textTooltip, color: -1}
+      - {id: buttonReserveNone, color: 67}
+      - {id: buttonReserveSnap, color: 35}
+      - {id: buttonReserveAimed, color: 35}
+      - {id: buttonReserveAuto, color: 35}
+      - {id: buttonReserveKneel, color: 35}
+      - {id: buttonZeroTUs, color: 35}
+      - id: visibleUnits
+        pos: [300, -16]
+        color: 16
+      - {id: squadsightUnits, color: 54}
+      - {id: woundedUnits, color: 134}
+      - {id: passingOutUnits, color: 198}
+      - id: icons
+        size: [320, 56]
+      - {id: numLayers, color: 15}
+      - {id: warning, color: 16, color2: 32}
+      - {id: messageWindows, color: -1, color2: 14, border: 7}
+      - {id: thinkingProgressBar, color: 33, color2: 65, border: 1}
+      - {id: medikitRed, color: 2}
+      - {id: medikitGreen, color: 4}
+      - {id: medikitBlue, color: 13}
+      - {id: medikitOrange, color: 6}
+      - {id: twoHandedRed, color: 36}
+      - {id: twoHandedGreen, color: 52}
+
+calypso_hud_overlay: true
+
+# A deliberately unused one-cell atlas marks this synthetic master as an HD
+# ruleset, causing Map::init() to register the real HUD GPU pass. The tactical
+# save has no mapdatasets/tiles, so no terrain lookup depends on this fixture.
+tileAtlas:
+  - dataset: CALYPSO_GPL_HUD_TEST
+    baseline: none
+    overlayFile: Resources/calypso-ui-panel.png
+    width: 960
+    height: 320
+    tileWidth: 960
+    tileHeight: 320
+    columns: 1
+    frameMap:
+      0: 0
