@@ -17,6 +17,7 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "Mod.h"
+#include "AITuning.h"
 #include "ModScript.h"
 #include <algorithm>
 #include <functional>
@@ -449,9 +450,23 @@ Mod::Mod() :
 	_aiHearing(false),
 	_aiSuppression(false), _aiSuppressionMorale(5), _aiSuppressionEnergy(10),
 	_aiSquadCoordination(false),
-	_aiBrutalAI(false), _aiCheatMode(0), _aiAvoidMines(true), _aiPerformanceOptimization(false),
+	_aiBrutalAI(false), _aiCheatMode(0), _aiAvoidMines(true), _aiPerformanceOptimization(false), _aiFailureMemory(false),
 	_aiCivilianGuardChance(0),
 	_aiReactionFireThreshold(0), _aiReactionFireThresholdCiv(0),
+	// Phase 43.0 item 7 (Calypso): externalized AI magic constants -- defaults match pre-43.0 behavior.
+	_aiHearingNoiseBase(AITuning::DEFAULT_HEARING_NOISE_BASE), _aiHearingPowerDivisor(AITuning::DEFAULT_HEARING_POWER_DIVISOR),
+	_aiSuppressionRadius(AITuning::DEFAULT_SUPPRESSION_RADIUS),
+	_aiFocusFireCommitThreshold(AITuning::DEFAULT_FOCUS_FIRE_COMMIT_THRESHOLD),
+	_aiFocusFireScorePercent(AITuning::DEFAULT_FOCUS_FIRE_SCORE_PERCENT),
+	_aiBreachDetourMultiplier(AITuning::DEFAULT_BREACH_DETOUR_MULTIPLIER),
+	// Phase 43.1 (Calypso): shared-fields gate + work-budget schema -- defaults keep the
+	// feature off and the budgets unbounded (byte-identical to pre-43.1).
+	_aiSharedFields(false), _aiEvalBudget(0), _aiTurnBudgetMs(0),
+	// Phase 43.1 (Calypso): occupancy-field tuning schema -- engine defaults use a
+	// sighting spike equal to the fixed field scale 1000. Same gate as above;
+	// no consumer reads these in this slice, so behavior stays byte-identical to pre-43.1.
+	_aiOccupancyRetainPercent(75), _aiOccupancySpreadPercent(25),
+	_aiOccupancySightingSpike(1000), _aiOccupancyNoiseSpike(500), _aiOccupancyHitSpike(700),
 	_maxLookVariant(0), _tooMuchSmokeThreshold(10), _customTrainingFactor(100),
 	_chanceToStopRetaliation(0), _chanceToDetectAlienBaseEachMonth(20), _lessAliensDuringBaseDefense(false),
 	_allowCountriesToCancelAlienPact(false), _buildInfiltrationBaseCloseToTheCountry(false), _infiltrateRandomCountryInTheRegion(false), _allowAlienBasesOnWrongTextures(true),
@@ -3319,12 +3334,56 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 		nodeAI.tryRead("aiCheatMode", _aiCheatMode);
 		nodeAI.tryRead("avoidMines", _aiAvoidMines);
 		nodeAI.tryRead("aiPerformanceOptimization", _aiPerformanceOptimization);
+		nodeAI.tryRead("failureMemory", _aiFailureMemory);
 		// Fairness guard: only fair cheat levels (<= 0) are honoured from the mod for now (Phase 34.1 stance).
 		if (_aiCheatMode > 0) { _aiCheatMode = 0; }
 		nodeAI.tryRead("civilianGuardType", _aiCivilianGuardType);
 		nodeAI.tryRead("civilianGuardChance", _aiCivilianGuardChance);
 		nodeAI.tryRead("reactionFireThreshold", _aiReactionFireThreshold);
 		nodeAI.tryRead("reactionFireThresholdCiv", _aiReactionFireThresholdCiv);
+		// Phase 43.0 item 7 (Calypso): externalize previously-hardcoded AI magic constants. Defaults
+		// (set in the ctor above) reproduce pre-43.0 behavior; the clamps below guard against a bogus
+		// mod value ever crashing the engine or inverting a heuristic. Upper-range arithmetic
+		// is handled by the overflow-safe production helpers at the consumer sites.
+		nodeAI.tryRead("hearingNoiseBase", _aiHearingNoiseBase);
+		nodeAI.tryRead("hearingPowerDivisor", _aiHearingPowerDivisor);
+		nodeAI.tryRead("suppressionRadius", _aiSuppressionRadius);
+		nodeAI.tryRead("focusFireCommitThreshold", _aiFocusFireCommitThreshold);
+		nodeAI.tryRead("focusFireScorePercent", _aiFocusFireScorePercent);
+		nodeAI.tryRead("breachDetourMultiplier", _aiBreachDetourMultiplier);
+		_aiHearingNoiseBase = AITuning::clampNonNegative(_aiHearingNoiseBase);
+		_aiHearingPowerDivisor = AITuning::clampAtLeastOne(_aiHearingPowerDivisor);
+		_aiSuppressionRadius = AITuning::clampNonNegative(_aiSuppressionRadius);
+		_aiFocusFireCommitThreshold = AITuning::clampAtLeastOne(_aiFocusFireCommitThreshold);
+		_aiFocusFireScorePercent = AITuning::clampPercent(_aiFocusFireScorePercent);
+		_aiBreachDetourMultiplier = AITuning::clampAtLeastOne(_aiBreachDetourMultiplier);
+		// Phase 43.1 (Calypso): shared-fields gate + deterministic/wall-clock work budgets.
+		// Defaults (set in the ctor above) keep the feature off and the budgets unbounded, so
+		// behavior is byte-identical to pre-43.1; the non-negative clamp guards a bogus mod
+		// value from inverting the budget semantics (0 is the meaningful "off/unbounded" sentinel).
+		nodeAI.tryRead("sharedFields", _aiSharedFields);
+		nodeAI.tryRead("evalBudget", _aiEvalBudget);
+		nodeAI.tryRead("turnBudgetMs", _aiTurnBudgetMs);
+		_aiEvalBudget = AITuning::clampNonNegative(_aiEvalBudget);
+		_aiTurnBudgetMs = AITuning::clampNonNegative(_aiTurnBudgetMs);
+		// Phase 43.1 (Calypso): occupancy-field tuning knobs (retain/spread percent and
+		// the sighting/noise/hit spike magnitudes). Same tryRead-then-clamp shape as the
+		// sibling Phase 43.1 keys above; the two percent keys clamp to 0..100 and the
+		// three spike keys clamp to 0..1000 -- the fixed OccupancyField scale, NOT a
+		// separate ruleset key. Mirrors the [0,100] idiom already used by the consumer
+		// (OccupancyField::decayAndSpread). Schema-only here: nothing reads these until a
+		// later slice wires the OccupancyField behind ai.sharedFields, so flag-off
+		// behavior and old saves/rulesets stay byte-identical to pre-43.1.
+		nodeAI.tryRead("occupancyRetainPercent", _aiOccupancyRetainPercent);
+		nodeAI.tryRead("occupancySpreadPercent", _aiOccupancySpreadPercent);
+		nodeAI.tryRead("occupancySightingSpike", _aiOccupancySightingSpike);
+		nodeAI.tryRead("occupancyNoiseSpike", _aiOccupancyNoiseSpike);
+		nodeAI.tryRead("occupancyHitSpike", _aiOccupancyHitSpike);
+		_aiOccupancyRetainPercent = std::min(100,  AITuning::clampNonNegative(_aiOccupancyRetainPercent));
+		_aiOccupancySpreadPercent = std::min(100,  AITuning::clampNonNegative(_aiOccupancySpreadPercent));
+		_aiOccupancySightingSpike = std::min(1000, AITuning::clampNonNegative(_aiOccupancySightingSpike));
+		_aiOccupancyNoiseSpike    = std::min(1000, AITuning::clampNonNegative(_aiOccupancyNoiseSpike));
+		_aiOccupancyHitSpike      = std::min(1000, AITuning::clampNonNegative(_aiOccupancyHitSpike));
 
 		nodeAI.tryRead("targetWeightThreatThreshold", _aiTargetWeightThreatThreshold);
 		nodeAI.tryRead("targetWeightAsHostile", _aiTargetWeightAsHostile);

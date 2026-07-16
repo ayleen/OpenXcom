@@ -72,6 +72,11 @@ Game::Game(const std::string &title) : _screen(0), _cursor(0), _lang(0), _save(0
 	_ctrl(false), _alt(false), _shift(false), _rmb(false), _mmb(false), _scrollStep(1),
 	_runningState(RUNNING), _startupEvent(false), _runInitialised(false), _lastMouseMoveEvent(0), _xrel(0), _yrel(0)
 {
+#ifdef __EMSCRIPTEN__
+	_fastMainLoopRequester = 0;
+	_fastMainLoopApplied = false;
+	_fastMainLoopLastRenderMs = 0;
+#endif
 	Options::reload = false;
 	Options::mute = false;
 
@@ -167,6 +172,14 @@ bool Game::iterate()
 {
 	static const ApplicationState kbFocusRun[4] = { RUNNING, RUNNING, SLOWED, PAUSED };
 	static const ApplicationState stateRun[4] = { SLOWED, PAUSED, PAUSED, PAUSED };
+#ifdef __EMSCRIPTEN__
+	// The fast-loop lease is one-shot even when this iteration is paused,
+	// initializes or changes state, or is not due to draw. A request made during
+	// think() below replaces this local before the end-of-iteration timing choice.
+	State *calypsoFastMainLoopRequester = _fastMainLoopRequester;
+	_fastMainLoopRequester = 0;
+	bool calypsoRenderedThisIteration = false;
+#endif
 
 	if (!_runInitialised)
 	{
@@ -428,6 +441,17 @@ bool Game::iterate()
 		_states.back()->think();
 #ifdef __EMSCRIPTEN__
 		CalypsoTutorial::get().pump(this);
+		if (_fastMainLoopRequester != 0)
+		{
+			calypsoFastMainLoopRequester = _fastMainLoopRequester;
+		}
+		_fastMainLoopRequester = 0;
+		// Tutorial pump may push a popup after Battlescape renews the lease. A
+		// state transition invalidates it so the new top state returns to RAF.
+		if (calypsoFastMainLoopRequester != 0 && !isState(calypsoFastMainLoopRequester))
+		{
+			calypsoFastMainLoopRequester = 0;
+		}
 #endif
 		_fpsCounter->think();
 		if (Options::FPS > 0 && !(Options::useOpenGL && Options::vSyncForOpenGL))
@@ -446,7 +470,15 @@ bool Game::iterate()
 			_timeUntilNextFrame = 0;
 		}
 
-		if (_init && _timeUntilNextFrame <= 0)
+		if (_init && _timeUntilNextFrame <= 0
+#ifdef __EMSCRIPTEN__
+			// Rendering from a non-rAF callback can cause long tasks. Preserve the
+			// last rAF-presented framebuffer for every immediate tick; the fixed
+			// 75 ms threshold below requests RAF; fast mode cannot resume until an
+			// actual render occurs.
+			&& !_fastMainLoopApplied
+#endif
+		)
 		{
 			// make a note of when this frame update occurred.
 			_timeOfLastFrame = SDL_GetTicks();
@@ -466,6 +498,10 @@ bool Game::iterate()
 			_fpsCounter->blit(_screen->getSurface());
 			_cursor->blit(_screen->getSurface());
 			_screen->flip();
+#ifdef __EMSCRIPTEN__
+			_fastMainLoopLastRenderMs = SDL_GetTicks();
+			calypsoRenderedThisIteration = true;
+#endif
 		}
 	}
 
@@ -483,6 +519,9 @@ bool Game::iterate()
 
 	if (_quit)
 		Options::save();
+#ifdef __EMSCRIPTEN__
+	calypsoApplyFastMainLoopTiming(calypsoFastMainLoopRequester, calypsoRenderedThisIteration);
+#endif
 	return !_quit;
 }
 

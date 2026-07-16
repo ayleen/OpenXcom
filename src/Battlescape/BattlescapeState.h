@@ -317,6 +317,8 @@ public:
 	void applyHudNameGl(BattleUnit* unit);
 	void applyHudNumberGl(NumberText* w, int value, Uint32 accentArgb, int imgSlot, int txtSlot);
 	void applyHudNumbersGl(BattleUnit* unit);
+	/// Phase 43.1: advance queued alien actions and renew the browser pacing lease.
+	void calypsoAdvanceAlienPacing(Game *calypsoGame);
 	/// Phase 37: register tutorial anchor rects + fire battle-entry triggers
 	/// (battle.start / battle.night); body in Calypso/BattlescapeHud.cpp.
 	void calypsoTutorialBattleInit();

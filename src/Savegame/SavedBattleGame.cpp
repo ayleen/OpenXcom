@@ -452,6 +452,78 @@ void SavedBattleGame::load(const YAML::YamlNodeReader& node, Mod *mod, SavedGame
 	if (reader["calypsoScene"]) // Phase 41: rebuild the active scene from the save
 		CalypsoDirector::get().load(reader["calypsoScene"], this);
 #endif
+
+	// Phase 43.1 occupancy persistence: restore the optional aiOccupancy snapshot REGARDLESS of
+	// the ai.sharedFields feature flag, so a battle saved with the flag on is not silently lost
+	// when the flag is later turned off. Old saves that predate this key have no such child and
+	// every cache stays in its default-empty state. This runs after initMap (so _mapsize_x/y/z
+	// are known) and after `turn` is read (so the marker clamp below has a real ceiling).
+	if (const auto& occSeq = reader["aiOccupancy"])
+	{
+		// "first block per faction wins; duplicates are ignored": track accepted factions so a
+		// later duplicate block for the same faction cannot overwrite the accepted one. Value
+		// initialization ({}) zeros every slot, so this stays correct regardless of the
+		// FACTION_MAX enumeration cardinality.
+		bool factionSeen[FACTION_MAX] = {};
+		for (const auto& factionBlock : occSeq.children())
+		{
+			// Validate faction via the existing range guard exposed by getFactionTurnCache: a
+			// missing/out-of-range/FACTION_NONE value yields nullptr and the whole block is
+			// downgraded to the default empty entry, never indexed into _factionTurnCaches.
+			int faction = factionBlock["faction"].readVal<int>(-1);
+			FactionTurnCache* cache = getFactionTurnCache(static_cast<UnitFaction>(faction));
+			if (!cache)
+				continue; // invalid/missing/malformed faction -> ignored default entry
+			if (factionSeen[faction])
+				continue; // duplicate block for an already-accepted faction -> ignored
+			factionSeen[faction] = true;
+
+			// Clamp the serialized arm marker to [-1, _turn]: -1 is the disarmed floor and a
+			// corrupted FUTURE marker must not suppress decay on the next faction-turn arm.
+			int lastTurn = factionBlock["lastAdvancedTurn"].readVal<int>(-1);
+			if (lastTurn < -1)
+				lastTurn = -1;
+			else if (lastTurn > _turn)
+				lastTurn = _turn;
+
+			// Replay cells into a sparse map; later duplicate positions overwrite earlier ones
+			// within this accepted block (std::map::operator[]). Cap accepted records per faction
+			// at _tiles.size(): this is the authoritative tile count already allocated by initMap
+			// (one cell per tile is the dense upper bound, and the product x*y*z is by construction
+			// representable since the allocation succeeded), so a pathological save cannot drive
+			// unbounded allocation; records past the cap are dropped.
+			OccupancyField::CellMap cells;
+			if (const auto& cellsSeq = factionBlock["cells"])
+			{
+				const size_t cap = _tiles.size();
+				size_t accepted = 0;
+				for (const auto& cellReader : cellsSeq.children())
+				{
+					if (accepted >= cap)
+						break; // degenerate map or pathological record count: stop accepting
+					// A cell missing either key is malformed and skipped entirely; in particular
+					// a present `value` must never be paired with a defaulted Position(0,0,0).
+					// The tolerant readVal defaults below apply only AFTER both keys are confirmed
+					// present, so a present-but-malformed scalar still downgrades to a default
+					// rather than aborting the whole load.
+					const auto& posNode = cellReader["position"];
+					const auto& valueNode = cellReader["value"];
+					if (!posNode || !valueNode)
+						continue; // missing position or value -> skip cell entirely
+					Position pos = posNode.readVal(Position(0, 0, 0));
+					int value = valueNode.readVal<int>(0);
+					cells[pos] = value; // last duplicate position within the accepted block wins
+					++accepted;
+				}
+			}
+
+			// setOccupancyState is the validated load seam: it clears the field, clamps the
+			// marker to >= -1, drops out-of-bounds AND non-positive cells, and clamps every
+			// stored value DOWN to the fixed max 1000, so corrupt values/bounds are normalized
+			// rather than trusted.
+			cache->setOccupancyState(lastTurn, cells, _mapsize_x, _mapsize_y, _mapsize_z, 1000);
+		}
+	}
 }
 
 /**
@@ -640,6 +712,64 @@ void SavedBattleGame::save(YAML::YamlNodeWriter writer) const
 	if (CalypsoDirector::get().active()) // Phase 41: persist the active scene under calypsoScene
 		CalypsoDirector::get().save(writer["calypsoScene"]);
 #endif
+
+	// Phase 43.1 occupancy persistence (aiOccupancy): emit a per-faction snapshot of the live
+	// OccupancyField accumulators + their armed decay marker so a battle saved mid-decay reloads
+	// with its occupancy state intact. This is emitted REGARDLESS of the current ai.sharedFields
+	// feature flag so that a battle saved with the flag on is not silently lost when the flag is
+	// later turned off. With the flag off, no producer ever spikes a cell AND the decay marker is
+	// never armed (beginFactionTurnCache is the sole production advanceOccupancyToTurn caller and
+	// it is feature-gated), so every faction is (empty field, lastAdvancedTurn == -1) and the whole
+	// block is omitted — the save stays byte-identical to a pre-43.1-occupancy save.
+	//
+	// A faction is emitted when EITHER it holds at least one non-zero cell OR its decay marker is
+	// armed (lastAdvancedTurn >= 0). An armed-but-empty field is STATEFUL: on reload the marker
+	// must survive so the next faction-turn advance does NOT re-stamp a fresh first-arm baseline
+	// (which would skip a decay pass that should have run). Such a faction round-trips with an
+	// empty `cells:` sequence. Factions are written in numeric faction order.
+	bool anyOccupancy = false;
+	for (int f = FACTION_PLAYER; f < FACTION_MAX; ++f)
+	{
+		const auto &cacheF = _factionTurnCaches[f];
+		if (!cacheF.getOccupancyField().empty() || cacheF.getOccupancyLastAdvancedTurn() >= 0)
+		{
+			anyOccupancy = true;
+			break;
+		}
+	}
+	if (anyOccupancy)
+	{
+		YAML::YamlNodeWriter occSeq = writer["aiOccupancy"];
+		occSeq.setAsSeq();
+		for (int f = FACTION_PLAYER; f < FACTION_MAX; ++f)
+		{
+			const OccupancyField& field = _factionTurnCaches[f].getOccupancyField();
+			const int lastAdvancedTurn = _factionTurnCaches[f].getOccupancyLastAdvancedTurn();
+			// Skip only a truly default faction: empty field AND disarmed marker. An
+			// armed-but-empty field (lastAdvancedTurn >= 0, no cells) is still emitted below
+			// with an empty cells sequence so the marker survives save/load.
+			if (field.empty() && lastAdvancedTurn < 0)
+				continue;
+			YAML::YamlNodeWriter block = occSeq.write();
+			block.setAsMap();
+			block.write("faction", f);
+			block.write("lastAdvancedTurn", lastAdvancedTurn);
+			// cells: sparse sequence of { position, value } maps. `position` is written via the
+			// production Position serializer, so it round-trips through readVal<Position>()
+			// unchanged. Only non-zero cells are ever stored by OccupancyField, so every emitted
+			// cell carries a strictly-positive value. An armed-but-empty field emits zero cells
+			// (the `cells:` sequence is present but empty).
+			YAML::YamlNodeWriter cellsSeq = block["cells"];
+			cellsSeq.setAsSeq();
+			for (const auto& cell : field.getCells())
+			{
+				YAML::YamlNodeWriter cellWriter = cellsSeq.write();
+				cellWriter.setAsMap();
+				cellWriter.write("position", cell.first);
+				cellWriter.write("value", cell.second);
+			}
+		}
+	}
 }
 
 /**
@@ -1562,6 +1692,15 @@ void SavedBattleGame::endTurn()
 		rebuildSquadBlackboard(_side);
 	}
 
+	// Phase 43.1B (Calypso): arm the per-faction turn-cache invalidation state for the side whose
+	// turn just began (the _side switch above set it). Transient, once per faction turn. GATED so
+	// with ai.sharedFields off there are zero writes and the caches stay default-invalid -- no
+	// field is built and no decision changes. Mirrors the 34.9 squad-board seam directly above.
+	if (getMod()->getAISharedFields())
+	{
+		beginFactionTurnCache(_side);
+	}
+
 	BattlescapeTally tally = _battleState->getBattleGame()->tallyUnits();
 
 	if ((_turn > _cheatTurn / 2 && tally.liveAliens <= 2) || _turn > _cheatTurn)
@@ -2222,6 +2361,8 @@ BattleUnit *SavedBattleGame::convertUnit(BattleUnit *unit)
 		return nullptr;
 	}
 
+	notifyFactionTurnUnitDied(unit);
+
 	getTileEngine()->itemDropInventory(tile, unit, false, true);
 
 	// remove unit-tile link
@@ -2243,6 +2384,7 @@ BattleUnit *SavedBattleGame::convertUnit(BattleUnit *unit)
 	getTileEngine()->calculateFOV(newUnit->getPosition());  //happens fairly rarely, so do a full recalc for units in range to handle the potential unit visible cache issues.
 	getTileEngine()->applyGravity(newUnit->getTile());
 	newUnit->dontReselect();
+	notifyFactionTurnUnitSpawned(newUnit);
 	return newUnit;
 }
 
@@ -2665,14 +2807,42 @@ bool SavedBattleGame::getCivilianHuntZone(Position &out)
 	return _huntCiviliansZoneValid;
 }
 
+// Phase 34.8 / 43.1 noise-occupancy (Calypso): file-local helper that quantizes a noise
+// source to an 8-tile grid cell. SHARED by the transient-noise read path
+// (getNewestHearableNoise) and the fair occupancy producer spike (emitNoise) so the two
+// can NEVER drift apart for one event -- whoever resolves the zone for a given event gets
+// the identical cell. Hearing gives a zone/direction, never a wallhack tile (mirrors the
+// 34.4 civilian-zone fairness stance; note 34.4 uses a 10-tile grid for a DIFFERENT zone,
+// so that path is intentionally NOT routed through here). Kept local to this TU so a grid-
+// size change updates both call sites identically and no other translation unit observes it.
+namespace {
+inline Position quantizeNoiseZone(const Position &src)
+{
+	const int GRID = 8; // 8-tile grid (NOT 34.4's 10; the convention mirrored is "quantize to a grid")
+	return Position((src.x / GRID) * GRID, (src.y / GRID) * GRID, src.z);
+}
+} // namespace
+
 /**
- * Phase 34.8 (Calypso): record a transient noise event for ai.hearing. Emission is
- * unconditional bookkeeping (the AI read path gates on Mod::getAIHearing, so with the
- * flag off nothing consumes this list and behavior is byte-identical). The list is never
- * serialized; prepareNewTurn prunes by age and a fresh save loads it as empty. A non-
- * positive loudness is a no-op (callers derive loudness from weapon/explosion parameters).
+ * Phase 34.8 (Calypso): record a transient noise event for ai.hearing, and (Phase 43.1)
+ * optionally feed the fair per-faction occupancy caches. The transient-list emission is
+ * bookkeeping (the AI read path gates on Mod::getAIHearing, so with that flag off nothing
+ * consumes this list and that half is byte-identical); the list is never serialized,
+ * prepareNewTurn prunes by age and a fresh save loads it empty. A non-positive loudness is
+ * a no-op (callers derive loudness from weapon/explosion parameters). The Phase 43.1
+ * occupancy producer runs AFTER the push and is independently gated on ai.sharedFields +
+ * occupancyNoiseSpike, so with either off the whole call is byte-identical to pre-43.1.
+ *
+ * `sourceFaction` (Phase 43.1 fairness fix) is the faction that EMITTED the noise, or
+ * FACTION_NONE for an unknown/neutral source. It is NOT stored on the transient NoiseEvent
+ * (schema/read semantics are unchanged -- NoiseEvent still carries only pos/turn/loudness);
+ * it only steers the occupancy producer's self-noise exemption below: a real source faction
+ * ([FACTION_PLAYER, FACTION_MAX)) is never spiked by its own event, while every other faction
+ * still requires a living hearer exactly as before. FACTION_NONE is outside that range, so
+ * the default/unknown-source path (explosions via TileEngine, and all pre-fix two-argument
+ * callers) is byte-identical to the pre-fix form.
  */
-void SavedBattleGame::emitNoise(const Position &pos, int loudness)
+void SavedBattleGame::emitNoise(const Position &pos, int loudness, UnitFaction sourceFaction)
 {
 	// Post-34.9 hardening (Codex review): gate the write itself. Originally emission was
 	// unconditional transient bookkeeping (the 34.5 knowledge-layer convention), but 34.7/34.9
@@ -2682,6 +2852,74 @@ void SavedBattleGame::emitNoise(const Position &pos, int loudness)
 	if (!getMod()->getAIHearing()) return;
 	if (loudness <= 0) return;
 	_noiseEvents.push_back(NoiseEvent{pos, _turn, loudness});
+
+	// ---- Phase 43.1 fair noise-occupancy producer (Calypso) ----------------------------
+	// The transient NoiseEvent above was just recorded at age zero (`ev.turn == _turn`). For
+	// each faction INDEPENDENTLY, decide whether AT LEAST ONE living / non-out unit of that
+	// faction can hear it NOW, using the SAME per-event conditions getNewestHearableNoise
+	// evaluates at age zero:
+	//   (a) the decay window is open at age 0  <=>  `_turn - ev.turn(=0) <= intelligence`
+	//                                            <=>  intelligence >= 0; AND
+	//   (b) the hearer stands within earshot    <=>  Position::distance2d(unitPos, pos) <= loudness.
+	// Every hearing faction then has its occupancy field spiked EXACTLY ONCE (not once per
+	// hearing unit) at the quantized 8-tile zone -- the SAME quantizeNoiseZone helper
+	// getNewestHearableNoise uses, so the producer spike and the consumer read land on the
+	// identical cell and cannot drift apart.
+	//
+	// GATED on ai.sharedFields (the per-faction occupancy-cache feature flag) AND a positive
+	// occupancyNoiseSpike: with EITHER off there are zero cache writes and shipped behavior is
+	// byte-identical. The transient _noiseEvents push above is completely unaffected either way
+	// (NoiseEvent stays unserialized; only the accumulated occupancy in the per-faction
+	// FactionTurnCache persists, and that persistence path predates this producer).
+	const int noiseSpike = getMod()->getAIOccupancyNoiseSpike();
+	if (!getMod()->getAISharedFields() || noiseSpike <= 0)
+		return; // feature off or producer disabled -> no cache mutation, _noiseEvents unchanged
+	// Resolve the zone ONCE via the shared helper: the identical cell a hearer's
+	// getNewestHearableNoise call would resolve to for this same event.
+	const Position zone = quantizeNoiseZone(pos);
+	// One "heard" flag per faction. Value initialization ({}) zeros every slot, so this stays
+	// correct regardless of the FACTION_MAX enumeration cardinality (mirrors the dimension-
+	// agnostic `bool factionSeen[FACTION_MAX] = {};` used in the occupancy load path). A
+	// faction with no living hearer stays false and is NOT spiked below -> the event never
+	// leaks to a faction that cannot hear it.
+	bool heard[FACTION_MAX] = {};
+	for (auto* bu : _units)
+	{
+		if (!bu || bu->isOut()) continue; // dead / unconscious / gone units hear nothing
+		// Age-zero hearing test -- identical to getNewestHearableNoise's two per-event skips
+		// evaluated for an event whose turn == _turn and loudness == loudness:
+		if (bu->getIntelligence() < 0) continue;                          // (a) decay window closed
+		if (Position::distance2d(bu->getPosition(), pos) > loudness) continue; // (b) out of earshot
+		const UnitFaction f = bu->getFaction();
+		// Existing faction validation (mirrors factionTurnCacheValid / spikeFactionOccupancy):
+		// FACTION_NONE and any value >= FACTION_MAX can never index the cache array.
+		if (f < FACTION_PLAYER || f >= FACTION_MAX) continue;
+		heard[f] = true; // first living hearer of this faction is enough -- spike once, not per unit
+	}
+	// Spike each hearing faction's occupancy field exactly once at the shared zone.
+	// spikeFactionOccupancy re-checks ai.sharedFields + faction range + amount > 0 + on-map
+	// tile (getTile != null), so this stays a safe idempotent no-op if any precondition is
+	// violated upstream; the redundant gates compose to a harmless branch on the same boolean.
+	//
+	// Self-noise exemption (Phase 43.1 fairness fix): the source faction is NEVER spiked by
+	// its own emitted noise. A unit's own gunfire must not inflate its side's occupancy map
+	// at its own zone -- otherwise the producer becomes a source of self-poisoning rather
+	// than a fair signal. `sourceFaction` defaults to FACTION_NONE, which is outside
+	// [FACTION_PLAYER, FACTION_MAX), so the loop value `f` can never equal it and the guard
+	// is inert for unknown-source callers (explosions via TileEngine) and every pre-fix
+	// two-argument call site -> byte-identical to the pre-fix form. Every OTHER faction still
+	// requires the living-hearer check above (`heard[f]`) exactly as implemented.
+	for (int f = FACTION_PLAYER; f < FACTION_MAX; ++f)
+	{
+		if (!heard[f]) continue; // no living hearer in this faction -> do not leak the event
+		if (f == sourceFaction) continue; // never spike the source faction's own occupancy
+		spikeFactionOccupancy(static_cast<UnitFaction>(f), zone, noiseSpike);
+	}
+}
+
+void SavedBattleGame::clearNoiseEvents()
+{
+	_noiseEvents.clear();
 }
 
 /**
@@ -2712,11 +2950,13 @@ bool SavedBattleGame::getNewestHearableNoise(const Position &hearerPos, int inte
 		if (take) best = &ev;
 	}
 	if (!best) return false;
-	// Phase 34.8: quantize the source to an 8-tile grid cell so investigators get a
-	// neighbourhood, never the exact tile. (34.4's civilian zone uses a 10-tile grid; the
+	// Phase 34.8: quantize the source to an 8-tile grid cell via the SHARED helper so
+	// investigators get a neighbourhood, never the exact tile. The same helper is used by the
+	// emitNoise occupancy producer, so a spike recorded for one event lands on the identical
+	// cell a hearer's getNewestHearableNoise call would resolve to -- the zone cannot drift
+	// between producer and consumer. (34.4's civilian zone uses a separate 10-tile grid; the
 	// convention being mirrored is "quantize to a grid", not the specific grid size.)
-	const int GRID = 8;
-	outZone = Position((best->pos.x / GRID) * GRID, (best->pos.y / GRID) * GRID, best->pos.z);
+	outZone = quantizeNoiseZone(best->pos);
 	return true;
 }
 
@@ -2732,12 +2972,12 @@ bool SavedBattleGame::getNewestHearableNoise(const Position &hearerPos, int inte
  * changes and behavior is byte-identical.
  *
  * Near-miss definition: a unit (any faction -- engine-symmetric, soldiers pin aliens too)
- * counts as near-missed when the trajectory visits a tile within 1 tile (3D Chebyshev
- * distance <= 1: the unit's own tile plus its 26 neighbours) of the unit's position tile.
- * The shooter and the shot's actual target are excluded (a hit is not a near-miss; the
- * shooter's own muzzle blast doesn't pin it). Large units use their anchor tile -- the 1-tile
- * band already generously covers a size-2 footprint on most approaches; suppression is a
- * heuristic, not an exact physical model.
+ * counts as near-missed when the trajectory visits a tile within suppressionRadius tile(s)
+ * (3D Chebyshev distance <= suppressionRadius: at the default radius 1, the unit's own tile
+ * plus its 26 neighbours) of the unit's position tile. The shooter and the shot's actual
+ * target are excluded (a hit is not a near-miss; the shooter's own muzzle blast doesn't pin
+ * it). Large units use their anchor tile -- at radius 1 the band already generously covers a
+ * size-2 footprint on most approaches; suppression is a heuristic, not an exact physical model.
  *
  * Per-victim per-turn cap (BattleUnit::SUPPRESSION_CAP_PER_TURN) is enforced in addNearMiss;
  * once a victim has taken the cap this turn, further events are a no-op. The knobs (morale/
@@ -2751,6 +2991,8 @@ void SavedBattleGame::applySuppression(const std::vector<Position>& trajectoryVo
 
 	const int moraleLoss = getMod()->getAISuppressionMorale();
 	const int energyLoss = getMod()->getAISuppressionEnergy();
+	// Phase 43.0 item 7: Chebyshev near-miss radius (tiles). Previously a literal 1.
+	const int radius = getMod()->getAISuppressionRadius();
 
 	// Collect the unique tiles the trajectory visits (voxel -> tile). Dedup shrinks the
 	// inner loop from O(voxels) to O(unique tiles) -- a straight bullet traces ~16 voxels
@@ -2767,11 +3009,16 @@ void SavedBattleGame::applySuppression(const std::vector<Position>& trajectoryVo
 	{
 		if (!unit || unit == shooter || unit == targetUnit) continue;
 		if (unit->isOut()) continue; // dead / unconscious / gone units can't be suppressed
+		// Phase 43 (H3): a unit is never suppressed by its OWN side's outgoing fire. Without this, a
+		// burst passing an adjacent squadmate pins it and the AI then targets its own ally next turn
+		// (self-suppression feedback loop). Cross-faction suppression (the engine-symmetric design) is
+		// unaffected. Use current faction so a mind-controlled unit counts with the side it fights for.
+		if (shooter && unit->getFaction() == shooter->getFaction()) continue;
 		const Position up = unit->getPosition();
 		bool nearMiss = false;
 		for (const auto& vt : visitedTiles)
 		{
-			if (std::abs(up.x - vt.x) <= 1 && std::abs(up.y - vt.y) <= 1 && std::abs(up.z - vt.z) <= 1)
+			if (std::abs(up.x - vt.x) <= radius && std::abs(up.y - vt.y) <= radius && std::abs(up.z - vt.z) <= radius)
 			{
 				nearMiss = true;
 				break;
@@ -2897,6 +3144,236 @@ bool SavedBattleGame::getSquadHasFlankIntent(UnitFaction faction, int targetId) 
 	const SquadBlackboard& bb = _squadBlackboards[faction];
 	for (const auto& t : bb.targets) { if (t.unitId == targetId) return t.flankIntentCount > 0; }
 	return false;
+}
+
+// ---- Phase 43.1B (Calypso): per-faction turn-cache invalidation state -------------------
+// Pure transient bookkeeping beside the 34.9 SquadBlackboard. These methods build no field and
+// change no AI decision; they are gated on ai.sharedFields so that with the flag off the caches
+// stay default-invalid and shipped behavior is byte-identical. Not serialized (see header).
+
+namespace {
+// Inline range guard shared by the FactionTurnCache accessors. FACTION_NONE (-1) and any value
+// >= FACTION_MAX are out of range and must never index _factionTurnCaches.
+inline bool factionTurnCacheValid(UnitFaction faction)
+{
+	return faction >= FACTION_PLAYER && faction < FACTION_MAX;
+}
+} // namespace
+
+FactionTurnCache* SavedBattleGame::getFactionTurnCache(UnitFaction faction)
+{
+	if (!factionTurnCacheValid(faction)) return nullptr;
+	return &_factionTurnCaches[faction];
+}
+
+const FactionTurnCache* SavedBattleGame::getFactionTurnCache(UnitFaction faction) const
+{
+	if (!factionTurnCacheValid(faction)) return nullptr;
+	return &_factionTurnCaches[faction];
+}
+
+void SavedBattleGame::beginFactionTurnCache(UnitFaction faction)
+{
+	// Feature off: do not mutate caches (keeps default-invalid, byte-identical behavior).
+	if (!getMod()->getAISharedFields())
+		return;
+	if (!factionTurnCacheValid(faction))
+		return; // invalid faction rejected safely -- no write
+	FactionTurnCache& cache = _factionTurnCaches[faction];
+	// beginTurn PRESERVES the occupancy field and its arm marker (it only arms the
+	// cache and dirties the terrain-sensitive aggregates), so advance the occupancy
+	// cadence AFTER it. advanceOccupancyToTurn is idempotent per its contract: the
+	// first arm stamps the baseline without decaying, a repeat for the same turn is a
+	// no-op (no double-decay), and any skipped turns are caught up by the method.
+	cache.beginTurn(_turn);
+	cache.advanceOccupancyToTurn(_turn, _mapsize_x, _mapsize_y, _mapsize_z,
+		getMod()->getAIOccupancyRetainPercent(),
+		getMod()->getAIOccupancySpreadPercent(),
+		1000);
+}
+
+void SavedBattleGame::notifyFactionTurnTerrainChanged()
+{
+	// Feature off: do not mutate caches. Mirrors the resetVisibilityCache seams it rides along
+	// with; the reset is preserved in TileEngine regardless of this gate.
+	if (!getMod()->getAISharedFields())
+		return;
+	for (int f = FACTION_PLAYER; f < FACTION_MAX; ++f)
+	{
+		_factionTurnCaches[f].onTerrainChanged();
+	}
+}
+
+void SavedBattleGame::spikeFactionOccupancy(UnitFaction faction, const Position& pos, int amount)
+{
+	// Feature gate: with ai.sharedFields off the caches stay default-invalid and
+	// shipped behavior is byte-identical (no mutation). Checked once here so the
+	// method is safe to call from any seam without every caller repeating the gate
+	// (an outer gate + this inner gate compose to a harmless idempotent no-op when
+	// the feature is off -- the same boolean is tested, so there is no double-gating
+	// hazard, only a cheap redundant branch).
+	if (!getMod()->getAISharedFields())
+		return;
+	// Reject an out-of-range faction (FACTION_NONE / >= FACTION_MAX) safely:
+	// getFactionTurnCache returns nullptr for those, so no slot is ever indexed.
+	FactionTurnCache* cache = getFactionTurnCache(faction);
+	if (!cache)
+		return;
+	// Reject a non-positive amount: matching OccupancyField::spike, a bad amount
+	// can never create, lower, or erase a cell (it is a strict no-op there).
+	if (amount <= 0)
+		return;
+	// Producer precondition (see the OccupancyField INTEGRATION PRECONDITION in
+	// OccupancyField.h): every Position MUST be validated against the live map
+	// extent BEFORE spiking, so consumers iterating getCells() never observe an
+	// out-of-range cell. getTile(pos) returns null for any off-map or
+	// not-yet-loaded tile, so this IS the bounds check.
+	if (!getTile(pos))
+		return;
+	// Deliberately NOT guarded on cache->isValid() (the armed marker): a fair
+	// off-side event may arrive BEFORE that faction's own beginTurn arms the cache,
+	// and the occupancy field is preserved across beginTurn / onTerrainChanged and
+	// decays on its own explicit cadence via advanceOccupancyToTurn. The fixed cap
+	// 1000 is the OccupancyField scale (NOT a separate ruleset key here). No
+	// terrain/threat dirty flags are touched -- occupancy advances independently of
+	// those aggregates (see FactionTurnCache occupancy ownership notes).
+	cache->getOccupancyField().spike(pos, amount, 1000);
+}
+
+void SavedBattleGame::notifyFactionTurnKnowledgeChanged(UnitFaction observerFaction, BattleUnit *enemy, const Position& knownTile)
+{
+	// Gate BOTH the fair occupancy spike and the active-side threat queue on the
+	// shared-fields feature and a non-null enemy. Feature-off builds stay
+	// byte-identical (no cache mutation); a null enemy has no id/tile to record.
+	// NOTE: the active-side check (observerFaction != _side) is intentionally NOT
+	// in this gate -- it is applied AFTER the occupancy spike below, so the spike
+	// fires for any observer faction (fair for off-side reactions too).
+	if (!getMod()->getAISharedFields() || !enemy)
+		return;
+
+	// Fair occupancy spike: every real TileEngine visibility callback (and the
+	// AI-module sighting seams that route through this method) spikes the OBSERVER
+	// faction's occupancy field at the fair-known tile. This is fair for ANY
+	// observer faction -- including off-side reactions during the active side's
+	// turn -- because `knownTile` is where the enemy was SEEN, never a live/cheat
+	// position. spikeFactionOccupancy is itself ai.sharedFields-gated and rejects
+	// an invalid faction / non-positive amount / null tile, so it is safe to call
+	// here for any observerFaction value. The amount comes from the ruleset key
+	// ai.occupancySightingSpike (default 1000, clamped 0..1000 by Mod).
+	spikeFactionOccupancy(observerFaction, knownTile, getMod()->getAIOccupancySightingSpike());
+
+	// The active-side threat producer queue stays EXACTLY as before this slice:
+	// only the faction currently taking its turn (observerFaction == _side) records
+	// the sighting. Off-side factions return HERE -- after the occupancy spike --
+	// because their authoritative BattleUnit knowledge was already updated at the
+	// call site (TileEngine / AIModule), and their next beginTurn rebuilds the
+	// threat field from that authoritative state (no off-side producer input is
+	// queued). This preserves the original active-side-only semantics.
+	if (observerFaction != _side)
+		return;
+	FactionTurnCache* cache = getFactionTurnCache(observerFaction);
+	if (!cache)
+		return;
+	// recordKnowledgeChanged also rejects an unarmed cache. Off-side reaction FOV
+	// updates authoritative BattleUnit knowledge above, but need not queue producer
+	// input: that faction's next beginTurn rebuilds from the authoritative state.
+	cache->recordKnowledgeChanged(enemy->getId(), knownTile);
+}
+
+// Phase 43.1E/Q (Calypso): unit-lifecycle notifications for per-faction reachable
+// accumulators. Friend slices are removed narrowly. Death and faction conversion also
+// remove the unit's enemy slice from every observer cache and invalidate the max-only
+// derived threat field, which cannot decrement itself after a contribution disappears.
+// The cache accessor enforces the faction range guard, so an out-of-range faction is a no-op.
+
+/// Scrub a unit's contribution from one faction's cache (no-op when the faction
+/// is invalid or the cache is unreachable).
+static void factionTurnRemoveContribution(FactionTurnCache* cache, int unitId)
+{
+	if (!cache)
+		return;
+	cache->invalidateFriendContribution(unitId);
+}
+
+static void factionTurnRemoveEnemyContribution(FactionTurnCache* cache, int unitId)
+{
+	if (!cache)
+		return;
+	cache->invalidateEnemyContribution(unitId);
+}
+
+/// Scrub an enemy slice after a relationship-ending lifecycle event. Any queued sighting
+/// for this unit describes the superseded relationship, and the max-only threat field must
+/// be rebuilt because removing the slice can lower the exact derived danger.
+static void factionTurnRemoveEnemyContributionAndInvalidateThreat(FactionTurnCache* cache, int unitId)
+{
+	if (!cache)
+		return;
+	cache->discardPendingThreatSighting(unitId);
+	cache->invalidateEnemyContribution(unitId);
+	cache->invalidateThreat();
+}
+
+void SavedBattleGame::notifyFactionTurnUnitMoved(BattleUnit *unit)
+{
+	if (!getMod()->getAISharedFields())
+		return;
+	if (!unit)
+		return;
+	factionTurnRemoveContribution(getFactionTurnCache(unit->getFaction()), unit->getId());
+	for (int f = FACTION_PLAYER; f < FACTION_MAX; ++f)
+		factionTurnRemoveEnemyContribution(getFactionTurnCache(static_cast<UnitFaction>(f)), unit->getId());
+}
+
+void SavedBattleGame::notifyFactionTurnUnitDied(BattleUnit *unit)
+{
+	if (!getMod()->getAISharedFields())
+		return;
+	if (!unit)
+		return;
+	// Defensive: the dead unit's faction is ambiguous at death time, so scrub it
+	// from every valid faction cache rather than guessing.
+	for (int f = FACTION_PLAYER; f < FACTION_MAX; ++f)
+	{
+		FactionTurnCache* cache = getFactionTurnCache(static_cast<UnitFaction>(f));
+		factionTurnRemoveContribution(cache, unit->getId());
+		factionTurnRemoveEnemyContributionAndInvalidateThreat(cache, unit->getId());
+	}
+}
+
+void SavedBattleGame::notifyFactionTurnUnitSpawned(BattleUnit *unit)
+{
+	if (!getMod()->getAISharedFields())
+		return;
+	if (!unit)
+		return;
+	// A spawn may reuse a recently-freed id; remove any stale slice first so the
+	// upcoming contribution is not double-counted.
+	factionTurnRemoveContribution(getFactionTurnCache(unit->getFaction()), unit->getId());
+	for (int f = FACTION_PLAYER; f < FACTION_MAX; ++f)
+		factionTurnRemoveEnemyContribution(getFactionTurnCache(static_cast<UnitFaction>(f)), unit->getId());
+}
+
+void SavedBattleGame::notifyFactionTurnUnitChangedFaction(BattleUnit *unit, UnitFaction oldFaction)
+{
+	if (!getMod()->getAISharedFields())
+		return;
+	if (!unit)
+		return;
+	// Remove from both the faction it left and the faction it joined.
+	factionTurnRemoveContribution(getFactionTurnCache(oldFaction), unit->getId());
+	factionTurnRemoveContribution(getFactionTurnCache(unit->getFaction()), unit->getId());
+	// Every observer cache may contain this unit under the old relationship. Remove those
+	// slices before rebuilding under the live faction relationship, and invalidate the
+	// max-only threat memo so stale danger cannot survive mind control / conversion.
+	for (int f = FACTION_PLAYER; f < FACTION_MAX; ++f)
+		factionTurnRemoveEnemyContributionAndInvalidateThreat(
+			getFactionTurnCache(static_cast<UnitFaction>(f)), unit->getId());
+	// If a live unit leaves the active faction it becomes a newly-known enemy at
+	// the position that faction knew while it was still an ally. No FOV event is
+	// required for this transition, so queue the threat update explicitly.
+	if (oldFaction == _side && unit->getFaction() != oldFaction && !unit->isOut())
+		notifyFactionTurnKnowledgeChanged(oldFaction, unit, unit->getPosition());
 }
 
 /**
@@ -3219,6 +3696,8 @@ bool SavedBattleGame::setUnitPosition(BattleUnit *bu, Position position, bool te
 
 	bu->setTile(getTile(position + zOffset), this);
 	bu->setPosition(position + zOffset);
+
+	notifyFactionTurnUnitMoved(bu);
 
 	return true;
 }

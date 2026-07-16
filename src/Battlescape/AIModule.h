@@ -21,9 +21,12 @@
 #include "BattlescapeGame.h"
 #include "Position.h"
 #include "Pathfinding.h" // Brutal-AI: PathfindingNode, PositionComparator
+#include "AIFailureMemory.h"
+#include "SpotterCountField.h" // Phase 43.1 (Calypso): per-actor exact spotter-count memo (by-value member)
 #include "../Savegame/BattleUnit.h"
 #include <vector>
 #include <set> // Brutal-AI
+#include <array>
 
 
 namespace OpenXcom
@@ -34,6 +37,9 @@ class BattleUnit;
 struct BattleAction;
 class BattlescapeState;
 class Node;
+class FriendReachableField; // Phase 43.1E (Calypso): shared friendReachable field, defined in Savegame/FriendReachableField.h
+class ThreatField; // Phase 43.1M (Calypso): shared exact discoverThreat memo, defined in Savegame/ThreatField.h
+class TerrainLofNegativeCache; // Phase 43.1I (Calypso): shared negative terrain-LOF cache, defined in Savegame/TerrainLofNegativeCache.h
 
 enum AIMode { AI_PATROL, AI_AMBUSH, AI_COMBAT, AI_ESCAPE };
 enum AIAttackWeight : int
@@ -65,6 +71,8 @@ private:
 	int _lastBreachTurn = -1000; // Phase 34.6 (Calypso): transient, NOT saved -- gates wall-breaches to one attempt per 3 turns.
 	std::vector<int> _reachable, _reachableWithAttack, _wasHitBy;
 	std::vector<PathfindingNode*> _allPathFindingNodes; // Brutal-AI
+	std::vector<Position> _pathToEnemyPositions; // Phase 43.0: reusable buffer for getPositionsOnPathTo (targetPosition path), kept valid across the node loop
+	std::vector<Position> _pathToPosBuffer; // Phase 43.0: reusable buffer for getPositionsOnPathTo (per-node path, distinct so it never clobbers _pathToEnemyPositions)
 	Position _positionAtStartOfTurn; // Brutal-AI
 	int _tuCostToReachClosestPositionToBreakLos = 0; // Brutal-AI
 	int _energyCostToReachClosestPositionToBreakLos = 0; // Brutal-AI
@@ -73,6 +81,25 @@ private:
 	BattleActionType _reserve;
 	UnitFaction _targetFaction;
 	UnitFaction _myFaction = FACTION_HOSTILE; // Brutal-AI
+	mutable int _committedAttackTargetId = -1; // Phase 43 (H5): target this unit committed to attacking this turn (-1 = none)
+	mutable int _committedAttackTurn = -1;     // Phase 43 (H5): the turn number _committedAttackTargetId was recorded for
+	// Phase 43.1 (Calypso): per-AIModule exact spotter-count memo. Owned per-actor and NOT in
+	// FactionTurnCache because getSpottingUnits()'s result is actor-specific -- it depends on
+	// this unit's validTarget()/knowledge profile and on the virtual target geometry handed to
+	// canTargetUnit (the `_unit` stand-in placed at a non-occupied pos). Lifetime is a SINGLE
+	// think() pass: cleared at the very top of think() so a cached count never survives world
+	// changes between immediate rethink passes. Written and read only inside getSpottingUnits()
+	// and only when ai.sharedFields is on; with the flag off the member stays empty and unused.
+	// Mutable because getSpottingUnits() is const. An unknown tile is NEVER consumed -- the
+	// isEvaluated() gate is the only thing that separates a confirmed (incl. zero) count from
+	// a never-evaluated tile whose countAt() would optimistically read 0 (see SpotterCountField.h).
+	mutable SpotterCountField _spotterCountMemo;
+	AIFailureMemory _failureMemory;
+	std::string _auditReason, _auditRunnerUp;
+	float _auditBestScore = 0.0f, _auditRunnerUpScore = 0.0f;
+	std::array<float, 3> _lastScoreTerms{{0, 0, 0}};
+	std::array<float, 3> _auditBestTerms{{0, 0, 0}};
+	std::array<const char*, 3> _auditTermLabels{{"damage", "hit", "context"}};
 
 	BattleAction _escapeAction, _ambushAction, _attackAction, _patrolAction, _psiAction;
 
@@ -110,7 +137,50 @@ private:
 	/// BA_RETHINK), and a fair-channel-known enemy stands on a destructible floor or a wall is
 	/// blocking the path to a known objective. With the flag off it is a no-op (byte-identical).
 	bool considerTerrainAttack();
+	bool candidateAllowed(BattleActionType type, int targetId, const Position& position) const;
+	void prepareAIAudit(BattleAction *action);
+	/// Phase 43.1E (Calypso): returns the live shared friendReachable field for this
+	/// unit's faction when the mod enables ai.sharedFields and a valid faction turn-cache
+	/// exists, rebuilding it lazily (dirty -> recompute, clean -> stamp only missing
+	/// contributions); returns nullptr otherwise so callers fall back to the legacy
+	/// per-unit local map. Never overwrites _ranOutOfTUs (uses a local flag). When
+	/// ai.evalBudget > 0 the rebuild is bounded to at most evalBudget actual BFS stamps
+	/// per call (the acting unit first, only if its slice is missing; otherwise the full
+	/// evalBudget is spent on missing allies), leaving the rest missing as a documented
+	/// shared-field approximation that later brutalThinks fill incrementally; evalBudget == 0
+	/// is the unbounded byte-identical original full rebuild.
+	FriendReachableField* prepareSharedFriendReachable();
+	/// Resolve the exact shared enemyReachable accumulator for this actor's
+	/// fair-knowledge profile. `forceRebuild` is true after a dirty full clear.
+	/// When `allowReset` is false (the read-only mode used by setupEscape) a dirty
+	/// field is NOT cleared / marked clean without producing it -- the caller falls
+	/// back to the degraded ranking and brutalThink remains the authoritative producer
+	/// that may clear / start the rebuild.
+	FriendReachableField* prepareSharedEnemyReachable(bool& forceRebuild, bool allowReset = true);
+	/// Exact legacy discoverThreat calculation for one base candidate. The
+	/// shared and fallback paths both call this helper so feature-off behavior
+	/// and footprint/LOF semantics cannot drift.
+	float calculateDiscoverThreat(const Position& candidate, const std::map<Position, int, PositionComparator>& enemyReachable);
+	/// Return the compatible per-faction threat memo, lazily initialize it, and
+	/// conservatively re-stamp evaluated tiles after queued knowledge updates.
+	/// Returns nullptr for feature-off, invalid cache, or actor-profile mismatch.
+	ThreatField* prepareSharedThreatField(const std::map<Position, int, PositionComparator>& enemyReachable);
+	/// Phase 43.1I (Calypso): returns the live shared negative terrain-LOF cache
+	/// for this unit's faction when the mod enables ai.sharedFields and a valid
+	/// faction turn-cache exists, flushing it lazily (dirty -> clear + mark
+	/// clean) before returning the live cache; returns nullptr otherwise so
+	/// callers fall back to the original uncached trace. Mirrors the lazy-rebuild
+	/// policy of prepareSharedFriendReachable but is a pure read/remember surface
+	/// that never recomputes terrain state.
+	TerrainLofNegativeCache* prepareSharedTerrainLofCache();
 public:
+	void beginActivation();
+	void recordFailedAttempt(const BattleAction& action);
+	/// Read-only view of this unit's AI failure memory (Phase 43 one-retry fix).
+	/// Used by BattlescapeGame to decide whether an eligible candidate failure is the
+	/// FIRST at the current world revision (before recordFailedAttempt is called).
+	const AIFailureMemory& getFailureMemory() const { return _failureMemory; }
+	void emitAIAudit(const BattleAction& action) const;
 	bool medikit_think(BattleMediKitType healOrStim);
 public:
 	/// Creates a new AIModule linked to the game and a certain unit.
@@ -205,17 +275,17 @@ public:
 	/// Like selectSpottedUnitForSniper but works for everyone
 	bool brutalSelectSpottedUnitForSniper();
 	/// look up in _allPathFindingNodes how many time-units we need to get to a specific position
-	int tuCostToReachPosition(Position pos, const std::vector<PathfindingNode *> nodeVector, BattleUnit* actor = NULL, bool forceExactPosition = false, bool energyInsteadOfTU = false);
+	int tuCostToReachPosition(Position pos, const std::vector<PathfindingNode *>& nodeVector, BattleUnit* actor = NULL, bool forceExactPosition = false, bool energyInsteadOfTU = false);
 	/// find the cloest Position to our target we can reach while reserving for a BattleAction
-	Position furthestToGoTowards(Position target, BattleActionCost reserve, const std::vector<PathfindingNode *> nodeVector, bool encircleTileMode = false, Tile *encircleTile = NULL);
+	Position furthestToGoTowards(Position target, BattleActionCost reserve, const std::vector<PathfindingNode *>& nodeVector, bool encircleTileMode = false, Tile *encircleTile = NULL);
 	/// find the closest Position that isn't our current position which is on the way to a target
-	Position closestToGoTowards(Position target, const std::vector<PathfindingNode *> nodeVector, Position myPos, bool peakMode = false);
+	Position closestToGoTowards(Position target, const std::vector<PathfindingNode *>& nodeVector, Position myPos, bool peakMode = false);
 	/// checks if the path to a position is save
 	bool isPathToPositionSave(Position target, bool &saveForProxies);
 	/// Performs a psionic attack but allow multiple per turn and take success-chance into consideration
 	bool brutalPsiAction();
 	/// Chooses a firing mode for the AI based on expected damage dealt
-	float brutalExtendedFireModeChoice(BattleActionCost &costAuto, BattleActionCost &costSnap, BattleActionCost &costAimed, BattleActionCost &costThrow, BattleActionCost &costHit, bool checkLOF = false, float previousHighScore = 0);
+	float brutalExtendedFireModeChoice(BattleActionCost &costAuto, BattleActionCost &costSnap, BattleActionCost &costAimed, BattleActionCost &costThrow, BattleActionCost &costHit, bool checkLOF = false, float previousHighScore = 0, float *evaluatedBestScore = nullptr, BattleActionType *evaluatedBestAction = nullptr, std::array<float, 3> *evaluatedTerms = nullptr);
 	/// Scores a firing mode action based on distance to target, accuracy and overall Damage dealt, also supports melee-hits
 	float brutalScoreFiringMode(BattleAction *action, BattleUnit *target, bool checkLOF, bool reactionCheck = false);
 	/// Phase 34.7 (Calypso): the suppression value of one auto-volley from `weapon` -- the
@@ -291,13 +361,14 @@ public:
 	/// returns how much energy the unit can recover each turn
 	int getEnergyRecovery(BattleUnit* unit);
 	/// returns reachable tile-Ids by a particular unit
-	std::map<Position, int, PositionComparator> getReachableBy(BattleUnit* unit, bool& ranOutOfTUs, bool forceRecalc = false, bool useMaxTUs = false, bool pruneAirTiles = false);
+	const std::map<Position, int, PositionComparator>& getReachableBy(BattleUnit* unit, bool& ranOutOfTUs, bool forceRecalc = false, bool useMaxTUs = false, bool pruneAirTiles = false);
 	/// checks whether it would be possible to see one tile from another
 	bool hasTileSight(Position from, Position to);
 	/// returns the amount of blaster-waypoints to reach a target-positon
 	int requiredWayPointCount(Position to, const std::vector<PathfindingNode*> nodeVector);
 	/// returns a vector of all positions we'd have to walk towards a specific location
-	std::vector<Position> getPositionsOnPathTo(Position target, const std::vector<PathfindingNode*> nodeVector);
+	/// (writes into caller-supplied `out`, which it clears first)
+	void getPositionsOnPathTo(Position target, const std::vector<PathfindingNode*>& nodeVector, std::vector<Position>& out);
 	/// returns fear of smoke
 	std::map<Position, int, PositionComparator> getSmokeFearMap();
 	/// returns how urgent it is to get rid of a grenade

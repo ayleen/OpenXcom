@@ -1040,6 +1040,9 @@ void BattlescapeState::think()
 		if (_popups.empty())
 		{
 			State::think();
+#ifdef __EMSCRIPTEN__
+			Game *const calypsoGame = _game;
+#endif
 			int ret = _battleGame->think();
 			if (ret > -1)
 			{
@@ -1052,6 +1055,10 @@ void BattlescapeState::think()
 				_battleGame->handleNonTargetAction();
 				popped = false;
 			}
+#ifdef __EMSCRIPTEN__
+			if (calypsoGame->isState(this))
+				calypsoAdvanceAlienPacing(calypsoGame);
+#endif
 		}
 		else
 		{
@@ -3257,6 +3264,7 @@ inline void BattlescapeState::handle(Action *action)
 
 							unit->setTile(_save->getTile(newPos), _save);
 							unit->setPosition(newPos);
+							_save->notifyFactionTurnUnitMoved(unit);
 
 							//free refresh as bonus
 							unit->updateUnitStats(true, false);
@@ -3361,7 +3369,9 @@ inline void BattlescapeState::handle(Action *action)
 								if (unitUnderTheCursor->getFaction() != FACTION_PLAYER)
 								{
 									debug("My mind to your mind, my thoughts to your thoughts.");
+									const UnitFaction oldFaction = unitUnderTheCursor->getFaction();
 									unitUnderTheCursor->convertToFaction(FACTION_PLAYER);
+									_save->notifyFactionTurnUnitChangedFaction(unitUnderTheCursor, oldFaction);
 									//unitUnderTheCursor->recoverTimeUnits();
 									unitUnderTheCursor->allowReselect();
 									unitUnderTheCursor->abortTurn(); // resets unit status to STANDING

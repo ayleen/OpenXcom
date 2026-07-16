@@ -1525,6 +1525,7 @@ bool TileEngine::calculateUnitsInFOV(BattleUnit* unit, const Position eventPos, 
 								bu->setTileLastSpotted(_save->getTileIndex(bu->getPosition()), unit->getFaction());
 								bu->setTileLastSpotted(_save->getTileIndex(bu->getPosition()), unit->getFaction(), true);
 								bu->setTurnsSinceSeen(0, unit->getFaction());
+								_save->notifyFactionTurnKnowledgeChanged(unit->getFaction(), bu, bu->getPosition());
 							}
 
 							x = y = sizeOther; //If a unit's tile is visible there's no need to check the others: break the loops.
@@ -2126,6 +2127,24 @@ double TileEngine::checkVoxelExposure(Position *originVoxel, Tile *tile, BattleU
 	isDebug = isDebug && _save->getDebugMode();
 	if (excludeUnit && excludeUnit->isAIControlled()) isSimpleMode = true;
 
+	// Phase 43.1J: checkVoxelExposure can reuse blocked rays only when the
+	// stored first-impact voxel is available. Debug scans bypass the cache so
+	// their per-ray terrain symbols remain exact.
+	TerrainLofNegativeCache* terrainLofCache = 0;
+	if (_save->getMod()->getAISharedFields() && !isDebug && excludeUnit && excludeUnit->isAIControlled())
+	{
+		FactionTurnCache* ftc = _save->getFactionTurnCache(excludeUnit->getFaction());
+		if (ftc && ftc->isValid())
+		{
+			if (ftc->isTerrainLofDirty())
+			{
+				ftc->getTerrainLofCache().clear();
+				ftc->markTerrainLofClean();
+			}
+			terrainLofCache = &ftc->getTerrainLofCache();
+		}
+	}
+
 	std::vector<Position> _trajectory;
 	Position scanVoxel;
 	BattleUnit *targetUnit = tile->getUnit();
@@ -2217,8 +2236,24 @@ double TileEngine::checkVoxelExposure(Position *originVoxel, Tile *tile, BattleU
 			scanVoxel.x = targetVoxel.x + sliceTargetsX[j];
 			scanVoxel.y = targetVoxel.y + sliceTargetsY[j];
 
+			if (terrainLofCache)
+			{
+				const Position* cachedImpact = terrainLofCache->blockedImpact(*originVoxel, scanVoxel);
+				if (cachedImpact)
+				{
+					if (Position::distanceSq(*originVoxel, *cachedImpact) <= peekDistanceSq)
+						--total;
+					else if (coveredVoxels)
+						coveredVoxels->emplace_back(*cachedImpact);
+					scanLine += 'x'; // debug mode bypasses the cache; placeholder is never rendered
+					continue;
+				}
+			}
+
 			_trajectory.clear();
 			int test = calculateLineVoxel(*originVoxel, scanVoxel, false, &_trajectory, excludeUnit);
+			if (terrainLofCache && test >= V_FLOOR && test <= V_OBJECT && !_trajectory.empty())
+				terrainLofCache->rememberBlocked(*originVoxel, scanVoxel, _trajectory.at(0));
 
 			bool peekBehindCover = false;
 			if (!_trajectory.empty())
@@ -2291,8 +2326,23 @@ double TileEngine::checkVoxelExposure(Position *originVoxel, Tile *tile, BattleU
 			scanVoxel.x = targetVoxel.x + sliceTargetsTopBottom[ i * 2 ];
 			scanVoxel.y = targetVoxel.y + sliceTargetsTopBottom[ i * 2 + 1];
 
+			if (terrainLofCache)
+			{
+				const Position* cachedImpact = terrainLofCache->blockedImpact(*originVoxel, scanVoxel);
+				if (cachedImpact)
+				{
+					if (Position::distanceSq(*originVoxel, *cachedImpact) <= peekDistanceSq)
+						--total;
+					else if (coveredVoxels)
+						coveredVoxels->emplace_back(*cachedImpact);
+					continue;
+				}
+			}
+
 			_trajectory.clear();
 			int test = calculateLineVoxel(*originVoxel, scanVoxel, false, &_trajectory, excludeUnit);
+			if (terrainLofCache && test >= V_FLOOR && test <= V_OBJECT && !_trajectory.empty())
+				terrainLofCache->rememberBlocked(*originVoxel, scanVoxel, _trajectory.at(0));
 
 			bool peekBehindCover = false;
 			if (!_trajectory.empty())
@@ -2356,6 +2406,29 @@ bool TileEngine::canTargetUnit(Position *originVoxel, Tile *tile, Position *scan
 
 	if (potentialUnit == excludeUnit) return false; //skip self
 
+	// Phase 43.1H: resolve the negative terrain-LOF cache for the acting faction.
+	// Only armed when the AI-shared-fields feature is on, obstacle reporting is not
+	// requested, the excluded unit is AI-controlled (and defines the faction), and that
+	// faction's turn cache exists and is valid. Calls with rememberObstacles=true need
+	// the original trajectory side effect and therefore bypass this prefilter. If the
+	// terrain-LOF slice is dirty we flush it and mark clean before use, mirroring the
+	// lazy-rebuild policy of the other per-faction fields. A null pointer here means
+	// "feature off / no cache" -> original path runs unchanged.
+	TerrainLofNegativeCache* terrainLofCache = 0;
+	if (_save->getMod()->getAISharedFields() && !rememberObstacles && excludeUnit != 0 && excludeUnit->isAIControlled())
+	{
+		FactionTurnCache* ftc = _save->getFactionTurnCache(excludeUnit->getFaction());
+		if (ftc != 0 && ftc->isValid())
+		{
+			if (ftc->isTerrainLofDirty())
+			{
+				ftc->getTerrainLofCache().clear();
+				ftc->markTerrainLofClean();
+			}
+			terrainLofCache = &ftc->getTerrainLofCache();
+		}
+	}
+
 	int targetMinHeight = targetVoxel.z - tile->getTerrainLevel();
 	targetMinHeight += potentialUnit->getFloatHeight();
 
@@ -2405,7 +2478,26 @@ bool TileEngine::canTargetUnit(Position *originVoxel, Tile *tile, Position *scan
 			scanVoxel->x=targetVoxel.x + sliceTargets[j*2];
 			scanVoxel->y=targetVoxel.y + sliceTargets[j*2+1];
 			_trajectory.clear();
+			// Phase 43.1H: negative terrain-LOF short-circuit. If the directed ray
+			// origin->scanVoxel is already known to be terrain-blocked, skip it
+			// without re-walking the voxel line. When the cache is absent (null)
+			// this test is skipped and the original path runs byte-for-byte.
+			if (terrainLofCache && terrainLofCache->isKnownBlocked(*originVoxel, *scanVoxel))
+			{
+				continue;
+			}
 			int test = calculateLineVoxel(*originVoxel, *scanVoxel, false, &_trajectory, excludeUnit);
+			// Phase 43.1H: remember only confirmed terrain-blocked rays (V_FLOOR
+			// through V_OBJECT inclusive). Never cache V_UNIT, V_EMPTY,
+			// V_OUTOFBOUNDS, or any clear/positive result -- the cache is
+			// negative-only; absence of an entry means "unknown", never "clear".
+			if (terrainLofCache && test >= V_FLOOR && test <= V_OBJECT)
+			{
+				// Negative-only: store the first terrain impact voxel along the
+				// ray (calculateLineVoxel guarantees a populated trajectory for
+				// V_FLOOR..V_OBJECT inclusive).
+				terrainLofCache->rememberBlocked(*originVoxel, *scanVoxel, _trajectory.at(0));
+			}
 			if (test == V_UNIT)
 			{
 				for (int x = 0; x <= targetSize; ++x)
@@ -3477,6 +3569,7 @@ void TileEngine::hit(BattleActionAttack attack, Position center, int power, cons
 	if (terrainChanged || effectGenerated)
 	{
 		resetVisibilityCache(); // Brutal-AI (adapted from Brutal-OXCE by Xilmi): terrain change invalidates cached LOS
+		_save->notifyFactionTurnTerrainChanged(); // Phase 43.1B (Calypso): same terrain-mutation seam dirties the per-faction turn-caches (gated, reset preserved)
 		applyGravity(tile);
 		LightLayers layer = LL_ITEMS;
 		if (part == V_FLOOR && _save->getTile(tilePos - Position(0, 0, 1)))
@@ -4410,6 +4503,7 @@ int TileEngine::unitOpensDoor(BattleUnit *unit, bool rClick, int dir)
 				// Phase 34.5 Brutal-AI (adapted from Brutal-OXCE by Xilmi): opening a door changes LOS
 				// (invalidate the cache) and gives the opener's rough position away as a door clue.
 				resetVisibilityCache();
+				_save->notifyFactionTurnTerrainChanged(); // Phase 43.1B (Calypso): same seam dirties the per-faction turn-caches (gated, reset preserved)
 				unit->updateEnemyKnowledge(_save->getTileIndex(unit->getPosition()), true, true);
 			}
 			else return 4;
@@ -4494,7 +4588,10 @@ int TileEngine::closeUfoDoors()
 	}
 
 	if (doorsclosed > 0)
+	{
 		resetVisibilityCache(); // Brutal-AI (adapted from Brutal-OXCE by Xilmi): closing doors invalidates cached LOS
+		_save->notifyFactionTurnTerrainChanged(); // Phase 43.1B (Calypso): same seam dirties the per-faction turn-caches (gated, reset preserved)
+	}
 	return doorsclosed;
 }
 
@@ -4993,6 +5090,7 @@ bool TileEngine::psiAttack(BattleActionAttack attack, BattleUnit *victim)
 				}
 			}
 			victim->setMindControllerId(attack.attacker->getId());
+			const UnitFaction oldFaction = victim->getFaction();
 			if (attack.weapon_item->getRules()->convertToCivilian() && victim->getOriginalFaction() == FACTION_HOSTILE)
 			{
 				victim->convertToFaction(FACTION_NEUTRAL);
@@ -5008,8 +5106,16 @@ bool TileEngine::psiAttack(BattleActionAttack attack, BattleUnit *victim)
 				calculateLighting(LL_UNITS, victim->getPosition());
 				calculateFOV(victim->getPosition()); //happens fairly rarely, so do a full recalc for units in range to handle the potential unit visible cache issues.
 			}
+			_save->notifyFactionTurnUnitChangedFaction(victim, oldFaction);
 			victim->recoverTimeUnits();
 			victim->allowReselect();
+			// Phase 43 (C1): a freshly mind-controlled unit gets a fresh turn (recoverTimeUnits +
+			// allowReselect above), so clear any stale brutal "want to end turn". Unconditional on
+			// purpose: convertToFaction() has already run, so isBrutal() would reflect the NEW faction
+			// and skip the reset for a unit converted away from brutal (e.g. hostile -> neutral).
+			// setWantToEndTurn(false) is a no-op for non-brutal / vanilla units, so this stays byte-
+			// identical off the brutal path.
+			victim->setWantToEndTurn(false);
 			victim->abortTurn(); // resets unit status to STANDING
 			// if all units from either faction are mind controlled - auto-end the mission.
 			if (_save->getSide() == FACTION_PLAYER && Options::allowPsionicCapture)
@@ -6290,6 +6396,11 @@ bool TileEngine::hasEntry(Position from, Position to)
 void TileEngine::setVisibilityCache(Position from, Position to, bool visible)
 {
 	std::pair<int, int> key = std::make_pair(_save->getTileIndex(from), _save->getTileIndex(to));
+	// H7: bound this memoization cache — it is only cleared on terrain change, so over a
+	// long battle it grows to 1e5–1e6 entries (the heap-fragmentation pattern that OOM'd
+	// the project once). Dropping it early only forces a recompute, never a wrong answer.
+	if (_visibilityCache.size() >= 200000)
+		_visibilityCache.clear();
 	_visibilityCache.insert({key, visible});
 }
 
