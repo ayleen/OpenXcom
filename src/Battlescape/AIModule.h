@@ -361,6 +361,10 @@ public:
 	/// returns how much energy the unit can recover each turn
 	int getEnergyRecovery(BattleUnit* unit);
 	/// returns reachable tile-Ids by a particular unit
+	/// CONTRACT: the returned reference aliases unit->_reachablePositions and is
+	/// invalidated by the next getReachableBy call for the SAME unit (a recompute
+	/// calls setReachablePositions). Copy the map to retain it across such a call;
+	/// calls for a different unit do not invalidate it.
 	const std::map<Position, int, PositionComparator>& getReachableBy(BattleUnit* unit, bool& ranOutOfTUs, bool forceRecalc = false, bool useMaxTUs = false, bool pruneAirTiles = false);
 	/// checks whether it would be possible to see one tile from another
 	bool hasTileSight(Position from, Position to);
