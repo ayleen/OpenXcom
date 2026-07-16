@@ -23,6 +23,9 @@
 #include "../Engine/Action.h"
 #include "../Engine/Unicode.h"
 #include "../Savegame/BattleUnit.h"
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+#include "../Calypso/CalypsoVoiceG05.h"
+#endif
 #include "../Savegame/BattleItem.h"
 #include "../Mod/Mod.h"
 #include "../Mod/Armor.h"
@@ -329,6 +332,12 @@ void ActionMenuState::handleAction()
 			!_game->getSavedGame()->getSavedBattle()->canUseWeapon(_action->weapon, _action->actor, false, _action->type, &actionResult))
 		{
 			_action->result = actionResult;
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+			if (actionResult == "STR_NO_AMMUNITION_LOADED" || actionResult == "STR_NO_ROUNDS_LEFT")
+			{
+				CalypsoVoiceG05::onOutOfAmmo(_action->actor);
+			}
+#endif
 			_game->popState();
 		}
 		else if (_action->type == BA_PRIME)
@@ -483,7 +492,9 @@ void ActionMenuState::handleAction()
 			}
 			else if (!_action->weapon->getAmmoForAction(BA_LAUNCH, &_action->result))
 			{
-				//nothing
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+				CalypsoVoiceG05::onOutOfAmmo(_action->actor);
+#endif
 			}
 			else
 			{
@@ -532,6 +543,14 @@ void ActionMenuState::handleAction()
 		if (newHitLog)
 		{
 			_game->getSavedGame()->getSavedBattle()->appendToHitLog(HITLOG_PLAYER_FIRING, FACTION_PLAYER, tr(weapon->getType()));
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+			if (_action->type == BA_SNAPSHOT || _action->type == BA_AUTOSHOT
+				|| _action->type == BA_AIMEDSHOT || _action->type == BA_LAUNCH
+				|| _action->type == BA_HIT)
+			{
+				CalypsoVoiceG05::onWeaponReady(_action->actor);
+			}
+#endif
 		}
 	}
 }

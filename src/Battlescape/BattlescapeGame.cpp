@@ -1647,6 +1647,10 @@ bool BattlescapeGame::handlePanickingUnit(BattleUnit *unit)
 	if (status != STATUS_PANICKING && status != STATUS_BERSERK) return false;
 	_save->setSelectedUnit(unit);
 	_parentState->getMap()->setCursorType(CT_NONE);
+	bool pilotPanicHandled = false;
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+	pilotPanicHandled = CalypsoVoiceG05::onPanic(unit);
+#endif
 
 	// play panic/berserk sounds first
 	bool soundPlayed = false;
@@ -1681,10 +1685,15 @@ bool BattlescapeGame::handlePanickingUnit(BattleUnit *unit)
 		if (!sounds.empty())
 		{
 			soundPlayed = true;
+			int sound;
 			if (sounds.size() > 1)
-				playSound(sounds[RNG::generate(0, sounds.size() - 1)]);
+				sound = sounds[RNG::generate(0, sounds.size() - 1)];
 			else
-				playSound(sounds.front());
+				sound = sounds.front();
+			if (!pilotPanicHandled)
+			{
+				playSound(sound);
+			}
 		}
 	}
 
@@ -2166,7 +2175,14 @@ void BattlescapeGame::primaryAction(Position pos)
 				getMap()->setCursorType(CT_NONE);
 				_parentState->getGame()->getCursor()->setVisible(false);
 				statePushBack(new UnitWalkBState(this, _currentAction));
-				playUnitResponseSound(_currentAction.actor, 1); // "start moving" sound
+				bool pilotHandled = false;
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+				pilotHandled = CalypsoVoiceG05::handleMoveOrder(_currentAction.actor);
+#endif
+				if (!pilotHandled)
+				{
+					playUnitResponseSound(_currentAction.actor, 1); // "start moving" sound
+				}
 			}
 		}
 	}
@@ -2285,6 +2301,9 @@ void BattlescapeGame::moveUpDown(BattleUnit *unit, int dir)
 	}
 	_save->getPathfinding()->calculate(_currentAction.actor, _currentAction.target, _currentAction.getMoveType());
 	statePushBack(new UnitWalkBState(this, _currentAction));
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+	CalypsoVoiceG05::handleMoveOrder(_currentAction.actor);
+#endif
 }
 
 /**

@@ -39,6 +39,9 @@
 #include "BattlescapeState.h"
 #include "../Savegame/BattleUnitStatistics.h"
 #include "../fmath.h"
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+#include "../Calypso/CalypsoVoiceG05.h"
+#endif
 
 namespace OpenXcom
 {
@@ -46,11 +49,11 @@ namespace OpenXcom
 /**
  * Sets up an ProjectileFlyBState.
  */
-ProjectileFlyBState::ProjectileFlyBState(BattlescapeGame *parent, BattleAction action, Position origin, int range) : BattleState(parent, action), _unit(0), _ammo(0), _origin(origin), _originVoxel(-1,-1,-1), _projectileImpact(0), _range(range), _initialized(false), _targetFloor(false)
+ProjectileFlyBState::ProjectileFlyBState(BattlescapeGame *parent, BattleAction action, Position origin, int range) : BattleState(parent, action), _unit(0), _ammo(0), _origin(origin), _originVoxel(-1,-1,-1), _projectileImpact(0), _range(range), _initialized(false), _targetFloor(false), _voiceContinuesAction(false)
 {
 }
 
-ProjectileFlyBState::ProjectileFlyBState(BattlescapeGame *parent, BattleAction action) : BattleState(parent, action), _unit(0), _ammo(0), _origin(action.actor->getPosition()), _originVoxel(-1,-1,-1), _projectileImpact(0), _range(0), _initialized(false), _targetFloor(false)
+ProjectileFlyBState::ProjectileFlyBState(BattlescapeGame *parent, BattleAction action) : BattleState(parent, action), _unit(0), _ammo(0), _origin(action.actor->getPosition()), _originVoxel(-1,-1,-1), _projectileImpact(0), _range(0), _initialized(false), _targetFloor(false), _voiceContinuesAction(false)
 {
 }
 
@@ -100,6 +103,9 @@ void ProjectileFlyBState::init()
 		_ammo = _action.weapon->getAmmoForAction(_action.type, reactionShoot ? nullptr : &_action.result);
 		if (!_ammo)
 		{
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+			CalypsoVoiceG05::onOutOfAmmo(_action.actor);
+#endif
 			_parent->popState();
 			return;
 		}
@@ -447,6 +453,22 @@ void ProjectileFlyBState::init()
 
 	if (createNewProjectile())
 	{
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+		if (_range == 0)
+		{
+			if (_action.type == BA_THROW)
+			{
+				if (_action.weapon->getRules()->isGrenadeOrProxy() && _action.weapon->isFuseEnabled())
+				{
+					CalypsoVoiceG05::onGrenadeThrown(_action.actor);
+				}
+			}
+			else
+			{
+				CalypsoVoiceG05::onAttackStarted(_action.actor);
+			}
+		}
+#endif
 		auto* conf = weapon->getActionConf(_action.type);
 		if (_parent->getMap()->isAltPressed() || (conf && !conf->followProjectiles))
 		{
@@ -736,6 +758,12 @@ void ProjectileFlyBState::think()
 				_parent->setupCursor();
 			}
 			_parent->convertInfected();
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+			if (!_voiceContinuesAction)
+			{
+				CalypsoVoiceG05::onAttackFinished(_action.actor);
+			}
+#endif
 			_parent->popState();
 		}
 	}
@@ -770,6 +798,9 @@ void ProjectileFlyBState::think()
 					if (ruleItem->getBattleType() == BT_GRENADE || ruleItem->getBattleType() == BT_PROXIMITYGRENADE)
 					{
 						// it's a hot grenade to explode immediately
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+						CalypsoVoiceG05::onAttackStarted(_action.actor);
+#endif
 						_parent->statePushFront(new ExplosionBState(_parent, _parent->getMap()->getProjectile()->getLastPositions(Projectile::ItemDropVoxelOffset), attack));
 					}
 					else
@@ -799,6 +830,7 @@ void ProjectileFlyBState::think()
 					nextWaypoint->targetFloor();
 				}
 				_parent->statePushNext(nextWaypoint);
+				_voiceContinuesAction = true;
 			}
 			else
 			{
