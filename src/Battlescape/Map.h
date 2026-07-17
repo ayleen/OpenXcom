@@ -138,6 +138,15 @@ private:
 	TTFFont *_fontHdNumbers; // Phase 16: TTF font for HD cursor TU/AP numerals (lazy-cached, see getHdNumberFont)
 	/// Timestamp (SDL_GetTicks) of the last blit() call — used by GPU overlay guards.
 	Uint32 _lastDrawnTicks = 0u;
+	// Presentation-only tail for a ballistic projectile that completed between
+	// two browser frames. It never participates in collision or turn logic.
+	struct ProjectileAfterimage
+	{
+		bool valid = false;
+		Position origin, impact;
+		int particle = -1;
+		Uint32 expires = 0u;
+	} _projectileAfterimage;
 	/// Diagnostic counter: completed HUD image/text GPU passes for the live Map.
 	unsigned _hudGlDrawCount = 0u;
 

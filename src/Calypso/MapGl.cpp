@@ -3189,8 +3189,12 @@ void Map::drawCursorOverlayGLPass()
  */
 void Map::drawProjectileGLPass()
 {
-	if (!_projectile || !_projectileInFOV || SDL_GetTicks() - _lastDrawnTicks > 250) return;
-	if (_projectile->getItem()) return; // thrown items handled by CPU path
+	const Uint32 now = SDL_GetTicks();
+	if (_projectileAfterimage.valid && now >= _projectileAfterimage.expires)
+		_projectileAfterimage.valid = false;
+	const bool showAfterimage = !_projectile && _projectileAfterimage.valid;
+	if ((!_projectile && !showAfterimage) || (!_projectileInFOV && !showAfterimage) || now - _lastDrawnTicks > 250) return;
+	if (_projectile && _projectile->getItem()) return; // thrown items handled by CPU path
 	if (!_spriteGLInit) initSpriteGL();
 	if (!_spriteShader || !_spriteShader->isValid()) return;
 	if (!_spriteVAO) return;
@@ -3248,6 +3252,32 @@ void Map::drawProjectileGLPass()
 	_spriteShader->setUniform1i("u_tex", 0);
 	_spriteShader->setUniform3f("u_tint", 1.0f, 1.0f, 1.0f);  // untinted (Phase 24 u_tint)
 
+	if (showAfterimage)
+	{
+		Surface* frame = _projectileSet ? _projectileSet->getFrame(_projectileAfterimage.particle) : nullptr;
+		GpuTexture* tex = frame ? getOrUploadSpriteFrame(_projectileSet, _projectileAfterimage.particle) : nullptr;
+		if (frame && tex)
+		{
+			const int bw = std::max(1, frame->getWidth() * _spriteWidth / 32);
+			const int bh = std::max(1, frame->getHeight() * _spriteWidth / 32);
+			for (int step = 1; step <= 5; ++step)
+			{
+				const int remain = 5 - step;
+				Position p((_projectileAfterimage.origin.x * remain + _projectileAfterimage.impact.x * step) / 5,
+				           (_projectileAfterimage.origin.y * remain + _projectileAfterimage.impact.y * step) / 5,
+				           (_projectileAfterimage.origin.z * remain + _projectileAfterimage.impact.z * step) / 5);
+				if (!_save->getTileEngine()->isVoxelVisible(p)) continue;
+				Position sp; _camera->convertVoxelToScreen(p, &sp);
+				drawQuad(tex, sp.x + mapX - bw / 2, sp.y + mapY - bh / 2, bw, bh, 0.35f);
+			}
+		}
+		_spriteShader->setUniform1f("u_darken", 0.0f);
+		_spriteShader->setUniform3f("u_tint", 1.0f, 1.0f, 1.0f);
+		glDisable(GL_BLEND);
+		glUseProgram(static_cast<GLuint>(prevProgram));
+		return;
+	}
+
 	for (int i = begin; i != end; i += direction)
 	{
 		Surface* frame = _projectileSet->getFrame(_projectile->getParticle(i));
@@ -3284,6 +3314,8 @@ void Map::drawProjectileGLPass()
 	}
 
 	glDisable(GL_BLEND);
+	_spriteShader->setUniform1f("u_darken", 0.0f);
+	_spriteShader->setUniform3f("u_tint", 1.0f, 1.0f, 1.0f);
 	glUseProgram(static_cast<GLuint>(prevProgram));
 }
 

@@ -3773,6 +3773,20 @@ CursorType Map::getCursorType() const
  */
 void Map::setProjectile(Projectile *projectile)
 {
+#ifdef __EMSCRIPTEN__
+	// Keep a short visual tail when the simulation removes a fast ballistic
+	// round before the browser has produced a frame. Gameplay already completed
+	// at this point; this is strictly renderer state.
+	if (!projectile && _projectile && !_projectile->getItem() && _projectileInFOV)
+	{
+		_projectileAfterimage.valid = true;
+		_projectileAfterimage.origin = _projectile->getOrigin();
+		_projectileAfterimage.impact = _projectile->getPosition();
+		_projectileAfterimage.particle = _projectile->getParticle(0);
+		_projectileAfterimage.expires = SDL_GetTicks() + 110u;
+	}
+	if (projectile) _projectileAfterimage.valid = false;
+#endif
 	_projectile = projectile;
 	if (projectile && Options::battleSmoothCamera)
 	{
