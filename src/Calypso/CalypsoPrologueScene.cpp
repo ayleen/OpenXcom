@@ -281,7 +281,7 @@ void CalypsoPrologueScene::onBattleStart(BattlescapeGame *bg)
 	// NOT in allPlayerIds()/_diverIds (resolved above, by faction, before
 	// this call), so the gauntlet picker and Branch B never count him.
 	if (BattleUnit *assessor = findUnit(bg->getSave(), _assessorId))
-		CalypsoDirector::get().handoffToPlayer(bg, assessor);
+		CalypsoDirector::get().handoffToPlayer(bg, assessor, true);
 	// D2: rolled once, drives which pattern the first post-Assessor death uses.
 	_leaderDiesFirst = RNG::percent(50);
 	_phase = Ph::MoveToOffice;

@@ -235,8 +235,9 @@ public:
 	void steerUnit(BattlescapeGame *bg, BattleUnit *unit, Position waypoint);
 
 	/// Permanently hand a scripted neutral unit to the player while retaining
-	/// its original faction for tallying, then select and centre it.
-	void handoffToPlayer(BattlescapeGame *bg, BattleUnit *unit);
+	/// its original faction for tallying. Presentation is opt-in because a
+	/// hostile-turn handoff must not select or centre a unit before player input.
+	void handoffToPlayer(BattlescapeGame *bg, BattleUnit *unit, bool presentNow = false);
 
 	/// Reset every live unit of `side` to morale 100 (pins panic-driven loss of
 	/// control while a scene is directing). Uses BattleUnit::moraleChange(delta).

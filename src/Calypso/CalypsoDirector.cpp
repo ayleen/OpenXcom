@@ -318,7 +318,7 @@ void CalypsoDirector::steerUnit(BattlescapeGame *bg, BattleUnit *unit, Position 
 	bg->statePushBack(new UnitWalkBState(bg, action));
 }
 
-void CalypsoDirector::handoffToPlayer(BattlescapeGame *bg, BattleUnit *unit)
+void CalypsoDirector::handoffToPlayer(BattlescapeGame *bg, BattleUnit *unit, bool presentNow)
 {
 	if (!bg || !unit) return;
 	// This is intentionally NOT convertToFaction(): that API is temporary mind
@@ -333,9 +333,13 @@ void CalypsoDirector::handoffToPlayer(BattlescapeGame *bg, BattleUnit *unit)
 		unit->setVisible(true);
 		if (save->getTileEngine()) save->getTileEngine()->recalculateFOV();
 	}
-	if (Map *map = bg->getMap())
-		if (Camera *cam = map->getCamera())
-			cam->centerOnPosition(unit->getPosition());
+	if (presentNow)
+	{
+		if (SavedBattleGame *save = bg->getSave()) save->setSelectedUnit(unit);
+		if (Map *map = bg->getMap())
+			if (Camera *cam = map->getCamera())
+				cam->centerOnPosition(unit->getPosition());
+	}
 }
 
 void CalypsoDirector::pinMorale(SavedBattleGame *save, UnitFaction side)
