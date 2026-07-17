@@ -52,6 +52,12 @@ extern const std::string PROLOGUE_DIVER2_NAME;
 /// CalypsoPrologueScene (writes it every player turn via
 /// CalypsoDirector::forceAutosave) and finishPrologue (deletes it).
 extern const std::string PROLOGUE_AUTOSAVE_FILENAME;
+extern const std::string PROLOGUE_DEPLOYMENT_ID;
+
+/// Delete the rolling prologue slot and flush IDBFS. Used by both successful
+/// completion and explicit discard so a supposedly abandoned mission cannot
+/// be loaded from the Main Menu.
+void deletePrologueAutosave();
 
 /// Offered from NewGameState::btnOkClick, BEFORE newSave(). Returns true if
 /// it took over (pushed CalypsoPrologueAskState) -- the caller must return

@@ -51,10 +51,16 @@ const std::string PROLOGUE_LEADER_NAME = "K. Sarris";
 const std::string PROLOGUE_DIVER1_NAME = "D. Voss";
 const std::string PROLOGUE_DIVER2_NAME = "M. Reyes";
 const std::string PROLOGUE_AUTOSAVE_FILENAME = "calypso-prologue-auto.sav";
+const std::string PROLOGUE_DEPLOYMENT_ID = "STR_CALYPSO_PROLOGUE";
+
+void deletePrologueAutosave()
+{
+	CrossPlatform::deleteFile(Options::getMasterUserFolder() + PROLOGUE_AUTOSAVE_FILENAME);
+	EM_ASM(({ FS.syncfs(false, function(err) { if (err) console.error('[calypso] syncfs error', err); }); }));
+}
 
 namespace
 {
-	static const char *PROLOGUE_DEPLOYMENT = "STR_CALYPSO_PROLOGUE";
 	// commit 5: dedicated craft type (calypso-prologue mod), never
 	// player-purchasable (no costBuy) -- keeps the prologue's Triton out
 	// of the fresh campaign's own Triton pool after the scripted battle.
@@ -135,7 +141,7 @@ bool maybeOfferPrologue(Game *game, GameDifficulty diff, bool ironman, bool tuto
 	// global seen marker: a later tutorial-enabled campaign may still offer it.
 	if (!tutorial) return false;
 	if (Options::calypsoPrologueSeen) return false;
-	if (game->getMod()->getDeployment(PROLOGUE_DEPLOYMENT) == nullptr)
+	if (game->getMod()->getDeployment(PROLOGUE_DEPLOYMENT_ID) == nullptr)
 	{
 		// Mod content not loaded yet (pre-commit-5, or a build without the
 		// calypso-prologue mod) -- behave exactly like vanilla.
@@ -310,7 +316,7 @@ void launchScriptedBattle(Game *game, const std::string &deploymentId, bool prev
 
 void launchPrologueBattle(Game *game)
 {
-	launchScriptedBattle(game, PROLOGUE_DEPLOYMENT, false);
+	launchScriptedBattle(game, PROLOGUE_DEPLOYMENT_ID, false);
 }
 
 void stashSurvivor(const std::string &name, const UnitStats &stats)
@@ -361,8 +367,7 @@ void finishPrologue(Game *game, int outcome)
 	// Unlike DeleteGameState (native path, no explicit flush), we flush
 	// explicitly here: this delete is anti-savescum-critical, and the next
 	// natural syncfs might not happen before the tab closes.
-	CrossPlatform::deleteFile(Options::getMasterUserFolder() + PROLOGUE_AUTOSAVE_FILENAME);
-	EM_ASM(({ FS.syncfs(false, function(err) { if (err) console.error('[calypso] syncfs error', err); }); }));
+	deletePrologueAutosave();
 
 	CalypsoTutorial::get().beginCampaign(CalypsoTutorial::get().configuredEnabled());
 

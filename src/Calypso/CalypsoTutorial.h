@@ -68,7 +68,7 @@ public:
 	void toggleDisabled();                            // flip campaign flag without closing popup
 	bool isActive(const Game* game) const;               // option && campaign flag
 	void save(YAML::YamlNodeWriter writer) const;        // persistence (wired in 37.4); by value (matches AlienStrategy::save)
-	void load(const YAML::YamlNodeReader& reader);
+	void load(const YAML::YamlNodeReader& reader, bool legacyPrologueSave = false);
 	void resetCampaign();                                // new game / no node
 	// hold flag for dogfight (used in 37.5; declare now, default false)
 	void setHoldWhileDogfight(bool v) { _holdWhileDogfight = v; }

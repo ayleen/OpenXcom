@@ -3269,7 +3269,7 @@ void Map::drawProjectileGLPass()
 				           (_projectileAfterimage.origin.z * remain + _projectileAfterimage.impact.z * step) / 5);
 				Tile *tile = _save->getTile(p.toTile());
 				if (!_save->getTileEngine()->isVoxelVisible(p)
-					|| (_save->getSide() != FACTION_PLAYER && !_save->getDebugMode() && (!tile || !tile->getVisible()))) continue;
+					|| (!_save->getDebugMode() && (!tile || !tile->getVisible()))) continue;
 				Position sp; _camera->convertVoxelToScreen(p, &sp);
 				drawQuad(tex, sp.x + mapX - bw / 2, sp.y + mapY - bh / 2, bw, bh, 0.35f);
 			}

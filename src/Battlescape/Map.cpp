@@ -3777,20 +3777,6 @@ CursorType Map::getCursorType() const
 void Map::setProjectile(Projectile *projectile)
 {
 #ifdef __EMSCRIPTEN__
-	// Keep a short visual tail when the simulation removes a fast ballistic
-	// round before the browser has produced a frame. Gameplay already completed
-	// at this point; this is strictly renderer state.
-	if (!projectile && _projectile && !_projectile->getItem())
-	{
-		Tile *impactTile = _save->getTile(_projectile->getPosition().toTile());
-		const bool visibleToPlayer = _save->getSide() == FACTION_PLAYER || _save->getDebugMode()
-			|| (impactTile && impactTile->getVisible());
-		_projectileAfterimage.valid = visibleToPlayer;
-		_projectileAfterimage.origin = _projectile->getOrigin();
-		_projectileAfterimage.impact = _projectile->getPosition();
-		_projectileAfterimage.particle = _projectile->getParticle(0);
-		_projectileAfterimage.expires = SDL_GetTicks() + 110u;
-	}
 	if (projectile) _projectileAfterimage.valid = false;
 #endif
 	_projectile = projectile;
@@ -3798,6 +3784,32 @@ void Map::setProjectile(Projectile *projectile)
 	{
 		_launch = true;
 	}
+}
+
+Projectile *Map::releaseProjectile(bool retainAfterimage)
+{
+	Projectile *projectile = _projectile;
+#ifdef __EMSCRIPTEN__
+	_projectileAfterimage.valid = false;
+	// Capture presentation data before ownership returns to the caller. The
+	// previous delete-then-setProjectile(0) order dereferenced freed memory.
+	if (retainAfterimage && projectile && !projectile->getItem() && !projectile->getTrajectory().empty())
+	{
+		Tile *impactTile = _save->getTile(projectile->getPosition().toTile());
+		const bool visibleToPlayer = _save->getDebugMode() || (impactTile && impactTile->getVisible());
+		_projectileAfterimage.valid = visibleToPlayer;
+		// Both endpoints are voxels. Projectile::getOrigin() intentionally returns
+		// a tile coordinate and therefore cannot be used by this renderer DTO.
+		_projectileAfterimage.origin = projectile->getTrajectory().front();
+		_projectileAfterimage.impact = projectile->getPosition();
+		_projectileAfterimage.particle = projectile->getParticle(0);
+		_projectileAfterimage.expires = SDL_GetTicks() + 110u;
+	}
+#else
+	(void)retainAfterimage;
+#endif
+	_projectile = 0;
+	return projectile;
 }
 
 /**

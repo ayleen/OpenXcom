@@ -31,6 +31,7 @@
 #include "SaveGameState.h"
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoDirector.h"
+#include "../Calypso/CalypsoPrologueCampaign.h"
 #endif
 
 namespace OpenXcom
@@ -119,6 +120,7 @@ void AbandonGameState::btnYesClick(Action *)
 	// the abandoned battle.
 	if (_origin == OPT_BATTLESCAPE && CalypsoDirector::get().activeSceneBlocksSaveLoad())
 	{
+		Calypso::deletePrologueAutosave();
 		CalypsoDirector::get().endBattleCleanup();
 		Screen::updateScale(Options::geoscapeScale, Options::baseXGeoscape, Options::baseYGeoscape, true);
 		_game->getScreen()->resetDisplay(false);

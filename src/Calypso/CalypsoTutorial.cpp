@@ -233,7 +233,7 @@ void CalypsoTutorial::save(YAML::YamlNodeWriter writer) const
 	writer.write("checklistOpen", _checklistOpen);
 }
 
-void CalypsoTutorial::load(const YAML::YamlNodeReader& reader)
+void CalypsoTutorial::load(const YAML::YamlNodeReader& reader, bool legacyPrologueSave)
 {
 	// Always reset _shown first to avoid cross-campaign bleed when the same
 	// singleton is reused across loads.
@@ -241,9 +241,10 @@ void CalypsoTutorial::load(const YAML::YamlNodeReader& reader)
 	_queue.clear();
 	_deferred.clear();
 	_campaignEnabled = reader["enabled"].readVal<bool>(true);
-	// Older saves have no separate configured value; their live value is the
-	// only safe compatibility default.
-	_configuredEnabled = reader["configuredEnabled"].readVal<bool>(_campaignEnabled);
+	const bool hasConfiguredValue = static_cast<bool>(reader["configuredEnabled"]);
+	const bool serializedConfigured = reader["configuredEnabled"].readVal<bool>(_campaignEnabled);
+	_configuredEnabled = Calypso::configuredTutorialFromSave(
+		_campaignEnabled, hasConfiguredValue, serializedConfigured, legacyPrologueSave);
 	if (reader["shown"])
 	{
 		auto shownVec = reader["shown"].readVal<std::vector<std::string>>(std::vector<std::string>{});

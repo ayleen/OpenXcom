@@ -2831,6 +2831,11 @@ std::vector<TileEngine::ReactionScore> TileEngine::getSpottingUnits(BattleUnit* 
 		{
 				// not dead/unconscious
 			if (!bu->isOut() &&
+#ifdef __EMSCRIPTEN__
+				// A scripted ambusher is absent from the scenario until reveal;
+				// concealment must exclude the reactor, not only the moving target.
+				!bu->isScriptedConcealed() &&
+#endif
 				// not dying or not about to pass out
 				!bu->isOutThresholdExceed() &&
 				// have any chances for reacting

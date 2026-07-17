@@ -649,6 +649,10 @@ public:
 
 	/// Sets projectile.
 	void setProjectile(Projectile *projectile);
+	/// Detaches the live projectile before its owner deletes it. On Emscripten,
+	/// a successful ballistic flight may retain renderer-only afterimage data
+	/// while the object is still alive.
+	Projectile *releaseProjectile(bool retainAfterimage = false);
 	/// Gets projectile.
 	Projectile *getProjectile() const;
 	/// Sets follow projectile flag.
