@@ -225,6 +225,25 @@ int CalypsoPrologueScene::activeHerderId() const
 
 void CalypsoPrologueScene::onBattleStart(BattlescapeGame *bg)
 {
+	// Deployment invariant: STR_CALYPSO_PROLOGUE must not define turnLimit (or
+	// a chronoTrigger that depends on it). BattlescapeGame's timer expiry calls
+	// finishBattle() directly, bypassing onAbortRequested(); ConsumeAbort in
+	// onUnexpectedFinish() would then consume that external finish on every
+	// subsequent turn and soft-lock the scene. Validate this in release builds,
+	// too: a malformed deployment goes inert and resolves through the existing
+	// controlled all-taken fallback on the next safe director callback.
+	SavedBattleGame *save = bg ? bg->getSave() : nullptr;
+	if (!save || !Calypso::prologueTurnLimitIsSafe(save->getTurnLimit()))
+	{
+		Log(LOG_ERROR) << "[prologue] invalid battle start: "
+			<< (!save ? "missing battlescape save" : "turnLimit must be disabled")
+			<< (!save ? "" : " (configured value " + std::to_string(save->getTurnLimit()) + ")")
+			<< "; arming all-taken fallback";
+		_inert = true;
+		_endingTriggered = true;
+		_pendingOutcome = OutcomeAllTaken;
+		return;
+	}
 	if (!resolveActors(bg))
 	{
 		_inert = true;

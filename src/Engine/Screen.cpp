@@ -17,6 +17,9 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "Screen.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoResolutionFloor.h"
+#endif
 #include "Game.h"
 #include "../Mod/Mod.h"
 #include <algorithm>
@@ -45,7 +48,7 @@
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #include <GLES3/gl3.h>
-/* M6c: context-lost flag; C-linkage definition lives in Calypso/EmscriptenHarness.cpp.
+/* M6c: context-lost flag; C-linkage definition lives in ../Calypso/CalypsoMainLoopGate.cpp.
  * Declared at file scope (extern "C" is not allowed at block scope) — same
  * pattern as g_calypsoSsaaScale in Map.cpp. */
 extern "C" int g_calypsoContextLost;
@@ -309,24 +312,7 @@ void Screen::flip()
 		if (wW > 0 && wH > 0 &&
 		    (wW != Options::displayWidth || wH != Options::displayHeight || _forceCanvasRebase))
 		{
-			_forceCanvasRebase = false;
-			Options::displayWidth     = wW;
-			Options::displayHeight    = wH;
-			Options::newDisplayWidth  = wW;
-			Options::newDisplayHeight = wH;
-			/* Detect active rendering context by comparing the current surface
-			 * dimensions against the stored battlescape base (before update). */
-			const bool inBattle = _surface &&
-			                      _surface->w == Options::baseXBattlescape &&
-			                      _surface->h == Options::baseYBattlescape;
-			Screen::updateScale(Options::battlescapeScale,
-			                    Options::baseXBattlescape,
-			                    Options::baseYBattlescape,
-			                    inBattle);
-			Screen::updateScale(Options::geoscapeScale,
-			                    Options::baseXGeoscape,
-			                    Options::baseYGeoscape,
-			                    !inBattle);
+			reflowCanvasFallback(wW, wH);
 		}
 	}
 #endif
@@ -943,25 +929,13 @@ int Screen::getDY() const
  */
 void Screen::updateScale(int type, int &width, int &height, bool change)
 {
-	double pixelRatioY = 1.0;
-
-	if (Options::nonSquarePixelRatio)
-	{
-		pixelRatioY = 1.2;
-	}
-
 #ifdef __EMSCRIPTEN__
-	// Calypso: every scale is a proportional fraction of the display (see
-	// getScreenScaleFraction). Routing updateScale through the same helper keeps
-	// it in lockstep with the Battlescape/Geoscape resize() paths for any stored
-	// value — including legacy fixed scales from an old options.cfg.
-	{
-		int num = 1, den = 1;
-		getScreenScaleFraction(type, num, den);
-		width  = Options::displayWidth  * num / den;
-		height = (int)(Options::displayHeight / pixelRatioY * num / den);
-	}
+	const Calypso::CalypsoScaleResult scale = Calypso::calypsoPromoteScale(
+		Options::displayWidth, Options::displayHeight, Options::nonSquarePixelRatio, type);
+	width = scale.width;
+	height = scale.height;
 #else
+	double pixelRatioY = Options::nonSquarePixelRatio ? 1.2 : 1.0;
 	switch (type)
 	{
 	case SCALE_15X:
@@ -1057,6 +1031,9 @@ void Screen::updateScale(int type, int &width, int &height, bool change)
  */
 void Screen::getScreenScaleFraction(int type, int &num, int &den)
 {
+#ifdef __EMSCRIPTEN__
+	Calypso::calypsoScaleFraction(type, num, den);
+#else
 	switch (type)
 	{
 	case SCALE_SCREEN:        num = 1; den = 1;  break;
@@ -1070,6 +1047,7 @@ void Screen::getScreenScaleFraction(int type, int &num, int &den)
 	case SCALE_SCREEN_DIV_10: num = 1; den = 10; break;
 	default:                  num = 1; den = 2;  break; // fixed/legacy → ½ fallback
 	}
+#endif
 }
 
 /**

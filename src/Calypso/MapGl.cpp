@@ -2719,6 +2719,34 @@ void Map::clearHudImage(int slot)
 	if (slot >= 0 && slot < HUD_IMG_COUNT) _hudImageSlots[slot].active = false;
 }
 
+bool Map::getHudTextRect(int slot, int* x, int* y, int* w, int* h) const
+{
+	for (const auto& item : _hudTextItems)
+	{
+		if (item.slot == slot)
+		{
+			if (x) *x = (int)(item.fitX + 0.5f);
+			if (y) *y = (int)(item.fitY + 0.5f);
+			if (w) *w = (int)(item.fitW + 0.5f);
+			if (h) *h = (int)(item.fitH + 0.5f);
+			return true;
+		}
+	}
+	return false;
+}
+
+bool Map::getHudImageRect(int slot, int* x, int* y, int* w, int* h) const
+{
+	if (slot < 0 || slot >= HUD_IMG_COUNT) return false;
+	const HudImageItem& item = _hudImageSlots[slot];
+	if (!item.active) return false;
+	if (x) *x = (int)(item.fitX + 0.5f);
+	if (y) *y = (int)(item.fitY + 0.5f);
+	if (w) *w = (int)(item.fitW + 0.5f);
+	if (h) *h = (int)(item.fitH + 0.5f);
+	return true;
+}
+
 void Map::setHudImage(int slot, const std::string& key, SDL_Surface* src, int x, int y, int w, int h)
 {
 	if (slot < 0 || slot >= HUD_IMG_COUNT) return;
@@ -2946,6 +2974,7 @@ void Map::drawHudTextGLPass()
 		// TTF raster, so the crisp overlay lands EXACTLY over the logical text — no double-image.
 		drawQuad(tex, item.fitX, item.fitY, item.fitW, item.fitH);
 	}
+	++_hudGlDrawCount;
 
 	glDisable(GL_BLEND);
 	glUseProgram(static_cast<GLuint>(prevProgram));

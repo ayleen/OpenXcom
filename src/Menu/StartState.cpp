@@ -58,6 +58,9 @@ StartState::StartState() : _anim(0)
 	//updateScale() uses newDisplayWidth/Height and needs to be set ahead of time
 	Options::newDisplayWidth = Options::displayWidth;
 	Options::newDisplayHeight = Options::displayHeight;
+#ifdef __EMSCRIPTEN__
+	Screen::normalizeBrowserScales();
+#endif
 	Screen::updateScale(Options::geoscapeScale, Options::baseXGeoscape, Options::baseYGeoscape, false);
 	Screen::updateScale(Options::battlescapeScale, Options::baseXBattlescape, Options::baseYBattlescape, false);
 #ifdef __EMSCRIPTEN__

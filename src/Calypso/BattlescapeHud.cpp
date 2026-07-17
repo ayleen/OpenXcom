@@ -207,8 +207,14 @@ void BattlescapeState::captureHudNativeGl()
 void BattlescapeState::layoutHudGl()
 {
 	if (!_hudCaptured || _hudNativeIconsW <= 0) return;
-	if (Options::baseXResolution == _hudLastBaseX) return;   // nothing changed
-	_hudLastBaseX = Options::baseXResolution;
+	// PR #78 / P2: the HD HUD layout depends on BOTH base width and height.
+	// A width-preserving base-height resize must rebuild (panelY, Map hudTopY/
+	// scissor, the BattlescapeButton transform, and the portrait/rank/name/stat
+	// GL overlay rectangles are all derived from baseY). Key the cache on both
+	// dimensions; identical dimensions remain a no-op.
+	if (!_hudLayoutCache.needsRebuild(Options::baseXResolution, Options::baseYResolution))
+		return;   // nothing changed
+	_hudLayoutCache.record(Options::baseXResolution, Options::baseYResolution);
 
 	// HD panel art (its aspect differs from the vanilla 320x56 bar — it's taller),
 	// so size the panel to the HD aspect and scale widget geometry NON-uniformly
@@ -660,6 +666,75 @@ void BattlescapeState::calypsoTutorialBattleInit()
 	CalypsoTutorial::get().fire(_game, "battle.start");
 	if (_save->getGlobalShade() >= 9)
 		CalypsoTutorial::get().fire(_game, "battle.night");
+}
+
+void BattlescapeState::debugHudLayoutProbe(std::string& out)
+{
+	std::ostringstream o;
+	o << "{";
+	o << "\"baseX\":" << Options::baseXResolution
+	  << ",\"baseY\":" << Options::baseYResolution
+	  << ",\"hdPackActive\":" << (_game && _game->getMod()->hasHDPack() ? "true" : "false")
+	  << ",\"gpuReady\":" << (GpuInit::ready() ? "true" : "false")
+	  << ",\"hudGlDrawCount\":" << (_map ? _map->getHudGlDrawCount() : 0u);
+	// HD panel rect (== _icons surface rect after layoutHudGl).
+	if (_icons)
+	{
+		o << ",\"panelX\":" << _icons->getX()
+		  << ",\"panelY\":" << _icons->getY()
+		  << ",\"panelW\":" << _icons->getWidth()
+		  << ",\"panelH\":" << _icons->getHeight();
+	}
+	else
+	{
+		o << ",\"panelX\":0,\"panelY\":0,\"panelW\":0,\"panelH\":0";
+	}
+	// Map scissor top (the HD HUD overlay clips above this Y).
+	o << ",\"hudTopY\":" << (_map ? _map->getHudTopY() : -1);
+	// BattlescapeButton pressed/toggled transform origin (HD panel rect).
+	o << ",\"buttonPanelX\":" << BattlescapeButton::hudPanelX
+	  << ",\"buttonPanelY\":" << BattlescapeButton::hudPanelY
+	  << ",\"buttonPanelW\":" << BattlescapeButton::hudPanelW
+	  << ",\"buttonPanelH\":" << BattlescapeButton::hudPanelH;
+
+	// Helper: emit one widget's CPU rect + its GL overlay rect for the given slots.
+	auto widget = [&](const char* key, Surface* s,
+	                  int textSlot, int imgSlot) {
+		o << ",\"" << key << "\":{";
+		if (s)
+		{
+			o << "\"cpuX\":" << s->getX() << ",\"cpuY\":" << s->getY()
+			  << ",\"cpuW\":" << s->getWidth() << ",\"cpuH\":" << s->getHeight();
+		}
+		else
+		{
+			o << "\"cpuX\":0,\"cpuY\":0,\"cpuW\":0,\"cpuH\":0";
+		}
+		int gx = 0, gy = 0, gw = 0, gh = 0;
+		bool gotImg = _map && _map->getHudImageRect(imgSlot, &gx, &gy, &gw, &gh);
+		o << ",\"img\":"
+		  << (gotImg
+		        ? std::string("{\"x\":") + std::to_string(gx)
+		            + ",\"y\":" + std::to_string(gy)
+		            + ",\"w\":" + std::to_string(gw)
+		            + ",\"h\":" + std::to_string(gh) + "}"
+		        : "null");
+		int tx = 0, ty = 0, tw = 0, th = 0;
+		bool gotText = _map && _map->getHudTextRect(textSlot, &tx, &ty, &tw, &th);
+		o << ",\"txt\":"
+		  << (gotText
+		        ? std::string("{\"x\":") + std::to_string(tx)
+		            + ",\"y\":" + std::to_string(ty)
+		            + ",\"w\":" + std::to_string(tw)
+		            + ",\"h\":" + std::to_string(th) + "}"
+		        : "null");
+		o << "}";
+	};
+	widget("name",     _txtName,    Map::HUD_TXT_NAME,   Map::HUD_IMG_COUNT);
+	widget("portrait", _portrait,   Map::HUD_TXT_COUNT,  Map::HUD_IMG_PORTRAIT);
+	widget("numHealth",_numHealth,  Map::HUD_TXT_HEALTH, Map::HUD_IMG_HEALTH);
+	o << "}";
+	out = o.str();
 }
 
 } // namespace OpenXcom

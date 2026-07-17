@@ -604,6 +604,16 @@ if(EMSCRIPTEN)
   list(APPEND openxcom_src Calypso/CalypsoMenuBridge.cpp)
   # Phase 41 Slice B2: HD Geoscape side panel (friend bridge for GeoscapeState).
   list(APPEND openxcom_src Calypso/CalypsoGeoscapeHd.cpp)
+  # Phase 46.1 (policy R3): browser-only extractions from the oversized in-place
+  # #ifdef __EMSCRIPTEN__ regions of Engine/{EmscriptenHarness,Game,Screen}.cpp.
+  # Each is a whole-file emscripten TU (empty on native). Relocation-only.
+  list(APPEND openxcom_src Calypso/CalypsoViewportBridge.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoMainLoopGate.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoGameReflow.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoBrowserScale.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoStateUi.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoTextEdit.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoTextInputHarnessState.cpp)
 
   # Phase 8b: regenerate embedded shader table before each build when any
   # *.vert or *.frag file in Engine/Shaders/ has changed.
@@ -741,7 +751,7 @@ if(EMSCRIPTEN)
     -sMAX_WEBGL_VERSION=2
     -sFULL_ES3=1
     "-sEXPORTED_RUNTIME_METHODS=[\"FS\",\"IDBFS\",\"callMain\",\"ccall\",\"cwrap\",\"wasmMemory\",\"UTF8ToString\",\"HEAPU8\"]"
-    "-sEXPORTED_FUNCTIONS=[\"_main\",\"_calypso_screenshot\",\"_calypso_screenshot_gpu\",\"_calypso_gpu_smoke_activate\",\"_calypso_hd_unit_e1_gpu_probe\"${CALYPSO_HD_UNIT_SPIKE_EXPORTED_FUNCTIONS},\"_calypso_push_mouse_motion\",\"_calypso_set_profile_globe\",\"_calypso_set_profile_battlescape\",\"_calypso_set_profile_readback\",\"_calypso_dump_emit_once\",\"_calypso_set_ssaa_scale\",\"_calypso_gl_context_lost\",\"_calypso_gl_context_restored\",\"_calypso_log_heap\",\"_calypso_heap_used\",\"_calypso_heap_total\",\"_calypso_on_tab_hidden\",\"_calypso_apply_touch_defaults\",\"_calypso_battlescape_zoom\",\"_calypso_text_set\",\"_calypso_text_commit\",\"_calypso_text_cancel\",\"_calypso_tutorial_advance\",\"_calypso_tutorial_stop\",\"_calypso_tutorial_close\"]"
+    "-sEXPORTED_FUNCTIONS=[\"_main\",\"_calypso_screenshot\",\"_calypso_screenshot_gpu\",\"_calypso_gpu_smoke_activate\",\"_calypso_hd_unit_e1_gpu_probe\"${CALYPSO_HD_UNIT_SPIKE_EXPORTED_FUNCTIONS},\"_calypso_push_mouse_motion\",\"_calypso_set_profile_globe\",\"_calypso_set_profile_battlescape\",\"_calypso_set_profile_readback\",\"_calypso_dump_emit_once\",\"_calypso_set_ssaa_scale\",\"_calypso_gl_context_lost\",\"_calypso_gl_context_restored\",\"_calypso_log_heap\",\"_calypso_heap_used\",\"_calypso_heap_total\",\"_calypso_on_tab_hidden\",\"_calypso_apply_touch_defaults\",\"_calypso_battlescape_zoom\",\"_calypso_text_set\",\"_calypso_text_commit\",\"_calypso_text_commit_multiline\",\"_calypso_text_cancel\",\"_calypso_tutorial_advance\",\"_calypso_tutorial_stop\",\"_calypso_tutorial_close\"]"
     -sENVIRONMENT=web
     -sMODULARIZE=1
     -sEXPORT_ES6=1
@@ -873,6 +883,15 @@ if(NOT EMSCRIPTEN AND BUILD_TESTING)
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoEconomySimTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoTrainingMathTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoPrologueMathTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoUiMetricsTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoUiFamiliesTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoFocusModelTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoFocusCoordinatorTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoComboBoxTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoViewportRuntimeTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoResolutionFloorTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoTextEditLayoutTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHudLayoutCacheTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/AITuningTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/AIFailureMemoryTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/Phase43CompositionTest.cpp

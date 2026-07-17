@@ -19,9 +19,14 @@
  */
 #include <vector>
 #include <string>
+#include <memory>
 #include <SDL.h>
 #include "SDL2Helpers.h"
 #include "LocalizedText.h"
+#include "../Calypso/CalypsoFocusCoordinator.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoViewportOwner.h"
+#endif
 
 namespace OpenXcom
 {
@@ -60,6 +65,8 @@ protected:
 	RuleInterface *_ruleInterface;
 	RuleInterface *_ruleInterfaceParent;
 	const Sound* _customSound;
+	std::unique_ptr<Calypso::CalypsoFocusCoordinator> _calypsoFocus;
+	Uint8 _calypsoConsumedFocusKeys = 0;
 
 	SDL_Color _palette[256];
 	Uint8 _cursorColor;
@@ -149,6 +156,21 @@ public:
 	static void setGamePtr(Game* game);
 	/// Sets a modal surface.
 	void setModal(InteractiveSurface *surface);
+	/// Clears the modal only when it still belongs to the supplied surface.
+	void clearModal(InteractiveSurface *surface);
+
+	/// Opt-in semantic focus for HD family adapters. Disabled legacy states keep
+	/// the original InteractiveSurface dispatch unchanged.
+	void enableCalypsoFocus();
+	void disableCalypsoFocus();
+	bool rebuildCalypsoFocus(std::vector<Calypso::CalypsoFocusBinding> bindings,
+	                         std::uint64_t generation);
+	bool restoreCalypsoFocus(const std::string& id, std::uint64_t generation);
+	bool handleCalypsoFocusCommand(Calypso::CalypsoFocusCommand command,
+	                               std::uint64_t generation, bool wrap = true);
+	const std::string* getCalypsoFocusedId() const;
+	InteractiveSurface* getCalypsoFocusedTarget() const;
+	std::uint64_t getCalypsoFocusGeneration() const;
 
 	/// Changes a set of colors on the state's 8bpp palette.
 	void setStatePalette(const SDL_Color *colors, int firstcolor = 0, int ncolors = 256);
@@ -165,6 +187,14 @@ public:
 
 	/// Let the state know the window has been resized.
 	virtual void resize(int &dX, int &dY);
+#ifdef __EMSCRIPTEN__
+	/// Declares which base-resolution family this visible state owns. Most
+	/// overlays inherit the first explicit state below them.
+	virtual Calypso::CalypsoViewportAffinity calypsoViewportAffinity() const
+	{
+		return Calypso::CalypsoViewportAffinity::Inherit;
+	}
+#endif
 	/// Re-orients all the surfaces in the state.
 	virtual void recenter(int dX, int dY);
 

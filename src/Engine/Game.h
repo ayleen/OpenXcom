@@ -20,6 +20,10 @@
 #include <list>
 #include <string>
 #include <SDL.h>
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoViewportOwner.h"
+#include "../Calypso/CalypsoSceneViewportTracker.h"
+#endif
 
 namespace OpenXcom
 {
@@ -72,6 +76,13 @@ private:
 	bool _runInitialised;
 	Uint32 _lastMouseMoveEvent;
 	Sint16 _xrel, _yrel;
+#ifdef __EMSCRIPTEN__
+	void reflowEmscriptenViewport(int physicalWidth, int physicalHeight);
+	void syncEmscriptenViewportContext();
+	void trackEmscriptenViewportState(State *state);
+	void initializeEmscriptenTopState();
+	Calypso::CalypsoSceneViewportTracker _calypsoViewportScenes;
+#endif
 
 public:
 	/// Creates a new game and initializes SDL.
@@ -120,6 +131,12 @@ public:
 	bool isState(State *state) const;
 	/// Returns the top (current) state, or nullptr if the stack is empty.
 	State *getTopState() const { return _states.empty() ? nullptr : _states.back(); }
+#ifdef __EMSCRIPTEN__
+	/// Visible strategic/tactical viewport context, resolved top-to-bottom.
+	Calypso::CalypsoViewportAffinity calypsoViewportAffinity() const;
+	/// Record a root-owned base change performed outside viewport reflow.
+	void calypsoNotifyViewportRootApplied(State *state);
+#endif
 	/// Returns whether a UfopaediaStartState is in the background.
 	bool containsUfopaediaStartState() const;
 	/// Returns whether a NotesState is in the background.

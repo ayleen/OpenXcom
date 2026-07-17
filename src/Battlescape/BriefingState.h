@@ -49,6 +49,12 @@ public:
 	~BriefingState();
 	/// Initialization
 	void init() override;
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoViewportAffinity calypsoViewportAffinity() const override
+	{
+		return Calypso::CalypsoViewportAffinity::Strategic;
+	}
+#endif
 	/// Handler for clicking the Ok button.
 	void btnOkClick(Action *action);
 };

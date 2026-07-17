@@ -4301,25 +4301,12 @@ void BattlescapeState::resize(int &dX, int &dY)
 {
 	dX = Options::baseXResolution;
 	dY = Options::baseYResolution;
-	double pixelRatioY = 1.0;
-	if (Options::nonSquarePixelRatio)
-	{
-		pixelRatioY = 1.2;
-	}
-
 #ifdef __EMSCRIPTEN__
-	// Calypso: the canvas is stretched to fill the window, so only proportional
-	// (fraction-of-display) scales keep the aspect ratio — fixed Nx buffers would
-	// distort it. Every scale option maps to display × num/den;
-	// battlescapeTileScale enlarges the tiles (Map.cpp), not the buffer, so the
-	// options never collide into duplicates.
-	{
-		int num = 1, den = 1;
-		Screen::getScreenScaleFraction(Options::battlescapeScale, num, den);
-		Options::baseXResolution = std::max(Screen::ORIGINAL_WIDTH,  Options::displayWidth  * num / den);
-		Options::baseYResolution = std::max(Screen::ORIGINAL_HEIGHT, (int)(Options::displayHeight / pixelRatioY * num / den));
-	}
+	Screen::normalizeBrowserScales();
+	Screen::updateScale(Options::battlescapeScale,
+	                    Options::baseXResolution, Options::baseYResolution, false);
 #else
+	double pixelRatioY = Options::nonSquarePixelRatio ? 1.2 : 1.0;
 	int divisor = 1;
 	bool fixedRes = false;
 	switch (Options::battlescapeScale)
@@ -4437,6 +4424,7 @@ void BattlescapeState::zoom(int direction)
 	// to the battlescape (and BriefingState/LoadGame snap back to the old dims).
 	Options::baseXBattlescape = Options::baseXResolution;
 	Options::baseYBattlescape = Options::baseYResolution;
+	_game->calypsoNotifyViewportRootApplied(this);
 	_game->getScreen()->resetDisplay(false);
 	_map->draw();
 }
