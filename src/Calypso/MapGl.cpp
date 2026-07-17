@@ -3333,14 +3333,16 @@ void Map::drawProjectileGLPass()
 	glUseProgram(static_cast<GLuint>(prevProgram));
 }
 
-bool Map::gpuProjectilePathReady() const
+bool Map::gpuProjectilePathReady()
 {
 	if (!_projectile || _projectile->getItem() || !_projectileSet) return false;
 	if (!_spriteGLInit || !_spriteShader || !_spriteShader->isValid() || !_spriteVAO) return false;
 	const int particle = _projectile->getParticle(0);
 	if (!_projectileSet->getFrame(particle)) return false;
-	const auto it = _spriteFrameCache.find(std::make_pair(_projectileSet, particle));
-	return it != _spriteFrameCache.end() && it->second != nullptr;
+	// Prime the exact frame before Map.cpp suppresses its CPU blit. The GPU pass
+	// will reuse this cache entry later in the same frame, so ownership is never
+	// split between the two renderers.
+	return getOrUploadSpriteFrame(_projectileSet, particle) != nullptr;
 }
 
 /**
