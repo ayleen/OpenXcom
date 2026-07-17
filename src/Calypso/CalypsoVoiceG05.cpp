@@ -141,14 +141,25 @@ std::uint32_t nextVariantRandom(std::uint32_t &state)
 	return state;
 }
 
-const char *genderName(SoldierGender gender)
+const char *profileName(const BattleUnit *unit)
 {
-	return gender == GENDER_FEMALE ? "female" : "male";
-}
+	if (!unit)
+	{
+		return "none";
+	}
+	if (unit->getGender() != GENDER_FEMALE)
+	{
+		return "diver_en_m_custom_v2";
+	}
 
-const char *profileName(SoldierGender gender)
-{
-	return gender == GENDER_FEMALE ? "diver_en_f_custom_kate" : "diver_en_m_custom_v2";
+	// The geoscape Soldier ID survives save/load and mission transitions. Use
+	// it instead of gameplay RNG so each female Diver keeps one voice while the
+	// roster is distributed deterministically between the two approved profiles.
+	const Soldier *soldier = unit->getGeoscapeSoldier();
+	const int stableId = soldier ? soldier->getId() : unit->getId();
+	return (static_cast<unsigned int>(stableId) & 1u) == 0u
+		? "diver_en_f_custom_kate"
+		: "diver_en_f_custom_sasha";
 }
 
 bool isDiver(const BattleUnit *unit, bool requirePlayerControl = true)
@@ -201,9 +212,9 @@ unsigned int pickVariant(Event event, int unitId)
 	return selected;
 }
 
-std::string clipPath(Event event, SoldierGender gender, unsigned int variant)
+std::string clipPath(Event event, const BattleUnit *unit, unsigned int variant)
 {
-	return std::string(profileName(gender))
+	return std::string(profileName(unit))
 		+ "/STR_CALYPSO_VOICE_" + eventSpec(event).fileStem + "_"
 		+ (variant < 10 ? "0" : "") + std::to_string(variant) + ".wav";
 }
@@ -215,7 +226,7 @@ void logSuppressed(Event event, const BattleUnit *unit, const char *reason)
 	++counter.suppressed;
 	Log(LOG_INFO) << "[VOICE_G0_5] event=" << eventSpec(event).name
 		<< " unit=" << (unit ? unit->getId() : -1)
-		<< " profile=" << (unit ? genderName(unit->getGender()) : "none")
+		<< " profile=" << profileName(unit)
 		<< " result=suppressed reason=" << reason;
 }
 
@@ -275,7 +286,7 @@ bool submit(Event event, BattleUnit *unit, bool forceInterrupt = false)
 	{
 		++counter.suppressed;
 		Log(LOG_INFO) << "[VOICE_G0_5] event=" << eventSpec(event).name
-			<< " unit=" << unit->getId() << " profile=" << genderName(unit->getGender())
+			<< " unit=" << unit->getId() << " profile=" << profileName(unit)
 			<< " result=suppressed reason=muted";
 		return false;
 	}
@@ -288,7 +299,7 @@ bool submit(Event event, BattleUnit *unit, bool forceInterrupt = false)
 	{
 		++counter.suppressed;
 		Log(LOG_INFO) << "[VOICE_G0_5] event=" << eventSpec(event).name
-			<< " unit=" << unit->getId() << " profile=" << genderName(unit->getGender())
+			<< " unit=" << unit->getId() << " profile=" << profileName(unit)
 			<< " result=suppressed reason=cooldown";
 		return false;
 	}
@@ -300,7 +311,7 @@ bool submit(Event event, BattleUnit *unit, bool forceInterrupt = false)
 		{
 			++counter.suppressed;
 			Log(LOG_INFO) << "[VOICE_G0_5] event=" << eventSpec(event).name
-				<< " unit=" << unit->getId() << " profile=" << genderName(unit->getGender())
+				<< " unit=" << unit->getId() << " profile=" << profileName(unit)
 				<< " result=suppressed reason=channel_busy";
 			return false;
 		}
@@ -308,13 +319,13 @@ bool submit(Event event, BattleUnit *unit, bool forceInterrupt = false)
 	}
 
 	const unsigned int variant = pickVariant(event, unit->getId());
-	const std::string relativePath = clipPath(event, unit->getGender(), variant);
+	const std::string relativePath = clipPath(event, unit, variant);
 	Mix_Chunk *chunk = loadClip(relativePath);
 	if (!chunk)
 	{
 		++counter.suppressed;
 		Log(LOG_INFO) << "[VOICE_G0_5] event=" << eventSpec(event).name
-			<< " unit=" << unit->getId() << " profile=" << genderName(unit->getGender())
+			<< " unit=" << unit->getId() << " profile=" << profileName(unit)
 			<< " result=suppressed reason=load_failed";
 		return false;
 	}
@@ -324,7 +335,7 @@ bool submit(Event event, BattleUnit *unit, bool forceInterrupt = false)
 	{
 		++counter.suppressed;
 		Log(LOG_WARNING) << "[VOICE_G0_5] event=" << eventSpec(event).name
-			<< " unit=" << unit->getId() << " profile=" << genderName(unit->getGender())
+			<< " unit=" << unit->getId() << " profile=" << profileName(unit)
 			<< " result=suppressed reason=playback_failed error=" << Mix_GetError();
 		return false;
 	}
@@ -333,7 +344,7 @@ bool submit(Event event, BattleUnit *unit, bool forceInterrupt = false)
 	g_state.currentPriority = requestedPriority;
 	++counter.fired;
 	Log(LOG_INFO) << "[VOICE_G0_5] event=" << eventSpec(event).name
-		<< " unit=" << unit->getId() << " profile=" << genderName(unit->getGender())
+		<< " unit=" << unit->getId() << " profile=" << profileName(unit)
 		<< " result=fired clip=" << relativePath;
 	return true;
 }
@@ -363,7 +374,7 @@ void CalypsoVoiceG05::beginMission()
 	}
 	g_state = PilotState{};
 	g_state.active = true;
-	Log(LOG_INFO) << "[VOICE_G0_5] development-only pilot active; clips=104 events=18 shuffle_bags=per_unit_event";
+	Log(LOG_INFO) << "[VOICE_G0_5] development-only pilot active; clips=156 profiles=3 events=18 shuffle_bags=per_unit_event";
 }
 
 void CalypsoVoiceG05::endMission()
