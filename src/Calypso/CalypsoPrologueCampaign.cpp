@@ -54,10 +54,46 @@ const std::string PROLOGUE_DIVER2_NAME = "M. Reyes";
 const std::string PROLOGUE_AUTOSAVE_FILENAME = "calypso-prologue-auto.sav";
 const std::string PROLOGUE_DEPLOYMENT_ID = "STR_CALYPSO_PROLOGUE";
 
+namespace
+{
+	bool s_finishPending = false;
+	GameDifficulty s_pendingFinishDiff = DIFF_BEGINNER;
+	bool s_pendingFinishIronman = false;
+
+	void deletePrologueAutosaveAndFlush(bool continueCampaign)
+	{
+		CrossPlatform::deleteFile(Options::getMasterUserFolder() + PROLOGUE_AUTOSAVE_FILENAME);
+		EM_ASM({
+			var shouldContinue = $0 === 1;
+			var retryDelay = 50;
+			function flushDeletedAutosave() {
+				// SavedGame::save may still be flushing the rolling slot. Wait for
+				// it, then persist the current MEMFS state in which the slot is gone.
+				if (FS.syncFSRequests > 0) {
+					setTimeout(flushDeletedAutosave, retryDelay);
+					retryDelay = Math.min(1000, retryDelay * 2);
+					return;
+				}
+				FS.syncfs(false, function(err) {
+					if (err) {
+						console.error('[calypso] prologue autosave syncfs error', err);
+						setTimeout(flushDeletedAutosave, retryDelay);
+						retryDelay = Math.min(1000, retryDelay * 2);
+						return;
+					}
+					if (shouldContinue) {
+						Module.ccall('calypso_finish_prologue_after_autosave_sync', null, [], []);
+					}
+				});
+			}
+			flushDeletedAutosave();
+		}, continueCampaign ? 1 : 0);
+	}
+}
+
 void deletePrologueAutosave()
 {
-	CrossPlatform::deleteFile(Options::getMasterUserFolder() + PROLOGUE_AUTOSAVE_FILENAME);
-	EM_ASM(({ FS.syncfs(false, function(err) { if (err) console.error('[calypso] syncfs error', err); }); }));
+	deletePrologueAutosaveAndFlush(false);
 }
 
 namespace
@@ -326,22 +362,35 @@ void stashSurvivor(const std::string &name, const UnitStats &stats)
 void finishPrologue(Game *game, int outcome)
 {
 	(void)outcome; // survivor injection is driven by stash contents, not the raw outcome value
-	if (!game) return;
+	if (!game || s_finishPending) return;
 
 	// Review round 1 (P1): after a page reload + prologue-autosave load the
 	// statics are back at their defaults -- the authoritative copy of the
 	// New Game choice lives on the throwaway save (see launchScriptedBattle).
-	GameDifficulty diff = s_stashedDiff;
-	bool ironman = s_stashedIronman;
+	s_pendingFinishDiff = s_stashedDiff;
+	s_pendingFinishIronman = s_stashedIronman;
 	if (SavedGame *prologueSave = game->getSavedGame())
 	{
-		diff = prologueSave->getDifficulty();
-		ironman = prologueSave->isIronman();
+		s_pendingFinishDiff = prologueSave->getDifficulty();
+		s_pendingFinishIronman = prologueSave->isIronman();
 	}
 
-	SavedGame *save = game->getMod()->newSave(diff);
-	save->setDifficulty(diff);
-	save->setIronman(ironman); // honor the New Game screen's toggle
+	// The real campaign must not exist until IndexedDB confirms that the rolling
+	// prologue slot is gone. A page close during this async boundary therefore
+	// leaves either the old prologue (if the flush never completed) or the clean
+	// campaign transition (after the callback), never both at once.
+	s_finishPending = true;
+	deletePrologueAutosaveAndFlush(true);
+}
+
+void finishPrologueAfterAutosaveSync(Game *game)
+{
+	if (!game || !s_finishPending) return;
+	s_finishPending = false;
+
+	SavedGame *save = game->getMod()->newSave(s_pendingFinishDiff);
+	save->setDifficulty(s_pendingFinishDiff);
+	save->setIronman(s_pendingFinishIronman); // honor the New Game screen's toggle
 	game->setSavedGame(save);
 
 	// D7: replace the first N default starting-base soldiers with the
@@ -360,14 +409,6 @@ void finishPrologue(Game *game, int outcome)
 	}
 	s_survivorStash.clear();
 
-	// D6: this was the only save that ever existed for the throwaway
-	// prologue campaign -- delete it before the real campaign starts, so
-	// there is nothing left to reload back into the finished mission.
-	// Unlike DeleteGameState (native path, no explicit flush), we flush
-	// explicitly here: this delete is anti-savescum-critical, and the next
-	// natural syncfs might not happen before the tab closes.
-	deletePrologueAutosave();
-
 	CalypsoTutorial::get().beginCampaign(CalypsoTutorial::get().configuredEnabled());
 
 	pushGeoscapeAndBaseChain(game, save);
@@ -375,5 +416,15 @@ void finishPrologue(Game *game, int outcome)
 
 } // namespace Calypso
 } // namespace OpenXcom
+
+extern "C" {
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_finish_prologue_after_autosave_sync()
+{
+	OpenXcom::Calypso::finishPrologueAfterAutosaveSync(OpenXcom::getCurrentGame());
+}
+
+}
 
 #endif // __EMSCRIPTEN__

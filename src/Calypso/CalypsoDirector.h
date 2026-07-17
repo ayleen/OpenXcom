@@ -243,9 +243,9 @@ public:
 	/// control while a scene is directing). Uses BattleUnit::moraleChange(delta).
 	void pinMorale(SavedBattleGame *save, UnitFaction side);
 
-	/// Push a transient radio-line popup showing tr(stringId). No-op without an
-	/// active scene. Renders through the tutorial DOM overlay (no web-shell change
-	/// required for this commit; presentation may be skinned later).
+	/// Show a radio line through the dedicated DOM overlay. Narrative lines are
+	/// queued without touching the Game state stack, so battle input and think()
+	/// continue in real time. Explicit instructions push a modal Continue state.
 	void radioLine(Game *game, const std::string &stringId,
 		CalypsoRadioLineKind kind = CalypsoRadioLineKind::Narrative,
 		std::function<void()> onDismissed = {});

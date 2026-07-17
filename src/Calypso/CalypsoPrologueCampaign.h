@@ -109,9 +109,9 @@ void launchPrologueBattle(Game *game);
 /// stash into the real campaign's starting roster and clears it.
 void stashSurvivor(const std::string &name, const UnitStats &stats);
 
-/// Creates the real campaign (mod->newSave), injects any stashed survivors
-/// into the starting base roster, deletes the prologue autosave slot, and
-/// replicates NewGameState's post-newSave tail. Called by
+/// Deletes and durably flushes the prologue autosave slot, then creates the
+/// real campaign (mod->newSave), injects any stashed survivors, and replicates
+/// NewGameState's post-newSave tail from the successful sync callback. Called by
 /// CalypsoPrologueEndState on click/keypress; `outcome` is
 /// CalypsoPrologueScene::Outcome (OutcomeAllTaken -> stash is empty, roster
 /// untouched).

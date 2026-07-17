@@ -229,6 +229,10 @@ bool CalypsoDirector::interceptUnexpectedFinish(BattlescapeState *bs, bool abort
 
 void CalypsoDirector::endBattleCleanup()
 {
+	// Narrative callbacks may capture the active scene. Cancel the browser
+	// queue before deleting that scene so a late timer cannot dereference it or
+	// leak prologue chatter into the following Geoscape/battle.
+	cancelCalypsoNarrativeRadioLines();
 	delete _scene;
 	_scene = nullptr;
 	_activeDeploymentId.clear();
@@ -363,10 +367,17 @@ void CalypsoDirector::radioLine(Game *game, const std::string &stringId,
 	CalypsoRadioLineKind kind, std::function<void()> onDismissed)
 {
 	if (!_scene || !game || stringId.empty()) return;
-	// Transient toast (CalypsoRadioLineState) that shows tr(stringId) through
-	// the existing tutorial DOM overlay. See CalypsoRadioLineState.h for why
-	// CalypsoTutorialState is not reused here.
-	game->pushState(new CalypsoRadioLineState(stringId, kind, std::move(onDismissed)));
+	if (kind == CalypsoRadioLineKind::Narrative)
+	{
+		// Passive chatter belongs to the DOM queue, not the Game state stack:
+		// Game::iterate dispatches input/think only to the top State, so even a
+		// visually transparent state would freeze Battlescape while visible.
+		enqueueCalypsoNarrativeRadioLine(
+			std::string(game->getLanguage()->getString(stringId)), std::move(onDismissed));
+		return;
+	}
+	// Explicit guidance remains modal and waits for the Continue action.
+	game->pushState(new CalypsoRadioLineState(stringId, std::move(onDismissed)));
 }
 
 void CalypsoDirector::endScene(BattlescapeGame *bg, int outcome)

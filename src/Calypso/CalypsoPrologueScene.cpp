@@ -327,16 +327,17 @@ void CalypsoPrologueScene::onBattleStart(BattlescapeGame *bg)
 	// UI, no dependency on CalypsoTutorial's disabled singleton (so nothing
 	// here can accidentally re-enable it, unlike reusing CalypsoTutorialState
 	// directly would -- its "disable" button flips that shared flag).
-	// STAGED, not burst (review polish): a four-toast LIFO pile-up at battle
+	// STAGED, not burst (review polish): a four-toast pile-up at battle
 	// start (~2s each, stacked on the landing line) reads as a splash screen,
 	// not teaching. One beat per player turn instead, each at the moment it
 	// becomes relevant: MOVE here on turn 1 (the first thing the player must
 	// do), CAMERA on turn 2, TU on turn 3 -- see onPlayerTurnStart; the later
 	// beats are gated on Ph::MoveToOffice so a firefight never gets a
-	// tutorial toast. Pushed in REVERSE of on-screen order (LIFO stack): the
-	// landing line shows first, then the movement hint.
-	radio(STR_PROLOGUE_HINT_MOVE, CalypsoRadioLineKind::Instruction);
-	radio(STR_PROLOGUE_RADIO_LANDING);
+	// tutorial toast. Narrative lines no longer enter the LIFO State stack, so
+	// chain the movement instruction from the landing toast's queue completion:
+	// landing remains real-time, then Continue deliberately pauses the battle.
+	radio(STR_PROLOGUE_RADIO_LANDING, CalypsoRadioLineKind::Narrative,
+		[this]() { radio(STR_PROLOGUE_HINT_MOVE, CalypsoRadioLineKind::Instruction); });
 }
 
 // QA round 1 bug 7: the terrain has no elevated/alien-specific RMP nodes, so
