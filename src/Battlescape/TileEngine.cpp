@@ -3808,8 +3808,15 @@ void TileEngine::explode(BattleActionAttack attack, Position center, int power, 
 			if (j)
 				applyGravity(j);
 		}
-		_save->notifyFactionTurnTerrainChanged(); // Phase 43.1B (Calypso): blast terrain destruction dirties the per-faction turn-caches (gated), same seam as hit()/doors — else stale negative-LOF entries survive the rest of the faction turn
 	}
+	// Brutal-AI + Phase 43.1B (Calypso): every explosion mutates LOS/LOF-relevant tile
+	// state — smoke/fire from the damage rays even when ToTile == 0 (stun/smoke/incendiary),
+	// destroyed terrain when ToTile > 0 — so run the full invalidation pair (cached-LOS
+	// reset + gated per-faction turn-cache dirty) OUTSIDE the ToTile gate, the same pair
+	// the hit()/door seams use. Else stale hasTileSight()/negative-LOF entries survive the
+	// rest of the faction turn.
+	resetVisibilityCache();
+	_save->notifyFactionTurnTerrainChanged();
 	calculateLighting(LL_AMBIENT, centetTile, maxRadius + 1, true); // roofs could have been destroyed and fires could have been started
 	calculateFOV(centetTile, maxRadius + 1, true, true);
 	if (attack.attacker && Position::distance2d(centetTile, attack.attacker->getPosition()) > maxRadius + 1)
