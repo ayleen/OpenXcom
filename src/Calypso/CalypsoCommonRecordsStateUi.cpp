@@ -52,13 +52,6 @@ void applyF34Rect(Surface* surface, const CalypsoF34Rect& rect)
 	surface->setHeight(rect.height);
 }
 
-int scaledF34Metric(int value, int actualExtent, int designExtent)
-{
-	if (value <= 0 || actualExtent <= 0 || designExtent <= 0) return value;
-	return std::max(1, static_cast<int>(
-		static_cast<double>(value) * actualExtent / designExtent + 0.5));
-}
-
 } // namespace
 
 void CalypsoErrorMessageStateUi::applyLayout(ErrorMessageState& state)
@@ -125,6 +118,7 @@ void CalypsoStatisticsStateUi::applyLayout(StatisticsState& state)
 	applyF34Rect(state._window, layout.window);
 	applyF34Rect(state._txtTitle, layout.title);
 	applyF34Rect(state._lstStats, layout.list);
+	state._lstStats->recaptureNativeGeometry();
 	applyF34Rect(state._btnOk, layout.acknowledge);
 	applyF34Rect(state._btnScrollUp, layout.scrollUp);
 	applyF34Rect(state._btnScrollDown, layout.scrollDown);
@@ -135,13 +129,9 @@ void CalypsoStatisticsStateUi::rebuildList(StatisticsState& state, std::size_t s
 {
 	const CalypsoF34StatisticsLayout layout = calypsoF34StatisticsLayout(
 		state._hdWideLayout ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact);
-	const int actualWidth = state._lstStats->getWidth();
 	state._lstStats->clearList();
-	state._lstStats->setColumns(2,
-		scaledF34Metric(layout.labelColumnWidth, actualWidth, layout.list.width),
-		scaledF34Metric(layout.valueColumnWidth, actualWidth, layout.list.width));
-	state._lstStats->setMinimumRowHeight(
-		scaledF34Metric(layout.rowHeight, actualWidth, layout.list.width));
+	state._lstStats->setColumns(2, layout.labelColumnWidth, layout.valueColumnWidth);
+	state._lstStats->setMinimumRowHeight(layout.rowHeight);
 	state.listStats();
 	state._lstStats->scrollTo(scroll);
 }
@@ -338,6 +328,7 @@ void CalypsoNotesStateUi::applyLayout(NotesState& state)
 	applyF34Rect(state._txtTitle, layout.title);
 	applyF34Rect(state._txtDelete, layout.status);
 	applyF34Rect(state._lstNotes, layout.list);
+	state._lstNotes->recaptureNativeGeometry();
 	applyF34Rect(state._edtNote, layout.editor);
 	applyF34Rect(state._btnSave, layout.save);
 	applyF34Rect(state._btnCancel, layout.cancel);
@@ -354,12 +345,8 @@ void CalypsoNotesStateUi::applyListMetrics(NotesState& state)
 {
 	const CalypsoF34NotesLayout layout = calypsoF34NotesLayout(
 		state._hdWideLayout ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact);
-	const int actualWidth = state._lstNotes->getWidth();
-	state._lstNotes->setColumns(2,
-		scaledF34Metric(layout.textColumnWidth, actualWidth, layout.list.width),
-		scaledF34Metric(layout.actionColumnWidth, actualWidth, layout.list.width));
-	state._lstNotes->setMinimumRowHeight(
-		scaledF34Metric(layout.rowHeight, actualWidth, layout.list.width));
+	state._lstNotes->setColumns(2, layout.textColumnWidth, layout.actionColumnWidth);
+	state._lstNotes->setMinimumRowHeight(layout.rowHeight);
 }
 
 bool CalypsoNotesStateUi::initialize(NotesState& state)
@@ -748,13 +735,8 @@ bool CalypsoNotesStateUi::listPress(NotesState& state, Action* action)
 	updateSelection(state);
 	const double pointerX = action->getAbsoluteXMouse();
 	const double actionLeft = state._lstNotes->getColumnX(1);
-	const CalypsoF34NotesLayout layout = calypsoF34NotesLayout(
-		state._hdWideLayout ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact);
-	// The visible action column is explicit in each design composition. Its
-	// conversion follows the TextList width, so the hit target remains aligned
-	// with the marker after the composition is scaled into engine-base space.
-	const double actionWidth = scaledF34Metric(layout.actionColumnWidth,
-		state._lstNotes->getWidth(), layout.list.width);
+	// Use the real rendered cell rather than duplicating TextList's scale math.
+	const double actionWidth = state._lstNotes->getColumnWidth(1);
 	const bool actionColumn = row < static_cast<int>(state._workingNotes.size())
 		&& calypsoF34PointerInColumn(pointerX, actionLeft, actionWidth);
 	if (calypsoNotesOpenRowMenu(true, actionColumn,

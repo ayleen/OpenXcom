@@ -233,6 +233,23 @@ int TextList::getColumnX(size_t column) const
 }
 
 /**
+ * Returns the rendered width of a specific text column.
+ * @param column Column number.
+ * @return Width in rendered pixels.
+ */
+int TextList::getColumnWidth(size_t column) const
+{
+	if (!_texts.empty() && column < _texts.front().size())
+		return _texts.front()[column]->getWidth();
+	if (column >= _columns.size()) return 0;
+#ifdef __EMSCRIPTEN__
+	return projectNativeMetric(static_cast<int>(_columns[column]), getWidth(), _nativeW);
+#else
+	return static_cast<int>(_columns[column]);
+#endif
+}
+
+/**
  * Returns the Y position of a specific text row in the list.
  * @param row Row number.
  * @return Y position in pixels.
@@ -332,21 +349,14 @@ void TextList::addRow(int cols, ...)
 
 	for (int i = 0; i < ncols; ++i)
 	{
-		int width;
-		// Place text
-		if (_flooding)
-		{
-			width = 340;
-		}
-		else
-		{
-			width = _columns[i];
-		}
 #ifdef __EMSCRIPTEN__
-		float s = scale();
-		int tw = _flooding ? (int)Round(340 * s) : (int)Round(_columns[i] * s);
-		Text* txt = new Text(tw, (int)Round(_font->getHeight() * s), (int)Round((_margin + rowX) * s), rowY);
+		const int tw = projectNativeMetric(
+			_flooding ? 340 : static_cast<int>(_columns[i]), getWidth(), _nativeW);
+		Text* txt = new Text(tw, projectNativeMetric(_font->getHeight(), getWidth(), _nativeW),
+			projectNativeMetric(_margin + rowX, getWidth(), _nativeW), rowY);
 #else
+		// Place text in the list's native coordinate space.
+		const int width = _flooding ? 340 : static_cast<int>(_columns[i]);
 		Text* txt = new Text(width, _font->getHeight(), _margin + rowX, rowY);
 #endif
 		txt->setPalette(this->getPalette());
@@ -429,8 +439,9 @@ void TextList::addRow(int cols, ...)
 	// dropdowns + the Advanced/Controls option lists render as small text). The
 	// stride math in draw()/blit()/updateVisible already reads getHeight() and
 	// scales _font metrics by scale(), so a scaled box keeps everything aligned.
-	const int scaledRowHeight = std::max((int)Round(rowHeight * scale()),
-		(int)Round(_minimumRowHeight * scale()));
+	const int scaledRowHeight = std::max(
+		projectNativeMetric(rowHeight, getWidth(), _nativeW),
+		projectNativeMetric(_minimumRowHeight, getWidth(), _nativeW));
 	for (int i = 0; i < cols; ++i)
 	{
 		temp[i]->setHeight(scaledRowHeight);
@@ -1517,6 +1528,18 @@ void TextList::setIgnoreSeparators(bool ignoreSeparators)
 }
 
 #ifdef __EMSCRIPTEN__
+/**
+ * Replaces the construction-time scale basis with the current authored rect.
+ * Responsive adapters call this after assigning a Compact/Wide design rect and
+ * before State::recaptureUiScaling applies the viewport scale. Column widths and
+ * minimum row heights can then remain in that design's native coordinate space.
+ */
+void TextList::recaptureNativeGeometry()
+{
+	_nativeW = std::max(1, getWidth());
+	_nativeH = std::max(1, getHeight());
+}
+
 /**
  * Calypso: HD — resize the scroll arrows AND scrollbar at the scaled size, then
  * re-run setY to reposition them.

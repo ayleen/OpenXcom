@@ -17,6 +17,7 @@
  * You should have received a copy of the GNU General Public License
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
+#include <algorithm>
 #include <vector>
 #include <map>
 #include "../Engine/InteractiveSurface.h"
@@ -105,6 +106,8 @@ public:
 	void setCellText(size_t row, size_t column, const std::string &text);
 	/// Gets the X position of a certain column.
 	int getColumnX(size_t column) const;
+	/// Gets the rendered width of a certain column.
+	int getColumnWidth(size_t column) const;
 	/// Gets the Y position of a certain row.
 	int getRowY(size_t row) const;
 	/// Gets the height of the row text in pixels
@@ -127,6 +130,13 @@ public:
 	void setColumns(int cols, ...);
 	/// Sets a minimum row height for touch-sized list items.
 	void setMinimumRowHeight(int height);
+	/// Projects a native list metric into the current rendered width.
+	static int projectNativeMetric(int metric, int currentWidth, int nativeWidth)
+	{
+		if (metric <= 0 || currentWidth <= 0 || nativeWidth <= 0) return metric;
+		return std::max(1, static_cast<int>(
+			static_cast<double>(metric) * currentWidth / nativeWidth + 0.5));
+	}
 	/// Sets the palette of the text list.
 	void setPalette(const SDL_Color *colors, int firstcolor = 0, int ncolors = 256) override;
 	/// Initializes the resources for the text list.
@@ -134,6 +144,8 @@ public:
 	/// Sets the height of the surface.
 	void setHeight(int height) override;
 #ifdef __EMSCRIPTEN__
+	/// Calypso: adopt the current authored rect as the basis for later scaling.
+	void recaptureNativeGeometry();
 	/// Calypso: HD — resize scroll arrows and re-lay out the list.
 	void setWidth(int width) override;
 	/// Calypso: HD — forward TTF font to all text cells.
