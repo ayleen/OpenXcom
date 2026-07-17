@@ -152,6 +152,10 @@ PauseState::PauseState(OptionsOrigin origin) : _origin(origin)
 	{
 		_btnLoad->setVisible(false);
 		_btnSave->setVisible(false);
+		// An Ironman campaign normally saves before abandoning, but the scripted
+		// prologue deliberately discards its throwaway battle without creating a
+		// player-controlled checkpoint. Keep the destructive label truthful.
+		_btnAbandon->setText(tr("STR_ABANDON_GAME"));
 	}
 #endif
 
