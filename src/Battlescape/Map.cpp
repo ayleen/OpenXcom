@@ -1971,7 +1971,10 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 						{
 #ifdef __EMSCRIPTEN__
 							// Block 11.8: bullets are drawn by drawProjectileGLPass() in GPU mode.
-							if (!(_game->getMod()->hasHDPack() && GpuInit::ready()))
+							// Suppress the CPU sprite only after the GPU renderer has a
+							// valid shader/VAO/frame for this live projectile. A broken or
+							// not-yet-initialised GPU path must retain the classic fallback.
+							if (!(_game->getMod()->hasHDPack() && GpuInit::ready() && gpuProjectilePathReady()))
 #endif
 							{
 							// draw bullet on the correct tile
@@ -3777,9 +3780,12 @@ void Map::setProjectile(Projectile *projectile)
 	// Keep a short visual tail when the simulation removes a fast ballistic
 	// round before the browser has produced a frame. Gameplay already completed
 	// at this point; this is strictly renderer state.
-	if (!projectile && _projectile && !_projectile->getItem() && _projectileInFOV)
+	if (!projectile && _projectile && !_projectile->getItem())
 	{
-		_projectileAfterimage.valid = true;
+		Tile *impactTile = _save->getTile(_projectile->getPosition().toTile());
+		const bool visibleToPlayer = _save->getSide() == FACTION_PLAYER || _save->getDebugMode()
+			|| (impactTile && impactTile->getVisible());
+		_projectileAfterimage.valid = visibleToPlayer;
 		_projectileAfterimage.origin = _projectile->getOrigin();
 		_projectileAfterimage.impact = _projectile->getPosition();
 		_projectileAfterimage.particle = _projectile->getParticle(0);

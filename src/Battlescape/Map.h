@@ -138,6 +138,7 @@ private:
 	TTFFont *_fontHdNumbers; // Phase 16: TTF font for HD cursor TU/AP numerals (lazy-cached, see getHdNumberFont)
 	/// Timestamp (SDL_GetTicks) of the last blit() call — used by GPU overlay guards.
 	Uint32 _lastDrawnTicks = 0u;
+	#ifdef __EMSCRIPTEN__
 	// Presentation-only tail for a ballistic projectile that completed between
 	// two browser frames. It never participates in collision or turn logic.
 	struct ProjectileAfterimage
@@ -147,6 +148,7 @@ private:
 		int particle = -1;
 		Uint32 expires = 0u;
 	} _projectileAfterimage;
+	#endif
 	/// Diagnostic counter: completed HUD image/text GPU passes for the live Map.
 	unsigned _hudGlDrawCount = 0u;
 
@@ -349,6 +351,7 @@ private:
 	void initSpriteGL();
 	GpuTexture* getOrUploadSpriteFrame(SurfaceSet* set, int frameIdx);
 	void drawProjectileGLPass();
+	bool gpuProjectilePathReady() const;
 
 	// Calypso bug 1: physical-resolution HUD text overlay (selected-unit name + stat
 	// digits). The logical HUD widgets render mushy at the low resolution-menu fractions

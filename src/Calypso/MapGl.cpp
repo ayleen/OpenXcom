@@ -3209,9 +3209,6 @@ void Map::drawProjectileGLPass()
 	const int   mapX   = getX();
 	const int   mapY   = getY();
 
-	int begin = 0, end = BULLET_SPRITES, direction = 1;
-	if (_projectile->isReversed()) { begin = BULLET_SPRITES - 1; end = -1; direction = -1; }
-
 	// Helper: upload VBO data + issue one draw call for a single sprite quad.
 	auto drawQuad = [&](GpuTexture* tex, int gx, int gy, int fw, int fh, float darken)
 	{
@@ -3251,6 +3248,10 @@ void Map::drawProjectileGLPass()
 	_spriteShader->use();
 	_spriteShader->setUniform1i("u_tex", 0);
 	_spriteShader->setUniform3f("u_tint", 1.0f, 1.0f, 1.0f);  // untinted (Phase 24 u_tint)
+	_spriteShader->setUniform1f("u_alpha", 1.0f);
+	_spriteShader->setUniform1f("u_radial", 0.0f);
+	_spriteShader->setUniform2f("u_uvScroll", 0.0f, 0.0f);
+	_spriteShader->setUniform4f("u_clipEdges", 0.0f, 0.0f, 0.0f, 0.0f);
 
 	if (showAfterimage)
 	{
@@ -3266,17 +3267,26 @@ void Map::drawProjectileGLPass()
 				Position p((_projectileAfterimage.origin.x * remain + _projectileAfterimage.impact.x * step) / 5,
 				           (_projectileAfterimage.origin.y * remain + _projectileAfterimage.impact.y * step) / 5,
 				           (_projectileAfterimage.origin.z * remain + _projectileAfterimage.impact.z * step) / 5);
-				if (!_save->getTileEngine()->isVoxelVisible(p)) continue;
+				Tile *tile = _save->getTile(p.toTile());
+				if (!_save->getTileEngine()->isVoxelVisible(p)
+					|| (_save->getSide() != FACTION_PLAYER && !_save->getDebugMode() && (!tile || !tile->getVisible()))) continue;
 				Position sp; _camera->convertVoxelToScreen(p, &sp);
 				drawQuad(tex, sp.x + mapX - bw / 2, sp.y + mapY - bh / 2, bw, bh, 0.35f);
 			}
 		}
 		_spriteShader->setUniform1f("u_darken", 0.0f);
 		_spriteShader->setUniform3f("u_tint", 1.0f, 1.0f, 1.0f);
+		_spriteShader->setUniform1f("u_alpha", 1.0f);
+		_spriteShader->setUniform1f("u_radial", 0.0f);
+		_spriteShader->setUniform2f("u_uvScroll", 0.0f, 0.0f);
+		_spriteShader->setUniform4f("u_clipEdges", 0.0f, 0.0f, 0.0f, 0.0f);
 		glDisable(GL_BLEND);
 		glUseProgram(static_cast<GLuint>(prevProgram));
 		return;
 	}
+
+	int begin = 0, end = BULLET_SPRITES, direction = 1;
+	if (_projectile->isReversed()) { begin = BULLET_SPRITES - 1; end = -1; direction = -1; }
 
 	for (int i = begin; i != end; i += direction)
 	{
@@ -3316,7 +3326,21 @@ void Map::drawProjectileGLPass()
 	glDisable(GL_BLEND);
 	_spriteShader->setUniform1f("u_darken", 0.0f);
 	_spriteShader->setUniform3f("u_tint", 1.0f, 1.0f, 1.0f);
+	_spriteShader->setUniform1f("u_alpha", 1.0f);
+	_spriteShader->setUniform1f("u_radial", 0.0f);
+	_spriteShader->setUniform2f("u_uvScroll", 0.0f, 0.0f);
+	_spriteShader->setUniform4f("u_clipEdges", 0.0f, 0.0f, 0.0f, 0.0f);
 	glUseProgram(static_cast<GLuint>(prevProgram));
+}
+
+bool Map::gpuProjectilePathReady() const
+{
+	if (!_projectile || _projectile->getItem() || !_projectileSet) return false;
+	if (!_spriteGLInit || !_spriteShader || !_spriteShader->isValid() || !_spriteVAO) return false;
+	const int particle = _projectile->getParticle(0);
+	if (!_projectileSet->getFrame(particle)) return false;
+	const auto it = _spriteFrameCache.find(std::make_pair(_projectileSet, particle));
+	return it != _spriteFrameCache.end() && it->second != nullptr;
 }
 
 /**
