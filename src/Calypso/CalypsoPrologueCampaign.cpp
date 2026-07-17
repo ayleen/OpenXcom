@@ -14,6 +14,7 @@
 #include "CalypsoPrologueCampaign.h"
 #include "CalypsoPrologueAskState.h"
 #include "CalypsoTutorial.h"
+#include "CalypsoTutorialPolicy.h"
 #include "CalypsoDirector.h"
 
 #include "../Engine/Game.h"
@@ -137,14 +138,12 @@ namespace
 bool maybeOfferPrologue(Game *game, GameDifficulty diff, bool ironman, bool tutorial)
 {
 	if (!game || !game->getMod()) return false;
-	// Tutorial-off means no prologue offer.  In particular, do not set the
-	// global seen marker: a later tutorial-enabled campaign may still offer it.
-	if (!tutorial) return false;
-	if (Options::calypsoPrologueSeen) return false;
-	if (game->getMod()->getDeployment(PROLOGUE_DEPLOYMENT_ID) == nullptr)
+	const bool deploymentAvailable =
+		game->getMod()->getDeployment(PROLOGUE_DEPLOYMENT_ID) != nullptr;
+	if (!prologueMissionEnabled(tutorial, deploymentAvailable))
 	{
-		// Mod content not loaded yet (pre-commit-5, or a build without the
-		// calypso-prologue mod) -- behave exactly like vanilla.
+		// The per-campaign tutorial choice is authoritative.  Missing content
+		// still behaves exactly like vanilla.
 		return false;
 	}
 

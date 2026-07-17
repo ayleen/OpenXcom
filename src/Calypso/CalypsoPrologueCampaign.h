@@ -62,10 +62,10 @@ void deletePrologueAutosave();
 /// Offered from NewGameState::btnOkClick, BEFORE newSave(). Returns true if
 /// it took over (pushed CalypsoPrologueAskState) -- the caller must return
 /// immediately and skip the vanilla campaign-creation flow. Returns false
-/// (vanilla continues unchanged) when the prologue was already offered once
-/// (Options::calypsoPrologueSeen) or the mod content is absent
-/// (STR_CALYPSO_PROLOGUE deployment not found -- graceful without commit 5's
-/// mod, so the engine never hard-depends on it). `ironman` is the New Game
+/// (vanilla continues unchanged) when tutorial guidance is unchecked or the
+/// mod content is absent (STR_CALYPSO_PROLOGUE deployment not found --
+/// graceful without commit 5's mod, so the engine never hard-depends on it).
+/// `ironman` is the New Game
 /// screen's toggle -- stashed alongside the difficulty so neither the decline
 /// path nor the post-prologue campaign silently drops the player's choice.
 bool maybeOfferPrologue(Game *game, GameDifficulty diff, bool ironman, bool tutorial);

@@ -18,6 +18,14 @@ inline bool prologueGuidanceEnabled(bool globallyEnabled, bool configuredEnabled
 	return globallyEnabled && configuredEnabled;
 }
 
+// The New Game choice is per campaign.  A previous campaign may have
+// accepted or declined the prologue, but that history must not silently turn
+// the checked tutorial control into a no-op for the next campaign.
+inline bool prologueMissionEnabled(bool tutorialEnabled, bool deploymentAvailable)
+{
+	return tutorialEnabled && deploymentAvailable;
+}
+
 // Before configuredEnabled existed, prologue autosaves persisted
 // enabled=false only because generic tutorial UI was temporarily suspended.
 // Preserve genuine legacy campaign opt-outs, but migrate that throwaway-save
