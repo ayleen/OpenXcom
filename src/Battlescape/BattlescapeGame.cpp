@@ -859,6 +859,7 @@ void BattlescapeGame::endTurn()
 		for (auto* bu : *_save->getUnits())
 		{
 			if (!bu->isOut()
+				&& !bu->isScriptedConcealed()
 				&& bu->getFaction() == FACTION_HOSTILE
 				&& bu->getTurnsSinceSpottedByFaction(FACTION_NEUTRAL) <= 1)
 			{

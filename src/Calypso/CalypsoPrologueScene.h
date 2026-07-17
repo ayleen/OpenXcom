@@ -96,6 +96,14 @@ private:
 	/// handoff, so the guarantee is path cost / his per-turn TU). Not a
 	/// survival gate -- he is force-killed on any ending regardless.
 	void checkNikosPathCost(BattlescapeGame *bg);
+	/// Restore additive scripted-unit state after loading an autosave. Old
+	/// prologue saves did not serialize these scene flags, so phase is the
+	/// compatibility fallback.
+	void reconcileScriptedUnitState(BattlescapeGame *bg);
+	/// Release the ambusher exactly at the Assessor-death narrative gate.
+	void revealMarksman(BattlescapeGame *bg);
+	/// Complete Nikos's handoff when player input becomes actionable.
+	void focusNikosOnPlayerTurn(BattlescapeGame *bg);
 
 	// ---- turn-idle step machine (onEnemyTurnIdle dispatch) -----------------
 	bool stepMoveToOffice(BattlescapeGame *bg);
@@ -141,6 +149,9 @@ private:
 	int _pendingOutcome = -1;       ///< armed ending awaiting a safe stack (resolvePendingEnding)
 	bool _pendingTaking = false;    ///< armed ending is the Branch Б boarding flavor
 	bool _evacOnly = false;         ///< Choir neutralized early: no more scripted attacks, cast-off remains available
+	bool _marksmanRevealed = false; ///< persisted Assessor-death reveal gate
+	bool _nikosHandedOff = false;   ///< persisted ownership (separate from camera focus)
+	bool _nikosFocusPending = false; ///< select/centre once on the next player turn
 
 	// actor ids (never pointers -- re-resolved every call)
 	int _leaderId = -1;

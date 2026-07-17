@@ -26,6 +26,7 @@
 #include "../Battlescape/UnitWalkBState.h"
 #include "../Battlescape/Pathfinding.h"
 #include "../Battlescape/Map.h"               // getCamera() for handoffToPlayer
+#include "../Battlescape/TileEngine.h"        // recalculateFOV() after scripted handoff
 #include "../Battlescape/Camera.h"            // centerOnPosition()
 #include "../Savegame/SavedBattleGame.h"
 #include "../Savegame/SavedGame.h"             // forceAutosave()
@@ -314,11 +315,18 @@ void CalypsoDirector::steerUnit(BattlescapeGame *bg, BattleUnit *unit, Position 
 void CalypsoDirector::handoffToPlayer(BattlescapeGame *bg, BattleUnit *unit)
 {
 	if (!bg || !unit) return;
-	// convertToFaction is the mind-control primitive; it gives the player full
-	// control and nothing reverts it at turn end. The unit's _originalFaction is
-	// unchanged, so it stays correctly tallied (verified, phase plan 41.4).
-	unit->convertToFaction(FACTION_PLAYER);
-	if (SavedBattleGame *save = bg->getSave()) save->setSelectedUnit(unit);
+	// This is intentionally NOT convertToFaction(): that API is temporary mind
+	// control and BattleUnit::prepareNewTurn restores originalFaction.  The
+	// prologue needs neutral civilians to retain their tally identity while
+	// remaining controllable throughout subsequent player turns.
+	const UnitFaction oldFaction = unit->getFaction();
+	unit->grantScriptedPlayerControl();
+	if (SavedBattleGame *save = bg->getSave())
+	{
+		save->notifyFactionTurnUnitChangedFaction(unit, oldFaction);
+		unit->setVisible(true);
+		if (save->getTileEngine()) save->getTileEngine()->recalculateFOV();
+	}
 	if (Map *map = bg->getMap())
 		if (Camera *cam = map->getCamera())
 			cam->centerOnPosition(unit->getPosition());

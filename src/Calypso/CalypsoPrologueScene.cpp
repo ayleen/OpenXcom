@@ -23,6 +23,8 @@
 
 #include "../Battlescape/BattlescapeGame.h"
 #include "../Battlescape/BattlescapeState.h"
+#include "../Battlescape/Map.h"
+#include "../Battlescape/Camera.h"
 #include "../Battlescape/TileEngine.h" // calculateFOV() after the marksman teleport
 #include "../Battlescape/Pathfinding.h" // review round 2 finding 2: real path-cost gate
 #include "../Savegame/SavedBattleGame.h"
@@ -253,6 +255,10 @@ void CalypsoPrologueScene::onBattleStart(BattlescapeGame *bg)
 		return;
 	}
 	placeMarksman(bg);
+	if (BattleUnit *marksman = findUnit(bg->getSave(), _marksmanId))
+		marksman->setScriptedConcealed(true);
+	if (bg->getSave()->getTileEngine())
+		bg->getSave()->getTileEngine()->recalculateFOV();
 	// Review round 2 (P1, finding 1): the Assessor MUST land on a real free
 	// craft deployment slot -- a mis-placed Assessor breaks the ambush-
 	// trigger geometry (TRIGGER_DIST is measured from EXIT_AREA/the Nereid).
@@ -463,6 +469,73 @@ void CalypsoPrologueScene::checkNikosPathCost(BattlescapeGame *bg)
 	}
 }
 
+void CalypsoPrologueScene::reconcileScriptedUnitState(BattlescapeGame *bg)
+{
+	if (!bg) return;
+	SavedBattleGame *save = bg->getSave();
+	if (!save) return;
+
+	bool visibilityChanged = false;
+	if (BattleUnit *marksman = findUnit(save, _marksmanId))
+	{
+		const bool shouldConceal = Calypso::shouldConcealPrologueMarksman(_marksmanRevealed);
+		if (marksman->isScriptedConcealed() != shouldConceal)
+		{
+			marksman->setScriptedConcealed(shouldConceal);
+			visibilityChanged = true;
+		}
+	}
+
+	// The Assessor is playable from landing until the scripted ambush removes
+	// him. Reassert the explicit persistent mode for old autosaves written when
+	// the handoff still used temporary faction conversion.
+	if ((_phase == Ph::MoveToOffice || _phase == Ph::Ambushed))
+	{
+		if (BattleUnit *assessor = findUnit(save, _assessorId))
+			if (!assessor->isOut() && !assessor->hasScriptedPlayerControl())
+				CalypsoDirector::get().handoffToPlayer(bg, assessor);
+	}
+
+	// Gauntlet and evacuation-only phases imply that the post-ambush handoff
+	// completed. This also repairs old saves in which Nikos had already reverted
+	// to neutral before the first actionable player turn.
+	if ((_phase == Ph::Gauntlet || _evacOnly) && _nikosHandedOff)
+	{
+		if (BattleUnit *nikos = findUnit(save, _nikosId))
+			if (!nikos->isOut() && !nikos->hasScriptedPlayerControl())
+				CalypsoDirector::get().handoffToPlayer(bg, nikos);
+	}
+
+	if (visibilityChanged && save->getTileEngine())
+		save->getTileEngine()->recalculateFOV();
+}
+
+void CalypsoPrologueScene::revealMarksman(BattlescapeGame *bg)
+{
+	if (_marksmanRevealed) return;
+	_marksmanRevealed = true;
+	if (!bg) return;
+	if (BattleUnit *marksman = findUnit(bg->getSave(), _marksmanId))
+		marksman->setScriptedConcealed(false);
+}
+
+void CalypsoPrologueScene::focusNikosOnPlayerTurn(BattlescapeGame *bg)
+{
+	if (!_nikosFocusPending || !bg) return;
+	SavedBattleGame *save = bg->getSave();
+	BattleUnit *nikos = findUnit(save, _nikosId);
+	if (!nikos || nikos->isOut() || nikos->getFaction() != FACTION_PLAYER) return;
+
+	nikos->setVisible(true);
+	save->setSelectedUnit(nikos);
+	if (Map *map = bg->getMap())
+		if (Camera *cam = map->getCamera())
+			cam->centerOnPosition(nikos->getPosition());
+	if (BattlescapeState *state = save->getBattleState())
+		state->updateSoldierInfo();
+	_nikosFocusPending = false;
+}
+
 void CalypsoPrologueScene::onPlayerTurnStart(BattlescapeGame *bg)
 {
 	if (!bg) return;
@@ -470,6 +543,8 @@ void CalypsoPrologueScene::onPlayerTurnStart(BattlescapeGame *bg)
 	if (_inert) return;
 	SavedBattleGame *save = bg->getSave();
 	if (!save) return;
+	reconcileScriptedUnitState(bg);
+	focusNikosOnPlayerTurn(bg);
 
 	// Panic-driven loss of control would fight the direction (41.3).
 	CalypsoDirector::get().pinMorale(save, FACTION_PLAYER);
@@ -516,8 +591,8 @@ void CalypsoPrologueScene::onPlayerTurnStart(BattlescapeGame *bg)
 void CalypsoPrologueScene::onEnemyTurnStart(BattlescapeGame *bg)
 {
 	// Reset the per-Choir-turn step machine (D1: onEnemyTurnIdle pumps it).
-	(void)bg;
 	if (_inert) return;
+	reconcileScriptedUnitState(bg);
 	_gauntletStep = 0;
 	_currentVictimId = -1;
 	_shotsThisTurn = 0;
@@ -581,9 +656,14 @@ bool CalypsoPrologueScene::stepAmbushed(BattlescapeGame *bg)
 	if (!assessor || assessor->isOut())
 	{
 		// The Assessor is down -- evac order, Nikos handoff, gauntlet begins.
+		revealMarksman(bg);
 		radio(STR_PROLOGUE_RADIO_OBJECTIVE);
 		if (BattleUnit *nikos = findUnit(save, _nikosId))
+		{
 			CalypsoDirector::get().handoffToPlayer(bg, nikos);
+			_nikosHandedOff = true;
+			_nikosFocusPending = true;
+		}
 		_phase = Ph::Gauntlet;
 		_gauntletStep = 0;
 		_currentVictimId = -1;
@@ -783,8 +863,13 @@ void CalypsoPrologueScene::enterEvacOnly(BattlescapeGame *bg, bool announceObjec
 	if (save)
 	{
 		if (BattleUnit *nikos = findUnit(save, _nikosId))
-			if (!nikos->isOut() && nikos->getFaction() != FACTION_PLAYER)
-				CalypsoDirector::get().handoffToPlayer(bg, nikos);
+			if (!nikos->isOut())
+			{
+				if (!nikos->hasScriptedPlayerControl())
+					CalypsoDirector::get().handoffToPlayer(bg, nikos);
+				_nikosHandedOff = true;
+				_nikosFocusPending = true;
+			}
 	}
 	if (announceObjective) radio(STR_PROLOGUE_RADIO_OBJECTIVE);
 }
@@ -885,6 +970,16 @@ void CalypsoPrologueScene::onUnitDied(BattlescapeGame *bg, BattleUnit *victim, B
 		// Ending armed/executing: the deaths below are the taking itself (or
 		// post-cast-off cleanup) -- no beats, no re-arming, bookkeeping only.
 		if (id == _currentVictimId) _currentVictimId = -1;
+		return;
+	}
+
+	// The intended reveal is the Assessor's ambush death, not the later
+	// gauntlet-loss bookkeeping in _firstDeathDone.  Flip the persisted gate in
+	// the casualty callback so an intervening FOV update cannot publish the
+	// marksman early.
+	if (id == _assessorId && _phase == Ph::Ambushed)
+	{
+		revealMarksman(bg);
 		return;
 	}
 
@@ -1149,6 +1244,9 @@ void CalypsoPrologueScene::save(YAML::YamlNodeWriter writer) const
 	writer.write("pendingOutcome", _pendingOutcome);
 	writer.write("pendingTaking", _pendingTaking);
 	writer.write("evacOnly", _evacOnly);
+	writer.write("marksmanRevealed", _marksmanRevealed);
+	writer.write("nikosHandedOff", _nikosHandedOff);
+	writer.write("nikosFocusPending", _nikosFocusPending);
 	writer.write("leaderId", _leaderId);
 	writer.write("diverIds", _diverIds);
 	writer.write("assessorId", _assessorId);
@@ -1175,6 +1273,14 @@ void CalypsoPrologueScene::load(const YAML::YamlNodeReader &reader)
 	_pendingOutcome = reader["pendingOutcome"].readVal<int>(-1);
 	_pendingTaking = reader["pendingTaking"].readVal<bool>(false);
 	_evacOnly = reader["evacOnly"].readVal<bool>(false);
+	// Pre-fix saves have no explicit flags. Once a save reached Gauntlet the
+	// Assessor was necessarily dead and Nikos was supposed to be handed over,
+	// so phase is the safe backward-compatible reconstruction rule.
+	const bool postAmbush = Calypso::phaseImpliesNikosHandoff(
+		_phase == Ph::Gauntlet, _phase == Ph::Ended, _evacOnly);
+	_marksmanRevealed = reader["marksmanRevealed"].readVal<bool>(postAmbush);
+	_nikosHandedOff = reader["nikosHandedOff"].readVal<bool>(postAmbush);
+	_nikosFocusPending = reader["nikosFocusPending"].readVal<bool>(_nikosHandedOff);
 	_leaderId = reader["leaderId"].readVal<int>(-1);
 	_diverIds = reader["diverIds"].readVal<std::vector<int>>(std::vector<int>{});
 	_assessorId = reader["assessorId"].readVal<int>(-1);

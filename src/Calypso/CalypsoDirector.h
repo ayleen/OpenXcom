@@ -231,8 +231,8 @@ public:
 	/// TU is granted beforehand so the move is always affordable.
 	void steerUnit(BattlescapeGame *bg, BattleUnit *unit, Position waypoint);
 
-	/// Hand a unit to the player: convertToFaction(FACTION_PLAYER), select it,
-	/// and centre the camera on it. Used by the prologue's Nikos handoff.
+	/// Permanently hand a scripted neutral unit to the player while retaining
+	/// its original faction for tallying, then select and centre it.
 	void handoffToPlayer(BattlescapeGame *bg, BattleUnit *unit);
 
 	/// Reset every live unit of `side` to morale 100 (pins panic-driven loss of

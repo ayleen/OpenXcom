@@ -60,6 +60,21 @@ inline bool prologueTurnLimitIsSafe(int turnLimit)
 	return turnLimit <= 0;
 }
 
+/// Narrative visibility is binary: the ambusher stays unavailable to every
+/// ordinary discovery path until the Assessor-death callback flips the gate.
+inline bool shouldConcealPrologueMarksman(bool marksmanRevealed)
+{
+	return !marksmanRevealed;
+}
+
+/// Compatibility rule for saves created before scripted handoff state was
+/// serialized. Any post-ambush scene phase necessarily implies Nikos should
+/// already belong to the player; a pre-ambush phase never does.
+inline bool phaseImpliesNikosHandoff(bool gauntlet, bool ended, bool evacOnly)
+{
+	return gauntlet || ended || evacOnly;
+}
+
 /// An abort confirmation must be consumed unless cast-off is currently
 /// available and at least one live crew member occupies a real START_POINT.
 inline bool consumeAbortRequest(bool inert, bool castOffAvailable, bool anyoneAboard)
