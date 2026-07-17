@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstddef>
+
 #ifdef __EMSCRIPTEN__
 
 namespace OpenXcom
@@ -18,6 +20,8 @@ namespace Calypso
 
 class CalypsoErrorMessageStateUi
 {
+private:
+	static void applyLayout(ErrorMessageState& state);
 public:
 	static void configure(ErrorMessageState& state);
 	static bool resize(ErrorMessageState& state);
@@ -26,6 +30,9 @@ public:
 
 class CalypsoStatisticsStateUi
 {
+private:
+	static void applyLayout(StatisticsState& state);
+	static void rebuildList(StatisticsState& state, std::size_t scroll);
 public:
 	static void configure(StatisticsState& state);
 	static bool resize(StatisticsState& state);
@@ -38,6 +45,8 @@ public:
 class CalypsoNotesStateUi
 {
 private:
+	static void applyLayout(NotesState& state);
+	static void applyListMetrics(NotesState& state);
 	static bool routeInput(NotesState& state, Action* action);
 	static void trackListGesture(NotesState& state, Action* action);
 public:

@@ -45,6 +45,7 @@ private:
 	Text *_txtMessage;
 #ifdef __EMSCRIPTEN__
 	bool _hdLayout = false;
+	bool _hdWideLayout = false;
 	TTFFont *_hdFont = nullptr;
 	std::uint64_t _focusGeneration = 0;
 #endif

@@ -90,6 +90,10 @@ protected:
 	/// design coordinates directly and must not depend on Screen::DX/DY.
 	void enableUiScaling(int designW, int designH, float factor,
 		bool geometryIsDesignSpace);
+	/// Calypso: replace the captured authored geometry after a responsive
+	/// Compact/Wide composition change, then apply the new scale immediately.
+	void recaptureUiScaling(int designW, int designH, float factor,
+		bool geometryIsDesignSpace);
 	/// Calypso: re-apply the uniform UI scale (call from a resize() override).
 	void applyUiScaling();
 	/// Calypso: opt every Text / TextButton in the state into HD TTF rendering.

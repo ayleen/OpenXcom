@@ -46,7 +46,7 @@ NotesState::NotesState(OptionsOrigin origin) :
 	_btnNew(nullptr), _btnKeep(nullptr), _txtOriginGeo(nullptr), _txtOriginBattle(nullptr),
 	_hdFont(nullptr),
 	_origin(origin), _previousSelectedRow(-1), _selectedRow(-1),
-	_hdLayout(false), _hdNotesLoaded(false), _deleteRow(-1), _hdListSelection(0), _focusGeneration(0),
+	_hdLayout(false), _hdWideLayout(false), _hdNotesLoaded(false), _deleteRow(-1), _hdListSelection(0), _focusGeneration(0),
 	_hdListPointerDown(false), _hdListDrag(false), _hdListActivationArmed(false), _hdListPressedRow(-1),
 	_hdListPointerX(0.0), _hdListPointerY(0.0)
 {

@@ -11,6 +11,8 @@
 #include <string>
 #include <vector>
 
+#include "CalypsoUiMetrics.h"
+
 namespace OpenXcom
 {
 namespace Calypso
@@ -69,15 +71,101 @@ inline bool calypsoNotesOpenRowMenu(bool primaryActivation, bool actionColumn,
 	return primaryActivation && actionColumn && existingRow;
 }
 
-/// Browser pointer events arrive in logical CSS pixels while F34 surface
-/// geometry is authored in the current engine base. Keep that conversion
-/// explicit at the state boundary instead of comparing the two spaces.
-inline double calypsoF34LogicalPointerToBase(double pointer, int baseExtent,
-	int logicalExtent)
+/// Action::getAbsoluteXMouse() and Surface geometry are both expressed in the
+/// engine base. Keep hit testing in that one coordinate space.
+inline bool calypsoF34PointerInColumn(double enginePointer, double columnLeft,
+	double columnWidth)
 {
-	if (baseExtent <= 0 || logicalExtent <= 0) return pointer;
-	return pointer * static_cast<double>(baseExtent)
-		/ static_cast<double>(logicalExtent);
+	return columnWidth > 0.0 && enginePointer >= columnLeft
+		&& enginePointer < columnLeft + columnWidth;
+}
+
+struct CalypsoF34Rect
+{
+	int x = 0;
+	int y = 0;
+	int width = 0;
+	int height = 0;
+};
+
+struct CalypsoF34ErrorLayout
+{
+	int designWidth = 0;
+	int designHeight = 0;
+	CalypsoF34Rect window;
+	CalypsoF34Rect message;
+	CalypsoF34Rect acknowledge;
+};
+
+inline CalypsoF34ErrorLayout calypsoF34ErrorLayout(CalypsoLayoutClass layoutClass)
+{
+	if (layoutClass == CalypsoLayoutClass::Wide)
+		return {960, 540, {12, 12, 936, 516}, {60, 94, 680, 310}, {760, 456, 168, 60}};
+	return {740, 360, {8, 8, 724, 344}, {44, 76, 540, 176}, {598, 284, 118, 44}};
+}
+
+struct CalypsoF34StatisticsLayout
+{
+	int designWidth = 0;
+	int designHeight = 0;
+	CalypsoF34Rect window;
+	CalypsoF34Rect title;
+	CalypsoF34Rect list;
+	CalypsoF34Rect acknowledge;
+	CalypsoF34Rect scrollUp;
+	CalypsoF34Rect scrollDown;
+	int labelColumnWidth = 0;
+	int valueColumnWidth = 0;
+	int rowHeight = 0;
+};
+
+inline CalypsoF34StatisticsLayout calypsoF34StatisticsLayout(
+	CalypsoLayoutClass layoutClass)
+{
+	if (layoutClass == CalypsoLayoutClass::Wide)
+		return {960, 540, {12, 12, 936, 516}, {36, 28, 692, 46},
+			{36, 90, 680, 338}, {748, 456, 180, 60}, {748, 300, 180, 60},
+			{748, 368, 180, 60}, 470, 194, 58};
+	return {740, 360, {8, 8, 724, 344}, {28, 20, 500, 34},
+		{28, 70, 520, 212}, {562, 284, 154, 44}, {562, 188, 154, 44},
+		{562, 236, 154, 44}, 334, 174, 44};
+}
+
+struct CalypsoF34NotesLayout
+{
+	int designWidth = 0;
+	int designHeight = 0;
+	CalypsoF34Rect window;
+	CalypsoF34Rect title;
+	CalypsoF34Rect status;
+	CalypsoF34Rect list;
+	CalypsoF34Rect editor;
+	CalypsoF34Rect save;
+	CalypsoF34Rect cancel;
+	CalypsoF34Rect remove;
+	CalypsoF34Rect create;
+	CalypsoF34Rect keep;
+	CalypsoF34Rect originGeoscape;
+	CalypsoF34Rect originBattlescape;
+	int textColumnWidth = 0;
+	int actionColumnWidth = 0;
+	int rowHeight = 0;
+	std::size_t previewCharacters = 0;
+};
+
+inline CalypsoF34NotesLayout calypsoF34NotesLayout(CalypsoLayoutClass layoutClass)
+{
+	if (layoutClass == CalypsoLayoutClass::Wide)
+		return {960, 540, {12, 12, 936, 516}, {24, 24, 912, 40},
+			{690, 218, 238, 96}, {24, 144, 650, 300}, {24, 144, 564, 60},
+			{808, 456, 120, 60}, {690, 456, 106, 60}, {818, 330, 110, 60},
+			{690, 144, 238, 60}, {690, 330, 118, 60}, {24, 72, 440, 60},
+			{476, 72, 452, 60}, 574, 60, 60, 78};
+	return {740, 360, {8, 8, 724, 344}, {16, 16, 708, 32},
+		{512, 152, 212, 38}, {16, 102, 490, 198}, {16, 102, 424, 44},
+		{612, 308, 112, 44}, {512, 308, 96, 44}, {622, 198, 102, 44},
+		{512, 102, 212, 44}, {512, 198, 102, 44}, {16, 52, 346, 44},
+		{378, 52, 346, 44}, 430, 44, 44, 52};
 }
 
 } // namespace Calypso

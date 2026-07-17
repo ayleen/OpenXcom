@@ -41,6 +41,13 @@ void State::enableUiScaling(int designW, int designH, float factor, bool geometr
 	applyUiScaling();
 }
 
+void State::recaptureUiScaling(int designW, int designH, float factor, bool geometryIsDesignSpace)
+{
+	_uiCaptured = false;
+	_uiNative.clear();
+	enableUiScaling(designW, designH, factor, geometryIsDesignSpace);
+}
+
 void State::applyUiScaling()
 {
 	if (!_uiCaptured) return;

@@ -34,25 +34,58 @@ namespace OpenXcom
 namespace Calypso
 {
 
+namespace
+{
+
+CalypsoLayoutClass currentF34LayoutClass()
+{
+	const CalypsoViewportRuntime& viewport = calypsoViewportRuntime();
+	if (viewport.hasLayout()) return viewport.current().layoutClass;
+	return calypsoClassifySafeArea(Options::baseXResolution, Options::baseYResolution);
+}
+
+void applyF34Rect(Surface* surface, const CalypsoF34Rect& rect)
+{
+	surface->setX(rect.x);
+	surface->setY(rect.y);
+	surface->setWidth(rect.width);
+	surface->setHeight(rect.height);
+}
+
+int scaledF34Metric(int value, int actualExtent, int designExtent)
+{
+	if (value <= 0 || actualExtent <= 0 || designExtent <= 0) return value;
+	return std::max(1, static_cast<int>(
+		static_cast<double>(value) * actualExtent / designExtent + 0.5));
+}
+
+} // namespace
+
+void CalypsoErrorMessageStateUi::applyLayout(ErrorMessageState& state)
+{
+	const CalypsoF34ErrorLayout layout = calypsoF34ErrorLayout(
+		state._hdWideLayout ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact);
+	applyF34Rect(state._window, layout.window);
+	applyF34Rect(state._txtMessage, layout.message);
+	applyF34Rect(state._btnOk, layout.acknowledge);
+	state.recaptureUiScaling(layout.designWidth, layout.designHeight, 1.0f, true);
+}
+
 void CalypsoErrorMessageStateUi::configure(ErrorMessageState& state)
 {
 	if (!state._hdLayout) return;
 	// The caller's palette, background and contrast were installed before this
 	// adapter runs. Only geometry, typography and semantic focus change here.
-	state._window->setX(8); state._window->setY(8); state._window->setWidth(724); state._window->setHeight(344);
+	state._hdWideLayout = currentF34LayoutClass() == CalypsoLayoutClass::Wide;
+	applyLayout(state);
 	state._window->setThinBorder();
-	state._txtMessage->setX(44); state._txtMessage->setY(76); state._txtMessage->setWidth(540); state._txtMessage->setHeight(176);
 	state._txtMessage->setWordWrap(true);
-	state._btnOk->setX(598); state._btnOk->setY(284); state._btnOk->setWidth(118); state._btnOk->setHeight(44);
 	state._hdFont = state._game->getMod()->getTTFFont("FONT_HD_HUD", false);
 	if (state._hdFont)
 	{
 		state._txtMessage->setTTFFont(state._hdFont, 0.42f);
 		state._btnOk->setTTFFont(state._hdFont, 0.40f);
 	}
-	// These authored coordinates must survive a live viewport reflow even when
-	// Screen still exposes the previous framebuffer's centering delta.
-	state.enableUiScaling(740, 360, 1.0f, true);
 	state.enableCalypsoFocus();
 	++state._focusGeneration;
 	std::vector<CalypsoFocusBinding> bindings;
@@ -68,7 +101,13 @@ void CalypsoErrorMessageStateUi::configure(ErrorMessageState& state)
 bool CalypsoErrorMessageStateUi::resize(ErrorMessageState& state)
 {
 	if (!state._hdLayout) return false;
-	state.applyUiScaling();
+	const bool wide = currentF34LayoutClass() == CalypsoLayoutClass::Wide;
+	if (wide != state._hdWideLayout)
+	{
+		state._hdWideLayout = wide;
+		applyLayout(state);
+	}
+	else state.applyUiScaling();
 	refreshAnchors(state);
 	return true;
 }
@@ -79,20 +118,42 @@ void CalypsoErrorMessageStateUi::refreshAnchors(ErrorMessageState& state)
 	CalypsoTutorial::get().anchorAll({{"error.acknowledge", state._btnOk}});
 }
 
+void CalypsoStatisticsStateUi::applyLayout(StatisticsState& state)
+{
+	const CalypsoF34StatisticsLayout layout = calypsoF34StatisticsLayout(
+		state._hdWideLayout ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact);
+	applyF34Rect(state._window, layout.window);
+	applyF34Rect(state._txtTitle, layout.title);
+	applyF34Rect(state._lstStats, layout.list);
+	applyF34Rect(state._btnOk, layout.acknowledge);
+	applyF34Rect(state._btnScrollUp, layout.scrollUp);
+	applyF34Rect(state._btnScrollDown, layout.scrollDown);
+	state.recaptureUiScaling(layout.designWidth, layout.designHeight, 1.0f, true);
+}
+
+void CalypsoStatisticsStateUi::rebuildList(StatisticsState& state, std::size_t scroll)
+{
+	const CalypsoF34StatisticsLayout layout = calypsoF34StatisticsLayout(
+		state._hdWideLayout ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact);
+	const int actualWidth = state._lstStats->getWidth();
+	state._lstStats->clearList();
+	state._lstStats->setColumns(2,
+		scaledF34Metric(layout.labelColumnWidth, actualWidth, layout.list.width),
+		scaledF34Metric(layout.valueColumnWidth, actualWidth, layout.list.width));
+	state._lstStats->setMinimumRowHeight(
+		scaledF34Metric(layout.rowHeight, actualWidth, layout.list.width));
+	state.listStats();
+	state._lstStats->scrollTo(scroll);
+}
+
 void CalypsoStatisticsStateUi::configure(StatisticsState& state)
 {
 	if (!state._hdLayout) return;
-	state._window->setX(8); state._window->setY(8); state._window->setWidth(724); state._window->setHeight(344);
 	state._window->setThinBorder();
-	state._txtTitle->setX(28); state._txtTitle->setY(20); state._txtTitle->setWidth(500); state._txtTitle->setHeight(34);
-	state._lstStats->setX(28); state._lstStats->setY(70); state._lstStats->setWidth(520); state._lstStats->setHeight(212);
-	state._lstStats->setColumns(2, 334, 174);
-	state._lstStats->setMinimumRowHeight(44);
 	state._lstStats->setSelectable(true);
 	// The scrollbar occupies x=548..561; F34's 154px manual controls begin
 	// at x=562, so both hit targets remain distinct at the design resolution.
 	state._lstStats->setScrolling(true, 0);
-	state._btnOk->setX(562); state._btnOk->setY(284); state._btnOk->setWidth(154); state._btnOk->setHeight(44);
 	state._btnScrollUp = new TextButton(154, 44, 562, 188);
 	state._btnScrollDown = new TextButton(154, 44, 562, 236);
 	state.add(state._btnScrollUp, "button", "endGameStatistics");
@@ -110,9 +171,9 @@ void CalypsoStatisticsStateUi::configure(StatisticsState& state)
 		state._btnScrollUp->setTTFFont(state._hdFont, 0.30f);
 		state._btnScrollDown->setTTFFont(state._hdFont, 0.30f);
 	}
-	// The scroll buttons are also authored in F34 design space. Capture all
-	// final rectangles directly instead of inheriting a transient Screen DX/DY.
-	state.enableUiScaling(740, 360, 1.0f, true);
+	state._hdWideLayout = currentF34LayoutClass() == CalypsoLayoutClass::Wide;
+	applyLayout(state);
+	rebuildList(state, 0);
 	state.enableCalypsoFocus();
 	++state._focusGeneration;
 	std::vector<CalypsoFocusBinding> bindings;
@@ -137,7 +198,15 @@ void CalypsoStatisticsStateUi::configure(StatisticsState& state)
 bool CalypsoStatisticsStateUi::resize(StatisticsState& state)
 {
 	if (!state._hdLayout) return false;
-	state.applyUiScaling();
+	const std::size_t scroll = state._lstStats->getScroll();
+	const bool wide = currentF34LayoutClass() == CalypsoLayoutClass::Wide;
+	if (wide != state._hdWideLayout)
+	{
+		state._hdWideLayout = wide;
+		applyLayout(state);
+	}
+	else state.applyUiScaling();
+	rebuildList(state, scroll);
 	refreshAnchors(state);
 	return true;
 }
@@ -216,7 +285,6 @@ void CalypsoNotesStateUi::configureControls(NotesState& state)
 	if (!state._hdLayout) return;
 
 	state._hdFont = state._game->getMod()->getTTFFont("FONT_HD_HUD", false);
-	state.enableUiScaling(740, 360, 1.0f);
 
 	state._txtDelete->setWordWrap(true);
 	state._txtDelete->setText("");
@@ -235,10 +303,9 @@ void CalypsoNotesStateUi::configureControls(NotesState& state)
 	else
 		state._txtOriginBattle->setColor(state._lstNotes->getSecondaryColor());
 
-	state._lstNotes->setColumns(2, 430, 44);
 	state._lstNotes->setAlign(ALIGN_CENTER, 1);
-	state._lstNotes->setMinimumRowHeight(44);
 	state._lstNotes->setWordWrap(false);
+	state._lstNotes->setScrolling(true, 0);
 
 	state._edtNote->setMultiline(true);
 	state._edtNote->setEnterPolicy(TEEP_COMMIT);
@@ -254,11 +321,45 @@ void CalypsoNotesStateUi::configureControls(NotesState& state)
 	state._btnKeep->setText(state.tr("STR_CAL_NOTES_KEEP"));
 	state._btnKeep->onMouseClick((ActionHandler)&NotesState::btnKeepClick);
 	state._btnKeep->setVisible(false);
+	state._hdWideLayout = currentF34LayoutClass() == CalypsoLayoutClass::Wide;
+	applyLayout(state);
 	state.enableCalypsoFocus();
 	rebuildFocus(state);
 	state.restoreCalypsoFocus("notes.list", state._focusGeneration);
 	applyVisualStyle(state);
 	refreshAnchors(state);
+}
+
+void CalypsoNotesStateUi::applyLayout(NotesState& state)
+{
+	const CalypsoF34NotesLayout layout = calypsoF34NotesLayout(
+		state._hdWideLayout ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact);
+	applyF34Rect(state._window, layout.window);
+	applyF34Rect(state._txtTitle, layout.title);
+	applyF34Rect(state._txtDelete, layout.status);
+	applyF34Rect(state._lstNotes, layout.list);
+	applyF34Rect(state._edtNote, layout.editor);
+	applyF34Rect(state._btnSave, layout.save);
+	applyF34Rect(state._btnCancel, layout.cancel);
+	applyF34Rect(state._btnDelete, layout.remove);
+	applyF34Rect(state._btnNew, layout.create);
+	applyF34Rect(state._btnKeep, layout.keep);
+	applyF34Rect(state._txtOriginGeo, layout.originGeoscape);
+	applyF34Rect(state._txtOriginBattle, layout.originBattlescape);
+	state.recaptureUiScaling(layout.designWidth, layout.designHeight, 1.0f, true);
+	applyListMetrics(state);
+}
+
+void CalypsoNotesStateUi::applyListMetrics(NotesState& state)
+{
+	const CalypsoF34NotesLayout layout = calypsoF34NotesLayout(
+		state._hdWideLayout ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact);
+	const int actualWidth = state._lstNotes->getWidth();
+	state._lstNotes->setColumns(2,
+		scaledF34Metric(layout.textColumnWidth, actualWidth, layout.list.width),
+		scaledF34Metric(layout.actionColumnWidth, actualWidth, layout.list.width));
+	state._lstNotes->setMinimumRowHeight(
+		scaledF34Metric(layout.rowHeight, actualWidth, layout.list.width));
 }
 
 bool CalypsoNotesStateUi::initialize(NotesState& state)
@@ -341,7 +442,21 @@ void CalypsoNotesStateUi::invalidateEditorArea(NotesState& state)
 bool CalypsoNotesStateUi::resize(NotesState& state)
 {
 	if (!state._hdLayout) return false;
-	state.applyUiScaling();
+	const std::size_t scroll = state._lstNotes->getScroll();
+	const bool wide = currentF34LayoutClass() == CalypsoLayoutClass::Wide;
+	if (wide != state._hdWideLayout)
+	{
+		state._hdWideLayout = wide;
+		applyLayout(state);
+	}
+	else
+	{
+		state.applyUiScaling();
+		applyListMetrics(state);
+	}
+	updateList(state);
+	state._lstNotes->scrollTo(scroll);
+	state._lstNotes->setSelectedRow(static_cast<std::size_t>(state._hdListSelection));
 	positionEditor(state);
 	refreshAnchors(state);
 	return true;
@@ -363,12 +478,14 @@ void CalypsoNotesStateUi::updateSelection(NotesState& state)
 
 void CalypsoNotesStateUi::updateList(NotesState& state)
 {
+	const CalypsoF34NotesLayout layout = calypsoF34NotesLayout(
+		state._hdWideLayout ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact);
 	state._lstNotes->clearList();
 	for (size_t i = 0; i < state._workingNotes.size(); ++i)
 	{
 		const bool editing = state._edtNote->getVisible() && state._selectedRow == static_cast<int>(i);
 		const std::string preview = Unicode::convUtf32ToUtf8(calypsoNotePreview(
-			Unicode::convUtf8ToUtf32(state._workingNotes[i]), 52));
+			Unicode::convUtf8ToUtf32(state._workingNotes[i]), layout.previewCharacters));
 		state._lstNotes->addRow(2, editing ? " " : preview.c_str(), "...");
 		state._lstNotes->setCellColorRGB(i, 0, 0xFFE8FFF2u);
 		state._lstNotes->setCellColorRGB(i, 1, 0xFF74FFB0u);
@@ -629,18 +746,17 @@ bool CalypsoNotesStateUi::listPress(NotesState& state, Action* action)
 	if (!activate) return true;
 	state._hdListSelection = row;
 	updateSelection(state);
-	const auto& viewport = calypsoViewportRuntime();
-	const int logicalWidth = viewport.hasLayout()
-		? viewport.current().logicalWidth : Options::baseXResolution;
-	const double pointerX = calypsoF34LogicalPointerToBase(
-		action->getAbsoluteXMouse(), Options::baseXResolution, logicalWidth);
+	const double pointerX = action->getAbsoluteXMouse();
 	const double actionLeft = state._lstNotes->getColumnX(1);
-	// The visible action column is explicitly 44 design pixels wide. Its
+	const CalypsoF34NotesLayout layout = calypsoF34NotesLayout(
+		state._hdWideLayout ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact);
+	// The visible action column is explicit in each design composition. Its
 	// conversion follows the TextList width, so the hit target remains aligned
-	// with the marker after F34's uniform responsive scaling.
-	const double actionWidth = 44.0 * state._lstNotes->getWidth() / 490.0;
+	// with the marker after the composition is scaled into engine-base space.
+	const double actionWidth = scaledF34Metric(layout.actionColumnWidth,
+		state._lstNotes->getWidth(), layout.list.width);
 	const bool actionColumn = row < static_cast<int>(state._workingNotes.size())
-		&& pointerX >= actionLeft && pointerX < actionLeft + actionWidth;
+		&& calypsoF34PointerInColumn(pointerX, actionLeft, actionWidth);
 	if (calypsoNotesOpenRowMenu(true, actionColumn,
 		row < static_cast<int>(state._workingNotes.size())))
 	{
@@ -687,6 +803,7 @@ bool CalypsoNotesStateUi::deleteClick(NotesState& state, Action*)
 	updateStatus(state);
 	rebuildFocus(state);
 	updateList(state);
+	state.restoreCalypsoFocus("notes.list", state._focusGeneration);
 	return true;
 }
 

@@ -63,6 +63,7 @@ protected:
 	std::string _selectedNote;
 	int _previousSelectedRow, _selectedRow;
 	bool _hdLayout;
+	bool _hdWideLayout;
 	bool _hdNotesLoaded;
 	int _deleteRow;
 	int _hdListSelection;
