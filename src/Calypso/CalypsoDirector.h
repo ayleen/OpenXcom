@@ -247,7 +247,8 @@ public:
 	/// active scene. Renders through the tutorial DOM overlay (no web-shell change
 	/// required for this commit; presentation may be skinned later).
 	void radioLine(Game *game, const std::string &stringId,
-		CalypsoRadioLineKind kind = CalypsoRadioLineKind::Narrative);
+		CalypsoRadioLineKind kind = CalypsoRadioLineKind::Narrative,
+		std::function<void()> onDismissed = {});
 
 	/// Record a scene outcome and drive the battle to its end. The outcome is
 	/// consumed by interceptFinishBattle (hooked in BattlescapeState::finishBattle),

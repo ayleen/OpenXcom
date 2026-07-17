@@ -28,6 +28,7 @@
  */
 #ifdef __EMSCRIPTEN__
 
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -144,7 +145,9 @@ private:
 	/// after the Choir turn that dropped them), before the rolling autosave so
 	/// a reload never resurrects a collected body.
 	void collectTakenBodies(BattlescapeGame *bg);
-	void radio(const std::string &stringId, CalypsoRadioLineKind kind = CalypsoRadioLineKind::Narrative) const;
+	void radio(const std::string &stringId,
+		CalypsoRadioLineKind kind = CalypsoRadioLineKind::Narrative,
+		std::function<void()> onDismissed = {}) const;
 
 	// ---- state ----------------------------------------------------------------
 	Ph _phase = Ph::Landing;
@@ -152,6 +155,7 @@ private:
 	bool _endingTriggered = false;  ///< an ending is armed or executed -- the script stops
 	int _pendingOutcome = -1;       ///< armed ending awaiting a safe stack (resolvePendingEnding)
 	bool _pendingTaking = false;    ///< armed ending is the Branch Б boarding flavor
+	bool _pendingEndingRadioQueued = false; ///< final beat was queued; finish only after its dismissal callback
 	bool _evacOnly = false;         ///< Choir neutralized early: no more scripted attacks, cast-off remains available
 	bool _marksmanRevealed = false; ///< persisted Assessor-death reveal gate
 	bool _nikosHandedOff = false;   ///< persisted ownership (separate from camera focus)
@@ -187,9 +191,9 @@ private:
 	/// collected yet -- processed by collectTakenBodies() at player-turn start.
 	std::vector<int> _pendingTakenIds;
 
-	/// The outcome last passed to CalypsoDirector::endScene(). Set right before
-	/// that call (both call sites: resolvePendingEnding and onAbortRequested)
-	/// so makeEndState() -- called synchronously from within the same endScene
+	/// The outcome last passed to CalypsoDirector::endScene(). Set by
+	/// resolvePendingEnding immediately before that call so makeEndState() --
+	/// called synchronously from within the same endScene
 	/// -> finishBattle -> interceptFinishBattle chain -- knows which ending to
 	/// stage. Not persisted: never valid across a save/load (the battle is over
 	/// by the time it matters, and the scene is torn down right after).

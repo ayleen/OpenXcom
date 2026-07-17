@@ -25,6 +25,7 @@
  * is now non-blocking (pointer-events:none).
  */
 
+#include <functional>
 #include <string>
 #include "../Engine/State.h"
 
@@ -36,7 +37,8 @@ enum class CalypsoRadioLineKind { Narrative, Instruction };
 class CalypsoRadioLineState : public State
 {
 public:
-	explicit CalypsoRadioLineState(std::string stringId, CalypsoRadioLineKind kind);
+	explicit CalypsoRadioLineState(std::string stringId, CalypsoRadioLineKind kind,
+		std::function<void()> onDismissed = {});
 	~CalypsoRadioLineState();
 	void init() override;
 	void think() override;
@@ -48,6 +50,7 @@ private:
 	Uint32 _shownAt = 0;
 	unsigned _durationMs = 0;
 	bool _initialized = false;
+	std::function<void()> _onDismissed;
 };
 
 } // namespace OpenXcom

@@ -225,10 +225,10 @@ void AbortMissionState::btnOkClick(Action *)
 #ifdef __EMSCRIPTEN__
 	if (CalypsoDirector::get().onAbortRequested(_state))
 	{
-		// endScene() can synchronously remove this dialog and BattlescapeState,
-		// then push CalypsoPrologueEndState. Pop only an unchanged dialog; an
-		// unconditional pop here used to remove that new end state and expose the
-		// original NewGameState/difficulty selector underneath.
+		// The scene may synchronously replace this dialog with its end state, or
+		// push a final radio beat whose dismissal callback performs that teardown.
+		// Pop only an unchanged dialog; an unconditional pop used to remove the
+		// new state and expose the original difficulty selector underneath.
 		if (Calypso::popAbortDialogAfterSceneConsume(_game->getTopState() == this)) _game->popState();
 		return;
 	}

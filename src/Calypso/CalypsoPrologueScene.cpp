@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "CalypsoPrologueScene.h"
@@ -995,6 +996,7 @@ void CalypsoPrologueScene::checkBranchB(BattlescapeGame *bg)
 		_endingTriggered = true;
 		_pendingOutcome = OutcomeAllTaken;
 		_pendingTaking = true;
+		_pendingEndingRadioQueued = false;
 		return;
 	}
 
@@ -1005,22 +1007,40 @@ void CalypsoPrologueScene::checkBranchB(BattlescapeGame *bg)
 		_endingTriggered = true;
 		_pendingOutcome = OutcomeAllTaken;
 		_pendingTaking = false;
+		_pendingEndingRadioQueued = false;
 	}
 }
 
 bool CalypsoPrologueScene::resolvePendingEnding(BattlescapeGame *bg)
 {
 	if (_pendingOutcome < 0 || !bg) return false;
+	SavedBattleGame *save = bg->getSave();
+	BattleUnit *nikos = save ? findUnit(save, _nikosId) : nullptr;
+	const bool nikosAlive = nikos && !nikos->isOut();
+	const bool castOff = _pendingOutcome == OutcomeCastOff;
+	if (Calypso::prologueEndingNeedsRadio(
+		_pendingEndingRadioQueued, _pendingTaking, castOff, nikosAlive))
+	{
+		// finishBattle pops every state above BattlescapeState. Queue the ending
+		// continuation on the radio state itself so the beat is initialized,
+		// displayed, and dismissed before any teardown can remove it.
+		_pendingEndingRadioQueued = true;
+		const std::string line = _pendingTaking
+			? STR_PROLOGUE_RADIO_SILENCE
+			: STR_PROLOGUE_NIKOS_LINE;
+		radio(line, CalypsoRadioLineKind::Narrative,
+			[this, bg]() { resolvePendingEnding(bg); });
+		return true;
+	}
+
 	int outcome = _pendingOutcome;
+	const bool taking = _pendingTaking;
 	_pendingOutcome = -1;
+	_pendingTaking = false;
+	_pendingEndingRadioQueued = false;
 	// _endingTriggered stays set -- onUnitDied's early-return keeps the nested
 	// deaths below from re-arming or re-scripting anything.
-	if (_pendingTaking)
-	{
-		radio(STR_PROLOGUE_RADIO_SILENCE);
-		killEveryoneAboard(bg);
-	}
-	_pendingTaking = false;
+	if (taking) killEveryoneAboard(bg);
 	killNikosIfAlive(bg);
 	// OutcomeAllTaken never reaches here with a non-empty survivor stash --
 	// killEveryoneAboard() (Branch Б) and the "nobody made it aboard" arm
@@ -1085,24 +1105,39 @@ void CalypsoPrologueScene::onUnitDied(BattlescapeGame *bg, BattleUnit *victim, B
 	}
 
 	const bool wasCurrentVictim = id == _currentVictimId;
-	if (id == _leaderId && !_firstDeathDone && _phase == Ph::Gauntlet)
+	const bool isDiver = std::find(_diverIds.begin(), _diverIds.end(), id) != _diverIds.end();
+	const bool isCrewMember = id == _leaderId || isDiver;
+	const bool hostileTurn = bg->getSave()
+		&& bg->getSave()->getSide() == FACTION_HOSTILE;
+	const bool spentChoirLoss = Calypso::shouldEndChoirTurnAfterGauntletCrewDeath(
+		_phase == Ph::Gauntlet, hostileTurn, isCrewMember);
+	if (_phase == Ph::Gauntlet && isCrewMember && !_firstDeathDone)
 	{
-		// D2: guaranteed payoff regardless of a 1-shot or 2-shot kill.
-		radio(STR_PROLOGUE_LEADER_NAME);
+		// D2: exactly one first-loss beat. The diver pattern already speaks
+		// before its deliberate miss; if that shot kills a collateral unit, do
+		// not add the leader line. Conversely, a collateral diver in the leader
+		// pattern still gets a visible first-loss beat instead of consuming it.
+		switch (Calypso::prologueFirstLossBeat(
+			_firstDeathDone, _diverMissFired, id == _leaderId, isDiver))
+		{
+			case Calypso::PrologueFirstLossBeat::Leader:
+				radio(STR_PROLOGUE_LEADER_NAME);
+				break;
+			case Calypso::PrologueFirstLossBeat::Diver:
+				radio(STR_PROLOGUE_DIVER_LINE);
+				break;
+			case Calypso::PrologueFirstLossBeat::None:
+				break;
+		}
 		_firstDeathDone = true;
 	}
-	else if (wasCurrentVictim)
+	if (spentChoirLoss)
 	{
-		_firstDeathDone = true; // later gauntlet deaths are silent
-	}
-	if (Calypso::shouldEndChoirTurnAfterGauntletVictimDeath(
-		_phase == Ph::Gauntlet, wasCurrentVictim))
-	{
-		// A target can require multiple directed shots (or the scripted diver
-		// miss first), but once it dies this hostile turn has spent its one
-		// loss. Advancing to the idle/end-turn step prevents the next pump
-		// from choosing a second victim in the same Choir turn.
+		// A real hostile projectile may hit a different crew member on its way
+		// to the selected victim. Any such loss spends this Choir turn and
+		// cancels the target, preventing a collateral + target double death.
 		_gauntletStep = 2;
+		_currentVictimId = -1;
 	}
 
 	// Amendment #10 (design doc s8 #10): gauntlet losses among the crew are
@@ -1143,15 +1178,6 @@ bool CalypsoPrologueScene::onAbortRequested(BattlescapeState *bs)
 	// herder reaching the boat on the very turn the player casts off).
 	_endingTriggered = true;
 
-	if (BattleUnit *nikos = findUnit(save, _nikosId))
-	{
-		if (!nikos->isOut())
-		{
-			radio(STR_PROLOGUE_NIKOS_LINE);
-			forceKill(bg, nikos, nullptr); // off-screen, unattributed
-		}
-	}
-
 	// D7 survivor stash: snapshot every player soldier that made it aboard,
 	// BEFORE the throwaway SavedGame is torn down (the real campaign, created
 	// later by finishPrologue, is a totally separate SavedGame -- these
@@ -1166,10 +1192,13 @@ bool CalypsoPrologueScene::onAbortRequested(BattlescapeState *bs)
 		}
 	}
 
-	// Synchronous endScene is safe here: this is AbortMissionState::btnOkClick,
-	// the exact call site vanilla itself invokes finishBattle from.
-	_finishedOutcome = OutcomeCastOff;
-	CalypsoDirector::get().endScene(bg, OutcomeCastOff);
+	// Arm the outcome and let resolvePendingEnding queue Nikos's final radio
+	// beat. Its dismissal callback performs the kill and battle teardown; doing
+	// that synchronously here would make finishBattle pop the unseen radio state.
+	_pendingOutcome = OutcomeCastOff;
+	_pendingTaking = false;
+	_pendingEndingRadioQueued = false;
+	resolvePendingEnding(bg);
 	return true;
 }
 
@@ -1323,12 +1352,13 @@ void CalypsoPrologueScene::collectTakenBodies(BattlescapeGame *bg)
 	_pendingTakenIds.clear();
 }
 
-void CalypsoPrologueScene::radio(const std::string &stringId, CalypsoRadioLineKind kind) const
+void CalypsoPrologueScene::radio(const std::string &stringId,
+	CalypsoRadioLineKind kind, std::function<void()> onDismissed) const
 {
 	// Instructions are deliberately tagged at their scenario call sites; the
 	// UI never guesses semantics from a localization-key naming convention.
 	if (kind == CalypsoRadioLineKind::Instruction && !CalypsoTutorial::get().guidanceConfigured()) return;
-	CalypsoDirector::get().radioLine(getCurrentGame(), stringId, kind);
+	CalypsoDirector::get().radioLine(getCurrentGame(), stringId, kind, std::move(onDismissed));
 }
 
 // --------------------------------------------------------------------------- //
@@ -1343,6 +1373,7 @@ void CalypsoPrologueScene::save(YAML::YamlNodeWriter writer) const
 	writer.write("endingTriggered", _endingTriggered);
 	writer.write("pendingOutcome", _pendingOutcome);
 	writer.write("pendingTaking", _pendingTaking);
+	writer.write("pendingEndingRadioQueued", _pendingEndingRadioQueued);
 	writer.write("evacOnly", _evacOnly);
 	writer.write("marksmanRevealed", _marksmanRevealed);
 	writer.write("nikosHandedOff", _nikosHandedOff);
@@ -1372,6 +1403,7 @@ void CalypsoPrologueScene::load(const YAML::YamlNodeReader &reader)
 	_endingTriggered = reader["endingTriggered"].readVal<bool>(false);
 	_pendingOutcome = reader["pendingOutcome"].readVal<int>(-1);
 	_pendingTaking = reader["pendingTaking"].readVal<bool>(false);
+	_pendingEndingRadioQueued = reader["pendingEndingRadioQueued"].readVal<bool>(false);
 	_evacOnly = reader["evacOnly"].readVal<bool>(false);
 	// Pre-fix saves have no explicit flags. Once a save reached Gauntlet the
 	// Assessor was necessarily dead and Nikos was supposed to be handed over,

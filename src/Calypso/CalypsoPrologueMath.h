@@ -96,9 +96,40 @@ inline int gauntletStepAfterTurnStart(int currentStep, PrologueTurnSide side)
 	return side == PrologueTurnSide::Hostile ? 0 : currentStep;
 }
 
-inline bool shouldEndChoirTurnAfterGauntletVictimDeath(bool inGauntlet, bool wasCurrentVictim)
+/// Any crew death during the hostile gauntlet turn spends that turn's one
+/// scripted loss. A real projectile can hit an intervening/splash-adjacent
+/// crew member before its selected target; keying only on the target id would
+/// let the idle pump continue and kill both in the same Choir turn.
+inline bool shouldEndChoirTurnAfterGauntletCrewDeath(
+	bool inGauntlet, bool hostileTurn, bool isCrewMember)
 {
-	return inGauntlet && wasCurrentVictim;
+	return inGauntlet && hostileTurn && isCrewMember;
+}
+
+enum class PrologueFirstLossBeat { None, Leader, Diver };
+
+/// Resolve exactly one authored beat for the first post-Assessor crew loss.
+/// The diver pattern speaks before its deliberate miss, so a collateral death
+/// from that projectile must not add a second line. In the leader pattern no
+/// line has fired yet; if an intervening diver dies instead, use the diver beat
+/// rather than silently consuming the first-loss story moment.
+inline PrologueFirstLossBeat prologueFirstLossBeat(
+	bool firstDeathDone, bool diverBeatAlreadyFired,
+	bool actualLeader, bool actualDiver)
+{
+	if (firstDeathDone || diverBeatAlreadyFired) return PrologueFirstLossBeat::None;
+	if (actualLeader) return PrologueFirstLossBeat::Leader;
+	if (actualDiver) return PrologueFirstLossBeat::Diver;
+	return PrologueFirstLossBeat::None;
+}
+
+/// A final radio beat must complete before finishBattle removes states above
+/// BattlescapeState. Branch B always has its silence beat; Cast Off has the
+/// Nikos beat only while he is still alive.
+inline bool prologueEndingNeedsRadio(
+	bool radioAlreadyQueued, bool pendingTaking, bool castOff, bool nikosAlive)
+{
+	return !radioAlreadyQueued && (pendingTaking || (castOff && nikosAlive));
 }
 
 /// Compatibility rule for saves created before scripted handoff state was

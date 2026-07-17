@@ -17,8 +17,9 @@
 namespace OpenXcom
 {
 
-CalypsoRadioLineState::CalypsoRadioLineState(std::string stringId, CalypsoRadioLineKind kind)
-	: _stringId(std::move(stringId)), _kind(kind)
+CalypsoRadioLineState::CalypsoRadioLineState(std::string stringId, CalypsoRadioLineKind kind,
+	std::function<void()> onDismissed)
+	: _stringId(std::move(stringId)), _kind(kind), _onDismissed(std::move(onDismissed))
 {
 	// _screen=false -> non-fullscreen modal (like PauseState / CalypsoTutorialState).
 	// No surfaces are added; the popup is pure DOM overlay.
@@ -79,7 +80,13 @@ void CalypsoRadioLineState::handle(Action *action)
 void CalypsoRadioLineState::dismiss()
 {
 	EM_ASM_({ if (globalThis.__calypsoRadioHide) globalThis.__calypsoRadioHide(); });
+	// Move the callback out before popState(): the state leaves the live stack
+	// immediately and is queued for deletion. The continuation is allowed to
+	// tear down Battlescape and push an ending state only after this radio beat
+	// has actually been visible and dismissed.
+	std::function<void()> onDismissed = std::move(_onDismissed);
 	_game->popState();
+	if (onDismissed) onDismissed();
 }
 
 } // namespace OpenXcom

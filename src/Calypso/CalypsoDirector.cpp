@@ -157,8 +157,9 @@ bool CalypsoDirector::onEnemyTurnIdle(BattlescapeGame *bg)
 bool CalypsoDirector::onAbortRequested(BattlescapeState *bs)
 {
 	if (!_scene) return false;
-	// True = scene owns the ending; it will route via endScene(). The caller
-	// (AbortMissionState::btnOkClick) pops itself and skips vanilla finishBattle.
+	// True = scene owns the ending and skips vanilla finishBattle. It may route
+	// synchronously via endScene(), or leave a final radio state above the abort
+	// dialog whose dismissal callback performs the teardown.
 	return _scene->onAbortRequested(bs);
 }
 
@@ -358,13 +359,14 @@ void CalypsoDirector::pinMorale(SavedBattleGame *save, UnitFaction side)
 	}
 }
 
-void CalypsoDirector::radioLine(Game *game, const std::string &stringId, CalypsoRadioLineKind kind)
+void CalypsoDirector::radioLine(Game *game, const std::string &stringId,
+	CalypsoRadioLineKind kind, std::function<void()> onDismissed)
 {
 	if (!_scene || !game || stringId.empty()) return;
 	// Transient toast (CalypsoRadioLineState) that shows tr(stringId) through
 	// the existing tutorial DOM overlay. See CalypsoRadioLineState.h for why
 	// CalypsoTutorialState is not reused here.
-	game->pushState(new CalypsoRadioLineState(stringId, kind));
+	game->pushState(new CalypsoRadioLineState(stringId, kind, std::move(onDismissed)));
 }
 
 void CalypsoDirector::endScene(BattlescapeGame *bg, int outcome)
