@@ -935,17 +935,12 @@ bool CalypsoPrologueScene::onAbortRequested(BattlescapeState *bs)
 	SavedBattleGame *save = bg->getSave();
 	if (!save) return false;
 
-	bool anyoneAboard = false;
-	for (int id : allPlayerIds())
-	{
-		BattleUnit *u = findUnit(save, id);
-		if (u && !u->isOut() && u->isInExitArea(START_POINT)) { anyoneAboard = true; break; }
-	}
-	// While a fallback is pending, before the ambush enables cast-off, or with
+	bool anyoneAboard = abortConfirmAvailable(save);
+	// While a fallback is pending, before the evacuation order enables cast-off, or with
 	// nobody aboard, consume the click without entering vanilla's abort path.
 	// Vanilla would set SavedBattleGame::_aborted before finishBattle, poisoning
 	// the rolling save even if the director subsequently blocked completion.
-	bool castOffAvailable = _phase == Ph::Ambushed || _phase == Ph::Gauntlet;
+	bool castOffAvailable = abortAvailable();
 	if (Calypso::consumeAbortRequest(_inert, castOffAvailable, anyoneAboard)) return true;
 
 	// Set the guard BEFORE the kill: Nikos's death re-enters onUnitDied, and an
@@ -1035,12 +1030,31 @@ bool CalypsoPrologueScene::onUnexpectedFinish(BattlescapeState *bs, bool abort, 
 
 bool CalypsoPrologueScene::abortStrings(std::string *title, std::string *ok, std::string *cancel)
 {
-	if (_inert) return false;
-	if (_phase != Ph::Ambushed && _phase != Ph::Gauntlet) return false;
+	if (!abortAvailable()) return false;
 	if (title)  *title  = "STR_PROLOGUE_CASTOFF_TITLE";
 	if (ok)     *ok     = "STR_PROLOGUE_CASTOFF_OK";
 	if (cancel) *cancel = "STR_PROLOGUE_CASTOFF_CANCEL";
 	return true;
+}
+
+bool CalypsoPrologueScene::abortAvailable() const
+{
+	// The scripted evacuation order is issued only after the Assessor dies and
+	// enterEvacOnly()/stepAmbushed() advances into Gauntlet. _firstDeathDone is
+	// deliberately unrelated: it tracks a later crew death.
+	return Calypso::abortHudEnabled(_inert, _phase == Ph::Gauntlet);
+}
+
+bool CalypsoPrologueScene::abortConfirmAvailable(SavedBattleGame *save) const
+{
+	if (!abortAvailable() || !save) return false;
+	bool anyoneAboard = false;
+	for (int id : allPlayerIds())
+	{
+		BattleUnit *u = findUnit(save, id);
+		if (u && !u->isOut() && u->isInExitArea(START_POINT)) { anyoneAboard = true; break; }
+	}
+	return Calypso::castOffConfirmEnabled(abortAvailable(), anyoneAboard);
 }
 
 State *CalypsoPrologueScene::makeEndState()

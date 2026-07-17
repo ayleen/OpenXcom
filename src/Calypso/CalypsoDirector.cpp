@@ -168,6 +168,16 @@ bool CalypsoDirector::abortStrings(std::string *title, std::string *ok, std::str
 	return true;
 }
 
+bool CalypsoDirector::abortAvailable() const
+{
+	return !_scene || _scene->abortAvailable();
+}
+
+bool CalypsoDirector::abortConfirmAvailable(SavedBattleGame *save) const
+{
+	return !_scene || _scene->abortConfirmAvailable(save);
+}
+
 bool CalypsoDirector::interceptFinishBattle(BattlescapeState *bs)
 {
 	(void)bs;

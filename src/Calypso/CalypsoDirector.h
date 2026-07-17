@@ -112,6 +112,14 @@ public:
 	/// Opt-in: override the abort-confirmation window strings. Populate the three
 	/// ids with extraStrings keys and return true; the director translates them.
 	virtual bool abortStrings(std::string *title, std::string *ok, std::string *cancel) { return false; }
+	/// Opt-in: false disables opening the abort dialog while the scene is at a
+	/// scripted beat where evacuation would be misleading. The default preserves
+	/// ordinary Battlescape behaviour for every other scene.
+	virtual bool abortAvailable() const { return true; }
+	/// Opt-in: whether the currently displayed abort tally satisfies this
+	/// scene's extraction requirement. This must be side-effect free because the
+	/// dialog calls it while it is being constructed.
+	virtual bool abortConfirmAvailable(SavedBattleGame *) const { return true; }
 	/// End state to push instead of the vanilla Debriefing when the scene has set
 	/// an outcome. Return null to fall through to the standard debrief. The
 	/// concrete scene owns the returned State* (pushed by the director).
@@ -185,6 +193,13 @@ public:
 	/// language. Returns false (no swap) when no scene is active or the scene
 	/// does not opt in. Called from the AbortMissionState ctor hook.
 	bool abortStrings(std::string *title, std::string *ok, std::string *cancel);
+
+	/// Whether the active scene currently permits opening the abort dialog.
+	/// True when no scripted scene owns the battle.
+	bool abortAvailable() const;
+	/// Whether the active scene permits confirming the currently displayed abort
+	/// tally. This does not mutate scene state.
+	bool abortConfirmAvailable(SavedBattleGame *save) const;
 
 	/// Intercept the vanilla finish-battle flow. Returns true if the director
 	/// pushed the scene's end state (the caller must `return` and skip Debriefing).

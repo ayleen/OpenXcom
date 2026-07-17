@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "CalypsoMenuBridge.h"
+#include "CalypsoDirector.h"
 #include "../Engine/Game.h"
 #include "../Engine/Language.h"
 #include "../Engine/CrossPlatform.h"
@@ -343,6 +344,7 @@ int calypso_save_load(const char *file, int origin, int force)
 {
 	Game *g = getCurrentGame();
 	if (!g || !file || !*file) return 0;
+	if (CalypsoDirector::get().activeSceneBlocksSaveLoad()) return 0;
 	std::string fileName(file);
 
 	if (!force)
@@ -415,6 +417,7 @@ int calypso_save_write(const char *displayName, int origin)
 	(void)origin;
 	Game *g = getCurrentGame();
 	if (!g || !g->getSavedGame() || !displayName) return 0;
+	if (CalypsoDirector::get().activeSceneBlocksSaveLoad()) return 0;
 
 	g->getSavedGame()->setName(displayName);
 	std::string fileName = CrossPlatform::sanitizeFilename(displayName);

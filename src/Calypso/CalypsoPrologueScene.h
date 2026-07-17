@@ -61,6 +61,8 @@ public:
 	bool onAbortRequested(BattlescapeState *bs) override;
 	bool onUnexpectedFinish(BattlescapeState *bs, bool abort, int *outcome) override;
 	bool abortStrings(std::string *title, std::string *ok, std::string *cancel) override;
+	bool abortAvailable() const override;
+	bool abortConfirmAvailable(SavedBattleGame *save) const override;
 	State *makeEndState() override; // Commit 4: CalypsoPrologueEndState ("six months later")
 	void save(YAML::YamlNodeWriter writer) const override;
 	void load(const YAML::YamlNodeReader &reader) override;

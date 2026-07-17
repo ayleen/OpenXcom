@@ -1033,6 +1033,10 @@ void BattlescapeState::think()
 		if (_game->isState(this) && allowButtons(true))
 			_game->pushState(new PauseState(OPT_BATTLESCAPE));
 	}
+	// Scripted scenes can expose evacuation only at a later beat. Keep the HUD
+	// and hotkey in sync with that runtime predicate; the click handler repeats
+	// the guard because keyboard events and a phase transition can race a frame.
+	_btnAbort->setVisible(CalypsoDirector::get().abortAvailable());
 #endif
 
 	if (_gameTimer->isRunning())
@@ -1624,10 +1628,6 @@ void BattlescapeState::btnHelpClick(Action *)
 		// 2. loading could be enabled, but needs changes in the Game's _states management; make sure you know what you're doing!
 		return;
 	}
-#ifdef __EMSCRIPTEN__
-	if (CalypsoDirector::get().activeSceneBlocksSaveLoad()) return; // Phase 41: prologue blocks the pause menu (mirrors isPreview above)
-#endif
-
 	if (allowButtons(true))
 		_game->pushState(new PauseState(OPT_BATTLESCAPE));
 }
@@ -1676,6 +1676,10 @@ void BattlescapeState::btnAbortClick(Action *)
 			return;
 		}
 	}
+
+#ifdef __EMSCRIPTEN__
+	if (!CalypsoDirector::get().abortAvailable()) return;
+#endif
 
 	if (allowButtons())
 		_game->pushState(new AbortMissionState(_save, this));

@@ -29,6 +29,9 @@
 #include "../Savegame/SavedGame.h"
 #include "../Savegame/SavedBattleGame.h"
 #include "SaveGameState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoDirector.h"
+#endif
 
 namespace OpenXcom
 {
@@ -108,6 +111,22 @@ void AbandonGameState::btnYesClick(Action *)
 
 	if (_origin == OPT_BATTLESCAPE && _game->getSavedGame()->getSavedBattle()->getAmbientSound() != Mod::NO_SOUND)
 		_game->getMod()->getSoundByDepth(0, _game->getSavedGame()->getSavedBattle()->getAmbientSound())->stopLoop();
+
+#ifdef __EMSCRIPTEN__
+	// Scripted prologues deliberately permit exit but never a player-controlled
+	// save. In particular, do not route Ironman through SAVE_IRONMAN_END: that
+	// would create a forbidden manual checkpoint and retain director pointers to
+	// the abandoned battle.
+	if (_origin == OPT_BATTLESCAPE && CalypsoDirector::get().activeSceneBlocksSaveLoad())
+	{
+		CalypsoDirector::get().endBattleCleanup();
+		Screen::updateScale(Options::geoscapeScale, Options::baseXGeoscape, Options::baseYGeoscape, true);
+		_game->getScreen()->resetDisplay(false);
+		_game->setState(new MainMenuState);
+		_game->setSavedGame(0);
+		return;
+	}
+#endif
 	if (!_game->getSavedGame()->isIronman())
 	{
 		Screen::updateScale(Options::geoscapeScale, Options::baseXGeoscape, Options::baseYGeoscape, true);

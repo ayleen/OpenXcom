@@ -67,6 +67,29 @@ inline bool consumeAbortRequest(bool inert, bool castOffAvailable, bool anyoneAb
 	return inert || !castOffAvailable || !anyoneAboard;
 }
 
+/// The Abort HUD and its hotkey are available only after the scenario has
+/// entered the evacuation phase. Kept separate from the confirmation check:
+/// the player may inspect the tally in Gauntlet before anyone is aboard.
+inline bool abortHudEnabled(bool inert, bool evacuationPhase)
+{
+	return !inert && evacuationPhase;
+}
+
+/// Cast Off itself requires both the evacuation phase and one eligible crew
+/// member on a real START_POINT tile. Nikos is excluded by the scene adapter
+/// before it supplies anyoneAboard.
+inline bool castOffConfirmEnabled(bool abortHudIsEnabled, bool anyoneAboard)
+{
+	return abortHudIsEnabled && anyoneAboard;
+}
+
+/// A scene completion may synchronously replace the state stack. The abort
+/// callback may pop only when its own dialog still owns the top entry.
+inline bool popAbortDialogAfterSceneConsume(bool dialogStillTop)
+{
+	return dialogStillTop;
+}
+
 /// Pure ordering contract for CalypsoPrologueScene::onUnexpectedFinish.
 /// Fallback state outranks abort; an automatic zero-hostiles finish with live
 /// crew transitions once into extraction-only; no live crew means all taken.
