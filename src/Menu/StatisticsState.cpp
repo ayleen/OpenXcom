@@ -41,6 +41,10 @@
 #include "../Savegame/Country.h"
 #include "../Savegame/Region.h"
 #include "../Savegame/AlienBase.h"
+#include "../Calypso/CalypsoCommonRecords.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoCommonRecordsStateUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -81,6 +85,11 @@ StatisticsState::StatisticsState()
 	_lstStats->setDot(true);
 
 	listStats();
+
+#ifdef __EMSCRIPTEN__
+	_hdLayout = _game && _game->getMod() && _game->getMod()->isHdUiFamilyEnabled("F34");
+	Calypso::CalypsoStatisticsStateUi::configure(*this);
+#endif
 }
 
 /**
@@ -129,7 +138,8 @@ void StatisticsState::listStats()
 		totalScore += sumVector(region->getActivityXcom()) - sumVector(region->getActivityAlien());
 	}
 
-	int monthlyScore = totalScore / (int)save->getResearchScores().size();
+	const Calypso::CalypsoMonthlyRating monthlyRating =
+		Calypso::calypsoAverageMonthlyRating(totalScore, save->getResearchScores().size());
 	int64_t totalIncome = sumVector(save->getIncomes());
 	int64_t totalExpenses = sumVector(save->getExpenditures());
 
@@ -289,7 +299,8 @@ void StatisticsState::listStats()
 	std::string difficulty[] = { "STR_1_BEGINNER", "STR_2_EXPERIENCED", "STR_3_VETERAN", "STR_4_GENIUS", "STR_5_SUPERHUMAN" };
 
 	_lstStats->addRow(2, tr("STR_DIFFICULTY").c_str(), tr(difficulty[save->getDifficulty()]).c_str());
-	_lstStats->addRow(2, tr("STR_AVERAGE_MONTHLY_RATING").c_str(), Unicode::formatNumber(monthlyScore).c_str());
+	_lstStats->addRow(2, tr("STR_AVERAGE_MONTHLY_RATING").c_str(),
+		monthlyRating.available ? Unicode::formatNumber(monthlyRating.value).c_str() : tr("STR_NONE").c_str());
 	_lstStats->addRow(2, tr("STR_TOTAL_INCOME").c_str(), Unicode::formatFunding(totalIncome).c_str());
 	_lstStats->addRow(2, tr("STR_TOTAL_EXPENDITURE").c_str(), Unicode::formatFunding(totalExpenses).c_str());
 	if (Options::soldierDiaries)
@@ -335,13 +346,45 @@ void StatisticsState::listStats()
 	_lstStats->addRow(2, tr("STR_TOTAL_RESEARCH").c_str(), Unicode::formatNumber(researchDone).c_str());
 }
 
+void StatisticsState::resize(int &dX, int &dY)
+{
+#ifdef __EMSCRIPTEN__
+	if (Calypso::CalypsoStatisticsStateUi::resize(*this)) return;
+#endif
+	State::resize(dX, dY);
+}
+
+void StatisticsState::handle(Action *action)
+{
+#ifdef __EMSCRIPTEN__
+	if (Calypso::CalypsoStatisticsStateUi::handle(*this, action)) return;
+#endif
+	State::handle(action);
+}
+
+void StatisticsState::btnScrollUpClick(Action *)
+{
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoStatisticsStateUi::scrollUp(*this);
+#endif
+}
+
+void StatisticsState::btnScrollDownClick(Action *)
+{
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoStatisticsStateUi::scrollDown(*this);
+#endif
+}
+
 /**
  * Returns to the previous screen.
  * @param action Pointer to an action.
  */
 void StatisticsState::btnOkClick(Action *)
 {
-	if (_game->getSavedGame()->getEnding() == END_NONE)
+	const Calypso::CalypsoStatisticsReturn route = Calypso::calypsoStatisticsReturn(
+		_game->getSavedGame()->getEnding() != END_NONE);
+	if (route == Calypso::CalypsoStatisticsReturn::Memorial)
 	{
 		_game->popState();
 	}

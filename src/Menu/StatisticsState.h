@@ -22,10 +22,16 @@
 namespace OpenXcom
 {
 
+namespace Calypso
+{
+class CalypsoStatisticsStateUi;
+}
+
 class TextButton;
 class Window;
 class Text;
 class TextList;
+class TTFFont;
 
 /**
  * Statistics window that shows up
@@ -33,11 +39,19 @@ class TextList;
  */
 class StatisticsState : public State
 {
+friend class Calypso::CalypsoStatisticsStateUi;
 private:
 	TextButton *_btnOk;
 	Window *_window;
 	Text *_txtTitle;
 	TextList *_lstStats;
+#ifdef __EMSCRIPTEN__
+	TextButton *_btnScrollUp = nullptr;
+	TextButton *_btnScrollDown = nullptr;
+	bool _hdLayout = false;
+	TTFFont *_hdFont = nullptr;
+	std::uint64_t _focusGeneration = 0;
+#endif
 
 	// Sums a list of numbers.
 	template <typename T>
@@ -49,6 +63,12 @@ public:
 	~StatisticsState();
 	/// Gets the save stats.
 	void listStats();
+	void handle(Action *action) override;
+	void resize(int &dX, int &dY) override;
+	/// Handler for the F34 statistics scroll-up control.
+	void btnScrollUpClick(Action *action);
+	/// Handler for the F34 statistics scroll-down control.
+	void btnScrollDownClick(Action *action);
 	/// Handler for clicking the Ok button.
 	void btnOkClick(Action *action);
 };

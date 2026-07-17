@@ -80,9 +80,16 @@ protected:
 	float _uiScale = 1.0f;                 ///< last applied uniform scale
 	float _uiFactor = 1.0f;                ///< per-screen multiplier on the fill scale (1.0 = fill)
 	/// Calypso: capture native geometry of every added surface (call AFTER
-	/// centerAllSurfaces) and lay the state out scaled to fill the logical buffer.
+	/// centerAllSurfaces) and lay the state out scaled to fill the logical
+	/// buffer.
 	/// @param factor per-screen size multiplier (>1 bigger, <1 smaller than fill).
 	void enableUiScaling(int designW = 320, int designH = 200, float factor = 1.0f);
+	/// Variant for states that have assigned authored coordinates directly and
+	/// must not depend on Screen::DX/DY while capturing them.
+	/// @param geometryIsDesignSpace true when the caller has assigned authored
+	/// design coordinates directly and must not depend on Screen::DX/DY.
+	void enableUiScaling(int designW, int designH, float factor,
+		bool geometryIsDesignSpace);
 	/// Calypso: re-apply the uniform UI scale (call from a resize() override).
 	void applyUiScaling();
 	/// Calypso: opt every Text / TextButton in the state into HD TTF rendering.

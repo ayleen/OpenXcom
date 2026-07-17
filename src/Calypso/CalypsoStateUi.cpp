@@ -20,13 +20,18 @@ namespace OpenXcom
 
 void State::enableUiScaling(int designW, int designH, float factor)
 {
+	enableUiScaling(designW, designH, factor, false);
+}
+
+void State::enableUiScaling(int designW, int designH, float factor, bool geometryIsDesignSpace)
+{
 	if (_uiCaptured || designW <= 0 || designH <= 0) return;
 	_uiDesignW = designW;
 	_uiDesignH = designH;
 	_uiFactor = factor > 0.0f ? factor : 1.0f;
 	_uiNative.clear();
-	const int dx = _game->getScreen()->getDX();
-	const int dy = _game->getScreen()->getDY();
+	const int dx = geometryIsDesignSpace ? 0 : _game->getScreen()->getDX();
+	const int dy = geometryIsDesignSpace ? 0 : _game->getScreen()->getDY();
 	for (auto* surf : _surfaces)
 	{
 		_uiNative.push_back({ surf, surf->getX() - dx, surf->getY() - dy,

@@ -24,6 +24,9 @@
 #include "../Interface/Window.h"
 #include "../Interface/Text.h"
 #include "../Engine/Options.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoCommonRecordsStateUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -105,6 +108,19 @@ void ErrorMessageState::create(const std::string &str, SDL_Color *palette, Uint8
 		_btnOk->setHighContrast(true);
 		_txtMessage->setHighContrast(true);
 	}
+
+#ifdef __EMSCRIPTEN__
+	_hdLayout = _game && _game->getMod() && _game->getMod()->isHdUiFamilyEnabled("F34");
+	Calypso::CalypsoErrorMessageStateUi::configure(*this);
+#endif
+}
+
+void ErrorMessageState::resize(int &dX, int &dY)
+{
+#ifdef __EMSCRIPTEN__
+	if (Calypso::CalypsoErrorMessageStateUi::resize(*this)) return;
+#endif
+	State::resize(dX, dY);
 }
 
 /**

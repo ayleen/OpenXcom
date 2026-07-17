@@ -9,6 +9,7 @@ set ( calypso_src
   Calypso/CalypsoAiQaHarness.cpp
   Calypso/CalypsoAlienPacing.cpp
   Calypso/CalypsoContractDeliverState.cpp
+	Calypso/CalypsoCommonRecordsStateUi.cpp
   Calypso/CalypsoEconomy.cpp
   Calypso/CalypsoEconomyState.cpp
   Calypso/CalypsoMarket.cpp
@@ -892,6 +893,7 @@ if(NOT EMSCRIPTEN AND BUILD_TESTING)
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoResolutionFloorTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoTextEditLayoutTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHudLayoutCacheTest.cpp
+		${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoCommonRecordsTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/AITuningTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/AIFailureMemoryTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/Phase43CompositionTest.cpp

@@ -23,19 +23,31 @@
 namespace OpenXcom
 {
 
+namespace Calypso
+{
+class CalypsoErrorMessageStateUi;
+}
+
 class TextButton;
 class Window;
 class Text;
+class TTFFont;
 
 /**
  * Generic window used to display error messages.
  */
 class ErrorMessageState : public State
 {
+friend class Calypso::CalypsoErrorMessageStateUi;
 private:
 	TextButton *_btnOk;
 	Window *_window;
 	Text *_txtMessage;
+#ifdef __EMSCRIPTEN__
+	bool _hdLayout = false;
+	TTFFont *_hdFont = nullptr;
+	std::uint64_t _focusGeneration = 0;
+#endif
 
 	void create(const std::string &str, SDL_Color *palette, Uint8 color, const std::string &bg, int bgColor, Uint8 color2);
 public:
@@ -43,6 +55,7 @@ public:
 	ErrorMessageState(const std::string &msg, SDL_Color *palette, Uint8 color, const std::string &bg, int bgColor, Uint8 color2 = 0);
 	/// Cleans up the Error state.
 	~ErrorMessageState();
+	void resize(int &dX, int &dY) override;
 	/// Handler for clicking the OK button.
 	void btnOkClick(Action *action);
 };

@@ -138,6 +138,11 @@ void CalypsoTutorial::anchorAll(std::initializer_list<CalypsoAnchorSpec> specs)
 	}
 }
 
+void CalypsoTutorial::eraseAnchor(const std::string& key)
+{
+	_anchors.erase(key);
+}
+
 bool CalypsoTutorial::anchorRect(const std::string& key, SDL_Rect& out) const
 {
 	auto it = _anchors.find(key);

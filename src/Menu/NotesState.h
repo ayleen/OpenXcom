@@ -25,6 +25,11 @@
 namespace OpenXcom
 {
 
+namespace Calypso
+{
+class CalypsoNotesStateUi;
+}
+
 class TextButton;
 class Window;
 class Text;
@@ -38,6 +43,7 @@ class TTFFont;
  */
 class NotesState : public State
 {
+friend class Calypso::CalypsoNotesStateUi;
 protected:
 	Window* _window;
 	Text* _txtTitle;
@@ -61,6 +67,12 @@ protected:
 	int _deleteRow;
 	int _hdListSelection;
 	std::uint64_t _focusGeneration;
+	bool _hdListPointerDown;
+	bool _hdListDrag;
+	bool _hdListActivationArmed;
+	int _hdListPressedRow;
+	double _hdListPointerX;
+	double _hdListPointerY;
 	std::vector<std::string> _originalNotes;
 	std::vector<std::string> _workingNotes;
 

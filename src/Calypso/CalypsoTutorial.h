@@ -48,6 +48,8 @@ public:
 	void pump(Game* game);                               // per-frame; pushes popup if queued
 	void anchor(const std::string& key, int x, int y, int w, int h);
 	void anchorAll(std::initializer_list<CalypsoAnchorSpec> specs);
+	/// Removes a value-copied anchor when its control is no longer visible.
+	void eraseAnchor(const std::string& key);
 	bool anchorRect(const std::string& key, SDL_Rect& out) const;
 	void markShown(const std::string& stepId);
 	/// Preserve an interrupted popup's unshown steps until the next event.

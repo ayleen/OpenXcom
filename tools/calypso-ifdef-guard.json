@@ -11,6 +11,9 @@
     "src/Battlescape/BattlescapeState.cpp",
     "src/Basescape/PurchaseState.cpp",
     "src/Basescape/SellState.cpp",
-    "src/Geoscape/GeoscapeState.cpp"
+    "src/Geoscape/GeoscapeState.cpp",
+    "src/Menu/ErrorMessageState.cpp",
+    "src/Menu/NotesState.cpp",
+    "src/Menu/StatisticsState.cpp"
   ]
 }
