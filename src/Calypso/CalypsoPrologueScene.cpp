@@ -19,6 +19,7 @@
 #include "CalypsoPrologueMath.h"
 #include "CalypsoPrologueCampaign.h"
 #include "CalypsoPrologueEndState.h"
+#include "CalypsoTutorial.h"
 
 #include "../Battlescape/BattlescapeGame.h"
 #include "../Battlescape/BattlescapeState.h"
@@ -300,7 +301,7 @@ void CalypsoPrologueScene::onBattleStart(BattlescapeGame *bg)
 	// beats are gated on Ph::MoveToOffice so a firefight never gets a
 	// tutorial toast. Pushed in REVERSE of on-screen order (LIFO stack): the
 	// landing line shows first, then the movement hint.
-	radio(STR_PROLOGUE_HINT_MOVE);
+	radio(STR_PROLOGUE_HINT_MOVE, CalypsoRadioLineKind::Instruction);
 	radio(STR_PROLOGUE_RADIO_LANDING);
 }
 
@@ -494,8 +495,8 @@ void CalypsoPrologueScene::onPlayerTurnStart(BattlescapeGame *bg)
 		// Ph::MoveToOffice gate above keeps hints out of the post-ambush
 		// firefight. On turn 3 the first nag line (below) may push after the
 		// TU hint -- two short toasts on one turn, nag first (LIFO), is fine.
-		if (save->getTurn() == 2)      radio(STR_PROLOGUE_HINT_CAMERA);
-		else if (save->getTurn() == 3) radio(STR_PROLOGUE_HINT_TU);
+		if (save->getTurn() == 2)      radio(STR_PROLOGUE_HINT_CAMERA, CalypsoRadioLineKind::Instruction);
+		else if (save->getTurn() == 3) radio(STR_PROLOGUE_HINT_TU, CalypsoRadioLineKind::Instruction);
 
 		int stage = Calypso::escalationStage(save->getTurn(), FIRST_NAG_TURN, FALLBACK_TURN);
 		if (stage >= 0 && stage != _lastNagStage)
@@ -1113,9 +1114,12 @@ void CalypsoPrologueScene::collectTakenBodies(BattlescapeGame *bg)
 	_pendingTakenIds.clear();
 }
 
-void CalypsoPrologueScene::radio(const std::string &stringId) const
+void CalypsoPrologueScene::radio(const std::string &stringId, CalypsoRadioLineKind kind) const
 {
-	CalypsoDirector::get().radioLine(getCurrentGame(), stringId);
+	// Instructions are deliberately tagged at their scenario call sites; the
+	// UI never guesses semantics from a localization-key naming convention.
+	if (kind == CalypsoRadioLineKind::Instruction && !CalypsoTutorial::get().guidanceConfigured()) return;
+	CalypsoDirector::get().radioLine(getCurrentGame(), stringId, kind);
 }
 
 // --------------------------------------------------------------------------- //

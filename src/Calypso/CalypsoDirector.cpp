@@ -330,13 +330,13 @@ void CalypsoDirector::pinMorale(SavedBattleGame *save, UnitFaction side)
 	}
 }
 
-void CalypsoDirector::radioLine(Game *game, const std::string &stringId)
+void CalypsoDirector::radioLine(Game *game, const std::string &stringId, CalypsoRadioLineKind kind)
 {
 	if (!_scene || !game || stringId.empty()) return;
 	// Transient toast (CalypsoRadioLineState) that shows tr(stringId) through
 	// the existing tutorial DOM overlay. See CalypsoRadioLineState.h for why
 	// CalypsoTutorialState is not reused here.
-	game->pushState(new CalypsoRadioLineState(stringId));
+	game->pushState(new CalypsoRadioLineState(stringId, kind));
 }
 
 void CalypsoDirector::endScene(BattlescapeGame *bg, int outcome)

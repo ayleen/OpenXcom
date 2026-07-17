@@ -62,7 +62,7 @@ extern const std::string PROLOGUE_AUTOSAVE_FILENAME;
 /// mod, so the engine never hard-depends on it). `ironman` is the New Game
 /// screen's toggle -- stashed alongside the difficulty so neither the decline
 /// path nor the post-prologue campaign silently drops the player's choice.
-bool maybeOfferPrologue(Game *game, GameDifficulty diff, bool ironman);
+bool maybeOfferPrologue(Game *game, GameDifficulty diff, bool ironman, bool tutorial);
 
 /// The difficulty stashed by maybeOfferPrologue -- valid between the ask
 /// state's construction and the prologue's resolution (Yes or No). Used by

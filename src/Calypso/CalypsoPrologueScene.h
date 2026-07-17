@@ -130,7 +130,7 @@ private:
 	/// after the Choir turn that dropped them), before the rolling autosave so
 	/// a reload never resurrects a collected body.
 	void collectTakenBodies(BattlescapeGame *bg);
-	void radio(const std::string &stringId) const;
+	void radio(const std::string &stringId, CalypsoRadioLineKind kind = CalypsoRadioLineKind::Narrative) const;
 
 	// ---- state ----------------------------------------------------------------
 	Ph _phase = Ph::Landing;

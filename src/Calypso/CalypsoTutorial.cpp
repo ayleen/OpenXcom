@@ -15,10 +15,10 @@
 #include <algorithm>
 
 #include "CalypsoTutorial.h"
+#include "CalypsoTutorialPolicy.h"
 #include "CalypsoAdvisor.h"
 #include "../Engine/Surface.h"
 #include "CalypsoTutorialState.h"
-#include "CalypsoTutorialAskState.h"
 #include "../Engine/Game.h"
 #include "../Engine/Options.h"
 #include "../Engine/Logger.h"
@@ -40,7 +40,12 @@ CalypsoTutorial& CalypsoTutorial::get()
 bool CalypsoTutorial::isActive(const Game* game) const
 {
 	if (!game) return false;
-	return Options::calypsoTutorial && _campaignEnabled;
+	return Calypso::genericTutorialEnabled(Options::calypsoTutorial, _campaignEnabled);
+}
+
+bool CalypsoTutorial::guidanceConfigured() const
+{
+	return Calypso::prologueGuidanceEnabled(Options::calypsoTutorial, _configuredEnabled);
 }
 
 void CalypsoTutorial::fire(Game* game, const std::string& event, const std::string& arg)
@@ -89,18 +94,9 @@ void CalypsoTutorial::fire(Game* game, const std::string& event, const std::stri
 
 void CalypsoTutorial::pump(Game* game)
 {
-	if (_queue.empty() && !_askPending) return;
+	if (_queue.empty()) return;
 	if (_holdWhileDogfight) return;
 	if (_popupActive) return; // popup-over-popup guard (state resets this in its dtor)
-
-	if (_askPending)
-	{
-		_askPending = false;
-		if (!Options::calypsoTutorial) return;  // globally off: never ask
-		_popupActive = true;
-		game->pushState(new CalypsoTutorialAskState());
-		return;   // queued steps (geoWelcome) show after the ask closes
-	}
 
 	// Drain the entire queue into one popup; steps are shown back-to-back and
 	// the state pops itself when the batch is exhausted. Its dtor calls
@@ -181,6 +177,22 @@ void CalypsoTutorial::disableForCampaign()
 	_deferred.clear();
 }
 
+void CalypsoTutorial::beginCampaign(bool enabled)
+{
+	resetCampaign();
+	_configuredEnabled = enabled;
+	_campaignEnabled = enabled;
+}
+
+void CalypsoTutorial::suspendForPrologue()
+{
+	// The scripted battle must not display the generic campaign tutorial, but
+	// keep the user's new-game choice for finishPrologue() and autosave reload.
+	_campaignEnabled = false;
+	_queue.clear();
+	_deferred.clear();
+}
+
 void CalypsoTutorial::toggleDisabled()
 {
 	if (_campaignEnabled)
@@ -199,6 +211,7 @@ void CalypsoTutorial::resetCampaign()
 {
 	_shown.clear();
 	_campaignEnabled = true;
+	_configuredEnabled = true;
 	_queue.clear();
 	_deferred.clear();
 	_holdWhileDogfight = false;
@@ -211,6 +224,7 @@ void CalypsoTutorial::save(YAML::YamlNodeWriter writer) const
 {
 	writer.setAsMap();                                  // ensure the node is a map
 	writer.write("enabled", _campaignEnabled);
+	writer.write("configuredEnabled", _configuredEnabled);
 	// _shown is std::set<std::string>; serialize as a sequence of strings.
 	// YamlNodeWriter::write(key, vec) works for std::vector<std::string>
 	// (matches the SavedGame.cpp "mods" precedent); convert here.
@@ -227,6 +241,9 @@ void CalypsoTutorial::load(const YAML::YamlNodeReader& reader)
 	_queue.clear();
 	_deferred.clear();
 	_campaignEnabled = reader["enabled"].readVal<bool>(true);
+	// Older saves have no separate configured value; their live value is the
+	// only safe compatibility default.
+	_configuredEnabled = reader["configuredEnabled"].readVal<bool>(_campaignEnabled);
 	if (reader["shown"])
 	{
 		auto shownVec = reader["shown"].readVal<std::vector<std::string>>(std::vector<std::string>{});

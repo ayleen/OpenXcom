@@ -44,6 +44,7 @@
 #include <functional>
 #include <map>
 #include "../Battlescape/Position.h"
+#include "CalypsoRadioLineState.h"
 
 namespace OpenXcom
 {
@@ -226,7 +227,8 @@ public:
 	/// Push a transient radio-line popup showing tr(stringId). No-op without an
 	/// active scene. Renders through the tutorial DOM overlay (no web-shell change
 	/// required for this commit; presentation may be skinned later).
-	void radioLine(Game *game, const std::string &stringId);
+	void radioLine(Game *game, const std::string &stringId,
+		CalypsoRadioLineKind kind = CalypsoRadioLineKind::Narrative);
 
 	/// Record a scene outcome and drive the battle to its end. The outcome is
 	/// consumed by interceptFinishBattle (hooked in BattlescapeState::finishBattle),

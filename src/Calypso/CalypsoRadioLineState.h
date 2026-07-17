@@ -31,16 +31,22 @@
 namespace OpenXcom
 {
 
+enum class CalypsoRadioLineKind { Narrative, Instruction };
+
 class CalypsoRadioLineState : public State
 {
 public:
-	explicit CalypsoRadioLineState(std::string stringId);
+	explicit CalypsoRadioLineState(std::string stringId, CalypsoRadioLineKind kind);
 	~CalypsoRadioLineState();
 	void init() override;
 	void think() override;
+	void handle(Action *action) override;
+	void dismiss();
 private:
 	std::string _stringId;
-	int _ticks = 0;
+	CalypsoRadioLineKind _kind;
+	Uint32 _shownAt = 0;
+	unsigned _durationMs = 0;
 };
 
 } // namespace OpenXcom

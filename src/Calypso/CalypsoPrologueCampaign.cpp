@@ -128,9 +128,12 @@ namespace
 	}
 } // namespace
 
-bool maybeOfferPrologue(Game *game, GameDifficulty diff, bool ironman)
+bool maybeOfferPrologue(Game *game, GameDifficulty diff, bool ironman, bool tutorial)
 {
 	if (!game || !game->getMod()) return false;
+	// Tutorial-off means no prologue offer.  In particular, do not set the
+	// global seen marker: a later tutorial-enabled campaign may still offer it.
+	if (!tutorial) return false;
 	if (Options::calypsoPrologueSeen) return false;
 	if (game->getMod()->getDeployment(PROLOGUE_DEPLOYMENT) == nullptr)
 	{
@@ -158,8 +161,7 @@ void vanillaNewGameTail(Game *game, GameDifficulty diff)
 	save->setIronman(s_stashedIronman); // honor the New Game screen's toggle (stashed by maybeOfferPrologue)
 	game->setSavedGame(save);
 
-	CalypsoTutorial::get().resetCampaign();
-	CalypsoTutorial::get().requestAsk(); // Phase 39: first-run enable prompt
+	CalypsoTutorial::get().beginCampaign(CalypsoTutorial::get().configuredEnabled());
 
 	pushGeoscapeAndBaseChain(game, save);
 }
@@ -184,7 +186,7 @@ void launchScriptedBattle(Game *game, const std::string &deploymentId, bool prev
 		// otherwise still fire because CalypsoTutorial is a process-wide
 		// singleton with no notion of "this is a preview save". Heavy-handed
 		// is fine here: this only ever runs for a throwaway preview session.
-		CalypsoTutorial::get().disableForCampaign();
+		CalypsoTutorial::get().suspendForPrologue();
 	}
 
 	// Fresh throwaway SavedGame -- ctor default _monthsPassed=-1 is exactly
@@ -203,15 +205,15 @@ void launchScriptedBattle(Game *game, const std::string &deploymentId, bool prev
 	// during the prologue and contradicts the directed scene (it teaches
 	// shooting/kneeling and promises the mission ends when the Choir is
 	// neutralized). Suppress it for the scripted battle -- finishPrologue()
-	// (and the decline path) call resetCampaign()+requestAsk(), so the real
-	// campaign still gets its Phase 39 first-run tutorial ask. Review round 2
+	// (and the decline path) restore the configured campaign choice before
+	// Geoscape initialization. Review round 2
 	// (P1, finding 3): prologue-specific micro-prompts (move/camera/TU
 	// before the ambush) are NOT deferred anymore -- CalypsoPrologueScene::
 	// onBattleStart fires them itself, through the radio-toast primitive,
 	// independently of this flag (see that comment for why reusing
 	// CalypsoTutorialState directly would have been the wrong call here).
 	if (!preview) // preview already disabled it above
-		CalypsoTutorial::get().disableForCampaign();
+		CalypsoTutorial::get().suspendForPrologue();
 	Base *base = new Base(mod);
 	YAML::YamlRootNodeReader startingBaseReader(mod->getDefaultStartingBase(), "(prologue starting base template)");
 	base->load(startingBaseReader, save, true, true);
@@ -362,8 +364,7 @@ void finishPrologue(Game *game, int outcome)
 	CrossPlatform::deleteFile(Options::getMasterUserFolder() + PROLOGUE_AUTOSAVE_FILENAME);
 	EM_ASM(({ FS.syncfs(false, function(err) { if (err) console.error('[calypso] syncfs error', err); }); }));
 
-	CalypsoTutorial::get().resetCampaign();
-	CalypsoTutorial::get().requestAsk();
+	CalypsoTutorial::get().beginCampaign(CalypsoTutorial::get().configuredEnabled());
 
 	pushGeoscapeAndBaseChain(game, save);
 }

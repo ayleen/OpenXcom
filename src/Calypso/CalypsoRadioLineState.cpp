@@ -9,17 +9,15 @@
 #include <emscripten.h>
 
 #include "CalypsoRadioLineState.h"
+#include "CalypsoRadioLineTiming.h"
+#include "../Engine/Action.h"
 #include "../Engine/Game.h"  // Game::popState (State.h only forward-declares Game)
 
 namespace OpenXcom
 {
 
-/// Auto-dismiss after this many think() ticks (~2s at the main-loop frame rate;
-/// intentionally short for a radio blip -- tunable in a later commit if needed).
-static const int RADIO_LINE_TICKS = 120;
-
-CalypsoRadioLineState::CalypsoRadioLineState(std::string stringId)
-	: _stringId(std::move(stringId))
+CalypsoRadioLineState::CalypsoRadioLineState(std::string stringId, CalypsoRadioLineKind kind)
+	: _stringId(std::move(stringId)), _kind(kind)
 {
 	// _screen=false -> non-fullscreen modal (like PauseState / CalypsoTutorialState).
 	// No surfaces are added; the popup is pure DOM overlay.
@@ -44,21 +42,55 @@ void CalypsoRadioLineState::init()
 	EM_ASM_(
 	{
 		if (globalThis.__calypsoRadioShow)
-			globalThis.__calypsoRadioShow(UTF8ToString($0));
+			globalThis.__calypsoRadioShow(UTF8ToString($0), $1);
 	},
-		body.c_str());
+		body.c_str(), _kind == CalypsoRadioLineKind::Instruction ? 1 : 0);
+	_shownAt = SDL_GetTicks();
+	_durationMs = Calypso::radioNarrativeDurationMs(body);
 }
 
 void CalypsoRadioLineState::think()
 {
 	State::think();
-	if (++_ticks >= RADIO_LINE_TICKS)
+	if (_kind == CalypsoRadioLineKind::Narrative && SDL_GetTicks() - _shownAt >= _durationMs)
+		dismiss();
+}
+
+void CalypsoRadioLineState::handle(Action *action)
+{
+	if (action && action->getDetails()->type == SDL_KEYDOWN)
 	{
-		EM_ASM_({ if (globalThis.__calypsoRadioHide) globalThis.__calypsoRadioHide(); });
-		_game->popState();
+		const SDL_Keycode key = action->getDetails()->key.keysym.sym;
+		if (key == SDLK_RETURN || key == SDLK_KP_ENTER || key == SDLK_SPACE || key == SDLK_ESCAPE)
+		{
+			dismiss();
+			return; // do not leak an intentional dismissal into Battlescape
+		}
 	}
+	State::handle(action);
+}
+
+void CalypsoRadioLineState::dismiss()
+{
+	EM_ASM_({ if (globalThis.__calypsoRadioHide) globalThis.__calypsoRadioHide(); });
+	_game->popState();
 }
 
 } // namespace OpenXcom
+
+extern "C" {
+
+EMSCRIPTEN_KEEPALIVE
+int calypso_radio_dismiss()
+{
+	OpenXcom::Game *game = OpenXcom::getCurrentGame();
+	if (!game) return 0;
+	auto *state = dynamic_cast<OpenXcom::CalypsoRadioLineState *>(game->getTopState());
+	if (!state) return 0;
+	state->dismiss();
+	return 1;
+}
+
+}
 
 #endif // __EMSCRIPTEN__
