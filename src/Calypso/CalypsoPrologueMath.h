@@ -67,6 +67,40 @@ inline bool shouldConcealPrologueMarksman(bool marksmanRevealed)
 	return !marksmanRevealed;
 }
 
+/// The Assessor's ambush death closes that Choir turn. The retreat gauntlet
+/// starts on the following hostile turn, and each resolved gauntlet victim
+/// closes its own hostile turn. Without both boundaries the idle pump can
+/// select a new crew member immediately and consume the whole squad at once.
+inline bool shouldEndChoirTurnAfterAmbushDeath()
+{
+	return true;
+}
+
+/// Step 2 is the scene's idle/end-turn state. It must survive the engine's
+/// HOSTILE -> NEUTRAL -> PLAYER transitions and may be reset only by the next
+/// real hostile-turn callback.
+inline int gauntletStepAfterAmbushDeath()
+{
+	return 2;
+}
+
+enum class PrologueTurnSide { Player, Hostile, Neutral };
+
+inline bool mayPumpPrologueEnemyStep(PrologueTurnSide side)
+{
+	return side == PrologueTurnSide::Hostile;
+}
+
+inline int gauntletStepAfterTurnStart(int currentStep, PrologueTurnSide side)
+{
+	return side == PrologueTurnSide::Hostile ? 0 : currentStep;
+}
+
+inline bool shouldEndChoirTurnAfterGauntletVictimDeath(bool inGauntlet, bool wasCurrentVictim)
+{
+	return inGauntlet && wasCurrentVictim;
+}
+
 /// Compatibility rule for saves created before scripted handoff state was
 /// serialized. Any post-ambush scene phase necessarily implies Nikos should
 /// already belong to the player; a pre-ambush phase never does.

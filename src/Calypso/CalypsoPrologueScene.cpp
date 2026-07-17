@@ -18,6 +18,7 @@
 #include "CalypsoPrologueScene.h"
 #include "CalypsoPrologueMath.h"
 #include "CalypsoPrologueCampaign.h"
+#include "CalypsoPrologueSetup.h"
 #include "CalypsoPrologueEndState.h"
 #include "CalypsoTutorial.h"
 
@@ -61,6 +62,10 @@ namespace OpenXcom
 // clustered tightly at (45,7) (44,7) (45,6) -- comfortably inside this rect.
 static const Calypso::Rect EXIT_AREA{ 40, 0, 48, 12 };
 static const Position EXIT_AREA_CENTER(44, 6, 0);
+// The harbor-office cluster is the NW 20x20 block. Its middle is an
+// intentionally broad visual destination, rather than a scripted arrival
+// trigger: the ambush still uses the existing route-progress calculation.
+static const Position OFFICE_GOAL(10, 10, 0);
 
 // Distance (Chebyshev tiles) the Assessor + one other unit must clear from the
 // Nereid before the ambush can trigger. Office cluster occupies grid [0,0]
@@ -83,6 +88,23 @@ static const int SHOT_CAP_PER_TURN = 4;
 // must keep him from the Nereid (he has no other mover) -- see
 // checkNikosPathCost.
 static const int NIKOS_MIN_TURNS = 5;
+
+// `BattlescapeState::init()` draws the map and populates the visible-unit HUD
+// before the director gets its onBattleStart hook. A conceal/reveal change
+// therefore must refresh both FOV data and those already-populated display
+// caches; recalculating FOV alone leaves a stale indicator/map frame.
+static void refreshScriptedVisibility(BattlescapeGame *bg)
+{
+	if (!bg) return;
+	SavedBattleGame *save = bg->getSave();
+	if (!save) return;
+	if (TileEngine *tileEngine = save->getTileEngine())
+		tileEngine->recalculateFOV();
+	if (Map *map = bg->getMap())
+		map->invalidate();
+	if (BattlescapeState *state = save->getBattleState())
+		state->updateSoldierInfo();
+}
 
 // Herder waypoints: pen -> squad midpoint -> the Nereid itself. Midpoint of
 // the craft-to-office march (EXIT_AREA_CENTER (44,6) <-> office center
@@ -257,8 +279,7 @@ void CalypsoPrologueScene::onBattleStart(BattlescapeGame *bg)
 	placeMarksman(bg);
 	if (BattleUnit *marksman = findUnit(bg->getSave(), _marksmanId))
 		marksman->setScriptedConcealed(true);
-	if (bg->getSave()->getTileEngine())
-		bg->getSave()->getTileEngine()->recalculateFOV();
+	refreshScriptedVisibility(bg);
 	// Review round 2 (P1, finding 1): the Assessor MUST land on a real free
 	// craft deployment slot -- a mis-placed Assessor breaks the ambush-
 	// trigger geometry (TRIGGER_DIST is measured from EXIT_AREA/the Nereid).
@@ -285,6 +306,12 @@ void CalypsoPrologueScene::onBattleStart(BattlescapeGame *bg)
 	// D2: rolled once, drives which pattern the first post-Assessor death uses.
 	_leaderDiesFirst = RNG::percent(50);
 	_phase = Ph::MoveToOffice;
+	// This shared reconciliation path also repairs pre-fix autosaves on resume;
+	// using it here prevents fresh-start and loaded-start setup from drifting.
+	reconcileScriptedUnitState(bg);
+	if (Map *map = bg->getMap())
+		if (Camera *camera = map->getCamera())
+			camera->centerOnPosition(OFFICE_GOAL);
 
 	// Review round 2 (P1, finding 3): the generic Phase 37/39 battlescape
 	// tutorial is correctly suppressed for the whole prologue battle
@@ -492,8 +519,21 @@ void CalypsoPrologueScene::reconcileScriptedUnitState(BattlescapeGame *bg)
 	if ((_phase == Ph::MoveToOffice || _phase == Ph::Ambushed))
 	{
 		if (BattleUnit *assessor = findUnit(save, _assessorId))
-			if (!assessor->isOut() && !assessor->hasScriptedPlayerControl())
-				CalypsoDirector::get().handoffToPlayer(bg, assessor);
+		{
+			if (!assessor->isOut())
+			{
+				// Old prologue saves retain the ruleset value serialized into the
+				// BattleUnit. Repair both max and current TU exactly once: once the
+				// base is 54, later reconcile calls never refill spent TU.
+				if (Calypso::prologueAssessorTimeUnitsNeedRepair(assessor->getBaseStats()->tu))
+				{
+					assessor->getBaseStats()->tu = Calypso::PROLOGUE_ASSESSOR_TIME_UNITS;
+					assessor->setTimeUnits(Calypso::PROLOGUE_ASSESSOR_TIME_UNITS);
+				}
+				if (!assessor->hasScriptedPlayerControl())
+					CalypsoDirector::get().handoffToPlayer(bg, assessor);
+			}
+		}
 	}
 
 	// Gauntlet and evacuation-only phases imply that the post-ambush handoff
@@ -506,8 +546,22 @@ void CalypsoPrologueScene::reconcileScriptedUnitState(BattlescapeGame *bg)
 				CalypsoDirector::get().handoffToPlayer(bg, nikos);
 	}
 
-	if (visibilityChanged && save->getTileEngine())
-		save->getTileEngine()->recalculateFOV();
+	if (visibilityChanged)
+		refreshScriptedVisibility(bg);
+	syncOfficeObjectiveMarker(bg);
+}
+
+void CalypsoPrologueScene::syncOfficeObjectiveMarker(BattlescapeGame *bg)
+{
+	if (!bg) return;
+	if (Map *map = bg->getMap())
+	{
+		if (Calypso::prologueOfficeMarkerVisible(
+			_inert, _endingTriggered, _phase == Ph::MoveToOffice))
+			map->setScriptedObjectiveMarker(OFFICE_GOAL);
+		else
+			map->clearScriptedObjectiveMarker();
+	}
 }
 
 void CalypsoPrologueScene::revealMarksman(BattlescapeGame *bg)
@@ -518,8 +572,7 @@ void CalypsoPrologueScene::revealMarksman(BattlescapeGame *bg)
 	SavedBattleGame *save = bg->getSave();
 	if (BattleUnit *marksman = findUnit(save, _marksmanId))
 		marksman->setScriptedConcealed(false);
-	if (save && save->getTileEngine())
-		save->getTileEngine()->recalculateFOV();
+	refreshScriptedVisibility(bg);
 }
 
 void CalypsoPrologueScene::focusNikosOnPlayerTurn(BattlescapeGame *bg)
@@ -611,7 +664,8 @@ void CalypsoPrologueScene::onEnemyTurnStart(BattlescapeGame *bg)
 	// Reset the per-Choir-turn step machine (D1: onEnemyTurnIdle pumps it).
 	if (_inert) return;
 	reconcileScriptedUnitState(bg);
-	_gauntletStep = 0;
+	_gauntletStep = Calypso::gauntletStepAfterTurnStart(
+		_gauntletStep, Calypso::PrologueTurnSide::Hostile);
 	_currentVictimId = -1;
 	_shotsThisTurn = 0;
 	_diverMissFired = false;
@@ -620,6 +674,15 @@ void CalypsoPrologueScene::onEnemyTurnStart(BattlescapeGame *bg)
 bool CalypsoPrologueScene::onEnemyTurnIdle(BattlescapeGame *bg)
 {
 	if (!bg) return false;
+	SavedBattleGame *save = bg->getSave();
+	// BattlescapeGame routes every non-player side through handleAI(), including
+	// the neutral interstitial turn. Scripted attacks are Choir-only: returning
+	// false here lets the engine end the neutral turn without advancing phases.
+	if (!save || !Calypso::mayPumpPrologueEnemyStep(
+		save->getSide() == FACTION_HOSTILE
+			? Calypso::PrologueTurnSide::Hostile
+			: Calypso::PrologueTurnSide::Neutral))
+		return false;
 	// An armed ending outranks the step machine; it tears the battle down.
 	if (resolvePendingEnding(bg)) return false;
 	if (_inert || _evacOnly) return false;
@@ -645,6 +708,7 @@ bool CalypsoPrologueScene::stepMoveToOffice(BattlescapeGame *bg)
 		// Shouldn't happen this early -- fail safe into the transition instead
 		// of stalling the script forever.
 		_phase = Ph::Ambushed;
+		syncOfficeObjectiveMarker(bg);
 		return true;
 	}
 
@@ -663,6 +727,7 @@ bool CalypsoPrologueScene::stepMoveToOffice(BattlescapeGame *bg)
 
 	radio(STR_PROLOGUE_RADIO_AMBUSH);
 	_phase = Ph::Ambushed;
+	syncOfficeObjectiveMarker(bg);
 	_shotsThisTurn = 0;
 	return stepAmbushed(bg); // fire the first shot in the same call
 }
@@ -683,10 +748,16 @@ bool CalypsoPrologueScene::stepAmbushed(BattlescapeGame *bg)
 			_nikosFocusPending = true;
 		}
 		_phase = Ph::Gauntlet;
-		_gauntletStep = 0;
+		syncOfficeObjectiveMarker(bg);
+		// Keep the scene idle across HOSTILE -> NEUTRAL -> PLAYER. The next real
+		// onEnemyTurnStart is the only callback allowed to reset this to step 0.
+		_gauntletStep = Calypso::gauntletStepAfterAmbushDeath();
 		_currentVictimId = -1;
 		_shotsThisTurn = 0;
-		return stepGauntlet(bg); // continue into the gauntlet in the same call
+		// The ambush has already consumed this Choir turn. Starting the
+		// gauntlet here would make its first crew loss happen immediately after
+		// the Assessor, contrary to the one-loss-per-Choir-turn contract.
+		return !Calypso::shouldEndChoirTurnAfterAmbushDeath();
 	}
 
 	BattleUnit *marksman = findUnit(save, _marksmanId);
@@ -876,6 +947,7 @@ void CalypsoPrologueScene::enterEvacOnly(BattlescapeGame *bg, bool announceObjec
 	SavedBattleGame *save = bg->getSave();
 	_evacOnly = true;
 	_phase = Ph::Gauntlet; // keeps the reskinned cast-off path enabled
+	syncOfficeObjectiveMarker(bg);
 	_gauntletStep = 2;
 	_currentVictimId = -1;
 	if (save)
@@ -1012,15 +1084,25 @@ void CalypsoPrologueScene::onUnitDied(BattlescapeGame *bg, BattleUnit *victim, B
 		return;
 	}
 
+	const bool wasCurrentVictim = id == _currentVictimId;
 	if (id == _leaderId && !_firstDeathDone && _phase == Ph::Gauntlet)
 	{
 		// D2: guaranteed payoff regardless of a 1-shot or 2-shot kill.
 		radio(STR_PROLOGUE_LEADER_NAME);
 		_firstDeathDone = true;
 	}
-	else if (id == _currentVictimId)
+	else if (wasCurrentVictim)
 	{
 		_firstDeathDone = true; // later gauntlet deaths are silent
+	}
+	if (Calypso::shouldEndChoirTurnAfterGauntletVictimDeath(
+		_phase == Ph::Gauntlet, wasCurrentVictim))
+	{
+		// A target can require multiple directed shots (or the scripted diver
+		// miss first), but once it dies this hostile turn has spent its one
+		// loss. Advancing to the idle/end-turn step prevents the next pump
+		// from choosing a second victim in the same Choir turn.
+		_gauntletStep = 2;
 	}
 
 	// Amendment #10 (design doc s8 #10): gauntlet losses among the crew are
@@ -1035,7 +1117,7 @@ void CalypsoPrologueScene::onUnitDied(BattlescapeGame *bg, BattleUnit *victim, B
 		_pendingTakenIds.push_back(id);
 	}
 
-	if (id == _currentVictimId) _currentVictimId = -1;
+	if (wasCurrentVictim) _currentVictimId = -1;
 
 	checkBranchB(bg);
 }

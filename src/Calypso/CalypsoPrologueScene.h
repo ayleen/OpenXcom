@@ -103,6 +103,9 @@ private:
 	void reconcileScriptedUnitState(BattlescapeGame *bg);
 	/// Release the ambusher exactly at the Assessor-death narrative gate.
 	void revealMarksman(BattlescapeGame *bg);
+	/// Keep the dedicated map beacon aligned with the MoveToOffice phase. This
+	/// also restores Map-local presentation state after loading an autosave.
+	void syncOfficeObjectiveMarker(BattlescapeGame *bg);
 	/// Complete Nikos's handoff when player input becomes actionable.
 	void focusNikosOnPlayerTurn(BattlescapeGame *bg);
 

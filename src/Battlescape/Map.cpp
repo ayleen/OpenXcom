@@ -2856,7 +2856,23 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 							}
 						}
 					}
-
+#ifdef __EMSCRIPTEN__
+					// Scripted-scene objective beacon. This has its own storage and
+					// render branch: launcher/spray `_waypoints` below remain pure
+					// BattleAction state. Frame 7 is the engine's familiar bright
+					// waypoint glyph; cover both the GPU cursor atlas and classic
+					// software blit paths just like the real waypoint renderer.
+					if (_scriptedObjectiveMarkerActive && _scriptedObjectiveMarker == mapPosition)
+					{
+						if (gpuCursorSet)
+							_cursorOverlayInstances.push_back({screenPosition.x, screenPosition.y, gpuCursorSet, 7, CS_RASTER});
+						else
+						{
+							tmpSurface = _game->getMod()->getSurfaceSet("CURSOR.PCK")->getFrame(7);
+							Surface::blitRaw(surface, tmpSurface, screenPosition.x, screenPosition.y, 0);
+						}
+					}
+#endif
 
 					// Draw waypoints if any on this tile
 					int waypid = 1;
@@ -3948,6 +3964,22 @@ std::vector<Position> *Map::getWaypoints()
 {
 	return &_waypoints;
 }
+
+#ifdef __EMSCRIPTEN__
+void Map::setScriptedObjectiveMarker(const Position &position)
+{
+	_scriptedObjectiveMarker = position;
+	_scriptedObjectiveMarkerActive = true;
+	invalidate();
+}
+
+void Map::clearScriptedObjectiveMarker()
+{
+	if (!_scriptedObjectiveMarkerActive) return;
+	_scriptedObjectiveMarkerActive = false;
+	invalidate();
+}
+#endif
 
 /**
  * Sets mouse-buttons' pressed state.

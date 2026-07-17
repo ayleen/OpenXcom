@@ -9,6 +9,7 @@
 #include <emscripten.h>
 
 #include "CalypsoRadioLineState.h"
+#include "CalypsoRadioLineLifecycle.h"
 #include "CalypsoRadioLineTiming.h"
 #include "../Engine/Action.h"
 #include "../Engine/Game.h"  // Game::popState (State.h only forward-declares Game)
@@ -35,6 +36,12 @@ void CalypsoRadioLineState::init()
 {
 	State::init();
 	std::string body = std::string(tr(_stringId));
+	// A state may be thought once immediately after pushState(), before this
+	// init() runs.  Arm the duration before exposing the overlay so that frame
+	// cannot dismiss a narrative line with its default zero timestamps.
+	_shownAt = SDL_GetTicks();
+	_durationMs = Calypso::radioNarrativeDurationMs(body);
+	_initialized = true;
 	// Bug 4 fix (QA round 1): radio lines used to reuse the tutorial popup's
 	// __calypsoTutorialShow channel, which a same-frame tutorial popup could
 	// clobber (battle start fires both). Dedicated non-modal toast channel
@@ -45,14 +52,13 @@ void CalypsoRadioLineState::init()
 			globalThis.__calypsoRadioShow(UTF8ToString($0), $1);
 	},
 		body.c_str(), _kind == CalypsoRadioLineKind::Instruction ? 1 : 0);
-	_shownAt = SDL_GetTicks();
-	_durationMs = Calypso::radioNarrativeDurationMs(body);
 }
 
 void CalypsoRadioLineState::think()
 {
 	State::think();
-	if (_kind == CalypsoRadioLineKind::Narrative && SDL_GetTicks() - _shownAt >= _durationMs)
+	if (_kind == CalypsoRadioLineKind::Narrative
+		&& Calypso::radioNarrativeShouldDismiss(_initialized, SDL_GetTicks(), _shownAt, _durationMs))
 		dismiss();
 }
 

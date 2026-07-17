@@ -3515,6 +3515,13 @@ AIAttackWeight BattleUnit::getAITargetWeightAsNeutral(const Mod *mod) const
  */
 void BattleUnit::setVisible(bool flag)
 {
+#ifdef __EMSCRIPTEN__
+	// A Calypso scripted scene can make a unit narratively absent. FOV,
+	// reaction fire and the smart-civilian relay all eventually publish through
+	// this setter, so keep the final visibility bit behind the same gate.
+	if (_scriptedConcealed && flag)
+		return;
+#endif
 	_visible = flag;
 }
 

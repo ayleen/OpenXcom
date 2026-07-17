@@ -47,6 +47,7 @@ private:
 	CalypsoRadioLineKind _kind;
 	Uint32 _shownAt = 0;
 	unsigned _durationMs = 0;
+	bool _initialized = false;
 };
 
 } // namespace OpenXcom
