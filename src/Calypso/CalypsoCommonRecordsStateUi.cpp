@@ -384,17 +384,20 @@ void CalypsoNotesStateUi::updateStatus(NotesState& state)
 	if (state._deleteRow >= 0)
 	{
 		state._txtDelete->setText(state.tr("STR_CAL_NOTES_DELETE_PROMPT"));
-		state._txtDelete->setColorRGB(0xFFFF766Fu);
+		if (state._origin != OPT_BATTLESCAPE)
+			state._txtDelete->setColorRGB(0xFFFF766Fu);
 	}
 	else if (state._workingNotes != state._originalNotes)
 	{
 		state._txtDelete->setText(state.tr("STR_CAL_NOTES_UNSAVED"));
-		state._txtDelete->setColorRGB(0xFF88AAA0u);
+		if (state._origin != OPT_BATTLESCAPE)
+			state._txtDelete->setColorRGB(0xFF88AAA0u);
 	}
 	else
 	{
 		state._txtDelete->setText("");
-		state._txtDelete->setColorRGB(0xFF88AAA0u);
+		if (state._origin != OPT_BATTLESCAPE)
+			state._txtDelete->setColorRGB(0xFF88AAA0u);
 	}
 	refreshAnchors(state);
 }
@@ -474,13 +477,18 @@ void CalypsoNotesStateUi::updateList(NotesState& state)
 		const std::string preview = Unicode::convUtf32ToUtf8(calypsoNotePreview(
 			Unicode::convUtf8ToUtf32(state._workingNotes[i]), layout.previewCharacters));
 		state._lstNotes->addRow(2, editing ? " " : preview.c_str(), "...");
-		state._lstNotes->setCellColorRGB(i, 0, 0xFFE8FFF2u);
-		state._lstNotes->setCellColorRGB(i, 1, 0xFF74FFB0u);
+		if (state._origin != OPT_BATTLESCAPE)
+		{
+			state._lstNotes->setCellColorRGB(i, 0, 0xFFE8FFF2u);
+			state._lstNotes->setCellColorRGB(i, 1, 0xFF74FFB0u);
+		}
 	}
 	state._lstNotes->addRow(2, state.tr("STR_NEW_NOTE").c_str(), "");
 	if (state._origin != OPT_BATTLESCAPE)
+	{
 		state._lstNotes->setRowColor(state._lstNotes->getLastRowIndex(), state._lstNotes->getSecondaryColor());
-	state._lstNotes->setRowColorRGB(state._lstNotes->getLastRowIndex(), 0xFF74FFB0u);
+		state._lstNotes->setRowColorRGB(state._lstNotes->getLastRowIndex(), 0xFF74FFB0u);
+	}
 	state._hdListSelection = std::max(0, std::min(state._hdListSelection, static_cast<int>(state._workingNotes.size())));
 	state._lstNotes->setSelectedRow(static_cast<size_t>(state._hdListSelection));
 	updateSelection(state);
@@ -657,10 +665,10 @@ void CalypsoNotesStateUi::beginEdit(NotesState& state, int row)
 	state._edtNote->setText(state._selectedNote);
 	state._edtNote->setVisible(true);
 	updateList(state);
-	state._lstNotes->setScrolling(true);
+	state._lstNotes->setScrolling(true, 0);
 	state._lstNotes->setSelectedRow(static_cast<size_t>(row));
 	positionEditor(state);
-	state._lstNotes->setScrolling(false);
+	state._lstNotes->setScrolling(false, 0);
 	state._edtNote->setFocus(true, true);
 }
 
@@ -673,7 +681,7 @@ void CalypsoNotesStateUi::applyEdit(NotesState& state, Action*)
 	state._edtNote->setVisible(false);
 	state._edtNote->setText("");
 	invalidateEditorArea(state);
-	state._lstNotes->setScrolling(true);
+	state._lstNotes->setScrolling(true, 0);
 	if (row >= 0 && row < static_cast<int>(state._workingNotes.size()))
 		state._workingNotes[row] = value;
 	else if (row == static_cast<int>(state._workingNotes.size()) && !value.empty())
@@ -692,7 +700,7 @@ void CalypsoNotesStateUi::cancelEdit(NotesState& state)
 	state._edtNote->setVisible(false);
 	state._edtNote->setText("");
 	invalidateEditorArea(state);
-	state._lstNotes->setScrolling(true);
+	state._lstNotes->setScrolling(true, 0);
 	state._selectedRow = -1;
 	state._selectedNote.clear();
 	updateList(state);

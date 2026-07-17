@@ -153,6 +153,11 @@ struct CalypsoF34NotesLayout
 	std::size_t previewCharacters = 0;
 };
 
+inline CalypsoF34Rect calypsoF34NotesScrollControls(const CalypsoF34NotesLayout& layout)
+{
+	return {layout.list.x + layout.list.width, layout.list.y, 13, layout.list.height};
+}
+
 inline CalypsoF34NotesLayout calypsoF34NotesLayout(CalypsoLayoutClass layoutClass)
 {
 	if (layoutClass == CalypsoLayoutClass::Wide)
@@ -162,7 +167,7 @@ inline CalypsoF34NotesLayout calypsoF34NotesLayout(CalypsoLayoutClass layoutClas
 			{690, 144, 238, 60}, {690, 330, 118, 60}, {24, 72, 440, 60},
 			{476, 72, 452, 60}, 574, 60, 60, 78};
 	return {740, 360, {8, 8, 724, 344}, {16, 16, 708, 32},
-		{512, 152, 212, 38}, {16, 102, 490, 198}, {16, 102, 424, 44},
+		{512, 152, 212, 38}, {16, 102, 477, 198}, {16, 102, 424, 44},
 		{612, 308, 112, 44}, {512, 308, 96, 44}, {622, 198, 102, 44},
 		{512, 102, 212, 44}, {512, 198, 102, 44}, {16, 52, 346, 44},
 		{378, 52, 346, 44}, 430, 44, 44, 52};
