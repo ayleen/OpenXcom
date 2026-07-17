@@ -54,6 +54,7 @@ public:
 	enum Outcome { OutcomeCastOff = 0, OutcomeAllTaken = 1 };
 
 	void onBattleStart(BattlescapeGame *bg) override;
+	void onBattleResume(BattlescapeGame *bg) override;
 	void onPlayerTurnStart(BattlescapeGame *bg) override;
 	void onEnemyTurnStart(BattlescapeGame *bg) override;
 	bool onEnemyTurnIdle(BattlescapeGame *bg) override;

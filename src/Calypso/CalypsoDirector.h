@@ -75,6 +75,9 @@ public:
 	/// Battle just started (fresh) -- the scene's first-frame setup. NOT re-called
 	/// on save/load resume (the director rebuilds the scene from the save instead).
 	virtual void onBattleStart(BattlescapeGame *) {}
+	/// Battle state has been rebuilt from a save and fresh runtime pointers are
+	/// now available. Must not repeat spawn/RNG setup from onBattleStart().
+	virtual void onBattleResume(BattlescapeGame *) {}
 	/// A new player turn has just begun (side already switched, turn incremented).
 	virtual void onPlayerTurnStart(BattlescapeGame *) {}
 	/// A new hostile turn has just begun.

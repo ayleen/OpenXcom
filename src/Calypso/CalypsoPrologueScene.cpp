@@ -515,8 +515,11 @@ void CalypsoPrologueScene::revealMarksman(BattlescapeGame *bg)
 	if (_marksmanRevealed) return;
 	_marksmanRevealed = true;
 	if (!bg) return;
-	if (BattleUnit *marksman = findUnit(bg->getSave(), _marksmanId))
+	SavedBattleGame *save = bg->getSave();
+	if (BattleUnit *marksman = findUnit(save, _marksmanId))
 		marksman->setScriptedConcealed(false);
+	if (save && save->getTileEngine())
+		save->getTileEngine()->recalculateFOV();
 }
 
 void CalypsoPrologueScene::focusNikosOnPlayerTurn(BattlescapeGame *bg)
@@ -534,6 +537,21 @@ void CalypsoPrologueScene::focusNikosOnPlayerTurn(BattlescapeGame *bg)
 	if (BattlescapeState *state = save->getBattleState())
 		state->updateSoldierInfo();
 	_nikosFocusPending = false;
+}
+
+void CalypsoPrologueScene::onBattleResume(BattlescapeGame *bg)
+{
+	if (!bg || _inert) return;
+	// Do not call onBattleStart: loading must neither re-place actors nor roll
+	// the ambush pattern again. Reconcile the serialized scene against freshly
+	// loaded BattleUnits before the resumed frame is shown.
+	reconcileScriptedUnitState(bg);
+	SavedBattleGame *save = bg->getSave();
+	if (save && Calypso::shouldFocusNikosAfterResume(
+		save->getSide() == FACTION_PLAYER, _nikosFocusPending))
+	{
+		focusNikosOnPlayerTurn(bg);
+	}
 }
 
 void CalypsoPrologueScene::onPlayerTurnStart(BattlescapeGame *bg)

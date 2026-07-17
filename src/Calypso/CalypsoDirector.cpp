@@ -95,7 +95,13 @@ void CalypsoDirector::onBattleStart(BattlescapeState *bs, BattlescapeGame *bg, S
 
 	// Resume from save: load() already rebuilt + activated the scene; do NOT
 	// re-run its first-frame setup (that would re-roll RNG, re-spawn, etc.).
-	if (_scene) return;
+	// The resume hook may repair additive runtime state now that BattleUnit and
+	// Battlescape pointers are fresh again.
+	if (_scene)
+	{
+		_scene->onBattleResume(bg);
+		return;
+	}
 	if (_previewSuppressed)
 	{
 		_previewBattle = save;  // bind the suppression to this preview battle

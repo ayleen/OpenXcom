@@ -75,6 +75,13 @@ inline bool phaseImpliesNikosHandoff(bool gauntlet, bool ended, bool evacOnly)
 	return gauntlet || ended || evacOnly;
 }
 
+/// A loaded scene may focus Nikos immediately only when player input is live;
+/// hostile/neutral resumes preserve the one-shot request for the player turn.
+inline bool shouldFocusNikosAfterResume(bool playerTurn, bool focusPending)
+{
+	return playerTurn && focusPending;
+}
+
 /// An abort confirmation must be consumed unless cast-off is currently
 /// available and at least one live crew member occupies a real START_POINT.
 inline bool consumeAbortRequest(bool inert, bool castOffAvailable, bool anyoneAboard)
