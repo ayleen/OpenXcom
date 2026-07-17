@@ -33,6 +33,7 @@
 #include <vector>
 
 #include "CalypsoDirector.h"
+#include "CalypsoPrologueMath.h"
 
 namespace OpenXcom
 {
@@ -155,7 +156,8 @@ private:
 	bool _endingTriggered = false;  ///< an ending is armed or executed -- the script stops
 	int _pendingOutcome = -1;       ///< armed ending awaiting a safe stack (resolvePendingEnding)
 	bool _pendingTaking = false;    ///< armed ending is the Branch Б boarding flavor
-	bool _pendingEndingRadioQueued = false; ///< final beat was queued; finish only after its dismissal callback
+	Calypso::PrologueEndingRadioState _pendingEndingRadioState =
+		Calypso::PrologueEndingRadioState::NotQueued; ///< async final-beat lifecycle; only Completed may finish
 	bool _evacOnly = false;         ///< Choir neutralized early: no more scripted attacks, cast-off remains available
 	bool _marksmanRevealed = false; ///< persisted Assessor-death reveal gate
 	bool _nikosHandedOff = false;   ///< persisted ownership (separate from camera focus)

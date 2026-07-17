@@ -997,7 +997,7 @@ void CalypsoPrologueScene::checkBranchB(BattlescapeGame *bg)
 		_endingTriggered = true;
 		_pendingOutcome = OutcomeAllTaken;
 		_pendingTaking = true;
-		_pendingEndingRadioQueued = false;
+		_pendingEndingRadioState = Calypso::PrologueEndingRadioState::NotQueued;
 		return;
 	}
 
@@ -1008,7 +1008,7 @@ void CalypsoPrologueScene::checkBranchB(BattlescapeGame *bg)
 		_endingTriggered = true;
 		_pendingOutcome = OutcomeAllTaken;
 		_pendingTaking = false;
-		_pendingEndingRadioQueued = false;
+		_pendingEndingRadioState = Calypso::PrologueEndingRadioState::NotQueued;
 	}
 }
 
@@ -1019,26 +1019,38 @@ bool CalypsoPrologueScene::resolvePendingEnding(BattlescapeGame *bg)
 	BattleUnit *nikos = save ? findUnit(save, _nikosId) : nullptr;
 	const bool nikosAlive = nikos && !nikos->isOut();
 	const bool castOff = _pendingOutcome == OutcomeCastOff;
-	if (Calypso::prologueEndingNeedsRadio(
-		_pendingEndingRadioQueued, _pendingTaking, castOff, nikosAlive))
+	switch (Calypso::prologueEndingRadioAction(
+		_pendingEndingRadioState, _pendingTaking, castOff, nikosAlive))
 	{
-		// finishBattle pops every state above BattlescapeState. Queue the ending
-		// continuation on the radio state itself so the beat is initialized,
-		// displayed, and dismissed before any teardown can remove it.
-		_pendingEndingRadioQueued = true;
-		const std::string line = _pendingTaking
-			? STR_PROLOGUE_RADIO_SILENCE
-			: STR_PROLOGUE_NIKOS_LINE;
-		radio(line, CalypsoRadioLineKind::Narrative,
-			[this, bg]() { resolvePendingEnding(bg); });
-		return true;
+		case Calypso::PrologueEndingRadioAction::Queue:
+		{
+			// Narrative lines are asynchronous DOM toasts. Mark the explicit
+			// waiting state before enqueueing so faction-transition callbacks
+			// cannot interpret "already queued" as "already completed".
+			_pendingEndingRadioState = Calypso::PrologueEndingRadioState::Waiting;
+			const std::string line = _pendingTaking
+				? STR_PROLOGUE_RADIO_SILENCE
+				: STR_PROLOGUE_NIKOS_LINE;
+			radio(line, CalypsoRadioLineKind::Narrative, [this, bg]()
+			{
+				if (_pendingEndingRadioState != Calypso::PrologueEndingRadioState::Waiting
+					|| _pendingOutcome < 0) return;
+				_pendingEndingRadioState = Calypso::PrologueEndingRadioState::Completed;
+				resolvePendingEnding(bg);
+			});
+			return true;
+		}
+		case Calypso::PrologueEndingRadioAction::Wait:
+			return true;
+		case Calypso::PrologueEndingRadioAction::Finish:
+			break;
 	}
 
 	int outcome = _pendingOutcome;
 	const bool taking = _pendingTaking;
 	_pendingOutcome = -1;
 	_pendingTaking = false;
-	_pendingEndingRadioQueued = false;
+	_pendingEndingRadioState = Calypso::PrologueEndingRadioState::NotQueued;
 	// _endingTriggered stays set -- onUnitDied's early-return keeps the nested
 	// deaths below from re-arming or re-scripting anything.
 	if (taking) killEveryoneAboard(bg);
@@ -1198,7 +1210,7 @@ bool CalypsoPrologueScene::onAbortRequested(BattlescapeState *bs)
 	// that synchronously here would make finishBattle pop the unseen radio state.
 	_pendingOutcome = OutcomeCastOff;
 	_pendingTaking = false;
-	_pendingEndingRadioQueued = false;
+	_pendingEndingRadioState = Calypso::PrologueEndingRadioState::NotQueued;
 	resolvePendingEnding(bg);
 	return true;
 }
@@ -1267,7 +1279,7 @@ bool CalypsoPrologueScene::abortAvailable() const
 	// The scripted evacuation order is issued only after the Assessor dies and
 	// enterEvacOnly()/stepAmbushed() advances into Gauntlet. _firstDeathDone is
 	// deliberately unrelated: it tracks a later crew death.
-	return Calypso::abortHudEnabled(_inert, _phase == Ph::Gauntlet);
+	return Calypso::abortHudEnabled(_inert, _phase == Ph::Gauntlet, _endingTriggered);
 }
 
 bool CalypsoPrologueScene::abortConfirmAvailable(SavedBattleGame *save) const
@@ -1374,7 +1386,7 @@ void CalypsoPrologueScene::save(YAML::YamlNodeWriter writer) const
 	writer.write("endingTriggered", _endingTriggered);
 	writer.write("pendingOutcome", _pendingOutcome);
 	writer.write("pendingTaking", _pendingTaking);
-	writer.write("pendingEndingRadioQueued", _pendingEndingRadioQueued);
+	writer.write("pendingEndingRadioState", (int)_pendingEndingRadioState);
 	writer.write("evacOnly", _evacOnly);
 	writer.write("marksmanRevealed", _marksmanRevealed);
 	writer.write("nikosHandedOff", _nikosHandedOff);
@@ -1404,7 +1416,14 @@ void CalypsoPrologueScene::load(const YAML::YamlNodeReader &reader)
 	_endingTriggered = reader["endingTriggered"].readVal<bool>(false);
 	_pendingOutcome = reader["pendingOutcome"].readVal<int>(-1);
 	_pendingTaking = reader["pendingTaking"].readVal<bool>(false);
-	_pendingEndingRadioQueued = reader["pendingEndingRadioQueued"].readVal<bool>(false);
+	// DOM callbacks are not serialized. A save captured while Waiting must
+	// enqueue the final beat again after load rather than wait forever. The old
+	// pendingEndingRadioQueued key is deliberately ignored for the same reason.
+	const int savedEndingRadioState = reader["pendingEndingRadioState"].readVal<int>(
+		(int)Calypso::PrologueEndingRadioState::NotQueued);
+	_pendingEndingRadioState = savedEndingRadioState == (int)Calypso::PrologueEndingRadioState::Completed
+		? Calypso::PrologueEndingRadioState::Completed
+		: Calypso::PrologueEndingRadioState::NotQueued;
 	_evacOnly = reader["evacOnly"].readVal<bool>(false);
 	// Pre-fix saves have no explicit flags. Once a save reached Gauntlet the
 	// Assessor was necessarily dead and Nikos was supposed to be handed over,

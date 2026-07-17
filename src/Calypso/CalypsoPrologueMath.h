@@ -123,13 +123,33 @@ inline PrologueFirstLossBeat prologueFirstLossBeat(
 	return PrologueFirstLossBeat::None;
 }
 
-/// A final radio beat must complete before finishBattle removes states above
-/// BattlescapeState. Branch B always has its silence beat; Cast Off has the
-/// Nikos beat only while he is still alive.
-inline bool prologueEndingNeedsRadio(
-	bool radioAlreadyQueued, bool pendingTaking, bool castOff, bool nikosAlive)
+enum class PrologueEndingRadioState
 {
-	return !radioAlreadyQueued && (pendingTaking || (castOff && nikosAlive));
+	NotQueued,
+	Waiting,
+	Completed
+};
+
+enum class PrologueEndingRadioAction
+{
+	Queue,
+	Wait,
+	Finish
+};
+
+/// A final radio beat must complete before finishBattle tears down the DOM
+/// narrative queue. Branch B always has its silence beat; Cast Off has the
+/// Nikos beat only while he is still alive. Re-entry while the asynchronous
+/// line is waiting must not be mistaken for completion.
+inline PrologueEndingRadioAction prologueEndingRadioAction(
+	PrologueEndingRadioState state, bool pendingTaking, bool castOff, bool nikosAlive)
+{
+	const bool needsRadio = pendingTaking || (castOff && nikosAlive);
+	if (!needsRadio || state == PrologueEndingRadioState::Completed)
+		return PrologueEndingRadioAction::Finish;
+	if (state == PrologueEndingRadioState::NotQueued)
+		return PrologueEndingRadioAction::Queue;
+	return PrologueEndingRadioAction::Wait;
 }
 
 /// Compatibility rule for saves created before scripted handoff state was
@@ -155,11 +175,13 @@ inline bool consumeAbortRequest(bool inert, bool castOffAvailable, bool anyoneAb
 }
 
 /// The Abort HUD and its hotkey are available only after the scenario has
-/// entered the evacuation phase. Kept separate from the confirmation check:
-/// the player may inspect the tally in Gauntlet before anyone is aboard.
-inline bool abortHudEnabled(bool inert, bool evacuationPhase)
+/// entered the evacuation phase and before an ending is armed. Kept separate
+/// from the confirmation check: the player may inspect the tally in Gauntlet
+/// before anyone is aboard, but cannot confirm Cast Off twice while its final
+/// narrative line is still waiting.
+inline bool abortHudEnabled(bool inert, bool evacuationPhase, bool endingArmed)
 {
-	return !inert && evacuationPhase;
+	return !inert && evacuationPhase && !endingArmed;
 }
 
 /// Cast Off itself requires both the evacuation phase and one eligible crew
