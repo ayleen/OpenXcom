@@ -47,7 +47,10 @@ private:
 	bool _hdLayout = false;
 	bool _hdWideLayout = false;
 	TTFFont *_hdFont = nullptr;
+	TTFFont *_hdBodyFont = nullptr;
 	std::uint64_t _focusGeneration = 0;
+	Surface *_hdBackdrop = nullptr;
+	Text *_hdMessageDetail = nullptr;
 #endif
 
 	void create(const std::string &str, SDL_Color *palette, Uint8 color, const std::string &bg, int bgColor, Uint8 color2);

@@ -44,6 +44,10 @@ private:
 	TextButton **_group;
 	bool _contrast, _geoscapeButton;
 	ComboBox *_comboBox;
+#ifdef __EMSCRIPTEN__
+	bool _useBackgroundRGB;
+	Uint32 _backgroundRGB, _borderRGB, _pressedRGB;
+#endif
 	// for use by RuleInterface
 	void setSecondaryColor(Uint8 color)  override { setTextColor(color); }
 protected:
@@ -62,6 +66,10 @@ public:
 	void setTextColor(Uint8 color);
 	/// Sets the text button's text color as 32-bit ARGB.
 	void setTextColorRGB(Uint32 argb);
+#ifdef __EMSCRIPTEN__
+	/// Calypso: render this button with ARGB fill/border colours.
+	void setBackgroundColorRGB(Uint32 background, Uint32 border, Uint32 pressed);
+#endif
 	/// Calypso: opt the label into HD TTF rendering (forwarded to the inner Text).
 	void setTTFFont(TTFFont *font, float fillFrac = 1.0f);
 	/// Sets the text size to big.

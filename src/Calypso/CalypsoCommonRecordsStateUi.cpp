@@ -3,7 +3,11 @@
 #include "CalypsoCommonRecordsStateUi.h"
 
 #include <algorithm>
+#include <string>
+#include <utility>
 #include <vector>
+
+#include <SDL.h>
 
 #include "../Engine/Action.h"
 #include "../Engine/Game.h"
@@ -37,6 +41,156 @@ namespace Calypso
 namespace
 {
 
+struct F34Theme
+{
+	Uint32 panel;
+	Uint32 panelStrong;
+	Uint32 line;
+	Uint32 text;
+	Uint32 muted;
+	Uint32 accent;
+	Uint32 pressed;
+};
+
+Uint32 f34Argb(const SDL_Color& color, Uint8 alpha = 0xff)
+{
+	return (static_cast<Uint32>(alpha) << 24)
+		| (static_cast<Uint32>(color.r) << 16)
+		| (static_cast<Uint32>(color.g) << 8)
+		| static_cast<Uint32>(color.b);
+}
+
+int f34Luminance(const SDL_Color& color)
+{
+	return 299 * color.r + 587 * color.g + 114 * color.b;
+}
+
+Uint32 f34Mix(Uint32 from, Uint32 to, int toPercent, Uint8 alpha = 0xff)
+{
+	const int fromPercent = 100 - toPercent;
+	const Uint8 r = static_cast<Uint8>((((from >> 16) & 0xff) * fromPercent
+		+ ((to >> 16) & 0xff) * toPercent) / 100);
+	const Uint8 g = static_cast<Uint8>((((from >> 8) & 0xff) * fromPercent
+		+ ((to >> 8) & 0xff) * toPercent) / 100);
+	const Uint8 b = static_cast<Uint8>(((from & 0xff) * fromPercent
+		+ (to & 0xff) * toPercent) / 100);
+	return (static_cast<Uint32>(alpha) << 24)
+		| (static_cast<Uint32>(r) << 16)
+		| (static_cast<Uint32>(g) << 8)
+		| static_cast<Uint32>(b);
+}
+
+F34Theme f34ThemeFromCaller(Surface* source, Uint8 baseColor,
+	Uint8 accentColor, bool highContrast)
+{
+	const SDL_Color* palette = source ? source->getPalette() : nullptr;
+	if (!palette)
+	{
+		return {0xee06191cu, 0xf5041115u, 0xff285e52u, 0xffe6fff4u,
+			0xff8faaa3u, 0xff74ffb0u, 0xff164c3du};
+	}
+
+	const int span = highContrast ? 12 : 5;
+	int darkest = baseColor;
+	int brightest = baseColor;
+	for (int i = 1; i <= span && static_cast<int>(baseColor) + i <= 255; ++i)
+	{
+		const int index = static_cast<int>(baseColor) + i;
+		if (f34Luminance(palette[index]) < f34Luminance(palette[darkest])) darkest = index;
+		if (f34Luminance(palette[index]) > f34Luminance(palette[brightest])) brightest = index;
+	}
+	const Uint32 dark = f34Argb(palette[darkest]);
+	const Uint32 bright = f34Argb(palette[brightest]);
+	Uint32 accent = bright;
+	if (accentColor != 0)
+	{
+		accent = f34Argb(palette[accentColor]);
+		if (f34Luminance(palette[accentColor]) < f34Luminance(palette[brightest]) / 2)
+			accent = bright;
+	}
+	return {
+		f34Mix(dark, bright, 8, 0xee),
+		f34Mix(dark, bright, 13, 0xf5),
+		f34Mix(dark, bright, highContrast ? 72 : 46),
+		bright,
+		f34Mix(dark, bright, highContrast ? 84 : 66),
+		accent,
+		f34Mix(dark, accent, 24)
+	};
+}
+
+class F34Panel final : public Surface
+{
+public:
+	F34Panel(Uint32 fill, Uint32 border, Uint32 accent = 0)
+		: Surface(1, 1, 0, 0), _fill(fill), _border(border), _accent(accent) {}
+
+	void draw() override
+	{
+		Surface::draw();
+		for (int y = 0; y < getHeight(); ++y)
+		{
+			for (int x = 0; x < getWidth(); ++x)
+			{
+				const bool edge = x == 0 || y == 0 || x == getWidth() - 1 || y == getHeight() - 1;
+				setPixel32(x, y, edge ? _border : _fill);
+			}
+		}
+		if (_accent != 0)
+		{
+			const int width = std::min(3, static_cast<int>(getWidth()));
+			for (int y = 1; y + 1 < getHeight(); ++y)
+				for (int x = 1; x < width; ++x)
+					setPixel32(x, y, _accent);
+		}
+	}
+
+private:
+	Uint32 _fill;
+	Uint32 _border;
+	Uint32 _accent;
+};
+
+class F34ScaledBackdrop final : public Surface
+{
+public:
+	explicit F34ScaledBackdrop(const Surface& source)
+		: Surface(1, 1, 0, 0), _source(source) {}
+	void setSource(const Surface& source)
+	{
+		_source = source;
+		_redraw = true;
+	}
+
+	void draw() override
+	{
+		Surface::draw();
+		SDL_Rect target{0, 0, static_cast<int>(getWidth()), static_cast<int>(getHeight())};
+		SDL_BlitScaled(_source.getSurface(), nullptr, getSurface(), &target);
+	}
+
+private:
+	Surface _source;
+};
+
+std::pair<std::string, std::string> splitF34ErrorMessage(const std::string& message)
+{
+	std::size_t split = message.find('!');
+	if (split == std::string::npos)
+	{
+		const std::size_t period = message.find(". ");
+		if (period != std::string::npos) split = period;
+	}
+	if (split == std::string::npos || split + 1 >= message.size())
+		return {message, std::string()};
+
+	std::string detail = message.substr(split + 1);
+	const std::size_t first = detail.find_first_not_of(" \t\r\n");
+	if (first == std::string::npos) return {message, std::string()};
+	detail.erase(0, first);
+	return {message.substr(0, split + 1), detail};
+}
+
 CalypsoLayoutClass currentF34LayoutClass()
 {
 	const CalypsoViewportRuntime& viewport = calypsoViewportRuntime();
@@ -52,6 +206,24 @@ void applyF34Rect(Surface* surface, const CalypsoF34Rect& rect)
 	surface->setHeight(rect.height);
 }
 
+void styleF34Text(Text* text, Uint8 color, bool highContrast, Uint32 argb)
+{
+	text->setColor(color);
+	text->setHighContrast(highContrast);
+	text->setColorRGB(argb);
+	text->setWordWrap(true);
+}
+
+void moveF34PanelsBehindContent(std::vector<Surface*>& surfaces, Surface* firstPanel)
+{
+	const std::vector<Surface*>::iterator first = std::find(
+		surfaces.begin(), surfaces.end(), firstPanel);
+	if (first == surfaces.end()) return;
+	std::vector<Surface*> panels(first, surfaces.end());
+	surfaces.erase(first, surfaces.end());
+	surfaces.insert(surfaces.begin() + 1, panels.begin(), panels.end());
+}
+
 } // namespace
 
 void CalypsoErrorMessageStateUi::applyLayout(ErrorMessageState& state)
@@ -59,7 +231,9 @@ void CalypsoErrorMessageStateUi::applyLayout(ErrorMessageState& state)
 	const CalypsoF34ErrorLayout layout = calypsoF34ErrorLayout(
 		state._hdWideLayout ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact);
 	applyF34Rect(state._window, layout.window);
+	applyF34Rect(state._hdBackdrop, layout.window);
 	applyF34Rect(state._txtMessage, layout.message);
+	applyF34Rect(state._hdMessageDetail, layout.messageDetail);
 	applyF34Rect(state._btnOk, layout.acknowledge);
 	state.recaptureUiScaling(layout.designWidth, layout.designHeight, 1.0f, true);
 }
@@ -67,18 +241,50 @@ void CalypsoErrorMessageStateUi::applyLayout(ErrorMessageState& state)
 void CalypsoErrorMessageStateUi::configure(ErrorMessageState& state)
 {
 	if (!state._hdLayout) return;
-	// The caller's palette, background and contrast were installed before this
-	// adapter runs. Only geometry, typography and semantic focus change here.
 	state._hdWideLayout = currentF34LayoutClass() == CalypsoLayoutClass::Wide;
-	applyLayout(state);
-	state._window->setThinBorder();
+	const char* backdropId = state._hdWideLayout
+		? "CALYPSO_F34_ERROR_WIDE_BG" : "CALYPSO_F34_ERROR_COMPACT_BG";
+	Surface* source = state._game->getMod()->getSurface(backdropId, false);
+	if (!source)
+	{
+		state._hdLayout = false;
+		return;
+	}
+	state._hdBackdrop = new F34ScaledBackdrop(*source);
+	state.add(state._hdBackdrop);
+	moveF34PanelsBehindContent(state._surfaces, state._hdBackdrop);
+
+	const std::pair<std::string, std::string> message =
+		splitF34ErrorMessage(state._txtMessage->getText());
+	state._txtMessage->setAlign(ALIGN_LEFT);
+	state._txtMessage->setVerticalAlign(ALIGN_TOP);
 	state._txtMessage->setWordWrap(true);
-	state._hdFont = state._game->getMod()->getTTFFont("FONT_HD_HUD", false);
+	state._txtMessage->setColorRGB(0xffe8fff5u);
+	state._hdMessageDetail = new Text(1, 1, 0, 0);
+	state._hdMessageDetail->setAlign(ALIGN_LEFT);
+	state._hdMessageDetail->setVerticalAlign(ALIGN_TOP);
+	state._hdMessageDetail->setWordWrap(true);
+	state._hdMessageDetail->setColorRGB(0xffcfe9e0u);
+	state.add(state._hdMessageDetail);
+
+	// Establish the approved text boxes before assigning text. Text::setText()
+	// computes bitmap wrapping immediately, so setting it while the temporary
+	// widgets are still 1 px wide permanently turns every word into a line. The
+	// TTF renderer intentionally reuses those computed line breaks.
+	applyLayout(state);
+	state._txtMessage->setText(message.first);
+	state._hdMessageDetail->setText(message.second);
+	state._window->setVisible(false);
+	state._btnOk->setText("");
+	state._btnOk->setBackgroundColorRGB(0u, 0u, 0u);
+	state._hdFont = state._game->getMod()->getTTFFont("FONT_F34_SAIRA_700", false);
+	state._hdBodyFont = state._game->getMod()->getTTFFont("FONT_F34_MONO", false);
 	if (state._hdFont)
 	{
-		state._txtMessage->setTTFFont(state._hdFont, 0.42f);
-		state._btnOk->setTTFFont(state._hdFont, 0.40f);
+		state._txtMessage->setTTFFont(state._hdFont, 0.82f);
 	}
+	if (state._hdBodyFont)
+		state._hdMessageDetail->setTTFFont(state._hdBodyFont, 0.42f);
 	state.enableCalypsoFocus();
 	++state._focusGeneration;
 	std::vector<CalypsoFocusBinding> bindings;
@@ -98,6 +304,10 @@ bool CalypsoErrorMessageStateUi::resize(ErrorMessageState& state)
 	if (wide != state._hdWideLayout)
 	{
 		state._hdWideLayout = wide;
+		const char* backdropId = wide
+			? "CALYPSO_F34_ERROR_WIDE_BG" : "CALYPSO_F34_ERROR_COMPACT_BG";
+		if (Surface* source = state._game->getMod()->getSurface(backdropId, false))
+			static_cast<F34ScaledBackdrop*>(state._hdBackdrop)->setSource(*source);
 		applyLayout(state);
 	}
 	else state.applyUiScaling();
@@ -116,12 +326,22 @@ void CalypsoStatisticsStateUi::applyLayout(StatisticsState& state)
 	const CalypsoF34StatisticsLayout layout = calypsoF34StatisticsLayout(
 		state._hdWideLayout ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact);
 	applyF34Rect(state._window, layout.window);
+	applyF34Rect(state._hdHeaderPanel, layout.headerPanel);
+	applyF34Rect(state._hdListPanel, layout.listPanel);
+	applyF34Rect(state._hdReturnPanel, layout.returnPanel);
+	applyF34Rect(state._hdFooterPanel, layout.footerPanel);
 	applyF34Rect(state._txtTitle, layout.title);
+	applyF34Rect(state._hdRecordLabel, layout.recordLabel);
+	applyF34Rect(state._hdOutcome, layout.outcome);
 	applyF34Rect(state._lstStats, layout.list);
 	state._lstStats->recaptureNativeGeometry();
 	applyF34Rect(state._btnOk, layout.acknowledge);
 	applyF34Rect(state._btnScrollUp, layout.scrollUp);
 	applyF34Rect(state._btnScrollDown, layout.scrollDown);
+	applyF34Rect(state._hdReturnRole, layout.returnRole);
+	applyF34Rect(state._hdReturnDetail, layout.returnDetail);
+	applyF34Rect(state._hdScrollHint, layout.scrollHint);
+	applyF34Rect(state._hdFooterStatus, layout.footerStatus);
 	state.recaptureUiScaling(layout.designWidth, layout.designHeight, 1.0f, true);
 }
 
@@ -129,27 +349,86 @@ void CalypsoStatisticsStateUi::rebuildList(StatisticsState& state, std::size_t s
 {
 	const CalypsoF34StatisticsLayout layout = calypsoF34StatisticsLayout(
 		state._hdWideLayout ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact);
+	const F34Theme theme = f34ThemeFromCaller(state._window,
+		state._window->getColor(), state._lstStats->getSecondaryColor(), false);
 	state._lstStats->clearList();
 	state._lstStats->setColumns(2, layout.labelColumnWidth, layout.valueColumnWidth);
 	state._lstStats->setMinimumRowHeight(layout.rowHeight);
 	state.listStats();
+	std::string title = state._txtTitle->getText();
+	std::replace(title.begin(), title.end(),
+		static_cast<char>(Unicode::TOK_NL_SMALL), '\n');
+	state._txtTitle->setText(title);
+	for (std::size_t row = 0; row < state._lstStats->getTexts(); ++row)
+	{
+		state._lstStats->setCellColorRGB(row, 0, theme.text);
+		state._lstStats->setCellColorRGB(row, 1, theme.accent);
+	}
 	state._lstStats->scrollTo(scroll);
 }
 
 void CalypsoStatisticsStateUi::configure(StatisticsState& state)
 {
 	if (!state._hdLayout) return;
+	const Uint8 color = state._window->getColor();
+	const F34Theme theme = f34ThemeFromCaller(state._window, color,
+		state._lstStats->getSecondaryColor(), false);
+	const bool terminalCampaign = state._game->getSavedGame()->getEnding() != END_NONE;
+	state._hdHeaderPanel = new F34Panel(theme.panelStrong, theme.line, theme.accent);
+	state._hdListPanel = new F34Panel(theme.panel, theme.line);
+	state._hdReturnPanel = new F34Panel(theme.panelStrong, theme.line, theme.accent);
+	state._hdFooterPanel = new F34Panel(theme.panelStrong, theme.line);
+	for (Surface* panel : {state._hdHeaderPanel, state._hdListPanel,
+		state._hdReturnPanel, state._hdFooterPanel})
+	{
+		state.add(panel);
+	}
+	moveF34PanelsBehindContent(state._surfaces, state._hdHeaderPanel);
+	state._hdRecordLabel = new Text(1, 1, 0, 0);
+	state._hdOutcome = new Text(1, 1, 0, 0);
+	state._hdReturnRole = new Text(1, 1, 0, 0);
+	state._hdReturnDetail = new Text(1, 1, 0, 0);
+	state._hdScrollHint = new Text(1, 1, 0, 0);
+	state._hdFooterStatus = new Text(1, 1, 0, 0);
+	for (Text* text : {state._hdRecordLabel, state._hdOutcome, state._hdReturnRole,
+		state._hdReturnDetail, state._hdScrollHint, state._hdFooterStatus})
+	{
+		styleF34Text(text, color, false, theme.text);
+		state.add(text);
+	}
+	state._hdRecordLabel->setColorRGB(theme.muted);
+	state._hdOutcome->setColorRGB(theme.accent);
+	state._hdReturnDetail->setColorRGB(theme.muted);
+	state._hdScrollHint->setColorRGB(theme.muted);
+	state._hdFooterStatus->setColorRGB(theme.muted);
+	state._hdRecordLabel->setText(state.tr("STR_CAL_STATS_RECORD"));
+	state._hdOutcome->setText(state.tr(terminalCampaign
+		? "STR_CAL_STATS_TERMINAL_CAMPAIGN" : "STR_CAL_STATS_ACTIVE_CAMPAIGN"));
+	state._hdReturnRole->setText(state.tr(terminalCampaign
+		? "STR_CAL_STATS_MAIN_MENU_ROUTE" : "STR_CAL_STATS_MEMORIAL_ROUTE"));
+	state._hdReturnDetail->setText(state.tr(terminalCampaign
+		? "STR_CAL_STATS_MAIN_MENU_DETAIL" : "STR_CAL_STATS_MEMORIAL_DETAIL"));
+	state._hdScrollHint->setText(state.tr("STR_CAL_STATS_SCROLL_INPUT"));
+	state._hdFooterStatus->setText(state.tr("STR_CAL_STATS_AUTO_SCROLL"));
 	state._window->setThinBorder();
 	state._lstStats->setSelectable(true);
-	// The scrollbar occupies x=548..561; F34's 154px manual controls begin
-	// at x=562, so both hit targets remain distinct at the design resolution.
+	state._lstStats->setAlign(ALIGN_RIGHT, 1);
+	// The manual controls form their own 44px rail beside TextList's native
+	// scrollbar, so mouse, touch, keyboard, and wheel scrolling stay available.
 	state._lstStats->setScrolling(true, 0);
-	state._btnScrollUp = new TextButton(154, 44, 562, 188);
-	state._btnScrollDown = new TextButton(154, 44, 562, 236);
+	state._btnScrollUp = new TextButton(44, 44, 504, 132);
+	state._btnScrollDown = new TextButton(44, 44, 504, 180);
 	state.add(state._btnScrollUp, "button", "endGameStatistics");
 	state.add(state._btnScrollDown, "button", "endGameStatistics");
-	state._btnScrollUp->setText(state.tr("STR_SCROLL_UP"));
-	state._btnScrollDown->setText(state.tr("STR_SCROLL_DOWN"));
+	state._btnScrollUp->setText(state.tr("STR_CAL_STATS_SCROLL_UP"));
+	state._btnScrollDown->setText(state.tr("STR_CAL_STATS_SCROLL_DOWN"));
+	state._btnOk->setText(state.tr(terminalCampaign
+		? "STR_CAL_STATS_MAIN_MENU_ROUTE" : "STR_CAL_STATS_MEMORIAL_ROUTE"));
+	for (TextButton* button : {state._btnOk, state._btnScrollUp, state._btnScrollDown})
+	{
+		button->setTextColorRGB(theme.text);
+		button->setBackgroundColorRGB(theme.panelStrong, theme.accent, theme.pressed);
+	}
 	state._btnScrollUp->onMouseClick((ActionHandler)&StatisticsState::btnScrollUpClick);
 	state._btnScrollDown->onMouseClick((ActionHandler)&StatisticsState::btnScrollDownClick);
 	state._hdFont = state._game->getMod()->getTTFFont("FONT_HD_HUD", false);
@@ -160,10 +439,17 @@ void CalypsoStatisticsStateUi::configure(StatisticsState& state)
 		state._btnOk->setTTFFont(state._hdFont, 0.40f);
 		state._btnScrollUp->setTTFFont(state._hdFont, 0.30f);
 		state._btnScrollDown->setTTFFont(state._hdFont, 0.30f);
+		state._hdRecordLabel->setTTFFont(state._hdFont, 0.30f);
+		state._hdOutcome->setTTFFont(state._hdFont, 0.32f);
+		state._hdReturnRole->setTTFFont(state._hdFont, 0.34f);
+		state._hdReturnDetail->setTTFFont(state._hdFont, 0.28f);
+		state._hdScrollHint->setTTFFont(state._hdFont, 0.28f);
+		state._hdFooterStatus->setTTFFont(state._hdFont, 0.30f);
 	}
 	state._hdWideLayout = currentF34LayoutClass() == CalypsoLayoutClass::Wide;
 	applyLayout(state);
 	rebuildList(state, 0);
+	state._txtTitle->setColorRGB(theme.text);
 	state.enableCalypsoFocus();
 	++state._focusGeneration;
 	std::vector<CalypsoFocusBinding> bindings;

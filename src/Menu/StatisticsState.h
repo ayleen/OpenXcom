@@ -52,6 +52,16 @@ private:
 	bool _hdWideLayout = false;
 	TTFFont *_hdFont = nullptr;
 	std::uint64_t _focusGeneration = 0;
+	Surface *_hdHeaderPanel = nullptr;
+	Surface *_hdListPanel = nullptr;
+	Surface *_hdReturnPanel = nullptr;
+	Surface *_hdFooterPanel = nullptr;
+	Text *_hdRecordLabel = nullptr;
+	Text *_hdOutcome = nullptr;
+	Text *_hdReturnRole = nullptr;
+	Text *_hdReturnDetail = nullptr;
+	Text *_hdScrollHint = nullptr;
+	Text *_hdFooterStatus = nullptr;
 #endif
 
 	// Sums a list of numbers.

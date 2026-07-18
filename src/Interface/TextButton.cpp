@@ -38,6 +38,9 @@ Sound *TextButton::soundPress;
  * @param y Y position in pixels.
  */
 TextButton::TextButton(int width, int height, int x, int y) : InteractiveSurface(width, height, x, y), _color(0), _group(0), _contrast(false), _geoscapeButton(false), _comboBox(0)
+#ifdef __EMSCRIPTEN__
+	, _useBackgroundRGB(false), _backgroundRGB(0), _borderRGB(0), _pressedRGB(0)
+#endif
 {
 	_text = new Text(width, height, 0, 0);
 	_text->setSmall();
@@ -101,6 +104,18 @@ void TextButton::setTextColorRGB(Uint32 argb)
 	_text->setColorRGB(argb);
 	_redraw = true;
 }
+
+#ifdef __EMSCRIPTEN__
+void TextButton::setBackgroundColorRGB(Uint32 background, Uint32 border, Uint32 pressed)
+{
+	_useBackgroundRGB = true;
+	_backgroundRGB = background;
+	_borderRGB = border;
+	_pressedRGB = pressed;
+	_redraw = true;
+}
+#endif
+
 void TextButton::setTTFFont(TTFFont *font, float fillFrac)
 {
 	_text->setTTFFont(font, fillFrac);
@@ -210,6 +225,26 @@ void TextButton::setPalette(const SDL_Color *colors, int firstcolor, int ncolors
 void TextButton::draw()
 {
 	Surface::draw();
+
+#ifdef __EMSCRIPTEN__
+	if (_useBackgroundRGB)
+	{
+		const bool press = (_group == 0) ? isButtonPressed() : (*_group == this);
+		const Uint32 fill = press ? _pressedRGB : _backgroundRGB;
+		for (int y = 0; y < getHeight(); ++y)
+		{
+			for (int x = 0; x < getWidth(); ++x)
+			{
+				const bool edge = x == 0 || y == 0 || x == getWidth() - 1 || y == getHeight() - 1;
+				setPixel32(x, y, edge ? _borderRGB : fill);
+			}
+		}
+		_text->setInvert(false);
+		_text->blit(this->getSurface());
+		return;
+	}
+#endif
+
 	SDL_Rect square;
 
 	int mul = 1;

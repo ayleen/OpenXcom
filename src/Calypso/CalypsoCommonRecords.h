@@ -93,15 +93,34 @@ struct CalypsoF34ErrorLayout
 	int designWidth = 0;
 	int designHeight = 0;
 	CalypsoF34Rect window;
+	CalypsoF34Rect headerPanel;
+	CalypsoF34Rect contextPanel;
+	CalypsoF34Rect alertPanel;
+	CalypsoF34Rect guidancePanel;
+	CalypsoF34Rect footerPanel;
+	CalypsoF34Rect title;
+	CalypsoF34Rect warning;
 	CalypsoF34Rect message;
+	CalypsoF34Rect messageDetail;
+	CalypsoF34Rect context;
+	CalypsoF34Rect guidance;
+	CalypsoF34Rect returnStatus;
 	CalypsoF34Rect acknowledge;
 };
 
 inline CalypsoF34ErrorLayout calypsoF34ErrorLayout(CalypsoLayoutClass layoutClass)
 {
 	if (layoutClass == CalypsoLayoutClass::Wide)
-		return {960, 540, {12, 12, 936, 516}, {60, 94, 680, 310}, {760, 456, 168, 60}};
-	return {740, 360, {8, 8, 724, 344}, {44, 76, 540, 176}, {598, 284, 118, 44}};
+		return {1280, 720, {0, 0, 1280, 720}, {14, 14, 1252, 72},
+			{14, 96, 180, 532}, {204, 96, 712, 532}, {926, 96, 340, 532},
+			{14, 638, 1252, 68}, {120, 30, 620, 42}, {338, 306, 540, 18},
+			{338, 330, 540, 44}, {338, 380, 540, 70}, {14, 96, 180, 130},
+			{946, 262, 300, 176}, {32, 654, 860, 40}, {926, 638, 340, 68}};
+	return {740, 360, {0, 0, 740, 360}, {8, 8, 724, 44},
+		{8, 56, 116, 248}, {130, 56, 382, 248}, {518, 56, 214, 248},
+		{8, 308, 724, 44}, {80, 18, 340, 26}, {212, 151, 282, 12},
+		{212, 168, 282, 30}, {212, 202, 282, 42}, {8, 56, 116, 93},
+		{529, 142, 192, 82}, {19, 318, 480, 25}, {512, 308, 220, 44}};
 }
 
 struct CalypsoF34StatisticsLayout
@@ -109,26 +128,44 @@ struct CalypsoF34StatisticsLayout
 	int designWidth = 0;
 	int designHeight = 0;
 	CalypsoF34Rect window;
+	CalypsoF34Rect headerPanel;
+	CalypsoF34Rect listPanel;
+	CalypsoF34Rect returnPanel;
+	CalypsoF34Rect footerPanel;
 	CalypsoF34Rect title;
+	CalypsoF34Rect recordLabel;
+	CalypsoF34Rect outcome;
 	CalypsoF34Rect list;
 	CalypsoF34Rect acknowledge;
 	CalypsoF34Rect scrollUp;
 	CalypsoF34Rect scrollDown;
+	CalypsoF34Rect returnRole;
+	CalypsoF34Rect returnDetail;
+	CalypsoF34Rect scrollHint;
+	CalypsoF34Rect footerStatus;
 	int labelColumnWidth = 0;
 	int valueColumnWidth = 0;
 	int rowHeight = 0;
 };
 
+constexpr int CALYPSO_F34_TEXTLIST_SCROLL_RAIL = 14;
+
 inline CalypsoF34StatisticsLayout calypsoF34StatisticsLayout(
 	CalypsoLayoutClass layoutClass)
 {
 	if (layoutClass == CalypsoLayoutClass::Wide)
-		return {960, 540, {12, 12, 936, 516}, {36, 28, 692, 46},
-			{36, 90, 680, 338}, {748, 456, 180, 60}, {748, 300, 180, 60},
-			{748, 368, 180, 60}, 470, 194, 58};
-	return {740, 360, {8, 8, 724, 344}, {28, 20, 500, 34},
-		{28, 70, 520, 212}, {562, 284, 154, 44}, {562, 188, 154, 44},
-		{562, 236, 154, 44}, 334, 174, 44};
+		return {960, 540, {12, 12, 936, 516}, {24, 24, 912, 64},
+			{24, 100, 680, 306}, {716, 100, 220, 306}, {24, 420, 912, 96},
+			{42, 32, 490, 48}, {42, 112, 450, 24}, {602, 32, 310, 48},
+			{42, 144, 588, 246}, {748, 438, 168, 60}, {644, 206, 60, 60},
+			{644, 274, 60, 60}, {734, 126, 184, 42}, {734, 176, 184, 88},
+			{734, 320, 184, 44}, {42, 442, 674, 48}, 416, 160, 58};
+	return {740, 360, {8, 8, 724, 344}, {16, 16, 708, 44},
+		{16, 72, 532, 168}, {560, 72, 164, 168}, {16, 252, 708, 92},
+		{28, 20, 372, 34}, {28, 78, 276, 18}, {414, 20, 294, 34},
+		{28, 104, 462, 124}, {598, 284, 118, 44}, {504, 132, 44, 44},
+		{504, 180, 44, 44}, {572, 84, 140, 28}, {572, 116, 140, 62},
+		{572, 186, 140, 30}, {28, 268, 516, 48}, 294, 156, 44};
 }
 
 struct CalypsoF34NotesLayout
