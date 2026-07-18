@@ -51,6 +51,7 @@
 #include "ExtraSprites.h"
 #include "CustomPalettes.h"
 #ifdef __EMSCRIPTEN__
+#  include <emscripten.h>
 #  include "../Engine/GpuTexture.h"
 #  include "../Engine/GpuInit.h"
 #  include <SDL_image.h>
@@ -1044,6 +1045,28 @@ Music *Mod::getRandomMusic(const std::string &name) const
  */
 void Mod::playMusic(const std::string &name, int id)
 {
+#ifdef __EMSCRIPTEN__
+	const bool calypsoGeoscapeRequest = name == "GMGEO" || name == "GMINTER";
+	const bool calypsoGeoscapeAvailable = EM_ASM_INT({
+		const available = globalThis.calypsoGeoscapeMusicIsAvailable;
+		return typeof available === 'function' ? available() : 0;
+	}) != 0;
+	if (calypsoGeoscapeRequest && calypsoGeoscapeAvailable)
+	{
+		// The browser controller will fade its selected stream in. Let any SDL
+		// track fade underneath it instead of playing the legacy GMGEO/GMINTER.
+		Mix_FadeOutMusic(1000);
+		_playingMusic = name;
+		return;
+	}
+	if (!calypsoGeoscapeRequest && calypsoGeoscapeAvailable)
+	{
+		EM_ASM({
+			if (globalThis.calypsoGeoscapeMusicStop)
+				globalThis.calypsoGeoscapeMusicStop();
+		});
+	}
+#endif
 	if (!Options::mute && _playingMusic != name)
 	{
 		int loop = -1;
