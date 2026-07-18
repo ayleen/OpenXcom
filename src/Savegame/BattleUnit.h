@@ -128,6 +128,7 @@ private:
 	// handoffs must survive turn preparation, while mind control must not.
 	bool _scriptedPlayerControl = false;
 	bool _scriptedConcealed = false;
+	void prepareScriptedPlayerTurn();
 #endif
 	UnitStats _exp, _expTmp;
 	int _motionPoints;

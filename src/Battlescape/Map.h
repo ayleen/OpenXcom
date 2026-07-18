@@ -359,6 +359,9 @@ private:
 	GpuTexture* getOrUploadSpriteFrame(SurfaceSet* set, int frameIdx);
 	void drawProjectileGLPass();
 	bool gpuProjectilePathReady();
+	void captureProjectileAfterimage(Projectile *projectile, bool retainAfterimage);
+	void drawScriptedObjectiveMarker(Surface *surface, const Position &mapPosition,
+		const Position &screenPosition, SurfaceSet *gpuCursorSet);
 
 	// Calypso bug 1: physical-resolution HUD text overlay (selected-unit name + stat
 	// digits). The logical HUD widgets render mushy at the low resolution-menu fractions

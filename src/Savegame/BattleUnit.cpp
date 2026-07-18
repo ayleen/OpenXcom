@@ -2969,20 +2969,9 @@ void BattleUnit::prepareNewTurn(bool fullProcess)
 	}
 	else
 	{
-		// A scripted handoff is not mind control: it remains player-controlled
-		// across turns, receives normal TU recovery, and must never retain a
-		// neutral/hostile AI module from before the handoff.
-		#ifdef __EMSCRIPTEN__
-		if (_scriptedPlayerControl)
-		{
-			_faction = FACTION_PLAYER;
-			if (_currentAIState)
-			{
-				delete _currentAIState;
-				_currentAIState = 0;
-			}
-		}
-		#endif
+#ifdef __EMSCRIPTEN__
+		prepareScriptedPlayerTurn();
+#endif
 		updateUnitStats(true, false);
 	}
 
@@ -4880,36 +4869,6 @@ void BattleUnit::convertToFaction(UnitFaction f)
 {
 	_faction = f;
 }
-
-#ifdef __EMSCRIPTEN__
-void BattleUnit::grantScriptedPlayerControl()
-{
-	_scriptedPlayerControl = true;
-	_faction = FACTION_PLAYER;
-	if (_currentAIState)
-	{
-		delete _currentAIState;
-		_currentAIState = 0;
-	}
-}
-
-bool BattleUnit::hasScriptedPlayerControl() const
-{
-	return _scriptedPlayerControl;
-}
-
-void BattleUnit::setScriptedConcealed(bool concealed)
-{
-	_scriptedConcealed = concealed;
-	if (concealed)
-		_visible = false;
-}
-
-bool BattleUnit::isScriptedConcealed() const
-{
-	return _scriptedConcealed;
-}
-#endif
 
 /**
 * Set health to 0 - used when getting killed unconscious.

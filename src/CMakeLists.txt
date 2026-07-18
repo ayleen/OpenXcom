@@ -6,6 +6,7 @@ set ( root_src
 )
 set ( calypso_src
   Calypso/BattlescapeHud.cpp
+  Calypso/BattleUnitCalypso.cpp
   Calypso/CalypsoAiQaHarness.cpp
   Calypso/CalypsoAlienPacing.cpp
   Calypso/CalypsoContractDeliverState.cpp

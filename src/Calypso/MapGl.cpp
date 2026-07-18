@@ -161,6 +161,65 @@ void Map::drawTerrainGPU(Surface* surface)
 	drawUnitNameplates(surface);
 }
 
+void Map::drawScriptedObjectiveMarker(Surface *surface, const Position &mapPosition,
+	const Position &screenPosition, SurfaceSet *gpuCursorSet)
+{
+	// This presentation-only beacon has its own storage and render branch:
+	// launcher/spray `_waypoints` remain pure BattleAction state. Frame 7 is
+	// the engine's familiar bright waypoint glyph. Cover both the GPU cursor
+	// atlas and classic software blit paths just like the real waypoint renderer.
+	if (!_scriptedObjectiveMarkerActive || _scriptedObjectiveMarker != mapPosition)
+		return;
+
+	if (gpuCursorSet)
+	{
+		_cursorOverlayInstances.push_back(
+			{screenPosition.x, screenPosition.y, gpuCursorSet, 7, CS_RASTER});
+		return;
+	}
+
+	Surface *marker = _game->getMod()->getSurfaceSet("CURSOR.PCK")->getFrame(7);
+	Surface::blitRaw(surface, marker, screenPosition.x, screenPosition.y, 0);
+}
+
+void Map::captureProjectileAfterimage(Projectile *projectile, bool retainAfterimage)
+{
+	_projectileAfterimage.valid = false;
+	// Capture presentation data before ownership returns to the caller. The
+	// previous delete-then-setProjectile(0) order dereferenced freed memory.
+	if (!retainAfterimage || !projectile || projectile->getItem()
+		|| projectile->getTrajectory().empty())
+	{
+		return;
+	}
+
+	Tile *impactTile = _save->getTile(projectile->getPosition().toTile());
+	const bool visibleToPlayer = _save->getDebugMode()
+		|| (impactTile && impactTile->getVisible());
+	_projectileAfterimage.valid = visibleToPlayer;
+	// Both endpoints are voxels. Projectile::getOrigin() intentionally returns
+	// a tile coordinate and therefore cannot be used by this renderer DTO.
+	_projectileAfterimage.origin = projectile->getTrajectory().front();
+	_projectileAfterimage.impact = projectile->getPosition();
+	_projectileAfterimage.particle = projectile->getParticle(0);
+	_projectileAfterimage.expires = SDL_GetTicks() + 110u;
+}
+
+void Map::setScriptedObjectiveMarker(const Position &position)
+{
+	_scriptedObjectiveMarker = position;
+	_scriptedObjectiveMarkerActive = true;
+	invalidate();
+}
+
+void Map::clearScriptedObjectiveMarker()
+{
+	if (!_scriptedObjectiveMarkerActive)
+		return;
+	_scriptedObjectiveMarkerActive = false;
+	invalidate();
+}
+
 /**
  * Walk camera-visible tiles and build per-atlas TileInstance lists.
  */

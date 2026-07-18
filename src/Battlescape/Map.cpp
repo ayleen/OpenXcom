@@ -2857,21 +2857,7 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 						}
 					}
 #ifdef __EMSCRIPTEN__
-					// Scripted-scene objective beacon. This has its own storage and
-					// render branch: launcher/spray `_waypoints` below remain pure
-					// BattleAction state. Frame 7 is the engine's familiar bright
-					// waypoint glyph; cover both the GPU cursor atlas and classic
-					// software blit paths just like the real waypoint renderer.
-					if (_scriptedObjectiveMarkerActive && _scriptedObjectiveMarker == mapPosition)
-					{
-						if (gpuCursorSet)
-							_cursorOverlayInstances.push_back({screenPosition.x, screenPosition.y, gpuCursorSet, 7, CS_RASTER});
-						else
-						{
-							tmpSurface = _game->getMod()->getSurfaceSet("CURSOR.PCK")->getFrame(7);
-							Surface::blitRaw(surface, tmpSurface, screenPosition.x, screenPosition.y, 0);
-						}
-					}
+					drawScriptedObjectiveMarker(surface, mapPosition, screenPosition, gpuCursorSet);
 #endif
 
 					// Draw waypoints if any on this tile
@@ -3806,21 +3792,7 @@ Projectile *Map::releaseProjectile(bool retainAfterimage)
 {
 	Projectile *projectile = _projectile;
 #ifdef __EMSCRIPTEN__
-	_projectileAfterimage.valid = false;
-	// Capture presentation data before ownership returns to the caller. The
-	// previous delete-then-setProjectile(0) order dereferenced freed memory.
-	if (retainAfterimage && projectile && !projectile->getItem() && !projectile->getTrajectory().empty())
-	{
-		Tile *impactTile = _save->getTile(projectile->getPosition().toTile());
-		const bool visibleToPlayer = _save->getDebugMode() || (impactTile && impactTile->getVisible());
-		_projectileAfterimage.valid = visibleToPlayer;
-		// Both endpoints are voxels. Projectile::getOrigin() intentionally returns
-		// a tile coordinate and therefore cannot be used by this renderer DTO.
-		_projectileAfterimage.origin = projectile->getTrajectory().front();
-		_projectileAfterimage.impact = projectile->getPosition();
-		_projectileAfterimage.particle = projectile->getParticle(0);
-		_projectileAfterimage.expires = SDL_GetTicks() + 110u;
-	}
+	captureProjectileAfterimage(projectile, retainAfterimage);
 #else
 	(void)retainAfterimage;
 #endif
@@ -3964,22 +3936,6 @@ std::vector<Position> *Map::getWaypoints()
 {
 	return &_waypoints;
 }
-
-#ifdef __EMSCRIPTEN__
-void Map::setScriptedObjectiveMarker(const Position &position)
-{
-	_scriptedObjectiveMarker = position;
-	_scriptedObjectiveMarkerActive = true;
-	invalidate();
-}
-
-void Map::clearScriptedObjectiveMarker()
-{
-	if (!_scriptedObjectiveMarkerActive) return;
-	_scriptedObjectiveMarkerActive = false;
-	invalidate();
-}
-#endif
 
 /**
  * Sets mouse-buttons' pressed state.
