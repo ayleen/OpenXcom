@@ -77,6 +77,9 @@ BattleUnit::BattleUnit(const Mod *mod, Soldier *soldier, int depth, const RuleSt
 {
 	_name = soldier->getName(true);
 	_id = soldier->getId();
+#ifdef __EMSCRIPTEN__
+	_voiceProfile = soldier->getVoiceProfile();
+#endif
 
 	_type = "SOLDIER";
 	_rank = soldier->getRankString();
@@ -603,6 +606,11 @@ void BattleUnit::load(const YAML::YamlNodeReader& node, const Mod *mod, const Sc
 	reader.tryRead("id", _id);
 	reader.tryRead("faction", _faction);
 	reader.tryRead("status", _status);
+#ifdef __EMSCRIPTEN__
+	// Old tactical saves keep the constructor-provided geoscape identity. New
+	// saves carry their own copy so voice identity survives battle save/load.
+	reader.tryRead("voiceProfile", _voiceProfile);
+#endif
 	reader.tryRead("wantsToSurrender", _wantsToSurrender);
 	reader.tryRead("isSurrendering", _isSurrendering);
 	// Phase 34.5 Brutal-AI knowledge layer (adapted from Brutal-OXCE by Xilmi). Additive, self-
@@ -731,6 +739,10 @@ void BattleUnit::save(YAML::YamlNodeWriter writer, const ScriptGlobal *shared) c
 	writer.write("genUnitArmor", _armor->getType());
 	writer.write("faction", _faction);
 	writer.write("status", _status);
+#ifdef __EMSCRIPTEN__
+	if (!_voiceProfile.empty())
+		writer.write("voiceProfile", _voiceProfile);
+#endif
 	// Phase 34.5 Brutal-AI knowledge layer (adapted from Brutal-OXCE by Xilmi). Additive keys.
 	writer.write("turnsSinceSeenByHostile", _turnsSinceSeenByHostile);
 	writer.write("turnsSinceSeenByNeutral", _turnsSinceSeenByNeutral);

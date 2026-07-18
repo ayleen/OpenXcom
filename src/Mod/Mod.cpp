@@ -2336,6 +2336,7 @@ void Mod::loadAll()
 	}
 	Log(LOG_INFO) << "Loading rulesets done.";
 #ifdef __EMSCRIPTEN__
+	validateVoiceProfiles();
 	calypso_log_heap("rulesets");  // M5: after YAML ruleset parse + globeTextures uploads
 #endif
 
@@ -5293,6 +5294,10 @@ Soldier *Mod::genSoldier(SavedGame *save, const RuleSoldier* ruleSoldier, int na
 
 	// calculate new statString
 	soldier->calcStatString(getStatStrings(), (Options::psiStrengthEval && save->isResearched(getPsiRequirements())));
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_P_EN)
+	soldier->setVoiceProfile(selectVoiceProfile(soldier->getVoiceLocale(), "diver",
+		soldier->getGender() == GENDER_FEMALE ? "female" : "male", soldier->getId()));
+#endif
 
 	return soldier;
 }

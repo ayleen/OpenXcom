@@ -29,7 +29,7 @@ namespace OpenXcom
 /**
  * Initializes a new pool with blank lists of names.
  */
-SoldierNamePool::SoldierNamePool() : _totalWeight(0), _femaleFrequency(-1), _globalWeight(100)
+SoldierNamePool::SoldierNamePool() : _totalWeight(0), _femaleFrequency(-1), _globalWeight(100), _voiceLocale("en")
 {
 }
 
@@ -82,6 +82,11 @@ void SoldierNamePool::load(const std::string &filename)
 
 	reader.tryRead("country", _country);
 	reader.tryRead("region", _region);
+	reader.tryRead("voiceLocale", _voiceLocale);
+	if (_voiceLocale.empty())
+	{
+		_voiceLocale = "en";
+	}
 
 	// Note: each name pool *instance* is only ever loaded once,
 	// there are no overrides, so we can do checks here instead of needing afterLoad()

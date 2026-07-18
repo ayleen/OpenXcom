@@ -23,6 +23,7 @@
 #include <string>
 #include <bitset>
 #include <array>
+#include <set>
 #include <SDL.h>
 #include "../Engine/Yaml.h"
 #include "../Engine/Options.h"
@@ -41,6 +42,7 @@
 #  include "../Calypso/CalypsoChecklist.h" // Phase 39: Calypso checklist items
 #  include "../Calypso/CalypsoAdvisor.h"   // Phase 39: Calypso strategic advisor rules
 #  include "../Calypso/HdUnitAtlas.h"      // Phase 42: UnitAtlasSpec (relocated, review #2/#6)
+#  include "../Calypso/RuleVoiceProfile.h" // Phase 44: persistent voice identity rules
 #endif
 
 namespace OpenXcom
@@ -447,6 +449,9 @@ private:
 	std::vector<CalypsoTutorialStep> _calypsoTutorialSteps;
 	std::vector<CalypsoChecklistItem> _calypsoChecklist;
 	std::vector<CalypsoAdvisorRule> _calypsoAdvisors;
+	/// Phase 44: text-only voice registry. Audio is fetched lazily by the web shell.
+	std::map<std::string, RuleVoiceProfile> _voiceProfiles;
+	mutable std::set<std::string> _voiceProfileRepairWarnings;
 	/// L5: globe GL handles were evicted on battle entry; restore on geoscape return.
 	bool _globeGpuEvicted     = false;
 	/// L5: tile + unit atlas GL handles were evicted on geoscape; restore on battle entry.
@@ -472,6 +477,7 @@ private:
 	/// Phase 36: Calypso-only ruleset keys (globeTextures/tileAtlas/hdTiles/
 	/// battlescapeTileScale/...) parsed out of loadFile; body in Calypso/ModHd.cpp.
 	void loadFileCalypso(YAML::YamlNodeReader& reader);
+	void validateVoiceProfiles() const;
 	/// Phase 42 E1: decode + upload the optional RGBA overlay pages for one
 	/// UnitAtlasSpec, compute the per-PCK-frame hasHd mask (transparent slots
 	/// fall back to R8), and wire MEMFS-backed reload callbacks for context
@@ -864,6 +870,11 @@ public:
 	const std::vector<CalypsoTutorialStep>& getCalypsoTutorialSteps() const { return _calypsoTutorialSteps; }
 	const std::vector<CalypsoChecklistItem>& getCalypsoChecklist() const { return _calypsoChecklist; }
 	const std::vector<CalypsoAdvisorRule>& getCalypsoAdvisors() const { return _calypsoAdvisors; }
+	const RuleVoiceProfile *getVoiceProfile(const std::string &id) const;
+	const std::map<std::string, RuleVoiceProfile> &getVoiceProfiles() const { return _voiceProfiles; }
+	std::string selectVoiceProfile(const std::string &locale,
+		const std::string &unitClass, const std::string &gender, int stableId,
+		const std::string &stored = std::string()) const;
 	/// L7: ensures battlescape-only SurfaceSets are resident.
 	/// Delegates to the private loadBattlescapeResources(); idempotent (guarded
 	/// by _battlescapeResourcesLoaded).  Called from BattlescapeState ctor.

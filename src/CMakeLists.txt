@@ -580,11 +580,12 @@ if(EMSCRIPTEN)
   list(APPEND openxcom_src Calypso/GpuTextureValidation.cpp)
   list(APPEND openxcom_src Calypso/HdUnitEmit.cpp)
   list(APPEND openxcom_src Calypso/MapHdUnit.cpp)
+  list(APPEND openxcom_src Calypso/RuleVoiceProfile.cpp)
   if(CALYPSO_HD_UNIT_SPIKE)
     list(APPEND openxcom_src Calypso/HdUnitSpikeState.cpp)
     list(APPEND openxcom_src Calypso/HdUnitBattleSpike.cpp)
   endif()
-  if(CALYPSO_VOICE_G0_5)
+  if(CALYPSO_VOICE_G0_5 OR CALYPSO_VOICE_P_EN)
     list(APPEND openxcom_src Calypso/CalypsoVoiceG05.cpp)
   endif()
   list(APPEND openxcom_src Calypso/CalypsoTutorial.cpp)
@@ -722,6 +723,15 @@ if(EMSCRIPTEN)
     target_compile_definitions(openxcom PRIVATE CALYPSO_VOICE_G0_5=1)
     set(CALYPSO_VOICE_G0_5_EXPORTED_FUNCTIONS
       ",\"_calypso_voice_g05_enabled\""
+    )
+  endif()
+  if(CALYPSO_VOICE_P_EN)
+    target_compile_definitions(openxcom PRIVATE
+      CALYPSO_VOICE_G0_5=1
+      CALYPSO_VOICE_P_EN=1
+    )
+    set(CALYPSO_VOICE_G0_5_EXPORTED_FUNCTIONS
+      ",\"_calypso_voice_g05_enabled\",\"_calypso_voice_pack_result\""
     )
   endif()
   # Stub SDL_gfxPrimitives.h for Emscripten (no SDL2_gfx port; implementations in EmscriptenCompat.cpp).
@@ -886,6 +896,7 @@ if(NOT EMSCRIPTEN AND BUILD_TESTING)
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoEconomySimTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoTrainingMathTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoPrologueMathTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoVoiceProfileSelectionTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/HdUnitRenderPlanTest.cpp)
 
     add_executable(oxce_unit_tests ${OXCE_TEST_SOURCES})

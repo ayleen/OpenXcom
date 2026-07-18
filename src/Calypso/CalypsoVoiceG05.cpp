@@ -11,6 +11,10 @@
 #include <SDL.h>
 #include <SDL_mixer.h>
 
+#if defined(CALYPSO_VOICE_P_EN)
+#include <emscripten.h>
+#endif
+
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -82,10 +86,20 @@ struct AttackOutcome
 	std::set<BattleUnit *> damagedHostiles;
 };
 
+struct CachedChunk
+{
+	Mix_Chunk *chunk = nullptr;
+	std::uint64_t lastUsed = 0;
+};
+
 struct PilotState
 {
 	bool active = false;
-	std::map<std::string, Mix_Chunk *> chunks;
+	bool packReady = false;
+	unsigned int missionEpoch = 0;
+	std::map<std::string, CachedChunk> chunks;
+	std::size_t decodedBytes = 0;
+	std::uint64_t cacheClock = 0;
 	std::set<std::string> failedLoads;
 	std::array<EventCounter, static_cast<std::size_t>(Event::Count)> counters{};
 	std::map<std::pair<int, Event>, Uint32> lastFired;
@@ -101,7 +115,16 @@ struct PilotState
 	int currentPriority = 0;
 };
 
+#if defined(CALYPSO_VOICE_P_EN)
+constexpr const char *ROOT = "/game/voice-packs/en/";
+constexpr const char *EXTENSION = ".ogg";
+constexpr const char *LOG_TAG = "[VOICE_P_EN]";
+#else
 constexpr const char *ROOT = "/game/calypso-voice-g0.5/";
+constexpr const char *EXTENSION = ".wav";
+constexpr const char *LOG_TAG = "[VOICE_G0_5]";
+#endif
+constexpr std::size_t DECODED_CACHE_LIMIT = 4u * 1024u * 1024u;
 constexpr Uint32 RESELECT_WINDOW_MS = 8000;
 constexpr Uint32 FINAL_ANNOYANCE_LOCK_MS = 15000;
 
@@ -127,6 +150,7 @@ constexpr std::array<EventSpec, static_cast<std::size_t>(Event::Count)> EVENT_SP
 }};
 
 PilotState g_state;
+unsigned int g_nextMissionEpoch = 0;
 
 const EventSpec &eventSpec(Event event)
 {
@@ -147,6 +171,12 @@ const char *profileName(const BattleUnit *unit)
 	{
 		return "none";
 	}
+	const Soldier *soldier = unit->getGeoscapeSoldier();
+#if defined(CALYPSO_VOICE_P_EN)
+	return !unit->getVoiceProfile().empty()
+		? unit->getVoiceProfile().c_str()
+		: "none";
+#else
 	if (unit->getGender() != GENDER_FEMALE)
 	{
 		return "diver_en_m_custom_v2";
@@ -155,7 +185,6 @@ const char *profileName(const BattleUnit *unit)
 	// The geoscape Soldier ID survives save/load and mission transitions. Use
 	// it instead of gameplay RNG so each female Diver keeps one voice while the
 	// roster is distributed deterministically between the three pilot profiles.
-	const Soldier *soldier = unit->getGeoscapeSoldier();
 	const int stableId = soldier ? soldier->getId() : unit->getId();
 	switch (static_cast<unsigned int>(stableId) % 3u)
 	{
@@ -163,6 +192,7 @@ const char *profileName(const BattleUnit *unit)
 		case 1u: return "diver_en_f_custom_sasha";
 		default: return "diver_en_f_custom_sandra";
 	}
+#endif
 }
 
 bool isDiver(const BattleUnit *unit, bool requirePlayerControl = true)
@@ -219,7 +249,7 @@ std::string clipPath(Event event, const BattleUnit *unit, unsigned int variant)
 {
 	return std::string(profileName(unit))
 		+ "/STR_CALYPSO_VOICE_" + eventSpec(event).fileStem + "_"
-		+ (variant < 10 ? "0" : "") + std::to_string(variant) + ".wav";
+		+ (variant < 10 ? "0" : "") + std::to_string(variant) + EXTENSION;
 }
 
 void logSuppressed(Event event, const BattleUnit *unit, const char *reason)
@@ -227,7 +257,7 @@ void logSuppressed(Event event, const BattleUnit *unit, const char *reason)
 	EventCounter &counter = g_state.counters.at(static_cast<std::size_t>(event));
 	++counter.attempted;
 	++counter.suppressed;
-	Log(LOG_INFO) << "[VOICE_G0_5] event=" << eventSpec(event).name
+	Log(LOG_INFO) << LOG_TAG << " event=" << eventSpec(event).name
 		<< " unit=" << (unit ? unit->getId() : -1)
 		<< " profile=" << profileName(unit)
 		<< " result=suppressed reason=" << reason;
@@ -238,10 +268,40 @@ void releaseChunks()
 	Mix_HaltChannel(4);
 	for (auto &entry : g_state.chunks)
 	{
-		Mix_FreeChunk(entry.second);
+		Mix_FreeChunk(entry.second.chunk);
 	}
 	g_state.chunks.clear();
+	g_state.decodedBytes = 0;
 	g_state.failedLoads.clear();
+}
+
+bool makeCacheRoom(std::size_t requiredBytes)
+{
+	while (g_state.decodedBytes + requiredBytes > DECODED_CACHE_LIMIT)
+	{
+		Mix_Chunk *playing = Mix_Playing(4) ? Mix_GetChunk(4) : nullptr;
+		auto oldest = g_state.chunks.end();
+		for (auto it = g_state.chunks.begin(); it != g_state.chunks.end(); ++it)
+		{
+			if (it->second.chunk == playing)
+			{
+				continue;
+			}
+			if (oldest == g_state.chunks.end()
+				|| it->second.lastUsed < oldest->second.lastUsed)
+			{
+				oldest = it;
+			}
+		}
+		if (oldest == g_state.chunks.end())
+		{
+			return false;
+		}
+		g_state.decodedBytes -= oldest->second.chunk->alen;
+		Mix_FreeChunk(oldest->second.chunk);
+		g_state.chunks.erase(oldest);
+	}
+	return true;
 }
 
 Mix_Chunk *loadClip(const std::string &relativePath)
@@ -250,7 +310,8 @@ Mix_Chunk *loadClip(const std::string &relativePath)
 	auto loaded = g_state.chunks.find(path);
 	if (loaded != g_state.chunks.end())
 	{
-		return loaded->second;
+		loaded->second.lastUsed = ++g_state.cacheClock;
+		return loaded->second.chunk;
 	}
 	if (g_state.failedLoads.find(path) != g_state.failedLoads.end())
 	{
@@ -261,24 +322,32 @@ Mix_Chunk *loadClip(const std::string &relativePath)
 	if (!rw)
 	{
 		g_state.failedLoads.insert(path);
-		Log(LOG_ERROR) << "[VOICE_G0_5] failed to open " << path;
+		Log(LOG_ERROR) << LOG_TAG << " failed to open " << path;
 		return nullptr;
 	}
 	Mix_Chunk *chunk = Mix_LoadWAV_RW(rw, SDL_TRUE);
 	if (!chunk)
 	{
 		g_state.failedLoads.insert(path);
-		Log(LOG_ERROR) << "[VOICE_G0_5] failed to decode " << path
+		Log(LOG_ERROR) << LOG_TAG << " failed to decode " << path
 			<< " error=" << Mix_GetError();
 		return nullptr;
 	}
-	g_state.chunks[path] = chunk;
+	if (!makeCacheRoom(chunk->alen))
+	{
+		Log(LOG_WARNING) << LOG_TAG << " decoded cache limit rejected " << path
+			<< " bytes=" << chunk->alen;
+		Mix_FreeChunk(chunk);
+		return nullptr;
+	}
+	g_state.decodedBytes += chunk->alen;
+	g_state.chunks[path] = CachedChunk{chunk, ++g_state.cacheClock};
 	return chunk;
 }
 
 bool submit(Event event, BattleUnit *unit, bool forceInterrupt = false)
 {
-	if (!g_state.active || !isDiver(unit, event != Event::Death))
+	if (!g_state.active || !g_state.packReady || !isDiver(unit, event != Event::Death))
 	{
 		return false;
 	}
@@ -288,7 +357,7 @@ bool submit(Event event, BattleUnit *unit, bool forceInterrupt = false)
 	if (Options::mute)
 	{
 		++counter.suppressed;
-		Log(LOG_INFO) << "[VOICE_G0_5] event=" << eventSpec(event).name
+		Log(LOG_INFO) << LOG_TAG << " event=" << eventSpec(event).name
 			<< " unit=" << unit->getId() << " profile=" << profileName(unit)
 			<< " result=suppressed reason=muted";
 		return false;
@@ -301,7 +370,7 @@ bool submit(Event event, BattleUnit *unit, bool forceInterrupt = false)
 		&& now - last->second < eventSpec(event).cooldownMs)
 	{
 		++counter.suppressed;
-		Log(LOG_INFO) << "[VOICE_G0_5] event=" << eventSpec(event).name
+		Log(LOG_INFO) << LOG_TAG << " event=" << eventSpec(event).name
 			<< " unit=" << unit->getId() << " profile=" << profileName(unit)
 			<< " result=suppressed reason=cooldown";
 		return false;
@@ -313,7 +382,7 @@ bool submit(Event event, BattleUnit *unit, bool forceInterrupt = false)
 		if (!forceInterrupt && requestedPriority <= g_state.currentPriority)
 		{
 			++counter.suppressed;
-			Log(LOG_INFO) << "[VOICE_G0_5] event=" << eventSpec(event).name
+			Log(LOG_INFO) << LOG_TAG << " event=" << eventSpec(event).name
 				<< " unit=" << unit->getId() << " profile=" << profileName(unit)
 				<< " result=suppressed reason=channel_busy";
 			return false;
@@ -327,7 +396,7 @@ bool submit(Event event, BattleUnit *unit, bool forceInterrupt = false)
 	if (!chunk)
 	{
 		++counter.suppressed;
-		Log(LOG_INFO) << "[VOICE_G0_5] event=" << eventSpec(event).name
+		Log(LOG_INFO) << LOG_TAG << " event=" << eventSpec(event).name
 			<< " unit=" << unit->getId() << " profile=" << profileName(unit)
 			<< " result=suppressed reason=load_failed";
 		return false;
@@ -337,7 +406,7 @@ bool submit(Event event, BattleUnit *unit, bool forceInterrupt = false)
 	if (channel != 4)
 	{
 		++counter.suppressed;
-		Log(LOG_WARNING) << "[VOICE_G0_5] event=" << eventSpec(event).name
+		Log(LOG_WARNING) << LOG_TAG << " event=" << eventSpec(event).name
 			<< " unit=" << unit->getId() << " profile=" << profileName(unit)
 			<< " result=suppressed reason=playback_failed error=" << Mix_GetError();
 		return false;
@@ -346,7 +415,7 @@ bool submit(Event event, BattleUnit *unit, bool forceInterrupt = false)
 	g_state.lastFired[cooldownKey] = now;
 	g_state.currentPriority = requestedPriority;
 	++counter.fired;
-	Log(LOG_INFO) << "[VOICE_G0_5] event=" << eventSpec(event).name
+	Log(LOG_INFO) << LOG_TAG << " event=" << eventSpec(event).name
 		<< " unit=" << unit->getId() << " profile=" << profileName(unit)
 		<< " result=fired clip=" << relativePath;
 	return true;
@@ -377,7 +446,18 @@ void CalypsoVoiceG05::beginMission()
 	}
 	g_state = PilotState{};
 	g_state.active = true;
-	Log(LOG_INFO) << "[VOICE_G0_5] development-only pilot active; clips=208 profiles=4 events=18 shuffle_bags=per_unit_event";
+	g_state.missionEpoch = ++g_nextMissionEpoch;
+#if defined(CALYPSO_VOICE_P_EN)
+	Log(LOG_INFO) << LOG_TAG << " requesting lazy English pack epoch=" << g_state.missionEpoch;
+	EM_ASM({
+		if (globalThis.calypsoVoicePacks?.request) {
+			globalThis.calypsoVoicePacks.request('en', $0);
+		}
+	}, g_state.missionEpoch);
+#else
+	g_state.packReady = true;
+	Log(LOG_INFO) << LOG_TAG << " development-only pilot active; clips=208 profiles=4 events=18 shuffle_bags=per_unit_event";
+#endif
 }
 
 void CalypsoVoiceG05::endMission()
@@ -389,18 +469,38 @@ void CalypsoVoiceG05::endMission()
 	for (std::size_t i = 0; i < static_cast<std::size_t>(Event::Count); ++i)
 	{
 		const EventCounter &counter = g_state.counters.at(i);
+#if defined(CALYPSO_VOICE_P_EN)
+		Log(LOG_INFO) << LOG_TAG << " summary event=" << EVENT_SPECS.at(i).name
+#else
 		Log(LOG_INFO) << "[VOICE_G0_5_SUMMARY] event=" << EVENT_SPECS.at(i).name
+#endif
 			<< " attempted=" << counter.attempted
 			<< " fired=" << counter.fired
 			<< " suppressed=" << counter.suppressed;
 	}
 	releaseChunks();
 	g_state.active = false;
+#if defined(CALYPSO_VOICE_P_EN)
+	EM_ASM({ globalThis.calypsoVoicePacks?.release('en'); });
+#endif
+}
+
+bool CalypsoVoiceG05::onPackResult(unsigned int missionEpoch, bool available)
+{
+	if (!g_state.active || g_state.missionEpoch != missionEpoch)
+	{
+		return false;
+	}
+	g_state.packReady = available;
+	Log(available ? LOG_INFO : LOG_WARNING) << LOG_TAG
+		<< " pack_result=" << (available ? "ready" : "unavailable")
+		<< " epoch=" << missionEpoch;
+	return available;
 }
 
 bool CalypsoVoiceG05::handleSelection(BattleUnit *unit, bool sameUnit)
 {
-	if (!g_state.active || !isDiver(unit) || unit->isOut())
+	if (!g_state.active || !g_state.packReady || !isDiver(unit) || unit->isOut())
 	{
 		return false;
 	}
@@ -463,7 +563,7 @@ bool CalypsoVoiceG05::handleSelection(BattleUnit *unit, bool sameUnit)
 
 bool CalypsoVoiceG05::handleMoveOrder(BattleUnit *unit)
 {
-	if (!g_state.active || !isDiver(unit) || unit->isOut())
+	if (!g_state.active || !g_state.packReady || !isDiver(unit) || unit->isOut())
 	{
 		return false;
 	}
@@ -503,7 +603,7 @@ void CalypsoVoiceG05::onGrenadeThrown(BattleUnit *unit)
 
 void CalypsoVoiceG05::onAttackStarted(BattleUnit *unit)
 {
-	if (!g_state.active || !isDiver(unit))
+	if (!g_state.active || !g_state.packReady || !isDiver(unit))
 	{
 		return;
 	}
@@ -640,7 +740,7 @@ void CalypsoVoiceG05::onCasualtyResolved(BattleUnit *unit)
 
 bool CalypsoVoiceG05::onDeath(BattleUnit *unit)
 {
-	if (!g_state.active || !isDiver(unit, false))
+	if (!g_state.active || !g_state.packReady || !isDiver(unit, false))
 	{
 		return false;
 	}
@@ -661,7 +761,16 @@ bool CalypsoVoiceG05::onDeath(BattleUnit *unit)
 
 extern "C" int calypso_voice_g05_enabled()
 {
+#if defined(CALYPSO_VOICE_P_EN)
+	return 0;
+#else
 	return 1;
+#endif
+}
+
+extern "C" int calypso_voice_pack_result(unsigned int missionEpoch, int available)
+{
+	return OpenXcom::CalypsoVoiceG05::onPackResult(missionEpoch, available != 0) ? 1 : 0;
 }
 
 #endif

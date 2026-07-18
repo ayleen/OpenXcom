@@ -25,6 +25,7 @@
 
 #include "../Mod/Mod.h"
 #include "CalypsoEconomy.h"
+#include "CalypsoVoiceProfileSelection.h"
 #include "../Mod/ModScript.h"
 #include <algorithm>
 #include <functional>
@@ -1598,6 +1599,72 @@ Mod::WangResult Mod::computeWangMask(const TileAtlasSpec* spec,
 	return result;
 }
 
+const RuleVoiceProfile *Mod::getVoiceProfile(const std::string &id) const
+{
+	const auto found = _voiceProfiles.find(id);
+	return found == _voiceProfiles.end() ? nullptr : &found->second;
+}
+
+std::string Mod::selectVoiceProfile(const std::string &locale,
+	const std::string &unitClass, const std::string &gender, int stableId,
+	const std::string &stored) const
+{
+	std::vector<CalypsoVoiceProfileDescriptor> profiles;
+	profiles.reserve(_voiceProfiles.size());
+	for (const auto &entry : _voiceProfiles)
+	{
+		const RuleVoiceProfile &profile = entry.second;
+		profiles.push_back({profile.getId(), profile.getLocale(),
+			profile.getBaseLocale(), profile.getUnitClass(), profile.getGender()});
+	}
+
+	const std::string selected = calypsoSelectVoiceProfile(
+		profiles, locale, unitClass, gender, stableId, stored);
+	if (!stored.empty() && stored != selected
+		&& _voiceProfileRepairWarnings.insert(stored).second)
+	{
+		Log(LOG_WARNING) << "Voice profile '" << stored
+			<< "' is missing or incompatible; repaired as '"
+			<< (selected.empty() ? "subtitle-only" : selected) << "'";
+	}
+	return selected;
+}
+
+void Mod::validateVoiceProfiles() const
+{
+	for (const auto &entry : _voiceProfiles)
+	{
+		const RuleVoiceProfile &profile = entry.second;
+		if (profile.getLocale() != "en" && profile.getFallbackProfile().empty())
+		{
+			throw Exception("voiceProfiles[" + profile.getId()
+				+ "]: non-English profiles require an explicit English fallbackProfile");
+		}
+		if (profile.getFallbackProfile().empty())
+		{
+			continue;
+		}
+		const RuleVoiceProfile *fallback = getVoiceProfile(profile.getFallbackProfile());
+		if (!fallback)
+		{
+			throw Exception("voiceProfiles[" + profile.getId()
+				+ "]: unknown fallbackProfile '" + profile.getFallbackProfile() + "'");
+		}
+		if (fallback == &profile || fallback->getLocale() != "en"
+			|| fallback->getUnitClass() != profile.getUnitClass()
+			|| fallback->getGender() != profile.getGender())
+		{
+			throw Exception("voiceProfiles[" + profile.getId()
+				+ "]: fallbackProfile must be a different compatible English profile");
+		}
+	}
+	if (!_voiceProfiles.empty())
+	{
+		Log(LOG_INFO) << "voiceProfiles: loaded " << _voiceProfiles.size()
+			<< " ruleset-backed profiles";
+	}
+}
+
 void Mod::loadFileCalypso(YAML::YamlNodeReader& reader)
 {
 	// Phase 36: re-declared loadFile glue so the extracted ruleset parsing below
@@ -1618,6 +1685,19 @@ void Mod::loadFileCalypso(YAML::YamlNodeReader& reader)
 		const auto& node = loadDocInfoHelper(nodeName);
 		return node.children();
 	};
+
+	for (const auto &ruleReader : iterateRulesSpecific("voiceProfiles"))
+	{
+		std::string id;
+		ruleReader["id"].tryReadVal<std::string>(id);
+		if (id.empty())
+		{
+			throw Exception("voiceProfiles: every profile requires a non-empty id");
+		}
+		RuleVoiceProfile profile(id);
+		profile.load(ruleReader);
+		_voiceProfiles[id] = std::move(profile);
+	}
 
 	int _globeTexUploaded = 0;  // M5b: count uploads to suppress the mark on ruleset files with no globeTextures
 	for (const auto& ruleReader : iterateRulesSpecific("globeTextures"))

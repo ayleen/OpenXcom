@@ -18,6 +18,8 @@ class CalypsoVoiceG05
 public:
 	static void beginMission();
 	static void endMission();
+	/// Accept an asynchronous browser pack result only for the active mission.
+	static bool onPackResult(unsigned int missionEpoch, bool available);
 
 	/// Returns true when the spike owns selection audio for this unit.
 	static bool handleSelection(BattleUnit *unit, bool sameUnit);

@@ -174,6 +174,9 @@ private:
 	const Armor *_armor;
 	SoldierGender _gender;
 	Soldier *_geoscapeSoldier;
+#ifdef __EMSCRIPTEN__
+	std::string _voiceProfile; // Phase 44: tactical copy of the stable Diver voice identity
+#endif
 	std::vector<int> _loftempsSet;
 	const Unit *_unitRules;
 	const Mod *_mod; // Brutal-AI: for resolving the brutalAI/aiCheatMode ruleset knobs per unit.
@@ -328,6 +331,10 @@ public:
 	void abortTurn();
 	/// Gets the soldier's gender.
 	SoldierGender getGender() const;
+#ifdef __EMSCRIPTEN__
+	/// Gets the stable Calypso voice profile copied into the tactical save.
+	const std::string &getVoiceProfile() const { return _voiceProfile; }
+#endif
 	/// Gets the unit's faction.
 	UnitFaction getFaction() const;
 	/// Gets unit sprite recolors values.
@@ -976,4 +983,3 @@ public:
 };
 
 } //namespace OpenXcom
-

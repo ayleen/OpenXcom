@@ -79,6 +79,7 @@ private:
 	bool _recentlyPromoted, _psiTraining, _training, _returnToTrainingWhenHealed;
 #ifdef __EMSCRIPTEN__
 	int _calypsoDrillDays = 0; // Phase 40: days toward the next Drill Deck cycle
+	std::string _voiceProfile; // Phase 44: stable voice identity persisted in saves
 #endif
 	Armor *_armor;
 	Armor *_replacedArmor;
@@ -149,7 +150,15 @@ public:
 	/// Gets the soldier's gender.
 	SoldierGender getGender() const;
 	/// Sets the soldier's gender.
-	void setGender(SoldierGender gender);
+	void setGender(SoldierGender gender, const Mod *mod = nullptr);
+#ifdef __EMSCRIPTEN__
+	/// Gets the stable Calypso voice profile ID.
+	const std::string &getVoiceProfile() const { return _voiceProfile; }
+	/// Sets the stable Calypso voice profile ID.
+	void setVoiceProfile(const std::string &profile) { _voiceProfile = profile; }
+	/// Resolves voice locale from the soldier's current name pool.
+	std::string getVoiceLocale() const;
+#endif
 	/// Gets the soldier's look.
 	SoldierLook getLook() const;
 	/// Sets the soldier's look.
