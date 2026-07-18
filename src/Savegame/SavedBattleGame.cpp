@@ -1814,7 +1814,14 @@ void SavedBattleGame::endTurn()
 			}
 			bu->prepareNewTurn();
 		}
-		else if (bu->getOriginalFaction() == _side)
+		else if (bu->getOriginalFaction() == _side
+#ifdef __EMSCRIPTEN__
+			// Scripted handoffs are permanently owned by the current player
+			// faction. Processing their neutral origin would apply health, fire,
+			// stun, and morale updates a second time in the same round.
+			&& !bu->hasScriptedPlayerControl()
+#endif
+		)
 		{
 			bu->updateUnitStats(false, true);
 		}

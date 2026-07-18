@@ -577,8 +577,7 @@ bool ProjectileFlyBState::createNewProjectile()
 		else
 		{
 			// unable to throw here
-			delete projectile;
-			_parent->getMap()->setProjectile(0);
+			delete _parent->getMap()->releaseProjectile(false);
 			_action.result = "STR_UNABLE_TO_THROW_HERE";
 			_action.aiFailure = AIFailureReason::INVALID_THROW;
 			_action.clearTU();
@@ -610,8 +609,7 @@ bool ProjectileFlyBState::createNewProjectile()
 		else
 		{
 			// no line of fire
-			delete projectile;
-			_parent->getMap()->setProjectile(0);
+			delete _parent->getMap()->releaseProjectile(false);
 			if (_parent->getPanicHandled())
 			{
 				_action.result = "STR_NO_TRAJECTORY";
@@ -653,8 +651,7 @@ bool ProjectileFlyBState::createNewProjectile()
 		else
 		{
 			// no line of fire
-			delete projectile;
-			_parent->getMap()->setProjectile(0);
+			delete _parent->getMap()->releaseProjectile(false);
 			if (_parent->getPanicHandled())
 			{
 				_action.result = "STR_NO_LINE_OF_FIRE";
@@ -972,8 +969,7 @@ void ProjectileFlyBState::think()
 				}
 			}
 
-			delete _parent->getMap()->getProjectile();
-			_parent->getMap()->setProjectile(0);
+			delete _parent->getMap()->releaseProjectile(true);
 		}
 	}
 }

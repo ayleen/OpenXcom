@@ -6,6 +6,7 @@ set ( root_src
 )
 set ( calypso_src
   Calypso/BattlescapeHud.cpp
+  Calypso/BattleUnitCalypso.cpp
   Calypso/CalypsoAiQaHarness.cpp
   Calypso/CalypsoAlienPacing.cpp
   Calypso/CalypsoContractDeliverState.cpp
@@ -591,7 +592,6 @@ if(EMSCRIPTEN)
   list(APPEND openxcom_src Calypso/CalypsoChecklist.cpp)
   list(APPEND openxcom_src Calypso/GeoscapeChecklist.cpp)
   list(APPEND openxcom_src Calypso/CalypsoAdvisor.cpp)
-  list(APPEND openxcom_src Calypso/CalypsoTutorialAskState.cpp)
   list(APPEND openxcom_src Calypso/CalypsoDirector.cpp)
   list(APPEND openxcom_src Calypso/CalypsoRadioLineState.cpp)
   list(APPEND openxcom_src Calypso/CalypsoPrologueScene.cpp)
@@ -883,6 +883,7 @@ if(NOT EMSCRIPTEN AND BUILD_TESTING)
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoEconomySimTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoTrainingMathTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoPrologueMathTest.cpp
+		${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoRadioLineTimingTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoUiMetricsTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoUiFamiliesTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoFocusModelTest.cpp

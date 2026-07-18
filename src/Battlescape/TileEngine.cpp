@@ -1468,6 +1468,16 @@ bool TileEngine::calculateUnitsInFOV(BattleUnit* unit, const Position eventPos, 
 	//Loop through all units specified and figure out which ones we can actually see.
 	for (auto* bu : *_save->getUnits())
 	{
+#ifdef __EMSCRIPTEN__
+		// The prologue's ambusher is narratively absent until its scripted
+		// reveal.  Remove any stale FOV entry too, so it cannot leak through
+		// targeting, indicators, minimap state, or smart-civilian spotting.
+		if (bu->isScriptedConcealed())
+		{
+			unit->removeFromVisibleUnits(bu);
+			continue;
+		}
+#endif
 		Position posOther = bu->getPosition();
 		if (!bu->isOut() && (unit->getId() != bu->getId()))
 		{
@@ -2808,6 +2818,10 @@ bool TileEngine::checkReactionFire(BattleUnit *unit, const BattleAction &origina
 std::vector<TileEngine::ReactionScore> TileEngine::getSpottingUnits(BattleUnit* unit)
 {
 	std::vector<TileEngine::ReactionScore> spotters;
+#ifdef __EMSCRIPTEN__
+	if (unit->isScriptedConcealed())
+		return spotters;
+#endif
 	Tile *tile = unit->getTile();
 	int threshold = unit->getReactionScore();
 	// no reaction on civilian turn.
@@ -2817,6 +2831,11 @@ std::vector<TileEngine::ReactionScore> TileEngine::getSpottingUnits(BattleUnit* 
 		{
 				// not dead/unconscious
 			if (!bu->isOut() &&
+#ifdef __EMSCRIPTEN__
+				// A scripted ambusher is absent from the scenario until reveal;
+				// concealment must exclude the reactor, not only the moving target.
+				!bu->isScriptedConcealed() &&
+#endif
 				// not dying or not about to pass out
 				!bu->isOutThresholdExceed() &&
 				// have any chances for reacting

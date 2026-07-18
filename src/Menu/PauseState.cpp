@@ -35,6 +35,7 @@
 #include "../version.h"
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
+#include "../Calypso/CalypsoDirector.h"
 #endif
 
 namespace OpenXcom
@@ -143,6 +144,21 @@ PauseState::PauseState(OptionsOrigin origin) : _origin(origin)
 		_btnAbandon->setText(tr("STR_SAVE_AND_ABANDON_GAME"));
 	}
 
+#ifdef __EMSCRIPTEN__
+	// A scripted scene forbids manual save/load, not the pause menu itself.
+	// This also covers the browser tab-hide path because it pushes the same
+	// PauseState. The bridge endpoints repeat the policy as a trust boundary.
+	if (_origin == OPT_BATTLESCAPE && CalypsoDirector::get().activeSceneBlocksSaveLoad())
+	{
+		_btnLoad->setVisible(false);
+		_btnSave->setVisible(false);
+		// An Ironman campaign normally saves before abandoning, but the scripted
+		// prologue deliberately discards its throwaway battle without creating a
+		// player-controlled checkpoint. Keep the destructive label truthful.
+		_btnAbandon->setText(tr("STR_ABANDON_GAME"));
+	}
+#endif
+
 	// ENOUGH! No save corruption when trying to save/exit mid-action (e.g. during alien turn)
 	if (origin == OPT_BATTLESCAPE)
 	{
@@ -189,6 +205,9 @@ void PauseState::resize(int &dX, int &dY)
 void PauseState::btnLoadClick(Action *)
 {
 #ifdef __EMSCRIPTEN__
+	if (_origin == OPT_BATTLESCAPE && CalypsoDirector::get().activeSceneBlocksSaveLoad()) return;
+#endif
+#ifdef __EMSCRIPTEN__
 	// Phase 41: route to the HTML overlay when the hook exists (fallback: native).
 	int handled = EM_ASM_INT({
 		return (typeof window !== 'undefined' && window.calypsoOpenLoad)
@@ -205,6 +224,9 @@ void PauseState::btnLoadClick(Action *)
  */
 void PauseState::btnSaveClick(Action *)
 {
+#ifdef __EMSCRIPTEN__
+	if (_origin == OPT_BATTLESCAPE && CalypsoDirector::get().activeSceneBlocksSaveLoad()) return;
+#endif
 #ifdef __EMSCRIPTEN__
 	// Phase 41: route to the HTML overlay when the hook exists (fallback: native).
 	int handled = EM_ASM_INT({

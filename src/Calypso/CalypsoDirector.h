@@ -44,6 +44,7 @@
 #include <functional>
 #include <map>
 #include "../Battlescape/Position.h"
+#include "CalypsoRadioLineState.h"
 
 namespace OpenXcom
 {
@@ -74,6 +75,9 @@ public:
 	/// Battle just started (fresh) -- the scene's first-frame setup. NOT re-called
 	/// on save/load resume (the director rebuilds the scene from the save instead).
 	virtual void onBattleStart(BattlescapeGame *) {}
+	/// Battle state has been rebuilt from a save and fresh runtime pointers are
+	/// now available. Must not repeat spawn/RNG setup from onBattleStart().
+	virtual void onBattleResume(BattlescapeGame *) {}
 	/// A new player turn has just begun (side already switched, turn incremented).
 	virtual void onPlayerTurnStart(BattlescapeGame *) {}
 	/// A new hostile turn has just begun.
@@ -111,6 +115,14 @@ public:
 	/// Opt-in: override the abort-confirmation window strings. Populate the three
 	/// ids with extraStrings keys and return true; the director translates them.
 	virtual bool abortStrings(std::string *title, std::string *ok, std::string *cancel) { return false; }
+	/// Opt-in: false disables opening the abort dialog while the scene is at a
+	/// scripted beat where evacuation would be misleading. The default preserves
+	/// ordinary Battlescape behaviour for every other scene.
+	virtual bool abortAvailable() const { return true; }
+	/// Opt-in: whether the currently displayed abort tally satisfies this
+	/// scene's extraction requirement. This must be side-effect free because the
+	/// dialog calls it while it is being constructed.
+	virtual bool abortConfirmAvailable(SavedBattleGame *) const { return true; }
 	/// End state to push instead of the vanilla Debriefing when the scene has set
 	/// an outcome. Return null to fall through to the standard debrief. The
 	/// concrete scene owns the returned State* (pushed by the director).
@@ -185,6 +197,13 @@ public:
 	/// does not opt in. Called from the AbortMissionState ctor hook.
 	bool abortStrings(std::string *title, std::string *ok, std::string *cancel);
 
+	/// Whether the active scene currently permits opening the abort dialog.
+	/// True when no scripted scene owns the battle.
+	bool abortAvailable() const;
+	/// Whether the active scene permits confirming the currently displayed abort
+	/// tally. This does not mutate scene state.
+	bool abortConfirmAvailable(SavedBattleGame *save) const;
+
 	/// Intercept the vanilla finish-battle flow. Returns true if the director
 	/// pushed the scene's end state (the caller must `return` and skip Debriefing).
 	/// Always tears down the active scene (the battle is over either way).
@@ -215,18 +234,21 @@ public:
 	/// TU is granted beforehand so the move is always affordable.
 	void steerUnit(BattlescapeGame *bg, BattleUnit *unit, Position waypoint);
 
-	/// Hand a unit to the player: convertToFaction(FACTION_PLAYER), select it,
-	/// and centre the camera on it. Used by the prologue's Nikos handoff.
-	void handoffToPlayer(BattlescapeGame *bg, BattleUnit *unit);
+	/// Permanently hand a scripted neutral unit to the player while retaining
+	/// its original faction for tallying. Presentation is opt-in because a
+	/// hostile-turn handoff must not select or centre a unit before player input.
+	void handoffToPlayer(BattlescapeGame *bg, BattleUnit *unit, bool presentNow = false);
 
 	/// Reset every live unit of `side` to morale 100 (pins panic-driven loss of
 	/// control while a scene is directing). Uses BattleUnit::moraleChange(delta).
 	void pinMorale(SavedBattleGame *save, UnitFaction side);
 
-	/// Push a transient radio-line popup showing tr(stringId). No-op without an
-	/// active scene. Renders through the tutorial DOM overlay (no web-shell change
-	/// required for this commit; presentation may be skinned later).
-	void radioLine(Game *game, const std::string &stringId);
+	/// Show a radio line through the dedicated DOM overlay. Narrative lines are
+	/// queued without touching the Game state stack, so battle input and think()
+	/// continue in real time. Explicit instructions push a modal Continue state.
+	void radioLine(Game *game, const std::string &stringId,
+		CalypsoRadioLineKind kind = CalypsoRadioLineKind::Narrative,
+		std::function<void()> onDismissed = {});
 
 	/// Record a scene outcome and drive the battle to its end. The outcome is
 	/// consumed by interceptFinishBattle (hooked in BattlescapeState::finishBattle),

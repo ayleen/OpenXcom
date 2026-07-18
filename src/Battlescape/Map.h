@@ -127,6 +127,13 @@ private:
 	int _savedScissorBox[4] = {0, 0, 0, 0};
 	bool _savedScissorOn = false;
 	std::vector<Position> _waypoints;
+#ifdef __EMSCRIPTEN__
+	// Presentation-only objective beacon owned by scripted battlescape scenes.
+	// Deliberately separate from _waypoints: that vector is live launcher/spray
+	// action state and must never be polluted by scenario guidance.
+	bool _scriptedObjectiveMarkerActive = false;
+	Position _scriptedObjectiveMarker;
+#endif
 	bool _unitDying, _smoothCamera, _smoothingEngaged, _flashScreen;
 	int _bgColor;
 	bool _previewSettingArrows, _previewSettingTu, _previewSettingEnergy;
@@ -138,6 +145,17 @@ private:
 	TTFFont *_fontHdNumbers; // Phase 16: TTF font for HD cursor TU/AP numerals (lazy-cached, see getHdNumberFont)
 	/// Timestamp (SDL_GetTicks) of the last blit() call — used by GPU overlay guards.
 	Uint32 _lastDrawnTicks = 0u;
+	#ifdef __EMSCRIPTEN__
+	// Presentation-only tail for a ballistic projectile that completed between
+	// two browser frames. It never participates in collision or turn logic.
+	struct ProjectileAfterimage
+	{
+		bool valid = false;
+		Position origin, impact;
+		int particle = -1;
+		Uint32 expires = 0u;
+	} _projectileAfterimage;
+	#endif
 	/// Diagnostic counter: completed HUD image/text GPU passes for the live Map.
 	unsigned _hudGlDrawCount = 0u;
 
@@ -340,6 +358,10 @@ private:
 	void initSpriteGL();
 	GpuTexture* getOrUploadSpriteFrame(SurfaceSet* set, int frameIdx);
 	void drawProjectileGLPass();
+	bool gpuProjectilePathReady();
+	void captureProjectileAfterimage(Projectile *projectile, bool retainAfterimage);
+	void drawScriptedObjectiveMarker(Surface *surface, const Position &mapPosition,
+		const Position &screenPosition, SurfaceSet *gpuCursorSet);
 
 	// Calypso bug 1: physical-resolution HUD text overlay (selected-unit name + stat
 	// digits). The logical HUD widgets render mushy at the low resolution-menu fractions
@@ -637,6 +659,10 @@ public:
 
 	/// Sets projectile.
 	void setProjectile(Projectile *projectile);
+	/// Detaches the live projectile before its owner deletes it. On Emscripten,
+	/// a successful ballistic flight may retain renderer-only afterimage data
+	/// while the object is still alive.
+	Projectile *releaseProjectile(bool retainAfterimage = false);
 	/// Gets projectile.
 	Projectile *getProjectile() const;
 	/// Sets follow projectile flag.
@@ -664,6 +690,12 @@ public:
 	void fadeShade();
 	/// Get waypoints vector.
 	std::vector<Position> *getWaypoints();
+#ifdef __EMSCRIPTEN__
+	/// Show/replace the presentation-only marker used by a scripted scene.
+	void setScriptedObjectiveMarker(const Position &position);
+	/// Remove the scripted marker without touching launcher/spray waypoints.
+	void clearScriptedObjectiveMarker();
+#endif
 	/// Set mouse-buttons' pressed state.
 	void setButtonsPressed(Uint8 button, bool pressed);
 	/// Sets the unitDying flag.

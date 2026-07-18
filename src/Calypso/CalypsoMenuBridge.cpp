@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "CalypsoMenuBridge.h"
+#include "CalypsoDirector.h"
 #include "../Engine/Game.h"
 #include "../Engine/Language.h"
 #include "../Engine/CrossPlatform.h"
@@ -100,17 +101,22 @@ struct CalypsoNewGameBridge
 		}
 		out += "],\"selected\":" + std::to_string((int)g->getMod()->getStartingDifficulty());
 		out += ",\"ironman\":" + std::string(s->_btnIronman->getPressed() ? "1" : "0");
+		// The global option remains authoritative.  Do not let a stale browser
+		// screen advertise an enabled campaign when global help is disabled.
+		out += ",\"tutorial\":" + std::string((Options::calypsoTutorial && s->_calypsoTutorial) ? "1" : "0");
+		out += ",\"globalTutorial\":" + std::string(Options::calypsoTutorial ? "1" : "0");
 		out += "}";
 		return out;
 	}
 
 	/* Select the difficulty radio + ironman toggle, then fire the native OK
 	 * handler (difficulty is pre-validated to 0..4 by the caller). */
-	static void start(NewGameState *s, int difficulty, int ironman)
+	static void start(NewGameState *s, int difficulty, int ironman, int tutorial)
 	{
 		TextButton *btns[5] = { s->_btnBeginner, s->_btnExperienced, s->_btnVeteran, s->_btnGenius, s->_btnSuperhuman };
 		s->_difficulty = btns[difficulty];
 		s->_btnIronman->setPressed(ironman != 0);
+		s->_calypsoTutorial = tutorial != 0;
 		s->btnOkClick(nullptr);
 	}
 };
@@ -262,14 +268,14 @@ const char *calypso_newgame_info()
 }
 
 EMSCRIPTEN_KEEPALIVE
-int calypso_newgame_start(int difficulty, int ironman)
+int calypso_newgame_start(int difficulty, int ironman, int tutorial)
 {
 	Game *g = getCurrentGame();
 	if (!g) return 0;
 	NewGameState *s = CalypsoNewGameBridge::top(g);
 	if (!s) return 0;
 	if (difficulty < 0 || difficulty > 4) return 0;
-	CalypsoNewGameBridge::start(s, difficulty, ironman);
+	CalypsoNewGameBridge::start(s, difficulty, ironman, tutorial);
 	return 1;
 }
 
@@ -338,6 +344,7 @@ int calypso_save_load(const char *file, int origin, int force)
 {
 	Game *g = getCurrentGame();
 	if (!g || !file || !*file) return 0;
+	if (CalypsoDirector::get().activeSceneBlocksSaveLoad()) return 0;
 	std::string fileName(file);
 
 	if (!force)
@@ -410,6 +417,7 @@ int calypso_save_write(const char *displayName, int origin)
 	(void)origin;
 	Game *g = getCurrentGame();
 	if (!g || !g->getSavedGame() || !displayName) return 0;
+	if (CalypsoDirector::get().activeSceneBlocksSaveLoad()) return 0;
 
 	g->getSavedGame()->setName(displayName);
 	std::string fileName = CrossPlatform::sanitizeFilename(displayName);

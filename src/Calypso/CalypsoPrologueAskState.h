@@ -1,8 +1,8 @@
 #ifdef __EMSCRIPTEN__
 #pragma once
 /*
- * Phase 41 (Calypso): "play the prologue mission?" prompt, shown once per
- * browser (Options::calypsoPrologueSeen) at the top of a fresh New Game.
+ * Phase 41 (Calypso): "play the prologue mission?" prompt, shown for each
+ * fresh New Game whose per-campaign tutorial checkbox is enabled.
  * Whole file Emscripten-only. Structurally cloned from CalypsoTutorialAskState.
  */
 #include "../Engine/State.h"
