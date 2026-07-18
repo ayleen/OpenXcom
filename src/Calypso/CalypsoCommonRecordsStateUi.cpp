@@ -3,16 +3,24 @@
 #include "CalypsoCommonRecordsStateUi.h"
 
 #include <algorithm>
+#include <cmath>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include <SDL.h>
+#include <GLES3/gl3.h>
 
 #include "../Engine/Action.h"
 #include "../Engine/Game.h"
+#include "../Engine/GpuInit.h"
+#include "../Engine/GpuTexture.h"
 #include "../Engine/LocalizedText.h"
 #include "../Engine/Options.h"
+#include "../Engine/Screen.h"
+#include "../Engine/Shader.h"
+#include "../Engine/ShaderManager.h"
 #include "../Engine/Surface.h"
 #include "../Engine/Unicode.h"
 #include "../Interface/Text.h"
@@ -179,6 +187,266 @@ public:
 	}
 };
 
+/**
+ * Post-composite F34 popup layer. The ordinary widgets keep their logical
+ * geometry and input ownership, but the visible panel, icon, controls, and
+ * glyphs are composed into a texture whose dimensions match the browser
+ * backing store. The texture is drawn after the low-resolution game
+ * framebuffer, so SDL never enlarges an already-rasterised HD object.
+ */
+class F34PhysicalTextOverlay final : public Surface
+{
+public:
+	F34PhysicalTextOverlay(Game* game, State* owner)
+		: Surface(1, 1, 0, 0), _game(game), _owner(owner) {}
+
+	~F34PhysicalTextOverlay() override
+	{
+		_alive.reset();
+		delete _shader;
+		delete _texture;
+		if (_vao) glDeleteVertexArrays(1, &_vao);
+		if (_vbo) glDeleteBuffers(1, &_vbo);
+	}
+
+	bool initGPU(Screen& screen)
+	{
+		if (!GpuInit::ready()) return false;
+		if (!_texture)
+			_texture = new GpuTexture(false, GpuTexture::Wrap::ClampToEdge,
+				GpuTexture::Filter::Linear);
+		if (!_vao)
+		{
+			glGenVertexArrays(1, &_vao);
+			glGenBuffers(1, &_vbo);
+			glBindVertexArray(_vao);
+			glBindBuffer(GL_ARRAY_BUFFER, _vbo);
+			glBufferData(GL_ARRAY_BUFFER, 6 * 4 * (GLsizeiptr)sizeof(float),
+				nullptr, GL_DYNAMIC_DRAW);
+			glEnableVertexAttribArray(0);
+			glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE,
+				4 * (GLsizei)sizeof(float), (void*)0);
+			glEnableVertexAttribArray(1);
+			glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE,
+				4 * (GLsizei)sizeof(float), (void*)(2 * sizeof(float)));
+			glBindVertexArray(0);
+			glBindBuffer(GL_ARRAY_BUFFER, 0);
+		}
+		if (!_shader)
+		{
+			_shader = new Shader();
+			if (!_shader->loadFromEmbedded("textured"))
+			{
+				delete _shader;
+				_shader = nullptr;
+				return false;
+			}
+		}
+
+		_alive = std::make_shared<bool>(true);
+		std::weak_ptr<bool> weak = _alive;
+		Screen* screenPtr = &screen;
+		screen.registerGPUPass([this, weak, screenPtr]() {
+			if (!weak.lock()) return;
+			drawPhysical(screenPtr);
+		});
+		ShaderManager::instance().registerResetCallback(_alive, [this, screenPtr]() {
+			_vao = 0;
+			_vbo = 0;
+			(void)initGPU(*screenPtr);
+		});
+		_gpuMode = true;
+		return true;
+	}
+
+	void capture(Screen& screen, const CalypsoF34ErrorLayout& layout,
+		Surface* popupPanel, Surface* iconPanel, Text* icon, Text* warning,
+		Text* message, Text* detail, TextButton* button)
+	{
+		_layout = layout;
+		_popupPanel = popupPanel;
+		_iconPanel = iconPanel;
+		_icon = icon;
+		_warning = warning;
+		_message = message;
+		_detail = detail;
+		_button = button;
+		if (!_gpuMode || !_texture) return;
+		const int physicalW = std::max(1,
+			static_cast<int>(std::lround(getWidth() * screen.getXScale())));
+		const int physicalH = std::max(1,
+			static_cast<int>(std::lround(getHeight() * screen.getYScale())));
+		SDL_Surface* source = SDL_CreateRGBSurfaceWithFormat(0, physicalW,
+			physicalH, 32, SDL_PIXELFORMAT_ARGB8888);
+		if (!source) return;
+		SDL_FillRect(source, nullptr, SDL_MapRGBA(source->format, 0, 0, 0, 0));
+
+		struct SavedRect { Surface* surface; int x; int y; int w; int h; };
+		std::vector<SavedRect> saved;
+		auto place = [&](Surface* surface, const CalypsoF34Rect& rect) {
+			saved.push_back({surface, surface->getX(), surface->getY(),
+				surface->getWidth(), surface->getHeight()});
+			const double sx = static_cast<double>(physicalW) / layout.window.width;
+			const double sy = static_cast<double>(physicalH) / layout.window.height;
+			const int left = static_cast<int>(std::lround((rect.x - layout.window.x) * sx));
+			const int top = static_cast<int>(std::lround((rect.y - layout.window.y) * sy));
+			const int right = static_cast<int>(std::lround(
+				(rect.x - layout.window.x + rect.width) * sx));
+			const int bottom = static_cast<int>(std::lround(
+				(rect.y - layout.window.y + rect.height) * sy));
+			surface->setX(left);
+			surface->setY(top);
+			surface->setWidth(std::max(1, right - left));
+			surface->setHeight(std::max(1, bottom - top));
+		};
+
+		icon->setTTFPhysicalOnly(false);
+		warning->setTTFPhysicalOnly(false);
+		message->setTTFPhysicalOnly(false);
+		detail->setTTFPhysicalOnly(false);
+		button->setTTFPhysicalOnly(false);
+		place(popupPanel, layout.window);
+		place(iconPanel, layout.iconPanel);
+		place(icon, layout.icon);
+		place(warning, layout.warning);
+		place(message, layout.message);
+		place(detail, layout.messageDetail);
+		place(button, layout.acknowledge);
+		popupPanel->blit(source);
+		iconPanel->blit(source);
+		icon->blit(source);
+		warning->blit(source);
+		message->blit(source);
+		detail->blit(source);
+		button->blit(source);
+
+		for (const SavedRect& rect : saved)
+		{
+			rect.surface->setX(rect.x);
+			rect.surface->setY(rect.y);
+			rect.surface->setWidth(rect.w);
+			rect.surface->setHeight(rect.h);
+		}
+		icon->setTTFPhysicalOnly(true);
+		warning->setTTFPhysicalOnly(true);
+		message->setTTFPhysicalOnly(true);
+		detail->setTTFPhysicalOnly(true);
+		button->setTTFPhysicalOnly(true);
+
+		SDL_Surface* rgba = SDL_ConvertSurfaceFormat(source,
+			SDL_PIXELFORMAT_ABGR8888, 0);
+		SDL_FreeSurface(source);
+		if (!rgba)
+		{
+			icon->setTTFPhysicalOnly(false);
+			warning->setTTFPhysicalOnly(false);
+			message->setTTFPhysicalOnly(false);
+			detail->setTTFPhysicalOnly(false);
+			button->setTTFPhysicalOnly(false);
+			return;
+		}
+		if (SDL_MUSTLOCK(rgba)) SDL_LockSurface(rgba);
+		_hasContent = _texture->uploadRGBA(
+			static_cast<const uint8_t*>(rgba->pixels), rgba->w, rgba->h);
+		_capturedWidth = rgba->w;
+		_capturedHeight = rgba->h;
+		if (SDL_MUSTLOCK(rgba)) SDL_UnlockSurface(rgba);
+		SDL_FreeSurface(rgba);
+		if (!_hasContent)
+		{
+			icon->setTTFPhysicalOnly(false);
+			warning->setTTFPhysicalOnly(false);
+			message->setTTFPhysicalOnly(false);
+			detail->setTTFPhysicalOnly(false);
+			button->setTTFPhysicalOnly(false);
+		}
+	}
+
+	void blit(SDL_Surface* surface) override
+	{
+		if (_gpuMode) return;
+		Surface::blit(surface);
+	}
+
+private:
+	void drawPhysical(Screen* screen)
+	{
+		const int expectedWidth = std::max(1,
+			static_cast<int>(std::lround(getWidth() * screen->getXScale())));
+		const int expectedHeight = std::max(1,
+			static_cast<int>(std::lround(getHeight() * screen->getYScale())));
+		if ((expectedWidth != _capturedWidth || expectedHeight != _capturedHeight)
+			&& _popupPanel && _iconPanel && _icon && _warning && _message
+			&& _detail && _button)
+		{
+			capture(*screen, _layout, _popupPanel, _iconPanel, _icon, _warning,
+				_message, _detail, _button);
+		}
+		if (!_hasContent || !getVisible() || !_game || _game->getTopState() != _owner
+			|| !_texture || !_shader || !_vao) return;
+		const int displayW = Options::displayWidth;
+		const int displayH = Options::displayHeight;
+		if (displayW <= 0 || displayH <= 0) return;
+		const float x = static_cast<float>(getX() * screen->getXScale()
+			+ screen->getCursorLeftBlackBand());
+		const float y = static_cast<float>(getY() * screen->getYScale()
+			+ screen->getCursorTopBlackBand());
+		const float w = static_cast<float>(getWidth() * screen->getXScale());
+		const float h = static_cast<float>(getHeight() * screen->getYScale());
+		const float x0 = 2.0f * x / displayW - 1.0f;
+		const float y0 = -(2.0f * y / displayH - 1.0f);
+		const float x1 = 2.0f * (x + w) / displayW - 1.0f;
+		const float y1 = -(2.0f * (y + h) / displayH - 1.0f);
+		const float verts[6 * 4] = {
+			x0, y0, 0.0f, 0.0f, x1, y0, 1.0f, 0.0f,
+			x0, y1, 0.0f, 1.0f, x0, y1, 0.0f, 1.0f,
+			x1, y0, 1.0f, 0.0f, x1, y1, 1.0f, 1.0f};
+
+		GLint previousProgram = 0;
+		glGetIntegerv(GL_CURRENT_PROGRAM, &previousProgram);
+		glDisable(GL_SCISSOR_TEST);
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glBindBuffer(GL_ARRAY_BUFFER, _vbo);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)sizeof(verts), verts);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		_shader->use();
+		_shader->setUniform1i("u_tex", 0);
+		_shader->setUniform1f("u_darken", 0.0f);
+		_shader->setUniform3f("u_tint", 1.0f, 1.0f, 1.0f);
+		_shader->setUniform1f("u_alpha", 1.0f);
+		_shader->setUniform1f("u_radial", 0.0f);
+		_shader->setUniform2f("u_uvScroll", 0.0f, 0.0f);
+		_shader->setUniform4f("u_clipEdges", 0.0f, 0.0f, 0.0f, 0.0f);
+		_texture->bind(0);
+		glBindVertexArray(_vao);
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+		glBindVertexArray(0);
+		glDisable(GL_BLEND);
+		glUseProgram(static_cast<GLuint>(previousProgram));
+	}
+
+	GpuTexture* _texture = nullptr;
+	Shader* _shader = nullptr;
+	unsigned int _vao = 0;
+	unsigned int _vbo = 0;
+	bool _gpuMode = false;
+	bool _hasContent = false;
+	int _capturedWidth = 0;
+	int _capturedHeight = 0;
+	CalypsoF34ErrorLayout _layout;
+	Surface* _popupPanel = nullptr;
+	Surface* _iconPanel = nullptr;
+	Text* _icon = nullptr;
+	Text* _warning = nullptr;
+	Text* _message = nullptr;
+	Text* _detail = nullptr;
+	TextButton* _button = nullptr;
+	Game* _game = nullptr;
+	State* _owner = nullptr;
+	std::shared_ptr<bool> _alive;
+};
+
 std::pair<std::string, std::string> splitF34ErrorMessage(const std::string& message)
 {
 	std::size_t split = message.find('!');
@@ -238,6 +506,7 @@ void CalypsoErrorMessageStateUi::applyLayout(ErrorMessageState& state)
 		state._hdWideLayout ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact);
 	applyF34Rect(state._window, layout.window);
 	applyF34Rect(state._hdPopupPanel, layout.window);
+	applyF34Rect(state._hdPhysicalTextOverlay, layout.window);
 	applyF34Rect(state._hdIconPanel, layout.iconPanel);
 	applyF34Rect(state._hdIcon, layout.icon);
 	applyF34Rect(state._hdWarning, layout.warning);
@@ -252,11 +521,13 @@ void CalypsoErrorMessageStateUi::configure(ErrorMessageState& state)
 	if (!state._hdLayout) return;
 	state._hdWideLayout = currentF34LayoutClass() == CalypsoLayoutClass::Wide;
 	state._hdPopupPanel = new F34ErrorPopupPanel();
+	state._hdPhysicalTextOverlay = new F34PhysicalTextOverlay(state._game, &state);
 	state._hdIconPanel = new F34Panel(0xd62a2417u, 0xffffc14du, 0xffffc14du);
 	state._hdIcon = new Text(1, 1, 0, 0);
 	state._hdWarning = new Text(1, 1, 0, 0);
 	state._hdMessageDetail = new Text(1, 1, 0, 0);
 	state.add(state._hdPopupPanel);
+	state.add(state._hdPhysicalTextOverlay);
 	state.add(state._hdIconPanel);
 	state.add(state._hdIcon);
 	state.add(state._hdWarning);
@@ -297,14 +568,14 @@ void CalypsoErrorMessageStateUi::configure(ErrorMessageState& state)
 	state._btnOk->setBackgroundColorRGB(0xff164c3du, 0xff74ffb0u, 0xff0b342bu);
 	if (state._hdFont)
 	{
-		state._hdIcon->setTTFFont(state._hdFont, 0.72f);
-		state._txtMessage->setTTFFont(state._hdFont, 0.76f);
-		state._btnOk->setTTFFont(state._hdFont, 0.42f);
+		state._hdIcon->setTTFFont(state._hdFont, 0.85f);
+		state._txtMessage->setTTFFont(state._hdFont, 0.88f);
+		state._btnOk->setTTFFont(state._hdFont, 0.72f);
 	}
 	if (state._hdBodyFont)
 	{
-		state._hdWarning->setTTFFont(state._hdBodyFont, 0.52f);
-		state._hdMessageDetail->setTTFFont(state._hdBodyFont, 0.52f);
+		state._hdWarning->setTTFFont(state._hdBodyFont, 0.90f);
+		state._hdMessageDetail->setTTFFont(state._hdBodyFont, 0.58f);
 	}
 	state.enableCalypsoFocus();
 	++state._focusGeneration;
@@ -316,6 +587,16 @@ void CalypsoErrorMessageStateUi::configure(ErrorMessageState& state)
 	(void)state.rebuildCalypsoFocus(std::move(bindings), state._focusGeneration);
 	state.restoreCalypsoFocus("error.acknowledge", state._focusGeneration);
 	refreshAnchors(state);
+	F34PhysicalTextOverlay* physical = static_cast<F34PhysicalTextOverlay*>(
+		state._hdPhysicalTextOverlay);
+	if (physical->initGPU(*state._game->getScreen()))
+	{
+		const CalypsoF34ErrorLayout layout = calypsoF34ErrorLayout(
+			state._hdWideLayout ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact);
+		physical->capture(*state._game->getScreen(), layout, state._hdPopupPanel,
+			state._hdIconPanel, state._hdIcon, state._hdWarning, state._txtMessage,
+			state._hdMessageDetail, state._btnOk);
+	}
 }
 
 bool CalypsoErrorMessageStateUi::resize(ErrorMessageState& state)
@@ -328,6 +609,13 @@ bool CalypsoErrorMessageStateUi::resize(ErrorMessageState& state)
 		applyLayout(state);
 	}
 	else state.applyUiScaling();
+	F34PhysicalTextOverlay* physical = static_cast<F34PhysicalTextOverlay*>(
+		state._hdPhysicalTextOverlay);
+	const CalypsoF34ErrorLayout layout = calypsoF34ErrorLayout(
+		state._hdWideLayout ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact);
+	physical->capture(*state._game->getScreen(), layout, state._hdPopupPanel,
+		state._hdIconPanel, state._hdIcon, state._hdWarning, state._txtMessage,
+		state._hdMessageDetail, state._btnOk);
 	refreshAnchors(state);
 	return true;
 }

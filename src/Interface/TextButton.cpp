@@ -122,6 +122,14 @@ void TextButton::setTTFFont(TTFFont *font, float fillFrac)
 	_redraw = true;
 }
 
+#ifdef __EMSCRIPTEN__
+void TextButton::setTTFPhysicalOnly(bool physicalOnly)
+{
+	_text->setTTFPhysicalOnly(physicalOnly);
+	_redraw = true;
+}
+#endif
+
 /**
  * Changes the text to use the big-size font.
  */

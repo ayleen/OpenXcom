@@ -56,6 +56,9 @@ private:
 	bool _useRGB = false;
 	TTFFont *_ttf = nullptr;     ///< Calypso: opt-in HD font; null = legacy bitmap path
 	float _ttfFill = 1.0f;       ///< Calypso: shrink factor within the fit box
+#ifdef __EMSCRIPTEN__
+	bool _ttfPhysicalOnly = false; ///< Physical overlay owns the visible TTF raster.
+#endif
 
 	/// Processes the contained text.
 	void processText();
@@ -106,6 +109,10 @@ public:
 	void setColorRGB2(Uint32 argb);
 	/// Calypso: opt into HD TTF rendering for this label (null restores the bitmap path).
 	void setTTFFont(TTFFont *font, float fillFrac = 1.0f);
+#ifdef __EMSCRIPTEN__
+	/// Suppress the logical TTF copy while a post-composite physical overlay is active.
+	void setTTFPhysicalOnly(bool physicalOnly);
+#endif
 	/// Sets the text's secondary color.
 	void setSecondaryColor(Uint8 color) override;
 	/// Gets the text's secondary color.

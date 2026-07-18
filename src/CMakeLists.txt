@@ -616,6 +616,16 @@ if(EMSCRIPTEN)
   list(APPEND openxcom_src Calypso/CalypsoTextEdit.cpp)
   list(APPEND openxcom_src Calypso/CalypsoTextInputHarnessState.cpp)
 
+  # The Phase 46 UI adapter owns physical-resolution popup composition and is
+  # deliberately isolated from the render-loop hot paths.  Optimising this
+  # already-large translation unit at -O3 exceeds the memory available to the
+  # Emscripten compiler, while -O1 keeps the browser-only adapter deterministic
+  # and leaves the rest of the engine at the release optimisation level.
+  set_source_files_properties(
+    Calypso/CalypsoCommonRecordsStateUi.cpp
+    PROPERTIES COMPILE_OPTIONS "-O1"
+  )
+
   # Phase 8b: regenerate embedded shader table before each build when any
   # *.vert or *.frag file in Engine/Shaders/ has changed.
   set(_shader_src_dir "${CMAKE_CURRENT_SOURCE_DIR}/Engine/Shaders")

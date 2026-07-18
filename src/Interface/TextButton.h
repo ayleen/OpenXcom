@@ -72,6 +72,10 @@ public:
 #endif
 	/// Calypso: opt the label into HD TTF rendering (forwarded to the inner Text).
 	void setTTFFont(TTFFont *font, float fillFrac = 1.0f);
+#ifdef __EMSCRIPTEN__
+	/// Suppress the logical label while a physical-resolution overlay owns it.
+	void setTTFPhysicalOnly(bool physicalOnly);
+#endif
 	/// Sets the text size to big.
 	void setBig();
 	/// Sets the text size to small.

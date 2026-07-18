@@ -50,6 +50,7 @@ private:
 	TTFFont *_hdBodyFont = nullptr;
 	std::uint64_t _focusGeneration = 0;
 	Surface *_hdPopupPanel = nullptr;
+	Surface *_hdPhysicalTextOverlay = nullptr;
 	Surface *_hdIconPanel = nullptr;
 	Text *_hdIcon = nullptr;
 	Text *_hdWarning = nullptr;

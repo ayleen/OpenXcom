@@ -265,6 +265,14 @@ void Text::setTTFFont(TTFFont *font, float fillFrac)
 	_redraw = true;
 }
 
+#ifdef __EMSCRIPTEN__
+void Text::setTTFPhysicalOnly(bool physicalOnly)
+{
+	_ttfPhysicalOnly = physicalOnly;
+	_redraw = true;
+}
+#endif
+
 /**
  * Changes the secondary color used to render the text. The text
  * switches between the primary and secondary color whenever there's
@@ -684,6 +692,14 @@ void Text::draw()
 #ifdef __EMSCRIPTEN__
 	// Calypso: HD TTF path (opt-in). Single-line labels/buttons only; multi-line
 	// or a failed render falls through to the bitmap glyph path below.
+	if (_ttf && _ttfPhysicalOnly)
+	{
+		// A post-composite overlay renders this label directly at the browser
+		// backing-store resolution. Keep the logical surface transparent so the
+		// low-resolution copy is not enlarged underneath the crisp glyphs.
+		clear();
+		return;
+	}
 	if (_ttf && drawTTF())
 	{
 		return;
