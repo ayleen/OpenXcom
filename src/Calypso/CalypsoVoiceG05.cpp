@@ -13,6 +13,7 @@
 
 #if defined(CALYPSO_VOICE_P_EN)
 #include <emscripten.h>
+#include "CalypsoVoiceManager.h"
 #endif
 
 #include <array>
@@ -68,6 +69,7 @@ struct EventCounter
 	unsigned int suppressed = 0;
 };
 
+#if !defined(CALYPSO_VOICE_P_EN)
 struct VariantBag
 {
 	std::vector<unsigned int> order;
@@ -75,6 +77,7 @@ struct VariantBag
 	unsigned int cycle = 0;
 	unsigned int last = 0;
 };
+#endif
 
 struct AttackOutcome
 {
@@ -86,45 +89,54 @@ struct AttackOutcome
 	std::set<BattleUnit *> damagedHostiles;
 };
 
+#if !defined(CALYPSO_VOICE_P_EN)
 struct CachedChunk
 {
 	Mix_Chunk *chunk = nullptr;
 	std::uint64_t lastUsed = 0;
 };
+#endif
 
 struct PilotState
 {
 	bool active = false;
 	bool packReady = false;
 	unsigned int missionEpoch = 0;
+#if !defined(CALYPSO_VOICE_P_EN)
 	std::map<std::string, CachedChunk> chunks;
 	std::size_t decodedBytes = 0;
 	std::uint64_t cacheClock = 0;
+#endif
+	std::uint32_t cosmeticState = 0x6d2b79f5u;
+#if !defined(CALYPSO_VOICE_P_EN)
 	std::set<std::string> failedLoads;
+#endif
 	std::array<EventCounter, static_cast<std::size_t>(Event::Count)> counters{};
 	std::map<std::pair<int, Event>, Uint32> lastFired;
 	std::set<std::pair<int, int>> spottedHostiles;
 	std::set<int> voicedDeaths;
 	std::map<int, BattleUnit *> pendingWounded;
+#if !defined(CALYPSO_VOICE_P_EN)
 	std::map<std::pair<int, Event>, VariantBag> variantBags;
+#endif
 	std::map<int, AttackOutcome> attackOutcomes;
 	std::map<int, Uint32> selectionFlavorLockedUntil;
 	int repeatUnitId = -1;
 	unsigned int repeatClicks = 0;
 	Uint32 lastRepeatClick = 0;
+#if !defined(CALYPSO_VOICE_P_EN)
 	int currentPriority = 0;
+#endif
 };
 
 #if defined(CALYPSO_VOICE_P_EN)
-constexpr const char *ROOT = "/game/voice-packs/en/";
-constexpr const char *EXTENSION = ".ogg";
 constexpr const char *LOG_TAG = "[VOICE_P_EN]";
 #else
 constexpr const char *ROOT = "/game/calypso-voice-g0.5/";
 constexpr const char *EXTENSION = ".wav";
 constexpr const char *LOG_TAG = "[VOICE_G0_5]";
-#endif
 constexpr std::size_t DECODED_CACHE_LIMIT = 4u * 1024u * 1024u;
+#endif
 constexpr Uint32 RESELECT_WINDOW_MS = 8000;
 constexpr Uint32 FINAL_ANNOYANCE_LOCK_MS = 15000;
 
@@ -151,10 +163,43 @@ constexpr std::array<EventSpec, static_cast<std::size_t>(Event::Count)> EVENT_SP
 
 PilotState g_state;
 unsigned int g_nextMissionEpoch = 0;
+#if defined(CALYPSO_VOICE_P_EN)
+CalypsoVoiceManager g_manager;
+#endif
 
 const EventSpec &eventSpec(Event event)
 {
 	return EVENT_SPECS.at(static_cast<std::size_t>(event));
+}
+
+unsigned int eventVariants(Event event, const BattleUnit *unit)
+{
+#if defined(CALYPSO_VOICE_P_EN)
+	return static_cast<unsigned int>(g_manager.lineCount(unit, eventSpec(event).name));
+#else
+	(void)unit;
+	return eventSpec(event).variants;
+#endif
+}
+
+Uint32 eventCooldown(Event event, const BattleUnit *unit)
+{
+#if defined(CALYPSO_VOICE_P_EN)
+	return static_cast<Uint32>(g_manager.cooldownMs(unit, eventSpec(event).name));
+#else
+	(void)unit;
+	return eventSpec(event).cooldownMs;
+#endif
+}
+
+int eventPriority(Event event, const BattleUnit *unit)
+{
+#if defined(CALYPSO_VOICE_P_EN)
+	return g_manager.priority(unit, eventSpec(event).name);
+#else
+	(void)unit;
+	return eventSpec(event).priority;
+#endif
 }
 
 std::uint32_t nextVariantRandom(std::uint32_t &state)
@@ -208,14 +253,25 @@ bool timeBefore(Uint32 now, Uint32 deadline)
 	return static_cast<Sint32>(now - deadline) < 0;
 }
 
-unsigned int pickVariant(Event event, int unitId)
+unsigned int pickVariant(Event event, const BattleUnit *unit)
 {
-	const unsigned int variants = eventSpec(event).variants;
+#if defined(CALYPSO_VOICE_P_EN)
+	const std::size_t selected = g_manager.selectLine(unit, eventSpec(event).name,
+		static_cast<std::size_t>(event));
+	return selected == CalypsoVoiceLineBag::noLine()
+		? 0u : static_cast<unsigned int>(selected + 1u);
+#else
+	const unsigned int variants = eventVariants(event, unit);
+	if (variants == 0)
+	{
+		return 0;
+	}
 	if (variants <= 1)
 	{
 		return 1;
 	}
 
+	const int unitId = unit->getId();
 	VariantBag &bag = g_state.variantBags[std::make_pair(unitId, event)];
 	if (bag.cursor >= bag.order.size())
 	{
@@ -243,13 +299,19 @@ unsigned int pickVariant(Event event, int unitId)
 	const unsigned int selected = bag.order[bag.cursor++];
 	bag.last = selected;
 	return selected;
+#endif
 }
 
 std::string clipPath(Event event, const BattleUnit *unit, unsigned int variant)
 {
+#if defined(CALYPSO_VOICE_P_EN)
+	return variant == 0 ? std::string()
+		: g_manager.dryClipPath(unit, eventSpec(event).name, variant - 1);
+#else
 	return std::string(profileName(unit))
 		+ "/STR_CALYPSO_VOICE_" + eventSpec(event).fileStem + "_"
 		+ (variant < 10 ? "0" : "") + std::to_string(variant) + EXTENSION;
+#endif
 }
 
 void logSuppressed(Event event, const BattleUnit *unit, const char *reason)
@@ -263,6 +325,7 @@ void logSuppressed(Event event, const BattleUnit *unit, const char *reason)
 		<< " result=suppressed reason=" << reason;
 }
 
+#if !defined(CALYPSO_VOICE_P_EN)
 void releaseChunks()
 {
 	Mix_HaltChannel(4);
@@ -274,7 +337,9 @@ void releaseChunks()
 	g_state.decodedBytes = 0;
 	g_state.failedLoads.clear();
 }
+#endif
 
+#if !defined(CALYPSO_VOICE_P_EN)
 bool makeCacheRoom(std::size_t requiredBytes)
 {
 	while (g_state.decodedBytes + requiredBytes > DECODED_CACHE_LIMIT)
@@ -344,6 +409,7 @@ Mix_Chunk *loadClip(const std::string &relativePath)
 	g_state.chunks[path] = CachedChunk{chunk, ++g_state.cacheClock};
 	return chunk;
 }
+#endif
 
 bool submit(Event event, BattleUnit *unit, bool forceInterrupt = false)
 {
@@ -354,6 +420,16 @@ bool submit(Event event, BattleUnit *unit, bool forceInterrupt = false)
 
 	EventCounter &counter = g_state.counters.at(static_cast<std::size_t>(event));
 	++counter.attempted;
+#if defined(CALYPSO_VOICE_P_EN)
+	if (!g_manager.hasEvent(unit, eventSpec(event).name))
+	{
+		++counter.suppressed;
+		Log(LOG_WARNING) << LOG_TAG << " event=" << eventSpec(event).name
+			<< " unit=" << unit->getId() << " profile=" << profileName(unit)
+			<< " result=suppressed reason=missing_ruleset_event";
+		return false;
+	}
+#endif
 	if (Options::mute)
 	{
 		++counter.suppressed;
@@ -363,11 +439,24 @@ bool submit(Event event, BattleUnit *unit, bool forceInterrupt = false)
 		return false;
 	}
 
+#if defined(CALYPSO_VOICE_P_EN)
+	const int probability = g_manager.probability(unit, eventSpec(event).name);
+	if (!forceInterrupt && probability < 100
+		&& static_cast<int>(nextVariantRandom(g_state.cosmeticState) % 100u) >= probability)
+	{
+		++counter.suppressed;
+		Log(LOG_INFO) << LOG_TAG << " event=" << eventSpec(event).name
+			<< " unit=" << unit->getId() << " profile=" << profileName(unit)
+			<< " result=suppressed reason=probability probability=" << probability;
+		return false;
+	}
+#endif
+
 	const Uint32 now = SDL_GetTicks();
 	const std::pair<int, Event> cooldownKey(unit->getId(), event);
 	auto last = g_state.lastFired.find(cooldownKey);
 	if (!forceInterrupt && last != g_state.lastFired.end()
-		&& now - last->second < eventSpec(event).cooldownMs)
+		&& now - last->second < eventCooldown(event, unit))
 	{
 		++counter.suppressed;
 		Log(LOG_INFO) << LOG_TAG << " event=" << eventSpec(event).name
@@ -376,7 +465,21 @@ bool submit(Event event, BattleUnit *unit, bool forceInterrupt = false)
 		return false;
 	}
 
-	const int requestedPriority = eventSpec(event).priority;
+	const int requestedPriority = eventPriority(event, unit);
+#if defined(CALYPSO_VOICE_P_EN)
+	if (g_manager.isPlaying())
+	{
+		if (!forceInterrupt && requestedPriority <= g_manager.currentPriority())
+		{
+			++counter.suppressed;
+			Log(LOG_INFO) << LOG_TAG << " event=" << eventSpec(event).name
+				<< " unit=" << unit->getId() << " profile=" << profileName(unit)
+				<< " result=suppressed reason=channel_busy";
+			return false;
+		}
+		g_manager.halt();
+	}
+#else
 	if (Mix_Playing(4))
 	{
 		if (!forceInterrupt && requestedPriority <= g_state.currentPriority)
@@ -389,9 +492,26 @@ bool submit(Event event, BattleUnit *unit, bool forceInterrupt = false)
 		}
 		Mix_HaltChannel(4);
 	}
+#endif
 
-	const unsigned int variant = pickVariant(event, unit->getId());
+	const unsigned int variant = pickVariant(event, unit);
 	const std::string relativePath = clipPath(event, unit, variant);
+#if defined(CALYPSO_VOICE_P_EN)
+	const CalypsoVoicePlayResult playResult = g_manager.playClip(relativePath, requestedPriority);
+	if (playResult != CalypsoVoicePlayResult::Played)
+	{
+		++counter.suppressed;
+		Log(playResult == CalypsoVoicePlayResult::LoadFailed ? LOG_INFO : LOG_WARNING)
+			<< LOG_TAG << " event=" << eventSpec(event).name
+			<< " unit=" << unit->getId() << " profile=" << profileName(unit)
+			<< " result=suppressed reason="
+			<< (playResult == CalypsoVoicePlayResult::LoadFailed
+				? "load_failed" : "playback_failed")
+			<< (playResult == CalypsoVoicePlayResult::PlaybackFailed
+				? std::string(" error=") + Mix_GetError() : std::string());
+		return false;
+	}
+#else
 	Mix_Chunk *chunk = loadClip(relativePath);
 	if (!chunk)
 	{
@@ -401,7 +521,6 @@ bool submit(Event event, BattleUnit *unit, bool forceInterrupt = false)
 			<< " result=suppressed reason=load_failed";
 		return false;
 	}
-
 	const int channel = Mix_PlayChannel(4, chunk, 0);
 	if (channel != 4)
 	{
@@ -411,9 +530,12 @@ bool submit(Event event, BattleUnit *unit, bool forceInterrupt = false)
 			<< " result=suppressed reason=playback_failed error=" << Mix_GetError();
 		return false;
 	}
+#endif
 
 	g_state.lastFired[cooldownKey] = now;
+#if !defined(CALYPSO_VOICE_P_EN)
 	g_state.currentPriority = requestedPriority;
+#endif
 	++counter.fired;
 	Log(LOG_INFO) << LOG_TAG << " event=" << eventSpec(event).name
 		<< " unit=" << unit->getId() << " profile=" << profileName(unit)
@@ -438,16 +560,22 @@ bool selectionFlavorLocked(BattleUnit *unit, Uint32 now)
 
 }
 
-void CalypsoVoiceG05::beginMission()
+void CalypsoVoiceG05::beginMission(const Mod *mod)
 {
 	if (g_state.active)
 	{
+#if defined(CALYPSO_VOICE_P_EN)
+		g_manager.endMission();
+#else
 		releaseChunks();
+#endif
 	}
 	g_state = PilotState{};
 	g_state.active = true;
 	g_state.missionEpoch = ++g_nextMissionEpoch;
+	g_state.cosmeticState ^= g_state.missionEpoch * 0x9e3779b9u;
 #if defined(CALYPSO_VOICE_P_EN)
+	g_manager.beginMission(mod);
 	Log(LOG_INFO) << LOG_TAG << " requesting lazy English pack epoch=" << g_state.missionEpoch;
 	EM_ASM({
 		if (globalThis.calypsoVoicePacks?.request) {
@@ -478,10 +606,12 @@ void CalypsoVoiceG05::endMission()
 			<< " fired=" << counter.fired
 			<< " suppressed=" << counter.suppressed;
 	}
-	releaseChunks();
 	g_state.active = false;
 #if defined(CALYPSO_VOICE_P_EN)
+	g_manager.endMission();
 	EM_ASM({ globalThis.calypsoVoicePacks?.release('en'); });
+#else
+	releaseChunks();
 #endif
 }
 

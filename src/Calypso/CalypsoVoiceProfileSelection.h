@@ -26,13 +26,13 @@ inline std::string calypsoSelectVoiceProfile(
 	const std::string &locale, const std::string &unitClass,
 	const std::string &gender, int stableId, const std::string &stored = std::string())
 {
-	auto collect = [&](const std::string &wantedLocale, bool matchBaseLocale)
+	auto collect = [&](const std::string &wantedLocale, bool baseTier)
 	{
 		std::vector<std::string> candidates;
 		for (const auto &profile : profiles)
 		{
-			const bool localeMatch = matchBaseLocale
-				? profile.baseLocale == wantedLocale
+			const bool localeMatch = baseTier
+				? (profile.locale == wantedLocale || profile.baseLocale == wantedLocale)
 				: profile.locale == wantedLocale;
 			if (localeMatch && profile.unitClass == unitClass && profile.gender == gender)
 			{
@@ -48,6 +48,11 @@ inline std::string calypsoSelectVoiceProfile(
 		return !stored.empty()
 			&& std::binary_search(candidates.begin(), candidates.end(), stored);
 	};
+	auto localeBase = [](const std::string &value)
+	{
+		const std::string::size_type separator = value.find('-');
+		return separator == std::string::npos ? value : value.substr(0, separator);
+	};
 
 	std::vector<std::string> candidates = collect(locale, false);
 	if (preserveStored(candidates))
@@ -56,7 +61,7 @@ inline std::string calypsoSelectVoiceProfile(
 	}
 	if (candidates.empty())
 	{
-		candidates = collect(locale, true);
+		candidates = collect(localeBase(locale), true);
 		if (preserveStored(candidates))
 		{
 			return stored;

@@ -188,7 +188,7 @@ BattlescapeGame::BattlescapeGame(SavedBattleGame *save, BattlescapeState *parent
 	_endTurnRequested(false), _endConfirmationHandled(false), _allEnemiesNeutralized(false)
 {
 #if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
-	CalypsoVoiceG05::beginMission();
+	CalypsoVoiceG05::beginMission(_save->getMod());
 #endif
 	if (_save->isPreview())
 	{

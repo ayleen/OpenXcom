@@ -6,6 +6,7 @@ namespace OpenXcom
 {
 
 class BattleUnit;
+class Mod;
 
 /**
  * Disposable Phase-44 G0.5 voice-bark gameplay spike.
@@ -16,7 +17,7 @@ class BattleUnit;
 class CalypsoVoiceG05
 {
 public:
-	static void beginMission();
+	static void beginMission(const Mod *mod);
 	static void endMission();
 	/// Accept an asynchronous browser pack result only for the active mission.
 	static bool onPackResult(unsigned int missionEpoch, bool available);
