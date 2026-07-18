@@ -345,6 +345,7 @@ void CalypsoNotesStateUi::applyListMetrics(NotesState& state)
 {
 	const CalypsoF34NotesLayout layout = calypsoF34NotesLayout(
 		state._hdWideLayout ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact);
+	state._lstNotes->setMargin(layout.listMargin);
 	state._lstNotes->setColumns(2, layout.textColumnWidth, layout.actionColumnWidth);
 	state._lstNotes->setMinimumRowHeight(layout.rowHeight);
 }
