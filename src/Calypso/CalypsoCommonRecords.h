@@ -93,34 +93,23 @@ struct CalypsoF34ErrorLayout
 	int designWidth = 0;
 	int designHeight = 0;
 	CalypsoF34Rect window;
-	CalypsoF34Rect headerPanel;
-	CalypsoF34Rect contextPanel;
-	CalypsoF34Rect alertPanel;
-	CalypsoF34Rect guidancePanel;
-	CalypsoF34Rect footerPanel;
-	CalypsoF34Rect title;
+	CalypsoF34Rect iconPanel;
+	CalypsoF34Rect icon;
 	CalypsoF34Rect warning;
 	CalypsoF34Rect message;
 	CalypsoF34Rect messageDetail;
-	CalypsoF34Rect context;
-	CalypsoF34Rect guidance;
-	CalypsoF34Rect returnStatus;
 	CalypsoF34Rect acknowledge;
 };
 
 inline CalypsoF34ErrorLayout calypsoF34ErrorLayout(CalypsoLayoutClass layoutClass)
 {
 	if (layoutClass == CalypsoLayoutClass::Wide)
-		return {1280, 720, {0, 0, 1280, 720}, {14, 14, 1252, 72},
-			{14, 96, 180, 532}, {204, 96, 712, 532}, {926, 96, 340, 532},
-			{14, 638, 1252, 68}, {120, 30, 620, 42}, {338, 306, 540, 18},
-			{338, 330, 540, 44}, {338, 380, 540, 70}, {14, 96, 180, 130},
-			{946, 262, 300, 176}, {32, 654, 860, 40}, {926, 638, 340, 68}};
-	return {740, 360, {0, 0, 740, 360}, {8, 8, 724, 44},
-		{8, 56, 116, 248}, {130, 56, 382, 248}, {518, 56, 214, 248},
-		{8, 308, 724, 44}, {80, 18, 340, 26}, {212, 151, 282, 12},
-		{212, 168, 282, 30}, {212, 202, 282, 42}, {8, 56, 116, 93},
-		{529, 142, 192, 82}, {19, 318, 480, 25}, {512, 308, 220, 44}};
+		return {1280, 720, {250, 205, 780, 310}, {286, 271, 84, 84},
+			{286, 271, 84, 84}, {400, 242, 560, 22}, {400, 274, 560, 52},
+			{400, 346, 560, 56}, {820, 430, 170, 60}};
+	return {740, 360, {48, 57, 644, 246}, {78, 123, 58, 58},
+		{78, 123, 58, 58}, {166, 88, 454, 18}, {166, 114, 454, 40},
+		{166, 166, 454, 44}, {512, 235, 140, 44}};
 }
 
 struct CalypsoF34StatisticsLayout

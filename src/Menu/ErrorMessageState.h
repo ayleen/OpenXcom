@@ -49,7 +49,10 @@ private:
 	TTFFont *_hdFont = nullptr;
 	TTFFont *_hdBodyFont = nullptr;
 	std::uint64_t _focusGeneration = 0;
-	Surface *_hdBackdrop = nullptr;
+	Surface *_hdPopupPanel = nullptr;
+	Surface *_hdIconPanel = nullptr;
+	Text *_hdIcon = nullptr;
+	Text *_hdWarning = nullptr;
 	Text *_hdMessageDetail = nullptr;
 #endif
 

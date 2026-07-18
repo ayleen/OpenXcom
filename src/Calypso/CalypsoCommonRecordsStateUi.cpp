@@ -151,26 +151,32 @@ private:
 	Uint32 _accent;
 };
 
-class F34ScaledBackdrop final : public Surface
+class F34ErrorPopupPanel final : public Surface
 {
 public:
-	explicit F34ScaledBackdrop(const Surface& source)
-		: Surface(1, 1, 0, 0), _source(source) {}
-	void setSource(const Surface& source)
-	{
-		_source = source;
-		_redraw = true;
-	}
+	F34ErrorPopupPanel() : Surface(1, 1, 0, 0) {}
 
 	void draw() override
 	{
 		Surface::draw();
-		SDL_Rect target{0, 0, static_cast<int>(getWidth()), static_cast<int>(getHeight())};
-		SDL_BlitScaled(_source.getSurface(), nullptr, getSurface(), &target);
+		const int maxX = std::max(1, static_cast<int>(getWidth()) - 1);
+		const int maxY = std::max(1, static_cast<int>(getHeight()) - 1);
+		for (int y = 0; y < getHeight(); ++y)
+		{
+			for (int x = 0; x < getWidth(); ++x)
+			{
+				const int horizontal = x * 100 / maxX;
+				const int vertical = y * 10 / maxY;
+				Uint32 fill = f34Mix(0xff3a2c14u, 0xff06191cu, horizontal, 0xf8);
+				fill = f34Mix(fill, 0xff020b0du, vertical, 0xf8);
+				const bool edge = x == 0 || y == 0
+					|| x == getWidth() - 1 || y == getHeight() - 1;
+				if (edge) fill = 0xff9f8245u;
+				if (x < 4) fill = 0xffffc14du;
+				setPixel32(x, y, fill);
+			}
+		}
 	}
-
-private:
-	Surface _source;
 };
 
 std::pair<std::string, std::string> splitF34ErrorMessage(const std::string& message)
@@ -231,7 +237,10 @@ void CalypsoErrorMessageStateUi::applyLayout(ErrorMessageState& state)
 	const CalypsoF34ErrorLayout layout = calypsoF34ErrorLayout(
 		state._hdWideLayout ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact);
 	applyF34Rect(state._window, layout.window);
-	applyF34Rect(state._hdBackdrop, layout.window);
+	applyF34Rect(state._hdPopupPanel, layout.window);
+	applyF34Rect(state._hdIconPanel, layout.iconPanel);
+	applyF34Rect(state._hdIcon, layout.icon);
+	applyF34Rect(state._hdWarning, layout.warning);
 	applyF34Rect(state._txtMessage, layout.message);
 	applyF34Rect(state._hdMessageDetail, layout.messageDetail);
 	applyF34Rect(state._btnOk, layout.acknowledge);
@@ -242,30 +251,38 @@ void CalypsoErrorMessageStateUi::configure(ErrorMessageState& state)
 {
 	if (!state._hdLayout) return;
 	state._hdWideLayout = currentF34LayoutClass() == CalypsoLayoutClass::Wide;
-	const char* backdropId = state._hdWideLayout
-		? "CALYPSO_F34_ERROR_WIDE_BG" : "CALYPSO_F34_ERROR_COMPACT_BG";
-	Surface* source = state._game->getMod()->getSurface(backdropId, false);
-	if (!source)
-	{
-		state._hdLayout = false;
-		return;
-	}
-	state._hdBackdrop = new F34ScaledBackdrop(*source);
-	state.add(state._hdBackdrop);
-	moveF34PanelsBehindContent(state._surfaces, state._hdBackdrop);
+	state._hdPopupPanel = new F34ErrorPopupPanel();
+	state._hdIconPanel = new F34Panel(0xd62a2417u, 0xffffc14du, 0xffffc14du);
+	state._hdIcon = new Text(1, 1, 0, 0);
+	state._hdWarning = new Text(1, 1, 0, 0);
+	state._hdMessageDetail = new Text(1, 1, 0, 0);
+	state.add(state._hdPopupPanel);
+	state.add(state._hdIconPanel);
+	state.add(state._hdIcon);
+	state.add(state._hdWarning);
+	state.add(state._hdMessageDetail);
+	moveF34PanelsBehindContent(state._surfaces, state._hdPopupPanel);
 
 	const std::pair<std::string, std::string> message =
 		splitF34ErrorMessage(state._txtMessage->getText());
+	state._hdFont = state._game->getMod()->getTTFFont("FONT_F34_SAIRA_700", false);
+	state._hdBodyFont = state._game->getMod()->getTTFFont("FONT_F34_MONO", false);
+	state._hdIcon->setAlign(ALIGN_CENTER);
+	state._hdIcon->setVerticalAlign(ALIGN_MIDDLE);
+	state._hdIcon->setColorRGB(0xffffc14du);
+	state._hdIcon->setText("!");
+	state._hdWarning->setAlign(ALIGN_LEFT);
+	state._hdWarning->setVerticalAlign(ALIGN_MIDDLE);
+	state._hdWarning->setColorRGB(0xffffc14du);
+	state._hdWarning->setText(state.tr("STR_CAL_ERROR_OPERATIONAL_WARNING"));
 	state._txtMessage->setAlign(ALIGN_LEFT);
-	state._txtMessage->setVerticalAlign(ALIGN_TOP);
+	state._txtMessage->setVerticalAlign(ALIGN_MIDDLE);
 	state._txtMessage->setWordWrap(true);
 	state._txtMessage->setColorRGB(0xffe8fff5u);
-	state._hdMessageDetail = new Text(1, 1, 0, 0);
 	state._hdMessageDetail->setAlign(ALIGN_LEFT);
-	state._hdMessageDetail->setVerticalAlign(ALIGN_TOP);
+	state._hdMessageDetail->setVerticalAlign(ALIGN_MIDDLE);
 	state._hdMessageDetail->setWordWrap(true);
 	state._hdMessageDetail->setColorRGB(0xffcfe9e0u);
-	state.add(state._hdMessageDetail);
 
 	// Establish the approved text boxes before assigning text. Text::setText()
 	// computes bitmap wrapping immediately, so setting it while the temporary
@@ -275,16 +292,20 @@ void CalypsoErrorMessageStateUi::configure(ErrorMessageState& state)
 	state._txtMessage->setText(message.first);
 	state._hdMessageDetail->setText(message.second);
 	state._window->setVisible(false);
-	state._btnOk->setText("");
-	state._btnOk->setBackgroundColorRGB(0u, 0u, 0u);
-	state._hdFont = state._game->getMod()->getTTFFont("FONT_F34_SAIRA_700", false);
-	state._hdBodyFont = state._game->getMod()->getTTFFont("FONT_F34_MONO", false);
+	state._btnOk->setText(state.tr("STR_OK"));
+	state._btnOk->setTextColorRGB(0xffe8fff5u);
+	state._btnOk->setBackgroundColorRGB(0xff164c3du, 0xff74ffb0u, 0xff0b342bu);
 	if (state._hdFont)
 	{
-		state._txtMessage->setTTFFont(state._hdFont, 0.82f);
+		state._hdIcon->setTTFFont(state._hdFont, 0.72f);
+		state._txtMessage->setTTFFont(state._hdFont, 0.76f);
+		state._btnOk->setTTFFont(state._hdFont, 0.42f);
 	}
 	if (state._hdBodyFont)
-		state._hdMessageDetail->setTTFFont(state._hdBodyFont, 0.42f);
+	{
+		state._hdWarning->setTTFFont(state._hdBodyFont, 0.52f);
+		state._hdMessageDetail->setTTFFont(state._hdBodyFont, 0.52f);
+	}
 	state.enableCalypsoFocus();
 	++state._focusGeneration;
 	std::vector<CalypsoFocusBinding> bindings;
@@ -304,10 +325,6 @@ bool CalypsoErrorMessageStateUi::resize(ErrorMessageState& state)
 	if (wide != state._hdWideLayout)
 	{
 		state._hdWideLayout = wide;
-		const char* backdropId = wide
-			? "CALYPSO_F34_ERROR_WIDE_BG" : "CALYPSO_F34_ERROR_COMPACT_BG";
-		if (Surface* source = state._game->getMod()->getSurface(backdropId, false))
-			static_cast<F34ScaledBackdrop*>(state._hdBackdrop)->setSource(*source);
 		applyLayout(state);
 	}
 	else state.applyUiScaling();
