@@ -63,6 +63,9 @@
 #include "../Calypso/CalypsoTutorial.h"
 #include "../Calypso/CalypsoDirector.h"
 #endif
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_P_EN)
+#include "../Calypso/CalypsoVoiceG05.h"
+#endif
 #ifdef __EMSCRIPTEN__
 #include "../Engine/GpuInit.h"
 extern "C" void calypso_log_heap(const char *tag);  // M5: defined in Calypso/EmscriptenHarness.cpp
@@ -294,6 +297,15 @@ BattlescapeState::BattlescapeState() :
 	}
 	_numVisibleUnit[9]->setX(_numVisibleUnit[9]->getX() - 2); // center number 10
 	_warning = new WarningMessage(224, 24, x + 48, y + 32);
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_P_EN)
+	_voiceSubtitle = new Text(std::max(288, screenWidth - 32), 28, 16,
+		std::max(4, y - 32));
+	_voiceSubtitle->setAlign(ALIGN_CENTER);
+	_voiceSubtitle->setVerticalAlign(ALIGN_BOTTOM);
+	_voiceSubtitle->setWordWrap(true);
+	_voiceSubtitle->setHighContrast(true);
+	_voiceSubtitle->setVisible(false);
+#endif
 	_btnLaunch = new BattlescapeButton(32, 24, screenWidth - 32, 0); // we need screenWidth, because that is independent of the black bars on the screen
 	_btnLaunch->setVisible(false);
 	_btnPsi = new BattlescapeButton(32, 24, screenWidth - 32, 25); // we need screenWidth, because that is independent of the black bars on the screen
@@ -491,6 +503,9 @@ BattlescapeState::BattlescapeState() :
 		add(_numVisibleUnit[i]);
 	}
 	add(_warning, "warning", "battlescape", _icons);
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_P_EN)
+	add(_voiceSubtitle);
+#endif
 	add(_txtDebug);
 	add(_txtTooltip, "textTooltip", "battlescape", _icons);
 	add(_btnLaunch);
@@ -776,6 +791,10 @@ BattlescapeState::BattlescapeState() :
 
 	_warning->setColor(_game->getMod()->getInterface("battlescape")->getElement("warning")->color2);
 	_warning->setTextColor(_game->getMod()->getInterface("battlescape")->getElement("warning")->color);
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_P_EN)
+	_voiceSubtitle->setColor(
+		_game->getMod()->getInterface("battlescape")->getElement("warning")->color);
+#endif
 	_btnLaunch->onMouseClick((ActionHandler)&BattlescapeState::btnLaunchClick);
 	_btnPsi->onMouseClick((ActionHandler)&BattlescapeState::btnPsiClick);
 
@@ -1033,6 +1052,26 @@ void BattlescapeState::think()
 		if (_game->isState(this) && allowButtons(true))
 			_game->pushState(new PauseState(OPT_BATTLESCAPE));
 	}
+#endif
+
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_P_EN)
+	const CalypsoVoiceSubtitleSnapshot voiceSubtitle =
+		CalypsoVoiceG05::subtitle(SDL_GetTicks());
+	const int subtitleMode = std::max(0,
+		std::min(2, Options::calypsoVoiceSubtitles));
+	const bool showVoiceSubtitle = Options::calypsoVoicesEnabled
+		&& voiceSubtitle.active && subtitleMode != 0
+		&& (subtitleMode == 2 || voiceSubtitle.tactical);
+	if (showVoiceSubtitle)
+	{
+		const std::string text = _game->getLanguage()->getString(
+			voiceSubtitle.lineId);
+		if (_voiceSubtitle->getText() != text)
+		{
+			_voiceSubtitle->setText(text);
+		}
+	}
+	_voiceSubtitle->setVisible(showVoiceSubtitle);
 #endif
 
 	if (_gameTimer->isRunning())
@@ -4376,6 +4415,13 @@ void BattlescapeState::resize(int &dX, int &dY)
 			surf->setX(surf->getX() + dX);
 		}
 	}
+
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_P_EN)
+	_voiceSubtitle->setWidth(std::max(288, Options::baseXResolution - 32));
+	_voiceSubtitle->setX(16);
+	_voiceSubtitle->setY(std::max(4,
+		Options::baseYResolution - _map->getIconHeight() - 32));
+#endif
 
 	for (auto& pos : _posSpecialActions)
 	{

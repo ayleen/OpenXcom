@@ -559,6 +559,13 @@ void Game::setVolume(int sound, int music, int ui)
 			}
 			// channel 4: reserved for unit responses
 			Mix_Volume(4, sound);
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_P_EN)
+			const int voiceSetting = std::max(0,
+				std::min(SDL_MIX_MAXVOLUME, Options::calypsoVoiceVolume));
+			const int voiceVolume = Options::calypsoVoicesEnabled
+				? volumeExponent(voiceSetting) * (double)SDL_MIX_MAXVOLUME : 0;
+			Mix_Volume(4, voiceVolume);
+#endif
 		}
 		if (music >= 0)
 		{

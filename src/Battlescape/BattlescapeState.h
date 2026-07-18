@@ -71,6 +71,9 @@ private:
 	BattleUnit *_visibleUnit[VISIBLE_MAX];
 
 	WarningMessage *_warning;
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_P_EN)
+	Text *_voiceSubtitle = nullptr;
+#endif
 	Text *_txtName;
 	NumberText *_numTimeUnits, *_numEnergy, *_numHealth, *_numMorale, *_numLayers;
 	std::vector<NumberText*> _numAmmoLeft, _numAmmoRight;

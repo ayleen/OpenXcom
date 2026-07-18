@@ -334,6 +334,8 @@ public:
 #ifdef __EMSCRIPTEN__
 	/// Gets the stable Calypso voice profile copied into the tactical save.
 	const std::string &getVoiceProfile() const { return _voiceProfile; }
+	/// Sets the stable Calypso voice profile copied into the tactical save.
+	void setVoiceProfile(const std::string &profile) { _voiceProfile = profile; }
 #endif
 	/// Gets the unit's faction.
 	UnitFaction getFaction() const;

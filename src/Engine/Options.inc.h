@@ -9,6 +9,10 @@ OPT bool fullscreen, asyncBlit, playIntro, useScaleFilter, useHQXFilter, useXBRZ
 	autosave, allowResize, borderless, debug, debugUi, fpsCounter, newSeedOnLoad, keepAspectRatio, nonSquarePixelRatio,
 	cursorInBlackBandsInFullscreen, cursorInBlackBandsInWindow, cursorInBlackBandsInBorderlessWindow, maximizeInfoScreens, musicAlwaysLoop, StereoSound, verboseLogging, soldierDiaries, touchEnabled,
 	rootWindowedMode, lazyLoadResources, backgroundMute;
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_P_EN)
+OPT int calypsoVoiceVolume, calypsoVoiceSubtitles;
+OPT bool calypsoVoicesEnabled;
+#endif
 OPT std::string language, useOpenGLShader;
 OPT KeyboardType keyboardMode;
 OPT SaveSort saveOrder;

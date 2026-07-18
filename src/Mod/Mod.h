@@ -43,6 +43,7 @@
 #  include "../Calypso/CalypsoAdvisor.h"   // Phase 39: Calypso strategic advisor rules
 #  include "../Calypso/HdUnitAtlas.h"      // Phase 42: UnitAtlasSpec (relocated, review #2/#6)
 #  include "../Calypso/RuleVoiceProfile.h" // Phase 44: persistent voice identity rules
+#  include "../Calypso/RuleVoiceRegion.h" // Phase 44: operation-locale geography
 #endif
 
 namespace OpenXcom
@@ -451,6 +452,7 @@ private:
 	std::vector<CalypsoAdvisorRule> _calypsoAdvisors;
 	/// Phase 44: text-only voice registry. Audio is fetched lazily by the web shell.
 	std::map<std::string, RuleVoiceProfile> _voiceProfiles;
+	std::map<std::string, RuleVoiceRegion> _voiceRegions;
 	mutable std::set<std::string> _voiceProfileRepairWarnings;
 	/// L5: globe GL handles were evicted on battle entry; restore on geoscape return.
 	bool _globeGpuEvicted     = false;
@@ -875,6 +877,8 @@ public:
 	std::string selectVoiceProfile(const std::string &locale,
 		const std::string &unitClass, const std::string &gender, int stableId,
 		const std::string &stored = std::string()) const;
+	std::string resolveCivilianVoiceLocale(double longitude,
+		double latitude) const;
 	/// L7: ensures battlescape-only SurfaceSets are resident.
 	/// Delegates to the private loadBattlescapeResources(); idempotent (guarded
 	/// by _battlescapeResourcesLoaded).  Called from BattlescapeState ctor.

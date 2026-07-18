@@ -3346,7 +3346,7 @@ bool TileEngine::hitUnit(BattleActionAttack attack, BattleUnit *target, const Po
 #endif
 
 #if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
-	CalypsoVoiceG05::onDamage(attack.attacker, target, healthDamage, stunDamage);
+	CalypsoVoiceG05::onDamage(attack, target, healthDamage, stunDamage);
 #endif
 
 	// hit log

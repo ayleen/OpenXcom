@@ -25,6 +25,7 @@
 #include "AIModule.h"
 #include "../Savegame/SavedGame.h"
 #include "../Savegame/SavedBattleGame.h"
+#include "../Savegame/Target.h"
 #include "../Savegame/Tile.h"
 #include "../Savegame/ItemContainer.h"
 #include "../Savegame/Base.h"
@@ -735,6 +736,15 @@ void BattlescapeGenerator::nextStage()
 	int civilianSpawnNodeRank = ruleDeploy->getCivilianSpawnNodeRank();
 	bool markCiviliansAsVIP = ruleDeploy->getMarkCiviliansAsVIP();
 
+#ifdef __EMSCRIPTEN__
+	// Phase 44: bring forward the next stage's locale only when it is explicitly
+	// declared; otherwise the locale already on SavedBattleGame is preserved.
+	if (!ruleDeploy->getCivilianVoiceLocale().empty())
+	{
+		_save->setCivilianVoiceLocale(ruleDeploy->getCivilianVoiceLocale());
+	}
+#endif
+
 	// Special case: deploy civilians before aliens
 	if (civilianSpawnNodeRank > 0)
 	{
@@ -909,6 +919,27 @@ void BattlescapeGenerator::run()
 
 	int civilianSpawnNodeRank = ruleDeploy->getCivilianSpawnNodeRank();
 	bool markCiviliansAsVIP = ruleDeploy->getMarkCiviliansAsVIP();
+
+#ifdef __EMSCRIPTEN__
+	// Phase 44: resolve the operation locale while deployment and globe target
+	// coordinates are both available, before any civilian profile is assigned.
+	if (!ruleDeploy->getCivilianVoiceLocale().empty())
+	{
+		_save->setCivilianVoiceLocale(ruleDeploy->getCivilianVoiceLocale());
+	}
+	else
+	{
+		const Target *target = _mission ? static_cast<const Target *>(_mission)
+			: (_ufo ? static_cast<const Target *>(_ufo)
+			: (_alienBase ? static_cast<const Target *>(_alienBase)
+			: (_base ? static_cast<const Target *>(_base)
+			: static_cast<const Target *>(_craft))));
+		_save->setCivilianVoiceLocale(target
+			? _game->getMod()->resolveCivilianVoiceLocale(
+				target->getLongitude(), target->getLatitude())
+			: "en");
+	}
+#endif
 
 	// Special case: deploy civilians before aliens
 	if (!isPreview && civilianSpawnNodeRank > 0)
@@ -1969,6 +2000,15 @@ BattleUnit *BattlescapeGenerator::addCivilian(Unit *rules, int nodeRank)
 			unit->getBaseStats()->bravery = RNG::generate(45, 65);
 		}
 	}
+
+#ifdef __EMSCRIPTEN__
+	// Phase 44: assign a stable, compatible 'civilian' voice profile from the
+	// saved locale before the unit is stored. With no civilian profiles this
+	// resolves to an empty string (subtitle-only), which is the safe default.
+	unit->setVoiceProfile(_save->getMod()->selectVoiceProfile(
+		_save->getCivilianVoiceLocale(), "civilian",
+		unit->getGender() == GENDER_FEMALE ? "female" : "male", unit->getId()));
+#endif
 
 	Node *node = _save->getSpawnNode(nodeRank, unit);
 

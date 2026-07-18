@@ -595,6 +595,15 @@ void createControlsOXCE()
 void createOptionsOTHER()
 {
 	// your fork's hidden options here
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_P_EN)
+	_info.push_back(OptionInfo(OPTION_OTHER, "calypsoVoicesEnabled",
+		&calypsoVoicesEnabled, true, "STR_CALYPSO_VOICES_ENABLED", "STR_AUDIO"));
+	_info.push_back(OptionInfo(OPTION_OTHER, "calypsoVoiceVolume",
+		&calypsoVoiceVolume, 2*(MIX_MAX_VOLUME/3),
+		"STR_CALYPSO_VOICE_VOLUME", "STR_AUDIO"));
+	_info.push_back(OptionInfo(OPTION_OTHER, "calypsoVoiceSubtitles",
+		&calypsoVoiceSubtitles, 1, "STR_CALYPSO_VOICE_SUBTITLES", "STR_AUDIO"));
+#endif
 }
 
 void createAdvancedOptionsOTHER()

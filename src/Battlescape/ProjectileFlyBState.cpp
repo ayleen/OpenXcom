@@ -465,7 +465,7 @@ void ProjectileFlyBState::init()
 			}
 			else
 			{
-				CalypsoVoiceG05::onAttackStarted(_action.actor);
+				CalypsoVoiceG05::onAttackStarted(_action);
 			}
 		}
 #endif
@@ -761,7 +761,7 @@ void ProjectileFlyBState::think()
 #if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
 			if (!_voiceContinuesAction)
 			{
-				CalypsoVoiceG05::onAttackFinished(_action.actor);
+				CalypsoVoiceG05::onAttackFinished(_action);
 			}
 #endif
 			_parent->popState();
@@ -799,7 +799,8 @@ void ProjectileFlyBState::think()
 					{
 						// it's a hot grenade to explode immediately
 #if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
-						CalypsoVoiceG05::onAttackStarted(_action.actor);
+						CalypsoVoiceG05::onAttackStarted(_action);
+						attack.voiceActionId = _action.voiceActionId;
 #endif
 						_parent->statePushFront(new ExplosionBState(_parent, _parent->getMap()->getProjectile()->getLastPositions(Projectile::ItemDropVoxelOffset), attack));
 					}

@@ -12,11 +12,11 @@ namespace OpenXcom
 namespace
 {
 
-constexpr std::array<const char *, 18> KNOWN_EVENTS = {{
+constexpr std::array<const char *, 19> KNOWN_EVENTS = {{
 	"selected", "reselected", "annoyed_1", "annoyed_2", "annoyed_3",
 	"move_ack", "weapon_ready", "out_of_ammo", "alien_spotted",
 	"grenade_throw", "hostile_hit", "miss", "hostile_kill", "friendly_hit",
-	"civilian_hit", "wounded", "panic", "death",
+	"civilian_hit", "wounded", "panic", "death", "flee",
 }};
 
 bool validPathTemplate(const std::string &value)

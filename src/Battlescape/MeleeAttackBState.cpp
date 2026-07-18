@@ -163,7 +163,7 @@ void MeleeAttackBState::init()
 	}
 
 #if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
-	CalypsoVoiceG05::onAttackStarted(_unit);
+	CalypsoVoiceG05::onAttackStarted(_action);
 #endif
 	performMeleeAttack();
 }
@@ -220,7 +220,7 @@ void MeleeAttackBState::think()
 		}
 		_parent->convertInfected();
 #if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
-		CalypsoVoiceG05::onAttackFinished(_unit);
+		CalypsoVoiceG05::onAttackFinished(_action);
 #endif
 		_parent->popState();
 	}

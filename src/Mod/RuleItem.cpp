@@ -104,7 +104,12 @@ void UpdateGrenade(BattleActionAttack& attack)
  */
 BattleActionAttack BattleActionAttack::GetBeforeShoot(const BattleActionCost &action)
 {
-	return GetBeforeShoot(action.type, action.actor, action.weapon, action.skillRules);
+	BattleActionAttack attack = GetBeforeShoot(action.type, action.actor,
+		action.weapon, action.skillRules);
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+	attack.voiceActionId = action.voiceActionId;
+#endif
+	return attack;
 }
 
 BattleActionAttack BattleActionAttack::GetBeforeShoot(BattleActionType type, BattleUnit *unit, BattleItem *wepon, const RuleSkill *skill)
@@ -124,7 +129,12 @@ BattleActionAttack BattleActionAttack::GetBeforeShoot(BattleActionType type, Bat
  */
 BattleActionAttack BattleActionAttack::GetAferShoot(const BattleActionCost &action, BattleItem *ammo)
 {
-	return GetAferShoot(action.type, action.actor, action.weapon, ammo, action.skillRules);
+	BattleActionAttack attack = GetAferShoot(action.type, action.actor,
+		action.weapon, ammo, action.skillRules);
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+	attack.voiceActionId = action.voiceActionId;
+#endif
+	return attack;
 }
 
 BattleActionAttack BattleActionAttack::GetAferShoot(BattleActionType type, BattleUnit *unit, BattleItem *wepon, BattleItem *ammo, const RuleSkill *skill)

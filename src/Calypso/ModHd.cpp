@@ -1630,6 +1630,18 @@ std::string Mod::selectVoiceProfile(const std::string &locale,
 	return selected;
 }
 
+std::string Mod::resolveCivilianVoiceLocale(double longitude,
+	double latitude) const
+{
+	std::vector<CalypsoVoiceRegionDescriptor> regions;
+	regions.reserve(_voiceRegions.size());
+	for (const auto &entry : _voiceRegions)
+	{
+		regions.push_back(entry.second.getDescriptor());
+	}
+	return calypsoResolveCivilianVoiceLocale(regions, longitude, latitude);
+}
+
 void Mod::validateVoiceProfiles() const
 {
 	for (const auto &entry : _voiceProfiles)
@@ -1656,6 +1668,17 @@ void Mod::validateVoiceProfiles() const
 		{
 			throw Exception("voiceProfiles[" + profile.getId()
 				+ "]: fallbackProfile must be a different compatible English profile");
+		}
+		for (const auto &event : profile.getEvents())
+		{
+			const VoiceEventRule *fallbackEvent = fallback->getEvent(event.first);
+			if (!fallbackEvent
+				|| fallbackEvent->lines.size() != event.second.lines.size())
+			{
+				throw Exception("voiceProfiles[" + profile.getId()
+					+ "]: fallbackProfile must provide event '" + event.first
+					+ "' with the same line count");
+			}
 		}
 	}
 	if (!_voiceProfiles.empty())
@@ -1697,6 +1720,18 @@ void Mod::loadFileCalypso(YAML::YamlNodeReader& reader)
 		RuleVoiceProfile profile(id);
 		profile.load(ruleReader);
 		_voiceProfiles[id] = std::move(profile);
+	}
+	for (const auto &ruleReader : iterateRulesSpecific("voiceRegions"))
+	{
+		std::string id;
+		ruleReader["id"].tryReadVal<std::string>(id);
+		if (id.empty())
+		{
+			throw Exception("voiceRegions: every region requires a non-empty id");
+		}
+		RuleVoiceRegion region(id);
+		region.load(ruleReader);
+		_voiceRegions[id] = std::move(region);
 	}
 
 	int _globeTexUploaded = 0;  // M5b: count uploads to suppress the mark on ruleset files with no globeTextures

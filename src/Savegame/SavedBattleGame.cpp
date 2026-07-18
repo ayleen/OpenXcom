@@ -145,6 +145,11 @@ void SavedBattleGame::load(const YAML::YamlNodeReader& node, Mod *mod, SavedGame
 	initMap(mapsize_x, mapsize_y, mapsize_z);
 
 	reader.tryRead("missionType", _missionType);
+#ifdef __EMSCRIPTEN__
+	// Phase 44: civilian voice locale, persisted so a reloaded battle keeps the
+	// same locale for civilian voice-profile (re)assignment.
+	reader.tryRead("civilianVoiceLocale", _civilianVoiceLocale);
+#endif
 	reader.tryRead("strTarget", _strTarget);
 	reader.tryRead("strCraftOrBase", _strCraftOrBase);
 	if (reader["startingConditionType"])
@@ -519,6 +524,10 @@ void SavedBattleGame::save(YAML::YamlNodeWriter writer) const
 	writer.write("length", _mapsize_y);
 	writer.write("height", _mapsize_z);
 	writer.write("missionType", _missionType);
+#ifdef __EMSCRIPTEN__
+	// Phase 44: persist the civilian voice locale (defaults to 'en').
+	writer.write("civilianVoiceLocale", _civilianVoiceLocale);
+#endif
 	writer.write("strTarget", _strTarget);
 	writer.write("strCraftOrBase", _strCraftOrBase).setAsQuotedAndEscaped();
 	if (_startingCondition)

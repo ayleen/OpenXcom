@@ -48,6 +48,9 @@ struct BattleActionCost : RuleItemUseCost
 	BattleUnit *actor = nullptr;
 	BattleItem *weapon = nullptr;
 	const RuleSkill* skillRules = nullptr; // if defined, this is a skill action
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+	unsigned int voiceActionId = 0; // cosmetic only; never serialized or used by gameplay RNG
+#endif
 
 	/// Default constructor.
 	BattleActionCost() : type(BA_NONE) { }

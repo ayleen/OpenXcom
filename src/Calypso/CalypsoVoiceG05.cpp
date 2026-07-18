@@ -1,12 +1,17 @@
 #if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
 
 #include "CalypsoVoiceG05.h"
+#include "CalypsoVoiceOutcome.h"
+#include "CalypsoVoiceSelectionFlavor.h"
 
+#include "../Battlescape/BattlescapeGame.h"
 #include "../Engine/FileMap.h"
 #include "../Engine/Logger.h"
 #include "../Engine/Options.h"
 #include "../Savegame/BattleUnit.h"
+#include "../Savegame/SavedBattleGame.h"
 #include "../Savegame/Soldier.h"
+#include "../Mod/RuleItem.h"
 
 #include <SDL.h>
 #include <SDL_mixer.h>
@@ -50,6 +55,7 @@ enum class Event : std::size_t
 	Wounded,
 	Panic,
 	Death,
+	Flee,
 	Count
 };
 
@@ -79,14 +85,10 @@ struct VariantBag
 };
 #endif
 
-struct AttackOutcome
+struct AttackOutcome : CalypsoVoiceOutcomeObservation
 {
+	unsigned int actionId = 0;
 	BattleUnit *actor = nullptr;
-	bool contactedUnit = false;
-	bool hostileDamaged = false;
-	bool friendlyDamaged = false;
-	bool civilianDamaged = false;
-	std::set<BattleUnit *> damagedHostiles;
 };
 
 #if !defined(CALYPSO_VOICE_P_EN)
@@ -100,7 +102,11 @@ struct CachedChunk
 struct PilotState
 {
 	bool active = false;
+#if defined(CALYPSO_VOICE_P_EN)
+	std::set<std::string> requestedPacks;
+#else
 	bool packReady = false;
+#endif
 	unsigned int missionEpoch = 0;
 #if !defined(CALYPSO_VOICE_P_EN)
 	std::map<std::string, CachedChunk> chunks;
@@ -114,16 +120,17 @@ struct PilotState
 	std::array<EventCounter, static_cast<std::size_t>(Event::Count)> counters{};
 	std::map<std::pair<int, Event>, Uint32> lastFired;
 	std::set<std::pair<int, int>> spottedHostiles;
+	bool hasLastAlienSpottedSubmit = false;
+	Uint32 lastAlienSpottedSubmit = 0;
 	std::set<int> voicedDeaths;
 	std::map<int, BattleUnit *> pendingWounded;
 #if !defined(CALYPSO_VOICE_P_EN)
 	std::map<std::pair<int, Event>, VariantBag> variantBags;
 #endif
-	std::map<int, AttackOutcome> attackOutcomes;
+	std::map<unsigned int, AttackOutcome> attackOutcomes;
+	unsigned int nextActionId = 0;
 	std::map<int, Uint32> selectionFlavorLockedUntil;
-	int repeatUnitId = -1;
-	unsigned int repeatClicks = 0;
-	Uint32 lastRepeatClick = 0;
+	CalypsoVoiceSelectionState selectionState;
 #if !defined(CALYPSO_VOICE_P_EN)
 	int currentPriority = 0;
 #endif
@@ -137,8 +144,8 @@ constexpr const char *EXTENSION = ".wav";
 constexpr const char *LOG_TAG = "[VOICE_G0_5]";
 constexpr std::size_t DECODED_CACHE_LIMIT = 4u * 1024u * 1024u;
 #endif
-constexpr Uint32 RESELECT_WINDOW_MS = 8000;
 constexpr Uint32 FINAL_ANNOYANCE_LOCK_MS = 15000;
+constexpr Uint32 SIMULTANEOUS_CONTACT_WINDOW_MS = 800;
 
 constexpr std::array<EventSpec, static_cast<std::size_t>(Event::Count)> EVENT_SPECS = {{
 	{"selected", "SELECTED", 4, 1500, 1},
@@ -159,6 +166,7 @@ constexpr std::array<EventSpec, static_cast<std::size_t>(Event::Count)> EVENT_SP
 	{"wounded", "WOUNDED", 3, 6000, 7},
 	{"panic", "PANIC", 3, 12000, 7},
 	{"death", "DEATH", 2, 0, 8},
+	{"flee", "FLEE", 3, 8000, 7},
 }};
 
 PilotState g_state;
@@ -248,6 +256,42 @@ bool isDiver(const BattleUnit *unit, bool requirePlayerControl = true)
 		&& unit->getGeoscapeSoldier();
 }
 
+bool isCivilianUnit(const BattleUnit *unit)
+{
+	return unit
+		&& unit->getFaction() == FACTION_NEUTRAL
+		&& unit->getOriginalFaction() == FACTION_NEUTRAL;
+}
+
+/// Catalogue of events a civilian profile may own (Phase 44 E3). Diver
+/// command/action events remain diver-only and are never submitted for a
+/// civilian unit.
+bool isCivilianEvent(Event event)
+{
+	return event == Event::AlienSpotted || event == Event::Wounded
+		|| event == Event::Panic || event == Event::Death
+		|| event == Event::Flee;
+}
+
+/// True when a civilian unit is allowed to submit `event` under the active
+/// configuration. In P_EN this additionally requires the unit's production
+/// RuleVoiceProfile to declare the semantic event (so missing civilian
+/// profiles/events keep stock behavior and the system never claims handling).
+/// The non-P_EN development corpus has no civilian profiles, so civilians are
+/// never eligible there and the pilot spike is byte-for-byte unchanged.
+bool civilianMaySubmit(const BattleUnit *unit, Event event)
+{
+	if (!isCivilianUnit(unit) || !isCivilianEvent(event))
+	{
+		return false;
+	}
+#if defined(CALYPSO_VOICE_P_EN)
+	return g_manager.hasEvent(unit, eventSpec(event).name);
+#else
+	return false;
+#endif
+}
+
 bool timeBefore(Uint32 now, Uint32 deadline)
 {
 	return static_cast<Sint32>(now - deadline) < 0;
@@ -306,7 +350,7 @@ std::string clipPath(Event event, const BattleUnit *unit, unsigned int variant)
 {
 #if defined(CALYPSO_VOICE_P_EN)
 	return variant == 0 ? std::string()
-		: g_manager.dryClipPath(unit, eventSpec(event).name, variant - 1);
+		: g_manager.clipPath(unit, eventSpec(event).name, variant - 1);
 #else
 	return std::string(profileName(unit))
 		+ "/STR_CALYPSO_VOICE_" + eventSpec(event).fileStem + "_"
@@ -324,6 +368,95 @@ void logSuppressed(Event event, const BattleUnit *unit, const char *reason)
 		<< " profile=" << profileName(unit)
 		<< " result=suppressed reason=" << reason;
 }
+
+#if defined(CALYPSO_VOICE_P_EN)
+bool isFlavorEvent(Event event)
+{
+	return event == Event::Selected || event == Event::Reselected
+		|| event == Event::Annoyed1 || event == Event::Annoyed2
+		|| event == Event::Annoyed3 || event == Event::MoveAck
+		|| event == Event::WeaponReady;
+}
+
+bool isSafetyEvent(Event event)
+{
+	return event == Event::FriendlyHit || event == Event::CivilianHit;
+}
+
+bool findEvent(const std::string &name, Event &event)
+{
+	for (std::size_t i = 0; i < static_cast<std::size_t>(Event::Count); ++i)
+	{
+		if (name == EVENT_SPECS.at(i).name)
+		{
+			event = static_cast<Event>(i);
+			return true;
+		}
+	}
+	return false;
+}
+
+void recordManagerResult(Event event, BattleUnit *unit,
+	const CalypsoVoiceRequestResult &result)
+{
+	EventCounter &counter = g_state.counters.at(static_cast<std::size_t>(event));
+	if (result.displacedUnit && !result.displacedEvent.empty())
+	{
+		Event displaced;
+		if (findEvent(result.displacedEvent, displaced))
+		{
+			EventCounter &displacedCounter = g_state.counters.at(
+				static_cast<std::size_t>(displaced));
+			++displacedCounter.suppressed;
+			Log(LOG_INFO) << LOG_TAG << " event=" << result.displacedEvent
+				<< " unit=" << result.displacedUnit->getId()
+				<< " profile=" << profileName(result.displacedUnit)
+				<< " result=suppressed reason=queue_replaced";
+		}
+	}
+
+	switch (result.status)
+	{
+		case CalypsoVoiceRequestStatus::Played:
+			++counter.fired;
+			Log(LOG_INFO) << LOG_TAG << " event=" << eventSpec(event).name
+				<< " unit=" << (unit ? unit->getId() : -1)
+				<< " profile=" << profileName(unit)
+				<< " result=fired clip=" << result.clipPath;
+			break;
+		case CalypsoVoiceRequestStatus::SubtitleOnly:
+			++counter.fired;
+			Log(LOG_INFO) << LOG_TAG << " event=" << eventSpec(event).name
+				<< " unit=" << (unit ? unit->getId() : -1)
+				<< " profile=" << profileName(unit)
+				<< " result=subtitle_only line=" << result.lineId
+				<< " reason=" << result.reason;
+			break;
+		case CalypsoVoiceRequestStatus::Queued:
+			Log(LOG_INFO) << LOG_TAG << " event=" << eventSpec(event).name
+				<< " unit=" << (unit ? unit->getId() : -1)
+				<< " profile=" << profileName(unit)
+				<< " result=queued reason=" << result.reason;
+			break;
+		case CalypsoVoiceRequestStatus::Suppressed:
+		case CalypsoVoiceRequestStatus::LoadFailed:
+		case CalypsoVoiceRequestStatus::PlaybackFailed:
+			++counter.suppressed;
+			Log(result.status == CalypsoVoiceRequestStatus::PlaybackFailed
+				? LOG_WARNING : LOG_INFO)
+				<< LOG_TAG << " event=" << eventSpec(event).name
+				<< " unit=" << (unit ? unit->getId() : -1)
+				<< " profile=" << profileName(unit)
+				<< " result=suppressed reason=" << result.reason
+				<< (result.status == CalypsoVoiceRequestStatus::PlaybackFailed
+					? std::string(" error=") + Mix_GetError() : std::string());
+			break;
+		case CalypsoVoiceRequestStatus::Idle:
+		default:
+			break;
+	}
+}
+#endif
 
 #if !defined(CALYPSO_VOICE_P_EN)
 void releaseChunks()
@@ -411,25 +544,74 @@ Mix_Chunk *loadClip(const std::string &relativePath)
 }
 #endif
 
-bool submit(Event event, BattleUnit *unit, bool forceInterrupt = false)
+bool submit(Event event, BattleUnit *unit, bool forceInterrupt = false,
+	bool *handledByVoice = nullptr)
 {
-	if (!g_state.active || !g_state.packReady || !isDiver(unit, event != Event::Death))
+	if (handledByVoice)
+	{
+		*handledByVoice = false;
+	}
+	if (!g_state.active)
 	{
 		return false;
 	}
+	// Diver command/action events stay diver-only and player-controlled. A
+	// civilian unit may submit only its own catalogue events, and only when
+	// its production profile declares them (handled by civilianMaySubmit).
+	const bool eligible = isDiver(unit, event != Event::Death)
+		|| civilianMaySubmit(unit, event);
+	if (!eligible)
+	{
+		return false;
+	}
+#if defined(CALYPSO_VOICE_P_EN)
+	if (!Options::calypsoVoicesEnabled)
+	{
+		return false;
+	}
+#endif
+#if !defined(CALYPSO_VOICE_P_EN)
+	if (!g_state.packReady)
+	{
+		return false;
+	}
+	if (handledByVoice)
+	{
+		// Preserve the accepted G0.5 behavior: once its verified pack owns a
+		// command event, deliberate cooldown/mute suppression must not fall
+		// through to a second, stock unit response.
+		*handledByVoice = true;
+	}
+#endif
 
 	EventCounter &counter = g_state.counters.at(static_cast<std::size_t>(event));
 	++counter.attempted;
 #if defined(CALYPSO_VOICE_P_EN)
-	if (!g_manager.hasEvent(unit, eventSpec(event).name))
+	if (Options::mute)
 	{
+		if (handledByVoice)
+		{
+			*handledByVoice = true;
+		}
 		++counter.suppressed;
-		Log(LOG_WARNING) << LOG_TAG << " event=" << eventSpec(event).name
+		Log(LOG_INFO) << LOG_TAG << " event=" << eventSpec(event).name
 			<< " unit=" << unit->getId() << " profile=" << profileName(unit)
-			<< " result=suppressed reason=missing_ruleset_event";
+			<< " result=suppressed reason=muted";
 		return false;
 	}
-#endif
+	const CalypsoVoiceRequestResult result = g_manager.submit(unit,
+		eventSpec(event).name, SDL_GetTicks(), isFlavorEvent(event),
+		isSafetyEvent(event), forceInterrupt);
+	recordManagerResult(event, unit, result);
+	if (handledByVoice)
+	{
+		*handledByVoice = result.status == CalypsoVoiceRequestStatus::Played
+			|| result.status == CalypsoVoiceRequestStatus::Queued
+			|| (result.status == CalypsoVoiceRequestStatus::Suppressed
+				&& result.reason != "missing_ruleset_event");
+	}
+	return result.status == CalypsoVoiceRequestStatus::Played;
+#else
 	if (Options::mute)
 	{
 		++counter.suppressed;
@@ -438,19 +620,6 @@ bool submit(Event event, BattleUnit *unit, bool forceInterrupt = false)
 			<< " result=suppressed reason=muted";
 		return false;
 	}
-
-#if defined(CALYPSO_VOICE_P_EN)
-	const int probability = g_manager.probability(unit, eventSpec(event).name);
-	if (!forceInterrupt && probability < 100
-		&& static_cast<int>(nextVariantRandom(g_state.cosmeticState) % 100u) >= probability)
-	{
-		++counter.suppressed;
-		Log(LOG_INFO) << LOG_TAG << " event=" << eventSpec(event).name
-			<< " unit=" << unit->getId() << " profile=" << profileName(unit)
-			<< " result=suppressed reason=probability probability=" << probability;
-		return false;
-	}
-#endif
 
 	const Uint32 now = SDL_GetTicks();
 	const std::pair<int, Event> cooldownKey(unit->getId(), event);
@@ -466,20 +635,6 @@ bool submit(Event event, BattleUnit *unit, bool forceInterrupt = false)
 	}
 
 	const int requestedPriority = eventPriority(event, unit);
-#if defined(CALYPSO_VOICE_P_EN)
-	if (g_manager.isPlaying())
-	{
-		if (!forceInterrupt && requestedPriority <= g_manager.currentPriority())
-		{
-			++counter.suppressed;
-			Log(LOG_INFO) << LOG_TAG << " event=" << eventSpec(event).name
-				<< " unit=" << unit->getId() << " profile=" << profileName(unit)
-				<< " result=suppressed reason=channel_busy";
-			return false;
-		}
-		g_manager.halt();
-	}
-#else
 	if (Mix_Playing(4))
 	{
 		if (!forceInterrupt && requestedPriority <= g_state.currentPriority)
@@ -492,26 +647,9 @@ bool submit(Event event, BattleUnit *unit, bool forceInterrupt = false)
 		}
 		Mix_HaltChannel(4);
 	}
-#endif
 
 	const unsigned int variant = pickVariant(event, unit);
 	const std::string relativePath = clipPath(event, unit, variant);
-#if defined(CALYPSO_VOICE_P_EN)
-	const CalypsoVoicePlayResult playResult = g_manager.playClip(relativePath, requestedPriority);
-	if (playResult != CalypsoVoicePlayResult::Played)
-	{
-		++counter.suppressed;
-		Log(playResult == CalypsoVoicePlayResult::LoadFailed ? LOG_INFO : LOG_WARNING)
-			<< LOG_TAG << " event=" << eventSpec(event).name
-			<< " unit=" << unit->getId() << " profile=" << profileName(unit)
-			<< " result=suppressed reason="
-			<< (playResult == CalypsoVoicePlayResult::LoadFailed
-				? "load_failed" : "playback_failed")
-			<< (playResult == CalypsoVoicePlayResult::PlaybackFailed
-				? std::string(" error=") + Mix_GetError() : std::string());
-		return false;
-	}
-#else
 	Mix_Chunk *chunk = loadClip(relativePath);
 	if (!chunk)
 	{
@@ -530,17 +668,19 @@ bool submit(Event event, BattleUnit *unit, bool forceInterrupt = false)
 			<< " result=suppressed reason=playback_failed error=" << Mix_GetError();
 		return false;
 	}
-#endif
 
 	g_state.lastFired[cooldownKey] = now;
-#if !defined(CALYPSO_VOICE_P_EN)
 	g_state.currentPriority = requestedPriority;
-#endif
 	++counter.fired;
 	Log(LOG_INFO) << LOG_TAG << " event=" << eventSpec(event).name
 		<< " unit=" << unit->getId() << " profile=" << profileName(unit)
 		<< " result=fired clip=" << relativePath;
+	if (handledByVoice)
+	{
+		*handledByVoice = true;
+	}
 	return true;
+#endif
 }
 
 bool selectionFlavorLocked(BattleUnit *unit, Uint32 now)
@@ -560,7 +700,7 @@ bool selectionFlavorLocked(BattleUnit *unit, Uint32 now)
 
 }
 
-void CalypsoVoiceG05::beginMission(const Mod *mod)
+void CalypsoVoiceG05::beginMission(SavedBattleGame *save)
 {
 	if (g_state.active)
 	{
@@ -575,17 +715,59 @@ void CalypsoVoiceG05::beginMission(const Mod *mod)
 	g_state.missionEpoch = ++g_nextMissionEpoch;
 	g_state.cosmeticState ^= g_state.missionEpoch * 0x9e3779b9u;
 #if defined(CALYPSO_VOICE_P_EN)
-	g_manager.beginMission(mod);
-	Log(LOG_INFO) << LOG_TAG << " requesting lazy English pack epoch=" << g_state.missionEpoch;
-	EM_ASM({
-		if (globalThis.calypsoVoicePacks?.request) {
-			globalThis.calypsoVoicePacks.request('en', $0);
-		}
-	}, g_state.missionEpoch);
+	g_manager.beginMission(save->getMod(), g_state.missionEpoch,
+		save->getDepth() > 0);
+	g_state.requestedPacks = g_manager.requiredPacks(*save->getUnits());
+	for (const std::string &pack : g_state.requestedPacks)
+	{
+		Log(LOG_INFO) << LOG_TAG << " requesting lazy pack=" << pack
+			<< " epoch=" << g_state.missionEpoch;
+		EM_ASM({
+			if (globalThis.calypsoVoicePacks?.request) {
+				globalThis.calypsoVoicePacks.request(UTF8ToString($0), $1);
+			}
+		}, pack.c_str(), g_state.missionEpoch);
+	}
 #else
 	g_state.packReady = true;
 	Log(LOG_INFO) << LOG_TAG << " development-only pilot active; clips=208 profiles=4 events=18 shuffle_bags=per_unit_event";
 #endif
+}
+
+void CalypsoVoiceG05::think()
+{
+#if defined(CALYPSO_VOICE_P_EN)
+	if (!g_state.active)
+	{
+		return;
+	}
+	const CalypsoVoiceRequestResult result = g_manager.update(
+		SDL_GetTicks(), !Options::mute && Options::calypsoVoicesEnabled);
+	if (result.status == CalypsoVoiceRequestStatus::Idle)
+	{
+		return;
+	}
+	Event event;
+	if (findEvent(result.event, event))
+	{
+		recordManagerResult(event, result.unit, result);
+	}
+#endif
+}
+
+CalypsoVoiceSubtitleSnapshot CalypsoVoiceG05::subtitle(unsigned int nowMs)
+{
+	CalypsoVoiceSubtitleSnapshot result;
+#if defined(CALYPSO_VOICE_P_EN)
+	const CalypsoVoiceSubtitleState state = g_manager.subtitle(nowMs);
+	result.active = state.active;
+	result.tactical = state.tactical;
+	result.unit = state.unit;
+	result.lineId = state.lineId;
+#else
+	(void)nowMs;
+#endif
+	return result;
 }
 
 void CalypsoVoiceG05::endMission()
@@ -609,96 +791,112 @@ void CalypsoVoiceG05::endMission()
 	g_state.active = false;
 #if defined(CALYPSO_VOICE_P_EN)
 	g_manager.endMission();
-	EM_ASM({ globalThis.calypsoVoicePacks?.release('en'); });
+	for (const std::string &pack : g_state.requestedPacks)
+	{
+		EM_ASM({
+			globalThis.calypsoVoicePacks?.release(UTF8ToString($0));
+		}, pack.c_str());
+	}
 #else
 	releaseChunks();
 #endif
 }
 
-bool CalypsoVoiceG05::onPackResult(unsigned int missionEpoch, bool available)
+bool CalypsoVoiceG05::onPackResult(const std::string &pack,
+	unsigned int missionEpoch, bool available)
 {
-	if (!g_state.active || g_state.missionEpoch != missionEpoch)
+#if defined(CALYPSO_VOICE_P_EN)
+	if (!g_state.active || g_state.missionEpoch != missionEpoch
+		|| g_state.requestedPacks.find(pack) == g_state.requestedPacks.end())
 	{
 		return false;
 	}
-	g_state.packReady = available;
+	g_manager.setPackAvailable(pack, available);
 	Log(available ? LOG_INFO : LOG_WARNING) << LOG_TAG
-		<< " pack_result=" << (available ? "ready" : "unavailable")
+		<< " pack=" << pack
+		<< " result=" << (available ? "ready" : "unavailable")
 		<< " epoch=" << missionEpoch;
 	return available;
+#else
+	(void)pack;
+	(void)missionEpoch;
+	(void)available;
+	return false;
+#endif
 }
 
 bool CalypsoVoiceG05::handleSelection(BattleUnit *unit, bool sameUnit)
 {
-	if (!g_state.active || !g_state.packReady || !isDiver(unit) || unit->isOut())
+	if (!g_state.active || !isDiver(unit) || unit->isOut())
 	{
 		return false;
 	}
+#if defined(CALYPSO_VOICE_P_EN)
+	if (!Options::calypsoVoicesEnabled)
+	{
+		return false;
+	}
+#endif
+#if !defined(CALYPSO_VOICE_P_EN)
+	if (!g_state.packReady)
+	{
+		return false;
+	}
+#endif
 
 	const Uint32 now = SDL_GetTicks();
-	if (!sameUnit)
+	const bool locked = selectionFlavorLocked(unit, now);
+	const CalypsoVoiceSelectionFlavor flavor = calypsoAdvanceVoiceSelection(
+		g_state.selectionState, unit->getId(), sameUnit, now, locked);
+	if (locked)
 	{
-		g_state.repeatUnitId = unit->getId();
-		g_state.repeatClicks = 0;
-		g_state.lastRepeatClick = 0;
-		if (selectionFlavorLocked(unit, now))
-		{
-			logSuppressed(Event::Selected, unit, "final_annoyance_lockout");
-		}
-		else
-		{
-			submit(Event::Selected, unit);
-		}
+		logSuppressed(sameUnit ? Event::Reselected : Event::Selected, unit,
+			"final_annoyance_lockout");
 		return true;
 	}
 
-	if (g_state.repeatUnitId != unit->getId()
-		|| g_state.lastRepeatClick == 0
-		|| now - g_state.lastRepeatClick > RESELECT_WINDOW_MS)
+	Event event = Event::Reselected;
+	switch (flavor)
 	{
-		g_state.repeatUnitId = unit->getId();
-		g_state.repeatClicks = 1;
+		case CalypsoVoiceSelectionFlavor::Selected: event = Event::Selected; break;
+		case CalypsoVoiceSelectionFlavor::Reselected: event = Event::Reselected; break;
+		case CalypsoVoiceSelectionFlavor::Annoyed1: event = Event::Annoyed1; break;
+		case CalypsoVoiceSelectionFlavor::Annoyed2: event = Event::Annoyed2; break;
+		case CalypsoVoiceSelectionFlavor::Annoyed3:
+			event = Event::Annoyed3;
+			g_state.selectionFlavorLockedUntil[unit->getId()] =
+				now + FINAL_ANNOYANCE_LOCK_MS;
+			break;
+		case CalypsoVoiceSelectionFlavor::None:
+		default:
+			return true;
 	}
-	else
-	{
-		++g_state.repeatClicks;
-	}
-	g_state.lastRepeatClick = now;
-
-	if (selectionFlavorLocked(unit, now))
-	{
-		logSuppressed(Event::Reselected, unit, "final_annoyance_lockout");
-		return true;
-	}
-
-	if (g_state.repeatClicks == 1)
-	{
-		submit(Event::Reselected, unit);
-	}
-	else if (g_state.repeatClicks == 3)
-	{
-		submit(Event::Annoyed1, unit);
-	}
-	else if (g_state.repeatClicks == 5)
-	{
-		submit(Event::Annoyed2, unit);
-	}
-	else if (g_state.repeatClicks == 7)
-	{
-		submit(Event::Annoyed3, unit);
-		g_state.selectionFlavorLockedUntil[unit->getId()] = now + FINAL_ANNOYANCE_LOCK_MS;
-	}
-	return true;
+	bool handled = false;
+	submit(event, unit, false, &handled);
+	return handled;
 }
 
 bool CalypsoVoiceG05::handleMoveOrder(BattleUnit *unit)
 {
-	if (!g_state.active || !g_state.packReady || !isDiver(unit) || unit->isOut())
+	if (!g_state.active || !isDiver(unit) || unit->isOut())
 	{
 		return false;
 	}
-	submit(Event::MoveAck, unit);
-	return true;
+#if defined(CALYPSO_VOICE_P_EN)
+	if (!Options::calypsoVoicesEnabled)
+	{
+		return false;
+	}
+#endif
+#if !defined(CALYPSO_VOICE_P_EN)
+	if (!g_state.packReady)
+	{
+		return false;
+	}
+#endif
+	bool handled = false;
+	submit(Event::MoveAck, unit, false, &handled);
+	return handled;
 }
 
 void CalypsoVoiceG05::onWeaponReady(BattleUnit *unit)
@@ -713,7 +911,8 @@ void CalypsoVoiceG05::onOutOfAmmo(BattleUnit *unit)
 
 void CalypsoVoiceG05::onAlienSpotted(BattleUnit *spotter, BattleUnit *hostile)
 {
-	if (!g_state.active || !isDiver(spotter) || !hostile || hostile->getFaction() != FACTION_HOSTILE)
+	if (!g_state.active || !hostile || hostile->getFaction() != FACTION_HOSTILE
+		|| (!isDiver(spotter) && !isCivilianUnit(spotter)))
 	{
 		return;
 	}
@@ -723,6 +922,15 @@ void CalypsoVoiceG05::onAlienSpotted(BattleUnit *spotter, BattleUnit *hostile)
 		logSuppressed(Event::AlienSpotted, spotter, "hostile_already_reported");
 		return;
 	}
+	const Uint32 now = SDL_GetTicks();
+	if (g_state.hasLastAlienSpottedSubmit
+		&& now - g_state.lastAlienSpottedSubmit < SIMULTANEOUS_CONTACT_WINDOW_MS)
+	{
+		logSuppressed(Event::AlienSpotted, spotter, "simultaneous_contact");
+		return;
+	}
+	g_state.hasLastAlienSpottedSubmit = true;
+	g_state.lastAlienSpottedSubmit = now;
 	submit(Event::AlienSpotted, spotter);
 }
 
@@ -731,28 +939,41 @@ void CalypsoVoiceG05::onGrenadeThrown(BattleUnit *unit)
 	submit(Event::GrenadeThrow, unit);
 }
 
-void CalypsoVoiceG05::onAttackStarted(BattleUnit *unit)
+void CalypsoVoiceG05::onAttackStarted(BattleAction &action)
 {
-	if (!g_state.active || !g_state.packReady || !isDiver(unit))
+	BattleUnit *unit = action.actor;
+	if (!g_state.active || !isDiver(unit))
 	{
 		return;
 	}
+	if (action.voiceActionId == 0)
+	{
+		do
+		{
+			action.voiceActionId = ++g_state.nextActionId;
+		}
+		while (action.voiceActionId == 0);
+	}
 	AttackOutcome outcome;
+	outcome.actionId = action.voiceActionId;
 	outcome.actor = unit;
-	g_state.attackOutcomes[unit->getId()] = outcome;
+	g_state.attackOutcomes[action.voiceActionId] = outcome;
 }
 
-void CalypsoVoiceG05::onDamage(BattleUnit *attacker, BattleUnit *target, int healthDamage, int stunDamage)
+void CalypsoVoiceG05::onDamage(const BattleActionAttack &attack,
+	BattleUnit *target, int healthDamage, int stunDamage)
 {
 	if (!g_state.active || !target)
 	{
 		return;
 	}
 
-	if (isDiver(attacker))
+	BattleUnit *attacker = attack.attacker;
+	auto pending = g_state.attackOutcomes.find(attack.voiceActionId);
+	if (attack.voiceActionId != 0 && pending != g_state.attackOutcomes.end()
+		&& pending->second.actor == attacker && isDiver(attacker))
 	{
-		AttackOutcome &outcome = g_state.attackOutcomes[attacker->getId()];
-		outcome.actor = attacker;
+		AttackOutcome &outcome = pending->second;
 		outcome.contactedUnit = true;
 		if (healthDamage > 0 || stunDamage > 0)
 		{
@@ -760,13 +981,12 @@ void CalypsoVoiceG05::onDamage(BattleUnit *attacker, BattleUnit *target, int hea
 			{
 				case FACTION_HOSTILE:
 					outcome.hostileDamaged = true;
-					outcome.damagedHostiles.insert(target);
 					break;
 				case FACTION_PLAYER:
-					outcome.friendlyDamaged = true;
+					outcome.friendlyDamagedOrKilled = true;
 					break;
 				case FACTION_NEUTRAL:
-					outcome.civilianDamaged = true;
+					outcome.civilianDamagedOrKilled = true;
 					break;
 				default:
 					break;
@@ -774,7 +994,8 @@ void CalypsoVoiceG05::onDamage(BattleUnit *attacker, BattleUnit *target, int hea
 		}
 	}
 
-	if (healthDamage > 0 && target->getHealth() > 0 && isDiver(target))
+	if (healthDamage > 0 && target->getHealth() > 0
+		&& (isDiver(target) || isCivilianUnit(target)))
 	{
 		// Casualty classification happens after TileEngine reports damage. Delay
 		// the bark so a lethal hit cannot say both "I'm hit" and "I'm down".
@@ -782,13 +1003,47 @@ void CalypsoVoiceG05::onDamage(BattleUnit *attacker, BattleUnit *target, int hea
 	}
 }
 
-void CalypsoVoiceG05::onAttackFinished(BattleUnit *unit)
+void CalypsoVoiceG05::onKill(const BattleActionAttack &attack,
+	BattleUnit *victim, BattleUnit *creditedKiller)
 {
+	if (!g_state.active || attack.voiceActionId == 0 || !victim
+		|| !creditedKiller)
+	{
+		return;
+	}
+	auto pending = g_state.attackOutcomes.find(attack.voiceActionId);
+	if (pending == g_state.attackOutcomes.end()
+		|| pending->second.actor != creditedKiller)
+	{
+		return;
+	}
+
+	AttackOutcome &outcome = pending->second;
+	outcome.contactedUnit = true;
+	switch (victim->getOriginalFaction())
+	{
+		case FACTION_HOSTILE:
+			outcome.hostileKilled = true;
+			break;
+		case FACTION_PLAYER:
+			outcome.friendlyDamagedOrKilled = true;
+			break;
+		case FACTION_NEUTRAL:
+			outcome.civilianDamagedOrKilled = true;
+			break;
+		default:
+			break;
+	}
+}
+
+void CalypsoVoiceG05::onAttackFinished(const BattleAction &action)
+{
+	BattleUnit *unit = action.actor;
 	if (!g_state.active || !unit)
 	{
 		return;
 	}
-	auto pending = g_state.attackOutcomes.find(unit->getId());
+	auto pending = g_state.attackOutcomes.find(action.voiceActionId);
 	if (pending == g_state.attackOutcomes.end())
 	{
 		return;
@@ -800,45 +1055,45 @@ void CalypsoVoiceG05::onAttackFinished(BattleUnit *unit)
 		return;
 	}
 
-	if (outcome.civilianDamaged)
+	switch (calypsoDecideVoiceOutcome(outcome))
 	{
-		submit(Event::CivilianHit, unit);
-		return;
-	}
-	if (outcome.friendlyDamaged)
-	{
-		submit(Event::FriendlyHit, unit);
-		return;
-	}
-	for (BattleUnit *hostile : outcome.damagedHostiles)
-	{
-		if (hostile && hostile->getHealth() <= 0)
-		{
+		case CalypsoVoiceOutcome::CivilianHit:
+			submit(Event::CivilianHit, unit);
+			break;
+		case CalypsoVoiceOutcome::FriendlyHit:
+			submit(Event::FriendlyHit, unit);
+			break;
+		case CalypsoVoiceOutcome::HostileKill:
 			submit(Event::HostileKill, unit);
-			return;
-		}
+			break;
+		case CalypsoVoiceOutcome::HostileHit:
+			submit(Event::HostileHit, unit);
+			break;
+		case CalypsoVoiceOutcome::Miss:
+			submit(Event::Miss, unit);
+			break;
+		case CalypsoVoiceOutcome::Silence:
+		default:
+			logSuppressed(Event::Miss, unit, "armor_blocked");
+			break;
 	}
-	if (outcome.hostileDamaged)
-	{
-		submit(Event::HostileHit, unit);
-		return;
-	}
-	if (!outcome.contactedUnit)
-	{
-		submit(Event::Miss, unit);
-		return;
-	}
-	logSuppressed(Event::Miss, unit, "armor_blocked");
 }
 
 bool CalypsoVoiceG05::onPanic(BattleUnit *unit)
 {
-	if (!g_state.active || !isDiver(unit))
+	if (!g_state.active || (!isDiver(unit) && !isCivilianUnit(unit)))
 	{
 		return false;
 	}
-	submit(Event::Panic, unit);
-	return true;
+#if defined(CALYPSO_VOICE_P_EN)
+	if (!Options::calypsoVoicesEnabled)
+	{
+		return false;
+	}
+#endif
+	bool handled = false;
+	submit(Event::Panic, unit, false, &handled);
+	return handled;
 }
 
 void CalypsoVoiceG05::onCasualtyResolved(BattleUnit *unit)
@@ -870,10 +1125,22 @@ void CalypsoVoiceG05::onCasualtyResolved(BattleUnit *unit)
 
 bool CalypsoVoiceG05::onDeath(BattleUnit *unit)
 {
-	if (!g_state.active || !g_state.packReady || !isDiver(unit, false))
+	if (!g_state.active || (!isDiver(unit, false) && !isCivilianUnit(unit)))
 	{
 		return false;
 	}
+#if defined(CALYPSO_VOICE_P_EN)
+	if (!Options::calypsoVoicesEnabled)
+	{
+		return false;
+	}
+#endif
+#if !defined(CALYPSO_VOICE_P_EN)
+	if (!g_state.packReady)
+	{
+		return false;
+	}
+#endif
 	if (g_state.voicedDeaths.find(unit->getId()) != g_state.voicedDeaths.end())
 	{
 		logSuppressed(Event::Death, unit, "death_already_reported");
@@ -887,6 +1154,23 @@ bool CalypsoVoiceG05::onDeath(BattleUnit *unit)
 	return false;
 }
 
+void CalypsoVoiceG05::onCivilianFlee(BattleUnit *unit)
+{
+	if (!g_state.active || !isCivilianUnit(unit))
+	{
+		return;
+	}
+#if defined(CALYPSO_VOICE_P_EN)
+	// submit() enforces the civilian catalogue + profile-declares-flee gates,
+	// so a no-op here for guards/profiles lacking "flee".
+	submit(Event::Flee, unit);
+#else
+	// The development G0.5 corpus has no civilian profiles; ignore the event so
+	// the pilot spike keeps its existing behavior.
+	(void)unit;
+#endif
+}
+
 }
 
 extern "C" int calypso_voice_g05_enabled()
@@ -898,9 +1182,11 @@ extern "C" int calypso_voice_g05_enabled()
 #endif
 }
 
-extern "C" int calypso_voice_pack_result(unsigned int missionEpoch, int available)
+extern "C" int calypso_voice_pack_result(const char *pack,
+	unsigned int missionEpoch, int available)
 {
-	return OpenXcom::CalypsoVoiceG05::onPackResult(missionEpoch, available != 0) ? 1 : 0;
+	return OpenXcom::CalypsoVoiceG05::onPackResult(
+		pack ? pack : "", missionEpoch, available != 0) ? 1 : 0;
 }
 
 #endif

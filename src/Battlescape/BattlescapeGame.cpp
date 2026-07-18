@@ -188,7 +188,7 @@ BattlescapeGame::BattlescapeGame(SavedBattleGame *save, BattlescapeState *parent
 	_endTurnRequested(false), _endConfirmationHandled(false), _allEnemiesNeutralized(false)
 {
 #if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
-	CalypsoVoiceG05::beginMission(_save->getMod());
+	CalypsoVoiceG05::beginMission(_save);
 #endif
 	if (_save->isPreview())
 	{
@@ -240,6 +240,9 @@ int BattlescapeGame::think()
 	{
 		return ret;
 	}
+#endif
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+	CalypsoVoiceG05::think();
 #endif
 	// nothing is happening - see if we need some alien AI or units panicking or what have you
 	if (_states.empty())
@@ -977,6 +980,9 @@ void BattlescapeGame::checkForCasualties(const RuleDamageType *damageType, Battl
 			{
 #ifdef __EMSCRIPTEN__
 				CalypsoDirector::get().onUnitDied(this, victim, murderer); // Phase 41: notify active scene (fires once per new death)
+#endif
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+				CalypsoVoiceG05::onKill(attack, victim, murderer);
 #endif
 				int moraleLossModifierWhenKilled = _save->getMoraleLossModifierWhenKilled(victim);
 

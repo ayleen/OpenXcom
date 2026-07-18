@@ -17,7 +17,7 @@ struct VoiceEventRule
 	std::vector<int> weights;
 	int priority = 0;
 	int probability = 100;
-	int cooldownMs = 0;
+	int cooldownMs = 4000;
 };
 
 /**

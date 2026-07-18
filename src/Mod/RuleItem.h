@@ -309,6 +309,9 @@ struct BattleActionAttackReadOnlyImpl
 	const BattleItem *weapon_item = nullptr;
 	const BattleItem *damage_item = nullptr;
 	const RuleSkill *skill_rules = nullptr;
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+	unsigned int voiceActionId = 0;
+#endif
 };
 
 }
@@ -324,6 +327,9 @@ struct BattleActionAttack
 	BattleItem *weapon_item = nullptr;
 	BattleItem *damage_item = nullptr;
 	const RuleSkill *skill_rules = nullptr;
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+	unsigned int voiceActionId = 0;
+#endif
 
 	/**
 	 * Helper class that have only readonly access to data.
@@ -335,7 +341,11 @@ struct BattleActionAttack
 	 */
 	operator ReadOnly() const
 	{
-		return { type, attacker, weapon_item, damage_item, skill_rules, };
+		ReadOnly result{ type, attacker, weapon_item, damage_item, skill_rules, };
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+		result.voiceActionId = voiceActionId;
+#endif
+		return result;
 	}
 
 	/// Get Action Attack from Action cost.
