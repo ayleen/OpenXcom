@@ -1230,8 +1230,14 @@ bool CalypsoPrologueScene::onUnexpectedFinish(BattlescapeState *bs, bool abort, 
 	}
 
 	switch (Calypso::decideUnexpectedFinish(_inert, _pendingOutcome >= 0,
-		abort, anyCrewAlive, _evacOnly))
+		_pendingEndingRadioState, abort, anyCrewAlive, _evacOnly))
 	{
+		case Calypso::UnexpectedFinishAction::WaitForEndingRadio:
+			// Vanilla completion (notably zero hostiles after Cast Off) must not
+			// tear down the battle and cancel the final DOM narrative callback.
+			// Leave outcome negative; the callback will finish through
+			// resolvePendingEnding() once the line has actually completed.
+			return true;
 		case Calypso::UnexpectedFinishAction::FallbackOutcome:
 		{
 			// Staging/runtime failure is deterministic, never a passive

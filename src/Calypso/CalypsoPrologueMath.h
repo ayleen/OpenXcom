@@ -46,6 +46,7 @@ struct Rect { int x0; int y0; int x1; int y1; };
 /// adapter maps these decisions to director outcomes and engine calls.
 enum class UnexpectedFinishAction
 {
+	WaitForEndingRadio,
 	FallbackOutcome,
 	ConsumeAbort,
 	EnterEvacOnly,
@@ -145,11 +146,16 @@ inline PrologueEndingRadioAction prologueEndingRadioAction(
 	PrologueEndingRadioState state, bool pendingTaking, bool castOff, bool nikosAlive)
 {
 	const bool needsRadio = pendingTaking || (castOff && nikosAlive);
-	if (!needsRadio || state == PrologueEndingRadioState::Completed)
+	// Once queued, the callback owns completion. Runtime changes (notably Nikos
+	// dying while his Cast Off line is visible) must not turn Waiting into an
+	// early Finish and let battle cleanup cancel that callback.
+	if (state == PrologueEndingRadioState::Waiting)
+		return PrologueEndingRadioAction::Wait;
+	if (state == PrologueEndingRadioState::Completed || !needsRadio)
 		return PrologueEndingRadioAction::Finish;
 	if (state == PrologueEndingRadioState::NotQueued)
 		return PrologueEndingRadioAction::Queue;
-	return PrologueEndingRadioAction::Wait;
+	return PrologueEndingRadioAction::Finish;
 }
 
 /// Compatibility rule for saves created before scripted handoff state was
@@ -200,11 +206,14 @@ inline bool popAbortDialogAfterSceneConsume(bool dialogStillTop)
 }
 
 /// Pure ordering contract for CalypsoPrologueScene::onUnexpectedFinish.
-/// Fallback state outranks abort; an automatic zero-hostiles finish with live
+/// A queued final radio beat outranks every vanilla finish signal. Otherwise
+/// fallback state outranks abort; an automatic zero-hostiles finish with live
 /// crew transitions once into extraction-only; no live crew means all taken.
 inline UnexpectedFinishAction decideUnexpectedFinish(bool inert, bool hasPendingOutcome,
-	bool abort, bool anyCrewAlive, bool evacOnly)
+	PrologueEndingRadioState endingRadioState, bool abort, bool anyCrewAlive, bool evacOnly)
 {
+	if (endingRadioState == PrologueEndingRadioState::Waiting)
+		return UnexpectedFinishAction::WaitForEndingRadio;
 	if (inert || hasPendingOutcome) return UnexpectedFinishAction::FallbackOutcome;
 	if (abort) return UnexpectedFinishAction::ConsumeAbort;
 	if (anyCrewAlive)
