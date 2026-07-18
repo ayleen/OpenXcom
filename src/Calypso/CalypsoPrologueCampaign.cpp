@@ -16,6 +16,7 @@
 #include "CalypsoTutorial.h"
 #include "CalypsoTutorialPolicy.h"
 #include "CalypsoDirector.h"
+#include "CalypsoPrologueMath.h"
 
 #include "../Engine/Game.h"
 #include "../Engine/Options.h"
@@ -59,6 +60,7 @@ namespace
 	bool s_finishPending = false;
 	GameDifficulty s_pendingFinishDiff = DIFF_BEGINNER;
 	bool s_pendingFinishIronman = false;
+	int s_pendingFinishOutcome = PROLOGUE_OUTCOME_ALL_TAKEN;
 
 	void deletePrologueAutosaveAndFlush(bool continueCampaign)
 	{
@@ -132,7 +134,7 @@ namespace
 		std::string name;
 		UnitStats stats;
 	};
-	std::vector<SurvivorRecord> s_survivorStash;
+	PrologueSurvivorHandoff<SurvivorRecord> s_survivorHandoff;
 
 	// Shared "GeoscapeState + base-placement" tail, copied verbatim from
 	// NewGameState.cpp:180-195. Used by both vanillaNewGameTail() (decline
@@ -171,8 +173,20 @@ namespace
 	}
 } // namespace
 
+void resetPrologueHandoff()
+{
+	s_survivorHandoff.reset();
+	s_finishPending = false;
+	s_pendingFinishDiff = DIFF_BEGINNER;
+	s_pendingFinishIronman = false;
+	s_pendingFinishOutcome = PROLOGUE_OUTCOME_ALL_TAKEN;
+}
+
 bool maybeOfferPrologue(Game *game, GameDifficulty diff, bool ironman, bool tutorial)
 {
+	// A new-game confirmation starts a new handoff lifetime whether the player
+	// accepts the prologue, declines it, or has tutorial content disabled.
+	resetPrologueHandoff();
 	if (!game || !game->getMod()) return false;
 	const bool deploymentAvailable =
 		game->getMod()->getDeployment(PROLOGUE_DEPLOYMENT_ID) != nullptr;
@@ -196,6 +210,9 @@ GameDifficulty stashedDifficulty()
 
 void vanillaNewGameTail(Game *game, GameDifficulty diff)
 {
+	// Defensive for callers that enter the vanilla tail without first passing
+	// through maybeOfferPrologue (and for a declined fresh attempt).
+	resetPrologueHandoff();
 	if (!game) return;
 	SavedGame *save = game->getMod()->newSave(diff);
 	save->setDifficulty(diff);
@@ -351,17 +368,20 @@ void launchScriptedBattle(Game *game, const std::string &deploymentId, bool prev
 
 void launchPrologueBattle(Game *game)
 {
+	// The prompt may remain open while an abandoned run has left process-local
+	// state behind. A fresh scripted battle must always start with an empty
+	// survivor handoff while preserving the already-stashed difficulty/ironman.
+	resetPrologueHandoff();
 	launchScriptedBattle(game, PROLOGUE_DEPLOYMENT_ID, false);
 }
 
 void stashSurvivor(const std::string &name, const UnitStats &stats)
 {
-	s_survivorStash.push_back(SurvivorRecord{ name, stats });
+	s_survivorHandoff.stash(SurvivorRecord{ name, stats });
 }
 
 void finishPrologue(Game *game, int outcome)
 {
-	(void)outcome; // survivor injection is driven by stash contents, not the raw outcome value
 	if (!game || s_finishPending) return;
 
 	// Review round 1 (P1): after a page reload + prologue-autosave load the
@@ -369,6 +389,7 @@ void finishPrologue(Game *game, int outcome)
 	// New Game choice lives on the throwaway save (see launchScriptedBattle).
 	s_pendingFinishDiff = s_stashedDiff;
 	s_pendingFinishIronman = s_stashedIronman;
+	s_pendingFinishOutcome = outcome;
 	if (SavedGame *prologueSave = game->getSavedGame())
 	{
 		s_pendingFinishDiff = prologueSave->getDifficulty();
@@ -395,19 +416,22 @@ void finishPrologueAfterAutosaveSync(Game *game)
 
 	// D7: replace the first N default starting-base soldiers with the
 	// stashed survivors (name + full stats snapshot at cast-off).
-	// OutcomeAllTaken leaves the stash empty -> default roster untouched.
-	if (!s_survivorStash.empty())
+	// OutcomeAllTaken is explicitly gated out even if defensive reset wiring is
+	// ever bypassed and stale process-local records somehow remain.
+	if (shouldInjectPrologueSurvivors(s_pendingFinishOutcome)
+		&& !s_survivorHandoff.empty())
 	{
 		Base *base = save->getBases()->front();
 		auto &soldiers = *base->getSoldiers();
-		size_t n = std::min(s_survivorStash.size(), soldiers.size());
+		const auto &survivors = s_survivorHandoff.records();
+		size_t n = std::min(survivors.size(), soldiers.size());
 		for (size_t i = 0; i < n; ++i)
 		{
-			soldiers[i]->setName(s_survivorStash[i].name);
-			*soldiers[i]->getCurrentStatsEditable() = s_survivorStash[i].stats;
+			soldiers[i]->setName(survivors[i].name);
+			*soldiers[i]->getCurrentStatsEditable() = survivors[i].stats;
 		}
 	}
-	s_survivorStash.clear();
+	resetPrologueHandoff();
 
 	CalypsoTutorial::get().beginCampaign(CalypsoTutorial::get().configuredEnabled());
 

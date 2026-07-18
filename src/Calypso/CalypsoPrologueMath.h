@@ -138,6 +138,34 @@ enum class PrologueEndingRadioAction
 	Finish
 };
 
+/// Process-local handoff storage used between the throwaway prologue save and
+/// the real campaign. Keeping the reset operation on the same object as the
+/// records makes the Cast Off -> Abandon boundary directly testable without
+/// pulling Emscripten or savegame types into the native unit suite.
+template<typename Record>
+class PrologueSurvivorHandoff
+{
+public:
+	void stash(const Record &record) { _records.push_back(record); }
+	void reset() { _records.clear(); }
+	bool empty() const { return _records.empty(); }
+	const std::vector<Record> &records() const { return _records; }
+
+private:
+	std::vector<Record> _records;
+};
+
+constexpr int PROLOGUE_OUTCOME_CAST_OFF = 0;
+constexpr int PROLOGUE_OUTCOME_ALL_TAKEN = 1;
+
+/// Only the authored Cast Off branch consumes survivor records. All Taken (and any invalid or
+/// future outcome) must never consume survivor records, even if stale state
+/// somehow reaches the campaign-completion boundary.
+inline bool shouldInjectPrologueSurvivors(int outcome)
+{
+	return outcome == PROLOGUE_OUTCOME_CAST_OFF;
+}
+
 /// A final radio beat must complete before finishBattle tears down the DOM
 /// narrative queue. Branch B always has its silence beat; Cast Off has the
 /// Nikos beat only while he is still alive. Re-entry while the asynchronous

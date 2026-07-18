@@ -120,6 +120,10 @@ void AbandonGameState::btnYesClick(Action *)
 	// the abandoned battle.
 	if (_origin == OPT_BATTLESCAPE && CalypsoDirector::get().activeSceneBlocksSaveLoad())
 	{
+		// Cast Off snapshots survivors before its asynchronous final radio line.
+		// Abandoning while that line is waiting must invalidate the process-local
+		// handoff or a later prologue/campaign can inherit the abandoned roster.
+		Calypso::resetPrologueHandoff();
 		Calypso::deletePrologueAutosave();
 		CalypsoDirector::get().endBattleCleanup();
 		Screen::updateScale(Options::geoscapeScale, Options::baseXGeoscape, Options::baseYGeoscape, true);

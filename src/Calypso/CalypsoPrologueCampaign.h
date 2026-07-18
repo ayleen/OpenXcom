@@ -59,6 +59,12 @@ extern const std::string PROLOGUE_DEPLOYMENT_ID;
 /// be loaded from the Main Menu.
 void deletePrologueAutosave();
 
+/// Clears process-local state used to hand survivors from the throwaway
+/// prologue battle into the real campaign. Call when a scripted prologue is
+/// abandoned and defensively before every fresh prologue/vanilla campaign.
+/// Also invalidates a stale asynchronous finish callback.
+void resetPrologueHandoff();
+
 /// Offered from NewGameState::btnOkClick, BEFORE newSave(). Returns true if
 /// it took over (pushed CalypsoPrologueAskState) -- the caller must return
 /// immediately and skip the vanilla campaign-creation flow. Returns false
@@ -106,7 +112,9 @@ void launchPrologueBattle(Game *game);
 /// Records one surviving player soldier's name + stats at cast-off
 /// (OutcomeCastOff only) -- called by CalypsoPrologueScene::onAbortRequested
 /// before the throwaway SavedGame is torn down. finishPrologue() injects the
-/// stash into the real campaign's starting roster and clears it.
+/// stash into the real campaign's starting roster and clears it. Survivor
+/// records are consumed only for OutcomeCastOff; every other outcome is
+/// protected from stale handoff data.
 void stashSurvivor(const std::string &name, const UnitStats &stats);
 
 /// Deletes and durably flushes the prologue autosave slot, then creates the

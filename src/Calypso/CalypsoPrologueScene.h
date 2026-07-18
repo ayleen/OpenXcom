@@ -53,7 +53,11 @@ class CalypsoPrologueScene : public CalypsoScene
 public:
 	/// Scene outcomes -- passed verbatim to CalypsoDirector::endScene(). A
 	/// plain enum (not enum class) so it converts implicitly to endScene's int.
-	enum Outcome { OutcomeCastOff = 0, OutcomeAllTaken = 1 };
+	enum Outcome
+	{
+		OutcomeCastOff = Calypso::PROLOGUE_OUTCOME_CAST_OFF,
+		OutcomeAllTaken = Calypso::PROLOGUE_OUTCOME_ALL_TAKEN
+	};
 
 	void onBattleStart(BattlescapeGame *bg) override;
 	void onBattleResume(BattlescapeGame *bg) override;
