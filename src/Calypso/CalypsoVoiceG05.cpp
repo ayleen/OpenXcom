@@ -154,12 +154,15 @@ const char *profileName(const BattleUnit *unit)
 
 	// The geoscape Soldier ID survives save/load and mission transitions. Use
 	// it instead of gameplay RNG so each female Diver keeps one voice while the
-	// roster is distributed deterministically between the two approved profiles.
+	// roster is distributed deterministically between the three pilot profiles.
 	const Soldier *soldier = unit->getGeoscapeSoldier();
 	const int stableId = soldier ? soldier->getId() : unit->getId();
-	return (static_cast<unsigned int>(stableId) & 1u) == 0u
-		? "diver_en_f_custom_kate"
-		: "diver_en_f_custom_sasha";
+	switch (static_cast<unsigned int>(stableId) % 3u)
+	{
+		case 0u: return "diver_en_f_custom_kate";
+		case 1u: return "diver_en_f_custom_sasha";
+		default: return "diver_en_f_custom_sandra";
+	}
 }
 
 bool isDiver(const BattleUnit *unit, bool requirePlayerControl = true)
@@ -374,7 +377,7 @@ void CalypsoVoiceG05::beginMission()
 	}
 	g_state = PilotState{};
 	g_state.active = true;
-	Log(LOG_INFO) << "[VOICE_G0_5] development-only pilot active; clips=156 profiles=3 events=18 shuffle_bags=per_unit_event";
+	Log(LOG_INFO) << "[VOICE_G0_5] development-only pilot active; clips=208 profiles=4 events=18 shuffle_bags=per_unit_event";
 }
 
 void CalypsoVoiceG05::endMission()
