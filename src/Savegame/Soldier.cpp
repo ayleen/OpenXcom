@@ -1785,14 +1785,6 @@ bool Soldier::isEligibleForTransformation(const RuleSoldierTransformation *trans
  */
 void Soldier::transform(const Mod *mod, RuleSoldierTransformation *transformationRule, Soldier *sourceSoldier, Base *base)
 {
-#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_P_EN)
-	if (sourceSoldier)
-	{
-		_voiceProfile = mod->selectVoiceProfile(getVoiceLocale(), "diver",
-			_gender == GENDER_FEMALE ? "female" : "male", _id,
-			sourceSoldier->_voiceProfile);
-	}
-#endif
 	if (_death)
 	{
 		_corpseRecovered = false; // They're not a corpse anymore!
@@ -1999,6 +1991,17 @@ void Soldier::transform(const Mod *mod, RuleSoldierTransformation *transformatio
 			_transformationBonuses[transformationRule->getSoldierBonusType()] = 1;
 		}
 	}
+
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_P_EN)
+	if (sourceSoldier)
+	{
+		// Non-clone transformations can replace both type and nationality above;
+		// resolve only after the final identity is known.
+		_voiceProfile = mod->selectVoiceProfile(getVoiceLocale(), "diver",
+			_gender == GENDER_FEMALE ? "female" : "male", _id,
+			sourceSoldier->_voiceProfile);
+	}
+#endif
 }
 
 /**

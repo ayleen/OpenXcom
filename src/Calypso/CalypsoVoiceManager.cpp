@@ -386,7 +386,9 @@ CalypsoVoiceRequestResult CalypsoVoiceManager::playEvent(
 		_subtitleStartedMs = nowMs;
 		_subtitleDurationMs = 2500;
 		result.status = CalypsoVoiceRequestStatus::SubtitleOnly;
-		result.allowStockFallback = false;
+		// A global mute/no-audio backend still permits the engine's established
+		// stock response while Calypso supplies the tactical semantic subtitle.
+		result.allowStockFallback = !request.playbackAllowed;
 		result.reason = !request.playbackAllowed ? "audio_disabled"
 			: candidates.empty() ? "pack_unavailable"
 			: (playResult == CalypsoVoicePlayResult::LoadFailed
@@ -460,6 +462,16 @@ CalypsoVoiceRequestResult CalypsoVoiceManager::dispatch(
 		}
 
 		case CalypsoVoiceDecision::Queue:
+			// Flavor hooks cannot replay a stock fallback after a deferred clip
+			// later fails. Suppress them while another bark owns the channel rather
+			// than queueing an outcome whose ownership would be undecidable.
+			if (request.flavor)
+			{
+				result.status = CalypsoVoiceRequestStatus::Suppressed;
+				result.allowStockFallback = false;
+				result.reason = "flavor_busy";
+				return result;
+			}
 			if (requestOccupiesPendingSlot)
 			{
 				result.status = CalypsoVoiceRequestStatus::Queued;
@@ -502,6 +514,13 @@ CalypsoVoiceRequestResult CalypsoVoiceManager::submit(BattleUnit *unit,
 	{
 		result.status = CalypsoVoiceRequestStatus::Suppressed;
 		result.reason = "missing_ruleset_event";
+		return result;
+	}
+	if (flavor && (!playbackAllowed || !audioAvailable(unit)))
+	{
+		result.status = CalypsoVoiceRequestStatus::Suppressed;
+		result.reason = !playbackAllowed ? "flavor_audio_disabled"
+			: "flavor_audio_unavailable";
 		return result;
 	}
 

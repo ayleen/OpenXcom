@@ -718,6 +718,18 @@ bool selectionFlavorLocked(BattleUnit *unit, Uint32 now)
 	return false;
 }
 
+#if defined(CALYPSO_VOICE_P_EN)
+bool productionFlavorAudioAvailable(BattleUnit *unit)
+{
+	if (!Options::calypsoVoicesEnabled)
+	{
+		return false;
+	}
+	ensurePacksForUnit(unit);
+	return g_manager.audioAvailable(unit);
+}
+#endif
+
 }
 
 unsigned int CalypsoVoiceG05::beginMission(SavedBattleGame *save)
@@ -872,14 +884,26 @@ bool CalypsoVoiceG05::handleSelection(BattleUnit *unit, bool sameUnit)
 	{
 		return false;
 	}
+#else
+	// Selection is a flavor event. Do not advance its click sequence or consume
+	// the stock response path unless the production profile can play now.
+	if (!productionFlavorAudioAvailable(unit))
+	{
+		return false;
+	}
 #endif
 
 	const Uint32 now = SDL_GetTicks();
 	const bool locked = selectionFlavorLocked(unit, now);
+	// Keep the click progression tentative until the flavor event has actually
+	// acquired production audio. A failed lazy decode/playback must leave the
+	// stock selection response and the next Calypso attempt unchanged.
+	CalypsoVoiceSelectionState nextSelectionState = g_state.selectionState;
 	const CalypsoVoiceSelectionFlavor flavor = calypsoAdvanceVoiceSelection(
-		g_state.selectionState, unit->getId(), sameUnit, now, locked);
+		nextSelectionState, unit->getId(), sameUnit, now, locked);
 	if (locked)
 	{
+		g_state.selectionState = nextSelectionState;
 		logSuppressed(sameUnit ? Event::Reselected : Event::Selected, unit,
 			"final_annoyance_lockout");
 		return true;
@@ -894,15 +918,25 @@ bool CalypsoVoiceG05::handleSelection(BattleUnit *unit, bool sameUnit)
 		case CalypsoVoiceSelectionFlavor::Annoyed2: event = Event::Annoyed2; break;
 		case CalypsoVoiceSelectionFlavor::Annoyed3:
 			event = Event::Annoyed3;
-			g_state.selectionFlavorLockedUntil[unit->getId()] =
-				now + FINAL_ANNOYANCE_LOCK_MS;
 			break;
 		case CalypsoVoiceSelectionFlavor::None:
 		default:
+			// This is an intentional quiet beat in the escalation sequence, not
+			// a failed production playback.
+			g_state.selectionState = nextSelectionState;
 			return true;
 	}
 	bool handled = false;
-	submit(event, unit, false, &handled);
+	const bool played = submit(event, unit, false, &handled);
+	if (played)
+	{
+		g_state.selectionState = nextSelectionState;
+	}
+	if (event == Event::Annoyed3 && played)
+	{
+		g_state.selectionFlavorLockedUntil[unit->getId()] =
+			now + FINAL_ANNOYANCE_LOCK_MS;
+	}
 	return handled;
 }
 
@@ -914,6 +948,11 @@ bool CalypsoVoiceG05::handleMoveOrder(BattleUnit *unit)
 	}
 #if !defined(CALYPSO_VOICE_P_EN)
 	if (!g_state.packReady)
+	{
+		return false;
+	}
+#else
+	if (!productionFlavorAudioAvailable(unit))
 	{
 		return false;
 	}
