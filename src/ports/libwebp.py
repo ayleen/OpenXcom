@@ -84,6 +84,11 @@ def get(ports, settings, shared):
 
 
 def clear(ports, settings, shared):
+    # Only the current recipe digest is erased here: the cache API is keyed by
+    # exact name, so libraries built from superseded recipe revisions remain in
+    # the shared cache until its generation is rotated (Calypso's remote worker
+    # does this via PORTS_CACHE_GENERATION). Growth is bounded by how often the
+    # recipe itself is edited.
     shared.cache.erase_lib(LIBRARY_NAME)
 
 
