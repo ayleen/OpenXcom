@@ -85,6 +85,9 @@ private:
 		bool safety = false;
 		bool force = false;
 		bool playbackAllowed = true;
+		// A one-shot stock response exists for this event. Do not defer a custom
+		// request and claim that response before custom playback is certain.
+		bool stockFallbackOnDefer = false;
 	};
 
 	const Mod *_mod = nullptr;
@@ -135,7 +138,7 @@ public:
 		std::size_t lineIndex) const;
 	CalypsoVoiceRequestResult submit(BattleUnit *unit, const std::string &event,
 		std::uint32_t nowMs, bool flavor, bool safety, bool force,
-		bool playbackAllowed);
+		bool playbackAllowed, bool stockFallbackOnDefer = false);
 	CalypsoVoiceRequestResult update(std::uint32_t nowMs, bool playbackAllowed);
 	CalypsoVoiceSubtitleState subtitle(std::uint32_t nowMs) const;
 	bool hasPending() const { return _pending.unit != nullptr; }

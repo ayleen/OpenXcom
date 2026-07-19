@@ -2005,9 +2005,11 @@ BattleUnit *BattlescapeGenerator::addCivilian(Unit *rules, int nodeRank)
 	// Phase 44: assign a stable, compatible 'civilian' voice profile from the
 	// saved locale before the unit is stored. With no civilian profiles this
 	// resolves to an empty string (subtitle-only), which is the safe default.
-	unit->setVoiceProfile(_save->getMod()->selectVoiceProfile(
-		_save->getCivilianVoiceLocale(), "civilian",
-		rules ? rules->getVoiceGender() : "male", unit->getId()));
+	const std::string voiceLocale = _save->getCivilianVoiceLocale();
+	const std::string voiceGender = rules ? rules->getVoiceGender() : "male";
+	unit->setVoiceIdentity(voiceLocale, "civilian", voiceGender);
+	unit->setVoiceProfile(_save->getMod()->selectVoiceProfile(voiceLocale,
+		"civilian", voiceGender, unit->getId()));
 #endif
 
 	Node *node = _save->getSpawnNode(nodeRank, unit);

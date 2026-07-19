@@ -386,9 +386,10 @@ CalypsoVoiceRequestResult CalypsoVoiceManager::playEvent(
 		_subtitleStartedMs = nowMs;
 		_subtitleDurationMs = 2500;
 		result.status = CalypsoVoiceRequestStatus::SubtitleOnly;
-		// A global mute/no-audio backend still permits the engine's established
-		// stock response while Calypso supplies the tactical semantic subtitle.
-		result.allowStockFallback = !request.playbackAllowed;
+		// Subtitle ownership is independent from audio ownership. A tactical
+		// subtitle can explain the event while the established engine response
+		// remains audible whenever no Calypso clip actually started.
+		result.allowStockFallback = true;
 		result.reason = !request.playbackAllowed ? "audio_disabled"
 			: candidates.empty() ? "pack_unavailable"
 			: (playResult == CalypsoVoicePlayResult::LoadFailed
@@ -465,11 +466,12 @@ CalypsoVoiceRequestResult CalypsoVoiceManager::dispatch(
 			// Flavor hooks cannot replay a stock fallback after a deferred clip
 			// later fails. Suppress them while another bark owns the channel rather
 			// than queueing an outcome whose ownership would be undecidable.
-			if (request.flavor)
+			if (request.flavor || request.stockFallbackOnDefer)
 			{
 				result.status = CalypsoVoiceRequestStatus::Suppressed;
-				result.allowStockFallback = false;
-				result.reason = "flavor_busy";
+				result.allowStockFallback = request.stockFallbackOnDefer;
+				result.reason = request.stockFallbackOnDefer
+					? "deferred_stock_fallback" : "flavor_busy";
 				return result;
 			}
 			if (requestOccupiesPendingSlot)
@@ -505,7 +507,7 @@ CalypsoVoiceRequestResult CalypsoVoiceManager::dispatch(
 
 CalypsoVoiceRequestResult CalypsoVoiceManager::submit(BattleUnit *unit,
 	const std::string &event, std::uint32_t nowMs, bool flavor, bool safety,
-	bool force, bool playbackAllowed)
+	bool force, bool playbackAllowed, bool stockFallbackOnDefer)
 {
 	CalypsoVoiceRequestResult result;
 	result.unit = unit;
@@ -543,6 +545,7 @@ CalypsoVoiceRequestResult CalypsoVoiceManager::submit(BattleUnit *unit,
 	request.safety = safety;
 	request.force = force;
 	request.playbackAllowed = playbackAllowed;
+	request.stockFallbackOnDefer = stockFallbackOnDefer;
 	return dispatch(request, nowMs, false);
 }
 

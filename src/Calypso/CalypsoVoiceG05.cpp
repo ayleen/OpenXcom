@@ -106,6 +106,7 @@ struct PilotState
 	std::set<unsigned int> missionOwners;
 #if defined(CALYPSO_VOICE_P_EN)
 	std::set<std::string> requestedPacks;
+	std::map<std::string, Uint32> packRetryAfter;
 #else
 	bool packReady = false;
 #endif
@@ -148,6 +149,7 @@ constexpr std::size_t DECODED_CACHE_LIMIT = 4u * 1024u * 1024u;
 #endif
 constexpr Uint32 FINAL_ANNOYANCE_LOCK_MS = 15000;
 constexpr Uint32 SIMULTANEOUS_CONTACT_WINDOW_MS = 800;
+constexpr Uint32 PACK_RETRY_DELAY_MS = 3000;
 
 constexpr std::array<EventSpec, static_cast<std::size_t>(Event::Count)> EVENT_SPECS = {{
 	{"selected", "SELECTED", 4, 1500, 1},
@@ -190,10 +192,18 @@ void requestPack(const std::string &pack)
 
 void ensurePacksForUnit(const BattleUnit *unit)
 {
+	const Uint32 now = SDL_GetTicks();
 	for (const std::string &pack : g_manager.requiredPacksForUnit(unit))
 	{
+		auto retry = g_state.packRetryAfter.find(pack);
+		if (retry != g_state.packRetryAfter.end()
+			&& static_cast<Sint32>(now - retry->second) < 0)
+		{
+			continue;
+		}
 		if (g_state.requestedPacks.insert(pack).second)
 		{
+			g_state.packRetryAfter.erase(pack);
 			requestPack(pack);
 		}
 	}
@@ -208,6 +218,7 @@ void releaseRequestedPacks()
 		}, pack.c_str());
 	}
 	g_state.requestedPacks.clear();
+	g_state.packRetryAfter.clear();
 }
 #endif
 
@@ -624,7 +635,10 @@ bool submit(Event event, BattleUnit *unit, bool forceInterrupt = false,
 	const CalypsoVoiceRequestResult result = g_manager.submit(unit,
 		eventSpec(event).name, SDL_GetTicks(), isFlavorEvent(event),
 		isSafetyEvent(event), forceInterrupt,
-		!Options::mute && Options::calypsoVoicesEnabled);
+		!Options::mute && Options::calypsoVoicesEnabled,
+		// Panic has an existing one-shot OXCE response. Do not queue a custom
+		// bark and discard that response before the bark has actually started.
+		event == Event::Panic);
 	recordManagerResult(event, unit, result);
 	if (handledByVoice)
 	{
@@ -860,11 +874,21 @@ bool CalypsoVoiceG05::onPackResult(const std::string &pack,
 		return false;
 	}
 	g_manager.setPackAvailable(pack, available);
+	if (!available)
+	{
+		// The web loader is retryable. Keep only in-flight/ready packs in the
+		// dedupe set so a later eligible event can retry this mission epoch.
+		g_state.requestedPacks.erase(pack);
+		g_state.packRetryAfter[pack] = SDL_GetTicks() + PACK_RETRY_DELAY_MS;
+	}
 	Log(available ? LOG_INFO : LOG_WARNING) << LOG_TAG
 		<< " pack=" << pack
 		<< " result=" << (available ? "ready" : "unavailable")
 		<< " epoch=" << missionEpoch;
-	return available;
+	// The callback was accepted for this epoch even when the loader reports a
+	// transient failure; JS uses this return value only to distinguish stale
+	// callbacks from a live mission.
+	return true;
 #else
 	(void)pack;
 	(void)missionEpoch;
@@ -928,8 +952,11 @@ bool CalypsoVoiceG05::handleSelection(BattleUnit *unit, bool sameUnit)
 	}
 	bool handled = false;
 	const bool played = submit(event, unit, false, &handled);
-	if (played)
+	if (handled)
 	{
+		// Intentional arbitration (busy channel, cooldown, probability) owns
+		// this quiet beat. Only a load/playback decline leaves the same semantic
+		// selection step available for a stock-fallback retry.
 		g_state.selectionState = nextSelectionState;
 	}
 	if (event == Event::Annoyed3 && played)
@@ -974,8 +1001,14 @@ void CalypsoVoiceG05::onOutOfAmmo(BattleUnit *unit)
 
 void CalypsoVoiceG05::onAlienSpotted(BattleUnit *spotter, BattleUnit *hostile)
 {
+#if defined(CALYPSO_VOICE_P_EN)
+	const bool eligible = (isDiver(spotter)
+		&& g_manager.hasEvent(spotter, eventSpec(Event::AlienSpotted).name))
+		|| civilianMaySubmit(spotter, Event::AlienSpotted);
+#else
 	const bool eligible = isDiver(spotter)
 		|| civilianMaySubmit(spotter, Event::AlienSpotted);
+#endif
 	if (!g_state.active || !hostile || hostile->getFaction() != FACTION_HOSTILE
 		|| !eligible)
 	{

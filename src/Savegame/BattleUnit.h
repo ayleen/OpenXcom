@@ -175,7 +175,13 @@ private:
 	SoldierGender _gender;
 	Soldier *_geoscapeSoldier;
 #ifdef __EMSCRIPTEN__
-	std::string _voiceProfile; // Phase 44: tactical copy of the stable Diver voice identity
+	// Phase 44: tactical copy of the stable voice identity. Civilians retain
+	// their operation locale/class/gender so a stale tactical profile can be
+	// repaired after a profile migration.
+	std::string _voiceProfile;
+	std::string _voiceLocale;
+	std::string _voiceUnitClass;
+	std::string _voiceGender;
 #endif
 	std::vector<int> _loftempsSet;
 	const Unit *_unitRules;
@@ -336,6 +342,14 @@ public:
 	const std::string &getVoiceProfile() const { return _voiceProfile; }
 	/// Sets the stable Calypso voice profile copied into the tactical save.
 	void setVoiceProfile(const std::string &profile) { _voiceProfile = profile; }
+	/// Stores the stable identity needed to repair a tactical profile on load.
+	void setVoiceIdentity(const std::string &locale, const std::string &unitClass,
+		const std::string &gender)
+	{
+		_voiceLocale = locale;
+		_voiceUnitClass = unitClass;
+		_voiceGender = gender;
+	}
 #endif
 	/// Gets the unit's faction.
 	UnitFaction getFaction() const;

@@ -79,6 +79,9 @@ BattleUnit::BattleUnit(const Mod *mod, Soldier *soldier, int depth, const RuleSt
 	_id = soldier->getId();
 #ifdef __EMSCRIPTEN__
 	_voiceProfile = soldier->getVoiceProfile();
+	_voiceLocale = soldier->getVoiceLocale();
+	_voiceUnitClass = "diver";
+	_voiceGender = soldier->getGender() == GENDER_FEMALE ? "female" : "male";
 #endif
 
 	_type = "SOLDIER";
@@ -442,6 +445,10 @@ BattleUnit::BattleUnit(const Mod *mod, const Unit *unit, UnitFaction faction, in
 	_rank = unit->getRank();
 	_race = unit->getRace();
 	_gender = GENDER_MALE;
+#ifdef __EMSCRIPTEN__
+	_voiceUnitClass = faction == FACTION_NEUTRAL ? "civilian" : std::string();
+	_voiceGender = unit->getVoiceGender();
+#endif
 	_intelligence = unit->getIntelligence();
 	_aggression = unit->getAggression();
 	_faceDirection = -1;
@@ -610,6 +617,9 @@ void BattleUnit::load(const YAML::YamlNodeReader& node, const Mod *mod, const Sc
 	// Old tactical saves keep the constructor-provided geoscape identity. New
 	// saves carry their own copy so voice identity survives battle save/load.
 	reader.tryRead("voiceProfile", _voiceProfile);
+	reader.tryRead("voiceLocale", _voiceLocale);
+	reader.tryRead("voiceUnitClass", _voiceUnitClass);
+	reader.tryRead("voiceGender", _voiceGender);
 #endif
 	reader.tryRead("wantsToSurrender", _wantsToSurrender);
 	reader.tryRead("isSurrendering", _isSurrendering);
@@ -725,6 +735,32 @@ void BattleUnit::load(const YAML::YamlNodeReader& node, const Mod *mod, const Sc
 	reader.tryRead("bannedInNextStage", _bannedInNextStage);
 	reader.tryRead("meleeAttackedBy", _meleeAttackedBy);
 	_scriptValues.load(reader, shared);
+#ifdef CALYPSO_VOICE_P_EN
+	if (mod)
+	{
+		if (_geoscapeSoldier)
+		{
+			// Soldier::load already repairs the strategic identity. Do not let an
+			// obsolete tactical snapshot overwrite it after a profile migration.
+			_voiceLocale = _geoscapeSoldier->getVoiceLocale();
+			_voiceUnitClass = "diver";
+			_voiceGender = _geoscapeSoldier->getGender() == GENDER_FEMALE
+				? "female" : "male";
+			_voiceProfile = mod->selectVoiceProfile(_voiceLocale,
+				_voiceUnitClass, _voiceGender, _geoscapeSoldier->getId(),
+				_geoscapeSoldier->getVoiceProfile());
+		}
+		else if (_voiceUnitClass == "civilian")
+		{
+			if (_voiceLocale.empty())
+				_voiceLocale = "en";
+			if (_voiceGender.empty())
+				_voiceGender = "male";
+			_voiceProfile = mod->selectVoiceProfile(_voiceLocale,
+				_voiceUnitClass, _voiceGender, _id, _voiceProfile);
+		}
+	}
+#endif
 }
 
 /**
@@ -742,6 +778,12 @@ void BattleUnit::save(YAML::YamlNodeWriter writer, const ScriptGlobal *shared) c
 #ifdef __EMSCRIPTEN__
 	if (!_voiceProfile.empty())
 		writer.write("voiceProfile", _voiceProfile);
+	if (!_voiceLocale.empty())
+		writer.write("voiceLocale", _voiceLocale);
+	if (!_voiceUnitClass.empty())
+		writer.write("voiceUnitClass", _voiceUnitClass);
+	if (!_voiceGender.empty())
+		writer.write("voiceGender", _voiceGender);
 #endif
 	// Phase 34.5 Brutal-AI knowledge layer (adapted from Brutal-OXCE by Xilmi). Additive keys.
 	writer.write("turnsSinceSeenByHostile", _turnsSinceSeenByHostile);
