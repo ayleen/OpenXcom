@@ -1672,12 +1672,20 @@ void Mod::validateVoiceProfiles() const
 		for (const auto &event : profile.getEvents())
 		{
 			const VoiceEventRule *fallbackEvent = fallback->getEvent(event.first);
-			if (!fallbackEvent
-				|| fallbackEvent->lines.size() != event.second.lines.size())
+			if (!fallbackEvent)
 			{
 				throw Exception("voiceProfiles[" + profile.getId()
-					+ "]: fallbackProfile must provide event '" + event.first
-					+ "' with the same line count");
+					+ "]: fallbackProfile must provide event '" + event.first + "'");
+			}
+			for (const std::string &lineId : event.second.lines)
+			{
+				if (std::find(fallbackEvent->lines.begin(), fallbackEvent->lines.end(),
+					lineId) == fallbackEvent->lines.end())
+				{
+					throw Exception("voiceProfiles[" + profile.getId()
+						+ "]: fallbackProfile event '" + event.first
+						+ "' must provide semantic line '" + lineId + "'");
+				}
 			}
 		}
 	}

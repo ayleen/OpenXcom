@@ -564,7 +564,8 @@ void Game::setVolume(int sound, int music, int ui)
 				std::min(SDL_MIX_MAXVOLUME, Options::calypsoVoiceVolume));
 			const int voiceVolume = Options::calypsoVoicesEnabled
 				? volumeExponent(voiceSetting) * (double)SDL_MIX_MAXVOLUME : 0;
-			Mix_Volume(4, voiceVolume);
+			// Channel 5 is reserved for Calypso production voice barks.
+			Mix_Volume(5, voiceVolume);
 #endif
 		}
 		if (music >= 0)
@@ -870,7 +871,12 @@ void Game::initAudio()
 		// 1-2 = UI
 		// 3 = ambient
 		// 4 = unit responses (OXCE only)
+		// 5 = Calypso production voice barks (WASM P_EN only)
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_P_EN)
+		Mix_ReserveChannels(6);
+#else
 		Mix_ReserveChannels(5);
+#endif
 		Mix_GroupChannels(1, 2, 0);
 		Log(LOG_INFO) << "SDL_mixer initialized successfully.";
 		setVolume(Options::soundVolume, Options::musicVolume, Options::uiVolume);

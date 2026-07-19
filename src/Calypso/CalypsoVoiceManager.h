@@ -18,6 +18,11 @@ struct Mix_Chunk;
 namespace OpenXcom
 {
 
+// Channel 4 belongs to OXCE's stock unit-response system. Production voice
+// barks must never take it over: disabled custom voices still need stock
+// replies to work, and custom volume must not affect them.
+constexpr int CALYPSO_VOICE_CHANNEL = 5;
+
 class BattleUnit;
 class Mod;
 
@@ -76,6 +81,7 @@ private:
 		bool flavor = false;
 		bool safety = false;
 		bool force = false;
+		bool playbackAllowed = true;
 	};
 
 	const Mod *_mod = nullptr;
@@ -105,8 +111,6 @@ private:
 		std::uint32_t nowMs, bool requestOccupiesPendingSlot);
 	CalypsoVoiceRequestResult playEvent(const PendingEvent &request,
 		std::uint32_t nowMs);
-	std::string fallbackClipPath(const BattleUnit *unit,
-		const std::string &event, std::size_t lineIndex) const;
 
 public:
 	void beginMission(const Mod *mod, unsigned int missionEpoch, bool underwater);
@@ -126,7 +130,8 @@ public:
 	std::string clipPath(const BattleUnit *unit, const std::string &event,
 		std::size_t lineIndex) const;
 	CalypsoVoiceRequestResult submit(BattleUnit *unit, const std::string &event,
-		std::uint32_t nowMs, bool flavor, bool safety, bool force);
+		std::uint32_t nowMs, bool flavor, bool safety, bool force,
+		bool playbackAllowed);
 	CalypsoVoiceRequestResult update(std::uint32_t nowMs, bool playbackAllowed);
 	CalypsoVoiceSubtitleState subtitle(std::uint32_t nowMs) const;
 	bool hasPending() const { return _pending.unit != nullptr; }

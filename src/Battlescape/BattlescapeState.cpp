@@ -1059,8 +1059,7 @@ void BattlescapeState::think()
 		CalypsoVoiceG05::subtitle(SDL_GetTicks());
 	const int subtitleMode = std::max(0,
 		std::min(2, Options::calypsoVoiceSubtitles));
-	const bool showVoiceSubtitle = Options::calypsoVoicesEnabled
-		&& voiceSubtitle.active && subtitleMode != 0
+	const bool showVoiceSubtitle = voiceSubtitle.active && subtitleMode != 0
 		&& (subtitleMode == 2 || voiceSubtitle.tactical);
 	if (showVoiceSubtitle)
 	{

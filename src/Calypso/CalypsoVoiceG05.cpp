@@ -375,7 +375,7 @@ bool isFlavorEvent(Event event)
 	return event == Event::Selected || event == Event::Reselected
 		|| event == Event::Annoyed1 || event == Event::Annoyed2
 		|| event == Event::Annoyed3 || event == Event::MoveAck
-		|| event == Event::WeaponReady;
+		|| event == Event::WeaponReady || event == Event::Miss;
 }
 
 bool isSafetyEvent(Event event)
@@ -564,12 +564,6 @@ bool submit(Event event, BattleUnit *unit, bool forceInterrupt = false,
 	{
 		return false;
 	}
-#if defined(CALYPSO_VOICE_P_EN)
-	if (!Options::calypsoVoicesEnabled)
-	{
-		return false;
-	}
-#endif
 #if !defined(CALYPSO_VOICE_P_EN)
 	if (!g_state.packReady)
 	{
@@ -601,14 +595,13 @@ bool submit(Event event, BattleUnit *unit, bool forceInterrupt = false,
 	}
 	const CalypsoVoiceRequestResult result = g_manager.submit(unit,
 		eventSpec(event).name, SDL_GetTicks(), isFlavorEvent(event),
-		isSafetyEvent(event), forceInterrupt);
+		isSafetyEvent(event), forceInterrupt,
+		Options::calypsoVoicesEnabled);
 	recordManagerResult(event, unit, result);
 	if (handledByVoice)
 	{
 		*handledByVoice = result.status == CalypsoVoiceRequestStatus::Played
-			|| result.status == CalypsoVoiceRequestStatus::Queued
-			|| (result.status == CalypsoVoiceRequestStatus::Suppressed
-				&& result.reason != "missing_ruleset_event");
+			|| result.status == CalypsoVoiceRequestStatus::Queued;
 	}
 	return result.status == CalypsoVoiceRequestStatus::Played;
 #else
@@ -717,6 +710,12 @@ void CalypsoVoiceG05::beginMission(SavedBattleGame *save)
 #if defined(CALYPSO_VOICE_P_EN)
 	g_manager.beginMission(save->getMod(), g_state.missionEpoch,
 		save->getDepth() > 0);
+	if (!Options::calypsoVoicesEnabled)
+	{
+		Log(LOG_INFO) << LOG_TAG << " lazy packs skipped; voices are disabled"
+			<< " epoch=" << g_state.missionEpoch;
+		return;
+	}
 	g_state.requestedPacks = g_manager.requiredPacks(*save->getUnits());
 	for (const std::string &pack : g_state.requestedPacks)
 	{
@@ -911,8 +910,10 @@ void CalypsoVoiceG05::onOutOfAmmo(BattleUnit *unit)
 
 void CalypsoVoiceG05::onAlienSpotted(BattleUnit *spotter, BattleUnit *hostile)
 {
+	const bool eligible = isDiver(spotter)
+		|| civilianMaySubmit(spotter, Event::AlienSpotted);
 	if (!g_state.active || !hostile || hostile->getFaction() != FACTION_HOSTILE
-		|| (!isDiver(spotter) && !isCivilianUnit(spotter)))
+		|| !eligible)
 	{
 		return;
 	}
@@ -1085,12 +1086,6 @@ bool CalypsoVoiceG05::onPanic(BattleUnit *unit)
 	{
 		return false;
 	}
-#if defined(CALYPSO_VOICE_P_EN)
-	if (!Options::calypsoVoicesEnabled)
-	{
-		return false;
-	}
-#endif
 	bool handled = false;
 	submit(Event::Panic, unit, false, &handled);
 	return handled;
@@ -1129,12 +1124,6 @@ bool CalypsoVoiceG05::onDeath(BattleUnit *unit)
 	{
 		return false;
 	}
-#if defined(CALYPSO_VOICE_P_EN)
-	if (!Options::calypsoVoicesEnabled)
-	{
-		return false;
-	}
-#endif
 #if !defined(CALYPSO_VOICE_P_EN)
 	if (!g_state.packReady)
 	{

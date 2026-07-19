@@ -77,14 +77,15 @@ void replaceToken(std::string &path, const std::string &token,
 }
 
 std::string buildClipPath(const RuleVoiceProfile *profile,
-	const std::string &event, std::size_t lineIndex, bool underwater)
+	const std::string &event, const std::string &lineId, bool wet)
 {
 	const VoiceEventRule *rule = profile ? profile->getEvent(event) : nullptr;
-	if (!profile || !rule || lineIndex >= rule->lines.size())
+	if (!profile || !rule || std::find(rule->lines.begin(), rule->lines.end(),
+		lineId) == rule->lines.end())
 	{
 		return std::string();
 	}
-	std::string path = underwater
+	std::string path = wet
 		? profile->getWetPathTemplate()
 		: profile->getDryPathTemplate();
 	if (path.empty())
@@ -92,8 +93,32 @@ std::string buildClipPath(const RuleVoiceProfile *profile,
 		return std::string();
 	}
 	replaceToken(path, "{profile}", profile->getId());
-	replaceToken(path, "{line}", rule->lines[lineIndex]);
+	replaceToken(path, "{line}", lineId);
 	return profile->getPack() + "/" + path;
+}
+
+void appendClipCandidates(std::vector<std::string> &paths,
+	const RuleVoiceProfile *profile, const std::string &event,
+	const std::string &lineId, bool underwater,
+	const std::set<std::string> &availablePacks)
+{
+	if (!profile || availablePacks.find(profile->getPack()) == availablePacks.end())
+	{
+		return;
+	}
+	if (underwater)
+	{
+		const std::string wet = buildClipPath(profile, event, lineId, true);
+		if (!wet.empty())
+		{
+			paths.push_back(wet);
+		}
+	}
+	const std::string dry = buildClipPath(profile, event, lineId, false);
+	if (!dry.empty())
+	{
+		paths.push_back(dry);
+	}
 }
 
 std::size_t eventSeedIndex(const std::string &event)
@@ -249,28 +274,22 @@ std::size_t CalypsoVoiceManager::selectLine(const BattleUnit *unit,
 std::string CalypsoVoiceManager::clipPath(const BattleUnit *unit,
 	const std::string &event, std::size_t lineIndex) const
 {
-	const RuleVoiceProfile *profile = resolveAudioProfile(
-		_mod, unit, _availablePacks);
-	return buildClipPath(profile, event, lineIndex, _underwater);
-}
-
-std::string CalypsoVoiceManager::fallbackClipPath(const BattleUnit *unit,
-	const std::string &event, std::size_t lineIndex) const
-{
 	const RuleVoiceProfile *profile = resolveProfile(_mod, unit);
-	if (!profile || profile->getFallbackProfile().empty()
-		|| _availablePacks.find(profile->getPack()) == _availablePacks.end())
+	const VoiceEventRule *rule = profile ? profile->getEvent(event) : nullptr;
+	if (!profile || !rule || lineIndex >= rule->lines.size())
 	{
 		return std::string();
 	}
-	const RuleVoiceProfile *fallback = _mod->getVoiceProfile(
-		profile->getFallbackProfile());
-	if (!fallback
-		|| _availablePacks.find(fallback->getPack()) == _availablePacks.end())
+	std::vector<std::string> candidates;
+	appendClipCandidates(candidates, profile, event, rule->lines[lineIndex],
+		_underwater, _availablePacks);
+	if (!profile->getFallbackProfile().empty())
 	{
-		return std::string();
+		appendClipCandidates(candidates, _mod->getVoiceProfile(
+			profile->getFallbackProfile()), event, rule->lines[lineIndex],
+			_underwater, _availablePacks);
 	}
-	return buildClipPath(fallback, event, lineIndex, _underwater);
+	return candidates.empty() ? std::string() : candidates.front();
 }
 
 CalypsoVoiceRequestResult CalypsoVoiceManager::playEvent(
@@ -290,42 +309,63 @@ CalypsoVoiceRequestResult CalypsoVoiceManager::playEvent(
 
 	const VoiceEventRule *rule = resolveEvent(_mod, request.unit, request.event);
 	result.lineId = rule->lines[line];
-	result.clipPath = clipPath(request.unit, request.event, line);
-	_subtitleUnit = request.unit;
-	_subtitleLineId = result.lineId;
-	_subtitleTactical = !request.flavor;
-	_subtitleStartedMs = nowMs;
-	_subtitleDurationMs = 2500;
-
 	CalypsoVoicePlayResult playResult = CalypsoVoicePlayResult::LoadFailed;
 	std::uint32_t audioDurationMs = 0;
-	const bool hasAudio = audioAvailable(request.unit);
-	if (hasAudio)
+	std::vector<std::string> candidates;
+	const RuleVoiceProfile *profile = resolveProfile(_mod, request.unit);
+	if (request.playbackAllowed && profile)
 	{
-		playResult = playClip(result.clipPath, request.priority, &audioDurationMs);
-		if (playResult == CalypsoVoicePlayResult::LoadFailed)
+		appendClipCandidates(candidates, profile, request.event, result.lineId,
+			_underwater, _availablePacks);
+		if (!profile->getFallbackProfile().empty())
 		{
-			const std::string fallbackPath = fallbackClipPath(
-				request.unit, request.event, line);
-			if (!fallbackPath.empty() && fallbackPath != result.clipPath)
+			appendClipCandidates(candidates, _mod->getVoiceProfile(
+				profile->getFallbackProfile()), request.event, result.lineId,
+				_underwater, _availablePacks);
+		}
+		for (const std::string &candidate : candidates)
+		{
+			playResult = playClip(candidate, request.priority, &audioDurationMs);
+			if (playResult == CalypsoVoicePlayResult::Played)
 			{
-				result.clipPath = fallbackPath;
-				playResult = playClip(result.clipPath, request.priority,
-					&audioDurationMs);
+				result.clipPath = candidate;
+				break;
 			}
 		}
 	}
+
 	if (playResult == CalypsoVoicePlayResult::Played)
 	{
+		_subtitleUnit = request.unit;
+		_subtitleLineId = result.lineId;
+		_subtitleTactical = !request.flavor;
+		_subtitleStartedMs = nowMs;
 		_subtitleDurationMs = std::max<std::uint32_t>(2500u,
 			audioDurationMs + 350u);
 		result.status = CalypsoVoiceRequestStatus::Played;
 		result.reason = "played";
 	}
+	else if (request.flavor)
+	{
+		// A cosmetic bark without a clip must remain silent: do not create a
+		// misleading subtitle, and let the stock response path keep working.
+		result.status = CalypsoVoiceRequestStatus::Suppressed;
+		result.reason = "flavor_audio_unavailable";
+		return result;
+	}
 	else
 	{
+		// Tactical subtitles are intentionally independent from the voice
+		// toggle. They still convey the semantic event when audio is disabled
+		// or a lazy pack/file is unavailable.
+		_subtitleUnit = request.unit;
+		_subtitleLineId = result.lineId;
+		_subtitleTactical = true;
+		_subtitleStartedMs = nowMs;
+		_subtitleDurationMs = 2500;
 		result.status = CalypsoVoiceRequestStatus::SubtitleOnly;
-		result.reason = !hasAudio ? "pack_unavailable"
+		result.reason = !request.playbackAllowed ? "audio_disabled"
+			: candidates.empty() ? "pack_unavailable"
 			: (playResult == CalypsoVoicePlayResult::LoadFailed
 				? "load_failed" : "playback_failed");
 	}
@@ -426,7 +466,7 @@ CalypsoVoiceRequestResult CalypsoVoiceManager::dispatch(
 
 CalypsoVoiceRequestResult CalypsoVoiceManager::submit(BattleUnit *unit,
 	const std::string &event, std::uint32_t nowMs, bool flavor, bool safety,
-	bool force)
+	bool force, bool playbackAllowed)
 {
 	CalypsoVoiceRequestResult result;
 	result.unit = unit;
@@ -455,6 +495,7 @@ CalypsoVoiceRequestResult CalypsoVoiceManager::submit(BattleUnit *unit,
 	request.flavor = flavor;
 	request.safety = safety;
 	request.force = force;
+	request.playbackAllowed = playbackAllowed;
 	return dispatch(request, nowMs, false);
 }
 
@@ -465,17 +506,8 @@ CalypsoVoiceRequestResult CalypsoVoiceManager::update(std::uint32_t nowMs,
 	{
 		return CalypsoVoiceRequestResult{};
 	}
-	if (!playbackAllowed)
-	{
-		CalypsoVoiceRequestResult result;
-		result.status = CalypsoVoiceRequestStatus::Suppressed;
-		result.unit = _pending.unit;
-		result.event = _pending.event;
-		result.reason = "muted";
-		_pending = PendingEvent{};
-		return result;
-	}
-	const PendingEvent request = _pending;
+	PendingEvent request = _pending;
+	request.playbackAllowed = playbackAllowed;
 	CalypsoVoiceRequestResult result = dispatch(request, nowMs, true);
 	if (result.status != CalypsoVoiceRequestStatus::Queued)
 	{
@@ -498,12 +530,12 @@ CalypsoVoiceSubtitleState CalypsoVoiceManager::subtitle(
 
 bool CalypsoVoiceManager::isPlaying() const
 {
-	return Mix_Playing(4) != 0;
+	return Mix_Playing(CALYPSO_VOICE_CHANNEL) != 0;
 }
 
 void CalypsoVoiceManager::halt()
 {
-	Mix_HaltChannel(4);
+	Mix_HaltChannel(CALYPSO_VOICE_CHANNEL);
 	_currentPriority = 0;
 }
 
@@ -511,7 +543,7 @@ bool CalypsoVoiceManager::makeCacheRoom(std::size_t requiredBytes)
 {
 	while (_decodedBytes + requiredBytes > DECODED_CACHE_LIMIT)
 	{
-		Mix_Chunk *playing = isPlaying() ? Mix_GetChunk(4) : nullptr;
+		Mix_Chunk *playing = isPlaying() ? Mix_GetChunk(CALYPSO_VOICE_CHANNEL) : nullptr;
 		auto oldest = _chunks.end();
 		for (auto it = _chunks.begin(); it != _chunks.end(); ++it)
 		{
@@ -585,7 +617,7 @@ CalypsoVoicePlayResult CalypsoVoiceManager::playClip(
 	{
 		return CalypsoVoicePlayResult::LoadFailed;
 	}
-	if (Mix_PlayChannel(4, chunk, 0) != 4)
+	if (Mix_PlayChannel(CALYPSO_VOICE_CHANNEL, chunk, 0) != CALYPSO_VOICE_CHANNEL)
 	{
 		return CalypsoVoicePlayResult::PlaybackFailed;
 	}
@@ -609,7 +641,7 @@ CalypsoVoicePlayResult CalypsoVoiceManager::playClip(
 
 void CalypsoVoiceManager::releaseAudio()
 {
-	Mix_HaltChannel(4);
+	Mix_HaltChannel(CALYPSO_VOICE_CHANNEL);
 	for (auto &entry : _chunks)
 	{
 		Mix_FreeChunk(entry.second.chunk);

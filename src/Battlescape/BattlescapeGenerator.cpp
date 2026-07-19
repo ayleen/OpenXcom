@@ -2007,7 +2007,7 @@ BattleUnit *BattlescapeGenerator::addCivilian(Unit *rules, int nodeRank)
 	// resolves to an empty string (subtitle-only), which is the safe default.
 	unit->setVoiceProfile(_save->getMod()->selectVoiceProfile(
 		_save->getCivilianVoiceLocale(), "civilian",
-		unit->getGender() == GENDER_FEMALE ? "female" : "male", unit->getId()));
+		rules ? rules->getVoiceGender() : "male", unit->getId()));
 #endif
 
 	Node *node = _save->getSpawnNode(nodeRank, unit);

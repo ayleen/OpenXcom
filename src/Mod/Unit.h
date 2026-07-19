@@ -454,6 +454,9 @@ private:
 	const RuleItem* _civilianRecoveryItemType = nullptr;
 	YAML::YamlString _spawnedSoldier;
 	std::string _race;
+	// Optional voice-only identity for non-soldier units. This intentionally
+	// does not alter the legacy sprite/combat gender stored on BattleUnit.
+	std::string _voiceGender = "male";
 	int _showFullNameInAlienInventory;
 	std::string _rank;
 	UnitStats _stats;
@@ -528,6 +531,7 @@ public:
 	const Armor* getArmor() const;
 	/// Gets the alien race type.
 	std::string getRace() const;
+	const std::string &getVoiceGender() const { return _voiceGender; }
 	/// Gets the alien rank.
 	std::string getRank() const;
 	/// Gets the value - for score calculation.
