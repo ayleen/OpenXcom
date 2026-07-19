@@ -2851,7 +2851,7 @@ void AIModule::evaluateAIMode()
 	// transitions back in may bark again, and the voice manager's event cooldown
 	// already handles spam. onCivilianFlee() no-ops for guards, and for profiles
 	// that don't declare the "flee" event.
-#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
 	if (prevMode != AI_ESCAPE && _AIMode == AI_ESCAPE
 		&& isSmartCivilian() && !isCivilianGuard())
 	{

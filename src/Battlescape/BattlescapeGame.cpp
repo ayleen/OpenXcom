@@ -63,7 +63,7 @@
 #include "../Calypso/CalypsoTutorial.h"
 #include "../Calypso/CalypsoDirector.h"
 #endif
-#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
 #include "../Calypso/CalypsoVoiceG05.h"
 #endif
 
@@ -187,8 +187,8 @@ BattlescapeGame::BattlescapeGame(SavedBattleGame *save, BattlescapeState *parent
 	_playerPanicHandled(true), _AIActionCounter(0), _AISecondMove(false), _playedAggroSound(false),
 	_endTurnRequested(false), _endConfirmationHandled(false), _allEnemiesNeutralized(false)
 {
-#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
-	CalypsoVoiceG05::beginMission(_save);
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
+	_calypsoVoiceMissionOwner = CalypsoVoiceG05::beginMission(_save);
 #endif
 	if (_save->isPreview())
 	{
@@ -212,8 +212,8 @@ BattlescapeGame::BattlescapeGame(SavedBattleGame *save, BattlescapeState *parent
  */
 BattlescapeGame::~BattlescapeGame()
 {
-#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
-	CalypsoVoiceG05::endMission();
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
+	CalypsoVoiceG05::endMission(_calypsoVoiceMissionOwner);
 #endif
 	for (auto* bs : _states)
 	{
@@ -241,7 +241,7 @@ int BattlescapeGame::think()
 		return ret;
 	}
 #endif
-#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
 	CalypsoVoiceG05::think();
 #endif
 	// nothing is happening - see if we need some alien AI or units panicking or what have you
@@ -981,7 +981,7 @@ void BattlescapeGame::checkForCasualties(const RuleDamageType *damageType, Battl
 #ifdef __EMSCRIPTEN__
 				CalypsoDirector::get().onUnitDied(this, victim, murderer); // Phase 41: notify active scene (fires once per new death)
 #endif
-#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
 				CalypsoVoiceG05::onKill(attack, victim, murderer);
 #endif
 				int moraleLossModifierWhenKilled = _save->getMoraleLossModifierWhenKilled(victim);
@@ -1121,7 +1121,7 @@ void BattlescapeGame::checkForCasualties(const RuleDamageType *damageType, Battl
 				}
 			}
 		}
-#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
 		CalypsoVoiceG05::onCasualtyResolved(victim);
 #endif
 	}
@@ -1654,7 +1654,7 @@ bool BattlescapeGame::handlePanickingUnit(BattleUnit *unit)
 	_save->setSelectedUnit(unit);
 	_parentState->getMap()->setCursorType(CT_NONE);
 	bool pilotPanicHandled = false;
-#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
 	pilotPanicHandled = CalypsoVoiceG05::onPanic(unit);
 #endif
 
@@ -2097,7 +2097,7 @@ void BattlescapeGame::primaryAction(Position pos)
 		if (unit && unit == _save->getSelectedUnit() && (unit->getVisible() || _debugPlay))
 		{
 			bool pilotHandled = false;
-#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
 			pilotHandled = CalypsoVoiceG05::handleSelection(unit, true);
 #endif
 			if (!pilotHandled)
@@ -2116,7 +2116,7 @@ void BattlescapeGame::primaryAction(Position pos)
 				setupCursor();
 				_currentAction.actor = unit;
 				bool pilotHandled = false;
-#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
 				pilotHandled = CalypsoVoiceG05::handleSelection(unit, false);
 #endif
 				if (!pilotHandled)
@@ -2182,7 +2182,7 @@ void BattlescapeGame::primaryAction(Position pos)
 				_parentState->getGame()->getCursor()->setVisible(false);
 				statePushBack(new UnitWalkBState(this, _currentAction));
 				bool pilotHandled = false;
-#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
 				pilotHandled = CalypsoVoiceG05::handleMoveOrder(_currentAction.actor);
 #endif
 				if (!pilotHandled)
@@ -2307,7 +2307,7 @@ void BattlescapeGame::moveUpDown(BattleUnit *unit, int dir)
 	}
 	_save->getPathfinding()->calculate(_currentAction.actor, _currentAction.target, _currentAction.getMoveType());
 	statePushBack(new UnitWalkBState(this, _currentAction));
-#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
 	CalypsoVoiceG05::handleMoveOrder(_currentAction.actor);
 #endif
 }

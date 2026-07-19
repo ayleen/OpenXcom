@@ -39,7 +39,7 @@
 #include "BattlescapeState.h"
 #include "../Savegame/BattleUnitStatistics.h"
 #include "../fmath.h"
-#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
 #include "../Calypso/CalypsoVoiceG05.h"
 #endif
 
@@ -103,7 +103,7 @@ void ProjectileFlyBState::init()
 		_ammo = _action.weapon->getAmmoForAction(_action.type, reactionShoot ? nullptr : &_action.result);
 		if (!_ammo)
 		{
-#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
 			CalypsoVoiceG05::onOutOfAmmo(_action.actor);
 #endif
 			_parent->popState();
@@ -453,7 +453,7 @@ void ProjectileFlyBState::init()
 
 	if (createNewProjectile())
 	{
-#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
 		if (_range == 0)
 		{
 			if (_action.type == BA_THROW)
@@ -758,7 +758,7 @@ void ProjectileFlyBState::think()
 				_parent->setupCursor();
 			}
 			_parent->convertInfected();
-#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
 			if (!_voiceContinuesAction)
 			{
 				CalypsoVoiceG05::onAttackFinished(_action);
@@ -798,7 +798,7 @@ void ProjectileFlyBState::think()
 					if (ruleItem->getBattleType() == BT_GRENADE || ruleItem->getBattleType() == BT_PROXIMITYGRENADE)
 					{
 						// it's a hot grenade to explode immediately
-#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
 						CalypsoVoiceG05::onAttackStarted(_action);
 						attack.voiceActionId = _action.voiceActionId;
 #endif

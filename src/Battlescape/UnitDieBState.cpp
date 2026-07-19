@@ -35,7 +35,7 @@
 #include "InfoboxOKState.h"
 #include "InfoboxState.h"
 #include "../Savegame/Node.h"
-#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
 #include "../Calypso/CalypsoVoiceG05.h"
 #endif
 
@@ -360,7 +360,7 @@ void UnitDieBState::convertUnitToCorpse()
  */
 void UnitDieBState::playDeathSound()
 {
-#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
 	if (CalypsoVoiceG05::onDeath(_unit))
 	{
 		return;

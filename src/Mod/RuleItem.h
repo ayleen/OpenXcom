@@ -309,7 +309,7 @@ struct BattleActionAttackReadOnlyImpl
 	const BattleItem *weapon_item = nullptr;
 	const BattleItem *damage_item = nullptr;
 	const RuleSkill *skill_rules = nullptr;
-#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
 	unsigned int voiceActionId = 0;
 #endif
 };
@@ -327,7 +327,7 @@ struct BattleActionAttack
 	BattleItem *weapon_item = nullptr;
 	BattleItem *damage_item = nullptr;
 	const RuleSkill *skill_rules = nullptr;
-#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
 	unsigned int voiceActionId = 0;
 #endif
 
@@ -342,7 +342,7 @@ struct BattleActionAttack
 	operator ReadOnly() const
 	{
 		ReadOnly result{ type, attacker, weapon_item, damage_item, skill_rules, };
-#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
 		result.voiceActionId = voiceActionId;
 #endif
 		return result;

@@ -200,6 +200,27 @@ std::set<std::string> CalypsoVoiceManager::requiredPacks(
 	return packs;
 }
 
+std::set<std::string> CalypsoVoiceManager::requiredPacksForUnit(
+	const BattleUnit *unit) const
+{
+	const RuleVoiceProfile *profile = resolveProfile(_mod, unit);
+	if (!profile)
+	{
+		return {};
+	}
+	std::set<std::string> packs{profile->getPack()};
+	if (!profile->getFallbackProfile().empty())
+	{
+		const RuleVoiceProfile *fallback = _mod->getVoiceProfile(
+			profile->getFallbackProfile());
+		if (fallback)
+		{
+			packs.insert(fallback->getPack());
+		}
+	}
+	return packs;
+}
+
 void CalypsoVoiceManager::setPackAvailable(const std::string &pack,
 	bool available)
 {
@@ -343,6 +364,7 @@ CalypsoVoiceRequestResult CalypsoVoiceManager::playEvent(
 		_subtitleDurationMs = std::max<std::uint32_t>(2500u,
 			audioDurationMs + 350u);
 		result.status = CalypsoVoiceRequestStatus::Played;
+		result.allowStockFallback = false;
 		result.reason = "played";
 	}
 	else if (request.flavor)
@@ -364,6 +386,7 @@ CalypsoVoiceRequestResult CalypsoVoiceManager::playEvent(
 		_subtitleStartedMs = nowMs;
 		_subtitleDurationMs = 2500;
 		result.status = CalypsoVoiceRequestStatus::SubtitleOnly;
+		result.allowStockFallback = false;
 		result.reason = !request.playbackAllowed ? "audio_disabled"
 			: candidates.empty() ? "pack_unavailable"
 			: (playResult == CalypsoVoicePlayResult::LoadFailed
@@ -440,11 +463,13 @@ CalypsoVoiceRequestResult CalypsoVoiceManager::dispatch(
 			if (requestOccupiesPendingSlot)
 			{
 				result.status = CalypsoVoiceRequestStatus::Queued;
+				result.allowStockFallback = false;
 				result.reason = "pending";
 				return result;
 			}
 			_pending = request;
 			result.status = CalypsoVoiceRequestStatus::Queued;
+			result.allowStockFallback = false;
 			result.reason = "queued";
 			return result;
 
@@ -453,12 +478,14 @@ CalypsoVoiceRequestResult CalypsoVoiceManager::dispatch(
 			result.displacedEvent = _pending.event;
 			_pending = request;
 			result.status = CalypsoVoiceRequestStatus::Queued;
+			result.allowStockFallback = false;
 			result.reason = "queue_replaced";
 			return result;
 
 		case CalypsoVoiceDecision::Suppress:
 		default:
 			result.status = CalypsoVoiceRequestStatus::Suppressed;
+			result.allowStockFallback = false;
 			result.reason = "arbitration";
 			return result;
 	}
@@ -484,6 +511,7 @@ CalypsoVoiceRequestResult CalypsoVoiceManager::submit(BattleUnit *unit,
 			>= eventProbability)
 	{
 		result.status = CalypsoVoiceRequestStatus::Suppressed;
+		result.allowStockFallback = false;
 		result.reason = "probability";
 		return result;
 	}

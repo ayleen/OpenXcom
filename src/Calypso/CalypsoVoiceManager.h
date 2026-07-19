@@ -47,6 +47,9 @@ enum class CalypsoVoiceRequestStatus
 struct CalypsoVoiceRequestResult
 {
 	CalypsoVoiceRequestStatus status = CalypsoVoiceRequestStatus::Idle;
+	// Stock OXCE responses may play only when the production path explicitly
+	// declines ownership (disabled/missing profile/unavailable flavor audio).
+	bool allowStockFallback = true;
 	BattleUnit *unit = nullptr;
 	std::string event;
 	std::string lineId;
@@ -117,6 +120,7 @@ public:
 	void endMission();
 	std::set<std::string> requiredPacks(
 		const std::vector<BattleUnit *> &units) const;
+	std::set<std::string> requiredPacksForUnit(const BattleUnit *unit) const;
 	void setPackAvailable(const std::string &pack, bool available);
 	bool audioAvailable(const BattleUnit *unit) const;
 

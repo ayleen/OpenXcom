@@ -106,7 +106,7 @@ BattleActionAttack BattleActionAttack::GetBeforeShoot(const BattleActionCost &ac
 {
 	BattleActionAttack attack = GetBeforeShoot(action.type, action.actor,
 		action.weapon, action.skillRules);
-#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
 	attack.voiceActionId = action.voiceActionId;
 #endif
 	return attack;
@@ -131,7 +131,7 @@ BattleActionAttack BattleActionAttack::GetAferShoot(const BattleActionCost &acti
 {
 	BattleActionAttack attack = GetAferShoot(action.type, action.actor,
 		action.weapon, ammo, action.skillRules);
-#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
 	attack.voiceActionId = action.voiceActionId;
 #endif
 	return attack;

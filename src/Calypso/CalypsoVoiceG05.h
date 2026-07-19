@@ -1,6 +1,6 @@
 #pragma once
 
-#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
 
 #include <string>
 
@@ -21,16 +21,18 @@ struct CalypsoVoiceSubtitleSnapshot
 };
 
 /**
- * Disposable Phase-44 G0.5 voice-bark gameplay spike.
+ * Phase-44 voice-bark gameplay bridge.
  *
- * This is intentionally not the production voice system. It exists only in
- * CALYPSO_VOICE_G0_5 builds and owns the approved English gameplay corpus.
+ * CALYPSO_VOICE_G0_5 retains the disposable pilot path; CALYPSO_VOICE_P_EN
+ * routes the same gameplay events into the production ruleset/pack manager.
  */
 class CalypsoVoiceG05
 {
 public:
-	static void beginMission(SavedBattleGame *save);
-	static void endMission();
+	/// Returns a transient owner lease; same-save state reconstruction preserves
+	/// one runtime until the final lease is released.
+	static unsigned int beginMission(SavedBattleGame *save);
+	static void endMission(unsigned int ownerToken);
 	/// Drain the production manager's single pending slot from the battle tick.
 	static void think();
 	/// Current semantic subtitle selected by the production manager.

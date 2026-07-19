@@ -32,7 +32,7 @@
 #include "../Mod/Mod.h"
 #include "../Mod/RuleItem.h"
 #include "../fmath.h"
-#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
 #include "../Calypso/CalypsoVoiceG05.h"
 #endif
 
@@ -78,7 +78,7 @@ void MeleeAttackBState::init()
 	_ammo = _action.weapon->getAmmoForAction(BA_HIT, reactionShoot ? nullptr : &_action.result);
 	if (!_ammo)
 	{
-#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
 		CalypsoVoiceG05::onOutOfAmmo(_action.actor);
 #endif
 		_parent->popState();
@@ -162,7 +162,7 @@ void MeleeAttackBState::init()
 		_hitNumber = _weapon->getRules()->getAIMeleeHitCount() - 1;
 	}
 
-#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
 	CalypsoVoiceG05::onAttackStarted(_action);
 #endif
 	performMeleeAttack();
@@ -219,7 +219,7 @@ void MeleeAttackBState::think()
 			_parent->setupCursor();
 		}
 		_parent->convertInfected();
-#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
 		CalypsoVoiceG05::onAttackFinished(_action);
 #endif
 		_parent->popState();

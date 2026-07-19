@@ -1,4 +1,4 @@
-#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
 
 #include "CalypsoVoiceG05.h"
 #include "CalypsoVoiceOutcome.h"
@@ -102,6 +102,8 @@ struct CachedChunk
 struct PilotState
 {
 	bool active = false;
+	SavedBattleGame *save = nullptr;
+	std::set<unsigned int> missionOwners;
 #if defined(CALYPSO_VOICE_P_EN)
 	std::set<std::string> requestedPacks;
 #else
@@ -171,8 +173,42 @@ constexpr std::array<EventSpec, static_cast<std::size_t>(Event::Count)> EVENT_SP
 
 PilotState g_state;
 unsigned int g_nextMissionEpoch = 0;
+unsigned int g_nextMissionOwner = 0;
 #if defined(CALYPSO_VOICE_P_EN)
 CalypsoVoiceManager g_manager;
+
+void requestPack(const std::string &pack)
+{
+	Log(LOG_INFO) << LOG_TAG << " requesting lazy pack=" << pack
+		<< " epoch=" << g_state.missionEpoch;
+	EM_ASM({
+		if (globalThis.calypsoVoicePacks?.request) {
+			globalThis.calypsoVoicePacks.request(UTF8ToString($0), $1);
+		}
+	}, pack.c_str(), g_state.missionEpoch);
+}
+
+void ensurePacksForUnit(const BattleUnit *unit)
+{
+	for (const std::string &pack : g_manager.requiredPacksForUnit(unit))
+	{
+		if (g_state.requestedPacks.insert(pack).second)
+		{
+			requestPack(pack);
+		}
+	}
+}
+
+void releaseRequestedPacks()
+{
+	for (const std::string &pack : g_state.requestedPacks)
+	{
+		EM_ASM({
+			globalThis.calypsoVoicePacks?.release(UTF8ToString($0));
+		}, pack.c_str());
+	}
+	g_state.requestedPacks.clear();
+}
 #endif
 
 const EventSpec &eventSpec(Event event)
@@ -581,27 +617,18 @@ bool submit(Event event, BattleUnit *unit, bool forceInterrupt = false,
 	EventCounter &counter = g_state.counters.at(static_cast<std::size_t>(event));
 	++counter.attempted;
 #if defined(CALYPSO_VOICE_P_EN)
-	if (Options::mute)
+	if (Options::calypsoVoicesEnabled)
 	{
-		if (handledByVoice)
-		{
-			*handledByVoice = true;
-		}
-		++counter.suppressed;
-		Log(LOG_INFO) << LOG_TAG << " event=" << eventSpec(event).name
-			<< " unit=" << unit->getId() << " profile=" << profileName(unit)
-			<< " result=suppressed reason=muted";
-		return false;
+		ensurePacksForUnit(unit);
 	}
 	const CalypsoVoiceRequestResult result = g_manager.submit(unit,
 		eventSpec(event).name, SDL_GetTicks(), isFlavorEvent(event),
 		isSafetyEvent(event), forceInterrupt,
-		Options::calypsoVoicesEnabled);
+		!Options::mute && Options::calypsoVoicesEnabled);
 	recordManagerResult(event, unit, result);
 	if (handledByVoice)
 	{
-		*handledByVoice = result.status == CalypsoVoiceRequestStatus::Played
-			|| result.status == CalypsoVoiceRequestStatus::Queued;
+		*handledByVoice = !result.allowStockFallback;
 	}
 	return result.status == CalypsoVoiceRequestStatus::Played;
 #else
@@ -693,18 +720,34 @@ bool selectionFlavorLocked(BattleUnit *unit, Uint32 now)
 
 }
 
-void CalypsoVoiceG05::beginMission(SavedBattleGame *save)
+unsigned int CalypsoVoiceG05::beginMission(SavedBattleGame *save)
 {
+	unsigned int ownerToken = ++g_nextMissionOwner;
+	if (ownerToken == 0)
+	{
+		ownerToken = ++g_nextMissionOwner;
+	}
+	if (g_state.active && g_state.save == save)
+	{
+		// Options Apply and other BattlescapeState reconstructions retain the
+		// same SavedBattleGame. Give the replacement its own lease but preserve
+		// the runtime epoch, arbitration state, and requested packs.
+		g_state.missionOwners.insert(ownerToken);
+		return ownerToken;
+	}
 	if (g_state.active)
 	{
 #if defined(CALYPSO_VOICE_P_EN)
 		g_manager.endMission();
+		releaseRequestedPacks();
 #else
 		releaseChunks();
 #endif
 	}
 	g_state = PilotState{};
 	g_state.active = true;
+	g_state.save = save;
+	g_state.missionOwners.insert(ownerToken);
 	g_state.missionEpoch = ++g_nextMissionEpoch;
 	g_state.cosmeticState ^= g_state.missionEpoch * 0x9e3779b9u;
 #if defined(CALYPSO_VOICE_P_EN)
@@ -714,23 +757,17 @@ void CalypsoVoiceG05::beginMission(SavedBattleGame *save)
 	{
 		Log(LOG_INFO) << LOG_TAG << " lazy packs skipped; voices are disabled"
 			<< " epoch=" << g_state.missionEpoch;
-		return;
+		return ownerToken;
 	}
-	g_state.requestedPacks = g_manager.requiredPacks(*save->getUnits());
-	for (const std::string &pack : g_state.requestedPacks)
+	for (BattleUnit *unit : *save->getUnits())
 	{
-		Log(LOG_INFO) << LOG_TAG << " requesting lazy pack=" << pack
-			<< " epoch=" << g_state.missionEpoch;
-		EM_ASM({
-			if (globalThis.calypsoVoicePacks?.request) {
-				globalThis.calypsoVoicePacks.request(UTF8ToString($0), $1);
-			}
-		}, pack.c_str(), g_state.missionEpoch);
+		ensurePacksForUnit(unit);
 	}
 #else
 	g_state.packReady = true;
 	Log(LOG_INFO) << LOG_TAG << " development-only pilot active; clips=208 profiles=4 events=18 shuffle_bags=per_unit_event";
 #endif
+	return ownerToken;
 }
 
 void CalypsoVoiceG05::think()
@@ -769,9 +806,14 @@ CalypsoVoiceSubtitleSnapshot CalypsoVoiceG05::subtitle(unsigned int nowMs)
 	return result;
 }
 
-void CalypsoVoiceG05::endMission()
+void CalypsoVoiceG05::endMission(unsigned int ownerToken)
 {
-	if (!g_state.active)
+	if (!g_state.active || ownerToken == 0
+		|| g_state.missionOwners.erase(ownerToken) == 0)
+	{
+		return;
+	}
+	if (!g_state.missionOwners.empty())
 	{
 		return;
 	}
@@ -790,12 +832,7 @@ void CalypsoVoiceG05::endMission()
 	g_state.active = false;
 #if defined(CALYPSO_VOICE_P_EN)
 	g_manager.endMission();
-	for (const std::string &pack : g_state.requestedPacks)
-	{
-		EM_ASM({
-			globalThis.calypsoVoicePacks?.release(UTF8ToString($0));
-		}, pack.c_str());
-	}
+	releaseRequestedPacks();
 #else
 	releaseChunks();
 #endif
@@ -830,12 +867,6 @@ bool CalypsoVoiceG05::handleSelection(BattleUnit *unit, bool sameUnit)
 	{
 		return false;
 	}
-#if defined(CALYPSO_VOICE_P_EN)
-	if (!Options::calypsoVoicesEnabled)
-	{
-		return false;
-	}
-#endif
 #if !defined(CALYPSO_VOICE_P_EN)
 	if (!g_state.packReady)
 	{
@@ -881,12 +912,6 @@ bool CalypsoVoiceG05::handleMoveOrder(BattleUnit *unit)
 	{
 		return false;
 	}
-#if defined(CALYPSO_VOICE_P_EN)
-	if (!Options::calypsoVoicesEnabled)
-	{
-		return false;
-	}
-#endif
 #if !defined(CALYPSO_VOICE_P_EN)
 	if (!g_state.packReady)
 	{

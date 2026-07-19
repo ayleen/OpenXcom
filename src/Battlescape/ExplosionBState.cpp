@@ -520,7 +520,7 @@ void ExplosionBState::explode()
 		Position p = t->getPosition().toVoxel();
 		p += Position(8,8,0);
 		BattleActionAttack terrainAttack{ BA_NONE, _attack.attacker, };
-#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_G0_5)
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
 		terrainAttack.voiceActionId = _attack.voiceActionId;
 #endif
 		_parent->statePushFront(new ExplosionBState(_parent, p, terrainAttack, t,
