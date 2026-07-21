@@ -25,12 +25,18 @@ void CalypsoHdUiOverlay::beginFrame(int logicalWidth, int logicalHeight)
 {
 	// Backing-store poll: the canvas width/height are physical device pixels
 	// (mirrors the existing Screen::flip() poll). Authoritative for physical
-	// canvas dimensions only; the JS observation owns every other field.
-	const int physW = (int)EM_ASM_INT({ return document.getElementById('canvas').width; });
-	const int physH = (int)EM_ASM_INT({ return document.getElementById('canvas').height; });
-	if (physW > 0 && physH > 0)
+	// canvas dimensions only; the JS observation owns every other field. Only
+	// polled when the overlay is active -- while dormant the metrics are never
+	// used for drawing and the JS observation already delivers physical dims on
+	// every resize, so the two extra per-frame EM_ASM round-trips are wasted.
+	if (hasEnabledGroups())
 	{
-		calypsoHdViewportBackingStorePoll(physW, physH);
+		const int physW = (int)EM_ASM_INT({ return document.getElementById('canvas').width; });
+		const int physH = (int)EM_ASM_INT({ return document.getElementById('canvas').height; });
+		if (physW > 0 && physH > 0)
+		{
+			calypsoHdViewportBackingStorePoll(physW, physH);
+		}
 	}
 
 	// Freeze ONE metrics snapshot for the whole frame.
