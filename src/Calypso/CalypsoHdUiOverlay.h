@@ -81,6 +81,17 @@ public:
 	};
 	void submitText(const TextSubmit& item);
 
+	/// One solid/tinted HD panel or window fill to draw this frame (a painter
+	/// item): a logical rectangle and a packed RGBA colour. Windows compose as a
+	/// fill plus a border-coloured inset; icons use the RGBA path (a family
+	/// adapter uploads its own asset texture and submits it as text-style item).
+	struct PanelSubmit
+	{
+		CalypsoLogicalRect rect;
+		std::uint32_t colorRgba = 0;
+	};
+	void submitPanel(const PanelSubmit& item);
+
 	/// Claim a live widget's logical visual for the current frame: its own draw
 	/// path will render nothing (the physical replacement submitted above is the
 	/// only thing shown). Frame-scoped -- a widget not re-claimed next frame
@@ -109,7 +120,11 @@ private:
 	void ensureGpu();
 	/// Draw one textured quad: map the logical rect to physical device pixels
 	/// via the frozen metrics, convert to NDC, and blit `tex` through hd_ui.
-	void drawTexturedQuad(GpuTexture* tex, const CalypsoLogicalRect& logical);
+	/// `colorRgba` is the hd_ui u_color multiply (0 => opaque white / no tint).
+	void drawTexturedQuad(GpuTexture* tex, const CalypsoLogicalRect& logical,
+		std::uint32_t colorRgba = 0);
+	/// Lazily create the shared 1x1 white texture used to paint solid panels.
+	GpuTexture* whiteTexture();
 	/// Rasterise (or reuse) an HD text texture for `rasterKey` at the current
 	/// context generation: get the CPU raster, upload once to a bounded,
 	/// context-generation-keyed GpuTexture cache. Returns nullptr on failure.
@@ -133,11 +148,13 @@ private:
 	// Developer harness quad (off in production).
 	bool _harnessEnabled = false;
 	GpuTexture* _harnessTex = nullptr;
+	GpuTexture* _whiteTex = nullptr; // 1x1 white, tinted for solid panels
 
 	// HD text pipeline: CPU rasteriser + a bounded, context-generation-keyed
-	// GPU texture cache. Adapters submit text items per frame via submitText().
+	// GPU texture cache. Adapters submit text/panel items per frame.
 	CalypsoHdTextRaster _textRaster;
 	std::vector<TextSubmit> _pendingText;
+	std::vector<PanelSubmit> _pendingPanels;
 	std::unordered_map<CalypsoHdTextTextureKey, GpuTexture*> _textTextures;
 	std::unordered_map<CalypsoHdTextTextureKey, std::uint64_t> _texKeyToHandle;
 	std::unordered_map<std::uint64_t, CalypsoHdTextTextureKey> _texHandleToKey;

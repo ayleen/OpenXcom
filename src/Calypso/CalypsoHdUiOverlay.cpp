@@ -109,7 +109,21 @@ void CalypsoHdUiOverlay::ensureGpu()
 	_glReady = true;
 }
 
-void CalypsoHdUiOverlay::drawTexturedQuad(GpuTexture* tex, const CalypsoLogicalRect& logical)
+GpuTexture* CalypsoHdUiOverlay::whiteTexture()
+{
+	if (_whiteTex && _whiteTex->isValid()) return _whiteTex;
+	if (!_whiteTex)
+	{
+		const std::uint8_t px[4] = { 255, 255, 255, 255 };
+		_whiteTex = new GpuTexture(/*srgb=*/false,
+			GpuTexture::Wrap::ClampToEdge, GpuTexture::Filter::Nearest);
+		_whiteTex->uploadRGBA(px, 1, 1);
+	}
+	return _whiteTex;
+}
+
+void CalypsoHdUiOverlay::drawTexturedQuad(GpuTexture* tex, const CalypsoLogicalRect& logical,
+	std::uint32_t colorRgba)
 {
 	if (!tex || !tex->isValid() || !_hdShader || !_hdShader->isValid() || !_vao) return;
 
@@ -144,7 +158,18 @@ void CalypsoHdUiOverlay::drawTexturedQuad(GpuTexture* tex, const CalypsoLogicalR
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	_hdShader->use();
-	_hdShader->setUniform4f("u_color", 0.0f, 0.0f, 0.0f, 0.0f); // unset => opaque white (no tint)
+	if (colorRgba == 0)
+	{
+		_hdShader->setUniform4f("u_color", 0.0f, 0.0f, 0.0f, 0.0f); // unset => opaque white
+	}
+	else
+	{
+		_hdShader->setUniform4f("u_color",
+			((colorRgba >> 24) & 0xFF) / 255.0f,
+			((colorRgba >> 16) & 0xFF) / 255.0f,
+			((colorRgba >> 8) & 0xFF) / 255.0f,
+			(colorRgba & 0xFF) / 255.0f);
+	}
 	tex->bind(0);
 	_hdShader->setUniform1i("u_tex", 0);
 
@@ -165,6 +190,12 @@ void CalypsoHdUiOverlay::submitText(const TextSubmit& item)
 void CalypsoHdUiOverlay::claimWidget(const void* widget)
 {
 	calypsoHdWidgetClaim(widget, _controller.frameId());
+	_enabledGroupCount = 1;
+}
+
+void CalypsoHdUiOverlay::submitPanel(const PanelSubmit& item)
+{
+	_pendingPanels.push_back(item);
 	_enabledGroupCount = 1;
 }
 
@@ -241,6 +272,8 @@ bool CalypsoHdUiOverlay::renderStages(SDL_Renderer* renderer)
 	// before flip()). Swapping clears the member so the next frame starts empty.
 	std::vector<TextSubmit> pending;
 	pending.swap(_pendingText);
+	std::vector<PanelSubmit> pendingPanels;
+	pendingPanels.swap(_pendingPanels);
 
 	// Dormant until an adapter (or the harness) enables a group.
 	if (!hasEnabledGroups() || !_mayGoPhysical) return true;
@@ -277,6 +310,16 @@ bool CalypsoHdUiOverlay::renderStages(SDL_Renderer* renderer)
 		}
 		// Logical rect in the engine base-resolution grid; mapped to physical.
 		drawTexturedQuad(_harnessTex, CalypsoLogicalRect{ 8, 8, 96, 40 });
+	}
+
+	// Panels/windows first (they sit under the text they frame).
+	if (!pendingPanels.empty())
+	{
+		GpuTexture* white = whiteTexture();
+		for (const PanelSubmit& p : pendingPanels)
+		{
+			if (white) drawTexturedQuad(white, p.rect, p.colorRgba);
+		}
 	}
 
 	// Physical HD text submitted by family adapters this frame.
