@@ -53,6 +53,12 @@ struct CalypsoViewportValidity
 /// when an observation does not report it explicitly.
 enum class CalypsoOrientation { Unknown, Portrait, Landscape };
 
+/// Provenance of the current orientation (remediation A8/#21). An Explicit
+/// value (a valid browser observation field) is authoritative and is never
+/// overwritten by a size-derived guess; a Derived value is recomputed on any
+/// size change (observation or poll); Unknown means neither is known yet.
+enum class CalypsoOrientationSource { Unknown, Derived, Explicit };
+
 /// A single observation delivered by the JS bridge. `revision` is monotonic
 /// per JS runtime; the model rejects any observation whose revision is not
 /// strictly greater than the last accepted one.
@@ -86,6 +92,7 @@ struct CalypsoViewportState
 	int safeLeft   = 0;
 	double dpr = 1.0;
 	CalypsoOrientation orientation = CalypsoOrientation::Unknown;
+	CalypsoOrientationSource orientationSource = CalypsoOrientationSource::Unknown;
 	bool hasPhysicalSize = false;
 	bool hasLogicalSize  = false;
 };
@@ -154,10 +161,20 @@ public:
 		if (obs.valid.orientation && obs.orientation != CalypsoOrientation::Unknown)
 		{
 			next.orientation = obs.orientation;
+			next.orientationSource = CalypsoOrientationSource::Explicit;
+		}
+		else if (_state.orientationSource == CalypsoOrientationSource::Explicit)
+		{
+			// A partial observation without orientation must NOT clobber a
+			// previously explicit browser orientation with a size-derived guess.
+			next.orientation = _state.orientation;
+			next.orientationSource = CalypsoOrientationSource::Explicit;
 		}
 		else
 		{
 			next.orientation = deriveOrientation(next);
+			next.orientationSource = (next.orientation == CalypsoOrientation::Unknown)
+				? CalypsoOrientationSource::Unknown : CalypsoOrientationSource::Derived;
 		}
 		return commit(next);
 	}
@@ -172,12 +189,14 @@ public:
 		next.physicalWidth  = calypsoViewportClampNonneg(physicalWidth);
 		next.physicalHeight = calypsoViewportClampNonneg(physicalHeight);
 		next.hasPhysicalSize = true;
-		// A poll must not resurrect a derived orientation from stale physical
-		// dims when the bridge already stated one; only re-derive if the
-		// current orientation is Unknown.
-		if (_state.orientation == CalypsoOrientation::Unknown)
+		// A poll must not overwrite an EXPLICIT (browser-reported) orientation,
+		// but it MUST refresh a Derived (or Unknown) one from the new dims -- a
+		// poll-only resize is exactly when a derived orientation can go stale.
+		if (_state.orientationSource != CalypsoOrientationSource::Explicit)
 		{
 			next.orientation = deriveOrientation(next);
+			next.orientationSource = (next.orientation == CalypsoOrientation::Unknown)
+				? CalypsoOrientationSource::Unknown : CalypsoOrientationSource::Derived;
 		}
 		return commit(next);
 	}
@@ -217,6 +236,10 @@ private:
 	/// the effective state actually changed; duplicates are silent no-ops.
 	bool commit(const CalypsoViewportState& next)
 	{
+		// Orientation source is internal provenance, not effective state: always
+		// track it (so an Explicit/Derived transition persists) but never let it
+		// alone bump the generation (equalState deliberately ignores it).
+		_state.orientationSource = next.orientationSource;
 		if (equalState(next, _state)) return false;
 		_state = next;
 		++_generation;
