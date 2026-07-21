@@ -26,8 +26,15 @@
 #include "CalypsoHdFrameController.h"
 #include "CalypsoHdUiModel.h"
 
+#include <memory>
+
+struct SDL_Renderer;
+
 namespace OpenXcom
 {
+class Shader;
+class GpuTexture;
+
 namespace Calypso
 {
 
@@ -45,9 +52,17 @@ public:
 
 	/// After the legacy composite in Screen::flip(): run the ordered HD UI and
 	/// diagnostics stages. Dormant (no-op) until an adapter submits an enabled
-	/// group. Returns false if a post-claim draw failure occurred (the caller
-	/// then skips SDL_RenderPresent); true otherwise.
-	bool renderStages();
+	/// group. `renderer` is the active SDL renderer, flushed before any raw GL
+	/// (boundary zero). Returns false if a post-claim draw failure occurred
+	/// (the caller then skips SDL_RenderPresent); true otherwise.
+	bool renderStages(SDL_Renderer* renderer);
+
+	/// Developer harness (Emscripten export): toggle a single physical-
+	/// resolution test quad drawn through the real GL path (shader, VAO/VBO,
+	/// texture upload, logical->physical mapping, boundary-zero, reset
+	/// callback). Off by default; used to browser-verify the HD.2 GL pipeline
+	/// before any family adapter exists.
+	void setHarnessEnabled(bool on);
 
 	/// WebGL context lost/restored -- forwarded to the frame controller. When
 	/// GL resources exist (HD.3+) this is driven by the ShaderManager
@@ -66,10 +81,29 @@ public:
 private:
 	CalypsoHdUiOverlay() = default;
 
+	/// Lazily create the shared GL resources (hd_ui shader + quad VAO/VBO) and
+	/// register the ShaderManager reset callback. Safe to call every frame.
+	void ensureGpu();
+	/// Draw one textured quad: map the logical rect to physical device pixels
+	/// via the frozen metrics, convert to NDC, and blit `tex` through hd_ui.
+	void drawTexturedQuad(GpuTexture* tex, const CalypsoLogicalRect& logical);
+
 	CalypsoHdFrameController _controller;
 	CalypsoHdPresentationMetrics _frozenMetrics;
 	bool _mayGoPhysical = false;
 	int _enabledGroupCount = 0; // adapters bump this in HD.4; 0 => dormant
+
+	// Shared GL resources (created on first active frame; recovered via the
+	// ShaderManager reset-callback ladder).
+	Shader* _hdShader = nullptr;
+	unsigned _vao = 0;
+	unsigned _vbo = 0;
+	bool _glReady = false;
+	std::shared_ptr<bool> _gpuAliveFlag;
+
+	// Developer harness quad (off in production).
+	bool _harnessEnabled = false;
+	GpuTexture* _harnessTex = nullptr;
 };
 
 } // namespace Calypso

@@ -430,7 +430,7 @@ void Screen::flip()
 
 #ifdef __EMSCRIPTEN__
 	// Phase 46.2-HD: HD UI + diagnostics stages draw above the legacy composite.
-	const bool hdPresentOk = Calypso::CalypsoHdUiOverlay::instance().renderStages();
+	const bool hdPresentOk = Calypso::CalypsoHdUiOverlay::instance().renderStages(_renderer);
 #endif
 
 	/* GPU shader passes (Phase 8b): cursor, projectile, smoke — overlay on top.
