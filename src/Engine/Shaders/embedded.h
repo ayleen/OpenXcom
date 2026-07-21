@@ -11,6 +11,7 @@
  *   "cursor"
  *   "emissive_glow"
  *   "globe_sphere"
+ *   "hd_ui"
  *   "textured"
  *   "tile_atlas"
  *   "tile_atlas_rgba"

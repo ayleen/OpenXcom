@@ -84,6 +84,18 @@ void main()
 }
 )glsl";
 
+static const char* kHd_uiVertSrc = R"glsl(
+layout(location=0) in vec2 a_pos;
+layout(location=1) in vec2 a_uv;
+out vec2 v_uv;
+
+void main()
+{
+    gl_Position = vec4(a_pos, 0.0, 1.0);
+    v_uv = a_uv;
+}
+)glsl";
+
 static const char* kTile_atlasVertSrc = R"glsl(
 layout(location=0) in vec2  a_corner;
 layout(location=1) in vec2  a_screenPos;
@@ -563,6 +575,22 @@ void main()
     vec3 rim = vec3(0.00, 0.16, 0.20) * pow(1.0 - nz, 3.0);
 
     fragColor = vec4((daySide + nightSide) * (0.42 + limb * 0.58) + rim, edgeAlpha);
+}
+)glsl";
+
+static const char* kHd_uiFragSrc = R"glsl(
+uniform sampler2D u_tex;
+uniform vec4      u_color;
+in      vec2      v_uv;
+out     vec4      out_color;
+
+void main()
+{
+    vec4 c = texture(u_tex, v_uv);
+    // A scalar bool: true iff every component is exactly 0 (the unset-uniform
+    // sentinel). Treat that as opaque white so untinted callers are unaffected.
+    vec4 mul = (u_color == vec4(0.0)) ? vec4(1.0) : u_color;
+    out_color = c * mul;
 }
 )glsl";
 
@@ -1228,6 +1256,7 @@ static const Entry kTable[] = {
     { "cursor", kCursorVertSrc, kCursorFragSrc },
     { "emissive_glow", kEmissive_glowVertSrc, kEmissive_glowFragSrc },
     { "globe_sphere", kGlobe_sphereVertSrc, kGlobe_sphereFragSrc },
+    { "hd_ui", kHd_uiVertSrc, kHd_uiFragSrc },
     { "textured", kPassthroughVertSrc, kTexturedFragSrc },
     { "tile_atlas", kTile_atlasVertSrc, kTile_atlasFragSrc },
     { "tile_atlas_rgba", kTile_atlas_rgbaVertSrc, kTile_atlas_rgbaFragSrc },

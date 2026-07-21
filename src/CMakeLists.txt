@@ -614,6 +614,7 @@ if(EMSCRIPTEN)
   list(APPEND openxcom_src Calypso/CalypsoStateUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoTextEdit.cpp)
   list(APPEND openxcom_src Calypso/CalypsoTextInputHarnessState.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoViewportMailbox.cpp)
 
   # Phase 8b: regenerate embedded shader table before each build when any
   # *.vert or *.frag file in Engine/Shaders/ has changed.
@@ -911,7 +912,8 @@ if(NOT EMSCRIPTEN AND BUILD_TESTING)
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/OccupancyFieldTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/HdUnitRenderPlanTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoViewportModelTest.cpp
-        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdUiModelTest.cpp)
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdUiModelTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdFrameControllerTest.cpp)
 
     add_executable(oxce_unit_tests ${OXCE_TEST_SOURCES})
     target_link_libraries(oxce_unit_tests PRIVATE oxce_test_doctest)
