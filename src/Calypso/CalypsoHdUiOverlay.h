@@ -25,8 +25,12 @@
 
 #include "CalypsoHdFrameController.h"
 #include "CalypsoHdUiModel.h"
+#include "CalypsoHdTextRasterKey.h"
+#include "CalypsoHdTextRaster.h"
 
 #include <memory>
+#include <vector>
+#include <unordered_map>
 
 struct SDL_Renderer;
 
@@ -64,6 +68,19 @@ public:
 	/// before any family adapter exists.
 	void setHarnessEnabled(bool on);
 
+	/// One physical HD text visual to draw this frame: a raster identity (font
+	/// descriptor + physical pixel height + resolved text + colour + processed-
+	/// break signature) and the logical rectangle it lands in. A family adapter
+	/// (which has Mod access to resolve the descriptor) submits these each frame
+	/// for its Ready subgroups; the queue rasterises at physical height, uploads
+	/// once, and blits through hd_ui. Cleared at the start of every frame.
+	struct TextSubmit
+	{
+		CalypsoHdTextRasterKey rasterKey;
+		CalypsoLogicalRect rect;
+	};
+	void submitText(const TextSubmit& item);
+
 	/// WebGL context lost/restored -- forwarded to the frame controller. When
 	/// GL resources exist (HD.3+) this is driven by the ShaderManager
 	/// reset-callback ladder; until then it is a safe no-op on the lifecycle.
@@ -87,6 +104,12 @@ private:
 	/// Draw one textured quad: map the logical rect to physical device pixels
 	/// via the frozen metrics, convert to NDC, and blit `tex` through hd_ui.
 	void drawTexturedQuad(GpuTexture* tex, const CalypsoLogicalRect& logical);
+	/// Rasterise (or reuse) an HD text texture for `rasterKey` at the current
+	/// context generation: get the CPU raster, upload once to a bounded,
+	/// context-generation-keyed GpuTexture cache. Returns nullptr on failure.
+	GpuTexture* textureForText(const CalypsoHdTextRasterKey& rasterKey);
+	/// Free every cached text GpuTexture and reset its bookkeeping (context loss).
+	void dropTextTextures();
 
 	CalypsoHdFrameController _controller;
 	CalypsoHdPresentationMetrics _frozenMetrics;
@@ -104,6 +127,17 @@ private:
 	// Developer harness quad (off in production).
 	bool _harnessEnabled = false;
 	GpuTexture* _harnessTex = nullptr;
+
+	// HD text pipeline: CPU rasteriser + a bounded, context-generation-keyed
+	// GPU texture cache. Adapters submit text items per frame via submitText().
+	CalypsoHdTextRaster _textRaster;
+	std::vector<TextSubmit> _pendingText;
+	std::unordered_map<CalypsoHdTextTextureKey, GpuTexture*> _textTextures;
+	std::unordered_map<CalypsoHdTextTextureKey, std::uint64_t> _texKeyToHandle;
+	std::unordered_map<std::uint64_t, CalypsoHdTextTextureKey> _texHandleToKey;
+	CalypsoLruByteBudget _textTexLru{ 16u * 1024u * 1024u };
+	std::uint64_t _texNextHandle = 1;
+	std::uint64_t _contextGen = 0;
 };
 
 } // namespace Calypso
