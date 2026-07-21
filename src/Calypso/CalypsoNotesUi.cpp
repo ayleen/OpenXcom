@@ -103,7 +103,14 @@ const void* CalypsoNotesUi::topState() const
 void CalypsoNotesUi::collect(CalypsoHdFrameBuilder& builder) const
 {
 	if (!_state || !_state->_hdLayout || !_state->_game) return;
-	if (_state->_window && !_state->_window->isPopupDone()) return; // let popup play (Codex #1)
+	if (_state->_window && !_state->_window->isPopupDone()) return; // let popup play
+
+	// While the inline editor is open, render the WHOLE screen logically (take no
+	// claims). The live TextEdit sits in the logical composite; any opaque HD
+	// panel drawn afterwards would cover it (Codex Notes #1). Editing is
+	// transient, so a logical frame there is a clean, correct fallback -- HD
+	// resumes the moment the editor closes.
+	if (_state->_edtNote && _state->_edtNote->getVisible()) return;
 
 	Mod* mod = _state->_game->getMod();
 	CalypsoTtfSourceDescriptor heading;
@@ -210,17 +217,15 @@ void CalypsoNotesUi::collect(CalypsoHdFrameBuilder& builder) const
 	addButton(_state->_btnDelete, ROLE_BTN_DELETE);
 	addButton(_state->_btnKeep, ROLE_BTN_KEEP);
 
-	// ---- Rows subgroup: the visible TextList rows' preview cell, physically.
-	// The list stays interactive (unclaimed input); the FIRST emitted row item
-	// claims it so its logical rows are suppressed. The row currently under the
-	// live inline editor is SKIPPED so the editor (never claimed) shows through.
+	// ---- Rows subgroup: the visible TextList rows, physically. The list stays
+	// interactive (unclaimed input); the FIRST emitted row item claims it so its
+	// logical rows are suppressed. BOTH columns are emitted -- column 0 (the note
+	// preview) and column 1 (the selection/action marker `>`/`*`/`...`) -- so the
+	// keyboard selection + row-action affordance stay visible (Codex Notes #2).
 	builder.beginSubgroup();
 	TextList* list = _state->_lstNotes;
 	if (list && list->getTexts() > 0)
 	{
-		const bool editing = _state->_edtNote && _state->_edtNote->getVisible();
-		const int editRow = _state->_selectedRow;
-
 		const std::size_t scroll = list->getScroll();
 		const std::size_t visible = list->getVisibleRows();
 		const std::size_t total = list->getTexts();
@@ -234,15 +239,18 @@ void CalypsoNotesUi::collect(CalypsoHdFrameBuilder& builder) const
 		const int col0X = list->getColumnX(0);
 		const int col1X = list->getColumnX(1);
 		const int col0W = std::max(0, col1X - col0X);
+		const int listRight = list->getX() + list->getWidth();
+		const int col1W = std::max(0, listRight - col1X);
 		const int physRowH = std::max(1, (int)calypsoHdRoundToInt((double)rowStride * sy));
 
 		bool listClaimAttached = false;
 		int rowOrd = 0;
-		for (std::size_t row = scroll; row < lastVisible; ++row)
+		auto addCell = [&](std::size_t row, int colIndex, int cellX, int cellW,
+			CalypsoHdHAlign hA)
 		{
-			if (editing && (int)row == editRow) continue; // editor shows this row
-			const std::string cell = list->getCellText(row, 0);
-			if (cell.empty() || col0W <= 0) continue;
+			if (cellW <= 0) return;
+			const std::string cell = list->getCellText(row, colIndex);
+			if (cell.empty()) return;
 
 			CalypsoHdTextRasterKey key;
 			key.source = body;
@@ -254,17 +262,26 @@ void CalypsoNotesUi::collect(CalypsoHdFrameBuilder& builder) const
 
 			CalypsoHdItem it;
 			it.kind = CalypsoHdItemKind::Text;
-			it.rect = { col0X, list->getRowY(row), col0W, rowStride };
+			it.rect = { cellX, list->getRowY(row), cellW, rowStride };
 			it.colorRgba = kNearWhiteTextRgba;
 			it.rasterKey = key;
-			it.hAlign = CalypsoHdHAlign::Left;
+			it.hAlign = hA;
 			it.vAlign = CalypsoHdVAlign::Middle;
 			it.widget = listClaimAttached ? nullptr : (const void*)list;
 			listClaimAttached = true;
-			it.claim = { kF34FamilyId, ROLE_ROW, inst, kRowsSubgroup, (std::uint32_t)row };
-			it.order = { 0, 0, kF34FamilyId, inst, 1, kRowsSubgroup, rowOrd, ROLE_ROW };
+			// Distinct claim visualId + order per (row, column) so no two items
+			// collide on the ordering tuple.
+			const std::uint32_t vid = (std::uint32_t)row * 2u + (std::uint32_t)colIndex;
+			it.claim = { kF34FamilyId, ROLE_ROW, inst, kRowsSubgroup, vid };
+			it.order = { 0, 0, kF34FamilyId, inst, 1, kRowsSubgroup, rowOrd, vid };
 			builder.add(it);
 			++rowOrd;
+		};
+
+		for (std::size_t row = scroll; row < lastVisible; ++row)
+		{
+			addCell(row, 0, col0X, col0W, CalypsoHdHAlign::Left);   // preview
+			addCell(row, 1, col1X, col1W, CalypsoHdHAlign::Center); // marker
 		}
 	}
 }
