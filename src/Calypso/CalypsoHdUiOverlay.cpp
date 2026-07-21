@@ -14,6 +14,7 @@
 #include <GLES3/gl3.h>
 #include <SDL.h>
 #include <SDL_render.h>
+#include <unordered_set>
 #include <vector>
 
 #include "../Engine/GpuInit.h"
@@ -97,29 +98,37 @@ void CalypsoHdUiOverlay::prepareFrame(int logicalWidth, int logicalHeight, const
 	}
 	if (!active) return;
 
-	// GL must be ready to raster/upload; if not, no subgroup can be Ready and the
-	// whole popup renders logically this frame (caches warm for next frame).
-	ensureGpu();
-	if (!_glReady) return;
-
-	CalypsoHdFrameBuilder builder;
-	active->collect(builder);
-	if (builder.empty()) return;
-
-	// Resolve + commit each atomic subgroup independently.
-	for (const CalypsoHdSubgroup& subgroup : builder.subgroups())
+	// The pre-blit GPU preparation (shader/VAO creation + texture uploads) touches
+	// GL state that SDL's renderer caches; bracket it in one state guard so the
+	// later SDL_RenderCopy in Screen::flip() is not desynced (Codex #3). The guard
+	// restores on every exit path from this scope.
 	{
-		std::vector<ResolvedDraw> resolved;
-		if (!resolveSubgroup(subgroup, resolved)) continue; // Not Ready -> logical
+		CalypsoGlStateGuard guard;
 
-		// Commit: take claims for every item, enqueue the resolved draws.
-		for (const CalypsoHdItem& item : subgroup.items)
+		// GL must be ready to raster/upload; if not, no subgroup can be Ready and
+		// the whole popup renders logically this frame (caches warm next frame).
+		ensureGpu();
+		if (!_glReady) return;
+
+		CalypsoHdFrameBuilder builder;
+		active->collect(builder);
+		if (builder.empty()) return;
+
+		// Resolve + commit each atomic subgroup independently.
+		for (const CalypsoHdSubgroup& subgroup : builder.subgroups())
 		{
-			_controller.claims().add(item.claim);
-			if (item.widget) _ptrClaim[item.widget] = item.claim;
+			std::vector<ResolvedDraw> resolved;
+			if (!resolveSubgroup(subgroup, resolved)) continue; // Not Ready -> logical
+
+			// Commit: take claims for every item, enqueue the resolved draws.
+			for (const CalypsoHdItem& item : subgroup.items)
+			{
+				_controller.claims().add(item.claim);
+				if (item.widget) _ptrClaim[item.widget] = item.claim;
+			}
+			for (ResolvedDraw& d : resolved) _drawItems.push_back(d);
 		}
-		for (ResolvedDraw& d : resolved) _drawItems.push_back(d);
-	}
+	} // GL state guard restored
 
 	if (_drawItems.empty()) return;
 
@@ -315,31 +324,34 @@ bool CalypsoHdUiOverlay::drawGlyph(const ResolvedDraw& d)
 	const int gw = d.naturalW, gh = d.naturalH;
 	if (gw <= 0 || gh <= 0) return true;
 
-	// The box is the layout + CLIP target, never a stretch target (remediation
-	// B2 / Fable #2). If the natural glyph is larger than the box, show only the
-	// part that fits by sampling a UV sub-rect -- the pixels are NOT compressed.
-	const int vw = gw > box.w ? box.w : gw; // visible (drawn) size
-	const int vh = gh > box.h ? box.h : gh;
-	const float u1 = (float)vw / (float)gw; // 1.0 when it fits (full glyph)
-	const float v1 = (float)vh / (float)gh;
-
-	int gx = box.x;
+	// Place the FULL natural-size glyph rect per alignment (it may extend outside
+	// the box), then intersect with the box; the visible sub-rect's offset within
+	// the natural rect gives the UV crop. So a centered oversized glyph shows its
+	// CENTER, right/bottom show the correct edge (Codex #7), and a glyph that fits
+	// is drawn 1:1 -- the box is a clip target, never a stretch target (B2).
+	int nx = box.x;
 	switch (d.hAlign)
 	{
-	case CalypsoHdHAlign::Center: gx = box.x + (box.w - vw) / 2; break;
-	case CalypsoHdHAlign::Right:  gx = box.x + (box.w - vw); break;
-	case CalypsoHdHAlign::Left:   default: gx = box.x; break;
+	case CalypsoHdHAlign::Center: nx = box.x + (box.w - gw) / 2; break;
+	case CalypsoHdHAlign::Right:  nx = box.x + (box.w - gw); break;
+	case CalypsoHdHAlign::Left:   default: nx = box.x; break;
 	}
-	int gy = box.y;
+	int ny = box.y;
 	switch (d.vAlign)
 	{
-	case CalypsoHdVAlign::Middle: gy = box.y + (box.h - vh) / 2; break;
-	case CalypsoHdVAlign::Bottom: gy = box.y + (box.h - vh); break;
-	case CalypsoHdVAlign::Top:    default: gy = box.y; break;
+	case CalypsoHdVAlign::Middle: ny = box.y + (box.h - gh) / 2; break;
+	case CalypsoHdVAlign::Bottom: ny = box.y + (box.h - gh); break;
+	case CalypsoHdVAlign::Top:    default: ny = box.y; break;
 	}
 
-	CalypsoPhysRect dst{ gx, gy, vw, vh };
-	return drawPhysQuad(d.tex, dst, 0 /*text tex is pre-coloured*/, 0.0f, 0.0f, u1, v1);
+	const CalypsoPhysRect natural{ nx, ny, gw, gh };
+	CalypsoPhysRect vis;
+	if (!calypsoClipPhysRect(natural, box, vis)) return true; // fully off-box
+	const float u0 = (float)(vis.x - nx) / (float)gw;
+	const float v0 = (float)(vis.y - ny) / (float)gh;
+	const float u1 = (float)(vis.x - nx + vis.w) / (float)gw;
+	const float v1 = (float)(vis.y - ny + vis.h) / (float)gh;
+	return drawPhysQuad(d.tex, vis, 0 /*text tex is pre-coloured*/, u0, v0, u1, v1);
 }
 
 GpuTexture* CalypsoHdUiOverlay::textureForText(const CalypsoHdTextRasterKey& rasterKey)
@@ -390,25 +402,36 @@ GpuTexture* CalypsoHdUiOverlay::textureForText(const CalypsoHdTextRasterKey& ras
 
 void CalypsoHdUiOverlay::evictTextTextures(const std::vector<std::uint64_t>& evicted)
 {
-	for (std::uint64_t ev : evicted)
+	// Worklist so a re-touch of a frame-pinned handle can chase the SECONDARY
+	// evictions it causes, freeing every non-pinned texture rather than leaving
+	// it resident-but-untracked (Codex #8). Each handle is processed once, so a
+	// frame where every texture is pinned still terminates (over budget for that
+	// one frame; it self-heals next frame when nothing is pinned).
+	std::vector<std::uint64_t> work(evicted.begin(), evicted.end());
+	std::unordered_set<std::uint64_t> seen;
+	while (!work.empty())
 	{
+		const std::uint64_t ev = work.back();
+		work.pop_back();
+		if (!seen.insert(ev).second) continue; // already handled
 		auto kit = _texHandleToKey.find(ev);
 		if (kit == _texHandleToKey.end()) continue;
+
 		if (_frameLiveHandles.count(ev))
 		{
 			// Referenced by _drawItems this frame: must not be freed mid-frame.
-			// Re-touch so it stays LRU-tracked (the one-frame budget overage
-			// self-heals next frame); secondary evictions are intentionally not
-			// chased (they remain resident + tracked, freed on a later touch).
+			// Re-touch to keep it resident + LRU-tracked, and chase the secondary
+			// evictions that re-insert causes.
 			auto tit = _textTextures.find(kit->second);
 			if (tit != _textTextures.end())
 			{
 				const std::size_t b = (std::size_t)tit->second->width()
 					* (std::size_t)tit->second->height() * 4u;
-				_textTexLru.touch(ev, b);
+				for (std::uint64_t sec : _textTexLru.touch(ev, b)) work.push_back(sec);
 			}
 			continue;
 		}
+
 		const CalypsoHdTextTextureKey evKey = kit->second;
 		auto tit = _textTextures.find(evKey);
 		if (tit != _textTextures.end())
@@ -433,20 +456,48 @@ void CalypsoHdUiOverlay::dropTextTextures()
 
 bool CalypsoHdUiOverlay::renderStages(SDL_Renderer* renderer)
 {
-	// Dormant unless a subgroup (or the harness) committed this frame.
-	if (!_activeThisFrame && !_harnessEnabled) return true;
-	if (!_mayGoPhysical || !_frozenMetrics.valid()) return true;
+	const bool committed = _activeThisFrame; // committed HD draws exist this frame
 
-	// Boundary zero: flush SDL's batched composite before any raw GL.
-	if (renderer) SDL_RenderFlush(renderer);
+	// Dormant unless a subgroup (or the harness) committed this frame.
+	if (!committed && !_harnessEnabled) return true;
+
+	// A committed frame that cannot present its HD draws must skip present and
+	// latch a wholly-logical next frame (Codex #2): the widgets it claimed were
+	// already suppressed at blit, so presenting now would show a blank/partial
+	// popup. A harness-only frame (nothing committed) just skips silently.
+	auto failCommitted = [this]() {
+		_controller.notePostClaimFailure(); // clears _controller.claims()
+		_ptrClaim.clear();
+		_drawItems.clear();
+		_activeThisFrame = false;
+	};
+
+	if (!_mayGoPhysical || !_frozenMetrics.valid())
+	{
+		if (committed) { failCommitted(); return false; }
+		return true;
+	}
+
+	// Boundary zero: flush SDL's batched composite before any raw GL. A failed
+	// flush means the boundary is unsafe -- do not draw.
+	if (renderer && SDL_RenderFlush(renderer) != 0)
+	{
+		if (committed) { failCommitted(); return false; }
+		return true;
+	}
 
 	ensureGpu();
-	if (!_glReady) return true; // GL not ready: this frame stays logical
+	if (!_glReady) // GL lost between prepare and present, or harness cold-start
+	{
+		if (committed) { failCommitted(); return false; }
+		return true;
+	}
 
 	// One scoped guard around the whole boundary-zero section (A4).
 	CalypsoGlStateGuard guard;
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	while (glGetError() != GL_NO_ERROR) {} // clear any pre-existing GL error
 
 	bool ok = true;
 
@@ -484,15 +535,20 @@ bool CalypsoHdUiOverlay::renderStages(SDL_Renderer* renderer)
 		if (!drawn) ok = false;
 	}
 
+	// Any GL error raised across the whole stage counts as a draw failure -- the
+	// individual drawPhysQuad calls don't report GL errors (Codex #2).
+	if (glGetError() != GL_NO_ERROR) ok = false;
+
 	if (!ok)
 	{
-		// Post-commit draw failure: discard claims, latch one wholly-logical
-		// frame, and tell Screen to skip present so no half-popup is shown.
-		_controller.notePostClaimFailure(); // clears _controller.claims()
-		_ptrClaim.clear();
-		_drawItems.clear();
-		_activeThisFrame = false;
-		return false;
+		if (committed)
+		{
+			// Post-commit draw failure: discard claims, latch one wholly-logical
+			// frame, and tell Screen to skip present so no half-popup is shown.
+			failCommitted();
+			return false;
+		}
+		// Harness-only failure: nothing was committed/claimed, just present clean.
 	}
 
 	// Consume this frame's committed draws AND claims symmetrically (Fable #4):

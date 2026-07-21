@@ -69,6 +69,12 @@ public:
 	void think() override;
 	/// Popups the window.
 	void popup();
+#ifdef __EMSCRIPTEN__
+	/// Calypso Phase 46.2-HD: true once the popup scale-in animation is complete
+	/// (or there was none). An HD family adapter waits for this before drawing
+	/// the physical replacement, so the logical popup animation plays first.
+	bool isPopupDone() const { return _popupStep >= 1.0; }
+#endif
 	/// Draws the window.
 	void draw() override;
 #ifdef __EMSCRIPTEN__

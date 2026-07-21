@@ -71,10 +71,13 @@ private:
 	{
 		std::string vfsPath;
 		int physicalPixelHeight = 0;
+		std::uint64_t resourceGeneration = 0; // bump => open a fresh face (Codex #9)
 
 		bool operator==(const FaceKey& o) const
 		{
-			return physicalPixelHeight == o.physicalPixelHeight && vfsPath == o.vfsPath;
+			return physicalPixelHeight == o.physicalPixelHeight
+			    && resourceGeneration == o.resourceGeneration
+			    && vfsPath == o.vfsPath;
 		}
 	};
 	struct FaceKeyHash
@@ -83,6 +86,7 @@ private:
 		{
 			std::size_t h = std::hash<std::string>()(k.vfsPath);
 			h ^= std::hash<int>()(k.physicalPixelHeight) + 0x9e3779b9u + (h << 6) + (h >> 2);
+			h ^= std::hash<std::uint64_t>()(k.resourceGeneration) + 0x9e3779b9u + (h << 6) + (h >> 2);
 			return h;
 		}
 	};
@@ -91,7 +95,8 @@ private:
 	/// `vfsPath`. Returns nullptr for a non-positive size or a load failure.
 	/// Evicts the least-recently-opened face (FIFO over `_faceOrder`) once
 	/// `_maxFaces` is exceeded.
-	TTF_Font* faceFor(const std::string& vfsPath, int physicalPixelHeight);
+	TTF_Font* faceFor(const std::string& vfsPath, int physicalPixelHeight,
+		std::uint64_t resourceGeneration = 0);
 
 	std::size_t _maxFaces;
 	std::unordered_map<FaceKey, TTF_Font*, FaceKeyHash> _faces;

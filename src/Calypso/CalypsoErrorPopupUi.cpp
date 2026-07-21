@@ -96,51 +96,6 @@ CalypsoLogicalRect widgetRect(const Surface* surface)
 	return { surface->getX(), surface->getY(), surface->getWidth(), surface->getHeight() };
 }
 
-/// Greedy word-wrap against the SAME face the physical raster uses (opened at
-/// `physicalPixelHeight`), so wrap and raster agree. `targetWidthPx` is in
-/// PHYSICAL pixels (rect.w * frozen scaleX). Falls back to the unwrapped string
-/// if the face cannot be opened.
-std::string wrapForWidth(const std::string& utf8Text, const std::string& vfsPath,
-	int physicalPixelHeight, int targetWidthPx, std::vector<int>& breakOffsets)
-{
-	if (utf8Text.empty() || physicalPixelHeight <= 0 || targetWidthPx <= 0) return utf8Text;
-	if (!FileMap::fileExists(vfsPath)) return utf8Text;
-	SDL_RWops* rw = FileMap::getRWops(vfsPath);
-	if (!rw) return utf8Text;
-	TTF_Font* face = TTF_OpenFontRW(rw, /*freesrc=*/1, physicalPixelHeight);
-	if (!face) return utf8Text;
-
-	std::vector<std::string> words;
-	std::string cur;
-	for (char c : utf8Text)
-	{
-		if (c == ' ') { if (!cur.empty()) { words.push_back(cur); cur.clear(); } }
-		else cur += c;
-	}
-	if (!cur.empty()) words.push_back(cur);
-
-	std::string result, line;
-	for (const std::string& word : words)
-	{
-		const std::string candidate = line.empty() ? word : line + " " + word;
-		int w = 0, h = 0;
-		if (!line.empty() && TTF_SizeUTF8(face, candidate.c_str(), &w, &h) == 0 && w > targetWidthPx)
-		{
-			breakOffsets.push_back(static_cast<int>(result.size() + line.size()));
-			result += line;
-			result += '\n';
-			line = word;
-		}
-		else
-		{
-			line = candidate;
-		}
-	}
-	result += line;
-	TTF_CloseFont(face);
-	return result;
-}
-
 } // namespace
 
 // --- Adapter ---------------------------------------------------------------
@@ -158,6 +113,11 @@ const void* CalypsoErrorPopupUi::topState() const
 void CalypsoErrorPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 {
 	if (!_state || !_state->_hdLayout || !_state->_game) return;
+
+	// Let the logical popup's scale-in animation play; only take over physically
+	// once the window is fully popped, so the HD popup doesn't snap in instantly
+	// while the animating logical widgets are suppressed (Codex #1).
+	if (_state->_window && !_state->_window->isPopupDone()) return;
 
 	Mod* mod = _state->_game->getMod();
 	CalypsoTtfSourceDescriptor heading;
@@ -210,24 +170,20 @@ void CalypsoErrorPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 		if (r.w <= 0 || r.h <= 0) return;
 
 		const int hint = linesHint > 0 ? linesHint : 1;
-		// Physical font height from the frozen vertical scale (remediation B3):
-		// per-line logical box height * scaleY, never a hardcoded DPR.
+		// Physical font height from the frozen vertical scale: the layout box
+		// height encodes the design font proportion, so per-line box height *
+		// scaleY carries the design->physical scale (never a hardcoded DPR).
 		const int physicalPixelHeight = std::max(1, (int)calypsoHdRoundToInt((double)r.h / hint * sy));
-
-		std::vector<int> breakOffsets;
-		std::string resolved = text;
-		if (hint > 1)
-		{
-			const int targetWidthPx = std::max(1, (int)calypsoHdRoundToInt((double)r.w * sx));
-			resolved = wrapForWidth(text, font.canonicalVfsPath, physicalPixelHeight,
-				targetWidthPx, breakOffsets);
-		}
+		// Multi-line boxes: let SDL_ttf wrap at the physical box width (correct for
+		// CJK / no-space text -- Codex #5); single-line boxes never wrap.
+		const int wrapWidth = (hint > 1)
+			? std::max(1, (int)calypsoHdRoundToInt((double)r.w * sx)) : 0;
 
 		CalypsoHdTextRasterKey key;
 		key.source = font;
 		key.physicalPixelHeight = physicalPixelHeight;
-		key.text = resolved;
-		key.breakSignature = calypsoHashLineBreaks(breakOffsets);
+		key.text = text;
+		key.wrapWidth = wrapWidth;
 		key.colorRgba = color;
 		key.direction = CalypsoTextDirection::LTR;
 

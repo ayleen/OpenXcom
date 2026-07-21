@@ -27,14 +27,15 @@ CalypsoHdTextRaster::~CalypsoHdTextRaster()
 	clear();
 }
 
-TTF_Font* CalypsoHdTextRaster::faceFor(const std::string& vfsPath, int physicalPixelHeight)
+TTF_Font* CalypsoHdTextRaster::faceFor(const std::string& vfsPath, int physicalPixelHeight,
+	std::uint64_t resourceGeneration)
 {
 	if (physicalPixelHeight <= 0)
 	{
 		return nullptr;
 	}
 
-	FaceKey key{vfsPath, physicalPixelHeight};
+	FaceKey key{vfsPath, physicalPixelHeight, resourceGeneration};
 	auto it = _faces.find(key);
 	if (it != _faces.end())
 	{
@@ -97,7 +98,8 @@ SDL_Surface* CalypsoHdTextRaster::rasterFor(const CalypsoHdTextRasterKey& key)
 		return it->second;
 	}
 
-	TTF_Font* face = faceFor(key.source.canonicalVfsPath, key.physicalPixelHeight);
+	TTF_Font* face = faceFor(key.source.canonicalVfsPath, key.physicalPixelHeight,
+		key.source.resourceGeneration);
 	if (!face)
 	{
 		return nullptr;
@@ -111,13 +113,14 @@ SDL_Surface* CalypsoHdTextRaster::rasterFor(const CalypsoHdTextRasterKey& key)
 	c.b = static_cast<Uint8>((key.colorRgba >> 8) & 0xFFu);
 	c.a = static_cast<Uint8>(key.colorRgba & 0xFFu);
 
-	// Wrapped render (remediation, Fable #1): key.text may carry embedded '\n'
-	// line breaks (an adapter word-wraps multi-line boxes). The single-line
-	// TTF_RenderUTF8_Blended renders '\n' as a notdef glyph and concatenates the
-	// lines horizontally; the _Wrapped variant with wrapLength=0 breaks ONLY on
-	// the existing newlines, producing a correct stacked multi-line surface.
-	// Single-line text (no '\n') renders identically to the non-wrapped call.
-	SDL_Surface* surf = TTF_RenderUTF8_Blended_Wrapped(face, key.text.c_str(), c, 0);
+	// Wrapped render (Fable #1 / Codex #5). key.wrapWidth == 0 wraps only on
+	// embedded '\n' (single-line or author-broken text); key.wrapWidth > 0 lets
+	// SDL_ttf break the text at that physical pixel width -- which breaks CJK and
+	// no-space text correctly, unlike an ASCII-space pre-wrap. The single-line
+	// TTF_RenderUTF8_Blended would render '\n' as a notdef glyph, so always use
+	// the _Wrapped variant.
+	const Uint32 wrap = key.wrapWidth > 0 ? static_cast<Uint32>(key.wrapWidth) : 0u;
+	SDL_Surface* surf = TTF_RenderUTF8_Blended_Wrapped(face, key.text.c_str(), c, wrap);
 	if (!surf)
 	{
 		Log(LOG_ERROR) << "CalypsoHdTextRaster: TTF_RenderUTF8_Blended_Wrapped failed: " << TTF_GetError();

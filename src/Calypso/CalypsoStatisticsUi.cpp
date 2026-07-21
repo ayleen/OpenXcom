@@ -162,6 +162,10 @@ void CalypsoStatisticsUi::collect(CalypsoHdFrameBuilder& builder) const
 {
 	if (!_state || !_state->_hdLayout || !_state->_game) return;
 
+	// Let the logical window's scale-in animation play before taking over
+	// physically (Codex #1).
+	if (_state->_window && !_state->_window->isPopupDone()) return;
+
 	Mod* mod = _state->_game->getMod();
 	CalypsoTtfSourceDescriptor heading;
 	CalypsoTtfSourceDescriptor mono;
@@ -222,59 +226,16 @@ void CalypsoStatisticsUi::collect(CalypsoHdFrameBuilder& builder) const
 			(int)calypsoHdRoundToInt((double)r.h / hint * sy));
 		const int targetWidthPx = std::max(1, (int)calypsoHdRoundToInt((double)r.w * sx));
 
-		// Wrap against the same face the physical raster uses so wrap and raster
-		// agree; breakSignature encodes the chosen breaks in the cache key. For
-		// the single-line title the only "break" is the author-side TOK_NL_SMALL
-		// already converted to '\n' above, encoded as a zero-offset entry.
-		std::vector<int> breakOffsets;
-		std::string resolved = text;
-		if (hint > 1)
-		{
-			// Use SDL_ttf to greedily wrap; if the face cannot be opened the
-			// unwrapped string (with its explicit '\n') is kept.
-			if (FileMap::fileExists(font.canonicalVfsPath))
-			{
-				SDL_RWops* rw = FileMap::getRWops(font.canonicalVfsPath);
-				if (rw)
-				{
-					if (TTF_Font* face = TTF_OpenFontRW(rw, /*freesrc=*/1, physicalPixelHeight))
-					{
-						std::vector<std::string> words;
-						std::string cur;
-						for (char c : resolved)
-						{
-							if (c == ' ') { if (!cur.empty()) { words.push_back(cur); cur.clear(); } }
-							else cur += c;
-						}
-						if (!cur.empty()) words.push_back(cur);
-						std::string wrapped, line;
-						for (const std::string& word : words)
-						{
-							const std::string candidate = line.empty() ? word : line + " " + word;
-							int w = 0, h = 0;
-							if (!line.empty() && TTF_SizeUTF8(face, candidate.c_str(), &w, &h) == 0
-								&& w > targetWidthPx)
-							{
-								breakOffsets.push_back(static_cast<int>(wrapped.size() + line.size()));
-								wrapped += line;
-								wrapped += '\n';
-								line = word;
-							}
-							else line = candidate;
-						}
-						wrapped += line;
-						TTF_CloseFont(face);
-						resolved = wrapped;
-					}
-				}
-			}
-		}
+		// Multi-line boxes let SDL_ttf wrap at the physical box width (correct for
+		// CJK / no-space text -- Codex #5); the text keeps any author-side
+		// TOK_NL_SMALL already converted to '\n'. Single-line boxes never wrap.
+		const int wrapWidth = (hint > 1) ? targetWidthPx : 0;
 
 		CalypsoHdTextRasterKey key;
 		key.source = font;
 		key.physicalPixelHeight = physicalPixelHeight;
-		key.text = resolved;
-		key.breakSignature = calypsoHashLineBreaks(breakOffsets);
+		key.text = text;
+		key.wrapWidth = wrapWidth;
 		key.colorRgba = color;
 		key.direction = CalypsoTextDirection::LTR;
 
