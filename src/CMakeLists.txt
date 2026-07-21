@@ -913,7 +913,8 @@ if(NOT EMSCRIPTEN AND BUILD_TESTING)
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/HdUnitRenderPlanTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoViewportModelTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdUiModelTest.cpp
-        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdFrameControllerTest.cpp)
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdFrameControllerTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdTextRasterKeyTest.cpp)
 
     add_executable(oxce_unit_tests ${OXCE_TEST_SOURCES})
     target_link_libraries(oxce_unit_tests PRIVATE oxce_test_doctest)
