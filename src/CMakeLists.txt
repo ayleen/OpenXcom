@@ -620,6 +620,7 @@ if(EMSCRIPTEN)
   list(APPEND openxcom_src Calypso/CalypsoHdTextRaster.cpp)
   list(APPEND openxcom_src Calypso/CalypsoErrorPopupUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoStatisticsUi.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoNotesUi.cpp)
 
   # Phase 8b: regenerate embedded shader table before each build when any
   # *.vert or *.frag file in Engine/Shaders/ has changed.

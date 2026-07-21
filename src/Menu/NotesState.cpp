@@ -25,6 +25,7 @@
 #include "../Engine/Unicode.h"
 #include "../Calypso/CalypsoNotePreview.h"
 #include "../Calypso/CalypsoNotesInput.h"
+#include "../Calypso/CalypsoNotesUi.h" // Phase 46.2-HD (empty on native)
 #ifdef __EMSCRIPTEN__
 #include "../Mod/Mod.h"
 #endif
@@ -211,6 +212,13 @@ NotesState::NotesState(OptionsOrigin origin) :
 		restoreCalypsoFocus("notes.list", _focusGeneration);
 		applyHdVisualStyle();
 	}
+
+#ifdef __EMSCRIPTEN__
+	// Phase 46.2-HD: attach the physical-resolution overlay adapter (no-op unless
+	// _hdLayout). It only reads these HD widgets and draws crisp physical
+	// replacements; all Notes logic above stays as-is.
+	Calypso::CalypsoNotesUi::configure(*this);
+#endif
 }
 
 /**
@@ -218,7 +226,11 @@ NotesState::NotesState(OptionsOrigin origin) :
  */
 NotesState::~NotesState()
 {
-
+#ifdef __EMSCRIPTEN__
+	// The adapter's destructor unregisters it from the overlay iff still active.
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 }
 
 /**
