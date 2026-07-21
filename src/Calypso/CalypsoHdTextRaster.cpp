@@ -111,10 +111,16 @@ SDL_Surface* CalypsoHdTextRaster::rasterFor(const CalypsoHdTextRasterKey& key)
 	c.b = static_cast<Uint8>((key.colorRgba >> 8) & 0xFFu);
 	c.a = static_cast<Uint8>(key.colorRgba & 0xFFu);
 
-	SDL_Surface* surf = TTF_RenderUTF8_Blended(face, key.text.c_str(), c);
+	// Wrapped render (remediation, Fable #1): key.text may carry embedded '\n'
+	// line breaks (an adapter word-wraps multi-line boxes). The single-line
+	// TTF_RenderUTF8_Blended renders '\n' as a notdef glyph and concatenates the
+	// lines horizontally; the _Wrapped variant with wrapLength=0 breaks ONLY on
+	// the existing newlines, producing a correct stacked multi-line surface.
+	// Single-line text (no '\n') renders identically to the non-wrapped call.
+	SDL_Surface* surf = TTF_RenderUTF8_Blended_Wrapped(face, key.text.c_str(), c, 0);
 	if (!surf)
 	{
-		Log(LOG_ERROR) << "CalypsoHdTextRaster: TTF_RenderUTF8_Blended failed: " << TTF_GetError();
+		Log(LOG_ERROR) << "CalypsoHdTextRaster: TTF_RenderUTF8_Blended_Wrapped failed: " << TTF_GetError();
 		return nullptr;
 	}
 

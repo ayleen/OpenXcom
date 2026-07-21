@@ -77,6 +77,7 @@ void CalypsoHdUiOverlay::beginFrame(int logicalWidth, int logicalHeight)
 	_activeThisFrame = false;
 	_ptrClaim.clear();
 	_drawItems.clear();
+	_frameLiveHandles.clear();
 }
 
 void CalypsoHdUiOverlay::prepareFrame(int logicalWidth, int logicalHeight, const void* topState)
@@ -217,26 +218,28 @@ void CalypsoHdUiOverlay::onContextRestored()
 	_glReady = false;
 	++_contextGen;      // A6: segregate the texture cache by generation
 	dropTextTextures(); // free stale-generation GpuTextures
-	_whiteTex = nullptr; // recreated lazily (GpuTexture self-recovers, but re-make)
-	_harnessTex = nullptr;
+	// Delete (not just null) the shared textures so they are not leaked per
+	// context restore (Fable #8); they are recreated lazily.
+	delete _whiteTex;   _whiteTex = nullptr;
+	delete _harnessTex; _harnessTex = nullptr;
 	_controller.noteContextRestored();
 }
 
 GpuTexture* CalypsoHdUiOverlay::whiteTexture()
 {
 	if (_whiteTex && _whiteTex->isValid()) return _whiteTex;
-	if (!_whiteTex)
-	{
-		const std::uint8_t px[4] = { 255, 255, 255, 255 };
-		_whiteTex = new GpuTexture(/*srgb=*/false,
-			GpuTexture::Wrap::ClampToEdge, GpuTexture::Filter::Nearest);
-		_whiteTex->uploadRGBA(px, 1, 1);
-	}
+	// Non-null but invalid (a failed first upload / lost context): rebuild rather
+	// than return a dead texture that leaves panels permanently Not Ready (Fable #8).
+	if (_whiteTex) { delete _whiteTex; _whiteTex = nullptr; }
+	const std::uint8_t px[4] = { 255, 255, 255, 255 };
+	_whiteTex = new GpuTexture(/*srgb=*/false,
+		GpuTexture::Wrap::ClampToEdge, GpuTexture::Filter::Nearest);
+	_whiteTex->uploadRGBA(px, 1, 1);
 	return _whiteTex;
 }
 
 bool CalypsoHdUiOverlay::drawPhysQuad(GpuTexture* tex, const CalypsoPhysRect& r,
-	std::uint32_t colorRgba)
+	std::uint32_t colorRgba, float u0, float v0, float u1, float v1)
 {
 	if (!tex || !tex->isValid() || !_hdShader || !_hdShader->isValid() || !_vao) return false;
 	const float physW = (float)_frozenMetrics.physicalWidth;
@@ -250,12 +253,12 @@ bool CalypsoHdUiOverlay::drawPhysQuad(GpuTexture* tex, const CalypsoPhysRect& r,
 	const float y1 = -(2.0f * (float)(r.y + r.h) / physH - 1.0f);
 
 	const float verts[6 * 4] = {
-		x0, y0, 0.0f, 0.0f,
-		x1, y0, 1.0f, 0.0f,
-		x0, y1, 0.0f, 1.0f,
-		x0, y1, 0.0f, 1.0f,
-		x1, y0, 1.0f, 0.0f,
-		x1, y1, 1.0f, 1.0f,
+		x0, y0, u0, v0,
+		x1, y0, u1, v0,
+		x0, y1, u0, v1,
+		x0, y1, u0, v1,
+		x1, y0, u1, v0,
+		x1, y1, u1, v1,
 	};
 
 	glBindBuffer(GL_ARRAY_BUFFER, _vbo);
@@ -299,31 +302,34 @@ bool CalypsoHdUiOverlay::drawGlyph(const ResolvedDraw& d)
 	const CalypsoPhysRect box = calypsoMapLogicalRect(d.rect, _frozenMetrics);
 	if (box.empty()) return true; // nothing to draw is not a failure
 
-	int gw = d.naturalW, gh = d.naturalH;
+	const int gw = d.naturalW, gh = d.naturalH;
 	if (gw <= 0 || gh <= 0) return true;
-	// Clamp to the box (overflow should be prevented by metrics-based sizing +
-	// wrapping; clamping keeps a stray overflow inside its box rather than
-	// bleeding across the popup).
-	if (gw > box.w) gw = box.w;
-	if (gh > box.h) gh = box.h;
+
+	// The box is the layout + CLIP target, never a stretch target (remediation
+	// B2 / Fable #2). If the natural glyph is larger than the box, show only the
+	// part that fits by sampling a UV sub-rect -- the pixels are NOT compressed.
+	const int vw = gw > box.w ? box.w : gw; // visible (drawn) size
+	const int vh = gh > box.h ? box.h : gh;
+	const float u1 = (float)vw / (float)gw; // 1.0 when it fits (full glyph)
+	const float v1 = (float)vh / (float)gh;
 
 	int gx = box.x;
 	switch (d.hAlign)
 	{
-	case CalypsoHdHAlign::Center: gx = box.x + (box.w - gw) / 2; break;
-	case CalypsoHdHAlign::Right:  gx = box.x + (box.w - gw); break;
+	case CalypsoHdHAlign::Center: gx = box.x + (box.w - vw) / 2; break;
+	case CalypsoHdHAlign::Right:  gx = box.x + (box.w - vw); break;
 	case CalypsoHdHAlign::Left:   default: gx = box.x; break;
 	}
 	int gy = box.y;
 	switch (d.vAlign)
 	{
-	case CalypsoHdVAlign::Middle: gy = box.y + (box.h - gh) / 2; break;
-	case CalypsoHdVAlign::Bottom: gy = box.y + (box.h - gh); break;
+	case CalypsoHdVAlign::Middle: gy = box.y + (box.h - vh) / 2; break;
+	case CalypsoHdVAlign::Bottom: gy = box.y + (box.h - vh); break;
 	case CalypsoHdVAlign::Top:    default: gy = box.y; break;
 	}
 
-	CalypsoPhysRect dst{ gx, gy, gw, gh };
-	return drawPhysQuad(d.tex, dst, 0 /*text tex is pre-coloured*/);
+	CalypsoPhysRect dst{ gx, gy, vw, vh };
+	return drawPhysQuad(d.tex, dst, 0 /*text tex is pre-coloured*/, 0.0f, 0.0f, u1, v1);
 }
 
 GpuTexture* CalypsoHdUiOverlay::textureForText(const CalypsoHdTextRasterKey& rasterKey)
@@ -340,7 +346,8 @@ GpuTexture* CalypsoHdUiOverlay::textureForText(const CalypsoHdTextRasterKey& ras
 		{
 			GpuTexture* t = it->second;
 			const std::size_t bytes = (std::size_t)t->width() * (std::size_t)t->height() * 4u;
-			_textTexLru.touch(hit->second, bytes); // refresh recency; not evicted
+			_frameLiveHandles.insert(hit->second);            // pin this frame (Fable #3)
+			evictTextTextures(_textTexLru.touch(hit->second, bytes)); // process evictions (Fable #9)
 		}
 		return it->second;
 	}
@@ -365,11 +372,33 @@ GpuTexture* CalypsoHdUiOverlay::textureForText(const CalypsoHdTextRasterKey& ras
 	_textTextures.emplace(tk, tex);
 	_texKeyToHandle.emplace(tk, handle);
 	_texHandleToKey.emplace(handle, tk);
+	_frameLiveHandles.insert(handle); // pin this frame (Fable #3)
 
-	for (std::uint64_t ev : _textTexLru.touch(handle, byteCost))
+	evictTextTextures(_textTexLru.touch(handle, byteCost));
+	return tex;
+}
+
+void CalypsoHdUiOverlay::evictTextTextures(const std::vector<std::uint64_t>& evicted)
+{
+	for (std::uint64_t ev : evicted)
 	{
 		auto kit = _texHandleToKey.find(ev);
 		if (kit == _texHandleToKey.end()) continue;
+		if (_frameLiveHandles.count(ev))
+		{
+			// Referenced by _drawItems this frame: must not be freed mid-frame.
+			// Re-touch so it stays LRU-tracked (the one-frame budget overage
+			// self-heals next frame); secondary evictions are intentionally not
+			// chased (they remain resident + tracked, freed on a later touch).
+			auto tit = _textTextures.find(kit->second);
+			if (tit != _textTextures.end())
+			{
+				const std::size_t b = (std::size_t)tit->second->width()
+					* (std::size_t)tit->second->height() * 4u;
+				_textTexLru.touch(ev, b);
+			}
+			continue;
+		}
 		const CalypsoHdTextTextureKey evKey = kit->second;
 		auto tit = _textTextures.find(evKey);
 		if (tit != _textTextures.end())
@@ -380,7 +409,6 @@ GpuTexture* CalypsoHdUiOverlay::textureForText(const CalypsoHdTextRasterKey& ras
 		_texKeyToHandle.erase(evKey);
 		_texHandleToKey.erase(kit);
 	}
-	return tex;
 }
 
 void CalypsoHdUiOverlay::dropTextTextures()
@@ -450,16 +478,20 @@ bool CalypsoHdUiOverlay::renderStages(SDL_Renderer* renderer)
 	{
 		// Post-commit draw failure: discard claims, latch one wholly-logical
 		// frame, and tell Screen to skip present so no half-popup is shown.
-		_controller.notePostClaimFailure();
+		_controller.notePostClaimFailure(); // clears _controller.claims()
+		_ptrClaim.clear();
 		_drawItems.clear();
 		_activeThisFrame = false;
 		return false;
 	}
 
-	// Consume this frame's committed draws so a second, unpaired Screen::flip()
-	// (e.g. a loading screen not routed through Game::run's prepareFrame) does
-	// not re-draw a stale popup. beginFrame() re-populates them next frame.
+	// Consume this frame's committed draws AND claims symmetrically (Fable #4):
+	// a second, unpaired Screen::flip() (e.g. a loading screen not routed through
+	// Game::run's prepareFrame) must neither re-draw a stale popup NOR suppress a
+	// widget's logical blit. beginFrame() re-populates both next frame.
 	_drawItems.clear();
+	_ptrClaim.clear();
+	_controller.claims().clear();
 	_activeThisFrame = false;
 	return true;
 }

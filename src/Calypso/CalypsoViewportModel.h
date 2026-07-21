@@ -194,8 +194,14 @@ public:
 		// poll-only resize is exactly when a derived orientation can go stale.
 		if (_state.orientationSource != CalypsoOrientationSource::Explicit)
 		{
-			next.orientation = deriveOrientation(next);
-			next.orientationSource = (next.orientation == CalypsoOrientation::Unknown)
+			// The poll just updated the PHYSICAL dims; derive from them, not the
+			// possibly-stale logical pair deriveOrientation() would prefer -- a
+			// poll-only rotation is exactly when logical is stale (Fable #11).
+			// Fall back to the general derive only if physical is degenerate.
+			CalypsoOrientation o = calypsoOrientationFromSize(next.physicalWidth, next.physicalHeight);
+			if (o == CalypsoOrientation::Unknown) o = deriveOrientation(next);
+			next.orientation = o;
+			next.orientationSource = (o == CalypsoOrientation::Unknown)
 				? CalypsoOrientationSource::Unknown : CalypsoOrientationSource::Derived;
 		}
 		return commit(next);

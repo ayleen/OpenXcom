@@ -45,6 +45,7 @@
 #include <memory>
 #include <vector>
 #include <unordered_map>
+#include <unordered_set>
 
 struct SDL_Renderer;
 
@@ -129,10 +130,12 @@ private:
 	/// commits its claims); on any failure return false and commit nothing.
 	bool resolveSubgroup(const CalypsoHdSubgroup& subgroup, std::vector<ResolvedDraw>& out);
 
-	/// Core NDC draw of `tex` into a physical device-pixel rect. Returns false if
-	/// the shader/VAO/texture are not drawable. Assumes the GL guard + blend are
-	/// already set by renderStages.
-	bool drawPhysQuad(GpuTexture* tex, const CalypsoPhysRect& r, std::uint32_t colorRgba);
+	/// Core NDC draw of `tex` into a physical device-pixel rect, sampling the
+	/// texture over the UV sub-rect [u0,v0]-[u1,v1] (default full 0..1). Returns
+	/// false if the shader/VAO/texture are not drawable. Assumes the GL guard +
+	/// blend are already set by renderStages.
+	bool drawPhysQuad(GpuTexture* tex, const CalypsoPhysRect& r, std::uint32_t colorRgba,
+		float u0 = 0.0f, float v0 = 0.0f, float u1 = 1.0f, float v1 = 1.0f);
 	/// Map a logical rect to physical and draw (panels).
 	bool drawLogicalQuad(GpuTexture* tex, const CalypsoLogicalRect& logical, std::uint32_t colorRgba);
 	/// Place a natural-size glyph bitmap inside the mapped box per alignment and
@@ -141,6 +144,10 @@ private:
 
 	GpuTexture* whiteTexture();
 	GpuTexture* textureForText(const CalypsoHdTextRasterKey& rasterKey);
+	/// Process an LRU eviction list: free + forget each evicted text texture,
+	/// EXCEPT handles pinned this frame (still referenced by _drawItems), which
+	/// are re-touched to stay resident and tracked (Fable #3/#9).
+	void evictTextTextures(const std::vector<std::uint64_t>& evicted);
 	void dropTextTextures();
 
 	CalypsoHdFrameController _controller;
@@ -180,6 +187,10 @@ private:
 	CalypsoLruByteBudget _textTexLru{ 16u * 1024u * 1024u };
 	std::uint64_t _texNextHandle = 1;
 	std::uint64_t _contextGen = 0;
+	// Handles resolved THIS frame (referenced by _drawItems); never evicted/freed
+	// mid-frame so a later resolve can't dangle an already-queued texture
+	// (remediation Fable #3). Cleared each beginFrame.
+	std::unordered_set<std::uint64_t> _frameLiveHandles;
 };
 
 } // namespace Calypso
