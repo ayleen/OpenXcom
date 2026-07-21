@@ -71,6 +71,9 @@ public:
 	void popup();
 	/// Draws the window.
 	void draw() override;
+#ifdef __EMSCRIPTEN__
+	void blit(SDL_Surface* surface) override;
+#endif
 	/// sets the X delta.
 	void setDX(int dx);
 	/// sets the Y delta.

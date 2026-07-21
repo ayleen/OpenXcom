@@ -113,9 +113,21 @@ inline CalypsoHdPresentationMetrics calypsoMakeStretchMetrics(
 	return m;
 }
 
+/// Saturate a 64-bit value to the int range (no signed-overflow UB).
+inline int calypsoSatI64ToInt(long long v)
+{
+	if (v <= -2147483648LL) return -2147483647 - 1;
+	if (v >=  2147483647LL) return  2147483647;
+	return static_cast<int>(v);
+}
+
 /// Map a logical rectangle to physical device pixels by mapping each edge
 /// independently and differencing, so that abutting logical rectangles stay
 /// gap-free after rounding. Content offsets are applied in physical space.
+/// All post-round arithmetic (offset add, edge difference) is done in 64-bit
+/// and saturated back to int, so even a degenerate scale/offset can never
+/// produce signed-overflow UB -- the helper's documented overflow-safety
+/// guarantee is proven by the INT_MIN/INT_MAX doctest cases.
 inline CalypsoPhysRect calypsoMapLogicalRect(
 	const CalypsoLogicalRect& r, const CalypsoHdPresentationMetrics& m)
 {
@@ -123,16 +135,30 @@ inline CalypsoPhysRect calypsoMapLogicalRect(
 	const double right  = static_cast<double>(r.x) + r.w;
 	const double top    = r.y;
 	const double bottom = static_cast<double>(r.y) + r.h;
-	const int px0 = calypsoHdRoundToInt(left   * m.scaleX) + m.contentOffsetX;
-	const int px1 = calypsoHdRoundToInt(right  * m.scaleX) + m.contentOffsetX;
-	const int py0 = calypsoHdRoundToInt(top    * m.scaleY) + m.contentOffsetY;
-	const int py1 = calypsoHdRoundToInt(bottom * m.scaleY) + m.contentOffsetY;
+	const long long ox = m.contentOffsetX;
+	const long long oy = m.contentOffsetY;
+	const long long px0 = static_cast<long long>(calypsoHdRoundToInt(left   * m.scaleX)) + ox;
+	const long long px1 = static_cast<long long>(calypsoHdRoundToInt(right  * m.scaleX)) + ox;
+	const long long py0 = static_cast<long long>(calypsoHdRoundToInt(top    * m.scaleY)) + oy;
+	const long long py1 = static_cast<long long>(calypsoHdRoundToInt(bottom * m.scaleY)) + oy;
 	CalypsoPhysRect out;
-	out.x = px0;
-	out.y = py0;
-	out.w = px1 - px0;
-	out.h = py1 - py0;
+	out.x = calypsoSatI64ToInt(px0);
+	out.y = calypsoSatI64ToInt(py0);
+	out.w = calypsoSatI64ToInt(px1 - px0);
+	out.h = calypsoSatI64ToInt(py1 - py0);
 	return out;
+}
+
+/// Pack 8-bit RGBA channels into the canonical 0xRRGGBBAA word the HD text
+/// rasteriser unpacks (R=v>>24, G=v>>16, B=v>>8, A=v). Use this for every
+/// theme colour literal so the byte order can never silently drift to ARGB.
+constexpr std::uint32_t calypsoRgba(std::uint8_t r, std::uint8_t g,
+	std::uint8_t b, std::uint8_t a = 255)
+{
+	return (static_cast<std::uint32_t>(r) << 24)
+	     | (static_cast<std::uint32_t>(g) << 16)
+	     | (static_cast<std::uint32_t>(b) << 8)
+	     |  static_cast<std::uint32_t>(a);
 }
 
 /// Intersect two physical rectangles. Returns false (and leaves `out`

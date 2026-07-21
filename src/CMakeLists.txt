@@ -618,7 +618,6 @@ if(EMSCRIPTEN)
   list(APPEND openxcom_src Calypso/CalypsoHdUiOverlay.cpp)
   list(APPEND openxcom_src Calypso/CalypsoHdFontSource.cpp)
   list(APPEND openxcom_src Calypso/CalypsoHdTextRaster.cpp)
-  list(APPEND openxcom_src Calypso/CalypsoHdWidgetBridge.cpp)
   list(APPEND openxcom_src Calypso/CalypsoErrorPopupUi.cpp)
 
   # Phase 8b: regenerate embedded shader table before each build when any

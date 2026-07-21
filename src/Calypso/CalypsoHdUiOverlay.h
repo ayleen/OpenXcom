@@ -6,28 +6,42 @@
  *
  * One instance for the renderer's lifetime. It owns the per-frame lifecycle
  * (CalypsoHdFrameController), the ONE frozen presentation-metrics snapshot for
- * the current frame, and -- once a family adapter submits an enabled group --
- * the shared GPU resources, bounded raster/texture caches, frame claims, and
- * the ordered HD UI + diagnostics stages.
+ * the current frame, the ONE claim store (identity + an ephemeral widget-ptr
+ * lookup), the shared GPU resources, the bounded raster/texture caches, and the
+ * ordered committed draw list.
  *
- * This checkpoint (HD.2) lands the lifecycle skeleton and the two Screen
- * seams: beginFrame() freezes metrics + advances the frame at the top of
- * Screen::flip(), and renderStages() runs after the legacy composite. With no
- * enabled group the queue is DORMANT -- every entry early-returns and native
- * behaviour is byte-for-byte unchanged. Widget adapters, physical text upload,
- * and the drawing stages arrive in HD.3/HD.4.
+ * Remediation lifecycle (A1/A3/A7):
+ *   prepareFrame()  -- called at the PRE-BLIT boundary (Game::run, before any
+ *                      visible State::blit): freeze metrics, advance the frame,
+ *                      reset per-frame state, ask the active family adapter to
+ *                      collect an immutable description, then raster+upload each
+ *                      atomic subgroup and COMMIT claims + draws only for the
+ *                      subgroups that are fully Ready. A failure before commit
+ *                      takes no claims -> the widgets render logically.
+ *   (State::blit)   -- claimed widgets skip their blit (widgetClaimed()).
+ *   renderStages()  -- called after the legacy composite in Screen::flip():
+ *                      draws the already-committed, already-uploaded items in
+ *                      deterministic order behind one GL state guard. A draw
+ *                      failure discards claims, latches a wholly-logical next
+ *                      frame, and returns false so Screen skips SDL_RenderPresent.
  *
- * Whole-file Emscripten guard (Phase 36 placement policy). The heavy logic it
- * composes -- CalypsoHdFrameController, CalypsoHdPresentationMetrics,
- * CalypsoViewportModel -- is portable and natively tested.
+ * With no adapter committing this frame the queue is DORMANT: prepareFrame does
+ * the cheap begin only, renderStages early-returns, and native behaviour is
+ * byte-for-byte unchanged.
+ *
+ * Whole-file Emscripten guard (Phase 36). The heavy logic it composes
+ * (CalypsoHdFrameController, presentation metrics, claim/readiness/order model)
+ * is portable and natively tested.
  */
 #ifdef __EMSCRIPTEN__
 
 #include "CalypsoHdFrameController.h"
+#include "CalypsoHdFamilyAdapter.h"
 #include "CalypsoHdUiModel.h"
 #include "CalypsoHdTextRasterKey.h"
 #include "CalypsoHdTextRaster.h"
 
+#include <cstdint>
 #include <memory>
 #include <vector>
 #include <unordered_map>
@@ -47,60 +61,36 @@ class CalypsoHdUiOverlay
 public:
 	static CalypsoHdUiOverlay& instance();
 
-	/// Top of Screen::flip(): poll the canvas backing store, freeze ONE
-	/// presentation-metrics snapshot for this frame, and advance the frame
-	/// controller. `logicalWidth/Height` are the engine's logical base
-	/// resolution (Options::baseX/YResolution). After this returns nothing may
-	/// remix the frozen metrics until the next frame.
-	void beginFrame(int logicalWidth, int logicalHeight);
+	/// Pre-blit boundary (Game::run, before visible State::blit). Poll the
+	/// canvas backing store, freeze ONE presentation-metrics snapshot, advance
+	/// the frame controller (clearing last frame's claims), then -- if physical
+	/// output is permitted and the active adapter feeds `topState` -- collect,
+	/// raster, upload, and commit the Ready subgroups. `logicalWidth/Height` are
+	/// the engine's logical base resolution (Options::baseX/YResolution).
+	void prepareFrame(int logicalWidth, int logicalHeight, const void* topState);
 
-	/// After the legacy composite in Screen::flip(): run the ordered HD UI and
-	/// diagnostics stages. Dormant (no-op) until an adapter submits an enabled
-	/// group. `renderer` is the active SDL renderer, flushed before any raw GL
-	/// (boundary zero). Returns false if a post-claim draw failure occurred
-	/// (the caller then skips SDL_RenderPresent); true otherwise.
+	/// After the legacy composite in Screen::flip(): draw this frame's committed
+	/// items in order behind one GL state guard. Dormant (no-op, returns true)
+	/// unless a subgroup committed this frame. Returns false if a post-commit
+	/// draw failed (the caller then skips SDL_RenderPresent).
 	bool renderStages(SDL_Renderer* renderer);
 
-	/// Developer harness (Emscripten export): toggle a single physical-
-	/// resolution test quad drawn through the real GL path (shader, VAO/VBO,
-	/// texture upload, logical->physical mapping, boundary-zero, reset
-	/// callback). Off by default; used to browser-verify the HD.2 GL pipeline
-	/// before any family adapter exists.
+	/// Register/clear the active family adapter. A state registers itself while
+	/// it is top and clears it on destruction (iff still active). Non-owning.
+	void registerAdapter(const CalypsoHdFamilyAdapter* adapter);
+	void clearAdapter(const CalypsoHdFamilyAdapter* adapter);
+
+	/// True iff `widget` had a logical visual claimed this frame AND `frameId`
+	/// is the current frame. Called from Text/TextButton/Window blit() to skip
+	/// the logical draw exactly when the overlay took the visual over.
+	bool widgetClaimed(const void* widget, std::uint64_t frameId) const;
+
+	/// Developer harness (Emscripten export): a single physical-resolution test
+	/// quad through the real GL path. Off by default.
 	void setHarnessEnabled(bool on);
 
-	/// One physical HD text visual to draw this frame: a raster identity (font
-	/// descriptor + physical pixel height + resolved text + colour + processed-
-	/// break signature) and the logical rectangle it lands in. A family adapter
-	/// (which has Mod access to resolve the descriptor) submits these each frame
-	/// for its Ready subgroups; the queue rasterises at physical height, uploads
-	/// once, and blits through hd_ui. Cleared at the start of every frame.
-	struct TextSubmit
-	{
-		CalypsoHdTextRasterKey rasterKey;
-		CalypsoLogicalRect rect;
-	};
-	void submitText(const TextSubmit& item);
-
-	/// One solid/tinted HD panel or window fill to draw this frame (a painter
-	/// item): a logical rectangle and a packed RGBA colour. Windows compose as a
-	/// fill plus a border-coloured inset; icons use the RGBA path (a family
-	/// adapter uploads its own asset texture and submits it as text-style item).
-	struct PanelSubmit
-	{
-		CalypsoLogicalRect rect;
-		std::uint32_t colorRgba = 0;
-	};
-	void submitPanel(const PanelSubmit& item);
-
-	/// Claim a live widget's logical visual for the current frame: its own draw
-	/// path will render nothing (the physical replacement submitted above is the
-	/// only thing shown). Frame-scoped -- a widget not re-claimed next frame
-	/// falls straight back to its logical rendering.
-	void claimWidget(const void* widget);
-
-	/// WebGL context lost/restored -- forwarded to the frame controller. When
-	/// GL resources exist (HD.3+) this is driven by the ShaderManager
-	/// reset-callback ladder; until then it is a safe no-op on the lifecycle.
+	/// WebGL context lost/restored -- forwarded to the frame controller and the
+	/// GPU caches. Also driven by the ShaderManager reset-callback ladder.
 	void contextLost();
 	void contextRestored();
 
@@ -108,34 +98,65 @@ public:
 	bool mayGoPhysical() const { return _mayGoPhysical; }
 	std::uint64_t frameId() const { return _controller.frameId(); }
 
-	/// True once at least one adapter has an enabled group this frame. HD.2:
-	/// always false (no adapters yet), which is what keeps the queue dormant.
-	bool hasEnabledGroups() const { return _enabledGroupCount > 0; }
+	/// True once a subgroup (or the harness) committed physical output this
+	/// frame. Derived per frame; never sticky (A7).
+	bool activeThisFrame() const { return _activeThisFrame; }
 
 private:
 	CalypsoHdUiOverlay() = default;
 
-	/// Lazily create the shared GL resources (hd_ui shader + quad VAO/VBO) and
-	/// register the ShaderManager reset callback. Safe to call every frame.
+	/// One resolved, uploaded draw ready for renderStages. Panels use the shared
+	/// white texture; text carries its natural glyph size for in-box placement.
+	struct ResolvedDraw
+	{
+		CalypsoHdOrderKey order;
+		CalypsoHdItemKind kind = CalypsoHdItemKind::Panel;
+		CalypsoLogicalRect rect;
+		std::uint32_t colorRgba = 0;
+		GpuTexture* tex = nullptr;
+		int naturalW = 0;
+		int naturalH = 0;
+		CalypsoHdHAlign hAlign = CalypsoHdHAlign::Left;
+		CalypsoHdVAlign vAlign = CalypsoHdVAlign::Middle;
+	};
+
+	void beginFrame(int logicalWidth, int logicalHeight);
 	void ensureGpu();
-	/// Draw one textured quad: map the logical rect to physical device pixels
-	/// via the frozen metrics, convert to NDC, and blit `tex` through hd_ui.
-	/// `colorRgba` is the hd_ui u_color multiply (0 => opaque white / no tint).
-	void drawTexturedQuad(GpuTexture* tex, const CalypsoLogicalRect& logical,
-		std::uint32_t colorRgba = 0);
-	/// Lazily create the shared 1x1 white texture used to paint solid panels.
+	void onContextRestored();
+
+	/// Try to resolve every item of one subgroup to an uploaded texture. On full
+	/// success append the resolved draws to `out` and return true (caller then
+	/// commits its claims); on any failure return false and commit nothing.
+	bool resolveSubgroup(const CalypsoHdSubgroup& subgroup, std::vector<ResolvedDraw>& out);
+
+	/// Core NDC draw of `tex` into a physical device-pixel rect. Returns false if
+	/// the shader/VAO/texture are not drawable. Assumes the GL guard + blend are
+	/// already set by renderStages.
+	bool drawPhysQuad(GpuTexture* tex, const CalypsoPhysRect& r, std::uint32_t colorRgba);
+	/// Map a logical rect to physical and draw (panels).
+	bool drawLogicalQuad(GpuTexture* tex, const CalypsoLogicalRect& logical, std::uint32_t colorRgba);
+	/// Place a natural-size glyph bitmap inside the mapped box per alignment and
+	/// draw it (text) -- the box is the layout/clip target, not a stretch target.
+	bool drawGlyph(const ResolvedDraw& d);
+
 	GpuTexture* whiteTexture();
-	/// Rasterise (or reuse) an HD text texture for `rasterKey` at the current
-	/// context generation: get the CPU raster, upload once to a bounded,
-	/// context-generation-keyed GpuTexture cache. Returns nullptr on failure.
 	GpuTexture* textureForText(const CalypsoHdTextRasterKey& rasterKey);
-	/// Free every cached text GpuTexture and reset its bookkeeping (context loss).
 	void dropTextTextures();
 
 	CalypsoHdFrameController _controller;
 	CalypsoHdPresentationMetrics _frozenMetrics;
 	bool _mayGoPhysical = false;
-	int _enabledGroupCount = 0; // adapters bump this in HD.4; 0 => dormant
+	bool _activeThisFrame = false;
+
+	const CalypsoHdFamilyAdapter* _adapter = nullptr;
+
+	// The ONE claim store: identity lives in _controller.claims(); this ephemeral
+	// map is the per-frame widget-ptr -> committed claim lookup used by blit().
+	// Cleared every beginFrame; populated only at commit.
+	std::unordered_map<const void*, CalypsoHdClaimId> _ptrClaim;
+
+	// This frame's committed, uploaded draws (sorted by order key).
+	std::vector<ResolvedDraw> _drawItems;
 
 	// Shared GL resources (created on first active frame; recovered via the
 	// ShaderManager reset-callback ladder).
@@ -150,11 +171,9 @@ private:
 	GpuTexture* _harnessTex = nullptr;
 	GpuTexture* _whiteTex = nullptr; // 1x1 white, tinted for solid panels
 
-	// HD text pipeline: CPU rasteriser + a bounded, context-generation-keyed
-	// GPU texture cache. Adapters submit text/panel items per frame.
+	// HD text pipeline: CPU rasteriser + a bounded, context-generation-keyed GPU
+	// texture cache.
 	CalypsoHdTextRaster _textRaster;
-	std::vector<TextSubmit> _pendingText;
-	std::vector<PanelSubmit> _pendingPanels;
 	std::unordered_map<CalypsoHdTextTextureKey, GpuTexture*> _textTextures;
 	std::unordered_map<CalypsoHdTextTextureKey, std::uint64_t> _texKeyToHandle;
 	std::unordered_map<std::uint64_t, CalypsoHdTextTextureKey> _texHandleToKey;

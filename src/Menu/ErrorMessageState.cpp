@@ -50,7 +50,12 @@ ErrorMessageState::ErrorMessageState(const std::string &msg, SDL_Color *palette,
  */
 ErrorMessageState::~ErrorMessageState()
 {
-
+#ifdef __EMSCRIPTEN__
+	// Delete the owned adapter (its destructor unregisters it from the overlay
+	// iff still active). The widgets are State-owned and auto-freed.
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 }
 
 /**

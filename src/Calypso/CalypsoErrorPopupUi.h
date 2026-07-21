@@ -18,56 +18,58 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 /*
- * Phase 46.2-HD.5 (Calypso) -- F34.ErrorPopup adapter for the shared HD UI
- * overlay queue (CalypsoHdUiOverlay). Replaces the standalone
- * `phase-46-hd-ui-pilots` spike (F34PhysicalTextOverlay + a persistent
- * `_ttfPhysicalOnly` widget flag) with the shared submitText/submitPanel/
- * claimWidget primitives already landed on this branch (HD.1-HD.4): no
- * private GL, no per-widget physical-only suppression flag -- every claim is
- * frame-scoped and recreated only when this frame actually queued a physical
- * replacement, so a font-resolution failure or a dormant/lost GL context
- * falls back to the complete, unmodified logical popup automatically.
+ * Phase 46.2-HD (Calypso) -- F34.ErrorPopup family adapter on the shared HD UI
+ * overlay (remediation B-Error).
  *
- * Whole-file Emscripten guard (Phase 36 placement policy).
+ * A snapshot-only CalypsoHdFamilyAdapter: once per frame, at the pre-blit
+ * boundary, collect() reads a CONST snapshot of the popup's widgets and emits
+ * one atomic subgroup (window/badge/button bevels + icon/heading/message/label
+ * text) with full claim ids + deterministic order keys + real alignment +
+ * metrics-derived physical font size. It NEVER mutates live widget state. The
+ * overlay commits the subgroup only if every item rasters+uploads, so a partial
+ * failure falls straight back to the unmodified logical popup -- every visual
+ * (including the badge, a CalypsoBevelPanel with a bitmap fallback) has a
+ * complete logical rendering.
+ *
+ * The redesigned widgets themselves are built once in configure() (create-time,
+ * the state's real F34 design); resize() re-fits them and recomputes the
+ * Compact/Wide layout class. Whole-file Emscripten guard (Phase 36).
  */
 #ifdef __EMSCRIPTEN__
 
+#include "CalypsoHdFamilyAdapter.h"
 #include "CalypsoF34ErrorLayout.h"
 
 namespace OpenXcom
 {
-
 class ErrorMessageState;
 
 namespace Calypso
 {
 
-class CalypsoErrorPopupUi
+class CalypsoErrorPopupUi : public CalypsoHdFamilyAdapter
 {
 public:
-	/// Called once from ErrorMessageState::create(), after the legacy widgets
-	/// exist. No-op unless `state._hdLayout` (Mod::isHdUiFamilyEnabled("F34"))
-	/// is true. Builds the extra HD-only widgets (icon/warning/detail labels,
-	/// a geometry-only icon-panel placeholder), lays out every widget at the
-	/// approved F34.ErrorPopup rectangles (CalypsoF34ErrorLayout) via the
-	/// existing State uniform UI-scaling capture, and attaches the feeder
-	/// surface that submits the physical replacement each frame.
-	static void configure(ErrorMessageState& state);
+	explicit CalypsoErrorPopupUi(ErrorMessageState* state) : _state(state) {}
+	~CalypsoErrorPopupUi() override;
 
-	/// Called from ErrorMessageState::resize(). Returns false (caller falls
-	/// through to State::resize) when the HD layout is off. The Compact/Wide
-	/// layout package is fixed for the lifetime of one popup instance
-	/// (deliberate simplification -- State's UI-scaling capture is a one-shot
-	/// per state, see CalypsoStateUi.cpp); only the uniform fit/centering is
-	/// re-applied on resize.
+	// --- CalypsoHdFamilyAdapter (snapshot-only) ---
+	const void* topState() const override;
+	void collect(CalypsoHdFrameBuilder& builder) const override;
+
+	// --- Entry points called from ErrorMessageState ---
+	/// Build the redesigned widgets (gated on isHdUiFamilyEnabled("F34")),
+	/// create the adapter instance, and register it with the overlay. A no-op
+	/// that leaves the state as the legacy popup when the gate is off.
+	static void configure(ErrorMessageState& state);
+	/// Re-fit widgets on canvas resize and recompute the Compact/Wide layout
+	/// class from the current base resolution. Returns true iff HD handled it.
 	static bool resize(ErrorMessageState& state);
 
 private:
-	/// Applies every widget rect from `layout` (design-space px) to the
-	/// state's real and HD-only widgets. A private static member (not a free
-	/// function) so it shares this class's friend access to `state`'s private
-	/// members with `configure()`.
 	static void applyRects(ErrorMessageState& state, const CalypsoF34ErrorLayout& layout);
+
+	ErrorMessageState* _state = nullptr;
 };
 
 } // namespace Calypso

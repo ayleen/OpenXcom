@@ -316,8 +316,9 @@ void Screen::flip()
 			reflowCanvasFallback(wW, wH);
 		}
 	}
-	// Phase 46.2-HD: freeze one HD-overlay metrics snapshot + advance the frame (dormant unless opted in).
-	Calypso::CalypsoHdUiOverlay::instance().beginFrame(Options::baseXResolution, Options::baseYResolution);
+	// Phase 46.2-HD: the HD overlay's per-frame metrics freeze + frame advance now
+	// happen at the pre-blit boundary in Game::run() (prepareFrame), so nothing is
+	// advanced here -- Screen::flip() only consumes the committed queue below.
 #endif
 
 	/* When States call Screen::updateScale, Options::baseXResolution changes

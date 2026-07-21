@@ -84,6 +84,9 @@ public:
 	void setPalette(const SDL_Color *colors, int firstcolor = 0, int ncolors = 256) override;
 	/// Draws the text button.
 	void draw() override;
+#ifdef __EMSCRIPTEN__
+	void blit(SDL_Surface* surface) override;
+#endif
 	/// Special handling for mouse presses.
 	void mousePress(Action *action, State *state) override;
 	/// Special handling for mouse releases.

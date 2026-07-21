@@ -27,7 +27,6 @@
 #include "../Engine/Action.h"
 #include "../Engine/TTFFont.h"
 #include "../Engine/TTFUtil.h"
-#include "../Calypso/CalypsoHdWidgetBridge.h"  // Phase 46.2-HD (empty on native)
 #include "../Calypso/CalypsoHdUiOverlay.h"     // Phase 46.2-HD (empty on native)
 
 namespace OpenXcom
@@ -675,15 +674,26 @@ bool Text::drawTTF()
 }
 #endif
 
+#ifdef __EMSCRIPTEN__
+/**
+ * Calypso Phase 46.2-HD (A2): when the HD overlay has claimed this widget's
+ * visual for the current frame, skip the logical blit entirely -- the cached
+ * surface is left intact, so an unclaimed later frame blits correctly. This
+ * intercepts at blit(), not draw(), so the claim is independent of the _redraw
+ * cache state (fixing the clean-cache double-draw and dirty-cache blank bugs).
+ */
+void Text::blit(SDL_Surface* surface)
+{
+	if (Calypso::CalypsoHdUiOverlay::instance().widgetClaimed(this,
+			Calypso::CalypsoHdUiOverlay::instance().frameId()))
+		return;
+	Surface::blit(surface);
+}
+#endif
+
 void Text::draw()
 {
 	Surface::draw();
-#ifdef __EMSCRIPTEN__
-	// Phase 46.2-HD: if the HD overlay claimed this label this frame, render
-	// nothing logical -- the physical replacement is drawn post-composite.
-	if (Calypso::calypsoHdWidgetClaimed(this, Calypso::CalypsoHdUiOverlay::instance().frameId()))
-		return;
-#endif
 	if (_text.empty() || _font == 0)
 	{
 		return;
