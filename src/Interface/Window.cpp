@@ -23,6 +23,8 @@
 #include "../Engine/Timer.h"
 #include "../Engine/Sound.h"
 #include "../Engine/RNG.h"
+#include "../Calypso/CalypsoHdWidgetBridge.h" // Phase 46.2-HD (empty on native)
+#include "../Calypso/CalypsoHdUiOverlay.h"    // Phase 46.2-HD (empty on native)
 
 namespace OpenXcom
 {
@@ -164,6 +166,15 @@ void Window::popup()
 void Window::draw()
 {
 	Surface::draw();
+#ifdef __EMSCRIPTEN__
+	// Phase 46.2-HD.5: if the HD overlay claimed this window this frame, render
+	// nothing logical -- the physical replacement (submitPanel) is drawn
+	// post-composite. Frame-scoped, mirroring Text/TextButton's claim check: an
+	// unclaimed frame (physical unavailable) falls straight back to the normal
+	// bevel below, so there is no permanent-suppression blank-widget failure mode.
+	if (Calypso::calypsoHdWidgetClaimed(this, Calypso::CalypsoHdUiOverlay::instance().frameId()))
+		return;
+#endif
 	SDL_Rect square;
 
 	if (_popup == POPUP_HORIZONTAL || _popup == POPUP_BOTH)

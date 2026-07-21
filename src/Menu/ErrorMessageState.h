@@ -23,6 +23,12 @@
 namespace OpenXcom
 {
 
+namespace Calypso
+{
+class CalypsoErrorPopupUi;
+class CalypsoErrorPopupFeeder;
+}
+
 class TextButton;
 class Window;
 class Text;
@@ -32,10 +38,27 @@ class Text;
  */
 class ErrorMessageState : public State
 {
+friend class Calypso::CalypsoErrorPopupUi;
+friend class Calypso::CalypsoErrorPopupFeeder;
 private:
 	TextButton *_btnOk;
 	Window *_window;
 	Text *_txtMessage;
+#ifdef __EMSCRIPTEN__
+	/// Phase 46.2-HD.5: F34.ErrorPopup on the shared HD UI overlay queue
+	/// (CalypsoErrorPopupUi). `_hdLayout` is the fail-safe gate
+	/// (Mod::isHdUiFamilyEnabled("F34")); every field below is unused (stays
+	/// null/false) when it is false, so a disabled/missing HD pack leaves this
+	/// state byte-for-byte the legacy popup. Font descriptors are resolved
+	/// fresh each frame from Mod (cheap, no TTFFont handle needs caching here).
+	bool _hdLayout = false;
+	bool _hdWideLayout = false;
+	Surface *_hdIconPanel = nullptr;   ///< geometry-only (setVisible(false)); real fill is a physical submitPanel
+	Text *_hdIcon = nullptr;
+	Text *_hdWarning = nullptr;
+	Text *_hdMessageDetail = nullptr;
+	Surface *_hdFeeder = nullptr;      ///< per-frame submitText/submitPanel/claimWidget driver
+#endif
 
 	void create(const std::string &str, SDL_Color *palette, Uint8 color, const std::string &bg, int bgColor, Uint8 color2);
 public:
@@ -43,6 +66,8 @@ public:
 	ErrorMessageState(const std::string &msg, SDL_Color *palette, Uint8 color, const std::string &bg, int bgColor, Uint8 color2 = 0);
 	/// Cleans up the Error state.
 	~ErrorMessageState();
+	/// Let the state know the window has been resized.
+	void resize(int &dX, int &dY) override;
 	/// Handler for clicking the OK button.
 	void btnOkClick(Action *action);
 };
