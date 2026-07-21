@@ -230,7 +230,8 @@ void UnitSprite::blitBody(Part& body)
 	if (emitHdUnitPart(_hdEmit, HdUnitPartKind::Body, body.frameIdx,
 	    body.offX, body.offY, true, _x, _y, _shade,
 	    _mask.beg_x, _mask.end_x, _mask.beg_y, _mask.end_y,
-	    _unit ? _unit->getId() : -1, _unit ? _unit->getDirection() : -1))
+	    _unit ? _unit->getId() : -1, _unit ? _unit->getDirection() : -1,
+	    body.rgbaFrameIdx))
 		return;
 #endif
 	ScriptWorkerBlit work;
@@ -601,6 +602,16 @@ void UnitSprite::drawRoutine0()
 
 	sortRifles();
 
+#ifdef __EMSCRIPTEN__
+	// The replacement diver owns an additional support-arm pose in the eight
+	// base-unreferenced TDXCOM_0 slots. Wide inventory weapons use the larger
+	// hand spacing while their R8 baseline and painter order remain unchanged.
+	auto useWideHdGrip = [this](const BattleItem *item) {
+		return _drawingRoutine == 13 && item && item->getRules()->isTwoHanded()
+		    && item->getRules()->getInventoryWidth() > 1;
+	};
+#endif
+
 	// holding an item
 	if (_itemR)
 	{
@@ -639,6 +650,9 @@ void UnitSprite::drawRoutine0()
 		if (_itemR->getRules()->isTwoHanded())
 		{
 			selectUnit(leftArm, larm2H, unitDir);
+#ifdef __EMSCRIPTEN__
+			if (useWideHdGrip(_itemR)) leftArm.rgbaFrameIdx = 278 + unitDir;
+#endif
 			if (_unit->getStatus() == STATUS_AIMING)
 			{
 				selectUnit(rightArm, rarmShoot, unitDir);
@@ -670,6 +684,9 @@ void UnitSprite::drawRoutine0()
 	if (_itemL)
 	{
 		selectUnit(leftArm, larm2H, unitDir);
+#ifdef __EMSCRIPTEN__
+		if (useWideHdGrip(_itemL)) leftArm.rgbaFrameIdx = 278 + unitDir;
+#endif
 		selectItem(itemL, _itemL, unitDir);
 		if (!_itemL->getRules()->isTwoHanded())
 		{

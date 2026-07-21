@@ -23,7 +23,6 @@
 #include "../Savegame/BattleItem.h"
 #include "../Savegame/SavedBattleGame.h"
 #ifdef __EMSCRIPTEN__
-#include "Map.h"  // Map::TileInstance
 #include <vector>
 #endif
 
@@ -96,12 +95,12 @@ void ItemSprite::draw(const BattleItem* item, int x, int y, int shade)
 		// base sprite for now.
 		const int frameIdx = item->getRules()->getFloorSprite();
 		if (frameIdx < 0) return;
-		auto* vec = static_cast<std::vector<Map::TileInstance>*>(_emitTarget);
+		auto* vec = _emitTarget;
 		const int col = frameIdx % _emitSpec->columns;
 		const int row = frameIdx / _emitSpec->columns;
 		const float uvW = (float)_emitSpec->tileWidth  / (float)_emitSpec->atlasW;
 		const float uvH = (float)_emitSpec->tileHeight / (float)_emitSpec->atlasH;
-		Map::TileInstance inst;
+		HdTileInstance inst;
 		inst.screenX        = (float)x;
 		inst.screenY        = (float)y;
 		inst.atlasU         = col * uvW;
@@ -112,11 +111,14 @@ void ItemSprite::draw(const BattleItem* item, int x, int y, int shade)
 		// Floor items: priority between back-tile object and unit body.
 		const int prio = _emitZ * 65536 + _emitY * 1024 + _emitX * 8 + 3;
 		inst.iso = (float)prio / 2000000.0f;
+		const size_t baselineIndex = vec->size();
 		vec->push_back(inst);
+		emitHdUnitRgbaOverlay(_emitSpec, frameIdx, inst, (float)prio,
+		    baselineIndex, _emitRgbaPages);
 		if (_emitZTarget)
-			static_cast<std::vector<int>*>(_emitZTarget)->push_back(_emitZ);
+			_emitZTarget->push_back(_emitZ);
 		if (_emitYTarget)
-			static_cast<std::vector<int>*>(_emitYTarget)->push_back(_emitY);
+			_emitYTarget->push_back(_emitY);
 		return;
 	}
 #endif

@@ -19,6 +19,9 @@
  */
 #include "../Engine/Surface.h"
 #include "../Mod/Mod.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/HdUnitEmit.h"
+#endif
 
 namespace OpenXcom
 {
@@ -41,9 +44,10 @@ private:
 	Surface *_dest;
 	const SavedBattleGame *_save;
 #ifdef __EMSCRIPTEN__
-	void* _emitTarget = nullptr;       // std::vector<Map::TileInstance>* — body emits
-	void* _emitZTarget = nullptr;      // std::vector<int>*               — Z per emit
-	void* _emitYTarget = nullptr;      // std::vector<int>*               — Y per emit
+	std::vector<HdTileInstance>* _emitTarget = nullptr;
+	std::vector<std::vector<HdRgbaOverlayInstance>>* _emitRgbaPages = nullptr;
+	std::vector<int>* _emitZTarget = nullptr;
+	std::vector<int>* _emitYTarget = nullptr;
 	const Mod::UnitAtlasSpec* _emitSpec = nullptr;
 	int   _emitZ = 0;
 	int   _emitY = 0;
@@ -61,11 +65,14 @@ public:
 	void drawShadow(const BattleItem* item, int x, int y);
 #ifdef __EMSCRIPTEN__
 	/// Emit-mode: redirect draw() into a TileInstance vector instead of CPU blit.
-	void setEmitMode(void* target, const Mod::UnitAtlasSpec* spec,
+	void setEmitMode(std::vector<HdTileInstance>* target,
+	                 std::vector<std::vector<HdRgbaOverlayInstance>>* rgbaPages,
+	                 const Mod::UnitAtlasSpec* spec,
 	                 int emitZ, int emitY, int emitX,
-	                 void* zTarget, void* yTarget)
+	                 std::vector<int>* zTarget, std::vector<int>* yTarget)
 	{
 		_emitTarget = target;
+		_emitRgbaPages = rgbaPages;
 		_emitSpec   = spec;
 		_emitZ      = emitZ;
 		_emitY      = emitY;
@@ -76,6 +83,7 @@ public:
 	void clearEmitMode()
 	{
 		_emitTarget = nullptr;
+		_emitRgbaPages = nullptr;
 		_emitSpec   = nullptr;
 		_emitZ      = 0;
 		_emitY      = 0;

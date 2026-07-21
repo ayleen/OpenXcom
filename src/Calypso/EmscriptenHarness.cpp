@@ -435,8 +435,10 @@ static E1GpuEdgeProof runE1GpuEdgeProof()
     };
     for (const E1GpuEdgeSample& sample : result.samples)
     {
+        // An authored RGBA frame replaces its complete R8 part. Transparent
+        // texels reveal the already-painted scene rather than the old suit.
         std::array<unsigned char, 4> expected = sample.alpha < 3
-            ? green : std::array<unsigned char, 4>{(unsigned char)sample.alpha, 0,
+            ? blue : std::array<unsigned char, 4>{(unsigned char)sample.alpha, 0,
                 (unsigned char)(255 - sample.alpha), 255};
         result.passed = result.passed
             && close(sample.naturalCenter, expected)
@@ -684,8 +686,12 @@ int calypso_unit_atlas_probe(const char *sheet, const char *outJsonPath)
 		mismatchedHandob.sourceFrameWidth = 16;
 		mismatchedHandob.sourceFrameHeight = 20;
 		const bool mismatchRejected = mismatchedHandob.partScaleForFrame(128, 160) != 4;
+		// Authored texture resolution and live render geometry are independent:
+		// a 4x RGBA cell may be downsampled into a 2x Battlescape quad. The
+		// declaration only has to be internally valid; runtime body/HANDOB scales
+		// must still agree with each other.
 		const bool declaredScaleCompatible = !spec->partOffsetScaleConfigured
-		    || (spec->partOffsetScaleValid && spec->partOffsetScale == bodyRuntimeScale);
+		    || spec->partOffsetScaleValid;
 		const bool e2Passed = UnitSprite::debugE2OffsetProof()
 		    && r8FallbackScaled && bodyRuntimeScale == liveTileScale
 		    && declaredScaleCompatible && handobScaleCompatible && mismatchRejected;

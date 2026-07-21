@@ -14,6 +14,7 @@
 #include "../Engine/GpuTexture.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 
 namespace OpenXcom
@@ -29,6 +30,20 @@ constexpr float kSubprioStep        = 0.25f;
 constexpr int   kSubprioMaxSequence = 7;
 constexpr float kSubprioOverlayEps  = 0.125f;
 constexpr double kDepth24Max        = 16777215.0;
+// Median stock HANDOB/body overlap point for each routine-13 direction, in
+// native 32x40 source pixels.  Held-item geometry is reduced for the slimmer
+// HD diver, so scale it around the authored grip instead of the frame centre;
+// otherwise pistols and rifles drift away from the palm.
+constexpr std::array<std::array<float, 2>, 8> kHandobGripAnchor = {{
+	{{22.00f, 15.75f}},
+	{{22.50f, 16.50f}},
+	{{16.00f, 18.04f}},
+	{{11.40f, 19.21f}},
+	{{10.86f, 16.67f}},
+	{{ 8.08f, 17.09f}},
+	{{11.86f, 16.50f}},
+	{{20.20f, 15.33f}},
+}};
 static_assert(kSubprioBase > 3.0f, "unit emissions must remain above floor items");
 static_assert(kSubprioBase + kSubprioMaxSequence * kSubprioStep
 	          + kSubprioOverlayEps < 6.0f,
@@ -51,10 +66,23 @@ bool scalePartOffset(int logicalOffset, int scale, float& scaled)
 	return std::isfinite(scaled);
 }
 
-void emitRgbaOverlay(const HdUnitAtlasSpec* spec, int frameIdx,
-	                 const HdTileInstance& baseline, float basePriority,
-	                 size_t baselineIndex,
-	                 std::vector<std::vector<HdRgbaOverlayInstance>>* pages)
+} // namespace
+
+bool hdUnitRgbaPageUsable(const HdUnitAtlasSpec* spec, int frameIdx)
+{
+	if (!spec || !spec->hasRgbaOverlay() || !spec->frameHasHd(frameIdx)) return false;
+	const int page = spec->framePageOf(frameIdx);
+	if (page < 0 || page >= (int)spec->rgbaOverlayPages.size()) return false;
+	GpuTexture* texture = spec->rgbaOverlayPages[(size_t)page];
+	// A failed context-restore upload leaves the registered object alive but
+	// clears its GL name. The emitter must leave the baseline unmasked then.
+	return texture && texture->isValid();
+}
+
+void emitHdUnitRgbaOverlay(const HdUnitAtlasSpec* spec, int frameIdx,
+	                       const HdTileInstance& baseline, float basePriority,
+	                       size_t baselineIndex,
+	                       std::vector<std::vector<HdRgbaOverlayInstance>>* pages)
 {
 	if (!pages || !hdUnitRgbaPageUsable(spec, frameIdx)) return;
 	const int page = spec->framePageOf(frameIdx);
@@ -72,19 +100,6 @@ void emitRgbaOverlay(const HdUnitAtlasSpec* spec, int frameIdx,
 	overlay.atlasV = row * uvH;
 	overlay.iso = (basePriority + kSubprioOverlayEps) / HdUnitRenderPlan::kIsoDivisor;
 	(*pages)[(size_t)page].push_back({overlay, baselineIndex});
-}
-
-} // namespace
-
-bool hdUnitRgbaPageUsable(const HdUnitAtlasSpec* spec, int frameIdx)
-{
-	if (!spec || !spec->hasRgbaOverlay() || !spec->frameHasHd(frameIdx)) return false;
-	const int page = spec->framePageOf(frameIdx);
-	if (page < 0 || page >= (int)spec->rgbaOverlayPages.size()) return false;
-	GpuTexture* texture = spec->rgbaOverlayPages[(size_t)page];
-	// A failed context-restore upload leaves the registered object alive but
-	// clears its GL name. The emitter must leave the baseline unmasked then.
-	return texture && texture->isValid();
 }
 
 HdUnitScalePlan makeHdUnitScalePlan(const HdUnitAtlasSpec* bodySpec,
@@ -125,7 +140,7 @@ bool emitHdUnitPart(HdUnitEmitState& state, HdUnitPartKind kind,
 	                int frameIdx, int logicalOffX, int logicalOffY,
 	                bool indexedSource, int screenX, int screenY, int shade,
 	                int maskBegX, int maskEndX, int maskBegY, int maskEndY,
-	                int unitId, int direction)
+	                int unitId, int direction, int rgbaFrameIdx)
 {
 	const bool item = kind == HdUnitPartKind::Item;
 	const HdUnitAtlasSpec* spec = item ? state.targets.itemSpec : state.targets.bodySpec;
@@ -144,11 +159,24 @@ bool emitHdUnitPart(HdUnitEmitState& state, HdUnitPartKind kind,
 	const float uvH = (float)spec->tileHeight / (float)spec->atlasH;
 	const int sequence = state.sequence;
 	const float localPriority = boundedSubpriority(sequence);
-	const float emittedX = (float)screenX + offX;
-	const float emittedY = (float)screenY + offY;
+	const float geometryScale = item ? kHdHandobGeometryScale : 1.0f;
+	const float geometryW = (float)state.targets.renderWidth * geometryScale;
+	const float geometryH = (float)state.targets.renderHeight * geometryScale;
+	float geometryShiftX = ((float)state.targets.renderWidth - geometryW) * 0.5f;
+	float geometryShiftY = ((float)state.targets.renderHeight - geometryH) * 0.5f;
+	if (item)
+	{
+		const int gripDirection = ((direction % 8) + 8) % 8;
+		const float sourceScale = (float)state.targets.partOffsetScale;
+		geometryShiftX = kHandobGripAnchor[(size_t)gripDirection][0]
+			* sourceScale * (1.0f - geometryScale);
+		geometryShiftY = kHandobGripAnchor[(size_t)gripDirection][1]
+			* sourceScale * (1.0f - geometryScale);
+	}
+	const float emittedX = (float)screenX + offX + geometryShiftX;
+	const float emittedY = (float)screenY + offY + geometryShiftY;
 	const HdUnitRenderPlan::QuadClip clip = HdUnitRenderPlan::clipQuad(
-		emittedX, emittedY, (float)state.targets.renderWidth,
-		(float)state.targets.renderHeight,
+		emittedX, emittedY, geometryW, geometryH,
 		maskBegX, maskEndX, maskBegY, maskEndY);
 	if (!clip.visible)
 	{
@@ -169,7 +197,9 @@ bool emitHdUnitPart(HdUnitEmitState& state, HdUnitPartKind kind,
 
 	auto* rgbaPages = item ? state.targets.rgbaOverlayItemPages
 	                       : state.targets.rgbaOverlayBodyPages;
-	emitRgbaOverlay(spec, frameIdx, instance, priority, instances->size() - 1, rgbaPages);
+	const int overlayFrameIdx = rgbaFrameIdx >= 0 ? rgbaFrameIdx : frameIdx;
+	emitHdUnitRgbaOverlay(spec, overlayFrameIdx, instance, priority,
+		instances->size() - 1, rgbaPages);
 
 	const bool g0 = HdUnitBattleSpike::active() && state.targets.bodySpec
 		&& state.targets.bodySpec->g0OverlayAtlas;
