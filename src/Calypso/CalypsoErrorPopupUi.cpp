@@ -48,6 +48,7 @@
 #include "CalypsoHdUiModel.h"
 #include "CalypsoHdUiOverlay.h"
 #include "CalypsoUiMetrics.h"
+#include "CalypsoViewportRuntime.h"
 
 namespace OpenXcom
 {
@@ -79,7 +80,14 @@ constexpr std::uint32_t kF34FamilyId = 34;
 
 CalypsoLayoutClass currentF34LayoutClass()
 {
-	return calypsoClassifySafeArea(Options::baseXResolution, Options::baseYResolution);
+	// Classify from the USABLE safe area (after insets) -- the same rect
+	// applyUiScaling fits the design canvas into -- not the raw framebuffer. A
+	// viewport whose raw size is Wide but whose usable area is only Compact-sized
+	// must pick Compact, else a Wide design is force-squeezed into too little
+	// space (external review #9).
+	CalypsoBaseSafeRect safe{ 0, 0, Options::baseXResolution, Options::baseYResolution };
+	(void)calypsoProjectedSafeRectForLayout(Options::baseXResolution, Options::baseYResolution, safe);
+	return calypsoClassifySafeArea(safe.width, safe.height);
 }
 
 void applyRect(Surface* surface, const CalypsoF34Rect& rect)
@@ -211,8 +219,46 @@ void CalypsoErrorPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 		kGoldTextRgba, CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, ROLE_ICON);
 	addText(_state->_hdWarning, body, _state->_hdWarning ? _state->_hdWarning->getText() : std::string(),
 		kGoldTextRgba, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_WARNING);
-	addText(_state->_txtMessage, heading, _state->_txtMessage ? _state->_txtMessage->getText() : std::string(),
-		kNearWhiteTextRgba, CalypsoHdHAlign::Left, CalypsoHdVAlign::Top, 2, ROLE_MESSAGE);
+
+	// Message: sized to the ACTUAL wrapped line count in the merged message+detail
+	// box, so multi-line / localized messages are never truncated (external review
+	// #6). Per-line height is capped at ~the design single-line proportion so short
+	// messages don't balloon, and bounded by 1/(lines * line-skip) so the wrapped
+	// surface (SDL_ttf line skip ~1.25x point size) always fits the box.
+	if (_state->_txtMessage && !_state->_txtMessage->getText().empty())
+	{
+		const CalypsoLogicalRect r = widgetRect(_state->_txtMessage);
+		if (r.w > 0 && r.h > 0)
+		{
+			const int lines = std::max(1, _state->_txtMessage->getNumLines());
+			const double perLineFrac = std::min(0.45, 1.0 / (lines * 1.25));
+			const int physicalPixelHeight = std::max(1,
+				(int)calypsoHdRoundToInt((double)r.h * sy * perLineFrac));
+			const int wrapWidth = std::max(1, (int)calypsoHdRoundToInt((double)r.w * sx));
+
+			CalypsoHdTextRasterKey key;
+			key.source = heading;
+			key.physicalPixelHeight = physicalPixelHeight;
+			key.text = _state->_txtMessage->getText();
+			key.wrapWidth = wrapWidth;
+			key.colorRgba = kNearWhiteTextRgba;
+			key.direction = CalypsoTextDirection::LTR;
+
+			CalypsoHdItem it;
+			it.kind = CalypsoHdItemKind::Text;
+			it.rect = r;
+			it.colorRgba = kNearWhiteTextRgba;
+			it.rasterKey = key;
+			it.hAlign = CalypsoHdHAlign::Left;
+			it.vAlign = CalypsoHdVAlign::Top;
+			it.widget = _state->_txtMessage;
+			it.claim = { kF34FamilyId, ROLE_MESSAGE, inst, 1u, (std::uint32_t)ord };
+			it.order = { 0, 0, kF34FamilyId, inst, 0, 1u, ord, ROLE_MESSAGE };
+			builder.add(it);
+			++ord;
+		}
+	}
+
 	addText(_state->_btnOk, body, _state->_btnOk ? _state->_btnOk->getText() : std::string(),
 		kNearWhiteTextRgba, CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, ROLE_LABEL);
 }
@@ -223,7 +269,13 @@ void CalypsoErrorPopupUi::applyRects(ErrorMessageState& state, const CalypsoF34E
 	applyRect(state._hdIconPanel, layout.iconPanel);
 	applyRect(state._hdIcon, layout.icon);
 	applyRect(state._hdWarning, layout.warning);
-	applyRect(state._txtMessage, layout.message);
+	// The message occupies BOTH the primary (message) and detail (messageDetail)
+	// design bands as one word-wrapped region, so long / localized messages use
+	// the full area instead of clipping in the small primary band and leaving the
+	// detail band empty (external review #6).
+	CalypsoF34Rect messageBox = layout.message;
+	messageBox.height = layout.messageDetail.y + layout.messageDetail.height - layout.message.y;
+	applyRect(state._txtMessage, messageBox);
 	applyRect(state._btnOk, layout.acknowledge);
 }
 
@@ -295,9 +347,14 @@ bool CalypsoErrorPopupUi::resize(ErrorMessageState& state)
 		const CalypsoF34ErrorLayout layout = calypsoF34ErrorLayout(
 			wide ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact);
 		CalypsoErrorPopupUi::applyRects(state, layout);
-		state.enableUiScaling(layout.designWidth, layout.designHeight, 1.0f);
+		// Re-snapshot against the new design canvas -- enableUiScaling is one-shot
+		// and would no-op here, replaying the stale class (external review #3).
+		state.recaptureUiScaling(layout.designWidth, layout.designHeight, 1.0f);
 	}
-	state.applyUiScaling();
+	else
+	{
+		state.applyUiScaling();
+	}
 	return true;
 }
 

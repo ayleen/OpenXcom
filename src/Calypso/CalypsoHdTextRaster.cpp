@@ -17,6 +17,64 @@ namespace OpenXcom
 namespace Calypso
 {
 
+namespace
+{
+
+/// True iff every renderable codepoint in `text` has a real glyph in `face`.
+///
+/// SDL_ttf's TTF_Render* NEVER fails on missing glyphs -- it silently substitutes
+/// the font's .notdef box (tofu). Treating a successful render as "text is fine"
+/// therefore breaks the HD overlay's atomic-fallback contract: a Cyrillic /
+/// Arabic / CJK string rendered against a Latin-only F34 face would raster to a
+/// row of squares, the subgroup would be marked Ready, and the CORRECT bitmap
+/// Font text would be suppressed by the claim (external review #5). We instead
+/// pre-flight glyph coverage and report failure when any codepoint is missing so
+/// the whole atomic subgroup stays logical (correct bitmap text) rather than
+/// showing tofu.
+///
+/// Whitespace / control codepoints (<= 0x20: space, '\n' line break, '\t') are
+/// layout, not glyphs, and are skipped. Astral codepoints (> 0xFFFF: emoji, rare
+/// CJK ext) cannot be probed with the BMP-only TTF_GlyphIsProvided(Uint16) that
+/// is guaranteed present across SDL_ttf versions, so they are conservatively
+/// treated as UNCOVERED -- the safe direction (fall back to bitmap, never tofu).
+bool faceCoversText(TTF_Font* face, const std::string& text)
+{
+	const unsigned char* s = reinterpret_cast<const unsigned char*>(text.c_str());
+	const std::size_t n = text.size();
+	std::size_t i = 0;
+	while (i < n)
+	{
+		const unsigned char b0 = s[i];
+		std::uint32_t cp;
+		std::size_t len;
+		if (b0 < 0x80u) { cp = b0; len = 1; }
+		else if ((b0 & 0xE0u) == 0xC0u && i + 1 < n)
+		{
+			cp = ((b0 & 0x1Fu) << 6) | (s[i + 1] & 0x3Fu); len = 2;
+		}
+		else if ((b0 & 0xF0u) == 0xE0u && i + 2 < n)
+		{
+			cp = ((b0 & 0x0Fu) << 12) | ((s[i + 1] & 0x3Fu) << 6) | (s[i + 2] & 0x3Fu); len = 3;
+		}
+		else if ((b0 & 0xF8u) == 0xF0u && i + 3 < n)
+		{
+			cp = ((b0 & 0x07u) << 18) | ((s[i + 1] & 0x3Fu) << 12)
+				| ((s[i + 2] & 0x3Fu) << 6) | (s[i + 3] & 0x3Fu); len = 4;
+		}
+		else
+		{
+			return false; // malformed UTF-8 -> logical fallback
+		}
+		i += len;
+		if (cp <= 0x20u) continue;        // space / control / newline: not a glyph
+		if (cp > 0xFFFFu) return false;   // astral: can't BMP-probe -> safe fallback
+		if (!TTF_GlyphIsProvided(face, static_cast<Uint16>(cp))) return false;
+	}
+	return true;
+}
+
+} // namespace
+
 CalypsoHdTextRaster::CalypsoHdTextRaster(std::size_t rasterByteBudget, std::size_t maxFaces)
 	: _maxFaces(maxFaces), _lru(rasterByteBudget)
 {
@@ -101,6 +159,15 @@ SDL_Surface* CalypsoHdTextRaster::rasterFor(const CalypsoHdTextRasterKey& key)
 	TTF_Font* face = faceFor(key.source.canonicalVfsPath, key.physicalPixelHeight,
 		key.source.resourceGeneration);
 	if (!face)
+	{
+		return nullptr;
+	}
+
+	// Glyph-coverage pre-flight (external review #5): if any codepoint has no
+	// glyph in this face, rendering would emit .notdef tofu. Report failure so the
+	// atomic HD subgroup stays fully logical (correct bitmap text) instead of
+	// showing squares. Not cached: a miss is cheap (one scan) and rare.
+	if (!faceCoversText(face, key.text))
 	{
 		return nullptr;
 	}

@@ -28,10 +28,12 @@
  * natively unit tested.
  */
 #include <cstdint>
+#include <iterator>
 #include <string>
 #include <vector>
 #include <list>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace OpenXcom
 {
@@ -185,10 +187,19 @@ public:
 
 	/// Record an insertion or access of `key` costing `byteCost` bytes, then
 	/// evict least-recently-used entries until total bytes <= budget (or only
-	/// the just-touched entry remains). Returns evicted keys in eviction order.
+	/// unevictable entries remain). Returns evicted keys in eviction order.
 	/// A single entry larger than the budget is kept (cannot satisfy the
 	/// budget by evicting it) but reported via overBudget().
-	std::vector<std::uint64_t> touch(std::uint64_t key, std::size_t byteCost)
+	///
+	/// `pinned` (optional): keys that MUST NOT be evicted this call (e.g. handles
+	/// referenced by the frame currently being built). A pinned victim is skipped
+	/// and the walk continues to the next-least-recently-used evictable key, so
+	/// pinned entries stay BOTH resident and byte-accounted -- bytes() never
+	/// diverges from the resident set (external review #7). When only pinned /
+	/// just-touched entries remain, the cache is left over budget for this frame
+	/// and self-heals once the pins clear.
+	std::vector<std::uint64_t> touch(std::uint64_t key, std::size_t byteCost,
+		const std::unordered_set<std::uint64_t>* pinned = nullptr)
 	{
 		auto it = _map.find(key);
 		if (it != _map.end())
@@ -213,13 +224,23 @@ public:
 		std::vector<std::uint64_t> evicted;
 		while (_bytes > _budget && _order.size() > 1)
 		{
-			std::uint64_t lru = _order.back();
-			if (lru == key) break; // never evict the just-touched key
-			auto lit = _map.find(lru);
+			// Least-recently-used evictable key: scan from the back, skipping the
+			// just-touched key and any pinned key. No evictable victim -> stop.
+			auto vit = _order.rbegin();
+			for (; vit != _order.rend(); ++vit)
+			{
+				if (*vit == key) continue;
+				if (pinned && pinned->count(*vit)) continue;
+				break;
+			}
+			if (vit == _order.rend()) break; // only pinned/just-touched remain
+			const std::uint64_t victim = *vit;
+			auto lit = _map.find(victim);
 			_bytes -= lit->second.bytes;
+			// std::list::erase needs a forward iterator; convert from reverse.
+			_order.erase(std::next(vit).base());
 			_map.erase(lit);
-			_order.pop_back();
-			evicted.push_back(lru);
+			evicted.push_back(victim);
 		}
 		return evicted;
 	}

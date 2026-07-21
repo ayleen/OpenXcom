@@ -63,6 +63,18 @@ void State::applyUiScaling()
 	}
 }
 
+void State::recaptureUiScaling(int designW, int designH, float factor)
+{
+	// Force a fresh capture against the new design canvas. enableUiScaling is
+	// one-shot (returns early once _uiCaptured), which is correct for the common
+	// case but wrong for a state that swaps its entire layout at runtime: without
+	// this the resize path replays the STALE first snapshot and reverts the new
+	// rects (external review #3). Clearing the latch and re-running reuses the
+	// exact same capture + apply path, so it stays consistent with configure().
+	_uiCaptured = false;
+	enableUiScaling(designW, designH, factor);
+}
+
 void State::excludeFromUiScaling(Surface* surf)
 {
 	for (auto it = _uiNative.begin(); it != _uiNative.end(); ++it)

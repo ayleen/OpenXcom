@@ -64,6 +64,7 @@
 #include "CalypsoHdUiModel.h"
 #include "CalypsoHdUiOverlay.h"
 #include "CalypsoUiMetrics.h"
+#include "CalypsoViewportRuntime.h"
 
 namespace OpenXcom
 {
@@ -96,7 +97,13 @@ constexpr std::uint32_t kRowsSubgroup = 2u;
 
 CalypsoLayoutClass currentF34LayoutClass()
 {
-	return calypsoClassifySafeArea(Options::baseXResolution, Options::baseYResolution);
+	// Classify from the USABLE safe area (after insets) -- the same rect
+	// applyUiScaling fits the design canvas into -- not the raw framebuffer, which
+	// would pick Wide for a viewport whose usable area is only Compact-sized
+	// (external review #9).
+	CalypsoBaseSafeRect safe{ 0, 0, Options::baseXResolution, Options::baseYResolution };
+	(void)calypsoProjectedSafeRectForLayout(Options::baseXResolution, Options::baseYResolution, safe);
+	return calypsoClassifySafeArea(safe.width, safe.height);
 }
 
 void applyRect(Surface* surface, const CalypsoF34Rect& rect)
@@ -294,12 +301,14 @@ void CalypsoStatisticsUi::collect(CalypsoHdFrameBuilder& builder) const
 		const int valueW = std::max(0, listRight - valueX);
 		const int physicalRowH = std::max(1, (int)calypsoHdRoundToInt((double)rowStride * sy));
 
-		// Claim the TextList itself (via the first emitted row item's widget) so
-		// its ENTIRE logical blit -- rows, selector, scrollbar -- is suppressed
-		// when this subgroup commits, and the HD rows replace rather than overlay
-		// them (no double-draw). If no row commits (empty list / raster failure)
-		// the list is unclaimed and renders its logical rows as the fallback.
-		// Scroll/wheel/keyboard input to the list is unaffected by the blit skip.
+		// Claim the TextList itself (via the first emitted row item's widget) so its
+		// logical ROW TEXT is suppressed when this subgroup commits and the HD rows
+		// replace (not overlay) it -- no double-draw. The selector highlight, toggle
+		// arrows, and scrollbar are NOT claimed away: TextList::blit still draws them
+		// so selection + scroll-position feedback survives (external review #8). If
+		// no row commits (empty list / raster failure) the list is unclaimed and
+		// renders its logical rows as the fallback. Scroll/wheel/keyboard input is
+		// unaffected by the blit skip.
 		bool listClaimAttached = false;
 
 		int rowOrd = 0;
@@ -381,6 +390,12 @@ void CalypsoStatisticsUi::rebuildList(StatisticsState& state, std::size_t scroll
 	const CalypsoF34StatisticsLayout layout = calypsoF34StatisticsLayout(
 		state._hdWideLayout ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact);
 	state._lstStats->clearList();
+	// Re-base the HD scale() denominator to the F34 design list width BEFORE
+	// setColumns, so the authored design-space column widths (labelColumnWidth +
+	// valueColumnWidth <= list.width) are not multiplied by getWidth()/280 and do
+	// not push the value column past the list edge (external review #2). After
+	// this, scale() = getWidth()/list.width stays proportional to the design.
+	state._lstStats->rebaseNativeSize(layout.list.width, layout.list.height);
 	state._lstStats->setColumns(2, layout.labelColumnWidth, layout.valueColumnWidth);
 	state._lstStats->setMinimumRowHeight(layout.rowHeight);
 	state.listStats(); // repopulate rows at the new column widths / row height
@@ -462,7 +477,9 @@ bool CalypsoStatisticsUi::resize(StatisticsState& state)
 			wide ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact);
 		CalypsoStatisticsUi::applyRects(state, layout);
 		CalypsoStatisticsUi::rebuildList(state, scroll);
-		state.enableUiScaling(layout.designWidth, layout.designHeight, 1.0f);
+		// Re-snapshot against the new design canvas -- enableUiScaling is one-shot
+		// and would no-op here, replaying the stale class (external review #3).
+		state.recaptureUiScaling(layout.designWidth, layout.designHeight, 1.0f);
 	}
 	else
 	{

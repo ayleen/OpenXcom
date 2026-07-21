@@ -14,6 +14,7 @@
 #include <GLES3/gl3.h>
 #include <SDL.h>
 #include <SDL_render.h>
+#include <set>
 #include <unordered_set>
 #include <vector>
 
@@ -114,11 +115,37 @@ void CalypsoHdUiOverlay::prepareFrame(int logicalWidth, int logicalHeight, const
 		active->collect(builder);
 		if (builder.empty()) return;
 
+		// A committed subgroup's order keys must be globally unique this frame: the
+		// model treats a full-tuple collision as a submission bug whose paint order
+		// would otherwise fall back to non-deterministic insertion order. Detect it
+		// BEFORE committing so the affected subgroup stays fully logical instead of
+		// suppressing (via claims) widgets it cannot deterministically paint
+		// (external review #11).
+		std::set<CalypsoHdOrderKey, bool (*)(const CalypsoHdOrderKey&, const CalypsoHdOrderKey&)>
+			committedKeys(&calypsoOrderKeyLess);
+
 		// Resolve + commit each atomic subgroup independently.
 		for (const CalypsoHdSubgroup& subgroup : builder.subgroups())
 		{
 			std::vector<ResolvedDraw> resolved;
 			if (!resolveSubgroup(subgroup, resolved)) continue; // Not Ready -> logical
+
+			// Order-key collision check (intra-subgroup or vs an already-committed
+			// subgroup). On collision the whole subgroup is rejected and stays
+			// logical; roll back only the keys this subgroup inserted.
+			std::vector<CalypsoHdOrderKey> justInserted;
+			bool collision = false;
+			for (const ResolvedDraw& d : resolved)
+			{
+				if (!committedKeys.insert(d.order).second) { collision = true; break; }
+				justInserted.push_back(d.order);
+			}
+			if (collision)
+			{
+				for (const CalypsoHdOrderKey& k : justInserted) committedKeys.erase(k);
+				Log(LOG_WARNING) << "CalypsoHdUiOverlay: duplicate HD order key -> subgroup stays logical";
+				continue;
+			}
 
 			// Commit: take claims for every item, enqueue the resolved draws.
 			for (const CalypsoHdItem& item : subgroup.items)
@@ -132,19 +159,12 @@ void CalypsoHdUiOverlay::prepareFrame(int logicalWidth, int logicalHeight, const
 
 	if (_drawItems.empty()) return;
 
-	// Deterministic order; a complete-tuple collision is a submission bug.
+	// Deterministic paint order. Uniqueness of the full tuple is already enforced
+	// per-subgroup above, so equal keys cannot reach this sort.
 	std::stable_sort(_drawItems.begin(), _drawItems.end(),
 		[](const ResolvedDraw& a, const ResolvedDraw& b) {
 			return calypsoOrderKeyLess(a.order, b.order);
 		});
-	for (std::size_t i = 1; i < _drawItems.size(); ++i)
-	{
-		if (_drawItems[i - 1].order == _drawItems[i].order)
-		{
-			Log(LOG_WARNING) << "CalypsoHdUiOverlay: duplicate HD order key (submission bug)";
-			break;
-		}
-	}
 
 	_activeThisFrame = true;
 }
@@ -369,7 +389,9 @@ GpuTexture* CalypsoHdUiOverlay::textureForText(const CalypsoHdTextRasterKey& ras
 			GpuTexture* t = it->second;
 			const std::size_t bytes = (std::size_t)t->width() * (std::size_t)t->height() * 4u;
 			_frameLiveHandles.insert(hit->second);            // pin this frame (Fable #3)
-			evictTextTextures(_textTexLru.touch(hit->second, bytes)); // process evictions (Fable #9)
+			// Pin-aware eviction: the LRU never returns a frame-pinned handle, so
+			// pinned textures stay resident AND accounted (external review #7).
+			evictTextTextures(_textTexLru.touch(hit->second, bytes, &_frameLiveHandles));
 		}
 		return it->second;
 	}
@@ -396,42 +418,24 @@ GpuTexture* CalypsoHdUiOverlay::textureForText(const CalypsoHdTextRasterKey& ras
 	_texHandleToKey.emplace(handle, tk);
 	_frameLiveHandles.insert(handle); // pin this frame (Fable #3)
 
-	evictTextTextures(_textTexLru.touch(handle, byteCost));
+	// Pin-aware eviction: the LRU never returns a frame-pinned handle, so pinned
+	// textures stay resident AND accounted (external review #7).
+	evictTextTextures(_textTexLru.touch(handle, byteCost, &_frameLiveHandles));
 	return tex;
 }
 
 void CalypsoHdUiOverlay::evictTextTextures(const std::vector<std::uint64_t>& evicted)
 {
-	// Worklist so a re-touch of a frame-pinned handle can chase the SECONDARY
-	// evictions it causes, freeing every non-pinned texture rather than leaving
-	// it resident-but-untracked (Codex #8). Each handle is processed once, so a
-	// frame where every texture is pinned still terminates (over budget for that
-	// one frame; it self-heals next frame when nothing is pinned).
-	std::vector<std::uint64_t> work(evicted.begin(), evicted.end());
-	std::unordered_set<std::uint64_t> seen;
-	while (!work.empty())
+	// Pin-aware LRU guarantees no frame-pinned handle is ever returned here, so
+	// every evicted handle is safe to free -- no worklist / re-touch cascade, and
+	// no risk of a resident-but-untracked texture (external review #7). The
+	// _frameLiveHandles guard below is belt-and-suspenders: a pinned handle would
+	// simply be left resident + accounted (still in the LRU), never leaked.
+	for (std::uint64_t ev : evicted)
 	{
-		const std::uint64_t ev = work.back();
-		work.pop_back();
-		if (!seen.insert(ev).second) continue; // already handled
+		if (_frameLiveHandles.count(ev)) continue; // never free a pinned texture
 		auto kit = _texHandleToKey.find(ev);
 		if (kit == _texHandleToKey.end()) continue;
-
-		if (_frameLiveHandles.count(ev))
-		{
-			// Referenced by _drawItems this frame: must not be freed mid-frame.
-			// Re-touch to keep it resident + LRU-tracked, and chase the secondary
-			// evictions that re-insert causes.
-			auto tit = _textTextures.find(kit->second);
-			if (tit != _textTextures.end())
-			{
-				const std::size_t b = (std::size_t)tit->second->width()
-					* (std::size_t)tit->second->height() * 4u;
-				for (std::uint64_t sec : _textTexLru.touch(ev, b)) work.push_back(sec);
-			}
-			continue;
-		}
-
 		const CalypsoHdTextTextureKey evKey = kit->second;
 		auto tit = _textTextures.find(evKey);
 		if (tit != _textTextures.end())

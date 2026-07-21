@@ -541,6 +541,17 @@ void TextList::setColumns(int cols, ...)
 	va_end(args);
 }
 
+#ifdef __EMSCRIPTEN__
+void TextList::rebaseNativeSize(int nativeW, int nativeH)
+{
+	// Re-anchor the HD scale() denominator to the current design so authored
+	// design-space column widths are not re-scaled by the legacy 280 native width
+	// (external review #2). Only meaningful before rows are (re)built.
+	if (nativeW > 0) _nativeW = nativeW;
+	if (nativeH > 0) _nativeH = nativeH;
+}
+#endif
+
 void TextList::setMinimumRowHeight(int height)
 {
 	_minimumRowHeight = std::max(0, height);
@@ -1197,19 +1208,26 @@ void TextList::draw()
 void TextList::blit(SDL_Surface *surface)
 {
 #ifdef __EMSCRIPTEN__
-	// Phase 46.2-HD (A2): when the HD overlay has claimed this list this frame,
-	// skip the whole logical blit (rows, selector, arrows) -- its physical rows
-	// are drawn post-composite. Input/scroll handling is unaffected; the cache is
-	// left intact, so an unclaimed later frame blits correctly.
-	if (Calypso::CalypsoHdUiOverlay::instance().widgetClaimed(this,
-			Calypso::CalypsoHdUiOverlay::instance().frameId()))
-		return;
+	// Phase 46.2-HD (A2): when the HD overlay has claimed this list this frame, the
+	// physical HD rows replace the logical ROW TEXT (drawn post-composite). But the
+	// selector highlight, toggle arrows, and scrollbar are NOT HD-replaced, so we
+	// must keep drawing them -- suppressing the whole blit erased all selection /
+	// scroll-position feedback (external review #8). Input/scroll handling is
+	// unaffected either way; the row-text cache is left intact for an unclaimed
+	// later frame.
+	const bool hdClaimed = Calypso::CalypsoHdUiOverlay::instance().widgetClaimed(this,
+		Calypso::CalypsoHdUiOverlay::instance().frameId());
+#else
+	const bool hdClaimed = false;
 #endif
 	if (_visible && !_hidden)
 	{
 		_selector->blit(surface);
 	}
-	Surface::blit(surface);
+	if (!hdClaimed)
+	{
+		Surface::blit(surface); // row text content -- replaced by HD rows when claimed
+	}
 	if (_visible && !_hidden)
 	{
 		if (_arrowPos != -1 && !_rows.empty())
