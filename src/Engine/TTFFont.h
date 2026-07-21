@@ -61,6 +61,14 @@ public:
 
 	int lineHeight() const;
 
+#ifdef __EMSCRIPTEN__
+	/** Phase 46.2-HD: canonical VFS path + registered logical design size, so
+	 *  the HD text rasteriser can open its OWN faces at arbitrary physical
+	 *  pixel heights (this font's cached renderText path is fixed-size). */
+	const std::string& vfsPath() const { return _vfsPath; }
+	int pixelSize() const { return _pixelSize; }
+#endif
+
 private:
 #ifdef __EMSCRIPTEN__
 	/** Deferred open: attempts TTF_OpenFontRW on the first call, then noops. */
