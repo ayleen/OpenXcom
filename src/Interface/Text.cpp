@@ -27,6 +27,8 @@
 #include "../Engine/Action.h"
 #include "../Engine/TTFFont.h"
 #include "../Engine/TTFUtil.h"
+#include "../Calypso/CalypsoHdWidgetBridge.h"  // Phase 46.2-HD (empty on native)
+#include "../Calypso/CalypsoHdUiOverlay.h"     // Phase 46.2-HD (empty on native)
 
 namespace OpenXcom
 {
@@ -676,6 +678,12 @@ bool Text::drawTTF()
 void Text::draw()
 {
 	Surface::draw();
+#ifdef __EMSCRIPTEN__
+	// Phase 46.2-HD: if the HD overlay claimed this label this frame, render
+	// nothing logical -- the physical replacement is drawn post-composite.
+	if (Calypso::calypsoHdWidgetClaimed(this, Calypso::CalypsoHdUiOverlay::instance().frameId()))
+		return;
+#endif
 	if (_text.empty() || _font == 0)
 	{
 		return;

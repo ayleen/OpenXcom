@@ -81,6 +81,12 @@ public:
 	};
 	void submitText(const TextSubmit& item);
 
+	/// Claim a live widget's logical visual for the current frame: its own draw
+	/// path will render nothing (the physical replacement submitted above is the
+	/// only thing shown). Frame-scoped -- a widget not re-claimed next frame
+	/// falls straight back to its logical rendering.
+	void claimWidget(const void* widget);
+
 	/// WebGL context lost/restored -- forwarded to the frame controller. When
 	/// GL resources exist (HD.3+) this is driven by the ShaderManager
 	/// reset-callback ladder; until then it is a safe no-op on the lifecycle.

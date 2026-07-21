@@ -618,6 +618,7 @@ if(EMSCRIPTEN)
   list(APPEND openxcom_src Calypso/CalypsoHdUiOverlay.cpp)
   list(APPEND openxcom_src Calypso/CalypsoHdFontSource.cpp)
   list(APPEND openxcom_src Calypso/CalypsoHdTextRaster.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoHdWidgetBridge.cpp)
 
   # Phase 8b: regenerate embedded shader table before each build when any
   # *.vert or *.frag file in Engine/Shaders/ has changed.

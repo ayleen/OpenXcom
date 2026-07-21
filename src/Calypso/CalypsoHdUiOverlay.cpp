@@ -7,6 +7,7 @@
 
 #include "CalypsoHdUiOverlay.h"
 #include "CalypsoViewportMailbox.h"
+#include "CalypsoHdWidgetBridge.h"
 
 #include <emscripten.h>
 #include <GLES3/gl3.h>
@@ -159,6 +160,12 @@ void CalypsoHdUiOverlay::submitText(const TextSubmit& item)
 {
 	_pendingText.push_back(item);
 	_enabledGroupCount = 1; // an adapter opted in this frame -> not dormant
+}
+
+void CalypsoHdUiOverlay::claimWidget(const void* widget)
+{
+	calypsoHdWidgetClaim(widget, _controller.frameId());
+	_enabledGroupCount = 1;
 }
 
 GpuTexture* CalypsoHdUiOverlay::textureForText(const CalypsoHdTextRasterKey& rasterKey)

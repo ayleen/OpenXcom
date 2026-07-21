@@ -23,6 +23,8 @@
 #include "../Engine/Sound.h"
 #include "../Engine/Action.h"
 #include "ComboBox.h"
+#include "../Calypso/CalypsoHdWidgetBridge.h"  // Phase 46.2-HD (empty on native)
+#include "../Calypso/CalypsoHdUiOverlay.h"     // Phase 46.2-HD (empty on native)
 
 namespace OpenXcom
 {
@@ -210,6 +212,11 @@ void TextButton::setPalette(const SDL_Color *colors, int firstcolor, int ncolors
 void TextButton::draw()
 {
 	Surface::draw();
+#ifdef __EMSCRIPTEN__
+	// Phase 46.2-HD: HD overlay claimed this button this frame -> no logical draw.
+	if (Calypso::calypsoHdWidgetClaimed(this, Calypso::CalypsoHdUiOverlay::instance().frameId()))
+		return;
+#endif
 	SDL_Rect square;
 
 	int mul = 1;
