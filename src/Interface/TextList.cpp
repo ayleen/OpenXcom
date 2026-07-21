@@ -30,6 +30,7 @@
 #include "../fmath.h"
 #ifdef __EMSCRIPTEN__
 #include "../Engine/TTFFont.h"
+#include "../Calypso/CalypsoHdUiOverlay.h" // Phase 46.2-HD (empty on native)
 #endif
 
 namespace OpenXcom
@@ -1195,6 +1196,15 @@ void TextList::draw()
  */
 void TextList::blit(SDL_Surface *surface)
 {
+#ifdef __EMSCRIPTEN__
+	// Phase 46.2-HD (A2): when the HD overlay has claimed this list this frame,
+	// skip the whole logical blit (rows, selector, arrows) -- its physical rows
+	// are drawn post-composite. Input/scroll handling is unaffected; the cache is
+	// left intact, so an unclaimed later frame blits correctly.
+	if (Calypso::CalypsoHdUiOverlay::instance().widgetClaimed(this,
+			Calypso::CalypsoHdUiOverlay::instance().frameId()))
+		return;
+#endif
 	if (_visible && !_hidden)
 	{
 		_selector->blit(surface);

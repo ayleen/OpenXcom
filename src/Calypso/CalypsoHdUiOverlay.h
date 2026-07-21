@@ -155,7 +155,11 @@ private:
 	bool _mayGoPhysical = false;
 	bool _activeThisFrame = false;
 
-	const CalypsoHdFamilyAdapter* _adapter = nullptr;
+	// All currently-registered family adapters (a State registers on create,
+	// clears on destroy). prepareFrame() drives the one whose topState() is the
+	// current top state, so stacked popups of the same family each work when they
+	// become top again -- not just the last-registered one (GLM #3).
+	std::vector<const CalypsoHdFamilyAdapter*> _adapters;
 
 	// The ONE claim store: identity lives in _controller.claims(); this ephemeral
 	// map is the per-frame widget-ptr -> committed claim lookup used by blit().

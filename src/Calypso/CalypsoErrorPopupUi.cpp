@@ -41,6 +41,7 @@
 #include "../Menu/ErrorMessageState.h"
 #include "../Mod/Mod.h"
 
+#include "CalypsoBevelPanel.h"
 #include "CalypsoF34ErrorLayout.h"
 #include "CalypsoHdFontSource.h"
 #include "CalypsoHdTextRasterKey.h"
@@ -141,39 +142,6 @@ std::string wrapForWidth(const std::string& utf8Text, const std::string& vfsPath
 }
 
 } // namespace
-
-/// A beveled panel with a REAL bitmap fallback (remediation B1): border + inset
-/// fill drawn in the caller's palette theme, and a blit()-level claim skip so
-/// its physical replacement (a crisper submitPanel bevel) takes over cleanly
-/// when Ready and it renders logically otherwise. Unlike the pilot's invisible
-/// placeholder, this badge always has something to show.
-class CalypsoBevelPanel : public Surface
-{
-public:
-	CalypsoBevelPanel() : Surface(1, 1, 0, 0) {}
-	void setTheme(Uint8 border, Uint8 fill) { _border = border; _fill = fill; }
-
-	void blit(SDL_Surface* surface) override
-	{
-		if (CalypsoHdUiOverlay::instance().widgetClaimed(this,
-				CalypsoHdUiOverlay::instance().frameId()))
-			return;
-		Surface::blit(surface);
-	}
-
-	void draw() override
-	{
-		Surface::draw();
-		SDL_Rect r{ 0, 0, getWidth(), getHeight() };
-		drawRect(&r, _border);
-		SDL_Rect inner{ 2, 2, getWidth() - 4, getHeight() - 4 };
-		if (inner.w > 0 && inner.h > 0) drawRect(&inner, _fill);
-	}
-
-private:
-	Uint8 _border = 1;
-	Uint8 _fill = 0;
-};
 
 // --- Adapter ---------------------------------------------------------------
 

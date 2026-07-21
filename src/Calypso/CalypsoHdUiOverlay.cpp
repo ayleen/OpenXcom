@@ -35,12 +35,14 @@ CalypsoHdUiOverlay& CalypsoHdUiOverlay::instance()
 
 void CalypsoHdUiOverlay::registerAdapter(const CalypsoHdFamilyAdapter* adapter)
 {
-	_adapter = adapter;
+	if (!adapter) return;
+	if (std::find(_adapters.begin(), _adapters.end(), adapter) == _adapters.end())
+		_adapters.push_back(adapter);
 }
 
 void CalypsoHdUiOverlay::clearAdapter(const CalypsoHdFamilyAdapter* adapter)
 {
-	if (_adapter == adapter) _adapter = nullptr;
+	_adapters.erase(std::remove(_adapters.begin(), _adapters.end(), adapter), _adapters.end());
 }
 
 bool CalypsoHdUiOverlay::widgetClaimed(const void* widget, std::uint64_t frameId) const
@@ -57,7 +59,7 @@ void CalypsoHdUiOverlay::beginFrame(int logicalWidth, int logicalHeight)
 	// Backing-store poll: canvas width/height are physical device pixels. Only
 	// polled when an adapter is registered -- while dormant the metrics are never
 	// used and the JS observation already delivers physical dims on every resize.
-	if (_adapter || _harnessEnabled)
+	if (!_adapters.empty() || _harnessEnabled)
 	{
 		const int physW = (int)EM_ASM_INT({ return document.getElementById('canvas').width; });
 		const int physH = (int)EM_ASM_INT({ return document.getElementById('canvas').height; });
@@ -85,7 +87,15 @@ void CalypsoHdUiOverlay::prepareFrame(int logicalWidth, int logicalHeight, const
 	beginFrame(logicalWidth, logicalHeight);
 
 	if (!_mayGoPhysical || !_frozenMetrics.valid()) return;
-	if (!_adapter || _adapter->topState() != topState) return;
+
+	// Drive the registered adapter (if any) whose state is the current top state,
+	// so a lower popup regains HD when an upper one is dismissed (GLM #3).
+	const CalypsoHdFamilyAdapter* active = nullptr;
+	for (const CalypsoHdFamilyAdapter* a : _adapters)
+	{
+		if (a->topState() == topState) { active = a; break; }
+	}
+	if (!active) return;
 
 	// GL must be ready to raster/upload; if not, no subgroup can be Ready and the
 	// whole popup renders logically this frame (caches warm for next frame).
@@ -93,7 +103,7 @@ void CalypsoHdUiOverlay::prepareFrame(int logicalWidth, int logicalHeight, const
 	if (!_glReady) return;
 
 	CalypsoHdFrameBuilder builder;
-	_adapter->collect(builder);
+	active->collect(builder);
 	if (builder.empty()) return;
 
 	// Resolve + commit each atomic subgroup independently.
