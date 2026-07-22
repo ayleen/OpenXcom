@@ -991,6 +991,28 @@ float g_calypsoTileEmissive = 1.5f;
 // floor items are never affected. Live-tune via _calypso_set_unit_shade.
 float g_calypsoUnitShade = 1.0f;
 
+// Phase 42: HD unit weapon registration. The 3D-rendered arm poses place the
+// hand at a different screen pixel than the vanilla arm sprites the HANDOB
+// offset tables were tuned for, so a held weapon lands beside/below the hand.
+// These per-(slot, two-handed, direction) pixel nudges re-seat the HANDOB sprite
+// in the rendered hand; slot 0 = right item, 1 = left item. All zero by default
+// (vanilla placement). UnitSprite.cpp reads these under __EMSCRIPTEN__; live-tune
+// via _calypso_set_weapon_hand_offset(slot, twoHanded, dir, dx, dy).
+// Defaults derived offline for the diver-wetsuit HD arm poses (Phase 42): the
+// difference between the 3D-rendered hand and the vanilla arm the HANDOB frames
+// assume, per direction 0..7. Slot 0 = right item (1H uses the one-hand-carry
+// arm, 2H the two-hand trigger arm), slot 1 = left item (dual/left-hand). These
+// seat the current vanilla HANDOB weapons in the rendered hand; refine live via
+// _calypso_set_weapon_hand_offset and re-derive when the HD weapon art lands.
+int g_calypsoWeaponHandOffX[2][2][8] = {
+	{ { 18, 17, -2, -5, -12, -18, -15, 15 }, { 14, 17, -2, -8, -14, -17, -15, 16 } },
+	{ { 13, 22, 21, 13, -9, -13, -12, -7 }, { 13, 22, 21, 13, -9, -13, -12, -7 } },
+};
+int g_calypsoWeaponHandOffY[2][2][8] = {
+	{ { 11, 16, 17, 16, 17, 16, 14, 11 }, { 13, 13, 14, 14, 16, 17, 14, 11 } },
+	{ { 15, 17, 16, 15, 16, 16, 14, 12 }, { 15, 17, 16, 15, 16, 16, 14, 12 } },
+};
+
 static float clamp01p(float v) { return v < 0.0f ? 0.0f : (v > 2.0f ? 2.0f : v); }
 static float clamp08 (float v) { return v < 0.0f ? 0.0f : (v > 8.0f ? 8.0f : v); }
 static float clamp01 (float v) { return v < 0.0f ? 0.0f : (v > 1.0f ? 1.0f : v); }
@@ -1008,6 +1030,11 @@ EMSCRIPTEN_KEEPALIVE void calypso_set_uw_shock   (float v) { g_calypsoUwShock   
 EMSCRIPTEN_KEEPALIVE void calypso_set_uw_emissive(float v) { g_calypsoUwEmissive = clamp01p(v); }
 EMSCRIPTEN_KEEPALIVE void calypso_set_tile_emissive(float v) { g_calypsoTileEmissive = clamp08(v); } // Phase 25 R6
 EMSCRIPTEN_KEEPALIVE void calypso_set_unit_shade  (float v) { g_calypsoUnitShade   = clamp01(v); } // Phase 25 R7
+EMSCRIPTEN_KEEPALIVE void calypso_set_weapon_hand_offset(int slot, int twoHanded, int dir, int dx, int dy) { // Phase 42
+	if (slot < 0 || slot > 1 || twoHanded < 0 || twoHanded > 1 || dir < 0 || dir > 7) return;
+	g_calypsoWeaponHandOffX[slot][twoHanded][dir] = dx;
+	g_calypsoWeaponHandOffY[slot][twoHanded][dir] = dy;
+}
 
 /* L2 (memory-reduction): runtime SSAA supersample-factor override.
  * 0 = "unset" — Map::ensureSsaaTarget falls back to _ssaaScale (default 2×).
