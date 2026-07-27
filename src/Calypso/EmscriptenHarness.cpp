@@ -998,19 +998,28 @@ float g_calypsoUnitShade = 1.0f;
 // in the rendered hand; slot 0 = right item, 1 = left item. All zero by default
 // (vanilla placement). UnitSprite.cpp reads these under __EMSCRIPTEN__; live-tune
 // via _calypso_set_weapon_hand_offset(slot, twoHanded, dir, dx, dy).
-// Defaults derived offline for the diver-wetsuit HD arm poses (Phase 42): the
-// difference between the 3D-rendered hand and the vanilla arm the HANDOB frames
-// assume, per direction 0..7. Slot 0 = right item (1H uses the one-hand-carry
-// arm, 2H the two-hand trigger arm), slot 1 = left item (dual/left-hand). These
-// seat the current vanilla HANDOB weapons in the rendered hand; refine live via
-// _calypso_set_weapon_hand_offset and re-derive when the HD weapon art lands.
+//
+// The HD carry poses are solved so the rendered palm lands on the vanilla grip
+// itself (tools/hd-unit-hand-pixels.py measures where the vanilla routine-13
+// arm meets a HANDOB weapon; tools/hd-unit-hand-fit-blender.py fits the single
+// armature-space point that explains all eight directions and the arm poses
+// aim at it).  One rigid 3D grip cannot reproduce eight hand-drawn frames
+// exactly, and this table is exactly that leftover: rendered hand minus vanilla
+// hand, per direction, in 32x40 logical pixels.  It is generated, not tuned --
+// regenerate with the two tools above and copy the emitted
+// `weapon_hand_offsets` block from docs/measurements/phase-42-hand-targets.json.
+// Slot 0 = right item (1H uses the one-hand-carry arm 248, 2H the trigger arm
+// 240), slot 1 = left item (always drawn against the support arm 232).
+// Directions where the vanilla arm is occluded by the torso and only grazes the
+// weapon carry no correction: there the 3D fit is the more trustworthy of the
+// two, so those entries stay 0.
 int g_calypsoWeaponHandOffX[2][2][8] = {
-	{ { 18, 17, -2, -5, -12, -18, -15, 15 }, { 14, 17, -2, -8, -14, -17, -15, 16 } },
-	{ { 13, 22, 21, 13, -9, -13, -12, -7 }, { 13, 22, 21, 13, -9, -13, -12, -7 } },
+	{ { 0, 0, 0, 0, -1, 1, 0, -2 }, { 1, -3, 2, 2, -2, 2, 0, -1 } },
+	{ { 0, -3, 2, -2, -1, 3, -1, 0 }, { 0, -3, 2, -2, -1, 3, -1, 0 } },
 };
 int g_calypsoWeaponHandOffY[2][2][8] = {
-	{ { 11, 16, 17, 16, 17, 16, 14, 11 }, { 13, 13, 14, 14, 16, 17, 14, 11 } },
-	{ { 15, 17, 16, 15, 16, 16, 14, 12 }, { 15, 17, 16, 15, 16, 16, 14, 12 } },
+	{ { 1, 0, 1, 0, 0, -1, -1, -1 }, { 0, 0, 0, 2, 0, -1, 0, -1 } },
+	{ { 0, -1, 0, 2, 0, 0, 0, -1 }, { 0, -1, 0, 2, 0, 0, 0, -1 } },
 };
 
 static float clamp01p(float v) { return v < 0.0f ? 0.0f : (v > 2.0f ? 2.0f : v); }
