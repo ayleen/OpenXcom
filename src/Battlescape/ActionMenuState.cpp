@@ -41,6 +41,9 @@
 #include "Pathfinding.h"
 #include "TileEngine.h"
 #include "../Interface/Text.h"
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
+#include "../Calypso/CalypsoVoiceResponseOwnership.h"
+#endif
 
 namespace OpenXcom
 {
@@ -48,7 +51,7 @@ namespace OpenXcom
 /**
  * Default constructor, used by SkillMenuState.
  */
-ActionMenuState::ActionMenuState(BattleAction *action) : _action(action)
+ActionMenuState::ActionMenuState(BattleAction *action) : _action(action), _battleGame(nullptr)
 {
 }
 
@@ -59,7 +62,8 @@ ActionMenuState::ActionMenuState(BattleAction *action) : _action(action)
  * @param x Position on the x-axis.
  * @param y position on the y-axis.
  */
-ActionMenuState::ActionMenuState(BattleAction *action, int x, int y) : _action(action)
+ActionMenuState::ActionMenuState(BattleAction *action, int x, int y,
+	BattlescapeGame *battleGame) : _action(action), _battleGame(battleGame)
 {
 	_screen = false;
 
@@ -548,7 +552,16 @@ void ActionMenuState::handleAction()
 				|| _action->type == BA_AIMEDSHOT || _action->type == BA_LAUNCH
 				|| _action->type == BA_HIT)
 			{
-				CalypsoVoiceG05::onWeaponReady(_action->actor);
+				const bool stockResponseExists =
+					weapon->getBattleType() == BT_FIREARM;
+				const CalypsoVoiceResponseOwnership ownership =
+					calypsoVoiceResponseOwnership(
+						CalypsoVoiceG05::onWeaponReady(_action->actor,
+							stockResponseExists));
+				if (stockResponseExists && ownership.playStock && _battleGame)
+				{
+					_battleGame->playUnitResponseSound(_action->actor, 2);
+				}
 			}
 #endif
 		}

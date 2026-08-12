@@ -17,6 +17,19 @@ struct CalypsoVoiceProfileDescriptor
 	std::string gender;
 };
 
+/// Repairs an old civilian tactical identity from the already persisted
+/// operation locale. Empty operation metadata keeps the historical English
+/// fallback, while a saved per-unit locale always wins.
+inline std::string calypsoRepairCivilianVoiceLocale(
+	const std::string &unitLocale, const std::string &operationLocale)
+{
+	if (!unitLocale.empty())
+	{
+		return unitLocale;
+	}
+	return operationLocale.empty() ? "en" : operationLocale;
+}
+
 /**
  * Deterministically selects a compatible profile without depending on map or
  * ruleset iteration order. The persisted ID wins while it remains compatible.

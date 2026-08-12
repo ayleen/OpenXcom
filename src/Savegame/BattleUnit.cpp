@@ -48,6 +48,9 @@
 #include "Tile.h"
 #include "SavedGame.h"
 #include "SavedBattleGame.h"
+#ifdef CALYPSO_VOICE_P_EN
+#include "../Calypso/CalypsoVoiceProfileSelection.h"
+#endif
 #include "../Engine/ShaderDraw.h"
 #include "BattleUnitStatistics.h"
 #include "../fmath.h"
@@ -607,7 +610,8 @@ BattleUnit::~BattleUnit()
  * Loads the unit from a YAML file.
  * @param node YAML node.
  */
-void BattleUnit::load(const YAML::YamlNodeReader& node, const Mod *mod, const ScriptGlobal *shared)
+void BattleUnit::load(const YAML::YamlNodeReader& node, const Mod *mod,
+	const ScriptGlobal *shared, const std::string &civilianVoiceLocale)
 {
 	const auto& reader = node.useIndex();
 	reader.tryRead("id", _id);
@@ -756,8 +760,8 @@ void BattleUnit::load(const YAML::YamlNodeReader& node, const Mod *mod, const Sc
 		}
 		else if (_voiceUnitClass == "civilian")
 		{
-			if (_voiceLocale.empty())
-				_voiceLocale = "en";
+			_voiceLocale = calypsoRepairCivilianVoiceLocale(
+				_voiceLocale, civilianVoiceLocale);
 			if (_voiceGender.empty())
 				_voiceGender = "male";
 			_voiceProfile = mod->selectVoiceProfile(_voiceLocale,

@@ -2788,11 +2788,15 @@ void BattlescapeState::handleItemClick(BattleItem *item, bool middleClick)
 		else
 		{
 			_battleGame->getCurrentAction()->weapon = item;
-			popup(new ActionMenuState(_battleGame->getCurrentAction(), _icons->getX(), _icons->getY() + (int)(16 * _hudScale)));
+			popup(new ActionMenuState(_battleGame->getCurrentAction(), _icons->getX(),
+				_icons->getY() + (int)(16 * _hudScale), _battleGame));
+#if !defined(__EMSCRIPTEN__) || (!defined(CALYPSO_VOICE_G0_5) && !defined(CALYPSO_VOICE_P_EN))
 			if (item->getRules()->getBattleType() == BT_FIREARM)
 			{
-				_battleGame->playUnitResponseSound(_battleGame->getCurrentAction()->actor, 2); // "select weapon" sound
+				_battleGame->playUnitResponseSound(
+					_battleGame->getCurrentAction()->actor, 2);
 			}
+#endif
 		}
 	}
 }

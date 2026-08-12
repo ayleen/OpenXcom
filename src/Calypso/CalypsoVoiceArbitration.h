@@ -27,6 +27,26 @@ enum class CalypsoVoiceDecision
 	Suppress       ///< Drop: cooldown, gap fail with a full queue, or lost priority.
 };
 
+/// Final ownership decision for events that also have a one-shot stock sound.
+/// A custom request must not be deferred or silently suppressed after the
+/// caller has given up that stock response. Only immediate custom playback may
+/// claim ownership; every other arbitration result returns the stock path.
+struct CalypsoVoiceStockOwnership
+{
+	CalypsoVoiceDecision decision = CalypsoVoiceDecision::Suppress;
+	bool allowStockFallback = false;
+};
+
+inline CalypsoVoiceStockOwnership calypsoResolveVoiceStockOwnership(
+	CalypsoVoiceDecision decision, bool stockResponseExists)
+{
+	if (stockResponseExists && decision != CalypsoVoiceDecision::PlayNow)
+	{
+		return {CalypsoVoiceDecision::Suppress, true};
+	}
+	return {decision, false};
+}
+
 /// Wrap-safe elapsed milliseconds from `last` to `now`. The subtraction is
 /// modulo 2^32, so a counter that wraps past 0 still yields the correct delta
 /// for any real elapsed window shorter than ~49.7 days (2^32 ms).

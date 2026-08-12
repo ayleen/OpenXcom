@@ -290,7 +290,12 @@ void SavedBattleGame::load(const YAML::YamlNodeReader& node, Mod *mod, SavedGame
 				continue;
 			unit = new BattleUnit(mod, mod->getUnit(type), originalFaction, id, nullptr, mod->getArmor(armor), mod->getStatAdjustment(savedGame->getDifficulty()), _depth, nullptr);
 		}
+#ifdef __EMSCRIPTEN__
+		unit->load(unitReader, this->getMod(), this->getMod()->getScriptGlobal(),
+			_civilianVoiceLocale);
+#else
 		unit->load(unitReader, this->getMod(), this->getMod()->getScriptGlobal());
+#endif
 		// Handling of special built-in weapons will be done during and after the load of items
 		// unit->setSpecialWeapon(this, true);
 		if (faction == FACTION_PLAYER)

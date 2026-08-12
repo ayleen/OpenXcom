@@ -32,6 +32,9 @@ public:
 	/// Returns a transient owner lease; same-save state reconstruction preserves
 	/// one runtime until the final lease is released.
 	static unsigned int beginMission(SavedBattleGame *save);
+	/// Reset stage-local arbitration when a multi-stage deployment reuses the
+	/// same SavedBattleGame instance for a newly generated map.
+	static void onStageTransition(SavedBattleGame *save);
 	static void endMission(unsigned int ownerToken);
 	/// Drain the production manager's single pending slot from the battle tick.
 	static void think();
@@ -45,7 +48,8 @@ public:
 	static bool handleSelection(BattleUnit *unit, bool sameUnit);
 	/// Returns true when the spike owns movement acknowledgement for this unit.
 	static bool handleMoveOrder(BattleUnit *unit);
-	static void onWeaponReady(BattleUnit *unit);
+	/// Returns true when the custom bark owns the one-shot weapon response.
+	static bool onWeaponReady(BattleUnit *unit, bool stockResponseExists);
 	static void onOutOfAmmo(BattleUnit *unit);
 	static void onAlienSpotted(BattleUnit *spotter, BattleUnit *hostile);
 	static void onGrenadeThrown(BattleUnit *unit);
@@ -56,7 +60,7 @@ public:
 		BattleUnit *creditedKiller);
 	static void onAttackFinished(const BattleAction &action);
 	/// Returns true when the pilot replaces the stock panic/berserk voice.
-	static bool onPanic(BattleUnit *unit);
+	static bool onPanic(BattleUnit *unit, bool stockResponseExists);
 	/// Resolve a deferred wounded bark after the engine classifies the casualty.
 	static void onCasualtyResolved(BattleUnit *unit);
 	/// Returns true when the pilot death clip replaced the stock death sound.

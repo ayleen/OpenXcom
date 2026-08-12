@@ -1,6 +1,7 @@
 #if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
 
 #include "CalypsoVoiceG05.h"
+#include "CalypsoVoiceMissionLifecycle.h"
 #include "CalypsoVoiceOutcome.h"
 #include "CalypsoVoiceSelectionFlavor.h"
 
@@ -111,6 +112,7 @@ struct PilotState
 	bool packReady = false;
 #endif
 	unsigned int missionEpoch = 0;
+	unsigned int stageGeneration = 0;
 #if !defined(CALYPSO_VOICE_P_EN)
 	std::map<std::string, CachedChunk> chunks;
 	std::size_t decodedBytes = 0;
@@ -592,9 +594,9 @@ Mix_Chunk *loadClip(const std::string &relativePath)
 #endif
 
 bool submit(Event event, BattleUnit *unit, bool forceInterrupt = false,
-	bool *handledByVoice = nullptr)
+	bool *handledByVoice = nullptr, bool stockResponseExists = false)
 {
-	if (handledByVoice)
+	if (handledByVoice && !stockResponseExists)
 	{
 		*handledByVoice = false;
 	}
@@ -616,7 +618,7 @@ bool submit(Event event, BattleUnit *unit, bool forceInterrupt = false,
 	{
 		return false;
 	}
-	if (handledByVoice)
+	if (handledByVoice && !stockResponseExists)
 	{
 		// Preserve the accepted G0.5 behavior: once its verified pack owns a
 		// command event, deliberate cooldown/mute suppression must not fall
@@ -636,9 +638,7 @@ bool submit(Event event, BattleUnit *unit, bool forceInterrupt = false,
 		eventSpec(event).name, SDL_GetTicks(), isFlavorEvent(event),
 		isSafetyEvent(event), forceInterrupt,
 		!Options::mute && Options::calypsoVoicesEnabled,
-		// Panic has an existing one-shot OXCE response. Do not queue a custom
-		// bark and discard that response before the bark has actually started.
-		event == Event::Panic);
+		stockResponseExists);
 	recordManagerResult(event, unit, result);
 	if (handledByVoice)
 	{
@@ -717,6 +717,27 @@ bool submit(Event event, BattleUnit *unit, bool forceInterrupt = false,
 #endif
 }
 
+void resetStageState(SavedBattleGame *save)
+{
+	g_state.stageGeneration = save ? save->getCalypsoVoiceStageGeneration() : 0;
+	g_state.lastFired.clear();
+	g_state.spottedHostiles.clear();
+	g_state.hasLastAlienSpottedSubmit = false;
+	g_state.lastAlienSpottedSubmit = 0;
+	g_state.voicedDeaths.clear();
+	g_state.pendingWounded.clear();
+	g_state.attackOutcomes.clear();
+	g_state.nextActionId = 0;
+	g_state.selectionFlavorLockedUntil.clear();
+	g_state.selectionState = CalypsoVoiceSelectionState{};
+#if defined(CALYPSO_VOICE_P_EN)
+	g_manager.beginStage(save && save->getDepth() > 0);
+#else
+	Mix_HaltChannel(4);
+	g_state.currentPriority = 0;
+#endif
+}
+
 bool selectionFlavorLocked(BattleUnit *unit, Uint32 now)
 {
 	auto locked = g_state.selectionFlavorLockedUntil.find(unit->getId());
@@ -753,12 +774,23 @@ unsigned int CalypsoVoiceG05::beginMission(SavedBattleGame *save)
 	{
 		ownerToken = ++g_nextMissionOwner;
 	}
-	if (g_state.active && g_state.save == save)
+	const unsigned int requestedStage = save
+		? save->getCalypsoVoiceStageGeneration() : 0;
+	const CalypsoVoiceMissionContextChange context =
+		calypsoVoiceMissionContextChange(g_state.active, g_state.save,
+			g_state.stageGeneration, save, requestedStage);
+	if (context == CalypsoVoiceMissionContextChange::Reconstruction)
 	{
 		// Options Apply and other BattlescapeState reconstructions retain the
 		// same SavedBattleGame. Give the replacement its own lease but preserve
 		// the runtime epoch, arbitration state, and requested packs.
 		g_state.missionOwners.insert(ownerToken);
+		return ownerToken;
+	}
+	if (context == CalypsoVoiceMissionContextChange::StageTransition)
+	{
+		g_state.missionOwners.insert(ownerToken);
+		resetStageState(save);
 		return ownerToken;
 	}
 	if (g_state.active)
@@ -775,6 +807,7 @@ unsigned int CalypsoVoiceG05::beginMission(SavedBattleGame *save)
 	g_state.save = save;
 	g_state.missionOwners.insert(ownerToken);
 	g_state.missionEpoch = ++g_nextMissionEpoch;
+	g_state.stageGeneration = requestedStage;
 	g_state.cosmeticState ^= g_state.missionEpoch * 0x9e3779b9u;
 #if defined(CALYPSO_VOICE_P_EN)
 	g_manager.beginMission(save->getMod(), g_state.missionEpoch,
@@ -794,6 +827,19 @@ unsigned int CalypsoVoiceG05::beginMission(SavedBattleGame *save)
 	Log(LOG_INFO) << LOG_TAG << " development-only pilot active; clips=208 profiles=4 events=18 shuffle_bags=per_unit_event";
 #endif
 	return ownerToken;
+}
+
+void CalypsoVoiceG05::onStageTransition(SavedBattleGame *save)
+{
+	if (!save)
+	{
+		return;
+	}
+	save->advanceCalypsoVoiceStageGeneration();
+	if (g_state.active && g_state.save == save)
+	{
+		resetStageState(save);
+	}
 }
 
 void CalypsoVoiceG05::think()
@@ -989,9 +1035,12 @@ bool CalypsoVoiceG05::handleMoveOrder(BattleUnit *unit)
 	return handled;
 }
 
-void CalypsoVoiceG05::onWeaponReady(BattleUnit *unit)
+bool CalypsoVoiceG05::onWeaponReady(BattleUnit *unit,
+	bool stockResponseExists)
 {
-	submit(Event::WeaponReady, unit);
+	bool handled = false;
+	submit(Event::WeaponReady, unit, false, &handled, stockResponseExists);
+	return handled;
 }
 
 void CalypsoVoiceG05::onOutOfAmmo(BattleUnit *unit)
@@ -1177,14 +1226,14 @@ void CalypsoVoiceG05::onAttackFinished(const BattleAction &action)
 	}
 }
 
-bool CalypsoVoiceG05::onPanic(BattleUnit *unit)
+bool CalypsoVoiceG05::onPanic(BattleUnit *unit, bool stockResponseExists)
 {
 	if (!g_state.active || (!isDiver(unit) && !isCivilianUnit(unit)))
 	{
 		return false;
 	}
 	bool handled = false;
-	submit(Event::Panic, unit, false, &handled);
+	submit(Event::Panic, unit, false, &handled, stockResponseExists);
 	return handled;
 }
 

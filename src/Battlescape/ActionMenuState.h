@@ -33,6 +33,7 @@ class ActionMenuState : public State
 {
 protected:
 	BattleAction *_action;
+	BattlescapeGame *_battleGame;
 	ActionMenuItem *_actionMenu[6];
 	/// Adds a new menu item for an action.
 	void addItem(BattleActionType ba, const std::string &name, int *id, SDLKey key);
@@ -42,7 +43,8 @@ public:
 	/// Default constructor, used by SkillMenuState.
 	ActionMenuState(BattleAction *action);
 	/// Creates the Action Menu state.
-	ActionMenuState(BattleAction *action, int x, int y);
+	ActionMenuState(BattleAction *action, int x, int y,
+		BattlescapeGame *battleGame = nullptr);
 	/// Cleans up the Action Menu state.
 	~ActionMenuState();
 	/// Init function.

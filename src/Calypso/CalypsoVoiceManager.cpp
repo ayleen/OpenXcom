@@ -2,6 +2,7 @@
 
 #include "CalypsoVoiceManager.h"
 
+#include "CalypsoVoiceMissionLifecycle.h"
 #include "RuleVoiceProfile.h"
 #include "../Engine/FileMap.h"
 #include "../Engine/Logger.h"
@@ -154,6 +155,19 @@ void CalypsoVoiceManager::beginMission(const Mod *mod, unsigned int missionEpoch
 	_subtitleStartedMs = 0;
 	_subtitleDurationMs = 0;
 	_cosmeticState = 0x6d2b79f5u ^ missionEpoch * 0x9e3779b9u;
+}
+
+void CalypsoVoiceManager::beginStage(bool underwater)
+{
+	halt();
+	_underwater = underwater;
+	calypsoResetVoiceStageArbitration(_pending, _hasLastGlobal, _lastGlobal,
+		_lastSpeaker, _lastEvent);
+	_subtitleUnit = nullptr;
+	_subtitleLineId.clear();
+	_subtitleTactical = false;
+	_subtitleStartedMs = 0;
+	_subtitleDurationMs = 0;
 }
 
 void CalypsoVoiceManager::endMission()
@@ -440,7 +454,18 @@ CalypsoVoiceRequestResult CalypsoVoiceManager::dispatch(
 	submission.isSafety = request.safety;
 	submission.isForce = request.force;
 
-	switch (calypsoDecideVoiceEvent(submission))
+	const CalypsoVoiceStockOwnership ownership =
+		calypsoResolveVoiceStockOwnership(calypsoDecideVoiceEvent(submission),
+			request.stockResponseExists);
+	if (ownership.allowStockFallback)
+	{
+		result.status = CalypsoVoiceRequestStatus::Suppressed;
+		result.allowStockFallback = true;
+		result.reason = "stock_fallback";
+		return result;
+	}
+
+	switch (ownership.decision)
 	{
 		case CalypsoVoiceDecision::PlayNow:
 		{
@@ -466,12 +491,11 @@ CalypsoVoiceRequestResult CalypsoVoiceManager::dispatch(
 			// Flavor hooks cannot replay a stock fallback after a deferred clip
 			// later fails. Suppress them while another bark owns the channel rather
 			// than queueing an outcome whose ownership would be undecidable.
-			if (request.flavor || request.stockFallbackOnDefer)
+			if (request.flavor)
 			{
 				result.status = CalypsoVoiceRequestStatus::Suppressed;
-				result.allowStockFallback = request.stockFallbackOnDefer;
-				result.reason = request.stockFallbackOnDefer
-					? "deferred_stock_fallback" : "flavor_busy";
+				result.allowStockFallback = false;
+				result.reason = "flavor_busy";
 				return result;
 			}
 			if (requestOccupiesPendingSlot)
@@ -507,7 +531,7 @@ CalypsoVoiceRequestResult CalypsoVoiceManager::dispatch(
 
 CalypsoVoiceRequestResult CalypsoVoiceManager::submit(BattleUnit *unit,
 	const std::string &event, std::uint32_t nowMs, bool flavor, bool safety,
-	bool force, bool playbackAllowed, bool stockFallbackOnDefer)
+	bool force, bool playbackAllowed, bool stockResponseExists)
 {
 	CalypsoVoiceRequestResult result;
 	result.unit = unit;
@@ -532,7 +556,7 @@ CalypsoVoiceRequestResult CalypsoVoiceManager::submit(BattleUnit *unit,
 			>= eventProbability)
 	{
 		result.status = CalypsoVoiceRequestStatus::Suppressed;
-		result.allowStockFallback = false;
+		result.allowStockFallback = stockResponseExists;
 		result.reason = "probability";
 		return result;
 	}
@@ -545,7 +569,7 @@ CalypsoVoiceRequestResult CalypsoVoiceManager::submit(BattleUnit *unit,
 	request.safety = safety;
 	request.force = force;
 	request.playbackAllowed = playbackAllowed;
-	request.stockFallbackOnDefer = stockFallbackOnDefer;
+	request.stockResponseExists = stockResponseExists;
 	return dispatch(request, nowMs, false);
 }
 

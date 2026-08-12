@@ -43,6 +43,9 @@
 #include "../Engine/Game.h"
 #include "../Engine/FileMap.h"
 #include "../Engine/Options.h"
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
+#include "../Calypso/CalypsoVoiceG05.h"
+#endif
 #include "../Engine/RNG.h"
 #include "../Engine/Exception.h"
 #include "../Engine/Logger.h"
@@ -559,6 +562,9 @@ void BattlescapeGenerator::nextStage()
 	size_t pick = RNG::generate(0, ruleDeploy->getTerrains().size() -1);
 	_terrain = _game->getMod()->getTerrain(ruleDeploy->getTerrains().at(pick), true);
 	setDepth(ruleDeploy, true);
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
+	CalypsoVoiceG05::onStageTransition(_save);
+#endif
 	_worldShade = ruleDeploy->getShade();
 
 	RuleEnviroEffects* enviro = _game->getMod()->getEnviroEffects(_terrain->getEnviroEffects());

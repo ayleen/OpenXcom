@@ -1790,11 +1790,6 @@ bool BattlescapeGame::handlePanickingUnit(BattleUnit *unit)
 	if (status != STATUS_PANICKING && status != STATUS_BERSERK) return false;
 	_save->setSelectedUnit(unit);
 	_parentState->getMap()->setCursorType(CT_NONE);
-	bool pilotPanicHandled = false;
-#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
-	pilotPanicHandled = CalypsoVoiceG05::onPanic(unit);
-#endif
-
 	// play panic/berserk sounds first
 	bool soundPlayed = false;
 	{
@@ -1825,18 +1820,19 @@ bool BattlescapeGame::handlePanickingUnit(BattleUnit *unit)
 					sounds = unit->getGeoscapeSoldier()->getRules()->getFemaleBerserkSounds();
 			}
 		}
-		if (!sounds.empty())
+		soundPlayed = !sounds.empty();
+		bool pilotPanicHandled = false;
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
+		pilotPanicHandled = CalypsoVoiceG05::onPanic(unit, soundPlayed);
+#endif
+		if (soundPlayed && !pilotPanicHandled)
 		{
-			soundPlayed = true;
 			int sound;
 			if (sounds.size() > 1)
 				sound = sounds[RNG::generate(0, sounds.size() - 1)];
 			else
 				sound = sounds.front();
-			if (!pilotPanicHandled)
-			{
-				playSound(sound);
-			}
+			playSound(sound);
 		}
 	}
 

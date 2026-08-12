@@ -85,9 +85,9 @@ private:
 		bool safety = false;
 		bool force = false;
 		bool playbackAllowed = true;
-		// A one-shot stock response exists for this event. Do not defer a custom
-		// request and claim that response before custom playback is certain.
-		bool stockFallbackOnDefer = false;
+		// A real one-shot stock response exists for this event. Only immediate
+		// custom playback may claim it; every non-playing terminal result returns it.
+		bool stockResponseExists = false;
 	};
 
 	const Mod *_mod = nullptr;
@@ -120,6 +120,7 @@ private:
 
 public:
 	void beginMission(const Mod *mod, unsigned int missionEpoch, bool underwater);
+	void beginStage(bool underwater);
 	void endMission();
 	std::set<std::string> requiredPacks(
 		const std::vector<BattleUnit *> &units) const;
@@ -138,7 +139,7 @@ public:
 		std::size_t lineIndex) const;
 	CalypsoVoiceRequestResult submit(BattleUnit *unit, const std::string &event,
 		std::uint32_t nowMs, bool flavor, bool safety, bool force,
-		bool playbackAllowed, bool stockFallbackOnDefer = false);
+		bool playbackAllowed, bool stockResponseExists = false);
 	CalypsoVoiceRequestResult update(std::uint32_t nowMs, bool playbackAllowed);
 	CalypsoVoiceSubtitleState subtitle(std::uint32_t nowMs) const;
 	bool hasPending() const { return _pending.unit != nullptr; }

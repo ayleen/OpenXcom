@@ -282,7 +282,8 @@ public:
 	/// Cleans up the BattleUnit.
 	~BattleUnit();
 	/// Loads the unit from YAML.
-	void load(const YAML::YamlNodeReader& reader, const Mod *mod, const ScriptGlobal *shared);
+	void load(const YAML::YamlNodeReader& reader, const Mod *mod,
+		const ScriptGlobal *shared, const std::string &civilianVoiceLocale = std::string());
 	/// Saves the unit to YAML.
 	void save(YAML::YamlNodeWriter writer, const ScriptGlobal *shared) const;
 	/// Gets the BattleUnit's ID.
