@@ -1,0 +1,116 @@
+#pragma once
+/*
+ * Copyright 2010-2016 OpenXcom Developers.
+ *
+ * Phase 46.2-HD (Calypso) -- HD UI family adapter interface + frame builder
+ * (remediation A1/A3).
+ *
+ * A family adapter (F34 Error/Statistics/Notes, ...) is registered by the top
+ * state and asked ONCE per frame, at the pre-blit boundary, to describe the
+ * physical replacement it wants -- as an immutable list of subgroups of draw
+ * items. It reads a const snapshot of its widgets; it never mutates live
+ * position/size/text/visibility during collection.
+ *
+ * Each item carries its complete claim identity (CalypsoHdClaimId) and its
+ * complete deterministic order key (CalypsoHdOrderKey). The overlay decides
+ * readiness per subgroup (raster + upload), and ONLY a fully-Ready subgroup
+ * commits claims and enqueues draws -- so a partial failure falls back to the
+ * unmodified logical rendering with no claims taken.
+ *
+ * Whole-file Emscripten guard (Phase 36). Depends on the portable model
+ * (CalypsoHdUiModel.h) + raster key; no SDL/GL here.
+ */
+#ifdef __EMSCRIPTEN__
+
+#include <cstdint>
+#include <vector>
+
+#include "CalypsoHdUiModel.h"
+#include "CalypsoHdTextRasterKey.h"
+
+namespace OpenXcom
+{
+namespace Calypso
+{
+
+enum class CalypsoHdItemKind { Panel, Text };
+
+/// Horizontal/vertical glyph alignment inside the item's logical box. Mirrors
+/// the engine's ALIGN_* enums by value (0/1/2) but kept local so the builder
+/// stays free of Interface/Text.h.
+enum class CalypsoHdHAlign { Left = 0, Center = 1, Right = 2 };
+enum class CalypsoHdVAlign { Top = 0, Middle = 1, Bottom = 2 };
+
+/// One physical draw the adapter requests. A Panel is a solid/tinted rect
+/// (window fill, bevel, badge). A Text item rasterises `rasterKey` and places
+/// the natural-size glyph bitmap inside `rect` per (hAlign,vAlign) -- `rect` is
+/// the layout + clip box, never a stretch target.
+struct CalypsoHdItem
+{
+	CalypsoHdItemKind kind = CalypsoHdItemKind::Panel;
+	CalypsoLogicalRect rect;
+	std::uint32_t colorRgba = 0;     // panel fill / text colour (0xRRGGBBAA)
+
+	// Text only:
+	CalypsoHdTextRasterKey rasterKey;
+	CalypsoHdHAlign hAlign = CalypsoHdHAlign::Left;
+	CalypsoHdVAlign vAlign = CalypsoHdVAlign::Middle;
+
+	// Identity + ordering + the live widget this visual replaces (ephemeral
+	// blit-skip key; may be null for pure-decoration items with no widget).
+	const void* widget = nullptr;
+	CalypsoHdClaimId claim;
+	CalypsoHdOrderKey order;
+};
+
+/// An atomic subgroup: all-or-nothing. Either every item rasterises+uploads and
+/// the whole subgroup commits (claims + draws), or the subgroup is dropped and
+/// its widgets render logically. Adapters group visuals that must appear
+/// together (e.g. one popup = one subgroup) so a half-rasterised popup never
+/// shows.
+struct CalypsoHdSubgroup
+{
+	std::vector<CalypsoHdItem> items;
+};
+
+/// Collected per-frame description. The adapter fills this; the overlay
+/// consumes it. Nothing here touches GL or SDL.
+class CalypsoHdFrameBuilder
+{
+public:
+	void beginSubgroup() { _subgroups.emplace_back(); }
+
+	void add(const CalypsoHdItem& item)
+	{
+		if (_subgroups.empty()) beginSubgroup();
+		_subgroups.back().items.push_back(item);
+	}
+
+	const std::vector<CalypsoHdSubgroup>& subgroups() const { return _subgroups; }
+	bool empty() const { return _subgroups.empty(); }
+
+private:
+	std::vector<CalypsoHdSubgroup> _subgroups;
+};
+
+/// Implemented by each family's state-side adapter. Registered with the overlay
+/// while its state is top; unregistered on state destruction.
+class CalypsoHdFamilyAdapter
+{
+public:
+	virtual ~CalypsoHdFamilyAdapter() = default;
+
+	/// The State* this adapter feeds. The overlay only calls collect() when this
+	/// equals the current top state, so a state pushed on top never lets a lower
+	/// popup's physical replacement draw over it.
+	virtual const void* topState() const = 0;
+
+	/// Describe this frame's physical replacement into `builder`, reading a const
+	/// snapshot of the widgets. MUST NOT mutate live widget state.
+	virtual void collect(CalypsoHdFrameBuilder& builder) const = 0;
+};
+
+} // namespace Calypso
+} // namespace OpenXcom
+
+#endif // __EMSCRIPTEN__

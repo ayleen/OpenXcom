@@ -25,6 +25,11 @@
 namespace OpenXcom
 {
 
+namespace Calypso
+{
+class CalypsoNotesUi;
+}
+
 class TextButton;
 class Window;
 class Text;
@@ -38,6 +43,7 @@ class TTFFont;
  */
 class NotesState : public State
 {
+friend class Calypso::CalypsoNotesUi;
 protected:
 	Window* _window;
 	Text* _txtTitle;
@@ -63,6 +69,13 @@ protected:
 	std::uint64_t _focusGeneration;
 	std::vector<std::string> _originalNotes;
 	std::vector<std::string> _workingNotes;
+#ifdef __EMSCRIPTEN__
+	/// Phase 46.2-HD: physical-resolution overlay adapter for this (already-HD)
+	/// screen. Owned; registered with the overlay while top, deleted on destroy.
+	/// Null unless _hdLayout. It only READS the existing HD widgets and draws
+	/// their crisp physical replacements -- it never re-implements Notes logic.
+	Calypso::CalypsoNotesUi* _hdAdapter = nullptr;
+#endif
 
 	/// Updates the Notes list.
 	void updateList();
