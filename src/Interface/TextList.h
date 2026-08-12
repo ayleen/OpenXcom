@@ -125,6 +125,16 @@ public:
 	void removeLastRow();
 	/// Sets the columns in the text list.
 	void setColumns(int cols, ...);
+#ifdef __EMSCRIPTEN__
+	/// Calypso HD: re-base the design-space (native) size used by the HD scale()
+	/// factor. The list was created at a legacy native width (e.g. 280), but an HD
+	/// screen may re-lay it out with column widths authored for a DIFFERENT design
+	/// width; without re-basing, addRow multiplies those already-design-space
+	/// columns by getWidth()/280 and pushes later columns past the list edge
+	/// (external review #2). Call this with the HD design list size BEFORE
+	/// setColumns()/addRow so scale() stays proportional to the authored design.
+	void rebaseNativeSize(int nativeW, int nativeH);
+#endif
 	/// Sets a minimum row height for touch-sized list items.
 	void setMinimumRowHeight(int height);
 	/// Sets the palette of the text list.

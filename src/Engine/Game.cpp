@@ -24,6 +24,7 @@
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #include "../Calypso/CalypsoTutorial.h"
+#include "../Calypso/CalypsoHdUiOverlay.h" // Phase 46.2-HD (empty on native)
 #endif
 #include <SDL_mixer.h>
 #include <SDL_ttf.h>
@@ -496,6 +497,13 @@ bool Game::iterate()
 			_timeOfLastFrame = SDL_GetTicks();
 			_fpsCounter->addFrame();
 			_screen->clear();
+#ifdef __EMSCRIPTEN__
+			// Phase 46.2-HD pre-blit boundary (A3): freeze metrics, advance the
+			// HD frame, and collect/raster/upload/commit the top state's adapter
+			// BEFORE any visible State::blit() so claimed widgets skip cleanly.
+			Calypso::CalypsoHdUiOverlay::instance().prepareFrame(Options::baseXResolution,
+				Options::baseYResolution, _states.empty() ? nullptr : _states.back());
+#endif
 			std::list<State*>::iterator i = _states.end();
 			do
 			{

@@ -42,6 +42,7 @@
 #include "GpuInit.h"
 #include "GpuTimer.h"
 #include "ShaderManager.h"
+#include "../Calypso/CalypsoHdUiOverlay.h" // Phase 46.2-HD (empty on native)
 #include <SDL.h>
 #include <SDL_render.h>
 #include <algorithm>
@@ -315,6 +316,9 @@ void Screen::flip()
 			reflowCanvasFallback(wW, wH);
 		}
 	}
+	// Phase 46.2-HD: the HD overlay's per-frame metrics freeze + frame advance now
+	// happen at the pre-blit boundary in Game::run() (prepareFrame), so nothing is
+	// advanced here -- Screen::flip() only consumes the committed queue below.
 #endif
 
 	/* When States call Screen::updateScale, Options::baseXResolution changes
@@ -425,6 +429,11 @@ void Screen::flip()
 	SDL_UnlockTexture(_texture);
 	SDL_RenderCopy(_renderer, _texture, nullptr, nullptr);
 
+#ifdef __EMSCRIPTEN__
+	// Phase 46.2-HD: HD UI + diagnostics stages draw above the legacy composite.
+	const bool hdPresentOk = Calypso::CalypsoHdUiOverlay::instance().renderStages(_renderer);
+#endif
+
 	/* GPU shader passes (Phase 8b): cursor, projectile, smoke — overlay on top.
 	 * SDL_RenderFlush submits SDL's internal vertex batch before any raw
 	 * GL calls are made.  Each pass saves/restores all GL state. */
@@ -455,6 +464,11 @@ void Screen::flip()
 		}
 	}
 
+#ifdef __EMSCRIPTEN__
+	// Phase 46.2-HD failure policy: a post-claim HD draw failure skips present
+	// for this frame; the controller latches a wholly-logical next frame.
+	if (hdPresentOk)
+#endif
 	SDL_RenderPresent(_renderer);
 
 	_numColors = 0;

@@ -23,6 +23,7 @@
 #include "../Engine/Timer.h"
 #include "../Engine/Sound.h"
 #include "../Engine/RNG.h"
+#include "../Calypso/CalypsoHdUiOverlay.h"    // Phase 46.2-HD (empty on native)
 
 namespace OpenXcom
 {
@@ -161,6 +162,23 @@ void Window::popup()
  * always aligned to the top-left corner of the screen
  * and cropped to fit the inside area.
  */
+#ifdef __EMSCRIPTEN__
+/**
+ * Calypso Phase 46.2-HD (A2): when the HD overlay has claimed this widget's
+ * visual for the current frame, skip the logical blit entirely -- the cached
+ * surface is left intact, so an unclaimed later frame blits correctly. This
+ * intercepts at blit(), not draw(), so the claim is independent of the _redraw
+ * cache state (fixing the clean-cache double-draw and dirty-cache blank bugs).
+ */
+void Window::blit(SDL_Surface* surface)
+{
+	if (Calypso::CalypsoHdUiOverlay::instance().widgetClaimed(this,
+			Calypso::CalypsoHdUiOverlay::instance().frameId()))
+		return;
+	Surface::blit(surface);
+}
+#endif
+
 void Window::draw()
 {
 	Surface::draw();

@@ -41,6 +41,9 @@
 #include "../Savegame/Country.h"
 #include "../Savegame/Region.h"
 #include "../Savegame/AlienBase.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoStatisticsUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -81,6 +84,10 @@ StatisticsState::StatisticsState()
 	_lstStats->setDot(true);
 
 	listStats();
+
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoStatisticsUi::configure(*this);
+#endif
 }
 
 /**
@@ -88,7 +95,10 @@ StatisticsState::StatisticsState()
  */
 StatisticsState::~StatisticsState()
 {
-
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 }
 
 template <typename T>
@@ -333,6 +343,36 @@ void StatisticsState::listStats()
 	_lstStats->addRow(2, tr("STR_TOTAL_SCIENTISTS").c_str(), Unicode::formatNumber(currentScientists).c_str());
 	_lstStats->addRow(2, tr("STR_TOTAL_ENGINEERS").c_str(), Unicode::formatNumber(currentEngineers).c_str());
 	_lstStats->addRow(2, tr("STR_TOTAL_RESEARCH").c_str(), Unicode::formatNumber(researchDone).c_str());
+}
+
+void StatisticsState::resize(int &dX, int &dY)
+{
+#ifdef __EMSCRIPTEN__
+	if (Calypso::CalypsoStatisticsUi::resize(*this)) return;
+#endif
+	State::resize(dX, dY);
+}
+
+void StatisticsState::handle(Action *action)
+{
+#ifdef __EMSCRIPTEN__
+	if (Calypso::CalypsoStatisticsUi::handle(*this, action)) return;
+#endif
+	State::handle(action);
+}
+
+void StatisticsState::btnScrollUpClick(Action *)
+{
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoStatisticsUi::scrollUp(*this);
+#endif
+}
+
+void StatisticsState::btnScrollDownClick(Action *)
+{
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoStatisticsUi::scrollDown(*this);
+#endif
 }
 
 /**

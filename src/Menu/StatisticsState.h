@@ -22,10 +22,16 @@
 namespace OpenXcom
 {
 
+namespace Calypso
+{
+class CalypsoStatisticsUi;
+}
+
 class TextButton;
 class Window;
 class Text;
 class TextList;
+class Action;
 
 /**
  * Statistics window that shows up
@@ -33,11 +39,28 @@ class TextList;
  */
 class StatisticsState : public State
 {
+friend class Calypso::CalypsoStatisticsUi;
 private:
 	TextButton *_btnOk;
 	Window *_window;
 	Text *_txtTitle;
 	TextList *_lstStats;
+#ifdef __EMSCRIPTEN__
+	/// Phase 46.2-HD: F34.Statistics on the shared HD UI overlay
+	/// (CalypsoStatisticsUi). `_hdLayout` is the fail-safe gate
+	/// (Mod::isHdUiFamilyEnabled("F34")); every field below stays null/false
+	/// when it is false, so a disabled/missing HD pack leaves this state
+	/// byte-for-byte the legacy statistics screen.
+	bool _hdLayout = false;
+	bool _hdWideLayout = false;
+	TextButton *_btnScrollUp = nullptr;
+	TextButton *_btnScrollDown = nullptr;
+	Surface *_hdHeaderPanel = nullptr;
+	Surface *_hdListPanel = nullptr;
+	Surface *_hdReturnPanel = nullptr;
+	Surface *_hdFooterPanel = nullptr;
+	Calypso::CalypsoStatisticsUi *_hdAdapter = nullptr;
+#endif
 
 	// Sums a list of numbers.
 	template <typename T>
@@ -49,6 +72,14 @@ public:
 	~StatisticsState();
 	/// Gets the save stats.
 	void listStats();
+	/// Let the state know the window has been resized.
+	void resize(int &dX, int &dY) override;
+	/// Handler for state input.
+	void handle(Action *action) override;
+	/// Handler for the F34 statistics scroll-up control.
+	void btnScrollUpClick(Action *action);
+	/// Handler for the F34 statistics scroll-down control.
+	void btnScrollDownClick(Action *action);
 	/// Handler for clicking the Ok button.
 	void btnOkClick(Action *action);
 };

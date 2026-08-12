@@ -118,6 +118,9 @@ public:
 	int getTextHeight(int line = -1) const;
 	/// Draws the text.
 	void draw() override;
+#ifdef __EMSCRIPTEN__
+	void blit(SDL_Surface* surface) override;
+#endif
 	/// Sets the text's scrollable setting.
 	void setScrollable(bool scroll);
 	/// Special handling for mouse presses.

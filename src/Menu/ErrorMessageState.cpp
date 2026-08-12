@@ -24,6 +24,9 @@
 #include "../Interface/Window.h"
 #include "../Interface/Text.h"
 #include "../Engine/Options.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoErrorPopupUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -47,7 +50,12 @@ ErrorMessageState::ErrorMessageState(const std::string &msg, SDL_Color *palette,
  */
 ErrorMessageState::~ErrorMessageState()
 {
-
+#ifdef __EMSCRIPTEN__
+	// Delete the owned adapter (its destructor unregisters it from the overlay
+	// iff still active). The widgets are State-owned and auto-freed.
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 }
 
 /**
@@ -105,6 +113,18 @@ void ErrorMessageState::create(const std::string &str, SDL_Color *palette, Uint8
 		_btnOk->setHighContrast(true);
 		_txtMessage->setHighContrast(true);
 	}
+
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoErrorPopupUi::configure(*this);
+#endif
+}
+
+void ErrorMessageState::resize(int &dX, int &dY)
+{
+#ifdef __EMSCRIPTEN__
+	if (Calypso::CalypsoErrorPopupUi::resize(*this)) return;
+#endif
+	State::resize(dX, dY);
 }
 
 /**
