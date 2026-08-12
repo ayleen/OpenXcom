@@ -46,12 +46,160 @@ struct Rect { int x0; int y0; int x1; int y1; };
 /// adapter maps these decisions to director outcomes and engine calls.
 enum class UnexpectedFinishAction
 {
+	WaitForEndingRadio,
 	FallbackOutcome,
 	ConsumeAbort,
 	EnterEvacOnly,
 	KeepEvacOnly,
 	AllTakenOutcome
 };
+
+/// The scripted prologue owns its ending and therefore cannot coexist with
+/// the vanilla battlescape turn timer. Zero and negative values mean disabled.
+inline bool prologueTurnLimitIsSafe(int turnLimit)
+{
+	return turnLimit <= 0;
+}
+
+/// Narrative visibility is binary: the ambusher stays unavailable to every
+/// ordinary discovery path until the Assessor-death callback flips the gate.
+inline bool shouldConcealPrologueMarksman(bool marksmanRevealed)
+{
+	return !marksmanRevealed;
+}
+
+/// The Assessor's ambush death closes that Choir turn. The retreat gauntlet
+/// starts on the following hostile turn, and each resolved gauntlet victim
+/// closes its own hostile turn. Without both boundaries the idle pump can
+/// select a new crew member immediately and consume the whole squad at once.
+inline bool shouldEndChoirTurnAfterAmbushDeath()
+{
+	return true;
+}
+
+/// Step 2 is the scene's idle/end-turn state. It must survive the engine's
+/// HOSTILE -> NEUTRAL -> PLAYER transitions and may be reset only by the next
+/// real hostile-turn callback.
+inline int gauntletStepAfterAmbushDeath()
+{
+	return 2;
+}
+
+enum class PrologueTurnSide { Player, Hostile, Neutral };
+
+inline bool mayPumpPrologueEnemyStep(PrologueTurnSide side)
+{
+	return side == PrologueTurnSide::Hostile;
+}
+
+inline int gauntletStepAfterTurnStart(int currentStep, PrologueTurnSide side)
+{
+	return side == PrologueTurnSide::Hostile ? 0 : currentStep;
+}
+
+/// Any crew death during the hostile gauntlet turn spends that turn's one
+/// scripted loss. A real projectile can hit an intervening/splash-adjacent
+/// crew member before its selected target; keying only on the target id would
+/// let the idle pump continue and kill both in the same Choir turn.
+inline bool shouldEndChoirTurnAfterGauntletCrewDeath(
+	bool inGauntlet, bool hostileTurn, bool isCrewMember)
+{
+	return inGauntlet && hostileTurn && isCrewMember;
+}
+
+enum class PrologueFirstLossBeat { None, Leader, Diver };
+
+/// Resolve exactly one authored beat for the first post-Assessor crew loss.
+/// The diver pattern speaks before its deliberate miss, so a collateral death
+/// from that projectile must not add a second line. In the leader pattern no
+/// line has fired yet; if an intervening diver dies instead, use the diver beat
+/// rather than silently consuming the first-loss story moment.
+inline PrologueFirstLossBeat prologueFirstLossBeat(
+	bool firstDeathDone, bool diverBeatAlreadyFired,
+	bool actualLeader, bool actualDiver)
+{
+	if (firstDeathDone || diverBeatAlreadyFired) return PrologueFirstLossBeat::None;
+	if (actualLeader) return PrologueFirstLossBeat::Leader;
+	if (actualDiver) return PrologueFirstLossBeat::Diver;
+	return PrologueFirstLossBeat::None;
+}
+
+enum class PrologueEndingRadioState
+{
+	NotQueued,
+	Waiting,
+	Completed
+};
+
+enum class PrologueEndingRadioAction
+{
+	Queue,
+	Wait,
+	Finish
+};
+
+/// Process-local handoff storage used between the throwaway prologue save and
+/// the real campaign. Keeping the reset operation on the same object as the
+/// records makes the Cast Off -> Abandon boundary directly testable without
+/// pulling Emscripten or savegame types into the native unit suite.
+template<typename Record>
+class PrologueSurvivorHandoff
+{
+public:
+	void stash(const Record &record) { _records.push_back(record); }
+	void reset() { _records.clear(); }
+	bool empty() const { return _records.empty(); }
+	const std::vector<Record> &records() const { return _records; }
+
+private:
+	std::vector<Record> _records;
+};
+
+constexpr int PROLOGUE_OUTCOME_CAST_OFF = 0;
+constexpr int PROLOGUE_OUTCOME_ALL_TAKEN = 1;
+
+/// Only the authored Cast Off branch consumes survivor records. All Taken (and any invalid or
+/// future outcome) must never consume survivor records, even if stale state
+/// somehow reaches the campaign-completion boundary.
+inline bool shouldInjectPrologueSurvivors(int outcome)
+{
+	return outcome == PROLOGUE_OUTCOME_CAST_OFF;
+}
+
+/// A final radio beat must complete before finishBattle tears down the DOM
+/// narrative queue. Branch B always has its silence beat; Cast Off has the
+/// Nikos beat only while he is still alive. Re-entry while the asynchronous
+/// line is waiting must not be mistaken for completion.
+inline PrologueEndingRadioAction prologueEndingRadioAction(
+	PrologueEndingRadioState state, bool pendingTaking, bool castOff, bool nikosAlive)
+{
+	const bool needsRadio = pendingTaking || (castOff && nikosAlive);
+	// Once queued, the callback owns completion. Runtime changes (notably Nikos
+	// dying while his Cast Off line is visible) must not turn Waiting into an
+	// early Finish and let battle cleanup cancel that callback.
+	if (state == PrologueEndingRadioState::Waiting)
+		return PrologueEndingRadioAction::Wait;
+	if (state == PrologueEndingRadioState::Completed || !needsRadio)
+		return PrologueEndingRadioAction::Finish;
+	if (state == PrologueEndingRadioState::NotQueued)
+		return PrologueEndingRadioAction::Queue;
+	return PrologueEndingRadioAction::Finish;
+}
+
+/// Compatibility rule for saves created before scripted handoff state was
+/// serialized. Any post-ambush scene phase necessarily implies Nikos should
+/// already belong to the player; a pre-ambush phase never does.
+inline bool phaseImpliesNikosHandoff(bool gauntlet, bool ended, bool evacOnly)
+{
+	return gauntlet || ended || evacOnly;
+}
+
+/// A loaded scene may focus Nikos immediately only when player input is live;
+/// hostile/neutral resumes preserve the one-shot request for the player turn.
+inline bool shouldFocusNikosAfterResume(bool playerTurn, bool focusPending)
+{
+	return playerTurn && focusPending;
+}
 
 /// An abort confirmation must be consumed unless cast-off is currently
 /// available and at least one live crew member occupies a real START_POINT.
@@ -60,12 +208,40 @@ inline bool consumeAbortRequest(bool inert, bool castOffAvailable, bool anyoneAb
 	return inert || !castOffAvailable || !anyoneAboard;
 }
 
+/// The Abort HUD and its hotkey are available only after the scenario has
+/// entered the evacuation phase and before an ending is armed. Kept separate
+/// from the confirmation check: the player may inspect the tally in Gauntlet
+/// before anyone is aboard, but cannot confirm Cast Off twice while its final
+/// narrative line is still waiting.
+inline bool abortHudEnabled(bool inert, bool evacuationPhase, bool endingArmed)
+{
+	return !inert && evacuationPhase && !endingArmed;
+}
+
+/// Cast Off itself requires both the evacuation phase and one eligible crew
+/// member on a real START_POINT tile. Nikos is excluded by the scene adapter
+/// before it supplies anyoneAboard.
+inline bool castOffConfirmEnabled(bool abortHudIsEnabled, bool anyoneAboard)
+{
+	return abortHudIsEnabled && anyoneAboard;
+}
+
+/// A scene completion may synchronously replace the state stack. The abort
+/// callback may pop only when its own dialog still owns the top entry.
+inline bool popAbortDialogAfterSceneConsume(bool dialogStillTop)
+{
+	return dialogStillTop;
+}
+
 /// Pure ordering contract for CalypsoPrologueScene::onUnexpectedFinish.
-/// Fallback state outranks abort; an automatic zero-hostiles finish with live
+/// A queued final radio beat outranks every vanilla finish signal. Otherwise
+/// fallback state outranks abort; an automatic zero-hostiles finish with live
 /// crew transitions once into extraction-only; no live crew means all taken.
 inline UnexpectedFinishAction decideUnexpectedFinish(bool inert, bool hasPendingOutcome,
-	bool abort, bool anyCrewAlive, bool evacOnly)
+	PrologueEndingRadioState endingRadioState, bool abort, bool anyCrewAlive, bool evacOnly)
 {
+	if (endingRadioState == PrologueEndingRadioState::Waiting)
+		return UnexpectedFinishAction::WaitForEndingRadio;
 	if (inert || hasPendingOutcome) return UnexpectedFinishAction::FallbackOutcome;
 	if (abort) return UnexpectedFinishAction::ConsumeAbort;
 	if (anyCrewAlive)

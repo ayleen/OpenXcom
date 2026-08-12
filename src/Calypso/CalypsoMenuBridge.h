@@ -37,7 +37,7 @@ const char *calypso_bridge_ping(void);
  * friend struct CalypsoNewGameBridge defined in CalypsoMenuBridge.cpp. */
 int calypso_newgame_ready(void);
 const char *calypso_newgame_info(void);
-int calypso_newgame_start(int difficulty, int ironman);
+int calypso_newgame_start(int difficulty, int ironman, int tutorial);
 int calypso_newgame_cancel(void);
 
 /* Slice A2 — Load/Save/Delete overlay (pattern 1: pure data-bridge). No
@@ -53,6 +53,34 @@ int calypso_save_load(const char *file, int origin, int force);
 int calypso_save_delete(const char *file);
 /* In-game only (needs a live SavedGame). Returns 1 on success, 0 otherwise. */
 int calypso_save_write(const char *displayName, int origin);
+/* Downloads a save as a browser file. Validates `file` against
+ * SavedGame::getList (the path-traversal boundary — only exact matches are
+ * accepted), then reads the MEMFS/IDBFS file via FS.readFile and triggers an
+ * application/x-yaml download. Returns 1 on success, 0 on failure (no live
+ * Game / unknown filename / JS download error). */
+int calypso_save_download(const char *file);
+/* Automation fallback (regression harness / fixture authoring / Copy YAML):
+ * a binary-safe, exact-byte wasm32 export in two paired calls.
+ *   int len  = calypso_save_export_prepare(file);  // 0 = failure
+ *   const char *p = calypso_save_export_bytes();   // valid for `len` bytes
+ * _prepare validates `file` against SavedGame::getList (the same
+ * path-traversal boundary as calypso_save_download — only an exact match is
+ * accepted), reads the full file via CrossPlatform::readFileRaw (no NUL
+ * truncation or small fixed cap; files larger than INT_MAX are rejected by
+ * the signed wasm32 length ABI), caches the bytes in a TU-local static buffer,
+ * and returns the byte length (0 on any failure / empty file). _bytes then
+ * returns a pointer into wasm linear memory for those `len` bytes.
+ *
+ * POINTER LIFETIME: the returned address is into the TU-local cache buffer,
+ * which is overwritten by the NEXT calypso_save_export_prepare (the sole
+ * writer). Single-threaded JS↔WASM, no reentrancy. The JS caller MUST copy
+ * the bytes out of Module.HEAPU8 synchronously (e.g.
+ * new Uint8Array(HEAPU8.subarray(ptr, ptr+len))) as the very first thing it
+ * does — before any other engine export (which may grow the wasm heap and
+ * invalidate the address, or call _prepare again and reassign the buffer).
+ * Returns nullptr if no save has been prepared or the last prepare failed. */
+int calypso_save_export_prepare(const char *file);
+const char *calypso_save_export_bytes(void);
 
 /* Slice A3 — Mods overlay (pattern 1: pure data-bridge, mirrors
  * ModListState). No native ModListState is pushed; the exports read/write

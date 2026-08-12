@@ -1971,7 +1971,10 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 						{
 #ifdef __EMSCRIPTEN__
 							// Block 11.8: bullets are drawn by drawProjectileGLPass() in GPU mode.
-							if (!(_game->getMod()->hasHDPack() && GpuInit::ready()))
+							// Suppress the CPU sprite only after the GPU renderer has a
+							// valid shader/VAO/frame for this live projectile. A broken or
+							// not-yet-initialised GPU path must retain the classic fallback.
+							if (!(_game->getMod()->hasHDPack() && GpuInit::ready() && gpuProjectilePathReady()))
 #endif
 							{
 							// draw bullet on the correct tile
@@ -2853,7 +2856,9 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 							}
 						}
 					}
-
+#ifdef __EMSCRIPTEN__
+					drawScriptedObjectiveMarker(surface, mapPosition, screenPosition, gpuCursorSet);
+#endif
 
 					// Draw waypoints if any on this tile
 					int waypid = 1;
@@ -3773,11 +3778,26 @@ CursorType Map::getCursorType() const
  */
 void Map::setProjectile(Projectile *projectile)
 {
+#ifdef __EMSCRIPTEN__
+	if (projectile) _projectileAfterimage.valid = false;
+#endif
 	_projectile = projectile;
 	if (projectile && Options::battleSmoothCamera)
 	{
 		_launch = true;
 	}
+}
+
+Projectile *Map::releaseProjectile(bool retainAfterimage)
+{
+	Projectile *projectile = _projectile;
+#ifdef __EMSCRIPTEN__
+	captureProjectileAfterimage(projectile, retainAfterimage);
+#else
+	(void)retainAfterimage;
+#endif
+	_projectile = 0;
+	return projectile;
 }
 
 /**

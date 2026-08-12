@@ -23,9 +23,11 @@
 #include <string>
 #include <cstdio>
 #include <algorithm>
+#include <limits>
 #include <vector>
 
 #include "CalypsoMenuBridge.h"
+#include "CalypsoDirector.h"
 #include "../Engine/Game.h"
 #include "../Engine/Language.h"
 #include "../Engine/CrossPlatform.h"
@@ -45,6 +47,7 @@
 #include "../Interface/ToggleTextButton.h"
 #include "../Interface/ComboBox.h"
 #include "../Interface/Slider.h"
+#include "CalypsoResolutionFloor.h"
 #include <set>
 
 namespace OpenXcom
@@ -98,17 +101,22 @@ struct CalypsoNewGameBridge
 		}
 		out += "],\"selected\":" + std::to_string((int)g->getMod()->getStartingDifficulty());
 		out += ",\"ironman\":" + std::string(s->_btnIronman->getPressed() ? "1" : "0");
+		// The global option remains authoritative.  Do not let a stale browser
+		// screen advertise an enabled campaign when global help is disabled.
+		out += ",\"tutorial\":" + std::string((Options::calypsoTutorial && s->_calypsoTutorial) ? "1" : "0");
+		out += ",\"globalTutorial\":" + std::string(Options::calypsoTutorial ? "1" : "0");
 		out += "}";
 		return out;
 	}
 
 	/* Select the difficulty radio + ironman toggle, then fire the native OK
 	 * handler (difficulty is pre-validated to 0..4 by the caller). */
-	static void start(NewGameState *s, int difficulty, int ironman)
+	static void start(NewGameState *s, int difficulty, int ironman, int tutorial)
 	{
 		TextButton *btns[5] = { s->_btnBeginner, s->_btnExperienced, s->_btnVeteran, s->_btnGenius, s->_btnSuperhuman };
 		s->_difficulty = btns[difficulty];
 		s->_btnIronman->setPressed(ironman != 0);
+		s->_calypsoTutorial = tutorial != 0;
 		s->btnOkClick(nullptr);
 	}
 };
@@ -260,14 +268,14 @@ const char *calypso_newgame_info()
 }
 
 EMSCRIPTEN_KEEPALIVE
-int calypso_newgame_start(int difficulty, int ironman)
+int calypso_newgame_start(int difficulty, int ironman, int tutorial)
 {
 	Game *g = getCurrentGame();
 	if (!g) return 0;
 	NewGameState *s = CalypsoNewGameBridge::top(g);
 	if (!s) return 0;
 	if (difficulty < 0 || difficulty > 4) return 0;
-	CalypsoNewGameBridge::start(s, difficulty, ironman);
+	CalypsoNewGameBridge::start(s, difficulty, ironman, tutorial);
 	return 1;
 }
 
@@ -336,6 +344,7 @@ int calypso_save_load(const char *file, int origin, int force)
 {
 	Game *g = getCurrentGame();
 	if (!g || !file || !*file) return 0;
+	if (CalypsoDirector::get().activeSceneBlocksSaveLoad()) return 0;
 	std::string fileName(file);
 
 	if (!force)
@@ -397,8 +406,9 @@ int calypso_save_delete(const char *file)
  * native pops: for a non-Ironman game pop the PauseState left on top so the
  * player lands back in the Geoscape/Battlescape (SaveGameState.cpp:166-170);
  * for Ironman leave it (native never exposes Save from an Ironman PauseState —
- * PauseState.cpp:139-144). SavedGame::save() already flushes IDBFS itself
- * (Savegame/SavedGame.cpp:951-953), and the JS overlay owns its own close.
+ * PauseState.cpp:139-144). SavedGame::save() flushes the temporary backup name
+ * (Savegame/SavedGame.cpp:951-953); after moving it to the final .sav name we
+ * flush once more so IDBFS persists the rename. The JS overlay owns its close.
  * `origin` is unused (the inline save needs no OptionsOrigin) but kept for the
  * JS ABI. */
 EMSCRIPTEN_KEEPALIVE
@@ -407,6 +417,7 @@ int calypso_save_write(const char *displayName, int origin)
 	(void)origin;
 	Game *g = getCurrentGame();
 	if (!g || !g->getSavedGame() || !displayName) return 0;
+	if (CalypsoDirector::get().activeSceneBlocksSaveLoad()) return 0;
 
 	g->getSavedGame()->setName(displayName);
 	std::string fileName = CrossPlatform::sanitizeFilename(displayName);
@@ -426,6 +437,22 @@ int calypso_save_write(const char *displayName, int origin)
 		{
 			throw Exception("Save backed up in " + backup);
 		}
+		// SavedGame::save() flushes while the file still has its temporary
+		// .bak name. Persist the post-rename filesystem state as well; otherwise
+		// a reload restores only the ignored .bak entry and loses the visible
+		// .sav slot that this bridge just reported as successfully written.
+		EM_ASM({
+			setTimeout(function flushRenamedSave(attempt) {
+				if (FS.syncFSRequests > 0) {
+					var delay = Math.min(1000, 50 * (attempt + 1));
+					setTimeout(function() { flushRenamedSave(attempt + 1); }, delay);
+					return;
+				}
+				FS.syncfs(false, function(err) {
+					if (err) console.error('[calypso] syncfs error', err);
+				});
+			}, 0, 0);
+		});
 	}
 	catch (std::exception &e)
 	{
@@ -444,6 +471,136 @@ int calypso_save_write(const char *displayName, int origin)
 		g->popState();
 	}
 	return 1;
+}
+
+/* Downloads one validated save as a browser file. The security boundary is
+ * SavedGame::getList(g->getLanguage(), true): only a filename that is exactly
+ * present in that list is accepted. This rejects null/empty input and any path
+ * traversal or out-of-tree name — "../foo", absolute paths, and names the
+ * engine didn't enumerate never match a SaveInfo::fileName, so the constructed
+ * read path can only be Options::getMasterUserFolder() + a known-good basename.
+ * The EM_ASM block then reads that exact MEMFS/IDBFS path via FS.readFile,
+ * wraps the bytes in an application/x-yaml Blob, triggers a download with the
+ * validated basename as the filename, and revokes the object URL
+ * asynchronously. JS-side errors are caught/logged; a C++ try guard covers the
+ * rest. Returns 1 on success, 0 on any failure. */
+EMSCRIPTEN_KEEPALIVE
+int calypso_save_download(const char *file)
+{
+	Game *g = getCurrentGame();
+	if (!g || !file || !*file) return 0;
+	std::string fileName(file);
+
+	std::vector<SaveInfo> saves = SavedGame::getList(g->getLanguage(), true);
+	auto it = std::find_if(saves.begin(), saves.end(), [&](const SaveInfo &s) { return s.fileName == fileName; });
+	if (it == saves.end()) return 0;
+
+	std::string fullPath = Options::getMasterUserFolder() + fileName;
+	try
+	{
+		int ok = EM_ASM_INT({
+			try {
+				var path = UTF8ToString($0);
+				var name = UTF8ToString($1);
+				var data = FS.readFile(path);
+				var blob = new Blob([data], { type: 'application/x-yaml' });
+				var url = URL.createObjectURL(blob);
+				var a = document.createElement('a');
+				a.href = url;
+				a.download = name;
+				document.body.appendChild(a);
+				a.click();
+				setTimeout(function() {
+					if (a.parentNode) a.parentNode.removeChild(a);
+					URL.revokeObjectURL(url);
+				}, 1000);
+				return 1;
+			} catch (e) {
+				console.error('[calypso] save download failed', e);
+				return 0;
+			}
+		}, fullPath.c_str(), fileName.c_str());
+		return ok;
+	}
+	catch (std::exception &e)
+	{
+		Log(LOG_ERROR) << "calypso_save_download: " << e.what();
+		return 0;
+	}
+}
+
+/* TU-local cache shared by calypso_save_export_prepare / _bytes. File-scope
+ * `static` = internal-linkage, one instance for the whole TU. The prepare call
+ * is the sole writer (it clears, then assigns); _bytes is read-only. Lifetime
+ * contract: the bytes stay valid until the NEXT calypso_save_export_prepare,
+ * which overwrites them — JS must copy out of HEAPU8 before any further engine
+ * call. Single-threaded JS↔WASM, no reentrancy, so this is the only alias.
+ * Distinct from every other export's function-local s_buf on purpose: this one
+ * must outlive a single function call so a second export can read it back. */
+static std::string s_saveExportBuf;
+
+/* Prepares the raw bytes of one validated save for binary-safe export. Same
+ * path-traversal boundary as calypso_save_download — only a filename exactly
+ * present in SavedGame::getList(g->getLanguage(), true) is accepted (rejects
+ * null/empty input and any "../foo", absolute, or out-of-tree name, since none
+ * of those ever match a SaveInfo::fileName). The file is read via
+ * CrossPlatform::readFileRaw (full bytes — no NUL truncation or small fixed
+ * cap) and cached in the TU-local s_saveExportBuf. Files larger than INT_MAX
+ * are rejected because the paired wasm32 length ABI is signed. Returns the byte length on success;
+ * 0 on any failure (no live Game / unknown filename / read error / empty file).
+ * After a successful call the JS side reads the cached bytes through
+ * calypso_save_export_bytes() — see that export for the pointer lifetime. */
+EMSCRIPTEN_KEEPALIVE
+int calypso_save_export_prepare(const char *file)
+{
+	s_saveExportBuf.clear();
+	Game *g = getCurrentGame();
+	if (!g || !file || !*file) return 0;
+	std::string fileName(file);
+
+	std::vector<SaveInfo> saves = SavedGame::getList(g->getLanguage(), true);
+	auto it = std::find_if(saves.begin(), saves.end(), [&](const SaveInfo &s) { return s.fileName == fileName; });
+	if (it == saves.end()) return 0;
+
+	std::string fullPath = Options::getMasterUserFolder() + fileName;
+	try
+	{
+		RawData raw = CrossPlatform::readFileRaw(fullPath);
+		if (raw.size() == 0) return 0;
+		if (raw.size() > static_cast<size_t>(std::numeric_limits<int>::max()))
+		{
+			Log(LOG_ERROR) << "calypso_save_export_prepare: save is too large for the wasm32 length ABI";
+			return 0;
+		}
+		s_saveExportBuf.assign(static_cast<const char*>(raw.data()), raw.size());
+	}
+	catch (std::exception &e)
+	{
+		Log(LOG_ERROR) << "calypso_save_export_prepare: " << e.what();
+		s_saveExportBuf.clear();
+		return 0;
+	}
+	return (int)s_saveExportBuf.size();
+}
+
+/* Returns a pointer into wasm linear memory to the bytes cached by the most
+ * recent successful calypso_save_export_prepare call. Pair the two calls:
+ *   int len  = calypso_save_export_prepare(file);   // 0 = failure
+ *   const char *p = calypso_save_export_bytes();    // valid for `len` bytes
+ *
+ * POINTER LIFETIME: the returned address is into the TU-local s_saveExportBuf,
+ * which is overwritten by the NEXT calypso_save_export_prepare (the sole
+ * writer). Single-threaded JS↔WASM, no reentrancy. The JS caller MUST copy the
+ * bytes out of Module.HEAPU8 synchronously (e.g.
+ * new Uint8Array(HEAPU8.subarray(ptr, ptr+len))) as the very first thing it
+ * does, before any other engine export is called — growing the wasm heap
+ * (emscripten_resize_heap) between prepare and copy would invalidate the
+ * address, and the next _prepare call reassigns the buffer. Returns nullptr if
+ * no save has been prepared or the last prepare failed. */
+EMSCRIPTEN_KEEPALIVE
+const char *calypso_save_export_bytes(void)
+{
+	return s_saveExportBuf.empty() ? nullptr : s_saveExportBuf.data();
 }
 
 /* Slice A3 — Mods overlay exports (pattern 1: pure data-bridge, plan §A3).
@@ -603,14 +760,6 @@ int calypso_mods_revert()
  * OptionInfo registry (Engine/OptionInfo.h) directly and mirror
  * OptionsBaseState's btnOkClick/btnCancelClick bodies
  * (Menu/OptionsBaseState.cpp:220-290). */
-
-/* The 5-entry proportional display-fraction ladder Calypso's video tab
- * offers, combobox display order Full/3/4/1/2/1/3/1/4 — mirrors the
- * __EMSCRIPTEN__ branch of OptionsVideoState's ctor (Menu/OptionsVideoState.cpp:
- * 322-327) so the bridge and the native menu never drift out of sync. */
-static const int CALYPSO_VIDEO_SCALE_LADDER[5] = {
-	SCALE_SCREEN, SCALE_SCREEN_3_4, SCALE_SCREEN_DIV_2, SCALE_SCREEN_DIV_3, SCALE_SCREEN_DIV_4
-};
 
 /* Forward map: internal ScaleType (Engine/Options.h's 17-entry enum) to a
  * ladder index above, for legacy/off-ladder values already sitting in an old
@@ -776,7 +925,10 @@ int calypso_video_set_scale(int battlescape, int value)
 	Game *g = getCurrentGame();
 	if (!g) return 0;
 	if (value < 0 || value > 4) return 0;
-	int scaleType = CALYPSO_VIDEO_SCALE_LADDER[value];
+	int scaleType = Calypso::calypsoScaleAtLadderIndex(value);
+	if (!Calypso::calypsoEvaluateScale(Options::displayWidth, Options::displayHeight,
+	                                  Options::nonSquarePixelRatio, scaleType).eligible)
+		return 0;
 	if (battlescape) Options::newBattlescapeScale = scaleType;
 	else Options::newGeoscapeScale = scaleType;
 	return 1;
@@ -794,20 +946,19 @@ const char *calypso_video_json()
 	Game *g = getCurrentGame();
 	if (!g) { s_buf = ""; return s_buf.c_str(); }
 
-	double pixelRatioY = 1.0;
-	if (Options::nonSquarePixelRatio && !Options::allowResize) pixelRatioY = 1.2;
-
 	std::string out = "{\"fractions\":[";
 	for (int i = 0; i < 5; ++i)
 	{
-		int num = 1, den = 1;
-		Screen::getScreenScaleFraction(CALYPSO_VIDEO_SCALE_LADDER[i], num, den);
-		int w = Options::displayWidth * num / den;
-		int h = (int)(Options::displayHeight / pixelRatioY * num / den);
+		const Calypso::CalypsoScaleResult result = Calypso::calypsoEvaluateScale(
+			Options::displayWidth, Options::displayHeight,
+			Options::nonSquarePixelRatio, Calypso::calypsoScaleAtLadderIndex(i));
 		if (i > 0) out += ",";
-		out += "\"" + std::to_string(w) + "x" + std::to_string(h) + "\"";
+		out += "{\"id\":" + std::to_string(i)
+		     + ",\"label\":\"" + std::to_string(result.width) + "x" + std::to_string(result.height) + "\""
+		     + ",\"enabled\":" + std::string(result.eligible ? "true" : "false") + "}";
 	}
 	out += "]";
+	out += ",\"minimumScaleReason\":\"" + jsonEscape(g->getLanguage()->getString("STR_CAL_HD_MINIMUM_SCALE")) + "\"";
 	out += ",\"geoscapeScale\":" + std::to_string(calypsoVideoScaleToLadder(Options::geoscapeScale));
 	out += ",\"battlescapeScale\":" + std::to_string(calypsoVideoScaleToLadder(Options::battlescapeScale));
 

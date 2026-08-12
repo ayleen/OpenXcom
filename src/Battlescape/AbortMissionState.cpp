@@ -28,6 +28,7 @@
 #include "BattlescapeGame.h"
 #include "BattlescapeState.h"
 #include "../Calypso/CalypsoDirector.h"
+#include "../Calypso/CalypsoPrologueMath.h"
 #include "../Engine/Options.h"
 #include "../Mod/AlienDeployment.h"
 #include "../Mod/MapScript.h"
@@ -181,7 +182,10 @@ AbortMissionState::AbortMissionState(SavedBattleGame *battleGame, BattlescapeSta
 	_btnCancel->onKeyboardPress((ActionHandler)&AbortMissionState::btnCancelClick, Options::keyCancel);
 	_btnCancel->onKeyboardPress((ActionHandler)&AbortMissionState::btnCancelClick, Options::keyBattleAbort);
 #ifdef __EMSCRIPTEN__
-	{ std::string t, o, c; if (CalypsoDirector::get().abortStrings(&t, &o, &c)) { _txtAbort->setText(t); _btnOk->setText(o); _btnCancel->setText(c); } } // Phase 41: scene opt-in string swap
+	{ std::string t, o, c; if (CalypsoDirector::get().abortStrings(&t, &o, &c)) { _txtAbort->setText(t); _btnOk->setText(o); _btnCancel->setText(c); }
+	  // Cast Off needs a living leader/diver on a real START_POINT. Until then
+	  // leave the tally visible, but do not offer an inert confirmation.
+	  if (CalypsoDirector::get().active() && !CalypsoDirector::get().abortConfirmAvailable(_battleGame)) _btnOk->setVisible(false); }
 #endif
 
 	centerAllSurfaces();
@@ -219,7 +223,15 @@ void AbortMissionState::btnOkClick(Action *)
 	}
 
 #ifdef __EMSCRIPTEN__
-	if (CalypsoDirector::get().onAbortRequested(_state)) { _game->popState(); return; } // Phase 41: scene consumed the abort (routes its own ending)
+	if (CalypsoDirector::get().onAbortRequested(_state))
+	{
+		// The scene may synchronously replace this dialog with its end state, or
+		// push a final radio beat whose dismissal callback performs that teardown.
+		// Pop only an unchanged dialog; an unconditional pop used to remove the
+		// new state and expose the original difficulty selector underneath.
+		if (Calypso::popAbortDialogAfterSceneConsume(_game->getTopState() == this)) _game->popState();
+		return;
+	}
 #endif
 
 	_game->popState();

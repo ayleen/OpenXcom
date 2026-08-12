@@ -203,6 +203,12 @@ public:
 	void handleBaseDefense(Base *base, Ufo *ufo);
 	/// Update the resolution settings, we just resized the window.
 	void resize(int &dX, int &dY) override;
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoViewportAffinity calypsoViewportAffinity() const override
+	{
+		return Calypso::CalypsoViewportAffinity::Strategic;
+	}
+#endif
 	/// Handle alien mission generation.
 	void determineAlienMissions(bool isNewMonth = true, const RuleEvent* eventRules = nullptr);
 private:

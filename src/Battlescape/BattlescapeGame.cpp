@@ -16,6 +16,8 @@
  * You should have received a copy of the GNU General Public License
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
+#include <chrono>
+#include <map>
 #include <sstream>
 #include "BattlescapeGame.h"
 #include "BattlescapeState.h"
@@ -318,6 +320,15 @@ int BattlescapeGame::think()
  */
 void BattlescapeGame::init()
 {
+	// Start hostile-turn timing only once the turn-transition overlay has closed and
+	// control returns here. This also covers loaded saves and hostile-first scenarios.
+	// init() is called again after other overlay states, so never restart an active window.
+	if (Options::traceAI && _save->getSide() == FACTION_HOSTILE && !_aiTurnTimingActive)
+	{
+		_aiTurnStart = std::chrono::steady_clock::now();
+		_aiTurnThinkUs.clear();
+		_aiTurnTimingActive = true;
+	}
 	if (_save->getSide() == FACTION_PLAYER && _save->getTurn() > 1)
 	{
 		_playerPanicHandled = false;
@@ -329,6 +340,24 @@ void BattlescapeGame::init()
  * Handles the processing of the AI states of a unit.
  * @param unit Pointer to a unit.
  */
+void BattlescapeGame::thinkHostileTimed(BattleUnit *unit, BattleAction *action)
+{
+	// Phase 43.0: while a hostile faction turn is being timed, accumulate the wall-time spent
+	// inside unit->think() per hostile unit. When tracing is off (or outside a hostile turn) the
+	// call is made unchanged, so non-trace behaviour is identical.
+	if (_aiTurnTimingActive && unit->getFaction() == FACTION_HOSTILE && Options::traceAI)
+	{
+		auto t0 = std::chrono::steady_clock::now();
+		unit->think(action);
+		auto us = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - t0).count();
+		_aiTurnThinkUs[unit->getId()] += us;
+	}
+	else
+	{
+		unit->think(action);
+	}
+}
+
 void BattlescapeGame::handleAI(BattleUnit *unit)
 {
 #ifdef __EMSCRIPTEN__
@@ -399,8 +428,9 @@ void BattlescapeGame::handleAI(BattleUnit *unit)
 		ai = unit->getAIModule();
 	}
 	_AIActionCounter++;
-	if (_AIActionCounter == 1)
+	if (beginsNewActivationAfterIncrement(_AIActionCounter))
 	{
+		if (unit->getAIModule()) unit->getAIModule()->beginActivation();
 		_playedAggroSound = false;
 		unit->setHiding(false);
 		if (Options::traceAI) { Log(LOG_INFO) << "#" << unit->getId() << "--" << unit->getType(); }
@@ -409,12 +439,12 @@ void BattlescapeGame::handleAI(BattleUnit *unit)
 	BattleAction action;
 	action.actor = unit;
 	action.number = _AIActionCounter;
-	unit->think(&action);
+	thinkHostileTimed(unit, &action);
 
 	if (action.type == BA_RETHINK)
 	{
 		_parentState->debug("Rethink");
-		unit->think(&action);
+		thinkHostileTimed(unit, &action);
 	}
 
 	_AIActionCounter = action.number;
@@ -437,8 +467,10 @@ void BattlescapeGame::handleAI(BattleUnit *unit)
 		// you have just picked up a weapon... use it if you can!
 		_parentState->debug("Re-Rethink");
 		unit->getAIModule()->setWeaponPickedUp();
-		unit->think(&action);
+		thinkHostileTimed(unit, &action);
 	}
+	// Emit once, after initial/rethink/pickup passes have converged on the executable action.
+	if (unit->getAIModule()) unit->getAIModule()->emitAIAudit(action);
 
 	if (unit->getCharging() != 0)
 	{
@@ -497,6 +529,20 @@ void BattlescapeGame::handleAI(BattleUnit *unit)
 		}
 	}
 
+	// Phase 43 (C2): snapshot TU right before the action executes. popState compares against this;
+	// if the whole BState sequence spends nothing, the cycle made no progress and must terminate.
+	action.tuBefore = unit->getTimeUnits();
+
+	// Phase 43 (H6): consume BA_TURN -- turn the brutal unit toward the threat. Without this the
+	// action is silently dropped, the unit never turns, and brutalThink re-emits it every cycle
+	// (burning two full-map think passes each time). BA_TURN is only emitted by brutalThink, so
+	// this block is inert when brutal AI is off.
+	if (action.type == BA_TURN && action.actor->isBrutal())
+	{
+		if (Options::traceAI) { Log(LOG_INFO) << "Phase 43 (H6): #" << unit->getId() << " turns toward " << action.target; }
+		statePushBack(new UnitTurnBState(this, action));
+	}
+
 	if (action.type == BA_WALK)
 	{
 		ss << "Walking to " << action.target;
@@ -515,6 +561,23 @@ void BattlescapeGame::handleAI(BattleUnit *unit)
 		{
 			// impossible to walk to this tile, don't try to pick up an item from there for the rest of the turn
 			targetTile->setDangerous(true);
+		}
+		else if (unit->getAIModule())
+		{
+			action.aiFailure = AIFailureReason::PATH_UNREACHABLE;
+			action.aiAttemptPosition = action.target;
+			// Phase 43 one-retry fix: grant the bounded same-activation retry only on the
+			// FIRST eligible candidate failure at the CURRENT world revision. We read the
+			// failure memory BEFORE recordFailedAttempt so the candidate we are about to
+			// record cannot already count as the prior failure. A later eligible failure at
+			// the same revision must NOT preserve the counter (it re-dispatches think but
+			// the activation then terminates normally instead of scheduling another C).
+			const bool firstRetry = isFirstBoundedRetry(getMod()->getAIFailureMemory(),
+				action.aiFailureMemoryCandidate, action.aiFailure,
+				unit->getAIModule()->getFailureMemory().hasFailureForRevision(getAIWorldRevision()));
+			unit->getAIModule()->recordFailedAttempt(action);
+			_AIActionCounter = preserveActivationCounterForBoundedRetry(_AIActionCounter, firstRetry);
+			action.type = BA_RETHINK;
 		}
 	}
 
@@ -545,6 +608,9 @@ void BattlescapeGame::handleAI(BattleUnit *unit)
 	if (action.type == BA_NONE)
 	{
 		_parentState->debug("Idle");
+		// Phase 43 (H1): a brutal unit with nothing to do must end its turn, otherwise it is never
+		// marked done and can ping-pong (BA_WAIT<->BA_NONE) with a neighbour at a doorway forever.
+		if (action.actor->isBrutal()) action.actor->setWantToEndTurn(true);
 		_AIActionCounter = 0;
 		if (_save->selectNextPlayerUnit(true, _AISecondMove) == 0)
 		{
@@ -738,7 +804,32 @@ void BattlescapeGame::endTurn()
 		}
 
 
+		UnitFaction sideBefore = _save->getSide();
 		_save->endTurn();
+		// Phase 43.0: close hostile faction-turn timing at the actual side transition.
+		// The matching start happens in init(), after the turn-transition overlay closes,
+		// so modal "Aliens turn" display time is excluded from the measurement.
+		// Gated on Options::traceAI so non-trace behaviour is unchanged and no state is touched.
+		if (Options::traceAI)
+		{
+			if (sideBefore == FACTION_HOSTILE && _aiTurnTimingActive)
+			{
+				// Leaving the hostile faction turn: emit the per-unit aggregate + the turn total, then reset.
+				auto turnEnd = std::chrono::steady_clock::now();
+				long long totalUs = std::chrono::duration_cast<std::chrono::microseconds>(turnEnd - _aiTurnStart).count();
+				std::ostringstream ss;
+				ss << "AI_TIMING factionTurn_us=" << totalUs << " think_us={";
+				for (auto it = _aiTurnThinkUs.begin(); it != _aiTurnThinkUs.end(); ++it)
+				{
+					if (it != _aiTurnThinkUs.begin()) ss << ",";
+					ss << it->first << ":" << it->second;
+				}
+				ss << "}";
+				Log(LOG_INFO) << ss.str();
+				_aiTurnThinkUs.clear();
+				_aiTurnTimingActive = false;
+			}
+		}
 		t = _save->getTileEngine()->checkForTerrainExplosions();
 		if (t)
 		{
@@ -780,6 +871,9 @@ void BattlescapeGame::endTurn()
 		for (auto* bu : *_save->getUnits())
 		{
 			if (!bu->isOut()
+			#ifdef __EMSCRIPTEN__
+				&& !bu->isScriptedConcealed()
+			#endif
 				&& bu->getFaction() == FACTION_HOSTILE
 				&& bu->getTurnsSinceSpottedByFaction(FACTION_NEUTRAL) <= 1)
 			{
@@ -1375,11 +1469,29 @@ void BattlescapeGame::popState()
 		Log(LOG_INFO) << "BattlescapeGame::popState() #" << _AIActionCounter << " with " << (_save->getSelectedUnit() ? _save->getSelectedUnit()->getTimeUnits() : -9999) << " TU";
 	}
 	bool actionFailed = false;
+	// Phase 43 one-retry fix: captured BEFORE recordFailedAttempt. True only when this
+	// eligible candidate failure is the FIRST at the current world revision; used both to
+	// preserve the activation counter (the single same-activation retry) and to grant the
+	// C2 zero-TU bypass below. A later eligible failure leaves this false so the activation
+	// terminates normally instead of scheduling another C.
+	bool firstBoundedRetry = false;
 
 	if (_states.empty()) return;
 
 	auto* first = _states.front();
+	const bool turnSetupState = dynamic_cast<UnitTurnBState *>(first) != nullptr;
 	BattleAction action = first->getAction();
+	if (action.actor && action.actor->getFaction() != FACTION_PLAYER && action.actor->getAIModule()
+		&& action.aiFailure != AIFailureReason::NONE)
+	{
+		// Decide eligibility BEFORE recording, so the attempt we are about to record cannot
+		// retro-claim the "first" slot at this revision.
+		firstBoundedRetry = isFirstBoundedRetry(getMod()->getAIFailureMemory(),
+			action.aiFailureMemoryCandidate, action.aiFailure,
+			action.actor->getAIModule()->getFailureMemory().hasFailureForRevision(getAIWorldRevision()));
+		action.actor->getAIModule()->recordFailedAttempt(action);
+		_AIActionCounter = preserveActivationCounterForBoundedRetry(_AIActionCounter, firstBoundedRetry);
+	}
 
 	if (action.actor && !action.result.empty() && action.actor->getFaction() == FACTION_PLAYER
 		&& _playerPanicHandled && (_save->getSide() == FACTION_PLAYER || _debugPlay))
@@ -1394,6 +1506,15 @@ void BattlescapeGame::popState()
 	// handle the end of this unit's actions
 	if (action.actor && noActionsPending(action.actor))
 	{
+		// Any successful action can invalidate an AI candidate, including player reaction fire
+		// during the hostile turn. Failure states deliberately leave the revision unchanged.
+		if (action.aiFailure == AIFailureReason::NONE && action.type != BA_NONE && action.type != BA_WAIT
+			&& (action.tuBefore != action.actor->getTimeUnits() || action.type == BA_THROW
+				|| action.type == BA_SNAPSHOT || action.type == BA_AUTOSHOT || action.type == BA_AIMEDSHOT
+				|| action.type == BA_LAUNCH || action.type == BA_USE))
+		{
+			markAIWorldChanged();
+		}
 		if (action.actor->getFaction() == FACTION_PLAYER)
 		{
 			if (_save->getSide() == FACTION_PLAYER)
@@ -1417,6 +1538,22 @@ void BattlescapeGame::popState()
 		{
 			if (_save->getSide() != FACTION_PLAYER && !_debugPlay)
 			{
+				// Phase 43 (C2): zero-TU progress guard. If this brutal actor's whole action sequence
+				// completed without spending any TU, the think->execute cycle made no progress and would
+				// repeat forever. BA_NONE / BA_WAIT are legitimate zero-TU terminal actions, while
+				// BA_TURN and UnitTurnBState are zero-TU setup states that may precede a queued shot
+				// (the latter retains the shot's action type); none may trip the guard. Gated on
+				// isBrutal() so the vanilla off-path stays byte-identical.
+				if (action.actor && action.actor->isBrutal()
+					&& action.type != BA_NONE && action.type != BA_WAIT && action.type != BA_TURN
+					&& !turnSetupState
+					&& !firstBoundedRetry
+					&& action.tuBefore == action.actor->getTimeUnits())
+				{
+					if (Options::traceAI) { Log(LOG_INFO) << "Phase 43 (C2): #" << action.actor->getId() << " made no TU progress -> ending its turn"; }
+					action.actor->setWantToEndTurn(true);
+				}
+
 				// AI does three things per unit, before switching to the next, or it got killed before doing the second thing
 				if (_AIActionCounter > 2 || _save->getSelectedUnit() == 0 || _save->getSelectedUnit()->isOut())
 				{
@@ -2508,6 +2645,7 @@ void BattlescapeGame::spawnNewUnit(BattleActionAttack attack, Position position)
 
 		getTileEngine()->applyGravity(newUnit->getTile());
 		getTileEngine()->calculateFOV(newUnit->getPosition());  //happens fairly rarely, so do a full recalc for units in range to handle the potential unit visible cache issues.
+		_save->notifyFactionTurnUnitSpawned(newUnit);
 	}
 	else
 	{
@@ -2799,6 +2937,8 @@ bool BattlescapeGame::findItem(BattleAction *action, bool pickUpWeaponsMoreActiv
 						_save->getTileEngine()->calculateLighting(LL_ITEMS, action->actor->getPosition());
 						_save->getTileEngine()->calculateFOV(action->actor->getPosition(), targetItem->getVisibilityUpdateRange(), false);
 					}
+					// Phase 43 (C1): a brutal unit that just picked up a weapon must be allowed to act again.
+					if (action->actor->isBrutal()) action->actor->setWantToEndTurn(false);
 					return true;
 				}
 			}
@@ -2808,6 +2948,8 @@ bool BattlescapeGame::findItem(BattleAction *action, bool pickUpWeaponsMoreActiv
 				action->target = targetItem->getTile()->getPosition();
 				action->type = BA_WALK;
 				walkToItem = true;
+				// Phase 43 (C1): a brutal unit walking to grab a weapon must not stay ended-out.
+				if (action->actor->isBrutal()) action->actor->setWantToEndTurn(false);
 				if (pickUpWeaponsMoreActively)
 				{
 					// don't end the turn after walking 1-2 tiles... pick up a weapon and shoot!

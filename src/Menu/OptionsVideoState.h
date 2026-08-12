@@ -59,6 +59,7 @@ private:
 
 	std::string ucWords(std::string str);
 	void updateDisplayResolution();
+	void refreshScaleOptions();
 public:
 	/// Creates the Options state.
 	OptionsVideoState(OptionsOrigin origin);

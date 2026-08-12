@@ -161,6 +161,65 @@ void Map::drawTerrainGPU(Surface* surface)
 	drawUnitNameplates(surface);
 }
 
+void Map::drawScriptedObjectiveMarker(Surface *surface, const Position &mapPosition,
+	const Position &screenPosition, SurfaceSet *gpuCursorSet)
+{
+	// This presentation-only beacon has its own storage and render branch:
+	// launcher/spray `_waypoints` remain pure BattleAction state. Frame 7 is
+	// the engine's familiar bright waypoint glyph. Cover both the GPU cursor
+	// atlas and classic software blit paths just like the real waypoint renderer.
+	if (!_scriptedObjectiveMarkerActive || _scriptedObjectiveMarker != mapPosition)
+		return;
+
+	if (gpuCursorSet)
+	{
+		_cursorOverlayInstances.push_back(
+			{screenPosition.x, screenPosition.y, gpuCursorSet, 7, CS_RASTER});
+		return;
+	}
+
+	Surface *marker = _game->getMod()->getSurfaceSet("CURSOR.PCK")->getFrame(7);
+	Surface::blitRaw(surface, marker, screenPosition.x, screenPosition.y, 0);
+}
+
+void Map::captureProjectileAfterimage(Projectile *projectile, bool retainAfterimage)
+{
+	_projectileAfterimage.valid = false;
+	// Capture presentation data before ownership returns to the caller. The
+	// previous delete-then-setProjectile(0) order dereferenced freed memory.
+	if (!retainAfterimage || !projectile || projectile->getItem()
+		|| projectile->getTrajectory().empty())
+	{
+		return;
+	}
+
+	Tile *impactTile = _save->getTile(projectile->getPosition().toTile());
+	const bool visibleToPlayer = _save->getDebugMode()
+		|| (impactTile && impactTile->getVisible());
+	_projectileAfterimage.valid = visibleToPlayer;
+	// Both endpoints are voxels. Projectile::getOrigin() intentionally returns
+	// a tile coordinate and therefore cannot be used by this renderer DTO.
+	_projectileAfterimage.origin = projectile->getTrajectory().front();
+	_projectileAfterimage.impact = projectile->getPosition();
+	_projectileAfterimage.particle = projectile->getParticle(0);
+	_projectileAfterimage.expires = SDL_GetTicks() + 110u;
+}
+
+void Map::setScriptedObjectiveMarker(const Position &position)
+{
+	_scriptedObjectiveMarker = position;
+	_scriptedObjectiveMarkerActive = true;
+	invalidate();
+}
+
+void Map::clearScriptedObjectiveMarker()
+{
+	if (!_scriptedObjectiveMarkerActive)
+		return;
+	_scriptedObjectiveMarkerActive = false;
+	invalidate();
+}
+
 /**
  * Walk camera-visible tiles and build per-atlas TileInstance lists.
  */
@@ -2719,6 +2778,34 @@ void Map::clearHudImage(int slot)
 	if (slot >= 0 && slot < HUD_IMG_COUNT) _hudImageSlots[slot].active = false;
 }
 
+bool Map::getHudTextRect(int slot, int* x, int* y, int* w, int* h) const
+{
+	for (const auto& item : _hudTextItems)
+	{
+		if (item.slot == slot)
+		{
+			if (x) *x = (int)(item.fitX + 0.5f);
+			if (y) *y = (int)(item.fitY + 0.5f);
+			if (w) *w = (int)(item.fitW + 0.5f);
+			if (h) *h = (int)(item.fitH + 0.5f);
+			return true;
+		}
+	}
+	return false;
+}
+
+bool Map::getHudImageRect(int slot, int* x, int* y, int* w, int* h) const
+{
+	if (slot < 0 || slot >= HUD_IMG_COUNT) return false;
+	const HudImageItem& item = _hudImageSlots[slot];
+	if (!item.active) return false;
+	if (x) *x = (int)(item.fitX + 0.5f);
+	if (y) *y = (int)(item.fitY + 0.5f);
+	if (w) *w = (int)(item.fitW + 0.5f);
+	if (h) *h = (int)(item.fitH + 0.5f);
+	return true;
+}
+
 void Map::setHudImage(int slot, const std::string& key, SDL_Surface* src, int x, int y, int w, int h)
 {
 	if (slot < 0 || slot >= HUD_IMG_COUNT) return;
@@ -2946,6 +3033,7 @@ void Map::drawHudTextGLPass()
 		// TTF raster, so the crisp overlay lands EXACTLY over the logical text — no double-image.
 		drawQuad(tex, item.fitX, item.fitY, item.fitW, item.fitH);
 	}
+	++_hudGlDrawCount;
 
 	glDisable(GL_BLEND);
 	glUseProgram(static_cast<GLuint>(prevProgram));
@@ -3160,8 +3248,12 @@ void Map::drawCursorOverlayGLPass()
  */
 void Map::drawProjectileGLPass()
 {
-	if (!_projectile || !_projectileInFOV || SDL_GetTicks() - _lastDrawnTicks > 250) return;
-	if (_projectile->getItem()) return; // thrown items handled by CPU path
+	const Uint32 now = SDL_GetTicks();
+	if (_projectileAfterimage.valid && now >= _projectileAfterimage.expires)
+		_projectileAfterimage.valid = false;
+	const bool showAfterimage = !_projectile && _projectileAfterimage.valid;
+	if ((!_projectile && !showAfterimage) || (!_projectileInFOV && !showAfterimage) || now - _lastDrawnTicks > 250) return;
+	if (_projectile && _projectile->getItem()) return; // thrown items handled by CPU path
 	if (!_spriteGLInit) initSpriteGL();
 	if (!_spriteShader || !_spriteShader->isValid()) return;
 	if (!_spriteVAO) return;
@@ -3175,9 +3267,6 @@ void Map::drawProjectileGLPass()
 	const int   dH     = Options::displayHeight;
 	const int   mapX   = getX();
 	const int   mapY   = getY();
-
-	int begin = 0, end = BULLET_SPRITES, direction = 1;
-	if (_projectile->isReversed()) { begin = BULLET_SPRITES - 1; end = -1; direction = -1; }
 
 	// Helper: upload VBO data + issue one draw call for a single sprite quad.
 	auto drawQuad = [&](GpuTexture* tex, int gx, int gy, int fw, int fh, float darken)
@@ -3218,6 +3307,45 @@ void Map::drawProjectileGLPass()
 	_spriteShader->use();
 	_spriteShader->setUniform1i("u_tex", 0);
 	_spriteShader->setUniform3f("u_tint", 1.0f, 1.0f, 1.0f);  // untinted (Phase 24 u_tint)
+	_spriteShader->setUniform1f("u_alpha", 1.0f);
+	_spriteShader->setUniform1f("u_radial", 0.0f);
+	_spriteShader->setUniform2f("u_uvScroll", 0.0f, 0.0f);
+	_spriteShader->setUniform4f("u_clipEdges", 0.0f, 0.0f, 0.0f, 0.0f);
+
+	if (showAfterimage)
+	{
+		Surface* frame = _projectileSet ? _projectileSet->getFrame(_projectileAfterimage.particle) : nullptr;
+		GpuTexture* tex = frame ? getOrUploadSpriteFrame(_projectileSet, _projectileAfterimage.particle) : nullptr;
+		if (frame && tex)
+		{
+			const int bw = std::max(1, frame->getWidth() * _spriteWidth / 32);
+			const int bh = std::max(1, frame->getHeight() * _spriteWidth / 32);
+			for (int step = 1; step <= 5; ++step)
+			{
+				const int remain = 5 - step;
+				Position p((_projectileAfterimage.origin.x * remain + _projectileAfterimage.impact.x * step) / 5,
+				           (_projectileAfterimage.origin.y * remain + _projectileAfterimage.impact.y * step) / 5,
+				           (_projectileAfterimage.origin.z * remain + _projectileAfterimage.impact.z * step) / 5);
+				Tile *tile = _save->getTile(p.toTile());
+				if (!_save->getTileEngine()->isVoxelVisible(p)
+					|| (!_save->getDebugMode() && (!tile || !tile->getVisible()))) continue;
+				Position sp; _camera->convertVoxelToScreen(p, &sp);
+				drawQuad(tex, sp.x + mapX - bw / 2, sp.y + mapY - bh / 2, bw, bh, 0.35f);
+			}
+		}
+		_spriteShader->setUniform1f("u_darken", 0.0f);
+		_spriteShader->setUniform3f("u_tint", 1.0f, 1.0f, 1.0f);
+		_spriteShader->setUniform1f("u_alpha", 1.0f);
+		_spriteShader->setUniform1f("u_radial", 0.0f);
+		_spriteShader->setUniform2f("u_uvScroll", 0.0f, 0.0f);
+		_spriteShader->setUniform4f("u_clipEdges", 0.0f, 0.0f, 0.0f, 0.0f);
+		glDisable(GL_BLEND);
+		glUseProgram(static_cast<GLuint>(prevProgram));
+		return;
+	}
+
+	int begin = 0, end = BULLET_SPRITES, direction = 1;
+	if (_projectile->isReversed()) { begin = BULLET_SPRITES - 1; end = -1; direction = -1; }
 
 	for (int i = begin; i != end; i += direction)
 	{
@@ -3255,7 +3383,25 @@ void Map::drawProjectileGLPass()
 	}
 
 	glDisable(GL_BLEND);
+	_spriteShader->setUniform1f("u_darken", 0.0f);
+	_spriteShader->setUniform3f("u_tint", 1.0f, 1.0f, 1.0f);
+	_spriteShader->setUniform1f("u_alpha", 1.0f);
+	_spriteShader->setUniform1f("u_radial", 0.0f);
+	_spriteShader->setUniform2f("u_uvScroll", 0.0f, 0.0f);
+	_spriteShader->setUniform4f("u_clipEdges", 0.0f, 0.0f, 0.0f, 0.0f);
 	glUseProgram(static_cast<GLuint>(prevProgram));
+}
+
+bool Map::gpuProjectilePathReady()
+{
+	if (!_projectile || _projectile->getItem() || !_projectileSet) return false;
+	if (!_spriteGLInit || !_spriteShader || !_spriteShader->isValid() || !_spriteVAO) return false;
+	const int particle = _projectile->getParticle(0);
+	if (!_projectileSet->getFrame(particle)) return false;
+	// Prime the exact frame before Map.cpp suppresses its CPU blit. The GPU pass
+	// will reuse this cache entry later in the same frame, so ownership is never
+	// split between the two renderers.
+	return getOrUploadSpriteFrame(_projectileSet, particle) != nullptr;
 }
 
 /**

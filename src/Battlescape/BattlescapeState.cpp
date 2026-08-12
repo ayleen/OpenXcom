@@ -1052,6 +1052,10 @@ void BattlescapeState::think()
 		if (_game->isState(this) && allowButtons(true))
 			_game->pushState(new PauseState(OPT_BATTLESCAPE));
 	}
+	// Scripted scenes can expose evacuation only at a later beat. Keep the HUD
+	// and hotkey in sync with that runtime predicate; the click handler repeats
+	// the guard because keyboard events and a phase transition can race a frame.
+	_btnAbort->setVisible(CalypsoDirector::get().abortAvailable());
 #endif
 
 #if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_P_EN)
@@ -1078,6 +1082,9 @@ void BattlescapeState::think()
 		if (_popups.empty())
 		{
 			State::think();
+#ifdef __EMSCRIPTEN__
+			Game *const calypsoGame = _game;
+#endif
 			int ret = _battleGame->think();
 			if (ret > -1)
 			{
@@ -1090,6 +1097,10 @@ void BattlescapeState::think()
 				_battleGame->handleNonTargetAction();
 				popped = false;
 			}
+#ifdef __EMSCRIPTEN__
+			if (calypsoGame->isState(this))
+				calypsoAdvanceAlienPacing(calypsoGame);
+#endif
 		}
 		else
 		{
@@ -1655,10 +1666,6 @@ void BattlescapeState::btnHelpClick(Action *)
 		// 2. loading could be enabled, but needs changes in the Game's _states management; make sure you know what you're doing!
 		return;
 	}
-#ifdef __EMSCRIPTEN__
-	if (CalypsoDirector::get().activeSceneBlocksSaveLoad()) return; // Phase 41: prologue blocks the pause menu (mirrors isPreview above)
-#endif
-
 	if (allowButtons(true))
 		_game->pushState(new PauseState(OPT_BATTLESCAPE));
 }
@@ -1707,6 +1714,10 @@ void BattlescapeState::btnAbortClick(Action *)
 			return;
 		}
 	}
+
+#ifdef __EMSCRIPTEN__
+	if (!CalypsoDirector::get().abortAvailable()) return;
+#endif
 
 	if (allowButtons())
 		_game->pushState(new AbortMissionState(_save, this));
@@ -3295,6 +3306,7 @@ inline void BattlescapeState::handle(Action *action)
 
 							unit->setTile(_save->getTile(newPos), _save);
 							unit->setPosition(newPos);
+							_save->notifyFactionTurnUnitMoved(unit);
 
 							//free refresh as bonus
 							unit->updateUnitStats(true, false);
@@ -3399,7 +3411,9 @@ inline void BattlescapeState::handle(Action *action)
 								if (unitUnderTheCursor->getFaction() != FACTION_PLAYER)
 								{
 									debug("My mind to your mind, my thoughts to your thoughts.");
+									const UnitFaction oldFaction = unitUnderTheCursor->getFaction();
 									unitUnderTheCursor->convertToFaction(FACTION_PLAYER);
+									_save->notifyFactionTurnUnitChangedFaction(unitUnderTheCursor, oldFaction);
 									//unitUnderTheCursor->recoverTimeUnits();
 									unitUnderTheCursor->allowReselect();
 									unitUnderTheCursor->abortTurn(); // resets unit status to STANDING
@@ -4329,25 +4343,12 @@ void BattlescapeState::resize(int &dX, int &dY)
 {
 	dX = Options::baseXResolution;
 	dY = Options::baseYResolution;
-	double pixelRatioY = 1.0;
-	if (Options::nonSquarePixelRatio)
-	{
-		pixelRatioY = 1.2;
-	}
-
 #ifdef __EMSCRIPTEN__
-	// Calypso: the canvas is stretched to fill the window, so only proportional
-	// (fraction-of-display) scales keep the aspect ratio — fixed Nx buffers would
-	// distort it. Every scale option maps to display × num/den;
-	// battlescapeTileScale enlarges the tiles (Map.cpp), not the buffer, so the
-	// options never collide into duplicates.
-	{
-		int num = 1, den = 1;
-		Screen::getScreenScaleFraction(Options::battlescapeScale, num, den);
-		Options::baseXResolution = std::max(Screen::ORIGINAL_WIDTH,  Options::displayWidth  * num / den);
-		Options::baseYResolution = std::max(Screen::ORIGINAL_HEIGHT, (int)(Options::displayHeight / pixelRatioY * num / den));
-	}
+	Screen::normalizeBrowserScales();
+	Screen::updateScale(Options::battlescapeScale,
+	                    Options::baseXResolution, Options::baseYResolution, false);
 #else
+	double pixelRatioY = Options::nonSquarePixelRatio ? 1.2 : 1.0;
 	int divisor = 1;
 	bool fixedRes = false;
 	switch (Options::battlescapeScale)
@@ -4472,6 +4473,7 @@ void BattlescapeState::zoom(int direction)
 	// to the battlescape (and BriefingState/LoadGame snap back to the old dims).
 	Options::baseXBattlescape = Options::baseXResolution;
 	Options::baseYBattlescape = Options::baseYResolution;
+	_game->calypsoNotifyViewportRootApplied(this);
 	_game->getScreen()->resetDisplay(false);
 	_map->draw();
 }

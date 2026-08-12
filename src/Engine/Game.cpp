@@ -56,6 +56,8 @@
 // namespace).  Declare it here so getCurrentGame() can return it without
 // requiring every caller to write its own extern declaration.
 extern OpenXcom::Game *game;
+extern "C" void calypso_reset_main_loop_state(void);
+extern "C" int calypso_pause_main_loop_before_iterate(void);
 #endif
 
 namespace OpenXcom
@@ -72,6 +74,11 @@ Game::Game(const std::string &title) : _screen(0), _cursor(0), _lang(0), _save(0
 	_ctrl(false), _alt(false), _shift(false), _rmb(false), _mmb(false), _scrollStep(1),
 	_runningState(RUNNING), _startupEvent(false), _runInitialised(false), _lastMouseMoveEvent(0), _xrel(0), _yrel(0)
 {
+#ifdef __EMSCRIPTEN__
+	_fastMainLoopRequester = 0;
+	_fastMainLoopApplied = false;
+	_fastMainLoopLastRenderMs = 0;
+#endif
 	Options::reload = false;
 	Options::mute = false;
 
@@ -167,6 +174,14 @@ bool Game::iterate()
 {
 	static const ApplicationState kbFocusRun[4] = { RUNNING, RUNNING, SLOWED, PAUSED };
 	static const ApplicationState stateRun[4] = { SLOWED, PAUSED, PAUSED, PAUSED };
+#ifdef __EMSCRIPTEN__
+	// The fast-loop lease is one-shot even when this iteration is paused,
+	// initializes or changes state, or is not due to draw. A request made during
+	// think() below replaces this local before the end-of-iteration timing choice.
+	State *calypsoFastMainLoopRequester = _fastMainLoopRequester;
+	_fastMainLoopRequester = 0;
+	bool calypsoRenderedThisIteration = false;
+#endif
 
 	if (!_runInitialised)
 	{
@@ -186,7 +201,11 @@ bool Game::iterate()
 	if (!_init)
 	{
 		_init = true;
+#ifdef __EMSCRIPTEN__
+		initializeEmscriptenTopState();
+#else
 		_states.back()->init();
+#endif
 
 		// Unpress buttons
 		_states.back()->resetAll();
@@ -271,6 +290,11 @@ bool Game::iterate()
 				break;
 #else /* SDL2 native or Emscripten — SDL_WINDOWEVENT replaces SDL_ACTIVEEVENT + SDL_VIDEORESIZE */
 			case SDL_WINDOWEVENT:
+#ifdef __EMSCRIPTEN__
+				if (_event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED ||
+				    _event.window.event == SDL_WINDOWEVENT_RESIZED)
+					reflowEmscriptenViewport(_event.window.data1, _event.window.data2);
+#else
 				if (_event.window.event == SDL_WINDOWEVENT_RESIZED)
 				{
 					/* SDL_RenderSetLogicalSize scales the fixed-resolution framebuffer
@@ -281,6 +305,7 @@ bool Game::iterate()
 					Options::newDisplayHeight = Options::displayHeight =
 					    std::max(Screen::ORIGINAL_HEIGHT, _event.window.data2);
 				}
+#endif
 				break;
 #endif /* SDL2 */
 			case SDL_MOUSEMOTION:
@@ -428,6 +453,17 @@ bool Game::iterate()
 		_states.back()->think();
 #ifdef __EMSCRIPTEN__
 		CalypsoTutorial::get().pump(this);
+		if (_fastMainLoopRequester != 0)
+		{
+			calypsoFastMainLoopRequester = _fastMainLoopRequester;
+		}
+		_fastMainLoopRequester = 0;
+		// Tutorial pump may push a popup after Battlescape renews the lease. A
+		// state transition invalidates it so the new top state returns to RAF.
+		if (calypsoFastMainLoopRequester != 0 && !isState(calypsoFastMainLoopRequester))
+		{
+			calypsoFastMainLoopRequester = 0;
+		}
 #endif
 		_fpsCounter->think();
 		if (Options::FPS > 0 && !(Options::useOpenGL && Options::vSyncForOpenGL))
@@ -446,7 +482,15 @@ bool Game::iterate()
 			_timeUntilNextFrame = 0;
 		}
 
-		if (_init && _timeUntilNextFrame <= 0)
+		if (_init && _timeUntilNextFrame <= 0
+#ifdef __EMSCRIPTEN__
+			// Rendering from a non-rAF callback can cause long tasks. Preserve the
+			// last rAF-presented framebuffer for every immediate tick; the fixed
+			// 75 ms threshold below requests RAF; fast mode cannot resume until an
+			// actual render occurs.
+			&& !_fastMainLoopApplied
+#endif
+		)
 		{
 			// make a note of when this frame update occurred.
 			_timeOfLastFrame = SDL_GetTicks();
@@ -466,6 +510,10 @@ bool Game::iterate()
 			_fpsCounter->blit(_screen->getSurface());
 			_cursor->blit(_screen->getSurface());
 			_screen->flip();
+#ifdef __EMSCRIPTEN__
+			_fastMainLoopLastRenderMs = SDL_GetTicks();
+			calypsoRenderedThisIteration = true;
+#endif
 		}
 	}
 
@@ -483,19 +531,28 @@ bool Game::iterate()
 
 	if (_quit)
 		Options::save();
+#ifdef __EMSCRIPTEN__
+	calypsoApplyFastMainLoopTiming(calypsoFastMainLoopRequester, calypsoRenderedThisIteration);
+#endif
 	return !_quit;
 }
 
 #ifdef __EMSCRIPTEN__
 static void emscriptenIter(void *arg)
 {
+	// A viewport/context-loss event can arrive before Game::run registers the
+	// browser loop. Apply that recorded state in the first callback and do not
+	// let one game iteration escape before the pause takes effect.
+	if (calypso_pause_main_loop_before_iterate()) return;
 	Game *game = static_cast<Game*>(arg);
 	try {
 		if (!game->iterate()) {
+			calypso_reset_main_loop_state();
 			emscripten_cancel_main_loop();
 		}
 	} catch (const std::exception &e) {
 		Log(LOG_FATAL) << "iterate() uncaught: " << e.what();
+		calypso_reset_main_loop_state();
 		emscripten_cancel_main_loop();
 	}
 }
@@ -510,6 +567,9 @@ void Game::run()
 {
 #ifdef __EMSCRIPTEN__
 	// 0 fps = driven by requestAnimationFrame; 1 = simulate_infinite_loop (never returns).
+	// Only the first callback may mark the loop started; before registration even
+	// a synchronous JS unblock must not call emscripten_resume_main_loop().
+	calypso_reset_main_loop_state();
 	emscripten_set_main_loop_arg(emscriptenIter, this, 0, 1);
 #else
 	while (iterate()) {}
@@ -624,6 +684,9 @@ void Game::pushState(State *state)
 		_cursor->setHidden(false);
 	}
 	_states.push_back(state);
+#ifdef __EMSCRIPTEN__
+	trackEmscriptenViewportState(state);
+#endif
 	_init = false;
 }
 

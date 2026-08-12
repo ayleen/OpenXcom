@@ -26,6 +26,7 @@
 #include "../Mod/Mod.h"
 #include "CalypsoEconomy.h"
 #include "CalypsoVoiceProfileSelection.h"
+#include "CalypsoUiFamilies.h"
 #include "../Mod/ModScript.h"
 #include <algorithm>
 #include <functional>
@@ -2304,6 +2305,81 @@ void Mod::loadFileCalypso(YAML::YamlNodeReader& reader)
 			}
 		}
 	}
+	// Phase 46.1.3 (Calypso): parse the top-level `hdUiFamilies:` sequence into
+	// the sorted, deduplicated _hdUiFamilies gate. Fail-safe behavior per node
+	// shape (single node lookup, no throw on any path):
+	//   * key absent             -> guard skips this block; _hdUiFamilies is left
+	//                               untouched (default-constructed empty on a
+	//                               fresh Mod);
+	//   * empty sequence `[]`    -> overwrites _hdUiFamilies with an empty list;
+	//   * valid sequence         -> invalid ids are dropped with one LOG_WARNING
+	//                               per distinct id, valid ids kept sorted+deduped;
+	//   * non-scalar element     -> drop that element with a warning; never ask
+	//                               ryml to deserialize a map/sequence as string;
+	//   * present but NOT a seq  -> fail-safe: one LOG_WARNING, clear _hdUiFamilies
+	//                               to empty, do NOT deserialize it (avoids the
+	//                               ryml type-error throw readVal would raise),
+	//                               and continue with the legacy layout.
+	// The key is owned by calypso-hd-pack; only a file that carries the key
+	// touches _hdUiFamilies (last-wins, matching battlescapeTileScale), so an
+	// unrelated ruleset file can never silently clear an owning mod's list. The
+	// list ships EMPTY; a family id is added only in the commit that passes its
+	// implementation checkpoint. isHdUiFamilyEnabled() does no YAML scanning or
+	// allocation at all.
+	auto hdNode = reader["hdUiFamilies"];
+	if (hdNode)
+	{
+		if (!hdNode.isSeq())
+		{
+			Log(LOG_WARNING) << "hdUiFamilies: expected a YAML sequence; ignoring malformed entry (legacy layout)";
+			_hdUiFamilies.clear();
+		}
+		else
+		{
+			std::vector<std::string> rawFamilies;
+			rawFamilies.reserve(hdNode.childrenCount());
+			size_t entryIndex = 0;
+			for (const auto& familyNode : hdNode.children())
+			{
+				if (!familyNode.hasVal())
+				{
+					Log(LOG_WARNING) << "hdUiFamilies: ignoring non-string entry at index "
+					                 << entryIndex;
+				}
+				else
+				{
+					// val() is a non-deserializing scalar view. It cannot trigger the
+					// ryml type error that readVal<vector<string>>() raises when a
+					// sequence element is itself a map or sequence.
+					rawFamilies.emplace_back(familyNode.val());
+				}
+				++entryIndex;
+			}
+			Calypso::ParsedHdUiFamilies parsed = Calypso::parseHdUiFamilies(rawFamilies);
+			for (const std::string& bad : parsed.rejected)
+			{
+				Log(LOG_WARNING) << "hdUiFamilies: ignoring invalid family id '"
+				                 << bad << "' (expected F01..F38)";
+			}
+			_hdUiFamilies = std::move(parsed.families);
+			Log(LOG_INFO) << "hdUiFamilies: " << _hdUiFamilies.size()
+			              << " family(ies) enabled";
+		}
+	}
+}
+
+/// Phase 46.1.3 (Calypso): the single engine API family adapters call. Delegates
+/// to the pure fail-safe core (CalypsoUiFamilies.h). _hdPackActive is the hard
+/// gate: a missing/inactive HD pack forces false for every family even when the
+/// id is valid and listed, so a mod that ships `hdUiFamilies:` without the HD
+/// pack infrastructure can never flip a family on. _hdUiFamilies is sorted +
+/// deduplicated at parse time, so the listed-id check is an O(log n) binary
+/// search with no per-call allocation and no mutation. Always false for a
+/// malformed id, an unknown family, an inactive HD pack, or an empty list (the
+/// shipped default).
+bool Mod::isHdUiFamilyEnabled(const std::string& familyId) const
+{
+	return Calypso::isHdUiFamilyEnabled(_hdPackActive, &_hdUiFamilies, familyId);
 }
 
 } // namespace OpenXcom

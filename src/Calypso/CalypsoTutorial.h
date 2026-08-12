@@ -56,12 +56,20 @@ public:
 	bool checklistOpen() const { return _checklistOpen; }
 	void setChecklistOpen(bool v) { _checklistOpen = v; }
 	void disableForCampaign();
+	/// Start a new campaign atomically before its first Geoscape event fires.
+	/// The selected value is retained separately while a prologue temporarily
+	/// suppresses UI, so it survives the throwaway prologue autosave.
+	void beginCampaign(bool enabled);
+	void suspendForPrologue();
+	bool configuredEnabled() const { return _configuredEnabled; }
+	/// Generic campaign popups may be suspended during the prologue while its
+	/// own instructional radio lines still honor the New Game choice.
+	bool guidanceConfigured() const;
 	void toggleDisabled();                            // flip campaign flag without closing popup
 	bool isActive(const Game* game) const;               // option && campaign flag
 	void save(YAML::YamlNodeWriter writer) const;        // persistence (wired in 37.4); by value (matches AlienStrategy::save)
-	void load(const YAML::YamlNodeReader& reader);
+	void load(const YAML::YamlNodeReader& reader, bool legacyPrologueSave = false);
 	void resetCampaign();                                // new game / no node
-	void requestAsk() { _askPending = true; }   // one-shot; New Game only (39.9)
 	// hold flag for dogfight (used in 37.5; declare now, default false)
 	void setHoldWhileDogfight(bool v) { _holdWhileDogfight = v; }
 	void dump() const; // logs step table + shown-set (called by calypso_tutorial_dump export)
@@ -71,10 +79,10 @@ private:
 	CalypsoTutorial() {}
 	std::set<std::string> _shown;
 	bool _campaignEnabled = true;
+	bool _configuredEnabled = true; ///< selected at New Game, persisted through prologue
 	bool _checklistOpen = false; ///< persisted panel open/closed state (39.4)
 	bool _holdWhileDogfight = false;
 	bool _popupActive = false; ///< a CalypsoTutorialState is on the stack; suppress re-push
-	bool _askPending = false; ///< first-run ask queued (39.9); NOT persisted
 	std::deque<const CalypsoTutorialStep*> _queue;
 	std::deque<const CalypsoTutorialStep*> _deferred;
 	std::map<std::string, SDL_Rect> _anchors;

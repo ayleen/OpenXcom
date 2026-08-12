@@ -122,6 +122,14 @@ private:
 	BattleItem* _specWeapon[SPEC_WEAPON_MAX];
 	AIModule *_currentAIState;
 	bool _visible;
+#ifdef __EMSCRIPTEN__
+	// Calypso prologue-only state.  These are deliberately separate from the
+	// regular faction-conversion / stealth mechanics: scripted civilian
+	// handoffs must survive turn preparation, while mind control must not.
+	bool _scriptedPlayerControl = false;
+	bool _scriptedConcealed = false;
+	void prepareScriptedPlayerTurn();
+#endif
 	UnitStats _exp, _expTmp;
 	int _motionPoints;
 	int _scannedTurn;
@@ -719,6 +727,16 @@ public:
 	const std::string& getType() const;
 	/// Convert's unit to a faction
 	void convertToFaction(UnitFaction f);
+#ifdef __EMSCRIPTEN__
+	/// Permanently hand this unit to the player for a scripted scene while
+	/// retaining its original faction for scoring and normal conversion rules.
+	void grantScriptedPlayerControl();
+	bool hasScriptedPlayerControl() const;
+	/// Keep this unit out of all ordinary player-facing discovery paths until
+	/// the owning scripted scene explicitly releases it.
+	void setScriptedConcealed(bool concealed);
+	bool isScriptedConcealed() const;
+#endif
 	/// Set health to 0
 	void kill();
 	/// Set health to 0 and set status dead
@@ -924,8 +942,11 @@ public:
 	void setWantToEndTurn(bool wantToEndTurn);
 	bool getWantToEndTurn();
 	/// Brutal-AI: reachable-position cache (rebuilt lazily by the AI within a turn).
-	void setReachablePositions(std::map<Position, int, PositionComparator> reachable);
-	std::map<Position, int, PositionComparator> getReachablePositions();
+	void setReachablePositions(const std::map<Position, int, PositionComparator>& reachable);
+	/// CONTRACT: the returned reference is invalidated by the next
+	/// setReachablePositions on this unit (e.g. via AIModule::getReachableBy
+	/// recomputing this unit). Copy the map to retain it across a rebuild.
+	const std::map<Position, int, PositionComparator>& getReachablePositions();
 	void setPositionOfUpdate(Position pos, bool withMaxTUs);
 	Position getPositionOfUpdate();
 	bool wasMaxTusOfUpdate();

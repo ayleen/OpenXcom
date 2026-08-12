@@ -537,7 +537,9 @@ void NextTurnState::close()
 		{
 			if (bu->getOriginalFaction() == FACTION_HOSTILE && !bu->isOut())
 			{
+				const UnitFaction oldFaction = bu->getFaction();
 				bu->convertToFaction(FACTION_PLAYER);
+				_battleGame->notifyFactionTurnUnitChangedFaction(bu, oldFaction);
 			}
 		}
 

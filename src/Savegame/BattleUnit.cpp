@@ -664,6 +664,10 @@ void BattleUnit::load(const YAML::YamlNodeReader& node, const Mod *mod, const Sc
 	reader.tryRead("currStats", _stats);
 	reader.tryRead("turretType", _turretType);
 	reader.tryRead("visible", _visible);
+#ifdef __EMSCRIPTEN__
+	reader.tryRead("scriptedPlayerControl", _scriptedPlayerControl);
+	reader.tryRead("scriptedConcealed", _scriptedConcealed);
+#endif
 
 	reader.tryReadAs<int>("turnsSinceSpotted", _turnsSinceSpotted[FACTION_HOSTILE]);
 	reader.tryReadAs<int>("turnsLeftSpottedForSnipers", _turnsLeftSpottedForSnipers[FACTION_HOSTILE]);
@@ -837,6 +841,12 @@ void BattleUnit::save(YAML::YamlNodeWriter writer, const ScriptGlobal *shared) c
 		writer.write("turretType", _turretType);
 	if (_visible)
 		writer.write("visible", _visible);
+#ifdef __EMSCRIPTEN__
+	if (_scriptedPlayerControl)
+		writer.write("scriptedPlayerControl", _scriptedPlayerControl);
+	if (_scriptedConcealed)
+		writer.write("scriptedConcealed", _scriptedConcealed);
+#endif
 
 	writer.writeAs<int>("turnsSinceSpotted", _turnsSinceSpotted[FACTION_HOSTILE]);
 	writer.writeAs<int>("turnsLeftSpottedForSnipers", _turnsLeftSpottedForSnipers[FACTION_HOSTILE]);
@@ -1368,6 +1378,7 @@ void BattleUnit::keepWalking(SavedBattleGame *savedBattleGame, bool fullWalkCycl
 	if (!fullWalkCycle || (_walkPhase == middle))
 	{
 		setTile(savedBattleGame->getTile(_destination), savedBattleGame);
+		savedBattleGame->notifyFactionTurnUnitMoved(this);
 	}
 
 	if (_walkPhase >= end)
@@ -2979,6 +2990,9 @@ void BattleUnit::prepareNewTurn(bool fullProcess)
 
 	_hitByFire = false;
 	_dontReselect = false;
+	// Phase 43 (C1): reset the brutal "want to end turn" flag every turn, otherwise a unit that
+	// ended its turn once stays passive for the rest of the mission (Brutal-OXCE resets it here).
+	if (isBrutal()) setWantToEndTurn(false);
 	_aiMedikitUsed = false;
 	_motionPoints = 0;
 	// Phase 34.7 (Calypso): reset the per-turn near-miss counter in the turn-prep path
@@ -2993,7 +3007,11 @@ void BattleUnit::prepareNewTurn(bool fullProcess)
 
 	// don't give it back its TUs or anything this round
 	// because it's no longer a unit of the team getting TUs back
-	if (_faction != _originalFaction)
+	if (_faction != _originalFaction
+#ifdef __EMSCRIPTEN__
+		&& !_scriptedPlayerControl
+#endif
+	)
 	{
 		_faction = _originalFaction;
 		if (_faction == FACTION_PLAYER && _currentAIState)
@@ -3005,6 +3023,9 @@ void BattleUnit::prepareNewTurn(bool fullProcess)
 	}
 	else
 	{
+#ifdef __EMSCRIPTEN__
+		prepareScriptedPlayerTurn();
+#endif
 		updateUnitStats(true, false);
 	}
 
@@ -3537,6 +3558,13 @@ AIAttackWeight BattleUnit::getAITargetWeightAsNeutral(const Mod *mod) const
  */
 void BattleUnit::setVisible(bool flag)
 {
+#ifdef __EMSCRIPTEN__
+	// A Calypso scripted scene can make a unit narratively absent. FOV,
+	// reaction fire and the smart-civilian relay all eventually publish through
+	// this setter, so keep the final visibility bit behind the same gate.
+	if (_scriptedConcealed && flag)
+		return;
+#endif
 	_visible = flag;
 }
 
@@ -3547,6 +3575,12 @@ void BattleUnit::setVisible(bool flag)
  */
 bool BattleUnit::getVisible() const
 {
+#ifdef __EMSCRIPTEN__
+	if (_scriptedConcealed)
+	{
+		return false;
+	}
+#endif
 	if (getFaction() == FACTION_PLAYER || _armor->isAlwaysVisible())
 	{
 		return true;
@@ -6014,12 +6048,12 @@ bool BattleUnit::getWantToEndTurn()
 	return false;
 }
 
-void BattleUnit::setReachablePositions(std::map<Position, int, PositionComparator> reachable)
+void BattleUnit::setReachablePositions(const std::map<Position, int, PositionComparator>& reachable)
 {
 	_reachablePositions = reachable;
 }
 
-std::map<Position, int, PositionComparator> BattleUnit::getReachablePositions()
+const std::map<Position, int, PositionComparator>& BattleUnit::getReachablePositions()
 {
 	return _reachablePositions;
 }

@@ -18,10 +18,13 @@
  * along with OpenXcom.  If not, see <http:///www.gnu.org/licenses/>.
  */
 #include "Position.h"
+#include "AIFailureMemory.h"
 #include "../Mod/RuleItem.h"
 #include "../Engine/HelperMeta.h"
+#include <chrono>
 #include <string>
 #include <list>
+#include <map>
 #include <vector>
 
 namespace OpenXcom
@@ -93,6 +96,11 @@ struct BattleAction : BattleActionCost
 	bool sprayTargeting; // Used to separate waypoint checks between confirm firing mode and the "spray" autoshot
 	BattleActionOrigin relativeOrigin = BattleActionOrigin::CENTRE; // preferred origin voxel (centre, left or right)
 	int terrainMeleeTilePart = 0; // terrain melee
+	int tuBefore = 0; // Phase 43 (C2): actor TU captured before the action executes; zero-progress guard
+	int aiTargetId = -1; // Phase 43.0: transient execution metadata, never serialized
+	Position aiAttemptPosition;
+	AIFailureReason aiFailure = AIFailureReason::NONE;
+	bool aiFailureMemoryCandidate = false; // set only by generators that applied candidateAllowed before selection; honest bounded-retry eligibility (NOT proof an alternate exists)
 
 	/// Default constructor
 	BattleAction() : target(-1, -1, -1), targeting(false), value(0), diff(0), autoShotCounter(0), cameraPosition(0, 0, -1), desperate(false), finalFacing(-1), finalAction(false), number(0), sprayTargeting(false) { }
@@ -156,8 +164,18 @@ private:
 	helper::SingleRun _endTurnProcessed;
 	helper::SingleRun _triggerProcessed;
 
+	// Phase 43.0: AI timing instrumentation (transient, not serialized; active only while
+	// Options::traceAI is on). Measures the full hostile faction-turn wall-clock and aggregates
+	// per-hostile-unit time spent inside unit->think() across the whole hostile turn.
+	bool _aiTurnTimingActive = false;
+	std::chrono::steady_clock::time_point _aiTurnStart{};
+	std::map<int, long long> _aiTurnThinkUs; // unit id -> accumulated think microseconds this hostile turn
+	std::uint64_t _aiWorldRevision = 0;
+
 	/// Ends the turn.
 	void endTurn();
+	/// Phase 43.0: runs unit->think() and accumulates its wall-time into the per-hostile-turn aggregate.
+	void thinkHostileTimed(BattleUnit *unit, BattleAction *action);
 	/// Picks the first soldier that is panicking.
 	bool handlePanickingPlayer();
 	/// Common function for handling panicking units.
@@ -168,6 +186,8 @@ private:
 	/// Shows the infoboxes in the queue (if any).
 	void showInfoBoxQueue();
 public:
+	std::uint64_t getAIWorldRevision() const { return _aiWorldRevision; }
+	void markAIWorldChanged() { ++_aiWorldRevision; }
 	/// is debug mode enabled in the battlescape?
 	static bool _debugPlay;
 

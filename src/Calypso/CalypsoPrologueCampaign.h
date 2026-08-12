@@ -52,17 +52,29 @@ extern const std::string PROLOGUE_DIVER2_NAME;
 /// CalypsoPrologueScene (writes it every player turn via
 /// CalypsoDirector::forceAutosave) and finishPrologue (deletes it).
 extern const std::string PROLOGUE_AUTOSAVE_FILENAME;
+extern const std::string PROLOGUE_DEPLOYMENT_ID;
+
+/// Delete the rolling prologue slot and flush IDBFS. Used by both successful
+/// completion and explicit discard so a supposedly abandoned mission cannot
+/// be loaded from the Main Menu.
+void deletePrologueAutosave();
+
+/// Clears process-local state used to hand survivors from the throwaway
+/// prologue battle into the real campaign. Call when a scripted prologue is
+/// abandoned and defensively before every fresh prologue/vanilla campaign.
+/// Also invalidates a stale asynchronous finish callback.
+void resetPrologueHandoff();
 
 /// Offered from NewGameState::btnOkClick, BEFORE newSave(). Returns true if
 /// it took over (pushed CalypsoPrologueAskState) -- the caller must return
 /// immediately and skip the vanilla campaign-creation flow. Returns false
-/// (vanilla continues unchanged) when the prologue was already offered once
-/// (Options::calypsoPrologueSeen) or the mod content is absent
-/// (STR_CALYPSO_PROLOGUE deployment not found -- graceful without commit 5's
-/// mod, so the engine never hard-depends on it). `ironman` is the New Game
+/// (vanilla continues unchanged) when tutorial guidance is unchecked or the
+/// mod content is absent (STR_CALYPSO_PROLOGUE deployment not found --
+/// graceful without commit 5's mod, so the engine never hard-depends on it).
+/// `ironman` is the New Game
 /// screen's toggle -- stashed alongside the difficulty so neither the decline
 /// path nor the post-prologue campaign silently drops the player's choice.
-bool maybeOfferPrologue(Game *game, GameDifficulty diff, bool ironman);
+bool maybeOfferPrologue(Game *game, GameDifficulty diff, bool ironman, bool tutorial);
 
 /// The difficulty stashed by maybeOfferPrologue -- valid between the ask
 /// state's construction and the prologue's resolution (Yes or No). Used by
@@ -100,12 +112,14 @@ void launchPrologueBattle(Game *game);
 /// Records one surviving player soldier's name + stats at cast-off
 /// (OutcomeCastOff only) -- called by CalypsoPrologueScene::onAbortRequested
 /// before the throwaway SavedGame is torn down. finishPrologue() injects the
-/// stash into the real campaign's starting roster and clears it.
+/// stash into the real campaign's starting roster and clears it. Survivor
+/// records are consumed only for OutcomeCastOff; every other outcome is
+/// protected from stale handoff data.
 void stashSurvivor(const std::string &name, const UnitStats &stats);
 
-/// Creates the real campaign (mod->newSave), injects any stashed survivors
-/// into the starting base roster, deletes the prologue autosave slot, and
-/// replicates NewGameState's post-newSave tail. Called by
+/// Deletes and durably flushes the prologue autosave slot, then creates the
+/// real campaign (mod->newSave), injects any stashed survivors, and replicates
+/// NewGameState's post-newSave tail from the successful sync callback. Called by
 /// CalypsoPrologueEndState on click/keypress; `outcome` is
 /// CalypsoPrologueScene::Outcome (OutcomeAllTaken -> stash is empty, roster
 /// untouched).

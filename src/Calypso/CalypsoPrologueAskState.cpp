@@ -12,7 +12,6 @@
 #include "CalypsoPrologueAskState.h"
 #include "CalypsoPrologueCampaign.h"
 #include "../Engine/Game.h"
-#include "../Engine/Options.h"
 #include "../Interface/Window.h"
 #include "../Interface/Text.h"
 #include "../Interface/TextButton.h"
@@ -97,23 +96,16 @@ void CalypsoPrologueAskState::resize(int& dX, int& dY)
 
 void CalypsoPrologueAskState::btnYesClick(Action*)
 {
-	Options::calypsoPrologueSeen = true;
-	// Review round 1 (P2): flush immediately -- in the browser a closed tab
-	// never reaches the graceful-quit Options::save(), so without this the
-	// ask would reappear on the next visit.
-	Options::save();
 	_game->popState();
 	// Commit 6 inserts the intro-clip trigger (JS overlay EM_ASM call) right
 	// here, before the battle launches -- this is the single documented call
 	// site the phase plan (41.5b) points at.
-	EM_ASM_({ if (globalThis.__calypsoPlayPrologueIntro) globalThis.__calypsoPlayPrologueIntro(); });
+	EM_ASM({ if (globalThis.__calypsoPlayPrologueIntro) globalThis.__calypsoPlayPrologueIntro(); });
 	Calypso::launchPrologueBattle(_game);
 }
 
 void CalypsoPrologueAskState::btnNoClick(Action*)
 {
-	Options::calypsoPrologueSeen = true;
-	Options::save(); // same reload-persistence reasoning as btnYesClick
 	_game->popState();
 	Calypso::vanillaNewGameTail(_game, Calypso::stashedDifficulty());
 }

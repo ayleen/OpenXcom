@@ -23,6 +23,8 @@
 #include <vector>
 #include <string>
 
+#include "../Calypso/CalypsoHudLayoutCache.h"   // HD HUD layout cache (PR #78 / P2)
+
 namespace OpenXcom
 {
 
@@ -291,6 +293,10 @@ public:
 	/// Update the resolution settings, we just resized the window.
 	void resize(int &dX, int &dY) override;
 #ifdef __EMSCRIPTEN__
+	Calypso::CalypsoViewportAffinity calypsoViewportAffinity() const override
+	{
+		return Calypso::CalypsoViewportAffinity::Tactical;
+	}
 	/// Calypso (Emscripten): step the battlescape display fraction (zoom) by
 	/// `direction` along the Full↔¼ ladder. >0 zooms in (smaller buffer, bigger
 	/// apparent pixels); <0 zooms out. Wired to the mouse wheel + zoom keys.
@@ -315,11 +321,20 @@ public:
 	/// into Calypso/BattlescapeHud.cpp; the public wrappers hook these under #ifdef.
 	void captureHudNativeGl();
 	void layoutHudGl();
+	/// PR #78 / P2 (test/diagnostic only): serialize the current HD HUD geometry
+	/// to `out` as JSON so a WASM regression can assert the HD panel top / Map
+	/// scissor / BattlescapeButton transform and the portrait/name/stat GL
+	/// overlay rectangles stay aligned with the CPU HUD widgets across resizes.
+	/// Reads no live game state beyond the already-laid-out HUD; safe to call
+	/// any time after captureHudNativeGl() + one layoutHudGl().
+	void debugHudLayoutProbe(std::string& out);
 	void applyHdRankGl(int rankIdx);
 	void applyPortraitGl(BattleUnit* unit);
 	void applyHudNameGl(BattleUnit* unit);
 	void applyHudNumberGl(NumberText* w, int value, Uint32 accentArgb, int imgSlot, int txtSlot);
 	void applyHudNumbersGl(BattleUnit* unit);
+	/// Phase 43.1: advance queued alien actions and renew the browser pacing lease.
+	void calypsoAdvanceAlienPacing(Game *calypsoGame);
 	/// Phase 37: register tutorial anchor rects + fire battle-entry triggers
 	/// (battle.start / battle.night); body in Calypso/BattlescapeHud.cpp.
 	void calypsoTutorialBattleInit();
@@ -344,7 +359,10 @@ public:
 	std::vector<HudNativeRect> _hudNative;
 	int _hudNativeIconsW = 0;
 	int _hudNativeIconsH = 0;
-	int _hudLastBaseX = -1;
+	// Both-dimension HD HUD layout cache (PR #78 / P2): keyed on base width AND
+	// height so a width-preserving height resize still rebuilds. See
+	// CalypsoHudLayoutCache.h for the policy.
+	CalypsoHudLayoutCache _hudLayoutCache;
 	float _hudScale = 1.0f;
 	bool _hudCaptured = false;
 	int _hudRankIndex = -1;

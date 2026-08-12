@@ -611,7 +611,11 @@ bool Text::drawTTF()
 	// Multi-line path: _processedText (UTF-32) already carries the wrap line
 	// breaks processText() computed for the bitmap layout — reuse them so the
 	// TTF wrapping matches the row geometry the rest of the engine assumes.
-	std::vector<SDL_Surface*> rendered; // owned by the TTFFont cache — do NOT free
+	// Keep only the cleaned strings between renderText() calls. Its returned
+	// surface is borrowed from a bounded cache; a later cache miss may evict it,
+	// so retaining multiple pointers here would be a use-after-free for a long
+	// enough list of distinct lines.
+	std::vector<std::string> lines;
 	const UString &s = _processedText;
 	size_t start = 0;
 	int blockW = 0;
@@ -621,28 +625,36 @@ bool Text::drawTTF()
 		{
 			std::string clean = strip(Unicode::convUtf32ToUtf8(s.substr(start, i - start)));
 			start = i + 1;
-			SDL_Surface *line = clean.empty() ? 0 : _ttf->renderText(clean, rgba);
-			if (line && line->w > blockW) blockW = line->w;
-			rendered.push_back(line);
+			lines.push_back(clean);
+			if (!clean.empty())
+			{
+				SDL_Surface *line = _ttf->renderText(clean, rgba);
+				// Consume the borrowed pointer before the next cache lookup.
+				if (line && line->w > blockW) blockW = line->w;
+			}
 		}
 	}
 	int lineH = _ttf->lineHeight();
 	if (lineH <= 0) lineH = 1;
-	if (rendered.empty() || blockW <= 0)
+	if (lines.empty() || blockW <= 0)
 	{
 		return false;
 	}
 	// Compose all lines into one transparent ARGB block, then let blitFit scale
 	// the whole block into the widget (downscale-only, aligned, * _ttfFill).
-	SDL_Surface *block = SDL_CreateRGBSurfaceWithFormat(0, blockW, (int)rendered.size() * lineH, 32, SDL_PIXELFORMAT_ARGB8888);
+	// Rasterise each line again and blit it immediately: the common <=256-line
+	// case is served from cache, while even a pathological cache-thrashing list
+	// never keeps a borrowed surface alive across the next renderText() call.
+	SDL_Surface *block = SDL_CreateRGBSurfaceWithFormat(0, blockW, (int)lines.size() * lineH, 32, SDL_PIXELFORMAT_ARGB8888);
 	if (!block)
 	{
 		return false;
 	}
 	SDL_FillRect(block, 0, SDL_MapRGBA(block->format, 0, 0, 0, 0));
 	int ly = 0;
-	for (SDL_Surface *line : rendered)
+	for (const std::string &clean : lines)
 	{
+		SDL_Surface *line = clean.empty() ? 0 : _ttf->renderText(clean, rgba);
 		if (line)
 		{
 			int lx = (h == TTFUtil::H_CENTER) ? (blockW - line->w) / 2

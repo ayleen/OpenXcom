@@ -20,8 +20,13 @@
 #include <cmath>
 #include "../Engine/Action.h"
 #include "../Engine/Font.h"
+#include "../Engine/TTFFont.h"
 #include "../Engine/Timer.h"
 #include "../Engine/Options.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoTextEdit.h"
+#endif
+#include "../Calypso/CalypsoTextInput.h"
 #include "../fallthrough.h"
 
 #ifdef __EMSCRIPTEN__
@@ -29,7 +34,8 @@
 // harness hook (defined in Calypso/EmscriptenHarness.cpp, C linkage), and the
 // harness writes back through g_calypsoFocusedTextEdit (C++ linkage, defined
 // here — the harness references it with a matching namespaced extern).
-extern "C" void calypso_notify_text_focus(int focused, int x, int y, int w, int h, const char *utf8);
+extern "C" void calypso_notify_text_focus(int focused, int x, int y, int w, int h,
+	const char *utf8, int multiline, int enterPolicy);
 namespace OpenXcom { TextEdit *g_calypsoFocusedTextEdit = nullptr; }
 #endif
 
@@ -46,7 +52,11 @@ namespace OpenXcom
  */
 TextEdit::TextEdit(State *state, int width, int height, int x, int y) : InteractiveSurface(width, height, x, y),
 	_blink(true), _modal(true), _drawBackground(true),
-	_char('A'), _caretPos(0), _textEditConstraint(TEC_NONE),
+	_multiline(false), _highContrast(false), _ttf(nullptr), _ttfFill(1.0f),
+	_char('A'), _caretPos(0), _firstVisibleLine(0), _preferredCaretX(-1),
+	_enterPolicy(TEEP_INSERT_NEWLINE), _textEditConstraint(TEC_NONE),
+	_multilineLayoutValid(false), _multilineDirectTTF(false),
+	_multilineMetricTTF(nullptr), _multilineLineHeight(1),
 	_change(0), _enter(0), _state(state)
 {
 	_isFocused = false;
@@ -62,15 +72,39 @@ TextEdit::TextEdit(State *state, int width, int height, int x, int y) : Interact
  */
 TextEdit::~TextEdit()
 {
+	// State owns TextEdit surfaces and is still alive while deleting them. Clear
+	// only our own modal entry so externally deleting a focused editor cannot
+	// leave State::_modal dangling or disturb a newer modal surface.
+	if (_state) _state->clearModal(this);
+	const Calypso::CalypsoTextFocusTeardown teardown =
+		Calypso::calypsoPlanTextFocusTeardown(_isFocused,
 #ifdef __EMSCRIPTEN__
-	if (g_calypsoFocusedTextEdit == this) g_calypsoFocusedTextEdit = nullptr;
+			g_calypsoFocusedTextEdit == this);
+#else
+			false);
+#endif
+	if (teardown.stopTextInput)
+	{
+		// Avoid setFocus(false): modal ownership was released above and the rest
+		// of this path only balances process-global SDL/bridge state.
+		InteractiveSurface::setFocus(false);
+		_blink = false;
+		_timer->stop();
+#ifdef __EMSCRIPTEN__
+		SDL_StopTextInput();
+#endif
+		SDL_EnableKeyRepeat(0, SDL_DEFAULT_REPEAT_INTERVAL);
+	}
+#ifdef __EMSCRIPTEN__
+	if (teardown.dismissBridge)
+	{
+		g_calypsoFocusedTextEdit = nullptr;
+		calypso_notify_text_focus(0, 0, 0, 0, 0, "", 0, 0);
+	}
 #endif
 	delete _text;
 	delete _caret;
 	delete _timer;
-	// In case it was left focused
-	SDL_EnableKeyRepeat(0, SDL_DEFAULT_REPEAT_INTERVAL);
-	_state->setModal(0);
 }
 
 /**
@@ -81,6 +115,13 @@ TextEdit::~TextEdit()
 void TextEdit::handle(Action *action, State *state)
 {
 	InteractiveSurface::handle(action, state);
+#ifdef __EMSCRIPTEN__
+	if (_isFocused && action->getDetails()->type == SDL_TEXTINPUT)
+	{
+		Calypso::CalypsoTextEdit::textInput(*this, action, state);
+		return;
+	}
+#endif
 	if (_isFocused && _modal && action->getDetails()->type == SDL_MOUSEBUTTONDOWN &&
 		(action->getAbsoluteXMouse() < getX() || action->getAbsoluteXMouse() >= getX() + getWidth() ||
 		 action->getAbsoluteYMouse() < getY() || action->getAbsoluteYMouse() >= getY() + getHeight()))
@@ -104,6 +145,9 @@ void TextEdit::setFocus(bool focus, bool modal)
 		InteractiveSurface::setFocus(focus);
 		if (_isFocused)
 		{
+#ifdef __EMSCRIPTEN__
+			SDL_StartTextInput();
+#endif
 			SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY, SDL_DEFAULT_REPEAT_INTERVAL);
 			_caretPos = _value.length();
 			_blink = true;
@@ -113,11 +157,15 @@ void TextEdit::setFocus(bool focus, bool modal)
 #ifdef __EMSCRIPTEN__
 			g_calypsoFocusedTextEdit = this;
 			calypso_notify_text_focus(1, getX(), getY(), getWidth(), getHeight(),
-				Unicode::convUtf32ToUtf8(_value).c_str());
+				Unicode::convUtf32ToUtf8(_value).c_str(), _multiline ? 1 : 0,
+				static_cast<int>(_enterPolicy));
 #endif
 		}
 		else
 		{
+#ifdef __EMSCRIPTEN__
+			SDL_StopTextInput();
+#endif
 			_blink = false;
 			_timer->stop();
 			SDL_EnableKeyRepeat(0, SDL_DEFAULT_REPEAT_INTERVAL);
@@ -125,7 +173,7 @@ void TextEdit::setFocus(bool focus, bool modal)
 				_state->setModal(0);
 #ifdef __EMSCRIPTEN__
 			if (g_calypsoFocusedTextEdit == this) g_calypsoFocusedTextEdit = nullptr;
-			calypso_notify_text_focus(0, 0, 0, 0, 0, "");
+			calypso_notify_text_focus(0, 0, 0, 0, 0, "", 0, 0);
 #endif
 		}
 	}
@@ -138,6 +186,9 @@ void TextEdit::setBig()
 {
 	_text->setBig();
 	_caret->setBig();
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoTextEdit::invalidateLayout(*this);
+#endif
 }
 
 /**
@@ -147,6 +198,25 @@ void TextEdit::setSmall()
 {
 	_text->setSmall();
 	_caret->setSmall();
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoTextEdit::invalidateLayout(*this);
+#endif
+}
+
+void TextEdit::setWidth(int width)
+{
+	Surface::setWidth(width);
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoTextEdit::resized(*this);
+#endif
+}
+
+void TextEdit::setHeight(int height)
+{
+	Surface::setHeight(height);
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoTextEdit::resized(*this);
+#endif
 }
 
 /**
@@ -161,6 +231,9 @@ void TextEdit::initText(Font *big, Font *small, Language *lang)
 {
 	_text->initText(big, small, lang);
 	_caret->initText(big, small, lang);
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoTextEdit::invalidateLayout(*this);
+#endif
 }
 
 /**
@@ -169,9 +242,13 @@ void TextEdit::initText(Font *big, Font *small, Language *lang)
  */
 void TextEdit::setText(const std::string &text)
 {
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoTextEdit::assignText(*this, text.c_str());
+#else
 	_value = Unicode::convUtf8ToUtf32(text);
 	_caretPos = _value.length();
 	_redraw = true;
+#endif
 }
 
 #ifdef __EMSCRIPTEN__
@@ -185,30 +262,9 @@ void TextEdit::setText(const std::string &text)
  * @param utf8 New value as a UTF-8 string.
  */
 void TextEdit::setTextExternal(const std::string &utf8)
-{
-	const std::u32string incoming = Unicode::convUtf8ToUtf32(utf8);
-	_value.clear();
-	_caretPos = 0;
-	for (UCode c : incoming)
-	{
-		if (isValidChar(c) && !exceedsMaxWidth(c))
-		{
-			_value.insert(_caretPos, 1, c);
-			_caretPos++;
-		}
-	}
-	_redraw = true;
-	if (_change && _state)
-	{
-		/* Zeroed KEYDOWN (sym = SDLK_UNKNOWN): handlers that special-case
-		 * Enter/Escape take their normal-typing branch. */
-		SDL_Event fakeEv;
-		SDL_zero(fakeEv);
-		fakeEv.type = SDL_KEYDOWN;
-		Action fake(&fakeEv, 0.0, 0.0, 0, 0);
-		(_state->*_change)(&fake);
-	}
-}
+{ Calypso::CalypsoTextEdit::setTextExternal(*this, utf8.c_str()); }
+
+void TextEdit::refreshExternalGeometry() { Calypso::CalypsoTextEdit::refreshExternalGeometry(*this); }
 #endif
 
 /**
@@ -241,6 +297,25 @@ void TextEdit::setWordWrap(bool wrap)
 	_text->setWordWrap(wrap);
 }
 
+void TextEdit::setMultiline(bool multiline)
+{
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoTextEdit::setMultiline(*this, multiline);
+#else
+	(void)multiline;
+#endif
+}
+
+void TextEdit::setTTFFont(TTFFont *font, float fillFrac)
+{
+	_ttf = font;
+	_ttfFill = fillFrac > 0.0f ? std::min(1.0f, fillFrac) : 1.0f;
+	_text->setTTFFont(font, fillFrac);
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoTextEdit::invalidateLayout(*this);
+#endif
+}
+
 /**
  * Enables/disables color inverting. Mostly used to make
  * button text look pressed along with the button.
@@ -259,6 +334,7 @@ void TextEdit::setInvert(bool invert)
  */
 void TextEdit::setHighContrast(bool contrast)
 {
+	_highContrast = contrast;
 	_text->setHighContrast(contrast);
 	_caret->setHighContrast(contrast);
 }
@@ -341,9 +417,15 @@ Uint8 TextEdit::getSecondaryColor() const
  */
 void TextEdit::setPalette(const SDL_Color *colors, int firstcolor, int ncolors)
 {
+#ifdef __EMSCRIPTEN__
+	const bool hadEffectivePalette = Calypso::CalypsoTextEdit::hasEffectivePalette(*this);
+#endif
 	Surface::setPalette(colors, firstcolor, ncolors);
 	_text->setPalette(colors, firstcolor, ncolors);
 	_caret->setPalette(colors, firstcolor, ncolors);
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoTextEdit::paletteChanged(*this, hadEffectivePalette);
+#endif
 }
 
 /**
@@ -371,67 +453,39 @@ void TextEdit::blink()
 void TextEdit::draw()
 {
 	Surface::draw();
+#ifdef __EMSCRIPTEN__
+	if (Calypso::CalypsoTextEdit::draw(*this)) return;
+#endif
 	UString newValue = _value;
-	if (Options::keyboardMode == KEYBOARD_OFF)
-	{
-		if (_isFocused && _blink)
-		{
-			newValue += _char;
-		}
-	}
+	if (Options::keyboardMode == KEYBOARD_OFF && _isFocused && _blink) newValue += _char;
 	_text->setText(Unicode::convUtf32ToUtf8(newValue));
 	clear();
-
-	// TODO: this whole thing is old and ugly, rework later
 	if (_enter && _drawBackground)
 	{
-		SDL_Rect square;
-		square.x = 0;
-		square.y = 0;
-		square.w = getWidth();
-		square.h = getHeight();
+		SDL_Rect square = {0, 0, getWidth(), getHeight()};
 		drawRect(&square, getColor());
 	}
-
 	_text->blit(this->getSurface());
-	if (Options::keyboardMode == KEYBOARD_ON)
+	if (Options::keyboardMode == KEYBOARD_ON && _isFocused && _blink)
 	{
-		if (_isFocused && _blink)
+		int x = 0;
+		switch (_text->getAlign())
 		{
-			int x = 0;
-			switch (_text->getAlign())
-			{
-			case ALIGN_LEFT:
-				x = 0;
-				break;
-			case ALIGN_CENTER:
-				x = (_text->getWidth() - _text->getTextWidth()) / 2;
-				break;
-			case ALIGN_RIGHT:
-				x = _text->getWidth() - _text->getTextWidth();
-				break;
-			}
-			for (size_t i = 0; i < _caretPos; ++i)
-			{
-				x += _text->getFont()->getCharSize(_value[i]).w;
-			}
-			_caret->setX(x);
-			int y = 0;
-			switch (_text->getVerticalAlign())
-			{
-			case ALIGN_TOP:
-				y = 0;
-				break;
-			case ALIGN_MIDDLE:
-				y = (int)ceil((getHeight() - _text->getTextHeight()) / 2.0);
-				break;
-			case ALIGN_BOTTOM:
-				y = getHeight() - _text->getTextHeight();
-				break;
-			}
-			_caret->setY(y);
-			_caret->blit(this->getSurface());
+		case ALIGN_LEFT: break;
+		case ALIGN_CENTER: x = (_text->getWidth() - _text->getTextWidth()) / 2; break;
+		case ALIGN_RIGHT: x = _text->getWidth() - _text->getTextWidth(); break;
 		}
+		for (size_t i = 0; i < _caretPos; ++i) x += _text->getFont()->getCharSize(_value[i]).w;
+		_caret->setX(x);
+		int y = 0;
+		switch (_text->getVerticalAlign())
+		{
+		case ALIGN_TOP: y = 0; break;
+		case ALIGN_MIDDLE: y = (int)ceil((getHeight() - _text->getTextHeight()) / 2.0); break;
+		case ALIGN_BOTTOM: y = getHeight() - _text->getTextHeight(); break;
+		}
+		_caret->setY(y);
+		_caret->blit(this->getSurface());
 	}
 }
 
@@ -465,6 +519,7 @@ bool TextEdit::exceedsMaxWidth(UCode c) const
  */
 bool TextEdit::isValidChar(UCode c) const
 {
+	if (!Calypso::calypsoIsUnicodeScalar(c)) return false;
 	switch (_textEditConstraint)
 	{
 	case TEC_NUMERIC_POSITIVE:
@@ -507,6 +562,9 @@ void TextEdit::mousePress(Action *action, State *state)
 		}
 		else
 		{
+#ifdef __EMSCRIPTEN__
+			if (Calypso::CalypsoTextEdit::mousePress(*this, action, state)) return;
+#endif
 			double mouseX = action->getRelativeXMouse();
 			double scaleX = action->getXScale();
 			double w = 0;
@@ -539,6 +597,13 @@ void TextEdit::mousePress(Action *action, State *state)
  */
 void TextEdit::keyboardPress(Action *action, State *state)
 {
+#ifdef __EMSCRIPTEN__
+	if (Calypso::CalypsoTextEdit::keyboardPress(*this, action, state)) return;
+#endif
+
+#ifdef __EMSCRIPTEN__
+	const UString previousValue = _value;
+#endif
 	bool enterPressed = false;
 	if (Options::keyboardMode == KEYBOARD_OFF)
 	{
@@ -625,10 +690,11 @@ void TextEdit::keyboardPress(Action *action, State *state)
 			}
 			break;
 		default:
+#ifndef __EMSCRIPTEN__
+			// Preserve the legacy native SDL2 path. Browser builds use
+			// SDL_TEXTINPUT so modifiers and non-ASCII text are handled by SDL.
 #if SDL_VERSION_ATLEAST(2,0,0)
-			/* SDL2 removed keysym.unicode; SDL_TEXTINPUT events carry text.
-			 * Approximate with the sym keycode for ASCII printable range. */
-			UCode c = (UCode)(action->getDetails()->key.keysym.sym);
+			UCode c = static_cast<UCode>(action->getDetails()->key.keysym.sym);
 #else
 			UCode c = action->getDetails()->key.keysym.unicode;
 #endif
@@ -637,11 +703,18 @@ void TextEdit::keyboardPress(Action *action, State *state)
 				_value.insert(_caretPos, 1, c);
 				_caretPos++;
 			}
+#else
+			// SDL2 printable input arrives separately as SDL_TEXTINPUT.
+#endif
 			break;
 		}
 	}
 	_redraw = true;
+#ifndef __EMSCRIPTEN__
 	if (_change)
+#else
+	if (_change && _value != previousValue)
+#endif
 	{
 		(state->*_change)(action);
 	}
@@ -669,6 +742,16 @@ void TextEdit::onChange(ActionHandler handler)
 void TextEdit::onEnter(ActionHandler handler)
 {
 	_enter = handler;
+}
+
+void TextEdit::commit(Action *action)
+{
+	State *state = _state;
+	ActionHandler enter = _enter;
+	setFocus(false);
+	if (!enter || !state) return;
+	// Treat the callback as terminal: it may synchronously destroy the owner.
+	(state->*enter)(action);
 }
 
 }
