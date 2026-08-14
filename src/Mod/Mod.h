@@ -488,6 +488,7 @@ private:
 	/// battlescapeTileScale/hdUiFamilies/...) parsed out of loadFile; body in
 	/// Calypso/ModHd.cpp.
 	void loadFileCalypso(YAML::YamlNodeReader& reader);
+	bool handleCalypsoGeoscapeMusic(const std::string &name);
 	void validateVoiceProfiles() const;
 	/// Phase 42 E1: decode + upload the optional RGBA overlay pages for one
 	/// UnitAtlasSpec, compute the per-PCK-frame hasHd mask (transparent slots

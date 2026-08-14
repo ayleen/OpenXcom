@@ -8,6 +8,7 @@ namespace OpenXcom
 {
 
 class BattleUnit;
+class BattlescapeState;
 class SavedBattleGame;
 struct BattleAction;
 struct BattleActionAttack;
@@ -40,6 +41,14 @@ public:
 	static void think();
 	/// Current semantic subtitle selected by the production manager.
 	static CalypsoVoiceSubtitleSnapshot subtitle(unsigned int nowMs);
+#if defined(CALYPSO_VOICE_P_EN)
+	static void applyVolume(int setting, bool enabled);
+	static void createSubtitle(BattlescapeState *state, int screenWidth, int hudY);
+	static void addSubtitle(BattlescapeState *state);
+	static void styleSubtitle(BattlescapeState *state);
+	static void updateSubtitle(BattlescapeState *state);
+	static void resizeSubtitle(BattlescapeState *state);
+#endif
 	/// Accept an asynchronous browser pack result only for the active mission.
 	static bool onPackResult(const std::string &pack,
 		unsigned int missionEpoch, bool available);

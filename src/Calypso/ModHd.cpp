@@ -69,6 +69,8 @@
 #  include "../Mod/TileAtlasBuilder.h"
 #  include "../Mod/UnitSpriteAtlasBuilder.h"
 #  include <set>
+#  include <emscripten.h>
+#  include <SDL_mixer.h>
 // M5: heap-attribution marks (function defined in Calypso/EmscriptenHarness.cpp)
 extern "C" void calypso_log_heap(const char *tag);
 #endif
@@ -2380,6 +2382,31 @@ void Mod::loadFileCalypso(YAML::YamlNodeReader& reader)
 bool Mod::isHdUiFamilyEnabled(const std::string& familyId) const
 {
 	return Calypso::isHdUiFamilyEnabled(_hdPackActive, &_hdUiFamilies, familyId);
+}
+
+bool Mod::handleCalypsoGeoscapeMusic(const std::string &name)
+{
+	const bool geoscapeRequest = name == "GMGEO" || name == "GMINTER";
+	const bool controllerAvailable = EM_ASM_INT({
+		const available = globalThis.calypsoGeoscapeMusicIsAvailable;
+		return typeof available === 'function' ? available() : 0;
+	}) != 0;
+	if (geoscapeRequest && controllerAvailable)
+	{
+		// The browser controller will fade its selected stream in. Let any SDL
+		// track fade underneath it instead of playing the legacy GMGEO/GMINTER.
+		Mix_FadeOutMusic(1000);
+		_playingMusic = name;
+		return true;
+	}
+	if (!geoscapeRequest && controllerAvailable)
+	{
+		EM_ASM({
+			if (globalThis.calypsoGeoscapeMusicStop)
+				globalThis.calypsoGeoscapeMusicStop();
+		});
+	}
+	return false;
 }
 
 } // namespace OpenXcom

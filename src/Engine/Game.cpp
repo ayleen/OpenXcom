@@ -26,6 +26,9 @@
 #include "../Calypso/CalypsoTutorial.h"
 #include "../Calypso/CalypsoHdUiOverlay.h" // Phase 46.2-HD (empty on native)
 #endif
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_P_EN)
+#include "../Calypso/CalypsoVoiceG05.h"
+#endif
 #include <SDL_mixer.h>
 #include <SDL_ttf.h>
 #include "State.h"
@@ -628,12 +631,8 @@ void Game::setVolume(int sound, int music, int ui)
 			// channel 4: reserved for unit responses
 			Mix_Volume(4, sound);
 #if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_P_EN)
-			const int voiceSetting = std::max(0,
-				std::min(SDL_MIX_MAXVOLUME, Options::calypsoVoiceVolume));
-			const int voiceVolume = Options::calypsoVoicesEnabled
-				? volumeExponent(voiceSetting) * (double)SDL_MIX_MAXVOLUME : 0;
-			// Channel 5 is reserved for Calypso production voice barks.
-			Mix_Volume(5, voiceVolume);
+			CalypsoVoiceG05::applyVolume(Options::calypsoVoiceVolume,
+				Options::calypsoVoicesEnabled);
 #endif
 		}
 		if (music >= 0)

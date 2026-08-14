@@ -74,6 +74,7 @@ private:
 
 	WarningMessage *_warning;
 #if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_P_EN)
+	friend class CalypsoVoiceG05;
 	Text *_voiceSubtitle = nullptr;
 #endif
 	Text *_txtName;

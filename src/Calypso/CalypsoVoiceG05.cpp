@@ -6,6 +6,15 @@
 #include "CalypsoVoiceSelectionFlavor.h"
 
 #include "../Battlescape/BattlescapeGame.h"
+#if defined(CALYPSO_VOICE_P_EN)
+#include "../Battlescape/BattlescapeState.h"
+#include "../Battlescape/Map.h"
+#include "../Engine/Game.h"
+#include "../Engine/Language.h"
+#include "../Interface/Text.h"
+#include "../Mod/Mod.h"
+#include "../Mod/RuleInterface.h"
+#endif
 #include "../Engine/FileMap.h"
 #include "../Engine/Logger.h"
 #include "../Engine/Options.h"
@@ -877,6 +886,64 @@ CalypsoVoiceSubtitleSnapshot CalypsoVoiceG05::subtitle(unsigned int nowMs)
 #endif
 	return result;
 }
+
+#if defined(CALYPSO_VOICE_P_EN)
+void CalypsoVoiceG05::applyVolume(int setting, bool enabled)
+{
+	const int clamped = std::max(0, std::min(SDL_MIX_MAXVOLUME, setting));
+	const int volume = enabled
+		? Game::volumeExponent(clamped) * (double)SDL_MIX_MAXVOLUME : 0;
+	// Channel 5 is reserved for Calypso production voice barks.
+	Mix_Volume(5, volume);
+}
+
+void CalypsoVoiceG05::createSubtitle(BattlescapeState *state, int screenWidth, int hudY)
+{
+	state->_voiceSubtitle = new Text(std::max(288, screenWidth - 32), 28, 16,
+		std::max(4, hudY - 32));
+	state->_voiceSubtitle->setAlign(ALIGN_CENTER);
+	state->_voiceSubtitle->setVerticalAlign(ALIGN_BOTTOM);
+	state->_voiceSubtitle->setWordWrap(true);
+	state->_voiceSubtitle->setHighContrast(true);
+	state->_voiceSubtitle->setVisible(false);
+}
+
+void CalypsoVoiceG05::addSubtitle(BattlescapeState *state)
+{
+	state->add(state->_voiceSubtitle);
+}
+
+void CalypsoVoiceG05::styleSubtitle(BattlescapeState *state)
+{
+	state->_voiceSubtitle->setColor(state->getGame()->getMod()
+		->getInterface("battlescape")->getElement("warning")->color);
+}
+
+void CalypsoVoiceG05::updateSubtitle(BattlescapeState *state)
+{
+	const CalypsoVoiceSubtitleSnapshot snapshot = subtitle(SDL_GetTicks());
+	const int mode = std::max(0, std::min(2, Options::calypsoVoiceSubtitles));
+	const bool visible = snapshot.active && mode != 0
+		&& (mode == 2 || snapshot.tactical);
+	if (visible)
+	{
+		const std::string text = state->getGame()->getLanguage()->getString(snapshot.lineId);
+		if (state->_voiceSubtitle->getText() != text)
+		{
+			state->_voiceSubtitle->setText(text);
+		}
+	}
+	state->_voiceSubtitle->setVisible(visible);
+}
+
+void CalypsoVoiceG05::resizeSubtitle(BattlescapeState *state)
+{
+	state->_voiceSubtitle->setWidth(std::max(288, Options::baseXResolution - 32));
+	state->_voiceSubtitle->setX(16);
+	state->_voiceSubtitle->setY(std::max(4,
+		Options::baseYResolution - state->_map->getIconHeight() - 32));
+}
+#endif
 
 void CalypsoVoiceG05::endMission(unsigned int ownerToken)
 {
