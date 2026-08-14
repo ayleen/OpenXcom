@@ -67,6 +67,12 @@ private:
 	size_t _minimizedDogfights;
 	int _slowdownCounter;
 #ifdef __EMSCRIPTEN__
+	// Calypso's browser music controller owns the four Geoscape streams. Cache
+	// the last accepted values so think() can cheaply poll game state without
+	// sending a JS bridge call every frame.
+	int _calypsoMusicState = -1;
+	int _calypsoMusicVolume = -1;
+	void updateCalypsoMusicState();
 	// Phase 39: tutorial task-checklist chip + panel (bodies in Calypso/GeoscapeChecklist.cpp).
 	TextButton *_btnCalTasks = nullptr;
 	Window *_calTaskWindow = nullptr;
