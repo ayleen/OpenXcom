@@ -61,7 +61,7 @@ public:
 	/// Build the redesigned widgets (gated on isHdUiFamilyEnabled("F34")),
 	/// create the adapter instance, and register it with the overlay. A no-op
 	/// that leaves the state as the legacy popup when the gate is off.
-	static void configure(ErrorMessageState& state);
+	static void configure(ErrorMessageState& state, bool allowPhysicalOverlay = true);
 	/// Re-fit widgets on canvas resize and recompute the Compact/Wide layout
 	/// class from the current base resolution. Returns true iff HD handled it.
 	static bool resize(ErrorMessageState& state);
