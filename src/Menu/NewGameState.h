@@ -38,6 +38,12 @@ private:
 	TextButton *_btnBeginner, *_btnExperienced, *_btnVeteran, *_btnGenius, *_btnSuperhuman;
 	TextButton *_difficulty;
 	ToggleTextButton *_btnIronman;
+	// The production browser New Game screen owns this choice.  Keep it on the
+	// native state until Start is committed so Back/Cancel cannot change the
+	// active campaign's tutorial singleton.
+#ifdef __EMSCRIPTEN__
+	bool _calypsoTutorial = true;
+#endif
 	TextButton *_btnOk, *_btnCancel;
 	Window *_window;
 	Text *_txtTitle, *_txtIronman;

@@ -14,7 +14,9 @@
 #include "CalypsoPrologueCampaign.h"
 #include "CalypsoPrologueAskState.h"
 #include "CalypsoTutorial.h"
+#include "CalypsoTutorialPolicy.h"
 #include "CalypsoDirector.h"
+#include "CalypsoPrologueMath.h"
 
 #include "../Engine/Game.h"
 #include "../Engine/Options.h"
@@ -51,10 +53,53 @@ const std::string PROLOGUE_LEADER_NAME = "K. Sarris";
 const std::string PROLOGUE_DIVER1_NAME = "D. Voss";
 const std::string PROLOGUE_DIVER2_NAME = "M. Reyes";
 const std::string PROLOGUE_AUTOSAVE_FILENAME = "calypso-prologue-auto.sav";
+const std::string PROLOGUE_DEPLOYMENT_ID = "STR_CALYPSO_PROLOGUE";
 
 namespace
 {
-	static const char *PROLOGUE_DEPLOYMENT = "STR_CALYPSO_PROLOGUE";
+	bool s_finishPending = false;
+	GameDifficulty s_pendingFinishDiff = DIFF_BEGINNER;
+	bool s_pendingFinishIronman = false;
+	int s_pendingFinishOutcome = PROLOGUE_OUTCOME_ALL_TAKEN;
+
+	void deletePrologueAutosaveAndFlush(bool continueCampaign)
+	{
+		CrossPlatform::deleteFile(Options::getMasterUserFolder() + PROLOGUE_AUTOSAVE_FILENAME);
+		EM_ASM({
+			var shouldContinue = $0 === 1;
+			var retryDelay = 50;
+			function flushDeletedAutosave() {
+				// SavedGame::save may still be flushing the rolling slot. Wait for
+				// it, then persist the current MEMFS state in which the slot is gone.
+				if (FS.syncFSRequests > 0) {
+					setTimeout(flushDeletedAutosave, retryDelay);
+					retryDelay = Math.min(1000, retryDelay * 2);
+					return;
+				}
+				FS.syncfs(false, function(err) {
+					if (err) {
+						console.error('[calypso] prologue autosave syncfs error', err);
+						setTimeout(flushDeletedAutosave, retryDelay);
+						retryDelay = Math.min(1000, retryDelay * 2);
+						return;
+					}
+					if (shouldContinue) {
+						Module.ccall('calypso_finish_prologue_after_autosave_sync', null, [], []);
+					}
+				});
+			}
+			flushDeletedAutosave();
+		}, continueCampaign ? 1 : 0);
+	}
+}
+
+void deletePrologueAutosave()
+{
+	deletePrologueAutosaveAndFlush(false);
+}
+
+namespace
+{
 	// commit 5: dedicated craft type (calypso-prologue mod), never
 	// player-purchasable (no costBuy) -- keeps the prologue's Triton out
 	// of the fresh campaign's own Triton pool after the scripted battle.
@@ -89,7 +134,7 @@ namespace
 		std::string name;
 		UnitStats stats;
 	};
-	std::vector<SurvivorRecord> s_survivorStash;
+	PrologueSurvivorHandoff<SurvivorRecord> s_survivorHandoff;
 
 	// Shared "GeoscapeState + base-placement" tail, copied verbatim from
 	// NewGameState.cpp:180-195. Used by both vanillaNewGameTail() (decline
@@ -128,14 +173,27 @@ namespace
 	}
 } // namespace
 
-bool maybeOfferPrologue(Game *game, GameDifficulty diff, bool ironman)
+void resetPrologueHandoff()
 {
+	s_survivorHandoff.reset();
+	s_finishPending = false;
+	s_pendingFinishDiff = DIFF_BEGINNER;
+	s_pendingFinishIronman = false;
+	s_pendingFinishOutcome = PROLOGUE_OUTCOME_ALL_TAKEN;
+}
+
+bool maybeOfferPrologue(Game *game, GameDifficulty diff, bool ironman, bool tutorial)
+{
+	// A new-game confirmation starts a new handoff lifetime whether the player
+	// accepts the prologue, declines it, or has tutorial content disabled.
+	resetPrologueHandoff();
 	if (!game || !game->getMod()) return false;
-	if (Options::calypsoPrologueSeen) return false;
-	if (game->getMod()->getDeployment(PROLOGUE_DEPLOYMENT) == nullptr)
+	const bool deploymentAvailable =
+		game->getMod()->getDeployment(PROLOGUE_DEPLOYMENT_ID) != nullptr;
+	if (!prologueMissionEnabled(tutorial, deploymentAvailable))
 	{
-		// Mod content not loaded yet (pre-commit-5, or a build without the
-		// calypso-prologue mod) -- behave exactly like vanilla.
+		// The per-campaign tutorial choice is authoritative.  Missing content
+		// still behaves exactly like vanilla.
 		return false;
 	}
 
@@ -152,14 +210,16 @@ GameDifficulty stashedDifficulty()
 
 void vanillaNewGameTail(Game *game, GameDifficulty diff)
 {
+	// Defensive for callers that enter the vanilla tail without first passing
+	// through maybeOfferPrologue (and for a declined fresh attempt).
+	resetPrologueHandoff();
 	if (!game) return;
 	SavedGame *save = game->getMod()->newSave(diff);
 	save->setDifficulty(diff);
 	save->setIronman(s_stashedIronman); // honor the New Game screen's toggle (stashed by maybeOfferPrologue)
 	game->setSavedGame(save);
 
-	CalypsoTutorial::get().resetCampaign();
-	CalypsoTutorial::get().requestAsk(); // Phase 39: first-run enable prompt
+	CalypsoTutorial::get().beginCampaign(CalypsoTutorial::get().configuredEnabled());
 
 	pushGeoscapeAndBaseChain(game, save);
 }
@@ -184,7 +244,7 @@ void launchScriptedBattle(Game *game, const std::string &deploymentId, bool prev
 		// otherwise still fire because CalypsoTutorial is a process-wide
 		// singleton with no notion of "this is a preview save". Heavy-handed
 		// is fine here: this only ever runs for a throwaway preview session.
-		CalypsoTutorial::get().disableForCampaign();
+		CalypsoTutorial::get().suspendForPrologue();
 	}
 
 	// Fresh throwaway SavedGame -- ctor default _monthsPassed=-1 is exactly
@@ -203,15 +263,15 @@ void launchScriptedBattle(Game *game, const std::string &deploymentId, bool prev
 	// during the prologue and contradicts the directed scene (it teaches
 	// shooting/kneeling and promises the mission ends when the Choir is
 	// neutralized). Suppress it for the scripted battle -- finishPrologue()
-	// (and the decline path) call resetCampaign()+requestAsk(), so the real
-	// campaign still gets its Phase 39 first-run tutorial ask. Review round 2
+	// (and the decline path) restore the configured campaign choice before
+	// Geoscape initialization. Review round 2
 	// (P1, finding 3): prologue-specific micro-prompts (move/camera/TU
 	// before the ambush) are NOT deferred anymore -- CalypsoPrologueScene::
 	// onBattleStart fires them itself, through the radio-toast primitive,
 	// independently of this flag (see that comment for why reusing
 	// CalypsoTutorialState directly would have been the wrong call here).
 	if (!preview) // preview already disabled it above
-		CalypsoTutorial::get().disableForCampaign();
+		CalypsoTutorial::get().suspendForPrologue();
 	Base *base = new Base(mod);
 	YAML::YamlRootNodeReader startingBaseReader(mod->getDefaultStartingBase(), "(prologue starting base template)");
 	base->load(startingBaseReader, save, true, true);
@@ -308,67 +368,87 @@ void launchScriptedBattle(Game *game, const std::string &deploymentId, bool prev
 
 void launchPrologueBattle(Game *game)
 {
-	launchScriptedBattle(game, PROLOGUE_DEPLOYMENT, false);
+	// The prompt may remain open while an abandoned run has left process-local
+	// state behind. A fresh scripted battle must always start with an empty
+	// survivor handoff while preserving the already-stashed difficulty/ironman.
+	resetPrologueHandoff();
+	launchScriptedBattle(game, PROLOGUE_DEPLOYMENT_ID, false);
 }
 
 void stashSurvivor(const std::string &name, const UnitStats &stats)
 {
-	s_survivorStash.push_back(SurvivorRecord{ name, stats });
+	s_survivorHandoff.stash(SurvivorRecord{ name, stats });
 }
 
 void finishPrologue(Game *game, int outcome)
 {
-	(void)outcome; // survivor injection is driven by stash contents, not the raw outcome value
-	if (!game) return;
+	if (!game || s_finishPending) return;
 
 	// Review round 1 (P1): after a page reload + prologue-autosave load the
 	// statics are back at their defaults -- the authoritative copy of the
 	// New Game choice lives on the throwaway save (see launchScriptedBattle).
-	GameDifficulty diff = s_stashedDiff;
-	bool ironman = s_stashedIronman;
+	s_pendingFinishDiff = s_stashedDiff;
+	s_pendingFinishIronman = s_stashedIronman;
+	s_pendingFinishOutcome = outcome;
 	if (SavedGame *prologueSave = game->getSavedGame())
 	{
-		diff = prologueSave->getDifficulty();
-		ironman = prologueSave->isIronman();
+		s_pendingFinishDiff = prologueSave->getDifficulty();
+		s_pendingFinishIronman = prologueSave->isIronman();
 	}
 
-	SavedGame *save = game->getMod()->newSave(diff);
-	save->setDifficulty(diff);
-	save->setIronman(ironman); // honor the New Game screen's toggle
+	// The real campaign must not exist until IndexedDB confirms that the rolling
+	// prologue slot is gone. A page close during this async boundary therefore
+	// leaves either the old prologue (if the flush never completed) or the clean
+	// campaign transition (after the callback), never both at once.
+	s_finishPending = true;
+	deletePrologueAutosaveAndFlush(true);
+}
+
+void finishPrologueAfterAutosaveSync(Game *game)
+{
+	if (!game || !s_finishPending) return;
+	s_finishPending = false;
+
+	SavedGame *save = game->getMod()->newSave(s_pendingFinishDiff);
+	save->setDifficulty(s_pendingFinishDiff);
+	save->setIronman(s_pendingFinishIronman); // honor the New Game screen's toggle
 	game->setSavedGame(save);
 
 	// D7: replace the first N default starting-base soldiers with the
 	// stashed survivors (name + full stats snapshot at cast-off).
-	// OutcomeAllTaken leaves the stash empty -> default roster untouched.
-	if (!s_survivorStash.empty())
+	// OutcomeAllTaken is explicitly gated out even if defensive reset wiring is
+	// ever bypassed and stale process-local records somehow remain.
+	if (shouldInjectPrologueSurvivors(s_pendingFinishOutcome)
+		&& !s_survivorHandoff.empty())
 	{
 		Base *base = save->getBases()->front();
 		auto &soldiers = *base->getSoldiers();
-		size_t n = std::min(s_survivorStash.size(), soldiers.size());
+		const auto &survivors = s_survivorHandoff.records();
+		size_t n = std::min(survivors.size(), soldiers.size());
 		for (size_t i = 0; i < n; ++i)
 		{
-			soldiers[i]->setName(s_survivorStash[i].name);
-			*soldiers[i]->getCurrentStatsEditable() = s_survivorStash[i].stats;
+			soldiers[i]->setName(survivors[i].name);
+			*soldiers[i]->getCurrentStatsEditable() = survivors[i].stats;
 		}
 	}
-	s_survivorStash.clear();
+	resetPrologueHandoff();
 
-	// D6: this was the only save that ever existed for the throwaway
-	// prologue campaign -- delete it before the real campaign starts, so
-	// there is nothing left to reload back into the finished mission.
-	// Unlike DeleteGameState (native path, no explicit flush), we flush
-	// explicitly here: this delete is anti-savescum-critical, and the next
-	// natural syncfs might not happen before the tab closes.
-	CrossPlatform::deleteFile(Options::getMasterUserFolder() + PROLOGUE_AUTOSAVE_FILENAME);
-	EM_ASM(({ FS.syncfs(false, function(err) { if (err) console.error('[calypso] syncfs error', err); }); }));
-
-	CalypsoTutorial::get().resetCampaign();
-	CalypsoTutorial::get().requestAsk();
+	CalypsoTutorial::get().beginCampaign(CalypsoTutorial::get().configuredEnabled());
 
 	pushGeoscapeAndBaseChain(game, save);
 }
 
 } // namespace Calypso
 } // namespace OpenXcom
+
+extern "C" {
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_finish_prologue_after_autosave_sync()
+{
+	OpenXcom::Calypso::finishPrologueAfterAutosaveSync(OpenXcom::getCurrentGame());
+}
+
+}
 
 #endif // __EMSCRIPTEN__

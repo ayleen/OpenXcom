@@ -27,6 +27,7 @@
 #include "../Engine/Action.h"
 #include "../Engine/TTFFont.h"
 #include "../Engine/TTFUtil.h"
+#include "../Calypso/CalypsoHdUiOverlay.h"     // Phase 46.2-HD (empty on native)
 
 namespace OpenXcom
 {
@@ -670,6 +671,23 @@ bool Text::drawTTF()
 	TTFUtil::blitFit(block, this, h, v, _ttfFill);
 	SDL_FreeSurface(block);
 	return true;
+}
+#endif
+
+#ifdef __EMSCRIPTEN__
+/**
+ * Calypso Phase 46.2-HD (A2): when the HD overlay has claimed this widget's
+ * visual for the current frame, skip the logical blit entirely -- the cached
+ * surface is left intact, so an unclaimed later frame blits correctly. This
+ * intercepts at blit(), not draw(), so the claim is independent of the _redraw
+ * cache state (fixing the clean-cache double-draw and dirty-cache blank bugs).
+ */
+void Text::blit(SDL_Surface* surface)
+{
+	if (Calypso::CalypsoHdUiOverlay::instance().widgetClaimed(this,
+			Calypso::CalypsoHdUiOverlay::instance().frameId()))
+		return;
+	Surface::blit(surface);
 }
 #endif
 

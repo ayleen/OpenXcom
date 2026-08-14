@@ -25,6 +25,7 @@
 #include "AIModule.h"
 #include "../Savegame/SavedGame.h"
 #include "../Savegame/SavedBattleGame.h"
+#include "../Savegame/Target.h"
 #include "../Savegame/Tile.h"
 #include "../Savegame/ItemContainer.h"
 #include "../Savegame/Base.h"
@@ -42,6 +43,9 @@
 #include "../Engine/Game.h"
 #include "../Engine/FileMap.h"
 #include "../Engine/Options.h"
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
+#include "../Calypso/CalypsoVoiceG05.h"
+#endif
 #include "../Engine/RNG.h"
 #include "../Engine/Exception.h"
 #include "../Engine/Logger.h"
@@ -558,6 +562,9 @@ void BattlescapeGenerator::nextStage()
 	size_t pick = RNG::generate(0, ruleDeploy->getTerrains().size() -1);
 	_terrain = _game->getMod()->getTerrain(ruleDeploy->getTerrains().at(pick), true);
 	setDepth(ruleDeploy, true);
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
+	CalypsoVoiceG05::onStageTransition(_save);
+#endif
 	_worldShade = ruleDeploy->getShade();
 
 	RuleEnviroEffects* enviro = _game->getMod()->getEnviroEffects(_terrain->getEnviroEffects());
@@ -750,6 +757,15 @@ void BattlescapeGenerator::nextStage()
 	int civilianSpawnNodeRank = ruleDeploy->getCivilianSpawnNodeRank();
 	bool markCiviliansAsVIP = ruleDeploy->getMarkCiviliansAsVIP();
 
+#ifdef __EMSCRIPTEN__
+	// Phase 44: bring forward the next stage's locale only when it is explicitly
+	// declared; otherwise the locale already on SavedBattleGame is preserved.
+	if (!ruleDeploy->getCivilianVoiceLocale().empty())
+	{
+		_save->setCivilianVoiceLocale(ruleDeploy->getCivilianVoiceLocale());
+	}
+#endif
+
 	// Special case: deploy civilians before aliens
 	if (civilianSpawnNodeRank > 0)
 	{
@@ -924,6 +940,27 @@ void BattlescapeGenerator::run()
 
 	int civilianSpawnNodeRank = ruleDeploy->getCivilianSpawnNodeRank();
 	bool markCiviliansAsVIP = ruleDeploy->getMarkCiviliansAsVIP();
+
+#ifdef __EMSCRIPTEN__
+	// Phase 44: resolve the operation locale while deployment and globe target
+	// coordinates are both available, before any civilian profile is assigned.
+	if (!ruleDeploy->getCivilianVoiceLocale().empty())
+	{
+		_save->setCivilianVoiceLocale(ruleDeploy->getCivilianVoiceLocale());
+	}
+	else
+	{
+		const Target *target = _mission ? static_cast<const Target *>(_mission)
+			: (_ufo ? static_cast<const Target *>(_ufo)
+			: (_alienBase ? static_cast<const Target *>(_alienBase)
+			: (_base ? static_cast<const Target *>(_base)
+			: static_cast<const Target *>(_craft))));
+		_save->setCivilianVoiceLocale(target
+			? _game->getMod()->resolveCivilianVoiceLocale(
+				target->getLongitude(), target->getLatitude())
+			: "en");
+	}
+#endif
 
 	// Special case: deploy civilians before aliens
 	if (!isPreview && civilianSpawnNodeRank > 0)
@@ -1984,6 +2021,17 @@ BattleUnit *BattlescapeGenerator::addCivilian(Unit *rules, int nodeRank)
 			unit->getBaseStats()->bravery = RNG::generate(45, 65);
 		}
 	}
+
+#ifdef __EMSCRIPTEN__
+	// Phase 44: assign a stable, compatible 'civilian' voice profile from the
+	// saved locale before the unit is stored. With no civilian profiles this
+	// resolves to an empty string (subtitle-only), which is the safe default.
+	const std::string voiceLocale = _save->getCivilianVoiceLocale();
+	const std::string voiceGender = rules ? rules->getVoiceGender() : "male";
+	unit->setVoiceIdentity(voiceLocale, "civilian", voiceGender);
+	unit->setVoiceProfile(_save->getMod()->selectVoiceProfile(voiceLocale,
+		"civilian", voiceGender, unit->getId()));
+#endif
 
 	Node *node = _save->getSpawnNode(nodeRank, unit);
 

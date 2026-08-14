@@ -28,10 +28,12 @@
  */
 #ifdef __EMSCRIPTEN__
 
+#include <functional>
 #include <string>
 #include <vector>
 
 #include "CalypsoDirector.h"
+#include "CalypsoPrologueMath.h"
 
 namespace OpenXcom
 {
@@ -51,9 +53,14 @@ class CalypsoPrologueScene : public CalypsoScene
 public:
 	/// Scene outcomes -- passed verbatim to CalypsoDirector::endScene(). A
 	/// plain enum (not enum class) so it converts implicitly to endScene's int.
-	enum Outcome { OutcomeCastOff = 0, OutcomeAllTaken = 1 };
+	enum Outcome
+	{
+		OutcomeCastOff = Calypso::PROLOGUE_OUTCOME_CAST_OFF,
+		OutcomeAllTaken = Calypso::PROLOGUE_OUTCOME_ALL_TAKEN
+	};
 
 	void onBattleStart(BattlescapeGame *bg) override;
+	void onBattleResume(BattlescapeGame *bg) override;
 	void onPlayerTurnStart(BattlescapeGame *bg) override;
 	void onEnemyTurnStart(BattlescapeGame *bg) override;
 	bool onEnemyTurnIdle(BattlescapeGame *bg) override;
@@ -61,6 +68,8 @@ public:
 	bool onAbortRequested(BattlescapeState *bs) override;
 	bool onUnexpectedFinish(BattlescapeState *bs, bool abort, int *outcome) override;
 	bool abortStrings(std::string *title, std::string *ok, std::string *cancel) override;
+	bool abortAvailable() const override;
+	bool abortConfirmAvailable(SavedBattleGame *save) const override;
 	State *makeEndState() override; // Commit 4: CalypsoPrologueEndState ("six months later")
 	void save(YAML::YamlNodeWriter writer) const override;
 	void load(const YAML::YamlNodeReader &reader) override;
@@ -94,6 +103,17 @@ private:
 	/// handoff, so the guarantee is path cost / his per-turn TU). Not a
 	/// survival gate -- he is force-killed on any ending regardless.
 	void checkNikosPathCost(BattlescapeGame *bg);
+	/// Restore additive scripted-unit state after loading an autosave. Old
+	/// prologue saves did not serialize these scene flags, so phase is the
+	/// compatibility fallback.
+	void reconcileScriptedUnitState(BattlescapeGame *bg);
+	/// Release the ambusher exactly at the Assessor-death narrative gate.
+	void revealMarksman(BattlescapeGame *bg);
+	/// Keep the dedicated map beacon aligned with the MoveToOffice phase. This
+	/// also restores Map-local presentation state after loading an autosave.
+	void syncOfficeObjectiveMarker(BattlescapeGame *bg);
+	/// Complete Nikos's handoff when player input becomes actionable.
+	void focusNikosOnPlayerTurn(BattlescapeGame *bg);
 
 	// ---- turn-idle step machine (onEnemyTurnIdle dispatch) -----------------
 	bool stepMoveToOffice(BattlescapeGame *bg);
@@ -130,7 +150,9 @@ private:
 	/// after the Choir turn that dropped them), before the rolling autosave so
 	/// a reload never resurrects a collected body.
 	void collectTakenBodies(BattlescapeGame *bg);
-	void radio(const std::string &stringId) const;
+	void radio(const std::string &stringId,
+		CalypsoRadioLineKind kind = CalypsoRadioLineKind::Narrative,
+		std::function<void()> onDismissed = {}) const;
 
 	// ---- state ----------------------------------------------------------------
 	Ph _phase = Ph::Landing;
@@ -138,7 +160,12 @@ private:
 	bool _endingTriggered = false;  ///< an ending is armed or executed -- the script stops
 	int _pendingOutcome = -1;       ///< armed ending awaiting a safe stack (resolvePendingEnding)
 	bool _pendingTaking = false;    ///< armed ending is the Branch Б boarding flavor
+	Calypso::PrologueEndingRadioState _pendingEndingRadioState =
+		Calypso::PrologueEndingRadioState::NotQueued; ///< async final-beat lifecycle; only Completed may finish
 	bool _evacOnly = false;         ///< Choir neutralized early: no more scripted attacks, cast-off remains available
+	bool _marksmanRevealed = false; ///< persisted Assessor-death reveal gate
+	bool _nikosHandedOff = false;   ///< persisted ownership (separate from camera focus)
+	bool _nikosFocusPending = false; ///< select/centre once on the next player turn
 
 	// actor ids (never pointers -- re-resolved every call)
 	int _leaderId = -1;
@@ -170,9 +197,9 @@ private:
 	/// collected yet -- processed by collectTakenBodies() at player-turn start.
 	std::vector<int> _pendingTakenIds;
 
-	/// The outcome last passed to CalypsoDirector::endScene(). Set right before
-	/// that call (both call sites: resolvePendingEnding and onAbortRequested)
-	/// so makeEndState() -- called synchronously from within the same endScene
+	/// The outcome last passed to CalypsoDirector::endScene(). Set by
+	/// resolvePendingEnding immediately before that call so makeEndState() --
+	/// called synchronously from within the same endScene
 	/// -> finishBattle -> interceptFinishBattle chain -- knows which ending to
 	/// stage. Not persisted: never valid across a save/load (the battle is over
 	/// by the time it matters, and the scene is torn down right after).

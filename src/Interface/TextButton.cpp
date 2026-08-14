@@ -23,6 +23,7 @@
 #include "../Engine/Sound.h"
 #include "../Engine/Action.h"
 #include "ComboBox.h"
+#include "../Calypso/CalypsoHdUiOverlay.h"     // Phase 46.2-HD (empty on native)
 
 namespace OpenXcom
 {
@@ -207,6 +208,23 @@ void TextButton::setPalette(const SDL_Color *colors, int firstcolor, int ncolors
  * Draws the labeled button.
  * The colors are inverted if the button is pressed.
  */
+#ifdef __EMSCRIPTEN__
+/**
+ * Calypso Phase 46.2-HD (A2): when the HD overlay has claimed this widget's
+ * visual for the current frame, skip the logical blit entirely -- the cached
+ * surface is left intact, so an unclaimed later frame blits correctly. This
+ * intercepts at blit(), not draw(), so the claim is independent of the _redraw
+ * cache state (fixing the clean-cache double-draw and dirty-cache blank bugs).
+ */
+void TextButton::blit(SDL_Surface* surface)
+{
+	if (Calypso::CalypsoHdUiOverlay::instance().widgetClaimed(this,
+			Calypso::CalypsoHdUiOverlay::instance().frameId()))
+		return;
+	Surface::blit(surface);
+}
+#endif
+
 void TextButton::draw()
 {
 	Surface::draw();

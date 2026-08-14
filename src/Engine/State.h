@@ -85,6 +85,13 @@ protected:
 	void enableUiScaling(int designW = 320, int designH = 200, float factor = 1.0f);
 	/// Calypso: re-apply the uniform UI scale (call from a resize() override).
 	void applyUiScaling();
+	/// Calypso: re-capture native (design-space) geometry against a NEW design
+	/// canvas, then apply. Unlike enableUiScaling (one-shot, ignored once
+	/// captured), this is for a state that swaps its whole layout at runtime --
+	/// e.g. an F34 screen crossing the Compact<->Wide threshold, which re-applies
+	/// a different design-space rect set and must re-snapshot it (external review
+	/// #3). Call it AFTER re-applying the new rects.
+	void recaptureUiScaling(int designW, int designH, float factor = 1.0f);
 	/// Calypso: opt every Text / TextButton in the state into HD TTF rendering.
 	void applyTTFToTexts(TTFFont* font, float fillFrac = 1.0f);
 	/// Calypso: drop a surface from the UI-scaling capture so applyUiScaling

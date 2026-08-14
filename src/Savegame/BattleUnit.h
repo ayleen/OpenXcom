@@ -122,6 +122,14 @@ private:
 	BattleItem* _specWeapon[SPEC_WEAPON_MAX];
 	AIModule *_currentAIState;
 	bool _visible;
+#ifdef __EMSCRIPTEN__
+	// Calypso prologue-only state.  These are deliberately separate from the
+	// regular faction-conversion / stealth mechanics: scripted civilian
+	// handoffs must survive turn preparation, while mind control must not.
+	bool _scriptedPlayerControl = false;
+	bool _scriptedConcealed = false;
+	void prepareScriptedPlayerTurn();
+#endif
 	UnitStats _exp, _expTmp;
 	int _motionPoints;
 	int _scannedTurn;
@@ -174,6 +182,15 @@ private:
 	const Armor *_armor;
 	SoldierGender _gender;
 	Soldier *_geoscapeSoldier;
+#ifdef __EMSCRIPTEN__
+	// Phase 44: tactical copy of the stable voice identity. Civilians retain
+	// their operation locale/class/gender so a stale tactical profile can be
+	// repaired after a profile migration.
+	std::string _voiceProfile;
+	std::string _voiceLocale;
+	std::string _voiceUnitClass;
+	std::string _voiceGender;
+#endif
 	std::vector<int> _loftempsSet;
 	const Unit *_unitRules;
 	const Mod *_mod; // Brutal-AI: for resolving the brutalAI/aiCheatMode ruleset knobs per unit.
@@ -265,7 +282,8 @@ public:
 	/// Cleans up the BattleUnit.
 	~BattleUnit();
 	/// Loads the unit from YAML.
-	void load(const YAML::YamlNodeReader& reader, const Mod *mod, const ScriptGlobal *shared);
+	void load(const YAML::YamlNodeReader& reader, const Mod *mod,
+		const ScriptGlobal *shared, const std::string &civilianVoiceLocale = std::string());
 	/// Saves the unit to YAML.
 	void save(YAML::YamlNodeWriter writer, const ScriptGlobal *shared) const;
 	/// Gets the BattleUnit's ID.
@@ -328,6 +346,20 @@ public:
 	void abortTurn();
 	/// Gets the soldier's gender.
 	SoldierGender getGender() const;
+#ifdef __EMSCRIPTEN__
+	/// Gets the stable Calypso voice profile copied into the tactical save.
+	const std::string &getVoiceProfile() const { return _voiceProfile; }
+	/// Sets the stable Calypso voice profile copied into the tactical save.
+	void setVoiceProfile(const std::string &profile) { _voiceProfile = profile; }
+	/// Stores the stable identity needed to repair a tactical profile on load.
+	void setVoiceIdentity(const std::string &locale, const std::string &unitClass,
+		const std::string &gender)
+	{
+		_voiceLocale = locale;
+		_voiceUnitClass = unitClass;
+		_voiceGender = gender;
+	}
+#endif
 	/// Gets the unit's faction.
 	UnitFaction getFaction() const;
 	/// Gets unit sprite recolors values.
@@ -696,6 +728,16 @@ public:
 	const std::string& getType() const;
 	/// Convert's unit to a faction
 	void convertToFaction(UnitFaction f);
+#ifdef __EMSCRIPTEN__
+	/// Permanently hand this unit to the player for a scripted scene while
+	/// retaining its original faction for scoring and normal conversion rules.
+	void grantScriptedPlayerControl();
+	bool hasScriptedPlayerControl() const;
+	/// Keep this unit out of all ordinary player-facing discovery paths until
+	/// the owning scripted scene explicitly releases it.
+	void setScriptedConcealed(bool concealed);
+	bool isScriptedConcealed() const;
+#endif
 	/// Set health to 0
 	void kill();
 	/// Set health to 0 and set status dead
@@ -979,4 +1021,3 @@ public:
 };
 
 } //namespace OpenXcom
-

@@ -172,7 +172,11 @@ void NewGameState::btnOkClick(Action *)
 	_game->resetTouchButtonFlags();
 
 #ifdef __EMSCRIPTEN__
-	if (Calypso::maybeOfferPrologue(_game, diff, _btnIronman->getPressed())) return; // Phase 41: detour through the prologue ask
+	// Commit the browser-local choice before anything can initialize Geoscape
+	// and emit its first tutorial event.  Global help-off remains authoritative.
+	const bool tutorial = Options::calypsoTutorial && _calypsoTutorial;
+	CalypsoTutorial::get().beginCampaign(tutorial);
+	if (Calypso::maybeOfferPrologue(_game, diff, _btnIronman->getPressed(), tutorial)) return;
 #endif
 
 	SavedGame *save = _game->getMod()->newSave(diff);
@@ -180,8 +184,7 @@ void NewGameState::btnOkClick(Action *)
 	save->setIronman(_btnIronman->getPressed());
 	_game->setSavedGame(save);
 #ifdef __EMSCRIPTEN__
-	CalypsoTutorial::get().resetCampaign();
-	CalypsoTutorial::get().requestAsk();   // Phase 39: first-run enable prompt
+	// beginCampaign above deliberately runs before GeoscapeState::init().
 #endif
 
 	GeoscapeState *gs = new GeoscapeState;

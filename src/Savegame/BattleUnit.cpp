@@ -48,6 +48,9 @@
 #include "Tile.h"
 #include "SavedGame.h"
 #include "SavedBattleGame.h"
+#ifdef CALYPSO_VOICE_P_EN
+#include "../Calypso/CalypsoVoiceProfileSelection.h"
+#endif
 #include "../Engine/ShaderDraw.h"
 #include "BattleUnitStatistics.h"
 #include "../fmath.h"
@@ -77,6 +80,12 @@ BattleUnit::BattleUnit(const Mod *mod, Soldier *soldier, int depth, const RuleSt
 {
 	_name = soldier->getName(true);
 	_id = soldier->getId();
+#ifdef __EMSCRIPTEN__
+	_voiceProfile = soldier->getVoiceProfile();
+	_voiceLocale = soldier->getVoiceLocale();
+	_voiceUnitClass = "diver";
+	_voiceGender = soldier->getGender() == GENDER_FEMALE ? "female" : "male";
+#endif
 
 	_type = "SOLDIER";
 	_rank = soldier->getRankString();
@@ -439,6 +448,10 @@ BattleUnit::BattleUnit(const Mod *mod, const Unit *unit, UnitFaction faction, in
 	_rank = unit->getRank();
 	_race = unit->getRace();
 	_gender = GENDER_MALE;
+#ifdef __EMSCRIPTEN__
+	_voiceUnitClass = faction == FACTION_NEUTRAL ? "civilian" : std::string();
+	_voiceGender = unit->getVoiceGender();
+#endif
 	_intelligence = unit->getIntelligence();
 	_aggression = unit->getAggression();
 	_faceDirection = -1;
@@ -597,12 +610,21 @@ BattleUnit::~BattleUnit()
  * Loads the unit from a YAML file.
  * @param node YAML node.
  */
-void BattleUnit::load(const YAML::YamlNodeReader& node, const Mod *mod, const ScriptGlobal *shared)
+void BattleUnit::load(const YAML::YamlNodeReader& node, const Mod *mod,
+	const ScriptGlobal *shared, const std::string &civilianVoiceLocale)
 {
 	const auto& reader = node.useIndex();
 	reader.tryRead("id", _id);
 	reader.tryRead("faction", _faction);
 	reader.tryRead("status", _status);
+#ifdef __EMSCRIPTEN__
+	// Old tactical saves keep the constructor-provided geoscape identity. New
+	// saves carry their own copy so voice identity survives battle save/load.
+	reader.tryRead("voiceProfile", _voiceProfile);
+	reader.tryRead("voiceLocale", _voiceLocale);
+	reader.tryRead("voiceUnitClass", _voiceUnitClass);
+	reader.tryRead("voiceGender", _voiceGender);
+#endif
 	reader.tryRead("wantsToSurrender", _wantsToSurrender);
 	reader.tryRead("isSurrendering", _isSurrendering);
 	// Phase 34.5 Brutal-AI knowledge layer (adapted from Brutal-OXCE by Xilmi). Additive, self-
@@ -646,6 +668,10 @@ void BattleUnit::load(const YAML::YamlNodeReader& node, const Mod *mod, const Sc
 	reader.tryRead("currStats", _stats);
 	reader.tryRead("turretType", _turretType);
 	reader.tryRead("visible", _visible);
+#ifdef __EMSCRIPTEN__
+	reader.tryRead("scriptedPlayerControl", _scriptedPlayerControl);
+	reader.tryRead("scriptedConcealed", _scriptedConcealed);
+#endif
 
 	reader.tryReadAs<int>("turnsSinceSpotted", _turnsSinceSpotted[FACTION_HOSTILE]);
 	reader.tryReadAs<int>("turnsLeftSpottedForSnipers", _turnsLeftSpottedForSnipers[FACTION_HOSTILE]);
@@ -717,6 +743,32 @@ void BattleUnit::load(const YAML::YamlNodeReader& node, const Mod *mod, const Sc
 	reader.tryRead("bannedInNextStage", _bannedInNextStage);
 	reader.tryRead("meleeAttackedBy", _meleeAttackedBy);
 	_scriptValues.load(reader, shared);
+#ifdef CALYPSO_VOICE_P_EN
+	if (mod)
+	{
+		if (_geoscapeSoldier)
+		{
+			// Soldier::load already repairs the strategic identity. Do not let an
+			// obsolete tactical snapshot overwrite it after a profile migration.
+			_voiceLocale = _geoscapeSoldier->getVoiceLocale();
+			_voiceUnitClass = "diver";
+			_voiceGender = _geoscapeSoldier->getGender() == GENDER_FEMALE
+				? "female" : "male";
+			_voiceProfile = mod->selectVoiceProfile(_voiceLocale,
+				_voiceUnitClass, _voiceGender, _geoscapeSoldier->getId(),
+				_geoscapeSoldier->getVoiceProfile());
+		}
+		else if (_voiceUnitClass == "civilian")
+		{
+			_voiceLocale = calypsoRepairCivilianVoiceLocale(
+				_voiceLocale, civilianVoiceLocale);
+			if (_voiceGender.empty())
+				_voiceGender = "male";
+			_voiceProfile = mod->selectVoiceProfile(_voiceLocale,
+				_voiceUnitClass, _voiceGender, _id, _voiceProfile);
+		}
+	}
+#endif
 }
 
 /**
@@ -731,6 +783,16 @@ void BattleUnit::save(YAML::YamlNodeWriter writer, const ScriptGlobal *shared) c
 	writer.write("genUnitArmor", _armor->getType());
 	writer.write("faction", _faction);
 	writer.write("status", _status);
+#ifdef __EMSCRIPTEN__
+	if (!_voiceProfile.empty())
+		writer.write("voiceProfile", _voiceProfile);
+	if (!_voiceLocale.empty())
+		writer.write("voiceLocale", _voiceLocale);
+	if (!_voiceUnitClass.empty())
+		writer.write("voiceUnitClass", _voiceUnitClass);
+	if (!_voiceGender.empty())
+		writer.write("voiceGender", _voiceGender);
+#endif
 	// Phase 34.5 Brutal-AI knowledge layer (adapted from Brutal-OXCE by Xilmi). Additive keys.
 	writer.write("turnsSinceSeenByHostile", _turnsSinceSeenByHostile);
 	writer.write("turnsSinceSeenByNeutral", _turnsSinceSeenByNeutral);
@@ -783,6 +845,12 @@ void BattleUnit::save(YAML::YamlNodeWriter writer, const ScriptGlobal *shared) c
 		writer.write("turretType", _turretType);
 	if (_visible)
 		writer.write("visible", _visible);
+#ifdef __EMSCRIPTEN__
+	if (_scriptedPlayerControl)
+		writer.write("scriptedPlayerControl", _scriptedPlayerControl);
+	if (_scriptedConcealed)
+		writer.write("scriptedConcealed", _scriptedConcealed);
+#endif
 
 	writer.writeAs<int>("turnsSinceSpotted", _turnsSinceSpotted[FACTION_HOSTILE]);
 	writer.writeAs<int>("turnsLeftSpottedForSnipers", _turnsLeftSpottedForSnipers[FACTION_HOSTILE]);
@@ -2943,7 +3011,11 @@ void BattleUnit::prepareNewTurn(bool fullProcess)
 
 	// don't give it back its TUs or anything this round
 	// because it's no longer a unit of the team getting TUs back
-	if (_faction != _originalFaction)
+	if (_faction != _originalFaction
+#ifdef __EMSCRIPTEN__
+		&& !_scriptedPlayerControl
+#endif
+	)
 	{
 		_faction = _originalFaction;
 		if (_faction == FACTION_PLAYER && _currentAIState)
@@ -2955,6 +3027,9 @@ void BattleUnit::prepareNewTurn(bool fullProcess)
 	}
 	else
 	{
+#ifdef __EMSCRIPTEN__
+		prepareScriptedPlayerTurn();
+#endif
 		updateUnitStats(true, false);
 	}
 
@@ -3487,6 +3562,13 @@ AIAttackWeight BattleUnit::getAITargetWeightAsNeutral(const Mod *mod) const
  */
 void BattleUnit::setVisible(bool flag)
 {
+#ifdef __EMSCRIPTEN__
+	// A Calypso scripted scene can make a unit narratively absent. FOV,
+	// reaction fire and the smart-civilian relay all eventually publish through
+	// this setter, so keep the final visibility bit behind the same gate.
+	if (_scriptedConcealed && flag)
+		return;
+#endif
 	_visible = flag;
 }
 
@@ -3497,6 +3579,12 @@ void BattleUnit::setVisible(bool flag)
  */
 bool BattleUnit::getVisible() const
 {
+#ifdef __EMSCRIPTEN__
+	if (_scriptedConcealed)
+	{
+		return false;
+	}
+#endif
 	if (getFaction() == FACTION_PLAYER || _armor->isAlwaysVisible())
 	{
 		return true;

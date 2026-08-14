@@ -26,6 +26,7 @@
 #include "../Battlescape/UnitWalkBState.h"
 #include "../Battlescape/Pathfinding.h"
 #include "../Battlescape/Map.h"               // getCamera() for handoffToPlayer
+#include "../Battlescape/TileEngine.h"        // recalculateFOV() after scripted handoff
 #include "../Battlescape/Camera.h"            // centerOnPosition()
 #include "../Savegame/SavedBattleGame.h"
 #include "../Savegame/SavedGame.h"             // forceAutosave()
@@ -94,7 +95,13 @@ void CalypsoDirector::onBattleStart(BattlescapeState *bs, BattlescapeGame *bg, S
 
 	// Resume from save: load() already rebuilt + activated the scene; do NOT
 	// re-run its first-frame setup (that would re-roll RNG, re-spawn, etc.).
-	if (_scene) return;
+	// The resume hook may repair additive runtime state now that BattleUnit and
+	// Battlescape pointers are fresh again.
+	if (_scene)
+	{
+		_scene->onBattleResume(bg);
+		return;
+	}
 	if (_previewSuppressed)
 	{
 		_previewBattle = save;  // bind the suppression to this preview battle
@@ -150,8 +157,9 @@ bool CalypsoDirector::onEnemyTurnIdle(BattlescapeGame *bg)
 bool CalypsoDirector::onAbortRequested(BattlescapeState *bs)
 {
 	if (!_scene) return false;
-	// True = scene owns the ending; it will route via endScene(). The caller
-	// (AbortMissionState::btnOkClick) pops itself and skips vanilla finishBattle.
+	// True = scene owns the ending and skips vanilla finishBattle. It may route
+	// synchronously via endScene(), or leave a final radio state above the abort
+	// dialog whose dismissal callback performs the teardown.
 	return _scene->onAbortRequested(bs);
 }
 
@@ -166,6 +174,16 @@ bool CalypsoDirector::abortStrings(std::string *title, std::string *ok, std::str
 	if (ok)     *ok     = std::string(g->getLanguage()->getString(o));
 	if (cancel) *cancel = std::string(g->getLanguage()->getString(c));
 	return true;
+}
+
+bool CalypsoDirector::abortAvailable() const
+{
+	return !_scene || _scene->abortAvailable();
+}
+
+bool CalypsoDirector::abortConfirmAvailable(SavedBattleGame *save) const
+{
+	return !_scene || _scene->abortConfirmAvailable(save);
 }
 
 bool CalypsoDirector::interceptFinishBattle(BattlescapeState *bs)
@@ -211,6 +229,10 @@ bool CalypsoDirector::interceptUnexpectedFinish(BattlescapeState *bs, bool abort
 
 void CalypsoDirector::endBattleCleanup()
 {
+	// Narrative callbacks may capture the active scene. Cancel the browser
+	// queue before deleting that scene so a late timer cannot dereference it or
+	// leak prologue chatter into the following Geoscape/battle.
+	cancelCalypsoNarrativeRadioLines();
 	delete _scene;
 	_scene = nullptr;
 	_activeDeploymentId.clear();
@@ -301,17 +323,28 @@ void CalypsoDirector::steerUnit(BattlescapeGame *bg, BattleUnit *unit, Position 
 	bg->statePushBack(new UnitWalkBState(bg, action));
 }
 
-void CalypsoDirector::handoffToPlayer(BattlescapeGame *bg, BattleUnit *unit)
+void CalypsoDirector::handoffToPlayer(BattlescapeGame *bg, BattleUnit *unit, bool presentNow)
 {
 	if (!bg || !unit) return;
-	// convertToFaction is the mind-control primitive; it gives the player full
-	// control and nothing reverts it at turn end. The unit's _originalFaction is
-	// unchanged, so it stays correctly tallied (verified, phase plan 41.4).
-	unit->convertToFaction(FACTION_PLAYER);
-	if (SavedBattleGame *save = bg->getSave()) save->setSelectedUnit(unit);
-	if (Map *map = bg->getMap())
-		if (Camera *cam = map->getCamera())
-			cam->centerOnPosition(unit->getPosition());
+	// This is intentionally NOT convertToFaction(): that API is temporary mind
+	// control and BattleUnit::prepareNewTurn restores originalFaction.  The
+	// prologue needs neutral civilians to retain their tally identity while
+	// remaining controllable throughout subsequent player turns.
+	const UnitFaction oldFaction = unit->getFaction();
+	unit->grantScriptedPlayerControl();
+	if (SavedBattleGame *save = bg->getSave())
+	{
+		save->notifyFactionTurnUnitChangedFaction(unit, oldFaction);
+		unit->setVisible(true);
+		if (save->getTileEngine()) save->getTileEngine()->recalculateFOV();
+	}
+	if (presentNow)
+	{
+		if (SavedBattleGame *save = bg->getSave()) save->setSelectedUnit(unit);
+		if (Map *map = bg->getMap())
+			if (Camera *cam = map->getCamera())
+				cam->centerOnPosition(unit->getPosition());
+	}
 }
 
 void CalypsoDirector::pinMorale(SavedBattleGame *save, UnitFaction side)
@@ -330,13 +363,21 @@ void CalypsoDirector::pinMorale(SavedBattleGame *save, UnitFaction side)
 	}
 }
 
-void CalypsoDirector::radioLine(Game *game, const std::string &stringId)
+void CalypsoDirector::radioLine(Game *game, const std::string &stringId,
+	CalypsoRadioLineKind kind, std::function<void()> onDismissed)
 {
 	if (!_scene || !game || stringId.empty()) return;
-	// Transient toast (CalypsoRadioLineState) that shows tr(stringId) through
-	// the existing tutorial DOM overlay. See CalypsoRadioLineState.h for why
-	// CalypsoTutorialState is not reused here.
-	game->pushState(new CalypsoRadioLineState(stringId));
+	if (kind == CalypsoRadioLineKind::Narrative)
+	{
+		// Passive chatter belongs to the DOM queue, not the Game state stack:
+		// Game::iterate dispatches input/think only to the top State, so even a
+		// visually transparent state would freeze Battlescape while visible.
+		enqueueCalypsoNarrativeRadioLine(
+			std::string(game->getLanguage()->getString(stringId)), std::move(onDismissed));
+		return;
+	}
+	// Explicit guidance remains modal and waits for the Continue action.
+	game->pushState(new CalypsoRadioLineState(stringId, std::move(onDismissed)));
 }
 
 void CalypsoDirector::endScene(BattlescapeGame *bg, int outcome)

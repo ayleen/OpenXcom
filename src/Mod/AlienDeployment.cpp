@@ -43,6 +43,9 @@ AlienDeployment::AlienDeployment(const std::string &type) :
 	_turnLimit(0), _cheatTurn(20), _chronoTrigger(FORCE_LOSE), _keepCraftAfterFailedMission(false), _allowObjectiveRecovery(false), _escapeType(ESCAPE_NONE), _vipSurvivalPercentage(0),
 	_baseDetectionRange(0), _baseDetectionChance(100), _huntMissionMaxFrequency(60), _huntMissionRaceFromAlienBase(true),
 	_resetAlienBaseAgeAfterUpgrade(false), _resetAlienBaseAge(false), _noWeaponPile(false)
+#ifdef __EMSCRIPTEN__
+	, _civilianVoiceLocale()
+#endif
 {
 }
 
@@ -107,6 +110,10 @@ void AlienDeployment::load(const YAML::YamlNodeReader& node, Mod *mod)
 	reader.tryRead("minShade", _minShade);
 	reader.tryRead("maxShade", _maxShade);
 	reader.tryRead("nextStage", _nextStage);
+#ifdef __EMSCRIPTEN__
+	// Phase 44: optional explicit civilian voice locale for this deployment.
+	reader.tryRead("civilianVoiceLocale", _civilianVoiceLocale);
+#endif
 	reader.tryRead("race", _race);
 	reader.tryRead("randomRace", _randomRaces);
 	reader.tryRead("finalDestination", _finalDestination);

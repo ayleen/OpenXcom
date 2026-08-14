@@ -490,7 +490,7 @@ void SoldierTransformationState::performTransformation()
 			newId);
 
 		// copy stuff that is not influenced by transformation ruleset
-		destinationSoldier->setGender(_sourceSoldier->getGender());
+		destinationSoldier->setGender(_sourceSoldier->getGender(), _game->getMod());
 		destinationSoldier->setLook(_sourceSoldier->getLook());
 		destinationSoldier->setLookVariant(_sourceSoldier->getLookVariant());
 

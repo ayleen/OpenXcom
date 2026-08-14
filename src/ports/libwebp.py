@@ -7,10 +7,19 @@
 #
 # License: BSD-style (see COPYING in the libwebp source tree).
 
+import hashlib
 import os
 
 TAG  = '1.4.0'
 HASH = '1217363fbb5c860b17c2ba4612f240f121c74ced6e3e58e8aa61252a9022f59893c5874bfa433cc50a7e65bac1ae2bfa99fa2cede070183b7a467f148cebb0bd'
+
+# Emscripten's shared cache returns an existing library by its cache key
+# without re-running this recipe. Bind that key to the complete recipe bytes,
+# so edits to the download pin, source list, or compiler flags cannot reuse a
+# stale libwebpdecoder.a from an earlier remote build.
+with open(__file__, 'rb') as recipe_file:
+    RECIPE_DIGEST = hashlib.sha256(recipe_file.read()).hexdigest()[:16]
+LIBRARY_NAME = f'libwebpdecoder-{RECIPE_DIGEST}.a'
 
 
 def needed(settings):
@@ -71,11 +80,16 @@ def get(ports, settings, shared):
                          srcs=srcs,
                          flags=['-I' + src_dir])
 
-    return [shared.cache.get_lib('libwebpdecoder.a', create, what='port')]
+    return [shared.cache.get_lib(LIBRARY_NAME, create, what='port')]
 
 
 def clear(ports, settings, shared):
-    shared.cache.erase_lib('libwebpdecoder.a')
+    # Only the current recipe digest is erased here: the cache API is keyed by
+    # exact name, so libraries built from superseded recipe revisions remain in
+    # the shared cache until its generation is rotated (Calypso's remote worker
+    # does this via PORTS_CACHE_GENERATION). Growth is bounded by how often the
+    # recipe itself is edited.
+    shared.cache.erase_lib(LIBRARY_NAME)
 
 
 def show():

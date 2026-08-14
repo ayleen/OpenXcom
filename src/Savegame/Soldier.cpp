@@ -178,6 +178,16 @@ void Soldier::load(const YAML::YamlNodeReader& node, const Mod *mod, SavedGame *
 
 	reader.tryRead("rank", _rank);
 	reader.tryRead("gender", _gender);
+#ifdef __EMSCRIPTEN__
+	reader.tryRead("voiceProfile", _voiceProfile);
+#ifdef CALYPSO_VOICE_P_EN
+	if (!soldierTemplate)
+	{
+		_voiceProfile = mod->selectVoiceProfile(getVoiceLocale(), "diver",
+			_gender == GENDER_FEMALE ? "female" : "male", _id, _voiceProfile);
+	}
+#endif
+#endif
 	reader.tryRead("look", _look);
 	reader.tryRead("lookVariant", _lookVariant);
 	reader.tryRead("missions", _missions);
@@ -298,6 +308,10 @@ void Soldier::save(YAML::YamlNodeWriter writer, const ScriptGlobal *shared) cons
 	if (_craft)
 		_craft->saveId(writer["craft"]);
 	writer.write("gender", _gender);
+#ifdef __EMSCRIPTEN__
+	if (!_voiceProfile.empty())
+		writer.write("voiceProfile", _voiceProfile);
+#endif
 	writer.write("look", _look);
 	writer.write("lookVariant", _lookVariant);
 	writer.write("missions", _missions);
@@ -814,10 +828,27 @@ SoldierGender Soldier::getGender() const
  * Changes the soldier's gender (1/3 of avatar).
  * @param gender Gender.
  */
-void Soldier::setGender(SoldierGender gender)
+void Soldier::setGender(SoldierGender gender, const Mod *mod)
 {
 	_gender = gender;
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_P_EN)
+	_voiceProfile = mod ? mod->selectVoiceProfile(getVoiceLocale(), "diver",
+		_gender == GENDER_FEMALE ? "female" : "male", _id, _voiceProfile)
+		: std::string();
+#endif
 }
+
+#ifdef __EMSCRIPTEN__
+std::string Soldier::getVoiceLocale() const
+{
+	const std::vector<SoldierNamePool *> &names = _rules->getNames();
+	if (_nationality >= 0 && static_cast<std::size_t>(_nationality) < names.size())
+	{
+		return names[_nationality]->getVoiceLocale();
+	}
+	return "en";
+}
+#endif
 
 /**
  * Returns the soldier's look.
@@ -1960,6 +1991,17 @@ void Soldier::transform(const Mod *mod, RuleSoldierTransformation *transformatio
 			_transformationBonuses[transformationRule->getSoldierBonusType()] = 1;
 		}
 	}
+
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_P_EN)
+	if (sourceSoldier)
+	{
+		// Non-clone transformations can replace both type and nationality above;
+		// resolve only after the final identity is known.
+		_voiceProfile = mod->selectVoiceProfile(getVoiceLocale(), "diver",
+			_gender == GENDER_FEMALE ? "female" : "male", _id,
+			sourceSoldier->_voiceProfile);
+	}
+#endif
 }
 
 /**

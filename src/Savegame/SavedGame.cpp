@@ -63,6 +63,7 @@
 #include "AlienStrategy.h"
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoTutorial.h"
+#include "../Calypso/CalypsoPrologueCampaign.h"
 #endif
 #include "AlienMission.h"
 #include "GeoscapeEvent.h"
@@ -673,12 +674,6 @@ void SavedGame::load(const std::string &filename, Mod *mod, Language *lang)
 		}
 	}
 	_alienStrategy->load(reader["alienStrategy"], mod);
-#ifdef __EMSCRIPTEN__
-	if (reader["calypsoTutorial"])
-		CalypsoTutorial::get().load(reader["calypsoTutorial"]);
-	else
-		CalypsoTutorial::get().resetCampaign();   // pre-tutorial save → fresh campaign state
-#endif
 
 	for (const auto& weHardlyKnewYe : reader["deadSoldiers"].children())
 	{
@@ -718,6 +713,19 @@ void SavedGame::load(const std::string &filename, Mod *mod, Language *lang)
 		_battleGame = new SavedBattleGame(mod, lang);
 		_battleGame->load(battle, mod, this);
 	}
+
+#ifdef __EMSCRIPTEN__
+	// The prologue migration needs the battle mission type, so load tutorial
+	// state only after SavedBattleGame has been constructed from this document.
+	if (reader["calypsoTutorial"])
+	{
+		const bool legacyPrologueSave = _battleGame
+			&& _battleGame->getMissionType() == Calypso::PROLOGUE_DEPLOYMENT_ID;
+		CalypsoTutorial::get().load(reader["calypsoTutorial"], legacyPrologueSave);
+	}
+	else
+		CalypsoTutorial::get().resetCampaign();   // pre-tutorial save → fresh campaign state
+#endif
 
 	_scriptValues.load(reader, mod->getScriptGlobal());
 }

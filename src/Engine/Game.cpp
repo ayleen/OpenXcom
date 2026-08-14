@@ -24,6 +24,7 @@
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #include "../Calypso/CalypsoTutorial.h"
+#include "../Calypso/CalypsoHdUiOverlay.h" // Phase 46.2-HD (empty on native)
 #endif
 #include <SDL_mixer.h>
 #include <SDL_ttf.h>
@@ -496,6 +497,13 @@ bool Game::iterate()
 			_timeOfLastFrame = SDL_GetTicks();
 			_fpsCounter->addFrame();
 			_screen->clear();
+#ifdef __EMSCRIPTEN__
+			// Phase 46.2-HD pre-blit boundary (A3): freeze metrics, advance the
+			// HD frame, and collect/raster/upload/commit the top state's adapter
+			// BEFORE any visible State::blit() so claimed widgets skip cleanly.
+			Calypso::CalypsoHdUiOverlay::instance().prepareFrame(Options::baseXResolution,
+				Options::baseYResolution, _states.empty() ? nullptr : _states.back());
+#endif
 			std::list<State*>::iterator i = _states.end();
 			do
 			{
@@ -619,6 +627,14 @@ void Game::setVolume(int sound, int music, int ui)
 			}
 			// channel 4: reserved for unit responses
 			Mix_Volume(4, sound);
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_P_EN)
+			const int voiceSetting = std::max(0,
+				std::min(SDL_MIX_MAXVOLUME, Options::calypsoVoiceVolume));
+			const int voiceVolume = Options::calypsoVoicesEnabled
+				? volumeExponent(voiceSetting) * (double)SDL_MIX_MAXVOLUME : 0;
+			// Channel 5 is reserved for Calypso production voice barks.
+			Mix_Volume(5, voiceVolume);
+#endif
 		}
 		if (music >= 0)
 		{
@@ -926,7 +942,12 @@ void Game::initAudio()
 		// 1-2 = UI
 		// 3 = ambient
 		// 4 = unit responses (OXCE only)
+		// 5 = Calypso production voice barks (WASM P_EN only)
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_P_EN)
+		Mix_ReserveChannels(6);
+#else
 		Mix_ReserveChannels(5);
+#endif
 		Mix_GroupChannels(1, 2, 0);
 		Log(LOG_INFO) << "SDL_mixer initialized successfully.";
 		setVolume(Options::soundVolume, Options::musicVolume, Options::uiVolume);

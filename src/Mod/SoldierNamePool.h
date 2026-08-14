@@ -37,7 +37,7 @@ private:
 	std::vector<int> _lookWeights;
 	int _totalWeight, _femaleFrequency;
 	int _globalWeight;
-	std::string _country, _region;
+	std::string _country, _region, _voiceLocale;
 public:
 	/// Creates a blank pool.
 	SoldierNamePool();
@@ -57,6 +57,8 @@ public:
 	const std::string& getCountry() const { return _country; }
 	/// Gets the region assigned to this name pool.
 	const std::string& getRegion() const { return _region; }
+	/// Gets the BCP-47-like voice locale assigned to this pool.
+	const std::string& getVoiceLocale() const { return _voiceLocale; }
 };
 
 }

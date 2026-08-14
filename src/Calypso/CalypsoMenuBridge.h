@@ -37,7 +37,7 @@ const char *calypso_bridge_ping(void);
  * friend struct CalypsoNewGameBridge defined in CalypsoMenuBridge.cpp. */
 int calypso_newgame_ready(void);
 const char *calypso_newgame_info(void);
-int calypso_newgame_start(int difficulty, int ironman);
+int calypso_newgame_start(int difficulty, int ironman, int tutorial);
 int calypso_newgame_cancel(void);
 
 /* Slice A2 — Load/Save/Delete overlay (pattern 1: pure data-bridge). No

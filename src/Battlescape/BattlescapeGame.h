@@ -51,6 +51,9 @@ struct BattleActionCost : RuleItemUseCost
 	BattleUnit *actor = nullptr;
 	BattleItem *weapon = nullptr;
 	const RuleSkill* skillRules = nullptr; // if defined, this is a skill action
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
+	unsigned int voiceActionId = 0; // cosmetic only; never serialized or used by gameplay RNG
+#endif
 
 	/// Default constructor.
 	BattleActionCost() : type(BA_NONE) { }
@@ -143,6 +146,9 @@ class BattlescapeGame
 private:
 	SavedBattleGame *_save;
 	BattlescapeState *_parentState;
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
+	unsigned int _calypsoVoiceMissionOwner = 0;
+#endif
 	std::list<BattleState*> _states, _deleted;
 	bool _playerPanicHandled;
 	// Phase 34.5 Brutal-AI (adapted from Brutal-OXCE by Xilmi): the AI's hint for which friendly unit

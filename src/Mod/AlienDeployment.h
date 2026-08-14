@@ -139,6 +139,11 @@ private:
 	std::string _upgradeRace;
 	std::vector<std::tuple<size_t, std::string, std::string> > _alienRaceEvolution;
 	bool _noWeaponPile;
+#ifdef __EMSCRIPTEN__
+	// Phase 44: optional explicit voice locale for civilians spawned by this
+	// deployment. Empty means "inherit the locale already set on SavedBattleGame".
+	std::string _civilianVoiceLocale;
+#endif
 public:
 	/// Creates a blank Alien Deployment ruleset.
 	AlienDeployment(const std::string &type);
@@ -326,6 +331,11 @@ public:
 
 	/// Should items on the "weapon pile" be hidden from the player?
 	bool getNoWeaponPile() const { return _noWeaponPile; }
+
+#ifdef __EMSCRIPTEN__
+	/// Gets the explicit civilian voice locale for this deployment (empty = inherit).
+	const std::string &getCivilianVoiceLocale() const { return _civilianVoiceLocale; }
+#endif
 };
 
 // helper overloads for deserialization-only
