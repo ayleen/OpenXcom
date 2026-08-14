@@ -20,6 +20,8 @@
 #include <algorithm>
 #include "../Engine/Action.h"
 #include "../Engine/Game.h"
+#include "../Engine/Language.h"
+#include "../Calypso/CalypsoUiFamilies.h"
 #include "../Engine/LocalizedText.h"
 #include "../Engine/Options.h"
 #include "../Engine/Unicode.h"
@@ -54,7 +56,11 @@ NotesState::NotesState(OptionsOrigin origin) :
 
 #ifdef __EMSCRIPTEN__
 	_hdLayout = _game && _game->getMod()
-		&& _game->getMod()->isHdUiFamilyEnabled("F34");
+		&& _game->getLanguage()
+		&& Calypso::isF34PhysicalRouteEligible(
+			_game->getMod()->isHdUiFamilyEnabled("F34"),
+			_game->getLanguage()->getTextDirection() == DIRECTION_RTL,
+			false);
 #endif
 
 	// Create objects

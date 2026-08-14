@@ -2323,9 +2323,9 @@ void Mod::loadFileCalypso(YAML::YamlNodeReader& reader)
 	// The key is owned by calypso-hd-pack; only a file that carries the key
 	// touches _hdUiFamilies (last-wins, matching battlescapeTileScale), so an
 	// unrelated ruleset file can never silently clear an owning mod's list. The
-	// list ships EMPTY; a family id is added only in the commit that passes its
-	// implementation checkpoint. isHdUiFamilyEnabled() does no YAML scanning or
-	// allocation at all.
+	// engine default is empty; the shipped HD pack adds only families whose
+	// implementation and owner rollout checkpoints have been accepted.
+	// isHdUiFamilyEnabled() does no YAML scanning or allocation at all.
 	auto hdNode = reader["hdUiFamilies"];
 	if (hdNode)
 	{
