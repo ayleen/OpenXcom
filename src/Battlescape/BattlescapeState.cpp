@@ -63,6 +63,9 @@
 #include "../Calypso/CalypsoTutorial.h"
 #include "../Calypso/CalypsoDirector.h"
 #endif
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_P_EN)
+#include "../Calypso/CalypsoVoiceG05.h"
+#endif
 #ifdef __EMSCRIPTEN__
 #include "../Engine/GpuInit.h"
 extern "C" void calypso_log_heap(const char *tag);  // M5: defined in Calypso/EmscriptenHarness.cpp
@@ -294,6 +297,9 @@ BattlescapeState::BattlescapeState() :
 	}
 	_numVisibleUnit[9]->setX(_numVisibleUnit[9]->getX() - 2); // center number 10
 	_warning = new WarningMessage(224, 24, x + 48, y + 32);
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_P_EN)
+	CalypsoVoiceG05::createSubtitle(this, screenWidth, y);
+#endif
 	_btnLaunch = new BattlescapeButton(32, 24, screenWidth - 32, 0); // we need screenWidth, because that is independent of the black bars on the screen
 	_btnLaunch->setVisible(false);
 	_btnPsi = new BattlescapeButton(32, 24, screenWidth - 32, 25); // we need screenWidth, because that is independent of the black bars on the screen
@@ -491,6 +497,9 @@ BattlescapeState::BattlescapeState() :
 		add(_numVisibleUnit[i]);
 	}
 	add(_warning, "warning", "battlescape", _icons);
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_P_EN)
+	CalypsoVoiceG05::addSubtitle(this);
+#endif
 	add(_txtDebug);
 	add(_txtTooltip, "textTooltip", "battlescape", _icons);
 	add(_btnLaunch);
@@ -776,6 +785,9 @@ BattlescapeState::BattlescapeState() :
 
 	_warning->setColor(_game->getMod()->getInterface("battlescape")->getElement("warning")->color2);
 	_warning->setTextColor(_game->getMod()->getInterface("battlescape")->getElement("warning")->color);
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_P_EN)
+	CalypsoVoiceG05::styleSubtitle(this);
+#endif
 	_btnLaunch->onMouseClick((ActionHandler)&BattlescapeState::btnLaunchClick);
 	_btnPsi->onMouseClick((ActionHandler)&BattlescapeState::btnPsiClick);
 
@@ -1037,6 +1049,10 @@ void BattlescapeState::think()
 	// and hotkey in sync with that runtime predicate; the click handler repeats
 	// the guard because keyboard events and a phase transition can race a frame.
 	_btnAbort->setVisible(CalypsoDirector::get().abortAvailable());
+#endif
+
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_P_EN)
+	CalypsoVoiceG05::updateSubtitle(this);
 #endif
 
 	if (_gameTimer->isRunning())
@@ -2750,11 +2766,14 @@ void BattlescapeState::handleItemClick(BattleItem *item, bool middleClick)
 		else
 		{
 			_battleGame->getCurrentAction()->weapon = item;
-			popup(new ActionMenuState(_battleGame->getCurrentAction(), _icons->getX(), _icons->getY() + (int)(16 * _hudScale)));
-			if (item->getRules()->getBattleType() == BT_FIREARM)
-			{
-				_battleGame->playUnitResponseSound(_battleGame->getCurrentAction()->actor, 2); // "select weapon" sound
+			popup(new ActionMenuState(_battleGame->getCurrentAction(), _icons->getX(),
+				_icons->getY() + (int)(16 * _hudScale), _battleGame));
+#if !defined(__EMSCRIPTEN__) || (!defined(CALYPSO_VOICE_G0_5) && !defined(CALYPSO_VOICE_P_EN))
+			if (item->getRules()->getBattleType() == BT_FIREARM) {
+				_battleGame->playUnitResponseSound(
+					_battleGame->getCurrentAction()->actor, 2);
 			}
+#endif
 		}
 	}
 }
@@ -4377,6 +4396,10 @@ void BattlescapeState::resize(int &dX, int &dY)
 			surf->setX(surf->getX() + dX);
 		}
 	}
+
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_P_EN)
+	CalypsoVoiceG05::resizeSubtitle(this);
+#endif
 
 	for (auto& pos : _posSpecialActions)
 	{

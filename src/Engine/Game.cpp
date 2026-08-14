@@ -26,6 +26,9 @@
 #include "../Calypso/CalypsoTutorial.h"
 #include "../Calypso/CalypsoHdUiOverlay.h" // Phase 46.2-HD (empty on native)
 #endif
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_P_EN)
+#include "../Calypso/CalypsoVoiceG05.h"
+#endif
 #include <SDL_mixer.h>
 #include <SDL_ttf.h>
 #include "State.h"
@@ -627,6 +630,10 @@ void Game::setVolume(int sound, int music, int ui)
 			}
 			// channel 4: reserved for unit responses
 			Mix_Volume(4, sound);
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_P_EN)
+			CalypsoVoiceG05::applyVolume(Options::calypsoVoiceVolume,
+				Options::calypsoVoicesEnabled);
+#endif
 		}
 		if (music >= 0)
 		{
@@ -934,7 +941,12 @@ void Game::initAudio()
 		// 1-2 = UI
 		// 3 = ambient
 		// 4 = unit responses (OXCE only)
+		// 5 = Calypso production voice barks (WASM P_EN only)
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_P_EN)
+		Mix_ReserveChannels(6);
+#else
 		Mix_ReserveChannels(5);
+#endif
 		Mix_GroupChannels(1, 2, 0);
 		Log(LOG_INFO) << "SDL_mixer initialized successfully.";
 		setVolume(Options::soundVolume, Options::musicVolume, Options::uiVolume);

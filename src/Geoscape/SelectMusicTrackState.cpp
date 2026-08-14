@@ -29,6 +29,9 @@
 #include "../Interface/TextList.h"
 #include "../Mod/RuleInterface.h"
 #include "../Savegame/SavedGame.h"
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 
 namespace OpenXcom
 {
@@ -138,6 +141,17 @@ void SelectMusicTrackState::btnCancelClick(Action *)
  */
 void SelectMusicTrackState::lstTrackClick(Action *)
 {
+#ifdef __EMSCRIPTEN__
+	if (_origin == SMT_GEOSCAPE)
+	{
+		// A manually selected legacy track temporarily owns Geoscape music.
+		// The browser state controller resumes on the next actual state change.
+		EM_ASM({
+			if (globalThis.calypsoGeoscapeMusicStop)
+				globalThis.calypsoGeoscapeMusicStop();
+		});
+	}
+#endif
 	Music *selected = _tracks[_lstTracks->getSelectedRow()];
 	selected->play();
 	_game->getMod()->setCurrentMusicTrack(_trackNames[_lstTracks->getSelectedRow()]);

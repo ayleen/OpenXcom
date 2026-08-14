@@ -196,7 +196,7 @@ void SoldierAvatarState::btnCancelClick(Action *)
 	Soldier *soldier = _base->getSoldiers()->at(_soldier);
 
 	// revert the avatar to original
-	soldier->setGender(_origAvatar.getGender());
+	soldier->setGender(_origAvatar.getGender(), _game->getMod());
 	soldier->setLook(_origAvatar.getLook());
 	soldier->setLookVariant(_origAvatar.getLookVariant());
 
@@ -221,7 +221,7 @@ void SoldierAvatarState::lstAvatarClick(Action *)
 	Soldier *soldier = _base->getSoldiers()->at(_soldier);
 
 	// change the avatar
-	soldier->setGender(_avatars[_lstAvatar->getSelectedRow()].getGender());
+	soldier->setGender(_avatars[_lstAvatar->getSelectedRow()].getGender(), _game->getMod());
 	soldier->setLook(_avatars[_lstAvatar->getSelectedRow()].getLook());
 	soldier->setLookVariant(_avatars[_lstAvatar->getSelectedRow()].getLookVariant());
 

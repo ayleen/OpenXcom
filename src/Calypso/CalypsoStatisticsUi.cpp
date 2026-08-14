@@ -47,6 +47,7 @@
 #include "../Engine/Action.h"
 #include "../Engine/FileMap.h"
 #include "../Engine/Game.h"
+#include "../Engine/Language.h"
 #include "../Engine/Options.h"
 #include "../Engine/Surface.h"
 #include "../Engine/Unicode.h"
@@ -63,6 +64,7 @@
 #include "CalypsoHdTextRasterKey.h"
 #include "CalypsoHdUiModel.h"
 #include "CalypsoHdUiOverlay.h"
+#include "CalypsoUiFamilies.h"
 #include "CalypsoUiMetrics.h"
 #include "CalypsoViewportRuntime.h"
 
@@ -405,7 +407,11 @@ void CalypsoStatisticsUi::rebuildList(StatisticsState& state, std::size_t scroll
 void CalypsoStatisticsUi::configure(StatisticsState& state)
 {
 	state._hdLayout = state._game && state._game->getMod()
-		&& state._game->getMod()->isHdUiFamilyEnabled("F34");
+		&& state._game->getLanguage()
+		&& isF34PhysicalRouteEligible(
+			state._game->getMod()->isHdUiFamilyEnabled("F34"),
+			state._game->getLanguage()->getTextDirection() == DIRECTION_RTL,
+			false);
 	if (!state._hdLayout) return;
 
 	state._hdWideLayout = currentF34LayoutClass() == CalypsoLayoutClass::Wide;

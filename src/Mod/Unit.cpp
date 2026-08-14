@@ -74,6 +74,12 @@ void Unit::load(const YAML::YamlNodeReader& node, Mod *mod)
 		_spawnedSoldier = reader["spawnedSoldier"].emitDescendants(YAML::YamlRootNodeReader(_spawnedSoldier, "(spawned soldier template)"));
 	}
 	reader.tryRead("race", _race);
+	reader.tryRead("voiceGender", _voiceGender);
+	if (_voiceGender != "male" && _voiceGender != "female")
+	{
+		throw Exception("Error with unit " + _type
+			+ ": voiceGender must be male or female");
+	}
 	reader.tryRead("showFullNameInAlienInventory", _showFullNameInAlienInventory);
 
 	reader.tryRead("rank", _rank);

@@ -519,7 +519,12 @@ void ExplosionBState::explode()
 	{
 		Position p = t->getPosition().toVoxel();
 		p += Position(8,8,0);
-		_parent->statePushFront(new ExplosionBState(_parent, p, BattleActionAttack{ BA_NONE, _attack.attacker, }, t, false, 0, _explosionCounter + 1));
+		BattleActionAttack terrainAttack{ BA_NONE, _attack.attacker, };
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
+		terrainAttack.voiceActionId = _attack.voiceActionId;
+#endif
+		_parent->statePushFront(new ExplosionBState(_parent, p, terrainAttack, t,
+			false, 0, _explosionCounter + 1));
 	}
 
 	// Spawn a unit if the item does that

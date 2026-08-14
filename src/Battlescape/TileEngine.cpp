@@ -43,6 +43,9 @@
 #include "ProjectileFlyBState.h"
 #include "MeleeAttackBState.h"
 #include "../fmath.h"
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
+#include "../Calypso/CalypsoVoiceG05.h"
+#endif
 
 namespace OpenXcom
 {
@@ -1519,8 +1522,16 @@ bool TileEngine::calculateUnitsInFOV(BattleUnit* unit, const Position eventPos, 
 								|| ( bu->getFaction() != FACTION_HOSTILE && unit->getFaction() == FACTION_HOSTILE ))
 								&& !unit->hasVisibleUnit(bu))
 							{
-								unit->addToVisibleUnits(bu);
+								const bool newlyVisible = unit->addToVisibleUnits(bu);
 								unit->addToVisibleTiles(bu->getTile());
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
+								if (newlyVisible && bu->getFaction() == FACTION_HOSTILE)
+								{
+									CalypsoVoiceG05::onAlienSpotted(unit, bu);
+								}
+#else
+								(void)newlyVisible;
+#endif
 							}
 
 							if (unit->getFaction() != bu->getFaction())
@@ -3443,6 +3454,10 @@ bool TileEngine::hitUnit(BattleActionAttack attack, BattleUnit *target, const Po
 				if (Map* fxMap = bg->getMap())
 					fxMap->spawnBloodFx(target->getPosition(), healthDamage, (int)target->getFaction());
 	}
+#endif
+
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
+	CalypsoVoiceG05::onDamage(attack, target, healthDamage, stunDamage);
 #endif
 
 	// hit log

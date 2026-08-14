@@ -65,6 +65,9 @@
 #include "../Calypso/CalypsoTutorial.h"
 #include "../Calypso/CalypsoDirector.h"
 #endif
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
+#include "../Calypso/CalypsoVoiceG05.h"
+#endif
 
 namespace OpenXcom
 {
@@ -186,6 +189,9 @@ BattlescapeGame::BattlescapeGame(SavedBattleGame *save, BattlescapeState *parent
 	_playerPanicHandled(true), _AIActionCounter(0), _AISecondMove(false), _playedAggroSound(false),
 	_endTurnRequested(false), _endConfirmationHandled(false), _allEnemiesNeutralized(false)
 {
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
+	_calypsoVoiceMissionOwner = CalypsoVoiceG05::beginMission(_save);
+#endif
 	if (_save->isPreview())
 	{
 		_allEnemiesNeutralized = true; // just in case
@@ -208,6 +214,9 @@ BattlescapeGame::BattlescapeGame(SavedBattleGame *save, BattlescapeState *parent
  */
 BattlescapeGame::~BattlescapeGame()
 {
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
+	CalypsoVoiceG05::endMission(_calypsoVoiceMissionOwner);
+#endif
 	for (auto* bs : _states)
 	{
 		delete bs;
@@ -233,6 +242,9 @@ int BattlescapeGame::think()
 	{
 		return ret;
 	}
+#endif
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
+	CalypsoVoiceG05::think();
 #endif
 	// nothing is happening - see if we need some alien AI or units panicking or what have you
 	if (_states.empty())
@@ -1063,6 +1075,9 @@ void BattlescapeGame::checkForCasualties(const RuleDamageType *damageType, Battl
 #ifdef __EMSCRIPTEN__
 				CalypsoDirector::get().onUnitDied(this, victim, murderer); // Phase 41: notify active scene (fires once per new death)
 #endif
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
+				CalypsoVoiceG05::onKill(attack, victim, murderer);
+#endif
 				int moraleLossModifierWhenKilled = _save->getMoraleLossModifierWhenKilled(victim);
 
 				if (murderer)
@@ -1200,6 +1215,9 @@ void BattlescapeGame::checkForCasualties(const RuleDamageType *damageType, Battl
 				}
 			}
 		}
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
+		CalypsoVoiceG05::onCasualtyResolved(victim);
+#endif
 	}
 
 	BattleUnit *bu = _save->getSelectedUnit();
@@ -1772,7 +1790,6 @@ bool BattlescapeGame::handlePanickingUnit(BattleUnit *unit)
 	if (status != STATUS_PANICKING && status != STATUS_BERSERK) return false;
 	_save->setSelectedUnit(unit);
 	_parentState->getMap()->setCursorType(CT_NONE);
-
 	// play panic/berserk sounds first
 	bool soundPlayed = false;
 	{
@@ -1803,13 +1820,19 @@ bool BattlescapeGame::handlePanickingUnit(BattleUnit *unit)
 					sounds = unit->getGeoscapeSoldier()->getRules()->getFemaleBerserkSounds();
 			}
 		}
-		if (!sounds.empty())
+		soundPlayed = !sounds.empty();
+		bool pilotPanicHandled = false;
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
+		pilotPanicHandled = CalypsoVoiceG05::onPanic(unit, soundPlayed);
+#endif
+		if (soundPlayed && !pilotPanicHandled)
 		{
-			soundPlayed = true;
+			int sound;
 			if (sounds.size() > 1)
-				playSound(sounds[RNG::generate(0, sounds.size() - 1)]);
+				sound = sounds[RNG::generate(0, sounds.size() - 1)];
 			else
-				playSound(sounds.front());
+				sound = sounds.front();
+			playSound(sound);
 		}
 	}
 
@@ -2206,7 +2229,14 @@ void BattlescapeGame::primaryAction(Position pos)
 		BattleUnit *unit = _save->selectUnit(pos);
 		if (unit && unit == _save->getSelectedUnit() && (unit->getVisible() || _debugPlay))
 		{
-			playUnitResponseSound(unit, 3); // "annoyed" sound
+			bool pilotHandled = false;
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
+			pilotHandled = CalypsoVoiceG05::handleSelection(unit, true);
+#endif
+			if (!pilotHandled)
+			{
+				playUnitResponseSound(unit, 3); // "annoyed" sound
+			}
 		}
 		if (unit && unit != _save->getSelectedUnit() && (unit->getVisible() || _debugPlay))
 		{
@@ -2218,7 +2248,14 @@ void BattlescapeGame::primaryAction(Position pos)
 				cancelCurrentAction();
 				setupCursor();
 				_currentAction.actor = unit;
-				playUnitResponseSound(unit, 0); // "select unit" sound
+				bool pilotHandled = false;
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
+				pilotHandled = CalypsoVoiceG05::handleSelection(unit, false);
+#endif
+				if (!pilotHandled)
+				{
+					playUnitResponseSound(unit, 0); // "select unit" sound
+				}
 			}
 		}
 		else if (playableUnitSelected())
@@ -2277,7 +2314,14 @@ void BattlescapeGame::primaryAction(Position pos)
 				getMap()->setCursorType(CT_NONE);
 				_parentState->getGame()->getCursor()->setVisible(false);
 				statePushBack(new UnitWalkBState(this, _currentAction));
-				playUnitResponseSound(_currentAction.actor, 1); // "start moving" sound
+				bool pilotHandled = false;
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
+				pilotHandled = CalypsoVoiceG05::handleMoveOrder(_currentAction.actor);
+#endif
+				if (!pilotHandled)
+				{
+					playUnitResponseSound(_currentAction.actor, 1); // "start moving" sound
+				}
 			}
 		}
 	}
@@ -2396,6 +2440,9 @@ void BattlescapeGame::moveUpDown(BattleUnit *unit, int dir)
 	}
 	_save->getPathfinding()->calculate(_currentAction.actor, _currentAction.target, _currentAction.getMoveType());
 	statePushBack(new UnitWalkBState(this, _currentAction));
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
+	CalypsoVoiceG05::handleMoveOrder(_currentAction.actor);
+#endif
 }
 
 /**

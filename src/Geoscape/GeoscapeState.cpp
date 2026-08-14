@@ -28,6 +28,7 @@
 #include "../Engine/Action.h"
 #include "../Mod/Mod.h"
 #ifdef __EMSCRIPTEN__
+#include <emscripten.h>
 #include "../Calypso/CalypsoEconomy.h"
 #include "../Calypso/CalypsoEconomyState.h"
 #include "../Calypso/CalypsoTraining.h"
@@ -504,6 +505,12 @@ GeoscapeState::GeoscapeState() : _pause(false), _zoomInEffectDone(false), _zoomO
  */
 GeoscapeState::~GeoscapeState()
 {
+#ifdef __EMSCRIPTEN__
+	EM_ASM({
+		if (globalThis.calypsoGeoscapeMusicStop)
+			globalThis.calypsoGeoscapeMusicStop();
+	});
+#endif
 	delete _gameTimer;
 	delete _zoomInEffectTimer;
 	delete _zoomOutEffectTimer;
@@ -801,6 +808,7 @@ void GeoscapeState::init()
 	CalypsoTutorial::get().fire(_game, "geoscape.enter");
 	calypsoChecklistRefresh();   // Phase 39: refresh checklist on geoscape entry
 	calypsoTutorialTriggers();   // Phase 37.3: idle-research / idle-time triggers
+	updateCalypsoMusicState();
 #endif
 }
 
@@ -840,6 +848,9 @@ void GeoscapeState::think()
 			_popups.erase(_popups.begin());
 		}
 	}
+#ifdef __EMSCRIPTEN__
+	updateCalypsoMusicState();
+#endif
 }
 
 /**

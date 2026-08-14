@@ -25,6 +25,7 @@
 
 #include "../Mod/Mod.h"
 #include "CalypsoEconomy.h"
+#include "CalypsoVoiceProfileSelection.h"
 #include "CalypsoUiFamilies.h"
 #include "../Mod/ModScript.h"
 #include <algorithm>
@@ -68,6 +69,8 @@
 #  include "../Mod/TileAtlasBuilder.h"
 #  include "../Mod/UnitSpriteAtlasBuilder.h"
 #  include <set>
+#  include <emscripten.h>
+#  include <SDL_mixer.h>
 // M5: heap-attribution marks (function defined in Calypso/EmscriptenHarness.cpp)
 extern "C" void calypso_log_heap(const char *tag);
 #endif
@@ -1599,6 +1602,103 @@ Mod::WangResult Mod::computeWangMask(const TileAtlasSpec* spec,
 	return result;
 }
 
+const RuleVoiceProfile *Mod::getVoiceProfile(const std::string &id) const
+{
+	const auto found = _voiceProfiles.find(id);
+	return found == _voiceProfiles.end() ? nullptr : &found->second;
+}
+
+std::string Mod::selectVoiceProfile(const std::string &locale,
+	const std::string &unitClass, const std::string &gender, int stableId,
+	const std::string &stored) const
+{
+	std::vector<CalypsoVoiceProfileDescriptor> profiles;
+	profiles.reserve(_voiceProfiles.size());
+	for (const auto &entry : _voiceProfiles)
+	{
+		const RuleVoiceProfile &profile = entry.second;
+		profiles.push_back({profile.getId(), profile.getLocale(),
+			profile.getBaseLocale(), profile.getUnitClass(), profile.getGender()});
+	}
+
+	const std::string selected = calypsoSelectVoiceProfile(
+		profiles, locale, unitClass, gender, stableId, stored);
+	if (!stored.empty() && stored != selected
+		&& _voiceProfileRepairWarnings.insert(stored).second)
+	{
+		Log(LOG_WARNING) << "Voice profile '" << stored
+			<< "' is missing or incompatible; repaired as '"
+			<< (selected.empty() ? "subtitle-only" : selected) << "'";
+	}
+	return selected;
+}
+
+std::string Mod::resolveCivilianVoiceLocale(double longitude,
+	double latitude) const
+{
+	std::vector<CalypsoVoiceRegionDescriptor> regions;
+	regions.reserve(_voiceRegions.size());
+	for (const auto &entry : _voiceRegions)
+	{
+		regions.push_back(entry.second.getDescriptor());
+	}
+	return calypsoResolveCivilianVoiceLocale(regions, longitude, latitude);
+}
+
+void Mod::validateVoiceProfiles() const
+{
+	for (const auto &entry : _voiceProfiles)
+	{
+		const RuleVoiceProfile &profile = entry.second;
+		if (profile.getLocale() != "en" && profile.getFallbackProfile().empty())
+		{
+			throw Exception("voiceProfiles[" + profile.getId()
+				+ "]: non-English profiles require an explicit English fallbackProfile");
+		}
+		if (profile.getFallbackProfile().empty())
+		{
+			continue;
+		}
+		const RuleVoiceProfile *fallback = getVoiceProfile(profile.getFallbackProfile());
+		if (!fallback)
+		{
+			throw Exception("voiceProfiles[" + profile.getId()
+				+ "]: unknown fallbackProfile '" + profile.getFallbackProfile() + "'");
+		}
+		if (fallback == &profile || fallback->getLocale() != "en"
+			|| fallback->getUnitClass() != profile.getUnitClass()
+			|| fallback->getGender() != profile.getGender())
+		{
+			throw Exception("voiceProfiles[" + profile.getId()
+				+ "]: fallbackProfile must be a different compatible English profile");
+		}
+		for (const auto &event : profile.getEvents())
+		{
+			const VoiceEventRule *fallbackEvent = fallback->getEvent(event.first);
+			if (!fallbackEvent)
+			{
+				throw Exception("voiceProfiles[" + profile.getId()
+					+ "]: fallbackProfile must provide event '" + event.first + "'");
+			}
+			for (const std::string &lineId : event.second.lines)
+			{
+				if (std::find(fallbackEvent->lines.begin(), fallbackEvent->lines.end(),
+					lineId) == fallbackEvent->lines.end())
+				{
+					throw Exception("voiceProfiles[" + profile.getId()
+						+ "]: fallbackProfile event '" + event.first
+						+ "' must provide semantic line '" + lineId + "'");
+				}
+			}
+		}
+	}
+	if (!_voiceProfiles.empty())
+	{
+		Log(LOG_INFO) << "voiceProfiles: loaded " << _voiceProfiles.size()
+			<< " ruleset-backed profiles";
+	}
+}
+
 void Mod::loadFileCalypso(YAML::YamlNodeReader& reader)
 {
 	// Phase 36: re-declared loadFile glue so the extracted ruleset parsing below
@@ -1619,6 +1719,31 @@ void Mod::loadFileCalypso(YAML::YamlNodeReader& reader)
 		const auto& node = loadDocInfoHelper(nodeName);
 		return node.children();
 	};
+
+	for (const auto &ruleReader : iterateRulesSpecific("voiceProfiles"))
+	{
+		std::string id;
+		ruleReader["id"].tryReadVal<std::string>(id);
+		if (id.empty())
+		{
+			throw Exception("voiceProfiles: every profile requires a non-empty id");
+		}
+		RuleVoiceProfile profile(id);
+		profile.load(ruleReader);
+		_voiceProfiles[id] = std::move(profile);
+	}
+	for (const auto &ruleReader : iterateRulesSpecific("voiceRegions"))
+	{
+		std::string id;
+		ruleReader["id"].tryReadVal<std::string>(id);
+		if (id.empty())
+		{
+			throw Exception("voiceRegions: every region requires a non-empty id");
+		}
+		RuleVoiceRegion region(id);
+		region.load(ruleReader);
+		_voiceRegions[id] = std::move(region);
+	}
 
 	int _globeTexUploaded = 0;  // M5b: count uploads to suppress the mark on ruleset files with no globeTextures
 	for (const auto& ruleReader : iterateRulesSpecific("globeTextures"))
@@ -2200,9 +2325,9 @@ void Mod::loadFileCalypso(YAML::YamlNodeReader& reader)
 	// The key is owned by calypso-hd-pack; only a file that carries the key
 	// touches _hdUiFamilies (last-wins, matching battlescapeTileScale), so an
 	// unrelated ruleset file can never silently clear an owning mod's list. The
-	// list ships EMPTY; a family id is added only in the commit that passes its
-	// implementation checkpoint. isHdUiFamilyEnabled() does no YAML scanning or
-	// allocation at all.
+	// engine default is empty; the shipped HD pack adds only families whose
+	// implementation and owner rollout checkpoints have been accepted.
+	// isHdUiFamilyEnabled() does no YAML scanning or allocation at all.
 	auto hdNode = reader["hdUiFamilies"];
 	if (hdNode)
 	{
@@ -2257,6 +2382,31 @@ void Mod::loadFileCalypso(YAML::YamlNodeReader& reader)
 bool Mod::isHdUiFamilyEnabled(const std::string& familyId) const
 {
 	return Calypso::isHdUiFamilyEnabled(_hdPackActive, &_hdUiFamilies, familyId);
+}
+
+bool Mod::handleCalypsoGeoscapeMusic(const std::string &name)
+{
+	const bool geoscapeRequest = name == "GMGEO" || name == "GMINTER";
+	const bool controllerAvailable = EM_ASM_INT({
+		const available = globalThis.calypsoGeoscapeMusicIsAvailable;
+		return typeof available === 'function' ? available() : 0;
+	}) != 0;
+	if (geoscapeRequest && controllerAvailable)
+	{
+		// The browser controller will fade its selected stream in. Let any SDL
+		// track fade underneath it instead of playing the legacy GMGEO/GMINTER.
+		Mix_FadeOutMusic(1000);
+		_playingMusic = name;
+		return true;
+	}
+	if (!geoscapeRequest && controllerAvailable)
+	{
+		EM_ASM({
+			if (globalThis.calypsoGeoscapeMusicStop)
+				globalThis.calypsoGeoscapeMusicStop();
+		});
+	}
+	return false;
 }
 
 } // namespace OpenXcom

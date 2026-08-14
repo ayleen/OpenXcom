@@ -51,6 +51,7 @@
 #include "ExtraSprites.h"
 #include "CustomPalettes.h"
 #ifdef __EMSCRIPTEN__
+#  include <emscripten.h>
 #  include "../Engine/GpuTexture.h"
 #  include "../Engine/GpuInit.h"
 #  include <SDL_image.h>
@@ -1044,6 +1045,9 @@ Music *Mod::getRandomMusic(const std::string &name) const
  */
 void Mod::playMusic(const std::string &name, int id)
 {
+#ifdef __EMSCRIPTEN__
+	if (handleCalypsoGeoscapeMusic(name)) return;
+#endif
 	if (!Options::mute && _playingMusic != name)
 	{
 		int loop = -1;
@@ -2351,6 +2355,7 @@ void Mod::loadAll()
 	}
 	Log(LOG_INFO) << "Loading rulesets done.";
 #ifdef __EMSCRIPTEN__
+	validateVoiceProfiles();
 	calypso_log_heap("rulesets");  // M5: after YAML ruleset parse + globeTextures uploads
 #endif
 
@@ -5352,6 +5357,10 @@ Soldier *Mod::genSoldier(SavedGame *save, const RuleSoldier* ruleSoldier, int na
 
 	// calculate new statString
 	soldier->calcStatString(getStatStrings(), (Options::psiStrengthEval && save->isResearched(getPsiRequirements())));
+#if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_P_EN)
+	soldier->setVoiceProfile(selectVoiceProfile(soldier->getVoiceLocale(), "diver",
+		soldier->getGender() == GENDER_FEMALE ? "female" : "male", soldier->getId()));
+#endif
 
 	return soldier;
 }

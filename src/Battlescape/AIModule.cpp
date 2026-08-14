@@ -44,6 +44,7 @@
 #include "../Mod/RuleItem.h"
 #include "../Mod/RuleSoldierBonus.h" // Brutal-AI: getEnergyRecovery
 #include "../fmath.h"
+#include "../Calypso/CalypsoVoiceG05.h"
 
 namespace OpenXcom
 {
@@ -2858,6 +2859,7 @@ int AIModule::scoreFiringMode(BattleAction *action, BattleUnit *target, bool che
  */
 void AIModule::evaluateAIMode()
 {
+	const int prevMode = _AIMode;
 	if ((_unit->getCharging() && _attackAction.type != BA_RETHINK))
 	{
 		_AIMode = AI_COMBAT;
@@ -3171,6 +3173,23 @@ void AIModule::evaluateAIMode()
 		}
 		_AIMode = AI_ESCAPE;
 	}
+
+	// Phase 44 E3: a smart, non-guard civilian that actually transitions into
+	// the escape behavior (Phase 32) fires its "flee" bark. We fire on the real
+	// mode transition rather than in setupEscape(), because setupEscape only
+	// stages an escape route and can run even when the final AI mode resolves to
+	// combat/patrol (e.g. a brave armed civilian, or a guard whose escape is
+	// forced to 0). No per-mission flag: a civilian that leaves escape and later
+	// transitions back in may bark again, and the voice manager's event cooldown
+	// already handles spam. onCivilianFlee() no-ops for guards, and for profiles
+	// that don't declare the "flee" event.
+#if defined(__EMSCRIPTEN__) && (defined(CALYPSO_VOICE_G0_5) || defined(CALYPSO_VOICE_P_EN))
+	if (prevMode != AI_ESCAPE && _AIMode == AI_ESCAPE
+		&& isSmartCivilian() && !isCivilianGuard())
+	{
+		CalypsoVoiceG05::onCivilianFlee(_unit);
+	}
+#endif
 }
 
 /**

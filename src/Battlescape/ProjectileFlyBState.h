@@ -42,7 +42,7 @@ private:
 	int _range;
 	/// Tries to create a projectile sprite.
 	bool createNewProjectile();
-	bool _initialized, _targetFloor;
+	bool _initialized, _targetFloor, _voiceContinuesAction;
 
 public:
 	/// Creates a new ProjectileFly class

@@ -853,9 +853,24 @@ public:
 	/// (resolution change). Map reads/writes these instead of local members.
 	std::vector<CalypsoBloodPool> &getCalypsoBloodPools() { return _calypsoBloodPools; }
 	std::vector<CalypsoScorchDecal> &getCalypsoScorchDecals() { return _calypsoScorchDecals; }
+	/// Gets the voice locale used for civilian voice-profile assignment.
+	const std::string &getCivilianVoiceLocale() const { return _civilianVoiceLocale; }
+	/// Sets the voice locale used for civilian voice-profile assignment.
+	void setCivilianVoiceLocale(const std::string &locale) { _civilianVoiceLocale = locale; }
+	/// Runtime generation counter distinguishing a new map stage from UI reconstruction.
+	unsigned int getCalypsoVoiceStageGeneration() const { return _calypsoVoiceStageGeneration; }
+	void advanceCalypsoVoiceStageGeneration()
+	{
+		if (++_calypsoVoiceStageGeneration == 0)
+			++_calypsoVoiceStageGeneration;
+	}
 private:
 	std::vector<CalypsoBloodPool> _calypsoBloodPools;
 	std::vector<CalypsoScorchDecal> _calypsoScorchDecals;
+	// Phase 44: the voice locale to use when assigning stable 'civilian' voice
+	// profiles to spawned civilians. Defaults to 'en'; deployments may override.
+	std::string _civilianVoiceLocale = "en";
+	unsigned int _calypsoVoiceStageGeneration = 0;
 #endif
 };
 

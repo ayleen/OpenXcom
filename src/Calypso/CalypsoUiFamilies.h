@@ -62,8 +62,8 @@ namespace Calypso
 constexpr int CALYPSO_HD_UI_FAMILY_MIN = 1;
 
 /// Highest approved family number ("F38"). Families are added to the active
-/// list only in the commit that passes their implementation checkpoint, so the
-/// shipped ruleset list stays empty until then.
+/// list only in the commit that passes their implementation checkpoint. F34 is
+/// the first family authorized for rollout; the remaining families stay off.
 constexpr int CALYPSO_HD_UI_FAMILY_MAX = 38;
 
 // --- Validation -------------------------------------------------------------
@@ -117,6 +117,20 @@ inline bool isHdUiFamilyEnabled(bool hdPackActive,
 	return std::binary_search(sortedEnabled->begin(),
 	                          sortedEnabled->end(),
 	                          familyId);                    // O(log n), no allocation
+}
+
+// --- F34 rollout safety ----------------------------------------------------
+
+/// Applies the production safety policy on top of the family-wide F34 gate.
+/// RTL stays logical until the physical raster path supports bidi/shaping, and
+/// Battlescape error popups stay logical until gameplay post-effects and modal
+/// UI have separate compositor strata. Statistics and Notes pass false for the
+/// third argument.
+inline bool isF34PhysicalRouteEligible(bool familyEnabled,
+	bool rtlLanguage,
+	bool errorOverBattlescape)
+{
+	return familyEnabled && !rtlLanguage && !errorOverBattlescape;
 }
 
 // --- Pure parse helper ------------------------------------------------------
