@@ -184,13 +184,7 @@ PauseState::PauseState(OptionsOrigin origin) : _origin(origin)
 	// as an HTML overlay (pause-menu.js). All pushState(PauseState) call
 	// sites (Geoscape options, Battlescape pause, tab-hide) are covered
 	// because the hook lives here in the state itself.
-	Calypso::pauseMenuDomShow(
-		(int)_origin,
-		_btnLoad->getVisible(), _btnSave->getVisible(), _btnAbandon->getVisible(),
-		_btnOptions->getVisible(), _btnCancel->getVisible(),
-		std::string(tr("STR_OPTIONS_UC")),
-		_btnLoad->getText(), _btnSave->getText(), _btnAbandon->getText(),
-		_btnOptions->getText(), _btnCancel->getText());
+	domShow();
 	_window->setVisible(false);
 	_btnLoad->setVisible(false);
 	_btnSave->setVisible(false);
@@ -224,6 +218,36 @@ void PauseState::resize(int &dX, int &dY)
 	State::resize(dX, dY);
 #endif
 }
+
+#ifdef __EMSCRIPTEN__
+/**
+ * F33: push the pause-menu DOM overlay with the current labels/visibility.
+ */
+void PauseState::domShow()
+{
+	Calypso::pauseMenuDomShow(
+		(int)_origin,
+		_btnLoad->getVisible(), _btnSave->getVisible(), _btnAbandon->getVisible(),
+		_btnOptions->getVisible(), _btnCancel->getVisible(),
+		std::string(tr("STR_OPTIONS_UC")),
+		_btnLoad->getText(), _btnSave->getText(), _btnAbandon->getText(),
+		_btnOptions->getText(), _btnCancel->getText());
+}
+
+/**
+ * F33: re-show the DOM overlay when this state becomes the top state again
+ * (e.g. AbandonGameState was cancelled and popped back to the pause menu).
+ * Every frame while top, the JS hook no-ops once the overlay is visible.
+ */
+void PauseState::think()
+{
+	State::think();
+	if (_game->isState(this))
+	{
+		domShow();
+	}
+}
+#endif
 
 /**
  * Opens the Load Game screen.
@@ -300,6 +324,12 @@ void PauseState::btnOptionsClick(Action *)
  */
 void PauseState::btnAbandonClick(Action *)
 {
+#ifdef __EMSCRIPTEN__
+	// F33: AbandonGameState renders on the canvas, so the DOM pause overlay
+	// must hide first — otherwise the confirm dialog appears behind it. The
+	// overlay comes back via think() when this state is top again (cancel).
+	Calypso::pauseMenuDomHide();
+#endif
 	_game->pushState(new AbandonGameState(_origin));
 }
 
