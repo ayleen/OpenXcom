@@ -606,6 +606,7 @@ if(EMSCRIPTEN)
   list(APPEND openxcom_src Calypso/CalypsoSceneRegistry.cpp)
   list(APPEND openxcom_src Calypso/CalypsoPrologueCampaign.cpp)
   list(APPEND openxcom_src Calypso/CalypsoPrologueAskState.cpp)
+list(APPEND openxcom_src Calypso/CalypsoPauseMenu.cpp)
   list(APPEND openxcom_src Calypso/CalypsoPrologueEndState.cpp)
   # Phase 41: HTML meta-menu bridge — JS overlay screens drive the engine through
   # EMSCRIPTEN_KEEPALIVE exports defined here. Slice A0 ships calypso_bridge_ping.
@@ -788,7 +789,7 @@ if(EMSCRIPTEN)
     -sMAX_WEBGL_VERSION=2
     -sFULL_ES3=1
     "-sEXPORTED_RUNTIME_METHODS=[\"FS\",\"IDBFS\",\"callMain\",\"ccall\",\"cwrap\",\"wasmMemory\",\"UTF8ToString\",\"HEAPU8\"]"
-    "-sEXPORTED_FUNCTIONS=[\"_main\",\"_calypso_screenshot\",\"_calypso_screenshot_gpu\",\"_calypso_gpu_smoke_activate\",\"_calypso_hd_unit_e1_gpu_probe\"${CALYPSO_HD_UNIT_SPIKE_EXPORTED_FUNCTIONS}${CALYPSO_VOICE_G0_5_EXPORTED_FUNCTIONS},\"_calypso_push_mouse_motion\",\"_calypso_set_profile_globe\",\"_calypso_set_profile_battlescape\",\"_calypso_set_profile_readback\",\"_calypso_dump_emit_once\",\"_calypso_set_ssaa_scale\",\"_calypso_gl_context_lost\",\"_calypso_gl_context_restored\",\"_calypso_log_heap\",\"_calypso_heap_used\",\"_calypso_heap_total\",\"_calypso_on_tab_hidden\",\"_calypso_apply_touch_defaults\",\"_calypso_battlescape_zoom\",\"_calypso_text_set\",\"_calypso_text_commit\",\"_calypso_text_commit_multiline\",\"_calypso_text_cancel\",\"_calypso_tutorial_advance\",\"_calypso_tutorial_stop\",\"_calypso_tutorial_close\",\"_calypso_prologue_ask_yes\",\"_calypso_prologue_ask_no\"]"
+    "-sEXPORTED_FUNCTIONS=[\"_main\",\"_calypso_screenshot\",\"_calypso_screenshot_gpu\",\"_calypso_gpu_smoke_activate\",\"_calypso_hd_unit_e1_gpu_probe\"${CALYPSO_HD_UNIT_SPIKE_EXPORTED_FUNCTIONS}${CALYPSO_VOICE_G0_5_EXPORTED_FUNCTIONS},\"_calypso_push_mouse_motion\",\"_calypso_set_profile_globe\",\"_calypso_set_profile_battlescape\",\"_calypso_set_profile_readback\",\"_calypso_dump_emit_once\",\"_calypso_set_ssaa_scale\",\"_calypso_gl_context_lost\",\"_calypso_gl_context_restored\",\"_calypso_log_heap\",\"_calypso_heap_used\",\"_calypso_heap_total\",\"_calypso_on_tab_hidden\",\"_calypso_apply_touch_defaults\",\"_calypso_battlescape_zoom\",\"_calypso_text_set\",\"_calypso_text_commit\",\"_calypso_text_commit_multiline\",\"_calypso_text_cancel\",\"_calypso_tutorial_advance\",\"_calypso_tutorial_stop\",\"_calypso_tutorial_close\",\"_calypso_prologue_ask_yes\",\"_calypso_prologue_ask_no\",\"_calypso_pause_load\",\"_calypso_pause_save\",\"_calypso_pause_abandon\",\"_calypso_pause_options\",\"_calypso_pause_cancel\"]"
     -sENVIRONMENT=web
     -sMODULARIZE=1
     -sEXPORT_ES6=1

@@ -36,6 +36,7 @@
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #include "../Calypso/CalypsoDirector.h"
+#include "../Calypso/CalypsoPauseMenu.h"
 #endif
 
 namespace OpenXcom
@@ -176,6 +177,29 @@ PauseState::PauseState(OptionsOrigin origin) : _origin(origin)
 			}
 		}
 	}
+
+#ifdef __EMSCRIPTEN__
+	// F33 (2026-08-16): DOM overlay edition. All visibility/label logic above
+	// is unchanged; the bitmap widgets are merely hidden and the menu renders
+	// as an HTML overlay (pause-menu.js). All pushState(PauseState) call
+	// sites (Geoscape options, Battlescape pause, tab-hide) are covered
+	// because the hook lives here in the state itself.
+	Calypso::pauseMenuDomShow(
+		(int)_origin,
+		_btnLoad->getVisible(), _btnSave->getVisible(), _btnAbandon->getVisible(),
+		_btnOptions->getVisible(), _btnCancel->getVisible(),
+		std::string(tr("STR_OPTIONS_UC")),
+		_btnLoad->getText(), _btnSave->getText(), _btnAbandon->getText(),
+		_btnOptions->getText(), _btnCancel->getText());
+	_window->setVisible(false);
+	_btnLoad->setVisible(false);
+	_btnSave->setVisible(false);
+	_btnAbandon->setVisible(false);
+	_btnOptions->setVisible(false);
+	_btnCancel->setVisible(false);
+	_txtTitle->setVisible(false);
+	_txtVersion->setVisible(false);
+#endif
 }
 
 /**
@@ -183,7 +207,10 @@ PauseState::PauseState(OptionsOrigin origin) : _origin(origin)
  */
 PauseState::~PauseState()
 {
-
+#ifdef __EMSCRIPTEN__
+	// Safety net for pops that skip btnCancelClick (abandon confirm, etc.).
+	Calypso::pauseMenuDomHide();
+#endif
 }
 
 /**
@@ -282,6 +309,10 @@ void PauseState::btnAbandonClick(Action *)
  */
 void PauseState::btnCancelClick(Action *)
 {
+#ifdef __EMSCRIPTEN__
+	// Hide before popState — the destructor runs on a later frame.
+	Calypso::pauseMenuDomHide();
+#endif
 	_game->popState();
 }
 
