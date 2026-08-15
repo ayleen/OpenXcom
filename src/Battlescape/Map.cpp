@@ -1873,6 +1873,7 @@ void Map::drawTerrainOverlayCPU(Surface *surface)
 								}
 								itemSprite.setEmitMode(
 								    &_unitAtlasGroups[idx].instances,
+								    &_unitAtlasGroups[idx].rgbaOverlayInstances,
 								    itemAtlasSpec, itZ, itY, mapPosition.x,
 								    &_unitAtlasGroups[idx].zLevels,
 								    &_unitAtlasGroups[idx].yLevels);

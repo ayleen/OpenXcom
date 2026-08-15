@@ -1684,6 +1684,7 @@ void Map::drawTileGLPass()
 	// unitShade (Phase 25 R7) feeds u_unitShade: g_calypsoUnitShade for bodies/
 	// held items, 0 for floor items / any non-fake-AO draw.
 	auto drawAtlas = [&](GpuTexture* atlas, float uvW, float uvH,
+	                     float pixelW, float pixelH,
 	                     size_t baseInstance, size_t count, bool isRgba,
 	                     float unitShade, GpuTexture* hdMask,
 	                     float maskU, float maskV, float maskUvW, float maskUvH) {
@@ -1695,7 +1696,6 @@ void Map::drawTileGLPass()
 		{
 			sh->use();
 			sh->setUniform2f("u_screenSize",    SW, SH);
-			sh->setUniform2f("u_tilePixelSize", (float)_spriteWidth, (float)_spriteHeight);
 			sh->setUniform1f("u_animFrame",     _animFrameGPU);
 			sh->setUniform1i("u_atlas",         0);
 			if (!isRgba)
@@ -1712,13 +1712,14 @@ void Map::drawTileGLPass()
 			activeShader = sh;
 		}
 		atlas->bind(0);
+		sh->setUniform2f("u_tilePixelSize", pixelW, pixelH);
 		sh->setUniform2f("u_tileUVSize", uvW, uvH);
 		if (isRgba)
 			sh->setUniform1i("u_unitGeometry", 1);
-		// Phase 25 R7: fake unit lighting. Set per-draw (not in the cached setup) —
-		// _tileShader is shared with the tile draws, which reset it to 0.
 		if (!isRgba)
 		{
+			// Phase 25 R7: fake unit lighting. Set per draw because the R8
+			// shader is shared with tile draws, which reset it to zero.
 			sh->setUniform1f("u_unitShade", unitShade);
 			sh->setUniform1i("u_hasHdMask", hdMask ? 1 : 0);
 			if (hdMask)
@@ -1831,6 +1832,7 @@ void Map::drawTileGLPass()
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
 	const Mod::UnitAtlasSpec* floorSpec = _game->getMod()->getUnitAtlas("FLOOROB.PCK");
+	const Mod::UnitAtlasSpec* handSpec = _game->getMod()->getUnitAtlas("HANDOB.PCK");
 	const bool hasRgbaThisFrame = std::any_of(
 		_unitAtlasGroups.begin(), _unitAtlasGroups.end(),
 		[](const UnitAtlasGroup& group) {
@@ -1855,8 +1857,12 @@ void Map::drawTileGLPass()
 			const float uvW = (float)g.spec->tileWidth  / (float)g.spec->atlasW;
 			const float uvH = (float)g.spec->tileHeight / (float)g.spec->atlasH;
 			const float unitShade = (g.spec == floorSpec) ? 0.0f : g_calypsoUnitShade;
+			const float geometryScale = (g.spec == handSpec) ? kHdHandobGeometryScale : 1.0f;
 			uploadUnitInstances(g.instances.data(), g.instances.size());
-			drawAtlas(g.spec->atlas, uvW, uvH, 0, g.instances.size(), false,
+			drawAtlas(g.spec->atlas, uvW, uvH,
+			          (float)_spriteWidth * geometryScale,
+			          (float)_spriteHeight * geometryScale,
+			          0, g.instances.size(), false,
 			          unitShade, nullptr, 0.0f, 0.0f, 0.0f, 0.0f);
 		}
 	}
@@ -1876,9 +1882,16 @@ void Map::drawTileGLPass()
 			const float uvW = (float)g.spec->tileWidth  / (float)g.spec->atlasW;
 			const float uvH = (float)g.spec->tileHeight / (float)g.spec->atlasH;
 			const float unitShade = (g.spec == floorSpec) ? 0.0f : g_calypsoUnitShade;
+			const float geometryScale = (g.spec == handSpec) ? kHdHandobGeometryScale : 1.0f;
+			const float pixelW = (float)_spriteWidth * geometryScale;
+			const float pixelH = (float)_spriteHeight * geometryScale;
 			const size_t baselineFirst = unitPainter.size();
 			for (const TileInstance& instance : g.instances)
+			{
 				unitPainter.push_back({g.spec->atlas, uvW, uvH, instance, false, unitShade});
+				unitPainter.back().pixelW = pixelW;
+				unitPainter.back().pixelH = pixelH;
+			}
 
 			if (!g.spec->hasRgbaOverlay()
 			 || g.spec->frameWidth <= 0 || g.spec->frameHeight <= 0
@@ -1909,7 +1922,7 @@ void Map::drawTileGLPass()
 					unitPainter.push_back({atlas, rgbaUvW, rgbaUvH,
 					                       overlay.instance, true, 0.0f,
 					                       nullptr, 0.0f, 0.0f, 0.0f, 0.0f,
-					                       sourceOrder++});
+					                       pixelW, pixelH, sourceOrder++});
 				}
 			}
 			// Match the old stable input order: this group's overlays were appended
@@ -1930,7 +1943,8 @@ void Map::drawTileGLPass()
 			    && a.rgba == b.rgba && a.unitShade == b.unitShade
 			    && a.hdMask == b.hdMask
 			    && a.maskU == b.maskU && a.maskV == b.maskV
-			    && a.maskUvW == b.maskUvW && a.maskUvH == b.maskUvH;
+			    && a.maskUvW == b.maskUvW && a.maskUvH == b.maskUvH
+			    && a.pixelW == b.pixelW && a.pixelH == b.pixelH;
 		};
 		std::vector<TileInstance>& unitUpload = _unitUploadScratch;
 		unitUpload.clear();
@@ -1966,7 +1980,8 @@ void Map::drawTileGLPass()
 				while (end < unitPainter.size() && compatible(unitPainter[end - 1], unitPainter[end]))
 					++end;
 				const HdUnitPainterDraw& draw = unitPainter[first];
-				drawAtlas(draw.atlas, draw.uvW, draw.uvH, first, end - first,
+				drawAtlas(draw.atlas, draw.uvW, draw.uvH,
+				          draw.pixelW, draw.pixelH, first, end - first,
 				          draw.rgba, draw.unitShade, draw.hdMask,
 				          draw.maskU, draw.maskV, draw.maskUvW, draw.maskUvH);
 				first = end;
@@ -2003,7 +2018,8 @@ void Map::drawTileGLPass()
 		const float uvW = (float)g.spec->tileWidth / (float)g.spec->atlasW;
 		const float uvH = (float)g.spec->tileHeight / (float)g.spec->atlasH;
 		uploadUnitInstances(g.g0OverlayInstances.data(), g.g0OverlayInstances.size());
-		drawAtlas(g.spec->g0OverlayAtlas, uvW, uvH, 0,
+		drawAtlas(g.spec->g0OverlayAtlas, uvW, uvH,
+		          (float)_spriteWidth, (float)_spriteHeight, 0,
 		          g.g0OverlayInstances.size(), true, 0.0f,
 		          nullptr, 0.0f, 0.0f, 0.0f, 0.0f);
 	}

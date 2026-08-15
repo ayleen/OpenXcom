@@ -172,7 +172,7 @@ uniform vec2 u_tilePixelSize;
 uniform vec2 u_tileUVSize;
 // Unit RGBA frames must use the exact same 1px-per-side expansion as their R8
 // fallback/mask. Terrain RGBA keeps its established 2px expansion.
-uniform int  u_unitGeometry;
+uniform highp int u_unitGeometry;
 
 out vec2  v_uv;
 out vec2  v_localUV;
@@ -646,11 +646,10 @@ void main()
 static const char* kTile_atlasFragSrc = R"glsl(
 uniform sampler2D u_atlas;
 uniform sampler2D u_shadeTable;
-// Phase 42 E1: optional production RGBA alpha mask for an HD-backed unit
-// emission. Where the RGBA frame has any coverage, discard the R8 baseline so
-// fractional authored edges blend with the previously painted behind part,
-// not with their own opaque vanilla fallback. Transparent RGBA texels retain
-// the R8 fallback. Unit painter draws set this per emission; terrain resets it.
+// Phase 42 E1: replacement marker for an HD-backed unit emission.  The RGBA
+// sibling replaces the complete authored PCK part; retaining the R8 baseline
+// through transparent areas leaks the old suit around a differently shaped HD
+// silhouette. Unit painter draws set this per emission; terrain resets it.
 uniform sampler2D u_hdMask;
 uniform int       u_hasHdMask;
 uniform vec4      u_hdMaskUv; // xy=frame origin, zw=frame UV size
@@ -682,9 +681,7 @@ void main()
 
     if (u_hasHdMask == 1)
     {
-        float hdAlpha = texture(u_hdMask,
-            u_hdMaskUv.xy + v_localUV * u_hdMaskUv.zw).a;
-        if (hdAlpha >= 0.01) discard;
+        discard;
     }
 
     // Sample atlas: R channel holds the palette index normalised to [0, 1].
@@ -732,6 +729,7 @@ uniform sampler2D u_atlas;
 uniform sampler2D u_shadeCurve;  // unit 3: 16×1 night ramp (Phase 22, P5)
 uniform float     u_animFrame;
 uniform vec2      u_tileUVSize;
+uniform highp int u_unitGeometry;
 // Phase 25 R3: tangent-space normal map (unit 4; LINEAR non-sRGB). u_hasNormalMap
 // is reset per draw group in Map::drawTileGLPass so non-mapped datasets stay flat.
 uniform sampler2D u_normalMap;
@@ -779,8 +777,10 @@ void main()
     // border around each cell and clamp-to-edge samples outside the mask).
     if (c.a < 0.01) discard;
 
-    // Undiscovered tiles (v_shade==16 from CPU side) render as opaque black.
-    if (v_shade >= 15.5)
+    // Undiscovered terrain remains opaque black. Visible units can also carry
+    // shade 16 in dark Battlescape cells; keep their authored fill instead of
+    // replacing the entire RGBA sprite with a featureless silhouette.
+    if (v_shade >= 15.5 && u_unitGeometry != 1)
     {
         fragColor = vec4(0.0, 0.0, 0.0, 1.0);
         return;
@@ -789,6 +789,16 @@ void main()
     // Phase 22 (P5): luminance-ramp darkening from the palette shade table so
     // HD overlay tiles match the brightness of adjacent blend tiles at night.
     float shadeF  = texture(u_shadeCurve, vec2((v_shade + 0.5) / 16.0, 0.5)).r;
+    vec3 authored = c.rgb;
+    if (u_unitGeometry == 1)
+    {
+        float unitAmount = 1.0;
+        float ambientFloor = mix(0.0, 0.90, unitAmount);
+        shadeF = max(shadeF, ambientFloor);
+        // Lift dark authored navy into a visible midtone while preserving hue
+        // and highlights. The underwater grade still supplies the scene tint.
+        authored = mix(authored, pow(authored, vec3(0.45)), unitAmount);
+    }
 
     // Phase 25 R3/R4: optional normal-map diffuse relief + ambient occlusion.
     // RGB decodes the tangent-space normal (0.5 + N*0.5) → Lambert against the sun;
@@ -802,7 +812,7 @@ void main()
         float ao = nm.a;                                   // R4: ambient occlusion
         relief = ao * (0.6 + 0.4 * max(dot(n, normalize(u_sunDir)), 0.0));
     }
-    vec3 lit = c.rgb * shadeF * relief;
+    vec3 lit = authored * shadeF * relief;
 
     // Phase 25 R6: add material emission on top of the lit colour (self-lit, so it
     // survives night/shadow). Premultiplied by its own alpha; the global strength

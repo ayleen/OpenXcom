@@ -21,6 +21,11 @@ namespace OpenXcom
 {
 class GpuTexture;
 
+// The original HANDOB art was authored against the stock aquanaut silhouette.
+// The replacement diver has a slimmer physical profile, so keep held equipment
+// at a readable but subordinate size instead of spanning the full body height.
+constexpr float kHdHandobGeometryScale = 0.72f;
+
 /// Per-tile / per-unit GPU instance record submitted to the tile_atlas shader.
 /// Relocated verbatim from Map::TileInstance (Phase 36 R6). The instance layout
 /// (12 floats) is asserted in MapGl.cpp::initTileGL — do not reorder fields.
@@ -59,6 +64,7 @@ struct HdUnitPainterDraw
 	float unitShade = 0.0f;
 	GpuTexture* hdMask = nullptr;
 	float maskU = 0.0f, maskV = 0.0f, maskUvW = 0.0f, maskUvH = 0.0f;
+	float pixelW = 0.0f, pixelH = 0.0f;
 	size_t sourceOrder = 0;
 };
 
@@ -118,6 +124,12 @@ HdUnitScalePlan makeHdUnitScalePlan(const HdUnitAtlasSpec* bodySpec,
 /// Context-loss recovery uses this to fall back to R8 page-by-page.
 bool hdUnitRgbaPageUsable(const HdUnitAtlasSpec* spec, int frameIdx);
 
+/// Attach one sparse RGBA sibling to an already emitted R8 baseline.
+void emitHdUnitRgbaOverlay(const HdUnitAtlasSpec* spec, int frameIdx,
+	                       const HdTileInstance& baseline, float basePriority,
+	                       size_t baselineIndex,
+	                       std::vector<std::vector<HdRgbaOverlayInstance>>* pages);
+
 void setHdUnitEmitTargets(HdUnitEmitState& state, const HdUnitEmitTargets& targets,
 	                      int partOffsetScale);
 void clearHdUnitEmitTargets(HdUnitEmitState& state);
@@ -129,7 +141,7 @@ bool emitHdUnitPart(HdUnitEmitState& state, HdUnitPartKind kind,
 	                int frameIdx, int logicalOffX, int logicalOffY,
 	                bool indexedSource, int screenX, int screenY, int shade,
 	                int maskBegX, int maskEndX, int maskBegY, int maskEndY,
-	                int unitId, int direction);
+	                int unitId, int direction, int rgbaFrameIdx = -1);
 
 float hdUnitDebugE1LocalPriority(int sequence, bool overlay);
 unsigned int hdUnitDebugE1DepthCode(int basePriority, int sequence, bool overlay);

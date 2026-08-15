@@ -50,6 +50,7 @@ private:
 		int offY;
 #ifdef __EMSCRIPTEN__
 		int frameIdx = -1;   // PCK frame index within its SurfaceSet (-1 = unknown)
+		int rgbaFrameIdx = -1; // optional HD-only overlay frame; baseline stays frameIdx
 		bool isItem  = false; // true = from _itemSurface, false = from _unitSurface
 #endif
 

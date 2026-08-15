@@ -81,7 +81,9 @@ struct HdUnitAtlasSpec
 		       ? rgbaPageOf[(size_t)frame] : -1;
 	}
 	/// Resolve the source-PCK-pixel -> live-quad scale for every sheet,
-	/// including R8-only fallback. A declared RGBA scale must match it.
+	/// including R8-only fallback. The RGBA cell may deliberately have a higher
+	/// sampling resolution than the live quad; its authored scale is validated
+	/// separately and must not disable a valid downsampled render geometry.
 	int partScaleForFrame(int renderW, int renderH) const {
 		if (!partOffsetScaleValid || sourceFrameWidth <= 0 || sourceFrameHeight <= 0
 		 || renderW <= 0 || renderH <= 0
@@ -90,7 +92,6 @@ struct HdUnitAtlasSpec
 		const int scaleX = renderW / sourceFrameWidth;
 		const int scaleY = renderH / sourceFrameHeight;
 		if (scaleX <= 0 || scaleX != scaleY) return 0;
-		if (partOffsetScaleConfigured && scaleX != partOffsetScale) return 0;
 		return scaleX;
 	}
 	bool partScaleMatchesFrame(int renderW, int renderH) const {

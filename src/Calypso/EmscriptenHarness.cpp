@@ -435,8 +435,10 @@ static E1GpuEdgeProof runE1GpuEdgeProof()
     };
     for (const E1GpuEdgeSample& sample : result.samples)
     {
+        // An authored RGBA frame replaces its complete R8 part. Transparent
+        // texels reveal the already-painted scene rather than the old suit.
         std::array<unsigned char, 4> expected = sample.alpha < 3
-            ? green : std::array<unsigned char, 4>{(unsigned char)sample.alpha, 0,
+            ? blue : std::array<unsigned char, 4>{(unsigned char)sample.alpha, 0,
                 (unsigned char)(255 - sample.alpha), 255};
         result.passed = result.passed
             && close(sample.naturalCenter, expected)
@@ -684,8 +686,12 @@ int calypso_unit_atlas_probe(const char *sheet, const char *outJsonPath)
 		mismatchedHandob.sourceFrameWidth = 16;
 		mismatchedHandob.sourceFrameHeight = 20;
 		const bool mismatchRejected = mismatchedHandob.partScaleForFrame(128, 160) != 4;
+		// Authored texture resolution and live render geometry are independent:
+		// a 4x RGBA cell may be downsampled into a 2x Battlescape quad. The
+		// declaration only has to be internally valid; runtime body/HANDOB scales
+		// must still agree with each other.
 		const bool declaredScaleCompatible = !spec->partOffsetScaleConfigured
-		    || (spec->partOffsetScaleValid && spec->partOffsetScale == bodyRuntimeScale);
+		    || spec->partOffsetScaleValid;
 		const bool e2Passed = UnitSprite::debugE2OffsetProof()
 		    && r8FallbackScaled && bodyRuntimeScale == liveTileScale
 		    && declaredScaleCompatible && handobScaleCompatible && mismatchRejected;
@@ -985,6 +991,37 @@ float g_calypsoTileEmissive = 1.5f;
 // floor items are never affected. Live-tune via _calypso_set_unit_shade.
 float g_calypsoUnitShade = 1.0f;
 
+// Phase 42: HD unit weapon registration. The 3D-rendered arm poses place the
+// hand at a different screen pixel than the vanilla arm sprites the HANDOB
+// offset tables were tuned for, so a held weapon lands beside/below the hand.
+// These per-(slot, two-handed, direction) pixel nudges re-seat the HANDOB sprite
+// in the rendered hand; slot 0 = right item, 1 = left item. All zero by default
+// (vanilla placement). UnitSprite.cpp reads these under __EMSCRIPTEN__; live-tune
+// via _calypso_set_weapon_hand_offset(slot, twoHanded, dir, dx, dy).
+//
+// The HD carry poses are solved so the rendered palm lands on the vanilla grip
+// itself (tools/hd-unit-hand-pixels.py measures where the vanilla routine-13
+// arm meets a HANDOB weapon; tools/hd-unit-hand-fit-blender.py fits the single
+// armature-space point that explains all eight directions and the arm poses
+// aim at it).  One rigid 3D grip cannot reproduce eight hand-drawn frames
+// exactly, and this table is exactly that leftover: rendered hand minus vanilla
+// hand, per direction, in 32x40 logical pixels.  It is generated, not tuned --
+// regenerate with the two tools above and copy the emitted
+// `weapon_hand_offsets` block from docs/measurements/phase-42-hand-targets.json.
+// Slot 0 = right item (1H uses the one-hand-carry arm 248, 2H the trigger arm
+// 240), slot 1 = left item (always drawn against the support arm 232).
+// Directions where the vanilla arm is occluded by the torso and only grazes the
+// weapon carry no correction: there the 3D fit is the more trustworthy of the
+// two, so those entries stay 0.
+int g_calypsoWeaponHandOffX[2][2][8] = {
+	{ { 0, 0, 0, 0, -1, 1, 0, -2 }, { 1, -3, 2, 2, -2, 2, 0, -1 } },
+	{ { 0, -3, 2, -2, -1, 3, -1, 0 }, { 0, -3, 2, -2, -1, 3, -1, 0 } },
+};
+int g_calypsoWeaponHandOffY[2][2][8] = {
+	{ { 1, 0, 1, 0, 0, -1, -1, -1 }, { 0, 0, 0, 2, 0, -1, 0, -1 } },
+	{ { 0, -1, 0, 2, 0, 0, 0, -1 }, { 0, -1, 0, 2, 0, 0, 0, -1 } },
+};
+
 static float clamp01p(float v) { return v < 0.0f ? 0.0f : (v > 2.0f ? 2.0f : v); }
 static float clamp08 (float v) { return v < 0.0f ? 0.0f : (v > 8.0f ? 8.0f : v); }
 static float clamp01 (float v) { return v < 0.0f ? 0.0f : (v > 1.0f ? 1.0f : v); }
@@ -1002,6 +1039,11 @@ EMSCRIPTEN_KEEPALIVE void calypso_set_uw_shock   (float v) { g_calypsoUwShock   
 EMSCRIPTEN_KEEPALIVE void calypso_set_uw_emissive(float v) { g_calypsoUwEmissive = clamp01p(v); }
 EMSCRIPTEN_KEEPALIVE void calypso_set_tile_emissive(float v) { g_calypsoTileEmissive = clamp08(v); } // Phase 25 R6
 EMSCRIPTEN_KEEPALIVE void calypso_set_unit_shade  (float v) { g_calypsoUnitShade   = clamp01(v); } // Phase 25 R7
+EMSCRIPTEN_KEEPALIVE void calypso_set_weapon_hand_offset(int slot, int twoHanded, int dir, int dx, int dy) { // Phase 42
+	if (slot < 0 || slot > 1 || twoHanded < 0 || twoHanded > 1 || dir < 0 || dir > 7) return;
+	g_calypsoWeaponHandOffX[slot][twoHanded][dir] = dx;
+	g_calypsoWeaponHandOffY[slot][twoHanded][dir] = dy;
+}
 
 /* L2 (memory-reduction): runtime SSAA supersample-factor override.
  * 0 = "unset" — Map::ensureSsaaTarget falls back to _ssaaScale (default 2×).

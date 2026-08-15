@@ -29,6 +29,14 @@
 #include "../Engine/Exception.h"
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/HdUnitBattleSpike.h"
+
+#ifdef __EMSCRIPTEN__
+// Calypso HD weapon registration table (defined in Calypso/EmscriptenHarness.cpp):
+// per (slot 0=right/1=left item, two-handed 0/1, direction 0..7) pixel nudge that
+// re-seats the HANDOB weapon in the 3D-rendered hand. See UnitSprite::drawRoutine0.
+extern "C" int g_calypsoWeaponHandOffX[2][2][8];
+extern "C" int g_calypsoWeaponHandOffY[2][2][8];
+#endif
 #endif
 
 namespace OpenXcom
@@ -230,7 +238,8 @@ void UnitSprite::blitBody(Part& body)
 	if (emitHdUnitPart(_hdEmit, HdUnitPartKind::Body, body.frameIdx,
 	    body.offX, body.offY, true, _x, _y, _shade,
 	    _mask.beg_x, _mask.end_x, _mask.beg_y, _mask.end_y,
-	    _unit ? _unit->getId() : -1, _unit ? _unit->getDirection() : -1))
+	    _unit ? _unit->getId() : -1, _unit ? _unit->getDirection() : -1,
+	    body.rgbaFrameIdx))
 		return;
 #endif
 	ScriptWorkerBlit work;
@@ -601,6 +610,16 @@ void UnitSprite::drawRoutine0()
 
 	sortRifles();
 
+#ifdef __EMSCRIPTEN__
+	// The replacement diver owns an additional support-arm pose in the eight
+	// base-unreferenced TDXCOM_0 slots. Wide inventory weapons use the larger
+	// hand spacing while their R8 baseline and painter order remain unchanged.
+	auto useWideHdGrip = [this](const BattleItem *item) {
+		return _drawingRoutine == 13 && item && item->getRules()->isTwoHanded()
+		    && item->getRules()->getInventoryWidth() > 1;
+	};
+#endif
+
 	// holding an item
 	if (_itemR)
 	{
@@ -639,6 +658,9 @@ void UnitSprite::drawRoutine0()
 		if (_itemR->getRules()->isTwoHanded())
 		{
 			selectUnit(leftArm, larm2H, unitDir);
+#ifdef __EMSCRIPTEN__
+			if (useWideHdGrip(_itemR)) leftArm.rgbaFrameIdx = 278 + unitDir;
+#endif
 			if (_unit->getStatus() == STATUS_AIMING)
 			{
 				selectUnit(rightArm, rarmShoot, unitDir);
@@ -670,6 +692,9 @@ void UnitSprite::drawRoutine0()
 	if (_itemL)
 	{
 		selectUnit(leftArm, larm2H, unitDir);
+#ifdef __EMSCRIPTEN__
+		if (useWideHdGrip(_itemL)) leftArm.rgbaFrameIdx = 278 + unitDir;
+#endif
 		selectItem(itemL, _itemL, unitDir);
 		if (!_itemL->getRules()->isTwoHanded())
 		{
@@ -758,6 +783,24 @@ void UnitSprite::drawRoutine0()
 	{
 		rightArm.offX = (-6);
 	}
+
+#ifdef __EMSCRIPTEN__
+	// Calypso: HD arm art places the hand at a different pixel than the vanilla
+	// arm the HANDOB offset tables assume; nudge the weapon back into the hand
+	// per (slot, two-handed, direction). Zero by default. See WeaponHandOffset.
+	if (itemR)
+	{
+		int th = (_itemR && _itemR->getRules()->isTwoHanded()) ? 1 : 0;
+		itemR.offX = (itemR.offX + g_calypsoWeaponHandOffX[0][th][unitDir]);
+		itemR.offY = (itemR.offY + g_calypsoWeaponHandOffY[0][th][unitDir]);
+	}
+	if (itemL)
+	{
+		int th = (_itemL && _itemL->getRules()->isTwoHanded()) ? 1 : 0;
+		itemL.offX = (itemL.offX + g_calypsoWeaponHandOffX[1][th][unitDir]);
+		itemL.offY = (itemL.offY + g_calypsoWeaponHandOffY[1][th][unitDir]);
+	}
+#endif
 
 	// blit order depends on unit direction, and whether we are holding a 2 handed weapon.
 	switch (unitDir)

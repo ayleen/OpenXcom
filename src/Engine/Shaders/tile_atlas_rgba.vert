@@ -23,7 +23,7 @@ uniform vec2 u_tilePixelSize;
 uniform vec2 u_tileUVSize;
 // Unit RGBA frames must use the exact same 1px-per-side expansion as their R8
 // fallback/mask. Terrain RGBA keeps its established 2px expansion.
-uniform int  u_unitGeometry;
+uniform highp int u_unitGeometry;
 
 out vec2  v_uv;
 out vec2  v_localUV;
