@@ -44,6 +44,7 @@
   "tracking": { "titleEm": 0.12, "labelEm": 0.12 },
   "typography": {
     "titleFontSizeScale": 0.8,
+    "bodyFontSizeScale": 0.8,
     "labelFontSizePx": 17,
     "bodyFontSizePx": 15,
     "bodyLineHeight": 1.5,

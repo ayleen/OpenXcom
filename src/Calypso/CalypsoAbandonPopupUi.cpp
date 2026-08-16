@@ -368,7 +368,8 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 		if (r.w > 0 && r.h > 0)
 		{
 			const int physicalPixelHeight = std::max(1,
-				(int)calypsoHdRoundToInt((double)CalypsoHdTheme::kBodyFontSizePx * sy));
+				(int)calypsoHdRoundToInt((double)CalypsoHdTheme::kBodyFontSizePx *
+					CalypsoHdTheme::kBodyFontSizeScale * sy));
 			const int wrapWidth = std::max(1, (int)calypsoHdRoundToInt((double)r.w * sx));
 
 			CalypsoHdTextRasterKey key;

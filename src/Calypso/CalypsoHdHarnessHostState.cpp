@@ -12,6 +12,7 @@
 #include "../Engine/Game.h"
 #include "../Engine/Screen.h"
 #include "../Engine/Logger.h"
+#include "../Interface/Cursor.h"
 #include "../Menu/AbandonGameState.h"
 
 #include "CalypsoAbandonPopupUi.h" // calypsoHdHarnessSetSideBySide (F33 comparison shift)
@@ -26,6 +27,32 @@ namespace
 
 /// One active harness run at a time (repeated opens are no-ops).
 CalypsoHarnessSession g_harnessSession;
+bool g_harnessCursorCaptured = false;
+bool g_harnessCursorVisible = true;
+bool g_harnessCursorHidden = false;
+
+void hideHarnessCursor(Game* game)
+{
+	if (!game || !game->getCursor() || g_harnessCursorCaptured) return;
+	Cursor* cursor = game->getCursor();
+	g_harnessCursorVisible = cursor->getVisible();
+	g_harnessCursorHidden = cursor->getHidden();
+	g_harnessCursorCaptured = true;
+	cursor->setVisible(false);
+	cursor->setHidden(true);
+}
+
+void restoreHarnessCursor(Game* game)
+{
+	if (!g_harnessCursorCaptured) return;
+	if (game && game->getCursor())
+	{
+		Cursor* cursor = game->getCursor();
+		cursor->setVisible(g_harnessCursorVisible);
+		cursor->setHidden(g_harnessCursorHidden);
+	}
+	g_harnessCursorCaptured = false;
+}
 
 } // namespace
 
@@ -116,6 +143,7 @@ bool calypsoHdHarnessOpen(CalypsoHarnessScenario id, CalypsoLayoutClass layout,
 		{
 			g->pushState(target);
 			calypsoHarnessTargetUp(s);
+			hideHarnessCursor(g);
 			return true;
 		}
 		// Unknown/empty target: roll the session back; the host pops itself.
@@ -131,6 +159,7 @@ bool calypsoHdHarnessOpen(CalypsoHarnessScenario id, CalypsoLayoutClass layout,
 
 void calypsoHdHarnessClose()
 {
+	restoreHarnessCursor(getCurrentGame());
 	calypsoHarnessClose(calypsoHarnessSession());
 	// Clear the F33 side-by-side comparison shift so ordinary gameplay never
 	// inherits harness presentation (the flag is F33-adapter file state).

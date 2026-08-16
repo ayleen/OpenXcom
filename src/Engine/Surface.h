@@ -444,6 +444,8 @@ public:
 	}
 	/// Sets the surface's special hidden flag.
 	void setHidden(bool hidden);
+	/// Gets the surface's special hidden flag.
+	bool getHidden() const { return _hidden != 0; }
 	/// Locks the surface.
 	void lock();
 	/// Unlocks the surface.
