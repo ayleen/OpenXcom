@@ -109,9 +109,18 @@ CalypsoLogicalRect widgetRect(const Surface* surface)
 CalypsoInteractionState buttonVisualState(const TextButton* btn)
 {
 	if (!btn) return CalypsoInteractionState::Rest;
+	// NOTE: the Disabled interaction state is unreachable today -- no widget
+	// API exposes an enabled/disabled flag (InteractiveSurface has none), and
+	// the F33 confirm buttons are always enabled. When a widget gains such a
+	// flag, map it here (before hover/focus) so the Disabled tokens/opacity
+	// from the contract take effect.
 	if (btn->isPressed()) return CalypsoInteractionState::Pressed;
-	if (btn->isFocused()) return CalypsoInteractionState::Focus;
+	// Hover precedes the default focus: the vanilla buttons start FOCUSED
+	// (InteractiveSurface ctor) -- that is the keyboard-focus default, not a
+	// user interaction -- so without this priority the pointer-over state
+	// could never surface (F33-PARITY-008: hover/focus/pressed never static).
 	if (btn->isHovered()) return CalypsoInteractionState::Hover;
+	if (btn->isFocused()) return CalypsoInteractionState::Focus;
 	return CalypsoInteractionState::Rest;
 }
 
@@ -181,7 +190,16 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 		_presentedAtFrame = CalypsoHdUiOverlay::instance().frameId();
 	}
 	double progress = 1.0;
-	if (!calypsoHarnessSession().motionDisabled)
+	// Deterministic freeze: the capture harness can pin the presentation clock
+	// at a fixed progress so a screenshot shows a stable mid-ramp frame
+	// (F33.5 motion evidence). Otherwise the live clock runs while motion is
+	// enabled; capture mode (motion=0) settles instantly.
+	const int holdPct = calypsoHarnessSession().motionHoldPct;
+	if (holdPct >= 0)
+	{
+		progress = std::min(1.0, (double)holdPct / 100.0);
+	}
+	else if (!calypsoHarnessSession().motionDisabled)
 	{
 		const std::uint64_t totalFrames = std::max<std::uint64_t>(1,
 			(std::uint64_t)std::llround(CalypsoF33AbandonGen::kMotionDurationMs * 60.0 / 1000.0));
@@ -428,7 +446,8 @@ void CalypsoAbandonPopupUi::configure(AbandonGameState& state, bool allowPhysica
 	CalypsoAbandonPopupUi::applyRects(state, layout);
 
 	// Fit/center every design-space rect into the engine's actual logical canvas.
-	state.enableUiScaling(layout.designWidth, layout.designHeight, 1.0f);
+	state.enableUiScaling(layout.designWidth, layout.designHeight, 1.0f,
+		/*subtractVanillaCenter=*/false);
 
 	// Create + register the snapshot-only adapter (driven at the pre-blit
 	// boundary; no feeder Surface, no _surfaces reordering).
@@ -459,7 +478,8 @@ bool CalypsoAbandonPopupUi::resize(AbandonGameState& state)
 		const CalypsoF33AbandonLayout layout = calypsoF33AbandonLayout(
 			wide ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact);
 		CalypsoAbandonPopupUi::applyRects(state, layout);
-		state.recaptureUiScaling(layout.designWidth, layout.designHeight, 1.0f);
+		state.recaptureUiScaling(layout.designWidth, layout.designHeight, 1.0f,
+			/*subtractVanillaCenter=*/false);
 	}
 	else
 	{

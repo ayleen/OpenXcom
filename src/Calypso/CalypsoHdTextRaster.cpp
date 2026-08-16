@@ -90,6 +90,11 @@ TTF_Font* CalypsoHdTextRaster::faceFor(const std::string& vfsPath, int physicalP
 
 	_faces.emplace(key, face);
 	_faceOrder.push_back(key);
+	// The face opened: re-arm the diagnostics gate for this (gen, path) tuple
+	// so a LATER transient open failure may report again (F33-PARITY-001:
+	// "no further copies until that tuple recovers").
+	_diag.noteRecovered(CalypsoDiagnosticKey{ "faceOpen", resourceGeneration,
+		std::hash<std::string>{}(vfsPath) });
 	return face;
 }
 
@@ -134,6 +139,9 @@ SDL_Surface* CalypsoHdTextRaster::rasterFor(const CalypsoHdTextRasterKey& key)
 		}
 		return nullptr;
 	}
+	// Coverage recovered: re-arm the gate so a future miss may report again.
+	_diag.noteRecovered(CalypsoDiagnosticKey{ "glyphCoverage",
+		key.source.resourceGeneration, std::hash<std::string>{}(key.text) });
 
 	// RGBA packed as R in the high byte (matches CalypsoHdTextRasterKey's
 	// colorRgba convention: 0xRRGGBBAA).
@@ -181,14 +189,21 @@ SDL_Surface* CalypsoHdTextRaster::rasterFor(const CalypsoHdTextRasterKey& key)
 		return nullptr;
 	}
 
-	// Success re-arms the diagnostics gate: a FUTURE failure of the same
-	// (class, font generation, text) tuple may emit one fresh diagnostic.
-	_diag.noteRecovered(CalypsoDiagnosticKey{ "trackedRaster",
-		key.source.resourceGeneration, std::hash<std::string>{}(key.text) });
-	_diag.noteRecovered(CalypsoDiagnosticKey{ "wrappedRaster",
-		key.source.resourceGeneration, std::hash<std::string>{}(key.text) });
-	_diag.noteRecovered(CalypsoDiagnosticKey{ "glyphCoverage",
-		key.source.resourceGeneration, std::hash<std::string>{}(key.text) });
+	// Success re-arms the diagnostics gate for THE class that actually
+	// recovered. Re-arming unrelated classes would let a still-failing path
+	// (e.g. a persistent wrapped raster while tracked text succeeds) emit a
+	// fresh diagnostic per episode, violating F33-PARITY-001 ("no further
+	// copies until THAT tuple recovers").
+	if (key.letterSpacingPx > 0 && key.wrapWidth == 0)
+	{
+		_diag.noteRecovered(CalypsoDiagnosticKey{ "trackedRaster",
+			key.source.resourceGeneration, std::hash<std::string>{}(key.text) });
+	}
+	else
+	{
+		_diag.noteRecovered(CalypsoDiagnosticKey{ "wrappedRaster",
+			key.source.resourceGeneration, std::hash<std::string>{}(key.text) });
+	}
 
 	const std::uint64_t handle = _nextHandle++;
 	_rasters.emplace(key, surf);

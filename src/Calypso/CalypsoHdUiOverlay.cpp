@@ -563,7 +563,6 @@ void CalypsoHdUiOverlay::dropTextTextures()
 bool CalypsoHdUiOverlay::renderStages(SDL_Renderer* renderer)
 {
 	const bool committed = _activeThisFrame; // committed HD draws exist this frame
-
 	// Dormant unless a subgroup (or the harness) committed this frame.
 	if (!committed && !_harnessEnabled) return true;
 
@@ -644,7 +643,10 @@ bool CalypsoHdUiOverlay::renderStages(SDL_Renderer* renderer)
 
 	// Any GL error raised across the whole stage counts as a draw failure -- the
 	// individual drawPhysQuad calls don't report GL errors (Codex #2).
-	if (glGetError() != GL_NO_ERROR) ok = false;
+	if (glGetError() != GL_NO_ERROR)
+	{
+		ok = false;
+	}
 
 	if (!ok)
 	{

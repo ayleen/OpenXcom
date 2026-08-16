@@ -330,7 +330,8 @@ void CalypsoErrorPopupUi::configure(ErrorMessageState& state, bool allowPhysical
 	state._txtMessage->setWordWrap(true);
 
 	// Fit/center every design-space rect into the engine's actual logical canvas.
-	state.enableUiScaling(layout.designWidth, layout.designHeight, 1.0f);
+	state.enableUiScaling(layout.designWidth, layout.designHeight, 1.0f,
+		/*subtractVanillaCenter=*/false);
 
 	// Create + register the snapshot-only adapter (driven at the pre-blit
 	// boundary; no feeder Surface, no _surfaces reordering).
@@ -355,7 +356,8 @@ bool CalypsoErrorPopupUi::resize(ErrorMessageState& state)
 		CalypsoErrorPopupUi::applyRects(state, layout);
 		// Re-snapshot against the new design canvas -- enableUiScaling is one-shot
 		// and would no-op here, replaying the stale class (external review #3).
-		state.recaptureUiScaling(layout.designWidth, layout.designHeight, 1.0f);
+		state.recaptureUiScaling(layout.designWidth, layout.designHeight, 1.0f,
+			/*subtractVanillaCenter=*/false);
 	}
 	else
 	{

@@ -277,14 +277,15 @@ def main(argv):
     theme_js = emit_js("hd-ui-theme.json", theme, "CalypsoHdTheme")
     f33_js = emit_js("f33-abandon.json", f33, "CalypsoF33Abandon")
 
-    ensure_generated_dir()
+    # Directory creation happens ONLY on the write path -- --check performs
+    # no writes at all (normative rule, generator docstring).
     outputs = [
         (os.path.join(GENERATED_DIR, "CalypsoHdTheme.generated.h"), theme_h),
         (os.path.join(GENERATED_DIR, "CalypsoF33Abandon.generated.h"), f33_h),
     ]
+    web = None
     if args.web_output:
         web = args.web_output if os.path.isabs(args.web_output) else os.path.join(os.getcwd(), args.web_output)
-        os.makedirs(web, exist_ok=True)
         outputs += [
             (os.path.join(web, "hd-ui-theme.js"), theme_js),
             (os.path.join(web, "f33-abandon.js"), f33_js),
@@ -307,6 +308,9 @@ def main(argv):
         print("generate-hd-ui-contracts: all " + str(len(outputs)) + " consumers are current")
         return 0
 
+    ensure_generated_dir()
+    if web is not None:
+        os.makedirs(web, exist_ok=True)
     for path, text in outputs:
         tmp = path + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:

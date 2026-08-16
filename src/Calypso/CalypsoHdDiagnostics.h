@@ -142,4 +142,3 @@ private:
 
 } // namespace Calypso
 } // namespace OpenXcom
-

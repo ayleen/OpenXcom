@@ -5,7 +5,7 @@
  *
  * Paints one rounded-rect panel from a signed-distance field: AA shape edge,
  * an N-px border ring, a two-stop directional gradient fill, and a soft
- * quadratic outer glow (drop shadows / accent halos). Replaces the
+ * linear outer glow (drop shadows / accent halos). Replaces the
  * tinted-white-quad panel for items carrying CalypsoHdPanelStyle; shares the
  * hd_ui.vert passthrough (clip-space pos + quad UV).
  *
@@ -73,7 +73,7 @@ void main()
 	if (u_glowRadius > 0.0)
 	{
 		float g = clamp(1.0 - d / u_glowRadius, 0.0, 1.0);
-		glowA = u_glowColor.a * g * g * (1.0 - shapeMask);
+		glowA = u_glowColor.a * g * (1.0 - shapeMask);
 	}
 
 	vec3 rgb = mix(u_glowColor.rgb, shapeCol.rgb, shapeMask);

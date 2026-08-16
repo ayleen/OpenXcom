@@ -120,10 +120,12 @@ bool calypsoHdHarnessOpen(CalypsoHarnessScenario id, CalypsoLayoutClass layout,
 		}
 		// Unknown/empty target: roll the session back; the host pops itself.
 		calypsoHarnessClose(s);
+		calypsoHdHarnessSetSideBySide(false); // never leave the shift behind
 		return false;
 	}
 
 	calypsoHarnessClose(s); // no live game: roll the session back
+	calypsoHdHarnessSetSideBySide(false); // never leave the shift behind
 	return false;
 }
 
@@ -161,6 +163,13 @@ int calypso_hd_harness_open(int scenarioId, int layoutClass, int sideBySide)
 	return OpenXcom::Calypso::calypsoHdHarnessOpen(
 		static_cast<OpenXcom::Calypso::CalypsoHarnessScenario>(scenarioId), layout,
 		sideBySide != 0) ? 1 : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_hd_harness_set_motion_pct(int pct)
+{
+	OpenXcom::Calypso::calypsoHarnessSetMotionHold(
+		OpenXcom::Calypso::calypsoHarnessSession(), pct);
 }
 
 EMSCRIPTEN_KEEPALIVE

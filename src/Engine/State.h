@@ -82,7 +82,8 @@ protected:
 	/// Calypso: capture native geometry of every added surface (call AFTER
 	/// centerAllSurfaces) and lay the state out scaled to fill the logical buffer.
 	/// @param factor per-screen size multiplier (>1 bigger, <1 smaller than fill).
-	void enableUiScaling(int designW = 320, int designH = 200, float factor = 1.0f);
+	void enableUiScaling(int designW = 320, int designH = 200, float factor = 1.0f,
+		bool subtractVanillaCenter = true);
 	/// Calypso: re-apply the uniform UI scale (call from a resize() override).
 	void applyUiScaling();
 	/// Calypso: re-capture native (design-space) geometry against a NEW design
@@ -91,7 +92,8 @@ protected:
 	/// e.g. an F34 screen crossing the Compact<->Wide threshold, which re-applies
 	/// a different design-space rect set and must re-snapshot it (external review
 	/// #3). Call it AFTER re-applying the new rects.
-	void recaptureUiScaling(int designW, int designH, float factor = 1.0f);
+	void recaptureUiScaling(int designW, int designH, float factor = 1.0f,
+		bool subtractVanillaCenter = true);
 	/// Calypso: opt every Text / TextButton in the state into HD TTF rendering.
 	void applyTTFToTexts(TTFFont* font, float fillFrac = 1.0f);
 	/// Calypso: drop a surface from the UI-scaling capture so applyUiScaling

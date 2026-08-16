@@ -13,7 +13,7 @@
  * This header owns the pure lifecycle + the stable-scenario registry; the
  * browser-only CalypsoHdHarnessHostState and the generic export (F33.3) drive
  * it. Rules pinned here:
- *   - a repeated open request never stacks a second host (openRequests == 1);
+ *   - a repeated open request never stacks a second host (hostUp latch);
  *   - the target can never be "up" while the host is down;
  *   - close resets the session (host pops itself, globals cleared);
  *   - an explicitly requested layout class survives resize (F33-PARITY-005):
@@ -48,7 +48,10 @@ struct CalypsoHarnessSession
 	bool layoutExplicit = false;
 	CalypsoLayoutClass requestedLayout = CalypsoLayoutClass::Compact;
 	bool motionDisabled = false; // deterministic capture mode (motion=0)
-	int openRequests = 0;
+	/// Presentation-clock freeze for deterministic motion capture: -1 = live
+	/// ramp; 0..100 = freeze the opening-motion progress at that percent so a
+	/// capture can screenshot a stable mid-ramp frame (F33.5 motion evidence).
+	int motionHoldPct = -1;
 };
 
 inline bool calypsoHarnessHostUp(const CalypsoHarnessSession& s) { return s.hostUp; }
@@ -60,7 +63,6 @@ inline bool calypsoHarnessRequestOpen(CalypsoHarnessSession& s)
 {
 	if (s.hostUp) return false;
 	s.hostUp = true;
-	++s.openRequests;
 	return true;
 }
 
@@ -82,6 +84,7 @@ inline void calypsoHarnessClose(CalypsoHarnessSession& s)
 	s.layoutExplicit = false;
 	s.requestedLayout = CalypsoLayoutClass::Compact;
 	s.motionDisabled = false;
+	s.motionHoldPct = -1;
 }
 
 /// Deterministic capture mode: presentation motion is disabled for the active
@@ -89,6 +92,15 @@ inline void calypsoHarnessClose(CalypsoHarnessSession& s)
 inline void calypsoHarnessSetMotionDisabled(CalypsoHarnessSession& s, bool disabled)
 {
 	s.motionDisabled = disabled;
+}
+
+/// Freeze (0..100) or release (-1) the opening-motion presentation clock.
+/// Used ONLY by the capture harness: while frozen, the adapter renders the
+/// ramp at exactly that progress every frame (deterministic screenshots);
+/// -1 restores the live clock.
+inline void calypsoHarnessSetMotionHold(CalypsoHarnessSession& s, int pct)
+{
+	s.motionHoldPct = (pct >= 0 && pct <= 100) ? pct : -1;
 }
 
 /// Explicitly request a layout class for the active preview; preserved across
