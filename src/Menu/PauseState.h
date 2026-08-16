@@ -21,7 +21,13 @@
 #include "OptionsBaseState.h"
 
 #ifdef __EMSCRIPTEN__
-namespace Calypso { class CalypsoPauseMenu; }
+namespace OpenXcom
+{
+namespace Calypso
+{
+class CalypsoPauseMenu;
+}
+}
 #endif
 
 namespace OpenXcom

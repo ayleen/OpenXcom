@@ -4,6 +4,9 @@
  */
 #include "CalypsoPauseMenu.h"
 #include "../Engine/Game.h"
+#include "../Interface/Text.h"
+#include "../Interface/TextButton.h"
+#include "../Interface/Window.h"
 #include "../Menu/PauseState.h"
 #include <emscripten.h>
 
