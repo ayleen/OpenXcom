@@ -182,7 +182,7 @@ PauseState::PauseState(OptionsOrigin origin) : _origin(origin)
 	// F33: DOM overlay edition -- hide the bitmap widgets and raise the
 	// HTML overlay with the current labels/visibility. Body lives in
 	// src/Calypso/CalypsoPauseMenu (placement policy R3).
-	Calypso::calypsoPauseDomConfigure(*this);
+	Calypso::CalypsoPauseMenu::configure(*this);
 #endif
 }
 
@@ -220,7 +220,7 @@ void PauseState::resize(int &dX, int &dY)
 void PauseState::think()
 {
 #ifdef __EMSCRIPTEN__
-	Calypso::calypsoPauseDomThink(*this, *_game);
+	Calypso::CalypsoPauseMenu::think(*this, *_game);
 #endif
 	State::think();
 }

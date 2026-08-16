@@ -51,7 +51,7 @@ void pauseMenuDomHide()
 	});
 }
 
-void calypsoPauseDomConfigure(PauseState& state)
+void CalypsoPauseMenu::configure(PauseState& state)
 {
 	// Friend access to the state's presentation snapshot (no event ownership):
 	// same data the native widget layout would have drawn.
@@ -74,11 +74,11 @@ void calypsoPauseDomConfigure(PauseState& state)
 	state._txtVersion->setVisible(false);
 }
 
-void calypsoPauseDomThink(PauseState& state, Game& game)
+void CalypsoPauseMenu::think(PauseState& state, Game& game)
 {
 	if (game.isState(&state))
 	{
-		calypsoPauseDomConfigure(state);
+		configure(state);
 	}
 }
 
