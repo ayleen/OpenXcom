@@ -77,7 +77,7 @@ struct CalypsoHdTextRasterKey
 	                                       // keeps SDL_ttf's wrap layout)
 	int lineHeightPx = 0;                  // >0 => explicit SDL_ttf line skip for
 	                                       // wrapped body copy; 0 keeps the face default
-	int horizontalScalePercent = 100;     // wrapped body raster x calibration
+	int horizontalScalePermille = 1000;   // wrapped body raster x calibration
 	std::uint64_t breakSignature = 0;      // hash of the approved processed line breaks
 	std::uint32_t colorRgba = 0;           // packed RGBA
 	std::uint32_t styleFlags = 0;          // bold/underline/etc. bitfield
@@ -91,7 +91,7 @@ struct CalypsoHdTextRasterKey
 		    && wrapWidth == o.wrapWidth
 		    && letterSpacingPx == o.letterSpacingPx
 		    && lineHeightPx == o.lineHeightPx
-		    && horizontalScalePercent == o.horizontalScalePercent
+		    && horizontalScalePermille == o.horizontalScalePermille
 		    && breakSignature == o.breakSignature
 		    && colorRgba == o.colorRgba
 		    && styleFlags == o.styleFlags
@@ -155,7 +155,7 @@ struct hash<OpenXcom::Calypso::CalypsoHdTextRasterKey>
 		mix(static_cast<std::uint64_t>(static_cast<std::uint32_t>(k.wrapWidth)));
 		mix(static_cast<std::uint64_t>(static_cast<std::uint32_t>(k.letterSpacingPx)));
 		mix(static_cast<std::uint64_t>(static_cast<std::uint32_t>(k.lineHeightPx)));
-		mix(static_cast<std::uint64_t>(static_cast<std::uint32_t>(k.horizontalScalePercent)));
+		mix(static_cast<std::uint64_t>(static_cast<std::uint32_t>(k.horizontalScalePermille)));
 		mix(k.breakSignature);
 		mix(k.colorRgba);
 		mix(k.styleFlags);

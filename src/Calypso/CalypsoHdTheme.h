@@ -65,6 +65,10 @@ constexpr float kBodyFontSizeScaleWide = CalypsoHdThemeGen::kBodyFontSizeScaleWi
 constexpr float kBodyFontSizeScaleCompact = CalypsoHdThemeGen::kBodyFontSizeScaleCompact;
 constexpr float kBodyFontWidthScaleWide = CalypsoHdThemeGen::kBodyFontWidthScaleWide;
 constexpr float kBodyFontWidthScaleCompact = CalypsoHdThemeGen::kBodyFontWidthScaleCompact;
+constexpr float kBodyLineHeightScaleWide = CalypsoHdThemeGen::kBodyLineHeightScaleWide;
+constexpr float kBodyLineHeightScaleCompact = CalypsoHdThemeGen::kBodyLineHeightScaleCompact;
+// DOM baseline token; the engine raster uses the layout-specific physical
+// line-height scales below to account for SDL_ttf/native glyph metrics.
 constexpr float kBodyLineHeight     = CalypsoHdThemeGen::kBodyLineHeight;
 constexpr int kTitleFontWeight      = CalypsoHdThemeGen::kTitleFontWeight;
 constexpr int kLabelFontWeight      = CalypsoHdThemeGen::kLabelFontWeight;

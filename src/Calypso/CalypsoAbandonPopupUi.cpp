@@ -384,9 +384,13 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 			key.physicalPixelHeight = physicalPixelHeight;
 			key.text = _state->_hdMessage->getText();
 			key.wrapWidth = wrapWidth;
+			const double bodyLineHeight = wide
+				? CalypsoHdTheme::kBodyLineHeightScaleWide
+				: CalypsoHdTheme::kBodyLineHeightScaleCompact;
 			key.lineHeightPx = std::max(1, (int)calypsoHdRoundToInt(
-				(double)CalypsoHdTheme::kBodyFontSizePx * CalypsoHdTheme::kBodyLineHeight * sy));
-			key.horizontalScalePercent = std::max(1, (int)calypsoHdRoundToInt(bodyWidthScale * 100.0));
+				(double)CalypsoHdTheme::kBodyFontSizePx * bodyLineHeight * sy));
+			key.horizontalScalePermille = std::max(1,
+				(int)calypsoHdRoundToInt(bodyWidthScale * 1000.0));
 			key.colorRgba = CalypsoHdTheme::kNearWhite;
 			key.direction = CalypsoTextDirection::LTR;
 
