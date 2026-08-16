@@ -111,6 +111,15 @@ inline void calypsoHarnessSetRequestedLayout(CalypsoHarnessSession& s, CalypsoLa
 	s.layoutExplicit = true;
 }
 
+/// Reconfigure the live preview without pushing another host or target.
+/// Returns false unless both lifecycle layers are active.
+inline bool calypsoHarnessReconfigure(CalypsoHarnessSession& s, CalypsoLayoutClass cls)
+{
+	if (!s.hostUp || !s.targetUp) return false;
+	calypsoHarnessSetRequestedLayout(s, cls);
+	return true;
+}
+
 /// The layout class the preview must use: the explicit request when set,
 /// otherwise the ordinary safe-area classification.
 inline CalypsoLayoutClass calypsoHarnessEffectiveLayout(

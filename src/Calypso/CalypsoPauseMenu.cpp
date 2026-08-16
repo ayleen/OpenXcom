@@ -53,17 +53,34 @@ void pauseMenuDomHide()
 
 void CalypsoPauseMenu::configure(PauseState& state)
 {
-	// Friend access to the state's presentation snapshot (no event ownership):
-	// same data the native widget layout would have drawn.
+	// Capture the native widget presentation once. The DOM overlay hides these
+	// widgets; rereading their visibility after Abandon is cancelled would turn
+	// every action off on the next think() pass.
+	if (!state._calypsoPresentationCaptured)
+	{
+		state._calypsoShowLoad = state._btnLoad->getVisible();
+		state._calypsoShowSave = state._btnSave->getVisible();
+		state._calypsoShowAbandon = state._btnAbandon->getVisible();
+		state._calypsoShowOptions = state._btnOptions->getVisible();
+		state._calypsoShowCancel = state._btnCancel->getVisible();
+		state._calypsoLoadLabel = state._btnLoad->getText();
+		state._calypsoSaveLabel = state._btnSave->getText();
+		state._calypsoAbandonLabel = state._btnAbandon->getText();
+		state._calypsoOptionsLabel = state._btnOptions->getText();
+		state._calypsoCancelLabel = state._btnCancel->getText();
+		state._calypsoPresentationCaptured = true;
+	}
+	// Friend access to the state's immutable presentation snapshot (no event
+	// ownership): same data the native widget layout would have drawn.
 	pauseMenuDomShow(
 		(int)state._origin,
-		state._btnLoad->getVisible(), state._btnSave->getVisible(),
-		state._btnAbandon->getVisible(), state._btnOptions->getVisible(),
-		state._btnCancel->getVisible(),
+		state._calypsoShowLoad, state._calypsoShowSave,
+		state._calypsoShowAbandon, state._calypsoShowOptions,
+		state._calypsoShowCancel,
 		std::string(state.tr("STR_OPTIONS_UC")),
-		state._btnLoad->getText(), state._btnSave->getText(),
-		state._btnAbandon->getText(), state._btnOptions->getText(),
-		state._btnCancel->getText());
+		state._calypsoLoadLabel, state._calypsoSaveLabel,
+		state._calypsoAbandonLabel, state._calypsoOptionsLabel,
+		state._calypsoCancelLabel);
 	state._window->setVisible(false);
 	state._btnLoad->setVisible(false);
 	state._btnSave->setVisible(false);

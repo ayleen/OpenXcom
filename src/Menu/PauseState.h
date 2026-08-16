@@ -19,6 +19,7 @@
  */
 #include "../Engine/State.h"
 #include "OptionsBaseState.h"
+#include <string>
 
 #ifdef __EMSCRIPTEN__
 namespace OpenXcom
@@ -52,6 +53,12 @@ private:
 #ifdef __EMSCRIPTEN__
 	/// F33: the DOM overlay bridge reads this state's presentation snapshot.
 	/// Placement policy R3: the body lives in src/Calypso/CalypsoPauseMenu.
+	bool _calypsoPresentationCaptured = false;
+	bool _calypsoShowLoad = false, _calypsoShowSave = false;
+	bool _calypsoShowAbandon = false, _calypsoShowOptions = false;
+	bool _calypsoShowCancel = false;
+	std::string _calypsoLoadLabel, _calypsoSaveLabel;
+	std::string _calypsoAbandonLabel, _calypsoOptionsLabel, _calypsoCancelLabel;
 	friend class Calypso::CalypsoPauseMenu;
 #endif
 public:

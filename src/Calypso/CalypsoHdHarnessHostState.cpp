@@ -137,6 +137,25 @@ void calypsoHdHarnessClose()
 	calypsoHdHarnessSetSideBySide(false);
 }
 
+bool calypsoHdHarnessReconfigure(CalypsoLayoutClass layout, bool sideBySide)
+{
+	CalypsoHarnessSession& s = calypsoHarnessSession();
+	if (!calypsoHarnessReconfigure(s, layout)) return false;
+	calypsoHdHarnessSetSideBySide(sideBySide);
+	// The active F33 target owns the physical adapter and its resize hook is
+	// the canonical way to re-capture the selected design-space rectangles.
+	if (Game* g = getCurrentGame())
+	{
+		if (auto* target = dynamic_cast<AbandonGameState*>(g->getTopState()))
+		{
+			int dx = 0;
+			int dy = 0;
+			target->resize(dx, dy);
+		}
+	}
+	return true;
+}
+
 void warnUnknownScenario(int scenarioId)
 {
 	Log(LOG_WARNING) << "calypso_hd_harness_open: unknown scenario id " << scenarioId;
@@ -183,6 +202,15 @@ EMSCRIPTEN_KEEPALIVE
 void calypso_hd_harness_close()
 {
 	OpenXcom::Calypso::calypsoHdHarnessClose();
+}
+
+EMSCRIPTEN_KEEPALIVE
+int calypso_hd_harness_reconfigure(int layoutClass, int sideBySide)
+{
+	const OpenXcom::Calypso::CalypsoLayoutClass layout =
+		layoutClass == 1 ? OpenXcom::Calypso::CalypsoLayoutClass::Wide
+		                 : OpenXcom::Calypso::CalypsoLayoutClass::Compact;
+	return OpenXcom::Calypso::calypsoHdHarnessReconfigure(layout, sideBySide != 0) ? 1 : 0;
 }
 
 } // extern "C"

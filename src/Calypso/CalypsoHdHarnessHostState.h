@@ -62,6 +62,9 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id);
 bool calypsoHdHarnessOpen(CalypsoHarnessScenario id, CalypsoLayoutClass layout,
 	bool sideBySide = true);
 
+/// Reconfigure the active target in place; never stacks another host/target.
+bool calypsoHdHarnessReconfigure(CalypsoLayoutClass layout, bool sideBySide);
+
 /// Close the harness (called by the target's teardown): clears the session;
 /// the host pops itself on its next think.
 void calypsoHdHarnessClose();
