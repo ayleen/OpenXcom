@@ -637,10 +637,13 @@ void main()
 
 	// Soft outer glow: quadratic falloff over u_glowRadius beyond the edge,
 	// suppressed under the shape itself.
+	// F33-PARITY-003: monotonic OUTWARD falloff (1 at the edge, 0 at radius) --
+	// the same formula as calypsoHdGlowFalloff in CalypsoHdSdfMath.h, mirrored
+	// here so the pure native test and the GLSL can never disagree.
 	float glowA = 0.0;
 	if (u_glowRadius > 0.0)
 	{
-		float g = clamp(1.0 + d / u_glowRadius, 0.0, 1.0);
+		float g = clamp(1.0 - d / u_glowRadius, 0.0, 1.0);
 		glowA = u_glowColor.a * g * g * (1.0 - shapeMask);
 	}
 

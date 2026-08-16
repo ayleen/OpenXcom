@@ -14,6 +14,7 @@
  */
 #ifdef __EMSCRIPTEN__
 
+#include "CalypsoHdDiagnostics.h"
 #include "CalypsoHdTextRasterKey.h"
 
 #include <SDL.h>
@@ -107,6 +108,10 @@ private:
 	std::unordered_map<CalypsoHdTextRasterKey, std::uint64_t> _rasterHandles;
 	std::unordered_map<std::uint64_t, CalypsoHdTextRasterKey> _handleToKey;
 	CalypsoLruByteBudget _lru;
+
+	/// Bounded diagnostics gate (Phase 46.4-F33): one error per
+	/// (failure class, font generation, text instance) until recovery.
+	CalypsoDiagnosticGate _diag;
 };
 
 } // namespace Calypso

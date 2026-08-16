@@ -629,6 +629,10 @@ list(APPEND openxcom_src Calypso/CalypsoAbandonPopupUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoHdUiOverlay.cpp)
   list(APPEND openxcom_src Calypso/CalypsoHdFontSource.cpp)
   list(APPEND openxcom_src Calypso/CalypsoHdTextRaster.cpp)
+  # Phase 46.4-F33: portable tracked TTF composition shared with the native
+  # unit tests (stands alone from CalypsoHdTextRaster so a native test target
+  # can compile the same SDL_ttf code).
+  list(APPEND openxcom_src Calypso/CalypsoHdTrackedText.cpp)
   list(APPEND openxcom_src Calypso/CalypsoErrorPopupUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoStatisticsUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoNotesUi.cpp)
@@ -958,7 +962,9 @@ if(NOT EMSCRIPTEN AND BUILD_TESTING)
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdSdfFalloffTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdF33ContractTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdInteractionStateTest.cpp
-        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdHarnessHostModelTest.cpp)
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdHarnessHostModelTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdDiagnosticsTest.cpp
+        ${CMAKE_SOURCE_DIR}/src/Calypso/CalypsoHdTrackedText.cpp)
 
     add_executable(oxce_unit_tests ${OXCE_TEST_SOURCES})
     target_link_libraries(oxce_unit_tests PRIVATE oxce_test_doctest)
@@ -974,6 +980,8 @@ if(NOT EMSCRIPTEN AND BUILD_TESTING)
         if(OXCE_TEST_SDL2_TTF_FOUND AND OXCE_TEST_SDL2_FOUND)
             target_link_libraries(oxce_unit_tests PRIVATE
                 PkgConfig::OXCE_TEST_SDL2 PkgConfig::OXCE_TEST_SDL2_TTF)
+            target_include_directories(oxce_unit_tests PRIVATE
+                ${OXCE_TEST_SDL2_INCLUDE_DIRS} ${OXCE_TEST_SDL2_TTF_INCLUDE_DIRS})
         else()
             message(WARNING "SDL2/SDL2_ttf not found via pkg-config; CalypsoHdTrackedTextTest will not compile")
         endif()
