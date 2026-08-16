@@ -107,6 +107,10 @@ AbandonGameState::AbandonGameState(OptionsOrigin origin) : _origin(origin)
 AbandonGameState::~AbandonGameState()
 {
 #ifdef __EMSCRIPTEN__
+	if (_hdLayout)
+	{
+		Calypso::hdHarnessDomHide();
+	}
 	delete _hdAdapter;
 	_hdAdapter = nullptr;
 #endif

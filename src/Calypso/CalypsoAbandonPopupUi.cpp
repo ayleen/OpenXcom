@@ -32,6 +32,7 @@
 
 #include <SDL.h>
 #include <SDL_ttf.h>
+#include <emscripten.h>
 
 #include "../Engine/Game.h"
 #include "../Engine/Language.h"
@@ -56,6 +57,12 @@ namespace OpenXcom
 {
 namespace Calypso
 {
+
+/// F33 comparison harness: when set, the Abandon dialog is shifted into the
+/// LEFT half of the Wide design canvas so the DOM reference card fits on the
+/// right (see hdHarnessAbandonActive). File-local but not anonymous-namespace
+/// so the harness exports below can read/write it.
+bool g_harnessAbandon = false;
 
 namespace
 {
@@ -271,8 +278,23 @@ void CalypsoAbandonPopupUi::configure(AbandonGameState& state, bool allowPhysica
 	if (!state._hdLayout) return;
 
 	state._hdWideLayout = currentF33LayoutClass() == CalypsoLayoutClass::Wide;
-	const CalypsoF33AbandonLayout layout = calypsoF33AbandonLayout(
+	CalypsoF33AbandonLayout layout = calypsoF33AbandonLayout(
 		state._hdWideLayout ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact);
+
+	if (g_harnessAbandon)
+	{
+		// Side-by-side comparison: force the Wide design and shift the dialog
+		// into the left half (window.x 340 -> 40), leaving the right half for
+		// the DOM reference card (hd-harness.js).
+		state._hdWideLayout = true;
+		layout = calypsoF33AbandonLayout(CalypsoLayoutClass::Wide);
+		const int dx = 40 - layout.window.x;
+		layout.window.x += dx;
+		layout.title.x += dx;
+		layout.message.x += dx;
+		layout.yes.x += dx;
+		layout.no.x += dx;
+	}
 
 	// Data-loss copy: an HD-only widget (the vanilla dialog has no message
 	// band); absent on the logical fallback, exactly like the F34 badge.
@@ -295,6 +317,11 @@ void CalypsoAbandonPopupUi::configure(AbandonGameState& state, bool allowPhysica
 	CalypsoAbandonPopupUi* adapter = new CalypsoAbandonPopupUi(&state);
 	state._hdAdapter = adapter;
 	CalypsoHdUiOverlay::instance().registerAdapter(adapter);
+
+	if (g_harnessAbandon)
+	{
+		hdHarnessDomShow();
+	}
 }
 
 bool CalypsoAbandonPopupUi::resize(AbandonGameState& state)
@@ -321,5 +348,36 @@ bool CalypsoAbandonPopupUi::resize(AbandonGameState& state)
 
 } // namespace Calypso
 } // namespace OpenXcom
+
+// --- Harness exports -------------------------------------------------------
+
+bool OpenXcom::Calypso::hdHarnessAbandonActive()
+{
+	return OpenXcom::Calypso::g_harnessAbandon;
+}
+
+void OpenXcom::Calypso::hdHarnessDomShow()
+{
+	EM_ASM({ if (globalThis.__calypsoHdHarnessShow) globalThis.__calypsoHdHarnessShow(); });
+}
+
+void OpenXcom::Calypso::hdHarnessDomHide()
+{
+	EM_ASM({ if (globalThis.__calypsoHdHarnessHide) globalThis.__calypsoHdHarnessHide(); });
+}
+
+extern "C" {
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_hd_harness_abandon()
+{
+	OpenXcom::Calypso::g_harnessAbandon = true;
+	if (OpenXcom::Game* g = OpenXcom::getCurrentGame())
+	{
+		g->pushState(new OpenXcom::AbandonGameState(OpenXcom::OPT_GEOSCAPE));
+	}
+}
+
+} // extern "C"
 
 #endif // __EMSCRIPTEN__

@@ -60,6 +60,18 @@ private:
 	AbandonGameState* _state;
 };
 
+// --- HD-vs-DOM comparison harness (F33, dev tool) --------------------------
+// Activated from the JS console with `Module.ccall("calypso_hd_harness_abandon")`:
+// the engine renders the physical Abandon dialog in the LEFT half (Wide design
+// canvas shifted left) while hdHarnessDomShow() places the DOM reference card
+// on the RIGHT half, so both renderings can be tuned side by side.
+
+/// Is the side-by-side comparison mode active for this run?
+bool hdHarnessAbandonActive();
+/// Show/hide the DOM reference card (right half of the viewport).
+void hdHarnessDomShow();
+void hdHarnessDomHide();
+
 } // namespace Calypso
 } // namespace OpenXcom
 
