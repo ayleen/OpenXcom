@@ -71,6 +71,10 @@ struct CalypsoHdTextRasterKey
 	int wrapWidth = 0;                      // 0 => single line / break only on '\n';
 	                                       // >0 => SDL_ttf wraps at this physical px
 	                                       // width (handles CJK / no-space text)
+	int letterSpacingPx = 0;               // >0 AND wrapWidth==0 => per-glyph tracked
+	                                       // single-line layout (titles/labels);
+	                                       // wrapped rasters ignore it (body copy
+	                                       // keeps SDL_ttf's wrap layout)
 	std::uint64_t breakSignature = 0;      // hash of the approved processed line breaks
 	std::uint32_t colorRgba = 0;           // packed RGBA
 	std::uint32_t styleFlags = 0;          // bold/underline/etc. bitfield
@@ -82,6 +86,7 @@ struct CalypsoHdTextRasterKey
 		    && physicalPixelHeight == o.physicalPixelHeight
 		    && text == o.text
 		    && wrapWidth == o.wrapWidth
+		    && letterSpacingPx == o.letterSpacingPx
 		    && breakSignature == o.breakSignature
 		    && colorRgba == o.colorRgba
 		    && styleFlags == o.styleFlags
@@ -143,6 +148,7 @@ struct hash<OpenXcom::Calypso::CalypsoHdTextRasterKey>
 		mix(static_cast<std::uint64_t>(k.physicalPixelHeight));
 		h ^= std::hash<std::string>()(k.text) + 0x9e3779b97f4a7c15ull + (h << 6) + (h >> 2);
 		mix(static_cast<std::uint64_t>(static_cast<std::uint32_t>(k.wrapWidth)));
+		mix(static_cast<std::uint64_t>(static_cast<std::uint32_t>(k.letterSpacingPx)));
 		mix(k.breakSignature);
 		mix(k.colorRgba);
 		mix(k.styleFlags);

@@ -594,6 +594,61 @@ void main()
 }
 )glsl";
 
+static const char* kHd_ui_panelFragSrc = R"glsl(
+uniform vec2  u_quadSize;
+uniform vec2  u_shapeOffset;
+uniform vec2  u_size;
+uniform float u_radius;
+uniform float u_borderWidth;
+uniform vec4  u_borderColor;
+uniform vec4  u_fillTop;
+uniform vec4  u_fillBottom;
+uniform vec2  u_gradDir;
+uniform vec4  u_glowColor;
+uniform float u_glowRadius;
+in  vec2 v_uv;
+out vec4 out_color;
+
+float sdRoundBox(vec2 p, vec2 b, float r)
+{
+	vec2 q = abs(p) - b + r;
+	return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
+}
+
+void main()
+{
+	vec2 half_ = u_size * 0.5;
+	vec2 p = v_uv * u_quadSize - u_shapeOffset - half_;
+	float d = sdRoundBox(p, half_, u_radius);
+	float aa = max(fwidth(d), 1e-4);
+
+	// shapeMask: 1 inside / 0 outside with an AA edge; coreMask: everything
+	// deeper than the border ring; their difference is the ring itself.
+	float shapeMask  = 1.0 - smoothstep(-aa, aa, d);
+	float coreMask   = 1.0 - smoothstep(-u_borderWidth - aa, -u_borderWidth + aa, d);
+	float borderMask = clamp(shapeMask - coreMask, 0.0, 1.0);
+
+	// Gradient parameter: projection of the fragment onto the direction,
+	// normalized by the shape's extent along that direction.
+	float t = clamp(dot(p, u_gradDir) / max(dot(u_size, abs(u_gradDir)), 1.0) + 0.5, 0.0, 1.0);
+	vec4 fill = mix(u_fillTop, u_fillBottom, t);
+	vec4 shapeCol = mix(fill, u_borderColor, borderMask);
+	float shapeA = shapeCol.a * shapeMask;
+
+	// Soft outer glow: quadratic falloff over u_glowRadius beyond the edge,
+	// suppressed under the shape itself.
+	float glowA = 0.0;
+	if (u_glowRadius > 0.0)
+	{
+		float g = clamp(1.0 + d / u_glowRadius, 0.0, 1.0);
+		glowA = u_glowColor.a * g * g * (1.0 - shapeMask);
+	}
+
+	vec3 rgb = mix(u_glowColor.rgb, shapeCol.rgb, shapeMask);
+	out_color = vec4(rgb, max(shapeA, glowA));
+}
+)glsl";
+
 static const char* kTexturedFragSrc = R"glsl(
 uniform sampler2D u_tex;
 uniform float     u_darken;
@@ -1267,6 +1322,7 @@ static const Entry kTable[] = {
     { "emissive_glow", kEmissive_glowVertSrc, kEmissive_glowFragSrc },
     { "globe_sphere", kGlobe_sphereVertSrc, kGlobe_sphereFragSrc },
     { "hd_ui", kHd_uiVertSrc, kHd_uiFragSrc },
+    { "hd_ui_panel", kPassthroughVertSrc, kHd_ui_panelFragSrc },
     { "textured", kPassthroughVertSrc, kTexturedFragSrc },
     { "tile_atlas", kTile_atlasVertSrc, kTile_atlasFragSrc },
     { "tile_atlas_rgba", kTile_atlas_rgbaVertSrc, kTile_atlas_rgbaFragSrc },

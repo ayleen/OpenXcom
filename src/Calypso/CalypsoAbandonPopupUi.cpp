@@ -47,6 +47,7 @@
 #include "CalypsoF33AbandonLayout.h"
 #include "CalypsoHdFontSource.h"
 #include "CalypsoHdTextRasterKey.h"
+#include "CalypsoHdTheme.h"
 #include "CalypsoHdUiModel.h"
 #include "CalypsoHdUiOverlay.h"
 #include "CalypsoUiFamilies.h"
@@ -66,18 +67,6 @@ bool g_harnessAbandon = false;
 
 namespace
 {
-
-// Fixed HD theme for the physical replacement (0xRRGGBBAA, packed via
-// calypsoRgba). The bitmap fallback keeps the caller-supplied palette theme
-// unchanged. Matches the F34 theme; YES is the destructive action.
-constexpr std::uint32_t kWindowBorderRgba   = calypsoRgba(0x74, 0xff, 0xb0);
-constexpr std::uint32_t kWindowFillRgba     = calypsoRgba(0x10, 0x2a, 0x24);
-constexpr std::uint32_t kYesBorderRgba      = calypsoRgba(0xff, 0x78, 0x78); // destructive
-constexpr std::uint32_t kYesFillRgba        = calypsoRgba(0x3d, 0x16, 0x16);
-constexpr std::uint32_t kNoBorderRgba       = calypsoRgba(0x74, 0xff, 0xb0);
-constexpr std::uint32_t kNoFillRgba         = calypsoRgba(0x16, 0x4c, 0x3d);
-constexpr std::uint32_t kGoldTextRgba       = calypsoRgba(0xff, 0xc1, 0x4d); // title
-constexpr std::uint32_t kNearWhiteTextRgba  = calypsoRgba(0xe8, 0xff, 0xf5); // message + labels
 
 // F33 claim roles (stableId) within the one confirm-dialog subgroup.
 enum F33Role : std::uint32_t
@@ -141,9 +130,6 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 	const CalypsoHdPresentationMetrics& m = CalypsoHdUiOverlay::instance().frozenMetrics();
 	const double sx = m.scaleX, sy = m.scaleY;
 	const std::uint64_t inst = reinterpret_cast<std::uintptr_t>(_state);
-	// DOM-reference look (F33, 2026-08-16): 2px border, dim backdrop and a
-	// stepped drop shadow under the dialog -- NOT the F34 3px bevel border.
-	const int border = 2;
 
 	// One atomic subgroup: the whole dialog shows physically or not at all.
 	builder.beginSubgroup();
@@ -165,40 +151,48 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 	};
 
 	// Dim backdrop: full design canvas at 45% black, matching the DOM popup
-	// overlays (tutorial/prologue/pause use rgba(0,0,0,.45)).
+	// overlays (tutorial/prologue/pause use rgba(0,0,0,.45)). In comparison
+	// harness mode the canvas goes FULLY opaque black instead — the native
+	// MainMenuState rendering behind it is noise for the side-by-side check.
 	const CalypsoLogicalRect canvasRect{ 0, 0,
 		_state->_hdWideLayout ? 1280 : 740,
 		_state->_hdWideLayout ? 720 : 360 };
-	addPanel(canvasRect, calypsoRgba(0x00, 0x00, 0x00, 0x73), nullptr, ROLE_WINDOW);
+	const std::uint32_t backdrop = g_harnessAbandon
+		? calypsoRgba(0x00, 0x00, 0x00, 0xff)
+		: CalypsoHdTheme::kBackdropDim;
+	addPanel(canvasRect, backdrop, nullptr, ROLE_WINDOW);
 
-	// Stepped drop shadow below the dialog (no blur support in the panel
-	// painter): three increasingly faint black bands at 4/10/18px offsets.
+	auto addStyled = [&](const CalypsoLogicalRect& r, const CalypsoHdPanelStyle& style,
+		const void* widget, std::uint32_t role)
+	{
+		if (r.w <= 0 || r.h <= 0) return;
+		CalypsoHdItem it;
+		it.kind = CalypsoHdItemKind::Panel;
+		it.rect = r;
+		it.colorRgba = style.fillTopRgba;
+		it.panelStyle = style;
+		it.widget = widget;
+		it.claim = { kF33FamilyId, role, inst, 1u, (std::uint32_t)ord };
+		it.order = { 0, 0, kF33FamilyId, inst, 0, 1u, ord, role };
+		builder.add(it);
+		++ord;
+	};
+
+	// Soft shadow + accent halo under the dialog (styled glow quads replace
+	// the old stepped bands): shadow sits below the window, halo is centred.
 	{
 		const CalypsoLogicalRect w = widgetRect(_state->_window);
-		const int steps[3][2] = {
-			{ 4, 0x3d }, { 10, 0x1f }, { 18, 0x0f } // offset px, alpha (0x73 max)
-		};
-		for (const auto& s : steps)
-		{
-			const CalypsoLogicalRect sh{ w.x + 3, w.y + s[0], w.w, w.h };
-			addPanel(sh, calypsoRgba(0x00, 0x00, 0x00, (std::uint8_t)s[1]), nullptr, ROLE_WINDOW);
-		}
+		const CalypsoLogicalRect shadow{ w.x - 2, w.y + 8, w.w + 4, w.h };
+		addStyled(shadow, CalypsoHdTheme::calypsoHdGlowStyle(
+			CalypsoHdTheme::kShadowGlow, CalypsoHdTheme::kShadowGlowRadiusPx), nullptr, ROLE_WINDOW);
+		addStyled(w, CalypsoHdTheme::calypsoHdGlowStyle(
+			CalypsoHdTheme::kHaloGlow, CalypsoHdTheme::kHaloGlowRadiusPx), nullptr, ROLE_WINDOW);
 	}
-
-	auto addBevel = [&](Surface* widget, std::uint32_t bcol, std::uint32_t fcol,
-		std::uint32_t role)
-	{
-		if (!widget) return;
-		const CalypsoLogicalRect r = widgetRect(widget);
-		addPanel(r, bcol, widget, role); // border item carries the claim
-		const CalypsoLogicalRect inner{ r.x + border, r.y + border,
-			r.w - border * 2, r.h - border * 2 };
-		addPanel(inner, fcol, nullptr, role); // inset fill, no separate widget
-	};
 
 	auto addText = [&](Surface* widget, const CalypsoTtfSourceDescriptor& font,
 		const std::string& text, std::uint32_t color,
-		CalypsoHdHAlign hA, CalypsoHdVAlign vA, int linesHint, std::uint32_t role)
+		CalypsoHdHAlign hA, CalypsoHdVAlign vA, int linesHint, std::uint32_t role,
+		double trackingEm = 0.0)
 	{
 		if (!widget || text.empty()) return;
 		const CalypsoLogicalRect r = widgetRect(widget);
@@ -216,6 +210,14 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 		key.wrapWidth = wrapWidth;
 		key.colorRgba = color;
 		key.direction = CalypsoTextDirection::LTR;
+		// Tracking (single-line only by contract): DOM titles/labels run
+		// 0.12em; body copy has none, so the default 0 keeps wrapped text on
+		// SDL_ttf's layout.
+		if (trackingEm > 0.0 && wrapWidth == 0)
+		{
+			key.letterSpacingPx = std::max(1, (int)calypsoHdRoundToInt(
+				(double)physicalPixelHeight * trackingEm));
+		}
 
 		CalypsoHdItem it;
 		it.kind = CalypsoHdItemKind::Text;
@@ -231,14 +233,20 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 		++ord;
 	};
 
-	// Panels (bevels) first, then text -- ord is monotonic so the order key
-	// keeps that painter order deterministically.
-	addBevel(_state->_window, kWindowBorderRgba, kWindowFillRgba, ROLE_WINDOW);
-	addBevel(_state->_btnYes, kYesBorderRgba, kYesFillRgba, ROLE_YES);
-	addBevel(_state->_btnNo, kNoBorderRgba, kNoFillRgba, ROLE_NO);
+	// Styled panels (SDF: gradient fill, alpha borders, rounded corners), then
+	// text -- ord is monotonic so the order key keeps that painter order.
+	addStyled(widgetRect(_state->_window), CalypsoHdTheme::calypsoHdDialogStyle(),
+		_state->_window, ROLE_WINDOW);
+	addStyled(widgetRect(_state->_btnYes),
+		CalypsoHdTheme::calypsoHdButtonStyle(CalypsoHdTheme::kYesFill, CalypsoHdTheme::kDanger),
+		_state->_btnYes, ROLE_YES);
+	addStyled(widgetRect(_state->_btnNo),
+		CalypsoHdTheme::calypsoHdButtonStyle(CalypsoHdTheme::kNoFill, CalypsoHdTheme::kAccent),
+		_state->_btnNo, ROLE_NO);
 
 	addText(_state->_txtTitle, heading, _state->_txtTitle ? _state->_txtTitle->getText() : std::string(),
-		kGoldTextRgba, CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, ROLE_TITLE);
+		CalypsoHdTheme::kGold, CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, ROLE_TITLE,
+		CalypsoHdTheme::kTitleTrackingEm);
 
 	if (_state->_hdMessage && !_state->_hdMessage->getText().empty())
 	{
@@ -256,13 +264,13 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 			key.physicalPixelHeight = physicalPixelHeight;
 			key.text = _state->_hdMessage->getText();
 			key.wrapWidth = wrapWidth;
-			key.colorRgba = kNearWhiteTextRgba;
+			key.colorRgba = CalypsoHdTheme::kNearWhite;
 			key.direction = CalypsoTextDirection::LTR;
 
 			CalypsoHdItem it;
 			it.kind = CalypsoHdItemKind::Text;
 			it.rect = r;
-			it.colorRgba = kNearWhiteTextRgba;
+			it.colorRgba = CalypsoHdTheme::kNearWhite;
 			it.rasterKey = key;
 			it.hAlign = CalypsoHdHAlign::Left;
 			it.vAlign = CalypsoHdVAlign::Top;
@@ -275,9 +283,11 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 	}
 
 	addText(_state->_btnYes, heading, _state->_btnYes ? _state->_btnYes->getText() : std::string(),
-		kNearWhiteTextRgba, CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, ROLE_YES);
+		CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, ROLE_YES,
+		CalypsoHdTheme::kLabelTrackingEm);
 	addText(_state->_btnNo, heading, _state->_btnNo ? _state->_btnNo->getText() : std::string(),
-		kNearWhiteTextRgba, CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, ROLE_NO);
+		CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, ROLE_NO,
+		CalypsoHdTheme::kLabelTrackingEm);
 }
 
 void CalypsoAbandonPopupUi::applyRects(AbandonGameState& state, const CalypsoF33AbandonLayout& layout)

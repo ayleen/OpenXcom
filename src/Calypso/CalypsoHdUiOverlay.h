@@ -108,12 +108,15 @@ private:
 
 	/// One resolved, uploaded draw ready for renderStages. Panels use the shared
 	/// white texture; text carries its natural glyph size for in-box placement.
+	/// A Panel with panelStyle.styled paints via the hd_ui_panel SDF shader
+	/// instead of the tinted white quad.
 	struct ResolvedDraw
 	{
 		CalypsoHdOrderKey order;
 		CalypsoHdItemKind kind = CalypsoHdItemKind::Panel;
 		CalypsoLogicalRect rect;
 		std::uint32_t colorRgba = 0;
+		CalypsoHdPanelStyle panelStyle;
 		GpuTexture* tex = nullptr;
 		int naturalW = 0;
 		int naturalH = 0;
@@ -138,9 +141,15 @@ private:
 		float u0 = 0.0f, float v0 = 0.0f, float u1 = 1.0f, float v1 = 1.0f);
 	/// Map a logical rect to physical and draw (panels).
 	bool drawLogicalQuad(GpuTexture* tex, const CalypsoLogicalRect& logical, std::uint32_t colorRgba);
+	/// SDF styled panel (rounded/border/gradient/glow) via hd_ui_panel; the
+	/// quad is padded by the glow radius so the falloff fits inside it.
+	bool drawStyledPanel(const ResolvedDraw& d);
 	/// Place a natural-size glyph bitmap inside the mapped box per alignment and
 	/// draw it (text) -- the box is the layout/clip target, not a stretch target.
 	bool drawGlyph(const ResolvedDraw& d);
+	/// Upload one quad's vertices (NDC positions + full UVs) into the shared
+	/// VBO/VAO. Shared by drawPhysQuad and drawStyledPanel.
+	void uploadQuadVerts(const CalypsoPhysRect& r);
 
 	GpuTexture* whiteTexture();
 	GpuTexture* textureForText(const CalypsoHdTextRasterKey& rasterKey);
@@ -172,6 +181,7 @@ private:
 	// Shared GL resources (created on first active frame; recovered via the
 	// ShaderManager reset-callback ladder).
 	Shader* _hdShader = nullptr;
+	Shader* _panelShader = nullptr;
 	unsigned _vao = 0;
 	unsigned _vbo = 0;
 	bool _glReady = false;

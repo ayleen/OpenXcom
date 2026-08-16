@@ -41,15 +41,35 @@ enum class CalypsoHdItemKind { Panel, Text };
 enum class CalypsoHdHAlign { Left = 0, Center = 1, Right = 2 };
 enum class CalypsoHdVAlign { Top = 0, Middle = 1, Bottom = 2 };
 
+/// Optional styling for a Panel item, rendered by the hd_ui_panel SDF shader.
+/// All px values are DESIGN-space (the same space as `rect`) and scale with
+/// the logical->physical mapping. A style with `styled == false` (default)
+/// keeps the plain tinted-quad path. Colours are packed 0xRRGGBBAA.
+struct CalypsoHdPanelStyle
+{
+	bool styled = false;
+	float radiusPx = 0.0f;          // rounded-corner radius
+	float borderWidthPx = 0.0f;     // ring thickness at the shape edge
+	std::uint32_t borderColorRgba = 0;
+	std::uint32_t fillTopRgba = 0;  // gradient stop at the grad direction origin
+	std::uint32_t fillBottomRgba = 0;
+	float gradDirX = 0.26f;         // gradient direction (normalized-ish);
+	float gradDirY = 1.0f;          // default ~165deg-like downward drift
+	std::uint32_t glowRgba = 0;     // soft outer falloff colour (alpha = strength)
+	float glowRadiusPx = 0.0f;      // 0 => no glow
+};
+
 /// One physical draw the adapter requests. A Panel is a solid/tinted rect
-/// (window fill, bevel, badge). A Text item rasterises `rasterKey` and places
-/// the natural-size glyph bitmap inside `rect` per (hAlign,vAlign) -- `rect` is
-/// the layout + clip box, never a stretch target.
+/// (window fill, bevel, badge) -- or, with `panelStyle.styled`, an SDF-shaped
+/// panel (rounded, bordered, gradient, glow). A Text item rasterises
+/// `rasterKey` and places the natural-size glyph bitmap inside `rect` per
+/// (hAlign,vAlign) -- `rect` is the layout + clip box, never a stretch target.
 struct CalypsoHdItem
 {
 	CalypsoHdItemKind kind = CalypsoHdItemKind::Panel;
 	CalypsoLogicalRect rect;
 	std::uint32_t colorRgba = 0;     // panel fill / text colour (0xRRGGBBAA)
+	CalypsoHdPanelStyle panelStyle;  // Panel only; styled=false => tinted quad
 
 	// Text only:
 	CalypsoHdTextRasterKey rasterKey;

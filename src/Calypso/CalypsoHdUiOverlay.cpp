@@ -181,6 +181,7 @@ bool CalypsoHdUiOverlay::resolveSubgroup(const CalypsoHdSubgroup& subgroup,
 		d.kind = item.kind;
 		d.rect = item.rect;
 		d.colorRgba = item.colorRgba;
+		d.panelStyle = item.panelStyle;
 		d.hAlign = item.hAlign;
 		d.vAlign = item.vAlign;
 
@@ -217,6 +218,18 @@ void CalypsoHdUiOverlay::ensureGpu()
 			Log(LOG_ERROR) << "CalypsoHdUiOverlay: failed to load 'hd_ui' shader";
 			delete _hdShader;
 			_hdShader = nullptr;
+			return;
+		}
+	}
+
+	if (!_panelShader)
+	{
+		_panelShader = new Shader();
+		if (!_panelShader->loadFromEmbedded("hd_ui_panel"))
+		{
+			Log(LOG_ERROR) << "CalypsoHdUiOverlay: failed to load 'hd_ui_panel' shader";
+			delete _panelShader;
+			_panelShader = nullptr;
 			return;
 		}
 	}
@@ -277,6 +290,31 @@ GpuTexture* CalypsoHdUiOverlay::whiteTexture()
 	return _whiteTex;
 }
 
+void CalypsoHdUiOverlay::uploadQuadVerts(const CalypsoPhysRect& r)
+{
+	const float physW = (float)_frozenMetrics.physicalWidth;
+	const float physH = (float)_frozenMetrics.physicalHeight;
+
+	// Physical device-pixel rect -> NDC. Flip Y (SDL top-left -> GL bottom-left).
+	const float x0 =  2.0f * (float)r.x / physW - 1.0f;
+	const float x1 =  2.0f * (float)(r.x + r.w) / physW - 1.0f;
+	const float y0 = -(2.0f * (float)r.y / physH - 1.0f);
+	const float y1 = -(2.0f * (float)(r.y + r.h) / physH - 1.0f);
+
+	const float verts[6 * 4] = {
+		x0, y0, 0.0f, 0.0f,
+		x1, y0, 1.0f, 0.0f,
+		x0, y1, 0.0f, 1.0f,
+		x0, y1, 0.0f, 1.0f,
+		x1, y0, 1.0f, 0.0f,
+		x1, y1, 1.0f, 1.0f,
+	};
+
+	glBindBuffer(GL_ARRAY_BUFFER, _vbo);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)sizeof(verts), verts);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
 bool CalypsoHdUiOverlay::drawPhysQuad(GpuTexture* tex, const CalypsoPhysRect& r,
 	std::uint32_t colorRgba, float u0, float v0, float u1, float v1)
 {
@@ -319,6 +357,67 @@ bool CalypsoHdUiOverlay::drawPhysQuad(GpuTexture* tex, const CalypsoPhysRect& r,
 	}
 	tex->bind(0);
 	_hdShader->setUniform1i("u_tex", 0);
+
+	glBindVertexArray(_vao);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+	glBindVertexArray(0);
+	return true;
+}
+
+bool CalypsoHdUiOverlay::drawStyledPanel(const ResolvedDraw& d)
+{
+	if (!_panelShader || !_panelShader->isValid() || !_vao) return false;
+	if (!_frozenMetrics.valid()) return false;
+
+	const CalypsoPhysRect shape = calypsoMapLogicalRect(d.rect, _frozenMetrics);
+	if (shape.empty()) return true; // nothing to draw is not a failure
+
+	// Design px -> physical px: same mapping family as the rect edges. The
+	// average of the axis scales keeps radii/borders circular under the
+	// stretched-canvas presentation.
+	const float pxScale = (float)((_frozenMetrics.scaleX + _frozenMetrics.scaleY) * 0.5);
+	const CalypsoHdPanelStyle& st = d.panelStyle;
+
+	float radius = st.radiusPx * pxScale;
+	const float maxRadius = 0.5f * (float)std::min(shape.w, shape.h);
+	if (radius > maxRadius) radius = maxRadius;
+	if (radius < 0.0f) radius = 0.0f;
+	const float borderWidth = std::max(0.0f, st.borderWidthPx * pxScale);
+	const float glowRadius = std::max(0.0f, st.glowRadiusPx * pxScale);
+	const int pad = (int)std::ceil(glowRadius);
+
+	// The quad pads the shape on every side so the glow falloff fits; the
+	// shape's offset inside the quad feeds the SDF coordinate reconstruction.
+	const CalypsoPhysRect quad{
+		shape.x - pad, shape.y - pad,
+		shape.w + pad * 2, shape.h + pad * 2 };
+	if (quad.empty()) return true;
+	uploadQuadVerts(quad);
+
+	auto rgba = [](std::uint32_t c, float out[4]) {
+		out[0] = ((c >> 24) & 0xFF) / 255.0f;
+		out[1] = ((c >> 16) & 0xFF) / 255.0f;
+		out[2] = ((c >> 8) & 0xFF) / 255.0f;
+		out[3] = (c & 0xFF) / 255.0f;
+	};
+	float borderC[4], fillT[4], fillB[4], glowC[4];
+	rgba(st.borderColorRgba, borderC);
+	rgba(st.fillTopRgba, fillT);
+	rgba(st.fillBottomRgba, fillB);
+	rgba(st.glowRgba, glowC);
+
+	_panelShader->use();
+	_panelShader->setUniform2f("u_quadSize", (float)quad.w, (float)quad.h);
+	_panelShader->setUniform2f("u_shapeOffset", (float)pad, (float)pad);
+	_panelShader->setUniform2f("u_size", (float)shape.w, (float)shape.h);
+	_panelShader->setUniform1f("u_radius", radius);
+	_panelShader->setUniform1f("u_borderWidth", borderWidth);
+	_panelShader->setUniform4f("u_borderColor", borderC[0], borderC[1], borderC[2], borderC[3]);
+	_panelShader->setUniform4f("u_fillTop", fillT[0], fillT[1], fillT[2], fillT[3]);
+	_panelShader->setUniform4f("u_fillBottom", fillB[0], fillB[1], fillB[2], fillB[3]);
+	_panelShader->setUniform2f("u_gradDir", st.gradDirX, st.gradDirY);
+	_panelShader->setUniform4f("u_glowColor", glowC[0], glowC[1], glowC[2], glowC[3]);
+	_panelShader->setUniform1f("u_glowRadius", glowRadius);
 
 	glBindVertexArray(_vao);
 	glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -533,7 +632,8 @@ bool CalypsoHdUiOverlay::renderStages(SDL_Renderer* renderer)
 	{
 		bool drawn = true;
 		if (d.kind == CalypsoHdItemKind::Panel)
-			drawn = drawLogicalQuad(d.tex, d.rect, d.colorRgba);
+			drawn = d.panelStyle.styled ? drawStyledPanel(d)
+			                            : drawLogicalQuad(d.tex, d.rect, d.colorRgba);
 		else
 			drawn = drawGlyph(d);
 		if (!drawn) ok = false;

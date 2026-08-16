@@ -12,6 +12,7 @@
  *   "emissive_glow"
  *   "globe_sphere"
  *   "hd_ui"
+ *   "hd_ui_panel"
  *   "textured"
  *   "tile_atlas"
  *   "tile_atlas_rgba"
