@@ -33,6 +33,7 @@
 #include "../Calypso/CalypsoDirector.h"
 #include "../Calypso/CalypsoPrologueCampaign.h"
 #include "../Calypso/CalypsoAbandonPopupUi.h"
+#include "../Calypso/CalypsoHdHarnessHostState.h"
 #endif
 
 namespace OpenXcom
@@ -111,6 +112,10 @@ AbandonGameState::~AbandonGameState()
 	{
 		Calypso::hdHarnessDomHide();
 	}
+	// Harness teardown: when this state was the harness target preview,
+	// clear the session; the opaque-black host pops itself on its next
+	// think (F33-PARITY-002). No-op for ordinary gameplay.
+	Calypso::calypsoHdHarnessClose();
 	delete _hdAdapter;
 	_hdAdapter = nullptr;
 #endif

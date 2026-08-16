@@ -140,10 +140,28 @@ def emit_theme_h(theme):
     out.append("")
     out.append("// Semantic token key strings for the interaction-state mapping")
     out.append("// (CalypsoHdInteractionState.h) -- values above, keys here.")
-    for name in sorted(colors.keys()):
+    names = sorted(colors.keys())
+    for name in names:
         token = "token.color." + name
         const = "kToken" + name[0].upper() + name[1:]
         out.append('inline constexpr const char* ' + const + ' = "' + token + '";')
+    out.append("")
+    out.append("/// Resolve a semantic token key to its packed RGBA value (0 for")
+    out.append("/// unknown keys). Generated table; one source of truth.")
+    out.append('#include <cstring>')
+    out.append("inline std::uint32_t calypsoHdThemeColorForToken(const char* token)")
+    out.append("{")
+    out.append(TAB + "struct Entry { const char* key; std::uint32_t value; };")
+    out.append(TAB + "static constexpr Entry kEntries[] = {")
+    for name in names:
+        const = "k" + name[0].upper() + name[1:]
+        tconst = "kToken" + name[0].upper() + name[1:]
+        out.append(TAB + TAB + "{ " + tconst + ", " + const + " },")
+    out.append(TAB + "};")
+    out.append(TAB + "for (const Entry& e : kEntries)")
+    out.append(TAB + TAB + "if (std::strcmp(token, e.key) == 0) return e.value;")
+    out.append(TAB + "return 0;")
+    out.append("}")
     out.append("} } }")
     return NL.join(out) + NL
 

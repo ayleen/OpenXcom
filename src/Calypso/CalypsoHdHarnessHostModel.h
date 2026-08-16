@@ -47,6 +47,7 @@ struct CalypsoHarnessSession
 	bool targetUp = false;
 	bool layoutExplicit = false;
 	CalypsoLayoutClass requestedLayout = CalypsoLayoutClass::Compact;
+	bool motionDisabled = false; // deterministic capture mode (motion=0)
 	int openRequests = 0;
 };
 
@@ -80,6 +81,14 @@ inline void calypsoHarnessClose(CalypsoHarnessSession& s)
 	s.targetUp = false;
 	s.layoutExplicit = false;
 	s.requestedLayout = CalypsoLayoutClass::Compact;
+	s.motionDisabled = false;
+}
+
+/// Deterministic capture mode: presentation motion is disabled for the active
+/// preview (F33 capture mode, motion=0 from the DOM controller).
+inline void calypsoHarnessSetMotionDisabled(CalypsoHarnessSession& s, bool disabled)
+{
+	s.motionDisabled = disabled;
 }
 
 /// Explicitly request a layout class for the active preview; preserved across

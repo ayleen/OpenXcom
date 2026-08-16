@@ -46,6 +46,8 @@
 
 #include "CalypsoF33AbandonLayout.h"
 #include "CalypsoHdFontSource.h"
+#include "CalypsoHdInteractionState.h"
+#include "CalypsoHdHarnessHostState.h"
 #include "CalypsoHdTextRasterKey.h"
 #include "CalypsoHdTheme.h"
 #include "CalypsoHdUiModel.h"
@@ -82,7 +84,10 @@ CalypsoLayoutClass currentF33LayoutClass()
 	// applyUiScaling fits the design canvas into -- not the raw framebuffer.
 	CalypsoBaseSafeRect safe{ 0, 0, Options::baseXResolution, Options::baseYResolution };
 	(void)calypsoProjectedSafeRectForLayout(Options::baseXResolution, Options::baseYResolution, safe);
-	return calypsoClassifySafeArea(safe.width, safe.height);
+	// F33-PARITY-005: while the harness preview is active its EXPLICIT layout
+	// selection overrides ordinary automatic classification and survives
+	// resize; otherwise classify from the safe area.
+	return calypsoHarnessEffectiveLayout(calypsoHarnessSession(), safe);
 }
 
 void applyRect(Surface* surface, const CalypsoF33Rect& rect)
@@ -97,6 +102,40 @@ void applyRect(Surface* surface, const CalypsoF33Rect& rect)
 CalypsoLogicalRect widgetRect(const Surface* surface)
 {
 	return { surface->getX(), surface->getY(), surface->getWidth(), surface->getHeight() };
+}
+
+/// Read-only interaction snapshot of a button (F33-PARITY-008): the adapter
+/// NEVER owns events; it just reads the widget's live state.
+CalypsoInteractionState buttonVisualState(const TextButton* btn)
+{
+	if (!btn) return CalypsoInteractionState::Rest;
+	if (btn->isPressed()) return CalypsoInteractionState::Pressed;
+	if (btn->isFocused()) return CalypsoInteractionState::Focus;
+	if (btn->isHovered()) return CalypsoInteractionState::Hover;
+	return CalypsoInteractionState::Rest;
+}
+
+/// SDF panel style for one (tone, state) presentation, from the canonical
+/// semantic tokens. Keyboard focus adds a non-colour cue: a thicker ring.
+CalypsoHdPanelStyle buttonStyleFor(CalypsoActionTone tone, CalypsoInteractionState state)
+{
+	const CalypsoInteractionTokenPair tokens = calypsoInteractionTokenPair(tone, state);
+	const std::uint32_t borderColor = (state == CalypsoInteractionState::Focus)
+		? CalypsoHdThemeGen::calypsoHdThemeColorForToken(calypsoFocusRingToken(tone))
+		: CalypsoHdThemeGen::calypsoHdThemeColorForToken(tokens.borderToken);
+	const std::uint32_t fill = CalypsoHdThemeGen::calypsoHdThemeColorForToken(tokens.fillToken);
+
+	CalypsoHdPanelStyle s;
+	s.styled = true;
+	s.radiusPx = CalypsoHdTheme::kButtonRadiusPx;
+	s.borderWidthPx = CalypsoHdTheme::kBorderWidthPx
+		+ (state == CalypsoInteractionState::Focus ? 1.0f : 0.0f);
+	s.borderColorRgba = borderColor;
+	s.fillTopRgba = fill;
+	s.fillBottomRgba = fill;
+	s.gradDirX = 0.26f;
+	s.gradDirY = 1.0f;
+	return s;
 }
 
 } // namespace
@@ -117,10 +156,10 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 {
 	if (!_state || !_state->_hdLayout || !_state->_game) return;
 
-	// Let the logical popup's scale-in animation play; only take over
-	// physically once the window is fully popped.
-	if (_state->_window && !_state->_window->isPopupDone()) return;
-
+	// F33-PARITY-007: claim the COMPLETE physical dialog from the FIRST
+	// eligible frame -- never expose the legacy POPUP_BOTH animation. The
+	// logical window is claimed (blit-skipped) in the same atomic subgroup,
+	// so it cannot flash underneath.
 	Mod* mod = _state->_game->getMod();
 	CalypsoTtfSourceDescriptor heading;
 	CalypsoTtfSourceDescriptor body;
@@ -237,11 +276,14 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 	// text -- ord is monotonic so the order key keeps that painter order.
 	addStyled(widgetRect(_state->_window), CalypsoHdTheme::calypsoHdDialogStyle(),
 		_state->_window, ROLE_WINDOW);
-	addStyled(widgetRect(_state->_btnYes),
-		CalypsoHdTheme::calypsoHdButtonStyle(CalypsoHdTheme::kYesFill, CalypsoHdTheme::kDanger),
+	// F33-PARITY-008: buttons snapshot their live interaction state (read-only)
+	// and map it to the canonical semantic tokens -- hover/focus/pressed are
+	// never static, and the widgets keep every input event.
+	addStyled(widgetRect(_state->_btnYes), buttonStyleFor(
+		CalypsoActionTone::Destructive, buttonVisualState(_state->_btnYes)),
 		_state->_btnYes, ROLE_YES);
-	addStyled(widgetRect(_state->_btnNo),
-		CalypsoHdTheme::calypsoHdButtonStyle(CalypsoHdTheme::kNoFill, CalypsoHdTheme::kAccent),
+	addStyled(widgetRect(_state->_btnNo), buttonStyleFor(
+		CalypsoActionTone::Safe, buttonVisualState(_state->_btnNo)),
 		_state->_btnNo, ROLE_NO);
 
 	addText(_state->_txtTitle, heading, _state->_txtTitle ? _state->_txtTitle->getText() : std::string(),
@@ -315,17 +357,18 @@ void CalypsoAbandonPopupUi::configure(AbandonGameState& state, bool allowPhysica
 
 	if (g_harnessAbandon)
 	{
-		// Side-by-side comparison: force the Wide design and shift the dialog
-		// into the left half (window.x 340 -> 40), leaving the right half for
-		// the DOM reference card (hd-harness.js).
-		state._hdWideLayout = true;
-		layout = calypsoF33AbandonLayout(CalypsoLayoutClass::Wide);
-		const int dx = 40 - layout.window.x;
-		layout.window.x += dx;
-		layout.title.x += dx;
-		layout.message.x += dx;
-		layout.yes.x += dx;
-		layout.no.x += dx;
+		// Side-by-side comparison: the layout class stays session-driven
+		// (F33-PARITY-005); a Wide dialog is shifted into the left half
+		// (window.x 340 -> 40) so the DOM reference card fits on the right.
+		if (state._hdWideLayout)
+		{
+			const int dx = 40 - layout.window.x;
+			layout.window.x += dx;
+			layout.title.x += dx;
+			layout.message.x += dx;
+			layout.yes.x += dx;
+			layout.no.x += dx;
+		}
 	}
 
 	// Data-loss copy: an HD-only widget (the vanilla dialog has no message
@@ -388,6 +431,11 @@ bool OpenXcom::Calypso::hdHarnessAbandonActive()
 	return OpenXcom::Calypso::g_harnessAbandon;
 }
 
+void OpenXcom::Calypso::calypsoHdHarnessSetSideBySide(bool on)
+{
+	OpenXcom::Calypso::g_harnessAbandon = on;
+}
+
 void OpenXcom::Calypso::hdHarnessDomShow()
 {
 	EM_ASM({ if (globalThis.__calypsoHdHarnessShow) globalThis.__calypsoHdHarnessShow(); });
@@ -403,11 +451,12 @@ extern "C" {
 EMSCRIPTEN_KEEPALIVE
 void calypso_hd_harness_abandon()
 {
-	OpenXcom::Calypso::g_harnessAbandon = true;
-	if (OpenXcom::Game* g = OpenXcom::getCurrentGame())
-	{
-		g->pushState(new OpenXcom::AbandonGameState(OpenXcom::OPT_GEOSCAPE));
-	}
+	// Legacy entry point (kept for the current web toolbar): route through the
+	// opaque-black harness host so no lower state can ever show through
+	// (F33-PARITY-002). Side-by-side (Wide) is the historic comparison mode.
+	OpenXcom::Calypso::calypsoHdHarnessOpen(
+		OpenXcom::Calypso::CalypsoHarnessScenario::F33Abandon,
+		OpenXcom::Calypso::CalypsoLayoutClass::Wide);
 }
 
 } // extern "C"

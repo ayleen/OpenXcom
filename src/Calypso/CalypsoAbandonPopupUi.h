@@ -68,6 +68,8 @@ private:
 
 /// Is the side-by-side comparison mode active for this run?
 bool hdHarnessAbandonActive();
+/// Enable/disable the side-by-side comparison shift (F33 harness host path).
+void calypsoHdHarnessSetSideBySide(bool on);
 /// Show/hide the DOM reference card (right half of the viewport).
 void hdHarnessDomShow();
 void hdHarnessDomHide();

@@ -87,4 +87,51 @@ inline constexpr const char* kTokenSafeRestBorder = "token.color.safeRestBorder"
 inline constexpr const char* kTokenSafeRestFill = "token.color.safeRestFill";
 inline constexpr const char* kTokenShadowGlow = "token.color.shadowGlow";
 inline constexpr const char* kTokenYesFill = "token.color.yesFill";
+
+/// Resolve a semantic token key to its packed RGBA value (0 for
+/// unknown keys). Generated table; one source of truth.
+#include <cstring>
+inline std::uint32_t calypsoHdThemeColorForToken(const char* token)
+{
+	struct Entry { const char* key; std::uint32_t value; };
+	static constexpr Entry kEntries[] = {
+		{ kTokenAccent, kAccent },
+		{ kTokenAccentSoft, kAccentSoft },
+		{ kTokenBackdropDim, kBackdropDim },
+		{ kTokenDanger, kDanger },
+		{ kTokenDestructiveDisabledBorder, kDestructiveDisabledBorder },
+		{ kTokenDestructiveDisabledFill, kDestructiveDisabledFill },
+		{ kTokenDestructiveFocusBorder, kDestructiveFocusBorder },
+		{ kTokenDestructiveFocusFill, kDestructiveFocusFill },
+		{ kTokenDestructiveHoverBorder, kDestructiveHoverBorder },
+		{ kTokenDestructiveHoverFill, kDestructiveHoverFill },
+		{ kTokenDestructivePressedBorder, kDestructivePressedBorder },
+		{ kTokenDestructivePressedFill, kDestructivePressedFill },
+		{ kTokenDestructiveRestBorder, kDestructiveRestBorder },
+		{ kTokenDestructiveRestFill, kDestructiveRestFill },
+		{ kTokenDialogFillBottom, kDialogFillBottom },
+		{ kTokenDialogFillTop, kDialogFillTop },
+		{ kTokenFocusRingDanger, kFocusRingDanger },
+		{ kTokenFocusRingSafe, kFocusRingSafe },
+		{ kTokenGold, kGold },
+		{ kTokenHaloGlow, kHaloGlow },
+		{ kTokenNearWhite, kNearWhite },
+		{ kTokenNoFill, kNoFill },
+		{ kTokenSafeDisabledBorder, kSafeDisabledBorder },
+		{ kTokenSafeDisabledFill, kSafeDisabledFill },
+		{ kTokenSafeFocusBorder, kSafeFocusBorder },
+		{ kTokenSafeFocusFill, kSafeFocusFill },
+		{ kTokenSafeHoverBorder, kSafeHoverBorder },
+		{ kTokenSafeHoverFill, kSafeHoverFill },
+		{ kTokenSafePressedBorder, kSafePressedBorder },
+		{ kTokenSafePressedFill, kSafePressedFill },
+		{ kTokenSafeRestBorder, kSafeRestBorder },
+		{ kTokenSafeRestFill, kSafeRestFill },
+		{ kTokenShadowGlow, kShadowGlow },
+		{ kTokenYesFill, kYesFill },
+	};
+	for (const Entry& e : kEntries)
+		if (std::strcmp(token, e.key) == 0) return e.value;
+	return 0;
+}
 } } }

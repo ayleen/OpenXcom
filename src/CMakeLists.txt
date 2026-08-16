@@ -633,6 +633,8 @@ list(APPEND openxcom_src Calypso/CalypsoAbandonPopupUi.cpp)
   # unit tests (stands alone from CalypsoHdTextRaster so a native test target
   # can compile the same SDL_ttf code).
   list(APPEND openxcom_src Calypso/CalypsoHdTrackedText.cpp)
+  # Phase 46.4-F33: opaque-black harness host + generic registry exports.
+  list(APPEND openxcom_src Calypso/CalypsoHdHarnessHostState.cpp)
   list(APPEND openxcom_src Calypso/CalypsoErrorPopupUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoStatisticsUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoNotesUi.cpp)
