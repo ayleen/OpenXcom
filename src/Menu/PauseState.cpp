@@ -179,20 +179,10 @@ PauseState::PauseState(OptionsOrigin origin) : _origin(origin)
 	}
 
 #ifdef __EMSCRIPTEN__
-	// F33 (2026-08-16): DOM overlay edition. All visibility/label logic above
-	// is unchanged; the bitmap widgets are merely hidden and the menu renders
-	// as an HTML overlay (pause-menu.js). All pushState(PauseState) call
-	// sites (Geoscape options, Battlescape pause, tab-hide) are covered
-	// because the hook lives here in the state itself.
-	domShow();
-	_window->setVisible(false);
-	_btnLoad->setVisible(false);
-	_btnSave->setVisible(false);
-	_btnAbandon->setVisible(false);
-	_btnOptions->setVisible(false);
-	_btnCancel->setVisible(false);
-	_txtTitle->setVisible(false);
-	_txtVersion->setVisible(false);
+	// F33: DOM overlay edition -- hide the bitmap widgets and raise the
+	// HTML overlay with the current labels/visibility. Body lives in
+	// src/Calypso/CalypsoPauseMenu (placement policy R3).
+	Calypso::calypsoPauseDomConfigure(*this);
 #endif
 }
 
@@ -221,33 +211,19 @@ void PauseState::resize(int &dX, int &dY)
 
 #ifdef __EMSCRIPTEN__
 /**
- * F33: push the pause-menu DOM overlay with the current labels/visibility.
- */
-void PauseState::domShow()
-{
-	Calypso::pauseMenuDomShow(
-		(int)_origin,
-		_btnLoad->getVisible(), _btnSave->getVisible(), _btnAbandon->getVisible(),
-		_btnOptions->getVisible(), _btnCancel->getVisible(),
-		std::string(tr("STR_OPTIONS_UC")),
-		_btnLoad->getText(), _btnSave->getText(), _btnAbandon->getText(),
-		_btnOptions->getText(), _btnCancel->getText());
-}
-
-/**
  * F33: re-show the DOM overlay when this state becomes the top state again
  * (e.g. AbandonGameState was cancelled and popped back to the pause menu).
  * Every frame while top, the JS hook no-ops once the overlay is visible.
+ * Body in src/Calypso/CalypsoPauseMenu (placement policy R3).
  */
+#endif
 void PauseState::think()
 {
-	State::think();
-	if (_game->isState(this))
-	{
-		domShow();
-	}
-}
+#ifdef __EMSCRIPTEN__
+	Calypso::calypsoPauseDomThink(*this, *_game);
 #endif
+	State::think();
+}
 
 /**
  * Opens the Load Game screen.

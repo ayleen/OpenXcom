@@ -20,6 +20,10 @@
 #include "../Engine/State.h"
 #include "OptionsBaseState.h"
 
+#ifdef __EMSCRIPTEN__
+namespace Calypso { class CalypsoPauseMenu; }
+#endif
+
 namespace OpenXcom
 {
 
@@ -40,8 +44,9 @@ private:
 	Window *_window;
 	Text *_txtTitle, *_txtVersion;
 #ifdef __EMSCRIPTEN__
-	/// F33: push the pause-menu DOM overlay with the current labels/visibility.
-	void domShow();
+	/// F33: the DOM overlay bridge reads this state's presentation snapshot.
+	/// Placement policy R3: the body lives in src/Calypso/CalypsoPauseMenu.
+	friend class Calypso::CalypsoPauseMenu;
 #endif
 public:
 	/// Creates the Pause state.

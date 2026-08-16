@@ -48,6 +48,37 @@ void pauseMenuDomHide()
 	});
 }
 
+void calypsoPauseDomConfigure(PauseState& state)
+{
+	// Friend access to the state's presentation snapshot (no event ownership):
+	// same data the native widget layout would have drawn.
+	pauseMenuDomShow(
+		(int)state._origin,
+		state._btnLoad->getVisible(), state._btnSave->getVisible(),
+		state._btnAbandon->getVisible(), state._btnOptions->getVisible(),
+		state._btnCancel->getVisible(),
+		std::string(state.tr("STR_OPTIONS_UC")),
+		state._btnLoad->getText(), state._btnSave->getText(),
+		state._btnAbandon->getText(), state._btnOptions->getText(),
+		state._btnCancel->getText());
+	state._window->setVisible(false);
+	state._btnLoad->setVisible(false);
+	state._btnSave->setVisible(false);
+	state._btnAbandon->setVisible(false);
+	state._btnOptions->setVisible(false);
+	state._btnCancel->setVisible(false);
+	state._txtTitle->setVisible(false);
+	state._txtVersion->setVisible(false);
+}
+
+void calypsoPauseDomThink(PauseState& state, Game& game)
+{
+	if (game.isState(&state))
+	{
+		calypsoPauseDomConfigure(state);
+	}
+}
+
 } // namespace Calypso
 } // namespace OpenXcom
 

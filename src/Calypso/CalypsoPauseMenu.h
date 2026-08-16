@@ -20,6 +20,7 @@
 namespace OpenXcom
 {
 class Game;
+class PauseState;
 
 namespace Calypso
 {
@@ -35,6 +36,15 @@ void pauseMenuDomShow(
 
 /// Hide the pause-menu DOM overlay (called before popState and in ~PauseState).
 void pauseMenuDomHide();
+
+/// F33 (Phase 46.4-F33 placement cleanup): the PauseState constructor hook.
+/// Hides the bitmap widgets and raises the DOM overlay with the current
+/// labels/visibility. Body lives here, not in PauseState.cpp (policy R3).
+void calypsoPauseDomConfigure(PauseState& state);
+
+/// F33: re-show the DOM overlay when PauseState becomes the top state again
+/// (e.g. AbandonGameState was cancelled and popped back to the pause menu).
+void calypsoPauseDomThink(PauseState& state, Game& game);
 
 } // namespace Calypso
 } // namespace OpenXcom
