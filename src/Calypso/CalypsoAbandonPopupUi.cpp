@@ -393,7 +393,11 @@ void CalypsoAbandonPopupUi::configure(AbandonGameState& state, bool allowPhysica
 	state._hdAdapter = adapter;
 	CalypsoHdUiOverlay::instance().registerAdapter(adapter);
 
-	if (g_harnessAbandon)
+	// Raise the DOM reference card for ANY harness preview (side / overlay /
+	// reference-with-engine): the controller positions it per mode. Only the
+	// LEFT-HALF SHIFT above is side-by-side specific; the show is not gated on
+	// it (F33.5 overlay/registration runs surfaced this).
+	if (calypsoHarnessHostUp(calypsoHarnessSession()))
 	{
 		hdHarnessDomShow();
 	}
