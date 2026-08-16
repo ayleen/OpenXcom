@@ -190,12 +190,17 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 		wide ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact);
 	// State::enableUiScaling has already projected the design rects into the
 	// current logical canvas. Keep the raster at design resolution and project
-	// the composed texture by this uniform UI scale, just like the DOM card's
-	// CSS transform. `sy` remains the physical device-pixel ratio.
+	// the composed texture by the total design-to-physical scale, just like the
+	// DOM card's CSS transform. The SDL_ttf face itself must not absorb sx/sy:
+	// doing so changes natural glyph metrics before the composed projection.
 	const double uiScale = designLayout.window.width > 0
 		? (double)widgetRect(_state->_window).w / designLayout.window.width : 1.0;
-	const int uiScalePermille = std::max(1,
-		(int)calypsoHdRoundToInt(uiScale * 1000.0));
+	const double projectionScaleX = uiScale * sx;
+	const double projectionScaleY = uiScale * sy;
+	const int projectionScaleXPermille = std::max(1,
+		(int)calypsoHdRoundToInt(projectionScaleX * 1000.0));
+	const int projectionScaleYPermille = std::max(1,
+		(int)calypsoHdRoundToInt(projectionScaleY * 1000.0));
 	const std::uint64_t inst = reinterpret_cast<std::uintptr_t>(_state);
 
 	// Opening motion (F33-PARITY-007 follow-up): a monotonic presentation
@@ -319,7 +324,7 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 		const double designFontSize = fontSizeDesignPx > 0.0
 			? fontSizeDesignPx : (double)r.h / hint;
 		const int physicalPixelHeight = std::max(1,
-			(int)calypsoHdRoundToInt(designFontSize * sy));
+			(int)calypsoHdRoundToInt(designFontSize));
 		const int wrapWidth = (hint > 1)
 			? std::max(1, (int)calypsoHdRoundToInt((double)r.w * sx)) : 0;
 
@@ -330,8 +335,8 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 		key.wrapWidth = wrapWidth;
 		key.colorRgba = color;
 		key.direction = CalypsoTextDirection::LTR;
-		key.horizontalScalePermille = uiScalePermille;
-		key.verticalScalePermille = uiScalePermille;
+		key.horizontalScalePermille = projectionScaleXPermille;
+		key.verticalScalePermille = projectionScaleYPermille;
 		// Tracking (single-line only by contract): DOM titles/labels run
 		// 0.12em; body copy has none, so the default 0 keeps wrapped text on
 		// SDL_ttf's layout.
@@ -394,7 +399,7 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 				: CalypsoHdTheme::kBodyProjectionLineHeightScaleCompact;
 			const int physicalPixelHeight = std::max(1,
 				(int)calypsoHdRoundToInt((double)CalypsoHdTheme::kBodyFontSizePx *
-					bodySizeScale * sy));
+					bodySizeScale));
 			const int wrapWidth = std::max(1, (int)calypsoHdRoundToInt((double)r.w * sx));
 
 			CalypsoHdTextRasterKey key;
@@ -405,12 +410,12 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 			key.lineHeightPx = std::max(1, (int)calypsoHdRoundToInt(
 				(double)CalypsoHdTheme::kBodyFontSizePx * bodySizeScale
 					* CalypsoHdTheme::kBodyLineHeight
-					* bodyProjectionLineHeightScale * sy));
+					* bodyProjectionLineHeightScale));
 			key.horizontalScalePermille = std::max(1,
-				(int)calypsoHdRoundToInt(bodyWidthScale * uiScale * 1000.0));
-			key.verticalScalePermille = uiScalePermille;
+				(int)calypsoHdRoundToInt(bodyWidthScale * projectionScaleX * 1000.0));
+			key.verticalScalePermille = projectionScaleYPermille;
 			key.wrapMeasureScalePermille = std::max(1,
-				(int)calypsoHdRoundToInt(bodyWrapMeasureScale * uiScale * 1000.0));
+				(int)calypsoHdRoundToInt(bodyWrapMeasureScale * projectionScaleX * 1000.0));
 			key.colorRgba = CalypsoHdTheme::kNearWhite;
 			key.direction = CalypsoTextDirection::LTR;
 
