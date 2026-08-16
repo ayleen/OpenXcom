@@ -39,18 +39,19 @@
 #include "Generated/CalypsoF33Abandon.generated.h"
 #include "Generated/CalypsoHdTheme.generated.h"
 
-#include <cstring>
-
-// Contract-version guard (46.4-F33.2 contract rule): a consumer compiled
-// against a stale generated pair is a build error, never a silent drift.
-static_assert(std::strcmp(CalypsoF33AbandonGen::kContractVersion,
-	CalypsoHdThemeGen::kContractVersion) == 0,
-	"F33 and theme generated contracts carry different versions; regenerate");
+#include <string_view>
 
 namespace OpenXcom
 {
 namespace Calypso
 {
+
+// Contract-version guard (46.4-F33.2 contract rule): a consumer compiled
+// against a stale generated pair is a build error, never a silent drift.
+// string_view comparison is constexpr in C++17 (strcmp is not until C++23).
+static_assert(std::string_view(CalypsoF33AbandonGen::kContractVersion) ==
+		std::string_view(CalypsoHdThemeGen::kContractVersion),
+	"F33 and theme generated contracts carry different versions; regenerate");
 
 /// One design-space rectangle of the F33.Abandon layout.
 struct CalypsoF33Rect
