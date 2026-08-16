@@ -82,7 +82,8 @@ def validate_theme(theme):
     if shadow.get("glowRadiusPx", 0) <= 0 or halo.get("glowRadiusPx", 0) <= 0:
         fail("hd-ui-theme.json: shadow/halo glowRadiusPx must be > 0")
     typography = theme.get("typography") or {}
-    for key in ("titleFontSizeScale", "bodyFontSizeScale", "bodyLineHeight"):
+    for key in ("titleFontSizeScale", "bodyFontSizeScale", "bodyLineHeight",
+                "labelFontSizeScaleWide", "labelFontSizeScaleCompact"):
         if not isinstance(typography.get(key), (int, float)) or typography[key] <= 0:
             fail("hd-ui-theme.json: typography." + key + " must be > 0")
     for key in ("labelFontSizePx", "bodyFontSizePx", "titleFontWeight", "labelFontWeight", "bodyFontWeight"):
@@ -166,6 +167,8 @@ def emit_theme_h(theme):
     out.append("inline constexpr float kTitleFontSizeScale = %.6ff;" % float(theme["typography"]["titleFontSizeScale"]))
     out.append("inline constexpr float kBodyFontSizeScale = %.6ff;" % float(theme["typography"]["bodyFontSizeScale"]))
     out.append("inline constexpr int kLabelFontSizePx = %d;" % int(theme["typography"]["labelFontSizePx"]))
+    out.append("inline constexpr float kLabelFontSizeScaleWide = %.6ff;" % float(theme["typography"]["labelFontSizeScaleWide"]))
+    out.append("inline constexpr float kLabelFontSizeScaleCompact = %.6ff;" % float(theme["typography"]["labelFontSizeScaleCompact"]))
     out.append("inline constexpr int kBodyFontSizePx = %d;" % int(theme["typography"]["bodyFontSizePx"]))
     out.append("inline constexpr float kBodyLineHeight = %.6ff;" % float(theme["typography"]["bodyLineHeight"]))
     out.append("inline constexpr int kTitleFontWeight = %d;" % int(theme["typography"]["titleFontWeight"]))

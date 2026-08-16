@@ -46,6 +46,8 @@
     "titleFontSizeScale": 0.8,
     "bodyFontSizeScale": 1.0,
     "labelFontSizePx": 17,
+    "labelFontSizeScaleWide": 0.8,
+    "labelFontSizeScaleCompact": 1.0,
     "bodyFontSizePx": 15,
     "bodyLineHeight": 1.5,
     "titleFontWeight": 700,

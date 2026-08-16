@@ -87,9 +87,9 @@ struct CalypsoHdTextRasterKey
 		return source == o.source
 		    && physicalPixelHeight == o.physicalPixelHeight
 		    && text == o.text
-	    && wrapWidth == o.wrapWidth
-	    && letterSpacingPx == o.letterSpacingPx
-	    && lineHeightPx == o.lineHeightPx
+		    && wrapWidth == o.wrapWidth
+		    && letterSpacingPx == o.letterSpacingPx
+		    && lineHeightPx == o.lineHeightPx
 		    && breakSignature == o.breakSignature
 		    && colorRgba == o.colorRgba
 		    && styleFlags == o.styleFlags

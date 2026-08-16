@@ -400,10 +400,16 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 
 	addText(_state->_btnYes, heading, _state->_btnYes ? _state->_btnYes->getText() : std::string(),
 		CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, ROLE_YES,
-		CalypsoHdTheme::kLabelTrackingEm, CalypsoHdTheme::kLabelFontSizePx);
+		CalypsoHdTheme::kLabelTrackingEm,
+		(double)CalypsoHdTheme::kLabelFontSizePx * (_state->_hdWideLayout
+			? CalypsoHdTheme::kLabelFontSizeScaleWide
+			: CalypsoHdTheme::kLabelFontSizeScaleCompact));
 	addText(_state->_btnNo, heading, _state->_btnNo ? _state->_btnNo->getText() : std::string(),
 		CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, ROLE_NO,
-		CalypsoHdTheme::kLabelTrackingEm, CalypsoHdTheme::kLabelFontSizePx);
+		CalypsoHdTheme::kLabelTrackingEm,
+		(double)CalypsoHdTheme::kLabelFontSizePx * (_state->_hdWideLayout
+			? CalypsoHdTheme::kLabelFontSizeScaleWide
+			: CalypsoHdTheme::kLabelFontSizeScaleCompact));
 }
 
 void CalypsoAbandonPopupUi::applyRects(AbandonGameState& state, const CalypsoF33AbandonLayout& layout)
