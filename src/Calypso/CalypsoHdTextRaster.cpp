@@ -13,12 +13,160 @@
 #include "../Engine/FileMap.h"
 #include "../Engine/Logger.h"
 
+#include <algorithm>
+#include <cstddef>
+#include <string>
 #include <vector>
 
 namespace OpenXcom
 {
 namespace Calypso
 {
+
+namespace
+{
+
+std::size_t nextUtf8Boundary(const std::string& text, std::size_t offset)
+{
+	if (offset >= text.size()) return text.size();
+	const unsigned char c = static_cast<unsigned char>(text[offset]);
+	std::size_t length = 1;
+	if ((c & 0xE0u) == 0xC0u) length = 2;
+	else if ((c & 0xF0u) == 0xE0u) length = 3;
+	else if ((c & 0xF8u) == 0xF0u) length = 4;
+	return std::min(text.size(), offset + length);
+}
+
+bool isAsciiSpaceAt(const std::string& text, std::size_t offset)
+{
+	return offset < text.size()
+		&& static_cast<unsigned char>(text[offset]) <= 0x20u;
+}
+
+int utf8Width(TTF_Font* face, const std::string& text)
+{
+	int width = 0;
+	int height = 0;
+	return TTF_SizeUTF8(face, text.c_str(), &width, &height) == 0 ? width : -1;
+}
+
+void trimLineEnd(std::string& line)
+{
+	while (!line.empty() && static_cast<unsigned char>(line.back()) <= 0x20u)
+	{
+		line.pop_back();
+	}
+}
+
+void trimLineStart(std::string& text)
+{
+	std::size_t first = 0;
+	while (first < text.size() && isAsciiSpaceAt(text, first)) ++first;
+	text.erase(0, first);
+}
+
+/// Portable equivalent of SDL_ttf's wrapped renderer with a caller-owned line
+/// skip. Emscripten's pinned SDL_ttf exposes the wrapped renderer and metrics,
+/// but not TTF_SetFontLineSkip, so line breaks are measured explicitly and each
+/// line is blitted at the canonical physical line height.
+SDL_Surface* renderWrappedWithLineHeight(TTF_Font* face, const std::string& text,
+	int wrapWidth, int lineHeightPx, SDL_Color color)
+{
+	if (!face || text.empty() || wrapWidth <= 0 || lineHeightPx <= 0) return nullptr;
+
+	std::vector<std::string> lines;
+	std::size_t paragraphStart = 0;
+	while (paragraphStart <= text.size())
+	{
+		const std::size_t newline = text.find('\n', paragraphStart);
+		const std::size_t paragraphEnd = newline == std::string::npos ? text.size() : newline;
+		std::string remaining = text.substr(paragraphStart, paragraphEnd - paragraphStart);
+		if (remaining.empty())
+		{
+			lines.emplace_back();
+		}
+		else
+		{
+			while (!remaining.empty())
+			{
+				if (utf8Width(face, remaining) <= wrapWidth)
+				{
+					lines.push_back(remaining);
+					break;
+				}
+
+				std::size_t cursor = 0;
+				std::size_t fittingEnd = 0;
+				std::size_t lastSpaceEnd = 0;
+				while (cursor < remaining.size())
+				{
+					const std::size_t next = nextUtf8Boundary(remaining, cursor);
+					const std::string candidate = remaining.substr(0, next);
+					if (utf8Width(face, candidate) > wrapWidth) break;
+					fittingEnd = next;
+					if (isAsciiSpaceAt(remaining, cursor)) lastSpaceEnd = next;
+					cursor = next;
+				}
+				std::size_t breakAt = lastSpaceEnd > 0 ? lastSpaceEnd : fittingEnd;
+				if (breakAt == 0) breakAt = nextUtf8Boundary(remaining, 0);
+
+				std::string line = remaining.substr(0, breakAt);
+				trimLineEnd(line);
+				lines.push_back(std::move(line));
+				remaining.erase(0, breakAt);
+				trimLineStart(remaining);
+			}
+		}
+
+		if (newline == std::string::npos) break;
+		paragraphStart = newline + 1;
+	}
+
+	const int fontHeight = TTF_FontHeight(face);
+	const int lineSkip = std::max(fontHeight, lineHeightPx);
+	std::vector<SDL_Surface*> rendered;
+	rendered.reserve(lines.size());
+	int width = 1;
+	for (const std::string& line : lines)
+	{
+		SDL_Surface* glyphs = line.empty() ? nullptr : TTF_RenderUTF8_Blended(face, line.c_str(), color);
+		if (!line.empty() && !glyphs)
+		{
+			for (SDL_Surface* prior : rendered) SDL_FreeSurface(prior);
+			return nullptr;
+		}
+		if (glyphs) width = std::max(width, glyphs->w);
+		rendered.push_back(glyphs);
+	}
+
+	const int height = std::max(fontHeight,
+		(static_cast<int>(rendered.size()) - 1) * lineSkip + fontHeight);
+	SDL_Surface* canvas = SDL_CreateRGBSurfaceWithFormat(0, width, height, 32,
+		SDL_PIXELFORMAT_ARGB8888);
+	if (!canvas)
+	{
+		for (SDL_Surface* glyphs : rendered) SDL_FreeSurface(glyphs);
+		return nullptr;
+	}
+	SDL_SetSurfaceBlendMode(canvas, SDL_BLENDMODE_NONE);
+	for (std::size_t i = 0; i < rendered.size(); ++i)
+	{
+		SDL_Surface* glyphs = rendered[i];
+		if (!glyphs) continue;
+		SDL_SetSurfaceBlendMode(glyphs, SDL_BLENDMODE_NONE);
+		SDL_Rect destination{ 0, static_cast<int>(i) * lineSkip, glyphs->w, glyphs->h };
+		if (SDL_BlitSurface(glyphs, nullptr, canvas, &destination) != 0)
+		{
+			for (SDL_Surface* prior : rendered) SDL_FreeSurface(prior);
+			SDL_FreeSurface(canvas);
+			return nullptr;
+		}
+	}
+	for (SDL_Surface* glyphs : rendered) SDL_FreeSurface(glyphs);
+	return canvas;
+}
+
+} // namespace
 
 CalypsoHdTextRaster::CalypsoHdTextRaster(std::size_t rasterByteBudget, std::size_t maxFaces)
 	: _maxFaces(maxFaces), _lru(rasterByteBudget)
@@ -153,23 +301,18 @@ SDL_Surface* CalypsoHdTextRaster::rasterFor(const CalypsoHdTextRasterKey& key)
 
 	// Wrapped render (Fable #1 / Codex #5). key.wrapWidth == 0 wraps only on
 	// embedded '\n' (single-line or author-broken text); key.wrapWidth > 0 lets
-	// SDL_ttf break the text at that physical pixel width -- which breaks CJK and
-	// no-space text correctly, unlike an ASCII space pre-wrap. The single-line
-	// TTF_RenderUTF8_Blended would render '\n' as a notdef glyph, so always use
-	// the _Wrapped variant. Tracked single-line text composes per-glyph instead
-	// (SDL_ttf has no letter-spacing); the two paths share the coverage gate.
+	// SDL_ttf's wrapped renderer handles CJK and no-space text correctly. When a
+	// canonical line height is requested, the portable compositor below performs
+	// equivalent metric-based wrapping and blits each line at the contract skip;
+	// otherwise the stock wrapped path is retained. Tracked single-line text
+	// composes per-glyph instead (SDL_ttf has no letter-spacing).
 	SDL_Surface* surf = nullptr;
-	// SDL_ttf's default line skip is face-dependent and does not represent the
-	// DOM contract's CSS line-height. Apply the requested physical line height
-	// only for this render, then restore the shared face before returning; the
-	// raster key keeps differently composed surfaces from aliasing.
-	const int previousLineSkip = TTF_FontLineSkip(face);
-	const bool customLineHeight = key.lineHeightPx > 0 && key.wrapWidth > 0;
-	if (customLineHeight)
+	if (key.lineHeightPx > 0 && key.wrapWidth > 0)
 	{
-		TTF_SetFontLineSkip(face, key.lineHeightPx);
+		surf = renderWrappedWithLineHeight(face, key.text, key.wrapWidth,
+			key.lineHeightPx, c);
 	}
-	if (key.letterSpacingPx > 0 && key.wrapWidth == 0)
+	else if (key.letterSpacingPx > 0 && key.wrapWidth == 0)
 	{
 		surf = calypsoRasterTracked(face, key.text, key.letterSpacingPx, c);
 		if (!surf)
@@ -193,10 +336,6 @@ SDL_Surface* CalypsoHdTextRaster::rasterFor(const CalypsoHdTextRasterKey& key)
 				Log(LOG_ERROR) << "CalypsoHdTextRaster: TTF_RenderUTF8_Blended_Wrapped failed: " << TTF_GetError();
 			}
 		}
-	}
-	if (customLineHeight)
-	{
-		TTF_SetFontLineSkip(face, previousLineSkip);
 	}
 	if (!surf)
 	{
