@@ -136,13 +136,14 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 	CalypsoTtfSourceDescriptor heading;
 	CalypsoTtfSourceDescriptor body;
 	if (!calypsoHdResolveFontDescriptor(mod, "FONT_F34_SAIRA_700", heading)) return;
-	if (!calypsoHdResolveFontDescriptor(mod, "FONT_F34_MONO", body)) return;
+	if (!calypsoHdResolveFontDescriptor(mod, "FONT_F33_BODY", body)) return;
 
 	const CalypsoHdPresentationMetrics& m = CalypsoHdUiOverlay::instance().frozenMetrics();
 	const double sx = m.scaleX, sy = m.scaleY;
 	const std::uint64_t inst = reinterpret_cast<std::uintptr_t>(_state);
-	const int border = calypsoBorderFor(_state->_hdWideLayout
-		? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact);
+	// DOM-reference look (F33, 2026-08-16): 2px border, dim backdrop and a
+	// stepped drop shadow under the dialog -- NOT the F34 3px bevel border.
+	const int border = 2;
 
 	// One atomic subgroup: the whole dialog shows physically or not at all.
 	builder.beginSubgroup();
@@ -162,6 +163,27 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 		builder.add(it);
 		++ord;
 	};
+
+	// Dim backdrop: full design canvas at 45% black, matching the DOM popup
+	// overlays (tutorial/prologue/pause use rgba(0,0,0,.45)).
+	const CalypsoLogicalRect canvasRect{ 0, 0,
+		_state->_hdWideLayout ? 1280 : 740,
+		_state->_hdWideLayout ? 720 : 360 };
+	addPanel(canvasRect, calypsoRgba(0x00, 0x00, 0x00, 0x73), nullptr, ROLE_WINDOW);
+
+	// Stepped drop shadow below the dialog (no blur support in the panel
+	// painter): three increasingly faint black bands at 4/10/18px offsets.
+	{
+		const CalypsoLogicalRect w = widgetRect(_state->_window);
+		const int steps[3][2] = {
+			{ 4, 0x3d }, { 10, 0x1f }, { 18, 0x0f } // offset px, alpha (0x73 max)
+		};
+		for (const auto& s : steps)
+		{
+			const CalypsoLogicalRect sh{ w.x + 3, w.y + s[0], w.w, w.h };
+			addPanel(sh, calypsoRgba(0x00, 0x00, 0x00, (std::uint8_t)s[1]), nullptr, ROLE_WINDOW);
+		}
+	}
 
 	auto addBevel = [&](Surface* widget, std::uint32_t bcol, std::uint32_t fcol,
 		std::uint32_t role)
@@ -252,9 +274,9 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 		}
 	}
 
-	addText(_state->_btnYes, body, _state->_btnYes ? _state->_btnYes->getText() : std::string(),
+	addText(_state->_btnYes, heading, _state->_btnYes ? _state->_btnYes->getText() : std::string(),
 		kNearWhiteTextRgba, CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, ROLE_YES);
-	addText(_state->_btnNo, body, _state->_btnNo ? _state->_btnNo->getText() : std::string(),
+	addText(_state->_btnNo, heading, _state->_btnNo ? _state->_btnNo->getText() : std::string(),
 		kNearWhiteTextRgba, CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, ROLE_NO);
 }
 
