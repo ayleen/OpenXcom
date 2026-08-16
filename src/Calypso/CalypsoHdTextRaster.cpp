@@ -70,9 +70,11 @@ void trimLineStart(std::string& text)
 /// but not TTF_SetFontLineSkip, so line breaks are measured explicitly and each
 /// line is blitted at the canonical physical line height.
 SDL_Surface* renderWrappedWithLineHeight(TTF_Font* face, const std::string& text,
-	int wrapWidth, int lineHeightPx, SDL_Color color)
+	int wrapWidth, int lineHeightPx, int horizontalScalePercent, SDL_Color color)
 {
 	if (!face || text.empty() || wrapWidth <= 0 || lineHeightPx <= 0) return nullptr;
+	const double horizontalScale = std::max(0.01, horizontalScalePercent / 100.0);
+	const int textWrapWidth = std::max(1, static_cast<int>(wrapWidth / horizontalScale));
 
 	std::vector<std::string> lines;
 	std::size_t paragraphStart = 0;
@@ -89,7 +91,7 @@ SDL_Surface* renderWrappedWithLineHeight(TTF_Font* face, const std::string& text
 		{
 			while (!remaining.empty())
 			{
-				if (utf8Width(face, remaining) <= wrapWidth)
+				if (utf8Width(face, remaining) <= textWrapWidth)
 				{
 					lines.push_back(remaining);
 					break;
@@ -102,7 +104,7 @@ SDL_Surface* renderWrappedWithLineHeight(TTF_Font* face, const std::string& text
 				{
 					const std::size_t next = nextUtf8Boundary(remaining, cursor);
 					const std::string candidate = remaining.substr(0, next);
-					if (utf8Width(face, candidate) > wrapWidth) break;
+					if (utf8Width(face, candidate) > textWrapWidth) break;
 					fittingEnd = next;
 					if (isAsciiSpaceAt(remaining, cursor)) lastSpaceEnd = next;
 					cursor = next;
@@ -135,7 +137,12 @@ SDL_Surface* renderWrappedWithLineHeight(TTF_Font* face, const std::string& text
 			for (SDL_Surface* prior : rendered) SDL_FreeSurface(prior);
 			return nullptr;
 		}
-		if (glyphs) width = std::max(width, glyphs->w);
+		if (glyphs)
+		{
+			const int scaledWidth = std::max(1,
+				static_cast<int>(glyphs->w * horizontalScale + 0.5));
+			width = std::max(width, scaledWidth);
+		}
 		rendered.push_back(glyphs);
 	}
 
@@ -154,8 +161,13 @@ SDL_Surface* renderWrappedWithLineHeight(TTF_Font* face, const std::string& text
 		SDL_Surface* glyphs = rendered[i];
 		if (!glyphs) continue;
 		SDL_SetSurfaceBlendMode(glyphs, SDL_BLENDMODE_NONE);
-		SDL_Rect destination{ 0, static_cast<int>(i) * lineSkip, glyphs->w, glyphs->h };
-		if (SDL_BlitSurface(glyphs, nullptr, canvas, &destination) != 0)
+		const int scaledWidth = std::max(1,
+			static_cast<int>(glyphs->w * horizontalScale + 0.5));
+		SDL_Rect destination{ 0, static_cast<int>(i) * lineSkip, scaledWidth, glyphs->h };
+		const int blitResult = horizontalScalePercent == 100
+			? SDL_BlitSurface(glyphs, nullptr, canvas, &destination)
+			: SDL_BlitScaled(glyphs, nullptr, canvas, &destination);
+		if (blitResult != 0)
 		{
 			for (SDL_Surface* prior : rendered) SDL_FreeSurface(prior);
 			SDL_FreeSurface(canvas);
@@ -310,7 +322,7 @@ SDL_Surface* CalypsoHdTextRaster::rasterFor(const CalypsoHdTextRasterKey& key)
 	if (key.lineHeightPx > 0 && key.wrapWidth > 0)
 	{
 		surf = renderWrappedWithLineHeight(face, key.text, key.wrapWidth,
-			key.lineHeightPx, c);
+			key.lineHeightPx, key.horizontalScalePercent, c);
 	}
 	else if (key.letterSpacingPx > 0 && key.wrapWidth == 0)
 	{

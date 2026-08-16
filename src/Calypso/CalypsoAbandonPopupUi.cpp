@@ -367,9 +367,16 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 		const CalypsoLogicalRect r = widgetRect(_state->_hdMessage);
 		if (r.w > 0 && r.h > 0)
 		{
+			const bool wide = _state->_hdWideLayout;
+			const double bodySizeScale = wide
+				? CalypsoHdTheme::kBodyFontSizeScaleWide
+				: CalypsoHdTheme::kBodyFontSizeScaleCompact;
+			const double bodyWidthScale = wide
+				? CalypsoHdTheme::kBodyFontWidthScaleWide
+				: CalypsoHdTheme::kBodyFontWidthScaleCompact;
 			const int physicalPixelHeight = std::max(1,
 				(int)calypsoHdRoundToInt((double)CalypsoHdTheme::kBodyFontSizePx *
-					CalypsoHdTheme::kBodyFontSizeScale * sy));
+					bodySizeScale * sy));
 			const int wrapWidth = std::max(1, (int)calypsoHdRoundToInt((double)r.w * sx));
 
 			CalypsoHdTextRasterKey key;
@@ -379,6 +386,7 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 			key.wrapWidth = wrapWidth;
 			key.lineHeightPx = std::max(1, (int)calypsoHdRoundToInt(
 				(double)CalypsoHdTheme::kBodyFontSizePx * CalypsoHdTheme::kBodyLineHeight * sy));
+			key.horizontalScalePercent = std::max(1, (int)calypsoHdRoundToInt(bodyWidthScale * 100.0));
 			key.colorRgba = CalypsoHdTheme::kNearWhite;
 			key.direction = CalypsoTextDirection::LTR;
 
