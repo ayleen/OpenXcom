@@ -185,6 +185,17 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 
 	const CalypsoHdPresentationMetrics& m = CalypsoHdUiOverlay::instance().frozenMetrics();
 	const double sx = m.scaleX, sy = m.scaleY;
+	const bool wide = _state->_hdWideLayout;
+	const CalypsoF33AbandonLayout designLayout = calypsoF33AbandonLayout(
+		wide ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact);
+	// State::enableUiScaling has already projected the design rects into the
+	// current logical canvas. Keep the raster at design resolution and project
+	// the composed texture by this uniform UI scale, just like the DOM card's
+	// CSS transform. `sy` remains the physical device-pixel ratio.
+	const double uiScale = designLayout.window.width > 0
+		? (double)widgetRect(_state->_window).w / designLayout.window.width : 1.0;
+	const int uiScalePermille = std::max(1,
+		(int)calypsoHdRoundToInt(uiScale * 1000.0));
 	const std::uint64_t inst = reinterpret_cast<std::uintptr_t>(_state);
 
 	// Opening motion (F33-PARITY-007 follow-up): a monotonic presentation
@@ -319,6 +330,8 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 		key.wrapWidth = wrapWidth;
 		key.colorRgba = color;
 		key.direction = CalypsoTextDirection::LTR;
+		key.horizontalScalePermille = uiScalePermille;
+		key.verticalScalePermille = uiScalePermille;
 		// Tracking (single-line only by contract): DOM titles/labels run
 		// 0.12em; body copy has none, so the default 0 keeps wrapped text on
 		// SDL_ttf's layout.
@@ -360,14 +373,13 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 	addText(_state->_txtTitle, heading, _state->_txtTitle ? _state->_txtTitle->getText() : std::string(),
 		CalypsoHdTheme::kGold, CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, ROLE_TITLE,
 		CalypsoHdTheme::kTitleTrackingEm,
-		(double)widgetRect(_state->_txtTitle).h * CalypsoHdTheme::kTitleFontSizeScale);
+		(double)designLayout.title.height * CalypsoHdTheme::kTitleFontSizeScale);
 
 	if (_state->_hdMessage && !_state->_hdMessage->getText().empty())
 	{
 		const CalypsoLogicalRect r = widgetRect(_state->_hdMessage);
 		if (r.w > 0 && r.h > 0)
 		{
-			const bool wide = _state->_hdWideLayout;
 			const double bodySizeScale = wide
 				? CalypsoHdTheme::kBodyFontSizeScaleWide
 				: CalypsoHdTheme::kBodyFontSizeScaleCompact;
@@ -395,9 +407,10 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 					* CalypsoHdTheme::kBodyLineHeight
 					* bodyProjectionLineHeightScale * sy));
 			key.horizontalScalePermille = std::max(1,
-				(int)calypsoHdRoundToInt(bodyWidthScale * 1000.0));
+				(int)calypsoHdRoundToInt(bodyWidthScale * uiScale * 1000.0));
+			key.verticalScalePermille = uiScalePermille;
 			key.wrapMeasureScalePermille = std::max(1,
-				(int)calypsoHdRoundToInt(bodyWrapMeasureScale * 1000.0));
+				(int)calypsoHdRoundToInt(bodyWrapMeasureScale * uiScale * 1000.0));
 			key.colorRgba = CalypsoHdTheme::kNearWhite;
 			key.direction = CalypsoTextDirection::LTR;
 

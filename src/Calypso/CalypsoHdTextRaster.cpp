@@ -71,10 +71,11 @@ void trimLineStart(std::string& text)
 /// line is blitted at the canonical physical line height.
 SDL_Surface* renderWrappedWithLineHeight(TTF_Font* face, const std::string& text,
 	int wrapWidth, int lineHeightPx, int horizontalScalePermille,
-	int wrapMeasureScalePermille, SDL_Color color)
+	int verticalScalePermille, int wrapMeasureScalePermille, SDL_Color color)
 {
 	if (!face || text.empty() || wrapWidth <= 0 || lineHeightPx <= 0) return nullptr;
 	const double horizontalScale = std::max(0.01, horizontalScalePermille / 1000.0);
+	const double verticalScale = std::max(0.01, verticalScalePermille / 1000.0);
 	const double wrapMeasureScale = std::max(0.01, wrapMeasureScalePermille / 1000.0);
 	const int textWrapWidth = std::max(1,
 		static_cast<int>(wrapWidth / wrapMeasureScale));
@@ -127,7 +128,8 @@ SDL_Surface* renderWrappedWithLineHeight(TTF_Font* face, const std::string& text
 		paragraphStart = newline + 1;
 	}
 
-	const int lineSkip = lineHeightPx;
+	const int lineSkip = std::max(1,
+		static_cast<int>(lineHeightPx * verticalScale + 0.5));
 	std::vector<SDL_Surface*> rendered;
 	rendered.reserve(lines.size());
 	int width = 1;
@@ -148,7 +150,8 @@ SDL_Surface* renderWrappedWithLineHeight(TTF_Font* face, const std::string& text
 		rendered.push_back(glyphs);
 	}
 
-	const int glyphHeight = TTF_FontHeight(face);
+	const int glyphHeight = std::max(1,
+		static_cast<int>(TTF_FontHeight(face) * verticalScale + 0.5));
 	const int height = std::max(glyphHeight,
 		(static_cast<int>(rendered.size()) - 1) * lineSkip + glyphHeight);
 	SDL_Surface* canvas = SDL_CreateRGBSurfaceWithFormat(0, width, height, 32,
@@ -166,8 +169,11 @@ SDL_Surface* renderWrappedWithLineHeight(TTF_Font* face, const std::string& text
 		SDL_SetSurfaceBlendMode(glyphs, SDL_BLENDMODE_NONE);
 		const int scaledWidth = std::max(1,
 			static_cast<int>(glyphs->w * horizontalScale + 0.5));
-		SDL_Rect destination{ 0, static_cast<int>(i) * lineSkip, scaledWidth, glyphs->h };
+		const int scaledHeight = std::max(1,
+			static_cast<int>(glyphs->h * verticalScale + 0.5));
+		SDL_Rect destination{ 0, static_cast<int>(i) * lineSkip, scaledWidth, scaledHeight };
 		const int blitResult = horizontalScalePermille == 1000
+			&& verticalScalePermille == 1000
 			? SDL_BlitSurface(glyphs, nullptr, canvas, &destination)
 			: SDL_BlitScaled(glyphs, nullptr, canvas, &destination);
 		if (blitResult != 0)
@@ -179,6 +185,37 @@ SDL_Surface* renderWrappedWithLineHeight(TTF_Font* face, const std::string& text
 	}
 	for (SDL_Surface* glyphs : rendered) SDL_FreeSurface(glyphs);
 	return canvas;
+}
+
+SDL_Surface* projectSurface(SDL_Surface* source, int horizontalScalePermille,
+	int verticalScalePermille)
+{
+	if (!source || (horizontalScalePermille == 1000 && verticalScalePermille == 1000))
+	{
+		return source;
+	}
+	const int width = std::max(1, static_cast<int>(source->w
+		* (horizontalScalePermille / 1000.0) + 0.5));
+	const int height = std::max(1, static_cast<int>(source->h
+		* (verticalScalePermille / 1000.0) + 0.5));
+	SDL_Surface* projected = SDL_CreateRGBSurfaceWithFormat(0, width, height, 32,
+		SDL_PIXELFORMAT_ARGB8888);
+	if (!projected)
+	{
+		SDL_FreeSurface(source);
+		return nullptr;
+	}
+	SDL_SetSurfaceBlendMode(source, SDL_BLENDMODE_NONE);
+	SDL_SetSurfaceBlendMode(projected, SDL_BLENDMODE_NONE);
+	SDL_Rect destination{ 0, 0, width, height };
+	if (SDL_BlitScaled(source, nullptr, projected, &destination) != 0)
+	{
+		SDL_FreeSurface(projected);
+		SDL_FreeSurface(source);
+		return nullptr;
+	}
+	SDL_FreeSurface(source);
+	return projected;
 }
 
 } // namespace
@@ -326,7 +363,7 @@ SDL_Surface* CalypsoHdTextRaster::rasterFor(const CalypsoHdTextRasterKey& key)
 	{
 		surf = renderWrappedWithLineHeight(face, key.text, key.wrapWidth,
 			key.lineHeightPx, key.horizontalScalePermille,
-			key.wrapMeasureScalePermille, c);
+			key.verticalScalePermille, key.wrapMeasureScalePermille, c);
 	}
 	else if (key.letterSpacingPx > 0 && key.wrapWidth == 0)
 	{
@@ -356,6 +393,12 @@ SDL_Surface* CalypsoHdTextRaster::rasterFor(const CalypsoHdTextRasterKey& key)
 	if (!surf)
 	{
 		return nullptr;
+	}
+	if (key.lineHeightPx == 0)
+	{
+		surf = projectSurface(surf, key.horizontalScalePermille,
+			key.verticalScalePermille);
+		if (!surf) return nullptr;
 	}
 
 	// Success re-arms the diagnostics gate for THE class that actually
