@@ -374,6 +374,9 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 			const double bodyWidthScale = wide
 				? CalypsoHdTheme::kBodyFontWidthScaleWide
 				: CalypsoHdTheme::kBodyFontWidthScaleCompact;
+			const double bodyWrapMeasureScale = wide
+				? CalypsoHdTheme::kBodyWrapMeasureScaleWide
+				: CalypsoHdTheme::kBodyWrapMeasureScaleCompact;
 			const int physicalPixelHeight = std::max(1,
 				(int)calypsoHdRoundToInt((double)CalypsoHdTheme::kBodyFontSizePx *
 					bodySizeScale * sy));
@@ -384,13 +387,13 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 			key.physicalPixelHeight = physicalPixelHeight;
 			key.text = _state->_hdMessage->getText();
 			key.wrapWidth = wrapWidth;
-			const double bodyLineHeight = wide
-				? CalypsoHdTheme::kBodyLineHeightScaleWide
-				: CalypsoHdTheme::kBodyLineHeightScaleCompact;
 			key.lineHeightPx = std::max(1, (int)calypsoHdRoundToInt(
-				(double)CalypsoHdTheme::kBodyFontSizePx * bodyLineHeight * sy));
+				(double)CalypsoHdTheme::kBodyFontSizePx * bodySizeScale
+					* CalypsoHdTheme::kBodyLineHeight * sy));
 			key.horizontalScalePermille = std::max(1,
 				(int)calypsoHdRoundToInt(bodyWidthScale * 1000.0));
+			key.wrapMeasureScalePermille = std::max(1,
+				(int)calypsoHdRoundToInt(bodyWrapMeasureScale * 1000.0));
 			key.colorRgba = CalypsoHdTheme::kNearWhite;
 			key.direction = CalypsoTextDirection::LTR;
 

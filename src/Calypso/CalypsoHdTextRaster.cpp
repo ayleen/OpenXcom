@@ -70,11 +70,14 @@ void trimLineStart(std::string& text)
 /// but not TTF_SetFontLineSkip, so line breaks are measured explicitly and each
 /// line is blitted at the canonical physical line height.
 SDL_Surface* renderWrappedWithLineHeight(TTF_Font* face, const std::string& text,
-	int wrapWidth, int lineHeightPx, int horizontalScalePermille, SDL_Color color)
+	int wrapWidth, int lineHeightPx, int horizontalScalePermille,
+	int wrapMeasureScalePermille, SDL_Color color)
 {
 	if (!face || text.empty() || wrapWidth <= 0 || lineHeightPx <= 0) return nullptr;
 	const double horizontalScale = std::max(0.01, horizontalScalePermille / 1000.0);
-	const int textWrapWidth = std::max(1, static_cast<int>(wrapWidth / horizontalScale));
+	const double wrapMeasureScale = std::max(0.01, wrapMeasureScalePermille / 1000.0);
+	const int textWrapWidth = std::max(1,
+		static_cast<int>(wrapWidth / wrapMeasureScale));
 
 	std::vector<std::string> lines;
 	std::size_t paragraphStart = 0;
@@ -322,7 +325,8 @@ SDL_Surface* CalypsoHdTextRaster::rasterFor(const CalypsoHdTextRasterKey& key)
 	if (key.lineHeightPx > 0 && key.wrapWidth > 0)
 	{
 		surf = renderWrappedWithLineHeight(face, key.text, key.wrapWidth,
-			key.lineHeightPx, key.horizontalScalePermille, c);
+			key.lineHeightPx, key.horizontalScalePermille,
+			key.wrapMeasureScalePermille, c);
 	}
 	else if (key.letterSpacingPx > 0 && key.wrapWidth == 0)
 	{
