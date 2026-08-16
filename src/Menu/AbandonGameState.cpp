@@ -32,6 +32,7 @@
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoDirector.h"
 #include "../Calypso/CalypsoPrologueCampaign.h"
+#include "../Calypso/CalypsoAbandonPopupUi.h"
 #endif
 
 namespace OpenXcom
@@ -91,6 +92,13 @@ AbandonGameState::AbandonGameState(OptionsOrigin origin) : _origin(origin)
 	{
 		applyBattlescapeTheme("geoscape");
 	}
+
+#ifdef __EMSCRIPTEN__
+	// F33 (Phase 46.2-HD): physical-route configure. Battlescape-origin
+	// confirmations stay logical, mirroring the F34 error-over-battlescape
+	// exclusion (gameplay effects and modal UI have no separate strata yet).
+	Calypso::CalypsoAbandonPopupUi::configure(*this, _origin != OPT_BATTLESCAPE);
+#endif
 }
 
 /**
@@ -98,7 +106,21 @@ AbandonGameState::AbandonGameState(OptionsOrigin origin) : _origin(origin)
  */
 AbandonGameState::~AbandonGameState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
+}
 
+/**
+ * Calypso (Emscripten): rescale to the logical buffer instead of the base recenter.
+ */
+void AbandonGameState::resize(int &dX, int &dY)
+{
+#ifdef __EMSCRIPTEN__
+	if (Calypso::CalypsoAbandonPopupUi::resize(*this)) return;
+#endif
+	State::resize(dX, dY);
 }
 
 /**

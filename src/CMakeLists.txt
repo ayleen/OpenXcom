@@ -607,6 +607,7 @@ if(EMSCRIPTEN)
   list(APPEND openxcom_src Calypso/CalypsoPrologueCampaign.cpp)
   list(APPEND openxcom_src Calypso/CalypsoPrologueAskState.cpp)
 list(APPEND openxcom_src Calypso/CalypsoPauseMenu.cpp)
+list(APPEND openxcom_src Calypso/CalypsoAbandonPopupUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoPrologueEndState.cpp)
   # Phase 41: HTML meta-menu bridge — JS overlay screens drive the engine through
   # EMSCRIPTEN_KEEPALIVE exports defined here. Slice A0 ships calypso_bridge_ping.
