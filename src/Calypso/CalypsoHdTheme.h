@@ -4,11 +4,10 @@
  *
  * Phase 46.2-HD styling (Calypso) -- shared HD theme tokens.
  *
- * One header of design constants mirroring the DOM reference design
- * (design/v1.1 "Calypso UI Components"): palette, radii, borders, tracking.
- * Family adapters take their colours from here instead of declaring local
- * kWindowFillRgba-style constants, so the engine HD look stays in lockstep
- * with the DOM cards (and a future retune is one edit).
+ * Phase 46.4-F33: every value below is an ALIAS of the canonical contract
+ * (src/Calypso/Contracts/hd-ui-theme.json -> Generated/CalypsoHdTheme.generated.h).
+ * The engine and the DOM consume the SAME generated source (F33-PARITY-006);
+ * editing a value means editing the JSON and regenerating, never this header.
  *
  * Pure, dependency-free data (only CalypsoHdUiModel.h for calypsoRgba and
  * CalypsoHdFamilyAdapter.h for the style struct) -- NOT wrapped in
@@ -18,44 +17,44 @@
 
 #include "CalypsoHdFamilyAdapter.h"
 #include "CalypsoHdUiModel.h"
+#include "Generated/CalypsoHdTheme.generated.h"
 
 namespace OpenXcom
 {
 namespace Calypso
 {
 
-/// Accent / palette tokens (0xRRGGBBAA via calypsoRgba).
+/// Accent / palette tokens (0xRRGGBBAA via calypsoRgba). Canonical values.
 namespace CalypsoHdTheme
 {
 
-constexpr std::uint32_t kAccent          = calypsoRgba(0x74, 0xff, 0xb0);       // #74ffb0
-constexpr std::uint32_t kAccentSoft      = calypsoRgba(0x74, 0xff, 0xb0, 0x59); // ~35% border
-constexpr std::uint32_t kDanger          = calypsoRgba(0xff, 0x78, 0x78);       // #ff7878
-constexpr std::uint32_t kGold            = calypsoRgba(0xff, 0xc1, 0x4d);       // #ffc14d
-constexpr std::uint32_t kNearWhite       = calypsoRgba(0xe8, 0xff, 0xf5);       // #e8fff5
-constexpr std::uint32_t kBackdropDim     = calypsoRgba(0x00, 0x00, 0x00, 0x73); // rgba(0,0,0,.45)
+constexpr std::uint32_t kAccent          = CalypsoHdThemeGen::kAccent;
+constexpr std::uint32_t kAccentSoft      = CalypsoHdThemeGen::kAccentSoft;
+constexpr std::uint32_t kDanger          = CalypsoHdThemeGen::kDanger;
+constexpr std::uint32_t kGold            = CalypsoHdThemeGen::kGold;
+constexpr std::uint32_t kNearWhite       = CalypsoHdThemeGen::kNearWhite;
+constexpr std::uint32_t kBackdropDim     = CalypsoHdThemeGen::kBackdropDim;
 
-// Dialog chrome (matches the DOM reference cards).
-constexpr float kDialogRadiusPx   = 6.0f;
-constexpr float kButtonRadiusPx   = 4.0f;
-constexpr float kBorderWidthPx    = 2.0f;
-constexpr float kTitleTrackingEm  = 0.12f;  // letter-spacing on headings/labels
-constexpr float kLabelTrackingEm  = 0.12f;
+// Dialog chrome (canonical contract values).
+constexpr float kDialogRadiusPx   = CalypsoHdThemeGen::kDialogRadiusPx;
+constexpr float kButtonRadiusPx   = CalypsoHdThemeGen::kButtonRadiusPx;
+constexpr float kBorderWidthPx    = CalypsoHdThemeGen::kBorderWidthPx;
+constexpr float kTitleTrackingEm  = CalypsoHdThemeGen::kTitleTrackingEm;
+constexpr float kLabelTrackingEm  = CalypsoHdThemeGen::kLabelTrackingEm;
 
-// Window fill gradient: linear-gradient(165deg, rgba(9,25,29,.98), rgba(5,15,20,.98)).
-constexpr std::uint32_t kWindowFillTop    = calypsoRgba(0x09, 0x19, 0x1d, 0xfa);
-constexpr std::uint32_t kWindowFillBottom = calypsoRgba(0x05, 0x0f, 0x14, 0xfa);
+// Window fill gradient (canonical contract values).
+constexpr std::uint32_t kWindowFillTop    = CalypsoHdThemeGen::kDialogFillTop;
+constexpr std::uint32_t kWindowFillBottom = CalypsoHdThemeGen::kDialogFillBottom;
 
 // Buttons: YES destructive, NO safe (flat fills in the reference).
-constexpr std::uint32_t kYesFill   = calypsoRgba(0x3d, 0x16, 0x16);
-constexpr std::uint32_t kNoFill    = calypsoRgba(0x16, 0x4c, 0x3d);
+constexpr std::uint32_t kYesFill   = CalypsoHdThemeGen::kDestructiveRestFill;
+constexpr std::uint32_t kNoFill    = CalypsoHdThemeGen::kSafeRestFill;
 
-// Soft drop shadow + accent halo (box-shadow 0 26px 60px 0,0,0,.6 and
-// 0 0 44px accent .14, approximated by glow quads).
-constexpr float kShadowGlowRadiusPx = 26.0f;
-constexpr std::uint32_t kShadowGlow = calypsoRgba(0x00, 0x00, 0x00, 0x8c);
-constexpr float kHaloGlowRadiusPx   = 22.0f;
-constexpr std::uint32_t kHaloGlow   = calypsoRgba(0x74, 0xff, 0xb0, 0x24);
+// Soft drop shadow + accent halo (canonical contract values).
+constexpr float kShadowGlowRadiusPx = CalypsoHdThemeGen::kShadowGlowRadiusPx;
+constexpr std::uint32_t kShadowGlow = CalypsoHdThemeGen::kShadowGlow;
+constexpr float kHaloGlowRadiusPx   = CalypsoHdThemeGen::kHaloGlowRadiusPx;
+constexpr std::uint32_t kHaloGlow   = CalypsoHdThemeGen::kHaloGlow;
 
 /// Ready-made styles ------------------------------------------------------------
 

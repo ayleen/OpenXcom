@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "version": "f33.2026-08-16.1",
+  "layouts": {
+    "wide": {
+      "designWidth": 1280,
+      "designHeight": 720,
+      "window":  { "x": 340, "y": 254, "width": 600, "height": 212 },
+      "title":   { "x": 340, "y": 266, "width": 600, "height": 34 },
+      "message": { "x": 366, "y": 312, "width": 548, "height": 84 },
+      "yes":     { "x": 396, "y": 408, "width": 130, "height": 46 },
+      "no":      { "x": 754, "y": 408, "width": 130, "height": 46 }
+    },
+    "compact": {
+      "designWidth": 740,
+      "designHeight": 360,
+      "window":  { "x": 100, "y": 82, "width": 540, "height": 196 },
+      "title":   { "x": 100, "y": 94, "width": 540, "height": 30 },
+      "message": { "x": 124, "y": 134, "width": 492, "height": 76 },
+      "yes":     { "x": 150, "y": 224, "width": 116, "height": 44 },
+      "no":      { "x": 474, "y": 224, "width": 116, "height": 44 }
+    }
+  },
+  "motion": {
+    "durationMs": 200,
+    "scaleFrom": 0.96,
+    "easing": "ease-out",
+    "captureModeDurationMs": 0
+  }
+}
