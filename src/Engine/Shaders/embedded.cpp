@@ -581,6 +581,7 @@ void main()
 static const char* kHd_uiFragSrc = R"glsl(
 uniform sampler2D u_tex;
 uniform vec4      u_color;
+uniform float     u_opacity; // Phase 46.4-F33 opening motion (1 = opaque)
 in      vec2      v_uv;
 out     vec4      out_color;
 
@@ -590,7 +591,7 @@ void main()
     // A scalar bool: true iff every component is exactly 0 (the unset-uniform
     // sentinel). Treat that as opaque white so untinted callers are unaffected.
     vec4 mul = (u_color == vec4(0.0)) ? vec4(1.0) : u_color;
-    out_color = c * mul;
+    out_color = vec4((c * mul).rgb, (c * mul).a * u_opacity);
 }
 )glsl";
 
@@ -606,6 +607,7 @@ uniform vec4  u_fillBottom;
 uniform vec2  u_gradDir;
 uniform vec4  u_glowColor;
 uniform float u_glowRadius;
+uniform float u_opacity; // Phase 46.4-F33 opening motion (1 = opaque)
 in  vec2 v_uv;
 out vec4 out_color;
 
@@ -648,7 +650,7 @@ void main()
 	}
 
 	vec3 rgb = mix(u_glowColor.rgb, shapeCol.rgb, shapeMask);
-	out_color = vec4(rgb, max(shapeA, glowA));
+	out_color = vec4(rgb, max(shapeA, glowA) * u_opacity);
 }
 )glsl";
 

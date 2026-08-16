@@ -3,6 +3,7 @@
 // Canonical source: src/Calypso/Contracts/hd-ui-theme.json
 #pragma once
 #include <cstdint>
+#include <cstring>
 namespace OpenXcom { namespace Calypso { namespace CalypsoHdThemeGen {
 inline constexpr const char* kContractVersion = "f33.2026-08-16.1";
 
@@ -12,7 +13,7 @@ inline constexpr std::uint32_t kAccentSoft = 0x74FFB059u;
 inline constexpr std::uint32_t kBackdropDim = 0x00000073u;
 inline constexpr std::uint32_t kDanger = 0xFF7878FFu;
 inline constexpr std::uint32_t kDestructiveDisabledBorder = 0xFF787824u;
-inline constexpr std::uint32_t kDestructiveDisabledFill = 0x3D161659u;
+inline constexpr std::uint32_t kDestructiveDisabledFill = 0x3D1616FFu;
 inline constexpr std::uint32_t kDestructiveFocusBorder = 0xFF7878FFu;
 inline constexpr std::uint32_t kDestructiveFocusFill = 0x3D1616FFu;
 inline constexpr std::uint32_t kDestructiveHoverBorder = 0xFF9A9AFFu;
@@ -30,7 +31,7 @@ inline constexpr std::uint32_t kHaloGlow = 0x74FFB024u;
 inline constexpr std::uint32_t kNearWhite = 0xE8FFF5FFu;
 inline constexpr std::uint32_t kNoFill = 0x164C3DFFu;
 inline constexpr std::uint32_t kSafeDisabledBorder = 0x74FFB024u;
-inline constexpr std::uint32_t kSafeDisabledFill = 0x164C3D59u;
+inline constexpr std::uint32_t kSafeDisabledFill = 0x164C3DFFu;
 inline constexpr std::uint32_t kSafeFocusBorder = 0x74FFB0FFu;
 inline constexpr std::uint32_t kSafeFocusFill = 0x164C3DFFu;
 inline constexpr std::uint32_t kSafeHoverBorder = 0x74FFB0FFu;
@@ -90,7 +91,6 @@ inline constexpr const char* kTokenYesFill = "token.color.yesFill";
 
 /// Resolve a semantic token key to its packed RGBA value (0 for
 /// unknown keys). Generated table; one source of truth.
-#include <cstring>
 inline std::uint32_t calypsoHdThemeColorForToken(const char* token)
 {
 	struct Entry { const char* key; std::uint32_t value; };

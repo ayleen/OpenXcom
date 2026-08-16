@@ -170,6 +170,46 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 	const double sx = m.scaleX, sy = m.scaleY;
 	const std::uint64_t inst = reinterpret_cast<std::uintptr_t>(_state);
 
+	// Opening motion (F33-PARITY-007 follow-up): a monotonic presentation
+	// clock (the overlay frame counter) drives opacity 0->1 and scale
+	// scaleFrom->1 with an ease-out without overshoot, using the canonical
+	// contract tokens. Capture mode (motion=0) disables it -> the first
+	// screenshot frame is already the settled card.
+	if (!_presented)
+	{
+		_presented = true;
+		_presentedAtFrame = CalypsoHdUiOverlay::instance().frameId();
+	}
+	double progress = 1.0;
+	if (!calypsoHarnessSession().motionDisabled)
+	{
+		const std::uint64_t totalFrames = std::max<std::uint64_t>(1,
+			(std::uint64_t)std::llround(CalypsoF33AbandonGen::kMotionDurationMs * 60.0 / 1000.0));
+		const std::uint64_t frame = CalypsoHdUiOverlay::instance().frameId();
+		const std::uint64_t elapsed = frame >= _presentedAtFrame ? frame - _presentedAtFrame : 0;
+		progress = std::min(1.0, (double)elapsed / (double)totalFrames);
+	}
+	const double ease = 1.0 - (1.0 - progress) * (1.0 - progress); // ease-out, no overshoot
+	const double scale = CalypsoF33AbandonGen::kMotionScaleFrom
+		+ (1.0 - CalypsoF33AbandonGen::kMotionScaleFrom) * ease;
+	const float opacity = (float)ease;
+
+	// Scale every dialog part around the (full-size) window centre; the
+	// backdrop stays full-canvas. Raster keys derive from the SCALED rects so
+	// text re-rasterises at the in-flight size (bounded: one entry per ramp
+	// frame, evicted by the LRU after the ramp).
+	const CalypsoLogicalRect winFull = widgetRect(_state->_window);
+	const double cx = winFull.x + winFull.w * 0.5;
+	const double cy = winFull.y + winFull.h * 0.5;
+	auto motionRect = [&](const CalypsoLogicalRect& r) -> CalypsoLogicalRect
+	{
+		if (scale >= 1.0) return r;
+		const int nw = std::max(1, (int)std::llround(r.w * scale));
+		const int nh = std::max(1, (int)std::llround(r.h * scale));
+		return CalypsoLogicalRect{ (int)std::llround(cx - nw * 0.5),
+			(int)std::llround(cy - nh * 0.5), nw, nh };
+	};
+
 	// One atomic subgroup: the whole dialog shows physically or not at all.
 	builder.beginSubgroup();
 	int ord = 0;
@@ -207,9 +247,10 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 		if (r.w <= 0 || r.h <= 0) return;
 		CalypsoHdItem it;
 		it.kind = CalypsoHdItemKind::Panel;
-		it.rect = r;
+		it.rect = motionRect(r);
 		it.colorRgba = style.fillTopRgba;
 		it.panelStyle = style;
+		it.opacity = opacity;
 		it.widget = widget;
 		it.claim = { kF33FamilyId, role, inst, 1u, (std::uint32_t)ord };
 		it.order = { 0, 0, kF33FamilyId, inst, 0, 1u, ord, role };
@@ -234,7 +275,7 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 		double trackingEm = 0.0)
 	{
 		if (!widget || text.empty()) return;
-		const CalypsoLogicalRect r = widgetRect(widget);
+		const CalypsoLogicalRect r = motionRect(widgetRect(widget));
 		if (r.w <= 0 || r.h <= 0) return;
 
 		const int hint = linesHint > 0 ? linesHint : 1;
@@ -265,6 +306,7 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 		it.rasterKey = key;
 		it.hAlign = hA;
 		it.vAlign = vA;
+		it.opacity = opacity;
 		it.widget = widget;
 		it.claim = { kF33FamilyId, role, inst, 1u, (std::uint32_t)ord };
 		it.order = { 0, 0, kF33FamilyId, inst, 0, 1u, ord, role };
@@ -311,11 +353,12 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 
 			CalypsoHdItem it;
 			it.kind = CalypsoHdItemKind::Text;
-			it.rect = r;
+			it.rect = motionRect(r);
 			it.colorRgba = CalypsoHdTheme::kNearWhite;
 			it.rasterKey = key;
 			it.hAlign = CalypsoHdHAlign::Left;
 			it.vAlign = CalypsoHdVAlign::Top;
+			it.opacity = opacity;
 			it.widget = _state->_hdMessage;
 			it.claim = { kF33FamilyId, ROLE_MESSAGE, inst, 1u, (std::uint32_t)ord };
 			it.order = { 0, 0, kF33FamilyId, inst, 0, 1u, ord, ROLE_MESSAGE };

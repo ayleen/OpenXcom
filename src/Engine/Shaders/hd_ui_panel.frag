@@ -34,6 +34,7 @@ uniform vec4  u_fillBottom;
 uniform vec2  u_gradDir;
 uniform vec4  u_glowColor;
 uniform float u_glowRadius;
+uniform float u_opacity; // Phase 46.4-F33 opening motion (1 = opaque)
 in  vec2 v_uv;
 out vec4 out_color;
 
@@ -76,5 +77,5 @@ void main()
 	}
 
 	vec3 rgb = mix(u_glowColor.rgb, shapeCol.rgb, shapeMask);
-	out_color = vec4(rgb, max(shapeA, glowA));
+	out_color = vec4(rgb, max(shapeA, glowA) * u_opacity);
 }

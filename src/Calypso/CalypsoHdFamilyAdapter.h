@@ -76,6 +76,9 @@ struct CalypsoHdItem
 	CalypsoHdHAlign hAlign = CalypsoHdHAlign::Left;
 	CalypsoHdVAlign vAlign = CalypsoHdVAlign::Middle;
 
+	// Presentation opacity (Phase 46.4-F33 opening motion): 1 = opaque.
+	float opacity = 1.0f;
+
 	// Identity + ordering + the live widget this visual replaces (ephemeral
 	// blit-skip key; may be null for pure-decoration items with no widget).
 	const void* widget = nullptr;

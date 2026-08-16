@@ -184,6 +184,7 @@ bool CalypsoHdUiOverlay::resolveSubgroup(const CalypsoHdSubgroup& subgroup,
 		d.panelStyle = item.panelStyle;
 		d.hAlign = item.hAlign;
 		d.vAlign = item.vAlign;
+		d.opacity = item.opacity;
 
 		if (item.kind == CalypsoHdItemKind::Panel)
 		{
@@ -316,7 +317,7 @@ void CalypsoHdUiOverlay::uploadQuadVerts(const CalypsoPhysRect& r)
 }
 
 bool CalypsoHdUiOverlay::drawPhysQuad(GpuTexture* tex, const CalypsoPhysRect& r,
-	std::uint32_t colorRgba, float u0, float v0, float u1, float v1)
+	std::uint32_t colorRgba, float u0, float v0, float u1, float v1, float opacity)
 {
 	if (!tex || !tex->isValid() || !_hdShader || !_hdShader->isValid() || !_vao) return false;
 	const float physW = (float)_frozenMetrics.physicalWidth;
@@ -343,6 +344,7 @@ bool CalypsoHdUiOverlay::drawPhysQuad(GpuTexture* tex, const CalypsoPhysRect& r,
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 	_hdShader->use();
+	_hdShader->setUniform1f("u_opacity", opacity); // Phase 46.4-F33 opening motion
 	if (colorRgba == 0)
 	{
 		_hdShader->setUniform4f("u_color", 0.0f, 0.0f, 0.0f, 0.0f); // unset => opaque white
@@ -418,6 +420,7 @@ bool CalypsoHdUiOverlay::drawStyledPanel(const ResolvedDraw& d)
 	_panelShader->setUniform2f("u_gradDir", st.gradDirX, st.gradDirY);
 	_panelShader->setUniform4f("u_glowColor", glowC[0], glowC[1], glowC[2], glowC[3]);
 	_panelShader->setUniform1f("u_glowRadius", glowRadius);
+	_panelShader->setUniform1f("u_opacity", d.opacity); // Phase 46.4-F33 opening motion
 
 	glBindVertexArray(_vao);
 	glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -470,7 +473,7 @@ bool CalypsoHdUiOverlay::drawGlyph(const ResolvedDraw& d)
 	const float v0 = (float)(vis.y - ny) / (float)gh;
 	const float u1 = (float)(vis.x - nx + vis.w) / (float)gw;
 	const float v1 = (float)(vis.y - ny + vis.h) / (float)gh;
-	return drawPhysQuad(d.tex, vis, 0 /*text tex is pre-coloured*/, u0, v0, u1, v1);
+	return drawPhysQuad(d.tex, vis, 0 /*text tex is pre-coloured*/, u0, v0, u1, v1, d.opacity);
 }
 
 GpuTexture* CalypsoHdUiOverlay::textureForText(const CalypsoHdTextRasterKey& rasterKey)

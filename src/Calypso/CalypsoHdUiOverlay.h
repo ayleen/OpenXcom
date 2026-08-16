@@ -122,6 +122,7 @@ private:
 		int naturalH = 0;
 		CalypsoHdHAlign hAlign = CalypsoHdHAlign::Left;
 		CalypsoHdVAlign vAlign = CalypsoHdVAlign::Middle;
+		float opacity = 1.0f; // presentation opacity (opening motion)
 	};
 
 	void beginFrame(int logicalWidth, int logicalHeight);
@@ -138,7 +139,8 @@ private:
 	/// false if the shader/VAO/texture are not drawable. Assumes the GL guard +
 	/// blend are already set by renderStages.
 	bool drawPhysQuad(GpuTexture* tex, const CalypsoPhysRect& r, std::uint32_t colorRgba,
-		float u0 = 0.0f, float v0 = 0.0f, float u1 = 1.0f, float v1 = 1.0f);
+		float u0 = 0.0f, float v0 = 0.0f, float u1 = 1.0f, float v1 = 1.0f,
+		float opacity = 1.0f);
 	/// Map a logical rect to physical and draw (panels).
 	bool drawLogicalQuad(GpuTexture* tex, const CalypsoLogicalRect& logical, std::uint32_t colorRgba);
 	/// SDF styled panel (rounded/border/gradient/glow) via hd_ui_panel; the

@@ -72,18 +72,18 @@ inline CalypsoInteractionTokenPair calypsoInteractionTokenPair(
 {
 	// Semantic token keys, grouped per tone so the ten pairs stay distinct.
 	static const char* const kSafe[5][2] = {
-		{ "token.color.safe.rest.fill",       "token.color.safe.rest.border" },
-		{ "token.color.safe.hover.fill",      "token.color.safe.hover.border" },
-		{ "token.color.safe.focus.fill",      "token.color.safe.focus.border" },
-		{ "token.color.safe.pressed.fill",    "token.color.safe.pressed.border" },
-		{ "token.color.safe.disabled.fill",   "token.color.safe.disabled.border" },
+		{ "token.color.safeRestFill",       "token.color.safeRestBorder" },
+		{ "token.color.safeHoverFill",      "token.color.safeHoverBorder" },
+		{ "token.color.safeFocusFill",      "token.color.safeFocusBorder" },
+		{ "token.color.safePressedFill",    "token.color.safePressedBorder" },
+		{ "token.color.safeDisabledFill",   "token.color.safeDisabledBorder" },
 	};
 	static const char* const kDestructive[5][2] = {
-		{ "token.color.destructive.rest.fill",     "token.color.destructive.rest.border" },
-		{ "token.color.destructive.hover.fill",    "token.color.destructive.hover.border" },
-		{ "token.color.destructive.focus.fill",    "token.color.destructive.focus.border" },
-		{ "token.color.destructive.pressed.fill",  "token.color.destructive.pressed.border" },
-		{ "token.color.destructive.disabled.fill", "token.color.destructive.disabled.border" },
+		{ "token.color.destructiveRestFill",     "token.color.destructiveRestBorder" },
+		{ "token.color.destructiveHoverFill",    "token.color.destructiveHoverBorder" },
+		{ "token.color.destructiveFocusFill",    "token.color.destructiveFocusBorder" },
+		{ "token.color.destructivePressedFill",  "token.color.destructivePressedBorder" },
+		{ "token.color.destructiveDisabledFill", "token.color.destructiveDisabledBorder" },
 	};
 	int idx = static_cast<int>(state);
 	if (idx < 0 || idx > 4) idx = 0;
@@ -97,8 +97,8 @@ inline CalypsoInteractionTokenPair calypsoInteractionTokenPair(
 inline const char* calypsoFocusRingToken(CalypsoActionTone tone)
 {
 	return tone == CalypsoActionTone::Destructive
-		? "token.color.focus.ring.danger"
-		: "token.color.focus.ring.safe";
+		? "token.color.focusRingDanger"
+		: "token.color.focusRingSafe";
 }
 
 inline float calypsoInteractionOpacity(CalypsoInteractionState state)
