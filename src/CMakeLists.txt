@@ -953,10 +953,31 @@ if(NOT EMSCRIPTEN AND BUILD_TESTING)
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoViewportModelTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdUiModelTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdFrameControllerTest.cpp
-        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdTextRasterKeyTest.cpp)
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdTextRasterKeyTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdTrackedTextTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdSdfFalloffTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdF33ContractTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdInteractionStateTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdHarnessHostModelTest.cpp)
 
     add_executable(oxce_unit_tests ${OXCE_TEST_SOURCES})
     target_link_libraries(oxce_unit_tests PRIVATE oxce_test_doctest)
+
+    # Phase 46.4-F33: the tracked-text RED tests exercise the REAL SDL_ttf
+    # composition against a repository-owned OFL font, so the unit-test target
+    # needs SDL2/SDL2_ttf headers and libraries (found via pkg-config, the same
+    # channel the main engine build uses).
+    find_package(PkgConfig QUIET)
+    if(PkgConfig_FOUND)
+        pkg_check_modules(OXCE_TEST_SDL2 QUIET IMPORTED_TARGET sdl2)
+        pkg_check_modules(OXCE_TEST_SDL2_TTF QUIET IMPORTED_TARGET SDL2_ttf)
+        if(OXCE_TEST_SDL2_TTF_FOUND AND OXCE_TEST_SDL2_FOUND)
+            target_link_libraries(oxce_unit_tests PRIVATE
+                PkgConfig::OXCE_TEST_SDL2 PkgConfig::OXCE_TEST_SDL2_TTF)
+        else()
+            message(WARNING "SDL2/SDL2_ttf not found via pkg-config; CalypsoHdTrackedTextTest will not compile")
+        endif()
+    endif()
 
     add_test(NAME oxce_unit_tests COMMAND oxce_unit_tests)
 endif()
