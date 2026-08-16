@@ -94,5 +94,19 @@ inline CalypsoF33AbandonLayout calypsoF33AbandonLayout(CalypsoLayoutClass cls)
 	return l;
 }
 
+/// Apply the harness-only side-by-side translation to every F33 component.
+/// Keeping this pure makes reconfiguration and native contract tests use the
+/// same geometry operation, including a side flag change at fixed layout.
+inline void calypsoF33ApplyHarnessShift(CalypsoF33AbandonLayout& layout, bool sideBySide)
+{
+	if (!sideBySide || layout.designWidth != 1280) return;
+	const int dx = 40 - layout.window.x;
+	layout.window.x += dx;
+	layout.title.x += dx;
+	layout.message.x += dx;
+	layout.yes.x += dx;
+	layout.no.x += dx;
+}
+
 } // namespace Calypso
 } // namespace OpenXcom

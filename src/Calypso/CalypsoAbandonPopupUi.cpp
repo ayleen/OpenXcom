@@ -90,6 +90,14 @@ CalypsoLayoutClass currentF33LayoutClass()
 	return calypsoHarnessEffectiveLayout(calypsoHarnessSession(), safe);
 }
 
+CalypsoF33AbandonLayout currentF33PresentationLayout(bool wide)
+{
+	CalypsoF33AbandonLayout layout = calypsoF33AbandonLayout(
+		wide ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact);
+	calypsoF33ApplyHarnessShift(layout, g_harnessAbandon);
+	return layout;
+}
+
 void applyRect(Surface* surface, const CalypsoF33Rect& rect)
 {
 	if (!surface) return;
@@ -290,14 +298,17 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 	auto addText = [&](Surface* widget, const CalypsoTtfSourceDescriptor& font,
 		const std::string& text, std::uint32_t color,
 		CalypsoHdHAlign hA, CalypsoHdVAlign vA, int linesHint, std::uint32_t role,
-		double trackingEm = 0.0)
+		double trackingEm = 0.0, double fontSizeDesignPx = 0.0)
 	{
 		if (!widget || text.empty()) return;
 		const CalypsoLogicalRect r = motionRect(widgetRect(widget));
 		if (r.w <= 0 || r.h <= 0) return;
 
 		const int hint = linesHint > 0 ? linesHint : 1;
-		const int physicalPixelHeight = std::max(1, (int)calypsoHdRoundToInt((double)r.h / hint * sy));
+		const double designFontSize = fontSizeDesignPx > 0.0
+			? fontSizeDesignPx : (double)r.h / hint;
+		const int physicalPixelHeight = std::max(1,
+			(int)calypsoHdRoundToInt(designFontSize * sy));
 		const int wrapWidth = (hint > 1)
 			? std::max(1, (int)calypsoHdRoundToInt((double)r.w * sx)) : 0;
 
@@ -348,17 +359,16 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 
 	addText(_state->_txtTitle, heading, _state->_txtTitle ? _state->_txtTitle->getText() : std::string(),
 		CalypsoHdTheme::kGold, CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, ROLE_TITLE,
-		CalypsoHdTheme::kTitleTrackingEm);
+		CalypsoHdTheme::kTitleTrackingEm,
+		(double)widgetRect(_state->_txtTitle).h * CalypsoHdTheme::kTitleFontSizeScale);
 
 	if (_state->_hdMessage && !_state->_hdMessage->getText().empty())
 	{
 		const CalypsoLogicalRect r = widgetRect(_state->_hdMessage);
 		if (r.w > 0 && r.h > 0)
 		{
-			const int lines = std::max(1, _state->_hdMessage->getNumLines());
-			const double perLineFrac = std::min(0.45, 1.0 / (lines * 1.25));
 			const int physicalPixelHeight = std::max(1,
-				(int)calypsoHdRoundToInt((double)r.h * sy * perLineFrac));
+				(int)calypsoHdRoundToInt((double)CalypsoHdTheme::kBodyFontSizePx * sy));
 			const int wrapWidth = std::max(1, (int)calypsoHdRoundToInt((double)r.w * sx));
 
 			CalypsoHdTextRasterKey key;
@@ -387,10 +397,10 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 
 	addText(_state->_btnYes, heading, _state->_btnYes ? _state->_btnYes->getText() : std::string(),
 		CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, ROLE_YES,
-		CalypsoHdTheme::kLabelTrackingEm);
+		CalypsoHdTheme::kLabelTrackingEm, CalypsoHdTheme::kLabelFontSizePx);
 	addText(_state->_btnNo, heading, _state->_btnNo ? _state->_btnNo->getText() : std::string(),
 		CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, ROLE_NO,
-		CalypsoHdTheme::kLabelTrackingEm);
+		CalypsoHdTheme::kLabelTrackingEm, CalypsoHdTheme::kLabelFontSizePx);
 }
 
 void CalypsoAbandonPopupUi::applyRects(AbandonGameState& state, const CalypsoF33AbandonLayout& layout)
@@ -413,24 +423,9 @@ void CalypsoAbandonPopupUi::configure(AbandonGameState& state, bool allowPhysica
 	if (!state._hdLayout) return;
 
 	state._hdWideLayout = currentF33LayoutClass() == CalypsoLayoutClass::Wide;
-	CalypsoF33AbandonLayout layout = calypsoF33AbandonLayout(
-		state._hdWideLayout ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact);
-
-	if (g_harnessAbandon)
-	{
-		// Side-by-side comparison: the layout class stays session-driven
-		// (F33-PARITY-005); a Wide dialog is shifted into the left half
-		// (window.x 340 -> 40) so the DOM reference card fits on the right.
-		if (state._hdWideLayout)
-		{
-			const int dx = 40 - layout.window.x;
-			layout.window.x += dx;
-			layout.title.x += dx;
-			layout.message.x += dx;
-			layout.yes.x += dx;
-			layout.no.x += dx;
-		}
-	}
+	// Side-by-side translation is part of the presentation layout, not a
+	// one-time constructor mutation; reconfigure can toggle it at fixed class.
+	CalypsoF33AbandonLayout layout = currentF33PresentationLayout(state._hdWideLayout);
 
 	// Data-loss copy: an HD-only widget (the vanilla dialog has no message
 	// band); absent on the logical fallback, exactly like the F34 badge.
@@ -475,14 +470,17 @@ bool CalypsoAbandonPopupUi::resize(AbandonGameState& state)
 	if (wide != state._hdWideLayout)
 	{
 		state._hdWideLayout = wide;
-		const CalypsoF33AbandonLayout layout = calypsoF33AbandonLayout(
-			wide ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact);
+		const CalypsoF33AbandonLayout layout = currentF33PresentationLayout(wide);
 		CalypsoAbandonPopupUi::applyRects(state, layout);
 		state.recaptureUiScaling(layout.designWidth, layout.designHeight, 1.0f,
 			/*subtractVanillaCenter=*/false);
 	}
 	else
 	{
+		// The layout class is unchanged, but side-by-side may have toggled.
+		// Reapply all rects before scaling so overlay and side modes cannot retain
+		// stale shifted geometry.
+		CalypsoAbandonPopupUi::applyRects(state, currentF33PresentationLayout(wide));
 		state.applyUiScaling();
 	}
 	return true;

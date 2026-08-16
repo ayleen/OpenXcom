@@ -81,6 +81,13 @@ def validate_theme(theme):
     halo = theme.get("halo") or {}
     if shadow.get("glowRadiusPx", 0) <= 0 or halo.get("glowRadiusPx", 0) <= 0:
         fail("hd-ui-theme.json: shadow/halo glowRadiusPx must be > 0")
+    typography = theme.get("typography") or {}
+    for key in ("titleFontSizeScale", "bodyLineHeight"):
+        if not isinstance(typography.get(key), (int, float)) or typography[key] <= 0:
+            fail("hd-ui-theme.json: typography." + key + " must be > 0")
+    for key in ("labelFontSizePx", "bodyFontSizePx", "titleFontWeight", "labelFontWeight", "bodyFontWeight"):
+        if not isinstance(typography.get(key), int) or typography[key] <= 0:
+            fail("hd-ui-theme.json: typography." + key + " must be a positive integer")
 
 
 def validate_f33(f33):
@@ -156,6 +163,13 @@ def emit_theme_h(theme):
     out.append("inline constexpr float kLabelTrackingEm = %.6ff;" % float(theme["tracking"]["labelEm"]))
     out.append("inline constexpr float kShadowGlowRadiusPx = %.6ff;" % float(theme["shadow"]["glowRadiusPx"]))
     out.append("inline constexpr float kHaloGlowRadiusPx = %.6ff;" % float(theme["halo"]["glowRadiusPx"]))
+    out.append("inline constexpr float kTitleFontSizeScale = %.6ff;" % float(theme["typography"]["titleFontSizeScale"]))
+    out.append("inline constexpr int kLabelFontSizePx = %d;" % int(theme["typography"]["labelFontSizePx"]))
+    out.append("inline constexpr int kBodyFontSizePx = %d;" % int(theme["typography"]["bodyFontSizePx"]))
+    out.append("inline constexpr float kBodyLineHeight = %.6ff;" % float(theme["typography"]["bodyLineHeight"]))
+    out.append("inline constexpr int kTitleFontWeight = %d;" % int(theme["typography"]["titleFontWeight"]))
+    out.append("inline constexpr int kLabelFontWeight = %d;" % int(theme["typography"]["labelFontWeight"]))
+    out.append("inline constexpr int kBodyFontWeight = %d;" % int(theme["typography"]["bodyFontWeight"]))
     out.append("")
     out.append("// Semantic token key strings for the interaction-state mapping")
     out.append("// (CalypsoHdInteractionState.h) -- values above, keys here.")

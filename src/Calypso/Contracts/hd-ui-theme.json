@@ -41,5 +41,14 @@
   "button": { "radiusPx": 4 },
   "shadow": { "glowRadiusPx": 26 },
   "halo": { "glowRadiusPx": 22 },
-  "tracking": { "titleEm": 0.12, "labelEm": 0.12 }
+  "tracking": { "titleEm": 0.12, "labelEm": 0.12 },
+  "typography": {
+    "titleFontSizeScale": 0.8,
+    "labelFontSizePx": 17,
+    "bodyFontSizePx": 15,
+    "bodyLineHeight": 1.5,
+    "titleFontWeight": 700,
+    "labelFontWeight": 700,
+    "bodyFontWeight": 400
+  }
 }

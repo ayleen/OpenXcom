@@ -51,6 +51,13 @@ inline constexpr float kTitleTrackingEm = 0.120000f;
 inline constexpr float kLabelTrackingEm = 0.120000f;
 inline constexpr float kShadowGlowRadiusPx = 26.000000f;
 inline constexpr float kHaloGlowRadiusPx = 22.000000f;
+inline constexpr float kTitleFontSizeScale = 0.800000f;
+inline constexpr int kLabelFontSizePx = 17;
+inline constexpr int kBodyFontSizePx = 15;
+inline constexpr float kBodyLineHeight = 1.500000f;
+inline constexpr int kTitleFontWeight = 700;
+inline constexpr int kLabelFontWeight = 700;
+inline constexpr int kBodyFontWeight = 400;
 
 // Semantic token key strings for the interaction-state mapping
 // (CalypsoHdInteractionState.h) -- values above, keys here.

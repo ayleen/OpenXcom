@@ -55,6 +55,13 @@ constexpr float kShadowGlowRadiusPx = CalypsoHdThemeGen::kShadowGlowRadiusPx;
 constexpr std::uint32_t kShadowGlow = CalypsoHdThemeGen::kShadowGlow;
 constexpr float kHaloGlowRadiusPx   = CalypsoHdThemeGen::kHaloGlowRadiusPx;
 constexpr std::uint32_t kHaloGlow   = CalypsoHdThemeGen::kHaloGlow;
+constexpr float kTitleFontSizeScale = CalypsoHdThemeGen::kTitleFontSizeScale;
+constexpr int kLabelFontSizePx      = CalypsoHdThemeGen::kLabelFontSizePx;
+constexpr int kBodyFontSizePx       = CalypsoHdThemeGen::kBodyFontSizePx;
+constexpr float kBodyLineHeight     = CalypsoHdThemeGen::kBodyLineHeight;
+constexpr int kTitleFontWeight      = CalypsoHdThemeGen::kTitleFontWeight;
+constexpr int kLabelFontWeight      = CalypsoHdThemeGen::kLabelFontWeight;
+constexpr int kBodyFontWeight       = CalypsoHdThemeGen::kBodyFontWeight;
 
 /// Ready-made styles ------------------------------------------------------------
 
