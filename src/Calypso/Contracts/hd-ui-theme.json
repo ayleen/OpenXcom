@@ -55,6 +55,8 @@
     "bodyFontWidthScaleCompact": 0.994,
     "bodyWrapMeasureScaleWide": 1.14,
     "bodyWrapMeasureScaleCompact": 1.0,
+    "bodyProjectionLineHeightScaleWide": 0.875,
+    "bodyProjectionLineHeightScaleCompact": 1.087,
     "bodyLineHeight": 1.5,
     "titleFontWeight": 700,
     "labelFontWeight": 700,
