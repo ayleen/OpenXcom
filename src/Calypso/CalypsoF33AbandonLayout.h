@@ -70,7 +70,7 @@ inline CalypsoF33AbandonLayout calypsoF33AbandonLayout(CalypsoLayoutClass cls)
 {
 	CalypsoF33AbandonLayout l;
 	const bool wide = cls == CalypsoLayoutClass::Wide;
-	const CalypsoF33GenLayout* g = CalypsoF33AbandonGen::layoutForDesign(
+	const CalypsoF33AbandonGen::CalypsoF33GenLayout* g = CalypsoF33AbandonGen::layoutForDesign(
 		wide ? 1280 : 740, wide ? 720 : 360);
 	if (!g) return l;
 
