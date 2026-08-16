@@ -159,6 +159,16 @@ SDL_Surface* CalypsoHdTextRaster::rasterFor(const CalypsoHdTextRasterKey& key)
 	// the _Wrapped variant. Tracked single-line text composes per-glyph instead
 	// (SDL_ttf has no letter-spacing); the two paths share the coverage gate.
 	SDL_Surface* surf = nullptr;
+	// SDL_ttf's default line skip is face-dependent and does not represent the
+	// DOM contract's CSS line-height. Apply the requested physical line height
+	// only for this render, then restore the shared face before returning; the
+	// raster key keeps differently composed surfaces from aliasing.
+	const int previousLineSkip = TTF_FontLineSkip(face);
+	const bool customLineHeight = key.lineHeightPx > 0 && key.wrapWidth > 0;
+	if (customLineHeight)
+	{
+		TTF_SetFontLineSkip(face, key.lineHeightPx);
+	}
 	if (key.letterSpacingPx > 0 && key.wrapWidth == 0)
 	{
 		surf = calypsoRasterTracked(face, key.text, key.letterSpacingPx, c);
@@ -183,6 +193,10 @@ SDL_Surface* CalypsoHdTextRaster::rasterFor(const CalypsoHdTextRasterKey& key)
 				Log(LOG_ERROR) << "CalypsoHdTextRaster: TTF_RenderUTF8_Blended_Wrapped failed: " << TTF_GetError();
 			}
 		}
+	}
+	if (customLineHeight)
+	{
+		TTF_SetFontLineSkip(face, previousLineSkip);
 	}
 	if (!surf)
 	{
