@@ -66,11 +66,11 @@ enum class CalypsoTextDirection { LTR, RTL };
 struct CalypsoHdTextRasterKey
 {
 	CalypsoTtfSourceDescriptor source;
-	int physicalPixelHeight = 0;
+	int physicalPixelHeight = 0;          // design-space face size
 	std::string text;                      // resolved UTF-8
 	int wrapWidth = 0;                      // 0 => single line / break only on '\n';
-	                                       // >0 => SDL_ttf wraps at this physical px
-	                                       // width (handles CJK / no-space text)
+	                                       // >0 => wraps at this design-space px width
+	                                       // (handles CJK / no-space text)
 	int letterSpacingPx = 0;               // >0 AND wrapWidth==0 => per-glyph tracked
 	                                       // single-line layout (titles/labels);
 	                                       // wrapped rasters ignore it (body copy
