@@ -15,18 +15,20 @@ struct CalypsoF21NameGenLayout
 	int designWidth;
 	int designHeight;
 	CalypsoF21NameGenRect window;
+	CalypsoF21NameGenRect status;
 	CalypsoF21NameGenRect title;
 	CalypsoF21NameGenRect nameEdit;
 	CalypsoF21NameGenRect hint;
+	CalypsoF21NameGenRect footer;
 	CalypsoF21NameGenRect ok;
 };
 
 inline constexpr CalypsoF21NameGenLayout kLayouts[] =
 {
 	// wide
-	{ 1280, 720, { 440, 270, 400, 180 }, { 440, 286, 400, 32 }, { 476, 330, 328, 44 }, { 476, 380, 200, 20 }, { 700, 392, 116, 44 } },
+	{ 1280, 720, { 440, 240, 400, 220 }, { 440, 240, 400, 34 }, { 476, 288, 328, 34 }, { 476, 336, 328, 44 }, { 476, 386, 200, 18 }, { 440, 398, 400, 62 }, { 704, 406, 116, 44 } },
 	// compact
-	{ 740, 360, { 90, 110, 560, 170 }, { 90, 122, 560, 26 }, { 118, 158, 440, 40 }, { 118, 202, 240, 16 }, { 514, 222, 116, 44 } },
+	{ 740, 360, { 90, 80, 560, 220 }, { 90, 80, 560, 28 }, { 118, 118, 440, 26 }, { 118, 152, 440, 40 }, { 118, 198, 240, 16 }, { 90, 224, 560, 64 }, { 514, 234, 116, 44 } },
 };
 inline constexpr int kLayoutCount = 2;
 

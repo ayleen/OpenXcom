@@ -58,8 +58,9 @@ namespace
 
 enum DestructionRole : std::uint32_t
 {
-	ROLE_WINDOW = 1, ROLE_TITLE = 2, ROLE_SUBTITLE = 3, ROLE_LIST = 4,
-	ROLE_WARNING = 5, ROLE_ACK = 6
+	ROLE_WINDOW = 1, ROLE_STATUS = 2, ROLE_PROTOCOL = 3, ROLE_TITLE = 4,
+	ROLE_SUBTITLE = 5, ROLE_LIST = 6, ROLE_WARNING = 7, ROLE_FOOTER = 8,
+	ROLE_ACK = 9, ROLE_DECORATION = 10, ROLE_GLYPH = 11
 };
 
 void applyRect(Surface* surface, const CalypsoF21Rect& rect)
@@ -96,6 +97,9 @@ void CalypsoF21DestructionUi::collect(CalypsoHdFrameBuilder& builder) const
 	if (!calypsoHdResolveFontDescriptor(mod, "FONT_F34_MONO", mono)) return;
 
 	const CalypsoHdPresentationMetrics& m = CalypsoHdUiOverlay::instance().frozenMetrics();
+	const bool wide = _state->_hdWideLayout;
+	const CalypsoF21DestructionLayout designLayout = calypsoF21DestructionLayout(
+		wide ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact);
 
 	if (!_presented)
 	{
@@ -106,37 +110,61 @@ void CalypsoF21DestructionUi::collect(CalypsoHdFrameBuilder& builder) const
 		CalypsoF21DestructionGen::kMotionDurationMs, CalypsoF21DestructionGen::kMotionScaleFrom);
 
 	builder.beginSubgroup();
+	const CalypsoLogicalRect winFull = f21WidgetRect(_state->_window);
+	const double uiScale = designLayout.window.width > 0
+		? (double)winFull.w / designLayout.window.width : 1.0;
 	CalypsoF21Painter p{ builder, kF21FamilyId,
 		reinterpret_cast<std::uintptr_t>(_state), 0, motion.opacity, motion.scale,
-		CalypsoF21Rect{ _state->_window->getX(), _state->_window->getY(),
-			_state->_window->getWidth(), _state->_window->getHeight() },
+		CalypsoF21Rect{ winFull.x, winFull.y, winFull.w, winFull.h },
 		m.scaleX, m.scaleY };
+	p.winLogical = winFull;
+	p.windowDesign = designLayout.window;
+	p.uiScale = uiScale;
 
-	const CalypsoLogicalRect canvasRect{ 0, 0,
-		_state->_hdWideLayout ? 1280 : 740,
-		_state->_hdWideLayout ? 720 : 360 };
+	const CalypsoLogicalRect canvasRect{ 0, 0, wide ? 1280 : 740, wide ? 720 : 360 };
 	const bool harness = calypsoHarnessHostUp(calypsoHarnessSession());
 	p.panel(canvasRect, harness ? calypsoRgba(0, 0, 0, 0xff) : CalypsoHdTheme::kBackdropDim,
 		nullptr, ROLE_WINDOW);
 
 	{
-		const CalypsoLogicalRect w = f21WidgetRect(_state->_window);
-		p.styled(CalypsoLogicalRect{ w.x - 2, w.y + 8, w.w + 4, w.h },
-			CalypsoHdTheme::calypsoHdGlowStyle(CalypsoHdTheme::kShadowGlow, CalypsoHdTheme::kShadowGlowRadiusPx),
+		p.styled(CalypsoLogicalRect{ winFull.x - 2, winFull.y + 8, winFull.w + 4, winFull.h },
+			f21GlowStyle(CalypsoHdTheme::kShadowGlow, CalypsoHdTheme::kShadowGlowRadiusPx),
 			nullptr, ROLE_WINDOW);
-		p.styled(w, CalypsoHdTheme::calypsoHdGlowStyle(CalypsoHdTheme::kHaloGlow, CalypsoHdTheme::kHaloGlowRadiusPx),
+		p.styled(winFull, f21GlowStyle(CalypsoHdTheme::kHaloGlow, CalypsoHdTheme::kHaloGlowRadiusPx),
 			nullptr, ROLE_WINDOW);
 	}
 
-	p.styled(f21WidgetRect(_state->_window), CalypsoHdTheme::calypsoHdDialogStyle(),
-		_state->_window, ROLE_WINDOW);
+	// F33 command-card language: cut frame, status divider + protocol strip,
+	// amber caution glyph, separated footer with the sparse dot field.
+	p.styled(winFull, f21WindowStyle(), _state->_window, ROLE_WINDOW);
+	const CalypsoLogicalRect glyphRect = p.project(designLayout.glyph);
+	{
+		const CalypsoLogicalRect statusRect = p.project(designLayout.status);
+		const CalypsoLogicalRect footerRect = p.project(designLayout.footer);
+		p.decoration(CalypsoLogicalRect{ statusRect.x, statusRect.y + statusRect.h - 1, statusRect.w, 1 },
+			kF21DividerRgba, ROLE_DECORATION);
+		p.decoration(CalypsoLogicalRect{ footerRect.x, footerRect.y, footerRect.w, 1 },
+			kF21DividerRgba, ROLE_FOOTER);
+		for (int y = footerRect.y + 10; y < footerRect.y + footerRect.h - 8; y += 8)
+		{
+			for (int x = footerRect.x + 12; x < f21WidgetRect(_state->_btnOk).x - 12; x += 8)
+				p.decoration(CalypsoLogicalRect{ x, y, 1, 1 }, kF21FooterDotRgba, ROLE_DECORATION);
+		}
+		p.text(_state->_hdProtocol, mono, _state->_hdProtocol ? _state->_hdProtocol->getText() : std::string(),
+			kF21ProtocolTextRgba, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_PROTOCOL,
+			0.10, wide ? 10.0 : 9.0);
+	}
+	p.styled(glyphRect, f21WarningGlyphStyle(), nullptr, ROLE_GLYPH);
 	p.styled(f21WidgetRect(_state->_btnOk), f21ButtonStyleFor(
 		CalypsoActionTone::Destructive, f21ButtonVisualState(_state->_btnOk)),
 		_state->_btnOk, ROLE_ACK);
 
 	p.text(_state->_hdTitle, heading, _state->_hdTitle->getText(), CalypsoHdTheme::kGold,
-		CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, ROLE_TITLE,
-		CalypsoHdTheme::kTitleTrackingEm);
+		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_TITLE,
+		CalypsoHdTheme::kTitleTrackingEm, (double)designLayout.title.height * 0.62);
+	p.textRect(glyphRect, nullptr, heading, "!", CalypsoHdThemeGen::kGold,
+		CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, ROLE_GLYPH, 0.0,
+		wide ? 17.0 : 15.0);
 	p.text(_state->_txtMessage, body, _state->_txtMessage->getText(), CalypsoHdTheme::kNearWhite,
 		CalypsoHdHAlign::Left, CalypsoHdVAlign::Top, 2, ROLE_SUBTITLE);
 	p.text(_state->_hdWarning, body, _state->_hdWarning->getText(), CalypsoHdThemeGen::kDanger,
@@ -197,6 +225,7 @@ void CalypsoF21DestructionUi::collect(CalypsoHdFrameBuilder& builder) const
 void CalypsoF21DestructionUi::applyRects(BaseDestroyedState& state, const CalypsoF21DestructionLayout& layout)
 {
 	applyRect(state._window, layout.window);
+	applyRect(state._hdProtocol, layout.status);
 	applyRect(state._hdTitle, layout.title);
 	applyRect(state._txtMessage, layout.subtitle);
 	applyRect(state._lstDestroyedFacilities, layout.list);
@@ -220,6 +249,10 @@ void CalypsoF21DestructionUi::configure(BaseDestroyedState& state, bool allowPhy
 		state._hdWideLayout ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact);
 	calypsoF21DestructionApplyHarnessShift(layout,
 		calypsoHarnessSession().sideBySide && state._hdWideLayout);
+
+	state._hdProtocol = new Text(1, 1, 0, 0);
+	state.add(state._hdProtocol);
+	state._hdProtocol->setText(state.tr("STR_CAL_F21_PROTOCOL_DESTRUCTION"));
 
 	state._hdTitle = new Text(1, 1, 0, 0);
 	state.add(state._hdTitle);

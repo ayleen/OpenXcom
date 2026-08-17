@@ -15,19 +15,22 @@ struct CalypsoF21DestructionGenLayout
 	int designWidth;
 	int designHeight;
 	CalypsoF21DestructionGenRect window;
+	CalypsoF21DestructionGenRect status;
+	CalypsoF21DestructionGenRect glyph;
 	CalypsoF21DestructionGenRect title;
 	CalypsoF21DestructionGenRect subtitle;
 	CalypsoF21DestructionGenRect list;
 	CalypsoF21DestructionGenRect warning;
+	CalypsoF21DestructionGenRect footer;
 	CalypsoF21DestructionGenRect acknowledge;
 };
 
 inline constexpr CalypsoF21DestructionGenLayout kLayouts[] =
 {
 	// wide
-	{ 1280, 720, { 340, 150, 600, 420 }, { 340, 172, 600, 34 }, { 340, 214, 600, 26 }, { 376, 254, 528, 200 }, { 376, 468, 528, 44 }, { 700, 514, 200, 44 } },
+	{ 1280, 720, { 340, 150, 600, 430 }, { 340, 150, 600, 34 }, { 372, 200, 30, 30 }, { 418, 198, 480, 34 }, { 372, 244, 536, 42 }, { 372, 296, 536, 120 }, { 372, 426, 536, 40 }, { 340, 474, 600, 60 }, { 704, 482, 200, 44 } },
 	// compact
-	{ 740, 360, { 40, 26, 660, 308 }, { 40, 40, 660, 28 }, { 40, 74, 660, 22 }, { 64, 104, 612, 140 }, { 64, 244, 612, 36 }, { 472, 286, 214, 44 } },
+	{ 740, 360, { 40, 14, 660, 336 }, { 40, 14, 660, 26 }, { 64, 52, 26, 26 }, { 100, 50, 540, 30 }, { 64, 88, 580, 36 }, { 64, 132, 580, 96 }, { 64, 234, 580, 36 }, { 40, 274, 660, 62 }, { 462, 282, 210, 44 } },
 };
 inline constexpr int kLayoutCount = 2;
 

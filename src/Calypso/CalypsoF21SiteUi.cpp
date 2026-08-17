@@ -127,19 +127,27 @@ void CalypsoF21SiteUi::collect(CalypsoHdFrameBuilder& builder) const
 		m.scaleX, m.scaleY };
 
 	// Command strip panel (thin, full width) + soft shadow only (no halo:
-	// this is chrome, not a modal).
+	// this is chrome, not a modal). Same opposing-cut language as the modals.
 	{
 		const CalypsoLogicalRect b = f21WidgetRect(_state->_window);
 		p.styled(CalypsoLogicalRect{ b.x, b.y + 4, b.w, b.h },
-			CalypsoHdTheme::calypsoHdGlowStyle(CalypsoHdTheme::kShadowGlow, CalypsoHdTheme::kShadowGlowRadiusPx),
+			f21GlowStyle(CalypsoHdTheme::kShadowGlow, CalypsoHdTheme::kShadowGlowRadiusPx),
 			nullptr, ROLE_BANNER);
-		p.styled(b, CalypsoHdTheme::calypsoHdDialogStyle(), _state->_window, ROLE_BANNER);
+		p.styled(b, f21WindowStyle(), _state->_window, ROLE_BANNER);
 	}
 
-	// Placement preview card (bottom-left): translucent panel + readouts.
+	// Placement preview card (bottom-left): cut frame, top divider, sparse
+	// dot field under the readouts -- the strip's F33-language echo.
 	{
 		const CalypsoLogicalRect c = f21WidgetRect(_state->_hdCard);
-		p.styled(c, CalypsoHdTheme::calypsoHdDialogStyle(), _state->_hdCard, ROLE_CARD);
+		p.styled(c, f21WindowStyle(), _state->_hdCard, ROLE_CARD);
+		p.decoration(CalypsoLogicalRect{ c.x + 12, c.y, c.w - 24, 1 },
+			kF21DividerRgba, ROLE_BANNER);
+		for (int y = c.y + c.h - 22; y < c.y + c.h - 8; y += 8)
+		{
+			for (int x = c.x + 12; x < c.x + c.w - 12; x += 8)
+				p.decoration(CalypsoLogicalRect{ x, y, 1, 1 }, kF21FooterDotRgba, ROLE_BANNER);
+		}
 	}
 
 	// Cancel (additional bases only; the widget is hidden for the first base

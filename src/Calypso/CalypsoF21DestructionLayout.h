@@ -41,10 +41,13 @@ struct CalypsoF21DestructionLayout
 	int designWidth = 0;
 	int designHeight = 0;
 	CalypsoF21Rect window;      ///< review dialog panel
+	CalypsoF21Rect status;      ///< protocol strip (F33 command-card language)
+	CalypsoF21Rect glyph;       ///< amber caution triangle beside the title
 	CalypsoF21Rect title;       ///< heading
 	CalypsoF21Rect subtitle;    ///< partial/full variant subtitle
 	CalypsoF21Rect list;        ///< destroyed-facility list (partial variant)
 	CalypsoF21Rect warning;     ///< permanent-loss warning band (full variant)
+	CalypsoF21Rect footer;      ///< separated action band + dot field
 	CalypsoF21Rect acknowledge; ///< acknowledge action
 };
 
@@ -60,10 +63,13 @@ inline CalypsoF21DestructionLayout calypsoF21DestructionLayout(CalypsoLayoutClas
 	l.designWidth = g->designWidth;
 	l.designHeight = g->designHeight;
 	l.window      = { g->window.x,      g->window.y,      g->window.w,      g->window.h };
+	l.status      = { g->status.x,      g->status.y,      g->status.w,      g->status.h };
+	l.glyph       = { g->glyph.x,       g->glyph.y,       g->glyph.w,       g->glyph.h };
 	l.title       = { g->title.x,       g->title.y,       g->title.w,       g->title.h };
 	l.subtitle    = { g->subtitle.x,    g->subtitle.y,    g->subtitle.w,    g->subtitle.h };
 	l.list        = { g->list.x,        g->list.y,        g->list.w,        g->list.h };
 	l.warning     = { g->warning.x,     g->warning.y,     g->warning.w,     g->warning.h };
+	l.footer      = { g->footer.x,      g->footer.y,      g->footer.w,      g->footer.h };
 	l.acknowledge = { g->acknowledge.x, g->acknowledge.y, g->acknowledge.w, g->acknowledge.h };
 	return l;
 }
@@ -73,8 +79,8 @@ inline void calypsoF21DestructionApplyHarnessShift(
 	CalypsoF21DestructionLayout& layout, bool sideBySide)
 {
 	calypsoF21ApplyHarnessShift(
-		{ &layout.window, &layout.title, &layout.subtitle, &layout.list,
-		  &layout.warning, &layout.acknowledge },
+		{ &layout.window, &layout.status, &layout.glyph, &layout.title, &layout.subtitle,
+		  &layout.list, &layout.warning, &layout.footer, &layout.acknowledge },
 		sideBySide && layout.designWidth == 1280, layout.window.x);
 }
 

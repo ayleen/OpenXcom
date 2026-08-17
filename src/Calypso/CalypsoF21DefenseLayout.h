@@ -40,12 +40,14 @@ struct CalypsoF21DefenseLayout
 	int designWidth = 0;
 	int designHeight = 0;
 	CalypsoF21Rect window;   ///< defense dialog panel
+	CalypsoF21Rect status;   ///< protocol strip (F33 command-card language)
 	CalypsoF21Rect title;    ///< heading
 	CalypsoF21Rect defenses; ///< defenses count readout
 	CalypsoF21Rect ammo;     ///< ammo stores readout
 	CalypsoF21Rect hitRatio; ///< hit-ratio readout
 	CalypsoF21Rect phase;    ///< current-phase readout
 	CalypsoF21Rect result;   ///< live result band (fire/miss/damage lines)
+	CalypsoF21Rect footer;   ///< separated action band + dot field
 	CalypsoF21Rect start;    ///< Start Firing action
 	CalypsoF21Rect skip;     ///< Skip to Assault action
 	CalypsoF21Rect ok;       ///< End/acknowledge action (visible at BDA_END)
@@ -63,12 +65,14 @@ inline CalypsoF21DefenseLayout calypsoF21DefenseLayout(CalypsoLayoutClass cls)
 	l.designWidth = g->designWidth;
 	l.designHeight = g->designHeight;
 	l.window    = { g->window.x,    g->window.y,    g->window.w,    g->window.h };
+	l.status    = { g->status.x,    g->status.y,    g->status.w,    g->status.h };
 	l.title     = { g->title.x,     g->title.y,     g->title.w,     g->title.h };
 	l.defenses  = { g->defenses.x,  g->defenses.y,  g->defenses.w,  g->defenses.h };
 	l.ammo      = { g->ammo.x,      g->ammo.y,      g->ammo.w,      g->ammo.h };
 	l.hitRatio  = { g->hitRatio.x,  g->hitRatio.y,  g->hitRatio.w,  g->hitRatio.h };
 	l.phase     = { g->phase.x,     g->phase.y,     g->phase.w,     g->phase.h };
 	l.result    = { g->result.x,    g->result.y,    g->result.w,    g->result.h };
+	l.footer    = { g->footer.x,    g->footer.y,    g->footer.w,    g->footer.h };
 	l.start     = { g->start.x,     g->start.y,     g->start.w,     g->start.h };
 	l.skip      = { g->skip.x,      g->skip.y,      g->skip.w,      g->skip.h };
 	l.ok        = { g->ok.x,        g->ok.y,        g->ok.w,        g->ok.h };
@@ -80,9 +84,9 @@ inline void calypsoF21DefenseApplyHarnessShift(
 	CalypsoF21DefenseLayout& layout, bool sideBySide)
 {
 	calypsoF21ApplyHarnessShift(
-		{ &layout.window, &layout.title, &layout.defenses, &layout.ammo,
-		  &layout.hitRatio, &layout.phase, &layout.result, &layout.start,
-		  &layout.skip, &layout.ok },
+		{ &layout.window, &layout.status, &layout.title, &layout.defenses, &layout.ammo,
+		  &layout.hitRatio, &layout.phase, &layout.result, &layout.footer,
+		  &layout.start, &layout.skip, &layout.ok },
 		sideBySide && layout.designWidth == 1280, layout.window.x);
 }
 

@@ -51,6 +51,7 @@ private:
 	friend class Calypso::CalypsoF21DestructionUi;
 	bool _hdLayout = false;
 	bool _hdWideLayout = false;
+	Text* _hdProtocol = nullptr;
 	Text* _hdTitle = nullptr;
 	Text* _hdWarning = nullptr;
 	Calypso::CalypsoF21Rect _hdListBand{ 0, 0, 0, 0 };

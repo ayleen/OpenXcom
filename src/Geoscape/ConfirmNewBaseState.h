@@ -55,7 +55,7 @@ private:
 	friend class Calypso::CalypsoF21TransactionUi;
 	bool _hdLayout = false;
 	bool _hdWideLayout = false;
-	Text *_hdTitle = nullptr, *_hdSlot = nullptr, *_hdCoords = nullptr,
+	Text *_hdProtocol = nullptr, *_hdTitle = nullptr, *_hdSlot = nullptr, *_hdCoords = nullptr,
 		*_hdAfter = nullptr, *_hdNameHint = nullptr;
 	Calypso::CalypsoF21TransactionUi* _hdAdapter = nullptr;
 #endif

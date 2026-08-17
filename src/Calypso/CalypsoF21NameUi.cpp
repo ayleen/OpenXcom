@@ -55,7 +55,9 @@ namespace
 
 enum NameRole : std::uint32_t
 {
-	ROLE_WINDOW = 1, ROLE_TITLE = 2, ROLE_NAME = 3, ROLE_HINT = 4, ROLE_OK = 5
+	ROLE_WINDOW = 1, ROLE_STATUS = 2, ROLE_PROTOCOL = 3, ROLE_TITLE = 4,
+	ROLE_NAME = 5, ROLE_HINT = 6, ROLE_FOOTER = 7, ROLE_OK = 8,
+	ROLE_DECORATION = 9
 };
 
 void applyRect(Surface* surface, const CalypsoF21Rect& rect)
@@ -86,10 +88,15 @@ void CalypsoF21NameUi::collect(CalypsoHdFrameBuilder& builder) const
 	Mod* mod = _state->_game->getMod();
 	CalypsoTtfSourceDescriptor heading;
 	CalypsoTtfSourceDescriptor body;
+	CalypsoTtfSourceDescriptor mono;
 	if (!calypsoHdResolveFontDescriptor(mod, "FONT_F34_SAIRA_700", heading)) return;
 	if (!calypsoHdResolveFontDescriptor(mod, "FONT_F33_BODY", body)) return;
+	if (!calypsoHdResolveFontDescriptor(mod, "FONT_F34_MONO", mono)) return;
 
 	const CalypsoHdPresentationMetrics& m = CalypsoHdUiOverlay::instance().frozenMetrics();
+	const bool wide = _state->_hdWideLayout;
+	const CalypsoF21NameLayout designLayout = calypsoF21NameLayout(
+		wide ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact);
 
 	if (!_presented)
 	{
@@ -100,30 +107,49 @@ void CalypsoF21NameUi::collect(CalypsoHdFrameBuilder& builder) const
 		CalypsoF21NameGen::kMotionDurationMs, CalypsoF21NameGen::kMotionScaleFrom);
 
 	builder.beginSubgroup();
+	const CalypsoLogicalRect winFull = f21WidgetRect(_state->_window);
+	const double uiScale = designLayout.window.width > 0
+		? (double)winFull.w / designLayout.window.width : 1.0;
 	CalypsoF21Painter p{ builder, kF21FamilyId,
 		reinterpret_cast<std::uintptr_t>(_state), 0, motion.opacity, motion.scale,
-		CalypsoF21Rect{ _state->_window->getX(), _state->_window->getY(),
-			_state->_window->getWidth(), _state->_window->getHeight() },
+		CalypsoF21Rect{ winFull.x, winFull.y, winFull.w, winFull.h },
 		m.scaleX, m.scaleY };
+	p.winLogical = winFull;
+	p.windowDesign = designLayout.window;
+	p.uiScale = uiScale;
 
-	const CalypsoLogicalRect canvasRect{ 0, 0,
-		_state->_hdWideLayout ? 1280 : 740,
-		_state->_hdWideLayout ? 720 : 360 };
+	const CalypsoLogicalRect canvasRect{ 0, 0, wide ? 1280 : 740, wide ? 720 : 360 };
 	const bool harness = calypsoHarnessHostUp(calypsoHarnessSession());
 	p.panel(canvasRect, harness ? calypsoRgba(0, 0, 0, 0xff) : CalypsoHdTheme::kBackdropDim,
 		nullptr, ROLE_WINDOW);
 
 	{
-		const CalypsoLogicalRect w = f21WidgetRect(_state->_window);
-		p.styled(CalypsoLogicalRect{ w.x - 2, w.y + 8, w.w + 4, w.h },
-			CalypsoHdTheme::calypsoHdGlowStyle(CalypsoHdTheme::kShadowGlow, CalypsoHdTheme::kShadowGlowRadiusPx),
+		p.styled(CalypsoLogicalRect{ winFull.x - 2, winFull.y + 8, winFull.w + 4, winFull.h },
+			f21GlowStyle(CalypsoHdTheme::kShadowGlow, CalypsoHdTheme::kShadowGlowRadiusPx),
 			nullptr, ROLE_WINDOW);
-		p.styled(w, CalypsoHdTheme::calypsoHdGlowStyle(CalypsoHdTheme::kHaloGlow, CalypsoHdTheme::kHaloGlowRadiusPx),
+		p.styled(winFull, f21GlowStyle(CalypsoHdTheme::kHaloGlow, CalypsoHdTheme::kHaloGlowRadiusPx),
 			nullptr, ROLE_WINDOW);
 	}
 
-	p.styled(f21WidgetRect(_state->_window), CalypsoHdTheme::calypsoHdDialogStyle(),
-		_state->_window, ROLE_WINDOW);
+	// F33 command-card language: cut frame, status divider + protocol strip,
+	// separated footer with the sparse dot field.
+	p.styled(winFull, f21WindowStyle(), _state->_window, ROLE_WINDOW);
+	{
+		const CalypsoLogicalRect statusRect = p.project(designLayout.status);
+		const CalypsoLogicalRect footerRect = p.project(designLayout.footer);
+		p.decoration(CalypsoLogicalRect{ statusRect.x, statusRect.y + statusRect.h - 1, statusRect.w, 1 },
+			kF21DividerRgba, ROLE_DECORATION);
+		p.decoration(CalypsoLogicalRect{ footerRect.x, footerRect.y, footerRect.w, 1 },
+			kF21DividerRgba, ROLE_FOOTER);
+		for (int y = footerRect.y + 10; y < footerRect.y + footerRect.h - 8; y += 8)
+		{
+			for (int x = footerRect.x + 12; x < f21WidgetRect(_state->_btnOk).x - 12; x += 8)
+				p.decoration(CalypsoLogicalRect{ x, y, 1, 1 }, kF21FooterDotRgba, ROLE_DECORATION);
+		}
+		p.text(_state->_hdProtocol, mono, _state->_hdProtocol ? _state->_hdProtocol->getText() : std::string(),
+			kF21ProtocolTextRgba, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_PROTOCOL,
+			0.10, wide ? 10.0 : 9.0);
+	}
 	if (_state->_btnOk && _state->_btnOk->getVisible())
 	{
 		p.styled(f21WidgetRect(_state->_btnOk), f21ButtonStyleFor(
@@ -135,8 +161,8 @@ void CalypsoF21NameUi::collect(CalypsoHdFrameBuilder& builder) const
 	}
 
 	p.text(_state->_txtTitle, heading, _state->_txtTitle->getText(), CalypsoHdTheme::kGold,
-		CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, ROLE_TITLE,
-		CalypsoHdTheme::kTitleTrackingEm);
+		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_TITLE,
+		CalypsoHdTheme::kTitleTrackingEm, (double)designLayout.title.height * 0.62);
 	p.text(_state->_edtName, body, _state->_edtName->getText(), CalypsoHdTheme::kNearWhite,
 		CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, ROLE_NAME);
 	p.text(_state->_hdHint, body, _state->_hdHint->getText(), CalypsoHdThemeGen::kAccentSoft,
@@ -146,6 +172,7 @@ void CalypsoF21NameUi::collect(CalypsoHdFrameBuilder& builder) const
 void CalypsoF21NameUi::applyRects(BaseNameState& state, const CalypsoF21NameLayout& layout)
 {
 	applyRect(state._window, layout.window);
+	applyRect(state._hdProtocol, layout.status);
 	applyRect(state._txtTitle, layout.title);
 	applyRect(state._edtName, layout.nameEdit);
 	applyRect(state._hdHint, layout.hint);
@@ -171,6 +198,10 @@ void CalypsoF21NameUi::configure(BaseNameState& state, bool allowPhysicalOverlay
 	state._hdHint = new Text(1, 1, 0, 0);
 	state.add(state._hdHint);
 	state._hdHint->setText(state.tr("STR_CAL_F21_NAME_HINT"));
+
+	state._hdProtocol = new Text(1, 1, 0, 0);
+	state.add(state._hdProtocol);
+	state._hdProtocol->setText(state.tr("STR_CAL_F21_PROTOCOL_NAME"));
 
 	CalypsoF21NameUi::applyRects(state, layout);
 	state.enableUiScaling(layout.designWidth, layout.designHeight, 1.0f,

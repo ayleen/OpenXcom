@@ -15,12 +15,14 @@ struct CalypsoF21DefenseGenLayout
 	int designWidth;
 	int designHeight;
 	CalypsoF21DefenseGenRect window;
+	CalypsoF21DefenseGenRect status;
 	CalypsoF21DefenseGenRect title;
 	CalypsoF21DefenseGenRect defenses;
 	CalypsoF21DefenseGenRect ammo;
 	CalypsoF21DefenseGenRect hitRatio;
 	CalypsoF21DefenseGenRect phase;
 	CalypsoF21DefenseGenRect result;
+	CalypsoF21DefenseGenRect footer;
 	CalypsoF21DefenseGenRect start;
 	CalypsoF21DefenseGenRect skip;
 	CalypsoF21DefenseGenRect ok;
@@ -29,9 +31,9 @@ struct CalypsoF21DefenseGenLayout
 inline constexpr CalypsoF21DefenseGenLayout kLayouts[] =
 {
 	// wide
-	{ 1280, 720, { 320, 140, 640, 440 }, { 320, 162, 640, 34 }, { 360, 214, 270, 26 }, { 360, 246, 270, 26 }, { 360, 278, 270, 26 }, { 360, 318, 270, 30 }, { 360, 362, 560, 120 }, { 360, 514, 180, 44 }, { 556, 514, 180, 44 }, { 752, 514, 180, 44 } },
+	{ 1280, 720, { 320, 140, 640, 440 }, { 320, 140, 640, 36 }, { 320, 182, 640, 32 }, { 360, 226, 270, 24 }, { 360, 252, 270, 24 }, { 360, 278, 270, 24 }, { 360, 310, 270, 28 }, { 360, 350, 560, 120 }, { 320, 482, 640, 58 }, { 360, 490, 180, 44 }, { 556, 490, 180, 44 }, { 752, 490, 180, 44 } },
 	// compact
-	{ 740, 360, { 30, 18, 680, 326 }, { 30, 32, 680, 28 }, { 58, 72, 250, 22 }, { 58, 98, 250, 22 }, { 58, 124, 250, 22 }, { 58, 158, 250, 26 }, { 58, 192, 620, 64 }, { 58, 286, 180, 44 }, { 256, 286, 180, 44 }, { 454, 286, 180, 44 } },
+	{ 740, 360, { 30, 14, 680, 336 }, { 30, 14, 680, 26 }, { 58, 48, 620, 24 }, { 58, 80, 250, 20 }, { 58, 104, 250, 20 }, { 58, 128, 250, 20 }, { 58, 156, 250, 24 }, { 58, 188, 620, 60 }, { 30, 254, 680, 66 }, { 58, 264, 180, 44 }, { 256, 264, 180, 44 }, { 454, 264, 180, 44 } },
 };
 inline constexpr int kLayoutCount = 2;
 

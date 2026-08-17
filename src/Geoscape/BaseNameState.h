@@ -53,6 +53,7 @@ private:
 	bool _hdLayout = false;
 	bool _hdWideLayout = false;
 	Text* _hdHint = nullptr;
+	Text* _hdProtocol = nullptr;
 	Calypso::CalypsoF21NameUi* _hdAdapter = nullptr;
 #endif
 public:

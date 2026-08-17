@@ -61,6 +61,7 @@ private:
 	friend class Calypso::CalypsoF21DefenseUi;
 	bool _hdLayout = false;
 	bool _hdWideLayout = false;
+	Text* _hdProtocol = nullptr;
 	Text* _hdDefenses = nullptr;
 	Text* _hdAmmo = nullptr;
 	Text* _hdPhase = nullptr;

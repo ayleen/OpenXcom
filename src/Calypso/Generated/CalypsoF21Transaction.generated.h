@@ -15,6 +15,8 @@ struct CalypsoF21TransactionGenLayout
 	int designWidth;
 	int designHeight;
 	CalypsoF21TransactionGenRect window;
+	CalypsoF21TransactionGenRect status;
+	CalypsoF21TransactionGenRect glyph;
 	CalypsoF21TransactionGenRect title;
 	CalypsoF21TransactionGenRect slot;
 	CalypsoF21TransactionGenRect coords;
@@ -23,6 +25,7 @@ struct CalypsoF21TransactionGenLayout
 	CalypsoF21TransactionGenRect after;
 	CalypsoF21TransactionGenRect nameEdit;
 	CalypsoF21TransactionGenRect nameHint;
+	CalypsoF21TransactionGenRect footer;
 	CalypsoF21TransactionGenRect create;
 	CalypsoF21TransactionGenRect cancel;
 };
@@ -30,9 +33,9 @@ struct CalypsoF21TransactionGenLayout
 inline constexpr CalypsoF21TransactionGenLayout kLayouts[] =
 {
 	// wide
-	{ 1280, 720, { 320, 150, 640, 430 }, { 320, 172, 640, 36 }, { 360, 232, 160, 28 }, { 360, 268, 280, 26 }, { 360, 300, 280, 26 }, { 360, 332, 280, 26 }, { 360, 364, 280, 26 }, { 360, 408, 560, 48 }, { 360, 460, 560, 22 }, { 676, 514, 240, 44 }, { 412, 514, 240, 44 } },
+	{ 1280, 720, { 320, 140, 640, 460 }, { 320, 140, 640, 36 }, { 360, 192, 30, 30 }, { 406, 188, 514, 36 }, { 360, 240, 160, 26 }, { 360, 272, 280, 24 }, { 360, 300, 280, 24 }, { 360, 328, 280, 24 }, { 360, 356, 280, 24 }, { 360, 392, 560, 44 }, { 360, 440, 560, 20 }, { 320, 506, 640, 54 }, { 716, 516, 204, 44 }, { 488, 516, 204, 44 } },
 	// compact
-	{ 740, 360, { 30, 22, 680, 322 }, { 30, 36, 680, 30 }, { 58, 80, 130, 24 }, { 58, 110, 240, 22 }, { 58, 136, 240, 22 }, { 58, 162, 240, 22 }, { 58, 188, 240, 22 }, { 58, 218, 560, 44 }, { 58, 264, 560, 18 }, { 462, 292, 224, 44 }, { 214, 292, 224, 44 } },
+	{ 740, 360, { 30, 14, 680, 336 }, { 30, 14, 680, 28 }, { 58, 50, 26, 26 }, { 96, 48, 522, 30 }, { 58, 86, 130, 20 }, { 58, 112, 240, 20 }, { 58, 136, 240, 20 }, { 58, 160, 240, 20 }, { 58, 184, 240, 20 }, { 58, 212, 560, 40 }, { 58, 256, 560, 16 }, { 30, 280, 680, 56 }, { 476, 288, 212, 44 }, { 240, 288, 212, 44 } },
 };
 inline constexpr int kLayoutCount = 2;
 

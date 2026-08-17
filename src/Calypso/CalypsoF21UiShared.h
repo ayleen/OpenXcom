@@ -53,6 +53,54 @@ namespace Calypso
 
 constexpr std::uint32_t kF21FamilyId = 21;
 
+// --- F33 command-card visual language (Phase 46.F21 beautify pass) ---------
+// The approved F33 kit, re-expressed through the shared theme tokens: the
+// opposing-cut translucent frame, the cut-shaped glow pair, the amber caution
+// triangle, and the mono protocol strip. Family-specific protocol COPY lives
+// in the hd-pack ruleset; geometry lives in each family contract.
+
+/// Command frame: opposing-cut corners, translucent gradient fill, 1px frame.
+inline CalypsoHdPanelStyle f21WindowStyle()
+{
+	CalypsoHdPanelStyle s;
+	s.styled = true;
+	s.shape = CalypsoHdPanelShape::OpposingCutRect;
+	s.cutCornerPx = 14.0f;
+	s.borderWidthPx = 1.0f;
+	s.borderColorRgba = CalypsoHdThemeGen::kAccentSoft;
+	s.fillTopRgba = calypsoRgba(0x08, 0x19, 0x1D, 0xEB);
+	s.fillBottomRgba = calypsoRgba(0x04, 0x10, 0x14, 0xE8);
+	s.gradDirX = 0.18f;
+	s.gradDirY = 1.0f;
+	return s;
+}
+
+/// Glow (shadow/halo) in the same opposing-cut silhouette as the frame.
+inline CalypsoHdPanelStyle f21GlowStyle(std::uint32_t color, float radiusPx)
+{
+	CalypsoHdPanelStyle s = CalypsoHdTheme::calypsoHdGlowStyle(color, radiusPx);
+	s.shape = CalypsoHdPanelShape::OpposingCutRect;
+	s.cutCornerPx = 14.0f;
+	return s;
+}
+
+/// Amber caution triangle (stroke only; the "!" glyph is drawn over it).
+inline CalypsoHdPanelStyle f21WarningGlyphStyle()
+{
+	CalypsoHdPanelStyle s;
+	s.styled = true;
+	s.shape = CalypsoHdPanelShape::WarningTriangle;
+	s.borderWidthPx = 2.0f;
+	s.borderColorRgba = CalypsoHdThemeGen::kGold;
+	s.fillTopRgba = calypsoRgba(0, 0, 0, 0);
+	s.fillBottomRgba = calypsoRgba(0, 0, 0, 0);
+	return s;
+}
+
+constexpr std::uint32_t kF21DividerRgba = 0x74FFB04Du;      ///< 1px structural rules
+constexpr std::uint32_t kF21ProtocolTextRgba = 0xA9D8C7FFu; ///< mono protocol copy
+constexpr std::uint32_t kF21FooterDotRgba = 0x74FFB01Fu;    ///< sparse footer dots
+
 /// Classify the current Compact/Wide layout class from the USABLE safe area
 /// (harness preview selection overrides automatic classification).
 inline CalypsoLayoutClass currentF21LayoutClass()
@@ -144,6 +192,20 @@ struct CalypsoF21Painter
 	double scale = 1.0f;
 	CalypsoF21Rect window;       ///< motion centre (design space)
 	double sx = 1.0, sy = 1.0;   ///< frozen presentation metrics
+	CalypsoLogicalRect winLogical{ 0, 0, 0, 0 }; ///< projected window (logical)
+	CalypsoF21Rect windowDesign{ 0, 0, 0, 0 };   ///< window rect in design space
+	double uiScale = 1.0;        ///< logical/design scale (winLogical.w / windowDesign.width)
+
+	/// Project a design-space decoration rect into the current logical canvas
+	/// (the same projection State::enableUiScaling applied to widget rects).
+	CalypsoLogicalRect project(const CalypsoF21Rect& d) const
+	{
+		return CalypsoLogicalRect{
+			winLogical.x + (int)std::llround((d.x - windowDesign.x) * uiScale),
+			winLogical.y + (int)std::llround((d.y - windowDesign.y) * uiScale),
+			std::max(1, (int)std::llround(d.width * uiScale)),
+			std::max(1, (int)std::llround(d.height * uiScale)) };
+	}
 
 	CalypsoLogicalRect motionRect(const CalypsoLogicalRect& r) const
 	{
@@ -151,6 +213,24 @@ struct CalypsoF21Painter
 		const CalypsoF21Rect rect{ r.x, r.y, r.w, r.h };
 		const CalypsoF21Rect m = calypsoF21ScaleRectAroundWindow(rect, window, scale);
 		return { m.x, m.y, m.width, m.height };
+	}
+
+	/// Structural decoration (1px rules, footer dots): flat quad, motion-aware.
+	void decoration(const CalypsoLogicalRect& r, std::uint32_t color, std::uint32_t role)
+	{
+		if (r.w <= 0 || r.h <= 0) return;
+		CalypsoHdItem it;
+		it.kind = CalypsoHdItemKind::Panel;
+		it.rect = motionRect(r);
+		it.colorRgba = color;
+		it.panelStyle.styled = true;
+		it.panelStyle.fillTopRgba = color;
+		it.panelStyle.fillBottomRgba = color;
+		it.opacity = opacity;
+		it.claim = { familyId, role, inst, 1u, (std::uint32_t)ord };
+		it.order = { 0, 0, familyId, inst, 0, 1, ord, role };
+		builder.add(it);
+		++ord;
 	}
 
 	void panel(const CalypsoLogicalRect& r, std::uint32_t color,
@@ -185,48 +265,70 @@ struct CalypsoF21Painter
 		++ord;
 	}
 
+	/// Explicit-rect text (decorations like the "!" glyph have no widget).
+	void textRect(const CalypsoLogicalRect& sourceRect, const void* widget,
+		const CalypsoTtfSourceDescriptor& font,
+		const std::string& text, std::uint32_t color,
+		CalypsoHdHAlign hA, CalypsoHdVAlign vA, int linesHint, std::uint32_t role,
+		double trackingEm = 0.0, double fontSizeDesignPx = 0.0);
+
 	void text(Surface* widget, const CalypsoTtfSourceDescriptor& font,
 		const std::string& text, std::uint32_t color,
 		CalypsoHdHAlign hA, CalypsoHdVAlign vA, int linesHint, std::uint32_t role,
-		double trackingEm = 0.0)
+		double trackingEm = 0.0, double fontSizeDesignPx = 0.0)
 	{
 		if (!widget || text.empty()) return;
-		const CalypsoLogicalRect r = motionRect(f21WidgetRect(widget));
-		if (r.w <= 0 || r.h <= 0) return;
-
-		const int hint = linesHint > 0 ? linesHint : 1;
-		const int physicalPixelHeight = std::max(1, (int)calypsoHdRoundToInt((double)r.h / hint * sy));
-		const int wrapWidth = (hint > 1)
-			? std::max(1, (int)calypsoHdRoundToInt((double)r.w * sx)) : 0;
-
-		CalypsoHdTextRasterKey key;
-		key.source = font;
-		key.physicalPixelHeight = physicalPixelHeight;
-		key.text = text;
-		key.wrapWidth = wrapWidth;
-		key.colorRgba = color;
-		key.direction = CalypsoTextDirection::LTR;
-		if (trackingEm > 0.0 && wrapWidth == 0)
-		{
-			key.letterSpacingPx = std::max(1, (int)calypsoHdRoundToInt(
-				(double)physicalPixelHeight * trackingEm));
-		}
-
-		CalypsoHdItem it;
-		it.kind = CalypsoHdItemKind::Text;
-		it.rect = r;
-		it.colorRgba = color;
-		it.rasterKey = key;
-		it.hAlign = hA;
-		it.vAlign = vA;
-		it.opacity = opacity;
-		it.widget = widget;
-		it.claim = { familyId, role, inst, 1u, (std::uint32_t)ord };
-		it.order = { 0, 0, familyId, inst, 0, 1, ord, role };
-		builder.add(it);
-		++ord;
+		textRect(f21WidgetRect(widget), widget, font, text, color, hA, vA,
+			linesHint, role, trackingEm, fontSizeDesignPx);
 	}
 };
+
+inline void CalypsoF21Painter::textRect(const CalypsoLogicalRect& sourceRect,
+	const void* widget, const CalypsoTtfSourceDescriptor& font,
+	const std::string& text, std::uint32_t color,
+	CalypsoHdHAlign hA, CalypsoHdVAlign vA, int linesHint, std::uint32_t role,
+	double trackingEm, double fontSizeDesignPx)
+{
+	if (text.empty()) return;
+	const CalypsoLogicalRect r = motionRect(sourceRect);
+	if (r.w <= 0 || r.h <= 0) return;
+
+	const int hint = linesHint > 0 ? linesHint : 1;
+	const double designFontSize = fontSizeDesignPx > 0.0
+		? fontSizeDesignPx : (double)r.h / hint;
+	const int physicalPixelHeight = std::max(1, (int)calypsoHdRoundToInt(designFontSize));
+	const int wrapWidth = (hint > 1 && uiScale > 0.0)
+		? std::max(1, (int)calypsoHdRoundToInt((double)r.w / uiScale)) : 0;
+
+	CalypsoHdTextRasterKey key;
+	key.source = font;
+	key.physicalPixelHeight = physicalPixelHeight;
+	key.text = text;
+	key.wrapWidth = wrapWidth;
+	key.colorRgba = color;
+	key.direction = CalypsoTextDirection::LTR;
+	if (trackingEm > 0.0 && wrapWidth == 0)
+	{
+		key.letterSpacingPx = std::max(1, (int)calypsoHdRoundToInt(
+			(double)physicalPixelHeight * trackingEm));
+	}
+
+	CalypsoHdItem it;
+	it.kind = CalypsoHdItemKind::Text;
+	it.rect = r;
+	it.colorRgba = color;
+	it.rasterKey = key;
+	it.textScaleX = (float)(uiScale * sx);
+	it.textScaleY = (float)(uiScale * sy);
+	it.hAlign = hA;
+	it.vAlign = vA;
+	it.opacity = opacity;
+	it.widget = widget;
+	it.claim = { familyId, role, inst, 1u, (std::uint32_t)ord };
+	it.order = { 0, 0, familyId, inst, 0, 1, ord, role };
+	builder.add(it);
+	++ord;
+}
 
 } // namespace Calypso
 } // namespace OpenXcom

@@ -1,28 +1,34 @@
 {
   "schema": 1,
   "version": "hd.2026-08-17.1",
-  "parts": ["window", "title", "subtitle", "list", "warning", "acknowledge"],
+  "parts": ["window", "status", "glyph", "title", "subtitle", "list", "warning", "footer", "acknowledge"],
   "actions": ["acknowledge"],
   "layouts": {
     "wide": {
       "designWidth": 1280,
       "designHeight": 720,
-      "window":       { "x": 340, "y": 150, "width": 600, "height": 420 },
-      "title":        { "x": 340, "y": 172, "width": 600, "height": 34 },
-      "subtitle":     { "x": 340, "y": 214, "width": 600, "height": 26 },
-      "list":         { "x": 376, "y": 254, "width": 528, "height": 200 },
-      "warning":      { "x": 376, "y": 468, "width": 528, "height": 44 },
-      "acknowledge":  { "x": 700, "y": 514, "width": 200, "height": 44 }
+      "window":       { "x": 340, "y": 150, "width": 600, "height": 430 },
+      "status":       { "x": 340, "y": 150, "width": 600, "height": 34 },
+      "glyph":        { "x": 372, "y": 200, "width": 30, "height": 30 },
+      "title":        { "x": 418, "y": 198, "width": 480, "height": 34 },
+      "subtitle":     { "x": 372, "y": 244, "width": 536, "height": 42 },
+      "list":         { "x": 372, "y": 296, "width": 536, "height": 120 },
+      "warning":      { "x": 372, "y": 426, "width": 536, "height": 40 },
+      "footer":       { "x": 340, "y": 474, "width": 600, "height": 60 },
+      "acknowledge":  { "x": 704, "y": 482, "width": 200, "height": 44 }
     },
     "compact": {
       "designWidth": 740,
       "designHeight": 360,
-      "window":       { "x": 40, "y": 26, "width": 660, "height": 308 },
-      "title":        { "x": 40, "y": 40, "width": 660, "height": 28 },
-      "subtitle":     { "x": 40, "y": 74, "width": 660, "height": 22 },
-      "list":         { "x": 64, "y": 104, "width": 612, "height": 140 },
-      "warning":      { "x": 64, "y": 244, "width": 612, "height": 36 },
-      "acknowledge":  { "x": 472, "y": 286, "width": 214, "height": 44 }
+      "window":       { "x": 40, "y": 14, "width": 660, "height": 336 },
+      "status":       { "x": 40, "y": 14, "width": 660, "height": 26 },
+      "glyph":        { "x": 64, "y": 52, "width": 26, "height": 26 },
+      "title":        { "x": 100, "y": 50, "width": 540, "height": 30 },
+      "subtitle":     { "x": 64, "y": 88, "width": 580, "height": 36 },
+      "list":         { "x": 64, "y": 132, "width": 580, "height": 96 },
+      "warning":      { "x": 64, "y": 234, "width": 580, "height": 36 },
+      "footer":       { "x": 40, "y": 274, "width": 660, "height": 62 },
+      "acknowledge":  { "x": 462, "y": 282, "width": 210, "height": 44 }
     }
   },
   "motion": {

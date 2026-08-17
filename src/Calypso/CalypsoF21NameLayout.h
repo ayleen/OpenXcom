@@ -41,9 +41,11 @@ struct CalypsoF21NameLayout
 	int designWidth = 0;
 	int designHeight = 0;
 	CalypsoF21Rect window;   ///< naming dialog panel
+	CalypsoF21Rect status;   ///< protocol strip (F33 command-card language)
 	CalypsoF21Rect title;    ///< "Base name" heading
 	CalypsoF21Rect nameEdit; ///< name edit field
 	CalypsoF21Rect hint;     ///< staged-name hint copy
+	CalypsoF21Rect footer;   ///< separated action band + dot field
 	CalypsoF21Rect ok;       ///< confirm action (hidden until non-empty name)
 };
 
@@ -59,9 +61,11 @@ inline CalypsoF21NameLayout calypsoF21NameLayout(CalypsoLayoutClass cls)
 	l.designWidth = g->designWidth;
 	l.designHeight = g->designHeight;
 	l.window   = { g->window.x,   g->window.y,   g->window.w,   g->window.h };
+	l.status   = { g->status.x,   g->status.y,   g->status.w,   g->status.h };
 	l.title    = { g->title.x,    g->title.y,    g->title.w,    g->title.h };
 	l.nameEdit = { g->nameEdit.x, g->nameEdit.y, g->nameEdit.w, g->nameEdit.h };
 	l.hint     = { g->hint.x,     g->hint.y,     g->hint.w,     g->hint.h };
+	l.footer   = { g->footer.x,   g->footer.y,   g->footer.w,   g->footer.h };
 	l.ok       = { g->ok.x,       g->ok.y,       g->ok.w,       g->ok.h };
 	return l;
 }
@@ -70,7 +74,7 @@ inline CalypsoF21NameLayout calypsoF21NameLayout(CalypsoLayoutClass cls)
 inline void calypsoF21NameApplyHarnessShift(CalypsoF21NameLayout& layout, bool sideBySide)
 {
 	calypsoF21ApplyHarnessShift(
-		{ &layout.window, &layout.title, &layout.nameEdit, &layout.hint, &layout.ok },
+		{ &layout.window, &layout.status, &layout.title, &layout.nameEdit, &layout.hint, &layout.footer, &layout.ok },
 		sideBySide && layout.designWidth == 1280, layout.window.x);
 }
 
