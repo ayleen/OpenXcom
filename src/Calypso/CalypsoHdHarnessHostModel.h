@@ -52,6 +52,11 @@ struct CalypsoHarnessSession
 	/// ramp; 0..100 = freeze the opening-motion progress at that percent so a
 	/// capture can screenshot a stable mid-ramp frame (F33.5 motion evidence).
 	int motionHoldPct = -1;
+	/// Side-by-side comparison mode (Phase 46.F21): the target dialog shifts
+	/// into the left half of the Wide canvas so the DOM reference card fits on
+	/// the right. Session-level since F21; the F33 adapter keeps its own
+	/// mirrored global for continuity.
+	bool sideBySide = false;
 };
 
 inline bool calypsoHarnessHostUp(const CalypsoHarnessSession& s) { return s.hostUp; }
@@ -85,6 +90,7 @@ inline void calypsoHarnessClose(CalypsoHarnessSession& s)
 	s.requestedLayout = CalypsoLayoutClass::Compact;
 	s.motionDisabled = false;
 	s.motionHoldPct = -1;
+	s.sideBySide = false;
 }
 
 /// Deterministic capture mode: presentation motion is disabled for the active

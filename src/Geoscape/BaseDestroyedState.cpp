@@ -32,6 +32,7 @@
 #include "../Mod/RuleBaseFacility.h"
 #include "../Mod/RuleRegion.h"
 #include "../Engine/Options.h"
+#include "../Engine/Sound.h"
 #include "../Basescape/SellState.h"
 #include "../Menu/ErrorMessageState.h"
 #include "../Mod/RuleInterface.h"
@@ -44,10 +45,13 @@ BaseDestroyedState::BaseDestroyedState(Base *base, const Ufo* ufo, bool missiles
 {
 	_screen = false;
 
+	// Phase 46.F21 review: play the ruleset hit sound directly instead of
+	// retaining the Sound* in the state until destruction (ownership leak).
 	int soundId = ufo->getRules()->getHitSound();
 	if (soundId != Mod::NO_SOUND)
 	{
-		_customSound = _game->getMod()->getSound("GEO.CAT", soundId);
+		Sound* hitSound = _game->getMod()->getSound("GEO.CAT", soundId);
+		if (hitSound) hitSound->play();
 	}
 
 	// Create objects

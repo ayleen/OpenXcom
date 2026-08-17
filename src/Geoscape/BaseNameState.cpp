@@ -67,8 +67,9 @@ BaseNameState::BaseNameState(Base *base, Globe *globe, bool first, bool fixedLoc
 
 	_btnOk->setText(tr("STR_OK"));
 	_btnOk->onMouseClick((ActionHandler)&BaseNameState::btnOkClick);
-	//_btnOk->onKeyboardPress((ActionHandler)&BaseNameState::btnOkClick, Options::keyOk);
-	_btnOk->onKeyboardPress((ActionHandler)&BaseNameState::btnOkClick, Options::keyCancel);
+	// Phase 46.F21 review: Enter/OK is the explicit submit; Cancel must never
+	// confirm (the old keyCancel-to-OK quirk is removed).
+	_btnOk->onKeyboardPress((ActionHandler)&BaseNameState::btnOkClick, Options::keyOk);
 
 	//something must be in the name before it is acceptable
 	_btnOk->setVisible(false);

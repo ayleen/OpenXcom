@@ -134,6 +134,8 @@ bool calypsoHdHarnessOpen(CalypsoHarnessScenario id, CalypsoLayoutClass layout,
 	{
 		calypsoHdHarnessSetSideBySide(sideBySide);
 	}
+	// Phase 46.F21: side-by-side is session state for every family adapter.
+	s.sideBySide = sideBySide;
 
 	if (Game* g = getCurrentGame())
 	{
@@ -171,6 +173,7 @@ bool calypsoHdHarnessReconfigure(CalypsoLayoutClass layout, bool sideBySide)
 	CalypsoHarnessSession& s = calypsoHarnessSession();
 	if (!calypsoHarnessReconfigure(s, layout)) return false;
 	calypsoHdHarnessSetSideBySide(sideBySide);
+	s.sideBySide = sideBySide;
 	// The active F33 target owns the physical adapter and its resize hook is
 	// the canonical way to re-capture the selected design-space rectangles.
 	if (Game* g = getCurrentGame())
