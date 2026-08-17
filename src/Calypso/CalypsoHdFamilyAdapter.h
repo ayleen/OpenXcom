@@ -75,6 +75,11 @@ struct CalypsoHdItem
 	CalypsoHdTextRasterKey rasterKey;
 	CalypsoHdHAlign hAlign = CalypsoHdHAlign::Left;
 	CalypsoHdVAlign vAlign = CalypsoHdVAlign::Middle;
+	// Text-only presentation projection. Kept out of rasterKey so the same
+	// design-resolution surface is reused across viewport/DPR changes and the
+	// real GPU linear sampler performs the final CSS-like projection.
+	float textScaleX = 1.0f;
+	float textScaleY = 1.0f;
 
 	// Presentation opacity (Phase 46.4-F33 opening motion): 1 = opaque.
 	float opacity = 1.0f;

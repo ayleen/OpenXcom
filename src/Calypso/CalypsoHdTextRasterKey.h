@@ -78,8 +78,8 @@ struct CalypsoHdTextRasterKey
 	int lineHeightPx = 0;                  // >0 => explicit SDL_ttf line skip for
 	                                       // wrapped body copy; 0 keeps the face default
 	int lineHeightMilliPx = 0;             // design-space line skip before projection
-	int horizontalScalePermille = 1000;   // composed texture x projection/calibration
-	int verticalScalePermille = 1000;     // composed texture y projection
+	int horizontalScalePermille = 1000;   // design-space font x calibration
+	int verticalScalePermille = 1000;     // design-space font y calibration
 	int wrapMeasureScalePermille = 1000;  // body wrapping width calibration
 	std::uint64_t breakSignature = 0;      // hash of the approved processed line breaks
 	std::uint32_t colorRgba = 0;           // packed RGBA

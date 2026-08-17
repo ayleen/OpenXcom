@@ -120,6 +120,8 @@ private:
 		GpuTexture* tex = nullptr;
 		int naturalW = 0;
 		int naturalH = 0;
+		float textScaleX = 1.0f;
+		float textScaleY = 1.0f;
 		CalypsoHdHAlign hAlign = CalypsoHdHAlign::Left;
 		CalypsoHdVAlign vAlign = CalypsoHdVAlign::Middle;
 		float opacity = 1.0f; // presentation opacity (opening motion)

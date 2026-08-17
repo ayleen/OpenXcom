@@ -197,10 +197,6 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 		? (double)widgetRect(_state->_window).w / designLayout.window.width : 1.0;
 	const double projectionScaleX = uiScale * sx;
 	const double projectionScaleY = uiScale * sy;
-	const int projectionScaleXPermille = std::max(1,
-		(int)calypsoHdRoundToInt(projectionScaleX * 1000.0));
-	const int projectionScaleYPermille = std::max(1,
-		(int)calypsoHdRoundToInt(projectionScaleY * 1000.0));
 	const std::uint64_t inst = reinterpret_cast<std::uintptr_t>(_state);
 
 	// Opening motion (F33-PARITY-007 follow-up): a monotonic presentation
@@ -335,8 +331,8 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 		key.wrapWidth = wrapWidth;
 		key.colorRgba = color;
 		key.direction = CalypsoTextDirection::LTR;
-		key.horizontalScalePermille = projectionScaleXPermille;
-		key.verticalScalePermille = projectionScaleYPermille;
+		key.horizontalScalePermille = 1000;
+		key.verticalScalePermille = 1000;
 		// Tracking (single-line only by contract): DOM titles/labels run
 		// 0.12em; body copy has none, so the default 0 keeps wrapped text on
 		// SDL_ttf's layout.
@@ -351,6 +347,8 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 		it.rect = r;
 		it.colorRgba = color;
 		it.rasterKey = key;
+		it.textScaleX = (float)projectionScaleX;
+		it.textScaleY = (float)projectionScaleY;
 		it.hAlign = hA;
 		it.vAlign = vA;
 		it.opacity = opacity;
@@ -400,7 +398,10 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 			const int physicalPixelHeight = std::max(1,
 				(int)calypsoHdRoundToInt((double)CalypsoHdTheme::kBodyFontSizePx *
 					bodySizeScale));
-			const int wrapWidth = std::max(1, (int)calypsoHdRoundToInt((double)r.w * sx));
+			// Wrapping is authored in the immutable design contract. Presentation
+			// scale belongs only to the GPU quad; feeding it into this width would
+			// change word breaks across DPR/viewport pairs.
+			const int wrapWidth = std::max(1, designLayout.message.width);
 
 			CalypsoHdTextRasterKey key;
 			key.source = body;
@@ -416,10 +417,10 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 			key.lineHeightMilliPx = std::max(1,
 				(int)calypsoHdRoundToInt(designLineHeight * 1000.0));
 			key.horizontalScalePermille = std::max(1,
-				(int)calypsoHdRoundToInt(bodyWidthScale * projectionScaleX * 1000.0));
-			key.verticalScalePermille = projectionScaleYPermille;
+				(int)calypsoHdRoundToInt(bodyWidthScale * 1000.0));
+			key.verticalScalePermille = 1000;
 			key.wrapMeasureScalePermille = std::max(1,
-				(int)calypsoHdRoundToInt(bodyWrapMeasureScale * projectionScaleX * 1000.0));
+				(int)calypsoHdRoundToInt(bodyWrapMeasureScale * 1000.0));
 			key.colorRgba = CalypsoHdTheme::kNearWhite;
 			key.direction = CalypsoTextDirection::LTR;
 
@@ -428,6 +429,8 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 			it.rect = motionRect(r);
 			it.colorRgba = CalypsoHdTheme::kNearWhite;
 			it.rasterKey = key;
+			it.textScaleX = (float)projectionScaleX;
+			it.textScaleY = (float)projectionScaleY;
 			it.hAlign = CalypsoHdHAlign::Left;
 			it.vAlign = CalypsoHdVAlign::Top;
 			it.opacity = opacity;

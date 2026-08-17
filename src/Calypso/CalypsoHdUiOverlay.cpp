@@ -10,6 +10,7 @@
 #include "CalypsoGlStateGuard.h"
 
 #include <algorithm>
+#include <cmath>
 #include <emscripten.h>
 #include <GLES3/gl3.h>
 #include <SDL.h>
@@ -184,6 +185,8 @@ bool CalypsoHdUiOverlay::resolveSubgroup(const CalypsoHdSubgroup& subgroup,
 		d.panelStyle = item.panelStyle;
 		d.hAlign = item.hAlign;
 		d.vAlign = item.vAlign;
+		d.textScaleX = item.textScaleX;
+		d.textScaleY = item.textScaleY;
 		d.opacity = item.opacity;
 
 		if (item.kind == CalypsoHdItemKind::Panel)
@@ -443,7 +446,8 @@ bool CalypsoHdUiOverlay::drawGlyph(const ResolvedDraw& d)
 	const CalypsoPhysRect box = calypsoMapLogicalRect(d.rect, _frozenMetrics);
 	if (box.empty()) return true; // nothing to draw is not a failure
 
-	const int gw = d.naturalW, gh = d.naturalH;
+	const int gw = std::max(1, (int)std::lround(d.naturalW * d.textScaleX));
+	const int gh = std::max(1, (int)std::lround(d.naturalH * d.textScaleY));
 	if (gw <= 0 || gh <= 0) return true;
 
 	// Place the FULL natural-size glyph rect per alignment (it may extend outside
