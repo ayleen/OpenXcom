@@ -165,6 +165,11 @@ void CalypsoF21DefenseUi::collect(CalypsoHdFrameBuilder& builder) const
 			CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_PROTOCOL,
 			0.10, wide ? CalypsoHdThemeGen::kF21ProtocolWidePx : CalypsoHdThemeGen::kF21ProtocolCompactPx);
 	}
+	// Inset material for the dominant result band — gives structure to empty space per §7.4
+	{
+		const CalypsoLogicalRect resultRect = p.project(designLayout.result);
+		p.styled(resultRect, f21InsetPanelStyle(), nullptr, ROLE_DECORATION);
+	}
 	if (_state->_btnStart && _state->_btnStart->getVisible())
 	{
 		p.styled(f21WidgetRect(_state->_btnStart), f21ButtonStyleFor(
@@ -230,9 +235,9 @@ void CalypsoF21DefenseUi::collect(CalypsoHdFrameBuilder& builder) const
 				line += t;
 			}
 			if (line.empty()) continue;
-			// Compose one physical text item per row from the band rect.
+			// Compose one physical text item per row inside the inset band with 8px safe padding
 			const CalypsoLogicalRect rowRect = p.motionRect(
-				CalypsoLogicalRect{ band.x, band.y + i * rowH, band.w, rowH });
+				CalypsoLogicalRect{ band.x + 8, band.y + i * rowH, std::max(1, band.w - 16), rowH });
 			// A transient rect without a live widget: use the list widget as
 			// the claim owner for blit-skip purposes (the whole list is one
 			// logical widget).
@@ -240,7 +245,7 @@ void CalypsoF21DefenseUi::collect(CalypsoHdFrameBuilder& builder) const
 			it.kind = CalypsoHdItemKind::Text;
 			it.rect = rowRect;
 			it.colorRgba = CalypsoHdTheme::kNearWhite;
-			const int physicalPixelHeight = std::max(1, (int)calypsoHdRoundToInt((double)rowH * 0.8 * m.scaleY));
+			const int physicalPixelHeight = std::max(1, (int)calypsoHdRoundToInt(dataPx * uiScale * m.scaleY));
 			CalypsoHdTextRasterKey key;
 			key.source = mono;
 			key.physicalPixelHeight = physicalPixelHeight;

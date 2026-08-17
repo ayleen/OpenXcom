@@ -164,6 +164,11 @@ void CalypsoF21DestructionUi::collect(CalypsoHdFrameBuilder& builder) const
 			kF21ProtocolTextRgba, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_PROTOCOL,
 			0.10, wide ? CalypsoHdThemeGen::kF21ProtocolWidePx : CalypsoHdThemeGen::kF21ProtocolCompactPx);
 	}
+	// Inset material for the destroyed-facility list — structures the partial-loss evidence per §7.4
+	{
+		const CalypsoLogicalRect listRect = p.project(designLayout.list);
+		p.styled(listRect, f21InsetPanelStyle(), nullptr, ROLE_DECORATION);
+	}
 	p.styled(glyphRect, f21WarningGlyphStyle(), nullptr, ROLE_GLYPH);
 	p.styled(f21WidgetRect(_state->_btnOk), f21ButtonStyleFor(
 		CalypsoActionTone::Destructive, f21ButtonVisualState(_state->_btnOk)),
@@ -208,12 +213,12 @@ void CalypsoF21DestructionUi::collect(CalypsoHdFrameBuilder& builder) const
 			if (line.empty()) continue;
 
 			const CalypsoLogicalRect rowRect = p.motionRect(
-				CalypsoLogicalRect{ band.x, band.y + i * rowH, band.w, rowH });
+				CalypsoLogicalRect{ band.x + 8, band.y + i * rowH, std::max(1, band.w - 16), rowH });
 			CalypsoHdItem it;
 			it.kind = CalypsoHdItemKind::Text;
 			it.rect = rowRect;
 			it.colorRgba = CalypsoHdTheme::kNearWhite;
-			const int physicalPixelHeight = std::max(1, (int)calypsoHdRoundToInt((double)rowH * 0.8 * m.scaleY));
+			const int physicalPixelHeight = std::max(1, (int)calypsoHdRoundToInt(bodyPx * uiScale * m.scaleY));
 			CalypsoHdTextRasterKey key;
 			key.source = mono;
 			key.physicalPixelHeight = physicalPixelHeight;
