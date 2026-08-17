@@ -347,6 +347,32 @@ bool CalypsoF21SiteUi::resize(BuildNewBaseState& state)
 	return true;
 }
 
+void CalypsoF21SiteUi::refreshHoverReadouts(BuildNewBaseState& state, double lon, double lat)
+{
+	// Region + region-defined base cost follow the pointer (F21 hover card).
+	if (!state._hdLayout || lon != lon || lat != lat
+		|| !state._hdCoords || !state._hdRegion || !state._hdCost)
+	{
+		return;
+	}
+	std::ostringstream ss;
+	ss << std::fixed << std::setprecision(1)
+		<< std::fabs(lat * 180.0 / M_PI) << "·" << (lat >= 0 ? "N" : "S")
+		<< "  " << std::fabs(lon * 180.0 / M_PI) << "·" << (lon >= 0 ? "E" : "W");
+	state._hdCoords->setText(state.tr("STR_CAL_F21_COORDINATES").arg(ss.str()));
+	for (const auto* region : *state._game->getSavedGame()->getRegions())
+	{
+		if (region->getRules()->insideRegion(lon, lat))
+		{
+			state._hdRegion->setText(state.tr("STR_CAL_F21_REGION").arg(
+				state.tr(region->getRules()->getType())));
+			state._hdCost->setText(state.tr("STR_CAL_F21_BUILD_COST").arg(
+				Unicode::formatFunding(region->getRules()->getBaseCost())));
+			break;
+		}
+	}
+}
+
 } // namespace Calypso
 } // namespace OpenXcom
 

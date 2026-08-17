@@ -56,6 +56,9 @@ public:
 	static bool resize(BuildNewBaseState& state);
 	/// Apply the design-space rectangles to the state's widgets.
 	static void applyRects(BuildNewBaseState& state, const CalypsoF21SiteLayout& layout);
+	/// Refresh the placement-card readouts (coords/region/cost) from the
+	/// live hover snapshot; no-op off the HD route.
+	static void refreshHoverReadouts(BuildNewBaseState& state, double lon, double lat);
 
 private:
 	BuildNewBaseState* _state;

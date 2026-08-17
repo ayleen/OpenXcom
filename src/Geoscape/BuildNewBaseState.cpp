@@ -231,25 +231,7 @@ void BuildNewBaseState::hoverRedraw(void)
 #ifdef __EMSCRIPTEN__
 		// F21: refresh the placement-card readouts from the live hover
 		// snapshot (region + region-defined base cost follow the pointer).
-		if (_hdLayout && lon == lon && lat == lat && _hdCoords && _hdRegion && _hdCost)
-		{
-			std::ostringstream ss;
-			ss << std::fixed << std::setprecision(1)
-				<< std::fabs(lat * 180.0 / M_PI) << "·" << (lat >= 0 ? "N" : "S")
-				<< "  " << std::fabs(lon * 180.0 / M_PI) << "·" << (lon >= 0 ? "E" : "W");
-			_hdCoords->setText(tr("STR_CAL_F21_COORDINATES").arg(ss.str()));
-			for (const auto* region : *_game->getSavedGame()->getRegions())
-			{
-				if (region->getRules()->insideRegion(lon, lat))
-				{
-					_hdRegion->setText(tr("STR_CAL_F21_REGION").arg(
-						tr(region->getRules()->getType())));
-					_hdCost->setText(tr("STR_CAL_F21_BUILD_COST").arg(
-						Unicode::formatFunding(region->getRules()->getBaseCost())));
-					break;
-				}
-			}
-		}
+		Calypso::CalypsoF21SiteUi::refreshHoverReadouts(*this, lon, lat);
 #endif
 	}
 }

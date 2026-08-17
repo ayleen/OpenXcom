@@ -4,7 +4,7 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF21DefenseGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-18.8";
+inline constexpr const char* kContractVersion = "hd.2026-08-18.9";
 
 /// One design-space rectangle (design px).
 struct CalypsoF21DefenseGenRect { int x; int y; int w; int h; };
@@ -31,11 +31,18 @@ struct CalypsoF21DefenseGenLayout
 inline constexpr CalypsoF21DefenseGenLayout kLayouts[] =
 {
 	// wide
-	{ 1280, 720, { 320, 140, 640, 440 }, { 320, 140, 640, 36 }, { 320, 182, 640, 32 }, { 360, 226, 270, 24 }, { 360, 252, 270, 24 }, { 360, 278, 270, 24 }, { 360, 310, 270, 28 }, { 360, 350, 560, 120 }, { 320, 482, 640, 58 }, { 360, 490, 180, 44 }, { 556, 490, 180, 44 }, { 752, 490, 180, 44 } },
+	{ 1280, 720, { 320, 140, 640, 440 }, { 320, 140, 640, 36 }, { 320, 184, 640, 40 }, { 360, 240, 270, 24 }, { 360, 268, 270, 24 }, { 360, 296, 270, 24 }, { 360, 332, 270, 28 }, { 360, 376, 560, 90 }, { 320, 482, 640, 58 }, { 360, 490, 180, 44 }, { 556, 490, 180, 44 }, { 760, 490, 180, 44 } },
 	// compact
-	{ 740, 360, { 30, 14, 680, 336 }, { 30, 14, 680, 26 }, { 58, 48, 620, 24 }, { 58, 80, 250, 20 }, { 58, 104, 250, 20 }, { 58, 128, 250, 20 }, { 58, 156, 250, 24 }, { 58, 188, 620, 60 }, { 30, 254, 680, 66 }, { 58, 264, 180, 44 }, { 256, 264, 180, 44 }, { 454, 264, 180, 44 } },
+	{ 740, 360, { 30, 14, 680, 336 }, { 30, 14, 680, 28 }, { 30, 48, 680, 36 }, { 58, 96, 250, 20 }, { 58, 120, 250, 20 }, { 58, 144, 250, 20 }, { 58, 176, 250, 24 }, { 58, 210, 620, 42 }, { 30, 264, 680, 66 }, { 58, 274, 180, 44 }, { 256, 274, 180, 44 }, { 454, 274, 180, 44 } },
 };
 inline constexpr int kLayoutCount = 2;
+
+// Physical Engine-TTF calibration against the CSS reference cap height.
+inline constexpr float kEngineTextScaleTitle = 0.880000f;
+inline constexpr float kEngineTextScaleData = 0.900000f;
+inline constexpr float kEngineTextScaleBody = 0.920000f;
+inline constexpr float kEngineTextScaleInput = 0.900000f;
+inline constexpr float kEngineTextScaleAction = 0.900000f;
 
 /// Layout for a design canvas, or nullptr (the harness never guesses).
 inline const CalypsoF21DefenseGenLayout* layoutForDesign(int dw, int dh)

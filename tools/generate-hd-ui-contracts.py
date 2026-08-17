@@ -184,10 +184,12 @@ F21_FAMILIES = [
 
 F21_COMMAND_CARD_CONTRACTS = {
     "f21-site.json", "f21-transaction.json", "f21-name.json",
+    "f21-defense.json", "f21-destruction.json",
 }
 
 F21_ENGINE_TEXT_CALIBRATION_CONTRACTS = {
     "f21-site.json", "f21-transaction.json",
+    "f21-defense.json", "f21-destruction.json",
 }
 
 

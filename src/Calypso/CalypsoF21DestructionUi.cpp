@@ -109,6 +109,15 @@ void CalypsoF21DestructionUi::collect(CalypsoHdFrameBuilder& builder) const
 	const CalypsoF21Motion motion(_presented, _presentedAtFrame,
 		CalypsoF21DestructionGen::kMotionDurationMs, CalypsoF21DestructionGen::kMotionScaleFrom);
 
+	// Generated type scale (theme roles) with the family's Engine raster
+	// calibration -- never rectangle arithmetic.
+	const double titlePx = (wide ? CalypsoHdThemeGen::kF21TitleWidePx : CalypsoHdThemeGen::kF21TitleCompactPx)
+		* CalypsoF21DestructionGen::kEngineTextScaleTitle;
+	const double bodyPx = (wide ? CalypsoHdThemeGen::kF21BodyWidePx : CalypsoHdThemeGen::kF21BodyCompactPx)
+		* CalypsoF21DestructionGen::kEngineTextScaleBody;
+	const double actionPx = (wide ? CalypsoHdThemeGen::kF21ActionWidePx : CalypsoHdThemeGen::kF21ActionCompactPx)
+		* CalypsoF21DestructionGen::kEngineTextScaleAction;
+
 	builder.beginSubgroup();
 	const CalypsoLogicalRect winFull = f21WidgetRect(_state->_window);
 	const double uiScale = designLayout.window.width > 0
@@ -150,9 +159,10 @@ void CalypsoF21DestructionUi::collect(CalypsoHdFrameBuilder& builder) const
 			for (int x = footerRect.x + 12; x < f21WidgetRect(_state->_btnOk).x - 12; x += 8)
 				p.decoration(CalypsoLogicalRect{ x, y, 1, 1 }, kF21FooterDotRgba, ROLE_DECORATION);
 		}
-		p.text(_state->_hdProtocol, mono, _state->_hdProtocol ? _state->_hdProtocol->getText() : std::string(),
+		p.textRect(f21ProtocolTextRect(_state->_hdProtocol, wide), _state->_hdProtocol,
+			mono, _state->_hdProtocol ? _state->_hdProtocol->getText() : std::string(),
 			kF21ProtocolTextRgba, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_PROTOCOL,
-			0.10, wide ? 10.0 : 9.0);
+			0.10, wide ? CalypsoHdThemeGen::kF21ProtocolWidePx : CalypsoHdThemeGen::kF21ProtocolCompactPx);
 	}
 	p.styled(glyphRect, f21WarningGlyphStyle(), nullptr, ROLE_GLYPH);
 	p.styled(f21WidgetRect(_state->_btnOk), f21ButtonStyleFor(
@@ -161,17 +171,17 @@ void CalypsoF21DestructionUi::collect(CalypsoHdFrameBuilder& builder) const
 
 	p.text(_state->_hdTitle, heading, _state->_hdTitle->getText(), CalypsoHdTheme::kGold,
 		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_TITLE,
-		CalypsoHdTheme::kTitleTrackingEm, (double)designLayout.title.height * 0.62);
+		CalypsoHdTheme::kTitleTrackingEm, titlePx);
 	p.textRect(glyphRect, nullptr, heading, "!", CalypsoHdThemeGen::kGold,
 		CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, ROLE_GLYPH, 0.0,
 		wide ? 17.0 : 15.0);
 	p.text(_state->_txtMessage, body, _state->_txtMessage->getText(), CalypsoHdTheme::kNearWhite,
-		CalypsoHdHAlign::Left, CalypsoHdVAlign::Top, 2, ROLE_SUBTITLE);
+		CalypsoHdHAlign::Left, CalypsoHdVAlign::Top, 2, ROLE_SUBTITLE, 0.0, bodyPx);
 	p.text(_state->_hdWarning, body, _state->_hdWarning->getText(), CalypsoHdThemeGen::kDanger,
-		CalypsoHdHAlign::Left, CalypsoHdVAlign::Top, 2, ROLE_WARNING);
+		CalypsoHdHAlign::Left, CalypsoHdVAlign::Top, 2, ROLE_WARNING, 0.0, bodyPx);
 	p.text(_state->_btnOk, heading, _state->_btnOk->getText(), CalypsoHdTheme::kNearWhite,
 		CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, ROLE_ACK,
-		CalypsoHdTheme::kLabelTrackingEm);
+		CalypsoHdTheme::kLabelTrackingEm, actionPx);
 
 	// Destroyed-facility list (partial variant): snapshot rows read-only.
 	if (_state->_lstDestroyedFacilities && _state->_lstDestroyedFacilities->getVisible())

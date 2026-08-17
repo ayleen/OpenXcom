@@ -110,6 +110,15 @@ void CalypsoF21DefenseUi::collect(CalypsoHdFrameBuilder& builder) const
 	const CalypsoF21Motion motion(_presented, _presentedAtFrame,
 		CalypsoF21DefenseGen::kMotionDurationMs, CalypsoF21DefenseGen::kMotionScaleFrom);
 
+	// Generated type scale (theme roles) with the family's Engine raster
+	// calibration -- never rectangle arithmetic.
+	const double titlePx = (wide ? CalypsoHdThemeGen::kF21TitleWidePx : CalypsoHdThemeGen::kF21TitleCompactPx)
+		* CalypsoF21DefenseGen::kEngineTextScaleTitle;
+	const double dataPx = (wide ? CalypsoHdThemeGen::kF21DataWidePx : CalypsoHdThemeGen::kF21DataCompactPx)
+		* CalypsoF21DefenseGen::kEngineTextScaleData;
+	const double actionPx = (wide ? CalypsoHdThemeGen::kF21ActionWidePx : CalypsoHdThemeGen::kF21ActionCompactPx)
+		* CalypsoF21DefenseGen::kEngineTextScaleAction;
+
 	builder.beginSubgroup();
 	const CalypsoLogicalRect winFull = f21WidgetRect(_state->_window);
 	const double uiScale = designLayout.window.width > 0
@@ -150,9 +159,11 @@ void CalypsoF21DefenseUi::collect(CalypsoHdFrameBuilder& builder) const
 			for (int x = footerRect.x + 12; x < f21WidgetRect(_state->_btnStart).x - 12; x += 8)
 				p.decoration(CalypsoLogicalRect{ x, y, 1, 1 }, kF21FooterDotRgba, ROLE_DECORATION);
 		}
-		p.text(_state->_hdProtocol, mono, _state->_hdProtocol ? _state->_hdProtocol->getText() : std::string(),
-			kF21ProtocolTextRgba, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_PROTOCOL,
-			0.10, wide ? 10.0 : 9.0);
+		p.textRect(f21ProtocolTextRect(_state->_hdProtocol, wide), _state->_hdProtocol,
+			mono, _state->_hdProtocol ? _state->_hdProtocol->getText() : std::string(),
+			kF21ProtocolTextRgba,
+			CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_PROTOCOL,
+			0.10, wide ? CalypsoHdThemeGen::kF21ProtocolWidePx : CalypsoHdThemeGen::kF21ProtocolCompactPx);
 	}
 	if (_state->_btnStart && _state->_btnStart->getVisible())
 	{
@@ -161,7 +172,7 @@ void CalypsoF21DefenseUi::collect(CalypsoHdFrameBuilder& builder) const
 			_state->_btnStart, ROLE_START);
 		p.text(_state->_btnStart, heading, _state->_btnStart->getText(), CalypsoHdTheme::kNearWhite,
 			CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, ROLE_START,
-			CalypsoHdTheme::kLabelTrackingEm);
+			CalypsoHdTheme::kLabelTrackingEm, actionPx);
 	}
 	if (_state->_btnAbort && _state->_btnAbort->getVisible())
 	{
@@ -170,7 +181,7 @@ void CalypsoF21DefenseUi::collect(CalypsoHdFrameBuilder& builder) const
 			_state->_btnAbort, ROLE_SKIP);
 		p.text(_state->_btnAbort, heading, _state->_btnAbort->getText(), CalypsoHdTheme::kNearWhite,
 			CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, ROLE_SKIP,
-			CalypsoHdTheme::kLabelTrackingEm);
+			CalypsoHdTheme::kLabelTrackingEm, actionPx);
 	}
 	if (_state->_btnOk && _state->_btnOk->getVisible())
 	{
@@ -179,20 +190,20 @@ void CalypsoF21DefenseUi::collect(CalypsoHdFrameBuilder& builder) const
 			_state->_btnOk, ROLE_OK);
 		p.text(_state->_btnOk, heading, _state->_btnOk->getText(), CalypsoHdTheme::kNearWhite,
 			CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, ROLE_OK,
-			CalypsoHdTheme::kLabelTrackingEm);
+			CalypsoHdTheme::kLabelTrackingEm, actionPx);
 	}
 
 	p.text(_state->_txtTitle, heading, _state->_txtTitle->getText(), CalypsoHdTheme::kGold,
 		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_TITLE,
-		CalypsoHdTheme::kTitleTrackingEm, (double)designLayout.title.height * 0.66);
+		CalypsoHdTheme::kTitleTrackingEm, titlePx);
 	p.text(_state->_hdDefenses, mono, _state->_hdDefenses->getText(), CalypsoHdThemeGen::kAccent,
-		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_DEFENSES);
+		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_DEFENSES, 0.0, dataPx);
 	p.text(_state->_hdAmmo, mono, _state->_hdAmmo->getText(), CalypsoHdTheme::kNearWhite,
-		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_AMMO);
+		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_AMMO, 0.0, dataPx);
 	p.text(_state->_txtInit, mono, _state->_txtInit->getText(), CalypsoHdTheme::kNearWhite,
-		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_RATIO);
+		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_RATIO, 0.0, dataPx);
 	p.text(_state->_hdPhase, mono, _state->_hdPhase->getText(), CalypsoHdThemeGen::kGold,
-		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_PHASE);
+		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_PHASE, 0.0, dataPx);
 
 	// Live list band: snapshot the last visible rows read-only and render
 	// them as physical text lines inside the result rect.

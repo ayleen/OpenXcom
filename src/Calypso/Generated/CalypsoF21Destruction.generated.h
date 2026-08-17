@@ -4,7 +4,7 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF21DestructionGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-18.8";
+inline constexpr const char* kContractVersion = "hd.2026-08-18.9";
 
 /// One design-space rectangle (design px).
 struct CalypsoF21DestructionGenRect { int x; int y; int w; int h; };
@@ -28,11 +28,18 @@ struct CalypsoF21DestructionGenLayout
 inline constexpr CalypsoF21DestructionGenLayout kLayouts[] =
 {
 	// wide
-	{ 1280, 720, { 340, 150, 600, 430 }, { 340, 150, 600, 34 }, { 372, 200, 30, 30 }, { 418, 198, 480, 34 }, { 372, 244, 536, 42 }, { 372, 296, 536, 120 }, { 372, 426, 536, 40 }, { 340, 474, 600, 60 }, { 704, 482, 200, 44 } },
+	{ 1280, 720, { 340, 150, 600, 430 }, { 340, 150, 600, 34 }, { 372, 204, 30, 30 }, { 418, 200, 480, 40 }, { 372, 252, 536, 42 }, { 372, 310, 536, 110 }, { 372, 436, 536, 36 }, { 340, 488, 600, 62 }, { 704, 496, 200, 44 } },
 	// compact
-	{ 740, 360, { 40, 14, 660, 336 }, { 40, 14, 660, 26 }, { 64, 52, 26, 26 }, { 100, 50, 540, 30 }, { 64, 88, 580, 36 }, { 64, 132, 580, 96 }, { 64, 234, 580, 36 }, { 40, 274, 660, 62 }, { 462, 282, 210, 44 } },
+	{ 740, 360, { 40, 14, 660, 336 }, { 40, 14, 660, 28 }, { 64, 56, 26, 26 }, { 100, 54, 540, 36 }, { 64, 98, 580, 36 }, { 64, 146, 580, 96 }, { 64, 250, 580, 32 }, { 40, 290, 660, 52 }, { 466, 294, 210, 44 } },
 };
 inline constexpr int kLayoutCount = 2;
+
+// Physical Engine-TTF calibration against the CSS reference cap height.
+inline constexpr float kEngineTextScaleTitle = 0.880000f;
+inline constexpr float kEngineTextScaleData = 0.900000f;
+inline constexpr float kEngineTextScaleBody = 0.920000f;
+inline constexpr float kEngineTextScaleInput = 0.900000f;
+inline constexpr float kEngineTextScaleAction = 0.900000f;
 
 /// Layout for a design canvas, or nullptr (the harness never guesses).
 inline const CalypsoF21DestructionGenLayout* layoutForDesign(int dw, int dh)
