@@ -212,8 +212,11 @@ void CalypsoF21DefenseUi::collect(CalypsoHdFrameBuilder& builder) const
 		const auto& rows = _state->_lstDefenses->getCellTextsSnapshot();
 		const size_t visible = _state->_lstDefenses->getVisibleRows();
 		const size_t first = rows.size() > visible ? rows.size() - visible : 0;
-		const CalypsoF21Rect band = _state->_hdResultBand;
-		const int rowH = std::max(8, band.height / (int)std::max<size_t>(1, visible));
+		// Project the contract band into logical screen coordinates (the same
+		// path every other design rect takes) and keep the rows motion-aware;
+		// raw design coordinates would land the text off the window.
+		const CalypsoLogicalRect band = p.project(designLayout.result);
+		const int rowH = std::max(8, band.h / (int)std::max<size_t>(1, visible));
 		int i = 0;
 		for (size_t r = first; r < rows.size() && i < (int)visible; ++r, ++i)
 		{
@@ -228,7 +231,8 @@ void CalypsoF21DefenseUi::collect(CalypsoHdFrameBuilder& builder) const
 			}
 			if (line.empty()) continue;
 			// Compose one physical text item per row from the band rect.
-			const CalypsoLogicalRect rowRect{ band.x, band.y + i * rowH, band.width, rowH };
+			const CalypsoLogicalRect rowRect = p.motionRect(
+				CalypsoLogicalRect{ band.x, band.y + i * rowH, band.w, rowH });
 			// A transient rect without a live widget: use the list widget as
 			// the claim owner for blit-skip purposes (the whole list is one
 			// logical widget).

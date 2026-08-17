@@ -124,6 +124,13 @@ BaseDestroyedState::BaseDestroyedState(Base *base, const Ufo* ufo, bool missiles
 		_lstDestroyedFacilities->setVisible(true);
 	}
 
+#ifdef __EMSCRIPTEN__
+	// F21 (Phase 46.F21): physical route for the destruction review window.
+	// Must run BEFORE the partial-destruction early return below -- the
+	// damaged-base variant is exactly the variant the review list exists for.
+	Calypso::CalypsoF21DestructionUi::configure(*this, true);
+#endif
+
 	if (_partialDestruction)
 	{
 		// don't remove the alien mission yet, there might be more attacks coming
@@ -146,10 +153,6 @@ BaseDestroyedState::BaseDestroyedState(Base *base, const Ufo* ufo, bool missiles
 		am = _game->getSavedGame()->findAlienMission(regionRule->getType(), OBJECTIVE_RETALIATION);
 	}
 	_game->getSavedGame()->deleteRetaliationMission(am, _base);
-#ifdef __EMSCRIPTEN__
-	// F21 (Phase 46.F21): physical route for the destruction review window.
-	Calypso::CalypsoF21DestructionUi::configure(*this, true);
-#endif
 }
 
 /**

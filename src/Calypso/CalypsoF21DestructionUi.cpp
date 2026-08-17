@@ -187,8 +187,11 @@ void CalypsoF21DestructionUi::collect(CalypsoHdFrameBuilder& builder) const
 	if (_state->_lstDestroyedFacilities && _state->_lstDestroyedFacilities->getVisible())
 	{
 		const auto& rows = _state->_lstDestroyedFacilities->getCellTextsSnapshot();
-		const CalypsoF21Rect band = _state->_hdListBand;
-		const int rowH = std::max(8, band.height / 6);
+		// Project the contract band into logical screen coordinates and keep
+		// the rows motion-aware; raw design coordinates would land the text
+		// off the window.
+		const CalypsoLogicalRect band = p.project(designLayout.list);
+		const int rowH = std::max(8, band.h / 6);
 		int i = 0;
 		for (const auto& row : rows)
 		{
@@ -204,7 +207,8 @@ void CalypsoF21DestructionUi::collect(CalypsoHdFrameBuilder& builder) const
 			}
 			if (line.empty()) continue;
 
-			const CalypsoLogicalRect rowRect{ band.x, band.y + i * rowH, band.width, rowH };
+			const CalypsoLogicalRect rowRect = p.motionRect(
+				CalypsoLogicalRect{ band.x, band.y + i * rowH, band.w, rowH });
 			CalypsoHdItem it;
 			it.kind = CalypsoHdItemKind::Text;
 			it.rect = rowRect;
