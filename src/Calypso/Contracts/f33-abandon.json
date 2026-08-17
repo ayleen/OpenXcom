@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "f33.2026-08-17.2",
+  "version": "f33.2026-08-17.3",
   "copy": {
     "protocol": "CALYPSO COMMAND · SESSION PROTOCOL SP-01 · REV. 1.0.21 · EFFECTIVE 15.07.2061",
     "title": "ABANDON GAME?",
@@ -13,6 +13,7 @@
   },
   "style": {
     "cutCornerPx": 14,
+    "protocolTextInsetPx": 12,
     "panelFillTop": "08191DEB",
     "panelFillBottom": "041014E8",
     "frame": "74FFB073",

@@ -110,6 +110,9 @@ def validate_f33(f33):
     style = f33.get("style") or {}
     if not isinstance(style.get("cutCornerPx"), (int, float)) or style["cutCornerPx"] <= 0:
         fail("f33-abandon.json: style.cutCornerPx must be > 0")
+    if (not isinstance(style.get("protocolTextInsetPx"), (int, float))
+            or style["protocolTextInsetPx"] <= 0):
+        fail("f33-abandon.json: style.protocolTextInsetPx must be > 0")
     for key in ("panelFillTop", "panelFillBottom", "frame", "protocolText", "divider",
                 "footerFill", "footerDot", "warning", "safeFill", "safeBorder",
                 "destructiveFill", "destructiveText"):
@@ -258,6 +261,7 @@ def emit_f33_h(f33):
            "",
            "// F33-only chrome tokens (0xRRGGBBAA; design px).",
            "inline constexpr float kCutCornerPx = %.6ff;" % float(style["cutCornerPx"]),
+           "inline constexpr float kProtocolTextInsetPx = %.6ff;" % float(style["protocolTextInsetPx"]),
            "inline constexpr std::uint32_t kPanelFillTop = " + rgba_call(style["panelFillTop"]) + ";",
            "inline constexpr std::uint32_t kPanelFillBottom = " + rgba_call(style["panelFillBottom"]) + ";",
            "inline constexpr std::uint32_t kFrame = " + rgba_call(style["frame"]) + ";",

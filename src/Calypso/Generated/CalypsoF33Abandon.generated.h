@@ -4,7 +4,7 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF33AbandonGen {
-inline constexpr const char* kContractVersion = "f33.2026-08-17.2";
+inline constexpr const char* kContractVersion = "f33.2026-08-17.3";
 
 // Approved F33 3+5 copy (2026-08-17).
 inline constexpr const char* kProtocol = "CALYPSO COMMAND · SESSION PROTOCOL SP-01 · REV. 1.0.21 · EFFECTIVE 15.07.2061";
@@ -16,6 +16,7 @@ inline constexpr const char* kDestructiveAction = "ABANDON GAME";
 
 // F33-only chrome tokens (0xRRGGBBAA; design px).
 inline constexpr float kCutCornerPx = 14.000000f;
+inline constexpr float kProtocolTextInsetPx = 12.000000f;
 inline constexpr std::uint32_t kPanelFillTop = 0x08191DEBu;
 inline constexpr std::uint32_t kPanelFillBottom = 0x041014E8u;
 inline constexpr std::uint32_t kFrame = 0x74FFB073u;

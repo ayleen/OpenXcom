@@ -39,6 +39,8 @@
 #include "Generated/CalypsoF33Abandon.generated.h"
 #include "Generated/CalypsoHdTheme.generated.h"
 
+#include <algorithm>
+#include <cmath>
 #include <string_view>
 
 namespace OpenXcom
@@ -76,6 +78,32 @@ struct CalypsoF33AbandonLayout
 	CalypsoF33Rect yes;       ///< destructive action button (panel + label)
 	CalypsoF33Rect no;        ///< safe action button (panel + label)
 };
+
+/// Scale a component and its position around the dialog centre. Scaling only
+/// each component's size and then centring every result would collapse the
+/// opening frame into a pile of controls.
+inline CalypsoF33Rect calypsoF33ScaleRectAroundWindow(
+	const CalypsoF33Rect& rect, const CalypsoF33Rect& window, double scale)
+{
+	const double bounded = std::max(0.0, scale);
+	const double cx = window.x + window.width * 0.5;
+	const double cy = window.y + window.height * 0.5;
+	const int left = (int)std::llround(cx + (rect.x - cx) * bounded);
+	const int top = (int)std::llround(cy + (rect.y - cy) * bounded);
+	const int right = (int)std::llround(cx + (rect.x + rect.width - cx) * bounded);
+	const int bottom = (int)std::llround(cy + (rect.y + rect.height - cy) * bounded);
+	return { left, top, std::max(1, right - left), std::max(1, bottom - top) };
+}
+
+/// Keep the status divider at full width while moving its copy one canonical
+/// mono-cell away from the left border.
+inline CalypsoF33Rect calypsoF33ProtocolTextRect(const CalypsoF33Rect& status)
+{
+	const int inset = std::max(1, (int)std::llround(
+		(double)CalypsoF33AbandonGen::kProtocolTextInsetPx));
+	return { status.x + inset, status.y,
+		std::max(1, status.width - inset), status.height };
+}
 
 /// Build the F33.Abandon layout for the given layout class from the canonical
 /// contract. Returns a zeroed layout when the class has no contract entry.

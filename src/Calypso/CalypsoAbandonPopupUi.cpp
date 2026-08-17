@@ -294,15 +294,13 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 			std::max(1, (int)std::llround(design.width * uiScale)),
 			std::max(1, (int)std::llround(design.height * uiScale)) };
 	};
-	const double cx = winFull.x + winFull.w * 0.5;
-	const double cy = winFull.y + winFull.h * 0.5;
 	auto motionRect = [&](const CalypsoLogicalRect& r) -> CalypsoLogicalRect
 	{
 		if (scale >= 1.0) return r;
-		const int nw = std::max(1, (int)std::llround(r.w * scale));
-		const int nh = std::max(1, (int)std::llround(r.h * scale));
-		return CalypsoLogicalRect{ (int)std::llround(cx - nw * 0.5),
-			(int)std::llround(cy - nh * 0.5), nw, nh };
+		const CalypsoF33Rect scaled = calypsoF33ScaleRectAroundWindow(
+			{ r.x, r.y, r.w, r.h },
+			{ winFull.x, winFull.y, winFull.w, winFull.h }, scale);
+		return { scaled.x, scaled.y, scaled.width, scaled.height };
 	};
 
 	// One atomic subgroup: the whole dialog shows physically or not at all.
@@ -473,7 +471,9 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 		CalypsoActionTone::Safe, buttonVisualState(_state->_btnNo, _state->_btnYes)),
 		_state->_btnNo, ROLE_NO);
 
-	addText(_state->_hdProtocol, mono,
+	const CalypsoLogicalRect protocolTextRect = projectDecoration(
+		calypsoF33ProtocolTextRect(designLayout.status));
+	addTextRect(protocolTextRect, _state->_hdProtocol, mono,
 		_state->_hdProtocol ? _state->_hdProtocol->getText() : std::string(),
 		CalypsoF33AbandonGen::kProtocolText, CalypsoHdHAlign::Left,
 		CalypsoHdVAlign::Middle, 1, ROLE_PROTOCOL, 0.10,
