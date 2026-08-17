@@ -77,6 +77,7 @@ struct CalypsoHdTextRasterKey
 	                                       // keeps SDL_ttf's wrap layout)
 	int lineHeightPx = 0;                  // >0 => explicit SDL_ttf line skip for
 	                                       // wrapped body copy; 0 keeps the face default
+	int lineHeightMilliPx = 0;             // design-space line skip before projection
 	int horizontalScalePermille = 1000;   // composed texture x projection/calibration
 	int verticalScalePermille = 1000;     // composed texture y projection
 	int wrapMeasureScalePermille = 1000;  // body wrapping width calibration
@@ -93,6 +94,7 @@ struct CalypsoHdTextRasterKey
 		    && wrapWidth == o.wrapWidth
 		    && letterSpacingPx == o.letterSpacingPx
 		    && lineHeightPx == o.lineHeightPx
+		    && lineHeightMilliPx == o.lineHeightMilliPx
 		    && horizontalScalePermille == o.horizontalScalePermille
 		    && verticalScalePermille == o.verticalScalePermille
 		    && wrapMeasureScalePermille == o.wrapMeasureScalePermille
@@ -159,6 +161,7 @@ struct hash<OpenXcom::Calypso::CalypsoHdTextRasterKey>
 		mix(static_cast<std::uint64_t>(static_cast<std::uint32_t>(k.wrapWidth)));
 		mix(static_cast<std::uint64_t>(static_cast<std::uint32_t>(k.letterSpacingPx)));
 		mix(static_cast<std::uint64_t>(static_cast<std::uint32_t>(k.lineHeightPx)));
+		mix(static_cast<std::uint64_t>(static_cast<std::uint32_t>(k.lineHeightMilliPx)));
 		mix(static_cast<std::uint64_t>(static_cast<std::uint32_t>(k.horizontalScalePermille)));
 		mix(static_cast<std::uint64_t>(static_cast<std::uint32_t>(k.verticalScalePermille)));
 		mix(static_cast<std::uint64_t>(static_cast<std::uint32_t>(k.wrapMeasureScalePermille)));

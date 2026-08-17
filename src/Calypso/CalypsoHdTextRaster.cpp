@@ -70,10 +70,11 @@ void trimLineStart(std::string& text)
 /// but not TTF_SetFontLineSkip, so line breaks are measured explicitly and each
 /// line is blitted at the canonical physical line height.
 SDL_Surface* renderWrappedWithLineHeight(TTF_Font* face, const std::string& text,
-	int wrapWidth, int lineHeightPx, int horizontalScalePermille,
+	int wrapWidth, int lineHeightPx, int lineHeightMilliPx, int horizontalScalePermille,
 	int verticalScalePermille, int wrapMeasureScalePermille, SDL_Color color)
 {
-	if (!face || text.empty() || wrapWidth <= 0 || lineHeightPx <= 0) return nullptr;
+	if (!face || text.empty() || wrapWidth <= 0
+		|| (lineHeightPx <= 0 && lineHeightMilliPx <= 0)) return nullptr;
 	const double horizontalScale = std::max(0.01, horizontalScalePermille / 1000.0);
 	const double verticalScale = std::max(0.01, verticalScalePermille / 1000.0);
 	const double wrapMeasureScale = std::max(0.01, wrapMeasureScalePermille / 1000.0);
@@ -128,8 +129,10 @@ SDL_Surface* renderWrappedWithLineHeight(TTF_Font* face, const std::string& text
 		paragraphStart = newline + 1;
 	}
 
+	const double designLineHeight = lineHeightMilliPx > 0
+		? lineHeightMilliPx / 1000.0 : static_cast<double>(lineHeightPx);
 	const int lineSkip = std::max(1,
-		static_cast<int>(lineHeightPx * verticalScale + 0.5));
+		static_cast<int>(designLineHeight * verticalScale + 0.5));
 	std::vector<SDL_Surface*> rendered;
 	rendered.reserve(lines.size());
 	int width = 1;
@@ -359,10 +362,10 @@ SDL_Surface* CalypsoHdTextRaster::rasterFor(const CalypsoHdTextRasterKey& key)
 	// otherwise the stock wrapped path is retained. Tracked single-line text
 	// composes per-glyph instead (SDL_ttf has no letter-spacing).
 	SDL_Surface* surf = nullptr;
-	if (key.lineHeightPx > 0 && key.wrapWidth > 0)
+	if ((key.lineHeightPx > 0 || key.lineHeightMilliPx > 0) && key.wrapWidth > 0)
 	{
 		surf = renderWrappedWithLineHeight(face, key.text, key.wrapWidth,
-			key.lineHeightPx, key.horizontalScalePermille,
+			key.lineHeightPx, key.lineHeightMilliPx, key.horizontalScalePermille,
 			key.verticalScalePermille, key.wrapMeasureScalePermille, c);
 	}
 	else if (key.letterSpacingPx > 0 && key.wrapWidth == 0)
@@ -394,7 +397,7 @@ SDL_Surface* CalypsoHdTextRaster::rasterFor(const CalypsoHdTextRasterKey& key)
 	{
 		return nullptr;
 	}
-	if (key.lineHeightPx == 0)
+	if (key.lineHeightPx == 0 && key.lineHeightMilliPx == 0)
 	{
 		surf = projectSurface(surf, key.horizontalScalePermille,
 			key.verticalScalePermille);
