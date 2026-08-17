@@ -237,13 +237,15 @@ void BuildNewBaseState::hoverRedraw(void)
 			ss << std::fixed << std::setprecision(1)
 				<< std::fabs(lat * 180.0 / M_PI) << "·" << (lat >= 0 ? "N" : "S")
 				<< "  " << std::fabs(lon * 180.0 / M_PI) << "·" << (lon >= 0 ? "E" : "W");
-			_hdCoords->setText(ss.str());
+			_hdCoords->setText(tr("STR_CAL_F21_COORDINATES").arg(ss.str()));
 			for (const auto* region : *_game->getSavedGame()->getRegions())
 			{
 				if (region->getRules()->insideRegion(lon, lat))
 				{
-					_hdRegion->setText(tr(region->getRules()->getType()));
-					_hdCost->setText("COST " + Unicode::formatFunding(region->getRules()->getBaseCost()));
+					_hdRegion->setText(tr("STR_CAL_F21_REGION").arg(
+						tr(region->getRules()->getType())));
+					_hdCost->setText(tr("STR_CAL_F21_BUILD_COST").arg(
+						Unicode::formatFunding(region->getRules()->getBaseCost())));
 					break;
 				}
 			}

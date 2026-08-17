@@ -75,6 +75,41 @@ inline CalypsoHdPanelStyle f21WindowStyle()
 	return s;
 }
 
+/// Dark inset material for grouped facts. It structures empty space without
+/// competing with the outer command frame.
+inline CalypsoHdPanelStyle f21InsetPanelStyle()
+{
+	CalypsoHdPanelStyle s;
+	s.styled = true;
+	s.shape = CalypsoHdPanelShape::OpposingCutRect;
+	s.cutCornerPx = 8.0f;
+	s.borderWidthPx = 1.0f;
+	s.borderColorRgba = calypsoRgba(0x74, 0xFF, 0xB0, 0x2E);
+	s.fillTopRgba = calypsoRgba(0x03, 0x11, 0x16, 0xE8);
+	s.fillBottomRgba = calypsoRgba(0x02, 0x0B, 0x10, 0xE4);
+	s.gradDirX = 0.2f;
+	s.gradDirY = 1.0f;
+	return s;
+}
+
+/// Native TextEdit material. Focus changes border thickness as well as colour
+/// so the state does not rely on colour perception alone.
+inline CalypsoHdPanelStyle f21InputStyle(bool focused)
+{
+	CalypsoHdPanelStyle s;
+	s.styled = true;
+	s.radiusPx = 2.0f;
+	s.borderWidthPx = focused ? 2.0f : 1.0f;
+	s.borderColorRgba = focused
+		? CalypsoHdThemeGen::kAccent
+		: calypsoRgba(0x74, 0xFF, 0xB0, 0x52);
+	s.fillTopRgba = calypsoRgba(0x02, 0x0B, 0x10, 0xF2);
+	s.fillBottomRgba = calypsoRgba(0x04, 0x14, 0x18, 0xEC);
+	s.gradDirX = 0.15f;
+	s.gradDirY = 1.0f;
+	return s;
+}
+
 /// Glow (shadow/halo) in the same opposing-cut silhouette as the frame.
 inline CalypsoHdPanelStyle f21GlowStyle(std::uint32_t color, float radiusPx)
 {
@@ -99,6 +134,7 @@ inline CalypsoHdPanelStyle f21WarningGlyphStyle()
 
 constexpr std::uint32_t kF21DividerRgba = 0x74FFB04Du;      ///< 1px structural rules
 constexpr std::uint32_t kF21ProtocolTextRgba = 0xA9D8C7FFu; ///< mono protocol copy
+constexpr std::uint32_t kF21MutedBodyRgba = 0xA9D8C7D0u;    ///< readable secondary copy
 constexpr std::uint32_t kF21FooterDotRgba = 0x74FFB01Fu;    ///< sparse footer dots
 
 /// Classify the current Compact/Wide layout class from the USABLE safe area
@@ -144,9 +180,44 @@ inline CalypsoHdPanelStyle f21ButtonStyleFor(CalypsoActionTone tone, CalypsoInte
 	return s;
 }
 
+/// Quiet navigation action: same focus semantics as other controls, but no
+/// semantic danger fill. Cancel is not destructive.
+inline CalypsoHdPanelStyle f21QuietButtonStyle(CalypsoInteractionState state)
+{
+	CalypsoHdPanelStyle s;
+	s.styled = true;
+	s.radiusPx = CalypsoHdTheme::kButtonRadiusPx;
+	s.borderWidthPx = state == CalypsoInteractionState::Focus ? 2.0f : 1.0f;
+	s.borderColorRgba = state == CalypsoInteractionState::Focus
+		? CalypsoHdThemeGen::kAccent
+		: CalypsoHdThemeGen::kAccentSoft;
+	const std::uint32_t fill = state == CalypsoInteractionState::Pressed
+		? calypsoRgba(0x10, 0x35, 0x31, 0xD8)
+		: state == CalypsoInteractionState::Hover
+			? calypsoRgba(0x0B, 0x25, 0x25, 0xC8)
+			: calypsoRgba(0x05, 0x0F, 0x14, 0x9C);
+	s.fillTopRgba = fill;
+	s.fillBottomRgba = fill;
+	return s;
+}
+
 inline CalypsoLogicalRect f21WidgetRect(const Surface* surface)
 {
 	return { surface->getX(), surface->getY(), surface->getWidth(), surface->getHeight() };
+}
+
+/// Four-sided glyph-safe rectangle inside the structural protocol band. The
+/// band itself owns the border/divider; text must never share those pixels.
+inline CalypsoLogicalRect f21ProtocolTextRect(const Surface* surface, bool wide)
+{
+	const CalypsoLogicalRect r = f21WidgetRect(surface);
+	const int ix = wide
+		? CalypsoHdThemeGen::kF21ProtocolInsetXWidePx
+		: CalypsoHdThemeGen::kF21ProtocolInsetXCompactPx;
+	const int iy = wide
+		? CalypsoHdThemeGen::kF21ProtocolInsetYWidePx
+		: CalypsoHdThemeGen::kF21ProtocolInsetYCompactPx;
+	return { r.x + ix, r.y + iy, std::max(1, r.w - ix * 2), std::max(1, r.h - iy * 2) };
 }
 
 /// Opening-motion clock: monotonic progress 0..1 with ease-out and no
@@ -295,16 +366,21 @@ inline void CalypsoF21Painter::textRect(const CalypsoLogicalRect& sourceRect,
 
 	const int hint = linesHint > 0 ? linesHint : 1;
 	const double designFontSize = fontSizeDesignPx > 0.0
-		? fontSizeDesignPx : (double)r.h / hint;
-	const int physicalPixelHeight = std::max(1, (int)calypsoHdRoundToInt(designFontSize));
-	const int wrapWidth = (hint > 1 && uiScale > 0.0)
-		? std::max(1, (int)calypsoHdRoundToInt((double)r.w / uiScale)) : 0;
+		? fontSizeDesignPx : (double)sourceRect.h / hint;
+	const double physicalScaleX = std::max(0.01, uiScale * sx);
+	const double physicalScaleY = std::max(0.01, uiScale * sy);
+	const int physicalPixelHeight = std::max(1, (int)calypsoHdRoundToInt(
+		designFontSize * uiScale * sy));
+	const int wrapWidth = hint > 1
+		? std::max(1, (int)calypsoHdRoundToInt((double)sourceRect.w * sx)) : 0;
 
 	CalypsoHdTextRasterKey key;
 	key.source = font;
 	key.physicalPixelHeight = physicalPixelHeight;
 	key.text = text;
 	key.wrapWidth = wrapWidth;
+	key.horizontalScalePermille = std::max(1, (int)calypsoHdRoundToInt(
+		physicalScaleX / physicalScaleY * 1000.0));
 	key.colorRgba = color;
 	key.direction = CalypsoTextDirection::LTR;
 	if (trackingEm > 0.0 && wrapWidth == 0)
@@ -318,8 +394,8 @@ inline void CalypsoF21Painter::textRect(const CalypsoLogicalRect& sourceRect,
 	it.rect = r;
 	it.colorRgba = color;
 	it.rasterKey = key;
-	it.textScaleX = (float)(uiScale * sx);
-	it.textScaleY = (float)(uiScale * sy);
+	it.textScaleX = 1.0f;
+	it.textScaleY = 1.0f;
 	it.hAlign = hA;
 	it.vAlign = vA;
 	it.opacity = opacity;

@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "hd.2026-08-17.1",
+  "version": "hd.2026-08-18.8",
   "colors": {
     "accent": "74FFB0FF",
     "accentSoft": "74FFB059",
@@ -73,5 +73,27 @@
     "titleFontWeight": 700,
     "labelFontWeight": 700,
     "bodyFontWeight": 400
+  },
+  "f21Typography": {
+    "protocolWidePx": 9,
+    "protocolCompactPx": 8,
+    "titleWidePx": 24,
+    "titleCompactPx": 20,
+    "dataWidePx": 12,
+    "dataCompactPx": 9,
+    "bodyWidePx": 12,
+    "bodyCompactPx": 10,
+    "inputWidePx": 18,
+    "inputCompactPx": 15,
+    "actionWidePx": 15,
+    "actionCompactPx": 13
+  },
+  "f21TextSafeArea": {
+    "protocolInsetXWidePx": 16,
+    "protocolInsetXCompactPx": 12,
+    "protocolInsetYWidePx": 4,
+    "protocolInsetYCompactPx": 4,
+    "minimumHorizontalPaddingPx": 8,
+    "minimumVerticalPaddingPx": 4
   }
 }

@@ -44,11 +44,15 @@ struct CalypsoF21SiteLayout
 	int designHeight = 0;
 	CalypsoF21Rect window;   ///< full-canvas root
 	CalypsoF21Rect banner;   ///< top command strip panel
+	CalypsoF21Rect status;   ///< protocol/status band within the strip
 	CalypsoF21Rect title;    ///< "Select new base site" heading
 	CalypsoF21Rect slot;     ///< base-slot mono readout ("Base 5 of 8")
 	CalypsoF21Rect funds;    ///< current funds readout
 	CalypsoF21Rect cost;     ///< region base cost readout
 	CalypsoF21Rect card;     ///< bottom placement card panel
+	CalypsoF21Rect cardRule; ///< horizontal separator above candidate facts
+	CalypsoF21Rect cardDivider; ///< vertical separator between candidate columns
+	CalypsoF21Rect cardDots; ///< low-contrast footer texture inside the card
 	CalypsoF21Rect coords;   ///< candidate coordinates readout
 	CalypsoF21Rect region;   ///< candidate region readout
 	CalypsoF21Rect legality; ///< legal-site status readout
@@ -69,11 +73,15 @@ inline CalypsoF21SiteLayout calypsoF21SiteLayout(CalypsoLayoutClass cls)
 	l.designHeight = g->designHeight;
 	l.window   = { g->window.x,   g->window.y,   g->window.w,   g->window.h };
 	l.banner   = { g->banner.x,   g->banner.y,   g->banner.w,   g->banner.h };
+	l.status   = { g->status.x,   g->status.y,   g->status.w,   g->status.h };
 	l.title    = { g->title.x,    g->title.y,    g->title.w,    g->title.h };
 	l.slot     = { g->slot.x,     g->slot.y,     g->slot.w,     g->slot.h };
 	l.funds    = { g->funds.x,    g->funds.y,    g->funds.w,    g->funds.h };
 	l.cost     = { g->cost.x,     g->cost.y,     g->cost.w,     g->cost.h };
 	l.card     = { g->card.x,     g->card.y,     g->card.w,     g->card.h };
+	l.cardRule = { g->cardRule.x, g->cardRule.y, g->cardRule.w, g->cardRule.h };
+	l.cardDivider = { g->cardDivider.x, g->cardDivider.y, g->cardDivider.w, g->cardDivider.h };
+	l.cardDots = { g->cardDots.x, g->cardDots.y, g->cardDots.w, g->cardDots.h };
 	l.coords   = { g->coords.x,   g->coords.y,   g->coords.w,   g->coords.h };
 	l.region   = { g->region.x,   g->region.y,   g->region.w,   g->region.h };
 	l.legality = { g->legality.x, g->legality.y, g->legality.w, g->legality.h };

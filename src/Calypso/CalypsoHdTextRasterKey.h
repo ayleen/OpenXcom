@@ -66,7 +66,7 @@ enum class CalypsoTextDirection { LTR, RTL };
 struct CalypsoHdTextRasterKey
 {
 	CalypsoTtfSourceDescriptor source;
-	int physicalPixelHeight = 0;          // design-space face size
+	int physicalPixelHeight = 0;          // final backing-store face height
 	std::string text;                      // resolved UTF-8
 	int wrapWidth = 0;                      // 0 => single line / break only on '\n';
 	                                       // >0 => wraps at this design-space px width
@@ -78,7 +78,7 @@ struct CalypsoHdTextRasterKey
 	int lineHeightPx = 0;                  // >0 => explicit SDL_ttf line skip for
 	                                       // wrapped body copy; 0 keeps the face default
 	int lineHeightMilliPx = 0;             // design-space line skip before projection
-	int horizontalScalePermille = 1000;   // design-space font x calibration
+	int horizontalScalePermille = 1000;   // design-space calibration or CPU projection
 	int verticalScalePermille = 1000;     // design-space font y calibration
 	int wrapMeasureScalePermille = 1000;  // body wrapping width calibration
 	std::uint64_t breakSignature = 0;      // hash of the approved processed line breaks

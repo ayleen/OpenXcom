@@ -44,14 +44,19 @@ struct CalypsoF21TransactionLayout
 	CalypsoF21Rect status;   ///< protocol strip (F33 command-card language)
 	CalypsoF21Rect glyph;    ///< amber caution triangle beside the title
 	CalypsoF21Rect title;    ///< "Review new base" heading
+	CalypsoF21Rect factsPanel; ///< inset band grouping transaction facts
+	CalypsoF21Rect factsColumnDivider; ///< one separator shared by both fact rows
+	CalypsoF21Rect factsRowDivider; ///< separator between first and second fact rows
 	CalypsoF21Rect slot;     ///< base-slot mono readout ("5 / 8")
 	CalypsoF21Rect coords;   ///< site coordinates readout
 	CalypsoF21Rect region;   ///< site region readout
 	CalypsoF21Rect cost;     ///< region cost readout
 	CalypsoF21Rect after;    ///< funds-after readout
+	CalypsoF21Rect inputFrame; ///< visible inset material for the native edit
 	CalypsoF21Rect nameEdit; ///< staged name edit field
 	CalypsoF21Rect nameHint; ///< staged-name hint copy
 	CalypsoF21Rect footer;   ///< separated action band + dot field
+	CalypsoF21Rect footerDots; ///< bounded decoration area left of actions
 	CalypsoF21Rect create;   ///< primary Create Base action
 	CalypsoF21Rect cancel;   ///< safe Cancel action
 };
@@ -71,14 +76,19 @@ inline CalypsoF21TransactionLayout calypsoF21TransactionLayout(CalypsoLayoutClas
 	l.status   = { g->status.x,   g->status.y,   g->status.w,   g->status.h };
 	l.glyph    = { g->glyph.x,    g->glyph.y,    g->glyph.w,    g->glyph.h };
 	l.title    = { g->title.x,    g->title.y,    g->title.w,    g->title.h };
+	l.factsPanel = { g->factsPanel.x, g->factsPanel.y, g->factsPanel.w, g->factsPanel.h };
+	l.factsColumnDivider = { g->factsColumnDivider.x, g->factsColumnDivider.y, g->factsColumnDivider.w, g->factsColumnDivider.h };
+	l.factsRowDivider = { g->factsRowDivider.x, g->factsRowDivider.y, g->factsRowDivider.w, g->factsRowDivider.h };
 	l.slot     = { g->slot.x,     g->slot.y,     g->slot.w,     g->slot.h };
 	l.coords   = { g->coords.x,   g->coords.y,   g->coords.w,   g->coords.h };
 	l.region   = { g->region.x,   g->region.y,   g->region.w,   g->region.h };
 	l.cost     = { g->cost.x,     g->cost.y,     g->cost.w,     g->cost.h };
 	l.after    = { g->after.x,    g->after.y,    g->after.w,    g->after.h };
+	l.inputFrame = { g->inputFrame.x, g->inputFrame.y, g->inputFrame.w, g->inputFrame.h };
 	l.nameEdit = { g->nameEdit.x, g->nameEdit.y, g->nameEdit.w, g->nameEdit.h };
 	l.nameHint = { g->nameHint.x, g->nameHint.y, g->nameHint.w, g->nameHint.h };
 	l.footer   = { g->footer.x,   g->footer.y,   g->footer.w,   g->footer.h };
+	l.footerDots = { g->footerDots.x, g->footerDots.y, g->footerDots.w, g->footerDots.h };
 	l.create   = { g->create.x,   g->create.y,   g->create.w,   g->create.h };
 	l.cancel   = { g->cancel.x,   g->cancel.y,   g->cancel.w,   g->cancel.h };
 	return l;
@@ -89,10 +99,11 @@ inline void calypsoF21TransactionApplyHarnessShift(
 	CalypsoF21TransactionLayout& layout, bool sideBySide)
 {
 	calypsoF21ApplyHarnessShift(
-		{ &layout.window, &layout.status, &layout.glyph, &layout.title, &layout.slot,
+		{ &layout.window, &layout.status, &layout.glyph, &layout.title, &layout.factsPanel,
+		  &layout.factsColumnDivider, &layout.factsRowDivider, &layout.slot,
 		  &layout.coords, &layout.region, &layout.cost, &layout.after,
-		  &layout.nameEdit, &layout.nameHint, &layout.footer,
-		  &layout.create, &layout.cancel },
+		  &layout.inputFrame, &layout.nameEdit, &layout.nameHint, &layout.footer,
+		  &layout.footerDots, &layout.create, &layout.cancel },
 		sideBySide && layout.designWidth == 1280, layout.window.x);
 }
 

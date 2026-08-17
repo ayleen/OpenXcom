@@ -54,7 +54,7 @@ private:
 	friend class Calypso::CalypsoF21SiteUi;
 	bool _hdLayout = false;
 	bool _hdWideLayout = false;
-	Text *_hdSlot = nullptr, *_hdFunds = nullptr, *_hdCost = nullptr,
+	Text *_hdProtocol = nullptr, *_hdSlot = nullptr, *_hdFunds = nullptr, *_hdCost = nullptr,
 		*_hdCard = nullptr, *_hdCoords = nullptr, *_hdRegion = nullptr,
 		*_hdLegality = nullptr, *_hdPreview = nullptr;
 	Calypso::CalypsoF21SiteUi* _hdAdapter = nullptr;

@@ -93,6 +93,18 @@ def validate_theme(theme):
     for key in ("labelFontSizePx", "bodyFontSizePx", "titleFontWeight", "labelFontWeight", "bodyFontWeight"):
         if not isinstance(typography.get(key), int) or typography[key] <= 0:
             fail("hd-ui-theme.json: typography." + key + " must be a positive integer")
+    f21_type = theme.get("f21Typography") or {}
+    for key in ("protocolWidePx", "protocolCompactPx", "titleWidePx", "titleCompactPx",
+                "dataWidePx", "dataCompactPx", "bodyWidePx", "bodyCompactPx",
+                "inputWidePx", "inputCompactPx", "actionWidePx", "actionCompactPx"):
+        if not isinstance(f21_type.get(key), int) or f21_type[key] <= 0:
+            fail("hd-ui-theme.json: f21Typography." + key + " must be a positive integer")
+    f21_safe = theme.get("f21TextSafeArea") or {}
+    for key in ("protocolInsetXWidePx", "protocolInsetXCompactPx",
+                "protocolInsetYWidePx", "protocolInsetYCompactPx",
+                "minimumHorizontalPaddingPx", "minimumVerticalPaddingPx"):
+        if not isinstance(f21_safe.get(key), int) or f21_safe[key] < 4:
+            fail("hd-ui-theme.json: f21TextSafeArea." + key + " must be an integer >= 4")
 
 
 def validate_f33(f33):
@@ -170,12 +182,31 @@ F21_FAMILIES = [
     ("f21-destruction.json", "CalypsoF21DestructionGen", "CalypsoF21Destruction", "CalypsoF21Destruction"),
 ]
 
+F21_COMMAND_CARD_CONTRACTS = {
+    "f21-site.json", "f21-transaction.json", "f21-name.json",
+}
+
+F21_ENGINE_TEXT_CALIBRATION_CONTRACTS = {
+    "f21-site.json", "f21-transaction.json",
+}
+
 
 def validate_f21(doc, rel):
     if doc.get("schema") != 1:
         fail(rel + ": schema must be 1")
     if not isinstance(doc.get("version"), str) or not VERSION_RE.match(doc.get("version", "")):
         fail(rel + ": version string required")
+    if rel in F21_COMMAND_CARD_CONTRACTS:
+        if doc.get("visualProfile") != "command-card-v1":
+            fail(rel + ": visualProfile must be command-card-v1")
+        copy = doc.get("copy")
+        if not isinstance(copy, dict) or not copy:
+            fail(rel + ": fixture copy object required")
+        for key, value in copy.items():
+            if not isinstance(value, str) or not value:
+                fail(rel + ": copy." + key + " must be a non-empty string")
+            if "{STRING}" in value or "{ALT}" in value:
+                fail(rel + ": copy." + key + " contains legacy placeholder/control syntax")
     parts = doc.get("parts")
     if not isinstance(parts, list) or not parts:
         fail(rel + ": parts list required")
@@ -233,6 +264,66 @@ def validate_f21(doc, rel):
     if m.get("captureModeDurationMs") != 0:
         fail(rel + ": captureModeDurationMs must be 0 (deterministic captures)")
 
+    if rel in F21_COMMAND_CARD_CONTRACTS:
+        spacing = doc.get("spacingRules")
+        if not isinstance(spacing, list) or not spacing:
+            fail(rel + ": spacingRules must be a non-empty list")
+        seen_ids = set()
+        for rule in spacing:
+            if not isinstance(rule, dict):
+                fail(rel + ": each spacing rule must be an object")
+            rid = rule.get("id")
+            if not isinstance(rid, str) or not rid or rid in seen_ids:
+                fail(rel + ": spacing rule ids must be non-empty and unique")
+            seen_ids.add(rid)
+            kind = rule.get("kind")
+            for layout_name in ("wide", "compact"):
+                minimum = rule.get(layout_name)
+                if not isinstance(minimum, int) or minimum <= 0:
+                    fail(rel + ": spacing " + rid + "." + layout_name + " must be a positive integer")
+            if kind == "gap":
+                first, second, axis = rule.get("first"), rule.get("second"), rule.get("axis")
+                if first not in parts or second not in parts or axis not in ("horizontal", "vertical"):
+                    fail(rel + ": gap " + rid + " must reference two parts and a supported axis")
+                for layout_name in ("wide", "compact"):
+                    first_rect, second_rect = layouts[layout_name][first], layouts[layout_name][second]
+                    gap = (second_rect["x"] - first_rect["x"] - first_rect["width"]
+                           if axis == "horizontal"
+                           else second_rect["y"] - first_rect["y"] - first_rect["height"])
+                    if gap < rule[layout_name]:
+                        fail(rel + ": " + layout_name + " gap " + rid + " is " + str(gap)
+                             + ", expected >= " + str(rule[layout_name]))
+            elif kind == "inset":
+                container, child, edges = rule.get("container"), rule.get("child"), rule.get("edges")
+                if container not in parts or child not in parts:
+                    fail(rel + ": inset " + rid + " must reference container and child parts")
+                if (not isinstance(edges, list) or not edges
+                        or any(edge not in ("left", "right", "top", "bottom") for edge in edges)):
+                    fail(rel + ": inset " + rid + " has unsupported edges")
+                for layout_name in ("wide", "compact"):
+                    outer, inner = layouts[layout_name][container], layouts[layout_name][child]
+                    insets = {
+                        "left": inner["x"] - outer["x"],
+                        "right": outer["x"] + outer["width"] - inner["x"] - inner["width"],
+                        "top": inner["y"] - outer["y"],
+                        "bottom": outer["y"] + outer["height"] - inner["y"] - inner["height"],
+                    }
+                    for edge in edges:
+                        if insets[edge] < rule[layout_name]:
+                            fail(rel + ": " + layout_name + " inset " + rid + "." + edge
+                                 + " is " + str(insets[edge]) + ", expected >= " + str(rule[layout_name]))
+            else:
+                fail(rel + ": spacing " + rid + " kind must be gap or inset")
+
+    calibration = doc.get("engineTextScale")
+    if rel in F21_ENGINE_TEXT_CALIBRATION_CONTRACTS:
+        if not isinstance(calibration, dict):
+            fail(rel + ": engineTextScale object required")
+        for role in ("title", "data", "body", "input", "action"):
+            scale = calibration.get(role)
+            if not isinstance(scale, (int, float)) or not (0.0 < scale <= 1.0):
+                fail(rel + ": engineTextScale." + role + " must be in (0, 1]")
+
 
 def rgba_call(value):
     # Emit the packed 0xRRGGBBAA word directly: the generated header stays
@@ -282,6 +373,12 @@ def emit_theme_h(theme):
     out.append("inline constexpr int kTitleFontWeight = %d;" % int(theme["typography"]["titleFontWeight"]))
     out.append("inline constexpr int kLabelFontWeight = %d;" % int(theme["typography"]["labelFontWeight"]))
     out.append("inline constexpr int kBodyFontWeight = %d;" % int(theme["typography"]["bodyFontWeight"]))
+    out.append("")
+    out.append("// F21 command-card typography and hard text safe area (design px).")
+    for key, value in theme["f21Typography"].items():
+        out.append("inline constexpr int kF21" + key[0].upper() + key[1:] + " = %d;" % int(value))
+    for key, value in theme["f21TextSafeArea"].items():
+        out.append("inline constexpr int kF21" + key[0].upper() + key[1:] + " = %d;" % int(value))
     out.append("")
     out.append("// Semantic token key strings for the interaction-state mapping")
     out.append("// (CalypsoHdInteractionState.h) -- values above, keys here.")
@@ -436,7 +533,17 @@ def emit_family_h(doc, rel, ns, prefix):
                                + str(l[p]["width"]) + ", " + str(l[p]["height"]) + " }" for p in parts) + " },")
     out += ["};",
             "inline constexpr int kLayoutCount = " + str(len(layouts)) + ";",
-            "",
+            ""]
+    calibration = doc.get("engineTextScale")
+    if calibration:
+        out += ["// Physical Engine-TTF calibration against the CSS reference cap height.",
+                "inline constexpr float kEngineTextScaleTitle = %.6ff;" % float(calibration["title"]),
+                "inline constexpr float kEngineTextScaleData = %.6ff;" % float(calibration["data"]),
+                "inline constexpr float kEngineTextScaleBody = %.6ff;" % float(calibration["body"]),
+                "inline constexpr float kEngineTextScaleInput = %.6ff;" % float(calibration["input"]),
+                "inline constexpr float kEngineTextScaleAction = %.6ff;" % float(calibration["action"]),
+                ""]
+    out += [
             "/// Layout for a design canvas, or nullptr (the harness never guesses).",
             "inline const " + prefix + "GenLayout* layoutForDesign(int dw, int dh)",
             "{",

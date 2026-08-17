@@ -4,7 +4,7 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF21SiteGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-17.1";
+inline constexpr const char* kContractVersion = "hd.2026-08-18.8";
 
 /// One design-space rectangle (design px).
 struct CalypsoF21SiteGenRect { int x; int y; int w; int h; };
@@ -16,11 +16,15 @@ struct CalypsoF21SiteGenLayout
 	int designHeight;
 	CalypsoF21SiteGenRect window;
 	CalypsoF21SiteGenRect banner;
+	CalypsoF21SiteGenRect status;
 	CalypsoF21SiteGenRect title;
 	CalypsoF21SiteGenRect slot;
 	CalypsoF21SiteGenRect funds;
 	CalypsoF21SiteGenRect cost;
 	CalypsoF21SiteGenRect card;
+	CalypsoF21SiteGenRect cardRule;
+	CalypsoF21SiteGenRect cardDivider;
+	CalypsoF21SiteGenRect cardDots;
 	CalypsoF21SiteGenRect coords;
 	CalypsoF21SiteGenRect region;
 	CalypsoF21SiteGenRect legality;
@@ -31,11 +35,18 @@ struct CalypsoF21SiteGenLayout
 inline constexpr CalypsoF21SiteGenLayout kLayouts[] =
 {
 	// wide
-	{ 1280, 720, { 0, 0, 1280, 720 }, { 0, 0, 1280, 64 }, { 24, 10, 420, 28 }, { 24, 40, 200, 20 }, { 860, 20, 130, 24 }, { 1006, 20, 130, 24 }, { 16, 592, 440, 112 }, { 40, 602, 180, 24 }, { 40, 630, 180, 24 }, { 40, 658, 180, 24 }, { 236, 602, 204, 56 }, { 1176, 660, 88, 46 } },
+	{ 1280, 720, { 0, 0, 1280, 720 }, { 20, 18, 1240, 114 }, { 20, 18, 1240, 30 }, { 52, 56, 620, 40 }, { 52, 104, 190, 18 }, { 776, 62, 228, 30 }, { 1020, 62, 216, 30 }, { 28, 510, 680, 182 }, { 44, 528, 648, 1 }, { 350, 532, 1, 136 }, { 40, 670, 656, 14 }, { 56, 540, 286, 28 }, { 360, 540, 320, 28 }, { 56, 600, 286, 28 }, { 360, 592, 320, 58 }, { 1092, 640, 160, 44 } },
 	// compact
-	{ 740, 360, { 0, 0, 740, 360 }, { 0, 0, 740, 44 }, { 12, 4, 300, 22 }, { 12, 26, 160, 16 }, { 494, 10, 110, 24 }, { 614, 10, 114, 24 }, { 8, 236, 420, 116 }, { 20, 246, 150, 22 }, { 20, 270, 150, 22 }, { 20, 294, 150, 22 }, { 180, 246, 236, 56 }, { 640, 306, 88, 46 } },
+	{ 740, 360, { 0, 0, 740, 360 }, { 8, 6, 724, 104 }, { 8, 6, 724, 28 }, { 28, 40, 350, 36 }, { 28, 82, 160, 16 }, { 398, 46, 176, 24 }, { 582, 46, 138, 24 }, { 10, 202, 540, 148 }, { 26, 220, 508, 1 }, { 258, 224, 1, 102 }, { 22, 328, 516, 14 }, { 30, 230, 220, 22 }, { 266, 230, 258, 22 }, { 30, 274, 220, 24 }, { 266, 266, 258, 58 }, { 584, 306, 148, 44 } },
 };
 inline constexpr int kLayoutCount = 2;
+
+// Physical Engine-TTF calibration against the CSS reference cap height.
+inline constexpr float kEngineTextScaleTitle = 0.880000f;
+inline constexpr float kEngineTextScaleData = 0.900000f;
+inline constexpr float kEngineTextScaleBody = 0.920000f;
+inline constexpr float kEngineTextScaleInput = 0.900000f;
+inline constexpr float kEngineTextScaleAction = 0.900000f;
 
 /// Layout for a design canvas, or nullptr (the harness never guesses).
 inline const CalypsoF21SiteGenLayout* layoutForDesign(int dw, int dh)

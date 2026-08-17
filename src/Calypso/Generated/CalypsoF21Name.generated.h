@@ -4,7 +4,7 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF21NameGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-17.1";
+inline constexpr const char* kContractVersion = "hd.2026-08-18.8";
 
 /// One design-space rectangle (design px).
 struct CalypsoF21NameGenRect { int x; int y; int w; int h; };
@@ -17,6 +17,7 @@ struct CalypsoF21NameGenLayout
 	CalypsoF21NameGenRect window;
 	CalypsoF21NameGenRect status;
 	CalypsoF21NameGenRect title;
+	CalypsoF21NameGenRect inputFrame;
 	CalypsoF21NameGenRect nameEdit;
 	CalypsoF21NameGenRect hint;
 	CalypsoF21NameGenRect footer;
@@ -26,9 +27,9 @@ struct CalypsoF21NameGenLayout
 inline constexpr CalypsoF21NameGenLayout kLayouts[] =
 {
 	// wide
-	{ 1280, 720, { 440, 240, 400, 220 }, { 440, 240, 400, 34 }, { 476, 288, 328, 34 }, { 476, 336, 328, 44 }, { 476, 386, 200, 18 }, { 440, 398, 400, 62 }, { 704, 406, 116, 44 } },
+	{ 1280, 720, { 390, 210, 500, 300 }, { 390, 210, 500, 34 }, { 430, 264, 420, 40 }, { 430, 326, 420, 48 }, { 430, 326, 420, 48 }, { 430, 386, 420, 30 }, { 390, 430, 500, 64 }, { 686, 440, 180, 44 } },
 	// compact
-	{ 740, 360, { 90, 80, 560, 220 }, { 90, 80, 560, 28 }, { 118, 118, 440, 26 }, { 118, 152, 440, 40 }, { 118, 198, 240, 16 }, { 90, 224, 560, 64 }, { 514, 234, 116, 44 } },
+	{ 740, 360, { 70, 42, 600, 276 }, { 70, 42, 600, 28 }, { 100, 84, 540, 32 }, { 100, 132, 540, 44 }, { 100, 132, 540, 44 }, { 100, 186, 540, 28 }, { 70, 232, 600, 70 }, { 452, 244, 194, 46 } },
 };
 inline constexpr int kLayoutCount = 2;
 

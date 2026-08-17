@@ -27,6 +27,7 @@
 #ifdef __EMSCRIPTEN__
 
 #include <emscripten.h>
+#include <string>
 
 #include "../Engine/Game.h"
 #include "../Engine/Screen.h"
@@ -35,7 +36,9 @@
 #include "../Geoscape/ConfirmNewBaseState.h"
 #include "../Geoscape/Globe.h"
 #include "../Mod/Mod.h"
+#include "../Mod/RuleRegion.h"
 #include "../Savegame/Base.h"
+#include "../Savegame/Region.h"
 #include "../Savegame/SavedGame.h"
 
 #include "CalypsoHdHarnessHostState.h"
@@ -72,6 +75,15 @@ CalypsoF21Fixture calypsoF21HarnessFixture()
 		g->setSavedGame(f.save);
 	}
 	f.save->setFunds(6800000); // representative fixture funds
+	if (f.save->getRegions()->empty())
+	{
+		for (const std::string& regionName : g->getMod()->getRegionsList())
+		{
+			RuleRegion* rule = g->getMod()->getRegion(regionName, false);
+			if (rule && !rule->getLonMin().empty())
+				f.save->getRegions()->push_back(new Region(rule));
+		}
+	}
 
 	const int sw = 320, sh = 200; // logical canvas the states position against
 	f.globe = new Globe(g, (sw - 64) / 2, sh / 2, sw - 64, sh, 0, 0);

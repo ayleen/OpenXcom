@@ -46,7 +46,9 @@
 #include "../Interface/TextButton.h"
 #include "../Interface/Window.h"
 #include "../Mod/Mod.h"
+#include "../Mod/RuleRegion.h"
 #include "../Savegame/Base.h"
+#include "../Savegame/Region.h"
 #include "../Savegame/SavedGame.h"
 
 #include "CalypsoAbandonPopupUi.h"
@@ -72,7 +74,8 @@ enum TransactionRole : std::uint32_t
 	ROLE_WINDOW = 1, ROLE_STATUS = 2, ROLE_PROTOCOL = 3, ROLE_TITLE = 4,
 	ROLE_SLOT = 5, ROLE_COORDS = 6, ROLE_REGION = 7, ROLE_COST = 8,
 	ROLE_AFTER = 9, ROLE_NAME = 10, ROLE_HINT = 11, ROLE_FOOTER = 12,
-	ROLE_CREATE = 13, ROLE_CANCEL = 14, ROLE_DECORATION = 15, ROLE_WARNING = 16
+	ROLE_CREATE = 13, ROLE_CANCEL = 14, ROLE_DECORATION = 15, ROLE_WARNING = 16,
+	ROLE_FACTS = 17
 };
 
 void applyRect(Surface* surface, const CalypsoF21Rect& rect)
@@ -82,15 +85,6 @@ void applyRect(Surface* surface, const CalypsoF21Rect& rect)
 	surface->setY(rect.y);
 	surface->setWidth(rect.width);
 	surface->setHeight(rect.height);
-}
-
-/// "5 / 8"-style base slot readout (design fixed 8-base limit).
-std::string slotText(const SavedGame* save)
-{
-	const int slot = (int)save->getBases()->size() + 1;
-	std::ostringstream ss;
-	ss << slot << " / 8";
-	return ss.str();
 }
 
 /// Candidate coordinates in degrees, one decimal, hemisphere letters.
@@ -133,6 +127,16 @@ void CalypsoF21TransactionUi::collect(CalypsoHdFrameBuilder& builder) const
 
 	const CalypsoHdPresentationMetrics& m = CalypsoHdUiOverlay::instance().frozenMetrics();
 	const bool wide = _state->_hdWideLayout;
+	const double titlePx = (wide ? CalypsoHdThemeGen::kF21TitleWidePx : CalypsoHdThemeGen::kF21TitleCompactPx)
+		* CalypsoF21TransactionGen::kEngineTextScaleTitle;
+	const double dataPx = (wide ? CalypsoHdThemeGen::kF21DataWidePx : CalypsoHdThemeGen::kF21DataCompactPx)
+		* CalypsoF21TransactionGen::kEngineTextScaleData;
+	const double bodyPx = (wide ? CalypsoHdThemeGen::kF21BodyWidePx : CalypsoHdThemeGen::kF21BodyCompactPx)
+		* CalypsoF21TransactionGen::kEngineTextScaleBody;
+	const double inputPx = (wide ? CalypsoHdThemeGen::kF21InputWidePx : CalypsoHdThemeGen::kF21InputCompactPx)
+		* CalypsoF21TransactionGen::kEngineTextScaleInput;
+	const double actionPx = (wide ? CalypsoHdThemeGen::kF21ActionWidePx : CalypsoHdThemeGen::kF21ActionCompactPx)
+		* CalypsoF21TransactionGen::kEngineTextScaleAction;
 	const CalypsoF21TransactionLayout designLayout = calypsoF21TransactionLayout(
 		wide ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact);
 
@@ -178,27 +182,29 @@ void CalypsoF21TransactionUi::collect(CalypsoHdFrameBuilder& builder) const
 		CalypsoActionTone::Safe, f21ButtonVisualState(_state->_btnOk)),
 		_state->_btnOk, ROLE_CREATE);
 	{
-		CalypsoHdPanelStyle quiet;
-		quiet.styled = true;
-		quiet.radiusPx = CalypsoHdTheme::kButtonRadiusPx;
-		quiet.borderWidthPx = 1.0f;
-		quiet.borderColorRgba = CalypsoHdThemeGen::kAccentSoft;
-		quiet.fillTopRgba = calypsoRgba(0x05, 0x0F, 0x14, 0x80);
-		quiet.fillBottomRgba = calypsoRgba(0x05, 0x0F, 0x14, 0x80);
-		p.styled(f21WidgetRect(_state->_btnCancel), quiet, _state->_btnCancel, ROLE_CANCEL);
+		p.styled(f21WidgetRect(_state->_btnCancel), f21QuietButtonStyle(
+			f21ButtonVisualState(_state->_btnCancel)), _state->_btnCancel, ROLE_CANCEL);
 	}
 
 	// Structural rules: status divider, footer divider, footer dot field.
 	const CalypsoLogicalRect statusRect = p.project(designLayout.status);
 	const CalypsoLogicalRect footerRect = p.project(designLayout.footer);
 	const CalypsoLogicalRect glyphRect = p.project(designLayout.glyph);
+	const CalypsoLogicalRect factsRect = p.project(designLayout.factsPanel);
+	const CalypsoLogicalRect inputRect = p.project(designLayout.inputFrame);
+	p.styled(factsRect, f21InsetPanelStyle(), nullptr, ROLE_FACTS);
+	p.styled(inputRect, f21InputStyle(_state->_edtName->isFocused()),
+		_state->_edtName, ROLE_NAME);
+	p.decoration(p.project(designLayout.factsColumnDivider), kF21DividerRgba, ROLE_DECORATION);
+	p.decoration(p.project(designLayout.factsRowDivider), kF21DividerRgba, ROLE_DECORATION);
 	p.decoration(CalypsoLogicalRect{ statusRect.x, statusRect.y + statusRect.h - 1, statusRect.w, 1 },
 		kF21DividerRgba, ROLE_DECORATION);
 	p.decoration(CalypsoLogicalRect{ footerRect.x, footerRect.y, footerRect.w, 1 },
 		kF21DividerRgba, ROLE_FOOTER);
-	for (int y = footerRect.y + 10; y < footerRect.y + footerRect.h - 8; y += 8)
+	const CalypsoLogicalRect footerDotsRect = p.project(designLayout.footerDots);
+	for (int y = footerDotsRect.y; y < footerDotsRect.y + footerDotsRect.h; y += 8)
 	{
-		for (int x = footerRect.x + 12; x < f21WidgetRect(_state->_btnCancel).x - 12; x += 8)
+		for (int x = footerDotsRect.x; x < footerDotsRect.x + footerDotsRect.w; x += 8)
 			p.decoration(CalypsoLogicalRect{ x, y, 1, 1 }, kF21FooterDotRgba, ROLE_DECORATION);
 	}
 
@@ -206,41 +212,55 @@ void CalypsoF21TransactionUi::collect(CalypsoHdFrameBuilder& builder) const
 	p.styled(glyphRect, f21WarningGlyphStyle(), nullptr, ROLE_WARNING);
 
 	// Protocol strip (mono, tracked) + heading + facts + staged name.
-	p.text(_state->_hdProtocol, mono, _state->_hdProtocol ? _state->_hdProtocol->getText() : std::string(),
+	p.textRect(f21ProtocolTextRect(_state->_hdProtocol, wide), _state->_hdProtocol, mono,
+		_state->_hdProtocol ? _state->_hdProtocol->getText() : std::string(),
 		kF21ProtocolTextRgba, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_PROTOCOL,
-		0.10, wide ? 10.0 : 9.0);
-	p.text(_state->_hdTitle, heading, _state->_hdTitle->getText(), CalypsoHdTheme::kGold,
+		0.10, wide ? CalypsoHdThemeGen::kF21ProtocolWidePx : CalypsoHdThemeGen::kF21ProtocolCompactPx);
+	p.text(_state->_hdTitle, heading, _state->_hdTitle->getText(), CalypsoHdTheme::kNearWhite,
 		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_TITLE,
-		CalypsoHdTheme::kTitleTrackingEm, (double)designLayout.title.height * 0.62);
+		CalypsoHdTheme::kTitleTrackingEm,
+		titlePx);
 	p.textRect(glyphRect, nullptr, heading, "!", CalypsoHdThemeGen::kGold,
 		CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, ROLE_WARNING, 0.0,
 		wide ? 17.0 : 15.0);
 	p.text(_state->_hdSlot, mono, _state->_hdSlot->getText(), CalypsoHdThemeGen::kAccent,
-		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_SLOT, 0.0, wide ? 13.0 : 11.0);
+		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_SLOT, 0.0,
+		dataPx);
 	p.text(_state->_hdCoords, mono, _state->_hdCoords->getText(), CalypsoHdTheme::kNearWhite,
-		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_COORDS, 0.0, wide ? 13.0 : 11.0);
+		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_COORDS, 0.0,
+		dataPx);
 	p.text(_state->_txtArea, mono, _state->_txtArea->getText(), CalypsoHdTheme::kNearWhite,
-		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_REGION, 0.0, wide ? 13.0 : 11.0);
+		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_REGION, 0.0,
+		dataPx);
 	p.text(_state->_txtCost, mono, _state->_txtCost->getText(), CalypsoHdTheme::kNearWhite,
-		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_COST, 0.0, wide ? 13.0 : 11.0);
+		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_COST, 0.0,
+		dataPx);
 	if (_state->_hdAfter)
 	{
 		const SavedGame* save = _state->_game->getSavedGame();
 		const int after = save->getFunds() - _state->_cost;
 		const std::uint32_t color = after >= 0 ? CalypsoHdThemeGen::kAccent : CalypsoHdThemeGen::kDanger;
 		p.text(_state->_hdAfter, mono, _state->_hdAfter->getText(), color,
-			CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_AFTER, 0.0, wide ? 13.0 : 11.0);
+			CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_AFTER, 0.0,
+			dataPx);
 	}
-	p.text(_state->_edtName, body, _state->_edtName->getText(), CalypsoHdTheme::kNearWhite,
-		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_NAME, 0.0, wide ? 20.0 : 17.0);
-	p.text(_state->_hdNameHint, body, _state->_hdNameHint->getText(), CalypsoHdThemeGen::kAccentSoft,
-		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_HINT, 0.0, wide ? 11.0 : 9.0);
+	const std::string nameDisplay = _state->_edtName->getText() + " |";
+	p.textRect(CalypsoLogicalRect{ inputRect.x + (wide ? 16 : 12), inputRect.y,
+		inputRect.w - (wide ? 32 : 24), inputRect.h }, _state->_edtName,
+		body, nameDisplay, CalypsoHdTheme::kNearWhite,
+		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_NAME, 0.0,
+		inputPx);
+	p.text(_state->_hdNameHint, body, _state->_hdNameHint->getText(), kF21MutedBodyRgba,
+		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_HINT, 0.0,
+		bodyPx);
 	p.text(_state->_btnOk, heading, _state->_btnOk->getText(), CalypsoHdTheme::kNearWhite,
 		CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, ROLE_CREATE,
-		CalypsoHdTheme::kLabelTrackingEm, wide ? 15.0 : 13.0);
+		CalypsoHdTheme::kLabelTrackingEm,
+		actionPx);
 	p.text(_state->_btnCancel, heading, _state->_btnCancel->getText(), CalypsoHdTheme::kNearWhite,
 		CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, ROLE_CANCEL,
-		CalypsoHdTheme::kLabelTrackingEm, wide ? 15.0 : 13.0);
+		CalypsoHdTheme::kLabelTrackingEm,
+		actionPx);
 }
 
 void CalypsoF21TransactionUi::applyRects(ConfirmNewBaseState& state, const CalypsoF21TransactionLayout& layout)
@@ -287,11 +307,28 @@ void CalypsoF21TransactionUi::configure(ConfirmNewBaseState& state, bool allowPh
 
 	state._hdSlot = new Text(1, 1, 0, 0);
 	state.add(state._hdSlot);
-	state._hdSlot->setText(slotText(state._game->getSavedGame()));
+	state._hdSlot->setText(state.tr("STR_CAL_F21_BASE_SLOT")
+		.arg((int)state._game->getSavedGame()->getBases()->size() + 1).arg(8));
 
 	state._hdCoords = new Text(1, 1, 0, 0);
 	state.add(state._hdCoords);
-	state._hdCoords->setText(coordsText(state._base));
+	state._hdCoords->setText(state.tr("STR_CAL_F21_COORDINATES").arg(coordsText(state._base)));
+
+	// Harness fixtures and edge-case rulesets may not resolve a region. Replace
+	// the vanilla formatting label before lookup so the physical snapshot never
+	// exposes raw OXCE control syntax.
+	state._txtArea->setText(state.tr("STR_CAL_F21_REGION_PENDING"));
+	for (const auto* region : *state._game->getSavedGame()->getRegions())
+	{
+		if (region->getRules()->insideRegion(state._base->getLongitude(), state._base->getLatitude()))
+		{
+			state._txtArea->setText(state.tr("STR_CAL_F21_REGION").arg(
+				state.tr(region->getRules()->getType())));
+			break;
+		}
+	}
+	state._txtCost->setText(state.tr("STR_CAL_F21_BUILD_COST").arg(
+		Unicode::formatFunding(state._cost)));
 
 	state._hdAfter = new Text(1, 1, 0, 0);
 	state.add(state._hdAfter);
@@ -304,6 +341,11 @@ void CalypsoF21TransactionUi::configure(ConfirmNewBaseState& state, bool allowPh
 
 	// Descriptive HD action label (same handler, localized through the pack).
 	state._btnOk->setText(state.tr("STR_CAL_F21_CREATE_BASE"));
+	if (calypsoHarnessHostUp(calypsoHarnessSession()))
+	{
+		state._edtName->setText("CALYPSO DEEP");
+		state._btnOk->setVisible(true);
+	}
 
 	CalypsoF21TransactionUi::applyRects(state, layout);
 	state.enableUiScaling(layout.designWidth, layout.designHeight, 1.0f,

@@ -4,7 +4,7 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF21TransactionGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-17.1";
+inline constexpr const char* kContractVersion = "hd.2026-08-18.8";
 
 /// One design-space rectangle (design px).
 struct CalypsoF21TransactionGenRect { int x; int y; int w; int h; };
@@ -18,14 +18,19 @@ struct CalypsoF21TransactionGenLayout
 	CalypsoF21TransactionGenRect status;
 	CalypsoF21TransactionGenRect glyph;
 	CalypsoF21TransactionGenRect title;
+	CalypsoF21TransactionGenRect factsPanel;
+	CalypsoF21TransactionGenRect factsColumnDivider;
+	CalypsoF21TransactionGenRect factsRowDivider;
 	CalypsoF21TransactionGenRect slot;
 	CalypsoF21TransactionGenRect coords;
 	CalypsoF21TransactionGenRect region;
 	CalypsoF21TransactionGenRect cost;
 	CalypsoF21TransactionGenRect after;
+	CalypsoF21TransactionGenRect inputFrame;
 	CalypsoF21TransactionGenRect nameEdit;
 	CalypsoF21TransactionGenRect nameHint;
 	CalypsoF21TransactionGenRect footer;
+	CalypsoF21TransactionGenRect footerDots;
 	CalypsoF21TransactionGenRect create;
 	CalypsoF21TransactionGenRect cancel;
 };
@@ -33,11 +38,18 @@ struct CalypsoF21TransactionGenLayout
 inline constexpr CalypsoF21TransactionGenLayout kLayouts[] =
 {
 	// wide
-	{ 1280, 720, { 320, 140, 640, 460 }, { 320, 140, 640, 36 }, { 360, 192, 30, 30 }, { 406, 188, 514, 36 }, { 360, 240, 160, 26 }, { 360, 272, 280, 24 }, { 360, 300, 280, 24 }, { 360, 328, 280, 24 }, { 360, 356, 280, 24 }, { 360, 392, 560, 44 }, { 360, 440, 560, 20 }, { 320, 506, 640, 54 }, { 716, 516, 204, 44 }, { 488, 516, 204, 44 } },
+	{ 1280, 720, { 300, 130, 680, 460 }, { 300, 130, 680, 34 }, { 340, 186, 28, 28 }, { 386, 180, 554, 40 }, { 340, 238, 600, 118 }, { 559, 248, 1, 74 }, { 356, 285, 568, 1 }, { 360, 252, 190, 24 }, { 568, 252, 348, 24 }, { 360, 294, 190, 24 }, { 568, 294, 348, 24 }, { 360, 326, 556, 22 }, { 340, 380, 600, 48 }, { 340, 380, 600, 48 }, { 340, 436, 600, 22 }, { 300, 476, 680, 74 }, { 312, 486, 176, 56 }, { 732, 492, 208, 48 }, { 500, 492, 208, 48 } },
 	// compact
-	{ 740, 360, { 30, 14, 680, 336 }, { 30, 14, 680, 28 }, { 58, 50, 26, 26 }, { 96, 48, 522, 30 }, { 58, 86, 130, 20 }, { 58, 112, 240, 20 }, { 58, 136, 240, 20 }, { 58, 160, 240, 20 }, { 58, 184, 240, 20 }, { 58, 212, 560, 40 }, { 58, 256, 560, 16 }, { 30, 280, 680, 56 }, { 476, 288, 212, 44 }, { 240, 288, 212, 44 } },
+	{ 740, 360, { 24, 10, 692, 340 }, { 24, 10, 692, 26 }, { 50, 48, 24, 24 }, { 88, 44, 596, 30 }, { 50, 84, 634, 96 }, { 219, 92, 1, 62 }, { 66, 123, 596, 1 }, { 66, 96, 146, 20 }, { 226, 96, 436, 20 }, { 66, 130, 146, 20 }, { 226, 130, 436, 20 }, { 66, 158, 596, 16 }, { 50, 192, 634, 42 }, { 50, 192, 634, 42 }, { 50, 240, 634, 18 }, { 24, 270, 692, 74 }, { 36, 280, 184, 56 }, { 474, 284, 218, 48 }, { 232, 284, 218, 48 } },
 };
 inline constexpr int kLayoutCount = 2;
+
+// Physical Engine-TTF calibration against the CSS reference cap height.
+inline constexpr float kEngineTextScaleTitle = 0.880000f;
+inline constexpr float kEngineTextScaleData = 0.900000f;
+inline constexpr float kEngineTextScaleBody = 0.920000f;
+inline constexpr float kEngineTextScaleInput = 0.900000f;
+inline constexpr float kEngineTextScaleAction = 0.900000f;
 
 /// Layout for a design canvas, or nullptr (the harness never guesses).
 inline const CalypsoF21TransactionGenLayout* layoutForDesign(int dw, int dh)
