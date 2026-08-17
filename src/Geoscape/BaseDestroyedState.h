@@ -18,9 +18,14 @@
  * along with OpenXcom.  If not, see <http:///www.gnu.org/licenses/>.
  */
 #include "../Engine/State.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF21LayoutBase.h"
+#endif
 
 namespace OpenXcom
 {
+
+namespace Calypso { class CalypsoF21DestructionUi; }
 
 class Base;
 class Window;
@@ -42,6 +47,15 @@ private:
 	TextList *_lstDestroyedFacilities;
 	Base *_base;
 	bool _missiles, _partialDestruction;
+#ifdef __EMSCRIPTEN__
+	friend class Calypso::CalypsoF21DestructionUi;
+	bool _hdLayout = false;
+	bool _hdWideLayout = false;
+	Text* _hdTitle = nullptr;
+	Text* _hdWarning = nullptr;
+	Calypso::CalypsoF21Rect _hdListBand{ 0, 0, 0, 0 };
+	Calypso::CalypsoF21DestructionUi* _hdAdapter = nullptr;
+#endif
 public:
 	/// Creates the Select Destination state.
 	BaseDestroyedState(Base *base, const Ufo* ufo, bool missiles, bool partialDestruction);
@@ -49,6 +63,10 @@ public:
 	~BaseDestroyedState();
 	/// Handler for clicking the Cydonia mission button.
 	void btnOkClick(Action *action);
+#ifdef __EMSCRIPTEN__
+	/// Handler for resize (delegates to the HD adapter first).
+	void resize(int &dX, int &dY) override;
+#endif
 
 };
 

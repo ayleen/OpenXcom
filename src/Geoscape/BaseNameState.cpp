@@ -28,6 +28,11 @@
 #include "../Basescape/PlaceLiftState.h"
 #include "../Engine/Options.h"
 #include "../Engine/RNG.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoAbandonPopupUi.h"
+#include "../Calypso/CalypsoF21NameUi.h"
+#include "../Calypso/CalypsoHdHarnessHostState.h"
+#endif
 
 namespace OpenXcom
 {
@@ -100,6 +105,10 @@ BaseNameState::BaseNameState(Base *base, Globe *globe, bool first, bool fixedLoc
 	_edtName->setBig();
 	_edtName->setFocus(true, false);
 	_edtName->onChange((ActionHandler)&BaseNameState::edtNameChange);
+#ifdef __EMSCRIPTEN__
+	// F21 (Phase 46.F21): physical route for the first-base naming dialog.
+	Calypso::CalypsoF21NameUi::configure(*this, true);
+#endif
 }
 
 /**
@@ -107,8 +116,21 @@ BaseNameState::BaseNameState(Base *base, Globe *globe, bool first, bool fixedLoc
  */
 BaseNameState::~BaseNameState()
 {
-
+#ifdef __EMSCRIPTEN__
+	if (_hdLayout) Calypso::hdHarnessDomHide();
+	Calypso::calypsoHdHarnessClose();
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 }
+
+#ifdef __EMSCRIPTEN__
+void BaseNameState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF21NameUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+#endif
 
 /**
  * Updates the base name and disables the OK button

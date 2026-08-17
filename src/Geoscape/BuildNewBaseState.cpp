@@ -18,6 +18,7 @@
  */
 #include "BuildNewBaseState.h"
 #include "../fmath.h"
+#include "../Engine/Unicode.h"
 #include "../Engine/Game.h"
 #include "../Engine/Action.h"
 #include "../Mod/Mod.h"
@@ -36,6 +37,14 @@
 #include "../Engine/Options.h"
 #include "../Menu/ErrorMessageState.h"
 #include "../Mod/RuleInterface.h"
+#ifdef __EMSCRIPTEN__
+#include <iomanip>
+#include "../Calypso/CalypsoAbandonPopupUi.h"
+#include "../Calypso/CalypsoF21SiteUi.h"
+#include "../Calypso/CalypsoHdHarnessHostState.h"
+#include "../Mod/RuleRegion.h"
+#include "../Savegame/Region.h"
+#endif
 
 namespace OpenXcom
 {
@@ -139,6 +148,10 @@ BuildNewBaseState::BuildNewBaseState(Base *base, Globe *globe, bool first) : _ba
 	{
 		_btnCancel->setVisible(false);
 	}
+#ifdef __EMSCRIPTEN__
+	// F21 (Phase 46.F21): physical route for the site-selection strip + card.
+	Calypso::CalypsoF21SiteUi::configure(*this, true);
+#endif
 }
 
 /**
@@ -151,6 +164,12 @@ BuildNewBaseState::~BuildNewBaseState()
 		Options::globeRadarLines = false;
 	}
 	delete _hoverTimer;
+#ifdef __EMSCRIPTEN__
+	if (_hdLayout) Calypso::hdHarnessDomHide();
+	Calypso::calypsoHdHarnessClose();
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 }
 
 /**
@@ -209,6 +228,27 @@ void BuildNewBaseState::hoverRedraw(void)
 		_oldlat=lat;
 		_oldlon=lon;
 		_globe->invalidate();
+#ifdef __EMSCRIPTEN__
+		// F21: refresh the placement-card readouts from the live hover
+		// snapshot (region + region-defined base cost follow the pointer).
+		if (_hdLayout && lon == lon && lat == lat && _hdCoords && _hdRegion && _hdCost)
+		{
+			std::ostringstream ss;
+			ss << std::fixed << std::setprecision(1)
+				<< std::fabs(lat * 180.0 / M_PI) << "·" << (lat >= 0 ? "N" : "S")
+				<< "  " << std::fabs(lon * 180.0 / M_PI) << "·" << (lon >= 0 ? "E" : "W");
+			_hdCoords->setText(ss.str());
+			for (const auto* region : *_game->getSavedGame()->getRegions())
+			{
+				if (region->getRules()->insideRegion(lon, lat))
+				{
+					_hdRegion->setText(tr(region->getRules()->getType()));
+					_hdCost->setText("COST " + Unicode::formatFunding(region->getRules()->getBaseCost()));
+					break;
+				}
+			}
+		}
+#endif
 	}
 }
 
@@ -223,8 +263,13 @@ void BuildNewBaseState::globeClick(Action *action)
 	int mouseX = (int)floor(action->getAbsoluteXMouse()), mouseY = (int)floor(action->getAbsoluteYMouse());
 	_globe->cartToPolar(mouseX, mouseY, &lon, &lat);
 
-	// Ignore window clicks
-	if (mouseY < 28)
+	// Ignore window clicks (the strip; taller while the HD route is active)
+#ifdef __EMSCRIPTEN__
+	const int stripBottom = _hdStripBottom;
+#else
+	const int stripBottom = 28;
+#endif
+	if (mouseY < stripBottom)
 	{
 		return;
 	}
@@ -398,6 +443,9 @@ void BuildNewBaseState::btnCancelClick(Action *)
  */
 void BuildNewBaseState::resize(int &dX, int &dY)
 {
+#ifdef __EMSCRIPTEN__
+	if (Calypso::CalypsoF21SiteUi::resize(*this)) return;
+#endif
 	for (auto* surface : _surfaces)
 	{
 		surface->setX(surface->getX() + dX / 2);

@@ -46,7 +46,9 @@ struct CalypsoF21DefenseLayout
 	CalypsoF21Rect hitRatio; ///< hit-ratio readout
 	CalypsoF21Rect phase;    ///< current-phase readout
 	CalypsoF21Rect result;   ///< live result band (fire/miss/damage lines)
+	CalypsoF21Rect start;    ///< Start Firing action
 	CalypsoF21Rect skip;     ///< Skip to Assault action
+	CalypsoF21Rect ok;       ///< End/acknowledge action (visible at BDA_END)
 };
 
 /// Build the F21.Defense layout for the given class; zeroed when no entry.
@@ -67,7 +69,9 @@ inline CalypsoF21DefenseLayout calypsoF21DefenseLayout(CalypsoLayoutClass cls)
 	l.hitRatio  = { g->hitRatio.x,  g->hitRatio.y,  g->hitRatio.w,  g->hitRatio.h };
 	l.phase     = { g->phase.x,     g->phase.y,     g->phase.w,     g->phase.h };
 	l.result    = { g->result.x,    g->result.y,    g->result.w,    g->result.h };
+	l.start     = { g->start.x,     g->start.y,     g->start.w,     g->start.h };
 	l.skip      = { g->skip.x,      g->skip.y,      g->skip.w,      g->skip.h };
+	l.ok        = { g->ok.x,        g->ok.y,        g->ok.w,        g->ok.h };
 	return l;
 }
 
@@ -77,7 +81,8 @@ inline void calypsoF21DefenseApplyHarnessShift(
 {
 	calypsoF21ApplyHarnessShift(
 		{ &layout.window, &layout.title, &layout.defenses, &layout.ammo,
-		  &layout.hitRatio, &layout.phase, &layout.result, &layout.skip },
+		  &layout.hitRatio, &layout.phase, &layout.result, &layout.start,
+		  &layout.skip, &layout.ok },
 		sideBySide && layout.designWidth == 1280, layout.window.x);
 }
 

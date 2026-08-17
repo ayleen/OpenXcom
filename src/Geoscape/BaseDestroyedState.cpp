@@ -36,6 +36,11 @@
 #include "../Basescape/SellState.h"
 #include "../Menu/ErrorMessageState.h"
 #include "../Mod/RuleInterface.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoAbandonPopupUi.h"
+#include "../Calypso/CalypsoF21DestructionUi.h"
+#include "../Calypso/CalypsoHdHarnessHostState.h"
+#endif
 
 namespace OpenXcom
 {
@@ -141,6 +146,10 @@ BaseDestroyedState::BaseDestroyedState(Base *base, const Ufo* ufo, bool missiles
 		am = _game->getSavedGame()->findAlienMission(regionRule->getType(), OBJECTIVE_RETALIATION);
 	}
 	_game->getSavedGame()->deleteRetaliationMission(am, _base);
+#ifdef __EMSCRIPTEN__
+	// F21 (Phase 46.F21): physical route for the destruction review window.
+	Calypso::CalypsoF21DestructionUi::configure(*this, true);
+#endif
 }
 
 /**
@@ -148,7 +157,21 @@ BaseDestroyedState::BaseDestroyedState(Base *base, const Ufo* ufo, bool missiles
  */
 BaseDestroyedState::~BaseDestroyedState()
 {
+#ifdef __EMSCRIPTEN__
+	if (_hdLayout) Calypso::hdHarnessDomHide();
+	Calypso::calypsoHdHarnessClose();
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 }
+
+#ifdef __EMSCRIPTEN__
+void BaseDestroyedState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF21DestructionUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+#endif
 
 /**
  * Returns to the previous screen.

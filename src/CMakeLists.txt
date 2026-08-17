@@ -609,6 +609,10 @@ if(EMSCRIPTEN)
   list(APPEND openxcom_src Calypso/CalypsoPauseMenu.cpp)
   list(APPEND openxcom_src Calypso/CalypsoAbandonPopupUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoF21TransactionUi.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoF21SiteUi.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoF21NameUi.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoF21DefenseUi.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoF21DestructionUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoPrologueEndState.cpp)
   # Phase 41: HTML meta-menu bridge — JS overlay screens drive the engine through
   # EMSCRIPTEN_KEEPALIVE exports defined here. Slice A0 ships calypso_bridge_ping.

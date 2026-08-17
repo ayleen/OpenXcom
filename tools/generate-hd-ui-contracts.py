@@ -165,6 +165,7 @@ IDENT_RE = _re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 F21_FAMILIES = [
     ("f21-site.json", "CalypsoF21SiteGen", "CalypsoF21Site", "CalypsoF21Site"),
     ("f21-transaction.json", "CalypsoF21TransactionGen", "CalypsoF21Transaction", "CalypsoF21Transaction"),
+    ("f21-name.json", "CalypsoF21NameGen", "CalypsoF21Name", "CalypsoF21Name"),
     ("f21-defense.json", "CalypsoF21DefenseGen", "CalypsoF21Defense", "CalypsoF21Defense"),
     ("f21-destruction.json", "CalypsoF21DestructionGen", "CalypsoF21Destruction", "CalypsoF21Destruction"),
 ]
