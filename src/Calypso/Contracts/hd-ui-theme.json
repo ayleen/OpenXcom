@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "f33.2026-08-17.3",
+  "version": "hd.2026-08-17.1",
   "colors": {
     "accent": "74FFB0FF",
     "accentSoft": "74FFB059",
@@ -37,11 +37,23 @@
     "destructivePressedBorder": "FF7878FF",
     "destructiveDisabledBorder": "FF787824"
   },
-  "dialog": { "radiusPx": 6, "borderWidthPx": 2 },
-  "button": { "radiusPx": 4 },
-  "shadow": { "glowRadiusPx": 26 },
-  "halo": { "glowRadiusPx": 22 },
-  "tracking": { "titleEm": 0.12, "labelEm": 0.12 },
+  "dialog": {
+    "radiusPx": 6,
+    "borderWidthPx": 2
+  },
+  "button": {
+    "radiusPx": 4
+  },
+  "shadow": {
+    "glowRadiusPx": 26
+  },
+  "halo": {
+    "glowRadiusPx": 22
+  },
+  "tracking": {
+    "titleEm": 0.12,
+    "labelEm": 0.12
+  },
   "typography": {
     "titleFontSizeScale": 0.8,
     "bodyFontSizeScale": 1.0,

@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "version": "hd.2026-08-17.1",
+  "parts": ["window", "title", "defenses", "ammo", "hitRatio", "phase", "result", "skip"],
+  "actions": ["skip"],
+  "layouts": {
+    "wide": {
+      "designWidth": 1280,
+      "designHeight": 720,
+      "window":    { "x": 320, "y": 140, "width": 640, "height": 440 },
+      "title":     { "x": 320, "y": 162, "width": 640, "height": 34 },
+      "defenses":  { "x": 360, "y": 214, "width": 270, "height": 26 },
+      "ammo":      { "x": 360, "y": 246, "width": 270, "height": 26 },
+      "hitRatio":  { "x": 360, "y": 278, "width": 270, "height": 26 },
+      "phase":     { "x": 360, "y": 318, "width": 270, "height": 30 },
+      "result":    { "x": 360, "y": 362, "width": 560, "height": 64 },
+      "skip":      { "x": 660, "y": 520, "width": 240, "height": 44 }
+    },
+    "compact": {
+      "designWidth": 740,
+      "designHeight": 360,
+      "window":    { "x": 30, "y": 18, "width": 680, "height": 326 },
+      "title":     { "x": 30, "y": 32, "width": 680, "height": 28 },
+      "defenses":  { "x": 58, "y": 72, "width": 250, "height": 22 },
+      "ammo":      { "x": 58, "y": 98, "width": 250, "height": 22 },
+      "hitRatio":  { "x": 58, "y": 124, "width": 250, "height": 22 },
+      "phase":     { "x": 58, "y": 158, "width": 250, "height": 26 },
+      "result":    { "x": 58, "y": 192, "width": 620, "height": 64 },
+      "skip":      { "x": 452, "y": 286, "width": 248, "height": 44 }
+    }
+  },
+  "motion": {
+    "durationMs": 200,
+    "scaleFrom": 0.96,
+    "easing": "ease-out",
+    "captureModeDurationMs": 0
+  }
+}

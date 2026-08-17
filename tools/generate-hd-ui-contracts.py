@@ -157,6 +157,82 @@ def validate_f33(f33):
         fail("f33-abandon.json: captureModeDurationMs must be 0 (deterministic captures)")
 
 
+IDENT_RE = _re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+# F21 (Phase 46.F21): part-list-driven family contracts. One generic validator
+# + emitter serves every entry; the F33 bespoke path above stays untouched.
+# (rel, namespace, rect-struct/layout prefix, JS global name)
+F21_FAMILIES = [
+    ("f21-site.json", "CalypsoF21SiteGen", "CalypsoF21Site", "CalypsoF21Site"),
+    ("f21-transaction.json", "CalypsoF21TransactionGen", "CalypsoF21Transaction", "CalypsoF21Transaction"),
+    ("f21-defense.json", "CalypsoF21DefenseGen", "CalypsoF21Defense", "CalypsoF21Defense"),
+    ("f21-destruction.json", "CalypsoF21DestructionGen", "CalypsoF21Destruction", "CalypsoF21Destruction"),
+]
+
+
+def validate_f21(doc, rel):
+    if doc.get("schema") != 1:
+        fail(rel + ": schema must be 1")
+    if not isinstance(doc.get("version"), str) or not VERSION_RE.match(doc.get("version", "")):
+        fail(rel + ": version string required")
+    parts = doc.get("parts")
+    if not isinstance(parts, list) or not parts:
+        fail(rel + ": parts list required")
+    if len(set(parts)) != len(parts):
+        fail(rel + ": parts must be unique")
+    for p in parts:
+        if not isinstance(p, str) or not IDENT_RE.match(p):
+            fail(rel + ": part name must be a C identifier: " + repr(p))
+    if parts[0] != "window":
+        fail(rel + ": first part must be the window root")
+    actions = doc.get("actions")
+    if not isinstance(actions, list):
+        fail(rel + ": actions list required")
+    for a in actions:
+        if a not in parts:
+            fail(rel + ": action " + repr(a) + " must be listed in parts")
+    layouts = doc.get("layouts")
+    if not isinstance(layouts, dict) or "wide" not in layouts or "compact" not in layouts:
+        fail(rel + ": explicit wide/compact layouts required")
+    for name in ("wide", "compact"):
+        l = layouts[name]
+        if l.get("designWidth", 0) <= 0 or l.get("designHeight", 0) <= 0:
+            fail(rel + ": " + name + " design canvas required")
+        for part in parts:
+            r = l.get(part)
+            if not r or not all(isinstance(r[k], int) for k in ("x", "y", "width", "height")):
+                fail(rel + ": " + name + "." + part + " must be an integer rect")
+        for a in actions:
+            r = l[a]
+            if r["width"] < MIN_ACTION_TARGET or r["height"] < MIN_ACTION_TARGET:
+                fail(rel + ": " + name + "." + a
+                     + " below the " + str(MIN_ACTION_TARGET) + "x" + str(MIN_ACTION_TARGET)
+                     + " action-target floor")
+
+        def contained(inner, outer):
+            return (inner["x"] >= outer["x"] and inner["y"] >= outer["y"]
+                    and inner["x"] + inner["width"] <= outer["x"] + outer["width"]
+                    and inner["y"] + inner["height"] <= outer["y"] + outer["height"])
+        if not contained(l["window"], {"x": 0, "y": 0, "width": l["designWidth"], "height": l["designHeight"]}):
+            fail(rel + ": " + name + ".window must fit the design canvas")
+        for part in parts:
+            if part != "window" and not contained(l[part], l["window"]):
+                fail(rel + ": " + name + "." + part + " must be inside the window")
+        for i, a1 in enumerate(actions):
+            for a2 in actions[i + 1:]:
+                r1, r2 = l[a1], l[a2]
+                if (r1["x"] < r2["x"] + r2["width"] and r2["x"] < r1["x"] + r1["width"]
+                        and r1["y"] < r2["y"] + r2["height"] and r2["y"] < r1["y"] + r1["height"]):
+                    fail(rel + ": " + name + " actions " + a1 + " and " + a2 + " must not overlap")
+    m = doc.get("motion") or {}
+    if m.get("durationMs", 0) <= 0 or m.get("durationMs", 0) > 1000:
+        fail(rel + ": motion.durationMs must be in (0, 1000]")
+    if not (0.0 < m.get("scaleFrom", 0.0) <= 1.0):
+        fail(rel + ": motion.scaleFrom must be in (0, 1]")
+    if m.get("captureModeDurationMs") != 0:
+        fail(rel + ": captureModeDurationMs must be 0 (deterministic captures)")
+
+
 def rgba_call(value):
     # Emit the packed 0xRRGGBBAA word directly: the generated header stays
     # dependency-free (no CalypsoHdUiModel.h include needed).
@@ -325,6 +401,58 @@ def emit_f33_h(f33):
     return NL.join(out) + NL
 
 
+def emit_family_h(doc, rel, ns, prefix):
+    """Generic F21-family emitter: one rect member per declared part."""
+    layouts = doc["layouts"]
+    m = doc["motion"]
+    parts = doc["parts"]
+    out = [HEADER_BANNER,
+           "// Canonical source: src/Calypso/Contracts/" + rel,
+           "#pragma once",
+           "#include <cstdint>",
+           "namespace OpenXcom { namespace Calypso { namespace " + ns + " {",
+           'inline constexpr const char* kContractVersion = "' + doc["version"] + '";',
+           "",
+           "/// One design-space rectangle (design px).",
+           "struct " + prefix + "GenRect { int x; int y; int w; int h; };",
+           "",
+           "/// The complete " + rel + " layout for one class.",
+           "struct " + prefix + "GenLayout",
+           "{",
+           TAB + "int designWidth;",
+           TAB + "int designHeight;"]
+    for p in parts:
+        out.append(TAB + prefix + "GenRect " + p + ";")
+    out += ["};",
+            "",
+            "inline constexpr " + prefix + "GenLayout kLayouts[] =",
+            "{"]
+    for name in ("wide", "compact"):
+        l = layouts[name]
+        out.append(TAB + "// " + name)
+        out.append(TAB + "{ " + str(l["designWidth"]) + ", " + str(l["designHeight"]) + ", "
+                   + ", ".join("{ " + str(l[p]["x"]) + ", " + str(l[p]["y"]) + ", "
+                               + str(l[p]["width"]) + ", " + str(l[p]["height"]) + " }" for p in parts) + " },")
+    out += ["};",
+            "inline constexpr int kLayoutCount = " + str(len(layouts)) + ";",
+            "",
+            "/// Layout for a design canvas, or nullptr (the harness never guesses).",
+            "inline const " + prefix + "GenLayout* layoutForDesign(int dw, int dh)",
+            "{",
+            TAB + "for (int i = 0; i < kLayoutCount; ++i)",
+            TAB + TAB + "if (kLayouts[i].designWidth == dw && kLayouts[i].designHeight == dh)",
+            TAB + TAB + TAB + "return &kLayouts[i];",
+            TAB + "return nullptr;",
+            "}",
+            "",
+            "// Opening motion (capture mode deterministic).",
+            "inline constexpr int kMotionDurationMs = " + str(int(m["durationMs"])) + ";",
+            "inline constexpr float kMotionScaleFrom = %.6ff;" % float(m["scaleFrom"]),
+            "inline constexpr bool kMotionDisabledInCapture = true;",
+            "} } }"]
+    return NL.join(out) + NL
+
+
 def emit_js(rel, obj, gname):
     body = json.dumps(obj, indent=2, sort_keys=True)
     return ("// AUTO-GENERATED by tools/generate-hd-ui-contracts.py -- DO NOT EDIT." + NL
@@ -350,8 +478,17 @@ def main(argv):
     f33 = load_json("f33-abandon.json")
     validate_theme(theme)
     validate_f33(f33)
-    if theme["version"] != f33["version"]:
-        fail("contract versions diverge: " + theme["version"] + " vs " + f33["version"])
+    f21_docs = []
+    for rel, ns, prefix, gname in F21_FAMILIES:
+        doc = load_json(rel)
+        validate_f21(doc, rel)
+        f21_docs.append((doc, rel, ns, prefix, gname))
+    versions = [("hd-ui-theme.json", theme["version"]), ("f33-abandon.json", f33["version"])] \
+        + [(rel, doc["version"]) for doc, rel, _, _, _ in f21_docs]
+    for rel, ver in versions[1:]:
+        if ver != versions[0][1]:
+            fail("contract versions diverge: " + versions[0][0] + " " + versions[0][1]
+                 + " vs " + rel + " " + ver)
 
     theme_h = emit_theme_h(theme)
     f33_h = emit_f33_h(f33)
@@ -371,6 +508,12 @@ def main(argv):
             (os.path.join(web, "hd-ui-theme.js"), theme_js),
             (os.path.join(web, "f33-abandon.js"), f33_js),
         ]
+    for doc, rel, ns, prefix, gname in f21_docs:
+        outputs.append((os.path.join(GENERATED_DIR, prefix + ".generated.h"),
+                        emit_family_h(doc, rel, ns, prefix)))
+        if web is not None:
+            outputs.append((os.path.join(web, rel.replace(".json", ".js")),
+                            emit_js(rel, doc, gname)))
 
     if args.check:
         changed = []

@@ -4,7 +4,7 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF33AbandonGen {
-inline constexpr const char* kContractVersion = "f33.2026-08-17.3";
+inline constexpr const char* kContractVersion = "hd.2026-08-17.1";
 
 // Approved F33 3+5 copy (2026-08-17).
 inline constexpr const char* kProtocol = "CALYPSO COMMAND · SESSION PROTOCOL SP-01 · REV. 1.0.21 · EFFECTIVE 15.07.2061";
