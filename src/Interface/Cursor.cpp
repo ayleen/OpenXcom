@@ -118,6 +118,15 @@ void Cursor::draw()
 	}
 	this->setPixel(4, 8, --color);
 	unlock();
+#ifdef __EMSCRIPTEN__
+	// State::init() installs the scene palette and explicitly redraws the
+	// cursor. Surface::draw() clears _redraw, so the post-composite pass cannot
+	// discover that change later. Publish the completed pixels now; otherwise
+	// a cursor promoted to GPU before the first state keeps its transparent
+	// bootstrap texture throughout Geoscape.
+	if (_gpuMode && _cursorTex)
+		_uploadCursorPixels();
+#endif
 }
 
 /**
@@ -263,7 +272,6 @@ void Cursor::drawGPUPass(Screen* screen)
 	if (_redraw)
 	{
 		draw();
-		_uploadCursorPixels();
 	}
 
 	// Convert game-space cursor rect to NDC using screen scale + black-band offsets.
