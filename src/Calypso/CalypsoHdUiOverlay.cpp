@@ -388,6 +388,7 @@ bool CalypsoHdUiOverlay::drawStyledPanel(const ResolvedDraw& d)
 	if (radius > maxRadius) radius = maxRadius;
 	if (radius < 0.0f) radius = 0.0f;
 	const float borderWidth = std::max(0.0f, st.borderWidthPx * pxScale);
+	const float cutCorner = std::max(0.0f, st.cutCornerPx * pxScale);
 	const float glowRadius = std::max(0.0f, st.glowRadiusPx * pxScale);
 	const int pad = (int)std::ceil(glowRadius);
 
@@ -416,6 +417,8 @@ bool CalypsoHdUiOverlay::drawStyledPanel(const ResolvedDraw& d)
 	_panelShader->setUniform2f("u_shapeOffset", (float)pad, (float)pad);
 	_panelShader->setUniform2f("u_size", (float)shape.w, (float)shape.h);
 	_panelShader->setUniform1f("u_radius", radius);
+	_panelShader->setUniform1f("u_cutCorner", cutCorner);
+	_panelShader->setUniform1i("u_shapeKind", static_cast<int>(st.shape));
 	_panelShader->setUniform1f("u_borderWidth", borderWidth);
 	_panelShader->setUniform4f("u_borderColor", borderC[0], borderC[1], borderC[2], borderC[3]);
 	_panelShader->setUniform4f("u_fillTop", fillT[0], fillT[1], fillT[2], fillT[3]);

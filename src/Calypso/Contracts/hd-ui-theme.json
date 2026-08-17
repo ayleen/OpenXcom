@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "f33.2026-08-17.1",
+  "version": "f33.2026-08-17.2",
   "colors": {
     "accent": "74FFB0FF",
     "accentSoft": "74FFB059",
@@ -46,12 +46,12 @@
     "titleFontSizeScale": 0.8,
     "bodyFontSizeScale": 1.0,
     "labelFontSizePx": 17,
-    "labelFontSizeScaleWide": 0.95,
+    "labelFontSizeScaleWide": 1.0,
     "labelFontSizeScaleCompact": 1.0,
     "bodyFontSizePx": 15,
     "bodyFontSizeScaleWide": 1.0,
     "bodyFontSizeScaleCompact": 1.0,
-    "bodyFontWidthScaleWide": 1.003,
+    "bodyFontWidthScaleWide": 0.993,
     "bodyFontWidthScaleCompact": 0.994,
     "bodyWrapMeasureScaleWide": 0.912,
     "bodyWrapMeasureScaleCompact": 1.0,

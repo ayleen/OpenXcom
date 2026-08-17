@@ -14,6 +14,8 @@
  *   u_shapeOffset — shape top-left within the quad
  *   u_size        — shape size (the SDF box)
  *   u_radius      — corner radius in px
+ *   u_shapeKind   — 0 rounded rect, 1 opposing cut rect, 2 warning triangle
+ *   u_cutCorner   — top-left/bottom-right cut size in px for shape kind 1
  *   u_borderWidth — border ring thickness in px (0 = none)
  *   u_borderColor — RGBA border colour
  *   u_fillTop/u_fillBottom — gradient stops (direction: u_gradDir)
@@ -27,6 +29,8 @@ uniform vec2  u_quadSize;
 uniform vec2  u_shapeOffset;
 uniform vec2  u_size;
 uniform float u_radius;
+uniform int   u_shapeKind;
+uniform float u_cutCorner;
 uniform float u_borderWidth;
 uniform vec4  u_borderColor;
 uniform vec4  u_fillTop;
@@ -44,11 +48,36 @@ float sdRoundBox(vec2 p, vec2 b, float r)
 	return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
 }
 
+float sdOpposingCutBox(vec2 p, vec2 b, float cutSize)
+{
+	vec2 local = p + b;
+	float box = sdRoundBox(p, b, 0.0);
+	float diagonal = 0.70710678;
+	float topLeft = (cutSize - local.x - local.y) * diagonal;
+	float bottomRight = (local.x + local.y - (2.0 * b.x + 2.0 * b.y - cutSize)) * diagonal;
+	return max(box, max(topLeft, bottomRight));
+}
+
+float sdWarningTriangle(vec2 local, vec2 size)
+{
+	float slope = size.x / max(2.0 * size.y, 1.0);
+	float normalizer = inversesqrt(1.0 + slope * slope);
+	float centeredX = local.x - size.x * 0.5;
+	float leftEdge = (-centeredX - slope * local.y) * normalizer;
+	float rightEdge = (centeredX - slope * local.y) * normalizer;
+	return max(max(leftEdge, rightEdge), max(-local.y, local.y - size.y));
+}
+
 void main()
 {
 	vec2 half_ = u_size * 0.5;
 	vec2 p = v_uv * u_quadSize - u_shapeOffset - half_;
+	vec2 local = p + half_;
 	float d = sdRoundBox(p, half_, u_radius);
+	if (u_shapeKind == 1)
+		d = sdOpposingCutBox(p, half_, u_cutCorner);
+	else if (u_shapeKind == 2)
+		d = sdWarningTriangle(local, u_size);
 	float aa = max(fwidth(d), 1e-4);
 
 	// shapeMask: 1 inside / 0 outside with an AA edge; coreMask: everything

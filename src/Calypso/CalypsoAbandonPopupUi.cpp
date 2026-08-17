@@ -20,7 +20,7 @@
  * F33 (Calypso): HD adapter for AbandonGameState -- see CalypsoAbandonPopupUi.h.
  * Structural clone of CalypsoErrorPopupUi (Phase 46.2-HD remediation B-Error):
  * same theme constants, same bevel/text submission helpers, different widget
- * set (confirm dialog: title + data-loss message + destructive YES / safe NO).
+ * set (confirm dialog: protocol + warning + data-loss copy + semantic actions).
  */
 #ifdef __EMSCRIPTEN__
 
@@ -74,7 +74,8 @@ namespace
 enum F33Role : std::uint32_t
 {
 	ROLE_WINDOW = 1, ROLE_TITLE = 2, ROLE_MESSAGE = 3,
-	ROLE_YES = 4, ROLE_NO = 5
+	ROLE_YES = 4, ROLE_NO = 5, ROLE_PROTOCOL = 6,
+	ROLE_WARNING = 7, ROLE_FOOTER = 8, ROLE_DECORATION = 9
 };
 constexpr std::uint32_t kF33FamilyId = 33;
 
@@ -114,7 +115,7 @@ CalypsoLogicalRect widgetRect(const Surface* surface)
 
 /// Read-only interaction snapshot of a button (F33-PARITY-008): the adapter
 /// NEVER owns events; it just reads the widget's live state.
-CalypsoInteractionState buttonVisualState(const TextButton* btn)
+CalypsoInteractionState buttonVisualState(const TextButton* btn, const TextButton* peer)
 {
 	if (!btn) return CalypsoInteractionState::Rest;
 	// NOTE: the Disabled interaction state is unreachable today -- no widget
@@ -128,7 +129,9 @@ CalypsoInteractionState buttonVisualState(const TextButton* btn)
 	// user interaction -- so without this priority the pointer-over state
 	// could never surface (F33-PARITY-008: hover/focus/pressed never static).
 	if (btn->isHovered()) return CalypsoInteractionState::Hover;
-	if (btn->isFocused()) return CalypsoInteractionState::Focus;
+	// InteractiveSurface constructs both buttons focused. That shared legacy
+	// default is not a visible keyboard focus target; only a unique focus is.
+	if (btn->isFocused() && (!peer || !peer->isFocused())) return CalypsoInteractionState::Focus;
 	return CalypsoInteractionState::Rest;
 }
 
@@ -144,14 +147,58 @@ CalypsoHdPanelStyle buttonStyleFor(CalypsoActionTone tone, CalypsoInteractionSta
 
 	CalypsoHdPanelStyle s;
 	s.styled = true;
-	s.radiusPx = CalypsoHdTheme::kButtonRadiusPx;
+	s.radiusPx = 1.0f;
 	s.borderWidthPx = CalypsoHdTheme::kBorderWidthPx
 		+ (state == CalypsoInteractionState::Focus ? 1.0f : 0.0f);
-	s.borderColorRgba = borderColor;
-	s.fillTopRgba = fill;
-	s.fillBottomRgba = fill;
+	const std::uint32_t f33Fill = state == CalypsoInteractionState::Rest
+		? (tone == CalypsoActionTone::Destructive
+			? CalypsoF33AbandonGen::kDestructiveFill
+			: CalypsoF33AbandonGen::kSafeFill)
+		: fill;
+	s.borderColorRgba = state == CalypsoInteractionState::Rest
+		? (tone == CalypsoActionTone::Destructive
+			? CalypsoF33AbandonGen::kDestructiveFill
+			: CalypsoF33AbandonGen::kSafeBorder)
+		: borderColor;
+	s.fillTopRgba = f33Fill;
+	s.fillBottomRgba = f33Fill;
 	s.gradDirX = 0.26f;
 	s.gradDirY = 1.0f;
+	return s;
+}
+
+CalypsoHdPanelStyle f33WindowStyle()
+{
+	CalypsoHdPanelStyle s;
+	s.styled = true;
+	s.shape = CalypsoHdPanelShape::OpposingCutRect;
+	s.cutCornerPx = CalypsoF33AbandonGen::kCutCornerPx;
+	s.borderWidthPx = 1.0f;
+	s.borderColorRgba = CalypsoF33AbandonGen::kFrame;
+	s.fillTopRgba = CalypsoF33AbandonGen::kPanelFillTop;
+	s.fillBottomRgba = CalypsoF33AbandonGen::kPanelFillBottom;
+	s.gradDirX = 0.18f;
+	s.gradDirY = 1.0f;
+	return s;
+}
+
+CalypsoHdPanelStyle f33GlowStyle(std::uint32_t color, float radius)
+{
+	CalypsoHdPanelStyle s = CalypsoHdTheme::calypsoHdGlowStyle(color, radius);
+	s.shape = CalypsoHdPanelShape::OpposingCutRect;
+	s.cutCornerPx = CalypsoF33AbandonGen::kCutCornerPx;
+	return s;
+}
+
+CalypsoHdPanelStyle warningStyle()
+{
+	CalypsoHdPanelStyle s;
+	s.styled = true;
+	s.shape = CalypsoHdPanelShape::WarningTriangle;
+	s.borderWidthPx = 2.0f;
+	s.borderColorRgba = CalypsoF33AbandonGen::kWarning;
+	s.fillTopRgba = calypsoRgba(0, 0, 0, 0);
+	s.fillBottomRgba = calypsoRgba(0, 0, 0, 0);
 	return s;
 }
 
@@ -180,8 +227,10 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 	Mod* mod = _state->_game->getMod();
 	CalypsoTtfSourceDescriptor heading;
 	CalypsoTtfSourceDescriptor body;
+	CalypsoTtfSourceDescriptor mono;
 	if (!calypsoHdResolveFontDescriptor(mod, "FONT_F34_SAIRA_700", heading)) return;
 	if (!calypsoHdResolveFontDescriptor(mod, "FONT_F33_BODY", body)) return;
+	if (!calypsoHdResolveFontDescriptor(mod, "FONT_F34_MONO", mono)) return;
 
 	const CalypsoHdPresentationMetrics& m = CalypsoHdUiOverlay::instance().frozenMetrics();
 	const double sx = m.scaleX, sy = m.scaleY;
@@ -237,6 +286,14 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 	// text re-rasterises at the in-flight size (bounded: one entry per ramp
 	// frame, evicted by the LRU after the ramp).
 	const CalypsoLogicalRect winFull = widgetRect(_state->_window);
+	auto projectDecoration = [&](const CalypsoF33Rect& design) -> CalypsoLogicalRect
+	{
+		return CalypsoLogicalRect{
+			winFull.x + (int)std::llround((design.x - designLayout.window.x) * uiScale),
+			winFull.y + (int)std::llround((design.y - designLayout.window.y) * uiScale),
+			std::max(1, (int)std::llround(design.width * uiScale)),
+			std::max(1, (int)std::llround(design.height * uiScale)) };
+	};
 	const double cx = winFull.x + winFull.w * 0.5;
 	const double cy = winFull.y + winFull.h * 0.5;
 	auto motionRect = [&](const CalypsoLogicalRect& r) -> CalypsoLogicalRect
@@ -295,25 +352,43 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 		builder.add(it);
 		++ord;
 	};
+	auto addDecoration = [&](const CalypsoLogicalRect& r, std::uint32_t color,
+		std::uint32_t role)
+	{
+		if (r.w <= 0 || r.h <= 0) return;
+		CalypsoHdItem it;
+		it.kind = CalypsoHdItemKind::Panel;
+		it.rect = motionRect(r);
+		it.colorRgba = color;
+		it.panelStyle.styled = true;
+		it.panelStyle.fillTopRgba = color;
+		it.panelStyle.fillBottomRgba = color;
+		it.opacity = opacity;
+		it.claim = { kF33FamilyId, role, inst, 1u, (std::uint32_t)ord };
+		it.order = { 0, 0, kF33FamilyId, inst, 0, 1u, ord, role };
+		builder.add(it);
+		++ord;
+	};
 
 	// Soft shadow + accent halo under the dialog (styled glow quads replace
 	// the old stepped bands): shadow sits below the window, halo is centred.
 	{
 		const CalypsoLogicalRect w = widgetRect(_state->_window);
 		const CalypsoLogicalRect shadow{ w.x - 2, w.y + 8, w.w + 4, w.h };
-		addStyled(shadow, CalypsoHdTheme::calypsoHdGlowStyle(
+		addStyled(shadow, f33GlowStyle(
 			CalypsoHdTheme::kShadowGlow, CalypsoHdTheme::kShadowGlowRadiusPx), nullptr, ROLE_WINDOW);
-		addStyled(w, CalypsoHdTheme::calypsoHdGlowStyle(
+		addStyled(w, f33GlowStyle(
 			CalypsoHdTheme::kHaloGlow, CalypsoHdTheme::kHaloGlowRadiusPx), nullptr, ROLE_WINDOW);
 	}
 
-	auto addText = [&](Surface* widget, const CalypsoTtfSourceDescriptor& font,
+	auto addTextRect = [&](const CalypsoLogicalRect& sourceRect, const void* widget,
+		const CalypsoTtfSourceDescriptor& font,
 		const std::string& text, std::uint32_t color,
 		CalypsoHdHAlign hA, CalypsoHdVAlign vA, int linesHint, std::uint32_t role,
 		double trackingEm = 0.0, double fontSizeDesignPx = 0.0)
 	{
-		if (!widget || text.empty()) return;
-		const CalypsoLogicalRect r = motionRect(widgetRect(widget));
+		if (text.empty()) return;
+		const CalypsoLogicalRect r = motionRect(sourceRect);
 		if (r.w <= 0 || r.h <= 0) return;
 
 		const int hint = linesHint > 0 ? linesHint : 1;
@@ -359,22 +434,55 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 		++ord;
 	};
 
-	// Styled panels (SDF: gradient fill, alpha borders, rounded corners), then
+	auto addText = [&](Surface* widget, const CalypsoTtfSourceDescriptor& font,
+		const std::string& text, std::uint32_t color,
+		CalypsoHdHAlign hA, CalypsoHdVAlign vA, int linesHint, std::uint32_t role,
+		double trackingEm = 0.0, double fontSizeDesignPx = 0.0)
+	{
+		if (!widget) return;
+		addTextRect(widgetRect(widget), widget, font, text, color, hA, vA,
+			linesHint, role, trackingEm, fontSizeDesignPx);
+	};
+
+	// Styled panels (SDF: translucent opposing-corner frame), then structural
+	// rules, warning glyph, actions, and text. ord remains painter order.
 	// text -- ord is monotonic so the order key keeps that painter order.
-	addStyled(widgetRect(_state->_window), CalypsoHdTheme::calypsoHdDialogStyle(),
+	addStyled(widgetRect(_state->_window), f33WindowStyle(),
 		_state->_window, ROLE_WINDOW);
+
+	const CalypsoLogicalRect statusRect = projectDecoration(designLayout.status);
+	const CalypsoLogicalRect warningRect = projectDecoration(designLayout.warning);
+	const CalypsoLogicalRect footerRect = projectDecoration(designLayout.footer);
+	addDecoration({ statusRect.x, statusRect.y + statusRect.h - 1, statusRect.w, 1 },
+		CalypsoF33AbandonGen::kDivider, ROLE_DECORATION);
+	addDecoration({ footerRect.x, footerRect.y, footerRect.w, 1 },
+		CalypsoF33AbandonGen::kDivider, ROLE_FOOTER);
+	for (int y = footerRect.y + 10; y < footerRect.y + footerRect.h - 8; y += 8)
+	{
+		for (int x = footerRect.x + 12; x < widgetRect(_state->_btnNo).x - 12; x += 8)
+			addDecoration({ x, y, 1, 1 }, CalypsoF33AbandonGen::kFooterDot, ROLE_DECORATION);
+	}
+	addStyled(warningRect, warningStyle(), nullptr, ROLE_WARNING);
 	// F33-PARITY-008: buttons snapshot their live interaction state (read-only)
 	// and map it to the canonical semantic tokens -- hover/focus/pressed are
 	// never static, and the widgets keep every input event.
 	addStyled(widgetRect(_state->_btnYes), buttonStyleFor(
-		CalypsoActionTone::Destructive, buttonVisualState(_state->_btnYes)),
+		CalypsoActionTone::Destructive, buttonVisualState(_state->_btnYes, _state->_btnNo)),
 		_state->_btnYes, ROLE_YES);
 	addStyled(widgetRect(_state->_btnNo), buttonStyleFor(
-		CalypsoActionTone::Safe, buttonVisualState(_state->_btnNo)),
+		CalypsoActionTone::Safe, buttonVisualState(_state->_btnNo, _state->_btnYes)),
 		_state->_btnNo, ROLE_NO);
 
+	addText(_state->_hdProtocol, mono,
+		_state->_hdProtocol ? _state->_hdProtocol->getText() : std::string(),
+		CalypsoF33AbandonGen::kProtocolText, CalypsoHdHAlign::Left,
+		CalypsoHdVAlign::Middle, 1, ROLE_PROTOCOL, 0.10,
+		_state->_hdWideLayout ? 10.0 : 9.0);
+	addTextRect(warningRect, nullptr, heading, "!", CalypsoF33AbandonGen::kWarning,
+		CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, ROLE_WARNING, 0.0,
+		_state->_hdWideLayout ? 18.0 : 16.0);
 	addText(_state->_txtTitle, heading, _state->_txtTitle ? _state->_txtTitle->getText() : std::string(),
-		CalypsoHdTheme::kGold, CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, ROLE_TITLE,
+		CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_TITLE,
 		CalypsoHdTheme::kTitleTrackingEm,
 		(double)designLayout.title.height * CalypsoHdTheme::kTitleFontSizeScale);
 
@@ -443,7 +551,7 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 	}
 
 	addText(_state->_btnYes, heading, _state->_btnYes ? _state->_btnYes->getText() : std::string(),
-		CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, ROLE_YES,
+		CalypsoF33AbandonGen::kDestructiveText, CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, ROLE_YES,
 		CalypsoHdTheme::kLabelTrackingEm,
 		(double)CalypsoHdTheme::kLabelFontSizePx * (_state->_hdWideLayout
 			? CalypsoHdTheme::kLabelFontSizeScaleWide
@@ -459,6 +567,7 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 void CalypsoAbandonPopupUi::applyRects(AbandonGameState& state, const CalypsoF33AbandonLayout& layout)
 {
 	applyRect(state._window, layout.window);
+	applyRect(state._hdProtocol, layout.status);
 	applyRect(state._txtTitle, layout.title);
 	applyRect(state._hdMessage, layout.message);
 	applyRect(state._btnYes, layout.yes);
@@ -480,6 +589,20 @@ void CalypsoAbandonPopupUi::configure(AbandonGameState& state, bool allowPhysica
 	// one-time constructor mutation; reconfigure can toggle it at fixed class.
 	CalypsoF33AbandonLayout layout = currentF33PresentationLayout(state._hdWideLayout);
 
+	// The approved presentation uses descriptive action labels while preserving
+	// the original YES/NO widget handlers and input ownership.
+	state._txtTitle->setText(CalypsoF33AbandonGen::kTitle);
+	state._btnYes->setText(CalypsoF33AbandonGen::kDestructiveAction);
+	state._btnNo->setText(CalypsoF33AbandonGen::kSafeAction);
+
+	state._hdProtocol = new Text(1, 1, 0, 0);
+	state.add(state._hdProtocol);
+	state._hdProtocol->setSmall();
+	state._hdProtocol->setColor(state._txtTitle->getColor());
+	state._hdProtocol->setAlign(ALIGN_LEFT);
+	state._hdProtocol->setVerticalAlign(ALIGN_MIDDLE);
+	state._hdProtocol->setText(CalypsoF33AbandonGen::kProtocol);
+
 	// Data-loss copy: an HD-only widget (the vanilla dialog has no message
 	// band); absent on the logical fallback, exactly like the F34 badge.
 	state._hdMessage = new Text(1, 1, 0, 0);
@@ -489,7 +612,8 @@ void CalypsoAbandonPopupUi::configure(AbandonGameState& state, bool allowPhysica
 	state._hdMessage->setAlign(ALIGN_LEFT);
 	state._hdMessage->setVerticalAlign(ALIGN_TOP);
 	state._hdMessage->setWordWrap(true);
-	state._hdMessage->setText(state.tr("STR_CAL_ABANDON_DATA_LOSS"));
+	state._hdMessage->setText(std::string(CalypsoF33AbandonGen::kMessageLine1)
+		+ "\n" + CalypsoF33AbandonGen::kMessageLine2);
 
 	CalypsoAbandonPopupUi::applyRects(state, layout);
 

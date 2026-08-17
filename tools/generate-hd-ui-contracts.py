@@ -100,6 +100,22 @@ def validate_f33(f33):
         fail("f33-abandon.json: schema must be 1")
     if not isinstance(f33.get("version"), str) or not f33["version"]:
         fail("f33-abandon.json: version string required")
+    copy = f33.get("copy") or {}
+    for key in ("protocol", "title", "safeAction", "destructiveAction"):
+        if not isinstance(copy.get(key), str) or not copy[key]:
+            fail("f33-abandon.json: copy." + key + " string required")
+    if (not isinstance(copy.get("message"), list) or len(copy["message"]) != 2
+            or not all(isinstance(line, str) and line for line in copy["message"])):
+        fail("f33-abandon.json: copy.message must contain exactly two non-empty lines")
+    style = f33.get("style") or {}
+    if not isinstance(style.get("cutCornerPx"), (int, float)) or style["cutCornerPx"] <= 0:
+        fail("f33-abandon.json: style.cutCornerPx must be > 0")
+    for key in ("panelFillTop", "panelFillBottom", "frame", "protocolText", "divider",
+                "footerFill", "footerDot", "warning", "safeFill", "safeBorder",
+                "destructiveFill", "destructiveText"):
+        value = style.get(key)
+        if not isinstance(value, str) or not re.fullmatch(r"[0-9A-Fa-f]{8}", value):
+            fail("f33-abandon.json: style." + key + " must be packed RRGGBBAA")
     layouts = f33.get("layouts")
     if not isinstance(layouts, dict) or "wide" not in layouts or "compact" not in layouts:
         fail("f33-abandon.json: explicit wide/compact layouts required")
@@ -107,7 +123,7 @@ def validate_f33(f33):
         l = layouts[name]
         if l.get("designWidth", 0) <= 0 or l.get("designHeight", 0) <= 0:
             fail("f33-abandon.json: " + name + " design canvas required")
-        for part in ("window", "title", "message", "yes", "no"):
+        for part in ("window", "status", "warning", "title", "message", "footer", "yes", "no"):
             r = l.get(part)
             if not r or not all(isinstance(r[k], int) for k in ("x", "y", "width", "height")):
                 fail("f33-abandon.json: " + name + "." + part + " must be an integer rect")
@@ -123,7 +139,7 @@ def validate_f33(f33):
                     and inner["y"] + inner["height"] <= outer["y"] + outer["height"])
         if not contained(l["window"], {"x": 0, "y": 0, "width": l["designWidth"], "height": l["designHeight"]}):
             fail("f33-abandon.json: " + name + ".window must fit the design canvas")
-        for part in ("title", "message", "yes", "no"):
+        for part in ("status", "warning", "title", "message", "footer", "yes", "no"):
             if not contained(l[part], l["window"]):
                 fail("f33-abandon.json: " + name + "." + part + " must be inside the window")
         if (l["yes"]["x"] < l["no"]["x"] + l["no"]["width"] and l["no"]["x"] < l["yes"]["x"] + l["yes"]["width"]
@@ -222,12 +238,38 @@ def f33_rect(l, part):
 def emit_f33_h(f33):
     layouts = f33["layouts"]
     m = f33["motion"]
+    copy = f33["copy"]
+    style = f33["style"]
+    cpp_string = lambda value: json.dumps(value, ensure_ascii=False)
     out = [HEADER_BANNER,
            "// Canonical source: src/Calypso/Contracts/f33-abandon.json",
            "#pragma once",
            "#include <cstdint>",
            "namespace OpenXcom { namespace Calypso { namespace CalypsoF33AbandonGen {",
            'inline constexpr const char* kContractVersion = "' + f33["version"] + '";',
+           "",
+           "// Approved F33 3+5 copy (2026-08-17).",
+           "inline constexpr const char* kProtocol = " + cpp_string(copy["protocol"]) + ";",
+           "inline constexpr const char* kTitle = " + cpp_string(copy["title"]) + ";",
+           "inline constexpr const char* kMessageLine1 = " + cpp_string(copy["message"][0]) + ";",
+           "inline constexpr const char* kMessageLine2 = " + cpp_string(copy["message"][1]) + ";",
+           "inline constexpr const char* kSafeAction = " + cpp_string(copy["safeAction"]) + ";",
+           "inline constexpr const char* kDestructiveAction = " + cpp_string(copy["destructiveAction"]) + ";",
+           "",
+           "// F33-only chrome tokens (0xRRGGBBAA; design px).",
+           "inline constexpr float kCutCornerPx = %.6ff;" % float(style["cutCornerPx"]),
+           "inline constexpr std::uint32_t kPanelFillTop = " + rgba_call(style["panelFillTop"]) + ";",
+           "inline constexpr std::uint32_t kPanelFillBottom = " + rgba_call(style["panelFillBottom"]) + ";",
+           "inline constexpr std::uint32_t kFrame = " + rgba_call(style["frame"]) + ";",
+           "inline constexpr std::uint32_t kProtocolText = " + rgba_call(style["protocolText"]) + ";",
+           "inline constexpr std::uint32_t kDivider = " + rgba_call(style["divider"]) + ";",
+           "inline constexpr std::uint32_t kFooterFill = " + rgba_call(style["footerFill"]) + ";",
+           "inline constexpr std::uint32_t kFooterDot = " + rgba_call(style["footerDot"]) + ";",
+           "inline constexpr std::uint32_t kWarning = " + rgba_call(style["warning"]) + ";",
+           "inline constexpr std::uint32_t kSafeFill = " + rgba_call(style["safeFill"]) + ";",
+           "inline constexpr std::uint32_t kSafeBorder = " + rgba_call(style["safeBorder"]) + ";",
+           "inline constexpr std::uint32_t kDestructiveFill = " + rgba_call(style["destructiveFill"]) + ";",
+           "inline constexpr std::uint32_t kDestructiveText = " + rgba_call(style["destructiveText"]) + ";",
            "",
            "/// One design-space rectangle (design px).",
            "struct CalypsoF33GenRect { int x; int y; int w; int h; };",
@@ -238,8 +280,11 @@ def emit_f33_h(f33):
            TAB + "int designWidth;",
            TAB + "int designHeight;",
            TAB + "CalypsoF33GenRect window;",
+           TAB + "CalypsoF33GenRect status;",
+           TAB + "CalypsoF33GenRect warning;",
            TAB + "CalypsoF33GenRect title;",
            TAB + "CalypsoF33GenRect message;",
+           TAB + "CalypsoF33GenRect footer;",
            TAB + "CalypsoF33GenRect yes;",
            TAB + "CalypsoF33GenRect no;",
            "};",
@@ -251,8 +296,10 @@ def emit_f33_h(f33):
         l = layouts[name]
         out.append(TAB + "// " + name)
         out.append(TAB + "{ " + str(l["designWidth"]) + ", " + str(l["designHeight"]) + ", "
-                   + f33_rect(l, "window") + ", " + f33_rect(l, "title") + ", "
-                   + f33_rect(l, "message") + ", " + f33_rect(l, "yes") + ", "
+                   + f33_rect(l, "window") + ", " + f33_rect(l, "status") + ", "
+                   + f33_rect(l, "warning") + ", " + f33_rect(l, "title") + ", "
+                   + f33_rect(l, "message") + ", " + f33_rect(l, "footer") + ", "
+                   + f33_rect(l, "yes") + ", "
                    + f33_rect(l, "no") + " },")
     out.append("};")
     out.append("inline constexpr int kLayoutCount = " + str(len(layouts)) + ";")

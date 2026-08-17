@@ -68,10 +68,13 @@ struct CalypsoF33AbandonLayout
 	int designWidth = 0;
 	int designHeight = 0;
 	CalypsoF33Rect window;    ///< confirm dialog panel fill (submitPanel)
+	CalypsoF33Rect status;    ///< slim protocol strip
+	CalypsoF33Rect warning;   ///< amber warning triangle
 	CalypsoF33Rect title;     ///< "ABANDON GAME?" heading (submitText)
 	CalypsoF33Rect message;   ///< data-loss copy (submitText, wrapped)
-	CalypsoF33Rect yes;       ///< destructive YES button (panel + label)
-	CalypsoF33Rect no;        ///< safe NO button (panel + label)
+	CalypsoF33Rect footer;    ///< separated action band + dot field
+	CalypsoF33Rect yes;       ///< destructive action button (panel + label)
+	CalypsoF33Rect no;        ///< safe action button (panel + label)
 };
 
 /// Build the F33.Abandon layout for the given layout class from the canonical
@@ -87,8 +90,11 @@ inline CalypsoF33AbandonLayout calypsoF33AbandonLayout(CalypsoLayoutClass cls)
 	l.designWidth = g->designWidth;
 	l.designHeight = g->designHeight;
 	l.window  = { g->window.x,  g->window.y,  g->window.w,  g->window.h };
+	l.status  = { g->status.x,  g->status.y,  g->status.w,  g->status.h };
+	l.warning = { g->warning.x, g->warning.y, g->warning.w, g->warning.h };
 	l.title   = { g->title.x,   g->title.y,   g->title.w,   g->title.h };
 	l.message = { g->message.x, g->message.y, g->message.w, g->message.h };
+	l.footer  = { g->footer.x,  g->footer.y,  g->footer.w,  g->footer.h };
 	l.yes     = { g->yes.x,     g->yes.y,     g->yes.w,     g->yes.h };
 	l.no      = { g->no.x,      g->no.y,      g->no.w,      g->no.h };
 	return l;
@@ -102,8 +108,11 @@ inline void calypsoF33ApplyHarnessShift(CalypsoF33AbandonLayout& layout, bool si
 	if (!sideBySide || layout.designWidth != 1280) return;
 	const int dx = 40 - layout.window.x;
 	layout.window.x += dx;
+	layout.status.x += dx;
+	layout.warning.x += dx;
 	layout.title.x += dx;
 	layout.message.x += dx;
+	layout.footer.x += dx;
 	layout.yes.x += dx;
 	layout.no.x += dx;
 }

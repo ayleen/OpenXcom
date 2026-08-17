@@ -35,6 +35,11 @@ namespace Calypso
 
 enum class CalypsoHdItemKind { Panel, Text };
 
+/// Reusable SDF silhouettes for styled panels. RoundedRect preserves the
+/// existing family behavior; F33 uses OpposingCutRect for its command frame
+/// and WarningTriangle for the small amber caution glyph.
+enum class CalypsoHdPanelShape { RoundedRect = 0, OpposingCutRect = 1, WarningTriangle = 2 };
+
 /// Horizontal/vertical glyph alignment inside the item's logical box. Mirrors
 /// the engine's ALIGN_* enums by value (0/1/2) but kept local so the builder
 /// stays free of Interface/Text.h.
@@ -48,7 +53,9 @@ enum class CalypsoHdVAlign { Top = 0, Middle = 1, Bottom = 2 };
 struct CalypsoHdPanelStyle
 {
 	bool styled = false;
+	CalypsoHdPanelShape shape = CalypsoHdPanelShape::RoundedRect;
 	float radiusPx = 0.0f;          // rounded-corner radius
+	float cutCornerPx = 0.0f;       // opposing cut size (top-left/bottom-right)
 	float borderWidthPx = 0.0f;     // ring thickness at the shape edge
 	std::uint32_t borderColorRgba = 0;
 	std::uint32_t fillTopRgba = 0;  // gradient stop at the grad direction origin

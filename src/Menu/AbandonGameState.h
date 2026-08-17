@@ -57,6 +57,8 @@ private:
 	bool _hdWideLayout = false;
 	/// HD-only data-loss copy (absent on the logical fallback).
 	Text* _hdMessage = nullptr;
+	/// HD-only command protocol strip (absent on the logical fallback).
+	Text* _hdProtocol = nullptr;
 	/// Owned; registered with the overlay while this state is top.
 	Calypso::CalypsoAbandonPopupUi* _hdAdapter = nullptr;
 #endif

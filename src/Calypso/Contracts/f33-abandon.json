@@ -1,24 +1,55 @@
 {
   "schema": 1,
-  "version": "f33.2026-08-17.1",
+  "version": "f33.2026-08-17.2",
+  "copy": {
+    "protocol": "CALYPSO COMMAND · SESSION PROTOCOL SP-01 · REV. 1.0.21 · EFFECTIVE 15.07.2061",
+    "title": "ABANDON GAME?",
+    "message": [
+      "Your progress since the last save will be lost.",
+      "This session will be permanently discarded."
+    ],
+    "safeAction": "KEEP PLAYING",
+    "destructiveAction": "ABANDON GAME"
+  },
+  "style": {
+    "cutCornerPx": 14,
+    "panelFillTop": "08191DEB",
+    "panelFillBottom": "041014E8",
+    "frame": "74FFB073",
+    "protocolText": "A9D8C7FF",
+    "divider": "74FFB04D",
+    "footerFill": "061B1CD6",
+    "footerDot": "74FFB01F",
+    "warning": "FFC14DFF",
+    "safeFill": "051417B8",
+    "safeBorder": "74FFB0CC",
+    "destructiveFill": "F25F5CFF",
+    "destructiveText": "071013FF"
+  },
   "layouts": {
     "wide": {
       "designWidth": 1280,
       "designHeight": 720,
-      "window":  { "x": 460, "y": 282, "width": 360, "height": 156 },
-      "title":   { "x": 460, "y": 293, "width": 360, "height": 26 },
-      "message": { "x": 476, "y": 324, "width": 328, "height": 60 },
-      "yes":     { "x": 468, "y": 388, "width": 130, "height": 46 },
-      "no":      { "x": 682, "y": 388, "width": 130, "height": 46 }
+      "window":  { "x": 350, "y": 230, "width": 580, "height": 260 },
+      "status":  { "x": 350, "y": 230, "width": 580, "height": 38 },
+      "warning": { "x": 382, "y": 306, "width": 32, "height": 32 },
+      "title":   { "x": 430, "y": 300, "width": 450, "height": 44 },
+      "message": { "x": 382, "y": 360, "width": 516, "height": 54 },
+      "footer":  { "x": 350, "y": 428, "width": 580, "height": 62 },
+      "yes":     { "x": 756, "y": 437, "width": 158, "height": 44 },
+      "no":      { "x": 588, "y": 437, "width": 158, "height": 44 }
     },
     "compact": {
       "designWidth": 740,
       "designHeight": 360,
-      "window":  { "x": 208, "y": 105, "width": 324, "height": 150 },
-      "title":   { "x": 208, "y": 116, "width": 324, "height": 24 },
-      "message": { "x": 224, "y": 146, "width": 292, "height": 60 },
-      "yes":     { "x": 220, "y": 210, "width": 116, "height": 44 },
-      "no":      { "x": 404, "y": 210, "width": 116, "height": 44 }
+      "window":  { "x": 70, "y": 60, "width": 600, "height": 240 },
+      "status":  { "x": 70, "y": 60, "width": 600, "height": 34 },
+      "warning": { "x": 98, "y": 125, "width": 28, "height": 28 },
+      "title":   { "x": 140, "y": 118, "width": 470, "height": 38 },
+      "message": { "x": 98, "y": 169, "width": 500, "height": 48 },
+      "footer":  { "x": 70, "y": 234, "width": 600, "height": 66 },
+      "yes":     { "x": 506, "y": 244, "width": 148, "height": 44 },
+      "no":      { "x": 346, "y": 244, "width": 148, "height": 44 }
     }
   },
   "motion": {

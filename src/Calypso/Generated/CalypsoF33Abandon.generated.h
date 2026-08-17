@@ -4,7 +4,30 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF33AbandonGen {
-inline constexpr const char* kContractVersion = "f33.2026-08-17.1";
+inline constexpr const char* kContractVersion = "f33.2026-08-17.2";
+
+// Approved F33 3+5 copy (2026-08-17).
+inline constexpr const char* kProtocol = "CALYPSO COMMAND · SESSION PROTOCOL SP-01 · REV. 1.0.21 · EFFECTIVE 15.07.2061";
+inline constexpr const char* kTitle = "ABANDON GAME?";
+inline constexpr const char* kMessageLine1 = "Your progress since the last save will be lost.";
+inline constexpr const char* kMessageLine2 = "This session will be permanently discarded.";
+inline constexpr const char* kSafeAction = "KEEP PLAYING";
+inline constexpr const char* kDestructiveAction = "ABANDON GAME";
+
+// F33-only chrome tokens (0xRRGGBBAA; design px).
+inline constexpr float kCutCornerPx = 14.000000f;
+inline constexpr std::uint32_t kPanelFillTop = 0x08191DEBu;
+inline constexpr std::uint32_t kPanelFillBottom = 0x041014E8u;
+inline constexpr std::uint32_t kFrame = 0x74FFB073u;
+inline constexpr std::uint32_t kProtocolText = 0xA9D8C7FFu;
+inline constexpr std::uint32_t kDivider = 0x74FFB04Du;
+inline constexpr std::uint32_t kFooterFill = 0x061B1CD6u;
+inline constexpr std::uint32_t kFooterDot = 0x74FFB01Fu;
+inline constexpr std::uint32_t kWarning = 0xFFC14DFFu;
+inline constexpr std::uint32_t kSafeFill = 0x051417B8u;
+inline constexpr std::uint32_t kSafeBorder = 0x74FFB0CCu;
+inline constexpr std::uint32_t kDestructiveFill = 0xF25F5CFFu;
+inline constexpr std::uint32_t kDestructiveText = 0x071013FFu;
 
 /// One design-space rectangle (design px).
 struct CalypsoF33GenRect { int x; int y; int w; int h; };
@@ -15,8 +38,11 @@ struct CalypsoF33GenLayout
 	int designWidth;
 	int designHeight;
 	CalypsoF33GenRect window;
+	CalypsoF33GenRect status;
+	CalypsoF33GenRect warning;
 	CalypsoF33GenRect title;
 	CalypsoF33GenRect message;
+	CalypsoF33GenRect footer;
 	CalypsoF33GenRect yes;
 	CalypsoF33GenRect no;
 };
@@ -24,9 +50,9 @@ struct CalypsoF33GenLayout
 inline constexpr CalypsoF33GenLayout kLayouts[] =
 {
 	// wide
-	{ 1280, 720, { 460, 282, 360, 156 }, { 460, 293, 360, 26 }, { 476, 324, 328, 60 }, { 468, 388, 130, 46 }, { 682, 388, 130, 46 } },
+	{ 1280, 720, { 350, 230, 580, 260 }, { 350, 230, 580, 38 }, { 382, 306, 32, 32 }, { 430, 300, 450, 44 }, { 382, 360, 516, 54 }, { 350, 428, 580, 62 }, { 756, 437, 158, 44 }, { 588, 437, 158, 44 } },
 	// compact
-	{ 740, 360, { 208, 105, 324, 150 }, { 208, 116, 324, 24 }, { 224, 146, 292, 60 }, { 220, 210, 116, 44 }, { 404, 210, 116, 44 } },
+	{ 740, 360, { 70, 60, 600, 240 }, { 70, 60, 600, 34 }, { 98, 125, 28, 28 }, { 140, 118, 470, 38 }, { 98, 169, 500, 48 }, { 70, 234, 600, 66 }, { 506, 244, 148, 44 }, { 346, 244, 148, 44 } },
 };
 inline constexpr int kLayoutCount = 2;
 

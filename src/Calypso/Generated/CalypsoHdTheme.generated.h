@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <cstring>
 namespace OpenXcom { namespace Calypso { namespace CalypsoHdThemeGen {
-inline constexpr const char* kContractVersion = "f33.2026-08-17.1";
+inline constexpr const char* kContractVersion = "f33.2026-08-17.2";
 
 // Semantic palette (0xRRGGBBAA).
 inline constexpr std::uint32_t kAccent = 0x74FFB0FFu;
@@ -54,12 +54,12 @@ inline constexpr float kHaloGlowRadiusPx = 22.000000f;
 inline constexpr float kTitleFontSizeScale = 0.800000f;
 inline constexpr float kBodyFontSizeScale = 1.000000f;
 inline constexpr int kLabelFontSizePx = 17;
-inline constexpr float kLabelFontSizeScaleWide = 0.950000f;
+inline constexpr float kLabelFontSizeScaleWide = 1.000000f;
 inline constexpr float kLabelFontSizeScaleCompact = 1.000000f;
 inline constexpr int kBodyFontSizePx = 15;
 inline constexpr float kBodyFontSizeScaleWide = 1.000000f;
 inline constexpr float kBodyFontSizeScaleCompact = 1.000000f;
-inline constexpr float kBodyFontWidthScaleWide = 1.003000f;
+inline constexpr float kBodyFontWidthScaleWide = 0.993000f;
 inline constexpr float kBodyFontWidthScaleCompact = 0.994000f;
 inline constexpr float kBodyWrapMeasureScaleWide = 0.912000f;
 inline constexpr float kBodyWrapMeasureScaleCompact = 1.000000f;
