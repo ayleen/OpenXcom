@@ -34,7 +34,9 @@ enum class CalypsoHarnessScenario
 	F33Abandon = 33,
 	F21Site = 51,
 	F21Transaction = 52,
-	F21Name = 53
+	F21Name = 53,
+	F21Defense = 54,
+	F21Destruction = 55
 };
 
 /// True iff `id` names a known scenario (the generic export never guesses).
@@ -43,7 +45,9 @@ inline bool calypsoHarnessScenarioValid(int id)
 	return id == static_cast<int>(CalypsoHarnessScenario::F33Abandon)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F21Site)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F21Transaction)
-		|| id == static_cast<int>(CalypsoHarnessScenario::F21Name);
+		|| id == static_cast<int>(CalypsoHarnessScenario::F21Name)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F21Defense)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F21Destruction);
 }
 
 /// Mutable session state of one harness run.

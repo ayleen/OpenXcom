@@ -18,9 +18,8 @@
  */
 /*
  * F21 (Calypso, Phase 46.F21): deterministic harness fixtures for the
- * new-base flow scenarios (site selection / merged transaction / first-base
- * naming). Defense and destruction scenarios follow in the next F21 slice
- * (they need Ufo/GeoscapeState fixtures).
+ * base-lifecycle family: site selection / merged transaction / first-base
+ * naming / base defense / partial destruction review.
  *
  * Whole file Emscripten-only.
  */
@@ -31,15 +30,25 @@
 
 #include "../Engine/Game.h"
 #include "../Engine/Screen.h"
-#include "../Geoscape/BuildNewBaseState.h"
+#include "../Geoscape/BaseDefenseState.h"
+#include "../Geoscape/BaseDestroyedState.h"
 #include "../Geoscape/BaseNameState.h"
+#include "../Geoscape/BuildNewBaseState.h"
 #include "../Geoscape/ConfirmNewBaseState.h"
+#include "../Geoscape/GeoscapeState.h"
 #include "../Geoscape/Globe.h"
 #include "../Mod/Mod.h"
+#include "../Mod/RuleAlienMission.h"
+#include "../Mod/RuleBaseFacility.h"
 #include "../Mod/RuleRegion.h"
+#include "../Mod/RuleUfo.h"
+#include "../Mod/UfoTrajectory.h"
+#include "../Savegame/AlienMission.h"
 #include "../Savegame/Base.h"
+#include "../Savegame/BaseFacility.h"
 #include "../Savegame/Region.h"
 #include "../Savegame/SavedGame.h"
+#include "../Savegame/Ufo.h"
 
 #include "CalypsoHdHarnessHostState.h"
 #include "CalypsoUiMetrics.h"
@@ -93,6 +102,40 @@ CalypsoF21Fixture calypsoF21HarnessFixture()
 	return f;
 }
 
+/// Deterministic attacking UFO for the defense/destruction fixtures: the
+/// first mod rule whose missile power is 0 (so BaseDefenseState keeps its
+/// Start/Skip buttons and nothing auto-runs), carrying a live mission so the
+/// OK route stays dereference-safe.
+Ufo* calypsoF21HarnessUfo()
+{
+	Game* g = getCurrentGame();
+	if (!g || !g->getMod()) return nullptr;
+	RuleUfo* rule = nullptr;
+	for (const std::string& name : g->getMod()->getUfosList())
+	{
+		RuleUfo* candidate = g->getMod()->getUfo(name, false);
+		if (candidate && candidate->getMissilePower() == 0)
+		{
+			rule = candidate;
+			break;
+		}
+	}
+	if (!rule) return nullptr;
+	Ufo* ufo = new Ufo(rule, 1);
+	const RuleAlienMission* missionRule = nullptr;
+	for (const std::string& name : g->getMod()->getAlienMissionList())
+	{
+		missionRule = g->getMod()->getAlienMission(name, false);
+		if (missionRule) break;
+	}
+	if (missionRule)
+	{
+		ufo->setMissionInfo(new AlienMission(*missionRule),
+			g->getMod()->getUfoTrajectory(UfoTrajectory::RETALIATION_ASSAULT_RUN, true));
+	}
+	return ufo;
+}
+
 } // namespace
 
 State* calypsoF21HarnessCreateTarget(CalypsoHarnessScenario id)
@@ -117,6 +160,45 @@ State* calypsoF21HarnessCreateTarget(CalypsoHarnessScenario id)
 		const CalypsoF21Fixture f = calypsoF21HarnessFixture();
 		if (!f.base) return nullptr;
 		return new BaseNameState(f.base, f.globe, true, true);
+	}
+	case CalypsoHarnessScenario::F21Defense:
+	{
+		const CalypsoF21Fixture f = calypsoF21HarnessFixture();
+		if (!f.base) return nullptr;
+		f.base->setName("ATLANTIS POST");
+		// A live (non-pushed) GeoscapeState keeps the OK route safe to click:
+		// with an ungarrisoned fixture base it routes into the undefended-base
+		// destruction popup instead of a battle.
+		GeoscapeState* geoscape = new GeoscapeState();
+		Ufo* ufo = calypsoF21HarnessUfo();
+		if (!ufo) { delete geoscape; return nullptr; }
+		ufo->setLongitude(f.base->getLongitude());
+		ufo->setLatitude(f.base->getLatitude());
+		return new BaseDefenseState(f.base, ufo, geoscape, false);
+	}
+	case CalypsoHarnessScenario::F21Destruction:
+	{
+		const CalypsoF21Fixture f = calypsoF21HarnessFixture();
+		if (!f.base) return nullptr;
+		f.base->setName("ATLANTIS POST");
+		Game* g = getCurrentGame();
+		if (!g || !g->getMod()) return nullptr;
+		Ufo* ufo = calypsoF21HarnessUfo();
+		if (!ufo) return nullptr;
+		ufo->setLongitude(f.base->getLongitude());
+		ufo->setLatitude(f.base->getLatitude());
+		// Missile-damage variant: populate the destroyed-facilities cache the
+		// same way Base::damageFacilities would, so the review list is non-empty.
+		auto* cache = f.base->getDestroyedFacilitiesCache();
+		int added = 0;
+		for (const std::string& name : g->getMod()->getBaseFacilitiesList())
+		{
+			RuleBaseFacility* rule = g->getMod()->getBaseFacility(name, false);
+			if (!rule || rule->isLift()) continue;
+			(*cache)[rule] += 1;
+			if (++added >= 3) break;
+		}
+		return new BaseDestroyedState(f.base, ufo, true, true);
 	}
 	default:
 		return nullptr;
@@ -149,6 +231,26 @@ void calypso_hd_harness_f21_name()
 {
 	OpenXcom::Calypso::calypsoHdHarnessOpen(
 		OpenXcom::Calypso::CalypsoHarnessScenario::F21Name,
+		OpenXcom::Calypso::CalypsoLayoutClass::Wide);
+}
+
+} // extern "C"
+
+extern "C" {
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_hd_harness_f21_defense()
+{
+	OpenXcom::Calypso::calypsoHdHarnessOpen(
+		OpenXcom::Calypso::CalypsoHarnessScenario::F21Defense,
+		OpenXcom::Calypso::CalypsoLayoutClass::Wide);
+}
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_hd_harness_f21_destruction()
+{
+	OpenXcom::Calypso::calypsoHdHarnessOpen(
+		OpenXcom::Calypso::CalypsoHarnessScenario::F21Destruction,
 		OpenXcom::Calypso::CalypsoLayoutClass::Wide);
 }
 
