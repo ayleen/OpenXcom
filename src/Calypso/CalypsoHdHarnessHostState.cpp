@@ -68,7 +68,11 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 	case CalypsoHarnessScenario::F33Abandon:
 		// F33 preview: the Geoscape-origin destructive exit confirmation.
 		return new AbandonGameState(OPT_GEOSCAPE);
+	default:
+		break;
 	}
+	// Phase 46.F21: new-base flow fixtures live in CalypsoF21Harness.cpp.
+	if (State* f21 = calypsoF21HarnessCreateTarget(id)) return f21;
 	return nullptr;
 }
 
@@ -174,11 +178,12 @@ bool calypsoHdHarnessReconfigure(CalypsoLayoutClass layout, bool sideBySide)
 	if (!calypsoHarnessReconfigure(s, layout)) return false;
 	calypsoHdHarnessSetSideBySide(sideBySide);
 	s.sideBySide = sideBySide;
-	// The active F33 target owns the physical adapter and its resize hook is
-	// the canonical way to re-capture the selected design-space rectangles.
+	// The active target owns the physical adapter and its resize hook is
+	// the canonical way to re-capture the selected design-space rectangles
+	// (generic since 46.F21; every harness target overrides resize).
 	if (Game* g = getCurrentGame())
 	{
-		if (auto* target = dynamic_cast<AbandonGameState*>(g->getTopState()))
+		if (State* target = g->getTopState())
 		{
 			int dx = 0;
 			int dy = 0;

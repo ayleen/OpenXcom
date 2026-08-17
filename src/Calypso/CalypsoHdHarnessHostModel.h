@@ -31,13 +31,19 @@ namespace Calypso
 /// Stable harness scenario ids (generic registry keys).
 enum class CalypsoHarnessScenario
 {
-	F33Abandon = 33
+	F33Abandon = 33,
+	F21Site = 51,
+	F21Transaction = 52,
+	F21Name = 53
 };
 
 /// True iff `id` names a known scenario (the generic export never guesses).
 inline bool calypsoHarnessScenarioValid(int id)
 {
-	return id == static_cast<int>(CalypsoHarnessScenario::F33Abandon);
+	return id == static_cast<int>(CalypsoHarnessScenario::F33Abandon)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F21Site)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F21Transaction)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F21Name);
 }
 
 /// Mutable session state of one harness run.
