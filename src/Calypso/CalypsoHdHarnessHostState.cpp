@@ -222,6 +222,38 @@ int calypso_hd_harness_open(int scenarioId, int layoutClass, int sideBySide)
 }
 
 EMSCRIPTEN_KEEPALIVE
+int calypso_hd_harness_switch(int scenarioId, int layoutClass, int sideBySide)
+{
+	using OpenXcom::Calypso::CalypsoLayoutClass;
+	using OpenXcom::Calypso::CalypsoHarnessScenario;
+	// Multi-family catalogs (46.F21) switch the previewed scenario while the
+	// harness is live. A plain open is rejected in that state ("already
+	// open"), so tear the current pair down first: pop the target, pop the
+	// opaque host (its think-self-pop is bypassed), and reset the session
+	// BEFORE the deferred target destructor runs (its calypsoHdHarnessClose
+	// is idempotent against an already-closed session).
+	if (!OpenXcom::Calypso::calypsoHarnessScenarioValid(scenarioId))
+	{
+		OpenXcom::Calypso::warnUnknownScenario(scenarioId);
+		return 0;
+	}
+	OpenXcom::Game* g = OpenXcom::getCurrentGame();
+	OpenXcom::Calypso::CalypsoHarnessSession& s = OpenXcom::Calypso::calypsoHarnessSession();
+	if (s.hostUp && g && g->getTopState())
+	{
+		g->popState(); // the harness target
+		g->popState(); // the opaque host below it
+		OpenXcom::Calypso::calypsoHarnessClose(s);
+		OpenXcom::Calypso::calypsoHdHarnessSetSideBySide(false);
+	}
+	const CalypsoLayoutClass layout =
+		layoutClass == 1 ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact;
+	return OpenXcom::Calypso::calypsoHdHarnessOpen(
+		static_cast<CalypsoHarnessScenario>(scenarioId), layout,
+		sideBySide != 0) ? 1 : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
 void calypso_hd_harness_set_motion_pct(int pct)
 {
 	OpenXcom::Calypso::calypsoHarnessSetMotionHold(
