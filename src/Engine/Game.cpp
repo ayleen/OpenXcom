@@ -33,6 +33,9 @@
 #include <SDL_ttf.h>
 #include "State.h"
 #include "Screen.h"
+#ifdef __EMSCRIPTEN__
+#include "GpuInit.h"
+#endif
 #include "Sound.h"
 #include "Music.h"
 #include "Language.h"
@@ -123,6 +126,13 @@ Game::Game(const std::string &title) : _screen(0), _cursor(0), _lang(0), _save(0
 
 	// Create cursor
 	_cursor = new Cursor(9, 13);
+#ifdef __EMSCRIPTEN__
+	// Register the cursor as a post-composite GPU pass for every browser scene,
+	// not only Battlescape. HD modal windows are rendered after the SDL surface;
+	// the GPU cursor pass therefore remains visible above an Abandon popup.
+	if (GpuInit::ready())
+		_cursor->initGPU(*_screen);
+#endif
 
 	// Create invisible hardware cursor to workaround bug with absolute positioning pointing devices
 	SDL_ShowCursor(SDL_ENABLE);
