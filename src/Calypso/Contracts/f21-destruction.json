@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "hd.2026-08-18.9",
+  "version": "hd.2026-08-18.11",
   "visualProfile": "command-card-v1",
   "copy": {
     "protocol": "CALYPSO COMMAND · LOSS RECORD LR-21 · REV. 1.0.21 · EFFECTIVE 15.07.2061",
@@ -12,45 +12,221 @@
     "warning": "This base is permanently deleted. No refund. No undo.",
     "acknowledge": "ACKNOWLEDGE"
   },
-  "parts": ["window", "status", "glyph", "title", "subtitle", "list", "warning", "footer", "acknowledge"],
-  "actions": ["acknowledge"],
-  "engineTextScale": { "title": 0.88, "data": 0.9, "body": 0.92, "input": 0.9, "action": 0.9 },
+  "parts": [
+    "window",
+    "status",
+    "glyph",
+    "title",
+    "subtitle",
+    "list",
+    "warning",
+    "footer",
+    "acknowledge"
+  ],
+  "actions": [
+    "acknowledge"
+  ],
+  "engineTextScale": {
+    "title": 0.88,
+    "data": 0.9,
+    "body": 0.92,
+    "input": 0.9,
+    "action": 0.9
+  },
   "spacingRules": [
-    { "id": "status-title", "kind": "gap", "first": "status", "second": "title", "axis": "vertical", "wide": 16, "compact": 10 },
-    { "id": "glyph-title", "kind": "gap", "first": "glyph", "second": "title", "axis": "horizontal", "wide": 8, "compact": 8 },
-    { "id": "title-subtitle", "kind": "gap", "first": "title", "second": "subtitle", "axis": "vertical", "wide": 12, "compact": 8 },
-    { "id": "subtitle-list", "kind": "gap", "first": "subtitle", "second": "list", "axis": "vertical", "wide": 16, "compact": 12 },
-    { "id": "list-warning", "kind": "gap", "first": "list", "second": "warning", "axis": "vertical", "wide": 16, "compact": 8 },
-    { "id": "warning-footer", "kind": "gap", "first": "warning", "second": "footer", "axis": "vertical", "wide": 16, "compact": 8 },
-    { "id": "subtitle-left", "kind": "inset", "container": "window", "child": "subtitle", "edges": ["left"], "wide": 32, "compact": 24 },
-    { "id": "acknowledge-right", "kind": "inset", "container": "window", "child": "acknowledge", "edges": ["right"], "wide": 36, "compact": 24 }
+    {
+      "id": "status-title",
+      "kind": "gap",
+      "first": "status",
+      "second": "title",
+      "axis": "vertical",
+      "wide": 16,
+      "compact": 10
+    },
+    {
+      "id": "glyph-title",
+      "kind": "gap",
+      "first": "glyph",
+      "second": "title",
+      "axis": "horizontal",
+      "wide": 8,
+      "compact": 8
+    },
+    {
+      "id": "title-subtitle",
+      "kind": "gap",
+      "first": "title",
+      "second": "subtitle",
+      "axis": "vertical",
+      "wide": 12,
+      "compact": 8
+    },
+    {
+      "id": "subtitle-list",
+      "kind": "gap",
+      "first": "subtitle",
+      "second": "list",
+      "axis": "vertical",
+      "wide": 16,
+      "compact": 12
+    },
+    {
+      "id": "list-warning",
+      "kind": "gap",
+      "first": "list",
+      "second": "warning",
+      "axis": "vertical",
+      "wide": 16,
+      "compact": 8
+    },
+    {
+      "id": "warning-footer",
+      "kind": "gap",
+      "first": "warning",
+      "second": "footer",
+      "axis": "vertical",
+      "wide": 16,
+      "compact": 8
+    },
+    {
+      "id": "subtitle-left",
+      "kind": "inset",
+      "container": "window",
+      "child": "subtitle",
+      "edges": [
+        "left"
+      ],
+      "wide": 32,
+      "compact": 24
+    },
+    {
+      "id": "acknowledge-right",
+      "kind": "inset",
+      "container": "window",
+      "child": "acknowledge",
+      "edges": [
+        "right"
+      ],
+      "wide": 36,
+      "compact": 24
+    }
   ],
   "layouts": {
     "wide": {
       "designWidth": 1280,
       "designHeight": 720,
-      "window":       { "x": 340, "y": 150, "width": 600, "height": 430 },
-      "status":       { "x": 340, "y": 150, "width": 600, "height": 34 },
-      "glyph":        { "x": 372, "y": 204, "width": 30, "height": 30 },
-      "title":        { "x": 418, "y": 200, "width": 480, "height": 40 },
-      "subtitle":     { "x": 372, "y": 252, "width": 536, "height": 42 },
-      "list":         { "x": 372, "y": 310, "width": 536, "height": 110 },
-      "warning":      { "x": 372, "y": 436, "width": 536, "height": 36 },
-      "footer":       { "x": 340, "y": 488, "width": 600, "height": 62 },
-      "acknowledge":  { "x": 704, "y": 496, "width": 200, "height": 44 }
+      "window": {
+        "x": 340,
+        "y": 140,
+        "width": 600,
+        "height": 440
+      },
+      "status": {
+        "x": 340,
+        "y": 140,
+        "width": 600,
+        "height": 34
+      },
+      "glyph": {
+        "x": 372,
+        "y": 190,
+        "width": 30,
+        "height": 30
+      },
+      "title": {
+        "x": 418,
+        "y": 190,
+        "width": 480,
+        "height": 44
+      },
+      "subtitle": {
+        "x": 372,
+        "y": 246,
+        "width": 536,
+        "height": 44
+      },
+      "list": {
+        "x": 372,
+        "y": 306,
+        "width": 536,
+        "height": 112
+      },
+      "warning": {
+        "x": 372,
+        "y": 434,
+        "width": 536,
+        "height": 32
+      },
+      "footer": {
+        "x": 340,
+        "y": 482,
+        "width": 600,
+        "height": 62
+      },
+      "acknowledge": {
+        "x": 700,
+        "y": 490,
+        "width": 200,
+        "height": 44
+      }
     },
     "compact": {
       "designWidth": 740,
       "designHeight": 360,
-      "window":       { "x": 40, "y": 14, "width": 660, "height": 336 },
-      "status":       { "x": 40, "y": 14, "width": 660, "height": 28 },
-      "glyph":        { "x": 64, "y": 56, "width": 26, "height": 26 },
-      "title":        { "x": 100, "y": 54, "width": 540, "height": 36 },
-      "subtitle":     { "x": 64, "y": 98, "width": 580, "height": 36 },
-      "list":         { "x": 64, "y": 146, "width": 580, "height": 96 },
-      "warning":      { "x": 64, "y": 250, "width": 580, "height": 32 },
-      "footer":       { "x": 40, "y": 290, "width": 660, "height": 52 },
-      "acknowledge":  { "x": 466, "y": 294, "width": 210, "height": 44 }
+      "window": {
+        "x": 40,
+        "y": 14,
+        "width": 660,
+        "height": 342
+      },
+      "status": {
+        "x": 40,
+        "y": 14,
+        "width": 660,
+        "height": 28
+      },
+      "glyph": {
+        "x": 64,
+        "y": 56,
+        "width": 26,
+        "height": 26
+      },
+      "title": {
+        "x": 100,
+        "y": 54,
+        "width": 540,
+        "height": 40
+      },
+      "subtitle": {
+        "x": 64,
+        "y": 106,
+        "width": 580,
+        "height": 38
+      },
+      "list": {
+        "x": 64,
+        "y": 156,
+        "width": 580,
+        "height": 96
+      },
+      "warning": {
+        "x": 64,
+        "y": 264,
+        "width": 580,
+        "height": 32
+      },
+      "footer": {
+        "x": 40,
+        "y": 304,
+        "width": 660,
+        "height": 52
+      },
+      "acknowledge": {
+        "x": 466,
+        "y": 308,
+        "width": 210,
+        "height": 44
+      }
     }
   },
   "motion": {

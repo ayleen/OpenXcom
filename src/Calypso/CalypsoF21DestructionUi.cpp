@@ -174,7 +174,7 @@ void CalypsoF21DestructionUi::collect(CalypsoHdFrameBuilder& builder) const
 		CalypsoActionTone::Destructive, f21ButtonVisualState(_state->_btnOk)),
 		_state->_btnOk, ROLE_ACK);
 
-	p.text(_state->_hdTitle, heading, _state->_hdTitle->getText(), CalypsoHdTheme::kGold,
+	p.text(_state->_hdTitle, heading, _state->_hdTitle->getText(), CalypsoHdTheme::kNearWhite,
 		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_TITLE,
 		CalypsoHdTheme::kTitleTrackingEm, titlePx);
 	p.textRect(glyphRect, nullptr, heading, "!", CalypsoHdThemeGen::kGold,

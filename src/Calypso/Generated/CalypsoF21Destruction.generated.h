@@ -4,7 +4,7 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF21DestructionGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-18.9";
+inline constexpr const char* kContractVersion = "hd.2026-08-18.11";
 
 /// One design-space rectangle (design px).
 struct CalypsoF21DestructionGenRect { int x; int y; int w; int h; };
@@ -28,9 +28,9 @@ struct CalypsoF21DestructionGenLayout
 inline constexpr CalypsoF21DestructionGenLayout kLayouts[] =
 {
 	// wide
-	{ 1280, 720, { 340, 150, 600, 430 }, { 340, 150, 600, 34 }, { 372, 204, 30, 30 }, { 418, 200, 480, 40 }, { 372, 252, 536, 42 }, { 372, 310, 536, 110 }, { 372, 436, 536, 36 }, { 340, 488, 600, 62 }, { 704, 496, 200, 44 } },
+	{ 1280, 720, { 340, 140, 600, 440 }, { 340, 140, 600, 34 }, { 372, 190, 30, 30 }, { 418, 190, 480, 44 }, { 372, 246, 536, 44 }, { 372, 306, 536, 112 }, { 372, 434, 536, 32 }, { 340, 482, 600, 62 }, { 700, 490, 200, 44 } },
 	// compact
-	{ 740, 360, { 40, 14, 660, 336 }, { 40, 14, 660, 28 }, { 64, 56, 26, 26 }, { 100, 54, 540, 36 }, { 64, 98, 580, 36 }, { 64, 146, 580, 96 }, { 64, 250, 580, 32 }, { 40, 290, 660, 52 }, { 466, 294, 210, 44 } },
+	{ 740, 360, { 40, 14, 660, 342 }, { 40, 14, 660, 28 }, { 64, 56, 26, 26 }, { 100, 54, 540, 40 }, { 64, 106, 580, 38 }, { 64, 156, 580, 96 }, { 64, 264, 580, 32 }, { 40, 304, 660, 52 }, { 466, 308, 210, 44 } },
 };
 inline constexpr int kLayoutCount = 2;
 

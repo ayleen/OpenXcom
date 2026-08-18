@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "hd.2026-08-18.9",
+  "version": "hd.2026-08-18.11",
   "visualProfile": "command-card-v1",
   "copy": {
     "protocol": "CALYPSO · BASE REGISTRY BR-21 · REV. 1.0.21 · 15.07.2061",
@@ -9,40 +9,186 @@
     "hint": "Choose a permanent registry name. Press Enter to confirm.",
     "ok": "CONFIRM NAME"
   },
-  "parts": ["window", "status", "title", "inputFrame", "nameEdit", "hint", "footer", "ok"],
-  "actions": ["ok"],
+  "parts": [
+    "window",
+    "status",
+    "title",
+    "inputFrame",
+    "nameEdit",
+    "hint",
+    "footer",
+    "ok"
+  ],
+  "actions": [
+    "ok"
+  ],
   "spacingRules": [
-    { "id": "status-title", "kind": "gap", "first": "status", "second": "title", "axis": "vertical", "wide": 20, "compact": 14 },
-    { "id": "title-input", "kind": "gap", "first": "title", "second": "inputFrame", "axis": "vertical", "wide": 22, "compact": 16 },
-    { "id": "input-hint", "kind": "gap", "first": "inputFrame", "second": "hint", "axis": "vertical", "wide": 12, "compact": 10 },
-    { "id": "hint-footer", "kind": "gap", "first": "hint", "second": "footer", "axis": "vertical", "wide": 14, "compact": 18 },
-    { "id": "window-title", "kind": "inset", "container": "window", "child": "title", "edges": ["left", "right"], "wide": 40, "compact": 30 },
-    { "id": "footer-ok", "kind": "inset", "container": "footer", "child": "ok", "edges": ["right", "top", "bottom"], "wide": 10, "compact": 12 }
+    {
+      "id": "status-title",
+      "kind": "gap",
+      "first": "status",
+      "second": "title",
+      "axis": "vertical",
+      "wide": 20,
+      "compact": 14
+    },
+    {
+      "id": "title-input",
+      "kind": "gap",
+      "first": "title",
+      "second": "inputFrame",
+      "axis": "vertical",
+      "wide": 22,
+      "compact": 16
+    },
+    {
+      "id": "input-hint",
+      "kind": "gap",
+      "first": "inputFrame",
+      "second": "hint",
+      "axis": "vertical",
+      "wide": 12,
+      "compact": 10
+    },
+    {
+      "id": "hint-footer",
+      "kind": "gap",
+      "first": "hint",
+      "second": "footer",
+      "axis": "vertical",
+      "wide": 14,
+      "compact": 18
+    },
+    {
+      "id": "window-title",
+      "kind": "inset",
+      "container": "window",
+      "child": "title",
+      "edges": [
+        "left",
+        "right"
+      ],
+      "wide": 40,
+      "compact": 30
+    },
+    {
+      "id": "footer-ok",
+      "kind": "inset",
+      "container": "footer",
+      "child": "ok",
+      "edges": [
+        "right",
+        "top",
+        "bottom"
+      ],
+      "wide": 10,
+      "compact": 12
+    }
   ],
   "layouts": {
     "wide": {
       "designWidth": 1280,
       "designHeight": 720,
-      "window":     { "x": 390, "y": 210, "width": 500, "height": 300 },
-      "status":     { "x": 390, "y": 210, "width": 500, "height": 34 },
-      "title":      { "x": 430, "y": 264, "width": 420, "height": 40 },
-      "inputFrame": { "x": 430, "y": 326, "width": 420, "height": 48 },
-      "nameEdit":   { "x": 430, "y": 326, "width": 420, "height": 48 },
-      "hint":       { "x": 430, "y": 386, "width": 420, "height": 30 },
-      "footer":     { "x": 390, "y": 430, "width": 500, "height": 64 },
-      "ok":         { "x": 686, "y": 440, "width": 180, "height": 44 }
+      "window": {
+        "x": 390,
+        "y": 210,
+        "width": 500,
+        "height": 300
+      },
+      "status": {
+        "x": 390,
+        "y": 210,
+        "width": 500,
+        "height": 34
+      },
+      "title": {
+        "x": 430,
+        "y": 264,
+        "width": 420,
+        "height": 40
+      },
+      "inputFrame": {
+        "x": 430,
+        "y": 326,
+        "width": 420,
+        "height": 48
+      },
+      "nameEdit": {
+        "x": 430,
+        "y": 326,
+        "width": 420,
+        "height": 48
+      },
+      "hint": {
+        "x": 430,
+        "y": 386,
+        "width": 420,
+        "height": 30
+      },
+      "footer": {
+        "x": 390,
+        "y": 430,
+        "width": 500,
+        "height": 64
+      },
+      "ok": {
+        "x": 686,
+        "y": 440,
+        "width": 180,
+        "height": 44
+      }
     },
     "compact": {
       "designWidth": 740,
       "designHeight": 360,
-      "window":     { "x": 70, "y": 42, "width": 600, "height": 276 },
-      "status":     { "x": 70, "y": 42, "width": 600, "height": 28 },
-      "title":      { "x": 100, "y": 84, "width": 540, "height": 32 },
-      "inputFrame": { "x": 100, "y": 132, "width": 540, "height": 44 },
-      "nameEdit":   { "x": 100, "y": 132, "width": 540, "height": 44 },
-      "hint":       { "x": 100, "y": 186, "width": 540, "height": 28 },
-      "footer":     { "x": 70, "y": 232, "width": 600, "height": 70 },
-      "ok":         { "x": 452, "y": 244, "width": 194, "height": 46 }
+      "window": {
+        "x": 70,
+        "y": 42,
+        "width": 600,
+        "height": 276
+      },
+      "status": {
+        "x": 70,
+        "y": 42,
+        "width": 600,
+        "height": 28
+      },
+      "title": {
+        "x": 100,
+        "y": 84,
+        "width": 540,
+        "height": 32
+      },
+      "inputFrame": {
+        "x": 100,
+        "y": 132,
+        "width": 540,
+        "height": 44
+      },
+      "nameEdit": {
+        "x": 100,
+        "y": 132,
+        "width": 540,
+        "height": 44
+      },
+      "hint": {
+        "x": 100,
+        "y": 186,
+        "width": 540,
+        "height": 28
+      },
+      "footer": {
+        "x": 70,
+        "y": 232,
+        "width": 600,
+        "height": 70
+      },
+      "ok": {
+        "x": 452,
+        "y": 244,
+        "width": 194,
+        "height": 46
+      }
     }
   },
   "motion": {

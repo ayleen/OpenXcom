@@ -181,8 +181,7 @@ void CalypsoF21DefenseUi::collect(CalypsoHdFrameBuilder& builder) const
 	}
 	if (_state->_btnAbort && _state->_btnAbort->getVisible())
 	{
-		p.styled(f21WidgetRect(_state->_btnAbort), f21ButtonStyleFor(
-			CalypsoActionTone::Destructive, f21ButtonVisualState(_state->_btnAbort)),
+		p.styled(f21WidgetRect(_state->_btnAbort), f21QuietButtonStyle(f21ButtonVisualState(_state->_btnAbort)),
 			_state->_btnAbort, ROLE_SKIP);
 		p.text(_state->_btnAbort, heading, _state->_btnAbort->getText(), CalypsoHdTheme::kNearWhite,
 			CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, ROLE_SKIP,
@@ -198,7 +197,7 @@ void CalypsoF21DefenseUi::collect(CalypsoHdFrameBuilder& builder) const
 			CalypsoHdTheme::kLabelTrackingEm, actionPx);
 	}
 
-	p.text(_state->_txtTitle, heading, _state->_txtTitle->getText(), CalypsoHdTheme::kGold,
+	p.text(_state->_txtTitle, heading, _state->_txtTitle->getText(), CalypsoHdTheme::kNearWhite,
 		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_TITLE,
 		CalypsoHdTheme::kTitleTrackingEm, titlePx);
 	p.text(_state->_hdDefenses, mono, _state->_hdDefenses->getText(), CalypsoHdThemeGen::kAccent,

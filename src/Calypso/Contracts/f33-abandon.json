@@ -1,8 +1,8 @@
 {
   "schema": 1,
-  "version": "hd.2026-08-18.9",
+  "version": "hd.2026-08-18.11",
   "copy": {
-    "protocol": "CALYPSO COMMAND \u00b7 SESSION PROTOCOL SP-01 \u00b7 REV. 1.0.21 \u00b7 EFFECTIVE 15.07.2061",
+    "protocol": "CALYPSO COMMAND · SESSION PROTOCOL SP-01 · REV. 1.0.21 · EFFECTIVE 15.07.2061",
     "title": "ABANDON GAME?",
     "message": [
       "Your progress since the last save will be lost.",
