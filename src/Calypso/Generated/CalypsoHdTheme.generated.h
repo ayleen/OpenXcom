@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <cstring>
 namespace OpenXcom { namespace Calypso { namespace CalypsoHdThemeGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-18.13";
+inline constexpr const char* kContractVersion = "hd.2026-08-18.17";
 
 // Semantic palette (0xRRGGBBAA).
 inline constexpr std::uint32_t kAccent = 0x74FFB0FFu;
@@ -79,6 +79,7 @@ inline constexpr int kF21DataWidePx = 15;
 inline constexpr int kF21DataCompactPx = 12;
 inline constexpr int kF21BodyWidePx = 15;
 inline constexpr int kF21BodyCompactPx = 13;
+inline constexpr float kF21BodyLineHeight = 1.350000f;
 inline constexpr int kF21InputWidePx = 18;
 inline constexpr int kF21InputCompactPx = 15;
 inline constexpr int kF21ActionWidePx = 17;

@@ -4,7 +4,7 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF21SiteGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-18.13";
+inline constexpr const char* kContractVersion = "hd.2026-08-18.17";
 
 /// One design-space rectangle (design px).
 struct CalypsoF21SiteGenRect { int x; int y; int w; int h; };
@@ -35,14 +35,14 @@ struct CalypsoF21SiteGenLayout
 inline constexpr CalypsoF21SiteGenLayout kLayouts[] =
 {
 	// wide
-	{ 1280, 720, { 0, 0, 1280, 720 }, { 20, 18, 1240, 114 }, { 20, 18, 1240, 30 }, { 52, 56, 620, 50 }, { 52, 112, 190, 18 }, { 776, 54, 460, 30 }, { 776, 92, 460, 30 }, { 28, 510, 680, 182 }, { 44, 528, 648, 1 }, { 350, 532, 1, 136 }, { 40, 670, 656, 14 }, { 56, 540, 286, 28 }, { 360, 540, 320, 28 }, { 56, 600, 286, 28 }, { 360, 592, 320, 58 }, { 1092, 640, 160, 44 } },
+	{ 1280, 720, { 0, 0, 1280, 720 }, { 20, 18, 1240, 126 }, { 20, 18, 1240, 30 }, { 52, 56, 620, 50 }, { 52, 112, 190, 18 }, { 776, 54, 460, 30 }, { 776, 92, 460, 30 }, { 28, 510, 680, 202 }, { 44, 528, 648, 1 }, { 350, 532, 1, 156 }, { 40, 692, 656, 14 }, { 56, 540, 286, 28 }, { 360, 540, 320, 28 }, { 56, 596, 286, 82 }, { 360, 590, 320, 82 }, { 1094, 640, 158, 44 } },
 	// compact
-	{ 740, 360, { 0, 0, 740, 360 }, { 8, 6, 724, 104 }, { 8, 6, 724, 30 }, { 28, 42, 416, 44 }, { 28, 90, 160, 16 }, { 460, 42, 260, 24 }, { 460, 74, 260, 24 }, { 10, 202, 540, 148 }, { 26, 220, 508, 1 }, { 258, 224, 1, 102 }, { 22, 328, 516, 14 }, { 30, 230, 220, 22 }, { 266, 230, 258, 22 }, { 30, 274, 220, 24 }, { 266, 266, 258, 58 }, { 584, 306, 148, 44 } },
+	{ 740, 360, { 0, 0, 740, 360 }, { 8, 6, 724, 112 }, { 8, 6, 724, 30 }, { 28, 42, 416, 44 }, { 28, 90, 160, 16 }, { 460, 42, 260, 24 }, { 460, 74, 260, 24 }, { 10, 198, 540, 160 }, { 26, 216, 508, 1 }, { 258, 220, 1, 112 }, { 22, 340, 516, 14 }, { 30, 226, 220, 22 }, { 266, 226, 258, 22 }, { 30, 266, 220, 66 }, { 266, 262, 258, 66 }, { 584, 306, 148, 44 } },
 };
 inline constexpr int kLayoutCount = 2;
 
 // Physical Engine-TTF calibration against the CSS reference cap height.
-inline constexpr float kEngineTextScaleTitle = 0.880000f;
+inline constexpr float kEngineTextScaleTitle = 0.780000f;
 inline constexpr float kEngineTextScaleData = 0.900000f;
 inline constexpr float kEngineTextScaleBody = 0.920000f;
 inline constexpr float kEngineTextScaleInput = 0.900000f;

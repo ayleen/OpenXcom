@@ -465,8 +465,8 @@ void Screen::flip()
 	}
 
 #ifdef __EMSCRIPTEN__
-	// Phase 46.2-HD failure policy: a post-claim HD draw failure skips present
-	// for this frame; the controller latches a wholly-logical next frame.
+	// Enabled HD routes throw before this boundary on any draw failure. The bool
+	// remains the dormant/harness presentation gate; it is not a vanilla retry.
 	if (hdPresentOk)
 #endif
 	SDL_RenderPresent(_renderer);

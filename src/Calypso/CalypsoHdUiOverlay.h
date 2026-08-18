@@ -15,15 +15,14 @@
  *                      visible State::blit): freeze metrics, advance the frame,
  *                      reset per-frame state, ask the active family adapter to
  *                      collect an immutable description, then raster+upload each
- *                      atomic subgroup and COMMIT claims + draws only for the
- *                      subgroups that are fully Ready. A failure before commit
- *                      takes no claims -> the widgets render logically.
+ *                      atomic subgroup and COMMIT claims + draws only when the
+ *                      active HD route is fully ready. Any preparation failure
+ *                      throws; an enabled route never exposes vanilla widgets.
  *   (State::blit)   -- claimed widgets skip their blit (widgetClaimed()).
  *   renderStages()  -- called after the legacy composite in Screen::flip():
  *                      draws the already-committed, already-uploaded items in
  *                      deterministic order behind one GL state guard. A draw
- *                      failure discards claims, latches a wholly-logical next
- *                      frame, and returns false so Screen skips SDL_RenderPresent.
+ *                      failure throws before SDL_RenderPresent.
  *
  * With no adapter committing this frame the queue is DORMANT: prepareFrame does
  * the cheap begin only, renderStages early-returns, and native behaviour is
@@ -43,6 +42,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <vector>
 #include <unordered_map>
 #include <unordered_set>
@@ -66,14 +66,15 @@ public:
 	/// canvas backing store, freeze ONE presentation-metrics snapshot, advance
 	/// the frame controller (clearing last frame's claims), then -- if physical
 	/// output is permitted and the active adapter feeds `topState` -- collect,
-	/// raster, upload, and commit the Ready subgroups. `logicalWidth/Height` are
+	/// raster, upload, and commit every subgroup. An active adapter fails fast on
+	/// any preparation error; it never falls back to vanilla. `logicalWidth/Height` are
 	/// the engine's logical base resolution (Options::baseX/YResolution).
 	void prepareFrame(int logicalWidth, int logicalHeight, const void* topState);
 
 	/// After the legacy composite in Screen::flip(): draw this frame's committed
 	/// items in order behind one GL state guard. Dormant (no-op, returns true)
-	/// unless a subgroup committed this frame. Returns false if a post-commit
-	/// draw failed (the caller then skips SDL_RenderPresent).
+	/// unless a subgroup committed this frame. An enabled HD route throws if its
+	/// committed items cannot be drawn.
 	bool renderStages(SDL_Renderer* renderer);
 
 	/// Register/clear the active family adapter. A state registers itself while
@@ -128,13 +129,13 @@ private:
 	};
 
 	void beginFrame(int logicalWidth, int logicalHeight);
+	[[noreturn]] void failHdRoute(const std::string& detail);
 	void ensureGpu();
 	void onContextRestored();
 
-	/// Try to resolve every item of one subgroup to an uploaded texture. On full
-	/// success append the resolved draws to `out` and return true (caller then
-	/// commits its claims); on any failure return false and commit nothing.
-	bool resolveSubgroup(const CalypsoHdSubgroup& subgroup, std::vector<ResolvedDraw>& out);
+	/// Resolve every item of one subgroup to an uploaded texture. Appends all
+	/// resolved draws to `out`; any failure throws instead of exposing vanilla.
+	void resolveSubgroup(const CalypsoHdSubgroup& subgroup, std::vector<ResolvedDraw>& out);
 
 	/// Core NDC draw of `tex` into a physical device-pixel rect, sampling the
 	/// texture over the UV sub-rect [u0,v0]-[u1,v1] (default full 0..1). Returns

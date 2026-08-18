@@ -381,6 +381,14 @@ inline void CalypsoF21Painter::textRect(const CalypsoLogicalRect& sourceRect,
 	key.wrapWidth = wrapWidth;
 	key.horizontalScalePermille = std::max(1, (int)calypsoHdRoundToInt(
 		physicalScaleX / physicalScaleY * 1000.0));
+	if (hint > 1)
+	{
+		// Force every F21 multi-line item through the guarded per-line
+		// compositor. The stock wrapped surface has no contract-owned line skip
+		// and has shaved final-line pixels in the pinned Emscripten SDL_ttf port.
+		key.lineHeightPx = std::max(1, (int)calypsoHdRoundToInt(
+			physicalPixelHeight * CalypsoHdThemeGen::kF21BodyLineHeight));
+	}
 	key.colorRgba = color;
 	key.direction = CalypsoTextDirection::LTR;
 	if (trackingEm > 0.0 && wrapWidth == 0)

@@ -6,6 +6,7 @@
 #ifdef __EMSCRIPTEN__
 
 #include "CalypsoHdUiOverlay.h"
+#include "CalypsoHdHarnessHostState.h"
 #include "CalypsoViewportMailbox.h"
 #include "CalypsoGlStateGuard.h"
 
@@ -16,9 +17,11 @@
 #include <SDL.h>
 #include <SDL_render.h>
 #include <set>
+#include <string>
 #include <unordered_set>
 #include <vector>
 
+#include "../Engine/Exception.h"
 #include "../Engine/GpuInit.h"
 #include "../Engine/GpuTexture.h"
 #include "../Engine/Shader.h"
@@ -29,6 +32,18 @@ namespace OpenXcom
 {
 namespace Calypso
 {
+
+[[noreturn]] void CalypsoHdUiOverlay::failHdRoute(const std::string& detail)
+{
+	// The exception cancels the Emscripten loop before State::blit, but clear any
+	// earlier subgroup commits as well so no caller can observe partial claims
+	// while unwinding. Do not latch a logical retry: enabled HD routes are fatal.
+	_controller.claims().clear();
+	_ptrClaim.clear();
+	_drawItems.clear();
+	_activeThisFrame = false;
+	throw Exception("Calypso HD route failed: " + detail);
+}
 
 CalypsoHdUiOverlay& CalypsoHdUiOverlay::instance()
 {
@@ -89,8 +104,6 @@ void CalypsoHdUiOverlay::prepareFrame(int logicalWidth, int logicalHeight, const
 {
 	beginFrame(logicalWidth, logicalHeight);
 
-	if (!_mayGoPhysical || !_frozenMetrics.valid()) return;
-
 	// Drive the registered adapter (if any) whose state is the current top state,
 	// so a lower popup regains HD when an upper one is dismissed (GLM #3).
 	const CalypsoHdFamilyAdapter* active = nullptr;
@@ -99,6 +112,10 @@ void CalypsoHdUiOverlay::prepareFrame(int logicalWidth, int logicalHeight, const
 		if (a->topState() == topState) { active = a; break; }
 	}
 	if (!active) return;
+	if (!_frozenMetrics.valid())
+		failHdRoute("invalid presentation metrics");
+	if (!_mayGoPhysical)
+		failHdRoute("physical presentation is blocked after context loss or restore");
 
 	// The pre-blit GPU preparation (shader/VAO creation + texture uploads) touches
 	// GL state that SDL's renderer caches; bracket it in one state guard so the
@@ -107,33 +124,34 @@ void CalypsoHdUiOverlay::prepareFrame(int logicalWidth, int logicalHeight, const
 	{
 		CalypsoGlStateGuard guard;
 
-		// GL must be ready to raster/upload; if not, no subgroup can be Ready and
-		// the whole popup renders logically this frame (caches warm next frame).
+		// An enabled HD route is fail-fast. Resource preparation is synchronous;
+		// failure cannot be hidden behind a logical/vanilla frame.
 		ensureGpu();
-		if (!_glReady) return;
+		if (!_glReady)
+			failHdRoute("GPU resources are unavailable");
 
 		CalypsoHdFrameBuilder builder;
 		active->collect(builder);
-		if (builder.empty()) return;
+		if (builder.empty())
+			failHdRoute("adapter collected no HD subgroups");
 
 		// A committed subgroup's order keys must be globally unique this frame: the
 		// model treats a full-tuple collision as a submission bug whose paint order
-		// would otherwise fall back to non-deterministic insertion order. Detect it
-		// BEFORE committing so the affected subgroup stays fully logical instead of
-		// suppressing (via claims) widgets it cannot deterministically paint
-		// (external review #11).
+		// would otherwise use non-deterministic insertion order. Detect it before
+		// committing and fail the route (external review #11).
 		std::set<CalypsoHdOrderKey, bool (*)(const CalypsoHdOrderKey&, const CalypsoHdOrderKey&)>
 			committedKeys(&calypsoOrderKeyLess);
 
 		// Resolve + commit each atomic subgroup independently.
 		for (const CalypsoHdSubgroup& subgroup : builder.subgroups())
 		{
+			if (subgroup.items.empty())
+				failHdRoute("adapter collected an empty HD subgroup");
 			std::vector<ResolvedDraw> resolved;
-			if (!resolveSubgroup(subgroup, resolved)) continue; // Not Ready -> logical
+			resolveSubgroup(subgroup, resolved);
 
 			// Order-key collision check (intra-subgroup or vs an already-committed
-			// subgroup). On collision the whole subgroup is rejected and stays
-			// logical; roll back only the keys this subgroup inserted.
+			// subgroup). A collision is an adapter contract violation.
 			std::vector<CalypsoHdOrderKey> justInserted;
 			bool collision = false;
 			for (const ResolvedDraw& d : resolved)
@@ -144,8 +162,7 @@ void CalypsoHdUiOverlay::prepareFrame(int logicalWidth, int logicalHeight, const
 			if (collision)
 			{
 				for (const CalypsoHdOrderKey& k : justInserted) committedKeys.erase(k);
-				Log(LOG_WARNING) << "CalypsoHdUiOverlay: duplicate HD order key -> subgroup stays logical";
-				continue;
+				failHdRoute("duplicate HD order key");
 			}
 
 			// Commit: take claims for every item, enqueue the resolved draws.
@@ -158,7 +175,8 @@ void CalypsoHdUiOverlay::prepareFrame(int logicalWidth, int logicalHeight, const
 		}
 	} // GL state guard restored
 
-	if (_drawItems.empty()) return;
+	if (_drawItems.empty())
+		failHdRoute("active adapter produced no drawable HD items");
 
 	// Deterministic paint order. Uniqueness of the full tuple is already enforced
 	// per-subgroup above, so equal keys cannot reach this sort.
@@ -170,7 +188,7 @@ void CalypsoHdUiOverlay::prepareFrame(int logicalWidth, int logicalHeight, const
 	_activeThisFrame = true;
 }
 
-bool CalypsoHdUiOverlay::resolveSubgroup(const CalypsoHdSubgroup& subgroup,
+void CalypsoHdUiOverlay::resolveSubgroup(const CalypsoHdSubgroup& subgroup,
 	std::vector<ResolvedDraw>& out)
 {
 	std::vector<ResolvedDraw> tmp;
@@ -192,21 +210,74 @@ bool CalypsoHdUiOverlay::resolveSubgroup(const CalypsoHdSubgroup& subgroup,
 		if (item.kind == CalypsoHdItemKind::Panel)
 		{
 			GpuTexture* white = whiteTexture();
-			if (!white || !white->isValid()) return false;
+			if (!white || !white->isValid())
+				failHdRoute("panel texture upload failed for item "
+					+ std::to_string(item.order.stableId) + ":"
+					+ std::to_string(item.order.itemId));
 			d.tex = white;
 		}
 		else
 		{
 			GpuTexture* tex = textureForText(item.rasterKey);
-			if (!tex || !tex->isValid()) return false;
+			if (!tex || !tex->isValid())
+				failHdRoute("text texture raster or upload failed for item "
+					+ std::to_string(item.order.stableId) + ":"
+					+ std::to_string(item.order.itemId));
 			d.tex = tex;
 			d.naturalW = (int)tex->width();
 			d.naturalH = (int)tex->height();
+
+			// A guarded multi-line texture is an atomic-fit item. Generic glyphs
+			// may deliberately use their box as a UV clip target, but doing that to
+			// a contract-owned wrapped surface discards the very top/bottom guard
+			// rows that guarantee intact caps, baselines and descenders.
+			const bool guardedMultiLine = item.rasterKey.wrapWidth > 0
+				&& (item.rasterKey.lineHeightPx > 0 || item.rasterKey.lineHeightMilliPx > 0);
+			if (guardedMultiLine)
+			{
+				const CalypsoPhysRect box = calypsoMapLogicalRect(d.rect, _frozenMetrics);
+				const int projectedTextureHeight = std::max(1,
+					(int)std::lround(d.naturalH * d.textScaleY));
+				const bool fits = !box.empty() && projectedTextureHeight <= box.h;
+				if (calypsoHarnessHostUp(calypsoHarnessSession()))
+				{
+					EM_ASM_({
+						const evidence = globalThis.__calypsoHdTextFitEvidence
+							|| (globalThis.__calypsoHdTextFitEvidence = Object.create(null));
+						const key = String($0) + ':' + String($1);
+						const row = Object.create(null);
+						row.stableId = $0;
+						row.itemId = $1;
+						row.naturalTextureHeight = $2;
+						row.projectedTextureHeight = $3;
+						row.boxHeight = $4;
+						row.fits = !!$5;
+						evidence[key] = row;
+						let output = document.getElementById('calypso-hd-text-fit-evidence');
+						if (!output)
+						{
+							output = document.createElement('output');
+							output.id = 'calypso-hd-text-fit-evidence';
+							output.hidden = true;
+							document.body.appendChild(output);
+						}
+						output.textContent = JSON.stringify(evidence);
+					}, item.order.stableId, item.order.itemId, d.naturalH,
+						projectedTextureHeight, box.h, fits ? 1 : 0);
+				}
+				if (!fits)
+				{
+					failHdRoute("guarded multi-line texture "
+						+ std::to_string(projectedTextureHeight) + "px exceeds "
+						+ std::to_string(box.h) + "px box for item "
+						+ std::to_string(item.order.stableId) + ":"
+						+ std::to_string(item.order.itemId));
+				}
+			}
 		}
 		tmp.push_back(d);
 	}
 	for (ResolvedDraw& d : tmp) out.push_back(d);
-	return true;
 }
 
 void CalypsoHdUiOverlay::ensureGpu()
@@ -573,20 +644,9 @@ bool CalypsoHdUiOverlay::renderStages(SDL_Renderer* renderer)
 	// Dormant unless a subgroup (or the harness) committed this frame.
 	if (!committed && !_harnessEnabled) return true;
 
-	// A committed frame that cannot present its HD draws must skip present and
-	// latch a wholly-logical next frame (Codex #2): the widgets it claimed were
-	// already suppressed at blit, so presenting now would show a blank/partial
-	// popup. A harness-only frame (nothing committed) just skips silently.
-	auto failCommitted = [this]() {
-		_controller.notePostClaimFailure(); // clears _controller.claims()
-		_ptrClaim.clear();
-		_drawItems.clear();
-		_activeThisFrame = false;
-	};
-
 	if (!_mayGoPhysical || !_frozenMetrics.valid())
 	{
-		if (committed) { failCommitted(); return false; }
+		if (committed) failHdRoute("invalid presentation metrics at draw stage");
 		return true;
 	}
 
@@ -594,14 +654,15 @@ bool CalypsoHdUiOverlay::renderStages(SDL_Renderer* renderer)
 	// flush means the boundary is unsafe -- do not draw.
 	if (renderer && SDL_RenderFlush(renderer) != 0)
 	{
-		if (committed) { failCommitted(); return false; }
+		if (committed)
+			failHdRoute("SDL_RenderFlush failed: " + std::string(SDL_GetError()));
 		return true;
 	}
 
 	ensureGpu();
 	if (!_glReady) // GL lost between prepare and present, or harness cold-start
 	{
-		if (committed) { failCommitted(); return false; }
+		if (committed) failHdRoute("GPU resources are unavailable at draw stage");
 		return true;
 	}
 
@@ -657,13 +718,7 @@ bool CalypsoHdUiOverlay::renderStages(SDL_Renderer* renderer)
 
 	if (!ok)
 	{
-		if (committed)
-		{
-			// Post-commit draw failure: discard claims, latch one wholly-logical
-			// frame, and tell Screen to skip present so no half-popup is shown.
-			failCommitted();
-			return false;
-		}
+		if (committed) failHdRoute("HD draw stage failed");
 		// Harness-only failure: nothing was committed/claimed, just present clean.
 	}
 

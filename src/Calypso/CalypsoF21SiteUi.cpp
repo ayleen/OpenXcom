@@ -171,8 +171,8 @@ void CalypsoF21SiteUi::collect(CalypsoHdFrameBuilder& builder) const
 	// and hidden widgets submit nothing).
 	if (_state->_btnCancel && _state->_btnCancel->getVisible())
 	{
-		p.styled(f21WidgetRect(_state->_btnCancel), f21QuietButtonStyle(
-			f21ButtonVisualState(_state->_btnCancel)),
+		p.styled(f21WidgetRect(_state->_btnCancel), f21ButtonStyleFor(
+			CalypsoActionTone::Safe, f21ButtonVisualState(_state->_btnCancel)),
 			_state->_btnCancel, ROLE_CANCEL);
 		p.text(_state->_btnCancel, heading, _state->_btnCancel->getText(), CalypsoHdTheme::kNearWhite,
 			CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, ROLE_CANCEL,
@@ -204,7 +204,7 @@ void CalypsoF21SiteUi::collect(CalypsoHdFrameBuilder& builder) const
 		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_REGION, 0.0,
 		dataPx);
 	p.text(_state->_hdLegality, body, _state->_hdLegality->getText(), CalypsoHdThemeGen::kGold,
-		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_LEGALITY, 0.0,
+		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 2, ROLE_LEGALITY, 0.0,
 		bodyPx);
 	p.text(_state->_hdPreview, body, _state->_hdPreview->getText(), kF21MutedBodyRgba,
 		CalypsoHdHAlign::Left, CalypsoHdVAlign::Top, 2, ROLE_PREVIEW, 0.0,
@@ -276,6 +276,7 @@ void CalypsoF21SiteUi::configure(BuildNewBaseState& state, bool allowPhysicalOve
 
 	state._hdLegality = new Text(1, 1, 0, 0);
 	state.add(state._hdLegality);
+	state._hdLegality->setWordWrap(true);
 	state._hdLegality->setText(state.tr("STR_CAL_F21_SITE_LEGAL"));
 
 	state._hdPreview = new Text(1, 1, 0, 0);

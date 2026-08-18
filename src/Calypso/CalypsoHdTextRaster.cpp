@@ -136,6 +136,7 @@ SDL_Surface* renderWrappedWithLineHeight(TTF_Font* face, const std::string& text
 	std::vector<SDL_Surface*> rendered;
 	rendered.reserve(lines.size());
 	int width = 1;
+	int maxRenderedGlyphHeight = 1;
 	for (const std::string& line : lines)
 	{
 		SDL_Surface* glyphs = line.empty() ? nullptr : TTF_RenderUTF8_Blended(face, line.c_str(), color);
@@ -148,15 +149,25 @@ SDL_Surface* renderWrappedWithLineHeight(TTF_Font* face, const std::string& text
 		{
 			const int scaledWidth = std::max(1,
 				static_cast<int>(glyphs->w * horizontalScale + 0.5));
+			const int scaledHeight = std::max(1,
+				static_cast<int>(glyphs->h * verticalScale + 0.5));
 			width = std::max(width, scaledWidth);
+			maxRenderedGlyphHeight = std::max(maxRenderedGlyphHeight, scaledHeight);
 		}
 		rendered.push_back(glyphs);
 	}
 
-	const int glyphHeight = std::max(1,
+	// Actual rendered line surfaces are authoritative. TTF_FontHeight may be
+	// smaller than glyphs->h for a concrete face/port and must never size the
+	// final canvas on its own. Guard rows ensure later box clipping consumes
+	// transparency before it can shave a cap or the last baseline.
+	const int metricGlyphHeight = std::max(1,
 		static_cast<int>(TTF_FontHeight(face) * verticalScale + 0.5));
-	const int height = std::max(glyphHeight,
-		(static_cast<int>(rendered.size()) - 1) * lineSkip + glyphHeight);
+	const int glyphHeight = std::max(metricGlyphHeight, maxRenderedGlyphHeight);
+	const int verticalGuardPx = std::max(2, (glyphHeight + 7) / 8);
+	const int height = std::max(glyphHeight + verticalGuardPx * 2,
+		(static_cast<int>(rendered.size()) - 1) * lineSkip
+			+ glyphHeight + verticalGuardPx * 2);
 	SDL_Surface* canvas = SDL_CreateRGBSurfaceWithFormat(0, width, height, 32,
 		SDL_PIXELFORMAT_ARGB8888);
 	if (!canvas)
@@ -165,6 +176,7 @@ SDL_Surface* renderWrappedWithLineHeight(TTF_Font* face, const std::string& text
 		return nullptr;
 	}
 	SDL_SetSurfaceBlendMode(canvas, SDL_BLENDMODE_NONE);
+	SDL_FillRect(canvas, nullptr, 0);
 	for (std::size_t i = 0; i < rendered.size(); ++i)
 	{
 		SDL_Surface* glyphs = rendered[i];
@@ -174,7 +186,8 @@ SDL_Surface* renderWrappedWithLineHeight(TTF_Font* face, const std::string& text
 			static_cast<int>(glyphs->w * horizontalScale + 0.5));
 		const int scaledHeight = std::max(1,
 			static_cast<int>(glyphs->h * verticalScale + 0.5));
-		SDL_Rect destination{ 0, static_cast<int>(i) * lineSkip, scaledWidth, scaledHeight };
+		SDL_Rect destination{ 0, verticalGuardPx + static_cast<int>(i) * lineSkip,
+			scaledWidth, scaledHeight };
 		const int blitResult = horizontalScalePermille == 1000
 			&& verticalScalePermille == 1000
 			? SDL_BlitSurface(glyphs, nullptr, canvas, &destination)

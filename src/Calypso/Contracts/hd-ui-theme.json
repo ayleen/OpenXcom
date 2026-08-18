@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "hd.2026-08-18.13",
+  "version": "hd.2026-08-18.17",
   "colors": {
     "accent": "74FFB0FF",
     "accentSoft": "74FFB059",
@@ -83,6 +83,7 @@
     "dataCompactPx": 12,
     "bodyWidePx": 15,
     "bodyCompactPx": 13,
+    "bodyLineHeight": 1.35,
     "inputWidePx": 18,
     "inputCompactPx": 15,
     "actionWidePx": 17,

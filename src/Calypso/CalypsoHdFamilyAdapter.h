@@ -12,10 +12,10 @@
  * position/size/text/visibility during collection.
  *
  * Each item carries its complete claim identity (CalypsoHdClaimId) and its
- * complete deterministic order key (CalypsoHdOrderKey). The overlay decides
- * readiness per subgroup (raster + upload), and ONLY a fully-Ready subgroup
- * commits claims and enqueues draws -- so a partial failure falls back to the
- * unmodified logical rendering with no claims taken.
+ * complete deterministic order key (CalypsoHdOrderKey). The overlay resolves
+ * each subgroup atomically (raster + upload), then commits claims and draws.
+ * Any failure on an enabled route throws; logical widgets remain interaction
+ * owners but are never a visible fallback.
  *
  * Whole-file Emscripten guard (Phase 36). Depends on the portable model
  * (CalypsoHdUiModel.h) + raster key; no SDL/GL here.
@@ -98,11 +98,10 @@ struct CalypsoHdItem
 	CalypsoHdOrderKey order;
 };
 
-/// An atomic subgroup: all-or-nothing. Either every item rasterises+uploads and
-/// the whole subgroup commits (claims + draws), or the subgroup is dropped and
-/// its widgets render logically. Adapters group visuals that must appear
-/// together (e.g. one popup = one subgroup) so a half-rasterised popup never
-/// shows.
+/// An atomic subgroup: all-or-fatal. Every item must rasterise/upload and the
+/// whole subgroup commits claims + draws; failure throws before presentation.
+/// Adapters group visuals that must appear together (e.g. one popup = one
+/// subgroup) so neither a half-rasterised popup nor vanilla fallback can show.
 struct CalypsoHdSubgroup
 {
 	std::vector<CalypsoHdItem> items;

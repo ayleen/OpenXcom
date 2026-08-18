@@ -100,6 +100,9 @@ def validate_theme(theme):
                 "inputWidePx", "inputCompactPx", "actionWidePx", "actionCompactPx"):
         if not isinstance(f21_type.get(key), int) or f21_type[key] <= 0:
             fail("hd-ui-theme.json: f21Typography." + key + " must be a positive integer")
+    if (not isinstance(f21_type.get("bodyLineHeight"), (int, float))
+            or f21_type["bodyLineHeight"] <= 1.0):
+        fail("hd-ui-theme.json: f21Typography.bodyLineHeight must be > 1")
     f21_safe = theme.get("f21TextSafeArea") or {}
     for key in ("protocolInsetXWidePx", "protocolInsetXCompactPx",
                 "protocolInsetYWidePx", "protocolInsetYCompactPx",
@@ -408,7 +411,11 @@ def emit_theme_h(theme):
     out.append("")
     out.append("// F21 command-card typography and hard text safe area (design px).")
     for key, value in theme["f21Typography"].items():
-        out.append("inline constexpr int kF21" + key[0].upper() + key[1:] + " = %d;" % int(value))
+        name = "kF21" + key[0].upper() + key[1:]
+        if key == "bodyLineHeight":
+            out.append("inline constexpr float " + name + " = %.6ff;" % float(value))
+        else:
+            out.append("inline constexpr int " + name + " = %d;" % int(value))
     for key, value in theme["f21TextSafeArea"].items():
         out.append("inline constexpr int kF21" + key[0].upper() + key[1:] + " = %d;" % int(value))
     out.append("")

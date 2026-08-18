@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "hd.2026-08-18.13",
+  "version": "hd.2026-08-18.17",
   "visualProfile": "command-card-v1",
   "copy": {
     "protocol": "CALYPSO COMMAND · GEOGRAPHIC SITE ORDER GS-21 · REV. 1.0.21 · EFFECTIVE 15.07.2061",
@@ -10,7 +10,7 @@
     "cost": "BUILD COST · $950 000",
     "coords": "COORDINATES · 28.6·N  0.0·E",
     "region": "REGION · South Atlantic",
-    "legality": "LEGAL LAND SITE REQUIRED",
+    "legality": "LEGAL LAND SITE\nREQUIRED",
     "preview": "Hover globe to inspect. Cancel discards this base.",
     "cancel": "CANCEL"
   },
@@ -36,7 +36,7 @@
     "cancel"
   ],
   "engineTextScale": {
-    "title": 0.88,
+    "title": 0.78,
     "data": 0.9,
     "body": 0.92,
     "input": 0.9,
@@ -60,6 +60,17 @@
       "axis": "vertical",
       "wide": 6,
       "compact": 4
+    },
+    {
+      "id": "banner-slot-bottom",
+      "kind": "inset",
+      "container": "banner",
+      "child": "slot",
+      "edges": [
+        "bottom"
+      ],
+      "wide": 14,
+      "compact": 12
     },
     {
       "id": "funds-cost",
@@ -184,7 +195,7 @@
         "x": 20,
         "y": 18,
         "width": 1240,
-        "height": 114
+        "height": 126
       },
       "status": {
         "x": 20,
@@ -220,7 +231,7 @@
         "x": 28,
         "y": 510,
         "width": 680,
-        "height": 182
+        "height": 202
       },
       "cardRule": {
         "x": 44,
@@ -232,11 +243,11 @@
         "x": 350,
         "y": 532,
         "width": 1,
-        "height": 136
+        "height": 156
       },
       "cardDots": {
         "x": 40,
-        "y": 670,
+        "y": 692,
         "width": 656,
         "height": 14
       },
@@ -254,20 +265,20 @@
       },
       "legality": {
         "x": 56,
-        "y": 600,
+        "y": 596,
         "width": 286,
-        "height": 28
+        "height": 82
       },
       "preview": {
         "x": 360,
-        "y": 592,
+        "y": 590,
         "width": 320,
-        "height": 58
+        "height": 82
       },
       "cancel": {
-        "x": 1092,
+        "x": 1094,
         "y": 640,
-        "width": 160,
+        "width": 158,
         "height": 44
       }
     },
@@ -284,7 +295,7 @@
         "x": 8,
         "y": 6,
         "width": 724,
-        "height": 104
+        "height": 112
       },
       "status": {
         "x": 8,
@@ -318,51 +329,51 @@
       },
       "card": {
         "x": 10,
-        "y": 202,
+        "y": 198,
         "width": 540,
-        "height": 148
+        "height": 160
       },
       "cardRule": {
         "x": 26,
-        "y": 220,
+        "y": 216,
         "width": 508,
         "height": 1
       },
       "cardDivider": {
         "x": 258,
-        "y": 224,
+        "y": 220,
         "width": 1,
-        "height": 102
+        "height": 112
       },
       "cardDots": {
         "x": 22,
-        "y": 328,
+        "y": 340,
         "width": 516,
         "height": 14
       },
       "coords": {
         "x": 30,
-        "y": 230,
+        "y": 226,
         "width": 220,
         "height": 22
       },
       "region": {
         "x": 266,
-        "y": 230,
+        "y": 226,
         "width": 258,
         "height": 22
       },
       "legality": {
         "x": 30,
-        "y": 274,
+        "y": 266,
         "width": 220,
-        "height": 24
+        "height": 66
       },
       "preview": {
         "x": 266,
-        "y": 266,
+        "y": 262,
         "width": 258,
-        "height": 58
+        "height": 66
       },
       "cancel": {
         "x": 584,
