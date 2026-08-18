@@ -171,7 +171,7 @@ void CalypsoF21DestructionUi::collect(CalypsoHdFrameBuilder& builder) const
 	}
 	p.styled(glyphRect, f21WarningGlyphStyle(), nullptr, ROLE_GLYPH);
 	p.styled(f21WidgetRect(_state->_btnOk), f21ButtonStyleFor(
-		CalypsoActionTone::Destructive, f21ButtonVisualState(_state->_btnOk)),
+		CalypsoActionTone::Safe, f21ButtonVisualState(_state->_btnOk)),
 		_state->_btnOk, ROLE_ACK);
 
 	p.text(_state->_hdTitle, heading, _state->_hdTitle->getText(), CalypsoHdTheme::kNearWhite,
@@ -197,6 +197,8 @@ void CalypsoF21DestructionUi::collect(CalypsoHdFrameBuilder& builder) const
 		// off the window.
 		const CalypsoLogicalRect band = p.project(designLayout.list);
 		const int rowH = std::max(8, band.h / 6);
+		// Spec: drop the three Berthing/etc lines one full row lower inside the band
+		const int listOffset = rowH;
 		int i = 0;
 		for (const auto& row : rows)
 		{
@@ -213,7 +215,7 @@ void CalypsoF21DestructionUi::collect(CalypsoHdFrameBuilder& builder) const
 			if (line.empty()) continue;
 
 			const CalypsoLogicalRect rowRect = p.motionRect(
-				CalypsoLogicalRect{ band.x + 8, band.y + i * rowH, std::max(1, band.w - 16), rowH });
+				CalypsoLogicalRect{ band.x + 8, band.y + listOffset + i * rowH, std::max(1, band.w - 16), rowH });
 			CalypsoHdItem it;
 			it.kind = CalypsoHdItemKind::Text;
 			it.rect = rowRect;

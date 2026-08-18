@@ -161,12 +161,12 @@
         "x": 340,
         "y": 484,
         "width": 600,
-        "height": 62
+        "height": 52
       },
       "acknowledge": {
         "x": 700,
         "y": 492,
-        "width": 200,
+        "width": 150,
         "height": 44
       }
     },
@@ -219,12 +219,12 @@
         "x": 40,
         "y": 306,
         "width": 660,
-        "height": 52
+        "height": 44
       },
       "acknowledge": {
         "x": 466,
-        "y": 310,
-        "width": 210,
+        "y": 314,
+        "width": 150,
         "height": 44
       }
     }
