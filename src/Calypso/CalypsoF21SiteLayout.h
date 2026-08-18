@@ -19,13 +19,14 @@
  */
 /*
  * F21 (Calypso): the approved BuildNewBaseState site-selection layout
- * (top command strip + bottom placement card over the live globe). Geometry
- * comes from the canonical contract (Contracts/f21-site.json ->
- * Generated/CalypsoF21Site.generated.h) -- the SAME source the DOM harness
- * consumes. Pure and natively testable.
+ * (top command strip + generated bottom content block over the live globe).
+ * The strip/action geometry comes from Contracts/f21-site.json; the block
+ * comes from Contracts/f21-site-details.json. The DOM harness consumes the
+ * same generated sources. Pure and natively testable.
  */
 #include "CalypsoF21LayoutBase.h"
 #include "Generated/CalypsoF21Site.generated.h"
+#include "Generated/CalypsoF21SiteDetails.generated.h"
 
 namespace OpenXcom
 {
@@ -35,6 +36,13 @@ namespace Calypso
 static_assert(std::string_view(CalypsoF21SiteGen::kContractVersion) ==
 		std::string_view(CalypsoHdThemeGen::kContractVersion),
 	"F21 site and theme generated contracts carry different versions; regenerate");
+static_assert(std::string_view(CalypsoF21SiteDetailsGen::kContractVersion) ==
+		std::string_view(CalypsoHdThemeGen::kContractVersion),
+	"F21 site details and theme generated contracts carry different versions; regenerate");
+static_assert(!CalypsoF21SiteDetailsGen::kLegacyFallback,
+	"F21 generated content blocks must never fall back to the vanilla UI");
+static_assert(CalypsoF21SiteDetailsGen::kFitFailureException,
+	"F21 generated content blocks must fail fast when text does not fit");
 
 /// The complete F21.Site selection layout. `window` is the full design canvas
 /// (the strip and the card claim logical widgets; the globe stays logical).
@@ -49,16 +57,22 @@ struct CalypsoF21SiteLayout
 	CalypsoF21Rect slot;     ///< base-slot mono readout ("Base 5 of 8")
 	CalypsoF21Rect funds;    ///< current funds readout
 	CalypsoF21Rect cost;     ///< region base cost readout
-	CalypsoF21Rect card;     ///< bottom placement card panel
-	CalypsoF21Rect cardRule; ///< horizontal separator above candidate facts
-	CalypsoF21Rect cardDivider; ///< vertical separator between candidate columns
-	CalypsoF21Rect cardDots; ///< low-contrast footer texture inside the card
+	CalypsoF21Rect card;     ///< generated bottom content-block panel
+	CalypsoF21Rect rowDivider; ///< generated divider between the two rows
+	CalypsoF21Rect columnDivider; ///< generated divider between the two columns
 	CalypsoF21Rect coords;   ///< candidate coordinates readout
 	CalypsoF21Rect region;   ///< candidate region readout
 	CalypsoF21Rect legality; ///< legal-site status readout
 	CalypsoF21Rect preview;  ///< transaction preview copy (wrapped)
 	CalypsoF21Rect cancel;   ///< cancel action (additional bases only)
 };
+
+inline CalypsoF21Rect calypsoF21SiteDetailsRect(
+	const CalypsoF21SiteDetailsGen::CalypsoF21SiteDetailsGenRect& rect,
+	int offsetX, int offsetY)
+{
+	return { rect.x + offsetX, rect.y + offsetY, rect.w, rect.h };
+}
 
 /// Build the F21.Site layout for the given class; zeroed when no entry.
 inline CalypsoF21SiteLayout calypsoF21SiteLayout(CalypsoLayoutClass cls)
@@ -68,6 +82,11 @@ inline CalypsoF21SiteLayout calypsoF21SiteLayout(CalypsoLayoutClass cls)
 	const CalypsoF21SiteGen::CalypsoF21SiteGenLayout* g = CalypsoF21SiteGen::layoutForDesign(
 		wide ? 1280 : 740, wide ? 720 : 360);
 	if (!g) return l;
+	const CalypsoF21SiteDetailsGen::CalypsoF21SiteDetailsGenLayout& details =
+		CalypsoF21SiteDetailsGen::kLayouts[wide ? 0 : 1];
+	const int detailsX = wide ? 28 : 10;
+	const int detailsBottomInset = wide ? 8 : g->designHeight - g->cancel.y;
+	const int detailsY = g->designHeight - details.designHeight - detailsBottomInset;
 
 	l.designWidth = g->designWidth;
 	l.designHeight = g->designHeight;
@@ -78,14 +97,13 @@ inline CalypsoF21SiteLayout calypsoF21SiteLayout(CalypsoLayoutClass cls)
 	l.slot     = { g->slot.x,     g->slot.y,     g->slot.w,     g->slot.h };
 	l.funds    = { g->funds.x,    g->funds.y,    g->funds.w,    g->funds.h };
 	l.cost     = { g->cost.x,     g->cost.y,     g->cost.w,     g->cost.h };
-	l.card     = { g->card.x,     g->card.y,     g->card.w,     g->card.h };
-	l.cardRule = { g->cardRule.x, g->cardRule.y, g->cardRule.w, g->cardRule.h };
-	l.cardDivider = { g->cardDivider.x, g->cardDivider.y, g->cardDivider.w, g->cardDivider.h };
-	l.cardDots = { g->cardDots.x, g->cardDots.y, g->cardDots.w, g->cardDots.h };
-	l.coords   = { g->coords.x,   g->coords.y,   g->coords.w,   g->coords.h };
-	l.region   = { g->region.x,   g->region.y,   g->region.w,   g->region.h };
-	l.legality = { g->legality.x, g->legality.y, g->legality.w, g->legality.h };
-	l.preview  = { g->preview.x,  g->preview.y,  g->preview.w,  g->preview.h };
+	l.card = calypsoF21SiteDetailsRect(details.window, detailsX, detailsY);
+	l.rowDivider = calypsoF21SiteDetailsRect(details.rowDivider1, detailsX, detailsY);
+	l.columnDivider = calypsoF21SiteDetailsRect(details.columnDivider1, detailsX, detailsY);
+	l.coords = calypsoF21SiteDetailsRect(details.cellR1C1, detailsX, detailsY);
+	l.region = calypsoF21SiteDetailsRect(details.cellR1C2, detailsX, detailsY);
+	l.legality = calypsoF21SiteDetailsRect(details.cellR2C1, detailsX, detailsY);
+	l.preview = calypsoF21SiteDetailsRect(details.cellR2C2, detailsX, detailsY);
 	l.cancel   = { g->cancel.x,   g->cancel.y,   g->cancel.w,   g->cancel.h };
 	return l;
 }

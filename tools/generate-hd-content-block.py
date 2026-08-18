@@ -13,7 +13,6 @@ import json
 import os
 import re
 import sys
-import textwrap
 
 
 TOOLS_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -25,6 +24,7 @@ VERSION_RE = re.compile(r"^[A-Za-z0-9._-]+$")
 COLOR_RE = re.compile(r"^[0-9A-Fa-f]{8}$")
 SEPARATOR_RE = re.compile(r"^-{3,}$")
 UNSUPPORTED_MARKDOWN_RE = re.compile(r"[\\*_`~<>\[\]!]")
+HARD_BREAK_RE = re.compile(r"<br>", re.IGNORECASE)
 CONFIG_FIELDS = {
     "schema", "id", "familyId", "version", "archetype", "content",
 }
@@ -39,8 +39,8 @@ STYLE_FIELDS = {
 }
 MOTION_FIELDS = {"durationMs", "scaleFrom", "captureModeDurationMs"}
 LAYOUT_FIELDS = {
-    "blockWidth", "cellPaddingX", "cellPaddingY", "guardedLineHeight",
-    "wrapUnitWidth", "dividerWidth",
+    "maxBlockWidth", "cellPaddingX", "cellPaddingY", "guardedLineHeight",
+    "textUnitWidth", "dividerWidth",
 }
 
 
@@ -117,12 +117,7 @@ def validate_template(template):
             positive_int(layout[key], "template.layouts." + name + "." + key)
         if layout["cellPaddingX"] < 8 or layout["cellPaddingY"] < 8:
             raise BlockError("template.layouts." + name + " cell padding must be >= 8")
-        for columns in range(2, limits["maxColumns"] + 1):
-            if layout["blockWidth"] % columns:
-                raise BlockError(
-                    "template.layouts." + name + ".blockWidth must divide equally into "
-                    + str(columns) + " columns")
-        if layout["blockWidth"] <= 2 * layout["cellPaddingX"]:
+        if layout["maxBlockWidth"] <= 2 * layout["cellPaddingX"]:
             raise BlockError("template.layouts." + name + " leaves no text width")
 
 
@@ -181,7 +176,8 @@ def parse_table(value, limits):
     if not all(SEPARATOR_RE.fullmatch(cell) for cell in parsed[1]):
         raise BlockError("table second row must be a Markdown separator")
 
-    rows = [parsed[0]] + parsed[2:]
+    rows = [[HARD_BREAK_RE.sub("\n", cell) for cell in row]
+            for row in [parsed[0]] + parsed[2:]]
     if len(rows) > limits["maxRows"]:
         raise BlockError("table exceeds the " + str(limits["maxRows"]) + " row limit")
     for row in rows:
@@ -190,30 +186,22 @@ def parse_table(value, limits):
     return rows
 
 
-def wrap_lines(value, capacity, label):
-    wrapper = textwrap.TextWrapper(
-        width=capacity,
-        expand_tabs=False,
-        replace_whitespace=False,
-        drop_whitespace=True,
-        break_long_words=False,
-        break_on_hyphens=False,
-    )
-    resolved = []
-    for explicit in value.split("\n"):
-        if "\t" in explicit:
-            raise BlockError(label + " cannot contain tabs")
-        if not explicit:
-            resolved.append("")
-            continue
-        lines = wrapper.wrap(explicit)
-        if not lines:
-            resolved.append("")
-            continue
-        if any(len(line) > capacity for line in lines):
-            raise BlockError(label + " contains a word wider than the available text measure")
-        resolved.extend(lines)
-    return resolved
+def explicit_lines(value, label):
+    if "\t" in value:
+        raise BlockError(label + " cannot contain tabs")
+    return value.split("\n")
+
+
+def proportional_text_width(value, text_unit_width):
+    """Return a deterministic conservative width without raw character count.
+
+    Lowercase glyphs in the shared proportional body face average roughly
+    three quarters of the full uppercase/mono cell. Keep every other codepoint
+    at the full unit so mono readouts, digits, punctuation, and unknown scripts
+    never become narrower than the previous safe estimate.
+    """
+    quarter_units = sum(3 if character.islower() else 4 for character in value)
+    return (quarter_units * text_unit_width + 3) // 4
 
 
 def rect(x, y, width, height):
@@ -232,16 +220,30 @@ def table_parts(rows, columns):
 
 def build_table_layout(rows, authored, limits, layout_name):
     columns = len(rows[0])
-    width = authored["blockWidth"]
-    column_width = width // columns
+    max_width = authored["maxBlockWidth"]
     padding_x = authored["cellPaddingX"]
     padding_y = authored["cellPaddingY"]
     guarded_line_height = authored["guardedLineHeight"]
     divider_width = authored["dividerWidth"]
-    text_width = column_width - 2 * padding_x
-    capacity = text_width // authored["wrapUnitWidth"]
-    if capacity < 8:
-        raise BlockError(layout_name + " table columns leave fewer than 8 characters per line")
+    text_unit_width = authored["textUnitWidth"]
+
+    column_text_widths = []
+    column_widths = []
+    for column_index in range(columns):
+        longest = max(
+            proportional_text_width(line, text_unit_width)
+            for row_index, row in enumerate(rows)
+            for line in explicit_lines(
+                row[column_index],
+                "config.content.cellR" + str(row_index + 1) + "C" + str(column_index + 1))
+        )
+        column_text_widths.append(longest)
+        column_widths.append(longest + 2 * padding_x)
+    width = sum(column_widths) + divider_width * (columns - 1)
+    if width > max_width:
+        raise BlockError(
+            layout_name + " table exceeds the " + str(max_width) + " maximum block width; "
+            "author explicit line breaks")
 
     counts = {}
     row_heights = []
@@ -249,7 +251,7 @@ def build_table_layout(rows, authored, limits, layout_name):
         row_counts = []
         for column_index, cell in enumerate(row):
             key = "cellR" + str(row_index + 1) + "C" + str(column_index + 1)
-            count = len(wrap_lines(cell, capacity, "config.content." + key))
+            count = len(explicit_lines(cell, "config.content." + key))
             if count > limits["maxLinesPerCell"]:
                 raise BlockError(key + " exceeds the " + str(limits["maxLinesPerCell"]) + " line limit")
             counts[key] = count
@@ -264,47 +266,69 @@ def build_table_layout(rows, authored, limits, layout_name):
         "designHeight": height,
         "window": rect(0, 0, width, height),
     }
+    column_lefts = []
+    column_left = 0
+    for column_index, column_width in enumerate(column_widths):
+        column_lefts.append(column_left)
+        column_left += column_width
+        if column_index < columns - 1:
+            column_left += divider_width
     for column in range(1, columns):
         layout["columnDivider" + str(column)] = rect(
-            column * column_width, 0, divider_width, height)
+            column_lefts[column] - divider_width,
+            padding_y,
+            divider_width,
+            height - 2 * padding_y)
 
     row_top = 0
     for row_index, row_height in enumerate(row_heights):
         if row_index:
             layout["rowDivider" + str(row_index)] = rect(
-                0, row_top - divider_width, width, divider_width)
+                padding_x,
+                row_top - divider_width,
+                width - 2 * padding_x,
+                divider_width)
         for column_index in range(columns):
             key = "cellR" + str(row_index + 1) + "C" + str(column_index + 1)
             layout[key] = rect(
-                column_index * column_width + padding_x,
+                column_lefts[column_index] + padding_x,
                 row_top + padding_y,
-                text_width,
+                column_widths[column_index] - 2 * padding_x,
                 row_height - 2 * padding_y,
             )
         row_top += row_height + divider_width
 
     metrics = {
-        "columnWidth": column_width,
+        "maxBlockWidth": max_width,
+        "textUnitWidth": text_unit_width,
+        "columnTextWidths": column_text_widths,
+        "columnWidths": column_widths,
         "cellPaddingX": padding_x,
         "cellPaddingY": padding_y,
         "guardedLineHeight": guarded_line_height,
         "rowHeights": row_heights,
         "lineCounts": counts,
+        "alignment": {key: "top-left" for key in counts},
     }
     return layout, metrics
 
 
 def build_text_layout(value, authored, limits, layout_name):
-    width = authored["blockWidth"]
+    max_width = authored["maxBlockWidth"]
     padding_x = authored["cellPaddingX"]
     padding_y = authored["cellPaddingY"]
     guarded_line_height = authored["guardedLineHeight"]
-    text_width = width - 2 * padding_x
-    capacity = text_width // authored["wrapUnitWidth"]
-    lines = wrap_lines(value, capacity, "config.content.value")
+    text_unit_width = authored["textUnitWidth"]
+    lines = explicit_lines(value, "config.content.value")
     if len(lines) > limits["maxLinesPerCell"]:
         raise BlockError(
             layout_name + " text exceeds the " + str(limits["maxLinesPerCell"]) + " line limit")
+    text_width = max(proportional_text_width(line, text_unit_width) for line in lines)
+    width = text_width + 2 * padding_x
+    if width > max_width:
+        raise BlockError(
+            layout_name + " text exceeds the " + str(max_width) + " maximum block width; "
+            "author explicit line breaks")
     height = len(lines) * guarded_line_height + 2 * padding_y
     layout = {
         "designWidth": width,
@@ -313,10 +337,14 @@ def build_text_layout(value, authored, limits, layout_name):
         "text": rect(padding_x, padding_y, text_width, len(lines) * guarded_line_height),
     }
     metrics = {
+        "maxBlockWidth": max_width,
+        "textUnitWidth": text_unit_width,
+        "textWidth": text_width,
         "cellPaddingX": padding_x,
         "cellPaddingY": padding_y,
         "guardedLineHeight": guarded_line_height,
         "lineCount": len(lines),
+        "alignment": "top-left",
     }
     return layout, metrics
 

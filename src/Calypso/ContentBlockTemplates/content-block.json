@@ -27,19 +27,19 @@
   },
   "layouts": {
     "wide": {
-      "blockWidth": 1200,
-      "cellPaddingX": 32,
-      "cellPaddingY": 24,
-      "guardedLineHeight": 32,
-      "wrapUnitWidth": 16,
+      "maxBlockWidth": 960,
+      "cellPaddingX": 8,
+      "cellPaddingY": 8,
+      "guardedLineHeight": 22,
+      "textUnitWidth": 8,
       "dividerWidth": 1
     },
     "compact": {
-      "blockWidth": 660,
-      "cellPaddingX": 20,
-      "cellPaddingY": 16,
-      "guardedLineHeight": 24,
-      "wrapUnitWidth": 12,
+      "maxBlockWidth": 730,
+      "cellPaddingX": 8,
+      "cellPaddingY": 8,
+      "guardedLineHeight": 18,
+      "textUnitWidth": 7,
       "dividerWidth": 1
     }
   }

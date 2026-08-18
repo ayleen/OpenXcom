@@ -71,7 +71,8 @@ void trimLineStart(std::string& text)
 /// line is blitted at the canonical physical line height.
 SDL_Surface* renderWrappedWithLineHeight(TTF_Font* face, const std::string& text,
 	int wrapWidth, int lineHeightPx, int lineHeightMilliPx, int horizontalScalePermille,
-	int verticalScalePermille, int wrapMeasureScalePermille, SDL_Color color)
+	int verticalScalePermille, int wrapMeasureScalePermille, bool explicitBreaksOnly,
+	SDL_Color color)
 {
 	if (!face || text.empty() || wrapWidth <= 0
 		|| (lineHeightPx <= 0 && lineHeightMilliPx <= 0)) return nullptr;
@@ -94,34 +95,41 @@ SDL_Surface* renderWrappedWithLineHeight(TTF_Font* face, const std::string& text
 		}
 		else
 		{
-			while (!remaining.empty())
+			if (explicitBreaksOnly)
 			{
-				if (utf8Width(face, remaining) <= textWrapWidth)
+				lines.push_back(std::move(remaining));
+			}
+			else
+			{
+				while (!remaining.empty())
 				{
-					lines.push_back(remaining);
-					break;
-				}
+					if (utf8Width(face, remaining) <= textWrapWidth)
+					{
+						lines.push_back(remaining);
+						break;
+					}
 
-				std::size_t cursor = 0;
-				std::size_t fittingEnd = 0;
-				std::size_t lastSpaceEnd = 0;
-				while (cursor < remaining.size())
-				{
-					const std::size_t next = nextUtf8Boundary(remaining, cursor);
-					const std::string candidate = remaining.substr(0, next);
-					if (utf8Width(face, candidate) > textWrapWidth) break;
-					fittingEnd = next;
-					if (isAsciiSpaceAt(remaining, cursor)) lastSpaceEnd = next;
-					cursor = next;
-				}
-				std::size_t breakAt = lastSpaceEnd > 0 ? lastSpaceEnd : fittingEnd;
-				if (breakAt == 0) breakAt = nextUtf8Boundary(remaining, 0);
+					std::size_t cursor = 0;
+					std::size_t fittingEnd = 0;
+					std::size_t lastSpaceEnd = 0;
+					while (cursor < remaining.size())
+					{
+						const std::size_t next = nextUtf8Boundary(remaining, cursor);
+						const std::string candidate = remaining.substr(0, next);
+						if (utf8Width(face, candidate) > textWrapWidth) break;
+						fittingEnd = next;
+						if (isAsciiSpaceAt(remaining, cursor)) lastSpaceEnd = next;
+						cursor = next;
+					}
+					std::size_t breakAt = lastSpaceEnd > 0 ? lastSpaceEnd : fittingEnd;
+					if (breakAt == 0) breakAt = nextUtf8Boundary(remaining, 0);
 
-				std::string line = remaining.substr(0, breakAt);
-				trimLineEnd(line);
-				lines.push_back(std::move(line));
-				remaining.erase(0, breakAt);
-				trimLineStart(remaining);
+					std::string line = remaining.substr(0, breakAt);
+					trimLineEnd(line);
+					lines.push_back(std::move(line));
+					remaining.erase(0, breakAt);
+					trimLineStart(remaining);
+				}
 			}
 		}
 
@@ -379,7 +387,8 @@ SDL_Surface* CalypsoHdTextRaster::rasterFor(const CalypsoHdTextRasterKey& key)
 	{
 		surf = renderWrappedWithLineHeight(face, key.text, key.wrapWidth,
 			key.lineHeightPx, key.lineHeightMilliPx, key.horizontalScalePermille,
-			key.verticalScalePermille, key.wrapMeasureScalePermille, c);
+			key.verticalScalePermille, key.wrapMeasureScalePermille,
+			key.explicitBreaksOnly, c);
 	}
 	else if (key.letterSpacingPx > 0 && key.wrapWidth == 0)
 	{

@@ -254,6 +254,13 @@ def validate_f21(doc, rel):
             fail(rel + ": generated content-block identity is invalid")
         if doc.get("presentation") != {"fitFailure": "exception", "legacyFallback": False}:
             fail(rel + ": content block must fail fast without legacy fallback")
+        style = doc.get("style") or {}
+        for key in ("panelFillTop", "panelFillBottom", "frame", "divider", "text"):
+            if not isinstance(style.get(key), str) or not re.fullmatch(r"[0-9A-Fa-f]{8}", style[key]):
+                fail(rel + ": style." + key + " must be packed 8-digit RGBA")
+        for key in ("cutCornerPx", "borderWidthPx"):
+            if not isinstance(style.get(key), int) or isinstance(style.get(key), bool) or style[key] <= 0:
+                fail(rel + ": style." + key + " must be a positive integer")
         if any(key in (doc.get("copy") or {}) for key in
                ("title", "status", "protocol", "footer", "buttons")):
             fail(rel + ": content block emitted forbidden form chrome")
@@ -308,10 +315,25 @@ def validate_f21(doc, rel):
                         or any(not isinstance(count, int) or count <= 0
                                for count in counts.values())):
                     fail(rel + ": " + layout_name + " lineCounts must cover every cell")
+                column_widths = layout_metrics.get("columnWidths")
+                if (not isinstance(column_widths, list) or len(column_widths) != columns
+                        or any(not isinstance(width, int) or width <= 0
+                               for width in column_widths)):
+                    fail(rel + ": " + layout_name + " columnWidths must cover every column")
+                alignment = layout_metrics.get("alignment")
+                if (not isinstance(alignment, dict) or set(alignment) != set(cell_parts)
+                        or any(value != "top-left" for value in alignment.values())):
+                    fail(rel + ": " + layout_name + " every cell must be top-left aligned")
             else:
                 count = layout_metrics.get("lineCount")
                 if not isinstance(count, int) or count <= 0:
                     fail(rel + ": " + layout_name + " lineCount must be positive")
+                if layout_metrics.get("alignment") != "top-left":
+                    fail(rel + ": " + layout_name + " text must be top-left aligned")
+            for metric_name in ("maxBlockWidth", "textUnitWidth"):
+                value = layout_metrics.get(metric_name)
+                if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+                    fail(rel + ": " + layout_name + " " + metric_name + " must be positive")
     parts = doc.get("parts")
     if not isinstance(parts, list) or not parts:
         fail(rel + ": parts list required")
@@ -674,9 +696,17 @@ def emit_family_h(doc, rel, ns, prefix):
     if rel in CONTENT_BLOCK_CONTRACTS:
         content = doc["content"]
         metrics = doc["metrics"]
+        style = doc["style"]
         out += ["// Titleless content-block policy and measured layout metadata.",
                 "inline constexpr bool kLegacyFallback = false;",
-                "inline constexpr bool kFitFailureException = true;"]
+                "inline constexpr bool kFitFailureException = true;",
+                "inline constexpr std::uint32_t kPanelFillTopRgba = 0x" + style["panelFillTop"].upper() + "u;",
+                "inline constexpr std::uint32_t kPanelFillBottomRgba = 0x" + style["panelFillBottom"].upper() + "u;",
+                "inline constexpr std::uint32_t kFrameRgba = 0x" + style["frame"].upper() + "u;",
+                "inline constexpr std::uint32_t kDividerRgba = 0x" + style["divider"].upper() + "u;",
+                "inline constexpr std::uint32_t kTextRgba = 0x" + style["text"].upper() + "u;",
+                "inline constexpr int kCutCornerPx = " + str(style["cutCornerPx"]) + ";",
+                "inline constexpr int kBorderWidthPx = " + str(style["borderWidthPx"]) + ";"]
         if content["kind"] == "table":
             cell_parts = [part for part in parts if part.startswith("cellR")]
             out += ["inline constexpr int kContentColumns = " + str(content["columns"]) + ";",

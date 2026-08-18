@@ -341,16 +341,18 @@ struct CalypsoF21Painter
 		const CalypsoTtfSourceDescriptor& font,
 		const std::string& text, std::uint32_t color,
 		CalypsoHdHAlign hA, CalypsoHdVAlign vA, int linesHint, std::uint32_t role,
-		double trackingEm = 0.0, double fontSizeDesignPx = 0.0);
+		double trackingEm = 0.0, double fontSizeDesignPx = 0.0,
+		bool autoWrap = true);
 
 	void text(Surface* widget, const CalypsoTtfSourceDescriptor& font,
 		const std::string& text, std::uint32_t color,
 		CalypsoHdHAlign hA, CalypsoHdVAlign vA, int linesHint, std::uint32_t role,
-		double trackingEm = 0.0, double fontSizeDesignPx = 0.0)
+		double trackingEm = 0.0, double fontSizeDesignPx = 0.0,
+		bool autoWrap = true)
 	{
 		if (!widget || text.empty()) return;
 		textRect(f21WidgetRect(widget), widget, font, text, color, hA, vA,
-			linesHint, role, trackingEm, fontSizeDesignPx);
+			linesHint, role, trackingEm, fontSizeDesignPx, autoWrap);
 	}
 };
 
@@ -358,7 +360,7 @@ inline void CalypsoF21Painter::textRect(const CalypsoLogicalRect& sourceRect,
 	const void* widget, const CalypsoTtfSourceDescriptor& font,
 	const std::string& text, std::uint32_t color,
 	CalypsoHdHAlign hA, CalypsoHdVAlign vA, int linesHint, std::uint32_t role,
-	double trackingEm, double fontSizeDesignPx)
+	double trackingEm, double fontSizeDesignPx, bool autoWrap)
 {
 	if (text.empty()) return;
 	const CalypsoLogicalRect r = motionRect(sourceRect);
@@ -379,6 +381,7 @@ inline void CalypsoF21Painter::textRect(const CalypsoLogicalRect& sourceRect,
 	key.physicalPixelHeight = physicalPixelHeight;
 	key.text = text;
 	key.wrapWidth = wrapWidth;
+	key.explicitBreaksOnly = !autoWrap;
 	key.horizontalScalePermille = std::max(1, (int)calypsoHdRoundToInt(
 		physicalScaleX / physicalScaleY * 1000.0));
 	if (hint > 1)

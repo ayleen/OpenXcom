@@ -71,6 +71,8 @@ struct CalypsoHdTextRasterKey
 	int wrapWidth = 0;                      // 0 => single line / break only on '\n';
 	                                       // >0 => wraps at this design-space px width
 	                                       // (handles CJK / no-space text)
+	bool explicitBreaksOnly = false;         // guarded compositor keeps authored '\n'
+	                                       // but does not add metric wrapping
 	int letterSpacingPx = 0;               // >0 AND wrapWidth==0 => per-glyph tracked
 	                                       // single-line layout (titles/labels);
 	                                       // wrapped rasters ignore it (body copy
@@ -92,6 +94,7 @@ struct CalypsoHdTextRasterKey
 		    && physicalPixelHeight == o.physicalPixelHeight
 		    && text == o.text
 		    && wrapWidth == o.wrapWidth
+		    && explicitBreaksOnly == o.explicitBreaksOnly
 		    && letterSpacingPx == o.letterSpacingPx
 		    && lineHeightPx == o.lineHeightPx
 		    && lineHeightMilliPx == o.lineHeightMilliPx
@@ -159,6 +162,7 @@ struct hash<OpenXcom::Calypso::CalypsoHdTextRasterKey>
 		mix(static_cast<std::uint64_t>(k.physicalPixelHeight));
 		h ^= std::hash<std::string>()(k.text) + 0x9e3779b97f4a7c15ull + (h << 6) + (h >> 2);
 		mix(static_cast<std::uint64_t>(static_cast<std::uint32_t>(k.wrapWidth)));
+		mix(static_cast<std::uint64_t>(k.explicitBreaksOnly ? 1 : 0));
 		mix(static_cast<std::uint64_t>(static_cast<std::uint32_t>(k.letterSpacingPx)));
 		mix(static_cast<std::uint64_t>(static_cast<std::uint32_t>(k.lineHeightPx)));
 		mix(static_cast<std::uint64_t>(static_cast<std::uint32_t>(k.lineHeightMilliPx)));

@@ -26,21 +26,28 @@ struct CalypsoF21SiteDetailsGenLayout
 inline constexpr CalypsoF21SiteDetailsGenLayout kLayouts[] =
 {
 	// wide
-	{ 1200, 193, { 0, 0, 1200, 193 }, { 600, 0, 1, 193 }, { 0, 80, 1200, 1 }, { 32, 24, 536, 32 }, { 632, 24, 536, 32 }, { 32, 105, 536, 64 }, { 632, 105, 536, 64 } },
+	{ 571, 77, { 0, 0, 571, 77 }, { 232, 8, 1, 61 }, { 8, 38, 555, 1 }, { 8, 8, 216, 22 }, { 241, 8, 322, 22 }, { 8, 47, 216, 22 }, { 241, 47, 322, 22 } },
 	// compact
-	{ 660, 185, { 0, 0, 660, 185 }, { 330, 0, 1, 185 }, { 0, 80, 660, 1 }, { 20, 16, 290, 48 }, { 350, 16, 290, 48 }, { 20, 97, 290, 72 }, { 350, 97, 290, 72 } },
+	{ 504, 69, { 0, 0, 504, 69 }, { 205, 8, 1, 53 }, { 8, 34, 488, 1 }, { 8, 8, 189, 18 }, { 214, 8, 282, 18 }, { 8, 43, 189, 18 }, { 214, 43, 282, 18 } },
 };
 inline constexpr int kLayoutCount = 2;
 
 // Titleless content-block policy and measured layout metadata.
 inline constexpr bool kLegacyFallback = false;
 inline constexpr bool kFitFailureException = true;
+inline constexpr std::uint32_t kPanelFillTopRgba = 0x071419F2u;
+inline constexpr std::uint32_t kPanelFillBottomRgba = 0x030A0DF7u;
+inline constexpr std::uint32_t kFrameRgba = 0x214B3FFFu;
+inline constexpr std::uint32_t kDividerRgba = 0x214B3F99u;
+inline constexpr std::uint32_t kTextRgba = 0xF4F1E8FFu;
+inline constexpr int kCutCornerPx = 14;
+inline constexpr int kBorderWidthPx = 1;
 inline constexpr int kContentColumns = 2;
 inline constexpr int kContentRows = 2;
-inline constexpr int kWideGuardedLineHeight = 32;
-inline constexpr int kWideLineCounts[] = { 1, 1, 1, 2 };
-inline constexpr int kCompactGuardedLineHeight = 24;
-inline constexpr int kCompactLineCounts[] = { 2, 1, 1, 3 };
+inline constexpr int kWideGuardedLineHeight = 22;
+inline constexpr int kWideLineCounts[] = { 1, 1, 1, 1 };
+inline constexpr int kCompactGuardedLineHeight = 18;
+inline constexpr int kCompactLineCounts[] = { 1, 1, 1, 1 };
 
 /// Layout for a design canvas, or nullptr (the harness never guesses).
 inline const CalypsoF21SiteDetailsGenLayout* layoutForDesign(int dw, int dh)

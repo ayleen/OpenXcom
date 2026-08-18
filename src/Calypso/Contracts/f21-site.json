@@ -8,10 +8,6 @@
     "slot": "BASE 1 / 8",
     "funds": "AVAILABLE FUNDS · $6 800 000",
     "cost": "BUILD COST · $950 000",
-    "coords": "COORDINATES · 28.6·N  0.0·E",
-    "region": "REGION · South Atlantic",
-    "legality": "LEGAL LAND SITE\nREQUIRED",
-    "preview": "Hover globe to inspect. Cancel discards this base.",
     "cancel": "CANCEL"
   },
   "parts": [
@@ -22,14 +18,6 @@
     "slot",
     "funds",
     "cost",
-    "card",
-    "cardRule",
-    "cardDivider",
-    "cardDots",
-    "coords",
-    "region",
-    "legality",
-    "preview",
     "cancel"
   ],
   "actions": [
@@ -80,93 +68,6 @@
       "axis": "vertical",
       "wide": 8,
       "compact": 8
-    },
-    {
-      "id": "coords-region",
-      "kind": "gap",
-      "first": "coords",
-      "second": "region",
-      "axis": "horizontal",
-      "wide": 18,
-      "compact": 16
-    },
-    {
-      "id": "coords-legality",
-      "kind": "gap",
-      "first": "coords",
-      "second": "legality",
-      "axis": "vertical",
-      "wide": 28,
-      "compact": 18
-    },
-    {
-      "id": "region-preview",
-      "kind": "gap",
-      "first": "region",
-      "second": "preview",
-      "axis": "vertical",
-      "wide": 20,
-      "compact": 14
-    },
-    {
-      "id": "rule-coords",
-      "kind": "gap",
-      "first": "cardRule",
-      "second": "coords",
-      "axis": "vertical",
-      "wide": 11,
-      "compact": 9
-    },
-    {
-      "id": "coords-divider",
-      "kind": "gap",
-      "first": "coords",
-      "second": "cardDivider",
-      "axis": "horizontal",
-      "wide": 8,
-      "compact": 8
-    },
-    {
-      "id": "divider-region",
-      "kind": "gap",
-      "first": "cardDivider",
-      "second": "region",
-      "axis": "horizontal",
-      "wide": 9,
-      "compact": 7
-    },
-    {
-      "id": "preview-dots",
-      "kind": "gap",
-      "first": "preview",
-      "second": "cardDots",
-      "axis": "vertical",
-      "wide": 20,
-      "compact": 4
-    },
-    {
-      "id": "card-coords",
-      "kind": "inset",
-      "container": "card",
-      "child": "coords",
-      "edges": [
-        "left",
-        "top"
-      ],
-      "wide": 20,
-      "compact": 20
-    },
-    {
-      "id": "card-preview",
-      "kind": "inset",
-      "container": "card",
-      "child": "preview",
-      "edges": [
-        "right",
-        "bottom"
-      ],
-      "wide": 28,
-      "compact": 16
     },
     {
       "id": "canvas-cancel",
@@ -227,54 +128,6 @@
         "width": 460,
         "height": 30
       },
-      "card": {
-        "x": 28,
-        "y": 510,
-        "width": 680,
-        "height": 202
-      },
-      "cardRule": {
-        "x": 44,
-        "y": 528,
-        "width": 648,
-        "height": 1
-      },
-      "cardDivider": {
-        "x": 350,
-        "y": 532,
-        "width": 1,
-        "height": 156
-      },
-      "cardDots": {
-        "x": 40,
-        "y": 692,
-        "width": 656,
-        "height": 14
-      },
-      "coords": {
-        "x": 56,
-        "y": 540,
-        "width": 286,
-        "height": 28
-      },
-      "region": {
-        "x": 360,
-        "y": 540,
-        "width": 320,
-        "height": 28
-      },
-      "legality": {
-        "x": 56,
-        "y": 596,
-        "width": 286,
-        "height": 82
-      },
-      "preview": {
-        "x": 360,
-        "y": 590,
-        "width": 320,
-        "height": 82
-      },
       "cancel": {
         "x": 1094,
         "y": 640,
@@ -326,54 +179,6 @@
         "y": 74,
         "width": 260,
         "height": 24
-      },
-      "card": {
-        "x": 10,
-        "y": 198,
-        "width": 540,
-        "height": 160
-      },
-      "cardRule": {
-        "x": 26,
-        "y": 216,
-        "width": 508,
-        "height": 1
-      },
-      "cardDivider": {
-        "x": 258,
-        "y": 220,
-        "width": 1,
-        "height": 112
-      },
-      "cardDots": {
-        "x": 22,
-        "y": 340,
-        "width": 516,
-        "height": 14
-      },
-      "coords": {
-        "x": 30,
-        "y": 226,
-        "width": 220,
-        "height": 22
-      },
-      "region": {
-        "x": 266,
-        "y": 226,
-        "width": 258,
-        "height": 22
-      },
-      "legality": {
-        "x": 30,
-        "y": 266,
-        "width": 220,
-        "height": 66
-      },
-      "preview": {
-        "x": 266,
-        "y": 262,
-        "width": 258,
-        "height": 66
       },
       "cancel": {
         "x": 584,

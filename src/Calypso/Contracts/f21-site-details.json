@@ -54,129 +54,159 @@
   },
   "metrics": {
     "wide": {
-      "columnWidth": 600,
-      "cellPaddingX": 32,
-      "cellPaddingY": 24,
-      "guardedLineHeight": 32,
+      "maxBlockWidth": 960,
+      "textUnitWidth": 8,
+      "columnTextWidths": [
+        216,
+        322
+      ],
+      "columnWidths": [
+        232,
+        338
+      ],
+      "cellPaddingX": 8,
+      "cellPaddingY": 8,
+      "guardedLineHeight": 22,
       "rowHeights": [
-        80,
-        112
+        38,
+        38
       ],
       "lineCounts": {
         "cellR1C1": 1,
         "cellR1C2": 1,
         "cellR2C1": 1,
-        "cellR2C2": 2
+        "cellR2C2": 1
+      },
+      "alignment": {
+        "cellR1C1": "top-left",
+        "cellR1C2": "top-left",
+        "cellR2C1": "top-left",
+        "cellR2C2": "top-left"
       }
     },
     "compact": {
-      "columnWidth": 330,
-      "cellPaddingX": 20,
-      "cellPaddingY": 16,
-      "guardedLineHeight": 24,
+      "maxBlockWidth": 730,
+      "textUnitWidth": 7,
+      "columnTextWidths": [
+        189,
+        282
+      ],
+      "columnWidths": [
+        205,
+        298
+      ],
+      "cellPaddingX": 8,
+      "cellPaddingY": 8,
+      "guardedLineHeight": 18,
       "rowHeights": [
-        80,
-        104
+        34,
+        34
       ],
       "lineCounts": {
-        "cellR1C1": 2,
+        "cellR1C1": 1,
         "cellR1C2": 1,
         "cellR2C1": 1,
-        "cellR2C2": 3
+        "cellR2C2": 1
+      },
+      "alignment": {
+        "cellR1C1": "top-left",
+        "cellR1C2": "top-left",
+        "cellR2C1": "top-left",
+        "cellR2C2": "top-left"
       }
     }
   },
   "layouts": {
     "wide": {
-      "designWidth": 1200,
-      "designHeight": 193,
+      "designWidth": 571,
+      "designHeight": 77,
       "window": {
         "x": 0,
         "y": 0,
-        "width": 1200,
-        "height": 193
+        "width": 571,
+        "height": 77
       },
       "columnDivider1": {
-        "x": 600,
-        "y": 0,
+        "x": 232,
+        "y": 8,
         "width": 1,
-        "height": 193
+        "height": 61
       },
       "cellR1C1": {
-        "x": 32,
-        "y": 24,
-        "width": 536,
-        "height": 32
+        "x": 8,
+        "y": 8,
+        "width": 216,
+        "height": 22
       },
       "cellR1C2": {
-        "x": 632,
-        "y": 24,
-        "width": 536,
-        "height": 32
+        "x": 241,
+        "y": 8,
+        "width": 322,
+        "height": 22
       },
       "rowDivider1": {
-        "x": 0,
-        "y": 80,
-        "width": 1200,
+        "x": 8,
+        "y": 38,
+        "width": 555,
         "height": 1
       },
       "cellR2C1": {
-        "x": 32,
-        "y": 105,
-        "width": 536,
-        "height": 64
+        "x": 8,
+        "y": 47,
+        "width": 216,
+        "height": 22
       },
       "cellR2C2": {
-        "x": 632,
-        "y": 105,
-        "width": 536,
-        "height": 64
+        "x": 241,
+        "y": 47,
+        "width": 322,
+        "height": 22
       }
     },
     "compact": {
-      "designWidth": 660,
-      "designHeight": 185,
+      "designWidth": 504,
+      "designHeight": 69,
       "window": {
         "x": 0,
         "y": 0,
-        "width": 660,
-        "height": 185
+        "width": 504,
+        "height": 69
       },
       "columnDivider1": {
-        "x": 330,
-        "y": 0,
+        "x": 205,
+        "y": 8,
         "width": 1,
-        "height": 185
+        "height": 53
       },
       "cellR1C1": {
-        "x": 20,
-        "y": 16,
-        "width": 290,
-        "height": 48
+        "x": 8,
+        "y": 8,
+        "width": 189,
+        "height": 18
       },
       "cellR1C2": {
-        "x": 350,
-        "y": 16,
-        "width": 290,
-        "height": 48
+        "x": 214,
+        "y": 8,
+        "width": 282,
+        "height": 18
       },
       "rowDivider1": {
-        "x": 0,
-        "y": 80,
-        "width": 660,
+        "x": 8,
+        "y": 34,
+        "width": 488,
         "height": 1
       },
       "cellR2C1": {
-        "x": 20,
-        "y": 97,
-        "width": 290,
-        "height": 72
+        "x": 8,
+        "y": 43,
+        "width": 189,
+        "height": 18
       },
       "cellR2C2": {
-        "x": 350,
-        "y": 97,
-        "width": 290,
-        "height": 72
+        "x": 214,
+        "y": 43,
+        "width": 282,
+        "height": 18
       }
     }
   },

@@ -21,23 +21,15 @@ struct CalypsoF21SiteGenLayout
 	CalypsoF21SiteGenRect slot;
 	CalypsoF21SiteGenRect funds;
 	CalypsoF21SiteGenRect cost;
-	CalypsoF21SiteGenRect card;
-	CalypsoF21SiteGenRect cardRule;
-	CalypsoF21SiteGenRect cardDivider;
-	CalypsoF21SiteGenRect cardDots;
-	CalypsoF21SiteGenRect coords;
-	CalypsoF21SiteGenRect region;
-	CalypsoF21SiteGenRect legality;
-	CalypsoF21SiteGenRect preview;
 	CalypsoF21SiteGenRect cancel;
 };
 
 inline constexpr CalypsoF21SiteGenLayout kLayouts[] =
 {
 	// wide
-	{ 1280, 720, { 0, 0, 1280, 720 }, { 20, 18, 1240, 126 }, { 20, 18, 1240, 30 }, { 52, 56, 620, 50 }, { 52, 112, 190, 18 }, { 776, 54, 460, 30 }, { 776, 92, 460, 30 }, { 28, 510, 680, 202 }, { 44, 528, 648, 1 }, { 350, 532, 1, 156 }, { 40, 692, 656, 14 }, { 56, 540, 286, 28 }, { 360, 540, 320, 28 }, { 56, 596, 286, 82 }, { 360, 590, 320, 82 }, { 1094, 640, 158, 44 } },
+	{ 1280, 720, { 0, 0, 1280, 720 }, { 20, 18, 1240, 126 }, { 20, 18, 1240, 30 }, { 52, 56, 620, 50 }, { 52, 112, 190, 18 }, { 776, 54, 460, 30 }, { 776, 92, 460, 30 }, { 1094, 640, 158, 44 } },
 	// compact
-	{ 740, 360, { 0, 0, 740, 360 }, { 8, 6, 724, 112 }, { 8, 6, 724, 30 }, { 28, 42, 416, 44 }, { 28, 90, 160, 16 }, { 460, 42, 260, 24 }, { 460, 74, 260, 24 }, { 10, 198, 540, 160 }, { 26, 216, 508, 1 }, { 258, 220, 1, 112 }, { 22, 340, 516, 14 }, { 30, 226, 220, 22 }, { 266, 226, 258, 22 }, { 30, 266, 220, 66 }, { 266, 262, 258, 66 }, { 584, 306, 148, 44 } },
+	{ 740, 360, { 0, 0, 740, 360 }, { 8, 6, 724, 112 }, { 8, 6, 724, 30 }, { 28, 42, 416, 44 }, { 28, 90, 160, 16 }, { 460, 42, 260, 24 }, { 460, 74, 260, 24 }, { 584, 306, 148, 44 } },
 };
 inline constexpr int kLayoutCount = 2;
 

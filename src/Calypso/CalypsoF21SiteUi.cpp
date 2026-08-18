@@ -18,13 +18,14 @@
  */
 /*
  * F21 (Calypso): HD adapter for BuildNewBaseState -- see the header. The
- * strip + card form ONE atomic subgroup (they appear together or the whole
- * strip falls back to logical); the globe renders logically underneath.
+ * strip + generated content block form ONE atomic HD subgroup; the globe
+ * renders logically underneath.
  */
 #ifdef __EMSCRIPTEN__
 
 #include "CalypsoF21SiteUi.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <iomanip>
@@ -78,6 +79,28 @@ void applyRect(Surface* surface, const CalypsoF21Rect& rect)
 	surface->setHeight(rect.height);
 }
 
+CalypsoHdPanelStyle f21SiteDetailsStyle()
+{
+	CalypsoHdPanelStyle s;
+	s.styled = true;
+	s.shape = CalypsoHdPanelShape::OpposingCutRect;
+	s.cutCornerPx = static_cast<float>(CalypsoF21SiteDetailsGen::kCutCornerPx);
+	s.borderWidthPx = static_cast<float>(CalypsoF21SiteDetailsGen::kBorderWidthPx);
+	s.borderColorRgba = CalypsoF21SiteDetailsGen::kFrameRgba;
+	s.fillTopRgba = CalypsoF21SiteDetailsGen::kPanelFillTopRgba;
+	s.fillBottomRgba = CalypsoF21SiteDetailsGen::kPanelFillBottomRgba;
+	s.gradDirX = 0.18f;
+	s.gradDirY = 1.0f;
+	return s;
+}
+
+int f21SiteDetailsLineCount(bool wide, int cellIndex)
+{
+	return wide
+		? CalypsoF21SiteDetailsGen::kWideLineCounts[cellIndex]
+		: CalypsoF21SiteDetailsGen::kCompactLineCounts[cellIndex];
+}
+
 } // namespace
 
 CalypsoF21SiteUi::~CalypsoF21SiteUi()
@@ -103,6 +126,9 @@ void CalypsoF21SiteUi::collect(CalypsoHdFrameBuilder& builder) const
 	if (!calypsoHdResolveFontDescriptor(mod, "FONT_F34_MONO", mono)) return;
 
 	const CalypsoHdPresentationMetrics& m = CalypsoHdUiOverlay::instance().frozenMetrics();
+	const bool wide = _state->_hdWideLayout;
+	const CalypsoF21SiteLayout designLayout = calypsoF21SiteLayout(
+		wide ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact);
 
 	if (!_presented)
 	{
@@ -115,16 +141,23 @@ void CalypsoF21SiteUi::collect(CalypsoHdFrameBuilder& builder) const
 	// One atomic subgroup: strip + card show physically together or not at
 	// all. The globe stays logical; NO backdrop dim (the globe is the task).
 	builder.beginSubgroup();
+	const CalypsoLogicalRect bannerLogical = f21WidgetRect(_state->_window);
+	const double uiScale = designLayout.banner.width > 0
+		? (double)bannerLogical.w / designLayout.banner.width : 1.0;
+	const CalypsoLogicalRect winFull{
+		bannerLogical.x + (int)std::llround(
+			(designLayout.window.x - designLayout.banner.x) * uiScale),
+		bannerLogical.y + (int)std::llround(
+			(designLayout.window.y - designLayout.banner.y) * uiScale),
+		std::max(1, (int)std::llround(designLayout.window.width * uiScale)),
+		std::max(1, (int)std::llround(designLayout.window.height * uiScale)) };
 	CalypsoF21Painter p{ builder, kF21FamilyId,
 		reinterpret_cast<std::uintptr_t>(_state), 0, motion.opacity, motion.scale,
-		CalypsoF21Rect{ 0, 0,
-			_state->_hdWideLayout ? 1280 : 740,
-			_state->_hdWideLayout ? 720 : 360 },
+		CalypsoF21Rect{ winFull.x, winFull.y, winFull.w, winFull.h },
 		m.scaleX, m.scaleY };
-
-	const bool wide = _state->_hdWideLayout;
-	const CalypsoF21SiteLayout designLayout = calypsoF21SiteLayout(
-		wide ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact);
+	p.winLogical = winFull;
+	p.windowDesign = designLayout.window;
+	p.uiScale = uiScale;
 	const double titlePx = (wide ? CalypsoHdThemeGen::kF21TitleWidePx : CalypsoHdThemeGen::kF21TitleCompactPx)
 		* CalypsoF21SiteGen::kEngineTextScaleTitle;
 	const double dataPx = (wide ? CalypsoHdThemeGen::kF21DataWidePx : CalypsoHdThemeGen::kF21DataCompactPx)
@@ -147,24 +180,15 @@ void CalypsoF21SiteUi::collect(CalypsoHdFrameBuilder& builder) const
 			kF21DividerRgba, ROLE_DECORATION);
 	}
 
-	// Placement preview card (bottom-left): cut frame, top divider, sparse
-	// dot field under the readouts -- the strip's F33-language echo.
+	// Generated titleless 2x2 content block (bottom-left). Its frame, fill,
+	// content-sized columns and internal dividers come from one generated contract.
 	{
 		const CalypsoLogicalRect c = f21WidgetRect(_state->_hdCard);
-		p.styled(c, f21InsetPanelStyle(), _state->_hdCard, ROLE_CARD);
-		p.decoration(CalypsoLogicalRect{ designLayout.cardRule.x, designLayout.cardRule.y,
-			designLayout.cardRule.width, designLayout.cardRule.height },
-			kF21DividerRgba, ROLE_DECORATION);
-		p.decoration(CalypsoLogicalRect{ designLayout.cardDivider.x, designLayout.cardDivider.y,
-			designLayout.cardDivider.width, designLayout.cardDivider.height },
-			kF21DividerRgba, ROLE_DECORATION);
-		for (int y = designLayout.cardDots.y;
-			y < designLayout.cardDots.y + designLayout.cardDots.height; y += 8)
-		{
-			for (int x = designLayout.cardDots.x;
-				x < designLayout.cardDots.x + designLayout.cardDots.width; x += 8)
-				p.decoration(CalypsoLogicalRect{ x, y, 1, 1 }, kF21FooterDotRgba, ROLE_BANNER);
-		}
+		p.styled(c, f21SiteDetailsStyle(), _state->_hdCard, ROLE_CARD);
+		p.decoration(p.project(designLayout.rowDivider),
+			CalypsoF21SiteDetailsGen::kDividerRgba, ROLE_DECORATION);
+		p.decoration(p.project(designLayout.columnDivider),
+			CalypsoF21SiteDetailsGen::kDividerRgba, ROLE_DECORATION);
 	}
 
 	// Cancel (additional bases only; the widget is hidden for the first base
@@ -198,17 +222,17 @@ void CalypsoF21SiteUi::collect(CalypsoHdFrameBuilder& builder) const
 		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_COST, 0.0,
 		dataPx);
 	p.text(_state->_hdCoords, mono, _state->_hdCoords->getText(), CalypsoHdTheme::kNearWhite,
-		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_COORDS, 0.0,
-		dataPx);
+		CalypsoHdHAlign::Left, CalypsoHdVAlign::Top, f21SiteDetailsLineCount(wide, 0), ROLE_COORDS, 0.0,
+		dataPx, false);
 	p.text(_state->_hdRegion, mono, _state->_hdRegion->getText(), CalypsoHdTheme::kNearWhite,
-		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_REGION, 0.0,
-		dataPx);
+		CalypsoHdHAlign::Left, CalypsoHdVAlign::Top, f21SiteDetailsLineCount(wide, 1), ROLE_REGION, 0.0,
+		dataPx, false);
 	p.text(_state->_hdLegality, body, _state->_hdLegality->getText(), CalypsoHdThemeGen::kGold,
-		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 2, ROLE_LEGALITY, 0.0,
-		bodyPx);
+		CalypsoHdHAlign::Left, CalypsoHdVAlign::Top, f21SiteDetailsLineCount(wide, 2), ROLE_LEGALITY, 0.0,
+		bodyPx, false);
 	p.text(_state->_hdPreview, body, _state->_hdPreview->getText(), kF21MutedBodyRgba,
-		CalypsoHdHAlign::Left, CalypsoHdVAlign::Top, 2, ROLE_PREVIEW, 0.0,
-		bodyPx);
+		CalypsoHdHAlign::Left, CalypsoHdVAlign::Top, f21SiteDetailsLineCount(wide, 3), ROLE_PREVIEW, 0.0,
+		bodyPx, false);
 }
 
 void CalypsoF21SiteUi::applyRects(BuildNewBaseState& state, const CalypsoF21SiteLayout& layout)
@@ -243,8 +267,8 @@ void CalypsoF21SiteUi::configure(BuildNewBaseState& state, bool allowPhysicalOve
 
 	state._txtTitle->setText(state.tr("STR_CAL_F21_SELECT_SITE"));
 
-	// HD-only readouts (absent on the logical fallback). The card/coords/
-	// region readouts update from the live hover snapshot in think().
+	// HD-only readouts. The card/coords/region readouts update from the live
+	// hover snapshot in think().
 	state._hdProtocol = new Text(1, 1, 0, 0);
 	state.add(state._hdProtocol);
 	state._hdProtocol->setText(state.tr("STR_CAL_F21_PROTOCOL_SITE"));
@@ -276,12 +300,10 @@ void CalypsoF21SiteUi::configure(BuildNewBaseState& state, bool allowPhysicalOve
 
 	state._hdLegality = new Text(1, 1, 0, 0);
 	state.add(state._hdLegality);
-	state._hdLegality->setWordWrap(true);
 	state._hdLegality->setText(state.tr("STR_CAL_F21_SITE_LEGAL"));
 
 	state._hdPreview = new Text(1, 1, 0, 0);
 	state.add(state._hdPreview);
-	state._hdPreview->setWordWrap(true);
 	state._hdPreview->setText(state.tr("STR_CAL_F21_SITE_PREVIEW"));
 
 	// The clean harness compares deterministic fixture content. Populate the
