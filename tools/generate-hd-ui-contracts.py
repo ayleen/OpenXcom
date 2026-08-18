@@ -209,6 +209,7 @@ IDENT_RE = _re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 # (rel, namespace, rect-struct/layout prefix, JS global name)
 F21_FAMILIES = [
     ("f21-site.json", "CalypsoF21SiteGen", "CalypsoF21Site", "CalypsoF21Site"),
+    ("f21-site-details.json", "CalypsoF21SiteDetailsGen", "CalypsoF21SiteDetails", "CalypsoF21SiteDetails"),
     ("f21-transaction.json", "CalypsoF21TransactionGen", "CalypsoF21Transaction", "CalypsoF21Transaction"),
     ("f21-name.json", "CalypsoF21NameGen", "CalypsoF21Name", "CalypsoF21Name"),
     ("f21-defense.json", "CalypsoF21DefenseGen", "CalypsoF21Defense", "CalypsoF21Defense"),
@@ -224,6 +225,8 @@ F21_ENGINE_TEXT_CALIBRATION_CONTRACTS = {
     "f21-site.json", "f21-transaction.json",
     "f21-defense.json", "f21-destruction.json",
 }
+
+CONTENT_BLOCK_CONTRACTS = {"f21-site-details.json"}
 
 
 def validate_f21(doc, rel):
@@ -242,6 +245,73 @@ def validate_f21(doc, rel):
                 fail(rel + ": copy." + key + " must be a non-empty string")
             if "{STRING}" in value or "{ALT}" in value:
                 fail(rel + ": copy." + key + " contains legacy placeholder/control syntax")
+    if rel in CONTENT_BLOCK_CONTRACTS:
+        if doc.get("visualProfile") != "content-block-v1":
+            fail(rel + ": visualProfile must be content-block-v1")
+        block = doc.get("block") or {}
+        if (block.get("archetype") != "content-block"
+                or block.get("contentKind") not in ("text", "table")):
+            fail(rel + ": generated content-block identity is invalid")
+        if doc.get("presentation") != {"fitFailure": "exception", "legacyFallback": False}:
+            fail(rel + ": content block must fail fast without legacy fallback")
+        if any(key in (doc.get("copy") or {}) for key in
+               ("title", "status", "protocol", "footer", "buttons")):
+            fail(rel + ": content block emitted forbidden form chrome")
+        content = doc.get("content") or {}
+        if content.get("kind") != block.get("contentKind"):
+            fail(rel + ": content kind must match generated block identity")
+        if content.get("kind") == "table":
+            columns = content.get("columns")
+            rows = content.get("rows")
+            if (not isinstance(columns, int) or columns < 2
+                    or not isinstance(rows, list) or not rows):
+                fail(rel + ": table content requires rows and at least two columns")
+            if any(not isinstance(row, list) or len(row) != columns
+                   or any(not isinstance(cell, str) or not cell for cell in row)
+                   for row in rows):
+                fail(rel + ": table rows must contain equal non-empty string cells")
+            cell_parts = ["cellR" + str(row + 1) + "C" + str(column + 1)
+                          for row in range(len(rows)) for column in range(columns)]
+            expected_parts = (["window"]
+                              + ["columnDivider" + str(index)
+                                 for index in range(1, columns)]
+                              + ["rowDivider" + str(index)
+                                 for index in range(1, len(rows))]
+                              + cell_parts)
+            if doc.get("parts") != expected_parts:
+                fail(rel + ": table parts do not match generated rows and columns")
+            expected_copy = {part: rows[row][column]
+                             for row in range(len(rows))
+                             for column, part in enumerate(
+                                 cell_parts[row * columns:(row + 1) * columns])}
+            if doc.get("copy") != expected_copy:
+                fail(rel + ": table copy does not match generated cells")
+        else:
+            value = content.get("value")
+            if not isinstance(value, str) or not value:
+                fail(rel + ": plain-text content requires a non-empty value")
+            if doc.get("parts") != ["window", "text"] or doc.get("copy") != {"text": value}:
+                fail(rel + ": plain-text parts/copy do not match generated content")
+        metrics = doc.get("metrics") or {}
+        if set(metrics) != {"wide", "compact"}:
+            fail(rel + ": content block metrics must cover Wide and Compact")
+        for layout_name in ("wide", "compact"):
+            layout_metrics = metrics[layout_name]
+            if not isinstance(layout_metrics, dict):
+                fail(rel + ": " + layout_name + " metrics must be an object")
+            guarded = layout_metrics.get("guardedLineHeight")
+            if not isinstance(guarded, int) or guarded <= 0:
+                fail(rel + ": " + layout_name + " guardedLineHeight must be positive")
+            if content.get("kind") == "table":
+                counts = layout_metrics.get("lineCounts")
+                if (not isinstance(counts, dict) or set(counts) != set(cell_parts)
+                        or any(not isinstance(count, int) or count <= 0
+                               for count in counts.values())):
+                    fail(rel + ": " + layout_name + " lineCounts must cover every cell")
+            else:
+                count = layout_metrics.get("lineCount")
+                if not isinstance(count, int) or count <= 0:
+                    fail(rel + ": " + layout_name + " lineCount must be positive")
     parts = doc.get("parts")
     if not isinstance(parts, list) or not parts:
         fail(rel + ": parts list required")
@@ -601,6 +671,31 @@ def emit_family_h(doc, rel, ns, prefix):
     out += ["};",
             "inline constexpr int kLayoutCount = " + str(len(layouts)) + ";",
             ""]
+    if rel in CONTENT_BLOCK_CONTRACTS:
+        content = doc["content"]
+        metrics = doc["metrics"]
+        out += ["// Titleless content-block policy and measured layout metadata.",
+                "inline constexpr bool kLegacyFallback = false;",
+                "inline constexpr bool kFitFailureException = true;"]
+        if content["kind"] == "table":
+            cell_parts = [part for part in parts if part.startswith("cellR")]
+            out += ["inline constexpr int kContentColumns = " + str(content["columns"]) + ";",
+                    "inline constexpr int kContentRows = " + str(len(content["rows"])) + ";"]
+            for layout_name, label in (("wide", "Wide"), ("compact", "Compact")):
+                layout_metrics = metrics[layout_name]
+                out.append("inline constexpr int k" + label + "GuardedLineHeight = "
+                           + str(layout_metrics["guardedLineHeight"]) + ";")
+                out.append("inline constexpr int k" + label + "LineCounts[] = { "
+                           + ", ".join(str(layout_metrics["lineCounts"][part])
+                                       for part in cell_parts) + " };")
+        else:
+            for layout_name, label in (("wide", "Wide"), ("compact", "Compact")):
+                layout_metrics = metrics[layout_name]
+                out.append("inline constexpr int k" + label + "GuardedLineHeight = "
+                           + str(layout_metrics["guardedLineHeight"]) + ";")
+                out.append("inline constexpr int k" + label + "TextLineCount = "
+                           + str(layout_metrics["lineCount"]) + ";")
+        out.append("")
     calibration = doc.get("engineTextScale")
     if calibration:
         out += ["// Physical Engine-TTF calibration against the CSS reference cap height.",

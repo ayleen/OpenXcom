@@ -1,0 +1,188 @@
+{
+  "schema": 1,
+  "version": "hd.2026-08-18.17",
+  "visualProfile": "content-block-v1",
+  "block": {
+    "id": "f21-site-details",
+    "familyId": 21,
+    "archetype": "content-block",
+    "source": "ContentBlockConfigs/f21-site-details.json",
+    "contentKind": "table"
+  },
+  "presentation": {
+    "fitFailure": "exception",
+    "legacyFallback": false
+  },
+  "content": {
+    "kind": "table",
+    "columns": 2,
+    "rows": [
+      [
+        "COORDINATES · 28.6·N  0.0·E",
+        "REGION · South Atlantic"
+      ],
+      [
+        "LEGAL LAND SITE REQUIRED",
+        "Hover globe to inspect. Cancel discards this base."
+      ]
+    ]
+  },
+  "copy": {
+    "cellR1C1": "COORDINATES · 28.6·N  0.0·E",
+    "cellR1C2": "REGION · South Atlantic",
+    "cellR2C1": "LEGAL LAND SITE REQUIRED",
+    "cellR2C2": "Hover globe to inspect. Cancel discards this base."
+  },
+  "parts": [
+    "window",
+    "columnDivider1",
+    "rowDivider1",
+    "cellR1C1",
+    "cellR1C2",
+    "cellR2C1",
+    "cellR2C2"
+  ],
+  "actions": [],
+  "style": {
+    "panelFillTop": "071419F2",
+    "panelFillBottom": "030A0DF7",
+    "frame": "214B3FFF",
+    "divider": "214B3F99",
+    "text": "F4F1E8FF",
+    "cutCornerPx": 14,
+    "borderWidthPx": 1
+  },
+  "metrics": {
+    "wide": {
+      "columnWidth": 600,
+      "cellPaddingX": 32,
+      "cellPaddingY": 24,
+      "guardedLineHeight": 32,
+      "rowHeights": [
+        80,
+        112
+      ],
+      "lineCounts": {
+        "cellR1C1": 1,
+        "cellR1C2": 1,
+        "cellR2C1": 1,
+        "cellR2C2": 2
+      }
+    },
+    "compact": {
+      "columnWidth": 330,
+      "cellPaddingX": 20,
+      "cellPaddingY": 16,
+      "guardedLineHeight": 24,
+      "rowHeights": [
+        80,
+        104
+      ],
+      "lineCounts": {
+        "cellR1C1": 2,
+        "cellR1C2": 1,
+        "cellR2C1": 1,
+        "cellR2C2": 3
+      }
+    }
+  },
+  "layouts": {
+    "wide": {
+      "designWidth": 1200,
+      "designHeight": 193,
+      "window": {
+        "x": 0,
+        "y": 0,
+        "width": 1200,
+        "height": 193
+      },
+      "columnDivider1": {
+        "x": 600,
+        "y": 0,
+        "width": 1,
+        "height": 193
+      },
+      "cellR1C1": {
+        "x": 32,
+        "y": 24,
+        "width": 536,
+        "height": 32
+      },
+      "cellR1C2": {
+        "x": 632,
+        "y": 24,
+        "width": 536,
+        "height": 32
+      },
+      "rowDivider1": {
+        "x": 0,
+        "y": 80,
+        "width": 1200,
+        "height": 1
+      },
+      "cellR2C1": {
+        "x": 32,
+        "y": 105,
+        "width": 536,
+        "height": 64
+      },
+      "cellR2C2": {
+        "x": 632,
+        "y": 105,
+        "width": 536,
+        "height": 64
+      }
+    },
+    "compact": {
+      "designWidth": 660,
+      "designHeight": 185,
+      "window": {
+        "x": 0,
+        "y": 0,
+        "width": 660,
+        "height": 185
+      },
+      "columnDivider1": {
+        "x": 330,
+        "y": 0,
+        "width": 1,
+        "height": 185
+      },
+      "cellR1C1": {
+        "x": 20,
+        "y": 16,
+        "width": 290,
+        "height": 48
+      },
+      "cellR1C2": {
+        "x": 350,
+        "y": 16,
+        "width": 290,
+        "height": 48
+      },
+      "rowDivider1": {
+        "x": 0,
+        "y": 80,
+        "width": 660,
+        "height": 1
+      },
+      "cellR2C1": {
+        "x": 20,
+        "y": 97,
+        "width": 290,
+        "height": 72
+      },
+      "cellR2C2": {
+        "x": 350,
+        "y": 97,
+        "width": 290,
+        "height": 72
+      }
+    }
+  },
+  "motion": {
+    "durationMs": 200,
+    "scaleFrom": 0.985,
+    "captureModeDurationMs": 0
+  }
+}
