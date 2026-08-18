@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "hd.2026-08-18.11",
+  "version": "hd.2026-08-18.12",
   "visualProfile": "command-card-v1",
   "copy": {
     "protocol": "CALYPSO COMMAND · DEFENSE DOSSIER DF-21 · REV. 1.0.21 · EFFECTIVE 15.07.2061",
@@ -165,59 +165,59 @@
         "x": 360,
         "y": 174,
         "width": 560,
-        "height": 44
+        "height": 46
       },
       "defenses": {
         "x": 360,
-        "y": 234,
+        "y": 236,
         "width": 560,
         "height": 24
       },
       "ammo": {
         "x": 360,
-        "y": 262,
+        "y": 264,
         "width": 560,
         "height": 24
       },
       "hitRatio": {
         "x": 360,
-        "y": 290,
+        "y": 292,
         "width": 560,
         "height": 24
       },
       "phase": {
         "x": 360,
-        "y": 326,
+        "y": 328,
         "width": 560,
         "height": 28
       },
       "result": {
         "x": 360,
-        "y": 370,
+        "y": 372,
         "width": 560,
-        "height": 100
+        "height": 102
       },
       "footer": {
         "x": 320,
-        "y": 486,
+        "y": 490,
         "width": 640,
         "height": 66
       },
       "start": {
         "x": 360,
-        "y": 498,
+        "y": 502,
         "width": 165,
         "height": 44
       },
       "skip": {
         "x": 541,
-        "y": 498,
+        "y": 502,
         "width": 165,
         "height": 44
       },
       "ok": {
         "x": 790,
-        "y": 498,
+        "y": 502,
         "width": 150,
         "height": 44
       }
@@ -241,37 +241,37 @@
         "x": 58,
         "y": 44,
         "width": 560,
-        "height": 40
+        "height": 42
       },
       "defenses": {
         "x": 58,
-        "y": 96,
+        "y": 98,
         "width": 580,
         "height": 20
       },
       "ammo": {
         "x": 58,
-        "y": 120,
+        "y": 122,
         "width": 580,
         "height": 20
       },
       "hitRatio": {
         "x": 58,
-        "y": 144,
+        "y": 146,
         "width": 580,
         "height": 20
       },
       "phase": {
         "x": 58,
-        "y": 176,
+        "y": 178,
         "width": 580,
         "height": 24
       },
       "result": {
-        "x": 48,
-        "y": 212,
-        "width": 644,
-        "height": 52
+        "x": 58,
+        "y": 214,
+        "width": 580,
+        "height": 50
       },
       "footer": {
         "x": 30,

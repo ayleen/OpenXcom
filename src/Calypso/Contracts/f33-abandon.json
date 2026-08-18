@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "hd.2026-08-18.11",
+  "version": "hd.2026-08-18.12",
   "copy": {
     "protocol": "CALYPSO COMMAND · SESSION PROTOCOL SP-01 · REV. 1.0.21 · EFFECTIVE 15.07.2061",
     "title": "ABANDON GAME?",

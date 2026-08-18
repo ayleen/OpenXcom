@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "hd.2026-08-18.11",
+  "version": "hd.2026-08-18.12",
   "visualProfile": "command-card-v1",
   "copy": {
     "protocol": "CALYPSO COMMAND · LOSS RECORD LR-21 · REV. 1.0.21 · EFFECTIVE 15.07.2061",
@@ -137,35 +137,35 @@
         "x": 418,
         "y": 190,
         "width": 480,
-        "height": 44
+        "height": 46
       },
       "subtitle": {
         "x": 372,
-        "y": 246,
+        "y": 248,
         "width": 536,
         "height": 44
       },
       "list": {
         "x": 372,
-        "y": 306,
+        "y": 308,
         "width": 536,
         "height": 112
       },
       "warning": {
         "x": 372,
-        "y": 434,
+        "y": 436,
         "width": 536,
         "height": 32
       },
       "footer": {
         "x": 340,
-        "y": 482,
+        "y": 484,
         "width": 600,
         "height": 62
       },
       "acknowledge": {
         "x": 700,
-        "y": 490,
+        "y": 492,
         "width": 200,
         "height": 44
       }
@@ -177,7 +177,7 @@
         "x": 40,
         "y": 14,
         "width": 660,
-        "height": 342
+        "height": 346
       },
       "status": {
         "x": 40,
@@ -195,35 +195,35 @@
         "x": 100,
         "y": 54,
         "width": 540,
-        "height": 40
+        "height": 42
       },
       "subtitle": {
         "x": 64,
-        "y": 106,
+        "y": 108,
         "width": 580,
         "height": 38
       },
       "list": {
         "x": 64,
-        "y": 156,
+        "y": 158,
         "width": 580,
         "height": 96
       },
       "warning": {
         "x": 64,
-        "y": 264,
+        "y": 262,
         "width": 580,
         "height": 32
       },
       "footer": {
         "x": 40,
-        "y": 304,
+        "y": 306,
         "width": 660,
         "height": 52
       },
       "acknowledge": {
         "x": 466,
-        "y": 308,
+        "y": 310,
         "width": 210,
         "height": 44
       }

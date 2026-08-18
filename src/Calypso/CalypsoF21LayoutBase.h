@@ -41,7 +41,7 @@ namespace Calypso
 // Contract-version guard (46.4-F33.2 contract rule, shared by every F21
 // family header): a consumer compiled against a stale generated pair is a
 // build error, never a silent drift.
-inline constexpr const char* kCalypsoF21ContractVersion = "hd.2026-08-18.11";
+inline constexpr const char* kCalypsoF21ContractVersion = "hd.2026-08-18.12";
 static_assert(std::string_view(kCalypsoF21ContractVersion) ==
 		std::string_view(CalypsoHdThemeGen::kContractVersion),
 	"F21 and theme generated contracts carry different versions; regenerate");
