@@ -107,8 +107,8 @@
       "edges": [
         "right"
       ],
-      "wide": 36,
-      "compact": 24
+      "wide": 20,
+      "compact": 20
     }
   ],
   "layouts": {
@@ -159,14 +159,14 @@
       },
       "footer": {
         "x": 340,
-        "y": 484,
+        "y": 518,
         "width": 600,
-        "height": 52
+        "height": 62
       },
       "acknowledge": {
-        "x": 700,
-        "y": 492,
-        "width": 150,
+        "x": 762,
+        "y": 527,
+        "width": 158,
         "height": 44
       }
     },
@@ -219,12 +219,12 @@
         "x": 40,
         "y": 306,
         "width": 660,
-        "height": 44
+        "height": 52
       },
       "acknowledge": {
-        "x": 466,
-        "y": 314,
-        "width": 150,
+        "x": 532,
+        "y": 310,
+        "width": 148,
         "height": 44
       }
     }

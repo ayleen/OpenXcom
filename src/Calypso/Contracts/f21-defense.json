@@ -119,7 +119,7 @@
       "first": "skip",
       "second": "ok",
       "axis": "horizontal",
-      "wide": 24,
+      "wide": 16,
       "compact": 16
     },
     {
@@ -201,24 +201,24 @@
         "x": 320,
         "y": 490,
         "width": 640,
-        "height": 54
+        "height": 62
       },
       "start": {
-        "x": 430,
+        "x": 490,
         "y": 498,
-        "width": 150,
+        "width": 130,
         "height": 44
       },
       "skip": {
-        "x": 596,
+        "x": 636,
         "y": 498,
-        "width": 150,
+        "width": 130,
         "height": 44
       },
       "ok": {
-        "x": 790,
+        "x": 782,
         "y": 498,
-        "width": 150,
+        "width": 158,
         "height": 44
       }
     },
@@ -277,24 +277,24 @@
         "x": 30,
         "y": 276,
         "width": 680,
-        "height": 48
+        "height": 66
       },
       "start": {
-        "x": 125,
-        "y": 284,
-        "width": 155,
+        "x": 202,
+        "y": 286,
+        "width": 130,
         "height": 44
       },
       "skip": {
-        "x": 296,
-        "y": 284,
-        "width": 155,
+        "x": 348,
+        "y": 286,
+        "width": 130,
         "height": 44
       },
       "ok": {
-        "x": 530,
-        "y": 284,
-        "width": 150,
+        "x": 532,
+        "y": 286,
+        "width": 148,
         "height": 44
       }
     }
