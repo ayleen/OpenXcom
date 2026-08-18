@@ -31,13 +31,23 @@ namespace Calypso
 /// Stable harness scenario ids (generic registry keys).
 enum class CalypsoHarnessScenario
 {
-	F33Abandon = 33
+	F33Abandon = 33,
+	F21Site = 51,
+	F21Transaction = 52,
+	F21Name = 53,
+	F21Defense = 54,
+	F21Destruction = 55
 };
 
 /// True iff `id` names a known scenario (the generic export never guesses).
 inline bool calypsoHarnessScenarioValid(int id)
 {
-	return id == static_cast<int>(CalypsoHarnessScenario::F33Abandon);
+	return id == static_cast<int>(CalypsoHarnessScenario::F33Abandon)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F21Site)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F21Transaction)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F21Name)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F21Defense)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F21Destruction);
 }
 
 /// Mutable session state of one harness run.
@@ -52,6 +62,11 @@ struct CalypsoHarnessSession
 	/// ramp; 0..100 = freeze the opening-motion progress at that percent so a
 	/// capture can screenshot a stable mid-ramp frame (F33.5 motion evidence).
 	int motionHoldPct = -1;
+	/// Side-by-side comparison mode (Phase 46.F21): the target dialog shifts
+	/// into the left half of the Wide canvas so the DOM reference card fits on
+	/// the right. Session-level since F21; the F33 adapter keeps its own
+	/// mirrored global for continuity.
+	bool sideBySide = false;
 };
 
 inline bool calypsoHarnessHostUp(const CalypsoHarnessSession& s) { return s.hostUp; }
@@ -85,6 +100,7 @@ inline void calypsoHarnessClose(CalypsoHarnessSession& s)
 	s.requestedLayout = CalypsoLayoutClass::Compact;
 	s.motionDisabled = false;
 	s.motionHoldPct = -1;
+	s.sideBySide = false;
 }
 
 /// Deterministic capture mode: presentation motion is disabled for the active

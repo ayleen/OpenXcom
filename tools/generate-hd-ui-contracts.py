@@ -94,6 +94,18 @@ def validate_theme(theme):
     for key in ("labelFontSizePx", "bodyFontSizePx", "titleFontWeight", "labelFontWeight", "bodyFontWeight"):
         if not isinstance(typography.get(key), int) or typography[key] <= 0:
             fail("hd-ui-theme.json: typography." + key + " must be a positive integer")
+    f21_type = theme.get("f21Typography") or {}
+    for key in ("protocolWidePx", "protocolCompactPx", "titleWidePx", "titleCompactPx",
+                "dataWidePx", "dataCompactPx", "bodyWidePx", "bodyCompactPx",
+                "inputWidePx", "inputCompactPx", "actionWidePx", "actionCompactPx"):
+        if not isinstance(f21_type.get(key), int) or f21_type[key] <= 0:
+            fail("hd-ui-theme.json: f21Typography." + key + " must be a positive integer")
+    f21_safe = theme.get("f21TextSafeArea") or {}
+    for key in ("protocolInsetXWidePx", "protocolInsetXCompactPx",
+                "protocolInsetYWidePx", "protocolInsetYCompactPx",
+                "minimumHorizontalPaddingPx", "minimumVerticalPaddingPx"):
+        if not isinstance(f21_safe.get(key), int) or f21_safe[key] < 4:
+            fail("hd-ui-theme.json: f21TextSafeArea." + key + " must be an integer >= 4")
 
 
 def validate_f33(f33):
@@ -187,6 +199,164 @@ def validate_f33(f33):
         fail("f33-abandon.json: captureModeDurationMs must be 0 (deterministic captures)")
 
 
+IDENT_RE = _re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+# F21 (Phase 46.F21): part-list-driven family contracts. One generic validator
+# + emitter serves every entry; the F33 bespoke path above stays untouched.
+# (rel, namespace, rect-struct/layout prefix, JS global name)
+F21_FAMILIES = [
+    ("f21-site.json", "CalypsoF21SiteGen", "CalypsoF21Site", "CalypsoF21Site"),
+    ("f21-transaction.json", "CalypsoF21TransactionGen", "CalypsoF21Transaction", "CalypsoF21Transaction"),
+    ("f21-name.json", "CalypsoF21NameGen", "CalypsoF21Name", "CalypsoF21Name"),
+    ("f21-defense.json", "CalypsoF21DefenseGen", "CalypsoF21Defense", "CalypsoF21Defense"),
+    ("f21-destruction.json", "CalypsoF21DestructionGen", "CalypsoF21Destruction", "CalypsoF21Destruction"),
+]
+
+F21_COMMAND_CARD_CONTRACTS = {
+    "f21-site.json", "f21-transaction.json", "f21-name.json",
+    "f21-defense.json", "f21-destruction.json",
+}
+
+F21_ENGINE_TEXT_CALIBRATION_CONTRACTS = {
+    "f21-site.json", "f21-transaction.json",
+    "f21-defense.json", "f21-destruction.json",
+}
+
+
+def validate_f21(doc, rel):
+    if doc.get("schema") != 1:
+        fail(rel + ": schema must be 1")
+    if not isinstance(doc.get("version"), str) or not VERSION_RE.match(doc.get("version", "")):
+        fail(rel + ": version string required")
+    if rel in F21_COMMAND_CARD_CONTRACTS:
+        if doc.get("visualProfile") != "command-card-v1":
+            fail(rel + ": visualProfile must be command-card-v1")
+        copy = doc.get("copy")
+        if not isinstance(copy, dict) or not copy:
+            fail(rel + ": fixture copy object required")
+        for key, value in copy.items():
+            if not isinstance(value, str) or not value:
+                fail(rel + ": copy." + key + " must be a non-empty string")
+            if "{STRING}" in value or "{ALT}" in value:
+                fail(rel + ": copy." + key + " contains legacy placeholder/control syntax")
+    parts = doc.get("parts")
+    if not isinstance(parts, list) or not parts:
+        fail(rel + ": parts list required")
+    if len(set(parts)) != len(parts):
+        fail(rel + ": parts must be unique")
+    for p in parts:
+        if not isinstance(p, str) or not IDENT_RE.match(p):
+            fail(rel + ": part name must be a C identifier: " + repr(p))
+    if parts[0] != "window":
+        fail(rel + ": first part must be the window root")
+    actions = doc.get("actions")
+    if not isinstance(actions, list):
+        fail(rel + ": actions list required")
+    for a in actions:
+        if a not in parts:
+            fail(rel + ": action " + repr(a) + " must be listed in parts")
+    layouts = doc.get("layouts")
+    if not isinstance(layouts, dict) or "wide" not in layouts or "compact" not in layouts:
+        fail(rel + ": explicit wide/compact layouts required")
+    for name in ("wide", "compact"):
+        l = layouts[name]
+        if l.get("designWidth", 0) <= 0 or l.get("designHeight", 0) <= 0:
+            fail(rel + ": " + name + " design canvas required")
+        for part in parts:
+            r = l.get(part)
+            if not r or not all(isinstance(r[k], int) for k in ("x", "y", "width", "height")):
+                fail(rel + ": " + name + "." + part + " must be an integer rect")
+        for a in actions:
+            r = l[a]
+            if r["width"] < MIN_ACTION_TARGET or r["height"] < MIN_ACTION_TARGET:
+                fail(rel + ": " + name + "." + a
+                     + " below the " + str(MIN_ACTION_TARGET) + "x" + str(MIN_ACTION_TARGET)
+                     + " action-target floor")
+
+        def contained(inner, outer):
+            return (inner["x"] >= outer["x"] and inner["y"] >= outer["y"]
+                    and inner["x"] + inner["width"] <= outer["x"] + outer["width"]
+                    and inner["y"] + inner["height"] <= outer["y"] + outer["height"])
+        if not contained(l["window"], {"x": 0, "y": 0, "width": l["designWidth"], "height": l["designHeight"]}):
+            fail(rel + ": " + name + ".window must fit the design canvas")
+        for part in parts:
+            if part != "window" and not contained(l[part], l["window"]):
+                fail(rel + ": " + name + "." + part + " must be inside the window")
+        for i, a1 in enumerate(actions):
+            for a2 in actions[i + 1:]:
+                r1, r2 = l[a1], l[a2]
+                if (r1["x"] < r2["x"] + r2["width"] and r2["x"] < r1["x"] + r1["width"]
+                        and r1["y"] < r2["y"] + r2["height"] and r2["y"] < r1["y"] + r1["height"]):
+                    fail(rel + ": " + name + " actions " + a1 + " and " + a2 + " must not overlap")
+    m = doc.get("motion") or {}
+    if m.get("durationMs", 0) <= 0 or m.get("durationMs", 0) > 1000:
+        fail(rel + ": motion.durationMs must be in (0, 1000]")
+    if not (0.0 < m.get("scaleFrom", 0.0) <= 1.0):
+        fail(rel + ": motion.scaleFrom must be in (0, 1]")
+    if m.get("captureModeDurationMs") != 0:
+        fail(rel + ": captureModeDurationMs must be 0 (deterministic captures)")
+
+    if rel in F21_COMMAND_CARD_CONTRACTS:
+        spacing = doc.get("spacingRules")
+        if not isinstance(spacing, list) or not spacing:
+            fail(rel + ": spacingRules must be a non-empty list")
+        seen_ids = set()
+        for rule in spacing:
+            if not isinstance(rule, dict):
+                fail(rel + ": each spacing rule must be an object")
+            rid = rule.get("id")
+            if not isinstance(rid, str) or not rid or rid in seen_ids:
+                fail(rel + ": spacing rule ids must be non-empty and unique")
+            seen_ids.add(rid)
+            kind = rule.get("kind")
+            for layout_name in ("wide", "compact"):
+                minimum = rule.get(layout_name)
+                if not isinstance(minimum, int) or minimum <= 0:
+                    fail(rel + ": spacing " + rid + "." + layout_name + " must be a positive integer")
+            if kind == "gap":
+                first, second, axis = rule.get("first"), rule.get("second"), rule.get("axis")
+                if first not in parts or second not in parts or axis not in ("horizontal", "vertical"):
+                    fail(rel + ": gap " + rid + " must reference two parts and a supported axis")
+                for layout_name in ("wide", "compact"):
+                    first_rect, second_rect = layouts[layout_name][first], layouts[layout_name][second]
+                    gap = (second_rect["x"] - first_rect["x"] - first_rect["width"]
+                           if axis == "horizontal"
+                           else second_rect["y"] - first_rect["y"] - first_rect["height"])
+                    if gap < rule[layout_name]:
+                        fail(rel + ": " + layout_name + " gap " + rid + " is " + str(gap)
+                             + ", expected >= " + str(rule[layout_name]))
+            elif kind == "inset":
+                container, child, edges = rule.get("container"), rule.get("child"), rule.get("edges")
+                if container not in parts or child not in parts:
+                    fail(rel + ": inset " + rid + " must reference container and child parts")
+                if (not isinstance(edges, list) or not edges
+                        or any(edge not in ("left", "right", "top", "bottom") for edge in edges)):
+                    fail(rel + ": inset " + rid + " has unsupported edges")
+                for layout_name in ("wide", "compact"):
+                    outer, inner = layouts[layout_name][container], layouts[layout_name][child]
+                    insets = {
+                        "left": inner["x"] - outer["x"],
+                        "right": outer["x"] + outer["width"] - inner["x"] - inner["width"],
+                        "top": inner["y"] - outer["y"],
+                        "bottom": outer["y"] + outer["height"] - inner["y"] - inner["height"],
+                    }
+                    for edge in edges:
+                        if insets[edge] < rule[layout_name]:
+                            fail(rel + ": " + layout_name + " inset " + rid + "." + edge
+                                 + " is " + str(insets[edge]) + ", expected >= " + str(rule[layout_name]))
+            else:
+                fail(rel + ": spacing " + rid + " kind must be gap or inset")
+
+    calibration = doc.get("engineTextScale")
+    if rel in F21_ENGINE_TEXT_CALIBRATION_CONTRACTS:
+        if not isinstance(calibration, dict):
+            fail(rel + ": engineTextScale object required")
+        for role in ("title", "data", "body", "input", "action"):
+            scale = calibration.get(role)
+            if not isinstance(scale, (int, float)) or not (0.0 < scale <= 1.0):
+                fail(rel + ": engineTextScale." + role + " must be in (0, 1]")
+
+
 def rgba_call(value):
     # Emit the packed 0xRRGGBBAA word directly: the generated header stays
     # dependency-free (no CalypsoHdUiModel.h include needed).
@@ -235,6 +405,12 @@ def emit_theme_h(theme):
     out.append("inline constexpr int kTitleFontWeight = %d;" % int(theme["typography"]["titleFontWeight"]))
     out.append("inline constexpr int kLabelFontWeight = %d;" % int(theme["typography"]["labelFontWeight"]))
     out.append("inline constexpr int kBodyFontWeight = %d;" % int(theme["typography"]["bodyFontWeight"]))
+    out.append("")
+    out.append("// F21 command-card typography and hard text safe area (design px).")
+    for key, value in theme["f21Typography"].items():
+        out.append("inline constexpr int kF21" + key[0].upper() + key[1:] + " = %d;" % int(value))
+    for key, value in theme["f21TextSafeArea"].items():
+        out.append("inline constexpr int kF21" + key[0].upper() + key[1:] + " = %d;" % int(value))
     out.append("")
     out.append("// Semantic token key strings for the interaction-state mapping")
     out.append("// (CalypsoHdInteractionState.h) -- values above, keys here.")
@@ -383,6 +559,68 @@ def emit_f33_h(f33):
     return NL.join(out) + NL
 
 
+def emit_family_h(doc, rel, ns, prefix):
+    """Generic F21-family emitter: one rect member per declared part."""
+    layouts = doc["layouts"]
+    m = doc["motion"]
+    parts = doc["parts"]
+    out = [HEADER_BANNER,
+           "// Canonical source: src/Calypso/Contracts/" + rel,
+           "#pragma once",
+           "#include <cstdint>",
+           "namespace OpenXcom { namespace Calypso { namespace " + ns + " {",
+           'inline constexpr const char* kContractVersion = "' + doc["version"] + '";',
+           "",
+           "/// One design-space rectangle (design px).",
+           "struct " + prefix + "GenRect { int x; int y; int w; int h; };",
+           "",
+           "/// The complete " + rel + " layout for one class.",
+           "struct " + prefix + "GenLayout",
+           "{",
+           TAB + "int designWidth;",
+           TAB + "int designHeight;"]
+    for p in parts:
+        out.append(TAB + prefix + "GenRect " + p + ";")
+    out += ["};",
+            "",
+            "inline constexpr " + prefix + "GenLayout kLayouts[] =",
+            "{"]
+    for name in ("wide", "compact"):
+        l = layouts[name]
+        out.append(TAB + "// " + name)
+        out.append(TAB + "{ " + str(l["designWidth"]) + ", " + str(l["designHeight"]) + ", "
+                   + ", ".join("{ " + str(l[p]["x"]) + ", " + str(l[p]["y"]) + ", "
+                               + str(l[p]["width"]) + ", " + str(l[p]["height"]) + " }" for p in parts) + " },")
+    out += ["};",
+            "inline constexpr int kLayoutCount = " + str(len(layouts)) + ";",
+            ""]
+    calibration = doc.get("engineTextScale")
+    if calibration:
+        out += ["// Physical Engine-TTF calibration against the CSS reference cap height.",
+                "inline constexpr float kEngineTextScaleTitle = %.6ff;" % float(calibration["title"]),
+                "inline constexpr float kEngineTextScaleData = %.6ff;" % float(calibration["data"]),
+                "inline constexpr float kEngineTextScaleBody = %.6ff;" % float(calibration["body"]),
+                "inline constexpr float kEngineTextScaleInput = %.6ff;" % float(calibration["input"]),
+                "inline constexpr float kEngineTextScaleAction = %.6ff;" % float(calibration["action"]),
+                ""]
+    out += [
+            "/// Layout for a design canvas, or nullptr (the harness never guesses).",
+            "inline const " + prefix + "GenLayout* layoutForDesign(int dw, int dh)",
+            "{",
+            TAB + "for (int i = 0; i < kLayoutCount; ++i)",
+            TAB + TAB + "if (kLayouts[i].designWidth == dw && kLayouts[i].designHeight == dh)",
+            TAB + TAB + TAB + "return &kLayouts[i];",
+            TAB + "return nullptr;",
+            "}",
+            "",
+            "// Opening motion (capture mode deterministic).",
+            "inline constexpr int kMotionDurationMs = " + str(int(m["durationMs"])) + ";",
+            "inline constexpr float kMotionScaleFrom = %.6ff;" % float(m["scaleFrom"]),
+            "inline constexpr bool kMotionDisabledInCapture = true;",
+            "} } }"]
+    return NL.join(out) + NL
+
+
 def emit_js(rel, obj, gname):
     body = json.dumps(obj, indent=2, sort_keys=True)
     return ("// AUTO-GENERATED by tools/generate-hd-ui-contracts.py -- DO NOT EDIT." + NL
@@ -408,8 +646,17 @@ def main(argv):
     f33 = load_json("f33-abandon.json")
     validate_theme(theme)
     validate_f33(f33)
-    if theme["version"] != f33["version"]:
-        fail("contract versions diverge: " + theme["version"] + " vs " + f33["version"])
+    f21_docs = []
+    for rel, ns, prefix, gname in F21_FAMILIES:
+        doc = load_json(rel)
+        validate_f21(doc, rel)
+        f21_docs.append((doc, rel, ns, prefix, gname))
+    versions = [("hd-ui-theme.json", theme["version"]), ("f33-abandon.json", f33["version"])] \
+        + [(rel, doc["version"]) for doc, rel, _, _, _ in f21_docs]
+    for rel, ver in versions[1:]:
+        if ver != versions[0][1]:
+            fail("contract versions diverge: " + versions[0][0] + " " + versions[0][1]
+                 + " vs " + rel + " " + ver)
 
     theme_h = emit_theme_h(theme)
     f33_h = emit_f33_h(f33)
@@ -429,6 +676,12 @@ def main(argv):
             (os.path.join(web, "hd-ui-theme.js"), theme_js),
             (os.path.join(web, "f33-abandon.js"), f33_js),
         ]
+    for doc, rel, ns, prefix, gname in f21_docs:
+        outputs.append((os.path.join(GENERATED_DIR, prefix + ".generated.h"),
+                        emit_family_h(doc, rel, ns, prefix)))
+        if web is not None:
+            outputs.append((os.path.join(web, rel.replace(".json", ".js")),
+                            emit_js(rel, doc, gname)))
 
     if args.check:
         changed = []

@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "f33.2026-08-18.5",
+  "version": "hd.2026-08-18.13",
   "colors": {
     "accent": "74FFB0FF",
     "accentSoft": "74FFB059",
@@ -37,29 +37,63 @@
     "destructivePressedBorder": "FF7878FF",
     "destructiveDisabledBorder": "FF787824"
   },
-  "dialog": { "radiusPx": 6, "borderWidthPx": 2 },
-  "button": { "radiusPx": 4 },
-  "shadow": { "glowRadiusPx": 26 },
-  "halo": { "glowRadiusPx": 22 },
-  "tracking": { "titleEm": 0.12, "labelEm": 0.12 },
+  "dialog": {
+    "radiusPx": 6,
+    "borderWidthPx": 2
+  },
+  "button": {
+    "radiusPx": 4
+  },
+  "shadow": {
+    "glowRadiusPx": 26
+  },
+  "halo": {
+    "glowRadiusPx": 22
+  },
+  "tracking": {
+    "titleEm": 0.12,
+    "labelEm": 0.12
+  },
   "typography": {
     "titleFontSizeScale": 0.8,
-    "bodyFontSizeScale": 1.0,
+    "bodyFontSizeScale": 1,
     "labelFontSizePx": 17,
-    "labelFontSizeScaleWide": 1.0,
-    "labelFontSizeScaleCompact": 1.0,
+    "labelFontSizeScaleWide": 1,
+    "labelFontSizeScaleCompact": 1,
     "bodyFontSizePx": 15,
-    "bodyFontSizeScaleWide": 1.0,
-    "bodyFontSizeScaleCompact": 1.0,
+    "bodyFontSizeScaleWide": 1,
+    "bodyFontSizeScaleCompact": 1,
     "bodyFontWidthScaleWide": 0.993,
     "bodyFontWidthScaleCompact": 0.994,
     "bodyWrapMeasureScaleWide": 0.912,
-    "bodyWrapMeasureScaleCompact": 1.0,
-    "bodyProjectionLineHeightScaleWide": 1.0,
+    "bodyWrapMeasureScaleCompact": 1,
+    "bodyProjectionLineHeightScaleWide": 1,
     "bodyProjectionLineHeightScaleCompact": 1.044,
     "bodyLineHeight": 1.5,
     "titleFontWeight": 700,
     "labelFontWeight": 700,
     "bodyFontWeight": 400
+  },
+  "f21Typography": {
+    "protocolWidePx": 10,
+    "protocolCompactPx": 9,
+    "titleWidePx": 34,
+    "titleCompactPx": 28,
+    "dataWidePx": 15,
+    "dataCompactPx": 12,
+    "bodyWidePx": 15,
+    "bodyCompactPx": 13,
+    "inputWidePx": 18,
+    "inputCompactPx": 15,
+    "actionWidePx": 17,
+    "actionCompactPx": 14
+  },
+  "f21TextSafeArea": {
+    "protocolInsetXWidePx": 16,
+    "protocolInsetXCompactPx": 12,
+    "protocolInsetYWidePx": 4,
+    "protocolInsetYCompactPx": 4,
+    "minimumHorizontalPaddingPx": 8,
+    "minimumVerticalPaddingPx": 4
   }
 }

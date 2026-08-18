@@ -23,6 +23,8 @@
 namespace OpenXcom
 {
 
+namespace Calypso { class CalypsoF21NameUi; }
+
 class Base;
 class Window;
 class Text;
@@ -46,6 +48,14 @@ private:
 	TextButton *_btnOk;
 	bool _first;
 	bool _fixedLocation;
+#ifdef __EMSCRIPTEN__
+	friend class Calypso::CalypsoF21NameUi;
+	bool _hdLayout = false;
+	bool _hdWideLayout = false;
+	Text* _hdHint = nullptr;
+	Text* _hdProtocol = nullptr;
+	Calypso::CalypsoF21NameUi* _hdAdapter = nullptr;
+#endif
 public:
 	/// Creates the Base Name state.
 	BaseNameState(Base *base, Globe *globe, bool first, bool fixedLocation);
@@ -55,6 +65,10 @@ public:
 	void btnOkClick(Action *action);
 	/// Handler for changing text on the Name edit.
 	void edtNameChange(Action *action);
+#ifdef __EMSCRIPTEN__
+	/// Handler for resize (delegates to the HD adapter first).
+	void resize(int &dX, int &dY) override;
+#endif
 };
 
 }

@@ -1,0 +1,485 @@
+{
+  "schema": 1,
+  "version": "hd.2026-08-18.13",
+  "visualProfile": "command-card-v1",
+  "copy": {
+    "protocol": "CALYPSO COMMAND · LOGISTICS AUTHORIZATION BE-21 · REV. 1.0.21 · EFFECTIVE 15.07.2061",
+    "title": "REVIEW NEW BASE",
+    "slot": "BASE 1 / 8",
+    "coords": "COORDINATES · 28.6·N  0.0·E",
+    "region": "REGION · South Atlantic",
+    "cost": "BUILD COST · $950 000",
+    "after": "FUNDS AFTER · $5 850 000",
+    "name": "CALYPSO DEEP",
+    "hint": "Name and funds commit together when Create Base is selected.",
+    "cancel": "CANCEL",
+    "create": "CREATE BASE"
+  },
+  "parts": [
+    "window",
+    "status",
+    "glyph",
+    "title",
+    "factsPanel",
+    "factsColumnDivider",
+    "factsRowDivider",
+    "slot",
+    "coords",
+    "region",
+    "cost",
+    "after",
+    "inputFrame",
+    "nameEdit",
+    "nameHint",
+    "footer",
+    "footerDots",
+    "create",
+    "cancel"
+  ],
+  "actions": [
+    "create",
+    "cancel"
+  ],
+  "engineTextScale": {
+    "title": 0.88,
+    "data": 0.9,
+    "body": 0.92,
+    "input": 0.9,
+    "action": 0.9
+  },
+  "spacingRules": [
+    {
+      "id": "glyph-title",
+      "kind": "gap",
+      "first": "glyph",
+      "second": "title",
+      "axis": "horizontal",
+      "wide": 18,
+      "compact": 14
+    },
+    {
+      "id": "title-facts",
+      "kind": "gap",
+      "first": "title",
+      "second": "factsPanel",
+      "axis": "vertical",
+      "wide": 18,
+      "compact": 10
+    },
+    {
+      "id": "facts-input",
+      "kind": "gap",
+      "first": "factsPanel",
+      "second": "inputFrame",
+      "axis": "vertical",
+      "wide": 24,
+      "compact": 12
+    },
+    {
+      "id": "input-hint",
+      "kind": "gap",
+      "first": "inputFrame",
+      "second": "nameHint",
+      "axis": "vertical",
+      "wide": 8,
+      "compact": 6
+    },
+    {
+      "id": "hint-footer",
+      "kind": "gap",
+      "first": "nameHint",
+      "second": "footer",
+      "axis": "vertical",
+      "wide": 18,
+      "compact": 12
+    },
+    {
+      "id": "cancel-create",
+      "kind": "gap",
+      "first": "cancel",
+      "second": "create",
+      "axis": "horizontal",
+      "wide": 24,
+      "compact": 24
+    },
+    {
+      "id": "slot-column-divider",
+      "kind": "gap",
+      "first": "slot",
+      "second": "factsColumnDivider",
+      "axis": "horizontal",
+      "wide": 9,
+      "compact": 7
+    },
+    {
+      "id": "column-divider-coords",
+      "kind": "gap",
+      "first": "factsColumnDivider",
+      "second": "coords",
+      "axis": "horizontal",
+      "wide": 8,
+      "compact": 6
+    },
+    {
+      "id": "slot-row-divider",
+      "kind": "gap",
+      "first": "slot",
+      "second": "factsRowDivider",
+      "axis": "vertical",
+      "wide": 9,
+      "compact": 7
+    },
+    {
+      "id": "row-divider-region",
+      "kind": "gap",
+      "first": "factsRowDivider",
+      "second": "region",
+      "axis": "vertical",
+      "wide": 8,
+      "compact": 6
+    },
+    {
+      "id": "region-column-divider",
+      "kind": "gap",
+      "first": "region",
+      "second": "factsColumnDivider",
+      "axis": "horizontal",
+      "wide": 9,
+      "compact": 7
+    },
+    {
+      "id": "column-divider-cost",
+      "kind": "gap",
+      "first": "factsColumnDivider",
+      "second": "cost",
+      "axis": "horizontal",
+      "wide": 8,
+      "compact": 6
+    },
+    {
+      "id": "cost-after",
+      "kind": "gap",
+      "first": "cost",
+      "second": "after",
+      "axis": "vertical",
+      "wide": 8,
+      "compact": 8
+    },
+    {
+      "id": "facts-slot",
+      "kind": "inset",
+      "container": "factsPanel",
+      "child": "slot",
+      "edges": [
+        "left",
+        "top"
+      ],
+      "wide": 14,
+      "compact": 12
+    },
+    {
+      "id": "facts-coords",
+      "kind": "inset",
+      "container": "factsPanel",
+      "child": "coords",
+      "edges": [
+        "right",
+        "top"
+      ],
+      "wide": 14,
+      "compact": 12
+    },
+    {
+      "id": "facts-after",
+      "kind": "inset",
+      "container": "factsPanel",
+      "child": "after",
+      "edges": [
+        "left",
+        "right",
+        "bottom"
+      ],
+      "wide": 8,
+      "compact": 6
+    },
+    {
+      "id": "footer-create",
+      "kind": "inset",
+      "container": "footer",
+      "child": "create",
+      "edges": [
+        "right",
+        "top",
+        "bottom"
+      ],
+      "wide": 10,
+      "compact": 12
+    },
+    {
+      "id": "dots-cancel",
+      "kind": "gap",
+      "first": "footerDots",
+      "second": "cancel",
+      "axis": "horizontal",
+      "wide": 12,
+      "compact": 12
+    },
+    {
+      "id": "footer-dots",
+      "kind": "inset",
+      "container": "footer",
+      "child": "footerDots",
+      "edges": [
+        "left",
+        "top",
+        "bottom"
+      ],
+      "wide": 8,
+      "compact": 8
+    }
+  ],
+  "layouts": {
+    "wide": {
+      "designWidth": 1280,
+      "designHeight": 720,
+      "window": {
+        "x": 300,
+        "y": 130,
+        "width": 680,
+        "height": 460
+      },
+      "status": {
+        "x": 300,
+        "y": 130,
+        "width": 680,
+        "height": 34
+      },
+      "glyph": {
+        "x": 340,
+        "y": 186,
+        "width": 28,
+        "height": 28
+      },
+      "title": {
+        "x": 386,
+        "y": 180,
+        "width": 554,
+        "height": 40
+      },
+      "factsPanel": {
+        "x": 340,
+        "y": 238,
+        "width": 600,
+        "height": 118
+      },
+      "factsColumnDivider": {
+        "x": 559,
+        "y": 248,
+        "width": 1,
+        "height": 74
+      },
+      "factsRowDivider": {
+        "x": 356,
+        "y": 285,
+        "width": 568,
+        "height": 1
+      },
+      "slot": {
+        "x": 360,
+        "y": 252,
+        "width": 190,
+        "height": 24
+      },
+      "coords": {
+        "x": 568,
+        "y": 252,
+        "width": 348,
+        "height": 24
+      },
+      "region": {
+        "x": 360,
+        "y": 294,
+        "width": 190,
+        "height": 24
+      },
+      "cost": {
+        "x": 568,
+        "y": 294,
+        "width": 348,
+        "height": 24
+      },
+      "after": {
+        "x": 360,
+        "y": 326,
+        "width": 556,
+        "height": 22
+      },
+      "inputFrame": {
+        "x": 340,
+        "y": 380,
+        "width": 600,
+        "height": 48
+      },
+      "nameEdit": {
+        "x": 340,
+        "y": 380,
+        "width": 600,
+        "height": 48
+      },
+      "nameHint": {
+        "x": 340,
+        "y": 436,
+        "width": 600,
+        "height": 22
+      },
+      "footer": {
+        "x": 300,
+        "y": 476,
+        "width": 680,
+        "height": 74
+      },
+      "footerDots": {
+        "x": 312,
+        "y": 486,
+        "width": 176,
+        "height": 56
+      },
+      "create": {
+        "x": 732,
+        "y": 492,
+        "width": 208,
+        "height": 48
+      },
+      "cancel": {
+        "x": 500,
+        "y": 492,
+        "width": 208,
+        "height": 48
+      }
+    },
+    "compact": {
+      "designWidth": 740,
+      "designHeight": 360,
+      "window": {
+        "x": 24,
+        "y": 10,
+        "width": 692,
+        "height": 340
+      },
+      "status": {
+        "x": 24,
+        "y": 10,
+        "width": 692,
+        "height": 26
+      },
+      "glyph": {
+        "x": 50,
+        "y": 48,
+        "width": 24,
+        "height": 24
+      },
+      "title": {
+        "x": 88,
+        "y": 44,
+        "width": 596,
+        "height": 30
+      },
+      "factsPanel": {
+        "x": 50,
+        "y": 84,
+        "width": 634,
+        "height": 96
+      },
+      "factsColumnDivider": {
+        "x": 219,
+        "y": 92,
+        "width": 1,
+        "height": 62
+      },
+      "factsRowDivider": {
+        "x": 66,
+        "y": 123,
+        "width": 596,
+        "height": 1
+      },
+      "slot": {
+        "x": 66,
+        "y": 96,
+        "width": 146,
+        "height": 20
+      },
+      "coords": {
+        "x": 226,
+        "y": 96,
+        "width": 436,
+        "height": 20
+      },
+      "region": {
+        "x": 66,
+        "y": 130,
+        "width": 146,
+        "height": 20
+      },
+      "cost": {
+        "x": 226,
+        "y": 130,
+        "width": 436,
+        "height": 20
+      },
+      "after": {
+        "x": 66,
+        "y": 158,
+        "width": 596,
+        "height": 16
+      },
+      "inputFrame": {
+        "x": 50,
+        "y": 192,
+        "width": 634,
+        "height": 42
+      },
+      "nameEdit": {
+        "x": 50,
+        "y": 192,
+        "width": 634,
+        "height": 42
+      },
+      "nameHint": {
+        "x": 50,
+        "y": 240,
+        "width": 634,
+        "height": 18
+      },
+      "footer": {
+        "x": 24,
+        "y": 270,
+        "width": 692,
+        "height": 74
+      },
+      "footerDots": {
+        "x": 36,
+        "y": 280,
+        "width": 184,
+        "height": 56
+      },
+      "create": {
+        "x": 474,
+        "y": 284,
+        "width": 218,
+        "height": 48
+      },
+      "cancel": {
+        "x": 232,
+        "y": 284,
+        "width": 218,
+        "height": 48
+      }
+    }
+  },
+  "motion": {
+    "durationMs": 200,
+    "scaleFrom": 0.96,
+    "easing": "ease-out",
+    "captureModeDurationMs": 0
+  }
+}

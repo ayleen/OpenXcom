@@ -113,6 +113,9 @@ public:
 	int getNumTextLines(size_t row) const;
 	/// Gets the amount of text in the list.
 	size_t getTexts() const;
+	/// Read-only row/cell matrix snapshot for the HD physical adapters
+	/// (Phase 46.F21): presentation only; input and mutation stay logical.
+	const std::vector<std::vector<Text*>>& getCellTextsSnapshot() const { return _texts; }
 	/// Gets the amount of rows in the list.
 	size_t getRowsDoNotUse() const;
 	/// Gets the index of the last row in the list.

@@ -1,0 +1,238 @@
+{
+  "schema": 1,
+  "version": "hd.2026-08-18.13",
+  "visualProfile": "command-card-v1",
+  "copy": {
+    "protocol": "CALYPSO COMMAND · LOSS RECORD LR-21 · REV. 1.0.21 · EFFECTIVE 15.07.2061",
+    "title": "BASE DAMAGED",
+    "subtitle": "ALIEN MISSILES HAVE DAMAGED OUR BASE · ATLANTIS POST",
+    "listLine1": "SONAR ARRAY · 1",
+    "listLine2": "LIVING QUARTERS · 1",
+    "listLine3": "GENERAL STORES · 1",
+    "warning": "This base is permanently deleted. No refund. No undo.",
+    "acknowledge": "ACKNOWLEDGE"
+  },
+  "parts": [
+    "window",
+    "status",
+    "glyph",
+    "title",
+    "subtitle",
+    "list",
+    "warning",
+    "footer",
+    "acknowledge"
+  ],
+  "actions": [
+    "acknowledge"
+  ],
+  "engineTextScale": {
+    "title": 0.88,
+    "data": 0.9,
+    "body": 0.92,
+    "input": 0.9,
+    "action": 0.9
+  },
+  "spacingRules": [
+    {
+      "id": "status-title",
+      "kind": "gap",
+      "first": "status",
+      "second": "title",
+      "axis": "vertical",
+      "wide": 16,
+      "compact": 10
+    },
+    {
+      "id": "glyph-title",
+      "kind": "gap",
+      "first": "glyph",
+      "second": "title",
+      "axis": "horizontal",
+      "wide": 8,
+      "compact": 8
+    },
+    {
+      "id": "title-subtitle",
+      "kind": "gap",
+      "first": "title",
+      "second": "subtitle",
+      "axis": "vertical",
+      "wide": 12,
+      "compact": 8
+    },
+    {
+      "id": "subtitle-list",
+      "kind": "gap",
+      "first": "subtitle",
+      "second": "list",
+      "axis": "vertical",
+      "wide": 16,
+      "compact": 12
+    },
+    {
+      "id": "list-warning",
+      "kind": "gap",
+      "first": "list",
+      "second": "warning",
+      "axis": "vertical",
+      "wide": 16,
+      "compact": 8
+    },
+    {
+      "id": "warning-footer",
+      "kind": "gap",
+      "first": "warning",
+      "second": "footer",
+      "axis": "vertical",
+      "wide": 16,
+      "compact": 8
+    },
+    {
+      "id": "subtitle-left",
+      "kind": "inset",
+      "container": "window",
+      "child": "subtitle",
+      "edges": [
+        "left"
+      ],
+      "wide": 32,
+      "compact": 24
+    },
+    {
+      "id": "acknowledge-right",
+      "kind": "inset",
+      "container": "window",
+      "child": "acknowledge",
+      "edges": [
+        "right"
+      ],
+      "wide": 20,
+      "compact": 20
+    }
+  ],
+  "layouts": {
+    "wide": {
+      "designWidth": 1280,
+      "designHeight": 720,
+      "window": {
+        "x": 340,
+        "y": 140,
+        "width": 600,
+        "height": 440
+      },
+      "status": {
+        "x": 340,
+        "y": 140,
+        "width": 600,
+        "height": 34
+      },
+      "glyph": {
+        "x": 372,
+        "y": 190,
+        "width": 30,
+        "height": 30
+      },
+      "title": {
+        "x": 418,
+        "y": 190,
+        "width": 480,
+        "height": 46
+      },
+      "subtitle": {
+        "x": 372,
+        "y": 248,
+        "width": 536,
+        "height": 44
+      },
+      "list": {
+        "x": 372,
+        "y": 308,
+        "width": 536,
+        "height": 112
+      },
+      "warning": {
+        "x": 372,
+        "y": 436,
+        "width": 536,
+        "height": 32
+      },
+      "footer": {
+        "x": 340,
+        "y": 518,
+        "width": 600,
+        "height": 62
+      },
+      "acknowledge": {
+        "x": 762,
+        "y": 527,
+        "width": 158,
+        "height": 44
+      }
+    },
+    "compact": {
+      "designWidth": 740,
+      "designHeight": 360,
+      "window": {
+        "x": 40,
+        "y": 14,
+        "width": 660,
+        "height": 346
+      },
+      "status": {
+        "x": 40,
+        "y": 14,
+        "width": 660,
+        "height": 28
+      },
+      "glyph": {
+        "x": 64,
+        "y": 56,
+        "width": 26,
+        "height": 26
+      },
+      "title": {
+        "x": 100,
+        "y": 54,
+        "width": 540,
+        "height": 42
+      },
+      "subtitle": {
+        "x": 64,
+        "y": 108,
+        "width": 580,
+        "height": 38
+      },
+      "list": {
+        "x": 64,
+        "y": 158,
+        "width": 580,
+        "height": 96
+      },
+      "warning": {
+        "x": 64,
+        "y": 262,
+        "width": 580,
+        "height": 32
+      },
+      "footer": {
+        "x": 40,
+        "y": 306,
+        "width": 660,
+        "height": 52
+      },
+      "acknowledge": {
+        "x": 532,
+        "y": 310,
+        "width": 148,
+        "height": 44
+      }
+    }
+  },
+  "motion": {
+    "durationMs": 200,
+    "scaleFrom": 0.96,
+    "easing": "ease-out",
+    "captureModeDurationMs": 0
+  }
+}

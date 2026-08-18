@@ -32,9 +32,15 @@
 #include "../Mod/RuleBaseFacility.h"
 #include "../Mod/RuleRegion.h"
 #include "../Engine/Options.h"
+#include "../Engine/Sound.h"
 #include "../Basescape/SellState.h"
 #include "../Menu/ErrorMessageState.h"
 #include "../Mod/RuleInterface.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoAbandonPopupUi.h"
+#include "../Calypso/CalypsoF21DestructionUi.h"
+#include "../Calypso/CalypsoHdHarnessHostState.h"
+#endif
 
 namespace OpenXcom
 {
@@ -44,10 +50,13 @@ BaseDestroyedState::BaseDestroyedState(Base *base, const Ufo* ufo, bool missiles
 {
 	_screen = false;
 
+	// Phase 46.F21 review: play the ruleset hit sound directly instead of
+	// retaining the Sound* in the state until destruction (ownership leak).
 	int soundId = ufo->getRules()->getHitSound();
 	if (soundId != Mod::NO_SOUND)
 	{
-		_customSound = _game->getMod()->getSound("GEO.CAT", soundId);
+		Sound* hitSound = _game->getMod()->getSound("GEO.CAT", soundId);
+		if (hitSound) hitSound->play();
 	}
 
 	// Create objects
@@ -115,6 +124,13 @@ BaseDestroyedState::BaseDestroyedState(Base *base, const Ufo* ufo, bool missiles
 		_lstDestroyedFacilities->setVisible(true);
 	}
 
+#ifdef __EMSCRIPTEN__
+	// F21 (Phase 46.F21): physical route for the destruction review window.
+	// Must run BEFORE the partial-destruction early return below -- the
+	// damaged-base variant is exactly the variant the review list exists for.
+	Calypso::CalypsoF21DestructionUi::configure(*this, true);
+#endif
+
 	if (_partialDestruction)
 	{
 		// don't remove the alien mission yet, there might be more attacks coming
@@ -144,7 +160,21 @@ BaseDestroyedState::BaseDestroyedState(Base *base, const Ufo* ufo, bool missiles
  */
 BaseDestroyedState::~BaseDestroyedState()
 {
+#ifdef __EMSCRIPTEN__
+	if (_hdLayout) Calypso::hdHarnessDomHide();
+	Calypso::calypsoHdHarnessClose();
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 }
+
+#ifdef __EMSCRIPTEN__
+void BaseDestroyedState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF21DestructionUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+#endif
 
 /**
  * Returns to the previous screen.

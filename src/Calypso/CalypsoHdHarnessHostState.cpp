@@ -68,7 +68,11 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 	case CalypsoHarnessScenario::F33Abandon:
 		// F33 preview: the Geoscape-origin destructive exit confirmation.
 		return new AbandonGameState(OPT_GEOSCAPE);
+	default:
+		break;
 	}
+	// Phase 46.F21: new-base flow fixtures live in CalypsoF21Harness.cpp.
+	if (State* f21 = calypsoF21HarnessCreateTarget(id)) return f21;
 	return nullptr;
 }
 
@@ -134,6 +138,8 @@ bool calypsoHdHarnessOpen(CalypsoHarnessScenario id, CalypsoLayoutClass layout,
 	{
 		calypsoHdHarnessSetSideBySide(sideBySide);
 	}
+	// Phase 46.F21: side-by-side is session state for every family adapter.
+	s.sideBySide = sideBySide;
 
 	if (Game* g = getCurrentGame())
 	{
@@ -171,11 +177,13 @@ bool calypsoHdHarnessReconfigure(CalypsoLayoutClass layout, bool sideBySide)
 	CalypsoHarnessSession& s = calypsoHarnessSession();
 	if (!calypsoHarnessReconfigure(s, layout)) return false;
 	calypsoHdHarnessSetSideBySide(sideBySide);
-	// The active F33 target owns the physical adapter and its resize hook is
-	// the canonical way to re-capture the selected design-space rectangles.
+	s.sideBySide = sideBySide;
+	// The active target owns the physical adapter and its resize hook is
+	// the canonical way to re-capture the selected design-space rectangles
+	// (generic since 46.F21; every harness target overrides resize).
 	if (Game* g = getCurrentGame())
 	{
-		if (auto* target = dynamic_cast<AbandonGameState*>(g->getTopState()))
+		if (State* target = g->getTopState())
 		{
 			int dx = 0;
 			int dy = 0;
@@ -210,6 +218,38 @@ int calypso_hd_harness_open(int scenarioId, int layoutClass, int sideBySide)
 		                 : OpenXcom::Calypso::CalypsoLayoutClass::Compact;
 	return OpenXcom::Calypso::calypsoHdHarnessOpen(
 		static_cast<OpenXcom::Calypso::CalypsoHarnessScenario>(scenarioId), layout,
+		sideBySide != 0) ? 1 : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int calypso_hd_harness_switch(int scenarioId, int layoutClass, int sideBySide)
+{
+	using OpenXcom::Calypso::CalypsoLayoutClass;
+	using OpenXcom::Calypso::CalypsoHarnessScenario;
+	// Multi-family catalogs (46.F21) switch the previewed scenario while the
+	// harness is live. A plain open is rejected in that state ("already
+	// open"), so tear the current pair down first: pop the target, pop the
+	// opaque host (its think-self-pop is bypassed), and reset the session
+	// BEFORE the deferred target destructor runs (its calypsoHdHarnessClose
+	// is idempotent against an already-closed session).
+	if (!OpenXcom::Calypso::calypsoHarnessScenarioValid(scenarioId))
+	{
+		OpenXcom::Calypso::warnUnknownScenario(scenarioId);
+		return 0;
+	}
+	OpenXcom::Game* g = OpenXcom::getCurrentGame();
+	OpenXcom::Calypso::CalypsoHarnessSession& s = OpenXcom::Calypso::calypsoHarnessSession();
+	if (s.hostUp && g && g->getTopState())
+	{
+		g->popState(); // the harness target
+		g->popState(); // the opaque host below it
+		OpenXcom::Calypso::calypsoHarnessClose(s);
+		OpenXcom::Calypso::calypsoHdHarnessSetSideBySide(false);
+	}
+	const CalypsoLayoutClass layout =
+		layoutClass == 1 ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact;
+	return OpenXcom::Calypso::calypsoHdHarnessOpen(
+		static_cast<CalypsoHarnessScenario>(scenarioId), layout,
 		sideBySide != 0) ? 1 : 0;
 }
 

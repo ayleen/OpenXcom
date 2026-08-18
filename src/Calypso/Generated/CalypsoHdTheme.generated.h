@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <cstring>
 namespace OpenXcom { namespace Calypso { namespace CalypsoHdThemeGen {
-inline constexpr const char* kContractVersion = "f33.2026-08-18.5";
+inline constexpr const char* kContractVersion = "hd.2026-08-18.13";
 
 // Semantic palette (0xRRGGBBAA).
 inline constexpr std::uint32_t kAccent = 0x74FFB0FFu;
@@ -69,6 +69,26 @@ inline constexpr float kBodyLineHeight = 1.500000f;
 inline constexpr int kTitleFontWeight = 700;
 inline constexpr int kLabelFontWeight = 700;
 inline constexpr int kBodyFontWeight = 400;
+
+// F21 command-card typography and hard text safe area (design px).
+inline constexpr int kF21ProtocolWidePx = 10;
+inline constexpr int kF21ProtocolCompactPx = 9;
+inline constexpr int kF21TitleWidePx = 34;
+inline constexpr int kF21TitleCompactPx = 28;
+inline constexpr int kF21DataWidePx = 15;
+inline constexpr int kF21DataCompactPx = 12;
+inline constexpr int kF21BodyWidePx = 15;
+inline constexpr int kF21BodyCompactPx = 13;
+inline constexpr int kF21InputWidePx = 18;
+inline constexpr int kF21InputCompactPx = 15;
+inline constexpr int kF21ActionWidePx = 17;
+inline constexpr int kF21ActionCompactPx = 14;
+inline constexpr int kF21ProtocolInsetXWidePx = 16;
+inline constexpr int kF21ProtocolInsetXCompactPx = 12;
+inline constexpr int kF21ProtocolInsetYWidePx = 4;
+inline constexpr int kF21ProtocolInsetYCompactPx = 4;
+inline constexpr int kF21MinimumHorizontalPaddingPx = 8;
+inline constexpr int kF21MinimumVerticalPaddingPx = 4;
 
 // Semantic token key strings for the interaction-state mapping
 // (CalypsoHdInteractionState.h) -- values above, keys here.

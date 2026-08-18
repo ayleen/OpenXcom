@@ -18,9 +18,14 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "../Engine/State.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF21LayoutBase.h"
+#endif
 
 namespace OpenXcom
 {
+
+namespace Calypso { class CalypsoF21DefenseUi; }
 
 class TextButton;
 class Window;
@@ -52,6 +57,17 @@ private:
 	BaseDefenseActionType _action;
 	Timer *_timer;
 	GeoscapeState *_state;
+#ifdef __EMSCRIPTEN__
+	friend class Calypso::CalypsoF21DefenseUi;
+	bool _hdLayout = false;
+	bool _hdWideLayout = false;
+	Text* _hdProtocol = nullptr;
+	Text* _hdDefenses = nullptr;
+	Text* _hdAmmo = nullptr;
+	Text* _hdPhase = nullptr;
+	Calypso::CalypsoF21Rect _hdResultBand{ 0, 0, 0, 0 };
+	Calypso::CalypsoF21DefenseUi* _hdAdapter = nullptr;
+#endif
 	bool applyDamage(const RuleBaseFacility* rule);
 public:
 	/// Creates the Base Defense state.
@@ -67,8 +83,8 @@ public:
 	/// Handler for clicking the [Start] button.
 	void btnStartClick(Action *action);
 #ifdef __EMSCRIPTEN__
-	/// Phase 41: apply HD UI scaling on resize.
-	void resize(int &dX, int &dY) override { applyUiScaling(); }
+	/// Phase 41: apply HD UI scaling on resize (F21: adapter first).
+	void resize(int &dX, int &dY) override;
 #endif
 };
 
