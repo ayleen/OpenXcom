@@ -19,7 +19,8 @@ Rules (normative):
   * --check performs no writes at all and exits 1 with a focused diff when any
     generated consumer is stale (drift detection for F33-PARITY-006);
   * the schema is validated before generation: version required, colours in
-    RRGGBBAA, integer rects, compact action targets >= 44x44, sane motion;
+    RRGGBBAA, integer rects, explicit chamfer/content alignment rails,
+    compact action targets >= 44x44, sane motion;
   * hand-editing any generated file is forbidden -- edit the JSON instead.
 
 Run from the parent repository root:
@@ -100,6 +101,26 @@ def validate_f33(f33):
         fail("f33-abandon.json: schema must be 1")
     if not isinstance(f33.get("version"), str) or not f33["version"]:
         fail("f33-abandon.json: version string required")
+    form = f33.get("form") or {}
+    if (form.get("id") != "f33-abandon" or form.get("familyId") != 33
+            or form.get("archetype") != "small-confirmation"
+            or form.get("source") != "FormConfigs/f33-abandon.json"):
+        fail("f33-abandon.json: generated form identity/provenance is invalid")
+    icon = form.get("icon") or {}
+    if icon != {"kind": "warning", "glyph": "!", "tone": "warning"}:
+        fail("f33-abandon.json: generated warning icon metadata drifted")
+    buttons = form.get("buttons")
+    if not isinstance(buttons, list) or len(buttons) != 2:
+        fail("f33-abandon.json: generated form requires two button descriptors")
+    expected_buttons = (("cancel", "KEEP PLAYING", "safe", "cancel"),
+                        ("confirm", "ABANDON GAME", "danger", "confirm"))
+    for button, expected in zip(buttons, expected_buttons):
+        if tuple(button.get(key) for key in ("id", "label", "tone", "action")) != expected:
+            fail("f33-abandon.json: generated button metadata drifted")
+        button_style = button.get("style") or {}
+        for key in ("fill", "border", "text"):
+            if not isinstance(button_style.get(key), str) or not re.fullmatch(r"[0-9A-Fa-f]{8}", button_style[key]):
+                fail("f33-abandon.json: generated button style " + key + " must be RRGGBBAA")
     copy = f33.get("copy") or {}
     for key in ("protocol", "title", "safeAction", "destructiveAction"):
         if not isinstance(copy.get(key), str) or not copy[key]:
@@ -113,6 +134,8 @@ def validate_f33(f33):
     if (not isinstance(style.get("protocolTextInsetPx"), (int, float))
             or style["protocolTextInsetPx"] <= 0):
         fail("f33-abandon.json: style.protocolTextInsetPx must be > 0")
+    if style["protocolTextInsetPx"] != style["cutCornerPx"] + 12:
+        fail("f33-abandon.json: protocolTextInsetPx must be two mono cells after cutCornerPx")
     for key in ("panelFillTop", "panelFillBottom", "frame", "protocolText", "divider",
                 "footerFill", "footerDot", "warning", "safeFill", "safeBorder",
                 "destructiveFill", "destructiveText"):
@@ -130,6 +153,11 @@ def validate_f33(f33):
             r = l.get(part)
             if not r or not all(isinstance(r[k], int) for k in ("x", "y", "width", "height")):
                 fail("f33-abandon.json: " + name + "." + part + " must be an integer rect")
+        button_rects = l.get("buttons") or {}
+        if set(button_rects) != {"cancel", "confirm"}:
+            fail("f33-abandon.json: " + name + ".buttons must resolve cancel/confirm slots")
+        if button_rects["cancel"] != l["no"] or button_rects["confirm"] != l["yes"]:
+            fail("f33-abandon.json: " + name + " compatibility button aliases drifted")
         for part in ("yes", "no"):
             if l[part]["width"] < MIN_ACTION_TARGET or l[part]["height"] < MIN_ACTION_TARGET:
                 fail("f33-abandon.json: " + name + "." + part
@@ -148,6 +176,8 @@ def validate_f33(f33):
         if (l["yes"]["x"] < l["no"]["x"] + l["no"]["width"] and l["no"]["x"] < l["yes"]["x"] + l["yes"]["width"]
                 and l["yes"]["y"] < l["no"]["y"] + l["no"]["height"] and l["no"]["y"] < l["yes"]["y"] + l["yes"]["height"]):
             fail("f33-abandon.json: " + name + ".yes and .no must not overlap")
+        if l["yes"]["x"] + l["yes"]["width"] != l["message"]["x"] + l["message"]["width"]:
+            fail("f33-abandon.json: " + name + ".yes must end at the message content rail")
     m = f33.get("motion") or {}
     if m.get("durationMs", 0) <= 0 or m.get("durationMs", 0) > 1000:
         fail("f33-abandon.json: motion.durationMs must be in (0, 1000]")
@@ -243,6 +273,7 @@ def emit_f33_h(f33):
     m = f33["motion"]
     copy = f33["copy"]
     style = f33["style"]
+    form = f33["form"]
     cpp_string = lambda value: json.dumps(value, ensure_ascii=False)
     out = [HEADER_BANNER,
            "// Canonical source: src/Calypso/Contracts/f33-abandon.json",
@@ -250,6 +281,10 @@ def emit_f33_h(f33):
            "#include <cstdint>",
            "namespace OpenXcom { namespace Calypso { namespace CalypsoF33AbandonGen {",
            'inline constexpr const char* kContractVersion = "' + f33["version"] + '";',
+           'inline constexpr const char* kFormId = "' + form["id"] + '";',
+           "inline constexpr int kFamilyId = " + str(form["familyId"]) + ";",
+           'inline constexpr const char* kArchetype = "' + form["archetype"] + '";',
+           'inline constexpr const char* kSourceConfig = "' + form["source"] + '";',
            "",
            "// Approved F33 3+5 copy (2026-08-17).",
            "inline constexpr const char* kProtocol = " + cpp_string(copy["protocol"]) + ";",
@@ -258,6 +293,29 @@ def emit_f33_h(f33):
            "inline constexpr const char* kMessageLine2 = " + cpp_string(copy["message"][1]) + ";",
            "inline constexpr const char* kSafeAction = " + cpp_string(copy["safeAction"]) + ";",
            "inline constexpr const char* kDestructiveAction = " + cpp_string(copy["destructiveAction"]) + ";",
+           "",
+           "/// Generated semantic button descriptor; behavior stays in the logical widget.",
+           "struct CalypsoF33GenButton",
+           "{",
+           TAB + "const char* id;",
+           TAB + "const char* label;",
+           TAB + "const char* tone;",
+           TAB + "const char* action;",
+           TAB + "std::uint32_t fill;",
+           TAB + "std::uint32_t border;",
+           TAB + "std::uint32_t text;",
+           "};",
+           "inline constexpr CalypsoF33GenButton kButtons[] =",
+           "{",
+           ]
+    for button in form["buttons"]:
+        out.append(TAB + "{ " + cpp_string(button["id"]) + ", "
+                   + cpp_string(button["label"]) + ", " + cpp_string(button["tone"]) + ", "
+                   + cpp_string(button["action"]) + ", " + rgba_call(button["style"]["fill"]) + ", "
+                   + rgba_call(button["style"]["border"]) + ", "
+                   + rgba_call(button["style"]["text"]) + " },")
+    out += ["};",
+           "inline constexpr int kButtonCount = " + str(len(form["buttons"])) + ";",
            "",
            "// F33-only chrome tokens (0xRRGGBBAA; design px).",
            "inline constexpr float kCutCornerPx = %.6ff;" % float(style["cutCornerPx"]),

@@ -4,7 +4,11 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF33AbandonGen {
-inline constexpr const char* kContractVersion = "f33.2026-08-17.3";
+inline constexpr const char* kContractVersion = "f33.2026-08-18.5";
+inline constexpr const char* kFormId = "f33-abandon";
+inline constexpr int kFamilyId = 33;
+inline constexpr const char* kArchetype = "small-confirmation";
+inline constexpr const char* kSourceConfig = "FormConfigs/f33-abandon.json";
 
 // Approved F33 3+5 copy (2026-08-17).
 inline constexpr const char* kProtocol = "CALYPSO COMMAND · SESSION PROTOCOL SP-01 · REV. 1.0.21 · EFFECTIVE 15.07.2061";
@@ -14,9 +18,27 @@ inline constexpr const char* kMessageLine2 = "This session will be permanently d
 inline constexpr const char* kSafeAction = "KEEP PLAYING";
 inline constexpr const char* kDestructiveAction = "ABANDON GAME";
 
+/// Generated semantic button descriptor; behavior stays in the logical widget.
+struct CalypsoF33GenButton
+{
+	const char* id;
+	const char* label;
+	const char* tone;
+	const char* action;
+	std::uint32_t fill;
+	std::uint32_t border;
+	std::uint32_t text;
+};
+inline constexpr CalypsoF33GenButton kButtons[] =
+{
+	{ "cancel", "KEEP PLAYING", "safe", "cancel", 0x051417B8u, 0x74FFB0CCu, 0xE8FFF5FFu },
+	{ "confirm", "ABANDON GAME", "danger", "confirm", 0xF25F5CFFu, 0xF25F5CFFu, 0x071013FFu },
+};
+inline constexpr int kButtonCount = 2;
+
 // F33-only chrome tokens (0xRRGGBBAA; design px).
 inline constexpr float kCutCornerPx = 14.000000f;
-inline constexpr float kProtocolTextInsetPx = 12.000000f;
+inline constexpr float kProtocolTextInsetPx = 26.000000f;
 inline constexpr std::uint32_t kPanelFillTop = 0x08191DEBu;
 inline constexpr std::uint32_t kPanelFillBottom = 0x041014E8u;
 inline constexpr std::uint32_t kFrame = 0x74FFB073u;
@@ -51,9 +73,9 @@ struct CalypsoF33GenLayout
 inline constexpr CalypsoF33GenLayout kLayouts[] =
 {
 	// wide
-	{ 1280, 720, { 350, 230, 580, 260 }, { 350, 230, 580, 38 }, { 382, 306, 32, 32 }, { 430, 300, 450, 44 }, { 382, 360, 516, 54 }, { 350, 428, 580, 62 }, { 756, 437, 158, 44 }, { 588, 437, 158, 44 } },
+	{ 1280, 720, { 350, 230, 580, 260 }, { 350, 230, 580, 38 }, { 382, 306, 32, 32 }, { 430, 300, 450, 44 }, { 382, 360, 516, 54 }, { 350, 428, 580, 62 }, { 740, 437, 158, 44 }, { 572, 437, 158, 44 } },
 	// compact
-	{ 740, 360, { 70, 60, 600, 240 }, { 70, 60, 600, 34 }, { 98, 125, 28, 28 }, { 140, 118, 470, 38 }, { 98, 169, 500, 48 }, { 70, 234, 600, 66 }, { 506, 244, 148, 44 }, { 346, 244, 148, 44 } },
+	{ 740, 360, { 70, 60, 600, 240 }, { 70, 60, 600, 34 }, { 98, 125, 28, 28 }, { 140, 118, 470, 38 }, { 98, 169, 500, 48 }, { 70, 234, 600, 66 }, { 450, 244, 148, 44 }, { 290, 244, 148, 44 } },
 };
 inline constexpr int kLayoutCount = 2;
 
