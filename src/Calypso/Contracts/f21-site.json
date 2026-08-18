@@ -66,8 +66,8 @@
       "kind": "gap",
       "first": "funds",
       "second": "cost",
-      "axis": "horizontal",
-      "wide": 16,
+      "axis": "vertical",
+      "wide": 8,
       "compact": 8
     },
     {
@@ -196,24 +196,24 @@
         "x": 52,
         "y": 56,
         "width": 620,
-        "height": 40
+        "height": 50
       },
       "slot": {
         "x": 52,
-        "y": 104,
+        "y": 112,
         "width": 190,
         "height": 18
       },
       "funds": {
         "x": 776,
-        "y": 62,
-        "width": 228,
+        "y": 54,
+        "width": 460,
         "height": 30
       },
       "cost": {
-        "x": 1020,
-        "y": 62,
-        "width": 216,
+        "x": 776,
+        "y": 92,
+        "width": 460,
         "height": 30
       },
       "card": {
@@ -290,30 +290,30 @@
         "x": 8,
         "y": 6,
         "width": 724,
-        "height": 28
+        "height": 30
       },
       "title": {
         "x": 28,
-        "y": 40,
-        "width": 350,
-        "height": 36
+        "y": 42,
+        "width": 416,
+        "height": 44
       },
       "slot": {
         "x": 28,
-        "y": 82,
+        "y": 90,
         "width": 160,
         "height": 16
       },
       "funds": {
-        "x": 398,
-        "y": 46,
-        "width": 176,
+        "x": 460,
+        "y": 42,
+        "width": 260,
         "height": 24
       },
       "cost": {
-        "x": 582,
-        "y": 46,
-        "width": 138,
+        "x": 460,
+        "y": 74,
+        "width": 260,
         "height": 24
       },
       "card": {

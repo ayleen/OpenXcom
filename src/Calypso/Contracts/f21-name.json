@@ -90,49 +90,49 @@
       "designWidth": 1280,
       "designHeight": 720,
       "window": {
-        "x": 390,
+        "x": 340,
         "y": 210,
-        "width": 500,
+        "width": 600,
         "height": 300
       },
       "status": {
-        "x": 390,
+        "x": 340,
         "y": 210,
-        "width": 500,
+        "width": 600,
         "height": 34
       },
       "title": {
-        "x": 430,
+        "x": 380,
         "y": 264,
-        "width": 420,
+        "width": 520,
         "height": 40
       },
       "inputFrame": {
-        "x": 430,
+        "x": 380,
         "y": 326,
-        "width": 420,
+        "width": 520,
         "height": 48
       },
       "nameEdit": {
-        "x": 430,
+        "x": 380,
         "y": 326,
-        "width": 420,
+        "width": 520,
         "height": 48
       },
       "hint": {
-        "x": 430,
+        "x": 380,
         "y": 386,
-        "width": 420,
+        "width": 520,
         "height": 30
       },
       "footer": {
-        "x": 390,
+        "x": 340,
         "y": 430,
-        "width": 500,
+        "width": 600,
         "height": 64
       },
       "ok": {
-        "x": 686,
+        "x": 736,
         "y": 440,
         "width": 180,
         "height": 44

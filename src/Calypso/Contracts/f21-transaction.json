@@ -273,7 +273,7 @@
         "height": 118
       },
       "factsColumnDivider": {
-        "x": 559,
+        "x": 599,
         "y": 248,
         "width": 1,
         "height": 74
@@ -287,25 +287,25 @@
       "slot": {
         "x": 360,
         "y": 252,
-        "width": 190,
+        "width": 230,
         "height": 24
       },
       "coords": {
-        "x": 568,
+        "x": 608,
         "y": 252,
-        "width": 348,
+        "width": 308,
         "height": 24
       },
       "region": {
         "x": 360,
         "y": 294,
-        "width": 190,
+        "width": 230,
         "height": 24
       },
       "cost": {
-        "x": 568,
+        "x": 608,
         "y": 294,
-        "width": 348,
+        "width": 308,
         "height": 24
       },
       "after": {
@@ -391,7 +391,7 @@
         "height": 96
       },
       "factsColumnDivider": {
-        "x": 219,
+        "x": 261,
         "y": 92,
         "width": 1,
         "height": 62
@@ -405,25 +405,25 @@
       "slot": {
         "x": 66,
         "y": 96,
-        "width": 146,
+        "width": 188,
         "height": 20
       },
       "coords": {
-        "x": 226,
+        "x": 268,
         "y": 96,
-        "width": 436,
+        "width": 394,
         "height": 20
       },
       "region": {
         "x": 66,
         "y": 130,
-        "width": 146,
+        "width": 188,
         "height": 20
       },
       "cost": {
-        "x": 226,
+        "x": 268,
         "y": 130,
-        "width": 436,
+        "width": 394,
         "height": 20
       },
       "after": {
