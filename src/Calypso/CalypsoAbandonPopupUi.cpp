@@ -630,8 +630,7 @@ void CalypsoAbandonPopupUi::configure(AbandonGameState& state, bool allowPhysica
 	state._hdMessage->setWordWrap(true);
 	if (ironman)
 	{
-		state._hdMessage->setText(state._btnYes->getText() + "\n" +
-			std::string(state.tr("STR_IRONMAN")));
+		state._hdMessage->setText(std::string(state.tr("STR_SAVE_AND_ABANDON_GAME")));
 	}
 	else if (english)
 	{

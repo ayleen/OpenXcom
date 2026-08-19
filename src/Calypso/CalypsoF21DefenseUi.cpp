@@ -169,42 +169,67 @@ void CalypsoF21DefenseUi::collect(CalypsoHdFrameBuilder& builder) const
 	p.textRect(warningRect, nullptr, heading, "!", CalypsoHdThemeGen::kGold,
 		CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, ROLE_DECORATION, 0.0,
 		wide ? 17.0 : 15.0);
-	// The native TextList is the authoritative event stream. Render its full
-	// snapshot in the generated message band so FIRING/HIT/MISSED/NO AMMO,
-	// shield and destruction events remain visible on the physical route.
-	std::vector<std::string> logLines;
+	// TextList is the authoritative event stream for FIRING/HIT/MISSED/NO AMMO,
+	// shield and destruction events. Keep its native bounded-row semantics
+	// instead of flattening the entire history into one multiline texture: the
+	// generated message band is intentionally only five rows tall.
+	std::vector<std::string> eventLines;
+	if (_state->_lstDefenses)
 	{
-		std::ostringstream header;
-		header << "DEFENSES " << _state->_defenses << " · GRAV SHIELDS " << _state->_gravShields;
-		logLines.push_back(header.str());
-		if (_state->_txtInit && !_state->_txtInit->getText().empty())
-			logLines.push_back(_state->_txtInit->getText());
-		if (_state->_lstDefenses)
+		for (const auto& row : _state->_lstDefenses->getCellTextsSnapshot())
 		{
-			for (const auto& row : _state->_lstDefenses->getCellTextsSnapshot())
+			std::string line;
+			for (const auto* cell : row)
 			{
-				std::string line;
-				for (const auto* cell : row)
-				{
-					if (!cell || cell->getText().empty()) continue;
-					if (!line.empty()) line += " · ";
-					line += cell->getText();
-				}
-				if (!line.empty()) logLines.push_back(line);
+				if (!cell || cell->getText().empty()) continue;
+				if (!line.empty()) line += " · ";
+				line += cell->getText();
 			}
+			if (!line.empty()) eventLines.push_back(line);
 		}
 	}
-	std::string logText;
-	for (const auto& line : logLines)
+
+	const bool initVisible = _state->_txtInit && _state->_txtInit->getVisible()
+		&& !_state->_txtInit->getText().empty();
+	const int linePx = std::max(1, static_cast<int>(dataPx + 0.5));
+	const size_t maxVisibleRows = std::max<size_t>(1, designLayout.message.height / linePx);
+	const size_t initRows = initVisible ? 1 : 0;
+	const size_t eventLimit = maxVisibleRows > initRows ? maxVisibleRows - initRows : 0;
+
+	// BaseDefenseState scrolls the native TextList as new rows arrive. Mirror
+	// the current native viewport and retain only the rows that fit this HD
+	// route, so a long battle cannot trigger the multiline overflow guard.
+	size_t firstEvent = 0;
+	if (eventLimit > 0 && eventLines.size() > eventLimit)
 	{
-		if (!logText.empty()) logText += "\n";
-		logText += line;
+		const size_t nativeScroll = _state->_lstDefenses
+			? _state->_lstDefenses->getScroll() : 0;
+		const size_t nativeVisible = _state->_lstDefenses
+			? std::max<size_t>(1, _state->_lstDefenses->getVisibleRows()) : eventLines.size();
+		const size_t nativeEnd = std::min(eventLines.size(), nativeScroll + nativeVisible);
+		firstEvent = nativeEnd > eventLimit ? nativeEnd - eventLimit : nativeScroll;
+		firstEvent = std::min(firstEvent, eventLines.size() - eventLimit);
 	}
-	const double logPx = std::max(6.0, std::min(dataPx,
-		(double)designLayout.message.height / std::max<size_t>(1, logLines.size()) * 0.82));
-	p.textRect(p.project(designLayout.message), _state->_lstDefenses, mono, logText,
-		CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Left, CalypsoHdVAlign::Top,
-		(int)logLines.size(), ROLE_RESULT, 0.0, logPx);
+
+	const CalypsoLogicalRect messageRect = p.project(designLayout.message);
+	const int rowHeight = std::max(1, messageRect.h / static_cast<int>(maxVisibleRows));
+	size_t drawnRows = 0;
+	auto drawRow = [&](Surface* widget, const std::string& text)
+	{
+		if (drawnRows >= maxVisibleRows || text.empty()) return;
+		const int rowY = messageRect.y + static_cast<int>(drawnRows) * rowHeight;
+		const int rowH = drawnRows + 1 == maxVisibleRows
+			? messageRect.y + messageRect.h - rowY : rowHeight;
+		p.textRect(CalypsoLogicalRect{ messageRect.x, rowY, messageRect.w, rowH }, widget, mono, text,
+			CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle,
+			1, ROLE_RESULT, 0.0, dataPx);
+		++drawnRows;
+	};
+
+	if (initVisible)
+		drawRow(_state->_txtInit, _state->_txtInit->getText());
+	for (size_t i = firstEvent; i < eventLines.size() && drawnRows < maxVisibleRows; ++i)
+		drawRow(_state->_lstDefenses, eventLines[i]);
 
 	if (_state->_btnAbort && _state->_btnAbort->getVisible())
 	{
