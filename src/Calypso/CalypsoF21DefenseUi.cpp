@@ -90,10 +90,8 @@ void CalypsoF21DefenseUi::collect(CalypsoHdFrameBuilder& builder) const
 
 	Mod* mod = _state->_game->getMod();
 	CalypsoTtfSourceDescriptor heading;
-	CalypsoTtfSourceDescriptor body;
 	CalypsoTtfSourceDescriptor mono;
 	if (!calypsoHdResolveFontDescriptor(mod, "FONT_F34_SAIRA_700", heading)) return;
-	if (!calypsoHdResolveFontDescriptor(mod, "FONT_F33_BODY", body)) return;
 	if (!calypsoHdResolveFontDescriptor(mod, "FONT_F34_MONO", mono)) return;
 
 	const CalypsoHdPresentationMetrics& m = CalypsoHdUiOverlay::instance().frozenMetrics();
@@ -111,7 +109,6 @@ void CalypsoF21DefenseUi::collect(CalypsoHdFrameBuilder& builder) const
 
 	const double titlePx = wide ? CalypsoHdThemeGen::kF21TitleWidePx : CalypsoHdThemeGen::kF21TitleCompactPx;
 	const double dataPx = wide ? CalypsoHdThemeGen::kF21DataWidePx : CalypsoHdThemeGen::kF21DataCompactPx;
-	const double bodyPx = wide ? CalypsoHdThemeGen::kF21BodyWidePx : CalypsoHdThemeGen::kF21BodyCompactPx;
 	const double actionPx = wide ? CalypsoHdThemeGen::kF21ActionWidePx : CalypsoHdThemeGen::kF21ActionCompactPx;
 
 	builder.beginSubgroup();
@@ -260,11 +257,40 @@ void CalypsoF21DefenseUi::applyRects(BaseDefenseState& state, const CalypsoF21De
 	applyRect(state._hdProtocol, layout.status);
 	applyRect(state._txtTitle, layout.title);
 	applyRect(state._txtInit, layout.message);
+	// Keep the live TextList's native selector, arrows, and scrollbar inside
+	// the generated message band. HD claims its row text, but TextList still
+	// owns that interaction chrome when its viewport overflows.
+	if (state._lstDefenses)
+		state._lstDefenses->rebaseNativeSize(layout.message.width, layout.message.height);
+	applyRect(state._lstDefenses, layout.message);
 	// The generated contract owns fixed action slots. Visibility changes during
 	// BDA_END must not change geometry or leave the final OK at stale coordinates.
 	applyRect(state._btnAbort, layout.skip);
 	applyRect(state._btnStart, layout.start);
 	applyRect(state._btnOk, layout.ok);
+}
+
+void CalypsoF21DefenseUi::prepareList(BaseDefenseState& state)
+{
+	if (!state._lstDefenses || !state._game || !state._game->getMod()
+		|| !state._game->getLanguage()
+		|| !isF34PhysicalRouteEligible(
+			state._game->getMod()->isHdUiFamilyEnabled("F21"),
+			state._game->getLanguage()->getTextDirection() == DIRECTION_RTL,
+			false))
+		return;
+
+	const bool wide = currentF21LayoutClass() == CalypsoLayoutClass::Wide;
+	CalypsoF21DefenseLayout layout = calypsoF21DefenseLayout(
+		wide ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact);
+	calypsoF21DefenseApplyHarnessShift(layout,
+		calypsoHarnessSession().sideBySide && wide);
+
+	// BaseDefenseState may add initial informational rows before configure().
+	// Rebase and place the list first so those rows use the same generated
+	// design-space scale as rows added during the defense sequence.
+	state._lstDefenses->rebaseNativeSize(layout.message.width, layout.message.height);
+	applyRect(state._lstDefenses, layout.message);
 }
 
 

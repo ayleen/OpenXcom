@@ -49,6 +49,7 @@ public:
 	void collect(CalypsoHdFrameBuilder& builder) const override;
 
 	static void configure(BaseDefenseState& state, bool allowPhysicalOverlay);
+	static void prepareList(BaseDefenseState& state);
 	static bool resize(BaseDefenseState& state);
 	static void applyRects(BaseDefenseState& state, const CalypsoF21DefenseLayout& layout);
 

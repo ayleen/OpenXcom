@@ -121,6 +121,12 @@ BaseDefenseState::BaseDefenseState(Base *base, Ufo *ufo, GeoscapeState *state, b
 	_lstDefenses->setColumns(3, 134, 70, 50);
 	_lstDefenses->setFlooding(true);
 
+#ifdef __EMSCRIPTEN__
+	// Prepare the generated HD list geometry before optional initial rows are
+	// added below; configure() repeats this for the final layout/resize path.
+	Calypso::CalypsoF21DefenseUi::prepareList(*this);
+#endif
+
 	if (showUfo)
 	{
 		RuleInterface* dogfightInterface = _game->getMod()->getInterface("dogfight");
