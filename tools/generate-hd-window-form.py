@@ -26,10 +26,28 @@ CONFIG_FIELDS = {
     "schema", "id", "familyId", "version", "archetype", "protocol",
     "title", "body", "icon", "buttons",
 }
+OPTIONAL_CONFIG_FIELDS = {"table", "input"}
 PROTOCOL_FIELDS = {"authority", "record", "code", "revision", "effectiveDate"}
 ICON_FIELDS = {"kind", "glyph", "tone"}
 BUTTON_FIELDS = {"id", "label", "tone", "action"}
 ICON_KINDS = {"warning", "info", "question", "none"}
+SEPARATOR_RE = re.compile(r"^-{3,}$")
+UNSUPPORTED_MARKDOWN_RE = re.compile(r"[\\*_\x60~<>\\[\\]!]")
+HARD_BREAK_RE = re.compile(r"<br>", re.IGNORECASE)
+TABLE_LIMITS = {"maxRows": 8, "maxColumns": 4, "maxLinesPerCell": 6, "maxTotalLines": 48}
+TABLE_PADDING = 8
+TABLE_DIVIDER = 1
+TABLE_TEXT_UNIT_WIDE = 8
+TABLE_TEXT_UNIT_COMPACT = 7
+TABLE_LINE_HEIGHT_WIDE = 22
+TABLE_LINE_HEIGHT_COMPACT = 18
+INPUT_HEIGHT_WIDE = 38
+INPUT_HEIGHT_COMPACT = 32
+HINT_HEIGHT_WIDE = 18
+HINT_HEIGHT_COMPACT = 16
+GAP_MESSAGE_INPUT = 14
+GAP_INPUT_HINT = 8
+GAP_HINT_FOOTER = 14
 
 
 class FormError(ValueError):
@@ -167,7 +185,14 @@ def validate_template(template):
 
 
 def validate_config(config, template):
-    require_exact_fields(config, CONFIG_FIELDS, "config")
+    if not isinstance(config, dict):
+        raise FormError("config must be an object")
+    unknown = sorted(set(config) - CONFIG_FIELDS - OPTIONAL_CONFIG_FIELDS)
+    if unknown:
+        raise FormError("config has unsupported fields: " + ", ".join(unknown))
+    missing = sorted(CONFIG_FIELDS - set(config))
+    if missing:
+        raise FormError("config is missing fields: " + ", ".join(missing))
     if config["schema"] != 1:
         raise FormError("config.schema must be 1")
     if not isinstance(config["id"], str) or not ID_RE.fullmatch(config["id"]):
@@ -207,8 +232,8 @@ def validate_config(config, template):
         raise FormError("config.icon.glyph is required for a visible icon")
 
     buttons = config["buttons"]
-    if not isinstance(buttons, list) or not 1 <= len(buttons) <= 2:
-        raise FormError("config.buttons must contain one or two buttons")
+    if not isinstance(buttons, list) or not 1 <= len(buttons) <= 3:
+        raise FormError("config.buttons must contain between one and three buttons")
     ids = set()
     actions = set()
     for index, button in enumerate(buttons):
@@ -227,6 +252,154 @@ def validate_config(config, template):
             raise FormError("button actions must be unique")
         ids.add(button["id"])
         actions.add(button["action"])
+    table = config.get("table")
+    if table is not None:
+        if not isinstance(table, str) or not table.strip():
+            raise FormError("config.table must be a non-empty Markdown table string when present")
+        try:
+            parse_table(table, TABLE_LIMITS)
+        except FormError as e:
+            raise FormError("config.table: " + str(e))
+    inp = config.get("input")
+    if inp is not None:
+        if not isinstance(inp, dict):
+            raise FormError("config.input must be an object")
+        if set(inp) != {"value", "hint"}:
+            raise FormError("config.input must contain exactly value and hint")
+        one_line(inp["value"], "config.input.value", 48)
+        one_line(inp["hint"], "config.input.hint", 96)
+
+
+def reject_unsupported_markdown(cell):
+    if (UNSUPPORTED_MARKDOWN_RE.search(cell) or re.match(r"^#{1,6}(?:\s|$)", cell)
+            or "\\|" in cell):
+        raise FormError("table contains unsupported Markdown")
+
+
+def parse_table(value, limits):
+    if "\r" in value:
+        raise FormError("table must use LF line endings")
+    lines = value.strip().split("\n")
+    if any(not line.strip() for line in lines):
+        raise FormError("table cannot contain blank lines")
+    if len(lines) < 3:
+        raise FormError("table requires a header, separator, and at least one data row")
+    parsed = []
+    for line_number, line in enumerate(lines, 1):
+        stripped = line.strip()
+        if not stripped.startswith("|") or not stripped.endswith("|"):
+            raise FormError("table line " + str(line_number) + " must start and end with |")
+        cells = [cell.strip() for cell in stripped[1:-1].split("|")]
+        if any(not cell for cell in cells):
+            raise FormError("table cells must be non-empty")
+        parsed.append(cells)
+    columns = len(parsed[0])
+    if columns < 2 or columns > limits["maxColumns"]:
+        raise FormError("table must contain between 2 and " + str(limits["maxColumns"]) + " columns")
+    if any(len(row) != columns for row in parsed):
+        raise FormError("table rows must contain the same number of cells")
+    if not all(SEPARATOR_RE.fullmatch(cell) for cell in parsed[1]):
+        raise FormError("table second row must be a Markdown separator")
+    rows = [[HARD_BREAK_RE.sub("\n", cell) for cell in row]
+            for row in [parsed[0]] + parsed[2:]]
+    if len(rows) > limits["maxRows"]:
+        raise FormError("table exceeds the " + str(limits["maxRows"]) + " row limit")
+    for row in rows:
+        for cell in row:
+            reject_unsupported_markdown(cell)
+    return rows
+
+
+def explicit_lines(value, label="value"):
+    if "\t" in value:
+        raise FormError(label + " cannot contain tabs")
+    return value.split("\n")
+
+
+def proportional_text_width(value, text_unit_width):
+    quarter_units = sum(3 if character.islower() else 4 for character in value)
+    return (quarter_units * text_unit_width + 3) // 4
+
+
+def _rect(x, y, w, h):
+    return {"x": x, "y": y, "width": w, "height": h}
+
+
+def build_table_inside_message(rows, message_rect, is_wide):
+    text_unit = TABLE_TEXT_UNIT_WIDE if is_wide else TABLE_TEXT_UNIT_COMPACT
+    line_h = TABLE_LINE_HEIGHT_WIDE if is_wide else TABLE_LINE_HEIGHT_COMPACT
+    pad = TABLE_PADDING
+    div = TABLE_DIVIDER
+    columns = len(rows[0])
+    col_text_widths = []
+    col_widths = []
+    for ci in range(columns):
+        longest = max(
+            proportional_text_width(line, text_unit)
+            for r in rows
+            for line in explicit_lines(r[ci], "table cell")
+        )
+        col_text_widths.append(longest)
+        col_widths.append(longest + 2 * pad)
+    total_w = sum(col_widths) + div * (columns - 1)
+    avail_w = message_rect["width"] - 2 * pad
+    if total_w > avail_w:
+        raise FormError(f"table width {total_w} exceeds message width {avail_w}; shorten cells or add explicit breaks")
+    counts = {}
+    row_heights = []
+    for ri, row in enumerate(rows):
+        row_counts = []
+        for ci, cell in enumerate(row):
+            key = f"cellR{ri+1}C{ci+1}"
+            cnt = len(explicit_lines(cell, key))
+            if cnt > TABLE_LIMITS["maxLinesPerCell"]:
+                raise FormError(f"{key} exceeds the {TABLE_LIMITS['maxLinesPerCell']} line limit")
+            counts[key] = cnt
+            row_counts.append(cnt)
+        row_heights.append(max(row_counts) * line_h + 2 * pad)
+    if sum(counts.values()) > TABLE_LIMITS["maxTotalLines"]:
+        raise FormError("table exceeds total line limit")
+    total_h = sum(row_heights) + div * (len(rows)-1)
+    # Build rects positioned inside message_rect with outer padding
+    rects = {}
+    col_lefts = []
+    left = message_rect["x"] + pad
+    for ci, cw in enumerate(col_widths):
+        col_lefts.append(left)
+        left += cw + div
+    row_top = message_rect["y"] + pad
+    for ri, rh in enumerate(row_heights):
+        if ri:
+            rects[f"rowDivider{ri}"] = _rect(
+                message_rect["x"] + pad,
+                row_top - div,
+                total_w,
+                div)
+        for ci in range(columns):
+            key = f"cellR{ri+1}C{ci+1}"
+            rects[key] = _rect(
+                col_lefts[ci] + pad,
+                row_top + pad,
+                col_widths[ci] - 2*pad,
+                rh - 2*pad)
+        row_top += rh + div
+    for ci in range(1, columns):
+        rects[f"columnDivider{ci}"] = _rect(
+            col_lefts[ci] - div,
+            message_rect["y"] + pad,
+            div,
+            total_h)
+    metrics = {
+        "columns": columns,
+        "rows": len(rows),
+        "columnTextWidths": col_text_widths,
+        "columnWidths": col_widths,
+        "rowHeights": row_heights,
+        "lineCounts": counts,
+        "tableWidth": total_w,
+        "tableHeight": total_h,
+    }
+    return rects, metrics
 
 
 def protocol_text(protocol):
@@ -265,10 +438,35 @@ def build_contract(config, template, source_name):
         "motion": copy.deepcopy(template["motion"]),
     }
 
+    # Optional table inside the fixed message body
+    table_rows = None
+    if config.get("table") is not None:
+        table_rows = parse_table(config["table"], TABLE_LIMITS)
+
     button_count = len(buttons)
+    # Button slot handling: template has 2 slots, support 1-3 buttons
+    # For 3 buttons: left slot split? Use equal 3 slots derived from 2-slot geometry
     for name in ("wide", "compact"):
         authored = template["layouts"][name]
-        slots = authored["buttonSlots"][2 - button_count:]
+        is_wide = name == "wide"
+        # Derive button rects
+        if button_count == 3:
+            # Split footer width: 3 buttons with same height/gap logic
+            footer = authored["footer"]
+            gap = authored["buttonSlots"][1]["x"] - (authored["buttonSlots"][0]["x"] + authored["buttonSlots"][0]["width"])
+            btn_w = authored["buttonSlots"][0]["width"]
+            # For 3 buttons, compress slightly to fit: use original button width but adjust gaps
+            # Keep right-aligned to content rail
+            right_edge = authored["buttonSlots"][1]["x"] + authored["buttonSlots"][1]["width"]
+            total_w = btn_w*3 + gap*2
+            left_x = right_edge - total_w
+            slots = []
+            for i in range(3):
+                x = left_x + i*(btn_w+gap)
+                slots.append({"x": x, "y": authored["buttonSlots"][0]["y"], "width": btn_w, "height": authored["buttonSlots"][0]["height"]})
+        else:
+            slots = authored["buttonSlots"][2 - button_count:]
+
         layout = {
             "designWidth": authored["designWidth"],
             "designHeight": authored["designHeight"],
@@ -282,7 +480,74 @@ def build_contract(config, template, source_name):
         }
         for button, rect in zip(buttons, slots):
             layout["buttons"][button["id"]] = copy.deepcopy(rect)
+        # Table + body lines share the same message band: body on top, table below with gap
+        has_table = table_rows is not None
+        has_input = config.get("input") is not None
+        t_rects = None
+        t_metrics = None
+        if has_table:
+            t_rects, t_metrics = build_table_inside_message(table_rows, layout["message"], is_wide)
+            line_h = TABLE_LINE_HEIGHT_WIDE if is_wide else TABLE_LINE_HEIGHT_COMPACT
+            body_h = len(config["body"]) * line_h + 2 * TABLE_PADDING
+            gap = 8
+            needed_body_h = body_h + gap + t_metrics["tableHeight"]
+            cur_body_h = layout["message"]["height"]
+            if needed_body_h > cur_body_h:
+                delta = needed_body_h - cur_body_h
+                layout["message"]["height"] = needed_body_h
+                layout["footer"]["y"] += delta
+                for bid in list(layout["buttons"].keys()):
+                    layout["buttons"][bid]["y"] += delta
+                layout["window"]["height"] += delta
+                if layout["window"]["y"] + layout["window"]["height"] > layout["designHeight"]:
+                    layout["designHeight"] = layout["window"]["y"] + layout["window"]["height"] + 10
+            # Shift table rects down by body_h + gap so body occupies top of message
+            body_shift = body_h + gap
+            for k in list(t_rects.keys()):
+                if "cell" in k or "Divider" in k:
+                    t_rects[k]["y"] += body_shift - TABLE_PADDING
+            for k,v in t_rects.items():
+                layout[k] = v
+            out.setdefault("_tableMetrics", {})[name] = t_metrics
+        # Input field: stacked below body/table inside the same message band.
+        # Expand the message (and thus window/footer) to make room so input never
+        # overlaps the table. Order inside message top-to-bottom: body, [table],
+        # input, hint.
+        if has_input:
+            input_h = INPUT_HEIGHT_WIDE if is_wide else INPUT_HEIGHT_COMPACT
+            hint_h = HINT_HEIGHT_WIDE if is_wide else HINT_HEIGHT_COMPACT
+            # Compute total height needed when input is present.
+            line_h = TABLE_LINE_HEIGHT_WIDE if is_wide else TABLE_LINE_HEIGHT_COMPACT
+            body_h_for_input = len(config["body"]) * line_h + 2 * TABLE_PADDING
+            if has_table:
+                # Message already includes body + gap(8) + tableHeight.
+                needed_with_input = layout["message"]["height"] + GAP_MESSAGE_INPUT + input_h + GAP_INPUT_HINT + hint_h
+            else:
+                # No table: body + gap(14) + input + gap(8) + hint
+                needed_with_input = body_h_for_input + GAP_MESSAGE_INPUT + input_h + GAP_INPUT_HINT + hint_h
+            cur_h = layout["message"]["height"]
+            if needed_with_input > cur_h:
+                delta = needed_with_input - cur_h
+                layout["message"]["height"] = needed_with_input
+                layout["footer"]["y"] += delta
+                for bid in list(layout["buttons"].keys()):
+                    layout["buttons"][bid]["y"] += delta
+                layout["window"]["height"] += delta
+                if layout["window"]["y"] + layout["window"]["height"] > layout["designHeight"]:
+                    layout["designHeight"] = layout["window"]["y"] + layout["window"]["height"] + 10
+            # Place input/hint at the very bottom of the (now expanded) message.
+            layout["inputHint"] = {"x": layout["message"]["x"], "y": layout["message"]["y"] + layout["message"]["height"] - hint_h, "width": layout["message"]["width"], "height": hint_h}
+            layout["inputFrame"] = {"x": layout["message"]["x"], "y": layout["inputHint"]["y"] - GAP_INPUT_HINT - input_h, "width": layout["message"]["width"], "height": input_h}
         out["layouts"][name] = layout
+
+    if table_rows is not None:
+        out["form"]["tableRows"] = copy.deepcopy(table_rows)
+        out["copy"]["table"] = config["table"]
+        out["tableMetrics"] = out.pop("_tableMetrics", {})
+    if config.get("input") is not None:
+        out["form"]["input"] = copy.deepcopy(config["input"])
+        out["copy"]["inputValue"] = config["input"]["value"]
+        out["copy"]["inputHint"] = config["input"]["hint"]
 
     # Compatibility aliases keep the shipped F33 adapter and DOM consumer on
     # the generated object while the generic form presenter is introduced.

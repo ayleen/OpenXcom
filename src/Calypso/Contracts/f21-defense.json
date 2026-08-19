@@ -1,301 +1,278 @@
 {
   "schema": 1,
   "version": "hd.2026-08-18.17",
-  "visualProfile": "command-card-v1",
+  "form": {
+    "id": "f21-defense",
+    "familyId": 21,
+    "archetype": "small-confirmation",
+    "source": "FormConfigs/f21-defense.json",
+    "icon": {
+      "kind": "warning",
+      "glyph": "!",
+      "tone": "warning"
+    },
+    "buttons": [
+      {
+        "id": "skip",
+        "label": "SKIP TO ASSAULT",
+        "tone": "safe",
+        "action": "skip",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB0CC",
+          "text": "E8FFF5FF"
+        }
+      },
+      {
+        "id": "start",
+        "label": "START FIRING",
+        "tone": "primary",
+        "action": "start",
+        "style": {
+          "fill": "74FFB0FF",
+          "border": "74FFB0FF",
+          "text": "071013FF"
+        }
+      },
+      {
+        "id": "ok",
+        "label": "CONTINUE",
+        "tone": "safe",
+        "action": "confirm",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB0CC",
+          "text": "E8FFF5FF"
+        }
+      }
+    ],
+    "tableRows": [
+      [
+        "DEFENSES · 4",
+        "AMMUNITION · 24"
+      ],
+      [
+        "HIT RATIO · 62%",
+        "READY"
+      ]
+    ]
+  },
   "copy": {
     "protocol": "CALYPSO COMMAND · DEFENSE DOSSIER DF-21 · REV. 1.0.21 · EFFECTIVE 15.07.2061",
-    "title": "BASE UNDER ATTACK · ATLANTIS POST",
-    "defenses": "DEFENSES · 4",
-    "ammo": "AMMUNITION · 24",
-    "hitRatio": "HIT RATIO · 62%",
-    "phase": "PHASE · AWAITING FIRE ORDER",
-    "result": "DEFENSE LOG · LIVE FIRE REPORT FOLLOWS",
-    "start": "START FIRING",
-    "skip": "SKIP TO ASSAULT",
-    "ok": "CONTINUE"
+    "title": "BASE UNDER ATTACK",
+    "message": [
+      "DEFENSE LOG · LIVE FIRE REPORT FOLLOWS",
+      "PHASE · AWAITING FIRE ORDER"
+    ],
+    "table": "| DEFENSES · 4 | AMMUNITION · 24 |\n| --- | --- |\n| HIT RATIO · 62% | READY |"
   },
-  "parts": [
-    "window",
-    "status",
-    "title",
-    "defenses",
-    "ammo",
-    "hitRatio",
-    "phase",
-    "result",
-    "footer",
-    "start",
-    "skip",
-    "ok"
-  ],
-  "actions": [
-    "start",
-    "skip",
-    "ok"
-  ],
-  "engineTextScale": {
-    "title": 0.88,
-    "data": 0.9,
-    "body": 0.92,
-    "input": 0.9,
-    "action": 0.9
+  "style": {
+    "cutCornerPx": 14,
+    "protocolTextInsetPx": 26,
+    "panelFillTop": "08191DEB",
+    "panelFillBottom": "041014E8",
+    "frame": "74FFB073",
+    "protocolText": "A9D8C7FF",
+    "divider": "74FFB04D",
+    "footerFill": "061B1CD6",
+    "footerDot": "74FFB01F",
+    "warning": "FFC14DFF",
+    "safeFill": "051417B8",
+    "safeBorder": "74FFB0CC",
+    "destructiveFill": "F25F5CFF",
+    "destructiveText": "071013FF"
   },
-  "spacingRules": [
-    {
-      "id": "status-title",
-      "kind": "gap",
-      "first": "status",
-      "second": "title",
-      "axis": "vertical",
-      "wide": 8,
-      "compact": 6
-    },
-    {
-      "id": "title-defenses",
-      "kind": "gap",
-      "first": "title",
-      "second": "defenses",
-      "axis": "vertical",
-      "wide": 16,
-      "compact": 12
-    },
-    {
-      "id": "defenses-ammo",
-      "kind": "gap",
-      "first": "defenses",
-      "second": "ammo",
-      "axis": "vertical",
-      "wide": 4,
-      "compact": 4
-    },
-    {
-      "id": "ammo-hitRatio",
-      "kind": "gap",
-      "first": "ammo",
-      "second": "hitRatio",
-      "axis": "vertical",
-      "wide": 4,
-      "compact": 4
-    },
-    {
-      "id": "hitRatio-phase",
-      "kind": "gap",
-      "first": "hitRatio",
-      "second": "phase",
-      "axis": "vertical",
-      "wide": 12,
-      "compact": 12
-    },
-    {
-      "id": "phase-result",
-      "kind": "gap",
-      "first": "phase",
-      "second": "result",
-      "axis": "vertical",
-      "wide": 16,
-      "compact": 10
-    },
-    {
-      "id": "result-footer",
-      "kind": "gap",
-      "first": "result",
-      "second": "footer",
-      "axis": "vertical",
-      "wide": 16,
-      "compact": 12
-    },
-    {
-      "id": "start-skip",
-      "kind": "gap",
-      "first": "start",
-      "second": "skip",
-      "axis": "horizontal",
-      "wide": 16,
-      "compact": 16
-    },
-    {
-      "id": "skip-ok",
-      "kind": "gap",
-      "first": "skip",
-      "second": "ok",
-      "axis": "horizontal",
-      "wide": 16,
-      "compact": 16
-    },
-    {
-      "id": "ok-right",
-      "kind": "inset",
-      "container": "window",
-      "child": "ok",
-      "edges": [
-        "right"
-      ],
-      "wide": 20,
-      "compact": 20
-    },
-    {
-      "id": "start-left",
-      "kind": "inset",
-      "container": "window",
-      "child": "start",
-      "edges": [
-        "left"
-      ],
-      "wide": 40,
-      "compact": 28
-    }
-  ],
   "layouts": {
     "wide": {
       "designWidth": 1280,
       "designHeight": 720,
       "window": {
-        "x": 320,
-        "y": 130,
-        "width": 640,
-        "height": 460
+        "x": 350,
+        "y": 230,
+        "width": 580,
+        "height": 351
       },
       "status": {
-        "x": 320,
-        "y": 130,
-        "width": 640,
-        "height": 36
+        "x": 350,
+        "y": 230,
+        "width": 580,
+        "height": 38
+      },
+      "warning": {
+        "x": 382,
+        "y": 306,
+        "width": 32,
+        "height": 32
       },
       "title": {
-        "x": 360,
-        "y": 174,
-        "width": 560,
-        "height": 46
+        "x": 430,
+        "y": 300,
+        "width": 450,
+        "height": 44
       },
-      "defenses": {
-        "x": 360,
-        "y": 236,
-        "width": 560,
-        "height": 24
-      },
-      "ammo": {
-        "x": 360,
-        "y": 264,
-        "width": 560,
-        "height": 24
-      },
-      "hitRatio": {
-        "x": 360,
-        "y": 292,
-        "width": 560,
-        "height": 24
-      },
-      "phase": {
-        "x": 360,
-        "y": 328,
-        "width": 560,
-        "height": 28
-      },
-      "result": {
-        "x": 360,
-        "y": 372,
-        "width": 560,
-        "height": 102
+      "message": {
+        "x": 382,
+        "y": 360,
+        "width": 516,
+        "height": 145
       },
       "footer": {
-        "x": 320,
-        "y": 490,
-        "width": 640,
+        "x": 350,
+        "y": 519,
+        "width": 580,
         "height": 62
       },
-      "start": {
-        "x": 490,
-        "y": 498,
-        "width": 130,
-        "height": 44
+      "buttons": {
+        "skip": {
+          "x": 404,
+          "y": 528,
+          "width": 158,
+          "height": 44
+        },
+        "start": {
+          "x": 572,
+          "y": 528,
+          "width": 158,
+          "height": 44
+        },
+        "ok": {
+          "x": 740,
+          "y": 528,
+          "width": 158,
+          "height": 44
+        }
       },
-      "skip": {
-        "x": 636,
-        "y": 498,
-        "width": 130,
-        "height": 44
+      "cellR1C1": {
+        "x": 398,
+        "y": 436,
+        "width": 120,
+        "height": 22
       },
-      "ok": {
-        "x": 782,
-        "y": 498,
-        "width": 158,
-        "height": 44
+      "cellR1C2": {
+        "x": 535,
+        "y": 436,
+        "width": 120,
+        "height": 22
+      },
+      "rowDivider1": {
+        "x": 390,
+        "y": 466,
+        "width": 273,
+        "height": 1
+      },
+      "cellR2C1": {
+        "x": 398,
+        "y": 475,
+        "width": 120,
+        "height": 22
+      },
+      "cellR2C2": {
+        "x": 535,
+        "y": 475,
+        "width": 120,
+        "height": 22
+      },
+      "columnDivider1": {
+        "x": 526,
+        "y": 428,
+        "width": 1,
+        "height": 77
       }
     },
     "compact": {
       "designWidth": 740,
-      "designHeight": 360,
+      "designHeight": 391,
       "window": {
-        "x": 30,
-        "y": 10,
-        "width": 680,
-        "height": 344
+        "x": 70,
+        "y": 60,
+        "width": 600,
+        "height": 321
       },
       "status": {
-        "x": 30,
-        "y": 10,
-        "width": 680,
+        "x": 70,
+        "y": 60,
+        "width": 600,
+        "height": 34
+      },
+      "warning": {
+        "x": 98,
+        "y": 125,
+        "width": 28,
         "height": 28
       },
       "title": {
-        "x": 58,
-        "y": 44,
-        "width": 560,
-        "height": 42
+        "x": 140,
+        "y": 118,
+        "width": 470,
+        "height": 38
       },
-      "defenses": {
-        "x": 58,
-        "y": 98,
-        "width": 580,
-        "height": 20
-      },
-      "ammo": {
-        "x": 58,
-        "y": 122,
-        "width": 580,
-        "height": 20
-      },
-      "hitRatio": {
-        "x": 58,
-        "y": 146,
-        "width": 580,
-        "height": 20
-      },
-      "phase": {
-        "x": 58,
-        "y": 178,
-        "width": 580,
-        "height": 24
-      },
-      "result": {
-        "x": 58,
-        "y": 214,
-        "width": 580,
-        "height": 50
+      "message": {
+        "x": 98,
+        "y": 169,
+        "width": 500,
+        "height": 129
       },
       "footer": {
-        "x": 30,
-        "y": 276,
-        "width": 680,
+        "x": 70,
+        "y": 315,
+        "width": 600,
         "height": 66
       },
-      "start": {
-        "x": 202,
-        "y": 286,
-        "width": 130,
-        "height": 44
+      "buttons": {
+        "skip": {
+          "x": 130,
+          "y": 325,
+          "width": 148,
+          "height": 44
+        },
+        "start": {
+          "x": 290,
+          "y": 325,
+          "width": 148,
+          "height": 44
+        },
+        "ok": {
+          "x": 450,
+          "y": 325,
+          "width": 148,
+          "height": 44
+        }
       },
-      "skip": {
-        "x": 348,
-        "y": 286,
-        "width": 130,
-        "height": 44
+      "cellR1C1": {
+        "x": 114,
+        "y": 237,
+        "width": 105,
+        "height": 18
       },
-      "ok": {
-        "x": 532,
-        "y": 286,
-        "width": 148,
-        "height": 44
+      "cellR1C2": {
+        "x": 236,
+        "y": 237,
+        "width": 105,
+        "height": 18
+      },
+      "rowDivider1": {
+        "x": 106,
+        "y": 263,
+        "width": 243,
+        "height": 1
+      },
+      "cellR2C1": {
+        "x": 114,
+        "y": 272,
+        "width": 105,
+        "height": 18
+      },
+      "cellR2C2": {
+        "x": 236,
+        "y": 272,
+        "width": 105,
+        "height": 18
+      },
+      "columnDivider1": {
+        "x": 227,
+        "y": 229,
+        "width": 1,
+        "height": 69
       }
     }
   },
@@ -305,33 +282,54 @@
     "easing": "ease-out",
     "captureModeDurationMs": 0
   },
-  "blocks": [
-    {
-      "id": "defense-readout",
-      "kind": "table",
-      "parts": [
-        "defenses",
-        "ammo",
-        "hitRatio",
-        "phase"
+  "tableMetrics": {
+    "wide": {
+      "columns": 2,
+      "rows": 2,
+      "columnTextWidths": [
+        120,
+        120
       ],
-      "rows": [
-        [
-          "defenses",
-          "ammo"
-        ],
-        [
-          "hitRatio",
-          "phase"
-        ]
+      "columnWidths": [
+        136,
+        136
       ],
-      "append": [
-        "result"
-      ]
+      "rowHeights": [
+        38,
+        38
+      ],
+      "lineCounts": {
+        "cellR1C1": 1,
+        "cellR1C2": 1,
+        "cellR2C1": 1,
+        "cellR2C2": 1
+      },
+      "tableWidth": 273,
+      "tableHeight": 77
+    },
+    "compact": {
+      "columns": 2,
+      "rows": 2,
+      "columnTextWidths": [
+        105,
+        105
+      ],
+      "columnWidths": [
+        121,
+        121
+      ],
+      "rowHeights": [
+        34,
+        34
+      ],
+      "lineCounts": {
+        "cellR1C1": 1,
+        "cellR1C2": 1,
+        "cellR2C1": 1,
+        "cellR2C2": 1
+      },
+      "tableWidth": 243,
+      "tableHeight": 69
     }
-  ],
-  "generation": {
-    "tool": "generate-hd-command-card.py",
-    "source": "f21-defense.json"
   }
 }

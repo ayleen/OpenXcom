@@ -110,14 +110,10 @@ void CalypsoF21DefenseUi::collect(CalypsoHdFrameBuilder& builder) const
 	const CalypsoF21Motion motion(_presented, _presentedAtFrame,
 		CalypsoF21DefenseGen::kMotionDurationMs, CalypsoF21DefenseGen::kMotionScaleFrom);
 
-	// Generated type scale (theme roles) with the family's Engine raster
-	// calibration -- never rectangle arithmetic.
-	const double titlePx = (wide ? CalypsoHdThemeGen::kF21TitleWidePx : CalypsoHdThemeGen::kF21TitleCompactPx)
-		* CalypsoF21DefenseGen::kEngineTextScaleTitle;
-	const double dataPx = (wide ? CalypsoHdThemeGen::kF21DataWidePx : CalypsoHdThemeGen::kF21DataCompactPx)
-		* CalypsoF21DefenseGen::kEngineTextScaleData;
-	const double actionPx = (wide ? CalypsoHdThemeGen::kF21ActionWidePx : CalypsoHdThemeGen::kF21ActionCompactPx)
-		* CalypsoF21DefenseGen::kEngineTextScaleAction;
+	const double titlePx = wide ? CalypsoHdThemeGen::kF21TitleWidePx : CalypsoHdThemeGen::kF21TitleCompactPx;
+	const double dataPx = wide ? CalypsoHdThemeGen::kF21DataWidePx : CalypsoHdThemeGen::kF21DataCompactPx;
+	const double bodyPx = wide ? CalypsoHdThemeGen::kF21BodyWidePx : CalypsoHdThemeGen::kF21BodyCompactPx;
+	const double actionPx = wide ? CalypsoHdThemeGen::kF21ActionWidePx : CalypsoHdThemeGen::kF21ActionCompactPx;
 
 	builder.beginSubgroup();
 	const CalypsoLogicalRect winFull = f21WidgetRect(_state->_window);
@@ -131,7 +127,7 @@ void CalypsoF21DefenseUi::collect(CalypsoHdFrameBuilder& builder) const
 	p.windowDesign = designLayout.window;
 	p.uiScale = uiScale;
 
-	const CalypsoLogicalRect canvasRect{ 0, 0, wide ? 1280 : 740, wide ? 720 : 360 };
+	const CalypsoLogicalRect canvasRect{ 0, 0, designLayout.designWidth, designLayout.designHeight };
 	const bool harness = calypsoHarnessHostUp(calypsoHarnessSession());
 	p.panel(canvasRect, harness ? calypsoRgba(0, 0, 0, 0xff) : CalypsoHdTheme::kBackdropDim,
 		nullptr, ROLE_WINDOW);
@@ -144,31 +140,46 @@ void CalypsoF21DefenseUi::collect(CalypsoHdFrameBuilder& builder) const
 			nullptr, ROLE_WINDOW);
 	}
 
-	// F33 command-card language: cut frame, status divider + protocol strip,
-	// separated footer with the sparse dot field.
 	p.styled(winFull, f21WindowStyle(), _state->_window, ROLE_WINDOW);
+	const CalypsoLogicalRect statusRect = p.project(designLayout.status);
+	const CalypsoLogicalRect footerRect = p.project(designLayout.footer);
+	const CalypsoLogicalRect warningRect = p.project(designLayout.warning);
+	p.styled(warningRect, f21WarningGlyphStyle(), nullptr, ROLE_DECORATION);
+	p.decoration(CalypsoLogicalRect{ statusRect.x, statusRect.y + statusRect.h - 1, statusRect.w, 1 },
+		kF21DividerRgba, ROLE_DECORATION);
+	p.decoration(CalypsoLogicalRect{ footerRect.x, footerRect.y, footerRect.w, 1 },
+		kF21DividerRgba, ROLE_FOOTER);
+	for (int y = footerRect.y + 10; y < footerRect.y + footerRect.h - 8; y += 8)
 	{
-		const CalypsoLogicalRect statusRect = p.project(designLayout.status);
-		const CalypsoLogicalRect footerRect = p.project(designLayout.footer);
-		p.decoration(CalypsoLogicalRect{ statusRect.x, statusRect.y + statusRect.h - 1, statusRect.w, 1 },
-			kF21DividerRgba, ROLE_DECORATION);
-		p.decoration(CalypsoLogicalRect{ footerRect.x, footerRect.y, footerRect.w, 1 },
-			kF21DividerRgba, ROLE_FOOTER);
-		for (int y = footerRect.y + 10; y < footerRect.y + footerRect.h - 8; y += 8)
-		{
-			for (int x = footerRect.x + 12; x < f21WidgetRect(_state->_btnStart).x - 12; x += 8)
-				p.decoration(CalypsoLogicalRect{ x, y, 1, 1 }, kF21FooterDotRgba, ROLE_DECORATION);
-		}
-		p.textRect(f21ProtocolTextRect(_state->_hdProtocol, wide), _state->_hdProtocol,
-			mono, _state->_hdProtocol ? _state->_hdProtocol->getText() : std::string(),
-			kF21ProtocolTextRgba,
-			CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_PROTOCOL,
-			0.10, wide ? CalypsoHdThemeGen::kF21ProtocolWidePx : CalypsoHdThemeGen::kF21ProtocolCompactPx);
+		for (int x = footerRect.x + 12; x < f21WidgetRect(_state->_btnStart).x - 12; x += 8)
+			p.decoration(CalypsoLogicalRect{ x, y, 1, 1 }, kF21FooterDotRgba, ROLE_DECORATION);
 	}
-	// Inset material for the dominant result band — gives structure to empty space per §7.4
+	p.textRect(f21ProtocolTextRect(_state->_hdProtocol, wide), _state->_hdProtocol, mono,
+		_state->_hdProtocol ? _state->_hdProtocol->getText() : std::string(),
+		kF21ProtocolTextRgba, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_PROTOCOL,
+		0.10, wide ? CalypsoHdThemeGen::kF21ProtocolWidePx : CalypsoHdThemeGen::kF21ProtocolCompactPx);
+
+	p.decoration(p.project(designLayout.columnDivider1), kF21DividerRgba, ROLE_DECORATION);
+	p.decoration(p.project(designLayout.rowDivider1), kF21DividerRgba, ROLE_DECORATION);
+
+	p.text(_state->_txtTitle, heading, _state->_txtTitle->getText(), CalypsoHdTheme::kNearWhite,
+		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_TITLE,
+		CalypsoHdTheme::kTitleTrackingEm, titlePx);
+	p.textRect(warningRect, nullptr, heading, "!", CalypsoHdThemeGen::kGold,
+		CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, ROLE_DECORATION, 0.0,
+		wide ? 17.0 : 15.0);
+	p.textRect(p.project(designLayout.cellR1C1), _state->_hdDefenses, mono, _state->_hdDefenses ? _state->_hdDefenses->getText() : std::string(), CalypsoHdThemeGen::kAccent, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_DEFENSES, 0.0, dataPx);
+	p.textRect(p.project(designLayout.cellR1C2), _state->_hdAmmo, mono, _state->_hdAmmo ? _state->_hdAmmo->getText() : std::string(), CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_AMMO, 0.0, dataPx);
+	p.textRect(p.project(designLayout.cellR2C1), _state->_txtInit, mono, _state->_txtInit ? _state->_txtInit->getText() : std::string(), CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_RATIO, 0.0, dataPx);
+	p.textRect(p.project(designLayout.cellR2C2), _state->_hdPhase, mono, _state->_hdPhase ? _state->_hdPhase->getText() : std::string(), CalypsoHdThemeGen::kGold, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_PHASE, 0.0, dataPx);
+
+	if (_state->_btnAbort && _state->_btnAbort->getVisible())
 	{
-		const CalypsoLogicalRect resultRect = p.project(designLayout.result);
-		p.styled(resultRect, f21InsetPanelStyle(), nullptr, ROLE_DECORATION);
+		p.styled(f21WidgetRect(_state->_btnAbort), f21QuietButtonStyle(f21ButtonVisualState(_state->_btnAbort)),
+			_state->_btnAbort, ROLE_SKIP);
+		p.text(_state->_btnAbort, heading, _state->_btnAbort->getText(), CalypsoHdTheme::kNearWhite,
+			CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, ROLE_SKIP,
+			CalypsoHdTheme::kLabelTrackingEm, actionPx);
 	}
 	if (_state->_btnStart && _state->_btnStart->getVisible())
 	{
@@ -177,14 +188,6 @@ void CalypsoF21DefenseUi::collect(CalypsoHdFrameBuilder& builder) const
 			_state->_btnStart, ROLE_START);
 		p.text(_state->_btnStart, heading, _state->_btnStart->getText(), CalypsoHdTheme::kNearWhite,
 			CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, ROLE_START,
-			CalypsoHdTheme::kLabelTrackingEm, actionPx);
-	}
-	if (_state->_btnAbort && _state->_btnAbort->getVisible())
-	{
-		p.styled(f21WidgetRect(_state->_btnAbort), f21QuietButtonStyle(f21ButtonVisualState(_state->_btnAbort)),
-			_state->_btnAbort, ROLE_SKIP);
-		p.text(_state->_btnAbort, heading, _state->_btnAbort->getText(), CalypsoHdTheme::kNearWhite,
-			CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, ROLE_SKIP,
 			CalypsoHdTheme::kLabelTrackingEm, actionPx);
 	}
 	if (_state->_btnOk && _state->_btnOk->getVisible())
@@ -196,74 +199,6 @@ void CalypsoF21DefenseUi::collect(CalypsoHdFrameBuilder& builder) const
 			CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, ROLE_OK,
 			CalypsoHdTheme::kLabelTrackingEm, actionPx);
 	}
-
-	p.text(_state->_txtTitle, heading, _state->_txtTitle->getText(), CalypsoHdTheme::kNearWhite,
-		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_TITLE,
-		CalypsoHdTheme::kTitleTrackingEm, titlePx);
-	p.text(_state->_hdDefenses, mono, _state->_hdDefenses->getText(), CalypsoHdThemeGen::kAccent,
-		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_DEFENSES, 0.0, dataPx);
-	p.text(_state->_hdAmmo, mono, _state->_hdAmmo->getText(), CalypsoHdTheme::kNearWhite,
-		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_AMMO, 0.0, dataPx);
-	p.text(_state->_txtInit, mono, _state->_txtInit->getText(), CalypsoHdTheme::kNearWhite,
-		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_RATIO, 0.0, dataPx);
-	p.text(_state->_hdPhase, mono, _state->_hdPhase->getText(), CalypsoHdThemeGen::kGold,
-		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_PHASE, 0.0, dataPx);
-
-	// Live list band: snapshot the last visible rows read-only and render
-	// them as physical text lines inside the result rect.
-	if (_state->_lstDefenses)
-	{
-		const auto& rows = _state->_lstDefenses->getCellTextsSnapshot();
-		const size_t visible = _state->_lstDefenses->getVisibleRows();
-		const size_t first = rows.size() > visible ? rows.size() - visible : 0;
-		// Project the contract band into logical screen coordinates (the same
-		// path every other design rect takes) and keep the rows motion-aware;
-		// raw design coordinates would land the text off the window.
-		const CalypsoLogicalRect band = p.project(designLayout.result);
-		const int rowH = std::max(8, band.h / (int)std::max<size_t>(1, visible));
-		int i = 0;
-		for (size_t r = first; r < rows.size() && i < (int)visible; ++r, ++i)
-		{
-			std::string line;
-			for (const auto* cell : rows[r])
-			{
-				if (!cell) continue;
-				const std::string t = cell->getText();
-				if (t.empty() || t == " ") continue;
-				if (!line.empty()) line += "  ";
-				line += t;
-			}
-			if (line.empty()) continue;
-			// Compose one physical text item per row inside the inset band with 8px safe padding
-			const CalypsoLogicalRect rowRect = p.motionRect(
-				CalypsoLogicalRect{ band.x + 8, band.y + i * rowH, std::max(1, band.w - 16), rowH });
-			// A transient rect without a live widget: use the list widget as
-			// the claim owner for blit-skip purposes (the whole list is one
-			// logical widget).
-			CalypsoHdItem it;
-			it.kind = CalypsoHdItemKind::Text;
-			it.rect = rowRect;
-			it.colorRgba = CalypsoHdTheme::kNearWhite;
-			const int physicalPixelHeight = std::max(1, (int)calypsoHdRoundToInt(dataPx * uiScale * m.scaleY));
-			CalypsoHdTextRasterKey key;
-			key.source = mono;
-			key.physicalPixelHeight = physicalPixelHeight;
-			key.text = line;
-			key.colorRgba = CalypsoHdTheme::kNearWhite;
-			key.direction = CalypsoTextDirection::LTR;
-			it.rasterKey = key;
-			it.hAlign = CalypsoHdHAlign::Left;
-			it.vAlign = CalypsoHdVAlign::Middle;
-			it.opacity = p.opacity;
-			it.widget = _state->_lstDefenses;
-			it.claim = { kF21FamilyId, ROLE_RESULT,
-				reinterpret_cast<std::uintptr_t>(_state), 1u, (std::uint32_t)(p.ord + 1) };
-			it.order = { 0, 0, kF21FamilyId, reinterpret_cast<std::uintptr_t>(_state),
-				0, 1, p.ord + 1, ROLE_RESULT };
-			builder.add(it);
-			++p.ord;
-		}
-	}
 }
 
 void CalypsoF21DefenseUi::applyRects(BaseDefenseState& state, const CalypsoF21DefenseLayout& layout)
@@ -271,17 +206,15 @@ void CalypsoF21DefenseUi::applyRects(BaseDefenseState& state, const CalypsoF21De
 	applyRect(state._window, layout.window);
 	applyRect(state._hdProtocol, layout.status);
 	applyRect(state._txtTitle, layout.title);
-	applyRect(state._hdDefenses, layout.defenses);
-	applyRect(state._hdAmmo, layout.ammo);
-	applyRect(state._txtInit, layout.hitRatio);
-	applyRect(state._hdPhase, layout.phase);
-	applyRect(state._lstDefenses, layout.result);
-	applyRect(state._btnStart, layout.start);
+	applyRect(state._hdDefenses, layout.cellR1C1);
+	applyRect(state._hdAmmo, layout.cellR1C2);
+	applyRect(state._txtInit, layout.cellR2C1);
+	applyRect(state._hdPhase, layout.cellR2C2);
 	applyRect(state._btnAbort, layout.skip);
+	applyRect(state._btnStart, layout.start);
 	applyRect(state._btnOk, layout.ok);
-	state._hdResultBand = { layout.result.x, layout.result.y,
-		layout.result.width, layout.result.height };
 }
+
 
 void CalypsoF21DefenseUi::configure(BaseDefenseState& state, bool allowPhysicalOverlay)
 {
@@ -325,8 +258,9 @@ void CalypsoF21DefenseUi::configure(BaseDefenseState& state, bool allowPhysicalO
 	// the routed surviving attacker still enters the base assault).
 	state._btnAbort->setText(state.tr("STR_CAL_F21_SKIP_TO_ASSAULT"));
 
-	// The legacy UFO preview bitmap does not belong to the HD composition.
+	// The legacy UFO preview bitmap and the vanilla TextList do not belong to the HD composition.
 	if (state._preview) state._preview->setVisible(false);
+	if (state._lstDefenses) state._lstDefenses->setVisible(false);
 
 	CalypsoF21DefenseUi::applyRects(state, layout);
 	state.recaptureUiScaling(layout.designWidth, layout.designHeight, 1.0f,

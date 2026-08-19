@@ -1,193 +1,179 @@
 {
   "schema": 1,
   "version": "hd.2026-08-18.17",
-  "visualProfile": "command-card-v1",
-  "copy": {
-    "protocol": "CALYPSO · BASE REGISTRY BR-21 · REV. 1.0.21 · 15.07.2061",
-    "title": "NAME YOUR FIRST BASE",
-    "name": "CALYPSO DEEP",
-    "hint": "Choose a permanent registry name. Press Enter to confirm.",
-    "ok": "CONFIRM NAME"
-  },
-  "parts": [
-    "window",
-    "status",
-    "title",
-    "inputFrame",
-    "nameEdit",
-    "hint",
-    "footer",
-    "ok"
-  ],
-  "actions": [
-    "ok"
-  ],
-  "spacingRules": [
-    {
-      "id": "status-title",
-      "kind": "gap",
-      "first": "status",
-      "second": "title",
-      "axis": "vertical",
-      "wide": 20,
-      "compact": 14
+  "form": {
+    "id": "f21-name",
+    "familyId": 21,
+    "archetype": "small-confirmation",
+    "source": "FormConfigs/f21-name.json",
+    "icon": {
+      "kind": "info",
+      "glyph": "i",
+      "tone": "primary"
     },
-    {
-      "id": "title-input",
-      "kind": "gap",
-      "first": "title",
-      "second": "inputFrame",
-      "axis": "vertical",
-      "wide": 22,
-      "compact": 16
-    },
-    {
-      "id": "input-hint",
-      "kind": "gap",
-      "first": "inputFrame",
-      "second": "hint",
-      "axis": "vertical",
-      "wide": 12,
-      "compact": 10
-    },
-    {
-      "id": "hint-footer",
-      "kind": "gap",
-      "first": "hint",
-      "second": "footer",
-      "axis": "vertical",
-      "wide": 14,
-      "compact": 18
-    },
-    {
-      "id": "window-title",
-      "kind": "inset",
-      "container": "window",
-      "child": "title",
-      "edges": [
-        "left",
-        "right"
-      ],
-      "wide": 40,
-      "compact": 30
-    },
-    {
-      "id": "footer-ok",
-      "kind": "inset",
-      "container": "footer",
-      "child": "ok",
-      "edges": [
-        "right",
-        "top",
-        "bottom"
-      ],
-      "wide": 10,
-      "compact": 12
+    "buttons": [
+      {
+        "id": "ok",
+        "label": "CONFIRM NAME",
+        "tone": "primary",
+        "action": "confirm",
+        "style": {
+          "fill": "74FFB0FF",
+          "border": "74FFB0FF",
+          "text": "071013FF"
+        }
+      }
+    ],
+    "input": {
+      "value": "CALYPSO DEEP",
+      "hint": "Choose a permanent registry name. Press Enter to confirm."
     }
-  ],
+  },
+  "copy": {
+    "protocol": "CALYPSO COMMAND · BASE REGISTRY BR-21 · REV. 1.0.21 · EFFECTIVE 15.07.2061",
+    "title": "NAME YOUR FIRST BASE",
+    "message": [
+      "Choose a permanent registry name.",
+      "Press Enter to confirm."
+    ],
+    "inputValue": "CALYPSO DEEP",
+    "inputHint": "Choose a permanent registry name. Press Enter to confirm."
+  },
+  "style": {
+    "cutCornerPx": 14,
+    "protocolTextInsetPx": 26,
+    "panelFillTop": "08191DEB",
+    "panelFillBottom": "041014E8",
+    "frame": "74FFB073",
+    "protocolText": "A9D8C7FF",
+    "divider": "74FFB04D",
+    "footerFill": "061B1CD6",
+    "footerDot": "74FFB01F",
+    "warning": "FFC14DFF",
+    "safeFill": "051417B8",
+    "safeBorder": "74FFB0CC",
+    "destructiveFill": "F25F5CFF",
+    "destructiveText": "071013FF"
+  },
   "layouts": {
     "wide": {
       "designWidth": 1280,
       "designHeight": 720,
       "window": {
-        "x": 340,
-        "y": 210,
-        "width": 600,
-        "height": 300
+        "x": 350,
+        "y": 230,
+        "width": 580,
+        "height": 344
       },
       "status": {
-        "x": 340,
-        "y": 210,
-        "width": 600,
-        "height": 34
+        "x": 350,
+        "y": 230,
+        "width": 580,
+        "height": 38
+      },
+      "warning": {
+        "x": 382,
+        "y": 306,
+        "width": 32,
+        "height": 32
       },
       "title": {
-        "x": 380,
-        "y": 264,
-        "width": 520,
-        "height": 40
+        "x": 430,
+        "y": 300,
+        "width": 450,
+        "height": 44
       },
-      "inputFrame": {
-        "x": 380,
-        "y": 326,
-        "width": 520,
-        "height": 48
-      },
-      "nameEdit": {
-        "x": 380,
-        "y": 326,
-        "width": 520,
-        "height": 48
-      },
-      "hint": {
-        "x": 380,
-        "y": 386,
-        "width": 520,
-        "height": 30
+      "message": {
+        "x": 382,
+        "y": 360,
+        "width": 516,
+        "height": 138
       },
       "footer": {
-        "x": 340,
-        "y": 430,
-        "width": 600,
-        "height": 64
+        "x": 350,
+        "y": 512,
+        "width": 580,
+        "height": 62
       },
-      "ok": {
-        "x": 736,
-        "y": 440,
-        "width": 180,
-        "height": 44
+      "buttons": {
+        "ok": {
+          "x": 740,
+          "y": 521,
+          "width": 158,
+          "height": 44
+        }
+      },
+      "inputHint": {
+        "x": 382,
+        "y": 480,
+        "width": 516,
+        "height": 18
+      },
+      "inputFrame": {
+        "x": 382,
+        "y": 434,
+        "width": 516,
+        "height": 38
       }
     },
     "compact": {
       "designWidth": 740,
-      "designHeight": 360,
+      "designHeight": 384,
       "window": {
         "x": 70,
-        "y": 42,
+        "y": 60,
         "width": 600,
-        "height": 276
+        "height": 314
       },
       "status": {
         "x": 70,
-        "y": 42,
+        "y": 60,
         "width": 600,
+        "height": 34
+      },
+      "warning": {
+        "x": 98,
+        "y": 125,
+        "width": 28,
         "height": 28
       },
       "title": {
-        "x": 100,
-        "y": 84,
-        "width": 540,
-        "height": 32
+        "x": 140,
+        "y": 118,
+        "width": 470,
+        "height": 38
       },
-      "inputFrame": {
-        "x": 100,
-        "y": 132,
-        "width": 540,
-        "height": 44
-      },
-      "nameEdit": {
-        "x": 100,
-        "y": 132,
-        "width": 540,
-        "height": 44
-      },
-      "hint": {
-        "x": 100,
-        "y": 186,
-        "width": 540,
-        "height": 28
+      "message": {
+        "x": 98,
+        "y": 169,
+        "width": 500,
+        "height": 122
       },
       "footer": {
         "x": 70,
-        "y": 232,
+        "y": 308,
         "width": 600,
-        "height": 70
+        "height": 66
       },
-      "ok": {
-        "x": 452,
-        "y": 244,
-        "width": 194,
-        "height": 46
+      "buttons": {
+        "ok": {
+          "x": 450,
+          "y": 318,
+          "width": 148,
+          "height": 44
+        }
+      },
+      "inputHint": {
+        "x": 98,
+        "y": 275,
+        "width": 500,
+        "height": 16
+      },
+      "inputFrame": {
+        "x": 98,
+        "y": 235,
+        "width": 500,
+        "height": 32
       }
     }
   },
@@ -196,22 +182,5 @@
     "scaleFrom": 0.96,
     "easing": "ease-out",
     "captureModeDurationMs": 0
-  },
-  "blocks": [
-    {
-      "id": "name-input",
-      "kind": "input",
-      "parts": [
-        "inputFrame",
-        "nameEdit",
-        "hint"
-      ],
-      "value": "CALYPSO DEEP",
-      "hint": "Choose a permanent registry name. Press Enter to confirm."
-    }
-  ],
-  "generation": {
-    "tool": "generate-hd-command-card.py",
-    "source": "f21-name.json"
   }
 }

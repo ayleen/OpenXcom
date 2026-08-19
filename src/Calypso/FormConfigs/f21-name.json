@@ -3,21 +3,25 @@
   "id": "f21-name",
   "familyId": 21,
   "version": "hd.2026-08-18.17",
-  "archetype": "command-card-v1",
-  "copy": {
-    "protocol": "CALYPSO · BASE REGISTRY BR-21 · REV. 1.0.21 · 15.07.2061",
-    "title": "NAME YOUR FIRST BASE",
-    "name": "CALYPSO DEEP",
-    "hint": "Choose a permanent registry name. Press Enter to confirm.",
-    "ok": "CONFIRM NAME"
+  "archetype": "small-confirmation",
+  "protocol": {
+    "authority": "CALYPSO COMMAND",
+    "record": "BASE REGISTRY",
+    "code": "BR-21",
+    "revision": "1.0.21",
+    "effectiveDate": "15.07.2061"
   },
-  "blocks": [
-    {
-      "id": "name-input",
-      "kind": "input",
-      "parts": ["inputFrame", "nameEdit", "hint"],
-      "value": "CALYPSO DEEP",
-      "hint": "Choose a permanent registry name. Press Enter to confirm."
-    }
-  ]
+  "title": "NAME YOUR FIRST BASE",
+  "body": [
+    "Choose a permanent registry name.",
+    "Press Enter to confirm."
+  ],
+  "icon": { "kind": "info", "glyph": "i", "tone": "primary" },
+  "buttons": [
+    { "id": "ok", "label": "CONFIRM NAME", "tone": "primary", "action": "confirm" }
+  ],
+  "input": {
+    "value": "CALYPSO DEEP",
+    "hint": "Choose a permanent registry name. Press Enter to confirm."
+  }
 }

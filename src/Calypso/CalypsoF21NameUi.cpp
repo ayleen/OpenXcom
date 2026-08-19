@@ -118,7 +118,7 @@ void CalypsoF21NameUi::collect(CalypsoHdFrameBuilder& builder) const
 	p.windowDesign = designLayout.window;
 	p.uiScale = uiScale;
 
-	const CalypsoLogicalRect canvasRect{ 0, 0, wide ? 1280 : 740, wide ? 720 : 360 };
+	const CalypsoLogicalRect canvasRect{ 0, 0, designLayout.designWidth, designLayout.designHeight };
 	const bool harness = calypsoHarnessHostUp(calypsoHarnessSession());
 	p.panel(canvasRect, harness ? calypsoRgba(0, 0, 0, 0xff) : CalypsoHdTheme::kBackdropDim,
 		nullptr, ROLE_WINDOW);
@@ -186,8 +186,8 @@ void CalypsoF21NameUi::applyRects(BaseNameState& state, const CalypsoF21NameLayo
 	applyRect(state._window, layout.window);
 	applyRect(state._hdProtocol, layout.status);
 	applyRect(state._txtTitle, layout.title);
-	applyRect(state._edtName, layout.nameEdit);
-	applyRect(state._hdHint, layout.hint);
+	applyRect(state._edtName, layout.inputFrame);
+	applyRect(state._hdHint, layout.inputHint);
 	applyRect(state._btnOk, layout.ok);
 }
 

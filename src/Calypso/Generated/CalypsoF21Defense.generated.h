@@ -5,46 +5,51 @@
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF21DefenseGen {
 inline constexpr const char* kContractVersion = "hd.2026-08-18.17";
+inline constexpr const char* kFormId = "f21-defense";
+inline constexpr int kFamilyId = 21;
+inline constexpr const char* kArchetype = "small-confirmation";
+inline constexpr const char* kSourceConfig = "FormConfigs/f21-defense.json";
 
-/// One design-space rectangle (design px).
-struct CalypsoF21DefenseGenRect { int x; int y; int w; int h; };
-
-/// The complete f21-defense.json layout for one class.
-struct CalypsoF21DefenseGenLayout
-{
-	int designWidth;
-	int designHeight;
-	CalypsoF21DefenseGenRect window;
-	CalypsoF21DefenseGenRect status;
-	CalypsoF21DefenseGenRect title;
-	CalypsoF21DefenseGenRect defenses;
-	CalypsoF21DefenseGenRect ammo;
-	CalypsoF21DefenseGenRect hitRatio;
-	CalypsoF21DefenseGenRect phase;
-	CalypsoF21DefenseGenRect result;
-	CalypsoF21DefenseGenRect footer;
-	CalypsoF21DefenseGenRect start;
-	CalypsoF21DefenseGenRect skip;
-	CalypsoF21DefenseGenRect ok;
+struct CalypsoF21DefenseGenButton { const char* id; const char* label; const char* tone; const char* action; std::uint32_t fill; std::uint32_t border; std::uint32_t text; };
+inline constexpr CalypsoF21DefenseGenButton kButtons[] = {
+    { "skip", "SKIP TO ASSAULT", "safe", "skip", 0x051417B8u, 0x74FFB0CCu, 0xE8FFF5FFu },
+    { "start", "START FIRING", "primary", "start", 0x74FFB0FFu, 0x74FFB0FFu, 0x071013FFu },
+    { "ok", "CONTINUE", "safe", "confirm", 0x051417B8u, 0x74FFB0CCu, 0xE8FFF5FFu },
 };
+inline constexpr int kButtonCount = 3;
 
-inline constexpr CalypsoF21DefenseGenLayout kLayouts[] =
-{
-	// wide
-	{ 1280, 720, { 320, 130, 640, 460 }, { 320, 130, 640, 36 }, { 360, 174, 560, 46 }, { 360, 236, 560, 24 }, { 360, 264, 560, 24 }, { 360, 292, 560, 24 }, { 360, 328, 560, 28 }, { 360, 372, 560, 102 }, { 320, 490, 640, 62 }, { 490, 498, 130, 44 }, { 636, 498, 130, 44 }, { 782, 498, 158, 44 } },
-	// compact
-	{ 740, 360, { 30, 10, 680, 344 }, { 30, 10, 680, 28 }, { 58, 44, 560, 42 }, { 58, 98, 580, 20 }, { 58, 122, 580, 20 }, { 58, 146, 580, 20 }, { 58, 178, 580, 24 }, { 58, 214, 580, 50 }, { 30, 276, 680, 66 }, { 202, 286, 130, 44 }, { 348, 286, 130, 44 }, { 532, 286, 148, 44 } },
+inline constexpr float kCutCornerPx = 14.000000f;
+inline constexpr float kProtocolTextInsetPx = 26.000000f;
+inline constexpr std::uint32_t kPanelFillTop = 0x08191DEBu;
+inline constexpr std::uint32_t kPanelFillBottom = 0x041014E8u;
+inline constexpr std::uint32_t kFrame = 0x74FFB073u;
+inline constexpr std::uint32_t kProtocolText = 0xA9D8C7FFu;
+inline constexpr std::uint32_t kDivider = 0x74FFB04Du;
+inline constexpr std::uint32_t kFooterFill = 0x061B1CD6u;
+inline constexpr std::uint32_t kFooterDot = 0x74FFB01Fu;
+inline constexpr std::uint32_t kWarning = 0xFFC14DFFu;
+
+struct CalypsoF21DefenseGenRect { int x; int y; int w; int h; };
+struct CalypsoF21DefenseGenLayout { int designWidth; int designHeight; CalypsoF21DefenseGenRect window; CalypsoF21DefenseGenRect status; CalypsoF21DefenseGenRect warning; CalypsoF21DefenseGenRect title; CalypsoF21DefenseGenRect message; CalypsoF21DefenseGenRect footer;
+    CalypsoF21DefenseGenRect cellR1C1;
+    CalypsoF21DefenseGenRect cellR1C2;
+    CalypsoF21DefenseGenRect cellR2C1;
+    CalypsoF21DefenseGenRect cellR2C2;
+    CalypsoF21DefenseGenRect columnDivider1;
+    CalypsoF21DefenseGenRect rowDivider1;
+};
+inline constexpr CalypsoF21DefenseGenLayout kLayouts[] = {
+    { 1280, 720, { 350, 230, 580, 351 }, { 350, 230, 580, 38 }, { 382, 306, 32, 32 }, { 430, 300, 450, 44 }, { 382, 360, 516, 145 }, { 350, 519, 580, 62 }, { 398, 436, 120, 22 }, { 535, 436, 120, 22 }, { 398, 475, 120, 22 }, { 535, 475, 120, 22 }, { 526, 428, 1, 77 }, { 390, 466, 273, 1 } }, // wide
+    { 740, 391, { 70, 60, 600, 321 }, { 70, 60, 600, 34 }, { 98, 125, 28, 28 }, { 140, 118, 470, 38 }, { 98, 169, 500, 129 }, { 70, 315, 600, 66 }, { 114, 237, 105, 18 }, { 236, 237, 105, 18 }, { 114, 272, 105, 18 }, { 236, 272, 105, 18 }, { 227, 229, 1, 69 }, { 106, 263, 243, 1 } }, // compact
+};
+struct CalypsoF21DefenseGenButtonRect { const char* id; CalypsoF21DefenseGenRect rect; };
+inline constexpr CalypsoF21DefenseGenButtonRect kButtonRects[][ 3 ] = {
+    { { "skip", { 404, 528, 158, 44 } }, { "start", { 572, 528, 158, 44 } }, { "ok", { 740, 528, 158, 44 } } }, // wide
+    { { "skip", { 130, 325, 148, 44 } }, { "start", { 290, 325, 148, 44 } }, { "ok", { 450, 325, 148, 44 } } }, // compact
 };
 inline constexpr int kLayoutCount = 2;
-
-// Physical Engine-TTF calibration against the CSS reference cap height.
-inline constexpr float kEngineTextScaleTitle = 0.880000f;
-inline constexpr float kEngineTextScaleData = 0.900000f;
-inline constexpr float kEngineTextScaleBody = 0.920000f;
-inline constexpr float kEngineTextScaleInput = 0.900000f;
-inline constexpr float kEngineTextScaleAction = 0.900000f;
-
-/// Layout for a design canvas, or nullptr (the harness never guesses).
+inline constexpr int kMotionDurationMs = 200;
+inline constexpr float kMotionScaleFrom = 0.960000f;
 inline const CalypsoF21DefenseGenLayout* layoutForDesign(int dw, int dh)
 {
 	for (int i = 0; i < kLayoutCount; ++i)
@@ -52,9 +57,4 @@ inline const CalypsoF21DefenseGenLayout* layoutForDesign(int dw, int dh)
 			return &kLayouts[i];
 	return nullptr;
 }
-
-// Opening motion (capture mode deterministic).
-inline constexpr int kMotionDurationMs = 200;
-inline constexpr float kMotionScaleFrom = 0.960000f;
-inline constexpr bool kMotionDisabledInCapture = true;
 } } }

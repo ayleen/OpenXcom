@@ -5,53 +5,55 @@
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF21TransactionGen {
 inline constexpr const char* kContractVersion = "hd.2026-08-18.17";
+inline constexpr const char* kFormId = "f21-transaction";
+inline constexpr int kFamilyId = 21;
+inline constexpr const char* kArchetype = "small-confirmation";
+inline constexpr const char* kSourceConfig = "FormConfigs/f21-transaction.json";
 
-/// One design-space rectangle (design px).
-struct CalypsoF21TransactionGenRect { int x; int y; int w; int h; };
-
-/// The complete f21-transaction.json layout for one class.
-struct CalypsoF21TransactionGenLayout
-{
-	int designWidth;
-	int designHeight;
-	CalypsoF21TransactionGenRect window;
-	CalypsoF21TransactionGenRect status;
-	CalypsoF21TransactionGenRect glyph;
-	CalypsoF21TransactionGenRect title;
-	CalypsoF21TransactionGenRect factsPanel;
-	CalypsoF21TransactionGenRect factsColumnDivider;
-	CalypsoF21TransactionGenRect factsRowDivider;
-	CalypsoF21TransactionGenRect slot;
-	CalypsoF21TransactionGenRect coords;
-	CalypsoF21TransactionGenRect region;
-	CalypsoF21TransactionGenRect cost;
-	CalypsoF21TransactionGenRect after;
-	CalypsoF21TransactionGenRect inputFrame;
-	CalypsoF21TransactionGenRect nameEdit;
-	CalypsoF21TransactionGenRect nameHint;
-	CalypsoF21TransactionGenRect footer;
-	CalypsoF21TransactionGenRect footerDots;
-	CalypsoF21TransactionGenRect create;
-	CalypsoF21TransactionGenRect cancel;
+struct CalypsoF21TransactionGenButton { const char* id; const char* label; const char* tone; const char* action; std::uint32_t fill; std::uint32_t border; std::uint32_t text; };
+inline constexpr CalypsoF21TransactionGenButton kButtons[] = {
+    { "cancel", "CANCEL", "safe", "cancel", 0x051417B8u, 0x74FFB0CCu, 0xE8FFF5FFu },
+    { "create", "CREATE BASE", "primary", "confirm", 0x74FFB0FFu, 0x74FFB0FFu, 0x071013FFu },
 };
+inline constexpr int kButtonCount = 2;
 
-inline constexpr CalypsoF21TransactionGenLayout kLayouts[] =
-{
-	// wide
-	{ 1280, 720, { 300, 130, 680, 460 }, { 300, 130, 680, 34 }, { 340, 186, 28, 28 }, { 386, 180, 554, 40 }, { 340, 238, 600, 118 }, { 599, 248, 1, 74 }, { 356, 285, 568, 1 }, { 360, 252, 230, 24 }, { 608, 252, 308, 24 }, { 360, 294, 230, 24 }, { 608, 294, 308, 24 }, { 360, 326, 556, 22 }, { 340, 380, 600, 48 }, { 340, 380, 600, 48 }, { 340, 436, 600, 22 }, { 300, 476, 680, 74 }, { 312, 486, 176, 56 }, { 732, 492, 208, 48 }, { 500, 492, 208, 48 } },
-	// compact
-	{ 740, 360, { 24, 10, 692, 340 }, { 24, 10, 692, 26 }, { 50, 48, 24, 24 }, { 88, 44, 596, 30 }, { 50, 84, 634, 96 }, { 261, 92, 1, 62 }, { 66, 123, 596, 1 }, { 66, 96, 188, 20 }, { 268, 96, 394, 20 }, { 66, 130, 188, 20 }, { 268, 130, 394, 20 }, { 66, 158, 596, 16 }, { 50, 192, 634, 42 }, { 50, 192, 634, 42 }, { 50, 240, 634, 18 }, { 24, 270, 692, 74 }, { 36, 280, 184, 56 }, { 474, 284, 218, 48 }, { 232, 284, 218, 48 } },
+inline constexpr float kCutCornerPx = 14.000000f;
+inline constexpr float kProtocolTextInsetPx = 26.000000f;
+inline constexpr std::uint32_t kPanelFillTop = 0x08191DEBu;
+inline constexpr std::uint32_t kPanelFillBottom = 0x041014E8u;
+inline constexpr std::uint32_t kFrame = 0x74FFB073u;
+inline constexpr std::uint32_t kProtocolText = 0xA9D8C7FFu;
+inline constexpr std::uint32_t kDivider = 0x74FFB04Du;
+inline constexpr std::uint32_t kFooterFill = 0x061B1CD6u;
+inline constexpr std::uint32_t kFooterDot = 0x74FFB01Fu;
+inline constexpr std::uint32_t kWarning = 0xFFC14DFFu;
+
+struct CalypsoF21TransactionGenRect { int x; int y; int w; int h; };
+struct CalypsoF21TransactionGenLayout { int designWidth; int designHeight; CalypsoF21TransactionGenRect window; CalypsoF21TransactionGenRect status; CalypsoF21TransactionGenRect warning; CalypsoF21TransactionGenRect title; CalypsoF21TransactionGenRect message; CalypsoF21TransactionGenRect footer;
+    CalypsoF21TransactionGenRect cellR1C1;
+    CalypsoF21TransactionGenRect cellR1C2;
+    CalypsoF21TransactionGenRect cellR2C1;
+    CalypsoF21TransactionGenRect cellR2C2;
+    CalypsoF21TransactionGenRect cellR3C1;
+    CalypsoF21TransactionGenRect cellR3C2;
+    CalypsoF21TransactionGenRect columnDivider1;
+    CalypsoF21TransactionGenRect inputFrame;
+    CalypsoF21TransactionGenRect inputHint;
+    CalypsoF21TransactionGenRect rowDivider1;
+    CalypsoF21TransactionGenRect rowDivider2;
+};
+inline constexpr CalypsoF21TransactionGenLayout kLayouts[] = {
+    { 1280, 720, { 350, 230, 580, 468 }, { 350, 230, 580, 38 }, { 382, 306, 32, 32 }, { 430, 300, 450, 44 }, { 382, 360, 516, 262 }, { 350, 636, 580, 62 }, { 398, 436, 90, 22 }, { 505, 436, 104, 22 }, { 398, 475, 90, 22 }, { 505, 475, 104, 22 }, { 398, 514, 90, 22 }, { 505, 514, 104, 22 }, { 496, 428, 1, 116 }, { 382, 558, 516, 38 }, { 382, 604, 516, 18 }, { 390, 466, 227, 1 }, { 390, 505, 227, 1 } }, // wide
+    { 740, 496, { 70, 60, 600, 426 }, { 70, 60, 600, 34 }, { 98, 125, 28, 28 }, { 140, 118, 470, 38 }, { 98, 169, 500, 234 }, { 70, 420, 600, 66 }, { 114, 237, 79, 18 }, { 210, 237, 91, 18 }, { 114, 272, 79, 18 }, { 210, 272, 91, 18 }, { 114, 307, 79, 18 }, { 210, 307, 91, 18 }, { 201, 229, 1, 104 }, { 98, 347, 500, 32 }, { 98, 387, 500, 16 }, { 106, 263, 203, 1 }, { 106, 298, 203, 1 } }, // compact
+};
+struct CalypsoF21TransactionGenButtonRect { const char* id; CalypsoF21TransactionGenRect rect; };
+inline constexpr CalypsoF21TransactionGenButtonRect kButtonRects[][ 2 ] = {
+    { { "cancel", { 572, 645, 158, 44 } }, { "create", { 740, 645, 158, 44 } } }, // wide
+    { { "cancel", { 290, 430, 148, 44 } }, { "create", { 450, 430, 148, 44 } } }, // compact
 };
 inline constexpr int kLayoutCount = 2;
-
-// Physical Engine-TTF calibration against the CSS reference cap height.
-inline constexpr float kEngineTextScaleTitle = 0.880000f;
-inline constexpr float kEngineTextScaleData = 0.900000f;
-inline constexpr float kEngineTextScaleBody = 0.920000f;
-inline constexpr float kEngineTextScaleInput = 0.900000f;
-inline constexpr float kEngineTextScaleAction = 0.900000f;
-
-/// Layout for a design canvas, or nullptr (the harness never guesses).
+inline constexpr int kMotionDurationMs = 200;
+inline constexpr float kMotionScaleFrom = 0.960000f;
 inline const CalypsoF21TransactionGenLayout* layoutForDesign(int dw, int dh)
 {
 	for (int i = 0; i < kLayoutCount; ++i)
@@ -59,9 +61,4 @@ inline const CalypsoF21TransactionGenLayout* layoutForDesign(int dw, int dh)
 			return &kLayouts[i];
 	return nullptr;
 }
-
-// Opening motion (capture mode deterministic).
-inline constexpr int kMotionDurationMs = 200;
-inline constexpr float kMotionScaleFrom = 0.960000f;
-inline constexpr bool kMotionDisabledInCapture = true;
 } } }

@@ -5,43 +5,55 @@
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF21DestructionGen {
 inline constexpr const char* kContractVersion = "hd.2026-08-18.17";
+inline constexpr const char* kFormId = "f21-destruction";
+inline constexpr int kFamilyId = 21;
+inline constexpr const char* kArchetype = "small-confirmation";
+inline constexpr const char* kSourceConfig = "FormConfigs/f21-destruction.json";
 
-/// One design-space rectangle (design px).
-struct CalypsoF21DestructionGenRect { int x; int y; int w; int h; };
-
-/// The complete f21-destruction.json layout for one class.
-struct CalypsoF21DestructionGenLayout
-{
-	int designWidth;
-	int designHeight;
-	CalypsoF21DestructionGenRect window;
-	CalypsoF21DestructionGenRect status;
-	CalypsoF21DestructionGenRect glyph;
-	CalypsoF21DestructionGenRect title;
-	CalypsoF21DestructionGenRect subtitle;
-	CalypsoF21DestructionGenRect list;
-	CalypsoF21DestructionGenRect warning;
-	CalypsoF21DestructionGenRect footer;
-	CalypsoF21DestructionGenRect acknowledge;
+struct CalypsoF21DestructionGenButton { const char* id; const char* label; const char* tone; const char* action; std::uint32_t fill; std::uint32_t border; std::uint32_t text; };
+inline constexpr CalypsoF21DestructionGenButton kButtons[] = {
+    { "acknowledge", "ACKNOWLEDGE", "safe", "confirm", 0x051417B8u, 0x74FFB0CCu, 0xE8FFF5FFu },
 };
+inline constexpr int kButtonCount = 1;
 
-inline constexpr CalypsoF21DestructionGenLayout kLayouts[] =
-{
-	// wide
-	{ 1280, 720, { 340, 140, 600, 440 }, { 340, 140, 600, 34 }, { 372, 190, 30, 30 }, { 418, 190, 480, 46 }, { 372, 248, 536, 44 }, { 372, 308, 536, 112 }, { 372, 436, 536, 32 }, { 340, 518, 600, 62 }, { 762, 527, 158, 44 } },
-	// compact
-	{ 740, 360, { 40, 14, 660, 346 }, { 40, 14, 660, 28 }, { 64, 56, 26, 26 }, { 100, 54, 540, 42 }, { 64, 108, 580, 38 }, { 64, 158, 580, 96 }, { 64, 262, 580, 32 }, { 40, 306, 660, 52 }, { 532, 310, 148, 44 } },
+inline constexpr float kCutCornerPx = 14.000000f;
+inline constexpr float kProtocolTextInsetPx = 26.000000f;
+inline constexpr std::uint32_t kPanelFillTop = 0x08191DEBu;
+inline constexpr std::uint32_t kPanelFillBottom = 0x041014E8u;
+inline constexpr std::uint32_t kFrame = 0x74FFB073u;
+inline constexpr std::uint32_t kProtocolText = 0xA9D8C7FFu;
+inline constexpr std::uint32_t kDivider = 0x74FFB04Du;
+inline constexpr std::uint32_t kFooterFill = 0x061B1CD6u;
+inline constexpr std::uint32_t kFooterDot = 0x74FFB01Fu;
+inline constexpr std::uint32_t kWarning = 0xFFC14DFFu;
+
+struct CalypsoF21DestructionGenRect { int x; int y; int w; int h; };
+struct CalypsoF21DestructionGenLayout { int designWidth; int designHeight; CalypsoF21DestructionGenRect window; CalypsoF21DestructionGenRect status; CalypsoF21DestructionGenRect warning; CalypsoF21DestructionGenRect title; CalypsoF21DestructionGenRect message; CalypsoF21DestructionGenRect footer;
+    CalypsoF21DestructionGenRect cellR1C1;
+    CalypsoF21DestructionGenRect cellR1C2;
+    CalypsoF21DestructionGenRect cellR2C1;
+    CalypsoF21DestructionGenRect cellR2C2;
+    CalypsoF21DestructionGenRect cellR3C1;
+    CalypsoF21DestructionGenRect cellR3C2;
+    CalypsoF21DestructionGenRect cellR4C1;
+    CalypsoF21DestructionGenRect cellR4C2;
+    CalypsoF21DestructionGenRect columnDivider1;
+    CalypsoF21DestructionGenRect rowDivider1;
+    CalypsoF21DestructionGenRect rowDivider2;
+    CalypsoF21DestructionGenRect rowDivider3;
+};
+inline constexpr CalypsoF21DestructionGenLayout kLayouts[] = {
+    { 1280, 720, { 350, 230, 580, 429 }, { 350, 230, 580, 38 }, { 382, 306, 32, 32 }, { 430, 300, 450, 44 }, { 382, 360, 516, 223 }, { 350, 597, 580, 62 }, { 398, 436, 120, 22 }, { 535, 436, 40, 22 }, { 398, 475, 120, 22 }, { 535, 475, 40, 22 }, { 398, 514, 120, 22 }, { 535, 514, 40, 22 }, { 398, 553, 120, 22 }, { 535, 553, 40, 22 }, { 526, 428, 1, 155 }, { 390, 466, 193, 1 }, { 390, 505, 193, 1 }, { 390, 544, 193, 1 } }, // wide
+    { 740, 461, { 70, 60, 600, 391 }, { 70, 60, 600, 34 }, { 98, 125, 28, 28 }, { 140, 118, 470, 38 }, { 98, 169, 500, 199 }, { 70, 385, 600, 66 }, { 114, 237, 105, 18 }, { 236, 237, 35, 18 }, { 114, 272, 105, 18 }, { 236, 272, 35, 18 }, { 114, 307, 105, 18 }, { 236, 307, 35, 18 }, { 114, 342, 105, 18 }, { 236, 342, 35, 18 }, { 227, 229, 1, 139 }, { 106, 263, 173, 1 }, { 106, 298, 173, 1 }, { 106, 333, 173, 1 } }, // compact
+};
+struct CalypsoF21DestructionGenButtonRect { const char* id; CalypsoF21DestructionGenRect rect; };
+inline constexpr CalypsoF21DestructionGenButtonRect kButtonRects[][ 1 ] = {
+    { { "acknowledge", { 740, 606, 158, 44 } } }, // wide
+    { { "acknowledge", { 450, 395, 148, 44 } } }, // compact
 };
 inline constexpr int kLayoutCount = 2;
-
-// Physical Engine-TTF calibration against the CSS reference cap height.
-inline constexpr float kEngineTextScaleTitle = 0.880000f;
-inline constexpr float kEngineTextScaleData = 0.900000f;
-inline constexpr float kEngineTextScaleBody = 0.920000f;
-inline constexpr float kEngineTextScaleInput = 0.900000f;
-inline constexpr float kEngineTextScaleAction = 0.900000f;
-
-/// Layout for a design canvas, or nullptr (the harness never guesses).
+inline constexpr int kMotionDurationMs = 200;
+inline constexpr float kMotionScaleFrom = 0.960000f;
 inline const CalypsoF21DestructionGenLayout* layoutForDesign(int dw, int dh)
 {
 	for (int i = 0; i < kLayoutCount; ++i)
@@ -49,9 +61,4 @@ inline const CalypsoF21DestructionGenLayout* layoutForDesign(int dw, int dh)
 			return &kLayouts[i];
 	return nullptr;
 }
-
-// Opening motion (capture mode deterministic).
-inline constexpr int kMotionDurationMs = 200;
-inline constexpr float kMotionScaleFrom = 0.960000f;
-inline constexpr bool kMotionDisabledInCapture = true;
 } } }

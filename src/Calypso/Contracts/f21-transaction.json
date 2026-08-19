@@ -1,478 +1,325 @@
 {
   "schema": 1,
   "version": "hd.2026-08-18.17",
-  "visualProfile": "command-card-v1",
+  "form": {
+    "id": "f21-transaction",
+    "familyId": 21,
+    "archetype": "small-confirmation",
+    "source": "FormConfigs/f21-transaction.json",
+    "icon": {
+      "kind": "warning",
+      "glyph": "!",
+      "tone": "warning"
+    },
+    "buttons": [
+      {
+        "id": "cancel",
+        "label": "CANCEL",
+        "tone": "safe",
+        "action": "cancel",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB0CC",
+          "text": "E8FFF5FF"
+        }
+      },
+      {
+        "id": "create",
+        "label": "CREATE BASE",
+        "tone": "primary",
+        "action": "confirm",
+        "style": {
+          "fill": "74FFB0FF",
+          "border": "74FFB0FF",
+          "text": "071013FF"
+        }
+      }
+    ],
+    "tableRows": [
+      [
+        "SLOT",
+        "COORDINATES"
+      ],
+      [
+        "BASE 1 / 8",
+        "28.6·N  0.0·E"
+      ],
+      [
+        "South Atlantic",
+        "$950 000"
+      ]
+    ],
+    "input": {
+      "value": "CALYPSO DEEP",
+      "hint": "Choose a permanent registry name. Press Enter to confirm."
+    }
+  },
   "copy": {
     "protocol": "CALYPSO COMMAND · LOGISTICS AUTHORIZATION BE-21 · REV. 1.0.21 · EFFECTIVE 15.07.2061",
     "title": "REVIEW NEW BASE",
-    "slot": "BASE 1 / 8",
-    "coords": "COORDINATES · 28.6·N  0.0·E",
-    "region": "REGION · South Atlantic",
-    "cost": "BUILD COST · $950 000",
-    "after": "FUNDS AFTER · $5 850 000",
-    "name": "CALYPSO DEEP",
-    "hint": "Name and funds commit together when Create Base is selected.",
-    "cancel": "CANCEL",
-    "create": "CREATE BASE"
+    "message": [
+      "FUNDS AFTER · $5 850 000",
+      "Name and funds commit together when Create Base is selected."
+    ],
+    "table": "| SLOT | COORDINATES |\n| --- | --- |\n| BASE 1 / 8 | 28.6·N  0.0·E |\n| South Atlantic | $950 000 |",
+    "inputValue": "CALYPSO DEEP",
+    "inputHint": "Choose a permanent registry name. Press Enter to confirm."
   },
-  "parts": [
-    "window",
-    "status",
-    "glyph",
-    "title",
-    "factsPanel",
-    "factsColumnDivider",
-    "factsRowDivider",
-    "slot",
-    "coords",
-    "region",
-    "cost",
-    "after",
-    "inputFrame",
-    "nameEdit",
-    "nameHint",
-    "footer",
-    "footerDots",
-    "create",
-    "cancel"
-  ],
-  "actions": [
-    "create",
-    "cancel"
-  ],
-  "engineTextScale": {
-    "title": 0.88,
-    "data": 0.9,
-    "body": 0.92,
-    "input": 0.9,
-    "action": 0.9
+  "style": {
+    "cutCornerPx": 14,
+    "protocolTextInsetPx": 26,
+    "panelFillTop": "08191DEB",
+    "panelFillBottom": "041014E8",
+    "frame": "74FFB073",
+    "protocolText": "A9D8C7FF",
+    "divider": "74FFB04D",
+    "footerFill": "061B1CD6",
+    "footerDot": "74FFB01F",
+    "warning": "FFC14DFF",
+    "safeFill": "051417B8",
+    "safeBorder": "74FFB0CC",
+    "destructiveFill": "F25F5CFF",
+    "destructiveText": "071013FF"
   },
-  "spacingRules": [
-    {
-      "id": "glyph-title",
-      "kind": "gap",
-      "first": "glyph",
-      "second": "title",
-      "axis": "horizontal",
-      "wide": 18,
-      "compact": 14
-    },
-    {
-      "id": "title-facts",
-      "kind": "gap",
-      "first": "title",
-      "second": "factsPanel",
-      "axis": "vertical",
-      "wide": 18,
-      "compact": 10
-    },
-    {
-      "id": "facts-input",
-      "kind": "gap",
-      "first": "factsPanel",
-      "second": "inputFrame",
-      "axis": "vertical",
-      "wide": 24,
-      "compact": 12
-    },
-    {
-      "id": "input-hint",
-      "kind": "gap",
-      "first": "inputFrame",
-      "second": "nameHint",
-      "axis": "vertical",
-      "wide": 8,
-      "compact": 6
-    },
-    {
-      "id": "hint-footer",
-      "kind": "gap",
-      "first": "nameHint",
-      "second": "footer",
-      "axis": "vertical",
-      "wide": 18,
-      "compact": 12
-    },
-    {
-      "id": "cancel-create",
-      "kind": "gap",
-      "first": "cancel",
-      "second": "create",
-      "axis": "horizontal",
-      "wide": 24,
-      "compact": 24
-    },
-    {
-      "id": "slot-column-divider",
-      "kind": "gap",
-      "first": "slot",
-      "second": "factsColumnDivider",
-      "axis": "horizontal",
-      "wide": 9,
-      "compact": 7
-    },
-    {
-      "id": "column-divider-coords",
-      "kind": "gap",
-      "first": "factsColumnDivider",
-      "second": "coords",
-      "axis": "horizontal",
-      "wide": 8,
-      "compact": 6
-    },
-    {
-      "id": "slot-row-divider",
-      "kind": "gap",
-      "first": "slot",
-      "second": "factsRowDivider",
-      "axis": "vertical",
-      "wide": 9,
-      "compact": 7
-    },
-    {
-      "id": "row-divider-region",
-      "kind": "gap",
-      "first": "factsRowDivider",
-      "second": "region",
-      "axis": "vertical",
-      "wide": 8,
-      "compact": 6
-    },
-    {
-      "id": "region-column-divider",
-      "kind": "gap",
-      "first": "region",
-      "second": "factsColumnDivider",
-      "axis": "horizontal",
-      "wide": 9,
-      "compact": 7
-    },
-    {
-      "id": "column-divider-cost",
-      "kind": "gap",
-      "first": "factsColumnDivider",
-      "second": "cost",
-      "axis": "horizontal",
-      "wide": 8,
-      "compact": 6
-    },
-    {
-      "id": "cost-after",
-      "kind": "gap",
-      "first": "cost",
-      "second": "after",
-      "axis": "vertical",
-      "wide": 8,
-      "compact": 8
-    },
-    {
-      "id": "facts-slot",
-      "kind": "inset",
-      "container": "factsPanel",
-      "child": "slot",
-      "edges": [
-        "left",
-        "top"
-      ],
-      "wide": 14,
-      "compact": 12
-    },
-    {
-      "id": "facts-coords",
-      "kind": "inset",
-      "container": "factsPanel",
-      "child": "coords",
-      "edges": [
-        "right",
-        "top"
-      ],
-      "wide": 14,
-      "compact": 12
-    },
-    {
-      "id": "facts-after",
-      "kind": "inset",
-      "container": "factsPanel",
-      "child": "after",
-      "edges": [
-        "left",
-        "right",
-        "bottom"
-      ],
-      "wide": 8,
-      "compact": 6
-    },
-    {
-      "id": "footer-create",
-      "kind": "inset",
-      "container": "footer",
-      "child": "create",
-      "edges": [
-        "right",
-        "top",
-        "bottom"
-      ],
-      "wide": 10,
-      "compact": 12
-    },
-    {
-      "id": "dots-cancel",
-      "kind": "gap",
-      "first": "footerDots",
-      "second": "cancel",
-      "axis": "horizontal",
-      "wide": 12,
-      "compact": 12
-    },
-    {
-      "id": "footer-dots",
-      "kind": "inset",
-      "container": "footer",
-      "child": "footerDots",
-      "edges": [
-        "left",
-        "top",
-        "bottom"
-      ],
-      "wide": 8,
-      "compact": 8
-    }
-  ],
   "layouts": {
     "wide": {
       "designWidth": 1280,
       "designHeight": 720,
       "window": {
-        "x": 300,
-        "y": 130,
-        "width": 680,
-        "height": 460
+        "x": 350,
+        "y": 230,
+        "width": 580,
+        "height": 468
       },
       "status": {
-        "x": 300,
-        "y": 130,
-        "width": 680,
-        "height": 34
+        "x": 350,
+        "y": 230,
+        "width": 580,
+        "height": 38
       },
-      "glyph": {
-        "x": 340,
-        "y": 186,
-        "width": 28,
-        "height": 28
+      "warning": {
+        "x": 382,
+        "y": 306,
+        "width": 32,
+        "height": 32
       },
       "title": {
-        "x": 386,
-        "y": 180,
-        "width": 554,
-        "height": 40
+        "x": 430,
+        "y": 300,
+        "width": 450,
+        "height": 44
       },
-      "factsPanel": {
-        "x": 340,
-        "y": 238,
-        "width": 600,
-        "height": 118
-      },
-      "factsColumnDivider": {
-        "x": 599,
-        "y": 248,
-        "width": 1,
-        "height": 74
-      },
-      "factsRowDivider": {
-        "x": 356,
-        "y": 285,
-        "width": 568,
-        "height": 1
-      },
-      "slot": {
-        "x": 360,
-        "y": 252,
-        "width": 230,
-        "height": 24
-      },
-      "coords": {
-        "x": 608,
-        "y": 252,
-        "width": 308,
-        "height": 24
-      },
-      "region": {
-        "x": 360,
-        "y": 294,
-        "width": 230,
-        "height": 24
-      },
-      "cost": {
-        "x": 608,
-        "y": 294,
-        "width": 308,
-        "height": 24
-      },
-      "after": {
-        "x": 360,
-        "y": 326,
-        "width": 556,
-        "height": 22
-      },
-      "inputFrame": {
-        "x": 340,
-        "y": 380,
-        "width": 600,
-        "height": 48
-      },
-      "nameEdit": {
-        "x": 340,
-        "y": 380,
-        "width": 600,
-        "height": 48
-      },
-      "nameHint": {
-        "x": 340,
-        "y": 436,
-        "width": 600,
-        "height": 22
+      "message": {
+        "x": 382,
+        "y": 360,
+        "width": 516,
+        "height": 262
       },
       "footer": {
-        "x": 300,
-        "y": 476,
-        "width": 680,
-        "height": 74
+        "x": 350,
+        "y": 636,
+        "width": 580,
+        "height": 62
       },
-      "footerDots": {
-        "x": 312,
-        "y": 486,
-        "width": 176,
-        "height": 56
+      "buttons": {
+        "cancel": {
+          "x": 572,
+          "y": 645,
+          "width": 158,
+          "height": 44
+        },
+        "create": {
+          "x": 740,
+          "y": 645,
+          "width": 158,
+          "height": 44
+        }
       },
-      "create": {
-        "x": 732,
-        "y": 492,
-        "width": 208,
-        "height": 48
+      "cellR1C1": {
+        "x": 398,
+        "y": 436,
+        "width": 90,
+        "height": 22
       },
-      "cancel": {
-        "x": 500,
-        "y": 492,
-        "width": 208,
-        "height": 48
+      "cellR1C2": {
+        "x": 505,
+        "y": 436,
+        "width": 104,
+        "height": 22
+      },
+      "rowDivider1": {
+        "x": 390,
+        "y": 466,
+        "width": 227,
+        "height": 1
+      },
+      "cellR2C1": {
+        "x": 398,
+        "y": 475,
+        "width": 90,
+        "height": 22
+      },
+      "cellR2C2": {
+        "x": 505,
+        "y": 475,
+        "width": 104,
+        "height": 22
+      },
+      "rowDivider2": {
+        "x": 390,
+        "y": 505,
+        "width": 227,
+        "height": 1
+      },
+      "cellR3C1": {
+        "x": 398,
+        "y": 514,
+        "width": 90,
+        "height": 22
+      },
+      "cellR3C2": {
+        "x": 505,
+        "y": 514,
+        "width": 104,
+        "height": 22
+      },
+      "columnDivider1": {
+        "x": 496,
+        "y": 428,
+        "width": 1,
+        "height": 116
+      },
+      "inputHint": {
+        "x": 382,
+        "y": 604,
+        "width": 516,
+        "height": 18
+      },
+      "inputFrame": {
+        "x": 382,
+        "y": 558,
+        "width": 516,
+        "height": 38
       }
     },
     "compact": {
       "designWidth": 740,
-      "designHeight": 360,
+      "designHeight": 496,
       "window": {
-        "x": 24,
-        "y": 10,
-        "width": 692,
-        "height": 340
+        "x": 70,
+        "y": 60,
+        "width": 600,
+        "height": 426
       },
       "status": {
-        "x": 24,
-        "y": 10,
-        "width": 692,
-        "height": 26
+        "x": 70,
+        "y": 60,
+        "width": 600,
+        "height": 34
       },
-      "glyph": {
-        "x": 50,
-        "y": 48,
-        "width": 24,
-        "height": 24
+      "warning": {
+        "x": 98,
+        "y": 125,
+        "width": 28,
+        "height": 28
       },
       "title": {
-        "x": 88,
-        "y": 44,
-        "width": 596,
-        "height": 30
+        "x": 140,
+        "y": 118,
+        "width": 470,
+        "height": 38
       },
-      "factsPanel": {
-        "x": 50,
-        "y": 84,
-        "width": 634,
-        "height": 96
+      "message": {
+        "x": 98,
+        "y": 169,
+        "width": 500,
+        "height": 234
       },
-      "factsColumnDivider": {
-        "x": 261,
-        "y": 92,
-        "width": 1,
-        "height": 62
+      "footer": {
+        "x": 70,
+        "y": 420,
+        "width": 600,
+        "height": 66
       },
-      "factsRowDivider": {
-        "x": 66,
-        "y": 123,
-        "width": 596,
+      "buttons": {
+        "cancel": {
+          "x": 290,
+          "y": 430,
+          "width": 148,
+          "height": 44
+        },
+        "create": {
+          "x": 450,
+          "y": 430,
+          "width": 148,
+          "height": 44
+        }
+      },
+      "cellR1C1": {
+        "x": 114,
+        "y": 237,
+        "width": 79,
+        "height": 18
+      },
+      "cellR1C2": {
+        "x": 210,
+        "y": 237,
+        "width": 91,
+        "height": 18
+      },
+      "rowDivider1": {
+        "x": 106,
+        "y": 263,
+        "width": 203,
         "height": 1
       },
-      "slot": {
-        "x": 66,
-        "y": 96,
-        "width": 188,
-        "height": 20
+      "cellR2C1": {
+        "x": 114,
+        "y": 272,
+        "width": 79,
+        "height": 18
       },
-      "coords": {
-        "x": 268,
-        "y": 96,
-        "width": 394,
-        "height": 20
+      "cellR2C2": {
+        "x": 210,
+        "y": 272,
+        "width": 91,
+        "height": 18
       },
-      "region": {
-        "x": 66,
-        "y": 130,
-        "width": 188,
-        "height": 20
+      "rowDivider2": {
+        "x": 106,
+        "y": 298,
+        "width": 203,
+        "height": 1
       },
-      "cost": {
-        "x": 268,
-        "y": 130,
-        "width": 394,
-        "height": 20
+      "cellR3C1": {
+        "x": 114,
+        "y": 307,
+        "width": 79,
+        "height": 18
       },
-      "after": {
-        "x": 66,
-        "y": 158,
-        "width": 596,
+      "cellR3C2": {
+        "x": 210,
+        "y": 307,
+        "width": 91,
+        "height": 18
+      },
+      "columnDivider1": {
+        "x": 201,
+        "y": 229,
+        "width": 1,
+        "height": 104
+      },
+      "inputHint": {
+        "x": 98,
+        "y": 387,
+        "width": 500,
         "height": 16
       },
       "inputFrame": {
-        "x": 50,
-        "y": 192,
-        "width": 634,
-        "height": 42
-      },
-      "nameEdit": {
-        "x": 50,
-        "y": 192,
-        "width": 634,
-        "height": 42
-      },
-      "nameHint": {
-        "x": 50,
-        "y": 240,
-        "width": 634,
-        "height": 18
-      },
-      "footer": {
-        "x": 24,
-        "y": 270,
-        "width": 692,
-        "height": 74
-      },
-      "footerDots": {
-        "x": 36,
-        "y": 280,
-        "width": 184,
-        "height": 56
-      },
-      "create": {
-        "x": 474,
-        "y": 284,
-        "width": 218,
-        "height": 48
-      },
-      "cancel": {
-        "x": 232,
-        "y": 284,
-        "width": 218,
-        "height": 48
+        "x": 98,
+        "y": 347,
+        "width": 500,
+        "height": 32
       }
     }
   },
@@ -482,47 +329,60 @@
     "easing": "ease-out",
     "captureModeDurationMs": 0
   },
-  "blocks": [
-    {
-      "id": "facts",
-      "kind": "table",
-      "parts": [
-        "factsPanel",
-        "factsColumnDivider",
-        "factsRowDivider",
-        "slot",
-        "coords",
-        "region",
-        "cost"
+  "tableMetrics": {
+    "wide": {
+      "columns": 2,
+      "rows": 3,
+      "columnTextWidths": [
+        90,
+        104
       ],
-      "rows": [
-        [
-          "slot",
-          "coords"
-        ],
-        [
-          "region",
-          "cost"
-        ]
+      "columnWidths": [
+        106,
+        120
       ],
-      "append": [
-        "after"
-      ]
+      "rowHeights": [
+        38,
+        38,
+        38
+      ],
+      "lineCounts": {
+        "cellR1C1": 1,
+        "cellR1C2": 1,
+        "cellR2C1": 1,
+        "cellR2C2": 1,
+        "cellR3C1": 1,
+        "cellR3C2": 1
+      },
+      "tableWidth": 227,
+      "tableHeight": 116
     },
-    {
-      "id": "name-input",
-      "kind": "input",
-      "parts": [
-        "inputFrame",
-        "nameEdit",
-        "nameHint"
+    "compact": {
+      "columns": 2,
+      "rows": 3,
+      "columnTextWidths": [
+        79,
+        91
       ],
-      "value": "CALYPSO DEEP",
-      "hint": "Name and funds commit together when Create Base is selected."
+      "columnWidths": [
+        95,
+        107
+      ],
+      "rowHeights": [
+        34,
+        34,
+        34
+      ],
+      "lineCounts": {
+        "cellR1C1": 1,
+        "cellR1C2": 1,
+        "cellR2C1": 1,
+        "cellR2C2": 1,
+        "cellR3C1": 1,
+        "cellR3C2": 1
+      },
+      "tableWidth": 203,
+      "tableHeight": 104
     }
-  ],
-  "generation": {
-    "tool": "generate-hd-command-card.py",
-    "source": "f21-transaction.json"
   }
 }

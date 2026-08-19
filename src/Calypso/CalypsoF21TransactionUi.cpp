@@ -127,16 +127,11 @@ void CalypsoF21TransactionUi::collect(CalypsoHdFrameBuilder& builder) const
 
 	const CalypsoHdPresentationMetrics& m = CalypsoHdUiOverlay::instance().frozenMetrics();
 	const bool wide = _state->_hdWideLayout;
-	const double titlePx = (wide ? CalypsoHdThemeGen::kF21TitleWidePx : CalypsoHdThemeGen::kF21TitleCompactPx)
-		* CalypsoF21TransactionGen::kEngineTextScaleTitle;
-	const double dataPx = (wide ? CalypsoHdThemeGen::kF21DataWidePx : CalypsoHdThemeGen::kF21DataCompactPx)
-		* CalypsoF21TransactionGen::kEngineTextScaleData;
-	const double bodyPx = (wide ? CalypsoHdThemeGen::kF21BodyWidePx : CalypsoHdThemeGen::kF21BodyCompactPx)
-		* CalypsoF21TransactionGen::kEngineTextScaleBody;
-	const double inputPx = (wide ? CalypsoHdThemeGen::kF21InputWidePx : CalypsoHdThemeGen::kF21InputCompactPx)
-		* CalypsoF21TransactionGen::kEngineTextScaleInput;
-	const double actionPx = (wide ? CalypsoHdThemeGen::kF21ActionWidePx : CalypsoHdThemeGen::kF21ActionCompactPx)
-		* CalypsoF21TransactionGen::kEngineTextScaleAction;
+	const double titlePx = wide ? CalypsoHdThemeGen::kF21TitleWidePx : CalypsoHdThemeGen::kF21TitleCompactPx;
+	const double dataPx = wide ? CalypsoHdThemeGen::kF21DataWidePx : CalypsoHdThemeGen::kF21DataCompactPx;
+	const double bodyPx = wide ? CalypsoHdThemeGen::kF21BodyWidePx : CalypsoHdThemeGen::kF21BodyCompactPx;
+	const double inputPx = wide ? CalypsoHdThemeGen::kF21InputWidePx : CalypsoHdThemeGen::kF21InputCompactPx;
+	const double actionPx = wide ? CalypsoHdThemeGen::kF21ActionWidePx : CalypsoHdThemeGen::kF21ActionCompactPx;
 	const CalypsoF21TransactionLayout designLayout = calypsoF21TransactionLayout(
 		wide ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact);
 
@@ -162,7 +157,7 @@ void CalypsoF21TransactionUi::collect(CalypsoHdFrameBuilder& builder) const
 	p.uiScale = uiScale;
 
 	// Modal dim backdrop over the live globe (fully opaque in harness mode).
-	const CalypsoLogicalRect canvasRect{ 0, 0, wide ? 1280 : 740, wide ? 720 : 360 };
+	const CalypsoLogicalRect canvasRect{ 0, 0, designLayout.designWidth, designLayout.designHeight };
 	const bool harness = calypsoHarnessHostUp(calypsoHarnessSession());
 	p.panel(canvasRect, harness ? calypsoRgba(0, 0, 0, 0xff) : CalypsoHdTheme::kBackdropDim,
 		nullptr, ROLE_WINDOW);
@@ -189,22 +184,21 @@ void CalypsoF21TransactionUi::collect(CalypsoHdFrameBuilder& builder) const
 	// Structural rules: status divider, footer divider, footer dot field.
 	const CalypsoLogicalRect statusRect = p.project(designLayout.status);
 	const CalypsoLogicalRect footerRect = p.project(designLayout.footer);
-	const CalypsoLogicalRect glyphRect = p.project(designLayout.glyph);
-	const CalypsoLogicalRect factsRect = p.project(designLayout.factsPanel);
+	const CalypsoLogicalRect glyphRect = p.project(designLayout.warning);
 	const CalypsoLogicalRect inputRect = p.project(designLayout.inputFrame);
-	p.styled(factsRect, f21InsetPanelStyle(), nullptr, ROLE_FACTS);
 	p.styled(inputRect, f21InputStyle(_state->_edtName->isFocused()),
 		_state->_edtName, ROLE_NAME);
-	p.decoration(p.project(designLayout.factsColumnDivider), kF21DividerRgba, ROLE_DECORATION);
-	p.decoration(p.project(designLayout.factsRowDivider), kF21DividerRgba, ROLE_DECORATION);
+	// Table inside message band (Abandon shell)
+	p.decoration(p.project(designLayout.columnDivider1), kF21DividerRgba, ROLE_DECORATION);
+	p.decoration(p.project(designLayout.rowDivider1), kF21DividerRgba, ROLE_DECORATION);
+	p.decoration(p.project(designLayout.rowDivider2), kF21DividerRgba, ROLE_DECORATION);
 	p.decoration(CalypsoLogicalRect{ statusRect.x, statusRect.y + statusRect.h - 1, statusRect.w, 1 },
 		kF21DividerRgba, ROLE_DECORATION);
 	p.decoration(CalypsoLogicalRect{ footerRect.x, footerRect.y, footerRect.w, 1 },
 		kF21DividerRgba, ROLE_FOOTER);
-	const CalypsoLogicalRect footerDotsRect = p.project(designLayout.footerDots);
-	for (int y = footerDotsRect.y; y < footerDotsRect.y + footerDotsRect.h; y += 8)
+	for (int y = footerRect.y + 10; y < footerRect.y + footerRect.h - 8; y += 8)
 	{
-		for (int x = footerDotsRect.x; x < footerDotsRect.x + footerDotsRect.w; x += 8)
+		for (int x = footerRect.x + 12; x < f21WidgetRect(_state->_btnCancel).x - 12; x += 8)
 			p.decoration(CalypsoLogicalRect{ x, y, 1, 1 }, kF21FooterDotRgba, ROLE_DECORATION);
 	}
 
@@ -223,18 +217,13 @@ void CalypsoF21TransactionUi::collect(CalypsoHdFrameBuilder& builder) const
 	p.textRect(glyphRect, nullptr, heading, "!", CalypsoHdThemeGen::kGold,
 		CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, ROLE_WARNING, 0.0,
 		wide ? 17.0 : 15.0);
-	p.text(_state->_hdSlot, mono, _state->_hdSlot->getText(), CalypsoHdThemeGen::kAccent,
-		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_SLOT, 0.0,
-		dataPx);
-	p.text(_state->_hdCoords, mono, _state->_hdCoords->getText(), CalypsoHdTheme::kNearWhite,
-		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_COORDS, 0.0,
-		dataPx);
-	p.text(_state->_txtArea, mono, _state->_txtArea->getText(), CalypsoHdTheme::kNearWhite,
-		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_REGION, 0.0,
-		dataPx);
-	p.text(_state->_txtCost, mono, _state->_txtCost->getText(), CalypsoHdTheme::kNearWhite,
-		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_COST, 0.0,
-		dataPx);
+	p.textRect(p.project(designLayout.cellR1C1), _state->_hdSlot, mono, _state->_hdSlot->getText(), CalypsoHdThemeGen::kAccent, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_SLOT, 0.0, dataPx);
+	p.textRect(p.project(designLayout.cellR1C2), _state->_hdCoords, mono, _state->_hdCoords->getText(), CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_COORDS, 0.0, dataPx);
+	p.textRect(p.project(designLayout.cellR2C1), _state->_txtArea, mono, _state->_txtArea->getText(), CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_REGION, 0.0, dataPx);
+	p.textRect(p.project(designLayout.cellR2C2), _state->_txtCost, mono, _state->_txtCost->getText(), CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_COST, 0.0, dataPx);
+	// Row 3: South Atlantic / cost overflow rendered via already-positioned _hdAfter widget? Keep funds-after separate below table
+	p.textRect(p.project(designLayout.cellR3C1), _state->_hdSlot, mono, std::string("South Atlantic"), CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_SLOT, 0.0, dataPx);
+	p.textRect(p.project(designLayout.cellR3C2), _state->_hdAfter, mono, _state->_hdAfter ? _state->_hdAfter->getText() : std::string(), CalypsoHdThemeGen::kAccent, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_AFTER, 0.0, dataPx);
 	if (_state->_hdAfter)
 	{
 		const SavedGame* save = _state->_game->getSavedGame();
@@ -268,13 +257,13 @@ void CalypsoF21TransactionUi::applyRects(ConfirmNewBaseState& state, const Calyp
 	applyRect(state._window, layout.window);
 	applyRect(state._hdProtocol, layout.status);
 	applyRect(state._hdTitle, layout.title);
-	applyRect(state._hdSlot, layout.slot);
-	applyRect(state._hdCoords, layout.coords);
-	applyRect(state._txtArea, layout.region);
-	applyRect(state._txtCost, layout.cost);
-	applyRect(state._hdAfter, layout.after);
-	applyRect(state._edtName, layout.nameEdit);
-	applyRect(state._hdNameHint, layout.nameHint);
+	// Row 1-2 table cells reuse main widgets; Row 3 rendered via direct p.textRect on projected rects (no separate widget needed)
+	applyRect(state._hdSlot, layout.cellR1C1);
+	applyRect(state._hdCoords, layout.cellR1C2);
+	applyRect(state._txtArea, layout.cellR2C1);
+	applyRect(state._txtCost, layout.cellR2C2);
+	applyRect(state._edtName, layout.inputFrame);
+	applyRect(state._hdNameHint, layout.inputHint);
 	applyRect(state._btnOk, layout.create);
 	applyRect(state._btnCancel, layout.cancel);
 }

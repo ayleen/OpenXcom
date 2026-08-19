@@ -5,35 +5,45 @@
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF21NameGen {
 inline constexpr const char* kContractVersion = "hd.2026-08-18.17";
+inline constexpr const char* kFormId = "f21-name";
+inline constexpr int kFamilyId = 21;
+inline constexpr const char* kArchetype = "small-confirmation";
+inline constexpr const char* kSourceConfig = "FormConfigs/f21-name.json";
 
-/// One design-space rectangle (design px).
-struct CalypsoF21NameGenRect { int x; int y; int w; int h; };
-
-/// The complete f21-name.json layout for one class.
-struct CalypsoF21NameGenLayout
-{
-	int designWidth;
-	int designHeight;
-	CalypsoF21NameGenRect window;
-	CalypsoF21NameGenRect status;
-	CalypsoF21NameGenRect title;
-	CalypsoF21NameGenRect inputFrame;
-	CalypsoF21NameGenRect nameEdit;
-	CalypsoF21NameGenRect hint;
-	CalypsoF21NameGenRect footer;
-	CalypsoF21NameGenRect ok;
+struct CalypsoF21NameGenButton { const char* id; const char* label; const char* tone; const char* action; std::uint32_t fill; std::uint32_t border; std::uint32_t text; };
+inline constexpr CalypsoF21NameGenButton kButtons[] = {
+    { "ok", "CONFIRM NAME", "primary", "confirm", 0x74FFB0FFu, 0x74FFB0FFu, 0x071013FFu },
 };
+inline constexpr int kButtonCount = 1;
 
-inline constexpr CalypsoF21NameGenLayout kLayouts[] =
-{
-	// wide
-	{ 1280, 720, { 340, 210, 600, 300 }, { 340, 210, 600, 34 }, { 380, 264, 520, 40 }, { 380, 326, 520, 48 }, { 380, 326, 520, 48 }, { 380, 386, 520, 30 }, { 340, 430, 600, 64 }, { 736, 440, 180, 44 } },
-	// compact
-	{ 740, 360, { 70, 42, 600, 276 }, { 70, 42, 600, 28 }, { 100, 84, 540, 32 }, { 100, 132, 540, 44 }, { 100, 132, 540, 44 }, { 100, 186, 540, 28 }, { 70, 232, 600, 70 }, { 452, 244, 194, 46 } },
+inline constexpr float kCutCornerPx = 14.000000f;
+inline constexpr float kProtocolTextInsetPx = 26.000000f;
+inline constexpr std::uint32_t kPanelFillTop = 0x08191DEBu;
+inline constexpr std::uint32_t kPanelFillBottom = 0x041014E8u;
+inline constexpr std::uint32_t kFrame = 0x74FFB073u;
+inline constexpr std::uint32_t kProtocolText = 0xA9D8C7FFu;
+inline constexpr std::uint32_t kDivider = 0x74FFB04Du;
+inline constexpr std::uint32_t kFooterFill = 0x061B1CD6u;
+inline constexpr std::uint32_t kFooterDot = 0x74FFB01Fu;
+inline constexpr std::uint32_t kWarning = 0xFFC14DFFu;
+
+struct CalypsoF21NameGenRect { int x; int y; int w; int h; };
+struct CalypsoF21NameGenLayout { int designWidth; int designHeight; CalypsoF21NameGenRect window; CalypsoF21NameGenRect status; CalypsoF21NameGenRect warning; CalypsoF21NameGenRect title; CalypsoF21NameGenRect message; CalypsoF21NameGenRect footer;
+    CalypsoF21NameGenRect inputFrame;
+    CalypsoF21NameGenRect inputHint;
+};
+inline constexpr CalypsoF21NameGenLayout kLayouts[] = {
+    { 1280, 720, { 350, 230, 580, 344 }, { 350, 230, 580, 38 }, { 382, 306, 32, 32 }, { 430, 300, 450, 44 }, { 382, 360, 516, 138 }, { 350, 512, 580, 62 }, { 382, 434, 516, 38 }, { 382, 480, 516, 18 } }, // wide
+    { 740, 384, { 70, 60, 600, 314 }, { 70, 60, 600, 34 }, { 98, 125, 28, 28 }, { 140, 118, 470, 38 }, { 98, 169, 500, 122 }, { 70, 308, 600, 66 }, { 98, 235, 500, 32 }, { 98, 275, 500, 16 } }, // compact
+};
+struct CalypsoF21NameGenButtonRect { const char* id; CalypsoF21NameGenRect rect; };
+inline constexpr CalypsoF21NameGenButtonRect kButtonRects[][ 1 ] = {
+    { { "ok", { 740, 521, 158, 44 } } }, // wide
+    { { "ok", { 450, 318, 148, 44 } } }, // compact
 };
 inline constexpr int kLayoutCount = 2;
-
-/// Layout for a design canvas, or nullptr (the harness never guesses).
+inline constexpr int kMotionDurationMs = 200;
+inline constexpr float kMotionScaleFrom = 0.960000f;
 inline const CalypsoF21NameGenLayout* layoutForDesign(int dw, int dh)
 {
 	for (int i = 0; i < kLayoutCount; ++i)
@@ -41,9 +51,4 @@ inline const CalypsoF21NameGenLayout* layoutForDesign(int dw, int dh)
 			return &kLayouts[i];
 	return nullptr;
 }
-
-// Opening motion (capture mode deterministic).
-inline constexpr int kMotionDurationMs = 200;
-inline constexpr float kMotionScaleFrom = 0.960000f;
-inline constexpr bool kMotionDisabledInCapture = true;
 } } }

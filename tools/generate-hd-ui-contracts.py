@@ -217,18 +217,15 @@ F21_FAMILIES = [
 ]
 
 F21_COMMAND_CARD_CONTRACTS = {
-    "f21-site.json", "f21-transaction.json", "f21-name.json",
-    "f21-defense.json", "f21-destruction.json",
+    "f21-site.json",
 }
 
-F21_ENGINE_TEXT_CALIBRATION_CONTRACTS = {
-    "f21-site.json", "f21-transaction.json",
-    "f21-defense.json", "f21-destruction.json",
-}
-
-F21_GENERATED_COMMAND_CARD_CONTRACTS = {
+F21_SMALL_CONFIRMATION_CONTRACTS = {
     "f21-transaction.json", "f21-name.json",
     "f21-defense.json", "f21-destruction.json",
+}
+F21_ENGINE_TEXT_CALIBRATION_CONTRACTS = {
+    "f21-site.json",
 }
 
 CONTENT_BLOCK_CONTRACTS = {"f21-site-details.json"}
@@ -239,6 +236,13 @@ def validate_f21(doc, rel):
         fail(rel + ": schema must be 1")
     if not isinstance(doc.get("version"), str) or not VERSION_RE.match(doc.get("version", "")):
         fail(rel + ": version string required")
+    if rel in F21_SMALL_CONFIRMATION_CONTRACTS:
+        form = doc.get("form") or {}
+        if form.get("archetype") != "small-confirmation" or not form.get("id"):
+            fail(rel + ": small-confirmation form identity required")
+        if doc.get("style") is None or doc.get("layouts") is None:
+            fail(rel + ": small-confirmation form must carry style/layouts")
+        return
     if rel in F21_COMMAND_CARD_CONTRACTS:
         if doc.get("visualProfile") != "command-card-v1":
             fail(rel + ": visualProfile must be command-card-v1")
@@ -250,33 +254,6 @@ def validate_f21(doc, rel):
                 fail(rel + ": copy." + key + " must be a non-empty string")
             if "{STRING}" in value or "{ALT}" in value:
                 fail(rel + ": copy." + key + " contains legacy placeholder/control syntax")
-        if rel in F21_GENERATED_COMMAND_CARD_CONTRACTS:
-            generation = doc.get("generation") or {}
-            if generation.get("tool") != "generate-hd-command-card.py":
-                fail(rel + ": command-card generator provenance is missing")
-            parts_doc = doc.get("parts") or []
-            blocks = doc.get("blocks")
-            if not isinstance(blocks, list) or not blocks:
-                fail(rel + ": generated command-card blocks are required")
-            for index, block in enumerate(blocks):
-                label = rel + ": blocks[" + str(index) + "]"
-                if not isinstance(block, dict) or block.get("kind") not in ("table", "input", "list"):
-                    fail(label + " has an unsupported kind")
-                parts = block.get("parts")
-                if not isinstance(parts, list) or not parts:
-                    fail(label + ".parts must be non-empty")
-                if any(part not in parts_doc for part in parts):
-                    fail(label + ".parts must resolve to the command-card parts")
-                if block["kind"] == "table":
-                    rows = block.get("rows")
-                    if not isinstance(rows, list) or not rows:
-                        fail(label + ".rows must be non-empty")
-                    columns = len(rows[0]) if isinstance(rows[0], list) else 0
-                    if columns < 2 or columns > 4 or any(not isinstance(row, list) or len(row) != columns for row in rows):
-                        fail(label + ".rows must be a rectangular two-to-four-column table")
-                elif block["kind"] == "input":
-                    if not all(isinstance(block.get(key), str) and block[key] for key in ("value", "hint")):
-                        fail(label + ".value/.hint must be non-empty strings")
     if rel in CONTENT_BLOCK_CONTRACTS:
         if doc.get("visualProfile") != "content-block-v1":
             fail(rel + ": visualProfile must be content-block-v1")
@@ -690,6 +667,83 @@ def emit_f33_h(f33):
     return NL.join(out) + NL
 
 
+def emit_small_confirmation_h(doc, rel, ns, prefix):
+    """Emitter for F21 small-confirmation forms (Abandon shell)."""
+    layouts = doc["layouts"]
+    form = doc["form"]
+    style = doc["style"]
+    m = doc["motion"]
+    button_ids = [b["id"] for b in form["buttons"]]
+    out = [HEADER_BANNER,
+           "// Canonical source: src/Calypso/Contracts/" + rel,
+           "#pragma once",
+           "#include <cstdint>",
+           "namespace OpenXcom { namespace Calypso { namespace " + ns + " {",
+           'inline constexpr const char* kContractVersion = "' + doc["version"] + '";',
+           'inline constexpr const char* kFormId = "' + form["id"] + '";',
+           "inline constexpr int kFamilyId = " + str(form["familyId"]) + ";",
+           'inline constexpr const char* kArchetype = "' + form["archetype"] + '";',
+           'inline constexpr const char* kSourceConfig = "' + form["source"] + '";',
+           ""]
+    out += ["struct " + prefix + "GenButton { const char* id; const char* label; const char* tone; const char* action; std::uint32_t fill; std::uint32_t border; std::uint32_t text; };",
+            "inline constexpr " + prefix + "GenButton kButtons[] = {"]
+    for b in form["buttons"]:
+        out.append('    { "' + b["id"] + '", "' + b["label"] + '", "' + b["tone"] + '", "' + b["action"] + '", ' + rgba_call(b["style"]["fill"]) + ', ' + rgba_call(b["style"]["border"]) + ', ' + rgba_call(b["style"]["text"]) + ' },')
+    out += ["};", "inline constexpr int kButtonCount = " + str(len(form["buttons"])) + ";", ""]
+    out.append("inline constexpr float kCutCornerPx = %.6ff;" % float(style["cutCornerPx"]))
+    out.append("inline constexpr float kProtocolTextInsetPx = %.6ff;" % float(style["protocolTextInsetPx"]))
+    for key in ("panelFillTop","panelFillBottom","frame","protocolText","divider","footerFill","footerDot","warning"):
+        out.append("inline constexpr std::uint32_t k" + key[0].upper() + key[1:] + " = " + rgba_call(style[key]) + ";")
+    out.append("")
+    wide_keys = [k for k,v in layouts["wide"].items() if isinstance(v, dict) and "x" in v]
+    shell_parts = ["window","status","warning","title","message","footer"]
+    table_parts = [k for k in wide_keys if k not in shell_parts and k != "buttons" and k not in button_ids and k not in ("no","yes")]
+    out.append("struct " + prefix + "GenRect { int x; int y; int w; int h; };")
+    out.append("struct " + prefix + "GenLayout { int designWidth; int designHeight; " + prefix + "GenRect window; " + prefix + "GenRect status; " + prefix + "GenRect warning; " + prefix + "GenRect title; " + prefix + "GenRect message; " + prefix + "GenRect footer;")
+    for tp in sorted(table_parts):
+        out.append("    " + prefix + "GenRect " + tp + ";")
+    out.append("};")
+    out.append("inline constexpr " + prefix + "GenLayout kLayouts[] = {")
+    for name in ("wide","compact"):
+        l = layouts[name]
+        vals = [str(l["designWidth"]), str(l["designHeight"]),
+                "{ " + str(l["window"]["x"]) + ", " + str(l["window"]["y"]) + ", " + str(l["window"]["width"]) + ", " + str(l["window"]["height"]) + " }",
+                "{ " + str(l["status"]["x"]) + ", " + str(l["status"]["y"]) + ", " + str(l["status"]["width"]) + ", " + str(l["status"]["height"]) + " }",
+                "{ " + str(l["warning"]["x"]) + ", " + str(l["warning"]["y"]) + ", " + str(l["warning"]["width"]) + ", " + str(l["warning"]["height"]) + " }",
+                "{ " + str(l["title"]["x"]) + ", " + str(l["title"]["y"]) + ", " + str(l["title"]["width"]) + ", " + str(l["title"]["height"]) + " }",
+                "{ " + str(l["message"]["x"]) + ", " + str(l["message"]["y"]) + ", " + str(l["message"]["width"]) + ", " + str(l["message"]["height"]) + " }",
+                "{ " + str(l["footer"]["x"]) + ", " + str(l["footer"]["y"]) + ", " + str(l["footer"]["width"]) + ", " + str(l["footer"]["height"]) + " }"]
+        for tp in sorted(table_parts):
+            r = l.get(tp)
+            if r:
+                vals.append("{ " + str(r["x"]) + ", " + str(r["y"]) + ", " + str(r["width"]) + ", " + str(r["height"]) + " }")
+            else:
+                vals.append("{ 0, 0, 0, 0 }")
+        out.append("    { " + ", ".join(vals) + " }, // " + name)
+    out.append("};")
+    out.append("struct " + prefix + "GenButtonRect { const char* id; " + prefix + "GenRect rect; };")
+    out.append("inline constexpr " + prefix + "GenButtonRect kButtonRects[][ " + str(len(button_ids)) + " ] = {")
+    for name in ("wide","compact"):
+        l = layouts[name]
+        row = []
+        for bid in button_ids:
+            rr = l["buttons"][bid]
+            row.append('{ "' + bid + '", { ' + str(rr["x"]) + ", " + str(rr["y"]) + ", " + str(rr["width"]) + ", " + str(rr["height"]) + " } }")
+        out.append("    { " + ", ".join(row) + " }, // " + name)
+    out.append("};")
+    out.append("inline constexpr int kLayoutCount = 2;")
+    out.append("inline constexpr int kMotionDurationMs = " + str(int(m["durationMs"])) + ";")
+    out.append("inline constexpr float kMotionScaleFrom = %.6ff;" % float(m["scaleFrom"]))
+    out.append("inline const " + prefix + "GenLayout* layoutForDesign(int dw, int dh)")
+    out.append("{")
+    out.append("	for (int i = 0; i < kLayoutCount; ++i)")
+    out.append("		if (kLayouts[i].designWidth == dw && kLayouts[i].designHeight == dh)")
+    out.append("			return &kLayouts[i];")
+    out.append("	return nullptr;")
+    out.append("}")
+    out.append("} } }")
+    return NL.join(out) + NL
+
 def emit_family_h(doc, rel, ns, prefix):
     """Generic F21-family emitter: one rect member per declared part."""
     layouts = doc["layouts"]
@@ -841,8 +895,12 @@ def main(argv):
             (os.path.join(web, "f33-abandon.js"), f33_js),
         ]
     for doc, rel, ns, prefix, gname in f21_docs:
-        outputs.append((os.path.join(GENERATED_DIR, prefix + ".generated.h"),
-                        emit_family_h(doc, rel, ns, prefix)))
+        if rel in F21_SMALL_CONFIRMATION_CONTRACTS:
+            outputs.append((os.path.join(GENERATED_DIR, prefix + ".generated.h"),
+                            emit_small_confirmation_h(doc, rel, ns, prefix)))
+        else:
+            outputs.append((os.path.join(GENERATED_DIR, prefix + ".generated.h"),
+                            emit_family_h(doc, rel, ns, prefix)))
         if web is not None:
             outputs.append((os.path.join(web, rel.replace(".json", ".js")),
                             emit_js(rel, doc, gname)))

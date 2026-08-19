@@ -3,26 +3,24 @@
   "id": "f21-defense",
   "familyId": 21,
   "version": "hd.2026-08-18.17",
-  "archetype": "command-card-v1",
-  "copy": {
-    "protocol": "CALYPSO COMMAND · DEFENSE DOSSIER DF-21 · REV. 1.0.21 · EFFECTIVE 15.07.2061",
-    "title": "BASE UNDER ATTACK · ATLANTIS POST",
-    "defenses": "DEFENSES · 4",
-    "ammo": "AMMUNITION · 24",
-    "hitRatio": "HIT RATIO · 62%",
-    "phase": "PHASE · AWAITING FIRE ORDER",
-    "result": "DEFENSE LOG · LIVE FIRE REPORT FOLLOWS",
-    "start": "START FIRING",
-    "skip": "SKIP TO ASSAULT",
-    "ok": "CONTINUE"
+  "archetype": "small-confirmation",
+  "protocol": {
+    "authority": "CALYPSO COMMAND",
+    "record": "DEFENSE DOSSIER",
+    "code": "DF-21",
+    "revision": "1.0.21",
+    "effectiveDate": "15.07.2061"
   },
-  "blocks": [
-    {
-      "id": "defense-readout",
-      "kind": "table",
-      "parts": ["defenses", "ammo", "hitRatio", "phase"],
-      "rows": [["defenses", "ammo"], ["hitRatio", "phase"]],
-      "append": ["result"]
-    }
-  ]
+  "title": "BASE UNDER ATTACK",
+  "body": [
+    "DEFENSE LOG · LIVE FIRE REPORT FOLLOWS",
+    "PHASE · AWAITING FIRE ORDER"
+  ],
+  "icon": { "kind": "warning", "glyph": "!", "tone": "warning" },
+  "buttons": [
+    { "id": "skip", "label": "SKIP TO ASSAULT", "tone": "safe", "action": "skip" },
+    { "id": "start", "label": "START FIRING", "tone": "primary", "action": "start" },
+    { "id": "ok", "label": "CONTINUE", "tone": "safe", "action": "confirm" }
+  ],
+  "table": "| DEFENSES · 4 | AMMUNITION · 24 |\n| --- | --- |\n| HIT RATIO · 62% | READY |"
 }
