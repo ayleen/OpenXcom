@@ -177,7 +177,7 @@ void CalypsoF21NameUi::collect(CalypsoHdFrameBuilder& builder) const
 		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_NAME, 0.0,
 		wide ? CalypsoHdThemeGen::kF21InputWidePx : CalypsoHdThemeGen::kF21InputCompactPx);
 	p.text(_state->_hdHint, body, _state->_hdHint->getText(), kF21MutedBodyRgba,
-		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 2, ROLE_HINT, 0.0,
+		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_HINT, 0.0,
 		wide ? CalypsoHdThemeGen::kF21BodyWidePx : CalypsoHdThemeGen::kF21BodyCompactPx);
 }
 
