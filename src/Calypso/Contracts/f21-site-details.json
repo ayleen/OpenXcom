@@ -61,10 +61,10 @@
         322
       ],
       "columnWidths": [
-        244,
-        350
+        248,
+        354
       ],
-      "cellPaddingX": 14,
+      "cellPaddingX": 16,
       "cellPaddingY": 8,
       "guardedLineHeight": 22,
       "rowHeights": [
@@ -92,10 +92,10 @@
         282
       ],
       "columnWidths": [
-        217,
-        310
+        221,
+        314
       ],
-      "cellPaddingX": 14,
+      "cellPaddingX": 16,
       "cellPaddingY": 8,
       "guardedLineHeight": 18,
       "rowHeights": [
@@ -118,92 +118,92 @@
   },
   "layouts": {
     "wide": {
-      "designWidth": 595,
+      "designWidth": 603,
       "designHeight": 77,
       "window": {
         "x": 0,
         "y": 0,
-        "width": 595,
+        "width": 603,
         "height": 77
       },
       "columnDivider1": {
-        "x": 244,
+        "x": 248,
         "y": 8,
         "width": 1,
         "height": 61
       },
       "cellR1C1": {
-        "x": 14,
+        "x": 16,
         "y": 8,
         "width": 216,
         "height": 22
       },
       "cellR1C2": {
-        "x": 259,
+        "x": 265,
         "y": 8,
         "width": 322,
         "height": 22
       },
       "rowDivider1": {
-        "x": 14,
+        "x": 16,
         "y": 38,
-        "width": 567,
+        "width": 571,
         "height": 1
       },
       "cellR2C1": {
-        "x": 14,
+        "x": 16,
         "y": 47,
         "width": 216,
         "height": 22
       },
       "cellR2C2": {
-        "x": 259,
+        "x": 265,
         "y": 47,
         "width": 322,
         "height": 22
       }
     },
     "compact": {
-      "designWidth": 528,
+      "designWidth": 536,
       "designHeight": 69,
       "window": {
         "x": 0,
         "y": 0,
-        "width": 528,
+        "width": 536,
         "height": 69
       },
       "columnDivider1": {
-        "x": 217,
+        "x": 221,
         "y": 8,
         "width": 1,
         "height": 53
       },
       "cellR1C1": {
-        "x": 14,
+        "x": 16,
         "y": 8,
         "width": 189,
         "height": 18
       },
       "cellR1C2": {
-        "x": 232,
+        "x": 238,
         "y": 8,
         "width": 282,
         "height": 18
       },
       "rowDivider1": {
-        "x": 14,
+        "x": 16,
         "y": 34,
-        "width": 500,
+        "width": 504,
         "height": 1
       },
       "cellR2C1": {
-        "x": 14,
+        "x": 16,
         "y": 43,
         "width": 189,
         "height": 18
       },
       "cellR2C2": {
-        "x": 232,
+        "x": 238,
         "y": 43,
         "width": 282,
         "height": 18
