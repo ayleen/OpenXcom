@@ -29,6 +29,8 @@
 #include <algorithm>
 #include <cstdint>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "../Engine/Game.h"
 #include "../Engine/Language.h"
@@ -161,8 +163,6 @@ void CalypsoF21DestructionUi::collect(CalypsoHdFrameBuilder& builder) const
 	// Table grid inside message band (Abandon shell): 4 rows x 2 cols
 	p.decoration(p.project(designLayout.columnDivider1), kF21DividerRgba, ROLE_DECORATION);
 	p.decoration(p.project(designLayout.rowDivider1), kF21DividerRgba, ROLE_DECORATION);
-	p.decoration(p.project(designLayout.rowDivider2), kF21DividerRgba, ROLE_DECORATION);
-	p.decoration(p.project(designLayout.rowDivider3), kF21DividerRgba, ROLE_DECORATION);
 
 	p.text(_state->_hdTitle, heading, _state->_hdTitle->getText(), CalypsoHdTheme::kNearWhite,
 		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_TITLE,
@@ -176,32 +176,35 @@ void CalypsoF21DestructionUi::collect(CalypsoHdFrameBuilder& builder) const
 	// Body lines are inside message's top area; engine keeps them as _txtMessage/_hdWarning mono
 	p.textRect(p.project(designLayout.cellR1C1), _state->_lstDestroyedFacilities, mono, std::string("FACILITY"), CalypsoHdThemeGen::kAccent, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_SUBTITLE, 0.0, dataPx);
 	p.textRect(p.project(designLayout.cellR1C2), _state->_lstDestroyedFacilities, mono, std::string("COUNT"), CalypsoHdThemeGen::kAccent, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_SUBTITLE, 0.0, dataPx);
-	// Data rows from live list snapshot or contract fallback
+	// Data rows come exclusively from the live list. The native full-destruction
+	// path intentionally hides this list, so visibility is not a data-validity
+	// check. Render every row in the available generated table band; never
+	// fabricate facilities and never silently truncate the live snapshot.
 	{
 		const auto* lst = _state->_lstDestroyedFacilities;
-		if (lst && lst->getVisible() && !lst->getCellTextsSnapshot().empty())
+		if (lst)
 		{
-			const auto& rows = lst->getCellTextsSnapshot();
-			size_t r = 0;
-			for (; r < rows.size() && r < 3; ++r)
+			std::vector<std::pair<std::string, std::string>> rows;
+			for (const auto& row : lst->getCellTextsSnapshot())
 			{
-				std::string fac = rows[r].size()>0 && rows[r][0] ? rows[r][0]->getText() : std::string();
-				std::string cnt = rows[r].size()>1 && rows[r][1] ? rows[r][1]->getText() : std::string();
-				if (fac.empty() && cnt.empty()) continue;
-				const auto cell1 = r==0 ? designLayout.cellR2C1 : (r==1 ? designLayout.cellR3C1 : designLayout.cellR4C1);
-				const auto cell2 = r==0 ? designLayout.cellR2C2 : (r==1 ? designLayout.cellR3C2 : designLayout.cellR4C2);
-				p.textRect(p.project(cell1), lst, mono, fac, CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_LIST, 0.0, dataPx);
-				p.textRect(p.project(cell2), lst, mono, cnt, CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_LIST, 0.0, dataPx);
+				std::string fac = row.size() > 0 && row[0] ? row[0]->getText() : std::string();
+				std::string cnt = row.size() > 1 && row[1] ? row[1]->getText() : std::string();
+				if (!fac.empty() || !cnt.empty()) rows.emplace_back(std::move(fac), std::move(cnt));
 			}
-		}
-		else
-		{
-			p.textRect(p.project(designLayout.cellR2C1), _state->_lstDestroyedFacilities, mono, std::string("SONAR ARRAY"), CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_LIST, 0.0, dataPx);
-			p.textRect(p.project(designLayout.cellR2C2), _state->_lstDestroyedFacilities, mono, std::string("1"), CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_LIST, 0.0, dataPx);
-			p.textRect(p.project(designLayout.cellR3C1), _state->_lstDestroyedFacilities, mono, std::string("LIVING QUARTERS"), CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_LIST, 0.0, dataPx);
-			p.textRect(p.project(designLayout.cellR3C2), _state->_lstDestroyedFacilities, mono, std::string("1"), CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_LIST, 0.0, dataPx);
-			p.textRect(p.project(designLayout.cellR4C1), _state->_lstDestroyedFacilities, mono, std::string("GENERAL STORES"), CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_LIST, 0.0, dataPx);
-			p.textRect(p.project(designLayout.cellR4C2), _state->_lstDestroyedFacilities, mono, std::string("1"), CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_LIST, 0.0, dataPx);
+			const int dataTop = designLayout.rowDivider1.y + 1;
+			const int dataBottom = designLayout.footer.y - 8;
+			const int rowHeight = rows.empty() ? 1 : std::max(1, (dataBottom - dataTop) / (int)rows.size());
+			const double rowPx = rows.empty() ? dataPx : std::max(6.0, std::min(dataPx, rowHeight * 0.74));
+			for (size_t r = 0; r < rows.size(); ++r)
+			{
+				const int y = dataTop + (int)r * rowHeight;
+				const CalypsoF21Rect cell1{ designLayout.cellR2C1.x, y, designLayout.cellR2C1.width, rowHeight };
+				const CalypsoF21Rect cell2{ designLayout.cellR2C2.x, y, designLayout.cellR2C2.width, rowHeight };
+				p.textRect(p.project(cell1), lst, mono, rows[r].first, CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_LIST, 0.0, rowPx);
+				p.textRect(p.project(cell2), lst, mono, rows[r].second, CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_LIST, 0.0, rowPx);
+				if (r + 1 < rows.size())
+					p.decoration(p.project(CalypsoF21Rect{ designLayout.cellR2C1.x, y + rowHeight, designLayout.cellR2C1.width + designLayout.cellR2C2.width, 1 }), kF21DividerRgba, ROLE_DECORATION);
+			}
 		}
 	}
 

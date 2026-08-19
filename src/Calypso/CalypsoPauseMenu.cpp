@@ -15,7 +15,7 @@ namespace OpenXcom
 namespace Calypso
 {
 
-void pauseMenuDomShow(
+bool pauseMenuDomShow(
 	int origin,
 	bool showLoad, bool showSave, bool showAbandon, bool showOptions, bool showCancel,
 	const std::string &title,
@@ -23,8 +23,10 @@ void pauseMenuDomShow(
 	const std::string &abandonLabel, const std::string &optionsLabel,
 	const std::string &cancelLabel)
 {
-	EM_ASM_({
-		if (globalThis.__calypsoPauseShow)
+	return EM_ASM_INT({
+		if (!globalThis.__calypsoPauseShow)
+			return 0;
+		try {
 			globalThis.__calypsoPauseShow({
 				origin: $0,
 				buttons: {
@@ -36,6 +38,10 @@ void pauseMenuDomShow(
 				},
 				title: UTF8ToString($11)
 			});
+			return 1;
+		} catch (_) {
+			return 0;
+		}
 	}, origin,
 	   showLoad ? 1 : 0, showSave ? 1 : 0, showAbandon ? 1 : 0,
 	   showOptions ? 1 : 0, showCancel ? 1 : 0,
@@ -53,7 +59,7 @@ void pauseMenuDomHide()
 
 void CalypsoPauseMenu::configure(PauseState& state)
 {
-	// Capture the native widget presentation once. The DOM overlay hides these
+	// Capture the native widget presentation once. The DOM overlay mirrors these
 	// widgets; rereading their visibility after Abandon is cancelled would turn
 	// every action off on the next think() pass.
 	if (!state._calypsoPresentationCaptured)
@@ -72,7 +78,7 @@ void CalypsoPauseMenu::configure(PauseState& state)
 	}
 	// Friend access to the state's immutable presentation snapshot (no event
 	// ownership): same data the native widget layout would have drawn.
-	pauseMenuDomShow(
+	const bool domPresented = pauseMenuDomShow(
 		(int)state._origin,
 		state._calypsoShowLoad, state._calypsoShowSave,
 		state._calypsoShowAbandon, state._calypsoShowOptions,
@@ -81,14 +87,13 @@ void CalypsoPauseMenu::configure(PauseState& state)
 		state._calypsoLoadLabel, state._calypsoSaveLabel,
 		state._calypsoAbandonLabel, state._calypsoOptionsLabel,
 		state._calypsoCancelLabel);
-	state._window->setVisible(false);
-	state._btnLoad->setVisible(false);
-	state._btnSave->setVisible(false);
-	state._btnAbandon->setVisible(false);
-	state._btnOptions->setVisible(false);
-	state._btnCancel->setVisible(false);
-	state._txtTitle->setVisible(false);
-	state._txtVersion->setVisible(false);
+	if (!domPresented)
+		return;
+
+	// Keep the native surfaces visible. The DOM card is above the canvas, so
+	// they remain visually covered while InteractiveSurface keeps receiving
+	// Options::keyCancel/keyGeoOptions/keyBattleOptions. This is also the
+	// fallback if the host hook disappears after a previous frame.
 }
 
 void CalypsoPauseMenu::think(PauseState& state, Game& game)

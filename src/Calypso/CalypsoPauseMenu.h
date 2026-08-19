@@ -26,7 +26,8 @@ namespace Calypso
 {
 
 /// Push the pause-menu DOM overlay with the computed labels and visibility.
-void pauseMenuDomShow(
+/// Returns false when the host has not installed the DOM hook.
+bool pauseMenuDomShow(
 	int origin,
 	bool showLoad, bool showSave, bool showAbandon, bool showOptions, bool showCancel,
 	const std::string &title,
@@ -44,8 +45,9 @@ void pauseMenuDomHide();
 class CalypsoPauseMenu
 {
 public:
-	/// PauseState constructor hook: hide the bitmap widgets and raise the DOM
-	/// overlay with the current labels/visibility. Body lives here, not in
+	/// PauseState constructor hook: raise the DOM overlay with the current
+	/// labels/visibility. Native widgets remain alive for engine keyboard
+	/// ownership and fallback. Body lives here, not in
 	/// PauseState.cpp (placement policy R3).
 	static void configure(PauseState& state);
 

@@ -43,6 +43,7 @@
 #include "../Interface/Window.h"
 #include "../Menu/AbandonGameState.h"
 #include "../Mod/Mod.h"
+#include "../Savegame/SavedGame.h"
 
 #include "CalypsoF33AbandonLayout.h"
 #include "CalypsoHdFontSource.h"
@@ -491,6 +492,7 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 		const CalypsoLogicalRect r = widgetRect(_state->_hdMessage);
 		if (r.w > 0 && r.h > 0)
 		{
+			const std::string message = _state->_hdMessage->getText();
 			const double bodySizeScale = wide
 				? CalypsoHdTheme::kBodyFontSizeScaleWide
 				: CalypsoHdTheme::kBodyFontSizeScaleCompact;
@@ -514,12 +516,13 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 			CalypsoHdTextRasterKey key;
 			key.source = body;
 			key.physicalPixelHeight = physicalPixelHeight;
-			key.text = _state->_hdMessage->getText();
+			key.text = message;
 			key.wrapWidth = wrapWidth;
-			const double designLineHeight =
+			const double authoredLineHeight =
 				(double)CalypsoHdTheme::kBodyFontSizePx * bodySizeScale
 					* CalypsoHdTheme::kBodyLineHeight
 					* bodyProjectionLineHeightScale;
+			const double designLineHeight = authoredLineHeight;
 			key.lineHeightPx = std::max(1,
 				(int)calypsoHdRoundToInt(designLineHeight));
 			key.lineHeightMilliPx = std::max(1,
@@ -538,7 +541,12 @@ void CalypsoAbandonPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 			it.colorRgba = CalypsoHdTheme::kNearWhite;
 			it.rasterKey = key;
 			it.textScaleX = (float)projectionScaleX;
-			it.textScaleY = (float)projectionScaleY;
+			// At enlarged Compact projections the generated box is two physical
+			// pixels shorter than the guarded raster envelope. Preserve the authored
+			// line-height and apply the minimal projection-only fit to the composed
+			// texture; normal-size and Wide layouts remain at 1:1.
+			const double projectionFitY = wide ? 1.0 : 0.98;
+			it.textScaleY = (float)(projectionScaleY * projectionFitY);
 			it.hAlign = CalypsoHdHAlign::Left;
 			it.vAlign = CalypsoHdVAlign::Top;
 			it.opacity = opacity;
@@ -589,11 +597,17 @@ void CalypsoAbandonPopupUi::configure(AbandonGameState& state, bool allowPhysica
 	// one-time constructor mutation; reconfigure can toggle it at fixed class.
 	CalypsoF33AbandonLayout layout = currentF33PresentationLayout(state._hdWideLayout);
 
-	// The approved presentation uses descriptive action labels while preserving
-	// the original YES/NO widget handlers and input ownership.
-	state._txtTitle->setText(CalypsoF33AbandonGen::kTitle);
-	state._btnYes->setText(CalypsoF33AbandonGen::kDestructiveAction);
-	state._btnNo->setText(CalypsoF33AbandonGen::kSafeAction);
+	const bool ironman = state._game->getSavedGame() && state._game->getSavedGame()->isIronman();
+	const bool english = Options::language == "en-US" || Options::language == "en-GB" || Options::language == "en";
+	// The accepted visual contract is English. For every other LTR locale keep
+	// the semantic strings supplied by AbandonGameState; they are already
+	// localized and the same handlers retain the engine's keyboard ownership.
+	if (english && !ironman)
+	{
+		state._txtTitle->setText(CalypsoF33AbandonGen::kTitle);
+		state._btnYes->setText(CalypsoF33AbandonGen::kDestructiveAction);
+		state._btnNo->setText(CalypsoF33AbandonGen::kSafeAction);
+	}
 
 	state._hdProtocol = new Text(1, 1, 0, 0);
 	state.add(state._hdProtocol);
@@ -603,8 +617,10 @@ void CalypsoAbandonPopupUi::configure(AbandonGameState& state, bool allowPhysica
 	state._hdProtocol->setVerticalAlign(ALIGN_MIDDLE);
 	state._hdProtocol->setText(CalypsoF33AbandonGen::kProtocol);
 
-	// Data-loss copy: an HD-only widget (the vanilla dialog has no message
-	// band); absent on the logical fallback, exactly like the F34 badge.
+	// Semantic copy is localized input, not contract fixture text. Ironman first
+	// enters SaveGameState(SAVE_IRONMAN_END), so it must not claim that progress
+	// is discarded without saving. The HD-only widget is absent on logical
+	// fallback, exactly like the F34 badge.
 	state._hdMessage = new Text(1, 1, 0, 0);
 	state.add(state._hdMessage);
 	state._hdMessage->setSmall();
@@ -612,8 +628,20 @@ void CalypsoAbandonPopupUi::configure(AbandonGameState& state, bool allowPhysica
 	state._hdMessage->setAlign(ALIGN_LEFT);
 	state._hdMessage->setVerticalAlign(ALIGN_TOP);
 	state._hdMessage->setWordWrap(true);
-	state._hdMessage->setText(std::string(CalypsoF33AbandonGen::kMessageLine1)
-		+ "\n" + CalypsoF33AbandonGen::kMessageLine2);
+	if (ironman)
+	{
+		state._hdMessage->setText(state._btnYes->getText() + "\n" +
+			std::string(state.tr("STR_IRONMAN")));
+	}
+	else if (english)
+	{
+		state._hdMessage->setText(std::string(CalypsoF33AbandonGen::kMessageLine1)
+			+ "\n" + CalypsoF33AbandonGen::kMessageLine2);
+	}
+	else
+	{
+		state._hdMessage->setText(std::string(state.tr("STR_ABANDON_GAME")));
+	}
 
 	CalypsoAbandonPopupUi::applyRects(state, layout);
 

@@ -221,8 +221,8 @@ void CalypsoF21TransactionUi::collect(CalypsoHdFrameBuilder& builder) const
 	p.textRect(p.project(designLayout.cellR1C2), _state->_hdCoords, mono, _state->_hdCoords->getText(), CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_COORDS, 0.0, dataPx);
 	p.textRect(p.project(designLayout.cellR2C1), _state->_txtArea, mono, _state->_txtArea->getText(), CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_REGION, 0.0, dataPx);
 	p.textRect(p.project(designLayout.cellR2C2), _state->_txtCost, mono, _state->_txtCost->getText(), CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_COST, 0.0, dataPx);
-	// Row 3: South Atlantic / cost overflow rendered via already-positioned _hdAfter widget? Keep funds-after separate below table
-	p.textRect(p.project(designLayout.cellR3C1), _state->_hdSlot, mono, std::string("South Atlantic"), CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_SLOT, 0.0, dataPx);
+	// Row 3 repeats the resolved region, never a harness fixture.
+	p.textRect(p.project(designLayout.cellR3C1), _state->_txtArea, mono, _state->_txtArea ? _state->_txtArea->getText() : std::string(), CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_REGION, 0.0, dataPx);
 	p.textRect(p.project(designLayout.cellR3C2), _state->_hdAfter, mono, _state->_hdAfter ? _state->_hdAfter->getText() : std::string(), CalypsoHdThemeGen::kAccent, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_AFTER, 0.0, dataPx);
 	if (_state->_hdAfter)
 	{

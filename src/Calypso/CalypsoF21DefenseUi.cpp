@@ -29,6 +29,7 @@
 #include <cstdint>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include "../Engine/Game.h"
 #include "../Engine/Language.h"
@@ -168,10 +169,42 @@ void CalypsoF21DefenseUi::collect(CalypsoHdFrameBuilder& builder) const
 	p.textRect(warningRect, nullptr, heading, "!", CalypsoHdThemeGen::kGold,
 		CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, ROLE_DECORATION, 0.0,
 		wide ? 17.0 : 15.0);
-	p.textRect(p.project(designLayout.cellR1C1), _state->_hdDefenses, mono, _state->_hdDefenses ? _state->_hdDefenses->getText() : std::string(), CalypsoHdThemeGen::kAccent, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_DEFENSES, 0.0, dataPx);
-	p.textRect(p.project(designLayout.cellR1C2), _state->_hdAmmo, mono, _state->_hdAmmo ? _state->_hdAmmo->getText() : std::string(), CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_AMMO, 0.0, dataPx);
-	p.textRect(p.project(designLayout.cellR2C1), _state->_txtInit, mono, _state->_txtInit ? _state->_txtInit->getText() : std::string(), CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_RATIO, 0.0, dataPx);
-	p.textRect(p.project(designLayout.cellR2C2), _state->_hdPhase, mono, _state->_hdPhase ? _state->_hdPhase->getText() : std::string(), CalypsoHdThemeGen::kGold, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_PHASE, 0.0, dataPx);
+	// The native TextList is the authoritative event stream. Render its full
+	// snapshot in the generated message band so FIRING/HIT/MISSED/NO AMMO,
+	// shield and destruction events remain visible on the physical route.
+	std::vector<std::string> logLines;
+	{
+		std::ostringstream header;
+		header << "DEFENSES " << _state->_defenses << " · GRAV SHIELDS " << _state->_gravShields;
+		logLines.push_back(header.str());
+		if (_state->_txtInit && !_state->_txtInit->getText().empty())
+			logLines.push_back(_state->_txtInit->getText());
+		if (_state->_lstDefenses)
+		{
+			for (const auto& row : _state->_lstDefenses->getCellTextsSnapshot())
+			{
+				std::string line;
+				for (const auto* cell : row)
+				{
+					if (!cell || cell->getText().empty()) continue;
+					if (!line.empty()) line += " · ";
+					line += cell->getText();
+				}
+				if (!line.empty()) logLines.push_back(line);
+			}
+		}
+	}
+	std::string logText;
+	for (const auto& line : logLines)
+	{
+		if (!logText.empty()) logText += "\n";
+		logText += line;
+	}
+	const double logPx = std::max(6.0, std::min(dataPx,
+		(double)designLayout.message.height / std::max<size_t>(1, logLines.size()) * 0.82));
+	p.textRect(p.project(designLayout.message), _state->_lstDefenses, mono, logText,
+		CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Left, CalypsoHdVAlign::Top,
+		(int)logLines.size(), ROLE_RESULT, 0.0, logPx);
 
 	if (_state->_btnAbort && _state->_btnAbort->getVisible())
 	{
@@ -210,18 +243,11 @@ void CalypsoF21DefenseUi::applyRects(BaseDefenseState& state, const CalypsoF21De
 	applyRect(state._hdAmmo, layout.cellR1C2);
 	applyRect(state._txtInit, layout.cellR2C1);
 	applyRect(state._hdPhase, layout.cellR2C2);
-	// The generated contract owns a right-aligned three-button rail. Native
-	// BaseDefenseState hides one or more actions during the fixture lifecycle;
-	// pack only visible controls into the rightmost slots so hidden actions do
-	// not leave a visual hole on the left.
-	CalypsoF21Rect slots[3] = { layout.skip, layout.start, layout.ok };
-	TextButton* visible[3] = { nullptr, nullptr, nullptr };
-	int visibleCount = 0;
-	if (state._btnAbort && state._btnAbort->getVisible()) visible[visibleCount++] = state._btnAbort;
-	if (state._btnStart && state._btnStart->getVisible()) visible[visibleCount++] = state._btnStart;
-	if (state._btnOk && state._btnOk->getVisible()) visible[visibleCount++] = state._btnOk;
-	const int firstSlot = 3 - visibleCount;
-	for (int i = 0; i < visibleCount; ++i) applyRect(visible[i], slots[firstSlot + i]);
+	// The generated contract owns fixed action slots. Visibility changes during
+	// BDA_END must not change geometry or leave the final OK at stale coordinates.
+	applyRect(state._btnAbort, layout.skip);
+	applyRect(state._btnStart, layout.start);
+	applyRect(state._btnOk, layout.ok);
 }
 
 
@@ -267,9 +293,9 @@ void CalypsoF21DefenseUi::configure(BaseDefenseState& state, bool allowPhysicalO
 	// the routed surviving attacker still enters the base assault).
 	state._btnAbort->setText(state.tr("STR_CAL_F21_SKIP_TO_ASSAULT"));
 
-	// The legacy UFO preview bitmap and the vanilla TextList do not belong to the HD composition.
+	// The legacy UFO preview bitmap does not belong to the HD composition. The
+	// TextList remains the live data source for the physical event stream.
 	if (state._preview) state._preview->setVisible(false);
-	if (state._lstDefenses) state._lstDefenses->setVisible(false);
 
 	CalypsoF21DefenseUi::applyRects(state, layout);
 	state.recaptureUiScaling(layout.designWidth, layout.designHeight, 1.0f,
