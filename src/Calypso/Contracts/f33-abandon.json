@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "hd.2026-08-18.17",
+  "version": "hd.2026-08-19.18",
   "form": {
     "id": "f33-abandon",
     "familyId": 33,
@@ -70,7 +70,7 @@
         "x": 350,
         "y": 230,
         "width": 580,
-        "height": 260
+        "height": 236
       },
       "status": {
         "x": 350,
@@ -80,51 +80,51 @@
       },
       "warning": {
         "x": 382,
-        "y": 306,
+        "y": 290,
         "width": 32,
         "height": 32
       },
       "title": {
         "x": 430,
-        "y": 300,
+        "y": 284,
         "width": 450,
         "height": 44
       },
       "message": {
         "x": 382,
-        "y": 360,
+        "y": 336,
         "width": 516,
         "height": 54
       },
       "footer": {
         "x": 350,
-        "y": 428,
+        "y": 404,
         "width": 580,
         "height": 62
       },
       "buttons": {
         "cancel": {
           "x": 572,
-          "y": 437,
+          "y": 413,
           "width": 158,
           "height": 44
         },
         "confirm": {
           "x": 740,
-          "y": 437,
+          "y": 413,
           "width": 158,
           "height": 44
         }
       },
       "no": {
         "x": 572,
-        "y": 437,
+        "y": 413,
         "width": 158,
         "height": 44
       },
       "yes": {
         "x": 740,
-        "y": 437,
+        "y": 413,
         "width": 158,
         "height": 44
       }
@@ -136,7 +136,7 @@
         "x": 70,
         "y": 60,
         "width": 600,
-        "height": 240
+        "height": 221
       },
       "status": {
         "x": 70,
@@ -146,51 +146,51 @@
       },
       "warning": {
         "x": 98,
-        "y": 125,
+        "y": 111,
         "width": 28,
         "height": 28
       },
       "title": {
         "x": 140,
-        "y": 118,
+        "y": 106,
         "width": 470,
         "height": 38
       },
       "message": {
         "x": 98,
-        "y": 169,
+        "y": 150,
         "width": 500,
         "height": 48
       },
       "footer": {
         "x": 70,
-        "y": 234,
+        "y": 215,
         "width": 600,
         "height": 66
       },
       "buttons": {
         "cancel": {
           "x": 290,
-          "y": 244,
+          "y": 225,
           "width": 148,
           "height": 44
         },
         "confirm": {
           "x": 450,
-          "y": 244,
+          "y": 225,
           "width": 148,
           "height": 44
         }
       },
       "no": {
         "x": 290,
-        "y": 244,
+        "y": 225,
         "width": 148,
         "height": 44
       },
       "yes": {
         "x": 450,
-        "y": 244,
+        "y": 225,
         "width": 148,
         "height": 44
       }

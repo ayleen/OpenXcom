@@ -4,7 +4,7 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF21TransactionGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-18.17";
+inline constexpr const char* kContractVersion = "hd.2026-08-19.18";
 inline constexpr const char* kFormId = "f21-transaction";
 inline constexpr int kFamilyId = 21;
 inline constexpr const char* kArchetype = "small-confirmation";
@@ -43,13 +43,13 @@ struct CalypsoF21TransactionGenLayout { int designWidth; int designHeight; Calyp
     CalypsoF21TransactionGenRect rowDivider2;
 };
 inline constexpr CalypsoF21TransactionGenLayout kLayouts[] = {
-    { 1280, 720, { 350, 230, 580, 400 }, { 350, 230, 580, 38 }, { 382, 306, 32, 32 }, { 430, 300, 450, 44 }, { 382, 360, 516, 194 }, { 350, 568, 580, 62 }, { 398, 368, 90, 22 }, { 505, 368, 104, 22 }, { 398, 407, 90, 22 }, { 505, 407, 104, 22 }, { 398, 446, 90, 22 }, { 505, 446, 104, 22 }, { 496, 360, 1, 116 }, { 382, 490, 516, 38 }, { 382, 536, 516, 18 }, { 390, 398, 227, 1 }, { 390, 437, 227, 1 } }, // wide
-    { 740, 436, { 70, 60, 600, 366 }, { 70, 60, 600, 34 }, { 98, 125, 28, 28 }, { 140, 118, 470, 38 }, { 98, 169, 500, 174 }, { 70, 360, 600, 66 }, { 114, 177, 79, 18 }, { 210, 177, 91, 18 }, { 114, 212, 79, 18 }, { 210, 212, 91, 18 }, { 114, 247, 79, 18 }, { 210, 247, 91, 18 }, { 201, 169, 1, 104 }, { 98, 287, 500, 32 }, { 98, 327, 500, 16 }, { 106, 203, 203, 1 }, { 106, 238, 203, 1 } }, // compact
+    { 1280, 720, { 350, 230, 580, 376 }, { 350, 230, 580, 38 }, { 382, 290, 32, 32 }, { 430, 284, 450, 44 }, { 382, 336, 516, 194 }, { 350, 544, 580, 62 }, { 398, 344, 90, 22 }, { 505, 344, 104, 22 }, { 398, 383, 90, 22 }, { 505, 383, 104, 22 }, { 398, 422, 90, 22 }, { 505, 422, 104, 22 }, { 496, 336, 1, 116 }, { 382, 466, 516, 38 }, { 382, 512, 516, 18 }, { 390, 374, 227, 1 }, { 390, 413, 227, 1 } }, // wide
+    { 740, 417, { 70, 60, 600, 347 }, { 70, 60, 600, 34 }, { 98, 111, 28, 28 }, { 140, 106, 470, 38 }, { 98, 150, 500, 174 }, { 70, 341, 600, 66 }, { 114, 158, 79, 18 }, { 210, 158, 91, 18 }, { 114, 193, 79, 18 }, { 210, 193, 91, 18 }, { 114, 228, 79, 18 }, { 210, 228, 91, 18 }, { 201, 150, 1, 104 }, { 98, 268, 500, 32 }, { 98, 308, 500, 16 }, { 106, 184, 203, 1 }, { 106, 219, 203, 1 } }, // compact
 };
 struct CalypsoF21TransactionGenButtonRect { const char* id; CalypsoF21TransactionGenRect rect; };
 inline constexpr CalypsoF21TransactionGenButtonRect kButtonRects[][ 2 ] = {
-    { { "cancel", { 572, 577, 158, 44 } }, { "create", { 740, 577, 158, 44 } } }, // wide
-    { { "cancel", { 290, 370, 148, 44 } }, { "create", { 450, 370, 148, 44 } } }, // compact
+    { { "cancel", { 572, 553, 158, 44 } }, { "create", { 740, 553, 158, 44 } } }, // wide
+    { { "cancel", { 290, 351, 148, 44 } }, { "create", { 450, 351, 148, 44 } } }, // compact
 };
 inline constexpr int kLayoutCount = 2;
 inline constexpr int kMotionDurationMs = 200;

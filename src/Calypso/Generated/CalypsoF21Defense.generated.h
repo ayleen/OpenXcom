@@ -4,7 +4,7 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF21DefenseGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-18.17";
+inline constexpr const char* kContractVersion = "hd.2026-08-19.18";
 inline constexpr const char* kFormId = "f21-defense";
 inline constexpr int kFamilyId = 21;
 inline constexpr const char* kArchetype = "small-confirmation";
@@ -39,13 +39,13 @@ struct CalypsoF21DefenseGenLayout { int designWidth; int designHeight; CalypsoF2
     CalypsoF21DefenseGenRect rowDivider1;
 };
 inline constexpr CalypsoF21DefenseGenLayout kLayouts[] = {
-    { 1280, 720, { 350, 230, 580, 283 }, { 350, 230, 580, 38 }, { 382, 306, 32, 32 }, { 430, 300, 450, 44 }, { 382, 360, 516, 77 }, { 350, 451, 580, 62 }, { 398, 368, 120, 22 }, { 535, 368, 120, 22 }, { 398, 407, 120, 22 }, { 535, 407, 120, 22 }, { 526, 360, 1, 77 }, { 390, 398, 273, 1 } }, // wide
-    { 740, 360, { 70, 60, 600, 261 }, { 70, 60, 600, 34 }, { 98, 125, 28, 28 }, { 140, 118, 470, 38 }, { 98, 169, 500, 69 }, { 70, 255, 600, 66 }, { 114, 177, 105, 18 }, { 236, 177, 105, 18 }, { 114, 212, 105, 18 }, { 236, 212, 105, 18 }, { 227, 169, 1, 69 }, { 106, 203, 243, 1 } }, // compact
+    { 1280, 720, { 350, 230, 580, 259 }, { 350, 230, 580, 38 }, { 382, 290, 32, 32 }, { 430, 284, 450, 44 }, { 382, 336, 516, 77 }, { 350, 427, 580, 62 }, { 398, 344, 120, 22 }, { 535, 344, 120, 22 }, { 398, 383, 120, 22 }, { 535, 383, 120, 22 }, { 526, 336, 1, 77 }, { 390, 374, 273, 1 } }, // wide
+    { 740, 360, { 70, 60, 600, 242 }, { 70, 60, 600, 34 }, { 98, 111, 28, 28 }, { 140, 106, 470, 38 }, { 98, 150, 500, 69 }, { 70, 236, 600, 66 }, { 114, 158, 105, 18 }, { 236, 158, 105, 18 }, { 114, 193, 105, 18 }, { 236, 193, 105, 18 }, { 227, 150, 1, 69 }, { 106, 184, 243, 1 } }, // compact
 };
 struct CalypsoF21DefenseGenButtonRect { const char* id; CalypsoF21DefenseGenRect rect; };
 inline constexpr CalypsoF21DefenseGenButtonRect kButtonRects[][ 3 ] = {
-    { { "skip", { 404, 460, 158, 44 } }, { "start", { 572, 460, 158, 44 } }, { "ok", { 740, 460, 158, 44 } } }, // wide
-    { { "skip", { 130, 265, 148, 44 } }, { "start", { 290, 265, 148, 44 } }, { "ok", { 450, 265, 148, 44 } } }, // compact
+    { { "skip", { 404, 436, 158, 44 } }, { "start", { 572, 436, 158, 44 } }, { "ok", { 740, 436, 158, 44 } } }, // wide
+    { { "skip", { 130, 246, 148, 44 } }, { "start", { 290, 246, 148, 44 } }, { "ok", { 450, 246, 148, 44 } } }, // compact
 };
 inline constexpr int kLayoutCount = 2;
 inline constexpr int kMotionDurationMs = 200;

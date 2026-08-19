@@ -4,7 +4,7 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF21DestructionGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-18.17";
+inline constexpr const char* kContractVersion = "hd.2026-08-19.18";
 inline constexpr const char* kFormId = "f21-destruction";
 inline constexpr int kFamilyId = 21;
 inline constexpr const char* kArchetype = "small-confirmation";
@@ -43,13 +43,13 @@ struct CalypsoF21DestructionGenLayout { int designWidth; int designHeight; Calyp
     CalypsoF21DestructionGenRect rowDivider3;
 };
 inline constexpr CalypsoF21DestructionGenLayout kLayouts[] = {
-    { 1280, 720, { 350, 230, 580, 429 }, { 350, 230, 580, 38 }, { 382, 306, 32, 32 }, { 430, 300, 450, 44 }, { 382, 360, 516, 223 }, { 350, 597, 580, 62 }, { 398, 436, 120, 22 }, { 535, 436, 40, 22 }, { 398, 475, 120, 22 }, { 535, 475, 40, 22 }, { 398, 514, 120, 22 }, { 535, 514, 40, 22 }, { 398, 553, 120, 22 }, { 535, 553, 40, 22 }, { 526, 428, 1, 155 }, { 390, 466, 193, 1 }, { 390, 505, 193, 1 }, { 390, 544, 193, 1 } }, // wide
-    { 740, 461, { 70, 60, 600, 391 }, { 70, 60, 600, 34 }, { 98, 125, 28, 28 }, { 140, 118, 470, 38 }, { 98, 169, 500, 199 }, { 70, 385, 600, 66 }, { 114, 237, 105, 18 }, { 236, 237, 35, 18 }, { 114, 272, 105, 18 }, { 236, 272, 35, 18 }, { 114, 307, 105, 18 }, { 236, 307, 35, 18 }, { 114, 342, 105, 18 }, { 236, 342, 35, 18 }, { 227, 229, 1, 139 }, { 106, 263, 173, 1 }, { 106, 298, 173, 1 }, { 106, 333, 173, 1 } }, // compact
+    { 1280, 720, { 350, 230, 580, 405 }, { 350, 230, 580, 38 }, { 382, 290, 32, 32 }, { 430, 284, 450, 44 }, { 382, 336, 516, 223 }, { 350, 573, 580, 62 }, { 398, 412, 120, 22 }, { 535, 412, 40, 22 }, { 398, 451, 120, 22 }, { 535, 451, 40, 22 }, { 398, 490, 120, 22 }, { 535, 490, 40, 22 }, { 398, 529, 120, 22 }, { 535, 529, 40, 22 }, { 526, 404, 1, 155 }, { 390, 442, 193, 1 }, { 390, 481, 193, 1 }, { 390, 520, 193, 1 } }, // wide
+    { 740, 442, { 70, 60, 600, 372 }, { 70, 60, 600, 34 }, { 98, 111, 28, 28 }, { 140, 106, 470, 38 }, { 98, 150, 500, 199 }, { 70, 366, 600, 66 }, { 114, 218, 105, 18 }, { 236, 218, 35, 18 }, { 114, 253, 105, 18 }, { 236, 253, 35, 18 }, { 114, 288, 105, 18 }, { 236, 288, 35, 18 }, { 114, 323, 105, 18 }, { 236, 323, 35, 18 }, { 227, 210, 1, 139 }, { 106, 244, 173, 1 }, { 106, 279, 173, 1 }, { 106, 314, 173, 1 } }, // compact
 };
 struct CalypsoF21DestructionGenButtonRect { const char* id; CalypsoF21DestructionGenRect rect; };
 inline constexpr CalypsoF21DestructionGenButtonRect kButtonRects[][ 1 ] = {
-    { { "acknowledge", { 740, 606, 158, 44 } } }, // wide
-    { { "acknowledge", { 450, 395, 148, 44 } } }, // compact
+    { { "acknowledge", { 740, 582, 158, 44 } } }, // wide
+    { { "acknowledge", { 450, 376, 148, 44 } } }, // compact
 };
 inline constexpr int kLayoutCount = 2;
 inline constexpr int kMotionDurationMs = 200;

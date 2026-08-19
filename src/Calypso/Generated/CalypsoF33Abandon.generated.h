@@ -4,7 +4,7 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF33AbandonGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-18.17";
+inline constexpr const char* kContractVersion = "hd.2026-08-19.18";
 inline constexpr const char* kFormId = "f33-abandon";
 inline constexpr int kFamilyId = 33;
 inline constexpr const char* kArchetype = "small-confirmation";
@@ -73,9 +73,9 @@ struct CalypsoF33GenLayout
 inline constexpr CalypsoF33GenLayout kLayouts[] =
 {
 	// wide
-	{ 1280, 720, { 350, 230, 580, 260 }, { 350, 230, 580, 38 }, { 382, 306, 32, 32 }, { 430, 300, 450, 44 }, { 382, 360, 516, 54 }, { 350, 428, 580, 62 }, { 740, 437, 158, 44 }, { 572, 437, 158, 44 } },
+	{ 1280, 720, { 350, 230, 580, 236 }, { 350, 230, 580, 38 }, { 382, 290, 32, 32 }, { 430, 284, 450, 44 }, { 382, 336, 516, 54 }, { 350, 404, 580, 62 }, { 740, 413, 158, 44 }, { 572, 413, 158, 44 } },
 	// compact
-	{ 740, 360, { 70, 60, 600, 240 }, { 70, 60, 600, 34 }, { 98, 125, 28, 28 }, { 140, 118, 470, 38 }, { 98, 169, 500, 48 }, { 70, 234, 600, 66 }, { 450, 244, 148, 44 }, { 290, 244, 148, 44 } },
+	{ 740, 360, { 70, 60, 600, 221 }, { 70, 60, 600, 34 }, { 98, 111, 28, 28 }, { 140, 106, 470, 38 }, { 98, 150, 500, 48 }, { 70, 215, 600, 66 }, { 450, 225, 148, 44 }, { 290, 225, 148, 44 } },
 };
 inline constexpr int kLayoutCount = 2;
 

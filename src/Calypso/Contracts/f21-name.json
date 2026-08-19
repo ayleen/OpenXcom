@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "hd.2026-08-18.17",
+  "version": "hd.2026-08-19.18",
   "form": {
     "id": "f21-name",
     "familyId": 21,
@@ -60,7 +60,7 @@
         "x": 350,
         "y": 230,
         "width": 580,
-        "height": 284
+        "height": 260
       },
       "status": {
         "x": 350,
@@ -70,45 +70,45 @@
       },
       "warning": {
         "x": 382,
-        "y": 306,
+        "y": 290,
         "width": 32,
         "height": 32
       },
       "title": {
         "x": 430,
-        "y": 300,
+        "y": 284,
         "width": 450,
         "height": 44
       },
       "message": {
         "x": 382,
-        "y": 360,
+        "y": 336,
         "width": 516,
         "height": 78
       },
       "footer": {
         "x": 350,
-        "y": 452,
+        "y": 428,
         "width": 580,
         "height": 62
       },
       "buttons": {
         "ok": {
           "x": 740,
-          "y": 461,
+          "y": 437,
           "width": 158,
           "height": 44
         }
       },
       "inputHint": {
         "x": 382,
-        "y": 420,
+        "y": 396,
         "width": 516,
         "height": 18
       },
       "inputFrame": {
         "x": 382,
-        "y": 374,
+        "y": 350,
         "width": 516,
         "height": 38
       }
@@ -120,7 +120,7 @@
         "x": 70,
         "y": 60,
         "width": 600,
-        "height": 262
+        "height": 243
       },
       "status": {
         "x": 70,
@@ -130,45 +130,45 @@
       },
       "warning": {
         "x": 98,
-        "y": 125,
+        "y": 111,
         "width": 28,
         "height": 28
       },
       "title": {
         "x": 140,
-        "y": 118,
+        "y": 106,
         "width": 470,
         "height": 38
       },
       "message": {
         "x": 98,
-        "y": 169,
+        "y": 150,
         "width": 500,
         "height": 70
       },
       "footer": {
         "x": 70,
-        "y": 256,
+        "y": 237,
         "width": 600,
         "height": 66
       },
       "buttons": {
         "ok": {
           "x": 450,
-          "y": 266,
+          "y": 247,
           "width": 148,
           "height": 44
         }
       },
       "inputHint": {
         "x": 98,
-        "y": 223,
+        "y": 204,
         "width": 500,
         "height": 16
       },
       "inputFrame": {
         "x": 98,
-        "y": 183,
+        "y": 164,
         "width": 500,
         "height": 32
       }

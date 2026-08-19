@@ -30,31 +30,31 @@
     "wide": {
       "designWidth": 1280,
       "designHeight": 720,
-      "window":  { "x": 350, "y": 230, "width": 580, "height": 260 },
+      "window":  { "x": 350, "y": 230, "width": 580, "height": 236 },
       "status":  { "x": 350, "y": 230, "width": 580, "height": 38 },
-      "icon":    { "x": 382, "y": 306, "width": 32, "height": 32 },
-      "title":   { "x": 430, "y": 300, "width": 450, "height": 44 },
-      "titleWithoutIcon": { "x": 382, "y": 300, "width": 516, "height": 44 },
-      "body":    { "x": 382, "y": 360, "width": 516, "height": 54 },
-      "footer":  { "x": 350, "y": 428, "width": 580, "height": 62 },
+      "icon":    { "x": 382, "y": 290, "width": 32, "height": 32 },
+      "title":   { "x": 430, "y": 284, "width": 450, "height": 44 },
+      "titleWithoutIcon": { "x": 382, "y": 284, "width": 516, "height": 44 },
+      "body":    { "x": 382, "y": 336, "width": 516, "height": 54 },
+      "footer":  { "x": 350, "y": 404, "width": 580, "height": 62 },
       "buttonSlots": [
-        { "x": 572, "y": 437, "width": 158, "height": 44 },
-        { "x": 740, "y": 437, "width": 158, "height": 44 }
+        { "x": 572, "y": 413, "width": 158, "height": 44 },
+        { "x": 740, "y": 413, "width": 158, "height": 44 }
       ]
     },
     "compact": {
       "designWidth": 740,
       "designHeight": 360,
-      "window":  { "x": 70, "y": 60, "width": 600, "height": 240 },
+      "window":  { "x": 70, "y": 60, "width": 600, "height": 221 },
       "status":  { "x": 70, "y": 60, "width": 600, "height": 34 },
-      "icon":    { "x": 98, "y": 125, "width": 28, "height": 28 },
-      "title":   { "x": 140, "y": 118, "width": 470, "height": 38 },
-      "titleWithoutIcon": { "x": 98, "y": 118, "width": 500, "height": 38 },
-      "body":    { "x": 98, "y": 169, "width": 500, "height": 48 },
-      "footer":  { "x": 70, "y": 234, "width": 600, "height": 66 },
+      "icon":    { "x": 98, "y": 111, "width": 28, "height": 28 },
+      "title":   { "x": 140, "y": 106, "width": 470, "height": 38 },
+      "titleWithoutIcon": { "x": 98, "y": 106, "width": 500, "height": 38 },
+      "body":    { "x": 98, "y": 150, "width": 500, "height": 48 },
+      "footer":  { "x": 70, "y": 215, "width": 600, "height": 66 },
       "buttonSlots": [
-        { "x": 290, "y": 244, "width": 148, "height": 44 },
-        { "x": 450, "y": 244, "width": 148, "height": 44 }
+        { "x": 290, "y": 225, "width": 148, "height": 44 },
+        { "x": 450, "y": 225, "width": 148, "height": 44 }
       ]
     }
   },

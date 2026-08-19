@@ -129,13 +129,13 @@ def validate_template(template):
 
     expected = {
         "wide": {
-            "canvas": (1280, 720), "window": (580, 260), "status": 38,
-            "content": 160, "footer": 62, "lastGap": 14,
+            "canvas": (1280, 720), "window": (580, 236), "status": 38,
+            "content": 136, "footer": 62, "lastGap": 14,
             "button": (158, 44), "buttonGap": 10, "topPad": 9, "bottomPad": 9,
         },
         "compact": {
-            "canvas": (740, 360), "window": (600, 240), "status": 34,
-            "content": 140, "footer": 66, "lastGap": 17,
+            "canvas": (740, 360), "window": (600, 221), "status": 34,
+            "content": 121, "footer": 66, "lastGap": 17,
             "button": (148, 44), "buttonGap": 12, "topPad": 10, "bottomPad": 12,
         },
     }

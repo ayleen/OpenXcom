@@ -2,7 +2,7 @@
   "schema": 1,
   "id": "f33-abandon",
   "familyId": 33,
-  "version": "hd.2026-08-18.17",
+  "version": "hd.2026-08-19.18",
   "archetype": "small-confirmation",
   "protocol": {
     "authority": "CALYPSO COMMAND",

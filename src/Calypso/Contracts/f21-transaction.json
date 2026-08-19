@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "hd.2026-08-18.17",
+  "version": "hd.2026-08-19.18",
   "form": {
     "id": "f21-transaction",
     "familyId": 21,
@@ -86,7 +86,7 @@
         "x": 350,
         "y": 230,
         "width": 580,
-        "height": 400
+        "height": 376
       },
       "status": {
         "x": 350,
@@ -96,117 +96,117 @@
       },
       "warning": {
         "x": 382,
-        "y": 306,
+        "y": 290,
         "width": 32,
         "height": 32
       },
       "title": {
         "x": 430,
-        "y": 300,
+        "y": 284,
         "width": 450,
         "height": 44
       },
       "message": {
         "x": 382,
-        "y": 360,
+        "y": 336,
         "width": 516,
         "height": 194
       },
       "footer": {
         "x": 350,
-        "y": 568,
+        "y": 544,
         "width": 580,
         "height": 62
       },
       "buttons": {
         "cancel": {
           "x": 572,
-          "y": 577,
+          "y": 553,
           "width": 158,
           "height": 44
         },
         "create": {
           "x": 740,
-          "y": 577,
+          "y": 553,
           "width": 158,
           "height": 44
         }
       },
       "cellR1C1": {
         "x": 398,
-        "y": 368,
+        "y": 344,
         "width": 90,
         "height": 22
       },
       "cellR1C2": {
         "x": 505,
-        "y": 368,
+        "y": 344,
         "width": 104,
         "height": 22
       },
       "rowDivider1": {
         "x": 390,
-        "y": 398,
+        "y": 374,
         "width": 227,
         "height": 1
       },
       "cellR2C1": {
         "x": 398,
-        "y": 407,
+        "y": 383,
         "width": 90,
         "height": 22
       },
       "cellR2C2": {
         "x": 505,
-        "y": 407,
+        "y": 383,
         "width": 104,
         "height": 22
       },
       "rowDivider2": {
         "x": 390,
-        "y": 437,
+        "y": 413,
         "width": 227,
         "height": 1
       },
       "cellR3C1": {
         "x": 398,
-        "y": 446,
+        "y": 422,
         "width": 90,
         "height": 22
       },
       "cellR3C2": {
         "x": 505,
-        "y": 446,
+        "y": 422,
         "width": 104,
         "height": 22
       },
       "columnDivider1": {
         "x": 496,
-        "y": 360,
+        "y": 336,
         "width": 1,
         "height": 116
       },
       "inputHint": {
         "x": 382,
-        "y": 536,
+        "y": 512,
         "width": 516,
         "height": 18
       },
       "inputFrame": {
         "x": 382,
-        "y": 490,
+        "y": 466,
         "width": 516,
         "height": 38
       }
     },
     "compact": {
       "designWidth": 740,
-      "designHeight": 436,
+      "designHeight": 417,
       "window": {
         "x": 70,
         "y": 60,
         "width": 600,
-        "height": 366
+        "height": 347
       },
       "status": {
         "x": 70,
@@ -216,105 +216,105 @@
       },
       "warning": {
         "x": 98,
-        "y": 125,
+        "y": 111,
         "width": 28,
         "height": 28
       },
       "title": {
         "x": 140,
-        "y": 118,
+        "y": 106,
         "width": 470,
         "height": 38
       },
       "message": {
         "x": 98,
-        "y": 169,
+        "y": 150,
         "width": 500,
         "height": 174
       },
       "footer": {
         "x": 70,
-        "y": 360,
+        "y": 341,
         "width": 600,
         "height": 66
       },
       "buttons": {
         "cancel": {
           "x": 290,
-          "y": 370,
+          "y": 351,
           "width": 148,
           "height": 44
         },
         "create": {
           "x": 450,
-          "y": 370,
+          "y": 351,
           "width": 148,
           "height": 44
         }
       },
       "cellR1C1": {
         "x": 114,
-        "y": 177,
+        "y": 158,
         "width": 79,
         "height": 18
       },
       "cellR1C2": {
         "x": 210,
-        "y": 177,
+        "y": 158,
         "width": 91,
         "height": 18
       },
       "rowDivider1": {
         "x": 106,
-        "y": 203,
+        "y": 184,
         "width": 203,
         "height": 1
       },
       "cellR2C1": {
         "x": 114,
-        "y": 212,
+        "y": 193,
         "width": 79,
         "height": 18
       },
       "cellR2C2": {
         "x": 210,
-        "y": 212,
+        "y": 193,
         "width": 91,
         "height": 18
       },
       "rowDivider2": {
         "x": 106,
-        "y": 238,
+        "y": 219,
         "width": 203,
         "height": 1
       },
       "cellR3C1": {
         "x": 114,
-        "y": 247,
+        "y": 228,
         "width": 79,
         "height": 18
       },
       "cellR3C2": {
         "x": 210,
-        "y": 247,
+        "y": 228,
         "width": 91,
         "height": 18
       },
       "columnDivider1": {
         "x": 201,
-        "y": 169,
+        "y": 150,
         "width": 1,
         "height": 104
       },
       "inputHint": {
         "x": 98,
-        "y": 327,
+        "y": 308,
         "width": 500,
         "height": 16
       },
       "inputFrame": {
         "x": 98,
-        "y": 287,
+        "y": 268,
         "width": 500,
         "height": 32
       }
