@@ -210,9 +210,18 @@ void CalypsoF21DefenseUi::applyRects(BaseDefenseState& state, const CalypsoF21De
 	applyRect(state._hdAmmo, layout.cellR1C2);
 	applyRect(state._txtInit, layout.cellR2C1);
 	applyRect(state._hdPhase, layout.cellR2C2);
-	applyRect(state._btnAbort, layout.skip);
-	applyRect(state._btnStart, layout.start);
-	applyRect(state._btnOk, layout.ok);
+	// The generated contract owns a right-aligned three-button rail. Native
+	// BaseDefenseState hides one or more actions during the fixture lifecycle;
+	// pack only visible controls into the rightmost slots so hidden actions do
+	// not leave a visual hole on the left.
+	CalypsoF21Rect slots[3] = { layout.skip, layout.start, layout.ok };
+	TextButton* visible[3] = { nullptr, nullptr, nullptr };
+	int visibleCount = 0;
+	if (state._btnAbort && state._btnAbort->getVisible()) visible[visibleCount++] = state._btnAbort;
+	if (state._btnStart && state._btnStart->getVisible()) visible[visibleCount++] = state._btnStart;
+	if (state._btnOk && state._btnOk->getVisible()) visible[visibleCount++] = state._btnOk;
+	const int firstSlot = 3 - visibleCount;
+	for (int i = 0; i < visibleCount; ++i) applyRect(visible[i], slots[firstSlot + i]);
 }
 
 

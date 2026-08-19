@@ -12,15 +12,13 @@
     "effectiveDate": "15.07.2061"
   },
   "title": "BASE UNDER ATTACK",
-  "body": [
-    "DEFENSE LOG · LIVE FIRE REPORT FOLLOWS",
-    "PHASE · AWAITING FIRE ORDER"
-  ],
+  "body": [],
   "icon": { "kind": "warning", "glyph": "!", "tone": "warning" },
   "buttons": [
     { "id": "skip", "label": "SKIP TO ASSAULT", "tone": "safe", "action": "skip" },
     { "id": "start", "label": "START FIRING", "tone": "primary", "action": "start" },
     { "id": "ok", "label": "CONTINUE", "tone": "safe", "action": "confirm" }
   ],
+  "visibleButtons": ["skip", "start"],
   "table": "| DEFENSES · 4 | AMMUNITION · 24 |\n| --- | --- |\n| HIT RATIO · 62% | READY |"
 }

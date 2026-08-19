@@ -26,7 +26,7 @@ CONFIG_FIELDS = {
     "schema", "id", "familyId", "version", "archetype", "protocol",
     "title", "body", "icon", "buttons",
 }
-OPTIONAL_CONFIG_FIELDS = {"table", "input"}
+OPTIONAL_CONFIG_FIELDS = {"table", "input", "visibleButtons"}
 PROTOCOL_FIELDS = {"authority", "record", "code", "revision", "effectiveDate"}
 ICON_FIELDS = {"kind", "glyph", "tone"}
 BUTTON_FIELDS = {"id", "label", "tone", "action"}
@@ -213,8 +213,8 @@ def validate_config(config, template):
 
     one_line(config["title"], "config.title", 48)
     body = config["body"]
-    if not isinstance(body, list) or not 1 <= len(body) <= 2:
-        raise FormError("config.body must contain one or two lines")
+    if not isinstance(body, list) or len(body) > 2:
+        raise FormError("config.body must contain zero, one, or two lines")
     for index, line in enumerate(body):
         one_line(line, "config.body[" + str(index) + "]", 96)
 
@@ -252,6 +252,16 @@ def validate_config(config, template):
             raise FormError("button actions must be unique")
         ids.add(button["id"])
         actions.add(button["action"])
+
+    visible_buttons = config.get("visibleButtons")
+    if visible_buttons is not None:
+        if not isinstance(visible_buttons, list) or not visible_buttons:
+            raise FormError("config.visibleButtons must contain one or more button IDs")
+        if len(set(visible_buttons)) != len(visible_buttons):
+            raise FormError("config.visibleButtons must not contain duplicates")
+        unknown_visible = sorted(set(visible_buttons) - ids)
+        if unknown_visible:
+            raise FormError("config.visibleButtons contains unknown button IDs: " + ", ".join(unknown_visible))
     table = config.get("table")
     if table is not None:
         if not isinstance(table, str) or not table.strip():
@@ -437,6 +447,8 @@ def build_contract(config, template, source_name):
         "layouts": {},
         "motion": copy.deepcopy(template["motion"]),
     }
+    if config.get("visibleButtons") is not None:
+        out["form"]["visibleButtons"] = copy.deepcopy(config["visibleButtons"])
 
     # Optional table inside the fixed message body
     table_rows = None
@@ -488,8 +500,8 @@ def build_contract(config, template, source_name):
         if has_table:
             t_rects, t_metrics = build_table_inside_message(table_rows, layout["message"], is_wide)
             line_h = TABLE_LINE_HEIGHT_WIDE if is_wide else TABLE_LINE_HEIGHT_COMPACT
-            body_h = len(config["body"]) * line_h + 2 * TABLE_PADDING
-            gap = 8
+            body_h = len(config["body"]) * line_h + (2 * TABLE_PADDING if config["body"] else 0)
+            gap = 8 if config["body"] else 0
             needed_body_h = body_h + gap + t_metrics["tableHeight"]
             cur_body_h = layout["message"]["height"]
             if needed_body_h > cur_body_h:
@@ -518,7 +530,7 @@ def build_contract(config, template, source_name):
             hint_h = HINT_HEIGHT_WIDE if is_wide else HINT_HEIGHT_COMPACT
             # Compute total height needed when input is present.
             line_h = TABLE_LINE_HEIGHT_WIDE if is_wide else TABLE_LINE_HEIGHT_COMPACT
-            body_h_for_input = len(config["body"]) * line_h + 2 * TABLE_PADDING
+            body_h_for_input = len(config["body"]) * line_h + (2 * TABLE_PADDING if config["body"] else 0)
             if has_table:
                 # Message already includes body + gap(8) + tableHeight.
                 needed_with_input = layout["message"]["height"] + GAP_MESSAGE_INPUT + input_h + GAP_INPUT_HINT + hint_h

@@ -32,10 +32,7 @@
   "copy": {
     "protocol": "CALYPSO COMMAND · BASE REGISTRY BR-21 · REV. 1.0.21 · EFFECTIVE 15.07.2061",
     "title": "NAME YOUR FIRST BASE",
-    "message": [
-      "Choose a permanent registry name.",
-      "Press Enter to confirm."
-    ],
+    "message": [],
     "inputValue": "CALYPSO DEEP",
     "inputHint": "Choose a permanent registry name. Press Enter to confirm."
   },
@@ -63,7 +60,7 @@
         "x": 350,
         "y": 230,
         "width": 580,
-        "height": 344
+        "height": 284
       },
       "status": {
         "x": 350,
@@ -87,43 +84,43 @@
         "x": 382,
         "y": 360,
         "width": 516,
-        "height": 138
+        "height": 78
       },
       "footer": {
         "x": 350,
-        "y": 512,
+        "y": 452,
         "width": 580,
         "height": 62
       },
       "buttons": {
         "ok": {
           "x": 740,
-          "y": 521,
+          "y": 461,
           "width": 158,
           "height": 44
         }
       },
       "inputHint": {
         "x": 382,
-        "y": 480,
+        "y": 420,
         "width": 516,
         "height": 18
       },
       "inputFrame": {
         "x": 382,
-        "y": 434,
+        "y": 374,
         "width": 516,
         "height": 38
       }
     },
     "compact": {
       "designWidth": 740,
-      "designHeight": 384,
+      "designHeight": 360,
       "window": {
         "x": 70,
         "y": 60,
         "width": 600,
-        "height": 314
+        "height": 262
       },
       "status": {
         "x": 70,
@@ -147,31 +144,31 @@
         "x": 98,
         "y": 169,
         "width": 500,
-        "height": 122
+        "height": 70
       },
       "footer": {
         "x": 70,
-        "y": 308,
+        "y": 256,
         "width": 600,
         "height": 66
       },
       "buttons": {
         "ok": {
           "x": 450,
-          "y": 318,
+          "y": 266,
           "width": 148,
           "height": 44
         }
       },
       "inputHint": {
         "x": 98,
-        "y": 275,
+        "y": 223,
         "width": 500,
         "height": 16
       },
       "inputFrame": {
         "x": 98,
-        "y": 235,
+        "y": 183,
         "width": 500,
         "height": 32
       }

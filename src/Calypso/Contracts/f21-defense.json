@@ -46,6 +46,10 @@
         }
       }
     ],
+    "visibleButtons": [
+      "skip",
+      "start"
+    ],
     "tableRows": [
       [
         "DEFENSES · 4",
@@ -60,10 +64,7 @@
   "copy": {
     "protocol": "CALYPSO COMMAND · DEFENSE DOSSIER DF-21 · REV. 1.0.21 · EFFECTIVE 15.07.2061",
     "title": "BASE UNDER ATTACK",
-    "message": [
-      "DEFENSE LOG · LIVE FIRE REPORT FOLLOWS",
-      "PHASE · AWAITING FIRE ORDER"
-    ],
+    "message": [],
     "table": "| DEFENSES · 4 | AMMUNITION · 24 |\n| --- | --- |\n| HIT RATIO · 62% | READY |"
   },
   "style": {
@@ -90,7 +91,7 @@
         "x": 350,
         "y": 230,
         "width": 580,
-        "height": 351
+        "height": 283
       },
       "status": {
         "x": 350,
@@ -114,79 +115,79 @@
         "x": 382,
         "y": 360,
         "width": 516,
-        "height": 145
+        "height": 77
       },
       "footer": {
         "x": 350,
-        "y": 519,
+        "y": 451,
         "width": 580,
         "height": 62
       },
       "buttons": {
         "skip": {
           "x": 404,
-          "y": 528,
+          "y": 460,
           "width": 158,
           "height": 44
         },
         "start": {
           "x": 572,
-          "y": 528,
+          "y": 460,
           "width": 158,
           "height": 44
         },
         "ok": {
           "x": 740,
-          "y": 528,
+          "y": 460,
           "width": 158,
           "height": 44
         }
       },
       "cellR1C1": {
         "x": 398,
-        "y": 436,
+        "y": 368,
         "width": 120,
         "height": 22
       },
       "cellR1C2": {
         "x": 535,
-        "y": 436,
+        "y": 368,
         "width": 120,
         "height": 22
       },
       "rowDivider1": {
         "x": 390,
-        "y": 466,
+        "y": 398,
         "width": 273,
         "height": 1
       },
       "cellR2C1": {
         "x": 398,
-        "y": 475,
+        "y": 407,
         "width": 120,
         "height": 22
       },
       "cellR2C2": {
         "x": 535,
-        "y": 475,
+        "y": 407,
         "width": 120,
         "height": 22
       },
       "columnDivider1": {
         "x": 526,
-        "y": 428,
+        "y": 360,
         "width": 1,
         "height": 77
       }
     },
     "compact": {
       "designWidth": 740,
-      "designHeight": 391,
+      "designHeight": 360,
       "window": {
         "x": 70,
         "y": 60,
         "width": 600,
-        "height": 321
+        "height": 261
       },
       "status": {
         "x": 70,
@@ -210,67 +211,67 @@
         "x": 98,
         "y": 169,
         "width": 500,
-        "height": 129
+        "height": 69
       },
       "footer": {
         "x": 70,
-        "y": 315,
+        "y": 255,
         "width": 600,
         "height": 66
       },
       "buttons": {
         "skip": {
           "x": 130,
-          "y": 325,
+          "y": 265,
           "width": 148,
           "height": 44
         },
         "start": {
           "x": 290,
-          "y": 325,
+          "y": 265,
           "width": 148,
           "height": 44
         },
         "ok": {
           "x": 450,
-          "y": 325,
+          "y": 265,
           "width": 148,
           "height": 44
         }
       },
       "cellR1C1": {
         "x": 114,
-        "y": 237,
+        "y": 177,
         "width": 105,
         "height": 18
       },
       "cellR1C2": {
         "x": 236,
-        "y": 237,
+        "y": 177,
         "width": 105,
         "height": 18
       },
       "rowDivider1": {
         "x": 106,
-        "y": 263,
+        "y": 203,
         "width": 243,
         "height": 1
       },
       "cellR2C1": {
         "x": 114,
-        "y": 272,
+        "y": 212,
         "width": 105,
         "height": 18
       },
       "cellR2C2": {
         "x": 236,
-        "y": 272,
+        "y": 212,
         "width": 105,
         "height": 18
       },
       "columnDivider1": {
         "x": 227,
-        "y": 229,
+        "y": 169,
         "width": 1,
         "height": 69
       }

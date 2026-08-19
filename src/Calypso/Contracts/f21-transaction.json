@@ -57,10 +57,7 @@
   "copy": {
     "protocol": "CALYPSO COMMAND · LOGISTICS AUTHORIZATION BE-21 · REV. 1.0.21 · EFFECTIVE 15.07.2061",
     "title": "REVIEW NEW BASE",
-    "message": [
-      "FUNDS AFTER · $5 850 000",
-      "Name and funds commit together when Create Base is selected."
-    ],
+    "message": [],
     "table": "| SLOT | COORDINATES |\n| --- | --- |\n| BASE 1 / 8 | 28.6·N  0.0·E |\n| South Atlantic | $950 000 |",
     "inputValue": "CALYPSO DEEP",
     "inputHint": "Choose a permanent registry name. Press Enter to confirm."
@@ -89,7 +86,7 @@
         "x": 350,
         "y": 230,
         "width": 580,
-        "height": 468
+        "height": 400
       },
       "status": {
         "x": 350,
@@ -113,103 +110,103 @@
         "x": 382,
         "y": 360,
         "width": 516,
-        "height": 262
+        "height": 194
       },
       "footer": {
         "x": 350,
-        "y": 636,
+        "y": 568,
         "width": 580,
         "height": 62
       },
       "buttons": {
         "cancel": {
           "x": 572,
-          "y": 645,
+          "y": 577,
           "width": 158,
           "height": 44
         },
         "create": {
           "x": 740,
-          "y": 645,
+          "y": 577,
           "width": 158,
           "height": 44
         }
       },
       "cellR1C1": {
         "x": 398,
-        "y": 436,
+        "y": 368,
         "width": 90,
         "height": 22
       },
       "cellR1C2": {
         "x": 505,
-        "y": 436,
+        "y": 368,
         "width": 104,
         "height": 22
       },
       "rowDivider1": {
         "x": 390,
-        "y": 466,
+        "y": 398,
         "width": 227,
         "height": 1
       },
       "cellR2C1": {
         "x": 398,
-        "y": 475,
+        "y": 407,
         "width": 90,
         "height": 22
       },
       "cellR2C2": {
         "x": 505,
-        "y": 475,
+        "y": 407,
         "width": 104,
         "height": 22
       },
       "rowDivider2": {
         "x": 390,
-        "y": 505,
+        "y": 437,
         "width": 227,
         "height": 1
       },
       "cellR3C1": {
         "x": 398,
-        "y": 514,
+        "y": 446,
         "width": 90,
         "height": 22
       },
       "cellR3C2": {
         "x": 505,
-        "y": 514,
+        "y": 446,
         "width": 104,
         "height": 22
       },
       "columnDivider1": {
         "x": 496,
-        "y": 428,
+        "y": 360,
         "width": 1,
         "height": 116
       },
       "inputHint": {
         "x": 382,
-        "y": 604,
+        "y": 536,
         "width": 516,
         "height": 18
       },
       "inputFrame": {
         "x": 382,
-        "y": 558,
+        "y": 490,
         "width": 516,
         "height": 38
       }
     },
     "compact": {
       "designWidth": 740,
-      "designHeight": 496,
+      "designHeight": 436,
       "window": {
         "x": 70,
         "y": 60,
         "width": 600,
-        "height": 426
+        "height": 366
       },
       "status": {
         "x": 70,
@@ -233,91 +230,91 @@
         "x": 98,
         "y": 169,
         "width": 500,
-        "height": 234
+        "height": 174
       },
       "footer": {
         "x": 70,
-        "y": 420,
+        "y": 360,
         "width": 600,
         "height": 66
       },
       "buttons": {
         "cancel": {
           "x": 290,
-          "y": 430,
+          "y": 370,
           "width": 148,
           "height": 44
         },
         "create": {
           "x": 450,
-          "y": 430,
+          "y": 370,
           "width": 148,
           "height": 44
         }
       },
       "cellR1C1": {
         "x": 114,
-        "y": 237,
+        "y": 177,
         "width": 79,
         "height": 18
       },
       "cellR1C2": {
         "x": 210,
-        "y": 237,
+        "y": 177,
         "width": 91,
         "height": 18
       },
       "rowDivider1": {
         "x": 106,
-        "y": 263,
+        "y": 203,
         "width": 203,
         "height": 1
       },
       "cellR2C1": {
         "x": 114,
-        "y": 272,
+        "y": 212,
         "width": 79,
         "height": 18
       },
       "cellR2C2": {
         "x": 210,
-        "y": 272,
+        "y": 212,
         "width": 91,
         "height": 18
       },
       "rowDivider2": {
         "x": 106,
-        "y": 298,
+        "y": 238,
         "width": 203,
         "height": 1
       },
       "cellR3C1": {
         "x": 114,
-        "y": 307,
+        "y": 247,
         "width": 79,
         "height": 18
       },
       "cellR3C2": {
         "x": 210,
-        "y": 307,
+        "y": 247,
         "width": 91,
         "height": 18
       },
       "columnDivider1": {
         "x": 201,
-        "y": 229,
+        "y": 169,
         "width": 1,
         "height": 104
       },
       "inputHint": {
         "x": 98,
-        "y": 387,
+        "y": 327,
         "width": 500,
         "height": 16
       },
       "inputFrame": {
         "x": 98,
-        "y": 347,
+        "y": 287,
         "width": 500,
         "height": 32
       }

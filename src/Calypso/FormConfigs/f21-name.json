@@ -12,10 +12,7 @@
     "effectiveDate": "15.07.2061"
   },
   "title": "NAME YOUR FIRST BASE",
-  "body": [
-    "Choose a permanent registry name.",
-    "Press Enter to confirm."
-  ],
+  "body": [],
   "icon": { "kind": "info", "glyph": "i", "tone": "primary" },
   "buttons": [
     { "id": "ok", "label": "CONFIRM NAME", "tone": "primary", "action": "confirm" }

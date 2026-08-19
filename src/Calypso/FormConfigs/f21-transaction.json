@@ -12,10 +12,7 @@
     "effectiveDate": "15.07.2061"
   },
   "title": "REVIEW NEW BASE",
-  "body": [
-    "FUNDS AFTER · $5 850 000",
-    "Name and funds commit together when Create Base is selected."
-  ],
+  "body": [],
   "icon": { "kind": "warning", "glyph": "!", "tone": "warning" },
   "buttons": [
     { "id": "cancel", "label": "CANCEL", "tone": "safe", "action": "cancel" },

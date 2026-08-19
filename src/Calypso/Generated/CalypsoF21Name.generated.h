@@ -33,13 +33,13 @@ struct CalypsoF21NameGenLayout { int designWidth; int designHeight; CalypsoF21Na
     CalypsoF21NameGenRect inputHint;
 };
 inline constexpr CalypsoF21NameGenLayout kLayouts[] = {
-    { 1280, 720, { 350, 230, 580, 344 }, { 350, 230, 580, 38 }, { 382, 306, 32, 32 }, { 430, 300, 450, 44 }, { 382, 360, 516, 138 }, { 350, 512, 580, 62 }, { 382, 434, 516, 38 }, { 382, 480, 516, 18 } }, // wide
-    { 740, 384, { 70, 60, 600, 314 }, { 70, 60, 600, 34 }, { 98, 125, 28, 28 }, { 140, 118, 470, 38 }, { 98, 169, 500, 122 }, { 70, 308, 600, 66 }, { 98, 235, 500, 32 }, { 98, 275, 500, 16 } }, // compact
+    { 1280, 720, { 350, 230, 580, 284 }, { 350, 230, 580, 38 }, { 382, 306, 32, 32 }, { 430, 300, 450, 44 }, { 382, 360, 516, 78 }, { 350, 452, 580, 62 }, { 382, 374, 516, 38 }, { 382, 420, 516, 18 } }, // wide
+    { 740, 360, { 70, 60, 600, 262 }, { 70, 60, 600, 34 }, { 98, 125, 28, 28 }, { 140, 118, 470, 38 }, { 98, 169, 500, 70 }, { 70, 256, 600, 66 }, { 98, 183, 500, 32 }, { 98, 223, 500, 16 } }, // compact
 };
 struct CalypsoF21NameGenButtonRect { const char* id; CalypsoF21NameGenRect rect; };
 inline constexpr CalypsoF21NameGenButtonRect kButtonRects[][ 1 ] = {
-    { { "ok", { 740, 521, 158, 44 } } }, // wide
-    { { "ok", { 450, 318, 148, 44 } } }, // compact
+    { { "ok", { 740, 461, 158, 44 } } }, // wide
+    { { "ok", { 450, 266, 148, 44 } } }, // compact
 };
 inline constexpr int kLayoutCount = 2;
 inline constexpr int kMotionDurationMs = 200;
