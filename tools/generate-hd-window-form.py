@@ -501,7 +501,7 @@ def build_contract(config, template, source_name):
             t_rects, t_metrics = build_table_inside_message(table_rows, layout["message"], is_wide)
             line_h = TABLE_LINE_HEIGHT_WIDE if is_wide else TABLE_LINE_HEIGHT_COMPACT
             body_h = len(config["body"]) * line_h + (2 * TABLE_PADDING if config["body"] else 0)
-            gap = 8 if config["body"] else 0
+            gap = 4 if config["body"] else 0
             needed_body_h = body_h + gap + t_metrics["tableHeight"]
             cur_body_h = layout["message"]["height"]
             if needed_body_h > cur_body_h:
