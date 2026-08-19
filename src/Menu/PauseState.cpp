@@ -216,7 +216,6 @@ void PauseState::resize(int &dX, int &dY)
  * Every frame while top, the JS hook no-ops once the overlay is visible.
  * Body in src/Calypso/CalypsoPauseMenu (placement policy R3).
  */
-#endif
 void PauseState::think()
 {
 #ifdef __EMSCRIPTEN__
@@ -224,6 +223,7 @@ void PauseState::think()
 #endif
 	State::think();
 }
+#endif
 
 /**
  * Opens the Load Game screen.
