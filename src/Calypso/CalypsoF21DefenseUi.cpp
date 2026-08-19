@@ -27,7 +27,6 @@
 
 #include <algorithm>
 #include <cstdint>
-#include <sstream>
 #include <string>
 #include <vector>
 
@@ -60,9 +59,8 @@ namespace
 enum DefenseRole : std::uint32_t
 {
 	ROLE_WINDOW = 1, ROLE_STATUS = 2, ROLE_PROTOCOL = 3, ROLE_TITLE = 4,
-	ROLE_DEFENSES = 5, ROLE_AMMO = 6, ROLE_RATIO = 7, ROLE_PHASE = 8,
-	ROLE_RESULT = 9, ROLE_FOOTER = 10, ROLE_START = 11, ROLE_SKIP = 12,
-	ROLE_OK = 13, ROLE_DECORATION = 14
+	ROLE_RESULT = 5, ROLE_FOOTER = 6, ROLE_START = 7, ROLE_SKIP = 8,
+	ROLE_OK = 9, ROLE_DECORATION = 10
 };
 
 void applyRect(Surface* surface, const CalypsoF21Rect& rect)
@@ -159,9 +157,6 @@ void CalypsoF21DefenseUi::collect(CalypsoHdFrameBuilder& builder) const
 		_state->_hdProtocol ? _state->_hdProtocol->getText() : std::string(),
 		kF21ProtocolTextRgba, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_PROTOCOL,
 		0.10, wide ? CalypsoHdThemeGen::kF21ProtocolWidePx : CalypsoHdThemeGen::kF21ProtocolCompactPx);
-
-	p.decoration(p.project(designLayout.columnDivider1), kF21DividerRgba, ROLE_DECORATION);
-	p.decoration(p.project(designLayout.rowDivider1), kF21DividerRgba, ROLE_DECORATION);
 
 	p.text(_state->_txtTitle, heading, _state->_txtTitle->getText(), CalypsoHdTheme::kNearWhite,
 		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_TITLE,
@@ -264,10 +259,7 @@ void CalypsoF21DefenseUi::applyRects(BaseDefenseState& state, const CalypsoF21De
 	applyRect(state._window, layout.window);
 	applyRect(state._hdProtocol, layout.status);
 	applyRect(state._txtTitle, layout.title);
-	applyRect(state._hdDefenses, layout.cellR1C1);
-	applyRect(state._hdAmmo, layout.cellR1C2);
-	applyRect(state._txtInit, layout.cellR2C1);
-	applyRect(state._hdPhase, layout.cellR2C2);
+	applyRect(state._txtInit, layout.message);
 	// The generated contract owns fixed action slots. Visibility changes during
 	// BDA_END must not change geometry or leave the final OK at stale coordinates.
 	applyRect(state._btnAbort, layout.skip);
@@ -295,24 +287,6 @@ void CalypsoF21DefenseUi::configure(BaseDefenseState& state, bool allowPhysicalO
 	state._hdProtocol = new Text(1, 1, 0, 0);
 	state.add(state._hdProtocol);
 	state._hdProtocol->setText(state.tr("STR_CAL_F21_PROTOCOL_DEFENSE"));
-
-	state._hdDefenses = new Text(1, 1, 0, 0);
-	state.add(state._hdDefenses);
-	{
-		std::ostringstream ss;
-		ss << "DEFENSES " << state._defenses;
-		state._hdDefenses->setText(ss.str());
-	}
-	state._hdAmmo = new Text(1, 1, 0, 0);
-	state.add(state._hdAmmo);
-	{
-		std::ostringstream ss;
-		ss << "GRAV SHIELDS " << state._gravShields;
-		state._hdAmmo->setText(ss.str());
-	}
-	state._hdPhase = new Text(1, 1, 0, 0);
-	state.add(state._hdPhase);
-	state._hdPhase->setText("PHASE —");
 
 	// Owner-approved label: Skip Firing -> Skip to Assault (same handler;
 	// the routed surviving attacker still enters the base assault).

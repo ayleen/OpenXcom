@@ -62,9 +62,6 @@ private:
 	bool _hdLayout = false;
 	bool _hdWideLayout = false;
 	Text* _hdProtocol = nullptr;
-	Text* _hdDefenses = nullptr;
-	Text* _hdAmmo = nullptr;
-	Text* _hdPhase = nullptr;
 	Calypso::CalypsoF21Rect _hdResultBand{ 0, 0, 0, 0 };
 	Calypso::CalypsoF21DefenseUi* _hdAdapter = nullptr;
 #endif
