@@ -28,7 +28,7 @@
   "layouts": {
     "wide": {
       "maxBlockWidth": 960,
-      "cellPaddingX": 16,
+      "cellPaddingX": 24,
       "cellPaddingY": 8,
       "guardedLineHeight": 22,
       "textUnitWidth": 8,

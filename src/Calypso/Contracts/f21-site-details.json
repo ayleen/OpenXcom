@@ -61,10 +61,10 @@
         322
       ],
       "columnWidths": [
-        248,
-        354
+        264,
+        370
       ],
-      "cellPaddingX": 16,
+      "cellPaddingX": 24,
       "cellPaddingY": 8,
       "guardedLineHeight": 22,
       "rowHeights": [
@@ -118,46 +118,46 @@
   },
   "layouts": {
     "wide": {
-      "designWidth": 603,
+      "designWidth": 635,
       "designHeight": 77,
       "window": {
         "x": 0,
         "y": 0,
-        "width": 603,
+        "width": 635,
         "height": 77
       },
       "columnDivider1": {
-        "x": 248,
+        "x": 264,
         "y": 8,
         "width": 1,
         "height": 61
       },
       "cellR1C1": {
-        "x": 16,
+        "x": 24,
         "y": 8,
         "width": 216,
         "height": 22
       },
       "cellR1C2": {
-        "x": 265,
+        "x": 289,
         "y": 8,
         "width": 322,
         "height": 22
       },
       "rowDivider1": {
-        "x": 16,
+        "x": 24,
         "y": 38,
-        "width": 571,
+        "width": 587,
         "height": 1
       },
       "cellR2C1": {
-        "x": 16,
+        "x": 24,
         "y": 47,
         "width": 216,
         "height": 22
       },
       "cellR2C2": {
-        "x": 265,
+        "x": 289,
         "y": 47,
         "width": 322,
         "height": 22
