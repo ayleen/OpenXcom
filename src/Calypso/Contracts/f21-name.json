@@ -196,5 +196,22 @@
     "scaleFrom": 0.96,
     "easing": "ease-out",
     "captureModeDurationMs": 0
+  },
+  "blocks": [
+    {
+      "id": "name-input",
+      "kind": "input",
+      "parts": [
+        "inputFrame",
+        "nameEdit",
+        "hint"
+      ],
+      "value": "CALYPSO DEEP",
+      "hint": "Choose a permanent registry name. Press Enter to confirm."
+    }
+  ],
+  "generation": {
+    "tool": "generate-hd-command-card.py",
+    "source": "f21-name.json"
   }
 }

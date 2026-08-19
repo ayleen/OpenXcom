@@ -481,5 +481,48 @@
     "scaleFrom": 0.96,
     "easing": "ease-out",
     "captureModeDurationMs": 0
+  },
+  "blocks": [
+    {
+      "id": "facts",
+      "kind": "table",
+      "parts": [
+        "factsPanel",
+        "factsColumnDivider",
+        "factsRowDivider",
+        "slot",
+        "coords",
+        "region",
+        "cost"
+      ],
+      "rows": [
+        [
+          "slot",
+          "coords"
+        ],
+        [
+          "region",
+          "cost"
+        ]
+      ],
+      "append": [
+        "after"
+      ]
+    },
+    {
+      "id": "name-input",
+      "kind": "input",
+      "parts": [
+        "inputFrame",
+        "nameEdit",
+        "nameHint"
+      ],
+      "value": "CALYPSO DEEP",
+      "hint": "Name and funds commit together when Create Base is selected."
+    }
+  ],
+  "generation": {
+    "tool": "generate-hd-command-card.py",
+    "source": "f21-transaction.json"
   }
 }

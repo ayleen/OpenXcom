@@ -304,5 +304,34 @@
     "scaleFrom": 0.96,
     "easing": "ease-out",
     "captureModeDurationMs": 0
+  },
+  "blocks": [
+    {
+      "id": "defense-readout",
+      "kind": "table",
+      "parts": [
+        "defenses",
+        "ammo",
+        "hitRatio",
+        "phase"
+      ],
+      "rows": [
+        [
+          "defenses",
+          "ammo"
+        ],
+        [
+          "hitRatio",
+          "phase"
+        ]
+      ],
+      "append": [
+        "result"
+      ]
+    }
+  ],
+  "generation": {
+    "tool": "generate-hd-command-card.py",
+    "source": "f21-defense.json"
   }
 }

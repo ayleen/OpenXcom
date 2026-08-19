@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "id": "f21-destruction",
+  "familyId": 21,
+  "version": "hd.2026-08-18.17",
+  "archetype": "command-card-v1",
+  "copy": {
+    "protocol": "CALYPSO COMMAND · LOSS RECORD LR-21 · REV. 1.0.21 · EFFECTIVE 15.07.2061",
+    "title": "BASE DAMAGED",
+    "subtitle": "ALIEN MISSILES HAVE DAMAGED OUR BASE · ATLANTIS POST",
+    "listLine1": "SONAR ARRAY · 1",
+    "listLine2": "LIVING QUARTERS · 1",
+    "listLine3": "GENERAL STORES · 1",
+    "warning": "This base is permanently deleted. No refund. No undo.",
+    "acknowledge": "ACKNOWLEDGE"
+  },
+  "blocks": [
+    {
+      "id": "destroyed-facilities",
+      "kind": "list",
+      "parts": ["list"],
+      "items": ["SONAR ARRAY · 1", "LIVING QUARTERS · 1", "GENERAL STORES · 1"]
+    }
+  ]
+}

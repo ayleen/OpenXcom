@@ -234,5 +234,23 @@
     "scaleFrom": 0.96,
     "easing": "ease-out",
     "captureModeDurationMs": 0
+  },
+  "blocks": [
+    {
+      "id": "destroyed-facilities",
+      "kind": "list",
+      "parts": [
+        "list"
+      ],
+      "items": [
+        "SONAR ARRAY · 1",
+        "LIVING QUARTERS · 1",
+        "GENERAL STORES · 1"
+      ]
+    }
+  ],
+  "generation": {
+    "tool": "generate-hd-command-card.py",
+    "source": "f21-destruction.json"
   }
 }

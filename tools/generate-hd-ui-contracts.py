@@ -226,6 +226,11 @@ F21_ENGINE_TEXT_CALIBRATION_CONTRACTS = {
     "f21-defense.json", "f21-destruction.json",
 }
 
+F21_GENERATED_COMMAND_CARD_CONTRACTS = {
+    "f21-transaction.json", "f21-name.json",
+    "f21-defense.json", "f21-destruction.json",
+}
+
 CONTENT_BLOCK_CONTRACTS = {"f21-site-details.json"}
 
 
@@ -245,6 +250,33 @@ def validate_f21(doc, rel):
                 fail(rel + ": copy." + key + " must be a non-empty string")
             if "{STRING}" in value or "{ALT}" in value:
                 fail(rel + ": copy." + key + " contains legacy placeholder/control syntax")
+        if rel in F21_GENERATED_COMMAND_CARD_CONTRACTS:
+            generation = doc.get("generation") or {}
+            if generation.get("tool") != "generate-hd-command-card.py":
+                fail(rel + ": command-card generator provenance is missing")
+            parts_doc = doc.get("parts") or []
+            blocks = doc.get("blocks")
+            if not isinstance(blocks, list) or not blocks:
+                fail(rel + ": generated command-card blocks are required")
+            for index, block in enumerate(blocks):
+                label = rel + ": blocks[" + str(index) + "]"
+                if not isinstance(block, dict) or block.get("kind") not in ("table", "input", "list"):
+                    fail(label + " has an unsupported kind")
+                parts = block.get("parts")
+                if not isinstance(parts, list) or not parts:
+                    fail(label + ".parts must be non-empty")
+                if any(part not in parts_doc for part in parts):
+                    fail(label + ".parts must resolve to the command-card parts")
+                if block["kind"] == "table":
+                    rows = block.get("rows")
+                    if not isinstance(rows, list) or not rows:
+                        fail(label + ".rows must be non-empty")
+                    columns = len(rows[0]) if isinstance(rows[0], list) else 0
+                    if columns < 2 or columns > 4 or any(not isinstance(row, list) or len(row) != columns for row in rows):
+                        fail(label + ".rows must be a rectangular two-to-four-column table")
+                elif block["kind"] == "input":
+                    if not all(isinstance(block.get(key), str) and block[key] for key in ("value", "hint")):
+                        fail(label + ".value/.hint must be non-empty strings")
     if rel in CONTENT_BLOCK_CONTRACTS:
         if doc.get("visualProfile") != "content-block-v1":
             fail(rel + ": visualProfile must be content-block-v1")

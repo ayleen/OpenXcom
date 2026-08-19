@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "id": "f21-transaction",
+  "familyId": 21,
+  "version": "hd.2026-08-18.17",
+  "archetype": "command-card-v1",
+  "copy": {
+    "protocol": "CALYPSO COMMAND · LOGISTICS AUTHORIZATION BE-21 · REV. 1.0.21 · EFFECTIVE 15.07.2061",
+    "title": "REVIEW NEW BASE",
+    "slot": "BASE 1 / 8",
+    "coords": "COORDINATES · 28.6·N  0.0·E",
+    "region": "REGION · South Atlantic",
+    "cost": "BUILD COST · $950 000",
+    "after": "FUNDS AFTER · $5 850 000",
+    "name": "CALYPSO DEEP",
+    "hint": "Name and funds commit together when Create Base is selected.",
+    "cancel": "CANCEL",
+    "create": "CREATE BASE"
+  },
+  "blocks": [
+    {
+      "id": "facts",
+      "kind": "table",
+      "parts": ["factsPanel", "factsColumnDivider", "factsRowDivider", "slot", "coords", "region", "cost"],
+      "rows": [["slot", "coords"], ["region", "cost"]],
+      "append": ["after"]
+    },
+    {
+      "id": "name-input",
+      "kind": "input",
+      "parts": ["inputFrame", "nameEdit", "nameHint"],
+      "value": "CALYPSO DEEP",
+      "hint": "Name and funds commit together when Create Base is selected."
+    }
+  ]
+}
