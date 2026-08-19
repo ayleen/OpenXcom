@@ -5,7 +5,7 @@
 #include "Generated/CalypsoF21Defense.generated.h"
 namespace OpenXcom { namespace Calypso {
 static_assert(std::string_view(CalypsoF21DefenseGen::kContractVersion)==std::string_view(CalypsoHdThemeGen::kContractVersion),"F21 defense/theme mismatch");
-struct CalypsoF21DefenseLayout{ int designWidth=0,designHeight=0; CalypsoF21Rect window,status,warning,title,message,footer; CalypsoF21Rect skip,start,ok; };
+struct CalypsoF21DefenseLayout{ int designWidth=0,designHeight=0; CalypsoF21Rect window,status,warning,title,message,footer; CalypsoF21Rect cellR1C1,cellR1C2,cellR2C1,cellR2C2; CalypsoF21Rect skip,start,ok; };
 inline CalypsoF21DefenseLayout calypsoF21DefenseLayout(CalypsoLayoutClass cls){
  CalypsoF21DefenseLayout l; const bool wide=cls==CalypsoLayoutClass::Wide;
  const auto* g = &CalypsoF21DefenseGen::kLayouts[wide?0:1];
@@ -16,9 +16,13 @@ inline CalypsoF21DefenseLayout calypsoF21DefenseLayout(CalypsoLayoutClass cls){
  l.title={g->title.x,g->title.y,g->title.w,g->title.h};
  l.message={g->message.x,g->message.y,g->message.w,g->message.h};
  l.footer={g->footer.x,g->footer.y,g->footer.w,g->footer.h};
+ l.cellR1C1={g->cellR1C1.x,g->cellR1C1.y,g->cellR1C1.w,g->cellR1C1.h};
+ l.cellR1C2={g->cellR1C2.x,g->cellR1C2.y,g->cellR1C2.w,g->cellR1C2.h};
+ l.cellR2C1={g->cellR2C1.x,g->cellR2C1.y,g->cellR2C1.w,g->cellR2C1.h};
+ l.cellR2C2={g->cellR2C2.x,g->cellR2C2.y,g->cellR2C2.w,g->cellR2C2.h};
  const int idx=wide?0:1;
  for(int k=0;k<CalypsoF21DefenseGen::kButtonCount;++k){ auto br=CalypsoF21DefenseGen::kButtonRects[idx][k]; std::string id(br.id); if(id=="skip") l.skip={br.rect.x,br.rect.y,br.rect.w,br.rect.h}; if(id=="start") l.start={br.rect.x,br.rect.y,br.rect.w,br.rect.h}; if(id=="ok") l.ok={br.rect.x,br.rect.y,br.rect.w,br.rect.h}; }
  return l;
 }
-inline void calypsoF21DefenseApplyHarnessShift(CalypsoF21DefenseLayout& l,bool sideBySide){ if(!sideBySide||l.designWidth!=1280) return; int dx=40-l.window.x; l.window.x+=dx; l.status.x+=dx; l.warning.x+=dx; l.title.x+=dx; l.message.x+=dx; l.footer.x+=dx; l.skip.x+=dx; l.start.x+=dx; l.ok.x+=dx; }
+inline void calypsoF21DefenseApplyHarnessShift(CalypsoF21DefenseLayout& l,bool sideBySide){ if(!sideBySide||l.designWidth!=1280) return; int dx=40-l.window.x; l.window.x+=dx; l.status.x+=dx; l.warning.x+=dx; l.title.x+=dx; l.message.x+=dx; l.footer.x+=dx; l.cellR1C1.x+=dx; l.cellR1C2.x+=dx; l.cellR2C1.x+=dx; l.cellR2C2.x+=dx; l.skip.x+=dx; l.start.x+=dx; l.ok.x+=dx; }
 }}
