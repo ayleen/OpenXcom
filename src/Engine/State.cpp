@@ -380,17 +380,7 @@ void State::handle(Action *action)
 void State::blit()
 {
 #ifdef __EMSCRIPTEN__
-	// The clean harness is capture evidence, not a production fallback demo.
-	// Keep the structural host's black frame authoritative for every logical
-	// state in a clean harness session. A committed physical subgroup does not
-	// prove that its siblings are ready, and getTopState() is not a stable target
-	// identity when resize/transient states sit above it. The host's own blit()
-	// override still fills black; physical HD renders after the logical composite.
-	// Ordinary gameplay is untouched because no harness session is active there.
-	if (Calypso::calypsoHarnessHostUp(Calypso::calypsoHarnessSession()))
-	{
-		return;
-	}
+	if (Calypso::calypsoHarnessHostUp(Calypso::calypsoHarnessSession())) return;
 #endif
 	for (auto* surface : _surfaces)
 	{
