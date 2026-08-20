@@ -58,6 +58,11 @@ namespace
 
 /// One active harness run at a time (repeated opens are no-ops).
 CalypsoHarnessSession g_harnessSession;
+// F03 harness SavedGame isolation for P1 High - save original before fixture modifies it
+static SavedGame* g_harnessOriginalSave = nullptr;
+static int g_harnessOriginalFunds = 0;
+static bool g_harnessHadSave = false;
+static bool g_harnessSaveCaptured = false;
 bool g_harnessCursorCaptured = false;
 bool g_harnessCursorVisible = true;
 bool g_harnessCursorHidden = false;
@@ -112,6 +117,13 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 	{
 		Game* game = getCurrentGame();
 		if (!game || !game->getMod()) return nullptr;
+		// Save original SavedGame state before fixture mutates it (High - harness changes real SavedGame)
+		if (!g_harnessSaveCaptured) {
+			g_harnessHadSave = game->getSavedGame() != nullptr;
+			g_harnessOriginalSave = game->getSavedGame();
+			g_harnessOriginalFunds = g_harnessOriginalSave ? g_harnessOriginalSave->getFunds() : 0;
+			g_harnessSaveCaptured = true;
+		}
 		if (!game->getSavedGame()) game->setSavedGame(new SavedGame());
 		game->getSavedGame()->setFunds(6800000);
 
@@ -281,6 +293,30 @@ bool calypsoHdHarnessOpen(CalypsoHarnessScenario id, CalypsoLayoutClass layout,
 void calypsoHdHarnessClose()
 {
 	restoreHarnessCursor(getCurrentGame());
+	// Restore original SavedGame state for F03 fixture isolation (High)
+	if (g_harnessSaveCaptured) {
+		if (Game* g = getCurrentGame()) {
+			SavedGame* current = g->getSavedGame();
+			if (g_harnessHadSave) {
+				if (current && current != g_harnessOriginalSave) {
+					// Fixture created a new SavedGame; delete it and restore original
+					delete current;
+					g->setSavedGame(g_harnessOriginalSave);
+				}
+				if (g_harnessOriginalSave) g_harnessOriginalSave->setFunds(g_harnessOriginalFunds);
+			} else {
+				// No original save; fixture created one - remove it
+				if (current) {
+					delete current;
+					g->setSavedGame(nullptr);
+				}
+			}
+		}
+		g_harnessOriginalSave = nullptr;
+		g_harnessOriginalFunds = 0;
+		g_harnessHadSave = false;
+		g_harnessSaveCaptured = false;
+	}
 	calypsoHarnessClose(calypsoHarnessSession());
 	// Clear the F33 side-by-side comparison shift so ordinary gameplay never
 	// inherits harness presentation (the flag is F33-adapter file state).

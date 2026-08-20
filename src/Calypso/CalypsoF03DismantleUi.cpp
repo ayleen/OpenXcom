@@ -214,10 +214,8 @@ void CalypsoF03DismantleUi::configure(DismantleFacilityState& state, bool allow)
 
 	state._hdWideLayout = currentLayoutClass() == CalypsoLayoutClass::Wide;
 	state._txtTitle->setText(state.tr("STR_CAL_F03_DISMANTLE_TITLE"));
-	state._txtFacility->setText(
-		std::string(state.tr("STR_CAL_F03_DISMANTLE_LINE_1")) + "\n"
-		+ std::string(state.tr("STR_CAL_F03_DISMANTLE_LINE_2")));
-	state._txtRefundValue->setVisible(false);
+	// Keep facility-specific text and refund from DismantleFacilityState (set before configure).
+	// Do not hide refund - it is visible when refundValue != 0 and needed for HD message.
 	state._btnCancel->setText(state.tr("STR_CANCEL_UC"));
 	state._btnOk->setText(state.tr("STR_CAL_F03_DISMANTLE_ACTION"));
 	applyGeneratedLayout(state, state._hdWideLayout);
