@@ -57,7 +57,7 @@ namespace
 enum NameRole : std::uint32_t
 {
 	ROLE_WINDOW = 1, ROLE_STATUS = 2, ROLE_PROTOCOL = 3, ROLE_TITLE = 4,
-	ROLE_NAME = 5, ROLE_HINT = 6, ROLE_FOOTER = 7, ROLE_OK = 8,
+	ROLE_NAME = 5, ROLE_HINT = 6, ROLE_FOOTER = 7, ROLE_OK = 8, ROLE_CANCEL = 11,
 	ROLE_DECORATION = 9, ROLE_COVERED_LEGACY = 10
 };
 
@@ -191,6 +191,10 @@ void CalypsoF21NameUi::collect(CalypsoHdFrameBuilder& builder) const
 			kF21ProtocolTextRgba, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_PROTOCOL,
 			0.10, wide ? CalypsoHdThemeGen::kF21ProtocolWidePx : CalypsoHdThemeGen::kF21ProtocolCompactPx);
 	}
+	if (_state->_btnCancel) {
+		p.styled(f21WidgetRect(_state->_btnCancel), f21ButtonStyleFor(CalypsoActionTone::Safe, f21ButtonVisualState(_state->_btnCancel)), _state->_btnCancel, ROLE_CANCEL);
+		p.text(_state->_btnCancel, heading, _state->_btnCancel->getText(), CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, ROLE_CANCEL, CalypsoHdTheme::kLabelTrackingEm, wide ? CalypsoHdThemeGen::kF21ActionWidePx : CalypsoHdThemeGen::kF21ActionCompactPx);
+	}
 	if (_state->_btnOk && _state->_btnOk->getVisible())
 	{
 		p.styled(f21WidgetRect(_state->_btnOk), f21ButtonStyleFor(
@@ -226,6 +230,7 @@ void CalypsoF21NameUi::applyRects(BaseNameState& state, const CalypsoF21NameLayo
 	applyRect(state._edtName, layout.inputFrame);
 	applyRect(state._hdHint, layout.inputHint);
 	applyRect(state._btnOk, layout.ok);
+	if (state._btnCancel) applyRect(state._btnCancel, layout.cancel);
 }
 
 void CalypsoF21NameUi::configure(BaseNameState& state, bool allowPhysicalOverlay)

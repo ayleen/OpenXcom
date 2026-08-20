@@ -46,7 +46,7 @@ private:
 	Window *_window;
 	Text *_txtTitle;
 	TextEdit *_edtName;
-	TextButton *_btnOk;
+	TextButton *_btnOk, *_btnCancel;
 	bool _first;
 	bool _fixedLocation;
 #ifdef __EMSCRIPTEN__
@@ -65,6 +65,7 @@ public:
 	~BaseNameState();
 	/// Handler for clicking the OK button.
 	void btnOkClick(Action *action);
+	void btnCancelClick(Action *action);
 	/// Handler for changing text on the Name edit.
 	void edtNameChange(Action *action);
 #ifdef __EMSCRIPTEN__
