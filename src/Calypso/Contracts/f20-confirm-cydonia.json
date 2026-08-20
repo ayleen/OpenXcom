@@ -1,0 +1,209 @@
+{
+  "schema": 1,
+  "version": "hd.2026-08-20.19",
+  "form": {
+    "id": "f20-confirm-cydonia",
+    "familyId": 20,
+    "archetype": "small-confirmation",
+    "source": "FormConfigs/f20-confirm-cydonia.json",
+    "icon": {
+      "kind": "warning",
+      "glyph": "!",
+      "tone": "warning"
+    },
+    "buttons": [
+      {
+        "id": "cancel",
+        "label": "CANCEL",
+        "tone": "safe",
+        "action": "cancel",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB0CC",
+          "text": "E8FFF5FF"
+        }
+      },
+      {
+        "id": "confirm",
+        "label": "LAUNCH",
+        "tone": "danger",
+        "action": "confirm",
+        "style": {
+          "fill": "F25F5CFF",
+          "border": "F25F5CFF",
+          "text": "071013FF"
+        }
+      }
+    ],
+    "visibleButtons": [
+      "cancel",
+      "confirm"
+    ]
+  },
+  "copy": {
+    "protocol": "CALYPSO COMMAND · MISSION PROTOCOL MS-20-C · REV. 1.0.21 · EFFECTIVE 15.07.2061",
+    "title": "CONFIRM FINAL MISSION?",
+    "message": [
+      "Begin the final assault",
+      "operation?"
+    ],
+    "safeAction": "CANCEL",
+    "destructiveAction": "LAUNCH"
+  },
+  "style": {
+    "cutCornerPx": 14,
+    "protocolTextInsetPx": 26,
+    "panelFillTop": "08191DEB",
+    "panelFillBottom": "041014E8",
+    "frame": "74FFB073",
+    "protocolText": "A9D8C7FF",
+    "divider": "74FFB04D",
+    "footerFill": "061B1CD6",
+    "footerDot": "74FFB01F",
+    "warning": "FFC14DFF",
+    "safeFill": "051417B8",
+    "safeBorder": "74FFB0CC",
+    "destructiveFill": "F25F5CFF",
+    "destructiveText": "071013FF"
+  },
+  "layouts": {
+    "wide": {
+      "designWidth": 1280,
+      "designHeight": 720,
+      "window": {
+        "x": 356,
+        "y": 230,
+        "width": 568,
+        "height": 236
+      },
+      "status": {
+        "x": 356,
+        "y": 230,
+        "width": 568,
+        "height": 38
+      },
+      "warning": {
+        "x": 388,
+        "y": 290,
+        "width": 32,
+        "height": 32
+      },
+      "title": {
+        "x": 436,
+        "y": 284,
+        "width": 456,
+        "height": 44
+      },
+      "message": {
+        "x": 388,
+        "y": 336,
+        "width": 504,
+        "height": 54
+      },
+      "footer": {
+        "x": 356,
+        "y": 404,
+        "width": 568,
+        "height": 62
+      },
+      "buttons": {
+        "cancel": {
+          "x": 566,
+          "y": 413,
+          "width": 158,
+          "height": 44
+        },
+        "confirm": {
+          "x": 734,
+          "y": 413,
+          "width": 158,
+          "height": 44
+        }
+      },
+      "no": {
+        "x": 566,
+        "y": 413,
+        "width": 158,
+        "height": 44
+      },
+      "yes": {
+        "x": 734,
+        "y": 413,
+        "width": 158,
+        "height": 44
+      }
+    },
+    "compact": {
+      "designWidth": 740,
+      "designHeight": 360,
+      "window": {
+        "x": 115,
+        "y": 60,
+        "width": 510,
+        "height": 221
+      },
+      "status": {
+        "x": 115,
+        "y": 60,
+        "width": 510,
+        "height": 34
+      },
+      "warning": {
+        "x": 143,
+        "y": 111,
+        "width": 28,
+        "height": 28
+      },
+      "title": {
+        "x": 185,
+        "y": 106,
+        "width": 412,
+        "height": 38
+      },
+      "message": {
+        "x": 143,
+        "y": 150,
+        "width": 454,
+        "height": 48
+      },
+      "footer": {
+        "x": 115,
+        "y": 215,
+        "width": 510,
+        "height": 66
+      },
+      "buttons": {
+        "cancel": {
+          "x": 289,
+          "y": 225,
+          "width": 148,
+          "height": 44
+        },
+        "confirm": {
+          "x": 449,
+          "y": 225,
+          "width": 148,
+          "height": 44
+        }
+      },
+      "no": {
+        "x": 289,
+        "y": 225,
+        "width": 148,
+        "height": 44
+      },
+      "yes": {
+        "x": 449,
+        "y": 225,
+        "width": 148,
+        "height": 44
+      }
+    }
+  },
+  "motion": {
+    "durationMs": 200,
+    "scaleFrom": 0.96,
+    "easing": "ease-out",
+    "captureModeDurationMs": 0
+  }
+}

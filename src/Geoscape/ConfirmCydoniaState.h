@@ -21,6 +21,7 @@
 
 namespace OpenXcom
 {
+namespace Calypso { class CalypsoF20ConfirmCydoniaUi; }
 
 class Craft;
 class Window;
@@ -33,6 +34,9 @@ class TextButton;
  */
 class ConfirmCydoniaState : public State
 {
+#ifdef __EMSCRIPTEN__
+friend class Calypso::CalypsoF20ConfirmCydoniaUi;
+#endif
 private:
 	Window *_window;
 	Text *_txtMessage;
@@ -48,6 +52,15 @@ public:
 	/// Handler for clicking the Cydonia mission button.
 	void btnYesClick(Action *action);
 
+
+#ifdef __EMSCRIPTEN__
+private:
+    bool _hdLayout = false;
+    bool _hdWideLayout = false;
+    Calypso::CalypsoF20ConfirmCydoniaUi *_hdAdapter = nullptr;
+public:
+    void resize(int &dX, int &dY) override;
+#endif
 };
 
 }

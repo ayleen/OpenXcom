@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "id": "f18-craft-error",
+  "familyId": 18,
+  "version": "hd.2026-08-20.19",
+  "archetype": "small-confirmation",
+  "protocol": {
+    "authority": "CALYPSO COMMAND",
+    "record": "CRAFT DISPATCH ALERT",
+    "code": "CA-18",
+    "revision": "1.0.21",
+    "effectiveDate": "15.07.2061"
+  },
+  "title": "CRAFT ALERT",
+  "body": [
+    "Craft cannot complete",
+    "the assigned operation."
+  ],
+  "icon": { "kind": "warning", "glyph": "!", "tone": "warning" },
+  "buttons": [
+    { "id": "ok", "label": "ACKNOWLEDGE", "tone": "safe", "action": "acknowledge" },
+    { "id": "ok5secs", "label": "ACKNOWLEDGE 5 SEC", "tone": "primary", "action": "acknowledge5secs" }
+  ],
+  "visibleButtons": ["ok", "ok5secs"]
+}

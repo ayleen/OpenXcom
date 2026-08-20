@@ -21,6 +21,7 @@
 
 namespace OpenXcom
 {
+namespace Calypso { class CalypsoF28ConfirmEndUi; }
 
 class Window;
 class Text;
@@ -34,6 +35,9 @@ class BattlescapeGame;
  */
 class ConfirmEndMissionState : public State
 {
+#ifdef __EMSCRIPTEN__
+friend class Calypso::CalypsoF28ConfirmEndUi;
+#endif
 private:
 	Window *_window;
 	Text *_txtTitle, *_txtWounded, *_txtConfirm;
@@ -51,6 +55,15 @@ public:
 	/// Handler for clicking the Cancel button.
 	void btnCancelClick(Action *action);
 
+
+#ifdef __EMSCRIPTEN__
+private:
+    bool _hdLayout = false;
+    bool _hdWideLayout = false;
+    Calypso::CalypsoF28ConfirmEndUi *_hdAdapter = nullptr;
+public:
+    void resize(int &dX, int &dY) override;
+#endif
 };
 
 }

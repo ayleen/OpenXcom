@@ -21,6 +21,7 @@
 
 namespace OpenXcom
 {
+namespace Calypso { class CalypsoF18LowFuelUi; }
 
 class TextButton;
 class Window;
@@ -34,6 +35,9 @@ class GeoscapeState;
  */
 class LowFuelState : public State
 {
+#ifdef __EMSCRIPTEN__
+friend class Calypso::CalypsoF18LowFuelUi;
+#endif
 private:
 	Craft *_craft;
 	GeoscapeState *_state;
@@ -50,9 +54,14 @@ public:
 	void btnOkClick(Action *action);
 	/// Handler for clicking the Ok - 5 Secs button.
 	void btnOk5SecsClick(Action *action);
+
 #ifdef __EMSCRIPTEN__
-	/// Phase 41: apply HD UI scaling on resize.
-	void resize(int &dX, int &dY) override { applyUiScaling(); }
+private:
+    bool _hdLayout = false;
+    bool _hdWideLayout = false;
+    Calypso::CalypsoF18LowFuelUi *_hdAdapter = nullptr;
+public:
+    void resize(int &dX, int &dY) override;
 #endif
 };
 

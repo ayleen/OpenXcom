@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "id": "f18-not-enough-pilots",
+  "familyId": 18,
+  "version": "hd.2026-08-20.19",
+  "archetype": "small-confirmation",
+  "protocol": {
+    "authority": "CALYPSO COMMAND",
+    "record": "CRAFT DISPATCH ALERT",
+    "code": "CA-18-NP",
+    "revision": "1.0.21",
+    "effectiveDate": "15.07.2061"
+  },
+  "title": "PILOTS REQUIRED",
+  "body": [
+    "Not enough pilots assigned",
+    "for this craft type."
+  ],
+  "icon": { "kind": "warning", "glyph": "!", "tone": "warning" },
+  "buttons": [
+    { "id": "ok", "label": "ACKNOWLEDGE", "tone": "safe", "action": "acknowledge" },
+    { "id": "assign", "label": "ASSIGN PILOTS", "tone": "primary", "action": "assign" }
+  ],
+  "visibleButtons": ["ok", "assign"]
+}

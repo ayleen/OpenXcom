@@ -28,6 +28,9 @@
 #include "../Savegame/SavedGame.h"
 #include "../Mod/AlienDeployment.h"
 #include "../Engine/Options.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF20ConfirmCydoniaUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -51,6 +54,9 @@ ConfirmCydoniaState::ConfirmCydoniaState(Craft *craft) : _craft(craft)
 	add(_txtMessage, "text", "confirmCydonia");
 
 	centerAllSurfaces();
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF20ConfirmCydoniaUi::configure(*this);
+#endif
 
 	// Set up objects
 	setWindowBackground(_window, "confirmCydonia");
@@ -74,6 +80,10 @@ ConfirmCydoniaState::ConfirmCydoniaState(Craft *craft) : _craft(craft)
  */
 ConfirmCydoniaState::~ConfirmCydoniaState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 }
 
 /**
@@ -115,3 +125,13 @@ void ConfirmCydoniaState::btnNoClick(Action *)
 }
 
 }
+
+#ifdef __EMSCRIPTEN__
+namespace OpenXcom {
+void ConfirmCydoniaState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF20ConfirmCydoniaUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+}
+#endif

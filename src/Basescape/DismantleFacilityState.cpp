@@ -31,6 +31,9 @@
 #include "BaseView.h"
 #include "../Mod/RuleBaseFacility.h"
 #include "../Savegame/SavedGame.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF03DismantleUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -65,6 +68,9 @@ DismantleFacilityState::DismantleFacilityState(Base *base, BaseView *view, BaseF
 	add(_txtRefundValue, "text", "dismantleFacility");
 
 	centerAllSurfaces();
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF03DismantleUi::configure(*this);
+#endif
 
 	// Set up objects
 	setWindowBackground(_window, "dismantleFacility");
@@ -117,6 +123,10 @@ DismantleFacilityState::DismantleFacilityState(Base *base, BaseView *view, BaseF
  */
 DismantleFacilityState::~DismantleFacilityState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 
 }
 
@@ -258,3 +268,13 @@ void DismantleFacilityState::btnCancelClick(Action *)
 }
 
 }
+
+#ifdef __EMSCRIPTEN__
+namespace OpenXcom {
+void DismantleFacilityState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF03DismantleUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+}
+#endif

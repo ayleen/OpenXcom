@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "id": "f24-research-required",
+  "familyId": 24,
+  "version": "hd.2026-08-20.19",
+  "archetype": "small-confirmation",
+  "protocol": {"authority":"CALYPSO COMMAND","record":"RESEARCH PROTOCOL","code":"RS-24","revision":"1.0.21","effectiveDate":"15.07.2061"},
+  "title": "RESEARCH REQUIRED",
+  "body": ["Additional research is","required to proceed."],
+  "icon": {"kind":"info","glyph":"i","tone":"primary"},
+  "buttons": [{"id":"ok","label":"ACKNOWLEDGE","tone":"safe","action":"acknowledge"}],
+  "visibleButtons": ["ok"]
+}

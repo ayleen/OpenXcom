@@ -21,6 +21,7 @@
 
 namespace OpenXcom
 {
+namespace Calypso { class CalypsoF28AbortMissionUi; }
 
 class Window;
 class Text;
@@ -33,6 +34,9 @@ class BattlescapeState;
  */
 class AbortMissionState : public State
 {
+#ifdef __EMSCRIPTEN__
+friend class Calypso::CalypsoF28AbortMissionUi;
+#endif
 private:
 	Window *_window;
 	Text *_txtInEntrance, *_txtInExit, *_txtOutside, *_txtAbort;
@@ -50,6 +54,15 @@ public:
 	/// Handler for clicking the Cancel button.
 	void btnCancelClick(Action *action);
 
+
+#ifdef __EMSCRIPTEN__
+private:
+    bool _hdLayout = false;
+    bool _hdWideLayout = false;
+    Calypso::CalypsoF28AbortMissionUi *_hdAdapter = nullptr;
+public:
+    void resize(int &dX, int &dY) override;
+#endif
 };
 
 }

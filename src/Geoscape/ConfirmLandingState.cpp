@@ -42,6 +42,9 @@
 #include "../Mod/AlienRace.h"
 #include "../Mod/Mod.h"
 #include "../Mod/Texture.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF20ConfirmLandingUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -80,6 +83,9 @@ ConfirmLandingState::ConfirmLandingState(Craft *craft, Texture *missionTexture, 
 	// Phase 41: HD scaling + TTF labels (see docs/phases/phase-29-menu-scaling.md).
 	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
 	enableUiScaling(320, 200, 1.0f);
+#endif
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF20ConfirmLandingUi::configure(*this);
 #endif
 
 	// Set up objects
@@ -143,6 +149,10 @@ ConfirmLandingState::ConfirmLandingState(Craft *craft, Texture *missionTexture, 
  */
 ConfirmLandingState::~ConfirmLandingState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 
 }
 
@@ -345,3 +355,13 @@ void ConfirmLandingState::togglePatrolButton(Action *)
 }
 
 }
+
+#ifdef __EMSCRIPTEN__
+namespace OpenXcom {
+void ConfirmLandingState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF20ConfirmLandingUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+}
+#endif

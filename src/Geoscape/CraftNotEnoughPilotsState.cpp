@@ -27,6 +27,9 @@
 #include "../Savegame/Base.h"
 #include "../Savegame/Craft.h"
 #include "../Basescape/CraftInfoState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF18NotEnoughPilotsUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -54,6 +57,9 @@ CraftNotEnoughPilotsState::CraftNotEnoughPilotsState(Craft *craft) : _craft(craf
 	add(_txtMessage, "text1", "craftPilotError");
 
 	centerAllSurfaces();
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF18NotEnoughPilotsUi::configure(*this);
+#endif
 
 	// Set up objects
 	setWindowBackground(_window, "craftPilotError");
@@ -82,6 +88,10 @@ CraftNotEnoughPilotsState::CraftNotEnoughPilotsState(Craft *craft) : _craft(craf
  */
 CraftNotEnoughPilotsState::~CraftNotEnoughPilotsState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 
 }
 
@@ -116,3 +126,13 @@ void CraftNotEnoughPilotsState::btnAssignPilotsClick(Action *)
 }
 
 }
+
+#ifdef __EMSCRIPTEN__
+namespace OpenXcom {
+void CraftNotEnoughPilotsState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF18NotEnoughPilotsUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+}
+#endif

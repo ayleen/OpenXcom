@@ -1,0 +1,183 @@
+{
+  "schema": 1,
+  "version": "hd.2026-08-20.19",
+  "form": {
+    "id": "f18-low-fuel",
+    "familyId": 18,
+    "archetype": "small-confirmation",
+    "source": "FormConfigs/f18-low-fuel.json",
+    "icon": {
+      "kind": "warning",
+      "glyph": "!",
+      "tone": "warning"
+    },
+    "buttons": [
+      {
+        "id": "ok",
+        "label": "ACKNOWLEDGE",
+        "tone": "safe",
+        "action": "acknowledge",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB0CC",
+          "text": "E8FFF5FF"
+        }
+      },
+      {
+        "id": "ok5secs",
+        "label": "ACKNOWLEDGE 5 SEC",
+        "tone": "primary",
+        "action": "acknowledge5secs",
+        "style": {
+          "fill": "74FFB0FF",
+          "border": "74FFB0FF",
+          "text": "071013FF"
+        }
+      }
+    ],
+    "visibleButtons": [
+      "ok",
+      "ok5secs"
+    ]
+  },
+  "copy": {
+    "protocol": "CALYPSO COMMAND · CRAFT DISPATCH ALERT CA-18-LF · REV. 1.0.21 · EFFECTIVE 15.07.2061",
+    "title": "LOW FUEL WARNING",
+    "message": [
+      "Craft is low on fuel and",
+      "returning to base."
+    ]
+  },
+  "style": {
+    "cutCornerPx": 14,
+    "protocolTextInsetPx": 26,
+    "panelFillTop": "08191DEB",
+    "panelFillBottom": "041014E8",
+    "frame": "74FFB073",
+    "protocolText": "A9D8C7FF",
+    "divider": "74FFB04D",
+    "footerFill": "061B1CD6",
+    "footerDot": "74FFB01F",
+    "warning": "FFC14DFF",
+    "safeFill": "051417B8",
+    "safeBorder": "74FFB0CC",
+    "destructiveFill": "F25F5CFF",
+    "destructiveText": "071013FF"
+  },
+  "layouts": {
+    "wide": {
+      "designWidth": 1280,
+      "designHeight": 720,
+      "window": {
+        "x": 416,
+        "y": 230,
+        "width": 448,
+        "height": 236
+      },
+      "status": {
+        "x": 416,
+        "y": 230,
+        "width": 448,
+        "height": 38
+      },
+      "warning": {
+        "x": 448,
+        "y": 290,
+        "width": 32,
+        "height": 32
+      },
+      "title": {
+        "x": 496,
+        "y": 284,
+        "width": 336,
+        "height": 44
+      },
+      "message": {
+        "x": 448,
+        "y": 336,
+        "width": 384,
+        "height": 54
+      },
+      "footer": {
+        "x": 416,
+        "y": 404,
+        "width": 448,
+        "height": 62
+      },
+      "buttons": {
+        "ok": {
+          "x": 506,
+          "y": 413,
+          "width": 158,
+          "height": 44
+        },
+        "ok5secs": {
+          "x": 674,
+          "y": 413,
+          "width": 158,
+          "height": 44
+        }
+      }
+    },
+    "compact": {
+      "designWidth": 740,
+      "designHeight": 360,
+      "window": {
+        "x": 169,
+        "y": 60,
+        "width": 402,
+        "height": 221
+      },
+      "status": {
+        "x": 169,
+        "y": 60,
+        "width": 402,
+        "height": 34
+      },
+      "warning": {
+        "x": 197,
+        "y": 111,
+        "width": 28,
+        "height": 28
+      },
+      "title": {
+        "x": 239,
+        "y": 106,
+        "width": 304,
+        "height": 38
+      },
+      "message": {
+        "x": 197,
+        "y": 150,
+        "width": 346,
+        "height": 48
+      },
+      "footer": {
+        "x": 169,
+        "y": 215,
+        "width": 402,
+        "height": 66
+      },
+      "buttons": {
+        "ok": {
+          "x": 235,
+          "y": 225,
+          "width": 148,
+          "height": 44
+        },
+        "ok5secs": {
+          "x": 395,
+          "y": 225,
+          "width": 148,
+          "height": 44
+        }
+      }
+    }
+  },
+  "motion": {
+    "durationMs": 200,
+    "scaleFrom": 0.96,
+    "easing": "ease-out",
+    "captureModeDurationMs": 0
+  }
+}

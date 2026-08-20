@@ -35,6 +35,9 @@
 #include "../Mod/RuleCraft.h"
 #include "../Savegame/Craft.h"
 #include "../Savegame/Tile.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF28AbortMissionUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -196,6 +199,10 @@ AbortMissionState::AbortMissionState(SavedBattleGame *battleGame, BattlescapeSta
  */
 AbortMissionState::~AbortMissionState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 
 }
 
@@ -233,6 +240,9 @@ void AbortMissionState::btnOkClick(Action *)
 		return;
 	}
 #endif
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF28AbortMissionUi::configure(*this);
+#endif
 
 	_game->popState();
 	_battleGame->setAborted(true);
@@ -250,3 +260,13 @@ void AbortMissionState::btnCancelClick(Action *)
 
 
 }
+
+#ifdef __EMSCRIPTEN__
+namespace OpenXcom {
+void AbortMissionState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF28AbortMissionUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+}
+#endif

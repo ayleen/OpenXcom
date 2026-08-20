@@ -28,6 +28,9 @@
 #include "../Savegame/ItemContainer.h"
 #include "../Savegame/Soldier.h"
 #include "../Mod/Armor.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF04SackSoldierUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -59,6 +62,9 @@ SackSoldierState::SackSoldierState(Base *base, size_t soldierId) : _base(base), 
 	add(_txtSoldier, "text", "sackSoldier");
 
 	centerAllSurfaces();
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF04SackSoldierUi::configure(*this);
+#endif
 
 	// Set up objects
 	setWindowBackground(_window, "sackSoldier");
@@ -86,6 +92,10 @@ SackSoldierState::SackSoldierState(Base *base, size_t soldierId) : _base(base), 
  */
 SackSoldierState::~SackSoldierState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 
 }
 
@@ -116,3 +126,13 @@ void SackSoldierState::btnCancelClick(Action *)
 }
 
 }
+
+#ifdef __EMSCRIPTEN__
+namespace OpenXcom {
+void SackSoldierState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF04SackSoldierUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+}
+#endif

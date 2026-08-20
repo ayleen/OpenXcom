@@ -21,6 +21,7 @@
 
 namespace OpenXcom
 {
+namespace Calypso { class CalypsoF03DismantleUi; }
 
 class Base;
 class BaseView;
@@ -35,6 +36,9 @@ class Text;
  */
 class DismantleFacilityState : public State
 {
+#ifdef __EMSCRIPTEN__
+friend class Calypso::CalypsoF03DismantleUi;
+#endif
 private:
 	Base *_base;
 	BaseView *_view;
@@ -52,6 +56,15 @@ public:
 	void btnOkClick(Action *action);
 	/// Handler for clicking the Cancel button.
 	void btnCancelClick(Action *action);
+
+#ifdef __EMSCRIPTEN__
+private:
+    bool _hdLayout = false;
+    bool _hdWideLayout = false;
+    Calypso::CalypsoF03DismantleUi *_hdAdapter = nullptr;
+public:
+    void resize(int &dX, int &dY) override;
+#endif
 };
 
 }

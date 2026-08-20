@@ -1,0 +1,209 @@
+{
+  "schema": 1,
+  "version": "hd.2026-08-20.19",
+  "form": {
+    "id": "f03-dismantle",
+    "familyId": 3,
+    "archetype": "small-confirmation",
+    "source": "FormConfigs/f03-dismantle.json",
+    "icon": {
+      "kind": "warning",
+      "glyph": "!",
+      "tone": "warning"
+    },
+    "buttons": [
+      {
+        "id": "cancel",
+        "label": "CANCEL",
+        "tone": "safe",
+        "action": "cancel",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB0CC",
+          "text": "E8FFF5FF"
+        }
+      },
+      {
+        "id": "confirm",
+        "label": "DISMANTLE",
+        "tone": "danger",
+        "action": "confirm",
+        "style": {
+          "fill": "F25F5CFF",
+          "border": "F25F5CFF",
+          "text": "071013FF"
+        }
+      }
+    ],
+    "visibleButtons": [
+      "cancel",
+      "confirm"
+    ]
+  },
+  "copy": {
+    "protocol": "CALYPSO COMMAND · FACILITY DOSSIER FD-03 · REV. 1.0.21 · EFFECTIVE 15.07.2061",
+    "title": "DISMANTLE FACILITY?",
+    "message": [
+      "Dismantle the selected",
+      "facility permanently?"
+    ],
+    "safeAction": "CANCEL",
+    "destructiveAction": "DISMANTLE"
+  },
+  "style": {
+    "cutCornerPx": 14,
+    "protocolTextInsetPx": 26,
+    "panelFillTop": "08191DEB",
+    "panelFillBottom": "041014E8",
+    "frame": "74FFB073",
+    "protocolText": "A9D8C7FF",
+    "divider": "74FFB04D",
+    "footerFill": "061B1CD6",
+    "footerDot": "74FFB01F",
+    "warning": "FFC14DFF",
+    "safeFill": "051417B8",
+    "safeBorder": "74FFB0CC",
+    "destructiveFill": "F25F5CFF",
+    "destructiveText": "071013FF"
+  },
+  "layouts": {
+    "wide": {
+      "designWidth": 1280,
+      "designHeight": 720,
+      "window": {
+        "x": 386,
+        "y": 230,
+        "width": 508,
+        "height": 236
+      },
+      "status": {
+        "x": 386,
+        "y": 230,
+        "width": 508,
+        "height": 38
+      },
+      "warning": {
+        "x": 418,
+        "y": 290,
+        "width": 32,
+        "height": 32
+      },
+      "title": {
+        "x": 466,
+        "y": 284,
+        "width": 396,
+        "height": 44
+      },
+      "message": {
+        "x": 418,
+        "y": 336,
+        "width": 444,
+        "height": 54
+      },
+      "footer": {
+        "x": 386,
+        "y": 404,
+        "width": 508,
+        "height": 62
+      },
+      "buttons": {
+        "cancel": {
+          "x": 536,
+          "y": 413,
+          "width": 158,
+          "height": 44
+        },
+        "confirm": {
+          "x": 704,
+          "y": 413,
+          "width": 158,
+          "height": 44
+        }
+      },
+      "no": {
+        "x": 536,
+        "y": 413,
+        "width": 158,
+        "height": 44
+      },
+      "yes": {
+        "x": 704,
+        "y": 413,
+        "width": 158,
+        "height": 44
+      }
+    },
+    "compact": {
+      "designWidth": 740,
+      "designHeight": 360,
+      "window": {
+        "x": 142,
+        "y": 60,
+        "width": 456,
+        "height": 221
+      },
+      "status": {
+        "x": 142,
+        "y": 60,
+        "width": 456,
+        "height": 34
+      },
+      "warning": {
+        "x": 170,
+        "y": 111,
+        "width": 28,
+        "height": 28
+      },
+      "title": {
+        "x": 212,
+        "y": 106,
+        "width": 358,
+        "height": 38
+      },
+      "message": {
+        "x": 170,
+        "y": 150,
+        "width": 400,
+        "height": 48
+      },
+      "footer": {
+        "x": 142,
+        "y": 215,
+        "width": 456,
+        "height": 66
+      },
+      "buttons": {
+        "cancel": {
+          "x": 262,
+          "y": 225,
+          "width": 148,
+          "height": 44
+        },
+        "confirm": {
+          "x": 422,
+          "y": 225,
+          "width": 148,
+          "height": 44
+        }
+      },
+      "no": {
+        "x": 262,
+        "y": 225,
+        "width": 148,
+        "height": 44
+      },
+      "yes": {
+        "x": 422,
+        "y": 225,
+        "width": 148,
+        "height": 44
+      }
+    }
+  },
+  "motion": {
+    "durationMs": 200,
+    "scaleFrom": 0.96,
+    "easing": "ease-out",
+    "captureModeDurationMs": 0
+  }
+}

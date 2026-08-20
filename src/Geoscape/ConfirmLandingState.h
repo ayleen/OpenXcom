@@ -21,6 +21,7 @@
 
 namespace OpenXcom
 {
+namespace Calypso { class CalypsoF20ConfirmLandingUi; }
 
 class Window;
 class Text;
@@ -35,6 +36,9 @@ class Surface;
  */
 class ConfirmLandingState : public State
 {
+#ifdef __EMSCRIPTEN__
+friend class Calypso::CalypsoF20ConfirmLandingUi;
+#endif
 private:
 	Craft *_craft;
 	Window *_window;
@@ -58,9 +62,14 @@ public:
 	void btnNoClick(Action *action);
 	/// Handler for pressing/releasing CTRL.
 	void togglePatrolButton(Action *action);
+
 #ifdef __EMSCRIPTEN__
-	/// Phase 41: apply HD UI scaling on resize.
-	void resize(int &dX, int &dY) override { applyUiScaling(); }
+private:
+    bool _hdLayout = false;
+    bool _hdWideLayout = false;
+    Calypso::CalypsoF20ConfirmLandingUi *_hdAdapter = nullptr;
+public:
+    void resize(int &dX, int &dY) override;
 #endif
 };
 

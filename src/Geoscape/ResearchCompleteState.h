@@ -21,6 +21,7 @@
 
 namespace OpenXcom
 {
+namespace Calypso { class CalypsoF24ResearchCompleteUi; }
 
 class Game;
 class Window;
@@ -35,6 +36,9 @@ class RuleResearch;
  */
 class ResearchCompleteState : public State
 {
+#ifdef __EMSCRIPTEN__
+friend class Calypso::CalypsoF24ResearchCompleteUi;
+#endif
 	Window *_window;
 	Text *_txtTitle, *_txtResearch, *_txtBase;
 	TextButton *_btnReport, *_btnOk;
@@ -46,9 +50,14 @@ public:
 	void btnOkClick(Action *action);
 	/// Handler for clicking the Report button.
 	void btnReportClick(Action *action);
+
 #ifdef __EMSCRIPTEN__
-	/// Phase 41: apply HD UI scaling on resize.
-	void resize(int &dX, int &dY) override { applyUiScaling(); }
+private:
+    bool _hdLayout = false;
+    bool _hdWideLayout = false;
+    Calypso::CalypsoF24ResearchCompleteUi *_hdAdapter = nullptr;
+public:
+    void resize(int &dX, int &dY) override;
 #endif
 };
 

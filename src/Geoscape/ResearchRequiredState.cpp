@@ -25,6 +25,9 @@
 #include "../Interface/Text.h"
 #include "../Mod/RuleItem.h"
 #include "../Engine/Options.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF24ResearchRequiredUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -54,6 +57,9 @@ ResearchRequiredState::ResearchRequiredState(RuleItem *item)
 	// Phase 41: HD scaling + TTF labels (see docs/phases/phase-29-menu-scaling.md).
 	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
 	enableUiScaling(320, 200, 1.0f);
+#endif
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF24ResearchRequiredUi::configure(*this);
 #endif
 
 	std::string weapon = item->getType();
@@ -85,3 +91,13 @@ void ResearchRequiredState::btnOkClick(Action *)
 }
 
 }
+
+#ifdef __EMSCRIPTEN__
+namespace OpenXcom {
+void ResearchRequiredState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF24ResearchRequiredUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+}
+#endif

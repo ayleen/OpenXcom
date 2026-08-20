@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "id": "f28-confirm-end",
+  "familyId": 28,
+  "version": "hd.2026-08-20.19",
+  "archetype": "small-confirmation",
+  "protocol": {"authority":"CALYPSO COMMAND","record":"TACTICAL TURN","code":"TA-28-E","revision":"1.0.21","effectiveDate":"15.07.2061"},
+  "title": "END TURN?",
+  "body": ["End the current turn","and proceed?"],
+  "icon": {"kind":"question","glyph":"?","tone":"primary"},
+  "buttons": [{"id":"cancel","label":"CANCEL","tone":"safe","action":"cancel"},{"id":"confirm","label":"END TURN","tone":"primary","action":"confirm"}],
+  "visibleButtons": ["cancel","confirm"]
+}
