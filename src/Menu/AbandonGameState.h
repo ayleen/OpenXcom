@@ -20,6 +20,16 @@
 #include "../Engine/State.h"
 #include "OptionsBaseState.h"
 
+#ifdef __EMSCRIPTEN__
+namespace OpenXcom
+{
+namespace Calypso
+{
+class CalypsoAbandonPopupUi;
+}
+}
+#endif
+
 namespace OpenXcom
 {
 
@@ -38,11 +48,27 @@ private:
 	TextButton *_btnYes, *_btnNo;
 	Window *_window;
 	Text *_txtTitle;
+#ifdef __EMSCRIPTEN__
+	// F33 (Phase 46.2-HD): physical-route state owned by CalypsoAbandonPopupUi.
+	friend class Calypso::CalypsoAbandonPopupUi;
+	/// Fail-safe gate: physical route is on and this state may use it.
+	bool _hdLayout = false;
+	/// Last applied layout class (Compact/Wide), recomputed on resize.
+	bool _hdWideLayout = false;
+	/// HD-only data-loss copy (absent on the logical fallback).
+	Text* _hdMessage = nullptr;
+	/// HD-only command protocol strip (absent on the logical fallback).
+	Text* _hdProtocol = nullptr;
+	/// Owned; registered with the overlay while this state is top.
+	Calypso::CalypsoAbandonPopupUi* _hdAdapter = nullptr;
+#endif
 public:
 	/// Creates the Abandon Game state.
 	AbandonGameState(OptionsOrigin origin);
 	/// Cleans up the Abandon Game state.
 	~AbandonGameState();
+	/// Calypso (Emscripten): rescale to the logical buffer instead of the base recenter.
+	void resize(int &dX, int &dY) override;
 	/// Handler for clicking the Yes button.
 	void btnYesClick(Action *action);
 	/// Handler for clicking the No button.

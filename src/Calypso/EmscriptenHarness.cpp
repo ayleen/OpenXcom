@@ -906,6 +906,20 @@ EMSCRIPTEN_KEEPALIVE int calypso_music_unmute()
 	return 1;
 }
 
+/* Full QA mute: music AND every SDL_mixer channel (sound effects, UI blips,
+ * ambient). Used by the ?mute=1 / ?hdHarness= silent-boot path in menu.js —
+ * unlike the music pair above there is deliberately no unmute counterpart:
+ * a QA session dies with its page and must stay silent for its whole life.
+ * Same live-Game guard and saved-volume idempotence as calypso_music_mute. */
+EMSCRIPTEN_KEEPALIVE int calypso_audio_mute()
+{
+	if (!getCurrentGame()) return 0;
+	if (s_calypsoSavedMusicVol < 0) { s_calypsoSavedMusicVol = Mix_VolumeMusic(-1); }
+	Mix_VolumeMusic(0);
+	Mix_Volume(-1, 0);
+	return 1;
+}
+
 /* The SDL2 Emscripten port routes WebGL-canvas pointermove events as
  * SDL_MOUSEBUTTONDOWN (buttonless), not SDL_MOUSEMOTION, which leaves the
  * OXCE Cursor stuck.  Hosting code in main.js registers a JS mousemove

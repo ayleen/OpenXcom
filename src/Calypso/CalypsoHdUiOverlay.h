@@ -15,15 +15,14 @@
  *                      visible State::blit): freeze metrics, advance the frame,
  *                      reset per-frame state, ask the active family adapter to
  *                      collect an immutable description, then raster+upload each
- *                      atomic subgroup and COMMIT claims + draws only for the
- *                      subgroups that are fully Ready. A failure before commit
- *                      takes no claims -> the widgets render logically.
+ *                      atomic subgroup and COMMIT claims + draws only when the
+ *                      active HD route is fully ready. Any preparation failure
+ *                      throws; an enabled route never exposes vanilla widgets.
  *   (State::blit)   -- claimed widgets skip their blit (widgetClaimed()).
  *   renderStages()  -- called after the legacy composite in Screen::flip():
  *                      draws the already-committed, already-uploaded items in
  *                      deterministic order behind one GL state guard. A draw
- *                      failure discards claims, latches a wholly-logical next
- *                      frame, and returns false so Screen skips SDL_RenderPresent.
+ *                      failure throws before SDL_RenderPresent.
  *
  * With no adapter committing this frame the queue is DORMANT: prepareFrame does
  * the cheap begin only, renderStages early-returns, and native behaviour is
@@ -43,6 +42,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <vector>
 #include <unordered_map>
 #include <unordered_set>
@@ -66,14 +66,15 @@ public:
 	/// canvas backing store, freeze ONE presentation-metrics snapshot, advance
 	/// the frame controller (clearing last frame's claims), then -- if physical
 	/// output is permitted and the active adapter feeds `topState` -- collect,
-	/// raster, upload, and commit the Ready subgroups. `logicalWidth/Height` are
+	/// raster, upload, and commit every subgroup. An active adapter fails fast on
+	/// any preparation error; it never falls back to vanilla. `logicalWidth/Height` are
 	/// the engine's logical base resolution (Options::baseX/YResolution).
 	void prepareFrame(int logicalWidth, int logicalHeight, const void* topState);
 
 	/// After the legacy composite in Screen::flip(): draw this frame's committed
 	/// items in order behind one GL state guard. Dormant (no-op, returns true)
-	/// unless a subgroup committed this frame. Returns false if a post-commit
-	/// draw failed (the caller then skips SDL_RenderPresent).
+	/// unless a subgroup committed this frame. An enabled HD route throws if its
+	/// committed items cannot be drawn.
 	bool renderStages(SDL_Renderer* renderer);
 
 	/// Register/clear the active family adapter. A state registers itself while
@@ -85,6 +86,16 @@ public:
 	/// is the current frame. Called from Text/TextButton/Window blit() to skip
 	/// the logical draw exactly when the overlay took the visual over.
 	bool widgetClaimed(const void* widget, std::uint64_t frameId) const;
+
+	/// True when a covered-state widget must not enter the logical composite.
+	/// Unlike a physical claim this remains active during an adapter's opening
+	/// animation, so an underlying vanilla window cannot flash through.
+	bool logicalWidgetSuppressed(const void* widget, std::uint64_t frameId) const;
+
+	/// True after the active atomic HD subgroup commits for this exact state.
+	/// State::blit uses this global gate to prevent an omitted top-level widget
+	/// from leaking vanilla pixels beneath a physical HD form.
+	bool logicalStateSuppressed(const void* state, std::uint64_t frameId) const;
 
 	/// Developer harness (Emscripten export): a single physical-resolution test
 	/// quad through the real GL path. Off by default.
@@ -108,39 +119,52 @@ private:
 
 	/// One resolved, uploaded draw ready for renderStages. Panels use the shared
 	/// white texture; text carries its natural glyph size for in-box placement.
+	/// A Panel with panelStyle.styled paints via the hd_ui_panel SDF shader
+	/// instead of the tinted white quad.
 	struct ResolvedDraw
 	{
 		CalypsoHdOrderKey order;
 		CalypsoHdItemKind kind = CalypsoHdItemKind::Panel;
 		CalypsoLogicalRect rect;
 		std::uint32_t colorRgba = 0;
+		CalypsoHdPanelStyle panelStyle;
 		GpuTexture* tex = nullptr;
 		int naturalW = 0;
 		int naturalH = 0;
+		float textScaleX = 1.0f;
+		float textScaleY = 1.0f;
 		CalypsoHdHAlign hAlign = CalypsoHdHAlign::Left;
 		CalypsoHdVAlign vAlign = CalypsoHdVAlign::Middle;
+		float opacity = 1.0f; // presentation opacity (opening motion)
 	};
 
 	void beginFrame(int logicalWidth, int logicalHeight);
+	[[noreturn]] void failHdRoute(const std::string& detail);
 	void ensureGpu();
 	void onContextRestored();
 
-	/// Try to resolve every item of one subgroup to an uploaded texture. On full
-	/// success append the resolved draws to `out` and return true (caller then
-	/// commits its claims); on any failure return false and commit nothing.
-	bool resolveSubgroup(const CalypsoHdSubgroup& subgroup, std::vector<ResolvedDraw>& out);
+	/// Resolve every item of one subgroup to an uploaded texture. Appends all
+	/// resolved draws to `out`; any failure throws instead of exposing vanilla.
+	void resolveSubgroup(const CalypsoHdSubgroup& subgroup, std::vector<ResolvedDraw>& out);
 
 	/// Core NDC draw of `tex` into a physical device-pixel rect, sampling the
 	/// texture over the UV sub-rect [u0,v0]-[u1,v1] (default full 0..1). Returns
 	/// false if the shader/VAO/texture are not drawable. Assumes the GL guard +
 	/// blend are already set by renderStages.
 	bool drawPhysQuad(GpuTexture* tex, const CalypsoPhysRect& r, std::uint32_t colorRgba,
-		float u0 = 0.0f, float v0 = 0.0f, float u1 = 1.0f, float v1 = 1.0f);
+		float u0 = 0.0f, float v0 = 0.0f, float u1 = 1.0f, float v1 = 1.0f,
+		float opacity = 1.0f);
 	/// Map a logical rect to physical and draw (panels).
 	bool drawLogicalQuad(GpuTexture* tex, const CalypsoLogicalRect& logical, std::uint32_t colorRgba);
+	/// SDF styled panel (rounded/border/gradient/glow) via hd_ui_panel; the
+	/// quad is padded by the glow radius so the falloff fits inside it.
+	bool drawStyledPanel(const ResolvedDraw& d);
 	/// Place a natural-size glyph bitmap inside the mapped box per alignment and
 	/// draw it (text) -- the box is the layout/clip target, not a stretch target.
 	bool drawGlyph(const ResolvedDraw& d);
+	/// Upload one quad's vertices (NDC positions + full UVs) into the shared
+	/// VBO/VAO. Shared by drawPhysQuad and drawStyledPanel.
+	void uploadQuadVerts(const CalypsoPhysRect& r);
 
 	GpuTexture* whiteTexture();
 	GpuTexture* textureForText(const CalypsoHdTextRasterKey& rasterKey);
@@ -154,6 +178,8 @@ private:
 	CalypsoHdPresentationMetrics _frozenMetrics;
 	bool _mayGoPhysical = false;
 	bool _activeThisFrame = false;
+	const void* _physicalStateThisFrame = nullptr;
+	std::vector<const void*> _logicalSuppressedWidgets;
 
 	// All currently-registered family adapters (a State registers on create,
 	// clears on destroy). prepareFrame() drives the one whose topState() is the
@@ -172,6 +198,7 @@ private:
 	// Shared GL resources (created on first active frame; recovered via the
 	// ShaderManager reset-callback ladder).
 	Shader* _hdShader = nullptr;
+	Shader* _panelShader = nullptr;
 	unsigned _vao = 0;
 	unsigned _vbo = 0;
 	bool _glReady = false;

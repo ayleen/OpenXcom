@@ -63,6 +63,7 @@ public:
 
 	// --- CalypsoHdFamilyAdapter (snapshot-only) ---
 	const void* topState() const override;
+	bool physicalReady() const override;
 	void collect(CalypsoHdFrameBuilder& builder) const override;
 
 	// --- Entry points called from StatisticsState ---

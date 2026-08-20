@@ -40,6 +40,11 @@
 #include "../Engine/Timer.h"
 #include "../Engine/Options.h"
 #include "../Mod/RuleInterface.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoAbandonPopupUi.h"
+#include "../Calypso/CalypsoF21DefenseUi.h"
+#include "../Calypso/CalypsoHdHarnessHostState.h"
+#endif
 
 namespace OpenXcom
 {
@@ -115,6 +120,12 @@ BaseDefenseState::BaseDefenseState(Base *base, Ufo *ufo, GeoscapeState *state, b
 
 	_lstDefenses->setColumns(3, 134, 70, 50);
 	_lstDefenses->setFlooding(true);
+
+#ifdef __EMSCRIPTEN__
+	// Prepare the generated HD list geometry before optional initial rows are
+	// added below; configure() repeats this for the final layout/resize path.
+	Calypso::CalypsoF21DefenseUi::prepareList(*this);
+#endif
 
 	if (showUfo)
 	{
@@ -205,13 +216,32 @@ BaseDefenseState::BaseDefenseState(Base *base, Ufo *ufo, GeoscapeState *state, b
 			btnStartClick(0);
 		}
 	}
+#ifdef __EMSCRIPTEN__
+	// F21 (Phase 46.F21): physical route for the defense instrumentation
+	// window. Must run AFTER btnStartClick may have hidden the buttons.
+	Calypso::CalypsoF21DefenseUi::configure(*this, true);
+#endif
 }
+
+#ifdef __EMSCRIPTEN__
+void BaseDefenseState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF21DefenseUi::resize(*this)) return;
+	applyUiScaling();
+}
+#endif
 
 /**
  *
  */
 BaseDefenseState::~BaseDefenseState()
 {
+#ifdef __EMSCRIPTEN__
+	if (_hdLayout) Calypso::hdHarnessDomHide();
+	Calypso::calypsoHdHarnessClose();
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 	delete _timer;
 }
 

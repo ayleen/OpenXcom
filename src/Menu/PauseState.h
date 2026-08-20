@@ -19,6 +19,17 @@
  */
 #include "../Engine/State.h"
 #include "OptionsBaseState.h"
+#include <string>
+
+#ifdef __EMSCRIPTEN__
+namespace OpenXcom
+{
+namespace Calypso
+{
+class CalypsoPauseMenu;
+}
+}
+#endif
 
 namespace OpenXcom
 {
@@ -39,6 +50,17 @@ private:
 	TextButton *_btnLoad, *_btnSave, *_btnAbandon, *_btnOptions, *_btnCancel;
 	Window *_window;
 	Text *_txtTitle, *_txtVersion;
+#ifdef __EMSCRIPTEN__
+	/// F33: the DOM overlay bridge reads this state's presentation snapshot.
+	/// Placement policy R3: the body lives in src/Calypso/CalypsoPauseMenu.
+	bool _calypsoPresentationCaptured = false;
+	bool _calypsoShowLoad = false, _calypsoShowSave = false;
+	bool _calypsoShowAbandon = false, _calypsoShowOptions = false;
+	bool _calypsoShowCancel = false;
+	std::string _calypsoLoadLabel, _calypsoSaveLabel;
+	std::string _calypsoAbandonLabel, _calypsoOptionsLabel, _calypsoCancelLabel;
+	friend class Calypso::CalypsoPauseMenu;
+#endif
 public:
 	/// Creates the Pause state.
 	PauseState(OptionsOrigin origin);
@@ -46,6 +68,10 @@ public:
 	~PauseState();
 	/// Calypso (Emscripten): rescale to the logical buffer instead of the base recenter.
 	void resize(int &dX, int &dY) override;
+#ifdef __EMSCRIPTEN__
+	/// F33: re-show the DOM overlay when this state becomes top again.
+	void think() override;
+#endif
 	/// Handler for clicking the Load Game button.
 	void btnLoadClick(Action *action);
 	/// Handler for clicking the Save Game button.

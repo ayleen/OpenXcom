@@ -1,0 +1,210 @@
+{
+  "schema": 1,
+  "version": "hd.2026-08-20.22",
+  "form": {
+    "id": "f33-abandon",
+    "familyId": 33,
+    "archetype": "small-confirmation",
+    "source": "FormConfigs/f33-abandon.json",
+    "icon": {
+      "kind": "warning",
+      "glyph": "!",
+      "tone": "warning"
+    },
+    "buttons": [
+      {
+        "id": "cancel",
+        "label": "KEEP PLAYING",
+        "tone": "safe",
+        "action": "cancel",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB0CC",
+          "text": "E8FFF5FF"
+        }
+      },
+      {
+        "id": "confirm",
+        "label": "ABANDON GAME",
+        "tone": "danger",
+        "action": "confirm",
+        "style": {
+          "fill": "F25F5CFF",
+          "border": "F25F5CFF",
+          "text": "071013FF"
+        }
+      }
+    ]
+  },
+  "copy": {
+    "protocol": "CALYPSO COMMAND · SESSION PROTOCOL SP-01",
+    "title": "ABANDON GAME?",
+    "message": [
+      "Your progress since the last save will be lost.",
+      "This session will be permanently discarded."
+    ],
+    "safeAction": "KEEP PLAYING",
+    "destructiveAction": "ABANDON GAME"
+  },
+  "presentation": {
+    "density": "standard",
+    "scaleNumerator": 1,
+    "scaleDenominator": 1
+  },
+  "style": {
+    "cutCornerPx": 14,
+    "protocolTextInsetPx": 26,
+    "panelFillTop": "08191DEB",
+    "panelFillBottom": "041014E8",
+    "frame": "74FFB073",
+    "protocolText": "A9D8C7FF",
+    "divider": "74FFB04D",
+    "footerFill": "061B1CD6",
+    "footerDot": "74FFB01F",
+    "warning": "FFC14DFF",
+    "safeFill": "051417B8",
+    "safeBorder": "74FFB0CC",
+    "destructiveFill": "F25F5CFF",
+    "destructiveText": "071013FF"
+  },
+  "layouts": {
+    "wide": {
+      "designWidth": 1280,
+      "designHeight": 720,
+      "window": {
+        "x": 430,
+        "y": 230,
+        "width": 420,
+        "height": 236
+      },
+      "status": {
+        "x": 430,
+        "y": 230,
+        "width": 420,
+        "height": 38
+      },
+      "warning": {
+        "x": 462,
+        "y": 290,
+        "width": 32,
+        "height": 32
+      },
+      "title": {
+        "x": 510,
+        "y": 284,
+        "width": 308,
+        "height": 44
+      },
+      "message": {
+        "x": 462,
+        "y": 336,
+        "width": 356,
+        "height": 54
+      },
+      "footer": {
+        "x": 430,
+        "y": 404,
+        "width": 420,
+        "height": 62
+      },
+      "buttons": {
+        "cancel": {
+          "x": 492,
+          "y": 413,
+          "width": 158,
+          "height": 44
+        },
+        "confirm": {
+          "x": 660,
+          "y": 413,
+          "width": 158,
+          "height": 44
+        }
+      },
+      "no": {
+        "x": 492,
+        "y": 413,
+        "width": 158,
+        "height": 44
+      },
+      "yes": {
+        "x": 660,
+        "y": 413,
+        "width": 158,
+        "height": 44
+      }
+    },
+    "compact": {
+      "designWidth": 740,
+      "designHeight": 360,
+      "window": {
+        "x": 188,
+        "y": 60,
+        "width": 364,
+        "height": 221
+      },
+      "status": {
+        "x": 188,
+        "y": 60,
+        "width": 364,
+        "height": 34
+      },
+      "warning": {
+        "x": 216,
+        "y": 111,
+        "width": 28,
+        "height": 28
+      },
+      "title": {
+        "x": 258,
+        "y": 106,
+        "width": 266,
+        "height": 38
+      },
+      "message": {
+        "x": 216,
+        "y": 150,
+        "width": 308,
+        "height": 48
+      },
+      "footer": {
+        "x": 188,
+        "y": 215,
+        "width": 364,
+        "height": 66
+      },
+      "buttons": {
+        "cancel": {
+          "x": 216,
+          "y": 225,
+          "width": 148,
+          "height": 44
+        },
+        "confirm": {
+          "x": 376,
+          "y": 225,
+          "width": 148,
+          "height": 44
+        }
+      },
+      "no": {
+        "x": 216,
+        "y": 225,
+        "width": 148,
+        "height": 44
+      },
+      "yes": {
+        "x": 376,
+        "y": 225,
+        "width": 148,
+        "height": 44
+      }
+    }
+  },
+  "motion": {
+    "durationMs": 200,
+    "scaleFrom": 0.96,
+    "easing": "ease-out",
+    "captureModeDurationMs": 0
+  }
+}

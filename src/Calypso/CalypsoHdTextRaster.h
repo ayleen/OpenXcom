@@ -3,17 +3,19 @@
  * Copyright 2010-2016 OpenXcom Developers.
  *
  * Phase 46.2-HD (Calypso) -- CPU-side HD text rasteriser. Owns a bounded
- * sized-face factory (TTF_Font* opened at an arbitrary physical pixel
+ * sized-face factory (TTF_Font* opened at an arbitrary design-space pixel
  * height, independent of any mod-registered TTFFont's fixed size) and a
  * bounded, byte-budgeted raster cache keyed by CalypsoHdTextRasterKey, so a
  * warm hit at an unchanged key costs zero rasterisation work. This batch is
  * CPU rasterisation only -- no GL/WebGL calls; dropContextTextures() is a
  * placeholder seam for the GPU-texture cache layered on top of this class in
- * a later HD.4 batch. Whole-file Emscripten guard per the Phase 36 placement
+ * a later HD.4 batch; presentation projection is applied by the GPU draw quad.
+ * Whole-file Emscripten guard per the Phase 36 placement
  * policy (see CalypsoViewportMailbox.cpp for the reference shape).
  */
 #ifdef __EMSCRIPTEN__
 
+#include "CalypsoHdDiagnostics.h"
 #include "CalypsoHdTextRasterKey.h"
 
 #include <SDL.h>
@@ -29,7 +31,7 @@ namespace Calypso
 {
 
 /// CPU-side HD text rasteriser: owns a bounded sized-face factory (TTF_Font*
-/// opened at a specific physical pixel height) and a bounded, byte-budgeted
+/// opened at a specific design-space pixel height) and a bounded, byte-budgeted
 /// raster cache (SDL_Surface* keyed by CalypsoHdTextRasterKey). A warm hit
 /// does zero rasterisation work; a cold miss opens (or reuses) the sized
 /// face and rasterises once via TTF_RenderUTF8_Blended.
@@ -107,6 +109,10 @@ private:
 	std::unordered_map<CalypsoHdTextRasterKey, std::uint64_t> _rasterHandles;
 	std::unordered_map<std::uint64_t, CalypsoHdTextRasterKey> _handleToKey;
 	CalypsoLruByteBudget _lru;
+
+	/// Bounded diagnostics gate (Phase 46.4-F33): one error per
+	/// (failure class, font generation, text instance) until recovery.
+	CalypsoDiagnosticGate _diag;
 };
 
 } // namespace Calypso

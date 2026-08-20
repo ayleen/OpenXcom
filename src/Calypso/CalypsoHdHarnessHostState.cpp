@@ -1,0 +1,297 @@
+/*
+ * Phase 46.4-F33 (Calypso) -- opaque-black engine harness host. See
+ * CalypsoHdHarnessHostState.h.
+ */
+#ifdef __EMSCRIPTEN__
+
+#include "CalypsoHdHarnessHostState.h"
+
+#include <SDL.h>
+#include <emscripten.h>
+
+#include "../Engine/Game.h"
+#include "../Engine/Screen.h"
+#include "../Engine/Logger.h"
+#include "../Interface/Cursor.h"
+#include "../Menu/AbandonGameState.h"
+
+#include "CalypsoAbandonPopupUi.h" // calypsoHdHarnessSetSideBySide (F33 comparison shift)
+
+namespace OpenXcom
+{
+namespace Calypso
+{
+
+namespace
+{
+
+/// One active harness run at a time (repeated opens are no-ops).
+CalypsoHarnessSession g_harnessSession;
+bool g_harnessCursorCaptured = false;
+bool g_harnessCursorVisible = true;
+bool g_harnessCursorHidden = false;
+
+void hideHarnessCursor(Game* game)
+{
+	if (!game || !game->getCursor() || g_harnessCursorCaptured) return;
+	Cursor* cursor = game->getCursor();
+	g_harnessCursorVisible = cursor->getVisible();
+	g_harnessCursorHidden = cursor->getHidden();
+	g_harnessCursorCaptured = true;
+	cursor->setVisible(false);
+	cursor->setHidden(true);
+}
+
+void restoreHarnessCursor(Game* game)
+{
+	if (!g_harnessCursorCaptured) return;
+	if (game && game->getCursor())
+	{
+		Cursor* cursor = game->getCursor();
+		cursor->setVisible(g_harnessCursorVisible);
+		cursor->setHidden(g_harnessCursorHidden);
+	}
+	g_harnessCursorCaptured = false;
+}
+
+} // namespace
+
+CalypsoHarnessSession& calypsoHarnessSession()
+{
+	return g_harnessSession;
+}
+
+void calypsoHdHarnessDomShow()
+{
+	EM_ASM({ if (globalThis.__calypsoHdHarnessShow) globalThis.__calypsoHdHarnessShow(); });
+}
+
+void calypsoHdHarnessDomHide()
+{
+	EM_ASM({ if (globalThis.__calypsoHdHarnessHide) globalThis.__calypsoHdHarnessHide(); });
+}
+
+State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
+{
+	switch (id)
+	{
+	case CalypsoHarnessScenario::F33Abandon:
+		// F33 preview: the Geoscape-origin destructive exit confirmation.
+		return new AbandonGameState(OPT_GEOSCAPE);
+	default:
+		break;
+	}
+	// Phase 46.F21: new-base flow fixtures live in CalypsoF21Harness.cpp.
+	if (State* f21 = calypsoF21HarnessCreateTarget(id)) return f21;
+	return nullptr;
+}
+
+CalypsoHdHarnessHostState::CalypsoHdHarnessHostState(CalypsoHarnessScenario scenario)
+	: _scenario(scenario)
+{
+	_screen = true; // opaque: the blit walk stops here, above every lower state
+}
+
+void CalypsoHdHarnessHostState::init()
+{
+	State::init();
+}
+
+void CalypsoHdHarnessHostState::think()
+{
+	// The host only thinks while it IS the top state -- i.e. the target preview
+	// has closed and calypsoHdHarnessClose() cleared the session. Pop the host
+	// (it pops itself from its own think, the same pattern states use for
+	// Escape/cancel), leaving the previous game state intact.
+	if (!calypsoHarnessHostUp(calypsoHarnessSession()))
+	{
+		if (Game* g = getCurrentGame())
+		{
+			g->popState();
+		}
+		return;
+	}
+	State::think();
+}
+
+void CalypsoHdHarnessHostState::blit()
+{
+	// Structural opaque black: filled directly into the logical screen surface,
+	// never gated on the target's physical adapter readiness (F33-PARITY-002).
+	if (Game* g = getCurrentGame())
+	{
+		if (SDL_Surface* screen = g->getScreen()->getSurface())
+		{
+			SDL_FillRect(screen, nullptr,
+				SDL_MapRGBA(screen->format, 0, 0, 0, 255));
+		}
+	}
+	// No visible widgets on the host; nothing further to blit.
+}
+
+bool calypsoHdHarnessOpen(CalypsoHarnessScenario id, CalypsoLayoutClass layout,
+	bool sideBySide)
+{
+	CalypsoHarnessSession& s = calypsoHarnessSession();
+	if (!calypsoHarnessRequestOpen(s))
+	{
+		Log(LOG_WARNING) << "CalypsoHdHarnessHostState: already open; ignoring repeated request";
+		return false;
+	}
+	calypsoHarnessSetRequestedLayout(s, layout);
+
+	// Side-by-side comparison shifts the dialog into the left half (the DOM
+	// reference card occupies the right); overlay/reference modes keep the
+	// centered contract placement. Must be set BEFORE the target is
+	// constructed -- its configure() reads the flag.
+	if (id == CalypsoHarnessScenario::F33Abandon)
+	{
+		calypsoHdHarnessSetSideBySide(sideBySide);
+	}
+	// Phase 46.F21: side-by-side is session state for every family adapter.
+	s.sideBySide = sideBySide;
+
+	if (Game* g = getCurrentGame())
+	{
+		g->pushState(new CalypsoHdHarnessHostState(id));
+		State* target = calypsoHarnessCreateTarget(id);
+		if (target)
+		{
+			g->pushState(target);
+			calypsoHarnessTargetUp(s);
+			hideHarnessCursor(g);
+			return true;
+		}
+		// Unknown/empty target: roll the session back; the host pops itself.
+		calypsoHarnessClose(s);
+		calypsoHdHarnessSetSideBySide(false); // never leave the shift behind
+		return false;
+	}
+
+	calypsoHarnessClose(s); // no live game: roll the session back
+	calypsoHdHarnessSetSideBySide(false); // never leave the shift behind
+	return false;
+}
+
+void calypsoHdHarnessClose()
+{
+	restoreHarnessCursor(getCurrentGame());
+	calypsoHarnessClose(calypsoHarnessSession());
+	// Clear the F33 side-by-side comparison shift so ordinary gameplay never
+	// inherits harness presentation (the flag is F33-adapter file state).
+	calypsoHdHarnessSetSideBySide(false);
+}
+
+bool calypsoHdHarnessReconfigure(CalypsoLayoutClass layout, bool sideBySide)
+{
+	CalypsoHarnessSession& s = calypsoHarnessSession();
+	if (!calypsoHarnessReconfigure(s, layout)) return false;
+	calypsoHdHarnessSetSideBySide(sideBySide);
+	s.sideBySide = sideBySide;
+	// The active target owns the physical adapter and its resize hook is
+	// the canonical way to re-capture the selected design-space rectangles
+	// (generic since 46.F21; every harness target overrides resize).
+	if (Game* g = getCurrentGame())
+	{
+		if (State* target = g->getTopState())
+		{
+			int dx = 0;
+			int dy = 0;
+			target->resize(dx, dy);
+		}
+	}
+	return true;
+}
+
+void warnUnknownScenario(int scenarioId)
+{
+	Log(LOG_WARNING) << "calypso_hd_harness_open: unknown scenario id " << scenarioId;
+}
+
+} // namespace Calypso
+} // namespace OpenXcom
+
+// --- Generic harness exports -------------------------------------------------
+
+extern "C" {
+
+EMSCRIPTEN_KEEPALIVE
+int calypso_hd_harness_open(int scenarioId, int layoutClass, int sideBySide)
+{
+	if (!OpenXcom::Calypso::calypsoHarnessScenarioValid(scenarioId))
+	{
+		OpenXcom::Calypso::warnUnknownScenario(scenarioId);
+		return 0;
+	}
+	const OpenXcom::Calypso::CalypsoLayoutClass layout =
+		layoutClass == 1 ? OpenXcom::Calypso::CalypsoLayoutClass::Wide
+		                 : OpenXcom::Calypso::CalypsoLayoutClass::Compact;
+	return OpenXcom::Calypso::calypsoHdHarnessOpen(
+		static_cast<OpenXcom::Calypso::CalypsoHarnessScenario>(scenarioId), layout,
+		sideBySide != 0) ? 1 : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int calypso_hd_harness_switch(int scenarioId, int layoutClass, int sideBySide)
+{
+	using OpenXcom::Calypso::CalypsoLayoutClass;
+	using OpenXcom::Calypso::CalypsoHarnessScenario;
+	// Multi-family catalogs (46.F21) switch the previewed scenario while the
+	// harness is live. A plain open is rejected in that state ("already
+	// open"), so tear the current pair down first: pop the target, pop the
+	// opaque host (its think-self-pop is bypassed), and reset the session
+	// BEFORE the deferred target destructor runs (its calypsoHdHarnessClose
+	// is idempotent against an already-closed session).
+	if (!OpenXcom::Calypso::calypsoHarnessScenarioValid(scenarioId))
+	{
+		OpenXcom::Calypso::warnUnknownScenario(scenarioId);
+		return 0;
+	}
+	OpenXcom::Game* g = OpenXcom::getCurrentGame();
+	OpenXcom::Calypso::CalypsoHarnessSession& s = OpenXcom::Calypso::calypsoHarnessSession();
+	if (s.hostUp && g && g->getTopState())
+	{
+		g->popState(); // the harness target
+		g->popState(); // the opaque host below it
+		OpenXcom::Calypso::calypsoHarnessClose(s);
+		OpenXcom::Calypso::calypsoHdHarnessSetSideBySide(false);
+	}
+	const CalypsoLayoutClass layout =
+		layoutClass == 1 ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact;
+	return OpenXcom::Calypso::calypsoHdHarnessOpen(
+		static_cast<CalypsoHarnessScenario>(scenarioId), layout,
+		sideBySide != 0) ? 1 : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_hd_harness_set_motion_pct(int pct)
+{
+	OpenXcom::Calypso::calypsoHarnessSetMotionHold(
+		OpenXcom::Calypso::calypsoHarnessSession(), pct);
+}
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_hd_harness_set_motion(int enabled)
+{
+	OpenXcom::Calypso::calypsoHarnessSetMotionDisabled(
+		OpenXcom::Calypso::calypsoHarnessSession(), enabled == 0);
+}
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_hd_harness_close()
+{
+	OpenXcom::Calypso::calypsoHdHarnessClose();
+}
+
+EMSCRIPTEN_KEEPALIVE
+int calypso_hd_harness_reconfigure(int layoutClass, int sideBySide)
+{
+	const OpenXcom::Calypso::CalypsoLayoutClass layout =
+		layoutClass == 1 ? OpenXcom::Calypso::CalypsoLayoutClass::Wide
+		                 : OpenXcom::Calypso::CalypsoLayoutClass::Compact;
+	return OpenXcom::Calypso::calypsoHdHarnessReconfigure(layout, sideBySide != 0) ? 1 : 0;
+}
+
+} // extern "C"
+
+#endif // __EMSCRIPTEN__

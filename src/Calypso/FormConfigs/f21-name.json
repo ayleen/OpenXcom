@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "id": "f21-name",
+  "familyId": 21,
+  "version": "hd.2026-08-20.22",
+  "archetype": "small-confirmation",
+  "protocol": {
+    "authority": "CALYPSO COMMAND",
+    "record": "BASE REGISTRY",
+    "code": "BR-21",
+    "revision": "1.0.21",
+    "effectiveDate": "15.07.2061"
+  },
+  "title": "NAME YOUR FIRST BASE",
+  "body": [],
+  "icon": { "kind": "info", "glyph": "i", "tone": "primary" },
+  "buttons": [
+    { "id": "ok", "label": "OK", "tone": "primary", "action": "confirm" },
+    { "id": "cancel", "label": "CANCEL", "tone": "normal", "action": "back" }
+  ],
+  "input": {
+    "value": "CALYPSO DEEP",
+    "hint": "Choose a permanent registry name. Press Enter to confirm."
+  }
+}

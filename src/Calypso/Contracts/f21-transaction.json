@@ -1,0 +1,390 @@
+{
+  "schema": 1,
+  "version": "hd.2026-08-20.22",
+  "form": {
+    "id": "f21-transaction",
+    "familyId": 21,
+    "archetype": "small-confirmation",
+    "source": "FormConfigs/f21-transaction.json",
+    "icon": {
+      "kind": "warning",
+      "glyph": "!",
+      "tone": "warning"
+    },
+    "buttons": [
+      {
+        "id": "cancel",
+        "label": "CANCEL",
+        "tone": "safe",
+        "action": "cancel",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB0CC",
+          "text": "E8FFF5FF"
+        }
+      },
+      {
+        "id": "create",
+        "label": "CREATE BASE",
+        "tone": "primary",
+        "action": "confirm",
+        "style": {
+          "fill": "74FFB0FF",
+          "border": "74FFB0FF",
+          "text": "071013FF"
+        }
+      }
+    ],
+    "tableRows": [
+      [
+        "SLOT",
+        "COORDINATES"
+      ],
+      [
+        "BASE 1 / 8",
+        "28.6·N  0.0·E"
+      ],
+      [
+        "South Atlantic",
+        "$950 000"
+      ]
+    ],
+    "input": {
+      "value": "CALYPSO DEEP",
+      "hint": "Choose a permanent registry name. Press Enter to confirm."
+    }
+  },
+  "copy": {
+    "protocol": "CALYPSO COMMAND · LOGISTICS AUTHORIZATION BE-21",
+    "title": "REVIEW NEW BASE",
+    "message": [],
+    "table": "| SLOT | COORDINATES |\n| --- | --- |\n| BASE 1 / 8 | 28.6·N  0.0·E |\n| South Atlantic | $950 000 |",
+    "inputValue": "CALYPSO DEEP",
+    "inputHint": "Choose a permanent registry name. Press Enter to confirm."
+  },
+  "presentation": {
+    "density": "standard",
+    "scaleNumerator": 1,
+    "scaleDenominator": 1
+  },
+  "style": {
+    "cutCornerPx": 14,
+    "protocolTextInsetPx": 26,
+    "panelFillTop": "08191DEB",
+    "panelFillBottom": "041014E8",
+    "frame": "74FFB073",
+    "protocolText": "A9D8C7FF",
+    "divider": "74FFB04D",
+    "footerFill": "061B1CD6",
+    "footerDot": "74FFB01F",
+    "warning": "FFC14DFF",
+    "safeFill": "051417B8",
+    "safeBorder": "74FFB0CC",
+    "destructiveFill": "F25F5CFF",
+    "destructiveText": "071013FF"
+  },
+  "layouts": {
+    "wide": {
+      "designWidth": 1280,
+      "designHeight": 720,
+      "window": {
+        "x": 393,
+        "y": 230,
+        "width": 494,
+        "height": 376
+      },
+      "status": {
+        "x": 393,
+        "y": 230,
+        "width": 494,
+        "height": 38
+      },
+      "warning": {
+        "x": 425,
+        "y": 290,
+        "width": 32,
+        "height": 32
+      },
+      "title": {
+        "x": 473,
+        "y": 284,
+        "width": 382,
+        "height": 44
+      },
+      "message": {
+        "x": 425,
+        "y": 336,
+        "width": 430,
+        "height": 194
+      },
+      "footer": {
+        "x": 393,
+        "y": 544,
+        "width": 494,
+        "height": 62
+      },
+      "buttons": {
+        "cancel": {
+          "x": 529,
+          "y": 553,
+          "width": 158,
+          "height": 44
+        },
+        "create": {
+          "x": 697,
+          "y": 553,
+          "width": 158,
+          "height": 44
+        }
+      },
+      "cellR1C1": {
+        "x": 441,
+        "y": 344,
+        "width": 90,
+        "height": 22
+      },
+      "cellR1C2": {
+        "x": 548,
+        "y": 344,
+        "width": 104,
+        "height": 22
+      },
+      "rowDivider1": {
+        "x": 433,
+        "y": 374,
+        "width": 227,
+        "height": 1
+      },
+      "cellR2C1": {
+        "x": 441,
+        "y": 383,
+        "width": 90,
+        "height": 22
+      },
+      "cellR2C2": {
+        "x": 548,
+        "y": 383,
+        "width": 104,
+        "height": 22
+      },
+      "rowDivider2": {
+        "x": 433,
+        "y": 413,
+        "width": 227,
+        "height": 1
+      },
+      "cellR3C1": {
+        "x": 441,
+        "y": 422,
+        "width": 90,
+        "height": 22
+      },
+      "cellR3C2": {
+        "x": 548,
+        "y": 422,
+        "width": 104,
+        "height": 22
+      },
+      "columnDivider1": {
+        "x": 539,
+        "y": 336,
+        "width": 1,
+        "height": 116
+      },
+      "inputHint": {
+        "x": 425,
+        "y": 512,
+        "width": 430,
+        "height": 18
+      },
+      "inputFrame": {
+        "x": 425,
+        "y": 466,
+        "width": 430,
+        "height": 38
+      }
+    },
+    "compact": {
+      "designWidth": 740,
+      "designHeight": 417,
+      "window": {
+        "x": 173,
+        "y": 60,
+        "width": 394,
+        "height": 347
+      },
+      "status": {
+        "x": 173,
+        "y": 60,
+        "width": 394,
+        "height": 34
+      },
+      "warning": {
+        "x": 201,
+        "y": 111,
+        "width": 28,
+        "height": 28
+      },
+      "title": {
+        "x": 243,
+        "y": 106,
+        "width": 296,
+        "height": 38
+      },
+      "message": {
+        "x": 201,
+        "y": 150,
+        "width": 338,
+        "height": 174
+      },
+      "footer": {
+        "x": 173,
+        "y": 341,
+        "width": 394,
+        "height": 66
+      },
+      "buttons": {
+        "cancel": {
+          "x": 231,
+          "y": 351,
+          "width": 148,
+          "height": 44
+        },
+        "create": {
+          "x": 391,
+          "y": 351,
+          "width": 148,
+          "height": 44
+        }
+      },
+      "cellR1C1": {
+        "x": 217,
+        "y": 158,
+        "width": 79,
+        "height": 18
+      },
+      "cellR1C2": {
+        "x": 313,
+        "y": 158,
+        "width": 91,
+        "height": 18
+      },
+      "rowDivider1": {
+        "x": 209,
+        "y": 184,
+        "width": 203,
+        "height": 1
+      },
+      "cellR2C1": {
+        "x": 217,
+        "y": 193,
+        "width": 79,
+        "height": 18
+      },
+      "cellR2C2": {
+        "x": 313,
+        "y": 193,
+        "width": 91,
+        "height": 18
+      },
+      "rowDivider2": {
+        "x": 209,
+        "y": 219,
+        "width": 203,
+        "height": 1
+      },
+      "cellR3C1": {
+        "x": 217,
+        "y": 228,
+        "width": 79,
+        "height": 18
+      },
+      "cellR3C2": {
+        "x": 313,
+        "y": 228,
+        "width": 91,
+        "height": 18
+      },
+      "columnDivider1": {
+        "x": 304,
+        "y": 150,
+        "width": 1,
+        "height": 104
+      },
+      "inputHint": {
+        "x": 201,
+        "y": 308,
+        "width": 338,
+        "height": 16
+      },
+      "inputFrame": {
+        "x": 201,
+        "y": 268,
+        "width": 338,
+        "height": 32
+      }
+    }
+  },
+  "motion": {
+    "durationMs": 200,
+    "scaleFrom": 0.96,
+    "easing": "ease-out",
+    "captureModeDurationMs": 0
+  },
+  "tableMetrics": {
+    "wide": {
+      "columns": 2,
+      "rows": 3,
+      "columnTextWidths": [
+        90,
+        104
+      ],
+      "columnWidths": [
+        106,
+        120
+      ],
+      "rowHeights": [
+        38,
+        38,
+        38
+      ],
+      "lineCounts": {
+        "cellR1C1": 1,
+        "cellR1C2": 1,
+        "cellR2C1": 1,
+        "cellR2C2": 1,
+        "cellR3C1": 1,
+        "cellR3C2": 1
+      },
+      "tableWidth": 227,
+      "tableHeight": 116
+    },
+    "compact": {
+      "columns": 2,
+      "rows": 3,
+      "columnTextWidths": [
+        79,
+        91
+      ],
+      "columnWidths": [
+        95,
+        107
+      ],
+      "rowHeights": [
+        34,
+        34,
+        34
+      ],
+      "lineCounts": {
+        "cellR1C1": 1,
+        "cellR1C2": 1,
+        "cellR2C1": 1,
+        "cellR2C2": 1,
+        "cellR3C1": 1,
+        "cellR3C2": 1
+      },
+      "tableWidth": 203,
+      "tableHeight": 104
+    }
+  }
+}

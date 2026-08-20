@@ -1,0 +1,46 @@
+{
+  "schema": 1,
+  "id": "content-block",
+  "supportedContentKinds": [
+    "text",
+    "table"
+  ],
+  "limits": {
+    "maxRows": 8,
+    "maxColumns": 4,
+    "maxLinesPerCell": 6,
+    "maxTotalLines": 48
+  },
+  "style": {
+    "panelFillTop": "071419F2",
+    "panelFillBottom": "030A0DF7",
+    "frame": "214B3FFF",
+    "divider": "214B3F99",
+    "text": "F4F1E8FF",
+    "cutCornerPx": 14,
+    "borderWidthPx": 1
+  },
+  "motion": {
+    "durationMs": 200,
+    "scaleFrom": 0.985,
+    "captureModeDurationMs": 0
+  },
+  "layouts": {
+    "wide": {
+      "maxBlockWidth": 960,
+      "cellPaddingX": 24,
+      "cellPaddingY": 8,
+      "guardedLineHeight": 22,
+      "textUnitWidth": 8,
+      "dividerWidth": 1
+    },
+    "compact": {
+      "maxBlockWidth": 730,
+      "cellPaddingX": 16,
+      "cellPaddingY": 8,
+      "guardedLineHeight": 18,
+      "textUnitWidth": 7,
+      "dividerWidth": 1
+    }
+  }
+}

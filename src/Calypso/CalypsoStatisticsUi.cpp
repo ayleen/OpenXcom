@@ -167,6 +167,11 @@ const void* CalypsoStatisticsUi::topState() const
 	return _state;
 }
 
+bool CalypsoStatisticsUi::physicalReady() const
+{
+	return !_state || !_state->_window || _state->_window->isPopupDone();
+}
+
 void CalypsoStatisticsUi::collect(CalypsoHdFrameBuilder& builder) const
 {
 	if (!_state || !_state->_hdLayout || !_state->_game) return;
@@ -459,7 +464,8 @@ void CalypsoStatisticsUi::configure(StatisticsState& state)
 	CalypsoStatisticsUi::rebuildList(state, 0);
 
 	// Fit/center every design-space rect into the engine's actual logical canvas.
-	state.enableUiScaling(layout.designWidth, layout.designHeight, 1.0f);
+	state.enableUiScaling(layout.designWidth, layout.designHeight, 1.0f,
+		/*subtractVanillaCenter=*/false);
 
 	// Create + register the snapshot-only adapter (driven at the pre-blit
 	// boundary; no feeder Surface, no _surfaces reordering for text).
@@ -485,7 +491,8 @@ bool CalypsoStatisticsUi::resize(StatisticsState& state)
 		CalypsoStatisticsUi::rebuildList(state, scroll);
 		// Re-snapshot against the new design canvas -- enableUiScaling is one-shot
 		// and would no-op here, replaying the stale class (external review #3).
-		state.recaptureUiScaling(layout.designWidth, layout.designHeight, 1.0f);
+		state.recaptureUiScaling(layout.designWidth, layout.designHeight, 1.0f,
+		/*subtractVanillaCenter=*/false);
 	}
 	else
 	{

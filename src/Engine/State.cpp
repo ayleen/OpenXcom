@@ -29,6 +29,10 @@
 #include "LocalizedText.h"
 #include "Palette.h"
 #include "../Calypso/CalypsoFocusInput.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoHdHarnessHostState.h"
+#include "../Calypso/CalypsoHdUiOverlay.h"
+#endif
 #include "../Engine/Sound.h"
 #include "../Engine/Collections.h"
 #include "../Mod/Mod.h"
@@ -376,6 +380,11 @@ void State::handle(Action *action)
  */
 void State::blit()
 {
+#ifdef __EMSCRIPTEN__
+	if (Calypso::calypsoHarnessHostUp(Calypso::calypsoHarnessSession())) return;
+	if (Calypso::CalypsoHdUiOverlay::instance().logicalStateSuppressed(this,
+		Calypso::CalypsoHdUiOverlay::instance().frameId())) return;
+#endif
 	for (auto* surface : _surfaces)
 	{
 		surface->blit(_game->getScreen()->getSurface());

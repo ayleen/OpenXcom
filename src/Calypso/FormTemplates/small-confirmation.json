@@ -1,0 +1,93 @@
+{
+  "schema": 1,
+  "id": "small-confirmation",
+  "version": 3,
+  "supportedButtonTones": ["normal", "safe", "primary", "warning", "danger"],
+  "buttonToneStyles": {
+    "normal":  { "fill": "051417B8", "border": "74FFB059", "text": "E8FFF5FF" },
+    "safe":    { "fill": "051417B8", "border": "74FFB0CC", "text": "E8FFF5FF" },
+    "primary": { "fill": "74FFB0FF", "border": "74FFB0FF", "text": "071013FF" },
+    "warning": { "fill": "FFC14DFF", "border": "FFC14DFF", "text": "071013FF" },
+    "danger":  { "fill": "F25F5CFF", "border": "F25F5CFF", "text": "071013FF" }
+  },
+  "style": {
+    "cutCornerPx": 14,
+    "protocolTextInsetPx": 26,
+    "panelFillTop": "08191DEB",
+    "panelFillBottom": "041014E8",
+    "frame": "74FFB073",
+    "protocolText": "A9D8C7FF",
+    "divider": "74FFB04D",
+    "footerFill": "061B1CD6",
+    "footerDot": "74FFB01F",
+    "warning": "FFC14DFF",
+    "safeFill": "051417B8",
+    "safeBorder": "74FFB0CC",
+    "destructiveFill": "F25F5CFF",
+    "destructiveText": "071013FF"
+  },
+  "contentSizing": {
+    "wide": {
+      "safeMarginPx": 32,
+      "textInlineSafePx": 8,
+      "titleTextUnitPx": 20,
+      "bodyTextUnitPx": 9,
+      "maxWindowWidthPx": 580
+    },
+    "compact": {
+      "safeMarginPx": 28,
+      "textInlineSafePx": 8,
+      "titleTextUnitPx": 18,
+      "bodyTextUnitPx": 7,
+      "maxWindowWidthPx": 600
+    }
+  },
+  "densityProfiles": {
+    "briefAcknowledgement": {
+      "id": "brief-acknowledgement",
+      "scaleNumerator": 2,
+      "scaleDenominator": 3,
+      "footerHeightPx": 48,
+      "minimumActionHeightPx": 44,
+      "minimumMessageHeightPx": 40
+    }
+  },
+  "layouts": {
+    "wide": {
+      "designWidth": 1280,
+      "designHeight": 720,
+      "window":  { "x": 350, "y": 230, "width": 580, "height": 236 },
+      "status":  { "x": 350, "y": 230, "width": 580, "height": 38 },
+      "icon":    { "x": 382, "y": 290, "width": 32, "height": 32 },
+      "title":   { "x": 430, "y": 284, "width": 450, "height": 44 },
+      "titleWithoutIcon": { "x": 382, "y": 284, "width": 516, "height": 44 },
+      "body":    { "x": 382, "y": 336, "width": 516, "height": 54 },
+      "footer":  { "x": 350, "y": 404, "width": 580, "height": 62 },
+      "buttonSlots": [
+        { "x": 572, "y": 413, "width": 158, "height": 44 },
+        { "x": 740, "y": 413, "width": 158, "height": 44 }
+      ]
+    },
+    "compact": {
+      "designWidth": 740,
+      "designHeight": 360,
+      "window":  { "x": 70, "y": 60, "width": 600, "height": 221 },
+      "status":  { "x": 70, "y": 60, "width": 600, "height": 34 },
+      "icon":    { "x": 98, "y": 111, "width": 28, "height": 28 },
+      "title":   { "x": 140, "y": 106, "width": 470, "height": 38 },
+      "titleWithoutIcon": { "x": 98, "y": 106, "width": 500, "height": 38 },
+      "body":    { "x": 98, "y": 150, "width": 500, "height": 48 },
+      "footer":  { "x": 70, "y": 215, "width": 600, "height": 66 },
+      "buttonSlots": [
+        { "x": 290, "y": 225, "width": 148, "height": 44 },
+        { "x": 450, "y": 225, "width": 148, "height": 44 }
+      ]
+    }
+  },
+  "motion": {
+    "durationMs": 200,
+    "scaleFrom": 0.96,
+    "easing": "ease-out",
+    "captureModeDurationMs": 0
+  }
+}

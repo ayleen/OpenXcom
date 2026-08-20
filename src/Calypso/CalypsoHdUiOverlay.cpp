@@ -6,18 +6,22 @@
 #ifdef __EMSCRIPTEN__
 
 #include "CalypsoHdUiOverlay.h"
+#include "CalypsoHdHarnessHostState.h"
 #include "CalypsoViewportMailbox.h"
 #include "CalypsoGlStateGuard.h"
 
 #include <algorithm>
+#include <cmath>
 #include <emscripten.h>
 #include <GLES3/gl3.h>
 #include <SDL.h>
 #include <SDL_render.h>
 #include <set>
+#include <string>
 #include <unordered_set>
 #include <vector>
 
+#include "../Engine/Exception.h"
 #include "../Engine/GpuInit.h"
 #include "../Engine/GpuTexture.h"
 #include "../Engine/Shader.h"
@@ -28,6 +32,18 @@ namespace OpenXcom
 {
 namespace Calypso
 {
+
+[[noreturn]] void CalypsoHdUiOverlay::failHdRoute(const std::string& detail)
+{
+	// The exception cancels the Emscripten loop before State::blit, but clear any
+	// earlier subgroup commits as well so no caller can observe partial claims
+	// while unwinding. Do not latch a logical retry: enabled HD routes are fatal.
+	_controller.claims().clear();
+	_ptrClaim.clear();
+	_drawItems.clear();
+	_activeThisFrame = false;
+	throw Exception("Calypso HD route failed: " + detail);
+}
 
 CalypsoHdUiOverlay& CalypsoHdUiOverlay::instance()
 {
@@ -56,6 +72,18 @@ bool CalypsoHdUiOverlay::widgetClaimed(const void* widget, std::uint64_t frameId
 	return _controller.claims().claimsLogical(it->second, frameId);
 }
 
+bool CalypsoHdUiOverlay::logicalWidgetSuppressed(const void* widget, std::uint64_t frameId) const
+{
+	if (!widget || frameId != _controller.frameId()) return false;
+	return std::find(_logicalSuppressedWidgets.begin(), _logicalSuppressedWidgets.end(), widget)
+		!= _logicalSuppressedWidgets.end();
+}
+
+bool CalypsoHdUiOverlay::logicalStateSuppressed(const void* state, std::uint64_t frameId) const
+{
+	return state && frameId == _controller.frameId() && state == _physicalStateThisFrame;
+}
+
 void CalypsoHdUiOverlay::beginFrame(int logicalWidth, int logicalHeight)
 {
 	// Backing-store poll: canvas width/height are physical device pixels. Only
@@ -79,6 +107,8 @@ void CalypsoHdUiOverlay::beginFrame(int logicalWidth, int logicalHeight)
 
 	// Reset per-frame state (A7: never sticky).
 	_activeThisFrame = false;
+	_physicalStateThisFrame = nullptr;
+	_logicalSuppressedWidgets.clear();
 	_ptrClaim.clear();
 	_drawItems.clear();
 	_frameLiveHandles.clear();
@@ -88,8 +118,6 @@ void CalypsoHdUiOverlay::prepareFrame(int logicalWidth, int logicalHeight, const
 {
 	beginFrame(logicalWidth, logicalHeight);
 
-	if (!_mayGoPhysical || !_frozenMetrics.valid()) return;
-
 	// Drive the registered adapter (if any) whose state is the current top state,
 	// so a lower popup regains HD when an upper one is dismissed (GLM #3).
 	const CalypsoHdFamilyAdapter* active = nullptr;
@@ -98,6 +126,14 @@ void CalypsoHdUiOverlay::prepareFrame(int logicalWidth, int logicalHeight, const
 		if (a->topState() == topState) { active = a; break; }
 	}
 	if (!active) return;
+	CalypsoHdLogicalSuppression suppression;
+	active->collectLogicalSuppression(suppression);
+	_logicalSuppressedWidgets = suppression.widgets();
+	if (!active->physicalReady()) return;
+	if (!_frozenMetrics.valid())
+		failHdRoute("invalid presentation metrics");
+	if (!_mayGoPhysical)
+		failHdRoute("physical presentation is blocked after context loss or restore");
 
 	// The pre-blit GPU preparation (shader/VAO creation + texture uploads) touches
 	// GL state that SDL's renderer caches; bracket it in one state guard so the
@@ -106,33 +142,34 @@ void CalypsoHdUiOverlay::prepareFrame(int logicalWidth, int logicalHeight, const
 	{
 		CalypsoGlStateGuard guard;
 
-		// GL must be ready to raster/upload; if not, no subgroup can be Ready and
-		// the whole popup renders logically this frame (caches warm next frame).
+		// An enabled HD route is fail-fast. Resource preparation is synchronous;
+		// failure cannot be hidden behind a logical/vanilla frame.
 		ensureGpu();
-		if (!_glReady) return;
+		if (!_glReady)
+			failHdRoute("GPU resources are unavailable");
 
 		CalypsoHdFrameBuilder builder;
 		active->collect(builder);
-		if (builder.empty()) return;
+		if (builder.empty())
+			failHdRoute("adapter collected no HD subgroups");
 
 		// A committed subgroup's order keys must be globally unique this frame: the
 		// model treats a full-tuple collision as a submission bug whose paint order
-		// would otherwise fall back to non-deterministic insertion order. Detect it
-		// BEFORE committing so the affected subgroup stays fully logical instead of
-		// suppressing (via claims) widgets it cannot deterministically paint
-		// (external review #11).
+		// would otherwise use non-deterministic insertion order. Detect it before
+		// committing and fail the route (external review #11).
 		std::set<CalypsoHdOrderKey, bool (*)(const CalypsoHdOrderKey&, const CalypsoHdOrderKey&)>
 			committedKeys(&calypsoOrderKeyLess);
 
 		// Resolve + commit each atomic subgroup independently.
 		for (const CalypsoHdSubgroup& subgroup : builder.subgroups())
 		{
+			if (subgroup.items.empty())
+				failHdRoute("adapter collected an empty HD subgroup");
 			std::vector<ResolvedDraw> resolved;
-			if (!resolveSubgroup(subgroup, resolved)) continue; // Not Ready -> logical
+			resolveSubgroup(subgroup, resolved);
 
 			// Order-key collision check (intra-subgroup or vs an already-committed
-			// subgroup). On collision the whole subgroup is rejected and stays
-			// logical; roll back only the keys this subgroup inserted.
+			// subgroup). A collision is an adapter contract violation.
 			std::vector<CalypsoHdOrderKey> justInserted;
 			bool collision = false;
 			for (const ResolvedDraw& d : resolved)
@@ -143,8 +180,7 @@ void CalypsoHdUiOverlay::prepareFrame(int logicalWidth, int logicalHeight, const
 			if (collision)
 			{
 				for (const CalypsoHdOrderKey& k : justInserted) committedKeys.erase(k);
-				Log(LOG_WARNING) << "CalypsoHdUiOverlay: duplicate HD order key -> subgroup stays logical";
-				continue;
+				failHdRoute("duplicate HD order key");
 			}
 
 			// Commit: take claims for every item, enqueue the resolved draws.
@@ -157,7 +193,8 @@ void CalypsoHdUiOverlay::prepareFrame(int logicalWidth, int logicalHeight, const
 		}
 	} // GL state guard restored
 
-	if (_drawItems.empty()) return;
+	if (_drawItems.empty())
+		failHdRoute("active adapter produced no drawable HD items");
 
 	// Deterministic paint order. Uniqueness of the full tuple is already enforced
 	// per-subgroup above, so equal keys cannot reach this sort.
@@ -167,9 +204,11 @@ void CalypsoHdUiOverlay::prepareFrame(int logicalWidth, int logicalHeight, const
 		});
 
 	_activeThisFrame = true;
+	if (active->suppressLogicalState())
+		_physicalStateThisFrame = topState;
 }
 
-bool CalypsoHdUiOverlay::resolveSubgroup(const CalypsoHdSubgroup& subgroup,
+void CalypsoHdUiOverlay::resolveSubgroup(const CalypsoHdSubgroup& subgroup,
 	std::vector<ResolvedDraw>& out)
 {
 	std::vector<ResolvedDraw> tmp;
@@ -181,27 +220,84 @@ bool CalypsoHdUiOverlay::resolveSubgroup(const CalypsoHdSubgroup& subgroup,
 		d.kind = item.kind;
 		d.rect = item.rect;
 		d.colorRgba = item.colorRgba;
+		d.panelStyle = item.panelStyle;
 		d.hAlign = item.hAlign;
 		d.vAlign = item.vAlign;
+		d.textScaleX = item.textScaleX;
+		d.textScaleY = item.textScaleY;
+		d.opacity = item.opacity;
 
 		if (item.kind == CalypsoHdItemKind::Panel)
 		{
 			GpuTexture* white = whiteTexture();
-			if (!white || !white->isValid()) return false;
+			if (!white || !white->isValid())
+				failHdRoute("panel texture upload failed for item "
+					+ std::to_string(item.order.stableId) + ":"
+					+ std::to_string(item.order.itemId));
 			d.tex = white;
 		}
 		else
 		{
 			GpuTexture* tex = textureForText(item.rasterKey);
-			if (!tex || !tex->isValid()) return false;
+			if (!tex || !tex->isValid())
+				failHdRoute("text texture raster or upload failed for item "
+					+ std::to_string(item.order.stableId) + ":"
+					+ std::to_string(item.order.itemId));
 			d.tex = tex;
 			d.naturalW = (int)tex->width();
 			d.naturalH = (int)tex->height();
+
+			// A guarded multi-line texture is an atomic-fit item. Generic glyphs
+			// may deliberately use their box as a UV clip target, but doing that to
+			// a contract-owned wrapped surface discards the very top/bottom guard
+			// rows that guarantee intact caps, baselines and descenders.
+			const bool guardedMultiLine = item.rasterKey.wrapWidth > 0
+				&& (item.rasterKey.lineHeightPx > 0 || item.rasterKey.lineHeightMilliPx > 0);
+			if (guardedMultiLine)
+			{
+				const CalypsoPhysRect box = calypsoMapLogicalRect(d.rect, _frozenMetrics);
+				const int projectedTextureHeight = std::max(1,
+					(int)std::lround(d.naturalH * d.textScaleY));
+				const bool fits = !box.empty() && projectedTextureHeight <= box.h;
+				if (calypsoHarnessHostUp(calypsoHarnessSession()))
+				{
+					EM_ASM_({
+						const evidence = globalThis.__calypsoHdTextFitEvidence
+							|| (globalThis.__calypsoHdTextFitEvidence = Object.create(null));
+						const key = String($0) + ':' + String($1);
+						const row = Object.create(null);
+						row.stableId = $0;
+						row.itemId = $1;
+						row.naturalTextureHeight = $2;
+						row.projectedTextureHeight = $3;
+						row.boxHeight = $4;
+						row.fits = !!$5;
+						evidence[key] = row;
+						let output = document.getElementById('calypso-hd-text-fit-evidence');
+						if (!output)
+						{
+							output = document.createElement('output');
+							output.id = 'calypso-hd-text-fit-evidence';
+							output.hidden = true;
+							document.body.appendChild(output);
+						}
+						output.textContent = JSON.stringify(evidence);
+					}, item.order.stableId, item.order.itemId, d.naturalH,
+						projectedTextureHeight, box.h, fits ? 1 : 0);
+				}
+				if (!fits)
+				{
+					failHdRoute("guarded multi-line texture "
+						+ std::to_string(projectedTextureHeight) + "px exceeds "
+						+ std::to_string(box.h) + "px box for item "
+						+ std::to_string(item.order.stableId) + ":"
+						+ std::to_string(item.order.itemId));
+				}
+			}
 		}
 		tmp.push_back(d);
 	}
 	for (ResolvedDraw& d : tmp) out.push_back(d);
-	return true;
 }
 
 void CalypsoHdUiOverlay::ensureGpu()
@@ -217,6 +313,18 @@ void CalypsoHdUiOverlay::ensureGpu()
 			Log(LOG_ERROR) << "CalypsoHdUiOverlay: failed to load 'hd_ui' shader";
 			delete _hdShader;
 			_hdShader = nullptr;
+			return;
+		}
+	}
+
+	if (!_panelShader)
+	{
+		_panelShader = new Shader();
+		if (!_panelShader->loadFromEmbedded("hd_ui_panel"))
+		{
+			Log(LOG_ERROR) << "CalypsoHdUiOverlay: failed to load 'hd_ui_panel' shader";
+			delete _panelShader;
+			_panelShader = nullptr;
 			return;
 		}
 	}
@@ -277,8 +385,33 @@ GpuTexture* CalypsoHdUiOverlay::whiteTexture()
 	return _whiteTex;
 }
 
+void CalypsoHdUiOverlay::uploadQuadVerts(const CalypsoPhysRect& r)
+{
+	const float physW = (float)_frozenMetrics.physicalWidth;
+	const float physH = (float)_frozenMetrics.physicalHeight;
+
+	// Physical device-pixel rect -> NDC. Flip Y (SDL top-left -> GL bottom-left).
+	const float x0 =  2.0f * (float)r.x / physW - 1.0f;
+	const float x1 =  2.0f * (float)(r.x + r.w) / physW - 1.0f;
+	const float y0 = -(2.0f * (float)r.y / physH - 1.0f);
+	const float y1 = -(2.0f * (float)(r.y + r.h) / physH - 1.0f);
+
+	const float verts[6 * 4] = {
+		x0, y0, 0.0f, 0.0f,
+		x1, y0, 1.0f, 0.0f,
+		x0, y1, 0.0f, 1.0f,
+		x0, y1, 0.0f, 1.0f,
+		x1, y0, 1.0f, 0.0f,
+		x1, y1, 1.0f, 1.0f,
+	};
+
+	glBindBuffer(GL_ARRAY_BUFFER, _vbo);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)sizeof(verts), verts);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
 bool CalypsoHdUiOverlay::drawPhysQuad(GpuTexture* tex, const CalypsoPhysRect& r,
-	std::uint32_t colorRgba, float u0, float v0, float u1, float v1)
+	std::uint32_t colorRgba, float u0, float v0, float u1, float v1, float opacity)
 {
 	if (!tex || !tex->isValid() || !_hdShader || !_hdShader->isValid() || !_vao) return false;
 	const float physW = (float)_frozenMetrics.physicalWidth;
@@ -305,6 +438,7 @@ bool CalypsoHdUiOverlay::drawPhysQuad(GpuTexture* tex, const CalypsoPhysRect& r,
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 	_hdShader->use();
+	_hdShader->setUniform1f("u_opacity", opacity); // Phase 46.4-F33 opening motion
 	if (colorRgba == 0)
 	{
 		_hdShader->setUniform4f("u_color", 0.0f, 0.0f, 0.0f, 0.0f); // unset => opaque white
@@ -319,6 +453,71 @@ bool CalypsoHdUiOverlay::drawPhysQuad(GpuTexture* tex, const CalypsoPhysRect& r,
 	}
 	tex->bind(0);
 	_hdShader->setUniform1i("u_tex", 0);
+
+	glBindVertexArray(_vao);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+	glBindVertexArray(0);
+	return true;
+}
+
+bool CalypsoHdUiOverlay::drawStyledPanel(const ResolvedDraw& d)
+{
+	if (!_panelShader || !_panelShader->isValid() || !_vao) return false;
+	if (!_frozenMetrics.valid()) return false;
+
+	const CalypsoPhysRect shape = calypsoMapLogicalRect(d.rect, _frozenMetrics);
+	if (shape.empty()) return true; // nothing to draw is not a failure
+
+	// Design px -> physical px: same mapping family as the rect edges. The
+	// average of the axis scales keeps radii/borders circular under the
+	// stretched-canvas presentation.
+	const float pxScale = (float)((_frozenMetrics.scaleX + _frozenMetrics.scaleY) * 0.5);
+	const CalypsoHdPanelStyle& st = d.panelStyle;
+
+	float radius = st.radiusPx * pxScale;
+	const float maxRadius = 0.5f * (float)std::min(shape.w, shape.h);
+	if (radius > maxRadius) radius = maxRadius;
+	if (radius < 0.0f) radius = 0.0f;
+	const float borderWidth = std::max(0.0f, st.borderWidthPx * pxScale);
+	const float cutCorner = std::max(0.0f, st.cutCornerPx * pxScale);
+	const float glowRadius = std::max(0.0f, st.glowRadiusPx * pxScale);
+	const int pad = (int)std::ceil(glowRadius);
+
+	// The quad pads the shape on every side so the glow falloff fits; the
+	// shape's offset inside the quad feeds the SDF coordinate reconstruction.
+	const CalypsoPhysRect quad{
+		shape.x - pad, shape.y - pad,
+		shape.w + pad * 2, shape.h + pad * 2 };
+	if (quad.empty()) return true;
+	uploadQuadVerts(quad);
+
+	auto rgba = [](std::uint32_t c, float out[4]) {
+		out[0] = ((c >> 24) & 0xFF) / 255.0f;
+		out[1] = ((c >> 16) & 0xFF) / 255.0f;
+		out[2] = ((c >> 8) & 0xFF) / 255.0f;
+		out[3] = (c & 0xFF) / 255.0f;
+	};
+	float borderC[4], fillT[4], fillB[4], glowC[4];
+	rgba(st.borderColorRgba, borderC);
+	rgba(st.fillTopRgba, fillT);
+	rgba(st.fillBottomRgba, fillB);
+	rgba(st.glowRgba, glowC);
+
+	_panelShader->use();
+	_panelShader->setUniform2f("u_quadSize", (float)quad.w, (float)quad.h);
+	_panelShader->setUniform2f("u_shapeOffset", (float)pad, (float)pad);
+	_panelShader->setUniform2f("u_size", (float)shape.w, (float)shape.h);
+	_panelShader->setUniform1f("u_radius", radius);
+	_panelShader->setUniform1f("u_cutCorner", cutCorner);
+	_panelShader->setUniform1i("u_shapeKind", static_cast<int>(st.shape));
+	_panelShader->setUniform1f("u_borderWidth", borderWidth);
+	_panelShader->setUniform4f("u_borderColor", borderC[0], borderC[1], borderC[2], borderC[3]);
+	_panelShader->setUniform4f("u_fillTop", fillT[0], fillT[1], fillT[2], fillT[3]);
+	_panelShader->setUniform4f("u_fillBottom", fillB[0], fillB[1], fillB[2], fillB[3]);
+	_panelShader->setUniform2f("u_gradDir", st.gradDirX, st.gradDirY);
+	_panelShader->setUniform4f("u_glowColor", glowC[0], glowC[1], glowC[2], glowC[3]);
+	_panelShader->setUniform1f("u_glowRadius", glowRadius);
+	_panelShader->setUniform1f("u_opacity", d.opacity); // Phase 46.4-F33 opening motion
 
 	glBindVertexArray(_vao);
 	glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -341,7 +540,8 @@ bool CalypsoHdUiOverlay::drawGlyph(const ResolvedDraw& d)
 	const CalypsoPhysRect box = calypsoMapLogicalRect(d.rect, _frozenMetrics);
 	if (box.empty()) return true; // nothing to draw is not a failure
 
-	const int gw = d.naturalW, gh = d.naturalH;
+	const int gw = std::max(1, (int)std::lround(d.naturalW * d.textScaleX));
+	const int gh = std::max(1, (int)std::lround(d.naturalH * d.textScaleY));
 	if (gw <= 0 || gh <= 0) return true;
 
 	// Place the FULL natural-size glyph rect per alignment (it may extend outside
@@ -371,7 +571,7 @@ bool CalypsoHdUiOverlay::drawGlyph(const ResolvedDraw& d)
 	const float v0 = (float)(vis.y - ny) / (float)gh;
 	const float u1 = (float)(vis.x - nx + vis.w) / (float)gw;
 	const float v1 = (float)(vis.y - ny + vis.h) / (float)gh;
-	return drawPhysQuad(d.tex, vis, 0 /*text tex is pre-coloured*/, u0, v0, u1, v1);
+	return drawPhysQuad(d.tex, vis, 0 /*text tex is pre-coloured*/, u0, v0, u1, v1, d.opacity);
 }
 
 GpuTexture* CalypsoHdUiOverlay::textureForText(const CalypsoHdTextRasterKey& rasterKey)
@@ -461,24 +661,12 @@ void CalypsoHdUiOverlay::dropTextTextures()
 bool CalypsoHdUiOverlay::renderStages(SDL_Renderer* renderer)
 {
 	const bool committed = _activeThisFrame; // committed HD draws exist this frame
-
 	// Dormant unless a subgroup (or the harness) committed this frame.
 	if (!committed && !_harnessEnabled) return true;
 
-	// A committed frame that cannot present its HD draws must skip present and
-	// latch a wholly-logical next frame (Codex #2): the widgets it claimed were
-	// already suppressed at blit, so presenting now would show a blank/partial
-	// popup. A harness-only frame (nothing committed) just skips silently.
-	auto failCommitted = [this]() {
-		_controller.notePostClaimFailure(); // clears _controller.claims()
-		_ptrClaim.clear();
-		_drawItems.clear();
-		_activeThisFrame = false;
-	};
-
 	if (!_mayGoPhysical || !_frozenMetrics.valid())
 	{
-		if (committed) { failCommitted(); return false; }
+		if (committed) failHdRoute("invalid presentation metrics at draw stage");
 		return true;
 	}
 
@@ -486,14 +674,15 @@ bool CalypsoHdUiOverlay::renderStages(SDL_Renderer* renderer)
 	// flush means the boundary is unsafe -- do not draw.
 	if (renderer && SDL_RenderFlush(renderer) != 0)
 	{
-		if (committed) { failCommitted(); return false; }
+		if (committed)
+			failHdRoute("SDL_RenderFlush failed: " + std::string(SDL_GetError()));
 		return true;
 	}
 
 	ensureGpu();
 	if (!_glReady) // GL lost between prepare and present, or harness cold-start
 	{
-		if (committed) { failCommitted(); return false; }
+		if (committed) failHdRoute("GPU resources are unavailable at draw stage");
 		return true;
 	}
 
@@ -533,7 +722,8 @@ bool CalypsoHdUiOverlay::renderStages(SDL_Renderer* renderer)
 	{
 		bool drawn = true;
 		if (d.kind == CalypsoHdItemKind::Panel)
-			drawn = drawLogicalQuad(d.tex, d.rect, d.colorRgba);
+			drawn = d.panelStyle.styled ? drawStyledPanel(d)
+			                            : drawLogicalQuad(d.tex, d.rect, d.colorRgba);
 		else
 			drawn = drawGlyph(d);
 		if (!drawn) ok = false;
@@ -541,17 +731,14 @@ bool CalypsoHdUiOverlay::renderStages(SDL_Renderer* renderer)
 
 	// Any GL error raised across the whole stage counts as a draw failure -- the
 	// individual drawPhysQuad calls don't report GL errors (Codex #2).
-	if (glGetError() != GL_NO_ERROR) ok = false;
+	if (glGetError() != GL_NO_ERROR)
+	{
+		ok = false;
+	}
 
 	if (!ok)
 	{
-		if (committed)
-		{
-			// Post-commit draw failure: discard claims, latch one wholly-logical
-			// frame, and tell Screen to skip present so no half-popup is shown.
-			failCommitted();
-			return false;
-		}
+		if (committed) failHdRoute("HD draw stage failed");
 		// Harness-only failure: nothing was committed/claimed, just present clean.
 	}
 

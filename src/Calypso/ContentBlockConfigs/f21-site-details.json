@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "id": "f21-site-details",
+  "familyId": 21,
+  "version": "hd.2026-08-20.22",
+  "archetype": "content-block",
+  "content": {
+    "kind": "table",
+    "value": "| COORDINATES · 28.6·N  0.0·E | REGION · South Atlantic |\n| --- | --- |\n| LEGAL LAND SITE REQUIRED | Hover globe to inspect. Cancel discards this base. |"
+  }
+}

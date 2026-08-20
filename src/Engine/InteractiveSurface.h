@@ -67,6 +67,12 @@ public:
 	virtual void setFocus(bool focus, bool modal = false);
 	/// Gets the focus of this surface.
 	bool isFocused() const;
+	/// Read-only snapshot (Phase 46.4-F33): is the mouse currently over this
+	/// surface? Never takes ownership of any input event.
+	bool isHovered() const { return _isHovered; }
+	/// Read-only snapshot (Phase 46.4-F33): is any mouse button currently
+	/// pressed over this surface?
+	bool isPressed() const { return _buttonsPressed != 0; }
 	/// Unpresses the surface.
 	virtual void unpress(State *state);
 	/// Hooks an action handler to a mouse click on the surface.

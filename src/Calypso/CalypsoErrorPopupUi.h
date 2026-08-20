@@ -39,6 +39,7 @@
 
 #include "CalypsoHdFamilyAdapter.h"
 #include "CalypsoF34ErrorLayout.h"
+#include "CalypsoSmallConfirmationRenderer.h"
 
 namespace OpenXcom
 {
@@ -55,6 +56,7 @@ public:
 
 	// --- CalypsoHdFamilyAdapter (snapshot-only) ---
 	const void* topState() const override;
+	void collectLogicalSuppression(CalypsoHdLogicalSuppression& suppression) const override;
 	void collect(CalypsoHdFrameBuilder& builder) const override;
 
 	// --- Entry points called from ErrorMessageState ---
@@ -70,6 +72,7 @@ private:
 	static void applyRects(ErrorMessageState& state, const CalypsoF34ErrorLayout& layout);
 
 	ErrorMessageState* _state = nullptr;
+	mutable CalypsoSmallConfirmationMotion _motion;
 };
 
 } // namespace Calypso

@@ -199,6 +199,13 @@ bool maybeOfferPrologue(Game *game, GameDifficulty diff, bool ironman, bool tuto
 
 	s_stashedDiff = diff;
 	s_stashedIronman = ironman;
+	// Pop the native NewGameState BEFORE the prompt is pushed: it stays in
+	// the stack underneath the invisible modal and its bitmap "Select
+	// Difficulty" window would show through under the DOM prologue overlay
+	// (2026-08-16). The single call site is NewGameState::btnOkClick, so the
+	// top state here is always NewGameState; both prologue outcomes (battle /
+	// vanilla tail) push their own states and never touch it again.
+	game->popState();
 	game->pushState(new CalypsoPrologueAskState());
 	return true;
 }

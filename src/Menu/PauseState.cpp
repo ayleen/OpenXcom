@@ -36,6 +36,7 @@
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #include "../Calypso/CalypsoDirector.h"
+#include "../Calypso/CalypsoPauseMenu.h"
 #endif
 
 namespace OpenXcom
@@ -176,6 +177,13 @@ PauseState::PauseState(OptionsOrigin origin) : _origin(origin)
 			}
 		}
 	}
+
+#ifdef __EMSCRIPTEN__
+	// F33: DOM overlay edition -- hide the bitmap widgets and raise the
+	// HTML overlay with the current labels/visibility. Body lives in
+	// src/Calypso/CalypsoPauseMenu (placement policy R3).
+	Calypso::CalypsoPauseMenu::configure(*this);
+#endif
 }
 
 /**
@@ -183,7 +191,10 @@ PauseState::PauseState(OptionsOrigin origin) : _origin(origin)
  */
 PauseState::~PauseState()
 {
-
+#ifdef __EMSCRIPTEN__
+	// Safety net for pops that skip btnCancelClick (abandon confirm, etc.).
+	Calypso::pauseMenuDomHide();
+#endif
 }
 
 /**
@@ -197,6 +208,22 @@ void PauseState::resize(int &dX, int &dY)
 	State::resize(dX, dY);
 #endif
 }
+
+#ifdef __EMSCRIPTEN__
+/**
+ * F33: re-show the DOM overlay when this state becomes the top state again
+ * (e.g. AbandonGameState was cancelled and popped back to the pause menu).
+ * Every frame while top, the JS hook no-ops once the overlay is visible.
+ * Body in src/Calypso/CalypsoPauseMenu (placement policy R3).
+ */
+void PauseState::think()
+{
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoPauseMenu::think(*this, *_game);
+#endif
+	State::think();
+}
+#endif
 
 /**
  * Opens the Load Game screen.
@@ -273,6 +300,12 @@ void PauseState::btnOptionsClick(Action *)
  */
 void PauseState::btnAbandonClick(Action *)
 {
+#ifdef __EMSCRIPTEN__
+	// F33: AbandonGameState renders on the canvas, so the DOM pause overlay
+	// must hide first — otherwise the confirm dialog appears behind it. The
+	// overlay comes back via think() when this state is top again (cancel).
+	Calypso::pauseMenuDomHide();
+#endif
 	_game->pushState(new AbandonGameState(_origin));
 }
 
@@ -282,6 +315,10 @@ void PauseState::btnAbandonClick(Action *)
  */
 void PauseState::btnCancelClick(Action *)
 {
+#ifdef __EMSCRIPTEN__
+	// Hide before popState — the destructor runs on a later frame.
+	Calypso::pauseMenuDomHide();
+#endif
 	_game->popState();
 }
 

@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "id": "f33-abandon",
+  "familyId": 33,
+  "version": "hd.2026-08-20.22",
+  "archetype": "small-confirmation",
+  "protocol": {
+    "authority": "CALYPSO COMMAND",
+    "record": "SESSION PROTOCOL",
+    "code": "SP-01",
+    "revision": "1.0.21",
+    "effectiveDate": "15.07.2061"
+  },
+  "title": "ABANDON GAME?",
+  "body": [
+    "Your progress since the last save will be lost.",
+    "This session will be permanently discarded."
+  ],
+  "icon": {
+    "kind": "warning",
+    "glyph": "!",
+    "tone": "warning"
+  },
+  "buttons": [
+    {
+      "id": "cancel",
+      "label": "KEEP PLAYING",
+      "tone": "safe",
+      "action": "cancel"
+    },
+    {
+      "id": "confirm",
+      "label": "ABANDON GAME",
+      "tone": "danger",
+      "action": "confirm"
+    }
+  ]
+}

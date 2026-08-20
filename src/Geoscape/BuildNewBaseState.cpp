@@ -36,6 +36,11 @@
 #include "../Engine/Options.h"
 #include "../Menu/ErrorMessageState.h"
 #include "../Mod/RuleInterface.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoAbandonPopupUi.h"
+#include "../Calypso/CalypsoF21SiteUi.h"
+#include "../Calypso/CalypsoHdHarnessHostState.h"
+#endif
 
 namespace OpenXcom
 {
@@ -139,6 +144,10 @@ BuildNewBaseState::BuildNewBaseState(Base *base, Globe *globe, bool first) : _ba
 	{
 		_btnCancel->setVisible(false);
 	}
+#ifdef __EMSCRIPTEN__
+	// F21 (Phase 46.F21): physical route for the site-selection strip + card.
+	Calypso::CalypsoF21SiteUi::configure(*this, true);
+#endif
 }
 
 /**
@@ -151,6 +160,12 @@ BuildNewBaseState::~BuildNewBaseState()
 		Options::globeRadarLines = false;
 	}
 	delete _hoverTimer;
+#ifdef __EMSCRIPTEN__
+	if (_hdLayout) Calypso::hdHarnessDomHide();
+	Calypso::calypsoHdHarnessClose();
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 }
 
 /**
@@ -209,6 +224,11 @@ void BuildNewBaseState::hoverRedraw(void)
 		_oldlat=lat;
 		_oldlon=lon;
 		_globe->invalidate();
+#ifdef __EMSCRIPTEN__
+		// F21: refresh the placement-card readouts from the live hover
+		// snapshot (region + region-defined base cost follow the pointer).
+		Calypso::CalypsoF21SiteUi::refreshHoverReadouts(*this, lon, lat);
+#endif
 	}
 }
 
@@ -223,8 +243,13 @@ void BuildNewBaseState::globeClick(Action *action)
 	int mouseX = (int)floor(action->getAbsoluteXMouse()), mouseY = (int)floor(action->getAbsoluteYMouse());
 	_globe->cartToPolar(mouseX, mouseY, &lon, &lat);
 
-	// Ignore window clicks
-	if (mouseY < 28)
+	// Ignore window clicks (the strip; taller while the HD route is active)
+#ifdef __EMSCRIPTEN__
+	const int stripBottom = _hdStripBottom;
+#else
+	const int stripBottom = 28;
+#endif
+	if (mouseY < stripBottom)
 	{
 		return;
 	}
@@ -232,6 +257,24 @@ void BuildNewBaseState::globeClick(Action *action)
 	// Clicking on a polygon for a base location
 	if (action->getDetails()->button.button == SDL_BUTTON_LEFT)
 	{
+		auto pushLandError = [&]()
+		{
+			const ErrorMessageHdForm hdForm{
+				std::string(tr("STR_CAL_F34_PROTOCOL_ERROR")),
+				std::string(tr("STR_CAL_ERROR_OPERATIONAL_WARNING")),
+				{
+					std::string(tr("STR_CAL_NEW_BASE_LAND_ERROR_LINE_1")),
+					std::string(tr("STR_CAL_NEW_BASE_LAND_ERROR_LINE_2"))
+				},
+				std::string(tr("STR_CAL_ACKNOWLEDGE"))
+			};
+			_game->pushState(new ErrorMessageState(
+				tr("STR_XCOM_BASE_CANNOT_BE_BUILT"), _palette,
+				_game->getMod()->getInterface("geoscape")->getElement("genericWindow")->color,
+				"BACK01.SCR",
+				_game->getMod()->getInterface("geoscape")->getElement("palette")->color,
+				0, this, hdForm));
+		};
 		if (_globe->insideLand(lon, lat))
 		{
 			bool fakeUnderwaterBasesUnlocked = true;
@@ -243,7 +286,7 @@ void BuildNewBaseState::globeClick(Action *action)
 			if ((_first || !fakeUnderwaterBasesUnlocked) && fakeUnderwaterTexture)
 			{
 				// first (starting) base can't be fake underwater base
-				_game->pushState(new ErrorMessageState(tr("STR_XCOM_BASE_CANNOT_BE_BUILT"), _palette, _game->getMod()->getInterface("geoscape")->getElement("genericWindow")->color, "BACK01.SCR", _game->getMod()->getInterface("geoscape")->getElement("palette")->color));
+				pushLandError();
 			}
 			else
 			{
@@ -268,7 +311,7 @@ void BuildNewBaseState::globeClick(Action *action)
 		}
 		else
 		{
-			_game->pushState(new ErrorMessageState(tr("STR_XCOM_BASE_CANNOT_BE_BUILT"), _palette, _game->getMod()->getInterface("geoscape")->getElement("genericWindow")->color, "BACK01.SCR", _game->getMod()->getInterface("geoscape")->getElement("palette")->color));
+			pushLandError();
 		}
 	}
 }
@@ -398,6 +441,9 @@ void BuildNewBaseState::btnCancelClick(Action *)
  */
 void BuildNewBaseState::resize(int &dX, int &dY)
 {
+#ifdef __EMSCRIPTEN__
+	if (Calypso::CalypsoF21SiteUi::resize(*this)) return;
+#endif
 	for (auto* surface : _surfaces)
 	{
 		surface->setX(surface->getX() + dX / 2);

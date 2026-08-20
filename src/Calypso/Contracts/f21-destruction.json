@@ -1,0 +1,386 @@
+{
+  "schema": 1,
+  "version": "hd.2026-08-20.22",
+  "form": {
+    "id": "f21-destruction",
+    "familyId": 21,
+    "archetype": "small-confirmation",
+    "source": "FormConfigs/f21-destruction.json",
+    "icon": {
+      "kind": "warning",
+      "glyph": "!",
+      "tone": "warning"
+    },
+    "buttons": [
+      {
+        "id": "acknowledge",
+        "label": "ACKNOWLEDGE",
+        "tone": "safe",
+        "action": "confirm",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB0CC",
+          "text": "E8FFF5FF"
+        }
+      }
+    ],
+    "tableRows": [
+      [
+        "FACILITY",
+        "COUNT"
+      ],
+      [
+        "SONAR ARRAY",
+        "1"
+      ],
+      [
+        "LIVING QUARTERS",
+        "1"
+      ],
+      [
+        "GENERAL STORES",
+        "1"
+      ]
+    ]
+  },
+  "copy": {
+    "protocol": "CALYPSO COMMAND · LOSS RECORD LR-21",
+    "title": "BASE DAMAGED",
+    "message": [
+      "ALIEN MISSILES HAVE DAMAGED OUR BASE · ATLANTIS POST",
+      "This base is permanently deleted. No refund. No undo."
+    ],
+    "table": "| FACILITY | COUNT |\n| --- | --- |\n| SONAR ARRAY | 1 |\n| LIVING QUARTERS | 1 |\n| GENERAL STORES | 1 |"
+  },
+  "presentation": {
+    "density": "standard",
+    "scaleNumerator": 1,
+    "scaleDenominator": 1
+  },
+  "style": {
+    "cutCornerPx": 14,
+    "protocolTextInsetPx": 26,
+    "panelFillTop": "08191DEB",
+    "panelFillBottom": "041014E8",
+    "frame": "74FFB073",
+    "protocolText": "A9D8C7FF",
+    "divider": "74FFB04D",
+    "footerFill": "061B1CD6",
+    "footerDot": "74FFB01F",
+    "warning": "FFC14DFF",
+    "safeFill": "051417B8",
+    "safeBorder": "74FFB0CC",
+    "destructiveFill": "F25F5CFF",
+    "destructiveText": "071013FF"
+  },
+  "layouts": {
+    "wide": {
+      "designWidth": 1280,
+      "designHeight": 720,
+      "window": {
+        "x": 366,
+        "y": 230,
+        "width": 548,
+        "height": 401
+      },
+      "status": {
+        "x": 366,
+        "y": 230,
+        "width": 548,
+        "height": 38
+      },
+      "warning": {
+        "x": 398,
+        "y": 290,
+        "width": 32,
+        "height": 32
+      },
+      "title": {
+        "x": 446,
+        "y": 284,
+        "width": 436,
+        "height": 44
+      },
+      "message": {
+        "x": 398,
+        "y": 336,
+        "width": 484,
+        "height": 219
+      },
+      "footer": {
+        "x": 366,
+        "y": 569,
+        "width": 548,
+        "height": 62
+      },
+      "buttons": {
+        "acknowledge": {
+          "x": 724,
+          "y": 578,
+          "width": 158,
+          "height": 44
+        }
+      },
+      "cellR1C1": {
+        "x": 414,
+        "y": 408,
+        "width": 120,
+        "height": 22
+      },
+      "cellR1C2": {
+        "x": 551,
+        "y": 408,
+        "width": 40,
+        "height": 22
+      },
+      "rowDivider1": {
+        "x": 406,
+        "y": 438,
+        "width": 193,
+        "height": 1
+      },
+      "cellR2C1": {
+        "x": 414,
+        "y": 447,
+        "width": 120,
+        "height": 22
+      },
+      "cellR2C2": {
+        "x": 551,
+        "y": 447,
+        "width": 40,
+        "height": 22
+      },
+      "rowDivider2": {
+        "x": 406,
+        "y": 477,
+        "width": 193,
+        "height": 1
+      },
+      "cellR3C1": {
+        "x": 414,
+        "y": 486,
+        "width": 120,
+        "height": 22
+      },
+      "cellR3C2": {
+        "x": 551,
+        "y": 486,
+        "width": 40,
+        "height": 22
+      },
+      "rowDivider3": {
+        "x": 406,
+        "y": 516,
+        "width": 193,
+        "height": 1
+      },
+      "cellR4C1": {
+        "x": 414,
+        "y": 525,
+        "width": 120,
+        "height": 22
+      },
+      "cellR4C2": {
+        "x": 551,
+        "y": 525,
+        "width": 40,
+        "height": 22
+      },
+      "columnDivider1": {
+        "x": 542,
+        "y": 400,
+        "width": 1,
+        "height": 155
+      }
+    },
+    "compact": {
+      "designWidth": 740,
+      "designHeight": 438,
+      "window": {
+        "x": 152,
+        "y": 60,
+        "width": 436,
+        "height": 368
+      },
+      "status": {
+        "x": 152,
+        "y": 60,
+        "width": 436,
+        "height": 34
+      },
+      "warning": {
+        "x": 180,
+        "y": 111,
+        "width": 28,
+        "height": 28
+      },
+      "title": {
+        "x": 222,
+        "y": 106,
+        "width": 338,
+        "height": 38
+      },
+      "message": {
+        "x": 180,
+        "y": 150,
+        "width": 380,
+        "height": 195
+      },
+      "footer": {
+        "x": 152,
+        "y": 362,
+        "width": 436,
+        "height": 66
+      },
+      "buttons": {
+        "acknowledge": {
+          "x": 412,
+          "y": 372,
+          "width": 148,
+          "height": 44
+        }
+      },
+      "cellR1C1": {
+        "x": 196,
+        "y": 214,
+        "width": 105,
+        "height": 18
+      },
+      "cellR1C2": {
+        "x": 318,
+        "y": 214,
+        "width": 35,
+        "height": 18
+      },
+      "rowDivider1": {
+        "x": 188,
+        "y": 240,
+        "width": 173,
+        "height": 1
+      },
+      "cellR2C1": {
+        "x": 196,
+        "y": 249,
+        "width": 105,
+        "height": 18
+      },
+      "cellR2C2": {
+        "x": 318,
+        "y": 249,
+        "width": 35,
+        "height": 18
+      },
+      "rowDivider2": {
+        "x": 188,
+        "y": 275,
+        "width": 173,
+        "height": 1
+      },
+      "cellR3C1": {
+        "x": 196,
+        "y": 284,
+        "width": 105,
+        "height": 18
+      },
+      "cellR3C2": {
+        "x": 318,
+        "y": 284,
+        "width": 35,
+        "height": 18
+      },
+      "rowDivider3": {
+        "x": 188,
+        "y": 310,
+        "width": 173,
+        "height": 1
+      },
+      "cellR4C1": {
+        "x": 196,
+        "y": 319,
+        "width": 105,
+        "height": 18
+      },
+      "cellR4C2": {
+        "x": 318,
+        "y": 319,
+        "width": 35,
+        "height": 18
+      },
+      "columnDivider1": {
+        "x": 309,
+        "y": 206,
+        "width": 1,
+        "height": 139
+      }
+    }
+  },
+  "motion": {
+    "durationMs": 200,
+    "scaleFrom": 0.96,
+    "easing": "ease-out",
+    "captureModeDurationMs": 0
+  },
+  "tableMetrics": {
+    "wide": {
+      "columns": 2,
+      "rows": 4,
+      "columnTextWidths": [
+        120,
+        40
+      ],
+      "columnWidths": [
+        136,
+        56
+      ],
+      "rowHeights": [
+        38,
+        38,
+        38,
+        38
+      ],
+      "lineCounts": {
+        "cellR1C1": 1,
+        "cellR1C2": 1,
+        "cellR2C1": 1,
+        "cellR2C2": 1,
+        "cellR3C1": 1,
+        "cellR3C2": 1,
+        "cellR4C1": 1,
+        "cellR4C2": 1
+      },
+      "tableWidth": 193,
+      "tableHeight": 155
+    },
+    "compact": {
+      "columns": 2,
+      "rows": 4,
+      "columnTextWidths": [
+        105,
+        35
+      ],
+      "columnWidths": [
+        121,
+        51
+      ],
+      "rowHeights": [
+        34,
+        34,
+        34,
+        34
+      ],
+      "lineCounts": {
+        "cellR1C1": 1,
+        "cellR1C2": 1,
+        "cellR2C1": 1,
+        "cellR2C2": 1,
+        "cellR3C1": 1,
+        "cellR3C2": 1,
+        "cellR4C1": 1,
+        "cellR4C2": 1
+      },
+      "tableWidth": 173,
+      "tableHeight": 139
+    }
+  }
+}

@@ -6,6 +6,7 @@
 #include <cmath>
 
 #include "CalypsoTextEditLayout.h"
+#include "CalypsoHdUiOverlay.h"
 #include "CalypsoTextInput.h"
 #include "../Engine/Action.h"
 #include "../Engine/Font.h"
@@ -441,6 +442,14 @@ void CalypsoTextEdit::refreshExternalGeometry(TextEdit& edit)
 }
 
 } // namespace Calypso
+
+void TextEdit::blit(SDL_Surface *surface)
+{
+	const auto& overlay = Calypso::CalypsoHdUiOverlay::instance();
+	if (overlay.widgetClaimed(this, overlay.frameId())) return;
+	Surface::blit(surface);
+}
+
 } // namespace OpenXcom
 
 #endif // __EMSCRIPTEN__

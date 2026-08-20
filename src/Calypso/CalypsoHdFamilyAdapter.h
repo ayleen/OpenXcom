@@ -12,10 +12,10 @@
  * position/size/text/visibility during collection.
  *
  * Each item carries its complete claim identity (CalypsoHdClaimId) and its
- * complete deterministic order key (CalypsoHdOrderKey). The overlay decides
- * readiness per subgroup (raster + upload), and ONLY a fully-Ready subgroup
- * commits claims and enqueues draws -- so a partial failure falls back to the
- * unmodified logical rendering with no claims taken.
+ * complete deterministic order key (CalypsoHdOrderKey). The overlay resolves
+ * each subgroup atomically (raster + upload), then commits claims and draws.
+ * Any failure on an enabled route throws; logical widgets remain interaction
+ * owners but are never a visible fallback.
  *
  * Whole-file Emscripten guard (Phase 36). Depends on the portable model
  * (CalypsoHdUiModel.h) + raster key; no SDL/GL here.
@@ -35,26 +35,61 @@ namespace Calypso
 
 enum class CalypsoHdItemKind { Panel, Text };
 
+/// Reusable SDF silhouettes for styled panels. RoundedRect preserves the
+/// existing family behavior; F33 uses OpposingCutRect for its command frame
+/// and WarningTriangle for the small amber caution glyph.
+enum class CalypsoHdPanelShape { RoundedRect = 0, OpposingCutRect = 1, WarningTriangle = 2 };
+
 /// Horizontal/vertical glyph alignment inside the item's logical box. Mirrors
 /// the engine's ALIGN_* enums by value (0/1/2) but kept local so the builder
 /// stays free of Interface/Text.h.
 enum class CalypsoHdHAlign { Left = 0, Center = 1, Right = 2 };
 enum class CalypsoHdVAlign { Top = 0, Middle = 1, Bottom = 2 };
 
+/// Optional styling for a Panel item, rendered by the hd_ui_panel SDF shader.
+/// All px values are DESIGN-space (the same space as `rect`) and scale with
+/// the logical->physical mapping. A style with `styled == false` (default)
+/// keeps the plain tinted-quad path. Colours are packed 0xRRGGBBAA.
+struct CalypsoHdPanelStyle
+{
+	bool styled = false;
+	CalypsoHdPanelShape shape = CalypsoHdPanelShape::RoundedRect;
+	float radiusPx = 0.0f;          // rounded-corner radius
+	float cutCornerPx = 0.0f;       // opposing cut size (top-left/bottom-right)
+	float borderWidthPx = 0.0f;     // ring thickness at the shape edge
+	std::uint32_t borderColorRgba = 0;
+	std::uint32_t fillTopRgba = 0;  // gradient stop at the grad direction origin
+	std::uint32_t fillBottomRgba = 0;
+	float gradDirX = 0.26f;         // gradient direction (normalized-ish);
+	float gradDirY = 1.0f;          // default ~165deg-like downward drift
+	std::uint32_t glowRgba = 0;     // soft outer falloff colour (alpha = strength)
+	float glowRadiusPx = 0.0f;      // 0 => no glow
+};
+
 /// One physical draw the adapter requests. A Panel is a solid/tinted rect
-/// (window fill, bevel, badge). A Text item rasterises `rasterKey` and places
-/// the natural-size glyph bitmap inside `rect` per (hAlign,vAlign) -- `rect` is
-/// the layout + clip box, never a stretch target.
+/// (window fill, bevel, badge) -- or, with `panelStyle.styled`, an SDF-shaped
+/// panel (rounded, bordered, gradient, glow). A Text item rasterises
+/// `rasterKey` and places the natural-size glyph bitmap inside `rect` per
+/// (hAlign,vAlign) -- `rect` is the layout + clip box, never a stretch target.
 struct CalypsoHdItem
 {
 	CalypsoHdItemKind kind = CalypsoHdItemKind::Panel;
 	CalypsoLogicalRect rect;
 	std::uint32_t colorRgba = 0;     // panel fill / text colour (0xRRGGBBAA)
+	CalypsoHdPanelStyle panelStyle;  // Panel only; styled=false => tinted quad
 
 	// Text only:
 	CalypsoHdTextRasterKey rasterKey;
 	CalypsoHdHAlign hAlign = CalypsoHdHAlign::Left;
 	CalypsoHdVAlign vAlign = CalypsoHdVAlign::Middle;
+	// Text-only presentation projection. Kept out of rasterKey so the same
+	// design-resolution surface is reused across viewport/DPR changes and the
+	// real GPU linear sampler performs the final CSS-like projection.
+	float textScaleX = 1.0f;
+	float textScaleY = 1.0f;
+
+	// Presentation opacity (Phase 46.4-F33 opening motion): 1 = opaque.
+	float opacity = 1.0f;
 
 	// Identity + ordering + the live widget this visual replaces (ephemeral
 	// blit-skip key; may be null for pure-decoration items with no widget).
@@ -63,11 +98,10 @@ struct CalypsoHdItem
 	CalypsoHdOrderKey order;
 };
 
-/// An atomic subgroup: all-or-nothing. Either every item rasterises+uploads and
-/// the whole subgroup commits (claims + draws), or the subgroup is dropped and
-/// its widgets render logically. Adapters group visuals that must appear
-/// together (e.g. one popup = one subgroup) so a half-rasterised popup never
-/// shows.
+/// An atomic subgroup: all-or-fatal. Every item must rasterise/upload and the
+/// whole subgroup commits claims + draws; failure throws before presentation.
+/// Adapters group visuals that must appear together (e.g. one popup = one
+/// subgroup) so neither a half-rasterised popup nor vanilla fallback can show.
 struct CalypsoHdSubgroup
 {
 	std::vector<CalypsoHdItem> items;
@@ -93,6 +127,23 @@ private:
 	std::vector<CalypsoHdSubgroup> _subgroups;
 };
 
+/// Per-frame logical widgets belonging to a covered lower state. This is
+/// separate from physical claims: covered chrome must stay hidden while the
+/// top popup is still in its native opening animation.
+class CalypsoHdLogicalSuppression
+{
+public:
+	void add(const void* widget)
+	{
+		if (widget) _widgets.push_back(widget);
+	}
+
+	const std::vector<const void*>& widgets() const { return _widgets; }
+
+private:
+	std::vector<const void*> _widgets;
+};
+
 /// Implemented by each family's state-side adapter. Registered with the overlay
 /// while its state is top; unregistered on state destruction.
 class CalypsoHdFamilyAdapter
@@ -104,6 +155,18 @@ public:
 	/// equals the current top state, so a state pushed on top never lets a lower
 	/// popup's physical replacement draw over it.
 	virtual const void* topState() const = 0;
+
+	/// Returns false for a transient frame in which the logical widget is still
+	/// playing its native opening animation. The overlay leaves that logical
+	/// frame visible instead of treating an intentionally empty collection as a
+	/// fatal HD route error.
+	virtual bool physicalReady() const { return true; }
+
+	/// Atomic families own all of their top-state logical UI once the physical
+	/// subgroup commits. Adapters that overlay another state can also list that
+	/// state's chrome here; the overlay applies it before readiness is checked.
+	virtual bool suppressLogicalState() const { return true; }
+	virtual void collectLogicalSuppression(CalypsoHdLogicalSuppression&) const {}
 
 	/// Describe this frame's physical replacement into `builder`, reading a const
 	/// snapshot of the widgets. MUST NOT mutate live widget state.

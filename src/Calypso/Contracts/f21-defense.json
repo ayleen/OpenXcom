@@ -1,0 +1,341 @@
+{
+  "schema": 1,
+  "version": "hd.2026-08-20.22",
+  "form": {
+    "id": "f21-defense",
+    "familyId": 21,
+    "archetype": "small-confirmation",
+    "source": "FormConfigs/f21-defense.json",
+    "icon": {
+      "kind": "warning",
+      "glyph": "!",
+      "tone": "warning"
+    },
+    "buttons": [
+      {
+        "id": "skip",
+        "label": "SKIP TO ASSAULT",
+        "tone": "safe",
+        "action": "skip",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB0CC",
+          "text": "E8FFF5FF"
+        }
+      },
+      {
+        "id": "start",
+        "label": "START FIRING",
+        "tone": "primary",
+        "action": "start",
+        "style": {
+          "fill": "74FFB0FF",
+          "border": "74FFB0FF",
+          "text": "071013FF"
+        }
+      },
+      {
+        "id": "ok",
+        "label": "CONTINUE",
+        "tone": "safe",
+        "action": "confirm",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB0CC",
+          "text": "E8FFF5FF"
+        }
+      }
+    ],
+    "visibleButtons": [
+      "skip",
+      "start"
+    ],
+    "tableRows": [
+      [
+        "DEFENSES · 4",
+        "AMMUNITION · 24"
+      ],
+      [
+        "HIT RATIO · 62%",
+        "READY"
+      ]
+    ]
+  },
+  "copy": {
+    "protocol": "CALYPSO COMMAND · DEFENSE DOSSIER DF-21",
+    "title": "BASE UNDER ATTACK",
+    "message": [],
+    "table": "| DEFENSES · 4 | AMMUNITION · 24 |\n| --- | --- |\n| HIT RATIO · 62% | READY |"
+  },
+  "presentation": {
+    "density": "standard",
+    "scaleNumerator": 1,
+    "scaleDenominator": 1
+  },
+  "style": {
+    "cutCornerPx": 14,
+    "protocolTextInsetPx": 26,
+    "panelFillTop": "08191DEB",
+    "panelFillBottom": "041014E8",
+    "frame": "74FFB073",
+    "protocolText": "A9D8C7FF",
+    "divider": "74FFB04D",
+    "footerFill": "061B1CD6",
+    "footerDot": "74FFB01F",
+    "warning": "FFC14DFF",
+    "safeFill": "051417B8",
+    "safeBorder": "74FFB0CC",
+    "destructiveFill": "F25F5CFF",
+    "destructiveText": "071013FF"
+  },
+  "layouts": {
+    "wide": {
+      "designWidth": 1280,
+      "designHeight": 720,
+      "window": {
+        "x": 361,
+        "y": 230,
+        "width": 558,
+        "height": 259
+      },
+      "status": {
+        "x": 361,
+        "y": 230,
+        "width": 558,
+        "height": 38
+      },
+      "warning": {
+        "x": 393,
+        "y": 290,
+        "width": 32,
+        "height": 32
+      },
+      "title": {
+        "x": 441,
+        "y": 284,
+        "width": 446,
+        "height": 44
+      },
+      "message": {
+        "x": 393,
+        "y": 336,
+        "width": 494,
+        "height": 77
+      },
+      "footer": {
+        "x": 361,
+        "y": 427,
+        "width": 558,
+        "height": 62
+      },
+      "buttons": {
+        "skip": {
+          "x": 393,
+          "y": 436,
+          "width": 158,
+          "height": 44
+        },
+        "start": {
+          "x": 561,
+          "y": 436,
+          "width": 158,
+          "height": 44
+        },
+        "ok": {
+          "x": 729,
+          "y": 436,
+          "width": 158,
+          "height": 44
+        }
+      },
+      "cellR1C1": {
+        "x": 409,
+        "y": 344,
+        "width": 120,
+        "height": 22
+      },
+      "cellR1C2": {
+        "x": 546,
+        "y": 344,
+        "width": 120,
+        "height": 22
+      },
+      "rowDivider1": {
+        "x": 401,
+        "y": 374,
+        "width": 273,
+        "height": 1
+      },
+      "cellR2C1": {
+        "x": 409,
+        "y": 383,
+        "width": 120,
+        "height": 22
+      },
+      "cellR2C2": {
+        "x": 546,
+        "y": 383,
+        "width": 120,
+        "height": 22
+      },
+      "columnDivider1": {
+        "x": 537,
+        "y": 336,
+        "width": 1,
+        "height": 77
+      }
+    },
+    "compact": {
+      "designWidth": 740,
+      "designHeight": 360,
+      "window": {
+        "x": 108,
+        "y": 60,
+        "width": 524,
+        "height": 242
+      },
+      "status": {
+        "x": 108,
+        "y": 60,
+        "width": 524,
+        "height": 34
+      },
+      "warning": {
+        "x": 136,
+        "y": 111,
+        "width": 28,
+        "height": 28
+      },
+      "title": {
+        "x": 178,
+        "y": 106,
+        "width": 426,
+        "height": 38
+      },
+      "message": {
+        "x": 136,
+        "y": 150,
+        "width": 468,
+        "height": 69
+      },
+      "footer": {
+        "x": 108,
+        "y": 236,
+        "width": 524,
+        "height": 66
+      },
+      "buttons": {
+        "skip": {
+          "x": 136,
+          "y": 246,
+          "width": 148,
+          "height": 44
+        },
+        "start": {
+          "x": 296,
+          "y": 246,
+          "width": 148,
+          "height": 44
+        },
+        "ok": {
+          "x": 456,
+          "y": 246,
+          "width": 148,
+          "height": 44
+        }
+      },
+      "cellR1C1": {
+        "x": 152,
+        "y": 158,
+        "width": 105,
+        "height": 18
+      },
+      "cellR1C2": {
+        "x": 274,
+        "y": 158,
+        "width": 105,
+        "height": 18
+      },
+      "rowDivider1": {
+        "x": 144,
+        "y": 184,
+        "width": 243,
+        "height": 1
+      },
+      "cellR2C1": {
+        "x": 152,
+        "y": 193,
+        "width": 105,
+        "height": 18
+      },
+      "cellR2C2": {
+        "x": 274,
+        "y": 193,
+        "width": 105,
+        "height": 18
+      },
+      "columnDivider1": {
+        "x": 265,
+        "y": 150,
+        "width": 1,
+        "height": 69
+      }
+    }
+  },
+  "motion": {
+    "durationMs": 200,
+    "scaleFrom": 0.96,
+    "easing": "ease-out",
+    "captureModeDurationMs": 0
+  },
+  "tableMetrics": {
+    "wide": {
+      "columns": 2,
+      "rows": 2,
+      "columnTextWidths": [
+        120,
+        120
+      ],
+      "columnWidths": [
+        136,
+        136
+      ],
+      "rowHeights": [
+        38,
+        38
+      ],
+      "lineCounts": {
+        "cellR1C1": 1,
+        "cellR1C2": 1,
+        "cellR2C1": 1,
+        "cellR2C2": 1
+      },
+      "tableWidth": 273,
+      "tableHeight": 77
+    },
+    "compact": {
+      "columns": 2,
+      "rows": 2,
+      "columnTextWidths": [
+        105,
+        105
+      ],
+      "columnWidths": [
+        121,
+        121
+      ],
+      "rowHeights": [
+        34,
+        34
+      ],
+      "lineCounts": {
+        "cellR1C1": 1,
+        "cellR1C2": 1,
+        "cellR2C1": 1,
+        "cellR2C2": 1
+      },
+      "tableWidth": 243,
+      "tableHeight": 69
+    }
+  }
+}

@@ -265,6 +265,7 @@ void TextEdit::setTextExternal(const std::string &utf8)
 { Calypso::CalypsoTextEdit::setTextExternal(*this, utf8.c_str()); }
 
 void TextEdit::refreshExternalGeometry() { Calypso::CalypsoTextEdit::refreshExternalGeometry(*this); }
+
 #endif
 
 /**

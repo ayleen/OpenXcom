@@ -18,15 +18,21 @@
 namespace OpenXcom
 {
 
-void State::enableUiScaling(int designW, int designH, float factor)
+void State::enableUiScaling(int designW, int designH, float factor,
+	bool subtractVanillaCenter)
 {
 	if (_uiCaptured || designW <= 0 || designH <= 0) return;
 	_uiDesignW = designW;
 	_uiDesignH = designH;
 	_uiFactor = factor > 0.0f ? factor : 1.0f;
 	_uiNative.clear();
-	const int dx = _game->getScreen()->getDX();
-	const int dy = _game->getScreen()->getDY();
+	// Vanilla widgets are created in the 320x200 space and centered into the
+	// base canvas (centerAllSurfaces), so capturing their design-space rect
+	// requires undoing that centering. Calypso design-space widgets (F33/F34)
+	// already carry canonical layout rects and must NOT be shifted (F33: the
+	// dialog rendered 105px left / 40px up when dx/dy were subtracted).
+	const int dx = subtractVanillaCenter ? _game->getScreen()->getDX() : 0;
+	const int dy = subtractVanillaCenter ? _game->getScreen()->getDY() : 0;
 	for (auto* surf : _surfaces)
 	{
 		_uiNative.push_back({ surf, surf->getX() - dx, surf->getY() - dy,
@@ -63,7 +69,8 @@ void State::applyUiScaling()
 	}
 }
 
-void State::recaptureUiScaling(int designW, int designH, float factor)
+void State::recaptureUiScaling(int designW, int designH, float factor,
+	bool subtractVanillaCenter)
 {
 	// Force a fresh capture against the new design canvas. enableUiScaling is
 	// one-shot (returns early once _uiCaptured), which is correct for the common
@@ -72,7 +79,7 @@ void State::recaptureUiScaling(int designW, int designH, float factor)
 	// rects (external review #3). Clearing the latch and re-running reuses the
 	// exact same capture + apply path, so it stays consistent with configure().
 	_uiCaptured = false;
-	enableUiScaling(designW, designH, factor);
+	enableUiScaling(designW, designH, factor, subtractVanillaCenter);
 }
 
 void State::excludeFromUiScaling(Surface* surf)

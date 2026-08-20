@@ -18,6 +18,7 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include <string>
+#include <vector>
 #include "../Engine/State.h"
 
 namespace OpenXcom
@@ -32,6 +33,20 @@ class TextButton;
 class Window;
 class Text;
 
+/** Optional generated-form presentation data supplied by a semantic caller. */
+struct ErrorMessageHdForm
+{
+	std::string protocol;
+	std::string title;
+	std::vector<std::string> bodyLines;
+	std::string actionLabel;
+
+	bool empty() const
+	{
+		return protocol.empty() || title.empty() || bodyLines.empty() || actionLabel.empty();
+	}
+};
+
 /**
  * Generic window used to display error messages.
  */
@@ -39,6 +54,8 @@ class ErrorMessageState : public State
 {
 friend class Calypso::CalypsoErrorPopupUi;
 private:
+	State *_coveredState = nullptr;
+	ErrorMessageHdForm _hdForm;
 	TextButton *_btnOk;
 	Window *_window;
 	Text *_txtMessage;
@@ -53,14 +70,18 @@ private:
 	bool _hdWideLayout = false;
 	Surface *_hdIconPanel = nullptr;   ///< CalypsoBevelPanel: beveled badge with a bitmap fallback
 	Text *_hdIcon = nullptr;
+	Text *_hdProtocol = nullptr;
 	Text *_hdWarning = nullptr;
 	Calypso::CalypsoErrorPopupUi *_hdAdapter = nullptr; ///< owned; registered with the overlay while top
 #endif
 
-	void create(const std::string &str, SDL_Color *palette, Uint8 color, const std::string &bg, int bgColor, Uint8 color2);
+	void create(const std::string &str, SDL_Color *palette, Uint8 color, const std::string &bg,
+		int bgColor, Uint8 color2, State *coveredState, const ErrorMessageHdForm &hdForm);
 public:
 	/// Creates the Error state.
-	ErrorMessageState(const std::string &msg, SDL_Color *palette, Uint8 color, const std::string &bg, int bgColor, Uint8 color2 = 0);
+	ErrorMessageState(const std::string &msg, SDL_Color *palette, Uint8 color,
+		const std::string &bg, int bgColor, Uint8 color2 = 0, State *coveredState = nullptr,
+		const ErrorMessageHdForm &hdForm = ErrorMessageHdForm());
 	/// Cleans up the Error state.
 	~ErrorMessageState();
 	/// Let the state know the window has been resized.

@@ -7,9 +7,15 @@
 
 #include "CalypsoHdTextRaster.h"
 
+#include "CalypsoHdDiagnostics.h"
+#include "CalypsoHdTrackedText.h"
+
 #include "../Engine/FileMap.h"
 #include "../Engine/Logger.h"
 
+#include <algorithm>
+#include <cstddef>
+#include <string>
 #include <vector>
 
 namespace OpenXcom
@@ -20,57 +26,220 @@ namespace Calypso
 namespace
 {
 
-/// True iff every renderable codepoint in `text` has a real glyph in `face`.
-///
-/// SDL_ttf's TTF_Render* NEVER fails on missing glyphs -- it silently substitutes
-/// the font's .notdef box (tofu). Treating a successful render as "text is fine"
-/// therefore breaks the HD overlay's atomic-fallback contract: a Cyrillic /
-/// Arabic / CJK string rendered against a Latin-only F34 face would raster to a
-/// row of squares, the subgroup would be marked Ready, and the CORRECT bitmap
-/// Font text would be suppressed by the claim (external review #5). We instead
-/// pre-flight glyph coverage and report failure when any codepoint is missing so
-/// the whole atomic subgroup stays logical (correct bitmap text) rather than
-/// showing tofu.
-///
-/// Whitespace / control codepoints (<= 0x20: space, '\n' line break, '\t') are
-/// layout, not glyphs, and are skipped. Astral codepoints (> 0xFFFF: emoji, rare
-/// CJK ext) cannot be probed with the BMP-only TTF_GlyphIsProvided(Uint16) that
-/// is guaranteed present across SDL_ttf versions, so they are conservatively
-/// treated as UNCOVERED -- the safe direction (fall back to bitmap, never tofu).
-bool faceCoversText(TTF_Font* face, const std::string& text)
+std::size_t nextUtf8Boundary(const std::string& text, std::size_t offset)
 {
-	const unsigned char* s = reinterpret_cast<const unsigned char*>(text.c_str());
-	const std::size_t n = text.size();
-	std::size_t i = 0;
-	while (i < n)
+	if (offset >= text.size()) return text.size();
+	const unsigned char c = static_cast<unsigned char>(text[offset]);
+	std::size_t length = 1;
+	if ((c & 0xE0u) == 0xC0u) length = 2;
+	else if ((c & 0xF0u) == 0xE0u) length = 3;
+	else if ((c & 0xF8u) == 0xF0u) length = 4;
+	return std::min(text.size(), offset + length);
+}
+
+bool isAsciiSpaceAt(const std::string& text, std::size_t offset)
+{
+	return offset < text.size()
+		&& static_cast<unsigned char>(text[offset]) <= 0x20u;
+}
+
+int utf8Width(TTF_Font* face, const std::string& text)
+{
+	int width = 0;
+	int height = 0;
+	return TTF_SizeUTF8(face, text.c_str(), &width, &height) == 0 ? width : -1;
+}
+
+void trimLineEnd(std::string& line)
+{
+	while (!line.empty() && static_cast<unsigned char>(line.back()) <= 0x20u)
 	{
-		const unsigned char b0 = s[i];
-		std::uint32_t cp;
-		std::size_t len;
-		if (b0 < 0x80u) { cp = b0; len = 1; }
-		else if ((b0 & 0xE0u) == 0xC0u && i + 1 < n)
+		line.pop_back();
+	}
+}
+
+void trimLineStart(std::string& text)
+{
+	std::size_t first = 0;
+	while (first < text.size() && isAsciiSpaceAt(text, first)) ++first;
+	text.erase(0, first);
+}
+
+/// Portable equivalent of SDL_ttf's wrapped renderer with a caller-owned line
+/// skip. Emscripten's pinned SDL_ttf exposes the wrapped renderer and metrics,
+/// but not TTF_SetFontLineSkip, so line breaks are measured explicitly and each
+/// line is blitted at the canonical physical line height.
+SDL_Surface* renderWrappedWithLineHeight(TTF_Font* face, const std::string& text,
+	int wrapWidth, int lineHeightPx, int lineHeightMilliPx, int horizontalScalePermille,
+	int verticalScalePermille, int wrapMeasureScalePermille, bool explicitBreaksOnly,
+	SDL_Color color)
+{
+	if (!face || text.empty() || wrapWidth <= 0
+		|| (lineHeightPx <= 0 && lineHeightMilliPx <= 0)) return nullptr;
+	const double horizontalScale = std::max(0.01, horizontalScalePermille / 1000.0);
+	const double verticalScale = std::max(0.01, verticalScalePermille / 1000.0);
+	const double wrapMeasureScale = std::max(0.01, wrapMeasureScalePermille / 1000.0);
+	const int textWrapWidth = std::max(1,
+		static_cast<int>(wrapWidth / wrapMeasureScale));
+
+	std::vector<std::string> lines;
+	std::size_t paragraphStart = 0;
+	while (paragraphStart <= text.size())
+	{
+		const std::size_t newline = text.find('\n', paragraphStart);
+		const std::size_t paragraphEnd = newline == std::string::npos ? text.size() : newline;
+		std::string remaining = text.substr(paragraphStart, paragraphEnd - paragraphStart);
+		if (remaining.empty())
 		{
-			cp = ((b0 & 0x1Fu) << 6) | (s[i + 1] & 0x3Fu); len = 2;
-		}
-		else if ((b0 & 0xF0u) == 0xE0u && i + 2 < n)
-		{
-			cp = ((b0 & 0x0Fu) << 12) | ((s[i + 1] & 0x3Fu) << 6) | (s[i + 2] & 0x3Fu); len = 3;
-		}
-		else if ((b0 & 0xF8u) == 0xF0u && i + 3 < n)
-		{
-			cp = ((b0 & 0x07u) << 18) | ((s[i + 1] & 0x3Fu) << 12)
-				| ((s[i + 2] & 0x3Fu) << 6) | (s[i + 3] & 0x3Fu); len = 4;
+			lines.emplace_back();
 		}
 		else
 		{
-			return false; // malformed UTF-8 -> logical fallback
+			if (explicitBreaksOnly)
+			{
+				lines.push_back(std::move(remaining));
+			}
+			else
+			{
+				while (!remaining.empty())
+				{
+					if (utf8Width(face, remaining) <= textWrapWidth)
+					{
+						lines.push_back(remaining);
+						break;
+					}
+
+					std::size_t cursor = 0;
+					std::size_t fittingEnd = 0;
+					std::size_t lastSpaceEnd = 0;
+					while (cursor < remaining.size())
+					{
+						const std::size_t next = nextUtf8Boundary(remaining, cursor);
+						const std::string candidate = remaining.substr(0, next);
+						if (utf8Width(face, candidate) > textWrapWidth) break;
+						fittingEnd = next;
+						if (isAsciiSpaceAt(remaining, cursor)) lastSpaceEnd = next;
+						cursor = next;
+					}
+					std::size_t breakAt = lastSpaceEnd > 0 ? lastSpaceEnd : fittingEnd;
+					if (breakAt == 0) breakAt = nextUtf8Boundary(remaining, 0);
+
+					std::string line = remaining.substr(0, breakAt);
+					trimLineEnd(line);
+					lines.push_back(std::move(line));
+					remaining.erase(0, breakAt);
+					trimLineStart(remaining);
+				}
+			}
 		}
-		i += len;
-		if (cp <= 0x20u) continue;        // space / control / newline: not a glyph
-		if (cp > 0xFFFFu) return false;   // astral: can't BMP-probe -> safe fallback
-		if (!TTF_GlyphIsProvided(face, static_cast<Uint16>(cp))) return false;
+
+		if (newline == std::string::npos) break;
+		paragraphStart = newline + 1;
 	}
-	return true;
+
+	const double designLineHeight = lineHeightMilliPx > 0
+		? lineHeightMilliPx / 1000.0 : static_cast<double>(lineHeightPx);
+	const int lineSkip = std::max(1,
+		static_cast<int>(designLineHeight * verticalScale + 0.5));
+	std::vector<SDL_Surface*> rendered;
+	rendered.reserve(lines.size());
+	int width = 1;
+	int maxRenderedGlyphHeight = 1;
+	for (const std::string& line : lines)
+	{
+		SDL_Surface* glyphs = line.empty() ? nullptr : TTF_RenderUTF8_Blended(face, line.c_str(), color);
+		if (!line.empty() && !glyphs)
+		{
+			for (SDL_Surface* prior : rendered) SDL_FreeSurface(prior);
+			return nullptr;
+		}
+		if (glyphs)
+		{
+			const int scaledWidth = std::max(1,
+				static_cast<int>(glyphs->w * horizontalScale + 0.5));
+			const int scaledHeight = std::max(1,
+				static_cast<int>(glyphs->h * verticalScale + 0.5));
+			width = std::max(width, scaledWidth);
+			maxRenderedGlyphHeight = std::max(maxRenderedGlyphHeight, scaledHeight);
+		}
+		rendered.push_back(glyphs);
+	}
+
+	// Actual rendered line surfaces are authoritative. TTF_FontHeight may be
+	// smaller than glyphs->h for a concrete face/port and must never size the
+	// final canvas on its own. Guard rows ensure later box clipping consumes
+	// transparency before it can shave a cap or the last baseline.
+	const int metricGlyphHeight = std::max(1,
+		static_cast<int>(TTF_FontHeight(face) * verticalScale + 0.5));
+	const int glyphHeight = std::max(metricGlyphHeight, maxRenderedGlyphHeight);
+	const int verticalGuardPx = std::max(2, (glyphHeight + 7) / 8);
+	const int height = std::max(glyphHeight + verticalGuardPx * 2,
+		(static_cast<int>(rendered.size()) - 1) * lineSkip
+			+ glyphHeight + verticalGuardPx * 2);
+	SDL_Surface* canvas = SDL_CreateRGBSurfaceWithFormat(0, width, height, 32,
+		SDL_PIXELFORMAT_ARGB8888);
+	if (!canvas)
+	{
+		for (SDL_Surface* glyphs : rendered) SDL_FreeSurface(glyphs);
+		return nullptr;
+	}
+	SDL_SetSurfaceBlendMode(canvas, SDL_BLENDMODE_NONE);
+	SDL_FillRect(canvas, nullptr, 0);
+	for (std::size_t i = 0; i < rendered.size(); ++i)
+	{
+		SDL_Surface* glyphs = rendered[i];
+		if (!glyphs) continue;
+		SDL_SetSurfaceBlendMode(glyphs, SDL_BLENDMODE_NONE);
+		const int scaledWidth = std::max(1,
+			static_cast<int>(glyphs->w * horizontalScale + 0.5));
+		const int scaledHeight = std::max(1,
+			static_cast<int>(glyphs->h * verticalScale + 0.5));
+		SDL_Rect destination{ 0, verticalGuardPx + static_cast<int>(i) * lineSkip,
+			scaledWidth, scaledHeight };
+		const int blitResult = horizontalScalePermille == 1000
+			&& verticalScalePermille == 1000
+			? SDL_BlitSurface(glyphs, nullptr, canvas, &destination)
+			: SDL_BlitScaled(glyphs, nullptr, canvas, &destination);
+		if (blitResult != 0)
+		{
+			for (SDL_Surface* prior : rendered) SDL_FreeSurface(prior);
+			SDL_FreeSurface(canvas);
+			return nullptr;
+		}
+	}
+	for (SDL_Surface* glyphs : rendered) SDL_FreeSurface(glyphs);
+	return canvas;
+}
+
+SDL_Surface* projectSurface(SDL_Surface* source, int horizontalScalePermille,
+	int verticalScalePermille)
+{
+	if (!source || (horizontalScalePermille == 1000 && verticalScalePermille == 1000))
+	{
+		return source;
+	}
+	const int width = std::max(1, static_cast<int>(source->w
+		* (horizontalScalePermille / 1000.0) + 0.5));
+	const int height = std::max(1, static_cast<int>(source->h
+		* (verticalScalePermille / 1000.0) + 0.5));
+	SDL_Surface* projected = SDL_CreateRGBSurfaceWithFormat(0, width, height, 32,
+		SDL_PIXELFORMAT_ARGB8888);
+	if (!projected)
+	{
+		SDL_FreeSurface(source);
+		return nullptr;
+	}
+	SDL_SetSurfaceBlendMode(source, SDL_BLENDMODE_NONE);
+	SDL_SetSurfaceBlendMode(projected, SDL_BLENDMODE_NONE);
+	SDL_Rect destination{ 0, 0, width, height };
+	if (SDL_BlitScaled(source, nullptr, projected, &destination) != 0)
+	{
+		SDL_FreeSurface(projected);
+		SDL_FreeSurface(source);
+		return nullptr;
+	}
+	SDL_FreeSurface(source);
+	return projected;
 }
 
 } // namespace
@@ -102,20 +271,32 @@ TTF_Font* CalypsoHdTextRaster::faceFor(const std::string& vfsPath, int physicalP
 
 	if (!FileMap::fileExists(vfsPath))
 	{
-		Log(LOG_ERROR) << "CalypsoHdTextRaster: file not found in VFS: \"" << vfsPath << "\"";
+		if (_diag.shouldLog(CalypsoDiagnosticKey{ "faceOpen", resourceGeneration,
+			std::hash<std::string>{}(vfsPath) }))
+		{
+			Log(LOG_ERROR) << "CalypsoHdTextRaster: file not found in VFS: \"" << vfsPath << "\"";
+		}
 		return nullptr;
 	}
 	SDL_RWops* rw = FileMap::getRWops(vfsPath);
 	if (!rw)
 	{
-		Log(LOG_ERROR) << "CalypsoHdTextRaster: getRWops failed for \"" << vfsPath << "\"";
+		if (_diag.shouldLog(CalypsoDiagnosticKey{ "faceOpen", resourceGeneration,
+			std::hash<std::string>{}(vfsPath) }))
+		{
+			Log(LOG_ERROR) << "CalypsoHdTextRaster: getRWops failed for \"" << vfsPath << "\"";
+		}
 		return nullptr;
 	}
 	TTF_Font* face = TTF_OpenFontRW(rw, /*freesrc=*/1, physicalPixelHeight);
 	if (!face)
 	{
-		Log(LOG_ERROR) << "CalypsoHdTextRaster: TTF_OpenFontRW failed for \""
-			<< vfsPath << "\" size=" << physicalPixelHeight << ": " << TTF_GetError();
+		if (_diag.shouldLog(CalypsoDiagnosticKey{ "faceOpen", resourceGeneration,
+			std::hash<std::string>{}(vfsPath) }))
+		{
+			Log(LOG_ERROR) << "CalypsoHdTextRaster: TTF_OpenFontRW failed for \""
+				<< vfsPath << "\" size=" << physicalPixelHeight << ": " << TTF_GetError();
+		}
 		return nullptr;
 	}
 
@@ -133,6 +314,11 @@ TTF_Font* CalypsoHdTextRaster::faceFor(const std::string& vfsPath, int physicalP
 
 	_faces.emplace(key, face);
 	_faceOrder.push_back(key);
+	// The face opened: re-arm the diagnostics gate for this (gen, path) tuple
+	// so a LATER transient open failure may report again (F33-PARITY-001:
+	// "no further copies until that tuple recovers").
+	_diag.noteRecovered(CalypsoDiagnosticKey{ "faceOpen", resourceGeneration,
+		std::hash<std::string>{}(vfsPath) });
 	return face;
 }
 
@@ -158,19 +344,37 @@ SDL_Surface* CalypsoHdTextRaster::rasterFor(const CalypsoHdTextRasterKey& key)
 
 	TTF_Font* face = faceFor(key.source.canonicalVfsPath, key.physicalPixelHeight,
 		key.source.resourceGeneration);
-	if (!face)
+	std::string rasterPath = key.source.canonicalVfsPath;
+	bool covered = face && calypsoFaceCoversText(face, key.text);
+	if (!covered && !key.source.fallbackVfsPath.empty())
 	{
-		return nullptr;
+		TTF_Font* fallbackFace = faceFor(key.source.fallbackVfsPath,
+			key.physicalPixelHeight, key.source.resourceGeneration);
+		if (fallbackFace && calypsoFaceCoversText(fallbackFace, key.text))
+		{
+			face = fallbackFace;
+			rasterPath = key.source.fallbackVfsPath;
+			covered = true;
+		}
 	}
 
 	// Glyph-coverage pre-flight (external review #5): if any codepoint has no
-	// glyph in this face, rendering would emit .notdef tofu. Report failure so the
-	// atomic HD subgroup stays fully logical (correct bitmap text) instead of
+	// glyph in either face, rendering would emit .notdef tofu. Report failure so
+	// the atomic HD subgroup stays fully logical (correct bitmap text) instead of
 	// showing squares. Not cached: a miss is cheap (one scan) and rare.
-	if (!faceCoversText(face, key.text))
+	if (!covered)
 	{
+		if (_diag.shouldLog(CalypsoDiagnosticKey{ "glyphCoverage",
+			key.source.resourceGeneration, std::hash<std::string>{}(key.text) }))
+		{
+			Log(LOG_ERROR) << "CalypsoHdTextRaster: glyph coverage miss on \""
+				<< rasterPath << "\" for \"" << key.text << "\"";
+		}
 		return nullptr;
 	}
+	// Coverage recovered: re-arm the gate so a future miss may report again.
+	_diag.noteRecovered(CalypsoDiagnosticKey{ "glyphCoverage",
+		key.source.resourceGeneration, std::hash<std::string>{}(key.text) });
 
 	// RGBA packed as R in the high byte (matches CalypsoHdTextRasterKey's
 	// colorRgba convention: 0xRRGGBBAA).
@@ -182,16 +386,69 @@ SDL_Surface* CalypsoHdTextRaster::rasterFor(const CalypsoHdTextRasterKey& key)
 
 	// Wrapped render (Fable #1 / Codex #5). key.wrapWidth == 0 wraps only on
 	// embedded '\n' (single-line or author-broken text); key.wrapWidth > 0 lets
-	// SDL_ttf break the text at that physical pixel width -- which breaks CJK and
-	// no-space text correctly, unlike an ASCII-space pre-wrap. The single-line
-	// TTF_RenderUTF8_Blended would render '\n' as a notdef glyph, so always use
-	// the _Wrapped variant.
-	const Uint32 wrap = key.wrapWidth > 0 ? static_cast<Uint32>(key.wrapWidth) : 0u;
-	SDL_Surface* surf = TTF_RenderUTF8_Blended_Wrapped(face, key.text.c_str(), c, wrap);
+	// SDL_ttf's wrapped renderer handles CJK and no-space text correctly. When a
+	// canonical line height is requested, the portable compositor below performs
+	// equivalent metric-based wrapping and blits each line at the contract skip;
+	// otherwise the stock wrapped path is retained. Tracked single-line text
+	// composes per-glyph instead (SDL_ttf has no letter-spacing).
+	SDL_Surface* surf = nullptr;
+	if ((key.lineHeightPx > 0 || key.lineHeightMilliPx > 0) && key.wrapWidth > 0)
+	{
+		surf = renderWrappedWithLineHeight(face, key.text, key.wrapWidth,
+			key.lineHeightPx, key.lineHeightMilliPx, key.horizontalScalePermille,
+			key.verticalScalePermille, key.wrapMeasureScalePermille,
+			key.explicitBreaksOnly, c);
+	}
+	else if (key.letterSpacingPx > 0 && key.wrapWidth == 0)
+	{
+		surf = calypsoRasterTracked(face, key.text, key.letterSpacingPx, c);
+		if (!surf)
+		{
+			if (_diag.shouldLog(CalypsoDiagnosticKey{ "trackedRaster",
+				key.source.resourceGeneration, std::hash<std::string>{}(key.text) }))
+			{
+				Log(LOG_ERROR) << "CalypsoHdTextRaster: tracked raster failed: " << TTF_GetError();
+			}
+		}
+	}
+	else
+	{
+		const Uint32 wrap = key.wrapWidth > 0 ? static_cast<Uint32>(key.wrapWidth) : 0u;
+		surf = TTF_RenderUTF8_Blended_Wrapped(face, key.text.c_str(), c, wrap);
+		if (!surf)
+		{
+			if (_diag.shouldLog(CalypsoDiagnosticKey{ "wrappedRaster",
+				key.source.resourceGeneration, std::hash<std::string>{}(key.text) }))
+			{
+				Log(LOG_ERROR) << "CalypsoHdTextRaster: TTF_RenderUTF8_Blended_Wrapped failed: " << TTF_GetError();
+			}
+		}
+	}
 	if (!surf)
 	{
-		Log(LOG_ERROR) << "CalypsoHdTextRaster: TTF_RenderUTF8_Blended_Wrapped failed: " << TTF_GetError();
 		return nullptr;
+	}
+	if (key.lineHeightPx == 0 && key.lineHeightMilliPx == 0)
+	{
+		surf = projectSurface(surf, key.horizontalScalePermille,
+			key.verticalScalePermille);
+		if (!surf) return nullptr;
+	}
+
+	// Success re-arms the diagnostics gate for THE class that actually
+	// recovered. Re-arming unrelated classes would let a still-failing path
+	// (e.g. a persistent wrapped raster while tracked text succeeds) emit a
+	// fresh diagnostic per episode, violating F33-PARITY-001 ("no further
+	// copies until THAT tuple recovers").
+	if (key.letterSpacingPx > 0 && key.wrapWidth == 0)
+	{
+		_diag.noteRecovered(CalypsoDiagnosticKey{ "trackedRaster",
+			key.source.resourceGeneration, std::hash<std::string>{}(key.text) });
+	}
+	else
+	{
+		_diag.noteRecovered(CalypsoDiagnosticKey{ "wrappedRaster",
+			key.source.resourceGeneration, std::hash<std::string>{}(key.text) });
 	}
 
 	const std::uint64_t handle = _nextHandle++;

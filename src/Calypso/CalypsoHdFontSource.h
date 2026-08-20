@@ -36,9 +36,10 @@ std::uint64_t calypsoHdFontResourceGeneration();
 void calypsoHdBumpFontResourceGeneration();
 
 /// Resolves `fontId` (an extraTTFFonts id) against `mod`'s registered
-/// TTFFont, filling `out` with its canonical VFS path, face index (always 0
-/// -- TTFFont wraps a single-face TTF_Font), logical design size, and the
-/// current font-resource generation. Returns false (leaving `out`
+/// TTFFont, filling `out` with its canonical VFS path, the registered Unicode
+/// fallback path when available, face index (always 0 -- TTFFont wraps a
+/// single-face TTF_Font), logical design size, and the current font-resource
+/// generation. Returns false (leaving `out`
 /// unspecified) if `mod` is null or the font id is not registered.
 bool calypsoHdResolveFontDescriptor(const Mod* mod, const std::string& fontId,
 	CalypsoTtfSourceDescriptor& out);

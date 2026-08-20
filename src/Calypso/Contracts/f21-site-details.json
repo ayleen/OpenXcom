@@ -1,0 +1,218 @@
+{
+  "schema": 1,
+  "version": "hd.2026-08-20.22",
+  "visualProfile": "content-block-v1",
+  "block": {
+    "id": "f21-site-details",
+    "familyId": 21,
+    "archetype": "content-block",
+    "source": "ContentBlockConfigs/f21-site-details.json",
+    "contentKind": "table"
+  },
+  "presentation": {
+    "fitFailure": "exception",
+    "legacyFallback": false
+  },
+  "content": {
+    "kind": "table",
+    "columns": 2,
+    "rows": [
+      [
+        "COORDINATES · 28.6·N  0.0·E",
+        "REGION · South Atlantic"
+      ],
+      [
+        "LEGAL LAND SITE REQUIRED",
+        "Hover globe to inspect. Cancel discards this base."
+      ]
+    ]
+  },
+  "copy": {
+    "cellR1C1": "COORDINATES · 28.6·N  0.0·E",
+    "cellR1C2": "REGION · South Atlantic",
+    "cellR2C1": "LEGAL LAND SITE REQUIRED",
+    "cellR2C2": "Hover globe to inspect. Cancel discards this base."
+  },
+  "parts": [
+    "window",
+    "columnDivider1",
+    "rowDivider1",
+    "cellR1C1",
+    "cellR1C2",
+    "cellR2C1",
+    "cellR2C2"
+  ],
+  "actions": [],
+  "style": {
+    "panelFillTop": "071419F2",
+    "panelFillBottom": "030A0DF7",
+    "frame": "214B3FFF",
+    "divider": "214B3F99",
+    "text": "F4F1E8FF",
+    "cutCornerPx": 14,
+    "borderWidthPx": 1
+  },
+  "metrics": {
+    "wide": {
+      "maxBlockWidth": 960,
+      "textUnitWidth": 8,
+      "columnTextWidths": [
+        216,
+        322
+      ],
+      "columnWidths": [
+        264,
+        370
+      ],
+      "cellPaddingX": 24,
+      "cellPaddingY": 8,
+      "guardedLineHeight": 22,
+      "rowHeights": [
+        38,
+        38
+      ],
+      "lineCounts": {
+        "cellR1C1": 1,
+        "cellR1C2": 1,
+        "cellR2C1": 1,
+        "cellR2C2": 1
+      },
+      "alignment": {
+        "cellR1C1": "top-left",
+        "cellR1C2": "top-left",
+        "cellR2C1": "top-left",
+        "cellR2C2": "top-left"
+      }
+    },
+    "compact": {
+      "maxBlockWidth": 730,
+      "textUnitWidth": 7,
+      "columnTextWidths": [
+        189,
+        282
+      ],
+      "columnWidths": [
+        221,
+        314
+      ],
+      "cellPaddingX": 16,
+      "cellPaddingY": 8,
+      "guardedLineHeight": 18,
+      "rowHeights": [
+        34,
+        34
+      ],
+      "lineCounts": {
+        "cellR1C1": 1,
+        "cellR1C2": 1,
+        "cellR2C1": 1,
+        "cellR2C2": 1
+      },
+      "alignment": {
+        "cellR1C1": "top-left",
+        "cellR1C2": "top-left",
+        "cellR2C1": "top-left",
+        "cellR2C2": "top-left"
+      }
+    }
+  },
+  "layouts": {
+    "wide": {
+      "designWidth": 635,
+      "designHeight": 77,
+      "window": {
+        "x": 0,
+        "y": 0,
+        "width": 635,
+        "height": 77
+      },
+      "columnDivider1": {
+        "x": 264,
+        "y": 8,
+        "width": 1,
+        "height": 61
+      },
+      "cellR1C1": {
+        "x": 24,
+        "y": 8,
+        "width": 216,
+        "height": 22
+      },
+      "cellR1C2": {
+        "x": 289,
+        "y": 8,
+        "width": 322,
+        "height": 22
+      },
+      "rowDivider1": {
+        "x": 24,
+        "y": 38,
+        "width": 587,
+        "height": 1
+      },
+      "cellR2C1": {
+        "x": 24,
+        "y": 47,
+        "width": 216,
+        "height": 22
+      },
+      "cellR2C2": {
+        "x": 289,
+        "y": 47,
+        "width": 322,
+        "height": 22
+      }
+    },
+    "compact": {
+      "designWidth": 536,
+      "designHeight": 69,
+      "window": {
+        "x": 0,
+        "y": 0,
+        "width": 536,
+        "height": 69
+      },
+      "columnDivider1": {
+        "x": 221,
+        "y": 8,
+        "width": 1,
+        "height": 53
+      },
+      "cellR1C1": {
+        "x": 16,
+        "y": 8,
+        "width": 189,
+        "height": 18
+      },
+      "cellR1C2": {
+        "x": 238,
+        "y": 8,
+        "width": 282,
+        "height": 18
+      },
+      "rowDivider1": {
+        "x": 16,
+        "y": 34,
+        "width": 504,
+        "height": 1
+      },
+      "cellR2C1": {
+        "x": 16,
+        "y": 43,
+        "width": 189,
+        "height": 18
+      },
+      "cellR2C2": {
+        "x": 238,
+        "y": 43,
+        "width": 282,
+        "height": 18
+      }
+    }
+  },
+  "motion": {
+    "durationMs": 200,
+    "scaleFrom": 0.985,
+    "captureModeDurationMs": 0
+  }
+}

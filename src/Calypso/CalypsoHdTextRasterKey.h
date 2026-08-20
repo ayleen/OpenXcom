@@ -46,6 +46,10 @@ namespace Calypso
 struct CalypsoTtfSourceDescriptor
 {
 	std::string canonicalVfsPath;
+	// Optional complete-text fallback used when the primary face lacks a glyph.
+	// It is part of the identity because selecting a different fallback changes
+	// the raster pixels even when the primary face and text are unchanged.
+	std::string fallbackVfsPath;
 	int faceIndex = 0;
 	int logicalDesignSize = 0;
 	std::uint64_t resourceGeneration = 0;
@@ -53,6 +57,7 @@ struct CalypsoTtfSourceDescriptor
 	bool operator==(const CalypsoTtfSourceDescriptor& o) const
 	{
 		return canonicalVfsPath == o.canonicalVfsPath
+		    && fallbackVfsPath == o.fallbackVfsPath
 		    && faceIndex == o.faceIndex
 		    && logicalDesignSize == o.logicalDesignSize
 		    && resourceGeneration == o.resourceGeneration;
@@ -66,11 +71,23 @@ enum class CalypsoTextDirection { LTR, RTL };
 struct CalypsoHdTextRasterKey
 {
 	CalypsoTtfSourceDescriptor source;
-	int physicalPixelHeight = 0;
+	int physicalPixelHeight = 0;          // final backing-store face height
 	std::string text;                      // resolved UTF-8
 	int wrapWidth = 0;                      // 0 => single line / break only on '\n';
-	                                       // >0 => SDL_ttf wraps at this physical px
-	                                       // width (handles CJK / no-space text)
+	                                       // >0 => wraps at this design-space px width
+	                                       // (handles CJK / no-space text)
+	bool explicitBreaksOnly = false;         // guarded compositor keeps authored '\n'
+	                                       // but does not add metric wrapping
+	int letterSpacingPx = 0;               // >0 AND wrapWidth==0 => per-glyph tracked
+	                                       // single-line layout (titles/labels);
+	                                       // wrapped rasters ignore it (body copy
+	                                       // keeps SDL_ttf's wrap layout)
+	int lineHeightPx = 0;                  // >0 => explicit SDL_ttf line skip for
+	                                       // wrapped body copy; 0 keeps the face default
+	int lineHeightMilliPx = 0;             // design-space line skip before projection
+	int horizontalScalePermille = 1000;   // design-space calibration or CPU projection
+	int verticalScalePermille = 1000;     // design-space font y calibration
+	int wrapMeasureScalePermille = 1000;  // body wrapping width calibration
 	std::uint64_t breakSignature = 0;      // hash of the approved processed line breaks
 	std::uint32_t colorRgba = 0;           // packed RGBA
 	std::uint32_t styleFlags = 0;          // bold/underline/etc. bitfield
@@ -82,6 +99,13 @@ struct CalypsoHdTextRasterKey
 		    && physicalPixelHeight == o.physicalPixelHeight
 		    && text == o.text
 		    && wrapWidth == o.wrapWidth
+		    && explicitBreaksOnly == o.explicitBreaksOnly
+		    && letterSpacingPx == o.letterSpacingPx
+		    && lineHeightPx == o.lineHeightPx
+		    && lineHeightMilliPx == o.lineHeightMilliPx
+		    && horizontalScalePermille == o.horizontalScalePermille
+		    && verticalScalePermille == o.verticalScalePermille
+		    && wrapMeasureScalePermille == o.wrapMeasureScalePermille
 		    && breakSignature == o.breakSignature
 		    && colorRgba == o.colorRgba
 		    && styleFlags == o.styleFlags
@@ -134,6 +158,7 @@ struct hash<OpenXcom::Calypso::CalypsoHdTextRasterKey>
 	std::size_t operator()(const OpenXcom::Calypso::CalypsoHdTextRasterKey& k) const
 	{
 		std::size_t h = std::hash<std::string>()(k.source.canonicalVfsPath);
+		h ^= std::hash<std::string>()(k.source.fallbackVfsPath) + 0x9e3779b97f4a7c15ull + (h << 6) + (h >> 2);
 		auto mix = [&h](std::uint64_t v) {
 			h ^= std::hash<std::uint64_t>()(v) + 0x9e3779b97f4a7c15ull + (h << 6) + (h >> 2);
 		};
@@ -143,6 +168,13 @@ struct hash<OpenXcom::Calypso::CalypsoHdTextRasterKey>
 		mix(static_cast<std::uint64_t>(k.physicalPixelHeight));
 		h ^= std::hash<std::string>()(k.text) + 0x9e3779b97f4a7c15ull + (h << 6) + (h >> 2);
 		mix(static_cast<std::uint64_t>(static_cast<std::uint32_t>(k.wrapWidth)));
+		mix(static_cast<std::uint64_t>(k.explicitBreaksOnly ? 1 : 0));
+		mix(static_cast<std::uint64_t>(static_cast<std::uint32_t>(k.letterSpacingPx)));
+		mix(static_cast<std::uint64_t>(static_cast<std::uint32_t>(k.lineHeightPx)));
+		mix(static_cast<std::uint64_t>(static_cast<std::uint32_t>(k.lineHeightMilliPx)));
+		mix(static_cast<std::uint64_t>(static_cast<std::uint32_t>(k.horizontalScalePermille)));
+		mix(static_cast<std::uint64_t>(static_cast<std::uint32_t>(k.verticalScalePermille)));
+		mix(static_cast<std::uint64_t>(static_cast<std::uint32_t>(k.wrapMeasureScalePermille)));
 		mix(k.breakSignature);
 		mix(k.colorRgba);
 		mix(k.styleFlags);

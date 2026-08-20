@@ -1,0 +1,197 @@
+{
+  "schema": 1,
+  "version": "hd.2026-08-20.22",
+  "visualProfile": "command-card-v1",
+  "copy": {
+    "protocol": "CALYPSO COMMAND · GEOGRAPHIC SITE ORDER GS-21 · REV. 1.0.21 · EFFECTIVE 15.07.2061",
+    "title": "SELECT SITE FOR NEW BASE",
+    "slot": "BASE 1 / 8",
+    "funds": "AVAILABLE FUNDS · $6 800 000",
+    "cost": "BUILD COST · $950 000",
+    "cancel": "CANCEL"
+  },
+  "parts": [
+    "window",
+    "banner",
+    "status",
+    "title",
+    "slot",
+    "funds",
+    "cost",
+    "cancel"
+  ],
+  "actions": [
+    "cancel"
+  ],
+  "engineTextScale": {
+    "title": 0.78,
+    "data": 0.9,
+    "body": 0.92,
+    "input": 0.9,
+    "action": 0.9
+  },
+  "spacingRules": [
+    {
+      "id": "status-title",
+      "kind": "gap",
+      "first": "status",
+      "second": "title",
+      "axis": "vertical",
+      "wide": 8,
+      "compact": 6
+    },
+    {
+      "id": "title-slot",
+      "kind": "gap",
+      "first": "title",
+      "second": "slot",
+      "axis": "vertical",
+      "wide": 6,
+      "compact": 4
+    },
+    {
+      "id": "banner-slot-bottom",
+      "kind": "inset",
+      "container": "banner",
+      "child": "slot",
+      "edges": [
+        "bottom"
+      ],
+      "wide": 14,
+      "compact": 12
+    },
+    {
+      "id": "funds-cost",
+      "kind": "gap",
+      "first": "funds",
+      "second": "cost",
+      "axis": "vertical",
+      "wide": 8,
+      "compact": 8
+    },
+    {
+      "id": "canvas-cancel",
+      "kind": "inset",
+      "container": "window",
+      "child": "cancel",
+      "edges": [
+        "right",
+        "bottom"
+      ],
+      "wide": 28,
+      "compact": 8
+    }
+  ],
+  "layouts": {
+    "wide": {
+      "designWidth": 1280,
+      "designHeight": 720,
+      "window": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 720
+      },
+      "banner": {
+        "x": 20,
+        "y": 18,
+        "width": 1240,
+        "height": 126
+      },
+      "status": {
+        "x": 20,
+        "y": 18,
+        "width": 1240,
+        "height": 30
+      },
+      "title": {
+        "x": 52,
+        "y": 56,
+        "width": 620,
+        "height": 50
+      },
+      "slot": {
+        "x": 52,
+        "y": 112,
+        "width": 190,
+        "height": 18
+      },
+      "funds": {
+        "x": 776,
+        "y": 54,
+        "width": 460,
+        "height": 30
+      },
+      "cost": {
+        "x": 776,
+        "y": 92,
+        "width": 460,
+        "height": 30
+      },
+      "cancel": {
+        "x": 1094,
+        "y": 640,
+        "width": 158,
+        "height": 44
+      }
+    },
+    "compact": {
+      "designWidth": 740,
+      "designHeight": 360,
+      "window": {
+        "x": 0,
+        "y": 0,
+        "width": 740,
+        "height": 360
+      },
+      "banner": {
+        "x": 8,
+        "y": 6,
+        "width": 724,
+        "height": 112
+      },
+      "status": {
+        "x": 8,
+        "y": 6,
+        "width": 724,
+        "height": 30
+      },
+      "title": {
+        "x": 28,
+        "y": 42,
+        "width": 416,
+        "height": 44
+      },
+      "slot": {
+        "x": 28,
+        "y": 90,
+        "width": 160,
+        "height": 16
+      },
+      "funds": {
+        "x": 460,
+        "y": 42,
+        "width": 260,
+        "height": 24
+      },
+      "cost": {
+        "x": 460,
+        "y": 74,
+        "width": 260,
+        "height": 24
+      },
+      "cancel": {
+        "x": 584,
+        "y": 306,
+        "width": 148,
+        "height": 44
+      }
+    }
+  },
+  "motion": {
+    "durationMs": 200,
+    "scaleFrom": 0.96,
+    "easing": "ease-out",
+    "captureModeDurationMs": 0
+  }
+}
