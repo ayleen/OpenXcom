@@ -49,7 +49,8 @@
       "scaleDenominator": 3,
       "footerHeightPx": 48,
       "minimumActionHeightPx": 44,
-      "minimumMessageHeightPx": 40
+      "minimumMessageHeightPx": 40,
+      "preserveCanonicalActionGeometry": true
     }
   },
   "layouts": {

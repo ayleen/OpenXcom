@@ -4,7 +4,7 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF34ErrorGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-20.21";
+inline constexpr const char* kContractVersion = "hd.2026-08-20.22";
 inline constexpr const char* kFormId = "f34-error";
 inline constexpr int kFamilyId = 34;
 inline constexpr const char* kArchetype = "small-confirmation";
@@ -41,8 +41,8 @@ inline constexpr CalypsoF34ErrorGenLayout kLayouts[] = {
 };
 struct CalypsoF34ErrorGenButtonRect { const char* id; CalypsoF34ErrorGenRect rect; };
 inline constexpr CalypsoF34ErrorGenButtonRect kButtonRects[][ 1 ] = {
-    { { "ok", { 683, 381, 105, 44 } } }, // wide
-    { { "ok", { 405, 198, 98, 44 } } }, // compact
+    { { "ok", { 630, 381, 158, 44 } } }, // wide
+    { { "ok", { 355, 198, 148, 44 } } }, // compact
 };
 inline constexpr int kLayoutCount = 2;
 inline constexpr int kMotionDurationMs = 200;

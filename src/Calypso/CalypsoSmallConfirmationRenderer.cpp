@@ -360,10 +360,10 @@ void calypsoCollectSmallConfirmation(
 		builder.add(item);
 	}
 
-	const int labelPx = scaledPx(
+	const int labelPx = std::max(1, (int)calypsoHdRoundToInt(
 		CalypsoHdTheme::kLabelFontSizePx * (model.wide
 			? CalypsoHdTheme::kLabelFontSizeScaleWide
-			: CalypsoHdTheme::kLabelFontSizeScaleCompact), 13);
+			: CalypsoHdTheme::kLabelFontSizeScaleCompact)));
 	for (std::size_t i = 0; i < model.buttons.size(); ++i)
 	{
 		const auto& button = model.buttons[i];

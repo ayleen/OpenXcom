@@ -151,6 +151,7 @@ def validate_template(template):
         "footerHeightPx": 48,
         "minimumActionHeightPx": 44,
         "minimumMessageHeightPx": 40,
+        "preserveCanonicalActionGeometry": True,
     }
     if density_profiles != {"briefAcknowledgement": expected_brief}:
         raise FormError("template briefAcknowledgement density drifted from the reviewed policy")
@@ -507,6 +508,7 @@ def apply_brief_acknowledgement_density(layout, template, name):
     numerator = profile["scaleNumerator"]
     denominator = profile["scaleDenominator"]
     old_window = copy.deepcopy(layout["window"])
+    old_buttons = copy.deepcopy(layout["buttons"])
     new_width = nearest_center_preserving_size(old_window["width"], numerator, denominator)
     new_height = nearest_center_preserving_size(old_window["height"], numerator, denominator)
     new_window = _rect(
@@ -534,10 +536,19 @@ def apply_brief_acknowledgement_density(layout, template, name):
         new_window["x"], bottom(new_window) - footer_height,
         new_window["width"], footer_height)
     action_height = profile["minimumActionHeightPx"]
-    action_y = layout["footer"]["y"] + (footer_height - action_height) // 2
-    for button in layout["buttons"].values():
-        button["y"] = action_y
-        button["height"] = action_height
+    action_right = right(layout["message"])
+    for button_id in reversed(layout["buttons"]):
+        button = layout["buttons"][button_id]
+        if profile["preserveCanonicalActionGeometry"]:
+            button["width"] = old_buttons[button_id]["width"]
+            button["height"] = old_buttons[button_id]["height"]
+        else:
+            button["height"] = action_height
+        button["x"] = action_right - button["width"]
+        button["y"] = layout["footer"]["y"] + (footer_height - button["height"]) // 2
+        action_right = button["x"]
+    if action_right < layout["message"]["x"]:
+        raise FormError(name + " brief acknowledgement action group exceeds its content rail")
 
     # The native wrapped TTF surface includes transparent cap/baseline guard
     # rows. Keep those rows inside the atomic message rectangle without

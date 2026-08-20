@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "hd.2026-08-20.21",
+  "version": "hd.2026-08-20.22",
   "form": {
     "id": "f34-error",
     "familyId": 34,
@@ -99,9 +99,9 @@
       },
       "buttons": {
         "ok": {
-          "x": 683,
+          "x": 630,
           "y": 381,
-          "width": 105,
+          "width": 158,
           "height": 44
         }
       }
@@ -147,9 +147,9 @@
       },
       "buttons": {
         "ok": {
-          "x": 405,
+          "x": 355,
           "y": 198,
-          "width": 98,
+          "width": 148,
           "height": 44
         }
       }
