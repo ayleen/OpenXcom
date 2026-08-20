@@ -9,9 +9,15 @@ inline constexpr const char* kArchetype = "strategic-command-shell";
 inline constexpr bool kProductionHook = true;
 
 struct CalypsoGeoscapeCommandShellGenRect { int x; int y; int w; int h; };
+struct CalypsoGeoscapeCommandShellGenNamedRect
+{
+	const char* id;
+	CalypsoGeoscapeCommandShellGenRect rect;
+};
 struct CalypsoGeoscapeCommandShellGenActionLayout
 {
 	const char* id;
+	const char* label;
 	const char* component;
 	const char* slotRole;
 	CalypsoGeoscapeCommandShellGenRect visible;
@@ -25,84 +31,121 @@ struct CalypsoGeoscapeCommandShellGenLayout
 	int designHeight;
 	const CalypsoGeoscapeCommandShellGenActionLayout* actions;
 	int actionCount;
+	const CalypsoGeoscapeCommandShellGenNamedRect* regions;
+	int regionCount;
+};
+struct CalypsoGeoscapeCommandShellGenFixtureCopy
+{
+	const char* key;
+	const char* value;
+};
+
+inline constexpr CalypsoGeoscapeCommandShellGenNamedRect kWideRegions[] =
+{
+	{ "session", { 18, 16, 122, 46 } },
+	{ "status", { 400, 16, 480, 46 } },
+	{ "world", { 172, 70, 936, 552 } },
+	{ "worldTools", { 176, 474, 48, 132 } },
+	{ "notification", { 936, 552, 320, 76 } },
+	{ "timeControl", { 280, 634, 720, 72 } },
 };
 
 inline constexpr CalypsoGeoscapeCommandShellGenActionLayout kWideActions[] =
 {
-	{ "action.session", "compact-command-action", "session-action", { 18, 16, 122, 46 }, { 18, 16, 122, 46 }, 5, 1 },
-	{ "action.bases", "command-icon-action", "primary-left-1", { 24, 138, 120, 84 }, { 24, 138, 120, 84 }, 10, 1 },
-	{ "action.graphs", "command-icon-action", "primary-left-2", { 24, 242, 120, 84 }, { 24, 242, 120, 84 }, 20, 1 },
-	{ "action.extended", "command-icon-action", "primary-left-3", { 24, 346, 120, 84 }, { 24, 346, 120, 84 }, 30, 1 },
-	{ "action.intercept", "command-icon-action", "primary-right-1", { 1136, 138, 120, 84 }, { 1136, 138, 120, 84 }, 40, 1 },
-	{ "action.ufopaedia", "command-icon-action", "primary-right-2", { 1136, 242, 120, 84 }, { 1136, 242, 120, 84 }, 50, 1 },
-	{ "action.options", "command-icon-action", "primary-right-3", { 1136, 346, 120, 84 }, { 1136, 346, 120, 84 }, 60, 1 },
-	{ "drawer.funding", "drawer-row", "drawer-row", { 0, 0, 360, 48 }, { 0, 0, 360, 48 }, 201, 60 },
-	{ "drawer.tech-tree", "drawer-row", "drawer-row", { 0, 48, 360, 48 }, { 0, 48, 360, 48 }, 202, 60 },
-	{ "drawer.global-research", "drawer-row", "drawer-row", { 0, 96, 360, 48 }, { 0, 96, 360, 48 }, 203, 60 },
-	{ "drawer.global-production", "drawer-row", "drawer-row", { 0, 144, 360, 48 }, { 0, 144, 360, 48 }, 204, 60 },
-	{ "drawer.global-containment", "drawer-row", "drawer-row", { 0, 192, 360, 48 }, { 0, 192, 360, 48 }, 205, 60 },
-	{ "drawer.ufo-tracker", "drawer-row", "drawer-row", { 0, 240, 360, 48 }, { 0, 240, 360, 48 }, 206, 60 },
-	{ "drawer.pilot-experience", "drawer-row", "drawer-row", { 0, 288, 360, 48 }, { 0, 288, 360, 48 }, 207, 60 },
-	{ "drawer.notes", "drawer-row", "drawer-row", { 0, 336, 360, 48 }, { 0, 336, 360, 48 }, 208, 60 },
-	{ "drawer.music", "drawer-row", "drawer-row", { 0, 384, 360, 48 }, { 0, 384, 360, 48 }, 209, 60 },
-	{ "drawer.debug", "drawer-row", "drawer-row", { 0, 432, 360, 48 }, { 0, 432, 360, 48 }, 210, 60 },
-	{ "drawer.quick-save", "drawer-row", "drawer-row", { 0, 480, 360, 48 }, { 0, 480, 360, 48 }, 211, 60 },
-	{ "drawer.instant-save", "drawer-row", "drawer-row", { 0, 528, 360, 48 }, { 0, 528, 360, 48 }, 212, 60 },
-	{ "drawer.quick-load", "drawer-row", "drawer-row", { 0, 576, 360, 48 }, { 0, 576, 360, 48 }, 213, 60 },
-	{ "world.zoom-in", "compact-command-action", "world-zoom-in", { 177, 475, 46, 44 }, { 177, 475, 46, 44 }, 70, 1 },
-	{ "world.recenter", "compact-command-action", "world-recenter", { 177, 519, 46, 44 }, { 177, 519, 46, 44 }, 80, 1 },
-	{ "world.zoom-out", "compact-command-action", "world-zoom-out", { 177, 563, 46, 44 }, { 177, 563, 46, 44 }, 90, 1 },
-	{ "notification.open", "notification-action", "notification-open", { 1211, 568, 44, 44 }, { 1211, 568, 44, 44 }, 100, 1 },
-	{ "time.pause", "time-speed-control", "time-pause", { 280, 638, 64, 64 }, { 280, 638, 64, 64 }, 110, 1 },
-	{ "time.speed.5sec", "time-speed-control", "time-5sec", { 362, 650, 105, 54 }, { 362, 650, 105, 54 }, 120, 1 },
-	{ "time.speed.1min", "time-speed-control", "time-1min", { 467, 650, 105, 54 }, { 467, 650, 105, 54 }, 130, 1 },
-	{ "time.speed.5min", "time-speed-control", "time-5min", { 572, 650, 105, 54 }, { 572, 650, 105, 54 }, 140, 1 },
-	{ "time.speed.30min", "time-speed-control", "time-30min", { 677, 650, 105, 54 }, { 677, 650, 105, 54 }, 150, 1 },
-	{ "time.speed.1hour", "time-speed-control", "time-1hour", { 782, 650, 105, 54 }, { 782, 650, 105, 54 }, 160, 1 },
-	{ "time.speed.1day", "time-speed-control", "time-1day", { 887, 650, 105, 54 }, { 887, 650, 105, 54 }, 170, 1 },
+	{ "action.session", "Session", "compact-command-action", "session-action", { 18, 16, 122, 46 }, { 18, 16, 122, 46 }, 5, 1 },
+	{ "action.bases", "Bases", "command-icon-action", "primary-left-1", { 24, 138, 120, 84 }, { 24, 138, 120, 84 }, 10, 1 },
+	{ "action.graphs", "Graphs", "command-icon-action", "primary-left-2", { 24, 242, 120, 84 }, { 24, 242, 120, 84 }, 20, 1 },
+	{ "action.extended", "Funding", "command-icon-action", "primary-left-3", { 24, 346, 120, 84 }, { 24, 346, 120, 84 }, 30, 1 },
+	{ "action.intercept", "Intercept", "command-icon-action", "primary-right-1", { 1136, 138, 120, 84 }, { 1136, 138, 120, 84 }, 40, 1 },
+	{ "action.ufopaedia", "Ufopaedia", "command-icon-action", "primary-right-2", { 1136, 242, 120, 84 }, { 1136, 242, 120, 84 }, 50, 1 },
+	{ "action.options", "Options", "command-icon-action", "primary-right-3", { 1136, 346, 120, 84 }, { 1136, 346, 120, 84 }, 60, 1 },
+	{ "drawer.funding", "Funding overview", "drawer-row", "drawer-row", { 0, 0, 360, 48 }, { 0, 0, 360, 48 }, 201, 60 },
+	{ "drawer.tech-tree", "Tech tree", "drawer-row", "drawer-row", { 0, 48, 360, 48 }, { 0, 48, 360, 48 }, 202, 60 },
+	{ "drawer.global-research", "Global research", "drawer-row", "drawer-row", { 0, 96, 360, 48 }, { 0, 96, 360, 48 }, 203, 60 },
+	{ "drawer.global-production", "Global production", "drawer-row", "drawer-row", { 0, 144, 360, 48 }, { 0, 144, 360, 48 }, 204, 60 },
+	{ "drawer.global-containment", "Global containment", "drawer-row", "drawer-row", { 0, 192, 360, 48 }, { 0, 192, 360, 48 }, 205, 60 },
+	{ "drawer.ufo-tracker", "UFO tracker", "drawer-row", "drawer-row", { 0, 240, 360, 48 }, { 0, 240, 360, 48 }, 206, 60 },
+	{ "drawer.pilot-experience", "Pilot experience", "drawer-row", "drawer-row", { 0, 288, 360, 48 }, { 0, 288, 360, 48 }, 207, 60 },
+	{ "drawer.notes", "Notes", "drawer-row", "drawer-row", { 0, 336, 360, 48 }, { 0, 336, 360, 48 }, 208, 60 },
+	{ "drawer.music", "Music", "drawer-row", "drawer-row", { 0, 384, 360, 48 }, { 0, 384, 360, 48 }, 209, 60 },
+	{ "drawer.debug", "Debug", "drawer-row", "drawer-row", { 0, 432, 360, 48 }, { 0, 432, 360, 48 }, 210, 60 },
+	{ "drawer.quick-save", "Quick save", "drawer-row", "drawer-row", { 0, 480, 360, 48 }, { 0, 480, 360, 48 }, 211, 60 },
+	{ "drawer.instant-save", "Instant save", "drawer-row", "drawer-row", { 0, 528, 360, 48 }, { 0, 528, 360, 48 }, 212, 60 },
+	{ "drawer.quick-load", "Quick load", "drawer-row", "drawer-row", { 0, 576, 360, 48 }, { 0, 576, 360, 48 }, 213, 60 },
+	{ "world.zoom-in", "Zoom in", "compact-command-action", "world-zoom-in", { 177, 475, 46, 44 }, { 177, 475, 46, 44 }, 70, 1 },
+	{ "world.recenter", "Recenter", "compact-command-action", "world-recenter", { 177, 519, 46, 44 }, { 177, 519, 46, 44 }, 80, 1 },
+	{ "world.zoom-out", "Zoom out", "compact-command-action", "world-zoom-out", { 177, 563, 46, 44 }, { 177, 563, 46, 44 }, 90, 1 },
+	{ "notification.open", "Open alert", "notification-action", "notification-open", { 1211, 568, 44, 44 }, { 1211, 568, 44, 44 }, 100, 1 },
+	{ "time.pause", "Pause", "time-speed-control", "time-pause", { 280, 638, 64, 64 }, { 280, 638, 64, 64 }, 110, 1 },
+	{ "time.speed.5sec", "5 sec", "time-speed-control", "time-5sec", { 362, 650, 105, 54 }, { 362, 650, 105, 54 }, 120, 1 },
+	{ "time.speed.1min", "1 min", "time-speed-control", "time-1min", { 467, 650, 105, 54 }, { 467, 650, 105, 54 }, 130, 1 },
+	{ "time.speed.5min", "5 min", "time-speed-control", "time-5min", { 572, 650, 105, 54 }, { 572, 650, 105, 54 }, 140, 1 },
+	{ "time.speed.30min", "30 min", "time-speed-control", "time-30min", { 677, 650, 105, 54 }, { 677, 650, 105, 54 }, 150, 1 },
+	{ "time.speed.1hour", "1 hour", "time-speed-control", "time-1hour", { 782, 650, 105, 54 }, { 782, 650, 105, 54 }, 160, 1 },
+	{ "time.speed.1day", "1 day", "time-speed-control", "time-1day", { 887, 650, 105, 54 }, { 887, 650, 105, 54 }, 170, 1 },
+};
+
+inline constexpr CalypsoGeoscapeCommandShellGenNamedRect kCompactRegions[] =
+{
+	{ "session", { 8, 8, 44, 44 } },
+	{ "status", { 171, 8, 350, 38 } },
+	{ "world", { 0, 0, 520, 296 } },
+	{ "worldTools", { 464, 156, 44, 126 } },
+	{ "notification", { 12, 62, 194, 60 } },
+	{ "timeControl", { 12, 296, 716, 56 } },
 };
 
 inline constexpr CalypsoGeoscapeCommandShellGenActionLayout kCompactActions[] =
 {
-	{ "action.session", "compact-command-action", "session-action", { 8, 8, 44, 44 }, { 8, 8, 44, 44 }, 5, 1 },
-	{ "action.bases", "command-icon-action", "primary-left-1", { 524, 54, 96, 66 }, { 524, 54, 96, 66 }, 10, 1 },
-	{ "action.graphs", "command-icon-action", "primary-left-2", { 524, 128, 96, 66 }, { 524, 128, 96, 66 }, 20, 1 },
-	{ "action.extended", "command-icon-action", "primary-left-3", { 524, 202, 96, 66 }, { 524, 202, 96, 66 }, 30, 1 },
-	{ "action.intercept", "command-icon-action", "primary-right-1", { 628, 54, 96, 66 }, { 628, 54, 96, 66 }, 40, 1 },
-	{ "action.ufopaedia", "command-icon-action", "primary-right-2", { 628, 128, 96, 66 }, { 628, 128, 96, 66 }, 50, 1 },
-	{ "action.options", "command-icon-action", "primary-right-3", { 628, 202, 96, 66 }, { 628, 202, 96, 66 }, 60, 1 },
-	{ "drawer.funding", "drawer-row", "drawer-row", { 0, 0, 320, 48 }, { 0, 0, 320, 48 }, 201, 60 },
-	{ "drawer.tech-tree", "drawer-row", "drawer-row", { 0, 48, 320, 48 }, { 0, 48, 320, 48 }, 202, 60 },
-	{ "drawer.global-research", "drawer-row", "drawer-row", { 0, 96, 320, 48 }, { 0, 96, 320, 48 }, 203, 60 },
-	{ "drawer.global-production", "drawer-row", "drawer-row", { 0, 144, 320, 48 }, { 0, 144, 320, 48 }, 204, 60 },
-	{ "drawer.global-containment", "drawer-row", "drawer-row", { 0, 192, 320, 48 }, { 0, 192, 320, 48 }, 205, 60 },
-	{ "drawer.ufo-tracker", "drawer-row", "drawer-row", { 0, 240, 320, 48 }, { 0, 240, 320, 48 }, 206, 60 },
-	{ "drawer.pilot-experience", "drawer-row", "drawer-row", { 0, 288, 320, 48 }, { 0, 288, 320, 48 }, 207, 60 },
-	{ "drawer.notes", "drawer-row", "drawer-row", { 0, 336, 320, 48 }, { 0, 336, 320, 48 }, 208, 60 },
-	{ "drawer.music", "drawer-row", "drawer-row", { 0, 384, 320, 48 }, { 0, 384, 320, 48 }, 209, 60 },
-	{ "drawer.debug", "drawer-row", "drawer-row", { 0, 432, 320, 48 }, { 0, 432, 320, 48 }, 210, 60 },
-	{ "drawer.quick-save", "drawer-row", "drawer-row", { 0, 480, 320, 48 }, { 0, 480, 320, 48 }, 211, 60 },
-	{ "drawer.instant-save", "drawer-row", "drawer-row", { 0, 528, 320, 48 }, { 0, 528, 320, 48 }, 212, 60 },
-	{ "drawer.quick-load", "drawer-row", "drawer-row", { 0, 576, 320, 48 }, { 0, 576, 320, 48 }, 213, 60 },
-	{ "world.zoom-in", "compact-command-action", "world-zoom-in", { 465, 157, 44, 44 }, { 465, 157, 44, 44 }, 70, 1 },
-	{ "world.recenter", "compact-command-action", "world-recenter", { 465, 201, 44, 44 }, { 465, 201, 44, 44 }, 80, 1 },
-	{ "world.zoom-out", "compact-command-action", "world-zoom-out", { 465, 245, 44, 44 }, { 465, 245, 44, 44 }, 90, 1 },
-	{ "notification.open", "notification-action", "notification-open", { 161, 70, 44, 44 }, { 161, 70, 44, 44 }, 100, 1 },
-	{ "time.pause", "time-speed-control", "time-pause", { 12, 299, 50, 50 }, { 12, 299, 50, 50 }, 110, 1 },
-	{ "time.speed.5sec", "time-speed-control", "time-5sec", { 74, 303, 109, 48 }, { 74, 303, 109, 48 }, 120, 1 },
-	{ "time.speed.1min", "time-speed-control", "time-1min", { 183, 303, 109, 48 }, { 183, 303, 109, 48 }, 130, 1 },
-	{ "time.speed.5min", "time-speed-control", "time-5min", { 292, 303, 109, 48 }, { 292, 303, 109, 48 }, 140, 1 },
-	{ "time.speed.30min", "time-speed-control", "time-30min", { 401, 303, 109, 48 }, { 401, 303, 109, 48 }, 150, 1 },
-	{ "time.speed.1hour", "time-speed-control", "time-1hour", { 510, 303, 109, 48 }, { 510, 303, 109, 48 }, 160, 1 },
-	{ "time.speed.1day", "time-speed-control", "time-1day", { 619, 303, 109, 48 }, { 619, 303, 109, 48 }, 170, 1 },
+	{ "action.session", "Session", "compact-command-action", "session-action", { 8, 8, 44, 44 }, { 8, 8, 44, 44 }, 5, 1 },
+	{ "action.bases", "Bases", "command-icon-action", "primary-left-1", { 524, 54, 96, 66 }, { 524, 54, 96, 66 }, 10, 1 },
+	{ "action.graphs", "Graphs", "command-icon-action", "primary-left-2", { 524, 128, 96, 66 }, { 524, 128, 96, 66 }, 20, 1 },
+	{ "action.extended", "Funding", "command-icon-action", "primary-left-3", { 524, 202, 96, 66 }, { 524, 202, 96, 66 }, 30, 1 },
+	{ "action.intercept", "Intercept", "command-icon-action", "primary-right-1", { 628, 54, 96, 66 }, { 628, 54, 96, 66 }, 40, 1 },
+	{ "action.ufopaedia", "Ufopaedia", "command-icon-action", "primary-right-2", { 628, 128, 96, 66 }, { 628, 128, 96, 66 }, 50, 1 },
+	{ "action.options", "Options", "command-icon-action", "primary-right-3", { 628, 202, 96, 66 }, { 628, 202, 96, 66 }, 60, 1 },
+	{ "drawer.funding", "Funding overview", "drawer-row", "drawer-row", { 0, 0, 320, 48 }, { 0, 0, 320, 48 }, 201, 60 },
+	{ "drawer.tech-tree", "Tech tree", "drawer-row", "drawer-row", { 0, 48, 320, 48 }, { 0, 48, 320, 48 }, 202, 60 },
+	{ "drawer.global-research", "Global research", "drawer-row", "drawer-row", { 0, 96, 320, 48 }, { 0, 96, 320, 48 }, 203, 60 },
+	{ "drawer.global-production", "Global production", "drawer-row", "drawer-row", { 0, 144, 320, 48 }, { 0, 144, 320, 48 }, 204, 60 },
+	{ "drawer.global-containment", "Global containment", "drawer-row", "drawer-row", { 0, 192, 320, 48 }, { 0, 192, 320, 48 }, 205, 60 },
+	{ "drawer.ufo-tracker", "UFO tracker", "drawer-row", "drawer-row", { 0, 240, 320, 48 }, { 0, 240, 320, 48 }, 206, 60 },
+	{ "drawer.pilot-experience", "Pilot experience", "drawer-row", "drawer-row", { 0, 288, 320, 48 }, { 0, 288, 320, 48 }, 207, 60 },
+	{ "drawer.notes", "Notes", "drawer-row", "drawer-row", { 0, 336, 320, 48 }, { 0, 336, 320, 48 }, 208, 60 },
+	{ "drawer.music", "Music", "drawer-row", "drawer-row", { 0, 384, 320, 48 }, { 0, 384, 320, 48 }, 209, 60 },
+	{ "drawer.debug", "Debug", "drawer-row", "drawer-row", { 0, 432, 320, 48 }, { 0, 432, 320, 48 }, 210, 60 },
+	{ "drawer.quick-save", "Quick save", "drawer-row", "drawer-row", { 0, 480, 320, 48 }, { 0, 480, 320, 48 }, 211, 60 },
+	{ "drawer.instant-save", "Instant save", "drawer-row", "drawer-row", { 0, 528, 320, 48 }, { 0, 528, 320, 48 }, 212, 60 },
+	{ "drawer.quick-load", "Quick load", "drawer-row", "drawer-row", { 0, 576, 320, 48 }, { 0, 576, 320, 48 }, 213, 60 },
+	{ "world.zoom-in", "Zoom in", "compact-command-action", "world-zoom-in", { 465, 157, 44, 44 }, { 465, 157, 44, 44 }, 70, 1 },
+	{ "world.recenter", "Recenter", "compact-command-action", "world-recenter", { 465, 201, 44, 44 }, { 465, 201, 44, 44 }, 80, 1 },
+	{ "world.zoom-out", "Zoom out", "compact-command-action", "world-zoom-out", { 465, 245, 44, 44 }, { 465, 245, 44, 44 }, 90, 1 },
+	{ "notification.open", "Open alert", "notification-action", "notification-open", { 161, 70, 44, 44 }, { 161, 70, 44, 44 }, 100, 1 },
+	{ "time.pause", "Pause", "time-speed-control", "time-pause", { 12, 299, 50, 50 }, { 12, 299, 50, 50 }, 110, 1 },
+	{ "time.speed.5sec", "5 sec", "time-speed-control", "time-5sec", { 74, 303, 109, 48 }, { 74, 303, 109, 48 }, 120, 1 },
+	{ "time.speed.1min", "1 min", "time-speed-control", "time-1min", { 183, 303, 109, 48 }, { 183, 303, 109, 48 }, 130, 1 },
+	{ "time.speed.5min", "5 min", "time-speed-control", "time-5min", { 292, 303, 109, 48 }, { 292, 303, 109, 48 }, 140, 1 },
+	{ "time.speed.30min", "30 min", "time-speed-control", "time-30min", { 401, 303, 109, 48 }, { 401, 303, 109, 48 }, 150, 1 },
+	{ "time.speed.1hour", "1 hour", "time-speed-control", "time-1hour", { 510, 303, 109, 48 }, { 510, 303, 109, 48 }, 160, 1 },
+	{ "time.speed.1day", "1 day", "time-speed-control", "time-1day", { 619, 303, 109, 48 }, { 619, 303, 109, 48 }, 170, 1 },
 };
 
 inline constexpr CalypsoGeoscapeCommandShellGenLayout kLayouts[] =
 {
-	{ 1280, 720, kWideActions, 31 },
-	{ 740, 360, kCompactActions, 31 },
+	{ 1280, 720, kWideActions, 31, kWideRegions, 6 },
+	{ 740, 360, kCompactActions, 31, kCompactRegions, 6 },
 };
 inline constexpr int kLayoutCount = 2;
+
+inline constexpr CalypsoGeoscapeCommandShellGenFixtureCopy kFixtureCopy[] =
+{
+	{ "date", "1 Jan 2040" },
+	{ "time", "12:28" },
+	{ "funds", "$10.21M" },
+	{ "notificationTitle", "UFO detected" },
+	{ "notificationBody", "Unknown craft detected over the South Pacific." },
+};
+inline constexpr int kFixtureCopyCount = 5;
 
 inline const CalypsoGeoscapeCommandShellGenLayout* layoutForDesign(int width, int height)
 {

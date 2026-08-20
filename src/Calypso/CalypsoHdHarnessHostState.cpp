@@ -83,6 +83,7 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 	}
 	// Phase 46.F21: new-base flow fixtures live in CalypsoF21Harness.cpp.
 	if (State* f21 = calypsoF21HarnessCreateTarget(id)) return f21;
+	if (State* screen = calypsoHdScreenHarnessCreateTarget(id)) return screen;
 	return nullptr;
 }
 

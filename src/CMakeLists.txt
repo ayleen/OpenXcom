@@ -642,6 +642,8 @@ if(EMSCRIPTEN)
   list(APPEND openxcom_src Calypso/CalypsoHdTrackedText.cpp)
   # Phase 46.4-F33: opaque-black harness host + generic registry exports.
   list(APPEND openxcom_src Calypso/CalypsoHdHarnessHostState.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoHdScreenRenderer.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoHdScreenHarness.cpp)
   list(APPEND openxcom_src Calypso/CalypsoErrorPopupUiShared.cpp)
   list(APPEND openxcom_src Calypso/CalypsoStatisticsUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoNotesUi.cpp)

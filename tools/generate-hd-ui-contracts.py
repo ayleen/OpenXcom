@@ -990,6 +990,8 @@ def emit_family_h(doc, rel, ns, prefix, profile):
 
 def emit_screen_h(doc, rel, ns, prefix):
     """Emit typed screen/action layout data without reconstructing semantics."""
+    cpp_string = lambda value: json.dumps(value, ensure_ascii=False)
+    fixture_labels = doc["fixture"]["labels"]
     out = [HEADER_BANNER,
            "// Canonical source: src/Calypso/Contracts/" + rel,
            "#pragma once",
@@ -1001,9 +1003,15 @@ def emit_screen_h(doc, rel, ns, prefix):
            + ("true" if doc["screen"]["productionHook"] else "false") + ";",
            "",
            "struct " + prefix + "GenRect { int x; int y; int w; int h; };",
+           "struct " + prefix + "GenNamedRect",
+           "{",
+           TAB + "const char* id;",
+           TAB + prefix + "GenRect rect;",
+           "};",
            "struct " + prefix + "GenActionLayout",
            "{",
            TAB + "const char* id;",
+           TAB + "const char* label;",
            TAB + "const char* component;",
            TAB + "const char* slotRole;",
            TAB + prefix + "GenRect visible;",
@@ -1017,33 +1025,56 @@ def emit_screen_h(doc, rel, ns, prefix):
            TAB + "int designHeight;",
            TAB + "const " + prefix + "GenActionLayout* actions;",
            TAB + "int actionCount;",
+           TAB + "const " + prefix + "GenNamedRect* regions;",
+           TAB + "int regionCount;",
+           "};",
+           "struct " + prefix + "GenFixtureCopy",
+           "{",
+           TAB + "const char* key;",
+           TAB + "const char* value;",
            "};",
            ""]
     arrays = []
     for layout_name, label in (("wide", "Wide"), ("compact", "Compact")):
         layout = doc["layouts"][layout_name]
         array_name = "k" + label + "Actions"
-        arrays.append((array_name, layout))
+        region_array_name = "k" + label + "Regions"
+        arrays.append((array_name, region_array_name, layout))
+        out += ["inline constexpr " + prefix + "GenNamedRect " + region_array_name + "[] =", "{"]
+        for region_id, rect in layout["regions"].items():
+            out.append(TAB + "{ " + cpp_string(region_id) + ", { "
+                       + ", ".join(str(value) for value in rect) + " } },")
+        out += ["};", ""]
         out += ["inline constexpr " + prefix + "GenActionLayout " + array_name + "[] =", "{"]
         for action in doc["actions"]:
             resolved = layout["actions"][action["id"]]
             visible = resolved["visibleRect"]
             hit = resolved["hitRect"]
             focus = resolved.get("focusOrder")
-            out.append(TAB + '{ "' + action["id"] + '", "' + action["component"]
-                       + '", "' + action["slotRole"] + '", { '
+            out.append(TAB + "{ " + cpp_string(action["id"]) + ", "
+                       + cpp_string(fixture_labels["actions"][action["id"]]) + ", "
+                       + cpp_string(action["component"]) + ", "
+                       + cpp_string(action["slotRole"]) + ", { "
                        + ", ".join(str(value) for value in visible) + " }, { "
                        + ", ".join(str(value) for value in hit) + " }, "
                        + str(focus if isinstance(focus, int) else -1) + ", "
                        + str(resolved.get("zOrder", 1)) + " },")
         out += ["};", ""]
     out += ["inline constexpr " + prefix + "GenLayout kLayouts[] =", "{"]
-    for array_name, layout in arrays:
+    for array_name, region_array_name, layout in arrays:
         design = layout["designSize"]
         out.append(TAB + "{ " + str(design[0]) + ", " + str(design[1]) + ", "
-                   + array_name + ", " + str(len(doc["actions"])) + " },")
+                   + array_name + ", " + str(len(doc["actions"])) + ", "
+                   + region_array_name + ", " + str(len(layout["regions"])) + " },")
     out += ["};",
             "inline constexpr int kLayoutCount = 2;",
+            "",
+            "inline constexpr " + prefix + "GenFixtureCopy kFixtureCopy[] =",
+            "{"]
+    for key, value in fixture_labels["copy"].items():
+        out.append(TAB + "{ " + cpp_string(key) + ", " + cpp_string(value) + " },")
+    out += ["};",
+            "inline constexpr int kFixtureCopyCount = " + str(len(fixture_labels["copy"])) + ";",
             "",
             "inline const " + prefix + "GenLayout* layoutForDesign(int width, int height)",
             "{",

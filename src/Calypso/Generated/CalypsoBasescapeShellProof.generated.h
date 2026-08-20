@@ -9,9 +9,15 @@ inline constexpr const char* kArchetype = "base-management-shell";
 inline constexpr bool kProductionHook = false;
 
 struct CalypsoBasescapeShellProofGenRect { int x; int y; int w; int h; };
+struct CalypsoBasescapeShellProofGenNamedRect
+{
+	const char* id;
+	CalypsoBasescapeShellProofGenRect rect;
+};
 struct CalypsoBasescapeShellProofGenActionLayout
 {
 	const char* id;
+	const char* label;
 	const char* component;
 	const char* slotRole;
 	CalypsoBasescapeShellProofGenRect visible;
@@ -25,34 +31,73 @@ struct CalypsoBasescapeShellProofGenLayout
 	int designHeight;
 	const CalypsoBasescapeShellProofGenActionLayout* actions;
 	int actionCount;
+	const CalypsoBasescapeShellProofGenNamedRect* regions;
+	int regionCount;
+};
+struct CalypsoBasescapeShellProofGenFixtureCopy
+{
+	const char* key;
+	const char* value;
+};
+
+inline constexpr CalypsoBasescapeShellProofGenNamedRect kWideRegions[] =
+{
+	{ "header", { 12, 12, 1256, 64 } },
+	{ "baseSelector", { 162, 12, 596, 64 } },
+	{ "funds", { 758, 12, 260, 64 } },
+	{ "baseStatus", { 1018, 12, 250, 64 } },
+	{ "workspace", { 12, 86, 1256, 622 } },
+	{ "facilityDeck", { 12, 86, 836, 622 } },
+	{ "commandColumn", { 858, 86, 410, 622 } },
 };
 
 inline constexpr CalypsoBasescapeShellProofGenActionLayout kWideActions[] =
 {
-	{ "navigation.back", "entity-selector", "screen-back", { 12, 12, 150, 64 }, { 12, 12, 150, 64 }, 10, 1 },
-	{ "base.selector", "entity-selector", "entity-selector", { 162, 12, 596, 64 }, { 162, 12, 596, 64 }, 20, 1 },
-	{ "management.forces", "management-section-action", "management-1", { 867, 243, 392, 113 }, { 867, 243, 392, 113 }, 30, 1 },
-	{ "management.science-engineering", "management-section-action", "management-2", { 867, 364, 392, 113 }, { 867, 364, 392, 113 }, 40, 1 },
-	{ "management.logistics", "management-section-action", "management-3", { 867, 485, 392, 112 }, { 867, 485, 392, 112 }, 50, 1 },
-	{ "facility.primary", "management-section-action", "facility-primary", { 1127, 628, 120, 48 }, { 1127, 628, 120, 48 }, 60, 1 },
+	{ "navigation.back", "Geoscape", "entity-selector", "screen-back", { 12, 12, 150, 64 }, { 12, 12, 150, 64 }, 10, 1 },
+	{ "base.selector", "Atlantic Operations", "entity-selector", "entity-selector", { 162, 12, 596, 64 }, { 162, 12, 596, 64 }, 20, 1 },
+	{ "management.forces", "Forces", "management-section-action", "management-1", { 867, 243, 392, 113 }, { 867, 243, 392, 113 }, 30, 1 },
+	{ "management.science-engineering", "Science & engineering", "management-section-action", "management-2", { 867, 364, 392, 113 }, { 867, 364, 392, 113 }, 40, 1 },
+	{ "management.logistics", "Logistics", "management-section-action", "management-3", { 867, 485, 392, 112 }, { 867, 485, 392, 112 }, 50, 1 },
+	{ "facility.primary", "Build", "management-section-action", "facility-primary", { 1127, 628, 120, 48 }, { 1127, 628, 120, 48 }, 60, 1 },
+};
+
+inline constexpr CalypsoBasescapeShellProofGenNamedRect kCompactRegions[] =
+{
+	{ "header", { 8, 8, 724, 52 } },
+	{ "baseSelector", { 128, 8, 420, 52 } },
+	{ "funds", { 556, 8, 176, 52 } },
+	{ "workspace", { 8, 68, 724, 292 } },
+	{ "facilityDeck", { 8, 68, 366, 292 } },
+	{ "commandColumn", { 382, 68, 350, 292 } },
 };
 
 inline constexpr CalypsoBasescapeShellProofGenActionLayout kCompactActions[] =
 {
-	{ "navigation.back", "entity-selector", "screen-back", { 11, 11, 106, 46 }, { 11, 11, 106, 46 }, 10, 1 },
-	{ "base.selector", "entity-selector", "entity-selector", { 128, 8, 420, 52 }, { 128, 8, 420, 52 }, 20, 1 },
-	{ "management.forces", "management-section-action", "management-1", { 387, 91, 340, 85 }, { 387, 91, 340, 85 }, 30, 1 },
-	{ "management.science-engineering", "management-section-action", "management-2", { 387, 181, 340, 84 }, { 387, 181, 340, 84 }, 40, 1 },
-	{ "management.logistics", "management-section-action", "management-3", { 387, 270, 340, 85 }, { 387, 270, 340, 85 }, 50, 1 },
-	{ "facility.primary", "management-section-action", "facility-primary", { 242, 304, 120, 48 }, { 242, 304, 120, 48 }, 60, 1 },
+	{ "navigation.back", "Geoscape", "entity-selector", "screen-back", { 11, 11, 106, 46 }, { 11, 11, 106, 46 }, 10, 1 },
+	{ "base.selector", "Atlantic Operations", "entity-selector", "entity-selector", { 128, 8, 420, 52 }, { 128, 8, 420, 52 }, 20, 1 },
+	{ "management.forces", "Forces", "management-section-action", "management-1", { 387, 91, 340, 85 }, { 387, 91, 340, 85 }, 30, 1 },
+	{ "management.science-engineering", "Science & engineering", "management-section-action", "management-2", { 387, 181, 340, 84 }, { 387, 181, 340, 84 }, 40, 1 },
+	{ "management.logistics", "Logistics", "management-section-action", "management-3", { 387, 270, 340, 85 }, { 387, 270, 340, 85 }, 50, 1 },
+	{ "facility.primary", "Build", "management-section-action", "facility-primary", { 242, 304, 120, 48 }, { 242, 304, 120, 48 }, 60, 1 },
 };
 
 inline constexpr CalypsoBasescapeShellProofGenLayout kLayouts[] =
 {
-	{ 1280, 720, kWideActions, 6 },
-	{ 740, 360, kCompactActions, 6 },
+	{ 1280, 720, kWideActions, 6, kWideRegions, 7 },
+	{ 740, 360, kCompactActions, 6, kCompactRegions, 6 },
 };
 inline constexpr int kLayoutCount = 2;
+
+inline constexpr CalypsoBasescapeShellProofGenFixtureCopy kFixtureCopy[] =
+{
+	{ "screenTitle", "Base management" },
+	{ "funds", "$10.21M" },
+	{ "facilityStatus", "12 facilities" },
+	{ "warningStatus", "1 warning" },
+	{ "deckTitle", "Facility deck" },
+	{ "commandTitle", "Operations" },
+};
+inline constexpr int kFixtureCopyCount = 6;
 
 inline const CalypsoBasescapeShellProofGenLayout* layoutForDesign(int width, int height)
 {

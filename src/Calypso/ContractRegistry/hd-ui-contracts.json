@@ -100,7 +100,7 @@
       "native": { "namespace": "CalypsoGeoscapeCommandShellGen", "prefix": "CalypsoGeoscapeCommandShell", "output": "CalypsoGeoscapeCommandShell.generated.h" },
       "browser": { "global": "CalypsoGeoscapeCommandShell", "output": "geoscape-command-shell.js" },
       "rendererOwnership": "strategic-command-shell",
-      "harnessScenarioIds": []
+      "harnessScenarioIds": [61]
     },
     {
       "id": "basescape-shell-proof",

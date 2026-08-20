@@ -53,6 +53,49 @@
     "clock": "2040-01-01T12:28:00Z",
     "funds": 10210000,
     "selectedSpeed": "time.speed.5sec",
-    "notification": "ufo-detected-south-pacific"
+    "notification": "ufo-detected-south-pacific",
+    "labels": {
+      "actions": {
+        "action.session": "Session",
+        "action.bases": "Bases",
+        "action.graphs": "Graphs",
+        "action.extended": "Funding",
+        "action.intercept": "Intercept",
+        "action.ufopaedia": "Ufopaedia",
+        "action.options": "Options",
+        "drawer.funding": "Funding overview",
+        "drawer.tech-tree": "Tech tree",
+        "drawer.global-research": "Global research",
+        "drawer.global-production": "Global production",
+        "drawer.global-containment": "Global containment",
+        "drawer.ufo-tracker": "UFO tracker",
+        "drawer.pilot-experience": "Pilot experience",
+        "drawer.notes": "Notes",
+        "drawer.music": "Music",
+        "drawer.debug": "Debug",
+        "drawer.quick-save": "Quick save",
+        "drawer.instant-save": "Instant save",
+        "drawer.quick-load": "Quick load",
+        "world.zoom-in": "Zoom in",
+        "world.recenter": "Recenter",
+        "world.zoom-out": "Zoom out",
+        "notification.open": "Open alert",
+        "time.pause": "Pause",
+        "time.speed.5sec": "5 sec",
+        "time.speed.1min": "1 min",
+        "time.speed.5min": "5 min",
+        "time.speed.30min": "30 min",
+        "time.speed.1hour": "1 hour",
+        "time.speed.1day": "1 day"
+      },
+      "entities": {},
+      "copy": {
+        "date": "1 Jan 2040",
+        "time": "12:28",
+        "funds": "$10.21M",
+        "notificationTitle": "UFO detected",
+        "notificationBody": "Unknown craft detected over the South Pacific."
+      }
+    }
   }
 }

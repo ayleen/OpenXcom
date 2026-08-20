@@ -34,6 +34,34 @@
   "fixture": {
     "funds": 10210000,
     "facilityCount": 12,
-    "warningCount": 1
+    "warningCount": 1,
+    "labels": {
+      "actions": {
+        "navigation.back": "Geoscape",
+        "base.selector": "Atlantic Operations",
+        "management.forces": "Forces",
+        "management.science-engineering": "Science & engineering",
+        "management.logistics": "Logistics",
+        "facility.primary": "Build"
+      },
+      "entities": {
+        "base-1": "Atlantic Operations",
+        "base-2": "Pacific Watch",
+        "base-3": "Arctic Relay",
+        "base-4": "Mediterranean Command",
+        "base-5": "Unassigned",
+        "base-6": "Unassigned",
+        "base-7": "Unassigned",
+        "base-8": "Unassigned"
+      },
+      "copy": {
+        "screenTitle": "Base management",
+        "funds": "$10.21M",
+        "facilityStatus": "12 facilities",
+        "warningStatus": "1 warning",
+        "deckTitle": "Facility deck",
+        "commandTitle": "Operations"
+      }
+    }
   }
 }

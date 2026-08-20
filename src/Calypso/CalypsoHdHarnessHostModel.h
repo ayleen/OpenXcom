@@ -37,7 +37,8 @@ enum class CalypsoHarnessScenario
 	F21Name = 53,
 	F21Defense = 54,
 	F21Destruction = 55,
-	F21SiteError = 56
+	F21SiteError = 56,
+	GeoscapeHd = 61
 };
 
 /// True iff `id` names a known scenario (the generic export never guesses).
@@ -49,7 +50,8 @@ inline bool calypsoHarnessScenarioValid(int id)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F21Name)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F21Defense)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F21Destruction)
-		|| id == static_cast<int>(CalypsoHarnessScenario::F21SiteError);
+		|| id == static_cast<int>(CalypsoHarnessScenario::F21SiteError)
+		|| id == static_cast<int>(CalypsoHarnessScenario::GeoscapeHd);
 }
 
 /// Mutable session state of one harness run.
