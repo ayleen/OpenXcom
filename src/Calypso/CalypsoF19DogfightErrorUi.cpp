@@ -28,10 +28,11 @@ void CalypsoF19DogfightErrorUi::collect(CalypsoHdFrameBuilder& builder) const {
     m.designWidth = g->designWidth; m.designHeight = g->designHeight;
     m.window = winRect; m.status = proj(g->status); m.warning = proj(g->warning); m.title = proj(g->title); m.message = proj(g->message); m.footer = proj(g->footer);
     m.windowWidget = _state->_window;
+    m.titleWidget = _state->_txtCraft;
+    m.titleText = _state->_txtCraft ? _state->_txtCraft->getText() : std::string();
     m.messageWidget = _state->_txtMessage;
     m.messageText = _state->_txtMessage ? _state->_txtMessage->getText() : std::string();
-    m.titleText = "";
-    m.protocolText = "";
+    m.protocolText = std::string();
     m.warningGlyph = "!";
     m.cutCornerPx = CalypsoF19DogfightErrorGen::kCutCornerPx;
     m.protocolTextInsetPx = CalypsoF19DogfightErrorGen::kProtocolTextInsetPx;
@@ -42,9 +43,12 @@ void CalypsoF19DogfightErrorUi::collect(CalypsoHdFrameBuilder& builder) const {
     m.dividerColor = CalypsoF19DogfightErrorGen::kDivider;
     m.footerDotColor = CalypsoF19DogfightErrorGen::kFooterDot;
     m.warningColor = CalypsoF19DogfightErrorGen::kWarning;
-
-    { CalypsoSmallConfirmationButton b{}; b.widget = _state->_btnIntercept; b.text = b.widget ? b.widget->getText() : std::string(); b.rect = b.widget ? CalypsoLogicalRect{b.widget->getX(), b.widget->getY(), b.widget->getWidth(), b.widget->getHeight()} : proj(g->window); b.tone = CalypsoActionTone::Safe; m.buttons.push_back(b); }
-    { CalypsoSmallConfirmationButton b{}; b.widget = _state->_btnBase; b.text = b.widget ? b.widget->getText() : std::string(); b.rect = b.widget ? CalypsoLogicalRect{b.widget->getX(), b.widget->getY(), b.widget->getWidth(), b.widget->getHeight()} : proj(g->window); b.tone = CalypsoActionTone::Safe; m.buttons.push_back(b); }
+    m.messageDesignWidth = g->message.w;
+    m.titleDesignHeight = g->title.h;
+    m.motionDurationMs = CalypsoF19DogfightErrorGen::kMotionDurationMs;
+    m.motionScaleFrom = CalypsoF19DogfightErrorGen::kMotionScaleFrom;
+    { CalypsoSmallConfirmationButton b{}; b.widget = _state->_btnIntercept; b.text = b.widget ? b.widget->getText() : std::string(); b.rect = b.widget ? CalypsoLogicalRect{b.widget->getX(), b.widget->getY(), b.widget->getWidth(), b.widget->getHeight()} : proj(g->window); b.tone = CalypsoActionTone::Safe; for(int i=0;i<CalypsoF19DogfightErrorGen::kButtonCount;++i) if(std::string(CalypsoF19DogfightErrorGen::kButtons[i].id)=="intercept") { b.restFill=CalypsoF19DogfightErrorGen::kButtons[i].fill; b.restBorder=CalypsoF19DogfightErrorGen::kButtons[i].border; b.textColor=CalypsoF19DogfightErrorGen::kButtons[i].text; break; } m.buttons.push_back(b); }
+    { CalypsoSmallConfirmationButton b{}; b.widget = _state->_btnBase; b.text = b.widget ? b.widget->getText() : std::string(); b.rect = b.widget ? CalypsoLogicalRect{b.widget->getX(), b.widget->getY(), b.widget->getWidth(), b.widget->getHeight()} : proj(g->window); b.tone = CalypsoActionTone::Safe; for(int i=0;i<CalypsoF19DogfightErrorGen::kButtonCount;++i) if(std::string(CalypsoF19DogfightErrorGen::kButtons[i].id)=="tobase") { b.restFill=CalypsoF19DogfightErrorGen::kButtons[i].fill; b.restBorder=CalypsoF19DogfightErrorGen::kButtons[i].border; b.textColor=CalypsoF19DogfightErrorGen::kButtons[i].text; break; } m.buttons.push_back(b); }
     calypsoCollectSmallConfirmation(builder, m, _motion);
 }
 void CalypsoF19DogfightErrorUi::configure(DogfightErrorState& s, bool allow) {

@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "hd.2026-08-20.19",
+  "version": "hd.2026-08-20.22",
   "form": {
     "id": "f21-transaction",
     "familyId": 21,
@@ -55,12 +55,17 @@
     }
   },
   "copy": {
-    "protocol": "CALYPSO COMMAND · LOGISTICS AUTHORIZATION BE-21 · REV. 1.0.21 · EFFECTIVE 15.07.2061",
+    "protocol": "CALYPSO COMMAND · LOGISTICS AUTHORIZATION BE-21",
     "title": "REVIEW NEW BASE",
     "message": [],
     "table": "| SLOT | COORDINATES |\n| --- | --- |\n| BASE 1 / 8 | 28.6·N  0.0·E |\n| South Atlantic | $950 000 |",
     "inputValue": "CALYPSO DEEP",
     "inputHint": "Choose a permanent registry name. Press Enter to confirm."
+  },
+  "presentation": {
+    "density": "standard",
+    "scaleNumerator": 1,
+    "scaleDenominator": 1
   },
   "style": {
     "cutCornerPx": 14,

@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "hd.2026-08-20.19",
+  "version": "hd.2026-08-20.22",
   "form": {
     "id": "f21-name",
     "familyId": 21,
@@ -14,13 +14,24 @@
     "buttons": [
       {
         "id": "ok",
-        "label": "CONFIRM NAME",
+        "label": "OK",
         "tone": "primary",
         "action": "confirm",
         "style": {
           "fill": "74FFB0FF",
           "border": "74FFB0FF",
           "text": "071013FF"
+        }
+      },
+      {
+        "id": "cancel",
+        "label": "CANCEL",
+        "tone": "normal",
+        "action": "back",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB059",
+          "text": "E8FFF5FF"
         }
       }
     ],
@@ -30,11 +41,16 @@
     }
   },
   "copy": {
-    "protocol": "CALYPSO COMMAND · BASE REGISTRY BR-21 · REV. 1.0.21 · EFFECTIVE 15.07.2061",
+    "protocol": "CALYPSO COMMAND · BASE REGISTRY BR-21",
     "title": "NAME YOUR FIRST BASE",
     "message": [],
     "inputValue": "CALYPSO DEEP",
     "inputHint": "Choose a permanent registry name. Press Enter to confirm."
+  },
+  "presentation": {
+    "density": "standard",
+    "scaleNumerator": 1,
+    "scaleDenominator": 1
   },
   "style": {
     "cutCornerPx": 14,
@@ -94,6 +110,12 @@
       },
       "buttons": {
         "ok": {
+          "x": 546,
+          "y": 437,
+          "width": 158,
+          "height": 44
+        },
+        "cancel": {
           "x": 714,
           "y": 437,
           "width": 158,
@@ -154,6 +176,12 @@
       },
       "buttons": {
         "ok": {
+          "x": 271,
+          "y": 247,
+          "width": 148,
+          "height": 44
+        },
+        "cancel": {
           "x": 431,
           "y": 247,
           "width": 148,

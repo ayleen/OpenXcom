@@ -4,11 +4,16 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF12TransferConfirmGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-20.19";
+inline constexpr const char* kContractVersion = "hd.2026-08-20.22";
 inline constexpr const char* kFormId = "f12-transfer-confirm";
 inline constexpr int kFamilyId = 12;
 inline constexpr const char* kArchetype = "small-confirmation";
 inline constexpr const char* kSourceConfig = "FormConfigs/f12-transfer-confirm.json";
+
+inline constexpr const char* kDensityProfile = "standard";
+inline constexpr int kPresentationScaleNumerator = 1;
+inline constexpr int kPresentationScaleDenominator = 1;
+inline constexpr float kPresentationScale = 1.000000f;
 
 struct CalypsoF12TransferConfirmGenButton { const char* id; const char* label; const char* tone; const char* action; std::uint32_t fill; std::uint32_t border; std::uint32_t text; };
 inline constexpr CalypsoF12TransferConfirmGenButton kButtons[] = {
@@ -30,21 +35,15 @@ inline constexpr std::uint32_t kWarning = 0xFFC14DFFu;
 
 struct CalypsoF12TransferConfirmGenRect { int x; int y; int w; int h; };
 struct CalypsoF12TransferConfirmGenLayout { int designWidth; int designHeight; CalypsoF12TransferConfirmGenRect window; CalypsoF12TransferConfirmGenRect status; CalypsoF12TransferConfirmGenRect warning; CalypsoF12TransferConfirmGenRect title; CalypsoF12TransferConfirmGenRect message; CalypsoF12TransferConfirmGenRect footer;
-    CalypsoF12TransferConfirmGenRect cellR1C1;
-    CalypsoF12TransferConfirmGenRect cellR1C2;
-    CalypsoF12TransferConfirmGenRect cellR2C1;
-    CalypsoF12TransferConfirmGenRect cellR2C2;
-    CalypsoF12TransferConfirmGenRect columnDivider1;
-    CalypsoF12TransferConfirmGenRect rowDivider1;
 };
 inline constexpr CalypsoF12TransferConfirmGenLayout kLayouts[] = {
-    { 1280, 720, { 406, 230, 468, 323 }, { 406, 230, 468, 38 }, { 438, 290, 32, 32 }, { 486, 284, 356, 44 }, { 438, 336, 404, 141 }, { 406, 491, 468, 62 }, { 454, 408, 88, 22 }, { 559, 408, 88, 22 }, { 454, 447, 88, 22 }, { 559, 447, 88, 22 }, { 550, 400, 1, 77 }, { 446, 438, 209, 1 } }, // wide
-    { 740, 360, { 160, 60, 420, 298 }, { 160, 60, 420, 34 }, { 188, 111, 28, 28 }, { 230, 106, 322, 38 }, { 188, 150, 364, 125 }, { 160, 292, 420, 66 }, { 204, 214, 77, 18 }, { 298, 214, 77, 18 }, { 204, 249, 77, 18 }, { 298, 249, 77, 18 }, { 289, 206, 1, 69 }, { 196, 240, 187, 1 } }, // compact
+    { 1280, 720, { 406, 230, 468, 236 }, { 406, 230, 468, 38 }, { 438, 290, 32, 32 }, { 486, 284, 356, 44 }, { 438, 336, 404, 54 }, { 406, 404, 468, 62 } }, // wide
+    { 740, 360, { 160, 60, 420, 221 }, { 160, 60, 420, 34 }, { 188, 111, 28, 28 }, { 230, 106, 322, 38 }, { 188, 150, 364, 48 }, { 160, 215, 420, 66 } }, // compact
 };
 struct CalypsoF12TransferConfirmGenButtonRect { const char* id; CalypsoF12TransferConfirmGenRect rect; };
 inline constexpr CalypsoF12TransferConfirmGenButtonRect kButtonRects[][ 2 ] = {
-    { { "cancel", { 516, 500, 158, 44 } }, { "confirm", { 684, 500, 158, 44 } } }, // wide
-    { { "cancel", { 244, 302, 148, 44 } }, { "confirm", { 404, 302, 148, 44 } } }, // compact
+    { { "cancel", { 516, 413, 158, 44 } }, { "confirm", { 684, 413, 158, 44 } } }, // wide
+    { { "cancel", { 244, 225, 148, 44 } }, { "confirm", { 404, 225, 148, 44 } } }, // compact
 };
 inline constexpr int kLayoutCount = 2;
 inline constexpr int kMotionDurationMs = 200;

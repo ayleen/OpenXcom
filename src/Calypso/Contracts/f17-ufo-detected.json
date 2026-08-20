@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "hd.2026-08-20.19",
+  "version": "hd.2026-08-20.22",
   "form": {
     "id": "f17-ufo-detected",
     "familyId": 17,
@@ -53,12 +53,17 @@
     ]
   },
   "copy": {
-    "protocol": "CALYPSO COMMAND · TACTICAL NOTICE F17-UFO-DETECTED · REV. 1.0.21 · EFFECTIVE 15.07.2061",
+    "protocol": "CALYPSO COMMAND · TACTICAL NOTICE F17-UFO-DETECTED",
     "title": "UFO DETECTED",
     "message": [
       "Unidentified craft",
       "detected on radar."
     ]
+  },
+  "presentation": {
+    "density": "standard",
+    "scaleNumerator": 1,
+    "scaleDenominator": 1
   },
   "style": {
     "cutCornerPx": 14,

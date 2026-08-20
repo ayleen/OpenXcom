@@ -4,11 +4,16 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF06SoldierDiaryGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-20.19";
+inline constexpr const char* kContractVersion = "hd.2026-08-20.22";
 inline constexpr const char* kFormId = "f06-soldier-diary";
 inline constexpr int kFamilyId = 6;
 inline constexpr const char* kArchetype = "small-confirmation";
 inline constexpr const char* kSourceConfig = "FormConfigs/f06-soldier-diary.json";
+
+inline constexpr const char* kDensityProfile = "brief-acknowledgement";
+inline constexpr int kPresentationScaleNumerator = 2;
+inline constexpr int kPresentationScaleDenominator = 3;
+inline constexpr float kPresentationScale = 0.666667f;
 
 struct CalypsoF06SoldierDiaryGenButton { const char* id; const char* label; const char* tone; const char* action; std::uint32_t fill; std::uint32_t border; std::uint32_t text; };
 inline constexpr CalypsoF06SoldierDiaryGenButton kButtons[] = {
@@ -31,13 +36,13 @@ struct CalypsoF06SoldierDiaryGenRect { int x; int y; int w; int h; };
 struct CalypsoF06SoldierDiaryGenLayout { int designWidth; int designHeight; CalypsoF06SoldierDiaryGenRect window; CalypsoF06SoldierDiaryGenRect status; CalypsoF06SoldierDiaryGenRect warning; CalypsoF06SoldierDiaryGenRect title; CalypsoF06SoldierDiaryGenRect message; CalypsoF06SoldierDiaryGenRect footer;
 };
 inline constexpr CalypsoF06SoldierDiaryGenLayout kLayouts[] = {
-    { 1280, 720, { 466, 230, 348, 236 }, { 466, 230, 348, 38 }, { 498, 290, 32, 32 }, { 546, 284, 236, 44 }, { 498, 336, 284, 54 }, { 466, 404, 348, 62 } }, // wide
-    { 740, 360, { 214, 60, 312, 221 }, { 214, 60, 312, 34 }, { 242, 111, 28, 28 }, { 284, 106, 214, 38 }, { 242, 150, 256, 48 }, { 214, 215, 312, 66 } }, // compact
+    { 1280, 720, { 524, 269, 232, 158 }, { 524, 269, 232, 25 }, { 545, 309, 22, 21 }, { 577, 305, 158, 29 }, { 545, 338, 190, 40 }, { 524, 379, 232, 48 } }, // wide
+    { 740, 360, { 266, 97, 208, 147 }, { 266, 97, 208, 23 }, { 285, 131, 18, 19 }, { 313, 128, 142, 25 }, { 285, 153, 170, 40 }, { 266, 196, 208, 48 } }, // compact
 };
 struct CalypsoF06SoldierDiaryGenButtonRect { const char* id; CalypsoF06SoldierDiaryGenRect rect; };
 inline constexpr CalypsoF06SoldierDiaryGenButtonRect kButtonRects[][ 1 ] = {
-    { { "ok", { 624, 413, 158, 44 } } }, // wide
-    { { "ok", { 350, 225, 148, 44 } } }, // compact
+    { { "ok", { 629, 388, 106, 29 } } }, // wide
+    { { "ok", { 357, 205, 98, 29 } } }, // compact
 };
 inline constexpr int kLayoutCount = 2;
 inline constexpr int kMotionDurationMs = 200;

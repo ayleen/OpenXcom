@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "hd.2026-08-20.19",
+  "version": "hd.2026-08-20.22",
   "form": {
     "id": "f06-soldier-diary",
     "familyId": 6,
@@ -29,12 +29,17 @@
     ]
   },
   "copy": {
-    "protocol": "CALYPSO COMMAND · TACTICAL NOTICE F06-SOLDIER-DIARY · REV. 1.0.21 · EFFECTIVE 15.07.2061",
+    "protocol": "TACTICAL NOTICE F06-SD-01",
     "title": "DIARY ENTRY",
     "message": [
       "New diary entry",
       "has been recorded."
     ]
+  },
+  "presentation": {
+    "density": "brief-acknowledgement",
+    "scaleNumerator": 2,
+    "scaleDenominator": 3
   },
   "style": {
     "cutCornerPx": 14,
@@ -57,47 +62,47 @@
       "designWidth": 1280,
       "designHeight": 720,
       "window": {
-        "x": 466,
-        "y": 230,
-        "width": 348,
-        "height": 236
+        "x": 524,
+        "y": 269,
+        "width": 232,
+        "height": 158
       },
       "status": {
-        "x": 466,
-        "y": 230,
-        "width": 348,
-        "height": 38
+        "x": 524,
+        "y": 269,
+        "width": 232,
+        "height": 25
       },
       "warning": {
-        "x": 498,
-        "y": 290,
-        "width": 32,
-        "height": 32
+        "x": 545,
+        "y": 309,
+        "width": 22,
+        "height": 21
       },
       "title": {
-        "x": 546,
-        "y": 284,
-        "width": 236,
-        "height": 44
+        "x": 577,
+        "y": 305,
+        "width": 158,
+        "height": 29
       },
       "message": {
-        "x": 498,
-        "y": 336,
-        "width": 284,
-        "height": 54
+        "x": 545,
+        "y": 338,
+        "width": 190,
+        "height": 40
       },
       "footer": {
-        "x": 466,
-        "y": 404,
-        "width": 348,
-        "height": 62
+        "x": 524,
+        "y": 379,
+        "width": 232,
+        "height": 48
       },
       "buttons": {
         "ok": {
-          "x": 624,
-          "y": 413,
-          "width": 158,
-          "height": 44
+          "x": 629,
+          "y": 388,
+          "width": 106,
+          "height": 29
         }
       }
     },
@@ -105,47 +110,47 @@
       "designWidth": 740,
       "designHeight": 360,
       "window": {
-        "x": 214,
-        "y": 60,
-        "width": 312,
-        "height": 221
+        "x": 266,
+        "y": 97,
+        "width": 208,
+        "height": 147
       },
       "status": {
-        "x": 214,
-        "y": 60,
-        "width": 312,
-        "height": 34
+        "x": 266,
+        "y": 97,
+        "width": 208,
+        "height": 23
       },
       "warning": {
-        "x": 242,
-        "y": 111,
-        "width": 28,
-        "height": 28
+        "x": 285,
+        "y": 131,
+        "width": 18,
+        "height": 19
       },
       "title": {
-        "x": 284,
-        "y": 106,
-        "width": 214,
-        "height": 38
+        "x": 313,
+        "y": 128,
+        "width": 142,
+        "height": 25
       },
       "message": {
-        "x": 242,
-        "y": 150,
-        "width": 256,
-        "height": 48
+        "x": 285,
+        "y": 153,
+        "width": 170,
+        "height": 40
       },
       "footer": {
-        "x": 214,
-        "y": 215,
-        "width": 312,
-        "height": 66
+        "x": 266,
+        "y": 196,
+        "width": 208,
+        "height": 48
       },
       "buttons": {
         "ok": {
-          "x": 350,
-          "y": 225,
-          "width": 148,
-          "height": 44
+          "x": 357,
+          "y": 205,
+          "width": 98,
+          "height": 29
         }
       }
     }

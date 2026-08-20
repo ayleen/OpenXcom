@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "hd.2026-08-20.19",
+  "version": "hd.2026-08-20.22",
   "form": {
     "id": "f21-defense",
     "familyId": 21,
@@ -62,10 +62,15 @@
     ]
   },
   "copy": {
-    "protocol": "CALYPSO COMMAND · DEFENSE DOSSIER DF-21 · REV. 1.0.21 · EFFECTIVE 15.07.2061",
+    "protocol": "CALYPSO COMMAND · DEFENSE DOSSIER DF-21",
     "title": "BASE UNDER ATTACK",
     "message": [],
     "table": "| DEFENSES · 4 | AMMUNITION · 24 |\n| --- | --- |\n| HIT RATIO · 62% | READY |"
+  },
+  "presentation": {
+    "density": "standard",
+    "scaleNumerator": 1,
+    "scaleDenominator": 1
   },
   "style": {
     "cutCornerPx": 14,

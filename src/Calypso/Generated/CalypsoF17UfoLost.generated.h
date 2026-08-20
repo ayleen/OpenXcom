@@ -4,11 +4,16 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF17UfoLostGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-20.19";
+inline constexpr const char* kContractVersion = "hd.2026-08-20.22";
 inline constexpr const char* kFormId = "f17-ufo-lost";
 inline constexpr int kFamilyId = 17;
 inline constexpr const char* kArchetype = "small-confirmation";
 inline constexpr const char* kSourceConfig = "FormConfigs/f17-ufo-lost.json";
+
+inline constexpr const char* kDensityProfile = "brief-acknowledgement";
+inline constexpr int kPresentationScaleNumerator = 2;
+inline constexpr int kPresentationScaleDenominator = 3;
+inline constexpr float kPresentationScale = 0.666667f;
 
 struct CalypsoF17UfoLostGenButton { const char* id; const char* label; const char* tone; const char* action; std::uint32_t fill; std::uint32_t border; std::uint32_t text; };
 inline constexpr CalypsoF17UfoLostGenButton kButtons[] = {
@@ -31,13 +36,13 @@ struct CalypsoF17UfoLostGenRect { int x; int y; int w; int h; };
 struct CalypsoF17UfoLostGenLayout { int designWidth; int designHeight; CalypsoF17UfoLostGenRect window; CalypsoF17UfoLostGenRect status; CalypsoF17UfoLostGenRect warning; CalypsoF17UfoLostGenRect title; CalypsoF17UfoLostGenRect message; CalypsoF17UfoLostGenRect footer;
 };
 inline constexpr CalypsoF17UfoLostGenLayout kLayouts[] = {
-    { 1280, 720, { 496, 230, 288, 236 }, { 496, 230, 288, 38 }, { 528, 290, 32, 32 }, { 576, 284, 176, 44 }, { 528, 336, 224, 54 }, { 496, 404, 288, 62 } }, // wide
-    { 740, 360, { 241, 60, 258, 221 }, { 241, 60, 258, 34 }, { 269, 111, 28, 28 }, { 311, 106, 160, 38 }, { 269, 150, 202, 48 }, { 241, 215, 258, 66 } }, // compact
+    { 1280, 720, { 544, 269, 192, 158 }, { 544, 269, 192, 25 }, { 565, 309, 22, 21 }, { 597, 305, 118, 29 }, { 565, 338, 150, 40 }, { 544, 379, 192, 48 } }, // wide
+    { 740, 360, { 284, 97, 172, 147 }, { 284, 97, 172, 23 }, { 303, 131, 18, 19 }, { 331, 128, 106, 25 }, { 303, 153, 134, 40 }, { 284, 196, 172, 48 } }, // compact
 };
 struct CalypsoF17UfoLostGenButtonRect { const char* id; CalypsoF17UfoLostGenRect rect; };
 inline constexpr CalypsoF17UfoLostGenButtonRect kButtonRects[][ 1 ] = {
-    { { "ok", { 594, 413, 158, 44 } } }, // wide
-    { { "ok", { 323, 225, 148, 44 } } }, // compact
+    { { "ok", { 609, 388, 106, 29 } } }, // wide
+    { { "ok", { 339, 205, 98, 29 } } }, // compact
 };
 inline constexpr int kLayoutCount = 2;
 inline constexpr int kMotionDurationMs = 200;

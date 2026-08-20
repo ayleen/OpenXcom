@@ -2,12 +2,12 @@
   "schema": 1,
   "id": "f05-soldier-transform",
   "familyId": 5,
-  "version": "hd.2026-08-20.19",
+  "version": "hd.2026-08-20.22",
   "archetype": "small-confirmation",
   "protocol": {
     "authority": "CALYPSO COMMAND",
     "record": "TACTICAL NOTICE",
-    "code": "F05-SOLDIER-TRANSFORM",
+    "code": "F05-TR-01",
     "revision": "1.0.21",
     "effectiveDate": "15.07.2061"
   },

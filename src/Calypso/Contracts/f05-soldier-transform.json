@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "hd.2026-08-20.19",
+  "version": "hd.2026-08-20.22",
   "form": {
     "id": "f05-soldier-transform",
     "familyId": 5,
@@ -41,12 +41,17 @@
     ]
   },
   "copy": {
-    "protocol": "CALYPSO COMMAND · TACTICAL NOTICE F05-SOLDIER-TRANSFORM · REV. 1.0.21 · EFFECTIVE 15.07.2061",
+    "protocol": "CALYPSO COMMAND · TACTICAL NOTICE F05-TR-01",
     "title": "TRANSFORMATION READY",
     "message": [
       "Soldier transformation",
       "is now available."
     ]
+  },
+  "presentation": {
+    "density": "standard",
+    "scaleNumerator": 1,
+    "scaleDenominator": 1
   },
   "style": {
     "cutCornerPx": 14,

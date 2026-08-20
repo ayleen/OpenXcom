@@ -308,6 +308,9 @@ ManufactureInfoState::~ManufactureInfoState()
 	delete _hdAdapter;
 	_hdAdapter = nullptr;
 #endif
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF10ManufactureCheckUi::configure(*this);
+#endif
 	delete _timerMoreEngineer;
 	delete _timerLessEngineer;
 	delete _timerMoreUnit;

@@ -28,10 +28,10 @@ void CalypsoF17MissionDetectedUi::collect(CalypsoHdFrameBuilder& builder) const 
     m.designWidth = g->designWidth; m.designHeight = g->designHeight;
     m.window = winRect; m.status = proj(g->status); m.warning = proj(g->warning); m.title = proj(g->title); m.message = proj(g->message); m.footer = proj(g->footer);
     m.windowWidget = _state->_window;
+    m.titleText = m.messageText; // use message as title fallback
     m.messageWidget = _state->_txtTitle;
     m.messageText = _state->_txtTitle ? _state->_txtTitle->getText() : std::string();
-    m.titleText = "";
-    m.protocolText = "";
+    m.protocolText = std::string();
     m.warningGlyph = "!";
     m.cutCornerPx = CalypsoF17MissionDetectedGen::kCutCornerPx;
     m.protocolTextInsetPx = CalypsoF17MissionDetectedGen::kProtocolTextInsetPx;
@@ -42,10 +42,13 @@ void CalypsoF17MissionDetectedUi::collect(CalypsoHdFrameBuilder& builder) const 
     m.dividerColor = CalypsoF17MissionDetectedGen::kDivider;
     m.footerDotColor = CalypsoF17MissionDetectedGen::kFooterDot;
     m.warningColor = CalypsoF17MissionDetectedGen::kWarning;
-
-    { CalypsoSmallConfirmationButton b{}; b.widget = _state->_btnIntercept; b.text = b.widget ? b.widget->getText() : std::string(); b.rect = b.widget ? CalypsoLogicalRect{b.widget->getX(), b.widget->getY(), b.widget->getWidth(), b.widget->getHeight()} : proj(g->window); b.tone = CalypsoActionTone::Safe; m.buttons.push_back(b); }
-    { CalypsoSmallConfirmationButton b{}; b.widget = _state->_btnCenter; b.text = b.widget ? b.widget->getText() : std::string(); b.rect = b.widget ? CalypsoLogicalRect{b.widget->getX(), b.widget->getY(), b.widget->getWidth(), b.widget->getHeight()} : proj(g->window); b.tone = CalypsoActionTone::Safe; m.buttons.push_back(b); }
-    { CalypsoSmallConfirmationButton b{}; b.widget = _state->_btnCancel; b.text = b.widget ? b.widget->getText() : std::string(); b.rect = b.widget ? CalypsoLogicalRect{b.widget->getX(), b.widget->getY(), b.widget->getWidth(), b.widget->getHeight()} : proj(g->window); b.tone = CalypsoActionTone::Safe; m.buttons.push_back(b); }
+    m.messageDesignWidth = g->message.w;
+    m.titleDesignHeight = g->title.h;
+    m.motionDurationMs = CalypsoF17MissionDetectedGen::kMotionDurationMs;
+    m.motionScaleFrom = CalypsoF17MissionDetectedGen::kMotionScaleFrom;
+    { CalypsoSmallConfirmationButton b{}; b.widget = _state->_btnIntercept; b.text = b.widget ? b.widget->getText() : std::string(); b.rect = b.widget ? CalypsoLogicalRect{b.widget->getX(), b.widget->getY(), b.widget->getWidth(), b.widget->getHeight()} : proj(g->window); b.tone = CalypsoActionTone::Safe; for(int i=0;i<CalypsoF17MissionDetectedGen::kButtonCount;++i) if(std::string(CalypsoF17MissionDetectedGen::kButtons[i].id)=="intercept") { b.restFill=CalypsoF17MissionDetectedGen::kButtons[i].fill; b.restBorder=CalypsoF17MissionDetectedGen::kButtons[i].border; b.textColor=CalypsoF17MissionDetectedGen::kButtons[i].text; break; } m.buttons.push_back(b); }
+    { CalypsoSmallConfirmationButton b{}; b.widget = _state->_btnCenter; b.text = b.widget ? b.widget->getText() : std::string(); b.rect = b.widget ? CalypsoLogicalRect{b.widget->getX(), b.widget->getY(), b.widget->getWidth(), b.widget->getHeight()} : proj(g->window); b.tone = CalypsoActionTone::Safe; for(int i=0;i<CalypsoF17MissionDetectedGen::kButtonCount;++i) if(std::string(CalypsoF17MissionDetectedGen::kButtons[i].id)=="centre") { b.restFill=CalypsoF17MissionDetectedGen::kButtons[i].fill; b.restBorder=CalypsoF17MissionDetectedGen::kButtons[i].border; b.textColor=CalypsoF17MissionDetectedGen::kButtons[i].text; break; } m.buttons.push_back(b); }
+    { CalypsoSmallConfirmationButton b{}; b.widget = _state->_btnCancel; b.text = b.widget ? b.widget->getText() : std::string(); b.rect = b.widget ? CalypsoLogicalRect{b.widget->getX(), b.widget->getY(), b.widget->getWidth(), b.widget->getHeight()} : proj(g->window); b.tone = CalypsoActionTone::Safe; for(int i=0;i<CalypsoF17MissionDetectedGen::kButtonCount;++i) if(std::string(CalypsoF17MissionDetectedGen::kButtons[i].id)=="cancel") { b.restFill=CalypsoF17MissionDetectedGen::kButtons[i].fill; b.restBorder=CalypsoF17MissionDetectedGen::kButtons[i].border; b.textColor=CalypsoF17MissionDetectedGen::kButtons[i].text; break; } m.buttons.push_back(b); }
     calypsoCollectSmallConfirmation(builder, m, _motion);
 }
 void CalypsoF17MissionDetectedUi::configure(MissionDetectedState& s, bool allow) {

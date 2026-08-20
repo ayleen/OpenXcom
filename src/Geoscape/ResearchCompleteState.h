@@ -44,6 +44,7 @@ friend class Calypso::CalypsoF24ResearchCompleteUi;
 	TextButton *_btnReport, *_btnOk;
 	const RuleResearch * _research, * _bonus;
 public:
+	~ResearchCompleteState();
 	/// Creates the EndResearch state.
 	ResearchCompleteState(const RuleResearch *newResearch, const RuleResearch *bonus, const RuleResearch *research, const Base* base);
 	/// Handler for clicking the OK button.

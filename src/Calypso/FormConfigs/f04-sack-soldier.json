@@ -2,12 +2,41 @@
   "schema": 1,
   "id": "f04-sack-soldier",
   "familyId": 4,
-  "version": "hd.2026-08-20.19",
+  "version": "hd.2026-08-20.22",
   "archetype": "small-confirmation",
-  "protocol": {"authority":"CALYPSO COMMAND","record":"PERSONNEL DOSSIER","code":"PD-04","revision":"1.0.21","effectiveDate":"15.07.2061"},
+  "protocol": {
+    "authority": "CALYPSO COMMAND",
+    "record": "PERSONNEL DOSSIER",
+    "code": "PD-04",
+    "revision": "1.0.21",
+    "effectiveDate": "15.07.2061"
+  },
   "title": "DISMISS SOLDIER?",
-  "body": ["This action will permanently","dismiss the soldier."],
-  "icon": {"kind":"warning","glyph":"!","tone":"warning"},
-  "buttons": [{"id":"cancel","label":"CANCEL","tone":"safe","action":"cancel"},{"id":"confirm","label":"DISMISS","tone":"danger","action":"confirm"}],
-  "visibleButtons": ["cancel","confirm"]
+  "body": [
+    "This action will permanently",
+    "dismiss the soldier."
+  ],
+  "icon": {
+    "kind": "warning",
+    "glyph": "!",
+    "tone": "warning"
+  },
+  "buttons": [
+    {
+      "id": "cancel",
+      "label": "CANCEL",
+      "tone": "safe",
+      "action": "cancel"
+    },
+    {
+      "id": "confirm",
+      "label": "DISMISS",
+      "tone": "danger",
+      "action": "confirm"
+    }
+  ],
+  "visibleButtons": [
+    "cancel",
+    "confirm"
+  ]
 }

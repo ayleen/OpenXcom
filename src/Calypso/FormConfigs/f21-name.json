@@ -2,7 +2,7 @@
   "schema": 1,
   "id": "f21-name",
   "familyId": 21,
-  "version": "hd.2026-08-20.19",
+  "version": "hd.2026-08-20.22",
   "archetype": "small-confirmation",
   "protocol": {
     "authority": "CALYPSO COMMAND",
@@ -15,7 +15,8 @@
   "body": [],
   "icon": { "kind": "info", "glyph": "i", "tone": "primary" },
   "buttons": [
-    { "id": "ok", "label": "CONFIRM NAME", "tone": "primary", "action": "confirm" }
+    { "id": "ok", "label": "OK", "tone": "primary", "action": "confirm" },
+    { "id": "cancel", "label": "CANCEL", "tone": "normal", "action": "back" }
   ],
   "input": {
     "value": "CALYPSO DEEP",

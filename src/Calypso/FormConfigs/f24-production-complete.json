@@ -2,12 +2,12 @@
   "schema": 1,
   "id": "f24-production-complete",
   "familyId": 24,
-  "version": "hd.2026-08-20.19",
+  "version": "hd.2026-08-20.22",
   "archetype": "small-confirmation",
   "protocol": {
     "authority": "CALYPSO COMMAND",
     "record": "TACTICAL NOTICE",
-    "code": "F24-PRODUCTION-COMPLETE",
+    "code": "F24-PC-01",
     "revision": "1.0.21",
     "effectiveDate": "15.07.2061"
   },

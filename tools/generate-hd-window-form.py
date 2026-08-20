@@ -50,6 +50,8 @@ HINT_HEIGHT_COMPACT = 16
 GAP_MESSAGE_INPUT = 14
 GAP_INPUT_HINT = 8
 GAP_HINT_FOOTER = 14
+PROTOCOL_INLINE_SAFE_PX = 8
+PROTOCOL_ADVANCE_TENTHS = 7
 
 
 class FormError(ValueError):
@@ -110,8 +112,8 @@ def validate_rect(rect, label):
 def validate_template(template):
     if template.get("schema") != 1 or template.get("id") != "small-confirmation":
         raise FormError("template must be schema 1 small-confirmation")
-    if template.get("version") != 2:
-        raise FormError("template must use content-sized small-confirmation version 2")
+    if template.get("version") != 3:
+        raise FormError("template must use content-sized small-confirmation version 3")
     tones = template.get("supportedButtonTones")
     tone_styles = template.get("buttonToneStyles")
     if not isinstance(tones, list) or set(tones) != {"normal", "safe", "primary", "warning", "danger"}:
@@ -145,6 +147,17 @@ def validate_template(template):
     }
     layouts = template.get("layouts") or {}
     sizing = template.get("contentSizing") or {}
+    density_profiles = template.get("densityProfiles") or {}
+    expected_brief = {
+        "id": "brief-acknowledgement",
+        "scaleNumerator": 2,
+        "scaleDenominator": 3,
+        "footerHeightPx": 48,
+        "minimumActionHeightPx": 44,
+        "minimumMessageHeightPx": 40,
+    }
+    if density_profiles != {"briefAcknowledgement": expected_brief}:
+        raise FormError("template briefAcknowledgement density drifted from the reviewed policy")
     if set(sizing) != {"wide", "compact"}:
         raise FormError("template contentSizing requires exact wide/compact policies")
     if set(layouts) != {"wide", "compact"}:
@@ -223,8 +236,9 @@ def validate_config(config, template):
 
     protocol = config["protocol"]
     require_exact_fields(protocol, PROTOCOL_FIELDS, "config.protocol")
-    for key in ("authority", "record", "code", "revision"):
+    for key in ("authority", "record", "revision"):
         one_line(protocol[key], "config.protocol." + key, 40)
+    one_line(protocol["code"], "config.protocol.code", 16)
     if not isinstance(protocol["effectiveDate"], str) or not DATE_RE.fullmatch(protocol["effectiveDate"]):
         raise FormError("config.protocol.effectiveDate must be DD.MM.YYYY lore copy")
 
@@ -452,6 +466,111 @@ def content_sized_shell(config, template, name, table_rows):
     return window, status, warning, title, message, footer, slots
 
 
+def resolved_presentation(config, template):
+    """Choose a reviewed density from semantic structure, never caller geometry."""
+    is_brief_acknowledgement = (
+        len(config["buttons"]) == 1
+        and 1 <= len(config["body"]) <= 2
+        and config.get("table") is None
+        and config.get("input") is None
+    )
+    if is_brief_acknowledgement:
+        profile = template["densityProfiles"]["briefAcknowledgement"]
+        return {
+            "density": profile["id"],
+            "scaleNumerator": profile["scaleNumerator"],
+            "scaleDenominator": profile["scaleDenominator"],
+        }
+    return {"density": "standard", "scaleNumerator": 1, "scaleDenominator": 1}
+
+
+def nearest_center_preserving_size(value, numerator, denominator):
+    """Scale a size while preserving its integer-center parity."""
+    scaled = value * numerator
+    floor_value = scaled // denominator
+    candidates = [candidate for candidate in range(max(1, floor_value - 2), floor_value + 4)
+                  if candidate % 2 == value % 2]
+    return min(candidates, key=lambda candidate: (abs(candidate * denominator - scaled), candidate))
+
+
+def scaled_edge(value, numerator, denominator):
+    return (value * numerator + denominator // 2) // denominator
+
+
+def scale_rect_from_window(rect, old_window, new_window, numerator, denominator):
+    left = scaled_edge(rect["x"] - old_window["x"], numerator, denominator)
+    top = scaled_edge(rect["y"] - old_window["y"], numerator, denominator)
+    right_edge = scaled_edge(right(rect) - old_window["x"], numerator, denominator)
+    bottom_edge = scaled_edge(bottom(rect) - old_window["y"], numerator, denominator)
+    return _rect(new_window["x"] + left, new_window["y"] + top,
+                 right_edge - left, bottom_edge - top)
+
+
+def apply_brief_acknowledgement_density(layout, template, name):
+    """Scale the complete visible composition; runtime retains the hit floor."""
+    profile = template["densityProfiles"]["briefAcknowledgement"]
+    numerator = profile["scaleNumerator"]
+    denominator = profile["scaleDenominator"]
+    old_window = copy.deepcopy(layout["window"])
+    new_width = nearest_center_preserving_size(old_window["width"], numerator, denominator)
+    new_height = nearest_center_preserving_size(old_window["height"], numerator, denominator)
+    new_window = _rect(
+        (layout["designWidth"] - new_width) // 2,
+        (2 * old_window["y"] + old_window["height"] - new_height) // 2,
+        new_width,
+        new_height,
+    )
+
+    for key in ("status", "warning", "title", "message", "footer"):
+        layout[key] = scale_rect_from_window(
+            layout[key], old_window, new_window, numerator, denominator)
+    for button_id in list(layout["buttons"]):
+        layout["buttons"][button_id] = scale_rect_from_window(
+            layout["buttons"][button_id], old_window, new_window, numerator, denominator)
+    layout["window"] = new_window
+    layout["status"]["x"] = new_window["x"]
+    layout["status"]["y"] = new_window["y"]
+    layout["status"]["width"] = new_window["width"]
+    # Independent edge rounding can otherwise leave the right content margin
+    # one pixel wider. The canonical rail is exactly symmetric by contract.
+    message_margin = layout["message"]["x"] - new_window["x"]
+    layout["message"]["width"] = new_window["width"] - 2 * message_margin
+
+    # The complete visible composition is density-scaled. The native adapter
+    # expands only the invisible input widget to the canonical touch floor;
+    # Engine and Reference paint these generated visual rectangles unchanged.
+    footer_height = profile["footerHeightPx"]
+    layout["footer"] = _rect(
+        new_window["x"], bottom(new_window) - footer_height,
+        new_window["width"], footer_height)
+    action_right = right(layout["message"])
+    for button_id in reversed(layout["buttons"]):
+        button = layout["buttons"][button_id]
+        button["x"] = action_right - button["width"]
+        button["y"] = layout["footer"]["y"] + (footer_height - button["height"]) // 2
+        action_right = button["x"]
+    if action_right < layout["message"]["x"]:
+        raise FormError(name + " brief acknowledgement action group exceeds its content rail")
+
+    # The native wrapped TTF surface includes transparent cap/baseline guard
+    # rows. Keep those rows inside the atomic message rectangle without
+    # changing the reviewed shell or moving the visible text baseline.
+    message_height = profile["minimumMessageHeightPx"]
+    if layout["message"]["height"] < message_height:
+        message_center_twice = layout["message"]["y"] * 2 + layout["message"]["height"]
+        layout["message"]["y"] = (message_center_twice - message_height) // 2
+        layout["message"]["height"] = message_height
+    if layout["message"]["y"] < bottom(layout["title"]):
+        raise FormError(name + " brief acknowledgement message collides with its title")
+
+    # Shared-edge scaling preserves the rail. Keep the invariant explicit so
+    # a future template edit cannot turn rounding into a one-pixel gutter.
+    rightmost = layout["buttons"][next(reversed(layout["buttons"]))]
+    rightmost["width"] += right(layout["message"]) - right(rightmost)
+    if bottom(layout["message"]) >= layout["footer"]["y"]:
+        raise FormError(name + " brief acknowledgement message collides with its footer")
+
+
 def build_table_inside_message(rows, message_rect, is_wide):
     text_unit = TABLE_TEXT_UNIT_WIDE if is_wide else TABLE_TEXT_UNIT_COMPACT
     line_h = TABLE_LINE_HEIGHT_WIDE if is_wide else TABLE_LINE_HEIGHT_COMPACT
@@ -529,9 +648,35 @@ def build_table_inside_message(rows, message_rect, is_wide):
     return rects, metrics
 
 
-def protocol_text(protocol):
-    return (protocol["authority"] + " · " + protocol["record"] + " " + protocol["code"]
-            + " · REV. " + protocol["revision"] + " · EFFECTIVE " + protocol["effectiveDate"])
+def protocol_text_width(value, font_px):
+    """Conservative Share Tech Mono width including the canonical tracking."""
+    return (len(value) * font_px * PROTOCOL_ADVANCE_TENTHS + 9) // 10
+
+
+def protocol_text(protocol, layouts, template, presentation):
+    """Choose the longest canonical status title that fits every layout."""
+    candidates = [
+        protocol["authority"] + " · " + protocol["record"] + " " + protocol["code"],
+        protocol["record"] + " " + protocol["code"],
+        protocol["authority"] + " · " + protocol["code"],
+        protocol["code"],
+    ]
+    candidates = list(dict.fromkeys(candidates))
+    numerator = presentation["scaleNumerator"]
+    denominator = presentation["scaleDenominator"]
+    inset = scaled_edge(
+        template["style"]["protocolTextInsetPx"], numerator, denominator)
+    limits = []
+    for name, base_font in (("wide", 10), ("compact", 9)):
+        font_px = max(8, scaled_edge(base_font, numerator, denominator))
+        available = (layouts[name]["status"]["width"] - 2 * inset
+                     - 2 * PROTOCOL_INLINE_SAFE_PX)
+        limits.append((available, font_px))
+    for candidate in candidates:
+        if all(protocol_text_width(candidate, font_px) <= available
+               for available, font_px in limits):
+            return candidate
+    raise FormError("config.protocol.code cannot fit the generated status rail")
 
 
 def build_contract(config, template, source_name):
@@ -544,6 +689,7 @@ def build_contract(config, template, source_name):
         generated["style"] = copy.deepcopy(template["buttonToneStyles"][button["tone"]])
         buttons.append(generated)
 
+    presentation = resolved_presentation(config, template)
     out = {
         "schema": 1,
         "version": config["version"],
@@ -556,10 +702,11 @@ def build_contract(config, template, source_name):
             "buttons": buttons,
         },
         "copy": {
-            "protocol": protocol_text(config["protocol"]),
+            "protocol": "",
             "title": config["title"],
             "message": copy.deepcopy(config["body"]),
         },
+        "presentation": presentation,
         "style": copy.deepcopy(template["style"]),
         "layouts": {},
         "motion": copy.deepcopy(template["motion"]),
@@ -650,7 +797,12 @@ def build_contract(config, template, source_name):
             # Place input/hint at the very bottom of the (now expanded) message.
             layout["inputHint"] = {"x": layout["message"]["x"], "y": layout["message"]["y"] + layout["message"]["height"] - hint_h, "width": layout["message"]["width"], "height": hint_h}
             layout["inputFrame"] = {"x": layout["message"]["x"], "y": layout["inputHint"]["y"] - GAP_INPUT_HINT - input_h, "width": layout["message"]["width"], "height": input_h}
+        if presentation["density"] == "brief-acknowledgement":
+            apply_brief_acknowledgement_density(layout, template, name)
         out["layouts"][name] = layout
+
+    out["copy"]["protocol"] = protocol_text(
+        config["protocol"], out["layouts"], template, presentation)
 
     if table_rows is not None:
         out["form"]["tableRows"] = copy.deepcopy(table_rows)

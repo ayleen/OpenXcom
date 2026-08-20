@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "hd.2026-08-20.19",
+  "version": "hd.2026-08-20.22",
   "form": {
     "id": "f33-abandon",
     "familyId": 33,
@@ -37,7 +37,7 @@
     ]
   },
   "copy": {
-    "protocol": "CALYPSO COMMAND · SESSION PROTOCOL SP-01 · REV. 1.0.21 · EFFECTIVE 15.07.2061",
+    "protocol": "CALYPSO COMMAND · SESSION PROTOCOL SP-01",
     "title": "ABANDON GAME?",
     "message": [
       "Your progress since the last save will be lost.",
@@ -45,6 +45,11 @@
     ],
     "safeAction": "KEEP PLAYING",
     "destructiveAction": "ABANDON GAME"
+  },
+  "presentation": {
+    "density": "standard",
+    "scaleNumerator": 1,
+    "scaleDenominator": 1
   },
   "style": {
     "cutCornerPx": 14,

@@ -4,11 +4,16 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF24ProductionCompleteGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-20.19";
+inline constexpr const char* kContractVersion = "hd.2026-08-20.22";
 inline constexpr const char* kFormId = "f24-production-complete";
 inline constexpr int kFamilyId = 24;
 inline constexpr const char* kArchetype = "small-confirmation";
 inline constexpr const char* kSourceConfig = "FormConfigs/f24-production-complete.json";
+
+inline constexpr const char* kDensityProfile = "standard";
+inline constexpr int kPresentationScaleNumerator = 1;
+inline constexpr int kPresentationScaleDenominator = 1;
+inline constexpr float kPresentationScale = 1.000000f;
 
 struct CalypsoF24ProductionCompleteGenButton { const char* id; const char* label; const char* tone; const char* action; std::uint32_t fill; std::uint32_t border; std::uint32_t text; };
 inline constexpr CalypsoF24ProductionCompleteGenButton kButtons[] = {

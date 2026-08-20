@@ -4,11 +4,16 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF24ItemsArrivingGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-20.19";
+inline constexpr const char* kContractVersion = "hd.2026-08-20.22";
 inline constexpr const char* kFormId = "f24-items-arriving";
 inline constexpr int kFamilyId = 24;
 inline constexpr const char* kArchetype = "small-confirmation";
 inline constexpr const char* kSourceConfig = "FormConfigs/f24-items-arriving.json";
+
+inline constexpr const char* kDensityProfile = "standard";
+inline constexpr int kPresentationScaleNumerator = 1;
+inline constexpr int kPresentationScaleDenominator = 1;
+inline constexpr float kPresentationScale = 1.000000f;
 
 struct CalypsoF24ItemsArrivingGenButton { const char* id; const char* label; const char* tone; const char* action; std::uint32_t fill; std::uint32_t border; std::uint32_t text; };
 inline constexpr CalypsoF24ItemsArrivingGenButton kButtons[] = {
@@ -30,21 +35,15 @@ inline constexpr std::uint32_t kWarning = 0xFFC14DFFu;
 
 struct CalypsoF24ItemsArrivingGenRect { int x; int y; int w; int h; };
 struct CalypsoF24ItemsArrivingGenLayout { int designWidth; int designHeight; CalypsoF24ItemsArrivingGenRect window; CalypsoF24ItemsArrivingGenRect status; CalypsoF24ItemsArrivingGenRect warning; CalypsoF24ItemsArrivingGenRect title; CalypsoF24ItemsArrivingGenRect message; CalypsoF24ItemsArrivingGenRect footer;
-    CalypsoF24ItemsArrivingGenRect cellR1C1;
-    CalypsoF24ItemsArrivingGenRect cellR1C2;
-    CalypsoF24ItemsArrivingGenRect cellR2C1;
-    CalypsoF24ItemsArrivingGenRect cellR2C2;
-    CalypsoF24ItemsArrivingGenRect columnDivider1;
-    CalypsoF24ItemsArrivingGenRect rowDivider1;
 };
 inline constexpr CalypsoF24ItemsArrivingGenLayout kLayouts[] = {
-    { 1280, 720, { 436, 230, 408, 323 }, { 436, 230, 408, 38 }, { 468, 290, 32, 32 }, { 516, 284, 296, 44 }, { 468, 336, 344, 141 }, { 436, 491, 408, 62 }, { 484, 408, 88, 22 }, { 589, 408, 72, 22 }, { 484, 447, 88, 22 }, { 589, 447, 72, 22 }, { 580, 400, 1, 77 }, { 476, 438, 193, 1 } }, // wide
-    { 740, 360, { 187, 60, 366, 298 }, { 187, 60, 366, 34 }, { 215, 111, 28, 28 }, { 257, 106, 268, 38 }, { 215, 150, 310, 125 }, { 187, 292, 366, 66 }, { 231, 214, 77, 18 }, { 325, 214, 63, 18 }, { 231, 249, 77, 18 }, { 325, 249, 63, 18 }, { 316, 206, 1, 69 }, { 223, 240, 173, 1 } }, // compact
+    { 1280, 720, { 436, 230, 408, 236 }, { 436, 230, 408, 38 }, { 468, 290, 32, 32 }, { 516, 284, 296, 44 }, { 468, 336, 344, 54 }, { 436, 404, 408, 62 } }, // wide
+    { 740, 360, { 187, 60, 366, 221 }, { 187, 60, 366, 34 }, { 215, 111, 28, 28 }, { 257, 106, 268, 38 }, { 215, 150, 310, 48 }, { 187, 215, 366, 66 } }, // compact
 };
 struct CalypsoF24ItemsArrivingGenButtonRect { const char* id; CalypsoF24ItemsArrivingGenRect rect; };
 inline constexpr CalypsoF24ItemsArrivingGenButtonRect kButtonRects[][ 2 ] = {
-    { { "cancel", { 486, 500, 158, 44 } }, { "confirm", { 654, 500, 158, 44 } } }, // wide
-    { { "cancel", { 217, 302, 148, 44 } }, { "confirm", { 377, 302, 148, 44 } } }, // compact
+    { { "cancel", { 486, 413, 158, 44 } }, { "confirm", { 654, 413, 158, 44 } } }, // wide
+    { { "cancel", { 217, 225, 148, 44 } }, { "confirm", { 377, 225, 148, 44 } } }, // compact
 };
 inline constexpr int kLayoutCount = 2;
 inline constexpr int kMotionDurationMs = 200;

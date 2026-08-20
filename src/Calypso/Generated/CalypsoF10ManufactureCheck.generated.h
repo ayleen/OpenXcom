@@ -4,11 +4,16 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF10ManufactureCheckGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-20.19";
+inline constexpr const char* kContractVersion = "hd.2026-08-20.22";
 inline constexpr const char* kFormId = "f10-manufacture-check";
 inline constexpr int kFamilyId = 10;
 inline constexpr const char* kArchetype = "small-confirmation";
 inline constexpr const char* kSourceConfig = "FormConfigs/f10-manufacture-check.json";
+
+inline constexpr const char* kDensityProfile = "standard";
+inline constexpr int kPresentationScaleNumerator = 1;
+inline constexpr int kPresentationScaleDenominator = 1;
+inline constexpr float kPresentationScale = 1.000000f;
 
 struct CalypsoF10ManufactureCheckGenButton { const char* id; const char* label; const char* tone; const char* action; std::uint32_t fill; std::uint32_t border; std::uint32_t text; };
 inline constexpr CalypsoF10ManufactureCheckGenButton kButtons[] = {
@@ -30,21 +35,15 @@ inline constexpr std::uint32_t kWarning = 0xFFC14DFFu;
 
 struct CalypsoF10ManufactureCheckGenRect { int x; int y; int w; int h; };
 struct CalypsoF10ManufactureCheckGenLayout { int designWidth; int designHeight; CalypsoF10ManufactureCheckGenRect window; CalypsoF10ManufactureCheckGenRect status; CalypsoF10ManufactureCheckGenRect warning; CalypsoF10ManufactureCheckGenRect title; CalypsoF10ManufactureCheckGenRect message; CalypsoF10ManufactureCheckGenRect footer;
-    CalypsoF10ManufactureCheckGenRect cellR1C1;
-    CalypsoF10ManufactureCheckGenRect cellR1C2;
-    CalypsoF10ManufactureCheckGenRect cellR2C1;
-    CalypsoF10ManufactureCheckGenRect cellR2C2;
-    CalypsoF10ManufactureCheckGenRect columnDivider1;
-    CalypsoF10ManufactureCheckGenRect rowDivider1;
 };
 inline constexpr CalypsoF10ManufactureCheckGenLayout kLayouts[] = {
-    { 1280, 720, { 406, 230, 468, 323 }, { 406, 230, 468, 38 }, { 438, 290, 32, 32 }, { 486, 284, 356, 44 }, { 438, 336, 404, 141 }, { 406, 491, 468, 62 }, { 454, 408, 80, 22 }, { 551, 408, 72, 22 }, { 454, 447, 80, 22 }, { 551, 447, 72, 22 }, { 542, 400, 1, 77 }, { 446, 438, 185, 1 } }, // wide
-    { 740, 360, { 160, 60, 420, 298 }, { 160, 60, 420, 34 }, { 188, 111, 28, 28 }, { 230, 106, 322, 38 }, { 188, 150, 364, 125 }, { 160, 292, 420, 66 }, { 204, 214, 70, 18 }, { 291, 214, 63, 18 }, { 204, 249, 70, 18 }, { 291, 249, 63, 18 }, { 282, 206, 1, 69 }, { 196, 240, 166, 1 } }, // compact
+    { 1280, 720, { 406, 230, 468, 236 }, { 406, 230, 468, 38 }, { 438, 290, 32, 32 }, { 486, 284, 356, 44 }, { 438, 336, 404, 54 }, { 406, 404, 468, 62 } }, // wide
+    { 740, 360, { 160, 60, 420, 221 }, { 160, 60, 420, 34 }, { 188, 111, 28, 28 }, { 230, 106, 322, 38 }, { 188, 150, 364, 48 }, { 160, 215, 420, 66 } }, // compact
 };
 struct CalypsoF10ManufactureCheckGenButtonRect { const char* id; CalypsoF10ManufactureCheckGenRect rect; };
 inline constexpr CalypsoF10ManufactureCheckGenButtonRect kButtonRects[][ 2 ] = {
-    { { "cancel", { 516, 500, 158, 44 } }, { "confirm", { 684, 500, 158, 44 } } }, // wide
-    { { "cancel", { 244, 302, 148, 44 } }, { "confirm", { 404, 302, 148, 44 } } }, // compact
+    { { "cancel", { 516, 413, 158, 44 } }, { "confirm", { 684, 413, 158, 44 } } }, // wide
+    { { "cancel", { 244, 225, 148, 44 } }, { "confirm", { 404, 225, 148, 44 } } }, // compact
 };
 inline constexpr int kLayoutCount = 2;
 inline constexpr int kMotionDurationMs = 200;

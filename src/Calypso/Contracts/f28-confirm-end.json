@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "hd.2026-08-20.19",
+  "version": "hd.2026-08-20.22",
   "form": {
     "id": "f28-confirm-end",
     "familyId": 28,
@@ -41,12 +41,17 @@
     ]
   },
   "copy": {
-    "protocol": "CALYPSO COMMAND · TACTICAL TURN TA-28-E · REV. 1.0.21 · EFFECTIVE 15.07.2061",
+    "protocol": "CALYPSO COMMAND · TACTICAL TURN TA-28-E",
     "title": "END TURN?",
     "message": [
       "End the current turn",
       "and proceed?"
     ]
+  },
+  "presentation": {
+    "density": "standard",
+    "scaleNumerator": 1,
+    "scaleDenominator": 1
   },
   "style": {
     "cutCornerPx": 14,

@@ -119,5 +119,13 @@ void NoExperienceState::resize(int &dX, int &dY)
 	if (Calypso::CalypsoF30NoExperienceUi::resize(*this)) return;
 	State::resize(dX, dY);
 }
+#ifdef __EMSCRIPTEN__
+NoExperienceState::~NoExperienceState()
+{
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
 }
 #endif
+}
+#endif
+

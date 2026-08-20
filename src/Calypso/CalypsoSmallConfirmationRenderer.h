@@ -9,12 +9,14 @@
  */
 #ifdef __EMSCRIPTEN__
 
+#include <algorithm>
 #include <cstdint>
 #include <string>
 #include <vector>
 
 #include "CalypsoHdFamilyAdapter.h"
 #include "CalypsoHdInteractionState.h"
+#include "CalypsoUiMetrics.h"
 
 namespace OpenXcom
 {
@@ -42,6 +44,23 @@ struct CalypsoSmallConfirmationMotion
 	bool presented = false;
 	std::uint64_t presentedAtFrame = 0;
 };
+
+/**
+ * Keep the generated rectangle as the visible action surface while expanding
+ * only the logical input widget to the shared mobile touch floor. The right
+ * edge stays on the generated action rail and vertical expansion is centered.
+ */
+template <typename Rect>
+Rect calypsoSmallConfirmationTouchRect(Rect visual)
+{
+	const int width = std::max(visual.width, CALYPSO_MIN_TOUCH_TARGET);
+	const int height = std::max(visual.height, CALYPSO_MIN_TOUCH_TARGET);
+	visual.x -= width - visual.width;
+	visual.y -= (height - visual.height) / 2;
+	visual.width = width;
+	visual.height = height;
+	return visual;
+}
 
 struct CalypsoSmallConfirmationModel
 {
@@ -83,6 +102,7 @@ struct CalypsoSmallConfirmationModel
 	std::uint32_t warningColor = 0;
 
 	double uiScale = 1.0;
+	double visualScale = 1.0;
 	double projectionScaleX = 1.0;
 	double projectionScaleY = 1.0;
 	int messageDesignWidth = 1;

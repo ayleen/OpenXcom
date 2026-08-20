@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "hd.2026-08-20.19",
+  "version": "hd.2026-08-20.22",
   "form": {
     "id": "f18-craft-error",
     "familyId": 18,
@@ -41,12 +41,17 @@
     ]
   },
   "copy": {
-    "protocol": "CALYPSO COMMAND · CRAFT DISPATCH ALERT CA-18 · REV. 1.0.21 · EFFECTIVE 15.07.2061",
+    "protocol": "CALYPSO COMMAND · CRAFT DISPATCH ALERT CA-18",
     "title": "CRAFT ALERT",
     "message": [
       "Craft cannot complete",
       "the assigned operation."
     ]
+  },
+  "presentation": {
+    "density": "standard",
+    "scaleNumerator": 1,
+    "scaleDenominator": 1
   },
   "style": {
     "cutCornerPx": 14,

@@ -28,10 +28,10 @@ void CalypsoF24ResearchRequiredUi::collect(CalypsoHdFrameBuilder& builder) const
     m.designWidth = g->designWidth; m.designHeight = g->designHeight;
     m.window = winRect; m.status = proj(g->status); m.warning = proj(g->warning); m.title = proj(g->title); m.message = proj(g->message); m.footer = proj(g->footer);
     m.windowWidget = _state->_window;
+    m.titleText = m.messageText; // use message as title fallback
     m.messageWidget = _state->_txtTitle;
     m.messageText = _state->_txtTitle ? _state->_txtTitle->getText() : std::string();
-    m.titleText = "";
-    m.protocolText = "";
+    m.protocolText = std::string();
     m.warningGlyph = "!";
     m.cutCornerPx = CalypsoF24ResearchRequiredGen::kCutCornerPx;
     m.protocolTextInsetPx = CalypsoF24ResearchRequiredGen::kProtocolTextInsetPx;
@@ -42,8 +42,11 @@ void CalypsoF24ResearchRequiredUi::collect(CalypsoHdFrameBuilder& builder) const
     m.dividerColor = CalypsoF24ResearchRequiredGen::kDivider;
     m.footerDotColor = CalypsoF24ResearchRequiredGen::kFooterDot;
     m.warningColor = CalypsoF24ResearchRequiredGen::kWarning;
-
-    { CalypsoSmallConfirmationButton b{}; b.widget = _state->_btnOk; b.text = b.widget ? b.widget->getText() : std::string(); b.rect = b.widget ? CalypsoLogicalRect{b.widget->getX(), b.widget->getY(), b.widget->getWidth(), b.widget->getHeight()} : proj(g->window); b.tone = CalypsoActionTone::Safe; m.buttons.push_back(b); }
+    m.messageDesignWidth = g->message.w;
+    m.titleDesignHeight = g->title.h;
+    m.motionDurationMs = CalypsoF24ResearchRequiredGen::kMotionDurationMs;
+    m.motionScaleFrom = CalypsoF24ResearchRequiredGen::kMotionScaleFrom;
+    { CalypsoSmallConfirmationButton b{}; b.widget = _state->_btnOk; b.text = b.widget ? b.widget->getText() : std::string(); b.rect = b.widget ? CalypsoLogicalRect{b.widget->getX(), b.widget->getY(), b.widget->getWidth(), b.widget->getHeight()} : proj(g->window); b.tone = CalypsoActionTone::Safe; for(int i=0;i<CalypsoF24ResearchRequiredGen::kButtonCount;++i) if(std::string(CalypsoF24ResearchRequiredGen::kButtons[i].id)=="ok") { b.restFill=CalypsoF24ResearchRequiredGen::kButtons[i].fill; b.restBorder=CalypsoF24ResearchRequiredGen::kButtons[i].border; b.textColor=CalypsoF24ResearchRequiredGen::kButtons[i].text; break; } m.buttons.push_back(b); }
     calypsoCollectSmallConfirmation(builder, m, _motion);
 }
 void CalypsoF24ResearchRequiredUi::configure(ResearchRequiredState& s, bool allow) {

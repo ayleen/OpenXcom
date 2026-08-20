@@ -28,10 +28,10 @@ void CalypsoF06SoldierDiaryUi::collect(CalypsoHdFrameBuilder& builder) const {
     m.designWidth = g->designWidth; m.designHeight = g->designHeight;
     m.window = winRect; m.status = proj(g->status); m.warning = proj(g->warning); m.title = proj(g->title); m.message = proj(g->message); m.footer = proj(g->footer);
     m.windowWidget = _state->_window;
+    m.titleText = m.messageText; // use message as title fallback
     m.messageWidget = _state->_txtTitle;
     m.messageText = _state->_txtTitle ? _state->_txtTitle->getText() : std::string();
-    m.titleText = "";
-    m.protocolText = "";
+    m.protocolText = std::string();
     m.warningGlyph = "!";
     m.cutCornerPx = CalypsoF06SoldierDiaryGen::kCutCornerPx;
     m.protocolTextInsetPx = CalypsoF06SoldierDiaryGen::kProtocolTextInsetPx;
@@ -42,12 +42,17 @@ void CalypsoF06SoldierDiaryUi::collect(CalypsoHdFrameBuilder& builder) const {
     m.dividerColor = CalypsoF06SoldierDiaryGen::kDivider;
     m.footerDotColor = CalypsoF06SoldierDiaryGen::kFooterDot;
     m.warningColor = CalypsoF06SoldierDiaryGen::kWarning;
-
-    { CalypsoSmallConfirmationButton b{}; b.widget = _state->_btnOk; b.text = b.widget ? b.widget->getText() : std::string(); b.rect = b.widget ? CalypsoLogicalRect{b.widget->getX(), b.widget->getY(), b.widget->getWidth(), b.widget->getHeight()} : proj(g->window); b.tone = CalypsoActionTone::Safe; m.buttons.push_back(b); }
+    m.messageDesignWidth = g->message.w;
+    m.titleDesignHeight = g->title.h;
+    m.motionDurationMs = CalypsoF06SoldierDiaryGen::kMotionDurationMs;
+    m.motionScaleFrom = CalypsoF06SoldierDiaryGen::kMotionScaleFrom;
+    { CalypsoSmallConfirmationButton b{}; b.widget = _state->_btnOk; b.text = b.widget ? b.widget->getText() : std::string(); b.rect = b.widget ? CalypsoLogicalRect{b.widget->getX(), b.widget->getY(), b.widget->getWidth(), b.widget->getHeight()} : proj(g->window); b.tone = CalypsoActionTone::Safe; for(int i=0;i<CalypsoF06SoldierDiaryGen::kButtonCount;++i) if(std::string(CalypsoF06SoldierDiaryGen::kButtons[i].id)=="ok") { b.restFill=CalypsoF06SoldierDiaryGen::kButtons[i].fill; b.restBorder=CalypsoF06SoldierDiaryGen::kButtons[i].border; b.textColor=CalypsoF06SoldierDiaryGen::kButtons[i].text; break; } m.buttons.push_back(b); }
     calypsoCollectSmallConfirmation(builder, m, _motion);
 }
 void CalypsoF06SoldierDiaryUi::configure(SoldierDiaryOverviewState& s, bool allow) {
     if(!allow || !s._game || !s._game->getMod()->isHdUiFamilyEnabled("F06")) { s._hdLayout=false; return; }
+    // F05/F06 are full screens, keep legacy (review blocker 2)
+    s._hdLayout = false; return;
     s._hdLayout = true; s._hdWideLayout = (Options::baseXResolution >= 1000);
     auto* a = new CalypsoF06SoldierDiaryUi(&s);
     s._hdAdapter = a;

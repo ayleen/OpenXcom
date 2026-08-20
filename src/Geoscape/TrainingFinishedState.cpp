@@ -129,5 +129,13 @@ void TrainingFinishedState::resize(int &dX, int &dY)
 	if (Calypso::CalypsoF22TrainingFinishedUi::resize(*this)) return;
 	State::resize(dX, dY);
 }
+#ifdef __EMSCRIPTEN__
+TrainingFinishedState::~TrainingFinishedState()
+{
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
 }
 #endif
+}
+#endif
+
