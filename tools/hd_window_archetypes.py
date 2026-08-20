@@ -59,6 +59,8 @@ LAYOUT_FIELDS = {
         "gridColumns",
         "gridRows",
         "gridGap",
+        "gridLabelLineHeight",
+        "gridLabelMaxLines",
         "scrollbarWidth",
         "scrollbarGap",
         "minThumbHeight",
@@ -100,6 +102,8 @@ LAYOUT_FIELDS = {
         "gridColumns",
         "gridRows",
         "gridGap",
+        "gridLabelLineHeight",
+        "gridLabelMaxLines",
         "scrollbarWidth",
         "scrollbarGap",
         "minThumbHeight",
@@ -137,6 +141,8 @@ LAYOUT_FIELDS = {
         "gridColumns",
         "gridRows",
         "gridGap",
+        "gridLabelLineHeight",
+        "gridLabelMaxLines",
         "scrollbarWidth",
         "scrollbarGap",
         "minThumbHeight",
@@ -181,6 +187,29 @@ LIMIT_FIELDS = {
         "maxColumns",
         "maxCellCharacters",
     },
+}
+ZERO_CAPABLE_LAYOUT_FIELDS = {
+    "actionGap",
+    "actionInset",
+    "cellInlineInset",
+    "controlGap",
+    "controlInset",
+    "detailActionGap",
+    "detailInset",
+    "detailNoteVisible",
+    "fieldColumnGap",
+    "gridGap",
+    "regionActionGap",
+    "regionInset",
+    "scrollbarGap",
+    "tabGap",
+    "toolbarGap",
+}
+DETAIL_ROLE_BY_KIND = {
+    "collection": "primary",
+    "preview": "secondary",
+    "fields": "summary",
+    "actions": "navigation",
 }
 
 
@@ -361,7 +390,12 @@ def _validate_template(template):
             - {"designWidth", "designHeight", "regionSlots"}
         )
         for field in non_rect_fields:
-            _positive_int(layout[field], "template.layouts." + name + "." + field, 0)
+            minimum = 0 if field in ZERO_CAPABLE_LAYOUT_FIELDS else 1
+            _positive_int(
+                layout[field],
+                "template.layouts." + name + "." + field,
+                minimum,
+            )
         if template["generatorKind"] == "tabbed":
             detail_minimums = {
                 "detailLabelHeight": 12,
@@ -426,6 +460,19 @@ def _validate_template(template):
                     + name
                     + ".fieldLabelPercent must be between 1 and 99"
                 )
+            summary = layout["regionSlots"]["summary"]
+            summary_content_height = (
+                summary["height"]
+                - 2 * layout["regionInset"]
+                - layout["regionHeaderHeight"]
+            )
+            field_capacity = summary_content_height // layout["fieldRowHeight"]
+            if template["limits"]["maxFieldsPerRegion"] > field_capacity:
+                raise ArchetypeError(
+                    "template.limits.maxFieldsPerRegion is not achievable in "
+                    + name
+                    + " summary region"
+                )
         for index, (first_name, first_rect) in enumerate(owned_rects):
             for second_name, second_rect in owned_rects[index + 1 :]:
                 if _overlaps(first_rect, second_rect):
@@ -489,6 +536,16 @@ def _validate_template(template):
                     + field
                     + " violates the 44px minimum"
                 )
+        maximum_actions = template["limits"]["maxActions"]
+        required_action_width = (
+            maximum_actions * layout["actionWidth"]
+            + max(0, maximum_actions - 1) * layout["actionGap"]
+            + layout["actionInset"]
+        )
+        if required_action_width > layout["footer"]["width"]:
+            raise ArchetypeError(
+                "template.limits.maxActions is not achievable in " + name + " footer"
+            )
 
 
 def _layout_rect_fields(kind):
@@ -925,6 +982,11 @@ def _validate_detail(config, template):
         _one_line(region["label"], region_label + ".label", 32)
         if region["role"] not in allowed_roles:
             raise ArchetypeError(region_label + ".role is unsupported")
+        expected_role = DETAIL_ROLE_BY_KIND[kind]
+        if region["role"] != expected_role:
+            raise ArchetypeError(
+                region_label + ".kind " + kind + " requires role " + expected_role
+            )
         if region["id"] in region_ids:
             raise ArchetypeError("config.regions IDs must be unique")
         if region["role"] in roles:
@@ -1002,6 +1064,31 @@ def _ensure_text_fits(text, rect, authored, label):
     required = len(text) * authored["textUnitWidth"]
     if available <= 0 or required > available:
         raise ArchetypeError(label + " cannot fit its semantic copy")
+
+
+def _grid_label_line_count(text, available_width, text_unit_width):
+    line_count = 1
+    used_width = 0
+    for word in text.split(" "):
+        word_width = len(word) * text_unit_width
+        if word_width > available_width:
+            return None
+        if used_width == 0:
+            used_width = word_width
+        elif used_width + text_unit_width + word_width <= available_width:
+            used_width += text_unit_width + word_width
+        else:
+            line_count += 1
+            used_width = word_width
+    return line_count
+
+
+def _ensure_grid_label_fits(text, rect, authored, label):
+    line_height = authored["gridLabelLineHeight"]
+    available_lines = min(authored["gridLabelMaxLines"], rect["height"] // line_height)
+    line_count = _grid_label_line_count(text, rect["width"], authored["textUnitWidth"])
+    if available_lines < 1 or line_count is None or line_count > available_lines:
+        raise ArchetypeError(label + " grid label cannot fit its semantic copy")
 
 
 def _ensure_action_copy_fits(actions, rectangles, authored, label):
@@ -1171,9 +1258,10 @@ def _build_collection_fragment(collection, authored, viewport, name):
         authored["scrollbarWidth"],
         track_height,
     )
-    data_width = (
-        viewport["width"] - authored["scrollbarGap"] - authored["scrollbarWidth"]
-    )
+    hit_rail_width = max(44, authored["scrollbarWidth"])
+    data_width = viewport["width"] - authored["scrollbarGap"] - hit_rail_width
+    if data_width <= 0:
+        raise ArchetypeError(name + " scrollbar rail leaves no collection width")
     if mode in {"list", "table"}:
         columns = collection["columns"]
         header = _make_rect(
@@ -1240,21 +1328,47 @@ def _build_collection_fragment(collection, authored, viewport, name):
             raise ArchetypeError(
                 name + " grid template violates the 44px target minimum"
             )
+        label_height = authored["gridLabelLineHeight"] * authored["gridLabelMaxLines"]
+        if label_height > tile_height:
+            raise ArchetypeError(name + " grid label band exceeds its tile")
         fragment["tileSlots"] = []
         for row_index in range(rows):
             for column_index in range(columns):
                 slot_index = row_index * columns + column_index + 1
+                tile = _make_rect(
+                    viewport["x"] + column_index * (tile_width + gap),
+                    viewport["y"] + row_index * (tile_height + gap),
+                    tile_width,
+                    tile_height,
+                )
+                label_rect = _make_rect(
+                    tile["x"] + authored["cellInlineInset"],
+                    _bottom(tile) - label_height,
+                    tile["width"] - 2 * authored["cellInlineInset"],
+                    label_height,
+                )
+                if label_rect["width"] <= 0:
+                    raise ArchetypeError(name + " grid label has no inline width")
                 fragment["tileSlots"].append(
                     {
                         "id": "tile-slot-" + str(slot_index),
-                        "rect": _make_rect(
-                            viewport["x"] + column_index * (tile_width + gap),
-                            viewport["y"] + row_index * (tile_height + gap),
-                            tile_width,
-                            tile_height,
-                        ),
+                        "rect": tile,
+                        "label": label_rect,
                     }
                 )
+        fixture_label_rect = fragment["tileSlots"][0]["label"]
+        for item in collection["items"]:
+            _ensure_grid_label_fits(
+                item["label"],
+                fixture_label_rect,
+                authored,
+                name + ".collection.item." + item["id"],
+            )
+        fragment["gridLabelPolicy"] = {
+            "wrap": "word",
+            "lineHeight": authored["gridLabelLineHeight"],
+            "maxLines": authored["gridLabelMaxLines"],
+        }
         capacity = columns * rows
         total_units = (total + columns - 1) // columns
         visible_units = rows
@@ -1330,16 +1444,17 @@ def _build_collection(config, template, source_name, template_name):
             )
         )
     else:
+        maximum_slots = max(
+            template["layouts"]["wide"]["gridColumns"]
+            * template["layouts"]["wide"]["gridRows"],
+            template["layouts"]["compact"]["gridColumns"]
+            * template["layouts"]["compact"]["gridRows"],
+        )
         out["parts"].extend(
-            "tile-slot." + str(index + 1)
-            for index in range(
-                max(
-                    template["layouts"]["wide"]["gridColumns"]
-                    * template["layouts"]["wide"]["gridRows"],
-                    template["layouts"]["compact"]["gridColumns"]
-                    * template["layouts"]["compact"]["gridRows"],
-                )
-            )
+            "tile-slot." + str(index + 1) for index in range(maximum_slots)
+        )
+        out["parts"].extend(
+            "tile-slot." + str(index + 1) + ".label" for index in range(maximum_slots)
         )
     return out
 
@@ -1725,9 +1840,10 @@ def _build_region_action_fragment(actions, authored, content, name):
         authored["scrollbarWidth"],
         content["height"],
     )
-    data_width = (
-        content["width"] - authored["scrollbarGap"] - authored["scrollbarWidth"]
-    )
+    hit_rail_width = max(44, authored["scrollbarWidth"])
+    data_width = content["width"] - authored["scrollbarGap"] - hit_rail_width
+    if data_width <= 0:
+        raise ArchetypeError(name + " scrollbar rail leaves no action width")
     slot_width = (data_width - gap * (columns - 1)) // columns
     required_height = visible_rows * 44 + max(0, visible_rows - 1) * gap
     if slot_width < 44 or required_height > content["height"]:
@@ -1759,6 +1875,76 @@ def _build_region_action_fragment(actions, authored, content, name):
         authored["minThumbHeight"],
     )
     return slots, metrics
+
+
+def _detail_region_parts(region, template):
+    prefix = "region." + region["id"]
+    parts = [prefix, prefix + ".label"]
+    if region["kind"] == "preview":
+        parts.append(prefix + ".content")
+    elif region["kind"] == "collection":
+        collection = region["collection"]
+        collection_prefix = prefix + ".collection"
+        parts.extend(
+            (
+                prefix + ".content",
+                collection_prefix,
+                collection_prefix + ".scroll.track",
+                collection_prefix + ".scroll.thumb",
+            )
+        )
+        if collection["mode"] in {"list", "table"}:
+            parts.extend(
+                collection_prefix + ".column." + column["id"]
+                for column in collection["columns"]
+            )
+            maximum_slots = max(
+                template["layouts"]["wide"]["visibleRows"],
+                template["layouts"]["compact"]["visibleRows"],
+            )
+            parts.extend(
+                collection_prefix + ".row-slot." + str(index + 1)
+                for index in range(maximum_slots)
+            )
+        else:
+            maximum_slots = max(
+                template["layouts"]["wide"]["gridColumns"]
+                * template["layouts"]["wide"]["gridRows"],
+                template["layouts"]["compact"]["gridColumns"]
+                * template["layouts"]["compact"]["gridRows"],
+            )
+            parts.extend(
+                collection_prefix + ".tile-slot." + str(index + 1)
+                for index in range(maximum_slots)
+            )
+            parts.extend(
+                collection_prefix + ".tile-slot." + str(index + 1) + ".label"
+                for index in range(maximum_slots)
+            )
+    elif region["kind"] == "fields":
+        for field in region["fields"]:
+            field_prefix = prefix + ".field." + field["id"]
+            parts.extend(
+                (field_prefix, field_prefix + ".label", field_prefix + ".value")
+            )
+    else:
+        parts.extend(prefix + ".action." + action["id"] for action in region["actions"])
+    return parts
+
+
+def _ensure_spacing_rules_resolve(parts, rules):
+    declared = set(parts)
+    for rule in rules:
+        for endpoint in ("first", "second", "container", "child"):
+            if endpoint in rule and rule[endpoint] not in declared:
+                raise ArchetypeError(
+                    "spacing rule "
+                    + rule["id"]
+                    + "."
+                    + endpoint
+                    + " references undeclared part "
+                    + rule[endpoint]
+                )
 
 
 def _build_detail_regions(config, template, source_name, template_name):
@@ -1988,8 +2174,10 @@ def _build_detail_regions(config, template, source_name, template_name):
     out["spacingRules"] = rules
     out["parts"] = ["window", "status", "title", "controlBar", "footer"]
     out["parts"].extend("control." + control["id"] for control in controls)
-    out["parts"].extend("region." + region["id"] for region in config["regions"])
+    for region in config["regions"]:
+        out["parts"].extend(_detail_region_parts(region, template))
     out["parts"].extend("action." + action["id"] for action in actions)
+    _ensure_spacing_rules_resolve(out["parts"], rules)
     return out
 
 

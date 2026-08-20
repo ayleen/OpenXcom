@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "id": "scrollable-collection",
-  "version": 2,
+  "version": 3,
   "generatorKind": "collection",
   "supportedButtonTones": ["normal", "safe", "primary", "warning", "danger"],
   "buttonToneStyles": {
@@ -50,6 +50,8 @@
       "gridColumns": 6,
       "gridRows": 4,
       "gridGap": 8,
+      "gridLabelLineHeight": 16,
+      "gridLabelMaxLines": 2,
       "scrollbarWidth": 18,
       "scrollbarGap": 10,
       "minThumbHeight": 44,
@@ -77,11 +79,13 @@
       "gridColumns": 5,
       "gridRows": 3,
       "gridGap": 8,
+      "gridLabelLineHeight": 12,
+      "gridLabelMaxLines": 2,
       "scrollbarWidth": 18,
       "scrollbarGap": 8,
       "minThumbHeight": 44,
       "textUnitWidth": 7,
-      "cellInlineInset": 8,
+      "cellInlineInset": 7,
       "actionWidth": 148,
       "actionGap": 12,
       "actionInset": 24

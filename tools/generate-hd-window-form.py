@@ -847,6 +847,8 @@ def main(argv=None):
         template_path = args.template or os.path.join(
             FORM_TEMPLATES_DIR, archetype + ".json")
         template = load_json(template_path)
+        if not isinstance(template, dict):
+            raise FormError("template must be an object")
         if template.get("id") != archetype:
             raise FormError("template.id must match config.archetype")
         source_name = "FormConfigs/" + os.path.basename(args.config)
