@@ -29,12 +29,26 @@ struct CalypsoGeoscapeCommandShellGenLayout
 
 inline constexpr CalypsoGeoscapeCommandShellGenActionLayout kWideActions[] =
 {
+	{ "action.session", "compact-command-action", "session-action", { 18, 16, 122, 46 }, { 18, 16, 122, 46 }, 5, 1 },
 	{ "action.bases", "command-icon-action", "primary-left-1", { 24, 138, 120, 84 }, { 24, 138, 120, 84 }, 10, 1 },
 	{ "action.graphs", "command-icon-action", "primary-left-2", { 24, 242, 120, 84 }, { 24, 242, 120, 84 }, 20, 1 },
 	{ "action.extended", "command-icon-action", "primary-left-3", { 24, 346, 120, 84 }, { 24, 346, 120, 84 }, 30, 1 },
 	{ "action.intercept", "command-icon-action", "primary-right-1", { 1136, 138, 120, 84 }, { 1136, 138, 120, 84 }, 40, 1 },
 	{ "action.ufopaedia", "command-icon-action", "primary-right-2", { 1136, 242, 120, 84 }, { 1136, 242, 120, 84 }, 50, 1 },
 	{ "action.options", "command-icon-action", "primary-right-3", { 1136, 346, 120, 84 }, { 1136, 346, 120, 84 }, 60, 1 },
+	{ "drawer.funding", "drawer-row", "drawer-row-1", { 0, 0, 360, 48 }, { 0, 0, 360, 48 }, 201, 60 },
+	{ "drawer.tech-tree", "drawer-row", "drawer-row-2", { 0, 48, 360, 48 }, { 0, 48, 360, 48 }, 202, 60 },
+	{ "drawer.global-research", "drawer-row", "drawer-row-3", { 0, 96, 360, 48 }, { 0, 96, 360, 48 }, 203, 60 },
+	{ "drawer.global-production", "drawer-row", "drawer-row-4", { 0, 144, 360, 48 }, { 0, 144, 360, 48 }, 204, 60 },
+	{ "drawer.global-containment", "drawer-row", "drawer-row-5", { 0, 192, 360, 48 }, { 0, 192, 360, 48 }, 205, 60 },
+	{ "drawer.ufo-tracker", "drawer-row", "drawer-row-6", { 0, 240, 360, 48 }, { 0, 240, 360, 48 }, 206, 60 },
+	{ "drawer.pilot-experience", "drawer-row", "drawer-row-7", { 0, 288, 360, 48 }, { 0, 288, 360, 48 }, 207, 60 },
+	{ "drawer.notes", "drawer-row", "drawer-row-8", { 0, 336, 360, 48 }, { 0, 336, 360, 48 }, 208, 60 },
+	{ "drawer.music", "drawer-row", "drawer-row-9", { 0, 384, 360, 48 }, { 0, 384, 360, 48 }, 209, 60 },
+	{ "drawer.debug", "drawer-row", "drawer-row-10", { 0, 432, 360, 48 }, { 0, 432, 360, 48 }, 210, 60 },
+	{ "drawer.quick-save", "drawer-row", "drawer-row-11", { 0, 480, 360, 48 }, { 0, 480, 360, 48 }, 211, 60 },
+	{ "drawer.instant-save", "drawer-row", "drawer-row-12", { 0, 528, 360, 48 }, { 0, 528, 360, 48 }, 212, 60 },
+	{ "drawer.quick-load", "drawer-row", "drawer-row-13", { 0, 576, 360, 48 }, { 0, 576, 360, 48 }, 213, 60 },
 	{ "world.zoom-in", "compact-command-action", "world-zoom-in", { 177, 475, 46, 44 }, { 177, 475, 46, 44 }, 70, 1 },
 	{ "world.recenter", "compact-command-action", "world-recenter", { 177, 519, 46, 44 }, { 177, 519, 46, 44 }, 80, 1 },
 	{ "world.zoom-out", "compact-command-action", "world-zoom-out", { 177, 563, 46, 44 }, { 177, 563, 46, 44 }, 90, 1 },
@@ -50,12 +64,26 @@ inline constexpr CalypsoGeoscapeCommandShellGenActionLayout kWideActions[] =
 
 inline constexpr CalypsoGeoscapeCommandShellGenActionLayout kCompactActions[] =
 {
+	{ "action.session", "compact-command-action", "session-action", { 8, 8, 44, 44 }, { 8, 8, 44, 44 }, 5, 1 },
 	{ "action.bases", "command-icon-action", "primary-left-1", { 524, 54, 96, 66 }, { 524, 54, 96, 66 }, 10, 1 },
 	{ "action.graphs", "command-icon-action", "primary-left-2", { 524, 128, 96, 66 }, { 524, 128, 96, 66 }, 20, 1 },
 	{ "action.extended", "command-icon-action", "primary-left-3", { 524, 202, 96, 66 }, { 524, 202, 96, 66 }, 30, 1 },
 	{ "action.intercept", "command-icon-action", "primary-right-1", { 628, 54, 96, 66 }, { 628, 54, 96, 66 }, 40, 1 },
 	{ "action.ufopaedia", "command-icon-action", "primary-right-2", { 628, 128, 96, 66 }, { 628, 128, 96, 66 }, 50, 1 },
 	{ "action.options", "command-icon-action", "primary-right-3", { 628, 202, 96, 66 }, { 628, 202, 96, 66 }, 60, 1 },
+	{ "drawer.funding", "drawer-row", "drawer-row-1", { 0, 0, 320, 48 }, { 0, 0, 320, 48 }, 201, 60 },
+	{ "drawer.tech-tree", "drawer-row", "drawer-row-2", { 0, 48, 320, 48 }, { 0, 48, 320, 48 }, 202, 60 },
+	{ "drawer.global-research", "drawer-row", "drawer-row-3", { 0, 96, 320, 48 }, { 0, 96, 320, 48 }, 203, 60 },
+	{ "drawer.global-production", "drawer-row", "drawer-row-4", { 0, 144, 320, 48 }, { 0, 144, 320, 48 }, 204, 60 },
+	{ "drawer.global-containment", "drawer-row", "drawer-row-5", { 0, 192, 320, 48 }, { 0, 192, 320, 48 }, 205, 60 },
+	{ "drawer.ufo-tracker", "drawer-row", "drawer-row-6", { 0, 240, 320, 48 }, { 0, 240, 320, 48 }, 206, 60 },
+	{ "drawer.pilot-experience", "drawer-row", "drawer-row-7", { 0, 288, 320, 48 }, { 0, 288, 320, 48 }, 207, 60 },
+	{ "drawer.notes", "drawer-row", "drawer-row-8", { 0, 336, 320, 48 }, { 0, 336, 320, 48 }, 208, 60 },
+	{ "drawer.music", "drawer-row", "drawer-row-9", { 0, 384, 320, 48 }, { 0, 384, 320, 48 }, 209, 60 },
+	{ "drawer.debug", "drawer-row", "drawer-row-10", { 0, 432, 320, 48 }, { 0, 432, 320, 48 }, 210, 60 },
+	{ "drawer.quick-save", "drawer-row", "drawer-row-11", { 0, 480, 320, 48 }, { 0, 480, 320, 48 }, 211, 60 },
+	{ "drawer.instant-save", "drawer-row", "drawer-row-12", { 0, 528, 320, 48 }, { 0, 528, 320, 48 }, 212, 60 },
+	{ "drawer.quick-load", "drawer-row", "drawer-row-13", { 0, 576, 320, 48 }, { 0, 576, 320, 48 }, 213, 60 },
 	{ "world.zoom-in", "compact-command-action", "world-zoom-in", { 465, 157, 44, 44 }, { 465, 157, 44, 44 }, 70, 1 },
 	{ "world.recenter", "compact-command-action", "world-recenter", { 465, 201, 44, 44 }, { 465, 201, 44, 44 }, 80, 1 },
 	{ "world.zoom-out", "compact-command-action", "world-zoom-out", { 465, 245, 44, 44 }, { 465, 245, 44, 44 }, 90, 1 },
@@ -71,8 +99,8 @@ inline constexpr CalypsoGeoscapeCommandShellGenActionLayout kCompactActions[] =
 
 inline constexpr CalypsoGeoscapeCommandShellGenLayout kLayouts[] =
 {
-	{ 1280, 720, kWideActions, 17 },
-	{ 740, 360, kCompactActions, 17 },
+	{ 1280, 720, kWideActions, 31 },
+	{ 740, 360, kCompactActions, 31 },
 };
 inline constexpr int kLayoutCount = 2;
 

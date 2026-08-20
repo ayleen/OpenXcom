@@ -3,6 +3,6 @@
   "id": "drawer-row",
   "version": "hd.2026-08-20.1",
   "minimumTarget": [44, 44],
-  "allowedSlotRoles": ["drawer-row-1", "drawer-row-2", "drawer-row-3"],
+  "allowedSlotRoles": ["drawer-row-1", "drawer-row-2", "drawer-row-3", "drawer-row-4", "drawer-row-5", "drawer-row-6", "drawer-row-7", "drawer-row-8", "drawer-row-9", "drawer-row-10", "drawer-row-11", "drawer-row-12", "drawer-row-13"],
   "allowedTones": ["normal", "primary", "warning", "danger"]
 }

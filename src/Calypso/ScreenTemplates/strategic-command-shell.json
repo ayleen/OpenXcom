@@ -2,7 +2,7 @@
   "schema": 1,
   "id": "strategic-command-shell",
   "version": "hd.2026-08-20.1",
-  "requiredActionIds": ["action.bases", "action.graphs", "action.extended", "action.intercept", "action.ufopaedia", "action.options", "time.pause", "time.speed.5sec", "time.speed.1min", "time.speed.5min", "time.speed.30min", "time.speed.1hour", "time.speed.1day"],
+  "requiredActionIds": ["action.session", "action.bases", "action.graphs", "action.extended", "action.intercept", "action.ufopaedia", "action.options", "drawer.funding", "drawer.tech-tree", "drawer.global-research", "drawer.global-production", "drawer.global-containment", "drawer.ufo-tracker", "drawer.pilot-experience", "drawer.notes", "drawer.music", "drawer.debug", "drawer.quick-save", "drawer.instant-save", "drawer.quick-load", "time.pause", "time.speed.5sec", "time.speed.1min", "time.speed.5min", "time.speed.30min", "time.speed.1hour", "time.speed.1day"],
   "forbiddenPersistentPatterns": ["research", "manufacture"],
   "layouts": {
     "wide": {
@@ -21,6 +21,7 @@
         {"id": "time-control", "bounds": [272, 626, 736, 88]}
       ],
       "slots": {
+        "session-action": {"visibleRect": [18, 16, 122, 46]},
         "primary-left-1": {"visibleRect": [24, 138, 120, 84]},
         "primary-left-2": {"visibleRect": [24, 242, 120, 84]},
         "primary-left-3": {"visibleRect": [24, 346, 120, 84]},
@@ -37,7 +38,20 @@
         "time-5min": {"visibleRect": [572, 650, 105, 54]},
         "time-30min": {"visibleRect": [677, 650, 105, 54]},
         "time-1hour": {"visibleRect": [782, 650, 105, 54]},
-        "time-1day": {"visibleRect": [887, 650, 105, 54]}
+        "time-1day": {"visibleRect": [887, 650, 105, 54]},
+        "drawer-row-1": {"visibleRect": [0, 0, 360, 48], "coordinateSpace": "drawer", "zOrder": 60},
+        "drawer-row-2": {"visibleRect": [0, 48, 360, 48], "coordinateSpace": "drawer", "zOrder": 60},
+        "drawer-row-3": {"visibleRect": [0, 96, 360, 48], "coordinateSpace": "drawer", "zOrder": 60},
+        "drawer-row-4": {"visibleRect": [0, 144, 360, 48], "coordinateSpace": "drawer", "zOrder": 60},
+        "drawer-row-5": {"visibleRect": [0, 192, 360, 48], "coordinateSpace": "drawer", "zOrder": 60},
+        "drawer-row-6": {"visibleRect": [0, 240, 360, 48], "coordinateSpace": "drawer", "zOrder": 60},
+        "drawer-row-7": {"visibleRect": [0, 288, 360, 48], "coordinateSpace": "drawer", "zOrder": 60},
+        "drawer-row-8": {"visibleRect": [0, 336, 360, 48], "coordinateSpace": "drawer", "zOrder": 60},
+        "drawer-row-9": {"visibleRect": [0, 384, 360, 48], "coordinateSpace": "drawer", "zOrder": 60},
+        "drawer-row-10": {"visibleRect": [0, 432, 360, 48], "coordinateSpace": "drawer", "zOrder": 60},
+        "drawer-row-11": {"visibleRect": [0, 480, 360, 48], "coordinateSpace": "drawer", "zOrder": 60},
+        "drawer-row-12": {"visibleRect": [0, 528, 360, 48], "coordinateSpace": "drawer", "zOrder": 60},
+        "drawer-row-13": {"visibleRect": [0, 576, 360, 48], "coordinateSpace": "drawer", "zOrder": 60}
       }
     },
     "compact": {
@@ -55,6 +69,7 @@
         {"id": "time-control", "bounds": [8, 292, 724, 64]}
       ],
       "slots": {
+        "session-action": {"visibleRect": [8, 8, 44, 44]},
         "primary-left-1": {"visibleRect": [524, 54, 96, 66]},
         "primary-left-2": {"visibleRect": [524, 128, 96, 66]},
         "primary-left-3": {"visibleRect": [524, 202, 96, 66]},
@@ -71,7 +86,20 @@
         "time-5min": {"visibleRect": [292, 303, 109, 48]},
         "time-30min": {"visibleRect": [401, 303, 109, 48]},
         "time-1hour": {"visibleRect": [510, 303, 109, 48]},
-        "time-1day": {"visibleRect": [619, 303, 109, 48]}
+        "time-1day": {"visibleRect": [619, 303, 109, 48]},
+        "drawer-row-1": {"visibleRect": [0, 0, 320, 48], "coordinateSpace": "drawer", "zOrder": 60},
+        "drawer-row-2": {"visibleRect": [0, 48, 320, 48], "coordinateSpace": "drawer", "zOrder": 60},
+        "drawer-row-3": {"visibleRect": [0, 96, 320, 48], "coordinateSpace": "drawer", "zOrder": 60},
+        "drawer-row-4": {"visibleRect": [0, 144, 320, 48], "coordinateSpace": "drawer", "zOrder": 60},
+        "drawer-row-5": {"visibleRect": [0, 192, 320, 48], "coordinateSpace": "drawer", "zOrder": 60},
+        "drawer-row-6": {"visibleRect": [0, 240, 320, 48], "coordinateSpace": "drawer", "zOrder": 60},
+        "drawer-row-7": {"visibleRect": [0, 288, 320, 48], "coordinateSpace": "drawer", "zOrder": 60},
+        "drawer-row-8": {"visibleRect": [0, 336, 320, 48], "coordinateSpace": "drawer", "zOrder": 60},
+        "drawer-row-9": {"visibleRect": [0, 384, 320, 48], "coordinateSpace": "drawer", "zOrder": 60},
+        "drawer-row-10": {"visibleRect": [0, 432, 320, 48], "coordinateSpace": "drawer", "zOrder": 60},
+        "drawer-row-11": {"visibleRect": [0, 480, 320, 48], "coordinateSpace": "drawer", "zOrder": 60},
+        "drawer-row-12": {"visibleRect": [0, 528, 320, 48], "coordinateSpace": "drawer", "zOrder": 60},
+        "drawer-row-13": {"visibleRect": [0, 576, 320, 48], "coordinateSpace": "drawer", "zOrder": 60}
       }
     }
   }
