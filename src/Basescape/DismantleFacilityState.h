@@ -18,6 +18,7 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "../Engine/State.h"
+#include <string>
 
 namespace OpenXcom
 {
@@ -63,6 +64,9 @@ private:
     bool _hdWideLayout = false;
     bool _hdOwnFixture = false;
     Calypso::CalypsoF03DismantleUi *_hdAdapter = nullptr;
+    std::string _hdFacilityText;
+    std::string _hdRefundText;
+    bool _hdRefundVisible = false;
 public:
     void calypsoOwnHarnessFixture() { _hdOwnFixture = true; }
     void resize(int &dX, int &dY) override;

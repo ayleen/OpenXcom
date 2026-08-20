@@ -130,9 +130,8 @@ void CalypsoF03DismantleUi::collect(CalypsoHdFrameBuilder& builder) const
 	model.titleText = _state->_txtTitle ? _state->_txtTitle->getText() : std::string();
 	model.messageWidget = _state->_txtFacility;
 	{
-		std::string facility = _state->_txtFacility ? _state->_txtFacility->getText() : std::string();
-		std::string refund;
-		if (_state->_txtRefundValue && _state->_txtRefundValue->getVisible()) refund = _state->_txtRefundValue->getText();
+		std::string facility = _state->_hdFacilityText;
+		std::string refund = _state->_hdRefundVisible ? _state->_hdRefundText : "";
 		std::string combined = facility;
 		if (!refund.empty()) {
 			if (!combined.empty()) combined += "\n";
@@ -213,10 +212,14 @@ void CalypsoF03DismantleUi::configure(DismantleFacilityState& state, bool allow)
 	if (!state._hdLayout) return;
 
 	state._hdWideLayout = currentLayoutClass() == CalypsoLayoutClass::Wide;
+	state._hdFacilityText = state._txtFacility ? state._txtFacility->getText() : "";
+	state._hdRefundText = state._txtRefundValue ? state._txtRefundValue->getText() : "";
+	state._hdRefundVisible = state._txtRefundValue ? state._txtRefundValue->getVisible() : false;
 	state._txtTitle->setText(state.tr("STR_CAL_F03_DISMANTLE_TITLE"));
-	// Keep facility-specific text and refund from DismantleFacilityState (set before configure).
-	// Do not hide refund - it is visible when refundValue != 0 and needed for HD message.
-	state._btnCancel->setText(state.tr("STR_CANCEL_UC"));
+	state._txtFacility->setText(
+		std::string(state.tr("STR_CAL_F03_DISMANTLE_LINE_1")) + "\n"
+		+ std::string(state.tr("STR_CAL_F03_DISMANTLE_LINE_2")));
+	state._txtRefundValue->setVisible(false);
 	state._btnOk->setText(state.tr("STR_CAL_F03_DISMANTLE_ACTION"));
 	applyGeneratedLayout(state, state._hdWideLayout);
 	const auto* generated = CalypsoF03DismantleGen::layoutForDesign(
