@@ -60,17 +60,15 @@ CalypsoHdPanelStyle buttonStyle(
 		? CalypsoHdThemeGen::calypsoHdThemeColorForToken(calypsoFocusRingToken(button.tone))
 		: CalypsoHdThemeGen::calypsoHdThemeColorForToken(tokens.borderToken);
 	const std::uint32_t fill = CalypsoHdThemeGen::calypsoHdThemeColorForToken(tokens.fillToken);
+	const std::uint32_t resolvedBorder = state == CalypsoInteractionState::Rest
+		? button.restBorder : border;
+	const std::uint32_t resolvedFill = state == CalypsoInteractionState::Rest
+		? button.restFill : fill;
 
-	CalypsoHdPanelStyle style;
-	style.styled = true;
-	style.radiusPx = 1.0f;
+	CalypsoHdPanelStyle style = CalypsoHdTheme::calypsoHdButtonStyle(
+		resolvedFill, resolvedBorder);
 	style.borderWidthPx = CalypsoHdTheme::kBorderWidthPx
 		+ (state == CalypsoInteractionState::Focus ? 1.0f : 0.0f);
-	style.borderColorRgba = state == CalypsoInteractionState::Rest ? button.restBorder : border;
-	style.fillTopRgba = state == CalypsoInteractionState::Rest ? button.restFill : fill;
-	style.fillBottomRgba = style.fillTopRgba;
-	style.gradDirX = 0.26f;
-	style.gradDirY = 1.0f;
 	return style;
 }
 
