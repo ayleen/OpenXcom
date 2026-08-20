@@ -54,6 +54,8 @@ void CalypsoF19DogfightErrorUi::collect(CalypsoHdFrameBuilder& builder) const {
 void CalypsoF19DogfightErrorUi::configure(DogfightErrorState& s, bool allow) {
     if(!allow || !s._game || !s._game->getMod()->isHdUiFamilyEnabled("F19")) { s._hdLayout=false; return; }
     s._hdLayout = true; s._hdWideLayout = (Options::baseXResolution >= 1000);
+    // Canonical content-sized window: sync vanilla Window to generated rect for 1:1 projection
+    { bool wide = s._hdWideLayout; const auto* g = CalypsoF19DogfightErrorGen::layoutForDesign(wide?1280:740, wide?720:360); if (g) { s._window->setX(g->window.x); s._window->setY(g->window.y); s._window->setWidth(g->window.w); s._window->setHeight(g->window.h); } }
     auto* a = new CalypsoF19DogfightErrorUi(&s);
     s._hdAdapter = a;
     CalypsoHdUiOverlay::instance().registerAdapter(a);
