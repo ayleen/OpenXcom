@@ -14,8 +14,13 @@
 #include "../Engine/Logger.h"
 #include "../Interface/Cursor.h"
 #include "../Menu/AbandonGameState.h"
+#include "../Basescape/BaseView.h"
 #include "../Basescape/DismantleFacilityState.h"
 #include "../Basescape/SackSoldierState.h"
+#include "../Mod/RuleBaseFacility.h"
+#include "../Savegame/Base.h"
+#include "../Savegame/BaseFacility.h"
+#include "../Savegame/SavedGame.h"
 #include "../Basescape/SoldierTransformState.h"
 #include "../Basescape/SoldierDiaryOverviewState.h"
 #include "../Basescape/ManufactureInfoState.h"
@@ -102,7 +107,39 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 	case CalypsoHarnessScenario::F33Abandon:
 		return new AbandonGameState(OPT_GEOSCAPE);
 	case CalypsoHarnessScenario::F03Dismantle:
-		return new CraftErrorState(nullptr, "Dismantle facility confirmation.");
+	{
+		Game* g = getCurrentGame();
+		if (!g || !g->getMod()) return nullptr;
+		SavedGame* save = g->getSavedGame();
+		if (!save)
+		{
+			save = new SavedGame();
+			g->setSavedGame(save);
+		}
+		save->setFunds(6800000);
+		Base* base = new Base(g->getMod());
+		base->setLongitude(0.0);
+		base->setLatitude(0.5);
+		RuleBaseFacility* rule = nullptr;
+		for (const std::string& name : g->getMod()->getBaseFacilitiesList())
+		{
+			RuleBaseFacility* cand = g->getMod()->getBaseFacility(name, false);
+			if (cand && !cand->isLift())
+			{
+				rule = cand;
+				break;
+			}
+		}
+		if (!rule) return nullptr;
+		BaseFacility* fac = new BaseFacility(rule, base);
+		fac->setX(2);
+		fac->setY(2);
+		fac->setBuildTime(0);
+		base->getFacilities()->push_back(fac);
+		BaseView* view = new BaseView(320, 200, 0, 0);
+		view->setBase(base);
+		return new DismantleFacilityState(base, view, fac);
+	}
 	case CalypsoHarnessScenario::F04SackSoldier:
 		return new CraftErrorState(nullptr, "Dismiss soldier confirmation.");
 	case CalypsoHarnessScenario::F18CraftError:

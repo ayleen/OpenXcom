@@ -11,6 +11,7 @@ public:
     static void configure(DismantleFacilityState& s, bool allow=true);
     static bool resize(DismantleFacilityState& s);
 private:
+    static void applyRects(DismantleFacilityState& s, bool wide);
     DismantleFacilityState* _state=nullptr;
     mutable CalypsoSmallConfirmationMotion _motion;
 }; } }
