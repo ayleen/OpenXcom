@@ -1,67 +1,238 @@
 #ifdef __EMSCRIPTEN__
 #include "CalypsoF03DismantleUi.h"
+#include <algorithm>
+#include <cmath>
+#include <string>
 #include "../Engine/Game.h"
 #include "../Engine/Options.h"
+#include "../Engine/Surface.h"
 #include "../Interface/TextButton.h"
 #include "../Interface/Window.h"
 #include "../Interface/Text.h"
 #include "../Basescape/DismantleFacilityState.h"
 #include "../Mod/Mod.h"
 #include "Generated/CalypsoF03Dismantle.generated.h"
+#include "CalypsoHdHarnessHostState.h"
 #include "CalypsoHdUiOverlay.h"
 #include "CalypsoSmallConfirmationRenderer.h"
 #include "CalypsoUiFamilies.h"
-namespace OpenXcom { namespace Calypso {
-CalypsoF03DismantleUi::~CalypsoF03DismantleUi() { CalypsoHdUiOverlay::instance().clearAdapter(this); }
-const void* CalypsoF03DismantleUi::topState() const { return _state; }
-void CalypsoF03DismantleUi::collect(CalypsoHdFrameBuilder& builder) const {
-    if(!_state || !_state->_hdLayout || !_state->_game) return;
-    bool wide = _state->_hdWideLayout;
-    const auto* g = CalypsoF03DismantleGen::layoutForDesign(wide?1280:740, wide?720:360);
-    if(!g) return;
-    auto winRect = _state->_window ? CalypsoLogicalRect{_state->_window->getX(), _state->_window->getY(), _state->_window->getWidth(), _state->_window->getHeight()} : CalypsoLogicalRect{0,0,1280,720};
-    double uiScale = g->window.w ? (double)winRect.w / g->window.w : 1.0;
-    auto proj = [&](auto &r){ return CalypsoLogicalRect{ winRect.x + int((r.x - g->window.x)*uiScale), winRect.y + int((r.y - g->window.y)*uiScale), int(r.w*uiScale), int(r.h*uiScale) }; };
-    CalypsoSmallConfirmationModel m{};
-    m.familyId = CalypsoF03DismantleGen::kFamilyId;
-    m.instance = _state; m.mod = _state->_game->getMod(); m.wide = wide;
-    m.designWidth = g->designWidth; m.designHeight = g->designHeight;
-    m.window = winRect; m.status = proj(g->status); m.warning = proj(g->warning); m.title = proj(g->title); m.message = proj(g->message); m.footer = proj(g->footer);
-    m.windowWidget = _state->_window;
-    m.titleWidget = _state->_txtTitle;
-    m.titleText = _state->_txtTitle ? _state->_txtTitle->getText() : std::string();
-    m.messageWidget = _state->_txtFacility;
-    m.messageText = _state->_txtFacility ? _state->_txtFacility->getText() : std::string();
-    m.protocolText = std::string();
-    m.warningGlyph = "!";
-    m.cutCornerPx = CalypsoF03DismantleGen::kCutCornerPx;
-    m.protocolTextInsetPx = CalypsoF03DismantleGen::kProtocolTextInsetPx;
-    m.panelFillTop = CalypsoF03DismantleGen::kPanelFillTop;
-    m.panelFillBottom = CalypsoF03DismantleGen::kPanelFillBottom;
-    m.frameColor = CalypsoF03DismantleGen::kFrame;
-    m.protocolColor = CalypsoF03DismantleGen::kProtocolText;
-    m.dividerColor = CalypsoF03DismantleGen::kDivider;
-    m.footerDotColor = CalypsoF03DismantleGen::kFooterDot;
-    m.warningColor = CalypsoF03DismantleGen::kWarning;
-    m.messageDesignWidth = g->message.w;
-    m.titleDesignHeight = g->title.h;
-    m.motionDurationMs = CalypsoF03DismantleGen::kMotionDurationMs;
-    m.motionScaleFrom = CalypsoF03DismantleGen::kMotionScaleFrom;
-    { CalypsoSmallConfirmationButton b{}; b.widget = _state->_btnCancel; b.text = b.widget ? b.widget->getText() : std::string(); b.rect = b.widget ? CalypsoLogicalRect{b.widget->getX(), b.widget->getY(), b.widget->getWidth(), b.widget->getHeight()} : proj(g->window); b.tone = CalypsoActionTone::Safe; for(int i=0;i<CalypsoF03DismantleGen::kButtonCount;++i) if(std::string(CalypsoF03DismantleGen::kButtons[i].id)=="cancel") { b.restFill=CalypsoF03DismantleGen::kButtons[i].fill; b.restBorder=CalypsoF03DismantleGen::kButtons[i].border; b.textColor=CalypsoF03DismantleGen::kButtons[i].text; break; } m.buttons.push_back(b); }
-    { CalypsoSmallConfirmationButton b{}; b.widget = _state->_btnOk; b.text = b.widget ? b.widget->getText() : std::string(); b.rect = b.widget ? CalypsoLogicalRect{b.widget->getX(), b.widget->getY(), b.widget->getWidth(), b.widget->getHeight()} : proj(g->window); b.tone = CalypsoActionTone::Destructive; for(int i=0;i<CalypsoF03DismantleGen::kButtonCount;++i) if(std::string(CalypsoF03DismantleGen::kButtons[i].id)=="confirm") { b.restFill=CalypsoF03DismantleGen::kButtons[i].fill; b.restBorder=CalypsoF03DismantleGen::kButtons[i].border; b.textColor=CalypsoF03DismantleGen::kButtons[i].text; break; } m.buttons.push_back(b); }
-    calypsoCollectSmallConfirmation(builder, m, _motion);
+#include "CalypsoUiMetrics.h"
+#include "CalypsoViewportRuntime.h"
+
+namespace OpenXcom
+{
+namespace Calypso
+{
+
+namespace
+{
+
+CalypsoLayoutClass currentLayoutClass()
+{
+	CalypsoBaseSafeRect safe{0, 0, Options::baseXResolution, Options::baseYResolution};
+	(void)calypsoProjectedSafeRectForLayout(
+		Options::baseXResolution, Options::baseYResolution, safe);
+	return calypsoHarnessEffectiveLayout(calypsoHarnessSession(), safe);
 }
-void CalypsoF03DismantleUi::configure(DismantleFacilityState& s, bool allow) {
-    if(!allow || !s._game || !s._game->getMod()->isHdUiFamilyEnabled("F03")) { s._hdLayout=false; return; }
-    s._hdLayout = true; s._hdWideLayout = (Options::baseXResolution >= 1000);
-    auto* a = new CalypsoF03DismantleUi(&s);
-    s._hdAdapter = a;
-    CalypsoHdUiOverlay::instance().registerAdapter(a);
+
+CalypsoLogicalRect shiftedRect(
+	const CalypsoF03DismantleGen::CalypsoF03DismantleGenRect& rect, int dx)
+{
+	return {rect.x + dx, rect.y, rect.w, rect.h};
 }
-bool CalypsoF03DismantleUi::resize(DismantleFacilityState& s) {
-    if(!s._hdLayout) return false;
-    s._hdWideLayout = (Options::baseXResolution >= 1000);
-    return true;
+
+void applyRect(Surface* surface, const CalypsoLogicalRect& rect)
+{
+	if (!surface) return;
+	surface->setX(rect.x);
+	surface->setY(rect.y);
+	surface->setWidth(rect.w);
+	surface->setHeight(rect.h);
 }
-} }
+
+int presentationShiftX(
+	const CalypsoF03DismantleGen::CalypsoF03DismantleGenLayout& layout, bool wide)
+{
+	return calypsoHarnessSession().sideBySide && wide ? 40 - layout.window.x : 0;
+}
+
+CalypsoLogicalRect generatedButtonRect(bool wide, const char* id, int dx)
+{
+	const auto& buttons = CalypsoF03DismantleGen::kButtonRects[wide ? 0 : 1];
+	for (int i = 0; i < CalypsoF03DismantleGen::kButtonCount; ++i)
+	{
+		if (std::string(buttons[i].id) == id) return shiftedRect(buttons[i].rect, dx);
+	}
+	return {};
+}
+
+CalypsoLogicalRect touchRect(CalypsoLogicalRect visual)
+{
+	const int width = std::max(visual.w, CALYPSO_MIN_TOUCH_TARGET);
+	const int height = std::max(visual.h, CALYPSO_MIN_TOUCH_TARGET);
+	visual.x -= width - visual.w;
+	visual.y -= (height - visual.h) / 2;
+	visual.w = width;
+	visual.h = height;
+	return visual;
+}
+
+} // namespace
+
+CalypsoF03DismantleUi::~CalypsoF03DismantleUi()
+{
+	CalypsoHdUiOverlay::instance().clearAdapter(this);
+}
+
+const void* CalypsoF03DismantleUi::topState() const
+{
+	return _state;
+}
+
+void CalypsoF03DismantleUi::collect(CalypsoHdFrameBuilder& builder) const
+{
+	if (!_state || !_state->_hdLayout || !_state->_game) return;
+	const bool wide = _state->_hdWideLayout;
+	const auto* generated = CalypsoF03DismantleGen::layoutForDesign(
+		wide ? 1280 : 740, wide ? 720 : 360);
+	if (!generated) return;
+
+	const CalypsoLogicalRect window = _state->_window
+		? CalypsoLogicalRect{_state->_window->getX(), _state->_window->getY(),
+			_state->_window->getWidth(), _state->_window->getHeight()}
+		: CalypsoLogicalRect{};
+	const double uiScale = generated->window.w > 0
+		? (double)window.w / generated->window.w : 1.0;
+	auto project = [&](const auto& rect) -> CalypsoLogicalRect
+	{
+		return {
+			window.x + (int)std::llround((rect.x - generated->window.x) * uiScale),
+			window.y + (int)std::llround((rect.y - generated->window.y) * uiScale),
+			std::max(1, (int)std::llround(rect.w * uiScale)),
+			std::max(1, (int)std::llround(rect.h * uiScale))};
+	};
+
+	CalypsoSmallConfirmationModel model{};
+	model.familyId = CalypsoF03DismantleGen::kFamilyId;
+	model.instance = _state;
+	model.mod = _state->_game->getMod();
+	model.wide = wide;
+	model.designWidth = generated->designWidth;
+	model.designHeight = generated->designHeight;
+	model.window = window;
+	model.status = project(generated->status);
+	model.warning = project(generated->warning);
+	model.title = project(generated->title);
+	model.message = project(generated->message);
+	model.footer = project(generated->footer);
+	model.windowWidget = _state->_window;
+	model.titleWidget = _state->_txtTitle;
+	model.titleText = _state->_txtTitle ? _state->_txtTitle->getText() : std::string();
+	model.messageWidget = _state->_txtFacility;
+	model.messageText = _state->_txtFacility ? _state->_txtFacility->getText() : std::string();
+	model.protocolText = std::string(_state->tr("STR_CAL_F03_PROTOCOL_DISMANTLE"));
+	model.warningGlyph = "!";
+	model.cutCornerPx = CalypsoF03DismantleGen::kCutCornerPx;
+	model.protocolTextInsetPx = CalypsoF03DismantleGen::kProtocolTextInsetPx;
+	model.panelFillTop = CalypsoF03DismantleGen::kPanelFillTop;
+	model.panelFillBottom = CalypsoF03DismantleGen::kPanelFillBottom;
+	model.frameColor = CalypsoF03DismantleGen::kFrame;
+	model.protocolColor = CalypsoF03DismantleGen::kProtocolText;
+	model.dividerColor = CalypsoF03DismantleGen::kDivider;
+	model.footerDotColor = CalypsoF03DismantleGen::kFooterDot;
+	model.warningColor = CalypsoF03DismantleGen::kWarning;
+	const CalypsoHdPresentationMetrics& metrics =
+		CalypsoHdUiOverlay::instance().frozenMetrics();
+	model.uiScale = uiScale;
+	model.visualScale = CalypsoF03DismantleGen::kPresentationScale;
+	model.projectionScaleX = uiScale * metrics.scaleX;
+	model.projectionScaleY = uiScale * metrics.scaleY;
+	model.messageDesignWidth = generated->message.w;
+	model.titleDesignHeight = generated->title.h;
+	model.motionDurationMs = CalypsoF03DismantleGen::kMotionDurationMs;
+	model.motionScaleFrom = CalypsoF03DismantleGen::kMotionScaleFrom;
+
+	const auto& buttonRects = CalypsoF03DismantleGen::kButtonRects[wide ? 0 : 1];
+	for (int i = 0; i < CalypsoF03DismantleGen::kButtonCount; ++i)
+	{
+		const auto& generatedButton = CalypsoF03DismantleGen::kButtons[i];
+		TextButton* widget = std::string(generatedButton.id) == "cancel"
+			? _state->_btnCancel : _state->_btnOk;
+		TextButton* peer = widget == _state->_btnCancel ? _state->_btnOk : _state->_btnCancel;
+		model.buttons.push_back({
+			widget,
+			peer,
+			widget ? widget->getText() : std::string(),
+			project(buttonRects[i].rect),
+			std::string(generatedButton.tone) == "danger"
+				? CalypsoActionTone::Destructive : CalypsoActionTone::Safe,
+			generatedButton.fill,
+			generatedButton.border,
+			generatedButton.text});
+	}
+
+	calypsoCollectSmallConfirmation(builder, model, _motion);
+}
+
+void CalypsoF03DismantleUi::applyGeneratedLayout(
+	DismantleFacilityState& state, bool wide)
+{
+	const auto* generated = CalypsoF03DismantleGen::layoutForDesign(
+		wide ? 1280 : 740, wide ? 720 : 360);
+	if (!generated) return;
+	const int dx = presentationShiftX(*generated, wide);
+	applyRect(state._window, shiftedRect(generated->window, dx));
+	applyRect(state._txtTitle, shiftedRect(generated->title, dx));
+	applyRect(state._txtFacility, shiftedRect(generated->message, dx));
+	applyRect(state._txtRefundValue, shiftedRect(generated->message, dx));
+	applyRect(state._btnCancel, touchRect(generatedButtonRect(wide, "cancel", dx)));
+	applyRect(state._btnOk, touchRect(generatedButtonRect(wide, "confirm", dx)));
+}
+
+void CalypsoF03DismantleUi::configure(DismantleFacilityState& state, bool allow)
+{
+	const bool english = Options::language == "en-US"
+		|| Options::language == "en-GB" || Options::language == "en";
+	state._hdLayout = allow && english && state._game && state._game->getMod()
+		&& state._game->getLanguage()
+		&& state._game->getMod()->isHdUiFamilyEnabled("F03");
+	if (!state._hdLayout) return;
+
+	state._hdWideLayout = currentLayoutClass() == CalypsoLayoutClass::Wide;
+	state._txtTitle->setText(state.tr("STR_CAL_F03_DISMANTLE_TITLE"));
+	state._txtFacility->setText(
+		std::string(state.tr("STR_CAL_F03_DISMANTLE_LINE_1")) + "\n"
+		+ std::string(state.tr("STR_CAL_F03_DISMANTLE_LINE_2")));
+	state._txtRefundValue->setVisible(false);
+	state._btnCancel->setText(state.tr("STR_CANCEL_UC"));
+	state._btnOk->setText(state.tr("STR_CAL_F03_DISMANTLE_ACTION"));
+	applyGeneratedLayout(state, state._hdWideLayout);
+	const auto* generated = CalypsoF03DismantleGen::layoutForDesign(
+		state._hdWideLayout ? 1280 : 740, state._hdWideLayout ? 720 : 360);
+	if (!generated) { state._hdLayout = false; return; }
+	state.enableUiScaling(generated->designWidth, generated->designHeight, 1.0f,
+		/*subtractVanillaCenter=*/false);
+
+	auto* adapter = new CalypsoF03DismantleUi(&state);
+	state._hdAdapter = adapter;
+	CalypsoHdUiOverlay::instance().registerAdapter(adapter);
+	if (calypsoHarnessHostUp(calypsoHarnessSession())) calypsoHdHarnessDomShow();
+}
+
+bool CalypsoF03DismantleUi::resize(DismantleFacilityState& state)
+{
+	if (!state._hdLayout) return false;
+	const bool wide = currentLayoutClass() == CalypsoLayoutClass::Wide;
+	state._hdWideLayout = wide;
+	applyGeneratedLayout(state, wide);
+	const auto* generated = CalypsoF03DismantleGen::layoutForDesign(
+		wide ? 1280 : 740, wide ? 720 : 360);
+	if (!generated) return false;
+	state.recaptureUiScaling(generated->designWidth, generated->designHeight, 1.0f,
+		/*subtractVanillaCenter=*/false);
+	return true;
+}
+
+} // namespace Calypso
+} // namespace OpenXcom
 #endif
