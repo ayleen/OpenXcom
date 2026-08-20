@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate a complete HD small-confirmation visual object from content JSON.
+"""Generate a complete HD window visual object from semantic content JSON.
 
 The authored config contains semantics and copy only. Geometry, material,
 spacing, typography slots, button slots, and motion come from the reviewed
@@ -14,10 +14,12 @@ import os
 import re
 import sys
 
+from hd_window_archetypes import ArchetypeError, build_extended_contract
+
 
 TOOLS_DIR = os.path.dirname(os.path.abspath(__file__))
 CALYPSO_DIR = os.path.normpath(os.path.join(TOOLS_DIR, "..", "src", "Calypso"))
-DEFAULT_TEMPLATE = os.path.join(CALYPSO_DIR, "FormTemplates", "small-confirmation.json")
+FORM_TEMPLATES_DIR = os.path.join(CALYPSO_DIR, "FormTemplates")
 ID_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 VERSION_RE = re.compile(r"^[A-Za-z0-9._-]+$")
 DATE_RE = re.compile(r"^\d{2}\.\d{2}\.\d{4}$")
@@ -677,7 +679,9 @@ def render_json(value):
 def main(argv=None):
     parser = argparse.ArgumentParser(description="generate one HD window form object from JSON")
     parser.add_argument("--config", required=True, help="high-level form config JSON")
-    parser.add_argument("--template", default=DEFAULT_TEMPLATE, help="reviewed archetype template JSON")
+    parser.add_argument(
+        "--template",
+        help="reviewed archetype template JSON; selected from config.archetype when omitted")
     parser.add_argument("--output", help="expanded visual-object JSON; stdout when omitted")
     parser.add_argument("--check", action="store_true", help="compare output without writing")
     args = parser.parse_args(argv)
@@ -685,9 +689,22 @@ def main(argv=None):
         parser.error("--check requires --output")
     try:
         config = load_json(args.config)
-        template = load_json(args.template)
+        archetype = config.get("archetype") if isinstance(config, dict) else None
+        if not isinstance(archetype, str) or not ID_RE.fullmatch(archetype):
+            raise FormError("config.archetype must be a stable lowercase ASCII ID")
+        template_path = args.template or os.path.join(
+            FORM_TEMPLATES_DIR, archetype + ".json")
+        template = load_json(template_path)
+        if template.get("id") != archetype:
+            raise FormError("template.id must match config.archetype")
         source_name = "FormConfigs/" + os.path.basename(args.config)
-        rendered = render_json(build_contract(config, template, source_name))
+        if template.get("generatorKind"):
+            template_name = "FormTemplates/" + os.path.basename(template_path)
+            contract = build_extended_contract(
+                config, template, source_name, template_name)
+        else:
+            contract = build_contract(config, template, source_name)
+        rendered = render_json(contract)
         if args.check:
             try:
                 with open(args.output, "r", encoding="utf-8") as handle:
@@ -709,7 +726,7 @@ def main(argv=None):
         os.replace(temp, args.output)
         print("generate-hd-window-form: wrote " + args.output)
         return 0
-    except FormError as exc:
+    except (FormError, ArchetypeError) as exc:
         print("generate-hd-window-form: error: " + str(exc), file=sys.stderr)
         return 2
 
