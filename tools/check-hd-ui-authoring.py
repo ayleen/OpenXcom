@@ -8,6 +8,8 @@ import re
 import subprocess
 import sys
 
+from hd_ui_authoring_schema import SCREEN_ID_RE, handler_matches_runtime
+
 
 TOOLS_DIR = os.path.dirname(os.path.abspath(__file__))
 CALYPSO_DIR = os.path.normpath(os.path.join(TOOLS_DIR, "..", "src", "Calypso"))
@@ -100,14 +102,11 @@ def validate_recipe(config_name, recipe, entry, localized):
         handler = action.get("handler")
         if not isinstance(handler, str) or not handler.strip() or "todo" in handler.lower():
             fail(config_name + ": action " + str(action_id) + " has empty/TODO handler")
-        if runtime == "proof-only":
-            if not handler.startswith("proof."):
-                fail(config_name + ": proof-only handler " + handler
-                     + " must use proof.* namespace")
-        elif handler.startswith("proof.") or not re.fullmatch(
-                r"[a-z][a-z0-9-]*(?:\.[A-Za-z][A-Za-z0-9-]*)+", handler):
-            fail(config_name + ": production handler " + handler
-                 + " must use a non-proof runtime namespace")
+        if not handler_matches_runtime(handler, runtime):
+            fail(config_name + ": " + str(runtime) + " handler " + handler
+                 + " must match the "
+                 + ("proof" if runtime == "proof-only" else "production")
+                 + " runtime namespace grammar")
 
     for entity in recipe.get("entities") or []:
         entity_id = entity.get("id")
@@ -248,8 +247,8 @@ def main(argv=None):
         config_path = os.path.join(config_dir, config_name)
         recipe = load_json(config_path, "screen recipe " + config_name)
         screen_id = recipe.get("id")
-        if not isinstance(screen_id, str) or not screen_id:
-            fail(config_name + ": recipe id missing")
+        if not isinstance(screen_id, str) or not SCREEN_ID_RE.fullmatch(screen_id):
+            fail(config_name + ": recipe id must be a lower-kebab identifier")
         contract_name = screen_id + ".json"
         expected_contracts.add(contract_name)
         entry = entry_by_contract.get(contract_name)

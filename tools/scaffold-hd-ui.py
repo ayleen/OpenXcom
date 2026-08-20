@@ -7,15 +7,14 @@ import os
 import re
 import sys
 
+from hd_ui_authoring_schema import ACTION_ID_RE, SLUG_RE, handler_matches_runtime
+
 
 TOOLS_DIR = os.path.dirname(os.path.abspath(__file__))
 CALYPSO_DIR = os.path.normpath(os.path.join(TOOLS_DIR, "..", "src", "Calypso"))
 SCREEN_TEMPLATES_DIR = os.path.join(CALYPSO_DIR, "ScreenTemplates")
 COMPONENT_TEMPLATES_DIR = os.path.join(CALYPSO_DIR, "ComponentTemplates")
-ID_RE = re.compile(r"^[a-z0-9][a-z0-9.-]*$")
-SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 LABEL_RE = re.compile(r"^STR_[A-Z0-9_]+$")
-HANDLER_RE = re.compile(r"^[A-Za-z][A-Za-z0-9]*(?:\.[A-Za-z][A-Za-z0-9]*)+$")
 
 
 def fail(message):
@@ -53,16 +52,16 @@ def scaffold_action(args):
     if not isinstance(actions, list):
         fail("recipe.actions must be an array")
 
-    validate_identifier(args.action_id, ID_RE, "--id")
+    validate_identifier(args.action_id, ACTION_ID_RE, "--id")
     validate_identifier(args.label_key, LABEL_RE, "--label-key")
     validate_identifier(args.component, SLUG_RE, "--component")
     validate_identifier(args.slot_role, SLUG_RE, "--slot-role")
-    validate_identifier(args.handler, HANDLER_RE, "--handler")
+    if not handler_matches_runtime(args.handler, recipe["runtime"]):
+        fail("--handler must match the "
+             + ("proof" if recipe["runtime"] == "proof-only" else "production")
+             + " runtime namespace grammar")
     if any(action.get("id") == args.action_id for action in actions):
         fail("action id is already present in the selected recipe: " + args.action_id)
-    if recipe["runtime"] == "proof-only" and not args.handler.startswith("proof."):
-        fail("proof-only screen handlers must use the proof.* namespace")
-
     component_path = os.path.join(COMPONENT_TEMPLATES_DIR, args.component + ".json")
     if not os.path.isfile(component_path):
         fail("approved component template missing: " + args.component)

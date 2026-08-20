@@ -7,6 +7,8 @@ import os
 import re
 import sys
 
+from hd_ui_authoring_schema import ACTION_ID_RE, SCREEN_ID_RE, SLUG_RE, handler_matches_runtime
+
 
 TOOLS_DIR = os.path.dirname(os.path.abspath(__file__))
 CALYPSO_DIR = os.path.normpath(os.path.join(TOOLS_DIR, "..", "src", "Calypso"))
@@ -27,8 +29,6 @@ ACTION_KEYS = {
     "inputs", "availability", "timePolicy", "focusOrder", "visibility", "hotkey",
     "rowIndex",
 }
-ID_RE = re.compile(r"^[a-z0-9][a-z0-9.-]*$")
-SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 
 
 def fail(message):
@@ -74,8 +74,8 @@ def validate_recipe(recipe):
     for key in ("id", "version", "archetype", "runtime"):
         if not isinstance(recipe.get(key), str) or not recipe[key]:
             fail("recipe." + key + " must be a non-empty string")
-    if not ID_RE.match(recipe["id"]):
-        fail("recipe.id must be a stable lower-case identifier")
+    if not SCREEN_ID_RE.fullmatch(recipe["id"]):
+        fail("recipe.id must be a lower-kebab identifier")
     if recipe["runtime"] not in {"production", "proof-only"}:
         fail("recipe.runtime must be production or proof-only")
     find_visual_escape(recipe)
@@ -97,7 +97,7 @@ def validate_recipe(recipe):
         if action["id"] in seen:
             fail(where + " duplicates action id " + action["id"])
         seen.add(action["id"])
-        if not ID_RE.match(action["id"]):
+        if not ACTION_ID_RE.fullmatch(action["id"]):
             fail(where + ".id must be a stable lower-case identifier")
         if not SLUG_RE.match(action["component"]):
             fail(where + ".component must be a lower-kebab identifier")
@@ -112,8 +112,10 @@ def validate_recipe(recipe):
                 and (not isinstance(action["rowIndex"], int) or isinstance(action["rowIndex"], bool)
                      or action["rowIndex"] < 0)):
             fail(where + ".rowIndex must be a non-negative integer")
-        if recipe["runtime"] == "proof-only" and not action["handler"].startswith("proof."):
-            fail(where + ".handler must use the proof.* namespace for proof-only screens")
+        if not handler_matches_runtime(action["handler"], recipe["runtime"]):
+            fail(where + ".handler must match the "
+                 + ("proof" if recipe["runtime"] == "proof-only" else "production")
+                 + " runtime namespace grammar")
     if not isinstance(recipe.get("entities", []), list):
         fail("recipe.entities must be an array")
 

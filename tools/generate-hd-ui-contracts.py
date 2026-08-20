@@ -37,6 +37,8 @@ import os
 import re
 import sys
 
+from hd_ui_authoring_schema import SCREEN_ID_RE, handler_matches_runtime
+
 NL = chr(10)          # newline
 TAB = chr(9)          # tab
 
@@ -548,6 +550,8 @@ def validate_screen(doc, rel):
     for key in ("id", "archetype", "runtime"):
         if not isinstance(screen.get(key), str) or not screen[key]:
             fail(rel + ": screen." + key + " required")
+    if not SCREEN_ID_RE.fullmatch(screen["id"]):
+        fail(rel + ": screen.id must be a lower-kebab identifier")
     if screen["runtime"] not in ("production", "proof-only"):
         fail(rel + ": screen.runtime must be production or proof-only")
     if screen.get("productionHook") != (screen["runtime"] == "production"):
@@ -566,24 +570,65 @@ def validate_screen(doc, rel):
         for key in ("id", "component", "slotRole", "handler"):
             if not isinstance(action.get(key), str) or not action[key]:
                 fail(rel + ": actions[" + str(index) + "]." + key + " required")
-        if screen["runtime"] == "proof-only" and not action["handler"].startswith("proof."):
-            fail(rel + ": proof-only action handler must use proof.*: " + action["id"])
+        if not handler_matches_runtime(action["handler"], screen["runtime"]):
+            fail(rel + ": action handler must match the "
+                 + ("proof" if screen["runtime"] == "proof-only" else "production")
+                 + " runtime namespace grammar: " + action["id"])
         action_ids.append(action["id"])
     if len(set(action_ids)) != len(action_ids):
         fail(rel + ": action ids must be unique")
+    labels = ((doc.get("fixture") or {}).get("labels")
+              if isinstance(doc.get("fixture"), dict) else None)
+    if not isinstance(labels, dict):
+        fail(rel + ": fixture.labels must be an object")
+    action_labels = labels.get("actions")
+    if not isinstance(action_labels, dict):
+        fail(rel + ": fixture.labels.actions must be an object")
+    for action_id in action_ids:
+        label = action_labels.get(action_id)
+        if not isinstance(label, str) or not label.strip():
+            fail(rel + ": fixture.labels.actions missing non-empty label for " + action_id)
+    fixture_copy = labels.get("copy")
+    if (not isinstance(fixture_copy, dict)
+            or any(not isinstance(key, str) or not key
+                   or not isinstance(value, str)
+                   for key, value in fixture_copy.items())):
+        fail(rel + ": fixture.labels.copy must be a string map")
     layouts = doc.get("layouts")
     if not isinstance(layouts, dict) or set(layouts) != {"wide", "compact"}:
         fail(rel + ": layouts must contain exactly wide and compact")
     for layout_name in ("wide", "compact"):
         layout = layouts[layout_name]
+        if not isinstance(layout, dict):
+            fail(rel + ": " + layout_name + " must be an object")
         design = layout.get("designSize")
         if (not isinstance(design, list) or len(design) != 2
-                or any(not isinstance(value, int) or value <= 0 for value in design)):
+                or any(not isinstance(value, int) or isinstance(value, bool) or value <= 0
+                       for value in design)):
             fail(rel + ": " + layout_name + ".designSize must contain positive integers")
+        regions = layout.get("regions")
+        if not isinstance(regions, dict):
+            fail(rel + ": " + layout_name + ".regions must be an object")
+        for region_id, rect in regions.items():
+            if not isinstance(region_id, str) or not region_id:
+                fail(rel + ": " + layout_name + ".regions requires named rectangles")
+            if (not isinstance(rect, list) or len(rect) != 4
+                    or any(not isinstance(value, int) or isinstance(value, bool) for value in rect)
+                    or rect[2] <= 0 or rect[3] <= 0):
+                fail(rel + ": " + layout_name + ".regions." + region_id
+                     + " must be an integer rectangle")
         resolved = layout.get("actions")
         if not isinstance(resolved, dict) or set(resolved) != set(action_ids):
             fail(rel + ": " + layout_name + " action geometry must cover every action")
         for action_id, action_layout in resolved.items():
+            if not isinstance(action_layout, dict):
+                fail(rel + ": " + layout_name + ".actions." + action_id
+                     + " must be an object")
+            for scalar_name in ("focusOrder", "zOrder"):
+                scalar = action_layout.get(scalar_name)
+                if not isinstance(scalar, int) or isinstance(scalar, bool):
+                    fail(rel + ": " + layout_name + ".actions." + action_id + "."
+                         + scalar_name + " must be an integer")
             for rect_name in ("visibleRect", "hitRect"):
                 rect = action_layout.get(rect_name)
                 if (not isinstance(rect, list) or len(rect) != 4

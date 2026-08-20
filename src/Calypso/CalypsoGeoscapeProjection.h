@@ -56,6 +56,7 @@ inline double calypsoGeoscapeNormalizeLon(double lon)
 {
 	lon = std::fmod(lon, GEOSCAPE_TWO_PI);
 	if (lon < 0.0) lon += GEOSCAPE_TWO_PI;
+	if (lon >= GEOSCAPE_TWO_PI) lon -= GEOSCAPE_TWO_PI;
 	return lon;
 }
 
@@ -171,7 +172,11 @@ inline double calypsoGeoscapeAngularDistance(GeoscapeLonLat a, GeoscapeLonLat b)
 	const auto av = calypsoGeoscapeToVec(a);
 	const auto bv = calypsoGeoscapeToVec(b);
 	const double dot = std::max(-1.0, std::min(1.0, av.x * bv.x + av.y * bv.y + av.z * bv.z));
-	return std::acos(dot);
+	const double crossX = av.y * bv.z - av.z * bv.y;
+	const double crossY = av.z * bv.x - av.x * bv.z;
+	const double crossZ = av.x * bv.y - av.y * bv.x;
+	const double cross = std::sqrt(crossX * crossX + crossY * crossY + crossZ * crossZ);
+	return std::atan2(cross, dot);
 }
 
 } // namespace Calypso
