@@ -25,6 +25,7 @@ TOP_LEVEL_KEYS = {
 ACTION_KEYS = {
     "id", "labelKey", "icon", "component", "slotRole", "tone", "handler",
     "inputs", "availability", "timePolicy", "focusOrder", "visibility", "hotkey",
+    "rowIndex",
 }
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9.-]*$")
 SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
@@ -107,6 +108,10 @@ def validate_recipe(recipe):
             fail(where + ".inputs must contain input names")
         if not isinstance(action.get("focusOrder"), int) or isinstance(action.get("focusOrder"), bool):
             fail(where + ".focusOrder must be an integer")
+        if ("rowIndex" in action
+                and (not isinstance(action["rowIndex"], int) or isinstance(action["rowIndex"], bool)
+                     or action["rowIndex"] < 0)):
+            fail(where + ".rowIndex must be a non-negative integer")
         if recipe["runtime"] == "proof-only" and not action["handler"].startswith("proof."):
             fail(where + ".handler must use the proof.* namespace for proof-only screens")
     if not isinstance(recipe.get("entities", []), list):
@@ -136,6 +141,19 @@ def validate_template(template, archetype):
                           layout_name + ".slots." + slot_id + ".hitRect")
         for name, region in (layout.get("regions") or {}).items():
             validate_rect(region, layout_name + ".regions." + name)
+        for collection_id, collection in (layout.get("collections") or {}).items():
+            where = "template.layouts." + layout_name + ".collections." + collection_id
+            for key in ("origin", "itemSize", "stride"):
+                value = collection.get(key)
+                if (not isinstance(value, list) or len(value) != 2
+                        or any(not isinstance(number, int) or isinstance(number, bool)
+                               for number in value)):
+                    fail(where + "." + key + " must contain two integers")
+            if any(value <= 0 for value in collection["itemSize"]):
+                fail(where + ".itemSize must be positive")
+            maximum = collection.get("maxItems")
+            if not isinstance(maximum, int) or isinstance(maximum, bool) or maximum <= 0:
+                fail(where + ".maxItems must be a positive integer")
         for index, region in enumerate(layout.get("reservedRegions") or []):
             validate_rect(region.get("bounds"), layout_name + ".reservedRegions[" + str(index) + "].bounds")
 
@@ -179,6 +197,15 @@ def compile_contract(recipe, template, source_name):
         match = next((action_id for action_id in persistent if re.search(pattern, action_id)), None)
         if match:
             fail("persistent action " + match + " is forbidden by " + template["id"])
+    collection_positions = set()
+    for action in recipe["actions"]:
+        if "rowIndex" not in action:
+            continue
+        key = (action["slotRole"], action["rowIndex"])
+        if key in collection_positions:
+            fail("collection slot " + action["slotRole"] + " rowIndex "
+                 + str(action["rowIndex"]) + " is used more than once")
+        collection_positions.add(key)
 
     compiled_layouts = {}
     for layout_name in ("wide", "compact"):
@@ -188,8 +215,28 @@ def compile_contract(recipe, template, source_name):
             slot_id = action["slotRole"]
             slot = layout["slots"].get(slot_id)
             if slot is None:
-                fail(template["id"] + " has no " + layout_name + " slot " + slot_id
-                     + " required by " + action["id"])
+                collection = (layout.get("collections") or {}).get(slot_id)
+                if collection is None:
+                    fail(template["id"] + " has no " + layout_name + " slot or collection "
+                         + slot_id + " required by " + action["id"])
+                row_index = action.get("rowIndex")
+                if not isinstance(row_index, int):
+                    fail(action["id"] + " requires rowIndex for collection " + slot_id)
+                if row_index >= collection["maxItems"]:
+                    fail(action["id"] + " rowIndex exceeds " + slot_id + " capacity")
+                origin = collection["origin"]
+                stride = collection["stride"]
+                size = collection["itemSize"]
+                slot = {
+                    "visibleRect": [
+                        origin[0] + stride[0] * row_index,
+                        origin[1] + stride[1] * row_index,
+                        size[0],
+                        size[1],
+                    ],
+                    "coordinateSpace": collection.get("coordinateSpace", "screen"),
+                    "zOrder": collection.get("zOrder", 1),
+                }
             hit = slot.get("hitRect", slot["visibleRect"])
             minimum = components[action["component"]]["minimumTarget"]
             if hit[2] < minimum[0] or hit[3] < minimum[1]:

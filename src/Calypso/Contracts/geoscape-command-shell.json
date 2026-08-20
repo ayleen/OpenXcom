@@ -165,7 +165,8 @@
       "labelKey": "STR_FUNDING",
       "icon": "funding",
       "component": "drawer-row",
-      "slotRole": "drawer-row-1",
+      "slotRole": "drawer-row",
+      "rowIndex": 0,
       "tone": "normal",
       "handler": "geoscape.openFunding",
       "inputs": [
@@ -185,7 +186,8 @@
       "labelKey": "STR_TECH_TREE_VIEWER",
       "icon": "tech-tree",
       "component": "drawer-row",
-      "slotRole": "drawer-row-2",
+      "slotRole": "drawer-row",
+      "rowIndex": 1,
       "tone": "normal",
       "handler": "geoscape.openTechTree",
       "inputs": [
@@ -205,7 +207,8 @@
       "labelKey": "STR_GLOBAL_RESEARCH",
       "icon": "research-overview",
       "component": "drawer-row",
-      "slotRole": "drawer-row-3",
+      "slotRole": "drawer-row",
+      "rowIndex": 2,
       "tone": "normal",
       "handler": "geoscape.openGlobalResearch",
       "inputs": [
@@ -225,7 +228,8 @@
       "labelKey": "STR_GLOBAL_MANUFACTURE",
       "icon": "production-overview",
       "component": "drawer-row",
-      "slotRole": "drawer-row-4",
+      "slotRole": "drawer-row",
+      "rowIndex": 3,
       "tone": "normal",
       "handler": "geoscape.openGlobalProduction",
       "inputs": [
@@ -245,7 +249,8 @@
       "labelKey": "STR_GLOBAL_ALIEN_CONTAINMENT",
       "icon": "containment",
       "component": "drawer-row",
-      "slotRole": "drawer-row-5",
+      "slotRole": "drawer-row",
+      "rowIndex": 4,
       "tone": "normal",
       "handler": "geoscape.openGlobalContainment",
       "inputs": [
@@ -265,7 +270,8 @@
       "labelKey": "STR_UFO_TRACKER",
       "icon": "ufo-tracker",
       "component": "drawer-row",
-      "slotRole": "drawer-row-6",
+      "slotRole": "drawer-row",
+      "rowIndex": 5,
       "tone": "normal",
       "handler": "geoscape.openUfoTracker",
       "inputs": [
@@ -285,7 +291,8 @@
       "labelKey": "STR_DAILY_PILOT_EXPERIENCE",
       "icon": "pilot",
       "component": "drawer-row",
-      "slotRole": "drawer-row-7",
+      "slotRole": "drawer-row",
+      "rowIndex": 6,
       "tone": "normal",
       "handler": "geoscape.openPilotExperience",
       "inputs": [
@@ -305,7 +312,8 @@
       "labelKey": "STR_NOTES",
       "icon": "notes",
       "component": "drawer-row",
-      "slotRole": "drawer-row-8",
+      "slotRole": "drawer-row",
+      "rowIndex": 7,
       "tone": "normal",
       "handler": "geoscape.openNotes",
       "inputs": [
@@ -324,7 +332,8 @@
       "labelKey": "STR_SELECT_MUSIC_TRACK",
       "icon": "music",
       "component": "drawer-row",
-      "slotRole": "drawer-row-9",
+      "slotRole": "drawer-row",
+      "rowIndex": 8,
       "tone": "normal",
       "handler": "geoscape.openMusic",
       "inputs": [
@@ -344,7 +353,8 @@
       "labelKey": "STR_DEBUG",
       "icon": "debug",
       "component": "drawer-row",
-      "slotRole": "drawer-row-10",
+      "slotRole": "drawer-row",
+      "rowIndex": 9,
       "tone": "warning",
       "handler": "geoscape.openDebug",
       "inputs": [
@@ -362,7 +372,8 @@
       "labelKey": "STR_QUICK_SAVE",
       "icon": "save",
       "component": "drawer-row",
-      "slotRole": "drawer-row-11",
+      "slotRole": "drawer-row",
+      "rowIndex": 10,
       "tone": "normal",
       "handler": "geoscape.quickSave",
       "inputs": [
@@ -382,7 +393,8 @@
       "labelKey": "STR_INSTANT_SAVE",
       "icon": "save",
       "component": "drawer-row",
-      "slotRole": "drawer-row-12",
+      "slotRole": "drawer-row",
+      "rowIndex": 11,
       "tone": "normal",
       "handler": "geoscape.instantSave",
       "inputs": [
@@ -402,7 +414,8 @@
       "labelKey": "STR_QUICK_LOAD",
       "icon": "load",
       "component": "drawer-row",
-      "slotRole": "drawer-row-13",
+      "slotRole": "drawer-row",
+      "rowIndex": 12,
       "tone": "warning",
       "handler": "geoscape.quickLoad",
       "inputs": [
@@ -887,7 +900,7 @@
         "drawer.funding": {
           "id": "drawer.funding",
           "component": "drawer-row",
-          "slotRole": "drawer-row-1",
+          "slotRole": "drawer-row",
           "coordinateSpace": "drawer",
           "visibleRect": [
             0,
@@ -907,7 +920,7 @@
         "drawer.tech-tree": {
           "id": "drawer.tech-tree",
           "component": "drawer-row",
-          "slotRole": "drawer-row-2",
+          "slotRole": "drawer-row",
           "coordinateSpace": "drawer",
           "visibleRect": [
             0,
@@ -927,7 +940,7 @@
         "drawer.global-research": {
           "id": "drawer.global-research",
           "component": "drawer-row",
-          "slotRole": "drawer-row-3",
+          "slotRole": "drawer-row",
           "coordinateSpace": "drawer",
           "visibleRect": [
             0,
@@ -947,7 +960,7 @@
         "drawer.global-production": {
           "id": "drawer.global-production",
           "component": "drawer-row",
-          "slotRole": "drawer-row-4",
+          "slotRole": "drawer-row",
           "coordinateSpace": "drawer",
           "visibleRect": [
             0,
@@ -967,7 +980,7 @@
         "drawer.global-containment": {
           "id": "drawer.global-containment",
           "component": "drawer-row",
-          "slotRole": "drawer-row-5",
+          "slotRole": "drawer-row",
           "coordinateSpace": "drawer",
           "visibleRect": [
             0,
@@ -987,7 +1000,7 @@
         "drawer.ufo-tracker": {
           "id": "drawer.ufo-tracker",
           "component": "drawer-row",
-          "slotRole": "drawer-row-6",
+          "slotRole": "drawer-row",
           "coordinateSpace": "drawer",
           "visibleRect": [
             0,
@@ -1007,7 +1020,7 @@
         "drawer.pilot-experience": {
           "id": "drawer.pilot-experience",
           "component": "drawer-row",
-          "slotRole": "drawer-row-7",
+          "slotRole": "drawer-row",
           "coordinateSpace": "drawer",
           "visibleRect": [
             0,
@@ -1027,7 +1040,7 @@
         "drawer.notes": {
           "id": "drawer.notes",
           "component": "drawer-row",
-          "slotRole": "drawer-row-8",
+          "slotRole": "drawer-row",
           "coordinateSpace": "drawer",
           "visibleRect": [
             0,
@@ -1047,7 +1060,7 @@
         "drawer.music": {
           "id": "drawer.music",
           "component": "drawer-row",
-          "slotRole": "drawer-row-9",
+          "slotRole": "drawer-row",
           "coordinateSpace": "drawer",
           "visibleRect": [
             0,
@@ -1067,7 +1080,7 @@
         "drawer.debug": {
           "id": "drawer.debug",
           "component": "drawer-row",
-          "slotRole": "drawer-row-10",
+          "slotRole": "drawer-row",
           "coordinateSpace": "drawer",
           "visibleRect": [
             0,
@@ -1087,7 +1100,7 @@
         "drawer.quick-save": {
           "id": "drawer.quick-save",
           "component": "drawer-row",
-          "slotRole": "drawer-row-11",
+          "slotRole": "drawer-row",
           "coordinateSpace": "drawer",
           "visibleRect": [
             0,
@@ -1107,7 +1120,7 @@
         "drawer.instant-save": {
           "id": "drawer.instant-save",
           "component": "drawer-row",
-          "slotRole": "drawer-row-12",
+          "slotRole": "drawer-row",
           "coordinateSpace": "drawer",
           "visibleRect": [
             0,
@@ -1127,7 +1140,7 @@
         "drawer.quick-load": {
           "id": "drawer.quick-load",
           "component": "drawer-row",
-          "slotRole": "drawer-row-13",
+          "slotRole": "drawer-row",
           "coordinateSpace": "drawer",
           "visibleRect": [
             0,
@@ -1573,7 +1586,7 @@
         "drawer.funding": {
           "id": "drawer.funding",
           "component": "drawer-row",
-          "slotRole": "drawer-row-1",
+          "slotRole": "drawer-row",
           "coordinateSpace": "drawer",
           "visibleRect": [
             0,
@@ -1593,7 +1606,7 @@
         "drawer.tech-tree": {
           "id": "drawer.tech-tree",
           "component": "drawer-row",
-          "slotRole": "drawer-row-2",
+          "slotRole": "drawer-row",
           "coordinateSpace": "drawer",
           "visibleRect": [
             0,
@@ -1613,7 +1626,7 @@
         "drawer.global-research": {
           "id": "drawer.global-research",
           "component": "drawer-row",
-          "slotRole": "drawer-row-3",
+          "slotRole": "drawer-row",
           "coordinateSpace": "drawer",
           "visibleRect": [
             0,
@@ -1633,7 +1646,7 @@
         "drawer.global-production": {
           "id": "drawer.global-production",
           "component": "drawer-row",
-          "slotRole": "drawer-row-4",
+          "slotRole": "drawer-row",
           "coordinateSpace": "drawer",
           "visibleRect": [
             0,
@@ -1653,7 +1666,7 @@
         "drawer.global-containment": {
           "id": "drawer.global-containment",
           "component": "drawer-row",
-          "slotRole": "drawer-row-5",
+          "slotRole": "drawer-row",
           "coordinateSpace": "drawer",
           "visibleRect": [
             0,
@@ -1673,7 +1686,7 @@
         "drawer.ufo-tracker": {
           "id": "drawer.ufo-tracker",
           "component": "drawer-row",
-          "slotRole": "drawer-row-6",
+          "slotRole": "drawer-row",
           "coordinateSpace": "drawer",
           "visibleRect": [
             0,
@@ -1693,7 +1706,7 @@
         "drawer.pilot-experience": {
           "id": "drawer.pilot-experience",
           "component": "drawer-row",
-          "slotRole": "drawer-row-7",
+          "slotRole": "drawer-row",
           "coordinateSpace": "drawer",
           "visibleRect": [
             0,
@@ -1713,7 +1726,7 @@
         "drawer.notes": {
           "id": "drawer.notes",
           "component": "drawer-row",
-          "slotRole": "drawer-row-8",
+          "slotRole": "drawer-row",
           "coordinateSpace": "drawer",
           "visibleRect": [
             0,
@@ -1733,7 +1746,7 @@
         "drawer.music": {
           "id": "drawer.music",
           "component": "drawer-row",
-          "slotRole": "drawer-row-9",
+          "slotRole": "drawer-row",
           "coordinateSpace": "drawer",
           "visibleRect": [
             0,
@@ -1753,7 +1766,7 @@
         "drawer.debug": {
           "id": "drawer.debug",
           "component": "drawer-row",
-          "slotRole": "drawer-row-10",
+          "slotRole": "drawer-row",
           "coordinateSpace": "drawer",
           "visibleRect": [
             0,
@@ -1773,7 +1786,7 @@
         "drawer.quick-save": {
           "id": "drawer.quick-save",
           "component": "drawer-row",
-          "slotRole": "drawer-row-11",
+          "slotRole": "drawer-row",
           "coordinateSpace": "drawer",
           "visibleRect": [
             0,
@@ -1793,7 +1806,7 @@
         "drawer.instant-save": {
           "id": "drawer.instant-save",
           "component": "drawer-row",
-          "slotRole": "drawer-row-12",
+          "slotRole": "drawer-row",
           "coordinateSpace": "drawer",
           "visibleRect": [
             0,
@@ -1813,7 +1826,7 @@
         "drawer.quick-load": {
           "id": "drawer.quick-load",
           "component": "drawer-row",
-          "slotRole": "drawer-row-13",
+          "slotRole": "drawer-row",
           "coordinateSpace": "drawer",
           "visibleRect": [
             0,
