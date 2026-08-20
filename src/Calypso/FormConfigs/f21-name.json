@@ -13,12 +13,31 @@
   },
   "title": "NAME YOUR FIRST BASE",
   "body": [],
-  "icon": { "kind": "info", "glyph": "i", "tone": "primary" },
+  "icon": {
+    "kind": "info",
+    "glyph": "i",
+    "tone": "primary"
+  },
   "buttons": [
-    { "id": "ok", "label": "CONFIRM NAME", "tone": "primary", "action": "confirm" }
+    {
+      "id": "ok",
+      "label": "CONFIRM NAME",
+      "tone": "primary",
+      "action": "confirm"
+    },
+    {
+      "id": "cancel",
+      "label": "CANCEL",
+      "tone": "safe",
+      "action": "cancel"
+    }
   ],
   "input": {
     "value": "CALYPSO DEEP",
     "hint": "Choose a permanent registry name. Press Enter to confirm."
-  }
+  },
+  "visibleButtons": [
+    "ok",
+    "cancel"
+  ]
 }

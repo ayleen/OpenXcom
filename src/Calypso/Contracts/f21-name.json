@@ -22,7 +22,22 @@
           "border": "74FFB0FF",
           "text": "071013FF"
         }
+      },
+      {
+        "id": "cancel",
+        "label": "CANCEL",
+        "tone": "safe",
+        "action": "cancel",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB0CC",
+          "text": "E8FFF5FF"
+        }
       }
+    ],
+    "visibleButtons": [
+      "ok",
+      "cancel"
     ],
     "input": {
       "value": "CALYPSO DEEP",
@@ -94,6 +109,12 @@
       },
       "buttons": {
         "ok": {
+          "x": 546,
+          "y": 437,
+          "width": 158,
+          "height": 44
+        },
+        "cancel": {
           "x": 714,
           "y": 437,
           "width": 158,
@@ -154,6 +175,12 @@
       },
       "buttons": {
         "ok": {
+          "x": 271,
+          "y": 247,
+          "width": 148,
+          "height": 44
+        },
+        "cancel": {
           "x": 431,
           "y": 247,
           "width": 148,
