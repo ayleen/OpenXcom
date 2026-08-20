@@ -28,10 +28,10 @@ void CalypsoF10ManufactureCheckUi::collect(CalypsoHdFrameBuilder& builder) const
     m.designWidth = g->designWidth; m.designHeight = g->designHeight;
     m.window = winRect; m.status = proj(g->status); m.warning = proj(g->warning); m.title = proj(g->title); m.message = proj(g->message); m.footer = proj(g->footer);
     m.windowWidget = _state->_window;
+    m.titleText = m.messageText; // use message as title fallback
     m.messageWidget = _state->_txtTitle;
     m.messageText = _state->_txtTitle ? _state->_txtTitle->getText() : std::string();
-    m.titleText = "";
-    m.protocolText = "";
+    m.protocolText = std::string();
     m.warningGlyph = "!";
     m.cutCornerPx = CalypsoF10ManufactureCheckGen::kCutCornerPx;
     m.protocolTextInsetPx = CalypsoF10ManufactureCheckGen::kProtocolTextInsetPx;
@@ -42,8 +42,12 @@ void CalypsoF10ManufactureCheckUi::collect(CalypsoHdFrameBuilder& builder) const
     m.dividerColor = CalypsoF10ManufactureCheckGen::kDivider;
     m.footerDotColor = CalypsoF10ManufactureCheckGen::kFooterDot;
     m.warningColor = CalypsoF10ManufactureCheckGen::kWarning;
-    { CalypsoSmallConfirmationButton b{}; b.widget = _state->_btnStop; b.text = b.widget ? b.widget->getText() : std::string(); b.rect = b.widget ? CalypsoLogicalRect{b.widget->getX(), b.widget->getY(), b.widget->getWidth(), b.widget->getHeight()} : proj(g->window); b.tone = CalypsoActionTone::Safe; m.buttons.push_back(b); }
-    { CalypsoSmallConfirmationButton b{}; b.widget = _state->_btnOk; b.text = b.widget ? b.widget->getText() : std::string(); b.rect = b.widget ? CalypsoLogicalRect{b.widget->getX(), b.widget->getY(), b.widget->getWidth(), b.widget->getHeight()} : proj(g->window); b.tone = CalypsoActionTone::Safe; m.buttons.push_back(b); }
+    m.messageDesignWidth = g->message.w;
+    m.titleDesignHeight = g->title.h;
+    m.motionDurationMs = CalypsoF10ManufactureCheckGen::kMotionDurationMs;
+    m.motionScaleFrom = CalypsoF10ManufactureCheckGen::kMotionScaleFrom;
+    { CalypsoSmallConfirmationButton b{}; b.widget = _state->_btnOk; b.text = b.widget ? b.widget->getText() : std::string(); b.rect = b.widget ? CalypsoLogicalRect{b.widget->getX(), b.widget->getY(), b.widget->getWidth(), b.widget->getHeight()} : proj(g->window); b.tone = CalypsoActionTone::Safe; for(int i=0;i<CalypsoF10ManufactureCheckGen::kButtonCount;++i) if(std::string(CalypsoF10ManufactureCheckGen::kButtons[i].id)=="ok") { b.restFill=CalypsoF10ManufactureCheckGen::kButtons[i].fill; b.restBorder=CalypsoF10ManufactureCheckGen::kButtons[i].border; b.textColor=CalypsoF10ManufactureCheckGen::kButtons[i].text; break; } m.buttons.push_back(b); }
+    { CalypsoSmallConfirmationButton b{}; b.widget = _state->_btnStop; b.text = b.widget ? b.widget->getText() : std::string(); b.rect = b.widget ? CalypsoLogicalRect{b.widget->getX(), b.widget->getY(), b.widget->getWidth(), b.widget->getHeight()} : proj(g->window); b.tone = CalypsoActionTone::Safe; for(int i=0;i<CalypsoF10ManufactureCheckGen::kButtonCount;++i) if(std::string(CalypsoF10ManufactureCheckGen::kButtons[i].id)=="stop") { b.restFill=CalypsoF10ManufactureCheckGen::kButtons[i].fill; b.restBorder=CalypsoF10ManufactureCheckGen::kButtons[i].border; b.textColor=CalypsoF10ManufactureCheckGen::kButtons[i].text; break; } m.buttons.push_back(b); }
     calypsoCollectSmallConfirmation(builder, m, _motion);
 }
 void CalypsoF10ManufactureCheckUi::configure(ManufactureInfoState& s, bool allow) {

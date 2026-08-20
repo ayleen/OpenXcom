@@ -45,7 +45,7 @@ public:
 	/// Creates the NoExperience state.
 	NoExperienceState();
 	/// Cleans up the NoExperience state.
-	~NoExperienceState() = default;
+	~NoExperienceState();
 	/// Handler for clicking the Cancel button.
 	void btnCancelClick(Action *action);
 

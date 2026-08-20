@@ -2,12 +2,12 @@
   "schema": 1,
   "id": "f10-manufacture-check",
   "familyId": 10,
-  "version": "hd.2026-08-20.19",
+  "version": "hd.2026-08-20.22",
   "archetype": "small-confirmation",
   "protocol": {
     "authority": "CALYPSO COMMAND",
     "record": "LOGISTICS NOTICE",
-    "code": "F10-MANUFACTURE-CHECK",
+    "code": "F10-MF-01",
     "revision": "1.0.21",
     "effectiveDate": "15.07.2061"
   },
@@ -38,6 +38,5 @@
   "visibleButtons": [
     "cancel",
     "confirm"
-  ],
-  "table": "| ITEM | REQ |\n| --- | --- |\n| ALLOYS \u00b7 5 | E-115 \u00b7 2 |"
+  ]
 }

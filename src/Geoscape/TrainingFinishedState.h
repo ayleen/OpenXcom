@@ -48,6 +48,7 @@ private:
 	Base *_base;
 	bool _psi;
 public:
+	~TrainingFinishedState();
 	/// Creates the TrainingFinishedState state.
 	TrainingFinishedState(Base *base, const std::vector<Soldier *> & list, bool psi);
 	/// Handler for clicking the OK button.

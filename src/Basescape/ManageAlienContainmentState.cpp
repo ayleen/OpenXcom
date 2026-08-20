@@ -189,6 +189,9 @@ ManageAlienContainmentState::~ManageAlienContainmentState()
 	delete _hdAdapter;
 	_hdAdapter = nullptr;
 #endif
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF13ContainmentUi::configure(*this);
+#endif
 	delete _timerInc;
 	delete _timerDec;
 }

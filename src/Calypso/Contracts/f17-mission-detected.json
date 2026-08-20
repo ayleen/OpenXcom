@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "hd.2026-08-20.19",
+  "version": "hd.2026-08-20.22",
   "form": {
     "id": "f17-mission-detected",
     "familyId": 17,
@@ -53,12 +53,17 @@
     ]
   },
   "copy": {
-    "protocol": "CALYPSO COMMAND · TACTICAL NOTICE F17-MISSION-DETECTED · REV. 1.0.21 · EFFECTIVE 15.07.2061",
+    "protocol": "CALYPSO COMMAND · TACTICAL NOTICE F17-MD-01",
     "title": "MISSION DETECTED",
     "message": [
       "Alien mission",
       "detected nearby."
     ]
+  },
+  "presentation": {
+    "density": "standard",
+    "scaleNumerator": 1,
+    "scaleDenominator": 1
   },
   "style": {
     "cutCornerPx": 14,

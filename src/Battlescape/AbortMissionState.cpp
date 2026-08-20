@@ -203,6 +203,9 @@ AbortMissionState::~AbortMissionState()
 	delete _hdAdapter;
 	_hdAdapter = nullptr;
 #endif
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF28AbortMissionUi::configure(*this);
+#endif
 
 }
 
@@ -240,10 +243,6 @@ void AbortMissionState::btnOkClick(Action *)
 		return;
 	}
 #endif
-#ifdef __EMSCRIPTEN__
-	Calypso::CalypsoF28AbortMissionUi::configure(*this);
-#endif
-
 	_game->popState();
 	_battleGame->setAborted(true);
 	_state->finishBattle(true, _inExit);

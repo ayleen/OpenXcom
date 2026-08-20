@@ -99,6 +99,9 @@ TransferConfirmState::~TransferConfirmState()
 	delete _hdAdapter;
 	_hdAdapter = nullptr;
 #endif
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF12TransferConfirmUi::configure(*this);
+#endif
 }
 
 /**

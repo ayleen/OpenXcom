@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "hd.2026-08-20.19",
+  "version": "hd.2026-08-20.22",
   "form": {
     "id": "f12-transfer-confirm",
     "familyId": 12,
@@ -38,26 +38,20 @@
     "visibleButtons": [
       "cancel",
       "confirm"
-    ],
-    "tableRows": [
-      [
-        "ITEM",
-        "QTY"
-      ],
-      [
-        "ALLOYS · 10",
-        "MEDIKIT · 5"
-      ]
     ]
   },
   "copy": {
-    "protocol": "CALYPSO COMMAND · LOGISTICS NOTICE F12-TRANSFER-CONFIRM · REV. 1.0.21 · EFFECTIVE 15.07.2061",
+    "protocol": "CALYPSO COMMAND · LOGISTICS NOTICE F12-TR-01",
     "title": "CONFIRM TRANSFER?",
     "message": [
       "Transfer the selected",
       "items to base?"
-    ],
-    "table": "| ITEM | QTY |\n| --- | --- |\n| ALLOYS · 10 | MEDIKIT · 5 |"
+    ]
+  },
+  "presentation": {
+    "density": "standard",
+    "scaleNumerator": 1,
+    "scaleDenominator": 1
   },
   "style": {
     "cutCornerPx": 14,
@@ -83,7 +77,7 @@
         "x": 406,
         "y": 230,
         "width": 468,
-        "height": 323
+        "height": 236
       },
       "status": {
         "x": 406,
@@ -107,63 +101,27 @@
         "x": 438,
         "y": 336,
         "width": 404,
-        "height": 141
+        "height": 54
       },
       "footer": {
         "x": 406,
-        "y": 491,
+        "y": 404,
         "width": 468,
         "height": 62
       },
       "buttons": {
         "cancel": {
           "x": 516,
-          "y": 500,
+          "y": 413,
           "width": 158,
           "height": 44
         },
         "confirm": {
           "x": 684,
-          "y": 500,
+          "y": 413,
           "width": 158,
           "height": 44
         }
-      },
-      "cellR1C1": {
-        "x": 454,
-        "y": 408,
-        "width": 88,
-        "height": 22
-      },
-      "cellR1C2": {
-        "x": 559,
-        "y": 408,
-        "width": 88,
-        "height": 22
-      },
-      "rowDivider1": {
-        "x": 446,
-        "y": 438,
-        "width": 209,
-        "height": 1
-      },
-      "cellR2C1": {
-        "x": 454,
-        "y": 447,
-        "width": 88,
-        "height": 22
-      },
-      "cellR2C2": {
-        "x": 559,
-        "y": 447,
-        "width": 88,
-        "height": 22
-      },
-      "columnDivider1": {
-        "x": 550,
-        "y": 400,
-        "width": 1,
-        "height": 77
       }
     },
     "compact": {
@@ -173,7 +131,7 @@
         "x": 160,
         "y": 60,
         "width": 420,
-        "height": 298
+        "height": 221
       },
       "status": {
         "x": 160,
@@ -197,63 +155,27 @@
         "x": 188,
         "y": 150,
         "width": 364,
-        "height": 125
+        "height": 48
       },
       "footer": {
         "x": 160,
-        "y": 292,
+        "y": 215,
         "width": 420,
         "height": 66
       },
       "buttons": {
         "cancel": {
           "x": 244,
-          "y": 302,
+          "y": 225,
           "width": 148,
           "height": 44
         },
         "confirm": {
           "x": 404,
-          "y": 302,
+          "y": 225,
           "width": 148,
           "height": 44
         }
-      },
-      "cellR1C1": {
-        "x": 204,
-        "y": 214,
-        "width": 77,
-        "height": 18
-      },
-      "cellR1C2": {
-        "x": 298,
-        "y": 214,
-        "width": 77,
-        "height": 18
-      },
-      "rowDivider1": {
-        "x": 196,
-        "y": 240,
-        "width": 187,
-        "height": 1
-      },
-      "cellR2C1": {
-        "x": 204,
-        "y": 249,
-        "width": 77,
-        "height": 18
-      },
-      "cellR2C2": {
-        "x": 298,
-        "y": 249,
-        "width": 77,
-        "height": 18
-      },
-      "columnDivider1": {
-        "x": 289,
-        "y": 206,
-        "width": 1,
-        "height": 69
       }
     }
   },
@@ -262,55 +184,5 @@
     "scaleFrom": 0.96,
     "easing": "ease-out",
     "captureModeDurationMs": 0
-  },
-  "tableMetrics": {
-    "wide": {
-      "columns": 2,
-      "rows": 2,
-      "columnTextWidths": [
-        88,
-        88
-      ],
-      "columnWidths": [
-        104,
-        104
-      ],
-      "rowHeights": [
-        38,
-        38
-      ],
-      "lineCounts": {
-        "cellR1C1": 1,
-        "cellR1C2": 1,
-        "cellR2C1": 1,
-        "cellR2C2": 1
-      },
-      "tableWidth": 209,
-      "tableHeight": 77
-    },
-    "compact": {
-      "columns": 2,
-      "rows": 2,
-      "columnTextWidths": [
-        77,
-        77
-      ],
-      "columnWidths": [
-        93,
-        93
-      ],
-      "rowHeights": [
-        34,
-        34
-      ],
-      "lineCounts": {
-        "cellR1C1": 1,
-        "cellR1C2": 1,
-        "cellR2C1": 1,
-        "cellR2C2": 1
-      },
-      "tableWidth": 187,
-      "tableHeight": 69
-    }
   }
 }

@@ -42,6 +42,7 @@ friend class Calypso::CalypsoF24ResearchRequiredUi;
 	Text *_txtTitle;
 	TextButton *_btnOk;
 public:
+	~ResearchRequiredState();
 	/// Creates the ResearchRequired state.
 	ResearchRequiredState(RuleItem *item);
 	/// Handler for clicking the OK button.

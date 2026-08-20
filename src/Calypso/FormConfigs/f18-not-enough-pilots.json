@@ -2,7 +2,7 @@
   "schema": 1,
   "id": "f18-not-enough-pilots",
   "familyId": 18,
-  "version": "hd.2026-08-20.19",
+  "version": "hd.2026-08-20.22",
   "archetype": "small-confirmation",
   "protocol": {
     "authority": "CALYPSO COMMAND",
@@ -16,10 +16,27 @@
     "Not enough pilots assigned",
     "for this craft type."
   ],
-  "icon": { "kind": "warning", "glyph": "!", "tone": "warning" },
+  "icon": {
+    "kind": "warning",
+    "glyph": "!",
+    "tone": "warning"
+  },
   "buttons": [
-    { "id": "ok", "label": "ACKNOWLEDGE", "tone": "safe", "action": "acknowledge" },
-    { "id": "assign", "label": "ASSIGN PILOTS", "tone": "primary", "action": "assign" }
+    {
+      "id": "ok",
+      "label": "ACKNOWLEDGE",
+      "tone": "safe",
+      "action": "acknowledge"
+    },
+    {
+      "id": "assign",
+      "label": "ASSIGN PILOTS",
+      "tone": "primary",
+      "action": "assign"
+    }
   ],
-  "visibleButtons": ["ok", "assign"]
+  "visibleButtons": [
+    "ok",
+    "assign"
+  ]
 }

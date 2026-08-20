@@ -28,10 +28,10 @@ void CalypsoF30NoExperienceUi::collect(CalypsoHdFrameBuilder& builder) const {
     m.designWidth = g->designWidth; m.designHeight = g->designHeight;
     m.window = winRect; m.status = proj(g->status); m.warning = proj(g->warning); m.title = proj(g->title); m.message = proj(g->message); m.footer = proj(g->footer);
     m.windowWidget = _state->_window;
+    m.titleText = m.messageText; // use message as title fallback
     m.messageWidget = _state->_txtTitle;
     m.messageText = _state->_txtTitle ? _state->_txtTitle->getText() : std::string();
-    m.titleText = "";
-    m.protocolText = "";
+    m.protocolText = std::string();
     m.warningGlyph = "!";
     m.cutCornerPx = CalypsoF30NoExperienceGen::kCutCornerPx;
     m.protocolTextInsetPx = CalypsoF30NoExperienceGen::kProtocolTextInsetPx;
@@ -42,8 +42,11 @@ void CalypsoF30NoExperienceUi::collect(CalypsoHdFrameBuilder& builder) const {
     m.dividerColor = CalypsoF30NoExperienceGen::kDivider;
     m.footerDotColor = CalypsoF30NoExperienceGen::kFooterDot;
     m.warningColor = CalypsoF30NoExperienceGen::kWarning;
-
-    { CalypsoSmallConfirmationButton b{}; b.widget = _state->_btnCancel; b.text = b.widget ? b.widget->getText() : std::string(); b.rect = b.widget ? CalypsoLogicalRect{b.widget->getX(), b.widget->getY(), b.widget->getWidth(), b.widget->getHeight()} : proj(g->window); b.tone = CalypsoActionTone::Safe; m.buttons.push_back(b); }
+    m.messageDesignWidth = g->message.w;
+    m.titleDesignHeight = g->title.h;
+    m.motionDurationMs = CalypsoF30NoExperienceGen::kMotionDurationMs;
+    m.motionScaleFrom = CalypsoF30NoExperienceGen::kMotionScaleFrom;
+    { CalypsoSmallConfirmationButton b{}; b.widget = _state->_btnCancel; b.text = b.widget ? b.widget->getText() : std::string(); b.rect = b.widget ? CalypsoLogicalRect{b.widget->getX(), b.widget->getY(), b.widget->getWidth(), b.widget->getHeight()} : proj(g->window); b.tone = CalypsoActionTone::Safe; for(int i=0;i<CalypsoF30NoExperienceGen::kButtonCount;++i) if(std::string(CalypsoF30NoExperienceGen::kButtons[i].id)=="ok") { b.restFill=CalypsoF30NoExperienceGen::kButtons[i].fill; b.restBorder=CalypsoF30NoExperienceGen::kButtons[i].border; b.textColor=CalypsoF30NoExperienceGen::kButtons[i].text; break; } m.buttons.push_back(b); }
     calypsoCollectSmallConfirmation(builder, m, _motion);
 }
 void CalypsoF30NoExperienceUi::configure(NoExperienceState& s, bool allow) {

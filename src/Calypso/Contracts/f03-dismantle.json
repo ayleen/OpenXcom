@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "hd.2026-08-20.19",
+  "version": "hd.2026-08-20.22",
   "form": {
     "id": "f03-dismantle",
     "familyId": 3,
@@ -41,7 +41,7 @@
     ]
   },
   "copy": {
-    "protocol": "CALYPSO COMMAND · FACILITY DOSSIER FD-03 · REV. 1.0.21 · EFFECTIVE 15.07.2061",
+    "protocol": "CALYPSO COMMAND · FACILITY DOSSIER FD-03",
     "title": "DISMANTLE FACILITY?",
     "message": [
       "Dismantle the selected",
@@ -49,6 +49,11 @@
     ],
     "safeAction": "CANCEL",
     "destructiveAction": "DISMANTLE"
+  },
+  "presentation": {
+    "density": "standard",
+    "scaleNumerator": 1,
+    "scaleDenominator": 1
   },
   "style": {
     "cutCornerPx": 14,

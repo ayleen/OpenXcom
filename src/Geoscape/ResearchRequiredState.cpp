@@ -99,5 +99,13 @@ void ResearchRequiredState::resize(int &dX, int &dY)
 	if (Calypso::CalypsoF24ResearchRequiredUi::resize(*this)) return;
 	State::resize(dX, dY);
 }
+#ifdef __EMSCRIPTEN__
+ResearchRequiredState::~ResearchRequiredState()
+{
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
 }
 #endif
+}
+#endif
+

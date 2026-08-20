@@ -28,10 +28,10 @@ void CalypsoF17UfoDetectedUi::collect(CalypsoHdFrameBuilder& builder) const {
     m.designWidth = g->designWidth; m.designHeight = g->designHeight;
     m.window = winRect; m.status = proj(g->status); m.warning = proj(g->warning); m.title = proj(g->title); m.message = proj(g->message); m.footer = proj(g->footer);
     m.windowWidget = _state->_window;
+    m.titleText = m.messageText; // use message as title fallback
     m.messageWidget = _state->_txtUfo;
     m.messageText = _state->_txtUfo ? _state->_txtUfo->getText() : std::string();
-    m.titleText = "";
-    m.protocolText = "";
+    m.protocolText = std::string();
     m.warningGlyph = "!";
     m.cutCornerPx = CalypsoF17UfoDetectedGen::kCutCornerPx;
     m.protocolTextInsetPx = CalypsoF17UfoDetectedGen::kProtocolTextInsetPx;
@@ -42,10 +42,13 @@ void CalypsoF17UfoDetectedUi::collect(CalypsoHdFrameBuilder& builder) const {
     m.dividerColor = CalypsoF17UfoDetectedGen::kDivider;
     m.footerDotColor = CalypsoF17UfoDetectedGen::kFooterDot;
     m.warningColor = CalypsoF17UfoDetectedGen::kWarning;
-
-    { CalypsoSmallConfirmationButton b{}; b.widget = _state->_btnIntercept; b.text = b.widget ? b.widget->getText() : std::string(); b.rect = b.widget ? CalypsoLogicalRect{b.widget->getX(), b.widget->getY(), b.widget->getWidth(), b.widget->getHeight()} : proj(g->window); b.tone = CalypsoActionTone::Safe; m.buttons.push_back(b); }
-    { CalypsoSmallConfirmationButton b{}; b.widget = _state->_btnCentre; b.text = b.widget ? b.widget->getText() : std::string(); b.rect = b.widget ? CalypsoLogicalRect{b.widget->getX(), b.widget->getY(), b.widget->getWidth(), b.widget->getHeight()} : proj(g->window); b.tone = CalypsoActionTone::Safe; m.buttons.push_back(b); }
-    { CalypsoSmallConfirmationButton b{}; b.widget = _state->_btnCancel; b.text = b.widget ? b.widget->getText() : std::string(); b.rect = b.widget ? CalypsoLogicalRect{b.widget->getX(), b.widget->getY(), b.widget->getWidth(), b.widget->getHeight()} : proj(g->window); b.tone = CalypsoActionTone::Safe; m.buttons.push_back(b); }
+    m.messageDesignWidth = g->message.w;
+    m.titleDesignHeight = g->title.h;
+    m.motionDurationMs = CalypsoF17UfoDetectedGen::kMotionDurationMs;
+    m.motionScaleFrom = CalypsoF17UfoDetectedGen::kMotionScaleFrom;
+    { CalypsoSmallConfirmationButton b{}; b.widget = _state->_btnIntercept; b.text = b.widget ? b.widget->getText() : std::string(); b.rect = b.widget ? CalypsoLogicalRect{b.widget->getX(), b.widget->getY(), b.widget->getWidth(), b.widget->getHeight()} : proj(g->window); b.tone = CalypsoActionTone::Safe; for(int i=0;i<CalypsoF17UfoDetectedGen::kButtonCount;++i) if(std::string(CalypsoF17UfoDetectedGen::kButtons[i].id)=="intercept") { b.restFill=CalypsoF17UfoDetectedGen::kButtons[i].fill; b.restBorder=CalypsoF17UfoDetectedGen::kButtons[i].border; b.textColor=CalypsoF17UfoDetectedGen::kButtons[i].text; break; } m.buttons.push_back(b); }
+    { CalypsoSmallConfirmationButton b{}; b.widget = _state->_btnCentre; b.text = b.widget ? b.widget->getText() : std::string(); b.rect = b.widget ? CalypsoLogicalRect{b.widget->getX(), b.widget->getY(), b.widget->getWidth(), b.widget->getHeight()} : proj(g->window); b.tone = CalypsoActionTone::Safe; for(int i=0;i<CalypsoF17UfoDetectedGen::kButtonCount;++i) if(std::string(CalypsoF17UfoDetectedGen::kButtons[i].id)=="centre") { b.restFill=CalypsoF17UfoDetectedGen::kButtons[i].fill; b.restBorder=CalypsoF17UfoDetectedGen::kButtons[i].border; b.textColor=CalypsoF17UfoDetectedGen::kButtons[i].text; break; } m.buttons.push_back(b); }
+    { CalypsoSmallConfirmationButton b{}; b.widget = _state->_btnCancel; b.text = b.widget ? b.widget->getText() : std::string(); b.rect = b.widget ? CalypsoLogicalRect{b.widget->getX(), b.widget->getY(), b.widget->getWidth(), b.widget->getHeight()} : proj(g->window); b.tone = CalypsoActionTone::Safe; for(int i=0;i<CalypsoF17UfoDetectedGen::kButtonCount;++i) if(std::string(CalypsoF17UfoDetectedGen::kButtons[i].id)=="cancel") { b.restFill=CalypsoF17UfoDetectedGen::kButtons[i].fill; b.restBorder=CalypsoF17UfoDetectedGen::kButtons[i].border; b.textColor=CalypsoF17UfoDetectedGen::kButtons[i].text; break; } m.buttons.push_back(b); }
     calypsoCollectSmallConfirmation(builder, m, _motion);
 }
 void CalypsoF17UfoDetectedUi::configure(UfoDetectedState& s, bool allow) {

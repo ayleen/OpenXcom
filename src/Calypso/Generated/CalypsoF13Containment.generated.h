@@ -4,11 +4,16 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF13ContainmentGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-20.19";
+inline constexpr const char* kContractVersion = "hd.2026-08-20.22";
 inline constexpr const char* kFormId = "f13-containment";
 inline constexpr int kFamilyId = 13;
 inline constexpr const char* kArchetype = "small-confirmation";
 inline constexpr const char* kSourceConfig = "FormConfigs/f13-containment.json";
+
+inline constexpr const char* kDensityProfile = "standard";
+inline constexpr int kPresentationScaleNumerator = 1;
+inline constexpr int kPresentationScaleDenominator = 1;
+inline constexpr float kPresentationScale = 1.000000f;
 
 struct CalypsoF13ContainmentGenButton { const char* id; const char* label; const char* tone; const char* action; std::uint32_t fill; std::uint32_t border; std::uint32_t text; };
 inline constexpr CalypsoF13ContainmentGenButton kButtons[] = {
@@ -30,21 +35,15 @@ inline constexpr std::uint32_t kWarning = 0xFFC14DFFu;
 
 struct CalypsoF13ContainmentGenRect { int x; int y; int w; int h; };
 struct CalypsoF13ContainmentGenLayout { int designWidth; int designHeight; CalypsoF13ContainmentGenRect window; CalypsoF13ContainmentGenRect status; CalypsoF13ContainmentGenRect warning; CalypsoF13ContainmentGenRect title; CalypsoF13ContainmentGenRect message; CalypsoF13ContainmentGenRect footer;
-    CalypsoF13ContainmentGenRect cellR1C1;
-    CalypsoF13ContainmentGenRect cellR1C2;
-    CalypsoF13ContainmentGenRect cellR2C1;
-    CalypsoF13ContainmentGenRect cellR2C2;
-    CalypsoF13ContainmentGenRect columnDivider1;
-    CalypsoF13ContainmentGenRect rowDivider1;
 };
 inline constexpr CalypsoF13ContainmentGenLayout kLayouts[] = {
-    { 1280, 720, { 396, 230, 488, 323 }, { 396, 230, 488, 38 }, { 428, 290, 32, 32 }, { 476, 284, 376, 44 }, { 428, 336, 424, 141 }, { 396, 491, 488, 62 }, { 444, 408, 88, 22 }, { 549, 408, 88, 22 }, { 444, 447, 88, 22 }, { 549, 447, 88, 22 }, { 540, 400, 1, 77 }, { 436, 438, 209, 1 } }, // wide
-    { 740, 360, { 151, 60, 438, 298 }, { 151, 60, 438, 34 }, { 179, 111, 28, 28 }, { 221, 106, 340, 38 }, { 179, 150, 382, 125 }, { 151, 292, 438, 66 }, { 195, 214, 77, 18 }, { 289, 214, 77, 18 }, { 195, 249, 77, 18 }, { 289, 249, 77, 18 }, { 280, 206, 1, 69 }, { 187, 240, 187, 1 } }, // compact
+    { 1280, 720, { 396, 230, 488, 236 }, { 396, 230, 488, 38 }, { 428, 290, 32, 32 }, { 476, 284, 376, 44 }, { 428, 336, 424, 54 }, { 396, 404, 488, 62 } }, // wide
+    { 740, 360, { 151, 60, 438, 221 }, { 151, 60, 438, 34 }, { 179, 111, 28, 28 }, { 221, 106, 340, 38 }, { 179, 150, 382, 48 }, { 151, 215, 438, 66 } }, // compact
 };
 struct CalypsoF13ContainmentGenButtonRect { const char* id; CalypsoF13ContainmentGenRect rect; };
 inline constexpr CalypsoF13ContainmentGenButtonRect kButtonRects[][ 2 ] = {
-    { { "cancel", { 526, 500, 158, 44 } }, { "confirm", { 694, 500, 158, 44 } } }, // wide
-    { { "cancel", { 253, 302, 148, 44 } }, { "confirm", { 413, 302, 148, 44 } } }, // compact
+    { { "cancel", { 526, 413, 158, 44 } }, { "confirm", { 694, 413, 158, 44 } } }, // wide
+    { { "cancel", { 253, 225, 148, 44 } }, { "confirm", { 413, 225, 148, 44 } } }, // compact
 };
 inline constexpr int kLayoutCount = 2;
 inline constexpr int kMotionDurationMs = 200;

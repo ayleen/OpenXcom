@@ -4,11 +4,16 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF30NoExperienceGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-20.19";
+inline constexpr const char* kContractVersion = "hd.2026-08-20.22";
 inline constexpr const char* kFormId = "f30-no-experience";
 inline constexpr int kFamilyId = 30;
 inline constexpr const char* kArchetype = "small-confirmation";
 inline constexpr const char* kSourceConfig = "FormConfigs/f30-no-experience.json";
+
+inline constexpr const char* kDensityProfile = "brief-acknowledgement";
+inline constexpr int kPresentationScaleNumerator = 2;
+inline constexpr int kPresentationScaleDenominator = 3;
+inline constexpr float kPresentationScale = 0.666667f;
 
 struct CalypsoF30NoExperienceGenButton { const char* id; const char* label; const char* tone; const char* action; std::uint32_t fill; std::uint32_t border; std::uint32_t text; };
 inline constexpr CalypsoF30NoExperienceGenButton kButtons[] = {
@@ -31,13 +36,13 @@ struct CalypsoF30NoExperienceGenRect { int x; int y; int w; int h; };
 struct CalypsoF30NoExperienceGenLayout { int designWidth; int designHeight; CalypsoF30NoExperienceGenRect window; CalypsoF30NoExperienceGenRect status; CalypsoF30NoExperienceGenRect warning; CalypsoF30NoExperienceGenRect title; CalypsoF30NoExperienceGenRect message; CalypsoF30NoExperienceGenRect footer;
 };
 inline constexpr CalypsoF30NoExperienceGenLayout kLayouts[] = {
-    { 1280, 720, { 406, 230, 468, 236 }, { 406, 230, 468, 38 }, { 438, 290, 32, 32 }, { 486, 284, 356, 44 }, { 438, 336, 404, 54 }, { 406, 404, 468, 62 } }, // wide
-    { 740, 360, { 160, 60, 420, 221 }, { 160, 60, 420, 34 }, { 188, 111, 28, 28 }, { 230, 106, 322, 38 }, { 188, 150, 364, 48 }, { 160, 215, 420, 66 } }, // compact
+    { 1280, 720, { 484, 269, 312, 158 }, { 484, 269, 312, 25 }, { 505, 309, 22, 21 }, { 537, 305, 238, 29 }, { 505, 338, 270, 40 }, { 484, 379, 312, 48 } }, // wide
+    { 740, 360, { 230, 97, 280, 147 }, { 230, 97, 280, 23 }, { 249, 131, 18, 19 }, { 277, 128, 214, 25 }, { 249, 153, 242, 40 }, { 230, 196, 280, 48 } }, // compact
 };
 struct CalypsoF30NoExperienceGenButtonRect { const char* id; CalypsoF30NoExperienceGenRect rect; };
 inline constexpr CalypsoF30NoExperienceGenButtonRect kButtonRects[][ 1 ] = {
-    { { "ok", { 684, 413, 158, 44 } } }, // wide
-    { { "ok", { 404, 225, 148, 44 } } }, // compact
+    { { "ok", { 669, 388, 106, 29 } } }, // wide
+    { { "ok", { 393, 205, 98, 29 } } }, // compact
 };
 inline constexpr int kLayoutCount = 2;
 inline constexpr int kMotionDurationMs = 200;
