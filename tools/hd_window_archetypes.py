@@ -313,7 +313,7 @@ def _validate_template(template):
         raise ArchetypeError("template.schema must be 1")
     _positive_int(template["version"], "template.version")
     archetype = template["id"]
-    if archetype not in ARCHETYPE_KINDS:
+    if not isinstance(archetype, str) or archetype not in ARCHETYPE_KINDS:
         raise ArchetypeError("unsupported extended template id: " + str(archetype))
     if template["generatorKind"] != ARCHETYPE_KINDS[archetype]:
         raise ArchetypeError("template.generatorKind does not match template.id")
@@ -611,7 +611,8 @@ def _validate_action_items(actions, template, label, maximum):
         _stable_id(action["id"], item_label + ".id")
         _stable_id(action["action"], item_label + ".action")
         _one_line(action["label"], item_label + ".label", 24)
-        if action["tone"] not in template["supportedButtonTones"]:
+        tone = action.get("tone")
+        if not isinstance(tone, str) or tone not in template["supportedButtonTones"]:
             raise ArchetypeError(item_label + ".tone is unsupported")
         if action["id"] in ids or action["action"] in roles:
             raise ArchetypeError(label + " IDs and behavior actions must be unique")
@@ -673,7 +674,8 @@ def _validate_controls(controls, template, label):
                 if option["id"] in option_ids:
                     raise ArchetypeError(item_label + " option IDs must be unique")
                 option_ids.add(option["id"])
-            if control["value"] not in option_ids:
+            value = control.get("value")
+            if not isinstance(value, str) or value not in option_ids:
                 raise ArchetypeError(
                     item_label + ".value must name a configured option"
                 )
@@ -692,7 +694,7 @@ def _validate_controls(controls, template, label):
                     item_label + ".value must be a single line of at most 64 characters"
                 )
             _one_line(control["placeholder"], item_label + ".placeholder", 32)
-        elif control["tone"] not in template["supportedButtonTones"]:
+        elif not isinstance(control.get("tone"), str) or control["tone"] not in template["supportedButtonTones"]:
             raise ArchetypeError(item_label + ".tone is unsupported")
         generated = copy.deepcopy(control)
         if kind == "action":
@@ -722,7 +724,7 @@ def _validate_collection_value(collection, limits, label):
     if not isinstance(collection, dict):
         raise ArchetypeError(label + " must be an object")
     mode = collection.get("mode")
-    if mode not in {"list", "table", "grid"}:
+    if not isinstance(mode, str) or mode not in {"list", "table", "grid"}:
         raise ArchetypeError(label + ".mode must be list, table, or grid")
     fields = {"mode", "selectionRole", "items"}
     if mode != "grid":
@@ -896,7 +898,11 @@ def _validate_tabbed(config, template):
         if tab["id"] in tab_ids:
             raise ArchetypeError("config.tabs IDs must be unique")
         tab_ids.add(tab["id"])
-    if config["selectedTab"] not in tab_ids:
+    selected = config.get("selectedTab")
+    if not isinstance(selected, str):
+        raise ArchetypeError("config.selectedTab must name a configured tab")
+    _stable_id(selected, "config.selectedTab")
+    if selected not in tab_ids:
         raise ArchetypeError("config.selectedTab must name a configured tab")
     toolbar = config["toolbar"]
     if (
@@ -913,7 +919,8 @@ def _validate_tabbed(config, template):
         _stable_id(action["id"], label + ".id")
         _stable_id(action["action"], label + ".action")
         _one_line(action["label"], label + ".label", 24)
-        if action["tone"] not in template["supportedButtonTones"]:
+        tone = action.get("tone")
+        if not isinstance(tone, str) or tone not in template["supportedButtonTones"]:
             raise ArchetypeError(label + ".tone is unsupported")
         if action["id"] in toolbar_ids or action["action"] in toolbar_roles:
             raise ArchetypeError(
@@ -973,14 +980,15 @@ def _validate_detail(config, template):
             "fields": {"id", "role", "kind", "label", "fields"},
             "actions": {"id", "role", "kind", "label", "actions"},
         }
-        if kind not in fields_by_kind:
+        if not isinstance(kind, str) or kind not in fields_by_kind:
             raise ArchetypeError(
                 region_label + ".kind must be collection, preview, fields, or actions"
             )
         _strict(region, fields_by_kind[kind], set(), region_label)
         _stable_id(region["id"], region_label + ".id")
         _one_line(region["label"], region_label + ".label", 32)
-        if region["role"] not in allowed_roles:
+        role = region.get("role")
+        if not isinstance(role, str) or role not in allowed_roles:
             raise ArchetypeError(region_label + ".role is unsupported")
         expected_role = DETAIL_ROLE_BY_KIND[kind]
         if region["role"] != expected_role:
@@ -1218,6 +1226,32 @@ def _scroll_metrics(
     }
 
 
+def _collection_parts(collection, template, prefix):
+    """Return shared collection geometry parts for a given prefix.
+
+    prefix is the dotted prefix for the collection, e.g. "" for standalone,
+    "collection" for tabbed, or "region.<id>.collection" for detail.
+    Includes scroll track/thumb plus column/row or tile parts.
+    """
+    base = (prefix + ".") if prefix else ""
+    parts = [base + "scroll.track", base + "scroll.thumb"]
+    if collection["mode"] in {"list", "table"}:
+        parts.extend(base + "column." + column["id"] for column in collection["columns"])
+        max_slots = max(
+            template["layouts"]["wide"]["visibleRows"],
+            template["layouts"]["compact"]["visibleRows"],
+        )
+        parts.extend(base + "row-slot." + str(index + 1) for index in range(max_slots))
+    else:
+        max_slots = max(
+            template["layouts"]["wide"]["gridColumns"] * template["layouts"]["wide"]["gridRows"],
+            template["layouts"]["compact"]["gridColumns"] * template["layouts"]["compact"]["gridRows"],
+        )
+        parts.extend(base + "tile-slot." + str(index + 1) for index in range(max_slots))
+        parts.extend(base + "tile-slot." + str(index + 1) + ".label" for index in range(max_slots))
+    return parts
+
+
 def _base_contract(config, template, source_name, template_name, actions):
     return {
         "schema": 1,
@@ -1430,32 +1464,12 @@ def _build_collection(config, template, source_name, template_name):
     ]
     out["parts"].extend("control." + control["id"] for control in controls)
     out["parts"].extend("action." + action["id"] for action in actions)
-    if mode in {"list", "table"}:
-        out["parts"].extend(
-            "column." + column["id"] for column in collection["columns"]
-        )
-        out["parts"].extend(
-            "row-slot." + str(index + 1)
-            for index in range(
-                max(
-                    template["layouts"]["wide"]["visibleRows"],
-                    template["layouts"]["compact"]["visibleRows"],
-                )
-            )
-        )
-    else:
-        maximum_slots = max(
-            template["layouts"]["wide"]["gridColumns"]
-            * template["layouts"]["wide"]["gridRows"],
-            template["layouts"]["compact"]["gridColumns"]
-            * template["layouts"]["compact"]["gridRows"],
-        )
-        out["parts"].extend(
-            "tile-slot." + str(index + 1) for index in range(maximum_slots)
-        )
-        out["parts"].extend(
-            "tile-slot." + str(index + 1) + ".label" for index in range(maximum_slots)
-        )
+    # reuse shared collection helper (empty prefix -> standalone naming)
+    # helper already includes scroll.track/thumb, so extend only column/slot parts
+    # to avoid duplicating scroll entries, slice helper output
+    collection_parts = _collection_parts(collection, template, "")
+    # collection_parts[0:2] are scroll.track/thumb already in base list; skip them
+    out["parts"].extend(collection_parts[2:])
     return out
 
 
@@ -1778,6 +1792,8 @@ def _build_tabbed(config, template, source_name, template_name):
     out["parts"].extend("tab." + tab_id for tab_id in tab_ids)
     out["parts"].extend("control." + control["id"] for control in controls)
     out["parts"].extend("toolbar." + item["id"] for item in toolbar_actions)
+    # collection geometry - shared helper ensures list/table/grid parity with standalone and detail
+    out["parts"].extend(_collection_parts(config["collection"], template, "collection"))
     if detail is not None:
         out["parts"].append("detailPanel")
         out["parts"].append("detail." + detail["id"])
@@ -1885,42 +1901,9 @@ def _detail_region_parts(region, template):
     elif region["kind"] == "collection":
         collection = region["collection"]
         collection_prefix = prefix + ".collection"
-        parts.extend(
-            (
-                prefix + ".content",
-                collection_prefix,
-                collection_prefix + ".scroll.track",
-                collection_prefix + ".scroll.thumb",
-            )
-        )
-        if collection["mode"] in {"list", "table"}:
-            parts.extend(
-                collection_prefix + ".column." + column["id"]
-                for column in collection["columns"]
-            )
-            maximum_slots = max(
-                template["layouts"]["wide"]["visibleRows"],
-                template["layouts"]["compact"]["visibleRows"],
-            )
-            parts.extend(
-                collection_prefix + ".row-slot." + str(index + 1)
-                for index in range(maximum_slots)
-            )
-        else:
-            maximum_slots = max(
-                template["layouts"]["wide"]["gridColumns"]
-                * template["layouts"]["wide"]["gridRows"],
-                template["layouts"]["compact"]["gridColumns"]
-                * template["layouts"]["compact"]["gridRows"],
-            )
-            parts.extend(
-                collection_prefix + ".tile-slot." + str(index + 1)
-                for index in range(maximum_slots)
-            )
-            parts.extend(
-                collection_prefix + ".tile-slot." + str(index + 1) + ".label"
-                for index in range(maximum_slots)
-            )
+        parts.append(prefix + ".content")
+        parts.append(collection_prefix)
+        parts.extend(_collection_parts(collection, template, collection_prefix))
     elif region["kind"] == "fields":
         for field in region["fields"]:
             field_prefix = prefix + ".field." + field["id"]
@@ -1928,7 +1911,20 @@ def _detail_region_parts(region, template):
                 (field_prefix, field_prefix + ".label", field_prefix + ".value")
             )
     else:
-        parts.extend(prefix + ".action." + action["id"] for action in region["actions"])
+        # scrollable action region exposes physical slots and scroll geometry,
+        # not semantic actions (which have no rect and multiplex via scrolling)
+        parts.append(prefix + ".content")
+        parts.extend((prefix + ".scroll.track", prefix + ".scroll.thumb"))
+        wide_slots = (
+            template["layouts"]["wide"]["regionActionColumns"]
+            * template["layouts"]["wide"]["regionActionVisibleRows"]
+        )
+        compact_slots = (
+            template["layouts"]["compact"]["regionActionColumns"]
+            * template["layouts"]["compact"]["regionActionVisibleRows"]
+        )
+        max_slots = max(wide_slots, compact_slots)
+        parts.extend(f"{prefix}.action-slot-{index + 1}" for index in range(max_slots))
     return parts
 
 
