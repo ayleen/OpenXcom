@@ -57,8 +57,8 @@ namespace
 enum NameRole : std::uint32_t
 {
 	ROLE_WINDOW = 1, ROLE_STATUS = 2, ROLE_PROTOCOL = 3, ROLE_TITLE = 4,
-	ROLE_NAME = 5, ROLE_HINT = 6, ROLE_FOOTER = 7, ROLE_OK = 8,
-	ROLE_DECORATION = 9, ROLE_COVERED_LEGACY = 10
+	ROLE_NAME = 5, ROLE_HINT = 6, ROLE_FOOTER = 7, ROLE_CANCEL = 8,
+	ROLE_OK = 9, ROLE_DECORATION = 10, ROLE_COVERED_LEGACY = 11
 };
 
 void applyRect(Surface* surface, const CalypsoF21Rect& rect)
@@ -181,15 +181,26 @@ void CalypsoF21NameUi::collect(CalypsoHdFrameBuilder& builder) const
 			kF21DividerRgba, ROLE_DECORATION);
 		p.decoration(CalypsoLogicalRect{ footerRect.x, footerRect.y, footerRect.w, 1 },
 			kF21DividerRgba, ROLE_FOOTER);
+		const int firstActionX = _state->_btnCancel && _state->_btnCancel->getVisible()
+			? f21WidgetRect(_state->_btnCancel).x : f21WidgetRect(_state->_btnOk).x;
 		for (int y = footerRect.y + 10; y < footerRect.y + footerRect.h - 8; y += 8)
 		{
-			for (int x = footerRect.x + 12; x < f21WidgetRect(_state->_btnOk).x - 12; x += 8)
+			for (int x = footerRect.x + 12; x < firstActionX - 12; x += 8)
 				p.decoration(CalypsoLogicalRect{ x, y, 1, 1 }, kF21FooterDotRgba, ROLE_DECORATION);
 		}
 		p.textRect(f21ProtocolTextRect(_state->_hdProtocol, wide), _state->_hdProtocol, mono,
 			_state->_hdProtocol ? _state->_hdProtocol->getText() : std::string(),
 			kF21ProtocolTextRgba, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_PROTOCOL,
 			0.10, wide ? CalypsoHdThemeGen::kF21ProtocolWidePx : CalypsoHdThemeGen::kF21ProtocolCompactPx);
+	}
+	if (_state->_btnCancel && _state->_btnCancel->getVisible())
+	{
+		p.styled(f21WidgetRect(_state->_btnCancel), f21QuietButtonStyle(
+			f21ButtonVisualState(_state->_btnCancel)), _state->_btnCancel, ROLE_CANCEL);
+		p.text(_state->_btnCancel, heading, _state->_btnCancel->getText(), CalypsoHdTheme::kNearWhite,
+			CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, ROLE_CANCEL,
+			CalypsoHdTheme::kLabelTrackingEm,
+			wide ? CalypsoHdThemeGen::kF21ActionWidePx : CalypsoHdThemeGen::kF21ActionCompactPx);
 	}
 	if (_state->_btnOk && _state->_btnOk->getVisible())
 	{
@@ -225,6 +236,7 @@ void CalypsoF21NameUi::applyRects(BaseNameState& state, const CalypsoF21NameLayo
 	applyRect(state._txtTitle, layout.title);
 	applyRect(state._edtName, layout.inputFrame);
 	applyRect(state._hdHint, layout.inputHint);
+	applyRect(state._btnCancel, layout.cancel);
 	applyRect(state._btnOk, layout.ok);
 }
 
@@ -252,7 +264,8 @@ void CalypsoF21NameUi::configure(BaseNameState& state, bool allowPhysicalOverlay
 	state.add(state._hdProtocol);
 	state._hdProtocol->setText(state.tr("STR_CAL_F21_PROTOCOL_NAME"));
 	state._txtTitle->setText(state.tr("STR_CAL_F21_NAME_TITLE"));
-	state._btnOk->setText(state.tr("STR_CAL_F21_CONFIRM_NAME"));
+	state._btnCancel->setText(state.tr("STR_CANCEL_UC"));
+	state._btnOk->setText(state.tr("STR_OK"));
 
 	CalypsoF21NameUi::applyRects(state, layout);
 	state.enableUiScaling(layout.designWidth, layout.designHeight, 1.0f,

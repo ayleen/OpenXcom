@@ -161,7 +161,8 @@ State* calypsoF21HarnessCreateTarget(CalypsoHarnessScenario id)
 	{
 		const CalypsoF21Fixture f = calypsoF21HarnessFixture();
 		if (!f.base) return nullptr;
-		return new BaseNameState(f.base, f.globe, true, true);
+		// Non-fixed variant exposes the real touch/keyboard return-to-site action.
+		return new BaseNameState(f.base, f.globe, true, false);
 	}
 	case CalypsoHarnessScenario::F21Defense:
 	{

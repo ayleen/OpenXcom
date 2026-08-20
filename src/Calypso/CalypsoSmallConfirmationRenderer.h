@@ -83,6 +83,7 @@ struct CalypsoSmallConfirmationModel
 	std::uint32_t warningColor = 0;
 
 	double uiScale = 1.0;
+	double visualScale = 1.0;
 	double projectionScaleX = 1.0;
 	double projectionScaleY = 1.0;
 	int messageDesignWidth = 1;

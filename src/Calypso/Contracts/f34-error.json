@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "hd.2026-08-20.19",
+  "version": "hd.2026-08-20.20",
   "form": {
     "id": "f34-error",
     "familyId": 34,
@@ -36,6 +36,11 @@
       "cannot be built on land."
     ]
   },
+  "presentation": {
+    "density": "brief-acknowledgement",
+    "scaleNumerator": 2,
+    "scaleDenominator": 3
+  },
   "style": {
     "cutCornerPx": 14,
     "protocolTextInsetPx": 26,
@@ -57,46 +62,46 @@
       "designWidth": 1280,
       "designHeight": 720,
       "window": {
-        "x": 386,
-        "y": 230,
-        "width": 508,
-        "height": 236
+        "x": 471,
+        "y": 269,
+        "width": 338,
+        "height": 158
       },
       "status": {
-        "x": 386,
-        "y": 230,
-        "width": 508,
-        "height": 38
+        "x": 471,
+        "y": 269,
+        "width": 338,
+        "height": 25
       },
       "warning": {
-        "x": 418,
-        "y": 290,
-        "width": 32,
-        "height": 32
+        "x": 492,
+        "y": 309,
+        "width": 22,
+        "height": 21
       },
       "title": {
-        "x": 466,
-        "y": 284,
-        "width": 396,
-        "height": 44
+        "x": 524,
+        "y": 305,
+        "width": 264,
+        "height": 29
       },
       "message": {
-        "x": 418,
-        "y": 336,
-        "width": 444,
-        "height": 54
+        "x": 492,
+        "y": 340,
+        "width": 296,
+        "height": 36
       },
       "footer": {
-        "x": 386,
-        "y": 404,
-        "width": 508,
-        "height": 62
+        "x": 471,
+        "y": 379,
+        "width": 338,
+        "height": 48
       },
       "buttons": {
         "ok": {
-          "x": 704,
-          "y": 413,
-          "width": 158,
+          "x": 683,
+          "y": 381,
+          "width": 105,
           "height": 44
         }
       }
@@ -105,46 +110,46 @@
       "designWidth": 740,
       "designHeight": 360,
       "window": {
-        "x": 142,
-        "y": 60,
-        "width": 456,
-        "height": 221
+        "x": 218,
+        "y": 97,
+        "width": 304,
+        "height": 147
       },
       "status": {
-        "x": 142,
-        "y": 60,
-        "width": 456,
-        "height": 34
+        "x": 218,
+        "y": 97,
+        "width": 304,
+        "height": 23
       },
       "warning": {
-        "x": 170,
-        "y": 111,
-        "width": 28,
-        "height": 28
+        "x": 237,
+        "y": 131,
+        "width": 18,
+        "height": 19
       },
       "title": {
-        "x": 212,
-        "y": 106,
-        "width": 358,
-        "height": 38
+        "x": 265,
+        "y": 128,
+        "width": 238,
+        "height": 25
       },
       "message": {
-        "x": 170,
-        "y": 150,
-        "width": 400,
-        "height": 48
+        "x": 237,
+        "y": 157,
+        "width": 266,
+        "height": 32
       },
       "footer": {
-        "x": 142,
-        "y": 215,
-        "width": 456,
-        "height": 66
+        "x": 218,
+        "y": 196,
+        "width": 304,
+        "height": 48
       },
       "buttons": {
         "ok": {
-          "x": 422,
-          "y": 225,
-          "width": 148,
+          "x": 405,
+          "y": 198,
+          "width": 98,
           "height": 44
         }
       }

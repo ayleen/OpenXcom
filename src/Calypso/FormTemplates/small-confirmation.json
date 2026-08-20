@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "id": "small-confirmation",
-  "version": 2,
+  "version": 3,
   "supportedButtonTones": ["normal", "safe", "primary", "warning", "danger"],
   "buttonToneStyles": {
     "normal":  { "fill": "051417B8", "border": "74FFB059", "text": "E8FFF5FF" },
@@ -40,6 +40,15 @@
       "titleTextUnitPx": 18,
       "bodyTextUnitPx": 7,
       "maxWindowWidthPx": 600
+    }
+  },
+  "densityProfiles": {
+    "briefAcknowledgement": {
+      "id": "brief-acknowledgement",
+      "scaleNumerator": 2,
+      "scaleDenominator": 3,
+      "footerHeightPx": 48,
+      "minimumActionHeightPx": 44
     }
   },
   "layouts": {

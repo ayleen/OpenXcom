@@ -168,6 +168,7 @@ void CalypsoErrorPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 	model.footerDotColor = CalypsoF34ErrorGen::kFooterDot;
 	model.warningColor = CalypsoF34ErrorGen::kWarning;
 	model.uiScale = uiScale;
+	model.visualScale = CalypsoF34ErrorGen::kPresentationScale;
 	model.projectionScaleX = uiScale * metrics.scaleX;
 	model.projectionScaleY = uiScale * metrics.scaleY;
 	model.messageDesignWidth = generated->message.w;

@@ -4,17 +4,23 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF21NameGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-20.19";
+inline constexpr const char* kContractVersion = "hd.2026-08-20.20";
 inline constexpr const char* kFormId = "f21-name";
 inline constexpr int kFamilyId = 21;
 inline constexpr const char* kArchetype = "small-confirmation";
 inline constexpr const char* kSourceConfig = "FormConfigs/f21-name.json";
 
+inline constexpr const char* kDensityProfile = "standard";
+inline constexpr int kPresentationScaleNumerator = 1;
+inline constexpr int kPresentationScaleDenominator = 1;
+inline constexpr float kPresentationScale = 1.000000f;
+
 struct CalypsoF21NameGenButton { const char* id; const char* label; const char* tone; const char* action; std::uint32_t fill; std::uint32_t border; std::uint32_t text; };
 inline constexpr CalypsoF21NameGenButton kButtons[] = {
-    { "ok", "CONFIRM NAME", "primary", "confirm", 0x74FFB0FFu, 0x74FFB0FFu, 0x071013FFu },
+    { "ok", "OK", "primary", "confirm", 0x74FFB0FFu, 0x74FFB0FFu, 0x071013FFu },
+    { "cancel", "CANCEL", "normal", "back", 0x051417B8u, 0x74FFB059u, 0xE8FFF5FFu },
 };
-inline constexpr int kButtonCount = 1;
+inline constexpr int kButtonCount = 2;
 
 inline constexpr float kCutCornerPx = 14.000000f;
 inline constexpr float kProtocolTextInsetPx = 26.000000f;
@@ -37,9 +43,9 @@ inline constexpr CalypsoF21NameGenLayout kLayouts[] = {
     { 740, 360, { 133, 60, 474, 243 }, { 133, 60, 474, 34 }, { 161, 111, 28, 28 }, { 203, 106, 376, 38 }, { 161, 150, 418, 70 }, { 133, 237, 474, 66 }, { 161, 164, 418, 32 }, { 161, 204, 418, 16 } }, // compact
 };
 struct CalypsoF21NameGenButtonRect { const char* id; CalypsoF21NameGenRect rect; };
-inline constexpr CalypsoF21NameGenButtonRect kButtonRects[][ 1 ] = {
-    { { "ok", { 714, 437, 158, 44 } } }, // wide
-    { { "ok", { 431, 247, 148, 44 } } }, // compact
+inline constexpr CalypsoF21NameGenButtonRect kButtonRects[][ 2 ] = {
+    { { "ok", { 546, 437, 158, 44 } }, { "cancel", { 714, 437, 158, 44 } } }, // wide
+    { { "ok", { 271, 247, 148, 44 } }, { "cancel", { 431, 247, 148, 44 } } }, // compact
 };
 inline constexpr int kLayoutCount = 2;
 inline constexpr int kMotionDurationMs = 200;

@@ -108,8 +108,8 @@ def validate_rect(rect, label):
 def validate_template(template):
     if template.get("schema") != 1 or template.get("id") != "small-confirmation":
         raise FormError("template must be schema 1 small-confirmation")
-    if template.get("version") != 2:
-        raise FormError("template must use content-sized small-confirmation version 2")
+    if template.get("version") != 3:
+        raise FormError("template must use content-sized small-confirmation version 3")
     tones = template.get("supportedButtonTones")
     tone_styles = template.get("buttonToneStyles")
     if not isinstance(tones, list) or set(tones) != {"normal", "safe", "primary", "warning", "danger"}:
@@ -143,6 +143,16 @@ def validate_template(template):
     }
     layouts = template.get("layouts") or {}
     sizing = template.get("contentSizing") or {}
+    density_profiles = template.get("densityProfiles") or {}
+    expected_brief = {
+        "id": "brief-acknowledgement",
+        "scaleNumerator": 2,
+        "scaleDenominator": 3,
+        "footerHeightPx": 48,
+        "minimumActionHeightPx": 44,
+    }
+    if density_profiles != {"briefAcknowledgement": expected_brief}:
+        raise FormError("template briefAcknowledgement density drifted from the reviewed policy")
     if set(sizing) != {"wide", "compact"}:
         raise FormError("template contentSizing requires exact wide/compact policies")
     if set(layouts) != {"wide", "compact"}:
@@ -450,6 +460,92 @@ def content_sized_shell(config, template, name, table_rows):
     return window, status, warning, title, message, footer, slots
 
 
+def resolved_presentation(config, template):
+    """Choose a reviewed density from semantic structure, never caller geometry."""
+    is_brief_acknowledgement = (
+        len(config["buttons"]) == 1
+        and 1 <= len(config["body"]) <= 2
+        and config.get("table") is None
+        and config.get("input") is None
+    )
+    if is_brief_acknowledgement:
+        profile = template["densityProfiles"]["briefAcknowledgement"]
+        return {
+            "density": profile["id"],
+            "scaleNumerator": profile["scaleNumerator"],
+            "scaleDenominator": profile["scaleDenominator"],
+        }
+    return {"density": "standard", "scaleNumerator": 1, "scaleDenominator": 1}
+
+
+def nearest_center_preserving_size(value, numerator, denominator):
+    """Scale a size while preserving its integer-center parity."""
+    scaled = value * numerator
+    floor_value = scaled // denominator
+    candidates = [candidate for candidate in range(max(1, floor_value - 2), floor_value + 4)
+                  if candidate % 2 == value % 2]
+    return min(candidates, key=lambda candidate: (abs(candidate * denominator - scaled), candidate))
+
+
+def scaled_edge(value, numerator, denominator):
+    return (value * numerator + denominator // 2) // denominator
+
+
+def scale_rect_from_window(rect, old_window, new_window, numerator, denominator):
+    left = scaled_edge(rect["x"] - old_window["x"], numerator, denominator)
+    top = scaled_edge(rect["y"] - old_window["y"], numerator, denominator)
+    right_edge = scaled_edge(right(rect) - old_window["x"], numerator, denominator)
+    bottom_edge = scaled_edge(bottom(rect) - old_window["y"], numerator, denominator)
+    return _rect(new_window["x"] + left, new_window["y"] + top,
+                 right_edge - left, bottom_edge - top)
+
+
+def apply_brief_acknowledgement_density(layout, template, name):
+    """Apply the reviewed 2/3 shell profile while retaining a 44px hit target."""
+    profile = template["densityProfiles"]["briefAcknowledgement"]
+    numerator = profile["scaleNumerator"]
+    denominator = profile["scaleDenominator"]
+    old_window = copy.deepcopy(layout["window"])
+    new_width = nearest_center_preserving_size(old_window["width"], numerator, denominator)
+    new_height = nearest_center_preserving_size(old_window["height"], numerator, denominator)
+    new_window = _rect(
+        (layout["designWidth"] - new_width) // 2,
+        (2 * old_window["y"] + old_window["height"] - new_height) // 2,
+        new_width,
+        new_height,
+    )
+
+    for key in ("status", "warning", "title", "message", "footer"):
+        layout[key] = scale_rect_from_window(
+            layout[key], old_window, new_window, numerator, denominator)
+    for button_id in list(layout["buttons"]):
+        layout["buttons"][button_id] = scale_rect_from_window(
+            layout["buttons"][button_id], old_window, new_window, numerator, denominator)
+    layout["window"] = new_window
+    layout["status"]["x"] = new_window["x"]
+    layout["status"]["y"] = new_window["y"]
+    layout["status"]["width"] = new_window["width"]
+
+    # The visual footer becomes denser, but its native action rectangle keeps
+    # the canonical mobile-safe height. Horizontal edges remain generator-scaled.
+    footer_height = profile["footerHeightPx"]
+    layout["footer"] = _rect(
+        new_window["x"], bottom(new_window) - footer_height,
+        new_window["width"], footer_height)
+    action_height = profile["minimumActionHeightPx"]
+    action_y = layout["footer"]["y"] + (footer_height - action_height) // 2
+    for button in layout["buttons"].values():
+        button["y"] = action_y
+        button["height"] = action_height
+
+    # Shared-edge scaling preserves the rail. Keep the invariant explicit so
+    # a future template edit cannot turn rounding into a one-pixel gutter.
+    rightmost = layout["buttons"][next(reversed(layout["buttons"]))]
+    rightmost["width"] += right(layout["message"]) - right(rightmost)
+    if bottom(layout["message"]) >= layout["footer"]["y"]:
+        raise FormError(name + " brief acknowledgement message collides with its footer")
+
+
 def build_table_inside_message(rows, message_rect, is_wide):
     text_unit = TABLE_TEXT_UNIT_WIDE if is_wide else TABLE_TEXT_UNIT_COMPACT
     line_h = TABLE_LINE_HEIGHT_WIDE if is_wide else TABLE_LINE_HEIGHT_COMPACT
@@ -542,6 +638,7 @@ def build_contract(config, template, source_name):
         generated["style"] = copy.deepcopy(template["buttonToneStyles"][button["tone"]])
         buttons.append(generated)
 
+    presentation = resolved_presentation(config, template)
     out = {
         "schema": 1,
         "version": config["version"],
@@ -558,6 +655,7 @@ def build_contract(config, template, source_name):
             "title": config["title"],
             "message": copy.deepcopy(config["body"]),
         },
+        "presentation": presentation,
         "style": copy.deepcopy(template["style"]),
         "layouts": {},
         "motion": copy.deepcopy(template["motion"]),
@@ -648,6 +746,8 @@ def build_contract(config, template, source_name):
             # Place input/hint at the very bottom of the (now expanded) message.
             layout["inputHint"] = {"x": layout["message"]["x"], "y": layout["message"]["y"] + layout["message"]["height"] - hint_h, "width": layout["message"]["width"], "height": hint_h}
             layout["inputFrame"] = {"x": layout["message"]["x"], "y": layout["inputHint"]["y"] - GAP_INPUT_HINT - input_h, "width": layout["message"]["width"], "height": input_h}
+        if presentation["density"] == "brief-acknowledgement":
+            apply_brief_acknowledgement_density(layout, template, name)
         out["layouts"][name] = layout
 
     if table_rows is not None:

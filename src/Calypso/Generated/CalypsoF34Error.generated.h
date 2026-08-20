@@ -4,11 +4,16 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF34ErrorGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-20.19";
+inline constexpr const char* kContractVersion = "hd.2026-08-20.20";
 inline constexpr const char* kFormId = "f34-error";
 inline constexpr int kFamilyId = 34;
 inline constexpr const char* kArchetype = "small-confirmation";
 inline constexpr const char* kSourceConfig = "FormConfigs/f34-error.json";
+
+inline constexpr const char* kDensityProfile = "brief-acknowledgement";
+inline constexpr int kPresentationScaleNumerator = 2;
+inline constexpr int kPresentationScaleDenominator = 3;
+inline constexpr float kPresentationScale = 0.666667f;
 
 struct CalypsoF34ErrorGenButton { const char* id; const char* label; const char* tone; const char* action; std::uint32_t fill; std::uint32_t border; std::uint32_t text; };
 inline constexpr CalypsoF34ErrorGenButton kButtons[] = {
@@ -31,13 +36,13 @@ struct CalypsoF34ErrorGenRect { int x; int y; int w; int h; };
 struct CalypsoF34ErrorGenLayout { int designWidth; int designHeight; CalypsoF34ErrorGenRect window; CalypsoF34ErrorGenRect status; CalypsoF34ErrorGenRect warning; CalypsoF34ErrorGenRect title; CalypsoF34ErrorGenRect message; CalypsoF34ErrorGenRect footer;
 };
 inline constexpr CalypsoF34ErrorGenLayout kLayouts[] = {
-    { 1280, 720, { 386, 230, 508, 236 }, { 386, 230, 508, 38 }, { 418, 290, 32, 32 }, { 466, 284, 396, 44 }, { 418, 336, 444, 54 }, { 386, 404, 508, 62 } }, // wide
-    { 740, 360, { 142, 60, 456, 221 }, { 142, 60, 456, 34 }, { 170, 111, 28, 28 }, { 212, 106, 358, 38 }, { 170, 150, 400, 48 }, { 142, 215, 456, 66 } }, // compact
+    { 1280, 720, { 471, 269, 338, 158 }, { 471, 269, 338, 25 }, { 492, 309, 22, 21 }, { 524, 305, 264, 29 }, { 492, 340, 296, 36 }, { 471, 379, 338, 48 } }, // wide
+    { 740, 360, { 218, 97, 304, 147 }, { 218, 97, 304, 23 }, { 237, 131, 18, 19 }, { 265, 128, 238, 25 }, { 237, 157, 266, 32 }, { 218, 196, 304, 48 } }, // compact
 };
 struct CalypsoF34ErrorGenButtonRect { const char* id; CalypsoF34ErrorGenRect rect; };
 inline constexpr CalypsoF34ErrorGenButtonRect kButtonRects[][ 1 ] = {
-    { { "ok", { 704, 413, 158, 44 } } }, // wide
-    { { "ok", { 422, 225, 148, 44 } } }, // compact
+    { { "ok", { 683, 381, 105, 44 } } }, // wide
+    { { "ok", { 405, 198, 98, 44 } } }, // compact
 };
 inline constexpr int kLayoutCount = 2;
 inline constexpr int kMotionDurationMs = 200;

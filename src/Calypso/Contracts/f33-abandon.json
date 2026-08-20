@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "hd.2026-08-20.19",
+  "version": "hd.2026-08-20.20",
   "form": {
     "id": "f33-abandon",
     "familyId": 33,
@@ -45,6 +45,11 @@
     ],
     "safeAction": "KEEP PLAYING",
     "destructiveAction": "ABANDON GAME"
+  },
+  "presentation": {
+    "density": "standard",
+    "scaleNumerator": 1,
+    "scaleDenominator": 1
   },
   "style": {
     "cutCornerPx": 14,
