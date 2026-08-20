@@ -48,7 +48,8 @@
       "scaleNumerator": 2,
       "scaleDenominator": 3,
       "footerHeightPx": 48,
-      "minimumActionHeightPx": 44
+      "minimumActionHeightPx": 44,
+      "minimumMessageHeightPx": 40
     }
   },
   "layouts": {

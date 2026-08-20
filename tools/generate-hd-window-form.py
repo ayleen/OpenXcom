@@ -150,6 +150,7 @@ def validate_template(template):
         "scaleDenominator": 3,
         "footerHeightPx": 48,
         "minimumActionHeightPx": 44,
+        "minimumMessageHeightPx": 40,
     }
     if density_profiles != {"briefAcknowledgement": expected_brief}:
         raise FormError("template briefAcknowledgement density drifted from the reviewed policy")
@@ -537,6 +538,17 @@ def apply_brief_acknowledgement_density(layout, template, name):
     for button in layout["buttons"].values():
         button["y"] = action_y
         button["height"] = action_height
+
+    # The native wrapped TTF surface includes transparent cap/baseline guard
+    # rows. Keep those rows inside the atomic message rectangle without
+    # changing the reviewed shell or moving the visible text baseline.
+    message_height = profile["minimumMessageHeightPx"]
+    if layout["message"]["height"] < message_height:
+        message_center_twice = layout["message"]["y"] * 2 + layout["message"]["height"]
+        layout["message"]["y"] = (message_center_twice - message_height) // 2
+        layout["message"]["height"] = message_height
+    if layout["message"]["y"] < bottom(layout["title"]):
+        raise FormError(name + " brief acknowledgement message collides with its title")
 
     # Shared-edge scaling preserves the rail. Keep the invariant explicit so
     # a future template edit cannot turn rounding into a one-pixel gutter.

@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "hd.2026-08-20.20",
+  "version": "hd.2026-08-20.21",
   "form": {
     "id": "f34-error",
     "familyId": 34,
@@ -87,9 +87,9 @@
       },
       "message": {
         "x": 492,
-        "y": 340,
+        "y": 338,
         "width": 296,
-        "height": 36
+        "height": 40
       },
       "footer": {
         "x": 471,
@@ -135,9 +135,9 @@
       },
       "message": {
         "x": 237,
-        "y": 157,
+        "y": 153,
         "width": 266,
-        "height": 32
+        "height": 40
       },
       "footer": {
         "x": 218,

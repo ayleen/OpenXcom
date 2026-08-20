@@ -4,7 +4,7 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF21NameGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-20.20";
+inline constexpr const char* kContractVersion = "hd.2026-08-20.21";
 inline constexpr const char* kFormId = "f21-name";
 inline constexpr int kFamilyId = 21;
 inline constexpr const char* kArchetype = "small-confirmation";

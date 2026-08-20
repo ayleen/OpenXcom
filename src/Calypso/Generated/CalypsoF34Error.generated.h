@@ -4,7 +4,7 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF34ErrorGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-20.20";
+inline constexpr const char* kContractVersion = "hd.2026-08-20.21";
 inline constexpr const char* kFormId = "f34-error";
 inline constexpr int kFamilyId = 34;
 inline constexpr const char* kArchetype = "small-confirmation";
@@ -36,8 +36,8 @@ struct CalypsoF34ErrorGenRect { int x; int y; int w; int h; };
 struct CalypsoF34ErrorGenLayout { int designWidth; int designHeight; CalypsoF34ErrorGenRect window; CalypsoF34ErrorGenRect status; CalypsoF34ErrorGenRect warning; CalypsoF34ErrorGenRect title; CalypsoF34ErrorGenRect message; CalypsoF34ErrorGenRect footer;
 };
 inline constexpr CalypsoF34ErrorGenLayout kLayouts[] = {
-    { 1280, 720, { 471, 269, 338, 158 }, { 471, 269, 338, 25 }, { 492, 309, 22, 21 }, { 524, 305, 264, 29 }, { 492, 340, 296, 36 }, { 471, 379, 338, 48 } }, // wide
-    { 740, 360, { 218, 97, 304, 147 }, { 218, 97, 304, 23 }, { 237, 131, 18, 19 }, { 265, 128, 238, 25 }, { 237, 157, 266, 32 }, { 218, 196, 304, 48 } }, // compact
+    { 1280, 720, { 471, 269, 338, 158 }, { 471, 269, 338, 25 }, { 492, 309, 22, 21 }, { 524, 305, 264, 29 }, { 492, 338, 296, 40 }, { 471, 379, 338, 48 } }, // wide
+    { 740, 360, { 218, 97, 304, 147 }, { 218, 97, 304, 23 }, { 237, 131, 18, 19 }, { 265, 128, 238, 25 }, { 237, 153, 266, 40 }, { 218, 196, 304, 48 } }, // compact
 };
 struct CalypsoF34ErrorGenButtonRect { const char* id; CalypsoF34ErrorGenRect rect; };
 inline constexpr CalypsoF34ErrorGenButtonRect kButtonRects[][ 1 ] = {
