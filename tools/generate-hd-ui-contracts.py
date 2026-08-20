@@ -267,11 +267,13 @@ def validate_f21(doc, rel):
             buttons = layout.get("buttons") or {}
             if set(buttons) != {button["id"] for button in form.get("buttons", [])}:
                 fail(rel + ": " + layout_name + " generated button geometry is incomplete")
+            visible_action_floor = (MIN_ACTION_TARGET * numerator + denominator // 2) // denominator
             for button_id, rect in buttons.items():
-                if rect.get("width", 0) < MIN_ACTION_TARGET or rect.get("height", 0) < MIN_ACTION_TARGET:
+                if (rect.get("width", 0) < visible_action_floor
+                        or rect.get("height", 0) < visible_action_floor):
                     fail(rel + ": " + layout_name + ".buttons." + button_id
-                         + " below the " + str(MIN_ACTION_TARGET) + "x" + str(MIN_ACTION_TARGET)
-                         + " action-target floor")
+                         + " below the density-scaled " + str(visible_action_floor) + "x"
+                         + str(visible_action_floor) + " visible-action floor")
             if form.get("buttons"):
                 rightmost = buttons[form["buttons"][-1]["id"]]
                 message = layout.get("message") or {}

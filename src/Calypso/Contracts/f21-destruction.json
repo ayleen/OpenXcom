@@ -44,7 +44,7 @@
     ]
   },
   "copy": {
-    "protocol": "CALYPSO COMMAND · LOSS RECORD LR-21 · REV. 1.0.21 · EFFECTIVE 15.07.2061",
+    "protocol": "CALYPSO COMMAND · LOSS RECORD LR-21",
     "title": "BASE DAMAGED",
     "message": [
       "ALIEN MISSILES HAVE DAMAGED OUR BASE · ATLANTIS POST",

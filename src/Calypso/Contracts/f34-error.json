@@ -29,7 +29,7 @@
     ]
   },
   "copy": {
-    "protocol": "CALYPSO COMMAND · SITE SAFETY NOTICE ERR-34 · REV. 1.0.21 · EFFECTIVE 15.07.2061",
+    "protocol": "CALYPSO COMMAND · SITE SAFETY NOTICE ERR-34",
     "title": "OPERATIONAL WARNING",
     "message": [
       "Calypso sea-floor facilities",
@@ -99,10 +99,10 @@
       },
       "buttons": {
         "ok": {
-          "x": 630,
-          "y": 381,
-          "width": 158,
-          "height": 44
+          "x": 683,
+          "y": 388,
+          "width": 105,
+          "height": 29
         }
       }
     },
@@ -147,10 +147,10 @@
       },
       "buttons": {
         "ok": {
-          "x": 355,
-          "y": 198,
-          "width": 148,
-          "height": 44
+          "x": 405,
+          "y": 205,
+          "width": 98,
+          "height": 29
         }
       }
     }

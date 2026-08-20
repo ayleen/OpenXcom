@@ -11,7 +11,7 @@ inline constexpr const char* kArchetype = "small-confirmation";
 inline constexpr const char* kSourceConfig = "FormConfigs/f33-abandon.json";
 
 // Approved F33 3+5 copy (2026-08-17).
-inline constexpr const char* kProtocol = "CALYPSO COMMAND · SESSION PROTOCOL SP-01 · REV. 1.0.21 · EFFECTIVE 15.07.2061";
+inline constexpr const char* kProtocol = "CALYPSO COMMAND · SESSION PROTOCOL SP-01";
 inline constexpr const char* kTitle = "ABANDON GAME?";
 inline constexpr const char* kMessageLine1 = "Your progress since the last save will be lost.";
 inline constexpr const char* kMessageLine2 = "This session will be permanently discarded.";

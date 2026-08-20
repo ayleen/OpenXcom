@@ -41,7 +41,7 @@
     }
   },
   "copy": {
-    "protocol": "CALYPSO COMMAND · BASE REGISTRY BR-21 · REV. 1.0.21 · EFFECTIVE 15.07.2061",
+    "protocol": "CALYPSO COMMAND · BASE REGISTRY BR-21",
     "title": "NAME YOUR FIRST BASE",
     "message": [],
     "inputValue": "CALYPSO DEEP",

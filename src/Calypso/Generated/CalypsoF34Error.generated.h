@@ -41,8 +41,8 @@ inline constexpr CalypsoF34ErrorGenLayout kLayouts[] = {
 };
 struct CalypsoF34ErrorGenButtonRect { const char* id; CalypsoF34ErrorGenRect rect; };
 inline constexpr CalypsoF34ErrorGenButtonRect kButtonRects[][ 1 ] = {
-    { { "ok", { 630, 381, 158, 44 } } }, // wide
-    { { "ok", { 355, 198, 148, 44 } } }, // compact
+    { { "ok", { 683, 388, 105, 29 } } }, // wide
+    { { "ok", { 405, 205, 98, 29 } } }, // compact
 };
 inline constexpr int kLayoutCount = 2;
 inline constexpr int kMotionDurationMs = 200;

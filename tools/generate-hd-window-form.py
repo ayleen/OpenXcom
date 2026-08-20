@@ -48,6 +48,8 @@ HINT_HEIGHT_COMPACT = 16
 GAP_MESSAGE_INPUT = 14
 GAP_INPUT_HINT = 8
 GAP_HINT_FOOTER = 14
+PROTOCOL_INLINE_SAFE_PX = 8
+PROTOCOL_ADVANCE_TENTHS = 7
 
 
 class FormError(ValueError):
@@ -151,7 +153,6 @@ def validate_template(template):
         "footerHeightPx": 48,
         "minimumActionHeightPx": 44,
         "minimumMessageHeightPx": 40,
-        "preserveCanonicalActionGeometry": True,
     }
     if density_profiles != {"briefAcknowledgement": expected_brief}:
         raise FormError("template briefAcknowledgement density drifted from the reviewed policy")
@@ -233,8 +234,9 @@ def validate_config(config, template):
 
     protocol = config["protocol"]
     require_exact_fields(protocol, PROTOCOL_FIELDS, "config.protocol")
-    for key in ("authority", "record", "code", "revision"):
+    for key in ("authority", "record", "revision"):
         one_line(protocol[key], "config.protocol." + key, 40)
+    one_line(protocol["code"], "config.protocol.code", 16)
     if not isinstance(protocol["effectiveDate"], str) or not DATE_RE.fullmatch(protocol["effectiveDate"]):
         raise FormError("config.protocol.effectiveDate must be DD.MM.YYYY lore copy")
 
@@ -503,12 +505,11 @@ def scale_rect_from_window(rect, old_window, new_window, numerator, denominator)
 
 
 def apply_brief_acknowledgement_density(layout, template, name):
-    """Apply the reviewed 2/3 shell profile while retaining a 44px hit target."""
+    """Scale the complete visible composition; runtime retains the hit floor."""
     profile = template["densityProfiles"]["briefAcknowledgement"]
     numerator = profile["scaleNumerator"]
     denominator = profile["scaleDenominator"]
     old_window = copy.deepcopy(layout["window"])
-    old_buttons = copy.deepcopy(layout["buttons"])
     new_width = nearest_center_preserving_size(old_window["width"], numerator, denominator)
     new_height = nearest_center_preserving_size(old_window["height"], numerator, denominator)
     new_window = _rect(
@@ -528,22 +529,21 @@ def apply_brief_acknowledgement_density(layout, template, name):
     layout["status"]["x"] = new_window["x"]
     layout["status"]["y"] = new_window["y"]
     layout["status"]["width"] = new_window["width"]
+    # Independent edge rounding can otherwise leave the right content margin
+    # one pixel wider. The canonical rail is exactly symmetric by contract.
+    message_margin = layout["message"]["x"] - new_window["x"]
+    layout["message"]["width"] = new_window["width"] - 2 * message_margin
 
-    # The visual footer becomes denser, but its native action rectangle keeps
-    # the canonical mobile-safe height. Horizontal edges remain generator-scaled.
+    # The complete visible composition is density-scaled. The native adapter
+    # expands only the invisible input widget to the canonical touch floor;
+    # Engine and Reference paint these generated visual rectangles unchanged.
     footer_height = profile["footerHeightPx"]
     layout["footer"] = _rect(
         new_window["x"], bottom(new_window) - footer_height,
         new_window["width"], footer_height)
-    action_height = profile["minimumActionHeightPx"]
     action_right = right(layout["message"])
     for button_id in reversed(layout["buttons"]):
         button = layout["buttons"][button_id]
-        if profile["preserveCanonicalActionGeometry"]:
-            button["width"] = old_buttons[button_id]["width"]
-            button["height"] = old_buttons[button_id]["height"]
-        else:
-            button["height"] = action_height
         button["x"] = action_right - button["width"]
         button["y"] = layout["footer"]["y"] + (footer_height - button["height"]) // 2
         action_right = button["x"]
@@ -646,9 +646,35 @@ def build_table_inside_message(rows, message_rect, is_wide):
     return rects, metrics
 
 
-def protocol_text(protocol):
-    return (protocol["authority"] + " · " + protocol["record"] + " " + protocol["code"]
-            + " · REV. " + protocol["revision"] + " · EFFECTIVE " + protocol["effectiveDate"])
+def protocol_text_width(value, font_px):
+    """Conservative Share Tech Mono width including the canonical tracking."""
+    return (len(value) * font_px * PROTOCOL_ADVANCE_TENTHS + 9) // 10
+
+
+def protocol_text(protocol, layouts, template, presentation):
+    """Choose the longest canonical status title that fits every layout."""
+    candidates = [
+        protocol["authority"] + " · " + protocol["record"] + " " + protocol["code"],
+        protocol["record"] + " " + protocol["code"],
+        protocol["authority"] + " · " + protocol["code"],
+        protocol["code"],
+    ]
+    candidates = list(dict.fromkeys(candidates))
+    numerator = presentation["scaleNumerator"]
+    denominator = presentation["scaleDenominator"]
+    inset = scaled_edge(
+        template["style"]["protocolTextInsetPx"], numerator, denominator)
+    limits = []
+    for name, base_font in (("wide", 10), ("compact", 9)):
+        font_px = max(8, scaled_edge(base_font, numerator, denominator))
+        available = (layouts[name]["status"]["width"] - 2 * inset
+                     - 2 * PROTOCOL_INLINE_SAFE_PX)
+        limits.append((available, font_px))
+    for candidate in candidates:
+        if all(protocol_text_width(candidate, font_px) <= available
+               for available, font_px in limits):
+            return candidate
+    raise FormError("config.protocol.code cannot fit the generated status rail")
 
 
 def build_contract(config, template, source_name):
@@ -674,7 +700,7 @@ def build_contract(config, template, source_name):
             "buttons": buttons,
         },
         "copy": {
-            "protocol": protocol_text(config["protocol"]),
+            "protocol": "",
             "title": config["title"],
             "message": copy.deepcopy(config["body"]),
         },
@@ -772,6 +798,9 @@ def build_contract(config, template, source_name):
         if presentation["density"] == "brief-acknowledgement":
             apply_brief_acknowledgement_density(layout, template, name)
         out["layouts"][name] = layout
+
+    out["copy"]["protocol"] = protocol_text(
+        config["protocol"], out["layouts"], template, presentation)
 
     if table_rows is not None:
         out["form"]["tableRows"] = copy.deepcopy(table_rows)

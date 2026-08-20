@@ -55,7 +55,7 @@
     }
   },
   "copy": {
-    "protocol": "CALYPSO COMMAND · LOGISTICS AUTHORIZATION BE-21 · REV. 1.0.21 · EFFECTIVE 15.07.2061",
+    "protocol": "CALYPSO COMMAND · LOGISTICS AUTHORIZATION BE-21",
     "title": "REVIEW NEW BASE",
     "message": [],
     "table": "| SLOT | COORDINATES |\n| --- | --- |\n| BASE 1 / 8 | 28.6·N  0.0·E |\n| South Atlantic | $950 000 |",

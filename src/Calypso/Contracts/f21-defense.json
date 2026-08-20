@@ -62,7 +62,7 @@
     ]
   },
   "copy": {
-    "protocol": "CALYPSO COMMAND · DEFENSE DOSSIER DF-21 · REV. 1.0.21 · EFFECTIVE 15.07.2061",
+    "protocol": "CALYPSO COMMAND · DEFENSE DOSSIER DF-21",
     "title": "BASE UNDER ATTACK",
     "message": [],
     "table": "| DEFENSES · 4 | AMMUNITION · 24 |\n| --- | --- |\n| HIT RATIO · 62% | READY |"

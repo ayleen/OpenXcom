@@ -358,10 +358,10 @@ void calypsoCollectSmallConfirmation(
 		builder.add(item);
 	}
 
-	const int labelPx = std::max(1, (int)calypsoHdRoundToInt(
+	const int labelPx = scaledPx(
 		CalypsoHdTheme::kLabelFontSizePx * (model.wide
 			? CalypsoHdTheme::kLabelFontSizeScaleWide
-			: CalypsoHdTheme::kLabelFontSizeScaleCompact)));
+			: CalypsoHdTheme::kLabelFontSizeScaleCompact), 11);
 	for (std::size_t i = 0; i < model.buttons.size(); ++i)
 	{
 		const auto& button = model.buttons[i];
