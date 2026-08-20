@@ -230,6 +230,9 @@ F21_SMALL_CONFIRMATION_CONTRACTS = {
     "f24-research-required.json", "f24-research-complete.json",
     "f28-abort-mission.json", "f28-confirm-end.json",
     "f03-dismantle.json", "f04-sack-soldier.json",
+    "f17-ufo-lost.json", "f17-ufo-detected.json", "f17-mission-detected.json",
+    "f22-training-finished.json", "f30-no-experience.json", "f24-production-complete.json",
+    "f05-soldier-transform.json", "f06-soldier-diary.json",
 }
 F21_ENGINE_TEXT_CALIBRATION_CONTRACTS = {
     "f21-site.json",
@@ -253,6 +256,14 @@ ADDITIONAL_SMALL_CONFIRMATION_CONTRACTS = [
     ("f28-confirm-end.json", "CalypsoF28ConfirmEndGen", "CalypsoF28ConfirmEnd", "CalypsoF28ConfirmEnd"),
     ("f03-dismantle.json", "CalypsoF03DismantleGen", "CalypsoF03Dismantle", "CalypsoF03Dismantle"),
     ("f04-sack-soldier.json", "CalypsoF04SackSoldierGen", "CalypsoF04SackSoldier", "CalypsoF04SackSoldier"),
+    ("f17-ufo-lost.json", "CalypsoF17UfoLostGen", "CalypsoF17UfoLost", "CalypsoF17UfoLost"),
+    ("f17-ufo-detected.json", "CalypsoF17UfoDetectedGen", "CalypsoF17UfoDetected", "CalypsoF17UfoDetected"),
+    ("f17-mission-detected.json", "CalypsoF17MissionDetectedGen", "CalypsoF17MissionDetected", "CalypsoF17MissionDetected"),
+    ("f22-training-finished.json", "CalypsoF22TrainingFinishedGen", "CalypsoF22TrainingFinished", "CalypsoF22TrainingFinished"),
+    ("f30-no-experience.json", "CalypsoF30NoExperienceGen", "CalypsoF30NoExperience", "CalypsoF30NoExperience"),
+    ("f24-production-complete.json", "CalypsoF24ProductionCompleteGen", "CalypsoF24ProductionComplete", "CalypsoF24ProductionComplete"),
+    ("f05-soldier-transform.json", "CalypsoF05SoldierTransformGen", "CalypsoF05SoldierTransform", "CalypsoF05SoldierTransform"),
+    ("f06-soldier-diary.json", "CalypsoF06SoldierDiaryGen", "CalypsoF06SoldierDiary", "CalypsoF06SoldierDiary"),
 ]
 
 

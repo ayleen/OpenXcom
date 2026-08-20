@@ -1,0 +1,207 @@
+{
+  "schema": 1,
+  "version": "hd.2026-08-20.19",
+  "form": {
+    "id": "f17-ufo-detected",
+    "familyId": 17,
+    "archetype": "small-confirmation",
+    "source": "FormConfigs/f17-ufo-detected.json",
+    "icon": {
+      "kind": "warning",
+      "glyph": "!",
+      "tone": "warning"
+    },
+    "buttons": [
+      {
+        "id": "intercept",
+        "label": "INTERCEPT",
+        "tone": "safe",
+        "action": "intercept",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB0CC",
+          "text": "E8FFF5FF"
+        }
+      },
+      {
+        "id": "centre",
+        "label": "CENTRE",
+        "tone": "primary",
+        "action": "centre",
+        "style": {
+          "fill": "74FFB0FF",
+          "border": "74FFB0FF",
+          "text": "071013FF"
+        }
+      },
+      {
+        "id": "cancel",
+        "label": "CANCEL",
+        "tone": "safe",
+        "action": "cancel",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB0CC",
+          "text": "E8FFF5FF"
+        }
+      }
+    ],
+    "visibleButtons": [
+      "intercept",
+      "centre",
+      "cancel"
+    ]
+  },
+  "copy": {
+    "protocol": "CALYPSO COMMAND · TACTICAL NOTICE F17-UFO-DETECTED · REV. 1.0.21 · EFFECTIVE 15.07.2061",
+    "title": "UFO DETECTED",
+    "message": [
+      "Unidentified craft",
+      "detected on radar."
+    ]
+  },
+  "style": {
+    "cutCornerPx": 14,
+    "protocolTextInsetPx": 26,
+    "panelFillTop": "08191DEB",
+    "panelFillBottom": "041014E8",
+    "frame": "74FFB073",
+    "protocolText": "A9D8C7FF",
+    "divider": "74FFB04D",
+    "footerFill": "061B1CD6",
+    "footerDot": "74FFB01F",
+    "warning": "FFC14DFF",
+    "safeFill": "051417B8",
+    "safeBorder": "74FFB0CC",
+    "destructiveFill": "F25F5CFF",
+    "destructiveText": "071013FF"
+  },
+  "layouts": {
+    "wide": {
+      "designWidth": 1280,
+      "designHeight": 720,
+      "window": {
+        "x": 361,
+        "y": 230,
+        "width": 558,
+        "height": 236
+      },
+      "status": {
+        "x": 361,
+        "y": 230,
+        "width": 558,
+        "height": 38
+      },
+      "warning": {
+        "x": 393,
+        "y": 290,
+        "width": 32,
+        "height": 32
+      },
+      "title": {
+        "x": 441,
+        "y": 284,
+        "width": 446,
+        "height": 44
+      },
+      "message": {
+        "x": 393,
+        "y": 336,
+        "width": 494,
+        "height": 54
+      },
+      "footer": {
+        "x": 361,
+        "y": 404,
+        "width": 558,
+        "height": 62
+      },
+      "buttons": {
+        "intercept": {
+          "x": 393,
+          "y": 413,
+          "width": 158,
+          "height": 44
+        },
+        "centre": {
+          "x": 561,
+          "y": 413,
+          "width": 158,
+          "height": 44
+        },
+        "cancel": {
+          "x": 729,
+          "y": 413,
+          "width": 158,
+          "height": 44
+        }
+      }
+    },
+    "compact": {
+      "designWidth": 740,
+      "designHeight": 360,
+      "window": {
+        "x": 108,
+        "y": 60,
+        "width": 524,
+        "height": 221
+      },
+      "status": {
+        "x": 108,
+        "y": 60,
+        "width": 524,
+        "height": 34
+      },
+      "warning": {
+        "x": 136,
+        "y": 111,
+        "width": 28,
+        "height": 28
+      },
+      "title": {
+        "x": 178,
+        "y": 106,
+        "width": 426,
+        "height": 38
+      },
+      "message": {
+        "x": 136,
+        "y": 150,
+        "width": 468,
+        "height": 48
+      },
+      "footer": {
+        "x": 108,
+        "y": 215,
+        "width": 524,
+        "height": 66
+      },
+      "buttons": {
+        "intercept": {
+          "x": 136,
+          "y": 225,
+          "width": 148,
+          "height": 44
+        },
+        "centre": {
+          "x": 296,
+          "y": 225,
+          "width": 148,
+          "height": 44
+        },
+        "cancel": {
+          "x": 456,
+          "y": 225,
+          "width": 148,
+          "height": 44
+        }
+      }
+    }
+  },
+  "motion": {
+    "durationMs": 200,
+    "scaleFrom": 0.96,
+    "easing": "ease-out",
+    "captureModeDurationMs": 0
+  }
+}

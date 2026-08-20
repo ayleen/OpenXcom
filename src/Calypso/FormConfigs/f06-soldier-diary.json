@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "id": "f06-soldier-diary",
+  "familyId": 6,
+  "version": "hd.2026-08-20.19",
+  "archetype": "small-confirmation",
+  "protocol": {
+    "authority": "CALYPSO COMMAND",
+    "record": "TACTICAL NOTICE",
+    "code": "F06-SOLDIER-DIARY",
+    "revision": "1.0.21",
+    "effectiveDate": "15.07.2061"
+  },
+  "title": "DIARY ENTRY",
+  "body": [
+    "New diary entry",
+    "has been recorded."
+  ],
+  "icon": {
+    "kind": "info",
+    "glyph": "i",
+    "tone": "primary"
+  },
+  "buttons": [
+    {
+      "id": "ok",
+      "label": "OK",
+      "tone": "safe",
+      "action": "ok"
+    }
+  ],
+  "visibleButtons": [
+    "ok"
+  ]
+}

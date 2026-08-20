@@ -1,0 +1,159 @@
+{
+  "schema": 1,
+  "version": "hd.2026-08-20.19",
+  "form": {
+    "id": "f06-soldier-diary",
+    "familyId": 6,
+    "archetype": "small-confirmation",
+    "source": "FormConfigs/f06-soldier-diary.json",
+    "icon": {
+      "kind": "info",
+      "glyph": "i",
+      "tone": "primary"
+    },
+    "buttons": [
+      {
+        "id": "ok",
+        "label": "OK",
+        "tone": "safe",
+        "action": "ok",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB0CC",
+          "text": "E8FFF5FF"
+        }
+      }
+    ],
+    "visibleButtons": [
+      "ok"
+    ]
+  },
+  "copy": {
+    "protocol": "CALYPSO COMMAND · TACTICAL NOTICE F06-SOLDIER-DIARY · REV. 1.0.21 · EFFECTIVE 15.07.2061",
+    "title": "DIARY ENTRY",
+    "message": [
+      "New diary entry",
+      "has been recorded."
+    ]
+  },
+  "style": {
+    "cutCornerPx": 14,
+    "protocolTextInsetPx": 26,
+    "panelFillTop": "08191DEB",
+    "panelFillBottom": "041014E8",
+    "frame": "74FFB073",
+    "protocolText": "A9D8C7FF",
+    "divider": "74FFB04D",
+    "footerFill": "061B1CD6",
+    "footerDot": "74FFB01F",
+    "warning": "FFC14DFF",
+    "safeFill": "051417B8",
+    "safeBorder": "74FFB0CC",
+    "destructiveFill": "F25F5CFF",
+    "destructiveText": "071013FF"
+  },
+  "layouts": {
+    "wide": {
+      "designWidth": 1280,
+      "designHeight": 720,
+      "window": {
+        "x": 466,
+        "y": 230,
+        "width": 348,
+        "height": 236
+      },
+      "status": {
+        "x": 466,
+        "y": 230,
+        "width": 348,
+        "height": 38
+      },
+      "warning": {
+        "x": 498,
+        "y": 290,
+        "width": 32,
+        "height": 32
+      },
+      "title": {
+        "x": 546,
+        "y": 284,
+        "width": 236,
+        "height": 44
+      },
+      "message": {
+        "x": 498,
+        "y": 336,
+        "width": 284,
+        "height": 54
+      },
+      "footer": {
+        "x": 466,
+        "y": 404,
+        "width": 348,
+        "height": 62
+      },
+      "buttons": {
+        "ok": {
+          "x": 624,
+          "y": 413,
+          "width": 158,
+          "height": 44
+        }
+      }
+    },
+    "compact": {
+      "designWidth": 740,
+      "designHeight": 360,
+      "window": {
+        "x": 214,
+        "y": 60,
+        "width": 312,
+        "height": 221
+      },
+      "status": {
+        "x": 214,
+        "y": 60,
+        "width": 312,
+        "height": 34
+      },
+      "warning": {
+        "x": 242,
+        "y": 111,
+        "width": 28,
+        "height": 28
+      },
+      "title": {
+        "x": 284,
+        "y": 106,
+        "width": 214,
+        "height": 38
+      },
+      "message": {
+        "x": 242,
+        "y": 150,
+        "width": 256,
+        "height": 48
+      },
+      "footer": {
+        "x": 214,
+        "y": 215,
+        "width": 312,
+        "height": 66
+      },
+      "buttons": {
+        "ok": {
+          "x": 350,
+          "y": 225,
+          "width": 148,
+          "height": 44
+        }
+      }
+    }
+  },
+  "motion": {
+    "durationMs": 200,
+    "scaleFrom": 0.96,
+    "easing": "ease-out",
+    "captureModeDurationMs": 0
+  }
+}

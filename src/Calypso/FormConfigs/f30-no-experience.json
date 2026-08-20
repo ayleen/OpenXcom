@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "id": "f30-no-experience",
+  "familyId": 30,
+  "version": "hd.2026-08-20.19",
+  "archetype": "small-confirmation",
+  "protocol": {
+    "authority": "CALYPSO COMMAND",
+    "record": "TACTICAL NOTICE",
+    "code": "F30-NO-EXPERIENCE",
+    "revision": "1.0.21",
+    "effectiveDate": "15.07.2061"
+  },
+  "title": "NO EXPERIENCE YET",
+  "body": [
+    "No combat experience",
+    "to display yet."
+  ],
+  "icon": {
+    "kind": "info",
+    "glyph": "i",
+    "tone": "primary"
+  },
+  "buttons": [
+    {
+      "id": "ok",
+      "label": "OK",
+      "tone": "safe",
+      "action": "ok"
+    }
+  ],
+  "visibleButtons": [
+    "ok"
+  ]
+}

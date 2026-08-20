@@ -37,6 +37,9 @@
 #include "../Mod/RuleCraft.h"
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoTutorial.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF17UfoDetectedUi.h"
+#endif
 #endif
 
 namespace OpenXcom
@@ -125,6 +128,9 @@ UfoDetectedState::UfoDetectedState(Ufo *ufo, GeoscapeState *state, bool detected
 	// Phase 41: HD scaling + TTF labels (see docs/phases/phase-29-menu-scaling.md).
 	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
 	enableUiScaling(320, 200, 1.0f);
+#endif
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF17UfoDetectedUi::configure(*this);
 #endif
 
 	_btnIntercept->setText(tr("STR_INTERCEPT"));
@@ -231,6 +237,10 @@ UfoDetectedState::UfoDetectedState(Ufo *ufo, GeoscapeState *state, bool detected
  */
 UfoDetectedState::~UfoDetectedState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 
 }
 
@@ -287,3 +297,13 @@ void UfoDetectedState::toggleCancel(Action *)
 }
 
 }
+
+#ifdef __EMSCRIPTEN__
+namespace OpenXcom {
+void UfoDetectedState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF17UfoDetectedUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+}
+#endif

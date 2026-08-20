@@ -22,6 +22,7 @@
 
 namespace OpenXcom
 {
+namespace Calypso { class CalypsoF06SoldierDiaryUi; }
 
 class TextButton;
 class Window;
@@ -37,6 +38,9 @@ class Soldier;
  */
 class SoldierDiaryOverviewState : public State
 {
+#ifdef __EMSCRIPTEN__
+friend class Calypso::CalypsoF06SoldierDiaryUi;
+#endif
 private:
 	Base *_base;
 	size_t _soldierId;
@@ -73,6 +77,15 @@ public:
 	void btnCommendationsClick(Action *action);
 	/// Handler for clicking on mission list.
 	void lstDiaryInfoClick(Action *action);
+
+#ifdef __EMSCRIPTEN__
+private:
+    bool _hdLayout = false;
+    bool _hdWideLayout = false;
+    Calypso::CalypsoF06SoldierDiaryUi *_hdAdapter = nullptr;
+public:
+    void resize(int &dX, int &dY) override;
+#endif
 };
 
 }

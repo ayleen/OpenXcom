@@ -1,0 +1,42 @@
+{
+  "schema": 1,
+  "id": "f05-soldier-transform",
+  "familyId": 5,
+  "version": "hd.2026-08-20.19",
+  "archetype": "small-confirmation",
+  "protocol": {
+    "authority": "CALYPSO COMMAND",
+    "record": "TACTICAL NOTICE",
+    "code": "F05-SOLDIER-TRANSFORM",
+    "revision": "1.0.21",
+    "effectiveDate": "15.07.2061"
+  },
+  "title": "TRANSFORMATION READY",
+  "body": [
+    "Soldier transformation",
+    "is now available."
+  ],
+  "icon": {
+    "kind": "info",
+    "glyph": "i",
+    "tone": "primary"
+  },
+  "buttons": [
+    {
+      "id": "cancel",
+      "label": "CANCEL",
+      "tone": "safe",
+      "action": "cancel"
+    },
+    {
+      "id": "confirm",
+      "label": "START",
+      "tone": "primary",
+      "action": "confirm"
+    }
+  ],
+  "visibleButtons": [
+    "cancel",
+    "confirm"
+  ]
+}
