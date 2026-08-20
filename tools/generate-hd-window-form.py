@@ -108,6 +108,8 @@ def validate_rect(rect, label):
 def validate_template(template):
     if template.get("schema") != 1 or template.get("id") != "small-confirmation":
         raise FormError("template must be schema 1 small-confirmation")
+    if template.get("version") != 2:
+        raise FormError("template must use content-sized small-confirmation version 2")
     tones = template.get("supportedButtonTones")
     tone_styles = template.get("buttonToneStyles")
     if not isinstance(tones, list) or set(tones) != {"normal", "safe", "primary", "warning", "danger"}:
@@ -140,10 +142,23 @@ def validate_template(template):
         },
     }
     layouts = template.get("layouts") or {}
+    sizing = template.get("contentSizing") or {}
+    if set(sizing) != {"wide", "compact"}:
+        raise FormError("template contentSizing requires exact wide/compact policies")
     if set(layouts) != {"wide", "compact"}:
         raise FormError("template requires exact wide/compact layouts")
     for name, want in expected.items():
         layout = layouts[name]
+        policy = sizing[name]
+        expected_policy = {
+            "safeMarginPx": 32 if name == "wide" else 28,
+            "textInlineSafePx": 8,
+            "titleTextUnitPx": 20 if name == "wide" else 18,
+            "bodyTextUnitPx": 9 if name == "wide" else 7,
+            "maxWindowWidthPx": want["window"][0],
+        }
+        if policy != expected_policy:
+            raise FormError(name + ".contentSizing drifted from the reviewed policy")
         for key in ("window", "status", "icon", "title", "titleWithoutIcon", "body", "footer"):
             validate_rect(layout.get(key), name + "." + key)
         slots = layout.get("buttonSlots")
@@ -335,6 +350,106 @@ def _rect(x, y, w, h):
     return {"x": x, "y": y, "width": w, "height": h}
 
 
+def button_group_width(authored, button_count):
+    button_width = authored["buttonSlots"][0]["width"]
+    gap = authored["buttonSlots"][1]["x"] - right(authored["buttonSlots"][0])
+    return button_count * button_width + max(0, button_count - 1) * gap
+
+
+def table_required_content_width(rows, is_wide):
+    # Reuse the table generator's real column metrics. The oversized scratch
+    # rect removes shell width from the calculation without creating a second
+    # table-measurement implementation.
+    scratch = _rect(0, 0, 1000000, 1000000)
+    _, metrics = build_table_inside_message(rows, scratch, is_wide)
+    return metrics["tableWidth"] + 2 * TABLE_PADDING
+
+
+def semantic_content_width(config, template, name, table_rows):
+    """Measure the widest semantic requirement in deterministic design px."""
+    authored = template["layouts"][name]
+    policy = template["contentSizing"][name]
+    inline_safe = 2 * policy["textInlineSafePx"]
+    visible_icon = config["icon"]["kind"] != "none"
+
+    title_width = proportional_text_width(config["title"], policy["titleTextUnitPx"])
+    title_width += inline_safe
+    if visible_icon:
+        icon_gap = authored["title"]["x"] - right(authored["icon"])
+        title_width += authored["icon"]["width"] + icon_gap
+
+    body_width = max(
+        [proportional_text_width(line, policy["bodyTextUnitPx"]) + inline_safe
+         for line in config["body"]]
+        or [0]
+    )
+    action_width = button_group_width(authored, len(config["buttons"]))
+    optional_width = 0
+    if table_rows is not None:
+        optional_width = max(
+            optional_width,
+            table_required_content_width(table_rows, name == "wide"))
+    if config.get("input") is not None:
+        optional_width = max(
+            optional_width,
+            proportional_text_width(config["input"]["value"], policy["bodyTextUnitPx"])
+                + inline_safe,
+            proportional_text_width(config["input"]["hint"], policy["bodyTextUnitPx"])
+                + inline_safe,
+        )
+    return max(title_width, body_width, action_width, optional_width)
+
+
+def content_sized_shell(config, template, name, table_rows):
+    """Derive every horizontal rect from semantic content and safe margins."""
+    authored = template["layouts"][name]
+    policy = template["contentSizing"][name]
+    safe_margin = policy["safeMarginPx"]
+    content_width = semantic_content_width(config, template, name, table_rows)
+    window_width = content_width + 2 * safe_margin
+    if window_width > policy["maxWindowWidthPx"]:
+        raise FormError(
+            name + " semantic content requires a " + str(window_width)
+            + "px window, exceeding the " + str(policy["maxWindowWidthPx"])
+            + "px small-confirmation maximum")
+
+    window_x = (authored["designWidth"] - window_width) // 2
+    window = _rect(window_x, authored["window"]["y"],
+                   window_width, authored["window"]["height"])
+    content_left = window_x + safe_margin
+    content_right = window_x + window_width - safe_margin
+
+    status = _rect(window_x, authored["status"]["y"],
+                   window_width, authored["status"]["height"])
+    footer = _rect(window_x, authored["footer"]["y"],
+                   window_width, authored["footer"]["height"])
+    warning = _rect(content_left, authored["icon"]["y"],
+                    authored["icon"]["width"], authored["icon"]["height"])
+    if config["icon"]["kind"] == "none":
+        title_x = content_left
+        title_source = authored["titleWithoutIcon"]
+    else:
+        title_x = right(warning) + authored["title"]["x"] - right(authored["icon"])
+        title_source = authored["title"]
+    title = _rect(title_x, title_source["y"],
+                  content_right - title_x, title_source["height"])
+    message = _rect(content_left, authored["body"]["y"],
+                    content_width, authored["body"]["height"])
+
+    button_width = authored["buttonSlots"][0]["width"]
+    button_height = authored["buttonSlots"][0]["height"]
+    button_y = authored["buttonSlots"][0]["y"]
+    gap = authored["buttonSlots"][1]["x"] - right(authored["buttonSlots"][0])
+    group_width = button_group_width(authored, len(config["buttons"]))
+    first_button_x = content_right - group_width
+    slots = [
+        _rect(first_button_x + index * (button_width + gap), button_y,
+              button_width, button_height)
+        for index in range(len(config["buttons"]))
+    ]
+    return window, status, warning, title, message, footer, slots
+
+
 def build_table_inside_message(rows, message_rect, is_wide):
     text_unit = TABLE_TEXT_UNIT_WIDE if is_wide else TABLE_TEXT_UNIT_COMPACT
     line_h = TABLE_LINE_HEIGHT_WIDE if is_wide else TABLE_LINE_HEIGHT_COMPACT
@@ -456,38 +571,21 @@ def build_contract(config, template, source_name):
         table_rows = parse_table(config["table"], TABLE_LIMITS)
 
     button_count = len(buttons)
-    # Button slot handling: template has 2 slots, support 1-3 buttons
-    # For 3 buttons: left slot split? Use equal 3 slots derived from 2-slot geometry
     for name in ("wide", "compact"):
         authored = template["layouts"][name]
         is_wide = name == "wide"
-        # Derive button rects
-        if button_count == 3:
-            # Split footer width: 3 buttons with same height/gap logic
-            footer = authored["footer"]
-            gap = authored["buttonSlots"][1]["x"] - (authored["buttonSlots"][0]["x"] + authored["buttonSlots"][0]["width"])
-            btn_w = authored["buttonSlots"][0]["width"]
-            # For 3 buttons, compress slightly to fit: use original button width but adjust gaps
-            # Keep right-aligned to content rail
-            right_edge = authored["buttonSlots"][1]["x"] + authored["buttonSlots"][1]["width"]
-            total_w = btn_w*3 + gap*2
-            left_x = right_edge - total_w
-            slots = []
-            for i in range(3):
-                x = left_x + i*(btn_w+gap)
-                slots.append({"x": x, "y": authored["buttonSlots"][0]["y"], "width": btn_w, "height": authored["buttonSlots"][0]["height"]})
-        else:
-            slots = authored["buttonSlots"][2 - button_count:]
+        window, status, warning, title, message, footer, slots = content_sized_shell(
+            config, template, name, table_rows)
 
         layout = {
             "designWidth": authored["designWidth"],
             "designHeight": authored["designHeight"],
-            "window": copy.deepcopy(authored["window"]),
-            "status": copy.deepcopy(authored["status"]),
-            "warning": copy.deepcopy(authored["icon"]),
-            "title": copy.deepcopy(authored["title"] if visible_icon else authored["titleWithoutIcon"]),
-            "message": copy.deepcopy(authored["body"]),
-            "footer": copy.deepcopy(authored["footer"]),
+            "window": window,
+            "status": status,
+            "warning": warning,
+            "title": title,
+            "message": message,
+            "footer": footer,
             "buttons": {},
         }
         for button, rect in zip(buttons, slots):

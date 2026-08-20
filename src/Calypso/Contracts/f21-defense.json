@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "hd.2026-08-19.18",
+  "version": "hd.2026-08-20.19",
   "form": {
     "id": "f21-defense",
     "familyId": 21,
@@ -88,93 +88,93 @@
       "designWidth": 1280,
       "designHeight": 720,
       "window": {
-        "x": 350,
+        "x": 361,
         "y": 230,
-        "width": 580,
+        "width": 558,
         "height": 259
       },
       "status": {
-        "x": 350,
+        "x": 361,
         "y": 230,
-        "width": 580,
+        "width": 558,
         "height": 38
       },
       "warning": {
-        "x": 382,
+        "x": 393,
         "y": 290,
         "width": 32,
         "height": 32
       },
       "title": {
-        "x": 430,
+        "x": 441,
         "y": 284,
-        "width": 450,
+        "width": 446,
         "height": 44
       },
       "message": {
-        "x": 382,
+        "x": 393,
         "y": 336,
-        "width": 516,
+        "width": 494,
         "height": 77
       },
       "footer": {
-        "x": 350,
+        "x": 361,
         "y": 427,
-        "width": 580,
+        "width": 558,
         "height": 62
       },
       "buttons": {
         "skip": {
-          "x": 404,
+          "x": 393,
           "y": 436,
           "width": 158,
           "height": 44
         },
         "start": {
-          "x": 572,
+          "x": 561,
           "y": 436,
           "width": 158,
           "height": 44
         },
         "ok": {
-          "x": 740,
+          "x": 729,
           "y": 436,
           "width": 158,
           "height": 44
         }
       },
       "cellR1C1": {
-        "x": 398,
+        "x": 409,
         "y": 344,
         "width": 120,
         "height": 22
       },
       "cellR1C2": {
-        "x": 535,
+        "x": 546,
         "y": 344,
         "width": 120,
         "height": 22
       },
       "rowDivider1": {
-        "x": 390,
+        "x": 401,
         "y": 374,
         "width": 273,
         "height": 1
       },
       "cellR2C1": {
-        "x": 398,
+        "x": 409,
         "y": 383,
         "width": 120,
         "height": 22
       },
       "cellR2C2": {
-        "x": 535,
+        "x": 546,
         "y": 383,
         "width": 120,
         "height": 22
       },
       "columnDivider1": {
-        "x": 526,
+        "x": 537,
         "y": 336,
         "width": 1,
         "height": 77
@@ -184,93 +184,93 @@
       "designWidth": 740,
       "designHeight": 360,
       "window": {
-        "x": 70,
+        "x": 108,
         "y": 60,
-        "width": 600,
+        "width": 524,
         "height": 242
       },
       "status": {
-        "x": 70,
+        "x": 108,
         "y": 60,
-        "width": 600,
+        "width": 524,
         "height": 34
       },
       "warning": {
-        "x": 98,
+        "x": 136,
         "y": 111,
         "width": 28,
         "height": 28
       },
       "title": {
-        "x": 140,
+        "x": 178,
         "y": 106,
-        "width": 470,
+        "width": 426,
         "height": 38
       },
       "message": {
-        "x": 98,
+        "x": 136,
         "y": 150,
-        "width": 500,
+        "width": 468,
         "height": 69
       },
       "footer": {
-        "x": 70,
+        "x": 108,
         "y": 236,
-        "width": 600,
+        "width": 524,
         "height": 66
       },
       "buttons": {
         "skip": {
-          "x": 130,
+          "x": 136,
           "y": 246,
           "width": 148,
           "height": 44
         },
         "start": {
-          "x": 290,
+          "x": 296,
           "y": 246,
           "width": 148,
           "height": 44
         },
         "ok": {
-          "x": 450,
+          "x": 456,
           "y": 246,
           "width": 148,
           "height": 44
         }
       },
       "cellR1C1": {
-        "x": 114,
+        "x": 152,
         "y": 158,
         "width": 105,
         "height": 18
       },
       "cellR1C2": {
-        "x": 236,
+        "x": 274,
         "y": 158,
         "width": 105,
         "height": 18
       },
       "rowDivider1": {
-        "x": 106,
+        "x": 144,
         "y": 184,
         "width": 243,
         "height": 1
       },
       "cellR2C1": {
-        "x": 114,
+        "x": 152,
         "y": 193,
         "width": 105,
         "height": 18
       },
       "cellR2C2": {
-        "x": 236,
+        "x": 274,
         "y": 193,
         "width": 105,
         "height": 18
       },
       "columnDivider1": {
-        "x": 227,
+        "x": 265,
         "y": 150,
         "width": 1,
         "height": 69

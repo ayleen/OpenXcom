@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "id": "small-confirmation",
-  "version": 1,
+  "version": 2,
   "supportedButtonTones": ["normal", "safe", "primary", "warning", "danger"],
   "buttonToneStyles": {
     "normal":  { "fill": "051417B8", "border": "74FFB059", "text": "E8FFF5FF" },
@@ -25,6 +25,22 @@
     "safeBorder": "74FFB0CC",
     "destructiveFill": "F25F5CFF",
     "destructiveText": "071013FF"
+  },
+  "contentSizing": {
+    "wide": {
+      "safeMarginPx": 32,
+      "textInlineSafePx": 8,
+      "titleTextUnitPx": 20,
+      "bodyTextUnitPx": 9,
+      "maxWindowWidthPx": 580
+    },
+    "compact": {
+      "safeMarginPx": 28,
+      "textInlineSafePx": 8,
+      "titleTextUnitPx": 18,
+      "bodyTextUnitPx": 7,
+      "maxWindowWidthPx": 600
+    }
   },
   "layouts": {
     "wide": {

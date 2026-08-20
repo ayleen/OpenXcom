@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "hd.2026-08-19.18",
+  "version": "hd.2026-08-20.19",
   "form": {
     "id": "f34-error",
     "familyId": 34,
@@ -57,44 +57,44 @@
       "designWidth": 1280,
       "designHeight": 720,
       "window": {
-        "x": 350,
+        "x": 386,
         "y": 230,
-        "width": 580,
+        "width": 508,
         "height": 236
       },
       "status": {
-        "x": 350,
+        "x": 386,
         "y": 230,
-        "width": 580,
+        "width": 508,
         "height": 38
       },
       "warning": {
-        "x": 382,
+        "x": 418,
         "y": 290,
         "width": 32,
         "height": 32
       },
       "title": {
-        "x": 430,
+        "x": 466,
         "y": 284,
-        "width": 450,
+        "width": 396,
         "height": 44
       },
       "message": {
-        "x": 382,
+        "x": 418,
         "y": 336,
-        "width": 516,
+        "width": 444,
         "height": 54
       },
       "footer": {
-        "x": 350,
+        "x": 386,
         "y": 404,
-        "width": 580,
+        "width": 508,
         "height": 62
       },
       "buttons": {
         "ok": {
-          "x": 740,
+          "x": 704,
           "y": 413,
           "width": 158,
           "height": 44
@@ -105,44 +105,44 @@
       "designWidth": 740,
       "designHeight": 360,
       "window": {
-        "x": 70,
+        "x": 142,
         "y": 60,
-        "width": 600,
+        "width": 456,
         "height": 221
       },
       "status": {
-        "x": 70,
+        "x": 142,
         "y": 60,
-        "width": 600,
+        "width": 456,
         "height": 34
       },
       "warning": {
-        "x": 98,
+        "x": 170,
         "y": 111,
         "width": 28,
         "height": 28
       },
       "title": {
-        "x": 140,
+        "x": 212,
         "y": 106,
-        "width": 470,
+        "width": 358,
         "height": 38
       },
       "message": {
-        "x": 98,
+        "x": 170,
         "y": 150,
-        "width": 500,
+        "width": 400,
         "height": 48
       },
       "footer": {
-        "x": 70,
+        "x": 142,
         "y": 215,
-        "width": 600,
+        "width": 456,
         "height": 66
       },
       "buttons": {
         "ok": {
-          "x": 450,
+          "x": 422,
           "y": 225,
           "width": 148,
           "height": 44

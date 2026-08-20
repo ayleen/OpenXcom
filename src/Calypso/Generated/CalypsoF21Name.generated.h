@@ -4,7 +4,7 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF21NameGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-19.18";
+inline constexpr const char* kContractVersion = "hd.2026-08-20.19";
 inline constexpr const char* kFormId = "f21-name";
 inline constexpr int kFamilyId = 21;
 inline constexpr const char* kArchetype = "small-confirmation";
@@ -33,13 +33,13 @@ struct CalypsoF21NameGenLayout { int designWidth; int designHeight; CalypsoF21Na
     CalypsoF21NameGenRect inputHint;
 };
 inline constexpr CalypsoF21NameGenLayout kLayouts[] = {
-    { 1280, 720, { 350, 230, 580, 260 }, { 350, 230, 580, 38 }, { 382, 290, 32, 32 }, { 430, 284, 450, 44 }, { 382, 336, 516, 78 }, { 350, 428, 580, 62 }, { 382, 350, 516, 38 }, { 382, 396, 516, 18 } }, // wide
-    { 740, 360, { 70, 60, 600, 243 }, { 70, 60, 600, 34 }, { 98, 111, 28, 28 }, { 140, 106, 470, 38 }, { 98, 150, 500, 70 }, { 70, 237, 600, 66 }, { 98, 164, 500, 32 }, { 98, 204, 500, 16 } }, // compact
+    { 1280, 720, { 376, 230, 528, 260 }, { 376, 230, 528, 38 }, { 408, 290, 32, 32 }, { 456, 284, 416, 44 }, { 408, 336, 464, 78 }, { 376, 428, 528, 62 }, { 408, 350, 464, 38 }, { 408, 396, 464, 18 } }, // wide
+    { 740, 360, { 133, 60, 474, 243 }, { 133, 60, 474, 34 }, { 161, 111, 28, 28 }, { 203, 106, 376, 38 }, { 161, 150, 418, 70 }, { 133, 237, 474, 66 }, { 161, 164, 418, 32 }, { 161, 204, 418, 16 } }, // compact
 };
 struct CalypsoF21NameGenButtonRect { const char* id; CalypsoF21NameGenRect rect; };
 inline constexpr CalypsoF21NameGenButtonRect kButtonRects[][ 1 ] = {
-    { { "ok", { 740, 437, 158, 44 } } }, // wide
-    { { "ok", { 450, 247, 148, 44 } } }, // compact
+    { { "ok", { 714, 437, 158, 44 } } }, // wide
+    { { "ok", { 431, 247, 148, 44 } } }, // compact
 };
 inline constexpr int kLayoutCount = 2;
 inline constexpr int kMotionDurationMs = 200;

@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "hd.2026-08-19.18",
+  "version": "hd.2026-08-20.19",
   "form": {
     "id": "f21-destruction",
     "familyId": 21,
@@ -73,117 +73,117 @@
       "designWidth": 1280,
       "designHeight": 720,
       "window": {
-        "x": 350,
+        "x": 366,
         "y": 230,
-        "width": 580,
+        "width": 548,
         "height": 401
       },
       "status": {
-        "x": 350,
+        "x": 366,
         "y": 230,
-        "width": 580,
+        "width": 548,
         "height": 38
       },
       "warning": {
-        "x": 382,
+        "x": 398,
         "y": 290,
         "width": 32,
         "height": 32
       },
       "title": {
-        "x": 430,
+        "x": 446,
         "y": 284,
-        "width": 450,
+        "width": 436,
         "height": 44
       },
       "message": {
-        "x": 382,
+        "x": 398,
         "y": 336,
-        "width": 516,
+        "width": 484,
         "height": 219
       },
       "footer": {
-        "x": 350,
+        "x": 366,
         "y": 569,
-        "width": 580,
+        "width": 548,
         "height": 62
       },
       "buttons": {
         "acknowledge": {
-          "x": 740,
+          "x": 724,
           "y": 578,
           "width": 158,
           "height": 44
         }
       },
       "cellR1C1": {
-        "x": 398,
+        "x": 414,
         "y": 408,
         "width": 120,
         "height": 22
       },
       "cellR1C2": {
-        "x": 535,
+        "x": 551,
         "y": 408,
         "width": 40,
         "height": 22
       },
       "rowDivider1": {
-        "x": 390,
+        "x": 406,
         "y": 438,
         "width": 193,
         "height": 1
       },
       "cellR2C1": {
-        "x": 398,
+        "x": 414,
         "y": 447,
         "width": 120,
         "height": 22
       },
       "cellR2C2": {
-        "x": 535,
+        "x": 551,
         "y": 447,
         "width": 40,
         "height": 22
       },
       "rowDivider2": {
-        "x": 390,
+        "x": 406,
         "y": 477,
         "width": 193,
         "height": 1
       },
       "cellR3C1": {
-        "x": 398,
+        "x": 414,
         "y": 486,
         "width": 120,
         "height": 22
       },
       "cellR3C2": {
-        "x": 535,
+        "x": 551,
         "y": 486,
         "width": 40,
         "height": 22
       },
       "rowDivider3": {
-        "x": 390,
+        "x": 406,
         "y": 516,
         "width": 193,
         "height": 1
       },
       "cellR4C1": {
-        "x": 398,
+        "x": 414,
         "y": 525,
         "width": 120,
         "height": 22
       },
       "cellR4C2": {
-        "x": 535,
+        "x": 551,
         "y": 525,
         "width": 40,
         "height": 22
       },
       "columnDivider1": {
-        "x": 526,
+        "x": 542,
         "y": 400,
         "width": 1,
         "height": 155
@@ -193,117 +193,117 @@
       "designWidth": 740,
       "designHeight": 438,
       "window": {
-        "x": 70,
+        "x": 152,
         "y": 60,
-        "width": 600,
+        "width": 436,
         "height": 368
       },
       "status": {
-        "x": 70,
+        "x": 152,
         "y": 60,
-        "width": 600,
+        "width": 436,
         "height": 34
       },
       "warning": {
-        "x": 98,
+        "x": 180,
         "y": 111,
         "width": 28,
         "height": 28
       },
       "title": {
-        "x": 140,
+        "x": 222,
         "y": 106,
-        "width": 470,
+        "width": 338,
         "height": 38
       },
       "message": {
-        "x": 98,
+        "x": 180,
         "y": 150,
-        "width": 500,
+        "width": 380,
         "height": 195
       },
       "footer": {
-        "x": 70,
+        "x": 152,
         "y": 362,
-        "width": 600,
+        "width": 436,
         "height": 66
       },
       "buttons": {
         "acknowledge": {
-          "x": 450,
+          "x": 412,
           "y": 372,
           "width": 148,
           "height": 44
         }
       },
       "cellR1C1": {
-        "x": 114,
+        "x": 196,
         "y": 214,
         "width": 105,
         "height": 18
       },
       "cellR1C2": {
-        "x": 236,
+        "x": 318,
         "y": 214,
         "width": 35,
         "height": 18
       },
       "rowDivider1": {
-        "x": 106,
+        "x": 188,
         "y": 240,
         "width": 173,
         "height": 1
       },
       "cellR2C1": {
-        "x": 114,
+        "x": 196,
         "y": 249,
         "width": 105,
         "height": 18
       },
       "cellR2C2": {
-        "x": 236,
+        "x": 318,
         "y": 249,
         "width": 35,
         "height": 18
       },
       "rowDivider2": {
-        "x": 106,
+        "x": 188,
         "y": 275,
         "width": 173,
         "height": 1
       },
       "cellR3C1": {
-        "x": 114,
+        "x": 196,
         "y": 284,
         "width": 105,
         "height": 18
       },
       "cellR3C2": {
-        "x": 236,
+        "x": 318,
         "y": 284,
         "width": 35,
         "height": 18
       },
       "rowDivider3": {
-        "x": 106,
+        "x": 188,
         "y": 310,
         "width": 173,
         "height": 1
       },
       "cellR4C1": {
-        "x": 114,
+        "x": 196,
         "y": 319,
         "width": 105,
         "height": 18
       },
       "cellR4C2": {
-        "x": 236,
+        "x": 318,
         "y": 319,
         "width": 35,
         "height": 18
       },
       "columnDivider1": {
-        "x": 227,
+        "x": 309,
         "y": 206,
         "width": 1,
         "height": 139

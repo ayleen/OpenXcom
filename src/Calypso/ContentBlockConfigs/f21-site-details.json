@@ -2,7 +2,7 @@
   "schema": 1,
   "id": "f21-site-details",
   "familyId": 21,
-  "version": "hd.2026-08-19.18",
+  "version": "hd.2026-08-20.19",
   "archetype": "content-block",
   "content": {
     "kind": "table",

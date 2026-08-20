@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "hd.2026-08-19.18",
+  "version": "hd.2026-08-20.19",
   "form": {
     "id": "f33-abandon",
     "familyId": 33,
@@ -67,63 +67,63 @@
       "designWidth": 1280,
       "designHeight": 720,
       "window": {
-        "x": 350,
+        "x": 430,
         "y": 230,
-        "width": 580,
+        "width": 420,
         "height": 236
       },
       "status": {
-        "x": 350,
+        "x": 430,
         "y": 230,
-        "width": 580,
+        "width": 420,
         "height": 38
       },
       "warning": {
-        "x": 382,
+        "x": 462,
         "y": 290,
         "width": 32,
         "height": 32
       },
       "title": {
-        "x": 430,
+        "x": 510,
         "y": 284,
-        "width": 450,
+        "width": 308,
         "height": 44
       },
       "message": {
-        "x": 382,
+        "x": 462,
         "y": 336,
-        "width": 516,
+        "width": 356,
         "height": 54
       },
       "footer": {
-        "x": 350,
+        "x": 430,
         "y": 404,
-        "width": 580,
+        "width": 420,
         "height": 62
       },
       "buttons": {
         "cancel": {
-          "x": 572,
+          "x": 492,
           "y": 413,
           "width": 158,
           "height": 44
         },
         "confirm": {
-          "x": 740,
+          "x": 660,
           "y": 413,
           "width": 158,
           "height": 44
         }
       },
       "no": {
-        "x": 572,
+        "x": 492,
         "y": 413,
         "width": 158,
         "height": 44
       },
       "yes": {
-        "x": 740,
+        "x": 660,
         "y": 413,
         "width": 158,
         "height": 44
@@ -133,63 +133,63 @@
       "designWidth": 740,
       "designHeight": 360,
       "window": {
-        "x": 70,
+        "x": 188,
         "y": 60,
-        "width": 600,
+        "width": 364,
         "height": 221
       },
       "status": {
-        "x": 70,
+        "x": 188,
         "y": 60,
-        "width": 600,
+        "width": 364,
         "height": 34
       },
       "warning": {
-        "x": 98,
+        "x": 216,
         "y": 111,
         "width": 28,
         "height": 28
       },
       "title": {
-        "x": 140,
+        "x": 258,
         "y": 106,
-        "width": 470,
+        "width": 266,
         "height": 38
       },
       "message": {
-        "x": 98,
+        "x": 216,
         "y": 150,
-        "width": 500,
+        "width": 308,
         "height": 48
       },
       "footer": {
-        "x": 70,
+        "x": 188,
         "y": 215,
-        "width": 600,
+        "width": 364,
         "height": 66
       },
       "buttons": {
         "cancel": {
-          "x": 290,
+          "x": 216,
           "y": 225,
           "width": 148,
           "height": 44
         },
         "confirm": {
-          "x": 450,
+          "x": 376,
           "y": 225,
           "width": 148,
           "height": 44
         }
       },
       "no": {
-        "x": 290,
+        "x": 216,
         "y": 225,
         "width": 148,
         "height": 44
       },
       "yes": {
-        "x": 450,
+        "x": 376,
         "y": 225,
         "width": 148,
         "height": 44
