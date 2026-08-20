@@ -223,12 +223,19 @@ F21_COMMAND_CARD_CONTRACTS = {
 F21_SMALL_CONFIRMATION_CONTRACTS = {
     "f21-transaction.json", "f21-name.json",
     "f21-defense.json", "f21-destruction.json",
+    "f34-error.json",
 }
 F21_ENGINE_TEXT_CALIBRATION_CONTRACTS = {
     "f21-site.json",
 }
 
 CONTENT_BLOCK_CONTRACTS = {"f21-site-details.json"}
+
+# Additional small-confirmation forms use the same generator as the F21
+# command cards but are not part of the F21 family catalog.
+ADDITIONAL_SMALL_CONFIRMATION_CONTRACTS = [
+    ("f34-error.json", "CalypsoF34ErrorGen", "CalypsoF34Error", "CalypsoF34Error"),
+]
 
 
 def validate_f21(doc, rel):
@@ -869,8 +876,14 @@ def main(argv):
         doc = load_json(rel)
         validate_f21(doc, rel)
         f21_docs.append((doc, rel, ns, prefix, gname))
+    additional_docs = []
+    for rel, ns, prefix, gname in ADDITIONAL_SMALL_CONFIRMATION_CONTRACTS:
+        doc = load_json(rel)
+        validate_f21(doc, rel)
+        additional_docs.append((doc, rel, ns, prefix, gname))
     versions = [("hd-ui-theme.json", theme["version"]), ("f33-abandon.json", f33["version"])] \
-        + [(rel, doc["version"]) for doc, rel, _, _, _ in f21_docs]
+        + [(rel, doc["version"]) for doc, rel, _, _, _ in f21_docs] \
+        + [(rel, doc["version"]) for doc, rel, _, _, _ in additional_docs]
     for rel, ver in versions[1:]:
         if ver != versions[0][1]:
             fail("contract versions diverge: " + versions[0][0] + " " + versions[0][1]
@@ -901,6 +914,12 @@ def main(argv):
         else:
             outputs.append((os.path.join(GENERATED_DIR, prefix + ".generated.h"),
                             emit_family_h(doc, rel, ns, prefix)))
+        if web is not None:
+            outputs.append((os.path.join(web, rel.replace(".json", ".js")),
+                            emit_js(rel, doc, gname)))
+    for doc, rel, ns, prefix, gname in additional_docs:
+        outputs.append((os.path.join(GENERATED_DIR, prefix + ".generated.h"),
+                        emit_small_confirmation_h(doc, rel, ns, prefix)))
         if web is not None:
             outputs.append((os.path.join(web, rel.replace(".json", ".js")),
                             emit_js(rel, doc, gname)))

@@ -130,6 +130,10 @@ public:
 	void blink();
 	/// Draws the text edit.
 	void draw() override;
+	#ifdef __EMSCRIPTEN__
+	/// Skip the native surface when the HD overlay claims this editor.
+	void blit(SDL_Surface *surface) override;
+	#endif
 	/// Special handling for mouse presses.
 	void mousePress(Action *action, State *state) override;
 	/// Special handling for keyboard presses.

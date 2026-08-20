@@ -25,6 +25,7 @@
 #include "../Engine/Options.h"
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoTextEdit.h"
+#include "../Calypso/CalypsoHdUiOverlay.h"
 #endif
 #include "../Calypso/CalypsoTextInput.h"
 #include "../fallthrough.h"
@@ -265,6 +266,14 @@ void TextEdit::setTextExternal(const std::string &utf8)
 { Calypso::CalypsoTextEdit::setTextExternal(*this, utf8.c_str()); }
 
 void TextEdit::refreshExternalGeometry() { Calypso::CalypsoTextEdit::refreshExternalGeometry(*this); }
+
+void TextEdit::blit(SDL_Surface *surface)
+{
+	if (Calypso::CalypsoHdUiOverlay::instance().widgetClaimed(this,
+			Calypso::CalypsoHdUiOverlay::instance().frameId()))
+		return;
+	Surface::blit(surface);
+}
 #endif
 
 /**

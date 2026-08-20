@@ -344,22 +344,31 @@ SDL_Surface* CalypsoHdTextRaster::rasterFor(const CalypsoHdTextRasterKey& key)
 
 	TTF_Font* face = faceFor(key.source.canonicalVfsPath, key.physicalPixelHeight,
 		key.source.resourceGeneration);
-	if (!face)
+	std::string rasterPath = key.source.canonicalVfsPath;
+	bool covered = face && calypsoFaceCoversText(face, key.text);
+	if (!covered && !key.source.fallbackVfsPath.empty())
 	{
-		return nullptr;
+		TTF_Font* fallbackFace = faceFor(key.source.fallbackVfsPath,
+			key.physicalPixelHeight, key.source.resourceGeneration);
+		if (fallbackFace && calypsoFaceCoversText(fallbackFace, key.text))
+		{
+			face = fallbackFace;
+			rasterPath = key.source.fallbackVfsPath;
+			covered = true;
+		}
 	}
 
 	// Glyph-coverage pre-flight (external review #5): if any codepoint has no
-	// glyph in this face, rendering would emit .notdef tofu. Report failure so the
-	// atomic HD subgroup stays fully logical (correct bitmap text) instead of
+	// glyph in either face, rendering would emit .notdef tofu. Report failure so
+	// the atomic HD subgroup stays fully logical (correct bitmap text) instead of
 	// showing squares. Not cached: a miss is cheap (one scan) and rare.
-	if (!calypsoFaceCoversText(face, key.text))
+	if (!covered)
 	{
 		if (_diag.shouldLog(CalypsoDiagnosticKey{ "glyphCoverage",
 			key.source.resourceGeneration, std::hash<std::string>{}(key.text) }))
 		{
 			Log(LOG_ERROR) << "CalypsoHdTextRaster: glyph coverage miss on \""
-				<< key.source.canonicalVfsPath << "\" for \"" << key.text << "\"";
+				<< rasterPath << "\" for \"" << key.text << "\"";
 		}
 		return nullptr;
 	}

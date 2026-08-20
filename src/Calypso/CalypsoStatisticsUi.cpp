@@ -167,6 +167,11 @@ const void* CalypsoStatisticsUi::topState() const
 	return _state;
 }
 
+bool CalypsoStatisticsUi::physicalReady() const
+{
+	return !_state || !_state->_window || _state->_window->isPopupDone();
+}
+
 void CalypsoStatisticsUi::collect(CalypsoHdFrameBuilder& builder) const
 {
 	if (!_state || !_state->_hdLayout || !_state->_game) return;

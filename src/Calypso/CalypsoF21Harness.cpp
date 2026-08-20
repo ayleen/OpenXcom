@@ -40,6 +40,7 @@
 #include "../Mod/Mod.h"
 #include "../Mod/RuleAlienMission.h"
 #include "../Mod/RuleBaseFacility.h"
+#include "../Mod/RuleInterface.h"
 #include "../Mod/RuleRegion.h"
 #include "../Mod/RuleUfo.h"
 #include "../Mod/UfoTrajectory.h"
@@ -52,6 +53,7 @@
 
 #include "CalypsoHdHarnessHostState.h"
 #include "CalypsoUiMetrics.h"
+#include "../Menu/ErrorMessageState.h"
 
 namespace OpenXcom
 {
@@ -199,6 +201,29 @@ State* calypsoF21HarnessCreateTarget(CalypsoHarnessScenario id)
 			if (++added >= 3) break;
 		}
 		return new BaseDestroyedState(f.base, ufo, true, true);
+	}
+	case CalypsoHarnessScenario::F21SiteError:
+	{
+		Game* g = getCurrentGame();
+		if (!g || !g->getMod() || !g->getLanguage() || !g->getScreen()) return nullptr;
+		const auto* geoscape = g->getMod()->getInterface("geoscape");
+		if (!geoscape) return nullptr;
+		const auto* genericWindow = geoscape->getElement("genericWindow");
+		const auto* palette = geoscape->getElement("palette");
+		if (!genericWindow || !palette) return nullptr;
+		return new ErrorMessageState(
+			g->getLanguage()->getString("STR_XCOM_BASE_CANNOT_BE_BUILT"),
+			g->getScreen()->getPalette(), genericWindow->color, "BACK01.SCR",
+			palette->color, 0, nullptr,
+			ErrorMessageHdForm{
+				g->getLanguage()->getString("STR_CAL_F34_PROTOCOL_ERROR"),
+				g->getLanguage()->getString("STR_CAL_ERROR_OPERATIONAL_WARNING"),
+				{
+					g->getLanguage()->getString("STR_CAL_NEW_BASE_LAND_ERROR_LINE_1"),
+					g->getLanguage()->getString("STR_CAL_NEW_BASE_LAND_ERROR_LINE_2")
+				},
+				g->getLanguage()->getString("STR_CAL_ACKNOWLEDGE")
+			});
 	}
 	default:
 		return nullptr;

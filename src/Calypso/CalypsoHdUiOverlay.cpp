@@ -72,6 +72,18 @@ bool CalypsoHdUiOverlay::widgetClaimed(const void* widget, std::uint64_t frameId
 	return _controller.claims().claimsLogical(it->second, frameId);
 }
 
+bool CalypsoHdUiOverlay::logicalWidgetSuppressed(const void* widget, std::uint64_t frameId) const
+{
+	if (!widget || frameId != _controller.frameId()) return false;
+	return std::find(_logicalSuppressedWidgets.begin(), _logicalSuppressedWidgets.end(), widget)
+		!= _logicalSuppressedWidgets.end();
+}
+
+bool CalypsoHdUiOverlay::logicalStateSuppressed(const void* state, std::uint64_t frameId) const
+{
+	return state && frameId == _controller.frameId() && state == _physicalStateThisFrame;
+}
+
 void CalypsoHdUiOverlay::beginFrame(int logicalWidth, int logicalHeight)
 {
 	// Backing-store poll: canvas width/height are physical device pixels. Only
@@ -95,6 +107,8 @@ void CalypsoHdUiOverlay::beginFrame(int logicalWidth, int logicalHeight)
 
 	// Reset per-frame state (A7: never sticky).
 	_activeThisFrame = false;
+	_physicalStateThisFrame = nullptr;
+	_logicalSuppressedWidgets.clear();
 	_ptrClaim.clear();
 	_drawItems.clear();
 	_frameLiveHandles.clear();
@@ -112,6 +126,10 @@ void CalypsoHdUiOverlay::prepareFrame(int logicalWidth, int logicalHeight, const
 		if (a->topState() == topState) { active = a; break; }
 	}
 	if (!active) return;
+	CalypsoHdLogicalSuppression suppression;
+	active->collectLogicalSuppression(suppression);
+	_logicalSuppressedWidgets = suppression.widgets();
+	if (!active->physicalReady()) return;
 	if (!_frozenMetrics.valid())
 		failHdRoute("invalid presentation metrics");
 	if (!_mayGoPhysical)
@@ -186,6 +204,8 @@ void CalypsoHdUiOverlay::prepareFrame(int logicalWidth, int logicalHeight, const
 		});
 
 	_activeThisFrame = true;
+	if (active->suppressLogicalState())
+		_physicalStateThisFrame = topState;
 }
 
 void CalypsoHdUiOverlay::resolveSubgroup(const CalypsoHdSubgroup& subgroup,

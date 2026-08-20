@@ -46,6 +46,10 @@ namespace Calypso
 struct CalypsoTtfSourceDescriptor
 {
 	std::string canonicalVfsPath;
+	// Optional complete-text fallback used when the primary face lacks a glyph.
+	// It is part of the identity because selecting a different fallback changes
+	// the raster pixels even when the primary face and text are unchanged.
+	std::string fallbackVfsPath;
 	int faceIndex = 0;
 	int logicalDesignSize = 0;
 	std::uint64_t resourceGeneration = 0;
@@ -53,6 +57,7 @@ struct CalypsoTtfSourceDescriptor
 	bool operator==(const CalypsoTtfSourceDescriptor& o) const
 	{
 		return canonicalVfsPath == o.canonicalVfsPath
+		    && fallbackVfsPath == o.fallbackVfsPath
 		    && faceIndex == o.faceIndex
 		    && logicalDesignSize == o.logicalDesignSize
 		    && resourceGeneration == o.resourceGeneration;
@@ -153,6 +158,7 @@ struct hash<OpenXcom::Calypso::CalypsoHdTextRasterKey>
 	std::size_t operator()(const OpenXcom::Calypso::CalypsoHdTextRasterKey& k) const
 	{
 		std::size_t h = std::hash<std::string>()(k.source.canonicalVfsPath);
+		h ^= std::hash<std::string>()(k.source.fallbackVfsPath) + 0x9e3779b97f4a7c15ull + (h << 6) + (h >> 2);
 		auto mix = [&h](std::uint64_t v) {
 			h ^= std::hash<std::uint64_t>()(v) + 0x9e3779b97f4a7c15ull + (h << 6) + (h >> 2);
 		};

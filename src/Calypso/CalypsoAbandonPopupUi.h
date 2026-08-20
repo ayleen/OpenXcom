@@ -30,6 +30,7 @@
 
 #include "CalypsoF33AbandonLayout.h"
 #include "CalypsoHdFamilyAdapter.h"
+#include "CalypsoSmallConfirmationRenderer.h"
 
 namespace OpenXcom
 {
@@ -59,10 +60,7 @@ public:
 private:
 	AbandonGameState* _state;
 
-	// Opening-motion presentation clock (Phase 46.4-F33): the overlay frame
-	// counter when this adapter first collected (collect() is const).
-	mutable bool _presented = false;
-	mutable std::uint64_t _presentedAtFrame = 0;
+	mutable CalypsoSmallConfirmationMotion _motion;
 };
 
 // --- HD-vs-DOM comparison harness (F33, dev tool) --------------------------

@@ -61,6 +61,16 @@ CalypsoHarnessSession& calypsoHarnessSession()
 	return g_harnessSession;
 }
 
+void calypsoHdHarnessDomShow()
+{
+	EM_ASM({ if (globalThis.__calypsoHdHarnessShow) globalThis.__calypsoHdHarnessShow(); });
+}
+
+void calypsoHdHarnessDomHide()
+{
+	EM_ASM({ if (globalThis.__calypsoHdHarnessHide) globalThis.__calypsoHdHarnessHide(); });
+}
+
 State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 {
 	switch (id)

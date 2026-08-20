@@ -31,6 +31,7 @@
 #include "../Engine/Language.h"
 #include "../Engine/Surface.h"
 #include "../Geoscape/BaseNameState.h"
+#include "../Geoscape/BuildNewBaseState.h"
 #include "../Interface/Text.h"
 #include "../Interface/TextEdit.h"
 #include "../Interface/TextButton.h"
@@ -57,7 +58,7 @@ enum NameRole : std::uint32_t
 {
 	ROLE_WINDOW = 1, ROLE_STATUS = 2, ROLE_PROTOCOL = 3, ROLE_TITLE = 4,
 	ROLE_NAME = 5, ROLE_HINT = 6, ROLE_FOOTER = 7, ROLE_OK = 8,
-	ROLE_DECORATION = 9
+	ROLE_DECORATION = 9, ROLE_COVERED_LEGACY = 10
 };
 
 void applyRect(Surface* surface, const CalypsoF21Rect& rect)
@@ -79,6 +80,23 @@ CalypsoF21NameUi::~CalypsoF21NameUi()
 const void* CalypsoF21NameUi::topState() const
 {
 	return _state;
+}
+
+void CalypsoF21NameUi::collectLogicalSuppression(CalypsoHdLogicalSuppression& suppression) const
+{
+	if (!_state || !_state->_coveredSite) return;
+	suppression.add(_state->_coveredSite->_window);
+	suppression.add(_state->_coveredSite->_txtTitle);
+	suppression.add(_state->_coveredSite->_btnCancel);
+	suppression.add(_state->_coveredSite->_hdProtocol);
+	suppression.add(_state->_coveredSite->_hdSlot);
+	suppression.add(_state->_coveredSite->_hdFunds);
+	suppression.add(_state->_coveredSite->_hdCost);
+	suppression.add(_state->_coveredSite->_hdCard);
+	suppression.add(_state->_coveredSite->_hdCoords);
+	suppression.add(_state->_coveredSite->_hdRegion);
+	suppression.add(_state->_coveredSite->_hdLegality);
+	suppression.add(_state->_coveredSite->_hdPreview);
 }
 
 void CalypsoF21NameUi::collect(CalypsoHdFrameBuilder& builder) const
@@ -117,6 +135,25 @@ void CalypsoF21NameUi::collect(CalypsoHdFrameBuilder& builder) const
 	p.winLogical = winFull;
 	p.windowDesign = designLayout.window;
 	p.uiScale = uiScale;
+
+	if (_state->_coveredSite)
+	{
+		// BaseNameState sits above BuildNewBaseState. Claim only the covered
+		// site's chrome so the globe remains visible while the old window,
+		// labels, and F21-only readouts cannot leak through the new form.
+		p.claim(_state->_coveredSite->_window, ROLE_COVERED_LEGACY);
+		p.claim(_state->_coveredSite->_txtTitle, ROLE_COVERED_LEGACY);
+		p.claim(_state->_coveredSite->_btnCancel, ROLE_COVERED_LEGACY);
+		p.claim(_state->_coveredSite->_hdProtocol, ROLE_COVERED_LEGACY);
+		p.claim(_state->_coveredSite->_hdSlot, ROLE_COVERED_LEGACY);
+		p.claim(_state->_coveredSite->_hdFunds, ROLE_COVERED_LEGACY);
+		p.claim(_state->_coveredSite->_hdCost, ROLE_COVERED_LEGACY);
+		p.claim(_state->_coveredSite->_hdCard, ROLE_COVERED_LEGACY);
+		p.claim(_state->_coveredSite->_hdCoords, ROLE_COVERED_LEGACY);
+		p.claim(_state->_coveredSite->_hdRegion, ROLE_COVERED_LEGACY);
+		p.claim(_state->_coveredSite->_hdLegality, ROLE_COVERED_LEGACY);
+		p.claim(_state->_coveredSite->_hdPreview, ROLE_COVERED_LEGACY);
+	}
 
 	const CalypsoLogicalRect canvasRect{ 0, 0, designLayout.designWidth, designLayout.designHeight };
 	const bool harness = calypsoHarnessHostUp(calypsoHarnessSession());

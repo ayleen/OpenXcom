@@ -54,6 +54,7 @@ public:
 
 	// --- CalypsoHdFamilyAdapter (snapshot-only) ---
 	const void* topState() const override;
+	bool physicalReady() const override;
 	void collect(CalypsoHdFrameBuilder& builder) const override;
 
 	/// Create + register the adapter for an HD-enabled Notes screen (no-op when

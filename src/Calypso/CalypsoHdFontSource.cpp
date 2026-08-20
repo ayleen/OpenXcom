@@ -43,9 +43,15 @@ bool calypsoHdResolveFontDescriptor(const Mod* mod, const std::string& fontId,
 		return false;
 	}
 	out.canonicalVfsPath = f->vfsPath();
+	out.fallbackVfsPath.clear();
 	out.faceIndex = 0;
 	out.logicalDesignSize = f->pixelSize();
 	out.resourceGeneration = calypsoHdFontResourceGeneration();
+	TTFFont* fallback = mod->getTTFFont("FONT_CALYPSO_UNICODE_FALLBACK", false);
+	if (fallback && fallback->vfsPath() != out.canonicalVfsPath)
+	{
+		out.fallbackVfsPath = fallback->vfsPath();
+	}
 	return true;
 }
 

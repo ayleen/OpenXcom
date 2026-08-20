@@ -42,6 +42,8 @@
 #include "../Calypso/CalypsoAbandonPopupUi.h"
 #include "../Calypso/CalypsoF21SiteUi.h"
 #include "../Calypso/CalypsoHdHarnessHostState.h"
+#include "../Calypso/CalypsoHdUiOverlay.h"
+#include "../Calypso/CalypsoTutorialState.h"
 #include "../Mod/RuleRegion.h"
 #include "../Savegame/Region.h"
 #endif
@@ -261,6 +263,24 @@ void BuildNewBaseState::globeClick(Action *action)
 	// Clicking on a polygon for a base location
 	if (action->getDetails()->button.button == SDL_BUTTON_LEFT)
 	{
+		auto pushLandError = [&]()
+		{
+			const ErrorMessageHdForm hdForm{
+				std::string(tr("STR_CAL_F34_PROTOCOL_ERROR")),
+				std::string(tr("STR_CAL_ERROR_OPERATIONAL_WARNING")),
+				{
+					std::string(tr("STR_CAL_NEW_BASE_LAND_ERROR_LINE_1")),
+					std::string(tr("STR_CAL_NEW_BASE_LAND_ERROR_LINE_2"))
+				},
+				std::string(tr("STR_CAL_ACKNOWLEDGE"))
+			};
+			_game->pushState(new ErrorMessageState(
+				tr("STR_XCOM_BASE_CANNOT_BE_BUILT"), _palette,
+				_game->getMod()->getInterface("geoscape")->getElement("genericWindow")->color,
+				"BACK01.SCR",
+				_game->getMod()->getInterface("geoscape")->getElement("palette")->color,
+				0, this, hdForm));
+		};
 		if (_globe->insideLand(lon, lat))
 		{
 			bool fakeUnderwaterBasesUnlocked = true;
@@ -272,7 +292,7 @@ void BuildNewBaseState::globeClick(Action *action)
 			if ((_first || !fakeUnderwaterBasesUnlocked) && fakeUnderwaterTexture)
 			{
 				// first (starting) base can't be fake underwater base
-				_game->pushState(new ErrorMessageState(tr("STR_XCOM_BASE_CANNOT_BE_BUILT"), _palette, _game->getMod()->getInterface("geoscape")->getElement("genericWindow")->color, "BACK01.SCR", _game->getMod()->getInterface("geoscape")->getElement("palette")->color));
+				pushLandError();
 			}
 			else
 			{
@@ -297,7 +317,7 @@ void BuildNewBaseState::globeClick(Action *action)
 		}
 		else
 		{
-			_game->pushState(new ErrorMessageState(tr("STR_XCOM_BASE_CANNOT_BE_BUILT"), _palette, _game->getMod()->getInterface("geoscape")->getElement("genericWindow")->color, "BACK01.SCR", _game->getMod()->getInterface("geoscape")->getElement("palette")->color));
+			pushLandError();
 		}
 	}
 }
@@ -439,5 +459,38 @@ void BuildNewBaseState::resize(int &dX, int &dY)
 		}
 	}
 }
+
+#ifdef __EMSCRIPTEN__
+void BuildNewBaseState::blit()
+{
+	const bool tutorial = dynamic_cast<CalypsoTutorialState *>(_game->getTopState()) != nullptr;
+	const auto& overlay = Calypso::CalypsoHdUiOverlay::instance();
+	const std::uint64_t frameId = overlay.frameId();
+	const bool coveredByHdPopup = overlay.logicalWidgetSuppressed(_window, frameId)
+		|| overlay.logicalWidgetSuppressed(_txtTitle, frameId)
+		|| overlay.logicalWidgetSuppressed(_btnCancel, frameId);
+	if (!tutorial && !coveredByHdPopup)
+	{
+		State::blit();
+		return;
+	}
+
+	// A DOM tutorial and a modal HD popup both suppress only this state's site
+	// chrome; the globe and navigation controls remain the live context behind
+	// them. Popup suppression is registered before physical readiness, so the
+	// vanilla Site window cannot flash through during the opening animation.
+	SDL_Surface *screen = _game->getScreen()->getSurface();
+	for (auto *surface : _surfaces)
+	{
+		const bool siteChrome = surface == _window || surface == _txtTitle || surface == _btnCancel
+			|| surface == _hdProtocol || surface == _hdSlot || surface == _hdFunds
+			|| surface == _hdCost || surface == _hdCard || surface == _hdCoords
+			|| surface == _hdRegion || surface == _hdLegality || surface == _hdPreview;
+		if (siteChrome && (tutorial || overlay.logicalWidgetSuppressed(surface, frameId)))
+			continue;
+		surface->blit(screen);
+	}
+}
+#endif
 
 }

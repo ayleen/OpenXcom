@@ -17,6 +17,7 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "BaseNameState.h"
+#include "BuildNewBaseState.h"
 #include "../Engine/Game.h"
 #include "../Engine/Action.h"
 #include "../Mod/Mod.h"
@@ -48,6 +49,12 @@ namespace OpenXcom
 BaseNameState::BaseNameState(Base *base, Globe *globe, bool first, bool fixedLocation) : _base(base), _globe(globe), _first(first), _fixedLocation(fixedLocation)
 {
 	_globe->onMouseOver(0);
+
+#ifdef __EMSCRIPTEN__
+	// The naming form is pushed above the site state. Keep the globe from the
+	// covered state, but let its F21 adapter claim the old site chrome.
+	_coveredSite = dynamic_cast<BuildNewBaseState *>(_game->getTopState());
+#endif
 
 	_screen = false;
 

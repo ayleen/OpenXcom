@@ -100,6 +100,11 @@ const void* CalypsoNotesUi::topState() const
 	return _state;
 }
 
+bool CalypsoNotesUi::physicalReady() const
+{
+	return !_state || !_state->_window || _state->_window->isPopupDone();
+}
+
 void CalypsoNotesUi::collect(CalypsoHdFrameBuilder& builder) const
 {
 	if (!_state || !_state->_hdLayout || !_state->_game) return;

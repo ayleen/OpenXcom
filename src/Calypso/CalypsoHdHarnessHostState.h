@@ -72,6 +72,10 @@ bool calypsoHdHarnessReconfigure(CalypsoLayoutClass layout, bool sideBySide);
 /// the host pops itself on its next think.
 void calypsoHdHarnessClose();
 
+/// Show/hide the generated DOM reference surface for comparison modes.
+void calypsoHdHarnessDomShow();
+void calypsoHdHarnessDomHide();
+
 } // namespace Calypso
 } // namespace OpenXcom
 

@@ -22,7 +22,7 @@
 namespace OpenXcom
 {
 
-namespace Calypso { class CalypsoF21SiteUi; }
+namespace Calypso { class CalypsoF21SiteUi; class CalypsoF21NameUi; class CalypsoErrorPopupUi; }
 
 class Base;
 class Globe;
@@ -52,6 +52,8 @@ private:
 	int _mousex, _mousey;
 #ifdef __EMSCRIPTEN__
 	friend class Calypso::CalypsoF21SiteUi;
+	friend class Calypso::CalypsoF21NameUi;
+	friend class Calypso::CalypsoErrorPopupUi;
 	bool _hdLayout = false;
 	bool _hdWideLayout = false;
 	Text *_hdProtocol = nullptr, *_hdSlot = nullptr, *_hdFunds = nullptr, *_hdCost = nullptr,
@@ -107,6 +109,10 @@ public:
 	void btnCancelClick(Action *action);
 	/// Let the state know the window has been resized.
 	void resize(int &dX, int &dY) override;
+#ifdef __EMSCRIPTEN__
+	/// Keep the globe/navigation visible while a DOM tutorial covers the site.
+	void blit() override;
+#endif
 };
 
 }

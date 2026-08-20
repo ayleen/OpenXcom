@@ -87,6 +87,16 @@ public:
 	/// the logical draw exactly when the overlay took the visual over.
 	bool widgetClaimed(const void* widget, std::uint64_t frameId) const;
 
+	/// True when a covered-state widget must not enter the logical composite.
+	/// Unlike a physical claim this remains active during an adapter's opening
+	/// animation, so an underlying vanilla window cannot flash through.
+	bool logicalWidgetSuppressed(const void* widget, std::uint64_t frameId) const;
+
+	/// True after the active atomic HD subgroup commits for this exact state.
+	/// State::blit uses this global gate to prevent an omitted top-level widget
+	/// from leaking vanilla pixels beneath a physical HD form.
+	bool logicalStateSuppressed(const void* state, std::uint64_t frameId) const;
+
 	/// Developer harness (Emscripten export): a single physical-resolution test
 	/// quad through the real GL path. Off by default.
 	void setHarnessEnabled(bool on);
@@ -168,6 +178,8 @@ private:
 	CalypsoHdPresentationMetrics _frozenMetrics;
 	bool _mayGoPhysical = false;
 	bool _activeThisFrame = false;
+	const void* _physicalStateThisFrame = nullptr;
+	std::vector<const void*> _logicalSuppressedWidgets;
 
 	// All currently-registered family adapters (a State registers on create,
 	// clears on destroy). prepareFrame() drives the one whose topState() is the

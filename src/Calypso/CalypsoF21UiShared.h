@@ -142,7 +142,23 @@ constexpr std::uint32_t kF21FooterDotRgba = 0x74FFB01Fu;    ///< sparse footer d
 inline CalypsoLayoutClass currentF21LayoutClass()
 {
 	CalypsoBaseSafeRect safe{ 0, 0, Options::baseXResolution, Options::baseYResolution };
-	(void)calypsoProjectedSafeRectForLayout(Options::baseXResolution, Options::baseYResolution, safe);
+	const CalypsoViewportRuntime& runtime = calypsoViewportRuntime();
+	if (runtime.hasLayout())
+	{
+		// Layout class is a CSS-logical policy decision. Projecting into the
+		// current base framebuffer here makes a state pushed during geoscape
+		// reflow observe a transient/DPR-scaled size and can select Compact on
+		// an otherwise Wide viewport.
+		const CalypsoLayoutMetrics& metrics = runtime.current();
+		safe.x = metrics.safeX;
+		safe.y = metrics.safeY;
+		safe.width = metrics.safeWidth;
+		safe.height = metrics.safeHeight;
+	}
+	else
+	{
+		(void)calypsoProjectedSafeRectForLayout(Options::baseXResolution, Options::baseYResolution, safe);
+	}
 	return calypsoHarnessEffectiveLayout(calypsoHarnessSession(), safe);
 }
 
@@ -317,6 +333,15 @@ struct CalypsoF21Painter
 		it.order = { 0, 0, familyId, inst, 0, 1, ord, role };
 		builder.add(it);
 		++ord;
+	}
+
+	/// Claim a legacy widget whose visual is intentionally covered by this
+	/// atomic form. The transparent item has no visible effect; its widget
+	/// identity still suppresses the widget's native blit for this frame.
+	void claim(const void* widget, std::uint32_t role)
+	{
+		if (!widget) return;
+		panel(CalypsoLogicalRect{ 0, 0, 1, 1 }, calypsoRgba(0, 0, 0, 0), widget, role);
 	}
 
 	void styled(const CalypsoLogicalRect& r, const CalypsoHdPanelStyle& style,

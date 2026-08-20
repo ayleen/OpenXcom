@@ -1,0 +1,159 @@
+{
+  "schema": 1,
+  "version": "hd.2026-08-19.18",
+  "form": {
+    "id": "f34-error",
+    "familyId": 34,
+    "archetype": "small-confirmation",
+    "source": "FormConfigs/f34-error.json",
+    "icon": {
+      "kind": "warning",
+      "glyph": "!",
+      "tone": "warning"
+    },
+    "buttons": [
+      {
+        "id": "ok",
+        "label": "ACKNOWLEDGE",
+        "tone": "safe",
+        "action": "acknowledge",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB0CC",
+          "text": "E8FFF5FF"
+        }
+      }
+    ],
+    "visibleButtons": [
+      "ok"
+    ]
+  },
+  "copy": {
+    "protocol": "CALYPSO COMMAND · SITE SAFETY NOTICE ERR-34 · REV. 1.0.21 · EFFECTIVE 15.07.2061",
+    "title": "OPERATIONAL WARNING",
+    "message": [
+      "Calypso sea-floor facilities",
+      "cannot be built on land."
+    ]
+  },
+  "style": {
+    "cutCornerPx": 14,
+    "protocolTextInsetPx": 26,
+    "panelFillTop": "08191DEB",
+    "panelFillBottom": "041014E8",
+    "frame": "74FFB073",
+    "protocolText": "A9D8C7FF",
+    "divider": "74FFB04D",
+    "footerFill": "061B1CD6",
+    "footerDot": "74FFB01F",
+    "warning": "FFC14DFF",
+    "safeFill": "051417B8",
+    "safeBorder": "74FFB0CC",
+    "destructiveFill": "F25F5CFF",
+    "destructiveText": "071013FF"
+  },
+  "layouts": {
+    "wide": {
+      "designWidth": 1280,
+      "designHeight": 720,
+      "window": {
+        "x": 350,
+        "y": 230,
+        "width": 580,
+        "height": 236
+      },
+      "status": {
+        "x": 350,
+        "y": 230,
+        "width": 580,
+        "height": 38
+      },
+      "warning": {
+        "x": 382,
+        "y": 290,
+        "width": 32,
+        "height": 32
+      },
+      "title": {
+        "x": 430,
+        "y": 284,
+        "width": 450,
+        "height": 44
+      },
+      "message": {
+        "x": 382,
+        "y": 336,
+        "width": 516,
+        "height": 54
+      },
+      "footer": {
+        "x": 350,
+        "y": 404,
+        "width": 580,
+        "height": 62
+      },
+      "buttons": {
+        "ok": {
+          "x": 740,
+          "y": 413,
+          "width": 158,
+          "height": 44
+        }
+      }
+    },
+    "compact": {
+      "designWidth": 740,
+      "designHeight": 360,
+      "window": {
+        "x": 70,
+        "y": 60,
+        "width": 600,
+        "height": 221
+      },
+      "status": {
+        "x": 70,
+        "y": 60,
+        "width": 600,
+        "height": 34
+      },
+      "warning": {
+        "x": 98,
+        "y": 111,
+        "width": 28,
+        "height": 28
+      },
+      "title": {
+        "x": 140,
+        "y": 106,
+        "width": 470,
+        "height": 38
+      },
+      "message": {
+        "x": 98,
+        "y": 150,
+        "width": 500,
+        "height": 48
+      },
+      "footer": {
+        "x": 70,
+        "y": 215,
+        "width": 600,
+        "height": 66
+      },
+      "buttons": {
+        "ok": {
+          "x": 450,
+          "y": 225,
+          "width": 148,
+          "height": 44
+        }
+      }
+    }
+  },
+  "motion": {
+    "durationMs": 200,
+    "scaleFrom": 0.96,
+    "easing": "ease-out",
+    "captureModeDurationMs": 0
+  }
+}

@@ -127,6 +127,23 @@ private:
 	std::vector<CalypsoHdSubgroup> _subgroups;
 };
 
+/// Per-frame logical widgets belonging to a covered lower state. This is
+/// separate from physical claims: covered chrome must stay hidden while the
+/// top popup is still in its native opening animation.
+class CalypsoHdLogicalSuppression
+{
+public:
+	void add(const void* widget)
+	{
+		if (widget) _widgets.push_back(widget);
+	}
+
+	const std::vector<const void*>& widgets() const { return _widgets; }
+
+private:
+	std::vector<const void*> _widgets;
+};
+
 /// Implemented by each family's state-side adapter. Registered with the overlay
 /// while its state is top; unregistered on state destruction.
 class CalypsoHdFamilyAdapter
@@ -138,6 +155,18 @@ public:
 	/// equals the current top state, so a state pushed on top never lets a lower
 	/// popup's physical replacement draw over it.
 	virtual const void* topState() const = 0;
+
+	/// Returns false for a transient frame in which the logical widget is still
+	/// playing its native opening animation. The overlay leaves that logical
+	/// frame visible instead of treating an intentionally empty collection as a
+	/// fatal HD route error.
+	virtual bool physicalReady() const { return true; }
+
+	/// Atomic families own all of their top-state logical UI once the physical
+	/// subgroup commits. Adapters that overlay another state can also list that
+	/// state's chrome here; the overlay applies it before readiness is checked.
+	virtual bool suppressLogicalState() const { return true; }
+	virtual void collectLogicalSuppression(CalypsoHdLogicalSuppression&) const {}
 
 	/// Describe this frame's physical replacement into `builder`, reading a const
 	/// snapshot of the widgets. MUST NOT mutate live widget state.

@@ -44,6 +44,7 @@ public:
 	~CalypsoF21NameUi() override;
 
 	const void* topState() const override;
+	void collectLogicalSuppression(CalypsoHdLogicalSuppression& suppression) const override;
 	void collect(CalypsoHdFrameBuilder& builder) const override;
 
 	static void configure(BaseNameState& state, bool allowPhysicalOverlay);

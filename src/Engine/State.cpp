@@ -31,6 +31,7 @@
 #include "../Calypso/CalypsoFocusInput.h"
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoHdHarnessHostState.h"
+#include "../Calypso/CalypsoHdUiOverlay.h"
 #endif
 #include "../Engine/Sound.h"
 #include "../Engine/Collections.h"
@@ -381,6 +382,8 @@ void State::blit()
 {
 #ifdef __EMSCRIPTEN__
 	if (Calypso::calypsoHarnessHostUp(Calypso::calypsoHarnessSession())) return;
+	if (Calypso::CalypsoHdUiOverlay::instance().logicalStateSuppressed(this,
+		Calypso::CalypsoHdUiOverlay::instance().frameId())) return;
 #endif
 	for (auto* surface : _surfaces)
 	{

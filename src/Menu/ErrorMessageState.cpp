@@ -40,9 +40,11 @@ namespace OpenXcom
  * @param bg Background image.
  * @param bgColor Background color (-1 for Battlescape).
  */
-ErrorMessageState::ErrorMessageState(const std::string &msg, SDL_Color *palette, Uint8 color, const std::string &bg, int bgColor, Uint8 color2)
+ErrorMessageState::ErrorMessageState(const std::string &msg, SDL_Color *palette, Uint8 color,
+	const std::string &bg, int bgColor, Uint8 color2, State *coveredState,
+	const ErrorMessageHdForm &hdForm)
 {
-	create(msg, palette, color, bg, bgColor, color2);
+	create(msg, palette, color, bg, bgColor, color2, coveredState, hdForm);
 }
 
 /**
@@ -66,9 +68,13 @@ ErrorMessageState::~ErrorMessageState()
  * @param bg Background image.
  * @param bgColor Background color (-1 for Battlescape).
  */
-void ErrorMessageState::create(const std::string &str, SDL_Color *palette, Uint8 color, const std::string &bg, int bgColor, Uint8 color2)
+void ErrorMessageState::create(const std::string &str, SDL_Color *palette, Uint8 color,
+	const std::string &bg, int bgColor, Uint8 color2, State *coveredState,
+	const ErrorMessageHdForm &hdForm)
 {
 	_screen = false;
+	_coveredState = coveredState;
+	_hdForm = hdForm;
 
 	// Create objects
 	_window = new Window(this, 256, 160, 32, 20, POPUP_BOTH);

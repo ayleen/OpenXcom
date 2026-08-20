@@ -26,6 +26,7 @@ namespace OpenXcom
 namespace Calypso { class CalypsoF21NameUi; }
 
 class Base;
+class BuildNewBaseState;
 class Window;
 class Text;
 class TextEdit;
@@ -50,6 +51,7 @@ private:
 	bool _fixedLocation;
 #ifdef __EMSCRIPTEN__
 	friend class Calypso::CalypsoF21NameUi;
+	BuildNewBaseState *_coveredSite = nullptr;
 	bool _hdLayout = false;
 	bool _hdWideLayout = false;
 	Text* _hdHint = nullptr;
