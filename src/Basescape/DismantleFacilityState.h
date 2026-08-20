@@ -61,8 +61,10 @@ public:
 private:
     bool _hdLayout = false;
     bool _hdWideLayout = false;
+    bool _hdOwnFixture = false;
     Calypso::CalypsoF03DismantleUi *_hdAdapter = nullptr;
 public:
+    void calypsoOwnHarnessFixture() { _hdOwnFixture = true; }
     void resize(int &dX, int &dY) override;
 #endif
 };

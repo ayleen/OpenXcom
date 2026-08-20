@@ -8,6 +8,7 @@
 
 #include <SDL.h>
 #include <emscripten.h>
+#include <string>
 
 #include "../Engine/Game.h"
 #include "../Engine/Screen.h"
@@ -17,10 +18,6 @@
 #include "../Basescape/BaseView.h"
 #include "../Basescape/DismantleFacilityState.h"
 #include "../Basescape/SackSoldierState.h"
-#include "../Mod/RuleBaseFacility.h"
-#include "../Savegame/Base.h"
-#include "../Savegame/BaseFacility.h"
-#include "../Savegame/SavedGame.h"
 #include "../Basescape/SoldierTransformState.h"
 #include "../Basescape/SoldierDiaryOverviewState.h"
 #include "../Basescape/ManufactureInfoState.h"
@@ -43,6 +40,11 @@
 #include "../Battlescape/AbortMissionState.h"
 #include "../Battlescape/ConfirmEndMissionState.h"
 #include "../Battlescape/NoExperienceState.h" 
+#include "../Mod/Mod.h"
+#include "../Mod/RuleBaseFacility.h"
+#include "../Savegame/Base.h"
+#include "../Savegame/BaseFacility.h"
+#include "../Savegame/SavedGame.h"
 
 #include "CalypsoAbandonPopupUi.h" // calypsoHdHarnessSetSideBySide (F33 comparison shift)
 
@@ -108,37 +110,33 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 		return new AbandonGameState(OPT_GEOSCAPE);
 	case CalypsoHarnessScenario::F03Dismantle:
 	{
-		Game* g = getCurrentGame();
-		if (!g || !g->getMod()) return nullptr;
-		SavedGame* save = g->getSavedGame();
-		if (!save)
+		Game* game = getCurrentGame();
+		if (!game || !game->getMod()) return nullptr;
+		if (!game->getSavedGame()) game->setSavedGame(new SavedGame());
+		game->getSavedGame()->setFunds(6800000);
+
+		const RuleBaseFacility* rule = nullptr;
+		for (const std::string& name : game->getMod()->getBaseFacilitiesList())
 		{
-			save = new SavedGame();
-			g->setSavedGame(save);
-		}
-		save->setFunds(6800000);
-		Base* base = new Base(g->getMod());
-		base->setLongitude(0.0);
-		base->setLatitude(0.5);
-		RuleBaseFacility* rule = nullptr;
-		for (const std::string& name : g->getMod()->getBaseFacilitiesList())
-		{
-			RuleBaseFacility* cand = g->getMod()->getBaseFacility(name, false);
-			if (cand && !cand->isLift())
+			const RuleBaseFacility* candidate = game->getMod()->getBaseFacility(name, false);
+			if (candidate && !candidate->isLift() && candidate->getRefundValue() >= 0
+				&& candidate->getBuildCostItems().empty())
 			{
-				rule = cand;
+				rule = candidate;
 				break;
 			}
 		}
 		if (!rule) return nullptr;
-		BaseFacility* fac = new BaseFacility(rule, base);
-		fac->setX(2);
-		fac->setY(2);
-		fac->setBuildTime(0);
-		base->getFacilities()->push_back(fac);
-		BaseView* view = new BaseView(320, 200, 0, 0);
+
+		Base* base = new Base(game->getMod());
+		BaseFacility* facility = new BaseFacility(rule, base);
+		facility->setBuildTime(rule->getBuildTime());
+		base->getFacilities()->push_back(facility);
+		BaseView* view = new BaseView(192, 192, 0, 8);
 		view->setBase(base);
-		return new DismantleFacilityState(base, view, fac);
+		auto* state = new DismantleFacilityState(base, view, facility);
+		state->calypsoOwnHarnessFixture();
+		return state;
 	}
 	case CalypsoHarnessScenario::F04SackSoldier:
 		return new CraftErrorState(nullptr, "Dismiss soldier confirmation.");

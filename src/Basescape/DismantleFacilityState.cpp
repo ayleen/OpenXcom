@@ -68,9 +68,6 @@ DismantleFacilityState::DismantleFacilityState(Base *base, BaseView *view, BaseF
 	add(_txtRefundValue, "text", "dismantleFacility");
 
 	centerAllSurfaces();
-#ifdef __EMSCRIPTEN__
-	Calypso::CalypsoF03DismantleUi::configure(*this);
-#endif
 
 	// Set up objects
 	setWindowBackground(_window, "dismantleFacility");
@@ -116,6 +113,11 @@ DismantleFacilityState::DismantleFacilityState(Base *base, BaseView *view, BaseF
 		_txtRefundValue->setText(tr("STR_REFUND_VALUE").arg(Unicode::formatFunding(refundValue)));
 	}
 	_txtRefundValue->setVisible(refundValue != 0);
+#ifdef __EMSCRIPTEN__
+	// Configure only after semantic text and behavior widgets are complete so
+	// the physical adapter captures the canonical copy and action labels.
+	Calypso::CalypsoF03DismantleUi::configure(*this);
+#endif
 }
 
 /**
@@ -126,6 +128,14 @@ DismantleFacilityState::~DismantleFacilityState()
 #ifdef __EMSCRIPTEN__
 	delete _hdAdapter;
 	_hdAdapter = nullptr;
+	if (_hdOwnFixture)
+	{
+		delete _view;
+		delete _base;
+		_view = nullptr;
+		_base = nullptr;
+		_fac = nullptr;
+	}
 #endif
 
 }
