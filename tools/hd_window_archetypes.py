@@ -75,8 +75,9 @@ LAYOUT_FIELDS = {
         "title",
         "summaryBar",
         "tabBar",
-        "content",
         "toolbarBar",
+        "collectionViewport",
+        "detailPanel",
         "footer",
         "controlWidth",
         "controlActionWidth",
@@ -85,6 +86,14 @@ LAYOUT_FIELDS = {
         "tabGap",
         "toolbarWidth",
         "toolbarGap",
+        "detailInset",
+        "detailLabelHeight",
+        "detailIdentityHeight",
+        "detailMetricColumns",
+        "detailMetricRowHeight",
+        "detailNoteLineHeight",
+        "detailNoteVisible",
+        "detailActionGap",
         "headerHeight",
         "rowHeight",
         "visibleRows",
@@ -154,6 +163,9 @@ LIMIT_FIELDS = {
         "maxControls",
         "maxControlOptions",
         "maxActions",
+        "maxDetailMetrics",
+        "maxDetailActions",
+        "maxDetailNoteLines",
         "maxItems",
         "maxColumns",
         "maxCellCharacters",
@@ -350,6 +362,20 @@ def _validate_template(template):
         )
         for field in non_rect_fields:
             _positive_int(layout[field], "template.layouts." + name + "." + field, 0)
+        if template["generatorKind"] == "tabbed":
+            detail_minimums = {
+                "detailLabelHeight": 12,
+                "detailIdentityHeight": 20,
+                "detailMetricColumns": 1,
+                "detailMetricRowHeight": 16,
+                "detailNoteLineHeight": 12,
+            }
+            for field, minimum in detail_minimums.items():
+                _positive_int(
+                    layout[field],
+                    "template.layouts." + name + "." + field,
+                    minimum,
+                )
         for field in _layout_rect_fields(template["generatorKind"]):
             _rect(layout.get(field), "template.layouts." + name + "." + field)
             if not _contained(
@@ -432,6 +458,28 @@ def _validate_template(template):
                 raise ArchetypeError(
                     "template.layouts." + name + ".toolbarBar violates the 44px minimum"
                 )
+            if layout["detailNoteVisible"] not in {0, 1}:
+                raise ArchetypeError(
+                    "template.layouts." + name + ".detailNoteVisible must be 0 or 1"
+                )
+            if _bottom(layout["tabBar"]) > layout["toolbarBar"]["y"]:
+                raise ArchetypeError(
+                    "template.layouts." + name + " tab bar must precede toolbar"
+                )
+            if (
+                _bottom(layout["toolbarBar"]) > layout["collectionViewport"]["y"]
+                or _bottom(layout["toolbarBar"]) > layout["detailPanel"]["y"]
+            ):
+                raise ArchetypeError(
+                    "template.layouts." + name + " toolbar must precede workspace"
+                )
+            if (
+                _bottom(layout["collectionViewport"]) > layout["footer"]["y"]
+                or _bottom(layout["detailPanel"]) > layout["footer"]["y"]
+            ):
+                raise ArchetypeError(
+                    "template.layouts." + name + " workspace must precede footer"
+                )
         for field in target_fields:
             if layout[field] < 44:
                 raise ArchetypeError(
@@ -452,15 +500,21 @@ def _layout_rect_fields(kind):
             "title",
             "summaryBar",
             "tabBar",
-            "content",
             "toolbarBar",
+            "collectionViewport",
+            "detailPanel",
             "footer",
         )
     return ("window", "status", "title", "controlBar", "footer")
 
 
-def _validate_common(config, template, required_fields):
-    _strict(config, COMMON_CONFIG_FIELDS | set(required_fields), set(), "config")
+def _validate_common(config, template, required_fields, optional_fields=None):
+    _strict(
+        config,
+        COMMON_CONFIG_FIELDS | set(required_fields),
+        set(optional_fields or ()),
+        "config",
+    )
     if config["schema"] != 1:
         raise ArchetypeError("config.schema must be 1")
     _stable_id(config["id"], "config.id")
@@ -682,11 +736,74 @@ def _validate_collection(config, template):
     return actions, controls
 
 
+def _validate_tabbed_detail(detail, template):
+    _strict(
+        detail,
+        {"id", "label", "title", "subtitle", "metrics", "actions"},
+        {"note"},
+        "config.detail",
+    )
+    _stable_id(detail["id"], "config.detail.id")
+    _one_line(detail["label"], "config.detail.label", 32)
+    _one_line(detail["title"], "config.detail.title", 48)
+    _one_line(detail["subtitle"], "config.detail.subtitle", 48)
+
+    metrics = detail["metrics"]
+    if (
+        not isinstance(metrics, list)
+        or not 1 <= len(metrics) <= template["limits"]["maxDetailMetrics"]
+    ):
+        raise ArchetypeError("config.detail.metrics is outside the template limit")
+    metric_ids = set()
+    for index, metric in enumerate(metrics):
+        label = "config.detail.metrics[" + str(index) + "]"
+        _strict(metric, {"id", "label", "value"}, set(), label)
+        _stable_id(metric["id"], label + ".id")
+        _one_line(metric["label"], label + ".label", 24)
+        _one_line(metric["value"], label + ".value", 32)
+        if metric["id"] in metric_ids:
+            raise ArchetypeError("config.detail metric IDs must be unique")
+        metric_ids.add(metric["id"])
+
+    if "note" in detail:
+        note = detail["note"]
+        _strict(note, {"label", "title", "body"}, set(), "config.detail.note")
+        _one_line(note["label"], "config.detail.note.label", 24)
+        _one_line(note["title"], "config.detail.note.title", 32)
+        body = note["body"]
+        if (
+            not isinstance(body, list)
+            or not 1 <= len(body) <= template["limits"]["maxDetailNoteLines"]
+        ):
+            raise ArchetypeError(
+                "config.detail.note.body is outside the template limit"
+            )
+        for index, line in enumerate(body):
+            _one_line(line, "config.detail.note.body[" + str(index) + "]", 64)
+
+    generated = copy.deepcopy(detail)
+    generated["actions"] = _validate_action_items(
+        detail["actions"],
+        template,
+        "config.detail.actions",
+        template["limits"]["maxDetailActions"],
+    )
+    return generated
+
+
 def _validate_tabbed(config, template):
     actions = _validate_common(
         config,
         template,
-        {"tabs", "selectedTab", "summary", "collection", "controls", "toolbar"},
+        {
+            "tabs",
+            "selectedTab",
+            "summary",
+            "collection",
+            "controls",
+            "toolbar",
+        },
+        {"detail"},
     )
     _validate_collection_value(
         config["collection"], template["limits"], "config.collection"
@@ -757,14 +874,20 @@ def _validate_tabbed(config, template):
             "config toolbar and footer actions must use unique IDs and behavior actions"
         )
     controls = _validate_controls(config["controls"], template, "config.controls")
-    _ensure_unique_interactions(
-        [
-            ("config.actions", actions),
-            ("config.toolbar", toolbar_actions),
-            ("config.controls", controls),
-        ]
+    detail = (
+        _validate_tabbed_detail(config["detail"], template)
+        if "detail" in config
+        else None
     )
-    return actions, toolbar_actions, controls
+    interaction_groups = [
+        ("config.actions", actions),
+        ("config.toolbar", toolbar_actions),
+        ("config.controls", controls),
+    ]
+    if detail is not None:
+        interaction_groups.append(("config.detail.actions", detail["actions"]))
+    _ensure_unique_interactions(interaction_groups)
+    return actions, toolbar_actions, controls, detail
 
 
 def _validate_detail(config, template):
@@ -971,6 +1094,10 @@ def _scroll_metrics(
     if overflow:
         thumb_height = max(minimum, track["height"] * visible_units // total_units)
         thumb_height = min(track["height"], thumb_height)
+        if thumb_height >= track["height"]:
+            raise ArchetypeError(
+                "overflowing collection requires positive scrollbar thumb travel"
+            )
     else:
         thumb_height = track["height"]
     thumb = _make_rect(track["x"], track["y"], track["width"], thumb_height)
@@ -1217,8 +1344,184 @@ def _build_collection(config, template, source_name, template_name):
     return out
 
 
+def _build_tabbed_detail_fragment(detail, authored, name):
+    panel = copy.deepcopy(authored["detailPanel"])
+    inset = authored["detailInset"]
+    inner = _make_rect(
+        panel["x"] + inset,
+        panel["y"] + inset,
+        panel["width"] - 2 * inset,
+        panel["height"] - 2 * inset,
+    )
+    if inner["width"] <= 0 or inner["height"] <= 0:
+        raise ArchetypeError(name + " detail inset leaves no content")
+
+    cursor_y = inner["y"]
+    detail_label_rect = _make_rect(
+        inner["x"], cursor_y, inner["width"], authored["detailLabelHeight"]
+    )
+    cursor_y = _bottom(detail_label_rect)
+    identity_rect = _make_rect(
+        inner["x"], cursor_y, inner["width"], authored["detailIdentityHeight"]
+    )
+    identity_title_height = identity_rect["height"] // 2
+    if identity_title_height <= 0 or identity_title_height >= identity_rect["height"]:
+        raise ArchetypeError(name + " detail identity cannot contain two text lines")
+    identity_title = _make_rect(
+        identity_rect["x"],
+        identity_rect["y"],
+        identity_rect["width"],
+        identity_title_height,
+    )
+    identity_subtitle = _make_rect(
+        identity_rect["x"],
+        _bottom(identity_title),
+        identity_rect["width"],
+        identity_rect["height"] - identity_title_height,
+    )
+    cursor_y = _bottom(identity_rect)
+    _ensure_text_fits(
+        detail["label"], detail_label_rect, authored, name + ".detail.label"
+    )
+    _ensure_text_fits(detail["title"], identity_title, authored, name + ".detail.title")
+    _ensure_text_fits(
+        detail["subtitle"], identity_subtitle, authored, name + ".detail.subtitle"
+    )
+
+    columns = authored["detailMetricColumns"]
+    metric_rows = (len(detail["metrics"]) + columns - 1) // columns
+    metrics = {}
+    for row_index in range(metric_rows):
+        row_metrics = detail["metrics"][
+            row_index * columns : min((row_index + 1) * columns, len(detail["metrics"]))
+        ]
+        row = _make_rect(
+            inner["x"],
+            cursor_y,
+            inner["width"],
+            authored["detailMetricRowHeight"],
+        )
+        cells = _equal_rects(
+            row,
+            len(row_metrics),
+            1,
+            [metric["id"] for metric in row_metrics],
+        )
+        for metric, cell in zip(row_metrics, cells):
+            rect = {key: value for key, value in cell.items() if key != "id"}
+            label_height = rect["height"] // 2
+            if label_height <= 0 or label_height >= rect["height"]:
+                raise ArchetypeError(name + " detail metric cannot contain two lines")
+            metric_label_rect = _make_rect(
+                rect["x"], rect["y"], rect["width"], label_height
+            )
+            value_rect = _make_rect(
+                rect["x"],
+                _bottom(metric_label_rect),
+                rect["width"],
+                rect["height"] - label_height,
+            )
+            _ensure_text_fits(
+                metric["label"],
+                metric_label_rect,
+                authored,
+                name + ".detail.metric." + metric["id"] + ".label",
+            )
+            _ensure_text_fits(
+                metric["value"],
+                value_rect,
+                authored,
+                name + ".detail.metric." + metric["id"] + ".value",
+            )
+            metrics[metric["id"]] = {
+                "rect": rect,
+                "label": metric_label_rect,
+                "value": value_rect,
+            }
+        cursor_y = _bottom(row)
+
+    action_bar = _make_rect(inner["x"], _bottom(inner) - 44, inner["width"], 44)
+    action_rect_list = _equal_rects(
+        action_bar,
+        len(detail["actions"]),
+        authored["detailActionGap"],
+        [action["id"] for action in detail["actions"]],
+    )
+    action_rects = {
+        action["id"]: {key: value for key, value in rect.items() if key != "id"}
+        for action, rect in zip(detail["actions"], action_rect_list)
+    }
+    if any(rect["width"] < 44 or rect["height"] < 44 for rect in action_rects.values()):
+        raise ArchetypeError(name + " detail action violates the 44px minimum")
+    _ensure_action_copy_fits(
+        detail["actions"], action_rects, authored, name + ".detail.action"
+    )
+
+    note = {"visible": "note" in detail and bool(authored["detailNoteVisible"])}
+    if note["visible"]:
+        note_label = _make_rect(
+            inner["x"],
+            cursor_y,
+            inner["width"],
+            authored["detailNoteLineHeight"],
+        )
+        cursor_y = _bottom(note_label)
+        note_title = _make_rect(
+            inner["x"],
+            cursor_y,
+            inner["width"],
+            authored["detailNoteLineHeight"],
+        )
+        cursor_y = _bottom(note_title)
+        note_lines = []
+        for index, line in enumerate(detail["note"]["body"]):
+            line_rect = _make_rect(
+                inner["x"],
+                cursor_y,
+                inner["width"],
+                authored["detailNoteLineHeight"],
+            )
+            cursor_y = _bottom(line_rect)
+            _ensure_text_fits(
+                line, line_rect, authored, name + ".detail.note.line-" + str(index + 1)
+            )
+            note_lines.append(line_rect)
+        _ensure_text_fits(
+            detail["note"]["label"],
+            note_label,
+            authored,
+            name + ".detail.note.label",
+        )
+        _ensure_text_fits(
+            detail["note"]["title"],
+            note_title,
+            authored,
+            name + ".detail.note.title",
+        )
+        note.update({"label": note_label, "title": note_title, "lines": note_lines})
+    if cursor_y > action_bar["y"]:
+        raise ArchetypeError(name + " detail content overlaps its actions")
+
+    return {
+        "id": detail["id"],
+        "panel": panel,
+        "label": detail_label_rect,
+        "identity": {
+            "rect": identity_rect,
+            "title": identity_title,
+            "subtitle": identity_subtitle,
+        },
+        "metrics": metrics,
+        "note": note,
+        "actions": [
+            {"id": action["id"], "rect": action_rects[action["id"]]}
+            for action in detail["actions"]
+        ],
+    }
+
+
 def _build_tabbed(config, template, source_name, template_name):
-    actions, toolbar_actions, controls = _validate_tabbed(config, template)
+    actions, toolbar_actions, controls, detail = _validate_tabbed(config, template)
     out = _base_contract(config, template, source_name, template_name, actions)
     out["form"]["tabs"] = copy.deepcopy(config["tabs"])
     out["form"]["selectedTab"] = config["selectedTab"]
@@ -1231,6 +1534,9 @@ def _build_tabbed(config, template, source_name, template_name):
     out["copy"]["collection"] = copy.deepcopy(config["collection"])
     out["copy"]["controls"] = copy.deepcopy(config["controls"])
     out["copy"]["toolbar"] = {item["id"]: item["label"] for item in config["toolbar"]}
+    if detail is not None:
+        out["form"]["detail"] = detail
+        out["copy"]["detail"] = copy.deepcopy(config["detail"])
     out["collectionMetrics"] = {}
     tab_ids = [tab["id"] for tab in config["tabs"]]
     for name in ("wide", "compact"):
@@ -1300,10 +1606,22 @@ def _build_tabbed(config, template, source_name, template_name):
         action_rects = _action_rects(actions, authored)
         _ensure_action_copy_fits(actions, action_rects, authored, name + ".action")
         _ensure_text_fits(config["title"], authored["title"], authored, name + ".title")
+        collection_viewport = copy.deepcopy(authored["collectionViewport"])
+        if detail is None:
+            collection_viewport["width"] = (
+                _right(authored["detailPanel"]) - collection_viewport["x"]
+            )
+            collection_viewport["height"] = (
+                max(
+                    _bottom(authored["collectionViewport"]),
+                    _bottom(authored["detailPanel"]),
+                )
+                - collection_viewport["y"]
+            )
         collection_fragment, collection_metrics = _build_collection_fragment(
-            config["collection"], authored, authored["content"], name
+            config["collection"], authored, collection_viewport, name
         )
-        out["layouts"][name] = {
+        generated_layout = {
             "designWidth": authored["designWidth"],
             "designHeight": authored["designHeight"],
             "window": copy.deepcopy(authored["window"]),
@@ -1314,7 +1632,7 @@ def _build_tabbed(config, template, source_name, template_name):
                 for field, rect in zip(config["summary"], summary_rects)
             },
             "tabBar": copy.deepcopy(authored["tabBar"]),
-            "content": copy.deepcopy(authored["content"]),
+            "collectionViewport": collection_viewport,
             "collection": collection_fragment,
             "toolbarBar": copy.deepcopy(authored["toolbarBar"]),
             "controls": control_rects,
@@ -1326,20 +1644,54 @@ def _build_tabbed(config, template, source_name, template_name):
             "toolbar": toolbar_rects,
             "actions": action_rects,
         }
+        if detail is not None:
+            generated_layout["detail"] = _build_tabbed_detail_fragment(
+                detail, authored, name
+            )
+        out["layouts"][name] = generated_layout
         out["collectionMetrics"][name] = collection_metrics
     out["parts"] = [
         "window",
         "title",
         "summaryBar",
         "tabBar",
-        "content",
         "toolbarBar",
+        "collectionViewport",
         "footer",
     ]
     out["parts"].extend("summary." + field["id"] for field in config["summary"])
     out["parts"].extend("tab." + tab_id for tab_id in tab_ids)
     out["parts"].extend("control." + control["id"] for control in controls)
     out["parts"].extend("toolbar." + item["id"] for item in toolbar_actions)
+    if detail is not None:
+        out["parts"].append("detailPanel")
+        out["parts"].append("detail." + detail["id"])
+        out["parts"].extend(
+            (
+                "detail." + detail["id"] + ".label",
+                "detail." + detail["id"] + ".identity.title",
+                "detail." + detail["id"] + ".identity.subtitle",
+            )
+        )
+        out["parts"].extend(
+            "detail." + detail["id"] + ".metric." + item["id"]
+            for item in detail["metrics"]
+        )
+        if "note" in detail:
+            out["parts"].extend(
+                (
+                    "detail." + detail["id"] + ".note.label",
+                    "detail." + detail["id"] + ".note.title",
+                )
+            )
+            out["parts"].extend(
+                "detail." + detail["id"] + ".note.line-" + str(index + 1)
+                for index in range(len(detail["note"]["body"]))
+            )
+        out["parts"].extend(
+            "detail." + detail["id"] + ".action." + item["id"]
+            for item in detail["actions"]
+        )
     out["parts"].extend("action." + action["id"] for action in actions)
     return out
 
