@@ -43,6 +43,9 @@
 #include "../Mod/RuleInterface.h"
 #include "TechTreeViewerState.h"
 #include "TransferBaseState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF13ContainmentUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -182,6 +185,10 @@ ManageAlienContainmentState::ManageAlienContainmentState(Base *base, int prisonT
  */
 ManageAlienContainmentState::~ManageAlienContainmentState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 	delete _timerInc;
 	delete _timerDec;
 }
@@ -642,3 +649,13 @@ void ManageAlienContainmentState::updateStrings()
 }
 
 }
+
+#ifdef __EMSCRIPTEN__
+namespace OpenXcom {
+void ManageAlienContainmentState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF13ContainmentUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+}
+#endif

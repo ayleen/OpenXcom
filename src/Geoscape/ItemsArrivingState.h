@@ -21,6 +21,7 @@
 
 namespace OpenXcom
 {
+namespace Calypso { class CalypsoF24ItemsArrivingUi; }
 
 class TextButton;
 class Window;
@@ -35,6 +36,9 @@ class Base;
  */
 class ItemsArrivingState : public State
 {
+#ifdef __EMSCRIPTEN__
+friend class Calypso::CalypsoF24ItemsArrivingUi;
+#endif
 private:
 	GeoscapeState *_state;
 	Base *_base;
@@ -51,9 +55,14 @@ public:
 	void btnOkClick(Action *action);
 	/// Handler for clicking the Go To Base button.
 	void btnGotoBaseClick(Action *action);
+
 #ifdef __EMSCRIPTEN__
-	/// Phase 41: apply HD UI scaling on resize.
-	void resize(int &dX, int &dY) override { applyUiScaling(); }
+private:
+    bool _hdLayout = false;
+    bool _hdWideLayout = false;
+    Calypso::CalypsoF24ItemsArrivingUi *_hdAdapter = nullptr;
+public:
+    void resize(int &dX, int &dY) override;
 #endif
 };
 

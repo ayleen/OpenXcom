@@ -21,6 +21,7 @@
 
 namespace OpenXcom
 {
+namespace Calypso { class CalypsoF10ManufactureCheckUi; }
 
 class Base;
 class Window;
@@ -38,6 +39,9 @@ class InteractiveSurface;
  */
 class ManufactureInfoState : public State
 {
+#ifdef __EMSCRIPTEN__
+friend class Calypso::CalypsoF10ManufactureCheckUi;
+#endif
 private:
 	Base * _base;
 	RuleManufacture * _item;
@@ -124,6 +128,15 @@ public:
 	ManufactureInfoState(Base * base, Production * production);
 	/// Cleans up the state
 	~ManufactureInfoState();
+
+#ifdef __EMSCRIPTEN__
+private:
+    bool _hdLayout = false;
+    bool _hdWideLayout = false;
+    Calypso::CalypsoF10ManufactureCheckUi *_hdAdapter = nullptr;
+public:
+    void resize(int &dX, int &dY) override;
+#endif
 };
 
 }

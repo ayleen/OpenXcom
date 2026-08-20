@@ -233,6 +233,7 @@ F21_SMALL_CONFIRMATION_CONTRACTS = {
     "f17-ufo-lost.json", "f17-ufo-detected.json", "f17-mission-detected.json",
     "f22-training-finished.json", "f30-no-experience.json", "f24-production-complete.json",
     "f05-soldier-transform.json", "f06-soldier-diary.json",
+    "f12-transfer-confirm.json", "f10-manufacture-check.json", "f13-containment.json", "f24-items-arriving.json",
 }
 F21_ENGINE_TEXT_CALIBRATION_CONTRACTS = {
     "f21-site.json",
@@ -264,6 +265,10 @@ ADDITIONAL_SMALL_CONFIRMATION_CONTRACTS = [
     ("f24-production-complete.json", "CalypsoF24ProductionCompleteGen", "CalypsoF24ProductionComplete", "CalypsoF24ProductionComplete"),
     ("f05-soldier-transform.json", "CalypsoF05SoldierTransformGen", "CalypsoF05SoldierTransform", "CalypsoF05SoldierTransform"),
     ("f06-soldier-diary.json", "CalypsoF06SoldierDiaryGen", "CalypsoF06SoldierDiary", "CalypsoF06SoldierDiary"),
+    ("f12-transfer-confirm.json", "CalypsoF12TransferConfirmGen", "CalypsoF12TransferConfirm", "CalypsoF12TransferConfirm"),
+    ("f10-manufacture-check.json", "CalypsoF10ManufactureCheckGen", "CalypsoF10ManufactureCheck", "CalypsoF10ManufactureCheck"),
+    ("f13-containment.json", "CalypsoF13ContainmentGen", "CalypsoF13Containment", "CalypsoF13Containment"),
+    ("f24-items-arriving.json", "CalypsoF24ItemsArrivingGen", "CalypsoF24ItemsArriving", "CalypsoF24ItemsArriving"),
 ]
 
 
