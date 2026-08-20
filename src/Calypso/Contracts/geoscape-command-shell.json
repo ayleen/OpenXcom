@@ -1,0 +1,1205 @@
+{
+  "schema": 1,
+  "version": "hd.2026-08-20.22",
+  "provenance": {
+    "generator": "tools/generate-hd-screen.py",
+    "source": "ScreenConfigs/geoscape-command-shell.json",
+    "screenTemplate": "ScreenTemplates/strategic-command-shell.json"
+  },
+  "screen": {
+    "id": "geoscape-command-shell",
+    "archetype": "strategic-command-shell",
+    "runtime": "production",
+    "productionHook": true
+  },
+  "themeVersion": "hd.2026-08-20.22",
+  "archetypeVersion": "hd.2026-08-20.1",
+  "componentVersions": {
+    "command-icon-action": "hd.2026-08-20.1",
+    "compact-command-action": "hd.2026-08-20.1",
+    "notification-action": "hd.2026-08-20.1",
+    "time-speed-control": "hd.2026-08-20.1"
+  },
+  "actions": [
+    {
+      "id": "action.bases",
+      "labelKey": "STR_BASES",
+      "icon": "bases",
+      "component": "command-icon-action",
+      "slotRole": "primary-left-1",
+      "tone": "normal",
+      "handler": "geoscape.openBases",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "always",
+      "timePolicy": "preserve",
+      "focusOrder": 10,
+      "visibility": "persistent",
+      "hotkey": "b"
+    },
+    {
+      "id": "action.graphs",
+      "labelKey": "STR_GRAPHS",
+      "icon": "graphs",
+      "component": "command-icon-action",
+      "slotRole": "primary-left-2",
+      "tone": "normal",
+      "handler": "geoscape.openGraphs",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "always",
+      "timePolicy": "preserve",
+      "focusOrder": 20,
+      "visibility": "persistent",
+      "hotkey": "g"
+    },
+    {
+      "id": "action.extended",
+      "labelKey": "STR_FUNDING",
+      "icon": "funding",
+      "component": "command-icon-action",
+      "slotRole": "primary-left-3",
+      "tone": "normal",
+      "handler": "geoscape.openExtended",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "always",
+      "timePolicy": "preserve",
+      "focusOrder": 30,
+      "visibility": "persistent"
+    },
+    {
+      "id": "action.intercept",
+      "labelKey": "STR_INTERCEPT",
+      "icon": "intercept",
+      "component": "command-icon-action",
+      "slotRole": "primary-right-1",
+      "tone": "primary",
+      "handler": "geoscape.openIntercept",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "requires-craft",
+      "timePolicy": "pause-on-open",
+      "focusOrder": 40,
+      "visibility": "persistent",
+      "hotkey": "i"
+    },
+    {
+      "id": "action.ufopaedia",
+      "labelKey": "STR_UFOPAEDIA",
+      "icon": "ufopaedia",
+      "component": "command-icon-action",
+      "slotRole": "primary-right-2",
+      "tone": "normal",
+      "handler": "geoscape.openUfopaedia",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "always",
+      "timePolicy": "preserve",
+      "focusOrder": 50,
+      "visibility": "persistent",
+      "hotkey": "u"
+    },
+    {
+      "id": "action.options",
+      "labelKey": "STR_OPTIONS",
+      "icon": "options",
+      "component": "command-icon-action",
+      "slotRole": "primary-right-3",
+      "tone": "normal",
+      "handler": "geoscape.openOptions",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "always",
+      "timePolicy": "pause-on-open",
+      "focusOrder": 60,
+      "visibility": "persistent",
+      "hotkey": "o"
+    },
+    {
+      "id": "world.zoom-in",
+      "labelKey": "STR_ZOOM_IN",
+      "icon": "plus",
+      "component": "compact-command-action",
+      "slotRole": "world-zoom-in",
+      "tone": "normal",
+      "handler": "geoscape.zoomIn",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "always",
+      "timePolicy": "preserve",
+      "focusOrder": 70,
+      "visibility": "persistent",
+      "hotkey": "+"
+    },
+    {
+      "id": "world.recenter",
+      "labelKey": "STR_CENTER",
+      "icon": "recenter",
+      "component": "compact-command-action",
+      "slotRole": "world-recenter",
+      "tone": "normal",
+      "handler": "geoscape.recenter",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "always",
+      "timePolicy": "preserve",
+      "focusOrder": 80,
+      "visibility": "persistent"
+    },
+    {
+      "id": "world.zoom-out",
+      "labelKey": "STR_ZOOM_OUT",
+      "icon": "minus",
+      "component": "compact-command-action",
+      "slotRole": "world-zoom-out",
+      "tone": "normal",
+      "handler": "geoscape.zoomOut",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "always",
+      "timePolicy": "preserve",
+      "focusOrder": 90,
+      "visibility": "persistent",
+      "hotkey": "-"
+    },
+    {
+      "id": "notification.open",
+      "labelKey": "STR_OPEN",
+      "icon": "chevron",
+      "component": "notification-action",
+      "slotRole": "notification-open",
+      "tone": "warning",
+      "handler": "geoscape.openNotification",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "when-notification-present",
+      "timePolicy": "pause-on-open",
+      "focusOrder": 100,
+      "visibility": "contextual"
+    },
+    {
+      "id": "time.pause",
+      "labelKey": "STR_PAUSE",
+      "icon": "pause",
+      "component": "time-speed-control",
+      "slotRole": "time-pause",
+      "tone": "primary",
+      "handler": "geoscape.setSpeedPause",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "always",
+      "timePolicy": "set-speed",
+      "focusOrder": 110,
+      "visibility": "persistent",
+      "hotkey": "space"
+    },
+    {
+      "id": "time.speed.5sec",
+      "labelKey": "STR_5_SECONDS",
+      "component": "time-speed-control",
+      "slotRole": "time-5sec",
+      "tone": "normal",
+      "handler": "geoscape.setSpeed5Seconds",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "always",
+      "timePolicy": "set-speed",
+      "focusOrder": 120,
+      "visibility": "persistent",
+      "hotkey": "1"
+    },
+    {
+      "id": "time.speed.1min",
+      "labelKey": "STR_1_MINUTE",
+      "component": "time-speed-control",
+      "slotRole": "time-1min",
+      "tone": "normal",
+      "handler": "geoscape.setSpeed1Minute",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "always",
+      "timePolicy": "set-speed",
+      "focusOrder": 130,
+      "visibility": "persistent",
+      "hotkey": "2"
+    },
+    {
+      "id": "time.speed.5min",
+      "labelKey": "STR_5_MINUTES",
+      "component": "time-speed-control",
+      "slotRole": "time-5min",
+      "tone": "normal",
+      "handler": "geoscape.setSpeed5Minutes",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "always",
+      "timePolicy": "set-speed",
+      "focusOrder": 140,
+      "visibility": "persistent",
+      "hotkey": "3"
+    },
+    {
+      "id": "time.speed.30min",
+      "labelKey": "STR_30_MINUTES",
+      "component": "time-speed-control",
+      "slotRole": "time-30min",
+      "tone": "normal",
+      "handler": "geoscape.setSpeed30Minutes",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "always",
+      "timePolicy": "set-speed",
+      "focusOrder": 150,
+      "visibility": "persistent",
+      "hotkey": "4"
+    },
+    {
+      "id": "time.speed.1hour",
+      "labelKey": "STR_1_HOUR",
+      "component": "time-speed-control",
+      "slotRole": "time-1hour",
+      "tone": "normal",
+      "handler": "geoscape.setSpeed1Hour",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "always",
+      "timePolicy": "set-speed",
+      "focusOrder": 160,
+      "visibility": "persistent",
+      "hotkey": "5"
+    },
+    {
+      "id": "time.speed.1day",
+      "labelKey": "STR_1_DAY",
+      "component": "time-speed-control",
+      "slotRole": "time-1day",
+      "tone": "normal",
+      "handler": "geoscape.setSpeed1Day",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "always",
+      "timePolicy": "set-speed",
+      "focusOrder": 170,
+      "visibility": "persistent",
+      "hotkey": "6"
+    }
+  ],
+  "bindings": {
+    "world": "geoscape.globe",
+    "clock": "geoscape.clock",
+    "funds": "geoscape.funds",
+    "notifications": "geoscape.notifications"
+  },
+  "entities": [],
+  "context": {
+    "primaryNavigation": [
+      "action.bases",
+      "action.graphs",
+      "action.extended",
+      "action.intercept",
+      "action.ufopaedia",
+      "action.options"
+    ],
+    "secondaryNavigation": [
+      "notification.open"
+    ]
+  },
+  "fixture": {
+    "clock": "2040-01-01T12:28:00Z",
+    "funds": 10210000,
+    "selectedSpeed": "time.speed.5sec",
+    "notification": "ufo-detected-south-pacific"
+  },
+  "layouts": {
+    "wide": {
+      "designSize": [
+        1280,
+        720
+      ],
+      "regions": {
+        "session": [
+          18,
+          16,
+          122,
+          46
+        ],
+        "status": [
+          400,
+          16,
+          480,
+          46
+        ],
+        "world": [
+          172,
+          70,
+          936,
+          552
+        ],
+        "worldTools": [
+          176,
+          474,
+          48,
+          132
+        ],
+        "notification": [
+          936,
+          552,
+          320,
+          76
+        ],
+        "timeControl": [
+          280,
+          634,
+          720,
+          72
+        ]
+      },
+      "reservedRegions": [
+        {
+          "id": "left-command-rail",
+          "bounds": [
+            18,
+            126,
+            132,
+            316
+          ]
+        },
+        {
+          "id": "right-command-rail",
+          "bounds": [
+            1130,
+            126,
+            132,
+            316
+          ]
+        },
+        {
+          "id": "time-control",
+          "bounds": [
+            272,
+            626,
+            736,
+            88
+          ]
+        }
+      ],
+      "actions": {
+        "action.bases": {
+          "id": "action.bases",
+          "component": "command-icon-action",
+          "slotRole": "primary-left-1",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            24,
+            138,
+            120,
+            84
+          ],
+          "hitRect": [
+            24,
+            138,
+            120,
+            84
+          ],
+          "focusOrder": 10,
+          "zOrder": 1
+        },
+        "action.graphs": {
+          "id": "action.graphs",
+          "component": "command-icon-action",
+          "slotRole": "primary-left-2",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            24,
+            242,
+            120,
+            84
+          ],
+          "hitRect": [
+            24,
+            242,
+            120,
+            84
+          ],
+          "focusOrder": 20,
+          "zOrder": 1
+        },
+        "action.extended": {
+          "id": "action.extended",
+          "component": "command-icon-action",
+          "slotRole": "primary-left-3",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            24,
+            346,
+            120,
+            84
+          ],
+          "hitRect": [
+            24,
+            346,
+            120,
+            84
+          ],
+          "focusOrder": 30,
+          "zOrder": 1
+        },
+        "action.intercept": {
+          "id": "action.intercept",
+          "component": "command-icon-action",
+          "slotRole": "primary-right-1",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            1136,
+            138,
+            120,
+            84
+          ],
+          "hitRect": [
+            1136,
+            138,
+            120,
+            84
+          ],
+          "focusOrder": 40,
+          "zOrder": 1
+        },
+        "action.ufopaedia": {
+          "id": "action.ufopaedia",
+          "component": "command-icon-action",
+          "slotRole": "primary-right-2",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            1136,
+            242,
+            120,
+            84
+          ],
+          "hitRect": [
+            1136,
+            242,
+            120,
+            84
+          ],
+          "focusOrder": 50,
+          "zOrder": 1
+        },
+        "action.options": {
+          "id": "action.options",
+          "component": "command-icon-action",
+          "slotRole": "primary-right-3",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            1136,
+            346,
+            120,
+            84
+          ],
+          "hitRect": [
+            1136,
+            346,
+            120,
+            84
+          ],
+          "focusOrder": 60,
+          "zOrder": 1
+        },
+        "world.zoom-in": {
+          "id": "world.zoom-in",
+          "component": "compact-command-action",
+          "slotRole": "world-zoom-in",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            177,
+            475,
+            46,
+            44
+          ],
+          "hitRect": [
+            177,
+            475,
+            46,
+            44
+          ],
+          "focusOrder": 70,
+          "zOrder": 1
+        },
+        "world.recenter": {
+          "id": "world.recenter",
+          "component": "compact-command-action",
+          "slotRole": "world-recenter",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            177,
+            519,
+            46,
+            44
+          ],
+          "hitRect": [
+            177,
+            519,
+            46,
+            44
+          ],
+          "focusOrder": 80,
+          "zOrder": 1
+        },
+        "world.zoom-out": {
+          "id": "world.zoom-out",
+          "component": "compact-command-action",
+          "slotRole": "world-zoom-out",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            177,
+            563,
+            46,
+            44
+          ],
+          "hitRect": [
+            177,
+            563,
+            46,
+            44
+          ],
+          "focusOrder": 90,
+          "zOrder": 1
+        },
+        "notification.open": {
+          "id": "notification.open",
+          "component": "notification-action",
+          "slotRole": "notification-open",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            1211,
+            568,
+            44,
+            44
+          ],
+          "hitRect": [
+            1211,
+            568,
+            44,
+            44
+          ],
+          "focusOrder": 100,
+          "zOrder": 1
+        },
+        "time.pause": {
+          "id": "time.pause",
+          "component": "time-speed-control",
+          "slotRole": "time-pause",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            280,
+            638,
+            64,
+            64
+          ],
+          "hitRect": [
+            280,
+            638,
+            64,
+            64
+          ],
+          "focusOrder": 110,
+          "zOrder": 1
+        },
+        "time.speed.5sec": {
+          "id": "time.speed.5sec",
+          "component": "time-speed-control",
+          "slotRole": "time-5sec",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            362,
+            650,
+            105,
+            54
+          ],
+          "hitRect": [
+            362,
+            650,
+            105,
+            54
+          ],
+          "focusOrder": 120,
+          "zOrder": 1
+        },
+        "time.speed.1min": {
+          "id": "time.speed.1min",
+          "component": "time-speed-control",
+          "slotRole": "time-1min",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            467,
+            650,
+            105,
+            54
+          ],
+          "hitRect": [
+            467,
+            650,
+            105,
+            54
+          ],
+          "focusOrder": 130,
+          "zOrder": 1
+        },
+        "time.speed.5min": {
+          "id": "time.speed.5min",
+          "component": "time-speed-control",
+          "slotRole": "time-5min",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            572,
+            650,
+            105,
+            54
+          ],
+          "hitRect": [
+            572,
+            650,
+            105,
+            54
+          ],
+          "focusOrder": 140,
+          "zOrder": 1
+        },
+        "time.speed.30min": {
+          "id": "time.speed.30min",
+          "component": "time-speed-control",
+          "slotRole": "time-30min",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            677,
+            650,
+            105,
+            54
+          ],
+          "hitRect": [
+            677,
+            650,
+            105,
+            54
+          ],
+          "focusOrder": 150,
+          "zOrder": 1
+        },
+        "time.speed.1hour": {
+          "id": "time.speed.1hour",
+          "component": "time-speed-control",
+          "slotRole": "time-1hour",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            782,
+            650,
+            105,
+            54
+          ],
+          "hitRect": [
+            782,
+            650,
+            105,
+            54
+          ],
+          "focusOrder": 160,
+          "zOrder": 1
+        },
+        "time.speed.1day": {
+          "id": "time.speed.1day",
+          "component": "time-speed-control",
+          "slotRole": "time-1day",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            887,
+            650,
+            105,
+            54
+          ],
+          "hitRect": [
+            887,
+            650,
+            105,
+            54
+          ],
+          "focusOrder": 170,
+          "zOrder": 1
+        }
+      }
+    },
+    "compact": {
+      "designSize": [
+        740,
+        360
+      ],
+      "regions": {
+        "session": [
+          8,
+          8,
+          44,
+          44
+        ],
+        "status": [
+          171,
+          8,
+          350,
+          38
+        ],
+        "world": [
+          0,
+          0,
+          520,
+          296
+        ],
+        "worldTools": [
+          464,
+          156,
+          44,
+          126
+        ],
+        "notification": [
+          12,
+          62,
+          194,
+          60
+        ],
+        "timeControl": [
+          12,
+          296,
+          716,
+          56
+        ]
+      },
+      "reservedRegions": [
+        {
+          "id": "right-command-rail",
+          "bounds": [
+            516,
+            46,
+            216,
+            230
+          ]
+        },
+        {
+          "id": "time-control",
+          "bounds": [
+            8,
+            292,
+            724,
+            64
+          ]
+        }
+      ],
+      "actions": {
+        "action.bases": {
+          "id": "action.bases",
+          "component": "command-icon-action",
+          "slotRole": "primary-left-1",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            524,
+            54,
+            96,
+            66
+          ],
+          "hitRect": [
+            524,
+            54,
+            96,
+            66
+          ],
+          "focusOrder": 10,
+          "zOrder": 1
+        },
+        "action.graphs": {
+          "id": "action.graphs",
+          "component": "command-icon-action",
+          "slotRole": "primary-left-2",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            524,
+            128,
+            96,
+            66
+          ],
+          "hitRect": [
+            524,
+            128,
+            96,
+            66
+          ],
+          "focusOrder": 20,
+          "zOrder": 1
+        },
+        "action.extended": {
+          "id": "action.extended",
+          "component": "command-icon-action",
+          "slotRole": "primary-left-3",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            524,
+            202,
+            96,
+            66
+          ],
+          "hitRect": [
+            524,
+            202,
+            96,
+            66
+          ],
+          "focusOrder": 30,
+          "zOrder": 1
+        },
+        "action.intercept": {
+          "id": "action.intercept",
+          "component": "command-icon-action",
+          "slotRole": "primary-right-1",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            628,
+            54,
+            96,
+            66
+          ],
+          "hitRect": [
+            628,
+            54,
+            96,
+            66
+          ],
+          "focusOrder": 40,
+          "zOrder": 1
+        },
+        "action.ufopaedia": {
+          "id": "action.ufopaedia",
+          "component": "command-icon-action",
+          "slotRole": "primary-right-2",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            628,
+            128,
+            96,
+            66
+          ],
+          "hitRect": [
+            628,
+            128,
+            96,
+            66
+          ],
+          "focusOrder": 50,
+          "zOrder": 1
+        },
+        "action.options": {
+          "id": "action.options",
+          "component": "command-icon-action",
+          "slotRole": "primary-right-3",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            628,
+            202,
+            96,
+            66
+          ],
+          "hitRect": [
+            628,
+            202,
+            96,
+            66
+          ],
+          "focusOrder": 60,
+          "zOrder": 1
+        },
+        "world.zoom-in": {
+          "id": "world.zoom-in",
+          "component": "compact-command-action",
+          "slotRole": "world-zoom-in",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            465,
+            157,
+            44,
+            44
+          ],
+          "hitRect": [
+            465,
+            157,
+            44,
+            44
+          ],
+          "focusOrder": 70,
+          "zOrder": 1
+        },
+        "world.recenter": {
+          "id": "world.recenter",
+          "component": "compact-command-action",
+          "slotRole": "world-recenter",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            465,
+            201,
+            44,
+            44
+          ],
+          "hitRect": [
+            465,
+            201,
+            44,
+            44
+          ],
+          "focusOrder": 80,
+          "zOrder": 1
+        },
+        "world.zoom-out": {
+          "id": "world.zoom-out",
+          "component": "compact-command-action",
+          "slotRole": "world-zoom-out",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            465,
+            245,
+            44,
+            44
+          ],
+          "hitRect": [
+            465,
+            245,
+            44,
+            44
+          ],
+          "focusOrder": 90,
+          "zOrder": 1
+        },
+        "notification.open": {
+          "id": "notification.open",
+          "component": "notification-action",
+          "slotRole": "notification-open",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            161,
+            70,
+            44,
+            44
+          ],
+          "hitRect": [
+            161,
+            70,
+            44,
+            44
+          ],
+          "focusOrder": 100,
+          "zOrder": 1
+        },
+        "time.pause": {
+          "id": "time.pause",
+          "component": "time-speed-control",
+          "slotRole": "time-pause",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            12,
+            299,
+            50,
+            50
+          ],
+          "hitRect": [
+            12,
+            299,
+            50,
+            50
+          ],
+          "focusOrder": 110,
+          "zOrder": 1
+        },
+        "time.speed.5sec": {
+          "id": "time.speed.5sec",
+          "component": "time-speed-control",
+          "slotRole": "time-5sec",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            74,
+            303,
+            109,
+            48
+          ],
+          "hitRect": [
+            74,
+            303,
+            109,
+            48
+          ],
+          "focusOrder": 120,
+          "zOrder": 1
+        },
+        "time.speed.1min": {
+          "id": "time.speed.1min",
+          "component": "time-speed-control",
+          "slotRole": "time-1min",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            183,
+            303,
+            109,
+            48
+          ],
+          "hitRect": [
+            183,
+            303,
+            109,
+            48
+          ],
+          "focusOrder": 130,
+          "zOrder": 1
+        },
+        "time.speed.5min": {
+          "id": "time.speed.5min",
+          "component": "time-speed-control",
+          "slotRole": "time-5min",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            292,
+            303,
+            109,
+            48
+          ],
+          "hitRect": [
+            292,
+            303,
+            109,
+            48
+          ],
+          "focusOrder": 140,
+          "zOrder": 1
+        },
+        "time.speed.30min": {
+          "id": "time.speed.30min",
+          "component": "time-speed-control",
+          "slotRole": "time-30min",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            401,
+            303,
+            109,
+            48
+          ],
+          "hitRect": [
+            401,
+            303,
+            109,
+            48
+          ],
+          "focusOrder": 150,
+          "zOrder": 1
+        },
+        "time.speed.1hour": {
+          "id": "time.speed.1hour",
+          "component": "time-speed-control",
+          "slotRole": "time-1hour",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            510,
+            303,
+            109,
+            48
+          ],
+          "hitRect": [
+            510,
+            303,
+            109,
+            48
+          ],
+          "focusOrder": 160,
+          "zOrder": 1
+        },
+        "time.speed.1day": {
+          "id": "time.speed.1day",
+          "component": "time-speed-control",
+          "slotRole": "time-1day",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            619,
+            303,
+            109,
+            48
+          ],
+          "hitRect": [
+            619,
+            303,
+            109,
+            48
+          ],
+          "focusOrder": 170,
+          "zOrder": 1
+        }
+      }
+    }
+  }
+}

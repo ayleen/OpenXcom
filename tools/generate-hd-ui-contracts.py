@@ -225,9 +225,9 @@ def validate_registry(registry):
     if not isinstance(entries, list) or not entries:
         fail("hd-ui-contracts.json: non-empty entries array required")
     seen = {"id": set(), "contract": set(), "native output": set(), "browser output": set()}
-    allowed_emitters = {"theme", "legacy-abandon", "family"}
+    allowed_emitters = {"theme", "legacy-abandon", "family", "screen"}
     allowed_profiles = {"theme", "legacy-abandon", "family", "command-card",
-                        "small-confirmation", "content-block"}
+                        "small-confirmation", "content-block", "screen"}
     for index, entry in enumerate(entries):
         where = "hd-ui-contracts.json: entries[" + str(index) + "]"
         if not isinstance(entry, dict):
@@ -247,6 +247,8 @@ def validate_registry(registry):
         if ((emitter == "theme") != (profile == "theme")
                 or (emitter == "legacy-abandon") != (profile == "legacy-abandon")):
             fail(where + " emitter and validationProfile are incompatible")
+        if (emitter == "screen") != (profile == "screen"):
+            fail(where + " screen emitter requires the screen validationProfile")
         for key in ("namespace", "prefix"):
             if not isinstance(native.get(key), str) or not IDENT_RE.match(native[key]):
                 fail(where + ".native." + key + " must be a C++ identifier")
@@ -535,6 +537,69 @@ def validate_family(doc, rel, profile, engine_text_calibration=False):
             scale = calibration.get(role)
             if not isinstance(scale, (int, float)) or not (0.0 < scale <= 1.0):
                 fail(rel + ": engineTextScale." + role + " must be in (0, 1]")
+
+
+def validate_screen(doc, rel):
+    if doc.get("schema") != 1:
+        fail(rel + ": schema must be 1")
+    if not isinstance(doc.get("version"), str) or not VERSION_RE.match(doc.get("version", "")):
+        fail(rel + ": version string required")
+    screen = doc.get("screen") or {}
+    for key in ("id", "archetype", "runtime"):
+        if not isinstance(screen.get(key), str) or not screen[key]:
+            fail(rel + ": screen." + key + " required")
+    if screen["runtime"] not in ("production", "proof-only"):
+        fail(rel + ": screen.runtime must be production or proof-only")
+    if screen.get("productionHook") != (screen["runtime"] == "production"):
+        fail(rel + ": screen.productionHook must derive from runtime")
+    provenance = doc.get("provenance") or {}
+    for key in ("generator", "source", "screenTemplate"):
+        if not isinstance(provenance.get(key), str) or not provenance[key]:
+            fail(rel + ": provenance." + key + " required")
+    actions = doc.get("actions")
+    if not isinstance(actions, list) or not actions:
+        fail(rel + ": non-empty actions array required")
+    action_ids = []
+    for index, action in enumerate(actions):
+        if not isinstance(action, dict):
+            fail(rel + ": actions[" + str(index) + "] must be an object")
+        for key in ("id", "component", "slotRole", "handler"):
+            if not isinstance(action.get(key), str) or not action[key]:
+                fail(rel + ": actions[" + str(index) + "]." + key + " required")
+        if screen["runtime"] == "proof-only" and not action["handler"].startswith("proof."):
+            fail(rel + ": proof-only action handler must use proof.*: " + action["id"])
+        action_ids.append(action["id"])
+    if len(set(action_ids)) != len(action_ids):
+        fail(rel + ": action ids must be unique")
+    layouts = doc.get("layouts")
+    if not isinstance(layouts, dict) or set(layouts) != {"wide", "compact"}:
+        fail(rel + ": layouts must contain exactly wide and compact")
+    for layout_name in ("wide", "compact"):
+        layout = layouts[layout_name]
+        design = layout.get("designSize")
+        if (not isinstance(design, list) or len(design) != 2
+                or any(not isinstance(value, int) or value <= 0 for value in design)):
+            fail(rel + ": " + layout_name + ".designSize must contain positive integers")
+        resolved = layout.get("actions")
+        if not isinstance(resolved, dict) or set(resolved) != set(action_ids):
+            fail(rel + ": " + layout_name + " action geometry must cover every action")
+        for action_id, action_layout in resolved.items():
+            for rect_name in ("visibleRect", "hitRect"):
+                rect = action_layout.get(rect_name)
+                if (not isinstance(rect, list) or len(rect) != 4
+                        or any(not isinstance(value, int) or isinstance(value, bool) for value in rect)
+                        or rect[2] <= 0 or rect[3] <= 0):
+                    fail(rel + ": " + layout_name + ".actions." + action_id + "."
+                         + rect_name + " must be an integer rectangle")
+            hit = action_layout["hitRect"]
+            if action_layout.get("coordinateSpace") == "screen":
+                if hit[2] < MIN_ACTION_TARGET or hit[3] < MIN_ACTION_TARGET:
+                    fail(rel + ": " + layout_name + " action " + action_id
+                         + " is below the 44x44 hit-target floor")
+                if (hit[0] < 0 or hit[1] < 0 or hit[0] + hit[2] > design[0]
+                        or hit[1] + hit[3] > design[1]):
+                    fail(rel + ": " + layout_name + " action " + action_id
+                         + " leaves the design canvas")
 
 
 def rgba_call(value):
@@ -923,6 +988,74 @@ def emit_family_h(doc, rel, ns, prefix, profile):
     return NL.join(out) + NL
 
 
+def emit_screen_h(doc, rel, ns, prefix):
+    """Emit typed screen/action layout data without reconstructing semantics."""
+    out = [HEADER_BANNER,
+           "// Canonical source: src/Calypso/Contracts/" + rel,
+           "#pragma once",
+           "namespace OpenXcom { namespace Calypso { namespace " + ns + " {",
+           'inline constexpr const char* kContractVersion = "' + doc["version"] + '";',
+           'inline constexpr const char* kScreenId = "' + doc["screen"]["id"] + '";',
+           'inline constexpr const char* kArchetype = "' + doc["screen"]["archetype"] + '";',
+           "inline constexpr bool kProductionHook = "
+           + ("true" if doc["screen"]["productionHook"] else "false") + ";",
+           "",
+           "struct " + prefix + "GenRect { int x; int y; int w; int h; };",
+           "struct " + prefix + "GenActionLayout",
+           "{",
+           TAB + "const char* id;",
+           TAB + "const char* component;",
+           TAB + "const char* slotRole;",
+           TAB + prefix + "GenRect visible;",
+           TAB + prefix + "GenRect hit;",
+           TAB + "int focusOrder;",
+           TAB + "int zOrder;",
+           "};",
+           "struct " + prefix + "GenLayout",
+           "{",
+           TAB + "int designWidth;",
+           TAB + "int designHeight;",
+           TAB + "const " + prefix + "GenActionLayout* actions;",
+           TAB + "int actionCount;",
+           "};",
+           ""]
+    arrays = []
+    for layout_name, label in (("wide", "Wide"), ("compact", "Compact")):
+        layout = doc["layouts"][layout_name]
+        array_name = "k" + label + "Actions"
+        arrays.append((array_name, layout))
+        out += ["inline constexpr " + prefix + "GenActionLayout " + array_name + "[] =", "{"]
+        for action in doc["actions"]:
+            resolved = layout["actions"][action["id"]]
+            visible = resolved["visibleRect"]
+            hit = resolved["hitRect"]
+            focus = resolved.get("focusOrder")
+            out.append(TAB + '{ "' + action["id"] + '", "' + action["component"]
+                       + '", "' + action["slotRole"] + '", { '
+                       + ", ".join(str(value) for value in visible) + " }, { "
+                       + ", ".join(str(value) for value in hit) + " }, "
+                       + str(focus if isinstance(focus, int) else -1) + ", "
+                       + str(resolved.get("zOrder", 1)) + " },")
+        out += ["};", ""]
+    out += ["inline constexpr " + prefix + "GenLayout kLayouts[] =", "{"]
+    for array_name, layout in arrays:
+        design = layout["designSize"]
+        out.append(TAB + "{ " + str(design[0]) + ", " + str(design[1]) + ", "
+                   + array_name + ", " + str(len(doc["actions"])) + " },")
+    out += ["};",
+            "inline constexpr int kLayoutCount = 2;",
+            "",
+            "inline const " + prefix + "GenLayout* layoutForDesign(int width, int height)",
+            "{",
+            TAB + "for (int index = 0; index < kLayoutCount; ++index)",
+            TAB + TAB + "if (kLayouts[index].designWidth == width && kLayouts[index].designHeight == height)",
+            TAB + TAB + TAB + "return &kLayouts[index];",
+            TAB + "return nullptr;",
+            "}",
+            "} } }"]
+    return NL.join(out) + NL
+
+
 def emit_js(rel, obj, gname):
     body = json.dumps(obj, indent=2, sort_keys=True)
     return ("// AUTO-GENERATED by tools/generate-hd-ui-contracts.py -- DO NOT EDIT." + NL
@@ -956,6 +1089,8 @@ def main(argv):
             validate_theme(doc)
         elif entry["emitter"] == "legacy-abandon":
             validate_f33(doc)
+        elif entry["emitter"] == "screen":
+            validate_screen(doc, rel)
         else:
             validate_family(doc, rel, entry["validationProfile"],
                             entry.get("engineTextCalibration", False))
@@ -979,6 +1114,9 @@ def main(argv):
             native_text = emit_theme_h(doc)
         elif entry["emitter"] == "legacy-abandon":
             native_text = emit_f33_h(doc)
+        elif entry["emitter"] == "screen":
+            native_text = emit_screen_h(
+                doc, rel, native["namespace"], native["prefix"])
         elif entry["validationProfile"] == "small-confirmation":
             native_text = emit_small_confirmation_h(
                 doc, rel, native["namespace"], native["prefix"])

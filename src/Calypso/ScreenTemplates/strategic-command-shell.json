@@ -1,0 +1,78 @@
+{
+  "schema": 1,
+  "id": "strategic-command-shell",
+  "version": "hd.2026-08-20.1",
+  "requiredActionIds": ["action.bases", "action.graphs", "action.extended", "action.intercept", "action.ufopaedia", "action.options", "time.pause", "time.speed.5sec", "time.speed.1min", "time.speed.5min", "time.speed.30min", "time.speed.1hour", "time.speed.1day"],
+  "forbiddenPersistentPatterns": ["research", "manufacture"],
+  "layouts": {
+    "wide": {
+      "canvas": [1280, 720],
+      "regions": {
+        "session": [18, 16, 122, 46],
+        "status": [400, 16, 480, 46],
+        "world": [172, 70, 936, 552],
+        "worldTools": [176, 474, 48, 132],
+        "notification": [936, 552, 320, 76],
+        "timeControl": [280, 634, 720, 72]
+      },
+      "reservedRegions": [
+        {"id": "left-command-rail", "bounds": [18, 126, 132, 316]},
+        {"id": "right-command-rail", "bounds": [1130, 126, 132, 316]},
+        {"id": "time-control", "bounds": [272, 626, 736, 88]}
+      ],
+      "slots": {
+        "primary-left-1": {"visibleRect": [24, 138, 120, 84]},
+        "primary-left-2": {"visibleRect": [24, 242, 120, 84]},
+        "primary-left-3": {"visibleRect": [24, 346, 120, 84]},
+        "primary-right-1": {"visibleRect": [1136, 138, 120, 84]},
+        "primary-right-2": {"visibleRect": [1136, 242, 120, 84]},
+        "primary-right-3": {"visibleRect": [1136, 346, 120, 84]},
+        "world-zoom-in": {"visibleRect": [177, 475, 46, 44]},
+        "world-recenter": {"visibleRect": [177, 519, 46, 44]},
+        "world-zoom-out": {"visibleRect": [177, 563, 46, 44]},
+        "notification-open": {"visibleRect": [1211, 568, 44, 44]},
+        "time-pause": {"visibleRect": [280, 638, 64, 64]},
+        "time-5sec": {"visibleRect": [362, 650, 105, 54]},
+        "time-1min": {"visibleRect": [467, 650, 105, 54]},
+        "time-5min": {"visibleRect": [572, 650, 105, 54]},
+        "time-30min": {"visibleRect": [677, 650, 105, 54]},
+        "time-1hour": {"visibleRect": [782, 650, 105, 54]},
+        "time-1day": {"visibleRect": [887, 650, 105, 54]}
+      }
+    },
+    "compact": {
+      "canvas": [740, 360],
+      "regions": {
+        "session": [8, 8, 44, 44],
+        "status": [171, 8, 350, 38],
+        "world": [0, 0, 520, 296],
+        "worldTools": [464, 156, 44, 126],
+        "notification": [12, 62, 194, 60],
+        "timeControl": [12, 296, 716, 56]
+      },
+      "reservedRegions": [
+        {"id": "right-command-rail", "bounds": [516, 46, 216, 230]},
+        {"id": "time-control", "bounds": [8, 292, 724, 64]}
+      ],
+      "slots": {
+        "primary-left-1": {"visibleRect": [524, 54, 96, 66]},
+        "primary-left-2": {"visibleRect": [524, 128, 96, 66]},
+        "primary-left-3": {"visibleRect": [524, 202, 96, 66]},
+        "primary-right-1": {"visibleRect": [628, 54, 96, 66]},
+        "primary-right-2": {"visibleRect": [628, 128, 96, 66]},
+        "primary-right-3": {"visibleRect": [628, 202, 96, 66]},
+        "world-zoom-in": {"visibleRect": [465, 157, 44, 44]},
+        "world-recenter": {"visibleRect": [465, 201, 44, 44]},
+        "world-zoom-out": {"visibleRect": [465, 245, 44, 44]},
+        "notification-open": {"visibleRect": [161, 70, 44, 44]},
+        "time-pause": {"visibleRect": [12, 299, 50, 50]},
+        "time-5sec": {"visibleRect": [74, 303, 109, 48]},
+        "time-1min": {"visibleRect": [183, 303, 109, 48]},
+        "time-5min": {"visibleRect": [292, 303, 109, 48]},
+        "time-30min": {"visibleRect": [401, 303, 109, 48]},
+        "time-1hour": {"visibleRect": [510, 303, 109, 48]},
+        "time-1day": {"visibleRect": [619, 303, 109, 48]}
+      }
+    }
+  }
+}

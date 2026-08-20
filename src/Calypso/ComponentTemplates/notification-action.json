@@ -1,0 +1,8 @@
+{
+  "schema": 1,
+  "id": "notification-action",
+  "version": "hd.2026-08-20.1",
+  "minimumTarget": [44, 44],
+  "allowedSlotRoles": ["notification-open"],
+  "allowedTones": ["normal", "primary", "warning", "danger"]
+}

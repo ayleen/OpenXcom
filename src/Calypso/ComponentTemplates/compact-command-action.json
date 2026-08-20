@@ -1,0 +1,8 @@
+{
+  "schema": 1,
+  "id": "compact-command-action",
+  "version": "hd.2026-08-20.1",
+  "minimumTarget": [44, 44],
+  "allowedSlotRoles": ["compact-primary-1", "compact-primary-2", "compact-primary-3", "compact-primary-4", "compact-primary-5", "compact-primary-6", "world-zoom-in", "world-recenter", "world-zoom-out"],
+  "allowedTones": ["normal", "primary", "warning", "danger"]
+}

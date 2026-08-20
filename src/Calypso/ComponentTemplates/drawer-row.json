@@ -1,0 +1,8 @@
+{
+  "schema": 1,
+  "id": "drawer-row",
+  "version": "hd.2026-08-20.1",
+  "minimumTarget": [44, 44],
+  "allowedSlotRoles": ["drawer-row-1", "drawer-row-2", "drawer-row-3"],
+  "allowedTones": ["normal", "primary", "warning", "danger"]
+}
