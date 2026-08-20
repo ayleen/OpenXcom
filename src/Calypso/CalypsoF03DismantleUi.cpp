@@ -104,6 +104,9 @@ void CalypsoF03DismantleUi::configure(DismantleFacilityState& s, bool allow) {
     if(!allow || !s._game || !s._game->getMod()->isHdUiFamilyEnabled("F03")) { s._hdLayout=false; return; }
     s._hdLayout = true; s._hdWideLayout = (Options::baseXResolution >= 1000);
     applyRects(s, s._hdWideLayout);
+    const auto* g = CalypsoF03DismantleGen::layoutForDesign(s._hdWideLayout?1280:740, s._hdWideLayout?720:360);
+    if (g) s.enableUiScaling(g->designWidth, g->designHeight, 1.0f, false);
+    else s.enableUiScaling(s._hdWideLayout?1280:740, s._hdWideLayout?720:360, 1.0f, false);
     auto* a = new CalypsoF03DismantleUi(&s);
     s._hdAdapter = a;
     CalypsoHdUiOverlay::instance().registerAdapter(a);
@@ -111,8 +114,16 @@ void CalypsoF03DismantleUi::configure(DismantleFacilityState& s, bool allow) {
 bool CalypsoF03DismantleUi::resize(DismantleFacilityState& s) {
     if(!s._hdLayout) return false;
     bool wide = (Options::baseXResolution >= 1000);
-    s._hdWideLayout = wide;
-    applyRects(s, wide);
+    if (wide != s._hdWideLayout) {
+        s._hdWideLayout = wide;
+        applyRects(s, wide);
+        const auto* g = CalypsoF03DismantleGen::layoutForDesign(wide?1280:740, wide?720:360);
+        if (g) s.recaptureUiScaling(g->designWidth, g->designHeight, 1.0f, false);
+        else s.recaptureUiScaling(wide?1280:740, wide?720:360, 1.0f, false);
+    } else {
+        applyRects(s, wide);
+        s.applyUiScaling();
+    }
     return true;
 }
 } }

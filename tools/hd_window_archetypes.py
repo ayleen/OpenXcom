@@ -320,7 +320,11 @@ def _validate_template(template):
     tones = template["supportedButtonTones"]
     styles = template["buttonToneStyles"]
     expected_tones = {"normal", "safe", "primary", "warning", "danger"}
-    if not isinstance(tones, list) or set(tones) != expected_tones:
+    if (
+        not isinstance(tones, list)
+        or not all(isinstance(t, str) for t in tones)
+        or set(tones) != expected_tones
+    ):
         raise ArchetypeError("template.supportedButtonTones drifted")
     if not isinstance(styles, dict) or set(styles) != expected_tones:
         raise ArchetypeError("template.buttonToneStyles must resolve every tone")
@@ -694,7 +698,10 @@ def _validate_controls(controls, template, label):
                     item_label + ".value must be a single line of at most 64 characters"
                 )
             _one_line(control["placeholder"], item_label + ".placeholder", 32)
-        elif not isinstance(control.get("tone"), str) or control["tone"] not in template["supportedButtonTones"]:
+        elif (
+            not isinstance(control.get("tone"), str)
+            or control["tone"] not in template["supportedButtonTones"]
+        ):
             raise ArchetypeError(item_label + ".tone is unsupported")
         generated = copy.deepcopy(control)
         if kind == "action":
@@ -1236,7 +1243,9 @@ def _collection_parts(collection, template, prefix):
     base = (prefix + ".") if prefix else ""
     parts = [base + "scroll.track", base + "scroll.thumb"]
     if collection["mode"] in {"list", "table"}:
-        parts.extend(base + "column." + column["id"] for column in collection["columns"])
+        parts.extend(
+            base + "column." + column["id"] for column in collection["columns"]
+        )
         max_slots = max(
             template["layouts"]["wide"]["visibleRows"],
             template["layouts"]["compact"]["visibleRows"],
@@ -1244,11 +1253,16 @@ def _collection_parts(collection, template, prefix):
         parts.extend(base + "row-slot." + str(index + 1) for index in range(max_slots))
     else:
         max_slots = max(
-            template["layouts"]["wide"]["gridColumns"] * template["layouts"]["wide"]["gridRows"],
-            template["layouts"]["compact"]["gridColumns"] * template["layouts"]["compact"]["gridRows"],
+            template["layouts"]["wide"]["gridColumns"]
+            * template["layouts"]["wide"]["gridRows"],
+            template["layouts"]["compact"]["gridColumns"]
+            * template["layouts"]["compact"]["gridRows"],
         )
         parts.extend(base + "tile-slot." + str(index + 1) for index in range(max_slots))
-        parts.extend(base + "tile-slot." + str(index + 1) + ".label" for index in range(max_slots))
+        parts.extend(
+            base + "tile-slot." + str(index + 1) + ".label"
+            for index in range(max_slots)
+        )
     return parts
 
 
@@ -1428,7 +1442,6 @@ def _build_collection(config, template, source_name, template_name):
     out["copy"]["collection"] = copy.deepcopy(config["collection"])
     out["copy"]["controls"] = copy.deepcopy(config["controls"])
     out["collectionMetrics"] = {}
-    mode = collection["mode"]
     for name in ("wide", "compact"):
         authored = template["layouts"][name]
         action_rects = _action_rects(actions, authored)
@@ -2038,6 +2051,7 @@ def _build_detail_regions(config, template, source_name, template_name):
                     content,
                     name + "." + region["id"],
                 )
+                generated["content"] = content
                 generated["actionSlots"] = action_slots
                 for region_action in generated_region_actions[region["id"]]:
                     _ensure_text_fits(
