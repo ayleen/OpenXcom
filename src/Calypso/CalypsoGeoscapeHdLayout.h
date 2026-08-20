@@ -147,14 +147,6 @@ private:
 	std::array<GeoscapeHdRect, GEOSCAPE_HD_COMPONENT_COUNT> _rects;
 };
 
-inline GeoscapeHdRect calypsoGeoscapeScaleRect(
-	const GeoscapeHdRect& source, double scale, int offsetX, int offsetY)
-{
-	const auto round = [](double value) { return static_cast<int>(value + 0.5); };
-	return {offsetX + round(source.x * scale), offsetY + round(source.y * scale),
-		round(source.width * scale), round(source.height * scale)};
-}
-
 inline GeoscapeHdLayout calypsoGeoscapeHdLayout(
 	int viewportWidth, int viewportHeight, CalypsoSafeInsets insets)
 {
@@ -222,16 +214,65 @@ inline GeoscapeHdLayout calypsoGeoscapeHdLayout(
 	}
 	else
 	{
-		const double scale = std::min(
-			static_cast<double>(metrics.safeWidth) / 740,
-			static_cast<double>(metrics.safeHeight) / 360);
-		const int renderedWidth = static_cast<int>(740 * scale + 0.5);
-		const int renderedHeight = static_cast<int>(360 * scale + 0.5);
-		const int offsetX = metrics.safeX + (metrics.safeWidth - renderedWidth) / 2;
-		const int offsetY = metrics.safeY + (metrics.safeHeight - renderedHeight) / 2;
+		const int x = metrics.safeX;
+		const int y = metrics.safeY;
+		const int w = metrics.safeWidth;
+		const int h = metrics.safeHeight;
+		const int extraWidth = std::max(0, w - 740);
+		const int extraHeight = std::max(0, h - 360);
 
-		for (std::size_t i = 0; i < result.size(); ++i)
-			result[i] = calypsoGeoscapeScaleRect(GEOSCAPE_HD_COMPACT_RECTS[i], scale, offsetX, offsetY);
+		set(GeoscapeHdComponent::WorldBackground, safe);
+		set(GeoscapeHdComponent::Session, {x + 8, y + 8, 44, 44});
+		set(GeoscapeHdComponent::StatusPrimary,
+			{x + 171 + extraWidth / 2, y + 8, 350, 38});
+
+		const GeoscapeHdRect world{x, y, 520 + extraWidth, 296 + extraHeight};
+		set(GeoscapeHdComponent::WorldInteraction, world);
+		const auto projectMarker = [&world](const GeoscapeHdRect& authored)
+		{
+			const auto round = [](double value) { return static_cast<int>(value + 0.5); };
+			return GeoscapeHdRect{
+				world.x + round(authored.x * static_cast<double>(world.width) / 520),
+				world.y + round(authored.y * static_cast<double>(world.height) / 296),
+				authored.width, authored.height};
+		};
+		set(GeoscapeHdComponent::MarkerContact,
+			projectMarker(GEOSCAPE_HD_COMPACT_RECTS[static_cast<std::size_t>(GeoscapeHdComponent::MarkerContact)]));
+		set(GeoscapeHdComponent::MarkerBase,
+			projectMarker(GEOSCAPE_HD_COMPACT_RECTS[static_cast<std::size_t>(GeoscapeHdComponent::MarkerBase)]));
+
+		const int leftRailX = x + w - 216;
+		const int rightRailX = x + w - 112;
+		const int toolsX = leftRailX - 60;
+		const int toolsY = y + 156 + extraHeight;
+		set(GeoscapeHdComponent::WorldTools, {toolsX, toolsY, 44, 126});
+		set(GeoscapeHdComponent::ZoomIn, {toolsX + 1, toolsY + 1, 44, 44});
+		set(GeoscapeHdComponent::Recenter, {toolsX + 1, toolsY + 45, 44, 44});
+		set(GeoscapeHdComponent::ZoomOut, {toolsX + 1, toolsY + 89, 44, 44});
+
+		set(GeoscapeHdComponent::ActionBases, {leftRailX, y + 54, 96, 66});
+		set(GeoscapeHdComponent::ActionGraphs, {leftRailX, y + 128, 96, 66});
+		set(GeoscapeHdComponent::ActionFundingOrExtended, {leftRailX, y + 202, 96, 66});
+		set(GeoscapeHdComponent::ActionIntercept, {rightRailX, y + 54, 96, 66});
+		set(GeoscapeHdComponent::ActionUfopaedia, {rightRailX, y + 128, 96, 66});
+		set(GeoscapeHdComponent::ActionOptions, {rightRailX, y + 202, 96, 66});
+
+		set(GeoscapeHdComponent::NotificationContact, {x + 12, y + 62, 194, 60});
+		set(GeoscapeHdComponent::NotificationOpen, {x + 161, y + 70, 44, 44});
+		const int timeY = y + h - 64;
+		set(GeoscapeHdComponent::TimeControl, {x + 12, timeY, w - 24, 56});
+		set(GeoscapeHdComponent::TimePause, {x + 12, timeY + 3, 50, 50});
+		constexpr std::array<GeoscapeHdComponent, 6> speedIds{{
+			GeoscapeHdComponent::Speed5Seconds, GeoscapeHdComponent::Speed1Minute,
+			GeoscapeHdComponent::Speed5Minutes, GeoscapeHdComponent::Speed30Minutes,
+			GeoscapeHdComponent::Speed1Hour, GeoscapeHdComponent::Speed1Day
+		}};
+		for (std::size_t i = 0; i < speedIds.size(); ++i)
+		{
+			const int distributedGap = extraWidth * static_cast<int>(i) / 6;
+			set(speedIds[i], {x + 74 + static_cast<int>(i) * 109 + distributedGap,
+				timeY + 7, 109, 48});
+		}
 	}
 
 	return GeoscapeHdLayout(viewportWidth, viewportHeight, safe, metrics.layoutClass, result);

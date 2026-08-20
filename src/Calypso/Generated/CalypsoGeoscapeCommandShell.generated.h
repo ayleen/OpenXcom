@@ -7,6 +7,7 @@ inline constexpr const char* kContractVersion = "hd.2026-08-20.22";
 inline constexpr const char* kScreenId = "geoscape-command-shell";
 inline constexpr const char* kArchetype = "strategic-command-shell";
 inline constexpr bool kProductionHook = true;
+inline constexpr const char* kSelectedSpeed = "time.speed.1min";
 
 struct CalypsoGeoscapeCommandShellGenRect { int x; int y; int w; int h; };
 struct CalypsoGeoscapeCommandShellGenNamedRect
@@ -20,6 +21,7 @@ struct CalypsoGeoscapeCommandShellGenActionLayout
 	const char* label;
 	const char* component;
 	const char* slotRole;
+	const char* coordinateSpace;
 	CalypsoGeoscapeCommandShellGenRect visible;
 	CalypsoGeoscapeCommandShellGenRect hit;
 	int focusOrder;
@@ -52,37 +54,37 @@ inline constexpr CalypsoGeoscapeCommandShellGenNamedRect kWideRegions[] =
 
 inline constexpr CalypsoGeoscapeCommandShellGenActionLayout kWideActions[] =
 {
-	{ "action.session", "Session", "compact-command-action", "session-action", { 18, 16, 122, 46 }, { 18, 16, 122, 46 }, 5, 1 },
-	{ "action.bases", "Bases", "command-icon-action", "primary-left-1", { 24, 138, 120, 84 }, { 24, 138, 120, 84 }, 10, 1 },
-	{ "action.graphs", "Graphs", "command-icon-action", "primary-left-2", { 24, 242, 120, 84 }, { 24, 242, 120, 84 }, 20, 1 },
-	{ "action.extended", "Funding", "command-icon-action", "primary-left-3", { 24, 346, 120, 84 }, { 24, 346, 120, 84 }, 30, 1 },
-	{ "action.intercept", "Intercept", "command-icon-action", "primary-right-1", { 1136, 138, 120, 84 }, { 1136, 138, 120, 84 }, 40, 1 },
-	{ "action.ufopaedia", "Ufopaedia", "command-icon-action", "primary-right-2", { 1136, 242, 120, 84 }, { 1136, 242, 120, 84 }, 50, 1 },
-	{ "action.options", "Options", "command-icon-action", "primary-right-3", { 1136, 346, 120, 84 }, { 1136, 346, 120, 84 }, 60, 1 },
-	{ "drawer.funding", "Funding overview", "drawer-row", "drawer-row", { 0, 0, 360, 48 }, { 0, 0, 360, 48 }, 201, 60 },
-	{ "drawer.tech-tree", "Tech tree", "drawer-row", "drawer-row", { 0, 48, 360, 48 }, { 0, 48, 360, 48 }, 202, 60 },
-	{ "drawer.global-research", "Global research", "drawer-row", "drawer-row", { 0, 96, 360, 48 }, { 0, 96, 360, 48 }, 203, 60 },
-	{ "drawer.global-production", "Global production", "drawer-row", "drawer-row", { 0, 144, 360, 48 }, { 0, 144, 360, 48 }, 204, 60 },
-	{ "drawer.global-containment", "Global containment", "drawer-row", "drawer-row", { 0, 192, 360, 48 }, { 0, 192, 360, 48 }, 205, 60 },
-	{ "drawer.ufo-tracker", "UFO tracker", "drawer-row", "drawer-row", { 0, 240, 360, 48 }, { 0, 240, 360, 48 }, 206, 60 },
-	{ "drawer.pilot-experience", "Pilot experience", "drawer-row", "drawer-row", { 0, 288, 360, 48 }, { 0, 288, 360, 48 }, 207, 60 },
-	{ "drawer.notes", "Notes", "drawer-row", "drawer-row", { 0, 336, 360, 48 }, { 0, 336, 360, 48 }, 208, 60 },
-	{ "drawer.music", "Music", "drawer-row", "drawer-row", { 0, 384, 360, 48 }, { 0, 384, 360, 48 }, 209, 60 },
-	{ "drawer.debug", "Debug", "drawer-row", "drawer-row", { 0, 432, 360, 48 }, { 0, 432, 360, 48 }, 210, 60 },
-	{ "drawer.quick-save", "Quick save", "drawer-row", "drawer-row", { 0, 480, 360, 48 }, { 0, 480, 360, 48 }, 211, 60 },
-	{ "drawer.instant-save", "Instant save", "drawer-row", "drawer-row", { 0, 528, 360, 48 }, { 0, 528, 360, 48 }, 212, 60 },
-	{ "drawer.quick-load", "Quick load", "drawer-row", "drawer-row", { 0, 576, 360, 48 }, { 0, 576, 360, 48 }, 213, 60 },
-	{ "world.zoom-in", "Zoom in", "compact-command-action", "world-zoom-in", { 177, 475, 46, 44 }, { 177, 475, 46, 44 }, 70, 1 },
-	{ "world.recenter", "Recenter", "compact-command-action", "world-recenter", { 177, 519, 46, 44 }, { 177, 519, 46, 44 }, 80, 1 },
-	{ "world.zoom-out", "Zoom out", "compact-command-action", "world-zoom-out", { 177, 563, 46, 44 }, { 177, 563, 46, 44 }, 90, 1 },
-	{ "notification.open", "Open alert", "notification-action", "notification-open", { 1211, 568, 44, 44 }, { 1211, 568, 44, 44 }, 100, 1 },
-	{ "time.pause", "Pause", "time-speed-control", "time-pause", { 280, 638, 64, 64 }, { 280, 638, 64, 64 }, 110, 1 },
-	{ "time.speed.5sec", "5 sec", "time-speed-control", "time-5sec", { 362, 650, 105, 54 }, { 362, 650, 105, 54 }, 120, 1 },
-	{ "time.speed.1min", "1 min", "time-speed-control", "time-1min", { 467, 650, 105, 54 }, { 467, 650, 105, 54 }, 130, 1 },
-	{ "time.speed.5min", "5 min", "time-speed-control", "time-5min", { 572, 650, 105, 54 }, { 572, 650, 105, 54 }, 140, 1 },
-	{ "time.speed.30min", "30 min", "time-speed-control", "time-30min", { 677, 650, 105, 54 }, { 677, 650, 105, 54 }, 150, 1 },
-	{ "time.speed.1hour", "1 hour", "time-speed-control", "time-1hour", { 782, 650, 105, 54 }, { 782, 650, 105, 54 }, 160, 1 },
-	{ "time.speed.1day", "1 day", "time-speed-control", "time-1day", { 887, 650, 105, 54 }, { 887, 650, 105, 54 }, 170, 1 },
+	{ "action.session", "Session", "compact-command-action", "session-action", "screen", { 18, 16, 122, 46 }, { 18, 16, 122, 46 }, 5, 1 },
+	{ "action.bases", "Bases", "command-icon-action", "primary-left-1", "screen", { 24, 138, 120, 84 }, { 24, 138, 120, 84 }, 10, 1 },
+	{ "action.graphs", "Graphs", "command-icon-action", "primary-left-2", "screen", { 24, 242, 120, 84 }, { 24, 242, 120, 84 }, 20, 1 },
+	{ "action.extended", "Extended", "command-icon-action", "primary-left-3", "screen", { 24, 346, 120, 84 }, { 24, 346, 120, 84 }, 30, 1 },
+	{ "action.intercept", "Intercept", "command-icon-action", "primary-right-1", "screen", { 1136, 138, 120, 84 }, { 1136, 138, 120, 84 }, 40, 1 },
+	{ "action.ufopaedia", "Ufopaedia", "command-icon-action", "primary-right-2", "screen", { 1136, 242, 120, 84 }, { 1136, 242, 120, 84 }, 50, 1 },
+	{ "action.options", "Options", "command-icon-action", "primary-right-3", "screen", { 1136, 346, 120, 84 }, { 1136, 346, 120, 84 }, 60, 1 },
+	{ "drawer.funding", "Funding overview", "drawer-row", "drawer-row", "drawer", { 0, 0, 360, 48 }, { 0, 0, 360, 48 }, 201, 60 },
+	{ "drawer.tech-tree", "Tech tree", "drawer-row", "drawer-row", "drawer", { 0, 48, 360, 48 }, { 0, 48, 360, 48 }, 202, 60 },
+	{ "drawer.global-research", "Global research", "drawer-row", "drawer-row", "drawer", { 0, 96, 360, 48 }, { 0, 96, 360, 48 }, 203, 60 },
+	{ "drawer.global-production", "Global production", "drawer-row", "drawer-row", "drawer", { 0, 144, 360, 48 }, { 0, 144, 360, 48 }, 204, 60 },
+	{ "drawer.global-containment", "Global containment", "drawer-row", "drawer-row", "drawer", { 0, 192, 360, 48 }, { 0, 192, 360, 48 }, 205, 60 },
+	{ "drawer.ufo-tracker", "UFO tracker", "drawer-row", "drawer-row", "drawer", { 0, 240, 360, 48 }, { 0, 240, 360, 48 }, 206, 60 },
+	{ "drawer.pilot-experience", "Pilot experience", "drawer-row", "drawer-row", "drawer", { 0, 288, 360, 48 }, { 0, 288, 360, 48 }, 207, 60 },
+	{ "drawer.notes", "Notes", "drawer-row", "drawer-row", "drawer", { 0, 336, 360, 48 }, { 0, 336, 360, 48 }, 208, 60 },
+	{ "drawer.music", "Music", "drawer-row", "drawer-row", "drawer", { 0, 384, 360, 48 }, { 0, 384, 360, 48 }, 209, 60 },
+	{ "drawer.debug", "Debug", "drawer-row", "drawer-row", "drawer", { 0, 432, 360, 48 }, { 0, 432, 360, 48 }, 210, 60 },
+	{ "drawer.quick-save", "Quick save", "drawer-row", "drawer-row", "drawer", { 0, 480, 360, 48 }, { 0, 480, 360, 48 }, 211, 60 },
+	{ "drawer.instant-save", "Instant save", "drawer-row", "drawer-row", "drawer", { 0, 528, 360, 48 }, { 0, 528, 360, 48 }, 212, 60 },
+	{ "drawer.quick-load", "Quick load", "drawer-row", "drawer-row", "drawer", { 0, 576, 360, 48 }, { 0, 576, 360, 48 }, 213, 60 },
+	{ "world.zoom.in", "Zoom in", "compact-command-action", "world-zoom-in", "screen", { 177, 475, 46, 44 }, { 177, 475, 46, 44 }, 70, 1 },
+	{ "world.recenter", "Recenter", "compact-command-action", "world-recenter", "screen", { 177, 519, 46, 44 }, { 177, 519, 46, 44 }, 80, 1 },
+	{ "world.zoom.out", "Zoom out", "compact-command-action", "world-zoom-out", "screen", { 177, 563, 46, 44 }, { 177, 563, 46, 44 }, 90, 1 },
+	{ "notification.contact.open", "Open alert", "notification-action", "notification-open", "screen", { 1211, 568, 44, 44 }, { 1211, 568, 44, 44 }, 100, 1 },
+	{ "time.pause", "Pause", "time-speed-control", "time-pause", "screen", { 280, 638, 64, 64 }, { 280, 638, 64, 64 }, 110, 1 },
+	{ "time.speed.5sec", "5 sec", "time-speed-control", "time-5sec", "screen", { 362, 650, 105, 54 }, { 362, 650, 105, 54 }, 120, 1 },
+	{ "time.speed.1min", "1 min", "time-speed-control", "time-1min", "screen", { 467, 650, 105, 54 }, { 467, 650, 105, 54 }, 130, 1 },
+	{ "time.speed.5min", "5 min", "time-speed-control", "time-5min", "screen", { 572, 650, 105, 54 }, { 572, 650, 105, 54 }, 140, 1 },
+	{ "time.speed.30min", "30 min", "time-speed-control", "time-30min", "screen", { 677, 650, 105, 54 }, { 677, 650, 105, 54 }, 150, 1 },
+	{ "time.speed.1hour", "1 hour", "time-speed-control", "time-1hour", "screen", { 782, 650, 105, 54 }, { 782, 650, 105, 54 }, 160, 1 },
+	{ "time.speed.1day", "1 day", "time-speed-control", "time-1day", "screen", { 887, 650, 105, 54 }, { 887, 650, 105, 54 }, 170, 1 },
 };
 
 inline constexpr CalypsoGeoscapeCommandShellGenNamedRect kCompactRegions[] =
@@ -97,37 +99,37 @@ inline constexpr CalypsoGeoscapeCommandShellGenNamedRect kCompactRegions[] =
 
 inline constexpr CalypsoGeoscapeCommandShellGenActionLayout kCompactActions[] =
 {
-	{ "action.session", "Session", "compact-command-action", "session-action", { 8, 8, 44, 44 }, { 8, 8, 44, 44 }, 5, 1 },
-	{ "action.bases", "Bases", "command-icon-action", "primary-left-1", { 524, 54, 96, 66 }, { 524, 54, 96, 66 }, 10, 1 },
-	{ "action.graphs", "Graphs", "command-icon-action", "primary-left-2", { 524, 128, 96, 66 }, { 524, 128, 96, 66 }, 20, 1 },
-	{ "action.extended", "Funding", "command-icon-action", "primary-left-3", { 524, 202, 96, 66 }, { 524, 202, 96, 66 }, 30, 1 },
-	{ "action.intercept", "Intercept", "command-icon-action", "primary-right-1", { 628, 54, 96, 66 }, { 628, 54, 96, 66 }, 40, 1 },
-	{ "action.ufopaedia", "Ufopaedia", "command-icon-action", "primary-right-2", { 628, 128, 96, 66 }, { 628, 128, 96, 66 }, 50, 1 },
-	{ "action.options", "Options", "command-icon-action", "primary-right-3", { 628, 202, 96, 66 }, { 628, 202, 96, 66 }, 60, 1 },
-	{ "drawer.funding", "Funding overview", "drawer-row", "drawer-row", { 0, 0, 320, 48 }, { 0, 0, 320, 48 }, 201, 60 },
-	{ "drawer.tech-tree", "Tech tree", "drawer-row", "drawer-row", { 0, 48, 320, 48 }, { 0, 48, 320, 48 }, 202, 60 },
-	{ "drawer.global-research", "Global research", "drawer-row", "drawer-row", { 0, 96, 320, 48 }, { 0, 96, 320, 48 }, 203, 60 },
-	{ "drawer.global-production", "Global production", "drawer-row", "drawer-row", { 0, 144, 320, 48 }, { 0, 144, 320, 48 }, 204, 60 },
-	{ "drawer.global-containment", "Global containment", "drawer-row", "drawer-row", { 0, 192, 320, 48 }, { 0, 192, 320, 48 }, 205, 60 },
-	{ "drawer.ufo-tracker", "UFO tracker", "drawer-row", "drawer-row", { 0, 240, 320, 48 }, { 0, 240, 320, 48 }, 206, 60 },
-	{ "drawer.pilot-experience", "Pilot experience", "drawer-row", "drawer-row", { 0, 288, 320, 48 }, { 0, 288, 320, 48 }, 207, 60 },
-	{ "drawer.notes", "Notes", "drawer-row", "drawer-row", { 0, 336, 320, 48 }, { 0, 336, 320, 48 }, 208, 60 },
-	{ "drawer.music", "Music", "drawer-row", "drawer-row", { 0, 384, 320, 48 }, { 0, 384, 320, 48 }, 209, 60 },
-	{ "drawer.debug", "Debug", "drawer-row", "drawer-row", { 0, 432, 320, 48 }, { 0, 432, 320, 48 }, 210, 60 },
-	{ "drawer.quick-save", "Quick save", "drawer-row", "drawer-row", { 0, 480, 320, 48 }, { 0, 480, 320, 48 }, 211, 60 },
-	{ "drawer.instant-save", "Instant save", "drawer-row", "drawer-row", { 0, 528, 320, 48 }, { 0, 528, 320, 48 }, 212, 60 },
-	{ "drawer.quick-load", "Quick load", "drawer-row", "drawer-row", { 0, 576, 320, 48 }, { 0, 576, 320, 48 }, 213, 60 },
-	{ "world.zoom-in", "Zoom in", "compact-command-action", "world-zoom-in", { 465, 157, 44, 44 }, { 465, 157, 44, 44 }, 70, 1 },
-	{ "world.recenter", "Recenter", "compact-command-action", "world-recenter", { 465, 201, 44, 44 }, { 465, 201, 44, 44 }, 80, 1 },
-	{ "world.zoom-out", "Zoom out", "compact-command-action", "world-zoom-out", { 465, 245, 44, 44 }, { 465, 245, 44, 44 }, 90, 1 },
-	{ "notification.open", "Open alert", "notification-action", "notification-open", { 161, 70, 44, 44 }, { 161, 70, 44, 44 }, 100, 1 },
-	{ "time.pause", "Pause", "time-speed-control", "time-pause", { 12, 299, 50, 50 }, { 12, 299, 50, 50 }, 110, 1 },
-	{ "time.speed.5sec", "5 sec", "time-speed-control", "time-5sec", { 74, 303, 109, 48 }, { 74, 303, 109, 48 }, 120, 1 },
-	{ "time.speed.1min", "1 min", "time-speed-control", "time-1min", { 183, 303, 109, 48 }, { 183, 303, 109, 48 }, 130, 1 },
-	{ "time.speed.5min", "5 min", "time-speed-control", "time-5min", { 292, 303, 109, 48 }, { 292, 303, 109, 48 }, 140, 1 },
-	{ "time.speed.30min", "30 min", "time-speed-control", "time-30min", { 401, 303, 109, 48 }, { 401, 303, 109, 48 }, 150, 1 },
-	{ "time.speed.1hour", "1 hour", "time-speed-control", "time-1hour", { 510, 303, 109, 48 }, { 510, 303, 109, 48 }, 160, 1 },
-	{ "time.speed.1day", "1 day", "time-speed-control", "time-1day", { 619, 303, 109, 48 }, { 619, 303, 109, 48 }, 170, 1 },
+	{ "action.session", "Session", "compact-command-action", "session-action", "screen", { 8, 8, 44, 44 }, { 8, 8, 44, 44 }, 5, 1 },
+	{ "action.bases", "Bases", "command-icon-action", "primary-left-1", "screen", { 524, 54, 96, 66 }, { 524, 54, 96, 66 }, 10, 1 },
+	{ "action.graphs", "Graphs", "command-icon-action", "primary-left-2", "screen", { 524, 128, 96, 66 }, { 524, 128, 96, 66 }, 20, 1 },
+	{ "action.extended", "Extended", "command-icon-action", "primary-left-3", "screen", { 524, 202, 96, 66 }, { 524, 202, 96, 66 }, 30, 1 },
+	{ "action.intercept", "Intercept", "command-icon-action", "primary-right-1", "screen", { 628, 54, 96, 66 }, { 628, 54, 96, 66 }, 40, 1 },
+	{ "action.ufopaedia", "Ufopaedia", "command-icon-action", "primary-right-2", "screen", { 628, 128, 96, 66 }, { 628, 128, 96, 66 }, 50, 1 },
+	{ "action.options", "Options", "command-icon-action", "primary-right-3", "screen", { 628, 202, 96, 66 }, { 628, 202, 96, 66 }, 60, 1 },
+	{ "drawer.funding", "Funding overview", "drawer-row", "drawer-row", "drawer", { 0, 0, 320, 48 }, { 0, 0, 320, 48 }, 201, 60 },
+	{ "drawer.tech-tree", "Tech tree", "drawer-row", "drawer-row", "drawer", { 0, 48, 320, 48 }, { 0, 48, 320, 48 }, 202, 60 },
+	{ "drawer.global-research", "Global research", "drawer-row", "drawer-row", "drawer", { 0, 96, 320, 48 }, { 0, 96, 320, 48 }, 203, 60 },
+	{ "drawer.global-production", "Global production", "drawer-row", "drawer-row", "drawer", { 0, 144, 320, 48 }, { 0, 144, 320, 48 }, 204, 60 },
+	{ "drawer.global-containment", "Global containment", "drawer-row", "drawer-row", "drawer", { 0, 192, 320, 48 }, { 0, 192, 320, 48 }, 205, 60 },
+	{ "drawer.ufo-tracker", "UFO tracker", "drawer-row", "drawer-row", "drawer", { 0, 240, 320, 48 }, { 0, 240, 320, 48 }, 206, 60 },
+	{ "drawer.pilot-experience", "Pilot experience", "drawer-row", "drawer-row", "drawer", { 0, 288, 320, 48 }, { 0, 288, 320, 48 }, 207, 60 },
+	{ "drawer.notes", "Notes", "drawer-row", "drawer-row", "drawer", { 0, 336, 320, 48 }, { 0, 336, 320, 48 }, 208, 60 },
+	{ "drawer.music", "Music", "drawer-row", "drawer-row", "drawer", { 0, 384, 320, 48 }, { 0, 384, 320, 48 }, 209, 60 },
+	{ "drawer.debug", "Debug", "drawer-row", "drawer-row", "drawer", { 0, 432, 320, 48 }, { 0, 432, 320, 48 }, 210, 60 },
+	{ "drawer.quick-save", "Quick save", "drawer-row", "drawer-row", "drawer", { 0, 480, 320, 48 }, { 0, 480, 320, 48 }, 211, 60 },
+	{ "drawer.instant-save", "Instant save", "drawer-row", "drawer-row", "drawer", { 0, 528, 320, 48 }, { 0, 528, 320, 48 }, 212, 60 },
+	{ "drawer.quick-load", "Quick load", "drawer-row", "drawer-row", "drawer", { 0, 576, 320, 48 }, { 0, 576, 320, 48 }, 213, 60 },
+	{ "world.zoom.in", "Zoom in", "compact-command-action", "world-zoom-in", "screen", { 465, 157, 44, 44 }, { 465, 157, 44, 44 }, 70, 1 },
+	{ "world.recenter", "Recenter", "compact-command-action", "world-recenter", "screen", { 465, 201, 44, 44 }, { 465, 201, 44, 44 }, 80, 1 },
+	{ "world.zoom.out", "Zoom out", "compact-command-action", "world-zoom-out", "screen", { 465, 245, 44, 44 }, { 465, 245, 44, 44 }, 90, 1 },
+	{ "notification.contact.open", "Open alert", "notification-action", "notification-open", "screen", { 161, 70, 44, 44 }, { 161, 70, 44, 44 }, 100, 1 },
+	{ "time.pause", "Pause", "time-speed-control", "time-pause", "screen", { 12, 299, 50, 50 }, { 12, 299, 50, 50 }, 110, 1 },
+	{ "time.speed.5sec", "5 sec", "time-speed-control", "time-5sec", "screen", { 74, 303, 109, 48 }, { 74, 303, 109, 48 }, 120, 1 },
+	{ "time.speed.1min", "1 min", "time-speed-control", "time-1min", "screen", { 183, 303, 109, 48 }, { 183, 303, 109, 48 }, 130, 1 },
+	{ "time.speed.5min", "5 min", "time-speed-control", "time-5min", "screen", { 292, 303, 109, 48 }, { 292, 303, 109, 48 }, 140, 1 },
+	{ "time.speed.30min", "30 min", "time-speed-control", "time-30min", "screen", { 401, 303, 109, 48 }, { 401, 303, 109, 48 }, 150, 1 },
+	{ "time.speed.1hour", "1 hour", "time-speed-control", "time-1hour", "screen", { 510, 303, 109, 48 }, { 510, 303, 109, 48 }, 160, 1 },
+	{ "time.speed.1day", "1 day", "time-speed-control", "time-1day", "screen", { 619, 303, 109, 48 }, { 619, 303, 109, 48 }, 170, 1 },
 };
 
 inline constexpr CalypsoGeoscapeCommandShellGenLayout kLayouts[] =

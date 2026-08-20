@@ -1,7 +1,8 @@
 {
   "schema": 1,
   "id": "strategic-command-shell",
-  "version": "hd.2026-08-20.1",
+  "version": "hd.2026-08-20.2",
+  "coordinateSpaces": ["screen", "drawer"],
   "requiredActionIds": ["action.session", "action.bases", "action.graphs", "action.extended", "action.intercept", "action.ufopaedia", "action.options", "drawer.funding", "drawer.tech-tree", "drawer.global-research", "drawer.global-production", "drawer.global-containment", "drawer.ufo-tracker", "drawer.pilot-experience", "drawer.notes", "drawer.music", "drawer.debug", "drawer.quick-save", "drawer.instant-save", "drawer.quick-load", "time.pause", "time.speed.5sec", "time.speed.1min", "time.speed.5min", "time.speed.30min", "time.speed.1hour", "time.speed.1day"],
   "forbiddenPersistentPatterns": ["research", "manufacture"],
   "layouts": {

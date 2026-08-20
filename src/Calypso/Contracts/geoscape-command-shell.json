@@ -13,7 +13,7 @@
     "productionHook": true
   },
   "themeVersion": "hd.2026-08-20.22",
-  "archetypeVersion": "hd.2026-08-20.1",
+  "archetypeVersion": "hd.2026-08-20.2",
   "componentVersions": {
     "command-icon-action": "hd.2026-08-20.1",
     "compact-command-action": "hd.2026-08-20.1",
@@ -21,6 +21,10 @@
     "notification-action": "hd.2026-08-20.1",
     "time-speed-control": "hd.2026-08-20.1"
   },
+  "coordinateSpaces": [
+    "screen",
+    "drawer"
+  ],
   "actions": [
     {
       "id": "action.session",
@@ -83,12 +87,23 @@
     },
     {
       "id": "action.extended",
-      "labelKey": "STR_FUNDING",
+      "variantContext": "oxceLinks",
       "icon": "funding",
       "component": "command-icon-action",
       "slotRole": "primary-left-3",
       "tone": "normal",
-      "handler": "geoscape.openExtended",
+      "variants": [
+        {
+          "when": false,
+          "labelKey": "STR_FUNDING",
+          "handler": "geoscape.openFunding"
+        },
+        {
+          "when": true,
+          "labelKey": "STR_EXTENDED",
+          "handler": "geoscape.openExtended"
+        }
+      ],
       "inputs": [
         "pointer",
         "keyboard",
@@ -431,7 +446,7 @@
       "hotkey": "f9"
     },
     {
-      "id": "world.zoom-in",
+      "id": "world.zoom.in",
       "labelKey": "STR_ZOOM_IN",
       "icon": "plus",
       "component": "compact-command-action",
@@ -470,7 +485,7 @@
       "visibility": "persistent"
     },
     {
-      "id": "world.zoom-out",
+      "id": "world.zoom.out",
       "labelKey": "STR_ZOOM_OUT",
       "icon": "minus",
       "component": "compact-command-action",
@@ -490,7 +505,7 @@
       "hotkey": "-"
     },
     {
-      "id": "notification.open",
+      "id": "notification.contact.open",
       "labelKey": "STR_OPEN",
       "icon": "chevron",
       "component": "notification-action",
@@ -673,21 +688,22 @@
       "drawer.quick-save",
       "drawer.instant-save",
       "drawer.quick-load",
-      "notification.open"
+      "notification.contact.open"
     ],
     "sessionAction": "action.session"
   },
   "fixture": {
     "clock": "2040-01-01T12:28:00Z",
     "funds": 10210000,
-    "selectedSpeed": "time.speed.5sec",
+    "oxceLinks": true,
+    "selectedSpeed": "time.speed.1min",
     "notification": "ufo-detected-south-pacific",
     "labels": {
       "actions": {
         "action.session": "Session",
         "action.bases": "Bases",
         "action.graphs": "Graphs",
-        "action.extended": "Funding",
+        "action.extended": "Extended",
         "action.intercept": "Intercept",
         "action.ufopaedia": "Ufopaedia",
         "action.options": "Options",
@@ -704,10 +720,10 @@
         "drawer.quick-save": "Quick save",
         "drawer.instant-save": "Instant save",
         "drawer.quick-load": "Quick load",
-        "world.zoom-in": "Zoom in",
+        "world.zoom.in": "Zoom in",
         "world.recenter": "Recenter",
-        "world.zoom-out": "Zoom out",
-        "notification.open": "Open alert",
+        "world.zoom.out": "Zoom out",
+        "notification.contact.open": "Open alert",
         "time.pause": "Pause",
         "time.speed.5sec": "5 sec",
         "time.speed.1min": "1 min",
@@ -1200,8 +1216,8 @@
           "focusOrder": 213,
           "zOrder": 60
         },
-        "world.zoom-in": {
-          "id": "world.zoom-in",
+        "world.zoom.in": {
+          "id": "world.zoom.in",
           "component": "compact-command-action",
           "slotRole": "world-zoom-in",
           "coordinateSpace": "screen",
@@ -1240,8 +1256,8 @@
           "focusOrder": 80,
           "zOrder": 1
         },
-        "world.zoom-out": {
-          "id": "world.zoom-out",
+        "world.zoom.out": {
+          "id": "world.zoom.out",
           "component": "compact-command-action",
           "slotRole": "world-zoom-out",
           "coordinateSpace": "screen",
@@ -1260,8 +1276,8 @@
           "focusOrder": 90,
           "zOrder": 1
         },
-        "notification.open": {
-          "id": "notification.open",
+        "notification.contact.open": {
+          "id": "notification.contact.open",
           "component": "notification-action",
           "slotRole": "notification-open",
           "coordinateSpace": "screen",
@@ -1886,8 +1902,8 @@
           "focusOrder": 213,
           "zOrder": 60
         },
-        "world.zoom-in": {
-          "id": "world.zoom-in",
+        "world.zoom.in": {
+          "id": "world.zoom.in",
           "component": "compact-command-action",
           "slotRole": "world-zoom-in",
           "coordinateSpace": "screen",
@@ -1926,8 +1942,8 @@
           "focusOrder": 80,
           "zOrder": 1
         },
-        "world.zoom-out": {
-          "id": "world.zoom-out",
+        "world.zoom.out": {
+          "id": "world.zoom.out",
           "component": "compact-command-action",
           "slotRole": "world-zoom-out",
           "coordinateSpace": "screen",
@@ -1946,8 +1962,8 @@
           "focusOrder": 90,
           "zOrder": 1
         },
-        "notification.open": {
-          "id": "notification.open",
+        "notification.contact.open": {
+          "id": "notification.contact.open",
           "component": "notification-action",
           "slotRole": "notification-open",
           "coordinateSpace": "screen",

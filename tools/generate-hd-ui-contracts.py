@@ -556,6 +556,11 @@ def validate_screen(doc, rel):
         fail(rel + ": screen.runtime must be production or proof-only")
     if screen.get("productionHook") != (screen["runtime"] == "production"):
         fail(rel + ": screen.productionHook must derive from runtime")
+    coordinate_spaces = doc.get("coordinateSpaces")
+    if (not isinstance(coordinate_spaces, list) or not coordinate_spaces
+            or any(not isinstance(space, str) or not space for space in coordinate_spaces)
+            or len(set(coordinate_spaces)) != len(coordinate_spaces)):
+        fail(rel + ": coordinateSpaces must be a non-empty unique string array")
     provenance = doc.get("provenance") or {}
     for key in ("generator", "source", "screenTemplate"):
         if not isinstance(provenance.get(key), str) or not provenance[key]:
@@ -567,13 +572,37 @@ def validate_screen(doc, rel):
     for index, action in enumerate(actions):
         if not isinstance(action, dict):
             fail(rel + ": actions[" + str(index) + "] must be an object")
-        for key in ("id", "component", "slotRole", "handler"):
+        for key in ("id", "component", "slotRole"):
             if not isinstance(action.get(key), str) or not action[key]:
                 fail(rel + ": actions[" + str(index) + "]." + key + " required")
-        if not handler_matches_runtime(action["handler"], screen["runtime"]):
-            fail(rel + ": action handler must match the "
-                 + ("proof" if screen["runtime"] == "proof-only" else "production")
-                 + " runtime namespace grammar: " + action["id"])
+        variants = action.get("variants") or []
+        if variants:
+            context = action.get("variantContext")
+            if not isinstance(context, str) or not context:
+                fail(rel + ": action " + action["id"] + " variantContext required")
+            whens = []
+            for candidate in variants:
+                if (not isinstance(candidate, dict)
+                        or set(candidate) != {"when", "labelKey", "handler"}
+                        or not isinstance(candidate.get("when"), bool)
+                        or not all(isinstance(candidate.get(key), str) and candidate[key]
+                                   for key in ("labelKey", "handler"))):
+                    fail(rel + ": action " + action["id"]
+                         + " variants must contain boolean when, labelKey, handler")
+                whens.append(candidate["when"])
+            if len(whens) != 2 or set(whens) != {False, True}:
+                fail(rel + ": action " + action["id"]
+                     + " variants must contain unique exhaustive boolean branches")
+        candidates = variants or [action]
+        for candidate in candidates:
+            if (not isinstance(candidate, dict)
+                    or not isinstance(candidate.get("handler"), str)
+                    or not candidate["handler"]):
+                fail(rel + ": action handler required: " + action["id"])
+            if not handler_matches_runtime(candidate["handler"], screen["runtime"]):
+                fail(rel + ": action handler must match the "
+                     + ("proof" if screen["runtime"] == "proof-only" else "production")
+                     + " runtime namespace grammar: " + action["id"])
         action_ids.append(action["id"])
     if len(set(action_ids)) != len(action_ids):
         fail(rel + ": action ids must be unique")
@@ -629,6 +658,10 @@ def validate_screen(doc, rel):
                 if not isinstance(scalar, int) or isinstance(scalar, bool):
                     fail(rel + ": " + layout_name + ".actions." + action_id + "."
                          + scalar_name + " must be an integer")
+            coordinate_space = action_layout.get("coordinateSpace")
+            if coordinate_space not in coordinate_spaces:
+                fail(rel + ": " + layout_name + " action " + action_id
+                     + " uses unsupported coordinateSpace " + str(coordinate_space))
             for rect_name in ("visibleRect", "hitRect"):
                 rect = action_layout.get(rect_name)
                 if (not isinstance(rect, list) or len(rect) != 4
@@ -637,10 +670,10 @@ def validate_screen(doc, rel):
                     fail(rel + ": " + layout_name + ".actions." + action_id + "."
                          + rect_name + " must be an integer rectangle")
             hit = action_layout["hitRect"]
-            if action_layout.get("coordinateSpace") == "screen":
-                if hit[2] < MIN_ACTION_TARGET or hit[3] < MIN_ACTION_TARGET:
-                    fail(rel + ": " + layout_name + " action " + action_id
-                         + " is below the 44x44 hit-target floor")
+            if hit[2] < MIN_ACTION_TARGET or hit[3] < MIN_ACTION_TARGET:
+                fail(rel + ": " + layout_name + " action " + action_id
+                     + " is below the 44x44 hit-target floor")
+            if coordinate_space == "screen":
                 if (hit[0] < 0 or hit[1] < 0 or hit[0] + hit[2] > design[0]
                         or hit[1] + hit[3] > design[1]):
                     fail(rel + ": " + layout_name + " action " + action_id
@@ -1046,6 +1079,8 @@ def emit_screen_h(doc, rel, ns, prefix):
            'inline constexpr const char* kArchetype = "' + doc["screen"]["archetype"] + '";',
            "inline constexpr bool kProductionHook = "
            + ("true" if doc["screen"]["productionHook"] else "false") + ";",
+           "inline constexpr const char* kSelectedSpeed = "
+           + cpp_string(str((doc.get("fixture") or {}).get("selectedSpeed", ""))) + ";",
            "",
            "struct " + prefix + "GenRect { int x; int y; int w; int h; };",
            "struct " + prefix + "GenNamedRect",
@@ -1059,6 +1094,7 @@ def emit_screen_h(doc, rel, ns, prefix):
            TAB + "const char* label;",
            TAB + "const char* component;",
            TAB + "const char* slotRole;",
+           TAB + "const char* coordinateSpace;",
            TAB + prefix + "GenRect visible;",
            TAB + prefix + "GenRect hit;",
            TAB + "int focusOrder;",
@@ -1099,7 +1135,8 @@ def emit_screen_h(doc, rel, ns, prefix):
             out.append(TAB + "{ " + cpp_string(action["id"]) + ", "
                        + cpp_string(fixture_labels["actions"][action["id"]]) + ", "
                        + cpp_string(action["component"]) + ", "
-                       + cpp_string(action["slotRole"]) + ", { "
+                       + cpp_string(action["slotRole"]) + ", "
+                       + cpp_string(resolved.get("coordinateSpace", "screen")) + ", { "
                        + ", ".join(str(value) for value in visible) + " }, { "
                        + ", ".join(str(value) for value in hit) + " }, "
                        + str(focus if isinstance(focus, int) else -1) + ", "

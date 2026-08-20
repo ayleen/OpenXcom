@@ -2,6 +2,7 @@
   "schema": 1,
   "id": "base-management-shell",
   "version": "hd.2026-08-20.1",
+  "coordinateSpaces": ["screen"],
   "requiredActionIds": ["navigation.back", "base.selector", "management.forces", "management.science-engineering", "management.logistics", "facility.primary"],
   "forbiddenPersistentPatterns": [],
   "layouts": {

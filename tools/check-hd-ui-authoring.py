@@ -94,19 +94,56 @@ def validate_recipe(config_name, recipe, entry, localized):
         action_id = action.get("id")
         if action_id not in action_labels or not str(action_labels[action_id]).strip():
             fail(config_name + ": fixture label missing for action " + str(action_id))
-        key = action.get("labelKey")
-        missing_locales = [locale for locale, keys in localized.items() if key not in keys]
-        if missing_locales:
-            fail(config_name + ": localization key " + str(key) + " missing from "
-                 + " and ".join(missing_locales))
-        handler = action.get("handler")
-        if not isinstance(handler, str) or not handler.strip() or "todo" in handler.lower():
-            fail(config_name + ": action " + str(action_id) + " has empty/TODO handler")
-        if not handler_matches_runtime(handler, runtime):
-            fail(config_name + ": " + str(runtime) + " handler " + handler
-                 + " must match the "
-                 + ("proof" if runtime == "proof-only" else "production")
-                 + " runtime namespace grammar")
+        variants = action.get("variants", [])
+        for variant in variants:
+            if (not isinstance(variant, dict)
+                    or set(variant) != {"when", "labelKey", "handler"}
+                    or not isinstance(variant.get("when"), bool)):
+                fail(config_name + ": action " + str(action_id)
+                     + " variants must contain boolean when, labelKey, handler")
+        candidates = variants or [action]
+        if variants and not action.get("variantContext"):
+            fail(config_name + ": action " + str(action_id) + " variantContext is required")
+        seen_when = set()
+        for candidate in candidates:
+            key = candidate.get("labelKey")
+            missing_locales = [locale for locale, keys in localized.items() if key not in keys]
+            if missing_locales:
+                fail(config_name + ": localization key " + str(key) + " missing from "
+                     + " and ".join(missing_locales))
+            handler = candidate.get("handler")
+            if not isinstance(handler, str) or not handler.strip() or "todo" in handler.lower():
+                fail(config_name + ": action " + str(action_id) + " has empty/TODO handler")
+            if not handler_matches_runtime(handler, runtime):
+                fail(config_name + ": " + str(runtime) + " handler " + handler
+                     + " must match the "
+                     + ("proof" if runtime == "proof-only" else "production")
+                     + " runtime namespace grammar")
+            if variants:
+                when = candidate.get("when")
+                if when in seen_when:
+                    fail(config_name + ": action " + str(action_id) + " has duplicate variant " + str(when))
+                seen_when.add(when)
+        if variants:
+            context = action["variantContext"]
+            expected = {False, True}
+            if seen_when != expected:
+                fail(config_name + ": action " + str(action_id)
+                     + " variants must be exhaustive for " + context)
+    selected_speed = fixture.get("selectedSpeed")
+    action_ids = {action.get("id") for action in actions}
+    if selected_speed is not None and selected_speed not in action_ids:
+        fail(config_name + ": fixture.selectedSpeed must name an action")
+    if "oxceLinks" in fixture and not isinstance(fixture["oxceLinks"], bool):
+        fail(config_name + ": fixture.oxceLinks must be boolean")
+    for action in actions:
+        variants = action.get("variants") or []
+        if variants:
+            context = action["variantContext"]
+            value = fixture.get(context)
+            if not isinstance(value, bool):
+                fail(config_name + ": fixture." + context + " must be boolean for variants")
+            next(variant for variant in variants if variant["when"] is value)
 
     for entity in recipe.get("entities") or []:
         entity_id = entity.get("id")
@@ -148,17 +185,29 @@ def rects_overlap(first, second):
 
 
 def validate_contract_geometry(contract_name, contract):
+    coordinate_spaces = contract.get("coordinateSpaces")
+    if (not isinstance(coordinate_spaces, list) or not coordinate_spaces
+            or any(not isinstance(space, str) or not space for space in coordinate_spaces)):
+        fail(contract_name + ": coordinateSpaces allowlist is missing or invalid")
     for layout_name, layout in (contract.get("layouts") or {}).items():
         canvas = layout.get("designSize")
         actions = layout.get("actions") or {}
         by_space = {}
         for action_id, action in actions.items():
+            space = action.get("coordinateSpace")
+            if not isinstance(space, str) or not space:
+                fail(contract_name + ": " + layout_name + " missing coordinateSpace for " + action_id)
+            if space not in coordinate_spaces:
+                fail(contract_name + ": " + layout_name + " unsupported coordinateSpace "
+                     + space + " for " + action_id)
             hit = action.get("hitRect")
             if (not isinstance(hit, list) or len(hit) != 4
                     or any(not isinstance(value, int) for value in hit)
                     or hit[2] <= 0 or hit[3] <= 0):
                 fail(contract_name + ": " + layout_name + " invalid hit rectangle " + action_id)
-            space = action.get("coordinateSpace")
+            if hit[2] < 44 or hit[3] < 44:
+                fail(contract_name + ": " + layout_name + " action " + action_id
+                     + " is below the 44x44 hit-target floor")
             if space == "screen" and (hit[0] < 0 or hit[1] < 0
                     or hit[0] + hit[2] > canvas[0] or hit[1] + hit[3] > canvas[1]):
                 fail(contract_name + ": " + layout_name + " screen hit escapes canvas " + action_id)

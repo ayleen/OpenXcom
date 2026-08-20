@@ -33,7 +33,7 @@ CalypsoHdScreenRenderModel geoscapeHarnessModel(bool wide)
 	model.archetype = kArchetype;
 	model.designWidth = layout.designWidth;
 	model.designHeight = layout.designHeight;
-	model.selectedActionId = "time.speed.5sec";
+	model.selectedActionId = kSelectedSpeed;
 
 	for (int index = 0; index < layout.regionCount; ++index)
 	{
@@ -45,9 +45,10 @@ CalypsoHdScreenRenderModel geoscapeHarnessModel(bool wide)
 		const auto& action = layout.actions[index];
 		// Drawer coordinates live in their own coordinate space. The deterministic
 		// harness captures the approved closed-drawer state.
-		if (std::strcmp(action.component, "drawer-row") == 0) continue;
+		if (std::strcmp(action.coordinateSpace, "screen") != 0) continue;
 		model.actions.push_back({ action.id, action.label, action.component,
-			action.slotRole, screenRect(action.visible), action.focusOrder, action.zOrder });
+			action.slotRole, action.coordinateSpace, screenRect(action.visible),
+			action.focusOrder, action.zOrder });
 	}
 	for (int index = 0; index < kFixtureCopyCount; ++index)
 		model.copy.push_back({ kFixtureCopy[index].key, kFixtureCopy[index].value });

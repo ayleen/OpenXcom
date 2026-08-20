@@ -7,6 +7,7 @@ inline constexpr const char* kContractVersion = "hd.2026-08-20.22";
 inline constexpr const char* kScreenId = "basescape-shell-proof";
 inline constexpr const char* kArchetype = "base-management-shell";
 inline constexpr bool kProductionHook = false;
+inline constexpr const char* kSelectedSpeed = "";
 
 struct CalypsoBasescapeShellProofGenRect { int x; int y; int w; int h; };
 struct CalypsoBasescapeShellProofGenNamedRect
@@ -20,6 +21,7 @@ struct CalypsoBasescapeShellProofGenActionLayout
 	const char* label;
 	const char* component;
 	const char* slotRole;
+	const char* coordinateSpace;
 	CalypsoBasescapeShellProofGenRect visible;
 	CalypsoBasescapeShellProofGenRect hit;
 	int focusOrder;
@@ -53,12 +55,12 @@ inline constexpr CalypsoBasescapeShellProofGenNamedRect kWideRegions[] =
 
 inline constexpr CalypsoBasescapeShellProofGenActionLayout kWideActions[] =
 {
-	{ "navigation.back", "Geoscape", "entity-selector", "screen-back", { 12, 12, 150, 64 }, { 12, 12, 150, 64 }, 10, 1 },
-	{ "base.selector", "Atlantic Operations", "entity-selector", "entity-selector", { 162, 12, 596, 64 }, { 162, 12, 596, 64 }, 20, 1 },
-	{ "management.forces", "Forces", "management-section-action", "management-1", { 867, 243, 392, 113 }, { 867, 243, 392, 113 }, 30, 1 },
-	{ "management.science-engineering", "Science & engineering", "management-section-action", "management-2", { 867, 364, 392, 113 }, { 867, 364, 392, 113 }, 40, 1 },
-	{ "management.logistics", "Logistics", "management-section-action", "management-3", { 867, 485, 392, 112 }, { 867, 485, 392, 112 }, 50, 1 },
-	{ "facility.primary", "Build", "management-section-action", "facility-primary", { 1127, 628, 120, 48 }, { 1127, 628, 120, 48 }, 60, 1 },
+	{ "navigation.back", "Geoscape", "entity-selector", "screen-back", "screen", { 12, 12, 150, 64 }, { 12, 12, 150, 64 }, 10, 1 },
+	{ "base.selector", "Atlantic Operations", "entity-selector", "entity-selector", "screen", { 162, 12, 596, 64 }, { 162, 12, 596, 64 }, 20, 1 },
+	{ "management.forces", "Forces", "management-section-action", "management-1", "screen", { 867, 243, 392, 113 }, { 867, 243, 392, 113 }, 30, 1 },
+	{ "management.science-engineering", "Science & engineering", "management-section-action", "management-2", "screen", { 867, 364, 392, 113 }, { 867, 364, 392, 113 }, 40, 1 },
+	{ "management.logistics", "Logistics", "management-section-action", "management-3", "screen", { 867, 485, 392, 112 }, { 867, 485, 392, 112 }, 50, 1 },
+	{ "facility.primary", "Build", "management-section-action", "facility-primary", "screen", { 1127, 628, 120, 48 }, { 1127, 628, 120, 48 }, 60, 1 },
 };
 
 inline constexpr CalypsoBasescapeShellProofGenNamedRect kCompactRegions[] =
@@ -73,12 +75,12 @@ inline constexpr CalypsoBasescapeShellProofGenNamedRect kCompactRegions[] =
 
 inline constexpr CalypsoBasescapeShellProofGenActionLayout kCompactActions[] =
 {
-	{ "navigation.back", "Geoscape", "entity-selector", "screen-back", { 11, 11, 106, 46 }, { 11, 11, 106, 46 }, 10, 1 },
-	{ "base.selector", "Atlantic Operations", "entity-selector", "entity-selector", { 128, 8, 420, 52 }, { 128, 8, 420, 52 }, 20, 1 },
-	{ "management.forces", "Forces", "management-section-action", "management-1", { 387, 91, 340, 85 }, { 387, 91, 340, 85 }, 30, 1 },
-	{ "management.science-engineering", "Science & engineering", "management-section-action", "management-2", { 387, 181, 340, 84 }, { 387, 181, 340, 84 }, 40, 1 },
-	{ "management.logistics", "Logistics", "management-section-action", "management-3", { 387, 270, 340, 85 }, { 387, 270, 340, 85 }, 50, 1 },
-	{ "facility.primary", "Build", "management-section-action", "facility-primary", { 242, 304, 120, 48 }, { 242, 304, 120, 48 }, 60, 1 },
+	{ "navigation.back", "Geoscape", "entity-selector", "screen-back", "screen", { 11, 11, 106, 46 }, { 11, 11, 106, 46 }, 10, 1 },
+	{ "base.selector", "Atlantic Operations", "entity-selector", "entity-selector", "screen", { 128, 8, 420, 52 }, { 128, 8, 420, 52 }, 20, 1 },
+	{ "management.forces", "Forces", "management-section-action", "management-1", "screen", { 387, 91, 340, 85 }, { 387, 91, 340, 85 }, 30, 1 },
+	{ "management.science-engineering", "Science & engineering", "management-section-action", "management-2", "screen", { 387, 181, 340, 84 }, { 387, 181, 340, 84 }, 40, 1 },
+	{ "management.logistics", "Logistics", "management-section-action", "management-3", "screen", { 387, 270, 340, 85 }, { 387, 270, 340, 85 }, 50, 1 },
+	{ "facility.primary", "Build", "management-section-action", "facility-primary", "screen", { 242, 304, 120, 48 }, { 242, 304, 120, 48 }, 60, 1 },
 };
 
 inline constexpr CalypsoBasescapeShellProofGenLayout kLayouts[] =

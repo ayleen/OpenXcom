@@ -30,6 +30,7 @@ struct CalypsoHdScreenActionVisual
 	std::string label;
 	std::string component;
 	std::string slotRole;
+	std::string coordinateSpace;
 	CalypsoHdScreenRect visible;
 	int focusOrder = 0;
 	int zOrder = 1;

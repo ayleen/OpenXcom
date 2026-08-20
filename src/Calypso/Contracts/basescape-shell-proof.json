@@ -18,6 +18,9 @@
     "entity-selector": "hd.2026-08-20.1",
     "management-section-action": "hd.2026-08-20.1"
   },
+  "coordinateSpaces": [
+    "screen"
+  ],
   "actions": [
     {
       "id": "navigation.back",

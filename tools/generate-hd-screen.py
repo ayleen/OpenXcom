@@ -27,7 +27,7 @@ TOP_LEVEL_KEYS = {
 ACTION_KEYS = {
     "id", "labelKey", "icon", "component", "slotRole", "tone", "handler",
     "inputs", "availability", "timePolicy", "focusOrder", "visibility", "hotkey",
-    "rowIndex",
+    "rowIndex", "variants", "variantContext",
 }
 
 
@@ -90,7 +90,7 @@ def validate_recipe(recipe):
         unknown = sorted(set(action) - ACTION_KEYS)
         if unknown:
             fail(where + " contains unknown fields: " + ", ".join(unknown))
-        for key in ("id", "labelKey", "component", "slotRole", "tone", "handler",
+        for key in ("id", "component", "slotRole", "tone",
                     "availability", "timePolicy", "visibility"):
             if not isinstance(action.get(key), str) or not action[key]:
                 fail(where + "." + key + " must be a non-empty string")
@@ -112,10 +112,36 @@ def validate_recipe(recipe):
                 and (not isinstance(action["rowIndex"], int) or isinstance(action["rowIndex"], bool)
                      or action["rowIndex"] < 0)):
             fail(where + ".rowIndex must be a non-negative integer")
-        if not handler_matches_runtime(action["handler"], recipe["runtime"]):
-            fail(where + ".handler must match the "
-                 + ("proof" if recipe["runtime"] == "proof-only" else "production")
-                 + " runtime namespace grammar")
+        variants = action.get("variants", [])
+        if not isinstance(variants, list):
+            fail(where + ".variants must be an array")
+        if not variants:
+            for key in ("labelKey", "handler"):
+                if not isinstance(action.get(key), str) or not action[key]:
+                    fail(where + "." + key + " must be a non-empty string")
+            if not handler_matches_runtime(action["handler"], recipe["runtime"]):
+                fail(where + ".handler must match the "
+                     + ("proof" if recipe["runtime"] == "proof-only" else "production")
+                     + " runtime namespace grammar")
+        else:
+            context = action.get("variantContext")
+            if not isinstance(context, str) or not context:
+                fail(where + ".variantContext must name the boolean fixture context")
+            whens = []
+        for variant in variants:
+            if (not isinstance(variant, dict)
+                    or set(variant) != {"when", "labelKey", "handler"}
+                    or not isinstance(variant.get("when"), bool)
+                    or not all(isinstance(variant.get(key), str) and variant[key]
+                               for key in ("labelKey", "handler"))):
+                fail(where + ".variants entries must contain when, labelKey, handler")
+            if not handler_matches_runtime(variant["handler"], recipe["runtime"]):
+                fail(where + ".variants handler must match the "
+                     + ("proof" if recipe["runtime"] == "proof-only" else "production")
+                     + " runtime namespace grammar")
+            whens.append(variant["when"])
+        if variants and set(whens) != {False, True}:
+            fail(where + ".variants must contain unique exhaustive boolean branches for " + context)
     if not isinstance(recipe.get("entities", []), list):
         fail("recipe.entities must be an array")
 
@@ -125,6 +151,11 @@ def validate_template(template, archetype):
         fail("screen template identity does not match recipe.archetype " + archetype)
     if not isinstance(template.get("version"), str) or not template["version"]:
         fail("screen template version is required")
+    coordinate_spaces = template.get("coordinateSpaces")
+    if (not isinstance(coordinate_spaces, list) or not coordinate_spaces
+            or any(not isinstance(space, str) or not space for space in coordinate_spaces)
+            or len(set(coordinate_spaces)) != len(coordinate_spaces)):
+        fail("screen template coordinateSpaces must be a non-empty unique string array")
     layouts = template.get("layouts")
     if not isinstance(layouts, dict) or set(layouts) != {"wide", "compact"}:
         fail("screen template must define exactly wide and compact layouts")
@@ -141,6 +172,10 @@ def validate_template(template, archetype):
             validate_rect(slot.get("visibleRect"), layout_name + ".slots." + slot_id + ".visibleRect")
             validate_rect(slot.get("hitRect", slot.get("visibleRect")),
                           layout_name + ".slots." + slot_id + ".hitRect")
+            space = slot.get("coordinateSpace", "screen")
+            if space not in coordinate_spaces:
+                fail(layout_name + " unsupported coordinateSpace " + str(space)
+                     + " for " + slot_id)
         for name, region in (layout.get("regions") or {}).items():
             validate_rect(region, layout_name + ".regions." + name)
         for collection_id, collection in (layout.get("collections") or {}).items():
@@ -153,6 +188,10 @@ def validate_template(template, archetype):
                     fail(where + "." + key + " must contain two integers")
             if any(value <= 0 for value in collection["itemSize"]):
                 fail(where + ".itemSize must be positive")
+            space = collection.get("coordinateSpace", "screen")
+            if space not in coordinate_spaces:
+                fail(layout_name + " unsupported coordinateSpace " + str(space)
+                     + " for " + collection_id)
             maximum = collection.get("maxItems")
             if not isinstance(maximum, int) or isinstance(maximum, bool) or maximum <= 0:
                 fail(where + ".maxItems must be a positive integer")
@@ -278,6 +317,7 @@ def compile_contract(recipe, template, source_name):
         "themeVersion": theme.get("version"),
         "archetypeVersion": template["version"],
         "componentVersions": {key: components[key]["version"] for key in sorted(components)},
+        "coordinateSpaces": template["coordinateSpaces"],
         "actions": recipe["actions"],
         "bindings": recipe.get("bindings", {}),
         "entities": recipe.get("entities", []),
@@ -296,13 +336,14 @@ def main(argv=None):
     parser.add_argument("--config", required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--check", action="store_true")
+    parser.add_argument("--screen-template-dir", default=SCREEN_TEMPLATES_DIR)
     args = parser.parse_args(argv)
 
     config_path = os.path.abspath(args.config)
     output_path = os.path.abspath(args.output)
     recipe = load_json(config_path, "semantic screen recipe")
     validate_recipe(recipe)
-    template_path = os.path.join(SCREEN_TEMPLATES_DIR, recipe["archetype"] + ".json")
+    template_path = os.path.join(os.path.abspath(args.screen_template_dir), recipe["archetype"] + ".json")
     template = load_json(template_path, "screen template " + recipe["archetype"])
     validate_template(template, recipe["archetype"])
     generated = render(compile_contract(recipe, template, os.path.basename(config_path)))
