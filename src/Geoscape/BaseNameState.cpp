@@ -60,8 +60,8 @@ BaseNameState::BaseNameState(Base *base, Globe *globe, bool first, bool fixedLoc
 
 	// Create objects
 	_window = new Window(this, 192, 80, 32, 60, POPUP_BOTH);
-	_btnOk = new TextButton(162, 12, 47, 118);
-	_btnCancel = new TextButton(162, 12, 110, 118);
+	_btnCancel = new TextButton(76, 12, 42, 118);
+	_btnOk = new TextButton(76, 12, 122, 118);
 	_txtTitle = new Text(182, 17, 37, 70);
 	_edtName = new TextEdit(this, 127, 16, 59, 94);
 
@@ -69,8 +69,8 @@ BaseNameState::BaseNameState(Base *base, Globe *globe, bool first, bool fixedLoc
 	setInterface("baseNaming");
 
 	add(_window, "window", "baseNaming");
-	add(_btnOk, "button", "baseNaming");
 	add(_btnCancel, "button", "baseNaming");
+	add(_btnOk, "button", "baseNaming");
 	add(_txtTitle, "text", "baseNaming");
 	add(_edtName, "text", "baseNaming");
 
@@ -79,9 +79,13 @@ BaseNameState::BaseNameState(Base *base, Globe *globe, bool first, bool fixedLoc
 	// Set up objects
 	setWindowBackground(_window, "baseNaming");
 
-	_btnOk->setText(tr("STR_OK"));
 	_btnCancel->setText(tr("STR_CANCEL_UC"));
 	_btnCancel->onMouseClick((ActionHandler)&BaseNameState::btnCancelClick);
+	_btnCancel->onKeyboardPress((ActionHandler)&BaseNameState::btnCancelClick, Options::keyCancel);
+	// Fixed-location callers have no site selector underneath this state.
+	_btnCancel->setVisible(!_fixedLocation);
+
+	_btnOk->setText(tr("STR_OK"));
 	_btnOk->onMouseClick((ActionHandler)&BaseNameState::btnOkClick);
 	// Phase 46.F21 review: Enter/OK is the explicit submit; Cancel must never
 	// confirm (the old keyCancel-to-OK quirk is removed).
@@ -168,11 +172,6 @@ void BaseNameState::edtNameChange(Action *action)
  * Returns to the previous screen
  * @param action Pointer to an action.
  */
-void BaseNameState::btnCancelClick(Action *)
-{
-	_game->popState();
-}
-
 void BaseNameState::btnOkClick(Action *)
 {
 	if (!_edtName->getText().empty())
@@ -194,6 +193,15 @@ void BaseNameState::btnOkClick(Action *)
 			_game->pushState(new PlaceLiftState(_base, _globe, _first));
 		}
 	}
+}
+
+/**
+ * Returns to the still-live site selector without committing the name.
+ */
+void BaseNameState::btnCancelClick(Action *)
+{
+	if (_fixedLocation) return;
+	_game->popState(); // pop BaseNameState only; BuildNewBaseState becomes active
 }
 
 }

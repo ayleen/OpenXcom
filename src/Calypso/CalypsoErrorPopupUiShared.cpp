@@ -168,6 +168,7 @@ void CalypsoErrorPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 	model.footerDotColor = CalypsoF34ErrorGen::kFooterDot;
 	model.warningColor = CalypsoF34ErrorGen::kWarning;
 	model.uiScale = uiScale;
+	model.visualScale = CalypsoF34ErrorGen::kPresentationScale;
 	model.projectionScaleX = uiScale * metrics.scaleX;
 	model.projectionScaleY = uiScale * metrics.scaleY;
 	model.messageDesignWidth = generated->message.w;
@@ -177,7 +178,8 @@ void CalypsoErrorPopupUi::collect(CalypsoHdFrameBuilder& builder) const
 	model.buttons.push_back({
 		_state->_btnOk, nullptr,
 		_state->_btnOk ? _state->_btnOk->getText() : std::string(),
-		widgetRect(_state->_btnOk), CalypsoActionTone::Safe,
+		project(CalypsoF34ErrorGen::kButtonRects[wide ? 0 : 1][0].rect),
+		CalypsoActionTone::Safe,
 		CalypsoF34ErrorGen::kButtons[0].fill,
 		CalypsoF34ErrorGen::kButtons[0].border,
 		CalypsoF34ErrorGen::kButtons[0].text});
@@ -194,7 +196,7 @@ void CalypsoErrorPopupUi::applyRects(
 	applyRect(state._hdIcon, layout.icon);
 	applyRect(state._hdWarning, layout.warning);
 	applyRect(state._txtMessage, layout.message);
-	applyRect(state._btnOk, layout.acknowledge);
+	applyRect(state._btnOk, calypsoSmallConfirmationTouchRect(layout.acknowledge));
 }
 
 void CalypsoErrorPopupUi::configure(

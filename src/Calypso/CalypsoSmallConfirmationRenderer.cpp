@@ -60,17 +60,15 @@ CalypsoHdPanelStyle buttonStyle(
 		? CalypsoHdThemeGen::calypsoHdThemeColorForToken(calypsoFocusRingToken(button.tone))
 		: CalypsoHdThemeGen::calypsoHdThemeColorForToken(tokens.borderToken);
 	const std::uint32_t fill = CalypsoHdThemeGen::calypsoHdThemeColorForToken(tokens.fillToken);
+	const std::uint32_t resolvedBorder = state == CalypsoInteractionState::Rest
+		? button.restBorder : border;
+	const std::uint32_t resolvedFill = state == CalypsoInteractionState::Rest
+		? button.restFill : fill;
 
-	CalypsoHdPanelStyle style;
-	style.styled = true;
-	style.radiusPx = 1.0f;
+	CalypsoHdPanelStyle style = CalypsoHdTheme::calypsoHdButtonStyle(
+		resolvedFill, resolvedBorder);
 	style.borderWidthPx = CalypsoHdTheme::kBorderWidthPx
 		+ (state == CalypsoInteractionState::Focus ? 1.0f : 0.0f);
-	style.borderColorRgba = state == CalypsoInteractionState::Rest ? button.restBorder : border;
-	style.fillTopRgba = state == CalypsoInteractionState::Rest ? button.restFill : fill;
-	style.fillBottomRgba = style.fillTopRgba;
-	style.gradDirX = 0.26f;
-	style.gradDirY = 1.0f;
 	return style;
 }
 
@@ -79,7 +77,7 @@ CalypsoHdPanelStyle windowStyle(const CalypsoSmallConfirmationModel& model)
 	CalypsoHdPanelStyle style;
 	style.styled = true;
 	style.shape = CalypsoHdPanelShape::OpposingCutRect;
-	style.cutCornerPx = model.cutCornerPx;
+	style.cutCornerPx = model.cutCornerPx * model.visualScale;
 	style.borderWidthPx = 1.0f;
 	style.borderColorRgba = model.frameColor;
 	style.fillTopRgba = model.panelFillTop;
@@ -96,7 +94,7 @@ CalypsoHdPanelStyle glowStyle(
 {
 	CalypsoHdPanelStyle style = CalypsoHdTheme::calypsoHdGlowStyle(color, radius);
 	style.shape = CalypsoHdPanelShape::OpposingCutRect;
-	style.cutCornerPx = model.cutCornerPx;
+	style.cutCornerPx = model.cutCornerPx * model.visualScale;
 	return style;
 }
 
@@ -163,6 +161,11 @@ void calypsoCollectSmallConfirmation(
 		return calypsoHdMotionProjectionScale(restingScale,
 			vertical ? restingPhysical.h : restingPhysical.w,
 			vertical ? animatedPhysical.h : animatedPhysical.w);
+	};
+	auto scaledPx = [&](double value, int minimum = 1) -> int
+	{
+		return std::max(minimum,
+			(int)calypsoHdRoundToInt(value * model.visualScale));
 	};
 
 	builder.beginSubgroup();
@@ -245,11 +248,16 @@ void calypsoCollectSmallConfirmation(
 	addPanel({0, 0, model.designWidth, model.designHeight},
 		model.opaqueHarnessBackdrop ? calypsoRgba(0, 0, 0, 0xff) : CalypsoHdTheme::kBackdropDim,
 		nullptr, ROLE_BACKDROP, false);
-	addStyled({model.window.x - 2, model.window.y + 8, model.window.w + 4, model.window.h},
-		glowStyle(model, CalypsoHdTheme::kShadowGlow, CalypsoHdTheme::kShadowGlowRadiusPx),
+	const int shadowX = scaledPx(2.0);
+	const int shadowY = scaledPx(8.0);
+	addStyled({model.window.x - shadowX, model.window.y + shadowY,
+		model.window.w + shadowX * 2, model.window.h},
+		glowStyle(model, CalypsoHdTheme::kShadowGlow,
+			CalypsoHdTheme::kShadowGlowRadiusPx * model.visualScale),
 		nullptr, ROLE_WINDOW);
 	addStyled(model.window,
-		glowStyle(model, CalypsoHdTheme::kHaloGlow, CalypsoHdTheme::kHaloGlowRadiusPx),
+		glowStyle(model, CalypsoHdTheme::kHaloGlow,
+			CalypsoHdTheme::kHaloGlowRadiusPx * model.visualScale),
 		nullptr, ROLE_WINDOW);
 	addStyled(model.window, windowStyle(model), model.windowWidget, ROLE_WINDOW);
 
@@ -258,14 +266,19 @@ void calypsoCollectSmallConfirmation(
 	addDecoration({model.footer.x, model.footer.y, model.footer.w, 1}, model.dividerColor);
 	int firstButtonX = model.footer.x + model.footer.w;
 	for (const auto& button : model.buttons) firstButtonX = std::min(firstButtonX, button.rect.x);
-	for (int y = model.footer.y + 10; y < model.footer.y + model.footer.h - 8; y += 8)
-		for (int x = model.footer.x + 12; x < firstButtonX - 12; x += 8)
+	const int dotInsetX = scaledPx(12.0);
+	const int dotInsetTop = scaledPx(10.0);
+	const int dotInsetBottom = scaledPx(8.0);
+	const int dotPitch = scaledPx(8.0);
+	for (int y = model.footer.y + dotInsetTop;
+		y < model.footer.y + model.footer.h - dotInsetBottom; y += dotPitch)
+		for (int x = model.footer.x + dotInsetX; x < firstButtonX - dotInsetX; x += dotPitch)
 			addDecoration({x, y, 1, 1}, model.footerDotColor);
 
 	CalypsoHdPanelStyle warning;
 	warning.styled = true;
 	warning.shape = CalypsoHdPanelShape::WarningTriangle;
-	warning.borderWidthPx = 2.0f;
+	warning.borderWidthPx = (float)scaledPx(2.0);
 	warning.borderColorRgba = model.warningColor;
 	warning.fillTopRgba = calypsoRgba(0, 0, 0, 0);
 	warning.fillBottomRgba = calypsoRgba(0, 0, 0, 0);
@@ -279,16 +292,17 @@ void calypsoCollectSmallConfirmation(
 		addStyled(button.rect, style, button.widget, ROLE_BUTTON_BASE + (std::uint32_t)i);
 	}
 
-	const int protocolInset = (int)std::llround(model.protocolTextInsetPx * model.uiScale);
+	const int protocolInset = (int)std::llround(
+		model.protocolTextInsetPx * model.visualScale * model.uiScale);
 	const CalypsoLogicalRect protocolRect{
 		model.status.x + protocolInset, model.status.y,
 		std::max(1, model.status.w - 2 * protocolInset), model.status.h};
 	addText(protocolRect, model.protocolWidget, mono, model.protocolText,
 		model.protocolColor, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle,
-		model.wide ? 10 : 9, 0, 0.10, ROLE_PROTOCOL);
+		scaledPx(model.wide ? 10.0 : 9.0, 8), 0, 0.10, ROLE_PROTOCOL);
 	addText(model.warning, model.warningWidget, heading, model.warningGlyph,
 		model.warningColor, CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle,
-		model.wide ? 18 : 16, 0, 0.0, ROLE_WARNING);
+		scaledPx(model.wide ? 18.0 : 16.0, 11), 0, 0.0, ROLE_WARNING);
 	addText(model.title, model.titleWidget, heading, model.titleText,
 		CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle,
 		std::max(1, (int)calypsoHdRoundToInt(
@@ -306,8 +320,8 @@ void calypsoCollectSmallConfirmation(
 		const double lineHeightScale = model.wide
 			? CalypsoHdTheme::kBodyProjectionLineHeightScaleWide
 			: CalypsoHdTheme::kBodyProjectionLineHeightScaleCompact;
-		const int bodyPx = std::max(1, (int)calypsoHdRoundToInt(
-			CalypsoHdTheme::kBodyFontSizePx * bodySizeScale));
+		const int bodyPx = scaledPx(
+			CalypsoHdTheme::kBodyFontSizePx * bodySizeScale, 12);
 
 		CalypsoHdTextRasterKey key;
 		key.source = body;
@@ -315,7 +329,7 @@ void calypsoCollectSmallConfirmation(
 		key.text = model.messageText;
 		key.wrapWidth = std::max(1, model.messageDesignWidth);
 		const double lineHeight = CalypsoHdTheme::kBodyFontSizePx * bodySizeScale
-			* CalypsoHdTheme::kBodyLineHeight * lineHeightScale;
+			* CalypsoHdTheme::kBodyLineHeight * lineHeightScale * model.visualScale;
 		key.lineHeightPx = std::max(1, (int)calypsoHdRoundToInt(lineHeight));
 		key.lineHeightMilliPx = std::max(1, (int)calypsoHdRoundToInt(lineHeight * 1000.0));
 		key.horizontalScalePermille = std::max(1,
@@ -344,10 +358,10 @@ void calypsoCollectSmallConfirmation(
 		builder.add(item);
 	}
 
-	const int labelPx = std::max(1, (int)calypsoHdRoundToInt(
+	const int labelPx = scaledPx(
 		CalypsoHdTheme::kLabelFontSizePx * (model.wide
 			? CalypsoHdTheme::kLabelFontSizeScaleWide
-			: CalypsoHdTheme::kLabelFontSizeScaleCompact)));
+			: CalypsoHdTheme::kLabelFontSizeScaleCompact), 11);
 	for (std::size_t i = 0; i < model.buttons.size(); ++i)
 	{
 		const auto& button = model.buttons[i];

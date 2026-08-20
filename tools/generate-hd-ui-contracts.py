@@ -283,6 +283,37 @@ def validate_f21(doc, rel):
             fail(rel + ": small-confirmation form identity required")
         if doc.get("style") is None or doc.get("layouts") is None:
             fail(rel + ": small-confirmation form must carry style/layouts")
+        presentation = doc.get("presentation") or {}
+        density = presentation.get("density")
+        numerator = presentation.get("scaleNumerator")
+        denominator = presentation.get("scaleDenominator")
+        if density not in ("standard", "brief-acknowledgement"):
+            fail(rel + ": generated density profile is invalid")
+        if (not isinstance(numerator, int) or not isinstance(denominator, int)
+                or numerator <= 0 or denominator <= 0):
+            fail(rel + ": generated density scale must be a positive integer ratio")
+        if density == "standard" and (numerator, denominator) != (1, 1):
+            fail(rel + ": standard density must use scale 1/1")
+        if density == "brief-acknowledgement" and (numerator, denominator) != (2, 3):
+            fail(rel + ": brief acknowledgement density must use scale 2/3")
+        for layout_name in ("wide", "compact"):
+            layout = doc["layouts"].get(layout_name) or {}
+            buttons = layout.get("buttons") or {}
+            if set(buttons) != {button["id"] for button in form.get("buttons", [])}:
+                fail(rel + ": " + layout_name + " generated button geometry is incomplete")
+            visible_action_floor = (MIN_ACTION_TARGET * numerator + denominator // 2) // denominator
+            for button_id, rect in buttons.items():
+                if (rect.get("width", 0) < visible_action_floor
+                        or rect.get("height", 0) < visible_action_floor):
+                    fail(rel + ": " + layout_name + ".buttons." + button_id
+                         + " below the density-scaled " + str(visible_action_floor) + "x"
+                         + str(visible_action_floor) + " visible-action floor")
+            if form.get("buttons"):
+                rightmost = buttons[form["buttons"][-1]["id"]]
+                message = layout.get("message") or {}
+                if (rightmost["x"] + rightmost["width"]
+                        != message.get("x", 0) + message.get("width", 0)):
+                    fail(rel + ": " + layout_name + " rightmost action left the text rail")
         return
     if rel in F21_COMMAND_CARD_CONTRACTS:
         if doc.get("visualProfile") != "command-card-v1":
@@ -726,6 +757,14 @@ def emit_small_confirmation_h(doc, rel, ns, prefix):
            'inline constexpr const char* kArchetype = "' + form["archetype"] + '";',
            'inline constexpr const char* kSourceConfig = "' + form["source"] + '";',
            ""]
+    presentation = doc.get("presentation") or {
+        "density": "standard", "scaleNumerator": 1, "scaleDenominator": 1}
+    out += ['inline constexpr const char* kDensityProfile = "' + presentation["density"] + '";',
+            "inline constexpr int kPresentationScaleNumerator = " + str(presentation["scaleNumerator"]) + ";",
+            "inline constexpr int kPresentationScaleDenominator = " + str(presentation["scaleDenominator"]) + ";",
+            "inline constexpr float kPresentationScale = %.6ff;" % (
+                float(presentation["scaleNumerator"]) / float(presentation["scaleDenominator"])),
+            ""]
     out += ["struct " + prefix + "GenButton { const char* id; const char* label; const char* tone; const char* action; std::uint32_t fill; std::uint32_t border; std::uint32_t text; };",
             "inline constexpr " + prefix + "GenButton kButtons[] = {"]
     for b in form["buttons"]:
