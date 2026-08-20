@@ -93,6 +93,18 @@ inline int calypsoHdRoundToInt(double v)
 	return static_cast<int>(r);
 }
 
+/// Keep a physical text projection coupled to the actual edge-mapped opening
+/// extent of its destination rectangle. Using the ideal floating-point motion
+/// factor is insufficient because independent edge rounding can make the
+/// animated physical box one pixel smaller than that factor predicts.
+inline double calypsoHdMotionProjectionScale(
+	double projectionScale, int restingPhysicalExtent, int animatedPhysicalExtent)
+{
+	if (restingPhysicalExtent <= 0 || animatedPhysicalExtent <= 0)
+		return projectionScale;
+	return projectionScale * animatedPhysicalExtent / restingPhysicalExtent;
+}
+
 /// Build stretched-canvas metrics: scaleX = physW/logW, scaleY = physH/logH,
 /// zero content offset. Returns an invalid (all-default-scale) snapshot when
 /// any dimension is non-positive, so callers can gate on valid().

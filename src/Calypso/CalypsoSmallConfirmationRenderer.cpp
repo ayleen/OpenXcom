@@ -151,6 +151,19 @@ void calypsoCollectSmallConfirmation(
 			std::max(1, (int)std::llround(rect.w * scale)),
 			std::max(1, (int)std::llround(rect.h * scale))};
 	};
+	const CalypsoHdPresentationMetrics& presentationMetrics =
+		CalypsoHdUiOverlay::instance().frozenMetrics();
+	auto motionTextScale = [&](double restingScale, const CalypsoLogicalRect& restingRect,
+		const CalypsoLogicalRect& animatedRect, bool vertical) -> double
+	{
+		const CalypsoPhysRect restingPhysical =
+			calypsoMapLogicalRect(restingRect, presentationMetrics);
+		const CalypsoPhysRect animatedPhysical =
+			calypsoMapLogicalRect(animatedRect, presentationMetrics);
+		return calypsoHdMotionProjectionScale(restingScale,
+			vertical ? restingPhysical.h : restingPhysical.w,
+			vertical ? animatedPhysical.h : animatedPhysical.w);
+	};
 
 	builder.beginSubgroup();
 	int order = 0;
@@ -217,8 +230,10 @@ void calypsoCollectSmallConfirmation(
 		item.rect = motionRect(sourceRect);
 		item.colorRgba = color;
 		item.rasterKey = key;
-		item.textScaleX = (float)model.projectionScaleX;
-		item.textScaleY = (float)model.projectionScaleY;
+		item.textScaleX = (float)motionTextScale(
+			model.projectionScaleX, sourceRect, item.rect, false);
+		item.textScaleY = (float)motionTextScale(
+			model.projectionScaleY, sourceRect, item.rect, true);
 		item.hAlign = hAlign;
 		item.vAlign = vAlign;
 		item.opacity = opacity;
@@ -316,8 +331,11 @@ void calypsoCollectSmallConfirmation(
 		item.rect = motionRect(model.message);
 		item.colorRgba = CalypsoHdTheme::kNearWhite;
 		item.rasterKey = key;
-		item.textScaleX = (float)model.projectionScaleX;
-		item.textScaleY = (float)(model.projectionScaleY * (model.wide ? 1.0 : 0.98));
+		item.textScaleX = (float)motionTextScale(
+			model.projectionScaleX, model.message, item.rect, false);
+		item.textScaleY = (float)motionTextScale(
+			model.projectionScaleY * (model.wide ? 1.0 : 0.98),
+			model.message, item.rect, true);
 		item.hAlign = CalypsoHdHAlign::Left;
 		item.vAlign = CalypsoHdVAlign::Top;
 		item.opacity = opacity;
