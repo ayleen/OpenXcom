@@ -37,7 +37,31 @@ enum class CalypsoHarnessScenario
 	F21Name = 53,
 	F21Defense = 54,
 	F21Destruction = 55,
-	F21SiteError = 56
+	F21SiteError = 56,
+	F03Dismantle = 60,
+	F04SackSoldier = 61,
+	F18CraftError = 62,
+	F18LowFuel = 63,
+	F18NotEnoughPilots = 64,
+	F19DogfightError = 65,
+	F20ConfirmLanding = 66,
+	F20ConfirmCydonia = 67,
+	F24ResearchRequired = 68,
+	F24ResearchComplete = 69,
+	F28AbortMission = 70,
+	F28ConfirmEnd = 71,
+	F17UfoLost = 72,
+	F17UfoDetected = 73,
+	F17MissionDetected = 74,
+	F22TrainingFinished = 75,
+	F30NoExperience = 76,
+	F24ProductionComplete = 77,
+	F05SoldierTransform = 78,
+	F06SoldierDiary = 79,
+	F12TransferConfirm = 80,
+	F10ManufactureCheck = 81,
+	F13Containment = 82,
+	F24ItemsArriving = 83
 };
 
 /// True iff `id` names a known scenario (the generic export never guesses).
@@ -49,7 +73,31 @@ inline bool calypsoHarnessScenarioValid(int id)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F21Name)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F21Defense)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F21Destruction)
-		|| id == static_cast<int>(CalypsoHarnessScenario::F21SiteError);
+		|| id == static_cast<int>(CalypsoHarnessScenario::F21SiteError)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F03Dismantle)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F04SackSoldier)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F18CraftError)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F18LowFuel)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F18NotEnoughPilots)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F19DogfightError)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F20ConfirmLanding)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F20ConfirmCydonia)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F24ResearchRequired)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F24ResearchComplete)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F28AbortMission)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F28ConfirmEnd)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F17UfoLost)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F17UfoDetected)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F17MissionDetected)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F22TrainingFinished)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F30NoExperience)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F24ProductionComplete)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F05SoldierTransform)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F06SoldierDiary)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F12TransferConfirm)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F10ManufactureCheck)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F13Containment)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F24ItemsArriving);
 }
 
 /// Mutable session state of one harness run.

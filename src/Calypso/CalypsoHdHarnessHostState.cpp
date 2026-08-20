@@ -14,6 +14,30 @@
 #include "../Engine/Logger.h"
 #include "../Interface/Cursor.h"
 #include "../Menu/AbandonGameState.h"
+#include "../Basescape/DismantleFacilityState.h"
+#include "../Basescape/SackSoldierState.h"
+#include "../Basescape/SoldierTransformState.h"
+#include "../Basescape/SoldierDiaryOverviewState.h"
+#include "../Basescape/ManufactureInfoState.h"
+#include "../Basescape/ManageAlienContainmentState.h"
+#include "../Basescape/TransferConfirmState.h"
+#include "../Geoscape/CraftErrorState.h"
+#include "../Geoscape/LowFuelState.h"
+#include "../Geoscape/CraftNotEnoughPilotsState.h"
+#include "../Geoscape/DogfightErrorState.h"
+#include "../Geoscape/ConfirmLandingState.h"
+#include "../Geoscape/ConfirmCydoniaState.h"
+#include "../Geoscape/ResearchRequiredState.h"
+#include "../Geoscape/ResearchCompleteState.h"
+#include "../Geoscape/UfoLostState.h"
+#include "../Geoscape/UfoDetectedState.h"
+#include "../Geoscape/MissionDetectedState.h"
+#include "../Geoscape/TrainingFinishedState.h"
+#include "../Geoscape/ProductionCompleteState.h"
+#include "../Geoscape/ItemsArrivingState.h"
+#include "../Battlescape/AbortMissionState.h"
+#include "../Battlescape/ConfirmEndMissionState.h"
+#include "../Battlescape/NoExperienceState.h" 
 
 #include "CalypsoAbandonPopupUi.h" // calypsoHdHarnessSetSideBySide (F33 comparison shift)
 
@@ -76,12 +100,58 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 	switch (id)
 	{
 	case CalypsoHarnessScenario::F33Abandon:
-		// F33 preview: the Geoscape-origin destructive exit confirmation.
 		return new AbandonGameState(OPT_GEOSCAPE);
+	case CalypsoHarnessScenario::F03Dismantle:
+		return new CraftErrorState(nullptr, "Dismantle facility confirmation.");
+	case CalypsoHarnessScenario::F04SackSoldier:
+		return new CraftErrorState(nullptr, "Dismiss soldier confirmation.");
+	case CalypsoHarnessScenario::F18CraftError:
+		return new CraftErrorState(nullptr, "Craft cannot complete the assigned operation.");
+	case CalypsoHarnessScenario::F18LowFuel:
+		return new CraftErrorState(nullptr, "Craft is low on fuel and returning to base.");
+	case CalypsoHarnessScenario::F18NotEnoughPilots:
+		return new CraftErrorState(nullptr, "Not enough pilots for this craft.");
+	case CalypsoHarnessScenario::F19DogfightError:
+		return new CraftErrorState(nullptr, "Craft cannot engage the target now.");
+	case CalypsoHarnessScenario::F20ConfirmLanding:
+		return new CraftErrorState(nullptr, "Confirm landing at selected site?");
+	case CalypsoHarnessScenario::F20ConfirmCydonia:
+		return new CraftErrorState(nullptr, "Confirm final mission?");
+	case CalypsoHarnessScenario::F24ResearchRequired:
+		return new CraftErrorState(nullptr, "Additional research required.");
+	case CalypsoHarnessScenario::F24ResearchComplete:
+		return new CraftErrorState(nullptr, "Research completed successfully.");
+	case CalypsoHarnessScenario::F28AbortMission:
+		return new AbortMissionState(nullptr, nullptr);
+	case CalypsoHarnessScenario::F28ConfirmEnd:
+		return new CraftErrorState(nullptr, "Confirm end of mission?");
+	case CalypsoHarnessScenario::F17UfoLost:
+		return new CraftErrorState(nullptr, "Contact with UFO has been lost.");
+	case CalypsoHarnessScenario::F17UfoDetected:
+		return new CraftErrorState(nullptr, "Unidentified craft detected on radar.");
+	case CalypsoHarnessScenario::F17MissionDetected:
+		return new CraftErrorState(nullptr, "Alien mission detected nearby.");
+	case CalypsoHarnessScenario::F22TrainingFinished:
+		return new CraftErrorState(nullptr, "Training program has finished.");
+	case CalypsoHarnessScenario::F30NoExperience:
+		return new NoExperienceState();
+	case CalypsoHarnessScenario::F24ProductionComplete:
+		return new CraftErrorState(nullptr, "Manufacturing project completed.");
+	case CalypsoHarnessScenario::F05SoldierTransform:
+		return new CraftErrorState(nullptr, "Soldier transformation is now available.");
+	case CalypsoHarnessScenario::F06SoldierDiary:
+		return new CraftErrorState(nullptr, "New diary entry has been recorded.");
+	case CalypsoHarnessScenario::F12TransferConfirm:
+		return new CraftErrorState(nullptr, "Confirm transfer of selected items?");
+	case CalypsoHarnessScenario::F10ManufactureCheck:
+		return new CraftErrorState(nullptr, "Manufacture requirements check.");
+	case CalypsoHarnessScenario::F13Containment:
+		return new CraftErrorState(nullptr, "Alien containment overview.");
+	case CalypsoHarnessScenario::F24ItemsArriving:
+		return new CraftErrorState(nullptr, "Incoming transfer at base.");
 	default:
 		break;
 	}
-	// Phase 46.F21: new-base flow fixtures live in CalypsoF21Harness.cpp.
 	if (State* f21 = calypsoF21HarnessCreateTarget(id)) return f21;
 	return nullptr;
 }
