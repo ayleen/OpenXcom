@@ -99,13 +99,16 @@ void ResearchRequiredState::resize(int &dX, int &dY)
 	if (Calypso::CalypsoF24ResearchRequiredUi::resize(*this)) return;
 	State::resize(dX, dY);
 }
-#ifdef __EMSCRIPTEN__
+}
+#endif
+
+namespace OpenXcom {
 ResearchRequiredState::~ResearchRequiredState()
 {
+#ifdef __EMSCRIPTEN__
 	delete _hdAdapter;
 	_hdAdapter = nullptr;
-}
 #endif
 }
-#endif
+}
 

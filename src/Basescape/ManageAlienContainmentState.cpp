@@ -178,6 +178,9 @@ ManageAlienContainmentState::ManageAlienContainmentState(Base *base, int prisonT
 	_timerInc->onTimer((StateHandler)&ManageAlienContainmentState::increase);
 	_timerDec = new Timer(250);
 	_timerDec->onTimer((StateHandler)&ManageAlienContainmentState::decrease);
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF13ContainmentUi::configure(*this);
+#endif
 }
 
 /**
@@ -188,9 +191,6 @@ ManageAlienContainmentState::~ManageAlienContainmentState()
 #ifdef __EMSCRIPTEN__
 	delete _hdAdapter;
 	_hdAdapter = nullptr;
-#endif
-#ifdef __EMSCRIPTEN__
-	Calypso::CalypsoF13ContainmentUi::configure(*this);
 #endif
 	delete _timerInc;
 	delete _timerDec;

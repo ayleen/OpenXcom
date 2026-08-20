@@ -250,6 +250,9 @@ void ManufactureInfoState::buildUi()
 	_timerLessEngineer->onTimer((StateHandler)&ManufactureInfoState::onLessEngineer);
 	_timerMoreUnit->onTimer((StateHandler)&ManufactureInfoState::onMoreUnit);
 	_timerLessUnit->onTimer((StateHandler)&ManufactureInfoState::onLessUnit);
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF10ManufactureCheckUi::configure(*this);
+#endif
 }
 
 void ManufactureInfoState::initProfitInfo ()
@@ -307,9 +310,6 @@ ManufactureInfoState::~ManufactureInfoState()
 #ifdef __EMSCRIPTEN__
 	delete _hdAdapter;
 	_hdAdapter = nullptr;
-#endif
-#ifdef __EMSCRIPTEN__
-	Calypso::CalypsoF10ManufactureCheckUi::configure(*this);
 #endif
 	delete _timerMoreEngineer;
 	delete _timerLessEngineer;

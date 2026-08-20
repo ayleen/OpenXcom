@@ -129,13 +129,16 @@ void TrainingFinishedState::resize(int &dX, int &dY)
 	if (Calypso::CalypsoF22TrainingFinishedUi::resize(*this)) return;
 	State::resize(dX, dY);
 }
-#ifdef __EMSCRIPTEN__
+}
+#endif
+
+namespace OpenXcom {
 TrainingFinishedState::~TrainingFinishedState()
 {
+#ifdef __EMSCRIPTEN__
 	delete _hdAdapter;
 	_hdAdapter = nullptr;
-}
 #endif
 }
-#endif
+}
 
