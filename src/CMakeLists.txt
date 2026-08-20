@@ -938,6 +938,10 @@ if(NOT EMSCRIPTEN AND BUILD_TESTING)
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoVoiceProfileSelectionTest.cpp
 		${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoRadioLineTimingTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoUiMetricsTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoGeoscapeHdLayoutTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoGeoscapeActionContractTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoGeoscapeMotionModelTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoGeoscapeProjectionTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoUiFamiliesTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoFocusModelTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoFocusCoordinatorTest.cpp

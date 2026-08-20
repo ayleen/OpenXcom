@@ -53,6 +53,8 @@
 #include "../Mod/Texture.h"
 #include "../Interface/Cursor.h"
 #include "../Engine/Screen.h"
+#include "../Calypso/CalypsoGeoscapeProjection.h"
+#include <limits>
 #ifdef __EMSCRIPTEN__
 #  include "../Engine/GpuInit.h"
 #  include "../Engine/GpuTexture.h"
@@ -480,16 +482,18 @@ Globe::~Globe()
  */
 void Globe::polarToCart(double lon, double lat, Sint16 *x, Sint16 *y) const
 {
-	// Orthographic projection
-	*x = _cenX + (Sint16)floor(_radius * cos(lat) * sin(lon - _cenLon));
-	*y = _cenY + (Sint16)floor(_radius * (cos(_cenLat) * sin(lat) - sin(_cenLat) * cos(lat) * cos(lon - _cenLon)));
+	const Calypso::GeoscapeProjection projection{{(double)_cenX, (double)_cenY}, _radius, _cenLon, _cenLat};
+	const auto projected = Calypso::calypsoGeoscapeProject(projection, {lon, lat});
+	*x = (Sint16)floor(projected.point.x);
+	*y = (Sint16)floor(projected.point.y);
 }
 
 void Globe::polarToCart(double lon, double lat, double *x, double *y) const
 {
-	// Orthographic projection
-	*x = _cenX + _radius * cos(lat) * sin(lon - _cenLon);
-	*y = _cenY + _radius * (cos(_cenLat) * sin(lat) - sin(_cenLat) * cos(lat) * cos(lon - _cenLon));
+	const Calypso::GeoscapeProjection projection{{(double)_cenX, (double)_cenY}, _radius, _cenLon, _cenLat};
+	const auto projected = Calypso::calypsoGeoscapeProject(projection, {lon, lat});
+	*x = projected.point.x;
+	*y = projected.point.y;
 }
 
 
@@ -503,29 +507,16 @@ void Globe::polarToCart(double lon, double lat, double *x, double *y) const
  */
 void Globe::cartToPolar(Sint16 x, Sint16 y, double *lon, double *lat) const
 {
-	// Orthographic projection
-	x -= _cenX;
-	y -= _cenY;
-
-	double rho = sqrt((double)(x*x + y*y));
-	double c = asin(rho / _radius);
-	if ( AreSame(rho, 0.0) )
+	const Calypso::GeoscapeProjection projection{{(double)_cenX, (double)_cenY}, _radius, _cenLon, _cenLat};
+	const auto unprojected = Calypso::calypsoGeoscapeUnproject(projection, {(double)x, (double)y});
+	if (!unprojected.valid)
 	{
-		*lat = _cenLat;
-		*lon = _cenLon;
-
+		*lon = std::numeric_limits<double>::quiet_NaN();
+		*lat = std::numeric_limits<double>::quiet_NaN();
+		return;
 	}
-	else
-	{
-		*lat = asin((y * sin(c) * cos(_cenLat)) / rho + cos(c) * sin(_cenLat));
-		*lon = atan2(x * sin(c),(rho * cos(_cenLat) * cos(c) - y * sin(_cenLat) * sin(c))) + _cenLon;
-	}
-
-	// Keep between 0 and 2xPI
-	while (*lon < 0)
-		*lon += 2 * M_PI;
-	while (*lon >= 2 * M_PI)
-		*lon -= 2 * M_PI;
+	*lon = unprojected.point.lon;
+	*lat = unprojected.point.lat;
 }
 
 /**
