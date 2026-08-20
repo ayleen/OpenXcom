@@ -80,7 +80,17 @@ void CalypsoF03DismantleUi::collect(CalypsoHdFrameBuilder& builder) const {
     m.titleWidget = _state->_txtTitle;
     m.titleText = _state->_txtTitle ? _state->_txtTitle->getText() : std::string();
     m.messageWidget = _state->_txtFacility;
-    m.messageText = _state->_txtFacility ? _state->_txtFacility->getText() : std::string();
+    {
+        std::string facility = _state->_txtFacility ? _state->_txtFacility->getText() : std::string();
+        std::string refund;
+        if (_state->_txtRefundValue && _state->_txtRefundValue->getVisible()) refund = _state->_txtRefundValue->getText();
+        std::string combined = facility;
+        if (!refund.empty()) {
+            if (!combined.empty()) combined += "\n";
+            combined += refund;
+        }
+        m.messageText = combined;
+    }
     m.protocolText = std::string();
     m.warningGlyph = "!";
     m.cutCornerPx = CalypsoF03DismantleGen::kCutCornerPx;
@@ -96,8 +106,20 @@ void CalypsoF03DismantleUi::collect(CalypsoHdFrameBuilder& builder) const {
     m.titleDesignHeight = g->title.h;
     m.motionDurationMs = CalypsoF03DismantleGen::kMotionDurationMs;
     m.motionScaleFrom = CalypsoF03DismantleGen::kMotionScaleFrom;
-    { CalypsoSmallConfirmationButton b{}; b.widget = _state->_btnCancel; b.text = b.widget ? b.widget->getText() : std::string(); b.rect = buttonVisualRect(g, idx, "cancel", winRect, uiScale); b.tone = CalypsoActionTone::Safe; for(int i=0;i<CalypsoF03DismantleGen::kButtonCount;++i) if(std::string(CalypsoF03DismantleGen::kButtons[i].id)=="cancel") { b.restFill=CalypsoF03DismantleGen::kButtons[i].fill; b.restBorder=CalypsoF03DismantleGen::kButtons[i].border; b.textColor=CalypsoF03DismantleGen::kButtons[i].text; break; } m.buttons.push_back(b); }
-    { CalypsoSmallConfirmationButton b{}; b.widget = _state->_btnOk; b.text = b.widget ? b.widget->getText() : std::string(); b.rect = buttonVisualRect(g, idx, "confirm", winRect, uiScale); b.tone = CalypsoActionTone::Destructive; for(int i=0;i<CalypsoF03DismantleGen::kButtonCount;++i) if(std::string(CalypsoF03DismantleGen::kButtons[i].id)=="confirm") { b.restFill=CalypsoF03DismantleGen::kButtons[i].fill; b.restBorder=CalypsoF03DismantleGen::kButtons[i].border; b.textColor=CalypsoF03DismantleGen::kButtons[i].text; break; } m.buttons.push_back(b); }
+    // Only expose visible actions; native hides Confirm when unaffordable
+    bool cancelVisible = _state->_btnCancel && _state->_btnCancel->getVisible();
+    bool confirmVisible = _state->_btnOk && _state->_btnOk->getVisible();
+    if (cancelVisible) {
+        CalypsoSmallConfirmationButton b{}; b.widget = _state->_btnCancel; b.text = b.widget ? b.widget->getText() : std::string(); b.rect = buttonVisualRect(g, idx, "cancel", winRect, uiScale); b.tone = CalypsoActionTone::Safe; for(int i=0;i<CalypsoF03DismantleGen::kButtonCount;++i) if(std::string(CalypsoF03DismantleGen::kButtons[i].id)=="cancel") { b.restFill=CalypsoF03DismantleGen::kButtons[i].fill; b.restBorder=CalypsoF03DismantleGen::kButtons[i].border; b.textColor=CalypsoF03DismantleGen::kButtons[i].text; break; } m.buttons.push_back(b);
+    }
+    if (confirmVisible) {
+        CalypsoSmallConfirmationButton b{}; b.widget = _state->_btnOk; b.text = b.widget ? b.widget->getText() : std::string(); b.rect = buttonVisualRect(g, idx, "confirm", winRect, uiScale); b.tone = CalypsoActionTone::Destructive; for(int i=0;i<CalypsoF03DismantleGen::kButtonCount;++i) if(std::string(CalypsoF03DismantleGen::kButtons[i].id)=="confirm") { b.restFill=CalypsoF03DismantleGen::kButtons[i].fill; b.restBorder=CalypsoF03DismantleGen::kButtons[i].border; b.textColor=CalypsoF03DismantleGen::kButtons[i].text; break; } m.buttons.push_back(b);
+    }
+    // Assign peer for focus detection after filtering
+    if (m.buttons.size() == 2) {
+        m.buttons[0].peer = m.buttons[1].widget;
+        m.buttons[1].peer = m.buttons[0].widget;
+    }
     calypsoCollectSmallConfirmation(builder, m, _motion);
 }
 void CalypsoF03DismantleUi::configure(DismantleFacilityState& s, bool allow) {
