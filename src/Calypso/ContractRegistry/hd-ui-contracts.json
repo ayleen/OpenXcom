@@ -100,6 +100,7 @@
       "native": { "namespace": "CalypsoGeoscapeCommandShellGen", "prefix": "CalypsoGeoscapeCommandShell", "output": "CalypsoGeoscapeCommandShell.generated.h" },
       "browser": { "global": "CalypsoGeoscapeCommandShell", "output": "geoscape-command-shell.js" },
       "rendererOwnership": "strategic-command-shell",
+      "harnessElement": "geoscape-hd",
       "harnessScenarioIds": [61]
     },
     {
@@ -109,7 +110,8 @@
       "validationProfile": "screen",
       "native": { "namespace": "CalypsoBasescapeShellProofGen", "prefix": "CalypsoBasescapeShellProof", "output": "CalypsoBasescapeShellProof.generated.h" },
       "browser": { "global": "CalypsoBasescapeShellProof", "output": "basescape-shell-proof.js" },
-      "rendererOwnership": "base-management-shell-proof",
+      "rendererOwnership": "base-management-shell",
+      "harnessElement": "basescape-proof",
       "harnessScenarioIds": []
     }
   ]
