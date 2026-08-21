@@ -10,6 +10,8 @@
 #include "../Interface/Window.h"
 #include "../Interface/Text.h"
 #include "../Basescape/DismantleFacilityState.h"
+#include "../Savegame/BaseFacility.h"
+#include "../Savegame/SavedGame.h"
 #include "../Mod/Mod.h"
 #include "Generated/CalypsoF03Dismantle.generated.h"
 #include "../Engine/Unicode.h"
