@@ -51,6 +51,10 @@ void CalypsoF13ContainmentUi::collect(CalypsoHdFrameBuilder& builder) const {
     calypsoCollectSmallConfirmation(builder, m, _motion);
 }
 void CalypsoF13ContainmentUi::configure(ManageAlienContainmentState& s, bool allow) {
+    // Disabled: complex screen would hide list/table data or is full-screen — keep legacy until proper archetype.
+    s._hdLayout = false;
+    return;
+
     if(!allow || !s._game || !s._game->getMod()->isHdUiFamilyEnabled("F13")) { s._hdLayout=false; return; }
     s._hdLayout = true; s._hdWideLayout = (Options::baseXResolution >= 1000);
     // Canonical content-sized window: sync vanilla Window to generated rect for 1:1 projection

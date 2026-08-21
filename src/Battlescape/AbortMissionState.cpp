@@ -192,6 +192,9 @@ AbortMissionState::AbortMissionState(SavedBattleGame *battleGame, BattlescapeSta
 #endif
 
 	centerAllSurfaces();
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF28AbortMissionUi::configure(*this);
+#endif
 }
 
 /**
@@ -203,10 +206,6 @@ AbortMissionState::~AbortMissionState()
 	delete _hdAdapter;
 	_hdAdapter = nullptr;
 #endif
-#ifdef __EMSCRIPTEN__
-	Calypso::CalypsoF28AbortMissionUi::configure(*this);
-#endif
-
 }
 
 /**

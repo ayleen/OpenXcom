@@ -88,6 +88,9 @@ TransferConfirmState::TransferConfirmState(Base *base, TransferItemsState *state
 
 	_txtTotal->setBig();
 	_txtTotal->setText(ss.str());
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF12TransferConfirmUi::configure(*this);
+#endif
 }
 
 /**
@@ -98,9 +101,6 @@ TransferConfirmState::~TransferConfirmState()
 #ifdef __EMSCRIPTEN__
 	delete _hdAdapter;
 	_hdAdapter = nullptr;
-#endif
-#ifdef __EMSCRIPTEN__
-	Calypso::CalypsoF12TransferConfirmUi::configure(*this);
 #endif
 }
 

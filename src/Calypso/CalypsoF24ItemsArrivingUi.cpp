@@ -51,6 +51,10 @@ void CalypsoF24ItemsArrivingUi::collect(CalypsoHdFrameBuilder& builder) const {
     calypsoCollectSmallConfirmation(builder, m, _motion);
 }
 void CalypsoF24ItemsArrivingUi::configure(ItemsArrivingState& s, bool allow) {
+    // F24 ItemsArriving shows _txtItem/_txtQuantity/_txtDestination/_lstTransfers which small-confirmation hides — keep legacy.
+    s._hdLayout = false;
+    return;
+
     if(!allow || !s._game || !s._game->getMod()->isHdUiFamilyEnabled("F24")) { s._hdLayout=false; return; }
     s._hdLayout = true; s._hdWideLayout = (Options::baseXResolution >= 1000);
     // Canonical content-sized window: sync vanilla Window to generated rect for 1:1 projection

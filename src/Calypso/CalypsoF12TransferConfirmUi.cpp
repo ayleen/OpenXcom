@@ -51,6 +51,10 @@ void CalypsoF12TransferConfirmUi::collect(CalypsoHdFrameBuilder& builder) const 
     calypsoCollectSmallConfirmation(builder, m, _motion);
 }
 void CalypsoF12TransferConfirmUi::configure(TransferConfirmState& s, bool allow) {
+    // F12 small-confirmation would hide _txtCost/_txtTotal — keep legacy until table archetype.
+    s._hdLayout = false;
+    return;
+
     if(!allow || !s._game || !s._game->getMod()->isHdUiFamilyEnabled("F12")) { s._hdLayout=false; return; }
     s._hdLayout = true; s._hdWideLayout = (Options::baseXResolution >= 1000);
     // Canonical content-sized window: sync vanilla Window to generated rect for 1:1 projection
