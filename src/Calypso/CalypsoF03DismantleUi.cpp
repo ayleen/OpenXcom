@@ -220,7 +220,10 @@ void CalypsoF03DismantleUi::configure(DismantleFacilityState& state, bool allow)
 	state._hdFacilityText = facilityType.empty()
 		? std::string(state._txtFacility ? state._txtFacility->getText() : std::string())
 		: std::string(state.tr(facilityType));
-	state._hdRefundText = state._txtRefundValue ? state._txtRefundValue->getText() : "";
+	// data-hiding P1: surface the computed refund value (STR_REFUND_VALUE).
+	state._hdRefundText = state._txtRefundValue
+		? std::string(state._txtRefundValue->getText())
+		: std::string(state.tr("STR_REFUND_VALUE"));
 	state._hdRefundVisible = state._txtRefundValue ? state._txtRefundValue->getVisible() : false;
 	state._hdHarnessGeneration = Calypso::calypsoHarnessSession().generation;
 	state._txtTitle->setText(state.tr("STR_CAL_F03_DISMANTLE_TITLE"));
