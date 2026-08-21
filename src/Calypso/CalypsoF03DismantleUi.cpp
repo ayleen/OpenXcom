@@ -14,7 +14,6 @@
 #include "../Savegame/SavedGame.h"
 #include "../Mod/Mod.h"
 #include "Generated/CalypsoF03Dismantle.generated.h"
-#include "../Engine/Unicode.h"
 #include "CalypsoHdHarnessHostState.h"
 #include "CalypsoHdUiOverlay.h"
 #include "CalypsoSmallConfirmationRenderer.h"
@@ -132,7 +131,16 @@ void CalypsoF03DismantleUi::collect(CalypsoHdFrameBuilder& builder) const
 	model.titleWidget = _state->_txtTitle;
 	model.titleText = _state->_txtTitle ? _state->_txtTitle->getText() : std::string();
 	model.messageWidget = _state->_txtFacility;
-	model.messageText = _state->_txtFacility ? _state->_txtFacility->getText() : std::string();
+	{
+		std::string facility = _state->_hdFacilityText;
+		std::string refund = _state->_hdRefundVisible ? _state->_hdRefundText : "";
+		std::string combined = facility;
+		if (!refund.empty()) {
+			if (!combined.empty()) combined += "\n";
+			combined += refund;
+		}
+		model.messageText = combined;
+	}
 	model.protocolText = std::string(_state->tr("STR_CAL_F03_PROTOCOL_DISMANTLE"));
 	model.warningGlyph = "!";
 	model.cutCornerPx = CalypsoF03DismantleGen::kCutCornerPx;
@@ -161,7 +169,11 @@ void CalypsoF03DismantleUi::collect(CalypsoHdFrameBuilder& builder) const
 		const auto& generatedButton = CalypsoF03DismantleGen::kButtons[i];
 		TextButton* widget = std::string(generatedButton.id) == "cancel"
 			? _state->_btnCancel : _state->_btnOk;
+		// Only expose visible actions; native hides Confirm when unaffordable
+		if (widget && !widget->getVisible()) continue;
 		TextButton* peer = widget == _state->_btnCancel ? _state->_btnOk : _state->_btnCancel;
+		// Peer must also be visible to be considered for focus
+		if (peer && !peer->getVisible()) peer = nullptr;
 		model.buttons.push_back({
 			widget,
 			peer,
@@ -202,28 +214,15 @@ void CalypsoF03DismantleUi::configure(DismantleFacilityState& state, bool allow)
 	if (!state._hdLayout) return;
 
 	state._hdWideLayout = currentLayoutClass() == CalypsoLayoutClass::Wide;
+	state._hdFacilityText = state._txtFacility ? state._txtFacility->getText() : "";
+	state._hdRefundText = state._txtRefundValue ? state._txtRefundValue->getText() : "";
+	state._hdRefundVisible = state._txtRefundValue ? state._txtRefundValue->getVisible() : false;
+	state._hdHarnessGeneration = Calypso::calypsoHarnessSession().generation;
 	state._txtTitle->setText(state.tr("STR_CAL_F03_DISMANTLE_TITLE"));
-	// Show actual facility and refund instead of generic lines — fixes data-hiding P1.
-	{
-		std::string facName = state.tr(state._fac ? state._fac->getRules()->getType() : "STR_UNKNOWN");
-		int refundValue = 0;
-		if (state._fac) {
-			if (state._fac->getBuildTime() > state._fac->getRules()->getBuildTime()) refundValue = state._fac->getRules()->getBuildCost();
-			else refundValue = state._fac->getRules()->getRefundValue();
-		}
-		std::string refundText;
-		if (refundValue < 0) refundText = state.tr("STR_REFUND_VALUE_NEGATIVE").arg(Unicode::formatFunding(-refundValue));
-		else if (refundValue > 0) refundText = state.tr("STR_REFUND_VALUE").arg(Unicode::formatFunding(refundValue));
-		if (!refundText.empty()) state._txtFacility->setText(facName + "\n" + refundText);
-		else state._txtFacility->setText(facName);
-		// Keep legacy refund widget hidden — its content is now in _txtFacility's second line.
-		state._txtRefundValue->setVisible(false);
-		// Mirror vanilla affordability gate for negative refund.
-		if (refundValue < 0 && state._game && state._game->getSavedGame() && state._game->getSavedGame()->getFunds() < -refundValue) {
-			state._btnOk->setVisible(false);
-		}
-	}
-	state._btnCancel->setText(state.tr("STR_CANCEL_UC"));
+	state._txtFacility->setText(
+		std::string(state.tr("STR_CAL_F03_DISMANTLE_LINE_1")) + "\n"
+		+ std::string(state.tr("STR_CAL_F03_DISMANTLE_LINE_2")));
+	state._txtRefundValue->setVisible(false);
 	state._btnOk->setText(state.tr("STR_CAL_F03_DISMANTLE_ACTION"));
 	applyGeneratedLayout(state, state._hdWideLayout);
 	const auto* generated = CalypsoF03DismantleGen::layoutForDesign(

@@ -33,6 +33,7 @@
 #include "../Savegame/SavedGame.h"
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoF03DismantleUi.h"
+#include "../Calypso/CalypsoHdHarnessHostState.h"
 #endif
 
 namespace OpenXcom
@@ -126,6 +127,11 @@ DismantleFacilityState::DismantleFacilityState(Base *base, BaseView *view, BaseF
 DismantleFacilityState::~DismantleFacilityState()
 {
 #ifdef __EMSCRIPTEN__
+	if (_hdLayout)
+	{
+		Calypso::calypsoHdHarnessDomHide();
+	}
+	Calypso::calypsoHarnessCloseForTarget(Calypso::calypsoHarnessSession(), this, _hdHarnessGeneration);
 	delete _hdAdapter;
 	_hdAdapter = nullptr;
 	if (_hdOwnFixture)
