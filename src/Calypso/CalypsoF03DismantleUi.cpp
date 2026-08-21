@@ -218,8 +218,8 @@ void CalypsoF03DismantleUi::configure(DismantleFacilityState& state, bool allow)
 	// (from the rule) instead of the generic canonical body lines.
 	const std::string facilityType = state._fac ? state._fac->getRules()->getType() : std::string();
 	state._hdFacilityText = facilityType.empty()
-		? (state._txtFacility ? state._txtFacility->getText() : "")
-		: state.tr(facilityType);
+		? std::string(state._txtFacility ? state._txtFacility->getText() : std::string())
+		: std::string(state.tr(facilityType));
 	state._hdRefundText = state._txtRefundValue ? state._txtRefundValue->getText() : "";
 	state._hdRefundVisible = state._txtRefundValue ? state._txtRefundValue->getVisible() : false;
 	state._hdHarnessGeneration = Calypso::calypsoHarnessSession().generation;
