@@ -21,6 +21,7 @@
 
 namespace OpenXcom
 {
+namespace Calypso { class CalypsoF18NotEnoughPilotsUi; }
 
 class TextButton;
 class Window;
@@ -33,6 +34,9 @@ class Craft;
  */
 class CraftNotEnoughPilotsState : public State
 {
+#ifdef __EMSCRIPTEN__
+friend class Calypso::CalypsoF18NotEnoughPilotsUi;
+#endif
 private:
 	TextButton *_btnOk, *_btnAssignPilots;
 	Window *_window;
@@ -47,6 +51,15 @@ public:
 	void btnOkClick(Action *action);
 	/// Handler for clicking the [Assign Pilots] button.
 	void btnAssignPilotsClick(Action *action);
+
+#ifdef __EMSCRIPTEN__
+private:
+    bool _hdLayout = false;
+    bool _hdWideLayout = false;
+    Calypso::CalypsoF18NotEnoughPilotsUi *_hdAdapter = nullptr;
+public:
+    void resize(int &dX, int &dY) override;
+#endif
 };
 
 }

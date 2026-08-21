@@ -1,0 +1,42 @@
+{
+  "schema": 1,
+  "id": "f24-research-complete",
+  "familyId": 24,
+  "version": "hd.2026-08-20.22",
+  "archetype": "small-confirmation",
+  "protocol": {
+    "authority": "CALYPSO COMMAND",
+    "record": "RESEARCH PROTOCOL",
+    "code": "RS-24-C",
+    "revision": "1.0.21",
+    "effectiveDate": "15.07.2061"
+  },
+  "title": "RESEARCH COMPLETE",
+  "body": [
+    "Research project has been",
+    "successfully completed."
+  ],
+  "icon": {
+    "kind": "info",
+    "glyph": "i",
+    "tone": "primary"
+  },
+  "buttons": [
+    {
+      "id": "ok",
+      "label": "OK",
+      "tone": "safe",
+      "action": "acknowledge"
+    },
+    {
+      "id": "report",
+      "label": "VIEW REPORT",
+      "tone": "primary",
+      "action": "report"
+    }
+  ],
+  "visibleButtons": [
+    "ok",
+    "report"
+  ]
+}

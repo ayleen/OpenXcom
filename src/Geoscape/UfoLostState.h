@@ -22,6 +22,7 @@
 
 namespace OpenXcom
 {
+namespace Calypso { class CalypsoF17UfoLostUi; }
 
 class TextButton;
 class Window;
@@ -33,6 +34,9 @@ class Text;
  */
 class UfoLostState : public State
 {
+#ifdef __EMSCRIPTEN__
+friend class Calypso::CalypsoF17UfoLostUi;
+#endif
 private:
 	TextButton *_btnOk;
 	Window *_window;
@@ -45,9 +49,14 @@ public:
 	~UfoLostState();
 	/// Handler for clicking the OK button.
 	void btnOkClick(Action *action);
+
 #ifdef __EMSCRIPTEN__
-	/// Phase 41: apply HD UI scaling on resize.
-	void resize(int &dX, int &dY) override { applyUiScaling(); }
+private:
+    bool _hdLayout = false;
+    bool _hdWideLayout = false;
+    Calypso::CalypsoF17UfoLostUi *_hdAdapter = nullptr;
+public:
+    void resize(int &dX, int &dY) override;
 #endif
 };
 

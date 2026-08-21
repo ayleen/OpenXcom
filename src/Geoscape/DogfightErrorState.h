@@ -22,6 +22,7 @@
 
 namespace OpenXcom
 {
+namespace Calypso { class CalypsoF19DogfightErrorUi; }
 
 class TextButton;
 class Window;
@@ -34,6 +35,9 @@ class Craft;
  */
 class DogfightErrorState : public State
 {
+#ifdef __EMSCRIPTEN__
+friend class Calypso::CalypsoF19DogfightErrorUi;
+#endif
 private:
 	Craft *_craft;
 	TextButton *_btnIntercept, *_btnBase;
@@ -48,9 +52,14 @@ public:
 	void btnInterceptClick(Action *action);
 	/// Handler for clicking the Return To Base button.
 	void btnBaseClick(Action *action);
+
 #ifdef __EMSCRIPTEN__
-	/// Phase 41: apply HD UI scaling on resize.
-	void resize(int &dX, int &dY) override { applyUiScaling(); }
+private:
+    bool _hdLayout = false;
+    bool _hdWideLayout = false;
+    Calypso::CalypsoF19DogfightErrorUi *_hdAdapter = nullptr;
+public:
+    void resize(int &dX, int &dY) override;
 #endif
 };
 

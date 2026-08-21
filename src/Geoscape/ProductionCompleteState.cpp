@@ -33,6 +33,9 @@
 #include "../Savegame/Base.h"
 #include "../Savegame/ItemContainer.h"
 #include "../Savegame/SavedGame.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF24ProductionCompleteUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -77,6 +80,9 @@ ProductionCompleteState::ProductionCompleteState(Base *base, const std::string &
 	// Phase 41: HD scaling + TTF labels (see docs/phases/phase-29-menu-scaling.md).
 	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
 	enableUiScaling(320, 200, 1.0f);
+#endif
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF24ProductionCompleteUi::configure(*this);
 #endif
 
 	// Set up objects
@@ -163,6 +169,10 @@ ProductionCompleteState::ProductionCompleteState(Base *base, const std::string &
  */
 ProductionCompleteState::~ProductionCompleteState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 
 }
 
@@ -257,3 +267,13 @@ void ProductionCompleteState::lstSummaryClick(Action *)
 }
 
 }
+
+#ifdef __EMSCRIPTEN__
+namespace OpenXcom {
+void ProductionCompleteState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF24ProductionCompleteUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+}
+#endif

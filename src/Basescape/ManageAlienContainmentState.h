@@ -24,6 +24,7 @@
 
 namespace OpenXcom
 {
+namespace Calypso { class CalypsoF13ContainmentUi; }
 
 class TextButton;
 class Window;
@@ -38,6 +39,9 @@ class Base;
  */
 class ManageAlienContainmentState : public TouchState
 {
+#ifdef __EMSCRIPTEN__
+friend class Calypso::CalypsoF13ContainmentUi;
+#endif
 private:
 	Base *_base;
 	int _prisonType;
@@ -105,6 +109,15 @@ public:
 	void decreaseByValue(int change);
 	/// Updates the quantity-strings of the selected alien.
 	void updateStrings();
+
+#ifdef __EMSCRIPTEN__
+private:
+    bool _hdLayout = false;
+    bool _hdWideLayout = false;
+    Calypso::CalypsoF13ContainmentUi *_hdAdapter = nullptr;
+public:
+    void resize(int &dX, int &dY) override;
+#endif
 };
 
 }

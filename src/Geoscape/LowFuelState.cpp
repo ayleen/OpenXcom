@@ -25,6 +25,9 @@
 #include "../Savegame/Craft.h"
 #include "GeoscapeState.h"
 #include "../Engine/Options.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF18LowFuelUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -61,6 +64,9 @@ LowFuelState::LowFuelState(Craft *craft, GeoscapeState *state) : _craft(craft), 
 	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
 	enableUiScaling(320, 200, 1.0f);
 #endif
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF18LowFuelUi::configure(*this);
+#endif
 
 	// Set up objects
 	setWindowBackground(_window, "lowFuel");
@@ -88,6 +94,10 @@ LowFuelState::LowFuelState(Craft *craft, GeoscapeState *state) : _craft(craft), 
  */
 LowFuelState::~LowFuelState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 
 }
 
@@ -111,3 +121,13 @@ void LowFuelState::btnOk5SecsClick(Action *)
 }
 
 }
+
+#ifdef __EMSCRIPTEN__
+namespace OpenXcom {
+void LowFuelState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF18LowFuelUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+}
+#endif

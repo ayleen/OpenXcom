@@ -28,6 +28,9 @@
 #include "../Interface/Text.h"
 #include "../Savegame/Base.h"
 #include "TransferItemsState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF12TransferConfirmUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -85,6 +88,9 @@ TransferConfirmState::TransferConfirmState(Base *base, TransferItemsState *state
 
 	_txtTotal->setBig();
 	_txtTotal->setText(ss.str());
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF12TransferConfirmUi::configure(*this);
+#endif
 }
 
 /**
@@ -92,6 +98,10 @@ TransferConfirmState::TransferConfirmState(Base *base, TransferItemsState *state
  */
 TransferConfirmState::~TransferConfirmState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 }
 
 /**
@@ -116,3 +126,13 @@ void TransferConfirmState::btnOkClick(Action *)
 }
 
 }
+
+#ifdef __EMSCRIPTEN__
+namespace OpenXcom {
+void TransferConfirmState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF12TransferConfirmUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+}
+#endif

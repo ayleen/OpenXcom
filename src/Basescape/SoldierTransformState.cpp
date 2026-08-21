@@ -34,6 +34,9 @@
 #include "../Savegame/Base.h"
 #include "../Savegame/SavedGame.h"
 #include "../Ufopaedia/Ufopaedia.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF05SoldierTransformUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -77,6 +80,9 @@ SoldierTransformState::SoldierTransformState(Base* base, size_t soldier) : _base
 	add(_sortName, "text", "soldierTransform");
 
 	centerAllSurfaces();
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF05SoldierTransformUi::configure(*this);
+#endif
 
 	// Set up objects
 	setWindowBackground(_window, "soldierTransform");
@@ -128,6 +134,10 @@ SoldierTransformState::SoldierTransformState(Base* base, size_t soldier) : _base
  */
 SoldierTransformState::~SoldierTransformState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 
 }
 
@@ -285,3 +295,13 @@ void SoldierTransformState::sortNameClick(Action*)
 }
 
 }
+
+#ifdef __EMSCRIPTEN__
+namespace OpenXcom {
+void SoldierTransformState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF05SoldierTransformUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+}
+#endif

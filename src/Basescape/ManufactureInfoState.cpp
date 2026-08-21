@@ -40,6 +40,9 @@
 #include "../Menu/ErrorMessageState.h"
 #include "../Mod/RuleInterface.h"
 #include <climits>
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF10ManufactureCheckUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -247,6 +250,9 @@ void ManufactureInfoState::buildUi()
 	_timerLessEngineer->onTimer((StateHandler)&ManufactureInfoState::onLessEngineer);
 	_timerMoreUnit->onTimer((StateHandler)&ManufactureInfoState::onMoreUnit);
 	_timerLessUnit->onTimer((StateHandler)&ManufactureInfoState::onLessUnit);
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF10ManufactureCheckUi::configure(*this);
+#endif
 }
 
 void ManufactureInfoState::initProfitInfo ()
@@ -301,6 +307,10 @@ int ManufactureInfoState::getMonthlyNetFunds () const
  */
 ManufactureInfoState::~ManufactureInfoState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 	delete _timerMoreEngineer;
 	delete _timerLessEngineer;
 	delete _timerMoreUnit;
@@ -757,3 +767,13 @@ void ManufactureInfoState::think()
 }
 
 }
+
+#ifdef __EMSCRIPTEN__
+namespace OpenXcom {
+void ManufactureInfoState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF10ManufactureCheckUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+}
+#endif

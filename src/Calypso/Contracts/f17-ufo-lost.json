@@ -1,0 +1,164 @@
+{
+  "schema": 1,
+  "version": "hd.2026-08-20.22",
+  "form": {
+    "id": "f17-ufo-lost",
+    "familyId": 17,
+    "archetype": "small-confirmation",
+    "source": "FormConfigs/f17-ufo-lost.json",
+    "icon": {
+      "kind": "warning",
+      "glyph": "!",
+      "tone": "warning"
+    },
+    "buttons": [
+      {
+        "id": "ok",
+        "label": "OK",
+        "tone": "safe",
+        "action": "ok",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB0CC",
+          "text": "E8FFF5FF"
+        }
+      }
+    ],
+    "visibleButtons": [
+      "ok"
+    ]
+  },
+  "copy": {
+    "protocol": "F17-UFO-LOST",
+    "title": "UFO LOST",
+    "message": [
+      "Contact with UFO",
+      "has been lost."
+    ]
+  },
+  "presentation": {
+    "density": "brief-acknowledgement",
+    "scaleNumerator": 2,
+    "scaleDenominator": 3
+  },
+  "style": {
+    "cutCornerPx": 14,
+    "protocolTextInsetPx": 26,
+    "panelFillTop": "08191DEB",
+    "panelFillBottom": "041014E8",
+    "frame": "74FFB073",
+    "protocolText": "A9D8C7FF",
+    "divider": "74FFB04D",
+    "footerFill": "061B1CD6",
+    "footerDot": "74FFB01F",
+    "warning": "FFC14DFF",
+    "safeFill": "051417B8",
+    "safeBorder": "74FFB0CC",
+    "destructiveFill": "F25F5CFF",
+    "destructiveText": "071013FF"
+  },
+  "layouts": {
+    "wide": {
+      "designWidth": 1280,
+      "designHeight": 720,
+      "window": {
+        "x": 544,
+        "y": 269,
+        "width": 192,
+        "height": 158
+      },
+      "status": {
+        "x": 544,
+        "y": 269,
+        "width": 192,
+        "height": 25
+      },
+      "warning": {
+        "x": 565,
+        "y": 309,
+        "width": 22,
+        "height": 21
+      },
+      "title": {
+        "x": 597,
+        "y": 305,
+        "width": 118,
+        "height": 29
+      },
+      "message": {
+        "x": 565,
+        "y": 338,
+        "width": 150,
+        "height": 40
+      },
+      "footer": {
+        "x": 544,
+        "y": 379,
+        "width": 192,
+        "height": 48
+      },
+      "buttons": {
+        "ok": {
+          "x": 609,
+          "y": 388,
+          "width": 106,
+          "height": 29
+        }
+      }
+    },
+    "compact": {
+      "designWidth": 740,
+      "designHeight": 360,
+      "window": {
+        "x": 284,
+        "y": 97,
+        "width": 172,
+        "height": 147
+      },
+      "status": {
+        "x": 284,
+        "y": 97,
+        "width": 172,
+        "height": 23
+      },
+      "warning": {
+        "x": 303,
+        "y": 131,
+        "width": 18,
+        "height": 19
+      },
+      "title": {
+        "x": 331,
+        "y": 128,
+        "width": 106,
+        "height": 25
+      },
+      "message": {
+        "x": 303,
+        "y": 153,
+        "width": 134,
+        "height": 40
+      },
+      "footer": {
+        "x": 284,
+        "y": 196,
+        "width": 172,
+        "height": 48
+      },
+      "buttons": {
+        "ok": {
+          "x": 339,
+          "y": 205,
+          "width": 98,
+          "height": 29
+        }
+      }
+    }
+  },
+  "motion": {
+    "durationMs": 200,
+    "scaleFrom": 0.96,
+    "easing": "ease-out",
+    "captureModeDurationMs": 0
+  }
+}

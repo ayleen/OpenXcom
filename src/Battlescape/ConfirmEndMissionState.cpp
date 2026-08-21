@@ -27,6 +27,9 @@
 #include "BattlescapeState.h"
 #include "BattlescapeGame.h"
 #include "../Engine/Options.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF28ConfirmEndUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -85,6 +88,9 @@ ConfirmEndMissionState::ConfirmEndMissionState(SavedBattleGame *battleGame, int 
 	_btnCancel->onKeyboardPress((ActionHandler)&ConfirmEndMissionState::btnCancelClick, Options::keyBattleAbort);
 
 	centerAllSurfaces();
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF28ConfirmEndUi::configure(*this);
+#endif
 }
 
 /**
@@ -92,6 +98,10 @@ ConfirmEndMissionState::ConfirmEndMissionState(SavedBattleGame *battleGame, int 
  */
 ConfirmEndMissionState::~ConfirmEndMissionState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 
 }
 
@@ -116,3 +126,13 @@ void ConfirmEndMissionState::btnCancelClick(Action *)
 
 
 }
+
+#ifdef __EMSCRIPTEN__
+namespace OpenXcom {
+void ConfirmEndMissionState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF28ConfirmEndUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+}
+#endif

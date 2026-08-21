@@ -33,6 +33,9 @@
 #include "GeoscapeState.h"
 #include "../Engine/Options.h"
 #include "../Basescape/BasescapeState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF24ItemsArrivingUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -73,6 +76,9 @@ ItemsArrivingState::ItemsArrivingState(GeoscapeState *state) : _state(state), _b
 	// Phase 41: HD scaling + TTF labels (see docs/phases/phase-29-menu-scaling.md).
 	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
 	enableUiScaling(320, 200, 1.0f);
+#endif
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF24ItemsArrivingUi::configure(*this);
 #endif
 
 	// Set up objects
@@ -143,6 +149,10 @@ ItemsArrivingState::ItemsArrivingState(GeoscapeState *state) : _state(state), _b
  */
 ItemsArrivingState::~ItemsArrivingState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 
 }
 
@@ -167,3 +177,13 @@ void ItemsArrivingState::btnGotoBaseClick(Action *)
 }
 
 }
+
+#ifdef __EMSCRIPTEN__
+namespace OpenXcom {
+void ItemsArrivingState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF24ItemsArrivingUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+}
+#endif

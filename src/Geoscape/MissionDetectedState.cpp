@@ -28,6 +28,9 @@
 #include "../Engine/Options.h"
 #include "InterceptState.h"
 #include "../Mod/AlienDeployment.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF17MissionDetectedUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -72,6 +75,9 @@ MissionDetectedState::MissionDetectedState(MissionSite *mission, GeoscapeState *
 	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
 	enableUiScaling(320, 200, 1.0f);
 #endif
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF17MissionDetectedUi::configure(*this);
+#endif
 
 	// Set up objects
 	_window->setBackground(_game->getMod()->getSurface(mission->getDeployment()->getAlertBackground()));
@@ -101,6 +107,10 @@ MissionDetectedState::MissionDetectedState(MissionSite *mission, GeoscapeState *
  */
 MissionDetectedState::~MissionDetectedState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 
 }
 
@@ -136,3 +146,13 @@ void MissionDetectedState::btnCancelClick(Action *)
 }
 
 }
+
+#ifdef __EMSCRIPTEN__
+namespace OpenXcom {
+void MissionDetectedState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF17MissionDetectedUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+}
+#endif

@@ -21,6 +21,7 @@
 
 namespace OpenXcom
 {
+namespace Calypso { class CalypsoF17MissionDetectedUi; }
 
 class MissionSite;
 class TextButton;
@@ -33,6 +34,9 @@ class GeoscapeState;
  */
 class MissionDetectedState : public State
 {
+#ifdef __EMSCRIPTEN__
+friend class Calypso::CalypsoF17MissionDetectedUi;
+#endif
 private:
 	MissionSite *_mission;
 	GeoscapeState *_state;
@@ -51,9 +55,14 @@ public:
 	void btnCenterClick(Action *action);
 	/// Handler for clicking the Cancel button.
 	void btnCancelClick(Action *action);
+
 #ifdef __EMSCRIPTEN__
-	/// Phase 41: apply HD UI scaling on resize.
-	void resize(int &dX, int &dY) override { applyUiScaling(); }
+private:
+    bool _hdLayout = false;
+    bool _hdWideLayout = false;
+    Calypso::CalypsoF17MissionDetectedUi *_hdAdapter = nullptr;
+public:
+    void resize(int &dX, int &dY) override;
 #endif
 };
 

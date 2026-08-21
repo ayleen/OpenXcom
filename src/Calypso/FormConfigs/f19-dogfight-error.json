@@ -1,0 +1,42 @@
+{
+  "schema": 1,
+  "id": "f19-dogfight-error",
+  "familyId": 19,
+  "version": "hd.2026-08-20.22",
+  "archetype": "small-confirmation",
+  "protocol": {
+    "authority": "CALYPSO COMMAND",
+    "record": "DOGFIGHT PROTOCOL",
+    "code": "DF-19",
+    "revision": "1.0.21",
+    "effectiveDate": "15.07.2061"
+  },
+  "title": "ENGAGEMENT BLOCKED",
+  "body": [
+    "Craft cannot engage",
+    "the target now."
+  ],
+  "icon": {
+    "kind": "warning",
+    "glyph": "!",
+    "tone": "warning"
+  },
+  "buttons": [
+    {
+      "id": "intercept",
+      "label": "CONTINUE",
+      "tone": "safe",
+      "action": "intercept"
+    },
+    {
+      "id": "tobase",
+      "label": "TO BASE",
+      "tone": "primary",
+      "action": "tobase"
+    }
+  ],
+  "visibleButtons": [
+    "intercept",
+    "tobase"
+  ]
+}
