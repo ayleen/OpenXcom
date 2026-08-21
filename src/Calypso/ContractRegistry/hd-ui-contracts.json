@@ -1,0 +1,118 @@
+{
+  "schema": 1,
+  "entries": [
+    {
+      "id": "hd-ui-theme",
+      "contract": "hd-ui-theme.json",
+      "emitter": "theme",
+      "validationProfile": "theme",
+      "native": { "namespace": "CalypsoHdThemeGen", "prefix": "CalypsoHdTheme", "output": "CalypsoHdTheme.generated.h" },
+      "browser": { "global": "CalypsoHdTheme", "output": "hd-ui-theme.js" },
+      "rendererOwnership": "shared-theme",
+      "harnessScenarioIds": []
+    },
+    {
+      "id": "f33-abandon",
+      "contract": "f33-abandon.json",
+      "emitter": "legacy-abandon",
+      "validationProfile": "legacy-abandon",
+      "native": { "namespace": "CalypsoF33AbandonGen", "prefix": "CalypsoF33Abandon", "output": "CalypsoF33Abandon.generated.h" },
+      "browser": { "global": "CalypsoF33Abandon", "output": "f33-abandon.js" },
+      "rendererOwnership": "small-confirmation",
+      "harnessScenarioIds": [33]
+    },
+    {
+      "id": "f21-site",
+      "contract": "f21-site.json",
+      "emitter": "family",
+      "validationProfile": "command-card",
+      "engineTextCalibration": true,
+      "native": { "namespace": "CalypsoF21SiteGen", "prefix": "CalypsoF21Site", "output": "CalypsoF21Site.generated.h" },
+      "browser": { "global": "CalypsoF21Site", "output": "f21-site.js" },
+      "rendererOwnership": "command-card",
+      "harnessScenarioIds": [51]
+    },
+    {
+      "id": "f21-site-details",
+      "contract": "f21-site-details.json",
+      "emitter": "family",
+      "validationProfile": "content-block",
+      "native": { "namespace": "CalypsoF21SiteDetailsGen", "prefix": "CalypsoF21SiteDetails", "output": "CalypsoF21SiteDetails.generated.h" },
+      "browser": { "global": "CalypsoF21SiteDetails", "output": "f21-site-details.js" },
+      "rendererOwnership": "content-block",
+      "harnessScenarioIds": [51]
+    },
+    {
+      "id": "f21-transaction",
+      "contract": "f21-transaction.json",
+      "emitter": "family",
+      "validationProfile": "small-confirmation",
+      "native": { "namespace": "CalypsoF21TransactionGen", "prefix": "CalypsoF21Transaction", "output": "CalypsoF21Transaction.generated.h" },
+      "browser": { "global": "CalypsoF21Transaction", "output": "f21-transaction.js" },
+      "rendererOwnership": "small-confirmation",
+      "harnessScenarioIds": [52]
+    },
+    {
+      "id": "f21-name",
+      "contract": "f21-name.json",
+      "emitter": "family",
+      "validationProfile": "small-confirmation",
+      "native": { "namespace": "CalypsoF21NameGen", "prefix": "CalypsoF21Name", "output": "CalypsoF21Name.generated.h" },
+      "browser": { "global": "CalypsoF21Name", "output": "f21-name.js" },
+      "rendererOwnership": "small-confirmation",
+      "harnessScenarioIds": [53]
+    },
+    {
+      "id": "f21-defense",
+      "contract": "f21-defense.json",
+      "emitter": "family",
+      "validationProfile": "small-confirmation",
+      "native": { "namespace": "CalypsoF21DefenseGen", "prefix": "CalypsoF21Defense", "output": "CalypsoF21Defense.generated.h" },
+      "browser": { "global": "CalypsoF21Defense", "output": "f21-defense.js" },
+      "rendererOwnership": "small-confirmation",
+      "harnessScenarioIds": [54]
+    },
+    {
+      "id": "f21-destruction",
+      "contract": "f21-destruction.json",
+      "emitter": "family",
+      "validationProfile": "small-confirmation",
+      "native": { "namespace": "CalypsoF21DestructionGen", "prefix": "CalypsoF21Destruction", "output": "CalypsoF21Destruction.generated.h" },
+      "browser": { "global": "CalypsoF21Destruction", "output": "f21-destruction.js" },
+      "rendererOwnership": "small-confirmation",
+      "harnessScenarioIds": [55]
+    },
+    {
+      "id": "f34-error",
+      "contract": "f34-error.json",
+      "emitter": "family",
+      "validationProfile": "small-confirmation",
+      "native": { "namespace": "CalypsoF34ErrorGen", "prefix": "CalypsoF34Error", "output": "CalypsoF34Error.generated.h" },
+      "browser": { "global": "CalypsoF34Error", "output": "f34-error.js" },
+      "rendererOwnership": "small-confirmation",
+      "harnessScenarioIds": [56]
+    },
+    {
+      "id": "geoscape-command-shell",
+      "contract": "geoscape-command-shell.json",
+      "emitter": "screen",
+      "validationProfile": "screen",
+      "native": { "namespace": "CalypsoGeoscapeCommandShellGen", "prefix": "CalypsoGeoscapeCommandShell", "output": "CalypsoGeoscapeCommandShell.generated.h" },
+      "browser": { "global": "CalypsoGeoscapeCommandShell", "output": "geoscape-command-shell.js" },
+      "rendererOwnership": "strategic-command-shell",
+      "harnessElement": "geoscape-hd",
+      "harnessScenarioIds": [84]
+    },
+    {
+      "id": "basescape-shell-proof",
+      "contract": "basescape-shell-proof.json",
+      "emitter": "screen",
+      "validationProfile": "screen",
+      "native": { "namespace": "CalypsoBasescapeShellProofGen", "prefix": "CalypsoBasescapeShellProof", "output": "CalypsoBasescapeShellProof.generated.h" },
+      "browser": { "global": "CalypsoBasescapeShellProof", "output": "basescape-shell-proof.js" },
+      "rendererOwnership": "base-management-shell",
+      "harnessElement": "basescape-proof",
+      "harnessScenarioIds": []
+    }
+  ]
+}

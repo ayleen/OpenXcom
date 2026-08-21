@@ -1,0 +1,8 @@
+{
+  "schema": 1,
+  "id": "entity-selector",
+  "version": "hd.2026-08-20.1",
+  "minimumTarget": [44, 44],
+  "allowedSlotRoles": ["screen-back", "entity-selector"],
+  "allowedTones": ["normal", "primary", "warning"]
+}

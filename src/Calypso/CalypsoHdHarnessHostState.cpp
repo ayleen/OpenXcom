@@ -215,6 +215,7 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 		break;
 	}
 	if (State* f21 = calypsoF21HarnessCreateTarget(id)) return f21;
+	if (State* screen = calypsoHdScreenHarnessCreateTarget(id)) return screen;
 	return nullptr;
 }
 
@@ -412,7 +413,7 @@ int calypso_hd_harness_switch(int scenarioId, int layoutClass, int sideBySide)
 	if (s.hostUp && g && g->getTopState())
 	{
 		// Use target-scoped close to avoid closing a newly opened harness if old target destructor runs later
-		State* top = g->getTopState();
+		OpenXcom::State* top = g->getTopState();
 		// The top should be the target; capture its identity before popping
 		const void* targetPtr = top;
 		std::uint64_t gen = s.generation;

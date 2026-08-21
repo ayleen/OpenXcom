@@ -62,7 +62,8 @@ enum class CalypsoHarnessScenario
 	F12TransferConfirm = 80,
 	F10ManufactureCheck = 81,
 	F13Containment = 82,
-	F24ItemsArriving = 83
+	F24ItemsArriving = 83,
+	GeoscapeHd = 84
 };
 
 /// True iff `id` names a known scenario (the generic export never guesses).
@@ -98,7 +99,8 @@ inline bool calypsoHarnessScenarioValid(int id)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F12TransferConfirm)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F10ManufactureCheck)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F13Containment)
-		|| id == static_cast<int>(CalypsoHarnessScenario::F24ItemsArriving);
+		|| id == static_cast<int>(CalypsoHarnessScenario::F24ItemsArriving)
+		|| id == static_cast<int>(CalypsoHarnessScenario::GeoscapeHd);
 }
 
 /// Mutable session state of one harness run.

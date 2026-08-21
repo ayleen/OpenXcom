@@ -1,0 +1,604 @@
+{
+  "schema": 1,
+  "version": "hd.2026-08-20.22",
+  "provenance": {
+    "generator": "tools/generate-hd-screen.py",
+    "source": "ScreenConfigs/basescape-shell-proof.json",
+    "screenTemplate": "ScreenTemplates/base-management-shell.json"
+  },
+  "screen": {
+    "id": "basescape-shell-proof",
+    "archetype": "base-management-shell",
+    "runtime": "proof-only",
+    "productionHook": false
+  },
+  "themeVersion": "hd.2026-08-20.22",
+  "archetypeVersion": "hd.2026-08-20.1",
+  "componentVersions": {
+    "entity-selector": "hd.2026-08-20.1",
+    "management-section-action": "hd.2026-08-20.1"
+  },
+  "coordinateSpaces": [
+    "screen"
+  ],
+  "actions": [
+    {
+      "id": "navigation.back",
+      "labelKey": "STR_GEOSCAPE",
+      "icon": "back",
+      "component": "entity-selector",
+      "slotRole": "screen-back",
+      "tone": "normal",
+      "handler": "proof.back",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "always",
+      "timePolicy": "preserve",
+      "focusOrder": 10,
+      "visibility": "persistent"
+    },
+    {
+      "id": "base.selector",
+      "labelKey": "STR_BASE",
+      "icon": "base",
+      "component": "entity-selector",
+      "slotRole": "entity-selector",
+      "tone": "primary",
+      "handler": "proof.selectBase",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "always",
+      "timePolicy": "preserve",
+      "focusOrder": 20,
+      "visibility": "persistent"
+    },
+    {
+      "id": "management.forces",
+      "labelKey": "STR_FORCES",
+      "icon": "forces",
+      "component": "management-section-action",
+      "slotRole": "management-1",
+      "tone": "normal",
+      "handler": "proof.openForces",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "selected-base",
+      "timePolicy": "preserve",
+      "focusOrder": 30,
+      "visibility": "persistent"
+    },
+    {
+      "id": "management.science-engineering",
+      "labelKey": "STR_SCIENCE_AND_ENGINEERING",
+      "icon": "science",
+      "component": "management-section-action",
+      "slotRole": "management-2",
+      "tone": "normal",
+      "handler": "proof.openScienceEngineering",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "selected-base",
+      "timePolicy": "preserve",
+      "focusOrder": 40,
+      "visibility": "persistent"
+    },
+    {
+      "id": "management.logistics",
+      "labelKey": "STR_LOGISTICS",
+      "icon": "logistics",
+      "component": "management-section-action",
+      "slotRole": "management-3",
+      "tone": "normal",
+      "handler": "proof.openLogistics",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "selected-base",
+      "timePolicy": "preserve",
+      "focusOrder": 50,
+      "visibility": "persistent"
+    },
+    {
+      "id": "facility.primary",
+      "labelKey": "STR_BUILD_FACILITY",
+      "icon": "build",
+      "component": "management-section-action",
+      "slotRole": "facility-primary",
+      "tone": "primary",
+      "handler": "proof.openFacilityAction",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "selected-base",
+      "timePolicy": "preserve",
+      "focusOrder": 60,
+      "visibility": "contextual"
+    }
+  ],
+  "bindings": {
+    "selectedBase": "proof.selectedBase",
+    "funds": "proof.funds",
+    "facilityDeck": "proof.facilityDeck"
+  },
+  "entities": [
+    {
+      "id": "base-1",
+      "nameKey": "STR_BASE_1",
+      "state": "selected"
+    },
+    {
+      "id": "base-2",
+      "nameKey": "STR_BASE_2",
+      "state": "available"
+    },
+    {
+      "id": "base-3",
+      "nameKey": "STR_BASE_3",
+      "state": "warning"
+    },
+    {
+      "id": "base-4",
+      "nameKey": "STR_BASE_4",
+      "state": "available"
+    },
+    {
+      "id": "base-5",
+      "nameKey": "STR_BASE_5",
+      "state": "empty"
+    },
+    {
+      "id": "base-6",
+      "nameKey": "STR_BASE_6",
+      "state": "empty"
+    },
+    {
+      "id": "base-7",
+      "nameKey": "STR_BASE_7",
+      "state": "empty"
+    },
+    {
+      "id": "base-8",
+      "nameKey": "STR_BASE_8",
+      "state": "empty"
+    }
+  ],
+  "context": {
+    "selectedEntity": "base-1",
+    "activeSection": "management.forces"
+  },
+  "fixture": {
+    "funds": 10210000,
+    "facilityCount": 12,
+    "warningCount": 1,
+    "labels": {
+      "actions": {
+        "navigation.back": "Geoscape",
+        "base.selector": "Atlantic Operations",
+        "management.forces": "Forces",
+        "management.science-engineering": "Science & engineering",
+        "management.logistics": "Logistics",
+        "facility.primary": "Build"
+      },
+      "entities": {
+        "base-1": "Atlantic Operations",
+        "base-2": "Pacific Watch",
+        "base-3": "Arctic Relay",
+        "base-4": "Mediterranean Command",
+        "base-5": "Unassigned",
+        "base-6": "Unassigned",
+        "base-7": "Unassigned",
+        "base-8": "Unassigned"
+      },
+      "copy": {
+        "screenTitle": "Base management",
+        "funds": "$10.21M",
+        "facilityStatus": "12 facilities",
+        "warningStatus": "1 warning",
+        "deckTitle": "Facility deck",
+        "commandTitle": "Operations"
+      }
+    }
+  },
+  "layouts": {
+    "wide": {
+      "designSize": [
+        1280,
+        720
+      ],
+      "regions": {
+        "header": [
+          12,
+          12,
+          1256,
+          64
+        ],
+        "baseSelector": [
+          162,
+          12,
+          596,
+          64
+        ],
+        "funds": [
+          758,
+          12,
+          260,
+          64
+        ],
+        "baseStatus": [
+          1018,
+          12,
+          250,
+          64
+        ],
+        "workspace": [
+          12,
+          86,
+          1256,
+          622
+        ],
+        "facilityDeck": [
+          12,
+          86,
+          836,
+          622
+        ],
+        "commandColumn": [
+          858,
+          86,
+          410,
+          622
+        ]
+      },
+      "reservedRegions": [
+        {
+          "id": "facility-deck",
+          "bounds": [
+            12,
+            86,
+            836,
+            622
+          ]
+        },
+        {
+          "id": "command-column",
+          "bounds": [
+            858,
+            86,
+            410,
+            622
+          ]
+        }
+      ],
+      "actions": {
+        "navigation.back": {
+          "id": "navigation.back",
+          "component": "entity-selector",
+          "slotRole": "screen-back",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            12,
+            12,
+            150,
+            64
+          ],
+          "hitRect": [
+            12,
+            12,
+            150,
+            64
+          ],
+          "focusOrder": 10,
+          "zOrder": 1
+        },
+        "base.selector": {
+          "id": "base.selector",
+          "component": "entity-selector",
+          "slotRole": "entity-selector",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            162,
+            12,
+            596,
+            64
+          ],
+          "hitRect": [
+            162,
+            12,
+            596,
+            64
+          ],
+          "focusOrder": 20,
+          "zOrder": 1
+        },
+        "management.forces": {
+          "id": "management.forces",
+          "component": "management-section-action",
+          "slotRole": "management-1",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            867,
+            243,
+            392,
+            113
+          ],
+          "hitRect": [
+            867,
+            243,
+            392,
+            113
+          ],
+          "focusOrder": 30,
+          "zOrder": 1
+        },
+        "management.science-engineering": {
+          "id": "management.science-engineering",
+          "component": "management-section-action",
+          "slotRole": "management-2",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            867,
+            364,
+            392,
+            113
+          ],
+          "hitRect": [
+            867,
+            364,
+            392,
+            113
+          ],
+          "focusOrder": 40,
+          "zOrder": 1
+        },
+        "management.logistics": {
+          "id": "management.logistics",
+          "component": "management-section-action",
+          "slotRole": "management-3",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            867,
+            485,
+            392,
+            112
+          ],
+          "hitRect": [
+            867,
+            485,
+            392,
+            112
+          ],
+          "focusOrder": 50,
+          "zOrder": 1
+        },
+        "facility.primary": {
+          "id": "facility.primary",
+          "component": "management-section-action",
+          "slotRole": "facility-primary",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            1127,
+            628,
+            120,
+            48
+          ],
+          "hitRect": [
+            1127,
+            628,
+            120,
+            48
+          ],
+          "focusOrder": 60,
+          "zOrder": 1
+        }
+      }
+    },
+    "compact": {
+      "designSize": [
+        740,
+        360
+      ],
+      "regions": {
+        "header": [
+          8,
+          8,
+          724,
+          52
+        ],
+        "baseSelector": [
+          128,
+          8,
+          420,
+          52
+        ],
+        "funds": [
+          556,
+          8,
+          176,
+          52
+        ],
+        "workspace": [
+          8,
+          68,
+          724,
+          292
+        ],
+        "facilityDeck": [
+          8,
+          68,
+          366,
+          292
+        ],
+        "commandColumn": [
+          382,
+          68,
+          350,
+          292
+        ]
+      },
+      "reservedRegions": [
+        {
+          "id": "facility-deck",
+          "bounds": [
+            8,
+            68,
+            366,
+            292
+          ]
+        },
+        {
+          "id": "command-column",
+          "bounds": [
+            382,
+            68,
+            350,
+            292
+          ]
+        }
+      ],
+      "actions": {
+        "navigation.back": {
+          "id": "navigation.back",
+          "component": "entity-selector",
+          "slotRole": "screen-back",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            11,
+            11,
+            106,
+            46
+          ],
+          "hitRect": [
+            11,
+            11,
+            106,
+            46
+          ],
+          "focusOrder": 10,
+          "zOrder": 1
+        },
+        "base.selector": {
+          "id": "base.selector",
+          "component": "entity-selector",
+          "slotRole": "entity-selector",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            128,
+            8,
+            420,
+            52
+          ],
+          "hitRect": [
+            128,
+            8,
+            420,
+            52
+          ],
+          "focusOrder": 20,
+          "zOrder": 1
+        },
+        "management.forces": {
+          "id": "management.forces",
+          "component": "management-section-action",
+          "slotRole": "management-1",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            387,
+            91,
+            340,
+            85
+          ],
+          "hitRect": [
+            387,
+            91,
+            340,
+            85
+          ],
+          "focusOrder": 30,
+          "zOrder": 1
+        },
+        "management.science-engineering": {
+          "id": "management.science-engineering",
+          "component": "management-section-action",
+          "slotRole": "management-2",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            387,
+            181,
+            340,
+            84
+          ],
+          "hitRect": [
+            387,
+            181,
+            340,
+            84
+          ],
+          "focusOrder": 40,
+          "zOrder": 1
+        },
+        "management.logistics": {
+          "id": "management.logistics",
+          "component": "management-section-action",
+          "slotRole": "management-3",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            387,
+            270,
+            340,
+            85
+          ],
+          "hitRect": [
+            387,
+            270,
+            340,
+            85
+          ],
+          "focusOrder": 50,
+          "zOrder": 1
+        },
+        "facility.primary": {
+          "id": "facility.primary",
+          "component": "management-section-action",
+          "slotRole": "facility-primary",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            242,
+            304,
+            120,
+            48
+          ],
+          "hitRect": [
+            242,
+            304,
+            120,
+            48
+          ],
+          "focusOrder": 60,
+          "zOrder": 1
+        }
+      }
+    }
+  }
+}

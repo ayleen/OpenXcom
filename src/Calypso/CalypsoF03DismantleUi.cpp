@@ -214,8 +214,16 @@ void CalypsoF03DismantleUi::configure(DismantleFacilityState& state, bool allow)
 	if (!state._hdLayout) return;
 
 	state._hdWideLayout = currentLayoutClass() == CalypsoLayoutClass::Wide;
-	state._hdFacilityText = state._txtFacility ? state._txtFacility->getText() : "";
-	state._hdRefundText = state._txtRefundValue ? state._txtRefundValue->getText() : "";
+	// data-hiding P1: the HD adapter must surface the actual selected facility type
+	// (from the rule) instead of the generic canonical body lines.
+	const std::string facilityType = state._fac ? state._fac->getRules()->getType() : std::string();
+	state._hdFacilityText = facilityType.empty()
+		? std::string(state._txtFacility ? state._txtFacility->getText() : std::string())
+		: std::string(state.tr(facilityType));
+	// data-hiding P1: surface the computed refund value (STR_REFUND_VALUE).
+	state._hdRefundText = state._txtRefundValue
+		? std::string(state._txtRefundValue->getText())
+		: std::string(state.tr("STR_REFUND_VALUE"));
 	state._hdRefundVisible = state._txtRefundValue ? state._txtRefundValue->getVisible() : false;
 	state._hdHarnessGeneration = Calypso::calypsoHarnessSession().generation;
 	state._txtTitle->setText(state.tr("STR_CAL_F03_DISMANTLE_TITLE"));

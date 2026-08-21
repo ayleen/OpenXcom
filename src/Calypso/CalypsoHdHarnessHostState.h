@@ -59,6 +59,9 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id);
 // Phase 46.F21: new-base flow fixtures (CalypsoF21Harness.cpp).
 State* calypsoF21HarnessCreateTarget(CalypsoHarnessScenario id);
 
+// Phase 46.4: generated full-screen contract fixture.
+State* calypsoHdScreenHarnessCreateTarget(CalypsoHarnessScenario id);
+
 /// Open the harness: session request -> push host -> push target once.
 /// Returns false when the harness is already open or no game is live.
 /// sideBySide selects the engine-side comparison shift (dialog left half).

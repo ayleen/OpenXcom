@@ -1,0 +1,8 @@
+{
+  "schema": 1,
+  "id": "world-marker",
+  "version": "hd.2026-08-20.1",
+  "minimumTarget": [44, 44],
+  "allowedSlotRoles": ["world-contact", "world-base", "world-craft", "world-waypoint"],
+  "allowedTones": ["normal", "primary", "warning", "danger"]
+}

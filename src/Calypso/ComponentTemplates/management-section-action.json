@@ -1,0 +1,8 @@
+{
+  "schema": 1,
+  "id": "management-section-action",
+  "version": "hd.2026-08-20.1",
+  "minimumTarget": [44, 44],
+  "allowedSlotRoles": ["management-1", "management-2", "management-3", "facility-primary"],
+  "allowedTones": ["normal", "primary", "warning", "danger"]
+}

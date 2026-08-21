@@ -77,6 +77,15 @@ extraTTFFonts:
   - id: FONT_HD_HUD
     file: Resources/oxanium-hud-test.ttf
     size: 48
+  - id: FONT_F34_SAIRA_700
+    file: Resources/saira-condensed-700.ttf
+    size: 128
+  - id: FONT_F34_MONO
+    file: Resources/share-tech-mono-400.ttf
+    size: 64
+  - id: FONT_F33_BODY
+    file: Resources/chakra-petch-400.ttf
+    size: 64
 
 soldiers:
   - type: STR_SOLDIER

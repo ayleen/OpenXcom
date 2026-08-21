@@ -666,6 +666,8 @@ if(EMSCRIPTEN)
   list(APPEND openxcom_src Calypso/CalypsoHdTrackedText.cpp)
   # Phase 46.4-F33: opaque-black harness host + generic registry exports.
   list(APPEND openxcom_src Calypso/CalypsoHdHarnessHostState.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoHdScreenRenderer.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoHdScreenHarness.cpp)
   list(APPEND openxcom_src Calypso/CalypsoErrorPopupUiShared.cpp)
   list(APPEND openxcom_src Calypso/CalypsoStatisticsUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoNotesUi.cpp)
@@ -962,6 +964,10 @@ if(NOT EMSCRIPTEN AND BUILD_TESTING)
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoVoiceProfileSelectionTest.cpp
 		${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoRadioLineTimingTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoUiMetricsTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoGeoscapeHdLayoutTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoGeoscapeActionContractTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoGeoscapeMotionModelTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoGeoscapeProjectionTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoUiFamiliesTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoFocusModelTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoFocusCoordinatorTest.cpp

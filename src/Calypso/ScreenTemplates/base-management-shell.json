@@ -1,0 +1,57 @@
+{
+  "schema": 1,
+  "id": "base-management-shell",
+  "version": "hd.2026-08-20.1",
+  "coordinateSpaces": ["screen"],
+  "requiredActionIds": ["navigation.back", "base.selector", "management.forces", "management.science-engineering", "management.logistics", "facility.primary"],
+  "forbiddenPersistentPatterns": [],
+  "layouts": {
+    "wide": {
+      "canvas": [1280, 720],
+      "regions": {
+        "header": [12, 12, 1256, 64],
+        "baseSelector": [162, 12, 596, 64],
+        "funds": [758, 12, 260, 64],
+        "baseStatus": [1018, 12, 250, 64],
+        "workspace": [12, 86, 1256, 622],
+        "facilityDeck": [12, 86, 836, 622],
+        "commandColumn": [858, 86, 410, 622]
+      },
+      "reservedRegions": [
+        {"id": "facility-deck", "bounds": [12, 86, 836, 622]},
+        {"id": "command-column", "bounds": [858, 86, 410, 622]}
+      ],
+      "slots": {
+        "screen-back": {"visibleRect": [12, 12, 150, 64]},
+        "entity-selector": {"visibleRect": [162, 12, 596, 64]},
+        "management-1": {"visibleRect": [867, 243, 392, 113]},
+        "management-2": {"visibleRect": [867, 364, 392, 113]},
+        "management-3": {"visibleRect": [867, 485, 392, 112]},
+        "facility-primary": {"visibleRect": [1127, 628, 120, 48]}
+      }
+    },
+    "compact": {
+      "canvas": [740, 360],
+      "regions": {
+        "header": [8, 8, 724, 52],
+        "baseSelector": [128, 8, 420, 52],
+        "funds": [556, 8, 176, 52],
+        "workspace": [8, 68, 724, 292],
+        "facilityDeck": [8, 68, 366, 292],
+        "commandColumn": [382, 68, 350, 292]
+      },
+      "reservedRegions": [
+        {"id": "facility-deck", "bounds": [8, 68, 366, 292]},
+        {"id": "command-column", "bounds": [382, 68, 350, 292]}
+      ],
+      "slots": {
+        "screen-back": {"visibleRect": [11, 11, 106, 46]},
+        "entity-selector": {"visibleRect": [128, 8, 420, 52]},
+        "management-1": {"visibleRect": [387, 91, 340, 85]},
+        "management-2": {"visibleRect": [387, 181, 340, 84]},
+        "management-3": {"visibleRect": [387, 270, 340, 85]},
+        "facility-primary": {"visibleRect": [242, 304, 120, 48]}
+      }
+    }
+  }
+}
