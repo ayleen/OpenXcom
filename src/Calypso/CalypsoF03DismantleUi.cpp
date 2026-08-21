@@ -215,6 +215,7 @@ void CalypsoF03DismantleUi::configure(DismantleFacilityState& state, bool allow)
 	state._hdFacilityText = state._txtFacility ? state._txtFacility->getText() : "";
 	state._hdRefundText = state._txtRefundValue ? state._txtRefundValue->getText() : "";
 	state._hdRefundVisible = state._txtRefundValue ? state._txtRefundValue->getVisible() : false;
+	state._hdHarnessGeneration = Calypso::calypsoHarnessSession().generation;
 	state._txtTitle->setText(state.tr("STR_CAL_F03_DISMANTLE_TITLE"));
 	state._txtFacility->setText(
 		std::string(state.tr("STR_CAL_F03_DISMANTLE_LINE_1")) + "\n"

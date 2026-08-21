@@ -129,9 +129,9 @@ DismantleFacilityState::~DismantleFacilityState()
 #ifdef __EMSCRIPTEN__
 	if (_hdLayout)
 	{
-		Calypso::hdHarnessDomHide();
+		Calypso::calypsoHdHarnessDomHide();
 	}
-	Calypso::calypsoHdHarnessClose();
+	Calypso::calypsoHarnessCloseForTarget(Calypso::calypsoHarnessSession(), this, _hdHarnessGeneration);
 	delete _hdAdapter;
 	_hdAdapter = nullptr;
 	if (_hdOwnFixture)

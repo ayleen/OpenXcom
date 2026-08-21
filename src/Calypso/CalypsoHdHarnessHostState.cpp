@@ -45,6 +45,7 @@
 #include "../Savegame/Base.h"
 #include "../Savegame/BaseFacility.h"
 #include "../Savegame/SavedGame.h"
+#include <cstdint>
 
 #include "CalypsoAbandonPopupUi.h" // calypsoHdHarnessSetSideBySide (F33 comparison shift)
 
@@ -58,11 +59,15 @@ namespace
 
 /// One active harness run at a time (repeated opens are no-ops).
 CalypsoHarnessSession g_harnessSession;
-// F03 harness SavedGame isolation for P1 High - save original before fixture modifies it
-static SavedGame* g_harnessOriginalSave = nullptr;
-static int g_harnessOriginalFunds = 0;
-static bool g_harnessHadSave = false;
-static bool g_harnessSaveCaptured = false;
+// F03 harness SavedGame isolation - lease pattern to avoid double-free and dangling pointer
+struct HarnessSaveLease
+{
+    SavedGame *original = nullptr;
+    SavedGame *fixture = nullptr;
+    std::int64_t originalFunds = 0;
+    bool active = false;
+};
+static HarnessSaveLease g_harnessSaveLease;
 bool g_harnessCursorCaptured = false;
 bool g_harnessCursorVisible = true;
 bool g_harnessCursorHidden = false;
@@ -117,16 +122,7 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 	{
 		Game* game = getCurrentGame();
 		if (!game || !game->getMod()) return nullptr;
-		// Save original SavedGame state before fixture mutates it (High - harness changes real SavedGame)
-		if (!g_harnessSaveCaptured) {
-			g_harnessHadSave = game->getSavedGame() != nullptr;
-			g_harnessOriginalSave = game->getSavedGame();
-			g_harnessOriginalFunds = g_harnessOriginalSave ? g_harnessOriginalSave->getFunds() : 0;
-			g_harnessSaveCaptured = true;
-		}
-		if (!game->getSavedGame()) game->setSavedGame(new SavedGame());
-		game->getSavedGame()->setFunds(6800000);
-
+		// Find suitable facility rule BEFORE capturing SavedGame lease (avoid leaving modified save on failure)
 		const RuleBaseFacility* rule = nullptr;
 		for (const std::string& name : game->getMod()->getBaseFacilitiesList())
 		{
@@ -139,6 +135,25 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 			}
 		}
 		if (!rule) return nullptr;
+		// Capture SavedGame lease only after successful rule lookup
+		if (!g_harnessSaveLease.active) {
+			if (game->getSavedGame()) {
+				// Existing save: keep same object, just save funds
+				g_harnessSaveLease.original = game->getSavedGame();
+				g_harnessSaveLease.originalFunds = game->getSavedGame()->getFunds();
+				g_harnessSaveLease.fixture = nullptr;
+			} else {
+				// No save: create fixture and track it
+				SavedGame* fixture = new SavedGame();
+				game->setSavedGame(fixture);
+				g_harnessSaveLease.original = nullptr;
+				g_harnessSaveLease.fixture = fixture;
+				g_harnessSaveLease.originalFunds = 0;
+			}
+			g_harnessSaveLease.active = true;
+		}
+		// Temporarily set funds for fixture (only if we have a save)
+		if (game->getSavedGame()) game->getSavedGame()->setFunds(6800000);
 
 		Base* base = new Base(game->getMod());
 		BaseFacility* facility = new BaseFacility(rule, base);
@@ -275,7 +290,7 @@ bool calypsoHdHarnessOpen(CalypsoHarnessScenario id, CalypsoLayoutClass layout,
 		if (target)
 		{
 			g->pushState(target);
-			calypsoHarnessTargetUp(s);
+			calypsoHarnessTargetUp(s, target);
 			hideHarnessCursor(g);
 			return true;
 		}
@@ -293,29 +308,33 @@ bool calypsoHdHarnessOpen(CalypsoHarnessScenario id, CalypsoLayoutClass layout,
 void calypsoHdHarnessClose()
 {
 	restoreHarnessCursor(getCurrentGame());
-	// Restore original SavedGame state for F03 fixture isolation (High)
-	if (g_harnessSaveCaptured) {
+	// Restore original SavedGame state for F03 fixture isolation - lease pattern, no double-free
+	if (g_harnessSaveLease.active) {
 		if (Game* g = getCurrentGame()) {
 			SavedGame* current = g->getSavedGame();
-			if (g_harnessHadSave) {
-				if (current && current != g_harnessOriginalSave) {
-					// Fixture created a new SavedGame; delete it and restore original
-					delete current;
-					g->setSavedGame(g_harnessOriginalSave);
+			if (g_harnessSaveLease.fixture) {
+				// Fixture was created - it is current save, just clear it via setSavedGame (which deletes)
+				if (current == g_harnessSaveLease.fixture) {
+					g->setSavedGame(g_harnessSaveLease.original);
+				} else if (current && current != g_harnessSaveLease.original) {
+					// Unexpected pointer changed externally - do not delete old lease pointers, just clear lease
+					// to avoid dangling. Log and continue.
+					Log(LOG_WARNING) << "HarnessSaveLease: unexpected SavedGame pointer change";
 				}
-				if (g_harnessOriginalSave) g_harnessOriginalSave->setFunds(g_harnessOriginalFunds);
-			} else {
-				// No original save; fixture created one - remove it
-				if (current) {
-					delete current;
-					g->setSavedGame(nullptr);
+				// If we had an original save, restore its funds
+				if (g_harnessSaveLease.original) {
+					g_harnessSaveLease.original->setFunds(g_harnessSaveLease.originalFunds);
+				}
+			} else if (g_harnessSaveLease.original) {
+				// Existing save was kept - just restore funds if current is still original
+				if (current == g_harnessSaveLease.original) {
+					current->setFunds(g_harnessSaveLease.originalFunds);
+				} else {
+					Log(LOG_WARNING) << "HarnessSaveLease: original save pointer changed";
 				}
 			}
 		}
-		g_harnessOriginalSave = nullptr;
-		g_harnessOriginalFunds = 0;
-		g_harnessHadSave = false;
-		g_harnessSaveCaptured = false;
+		g_harnessSaveLease = HarnessSaveLease();
 	}
 	calypsoHarnessClose(calypsoHarnessSession());
 	// Clear the F33 side-by-side comparison shift so ordinary gameplay never
@@ -392,9 +411,14 @@ int calypso_hd_harness_switch(int scenarioId, int layoutClass, int sideBySide)
 	OpenXcom::Calypso::CalypsoHarnessSession& s = OpenXcom::Calypso::calypsoHarnessSession();
 	if (s.hostUp && g && g->getTopState())
 	{
+		// Use target-scoped close to avoid closing a newly opened harness if old target destructor runs later
+		State* top = g->getTopState();
+		// The top should be the target; capture its identity before popping
+		const void* targetPtr = top;
+		std::uint64_t gen = s.generation;
 		g->popState(); // the harness target
 		g->popState(); // the opaque host below it
-		OpenXcom::Calypso::calypsoHarnessClose(s);
+		OpenXcom::Calypso::calypsoHarnessCloseForTarget(s, targetPtr, gen);
 		OpenXcom::Calypso::calypsoHdHarnessSetSideBySide(false);
 	}
 	const CalypsoLayoutClass layout =

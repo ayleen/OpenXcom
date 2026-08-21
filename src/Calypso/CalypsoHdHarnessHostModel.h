@@ -22,6 +22,7 @@
  * Pure, dependency-free, natively unit tested (CalypsoHdHarnessHostModelTest).
  */
 #include "CalypsoUiMetrics.h"
+#include <cstdint>
 
 namespace OpenXcom
 {
@@ -105,6 +106,8 @@ struct CalypsoHarnessSession
 {
 	bool hostUp = false;
 	bool targetUp = false;
+	const void* activeTarget = nullptr;
+	std::uint64_t generation = 0;
 	bool layoutExplicit = false;
 	CalypsoLayoutClass requestedLayout = CalypsoLayoutClass::Compact;
 	bool motionDisabled = false; // deterministic capture mode (motion=0)
@@ -133,10 +136,12 @@ inline bool calypsoHarnessRequestOpen(CalypsoHarnessSession& s)
 
 /// The target preview appeared (host pushed it once). Returns true and marks
 /// the target up; a second call while already up is a no-op.
-inline bool calypsoHarnessTargetUp(CalypsoHarnessSession& s)
+inline bool calypsoHarnessTargetUp(CalypsoHarnessSession& s, const void* target = nullptr)
 {
 	if (!s.hostUp || s.targetUp) return false;
 	s.targetUp = true;
+	s.activeTarget = target;
+	++s.generation;
 	return true;
 }
 
@@ -146,11 +151,19 @@ inline void calypsoHarnessClose(CalypsoHarnessSession& s)
 {
 	s.hostUp = false;
 	s.targetUp = false;
+	s.activeTarget = nullptr;
 	s.layoutExplicit = false;
 	s.requestedLayout = CalypsoLayoutClass::Compact;
 	s.motionDisabled = false;
 	s.motionHoldPct = -1;
 	s.sideBySide = false;
+}
+
+inline bool calypsoHarnessCloseForTarget(CalypsoHarnessSession& s, const void* target, std::uint64_t gen)
+{
+	if (s.activeTarget != target || s.generation != gen) return false;
+	calypsoHarnessClose(s);
+	return true;
 }
 
 /// Deterministic capture mode: presentation motion is disabled for the active
