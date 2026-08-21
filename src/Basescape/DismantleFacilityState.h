@@ -18,9 +18,12 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "../Engine/State.h"
+#include <string>
+#include <cstdint>
 
 namespace OpenXcom
 {
+namespace Calypso { class CalypsoF03DismantleUi; }
 
 class Base;
 class BaseView;
@@ -35,6 +38,9 @@ class Text;
  */
 class DismantleFacilityState : public State
 {
+#ifdef __EMSCRIPTEN__
+friend class Calypso::CalypsoF03DismantleUi;
+#endif
 private:
 	Base *_base;
 	BaseView *_view;
@@ -52,6 +58,21 @@ public:
 	void btnOkClick(Action *action);
 	/// Handler for clicking the Cancel button.
 	void btnCancelClick(Action *action);
+
+#ifdef __EMSCRIPTEN__
+private:
+    bool _hdLayout = false;
+    bool _hdWideLayout = false;
+    bool _hdOwnFixture = false;
+    Calypso::CalypsoF03DismantleUi *_hdAdapter = nullptr;
+    std::string _hdFacilityText;
+    std::string _hdRefundText;
+    bool _hdRefundVisible = false;
+    std::uint64_t _hdHarnessGeneration = 0;
+public:
+    void calypsoOwnHarnessFixture() { _hdOwnFixture = true; }
+    void resize(int &dX, int &dY) override;
+#endif
 };
 
 }

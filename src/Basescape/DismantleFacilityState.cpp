@@ -31,6 +31,10 @@
 #include "BaseView.h"
 #include "../Mod/RuleBaseFacility.h"
 #include "../Savegame/SavedGame.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF03DismantleUi.h"
+#include "../Calypso/CalypsoHdHarnessHostState.h"
+#endif
 
 namespace OpenXcom
 {
@@ -110,6 +114,11 @@ DismantleFacilityState::DismantleFacilityState(Base *base, BaseView *view, BaseF
 		_txtRefundValue->setText(tr("STR_REFUND_VALUE").arg(Unicode::formatFunding(refundValue)));
 	}
 	_txtRefundValue->setVisible(refundValue != 0);
+#ifdef __EMSCRIPTEN__
+	// Configure only after semantic text and behavior widgets are complete so
+	// the physical adapter captures the canonical copy and action labels.
+	Calypso::CalypsoF03DismantleUi::configure(*this);
+#endif
 }
 
 /**
@@ -117,6 +126,23 @@ DismantleFacilityState::DismantleFacilityState(Base *base, BaseView *view, BaseF
  */
 DismantleFacilityState::~DismantleFacilityState()
 {
+#ifdef __EMSCRIPTEN__
+	if (_hdLayout)
+	{
+		Calypso::calypsoHdHarnessDomHide();
+	}
+	Calypso::calypsoHarnessCloseForTarget(Calypso::calypsoHarnessSession(), this, _hdHarnessGeneration);
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+	if (_hdOwnFixture)
+	{
+		delete _view;
+		delete _base;
+		_view = nullptr;
+		_base = nullptr;
+		_fac = nullptr;
+	}
+#endif
 
 }
 
@@ -258,3 +284,13 @@ void DismantleFacilityState::btnCancelClick(Action *)
 }
 
 }
+
+#ifdef __EMSCRIPTEN__
+namespace OpenXcom {
+void DismantleFacilityState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF03DismantleUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+}
+#endif

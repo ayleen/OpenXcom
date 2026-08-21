@@ -22,6 +22,7 @@
 
 namespace OpenXcom
 {
+namespace Calypso { class CalypsoF18CraftErrorUi; }
 
 class TextButton;
 class Window;
@@ -35,6 +36,9 @@ class Target;
  */
 class CraftErrorState : public State
 {
+#ifdef __EMSCRIPTEN__
+friend class Calypso::CalypsoF18CraftErrorUi;
+#endif
 private:
 	GeoscapeState *_state;
 	Target* _centerOnTarget;
@@ -50,9 +54,14 @@ public:
 	void btnOkClick(Action *action);
 	/// Handler for clicking the OK 5 Secs button.
 	void btnOk5SecsClick(Action *action);
+
 #ifdef __EMSCRIPTEN__
-	/// Phase 41: apply HD UI scaling on resize.
-	void resize(int &dX, int &dY) override { applyUiScaling(); }
+private:
+    bool _hdLayout = false;
+    bool _hdWideLayout = false;
+    Calypso::CalypsoF18CraftErrorUi *_hdAdapter = nullptr;
+public:
+    void resize(int &dX, int &dY) override;
 #endif
 };
 

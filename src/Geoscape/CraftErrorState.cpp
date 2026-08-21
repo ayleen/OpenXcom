@@ -26,6 +26,9 @@
 #include "Globe.h"
 #include "../Savegame/Target.h"
 #include "../Engine/Options.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF18CraftErrorUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -60,6 +63,9 @@ CraftErrorState::CraftErrorState(GeoscapeState *state, const std::string &msg, b
 	// Phase 41: HD scaling + TTF labels (see docs/phases/phase-29-menu-scaling.md).
 	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
 	enableUiScaling(320, 200, 1.0f);
+#endif
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF18CraftErrorUi::configure(*this);
 #endif
 
 	// Set up objects
@@ -96,6 +102,10 @@ CraftErrorState::CraftErrorState(GeoscapeState *state, const std::string &msg, b
  */
 CraftErrorState::~CraftErrorState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 
 }
 
@@ -123,3 +133,13 @@ void CraftErrorState::btnOk5SecsClick(Action *)
 }
 
 }
+
+#ifdef __EMSCRIPTEN__
+namespace OpenXcom {
+void CraftErrorState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF18CraftErrorUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+}
+#endif

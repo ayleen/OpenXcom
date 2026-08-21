@@ -22,6 +22,7 @@
 
 namespace OpenXcom
 {
+namespace Calypso { class CalypsoF05SoldierTransformUi; }
 
 class ArrowButton;
 class Base;
@@ -53,6 +54,9 @@ struct TransformationItem
  */
 class SoldierTransformState : public State
 {
+#ifdef __EMSCRIPTEN__
+friend class Calypso::CalypsoF05SoldierTransformUi;
+#endif
 private:
 	Base *_base;
 	size_t _soldier;
@@ -87,6 +91,15 @@ public:
 	void lstTransformationClickMiddle(Action* action);
 	/// Handler for clicking the Name arrow.
 	void sortNameClick(Action* action);
+
+#ifdef __EMSCRIPTEN__
+private:
+    bool _hdLayout = false;
+    bool _hdWideLayout = false;
+    Calypso::CalypsoF05SoldierTransformUi *_hdAdapter = nullptr;
+public:
+    void resize(int &dX, int &dY) override;
+#endif
 };
 
 }

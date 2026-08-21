@@ -1,0 +1,49 @@
+{
+  "schema": 1,
+  "id": "f24-production-complete",
+  "familyId": 24,
+  "version": "hd.2026-08-20.22",
+  "archetype": "small-confirmation",
+  "protocol": {
+    "authority": "CALYPSO COMMAND",
+    "record": "TACTICAL NOTICE",
+    "code": "F24-PC-01",
+    "revision": "1.0.21",
+    "effectiveDate": "15.07.2061"
+  },
+  "title": "PRODUCTION COMPLETE",
+  "body": [
+    "Manufacturing project",
+    "completed successfully."
+  ],
+  "icon": {
+    "kind": "info",
+    "glyph": "i",
+    "tone": "primary"
+  },
+  "buttons": [
+    {
+      "id": "ok",
+      "label": "OK",
+      "tone": "safe",
+      "action": "ok"
+    },
+    {
+      "id": "goto",
+      "label": "GO TO BASE",
+      "tone": "primary",
+      "action": "goto"
+    },
+    {
+      "id": "summary",
+      "label": "SUMMARY",
+      "tone": "safe",
+      "action": "summary"
+    }
+  ],
+  "visibleButtons": [
+    "ok",
+    "goto",
+    "summary"
+  ]
+}

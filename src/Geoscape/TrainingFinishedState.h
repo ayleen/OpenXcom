@@ -21,6 +21,7 @@
 
 namespace OpenXcom
 {
+namespace Calypso { class CalypsoF22TrainingFinishedUi; }
 
 class Game;
 class Window;
@@ -36,6 +37,9 @@ class Soldier;
  */
 class TrainingFinishedState : public State
 {
+#ifdef __EMSCRIPTEN__
+friend class Calypso::CalypsoF22TrainingFinishedUi;
+#endif
 private:
 	Window *_window;
 	Text *_txtTitle;
@@ -44,15 +48,21 @@ private:
 	Base *_base;
 	bool _psi;
 public:
+	~TrainingFinishedState();
 	/// Creates the TrainingFinishedState state.
 	TrainingFinishedState(Base *base, const std::vector<Soldier *> & list, bool psi);
 	/// Handler for clicking the OK button.
 	void btnOkClick(Action *action);
 	/// Handler for clicking the Open button.
 	void btnOpenClick(Action *action);
+
 #ifdef __EMSCRIPTEN__
-	/// Phase 41: apply HD UI scaling on resize.
-	void resize(int &dX, int &dY) override { applyUiScaling(); }
+private:
+    bool _hdLayout = false;
+    bool _hdWideLayout = false;
+    Calypso::CalypsoF22TrainingFinishedUi *_hdAdapter = nullptr;
+public:
+    void resize(int &dX, int &dY) override;
 #endif
 };
 

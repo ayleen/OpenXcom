@@ -1,0 +1,212 @@
+{
+  "schema": 1,
+  "version": "hd.2026-08-20.22",
+  "form": {
+    "id": "f24-production-complete",
+    "familyId": 24,
+    "archetype": "small-confirmation",
+    "source": "FormConfigs/f24-production-complete.json",
+    "icon": {
+      "kind": "info",
+      "glyph": "i",
+      "tone": "primary"
+    },
+    "buttons": [
+      {
+        "id": "ok",
+        "label": "OK",
+        "tone": "safe",
+        "action": "ok",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB0CC",
+          "text": "E8FFF5FF"
+        }
+      },
+      {
+        "id": "goto",
+        "label": "GO TO BASE",
+        "tone": "primary",
+        "action": "goto",
+        "style": {
+          "fill": "74FFB0FF",
+          "border": "74FFB0FF",
+          "text": "071013FF"
+        }
+      },
+      {
+        "id": "summary",
+        "label": "SUMMARY",
+        "tone": "safe",
+        "action": "summary",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB0CC",
+          "text": "E8FFF5FF"
+        }
+      }
+    ],
+    "visibleButtons": [
+      "ok",
+      "goto",
+      "summary"
+    ]
+  },
+  "copy": {
+    "protocol": "CALYPSO COMMAND · TACTICAL NOTICE F24-PC-01",
+    "title": "PRODUCTION COMPLETE",
+    "message": [
+      "Manufacturing project",
+      "completed successfully."
+    ]
+  },
+  "presentation": {
+    "density": "standard",
+    "scaleNumerator": 1,
+    "scaleDenominator": 1
+  },
+  "style": {
+    "cutCornerPx": 14,
+    "protocolTextInsetPx": 26,
+    "panelFillTop": "08191DEB",
+    "panelFillBottom": "041014E8",
+    "frame": "74FFB073",
+    "protocolText": "A9D8C7FF",
+    "divider": "74FFB04D",
+    "footerFill": "061B1CD6",
+    "footerDot": "74FFB01F",
+    "warning": "FFC14DFF",
+    "safeFill": "051417B8",
+    "safeBorder": "74FFB0CC",
+    "destructiveFill": "F25F5CFF",
+    "destructiveText": "071013FF"
+  },
+  "layouts": {
+    "wide": {
+      "designWidth": 1280,
+      "designHeight": 720,
+      "window": {
+        "x": 361,
+        "y": 230,
+        "width": 558,
+        "height": 236
+      },
+      "status": {
+        "x": 361,
+        "y": 230,
+        "width": 558,
+        "height": 38
+      },
+      "warning": {
+        "x": 393,
+        "y": 290,
+        "width": 32,
+        "height": 32
+      },
+      "title": {
+        "x": 441,
+        "y": 284,
+        "width": 446,
+        "height": 44
+      },
+      "message": {
+        "x": 393,
+        "y": 336,
+        "width": 494,
+        "height": 54
+      },
+      "footer": {
+        "x": 361,
+        "y": 404,
+        "width": 558,
+        "height": 62
+      },
+      "buttons": {
+        "ok": {
+          "x": 393,
+          "y": 413,
+          "width": 158,
+          "height": 44
+        },
+        "goto": {
+          "x": 561,
+          "y": 413,
+          "width": 158,
+          "height": 44
+        },
+        "summary": {
+          "x": 729,
+          "y": 413,
+          "width": 158,
+          "height": 44
+        }
+      }
+    },
+    "compact": {
+      "designWidth": 740,
+      "designHeight": 360,
+      "window": {
+        "x": 108,
+        "y": 60,
+        "width": 524,
+        "height": 221
+      },
+      "status": {
+        "x": 108,
+        "y": 60,
+        "width": 524,
+        "height": 34
+      },
+      "warning": {
+        "x": 136,
+        "y": 111,
+        "width": 28,
+        "height": 28
+      },
+      "title": {
+        "x": 178,
+        "y": 106,
+        "width": 426,
+        "height": 38
+      },
+      "message": {
+        "x": 136,
+        "y": 150,
+        "width": 468,
+        "height": 48
+      },
+      "footer": {
+        "x": 108,
+        "y": 215,
+        "width": 524,
+        "height": 66
+      },
+      "buttons": {
+        "ok": {
+          "x": 136,
+          "y": 225,
+          "width": 148,
+          "height": 44
+        },
+        "goto": {
+          "x": 296,
+          "y": 225,
+          "width": 148,
+          "height": 44
+        },
+        "summary": {
+          "x": 456,
+          "y": 225,
+          "width": 148,
+          "height": 44
+        }
+      }
+    }
+  },
+  "motion": {
+    "durationMs": 200,
+    "scaleFrom": 0.96,
+    "easing": "ease-out",
+    "captureModeDurationMs": 0
+  }
+}

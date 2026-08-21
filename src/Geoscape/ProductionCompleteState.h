@@ -25,6 +25,7 @@
 
 namespace OpenXcom
 {
+namespace Calypso { class CalypsoF24ProductionCompleteUi; }
 
 class TextButton;
 class Window;
@@ -39,6 +40,9 @@ class GeoscapeState;
  */
 class ProductionCompleteState : public State
 {
+#ifdef __EMSCRIPTEN__
+friend class Calypso::CalypsoF24ProductionCompleteUi;
+#endif
 private:
 	Base *_base;
 	GeoscapeState *_state;
@@ -64,9 +68,14 @@ public:
 	void btnSummaryClick(Action *action);
 	/// Handler for clicking the Summary list.
 	void lstSummaryClick(Action *action);
+
 #ifdef __EMSCRIPTEN__
-	/// Phase 41: apply HD UI scaling on resize.
-	void resize(int &dX, int &dY) override { applyUiScaling(); }
+private:
+    bool _hdLayout = false;
+    bool _hdWideLayout = false;
+    Calypso::CalypsoF24ProductionCompleteUi *_hdAdapter = nullptr;
+public:
+    void resize(int &dX, int &dY) override;
 #endif
 };
 

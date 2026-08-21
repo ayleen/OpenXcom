@@ -21,6 +21,7 @@
 
 namespace OpenXcom
 {
+namespace Calypso { class CalypsoF17UfoDetectedUi; }
 
 class Ufo;
 class TextButton;
@@ -34,6 +35,9 @@ class GeoscapeState;
  */
 class UfoDetectedState : public State
 {
+#ifdef __EMSCRIPTEN__
+friend class Calypso::CalypsoF17UfoDetectedUi;
+#endif
 private:
 	Ufo *_ufo;
 	GeoscapeState *_state;
@@ -55,9 +59,14 @@ public:
 	void btnCancelClick(Action *action);
 	/// Handler for pressing/releasing CTRL.
 	void toggleCancel(Action *action);
+
 #ifdef __EMSCRIPTEN__
-	/// Phase 41: apply HD UI scaling on resize.
-	void resize(int &dX, int &dY) override { applyUiScaling(); }
+private:
+    bool _hdLayout = false;
+    bool _hdWideLayout = false;
+    Calypso::CalypsoF17UfoDetectedUi *_hdAdapter = nullptr;
+public:
+    void resize(int &dX, int &dY) override;
 #endif
 };
 

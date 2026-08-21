@@ -1,0 +1,214 @@
+{
+  "schema": 1,
+  "version": "hd.2026-08-20.22",
+  "form": {
+    "id": "f04-sack-soldier",
+    "familyId": 4,
+    "archetype": "small-confirmation",
+    "source": "FormConfigs/f04-sack-soldier.json",
+    "icon": {
+      "kind": "warning",
+      "glyph": "!",
+      "tone": "warning"
+    },
+    "buttons": [
+      {
+        "id": "cancel",
+        "label": "CANCEL",
+        "tone": "safe",
+        "action": "cancel",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB0CC",
+          "text": "E8FFF5FF"
+        }
+      },
+      {
+        "id": "confirm",
+        "label": "DISMISS",
+        "tone": "danger",
+        "action": "confirm",
+        "style": {
+          "fill": "F25F5CFF",
+          "border": "F25F5CFF",
+          "text": "071013FF"
+        }
+      }
+    ],
+    "visibleButtons": [
+      "cancel",
+      "confirm"
+    ]
+  },
+  "copy": {
+    "protocol": "CALYPSO COMMAND · PERSONNEL DOSSIER PD-04",
+    "title": "DISMISS SOLDIER?",
+    "message": [
+      "This action will permanently",
+      "dismiss the soldier."
+    ],
+    "safeAction": "CANCEL",
+    "destructiveAction": "DISMISS"
+  },
+  "presentation": {
+    "density": "standard",
+    "scaleNumerator": 1,
+    "scaleDenominator": 1
+  },
+  "style": {
+    "cutCornerPx": 14,
+    "protocolTextInsetPx": 26,
+    "panelFillTop": "08191DEB",
+    "panelFillBottom": "041014E8",
+    "frame": "74FFB073",
+    "protocolText": "A9D8C7FF",
+    "divider": "74FFB04D",
+    "footerFill": "061B1CD6",
+    "footerDot": "74FFB01F",
+    "warning": "FFC14DFF",
+    "safeFill": "051417B8",
+    "safeBorder": "74FFB0CC",
+    "destructiveFill": "F25F5CFF",
+    "destructiveText": "071013FF"
+  },
+  "layouts": {
+    "wide": {
+      "designWidth": 1280,
+      "designHeight": 720,
+      "window": {
+        "x": 416,
+        "y": 230,
+        "width": 448,
+        "height": 236
+      },
+      "status": {
+        "x": 416,
+        "y": 230,
+        "width": 448,
+        "height": 38
+      },
+      "warning": {
+        "x": 448,
+        "y": 290,
+        "width": 32,
+        "height": 32
+      },
+      "title": {
+        "x": 496,
+        "y": 284,
+        "width": 336,
+        "height": 44
+      },
+      "message": {
+        "x": 448,
+        "y": 336,
+        "width": 384,
+        "height": 54
+      },
+      "footer": {
+        "x": 416,
+        "y": 404,
+        "width": 448,
+        "height": 62
+      },
+      "buttons": {
+        "cancel": {
+          "x": 506,
+          "y": 413,
+          "width": 158,
+          "height": 44
+        },
+        "confirm": {
+          "x": 674,
+          "y": 413,
+          "width": 158,
+          "height": 44
+        }
+      },
+      "no": {
+        "x": 506,
+        "y": 413,
+        "width": 158,
+        "height": 44
+      },
+      "yes": {
+        "x": 674,
+        "y": 413,
+        "width": 158,
+        "height": 44
+      }
+    },
+    "compact": {
+      "designWidth": 740,
+      "designHeight": 360,
+      "window": {
+        "x": 169,
+        "y": 60,
+        "width": 402,
+        "height": 221
+      },
+      "status": {
+        "x": 169,
+        "y": 60,
+        "width": 402,
+        "height": 34
+      },
+      "warning": {
+        "x": 197,
+        "y": 111,
+        "width": 28,
+        "height": 28
+      },
+      "title": {
+        "x": 239,
+        "y": 106,
+        "width": 304,
+        "height": 38
+      },
+      "message": {
+        "x": 197,
+        "y": 150,
+        "width": 346,
+        "height": 48
+      },
+      "footer": {
+        "x": 169,
+        "y": 215,
+        "width": 402,
+        "height": 66
+      },
+      "buttons": {
+        "cancel": {
+          "x": 235,
+          "y": 225,
+          "width": 148,
+          "height": 44
+        },
+        "confirm": {
+          "x": 395,
+          "y": 225,
+          "width": 148,
+          "height": 44
+        }
+      },
+      "no": {
+        "x": 235,
+        "y": 225,
+        "width": 148,
+        "height": 44
+      },
+      "yes": {
+        "x": 395,
+        "y": 225,
+        "width": 148,
+        "height": 44
+      }
+    }
+  },
+  "motion": {
+    "durationMs": 200,
+    "scaleFrom": 0.96,
+    "easing": "ease-out",
+    "captureModeDurationMs": 0
+  }
+}

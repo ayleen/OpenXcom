@@ -210,6 +210,74 @@ def validate_f33(f33):
 
 
 IDENT_RE = _re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+# F21 (Phase 46.F21): part-list-driven family contracts. One generic validator
+# + emitter serves every entry; the F33 bespoke path above stays untouched.
+# (rel, namespace, rect-struct/layout prefix, JS global name)
+F21_FAMILIES = [
+    ("f21-site.json", "CalypsoF21SiteGen", "CalypsoF21Site", "CalypsoF21Site"),
+    ("f21-site-details.json", "CalypsoF21SiteDetailsGen", "CalypsoF21SiteDetails", "CalypsoF21SiteDetails"),
+    ("f21-transaction.json", "CalypsoF21TransactionGen", "CalypsoF21Transaction", "CalypsoF21Transaction"),
+    ("f21-name.json", "CalypsoF21NameGen", "CalypsoF21Name", "CalypsoF21Name"),
+    ("f21-defense.json", "CalypsoF21DefenseGen", "CalypsoF21Defense", "CalypsoF21Defense"),
+    ("f21-destruction.json", "CalypsoF21DestructionGen", "CalypsoF21Destruction", "CalypsoF21Destruction"),
+]
+
+F21_COMMAND_CARD_CONTRACTS = {
+    "f21-site.json",
+}
+
+F21_SMALL_CONFIRMATION_CONTRACTS = {
+    "f21-transaction.json", "f21-name.json",
+    "f21-defense.json", "f21-destruction.json",
+    "f34-error.json",
+    "f18-craft-error.json", "f18-low-fuel.json", "f18-not-enough-pilots.json",
+    "f19-dogfight-error.json",
+    "f20-confirm-landing.json", "f20-confirm-cydonia.json",
+    "f24-research-required.json", "f24-research-complete.json",
+    "f28-abort-mission.json", "f28-confirm-end.json",
+    "f03-dismantle.json", "f04-sack-soldier.json",
+    "f17-ufo-lost.json", "f17-ufo-detected.json", "f17-mission-detected.json",
+    "f22-training-finished.json", "f30-no-experience.json", "f24-production-complete.json",
+    "f05-soldier-transform.json", "f06-soldier-diary.json",
+    "f12-transfer-confirm.json", "f10-manufacture-check.json", "f13-containment.json", "f24-items-arriving.json",
+}
+F21_ENGINE_TEXT_CALIBRATION_CONTRACTS = {
+    "f21-site.json",
+}
+
+CONTENT_BLOCK_CONTRACTS = {"f21-site-details.json"}
+
+# Additional small-confirmation forms use the same generator as the F21
+# command cards but are not part of the F21 family catalog.
+ADDITIONAL_SMALL_CONFIRMATION_CONTRACTS = [
+    ("f34-error.json", "CalypsoF34ErrorGen", "CalypsoF34Error", "CalypsoF34Error"),
+    ("f18-craft-error.json", "CalypsoF18CraftErrorGen", "CalypsoF18CraftError", "CalypsoF18CraftError"),
+    ("f18-low-fuel.json", "CalypsoF18LowFuelGen", "CalypsoF18LowFuel", "CalypsoF18LowFuel"),
+    ("f18-not-enough-pilots.json", "CalypsoF18NotEnoughPilotsGen", "CalypsoF18NotEnoughPilots", "CalypsoF18NotEnoughPilots"),
+    ("f19-dogfight-error.json", "CalypsoF19DogfightErrorGen", "CalypsoF19DogfightError", "CalypsoF19DogfightError"),
+    ("f20-confirm-landing.json", "CalypsoF20ConfirmLandingGen", "CalypsoF20ConfirmLanding", "CalypsoF20ConfirmLanding"),
+    ("f20-confirm-cydonia.json", "CalypsoF20ConfirmCydoniaGen", "CalypsoF20ConfirmCydonia", "CalypsoF20ConfirmCydonia"),
+    ("f24-research-required.json", "CalypsoF24ResearchRequiredGen", "CalypsoF24ResearchRequired", "CalypsoF24ResearchRequired"),
+    ("f24-research-complete.json", "CalypsoF24ResearchCompleteGen", "CalypsoF24ResearchComplete", "CalypsoF24ResearchComplete"),
+    ("f28-abort-mission.json", "CalypsoF28AbortMissionGen", "CalypsoF28AbortMission", "CalypsoF28AbortMission"),
+    ("f28-confirm-end.json", "CalypsoF28ConfirmEndGen", "CalypsoF28ConfirmEnd", "CalypsoF28ConfirmEnd"),
+    ("f03-dismantle.json", "CalypsoF03DismantleGen", "CalypsoF03Dismantle", "CalypsoF03Dismantle"),
+    ("f04-sack-soldier.json", "CalypsoF04SackSoldierGen", "CalypsoF04SackSoldier", "CalypsoF04SackSoldier"),
+    ("f17-ufo-lost.json", "CalypsoF17UfoLostGen", "CalypsoF17UfoLost", "CalypsoF17UfoLost"),
+    ("f17-ufo-detected.json", "CalypsoF17UfoDetectedGen", "CalypsoF17UfoDetected", "CalypsoF17UfoDetected"),
+    ("f17-mission-detected.json", "CalypsoF17MissionDetectedGen", "CalypsoF17MissionDetected", "CalypsoF17MissionDetected"),
+    ("f22-training-finished.json", "CalypsoF22TrainingFinishedGen", "CalypsoF22TrainingFinished", "CalypsoF22TrainingFinished"),
+    ("f30-no-experience.json", "CalypsoF30NoExperienceGen", "CalypsoF30NoExperience", "CalypsoF30NoExperience"),
+    ("f24-production-complete.json", "CalypsoF24ProductionCompleteGen", "CalypsoF24ProductionComplete", "CalypsoF24ProductionComplete"),
+    ("f05-soldier-transform.json", "CalypsoF05SoldierTransformGen", "CalypsoF05SoldierTransform", "CalypsoF05SoldierTransform"),
+    ("f06-soldier-diary.json", "CalypsoF06SoldierDiaryGen", "CalypsoF06SoldierDiary", "CalypsoF06SoldierDiary"),
+    ("f12-transfer-confirm.json", "CalypsoF12TransferConfirmGen", "CalypsoF12TransferConfirm", "CalypsoF12TransferConfirm"),
+    ("f10-manufacture-check.json", "CalypsoF10ManufactureCheckGen", "CalypsoF10ManufactureCheck", "CalypsoF10ManufactureCheck"),
+    ("f13-containment.json", "CalypsoF13ContainmentGen", "CalypsoF13Containment", "CalypsoF13Containment"),
+    ("f24-items-arriving.json", "CalypsoF24ItemsArrivingGen", "CalypsoF24ItemsArriving", "CalypsoF24ItemsArriving"),
+]
 SLUG_RE = _re.compile(r"^[a-z0-9][a-z0-9-]*$")
 
 

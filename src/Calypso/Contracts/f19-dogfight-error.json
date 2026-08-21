@@ -1,0 +1,188 @@
+{
+  "schema": 1,
+  "version": "hd.2026-08-20.22",
+  "form": {
+    "id": "f19-dogfight-error",
+    "familyId": 19,
+    "archetype": "small-confirmation",
+    "source": "FormConfigs/f19-dogfight-error.json",
+    "icon": {
+      "kind": "warning",
+      "glyph": "!",
+      "tone": "warning"
+    },
+    "buttons": [
+      {
+        "id": "intercept",
+        "label": "CONTINUE",
+        "tone": "safe",
+        "action": "intercept",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB0CC",
+          "text": "E8FFF5FF"
+        }
+      },
+      {
+        "id": "tobase",
+        "label": "TO BASE",
+        "tone": "primary",
+        "action": "tobase",
+        "style": {
+          "fill": "74FFB0FF",
+          "border": "74FFB0FF",
+          "text": "071013FF"
+        }
+      }
+    ],
+    "visibleButtons": [
+      "intercept",
+      "tobase"
+    ]
+  },
+  "copy": {
+    "protocol": "CALYPSO COMMAND · DOGFIGHT PROTOCOL DF-19",
+    "title": "ENGAGEMENT BLOCKED",
+    "message": [
+      "Craft cannot engage",
+      "the target now."
+    ]
+  },
+  "presentation": {
+    "density": "standard",
+    "scaleNumerator": 1,
+    "scaleDenominator": 1
+  },
+  "style": {
+    "cutCornerPx": 14,
+    "protocolTextInsetPx": 26,
+    "panelFillTop": "08191DEB",
+    "panelFillBottom": "041014E8",
+    "frame": "74FFB073",
+    "protocolText": "A9D8C7FF",
+    "divider": "74FFB04D",
+    "footerFill": "061B1CD6",
+    "footerDot": "74FFB01F",
+    "warning": "FFC14DFF",
+    "safeFill": "051417B8",
+    "safeBorder": "74FFB0CC",
+    "destructiveFill": "F25F5CFF",
+    "destructiveText": "071013FF"
+  },
+  "layouts": {
+    "wide": {
+      "designWidth": 1280,
+      "designHeight": 720,
+      "window": {
+        "x": 396,
+        "y": 230,
+        "width": 488,
+        "height": 236
+      },
+      "status": {
+        "x": 396,
+        "y": 230,
+        "width": 488,
+        "height": 38
+      },
+      "warning": {
+        "x": 428,
+        "y": 290,
+        "width": 32,
+        "height": 32
+      },
+      "title": {
+        "x": 476,
+        "y": 284,
+        "width": 376,
+        "height": 44
+      },
+      "message": {
+        "x": 428,
+        "y": 336,
+        "width": 424,
+        "height": 54
+      },
+      "footer": {
+        "x": 396,
+        "y": 404,
+        "width": 488,
+        "height": 62
+      },
+      "buttons": {
+        "intercept": {
+          "x": 526,
+          "y": 413,
+          "width": 158,
+          "height": 44
+        },
+        "tobase": {
+          "x": 694,
+          "y": 413,
+          "width": 158,
+          "height": 44
+        }
+      }
+    },
+    "compact": {
+      "designWidth": 740,
+      "designHeight": 360,
+      "window": {
+        "x": 151,
+        "y": 60,
+        "width": 438,
+        "height": 221
+      },
+      "status": {
+        "x": 151,
+        "y": 60,
+        "width": 438,
+        "height": 34
+      },
+      "warning": {
+        "x": 179,
+        "y": 111,
+        "width": 28,
+        "height": 28
+      },
+      "title": {
+        "x": 221,
+        "y": 106,
+        "width": 340,
+        "height": 38
+      },
+      "message": {
+        "x": 179,
+        "y": 150,
+        "width": 382,
+        "height": 48
+      },
+      "footer": {
+        "x": 151,
+        "y": 215,
+        "width": 438,
+        "height": 66
+      },
+      "buttons": {
+        "intercept": {
+          "x": 253,
+          "y": 225,
+          "width": 148,
+          "height": 44
+        },
+        "tobase": {
+          "x": 413,
+          "y": 225,
+          "width": 148,
+          "height": 44
+        }
+      }
+    }
+  },
+  "motion": {
+    "durationMs": 200,
+    "scaleFrom": 0.96,
+    "easing": "ease-out",
+    "captureModeDurationMs": 0
+  }
+}

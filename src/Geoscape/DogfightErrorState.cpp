@@ -24,6 +24,9 @@
 #include "../Interface/Text.h"
 #include "../Engine/Options.h"
 #include "../Savegame/Craft.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF19DogfightErrorUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -60,6 +63,9 @@ DogfightErrorState::DogfightErrorState(Craft *craft, const std::string &msg) : _
 	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
 	enableUiScaling(320, 200, 1.0f);
 #endif
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF19DogfightErrorUi::configure(*this);
+#endif
 
 	// Set up objects
 	setWindowBackground(_window, "dogfightInfo");
@@ -86,6 +92,10 @@ DogfightErrorState::DogfightErrorState(Craft *craft, const std::string &msg) : _
  */
 DogfightErrorState::~DogfightErrorState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 
 }
 
@@ -109,3 +119,13 @@ void DogfightErrorState::btnBaseClick(Action *)
 }
 
 }
+
+#ifdef __EMSCRIPTEN__
+namespace OpenXcom {
+void DogfightErrorState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF19DogfightErrorUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+}
+#endif

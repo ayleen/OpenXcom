@@ -23,6 +23,9 @@
 #include "../Interface/Window.h"
 #include "../Interface/Text.h"
 #include "../Engine/Options.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF17UfoLostUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -54,6 +57,9 @@ UfoLostState::UfoLostState(const std::string &id) : _id(id)
 	applyTTFToTexts(_game->getMod()->getTTFFont("FONT_HD_HUD", false), 0.92f);
 	enableUiScaling(320, 200, 1.0f);
 #endif
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF17UfoLostUi::configure(*this);
+#endif
 
 	// Set up objects
 	setWindowBackground(_window, "UFOLost");
@@ -76,6 +82,10 @@ UfoLostState::UfoLostState(const std::string &id) : _id(id)
  */
 UfoLostState::~UfoLostState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 
 }
 
@@ -89,3 +99,13 @@ void UfoLostState::btnOkClick(Action *)
 }
 
 }
+
+#ifdef __EMSCRIPTEN__
+namespace OpenXcom {
+void UfoLostState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF17UfoLostUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+}
+#endif

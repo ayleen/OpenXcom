@@ -28,6 +28,9 @@
 #include "../Savegame/BattleUnit.h"
 #include "../Savegame/SavedBattleGame.h"
 #include "../Savegame/SavedGame.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF30NoExperienceUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -54,6 +57,9 @@ NoExperienceState::NoExperienceState()
 	add(_lstSoldiers, "optionLists", "battlescape");
 
 	centerAllSurfaces();
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF30NoExperienceUi::configure(*this);
+#endif
 
 	// Set up objects
 	_window->setHighContrast(true);
@@ -105,3 +111,24 @@ void NoExperienceState::btnCancelClick(Action *)
 }
 
 }
+
+#ifdef __EMSCRIPTEN__
+namespace OpenXcom {
+void NoExperienceState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF30NoExperienceUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+}
+#endif
+
+namespace OpenXcom {
+NoExperienceState::~NoExperienceState()
+{
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
+}
+}
+

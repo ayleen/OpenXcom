@@ -1,0 +1,49 @@
+{
+  "schema": 1,
+  "id": "f17-mission-detected",
+  "familyId": 17,
+  "version": "hd.2026-08-20.22",
+  "archetype": "small-confirmation",
+  "protocol": {
+    "authority": "CALYPSO COMMAND",
+    "record": "TACTICAL NOTICE",
+    "code": "F17-MD-01",
+    "revision": "1.0.21",
+    "effectiveDate": "15.07.2061"
+  },
+  "title": "MISSION DETECTED",
+  "body": [
+    "Alien mission",
+    "detected nearby."
+  ],
+  "icon": {
+    "kind": "warning",
+    "glyph": "!",
+    "tone": "warning"
+  },
+  "buttons": [
+    {
+      "id": "intercept",
+      "label": "INTERCEPT",
+      "tone": "safe",
+      "action": "intercept"
+    },
+    {
+      "id": "centre",
+      "label": "CENTRE",
+      "tone": "primary",
+      "action": "centre"
+    },
+    {
+      "id": "cancel",
+      "label": "CANCEL",
+      "tone": "safe",
+      "action": "cancel"
+    }
+  ],
+  "visibleButtons": [
+    "intercept",
+    "centre",
+    "cancel"
+  ]
+}
