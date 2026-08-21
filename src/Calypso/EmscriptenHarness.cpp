@@ -531,6 +531,51 @@ void calypso_screenshot_gpu(const char *path)
 		g->getScreen()->screenshotGPU(path);
 }
 
+/* ---- Semantic capture readiness (phase-test-infra-mainmenu-gpl) -------------
+ * Harness-only observation of real presentations for regression scenarios that
+ * opt into readyWhen semantic readiness. Game::iterate() calls
+ * calypso_harness_note_presented_frame() immediately AFTER a successful
+ * _screen->flip() (see Engine/Game.cpp), so the serial counts completed engine
+ * presentations — never State::think(), State::blit(), browser rAF ticks, or
+ * wall-clock time. The counter is inactive by default: ordinary browser play
+ * stays on the no-observation path (the note call returns immediately).
+ * Page-local, single-threaded, test-only; never persisted or saved.
+ * Calls before Game construction are valid — no Game* dependency. */
+static double g_calypsoPresentedFrameSerial = 0.0;
+static bool g_calypsoPresentedFramesArmed = false;
+
+void calypso_harness_note_presented_frame()
+{
+	if (!g_calypsoPresentedFramesArmed) return;
+	g_calypsoPresentedFrameSerial += 1.0;
+}
+
+/* Arm: reset the serial to zero and activate observation. Returns 1. */
+EMSCRIPTEN_KEEPALIVE
+int calypso_harness_arm_presented_frames()
+{
+	g_calypsoPresentedFrameSerial = 0.0;
+	g_calypsoPresentedFramesArmed = true;
+	return 1;
+}
+
+/* Disarm: deactivate observation. Idempotent cleanup; returns 1. The serial
+ * value is left untouched so a late diagnostic query still sees the last run. */
+EMSCRIPTEN_KEEPALIVE
+int calypso_harness_disarm_presented_frames()
+{
+	g_calypsoPresentedFramesArmed = false;
+	return 1;
+}
+
+/* Query the exact non-negative integer serial. A double keeps every integer
+ * value exactly representable from JavaScript without an i64/BigInt ABI. */
+EMSCRIPTEN_KEEPALIVE
+double calypso_harness_presented_frame_serial()
+{
+	return g_calypsoPresentedFrameSerial;
+}
+
 /* Activate the GPU smoke-test scenario (Phase 8b — ?harness=gpu-smoke).
  * Registers a shader pass with Screen that renders for 5 frames then
  * saves a PNG to `path`.  Requires callMain to have been invoked first. */

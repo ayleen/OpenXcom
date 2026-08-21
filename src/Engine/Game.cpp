@@ -65,6 +65,7 @@
 extern OpenXcom::Game *game;
 extern "C" void calypso_reset_main_loop_state(void);
 extern "C" int calypso_pause_main_loop_before_iterate(void);
+extern "C" void calypso_harness_note_presented_frame(void);
 #endif
 
 namespace OpenXcom
@@ -534,6 +535,8 @@ bool Game::iterate()
 #ifdef __EMSCRIPTEN__
 			_fastMainLoopLastRenderMs = SDL_GetTicks();
 			calypsoRenderedThisIteration = true;
+			// Semantic capture readiness: count this completed presentation.
+			calypso_harness_note_presented_frame();
 #endif
 		}
 	}
