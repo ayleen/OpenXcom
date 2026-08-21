@@ -101,7 +101,7 @@
       "browser": { "global": "CalypsoGeoscapeCommandShell", "output": "geoscape-command-shell.js" },
       "rendererOwnership": "strategic-command-shell",
       "harnessElement": "geoscape-hd",
-      "harnessScenarioIds": [61]
+      "harnessScenarioIds": [84]
     },
     {
       "id": "basescape-shell-proof",
