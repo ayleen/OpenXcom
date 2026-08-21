@@ -12,6 +12,7 @@
 #include "../Basescape/DismantleFacilityState.h"
 #include "../Mod/Mod.h"
 #include "Generated/CalypsoF03Dismantle.generated.h"
+#include "../Engine/Unicode.h"
 #include "CalypsoHdHarnessHostState.h"
 #include "CalypsoHdUiOverlay.h"
 #include "CalypsoSmallConfirmationRenderer.h"
@@ -200,10 +201,26 @@ void CalypsoF03DismantleUi::configure(DismantleFacilityState& state, bool allow)
 
 	state._hdWideLayout = currentLayoutClass() == CalypsoLayoutClass::Wide;
 	state._txtTitle->setText(state.tr("STR_CAL_F03_DISMANTLE_TITLE"));
-	state._txtFacility->setText(
-		std::string(state.tr("STR_CAL_F03_DISMANTLE_LINE_1")) + "\n"
-		+ std::string(state.tr("STR_CAL_F03_DISMANTLE_LINE_2")));
-	state._txtRefundValue->setVisible(false);
+	// Show actual facility and refund instead of generic lines — fixes data-hiding P1.
+	{
+		std::string facName = state.tr(state._fac ? state._fac->getRules()->getType() : "STR_UNKNOWN");
+		int refundValue = 0;
+		if (state._fac) {
+			if (state._fac->getBuildTime() > state._fac->getRules()->getBuildTime()) refundValue = state._fac->getRules()->getBuildCost();
+			else refundValue = state._fac->getRules()->getRefundValue();
+		}
+		std::string refundText;
+		if (refundValue < 0) refundText = state.tr("STR_REFUND_VALUE_NEGATIVE").arg(Unicode::formatFunding(-refundValue));
+		else if (refundValue > 0) refundText = state.tr("STR_REFUND_VALUE").arg(Unicode::formatFunding(refundValue));
+		if (!refundText.empty()) state._txtFacility->setText(facName + "\n" + refundText);
+		else state._txtFacility->setText(facName);
+		// Keep legacy refund widget hidden — its content is now in _txtFacility's second line.
+		state._txtRefundValue->setVisible(false);
+		// Mirror vanilla affordability gate for negative refund.
+		if (refundValue < 0 && state._game && state._game->getSavedGame() && state._game->getSavedGame()->getFunds() < -refundValue) {
+			state._btnOk->setVisible(false);
+		}
+	}
 	state._btnCancel->setText(state.tr("STR_CANCEL_UC"));
 	state._btnOk->setText(state.tr("STR_CAL_F03_DISMANTLE_ACTION"));
 	applyGeneratedLayout(state, state._hdWideLayout);
