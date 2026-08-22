@@ -93,8 +93,11 @@ public:
 	SDL_Surface *getSurface();
 	/// Handles keyboard events.
 	void handle(Action *action);
-	/// Renders the screen onto the game window.
-	void flip();
+	/// Renders the screen onto the game window. Returns true iff this call
+	/// actually presented (SDL_RenderPresent / SDL_GL_SwapWindow) — skipped
+	/// presents (context loss, HD-overlay gate, missing GL buffer) return
+	/// false so callers can distinguish a real presentation from a no-op.
+	bool flip();
 	/// Clears the screen.
 	void clear();
 	/// Sets the screen's 8bpp palette.

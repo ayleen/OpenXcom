@@ -291,7 +291,7 @@ void Screen::handle(Action *action)
  * of the buffer are resized by that factor (eg. 2 = doubled)
  * before being put on screen.
  */
-void Screen::flip()
+bool Screen::flip()
 {
 #ifdef __EMSCRIPTEN__
 	/* M6c: do not issue any GL calls while the WebGL context is dead.
@@ -299,7 +299,7 @@ void Screen::flip()
 	 * covers the brief window between emscripten_resume_main_loop() and the
 	 * first frame processed after Screen::handle() finishes recreating the
 	 * renderer (the event is consumed in the same loop tick as the resume). */
-	if (g_calypsoContextLost) return;
+	if (g_calypsoContextLost) return false;
 
 	/* Browser canvas resize: poll canvas.width each frame (physical pixels).
 	 * SDL_GetWindowSize returns CSS logical pixels in Emscripten, which differ
@@ -332,11 +332,12 @@ void Screen::flip()
 
 	if (useOpenGL())
 	{
-		Zoom::flipWithZoom(_surface.get(), _screen, _topBlackBand, _bottomBlackBand,
-		                   _leftBlackBand, _rightBlackBand, &glOutput, _window);
+		const bool presented = Zoom::flipWithZoom(_surface.get(), _screen, _topBlackBand,
+		                                          _bottomBlackBand, _leftBlackBand,
+		                                          _rightBlackBand, &glOutput, _window);
 		_numColors = 0;
 		_pushPalette = false;
-		return;
+		return presented;
 	}
 
 	/* SDL2 renderer path — shared by Emscripten and native non-OpenGL. */
@@ -429,9 +430,13 @@ void Screen::flip()
 	SDL_UnlockTexture(_texture);
 	SDL_RenderCopy(_renderer, _texture, nullptr, nullptr);
 
+	/* Phase 46.2-HD: enabled HD UI + diagnostics stages draw above the legacy
+	 * composite and own presentation gating — renderStages() returns false when
+	 * a stage refused to draw, and this frame must then not reach the display.
+	 * Emscripten-only hook; native has no HD overlay, so presentOk stays true. */
+	bool presentOk = true;
 #ifdef __EMSCRIPTEN__
-	// Phase 46.2-HD: HD UI + diagnostics stages draw above the legacy composite.
-	const bool hdPresentOk = Calypso::CalypsoHdUiOverlay::instance().renderStages(_renderer);
+	presentOk = Calypso::CalypsoHdUiOverlay::instance().renderStages(_renderer);
 #endif
 
 	/* GPU shader passes (Phase 8b): cursor, projectile, smoke — overlay on top.
@@ -464,15 +469,22 @@ void Screen::flip()
 		}
 	}
 
-#ifdef __EMSCRIPTEN__
-	// Enabled HD routes throw before this boundary on any draw failure. The bool
-	// remains the dormant/harness presentation gate; it is not a vanilla retry.
-	if (hdPresentOk)
-#endif
+	if (!presentOk)
+	{
+		/* Enabled HD routes throw before this boundary on any draw failure. The
+		 * bool remains the dormant/harness presentation gate (its result now
+		 * feeds the flip() return value and hence the presented-frame serial);
+		 * it is not a vanilla retry. Native builds never take this branch:
+		 * presentOk above is unconditionally true there. */
+		_numColors = 0;
+		_pushPalette = false;
+		return false;
+	}
 	SDL_RenderPresent(_renderer);
 
 	_numColors = 0;
 	_pushPalette = false;
+	return true;
 }
 
 /**
