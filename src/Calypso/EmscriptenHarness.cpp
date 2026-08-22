@@ -534,11 +534,14 @@ void calypso_screenshot_gpu(const char *path)
 /* ---- Semantic capture readiness (phase-test-infra-mainmenu-gpl) -------------
  * Harness-only observation of real presentations for regression scenarios that
  * opt into readyWhen semantic readiness. Game::iterate() calls
- * calypso_harness_note_presented_frame() immediately AFTER a successful
- * _screen->flip() (see Engine/Game.cpp), so the serial counts completed engine
- * presentations — never State::think(), State::blit(), browser rAF ticks, or
- * wall-clock time. The counter is inactive by default: ordinary browser play
- * stays on the no-observation path (the note call returns immediately).
+ * calypso_harness_note_presented_frame() only when Screen::flip() returned
+ * true — i.e. iff that central Game iteration actually reached
+ * SDL_RenderPresent / SDL_GL_SwapWindow (see Engine/Game.cpp). Skipped presents
+ * (WebGL context loss, HD-overlay gate, missing GL buffer surface) never
+ * advance the serial; State::think(), State::blit(), browser rAF ticks and
+ * wall-clock time never do either. The counter is inactive by default:
+ * ordinary browser play stays on the no-observation path (the note call
+ * returns immediately).
  * Page-local, single-threaded, test-only; never persisted or saved.
  * Calls before Game construction are valid — no Game* dependency. */
 static double g_calypsoPresentedFrameSerial = 0.0;

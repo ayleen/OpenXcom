@@ -666,20 +666,22 @@ bool Zoom::haveSSE2()
  * @param rightBlackBand Size of right black band in pixels (letterboxing).
  * @param glOut OpenGL output.
  */
-void Zoom::flipWithZoom(SDL_Surface *src, SDL_Surface *dst, int topBlackBand, int bottomBlackBand, int leftBlackBand, int rightBlackBand, OpenGL *glOut, SDL_Window *window)
+bool Zoom::flipWithZoom(SDL_Surface *src, SDL_Surface *dst, int topBlackBand, int bottomBlackBand, int leftBlackBand, int rightBlackBand, OpenGL *glOut, SDL_Window *window)
 {
 	int dstWidth = dst->w - leftBlackBand - rightBlackBand;
 	int dstHeight = dst->h - topBlackBand - bottomBlackBand;
 	if (Screen::useOpenGL())
 	{
 #ifndef __NO_OPENGL
-		if (glOut->buffer_surface)
-		{
-			SDL_BlitSurface(src, 0, glOut->surface.get(), 0); // TODO; this is less than ideal...
+		if (!glOut || !glOut->buffer_surface)
+			return false;
+		SDL_BlitSurface(src, 0, glOut->surface.get(), 0); // TODO; this is less than ideal...
 
-			glOut->refresh(glOut->linear, glOut->iwidth, glOut->iheight, dst->w, dst->h, topBlackBand, bottomBlackBand, leftBlackBand, rightBlackBand);
-			SDL_GL_SwapWindow(window);
-		}
+		glOut->refresh(glOut->linear, glOut->iwidth, glOut->iheight, dst->w, dst->h, topBlackBand, bottomBlackBand, leftBlackBand, rightBlackBand);
+		SDL_GL_SwapWindow(window);
+		return true;
+#else
+		return false;
 #endif
 	}
 	else if (topBlackBand <= 0 && bottomBlackBand <= 0 && leftBlackBand <= 0 && rightBlackBand <= 0)
@@ -703,6 +705,7 @@ void Zoom::flipWithZoom(SDL_Surface *src, SDL_Surface *dst, int topBlackBand, in
 		SDL_BlitSurface(tmp, NULL, dst, &dstrect);
 		SDL_FreeSurface(tmp);
 	}
+	return false;
 }
 
 

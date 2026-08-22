@@ -531,12 +531,14 @@ bool Game::iterate()
 			}
 			_fpsCounter->blit(_screen->getSurface());
 			_cursor->blit(_screen->getSurface());
-			_screen->flip();
+			// Semantic capture readiness keys on the flip() result: the serial
+			// must advance only when this iteration actually presented.
+			const bool presented = _screen->flip();
 #ifdef __EMSCRIPTEN__
 			_fastMainLoopLastRenderMs = SDL_GetTicks();
 			calypsoRenderedThisIteration = true;
-			// Semantic capture readiness: count this completed presentation.
-			calypso_harness_note_presented_frame();
+			if (presented)
+				calypso_harness_note_presented_frame();
 #endif
 		}
 	}
