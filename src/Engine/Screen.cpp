@@ -430,9 +430,13 @@ bool Screen::flip()
 	SDL_UnlockTexture(_texture);
 	SDL_RenderCopy(_renderer, _texture, nullptr, nullptr);
 
+	/* Phase 46.2-HD: enabled HD UI + diagnostics stages draw above the legacy
+	 * composite and own presentation gating — renderStages() returns false when
+	 * a stage refused to draw, and this frame must then not reach the display.
+	 * Emscripten-only hook; native has no HD overlay, so presentOk stays true. */
+	bool presentOk = true;
 #ifdef __EMSCRIPTEN__
-	// Phase 46.2-HD: HD UI + diagnostics stages draw above the legacy composite.
-	const bool hdPresentOk = Calypso::CalypsoHdUiOverlay::instance().renderStages(_renderer);
+	presentOk = Calypso::CalypsoHdUiOverlay::instance().renderStages(_renderer);
 #endif
 
 	/* GPU shader passes (Phase 8b): cursor, projectile, smoke — overlay on top.
@@ -465,18 +469,17 @@ bool Screen::flip()
 		}
 	}
 
-#ifdef __EMSCRIPTEN__
-	// Enabled HD routes throw before this boundary on any draw failure. The bool
-	// remains the dormant/harness presentation gate (its result now feeds the
-	// flip() return value and hence the presented-frame serial); it is not a
-	// vanilla retry.
-	if (!hdPresentOk)
+	if (!presentOk)
 	{
+		/* Enabled HD routes throw before this boundary on any draw failure. The
+		 * bool remains the dormant/harness presentation gate (its result now
+		 * feeds the flip() return value and hence the presented-frame serial);
+		 * it is not a vanilla retry. Native builds never take this branch:
+		 * presentOk above is unconditionally true there. */
 		_numColors = 0;
 		_pushPalette = false;
 		return false;
 	}
-#endif
 	SDL_RenderPresent(_renderer);
 
 	_numColors = 0;

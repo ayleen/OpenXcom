@@ -532,8 +532,11 @@ bool Game::iterate()
 			_fpsCounter->blit(_screen->getSurface());
 			_cursor->blit(_screen->getSurface());
 			// Semantic capture readiness keys on the flip() result: the serial
-			// must advance only when this iteration actually presented.
-			const bool presented = _screen->flip();
+			// must advance only when this iteration actually presented. The
+			// result is consumed only by the Emscripten hook below, hence
+			// [[maybe_unused]] keeps strict native builds (-Werror) clean while
+			// flip() itself still runs on every platform.
+			[[maybe_unused]] const bool presented = _screen->flip();
 #ifdef __EMSCRIPTEN__
 			_fastMainLoopLastRenderMs = SDL_GetTicks();
 			calypsoRenderedThisIteration = true;
