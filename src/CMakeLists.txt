@@ -764,6 +764,11 @@ if(EMSCRIPTEN)
   target_compile_options(openxcom PRIVATE
     -fexceptions
     -sUSE_SDL_TTF=2
+    # SDL_image supplies <SDL_image.h> — needed at compile time for MapGl.cpp
+    # (Phase-24 UI markers, IMG_Load_RW). USE_SDL_IMAGE in target_link_options
+    # alone only exposes the header after the port builds during the first
+    # link, which fails a from-scratch configure/build on a fresh cache.
+    -sUSE_SDL_IMAGE=2
     # libwebp port supplies <webp/decode.h> — needed at compile time for
     # Mod.cpp (uses WebPDecodeRGBA). --use-port in link options alone only
     # makes the header available after the port builds during the first
