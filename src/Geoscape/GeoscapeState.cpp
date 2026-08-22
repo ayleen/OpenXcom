@@ -145,6 +145,7 @@
 #include "../Calypso/CalypsoTutorial.h"
 #include "../Calypso/CalypsoAdvisor.h"
 #include "../Calypso/CalypsoGeoscapeHd.h"
+#include "../Calypso/CalypsoGeoscapeHdRuntime.h"
 extern "C" void calypso_log_heap(const char *tag);  // M5: defined in Calypso/EmscriptenHarness.cpp
 extern "C" int  g_calypsoTabHiddenPause;            // M6h: set by calypso_on_tab_hidden()
 #endif
@@ -497,6 +498,17 @@ GeoscapeState::GeoscapeState() : _pause(false), _zoomInEffectDone(false), _zoomO
 	calypsoChecklistBuild();   // Phase 39: task-checklist chip
 	CalypsoGeoscapeHd::applyTtf(this);   // Phase 41 B2: HD side panel
 	CalypsoGeoscapeHd::layout(this);
+	// Stage 8c: evaluate the F16 command-shell gate once per construction and
+	// report the stable reason. The physical shell binds in Stage 9; while the
+	// gate is off (or before that binding) the Phase 41 side panel above stays
+	// the active presentation, unchanged.
+	{
+		using OpenXcom::Calypso::calypsoGeoscapeHdGateDecision;
+		const bool listed = _game->getMod()->isHdUiFamilyEnabled("F16");
+		const auto decision = calypsoGeoscapeHdGateDecision(true, listed, true, true);
+		Log(LOG_INFO) << "[HD] geoscape command shell gate: " << decision.reason;
+	}
+
 #endif
 }
 

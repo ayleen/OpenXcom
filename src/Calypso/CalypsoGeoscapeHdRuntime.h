@@ -159,5 +159,30 @@ inline CalypsoGeoscapeHdProjection calypsoGeoscapeHdProjection(
 	return CalypsoGeoscapeHdProjection(layout, metrics);
 };
 
+// --- Stage 8c: feature gate decision ----------------------------------------
+
+/// Stable disable reasons reported by the gate decision. Values are part of
+/// the diagnostics contract; never rename without bumping the screen
+/// template version.
+struct CalypsoGeoscapeHdGateDecision
+{
+	bool enabled = false;
+	const char* reason = "";
+};
+
+/// Fail-safe enablement decision for the Geoscape command shell (F16).
+/// Enabled only when every precondition holds; the first failing one wins
+/// and is reported with a stable reason. Pure: the live wiring supplies the
+/// booleans from Mod::isHdUiFamilyEnabled and the renderer/asset checks.
+inline CalypsoGeoscapeHdGateDecision calypsoGeoscapeHdGateDecision(
+	bool hdPackActive, bool familyListed, bool rendererSupported, bool assetsPresent)
+{
+	if (!hdPackActive) return { false, "hd-pack-inactive" };
+	if (!familyListed) return { false, "family-not-listed" };
+	if (!rendererSupported) return { false, "renderer-unsupported" };
+	if (!assetsPresent) return { false, "assets-missing" };
+	return { true, "enabled" };
+};
+
 } // namespace Calypso
 } // namespace OpenXcom
