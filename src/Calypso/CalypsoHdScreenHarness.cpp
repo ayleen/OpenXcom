@@ -48,7 +48,7 @@ CalypsoHdScreenRenderModel geoscapeHarnessModel(bool wide)
 		if (std::strcmp(action.coordinateSpace, "screen") != 0) continue;
 		model.actions.push_back({ action.id, action.label, action.component,
 			action.slotRole, action.coordinateSpace, screenRect(action.visible),
-			action.focusOrder, action.zOrder });
+			screenRect(action.hit), action.focusOrder, action.zOrder });
 	}
 	for (int index = 0; index < kFixtureCopyCount; ++index)
 		model.copy.push_back({ kFixtureCopy[index].key, kFixtureCopy[index].value });
