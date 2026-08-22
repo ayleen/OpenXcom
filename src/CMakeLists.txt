@@ -769,6 +769,13 @@ if(EMSCRIPTEN)
     # alone only exposes the header after the port builds during the first
     # link, which fails a from-scratch configure/build on a fresh cache.
     -sUSE_SDL_IMAGE=2
+    # SDL2_mixer supplies <SDL_mixer.h> — needed at compile time for every TU
+    # that includes Engine/Sound.h. USE_SDL_MIXER in target_link_options alone
+    # only exposes the header when a shared ports sysroot was warmed by an
+    # earlier build that installed it; a from-scratch build on a fresh cache
+    # fails with 'SDL_mixer.h file not found' before any link step could
+    # unpack the port (same failure mode as USE_SDL_IMAGE above).
+    -sUSE_SDL_MIXER=2
     # libwebp port supplies <webp/decode.h> — needed at compile time for
     # Mod.cpp (uses WebPDecodeRGBA). --use-port in link options alone only
     # makes the header available after the port builds during the first
