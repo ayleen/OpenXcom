@@ -83,6 +83,7 @@ private:
 	void btnCalTasksClick(Action *action);
 	// Phase 41 Slice B2: HD side panel (bodies in Calypso/CalypsoGeoscapeHd.cpp).
 	friend struct CalypsoGeoscapeHd;
+	friend struct CalypsoGeoscapeHdShell;
 #endif
 
 	/// Update list of active crafts.

@@ -146,6 +146,7 @@
 #include "../Calypso/CalypsoAdvisor.h"
 #include "../Calypso/CalypsoGeoscapeHd.h"
 #include "../Calypso/CalypsoGeoscapeHdRuntime.h"
+#include "../Calypso/CalypsoGeoscapeHdShell.h"
 extern "C" void calypso_log_heap(const char *tag);  // M5: defined in Calypso/EmscriptenHarness.cpp
 extern "C" int  g_calypsoTabHiddenPause;            // M6h: set by calypso_on_tab_hidden()
 #endif
@@ -498,6 +499,7 @@ GeoscapeState::GeoscapeState() : _pause(false), _zoomInEffectDone(false), _zoomO
 	calypsoChecklistBuild();   // Phase 39: task-checklist chip
 	CalypsoGeoscapeHd::applyTtf(this);   // Phase 41 B2: HD side panel
 	CalypsoGeoscapeHd::layout(this);
+	CalypsoGeoscapeHdShell::apply(this);   // Stage 9: contract-projected shell
 	// Stage 8c: evaluate the F16 command-shell gate once per construction and
 	// report the stable reason. The physical shell binds in Stage 9; while the
 	// gate is off (or before that binding) the Phase 41 side panel above stays
@@ -4894,7 +4896,8 @@ void GeoscapeState::resize(int &dX, int &dY)
 	_sideLine->setY(0);
 	_sideLine->drawRect(0, 0, _sideLine->getWidth(), _sideLine->getHeight(), 15);
 #ifdef __EMSCRIPTEN__
-	CalypsoGeoscapeHd::layout(this);   // Phase 41 B2: re-run HD panel scale + plate blit
+	CalypsoGeoscapeHd::layout(this);
+	CalypsoGeoscapeHdShell::apply(this);   // Stage 9: contract-projected shell   // Phase 41 B2: re-run HD panel scale + plate blit
 #endif
 }
 bool GeoscapeState::buttonsDisabled()
