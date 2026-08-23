@@ -77,6 +77,8 @@ extern "C" int g_calypsoProfileGlobe;
 extern "C" int g_calypsoGlobeGpuDirect;
 #endif
 
+#include "../Calypso/CalypsoGeoscapeHdGlobeDirect.h"
+
 namespace OpenXcom
 {
 
@@ -1098,7 +1100,7 @@ bool Globe::initSphereGPU()
 	/* VBO is owned by the VAO after bind; no need to keep a separate handle. */
 
 	/* FBO + colour attachment (same size as globe surface). */
-	int w = getWidth(), h = getHeight();
+	int w = 0, h = 0; CalypsoGeoscapeHdGlobeDirect::computeSphereRes(this, w, h);
 	glGenTextures(1, &_sphereFBOTex);
 	glBindTexture(GL_TEXTURE_2D, _sphereFBOTex);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
@@ -1238,6 +1240,11 @@ void Globe::drawHDStarfield()
 void Globe::drawSphereGPU()
 {
 	if (!_gpuSphereOK && !initSphereGPU()) return;
+	if (_gpuDirectMode)
+	{
+		CalypsoGeoscapeHdGlobeDirect::drawPass(this);
+		return;
+	}
 	if (::g_calypsoGlobeGpuDirect != 0 && !_gpuDirectAck)
 	{
 		_gpuDirectAck = true;
@@ -1251,7 +1258,7 @@ void Globe::drawSphereGPU()
 	GpuTexture* cloudsTex  = mod->getGlobeTexture("clouds");
 	if (!bathyTex || !diffuseTex || !nightTex || !cloudsTex) return;
 
-	int w = getWidth(), h = getHeight();
+	int w = 0, h = 0; CalypsoGeoscapeHdGlobeDirect::computeSphereRes(this, w, h);
 
 	/* Phase 8c.10 perf instrumentation: wall-clock GPU pass time.  ENTIRELY
 	 * gated on ::g_calypsoProfileGlobe — when the flag is 0 (production
@@ -1396,8 +1403,15 @@ void Globe::draw()
 #ifdef __EMSCRIPTEN__
 	if (_game->getMod()->hasGlobeTextures())
 	{
-		drawHDStarfield();
-		drawSphereGPU(); /* renders sphere + reads back; CPU overlays follow */
+        if (_gpuDirectMode)
+        {
+            clear(); // overlay-only surface; sphere arrives via PreComposite pass
+        }
+        else
+        {
+            drawHDStarfield();
+            drawSphereGPU(); /* renders sphere + reads back; CPU overlays follow */
+        }
 	}
 	else
 #endif

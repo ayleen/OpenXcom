@@ -38,6 +38,7 @@ class LocalizedText;
 class RuleGlobe;
 class Craft;
 #ifdef __EMSCRIPTEN__
+class Screen;
 class Shader;
 #endif
 
@@ -94,6 +95,9 @@ private:
 	Shader*   _globeShader  = nullptr; // owned; created in initSphereGPU()
 	std::shared_ptr<bool> _gpuAliveFlag;   // M6: lifetime token for the ShaderManager reset callback
 	bool      _gpuDirectAck = false;   // Stage 10.2.1: acknowledged opt-in request
+	bool      _gpuDirectMode = false;
+	Screen*   _directScreen  = nullptr;
+	friend struct CalypsoGeoscapeHdGlobeDirect;   // Stage 10.2.1
 
 	/// One-time GPU resource initialisation for the sphere.
 	bool initSphereGPU();
