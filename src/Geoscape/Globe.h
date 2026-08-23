@@ -93,6 +93,7 @@ private:
 	bool      _gpuSphereOK  = false;
 	Shader*   _globeShader  = nullptr; // owned; created in initSphereGPU()
 	std::shared_ptr<bool> _gpuAliveFlag;   // M6: lifetime token for the ShaderManager reset callback
+	bool      _gpuDirectAck = false;   // Stage 10.2.1: acknowledged opt-in request
 
 	/// One-time GPU resource initialisation for the sphere.
 	bool initSphereGPU();

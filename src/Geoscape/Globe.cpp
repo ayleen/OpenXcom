@@ -74,6 +74,7 @@
  * carry C linkage; placing it outside `namespace OpenXcom { … }` below is
  * what makes the link symbol resolve. */
 extern "C" int g_calypsoProfileGlobe;
+extern "C" int g_calypsoGlobeGpuDirect;
 #endif
 
 namespace OpenXcom
@@ -1237,6 +1238,11 @@ void Globe::drawHDStarfield()
 void Globe::drawSphereGPU()
 {
 	if (!_gpuSphereOK && !initSphereGPU()) return;
+	if (::g_calypsoGlobeGpuDirect != 0 && !_gpuDirectAck)
+	{
+		_gpuDirectAck = true;
+		Log(LOG_WARNING) << "Globe: gpu-direct composite requested; marker-layer migration (Stage 10.2.1) pending - staying on canonical readback";
+	}
 
 	Mod* mod = _game->getMod();
 	GpuTexture* bathyTex   = mod->getGlobeTexture("bathymetry");

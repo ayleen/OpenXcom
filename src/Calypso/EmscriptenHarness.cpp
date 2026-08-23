@@ -982,6 +982,15 @@ void calypso_set_profile_globe(int on)
 	g_calypsoProfileGlobe = on ? 1 : 0;
 }
 
+/* Phase 46.4 Stage 10.2.1 (Calypso): opt-in request for the GPU-direct globe * composite. Production stays 0; until the marker-layer migration lands the * engine acknowledges the request in the log and keeps the canonical path. */
+int g_calypsoGlobeGpuDirect = 0;
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_set_globe_gpu_direct(int on)
+{
+    g_calypsoGlobeGpuDirect = on ? 1 : 0;
+}
+
 /* Phase 11.0: opt-in CPU perf gate for Map::drawTerrain.
  * JS toggles via calypso_set_profile_battlescape(1); production stays 0. */
 int g_calypsoProfileBattlescape = 0;
