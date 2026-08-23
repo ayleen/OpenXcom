@@ -84,7 +84,11 @@ namespace OpenXcom
 
 void Globe::setGpuDirect(bool on)
 {
+#ifdef __EMSCRIPTEN__
 	CalypsoGeoscapeHdGlobeDirect::setGpuDirect(this, on);
+#else
+	(void)on;
+#endif
 }
 
 const double Globe::ROTATE_LONGITUDE = 0.10;
@@ -1085,11 +1089,10 @@ struct GlobeSphereGlSave
 		const double ys = globe->_directScreen->getYScale();
 		const int lbb = globe->_directScreen->getCursorLeftBlackBand();
 		const int tbb = globe->_directScreen->getCursorTopBlackBand();
-		const int dW = Options::displayWidth, dH = Options::displayHeight;
 		const int dispX = (int)(globe->getX() * xs) + lbb;
 		const int dispY = (int)(globe->getY() * ys) + tbb;
-		const int dispW = (int)(globe->getWidth() * xs);
-		const int dispH = (int)(globe->getHeight() * ys);
+		const int dispW = w;
+		const int dispH = h;
 		GlobeSphereGlSave st; st.save();
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glViewport(dispX, dispY, dispW, dispH);
@@ -1100,13 +1103,15 @@ struct GlobeSphereGlSave
 		diffuseTex->bind(1); globe->_globeShader->setUniform1i("u_diffuse", 1);
 		nightTex->bind(2);   globe->_globeShader->setUniform1i("u_night", 2);
 		cloudsTex->bind(3);  globe->_globeShader->setUniform1i("u_clouds", 3);
+		globe->_globeShader->setUniform1i("u_background", 1);
 		globe->_globeShader->setUniform2f("u_viewportSize", (float)dispW, (float)dispH);
-		globe->_globeShader->setUniform2f("u_globeCenter", (float)globe->_cenX, (float)globe->_cenY);
-		globe->_globeShader->setUniform1f("u_globeRadius", (float)globe->_zoomRadius[globe->_zoom]);
+		globe->_globeShader->setUniform2f("u_globeCenter", (float)(globe->_cenX * xs), (float)(globe->_cenY * ys));
+		globe->_globeShader->setUniform1f("u_globeRadius", (float)(globe->_zoomRadius[globe->_zoom] * std::min(xs, ys)));
 		globe->_globeShader->setUniform1f("u_camLat", (float)globe->_cenLat);
 		globe->_globeShader->setUniform1f("u_camLon", (float)globe->_cenLon);
 		Cord sd = globe->getSunDirectionWorld();
-		globe->_globeShader->setUniform3f("u_sunDirWorld", (float)sd.x, (float)sd.y, (float)sd.z);
+		globe->_globeShader->setUniform3f("u_sunDir", (float)sd.x, (float)sd.y, (float)sd.z);
+		globe->_globeShader->setUniform1f("u_time", (float)SDL_GetTicks() * 0.001f);
 		float mipLvl = std::max(0.f, std::min(1.35f, 1.35f - (float)globe->_zoom * 0.27f));
 		globe->_globeShader->setUniform1f("u_mipLevel", mipLvl);
 		glBindVertexArray(globe->_sphereVAO);
@@ -1343,6 +1348,7 @@ void Globe::drawSphereGPU()
 	_globeShader->setUniform1i("u_diffuse",    1);
 	_globeShader->setUniform1i("u_night",      2);
 	_globeShader->setUniform1i("u_clouds",     3);
+	_globeShader->setUniform1i("u_background", 0);
 
 	/* Viewport and globe geometry. */
 	_globeShader->setUniform2f("u_viewportSize", (float)w, (float)h);

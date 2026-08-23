@@ -14,6 +14,12 @@ namespace OpenXcom
 namespace Calypso
 {
 
+enum class CalypsoHdScreenRenderMode
+{
+	HarnessFullPhysical,
+	GeoscapeLiveChrome
+};
+
 struct CalypsoHdScreenRect
 {
 	int x = 0;
@@ -33,6 +39,8 @@ struct CalypsoHdScreenActionVisual
 	CalypsoHdScreenRect hit;
 	int focusOrder = 0;
 	int zOrder = 1;
+	// Emscripten live mode only: the existing logical widget remains the input owner.
+	const void* widget = nullptr;
 };
 
 struct CalypsoHdScreenRegionVisual

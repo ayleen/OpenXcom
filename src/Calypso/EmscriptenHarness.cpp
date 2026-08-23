@@ -991,6 +991,15 @@ void calypso_set_globe_gpu_direct(int on)
     g_calypsoGlobeGpuDirect = on ? 1 : 0;
 }
 
+/* Loopback-only Geoscape physical-shell preview. Canonical F16 remains off. */
+int g_calypsoGeoscapeHdPreview = 0;
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_set_geoscape_hd_preview(int on)
+{
+	g_calypsoGeoscapeHdPreview = on ? 1 : 0;
+}
+
 /* Phase 11.0: opt-in CPU perf gate for Map::drawTerrain.
  * JS toggles via calypso_set_profile_battlescape(1); production stays 0. */
 int g_calypsoProfileBattlescape = 0;

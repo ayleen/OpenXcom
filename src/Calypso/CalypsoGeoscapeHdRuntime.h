@@ -20,11 +20,75 @@ namespace OpenXcom
 namespace Calypso
 {
 
+inline bool calypsoGeoscapeHdPreviewFamilyEnabled(bool familyListed, bool previewEnabled)
+{
+	return familyListed || previewEnabled;
+}
+
 struct CalypsoGeoscapeHdRuntimeInput
 {
 	std::vector<CalypsoHdScreenCopy> copy;
 	std::vector<std::string> disabledActionIds;
 	std::string selectedActionId;
+};
+
+/// Runtime metadata for rows that are materialized by the live Geoscape shell.
+/// These are semantic facts shared by native tests and the Emscripten adapter;
+/// handlers remain owned by GeoscapeState.
+struct CalypsoGeoscapeHdLiveDrawerRow
+{
+	const char* actionId;
+	const char* handler;
+	const char* labelKey;
+	const char* availability;
+	bool stateOwned;
+};
+
+inline const std::vector<CalypsoGeoscapeHdLiveDrawerRow>& calypsoGeoscapeHdLiveDrawerRows()
+{
+	static const std::vector<CalypsoGeoscapeHdLiveDrawerRow> rows = {
+		{ "drawer.funding", "geoscape.openFunding", "STR_FUNDING", "extended-links", true },
+		{ "drawer.tech-tree", "geoscape.openTechTree", "STR_TECH_TREE_VIEWER", "extended-links", true },
+		{ "drawer.global-research", "geoscape.openGlobalResearch", "STR_GLOBAL_RESEARCH", "extended-links", true },
+		{ "drawer.global-production", "geoscape.openGlobalProduction", "STR_GLOBAL_MANUFACTURE", "extended-links", true },
+		{ "drawer.global-containment", "geoscape.openGlobalContainment", "STR_GLOBAL_ALIEN_CONTAINMENT", "extended-links", true },
+		{ "drawer.ufo-tracker", "geoscape.openUfoTracker", "STR_UFO_TRACKER", "extended-links", true },
+		{ "drawer.pilot-experience", "geoscape.openPilotExperience", "STR_DAILY_PILOT_EXPERIENCE", "extended-links", true },
+		{ "drawer.notes", "geoscape.openNotes", "STR_NOTES", "extended-links", true },
+		{ "drawer.music", "geoscape.openMusic", "STR_SELECT_MUSIC_TRACK", "extended-links", true },
+		{ "drawer.debug", "geoscape.openDebug", "STR_DEBUG", "debug-only", true },
+		{ "drawer.quick-save", "geoscape.quickSave", "STR_QUICK_SAVE", "non-ironman", true },
+		{ "drawer.instant-save", "geoscape.instantSave", "STR_INSTANT_SAVE", "non-ironman", true },
+		{ "drawer.quick-load", "geoscape.quickLoad", "STR_QUICK_LOAD", "non-ironman", true },
+	};
+	return rows;
+}
+
+/// Per-Geoscape state for the session chip/drawer lifecycle. Surface pointers
+/// are held by the owning GeoscapeState and never in process-global storage.
+struct CalypsoGeoscapeHdDrawerState
+{
+	bool open = false;
+	bool pauseBeforeOpen = false;
+
+	void toggle(bool currentlyPaused)
+	{
+		if (!open)
+		{
+			pauseBeforeOpen = currentlyPaused;
+			open = true;
+		}
+		else
+		{
+			open = false;
+		}
+	}
+
+	void reset()
+	{
+		open = false;
+		pauseBeforeOpen = false;
+	}
 };
 
 struct CalypsoGeoscapeHdRuntimeModel : public CalypsoHdScreenRenderModel

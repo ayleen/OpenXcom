@@ -147,9 +147,12 @@
 #include "../Calypso/CalypsoGeoscapeHd.h"
 #include "../Calypso/CalypsoGeoscapeHdRuntime.h"
 #include "../Calypso/CalypsoGeoscapeHdShell.h"
+#include "../Calypso/CalypsoHdScreenRenderer.h"
+#include "../Calypso/CalypsoHdUiOverlay.h"
 
 #ifdef __EMSCRIPTEN__
 extern "C" int g_calypsoGlobeGpuDirect;
+extern "C" int g_calypsoGeoscapeHdPreview;
 #endif
 extern "C" void calypso_log_heap(const char *tag);  // M5: defined in Calypso/EmscriptenHarness.cpp
 extern "C" int  g_calypsoTabHiddenPause;            // M6h: set by calypso_on_tab_hidden()
@@ -504,7 +507,16 @@ GeoscapeState::GeoscapeState() : _pause(false), _zoomInEffectDone(false), _zoomO
 	CalypsoGeoscapeHd::applyTtf(this);   // Phase 41 B2: HD side panel
 	CalypsoGeoscapeHd::layout(this);
 	CalypsoGeoscapeHdShell::apply(this);   // Stage 9: contract-projected shell
-	if (::g_calypsoGlobeGpuDirect != 0) _globe->setGpuDirect(true);   // Stage 10.2.1
+	const bool canonicalListed = _game->getMod()->isHdUiFamilyEnabled("F16");
+	const bool previewListed = Calypso::calypsoGeoscapeHdPreviewFamilyEnabled(
+		canonicalListed, ::g_calypsoGeoscapeHdPreview != 0);
+	if (previewListed)
+	{
+		_calypsoHdRenderer = new Calypso::CalypsoHdScreenRenderer(
+			this, Calypso::CalypsoHdScreenRenderModel{},
+			Calypso::CalypsoHdScreenRenderMode::GeoscapeLiveChrome);
+		Calypso::CalypsoHdUiOverlay::instance().registerAdapter(_calypsoHdRenderer);
+	}
 	if (::g_calypsoGlobeGpuDirect != 0) _globe->setGpuDirect(true);   // Stage 10.2.1
 	// Stage 8c: evaluate the F16 command-shell gate once per construction and
 	// report the stable reason. The physical shell binds in Stage 9; while the
@@ -512,7 +524,9 @@ GeoscapeState::GeoscapeState() : _pause(false), _zoomInEffectDone(false), _zoomO
 	// the active presentation, unchanged.
 	{
 		using OpenXcom::Calypso::calypsoGeoscapeHdGateDecision;
-		const bool listed = _game->getMod()->isHdUiFamilyEnabled("F16");
+		const bool listed = Calypso::calypsoGeoscapeHdPreviewFamilyEnabled(
+			_game->getMod()->isHdUiFamilyEnabled("F16"),
+			::g_calypsoGeoscapeHdPreview != 0);
 		const auto decision = calypsoGeoscapeHdGateDecision(true, listed, true, true);
 		Log(LOG_INFO) << "[HD] geoscape command shell gate: " << decision.reason;
 	}
@@ -526,6 +540,9 @@ GeoscapeState::GeoscapeState() : _pause(false), _zoomInEffectDone(false), _zoomO
 GeoscapeState::~GeoscapeState()
 {
 #ifdef __EMSCRIPTEN__
+	delete _calypsoHdRenderer;
+	_calypsoHdRenderer = nullptr;
+	CalypsoGeoscapeHdShell::destroy(this);
 	EM_ASM({
 		if (globalThis.calypsoGeoscapeMusicStop)
 			globalThis.calypsoGeoscapeMusicStop();
