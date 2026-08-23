@@ -86,6 +86,10 @@ private:
 	friend struct CalypsoGeoscapeHdShell;
 	public:
 	void calypsoToggleDrawer(Action *);   // Stage 9.1.3 drawer toggle (body in shell cpp)
+	void calypsoDrawerQuickSave(Action *);
+	void calypsoDrawerInstantSave(Action *);
+	void calypsoDrawerQuickLoad(Action *);
+	void calypsoDrawerNotes(Action *);
 	private:
 #endif
 

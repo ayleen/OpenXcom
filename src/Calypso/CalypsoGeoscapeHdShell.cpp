@@ -7,9 +7,13 @@
 #include "CalypsoGeoscapeHdRuntime.h"
 #include "CalypsoViewportRuntime.h"
 #include "../Engine/Game.h"
+#include "../Engine/Screen.h"
 #include "../Engine/Logger.h"
 #include "../Mod/Mod.h"
 #include "../Interface/TextButton.h"
+#include "../Menu/NotesState.h"
+#include "../Menu/SaveGameState.h"
+#include "../Menu/LoadGameState.h"
 
 namespace OpenXcom
 {
@@ -50,6 +54,10 @@ namespace
 			{ "drawer.global-production", "Global production", (ActionHandler)&GeoscapeState::btnGlobalProductionClick },
 			{ "drawer.global-research", "Global research", (ActionHandler)&GeoscapeState::btnGlobalResearchClick },
 			{ "drawer.global-containment", "Global containment", (ActionHandler)&GeoscapeState::btnGlobalAlienContainmentClick },
+		{ "drawer.quick-save", "Quick save", (ActionHandler)&GeoscapeState::calypsoDrawerQuickSave },
+		{ "drawer.instant-save", "Instant save", (ActionHandler)&GeoscapeState::calypsoDrawerInstantSave },
+		{ "drawer.quick-load", "Quick load", (ActionHandler)&GeoscapeState::calypsoDrawerQuickLoad },
+		{ "drawer.notes", "Notes", (ActionHandler)&GeoscapeState::calypsoDrawerNotes },
 		};
 		return rows;
 	}
@@ -130,6 +138,27 @@ void CalypsoGeoscapeHdShell::toggleDrawer(GeoscapeState *s)
 void GeoscapeState::calypsoToggleDrawer(Action *)
 {
 	CalypsoGeoscapeHdShell::toggleDrawer(this);
+}
+
+
+void GeoscapeState::calypsoDrawerQuickSave(Action *)
+{
+	_game->pushState(new SaveGameState(OPT_GEOSCAPE, SAVE_QUICK, _game->getScreen()->getPalette()));
+}
+
+void GeoscapeState::calypsoDrawerInstantSave(Action *)
+{
+	_game->pushState(new SaveGameState(OPT_GEOSCAPE, SAVE_INSTA, _game->getScreen()->getPalette()));
+}
+
+void GeoscapeState::calypsoDrawerQuickLoad(Action *)
+{
+	_game->pushState(new LoadGameState(OPT_GEOSCAPE, SAVE_QUICK, _game->getScreen()->getPalette()));
+}
+
+void GeoscapeState::calypsoDrawerNotes(Action *)
+{
+	_game->pushState(new NotesState(OPT_GEOSCAPE));
 }
 
 } /* namespace OpenXcom */
