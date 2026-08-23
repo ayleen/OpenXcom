@@ -9,6 +9,7 @@
 #include "../Engine/Game.h"
 #include "../Engine/Screen.h"
 #include "../Engine/Logger.h"
+#include "../Engine/Language.h"
 #include "../Mod/Mod.h"
 #include "../Interface/TextButton.h"
 #include "../Menu/NotesState.h"
@@ -43,21 +44,21 @@ namespace
 	std::vector<std::pair<TextButton*, const char*>> s_drawerRows;
 	TextButton* s_sessionChip = nullptr;
 
-	struct RowDef { const char* id; const char* label; ActionHandler handler; };
+	struct RowDef { const char* id; const char* labelKey; ActionHandler handler; };
 
 	const std::vector<RowDef>& rowDefs()
 	{
 		static const std::vector<RowDef> rows = {
-			{ "drawer.tech-tree", "Tech tree", (ActionHandler)&GeoscapeState::btnTechTreeViewerClick },
-			{ "drawer.ufo-tracker", "UFO tracker", (ActionHandler)&GeoscapeState::btnUfoTrackerClick },
-			{ "drawer.music", "Music", (ActionHandler)&GeoscapeState::btnSelectMusicTrackClick },
-			{ "drawer.global-production", "Global production", (ActionHandler)&GeoscapeState::btnGlobalProductionClick },
-			{ "drawer.global-research", "Global research", (ActionHandler)&GeoscapeState::btnGlobalResearchClick },
-			{ "drawer.global-containment", "Global containment", (ActionHandler)&GeoscapeState::btnGlobalAlienContainmentClick },
-		{ "drawer.quick-save", "Quick save", (ActionHandler)&GeoscapeState::calypsoDrawerQuickSave },
-		{ "drawer.instant-save", "Instant save", (ActionHandler)&GeoscapeState::calypsoDrawerInstantSave },
-		{ "drawer.quick-load", "Quick load", (ActionHandler)&GeoscapeState::calypsoDrawerQuickLoad },
-		{ "drawer.notes", "Notes", (ActionHandler)&GeoscapeState::calypsoDrawerNotes },
+			{ "drawer.tech-tree", "STR_TECH_TREE_VIEWER", (ActionHandler)&GeoscapeState::btnTechTreeViewerClick },
+			{ "drawer.ufo-tracker", "STR_UFO_TRACKER", (ActionHandler)&GeoscapeState::btnUfoTrackerClick },
+			{ "drawer.music", "STR_SELECT_MUSIC_TRACK", (ActionHandler)&GeoscapeState::btnSelectMusicTrackClick },
+			{ "drawer.global-production", "STR_GLOBAL_MANUFACTURE", (ActionHandler)&GeoscapeState::btnGlobalProductionClick },
+			{ "drawer.global-research", "STR_GLOBAL_RESEARCH", (ActionHandler)&GeoscapeState::btnGlobalResearchClick },
+			{ "drawer.global-containment", "STR_GLOBAL_ALIEN_CONTAINMENT", (ActionHandler)&GeoscapeState::btnGlobalAlienContainmentClick },
+		{ "drawer.quick-save", "STR_QUICK_SAVE", (ActionHandler)&GeoscapeState::calypsoDrawerQuickSave },
+		{ "drawer.instant-save", "STR_INSTANT_SAVE", (ActionHandler)&GeoscapeState::calypsoDrawerInstantSave },
+		{ "drawer.quick-load", "STR_QUICK_LOAD", (ActionHandler)&GeoscapeState::calypsoDrawerQuickLoad },
+		{ "drawer.notes", "STR_NOTES", (ActionHandler)&GeoscapeState::calypsoDrawerNotes },
 		};
 		return rows;
 	}
@@ -120,7 +121,7 @@ const char* CalypsoGeoscapeHdShell::apply(GeoscapeState *s)
 		}
 		const auto r = projection.project(def.id);
 		row->setX(r.x); row->setY(r.y); row->setWidth(r.w); row->setHeight(r.h);
-		row->setText(def.id);
+		row->setText(tr(def.labelKey));   // G-1: localized drawer labels
 		row->setVisible(s_drawerOpen);
 	}
 	Log(LOG_INFO) << "[HD] geoscape shell: layout=" << (wide ? "wide" : "compact") << " projected=" << projected << " drawer=" << (s_drawerOpen ? "open" : "closed");
