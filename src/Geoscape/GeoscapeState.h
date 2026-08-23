@@ -84,6 +84,9 @@ private:
 	// Phase 41 Slice B2: HD side panel (bodies in Calypso/CalypsoGeoscapeHd.cpp).
 	friend struct CalypsoGeoscapeHd;
 	friend struct CalypsoGeoscapeHdShell;
+	public:
+	void calypsoToggleDrawer(Action *);   // Stage 9.1.3 drawer toggle (body in shell cpp)
+	private:
 #endif
 
 	/// Update list of active crafts.
