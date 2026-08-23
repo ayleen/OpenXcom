@@ -184,5 +184,63 @@ inline CalypsoGeoscapeHdGateDecision calypsoGeoscapeHdGateDecision(
 	return { true, "enabled" };
 };
 
+// --- Stage 9: widget binding table ------------------------------------------
+
+/// One row per contract action: which live GeoscapeState affordance realizes
+/// it. Roles are declarative so slices can implement them incrementally:
+///   "widget:<member>"   reproject an existing InteractiveSurface/TextButton
+///   "state:<behavior>"  state-level behavior without a legacy widget
+///   "deferred"          owned by a later slice; must not receive input
+struct CalypsoGeoscapeHdWidgetBinding
+{
+	const char* actionId;
+	const char* role;
+};
+
+inline const std::vector<CalypsoGeoscapeHdWidgetBinding>& calypsoGeoscapeHdWidgetBindings()
+{
+	static const std::vector<CalypsoGeoscapeHdWidgetBinding> bindings = {
+		{ "action.session", "state:session-drawer" },
+		{ "action.bases", "widget:btnBases" },
+		{ "action.graphs", "widget:btnGraphs" },
+		{ "action.extended", "widget:btnFunding" },
+		{ "action.intercept", "widget:btnIntercept" },
+		{ "action.ufopaedia", "widget:btnUfopaedia" },
+		{ "action.options", "widget:btnOptions" },
+		{ "drawer.funding", "state:drawer-funding" },
+		{ "drawer.tech-tree", "state:drawer-tech-tree" },
+		{ "drawer.global-research", "state:drawer-research" },
+		{ "drawer.global-production", "state:drawer-production" },
+		{ "drawer.global-containment", "state:drawer-containment" },
+		{ "drawer.ufo-tracker", "state:drawer-ufo-tracker" },
+		{ "drawer.pilot-experience", "state:drawer-pilot-xp" },
+		{ "drawer.notes", "state:drawer-notes" },
+		{ "drawer.music", "state:drawer-music" },
+		{ "drawer.debug", "state:drawer-debug" },
+		{ "drawer.quick-save", "state:quick-save" },
+		{ "drawer.instant-save", "state:instant-save" },
+		{ "drawer.quick-load", "state:quick-load" },
+		{ "world.zoom.in", "widget:btnZoomIn" },
+		{ "world.recenter", "state:recenter" },
+		{ "world.zoom.out", "widget:btnZoomOut" },
+		{ "notification.contact.open", "state:notification-open" },
+		{ "time.pause", "state:pause-toggle" },
+		{ "time.speed.5sec", "widget:btn5Secs" },
+		{ "time.speed.1min", "widget:btn1Min" },
+		{ "time.speed.5min", "widget:btn5Mins" },
+		{ "time.speed.30min", "widget:btn30Mins" },
+		{ "time.speed.1hour", "widget:btn1Hour" },
+		{ "time.speed.1day", "widget:btn1Day" },
+	};
+	return bindings;
+}
+
+/// Legacy side-panel fillers the physical shell replaces when the gate is on.
+inline const std::vector<const char*>& calypsoGeoscapeHdSuppressedFillers()
+{
+	static const std::vector<const char*> fillers = { "sidebar", "sideLine", "sideTop", "sideBottom" };
+	return fillers;
+};
+
 } // namespace Calypso
 } // namespace OpenXcom
