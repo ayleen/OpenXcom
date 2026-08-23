@@ -505,6 +505,7 @@ GeoscapeState::GeoscapeState() : _pause(false), _zoomInEffectDone(false), _zoomO
 	CalypsoGeoscapeHd::layout(this);
 	CalypsoGeoscapeHdShell::apply(this);   // Stage 9: contract-projected shell
 	if (::g_calypsoGlobeGpuDirect != 0) _globe->setGpuDirect(true);   // Stage 10.2.1
+	if (::g_calypsoGlobeGpuDirect != 0) _globe->setGpuDirect(true);   // Stage 10.2.1
 	// Stage 8c: evaluate the F16 command-shell gate once per construction and
 	// report the stable reason. The physical shell binds in Stage 9; while the
 	// gate is off (or before that binding) the Phase 41 side panel above stays
@@ -4903,6 +4904,7 @@ void GeoscapeState::resize(int &dX, int &dY)
 #ifdef __EMSCRIPTEN__
 	CalypsoGeoscapeHd::layout(this);
 	CalypsoGeoscapeHdShell::apply(this);   // Stage 9: contract-projected shell   // Phase 41 B2: re-run HD panel scale + plate blit
+	if (::g_calypsoGlobeGpuDirect != 0) _globe->setGpuDirect(true);   // Stage 10.2.1
 	if (::g_calypsoGlobeGpuDirect != 0) _globe->setGpuDirect(true);   // Stage 10.2.1
 #endif
 }
