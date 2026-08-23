@@ -105,6 +105,7 @@ private:
 	void drawHDStarfield();
 	/// Renders the sphere via GPU and reads back pixels into this surface.
 	void drawSphereGPU();
+	/// Stage 10.2.1: physical-resolution direct composite (opt-in).
 	/// Sun direction in the fixed world frame the shader uses.
 	Cord getSunDirectionWorld() const;
 #endif
@@ -204,6 +205,9 @@ public:
 	/// Rotates the globe.
 	void rotate();
 	/// Draws the whole globe.
+	/// Stage 10.2.1: physical-resolution direct composite (opt-in).
+	void setGpuDirect(bool on);
+
 	void draw() override;
 	/// Draws the ocean of the globe.
 	void drawOcean();

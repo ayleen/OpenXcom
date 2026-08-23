@@ -147,6 +147,10 @@
 #include "../Calypso/CalypsoGeoscapeHd.h"
 #include "../Calypso/CalypsoGeoscapeHdRuntime.h"
 #include "../Calypso/CalypsoGeoscapeHdShell.h"
+
+#ifdef __EMSCRIPTEN__
+extern "C" int g_calypsoGlobeGpuDirect;
+#endif
 extern "C" void calypso_log_heap(const char *tag);  // M5: defined in Calypso/EmscriptenHarness.cpp
 extern "C" int  g_calypsoTabHiddenPause;            // M6h: set by calypso_on_tab_hidden()
 #endif
