@@ -4904,8 +4904,6 @@ void GeoscapeState::resize(int &dX, int &dY)
 #ifdef __EMSCRIPTEN__
 	CalypsoGeoscapeHd::layout(this);
 	CalypsoGeoscapeHdShell::apply(this);   // Stage 9: contract-projected shell   // Phase 41 B2: re-run HD panel scale + plate blit
-	if (::g_calypsoGlobeGpuDirect != 0) _globe->setGpuDirect(true);   // Stage 10.2.1
-	if (::g_calypsoGlobeGpuDirect != 0) _globe->setGpuDirect(true);   // Stage 10.2.1
 #endif
 }
 bool GeoscapeState::buttonsDisabled()
