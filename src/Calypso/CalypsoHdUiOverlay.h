@@ -115,6 +115,9 @@ public:
 	/// frame. Derived per frame; never sticky (A7).
 	bool activeThisFrame() const { return _activeThisFrame; }
 
+	/// Fail closed for a registered HD world route; never expose partial or vanilla output.
+	[[noreturn]] void failHdRoute(const std::string& detail);
+
 private:
 	CalypsoHdUiOverlay() = default;
 
@@ -140,7 +143,6 @@ private:
 	};
 
 	void beginFrame(int logicalWidth, int logicalHeight);
-	[[noreturn]] void failHdRoute(const std::string& detail);
 	void ensureGpu();
 	void onContextRestored();
 

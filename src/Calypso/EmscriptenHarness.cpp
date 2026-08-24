@@ -1191,50 +1191,6 @@ void calypso_on_tab_hidden(void)
 	g_calypsoTabHiddenPause = 1;
 }
 
-/* M6c: WebGL context-loss / restore freeze.
- *
- * g_calypsoContextLost is tested at the top of Screen::flip() (and any other
- * per-frame GL entry) so the engine skips ALL GL calls while the context is
- * dead.  JS sets this flag synchronously on the 'webglcontextlost' event
- * (before the browser discards the GL objects) and clears it on restore.
- *
- * Emscripten's main loop is paused so the event / timer callbacks that drive
- * the game loop stop firing; only the SDL event queue (which is safe on a dead
- * context) and the two canvas event listeners continue to run.
- *
- * Edge cases handled:
- *   • Double-loss  — guard in calypso_gl_context_lost prevents double-pause.
- *   • Restore without prior loss — SDL_RENDER_TARGETS_RESET is still pushed;
- *     emscripten_resume_main_loop is a no-op when the loop is already running.
- *   • Loss before callMain — emscripten_pause_main_loop is a no-op when no
- *     loop exists yet; emscripten_resume_main_loop is likewise safe. */
-int g_calypsoContextLost = 0;
-
-EMSCRIPTEN_KEEPALIVE
-void calypso_gl_context_lost(void)
-{
-	if (!g_calypsoContextLost)
-	{
-		g_calypsoContextLost = 1;
-		emscripten_pause_main_loop();
-	}
-}
-
-EMSCRIPTEN_KEEPALIVE
-void calypso_gl_context_restored(void)
-{
-	const int wasLost = g_calypsoContextLost;
-	g_calypsoContextLost = 0;
-
-	SDL_Event e;
-	SDL_zero(e);
-	e.type = SDL_RENDER_TARGETS_RESET;
-	SDL_PushEvent(&e);
-
-	if (wasLost)
-		emscripten_resume_main_loop();
-}
-
 EMSCRIPTEN_KEEPALIVE
 void calypso_push_mouse_motion(int x, int y)
 {

@@ -8,6 +8,8 @@
 #include <string>
 
 #include "../Engine/Game.h"
+#include "CalypsoHdUiOverlay.h"
+#include "../Engine/GpuTexture.h"
 #include "../Engine/Options.h"
 #include "../Engine/Screen.h"
 #include "../Mod/Mod.h"
@@ -17,6 +19,44 @@ namespace OpenXcom
 
 struct CalypsoGeoscapeHdGlobeDirect
 {
+	struct PhysicalGlobeRect
+	{
+		int x = 0;
+		int y = 0;
+		int w = 0;
+		int h = 0;
+		int bottom = 0;
+	};
+
+	static bool physicalGlobeRect(const Globe* globe, PhysicalGlobeRect& rect)
+	{
+		if (!globe || !globe->_directScreen || Options::displayWidth <= 0 || Options::displayHeight <= 0)
+			return false;
+		const double xs = globe->_directScreen->getXScale();
+		const double ys = globe->_directScreen->getYScale();
+		rect.x = (int)std::lround(globe->getX() * xs)
+			+ globe->_directScreen->getCursorLeftBlackBand();
+		rect.y = (int)std::lround(globe->getY() * ys)
+			+ globe->_directScreen->getCursorTopBlackBand();
+		rect.w = std::max(1, (int)std::lround(globe->getWidth() * xs));
+		rect.h = std::max(1, (int)std::lround(globe->getHeight() * ys));
+		rect.bottom = Options::displayHeight - rect.y - rect.h;
+		return rect.x >= 0 && rect.y >= 0 && rect.w > 0 && rect.h > 0
+			&& rect.x < Options::displayWidth && rect.y < Options::displayHeight
+			&& rect.bottom >= 0 && rect.x + rect.w <= Options::displayWidth
+			&& rect.y + rect.h <= Options::displayHeight;
+	}
+
+	static void setPhysicalGlobeClip(const Globe* globe)
+	{
+		PhysicalGlobeRect rect;
+		if (!physicalGlobeRect(globe, rect))
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
+				"Geoscape physical globe rect is invalid");
+		glViewport(0, 0, Options::displayWidth, Options::displayHeight);
+		glEnable(GL_SCISSOR_TEST);
+		glScissor(rect.x, rect.bottom, rect.w, rect.h);
+	}
 
 	static void computeSphereRes(const Globe* globe, int& w, int& h)
 	{
@@ -30,21 +70,83 @@ struct CalypsoGeoscapeHdGlobeDirect
 
 	static void setGpuDirect(Globe* globe, bool on)
 	{
-		if (on == globe->_gpuDirectMode) return;
+		if (!on)
+		{
+			if (globe->_gpuWorldPass.valid())
+			{
+				globe->_gpuWorldPass.owner->unregisterGPUPassWorld(globe->_gpuWorldPass);
+				globe->_gpuWorldPass = {};
+			}
+			globe->_gpuDirectMode = false;
+			globe->_directScreen = nullptr;
+			globe->_gpuBorderLines.clear();
+			globe->_gpuBorderVertices.clear();
+			globe->_gpuRadarFlightLines.clear();
+			globe->_gpuRadarFlightVertices.clear();
+			globe->_gpuDebugLines.clear();
+			globe->_gpuDebugVertices.clear();
+			globe->_gpuLabelIconPendingDraws.clear();
+			globe->_gpuLabelIconCommittedDraws.clear();
+			globe->_gpuBorderCapacityExceeded = false;
+			globe->_gpuRadarFlightCapacityExceeded = false;
+			globe->_gpuDebugCapacityExceeded = false;
+			globe->_gpuLabelCapacityExceeded = false;
+			globe->_gpuLogicalWorldComplete = true;
+			return;
+		}
+		Screen* screen = globe && globe->_game ? globe->_game->getScreen() : nullptr;
+		if (!screen)
+		{
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
+				"Geoscape GPU-direct Screen/world slot unavailable");
+			return;
+		}
+		if (globe->_gpuDirectMode)
+		{
+			if (!globe->_gpuWorldPass.valid() && globe->_directScreen)
+			{
+				Screen* screen = globe->_directScreen;
+				std::weak_ptr<bool> wf = globe->_gpuAliveFlag;
+				globe->_gpuWorldPass = screen->registerGPUPassWorld([globe, wf]() {
+					if (!wf.lock()) return;
+					CalypsoGeoscapeHdGlobeDirect::drawPass(globe);
+				});
+			}
+			return;
+		}
 		globe->_gpuDirectMode = on;
-		globe->_directScreen = on ? globe->_game->getScreen() : nullptr;
-		if (!(on && globe->_directScreen)) return;
+		globe->_directScreen = screen;
 		SDL_SetColorKey(globe->getSurface(), SDL_SRCCOLORKEY, 0);
 		if (!globe->_gpuAliveFlag) globe->_gpuAliveFlag = std::make_shared<bool>(true);
-		if (!globe->_gpuSphereOK && !globe->initSphereGPU()) { globe->_gpuDirectMode = false; return; }
+		if (!globe->_gpuSphereOK && !globe->initSphereGPU())
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape GPU-direct sphere resources unavailable");
+		globe->drawMarkers();
 		std::weak_ptr<bool> wf = globe->_gpuAliveFlag;
-		Screen* screen = globe->_directScreen;
-		screen->registerGPUPassPreComposite([globe, wf, screen]() {
+		globe->_gpuWorldPass = screen->registerGPUPassWorld([globe, wf]() {
 			if (!wf.lock()) return;
 			CalypsoGeoscapeHdGlobeDirect::drawPass(globe);
 		});
 	}
 
+	static void recordMarker(Globe* globe, Surface* frame, int x, int y, int shade);
+	static void recordBorderLine(Globe* globe, int x1, int y1, int x2, int y2);
+	static void recordDebugLine(Globe* globe, double lon1, double lat1, double lon2, double lat2, Uint8 color);
+	static void recordRadarFlightLine(Globe* globe, double x1, double y1, double x2, double y2,
+		double lon1, double lat1, double lon2, double lat2, int shade);
+	static void recordLabelText(Globe* globe, const std::string& text, int width, int height,
+		int x, int y, Uint8 color);
+	static void recordLabelIcon(Globe* globe, Surface* frame, int x, int y, int shade);
+	static void ensureLogicalWorldComplete(Globe* globe);
+	static GpuTexture* markerTexture(Globe* globe, Surface* frame, int shade);
+	static GpuTexture* labelTexture(Globe* globe, Globe::LabelTexture& entry);
+	static void ensureBorderResources(Globe* globe);
+	static void drawBorderPass(Globe* globe);
+	static void drawRadarFlightPass(Globe* globe);
+	static void drawDebugPass(Globe* globe);
+	static void ensureMarkerResources(Globe* globe);
+	static void drawMarkerPass(Globe* globe);
+	static void ensureLabelResources(Globe* globe);
+	static void drawLabelIconPass(Globe* globe);
 	static void drawPass(Globe* globe);   // body in Globe.cpp
 
 }; /* struct */

@@ -236,10 +236,11 @@ void Shader::setUniformMat4(const char* n, const float* m)
 #endif
 }
 
-void Shader::reupload()
+bool Shader::reupload()
 {
     if (!_vertSrc.empty() && !_fragSrc.empty())
-        compile(_vertSrc.c_str(), _fragSrc.c_str());
+        return compile(_vertSrc.c_str(), _fragSrc.c_str());
+    return true; // A never-loaded Shader owns no recoverable GPU resource.
 }
 
 } // namespace OpenXcom

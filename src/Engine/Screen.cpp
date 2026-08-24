@@ -29,6 +29,7 @@
 #include <climits>
 #include <cstdio>
 #include <vector>
+#include <iterator>
 #include "../lodepng.h"
 #include "Exception.h"
 #include "Surface.h"
@@ -53,6 +54,13 @@
  * Declared at file scope (extern "C" is not allowed at block scope) — same
  * pattern as g_calypsoSsaaScale in Map.cpp. */
 extern "C" int g_calypsoContextLost;
+extern "C" void calypso_context_recovery_succeeded(void);
+extern "C" void calypso_context_recovery_failed(void);
+extern "C" int calypso_context_reset_sentinel_pending(void);
+extern "C" void calypso_context_reset_sentinel_observed(void);
+extern "C" int calypso_context_reset_boundary_open(void);
+extern "C" void calypso_context_reset_boundary_close(void);
+extern "C" void calypso_context_reset_sentinel_consumed(void);
 #endif
 
 namespace OpenXcom
@@ -60,6 +68,40 @@ namespace OpenXcom
 
 const int Screen::ORIGINAL_WIDTH = 320;
 const int Screen::ORIGINAL_HEIGHT = 200;
+
+#ifdef __EMSCRIPTEN__
+/* Keep SDL's deferred composite errors owned by the exact boundary that
+ * observed them. The one post-swap context sentinel is accepted only while
+ * the reset transaction owns it; every other error closes the registered HD
+ * route before a physical world callback can publish pixels. */
+static void calypsoCheckSdlCompositeBoundary(const char *phase)
+{
+	static const GLenum CALYPSO_CONTEXT_LOST_WEBGL = 0x9242;
+	GLenum error = glGetError();
+	if (error == CALYPSO_CONTEXT_LOST_WEBGL
+		&& (calypso_context_reset_boundary_open() || calypso_context_reset_sentinel_pending()))
+	{
+		calypso_context_reset_sentinel_observed();
+		const GLenum followUp = glGetError();
+		if (followUp == GL_NO_ERROR)
+		{
+			calypso_context_reset_sentinel_consumed();
+			return;
+		}
+		error = followUp;
+	}
+	else if (error == GL_NO_ERROR && calypso_context_reset_boundary_open())
+	{
+		calypso_context_reset_boundary_close();
+	}
+	if (error == GL_NO_ERROR) return;
+	Log(LOG_ERROR) << "Calypso SDL composite GL error at " << phase << " (0x"
+		           << std::hex << (unsigned)error << std::dec << ")";
+	Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
+		"WebGL SDL composite " + std::string(phase) + " failed (0x"
+		+ [&]() { std::ostringstream out; out << std::hex << (unsigned)error; return out.str(); }() + ")");
+}
+#endif
 
 
 /**
@@ -101,6 +143,8 @@ Screen::~Screen()
 	 * destructor body and would otherwise issue glDelete* against a dead context. */
 	_gpuPasses.clear();
 	_gpuPassesPre.clear();
+	_gpuPassesWorld.clear();
+	_gpuPendingWorldPasses.clear();
 #endif
 	if (_texture)  { SDL_DestroyTexture(_texture);   _texture  = nullptr; }
 	if (_renderer) { SDL_DestroyRenderer(_renderer); _renderer = nullptr; }
@@ -141,7 +185,22 @@ Screen::~Screen()
  * This function MUST run before ShaderManager::reuploadAll().  reuploadAll()
  * makes raw GL calls that need a live GL context; the new renderer provides it.
  */
-void Screen::recreateRendererGL()
+static bool calypsoResetContextReady()
+{
+	static const GLenum CALYPSO_CONTEXT_LOST_WEBGL = 0x9242;
+	GLenum resetError = glGetError();
+	if (resetError == CALYPSO_CONTEXT_LOST_WEBGL)
+	{
+		calypso_context_reset_sentinel_observed();
+		resetError = glGetError();
+		if (resetError == GL_NO_ERROR)
+			calypso_context_reset_sentinel_consumed();
+	}
+	if (resetError != GL_NO_ERROR) return false;
+	return GpuInit::contextReady();
+}
+
+bool Screen::recreateRendererGL()
 {
 	/* M6c Task 2 — dead-mouse fix.
 	 *
@@ -167,7 +226,11 @@ void Screen::recreateRendererGL()
 	 * this returns to rebuild GPU resources. */
 	try
 	{
+		/* GpuInit must not report the dead context as ready while SDL rebuilds. */
+		GpuInit::invalidate();
 		resetDisplay(true, false);
+		if (!calypsoResetContextReady())
+			throw Exception("replacement WebGL2 context is not ready");
 
 		/* M6h: force the canvas-size rebase block in flip() to run on the next
 		 * frame even though the polled canvas dimensions will equal
@@ -187,6 +250,7 @@ void Screen::recreateRendererGL()
 		 * baseXBattlescape / baseYBattlescape / baseXGeoscape / baseYGeoscape from
 		 * the current (correct) display size without displacing any state. */
 		_forceCanvasRebase = true;
+		return true;
 	}
 	catch (Exception &e)
 	{
@@ -207,8 +271,10 @@ void Screen::recreateRendererGL()
 		 *   (b) The main loop is paused after this iterate() tick completes,
 		 *       giving the JS 13-s reload timer a chance to fire. */
 		Log(LOG_ERROR) << "M6g: recreateRendererGL failed — " << e.what();
+		GpuInit::invalidate();
 		g_calypsoContextLost = 1;
 		emscripten_pause_main_loop();
+		return false;
 	}
 }
 #endif /* __EMSCRIPTEN__ */
@@ -258,9 +324,42 @@ void Screen::handle(Action *action)
 		 * reuploadAll() so the new renderer establishes the fresh GL context that
 		 * reuploadAll() uploads into. */
 #ifdef __EMSCRIPTEN__
-		recreateRendererGL();
-#endif
+		if (!recreateRendererGL() || !GpuInit::contextReady())
+		{
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("WebGL context restore probe failed");
+			calypso_context_recovery_failed();
+			return;
+		}
+
+		if (!ShaderManager::instance().reuploadAll())
+		{
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("WebGL context restore resource rebuild failed");
+			calypso_context_recovery_failed();
+			return;
+		}
+		/* WebGL reports one CONTEXT_LOST_WEBGL token (0x9242) on the first
+		 * post-swap query even after the replacement context is live.  Consume
+		 * only that reset-boundary sentinel here.  World/Earth draw code remains
+		 * strict and owns every GL error after this handler returns. */
+		static const GLenum CALYPSO_CONTEXT_LOST_WEBGL = 0x9242;
+		GLenum resetError = glGetError();
+		if (resetError == CALYPSO_CONTEXT_LOST_WEBGL)
+		{
+			calypso_context_reset_sentinel_observed();
+			resetError = glGetError();
+			if (resetError == GL_NO_ERROR)
+				calypso_context_reset_sentinel_consumed();
+		}
+		if (resetError != GL_NO_ERROR)
+		{
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("WebGL context restore GL reset failed");
+			calypso_context_recovery_failed();
+			return;
+		}
+		calypso_context_recovery_succeeded();
+#else
 		ShaderManager::instance().reuploadAll();
+#endif
 	}
 	else if (action->getDetails()->type == SDL_KEYDOWN && action->getDetails()->key.keysym.sym == SDLK_RETURN && (SDL_GetModState() & KMOD_ALT) != 0)
 	{
@@ -428,7 +527,76 @@ bool Screen::flip()
 		}
 	}
 	SDL_UnlockTexture(_texture);
+	const bool hasWorldPasses = !_gpuPassesWorld.empty();
+#ifdef __EMSCRIPTEN__
+	if (hasWorldPasses)
+		calypsoCheckSdlCompositeBoundary("before SDL_RenderCopy");
+#endif
 	SDL_RenderCopy(_renderer, _texture, nullptr, nullptr);
+	#ifdef __EMSCRIPTEN__
+	if (hasWorldPasses)
+		calypsoCheckSdlCompositeBoundary("after SDL_RenderCopy");
+	#endif
+
+#ifdef __EMSCRIPTEN__
+	/* Registered physical world passes sit between the legacy SDL composite and
+	 * HD chrome. This is the only Geoscape marker slot: it preserves canonical
+	 * world ordering without painting over registered HD UI. */
+	if (!_gpuPassesWorld.empty())
+	{
+		if (SDL_RenderFlush(_renderer) != 0)
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Calypso HD world SDL flush failed");
+		calypsoCheckSdlCompositeBoundary("after SDL_RenderFlush");
+		if (_gpuPassesPre.empty()) ShaderManager::instance().resetFrameFlag();
+		calypsoCheckSdlCompositeBoundary("before world callbacks");
+		/* Raw physical world callbacks may bind program/VAO/VBO 0.  SDL's GL
+		 * renderer caches its own bindings, so leaving that baseline live makes
+		 * the next SDL flush issue drawArrays with no shader program. Snapshot the
+		 * interop state after SDL's flush and restore it after every world batch. */
+		GLint savedWorldProgram = 0;
+		GLint savedWorldVao = 0;
+		GLint savedWorldArrayBuffer = 0;
+		glGetIntegerv(GL_CURRENT_PROGRAM, &savedWorldProgram);
+		glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &savedWorldVao);
+		glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &savedWorldArrayBuffer);
+		const GLenum worldStateError = glGetError();
+		if (worldStateError != GL_NO_ERROR)
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
+				"Calypso HD world SDL state snapshot failed (0x" + [&]() {
+					std::ostringstream out;
+					out << std::hex << (unsigned)worldStateError;
+					return out.str();
+				}() + ")");
+		auto restoreWorldSdlState = [&]() {
+			glUseProgram(static_cast<GLuint>(savedWorldProgram));
+			glBindVertexArray(static_cast<GLuint>(savedWorldVao));
+			glBindBuffer(GL_ARRAY_BUFFER, static_cast<GLuint>(savedWorldArrayBuffer));
+			const GLenum restoreError = glGetError();
+			if (restoreError != GL_NO_ERROR)
+				Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
+					"Calypso HD world SDL state restore failed (0x" + [&]() {
+						std::ostringstream out;
+						out << std::hex << (unsigned)restoreError;
+						return out.str();
+					}() + ")");
+		};
+		_gpuWorldPassDispatching = true;
+		try
+		{
+			for (auto& entry : _gpuPassesWorld)
+				if (!entry.removed) entry.pass();
+		}
+		catch (...)
+		{
+			finishGPUPassWorldDispatch();
+			restoreWorldSdlState();
+			throw;
+		}
+		finishGPUPassWorldDispatch();
+		restoreWorldSdlState();
+		ShaderManager::instance().setHadGPUPass(true);
+	}
+#endif
 
 	/* Phase 46.2-HD: enabled HD UI + diagnostics stages draw above the legacy
 	 * composite and own presentation gating — renderStages() returns false when
@@ -670,8 +838,18 @@ void Screen::resetDisplay(bool resetVideo, bool noShaders)
 		}
 		else
 		{
+			#ifdef __EMSCRIPTEN__
+			/* The browser owns the RAF scheduler through Game::run().  Asking
+			 * SDL's Emscripten renderer for vsync here calls EGL's swap interval
+			 * setter while MainLoop.func is still null, which emits a startup
+			 * timing error before the first game callback. SDL2 defaults this hint
+			 * to enabled, so clear it explicitly before renderer setup. */
+			SDL_SetHint(SDL_HINT_RENDER_VSYNC, "0");
+			_renderer = SDL_CreateRenderer(_window, -1, SDL_RENDERER_ACCELERATED);
+			#else
 			_renderer = SDL_CreateRenderer(_window, -1,
 			    SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+			#endif
 			if (!_renderer)
 			{
 				Log(LOG_ERROR) << "SDL_CreateRenderer failed: " << SDL_GetError();
@@ -1089,6 +1267,53 @@ void Screen::registerGPUPass(std::function<void()> pass)
 void Screen::registerGPUPassPreComposite(std::function<void()> pass)
 {
 	_gpuPassesPre.push_back(std::move(pass));
+}
+
+Screen::WorldPassHandle Screen::registerGPUPassWorld(std::function<void()> pass)
+{
+	const std::uint64_t id = _nextGpuWorldPassId++;
+	WorldPassEntry entry{id, std::move(pass), false};
+	if (_gpuWorldPassDispatching)
+		_gpuPendingWorldPasses.push_back(std::move(entry));
+	else
+		_gpuPassesWorld.push_back(std::move(entry));
+	return {this, id};
+}
+
+void Screen::unregisterGPUPassWorld(WorldPassHandle handle)
+{
+	if (handle.owner != this || handle.id == 0u) return;
+	const auto markRemoved = [&handle](std::vector<WorldPassEntry>& entries) {
+		for (auto& entry : entries)
+		{
+			if (entry.id == handle.id)
+			{
+				entry.removed = true;
+				return true;
+			}
+		}
+		return false;
+	};
+	if (markRemoved(_gpuPassesWorld) || markRemoved(_gpuPendingWorldPasses))
+		_gpuWorldPassNeedsCompaction = true;
+}
+
+void Screen::finishGPUPassWorldDispatch()
+{
+	_gpuWorldPassDispatching = false;
+	if (!_gpuPendingWorldPasses.empty())
+	{
+		_gpuPassesWorld.insert(_gpuPassesWorld.end(),
+			std::make_move_iterator(_gpuPendingWorldPasses.begin()),
+			std::make_move_iterator(_gpuPendingWorldPasses.end()));
+		_gpuPendingWorldPasses.clear();
+	}
+	if (_gpuWorldPassNeedsCompaction)
+	{
+		_gpuPassesWorld.erase(std::remove_if(_gpuPassesWorld.begin(), _gpuPassesWorld.end(),
+			[](const WorldPassEntry& entry) { return entry.removed; }), _gpuPassesWorld.end());
+		_gpuWorldPassNeedsCompaction = false;
+	}
 }
 
 /**

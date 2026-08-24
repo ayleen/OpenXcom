@@ -55,6 +55,7 @@
 #include "../Engine/Screen.h"
 #include "../Calypso/CalypsoGeoscapeProjection.h"
 #include <limits>
+#include <new>
 #ifdef __EMSCRIPTEN__
 #  include "../Engine/GpuInit.h"
 #  include "../Engine/GpuTexture.h"
@@ -62,6 +63,7 @@
 #  include "../Engine/Shader.h"
 #  include "../Engine/ShaderManager.h"
 #  include "../Engine/Logger.h"
+#  include "../Engine/ShadeTable.h"
 #  include <GLES3/gl3.h>
 #  include <SDL.h>
 #  include <cmath>
@@ -75,6 +77,8 @@
  * what makes the link symbol resolve. */
 extern "C" int g_calypsoProfileGlobe;
 extern "C" int g_calypsoGlobeGpuDirect;
+extern "C" int calypso_context_reset_sentinel_pending(void);
+extern "C" void calypso_context_reset_sentinel_consumed(void);
 #endif
 
 #include "../Calypso/CalypsoGeoscapeHdGlobeDirect.h"
@@ -426,6 +430,19 @@ Globe::Globe(Game* game, int cenX, int cenY, int width, int height, int x, int y
 	_countries = new Surface(width, height, x, y);
 	_markers = new Surface(width, height, x, y);
 	_radars = new Surface(width, height, x, y);
+#ifdef __EMSCRIPTEN__
+	/* Warm the physical world batches once; steady-state frame publication only
+	 * clears and rewrites these existing vectors. */
+	_gpuBorderLines.reserve(GPU_BORDER_LINE_CAPACITY);
+	_gpuBorderVertices.reserve(GPU_BORDER_VERTEX_FLOAT_CAPACITY);
+	_gpuRadarFlightLines.reserve(GPU_RADAR_FLIGHT_LINE_CAPACITY);
+	_gpuRadarFlightVertices.reserve(GPU_RADAR_FLIGHT_VERTEX_FLOAT_CAPACITY);
+	_gpuDebugLines.reserve(GPU_DEBUG_LINE_CAPACITY);
+	_gpuDebugVertices.reserve(GPU_DEBUG_VERTEX_FLOAT_CAPACITY);
+	_gpuLabelTextures.reserve(GPU_LABEL_TEXTURE_CAPACITY);
+	_gpuLabelIconPendingDraws.reserve(GPU_LABEL_DRAW_CAPACITY);
+	_gpuLabelIconCommittedDraws.reserve(GPU_LABEL_DRAW_CAPACITY);
+#endif
 	_clipper = new FastLineClip(x, x+width, y, y+height);
 
 	// ARGB pipeline: setPixel(idx) only writes to _paletteMirror if it exists.
@@ -476,11 +493,26 @@ Globe::~Globe()
 	}
 
 #ifdef __EMSCRIPTEN__
+	CalypsoGeoscapeHdGlobeDirect::setGpuDirect(this, false);
 	_gpuAliveFlag.reset();  // M6: expire reset callback before deleting GL objects
 	delete _globeShader;
+	delete _markerShader;
+	delete _borderShader;
+	for (auto& entry : _gpuMarkerTextures) delete entry.texture;
+	_gpuMarkerTextures.clear();
+	for (auto& entry : _gpuLabelTextures)
+	{
+		delete entry.texture;
+		delete entry.frame;
+	}
+	_gpuLabelTextures.clear();
 	if (_sphereFBO)    glDeleteFramebuffers(1,  &_sphereFBO);
 	if (_sphereFBOTex) glDeleteTextures(1,      &_sphereFBOTex);
 	if (_sphereVAO)    glDeleteVertexArrays(1,  &_sphereVAO);
+	if (_markerVAO)    glDeleteVertexArrays(1,  &_markerVAO);
+	if (_markerVBO)    glDeleteBuffers(1, &_markerVBO);
+	if (_borderVAO)    glDeleteVertexArrays(1,  &_borderVAO);
+	if (_borderVBO)    glDeleteBuffers(1, &_borderVBO);
 #endif
 }
 
@@ -1013,6 +1045,26 @@ void Globe::setPalette(const SDL_Color *colors, int firstcolor, int ncolors)
 	_countries->setPalette(colors, firstcolor, ncolors);
 	_markers->setPalette(colors, firstcolor, ncolors);
 	_radars->setPalette(colors, firstcolor, ncolors);
+#ifdef __EMSCRIPTEN__
+	/* Marker RGBA uploads are immutable snapshots of the palette.  Drop the
+	 * old GPU entries at the palette boundary so a subsequent direct world pass
+	 * cannot sample colours from the previous revision. */
+	for (auto& entry : _gpuMarkerTextures) delete entry.texture;
+	_gpuMarkerTextures.clear();
+	++_gpuMarkerPaletteGeneration;
+	for (auto& entry : _gpuLabelTextures)
+	{
+		delete entry.texture;
+		delete entry.frame;
+	}
+	_gpuLabelTextures.clear();
+	_gpuLabelIconPendingDraws.clear();
+	_gpuLabelIconCommittedDraws.clear();
+	_gpuDebugLines.clear();
+	_gpuDebugVertices.clear();
+	_gpuDebugCapacityExceeded = false;
+	++_gpuLabelPaletteGeneration;
+#endif
 }
 
 /**
@@ -1050,52 +1102,150 @@ void Globe::rotate()
 
 #ifdef __EMSCRIPTEN__
 /* ── GL state save/restore (local helper) ───────────────────────────────── */
+static std::string calypsoGlFailure(const char *operation, GLenum error)
+{
+	std::ostringstream detail;
+	detail << operation << " (0x" << std::hex << error << ")";
+	return detail.str();
+}
+
 struct GlobeSphereGlSave
 {
-	GLint prog, vao, fbo; GLboolean blend, depth;
-	GLint vp[4];
-	void save()
+	GLfloat lineWidth = 1.0f;
+	const char *errorOperation = nullptr;
+	const char *restoreErrorOperation = nullptr;
+	GLenum restoreError = GL_NO_ERROR;
+	bool saved = false;
+	GLenum save()
 	{
-		glGetIntegerv(GL_CURRENT_PROGRAM,      &prog);
-		glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &vao);
-		glGetIntegerv(GL_FRAMEBUFFER_BINDING,  &fbo);
-		glGetIntegerv(GL_VIEWPORT,             vp);
-		blend = glIsEnabled(GL_BLEND);
-		depth = glIsEnabled(GL_DEPTH_TEST);
+		glGetFloatv(GL_LINE_WIDTH, &lineWidth);
+		const GLenum error = glGetError();
+		if (error != GL_NO_ERROR) errorOperation = "glGetFloatv(GL_LINE_WIDTH)";
+		saved = true;
+		return error;
 	}
 	void restore()
 	{
-		glUseProgram((GLuint)prog);
-		glBindVertexArray((GLuint)vao);
-		glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)fbo);
-		glViewport(vp[0], vp[1], vp[2], vp[3]);
-		if (blend) glEnable(GL_BLEND);      else glDisable(GL_BLEND);
-		if (depth) glEnable(GL_DEPTH_TEST); else glDisable(GL_DEPTH_TEST);
+		if (!saved) return;
+		auto check = [&](const char *operation) {
+			const GLenum error = glGetError();
+			if (error != GL_NO_ERROR && restoreError == GL_NO_ERROR)
+			{
+				restoreError = error;
+				restoreErrorOperation = operation;
+				Log(LOG_ERROR) << "Globe physical GL restore failed at " << operation
+				               << " (0x" << std::hex << (unsigned)error << std::dec << ")";
+			}
+		};
+		/* WebGL2 rejects several state queries in the first post-swap frame.
+		 * The physical world owns a deterministic baseline instead: all passes
+		 * bind their own program/VAO/FBO/textures, and downstream HD chrome
+		 * establishes its own state after this slot. */
+		glUseProgram(0);
+		check("glUseProgram(0)");
+		glBindVertexArray(0);
+		check("glBindVertexArray(0)");
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		check("glBindFramebuffer(0)");
+		glActiveTexture(GL_TEXTURE0);
+		check("glActiveTexture(GL_TEXTURE0)");
+		glBindTexture(GL_TEXTURE_2D, 0);
+		check("glBindTexture(0)");
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		check("glBindBuffer(0)");
+		glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA,
+			GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		check("glBlendFuncSeparate");
+		glDisable(GL_SCISSOR_TEST);
+		check("glDisable(GL_SCISSOR_TEST)");
+		glDisable(GL_DEPTH_TEST);
+		check("glDisable(GL_DEPTH_TEST)");
+		glDisable(GL_BLEND);
+		check("glDisable(GL_BLEND)");
+		glLineWidth(lineWidth);
+		check("glLineWidth");
+		glViewport(0, 0, Options::displayWidth, Options::displayHeight);
+		check("glViewport");
+		saved = false;
 	}
+	~GlobeSphereGlSave() { restore(); }
 };
-	
+
+/* SDL may surface the one post-swap WebGL reset token on the first raw call
+ * after its flush. Consume it only while the recovery gate owns the token;
+ * every other error remains owned by the current Earth/world operation. */
+static GLenum calypsoOwnedResetError()
+{
+	static const GLenum CALYPSO_CONTEXT_LOST_WEBGL = 0x9242;
+	const GLenum error = glGetError();
+	/* The browser can defer the reset token until the first physical-world
+	 * query, after Screen's SDL-flush query has already drained an earlier
+	 * token. Consume it only when the reset-boundary observer transferred the
+	 * one-shot ownership; the same numeric value later is a real pass error. */
+	if (error == CALYPSO_CONTEXT_LOST_WEBGL && calypso_context_reset_sentinel_pending())
+	{
+		calypso_context_reset_sentinel_consumed();
+		return GL_NO_ERROR;
+	}
+	return error;
+}
+
 	void CalypsoGeoscapeHdGlobeDirect::drawPass(Globe* globe)
 	{
-		if (!globe->_gpuDirectMode || !globe->_globeShader || !globe->_directScreen) return;
+		if (!globe || !globe->_gpuDirectMode || !globe->_directScreen) return;
+		const GLenum worldPreflightError = calypsoOwnedResetError();
+		if (worldPreflightError != GL_NO_ERROR)
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
+				calypsoGlFailure("WebGL context restore world preflight failed", worldPreflightError));
+		GlobeSphereGlSave preflightState;
+		const GLenum stateSaveError = preflightState.save();
+		if (stateSaveError != GL_NO_ERROR)
+		{
+			std::string detail = calypsoGlFailure("Geoscape world GL state snapshot failed", stateSaveError);
+			if (preflightState.errorOperation)
+				detail += std::string(" at ") + preflightState.errorOperation;
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute(detail);
+		}
+		if (!GpuInit::ready() || !globe->_gpuSphereOK || !globe->_sphereVAO)
+		{
+			if (!globe->initSphereGPU() || !globe->_gpuSphereOK || !globe->_sphereVAO)
+				Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape Earth GPU resources unavailable");
+		}
+		if (!globe->_globeShader || !globe->_globeShader->isValid())
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape Earth shader unavailable");
+		CalypsoGeoscapeHdGlobeDirect::ensureLogicalWorldComplete(globe);
+		CalypsoGeoscapeHdGlobeDirect::ensureBorderResources(globe);
+		CalypsoGeoscapeHdGlobeDirect::ensureMarkerResources(globe);
+		CalypsoGeoscapeHdGlobeDirect::ensureLabelResources(globe);
+		preflightState.restore();
+		if (preflightState.restoreError != GL_NO_ERROR)
+		{
+			std::string detail = calypsoGlFailure("Geoscape world GL state restore failed", preflightState.restoreError);
+			if (preflightState.restoreErrorOperation)
+				detail += std::string(" at ") + preflightState.restoreErrorOperation;
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute(detail);
+		}
 		Mod* mod = globe->_game->getMod();
 		GpuTexture* bathyTex = mod->getGlobeTexture("bathymetry");
 		GpuTexture* diffuseTex = mod->getGlobeTexture("diffuse");
 		GpuTexture* nightTex = mod->getGlobeTexture("night");
 		GpuTexture* cloudsTex = mod->getGlobeTexture("clouds");
-		if (!bathyTex || !diffuseTex || !nightTex || !cloudsTex) return;
-		int w = 0, h = 0;
-		CalypsoGeoscapeHdGlobeDirect::computeSphereRes(globe, w, h);
+		if (!bathyTex || !diffuseTex || !nightTex || !cloudsTex
+			|| !bathyTex->isValid() || !diffuseTex->isValid()
+			|| !nightTex->isValid() || !cloudsTex->isValid())
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape Earth textures unavailable");
+		CalypsoGeoscapeHdGlobeDirect::PhysicalGlobeRect globeRect;
+		if (!CalypsoGeoscapeHdGlobeDirect::physicalGlobeRect(globe, globeRect))
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape physical globe rect is invalid");
 		const double xs = globe->_directScreen->getXScale();
 		const double ys = globe->_directScreen->getYScale();
-		const int lbb = globe->_directScreen->getCursorLeftBlackBand();
-		const int tbb = globe->_directScreen->getCursorTopBlackBand();
-		const int dispX = (int)(globe->getX() * xs) + lbb;
-		const int dispY = (int)(globe->getY() * ys) + tbb;
-		const int dispW = w;
-		const int dispH = h;
+		const int dispX = globeRect.x;
+		const int dispY = globeRect.y;
+		const int dispW = globeRect.w;
+		const int dispH = globeRect.h;
 		GlobeSphereGlSave st; st.save();
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		glViewport(dispX, dispY, dispW, dispH);
+		glViewport(dispX, (int)Options::displayHeight - dispY - dispH, dispW, dispH);
 		glDisable(GL_BLEND);
 		glDisable(GL_DEPTH_TEST);
 		globe->_globeShader->use();
@@ -1118,6 +1268,751 @@ struct GlobeSphereGlSave
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 		glBindVertexArray(0u);
 		for (int i = 3; i >= 0; --i) { glActiveTexture(GL_TEXTURE0 + i); glBindTexture(GL_TEXTURE_2D, 0u); }
+		if (glGetError() != GL_NO_ERROR)
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape Earth draw failed");
+		st.restore();
+		CalypsoGeoscapeHdGlobeDirect::drawBorderPass(globe);
+		CalypsoGeoscapeHdGlobeDirect::drawRadarFlightPass(globe);
+		CalypsoGeoscapeHdGlobeDirect::drawLabelIconPass(globe);
+		CalypsoGeoscapeHdGlobeDirect::drawDebugPass(globe);
+		CalypsoGeoscapeHdGlobeDirect::drawMarkerPass(globe);
+	}
+
+	void CalypsoGeoscapeHdGlobeDirect::recordMarker(Globe* globe, Surface* frame, int x, int y, int shade)
+	{
+		if (!globe || !frame)
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape marker frame unavailable");
+		globe->_gpuMarkerPendingDraws.push_back({frame, x, y, shade});
+	}
+
+	void CalypsoGeoscapeHdGlobeDirect::recordBorderLine(Globe* globe, int x1, int y1, int x2, int y2)
+	{
+		if (!globe)
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape border owner unavailable");
+		if (globe->_gpuBorderLines.size() >= Globe::GPU_BORDER_LINE_CAPACITY
+			|| globe->_gpuBorderLines.size() >= globe->_gpuBorderLines.capacity())
+		{
+			globe->_gpuBorderCapacityExceeded = true;
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape border batch capacity exhausted");
+		}
+		globe->_gpuBorderLines.push_back({(float)x1, (float)y1, (float)x2, (float)y2});
+	}
+
+	void CalypsoGeoscapeHdGlobeDirect::recordDebugLine(Globe* globe, double lon1, double lat1,
+		double lon2, double lat2, Uint8 color)
+	{
+		if (!globe)
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape debug geometry owner unavailable");
+		double sx = lon2 - lon1;
+		double sy = lat2 - lat1;
+		if (sx < 0.0) sx += 2.0 * M_PI;
+		const int segments = std::max(1, std::abs(sx) < 0.01
+			? (int)std::abs(sy / (2.0 * M_PI) * 48.0)
+			: (int)std::abs(sx / (2.0 * M_PI) * 96.0));
+		sx /= segments;
+		sy /= segments;
+		for (int i = 0; i < segments; ++i)
+		{
+			const double ln1 = lon1 + sx * i;
+			const double lt1 = lat1 + sy * i;
+			const double ln2 = lon1 + sx * (i + 1);
+			const double lt2 = lat1 + sy * (i + 1);
+			if (globe->pointBack(ln2, lt2) || globe->pointBack(ln1, lt1)) continue;
+			Sint16 px1, py1, px2, py2;
+			globe->polarToCart(ln1, lt1, &px1, &py1);
+			globe->polarToCart(ln2, lt2, &px2, &py2);
+			if (globe->_gpuDebugLines.size() >= Globe::GPU_DEBUG_LINE_CAPACITY
+				|| globe->_gpuDebugLines.size() >= globe->_gpuDebugLines.capacity())
+			{
+				globe->_gpuDebugCapacityExceeded = true;
+				Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape debug geometry batch capacity exhausted");
+			}
+			globe->_gpuDebugLines.push_back({(float)px1, (float)py1, (float)px2, (float)py2, color});
+		}
+	}
+
+	void CalypsoGeoscapeHdGlobeDirect::recordRadarFlightLine(Globe* globe, double x1, double y1, double x2, double y2,
+		double lon1, double lat1, double lon2, double lat2, int shade)
+	{
+		if (!globe)
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape radar/flight owner unavailable");
+		const bool front1 = !globe->pointBack(lon1, lat1);
+		const bool front2 = !globe->pointBack(lon2, lat2);
+		if (!front1 && !front2) return;
+		if (front1 != front2)
+		{
+			const Cord a(CordPolar(lon1, lat1));
+			const Cord b(CordPolar(lon2, lat2));
+			double lo = front1 ? 0.0 : 1.0;
+			double hi = front1 ? 1.0 : 0.0;
+			for (int i = 0; i < 24; ++i)
+			{
+				const double mid = (lo + hi) * 0.5;
+				Cord m(a.x + (b.x - a.x) * mid, a.y + (b.y - a.y) * mid, a.z + (b.z - a.z) * mid);
+				const double norm = m.norm();
+				if (norm > 0.0) m /= norm;
+				const CordPolar p(m);
+				const bool front = !globe->pointBack(p.lon, p.lat);
+				if (front == front1) lo = mid;
+				else hi = mid;
+			}
+			const double limb = (lo + hi) * 0.5;
+			Cord m(a.x + (b.x - a.x) * limb, a.y + (b.y - a.y) * limb, a.z + (b.z - a.z) * limb);
+			const double norm = m.norm();
+			if (norm > 0.0) m /= norm;
+			const CordPolar p(m);
+			double lx = 0.0, ly = 0.0;
+			globe->polarToCart(p.lon, p.lat, &lx, &ly);
+			if (front1) { x2 = lx; y2 = ly; }
+			else { x1 = lx; y1 = ly; }
+		}
+		if (!globe->_clipper || globe->_clipper->LineClip(&x1, &y1, &x2, &y2) != 1)
+			return;
+
+		/* XuLine advances one floating-point raster step at a time and samples
+		 * the source pixel before advancing.  Keep that progression here rather
+		 * than assigning one shade to an entire physical segment: a path can
+		 * cross land/ocean palette boundaries inside one logical segment. */
+		const double deltax = x2 - x1;
+		const double deltay = y2 - y1;
+		const bool yDominant = std::abs((int)y2 - (int)y1) > std::abs((int)x2 - (int)x1);
+		double len = yDominant
+			? std::abs((int)y2 - (int)y1)
+			: std::abs((int)x2 - (int)x1);
+		if (len <= 0.0) return;
+		double stepX = 0.0;
+		double stepY = 0.0;
+		if (yDominant)
+		{
+			stepX = deltax / len;
+			stepY = y2 < y1 ? -1.0 : (std::abs(deltay) < 1e-12 ? 0.0 : 1.0);
+		}
+		else
+		{
+			stepX = x2 < x1 ? -1.0 : (std::abs(deltax) < 1e-12 ? 0.0 : 1.0);
+			stepY = deltay / len;
+		}
+
+		const auto resolveStepColor = [globe, shade](double sampleX, double sampleY) -> Uint8
+		{
+			const Sint16 px = (Sint16)std::floor(sampleX);
+			const Sint16 py = (Sint16)std::floor(sampleY);
+			double sampleLon = 0.0, sampleLat = 0.0;
+			globe->cartToPolar(px, py, &sampleLon, &sampleLat);
+			if (!std::isfinite(sampleLon) || !std::isfinite(sampleLat)) return 0;
+			int texture = -1, unusedShade = 0;
+			globe->getPolygonTextureAndShade(sampleLon, sampleLat, &texture, &unusedShade);
+			Uint8 dest = Globe::OCEAN_COLOR;
+			if (texture >= 0 && globe->_texture)
+			{
+				Surface* frame = globe->_texture->getFrame(texture + globe->_zoomTexture);
+				if (frame && frame->getWidth() > 0 && frame->getHeight() > 0)
+				{
+					int tx = (int)px % frame->getWidth();
+					int ty = (int)py % frame->getHeight();
+					if (tx < 0) tx += frame->getWidth();
+					if (ty < 0) ty += frame->getHeight();
+					dest = frame->getPixel(tx, ty);
+				}
+			}
+			if (!dest) return 0;
+			return CreateShadow::isOcean(dest)
+				? CreateShadow::getOceanShadow((Uint8)(shade + 8))
+				: CreateShadow::getLandShadow(dest, (Uint8)(shade * 3));
+		};
+
+		double sampleX = x1;
+		double sampleY = y1;
+		while (len > 0.0)
+		{
+			const Uint8 color = resolveStepColor(sampleX, sampleY);
+			if (color)
+			{
+				if (globe->_gpuRadarFlightLines.size() >= Globe::GPU_RADAR_FLIGHT_LINE_CAPACITY
+					|| globe->_gpuRadarFlightLines.size() >= globe->_gpuRadarFlightLines.capacity())
+				{
+					globe->_gpuRadarFlightCapacityExceeded = true;
+					Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape radar/flight batch capacity exhausted");
+				}
+				const double nextX = len > 1.0 ? sampleX + stepX : x2;
+				const double nextY = len > 1.0 ? sampleY + stepY : y2;
+				globe->_gpuRadarFlightLines.push_back({sampleX, sampleY, nextX, nextY, (Uint8)shade, color});
+			}
+			sampleX += stepX;
+			sampleY += stepY;
+			len -= 1.0;
+		}
+	}
+
+	void CalypsoGeoscapeHdGlobeDirect::recordLabelText(Globe* globe, const std::string& text,
+		int width, int height, int x, int y, Uint8 color)
+	{
+		if (!globe)
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape label owner unavailable");
+		if (globe->_gpuLabelIconPendingDraws.size() >= Globe::GPU_LABEL_DRAW_CAPACITY
+			|| globe->_gpuLabelIconPendingDraws.size() >= globe->_gpuLabelIconPendingDraws.capacity())
+		{
+			globe->_gpuLabelCapacityExceeded = true;
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape label batch capacity exhausted");
+		}
+		Globe::LabelTexture* found = nullptr;
+		for (auto& entry : globe->_gpuLabelTextures)
+		{
+			if (entry.text == text && entry.width == width && entry.height == height
+				&& entry.color == color && entry.paletteGeneration == globe->_gpuLabelPaletteGeneration)
+			{
+				found = &entry;
+				break;
+			}
+		}
+		if (!found)
+		{
+			if (globe->_gpuLabelTextures.size() >= Globe::GPU_LABEL_TEXTURE_CAPACITY
+				|| globe->_gpuLabelTextures.size() >= globe->_gpuLabelTextures.capacity())
+			{
+				globe->_gpuLabelCapacityExceeded = true;
+				Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape label texture capacity exhausted");
+			}
+			Surface* frame = new (std::nothrow) Surface(width, height, 0, 0);
+			if (!frame)
+				Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape label surface allocation failed");
+			Text label(width, height, 0, 0);
+			label.setPalette(globe->getEffectivePalette());
+			label.initText(globe->_game->getMod()->getFont("FONT_BIG"),
+				globe->_game->getMod()->getFont("FONT_SMALL"), globe->_game->getLanguage());
+			label.setAlign(ALIGN_CENTER);
+			label.setColor(color);
+			label.setText(text);
+			label.blit(frame->getSurface());
+			globe->_gpuLabelTextures.push_back({text, width, height, color,
+				globe->_gpuLabelPaletteGeneration, frame, nullptr});
+			found = &globe->_gpuLabelTextures.back();
+		}
+		globe->_gpuLabelIconPendingDraws.push_back({found, nullptr, x, y, 0});
+	}
+
+	void CalypsoGeoscapeHdGlobeDirect::recordLabelIcon(Globe* globe, Surface* frame,
+		int x, int y, int shade)
+	{
+		if (!globe || !frame)
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape city marker frame unavailable");
+		if (globe->_gpuLabelIconPendingDraws.size() >= Globe::GPU_LABEL_DRAW_CAPACITY
+			|| globe->_gpuLabelIconPendingDraws.size() >= globe->_gpuLabelIconPendingDraws.capacity())
+		{
+			globe->_gpuLabelCapacityExceeded = true;
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape label batch capacity exhausted");
+		}
+		globe->_gpuLabelIconPendingDraws.push_back({nullptr, frame, x, y, shade});
+	}
+
+	void CalypsoGeoscapeHdGlobeDirect::ensureLogicalWorldComplete(Globe* globe)
+	{
+		if (!globe || globe->_gpuDebugCapacityExceeded)
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
+				"Geoscape HD debug geometry batch capacity exhausted");
+		if (!globe || !globe->_gpuLogicalWorldComplete)
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
+				"Geoscape HD world incomplete: an unclaimed logical layer remains");
+	}
+
+	void CalypsoGeoscapeHdGlobeDirect::ensureBorderResources(Globe* globe)
+	{
+		if (!globe || !GpuInit::ready())
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape border GPU is unavailable");
+		if (globe->_gpuBorderCapacityExceeded)
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape border batch capacity exhausted");
+		if (globe->_gpuRadarFlightCapacityExceeded)
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape radar/flight batch capacity exhausted");
+		if (globe->_gpuDebugCapacityExceeded)
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape debug geometry batch capacity exhausted");
+		if (globe->_gpuBorderLines.empty() && globe->_gpuRadarFlightLines.empty()
+			&& globe->_gpuDebugLines.empty())
+		{
+			globe->_gpuBorderReady = true;
+			return;
+		}
+		if (!globe->_borderShader)
+		{
+			globe->_borderShader = new Shader();
+			if (!globe->_borderShader->loadFromEmbedded("colorquad"))
+			{
+				delete globe->_borderShader;
+				globe->_borderShader = nullptr;
+				Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape border shader compilation failed");
+			}
+		}
+		if (!globe->_borderShader->isValid())
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape border shader is invalid");
+		if (!globe->_borderVAO || !globe->_borderVBO)
+		{
+			glGenVertexArrays(1, &globe->_borderVAO);
+			glGenBuffers(1, &globe->_borderVBO);
+			const GLenum resourceError = glGetError();
+			if (!globe->_borderVAO || !globe->_borderVBO || resourceError != GL_NO_ERROR)
+				Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
+					resourceError == GL_NO_ERROR
+						? "Geoscape border vertex resources unavailable"
+						: calypsoGlFailure("Geoscape border vertex allocation failed", resourceError));
+			glBindVertexArray(globe->_borderVAO);
+			glBindBuffer(GL_ARRAY_BUFFER, globe->_borderVBO);
+			glEnableVertexAttribArray(0);
+			glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * (GLsizei)sizeof(float), (void*)0);
+			const GLenum attributeError = glGetError();
+			glBindVertexArray(0);
+			const GLenum vertexUnbindError = glGetError();
+			glBindBuffer(GL_ARRAY_BUFFER, 0);
+			const GLenum attributeUnbindError = glGetError();
+			if (attributeError != GL_NO_ERROR)
+				Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
+					calypsoGlFailure("Geoscape border vertex attribute setup failed", attributeError));
+			if (vertexUnbindError != GL_NO_ERROR)
+				Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
+					calypsoGlFailure("Geoscape border vertex array unbind failed", vertexUnbindError));
+			if (attributeUnbindError != GL_NO_ERROR)
+				Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
+					calypsoGlFailure("Geoscape border array buffer unbind failed", attributeUnbindError));
+		}
+		const size_t requiredBorderVertices = globe->_gpuBorderLines.size() * 2u;
+		const size_t requiredRadarFlightVertices = globe->_gpuRadarFlightLines.size() * 2u;
+		const size_t requiredDebugVertices = globe->_gpuDebugLines.size() * 2u;
+		const size_t requiredVertices = std::max(requiredBorderVertices,
+			std::max(requiredRadarFlightVertices, requiredDebugVertices));
+		if (requiredBorderVertices * 2u > Globe::GPU_BORDER_VERTEX_FLOAT_CAPACITY
+			|| requiredRadarFlightVertices * 2u > Globe::GPU_RADAR_FLIGHT_VERTEX_FLOAT_CAPACITY
+			|| requiredDebugVertices * 2u > Globe::GPU_DEBUG_VERTEX_FLOAT_CAPACITY)
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape world vertex capacity exhausted");
+		if (requiredVertices > globe->_gpuBorderCapacity)
+		{
+			if (requiredVertices * 2u > Globe::GPU_BORDER_VERTEX_FLOAT_CAPACITY)
+				Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape border vertex capacity exhausted");
+			glBindBuffer(GL_ARRAY_BUFFER, globe->_borderVBO);
+			glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)(requiredVertices * 2u * sizeof(float)), nullptr, GL_DYNAMIC_DRAW);
+			const GLenum bufferError = glGetError();
+			glBindBuffer(GL_ARRAY_BUFFER, 0);
+			const GLenum bufferUnbindError = glGetError();
+			if (bufferError != GL_NO_ERROR)
+				Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
+					calypsoGlFailure("Geoscape border vertex buffer allocation failed", bufferError));
+			if (bufferUnbindError != GL_NO_ERROR)
+				Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
+					calypsoGlFailure("Geoscape border vertex buffer unbind failed", bufferUnbindError));
+			globe->_gpuBorderCapacity = requiredVertices;
+		}
+		if (requiredRadarFlightVertices > globe->_gpuRadarFlightCapacity)
+			globe->_gpuRadarFlightCapacity = requiredRadarFlightVertices;
+		if (requiredDebugVertices > globe->_gpuDebugCapacity)
+			globe->_gpuDebugCapacity = requiredDebugVertices;
+		const GLenum borderPreflightError = glGetError();
+		if (borderPreflightError != GL_NO_ERROR)
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
+				calypsoGlFailure("Geoscape border GL preflight failed", borderPreflightError));
+		globe->_gpuBorderReady = true;
+	}
+
+	void CalypsoGeoscapeHdGlobeDirect::drawBorderPass(Globe* globe)
+	{
+		if (!globe || globe->_gpuBorderLines.empty() || !globe->_directScreen) return;
+		if (!globe->_gpuBorderReady || !globe->_borderShader || !globe->_borderShader->isValid())
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape border resources disappeared");
+		const double xs = globe->_directScreen->getXScale();
+		const double ys = globe->_directScreen->getYScale();
+		const float displayW = static_cast<float>(Options::displayWidth);
+		const float displayH = static_cast<float>(Options::displayHeight);
+		CalypsoGeoscapeHdGlobeDirect::PhysicalGlobeRect rect;
+		if (!CalypsoGeoscapeHdGlobeDirect::physicalGlobeRect(globe, rect))
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape physical globe rect is invalid");
+		const SDL_Color* palette = globe->getEffectivePalette();
+		if (!palette)
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape border palette unavailable");
+		const SDL_Color color = palette[Globe::LINE_COLOR];
+		const size_t requiredVertexFloats = globe->_gpuBorderLines.size() * 4u;
+		if (requiredVertexFloats > Globe::GPU_BORDER_VERTEX_FLOAT_CAPACITY
+			|| requiredVertexFloats > globe->_gpuBorderVertices.capacity())
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape border vertex capacity exhausted");
+		globe->_gpuBorderVertices.resize(requiredVertexFloats);
+		size_t vertexIndex = 0;
+		for (const auto& line : globe->_gpuBorderLines)
+		{
+			const float x1 = 2.0f * ((rect.x + line.x1 * (float)xs) / displayW) - 1.0f;
+			const float x2 = 2.0f * ((rect.x + line.x2 * (float)xs) / displayW) - 1.0f;
+			const float y1 = -(2.0f * ((rect.y + line.y1 * (float)ys) / displayH) - 1.0f);
+			const float y2 = -(2.0f * ((rect.y + line.y2 * (float)ys) / displayH) - 1.0f);
+			globe->_gpuBorderVertices[vertexIndex++] = x1;
+			globe->_gpuBorderVertices[vertexIndex++] = y1;
+			globe->_gpuBorderVertices[vertexIndex++] = x2;
+			globe->_gpuBorderVertices[vertexIndex++] = y2;
+		}
+		GlobeSphereGlSave st; st.save();
+		CalypsoGeoscapeHdGlobeDirect::setPhysicalGlobeClip(globe);
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glLineWidth(1.0f);
+		globe->_borderShader->use();
+		globe->_borderShader->setUniform4f("u_color", color.r / 255.0f, color.g / 255.0f, color.b / 255.0f, color.a / 255.0f);
+		glBindBuffer(GL_ARRAY_BUFFER, globe->_borderVBO);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)(globe->_gpuBorderVertices.size() * sizeof(float)), globe->_gpuBorderVertices.data());
+		glBindVertexArray(globe->_borderVAO);
+		glDrawArrays(GL_LINES, 0, (GLsizei)(globe->_gpuBorderLines.size() * 2u));
+		glBindVertexArray(0u);
+		if (glGetError() != GL_NO_ERROR)
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape border draw failed");
+		st.restore();
+	}
+
+	void CalypsoGeoscapeHdGlobeDirect::drawRadarFlightPass(Globe* globe)
+	{
+		if (!globe || globe->_gpuRadarFlightLines.empty() || !globe->_directScreen) return;
+		if (!globe->_gpuBorderReady || !globe->_borderShader || !globe->_borderShader->isValid())
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape radar/flight resources disappeared");
+		const double xs = globe->_directScreen->getXScale();
+		const double ys = globe->_directScreen->getYScale();
+		const float displayW = static_cast<float>(Options::displayWidth);
+		const float displayH = static_cast<float>(Options::displayHeight);
+		CalypsoGeoscapeHdGlobeDirect::PhysicalGlobeRect rect;
+		if (!CalypsoGeoscapeHdGlobeDirect::physicalGlobeRect(globe, rect))
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape physical globe rect is invalid");
+		const SDL_Color* palette = globe->getEffectivePalette();
+		if (!palette)
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape radar/flight palette unavailable");
+		const size_t requiredVertexFloats = globe->_gpuRadarFlightLines.size() * 4u;
+		if (requiredVertexFloats > Globe::GPU_RADAR_FLIGHT_VERTEX_FLOAT_CAPACITY
+			|| requiredVertexFloats > globe->_gpuRadarFlightVertices.capacity())
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape radar/flight vertex capacity exhausted");
+		globe->_gpuRadarFlightVertices.resize(requiredVertexFloats);
+		size_t vertexIndex = 0;
+		for (const auto& line : globe->_gpuRadarFlightLines)
+		{
+			globe->_gpuRadarFlightVertices[vertexIndex++] = (float)(2.0 * ((rect.x + line.x1 * xs) / displayW) - 1.0);
+			globe->_gpuRadarFlightVertices[vertexIndex++] = (float)-(2.0 * ((rect.y + line.y1 * ys) / displayH) - 1.0);
+			globe->_gpuRadarFlightVertices[vertexIndex++] = (float)(2.0 * ((rect.x + line.x2 * xs) / displayW) - 1.0);
+			globe->_gpuRadarFlightVertices[vertexIndex++] = (float)-(2.0 * ((rect.y + line.y2 * ys) / displayH) - 1.0);
+		}
+		GlobeSphereGlSave st; st.save();
+		CalypsoGeoscapeHdGlobeDirect::setPhysicalGlobeClip(globe);
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glLineWidth(1.0f);
+		globe->_borderShader->use();
+		glBindBuffer(GL_ARRAY_BUFFER, globe->_borderVBO);
+		glBufferSubData(GL_ARRAY_BUFFER, 0,
+			(GLsizeiptr)(globe->_gpuRadarFlightVertices.size() * sizeof(float)),
+			globe->_gpuRadarFlightVertices.data());
+		glBindVertexArray(globe->_borderVAO);
+		size_t begin = 0;
+		while (begin < globe->_gpuRadarFlightLines.size())
+		{
+			const Uint8 colorIndex = globe->_gpuRadarFlightLines[begin].color;
+			size_t end = begin + 1;
+			while (end < globe->_gpuRadarFlightLines.size()
+				&& globe->_gpuRadarFlightLines[end].color == colorIndex) ++end;
+			const SDL_Color color = palette[colorIndex];
+			globe->_borderShader->setUniform4f("u_color", color.r / 255.0f, color.g / 255.0f,
+				color.b / 255.0f, color.a / 255.0f);
+			glDrawArrays(GL_LINES, (GLint)(begin * 2u), (GLsizei)((end - begin) * 2u));
+			begin = end;
+		}
+		glBindVertexArray(0u);
+		if (glGetError() != GL_NO_ERROR)
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape radar/flight draw failed");
+		st.restore();
+	}
+
+	void CalypsoGeoscapeHdGlobeDirect::drawDebugPass(Globe* globe)
+	{
+		if (!globe || globe->_gpuDebugLines.empty() || !globe->_directScreen) return;
+		if (!globe->_gpuBorderReady || !globe->_borderShader || !globe->_borderShader->isValid())
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape debug geometry resources disappeared");
+		if (globe->_gpuDebugCapacityExceeded)
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape debug geometry batch capacity exhausted");
+		const double xs = globe->_directScreen->getXScale();
+		const double ys = globe->_directScreen->getYScale();
+		const float displayW = static_cast<float>(Options::displayWidth);
+		const float displayH = static_cast<float>(Options::displayHeight);
+		PhysicalGlobeRect rect;
+		if (!physicalGlobeRect(globe, rect))
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape physical globe rect is invalid");
+		const SDL_Color* palette = globe->getEffectivePalette();
+		if (!palette)
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape debug geometry palette unavailable");
+		const size_t requiredVertexFloats = globe->_gpuDebugLines.size() * 4u;
+		if (requiredVertexFloats > Globe::GPU_DEBUG_VERTEX_FLOAT_CAPACITY
+			|| requiredVertexFloats > globe->_gpuDebugVertices.capacity())
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape debug geometry vertex capacity exhausted");
+		globe->_gpuDebugVertices.resize(requiredVertexFloats);
+		size_t vertexIndex = 0;
+		for (const auto& line : globe->_gpuDebugLines)
+		{
+			globe->_gpuDebugVertices[vertexIndex++] = (float)(2.0 * ((rect.x + line.x1 * xs) / displayW) - 1.0);
+			globe->_gpuDebugVertices[vertexIndex++] = (float)-(2.0 * ((rect.y + line.y1 * ys) / displayH) - 1.0);
+			globe->_gpuDebugVertices[vertexIndex++] = (float)(2.0 * ((rect.x + line.x2 * xs) / displayW) - 1.0);
+			globe->_gpuDebugVertices[vertexIndex++] = (float)-(2.0 * ((rect.y + line.y2 * ys) / displayH) - 1.0);
+		}
+		GlobeSphereGlSave st; st.save();
+		setPhysicalGlobeClip(globe);
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glLineWidth(1.0f);
+		globe->_borderShader->use();
+		glBindBuffer(GL_ARRAY_BUFFER, globe->_borderVBO);
+		glBufferSubData(GL_ARRAY_BUFFER, 0,
+			(GLsizeiptr)(globe->_gpuDebugVertices.size() * sizeof(float)), globe->_gpuDebugVertices.data());
+		glBindVertexArray(globe->_borderVAO);
+		size_t begin = 0;
+		while (begin < globe->_gpuDebugLines.size())
+		{
+			const Uint8 colorIndex = globe->_gpuDebugLines[begin].color;
+			size_t end = begin + 1;
+			while (end < globe->_gpuDebugLines.size()
+				&& globe->_gpuDebugLines[end].color == colorIndex) ++end;
+			const SDL_Color color = palette[colorIndex];
+			globe->_borderShader->setUniform4f("u_color", color.r / 255.0f, color.g / 255.0f,
+				color.b / 255.0f, color.a / 255.0f);
+			glDrawArrays(GL_LINES, (GLint)(begin * 2u), (GLsizei)((end - begin) * 2u));
+			begin = end;
+		}
+		glBindVertexArray(0u);
+		if (glGetError() != GL_NO_ERROR)
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape debug geometry draw failed");
+		st.restore();
+	}
+
+	void CalypsoGeoscapeHdGlobeDirect::ensureMarkerResources(Globe* globe)
+	{
+		if (!globe || !GpuInit::ready())
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape marker GPU is unavailable");
+		if (!globe->_markerShader)
+		{
+			globe->_markerShader = new Shader();
+			if (!globe->_markerShader->loadFromEmbedded("textured"))
+			{
+				delete globe->_markerShader;
+				globe->_markerShader = nullptr;
+				Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape marker shader compilation failed");
+			}
+		}
+		if (!globe->_markerShader->isValid())
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape marker shader is invalid");
+		if (!globe->_markerVAO || !globe->_markerVBO)
+		{
+			glGenVertexArrays(1, &globe->_markerVAO);
+			glGenBuffers(1, &globe->_markerVBO);
+			if (!globe->_markerVAO || !globe->_markerVBO || glGetError() != GL_NO_ERROR)
+				Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape marker vertex resources unavailable");
+			glBindVertexArray(globe->_markerVAO);
+			glBindBuffer(GL_ARRAY_BUFFER, globe->_markerVBO);
+			glBufferData(GL_ARRAY_BUFFER, 6 * 4 * (GLsizeiptr)sizeof(float), nullptr, GL_DYNAMIC_DRAW);
+			glEnableVertexAttribArray(0);
+			glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * (GLsizei)sizeof(float), (void*)0);
+			glEnableVertexAttribArray(1);
+			glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * (GLsizei)sizeof(float), (void*)(2 * sizeof(float)));
+			glBindVertexArray(0);
+			glBindBuffer(GL_ARRAY_BUFFER, 0);
+			if (glGetError() != GL_NO_ERROR)
+				Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape marker vertex setup failed");
+		}
+		globe->_gpuMarkerReady = true;
+		for (const auto& command : globe->_gpuMarkerCommittedDraws)
+		{
+			if (!command.frame || command.frame->getWidth() <= 0 || command.frame->getHeight() <= 0
+				|| !CalypsoGeoscapeHdGlobeDirect::markerTexture(globe, command.frame, command.shade))
+				Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape marker texture upload failed");
+		}
+		if (glGetError() != GL_NO_ERROR)
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape marker GL preflight failed");
+	}
+
+	GpuTexture* CalypsoGeoscapeHdGlobeDirect::markerTexture(Globe* globe, Surface* frame, int shade)
+	{
+		for (const auto& entry : globe->_gpuMarkerTextures)
+		{
+			if (entry.frame == frame && entry.shade == shade
+				&& entry.paletteGeneration == globe->_gpuMarkerPaletteGeneration
+				&& entry.texture && entry.texture->isValid())
+				return entry.texture;
+		}
+		const int w = frame->getWidth();
+		const int h = frame->getHeight();
+		if (w <= 0 || h <= 0) return nullptr;
+		const ShadeTable* table = frame->getShadeTable();
+		const Uint8* mirror = frame->getPaletteMirror();
+		std::vector<uint8_t> rgba(static_cast<size_t>(w * h * 4), 0u);
+		for (int py = 0; py < h; ++py)
+		{
+			for (int px = 0; px < w; ++px)
+			{
+				Uint32 argb = frame->getPixel32(px, py);
+				if (mirror && table) argb = table->get(mirror[py * w + px], shade);
+				const size_t i = static_cast<size_t>((py * w + px) * 4);
+				rgba[i + 0] = static_cast<uint8_t>((argb >> 16) & 0xffu);
+				rgba[i + 1] = static_cast<uint8_t>((argb >> 8) & 0xffu);
+				rgba[i + 2] = static_cast<uint8_t>(argb & 0xffu);
+				rgba[i + 3] = static_cast<uint8_t>((argb >> 24) & 0xffu);
+			}
+		}
+		GpuTexture* texture = new GpuTexture(false, GpuTexture::Wrap::ClampToEdge, GpuTexture::Filter::Nearest);
+		if (!texture->uploadRGBA(rgba.data(), w, h))
+		{
+			delete texture;
+			return nullptr;
+		}
+		globe->_gpuMarkerTextures.push_back({frame, shade, globe->_gpuMarkerPaletteGeneration, texture});
+		return texture;
+	}
+
+	GpuTexture* CalypsoGeoscapeHdGlobeDirect::labelTexture(Globe* globe, Globe::LabelTexture& entry)
+	{
+		if (!globe || !entry.frame || entry.width <= 0 || entry.height <= 0)
+			return nullptr;
+		if (entry.texture && entry.paletteGeneration == globe->_gpuLabelPaletteGeneration
+			&& entry.texture->isValid())
+			return entry.texture;
+		const int w = entry.frame->getWidth();
+		const int h = entry.frame->getHeight();
+		if (w <= 0 || h <= 0) return nullptr;
+		std::vector<uint8_t> rgba(static_cast<size_t>(w * h * 4), 0u);
+		for (int py = 0; py < h; ++py)
+		{
+			for (int px = 0; px < w; ++px)
+			{
+				const Uint32 argb = entry.frame->getPixel32(px, py);
+				const size_t i = static_cast<size_t>((py * w + px) * 4);
+				rgba[i + 0] = static_cast<uint8_t>((argb >> 16) & 0xffu);
+				rgba[i + 1] = static_cast<uint8_t>((argb >> 8) & 0xffu);
+				rgba[i + 2] = static_cast<uint8_t>(argb & 0xffu);
+				rgba[i + 3] = static_cast<uint8_t>((argb >> 24) & 0xffu);
+			}
+		}
+		GpuTexture* texture = new (std::nothrow) GpuTexture(false,
+			GpuTexture::Wrap::ClampToEdge, GpuTexture::Filter::Nearest);
+		if (!texture || !texture->uploadRGBA(rgba.data(), w, h))
+		{
+			delete texture;
+			return nullptr;
+		}
+		entry.texture = texture;
+		entry.paletteGeneration = globe->_gpuLabelPaletteGeneration;
+		return texture;
+	}
+
+	void CalypsoGeoscapeHdGlobeDirect::ensureLabelResources(Globe* globe)
+	{
+		if (!globe || !GpuInit::ready())
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape label GPU is unavailable");
+		if (globe->_gpuLabelCapacityExceeded)
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape label batch capacity exhausted");
+		if (globe->_gpuLabelIconCommittedDraws.empty()) return;
+		CalypsoGeoscapeHdGlobeDirect::ensureMarkerResources(globe);
+		for (auto& command : globe->_gpuLabelIconCommittedDraws)
+		{
+			if (command.label)
+			{
+				if (!CalypsoGeoscapeHdGlobeDirect::labelTexture(globe, *command.label))
+					Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape label texture upload failed");
+			}
+			else if (!command.frame || command.frame->getWidth() <= 0 || command.frame->getHeight() <= 0
+				|| !CalypsoGeoscapeHdGlobeDirect::markerTexture(globe, command.frame, command.shade))
+			{
+				Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape city marker texture upload failed");
+			}
+		}
+		if (glGetError() != GL_NO_ERROR)
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape label GL preflight failed");
+	}
+
+	void CalypsoGeoscapeHdGlobeDirect::drawLabelIconPass(Globe* globe)
+	{
+		if (!globe || globe->_gpuLabelIconCommittedDraws.empty() || !globe->_directScreen) return;
+		ensureLabelResources(globe);
+		const double xs = globe->_directScreen->getXScale();
+		const double ys = globe->_directScreen->getYScale();
+		const int lbb = globe->_directScreen->getCursorLeftBlackBand();
+		const int tbb = globe->_directScreen->getCursorTopBlackBand();
+		const float displayW = static_cast<float>(Options::displayWidth);
+		const float displayH = static_cast<float>(Options::displayHeight);
+		GlobeSphereGlSave st; st.save();
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		CalypsoGeoscapeHdGlobeDirect::setPhysicalGlobeClip(globe);
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		globe->_markerShader->use();
+		globe->_markerShader->setUniform1f("u_darken", 0.0f);
+		globe->_markerShader->setUniform1i("u_tex", 0);
+		for (const auto& command : globe->_gpuLabelIconCommittedDraws)
+		{
+			Surface* frame = command.label ? command.label->frame : command.frame;
+			GpuTexture* texture = command.label
+				? labelTexture(globe, *command.label)
+				: markerTexture(globe, command.frame, command.shade);
+			if (!frame || !texture)
+				Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape label texture disappeared during draw");
+			const float x = static_cast<float>((globe->getX() + command.x) * xs + lbb);
+			const float y = static_cast<float>((globe->getY() + command.y) * ys + tbb);
+			const float w = static_cast<float>(frame->getWidth() * xs);
+			const float h = static_cast<float>(frame->getHeight() * ys);
+			const float x0 = 2.0f * x / displayW - 1.0f;
+			const float x1 = 2.0f * (x + w) / displayW - 1.0f;
+			const float y0 = -(2.0f * y / displayH - 1.0f);
+			const float y1 = -(2.0f * (y + h) / displayH - 1.0f);
+			const float verts[6 * 4] = {x0, y0, 0.f, 0.f, x1, y0, 1.f, 0.f,
+				x0, y1, 0.f, 1.f, x0, y1, 0.f, 1.f, x1, y0, 1.f, 0.f,
+				x1, y1, 1.f, 1.f};
+			glBindBuffer(GL_ARRAY_BUFFER, globe->_markerVBO);
+			glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)sizeof(verts), verts);
+			glBindBuffer(GL_ARRAY_BUFFER, 0);
+			texture->bind(0);
+			glBindVertexArray(globe->_markerVAO);
+			glDrawArrays(GL_TRIANGLES, 0, 6);
+			glBindVertexArray(0);
+		}
+		if (glGetError() != GL_NO_ERROR)
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape label draw failed");
+		st.restore();
+	}
+
+	void CalypsoGeoscapeHdGlobeDirect::drawMarkerPass(Globe* globe)
+	{
+		if (!globe || globe->_gpuMarkerCommittedDraws.empty() || !globe->_directScreen) return;
+		CalypsoGeoscapeHdGlobeDirect::ensureMarkerResources(globe);
+		const double xs = globe->_directScreen->getXScale();
+		const double ys = globe->_directScreen->getYScale();
+		const int lbb = globe->_directScreen->getCursorLeftBlackBand();
+		const int tbb = globe->_directScreen->getCursorTopBlackBand();
+		const float displayW = static_cast<float>(Options::displayWidth);
+		const float displayH = static_cast<float>(Options::displayHeight);
+		GlobeSphereGlSave st; st.save();
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		CalypsoGeoscapeHdGlobeDirect::setPhysicalGlobeClip(globe);
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		globe->_markerShader->use();
+		globe->_markerShader->setUniform1f("u_darken", 0.0f);
+		globe->_markerShader->setUniform1i("u_tex", 0);
+		for (const auto& command : globe->_gpuMarkerCommittedDraws)
+		{
+			GpuTexture* texture = markerTexture(globe, command.frame, command.shade);
+			if (!texture)
+				Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape marker texture disappeared during draw");
+			const float x = static_cast<float>((globe->getX() + command.x) * xs + lbb);
+			const float y = static_cast<float>((globe->getY() + command.y) * ys + tbb);
+			const float w = static_cast<float>(command.frame->getWidth() * xs);
+			const float h = static_cast<float>(command.frame->getHeight() * ys);
+			const float x0 = 2.0f * x / displayW - 1.0f;
+			const float x1 = 2.0f * (x + w) / displayW - 1.0f;
+			const float y0 = -(2.0f * y / displayH - 1.0f);
+			const float y1 = -(2.0f * (y + h) / displayH - 1.0f);
+			const float verts[6 * 4] = {x0, y0, 0.f, 0.f, x1, y0, 1.f, 0.f, x0, y1, 0.f, 1.f, x0, y1, 0.f, 1.f, x1, y0, 1.f, 0.f, x1, y1, 1.f, 1.f};
+			glBindBuffer(GL_ARRAY_BUFFER, globe->_markerVBO);
+			glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)sizeof(verts), verts);
+			glBindBuffer(GL_ARRAY_BUFFER, 0);
+			texture->bind(0);
+			glBindVertexArray(globe->_markerVAO);
+			glDrawArrays(GL_TRIANGLES, 0, 6);
+			glBindVertexArray(0);
+		}
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, 0u);
+		if (glGetError() != GL_NO_ERROR)
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape marker draw failed");
 		st.restore();
 	}
 
@@ -1130,12 +2025,16 @@ bool Globe::initSphereGPU()
 {
 	if (!GpuInit::ready()) return false;
 
-	_globeShader = new Shader();
-	if (!_globeShader->loadFromEmbedded("globe_sphere"))
+	if (!_globeShader || !_globeShader->isValid())
 	{
-		Log(LOG_ERROR) << "Globe::initSphereGPU: shader compile failed";
-		delete _globeShader; _globeShader = nullptr;
-		return false;
+		delete _globeShader;
+		_globeShader = new Shader();
+		if (!_globeShader->loadFromEmbedded("globe_sphere"))
+		{
+			Log(LOG_ERROR) << "Globe::initSphereGPU: shader compile failed";
+			delete _globeShader; _globeShader = nullptr;
+			return false;
+		}
 	}
 
 	/* Fullscreen-quad VAO (NDC -1..+1, UV 0..1). */
@@ -1175,22 +2074,55 @@ bool Globe::initSphereGPU()
 		Log(LOG_ERROR) << "Globe::initSphereGPU: FBO incomplete (status=" << (int)status << ")";
 		return false;
 	}
+	if (glGetError() != GL_NO_ERROR || !_sphereVAO || !_sphereFBO || !_sphereFBOTex)
+	{
+		Log(LOG_ERROR) << "Globe::initSphereGPU: Earth GL resources unavailable";
+		return false;
+	}
 
 	_gpuSphereOK = true;
 	Log(LOG_INFO) << "Globe::initSphereGPU: ready (" << w << "x" << h << ")";
 
 	/* M6: register a ShaderManager reset callback so a real WebGL context
 	 * loss (GPU crash, iOS tab switch) is handled correctly.  On restore,
-	 * reuploadAll() re-compiles _globeShader via Shader::reupload(); this
-	 * callback nulls the raw GL handles and clears _gpuSphereOK so the
-	 * next drawSphereGPU() call re-runs initSphereGPU() to rebuild them. */
-	_gpuAliveFlag = std::make_shared<bool>(true);
+	 * reuploadAll() re-compiles the shaders/textures; this callback nulls raw
+	 * GL handles and clears both pass-ready flags so the next frame rebuilds
+	 * the sphere and marker overlay without stale commands. */
+	if (!_gpuAliveFlag) _gpuAliveFlag = std::make_shared<bool>(true);
+	if (!_gpuResetCallbackRegistered)
+	{
 	ShaderManager::instance().registerResetCallback(_gpuAliveFlag, [this]() {
 		_sphereVAO    = 0u;
 		_sphereFBO    = 0u;
 		_sphereFBOTex = 0u;
 		_gpuSphereOK  = false;
-	});
+		_markerVAO    = 0u;
+		_markerVBO    = 0u;
+		_gpuMarkerReady = false;
+		_borderVAO    = 0u;
+		_borderVBO    = 0u;
+		_gpuBorderReady = false;
+		_gpuBorderCapacity = 0u;
+		_gpuRadarFlightCapacity = 0u;
+		_gpuDebugCapacity = 0u;
+		_gpuBorderCapacityExceeded = false;
+		_gpuRadarFlightCapacityExceeded = false;
+		_gpuDebugCapacityExceeded = false;
+		for (auto& entry : _gpuMarkerTextures) delete entry.texture;
+		_gpuMarkerTextures.clear();
+		++_gpuMarkerPaletteGeneration;
+		for (auto& entry : _gpuLabelTextures)
+		{
+			delete entry.texture;
+			entry.texture = nullptr;
+		}
+		_gpuLabelCapacityExceeded = false;
+		/* Keep the committed command snapshot. Context restore invalidates raw
+		 * resources only; gameplay-owned commands remain the source for the
+		 * first rebuilt physical frame. */
+		});
+		_gpuResetCallbackRegistered = true;
+	}
 
 	return true;
 }
@@ -1299,7 +2231,9 @@ void Globe::drawSphereGPU()
 	if (!_gpuSphereOK && !initSphereGPU()) return;
 	if (_gpuDirectMode)
 	{
-		CalypsoGeoscapeHdGlobeDirect::drawPass(this);
+		/* Direct mode is owned by Screen's registered world slot. The slot
+		 * performs Earth resource preflight and the ordered draw after SDL's
+		 * composite, so do not paint an early duplicate here. */
 		return;
 	}
 	if (::g_calypsoGlobeGpuDirect != 0 && !_gpuDirectAck)
@@ -1682,6 +2616,10 @@ void Globe::XuLine(Surface* surface, Surface* src, double x1, double y1, double 
 void Globe::drawRadars()
 {
 	_radars->clear();
+#ifdef __EMSCRIPTEN__
+	if (_gpuDirectMode) _gpuRadarFlightLines.clear();
+	if (_gpuDirectMode) _gpuRadarFlightCapacityExceeded = false;
+#endif
 
 	if (!Options::globeRadarLines)
 		return;
@@ -1798,7 +2736,7 @@ void Globe::drawRadars()
 void Globe::drawGlobeCircle(double lat, double lon, double radius, int segments, int frac)
 {
 	double x, y, x2 = 0, y2 = 0;
-	double lat1, lon1;
+	double lat1, lon1, lat2 = 0, lon2 = 0;
 	double seg = M_PI / (static_cast<double>(segments) / 2);
 	int i = 0;
 	for (double az = 0; az <= M_PI*2+0.01; az+=seg) //48 circle segments
@@ -1811,11 +2749,22 @@ void Globe::drawGlobeCircle(double lat, double lon, double radius, int segments,
 		{
 			x2=x;
 			y2=y;
+			lon2=lon1;
+			lat2=lat1;
 			continue;
 		}
-		if (!pointBack(lon1,lat1) && i % frac == 0)
-			XuLine(_radars, this, x, y, x2, y2, 6);
-		x2=x; y2=y;
+		if (i % frac == 0)
+		{
+#ifdef __EMSCRIPTEN__
+			if (_gpuDirectMode)
+				CalypsoGeoscapeHdGlobeDirect::recordRadarFlightLine(
+					this, x, y, x2, y2, lon1, lat1, lon2, lat2, 6);
+			else
+#endif
+			if (!pointBack(lon1,lat1))
+				XuLine(_radars, this, x, y, x2, y2, 6);
+		}
+		x2=x; y2=y; lon2=lon1; lat2=lat1;
 		i++;
 	}
 }
@@ -1833,6 +2782,13 @@ void Globe::setNewBaseHoverPos(double lon, double lat)
 
 void Globe::drawVHLine(Surface *surface, double lon1, double lat1, double lon2, double lat2, Uint8 color)
 {
+#ifdef __EMSCRIPTEN__
+	if (_gpuDirectMode && surface == _countries)
+	{
+		CalypsoGeoscapeHdGlobeDirect::recordDebugLine(this, lon1, lat1, lon2, lat2, color);
+		return;
+	}
+#endif
 	double sx = lon2 - lon1;
 	double sy = lat2 - lat1;
 	double ln1, lt1, ln2, lt2;
@@ -1879,9 +2835,31 @@ void Globe::drawVHLine(Surface *surface, double lon1, double lat1, double lon2, 
 void Globe::drawDetail()
 {
 	_countries->clear();
+#ifdef __EMSCRIPTEN__
+	if (_gpuDirectMode)
+	{
+		_gpuBorderLines.clear();
+		_gpuDebugLines.clear();
+		_gpuDebugVertices.clear();
+		_gpuLabelIconPendingDraws.clear();
+		_gpuLabelCapacityExceeded = false;
+		_gpuBorderCapacityExceeded = false;
+		_gpuDebugCapacityExceeded = false;
+		_gpuLogicalWorldComplete = true;
+	}
+#endif
 
 	if (!Options::globeDetail)
+	{
+#ifdef __EMSCRIPTEN__
+		if (_gpuDirectMode)
+		{
+			_gpuLabelIconPendingDraws.swap(_gpuLabelIconCommittedDraws);
+			_gpuLabelIconPendingDraws.clear();
+		}
+#endif
 		return;
+	}
 
 	// Draw the country borders
 	if (_zoom >= 1)
@@ -1902,7 +2880,12 @@ void Globe::drawDetail()
 				polarToCart(polyline->getLongitude(j), polyline->getLatitude(j), &x[0], &y[0]);
 				polarToCart(polyline->getLongitude(j + 1), polyline->getLatitude(j + 1), &x[1], &y[1]);
 
-				_countries->drawLine(x[0], y[0], x[1], y[1], LINE_COLOR);
+#ifdef __EMSCRIPTEN__
+				if (_gpuDirectMode)
+					CalypsoGeoscapeHdGlobeDirect::recordBorderLine(this, x[0], y[0], x[1], y[1]);
+				else
+#endif
+					_countries->drawLine(x[0], y[0], x[1], y[1], LINE_COLOR);
 			}
 		}
 
@@ -1913,10 +2896,16 @@ void Globe::drawDetail()
 	// Draw the country names
 	if (_zoom >= 2)
 	{
-		Text *label = new Text(150, 9, 0, 0);
-		label->setPalette(getEffectivePalette());
-		label->initText(_game->getMod()->getFont("FONT_BIG"), _game->getMod()->getFont("FONT_SMALL"), _game->getLanguage());
-		label->setAlign(ALIGN_CENTER);
+		Text *label = nullptr;
+#ifdef __EMSCRIPTEN__
+		if (!_gpuDirectMode)
+#endif
+		{
+			label = new Text(150, 9, 0, 0);
+			label->setPalette(getEffectivePalette());
+			label->initText(_game->getMod()->getFont("FONT_BIG"), _game->getMod()->getFont("FONT_SMALL"), _game->getLanguage());
+			label->setAlign(ALIGN_CENTER);
+		}
 
 		Sint16 x, y;
 		for (auto* country : *_game->getSavedGame()->getCountries())
@@ -1928,15 +2917,24 @@ void Globe::drawDetail()
 			// Convert coordinates
 			polarToCart(country->getRules()->getLabelLongitude(), country->getRules()->getLabelLatitude(), &x, &y);
 
-			label->setX(x - 75);
-			label->setY(y);
-			label->setText(_game->getLanguage()->getString(country->getRules()->getType()));
-			label->setColor(COUNTRY_LABEL_COLOR);
-			if (country->getRules()->getLabelColor() > 0)
+			if (label)
 			{
-				label->setColor(country->getRules()->getLabelColor());
+				label->setX(x - 75);
+				label->setY(y);
+				label->setText(_game->getLanguage()->getString(country->getRules()->getType()));
+				label->setColor(COUNTRY_LABEL_COLOR);
+				if (country->getRules()->getLabelColor() > 0)
+					label->setColor(country->getRules()->getLabelColor());
 			}
-			label->blit(_countries->getSurface());
+#ifdef __EMSCRIPTEN__
+			if (_gpuDirectMode)
+				CalypsoGeoscapeHdGlobeDirect::recordLabelText(this,
+					_game->getLanguage()->getString(country->getRules()->getType()), 150, 9,
+					x - 75, y, country->getRules()->getLabelColor() > 0
+						? country->getRules()->getLabelColor() : COUNTRY_LABEL_COLOR);
+			else
+#endif
+				label->blit(_countries->getSurface());
 		}
 
 		delete label;
@@ -1944,10 +2942,16 @@ void Globe::drawDetail()
 
 	// Draw extra globe labels
 	{
-		Text *label = new Text(120, 18, 0, 0);
-		label->setPalette(getEffectivePalette());
-		label->initText(_game->getMod()->getFont("FONT_BIG"), _game->getMod()->getFont("FONT_SMALL"), _game->getLanguage());
-		label->setAlign(ALIGN_CENTER);
+		Text *label = nullptr;
+#ifdef __EMSCRIPTEN__
+		if (!_gpuDirectMode)
+#endif
+		{
+			label = new Text(120, 18, 0, 0);
+			label->setPalette(getEffectivePalette());
+			label->initText(_game->getMod()->getFont("FONT_BIG"), _game->getMod()->getFont("FONT_SMALL"), _game->getLanguage());
+			label->setAlign(ALIGN_CENTER);
+		}
 
 		Sint16 x, y;
 		for (auto& extraLabelType : _game->getMod()->getExtraGlobeLabelsList())
@@ -1961,16 +2965,24 @@ void Globe::drawDetail()
 
 				// Convert coordinates
 				polarToCart(rule->getLabelLongitude(), rule->getLabelLatitude(), &x, &y);
-
-				label->setX(x - 60);
-				label->setY(y);
-				label->setText(_game->getLanguage()->getString(rule->getType()));
-				label->setColor(COUNTRY_LABEL_COLOR);
-				if (rule->getLabelColor() > 0)
+				if (label)
 				{
-					label->setColor(rule->getLabelColor());
+					label->setX(x - 60);
+					label->setY(y);
+					label->setText(_game->getLanguage()->getString(rule->getType()));
+					label->setColor(COUNTRY_LABEL_COLOR);
+					if (rule->getLabelColor() > 0)
+						label->setColor(rule->getLabelColor());
 				}
-				label->blit(_countries->getSurface());
+#ifdef __EMSCRIPTEN__
+				if (_gpuDirectMode)
+					CalypsoGeoscapeHdGlobeDirect::recordLabelText(this,
+						_game->getLanguage()->getString(rule->getType()), 120, 18,
+						x - 60, y, rule->getLabelColor() > 0
+							? rule->getLabelColor() : COUNTRY_LABEL_COLOR);
+				else
+#endif
+					label->blit(_countries->getSurface());
 			}
 		}
 		delete label;
@@ -1979,11 +2991,17 @@ void Globe::drawDetail()
 	// Draw the city and base markers
 	if (_zoom >= 3)
 	{
-		Text *label = new Text(100, 9, 0, 0);
-		label->setPalette(getEffectivePalette());
-		label->initText(_game->getMod()->getFont("FONT_BIG"), _game->getMod()->getFont("FONT_SMALL"), _game->getLanguage());
-		label->setAlign(ALIGN_CENTER);
-		label->setColor(CITY_LABEL_COLOR);
+		Text *label = nullptr;
+#ifdef __EMSCRIPTEN__
+		if (!_gpuDirectMode)
+#endif
+		{
+			label = new Text(100, 9, 0, 0);
+			label->setPalette(getEffectivePalette());
+			label->initText(_game->getMod()->getFont("FONT_BIG"), _game->getMod()->getFont("FONT_SMALL"), _game->getLanguage());
+			label->setAlign(ALIGN_CENTER);
+			label->setColor(CITY_LABEL_COLOR);
+		}
 
 		Sint16 x, y;
 		for (auto* region : *_game->getSavedGame()->getRegions())
@@ -1999,10 +3017,19 @@ void Globe::drawDetail()
 				// Convert coordinates
 				polarToCart(city->getLongitude(), city->getLatitude(), &x, &y);
 
-				label->setX(x - 50);
-				label->setY(y + 2);
-				label->setText(city->getName(_game->getLanguage()));
-				label->blit(_countries->getSurface());
+				if (label)
+				{
+					label->setX(x - 50);
+					label->setY(y + 2);
+					label->setText(city->getName(_game->getLanguage()));
+				}
+#ifdef __EMSCRIPTEN__
+				if (_gpuDirectMode)
+					CalypsoGeoscapeHdGlobeDirect::recordLabelText(this,
+						city->getName(_game->getLanguage()), 100, 9, x - 50, y + 2, CITY_LABEL_COLOR);
+				else
+#endif
+					label->blit(_countries->getSurface());
 			}
 		}
 		// Draw bases names
@@ -2011,11 +3038,20 @@ void Globe::drawDetail()
 			if (xbase->getMarker() == -1 || pointBack(xbase->getLongitude(), xbase->getLatitude()))
 				continue;
 			polarToCart(xbase->getLongitude(), xbase->getLatitude(), &x, &y);
-			label->setX(x - 50);
-			label->setY(y + 2);
-			label->setColor(BASE_LABEL_COLOR);
-			label->setText(xbase->getName());
-			label->blit(_countries->getSurface());
+			if (label)
+			{
+				label->setX(x - 50);
+				label->setY(y + 2);
+				label->setColor(BASE_LABEL_COLOR);
+				label->setText(xbase->getName());
+			}
+#ifdef __EMSCRIPTEN__
+			if (_gpuDirectMode)
+				CalypsoGeoscapeHdGlobeDirect::recordLabelText(this,
+					xbase->getName(), 100, 9, x - 50, y + 2, BASE_LABEL_COLOR);
+			else
+#endif
+				label->blit(_countries->getSurface());
 		}
 
 		delete label;
@@ -2025,6 +3061,10 @@ void Globe::drawDetail()
 	static bool canSwitchDebugType = false;
 	if (_game->getSavedGame()->getDebugMode())
 	{
+#ifdef __EMSCRIPTEN__
+		/* Direct mode records these existing debug owners into the physical
+		 * world batch through drawVHLine(); direct-off remains SDL-native. */
+#endif
 		int color;
 		canSwitchDebugType = true;
 		if (debugType == 0)
@@ -2148,10 +3188,16 @@ void Globe::drawPath(Surface *surface, double lon1, double lat1, double lon2, do
 		p2 = CordPolar(a);
 		polarToCart(p2.lon, p2.lat, &x2, &y2);
 
-		if (!pointBack(p1.lon, p1.lat) && !pointBack(p2.lon, p2.lat))
+#ifdef __EMSCRIPTEN__
+		if (_gpuDirectMode && surface == _radars)
 		{
-			XuLine(surface, this, x1, y1, x2, y2, 8);
+			CalypsoGeoscapeHdGlobeDirect::recordRadarFlightLine(
+				this, x1, y1, x2, y2, p1.lon, p1.lat, p2.lon, p2.lat, 8);
 		}
+		else
+#endif
+		if (!pointBack(p1.lon, p1.lat) && !pointBack(p2.lon, p2.lat))
+				XuLine(surface, this, x1, y1, x2, y2, 8);
 
 		p1 = p2;
 		x1 = x2;
@@ -2217,6 +3263,14 @@ void Globe::drawFlights()
 		}
 	}
 
+#ifdef __EMSCRIPTEN__
+	if (_gpuDirectMode)
+	{
+		_gpuLabelIconPendingDraws.swap(_gpuLabelIconCommittedDraws);
+		_gpuLabelIconPendingDraws.clear();
+	}
+#endif
+
 	// Unlock the surface
 	_radars->unlock();
 }
@@ -2240,6 +3294,20 @@ void Globe::drawTarget(Target *target, Surface *surface)
 		// effect by varying the shade attenuation in blitNShade instead, so the
 		// marker stays continuously visible but gets a tiny brightness bob.
 		const int shade = (_blink > 0) ? 0 : 1;
+#ifdef __EMSCRIPTEN__
+		if (_gpuDirectMode && surface == _markers)
+		{
+			CalypsoGeoscapeHdGlobeDirect::recordMarker(this, marker,
+					x - marker->getWidth() / 2, y - marker->getHeight() / 2, shade);
+			return;
+		}
+		if (_gpuDirectMode && surface == _countries)
+		{
+			CalypsoGeoscapeHdGlobeDirect::recordLabelIcon(this, marker,
+				x - marker->getWidth() / 2, y - marker->getHeight() / 2, shade);
+			return;
+		}
+#endif
 		marker->blitNShade(SurfaceRaw<Uint32>(surface), x - marker->getWidth() / 2, y - marker->getHeight() / 2, shade);
 	}
 }
@@ -2251,6 +3319,9 @@ void Globe::drawTarget(Target *target, Surface *surface)
 void Globe::drawMarkers()
 {
 	_markers->clear();
+#ifdef __EMSCRIPTEN__
+	if (_gpuDirectMode) _gpuMarkerPendingDraws.clear();
+#endif
 	_markers->lock();
 	// Draw the base markers
 	for (auto* xbase : *_game->getSavedGame()->getBases())
@@ -2292,6 +3363,13 @@ void Globe::drawMarkers()
 		}
 	}
 	_markers->unlock();
+#ifdef __EMSCRIPTEN__
+	if (_gpuDirectMode)
+	{
+		_gpuMarkerPendingDraws.swap(_gpuMarkerCommittedDraws);
+		_gpuMarkerPendingDraws.clear();
+	}
+#endif
 }
 
 /**
@@ -2301,9 +3379,18 @@ void Globe::drawMarkers()
 void Globe::blit(SDL_Surface *surface)
 {
 	Surface::blit(surface);
+#ifdef __EMSCRIPTEN__
+	if (_gpuDirectMode)
+		return; // all visible overlays must be physical or the route fails closed before Earth
+#endif
 	_radars->blit(surface);
 	_countries->blit(surface);
-	_markers->blit(surface);
+#ifdef __EMSCRIPTEN__
+	if (!_gpuDirectMode)
+#endif
+	{
+		_markers->blit(surface);
+	}
 }
 
 /**

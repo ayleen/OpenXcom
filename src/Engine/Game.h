@@ -94,6 +94,9 @@ public:
 	/// Executes one frame of the game loop; returns false when the game should quit.
 	bool iterate();
 #ifdef __EMSCRIPTEN__
+	/// Processes only the queued renderer-reset event during context recovery.
+	/// This path must not run gameplay, input, audio, state logic, or present.
+	void recoverContextTick();
 	/// Leases setImmediate scheduling to the current state for the next iteration.
 	void requestFastMainLoop(State *requester);
 #endif

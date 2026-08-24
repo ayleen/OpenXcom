@@ -29,7 +29,7 @@ struct CalypsoGeoscapeHdShell
 
 	/// Toggle the secondary-route drawer (action.session affordance).
 	static void toggleDrawer(GeoscapeState *s);
-	static void closeDrawer(GeoscapeState *s);
+	static bool closeDrawer(GeoscapeState *s);
 
 	/// Release per-state shell bookkeeping before State destroys its surfaces.
 	static void destroy(GeoscapeState *s);

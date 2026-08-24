@@ -13,6 +13,7 @@
 #ifdef __EMSCRIPTEN__
 #  include <emscripten/html5.h>
 #  include <emscripten/html5_webgl.h>
+#  include <GLES3/gl3.h>
 #endif
 
 namespace OpenXcom
@@ -21,21 +22,40 @@ namespace OpenXcom
 bool GpuInit::_ready = false;
 bool GpuInit::_hdrColorBuffer = false;
 bool GpuInit::_floatBlend = false;
+int GpuInit::_maxTextureSize = 0;
 
 void GpuInit::init()
 {
     if (_ready)
     {
-        /* Already initialised, but a context restore may have dropped the
-         * float-render extensions — re-enable them on the live context. */
-        enableExtensions();
-        return;
+        /* A caller may repeat init after a renderer/context replacement. Do
+         * not trust the old publication without probing the current context. */
+        if (contextReady())
+        {
+            enableExtensions();
+            return;
+        }
     }
 
 #ifdef __EMSCRIPTEN__
-    /* WebGL2 context is always GLES 3.0; all symbols available directly. */
-    _ready = true;
+    _ready = false;
+    _maxTextureSize = 0;
+    EMSCRIPTEN_WEBGL_CONTEXT_HANDLE ctx = emscripten_webgl_get_current_context();
+    const GLubyte *version = ctx ? glGetString(GL_VERSION) : nullptr;
+    GLint maxTextureSize = 0;
+    if (ctx && version && *version)
+        glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxTextureSize);
+    const GLenum probeError = glGetError();
+    if (!ctx || !version || !*version || maxTextureSize <= 0 || probeError != GL_NO_ERROR)
+    {
+        Log(LOG_ERROR) << "GpuInit: current WebGL2 probe failed (version/context/max texture)";
+        return;
+    }
+    /* Publish the capability only after the entire current-context probe is
+     * valid; failed init leaves the transactional false/zero state. */
+    _maxTextureSize = maxTextureSize;
     enableExtensions();
+    _ready = true;
     Log(LOG_INFO) << "GpuInit: WebGL2 / GLES 3.0 pipeline ready"
                   << " (HDR float buffer: " << (_hdrColorBuffer ? "yes" : "no")
                   << ", EXT_float_blend: " << (_floatBlend ? "yes" : "no") << ")";
@@ -77,6 +97,45 @@ void GpuInit::enableExtensions()
 bool GpuInit::ready()
 {
     return _ready;
+}
+
+void GpuInit::invalidate()
+{
+    _ready = false;
+    _hdrColorBuffer = false;
+    _floatBlend = false;
+    _maxTextureSize = 0;
+}
+
+bool GpuInit::contextReady()
+{
+#ifdef __EMSCRIPTEN__
+    if (!_ready || !emscripten_webgl_get_current_context())
+    {
+        _ready = false;
+        _maxTextureSize = 0;
+        return false;
+    }
+    const GLubyte *version = glGetString(GL_VERSION);
+    GLint maxTextureSize = 0;
+    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxTextureSize);
+    const bool ready = version && *version && maxTextureSize > 0 && glGetError() == GL_NO_ERROR;
+    if (!ready)
+    {
+        _ready = false;
+        _maxTextureSize = 0;
+        return false;
+    }
+	_maxTextureSize = maxTextureSize;
+    return ready;
+#else
+    return false;
+#endif
+}
+
+int GpuInit::maxTextureSize()
+{
+    return _maxTextureSize;
 }
 
 bool GpuInit::hdr()

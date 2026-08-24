@@ -19,12 +19,18 @@
  */
 #include <vector>
 #include <list>
+#include <utility>
+#include <cstdint>
+#include <string>
 #ifdef __EMSCRIPTEN__
 #  include <memory>
 #endif
 #include "../Engine/InteractiveSurface.h"
 #include "../Engine/FastLineClip.h"
 #include "Cord.h"
+#ifdef __EMSCRIPTEN__
+#  include "../Engine/Screen.h"
+#endif
 
 namespace OpenXcom
 {
@@ -38,8 +44,8 @@ class LocalizedText;
 class RuleGlobe;
 class Craft;
 #ifdef __EMSCRIPTEN__
-class Screen;
 class Shader;
+class GpuTexture;
 #endif
 
 /**
@@ -88,15 +94,114 @@ private:
 
 #ifdef __EMSCRIPTEN__
 	/* Phase 8c — HD GPU sphere */
+	/* These are hard per-frame bounds, not merely warm-up reserves.  Recording
+	 * refuses to grow a command vector after preparation, so an immutable
+	 * production snapshot can only fail closed before Earth publication. */
+	static constexpr size_t GPU_BORDER_LINE_CAPACITY = 16384u;
+	static constexpr size_t GPU_BORDER_VERTEX_FLOAT_CAPACITY = 65536u;
+	static constexpr size_t GPU_RADAR_FLIGHT_LINE_CAPACITY = 16384u;
+	static constexpr size_t GPU_RADAR_FLIGHT_VERTEX_FLOAT_CAPACITY = 65536u;
+	static constexpr size_t GPU_DEBUG_LINE_CAPACITY = 16384u;
+	static constexpr size_t GPU_DEBUG_VERTEX_FLOAT_CAPACITY = 65536u;
+	static constexpr size_t GPU_LABEL_TEXTURE_CAPACITY = 1024u;
+	static constexpr size_t GPU_LABEL_DRAW_CAPACITY = 2048u;
 	unsigned  _sphereVAO    = 0u;
 	unsigned  _sphereFBO    = 0u;
 	unsigned  _sphereFBOTex = 0u;
 	bool      _gpuSphereOK  = false;
 	Shader*   _globeShader  = nullptr; // owned; created in initSphereGPU()
 	std::shared_ptr<bool> _gpuAliveFlag;   // M6: lifetime token for the ShaderManager reset callback
+	bool      _gpuResetCallbackRegistered = false;
 	bool      _gpuDirectAck = false;   // Stage 10.2.1: acknowledged opt-in request
 	bool      _gpuDirectMode = false;
 	Screen*   _directScreen  = nullptr;
+	ScreenWorldPassHandle _gpuWorldPass;
+	struct MarkerDraw
+	{
+		Surface* frame = nullptr;
+		int x = 0;
+		int y = 0;
+		int shade = 0;
+	};
+	std::vector<MarkerDraw> _gpuMarkerPendingDraws;
+	std::vector<MarkerDraw> _gpuMarkerCommittedDraws;
+	struct BorderLine
+	{
+		float x1 = 0.f;
+		float y1 = 0.f;
+		float x2 = 0.f;
+		float y2 = 0.f;
+	};
+	std::vector<BorderLine> _gpuBorderLines;
+	std::vector<float> _gpuBorderVertices;
+	size_t _gpuBorderCapacity = 0;
+	bool _gpuBorderCapacityExceeded = false;
+	struct RadarFlightLine
+	{
+		double x1 = 0.0;
+		double y1 = 0.0;
+		double x2 = 0.0;
+		double y2 = 0.0;
+		Uint8 shade = 0;
+		Uint8 color = 0;
+	};
+	std::vector<RadarFlightLine> _gpuRadarFlightLines;
+	std::vector<float> _gpuRadarFlightVertices;
+	size_t _gpuRadarFlightCapacity = 0;
+	bool _gpuRadarFlightCapacityExceeded = false;
+	struct DebugLine
+	{
+		float x1 = 0.f;
+		float y1 = 0.f;
+		float x2 = 0.f;
+		float y2 = 0.f;
+		Uint8 color = 0;
+	};
+	std::vector<DebugLine> _gpuDebugLines;
+	std::vector<float> _gpuDebugVertices;
+	size_t _gpuDebugCapacity = 0;
+	bool _gpuDebugCapacityExceeded = false;
+	bool _gpuLogicalWorldComplete = true;
+	std::uint64_t _gpuMarkerPaletteGeneration = 0;
+	std::uint64_t _gpuLabelPaletteGeneration = 0;
+	struct MarkerTexture
+	{
+		Surface* frame = nullptr;
+		int shade = 0;
+		std::uint64_t paletteGeneration = 0;
+		GpuTexture* texture = nullptr;
+	};
+	std::vector<MarkerTexture> _gpuMarkerTextures;
+	struct LabelTexture
+	{
+		std::string text;
+		int width = 0;
+		int height = 0;
+		Uint8 color = 0;
+		std::uint64_t paletteGeneration = 0;
+		Surface* frame = nullptr;
+		GpuTexture* texture = nullptr;
+	};
+	struct LabelIconDraw
+	{
+		LabelTexture* label = nullptr;
+		Surface* frame = nullptr;
+		int x = 0;
+		int y = 0;
+		int shade = 0;
+	};
+	std::vector<LabelTexture> _gpuLabelTextures;
+	std::vector<LabelIconDraw> _gpuLabelIconPendingDraws;
+	std::vector<LabelIconDraw> _gpuLabelIconCommittedDraws;
+	bool _gpuLabelCapacityExceeded = false;
+	unsigned  _markerVAO     = 0u;
+	unsigned  _markerVBO     = 0u;
+	Shader*   _markerShader  = nullptr;
+	bool      _gpuMarkerReady = false;
+	unsigned  _borderVAO     = 0u;
+	unsigned  _borderVBO     = 0u;
+	Shader*   _borderShader  = nullptr;
+	bool      _gpuBorderReady = false;
 	friend struct CalypsoGeoscapeHdGlobeDirect;   // Stage 10.2.1
 
 	/// One-time GPU resource initialisation for the sphere.

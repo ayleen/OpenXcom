@@ -17,12 +17,21 @@ extern "C" {
 static int s_calypsoViewportBlocked = 0;
 static int s_calypsoMainLoopStarted = 0;
 static int s_calypsoMainLoopPaused = 0;
+static int s_calypsoRecoveryPending = 0;
+static int s_calypsoResetSentinelPending = 0;
+static int s_calypsoResetBoundaryOpen = 0;
+static int s_calypsoTimingReady = 1;
 extern int g_calypsoContextLost;
+void calypso_restart_main_loop(void);
 
 void calypso_reset_main_loop_state(void)
 {
 	s_calypsoMainLoopStarted = 0;
 	s_calypsoMainLoopPaused = 0;
+	s_calypsoRecoveryPending = 0;
+	s_calypsoResetSentinelPending = 0;
+	s_calypsoResetBoundaryOpen = 0;
+	s_calypsoTimingReady = 1;
 }
 
 int calypso_pause_main_loop_before_iterate(void)
@@ -31,6 +40,18 @@ int calypso_pause_main_loop_before_iterate(void)
 	// installed MainLoop.func. A flag set before set_main_loop_arg is too early:
 	// JS can run between those points and resume a still-null loop.
 	s_calypsoMainLoopStarted = 1;
+	/* Restore installs one recovery tick while the normal gate remains paused.
+	 * Screen::handle consumes SDL_RENDER_TARGETS_RESET on that tick; flip() is
+	 * still blocked by g_calypsoContextLost until the transaction commits. */
+	if (s_calypsoRecoveryPending)
+	{
+		// Keep the transaction pending until Screen::handle consumes the reset
+		// event and commits renderer/context/resource recovery.  A distinct
+		// return code lets Game::emscriptenIter run only the recovery tick;
+		// returning the normal-frame code here would enter Game::iterate().
+		return 2;
+	}
+	s_calypsoTimingReady = 1;
 	if (!s_calypsoViewportBlocked && !g_calypsoContextLost)
 		return 0;
 	// pause_main_loop only prevents future callbacks; the current callback must
@@ -71,7 +92,7 @@ void calypso_set_viewport_supported(int supported)
 	else if (!g_calypsoContextLost && s_calypsoMainLoopPaused)
 	{
 		s_calypsoMainLoopPaused = 0;
-		emscripten_resume_main_loop();
+		calypso_restart_main_loop();
 	}
 }
 
@@ -110,20 +131,92 @@ void calypso_gl_context_lost(void)
 EMSCRIPTEN_KEEPALIVE
 void calypso_gl_context_restored(void)
 {
-	const int wasLost = g_calypsoContextLost;
-	g_calypsoContextLost = 0;
+	/* Do not reopen presentation here.  The replacement renderer/context and
+	 * every registered GPU resource must pass Screen's transaction first. */
+	g_calypsoContextLost = 1;
+	s_calypsoRecoveryPending = 1;
+	s_calypsoResetSentinelPending = 0;
+	s_calypsoResetBoundaryOpen = 1;
 
 	SDL_Event e;
 	SDL_zero(e);
 	e.type = SDL_RENDER_TARGETS_RESET;
 	SDL_PushEvent(&e);
 
-	if (wasLost && s_calypsoMainLoopStarted && s_calypsoMainLoopPaused
-	    && !s_calypsoViewportBlocked)
+	/* Recovery owns one bounded callback even while the viewport is blocked.
+	 * The callback consumes SDL_RENDER_TARGETS_RESET and may commit GPU state,
+	 * but calypso_pause_main_loop_before_iterate() keeps normal simulation out
+	 * of that tick. Presentation remains closed until the viewport gate opens. */
+	if (s_calypsoMainLoopStarted)
 	{
-		s_calypsoMainLoopPaused = 0;
-		emscripten_resume_main_loop();
+		if (!s_calypsoMainLoopPaused)
+		{
+			s_calypsoMainLoopPaused = 1;
+			emscripten_pause_main_loop();
+		}
+		/* Restart only to deliver the bounded recovery tick.  The paused gate
+		 * remains true until calypso_context_recovery_succeeded(). */
+		calypso_restart_main_loop();
 	}
+}
+
+void calypso_context_recovery_succeeded(void)
+{
+	s_calypsoRecoveryPending = 0;
+	/* The recovery callback may still be inside the old scheduler turn.  Let
+	 * one fresh callback establish the new scheduler before set_main_loop_timing. */
+	s_calypsoTimingReady = 0;
+	g_calypsoContextLost = 0;
+	if (s_calypsoMainLoopStarted && s_calypsoMainLoopPaused && !s_calypsoViewportBlocked)
+		s_calypsoMainLoopPaused = 0;
+}
+
+void calypso_context_recovery_failed(void)
+{
+	s_calypsoRecoveryPending = 0;
+	s_calypsoResetSentinelPending = 0;
+	s_calypsoResetBoundaryOpen = 0;
+	g_calypsoContextLost = 1;
+	if (s_calypsoMainLoopStarted && !s_calypsoMainLoopPaused)
+	{
+		s_calypsoMainLoopPaused = 1;
+		emscripten_pause_main_loop();
+	}
+}
+
+int calypso_main_loop_timing_ready(void)
+{
+	return s_calypsoTimingReady && s_calypsoMainLoopStarted && !s_calypsoMainLoopPaused
+		&& !g_calypsoContextLost && !s_calypsoRecoveryPending;
+}
+
+int calypso_context_reset_sentinel_pending(void)
+{
+	return s_calypsoResetSentinelPending;
+}
+
+void calypso_context_reset_sentinel_observed(void)
+{
+	if (s_calypsoResetBoundaryOpen)
+	{
+		s_calypsoResetSentinelPending = 1;
+		s_calypsoResetBoundaryOpen = 0;
+	}
+}
+
+int calypso_context_reset_boundary_open(void)
+{
+	return s_calypsoResetBoundaryOpen;
+}
+
+void calypso_context_reset_boundary_close(void)
+{
+	s_calypsoResetBoundaryOpen = 0;
+}
+
+void calypso_context_reset_sentinel_consumed(void)
+{
+	s_calypsoResetSentinelPending = 0;
 }
 
 } /* extern "C" */

@@ -584,6 +584,16 @@ void GeoscapeState::blit()
  */
 void GeoscapeState::handle(Action *action)
 {
+#ifdef __EMSCRIPTEN__
+	// A registered HD drawer is the topmost owner for Escape. Consume it before
+	// generic State::handle dispatch can invoke an underlying shortcut/modal.
+	if (action != nullptr && action->getDetails()->type == SDL_KEYDOWN
+		&& action->getDetails()->key.keysym.sym == Options::keyCancel
+		&& CalypsoGeoscapeHdShell::closeDrawer(this))
+	{
+		return;
+	}
+#endif
 	if (_dogfights.size() == _minimizedDogfights)
 	{
 		State::handle(action);
@@ -3061,6 +3071,12 @@ Globe *GeoscapeState::getGlobe() const
 
 void GeoscapeState::globeClick(Action *action)
 {
+#ifdef __EMSCRIPTEN__
+	// While the HD drawer is open, the globe is an outside-click dismissal
+	// surface, not a marker-selection owner.
+	if (CalypsoGeoscapeHdShell::closeDrawer(this))
+		return;
+#endif
 	int mouseX = (int)floor(action->getAbsoluteXMouse()), mouseY = (int)floor(action->getAbsoluteYMouse());
 
 	// Clicking markers on the globe

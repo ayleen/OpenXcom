@@ -21,6 +21,7 @@
 #include <string>
 #include <functional>
 #include <vector>
+#include <cstdint>
 #include "OpenGL.h"
 #include "Surface.h"
 
@@ -29,6 +30,14 @@ namespace OpenXcom
 
 class Surface;
 class Action;
+class Screen;
+
+struct ScreenWorldPassHandle
+{
+	Screen *owner = nullptr;
+	std::uint64_t id = 0u;
+	bool valid() const { return owner != nullptr && id != 0u; }
+};
 
 /**
  * A display screen, handles rendering onto the game window.
@@ -58,6 +67,19 @@ private:
 	Surface::UniqueSurfacePtr _surface;
 	/** GPU passes that fire BEFORE the SDL surface composite (Phase 13.3). */
 	std::vector<std::function<void()>> _gpuPassesPre;
+	/** Registered physical world passes: after SDL_RenderCopy, before HD chrome. */
+	struct WorldPassEntry
+	{
+		std::uint64_t id;
+		std::function<void()> pass;
+		bool removed = false;
+	};
+	std::vector<WorldPassEntry> _gpuPassesWorld;
+	std::vector<WorldPassEntry> _gpuPendingWorldPasses;
+	std::uint64_t _nextGpuWorldPassId = 1u;
+	bool _gpuWorldPassDispatching = false;
+	bool _gpuWorldPassNeedsCompaction = false;
+	void finishGPUPassWorldDispatch();
 	/** GPU passes registered via registerGPUPass — called each frame in flip(). */
 	std::vector<std::function<void()>> _gpuPasses;
 	/** Frame counter for periodic GPU pass timing logs (Phase 8b.9). */
@@ -75,9 +97,10 @@ private:
 	bool _forceCanvasRebase = false;
 	/// Destroys and re-creates _renderer + _texture after a WebGL context restore.
 	/// Called by handle() on SDL_RENDER_TARGETS_RESET before ShaderManager::reuploadAll().
-	void recreateRendererGL();
+	bool recreateRendererGL();
 #endif
 public:
+	using WorldPassHandle = ScreenWorldPassHandle;
 	static const int ORIGINAL_WIDTH;
 	static const int ORIGINAL_HEIGHT;
 
@@ -129,6 +152,9 @@ public:
 	/** Register a pass that fires BEFORE the SDL surface composite (Phase 13.3).
 	 *  Use for HD tile geometry so it renders under CPU-drawn units / HUD. */
 	void registerGPUPassPreComposite(std::function<void()> pass);
+	/** Register a physical world pass after the SDL composite and before HD chrome. */
+	WorldPassHandle registerGPUPassWorld(std::function<void()> pass);
+	void unregisterGPUPassWorld(WorldPassHandle handle);
 	/// Checks whether a 32bit scaler is requested and works for the selected resolution
 	static bool use32bitScaler();
 	/// Checks whether OpenGL output is requested

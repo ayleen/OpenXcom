@@ -28,6 +28,8 @@
 #include "../Mod/Mod.h"
 #include "../Savegame/SavedBattleGame.h"
 
+extern "C" int calypso_main_loop_timing_ready(void);
+
 namespace OpenXcom
 {
 
@@ -82,6 +84,7 @@ void BattlescapeState::calypsoAdvanceAlienPacing(Game *calypsoGame)
 
 void Game::calypsoApplyFastMainLoopTiming(State *requester, bool renderedThisIteration)
 {
+	if (!calypso_main_loop_timing_ready()) return;
 	/* A valid requester leases a setImmediate-driven next tick; every other path
 	 * restores requestAnimationFrame. Validate the top state after all logic and
 	 * rendering, immediately before changing the scheduler for the next iteration.

@@ -226,17 +226,30 @@ void CalypsoGeoscapeHdShell::toggleDrawer(GeoscapeState *s)
 	if (!shell->drawer.open && shell->sessionChip != nullptr)
 		shell->sessionChip->setFocus(shell->sessionWasFocused);
 	apply(s);
+	if (shell->drawer.open)
+	{
+		for (const auto& entry : shell->rows)
+		{
+			if (entry.first != nullptr && entry.first->getVisible())
+			{
+				entry.first->setFocus(true);
+				break;
+			}
+		}
+	}
 }
 
-void CalypsoGeoscapeHdShell::closeDrawer(GeoscapeState *s)
+bool CalypsoGeoscapeHdShell::closeDrawer(GeoscapeState *s)
 {
-	auto* shell = state(s);
-	if (!shell->drawer.open) return;
+	if (s == nullptr || s->_calypsoHdShell == nullptr || !s->_calypsoHdShell->drawer.open)
+		return false;
+	auto* shell = s->_calypsoHdShell;
 	shell->drawer.open = false;
 	s->_pause = shell->drawer.pauseBeforeOpen;
 	if (shell->speedBeforeOpen != nullptr) s->_timeSpeed = shell->speedBeforeOpen;
 	if (shell->sessionChip != nullptr) shell->sessionChip->setFocus(shell->sessionWasFocused);
 	apply(s);
+	return true;
 }
 
 void CalypsoGeoscapeHdShell::destroy(GeoscapeState *s)

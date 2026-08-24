@@ -181,6 +181,35 @@ Game::~Game()
 Game *getCurrentGame() { return ::game; }
 #endif
 
+#ifdef __EMSCRIPTEN__
+void Game::recoverContextTick()
+{
+	if (!_screen)
+	{
+		Calypso::CalypsoHdUiOverlay::instance().failHdRoute("WebGL recovery tick has no screen");
+	}
+
+	bool resetSeen = false;
+	SDL_Event event;
+	// The reset event is the only event allowed through this bounded callback.
+	// Drain stale browser/input events without dispatching them to any owner.
+	while (SDL_PollEvent(&event))
+	{
+		if (!resetSeen && event.type == SDL_RENDER_TARGETS_RESET)
+		{
+			Action action(&event, _screen->getXScale(), _screen->getYScale(),
+				_screen->getCursorTopBlackBand(), _screen->getCursorLeftBlackBand());
+			_screen->handle(&action);
+			resetSeen = true;
+		}
+	}
+	if (!resetSeen)
+	{
+		Calypso::CalypsoHdUiOverlay::instance().failHdRoute("WebGL recovery reset event missing");
+	}
+}
+#endif
+
 /**
  * Executes one iteration of the game loop.
  * Returns false when the game should quit.
@@ -572,9 +601,14 @@ static void emscriptenIter(void *arg)
 	// A viewport/context-loss event can arrive before Game::run registers the
 	// browser loop. Apply that recorded state in the first callback and do not
 	// let one game iteration escape before the pause takes effect.
-	if (calypso_pause_main_loop_before_iterate()) return;
+	const int gate = calypso_pause_main_loop_before_iterate();
 	Game *game = static_cast<Game*>(arg);
 	try {
+		if (gate == 1) return;
+		if (gate == 2) {
+			game->recoverContextTick();
+			return;
+		}
 		if (!game->iterate()) {
 			calypso_reset_main_loop_state();
 			emscripten_cancel_main_loop();
@@ -584,6 +618,22 @@ static void emscriptenIter(void *arg)
 		calypso_reset_main_loop_state();
 		emscripten_cancel_main_loop();
 	}
+}
+
+/* Restart the callback registered by Game::run after Emscripten has paused the
+ * loop. emscripten_pause_main_loop() clears MainLoop.scheduler; the generic
+ * resume helper therefore dereferences a null scheduler after a canvas swap.
+ * Registering the same callback again rebuilds the complete scheduler state.
+ * simulate_infinite_loop must stay false here because this function is called
+ * synchronously from a JS ccall while the engine is already running. */
+extern "C" void calypso_restart_main_loop(void)
+{
+	if (!::game) return;
+	/* A paused Emscripten loop retains MainLoop.func but clears its scheduler.
+	 * Cancel the retained owner before registering the single replacement so a
+	 * restore cannot trip "only one main loop function" or create two callbacks. */
+	emscripten_cancel_main_loop();
+	emscripten_set_main_loop_arg(emscriptenIter, ::game, 0, 0);
 }
 #endif
 

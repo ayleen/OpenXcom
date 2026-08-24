@@ -18,6 +18,7 @@
 #include <SDL.h>
 #include <SDL_render.h>
 #include <set>
+#include <sstream>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -736,7 +737,20 @@ bool CalypsoHdUiOverlay::renderStages(SDL_Renderer* renderer)
 	CalypsoGlStateGuard guard;
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	while (glGetError() != GL_NO_ERROR) {} // clear any pre-existing GL error
+	/* Do not drain an earlier owner's error at the chrome boundary. A registered
+	 * world pass or SDL composite must report its own failure before reaching
+	 * this stage; otherwise the HD chrome owns the current error explicitly. */
+	const GLenum chromeEntryError = glGetError();
+	if (chromeEntryError != GL_NO_ERROR)
+	{
+		if (committed)
+			failHdRoute("HD chrome entry GL error (0x" + [&]() {
+				std::ostringstream out;
+				out << std::hex << (unsigned)chromeEntryError;
+				return out.str();
+			}() + ")");
+		return true;
+	}
 
 	bool ok = true;
 
