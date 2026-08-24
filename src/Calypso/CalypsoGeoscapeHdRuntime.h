@@ -10,6 +10,7 @@
  */
 #include <string>
 #include <vector>
+#include <cmath>
 
 #include "CalypsoHdScreenModel.h"
 #include "Generated/CalypsoGeoscapeCommandShell.generated.h"
@@ -56,7 +57,7 @@ inline const std::vector<CalypsoGeoscapeHdLiveDrawerRow>& calypsoGeoscapeHdLiveD
 		{ "drawer.pilot-experience", "geoscape.openPilotExperience", "STR_DAILY_PILOT_EXPERIENCE", "extended-links", true },
 		{ "drawer.notes", "geoscape.openNotes", "STR_NOTES", "extended-links", true },
 		{ "drawer.music", "geoscape.openMusic", "STR_SELECT_MUSIC_TRACK", "extended-links", true },
-		{ "drawer.debug", "geoscape.openDebug", "STR_DEBUG", "debug-only", true },
+		{ "drawer.debug", "geoscape.openDebug", "STR_DEBUG", "extended-links", true },
 		{ "drawer.quick-save", "geoscape.quickSave", "STR_QUICK_SAVE", "non-ironman", true },
 		{ "drawer.instant-save", "geoscape.instantSave", "STR_INSTANT_SAVE", "non-ironman", true },
 		{ "drawer.quick-load", "geoscape.quickLoad", "STR_QUICK_LOAD", "non-ironman", true },
@@ -94,7 +95,63 @@ struct CalypsoGeoscapeHdDrawerState
 struct CalypsoGeoscapeHdRuntimeModel : public CalypsoHdScreenRenderModel
 {
 	std::vector<std::string> disabledActionIds;
+	std::vector<std::string> expectedActionIds;
 };
+
+inline bool calypsoGeoscapeHdActionExpected(const std::string& actionId,
+	const std::string& role, bool available)
+{
+	if (actionId == "world.recenter" || actionId == "notification.contact.open") return false;
+	if (actionId == "action.session" || actionId == "time.pause"
+		|| actionId.rfind("time.speed.", 0) == 0) return true;
+	if (role.rfind("widget:", 0) == 0) return true;
+	return available;
+}
+
+inline const char* calypsoGeoscapeHdSelectedTimeAction(bool paused, const char* runningSpeed)
+{
+	return paused ? "time.pause" : runningSpeed;
+}
+
+inline const std::vector<std::string>& calypsoGeoscapeHdRequiredCopyKeys(bool fundsVisible)
+{
+	static const std::vector<std::string> withoutFunds = { "time", "date" };
+	static const std::vector<std::string> withFunds = { "time", "date", "funds" };
+	return fundsVisible ? withFunds : withoutFunds;
+}
+
+inline bool calypsoGeoscapeHdModelReady(const CalypsoHdScreenRenderModel& model,
+	const std::vector<std::string>& expectedActionIds,
+	const std::vector<std::string>& requiredCopyKeys)
+{
+	for (const auto& key : requiredCopyKeys)
+	{
+		bool present = false;
+		for (const auto& copy : model.copy)
+			if (copy.key == key && !copy.value.empty()) { present = true; break; }
+		if (!present) return false;
+	}
+	for (const auto& expected : expectedActionIds)
+	{
+		bool ready = false;
+		for (const auto& action : model.actions)
+			if (action.id == expected && action.widget != nullptr && !action.label.empty())
+			{
+				ready = true;
+				break;
+			}
+		if (!ready) return false;
+	}
+	return true;
+}
+
+inline bool calypsoGeoscapeHdFrameReady(const CalypsoHdScreenRenderModel& model,
+	const std::vector<std::string>& expectedActionIds,
+	const std::vector<std::string>& requiredCopyKeys, bool resourcesReady)
+{
+	return resourcesReady && calypsoGeoscapeHdModelReady(model, expectedActionIds,
+		requiredCopyKeys);
+}
 
 inline CalypsoGeoscapeHdRuntimeModel calypsoGeoscapeHdRuntimeModel(
 	const CalypsoGeoscapeCommandShellGen::CalypsoGeoscapeCommandShellGenLayout& layout,
@@ -151,16 +208,27 @@ class CalypsoGeoscapeHdProjection
 {
 public:
 	CalypsoGeoscapeHdProjection(const CalypsoGeoscapeCommandShellGen::CalypsoGeoscapeCommandShellGenLayout& layout,
-	                           const CalypsoLayoutMetrics& metrics)
-		: _layout(&layout), _metrics(metrics)
+	                           const CalypsoLayoutMetrics& metrics,
+	                           int baseWidth = 0, int baseHeight = 0)
+		: _layout(&layout), _metrics(metrics), _baseWidth(baseWidth), _baseHeight(baseHeight)
 	{
 		_wide = metrics.safeWidth >= CALYPSO_WIDE_WIDTH_THRESHOLD
 		     && metrics.safeHeight >= CALYPSO_WIDE_HEIGHT_THRESHOLD;
+		if (_baseWidth > 0 && _baseHeight > 0)
+		{
+			_baseSafe = calypsoProjectSafeRect(metrics, _baseWidth, _baseHeight);
+			_scale = calypsoFitUiScale(_baseSafe, layout.designWidth, layout.designHeight);
+		}
 	}
 
 	CalypsoLayoutClass layoutClass() const { return _wide ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact; }
 	int designWidth() const { return _layout->designWidth; }
 	int designHeight() const { return _layout->designHeight; }
+	double uiScale() const { return _scale > 0.0 ? _scale : 1.0; }
+	int canvasX() const { return canvasOriginX(); }
+	int canvasY() const { return canvasOriginY(); }
+	int canvasWidth() const { return _baseWidth > 0 ? static_cast<int>(std::lround(_layout->designWidth * uiScale())) : _metrics.safeWidth; }
+	int canvasHeight() const { return _baseHeight > 0 ? static_cast<int>(std::lround(_layout->designHeight * uiScale())) : _metrics.safeHeight; }
 
 	/// Project a semantic action id into logical (engine base) pixels.
 	CalypsoHdScreenRect project(const std::string& actionId) const
@@ -178,49 +246,50 @@ public:
 	/// canonical size while surplus space flows to the world region.
 	CalypsoHdScreenRect projectRect(const CalypsoHdScreenRect& design) const
 	{
-		const int safeW = _metrics.safeWidth;
-		const int safeH = _metrics.safeHeight;
-		const int designW = _layout->designWidth;
-		const int designH = _layout->designHeight;
-
-		// Bottom-anchored rows (time control) ride with the safe bottom edge;
-		// everything else keeps its canonical offset from its anchor corner.
-		const bool bottomAnchored = isBottomAnchoredAction(design);
-
-		int x = _metrics.safeX + design.x;
-		int y = _metrics.safeY + design.y;
-		if (_metrics.safeHeight > designH && bottomAnchored)
-			y += safeH - designH;
-		if (_metrics.safeWidth > designW)
+		if (_baseWidth <= 0 || _baseHeight <= 0)
 		{
-			// Right-anchored columns follow the safe right edge.
-			if (isRightAnchoredAction(design))
-				x += safeW - designW;
+			int x = _metrics.safeX + design.x;
+			int y = _metrics.safeY + design.y;
+			if (_metrics.safeHeight > _layout->designHeight
+				&& design.y + design.h > _layout->designHeight - 80)
+				y += _metrics.safeHeight - _layout->designHeight;
+			if (_metrics.safeWidth > _layout->designWidth
+				&& design.x + design.w > _layout->designWidth - 160)
+				x += _metrics.safeWidth - _layout->designWidth;
+			return { x, y, design.w, design.h };
 		}
-		return { x, y, design.w, design.h };
+		const double scale = uiScale();
+		return { canvasOriginX() + static_cast<int>(std::lround(design.x * scale)),
+			canvasOriginY() + static_cast<int>(std::lround(design.y * scale)),
+			static_cast<int>(std::lround(design.w * scale)),
+			static_cast<int>(std::lround(design.h * scale)) };
 	}
 
 private:
-	bool isBottomAnchoredAction(const CalypsoHdScreenRect& design) const
+	int canvasOriginX() const
 	{
-		return design.y + design.h > _layout->designHeight - 80;
+		return _baseWidth > 0 ? _baseSafe.x + (_baseSafe.width - canvasWidth()) / 2 : _metrics.safeX;
 	}
-	bool isRightAnchoredAction(const CalypsoHdScreenRect& design) const
+	int canvasOriginY() const
 	{
-		return design.x + design.w > _layout->designWidth - 160;
+		return _baseHeight > 0 ? _baseSafe.y + (_baseSafe.height - canvasHeight()) / 2 : _metrics.safeY;
 	}
 
 	const CalypsoGeoscapeCommandShellGen::CalypsoGeoscapeCommandShellGenLayout* _layout;
 	CalypsoLayoutMetrics _metrics;
+	int _baseWidth = 0;
+	int _baseHeight = 0;
+	CalypsoBaseSafeRect _baseSafe;
+	double _scale = 0.0;
 	bool _wide = false;
 };
 
 /// Factory: bind a generated canonical layout to the live metrics snapshot.
 inline CalypsoGeoscapeHdProjection calypsoGeoscapeHdProjection(
 	const CalypsoGeoscapeCommandShellGen::CalypsoGeoscapeCommandShellGenLayout& layout,
-	const CalypsoLayoutMetrics& metrics)
+	const CalypsoLayoutMetrics& metrics, int baseWidth = 0, int baseHeight = 0)
 {
-	return CalypsoGeoscapeHdProjection(layout, metrics);
+	return CalypsoGeoscapeHdProjection(layout, metrics, baseWidth, baseHeight);
 };
 
 // --- Stage 8c: feature gate decision ----------------------------------------

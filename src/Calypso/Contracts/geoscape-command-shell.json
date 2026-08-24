@@ -377,7 +377,7 @@
         "keyboard",
         "touch"
       ],
-      "availability": "debug-only",
+      "availability": "extended-links",
       "timePolicy": "pause-on-open",
       "focusOrder": 210,
       "visibility": "drawer"

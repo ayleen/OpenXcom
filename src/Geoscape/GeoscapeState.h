@@ -26,6 +26,7 @@ namespace OpenXcom
 #ifdef __EMSCRIPTEN__
 struct CalypsoGeoscapeHdShellState;
 namespace Calypso { class CalypsoHdScreenRenderer; }
+namespace Calypso { class CalypsoF21SiteUi; }
 #endif
 
 class Surface;
@@ -91,9 +92,12 @@ private:
 	// Phase 41 Slice B2: HD side panel (bodies in Calypso/CalypsoGeoscapeHd.cpp).
 	friend struct CalypsoGeoscapeHd;
 	friend struct CalypsoGeoscapeHdShell;
+	friend class Calypso::CalypsoF21SiteUi;
 	friend class Calypso::CalypsoHdScreenRenderer;
 	public:
 	void calypsoToggleDrawer(Action *);   // Stage 9.1.3 drawer toggle (body in shell cpp)
+	void calypsoTogglePause(Action *);
+	void calypsoDrawerDispatch(Action *);
 	void calypsoDrawerFunding(Action *);
 	void calypsoDrawerQuickSave(Action *);
 	void calypsoDrawerInstantSave(Action *);

@@ -36,9 +36,12 @@ namespace OpenXcom
 {
 
 class BuildNewBaseState;
+class GeoscapeState;
 
 namespace Calypso
 {
+
+struct CalypsoF21Painter;
 
 class CalypsoF21SiteUi : public CalypsoHdFamilyAdapter
 {
@@ -48,6 +51,7 @@ public:
 
 	// --- CalypsoHdFamilyAdapter (snapshot-only) ---
 	const void* topState() const override;
+	void collectLogicalSuppression(CalypsoHdLogicalSuppression& suppression) const override;
 	void collect(CalypsoHdFrameBuilder& builder) const override;
 
 	/// Configure the state for the physical route; no-op when ineligible.
@@ -59,6 +63,13 @@ public:
 	/// Refresh the placement-card readouts (coords/region/cost) from the
 	/// live hover snapshot; no-op off the HD route.
 	static void refreshHoverReadouts(BuildNewBaseState& state, double lon, double lat);
+	/// Add the lower Geoscape visual owners replaced by an F21-family form.
+	/// Globe and placement/navigation input are deliberately excluded.
+	static void collectLowerGeoscapeSuppression(const GeoscapeState* geoscape,
+		CalypsoHdLogicalSuppression& suppression);
+	/// Claim the same lower-shell owners in a committed physical subgroup.
+	static void claimLowerGeoscapeShell(CalypsoF21Painter& painter,
+		const GeoscapeState* geoscape, std::uint32_t& role);
 
 private:
 	BuildNewBaseState* _state;

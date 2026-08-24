@@ -24,10 +24,12 @@ struct CalypsoGeoscapeHdShell
 	static Surface* resolveWidget(GeoscapeState *s, const std::string& member);
 	static const Surface* resolveLiveWidget(const GeoscapeState *s, const std::string& actionId);
 	static Surface* resolveLiveWidget(GeoscapeState *s, const std::string& actionId);
+	static bool isLiveActionVisible(const GeoscapeState *s, const std::string& actionId);
 	static CalypsoGeoscapeHdShellState* state(GeoscapeState *s);
 
 	/// Toggle the secondary-route drawer (action.session affordance).
 	static void toggleDrawer(GeoscapeState *s);
+	static void closeDrawer(GeoscapeState *s);
 
 	/// Release per-state shell bookkeeping before State destroys its surfaces.
 	static void destroy(GeoscapeState *s);

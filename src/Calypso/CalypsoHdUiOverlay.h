@@ -108,6 +108,7 @@ public:
 
 	const CalypsoHdPresentationMetrics& frozenMetrics() const { return _frozenMetrics; }
 	bool mayGoPhysical() const { return _mayGoPhysical; }
+	bool resourcesReadyForFrame() const;
 	std::uint64_t frameId() const { return _controller.frameId(); }
 
 	/// True once a subgroup (or the harness) committed physical output this
@@ -186,6 +187,8 @@ private:
 	// current top state, so stacked popups of the same family each work when they
 	// become top again -- not just the last-registered one (GLM #3).
 	std::vector<const CalypsoHdFamilyAdapter*> _adapters;
+	const CalypsoHdFamilyAdapter* _activeAdapter = nullptr;
+	std::uint32_t _retryableReadinessFrames = 0;
 
 	// The ONE claim store: identity lives in _controller.claims(); this ephemeral
 	// map is the per-frame widget-ptr -> committed claim lookup used by blit().

@@ -57,6 +57,7 @@ private:
 	bool _calypsoShowLoad = false, _calypsoShowSave = false;
 	bool _calypsoShowAbandon = false, _calypsoShowOptions = false;
 	bool _calypsoShowCancel = false;
+	bool _calypsoShowWindow = false, _calypsoShowTitle = false, _calypsoShowVersion = false;
 	std::string _calypsoLoadLabel, _calypsoSaveLabel;
 	std::string _calypsoAbandonLabel, _calypsoOptionsLabel, _calypsoCancelLabel;
 	friend class Calypso::CalypsoPauseMenu;

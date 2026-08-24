@@ -18,6 +18,8 @@ class GeoscapeState;
 namespace Calypso
 {
 
+struct CalypsoGeoscapeHdRuntimeModel;
+
 
 class CalypsoHdScreenRenderer : public CalypsoHdFamilyAdapter
 {
@@ -28,12 +30,15 @@ public:
 
 	const void* topState() const override;
 	bool suppressLogicalState() const override;
+	void collectLogicalSuppression(CalypsoHdLogicalSuppression& suppression) const override;
 	bool physicalReady() const override;
+	bool completeFrameReady() const override;
+	bool retryableReadiness() const override;
 	void collect(CalypsoHdFrameBuilder& builder) const override;
 	void setModel(CalypsoHdScreenRenderModel model);
 
 private:
-	static CalypsoHdScreenRenderModel liveGeoscapeModel(const GeoscapeState& state);
+	static CalypsoGeoscapeHdRuntimeModel liveGeoscapeModel(const GeoscapeState& state);
 	bool resolvePhysicalFonts(CalypsoTtfSourceDescriptor& heading,
 		CalypsoTtfSourceDescriptor& body, CalypsoTtfSourceDescriptor& mono) const;
 	const void* _state;

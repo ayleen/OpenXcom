@@ -217,6 +217,22 @@ inline CalypsoHdPanelStyle f21QuietButtonStyle(CalypsoInteractionState state)
 	return s;
 }
 
+/// Shared strategic time rail: the six speed slots and pause control sit on
+/// one horizontal track in both generated wide and compact layouts.
+inline CalypsoHdPanelStyle f21TimeSpeedRailStyle()
+{
+	CalypsoHdPanelStyle s;
+	s.styled = true;
+	s.radiusPx = CalypsoHdTheme::kButtonRadiusPx * 1.5f;
+	s.borderWidthPx = 1.0f;
+	s.borderColorRgba = CalypsoHdThemeGen::kAccentSoft;
+	s.fillTopRgba = calypsoRgba(0x05, 0x0F, 0x14, 0x70);
+	s.fillBottomRgba = calypsoRgba(0x05, 0x0F, 0x14, 0x18);
+	s.glowRgba = CalypsoHdThemeGen::kHaloGlow;
+	s.glowRadiusPx = 8.0f;
+	return s;
+}
+
 inline CalypsoLogicalRect f21WidgetRect(const Surface* surface)
 {
 	return { surface->getX(), surface->getY(), surface->getWidth(), surface->getHeight() };

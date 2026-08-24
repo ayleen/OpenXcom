@@ -35,6 +35,9 @@ bool pauseMenuDomShow(
 	const std::string &abandonLabel, const std::string &optionsLabel,
 	const std::string &cancelLabel);
 
+/// Report a registered HD route failure through the shared browser error owner.
+void calypsoReportHdRouteError(const std::string &route, const std::string &detail);
+
 /// Hide the pause-menu DOM overlay (called before popState and in ~PauseState).
 void pauseMenuDomHide();
 
@@ -46,8 +49,8 @@ class CalypsoPauseMenu
 {
 public:
 	/// PauseState constructor hook: raise the DOM overlay with the current
-	/// labels/visibility. Native widgets remain alive for engine keyboard
-	/// ownership and fallback. Body lives here, not in
+	/// labels/visibility. Native widgets remain alive as hidden engine input/
+	/// behavior owners; they are never a fallback presentation. Body lives here, not in
 	/// PauseState.cpp (placement policy R3).
 	static void configure(PauseState& state);
 

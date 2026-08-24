@@ -9,6 +9,7 @@
 #include "CalypsoHdHarnessHostState.h"
 #include "CalypsoViewportMailbox.h"
 #include "CalypsoGlStateGuard.h"
+#include "CalypsoPauseMenu.h"
 
 #include <algorithm>
 #include <cmath>
@@ -33,15 +34,20 @@ namespace OpenXcom
 namespace Calypso
 {
 
+namespace
+{
+constexpr std::uint32_t kRetryableReadinessFrameBudget = 1800;
+}
+
 [[noreturn]] void CalypsoHdUiOverlay::failHdRoute(const std::string& detail)
 {
-	// The exception cancels the Emscripten loop before State::blit, but clear any
-	// earlier subgroup commits as well so no caller can observe partial claims
-	// while unwinding. Do not latch a logical retry: enabled HD routes are fatal.
-	_controller.claims().clear();
-	_ptrClaim.clear();
+	// The exception cancels the Emscripten loop before State::blit. Keep logical
+	// suppression claims active while unwinding: a registered HD route must never
+	// reveal native pixels as a recovery frame. Claims clear only at frame start
+	// or when the adapter leaves the overlay lifecycle.
 	_drawItems.clear();
 	_activeThisFrame = false;
+	calypsoReportHdRouteError("hd-overlay", detail);
 	throw Exception("Calypso HD route failed: " + detail);
 }
 
@@ -49,6 +55,12 @@ CalypsoHdUiOverlay& CalypsoHdUiOverlay::instance()
 {
 	static CalypsoHdUiOverlay s_overlay;
 	return s_overlay;
+}
+
+bool CalypsoHdUiOverlay::resourcesReadyForFrame() const
+{
+	return _glReady && _vao != 0 && _hdShader != nullptr && _hdShader->isValid()
+		&& _panelShader != nullptr && _panelShader->isValid();
 }
 
 void CalypsoHdUiOverlay::registerAdapter(const CalypsoHdFamilyAdapter* adapter)
@@ -61,6 +73,18 @@ void CalypsoHdUiOverlay::registerAdapter(const CalypsoHdFamilyAdapter* adapter)
 void CalypsoHdUiOverlay::clearAdapter(const CalypsoHdFamilyAdapter* adapter)
 {
 	_adapters.erase(std::remove(_adapters.begin(), _adapters.end(), adapter), _adapters.end());
+	if (adapter == _activeAdapter)
+	{
+		_activeAdapter = nullptr;
+		_retryableReadinessFrames = 0;
+		_drawItems.clear();
+		_ptrClaim.clear();
+		_logicalSuppressedWidgets.clear();
+		_frameLiveHandles.clear();
+		_physicalStateThisFrame = nullptr;
+		_activeThisFrame = false;
+		_controller.claims().clear();
+	}
 }
 
 bool CalypsoHdUiOverlay::widgetClaimed(const void* widget, std::uint64_t frameId) const
@@ -125,11 +149,22 @@ void CalypsoHdUiOverlay::prepareFrame(int logicalWidth, int logicalHeight, const
 	{
 		if (a->topState() == topState) { active = a; break; }
 	}
-	if (!active) return;
+	if (!active)
+	{
+		_activeAdapter = nullptr;
+		_retryableReadinessFrames = 0;
+		return;
+	}
+	if (active != _activeAdapter)
+	{
+		_activeAdapter = active;
+		_retryableReadinessFrames = 0;
+	}
 	CalypsoHdLogicalSuppression suppression;
 	active->collectLogicalSuppression(suppression);
 	_logicalSuppressedWidgets = suppression.widgets();
-	if (!active->physicalReady()) return;
+	if (!active->physicalReady())
+		failHdRoute("HD route is not physically ready");
 	if (!_frozenMetrics.valid())
 		failHdRoute("invalid presentation metrics");
 	if (!_mayGoPhysical)
@@ -147,6 +182,16 @@ void CalypsoHdUiOverlay::prepareFrame(int logicalWidth, int logicalHeight, const
 		ensureGpu();
 		if (!_glReady)
 			failHdRoute("GPU resources are unavailable");
+		if (!active->completeFrameReady())
+		{
+			if (active->retryableReadiness())
+			{
+				if (++_retryableReadinessFrames <= kRetryableReadinessFrameBudget)
+					return;
+				failHdRoute("HD route readiness budget exhausted");
+			}
+			failHdRoute("complete HD frame is not ready");
+		}
 
 		CalypsoHdFrameBuilder builder;
 		active->collect(builder);
@@ -204,6 +249,7 @@ void CalypsoHdUiOverlay::prepareFrame(int logicalWidth, int logicalHeight, const
 		});
 
 	_activeThisFrame = true;
+	_retryableReadinessFrames = 0;
 	if (active->suppressLogicalState())
 		_physicalStateThisFrame = topState;
 }

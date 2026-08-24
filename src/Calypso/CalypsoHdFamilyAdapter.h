@@ -161,6 +161,11 @@ public:
 	/// frame visible instead of treating an intentionally empty collection as a
 	/// fatal HD route error.
 	virtual bool physicalReady() const { return true; }
+	virtual bool completeFrameReady() const { return true; }
+	/// True when completeFrameReady() is false only because the model is still
+	/// warming. The overlay retries without publishing an error or exposing
+	/// native presentation; concrete preparation failures remain terminal.
+	virtual bool retryableReadiness() const { return false; }
 
 	/// Atomic families own all of their top-state logical UI once the physical
 	/// subgroup commits. Adapters that overlay another state can also list that
