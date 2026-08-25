@@ -70,11 +70,24 @@ Cursor::~Cursor()
  */
 void Cursor::handle(Action *action)
 {
+#ifdef __EMSCRIPTEN__
+	// Listener ordering: SDL queues its own SDL_MOUSEMOTION in CSS pixel
+	// coordinates BEFORE the JS canvas pointer bridge handler runs; the bridge
+	// then publishes the correct backing-store position via
+	// _calypso_push_mouse_motion. Dispatching the queued SDL event afterwards
+	// would apply it here and overwrite the bridge's backing-normalized
+	// coordinate with unscaled CSS values (a ~2x cursor lag at DPR 2). The
+	// bridge is therefore the sole Emscripten cursor-position owner, so this
+	// method deliberately ignores motion events. No other SDL event is
+	// affected: this method only ever handled cursor motion.
+	(void)action;
+#else
 	if (action->getDetails()->type == SDL_MOUSEMOTION)
 	{
 		setX((int)floor((action->getDetails()->motion.x - action->getLeftBlackBand()) / action->getXScale()));
 		setY((int)floor((action->getDetails()->motion.y - action->getTopBlackBand()) / action->getYScale()));
 	}
+#endif
 }
 
 /**

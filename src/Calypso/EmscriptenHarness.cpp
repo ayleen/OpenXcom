@@ -64,6 +64,10 @@
 #include "../Menu/OptionsBaseState.h"   // OptionsOrigin / OPT_MENU
 #include "CalypsoPrologueCampaign.h" // Phase 41 (commit 4.5): launchScriptedBattle
 #include "CalypsoGeoscapeQaPresentation.h" // Stage 13.2/13.3 loopback-only QA controls
+// Phase 46.4 (Calypso): canvas-backing <-> engine-display coordinate mapping
+// used by the pointer bridge and the DOM text-overlay focus bridge.
+#include "CalypsoViewportRuntime.h"
+#include "CalypsoCanvasCoordinateMapping.h"
 #include <GLES3/gl3.h>
 
 using namespace OpenXcom;
@@ -972,8 +976,11 @@ EMSCRIPTEN_KEEPALIVE int calypso_audio_mute()
 /* The SDL2 Emscripten port routes WebGL-canvas pointermove events as
  * SDL_MOUSEBUTTONDOWN (buttonless), not SDL_MOUSEMOTION, which leaves the
  * OXCE Cursor stuck.  Hosting code in main.js registers a JS mousemove
- * listener that calls this with backing-store coordinates; we update the
- * Cursor directly (the SDL queue path was unreliable). */
+ * listener that calls this with canvas-BACKING coordinates; we update the
+ * Cursor directly (the SDL queue path was unreliable).  Backing pixels are
+ * NOT assumed equal to engine display coordinates (they diverge at DPR != 1):
+ * each coordinate is normalized canvas-backing -> current engine display
+ * extent first, then divided by the Screen scale into game coords. */
 /* Phase 8c §C2: opt-in perf log gate for Globe::drawSphereGPU. */
 int g_calypsoProfileGlobe = 0;
 
@@ -1301,14 +1308,79 @@ void calypso_push_mouse_motion(int x, int y)
 	OpenXcom::Cursor *c = g->getCursor();
 	OpenXcom::Screen *s = g->getScreen();
 	if (!c || !s) return;
-	/* JS sends canvas-backing pixels; convert to game-coords via the
-	 * Screen's current xScale/yScale (canvas / base). */
+	/* JS sends canvas-backing pixels; after exact backing-store ownership the
+	 * engine display surface may be CSS-logical (DPR != 1), so the two extents
+	 * must not be assumed equal. Normalize each coordinate canvas-backing ->
+	 * current engine display extent FIRST (cached physical canvas extents when
+	 * valid, otherwise the Screen's own size), and only then convert display
+	 * -> game coords via the Screen's current xScale/yScale. At DPR 1 the
+	 * normalization is identity, so DPR1 behavior is unchanged. */
+	const Calypso::CalypsoViewportRuntime &runtime = Calypso::calypsoViewportRuntime();
+	const bool haveCachedCanvas = runtime.hasPhysicalSize()
+		&& runtime.physicalWidth() > 0 && runtime.physicalHeight() > 0;
+	const int canvasW = haveCachedCanvas ? runtime.physicalWidth() : s->getWidth();
+	const int canvasH = haveCachedCanvas ? runtime.physicalHeight() : s->getHeight();
+	double dx = Calypso::calypsoCanvasToDisplayCoordinate(x, canvasW, s->getWidth());
+	double dy = Calypso::calypsoCanvasToDisplayCoordinate(y, canvasH, s->getHeight());
 	double sx = s->getXScale();
 	double sy = s->getYScale();
 	if (sx <= 0.0) sx = 1.0;
 	if (sy <= 0.0) sy = 1.0;
-	c->setX((int)(x / sx));
-	c->setY((int)(y / sy));
+	c->setX((int)(dx / sx));
+	c->setY((int)(dy / sy));
+}
+
+/* ---- DPR2 cursor-alignment regression gate (loopback QA, read-only) --------
+ * Read-only counterparts of calypso_push_mouse_motion above: report the
+ * canvas-BACKING coordinate where the GPU cursor quad is ACTUALLY presented
+ * this frame -- never the last JS input. Per axis: the live Cursor position
+ * becomes an engine-display coordinate through the Screen scale PLUS this
+ * axis' cursor black-band offset (the same terms Cursor::drawGPUPass places
+ * the quad with), then maps engine display -> cached physical canvas extent
+ * through calypsoDisplayToCanvasCoordinate (identity fallback when the
+ * cached physical extents are invalid) and rounds to nearest int. Returns
+ * -1 when Game/Cursor/Screen are unavailable (pre-boot or torn down);
+ * callers treat -1 as "no reading". Pure reads: nothing here mutates engine
+ * state, so the canonical QA runner may poll both exports freely. */
+static int calypsoQaCursorBackingCoordinate(OpenXcom::Cursor *c,
+	OpenXcom::Screen *s, bool xAxis)
+{
+	const Calypso::CalypsoViewportRuntime &runtime = Calypso::calypsoViewportRuntime();
+	const bool haveCachedCanvas = runtime.hasPhysicalSize()
+		&& runtime.physicalWidth() > 0 && runtime.physicalHeight() > 0;
+	const int displayW = s->getWidth();
+	const int displayH = s->getHeight();
+	const int canvasW = haveCachedCanvas ? runtime.physicalWidth() : displayW;
+	const int canvasH = haveCachedCanvas ? runtime.physicalHeight() : displayH;
+	double sx = s->getXScale(); if (sx <= 0.0) sx = 1.0;
+	double sy = s->getYScale(); if (sy <= 0.0) sy = 1.0;
+	const double presented = xAxis
+		? c->getX() * sx + s->getCursorLeftBlackBand()
+		: c->getY() * sy + s->getCursorTopBlackBand();
+	return (int)llround(Calypso::calypsoDisplayToCanvasCoordinate(presented,
+		xAxis ? displayW : displayH, xAxis ? canvasW : canvasH));
+}
+
+EMSCRIPTEN_KEEPALIVE
+int calypso_qa_cursor_canvas_x(void)
+{
+	OpenXcom::Game *g = getCurrentGame();
+	if (!g) return -1;
+	OpenXcom::Cursor *c = g->getCursor();
+	OpenXcom::Screen *s = g->getScreen();
+	if (!c || !s) return -1;
+	return calypsoQaCursorBackingCoordinate(c, s, true);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int calypso_qa_cursor_canvas_y(void)
+{
+	OpenXcom::Game *g = getCurrentGame();
+	if (!g) return -1;
+	OpenXcom::Cursor *c = g->getCursor();
+	OpenXcom::Screen *s = g->getScreen();
+	if (!c || !s) return -1;
+	return calypsoQaCursorBackingCoordinate(c, s, false);
 }
 
 /* Phase 33: one-time touch-device defaults.  Called by JS after callMain
@@ -1351,24 +1423,46 @@ int calypso_battlescape_zoom(int direction)
 /* Phase 33: virtual-keyboard bridge.  TextEdit::setFocus calls
  * calypso_notify_text_focus; it forwards to the JS hook
  * globalThis.__calypsoTextFocus (no-op when the hook is absent, i.e. desktop).
- * Coordinates are converted base-resolution → canvas pixels here, mirroring
- * calypso_push_mouse_motion in reverse. */
+ * Coordinates run base-resolution -> engine display (via the Screen scale),
+ * then engine-display -> canvas-backing pixels -- the exact inverse of
+ * calypso_push_mouse_motion's normalization -- because text-input-overlay.js
+ * keeps receiving canvas-BACKING geometry and its rect.width/canvas.width
+ * conversion is only correct for backing pixels. The two extents are not
+ * assumed equal (they diverge at DPR != 1): the reverse mapping uses the
+ * cached physical canvas extents when valid, otherwise the Screen's own size,
+ * which makes the whole chain an identity pass-through at DPR 1. */
 EMSCRIPTEN_KEEPALIVE
 void calypso_notify_text_focus(int focused, int x, int y, int w, int h,
 	const char *utf8, int multiline, int enterPolicy)
 {
 	OpenXcom::Game *g = OpenXcom::getCurrentGame();
 	double sx = 1.0, sy = 1.0;
+	int displayW = 0, displayH = 0;
 	if (g && g->getScreen())
 	{
-		sx = g->getScreen()->getXScale(); if (sx <= 0.0) sx = 1.0;
-		sy = g->getScreen()->getYScale(); if (sy <= 0.0) sy = 1.0;
+		OpenXcom::Screen *s = g->getScreen();
+		sx = s->getXScale(); if (sx <= 0.0) sx = 1.0;
+		sy = s->getYScale(); if (sy <= 0.0) sy = 1.0;
+		displayW = s->getWidth();
+		displayH = s->getHeight();
 	}
+	/* game coord * Screen scale == engine-display coordinate; map that back to
+	 * canvas-backing geometry before EM_ASM (identity fallback keeps pre-boot
+	 * and degenerate-extent calls unchanged). */
+	const Calypso::CalypsoViewportRuntime &runtime = Calypso::calypsoViewportRuntime();
+	const bool haveCachedCanvas = runtime.hasPhysicalSize()
+		&& runtime.physicalWidth() > 0 && runtime.physicalHeight() > 0;
+	const int canvasW = haveCachedCanvas ? runtime.physicalWidth() : displayW;
+	const int canvasH = haveCachedCanvas ? runtime.physicalHeight() : displayH;
 	EM_ASM({
 		if (globalThis.__calypsoTextFocus)
 			globalThis.__calypsoTextFocus($0, $1, $2, $3, $4, UTF8ToString($5), $6, $7);
-	}, focused, (int)(x * sx), (int)(y * sy), (int)(w * sx), (int)(h * sy), utf8,
-		multiline, enterPolicy);
+	}, focused,
+	   (int)Calypso::calypsoDisplayToCanvasCoordinate(x * sx, displayW, canvasW),
+	   (int)Calypso::calypsoDisplayToCanvasCoordinate(y * sy, displayH, canvasH),
+	   (int)Calypso::calypsoDisplayToCanvasCoordinate(w * sx, displayW, canvasW),
+	   (int)Calypso::calypsoDisplayToCanvasCoordinate(h * sy, displayH, canvasH),
+	   utf8, multiline, enterPolicy);
 }
 
 EMSCRIPTEN_KEEPALIVE
