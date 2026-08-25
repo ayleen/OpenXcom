@@ -38,6 +38,7 @@
 #include "../Engine/GpuInit.h"
 #include "../Engine/Shader.h"
 #include "../Engine/GpuSmokeState.h"
+#include "CalypsoGeoscapeColoredLineBatch.h"
 #ifdef CALYPSO_HD_UNIT_SPIKE
 #include "HdUnitSpikeState.h"
 #include "HdUnitBattleSpike.h"
@@ -1555,6 +1556,38 @@ int calypso_hud_layout_probe(const char *outJsonPath)
 	if (!f) return 0;
 	f << out;
 	return 1;
+}
+
+/* Phase 46.4 SS15.6 -- default-off Geoscape radar/flight instrumentation.
+ * Loopback QA capability only: every export below is a no-op unless the
+ * Geoscape HD preview token (the single grantor of loopback QA capability)
+ * is raised. Enabling costs one predictable branch per prepare/draw
+ * boundary in production paths; reset/read never mutate campaign,
+ * rendering, or input state. */
+EMSCRIPTEN_KEEPALIVE
+int calypso_geoscape_radar_counters_enable(int on)
+{
+	if (g_calypsoGeoscapeHdPreview == 0) return 0;
+	OpenXcom::Calypso::calypsoSetRadarCountersEnabled(on != 0);
+	return OpenXcom::Calypso::calypsoRadarCountersEnabled() ? 1 : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void *calypso_geoscape_radar_counters()
+{
+	if (g_calypsoGeoscapeHdPreview == 0) return nullptr;
+	return &OpenXcom::Calypso::calypsoRadarCounters();
+}
+
+EMSCRIPTEN_KEEPALIVE
+void *calypso_heap_probe()
+{
+	if (g_calypsoGeoscapeHdPreview == 0) return nullptr;
+	static struct { std::uint64_t usedBytes; std::uint64_t totalBytes; } probe = {0u, 0u};
+	const struct mallinfo info = mallinfo();
+	probe.usedBytes = (std::uint64_t)info.uordblks;
+	probe.totalBytes = (std::uint64_t)info.arena;
+	return &probe;
 }
 
 } /* extern "C" */

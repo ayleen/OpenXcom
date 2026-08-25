@@ -68,6 +68,18 @@ void main()
 }
 )glsl";
 
+static const char* kGeoscape_colored_linesVertSrc = R"glsl(
+layout(location=0) in vec2 a_pos;
+layout(location=1) in vec4 a_col;
+out vec4 v_color;
+
+void main()
+{
+	gl_Position = vec4(a_pos, 0.0, 1.0);
+	v_color = a_col;
+}
+)glsl";
+
 static const char* kGlobe_sphereVertSrc = R"glsl(
 in vec2 a_pos;   // NDC [-1,+1]
 in vec2 a_uv;    // unused; present so VAO layout matches other passes
@@ -449,6 +461,16 @@ void main()
     float edge = smoothstep(1.0, 0.0, d);
     float a = core * edge;
     out_color = vec4(u_tint * (a * u_intensity), 1.0);
+}
+)glsl";
+
+static const char* kGeoscape_colored_linesFragSrc = R"glsl(
+in  vec4 v_color;
+out vec4 out_color;
+
+void main()
+{
+	out_color = v_color;
 }
 )glsl";
 
@@ -1389,6 +1411,7 @@ static const Entry kTable[] = {
     { "colorquad", kPassthroughVertSrc, kColorquadFragSrc },
     { "cursor", kCursorVertSrc, kCursorFragSrc },
     { "emissive_glow", kEmissive_glowVertSrc, kEmissive_glowFragSrc },
+    { "geoscape_colored_lines", kGeoscape_colored_linesVertSrc, kGeoscape_colored_linesFragSrc },
     { "globe_sphere", kGlobe_sphereVertSrc, kGlobe_sphereFragSrc },
     { "hd_ui", kHd_uiVertSrc, kHd_uiFragSrc },
     { "hd_ui_panel", kPassthroughVertSrc, kHd_ui_panelFragSrc },

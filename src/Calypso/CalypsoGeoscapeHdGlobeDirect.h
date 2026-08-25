@@ -82,8 +82,7 @@ struct CalypsoGeoscapeHdGlobeDirect
 			globe->_directScreen = nullptr;
 			globe->_gpuBorderLines.clear();
 			globe->_gpuBorderVertices.clear();
-			globe->_gpuRadarFlightLines.clear();
-			globe->_gpuRadarFlightVertices.clear();
+			globe->_coloredLineBatch.clearCommands();
 			globe->_gpuDebugLines.clear();
 			globe->_gpuDebugVertices.clear();
 			globe->_gpuLabelIconPendingDraws.clear();
@@ -146,7 +145,14 @@ struct CalypsoGeoscapeHdGlobeDirect
 	static GpuTexture* markerTexture(Globe* globe, Surface* frame, int shade);
 	static GpuTexture* labelTexture(Globe* globe, Globe::LabelTexture& entry);
 	static void ensureBorderResources(Globe* globe);
+	static void ensureColoredLineResources(Globe* globe);
 	static void drawBorderPass(Globe* globe);
+	/* §15.4.2: fingerprint/pack/upload preparation for the radar/flight
+	 * one-draw batch; body lives in Globe.cpp next to drawPass. */
+	static void prepareRadarFlightSnapshot(Globe* globe);
+	/* §15.4.5: explicit per-frame label/icon snapshot commit, owned by
+	 * Globe::draw() after drawDetail() has recorded the current frame. */
+	static void commitLabelIconSnapshot(Globe* globe);
 	static void drawRadarFlightPass(Globe* globe);
 	static void drawDebugPass(Globe* globe);
 	static void ensureMarkerResources(Globe* globe);

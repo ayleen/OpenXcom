@@ -437,8 +437,6 @@ Globe::Globe(Game* game, int cenX, int cenY, int width, int height, int x, int y
 	 * clears and rewrites these existing vectors. */
 	_gpuBorderLines.reserve(GPU_BORDER_LINE_CAPACITY);
 	_gpuBorderVertices.reserve(GPU_BORDER_VERTEX_FLOAT_CAPACITY);
-	_gpuRadarFlightLines.reserve(GPU_RADAR_FLIGHT_LINE_CAPACITY);
-	_gpuRadarFlightVertices.reserve(GPU_RADAR_FLIGHT_VERTEX_FLOAT_CAPACITY);
 	_gpuDebugLines.reserve(GPU_DEBUG_LINE_CAPACITY);
 	_gpuDebugVertices.reserve(GPU_DEBUG_VERTEX_FLOAT_CAPACITY);
 	_gpuLabelTextures.reserve(GPU_LABEL_TEXTURE_CAPACITY);
@@ -1054,6 +1052,9 @@ void Globe::setPalette(const SDL_Color *colors, int firstcolor, int ncolors)
 	for (auto& entry : _gpuMarkerTextures) delete entry.texture;
 	_gpuMarkerTextures.clear();
 	++_gpuMarkerPaletteGeneration;
+	/* SS15.4.3: the radar/flight snapshot key rides the same palette
+	 * boundary, so a palette revision rebuilds and reuploads exactly once. */
+	++_gpuRadarPaletteGeneration;
 	for (auto& entry : _gpuLabelTextures)
 	{
 		delete entry.texture;
@@ -1241,6 +1242,8 @@ static Cord calypsoGlobeQaCord(const Calypso::GeoscapeQaVec3& v)
 	void CalypsoGeoscapeHdGlobeDirect::drawPass(Globe* globe)
 	{
 		if (!globe || !globe->_gpuDirectMode || !globe->_directScreen) return;
+		if (Calypso::calypsoRadarCountersEnabled())
+			++Calypso::calypsoRadarCounters().frames;
 		const GLenum worldPreflightError = calypsoOwnedResetError();
 		if (worldPreflightError != GL_NO_ERROR)
 			Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
@@ -1263,6 +1266,7 @@ static Cord calypsoGlobeQaCord(const Calypso::GeoscapeQaVec3& v)
 			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape Earth shader unavailable");
 		CalypsoGeoscapeHdGlobeDirect::ensureLogicalWorldComplete(globe);
 		CalypsoGeoscapeHdGlobeDirect::ensureBorderResources(globe);
+		CalypsoGeoscapeHdGlobeDirect::ensureColoredLineResources(globe);
 		CalypsoGeoscapeHdGlobeDirect::ensureMarkerResources(globe);
 		CalypsoGeoscapeHdGlobeDirect::ensureLabelResources(globe);
 		preflightState.restore();
@@ -1340,6 +1344,7 @@ static Cord calypsoGlobeQaCord(const Calypso::GeoscapeQaVec3& v)
 			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape Earth draw failed");
 		st.restore();
 		CalypsoGeoscapeHdGlobeDirect::drawBorderPass(globe);
+		CalypsoGeoscapeHdGlobeDirect::prepareRadarFlightSnapshot(globe);
 		CalypsoGeoscapeHdGlobeDirect::drawRadarFlightPass(globe);
 		CalypsoGeoscapeHdGlobeDirect::drawLabelIconPass(globe);
 		CalypsoGeoscapeHdGlobeDirect::drawDebugPass(globe);
@@ -1407,6 +1412,9 @@ static Cord calypsoGlobeQaCord(const Calypso::GeoscapeQaVec3& v)
 		const bool front1 = !globe->pointBack(lon1, lat1);
 		const bool front2 = !globe->pointBack(lon2, lat2);
 		if (!front1 && !front2) return;
+		/* Effective palette resolves once per logical segment; every raster
+		 * step records its final RGBA bytes directly into the batch. */
+		const SDL_Color* radarPalette = globe->getEffectivePalette();
 		if (front1 != front2)
 		{
 			const Cord a(CordPolar(lon1, lat1));
@@ -1496,15 +1504,26 @@ static Cord calypsoGlobeQaCord(const Calypso::GeoscapeQaVec3& v)
 			const Uint8 color = resolveStepColor(sampleX, sampleY);
 			if (color)
 			{
-				if (globe->_gpuRadarFlightLines.size() >= Globe::GPU_RADAR_FLIGHT_LINE_CAPACITY
-					|| globe->_gpuRadarFlightLines.size() >= globe->_gpuRadarFlightLines.capacity())
+				if (!radarPalette)
+					Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape radar/flight palette unavailable");
+				/* Fail closed before publication: the hard command bound is
+				 * checked before the append is attempted, and the batch refuses
+				 * growth itself as the backstop. */
+				if (globe->_coloredLineBatch.commandCount()
+					>= OpenXcom::Calypso::COLORED_LINE_COMMAND_CAPACITY)
 				{
 					globe->_gpuRadarFlightCapacityExceeded = true;
 					Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape radar/flight batch capacity exhausted");
 				}
 				const double nextX = len > 1.0 ? sampleX + stepX : x2;
 				const double nextY = len > 1.0 ? sampleY + stepY : y2;
-				globe->_gpuRadarFlightLines.push_back({sampleX, sampleY, nextX, nextY, (Uint8)shade, color});
+				const SDL_Color resolved = radarPalette[color];
+				if (!globe->_coloredLineBatch.tryRecordCommand(sampleX, sampleY, nextX, nextY,
+					resolved.r, resolved.g, resolved.b, resolved.a))
+				{
+					globe->_gpuRadarFlightCapacityExceeded = true;
+					Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape radar/flight batch capacity exhausted");
+				}
 			}
 			sampleX += stepX;
 			sampleY += stepY;
@@ -1593,7 +1612,8 @@ static Cord calypsoGlobeQaCord(const Calypso::GeoscapeQaVec3& v)
 			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape radar/flight batch capacity exhausted");
 		if (globe->_gpuDebugCapacityExceeded)
 			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape debug geometry batch capacity exhausted");
-		if (globe->_gpuBorderLines.empty() && globe->_gpuRadarFlightLines.empty()
+		if (globe->_gpuBorderLines.empty()
+			&& globe->_coloredLineBatch.commandCount() == 0u
 			&& globe->_gpuDebugLines.empty())
 		{
 			globe->_gpuBorderReady = true;
@@ -1641,12 +1661,11 @@ static Cord calypsoGlobeQaCord(const Calypso::GeoscapeQaVec3& v)
 					calypsoGlFailure("Geoscape border array buffer unbind failed", attributeUnbindError));
 		}
 		const size_t requiredBorderVertices = globe->_gpuBorderLines.size() * 2u;
-		const size_t requiredRadarFlightVertices = globe->_gpuRadarFlightLines.size() * 2u;
 		const size_t requiredDebugVertices = globe->_gpuDebugLines.size() * 2u;
-		const size_t requiredVertices = std::max(requiredBorderVertices,
-			std::max(requiredRadarFlightVertices, requiredDebugVertices));
+		/* Radar/flight vertices live in the dedicated coloured-line batch since
+		 * Phase 46.4 §15; the shared border buffer never resizes for them. */
+		const size_t requiredVertices = std::max(requiredBorderVertices, requiredDebugVertices);
 		if (requiredBorderVertices * 2u > Globe::GPU_BORDER_VERTEX_FLOAT_CAPACITY
-			|| requiredRadarFlightVertices * 2u > Globe::GPU_RADAR_FLIGHT_VERTEX_FLOAT_CAPACITY
 			|| requiredDebugVertices * 2u > Globe::GPU_DEBUG_VERTEX_FLOAT_CAPACITY)
 			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape world vertex capacity exhausted");
 		if (requiredVertices > globe->_gpuBorderCapacity)
@@ -1666,8 +1685,6 @@ static Cord calypsoGlobeQaCord(const Calypso::GeoscapeQaVec3& v)
 					calypsoGlFailure("Geoscape border vertex buffer unbind failed", bufferUnbindError));
 			globe->_gpuBorderCapacity = requiredVertices;
 		}
-		if (requiredRadarFlightVertices > globe->_gpuRadarFlightCapacity)
-			globe->_gpuRadarFlightCapacity = requiredRadarFlightVertices;
 		if (requiredDebugVertices > globe->_gpuDebugCapacity)
 			globe->_gpuDebugCapacity = requiredDebugVertices;
 		const GLenum borderPreflightError = glGetError();
@@ -1727,62 +1744,292 @@ static Cord calypsoGlobeQaCord(const Calypso::GeoscapeQaVec3& v)
 		st.restore();
 	}
 
-	void CalypsoGeoscapeHdGlobeDirect::drawRadarFlightPass(Globe* globe)
+	/* Attribute 0 = vec2 position; attribute 1 = four normalised unsigned
+	 * bytes taken from the locked portable vertex layout. Bound once at VAO
+	 * creation so steady-state draws never touch vertex-array state. */
+	static void enableColoredLineAttributes(Globe* globe)
 	{
-		if (!globe || globe->_gpuRadarFlightLines.empty() || !globe->_directScreen) return;
-		if (!globe->_gpuBorderReady || !globe->_borderShader || !globe->_borderShader->isValid())
-			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape radar/flight resources disappeared");
-		const double xs = globe->_directScreen->getXScale();
-		const double ys = globe->_directScreen->getYScale();
-		const float displayW = static_cast<float>(Options::displayWidth);
-		const float displayH = static_cast<float>(Options::displayHeight);
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE,
+			(GLsizei)sizeof(OpenXcom::Calypso::CalypsoGeoscapeColoredLineVertex),
+			(void*)OpenXcom::Calypso::COLORED_LINE_POSITION_OFFSET);
+		glEnableVertexAttribArray(1);
+		glVertexAttribPointer(1, 4, GL_UNSIGNED_BYTE, GL_TRUE,
+			(GLsizei)sizeof(OpenXcom::Calypso::CalypsoGeoscapeColoredLineVertex),
+			(void*)OpenXcom::Calypso::COLORED_LINE_COLOR_OFFSET);
+	}
+
+	void CalypsoGeoscapeHdGlobeDirect::ensureColoredLineResources(Globe* globe)
+	{
+		if (!globe || !GpuInit::ready())
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape coloured-line GPU is unavailable");
+		if (globe->_gpuRadarFlightCapacityExceeded)
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape radar/flight batch capacity exhausted");
+		if (!globe->_coloredLineShader)
+		{
+			globe->_coloredLineShader = new Shader();
+			if (!globe->_coloredLineShader->loadFromEmbedded("geoscape_colored_lines"))
+			{
+				delete globe->_coloredLineShader;
+				globe->_coloredLineShader = nullptr;
+				Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape coloured-line shader compilation failed");
+			}
+		}
+		if (!globe->_coloredLineShader->isValid())
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape coloured-line shader is invalid");
+		if (!globe->_coloredLineVAO || !globe->_coloredLineVBO)
+		{
+			glGenVertexArrays(1, &globe->_coloredLineVAO);
+			glGenBuffers(1, &globe->_coloredLineVBO);
+			const GLenum resourceError = glGetError();
+			if (!globe->_coloredLineVAO || !globe->_coloredLineVBO || resourceError != GL_NO_ERROR)
+				Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
+					resourceError == GL_NO_ERROR
+						? "Geoscape coloured-line vertex resources unavailable"
+						: calypsoGlFailure("Geoscape coloured-line vertex allocation failed", resourceError));
+			/* One fixed-capacity GPU allocation at creation time: steady-state
+			 * frames never resize or reallocate storage, they only sub-update
+			 * the committed prefix of the interleaved vertex buffer. */
+			glBindBuffer(GL_ARRAY_BUFFER, globe->_coloredLineVBO);
+			glBufferData(GL_ARRAY_BUFFER,
+				(GLsizeiptr)(OpenXcom::Calypso::COLORED_LINE_VERTEX_CAPACITY
+					* sizeof(OpenXcom::Calypso::CalypsoGeoscapeColoredLineVertex)),
+				nullptr, GL_DYNAMIC_DRAW);
+			const GLenum bufferError = glGetError();
+			glBindVertexArray(globe->_coloredLineVAO);
+			enableColoredLineAttributes(globe);
+			glBindVertexArray(0u);
+			const GLenum attributeUnbindError = glGetError();
+			glBindBuffer(GL_ARRAY_BUFFER, 0);
+			const GLenum bufferUnbindError = glGetError();
+			if (bufferError != GL_NO_ERROR)
+				Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
+					calypsoGlFailure("Geoscape coloured-line buffer allocation failed", bufferError));
+			if (attributeUnbindError != GL_NO_ERROR)
+				Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
+					calypsoGlFailure("Geoscape coloured-line attribute setup failed", attributeUnbindError));
+			if (bufferUnbindError != GL_NO_ERROR)
+				Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
+					calypsoGlFailure("Geoscape coloured-line array buffer unbind failed", bufferUnbindError));
+			globe->_coloredLineResourcesReady = true;
+		}
+	}
+
+/* SS15.4.3: fold every dynamic campaign input that can change radar/flight
+ * output into one deterministic POD signature. The walk is linear in the
+ * number of relevant entities, allocates nothing, reads no rendered pixels,
+ * and performs no projection or shade lookup; floating-point fields hash
+ * their exact bit patterns. Fixed presentation inputs ride the key struct.
+ * This complete key is the correctness backstop: existing direct mutation
+ * hooks may invalidate early, but omitting one never leaves stale geometry. */
+static std::uint64_t calypsoBuildRadarFlightSignature(SavedGame* save)
+{
+	Calypso::CalypsoGeoscapeColoredLineSignature sig;
+	for (auto* xbase : *save->getBases())
+	{
+		sig.mixDouble(xbase->getLatitude());
+		sig.mixDouble(xbase->getLongitude());
+		/* Completed facility build state and radar range. */
+		for (auto* fac : *xbase->getFacilities())
+		{
+			const bool completed = fac->getBuildTime() == 0;
+			sig.mixBool(completed);
+			if (completed)
+				sig.mixDouble(fac->getRules()->getRadarRange());
+		}
+		/* Every relevant craft: status, position, radar range, destination,
+		 * meet-calculated flag, and meet position. */
+		for (auto* craft : *xbase->getCrafts())
+		{
+			const bool out = craft->getStatus() == "STR_OUT";
+			sig.mixBool(out);
+			if (!out)
+				continue;
+			sig.mixDouble(craft->getLongitude());
+			sig.mixDouble(craft->getLatitude());
+			sig.mixDouble(craft->getCraftStats().radarRange);
+			sig.mixBool(craft->getDestination() != 0);
+			if (craft->getDestination() != 0)
+			{
+				sig.mixDouble(craft->getDestination()->getLongitude());
+				sig.mixDouble(craft->getDestination()->getLatitude());
+			}
+			sig.mixBool(craft->isMeetCalculated());
+			if (craft->isMeetCalculated())
+			{
+				sig.mixDouble(craft->getMeetLongitude());
+				sig.mixDouble(craft->getMeetLatitude());
+			}
+		}
+	}
+	/* Every relevant UFO: hunter/detection state, position, radar range,
+	 * hunting state, and destination position. */
+	for (auto* ufo : *save->getUfos())
+	{
+		sig.mixBool(ufo->getStatus() == Ufo::IGNORE_ME);
+		sig.mixInt64((std::int64_t)ufo->getDetected());
+		sig.mixBool(ufo->getHyperDetected());
+		sig.mixBool(ufo->isHunterKiller());
+		sig.mixBool(ufo->isHunting());
+		sig.mixDouble(ufo->getLongitude());
+		sig.mixDouble(ufo->getLatitude());
+		sig.mixDouble(ufo->getCraftStats().radarRange);
+		sig.mixBool(ufo->getDestination() != 0);
+		if (ufo->getDestination() != 0)
+		{
+			sig.mixDouble(ufo->getDestination()->getLongitude());
+			sig.mixDouble(ufo->getDestination()->getLatitude());
+		}
+	}
+	/* Every discovered alien-base position and detection range. */
+	for (auto* ab : *save->getAlienBases())
+	{
+		sig.mixBool(ab->isDiscovered());
+		if (!ab->isDiscovered())
+			continue;
+		sig.mixDouble(ab->getLatitude());
+		sig.mixDouble(ab->getLongitude());
+		sig.mixDouble(ab->getDeployment()->getBaseDetectionRange());
+	}
+	return sig.value();
+}
+
+	void CalypsoGeoscapeHdGlobeDirect::prepareRadarFlightSnapshot(Globe* globe)
+	{
+		if (!globe || !globe->_directScreen)
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape radar/flight preparation owner unavailable");
 		CalypsoGeoscapeHdGlobeDirect::PhysicalGlobeRect rect;
 		if (!CalypsoGeoscapeHdGlobeDirect::physicalGlobeRect(globe, rect))
 			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape physical globe rect is invalid");
-		const SDL_Color* palette = globe->getEffectivePalette();
-		if (!palette)
-			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape radar/flight palette unavailable");
-		const size_t requiredVertexFloats = globe->_gpuRadarFlightLines.size() * 4u;
-		if (requiredVertexFloats > Globe::GPU_RADAR_FLIGHT_VERTEX_FLOAT_CAPACITY
-			|| requiredVertexFloats > globe->_gpuRadarFlightVertices.capacity())
-			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape radar/flight vertex capacity exhausted");
-		globe->_gpuRadarFlightVertices.resize(requiredVertexFloats);
-		size_t vertexIndex = 0;
-		for (const auto& line : globe->_gpuRadarFlightLines)
+		Calypso::CalypsoGeoscapeRadarCounters& counters = Calypso::calypsoRadarCounters();
+		const bool instrumented = Calypso::calypsoRadarCountersEnabled();
+		const Uint64 prepareStart = instrumented ? SDL_GetPerformanceCounter() : 0;
+		/* SS15.4.3 snapshot key: every fixed presentation input plus the
+		 * dynamic campaign signature. Concrete geometry values ride explicit
+		 * fields, so no mutation owner has to remember a dirty setter.
+		 * viewportGeneration stays reserved: rect/scale/display values are
+		 * compared directly below. */
+		Calypso::CalypsoGeoscapeColoredLineSnapshotKey key = Calypso::CalypsoGeoscapeColoredLineSnapshotKey();
+		key.viewportGeneration = 0u;
+		key.rectX = rect.x;
+		key.rectY = rect.y;
+		key.rectW = rect.w;
+		key.rectH = rect.h;
+		key.displayWidth = Options::displayWidth;
+		key.displayHeight = Options::displayHeight;
+		key.sdlScaleX = globe->_directScreen->getXScale();
+		key.sdlScaleY = globe->_directScreen->getYScale();
+		key.centreLongitude = globe->_cenLon;
+		key.centreLatitude = globe->_cenLat;
+		key.zoomLevel = (double)globe->_zoom;
+		key.globeRadius = globe->_zoomRadius[globe->_zoom];
+		key.textureZoom = (double)globe->_zoomTexture;
+		key.hoverEnabled = globe->_hover;
+		key.hoverLongitude = globe->_hoverLon;
+		key.hoverLatitude = globe->_hoverLat;
+		key.craftRangeEnabled = globe->_craft;
+		key.craftLongitude = globe->_craftLon;
+		key.craftLatitude = globe->_craftLat;
+		key.craftRange = globe->_craftRange;
+		key.optionRadarLines = Options::globeRadarLines;
+		key.optionFlightPaths = Options::globeFlightPaths;
+		key.optionAllRadarsOnBaseBuild = Options::globeAllRadarsOnBaseBuild;
+		key.paletteGeneration = globe->_gpuRadarPaletteGeneration;
+		key.enemyRadarMode = (std::int64_t)globe->_game->getMod()->getDrawEnemyRadarCircles();
+		key.debugMode = globe->_game->getSavedGame()->getDebugMode();
+		key.dynamicSignature = calypsoBuildRadarFlightSignature(globe->_game->getSavedGame());
+		const Calypso::ColoredLinePrepareResult verdict = globe->_coloredLineCache.prepare(key);
+		if (instrumented)
 		{
-			globe->_gpuRadarFlightVertices[vertexIndex++] = (float)(2.0 * ((rect.x + line.x1 * xs) / displayW) - 1.0);
-			globe->_gpuRadarFlightVertices[vertexIndex++] = (float)-(2.0 * ((rect.y + line.y1 * ys) / displayH) - 1.0);
-			globe->_gpuRadarFlightVertices[vertexIndex++] = (float)(2.0 * ((rect.x + line.x2 * xs) / displayW) - 1.0);
-			globe->_gpuRadarFlightVertices[vertexIndex++] = (float)-(2.0 * ((rect.y + line.y2 * ys) / displayH) - 1.0);
+			++counters.radarFingerprintChecks;
+			if (verdict == Calypso::COLORED_LINE_CACHE_HIT) ++counters.radarCacheHits;
 		}
+		if (verdict != Calypso::COLORED_LINE_REBUILT)
+			return; /* Cache hit: reuse CPU commands and the uploaded VBO. */
+		/* Rebuild path: pack from the same frozen physical globe rectangle
+		 * used by Earth, markers, labels, and hit testing (SS15.10 risk 7).
+		 * Pure CPU work; the single upload/draw boundary stays inside
+		 * drawRadarFlightPass. */
+		Calypso::CalypsoGeoscapeColoredLineViewport viewport;
+		viewport.rectX = rect.x;
+		viewport.rectY = rect.y;
+		viewport.scaleX = key.sdlScaleX;
+		viewport.scaleY = key.sdlScaleY;
+		viewport.displayWidth = key.displayWidth;
+		viewport.displayHeight = key.displayHeight;
+		const size_t vertices = globe->_coloredLineBatch.packVertices(viewport);
+		if (vertices == static_cast<size_t>(-1))
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape radar/flight pack preflight exhausted capacity");
+		if (instrumented)
+		{
+			++counters.radarRebuilds;
+			counters.radarPreparedCommands += globe->_coloredLineBatch.commandCount();
+			counters.radarPreparedVertices += vertices;
+			counters.radarPrepareUs += (std::uint64_t)((SDL_GetPerformanceCounter() - prepareStart) * 1000000ull / SDL_GetPerformanceFrequency());
+		}
+	}
+
+	void CalypsoGeoscapeHdGlobeDirect::commitLabelIconSnapshot(Globe* globe)
+	{
+		if (!globe || !globe->_gpuDirectMode) return;
+		/* SS15.4.5: labels/icons publish exactly once per frame, here -- never
+		 * as a drawFlights() side effect -- so a radar/flight cache hit can
+		 * never freeze or erase label publication. */
+		globe->_gpuLabelIconPendingDraws.swap(globe->_gpuLabelIconCommittedDraws);
+		globe->_gpuLabelIconPendingDraws.clear();
+	}
+
+	void CalypsoGeoscapeHdGlobeDirect::drawRadarFlightPass(Globe* globe)
+	{
+		if (!globe || globe->_coloredLineBatch.vertexCount() == 0u || !globe->_directScreen) return;
+		if (!globe->_coloredLineResourcesReady || !globe->_coloredLineShader
+			|| !globe->_coloredLineShader->isValid())
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape coloured-line resources disappeared");
 		GlobeSphereGlSave st; st.save();
+		/* SS15.4.6: one state guard around the single upload/draw boundary.
+		 * Steady-state frames perform no capacity queries and no shader
+		 * metadata lookups here. */
 		CalypsoGeoscapeHdGlobeDirect::setPhysicalGlobeClip(globe);
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 		glLineWidth(1.0f);
-		globe->_borderShader->use();
-		glBindBuffer(GL_ARRAY_BUFFER, globe->_borderVBO);
-		glBufferSubData(GL_ARRAY_BUFFER, 0,
-			(GLsizeiptr)(globe->_gpuRadarFlightVertices.size() * sizeof(float)),
-			globe->_gpuRadarFlightVertices.data());
-		glBindVertexArray(globe->_borderVAO);
-		size_t begin = 0;
-		while (begin < globe->_gpuRadarFlightLines.size())
+		globe->_coloredLineShader->use();
+		Calypso::CalypsoGeoscapeRadarCounters& counters = Calypso::calypsoRadarCounters();
+		const bool instrumented = Calypso::calypsoRadarCountersEnabled();
+		/* SS15.4.2: an unchanged snapshot performs zero uploads; a context
+		 * restore reuploads the committed CPU snapshot exactly once. */
+		if (!globe->_coloredLineCache.uploadCurrent())
 		{
-			const Uint8 colorIndex = globe->_gpuRadarFlightLines[begin].color;
-			size_t end = begin + 1;
-			while (end < globe->_gpuRadarFlightLines.size()
-				&& globe->_gpuRadarFlightLines[end].color == colorIndex) ++end;
-			const SDL_Color color = palette[colorIndex];
-			globe->_borderShader->setUniform4f("u_color", color.r / 255.0f, color.g / 255.0f,
-				color.b / 255.0f, color.a / 255.0f);
-			glDrawArrays(GL_LINES, (GLint)(begin * 2u), (GLsizei)((end - begin) * 2u));
-			begin = end;
+			const Uint64 uploadStart = instrumented ? SDL_GetPerformanceCounter() : 0;
+			glBindBuffer(GL_ARRAY_BUFFER, globe->_coloredLineVBO);
+			glBufferSubData(GL_ARRAY_BUFFER, 0,
+				(GLsizeiptr)globe->_coloredLineBatch.packedVertexBytes(),
+				globe->_coloredLineBatch.packedVertices());
+			globe->_coloredLineCache.markUploaded();
+			if (instrumented)
+			{
+				++counters.radarUploads;
+				counters.radarUploadBytes += globe->_coloredLineBatch.packedVertexBytes();
+				counters.radarUploadUs += (std::uint64_t)((SDL_GetPerformanceCounter() - uploadStart) * 1000000ull / SDL_GetPerformanceFrequency());
+			}
 		}
+		const GLenum uploadError = glGetError();
+		glBindVertexArray(globe->_coloredLineVAO);
+		/* The literal contract: a non-empty snapshot is submitted by exactly
+		 * one WebGL draw call. No colour-run scan remains. */
+		glDrawArrays(GL_LINES, 0, (GLsizei)globe->_coloredLineBatch.vertexCount());
 		glBindVertexArray(0u);
-		if (glGetError() != GL_NO_ERROR)
-			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape radar/flight draw failed");
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		const GLenum drawError = glGetError();
 		st.restore();
+		if (instrumented)
+			++counters.radarDrawCalls;
+		if (uploadError != GL_NO_ERROR)
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
+				calypsoGlFailure("Geoscape coloured-line upload failed", uploadError));
+		if (drawError != GL_NO_ERROR)
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
+				calypsoGlFailure("Geoscape coloured-line draw failed", drawError));
 	}
 
 	void CalypsoGeoscapeHdGlobeDirect::drawDebugPass(Globe* globe)
@@ -2171,11 +2418,14 @@ bool Globe::initSphereGPU()
 		_borderVBO    = 0u;
 		_gpuBorderReady = false;
 		_gpuBorderCapacity = 0u;
-		_gpuRadarFlightCapacity = 0u;
 		_gpuDebugCapacity = 0u;
+		_coloredLineVAO = 0u;
+		_coloredLineVBO = 0u;
+		_coloredLineResourcesReady = false;
+		_coloredLineCache.notifyContextReset();
 		_gpuBorderCapacityExceeded = false;
-		_gpuRadarFlightCapacityExceeded = false;
 		_gpuDebugCapacityExceeded = false;
+		_gpuRadarFlightCapacityExceeded = false;
 		for (auto& entry : _gpuMarkerTextures) delete entry.texture;
 		_gpuMarkerTextures.clear();
 		++_gpuMarkerPaletteGeneration;
@@ -2512,6 +2762,10 @@ void Globe::draw()
 	}
 	drawMarkers();
 	drawDetail();
+#ifdef __EMSCRIPTEN__
+	if (_gpuDirectMode)
+		CalypsoGeoscapeHdGlobeDirect::commitLabelIconSnapshot(this);
+#endif
 }
 
 
@@ -2708,8 +2962,11 @@ void Globe::drawRadars()
 {
 	_radars->clear();
 #ifdef __EMSCRIPTEN__
-	if (_gpuDirectMode) _gpuRadarFlightLines.clear();
-	if (_gpuDirectMode) _gpuRadarFlightCapacityExceeded = false;
+	if (_gpuDirectMode)
+	{
+		_coloredLineBatch.clearCommands();
+		_gpuRadarFlightCapacityExceeded = false;
+	}
 #endif
 
 	if (!Options::globeRadarLines)
@@ -2718,6 +2975,11 @@ void Globe::drawRadars()
 	double tr, range;
 	double lat, lon;
 	std::vector<double> ranges;
+#ifdef __EMSCRIPTEN__
+	/* SS15.4.4: reserve the seen-range storage from the loaded facility count
+	 * before the hot path; canonicalization below never grows it. */
+	ranges.reserve(_game->getMod()->getBaseFacilitiesList().size());
+#endif
 
 	_radars->lock();
 
@@ -2733,12 +2995,28 @@ void Globe::drawRadars()
 
 	if (_hover)
 	{
+#ifdef __EMSCRIPTEN__
+		/* SS15.4.4 New Base canonicalization (permanent model cleanup): drop
+		 * non-positive ranges and keep the first occurrence of each exact
+		 * range in source order; distinct ranges stay visible. */
+		for (auto& facType : _game->getMod()->getBaseFacilitiesList())
+		{
+			ranges.push_back(Nautical(_game->getMod()->getBaseFacility(facType)->getRadarRange()));
+		}
+		const size_t distinctRanges = ranges.empty()
+			? 0u
+			: OpenXcom::Calypso::calypsoCanonicalizeHoverRanges(&ranges[0], ranges.size());
+		ranges.resize(distinctRanges);
+		for (size_t j = 0; j < ranges.size(); ++j)
+			drawGlobeCircle(_hoverLat, _hoverLon, ranges[j], 48);
+#else
 		for (auto& facType : _game->getMod()->getBaseFacilitiesList())
 		{
 			range = Nautical(_game->getMod()->getBaseFacility(facType)->getRadarRange());
 			drawGlobeCircle(_hoverLat,_hoverLon,range,48);
 			if (Options::globeAllRadarsOnBaseBuild) ranges.push_back(range);
 		}
+#endif
 	}
 
 	// Draw radars around bases
@@ -2942,13 +3220,6 @@ void Globe::drawDetail()
 
 	if (!Options::globeDetail)
 	{
-#ifdef __EMSCRIPTEN__
-		if (_gpuDirectMode)
-		{
-			_gpuLabelIconPendingDraws.swap(_gpuLabelIconCommittedDraws);
-			_gpuLabelIconPendingDraws.clear();
-		}
-#endif
 		return;
 	}
 
@@ -3375,13 +3646,8 @@ void Globe::drawFlights()
 		}
 	}
 
-#ifdef __EMSCRIPTEN__
-	if (_gpuDirectMode)
-	{
-		_gpuLabelIconPendingDraws.swap(_gpuLabelIconCommittedDraws);
-		_gpuLabelIconPendingDraws.clear();
-	}
-#endif
+	/* SS15.4.5: label/icon publication moved out of drawFlights(); it is
+	 * committed explicitly once per frame after drawDetail() records. */
 
 	// Unlock the surface
 	_radars->unlock();

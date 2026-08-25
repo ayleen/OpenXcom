@@ -10,6 +10,7 @@
  *   "colorquad"
  *   "cursor"
  *   "emissive_glow"
+ *   "geoscape_colored_lines"
  *   "globe_sphere"
  *   "hd_ui"
  *   "hd_ui_panel"

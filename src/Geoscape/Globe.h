@@ -30,6 +30,7 @@
 #include "Cord.h"
 #ifdef __EMSCRIPTEN__
 #  include "../Engine/Screen.h"
+#  include "../Calypso/CalypsoGeoscapeColoredLineBatch.h"
 #endif
 
 namespace OpenXcom
@@ -99,8 +100,6 @@ private:
 	 * production snapshot can only fail closed before Earth publication. */
 	static constexpr size_t GPU_BORDER_LINE_CAPACITY = 16384u;
 	static constexpr size_t GPU_BORDER_VERTEX_FLOAT_CAPACITY = 65536u;
-	static constexpr size_t GPU_RADAR_FLIGHT_LINE_CAPACITY = 16384u;
-	static constexpr size_t GPU_RADAR_FLIGHT_VERTEX_FLOAT_CAPACITY = 65536u;
 	static constexpr size_t GPU_DEBUG_LINE_CAPACITY = 16384u;
 	static constexpr size_t GPU_DEBUG_VERTEX_FLOAT_CAPACITY = 65536u;
 	static constexpr size_t GPU_LABEL_TEXTURE_CAPACITY = 1024u;
@@ -135,19 +134,18 @@ private:
 	std::vector<float> _gpuBorderVertices;
 	size_t _gpuBorderCapacity = 0;
 	bool _gpuBorderCapacityExceeded = false;
-	struct RadarFlightLine
-	{
-		double x1 = 0.0;
-		double y1 = 0.0;
-		double x2 = 0.0;
-		double y2 = 0.0;
-		Uint8 shade = 0;
-		Uint8 color = 0;
-	};
-	std::vector<RadarFlightLine> _gpuRadarFlightLines;
-	std::vector<float> _gpuRadarFlightVertices;
-	size_t _gpuRadarFlightCapacity = 0;
+	/* Phase 46.4 §15 P0: radar/flight geometry lives in a dedicated one-draw
+	 * coloured-line batch with its own VAO/VBO/shader and generation-separated
+	 * cache state; the historical shared border VBO and per-colour-run draws
+	 * are gone. Capacity refusal still fails closed through
+	 * _gpuRadarFlightCapacityExceeded before any publication. */
+	Calypso::CalypsoGeoscapeColoredLineBatchState _coloredLineBatch;
+	Calypso::CalypsoGeoscapeColoredLineCacheState _coloredLineCache;
 	bool _gpuRadarFlightCapacityExceeded = false;
+	unsigned  _coloredLineVAO     = 0u;
+	unsigned  _coloredLineVBO     = 0u;
+	Shader*   _coloredLineShader  = nullptr;
+	bool      _coloredLineResourcesReady = false;
 	struct DebugLine
 	{
 		float x1 = 0.f;
@@ -163,6 +161,9 @@ private:
 	bool _gpuLogicalWorldComplete = true;
 	std::uint64_t _gpuMarkerPaletteGeneration = 0;
 	std::uint64_t _gpuLabelPaletteGeneration = 0;
+	/* SS15.4.3: effective-palette generation feeding the radar/flight
+	 * snapshot key; bumped at the same palette boundary as markers. */
+	std::uint64_t _gpuRadarPaletteGeneration = 0;
 	struct MarkerTexture
 	{
 		Surface* frame = nullptr;

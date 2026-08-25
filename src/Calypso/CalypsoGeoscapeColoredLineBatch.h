@@ -310,6 +310,47 @@ private:
 	std::uint64_t _uploadedContextEpoch = 1u;
 };
 
+/// Default-off instrumentation snapshot (SS15.6). Plain POD, no heap.
+/// Increment sites pay one predictable branch per prepare/draw boundary;
+/// reset/read never mutate campaign, rendering, or input state. The
+/// process-global instance is what the loopback capability-gated JS export
+/// publishes; gpuEarthUs/gpuRadarUs carry asynchronous timer-query results,
+/// and a zero means no sample (unsupported or disjoint), never zero cost.
+struct CalypsoGeoscapeRadarCounters
+{
+	std::uint64_t frames;
+	std::uint64_t radarFingerprintChecks;
+	std::uint64_t radarCacheHits;
+	std::uint64_t radarRebuilds;
+	std::uint64_t radarPreparedCommands;
+	std::uint64_t radarPreparedVertices;
+	std::uint64_t radarUploads;
+	std::uint64_t radarUploadBytes;
+	std::uint64_t radarDrawCalls;
+	std::uint64_t radarPrepareUs;
+	std::uint64_t radarUploadUs;
+	std::uint64_t radarDrawSubmitUs;
+	std::uint64_t gpuEarthUs;
+	std::uint64_t gpuRadarUs;
+};
+
+/// One default-off gate for every instrumentation increment in production.
+inline bool& calypsoRadarCountersEnabledRef()
+{
+	static bool enabled = false;
+	return enabled;
+}
+
+inline bool calypsoRadarCountersEnabled() { return calypsoRadarCountersEnabledRef(); }
+inline void calypsoSetRadarCountersEnabled(bool on) { calypsoRadarCountersEnabledRef() = on; }
+
+/// Process-global counter storage (POD; zero-initialised).
+inline CalypsoGeoscapeRadarCounters& calypsoRadarCounters()
+{
+	static CalypsoGeoscapeRadarCounters counters = CalypsoGeoscapeRadarCounters();
+	return counters;
+}
+
 /// One New Base hover circle emission: centre plus exact range.
 struct CalypsoGeoscapeCenterRange
 {
