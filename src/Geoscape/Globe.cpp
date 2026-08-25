@@ -1295,6 +1295,8 @@ static Cord calypsoGlobeQaCord(const Calypso::GeoscapeQaVec3& v)
 		const int dispY = globeRect.y;
 		const int dispW = globeRect.w;
 		const int dispH = globeRect.h;
+		const Uint64 calypsoEarthStart = Calypso::calypsoPassTimersEnabled()
+			? SDL_GetPerformanceCounter() : 0;
 		GlobeSphereGlSave st; st.save();
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glViewport(dispX, (int)Options::displayHeight - dispY - dispH, dispW, dispH);
@@ -1343,12 +1345,40 @@ static Cord calypsoGlobeQaCord(const Calypso::GeoscapeQaVec3& v)
 		if (glGetError() != GL_NO_ERROR)
 			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape Earth draw failed");
 		st.restore();
+		if (calypsoEarthStart)
+			Calypso::calypsoPassTimers().earthUs +=
+				(Uint64)((SDL_GetPerformanceCounter() - calypsoEarthStart) * 1000000ull / SDL_GetPerformanceFrequency());
+		const Uint64 calypsoBorderStart = Calypso::calypsoPassTimersEnabled()
+			? SDL_GetPerformanceCounter() : 0;
+		/* SS15.4.6 consolidation (Option A): ONE state guard serves the border
+		 * and radar passes together; each previously snapshotted/restored the
+		 * same GL state every frame. */
+		GlobeSphereGlSave stLines; stLines.save();
+		CalypsoGeoscapeHdGlobeDirect::setPhysicalGlobeClip(globe);
 		CalypsoGeoscapeHdGlobeDirect::drawBorderPass(globe);
+		if (calypsoBorderStart)
+			Calypso::calypsoPassTimers().borderUs +=
+				(Uint64)((SDL_GetPerformanceCounter() - calypsoBorderStart) * 1000000ull / SDL_GetPerformanceFrequency());
+		const Uint64 calypsoRadarStart = Calypso::calypsoPassTimersEnabled()
+			? SDL_GetPerformanceCounter() : 0;
 		CalypsoGeoscapeHdGlobeDirect::prepareRadarFlightSnapshot(globe);
 		CalypsoGeoscapeHdGlobeDirect::drawRadarFlightPass(globe);
-		CalypsoGeoscapeHdGlobeDirect::drawLabelIconPass(globe);
+		if (calypsoRadarStart)
+			Calypso::calypsoPassTimers().radarUs +=
+				(Uint64)((SDL_GetPerformanceCounter() - calypsoRadarStart) * 1000000ull / SDL_GetPerformanceFrequency());
+		stLines.restore();
+		const Uint64 calypsoLabelStart = Calypso::calypsoPassTimersEnabled()
+			? SDL_GetPerformanceCounter() : 0;
+		if (calypsoLabelStart)
+			Calypso::calypsoPassTimers().labelUs +=
+				(Uint64)((SDL_GetPerformanceCounter() - calypsoLabelStart) * 1000000ull / SDL_GetPerformanceFrequency());
+		const Uint64 calypsoMarkerStart = Calypso::calypsoPassTimersEnabled()
+			? SDL_GetPerformanceCounter() : 0;
 		CalypsoGeoscapeHdGlobeDirect::drawDebugPass(globe);
 		CalypsoGeoscapeHdGlobeDirect::drawMarkerPass(globe);
+		if (calypsoMarkerStart)
+			Calypso::calypsoPassTimers().markerUs +=
+				(Uint64)((SDL_GetPerformanceCounter() - calypsoMarkerStart) * 1000000ull / SDL_GetPerformanceFrequency());
 	}
 
 	void CalypsoGeoscapeHdGlobeDirect::recordMarker(Globe* globe, Surface* frame, int x, int y, int shade)
@@ -1727,9 +1757,7 @@ static Cord calypsoGlobeQaCord(const Calypso::GeoscapeQaVec3& v)
 			globe->_gpuBorderVertices[vertexIndex++] = x2;
 			globe->_gpuBorderVertices[vertexIndex++] = y2;
 		}
-		GlobeSphereGlSave st; st.save();
-		CalypsoGeoscapeHdGlobeDirect::setPhysicalGlobeClip(globe);
-		glEnable(GL_BLEND);
+		/* Option A: state setup hoisted into the shared line-guard in drawPass. */
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 		glLineWidth(1.0f);
 		globe->_borderShader->use();
@@ -1741,7 +1769,6 @@ static Cord calypsoGlobeQaCord(const Calypso::GeoscapeQaVec3& v)
 		glBindVertexArray(0u);
 		if (glGetError() != GL_NO_ERROR)
 			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape border draw failed");
-		st.restore();
 	}
 
 	/* Attribute 0 = vec2 position; attribute 1 = four normalised unsigned
@@ -1985,11 +2012,10 @@ static std::uint64_t calypsoBuildRadarFlightSignature(SavedGame* save)
 		if (!globe->_coloredLineResourcesReady || !globe->_coloredLineShader
 			|| !globe->_coloredLineShader->isValid())
 			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape coloured-line resources disappeared");
-		GlobeSphereGlSave st; st.save();
-		/* SS15.4.6: one state guard around the single upload/draw boundary.
-		 * Steady-state frames perform no capacity queries and no shader
-		 * metadata lookups here. */
-		CalypsoGeoscapeHdGlobeDirect::setPhysicalGlobeClip(globe);
+		/* SS15.4.6: the single upload/draw boundary lives inside ONE shared
+		 * state guard owned by drawPass (border+radar), so steady-state frames
+		 * perform no capacity queries, no shader metadata lookups, and no
+		 * redundant state snapshots here. */
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 		glLineWidth(1.0f);
@@ -2021,7 +2047,6 @@ static std::uint64_t calypsoBuildRadarFlightSignature(SavedGame* save)
 		glBindVertexArray(0u);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 		const GLenum drawError = glGetError();
-		st.restore();
 		if (instrumented)
 			++counters.radarDrawCalls;
 		if (uploadError != GL_NO_ERROR)

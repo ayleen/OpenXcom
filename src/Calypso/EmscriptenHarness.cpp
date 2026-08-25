@@ -39,6 +39,7 @@
 #include "../Engine/Shader.h"
 #include "../Engine/GpuSmokeState.h"
 #include "CalypsoGeoscapeColoredLineBatch.h"
+#include "CalypsoPassTimers.h"
 #ifdef CALYPSO_HD_UNIT_SPIKE
 #include "HdUnitSpikeState.h"
 #include "HdUnitBattleSpike.h"
@@ -1588,6 +1589,24 @@ void *calypso_heap_probe()
 	probe.usedBytes = (std::uint64_t)info.uordblks;
 	probe.totalBytes = (std::uint64_t)info.arena;
 	return &probe;
+}
+
+/* Option A attribution probes: per-pass main-thread microseconds for the
+ * physical Geoscape frame. Same loopback capability gate as the radar
+ * counters; accumulation is one branch per pass boundary when enabled. */
+EMSCRIPTEN_KEEPALIVE
+int calypso_pass_timers_enable(int on)
+{
+	if (g_calypsoGeoscapeHdPreview == 0) return 0;
+	OpenXcom::Calypso::calypsoSetPassTimersEnabled(on != 0);
+	return OpenXcom::Calypso::calypsoPassTimersEnabled() ? 1 : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void *calypso_pass_timers()
+{
+	if (g_calypsoGeoscapeHdPreview == 0) return nullptr;
+	return &OpenXcom::Calypso::calypsoPassTimers();
 }
 
 } /* extern "C" */

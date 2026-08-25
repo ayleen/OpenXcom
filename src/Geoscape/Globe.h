@@ -31,6 +31,7 @@
 #ifdef __EMSCRIPTEN__
 #  include "../Engine/Screen.h"
 #  include "../Calypso/CalypsoGeoscapeColoredLineBatch.h"
+#  include "../Calypso/CalypsoPassTimers.h"
 #endif
 
 namespace OpenXcom

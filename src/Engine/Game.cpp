@@ -35,6 +35,7 @@
 #include "Screen.h"
 #ifdef __EMSCRIPTEN__
 #include "GpuInit.h"
+#include "../Calypso/CalypsoPassTimers.h"
 #endif
 #include "Sound.h"
 #include "Music.h"
@@ -494,7 +495,16 @@ bool Game::iterate()
 	if (_runningState != PAUSED)
 	{
 		// Process logic
+#ifdef __EMSCRIPTEN__
+		const Uint64 calypsoThinkStart = OpenXcom::Calypso::calypsoPassTimersEnabled()
+			? SDL_GetPerformanceCounter() : 0;
+#endif
 		_states.back()->think();
+#ifdef __EMSCRIPTEN__
+		if (calypsoThinkStart)
+			OpenXcom::Calypso::calypsoPassTimers().thinkUs +=
+				(Uint64)((SDL_GetPerformanceCounter() - calypsoThinkStart) * 1000000ull / SDL_GetPerformanceFrequency());
+#endif
 #ifdef __EMSCRIPTEN__
 		CalypsoTutorial::get().pump(this);
 		if (_fastMainLoopRequester != 0)
@@ -541,6 +551,10 @@ bool Game::iterate()
 			_fpsCounter->addFrame();
 			_screen->clear();
 #ifdef __EMSCRIPTEN__
+			const Uint64 calypsoBlitStart = OpenXcom::Calypso::calypsoPassTimersEnabled()
+				? SDL_GetPerformanceCounter() : 0;
+#endif
+#ifdef __EMSCRIPTEN__
 			// Phase 46.2-HD pre-blit boundary (A3): freeze metrics, advance the
 			// HD frame, and collect/raster/upload/commit the top state's adapter
 			// BEFORE any visible State::blit() so claimed widgets skip cleanly.
@@ -560,6 +574,15 @@ bool Game::iterate()
 			}
 			_fpsCounter->blit(_screen->getSurface());
 			_cursor->blit(_screen->getSurface());
+#ifdef __EMSCRIPTEN__
+			if (calypsoBlitStart)
+			{
+				OpenXcom::Calypso::calypsoPassTimers().blitUs +=
+					(Uint64)((SDL_GetPerformanceCounter() - calypsoBlitStart) * 1000000ull / SDL_GetPerformanceFrequency());
+			}
+			const Uint64 calypsoFlipStart = OpenXcom::Calypso::calypsoPassTimersEnabled()
+				? SDL_GetPerformanceCounter() : 0;
+#endif
 			// Semantic capture readiness keys on the flip() result: the serial
 			// must advance only when this iteration actually presented. The
 			// result is consumed only by the Emscripten hook below, hence
@@ -567,6 +590,9 @@ bool Game::iterate()
 			// flip() itself still runs on every platform.
 			[[maybe_unused]] const bool presented = _screen->flip();
 #ifdef __EMSCRIPTEN__
+			if (calypsoFlipStart)
+				OpenXcom::Calypso::calypsoPassTimers().flipUs +=
+					(Uint64)((SDL_GetPerformanceCounter() - calypsoFlipStart) * 1000000ull / SDL_GetPerformanceFrequency());
 			_fastMainLoopLastRenderMs = SDL_GetTicks();
 			calypsoRenderedThisIteration = true;
 			if (presented)
