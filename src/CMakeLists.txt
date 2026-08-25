@@ -986,6 +986,7 @@ if(NOT EMSCRIPTEN AND BUILD_TESTING)
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoGeoscapeHdLayoutTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoGeoscapeActionContractTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoGeoscapeHdSnapshotCacheTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoGeoscapeColoredLineBatchTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoGeoscapeMotionModelTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoGeoscapeQaPresentationTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoGeoscapeProjectionTest.cpp
