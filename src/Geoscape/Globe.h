@@ -112,8 +112,7 @@ private:
 	Shader*   _globeShader  = nullptr; // owned; created in initSphereGPU()
 	std::shared_ptr<bool> _gpuAliveFlag;   // M6: lifetime token for the ShaderManager reset callback
 	bool      _gpuResetCallbackRegistered = false;
-	bool      _gpuDirectAck = false;   // Stage 10.2.1: acknowledged opt-in request
-	bool      _gpuDirectMode = false;
+	bool      _gpuDirectMode = false;   // Stage 10.2.1: physical direct composite is live
 	Screen*   _directScreen  = nullptr;
 	ScreenWorldPassHandle _gpuWorldPass;
 	struct MarkerDraw
@@ -210,7 +209,8 @@ private:
 	void drawHDStarfield();
 	/// Renders the sphere via GPU and reads back pixels into this surface.
 	void drawSphereGPU();
-	/// Stage 10.2.1: physical-resolution direct composite (opt-in).
+	/// Stage 10.2.1: physical-resolution direct composite; activation flows
+	/// from the registered F16 hdUiFamilies route (diagnostic override aside).
 	/// Sun direction in the fixed world frame the shader uses.
 	Cord getSunDirectionWorld() const;
 #endif
@@ -233,6 +233,10 @@ private:
 	void XuLine(Surface* surface, Surface* src, double x1, double y1, double x2, double y2, int shade);
 	/// Draw line on globe surface.
 	void drawVHLine(Surface *surface, double lon1, double lat1, double lon2, double lat2, Uint8 color);
+	/// Draw the canonical debug country/region/mission-zone rectangles for one
+	/// debugType. Shared verbatim owner of the saved-game-debug gate and the
+	/// loopback-only Stage 13 QA capture switch.
+	void drawDebugRectangles(int debugType);
 	/// Draw flight path.
 	void drawPath(Surface *surface, double lon1, double lat1, double lon2, double lat2);
 	/// Draw target marker.
@@ -310,7 +314,9 @@ public:
 	/// Rotates the globe.
 	void rotate();
 	/// Draws the whole globe.
-	/// Stage 10.2.1: physical-resolution direct composite (opt-in).
+	/// Stage 10.2.1: enables or disables the physical-resolution direct
+	/// composite for this globe; canonical enablement flows from the
+	/// registered F16 hdUiFamilies route in GeoscapeState.
 	void setGpuDirect(bool on);
 
 	void draw() override;

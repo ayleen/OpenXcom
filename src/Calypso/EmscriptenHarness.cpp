@@ -63,6 +63,7 @@
 #include "../Menu/OptionsVideoState.h"
 #include "../Menu/OptionsBaseState.h"   // OptionsOrigin / OPT_MENU
 #include "CalypsoPrologueCampaign.h" // Phase 41 (commit 4.5): launchScriptedBattle
+#include "CalypsoGeoscapeQaPresentation.h" // Stage 13.2/13.3 loopback-only QA controls
 #include <GLES3/gl3.h>
 
 using namespace OpenXcom;
@@ -982,7 +983,11 @@ void calypso_set_profile_globe(int on)
 	g_calypsoProfileGlobe = on ? 1 : 0;
 }
 
-/* Phase 46.4 Stage 10.2.1 (Calypso): opt-in request for the GPU-direct globe * composite. Production stays 0; until the marker-layer migration lands the * engine acknowledges the request in the log and keeps the canonical path. */
+/* Phase 46.4 Stage 10.2.1 (Calypso): loopback DIAGNOSTIC override for the
+ * GPU-direct globe composite. Canonical activation flows from the registered
+ * F16 hdUiFamilies route in GeoscapeState; this export exists only so QA
+ * drivers can force the composite on or off outside the canonical route.
+ * Production code must never call it (see scripts/qa-geoscape-hd-canonical.mjs). */
 int g_calypsoGlobeGpuDirect = 0;
 
 EMSCRIPTEN_KEEPALIVE
@@ -991,14 +996,111 @@ void calypso_set_globe_gpu_direct(int on)
     g_calypsoGlobeGpuDirect = on ? 1 : 0;
 }
 
-/* Loopback-only Geoscape physical-shell preview. Canonical F16 remains off. */
+/* Loopback-only Geoscape physical-shell preview token. Canonical F16 is
+ * enabled through the registered hdUiFamilies rollout key; this flag is the
+ * loopback QA capability token for the calypso_qa_globe_* exports below: with
+ * it cleared they must all be no-ops, and clearing it resets the QA
+ * presentation struct so process-global fixture state can never leak into
+ * canonical production rendering. */
 int g_calypsoGeoscapeHdPreview = 0;
 
 EMSCRIPTEN_KEEPALIVE
 void calypso_set_geoscape_hd_preview(int on)
 {
 	g_calypsoGeoscapeHdPreview = on ? 1 : 0;
+	if (!g_calypsoGeoscapeHdPreview)
+	{
+		// Preview-disable path: reset through the internal helper directly;
+		// the calypso_qa_globe_reset export keeps its own token guard.
+		Calypso::calypsoGeoscapeQaResetPresentation(Calypso::calypsoGeoscapeQaPresentation());
+	}
 }
+
+/* Default-off harness-page capability: the JS shell raises this only on
+ * dedicated regression-harness pages (?harness=); ordinary browser play stays
+ * 0 and must never observe harness-page behaviour. */
+int g_calypsoHarnessPage = 0;
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_set_harness_page(int on)
+{
+	g_calypsoHarnessPage = on ? 1 : 0;
+}
+
+/* ---- Phase 46.4 Stage 13.2/13.3: loopback-only deterministic QA presentation
+ * controls for the Geoscape HD capture matrix (day/night/cloud/debug rows).
+ * State lives in Calypso::calypsoGeoscapeQaPresentation(); every default
+ * equals production. The JS shell applies these only on a loopback host
+ * outside harness pages (web/src/main.js `globeQa`), and none of them touch
+ * campaign, simulation, input, or ruleset state.
+ * Capability discipline: every export in this block (reset included) is a
+ * no-op unless g_calypsoGeoscapeHdPreview != 0 -- the preview toggle above is
+ * the single grantor of that capability. */
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_qa_globe_reset()
+{
+	if (g_calypsoGeoscapeHdPreview == 0) return;
+	Calypso::calypsoGeoscapeQaResetPresentation(Calypso::calypsoGeoscapeQaPresentation());
+}
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_qa_globe_freeze_presentation(double seconds)
+{
+	if (g_calypsoGeoscapeHdPreview == 0) return;
+	auto& qa = Calypso::calypsoGeoscapeQaPresentation();
+	qa.reducedMotion = false; // an explicit freeze releases the reduced-motion hold
+	qa.frozenClock = true;
+	qa.frozenSeconds = seconds > 0.0 ? seconds : 0.0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_qa_globe_live_presentation()
+{
+	if (g_calypsoGeoscapeHdPreview == 0) return;
+	auto& qa = Calypso::calypsoGeoscapeQaPresentation();
+	qa.frozenClock = false;
+	qa.reducedMotion = false;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_qa_globe_reduced_motion(int on)
+{
+	if (g_calypsoGeoscapeHdPreview == 0) return;
+	auto& qa = Calypso::calypsoGeoscapeQaPresentation();
+	qa.reducedMotion = on != 0;
+	if (qa.reducedMotion) qa.frozenClock = false; // reduced motion owns the clock
+}
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_qa_globe_sun(int mode)
+{
+	if (g_calypsoGeoscapeHdPreview == 0) return;
+	auto& qa = Calypso::calypsoGeoscapeQaPresentation();
+	switch (mode)
+	{
+	case 1: qa.sunMode = Calypso::GeoscapeQaSunMode::Daylight; break;
+	case 2: qa.sunMode = Calypso::GeoscapeQaSunMode::Night; break;
+	default: qa.sunMode = Calypso::GeoscapeQaSunMode::Live; break;
+	}
+}
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_qa_globe_clouds(int mode)
+{
+	if (g_calypsoGeoscapeHdPreview == 0) return;
+	auto& qa = Calypso::calypsoGeoscapeQaPresentation();
+	qa.cloudMode = mode == 1 ? Calypso::GeoscapeQaCloudMode::Hidden
+	                         : Calypso::GeoscapeQaCloudMode::Live;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_qa_globe_debug_geometry(int on)
+{
+	if (g_calypsoGeoscapeHdPreview == 0) return;
+	Calypso::calypsoGeoscapeQaPresentation().debugGeometryForced = on != 0;
+}
+
 
 /* Phase 11.0: opt-in CPU perf gate for Map::drawTerrain.
  * JS toggles via calypso_set_profile_battlescape(1); production stays 0. */

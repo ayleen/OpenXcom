@@ -170,8 +170,15 @@ public:
 	static void normalizeBrowserScales();
 	/// Apply one bridge-authorized canvas-size change (flip() resize path) as a
 	/// single reflow via the Calypso viewport bridge. Body lives in
-	/// src/Calypso/CalypsoBrowserScale.cpp (policy R3).
-	void reflowCanvasFallback(int canvasWidth, int canvasHeight);
+	/// src/Calypso/CalypsoBrowserScale.cpp (policy R3). Phase 46.4 10.2.9:
+	/// classifies the polled canvas through CalypsoBackingStorePolicy first --
+	/// only an exactly matching PENDING viewport notification adopts; any
+	/// other divergence is restored to Options::displayWidth/Height via the
+	/// Emscripten canvas-size API without adopting or reflowing layout.
+	/// Returns true when such a restoration happened -- the caller (flip)
+	/// must return false for that frame so the stale HD frame is never
+	/// presented.
+	bool reflowCanvasFallback(int canvasWidth, int canvasHeight);
 #endif
 };
 

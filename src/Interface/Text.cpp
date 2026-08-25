@@ -106,6 +106,11 @@ void Text::initText(Font *big, Font *small, Language *lang)
  */
 void Text::setText(const std::string &text)
 {
+#ifdef __EMSCRIPTEN__
+	// Calypso: only real content changes advance the monotonic generation so
+	// steady-state HD caches see a stable key (no per-frame churn, no reads).
+	if (_text != text) ++_calypsoTextGeneration;
+#endif
 	_text = text;
 	_font = _fontOrig;
 	processText();

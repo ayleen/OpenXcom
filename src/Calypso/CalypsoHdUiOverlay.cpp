@@ -150,8 +150,19 @@ void CalypsoHdUiOverlay::prepareFrame(int logicalWidth, int logicalHeight, const
 	{
 		if (a->topState() == topState) { active = a; break; }
 	}
+
+	// Fail-closed covered-state ownership (Stage 8/9 closure): a registered
+	// live-chrome adapter that is NOT the active top adapter still owns its
+	// reprojected logical shell while covered, so a blocking modal without its
+	// own adapter can never expose it. Blit-level only; input owners unchanged.
 	if (!active)
 	{
+		CalypsoHdLogicalSuppression covered;
+		for (const CalypsoHdFamilyAdapter* a : _adapters)
+			if (a != active && a->suppressWhenCovered())
+				a->collectLogicalSuppression(covered);
+		_logicalSuppressedWidgets = covered.widgets();
+
 		_activeAdapter = nullptr;
 		_retryableReadinessFrames = 0;
 		return;
@@ -162,14 +173,30 @@ void CalypsoHdUiOverlay::prepareFrame(int logicalWidth, int logicalHeight, const
 		_retryableReadinessFrames = 0;
 	}
 	CalypsoHdLogicalSuppression suppression;
+	// Covered adapters first, then the active adapter's own list (which may
+	// include lower-state chrome via the shared seams).
+	for (const CalypsoHdFamilyAdapter* a : _adapters)
+		if (a != active && a->suppressWhenCovered())
+			a->collectLogicalSuppression(suppression);
 	active->collectLogicalSuppression(suppression);
 	_logicalSuppressedWidgets = suppression.widgets();
+
+	// Stage 10.2.7: a post-restore frame whose physical presentation is still
+	// blocked is a bounded retryable warmup, not a route failure. The logical
+	// suppression installed above stays active (legacy widgets remain
+	// suppressed), and this frame takes no HD claims and draws nothing — the
+	// early return happens before any GPU work or claim commit. Exhausting the
+	// shared readiness budget stays a deterministic fail-closed outcome.
+	if (!_mayGoPhysical)
+	{
+		if (++_retryableReadinessFrames <= kRetryableReadinessFrameBudget)
+			return;
+		failHdRoute("physical presentation is blocked after context loss or restore");
+	}
 	if (!active->physicalReady())
 		failHdRoute("HD route is not physically ready");
 	if (!_frozenMetrics.valid())
 		failHdRoute("invalid presentation metrics");
-	if (!_mayGoPhysical)
-		failHdRoute("physical presentation is blocked after context loss or restore");
 
 	// The pre-blit GPU preparation (shader/VAO creation + texture uploads) touches
 	// GL state that SDL's renderer caches; bracket it in one state guard so the
@@ -251,6 +278,11 @@ void CalypsoHdUiOverlay::prepareFrame(int logicalWidth, int logicalHeight, const
 
 	_activeThisFrame = true;
 	_retryableReadinessFrames = 0;
+	if (_contextGen > 0 && _lastReadyContextGen != _contextGen)
+	{
+		Log(LOG_INFO) << "[HD] overlay frame ready after context restore generation=" << _contextGen;
+		_lastReadyContextGen = _contextGen;
+	}
 	if (active->suppressLogicalState())
 		_physicalStateThisFrame = topState;
 }

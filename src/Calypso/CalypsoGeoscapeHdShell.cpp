@@ -6,6 +6,7 @@
 #include "../Engine/Action.h"
 #include "../Geoscape/GeoscapeState.h"
 #include "CalypsoGeoscapeHdRuntime.h"
+#include "CalypsoGeoscapeActionContract.h"
 
 extern "C" int g_calypsoGeoscapeHdPreview;
 #include "CalypsoViewportRuntime.h"
@@ -52,46 +53,34 @@ Surface* CalypsoGeoscapeHdShell::resolveWidget(GeoscapeState* s, const std::stri
 
 namespace
 {
-	struct RowDef { const char* id; const char* labelKey; const char* availability; const char* route; };
-
-	bool rowAvailable(const RowDef& row, bool ironman)
+	/// Row availability from the shared route registry (audit §13 item 6):
+	/// the same gate vocabulary as the semantic recipe; no local row table.
+	bool rowAvailable(const char* availability, bool ironman)
 	{
-		if (std::string(row.availability) == "extended-links") return Options::oxceLinks;
-		if (std::string(row.availability) == "debug-only") return Options::debug;
-		if (std::string(row.availability) == "non-ironman")
+		if (availability == nullptr) return true;
+		if (std::string(availability) == "extended-links") return Options::oxceLinks;
+		if (std::string(availability) == "debug-only") return Options::debug;
+		if (std::string(availability) == "non-ironman")
 			return !ironman;
 		return true;
-	}
-
-	const std::vector<RowDef>& rowDefs()
-	{
-		static const std::vector<RowDef> rows = {
-			{ "drawer.funding", "STR_FUNDING", "extended-links", "funding" },
-			{ "drawer.tech-tree", "STR_TECH_TREE_VIEWER", "extended-links", "tech-tree" },
-			{ "drawer.global-research", "STR_GLOBAL_RESEARCH", "extended-links", "global-research" },
-			{ "drawer.global-production", "STR_GLOBAL_MANUFACTURE", "extended-links", "global-production" },
-			{ "drawer.global-containment", "STR_GLOBAL_ALIEN_CONTAINMENT", "extended-links", "global-containment" },
-			{ "drawer.ufo-tracker", "STR_UFO_TRACKER", "extended-links", "ufo-tracker" },
-			{ "drawer.pilot-experience", "STR_DAILY_PILOT_EXPERIENCE", "extended-links", "pilot-experience" },
-			{ "drawer.notes", "STR_NOTES", "extended-links", "notes" },
-			{ "drawer.music", "STR_SELECT_MUSIC_TRACK", "extended-links", "music" },
-			{ "drawer.debug", "STR_DEBUG", "extended-links", "debug" },
-			{ "drawer.quick-save", "STR_QUICK_SAVE", "non-ironman", "quick-save" },
-			{ "drawer.instant-save", "STR_INSTANT_SAVE", "non-ironman", "instant-save" },
-			{ "drawer.quick-load", "STR_QUICK_LOAD", "non-ironman", "quick-load" },
-		};
-		return rows;
 	}
 } // anonymous namespace
 
 struct CalypsoGeoscapeHdShellState
 {
 	Calypso::CalypsoGeoscapeHdDrawerState drawer;
+	// Reason-aware pause ledger (audit §13 item 1): user/drawer/session
+	// pauses are counted tokens; vanilla popup/dogfight/system reasons stay
+	// owned by GeoscapeState's own latch.
+	Calypso::GeoscapeTimePolicyState policy;
 	std::vector<std::pair<TextButton*, const char*>> rows;
 	TextButton* sessionChip = nullptr;
 	TextButton* pauseControl = nullptr;
 	TextButton* speedBeforeOpen = nullptr;
 	bool sessionWasFocused = false;
+	// Most recent authoritative system reason observed by the timeAdvance
+	// recompute hook; reused by HD pause operations between simulation ticks.
+	bool vanillaSystemReason = false;
 };
 
 const Surface* CalypsoGeoscapeHdShell::resolveLiveWidget(const GeoscapeState* s, const std::string& actionId)
@@ -189,23 +178,23 @@ const char* CalypsoGeoscapeHdShell::apply(GeoscapeState *s)
 	shell->pauseControl->setWidth(pause.w); shell->pauseControl->setHeight(pause.h);
 	shell->pauseControl->setVisible(true);
 	int deferred = 0;
-	for (const auto& def : rowDefs())
+	for (const auto& def : Calypso::calypsoGeoscapeHdLiveDrawerRows())
 	{
 		TextButton* row = nullptr;
 		for (auto& entry : shell->rows)
-			if (entry.second != nullptr && def.id == entry.second) { row = entry.first; break; }
+			if (entry.second != nullptr && std::string(def.actionId) == entry.second) { row = entry.first; break; }
 		if (row == nullptr)
 		{
 			row = new TextButton(320, 48, 0, 0);
 			row->onMouseClick((ActionHandler)&GeoscapeState::calypsoDrawerDispatch);
 			s->add(row, "button", "geoscape");
-			shell->rows.emplace_back(row, def.id);
+			shell->rows.emplace_back(row, def.actionId);
 		}
-		const auto r = projection.project(def.id);
+		const auto r = projection.project(def.actionId);
 		row->setX(r.x); row->setY(r.y); row->setWidth(r.w); row->setHeight(r.h);
 		row->setText(s->tr(def.labelKey));   // G-1: localized drawer labels
 		const bool ironman = s->_game->getSavedGame() != nullptr && s->_game->getSavedGame()->isIronman();
-		row->setVisible(shell->drawer.open && rowAvailable(def, ironman));
+		row->setVisible(shell->drawer.open && rowAvailable(def.availability, ironman));
 	}
 	Log(LOG_INFO) << "[HD] geoscape shell: layout=" << (wide ? "wide" : "compact") << " projected=" << projected << " drawer=" << (shell->drawer.open ? "open" : "closed");
 	return decision.reason;
@@ -218,9 +207,15 @@ void CalypsoGeoscapeHdShell::toggleDrawer(GeoscapeState *s)
 	{
 		shell->speedBeforeOpen = s->_timeSpeed;
 		shell->sessionWasFocused = shell->sessionChip != nullptr && shell->sessionChip->isFocused();
+		shell->drawer.open = true;
+		shell->policy.acquire(Calypso::GeoscapePauseReason::MoreDrawer);
 	}
-	shell->drawer.toggle(s->_pause);
-	s->_pause = shell->drawer.open ? true : shell->drawer.pauseBeforeOpen;
+	else
+	{
+		shell->drawer.open = false;
+		shell->policy.release(Calypso::GeoscapePauseReason::MoreDrawer);
+	}
+	syncPause(s, shell->vanillaSystemReason);
 	if (!shell->drawer.open && shell->speedBeforeOpen != nullptr)
 		s->_timeSpeed = shell->speedBeforeOpen;
 	if (!shell->drawer.open && shell->sessionChip != nullptr)
@@ -245,11 +240,49 @@ bool CalypsoGeoscapeHdShell::closeDrawer(GeoscapeState *s)
 		return false;
 	auto* shell = s->_calypsoHdShell;
 	shell->drawer.open = false;
-	s->_pause = shell->drawer.pauseBeforeOpen;
+	// Closing releases only the drawer's own reason token; a user, session,
+	// popup, dogfight, or system pause can never be resumed over it.
+	shell->policy.release(Calypso::GeoscapePauseReason::MoreDrawer);
+	syncPause(s, shell->vanillaSystemReason);
 	if (shell->speedBeforeOpen != nullptr) s->_timeSpeed = shell->speedBeforeOpen;
 	if (shell->sessionChip != nullptr) shell->sessionChip->setFocus(shell->sessionWasFocused);
 	apply(s);
 	return true;
+}
+
+/* Stage 8–9 closure: reason-aware explicit pause. The vanilla `_pause` latch
+ * stays the single gameplay gate; this only flips the User ledger token and
+ * re-derives the latch through the same recompute rule as timeAdvance. No
+ * destructive toggle of the latch remains anywhere in the shell. */
+void CalypsoGeoscapeHdShell::togglePause(GeoscapeState *s)
+{
+	auto* shell = state(s);
+	shell->policy.toggleUser();
+	syncPause(s, shell->vanillaSystemReason);
+}
+
+void CalypsoGeoscapeHdShell::syncPause(GeoscapeState *s, bool systemReason)
+{
+	auto* shell = state(s);
+	shell->vanillaSystemReason = systemReason;
+	s->_pause = Calypso::calypsoGeoscapeEffectivePause(systemReason, shell->policy);
+}
+
+bool CalypsoGeoscapeHdShell::effectivePause(const GeoscapeState *s)
+{
+	if (s == nullptr) return false;
+	const auto* shell = s->_calypsoHdShell;
+	if (shell == nullptr) return s->_pause;
+	// The derived `_pause` latch must never be re-fed as a system input: it
+	// already includes ledger tokens and vanilla writes, so using it here
+	// would make every pause sticky. The last authoritative system reason
+	// observed by timeAdvance is the only system side of the OR.
+	return Calypso::calypsoGeoscapeEffectivePause(shell->vanillaSystemReason, shell->policy);
+}
+
+bool CalypsoGeoscapeHdShell::isDrawerOpen(const GeoscapeState *s)
+{
+	return s != nullptr && s->_calypsoHdShell != nullptr && s->_calypsoHdShell->drawer.open;
 }
 
 void CalypsoGeoscapeHdShell::destroy(GeoscapeState *s)
@@ -265,46 +298,48 @@ void GeoscapeState::calypsoToggleDrawer(Action *)
 	CalypsoGeoscapeHdShell::toggleDrawer(this);
 }
 
+/* Stage 8–9 closure: `time.pause` is a counted User ledger token synced into
+ * the authoritative latch — no destructive latch flip remains anywhere. */
 void GeoscapeState::calypsoTogglePause(Action *)
 {
-	_pause = !_pause;
+	CalypsoGeoscapeHdShell::togglePause(this);
 }
 
 void GeoscapeState::calypsoDrawerDispatch(Action *action)
 {
 	if (action == nullptr) return;
-	const char* route = nullptr;
+	const char* actionId = nullptr;
 	const auto* shell = _calypsoHdShell;
 	if (shell != nullptr)
 	{
 		for (const auto& entry : shell->rows)
 			if (entry.first == action->getSender())
 			{
-				for (const auto& def : rowDefs())
-					if (def.id == entry.second) { route = def.route; break; }
+				actionId = entry.second;
 				break;
 			}
 	}
-	if (route == nullptr) return;
+	if (actionId == nullptr) return;
 	CalypsoGeoscapeHdShell::closeDrawer(this);
-	if (std::string(route) == "funding") return calypsoDrawerFunding(action);
-	if (std::string(route) == "tech-tree") return btnTechTreeViewerClick(action);
-	if (std::string(route) == "global-research") return btnGlobalResearchClick(action);
-	if (std::string(route) == "global-production") return btnGlobalProductionClick(action);
-	if (std::string(route) == "global-containment") return btnGlobalAlienContainmentClick(action);
-	if (std::string(route) == "ufo-tracker") return btnUfoTrackerClick(action);
-	if (std::string(route) == "pilot-experience") return btnDogfightExperienceClick(action);
-	if (std::string(route) == "notes") return calypsoDrawerNotes(action);
-	if (std::string(route) == "music") return btnSelectMusicTrackClick(action);
-	if (std::string(route) == "debug")
+	const std::string id(actionId);
+	if (id == "drawer.funding") return calypsoDrawerFunding(action);
+	if (id == "drawer.tech-tree") return btnTechTreeViewerClick(action);
+	if (id == "drawer.global-research") return btnGlobalResearchClick(action);
+	if (id == "drawer.global-production") return btnGlobalProductionClick(action);
+	if (id == "drawer.global-containment") return btnGlobalAlienContainmentClick(action);
+	if (id == "drawer.ufo-tracker") return btnUfoTrackerClick(action);
+	if (id == "drawer.pilot-experience") return btnDogfightExperienceClick(action);
+	if (id == "drawer.notes") return calypsoDrawerNotes(action);
+	if (id == "drawer.music") return btnSelectMusicTrackClick(action);
+	if (id == "drawer.debug")
 	{
 		if (Options::debug) btnDebugClick(action);
 		else _game->pushState(new TestState);
 		return;
 	}
-	if (std::string(route) == "quick-save") return calypsoDrawerQuickSave(action);
-	if (std::string(route) == "instant-save") return calypsoDrawerInstantSave(action);
-	if (std::string(route) == "quick-load") return calypsoDrawerQuickLoad(action);
+	if (id == "drawer.quick-save") return calypsoDrawerQuickSave(action);
+	if (id == "drawer.instant-save") return calypsoDrawerInstantSave(action);
+	if (id == "drawer.quick-load") return calypsoDrawerQuickLoad(action);
 }
 
 

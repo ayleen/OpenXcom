@@ -110,6 +110,9 @@ public:
 	bool mayGoPhysical() const { return _mayGoPhysical; }
 	bool resourcesReadyForFrame() const;
 	std::uint64_t frameId() const { return _controller.frameId(); }
+	/// Monotonic GL context generation (bumped on every restore). Consumers
+	/// such as the live model snapshot cache key their caches by it.
+	std::uint64_t contextGeneration() const { return _contextGen; }
 
 	/// True once a subgroup (or the harness) committed physical output this
 	/// frame. Derived per frame; never sticky (A7).
@@ -223,6 +226,9 @@ private:
 	CalypsoLruByteBudget _textTexLru{ 16u * 1024u * 1024u };
 	std::uint64_t _texNextHandle = 1;
 	std::uint64_t _contextGen = 0;
+	// Context generation at which the last successful HD frame was prepared;
+	// drives the one-shot "ready after context restore" log line.
+	std::uint64_t _lastReadyContextGen = 0;
 	// Handles resolved THIS frame (referenced by _drawItems); never evicted/freed
 	// mid-frame so a later resolve can't dangle an already-queued texture
 	// (remediation Fable #3). Cleared each beginFrame.

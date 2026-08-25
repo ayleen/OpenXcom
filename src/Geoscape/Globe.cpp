@@ -54,6 +54,7 @@
 #include "../Interface/Cursor.h"
 #include "../Engine/Screen.h"
 #include "../Calypso/CalypsoGeoscapeProjection.h"
+#include "../Calypso/CalypsoGeoscapeQaPresentation.h"
 #include <limits>
 #include <new>
 #ifdef __EMSCRIPTEN__
@@ -79,6 +80,7 @@ extern "C" int g_calypsoProfileGlobe;
 extern "C" int g_calypsoGlobeGpuDirect;
 extern "C" int calypso_context_reset_sentinel_pending(void);
 extern "C" void calypso_context_reset_sentinel_consumed(void);
+extern "C" void calypso_context_reset_boundary_close(void);
 #endif
 
 #include "../Calypso/CalypsoGeoscapeHdGlobeDirect.h"
@@ -1181,13 +1183,59 @@ static GLenum calypsoOwnedResetError()
 	/* The browser can defer the reset token until the first physical-world
 	 * query, after Screen's SDL-flush query has already drained an earlier
 	 * token. Consume it only when the reset-boundary observer transferred the
-	 * one-shot ownership; the same numeric value later is a real pass error. */
+	 * one-shot ownership; consuming it also ends the bounded ownership window
+	 * at this boundary. The same numeric value later is a real pass error. */
 	if (error == CALYPSO_CONTEXT_LOST_WEBGL && calypso_context_reset_sentinel_pending())
 	{
 		calypso_context_reset_sentinel_consumed();
+		calypso_context_reset_boundary_close();
 		return GL_NO_ERROR;
 	}
 	return error;
+}
+
+/* Stage 13 QA (loopback-only): 1x1 fully transparent cloud input used when a
+ * capture row selects GeoscapeQaCloudMode::Hidden. The existing shader derives
+ * cloud density from the alpha channel, so alpha 0 renders zero clouds with no
+ * shader change. GpuTexture registers itself with ShaderManager, so context
+ * loss/reupload stays owned by the existing recovery machinery. Never created
+ * unless the QA export switched the cloud input away from Live; production
+ * always binds the mod clouds texture. */
+static GpuTexture* calypsoGlobeQaHiddenCloudsTexture()
+{
+	static GpuTexture* tex = nullptr;
+	if (tex == nullptr)
+	{
+		tex = new GpuTexture(/*srgb=*/false);
+		const std::uint8_t transparent[4] = { 0, 0, 0, 0 };
+		tex->uploadRGBA(transparent, 1, 1);
+	}
+	return tex;
+}
+
+/* Stage 13 QA (loopback-only): shared seam helpers for BOTH globe passes
+ * (readback Globe::drawSphereGPU() and direct drawPass()). With every control
+ * at its production default each helper returns its input unchanged, so the
+ * live paths keep their exact existing math and texture bindings. */
+
+/* Effective decorative milliseconds for the shader clocks (`u_time`): a
+ * frozen or reduced-motion capture row replaces ONLY the millisecond source
+ * through calypsoGeoscapeQaPresentationSeconds() (live seconds =
+ * SDL_GetTicks() * 0.001); the callers' uniform expressions keep their exact
+ * production form. */
+static float calypsoGlobeQaEffectiveMs(float liveMs)
+{
+	const auto& qa = Calypso::calypsoGeoscapeQaPresentation();
+	if (!qa.frozenClock && !qa.reducedMotion) return liveMs;
+	return (float)(Calypso::calypsoGeoscapeQaPresentationSeconds(qa, liveMs * 0.001) * 1000.0);
+}
+
+/* GeoscapeQaVec3 -> shader-world Cord conversion for the deterministic
+ * day/night rows produced by calypsoGeoscapeQaSunDirection(). Live rows never
+ * reach this helper; they keep the verbatim getSunDirectionWorld() call. */
+static Cord calypsoGlobeQaCord(const Calypso::GeoscapeQaVec3& v)
+{
+	return Cord(v.x, v.y, v.z);
 }
 
 	void CalypsoGeoscapeHdGlobeDirect::drawPass(Globe* globe)
@@ -1252,7 +1300,19 @@ static GLenum calypsoOwnedResetError()
 		bathyTex->bind(0);   globe->_globeShader->setUniform1i("u_bathymetry", 0);
 		diffuseTex->bind(1); globe->_globeShader->setUniform1i("u_diffuse", 1);
 		nightTex->bind(2);   globe->_globeShader->setUniform1i("u_night", 2);
-		cloudsTex->bind(3);  globe->_globeShader->setUniform1i("u_clouds", 3);
+		/* Stage 13 QA (loopback-only): capture rows may bind a transparent
+		 * cloud input; production always samples the mod clouds texture.
+		 * Hidden allocates/uploads its persistent 1x1 input once on mode
+		 * entry and reuses it steady-state; context loss re-creates it via
+		 * the existing ShaderManager recovery path. */
+		GpuTexture* cloudsBound = cloudsTex;
+		const auto& qa = Calypso::calypsoGeoscapeQaPresentation();
+		if (qa.cloudMode == Calypso::GeoscapeQaCloudMode::Hidden)
+		{
+			if (!calypsoGlobeQaHiddenCloudsTexture()->isValid()) cloudsBound = cloudsTex;
+			else cloudsBound = calypsoGlobeQaHiddenCloudsTexture();
+		}
+		cloudsBound->bind(3); globe->_globeShader->setUniform1i("u_clouds", 3);
 		globe->_globeShader->setUniform1i("u_background", 1);
 		globe->_globeShader->setUniform2f("u_viewportSize", (float)dispW, (float)dispH);
 		globe->_globeShader->setUniform2f("u_globeCenter", (float)(globe->_cenX * xs), (float)(globe->_cenY * ys));
@@ -1260,8 +1320,16 @@ static GLenum calypsoOwnedResetError()
 		globe->_globeShader->setUniform1f("u_camLat", (float)globe->_cenLat);
 		globe->_globeShader->setUniform1f("u_camLon", (float)globe->_cenLon);
 		Cord sd = globe->getSunDirectionWorld();
+		/* Stage 13 QA (loopback-only): deterministic day/night rows replace the
+		 * fed value only; campaign time is never read or mutated. */
+		if (qa.sunMode != Calypso::GeoscapeQaSunMode::Live)
+			sd = calypsoGlobeQaCord(Calypso::calypsoGeoscapeQaSunDirection(qa.sunMode, globe->_cenLon, globe->_cenLat));
 		globe->_globeShader->setUniform3f("u_sunDir", (float)sd.x, (float)sd.y, (float)sd.z);
-		globe->_globeShader->setUniform1f("u_time", (float)SDL_GetTicks() * 0.001f);
+		/* Stage 13 QA (loopback-only): fixed/reduced decorative clock for the
+		 * cloud drift. Production keeps its exact expression when no QA
+		 * control is active. */
+		float timeMs = calypsoGlobeQaEffectiveMs((float)SDL_GetTicks());
+		globe->_globeShader->setUniform1f("u_time", timeMs * 0.001f);
 		float mipLvl = std::max(0.f, std::min(1.35f, 1.35f - (float)globe->_zoom * 0.27f));
 		globe->_globeShader->setUniform1f("u_mipLevel", mipLvl);
 		glBindVertexArray(globe->_sphereVAO);
@@ -2191,8 +2259,18 @@ void Globe::drawHDStarfield()
 	}
 
 	/* Deterministic sparse stars: bright enough to give the globe a space
-	 * setting, sparse enough to avoid fighting Geoscape labels and markers. */
-	const float twinkleTime = (float)SDL_GetTicks() * 0.0017f;
+	 * setting, sparse enough to avoid fighting Geoscape labels and markers.
+	 *
+	 * Stage 13 QA (loopback-only): freeze/reduced-motion replace ONLY the
+	 * twinkle clock's millisecond source (liveSeconds = SDL_GetTicks()*0.001,
+	 * resolved through calypsoGeoscapeQaPresentationSeconds(); twinkleTime is
+	 * that value scaled by 1.7). With defaults the expression below stays
+	 * exactly the production SDL_GetTicks() * 0.0017f math. */
+	float twinkleMs = (float)SDL_GetTicks();
+	const auto& qa = Calypso::calypsoGeoscapeQaPresentation();
+	if (qa.frozenClock || qa.reducedMotion)
+		twinkleMs = (float)(Calypso::calypsoGeoscapeQaPresentationSeconds(qa, twinkleMs * 0.001) * 1000.0);
+	const float twinkleTime = twinkleMs * 0.0017f;
 	for (unsigned i = 0; i < 125; ++i)
 	{
 		unsigned n = i * 747796405u + 2891336453u;
@@ -2236,11 +2314,6 @@ void Globe::drawSphereGPU()
 		 * composite, so do not paint an early duplicate here. */
 		return;
 	}
-	if (::g_calypsoGlobeGpuDirect != 0 && !_gpuDirectAck)
-	{
-		_gpuDirectAck = true;
-		Log(LOG_WARNING) << "Globe: gpu-direct composite requested; marker-layer migration (Stage 10.2.1) pending - staying on canonical readback";
-	}
 
 	Mod* mod = _game->getMod();
 	GpuTexture* bathyTex   = mod->getGlobeTexture("bathymetry");
@@ -2248,6 +2321,10 @@ void Globe::drawSphereGPU()
 	GpuTexture* nightTex   = mod->getGlobeTexture("night");
 	GpuTexture* cloudsTex  = mod->getGlobeTexture("clouds");
 	if (!bathyTex || !diffuseTex || !nightTex || !cloudsTex) return;
+
+	/* Stage 13 QA (loopback-only): loopback capture controls; every field
+	 * defaults to the production inputs consumed below. */
+	const auto& qa = Calypso::calypsoGeoscapeQaPresentation();
 
 	int w = 0, h = 0; CalypsoGeoscapeHdGlobeDirect::computeSphereRes(this, w, h);
 
@@ -2277,7 +2354,16 @@ void Globe::drawSphereGPU()
 	bathyTex ->bind(0);
 	diffuseTex->bind(1);
 	nightTex ->bind(2);
-	cloudsTex ->bind(3);
+	/* Stage 13 QA (loopback-only): capture rows may bind the persistent
+	 * transparent 1x1 input; production always samples the mod clouds
+	 * texture, and an upload failure falls back to it identically. */
+	GpuTexture* cloudsBound = cloudsTex;
+	if (qa.cloudMode == Calypso::GeoscapeQaCloudMode::Hidden)
+	{
+		if (!calypsoGlobeQaHiddenCloudsTexture()->isValid()) cloudsBound = cloudsTex;
+		else cloudsBound = calypsoGlobeQaHiddenCloudsTexture();
+	}
+	cloudsBound->bind(3);
 	_globeShader->setUniform1i("u_bathymetry", 0);
 	_globeShader->setUniform1i("u_diffuse",    1);
 	_globeShader->setUniform1i("u_night",      2);
@@ -2293,10 +2379,15 @@ void Globe::drawSphereGPU()
 
 	/* Sun direction in world frame (8c.5 fix: was camera-relative, now world frame). */
 	Cord sd = getSunDirectionWorld();
+	/* Stage 13 QA (loopback-only): deterministic day/night rows replace the
+	 * fed value only; campaign time is never read or mutated. */
+	if (qa.sunMode != Calypso::GeoscapeQaSunMode::Live)
+		sd = calypsoGlobeQaCord(Calypso::calypsoGeoscapeQaSunDirection(qa.sunMode, _cenLon, _cenLat));
 	_globeShader->setUniform3f("u_sunDir", (float)sd.x, (float)sd.y, (float)sd.z);
 
 	/* Cloud drift time. */
-	_globeShader->setUniform1f("u_time", (float)SDL_GetTicks() * 0.001f);
+	float timeMs = calypsoGlobeQaEffectiveMs((float)SDL_GetTicks());
+	_globeShader->setUniform1f("u_time", timeMs * 0.001f);
 
 	/* Mip level curve: keep the overview detailed enough that land does not
 	 * read as a low-res smear; the globe is small, but 1k mips are too soft. */
@@ -3059,96 +3150,22 @@ void Globe::drawDetail()
 
 	int& debugType = _game->getSavedGame()->debugType;
 	static bool canSwitchDebugType = false;
+	/* Stage 13 QA (loopback-only): the loopback capture switch can ADD debug
+	 * geometry presentation while the save is non-debug. The saved-game debug
+	 * mode stays the sole canonical owner: nothing below mutates SavedGame,
+	 * and forced-on neither suppresses nor rewrites canonical bookkeeping. */
+	const bool qaDebugGeometry =
+		Calypso::calypsoGeoscapeQaDebugGeometry(Calypso::calypsoGeoscapeQaPresentation(), false);
 	if (_game->getSavedGame()->getDebugMode())
 	{
-#ifdef __EMSCRIPTEN__
-		/* Direct mode records these existing debug owners into the physical
-		 * world batch through drawVHLine(); direct-off remains SDL-native. */
-#endif
-		int color;
 		canSwitchDebugType = true;
-		if (debugType == 0)
-		{
-			color = 0;
-			for (auto* country : *_game->getSavedGame()->getCountries())
-			{
-				if (_game->getSavedGame()->debugCountry && _game->getSavedGame()->debugCountry != country)
-					continue;
-
-				color += 10;
-				for (size_t k = 0; k != country->getRules()->getLatMax().size(); ++k)
-				{
-					double lon2 = country->getRules()->getLonMax().at(k);
-					double lon1 = country->getRules()->getLonMin().at(k);
-					double lat2 = country->getRules()->getLatMax().at(k);
-					double lat1 = country->getRules()->getLatMin().at(k);
-
-					drawVHLine(_countries, lon1, lat1, lon2, lat1, color);
-					drawVHLine(_countries, lon1, lat2, lon2, lat2, color);
-					drawVHLine(_countries, lon1, lat1, lon1, lat2, color);
-					drawVHLine(_countries, lon2, lat1, lon2, lat2, color);
-				}
-			}
-		}
-		else if (debugType == 1)
-		{
-			color = 0;
-			for (auto* region : *_game->getSavedGame()->getRegions())
-			{
-				if (_game->getSavedGame()->debugRegion && _game->getSavedGame()->debugRegion != region)
-					continue;
-
-				color += 10;
-				for (size_t k = 0; k != region->getRules()->getLatMax().size(); ++k)
-				{
-					double lon2 = region->getRules()->getLonMax().at(k);
-					double lon1 = region->getRules()->getLonMin().at(k);
-					double lat2 = region->getRules()->getLatMax().at(k);
-					double lat1 = region->getRules()->getLatMin().at(k);
-
-					drawVHLine(_countries, lon1, lat1, lon2, lat1, color);
-					drawVHLine(_countries, lon1, lat2, lon2, lat2, color);
-					drawVHLine(_countries, lon1, lat1, lon1, lat2, color);
-					drawVHLine(_countries, lon2, lat1, lon2, lat2, color);
-				}
-			}
-		}
-		else if (debugType == 2)
-		{
-			for (auto* region : *_game->getSavedGame()->getRegions())
-			{
-				if (_game->getSavedGame()->debugRegion && _game->getSavedGame()->debugRegion != region)
-					continue;
-
-				color = -1;
-				size_t zoneNumber = 0;
-				for (const auto& missionZone : region->getRules()->getMissionZones())
-				{
-					++zoneNumber;
-					if (_game->getSavedGame()->debugZone > 0 && _game->getSavedGame()->debugZone != zoneNumber)
-						continue;
-
-					color += 2;
-					size_t areaNumber = 0;
-					for (const auto& missionArea : missionZone.areas)
-					{
-						++areaNumber;
-						if (_game->getSavedGame()->debugArea > 0 && _game->getSavedGame()->debugArea != areaNumber)
-							continue;
-
-						double lon2 = missionArea.lonMax;
-						double lon1 = missionArea.lonMin;
-						double lat2 = missionArea.latMax;
-						double lat1 = missionArea.latMin;
-
-						drawVHLine(_countries, lon1, lat1, lon2, lat1, color);
-						drawVHLine(_countries, lon1, lat2, lon2, lat2, color);
-						drawVHLine(_countries, lon1, lat1, lon1, lat2, color);
-						drawVHLine(_countries, lon2, lat1, lon2, lat2, color);
-					}
-				}
-			}
-		}
+		drawDebugRectangles(debugType);
+	}
+	else if (qaDebugGeometry)
+	{
+		/* Presentation-only QA arm: same canonical rectangle owner, zero
+		 * campaign bookkeeping. */
+		drawDebugRectangles(debugType);
 	}
 	else
 	{
@@ -3157,6 +3174,101 @@ void Globe::drawDetail()
 			++debugType;
 			if (debugType > 2) debugType = 0;
 			canSwitchDebugType = false;
+		}
+	}
+}
+
+/**
+ * Draws the canonical debug country/region/mission-zone rectangles for one
+ * debugType. Shared verbatim owner of the saved-game-debug gate and the
+ * loopback-only Stage 13 QA capture switch: callers decide visibility, this
+ * function only draws and never touches SavedGame state.
+ * Direct mode records these existing debug owners into the physical world
+ * batch through drawVHLine(); direct-off remains SDL-native.
+ */
+void Globe::drawDebugRectangles(int debugType)
+{
+	int color;
+	if (debugType == 0)
+	{
+		color = 0;
+		for (auto* country : *_game->getSavedGame()->getCountries())
+		{
+			if (_game->getSavedGame()->debugCountry && _game->getSavedGame()->debugCountry != country)
+				continue;
+
+			color += 10;
+			for (size_t k = 0; k != country->getRules()->getLatMax().size(); ++k)
+			{
+				double lon2 = country->getRules()->getLonMax().at(k);
+				double lon1 = country->getRules()->getLonMin().at(k);
+				double lat2 = country->getRules()->getLatMax().at(k);
+				double lat1 = country->getRules()->getLatMin().at(k);
+
+				drawVHLine(_countries, lon1, lat1, lon2, lat1, color);
+				drawVHLine(_countries, lon1, lat2, lon2, lat2, color);
+				drawVHLine(_countries, lon1, lat1, lon1, lat2, color);
+				drawVHLine(_countries, lon2, lat1, lon2, lat2, color);
+			}
+		}
+	}
+	else if (debugType == 1)
+	{
+		color = 0;
+		for (auto* region : *_game->getSavedGame()->getRegions())
+		{
+			if (_game->getSavedGame()->debugRegion && _game->getSavedGame()->debugRegion != region)
+				continue;
+
+			color += 10;
+			for (size_t k = 0; k != region->getRules()->getLatMax().size(); ++k)
+			{
+				double lon2 = region->getRules()->getLonMax().at(k);
+				double lon1 = region->getRules()->getLonMin().at(k);
+				double lat2 = region->getRules()->getLatMax().at(k);
+				double lat1 = region->getRules()->getLatMin().at(k);
+
+				drawVHLine(_countries, lon1, lat1, lon2, lat1, color);
+				drawVHLine(_countries, lon1, lat2, lon2, lat2, color);
+				drawVHLine(_countries, lon1, lat1, lon1, lat2, color);
+				drawVHLine(_countries, lon2, lat1, lon2, lat2, color);
+			}
+		}
+	}
+	else if (debugType == 2)
+	{
+		for (auto* region : *_game->getSavedGame()->getRegions())
+		{
+			if (_game->getSavedGame()->debugRegion && _game->getSavedGame()->debugRegion != region)
+				continue;
+
+			color = -1;
+			size_t zoneNumber = 0;
+			for (const auto& missionZone : region->getRules()->getMissionZones())
+			{
+				++zoneNumber;
+				if (_game->getSavedGame()->debugZone > 0 && _game->getSavedGame()->debugZone != zoneNumber)
+					continue;
+
+				color += 2;
+				size_t areaNumber = 0;
+				for (const auto& missionArea : missionZone.areas)
+				{
+					++areaNumber;
+					if (_game->getSavedGame()->debugArea > 0 && _game->getSavedGame()->debugArea != areaNumber)
+						continue;
+
+					double lon2 = missionArea.lonMax;
+					double lon1 = missionArea.lonMin;
+					double lat2 = missionArea.latMax;
+					double lat1 = missionArea.latMin;
+
+					drawVHLine(_countries, lon1, lat1, lon2, lat1, color);
+					drawVHLine(_countries, lon1, lat2, lon2, lat2, color);
+					drawVHLine(_countries, lon1, lat1, lon1, lat2, color);
+					drawVHLine(_countries, lon2, lat1, lon2, lat2, color);
+				}
+			}
 		}
 	}
 }

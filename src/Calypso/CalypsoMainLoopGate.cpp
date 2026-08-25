@@ -197,10 +197,13 @@ int calypso_context_reset_sentinel_pending(void)
 
 void calypso_context_reset_sentinel_observed(void)
 {
+	/* Stage 10.2.7: transfer one-shot ownership only. The bounded window stays
+	 * open across the reset transaction and into the first presented chain;
+	 * closure belongs exclusively to the explicit boundary_close() owners
+	 * (an owned-token consume or the end-of-chain close in Screen::flip). */
 	if (s_calypsoResetBoundaryOpen)
 	{
 		s_calypsoResetSentinelPending = 1;
-		s_calypsoResetBoundaryOpen = 0;
 	}
 }
 

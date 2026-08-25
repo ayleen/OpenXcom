@@ -14,6 +14,7 @@
 #include "../Geoscape/GeoscapeState.h"
 #include "../Interface/Text.h"
 #include "../Interface/TextButton.h"
+#include "../Savegame/SavedGame.h"
 
 #include "CalypsoF21UiShared.h"
 #include "CalypsoHdFontSource.h"
@@ -114,13 +115,20 @@ void paintTimeSpeedRail(const CalypsoHdScreenRenderModel& model, CalypsoF21Paint
 		if (live && action.widget == nullptr) continue;
 		const CalypsoLogicalRect rect = painter.project(designRect(action.visible));
 		const bool selected = action.id == model.selectedActionId;
-		const CalypsoInteractionState state = selected
-			? CalypsoInteractionState::Focus : CalypsoInteractionState::Rest;
-		CalypsoHdPanelStyle style = f21ButtonStyleFor(CalypsoActionTone::Safe, state);
-		if (pause) style.radiusPx = action.visible.h / 2.0f;
-		painter.styled(rect, style, live ? action.widget : nullptr, role++);
-		if (!pause)
+		if (pause)
 		{
+			// Pause alone is the circular dark control (reference .pause).
+			const CalypsoInteractionState state = selected
+				? CalypsoInteractionState::Focus : CalypsoInteractionState::Rest;
+			CalypsoHdPanelStyle style = f21ButtonStyleFor(CalypsoActionTone::Safe, state);
+			style.radiusPx = action.visible.h / 2.0f;
+			painter.styled(rect, style, live ? action.widget : nullptr, role++);
+		}
+		else
+		{
+			// Speed segments stay panel-free bare text (reference
+			// .speed-rail button): thin dividers plus the 2px accent selection
+			// underline drawn as decorations; textRect owns the hit claim.
 			if (drewSpeed)
 				painter.decoration({ rect.x, rect.y + 8, 1, std::max(1, rect.h - 16) },
 					kF21DividerRgba, role++);
@@ -130,7 +138,8 @@ void paintTimeSpeedRail(const CalypsoHdScreenRenderModel& model, CalypsoF21Paint
 					std::max(1, rect.w - 16), 2 }, CalypsoHdThemeGen::kAccent, role++);
 		}
 		painter.textRect(rect, live ? action.widget : nullptr, mono,
-			compactGlyph(action), CalypsoHdThemeGen::kNearWhite,
+			compactGlyph(action),
+			selected ? CalypsoHdThemeGen::kAccent : kF21MutedBodyRgba,
 			CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, role++, 0.04,
 			model.designHeight > 360 ? 12.0 : 9.0);
 	}
@@ -162,7 +171,8 @@ CalypsoGeoscapeHdRuntimeModel CalypsoHdScreenRenderer::liveGeoscapeModel(const G
 	else if (state._timeSpeed == state._btn30Mins) runningSpeed = "time.speed.30min";
 	else if (state._timeSpeed == state._btn1Hour) runningSpeed = "time.speed.1hour";
 	else if (state._timeSpeed == state._btn1Day) runningSpeed = "time.speed.1day";
-	input.selectedActionId = calypsoGeoscapeHdSelectedTimeAction(state._pause, runningSpeed);
+	input.selectedActionId = calypsoGeoscapeHdSelectedTimeAction(
+		CalypsoGeoscapeHdShell::effectivePause(&state), runningSpeed);
 
 	CalypsoGeoscapeHdRuntimeModel model = calypsoGeoscapeHdRuntimeModel(*layout, input);
 	for (auto& action : model.actions)
@@ -203,6 +213,41 @@ CalypsoGeoscapeHdRuntimeModel CalypsoHdScreenRenderer::liveGeoscapeModel(const G
 		}),
 		model.actions.end());
 	return model;
+}
+
+// --- Stage 8/9 closure: one generation-invalidated snapshot -----------------
+
+/// Cheap allocation-free fingerprint of everything the live model depends on.
+/// Text fields are monotonic content generations from the owning Text widgets
+/// (bumped only when setText() stores different content), so steady-state
+/// frames compare plain integers; actual text is read only inside rebuild().
+CalypsoGeoscapeHdSnapshotKey CalypsoHdScreenRenderer::liveGeoscapeKey(const GeoscapeState& state)
+{
+	CalypsoGeoscapeHdSnapshotKey key;
+	key.viewportGeneration = calypsoViewportRuntime().generation();
+	key.contextGeneration = CalypsoHdUiOverlay::instance().contextGeneration();
+	key.fundsVisible = state._txtFunds && state._txtFunds->getVisible();
+	key.drawerOpen = CalypsoGeoscapeHdShell::isDrawerOpen(&state);
+	key.extendedLinks = Options::oxceLinks;
+	key.debugOption = Options::debug;
+	const SavedGame* save = state._game ? state._game->getSavedGame() : nullptr;
+	key.ironman = save != nullptr && save->isIronman();
+	key.paused = CalypsoGeoscapeHdShell::effectivePause(&state);
+	key.selectedSpeed = state._timeSpeed;
+	key.hourTextGeneration = state._txtHour ? state._txtHour->calypsoTextGeneration() : 0;
+	key.minuteTextGeneration = state._txtMin ? state._txtMin->calypsoTextGeneration() : 0;
+	key.dayTextGeneration = state._txtDay ? state._txtDay->calypsoTextGeneration() : 0;
+	key.monthTextGeneration = state._txtMonth ? state._txtMonth->calypsoTextGeneration() : 0;
+	key.yearTextGeneration = state._txtYear ? state._txtYear->calypsoTextGeneration() : 0;
+	key.fundsTextGeneration = state._txtFunds ? state._txtFunds->calypsoTextGeneration() : 0;
+	return key;
+}
+
+const CalypsoGeoscapeHdRuntimeModel& CalypsoHdScreenRenderer::liveGeoscapeSnapshot(
+	const GeoscapeState& state) const
+{
+	return _liveSnapshot.current(liveGeoscapeKey(state),
+		[&state]() { return liveGeoscapeModel(state); });
 }
 
 
@@ -251,7 +296,8 @@ void CalypsoHdScreenRenderer::collectLogicalSuppression(
 	suppression.add(geoscape->_sideLine);
 	suppression.add(geoscape->_sideTop);
 	suppression.add(geoscape->_sideBottom);
-	const auto model = liveGeoscapeModel(*geoscape);
+	// One cached snapshot feeds every live consumer; no per-frame model rebuild.
+	const auto& model = liveGeoscapeSnapshot(*geoscape);
 	for (const auto& action : model.actions)
 		suppression.add(action.widget);
 }
@@ -290,7 +336,7 @@ bool CalypsoHdScreenRenderer::completeFrameReady() const
 	if (_mode != CalypsoHdScreenRenderMode::GeoscapeLiveChrome) return true;
 	const auto* geoscape = static_cast<const GeoscapeState*>(_state);
 	if (!geoscape) return false;
-	const auto model = liveGeoscapeModel(*geoscape);
+	const auto& model = liveGeoscapeSnapshot(*geoscape);
 	const bool fundsVisible = geoscape->_txtFunds && geoscape->_txtFunds->getVisible();
 	return calypsoGeoscapeHdFrameReady(model, model.expectedActionIds,
 		calypsoGeoscapeHdRequiredCopyKeys(fundsVisible),
@@ -303,7 +349,7 @@ bool CalypsoHdScreenRenderer::retryableReadiness() const
 		return false;
 	const auto* geoscape = static_cast<const GeoscapeState*>(_state);
 	if (!geoscape || !physicalReady()) return false;
-	const auto model = liveGeoscapeModel(*geoscape);
+	const auto& model = liveGeoscapeSnapshot(*geoscape);
 	const bool fundsVisible = geoscape->_txtFunds && geoscape->_txtFunds->getVisible();
 	return !calypsoGeoscapeHdModelReady(model, model.expectedActionIds,
 		calypsoGeoscapeHdRequiredCopyKeys(fundsVisible));
@@ -312,14 +358,12 @@ bool CalypsoHdScreenRenderer::retryableReadiness() const
 void CalypsoHdScreenRenderer::collect(CalypsoHdFrameBuilder& builder) const
 {
 	const bool live = _mode == CalypsoHdScreenRenderMode::GeoscapeLiveChrome;
-	CalypsoGeoscapeHdRuntimeModel liveSnapshot;
 	const CalypsoHdScreenRenderModel* modelPtr = &_model;
 	if (live)
 	{
 		const auto* geoscape = static_cast<const GeoscapeState*>(_state);
 		if (!geoscape) return;
-		liveSnapshot = liveGeoscapeModel(*geoscape);
-		modelPtr = &liveSnapshot;
+		modelPtr = &liveGeoscapeSnapshot(*geoscape);
 	}
 	const CalypsoHdScreenRenderModel& model = *modelPtr;
 	if (!_state || model.designWidth <= 0 || model.designHeight <= 0) return;

@@ -517,7 +517,9 @@ GeoscapeState::GeoscapeState() : _pause(false), _zoomInEffectDone(false), _zoomO
 			Calypso::CalypsoHdScreenRenderMode::GeoscapeLiveChrome);
 		Calypso::CalypsoHdUiOverlay::instance().registerAdapter(_calypsoHdRenderer);
 	}
-	if (::g_calypsoGlobeGpuDirect != 0) _globe->setGpuDirect(true);   // Stage 10.2.1
+	// Canonical F16 (registered hdUiFamilies rollout key) drives GPU-direct
+	// activation; ::g_calypsoGlobeGpuDirect is the loopback diagnostic override.
+	if (previewListed || ::g_calypsoGlobeGpuDirect != 0) _globe->setGpuDirect(true);
 	// Stage 8c: evaluate the F16 command-shell gate once per construction and
 	// report the stable reason. The physical shell binds in Stage 9; while the
 	// gate is off (or before that binding) the Phase 41 side panel above stays
@@ -1023,7 +1025,11 @@ void GeoscapeState::timeAdvance()
 		}
 	}
 
+#ifdef __EMSCRIPTEN__
+	CalypsoGeoscapeHdShell::syncPause(this, !_popups.empty() || !_dogfightsToBeStarted.empty() || _zoomInEffectTimer->isRunning() || _zoomOutEffectTimer->isRunning());
+#else
 	_pause = !_dogfightsToBeStarted.empty() || _zoomInEffectTimer->isRunning() || _zoomOutEffectTimer->isRunning();
+#endif
 
 	timeDisplay();
 	_globe->draw();

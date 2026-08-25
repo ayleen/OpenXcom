@@ -8,6 +8,7 @@
 #include <string>
 
 #include "../Engine/Game.h"
+#include "../Engine/Logger.h"
 #include "CalypsoHdUiOverlay.h"
 #include "../Engine/GpuTexture.h"
 #include "../Engine/Options.h"
@@ -115,6 +116,11 @@ struct CalypsoGeoscapeHdGlobeDirect
 			return;
 		}
 		globe->_gpuDirectMode = on;
+		/* One stable activation marker: logged exactly when this Globe
+		 * transitions from canonical readback to the physical direct
+		 * composite. The repeat-call early return above guarantees repeated
+		 * setGpuDirect(true) calls never re-log it. */
+		Log(LOG_INFO) << "Globe: gpu-direct composite active";
 		globe->_directScreen = screen;
 		SDL_SetColorKey(globe->getSurface(), SDL_SRCCOLORKEY, 0);
 		if (!globe->_gpuAliveFlag) globe->_gpuAliveFlag = std::make_shared<bool>(true);

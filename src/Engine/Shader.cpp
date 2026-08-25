@@ -238,6 +238,10 @@ void Shader::setUniformMat4(const char* n, const float* m)
 
 bool Shader::reupload()
 {
+    /* The stale program belongs to the replaced GL context; its handle is
+     * meaningless here — abandon it without deleting, then rebuild fresh. */
+    _program = 0u;
+    _uniformCache.clear();
     if (!_vertSrc.empty() && !_fragSrc.empty())
         return compile(_vertSrc.c_str(), _fragSrc.c_str());
     return true; // A never-loaded Shader owns no recoverable GPU resource.

@@ -67,28 +67,16 @@ inline const std::vector<CalypsoGeoscapeHdLiveDrawerRow>& calypsoGeoscapeHdLiveD
 
 /// Per-Geoscape state for the session chip/drawer lifecycle. Surface pointers
 /// are held by the owning GeoscapeState and never in process-global storage.
+/// The drawer is a pure route container: pause ownership lives in the
+/// GeoscapeTimePolicyState reason ledger (audit §13 item 1), so opening or
+/// closing it never writes a pause snapshot.
 struct CalypsoGeoscapeHdDrawerState
 {
 	bool open = false;
-	bool pauseBeforeOpen = false;
-
-	void toggle(bool currentlyPaused)
-	{
-		if (!open)
-		{
-			pauseBeforeOpen = currentlyPaused;
-			open = true;
-		}
-		else
-		{
-			open = false;
-		}
-	}
 
 	void reset()
 	{
 		open = false;
-		pauseBeforeOpen = false;
 	}
 };
 

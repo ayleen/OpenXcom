@@ -19,6 +19,7 @@
 #include "Screen.h"
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoResolutionFloor.h"
+#include "../Calypso/CalypsoSdlCompositeBoundary.h"
 #endif
 #include "Game.h"
 #include "../Mod/Mod.h"
@@ -49,11 +50,13 @@
 #include <algorithm>
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
+#include <emscripten/html5.h>
 #include <GLES3/gl3.h>
 /* M6c: context-lost flag; C-linkage definition lives in ../Calypso/CalypsoMainLoopGate.cpp.
  * Declared at file scope (extern "C" is not allowed at block scope) — same
  * pattern as g_calypsoSsaaScale in Map.cpp. */
 extern "C" int g_calypsoContextLost;
+extern "C" void calypso_gl_context_lost(void); /* M6c export; idempotent C-side guard */
 extern "C" void calypso_context_recovery_succeeded(void);
 extern "C" void calypso_context_recovery_failed(void);
 extern "C" int calypso_context_reset_sentinel_pending(void);
@@ -68,40 +71,6 @@ namespace OpenXcom
 
 const int Screen::ORIGINAL_WIDTH = 320;
 const int Screen::ORIGINAL_HEIGHT = 200;
-
-#ifdef __EMSCRIPTEN__
-/* Keep SDL's deferred composite errors owned by the exact boundary that
- * observed them. The one post-swap context sentinel is accepted only while
- * the reset transaction owns it; every other error closes the registered HD
- * route before a physical world callback can publish pixels. */
-static void calypsoCheckSdlCompositeBoundary(const char *phase)
-{
-	static const GLenum CALYPSO_CONTEXT_LOST_WEBGL = 0x9242;
-	GLenum error = glGetError();
-	if (error == CALYPSO_CONTEXT_LOST_WEBGL
-		&& (calypso_context_reset_boundary_open() || calypso_context_reset_sentinel_pending()))
-	{
-		calypso_context_reset_sentinel_observed();
-		const GLenum followUp = glGetError();
-		if (followUp == GL_NO_ERROR)
-		{
-			calypso_context_reset_sentinel_consumed();
-			return;
-		}
-		error = followUp;
-	}
-	else if (error == GL_NO_ERROR && calypso_context_reset_boundary_open())
-	{
-		calypso_context_reset_boundary_close();
-	}
-	if (error == GL_NO_ERROR) return;
-	Log(LOG_ERROR) << "Calypso SDL composite GL error at " << phase << " (0x"
-		           << std::hex << (unsigned)error << std::dec << ")";
-	Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
-		"WebGL SDL composite " + std::string(phase) + " failed (0x"
-		+ [&]() { std::ostringstream out; out << std::hex << (unsigned)error; return out.str(); }() + ")");
-}
-#endif
 
 
 /**
@@ -412,7 +381,9 @@ bool Screen::flip()
 		if (wW > 0 && wH > 0 &&
 		    (wW != Options::displayWidth || wH != Options::displayHeight || _forceCanvasRebase))
 		{
-			reflowCanvasFallback(wW, wH);
+			/* 10.2.9: true => an unauthorized canvas divergence was restored
+			 * this frame; skip presenting the stale HD frame. */
+			if (reflowCanvasFallback(wW, wH)) return false;
 		}
 	}
 	// Phase 46.2-HD: the HD overlay's per-frame metrics freeze + frame advance now
@@ -529,13 +500,13 @@ bool Screen::flip()
 	SDL_UnlockTexture(_texture);
 	const bool hasWorldPasses = !_gpuPassesWorld.empty();
 #ifdef __EMSCRIPTEN__
-	if (hasWorldPasses)
-		calypsoCheckSdlCompositeBoundary("before SDL_RenderCopy");
+	if (hasWorldPasses && !Calypso::SdlCompositeBoundary::check("before SDL_RenderCopy"))
+		return false;
 #endif
 	SDL_RenderCopy(_renderer, _texture, nullptr, nullptr);
 	#ifdef __EMSCRIPTEN__
-	if (hasWorldPasses)
-		calypsoCheckSdlCompositeBoundary("after SDL_RenderCopy");
+	if (hasWorldPasses && !Calypso::SdlCompositeBoundary::check("after SDL_RenderCopy"))
+		return false;
 	#endif
 
 #ifdef __EMSCRIPTEN__
@@ -546,9 +517,11 @@ bool Screen::flip()
 	{
 		if (SDL_RenderFlush(_renderer) != 0)
 			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Calypso HD world SDL flush failed");
-		calypsoCheckSdlCompositeBoundary("after SDL_RenderFlush");
+		if (!Calypso::SdlCompositeBoundary::check("after SDL_RenderFlush"))
+			return false;
 		if (_gpuPassesPre.empty()) ShaderManager::instance().resetFrameFlag();
-		calypsoCheckSdlCompositeBoundary("before world callbacks");
+		if (!Calypso::SdlCompositeBoundary::check("before world callbacks"))
+			return false;
 		/* Raw physical world callbacks may bind program/VAO/VBO 0.  SDL's GL
 		 * renderer caches its own bindings, so leaving that baseline live makes
 		 * the next SDL flush issue drawArrays with no shader program. Snapshot the
@@ -560,13 +533,7 @@ bool Screen::flip()
 		glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &savedWorldVao);
 		glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &savedWorldArrayBuffer);
 		const GLenum worldStateError = glGetError();
-		if (worldStateError != GL_NO_ERROR)
-			Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
-				"Calypso HD world SDL state snapshot failed (0x" + [&]() {
-					std::ostringstream out;
-					out << std::hex << (unsigned)worldStateError;
-					return out.str();
-				}() + ")");
+		if (!Calypso::SdlCompositeBoundary::handle(worldStateError, "after world state snapshot")) return false;
 		auto restoreWorldSdlState = [&]() {
 			glUseProgram(static_cast<GLuint>(savedWorldProgram));
 			glBindVertexArray(static_cast<GLuint>(savedWorldVao));
@@ -596,6 +563,12 @@ bool Screen::flip()
 		restoreWorldSdlState();
 		ShaderManager::instance().setHadGPUPass(true);
 	}
+
+	/* Stage 10.2.7: the bounded sentinel-ownership window spans exactly one
+	 * presented-frame attempt. Whether or not a duplicate token surfaced, the
+	 * presented world/chrome chain ends here: close the window so any future
+	 * unrelated 0x9242 fails closed instead of being silently owned. */
+	calypso_context_reset_boundary_close();
 #endif
 
 	/* Phase 46.2-HD: enabled HD UI + diagnostics stages draw above the legacy
