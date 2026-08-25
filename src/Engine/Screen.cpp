@@ -20,6 +20,7 @@
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoResolutionFloor.h"
 #include "../Calypso/CalypsoSdlCompositeBoundary.h"
+#include "../Calypso/CalypsoPassTimers.h"
 #endif
 #include "Game.h"
 #include "../Mod/Mod.h"
@@ -479,6 +480,8 @@ bool Screen::flip()
 	/* Upload the CPU surface (units, walls, HUD) as a texture and composite
 	 * it over whatever the pre-composite passes drew.  _texture blend mode is
 	 * SDL_BLENDMODE_BLEND so transparent surface pixels let GPU content show. */
+	const Uint64 calypsoTexStart = Calypso::calypsoPassTimersEnabled()
+		? SDL_GetPerformanceCounter() : 0;
 	SDL_BlitScaled(_surface.get(), nullptr, _screen, nullptr);
 
 	void *texPixels;
@@ -498,12 +501,20 @@ bool Screen::flip()
 		}
 	}
 	SDL_UnlockTexture(_texture);
+	if (calypsoTexStart)
+		Calypso::calypsoPassTimers().sdlTexUs +=
+			(Uint64)((SDL_GetPerformanceCounter() - calypsoTexStart) * 1000000ull / SDL_GetPerformanceFrequency());
 	const bool hasWorldPasses = !_gpuPassesWorld.empty();
 #ifdef __EMSCRIPTEN__
 	if (hasWorldPasses && !Calypso::SdlCompositeBoundary::check("before SDL_RenderCopy"))
 		return false;
 #endif
+	const Uint64 calypsoCopyStart = Calypso::calypsoPassTimersEnabled()
+		? SDL_GetPerformanceCounter() : 0;
 	SDL_RenderCopy(_renderer, _texture, nullptr, nullptr);
+	if (calypsoCopyStart)
+		Calypso::calypsoPassTimers().sdlCopyUs +=
+			(Uint64)((SDL_GetPerformanceCounter() - calypsoCopyStart) * 1000000ull / SDL_GetPerformanceFrequency());
 	#ifdef __EMSCRIPTEN__
 	if (hasWorldPasses && !Calypso::SdlCompositeBoundary::check("after SDL_RenderCopy"))
 		return false;
@@ -577,7 +588,12 @@ bool Screen::flip()
 	 * Emscripten-only hook; native has no HD overlay, so presentOk stays true. */
 	bool presentOk = true;
 #ifdef __EMSCRIPTEN__
+	const Uint64 calypsoChromeStart = Calypso::calypsoPassTimersEnabled()
+		? SDL_GetPerformanceCounter() : 0;
 	presentOk = Calypso::CalypsoHdUiOverlay::instance().renderStages(_renderer);
+	if (calypsoChromeStart)
+		Calypso::calypsoPassTimers().chromeUs +=
+			(Uint64)((SDL_GetPerformanceCounter() - calypsoChromeStart) * 1000000ull / SDL_GetPerformanceFrequency());
 #endif
 
 	/* GPU shader passes (Phase 8b): cursor, projectile, smoke — overlay on top.

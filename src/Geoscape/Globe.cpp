@@ -1369,6 +1369,7 @@ static Cord calypsoGlobeQaCord(const Calypso::GeoscapeQaVec3& v)
 		stLines.restore();
 		const Uint64 calypsoLabelStart = Calypso::calypsoPassTimersEnabled()
 			? SDL_GetPerformanceCounter() : 0;
+		CalypsoGeoscapeHdGlobeDirect::drawLabelIconPass(globe);
 		if (calypsoLabelStart)
 			Calypso::calypsoPassTimers().labelUs +=
 				(Uint64)((SDL_GetPerformanceCounter() - calypsoLabelStart) * 1000000ull / SDL_GetPerformanceFrequency());

@@ -25,6 +25,11 @@ struct CalypsoGeoscapePassTimers
 	std::uint64_t labelUs;
 	std::uint64_t markerUs;
 	std::uint64_t frames;
+	/* Option A composite/chrome attribution probes (appended so existing
+	 * indexed readers stay stable). */
+	std::uint64_t sdlTexUs;
+	std::uint64_t sdlCopyUs;
+	std::uint64_t chromeUs;
 };
 
 inline bool& calypsoPassTimersEnabledRef()
