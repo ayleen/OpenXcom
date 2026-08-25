@@ -480,9 +480,14 @@ bool Screen::flip()
 	/* Upload the CPU surface (units, walls, HUD) as a texture and composite
 	 * it over whatever the pre-composite passes drew.  _texture blend mode is
 	 * SDL_BLENDMODE_BLEND so transparent surface pixels let GPU content show. */
-	const Uint64 calypsoTexStart = Calypso::calypsoPassTimersEnabled()
+	const Uint64 calypsoBlitStart = Calypso::calypsoPassTimersEnabled()
 		? SDL_GetPerformanceCounter() : 0;
 	SDL_BlitScaled(_surface.get(), nullptr, _screen, nullptr);
+	if (calypsoBlitStart)
+		Calypso::calypsoPassTimers().sdlBlitUs +=
+			(Uint64)((SDL_GetPerformanceCounter() - calypsoBlitStart) * 1000000ull / SDL_GetPerformanceFrequency());
+	const Uint64 calypsoTexStart = Calypso::calypsoPassTimersEnabled()
+		? SDL_GetPerformanceCounter() : 0;
 
 	void *texPixels;
 	int   texPitch;
@@ -502,7 +507,7 @@ bool Screen::flip()
 	}
 	SDL_UnlockTexture(_texture);
 	if (calypsoTexStart)
-		Calypso::calypsoPassTimers().sdlTexUs +=
+		Calypso::calypsoPassTimers().sdlMemcpyUs +=
 			(Uint64)((SDL_GetPerformanceCounter() - calypsoTexStart) * 1000000ull / SDL_GetPerformanceFrequency());
 	const bool hasWorldPasses = !_gpuPassesWorld.empty();
 #ifdef __EMSCRIPTEN__

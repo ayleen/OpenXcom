@@ -30,6 +30,9 @@ struct CalypsoGeoscapePassTimers
 	std::uint64_t sdlTexUs;
 	std::uint64_t sdlCopyUs;
 	std::uint64_t chromeUs;
+	/* Composite sub-split (Option A attribution round 3). */
+	std::uint64_t sdlBlitUs;
+	std::uint64_t sdlMemcpyUs;
 };
 
 inline bool& calypsoPassTimersEnabledRef()
