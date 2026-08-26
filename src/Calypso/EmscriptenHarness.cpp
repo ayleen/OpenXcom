@@ -1360,7 +1360,22 @@ int calypso_push_mouse_button(int x, int y, int sdlButton, int pressed)
 	if (sdlButton < 1 || sdlButton > 5) return 0;
 	OpenXcom::Game *g = OpenXcom::getCurrentGame();
 	if (!g) return 0;
-	return g->dispatchCalypsoMouseButton(x, y, sdlButton, pressed != 0) ? 1 : 0;
+	OpenXcom::Screen *s = g->getScreen();
+	if (!s) return 0;
+	/* Review fix (PR #122): button coordinates arrive in canvas-backing
+	 * pixels, exactly like calypso_push_mouse_motion above. Normalize
+	 * canvas-backing -> current engine display extent FIRST (cached physical
+	 * canvas extents when valid, otherwise the Screen's own size) so button
+	 * and motion stay in the same coordinate space at any DPR and the Action
+	 * constructor's xScale division yields correct game coordinates. */
+	const Calypso::CalypsoViewportRuntime &runtime = Calypso::calypsoViewportRuntime();
+	const bool haveCachedCanvas = runtime.hasPhysicalSize()
+		&& runtime.physicalWidth() > 0 && runtime.physicalHeight() > 0;
+	const int canvasW = haveCachedCanvas ? runtime.physicalWidth() : s->getWidth();
+	const int canvasH = haveCachedCanvas ? runtime.physicalHeight() : s->getHeight();
+	const int dx = (int)Calypso::calypsoCanvasToDisplayCoordinate(x, canvasW, s->getWidth());
+	const int dy = (int)Calypso::calypsoCanvasToDisplayCoordinate(y, canvasH, s->getHeight());
+	return g->dispatchCalypsoMouseButton(dx, dy, sdlButton, pressed != 0) ? 1 : 0;
 }
 
 /* ---- DPR2 cursor-alignment regression gate (loopback QA, read-only) --------

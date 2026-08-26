@@ -3945,7 +3945,11 @@ void Globe::mousePress(Action *action, State *state)
 	double lon, lat;
 	cartToPolar((Sint16)floor(action->getAbsoluteXMouse()), (Sint16)floor(action->getAbsoluteYMouse()), &lon, &lat);
 
-	if (isGlobePanButton(action->getDetails()->button.button))
+	// §16.5 idempotency guard: the JS mouse-button bridge can deliver the
+	// same press twice through the engine's canonical dispatch chain (capture
+	// + SDL event). Only the first press may initialize the drag state, so a
+	// second dispatch never resets an in-progress drag.
+	if (isGlobePanButton(action->getDetails()->button.button) && !_isMouseScrolling)
 	{
 		_isMouseScrolling = true;
 		_isMouseScrolled = false;
