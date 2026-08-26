@@ -498,6 +498,9 @@ Globe::~Globe()
 	delete _globeShader;
 	delete _markerShader;
 	delete _borderShader;
+	/* Review fix: coloured-line resources were leaked on teardown. */
+	delete _coloredLineShader;
+	_coloredLineShader = nullptr;
 	for (auto& entry : _gpuMarkerTextures) delete entry.texture;
 	_gpuMarkerTextures.clear();
 	for (auto& entry : _gpuLabelTextures)
@@ -513,6 +516,10 @@ Globe::~Globe()
 	if (_markerVBO)    glDeleteBuffers(1, &_markerVBO);
 	if (_borderVAO)    glDeleteVertexArrays(1,  &_borderVAO);
 	if (_borderVBO)    glDeleteBuffers(1, &_borderVBO);
+	/* Review fix: VAO/VBO handles for the one-draw batch. */
+	if (_coloredLineVAO) glDeleteVertexArrays(1, &_coloredLineVAO);
+	if (_coloredLineVBO) glDeleteBuffers(1, &_coloredLineVBO);
+	_coloredLineResourcesReady = false;
 #endif
 }
 
@@ -1355,13 +1362,15 @@ static Cord calypsoGlobeQaCord(const Calypso::GeoscapeQaVec3& v)
 		 * same GL state every frame. */
 		GlobeSphereGlSave stLines; stLines.save();
 		CalypsoGeoscapeHdGlobeDirect::setPhysicalGlobeClip(globe);
+		/* Review fix: the Earth guard restores with blending disabled, so the
+		 * shared line guard must re-enable it before the border pass draws. */
+		enable(GL_BLEND);
 		CalypsoGeoscapeHdGlobeDirect::drawBorderPass(globe);
 		if (calypsoBorderStart)
 			Calypso::calypsoPassTimers().borderUs +=
 				(Uint64)((SDL_GetPerformanceCounter() - calypsoBorderStart) * 1000000ull / SDL_GetPerformanceFrequency());
 		const Uint64 calypsoRadarStart = Calypso::calypsoPassTimersEnabled()
 			? SDL_GetPerformanceCounter() : 0;
-		CalypsoGeoscapeHdGlobeDirect::prepareRadarFlightSnapshot(globe);
 		CalypsoGeoscapeHdGlobeDirect::drawRadarFlightPass(globe);
 		if (calypsoRadarStart)
 			Calypso::calypsoPassTimers().radarUs +=
@@ -1922,21 +1931,13 @@ static std::uint64_t calypsoBuildRadarFlightSignature(SavedGame* save)
 	return sig.value();
 }
 
-	void CalypsoGeoscapeHdGlobeDirect::prepareRadarFlightSnapshot(Globe* globe)
+	bool CalypsoGeoscapeHdGlobeDirect::beginRadarFlightFrame(Globe* globe)
 	{
 		if (!globe || !globe->_directScreen)
 			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape radar/flight preparation owner unavailable");
 		CalypsoGeoscapeHdGlobeDirect::PhysicalGlobeRect rect;
 		if (!CalypsoGeoscapeHdGlobeDirect::physicalGlobeRect(globe, rect))
 			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape physical globe rect is invalid");
-		Calypso::CalypsoGeoscapeRadarCounters& counters = Calypso::calypsoRadarCounters();
-		const bool instrumented = Calypso::calypsoRadarCountersEnabled();
-		const Uint64 prepareStart = instrumented ? SDL_GetPerformanceCounter() : 0;
-		/* SS15.4.3 snapshot key: every fixed presentation input plus the
-		 * dynamic campaign signature. Concrete geometry values ride explicit
-		 * fields, so no mutation owner has to remember a dirty setter.
-		 * viewportGeneration stays reserved: rect/scale/display values are
-		 * compared directly below. */
 		Calypso::CalypsoGeoscapeColoredLineSnapshotKey key = Calypso::CalypsoGeoscapeColoredLineSnapshotKey();
 		key.viewportGeneration = 0u;
 		key.rectX = rect.x;
@@ -1967,33 +1968,42 @@ static std::uint64_t calypsoBuildRadarFlightSignature(SavedGame* save)
 		key.debugMode = globe->_game->getSavedGame()->getDebugMode();
 		key.dynamicSignature = calypsoBuildRadarFlightSignature(globe->_game->getSavedGame());
 		const Calypso::ColoredLinePrepareResult verdict = globe->_coloredLineCache.prepare(key);
-		if (instrumented)
+		if (Calypso::calypsoRadarCountersEnabled())
 		{
+			Calypso::CalypsoGeoscapeRadarCounters& counters = Calypso::calypsoRadarCounters();
 			++counters.radarFingerprintChecks;
 			if (verdict == Calypso::COLORED_LINE_CACHE_HIT) ++counters.radarCacheHits;
 		}
 		if (verdict != Calypso::COLORED_LINE_REBUILT)
-			return; /* Cache hit: reuse CPU commands and the uploaded VBO. */
-		/* Rebuild path: pack from the same frozen physical globe rectangle
-		 * used by Earth, markers, labels, and hit testing (SS15.10 risk 7).
-		 * Pure CPU work; the single upload/draw boundary stays inside
-		 * drawRadarFlightPass. */
+			return true; /* Cache hit: packed vertices and uploaded VBO stay */
+		             /* authoritative; skip ALL radar/flight CPU work.       */
+		/* Miss: clear the batch so the owners below record a fresh snapshot. */
+		globe->_coloredLineBatch.clearCommands();
+		globe->_gpuRadarFlightCapacityExceeded = false;
+		return false;
+	}
+
+	void CalypsoGeoscapeHdGlobeDirect::finishRadarFlightFrame(Globe* globe, bool rebuilt)
+	{
+		if (!globe || !rebuilt) return; /* Cache-hit frame: nothing to pack. */
+		CalypsoGeoscapeHdGlobeDirect::PhysicalGlobeRect rect;
+		if (!CalypsoGeoscapeHdGlobeDirect::physicalGlobeRect(globe, rect))
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape physical globe rect is invalid");
 		Calypso::CalypsoGeoscapeColoredLineViewport viewport;
 		viewport.rectX = rect.x;
 		viewport.rectY = rect.y;
-		viewport.scaleX = key.sdlScaleX;
-		viewport.scaleY = key.sdlScaleY;
-		viewport.displayWidth = key.displayWidth;
-		viewport.displayHeight = key.displayHeight;
+		viewport.scaleX = globe->_directScreen->getXScale();
+		viewport.scaleY = globe->_directScreen->getYScale();
+		viewport.displayWidth = Options::displayWidth;
+		viewport.displayHeight = Options::displayHeight;
 		const size_t vertices = globe->_coloredLineBatch.packVertices(viewport);
 		if (vertices == static_cast<size_t>(-1))
 			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape radar/flight pack preflight exhausted capacity");
-		if (instrumented)
+		if (Calypso::calypsoRadarCountersEnabled())
 		{
-			++counters.radarRebuilds;
+			Calypso::CalypsoGeoscapeRadarCounters& counters = Calypso::calypsoRadarCounters();
 			counters.radarPreparedCommands += globe->_coloredLineBatch.commandCount();
 			counters.radarPreparedVertices += vertices;
-			counters.radarPrepareUs += (std::uint64_t)((SDL_GetPerformanceCounter() - prepareStart) * 1000000ull / SDL_GetPerformanceFrequency());
 		}
 	}
 
@@ -2778,8 +2788,24 @@ void Globe::draw()
 		drawOcean();
 		drawLand();
 	}
-	drawRadars();
-	drawFlights();
+#ifdef __EMSCRIPTEN__
+	/* Review-corrected lifecycle: the cache verdict decides whether the
+	 * radar/flight CPU generation runs at all this frame. A hit keeps the
+	 * committed packed vertices and uploaded VBO untouched. */
+	const bool calypsoRadarCacheHit = _gpuDirectMode
+		&& CalypsoGeoscapeHdGlobeDirect::beginRadarFlightFrame(this);
+	if (!calypsoRadarCacheHit)
+#endif
+	{
+		drawRadars();
+		drawFlights();
+	}
+#ifdef __EMSCRIPTEN__
+	if (_gpuDirectMode)
+	{
+		CalypsoGeoscapeHdGlobeDirect::finishRadarFlightFrame(this, calypsoRadarCacheHit);
+	}
+#endif
 #ifdef __EMSCRIPTEN__
 	if (!_game->getMod()->hasGlobeTextures())
 #endif
@@ -2987,13 +3013,9 @@ void Globe::XuLine(Surface* surface, Surface* src, double x1, double y1, double 
 void Globe::drawRadars()
 {
 	_radars->clear();
-#ifdef __EMSCRIPTEN__
-	if (_gpuDirectMode)
-	{
-		_coloredLineBatch.clearCommands();
-		_gpuRadarFlightCapacityExceeded = false;
-	}
-#endif
+	/* Review fix: batch clearing moved OUT of per-frame owners. It happens
+	 * exactly once per snapshot MISS inside beginRadarFlightFrame, so a cache
+	 * hit performs zero command destruction and zero regeneration. */
 
 	if (!Options::globeRadarLines)
 		return;

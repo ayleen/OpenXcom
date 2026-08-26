@@ -147,9 +147,16 @@ struct CalypsoGeoscapeHdGlobeDirect
 	static void ensureBorderResources(Globe* globe);
 	static void ensureColoredLineResources(Globe* globe);
 	static void drawBorderPass(Globe* globe);
-	/* §15.4.2: fingerprint/pack/upload preparation for the radar/flight
-	 * one-draw batch; body lives in Globe.cpp next to drawPass. */
-	static void prepareRadarFlightSnapshot(Globe* globe);
+	/* §15.4.2 (review-corrected lifecycle): called from Globe::draw() BEFORE
+	 * drawRadars/drawFlights. Builds the snapshot key and renders the cache
+	 * verdict; on a miss it clears the command batch so the owners record a
+	 * fresh snapshot, and returns false. On a hit it skips ALL radar/flight
+	 * CPU generation and returns true - the committed packed vertices and the
+	 * uploaded VBO stay authoritative across frames and context restores. */
+	static bool beginRadarFlightFrame(Globe* globe);
+	/* Packs the freshly recorded commands when begin returned false; a no-op
+	 * on cache-hit frames. */
+	static void finishRadarFlightFrame(Globe* globe, bool rebuilt);
 	/* §15.4.5: explicit per-frame label/icon snapshot commit, owned by
 	 * Globe::draw() after drawDetail() has recorded the current frame. */
 	static void commitLabelIconSnapshot(Globe* globe);
