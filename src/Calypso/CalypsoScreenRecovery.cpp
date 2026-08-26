@@ -28,7 +28,10 @@ extern "C" int calypso_context_reset_sentinel_pending(void);
 extern "C" void calypso_context_reset_sentinel_observed(void);
 extern "C" int calypso_context_reset_boundary_open(void);
 extern "C" void calypso_context_reset_sentinel_consumed(void);
+extern "C" void calypso_context_recovery_succeeded(void);
 extern "C" SDL_Texture *calypsoCreateLogicalStreamingTexture(SDL_Renderer *renderer);
+#include "CalypsoHdUiOverlay.h"
+#include "../Engine/ShaderManager.h"
 
 namespace OpenXcom {
 namespace Calypso {
@@ -185,6 +188,40 @@ void calypsoScreenUploadLogicalTexture(Screen &screen)
 	SDL_UnlockTexture(screen._texture);
 	if (calypsoTexStart)
 		Calypso::calypsoPassTimers().sdlMemcpyUs += (Uint64)((SDL_GetPerformanceCounter() - calypsoTexStart) * 1000000ull / SDL_GetPerformanceFrequency());
+}
+
+bool calypsoScreenRecoveryCommit(Screen &screen)
+{
+	if (!calypsoScreenRecreateRendererGL(screen))
+	{
+		Calypso::CalypsoHdUiOverlay::instance().failHdRoute("WebGL context restore probe failed");
+		calypso_context_recovery_failed();
+		return false;
+	}
+	if (!ShaderManager::instance().reuploadAll())
+	{
+		Calypso::CalypsoHdUiOverlay::instance().failHdRoute("WebGL context restore resource rebuild failed");
+		calypso_context_recovery_failed();
+		return false;
+	}
+	if (glGetError() != GL_NO_ERROR)
+	{
+		Calypso::CalypsoHdUiOverlay::instance().failHdRoute("WebGL context restore GL reset failed");
+		calypso_context_recovery_failed();
+		return false;
+	}
+	calypso_context_recovery_succeeded();
+	return true;
+}
+
+void calypsoScreenRebaseStagingSurface(Screen &screen, int width, int height)
+{
+	SDL_FreeSurface(screen._screen); screen._screen = nullptr;
+	screen._screen = SDL_CreateRGBSurface(0, width, height, 32,
+	    0x00FF0000u, 0x0000FF00u, 0x000000FFu, 0xFF000000u);
+	if (!screen._screen) throw Exception(SDL_GetError());
+	Log(LOG_INFO) << "Display rebased: canvas=" << width << "x" << height
+	              << ", base=" << screen._baseWidth << "x" << screen._baseHeight;
 }
 
 } // namespace Calypso

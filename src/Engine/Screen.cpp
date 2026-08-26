@@ -201,31 +201,9 @@ void Screen::handle(Action *action)
 		 * The sentinel stays bounded to the recovery transaction; non-sentinel
 		 * GL errors still fail closed. */
 #ifdef __EMSCRIPTEN__
-		if (!recreateRendererGL())
-		{
-			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("WebGL context restore probe failed");
-			calypso_context_recovery_failed();
+		// Guard R3: the whole reset transaction lives in CalypsoScreenRecovery.cpp.
+		if (!Calypso::calypsoScreenRecoveryCommit(*this))
 			return;
-		}
-
-		if (!ShaderManager::instance().reuploadAll())
-		{
-			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("WebGL context restore resource rebuild failed");
-			calypso_context_recovery_failed();
-			return;
-		}
-		// Post-reupload transactional error probe: the context must be clean
-		// after resource rebuild. A late 0x9242 here is NOT the reset-boundary
-		// token (that was already consumed inside recreateRendererGL's probe)
-		// so it fails. Only the SdlComposite/Globe world boundary may still
-		// own a deferred token; this path does not.
-		if (glGetError() != GL_NO_ERROR)
-		{
-			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("WebGL context restore GL reset failed");
-			calypso_context_recovery_failed();
-			return;
-		}
-		calypso_context_recovery_succeeded();
 #else
 		ShaderManager::instance().reuploadAll();
 #endif
@@ -611,23 +589,10 @@ void Screen::resetDisplay(bool resetVideo, bool noShaders)
 #endif
 
 #ifdef __EMSCRIPTEN__
-	/* Emscripten: resize screen/texture when canvas size changed without full resetVideo. */
+	/* Emscripten: refresh the staging surface after a non-full canvas resize. */
 	if (!resetVideo && _window && _screen
 	    && (_screen->w != width || _screen->h != height))
-	{
-		/* Stage 2: the streaming texture follows the LOGICAL base size and is
-		 * unaffected by physical canvas resizes; refresh only the screenshot
-		 * staging surface metadata here. */
-		SDL_FreeSurface(_screen); _screen = nullptr;
-
-		_screen = SDL_CreateRGBSurface(0, width, height, 32,
-		    0x00FF0000u, 0x0000FF00u, 0x000000FFu, 0xFF000000u);
-		if (!_screen) throw Exception(SDL_GetError());
-
-
-		Log(LOG_INFO) << "Display rebased: canvas=" << width << "x" << height
-		              << ", base=" << _baseWidth << "x" << _baseHeight;
-	}
+		Calypso::calypsoScreenRebaseStagingSurface(*this, width, height);
 #endif
 
 	if (resetVideo || !_window)
@@ -692,11 +657,7 @@ void Screen::resetDisplay(bool resetVideo, bool noShaders)
 		else
 		{
 			#ifdef __EMSCRIPTEN__
-			/* The browser owns the RAF scheduler through Game::run().  Asking
-			 * SDL's Emscripten renderer for vsync here calls EGL's swap interval
-			 * setter while MainLoop.func is still null, which emits a startup
-			 * timing error before the first game callback. SDL2 defaults this hint
-			 * to enabled, so clear it explicitly before renderer setup. */
+			/* Browser vsync is owned by Game::run(); keep the hint pre-disabled. */
 			SDL_SetHint(SDL_HINT_RENDER_VSYNC, "0");
 			_renderer = SDL_CreateRenderer(_window, -1, SDL_RENDERER_ACCELERATED);
 			#else
@@ -718,14 +679,7 @@ void Screen::resetDisplay(bool resetVideo, bool noShaders)
 			}
 
 #ifdef __EMSCRIPTEN__
-			/* §16.1: EVERY Emscripten streaming-texture creation goes through
-			 * the one logical factory -- base-resolution ARGB8888 with BLEND +
-			 * SDL_ScaleModeNearest applied in a single place. The initial
-			 * renderer setup used to size the texture to the PHYSICAL canvas
-			 * here, so the Stage-2 flip() wrote logical rows into a physical
-			 * texture until the first resetDisplay(false) repaired it. Native
-			 * keeps a physical-size texture because its flip() uploads the
-			 * CPU-scaled staging surface verbatim. */
+			/* §16.1: every Emscripten streaming texture goes through the factory. */
 			_texture = calypsoCreateLogicalStreamingTexture(_renderer);
 			if (!_texture)
 			{
@@ -735,20 +689,8 @@ void Screen::resetDisplay(bool resetVideo, bool noShaders)
 #else
 			_texture = SDL_CreateTexture(_renderer, SDL_PIXELFORMAT_ARGB8888,
 			    SDL_TEXTUREACCESS_STREAMING, width, height);
-			if (!_texture)
-			{
-				Log(LOG_ERROR) << "SDL_CreateTexture failed: " << SDL_GetError();
-				throw Exception(SDL_GetError());
-			}
-			// Phase 13.3: BLEND lets pre-composite GPU content show through transparent surface regions.
+			if (!_texture) throw Exception(SDL_GetError());
 			SDL_SetTextureBlendMode(_texture, SDL_BLENDMODE_BLEND);
-			// Force NEAREST scaling on the main display texture: preScaleHDBilinear
-			// (Surface.cpp) sets SDL_HINT_RENDER_SCALE_QUALITY=1 globally for HD
-			// pre-scaling and never restores it, so by the time we create the main
-			// display texture the hint is "1" → SDL bilinear-blurs base→display
-			// upscale and partial-alpha pixels at HD-overlay tile borders blend
-			// with neighboring transparent fragments, producing the visible thin
-			// dark "seam" between adjacent diamonds. NEAREST keeps tile edges crisp.
 			SDL_SetTextureScaleMode(_texture, SDL_ScaleModeNearest);
 #endif
 		}
