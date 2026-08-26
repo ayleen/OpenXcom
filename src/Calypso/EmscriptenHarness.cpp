@@ -39,6 +39,7 @@
 #include "../Engine/Shader.h"
 #include "../Engine/GpuSmokeState.h"
 #include "CalypsoGeoscapeColoredLineBatch.h"
+#include <typeinfo>
 #include "CalypsoPassTimers.h"
 #ifdef CALYPSO_HD_UNIT_SPIKE
 #include "HdUnitSpikeState.h"
@@ -1148,6 +1149,19 @@ void calypso_set_audit_mode(int on)
  * Live-tunable from the JS console: Module._calypso_set_underwater_strength(0.4).
  * Default matches the "L1" starting look chosen during authoring. */
 float g_calypsoUnderwaterStrength = 0.20f;
+
+/* Loopback QA (read-only): demangled-ish name of the top state, so automated
+ * probes can assert WHICH state is on screen instead of guessing from pixels.
+ * No gameplay mutation; safe to call any time after Module boot. */
+EMSCRIPTEN_KEEPALIVE
+const char *calypso_qa_top_state_name()
+{
+	static std::string name;
+	Game *g = getCurrentGame();
+	if (!g || !g->getTopState()) return "";
+	name = std::string(typeid(*g->getTopState()).name());
+	return name.c_str();
+}
 
 EMSCRIPTEN_KEEPALIVE
 void calypso_set_underwater_strength(float v)
