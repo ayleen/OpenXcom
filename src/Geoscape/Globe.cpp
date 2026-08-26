@@ -1364,7 +1364,7 @@ static Cord calypsoGlobeQaCord(const Calypso::GeoscapeQaVec3& v)
 		CalypsoGeoscapeHdGlobeDirect::setPhysicalGlobeClip(globe);
 		/* Review fix: the Earth guard restores with blending disabled, so the
 		 * shared line guard must re-enable it before the border pass draws. */
-		enable(GL_BLEND);
+		glEnable(GL_BLEND);
 		CalypsoGeoscapeHdGlobeDirect::drawBorderPass(globe);
 		if (calypsoBorderStart)
 			Calypso::calypsoPassTimers().borderUs +=
@@ -1980,6 +1980,7 @@ static std::uint64_t calypsoBuildRadarFlightSignature(SavedGame* save)
 		/* Miss: clear the batch so the owners below record a fresh snapshot. */
 		globe->_coloredLineBatch.clearCommands();
 		globe->_gpuRadarFlightCapacityExceeded = false;
+		if (Calypso::calypsoRadarCountersEnabled()) ++Calypso::calypsoRadarCounters().radarRebuilds;
 		return false;
 	}
 
@@ -1996,9 +1997,14 @@ static std::uint64_t calypsoBuildRadarFlightSignature(SavedGame* save)
 		viewport.scaleY = globe->_directScreen->getYScale();
 		viewport.displayWidth = Options::displayWidth;
 		viewport.displayHeight = Options::displayHeight;
+		const Uint64 calypsoPackStart = Calypso::calypsoRadarCountersEnabled()
+			? SDL_GetPerformanceCounter() : 0;
 		const size_t vertices = globe->_coloredLineBatch.packVertices(viewport);
 		if (vertices == static_cast<size_t>(-1))
 			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape radar/flight pack preflight exhausted capacity");
+		if (calypsoPackStart)
+			Calypso::calypsoRadarCounters().radarPrepareUs +=
+				(Uint64)((SDL_GetPerformanceCounter() - calypsoPackStart) * 1000000ull / SDL_GetPerformanceFrequency());
 		if (Calypso::calypsoRadarCountersEnabled())
 		{
 			Calypso::CalypsoGeoscapeRadarCounters& counters = Calypso::calypsoRadarCounters();
@@ -2797,13 +2803,22 @@ void Globe::draw()
 	if (!calypsoRadarCacheHit)
 #endif
 	{
+#ifdef __EMSCRIPTEN__
+		const Uint64 calypsoRecordStart = Calypso::calypsoRadarCountersEnabled()
+			? SDL_GetPerformanceCounter() : 0;
+#endif
 		drawRadars();
 		drawFlights();
+#ifdef __EMSCRIPTEN__
+		if (calypsoRecordStart)
+			Calypso::calypsoRadarCounters().radarPrepareUs +=
+				(Uint64)((SDL_GetPerformanceCounter() - calypsoRecordStart) * 1000000ull / SDL_GetPerformanceFrequency());
+#endif
 	}
 #ifdef __EMSCRIPTEN__
 	if (_gpuDirectMode)
 	{
-		CalypsoGeoscapeHdGlobeDirect::finishRadarFlightFrame(this, calypsoRadarCacheHit);
+		CalypsoGeoscapeHdGlobeDirect::finishRadarFlightFrame(this, !calypsoRadarCacheHit);
 	}
 #endif
 #ifdef __EMSCRIPTEN__

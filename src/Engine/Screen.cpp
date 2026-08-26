@@ -480,12 +480,17 @@ bool Screen::flip()
 	/* Upload the CPU surface (units, walls, HUD) as a texture and composite
 	 * it over whatever the pre-composite passes drew.  _texture blend mode is
 	 * SDL_BLENDMODE_BLEND so transparent surface pixels let GPU content show. */
+#ifdef __EMSCRIPTEN__
 	const Uint64 calypsoBlitStart = Calypso::calypsoPassTimersEnabled()
 		? SDL_GetPerformanceCounter() : 0;
+#endif
 	SDL_BlitScaled(_surface.get(), nullptr, _screen, nullptr);
+#ifdef __EMSCRIPTEN__
 	if (calypsoBlitStart)
 		Calypso::calypsoPassTimers().sdlBlitUs +=
 			(Uint64)((SDL_GetPerformanceCounter() - calypsoBlitStart) * 1000000ull / SDL_GetPerformanceFrequency());
+#endif
+#ifdef __EMSCRIPTEN__
 	const Uint64 calypsoTexStart = Calypso::calypsoPassTimersEnabled()
 		? SDL_GetPerformanceCounter() : 0;
 
@@ -509,17 +514,20 @@ bool Screen::flip()
 	if (calypsoTexStart)
 		Calypso::calypsoPassTimers().sdlMemcpyUs +=
 			(Uint64)((SDL_GetPerformanceCounter() - calypsoTexStart) * 1000000ull / SDL_GetPerformanceFrequency());
+#endif
 	const bool hasWorldPasses = !_gpuPassesWorld.empty();
 #ifdef __EMSCRIPTEN__
 	if (hasWorldPasses && !Calypso::SdlCompositeBoundary::check("before SDL_RenderCopy"))
 		return false;
 #endif
+#ifdef __EMSCRIPTEN__
 	const Uint64 calypsoCopyStart = Calypso::calypsoPassTimersEnabled()
 		? SDL_GetPerformanceCounter() : 0;
 	SDL_RenderCopy(_renderer, _texture, nullptr, nullptr);
 	if (calypsoCopyStart)
 		Calypso::calypsoPassTimers().sdlCopyUs +=
 			(Uint64)((SDL_GetPerformanceCounter() - calypsoCopyStart) * 1000000ull / SDL_GetPerformanceFrequency());
+#endif
 	#ifdef __EMSCRIPTEN__
 	if (hasWorldPasses && !Calypso::SdlCompositeBoundary::check("after SDL_RenderCopy"))
 		return false;
