@@ -36,6 +36,10 @@
 
 namespace OpenXcom
 {
+namespace Calypso
+{
+struct CalypsoGlobeGpuState;
+}
 
 class Game;
 class Polygon;
@@ -105,137 +109,9 @@ private:
 	static constexpr size_t GPU_DEBUG_VERTEX_FLOAT_CAPACITY = 65536u;
 	static constexpr size_t GPU_LABEL_TEXTURE_CAPACITY = 1024u;
 	static constexpr size_t GPU_LABEL_DRAW_CAPACITY = 2048u;
-	unsigned  _sphereVAO    = 0u;
-	unsigned  _sphereFBO    = 0u;
-	unsigned  _sphereFBOTex = 0u;
-	bool      _gpuSphereOK  = false;
-	Shader*   _globeShader  = nullptr; // owned; created in initSphereGPU()
-	std::shared_ptr<bool> _gpuAliveFlag;   // M6: lifetime token for the ShaderManager reset callback
-	bool      _gpuResetCallbackRegistered = false;
-	bool      _gpuDirectMode = false;   // Stage 10.2.1: physical direct composite is live
-	Screen*   _directScreen  = nullptr;
-	ScreenWorldPassHandle _gpuWorldPass;
-	struct MarkerDraw
-	{
-		Surface* frame = nullptr;
-		int x = 0;
-		int y = 0;
-		int shade = 0;
-	};
-	std::vector<MarkerDraw> _gpuMarkerPendingDraws;
-	std::vector<MarkerDraw> _gpuMarkerCommittedDraws;
-	struct BorderLine
-	{
-		float x1 = 0.f;
-		float y1 = 0.f;
-		float x2 = 0.f;
-		float y2 = 0.f;
-	};
-	std::vector<BorderLine> _gpuBorderLines;
-	std::vector<float> _gpuBorderVertices;
-	size_t _gpuBorderCapacity = 0;
-	bool _gpuBorderCapacityExceeded = false;
-	/* Phase 46.4 §15 P0: radar/flight geometry lives in a dedicated one-draw
-	 * coloured-line batch with its own VAO/VBO/shader and generation-separated
-	 * cache state; the historical shared border VBO and per-colour-run draws
-	 * are gone. Capacity refusal still fails closed through
-	 * _gpuRadarFlightCapacityExceeded before any publication. */
-	Calypso::CalypsoGeoscapeColoredLineBatchState _coloredLineBatch;
-	Calypso::CalypsoGeoscapeColoredLineCacheState _coloredLineCache;
-	bool _gpuRadarFlightCapacityExceeded = false;
-	unsigned  _coloredLineVAO     = 0u;
-	unsigned  _coloredLineVBO     = 0u;
-	Shader*   _coloredLineShader  = nullptr;
-	bool      _coloredLineResourcesReady = false;
-	/* §16.5: dynamic hover-circle overlay.  Cleared and refilled every frame;
-	 * never participates in the static radar/flight snapshot cache.  Owns its
-	 * own VAO/VBO pair to avoid overwriting the committed static VBO on upload.
-	 * The _activeLineBatch pointer redirects recordRadarFlightLine calls to
-	 * the correct batch during recording. */
-	Calypso::CalypsoGeoscapeColoredLineBatchState _hoverLineBatch;
-	unsigned  _hoverLineVAO      = 0u;
-	unsigned  _hoverLineVBO      = 0u;
-	bool      _hoverLineResourcesReady = false;
-	Calypso::CalypsoGeoscapeColoredLineBatchState* _activeLineBatch = nullptr;
-	/* §16.5 review fix: precomputed canonical hover ranges stored in owned
-	 * storage, initialized lazily outside the per-frame hot path.  The facility
-	 * list is effectively constant after game load, so this vector is built
-	 * once and reused for every hover frame — no heap allocation in the draw
-	 * path. */
-	std::vector<double> _hoverCanonicalRanges;
-	bool _hoverRangesReady = false;
-	/* §16.5 review fix: allocation-free dirty/key state for the hover overlay.
-	 * The overlay is rebuilt and uploaded only when its observable inputs
-	 * (hover position, viewport rect, display size, scales) change.
-	 * Drawing the committed VBO every frame costs nothing extra. */
-	double _lastHoverOverlayLon = 0.0;
-	double _lastHoverOverlayLat = 0.0;
-	int _lastHoverOverlayRectX = 0;
-	int _lastHoverOverlayRectY = 0;
-	int _lastHoverOverlayRectW = 0;
-	int _lastHoverOverlayRectH = 0;
-	double _lastHoverOverlayScaleX = 0.0;
-	double _lastHoverOverlayScaleY = 0.0;
-	int _lastHoverOverlayDisplayW = 0;
-	int _lastHoverOverlayDisplayH = 0;
-	bool _hoverOverlayDirty = true;
-	struct DebugLine
-	{
-		float x1 = 0.f;
-		float y1 = 0.f;
-		float x2 = 0.f;
-		float y2 = 0.f;
-		Uint8 color = 0;
-	};
-	std::vector<DebugLine> _gpuDebugLines;
-	std::vector<float> _gpuDebugVertices;
-	size_t _gpuDebugCapacity = 0;
-	bool _gpuDebugCapacityExceeded = false;
-	bool _gpuLogicalWorldComplete = true;
-	std::uint64_t _gpuMarkerPaletteGeneration = 0;
-	std::uint64_t _gpuLabelPaletteGeneration = 0;
-	/* SS15.4.3: effective-palette generation feeding the radar/flight
-	 * snapshot key; bumped at the same palette boundary as markers. */
-	std::uint64_t _gpuRadarPaletteGeneration = 0;
-	struct MarkerTexture
-	{
-		Surface* frame = nullptr;
-		int shade = 0;
-		std::uint64_t paletteGeneration = 0;
-		GpuTexture* texture = nullptr;
-	};
-	std::vector<MarkerTexture> _gpuMarkerTextures;
-	struct LabelTexture
-	{
-		std::string text;
-		int width = 0;
-		int height = 0;
-		Uint8 color = 0;
-		std::uint64_t paletteGeneration = 0;
-		Surface* frame = nullptr;
-		GpuTexture* texture = nullptr;
-	};
-	struct LabelIconDraw
-	{
-		LabelTexture* label = nullptr;
-		Surface* frame = nullptr;
-		int x = 0;
-		int y = 0;
-		int shade = 0;
-	};
-	std::vector<LabelTexture> _gpuLabelTextures;
-	std::vector<LabelIconDraw> _gpuLabelIconPendingDraws;
-	std::vector<LabelIconDraw> _gpuLabelIconCommittedDraws;
-	bool _gpuLabelCapacityExceeded = false;
-	unsigned  _markerVAO     = 0u;
-	unsigned  _markerVBO     = 0u;
-	Shader*   _markerShader  = nullptr;
-	bool      _gpuMarkerReady = false;
-	unsigned  _borderVAO     = 0u;
-	unsigned  _borderVBO     = 0u;
-	Shader*   _borderShader  = nullptr;
-	bool      _gpuBorderReady = false;
-	friend struct CalypsoGeoscapeHdGlobeDirect;   // Stage 10.2.1
+	// Guard R3: browser-only GPU state lives in CalypsoGlobeGpuState (Calypso/CalypsoGeoscapeHdGlobeDirect.h).
+	Calypso::CalypsoGlobeGpuState* _gpuState = nullptr;
+	friend struct CalypsoGeoscapeHdGlobeDirect;	friend struct CalypsoGeoscapeHdGlobeDirect;   // Stage 10.2.1
 
 	/// One-time GPU resource initialisation for the sphere.
 	bool initSphereGPU();

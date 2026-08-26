@@ -660,6 +660,8 @@ if(EMSCRIPTEN)
   list(APPEND openxcom_src Calypso/CalypsoScreenRecovery.cpp)
   list(APPEND openxcom_src Calypso/CalypsoScreenWorld.cpp)
   list(APPEND openxcom_src Calypso/CalypsoGeoscapeStateInit.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoGeoscapeHdGlobeDirect.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoGlobeHdSphere.cpp)
   # Composite-boundary context-loss helpers relocated from Engine/Screen.cpp
   # (policy R3): owns the supported-Emscripten context probe, reset-sentinel
   # consumption, initial-loss arming, and failHdRoute behind a narrow

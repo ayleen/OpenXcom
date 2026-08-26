@@ -18,6 +18,121 @@
 namespace OpenXcom
 {
 
+/// Guard-R3: browser-only GPU state owned by Globe (extracted from Globe.h).
+/// Whole-file emscripten TU counterpart: CalypsoGeoscapeHdGlobeDirect.cpp.
+struct CalypsoGlobeGpuState
+{
+	unsigned  _sphereVAO    = 0u;
+	unsigned  _sphereFBO    = 0u;
+	unsigned  _sphereFBOTex = 0u;
+	bool      _gpuSphereOK  = false;
+	Shader*   _globeShader  = nullptr; // owned; created in initSphereGPU()
+	std::shared_ptr<bool> _gpuAliveFlag;
+	bool      _gpuResetCallbackRegistered = false;
+	bool      _gpuDirectMode = false;
+	Screen*   _directScreen  = nullptr;
+	ScreenWorldPassHandle _gpuWorldPass;
+	struct MarkerDraw
+	{
+		Surface* frame = nullptr;
+		int x = 0;
+		int y = 0;
+		int shade = 0;
+	};
+	std::vector<MarkerDraw> _gpuMarkerPendingDraws;
+	std::vector<MarkerDraw> _gpuMarkerCommittedDraws;
+	struct BorderLine
+	{
+		float x1 = 0.f;
+		float y1 = 0.f;
+		float x2 = 0.f;
+		float y2 = 0.f;
+	};
+	std::vector<BorderLine> _gpuBorderLines;
+	std::vector<float> _gpuBorderVertices;
+	size_t _gpuBorderCapacity = 0;
+	bool _gpuBorderCapacityExceeded = false;
+	Calypso::CalypsoGeoscapeColoredLineBatchState _coloredLineBatch;
+	Calypso::CalypsoGeoscapeColoredLineCacheState _coloredLineCache;
+	bool _gpuRadarFlightCapacityExceeded = false;
+	unsigned  _coloredLineVAO     = 0u;
+	unsigned  _coloredLineVBO     = 0u;
+	Shader*   _coloredLineShader  = nullptr;
+	bool      _coloredLineResourcesReady = false;
+	Calypso::CalypsoGeoscapeColoredLineBatchState _hoverLineBatch;
+	unsigned  _hoverLineVAO      = 0u;
+	unsigned  _hoverLineVBO      = 0u;
+	bool      _hoverLineResourcesReady = false;
+	Calypso::CalypsoGeoscapeColoredLineBatchState* _activeLineBatch = nullptr;
+	std::vector<double> _hoverCanonicalRanges;
+	bool _hoverRangesReady = false;
+	double _lastHoverOverlayLon = 0.0;
+	double _lastHoverOverlayLat = 0.0;
+	int _lastHoverOverlayRectX = 0;
+	int _lastHoverOverlayRectY = 0;
+	int _lastHoverOverlayRectW = 0;
+	int _lastHoverOverlayRectH = 0;
+	double _lastHoverOverlayScaleX = 0.0;
+	double _lastHoverOverlayScaleY = 0.0;
+	int _lastHoverOverlayDisplayW = 0;
+	int _lastHoverOverlayDisplayH = 0;
+	bool _hoverOverlayDirty = true;
+	struct DebugLine
+	{
+		float x1 = 0.f;
+		float y1 = 0.f;
+		float x2 = 0.f;
+		float y2 = 0.f;
+		Uint8 color = 0;
+	};
+	std::vector<DebugLine> _gpuDebugLines;
+	std::vector<float> _gpuDebugVertices;
+	size_t _gpuDebugCapacity = 0;
+	bool _gpuDebugCapacityExceeded = false;
+	bool _gpuLogicalWorldComplete = true;
+	std::uint64_t _gpuMarkerPaletteGeneration = 0;
+	std::uint64_t _gpuLabelPaletteGeneration = 0;
+	std::uint64_t _gpuRadarPaletteGeneration = 0;
+	struct MarkerTexture
+	{
+		Surface* frame = nullptr;
+		int shade = 0;
+		std::uint64_t paletteGeneration = 0;
+		GpuTexture* texture = nullptr;
+	};
+	std::vector<MarkerTexture> _gpuMarkerTextures;
+	struct LabelTexture
+	{
+		std::string text;
+		int width = 0;
+		int height = 0;
+		Uint8 color = 0;
+		std::uint64_t paletteGeneration = 0;
+		Surface* frame = nullptr;
+		GpuTexture* texture = nullptr;
+	};
+	struct LabelIconDraw
+	{
+		LabelTexture* label = nullptr;
+		Surface* frame = nullptr;
+		int x = 0;
+		int y = 0;
+		int shade = 0;
+	};
+	std::vector<LabelTexture> _gpuLabelTextures;
+	std::vector<LabelIconDraw> _gpuLabelIconPendingDraws;
+	std::vector<LabelIconDraw> _gpuLabelIconCommittedDraws;
+	bool _gpuLabelCapacityExceeded = false;
+	unsigned  _markerVAO     = 0u;
+	unsigned  _markerVBO     = 0u;
+	Shader*   _markerShader  = nullptr;
+	bool      _gpuMarkerReady = false;
+	unsigned  _borderVAO     = 0u;
+	unsigned  _borderVBO     = 0u;
+	Shader*   _borderShader  = nullptr;
+	bool      _gpuBorderReady = false;
+};
+
 struct CalypsoGeoscapeHdGlobeDirect
 {
 	struct PhysicalGlobeRect
@@ -31,14 +146,14 @@ struct CalypsoGeoscapeHdGlobeDirect
 
 	static bool physicalGlobeRect(const Globe* globe, PhysicalGlobeRect& rect)
 	{
-		if (!globe || !globe->_directScreen || Options::displayWidth <= 0 || Options::displayHeight <= 0)
+		if (!globe || !globe->_gpuState->_directScreen || Options::displayWidth <= 0 || Options::displayHeight <= 0)
 			return false;
-		const double xs = globe->_directScreen->getXScale();
-		const double ys = globe->_directScreen->getYScale();
+		const double xs = globe->_gpuState->_directScreen->getXScale();
+		const double ys = globe->_gpuState->_directScreen->getYScale();
 		rect.x = (int)std::lround(globe->getX() * xs)
-			+ globe->_directScreen->getCursorLeftBlackBand();
+			+ globe->_gpuState->_directScreen->getCursorLeftBlackBand();
 		rect.y = (int)std::lround(globe->getY() * ys)
-			+ globe->_directScreen->getCursorTopBlackBand();
+			+ globe->_gpuState->_directScreen->getCursorTopBlackBand();
 		rect.w = std::max(1, (int)std::lround(globe->getWidth() * xs));
 		rect.h = std::max(1, (int)std::lround(globe->getHeight() * ys));
 		rect.bottom = Options::displayHeight - rect.y - rect.h;
@@ -62,10 +177,10 @@ struct CalypsoGeoscapeHdGlobeDirect
 	static void computeSphereRes(const Globe* globe, int& w, int& h)
 	{
 		w = globe->getWidth(); h = globe->getHeight();
-		if (globe->_gpuDirectMode && globe->_directScreen != nullptr)
+		if (globe->_gpuState->_gpuDirectMode && globe->_gpuState->_directScreen != nullptr)
 		{
-			w = std::max(1, (int)std::lround(w * globe->_directScreen->getXScale()));
-			h = std::max(1, (int)std::lround(h * globe->_directScreen->getYScale()));
+			w = std::max(1, (int)std::lround(w * globe->_gpuState->_directScreen->getXScale()));
+			h = std::max(1, (int)std::lround(h * globe->_gpuState->_directScreen->getYScale()));
 		}
 	}
 
@@ -73,26 +188,26 @@ struct CalypsoGeoscapeHdGlobeDirect
 	{
 		if (!on)
 		{
-			if (globe->_gpuWorldPass.valid())
+			if (globe->_gpuState->_gpuWorldPass.valid())
 			{
-				globe->_gpuWorldPass.owner->unregisterGPUPassWorld(globe->_gpuWorldPass);
-				globe->_gpuWorldPass = {};
+				globe->_gpuState->_gpuWorldPass.owner->unregisterGPUPassWorld(globe->_gpuState->_gpuWorldPass);
+				globe->_gpuState->_gpuWorldPass = {};
 			}
-			globe->_gpuDirectMode = false;
-			globe->_directScreen = nullptr;
-			globe->_gpuBorderLines.clear();
-			globe->_gpuBorderVertices.clear();
-			globe->_coloredLineBatch.clearCommands();
-			globe->_hoverLineBatch.clearCommands();
-			globe->_gpuDebugLines.clear();
-			globe->_gpuDebugVertices.clear();
-			globe->_gpuLabelIconPendingDraws.clear();
-			globe->_gpuLabelIconCommittedDraws.clear();
-			globe->_gpuBorderCapacityExceeded = false;
-			globe->_gpuRadarFlightCapacityExceeded = false;
-			globe->_gpuDebugCapacityExceeded = false;
-			globe->_gpuLabelCapacityExceeded = false;
-			globe->_gpuLogicalWorldComplete = true;
+			globe->_gpuState->_gpuDirectMode = false;
+			globe->_gpuState->_directScreen = nullptr;
+			globe->_gpuState->_gpuBorderLines.clear();
+			globe->_gpuState->_gpuBorderVertices.clear();
+			globe->_gpuState->_coloredLineBatch.clearCommands();
+			globe->_gpuState->_hoverLineBatch.clearCommands();
+			globe->_gpuState->_gpuDebugLines.clear();
+			globe->_gpuState->_gpuDebugVertices.clear();
+			globe->_gpuState->_gpuLabelIconPendingDraws.clear();
+			globe->_gpuState->_gpuLabelIconCommittedDraws.clear();
+			globe->_gpuState->_gpuBorderCapacityExceeded = false;
+			globe->_gpuState->_gpuRadarFlightCapacityExceeded = false;
+			globe->_gpuState->_gpuDebugCapacityExceeded = false;
+			globe->_gpuState->_gpuLabelCapacityExceeded = false;
+			globe->_gpuState->_gpuLogicalWorldComplete = true;
 			return;
 		}
 		Screen* screen = globe && globe->_game ? globe->_game->getScreen() : nullptr;
@@ -102,33 +217,40 @@ struct CalypsoGeoscapeHdGlobeDirect
 				"Geoscape GPU-direct Screen/world slot unavailable");
 			return;
 		}
-		if (globe->_gpuDirectMode)
+		if (globe->_gpuState->_gpuDirectMode)
 		{
-			if (!globe->_gpuWorldPass.valid() && globe->_directScreen)
+			if (!globe->_gpuState->_gpuWorldPass.valid() && globe->_gpuState->_directScreen)
 			{
-				Screen* screen = globe->_directScreen;
-				std::weak_ptr<bool> wf = globe->_gpuAliveFlag;
-				globe->_gpuWorldPass = screen->registerGPUPassWorld([globe, wf]() {
+				Screen* screen = globe->_gpuState->_directScreen;
+				std::weak_ptr<bool> wf = globe->_gpuState->_gpuAliveFlag;
+				globe->_gpuState->_gpuWorldPass = screen->registerGPUPassWorld([globe, wf]() {
 					if (!wf.lock()) return;
 					CalypsoGeoscapeHdGlobeDirect::drawPass(globe);
 				});
 			}
 			return;
 		}
-		globe->_gpuDirectMode = on;
+		globe->_gpuState->_gpuDirectMode = on;
 		/* One stable activation marker: logged exactly when this Globe
 		 * transitions from canonical readback to the physical direct
 		 * composite. The repeat-call early return above guarantees repeated
 		 * setGpuDirect(true) calls never re-log it. */
 		Log(LOG_INFO) << "Globe: gpu-direct composite active";
-		globe->_directScreen = screen;
+		globe->_gpuState->_gpuBorderLines.reserve(Globe::GPU_BORDER_LINE_CAPACITY);
+		globe->_gpuState->_gpuBorderVertices.reserve(Globe::GPU_BORDER_VERTEX_FLOAT_CAPACITY);
+		globe->_gpuState->_gpuDebugLines.reserve(Globe::GPU_DEBUG_LINE_CAPACITY);
+		globe->_gpuState->_gpuDebugVertices.reserve(Globe::GPU_DEBUG_VERTEX_FLOAT_CAPACITY);
+		globe->_gpuState->_gpuLabelTextures.reserve(Globe::GPU_LABEL_TEXTURE_CAPACITY);
+		globe->_gpuState->_gpuLabelIconPendingDraws.reserve(Globe::GPU_LABEL_DRAW_CAPACITY);
+		globe->_gpuState->_gpuLabelIconCommittedDraws.reserve(Globe::GPU_LABEL_DRAW_CAPACITY);
+		globe->_gpuState->_directScreen = screen;
 		SDL_SetColorKey(globe->getSurface(), SDL_SRCCOLORKEY, 0);
-		if (!globe->_gpuAliveFlag) globe->_gpuAliveFlag = std::make_shared<bool>(true);
-		if (!globe->_gpuSphereOK && !globe->initSphereGPU())
+		if (!globe->_gpuState->_gpuAliveFlag) globe->_gpuState->_gpuAliveFlag = std::make_shared<bool>(true);
+		if (!globe->_gpuState->_gpuSphereOK && !globe->initSphereGPU())
 			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape GPU-direct sphere resources unavailable");
 		globe->drawMarkers();
-		std::weak_ptr<bool> wf = globe->_gpuAliveFlag;
-		globe->_gpuWorldPass = screen->registerGPUPassWorld([globe, wf]() {
+		std::weak_ptr<bool> wf = globe->_gpuState->_gpuAliveFlag;
+		globe->_gpuState->_gpuWorldPass = screen->registerGPUPassWorld([globe, wf]() {
 			if (!wf.lock()) return;
 			CalypsoGeoscapeHdGlobeDirect::drawPass(globe);
 		});

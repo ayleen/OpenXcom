@@ -389,13 +389,8 @@ bool Screen::flip()
 		return false;
 #endif
 #ifdef __EMSCRIPTEN__
-	const Uint64 calypsoCopyStart = Calypso::calypsoPassTimersEnabled()
-		? SDL_GetPerformanceCounter() : 0;
 	if (SDL_RenderCopy(_renderer, _texture, nullptr, nullptr) != 0)
 		Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Calypso HD logical composite failed");
-	if (calypsoCopyStart)
-		Calypso::calypsoPassTimers().sdlCopyUs +=
-			(Uint64)((SDL_GetPerformanceCounter() - calypsoCopyStart) * 1000000ull / SDL_GetPerformanceFrequency());
 #else
 	/* Native: the GPU scales the uploaded staging texture to the window. */
 	SDL_RenderCopy(_renderer, _texture, nullptr, nullptr);
