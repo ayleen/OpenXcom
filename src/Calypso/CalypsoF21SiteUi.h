@@ -63,6 +63,10 @@ public:
 	/// Refresh the placement-card readouts (coords/region/cost) from the
 	/// live hover snapshot; no-op off the HD route.
 	static void refreshHoverReadouts(BuildNewBaseState& state, double lon, double lat);
+	/// One-time off-globe reset (§16.3): return the placement-card readouts
+	/// to their pending copies when the pointer leaves the Earth disk; no-op
+	/// off the HD route.
+	static void refreshHoverReadoutsOutside(BuildNewBaseState& state);
 	/// Add the lower Geoscape visual owners replaced by an F21-family form.
 	/// Globe and placement/navigation input are deliberately excluded.
 	static void collectLowerGeoscapeSuppression(const GeoscapeState* geoscape,

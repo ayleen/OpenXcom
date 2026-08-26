@@ -66,7 +66,7 @@ extern "C" int calypso_context_reset_boundary_open(void);
 extern "C" void calypso_context_reset_boundary_close(void);
 extern "C" void calypso_context_reset_sentinel_consumed(void);
 
-/* Этап 2 (Option A): the streaming texture carries the LOGICAL surface
+/* Stage 2 (Option A): the streaming texture carries the LOGICAL surface
  * resolution; the upscale to the physical canvas happens on the GPU at
  * present time with NEAREST filtering, matching the legacy CPU blit's
  * pixel-replication look. Single factory so blend+scale modes can never
@@ -84,7 +84,7 @@ extern "C" SDL_Texture *calypsoCreateLogicalStreamingTexture(SDL_Renderer *rende
 	/* Phase 13.3: BLEND lets pre-composite GPU content show through
 	 * transparent surface regions. */
 	SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
-	/* Этап 2: crisp legacy pixels; GPU performs logical->physical scale. */
+	/* Stage 2: crisp legacy pixels; GPU performs logical->physical scale. */
 	SDL_SetTextureScaleMode(texture, SDL_ScaleModeNearest);
 	return texture;
 }
@@ -504,7 +504,7 @@ bool Screen::flip()
 	 * it over whatever the pre-composite passes drew.  _texture blend mode is
 	 * SDL_BLENDMODE_BLEND so transparent surface pixels let GPU content show. */
 #ifdef __EMSCRIPTEN__
-	/* Этап 2: upload the LOGICAL surface verbatim (no CPU scaling, no
+	/* Stage 2: upload the LOGICAL surface verbatim (no CPU scaling, no
 	 * physical staging copy); the GPU performs the logical->physical upscale
 	 * with NEAREST at SDL_RenderCopy time. */
 	const Uint64 calypsoTexStart = Calypso::calypsoPassTimersEnabled()
@@ -531,9 +531,32 @@ bool Screen::flip()
 	if (calypsoTexStart)
 		Calypso::calypsoPassTimers().sdlMemcpyUs +=
 			(Uint64)((SDL_GetPerformanceCounter() - calypsoTexStart) * 1000000ull / SDL_GetPerformanceFrequency());
+#else
+	/* Native non-OpenGL path (§16.1): keep the full historical composite.
+	 * CPU-scale the LOGICAL surface into the physical staging surface, then
+	 * upload that staging surface verbatim as the streaming texture. */
+	SDL_BlitScaled(_surface.get(), nullptr, _screen, nullptr);
+
+	void *texPixels;
+	int   texPitch;
+	SDL_LockTexture(_texture, nullptr, &texPixels, &texPitch);
+	if (texPitch == _screen->pitch)
+	{
+		memcpy(texPixels, _screen->pixels, (size_t)_screen->h * texPitch);
+	}
+	else
+	{
+		for (int y = 0; y < _screen->h; y++)
+		{
+			memcpy((char*)texPixels + y * texPitch,
+			       (char*)_screen->pixels + y * _screen->pitch,
+			       (size_t)_screen->w * 4);
+		}
+	}
+	SDL_UnlockTexture(_texture);
 #endif
-	const bool hasWorldPasses = !_gpuPassesWorld.empty();
 #ifdef __EMSCRIPTEN__
+	const bool hasWorldPasses = !_gpuPassesWorld.empty();
 	if (hasWorldPasses && !Calypso::SdlCompositeBoundary::check("before SDL_RenderCopy"))
 		return false;
 #endif
@@ -545,6 +568,9 @@ bool Screen::flip()
 	if (calypsoCopyStart)
 		Calypso::calypsoPassTimers().sdlCopyUs +=
 			(Uint64)((SDL_GetPerformanceCounter() - calypsoCopyStart) * 1000000ull / SDL_GetPerformanceFrequency());
+#else
+	/* Native: the GPU scales the uploaded staging texture to the window. */
+	SDL_RenderCopy(_renderer, _texture, nullptr, nullptr);
 #endif
 	#ifdef __EMSCRIPTEN__
 	if (hasWorldPasses && !Calypso::SdlCompositeBoundary::check("after SDL_RenderCopy"))
@@ -775,7 +801,7 @@ void Screen::resetDisplay(bool resetVideo, bool noShaders)
 	}
 
 #ifdef __EMSCRIPTEN__
-	/* Этап 2: keep the streaming texture glued to the LOGICAL size across
+	/* Stage 2: keep the streaming texture glued to the LOGICAL size across
 	 * base-resolution changes; ordinary physical canvas resizes leave it
 	 * untouched. Skipped before a renderer exists (initial setup creates it
 	 * together with the renderer below). */
@@ -797,7 +823,7 @@ void Screen::resetDisplay(bool resetVideo, bool noShaders)
 	if (!resetVideo && _window && _screen
 	    && (_screen->w != width || _screen->h != height))
 	{
-		/* Этап 2: the streaming texture follows the LOGICAL base size and is
+		/* Stage 2: the streaming texture follows the LOGICAL base size and is
 		 * unaffected by physical canvas resizes; refresh only the screenshot
 		 * staging surface metadata here. */
 		SDL_FreeSurface(_screen); _screen = nullptr;
@@ -899,6 +925,22 @@ void Screen::resetDisplay(bool resetVideo, bool noShaders)
 				throw Exception(SDL_GetError());
 			}
 
+#ifdef __EMSCRIPTEN__
+			/* §16.1: EVERY Emscripten streaming-texture creation goes through
+			 * the one logical factory -- base-resolution ARGB8888 with BLEND +
+			 * SDL_ScaleModeNearest applied in a single place. The initial
+			 * renderer setup used to size the texture to the PHYSICAL canvas
+			 * here, so the Stage-2 flip() wrote logical rows into a physical
+			 * texture until the first resetDisplay(false) repaired it. Native
+			 * keeps a physical-size texture because its flip() uploads the
+			 * CPU-scaled staging surface verbatim. */
+			_texture = calypsoCreateLogicalStreamingTexture(_renderer);
+			if (!_texture)
+			{
+				Log(LOG_ERROR) << "SDL_CreateTexture failed: " << SDL_GetError();
+				throw Exception(SDL_GetError());
+			}
+#else
 			_texture = SDL_CreateTexture(_renderer, SDL_PIXELFORMAT_ARGB8888,
 			    SDL_TEXTUREACCESS_STREAMING, width, height);
 			if (!_texture)
@@ -916,6 +958,7 @@ void Screen::resetDisplay(bool resetVideo, bool noShaders)
 			// with neighboring transparent fragments, producing the visible thin
 			// dark "seam" between adjacent diamonds. NEAREST keeps tile edges crisp.
 			SDL_SetTextureScaleMode(_texture, SDL_ScaleModeNearest);
+#endif
 		}
 
 		Log(LOG_INFO) << "Display set: " << width << "x" << height

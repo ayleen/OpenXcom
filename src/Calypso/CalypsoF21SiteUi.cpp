@@ -430,8 +430,12 @@ void CalypsoF21SiteUi::configure(BuildNewBaseState& state, bool allowPhysicalOve
 	state.enableUiScaling(layout.designWidth, layout.designHeight, 1.0f,
 		/*subtractVanillaCenter=*/false);
 
-	// Site clicks inside the taller HD strip must not place a base.
-	state._hdStripBottom = layout.banner.y + layout.banner.height;
+	// Site clicks inside the taller HD strip must not place a base. The guard
+	// reads the PROJECTED banner widget rect -- the same logical rectangle the
+	// painter claims and hit testing sees -- never design-space constants
+	// (§16.2: one shared CSS/backing/display/logical conversion everywhere).
+	const CalypsoLogicalRect projectedBanner = f21WidgetRect(state._window);
+	state._hdStripBottom = projectedBanner.y + projectedBanner.h;
 
 	CalypsoF21SiteUi* adapter = new CalypsoF21SiteUi(&state);
 	state._hdAdapter = adapter;
@@ -456,12 +460,15 @@ bool CalypsoF21SiteUi::resize(BuildNewBaseState& state)
 		CalypsoF21SiteUi::applyRects(state, layout);
 		state.recaptureUiScaling(layout.designWidth, layout.designHeight, 1.0f,
 			/*subtractVanillaCenter=*/false);
-		state._hdStripBottom = layout.banner.y + layout.banner.height;
 	}
 	else
 	{
 		state.applyUiScaling();
 	}
+	// Keep the strip click guard glued to the projected banner rect on every
+	// resize path (layout swap or plain re-projection) -- §16.2.
+	const CalypsoLogicalRect projectedBanner = f21WidgetRect(state._window);
+	state._hdStripBottom = projectedBanner.y + projectedBanner.h;
 	return true;
 }
 
@@ -489,6 +496,19 @@ void CalypsoF21SiteUi::refreshHoverReadouts(BuildNewBaseState& state, double lon
 			break;
 		}
 	}
+}
+
+void CalypsoF21SiteUi::refreshHoverReadoutsOutside(BuildNewBaseState& state)
+{
+	// §16.3: the pointer left the Earth disk; the candidate card returns to
+	// its pending copies exactly once until a finite sample re-enters.
+	if (!state._hdLayout || !state._hdCoords || !state._hdRegion || !state._hdCost)
+	{
+		return;
+	}
+	state._hdCoords->setText(state.tr("STR_CAL_F21_CANDIDATE_SITE"));
+	state._hdRegion->setText(state.tr("STR_CAL_F21_REGION_PENDING"));
+	state._hdCost->setText(state.tr("STR_CAL_F21_REGION_COST_TBD"));
 }
 
 } // namespace Calypso

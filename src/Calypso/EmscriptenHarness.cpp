@@ -1346,6 +1346,23 @@ void calypso_push_mouse_motion(int x, int y)
 	c->setY((int)(dy / sy));
 }
 
+/*
+ * Canonical JS -> engine mouse-button bridge.
+ *
+ * Canvas capture listeners own button delivery because SDL's browser button
+ * callbacks can disappear after canvas/context lifecycle changes. Coordinates
+ * arrive in canvas-backing pixels and dispatch synchronously through Game's
+ * normal Screen/Cursor/FPS/top-state owner order.
+ */
+EMSCRIPTEN_KEEPALIVE
+int calypso_push_mouse_button(int x, int y, int sdlButton, int pressed)
+{
+	if (sdlButton < 1 || sdlButton > 5) return 0;
+	OpenXcom::Game *g = OpenXcom::getCurrentGame();
+	if (!g) return 0;
+	return g->dispatchCalypsoMouseButton(x, y, sdlButton, pressed != 0) ? 1 : 0;
+}
+
 /* ---- DPR2 cursor-alignment regression gate (loopback QA, read-only) --------
  * Read-only counterparts of calypso_push_mouse_motion above: report the
  * canvas-BACKING coordinate where the GPU cursor quad is ACTUALLY presented

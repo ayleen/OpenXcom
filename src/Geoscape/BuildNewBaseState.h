@@ -18,6 +18,7 @@
  * along with OpenXcom.  If not, see <http:///www.gnu.org/licenses/>.
  */
 #include "../Engine/State.h"
+#include "../Calypso/CalypsoGeoscapeHoverTransition.h"
 
 namespace OpenXcom
 {
@@ -48,7 +49,9 @@ private:
 	Timer *_hoverTimer;
 	bool _first;
 	bool _oldshowradar;
-	double _oldlat,_oldlon;
+	/// §16.3: one-time off-globe hover transition state (finite last sample
+	/// pair lives here; NaN never enters it).
+	Calypso::CalypsoGlobeHoverTracker _hoverTracker;
 	int _mousex, _mousey;
 #ifdef __EMSCRIPTEN__
 	friend class Calypso::CalypsoF21SiteUi;
