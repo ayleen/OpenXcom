@@ -147,6 +147,13 @@ private:
 	unsigned  _coloredLineVBO     = 0u;
 	Shader*   _coloredLineShader  = nullptr;
 	bool      _coloredLineResourcesReady = false;
+	Calypso::CalypsoGeoscapeColoredLineBatchState _hoverLineBatch;
+	Calypso::CalypsoGeoscapeHoverOverlayState _hoverOverlayState;
+	bool _gpuHoverCapacityExceeded = false;
+	unsigned  _hoverLineVAO = 0u;
+	unsigned  _hoverLineVBO = 0u;
+	bool      _hoverLineResourcesReady = false;
+	Calypso::CalypsoGeoscapeColoredLineBatchState *_activeLineBatch = nullptr;
 	struct DebugLine
 	{
 		float x1 = 0.f;
@@ -211,6 +218,8 @@ private:
 	void drawHDStarfield();
 	/// Renders the sphere via GPU and reads back pixels into this surface.
 	void drawSphereGPU();
+	/// Rebuilds only the moving New Base hover circles when their key changes.
+	void drawHoverCircles();
 	/// Stage 10.2.1: physical-resolution direct composite; activation flows
 	/// from the registered F16 hdUiFamilies route (diagnostic override aside).
 	/// Sun direction in the fixed world frame the shader uses.

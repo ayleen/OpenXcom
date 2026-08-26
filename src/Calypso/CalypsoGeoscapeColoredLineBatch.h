@@ -63,6 +63,11 @@ struct CalypsoGeoscapeColoredLineCommand
 static const size_t COLORED_LINE_COMMAND_CAPACITY = 16384u;
 static const size_t COLORED_LINE_VERTEX_CAPACITY =
 	COLORED_LINE_COMMAND_CAPACITY * 2u;
+/// The New Base preview is deliberately bounded independently from the
+/// campaign radar/flight snapshot. A few facility types are enough for the
+/// complete overlay, while this bound remains a fail-closed backstop.
+static const size_t HOVER_LINE_COMMAND_CAPACITY = 1024u;
+static const size_t HOVER_LINE_VERTEX_CAPACITY = HOVER_LINE_COMMAND_CAPACITY * 2u;
 
 /// Physical mapping inputs shared by every pack operation. Positions are
 /// projected from the same frozen physical globe rectangle used by Earth,
@@ -83,10 +88,11 @@ struct CalypsoGeoscapeColoredLineViewport
 class CalypsoGeoscapeColoredLineBatchState
 {
 public:
-	CalypsoGeoscapeColoredLineBatchState()
+	explicit CalypsoGeoscapeColoredLineBatchState(size_t commandCapacity = COLORED_LINE_COMMAND_CAPACITY)
+		: _commandCapacity(commandCapacity)
 	{
-		_commands.reserve(COLORED_LINE_COMMAND_CAPACITY);
-		_vertices.reserve(COLORED_LINE_VERTEX_CAPACITY);
+		_commands.reserve(_commandCapacity);
+		_vertices.reserve(_commandCapacity * 2u);
 	}
 
 	void clearCommands()
@@ -100,7 +106,7 @@ public:
 	bool tryRecordCommand(double x1, double y1, double x2, double y2,
 		std::uint8_t r, std::uint8_t g, std::uint8_t b, std::uint8_t a)
 	{
-		if (_commands.size() >= COLORED_LINE_COMMAND_CAPACITY)
+		if (_commands.size() >= _commandCapacity)
 			return false;
 		CalypsoGeoscapeColoredLineCommand command;
 		command.x1 = x1; command.y1 = y1;
@@ -112,6 +118,7 @@ public:
 
 	size_t commandCount() const { return _commands.size(); }
 	size_t vertexCount() const { return _commands.size() * 2u; }
+	size_t capacity() const { return _commandCapacity; }
 
 	const CalypsoGeoscapeColoredLineCommand* commands() const
 	{
@@ -123,7 +130,7 @@ public:
 	/// SIZE_MAX when a preflight bound would be exceeded.
 	size_t packVertices(const CalypsoGeoscapeColoredLineViewport& viewport)
 	{
-		if (_commands.size() > COLORED_LINE_COMMAND_CAPACITY)
+		if (_commands.size() > _commandCapacity)
 			return static_cast<size_t>(-1);
 		if (_vertices.capacity() < _commands.size() * 2u)
 			return static_cast<size_t>(-1);
@@ -167,6 +174,7 @@ private:
 
 	std::vector<CalypsoGeoscapeColoredLineCommand> _commands;
 	std::vector<CalypsoGeoscapeColoredLineVertex> _vertices;
+	size_t _commandCapacity;
 };
 
 /// FNV-1a accumulator over exact bit patterns. Floating-point fields hash
@@ -248,6 +256,88 @@ struct CalypsoGeoscapeColoredLineSnapshotKey
 	{
 		return !(*this == rhs);
 	}
+};
+
+/// Observable inputs for the moving New Base preview. This key is separate
+/// from the static radar/flight snapshot: changing the pointer position must
+/// not rebuild unrelated campaign geometry.
+struct CalypsoGeoscapeHoverOverlayKey
+{
+	bool active;
+	double longitude;
+	double latitude;
+	std::int32_t rectX;
+	std::int32_t rectY;
+	std::int32_t rectW;
+	std::int32_t rectH;
+	std::int32_t displayWidth;
+	std::int32_t displayHeight;
+	double scaleX;
+	double scaleY;
+
+	bool operator==(const CalypsoGeoscapeHoverOverlayKey& rhs) const
+	{
+		return active == rhs.active
+			&& longitude == rhs.longitude && latitude == rhs.latitude
+			&& rectX == rhs.rectX && rectY == rhs.rectY
+			&& rectW == rhs.rectW && rectH == rhs.rectH
+			&& displayWidth == rhs.displayWidth && displayHeight == rhs.displayHeight
+			&& scaleX == rhs.scaleX && scaleY == rhs.scaleY;
+	}
+	bool operator!=(const CalypsoGeoscapeHoverOverlayKey& rhs) const
+	{
+		return !(*this == rhs);
+	}
+};
+
+enum HoverOverlayPrepareResult
+{
+	HOVER_OVERLAY_UNCHANGED,
+	HOVER_OVERLAY_REBUILT,
+	HOVER_OVERLAY_CLEARED,
+};
+
+/// Allocation-free state machine for the dynamic hover batch. Geometry dirt
+/// and GPU-upload dirt are intentionally separate: a stable active key draws
+/// the committed VBO without rebuilding or uploading it.
+class CalypsoGeoscapeHoverOverlayState
+{
+public:
+	HoverOverlayPrepareResult prepare(const CalypsoGeoscapeHoverOverlayKey& key)
+	{
+		if (!_hasKey || _forceRebuild || key != _key)
+		{
+			_key = key;
+			_hasKey = true;
+			_forceRebuild = false;
+			if (!key.active) return HOVER_OVERLAY_CLEARED;
+			_geometryDirty = true;
+			return HOVER_OVERLAY_REBUILT;
+		}
+		return HOVER_OVERLAY_UNCHANGED;
+	}
+
+	void markGeometryBuilt()
+	{
+		_geometryDirty = false;
+		_uploadDirty = true;
+	}
+	void markUploaded() { _uploadDirty = false; }
+	void notifyContextReset()
+	{
+		_forceRebuild = true;
+		_geometryDirty = true;
+		_uploadDirty = true;
+	}
+	bool geometryDirty() const { return _geometryDirty; }
+	bool uploadDirty() const { return _uploadDirty; }
+
+private:
+	CalypsoGeoscapeHoverOverlayKey _key = CalypsoGeoscapeHoverOverlayKey();
+	bool _hasKey = false;
+	bool _forceRebuild = false;
+	bool _geometryDirty = false;
+	bool _uploadDirty = false;
 };
 
 /// Generation-separated cache verdicts for one prepared frame.
