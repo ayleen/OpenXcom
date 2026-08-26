@@ -146,6 +146,7 @@
 #include "../Calypso/CalypsoAdvisor.h"
 #include "../Calypso/CalypsoGeoscapeHd.h"
 #include "../Calypso/CalypsoGeoscapeHdRuntime.h"
+#include "../Calypso/CalypsoGeoscapeStateInit.h"
 #include "../Calypso/CalypsoGeoscapeHdShell.h"
 #include "../Calypso/CalypsoHdScreenRenderer.h"
 #include "../Calypso/CalypsoHdUiOverlay.h"
@@ -503,36 +504,7 @@ GeoscapeState::GeoscapeState() : _pause(false), _zoomInEffectDone(false), _zoomO
 
 	timeDisplay();
 #ifdef __EMSCRIPTEN__
-	calypsoChecklistBuild();   // Phase 39: task-checklist chip
-	CalypsoGeoscapeHd::applyTtf(this);   // Phase 41 B2: HD side panel
-	CalypsoGeoscapeHd::layout(this);
-	CalypsoGeoscapeHdShell::apply(this);   // Stage 9: contract-projected shell
-	const bool canonicalListed = _game->getMod()->isHdUiFamilyEnabled("F16");
-	const bool previewListed = Calypso::calypsoGeoscapeHdPreviewFamilyEnabled(
-		canonicalListed, ::g_calypsoGeoscapeHdPreview != 0);
-	if (previewListed)
-	{
-		_calypsoHdRenderer = new Calypso::CalypsoHdScreenRenderer(
-			this, Calypso::CalypsoHdScreenRenderModel{},
-			Calypso::CalypsoHdScreenRenderMode::GeoscapeLiveChrome);
-		Calypso::CalypsoHdUiOverlay::instance().registerAdapter(_calypsoHdRenderer);
-	}
-	// Canonical F16 (registered hdUiFamilies rollout key) drives GPU-direct
-	// activation; ::g_calypsoGlobeGpuDirect is the loopback diagnostic override.
-	if (previewListed || ::g_calypsoGlobeGpuDirect != 0) _globe->setGpuDirect(true);
-	// Stage 8c: evaluate the F16 command-shell gate once per construction and
-	// report the stable reason. The physical shell binds in Stage 9; while the
-	// gate is off (or before that binding) the Phase 41 side panel above stays
-	// the active presentation, unchanged.
-	{
-		using OpenXcom::Calypso::calypsoGeoscapeHdGateDecision;
-		const bool listed = Calypso::calypsoGeoscapeHdPreviewFamilyEnabled(
-			_game->getMod()->isHdUiFamilyEnabled("F16"),
-			::g_calypsoGeoscapeHdPreview != 0);
-		const auto decision = calypsoGeoscapeHdGateDecision(true, listed, true, true);
-		Log(LOG_INFO) << "[HD] geoscape command shell gate: " << decision.reason;
-	}
-
+	Calypso::calypsoGeoscapeStateInitHd(*this);
 #endif
 }
 

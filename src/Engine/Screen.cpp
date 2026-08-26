@@ -21,6 +21,8 @@
 #include "../Calypso/CalypsoResolutionFloor.h"
 #include "../Calypso/CalypsoSdlCompositeBoundary.h"
 #include "../Calypso/CalypsoPassTimers.h"
+#include "../Calypso/CalypsoScreenRecovery.h"
+#include "../Calypso/CalypsoScreenWorld.h"
 #endif
 #include "Game.h"
 #include "../Mod/Mod.h"
@@ -53,41 +55,10 @@
 #include <emscripten.h>
 #include <emscripten/html5.h>
 #include <GLES3/gl3.h>
-/* M6c: context-lost flag; C-linkage definition lives in ../Calypso/CalypsoMainLoopGate.cpp.
- * Declared at file scope (extern "C" is not allowed at block scope) — same
- * pattern as g_calypsoSsaaScale in Map.cpp. */
+/* M6c: g_calypsoContextLost lives in CalypsoMainLoopGate.cpp (guard R3). */
 extern "C" int g_calypsoContextLost;
-extern "C" void calypso_gl_context_lost(void); /* M6c export; idempotent C-side guard */
-extern "C" void calypso_context_recovery_succeeded(void);
-extern "C" void calypso_context_recovery_failed(void);
-extern "C" int calypso_context_reset_sentinel_pending(void);
-extern "C" void calypso_context_reset_sentinel_observed(void);
-extern "C" int calypso_context_reset_boundary_open(void);
-extern "C" void calypso_context_reset_boundary_close(void);
-extern "C" void calypso_context_reset_sentinel_consumed(void);
-
-/* Stage 2 (Option A): the streaming texture carries the LOGICAL surface
- * resolution; the upscale to the physical canvas happens on the GPU at
- * present time with NEAREST filtering, matching the legacy CPU blit's
- * pixel-replication look. Single factory so blend+scale modes can never
- * drift between the creation paths (the incremental-resize path previously
- * lost the scale mode). */
-extern "C" SDL_Texture *calypsoCreateLogicalStreamingTexture(SDL_Renderer *renderer)
-{
-	SDL_Texture *texture = SDL_CreateTexture(renderer,
-	    SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
-	    OpenXcom::Options::baseXResolution, OpenXcom::Options::baseYResolution);
-	if (!texture)
-	{
-		return nullptr;
-	}
-	/* Phase 13.3: BLEND lets pre-composite GPU content show through
-	 * transparent surface regions. */
-	SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
-	/* Stage 2: crisp legacy pixels; GPU performs logical->physical scale. */
-	SDL_SetTextureScaleMode(texture, SDL_ScaleModeNearest);
-	return texture;
-}
+// calypso_* recovery/ streaming helpers moved to src/Calypso/ (guard R3)
+extern "C" SDL_Texture *calypsoCreateLogicalStreamingTexture(SDL_Renderer *);
 #endif
 
 namespace OpenXcom
@@ -178,97 +149,9 @@ Screen::~Screen()
  * This function MUST run before ShaderManager::reuploadAll().  reuploadAll()
  * makes raw GL calls that need a live GL context; the new renderer provides it.
  */
-static bool calypsoResetContextReady()
-{
-	static const GLenum CALYPSO_CONTEXT_LOST_WEBGL = 0x9242;
-	GLenum resetError = glGetError();
-	if (resetError == CALYPSO_CONTEXT_LOST_WEBGL)
-	{
-		calypso_context_reset_sentinel_observed();
-		resetError = glGetError();
-		if (resetError == GL_NO_ERROR)
-			calypso_context_reset_sentinel_consumed();
-	}
-	if (resetError != GL_NO_ERROR) return false;
-	return GpuInit::contextReady();
-}
-
 bool Screen::recreateRendererGL()
 {
-	/* M6c Task 2 — dead-mouse fix.
-	 *
-	 * Root cause of the dead mouse after context restore:
-	 *   SDL_DestroyRenderer → GLES2_DestroyRenderer → SDL_GL_DeleteContext →
-	 *   Emscripten GL.deleteContext → JSEvents.removeAllHandlersOnTarget(canvas)
-	 *
-	 * GL.deleteContext strips EVERY handler registered via Emscripten's
-	 * JSEvents infrastructure from the canvas — including SDL's own mouse and
-	 * keyboard event listeners registered by Emscripten_RegisterEventHandlers
-	 * (called from Emscripten_CreateWindow).  SDL_CreateRenderer does NOT
-	 * re-register them because GLES2_CreateRenderer's SDL_RecreateWindow
-	 * branch is skipped once the window already carries an OpenGL ES profile.
-	 *
-	 * Fix: use the full resetDisplay(true, …) path which destroys the SDL
-	 * window too.  SDL_CreateWindow → Emscripten_CreateWindow →
-	 * Emscripten_RegisterEventHandlers re-registers all mouse/key handlers on
-	 * the canvas, restoring input to the identical state as initial boot.
-	 * resetDisplay also calls GpuInit::init() (re-enables float extensions),
-	 * recalculates _scaleX/_scaleY, and resets all SDL surface/texture state.
-	 *
-	 * ShaderManager::reuploadAll() is still called by Screen::handle() after
-	 * this returns to rebuild GPU resources. */
-	try
-	{
-		/* GpuInit must not report the dead context as ready while SDL rebuilds. */
-		GpuInit::invalidate();
-		resetDisplay(true, false);
-		if (!calypsoResetContextReady())
-			throw Exception("replacement WebGL2 context is not ready");
-
-		/* M6h: force the canvas-size rebase block in flip() to run on the next
-		 * frame even though the polled canvas dimensions will equal
-		 * Options::displayWidth/Height (resetDisplay just wrote them back).
-		 *
-		 * The previous M6g approach zeroed displayWidth/Height to trick the
-		 * canvas-poll condition (wW != Options::displayWidth) into firing.  That
-		 * worked for scale re-derivation but introduced Defect M6h: with the old
-		 * value recorded as 0, BattlescapeState::resize(dX, dY) (called from
-		 * zoom() during the same tick) computed a huge delta (new – 0 = canvas
-		 * width) and shifted the entire battlescape HUD off-screen.
-		 *
-		 * Using a flag instead leaves Options::displayWidth/Height intact (correct
-		 * values set by resetDisplay above).  When the forced rebase pass runs in
-		 * flip(), it assigns displayWidth = wW (same value → delta 0) and then
-		 * calls Screen::updateScale for both scales — re-deriving
-		 * baseXBattlescape / baseYBattlescape / baseXGeoscape / baseYGeoscape from
-		 * the current (correct) display size without displacing any state. */
-		_forceCanvasRebase = true;
-		return true;
-	}
-	catch (Exception &e)
-	{
-		/* M6g Defect 2: on a second GPU crash Chrome throttles WebGL context
-		 * creation, so SDL_CreateRenderer fails inside resetDisplay and throws.
-		 * Never let this exception escape iterate() — catch it here, log it, then
-		 * re-enter the lost state so the JS 13-s reload fallback takes over.
-		 *
-		 * Ordering safety: calypso_gl_context_restored() resumed the main loop
-		 * just before the SDL_RENDER_TARGETS_RESET event was dispatched to this
-		 * handler.  Setting g_calypsoContextLost = 1 here and calling
-		 * emscripten_pause_main_loop() ensures:
-		 *   (a) flip()'s guard at the top ("if (g_calypsoContextLost) return;")
-		 *       skips every GL call in the remainder of this iterate() tick — the
-		 *       flag is set synchronously inside this catch block, before flip()
-		 *       is reached in the same Game::run() iteration, so no GL call slips
-		 *       through between resume and re-pause.
-		 *   (b) The main loop is paused after this iterate() tick completes,
-		 *       giving the JS 13-s reload timer a chance to fire. */
-		Log(LOG_ERROR) << "M6g: recreateRendererGL failed — " << e.what();
-		GpuInit::invalidate();
-		g_calypsoContextLost = 1;
-		emscripten_pause_main_loop();
-		return false;
-	}
+	return Calypso::calypsoScreenRecreateRendererGL(*this);
 }
 #endif /* __EMSCRIPTEN__ */
 
@@ -308,16 +191,17 @@ void Screen::handle(Action *action)
 		 *
 		 * The SDL renderer and its streaming screen texture both hold internal GLES2
 		 * objects (shader programs, vertex buffer, texture handle) that were created
-		 * in the dead context.  SDL2's Emscripten/GLES2 backend has no
+		 * in the dead context. SDL2's Emscripten/GLES2 backend has no
 		 * webglcontextrestored handling, so those objects are permanently stale.
 		 *
-		 * Destroy and re-create the renderer chain first, then let reuploadAll()
-		 * restore our own GPU resources (GpuTexture atlases, ShaderManager programs,
-		 * FBOs).  The order is critical: recreateRendererGL() must run before
-		 * reuploadAll() so the new renderer establishes the fresh GL context that
-		 * reuploadAll() uploads into. */
+		 * Ordering (PR #51): recreateRendererGL() creates the replacement
+		 * window/renderer/context and runs the sentinel-aware probe (exactly one
+		 * 0x9242 within the bounded window, then GpuInit::init + contextReady).
+		 * Only after that does ShaderManager::reuploadAll() rebuild GPU objects.
+		 * The sentinel stays bounded to the recovery transaction; non-sentinel
+		 * GL errors still fail closed. */
 #ifdef __EMSCRIPTEN__
-		if (!recreateRendererGL() || !GpuInit::contextReady())
+		if (!recreateRendererGL())
 		{
 			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("WebGL context restore probe failed");
 			calypso_context_recovery_failed();
@@ -330,20 +214,12 @@ void Screen::handle(Action *action)
 			calypso_context_recovery_failed();
 			return;
 		}
-		/* WebGL reports one CONTEXT_LOST_WEBGL token (0x9242) on the first
-		 * post-swap query even after the replacement context is live.  Consume
-		 * only that reset-boundary sentinel here.  World/Earth draw code remains
-		 * strict and owns every GL error after this handler returns. */
-		static const GLenum CALYPSO_CONTEXT_LOST_WEBGL = 0x9242;
-		GLenum resetError = glGetError();
-		if (resetError == CALYPSO_CONTEXT_LOST_WEBGL)
-		{
-			calypso_context_reset_sentinel_observed();
-			resetError = glGetError();
-			if (resetError == GL_NO_ERROR)
-				calypso_context_reset_sentinel_consumed();
-		}
-		if (resetError != GL_NO_ERROR)
+		// Post-reupload transactional error probe: the context must be clean
+		// after resource rebuild. A late 0x9242 here is NOT the reset-boundary
+		// token (that was already consumed inside recreateRendererGL's probe)
+		// so it fails. Only the SdlComposite/Globe world boundary may still
+		// own a deferred token; this path does not.
+		if (glGetError() != GL_NO_ERROR)
 		{
 			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("WebGL context restore GL reset failed");
 			calypso_context_recovery_failed();
@@ -504,33 +380,7 @@ bool Screen::flip()
 	 * it over whatever the pre-composite passes drew.  _texture blend mode is
 	 * SDL_BLENDMODE_BLEND so transparent surface pixels let GPU content show. */
 #ifdef __EMSCRIPTEN__
-	/* Stage 2: upload the LOGICAL surface verbatim (no CPU scaling, no
-	 * physical staging copy); the GPU performs the logical->physical upscale
-	 * with NEAREST at SDL_RenderCopy time. */
-	const Uint64 calypsoTexStart = Calypso::calypsoPassTimersEnabled()
-		? SDL_GetPerformanceCounter() : 0;
-
-	void *texPixels;
-	int   texPitch;
-	if (SDL_LockTexture(_texture, nullptr, &texPixels, &texPitch) != 0)
-		Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Calypso HD logical texture lock failed");
-	if (_surface->pitch == texPitch)
-	{
-		memcpy(texPixels, _surface->pixels, (size_t)_surface->h * texPitch);
-	}
-	else
-	{
-		for (int y = 0; y < _surface->h; y++)
-		{
-			memcpy((char*)texPixels + y * texPitch,
-			       (char*)_surface->pixels + y * _surface->pitch,
-			       (size_t)_surface->w * 4);
-		}
-	}
-	SDL_UnlockTexture(_texture);
-	if (calypsoTexStart)
-		Calypso::calypsoPassTimers().sdlMemcpyUs +=
-			(Uint64)((SDL_GetPerformanceCounter() - calypsoTexStart) * 1000000ull / SDL_GetPerformanceFrequency());
+	Calypso::calypsoScreenUploadLogicalTexture(*this);
 #else
 	/* Native non-OpenGL path (§16.1): keep the full historical composite.
 	 * CPU-scale the LOGICAL surface into the physical staging surface, then
@@ -578,65 +428,7 @@ bool Screen::flip()
 	#endif
 
 #ifdef __EMSCRIPTEN__
-	/* Registered physical world passes sit between the legacy SDL composite and
-	 * HD chrome. This is the only Geoscape marker slot: it preserves canonical
-	 * world ordering without painting over registered HD UI. */
-	if (!_gpuPassesWorld.empty())
-	{
-		if (SDL_RenderFlush(_renderer) != 0)
-			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Calypso HD world SDL flush failed");
-		if (!Calypso::SdlCompositeBoundary::check("after SDL_RenderFlush"))
-			return false;
-		if (_gpuPassesPre.empty()) ShaderManager::instance().resetFrameFlag();
-		if (!Calypso::SdlCompositeBoundary::check("before world callbacks"))
-			return false;
-		/* Raw physical world callbacks may bind program/VAO/VBO 0.  SDL's GL
-		 * renderer caches its own bindings, so leaving that baseline live makes
-		 * the next SDL flush issue drawArrays with no shader program. Snapshot the
-		 * interop state after SDL's flush and restore it after every world batch. */
-		GLint savedWorldProgram = 0;
-		GLint savedWorldVao = 0;
-		GLint savedWorldArrayBuffer = 0;
-		glGetIntegerv(GL_CURRENT_PROGRAM, &savedWorldProgram);
-		glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &savedWorldVao);
-		glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &savedWorldArrayBuffer);
-		const GLenum worldStateError = glGetError();
-		if (!Calypso::SdlCompositeBoundary::handle(worldStateError, "after world state snapshot")) return false;
-		auto restoreWorldSdlState = [&]() {
-			glUseProgram(static_cast<GLuint>(savedWorldProgram));
-			glBindVertexArray(static_cast<GLuint>(savedWorldVao));
-			glBindBuffer(GL_ARRAY_BUFFER, static_cast<GLuint>(savedWorldArrayBuffer));
-			const GLenum restoreError = glGetError();
-			if (restoreError != GL_NO_ERROR)
-				Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
-					"Calypso HD world SDL state restore failed (0x" + [&]() {
-						std::ostringstream out;
-						out << std::hex << (unsigned)restoreError;
-						return out.str();
-					}() + ")");
-		};
-		_gpuWorldPassDispatching = true;
-		try
-		{
-			for (auto& entry : _gpuPassesWorld)
-				if (!entry.removed) entry.pass();
-		}
-		catch (...)
-		{
-			finishGPUPassWorldDispatch();
-			restoreWorldSdlState();
-			throw;
-		}
-		finishGPUPassWorldDispatch();
-		restoreWorldSdlState();
-		ShaderManager::instance().setHadGPUPass(true);
-	}
-
-	/* Stage 10.2.7: the bounded sentinel-ownership window spans exactly one
-	 * presented-frame attempt. Whether or not a duplicate token surfaced, the
-	 * presented world/chrome chain ends here: close the window so any future
-	 * unrelated 0x9242 fails closed instead of being silently owned. */
-	calypso_context_reset_boundary_close();
+	if (!Calypso::calypsoScreenFlipWorldPass(*this, hasWorldPasses)) return false;
 #endif
 
 	/* Phase 46.2-HD: enabled HD UI + diagnostics stages draw above the legacy

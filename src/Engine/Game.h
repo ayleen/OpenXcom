@@ -97,6 +97,8 @@ public:
 	/// Processes only the queued renderer-reset event during context recovery.
 	/// This path must not run gameplay, input, audio, state logic, or present.
 	void recoverContextTick();
+	static void emscriptenIter(void *arg);
+	static void calypsoRestartMainLoop();
 	/// Leases setImmediate scheduling to the current state for the next iteration.
 	void requestFastMainLoop(State *requester);
 	static constexpr unsigned int CALYPSO_MOUSE_BRIDGE_ID = 0xC47AB007u;

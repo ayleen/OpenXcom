@@ -1316,28 +1316,43 @@ void calypso_on_tab_hidden(void)
 	g_calypsoTabHiddenPause = 1;
 }
 
+/*
+ * Shared canvas-backing → engine-display normalization for the JS pointer bridge.
+ *
+ * The web bridge always sends canvas-BACKING pixels (canvas.width/height). After
+ * exact backing-store ownership the engine display surface (Screen width/height)
+ * may be CSS-logical at DPR != 1, so the two extents must not be assumed equal.
+ * This helper is the single owner of the mapping: it resolves the current physical
+ * canvas extent from CalypsoViewportRuntime when cached and valid, falls back to
+ * Screen size otherwise, and scales each axis via calypsoCanvasToDisplayCoordinate.
+ * At DPR 1 the normalization is identity; at DPR 2 backing 3024x1540 maps to
+ * display 1512x770 (center backing (1512,770) → display (756,385)). Both
+ * calypso_push_mouse_motion and calypso_push_mouse_button MUST use this helper
+ * so backing→display stays in sync and button dispatch does not double-scale
+ * through the normal SDL motion/button normalizer (dispatchCalypsoMouseButton
+ * bypasses that path).
+ */
+static inline void calypsoNormalizeCanvasPoint(int backingX, int backingY, OpenXcom::Screen *screen, double &outDisplayX, double &outDisplayY)
+{
+	const Calypso::CalypsoViewportRuntime &runtime = Calypso::calypsoViewportRuntime();
+	const bool haveCachedCanvas = runtime.hasPhysicalSize()
+		&& runtime.physicalWidth() > 0 && runtime.physicalHeight() > 0;
+	const int canvasW = haveCachedCanvas ? runtime.physicalWidth() : screen->getWidth();
+	const int canvasH = haveCachedCanvas ? runtime.physicalHeight() : screen->getHeight();
+	outDisplayX = Calypso::calypsoCanvasToDisplayCoordinate(backingX, canvasW, screen->getWidth());
+	outDisplayY = Calypso::calypsoCanvasToDisplayCoordinate(backingY, canvasH, screen->getHeight());
+}
+
 EMSCRIPTEN_KEEPALIVE
-void calypso_push_mouse_motion(int x, int y)
+void calypso_push_mouse_motion(int backingX, int backingY)
 {
 	OpenXcom::Game *g = OpenXcom::getCurrentGame();
 	if (!g) return;
 	OpenXcom::Cursor *c = g->getCursor();
 	OpenXcom::Screen *s = g->getScreen();
 	if (!c || !s) return;
-	/* JS sends canvas-backing pixels; after exact backing-store ownership the
-	 * engine display surface may be CSS-logical (DPR != 1), so the two extents
-	 * must not be assumed equal. Normalize each coordinate canvas-backing ->
-	 * current engine display extent FIRST (cached physical canvas extents when
-	 * valid, otherwise the Screen's own size), and only then convert display
-	 * -> game coords via the Screen's current xScale/yScale. At DPR 1 the
-	 * normalization is identity, so DPR1 behavior is unchanged. */
-	const Calypso::CalypsoViewportRuntime &runtime = Calypso::calypsoViewportRuntime();
-	const bool haveCachedCanvas = runtime.hasPhysicalSize()
-		&& runtime.physicalWidth() > 0 && runtime.physicalHeight() > 0;
-	const int canvasW = haveCachedCanvas ? runtime.physicalWidth() : s->getWidth();
-	const int canvasH = haveCachedCanvas ? runtime.physicalHeight() : s->getHeight();
-	double dx = Calypso::calypsoCanvasToDisplayCoordinate(x, canvasW, s->getWidth());
-	double dy = Calypso::calypsoCanvasToDisplayCoordinate(y, canvasH, s->getHeight());
+	double dx = 0.0, dy = 0.0;
+	calypsoNormalizeCanvasPoint(backingX, backingY, s, dx, dy);
 	double sx = s->getXScale();
 	double sy = s->getYScale();
 	if (sx <= 0.0) sx = 1.0;
@@ -1351,30 +1366,24 @@ void calypso_push_mouse_motion(int x, int y)
  *
  * Canvas capture listeners own button delivery because SDL's browser button
  * callbacks can disappear after canvas/context lifecycle changes. Coordinates
- * arrive in canvas-backing pixels and dispatch synchronously through Game's
- * normal Screen/Cursor/FPS/top-state owner order.
+ * arrive in canvas-backing pixels and are normalized to engine display
+ * coordinates (matching calypso_push_mouse_motion) before dispatch through
+ * Game's normal Screen/Cursor/FPS/top-state owner order.  At DPR 1 the
+ * normalization is identity; at DPR 2+ it prevents the Action constructor
+ * from double-scaling the coordinates.
  */
 EMSCRIPTEN_KEEPALIVE
-int calypso_push_mouse_button(int x, int y, int sdlButton, int pressed)
+int calypso_push_mouse_button(int backingX, int backingY, int sdlButton, int pressed)
 {
 	if (sdlButton < 1 || sdlButton > 5) return 0;
 	OpenXcom::Game *g = OpenXcom::getCurrentGame();
 	if (!g) return 0;
 	OpenXcom::Screen *s = g->getScreen();
 	if (!s) return 0;
-	/* Review fix (PR #122): button coordinates arrive in canvas-backing
-	 * pixels, exactly like calypso_push_mouse_motion above. Normalize
-	 * canvas-backing -> current engine display extent FIRST (cached physical
-	 * canvas extents when valid, otherwise the Screen's own size) so button
-	 * and motion stay in the same coordinate space at any DPR and the Action
-	 * constructor's xScale division yields correct game coordinates. */
-	const Calypso::CalypsoViewportRuntime &runtime = Calypso::calypsoViewportRuntime();
-	const bool haveCachedCanvas = runtime.hasPhysicalSize()
-		&& runtime.physicalWidth() > 0 && runtime.physicalHeight() > 0;
-	const int canvasW = haveCachedCanvas ? runtime.physicalWidth() : s->getWidth();
-	const int canvasH = haveCachedCanvas ? runtime.physicalHeight() : s->getHeight();
-	const int dx = (int)Calypso::calypsoCanvasToDisplayCoordinate(x, canvasW, s->getWidth());
-	const int dy = (int)Calypso::calypsoCanvasToDisplayCoordinate(y, canvasH, s->getHeight());
+	double dxD = 0.0, dyD = 0.0;
+	calypsoNormalizeCanvasPoint(backingX, backingY, s, dxD, dyD);
+	const int dx = (int)dxD;
+	const int dy = (int)dyD;
 	return g->dispatchCalypsoMouseButton(dx, dy, sdlButton, pressed != 0) ? 1 : 0;
 }
 

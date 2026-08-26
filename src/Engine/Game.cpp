@@ -38,6 +38,7 @@
 #ifdef __EMSCRIPTEN__
 #include "GpuInit.h"
 #include "../Calypso/CalypsoPassTimers.h"
+#include "../Calypso/CalypsoGameMouse.h"
 #endif
 #include "Sound.h"
 #include "Music.h"
@@ -69,61 +70,6 @@ extern OpenXcom::Game *game;
 extern "C" void calypso_reset_main_loop_state(void);
 extern "C" int calypso_pause_main_loop_before_iterate(void);
 extern "C" void calypso_harness_note_presented_frame(void);
-#endif
-
-#ifdef __EMSCRIPTEN__
-// Emscripten-only central CSS -> Screen display normalization for SDL mouse
-// coordinates. SDL_emscriptenevents.c scales motion by window->w/client_w;
-// in an exact-backing session the SDL window stays CSS-sized while Screen
-// display is backing-sized, so raw SDL coordinates are CSS pixels. This helper
-// maps logical CSS extents (CalypsoViewportRuntime) to the current Screen
-// display extents via the existing canvas/display mapping (fails safe to
-// identity). Non-pointer events and native builds are untouched.
-static void calypsoNormalizeSdlMousePosition(int &x, int &y, OpenXcom::Screen *screen)
-{
-	if (!screen) return;
-	const OpenXcom::Calypso::CalypsoViewportRuntime &rt = OpenXcom::Calypso::calypsoViewportRuntime();
-	if (!rt.hasLayout()) return;
-	int logicalW = rt.current().logicalWidth;
-	int logicalH = rt.current().logicalHeight;
-	int displayW = screen->getWidth();
-	int displayH = screen->getHeight();
-	double nx = OpenXcom::Calypso::calypsoCanvasToDisplayCoordinate(static_cast<double>(x), logicalW, displayW);
-	double ny = OpenXcom::Calypso::calypsoCanvasToDisplayCoordinate(static_cast<double>(y), logicalH, displayH);
-	x = static_cast<int>(std::lround(nx));
-	y = static_cast<int>(std::lround(ny));
-}
-static void calypsoNormalizeSdlMouseMotionEvent(SDL_Event &ev, OpenXcom::Screen *screen)
-{
-	if (ev.type != SDL_MOUSEMOTION) return;
-	int x = ev.motion.x;
-	int y = ev.motion.y;
-	calypsoNormalizeSdlMousePosition(x, y, screen);
-	ev.motion.x = static_cast<Sint32>(x);
-	ev.motion.y = static_cast<Sint32>(y);
-	const OpenXcom::Calypso::CalypsoViewportRuntime &rt = OpenXcom::Calypso::calypsoViewportRuntime();
-	if (!rt.hasLayout()) return;
-	int logicalW = rt.current().logicalWidth;
-	int logicalH = rt.current().logicalHeight;
-	int displayW = screen->getWidth();
-	int displayH = screen->getHeight();
-	if (logicalW <= 0 || logicalH <= 0 || displayW <= 0 || displayH <= 0) return;
-	double factorX = static_cast<double>(displayW) / static_cast<double>(logicalW);
-	double factorY = static_cast<double>(displayH) / static_cast<double>(logicalH);
-	ev.motion.xrel = static_cast<Sint16>(std::lround(ev.motion.xrel * factorX));
-	ev.motion.yrel = static_cast<Sint16>(std::lround(ev.motion.yrel * factorY));
-}
-static void calypsoNormalizeSdlMouseButtonEvent(SDL_Event &ev, OpenXcom::Screen *screen)
-{
-	if (ev.type != SDL_MOUSEBUTTONDOWN && ev.type != SDL_MOUSEBUTTONUP) return;
-	// Browser-bridge events bypass the SDL queue and are dispatched directly;
-	// every event reaching this helper came from SDL in CSS coordinates.
-	int x = ev.button.x;
-	int y = ev.button.y;
-	calypsoNormalizeSdlMousePosition(x, y, screen);
-	ev.button.x = static_cast<Sint32>(x);
-	ev.button.y = static_cast<Sint32>(y);
-}
 #endif
 
 namespace OpenXcom
@@ -237,79 +183,6 @@ Game::~Game()
 
 #ifdef __EMSCRIPTEN__
 Game *getCurrentGame() { return ::game; }
-
-bool Game::dispatchCalypsoMouseButton(int x, int y, int button, bool pressed)
-{
-	if (!_init || !_mouseActive || !_screen || !_cursor || !_fpsCounter
-		|| _states.empty() || button < 1 || button > 5)
-		return false;
-
-	_runningState = RUNNING;
-	auto dispatch = [this](SDL_Event &event)
-	{
-		Action action(&event, _screen->getXScale(), _screen->getYScale(),
-			_screen->getCursorTopBlackBand(), _screen->getCursorLeftBlackBand());
-		_screen->handle(&action);
-		_cursor->handle(&action);
-		_fpsCounter->handle(&action);
-		if (!_states.empty())
-			_states.back()->handle(&action);
-	};
-
-	// A browser click may arrive without a usable SDL motion event. Refresh the
-	// native hover owners first so press/release semantics match an ordinary
-	// hardware click on every InteractiveSurface.
-	if (pressed)
-	{
-		SDL_Event motion;
-		SDL_memset(&motion, 0, sizeof(motion));
-		motion.type = SDL_MOUSEMOTION;
-		motion.motion.x = static_cast<Sint32>(x);
-		motion.motion.y = static_cast<Sint32>(y);
-		dispatch(motion);
-	}
-
-	SDL_Event event;
-	SDL_memset(&event, 0, sizeof(event));
-	event.type = pressed ? SDL_MOUSEBUTTONDOWN : SDL_MOUSEBUTTONUP;
-	event.button.button = static_cast<Uint8>(button);
-	event.button.state = pressed ? SDL_PRESSED : SDL_RELEASED;
-	event.button.clicks = 1;
-	event.button.which = CALYPSO_MOUSE_BRIDGE_ID;
-	event.button.x = static_cast<Sint32>(x);
-	event.button.y = static_cast<Sint32>(y);
-	dispatch(event);
-	return true;
-}
-#endif
-
-#ifdef __EMSCRIPTEN__
-void Game::recoverContextTick()
-{
-	if (!_screen)
-	{
-		Calypso::CalypsoHdUiOverlay::instance().failHdRoute("WebGL recovery tick has no screen");
-	}
-
-	bool resetSeen = false;
-	SDL_Event event;
-	// The reset event is the only event allowed through this bounded callback.
-	// Drain stale browser/input events without dispatching them to any owner.
-	while (SDL_PollEvent(&event))
-	{
-		if (!resetSeen && event.type == SDL_RENDER_TARGETS_RESET)
-		{
-			Action action(&event, _screen->getXScale(), _screen->getYScale(),
-				_screen->getCursorTopBlackBand(), _screen->getCursorLeftBlackBand());
-			_screen->handle(&action);
-			resetSeen = true;
-		}
-	}
-	if (!resetSeen)
-	{
-		Calypso::CalypsoHdUiOverlay::instance().failHdRoute("WebGL recovery reset event missing");
-	}
-}
 #endif
 
 /**
@@ -689,13 +562,8 @@ bool Game::iterate()
 			_fpsCounter->blit(_screen->getSurface());
 			_cursor->blit(_screen->getSurface());
 #ifdef __EMSCRIPTEN__
-			if (calypsoBlitStart)
-			{
-				OpenXcom::Calypso::calypsoPassTimers().blitUs +=
-					(Uint64)((SDL_GetPerformanceCounter() - calypsoBlitStart) * 1000000ull / SDL_GetPerformanceFrequency());
-			}
-			const Uint64 calypsoFlipStart = OpenXcom::Calypso::calypsoPassTimersEnabled()
-				? SDL_GetPerformanceCounter() : 0;
+			Calypso::calypsoPassTimersNoteBlit(calypsoBlitStart);
+			const Uint64 calypsoFlipStart = Calypso::calypsoPassTimersBeginFlip();
 #endif
 			// Semantic capture readiness keys on the flip() result: the serial
 			// must advance only when this iteration actually presented. The
@@ -760,18 +628,10 @@ static void emscriptenIter(void *arg)
 	}
 }
 
-/* Restart the callback registered by Game::run after Emscripten has paused the
- * loop. emscripten_pause_main_loop() clears MainLoop.scheduler; the generic
- * resume helper therefore dereferences a null scheduler after a canvas swap.
- * Registering the same callback again rebuilds the complete scheduler state.
- * simulate_infinite_loop must stay false here because this function is called
- * synchronously from a JS ccall while the engine is already running. */
+#ifdef __EMSCRIPTEN__
+extern "C" void calypso_restart_main_loop(void);
 extern "C" void calypso_restart_main_loop(void)
 {
-	if (!::game) return;
-	/* A paused Emscripten loop retains MainLoop.func but clears its scheduler.
-	 * Cancel the retained owner before registering the single replacement so a
-	 * restore cannot trip "only one main loop function" or create two callbacks. */
 	emscripten_cancel_main_loop();
 	emscripten_set_main_loop_arg(emscriptenIter, ::game, 0, 0);
 }

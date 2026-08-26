@@ -83,6 +83,7 @@ struct CalypsoGeoscapeHdGlobeDirect
 			globe->_gpuBorderLines.clear();
 			globe->_gpuBorderVertices.clear();
 			globe->_coloredLineBatch.clearCommands();
+			globe->_hoverLineBatch.clearCommands();
 			globe->_gpuDebugLines.clear();
 			globe->_gpuDebugVertices.clear();
 			globe->_gpuLabelIconPendingDraws.clear();
@@ -146,6 +147,8 @@ struct CalypsoGeoscapeHdGlobeDirect
 	static GpuTexture* labelTexture(Globe* globe, Globe::LabelTexture& entry);
 	static void ensureBorderResources(Globe* globe);
 	static void ensureColoredLineResources(Globe* globe);
+	/* §16.5: hover-circle overlay GPU resources (separate VAO/VBO from static). */
+	static void ensureHoverLineResources(Globe* globe);
 	static void drawBorderPass(Globe* globe);
 	/* §15.4.2 (review-corrected lifecycle): called from Globe::draw() BEFORE
 	 * drawRadars/drawFlights. Builds the snapshot key and renders the cache
@@ -161,6 +164,9 @@ struct CalypsoGeoscapeHdGlobeDirect
 	 * Globe::draw() after drawDetail() has recorded the current frame. */
 	static void commitLabelIconSnapshot(Globe* globe);
 	static void drawRadarFlightPass(Globe* globe);
+	/* §16.5: dynamic hover-circle overlay draw pass.  Called after the static
+	 * radar/flight pass; uploads and draws the per-frame hover batch. */
+	static void drawHoverPass(Globe* globe);
 	static void drawDebugPass(Globe* globe);
 	static void ensureMarkerResources(Globe* globe);
 	static void drawMarkerPass(Globe* globe);

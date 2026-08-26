@@ -6,6 +6,7 @@
  * costing one predictable branch at each pass boundary. Read/reset never
  * mutate campaign, rendering, or input state.
  */
+#include <SDL.h>
 #include <cstdint>
 
 namespace OpenXcom
@@ -43,6 +44,9 @@ inline bool& calypsoPassTimersEnabledRef()
 
 inline bool calypsoPassTimersEnabled() { return calypsoPassTimersEnabledRef(); }
 inline void calypsoSetPassTimersEnabled(bool on) { calypsoPassTimersEnabledRef() = on; }
+
+inline void calypsoPassTimersNoteBlit(Uint64 start) { if (start) calypsoPassTimers().blitUs += (Uint64)((SDL_GetPerformanceCounter() - start) * 1000000ull / SDL_GetPerformanceFrequency()); }
+inline Uint64 calypsoPassTimersBeginFlip() { return calypsoPassTimersEnabled() ? SDL_GetPerformanceCounter() : 0; }
 
 inline CalypsoGeoscapePassTimers& calypsoPassTimers()
 {

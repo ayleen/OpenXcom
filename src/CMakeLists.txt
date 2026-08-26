@@ -655,6 +655,11 @@ if(EMSCRIPTEN)
   list(APPEND openxcom_src Calypso/CalypsoMainLoopGate.cpp)
   list(APPEND openxcom_src Calypso/CalypsoGameReflow.cpp)
   list(APPEND openxcom_src Calypso/CalypsoBrowserScale.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoBuildNewBaseQa.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoGameMouse.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoScreenRecovery.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoScreenWorld.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoGeoscapeStateInit.cpp)
   # Composite-boundary context-loss helpers relocated from Engine/Screen.cpp
   # (policy R3): owns the supported-Emscripten context probe, reset-sentinel
   # consumption, initial-loss arming, and failHdRoute behind a narrow
@@ -1018,8 +1023,8 @@ if(NOT EMSCRIPTEN AND BUILD_TESTING)
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/OccupancyFieldTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/HdUnitRenderPlanTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoBackingStorePolicyTest.cpp
-        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoViewportModelTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoCanvasCoordinateMappingTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoViewportModelTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdUiModelTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdFrameControllerTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdTextRasterKeyTest.cpp

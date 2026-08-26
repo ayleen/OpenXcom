@@ -434,7 +434,8 @@ Globe::Globe(Game* game, int cenX, int cenY, int width, int height, int x, int y
 	_radars = new Surface(width, height, x, y);
 #ifdef __EMSCRIPTEN__
 	/* Warm the physical world batches once; steady-state frame publication only
-	 * clears and rewrites these existing vectors. */
+	 * clears and rewrites these existing vectors.  The hover-line batch is
+	 * warmed by its own CalypsoGeoscapeColoredLineBatchState constructor. */
 	_gpuBorderLines.reserve(GPU_BORDER_LINE_CAPACITY);
 	_gpuBorderVertices.reserve(GPU_BORDER_VERTEX_FLOAT_CAPACITY);
 	_gpuDebugLines.reserve(GPU_DEBUG_LINE_CAPACITY);
@@ -520,6 +521,11 @@ Globe::~Globe()
 	if (_coloredLineVAO) glDeleteVertexArrays(1, &_coloredLineVAO);
 	if (_coloredLineVBO) glDeleteBuffers(1, &_coloredLineVBO);
 	_coloredLineResourcesReady = false;
+	/* §16.5: hover overlay resources. */
+	if (_hoverLineVAO) glDeleteVertexArrays(1, &_hoverLineVAO);
+	if (_hoverLineVBO) glDeleteBuffers(1, &_hoverLineVBO);
+	_hoverLineResourcesReady = false;
+	_activeLineBatch = nullptr;
 #endif
 }
 
@@ -1274,6 +1280,7 @@ static Cord calypsoGlobeQaCord(const Calypso::GeoscapeQaVec3& v)
 		CalypsoGeoscapeHdGlobeDirect::ensureLogicalWorldComplete(globe);
 		CalypsoGeoscapeHdGlobeDirect::ensureBorderResources(globe);
 		CalypsoGeoscapeHdGlobeDirect::ensureColoredLineResources(globe);
+		CalypsoGeoscapeHdGlobeDirect::ensureHoverLineResources(globe);
 		CalypsoGeoscapeHdGlobeDirect::ensureMarkerResources(globe);
 		CalypsoGeoscapeHdGlobeDirect::ensureLabelResources(globe);
 		preflightState.restore();
@@ -1372,6 +1379,10 @@ static Cord calypsoGlobeQaCord(const Calypso::GeoscapeQaVec3& v)
 		const Uint64 calypsoRadarStart = Calypso::calypsoPassTimersEnabled()
 			? SDL_GetPerformanceCounter() : 0;
 		CalypsoGeoscapeHdGlobeDirect::drawRadarFlightPass(globe);
+		/* §16.5: draw the hover-circle overlay immediately after the static
+		 * radar/flight pass, within the same GL state guard.  The hover
+		 * batch uses its own VAO/VBO so it never overwrites the static data. */
+		CalypsoGeoscapeHdGlobeDirect::drawHoverPass(globe);
 		if (calypsoRadarStart)
 			Calypso::calypsoPassTimers().radarUs +=
 				(Uint64)((SDL_GetPerformanceCounter() - calypsoRadarStart) * 1000000ull / SDL_GetPerformanceFrequency());
@@ -1549,7 +1560,8 @@ static Cord calypsoGlobeQaCord(const Calypso::GeoscapeQaVec3& v)
 				/* Fail closed before publication: the hard command bound is
 				 * checked before the append is attempted, and the batch refuses
 				 * growth itself as the backstop. */
-				if (globe->_coloredLineBatch.commandCount()
+				if (globe->_activeLineBatch
+					&& globe->_activeLineBatch->commandCount()
 					>= OpenXcom::Calypso::COLORED_LINE_COMMAND_CAPACITY)
 				{
 					globe->_gpuRadarFlightCapacityExceeded = true;
@@ -1558,7 +1570,8 @@ static Cord calypsoGlobeQaCord(const Calypso::GeoscapeQaVec3& v)
 				const double nextX = len > 1.0 ? sampleX + stepX : x2;
 				const double nextY = len > 1.0 ? sampleY + stepY : y2;
 				const SDL_Color resolved = radarPalette[color];
-				if (!globe->_coloredLineBatch.tryRecordCommand(sampleX, sampleY, nextX, nextY,
+				if (globe->_activeLineBatch
+					&& !globe->_activeLineBatch->tryRecordCommand(sampleX, sampleY, nextX, nextY,
 					resolved.r, resolved.g, resolved.b, resolved.a))
 				{
 					globe->_gpuRadarFlightCapacityExceeded = true;
@@ -1852,6 +1865,48 @@ static Cord calypsoGlobeQaCord(const Calypso::GeoscapeQaVec3& v)
 		}
 	}
 
+	void CalypsoGeoscapeHdGlobeDirect::ensureHoverLineResources(Globe* globe)
+	{
+		if (!globe || !GpuInit::ready())
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape hover overlay GPU is unavailable");
+		if (!globe->_hoverLineVAO || !globe->_hoverLineVBO)
+		{
+			glGenVertexArrays(1, &globe->_hoverLineVAO);
+			glGenBuffers(1, &globe->_hoverLineVBO);
+			const GLenum resourceError = glGetError();
+			if (!globe->_hoverLineVAO || !globe->_hoverLineVBO || resourceError != GL_NO_ERROR)
+				Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
+					resourceError == GL_NO_ERROR
+						? "Geoscape hover overlay vertex resources unavailable"
+						: calypsoGlFailure("Geoscape hover overlay vertex allocation failed", resourceError));
+			/* §16.5: fixed-capacity GPU allocation for the hover overlay,
+			 * sized to HOVER_LINE_VERTEX_CAPACITY.  Steady-state frames
+			 * never resize or reallocate; they only sub-update the buffer. */
+			glBindBuffer(GL_ARRAY_BUFFER, globe->_hoverLineVBO);
+			glBufferData(GL_ARRAY_BUFFER,
+				(GLsizeiptr)(OpenXcom::Calypso::HOVER_LINE_VERTEX_CAPACITY
+					* sizeof(OpenXcom::Calypso::CalypsoGeoscapeColoredLineVertex)),
+				nullptr, GL_DYNAMIC_DRAW);
+			const GLenum bufferError = glGetError();
+			glBindVertexArray(globe->_hoverLineVAO);
+			enableColoredLineAttributes(globe);
+			glBindVertexArray(0u);
+			const GLenum attributeUnbindError = glGetError();
+			glBindBuffer(GL_ARRAY_BUFFER, 0);
+			const GLenum bufferUnbindError = glGetError();
+			if (bufferError != GL_NO_ERROR)
+				Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
+					calypsoGlFailure("Geoscape hover overlay buffer allocation failed", bufferError));
+			if (attributeUnbindError != GL_NO_ERROR)
+				Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
+					calypsoGlFailure("Geoscape hover overlay attribute setup failed", attributeUnbindError));
+			if (bufferUnbindError != GL_NO_ERROR)
+				Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
+					calypsoGlFailure("Geoscape hover overlay array buffer unbind failed", bufferUnbindError));
+			globe->_hoverLineResourcesReady = true;
+		}
+	}
+
 /* SS15.4.3: fold every dynamic campaign input that can change radar/flight
  * output into one deterministic POD signature. The walk is linear in the
  * number of relevant entities, allocates nothing, reads no rendered pixels,
@@ -1953,9 +2008,6 @@ static std::uint64_t calypsoBuildRadarFlightSignature(SavedGame* save)
 		key.zoomLevel = (double)globe->_zoom;
 		key.globeRadius = globe->_zoomRadius[globe->_zoom];
 		key.textureZoom = (double)globe->_zoomTexture;
-		key.hoverEnabled = globe->_hover;
-		key.hoverLongitude = globe->_hoverLon;
-		key.hoverLatitude = globe->_hoverLat;
 		key.craftRangeEnabled = globe->_craft;
 		key.craftLongitude = globe->_craftLon;
 		key.craftLatitude = globe->_craftLat;
@@ -1963,6 +2015,11 @@ static std::uint64_t calypsoBuildRadarFlightSignature(SavedGame* save)
 		key.optionRadarLines = Options::globeRadarLines;
 		key.optionFlightPaths = Options::globeFlightPaths;
 		key.optionAllRadarsOnBaseBuild = Options::globeAllRadarsOnBaseBuild;
+		/* §16.5 review fix: hoverEnabled in the key so that enter/exit hover
+		 * triggers one static radar/flight rebuild (drawRadars depends on
+		 * _hover && globeAllRadarsOnBaseBuild).  Hover-coord movement alone
+		 * stays a cache hit. */
+		key.hoverEnabled = globe->_hover;
 		key.paletteGeneration = globe->_gpuRadarPaletteGeneration;
 		key.enemyRadarMode = (std::int64_t)globe->_game->getMod()->getDrawEnemyRadarCircles();
 		key.debugMode = globe->_game->getSavedGame()->getDebugMode();
@@ -2072,6 +2129,43 @@ static std::uint64_t calypsoBuildRadarFlightSignature(SavedGame* save)
 		if (drawError != GL_NO_ERROR)
 			Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
 				calypsoGlFailure("Geoscape coloured-line draw failed", drawError));
+	}
+
+	void CalypsoGeoscapeHdGlobeDirect::drawHoverPass(Globe* globe)
+	{
+		/* §16.5: the hover overlay is a separate VAO/VBO pair that is cleared
+		 * and refilled every frame.  It never shares the static VBO, so
+		 * uploading hover data cannot overwrite committed radar/flight vertices.
+		 *
+		 * §16.5 review fix: explicitly require _hover to be live.  This is a
+		 * safety predicate — the draw() path already clears the batch when
+		 * !hover, but this guard prevents any stale-data draw even if the
+		 * batch was populated by a different call site. */
+		if (!globe || !globe->_hover || globe->_hoverLineBatch.vertexCount() == 0u || !globe->_directScreen) return;
+		if (!globe->_hoverLineResourcesReady || !globe->_coloredLineShader
+			|| !globe->_coloredLineShader->isValid())
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape hover overlay resources disappeared");
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glLineWidth(1.0f);
+		globe->_coloredLineShader->use();
+		/* Always upload the hover batch — it changes every frame when active. */
+		glBindBuffer(GL_ARRAY_BUFFER, globe->_hoverLineVBO);
+		glBufferSubData(GL_ARRAY_BUFFER, 0,
+			(GLsizeiptr)globe->_hoverLineBatch.packedVertexBytes(),
+			globe->_hoverLineBatch.packedVertices());
+		const GLenum uploadError = glGetError();
+		glBindVertexArray(globe->_hoverLineVAO);
+		glDrawArrays(GL_LINES, 0, (GLsizei)globe->_hoverLineBatch.vertexCount());
+		glBindVertexArray(0u);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		const GLenum drawError = glGetError();
+		if (uploadError != GL_NO_ERROR)
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
+				calypsoGlFailure("Geoscape hover overlay upload failed", uploadError));
+		if (drawError != GL_NO_ERROR)
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
+				calypsoGlFailure("Geoscape hover overlay draw failed", drawError));
 	}
 
 	void CalypsoGeoscapeHdGlobeDirect::drawDebugPass(Globe* globe)
@@ -2465,6 +2559,13 @@ bool Globe::initSphereGPU()
 		_coloredLineVBO = 0u;
 		_coloredLineResourcesReady = false;
 		_coloredLineCache.notifyContextReset();
+		/* §16.5 review fix: reset hover overlay GL handles and dirty state so
+		 * context restore re-creates the hover VAO/VBO and rebuilds geometry
+		 * on the next hover frame instead of using stale GL handles. */
+		_hoverLineVAO = 0u;
+		_hoverLineVBO = 0u;
+		_hoverLineResourcesReady = false;
+		_hoverOverlayDirty = true;
 		_gpuBorderCapacityExceeded = false;
 		_gpuDebugCapacityExceeded = false;
 		_gpuRadarFlightCapacityExceeded = false;
@@ -2479,7 +2580,9 @@ bool Globe::initSphereGPU()
 		_gpuLabelCapacityExceeded = false;
 		/* Keep the committed command snapshot. Context restore invalidates raw
 		 * resources only; gameplay-owned commands remain the source for the
-		 * first rebuilt physical frame. */
+		 * first rebuilt physical frame.  Hover batch is transient (refilled
+		 * every frame), so clear it to prevent stale vertex draw after reset. */
+		_hoverLineBatch.clearCommands();
 		});
 		_gpuResetCallbackRegistered = true;
 	}
@@ -2806,10 +2909,14 @@ void Globe::draw()
 #ifdef __EMSCRIPTEN__
 		const Uint64 calypsoRecordStart = Calypso::calypsoRadarCountersEnabled()
 			? SDL_GetPerformanceCounter() : 0;
+		/* §16.5: redirect recordRadarFlightLine into the static batch during
+		 * radar/flight recording.  Hover circles use a separate batch. */
+		_activeLineBatch = &_coloredLineBatch;
 #endif
 		drawRadars();
 		drawFlights();
 #ifdef __EMSCRIPTEN__
+		_activeLineBatch = nullptr;
 		if (calypsoRecordStart)
 			Calypso::calypsoRadarCounters().radarPrepareUs +=
 				(Uint64)((SDL_GetPerformanceCounter() - calypsoRecordStart) * 1000000ull / SDL_GetPerformanceFrequency());
@@ -2819,6 +2926,25 @@ void Globe::draw()
 	if (_gpuDirectMode)
 	{
 		CalypsoGeoscapeHdGlobeDirect::finishRadarFlightFrame(this, !calypsoRadarCacheHit);
+		/* §16.5: record hover circles into the separate overlay batch.
+		 * This runs every frame when hover is active, regardless of the
+		 * static cache verdict.  The hover batch is cleared, filled,
+		 * and packed here; drawHoverPass() uploads and draws it later.
+		 *
+		 * §16.5 review fix: when hover is inactive, explicitly clear the
+		 * hover batch so drawHoverPass() never draws stale circles from a
+		 * previous active→inactive transition. */
+		if (_hover)
+		{
+			_activeLineBatch = &_hoverLineBatch;
+			drawHoverCircles();
+			_activeLineBatch = nullptr;
+		}
+		else
+		{
+			_hoverLineBatch.clearCommands();
+			_hoverOverlayDirty = true;
+		}
 	}
 #endif
 #ifdef __EMSCRIPTEN__
@@ -3059,9 +3185,11 @@ void Globe::drawRadars()
 	if (_hover)
 	{
 #ifdef __EMSCRIPTEN__
-		/* SS15.4.4 New Base canonicalization (permanent model cleanup): drop
-		 * non-positive ranges and keep the first occurrence of each exact
-		 * range in source order; distinct ranges stay visible. */
+		/* §16.5: populate the ranges vector for globeAllRadarsOnBaseBuild below,
+		 * but do NOT record hover circles here.  Hover circles are drawn by
+		 * drawHoverCircles() into the separate _hoverLineBatch overlay, so
+		 * hover-coordinate changes never invalidate the static radar/flight
+		 * snapshot cache. */
 		for (auto& facType : _game->getMod()->getBaseFacilitiesList())
 		{
 			ranges.push_back(Nautical(_game->getMod()->getBaseFacility(facType)->getRadarRange()));
@@ -3070,8 +3198,6 @@ void Globe::drawRadars()
 			? 0u
 			: OpenXcom::Calypso::calypsoCanonicalizeHoverRanges(&ranges[0], ranges.size());
 		ranges.resize(distinctRanges);
-		for (size_t j = 0; j < ranges.size(); ++j)
-			drawGlobeCircle(_hoverLat, _hoverLon, ranges[j], 48);
 #else
 		for (auto& facType : _game->getMod()->getBaseFacilitiesList())
 		{
@@ -3162,6 +3288,90 @@ void Globe::drawRadars()
 	_radars->unlock();
 }
 
+#ifdef __EMSCRIPTEN__
+/**
+ * §16.5: record hover radar circles into the separate _hoverLineBatch overlay.
+ * Called from Globe::draw() every frame when hover is active, regardless of
+ * whether the static radar/flight cache hit.  The hover batch is cleared and
+ * refilled only when observable inputs (position, viewport) change; otherwise
+ * the committed VBO is redrawn without touching CPU geometry.
+ *
+ * §16.5 review fix: canonical hover ranges are precomputed into owned storage
+ * (_hoverCanonicalRanges) on first hover frame, eliminating the per-frame
+ * std::vector allocation that violated the hot-path no-allocation requirement.
+ */
+void Globe::drawHoverCircles()
+{
+	if (!_hover || !_gpuDirectMode || !_activeLineBatch) return;
+
+	/* Lazy-init: precompute canonical ranges from the facility list once.
+	 * The list is constant after game load so this never reallocates. */
+	if (!_hoverRangesReady)
+	{
+		_hoverCanonicalRanges.clear();
+		for (auto& facType : _game->getMod()->getBaseFacilitiesList())
+			_hoverCanonicalRanges.push_back(
+				Nautical(_game->getMod()->getBaseFacility(facType)->getRadarRange()));
+		const size_t distinctRanges = _hoverCanonicalRanges.empty()
+			? 0u
+			: OpenXcom::Calypso::calypsoCanonicalizeHoverRanges(
+				&_hoverCanonicalRanges[0], _hoverCanonicalRanges.size());
+		_hoverCanonicalRanges.resize(distinctRanges);
+		_hoverRangesReady = true;
+	}
+
+	/* §16.5 review fix: dirty/key gate — skip clear+fill+pack when observable
+	 * inputs are unchanged.  The committed VBO is redrawn by drawHoverPass()
+	 * without touching CPU geometry.  The force-dirty flag is set on the first
+	 * frame and after context reset. */
+	CalypsoGeoscapeHdGlobeDirect::PhysicalGlobeRect rect;
+	if (!CalypsoGeoscapeHdGlobeDirect::physicalGlobeRect(this, rect))
+		return;
+	const double sx = _directScreen->getXScale();
+	const double sy = _directScreen->getYScale();
+	const int dw = Options::displayWidth;
+	const int dh = Options::displayHeight;
+	if (!_hoverOverlayDirty
+		&& _lastHoverOverlayLon == _hoverLon
+		&& _lastHoverOverlayLat == _hoverLat
+		&& _lastHoverOverlayRectX == rect.x
+		&& _lastHoverOverlayRectY == rect.y
+		&& _lastHoverOverlayRectW == rect.w
+		&& _lastHoverOverlayRectH == rect.h
+		&& _lastHoverOverlayScaleX == sx
+		&& _lastHoverOverlayScaleY == sy
+		&& _lastHoverOverlayDisplayW == dw
+		&& _lastHoverOverlayDisplayH == dh)
+		return; /* All inputs unchanged: skip rebuild, draw committed VBO. */
+
+	_lastHoverOverlayLon = _hoverLon;
+	_lastHoverOverlayLat = _hoverLat;
+	_lastHoverOverlayRectX = rect.x;
+	_lastHoverOverlayRectY = rect.y;
+	_lastHoverOverlayRectW = rect.w;
+	_lastHoverOverlayRectH = rect.h;
+	_lastHoverOverlayScaleX = sx;
+	_lastHoverOverlayScaleY = sy;
+	_lastHoverOverlayDisplayW = dw;
+	_lastHoverOverlayDisplayH = dh;
+	_hoverOverlayDirty = false;
+
+	_activeLineBatch->clearCommands();
+	for (size_t j = 0; j < _hoverCanonicalRanges.size(); ++j)
+		drawGlobeCircle(_hoverLat, _hoverLon, _hoverCanonicalRanges[j], 48);
+	/* Pack the freshly recorded hover commands into the interleaved vertex
+	 * buffer for GPU upload in drawHoverPass. */
+	Calypso::CalypsoGeoscapeColoredLineViewport viewport;
+	viewport.rectX = rect.x;
+	viewport.rectY = rect.y;
+	viewport.scaleX = sx;
+	viewport.scaleY = sy;
+	viewport.displayWidth = dw;
+	viewport.displayHeight = dh;
+	_activeLineBatch->packVertices(viewport);
+}
+#endif
+
 /**
  *	Draw globe range circle
  */
@@ -3203,6 +3413,12 @@ void Globe::drawGlobeCircle(double lat, double lon, double radius, int segments,
 
 void Globe::setNewBaseHover(bool hover)
 {
+	/* §16.5 review fix: force the hover overlay dirty on the active transition
+	 * so the first frame after re-entry always rebuilds the hover geometry. */
+#ifdef __EMSCRIPTEN__
+	if (hover && !_hover)
+		_hoverOverlayDirty = true;
+#endif
 	_hover=hover;
 }
 
@@ -3945,20 +4161,26 @@ void Globe::mousePress(Action *action, State *state)
 	double lon, lat;
 	cartToPolar((Sint16)floor(action->getAbsoluteXMouse()), (Sint16)floor(action->getAbsoluteYMouse()), &lon, &lat);
 
-	// §16.5 idempotency guard: the JS mouse-button bridge can deliver the
-	// same press twice through the engine's canonical dispatch chain (capture
-	// + SDL event). Only the first press may initialize the drag state, so a
-	// second dispatch never resets an in-progress drag.
-	if (isGlobePanButton(action->getDetails()->button.button) && !_isMouseScrolling)
+	if (isGlobePanButton(action->getDetails()->button.button))
 	{
-		_isMouseScrolling = true;
-		_isMouseScrolled = false;
-		SDL_GetMouseState(&_xBeforeMouseScrolling, &_yBeforeMouseScrolling);
-		_lonBeforeMouseScrolling = _cenLon;
-		_latBeforeMouseScrolling = _cenLat;
-		_totalMouseMoveX = 0; _totalMouseMoveY = 0;
-		_mouseMovedOverThreshold = false;
-		_mouseScrollingStartTime = SDL_GetTicks();
+		/* §16.5 AC-D5 idempotency: the JS bridge dispatches synchronously
+		 * through Game::dispatchCalypsoMouseButton, and SDL's own Emscripten
+		 * handler may queue a second MOUSEBUTTONDOWN into the event queue.
+		 * The second dispatch must NOT re-initialize scroll state (it would
+		 * reset _totalMouseMoveX/Y and re-capture the centre, destroying
+		 * accumulated drag deltas).  Guard with !_isMouseScrolling so only
+		 * the first dispatch takes effect. */
+		if (!_isMouseScrolling)
+		{
+			_isMouseScrolling = true;
+			_isMouseScrolled = false;
+			SDL_GetMouseState(&_xBeforeMouseScrolling, &_yBeforeMouseScrolling);
+			_lonBeforeMouseScrolling = _cenLon;
+			_latBeforeMouseScrolling = _cenLat;
+			_totalMouseMoveX = 0; _totalMouseMoveY = 0;
+			_mouseMovedOverThreshold = false;
+			_mouseScrollingStartTime = SDL_GetTicks();
+		}
 	}
 	// Check for errors
 	if (lat == lat && lon == lon)
@@ -3978,7 +4200,13 @@ void Globe::mouseRelease(Action *action, State *state)
 	cartToPolar((Sint16)floor(action->getAbsoluteXMouse()), (Sint16)floor(action->getAbsoluteYMouse()), &lon, &lat);
 	if (isGlobePanButton(action->getDetails()->button.button))
 	{
-		stopScrolling(action);
+		/* §16.5: guard against duplicate release dispatch (same ownership
+		 * model as mousePress).  stopScrolling warps the cursor back;
+		 * calling it twice is harmless but the guard is cleaner. */
+		if (_isMouseScrolling)
+		{
+			stopScrolling(action);
+		}
 	}
 	// Check for errors
 	if (lat == lat && lon == lon)

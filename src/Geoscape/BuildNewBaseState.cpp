@@ -37,20 +37,10 @@
 #include "../Menu/ErrorMessageState.h"
 #include "../Mod/RuleInterface.h"
 #ifdef __EMSCRIPTEN__
-#include <emscripten.h>
 #include "../Calypso/CalypsoAbandonPopupUi.h"
+#include "../Calypso/CalypsoBuildNewBaseQa.h"
 #include "../Calypso/CalypsoF21SiteUi.h"
 #include "../Calypso/CalypsoHdHarnessHostState.h"
-extern "C" int g_calypsoGeoscapeHdPreview;
-namespace {
-static int s_calypsoBuildNewBaseHoverCount = 0;
-static int s_calypsoBuildNewBaseClickCount = 0;
-static int s_calypsoBuildNewBaseLastHoverX = 0;
-static int s_calypsoBuildNewBaseLastHoverY = 0;
-static int s_calypsoBuildNewBaseLastClickX = 0;
-static int s_calypsoBuildNewBaseLastClickY = 0;
-static int s_calypsoBuildNewBaseLastOutcome = 0;
-}
 #endif
 
 namespace OpenXcom
@@ -243,12 +233,7 @@ void BuildNewBaseState::globeHover(Action *action)
 	_mousex = (int)floor(action->getAbsoluteXMouse());
 	_mousey = (int)floor(action->getAbsoluteYMouse());
 #ifdef __EMSCRIPTEN__
-	if (g_calypsoGeoscapeHdPreview != 0)
-	{
-		++s_calypsoBuildNewBaseHoverCount;
-		s_calypsoBuildNewBaseLastHoverX = _mousex;
-		s_calypsoBuildNewBaseLastHoverY = _mousey;
-	}
+	Calypso::calypsoBuildNewBaseNoteHover(_mousex, _mousey);
 #endif
 	if (!_hoverTimer->isRunning()) _hoverTimer->start();
 }
@@ -274,16 +259,21 @@ void BuildNewBaseState::hoverRedraw(void)
 	{
 		_globe->setNewBaseHover(false);
 	}
+#ifdef __EMSCRIPTEN__
+	/* §16.5: hover circles are rendered by a separate GPU overlay batch that
+	 * is cleared and refilled every frame in Globe::draw().  Globe surface
+	 * invalidation is NOT needed for hover-coordinate changes — the hover
+	 * overlay updates independently of the static radar/flight cache. */
+	if (decision.publishPosition)
+	{
+		Calypso::CalypsoF21SiteUi::refreshHoverReadouts(*this, lon, lat);
+	}
+#else
 	if (decision.invalidate && Options::globeRadarLines)
 	{
 		_globe->invalidate();
-#ifdef __EMSCRIPTEN__
-		// F21: refresh the placement-card readouts from the live hover
-		// snapshot (region + region-defined base cost follow the pointer).
-		if (decision.publishPosition)
-			Calypso::CalypsoF21SiteUi::refreshHoverReadouts(*this, lon, lat);
-#endif
 	}
+#endif
 #ifdef __EMSCRIPTEN__
 	if (decision.refreshOutside)
 	{
@@ -304,13 +294,7 @@ void BuildNewBaseState::globeClick(Action *action)
 	double lon, lat;
 	int mouseX = (int)floor(action->getAbsoluteXMouse()), mouseY = (int)floor(action->getAbsoluteYMouse());
 #ifdef __EMSCRIPTEN__
-	// Loopback QA (capability-gated): count and last logical coordinates.
-	if (g_calypsoGeoscapeHdPreview != 0)
-	{
-		++s_calypsoBuildNewBaseClickCount;
-		s_calypsoBuildNewBaseLastClickX = mouseX;
-		s_calypsoBuildNewBaseLastClickY = mouseY;
-	}
+	Calypso::calypsoBuildNewBaseNoteClick(mouseX, mouseY);
 #endif
 	_globe->cartToPolar(mouseX, mouseY, &lon, &lat);
 
@@ -323,8 +307,7 @@ void BuildNewBaseState::globeClick(Action *action)
 	if (mouseY < stripBottom)
 	{
 #ifdef __EMSCRIPTEN__
-		if (g_calypsoGeoscapeHdPreview != 0)
-			s_calypsoBuildNewBaseLastOutcome = 1; // strip ignored
+		Calypso::calypsoBuildNewBaseNoteOutcome(1); // strip ignored
 #endif
 		return;
 	}
@@ -350,8 +333,7 @@ void BuildNewBaseState::globeClick(Action *action)
 				_game->getMod()->getInterface("geoscape")->getElement("palette")->color,
 				0, this, hdForm));
 #ifdef __EMSCRIPTEN__
-			if (g_calypsoGeoscapeHdPreview != 0)
-				s_calypsoBuildNewBaseLastOutcome = 2; // land warning
+			Calypso::calypsoBuildNewBaseNoteOutcome(2); // land warning
 #endif
 		};
 		if (_globe->insideLand(lon, lat))
@@ -382,16 +364,14 @@ void BuildNewBaseState::globeClick(Action *action)
 				{
 					_game->pushState(new BaseNameState(_base, _globe, _first, false));
 #ifdef __EMSCRIPTEN__
-					if (g_calypsoGeoscapeHdPreview != 0)
-						s_calypsoBuildNewBaseLastOutcome = 3; // base-name pushed
+					Calypso::calypsoBuildNewBaseNoteOutcome(3); // base-name pushed
 #endif
 				}
 				else
 				{
 					_game->pushState(new ConfirmNewBaseState(_base, _globe));
 #ifdef __EMSCRIPTEN__
-					if (g_calypsoGeoscapeHdPreview != 0)
-						s_calypsoBuildNewBaseLastOutcome = 4; // confirm pushed
+					Calypso::calypsoBuildNewBaseNoteOutcome(4); // confirm pushed
 #endif
 				}
 			}
@@ -541,47 +521,6 @@ void BuildNewBaseState::resize(int &dX, int &dY)
 	}
 }
 
-#ifdef __EMSCRIPTEN__
-extern "C" {
-EMSCRIPTEN_KEEPALIVE int calypso_qa_buildnewbase_hover_count()
-{
-	return s_calypsoBuildNewBaseHoverCount;
-}
-EMSCRIPTEN_KEEPALIVE int calypso_qa_buildnewbase_click_count()
-{
-	return s_calypsoBuildNewBaseClickCount;
-}
-EMSCRIPTEN_KEEPALIVE int calypso_qa_buildnewbase_last_hover_x()
-{
-	return s_calypsoBuildNewBaseLastHoverX;
-}
-EMSCRIPTEN_KEEPALIVE int calypso_qa_buildnewbase_last_hover_y()
-{
-	return s_calypsoBuildNewBaseLastHoverY;
-}
-EMSCRIPTEN_KEEPALIVE int calypso_qa_buildnewbase_last_click_x()
-{
-	return s_calypsoBuildNewBaseLastClickX;
-}
-EMSCRIPTEN_KEEPALIVE int calypso_qa_buildnewbase_last_click_y()
-{
-	return s_calypsoBuildNewBaseLastClickY;
-}
-EMSCRIPTEN_KEEPALIVE int calypso_qa_buildnewbase_last_outcome()
-{
-	return s_calypsoBuildNewBaseLastOutcome;
-}
-EMSCRIPTEN_KEEPALIVE void calypso_qa_buildnewbase_reset()
-{
-	s_calypsoBuildNewBaseHoverCount = 0;
-	s_calypsoBuildNewBaseClickCount = 0;
-	s_calypsoBuildNewBaseLastHoverX = 0;
-	s_calypsoBuildNewBaseLastHoverY = 0;
-	s_calypsoBuildNewBaseLastClickX = 0;
-	s_calypsoBuildNewBaseLastClickY = 0;
-	s_calypsoBuildNewBaseLastOutcome = 0;
-}
-} // extern "C"
-#endif
+
 
 }

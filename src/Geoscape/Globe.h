@@ -147,13 +147,38 @@ private:
 	unsigned  _coloredLineVBO     = 0u;
 	Shader*   _coloredLineShader  = nullptr;
 	bool      _coloredLineResourcesReady = false;
+	/* §16.5: dynamic hover-circle overlay.  Cleared and refilled every frame;
+	 * never participates in the static radar/flight snapshot cache.  Owns its
+	 * own VAO/VBO pair to avoid overwriting the committed static VBO on upload.
+	 * The _activeLineBatch pointer redirects recordRadarFlightLine calls to
+	 * the correct batch during recording. */
 	Calypso::CalypsoGeoscapeColoredLineBatchState _hoverLineBatch;
-	Calypso::CalypsoGeoscapeHoverOverlayState _hoverOverlayState;
-	bool _gpuHoverCapacityExceeded = false;
-	unsigned  _hoverLineVAO = 0u;
-	unsigned  _hoverLineVBO = 0u;
+	unsigned  _hoverLineVAO      = 0u;
+	unsigned  _hoverLineVBO      = 0u;
 	bool      _hoverLineResourcesReady = false;
-	Calypso::CalypsoGeoscapeColoredLineBatchState *_activeLineBatch = nullptr;
+	Calypso::CalypsoGeoscapeColoredLineBatchState* _activeLineBatch = nullptr;
+	/* §16.5 review fix: precomputed canonical hover ranges stored in owned
+	 * storage, initialized lazily outside the per-frame hot path.  The facility
+	 * list is effectively constant after game load, so this vector is built
+	 * once and reused for every hover frame — no heap allocation in the draw
+	 * path. */
+	std::vector<double> _hoverCanonicalRanges;
+	bool _hoverRangesReady = false;
+	/* §16.5 review fix: allocation-free dirty/key state for the hover overlay.
+	 * The overlay is rebuilt and uploaded only when its observable inputs
+	 * (hover position, viewport rect, display size, scales) change.
+	 * Drawing the committed VBO every frame costs nothing extra. */
+	double _lastHoverOverlayLon = 0.0;
+	double _lastHoverOverlayLat = 0.0;
+	int _lastHoverOverlayRectX = 0;
+	int _lastHoverOverlayRectY = 0;
+	int _lastHoverOverlayRectW = 0;
+	int _lastHoverOverlayRectH = 0;
+	double _lastHoverOverlayScaleX = 0.0;
+	double _lastHoverOverlayScaleY = 0.0;
+	int _lastHoverOverlayDisplayW = 0;
+	int _lastHoverOverlayDisplayH = 0;
+	bool _hoverOverlayDirty = true;
 	struct DebugLine
 	{
 		float x1 = 0.f;
@@ -218,8 +243,6 @@ private:
 	void drawHDStarfield();
 	/// Renders the sphere via GPU and reads back pixels into this surface.
 	void drawSphereGPU();
-	/// Rebuilds only the moving New Base hover circles when their key changes.
-	void drawHoverCircles();
 	/// Stage 10.2.1: physical-resolution direct composite; activation flows
 	/// from the registered F16 hdUiFamilies route (diagnostic override aside).
 	/// Sun direction in the fixed world frame the shader uses.
@@ -339,6 +362,8 @@ public:
 	void drawShadow();
 	/// Draws the radar ranges of the globe.
 	void drawRadars();
+	/// §16.5: records hover radar circles into the separate hover overlay batch.
+	void drawHoverCircles();
 	/// Draws the flight paths of the globe.
 	void drawFlights();
 	/// Draws the country details of the globe.

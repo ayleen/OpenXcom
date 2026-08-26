@@ -22,6 +22,7 @@
 
 namespace OpenXcom
 {
+namespace Calypso { void calypsoGeoscapeStateInitHd(class GeoscapeState &); }
 
 #ifdef __EMSCRIPTEN__
 struct CalypsoGeoscapeHdShellState;
@@ -94,6 +95,7 @@ private:
 	friend struct CalypsoGeoscapeHdShell;
 	friend class Calypso::CalypsoF21SiteUi;
 	friend class Calypso::CalypsoHdScreenRenderer;
+	friend void Calypso::calypsoGeoscapeStateInitHd(GeoscapeState &);
 	public:
 	void calypsoToggleDrawer(Action *);   // Stage 9.1.3 drawer toggle (body in shell cpp)
 	void calypsoTogglePause(Action *);

@@ -10,6 +10,7 @@
  * g_calypsoContextLost;`); see `git diff --color-moved=dimmed-zebra`.
  */
 #include <emscripten.h>
+#include "../Engine/Game.h"
 #include <SDL.h>
 
 extern "C" {
@@ -23,6 +24,26 @@ static int s_calypsoResetBoundaryOpen = 0;
 static int s_calypsoTimingReady = 1;
 extern int g_calypsoContextLost;
 void calypso_restart_main_loop(void);
+
+// Single owners for the Emscripten scheduler state.  Every pause / restart
+// goes through these so s_calypsoMainLoopPaused never diverges from the
+// physical MainLoop.scheduler (pause clears the scheduler, restart rebuilds it).
+static void calypsoPauseScheduler(void)
+{
+	if (!s_calypsoMainLoopPaused)
+	{
+		s_calypsoMainLoopPaused = 1;
+		emscripten_pause_main_loop();
+	}
+}
+static void calypsoRestartScheduler(void)
+{
+	// Scheduler will be running after calypso_restart_main_loop() (cancel +
+	// set_main_loop_arg rebuilds the scheduler). Update the flag atomically
+	// with the Emscripten call so it reflects the physical state.
+	s_calypsoMainLoopPaused = 0;
+	calypso_restart_main_loop();
+}
 
 void calypso_reset_main_loop_state(void)
 {
@@ -56,11 +77,7 @@ int calypso_pause_main_loop_before_iterate(void)
 		return 0;
 	// pause_main_loop only prevents future callbacks; the current callback must
 	// return explicitly so no simulation/render iteration slips through.
-	if (!s_calypsoMainLoopPaused)
-	{
-		s_calypsoMainLoopPaused = 1;
-		emscripten_pause_main_loop();
-	}
+	calypsoPauseScheduler();
 	return 1;
 }
 
@@ -83,16 +100,11 @@ void calypso_set_viewport_supported(int supported)
 	if (!changed || !s_calypsoMainLoopStarted) return;
 	if (blocked)
 	{
-		if (!s_calypsoMainLoopPaused)
-		{
-			s_calypsoMainLoopPaused = 1;
-			emscripten_pause_main_loop();
-		}
+		calypsoPauseScheduler();
 	}
 	else if (!g_calypsoContextLost && s_calypsoMainLoopPaused)
 	{
-		s_calypsoMainLoopPaused = 0;
-		calypso_restart_main_loop();
+		calypsoRestartScheduler();
 	}
 }
 
@@ -120,10 +132,9 @@ void calypso_gl_context_lost(void)
 	if (!g_calypsoContextLost)
 	{
 		g_calypsoContextLost = 1;
-		if (s_calypsoMainLoopStarted && !s_calypsoMainLoopPaused)
+		if (s_calypsoMainLoopStarted)
 		{
-			s_calypsoMainLoopPaused = 1;
-			emscripten_pause_main_loop();
+			calypsoPauseScheduler();
 		}
 	}
 }
@@ -149,11 +160,7 @@ void calypso_gl_context_restored(void)
 	 * of that tick. Presentation remains closed until the viewport gate opens. */
 	if (s_calypsoMainLoopStarted)
 	{
-		if (!s_calypsoMainLoopPaused)
-		{
-			s_calypsoMainLoopPaused = 1;
-			emscripten_pause_main_loop();
-		}
+		calypsoPauseScheduler();
 		calypso_restart_main_loop(); // contract-literal
 		s_calypsoMainLoopPaused = 0;
 	}
@@ -166,8 +173,20 @@ void calypso_context_recovery_succeeded(void)
 	 * one fresh callback establish the new scheduler before set_main_loop_timing. */
 	s_calypsoTimingReady = 0;
 	g_calypsoContextLost = 0;
-	if (s_calypsoMainLoopStarted && s_calypsoMainLoopPaused && !s_calypsoViewportBlocked)
+	if (!s_calypsoMainLoopStarted)
+		return;
+	if (s_calypsoViewportBlocked)
+	{
+		// Viewport still blocked — re-park the scheduler after the single
+		// bounded recovery tick so there is no busy loop of empty callbacks.
+		calypsoPauseScheduler();
+	}
+	else
+	{
+		// Scheduler is already running from the bounded restart; ensure the
+		// flag reflects the physical running state (no extra resume).
 		s_calypsoMainLoopPaused = 0;
+	}
 }
 
 void calypso_context_recovery_failed(void)
@@ -176,10 +195,9 @@ void calypso_context_recovery_failed(void)
 	s_calypsoResetSentinelPending = 0;
 	s_calypsoResetBoundaryOpen = 0;
 	g_calypsoContextLost = 1;
-	if (s_calypsoMainLoopStarted && !s_calypsoMainLoopPaused)
+	if (s_calypsoMainLoopStarted)
 	{
-		s_calypsoMainLoopPaused = 1;
-		emscripten_pause_main_loop();
+		calypsoPauseScheduler();
 	}
 }
 
@@ -219,6 +237,12 @@ void calypso_context_reset_boundary_close(void)
 void calypso_context_reset_sentinel_consumed(void)
 {
 	s_calypsoResetSentinelPending = 0;
+}
+
+// Guard R3: Game.cpp's calypso_restart_main_loop delegates here to stay <=5 lines.
+void calypsoGateRestart(void)
+{
+	::OpenXcom::Game::calypsoRestartMainLoop();
 }
 
 } /* extern "C" */

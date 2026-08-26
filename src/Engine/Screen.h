@@ -98,6 +98,10 @@ private:
 	/// Destroys and re-creates _renderer + _texture after a WebGL context restore.
 	/// Called by handle() on SDL_RENDER_TARGETS_RESET before ShaderManager::reuploadAll().
 	bool recreateRendererGL();
+	friend bool Calypso::calypsoScreenRecreateRendererGL(Screen &);
+	friend void Calypso::calypsoScreenUploadLogicalTexture(Screen &);
+	friend bool Calypso::calypsoScreenFlipWorldPass(Screen &, bool);
+	friend void Calypso::calypsoScreenResetDisplayRendererOnly(Screen &);
 #endif
 public:
 	using WorldPassHandle = ScreenWorldPassHandle;
