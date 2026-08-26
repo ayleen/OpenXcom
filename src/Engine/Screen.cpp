@@ -65,6 +65,29 @@ extern "C" void calypso_context_reset_sentinel_observed(void);
 extern "C" int calypso_context_reset_boundary_open(void);
 extern "C" void calypso_context_reset_boundary_close(void);
 extern "C" void calypso_context_reset_sentinel_consumed(void);
+
+/* Этап 2 (Option A): the streaming texture carries the LOGICAL surface
+ * resolution; the upscale to the physical canvas happens on the GPU at
+ * present time with NEAREST filtering, matching the legacy CPU blit's
+ * pixel-replication look. Single factory so blend+scale modes can never
+ * drift between the creation paths (the incremental-resize path previously
+ * lost the scale mode). */
+extern "C" SDL_Texture *calypsoCreateLogicalStreamingTexture(SDL_Renderer *renderer)
+{
+	SDL_Texture *texture = SDL_CreateTexture(renderer,
+	    SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
+	    OpenXcom::Options::baseXResolution, OpenXcom::Options::baseYResolution);
+	if (!texture)
+	{
+		return nullptr;
+	}
+	/* Phase 13.3: BLEND lets pre-composite GPU content show through
+	 * transparent surface regions. */
+	SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+	/* Этап 2: crisp legacy pixels; GPU performs logical->physical scale. */
+	SDL_SetTextureScaleMode(texture, SDL_ScaleModeNearest);
+	return texture;
+}
 #endif
 
 namespace OpenXcom
@@ -481,33 +504,27 @@ bool Screen::flip()
 	 * it over whatever the pre-composite passes drew.  _texture blend mode is
 	 * SDL_BLENDMODE_BLEND so transparent surface pixels let GPU content show. */
 #ifdef __EMSCRIPTEN__
-	const Uint64 calypsoBlitStart = Calypso::calypsoPassTimersEnabled()
-		? SDL_GetPerformanceCounter() : 0;
-#endif
-	SDL_BlitScaled(_surface.get(), nullptr, _screen, nullptr);
-#ifdef __EMSCRIPTEN__
-	if (calypsoBlitStart)
-		Calypso::calypsoPassTimers().sdlBlitUs +=
-			(Uint64)((SDL_GetPerformanceCounter() - calypsoBlitStart) * 1000000ull / SDL_GetPerformanceFrequency());
-#endif
-#ifdef __EMSCRIPTEN__
+	/* Этап 2: upload the LOGICAL surface verbatim (no CPU scaling, no
+	 * physical staging copy); the GPU performs the logical->physical upscale
+	 * with NEAREST at SDL_RenderCopy time. */
 	const Uint64 calypsoTexStart = Calypso::calypsoPassTimersEnabled()
 		? SDL_GetPerformanceCounter() : 0;
 
 	void *texPixels;
 	int   texPitch;
-	SDL_LockTexture(_texture, nullptr, &texPixels, &texPitch);
-	if (texPitch == _screen->pitch)
+	if (SDL_LockTexture(_texture, nullptr, &texPixels, &texPitch) != 0)
+		Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Calypso HD logical texture lock failed");
+	if (_surface->pitch == texPitch)
 	{
-		memcpy(texPixels, _screen->pixels, (size_t)_screen->h * texPitch);
+		memcpy(texPixels, _surface->pixels, (size_t)_surface->h * texPitch);
 	}
 	else
 	{
-		for (int y = 0; y < _screen->h; y++)
+		for (int y = 0; y < _surface->h; y++)
 		{
 			memcpy((char*)texPixels + y * texPitch,
-			       (char*)_screen->pixels + y * _screen->pitch,
-			       (size_t)_screen->w * 4);
+			       (char*)_surface->pixels + y * _surface->pitch,
+			       (size_t)_surface->w * 4);
 		}
 	}
 	SDL_UnlockTexture(_texture);
@@ -523,7 +540,8 @@ bool Screen::flip()
 #ifdef __EMSCRIPTEN__
 	const Uint64 calypsoCopyStart = Calypso::calypsoPassTimersEnabled()
 		? SDL_GetPerformanceCounter() : 0;
-	SDL_RenderCopy(_renderer, _texture, nullptr, nullptr);
+	if (SDL_RenderCopy(_renderer, _texture, nullptr, nullptr) != 0)
+		Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Calypso HD logical composite failed");
 	if (calypsoCopyStart)
 		Calypso::calypsoPassTimers().sdlCopyUs +=
 			(Uint64)((SDL_GetPerformanceCounter() - calypsoCopyStart) * 1000000ull / SDL_GetPerformanceFrequency());
@@ -757,22 +775,37 @@ void Screen::resetDisplay(bool resetVideo, bool noShaders)
 	}
 
 #ifdef __EMSCRIPTEN__
+	/* Этап 2: keep the streaming texture glued to the LOGICAL size across
+	 * base-resolution changes; ordinary physical canvas resizes leave it
+	 * untouched. Skipped before a renderer exists (initial setup creates it
+	 * together with the renderer below). */
+	if (_renderer)
+	{
+		int texW = 0, texH = 0;
+		if (!_texture || SDL_QueryTexture(_texture, nullptr, nullptr, &texW, &texH) != 0
+		    || texW != _baseWidth || texH != _baseHeight)
+		{
+			if (_texture) { SDL_DestroyTexture(_texture); _texture = nullptr; }
+			_texture = calypsoCreateLogicalStreamingTexture(_renderer);
+			if (!_texture) throw Exception(SDL_GetError());
+		}
+	}
+#endif
+
+#ifdef __EMSCRIPTEN__
 	/* Emscripten: resize screen/texture when canvas size changed without full resetVideo. */
 	if (!resetVideo && _window && _screen
 	    && (_screen->w != width || _screen->h != height))
 	{
-		if (_texture) { SDL_DestroyTexture(_texture);  _texture = nullptr; }
+		/* Этап 2: the streaming texture follows the LOGICAL base size and is
+		 * unaffected by physical canvas resizes; refresh only the screenshot
+		 * staging surface metadata here. */
 		SDL_FreeSurface(_screen); _screen = nullptr;
 
 		_screen = SDL_CreateRGBSurface(0, width, height, 32,
 		    0x00FF0000u, 0x0000FF00u, 0x000000FFu, 0xFF000000u);
 		if (!_screen) throw Exception(SDL_GetError());
 
-		_texture = SDL_CreateTexture(_renderer, SDL_PIXELFORMAT_ARGB8888,
-		    SDL_TEXTUREACCESS_STREAMING, width, height);
-		if (!_texture) throw Exception(SDL_GetError());
-		// Phase 13.3: BLEND lets pre-composite GPU content show through transparent surface regions.
-		SDL_SetTextureBlendMode(_texture, SDL_BLENDMODE_BLEND);
 
 		Log(LOG_INFO) << "Display rebased: canvas=" << width << "x" << height
 		              << ", base=" << _baseWidth << "x" << _baseHeight;
