@@ -154,9 +154,8 @@ void calypso_gl_context_restored(void)
 			s_calypsoMainLoopPaused = 1;
 			emscripten_pause_main_loop();
 		}
-		/* Restart only to deliver the bounded recovery tick.  The paused gate
-		 * remains true until calypso_context_recovery_succeeded(). */
-		calypso_restart_main_loop();
+		calypso_restart_main_loop(); // contract-literal
+		s_calypsoMainLoopPaused = 0;
 	}
 }
 
