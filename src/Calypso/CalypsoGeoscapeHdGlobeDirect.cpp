@@ -72,6 +72,29 @@ static GLenum calypsoOwnedResetError()
 } // anonymous namespace
 } // namespace OpenXcom
 namespace OpenXcom {
+void CalypsoGeoscapeHdGlobeDirect::invalidatePaletteCaches(Globe* globe)
+{
+	/* Uploaded marker and label pixels are immutable palette snapshots. */
+	for (auto& entry : globe->_gpuState->_gpuMarkerTextures)
+		delete entry.texture;
+	globe->_gpuState->_gpuMarkerTextures.clear();
+	++globe->_gpuState->_gpuMarkerPaletteGeneration;
+	/* The radar/flight snapshot key rides the same palette boundary. */
+	++globe->_gpuState->_gpuRadarPaletteGeneration;
+	for (auto& entry : globe->_gpuState->_gpuLabelTextures)
+	{
+		delete entry.texture;
+		delete entry.frame;
+	}
+	globe->_gpuState->_gpuLabelTextures.clear();
+	globe->_gpuState->_gpuLabelIconPendingDraws.clear();
+	globe->_gpuState->_gpuLabelIconCommittedDraws.clear();
+	globe->_gpuState->_gpuDebugLines.clear();
+	globe->_gpuState->_gpuDebugVertices.clear();
+	globe->_gpuState->_gpuDebugCapacityExceeded = false;
+	++globe->_gpuState->_gpuLabelPaletteGeneration;
+}
+
 void CalypsoGeoscapeHdGlobeDirect::destroyGpuState(Globe* globe)
 {
 	CalypsoGeoscapeHdGlobeDirect::setGpuDirect(globe, false);

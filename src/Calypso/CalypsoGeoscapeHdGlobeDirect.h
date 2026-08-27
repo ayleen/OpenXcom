@@ -299,6 +299,7 @@ struct CalypsoGeoscapeHdGlobeDirect
 	static void drawMarkerPass(Globe* globe);
 	static void ensureLabelResources(Globe* globe);
 	static void drawLabelIconPass(Globe* globe);
+	static void invalidatePaletteCaches(Globe* globe);
 	static void destroyGpuState(Globe* globe);
 	static void drawPass(Globe* globe);
 

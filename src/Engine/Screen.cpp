@@ -561,21 +561,7 @@ void Screen::resetDisplay(bool resetVideo, bool noShaders)
 	}
 
 #ifdef __EMSCRIPTEN__
-	/* Stage 2: keep the streaming texture glued to the LOGICAL size across
-	 * base-resolution changes; ordinary physical canvas resizes leave it
-	 * untouched. Skipped before a renderer exists (initial setup creates it
-	 * together with the renderer below). */
-	if (_renderer)
-	{
-		int texW = 0, texH = 0;
-		if (!_texture || SDL_QueryTexture(_texture, nullptr, nullptr, &texW, &texH) != 0
-		    || texW != _baseWidth || texH != _baseHeight)
-		{
-			if (_texture) { SDL_DestroyTexture(_texture); _texture = nullptr; }
-			_texture = calypsoCreateLogicalStreamingTexture(_renderer);
-			if (!_texture) throw Exception(SDL_GetError());
-		}
-	}
+	Calypso::calypsoScreenRefreshLogicalTexture(*this);
 #endif
 
 #ifdef __EMSCRIPTEN__

@@ -1030,27 +1030,7 @@ void Globe::setPalette(const SDL_Color *colors, int firstcolor, int ncolors)
 	_markers->setPalette(colors, firstcolor, ncolors);
 	_radars->setPalette(colors, firstcolor, ncolors);
 #ifdef __EMSCRIPTEN__
-	/* Marker RGBA uploads are immutable snapshots of the palette.  Drop the
-	 * old GPU entries at the palette boundary so a subsequent direct world pass
-	 * cannot sample colours from the previous revision. */
-	for (auto& entry : _gpuState->_gpuMarkerTextures) delete entry.texture;
-	_gpuState->_gpuMarkerTextures.clear();
-	++_gpuState->_gpuMarkerPaletteGeneration;
-	/* SS15.4.3: the radar/flight snapshot key rides the same palette
-	 * boundary, so a palette revision rebuilds and reuploads exactly once. */
-	++_gpuState->_gpuRadarPaletteGeneration;
-	for (auto& entry : _gpuState->_gpuLabelTextures)
-	{
-		delete entry.texture;
-		delete entry.frame;
-	}
-	_gpuState->_gpuLabelTextures.clear();
-	_gpuState->_gpuLabelIconPendingDraws.clear();
-	_gpuState->_gpuLabelIconCommittedDraws.clear();
-	_gpuState->_gpuDebugLines.clear();
-	_gpuState->_gpuDebugVertices.clear();
-	_gpuState->_gpuDebugCapacityExceeded = false;
-	++_gpuState->_gpuLabelPaletteGeneration;
+	CalypsoGeoscapeHdGlobeDirect::invalidatePaletteCaches(this);
 #endif
 }
 

@@ -216,6 +216,29 @@ bool calypsoScreenRecoveryCommit(Screen &screen)
 	return true;
 }
 
+void calypsoScreenRefreshLogicalTexture(Screen &screen)
+{
+	/* Keep the streaming texture glued to the logical size across base-size
+	 * changes. Initial setup owns creation when no renderer exists yet. */
+	if (!screen._renderer)
+		return;
+	int texW = 0;
+	int texH = 0;
+	if (screen._texture
+		&& SDL_QueryTexture(screen._texture, nullptr, nullptr, &texW, &texH) == 0
+		&& texW == screen._baseWidth
+		&& texH == screen._baseHeight)
+		return;
+	if (screen._texture)
+	{
+		SDL_DestroyTexture(screen._texture);
+		screen._texture = nullptr;
+	}
+	screen._texture = calypsoCreateLogicalStreamingTexture(screen._renderer);
+	if (!screen._texture)
+		throw Exception(SDL_GetError());
+}
+
 void calypsoScreenRebaseStagingSurface(Screen &screen, int width, int height)
 {
 	SDL_FreeSurface(screen._screen); screen._screen = nullptr;
