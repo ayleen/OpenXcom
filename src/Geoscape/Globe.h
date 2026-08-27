@@ -37,7 +37,8 @@
 namespace OpenXcom
 {
 namespace Calypso { struct CalypsoGlobeGpuState; }
-class Cord;
+struct Cord;
+class Globe;
 namespace Calypso
 {
 bool calypsoGlobeInitSphereGPU(Globe& globe);
