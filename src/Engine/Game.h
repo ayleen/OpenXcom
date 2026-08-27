@@ -102,6 +102,8 @@ public:
 	/// Leases setImmediate scheduling to the current state for the next iteration.
 	void requestFastMainLoop(State *requester);
 	static constexpr unsigned int CALYPSO_MOUSE_BRIDGE_ID = 0xC47AB007u;
+	/// Refreshes the canonical browser-owned pointer position for this frame.
+	void refreshCalypsoMousePosition();
 	/// Dispatches one browser-owned display-space mouse motion event directly
 	/// through the canonical input owners. Returns false before gameplay input
 	/// is ready.

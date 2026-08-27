@@ -226,15 +226,10 @@ bool Game::iterate()
 		// Unpress buttons
 		_states.back()->resetAll();
 
-		// Refresh mouse position. The browser bridge owns pointer coordinates;
-		// reuse its last normalized cursor point rather than SDL's queued CSS
-		// coordinates. Native keeps the historical SDL_GetMouseState path.
+		// Refresh mouse position. Native reads SDL; the browser bridge owns its
+		// normalized pointer and refresh implementation.
 #ifdef __EMSCRIPTEN__
-		const int x = (int)(_cursor->getX() * _screen->getXScale())
-			+ _screen->getCursorLeftBlackBand();
-		const int y = (int)(_cursor->getY() * _screen->getYScale())
-			+ _screen->getCursorTopBlackBand();
-		dispatchCalypsoMouseMotion(x, y, 0, 0);
+		refreshCalypsoMousePosition();
 #else
 		SDL_Event ev;
 		SDL_memset(&ev, 0, sizeof(ev));

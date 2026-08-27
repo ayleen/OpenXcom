@@ -75,7 +75,7 @@ Cord calypsoGlobeQaCord(const Calypso::GeoscapeQaVec3& v)
 	return Cord(v.x, v.y, v.z);
 }
 
-	
+
 bool calypsoGlobeInitSphereGPU(OpenXcom::Globe& globe)
 {
 	if (!GpuInit::ready()) return false;

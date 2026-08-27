@@ -12,6 +12,15 @@ extern OpenXcom::Game *game;
 
 namespace OpenXcom
 {
+void Game::refreshCalypsoMousePosition()
+{
+	const int x = static_cast<int>(_cursor->getX() * _screen->getXScale())
+		+ _screen->getCursorLeftBlackBand();
+	const int y = static_cast<int>(_cursor->getY() * _screen->getYScale())
+		+ _screen->getCursorTopBlackBand();
+	dispatchCalypsoMouseMotion(x, y, 0, 0);
+}
+
 bool Game::dispatchCalypsoMouseMotion(int x, int y, int xrel, int yrel)
 {
 	if (!_init || !_mouseActive || !_screen || !_cursor || !_fpsCounter
