@@ -37,6 +37,16 @@
 namespace OpenXcom
 {
 namespace Calypso { struct CalypsoGlobeGpuState; }
+class Cord;
+namespace Calypso
+{
+bool calypsoGlobeInitSphereGPU(Globe& globe);
+Cord calypsoGlobeSunDirectionWorld(const Globe& globe);
+void calypsoGlobeDrawHDStarfield(Globe& globe);
+void calypsoGlobeDrawSphereGPU(Globe& globe);
+void calypsoGlobeDrawHoverCircles(Globe& globe);
+void calypsoGlobeHoverOverlayFrame(Globe& globe);
+} // namespace Calypso
 
 class Game;
 class Polygon;
@@ -108,7 +118,13 @@ private:
 	static constexpr size_t GPU_LABEL_DRAW_CAPACITY = 2048u;
 	// Guard R3: browser-only GPU state lives in CalypsoGlobeGpuState (Calypso/CalypsoGeoscapeHdGlobeDirect.h).
 	Calypso::CalypsoGlobeGpuState* _gpuState = nullptr;
-	friend struct CalypsoGeoscapeHdGlobeDirect;	friend struct CalypsoGeoscapeHdGlobeDirect;   // Stage 10.2.1
+	friend struct CalypsoGeoscapeHdGlobeDirect;	// Stage 10.2.1
+	friend bool Calypso::calypsoGlobeInitSphereGPU(Globe&);
+	friend Cord Calypso::calypsoGlobeSunDirectionWorld(const Globe&);
+	friend void Calypso::calypsoGlobeDrawHDStarfield(Globe&);
+	friend void Calypso::calypsoGlobeDrawSphereGPU(Globe&);
+	friend void Calypso::calypsoGlobeDrawHoverCircles(Globe&);
+	friend void Calypso::calypsoGlobeHoverOverlayFrame(Globe&);
 
 	/// One-time GPU resource initialisation for the sphere.
 	bool initSphereGPU();

@@ -3,15 +3,20 @@
  * getSunDirectionWorld) extracted from Geoscape/Globe.cpp. Whole-file
  * emscripten TU; empty native. */
 #include "CalypsoGlobeHdSphere.h"
-#include "CalypsoGeoscapeHdGlobeDirect.h"
 #include "../Geoscape/Globe.h"
+#include "CalypsoGeoscapeHdGlobeDirect.h"
+#include "CalypsoGeoscapeQaPresentation.h"
+#include "CalypsoGeoscapeColoredLineBatch.h"
+#include "CalypsoSdlCompositeBoundary.h"
 #include "../Engine/GpuInit.h"
 #include "../Engine/GpuTexture.h"
 #include "../Engine/Logger.h"
 #include "../Engine/Options.h"
 #include "../Engine/Shader.h"
+#include "../Engine/ShaderManager.h"
 #include "../Mod/Mod.h"
 #include "../Interface/Text.h"
+#include "../Savegame/SavedGame.h"
 #include <SDL.h>
 #include <GLES3/gl3.h>
 #include <algorithm>
@@ -20,6 +25,8 @@
 #include <memory>
 #include <string>
 #include <vector>
+
+extern "C" int g_calypsoProfileGlobe;
 
 namespace OpenXcom {
 static GLenum calypsoOwnedResetError()
@@ -40,10 +47,6 @@ static GLenum calypsoOwnedResetError()
 	return error;
 }
 
-/* Stage 13 QA (loopback-only): 1x1 fully transparent cloud input used when a
- * capture row selects GeoscapeQaCloudMode::Hidden. The existing shader derives
- * cloud density from the alpha channel, so alpha 0 renders zero clouds with no
- * shader change. GpuTexture registers itself with ShaderManager, so context
 /* Stage 13 QA (loopback-only): shared seam helpers for BOTH globe passes
  * (readback Globe::drawSphereGPU() and direct drawPass()). With every control
  * at its production default each helper returns its input unchanged, so the
@@ -105,7 +108,7 @@ bool calypsoGlobeInitSphereGPU(OpenXcom::Globe& globe)
 	/* VBO is owned by the VAO after bind; no need to keep a separate handle. */
 
 	/* FBO + colour attachment (same size as globe surface). */
-	int w = 0, h = 0; CalypsoGeoscapeHdGlobeDirect::computeSphereRes(this, w, h);
+	int w = 0, h = 0; CalypsoGeoscapeHdGlobeDirect::computeSphereRes(&globe, w, h);
 	glGenTextures(1, &globe._gpuState->_sphereFBOTex);
 	glBindTexture(GL_TEXTURE_2D, globe._gpuState->_sphereFBOTex);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
@@ -140,7 +143,7 @@ bool calypsoGlobeInitSphereGPU(OpenXcom::Globe& globe)
 	if (!globe._gpuState->_gpuAliveFlag) globe._gpuState->_gpuAliveFlag = std::make_shared<bool>(true);
 	if (!globe._gpuState->_gpuResetCallbackRegistered)
 	{
-	ShaderManager::instance().registerResetCallback(globe._gpuState->_gpuAliveFlag, [this]() {
+	ShaderManager::instance().registerResetCallback(globe._gpuState->_gpuAliveFlag, [&globe]() {
 		globe._gpuState->_sphereVAO    = 0u;
 		globe._gpuState->_sphereFBO    = 0u;
 		globe._gpuState->_sphereFBOTex = 0u;
@@ -231,13 +234,13 @@ OpenXcom::Cord calypsoGlobeSunDirectionWorld(const OpenXcom::Globe& globe)
 
 void calypsoGlobeDrawHDStarfield(OpenXcom::Globe& globe)
 {
-	if (!isARGB()) return;
+	if (!globe.isARGB()) return;
 
-	const int w = getWidth();
-	const int h = getHeight();
+	const int w = globe.getWidth();
+	const int h = globe.getHeight();
 	const double globeLimit = (globe._zoomRadius[globe._zoom] + 5.0) * (globe._zoomRadius[globe._zoom] + 5.0);
 
-	lock();
+	globe.lock();
 	for (int y = 0; y < h; ++y)
 	{
 		const float t = (h > 1) ? (float)y / (float)(h - 1) : 0.f;
@@ -247,7 +250,7 @@ void calypsoGlobeDrawHDStarfield(OpenXcom::Globe& globe)
 		const Uint32 bg = 0xFF000000u | ((Uint32)r << 16) | ((Uint32)g << 8) | (Uint32)b;
 		for (int x = 0; x < w; ++x)
 		{
-			setPixel32(x, y, bg);
+			globe.setPixel32(x, y, bg);
 		}
 	}
 
@@ -282,11 +285,11 @@ void calypsoGlobeDrawHDStarfield(OpenXcom::Globe& globe)
 			| ((Uint32)(v * 78 / 100) << 16)
 			| ((Uint32)(v * 92 / 100) << 8)
 			| (Uint32)v;
-		setPixel32(x, y, star);
-		if ((n & 0x0Fu) == 0 && x + 1 < w) setPixel32(x + 1, y, star);
-		if ((n & 0x1Fu) == 0 && y + 1 < h) setPixel32(x, y + 1, star);
+		globe.setPixel32(x, y, star);
+		if ((n & 0x0Fu) == 0 && x + 1 < w) globe.setPixel32(x + 1, y, star);
+		if ((n & 0x1Fu) == 0 && y + 1 < h) globe.setPixel32(x, y + 1, star);
 	}
-	unlock();
+	globe.unlock();
 }
 
 /**
@@ -319,7 +322,7 @@ void calypsoGlobeDrawSphereGPU(OpenXcom::Globe& globe)
 	 * defaults to the production inputs consumed below. */
 	const auto& qa = Calypso::calypsoGeoscapeQaPresentation();
 
-	int w = 0, h = 0; CalypsoGeoscapeHdGlobeDirect::computeSphereRes(this, w, h);
+	int w = 0, h = 0; CalypsoGeoscapeHdGlobeDirect::computeSphereRes(&globe, w, h);
 
 	/* Phase 8c.10 perf instrumentation: wall-clock GPU pass time.  ENTIRELY
 	 * gated on ::g_calypsoProfileGlobe — when the flag is 0 (production
@@ -408,9 +411,9 @@ void calypsoGlobeDrawSphereGPU(OpenXcom::Globe& globe)
 
 	/* Convert RGBA (GL) → ARGB8888 (SDL little-endian) and flip Y.
 	 * SDL_PIXELFORMAT_ARGB8888 memory layout: byte0=B, byte1=G, byte2=R, byte3=A. */
-	lock();
-	uint8_t* dst   = reinterpret_cast<uint8_t*>(getSurface()->pixels);
-	int      pitch = getSurface()->pitch;
+	globe.lock();
+	uint8_t* dst   = reinterpret_cast<uint8_t*>(globe.getSurface()->pixels);
+	int      pitch = globe.getSurface()->pitch;
 	for (int y = 0; y < h; ++y)
 	{
 		const uint8_t* src = rgba.data() + (size_t)(h - 1 - y) * w * 4;
@@ -436,7 +439,7 @@ void calypsoGlobeDrawSphereGPU(OpenXcom::Globe& globe)
 			}
 		}
 	}
-	unlock();
+	globe.unlock();
 
 	/* Perf log is opt-in via JS-side calypso_set_profile_globe(1)
 	 * (EmscriptenHarness).  Production builds never call the setter so
@@ -486,7 +489,7 @@ void calypsoGlobeDrawHoverCircles(OpenXcom::Globe& globe)
 	 * without touching CPU geometry.  The force-dirty flag is set on the first
 	 * frame and after context reset. */
 	CalypsoGeoscapeHdGlobeDirect::PhysicalGlobeRect rect;
-	if (!CalypsoGeoscapeHdGlobeDirect::physicalGlobeRect(this, rect))
+	if (!CalypsoGeoscapeHdGlobeDirect::physicalGlobeRect(&globe, rect))
 		return;
 	const double sx = globe._gpuState->_directScreen->getXScale();
 	const double sy = globe._gpuState->_directScreen->getYScale();

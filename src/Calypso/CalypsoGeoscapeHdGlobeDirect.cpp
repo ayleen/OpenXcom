@@ -3,8 +3,8 @@
  * from Geoscape/Globe.cpp (policy R3). Whole-file emscripten TU; empty native.
  * Works on Globe state through the CalypsoGlobeGpuState pointer in Globe.h._gpuState.
  */
-#include "CalypsoGeoscapeHdGlobeDirect.h"
 #include "../Geoscape/Globe.h"
+#include "CalypsoGeoscapeHdGlobeDirect.h"
 #include "CalypsoGeoscapeColoredLineBatch.h"
 #include "CalypsoHdUiOverlay.h"
 #include "../Engine/GpuInit.h"
@@ -32,6 +32,7 @@ static std::string calypsoGlFailure(const char *operation, GLenum error)
 	std::ostringstream detail;
 	detail << operation << " (0x" << std::hex << error << ")";
 	return detail.str();
+}
 
 struct GlobeSphereGlSave
 {
@@ -74,6 +75,7 @@ struct GlobeSphereGlSave
 		glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 		check("glBlendFuncSeparate");
 	}
+};
 
 static GLenum calypsoOwnedResetError()
 {
@@ -91,6 +93,7 @@ static GLenum calypsoOwnedResetError()
 		return GL_NO_ERROR;
 	}
 	return error;
+}
 
 } // anonymous namespace
 } // namespace OpenXcom
@@ -1309,5 +1312,7 @@ static std::uint64_t calypsoBuildRadarFlightSignature(SavedGame* save)
 			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape marker draw failed");
 		st.restore();
 	}
+
+} // namespace OpenXcom
 
 #endif // __EMSCRIPTEN__

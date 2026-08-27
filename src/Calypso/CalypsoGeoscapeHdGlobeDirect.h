@@ -6,6 +6,7 @@
 #include <cmath>
 #include <memory>
 #include <string>
+#include <GLES3/gl3.h>
 
 #include "../Engine/Game.h"
 #include "../Engine/Logger.h"
@@ -53,18 +54,18 @@ struct CalypsoGlobeGpuState
 	std::vector<float> _gpuBorderVertices;
 	size_t _gpuBorderCapacity = 0;
 	bool _gpuBorderCapacityExceeded = false;
-	Calypso::CalypsoGeoscapeColoredLineBatchState _coloredLineBatch;
-	Calypso::CalypsoGeoscapeColoredLineCacheState _coloredLineCache;
+	CalypsoGeoscapeColoredLineBatchState _coloredLineBatch;
+	CalypsoGeoscapeColoredLineCacheState _coloredLineCache;
 	bool _gpuRadarFlightCapacityExceeded = false;
 	unsigned  _coloredLineVAO     = 0u;
 	unsigned  _coloredLineVBO     = 0u;
 	Shader*   _coloredLineShader  = nullptr;
 	bool      _coloredLineResourcesReady = false;
-	Calypso::CalypsoGeoscapeColoredLineBatchState _hoverLineBatch;
+	CalypsoGeoscapeColoredLineBatchState _hoverLineBatch;
 	unsigned  _hoverLineVAO      = 0u;
 	unsigned  _hoverLineVBO      = 0u;
 	bool      _hoverLineResourcesReady = false;
-	Calypso::CalypsoGeoscapeColoredLineBatchState* _activeLineBatch = nullptr;
+	CalypsoGeoscapeColoredLineBatchState* _activeLineBatch = nullptr;
 	std::vector<double> _hoverCanonicalRanges;
 	bool _hoverRangesReady = false;
 	double _lastHoverOverlayLon = 0.0;
