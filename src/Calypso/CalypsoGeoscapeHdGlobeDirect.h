@@ -17,7 +17,8 @@
 
 namespace OpenXcom
 {
-
+namespace Calypso
+{
 /// Guard-R3: browser-only GPU state owned by Globe (extracted from Globe.h).
 /// Whole-file emscripten TU counterpart: CalypsoGeoscapeHdGlobeDirect.cpp.
 struct CalypsoGlobeGpuState
@@ -132,7 +133,7 @@ struct CalypsoGlobeGpuState
 	Shader*   _borderShader  = nullptr;
 	bool      _gpuBorderReady = false;
 };
-namespace Calypso { using CalypsoGlobeGpuState = ::OpenXcom::CalypsoGlobeGpuState; }
+} // namespace Calypso
 
 struct CalypsoGeoscapeHdGlobeDirect
 {
@@ -267,7 +268,7 @@ struct CalypsoGeoscapeHdGlobeDirect
 	static void recordLabelIcon(Globe* globe, Surface* frame, int x, int y, int shade);
 	static void ensureLogicalWorldComplete(Globe* globe);
 	static GpuTexture* markerTexture(Globe* globe, Surface* frame, int shade);
-	static GpuTexture* labelTexture(Globe* globe, CalypsoGlobeGpuState::LabelTexture& entry);
+	static GpuTexture* labelTexture(Globe* globe, Calypso::CalypsoGlobeGpuState::LabelTexture& entry);
 	static void ensureBorderResources(Globe* globe);
 	static void ensureColoredLineResources(Globe* globe);
 	/* §16.5: hover-circle overlay GPU resources (separate VAO/VBO from static). */

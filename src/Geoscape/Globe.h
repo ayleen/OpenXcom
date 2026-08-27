@@ -36,8 +36,7 @@
 
 namespace OpenXcom
 {
-struct CalypsoGlobeGpuState;
-namespace Calypso { using CalypsoGlobeGpuState = ::OpenXcom::CalypsoGlobeGpuState; }
+namespace Calypso { struct CalypsoGlobeGpuState; }
 
 class Game;
 class Polygon;
