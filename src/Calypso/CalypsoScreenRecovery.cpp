@@ -30,6 +30,7 @@ extern "C" int calypso_context_reset_boundary_open(void);
 extern "C" void calypso_context_reset_sentinel_consumed(void);
 extern "C" void calypso_context_recovery_succeeded(void);
 extern "C" void calypso_context_recovery_failed(void);
+extern "C" int g_calypsoContextLost;
 extern "C" SDL_Texture *calypsoCreateLogicalStreamingTexture(SDL_Renderer *renderer);
 #include "CalypsoHdUiOverlay.h"
 #include "CalypsoPassTimers.h"
@@ -167,8 +168,7 @@ bool calypsoScreenRecreateRendererGL(Screen &screen)
     {
         Log(LOG_ERROR) << "M6g: recreateRendererGL failed — " << e.what();
         GpuInit::invalidate();
-        extern int g_calypsoContextLost;
-        g_calypsoContextLost = 1;
+        ::g_calypsoContextLost = 1;
         emscripten_pause_main_loop();
         return false;
     }

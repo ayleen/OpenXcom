@@ -410,12 +410,7 @@ bool Screen::flip()
 	 * Emscripten-only hook; native has no HD overlay, so presentOk stays true. */
 	bool presentOk = true;
 #ifdef __EMSCRIPTEN__
-	const Uint64 calypsoChromeStart = Calypso::calypsoPassTimersEnabled()
-		? SDL_GetPerformanceCounter() : 0;
-	presentOk = Calypso::CalypsoHdUiOverlay::instance().renderStages(_renderer);
-	if (calypsoChromeStart)
-		Calypso::calypsoPassTimers().chromeUs +=
-			(Uint64)((SDL_GetPerformanceCounter() - calypsoChromeStart) * 1000000ull / SDL_GetPerformanceFrequency());
+	presentOk = Calypso::calypsoScreenRenderChrome(*this);
 #endif
 
 	/* GPU shader passes (Phase 8b): cursor, projectile, smoke — overlay on top.

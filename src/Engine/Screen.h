@@ -37,6 +37,7 @@ namespace Calypso
 bool calypsoScreenRecreateRendererGL(Screen &);
 void calypsoScreenUploadLogicalTexture(Screen &);
 bool calypsoScreenFlipWorldPass(Screen &, bool);
+bool calypsoScreenRenderChrome(Screen &);
 void calypsoScreenResetDisplayRendererOnly(Screen &);
 void calypsoScreenRebaseStagingSurface(Screen &, int, int);
 }
@@ -110,6 +111,7 @@ private:
 	friend bool Calypso::calypsoScreenRecreateRendererGL(Screen &);
 	friend void Calypso::calypsoScreenUploadLogicalTexture(Screen &);
 	friend bool Calypso::calypsoScreenFlipWorldPass(Screen &, bool);
+	friend bool Calypso::calypsoScreenRenderChrome(Screen &);
 	friend void Calypso::calypsoScreenResetDisplayRendererOnly(Screen &);
 	friend void Calypso::calypsoScreenRebaseStagingSurface(Screen &, int, int);
 #endif

@@ -5,6 +5,8 @@
  */
 #include "../Geoscape/Globe.h"
 #include "CalypsoGeoscapeHdGlobeDirect.h"
+#include "CalypsoGlobeHdSphere.h"
+#include "CalypsoGeoscapeQaPresentation.h"
 #include "CalypsoGeoscapeColoredLineBatch.h"
 #include "CalypsoHdUiOverlay.h"
 #include "../Engine/GpuInit.h"
@@ -12,9 +14,19 @@
 #include "../Engine/Logger.h"
 #include "../Engine/Options.h"
 #include "../Engine/Shader.h"
+#include "../Engine/ShaderDraw.h"
+#include "../Engine/SurfaceSet.h"
 #include "../Interface/Text.h"
 #include "../Mod/Mod.h"
+#include "../Mod/AlienDeployment.h"
+#include "../Mod/RuleBaseFacility.h"
 #include "../Savegame/SavedGame.h"
+#include "../Savegame/AlienBase.h"
+#include "../Savegame/Base.h"
+#include "../Savegame/BaseFacility.h"
+#include "../Savegame/Craft.h"
+#include "../Savegame/Target.h"
+#include "../Savegame/Ufo.h"
 #include <SDL.h>
 #include <GLES3/gl3.h>
 #include <algorithm>
@@ -25,6 +37,10 @@
 #include <string>
 #include <vector>
 
+
+extern "C" int calypso_context_reset_sentinel_pending(void);
+extern "C" void calypso_context_reset_sentinel_consumed(void);
+extern "C" void calypso_context_reset_boundary_close(void);
 namespace OpenXcom {
 namespace {
 static std::string calypsoGlFailure(const char *operation, GLenum error)
@@ -34,48 +50,6 @@ static std::string calypsoGlFailure(const char *operation, GLenum error)
 	return detail.str();
 }
 
-struct GlobeSphereGlSave
-{
-	GLfloat lineWidth = 1.0f;
-	GLint activeTexture = GL_TEXTURE0;
-	const char *errorOperation = nullptr;
-	const char *restoreErrorOperation = nullptr;
-	GLenum restoreError = GL_NO_ERROR;
-	bool saved = false;
-	GLenum save()
-	{
-		glGetFloatv(GL_LINE_WIDTH, &lineWidth);
-		glGetIntegerv(GL_ACTIVE_TEXTURE, &activeTexture);
-		const GLenum error = glGetError();
-		if (error != GL_NO_ERROR) errorOperation = "glGetIntegerv(GL_ACTIVE_TEXTURE)";
-		saved = true;
-		return error;
-	}
-	void restore()
-	{
-		if (!saved) return;
-		auto check = [&](const char *operation) {
-			const GLenum error = glGetError();
-			if (error != GL_NO_ERROR && restoreError == GL_NO_ERROR)
-			{
-				restoreError = error;
-				restoreErrorOperation = operation;
-				Log(LOG_ERROR) << "Globe physical GL restore failed at " << operation
-				               << " (0x" << std::hex << (unsigned)error << std::dec << ")";
-			}
-		};
-		glActiveTexture(activeTexture);
-		check("glActiveTexture");
-		glActiveTexture(GL_TEXTURE0);
-		check("glActiveTexture(GL_TEXTURE0)");
-		glBindTexture(GL_TEXTURE_2D, 0);
-		check("glBindTexture(GL_TEXTURE_2D, 0)");
-		glLineWidth(lineWidth);
-		check("glLineWidth");
-		glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-		check("glBlendFuncSeparate");
-	}
-};
 
 static GLenum calypsoOwnedResetError()
 {
@@ -98,6 +72,43 @@ static GLenum calypsoOwnedResetError()
 } // anonymous namespace
 } // namespace OpenXcom
 namespace OpenXcom {
+void CalypsoGeoscapeHdGlobeDirect::destroyGpuState(Globe* globe)
+{
+	CalypsoGeoscapeHdGlobeDirect::setGpuDirect(globe, false);
+	globe->_gpuState->_gpuAliveFlag.reset();  // M6: expire reset callback before deleting GL objects
+	delete globe->_gpuState->_globeShader;
+	delete globe->_gpuState->_markerShader;
+	delete globe->_gpuState->_borderShader;
+	/* Review fix: coloured-line resources were leaked on teardown. */
+	delete globe->_gpuState->_coloredLineShader;
+	globe->_gpuState->_coloredLineShader = nullptr;
+	for (auto& entry : globe->_gpuState->_gpuMarkerTextures) delete entry.texture;
+	globe->_gpuState->_gpuMarkerTextures.clear();
+	for (auto& entry : globe->_gpuState->_gpuLabelTextures)
+	{
+		delete entry.texture;
+		delete entry.frame;
+	}
+	globe->_gpuState->_gpuLabelTextures.clear();
+	if (globe->_gpuState->_sphereFBO)    glDeleteFramebuffers(1,  &globe->_gpuState->_sphereFBO);
+	if (globe->_gpuState->_sphereFBOTex) glDeleteTextures(1,      &globe->_gpuState->_sphereFBOTex);
+	if (globe->_gpuState->_sphereVAO)    glDeleteVertexArrays(1,  &globe->_gpuState->_sphereVAO);
+	if (globe->_gpuState->_markerVAO)    glDeleteVertexArrays(1,  &globe->_gpuState->_markerVAO);
+	if (globe->_gpuState->_markerVBO)    glDeleteBuffers(1, &globe->_gpuState->_markerVBO);
+	if (globe->_gpuState->_borderVAO)    glDeleteVertexArrays(1,  &globe->_gpuState->_borderVAO);
+	if (globe->_gpuState->_borderVBO)    glDeleteBuffers(1, &globe->_gpuState->_borderVBO);
+	/* Review fix: VAO/VBO handles for the one-draw batch. */
+	if (globe->_gpuState->_coloredLineVAO) glDeleteVertexArrays(1, &globe->_gpuState->_coloredLineVAO);
+	if (globe->_gpuState->_coloredLineVBO) glDeleteBuffers(1, &globe->_gpuState->_coloredLineVBO);
+	globe->_gpuState->_coloredLineResourcesReady = false;
+	/* §16.5: hover overlay resources. */
+	if (globe->_gpuState->_hoverLineVAO) glDeleteVertexArrays(1, &globe->_gpuState->_hoverLineVAO);
+	if (globe->_gpuState->_hoverLineVBO) glDeleteBuffers(1, &globe->_gpuState->_hoverLineVBO);
+	globe->_gpuState->_hoverLineResourcesReady = false;
+	globe->_gpuState->_activeLineBatch = nullptr;
+	delete globe->_gpuState;
+	globe->_gpuState = nullptr;
+}
 void CalypsoGeoscapeHdGlobeDirect::drawPass(Globe* globe)
 	{
 		if (!globe || !globe->_gpuState->_gpuDirectMode || !globe->_gpuState->_directScreen) return;
@@ -175,8 +186,8 @@ void CalypsoGeoscapeHdGlobeDirect::drawPass(Globe* globe)
 		const auto& qa = Calypso::calypsoGeoscapeQaPresentation();
 		if (qa.cloudMode == Calypso::GeoscapeQaCloudMode::Hidden)
 		{
-			if (!calypsoGlobeQaHiddenCloudsTexture()->isValid()) cloudsBound = cloudsTex;
-			else cloudsBound = calypsoGlobeQaHiddenCloudsTexture();
+			if (!Calypso::calypsoGlobeQaHiddenCloudsTexture()->isValid()) cloudsBound = cloudsTex;
+			else cloudsBound = Calypso::calypsoGlobeQaHiddenCloudsTexture();
 		}
 		cloudsBound->bind(3); globe->_gpuState->_globeShader->setUniform1i("u_clouds", 3);
 		globe->_gpuState->_globeShader->setUniform1i("u_background", 1);
@@ -189,12 +200,12 @@ void CalypsoGeoscapeHdGlobeDirect::drawPass(Globe* globe)
 		/* Stage 13 QA (loopback-only): deterministic day/night rows replace the
 		 * fed value only; campaign time is never read or mutated. */
 		if (qa.sunMode != Calypso::GeoscapeQaSunMode::Live)
-			sd = calypsoGlobeQaCord(Calypso::calypsoGeoscapeQaSunDirection(qa.sunMode, globe->_cenLon, globe->_cenLat));
+			sd = Calypso::calypsoGlobeQaCord(Calypso::calypsoGeoscapeQaSunDirection(qa.sunMode, globe->_cenLon, globe->_cenLat));
 		globe->_gpuState->_globeShader->setUniform3f("u_sunDir", (float)sd.x, (float)sd.y, (float)sd.z);
 		/* Stage 13 QA (loopback-only): fixed/reduced decorative clock for the
 		 * cloud drift. Production keeps its exact expression when no QA
 		 * control is active. */
-		float timeMs = calypsoGlobeQaEffectiveMs((float)SDL_GetTicks());
+		float timeMs = Calypso::calypsoGlobeQaEffectiveMs((float)SDL_GetTicks());
 		globe->_gpuState->_globeShader->setUniform1f("u_time", timeMs * 0.001f);
 		float mipLvl = std::max(0.f, std::min(1.35f, 1.35f - (float)globe->_zoom * 0.27f));
 		globe->_gpuState->_globeShader->setUniform1f("u_mipLevel", mipLvl);
@@ -389,9 +400,16 @@ void CalypsoGeoscapeHdGlobeDirect::drawPass(Globe* globe)
 				}
 			}
 			if (!dest) return 0;
-			return CreateShadow::isOcean(dest)
-				? CreateShadow::getOceanShadow((Uint8)(shade + 8))
-				: CreateShadow::getLandShadow(dest, (Uint8)(shade * 3));
+			if (Globe::OCEAN_SHADING && dest >= Globe::OCEAN_COLOR && dest < Globe::OCEAN_COLOR + 32)
+				return Globe::OCEAN_COLOR + (Uint8)(shade + 8);
+			const Uint8 shadow = (Uint8)(shade * 3);
+			if (shadow == 0) return dest;
+			const int shadeOffset = shadow / 3;
+			const int shaded = dest + shadeOffset;
+			const int group = dest & helper::ColorGroup;
+			return shaded > group + helper::ColorShade
+				? (Uint8)(group + helper::ColorShade)
+				: (Uint8)shaded;
 		};
 
 		double sampleX = x1;
@@ -441,7 +459,7 @@ void CalypsoGeoscapeHdGlobeDirect::drawPass(Globe* globe)
 			globe->_gpuState->_gpuLabelCapacityExceeded = true;
 			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape label batch capacity exhausted");
 		}
-		Globe::LabelTexture* found = nullptr;
+		Calypso::CalypsoGlobeGpuState::LabelTexture* found = nullptr;
 		for (auto& entry : globe->_gpuState->_gpuLabelTextures)
 		{
 			if (entry.text == text && entry.width == width && entry.height == height

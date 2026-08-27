@@ -10,13 +10,17 @@
 #include "CalypsoSdlCompositeBoundary.h"
 #include "../Engine/GpuInit.h"
 #include "../Engine/GpuTexture.h"
+#include "../Engine/GpuTimer.h"
 #include "../Engine/Logger.h"
 #include "../Engine/Options.h"
 #include "../Engine/Shader.h"
 #include "../Engine/ShaderManager.h"
+#include "../Engine/SurfaceSet.h"
 #include "../Mod/Mod.h"
+#include "../Mod/RuleBaseFacility.h"
 #include "../Interface/Text.h"
 #include "../Savegame/SavedGame.h"
+#include "../Savegame/GameTime.h"
 #include <SDL.h>
 #include <GLES3/gl3.h>
 #include <algorithm>
@@ -29,22 +33,20 @@
 extern "C" int g_calypsoProfileGlobe;
 
 namespace OpenXcom {
-static GLenum calypsoOwnedResetError()
+namespace Calypso {
+
+/* Stage 13 QA: a one-pixel transparent fallback for the cloud input,
+ * created on demand only when capture explicitly hides clouds. */
+GpuTexture* calypsoGlobeQaHiddenCloudsTexture()
 {
-	static const GLenum CALYPSO_CONTEXT_LOST_WEBGL = 0x9242;
-	const GLenum error = glGetError();
-	/* The browser can defer the reset token until the first physical-world
-	 * query, after Screen's SDL-flush query has already drained an earlier
-	 * token. Consume it only when the reset-boundary observer transferred the
-	 * one-shot ownership; consuming it also ends the bounded ownership window
-	 * at this boundary. The same numeric value later is a real pass error. */
-	if (error == CALYPSO_CONTEXT_LOST_WEBGL && calypso_context_reset_sentinel_pending())
+	static GpuTexture* texture = nullptr;
+	if (texture == nullptr)
 	{
-		calypso_context_reset_sentinel_consumed();
-		calypso_context_reset_boundary_close();
-		return GL_NO_ERROR;
+		texture = new GpuTexture(/*srgb=*/false);
+		const std::uint8_t transparent[4] = { 0, 0, 0, 0 };
+		texture->uploadRGBA(transparent, 1, 1);
 	}
-	return error;
+	return texture;
 }
 
 /* Stage 13 QA (loopback-only): shared seam helpers for BOTH globe passes
@@ -57,7 +59,7 @@ static GLenum calypsoOwnedResetError()
  * through calypsoGeoscapeQaPresentationSeconds() (live seconds =
  * SDL_GetTicks() * 0.001); the callers' uniform expressions keep their exact
  * production form. */
-static float calypsoGlobeQaEffectiveMs(float liveMs)
+float calypsoGlobeQaEffectiveMs(float liveMs)
 {
 	const auto& qa = Calypso::calypsoGeoscapeQaPresentation();
 	if (!qa.frozenClock && !qa.reducedMotion) return liveMs;
@@ -67,7 +69,7 @@ static float calypsoGlobeQaEffectiveMs(float liveMs)
 /* GeoscapeQaVec3 -> shader-world Cord conversion for the deterministic
  * day/night rows produced by calypsoGeoscapeQaSunDirection(). Live rows never
  * reach this helper; they keep the verbatim getSunDirectionWorld() call. */
-static Cord calypsoGlobeQaCord(const Calypso::GeoscapeQaVec3& v)
+Cord calypsoGlobeQaCord(const Calypso::GeoscapeQaVec3& v)
 {
 	return Cord(v.x, v.y, v.z);
 }
@@ -302,7 +304,7 @@ void calypsoGlobeDrawHDStarfield(OpenXcom::Globe& globe)
  */
 void calypsoGlobeDrawSphereGPU(OpenXcom::Globe& globe)
 {
-	if (!globe._gpuState->_gpuSphereOK && !initSphereGPU()) return;
+	if (!globe._gpuState->_gpuSphereOK && !calypsoGlobeInitSphereGPU(globe)) return;
 	if (globe._gpuState->_gpuDirectMode)
 	{
 		/* Direct mode is owned by Screen's registered world slot. The slot
@@ -374,7 +376,7 @@ void calypsoGlobeDrawSphereGPU(OpenXcom::Globe& globe)
 	globe._gpuState->_globeShader->setUniform1f("u_camLon",       (float)globe._cenLon);
 
 	/* Sun direction in world frame (8c.5 fix: was camera-relative, now world frame). */
-	Cord sd = getSunDirectionWorld();
+	Cord sd = calypsoGlobeSunDirectionWorld(globe);
 	/* Stage 13 QA (loopback-only): deterministic day/night rows replace the
 	 * fed value only; campaign time is never read or mutated. */
 	if (qa.sunMode != Calypso::GeoscapeQaSunMode::Live)
@@ -551,5 +553,6 @@ void calypsoGlobeHoverOverlayFrame(Globe& globe)
 	}
 }
 
+} // namespace Calypso
 } // namespace OpenXcom
 #endif // __EMSCRIPTEN__

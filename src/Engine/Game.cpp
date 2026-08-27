@@ -604,7 +604,7 @@ bool Game::iterate()
 }
 
 #ifdef __EMSCRIPTEN__
-static void emscriptenIter(void *arg)
+void Game::emscriptenIter(void *arg)
 {
 	// A viewport/context-loss event can arrive before Game::run registers the
 	// browser loop. Apply that recorded state in the first callback and do not
@@ -632,8 +632,7 @@ static void emscriptenIter(void *arg)
 #ifdef __EMSCRIPTEN__
 extern "C" void calypso_restart_main_loop(void)
 {
-	emscripten_cancel_main_loop();
-	emscripten_set_main_loop_arg(emscriptenIter, ::game, 0, 0);
+	Game::calypsoRestartMainLoop();
 }
 #endif
 

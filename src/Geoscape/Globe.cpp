@@ -78,9 +78,6 @@
  * what makes the link symbol resolve. */
 extern "C" int g_calypsoProfileGlobe;
 extern "C" int g_calypsoGlobeGpuDirect;
-extern "C" int calypso_context_reset_sentinel_pending(void);
-extern "C" void calypso_context_reset_sentinel_consumed(void);
-extern "C" void calypso_context_reset_boundary_close(void);
 #endif
 
 #include "../Calypso/CalypsoGeoscapeHdGlobeDirect.h"
@@ -89,24 +86,6 @@ extern "C" void calypso_context_reset_boundary_close(void);
 namespace OpenXcom
 {
 
-/* Stage 13 QA: a one-pixel transparent fallback for the cloud input,
- * created on demand only when the QA export switched the cloud input away
- * from Live. Cloud density is read from the alpha channel, so alpha 0
- * renders zero clouds with no shader change. GpuTexture registers itself
- * with ShaderManager, so context loss/reupload stays owned by the existing
- * recovery machinery. Never created unless the QA export switched the cloud
- * input away from Live; production always binds the mod clouds texture. */
-static GpuTexture* calypsoGlobeQaHiddenCloudsTexture()
-{
-	static GpuTexture* tex = nullptr;
-	if (tex == nullptr)
-	{
-		tex = new GpuTexture(/*srgb=*/false);
-		const std::uint8_t transparent[4] = { 0, 0, 0, 0 };
-		tex->uploadRGBA(transparent, 1, 1);
-	}
-	return tex;
-}
 
 void Globe::setGpuDirect(bool on)
 {
@@ -517,40 +496,7 @@ Globe::~Globe()
 	}
 
 #ifdef __EMSCRIPTEN__
-	CalypsoGeoscapeHdGlobeDirect::setGpuDirect(this, false);
-	_gpuState->_gpuAliveFlag.reset();  // M6: expire reset callback before deleting GL objects
-	delete _gpuState->_globeShader;
-	delete _gpuState->_markerShader;
-	delete _gpuState->_borderShader;
-	/* Review fix: coloured-line resources were leaked on teardown. */
-	delete _gpuState->_coloredLineShader;
-	_gpuState->_coloredLineShader = nullptr;
-	for (auto& entry : _gpuState->_gpuMarkerTextures) delete entry.texture;
-	_gpuState->_gpuMarkerTextures.clear();
-	for (auto& entry : _gpuState->_gpuLabelTextures)
-	{
-		delete entry.texture;
-		delete entry.frame;
-	}
-	_gpuState->_gpuLabelTextures.clear();
-	if (_gpuState->_sphereFBO)    glDeleteFramebuffers(1,  &_gpuState->_sphereFBO);
-	if (_gpuState->_sphereFBOTex) glDeleteTextures(1,      &_gpuState->_sphereFBOTex);
-	if (_gpuState->_sphereVAO)    glDeleteVertexArrays(1,  &_gpuState->_sphereVAO);
-	if (_gpuState->_markerVAO)    glDeleteVertexArrays(1,  &_gpuState->_markerVAO);
-	if (_gpuState->_markerVBO)    glDeleteBuffers(1, &_gpuState->_markerVBO);
-	if (_gpuState->_borderVAO)    glDeleteVertexArrays(1,  &_gpuState->_borderVAO);
-	if (_gpuState->_borderVBO)    glDeleteBuffers(1, &_gpuState->_borderVBO);
-	/* Review fix: VAO/VBO handles for the one-draw batch. */
-	if (_gpuState->_coloredLineVAO) glDeleteVertexArrays(1, &_gpuState->_coloredLineVAO);
-	if (_gpuState->_coloredLineVBO) glDeleteBuffers(1, &_gpuState->_coloredLineVBO);
-	_gpuState->_coloredLineResourcesReady = false;
-	/* §16.5: hover overlay resources. */
-	if (_gpuState->_hoverLineVAO) glDeleteVertexArrays(1, &_gpuState->_hoverLineVAO);
-	if (_gpuState->_hoverLineVBO) glDeleteBuffers(1, &_gpuState->_hoverLineVBO);
-	_gpuState->_hoverLineResourcesReady = false;
-	_gpuState->_activeLineBatch = nullptr;
-	delete _gpuState;
-	_gpuState = nullptr;
+	CalypsoGeoscapeHdGlobeDirect::destroyGpuState(this);
 #endif
 }
 

@@ -3,6 +3,7 @@
 #include "../Engine/Screen.h"
 #include "CalypsoSdlCompositeBoundary.h"
 #include "CalypsoHdUiOverlay.h"
+#include "CalypsoPassTimers.h"
 #include "../Engine/ShaderManager.h"
 #include <SDL.h>
 #include <SDL_render.h>
@@ -67,6 +68,17 @@ bool calypsoScreenFlipWorldPass(Screen &screen, bool hasWorldPasses)
 	ShaderManager::instance().setHadGPUPass(true);
 	calypso_context_reset_boundary_close();
 	return true;
+}
+
+bool calypsoScreenRenderChrome(Screen &screen)
+{
+	const Uint64 calypsoChromeStart = calypsoPassTimersEnabled()
+		? SDL_GetPerformanceCounter() : 0;
+	const bool presentOk = CalypsoHdUiOverlay::instance().renderStages(screen._renderer);
+	if (calypsoChromeStart)
+		calypsoPassTimers().chromeUs +=
+			(Uint64)((SDL_GetPerformanceCounter() - calypsoChromeStart) * 1000000ull / SDL_GetPerformanceFrequency());
+	return presentOk;
 }
 
 } // namespace Calypso

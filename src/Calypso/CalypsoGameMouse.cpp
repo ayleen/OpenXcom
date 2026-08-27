@@ -14,7 +14,6 @@
 #include <cmath>
 
 extern OpenXcom::Game *game;
-static void emscriptenIter(void *arg);
 
 namespace OpenXcom
 {

@@ -1,11 +1,13 @@
 #pragma once
 
 #ifdef __EMSCRIPTEN__
-/* Included from Geoscape/Globe.cpp AFTER Globe.h and after the local
- * GlobeSphereGlSave helper definition (drawPass body lives in the .cpp). */
+/* Browser-only Geoscape direct-composite state and narrow frozen-file seam.
+ * Implementations live in CalypsoGeoscapeHdGlobeDirect.cpp. */
 #include <cmath>
+#include <cstdint>
 #include <memory>
 #include <string>
+#include <vector>
 #include <GLES3/gl3.h>
 
 #include "../Engine/Game.h"
@@ -297,7 +299,8 @@ struct CalypsoGeoscapeHdGlobeDirect
 	static void drawMarkerPass(Globe* globe);
 	static void ensureLabelResources(Globe* globe);
 	static void drawLabelIconPass(Globe* globe);
-	static void drawPass(Globe* globe);   // body in Globe.cpp
+	static void destroyGpuState(Globe* globe);
+	static void drawPass(Globe* globe);
 
 }; /* struct */
 
