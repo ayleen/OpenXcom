@@ -5,11 +5,16 @@
 #include "../Engine/Screen.h"
 #include "../Engine/Game.h"
 #include "../Engine/Action.h"
+#include "../Engine/State.h"
 #include "../Interface/Cursor.h"
 #include "../Interface/FpsCounter.h"
 #include "../Engine/Logger.h"
 #include "CalypsoHdUiOverlay.h"
+#include <emscripten.h>
 #include <cmath>
+
+extern OpenXcom::Game *game;
+static void emscriptenIter(void *arg);
 
 namespace OpenXcom
 {
@@ -133,9 +138,9 @@ void Game::recoverContextTick()
 
 void Game::calypsoRestartMainLoop()
 {
-	if (!::game) return;
+	if (!game) return;
 	emscripten_cancel_main_loop();
-	emscripten_set_main_loop_arg(emscriptenIter, ::game, 0, 0);
+	emscripten_set_main_loop_arg(emscriptenIter, game, 0, 0);
 }
 } // namespace OpenXcom
 

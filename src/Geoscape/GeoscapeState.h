@@ -22,7 +22,8 @@
 
 namespace OpenXcom
 {
-namespace Calypso { void calypsoGeoscapeStateInitHd(class GeoscapeState &); }
+class GeoscapeState;
+namespace Calypso { void calypsoGeoscapeStateInitHd(GeoscapeState &); }
 
 #ifdef __EMSCRIPTEN__
 struct CalypsoGeoscapeHdShellState;

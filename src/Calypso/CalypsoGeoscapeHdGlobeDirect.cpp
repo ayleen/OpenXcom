@@ -1153,7 +1153,7 @@ static std::uint64_t calypsoBuildRadarFlightSignature(SavedGame* save)
 		return texture;
 	}
 
-	GpuTexture* CalypsoGeoscapeHdGlobeDirect::labelTexture(Globe* globe, Globe::LabelTexture& entry)
+	GpuTexture* CalypsoGeoscapeHdGlobeDirect::labelTexture(Globe* globe, CalypsoGlobeGpuState::LabelTexture& entry)
 	{
 		if (!globe || !entry.frame || entry.width <= 0 || entry.height <= 0)
 			return nullptr;

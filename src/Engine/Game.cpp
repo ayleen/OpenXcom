@@ -627,6 +627,7 @@ static void emscriptenIter(void *arg)
 		emscripten_cancel_main_loop();
 	}
 }
+#endif
 
 #ifdef __EMSCRIPTEN__
 extern "C" void calypso_restart_main_loop(void)

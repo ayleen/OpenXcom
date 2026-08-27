@@ -29,8 +29,10 @@ extern "C" void calypso_context_reset_sentinel_observed(void);
 extern "C" int calypso_context_reset_boundary_open(void);
 extern "C" void calypso_context_reset_sentinel_consumed(void);
 extern "C" void calypso_context_recovery_succeeded(void);
+extern "C" void calypso_context_recovery_failed(void);
 extern "C" SDL_Texture *calypsoCreateLogicalStreamingTexture(SDL_Renderer *renderer);
 #include "CalypsoHdUiOverlay.h"
+#include "CalypsoPassTimers.h"
 #include "../Engine/ShaderManager.h"
 
 namespace OpenXcom {

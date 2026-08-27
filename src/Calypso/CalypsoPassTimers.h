@@ -45,14 +45,14 @@ inline bool& calypsoPassTimersEnabledRef()
 inline bool calypsoPassTimersEnabled() { return calypsoPassTimersEnabledRef(); }
 inline void calypsoSetPassTimersEnabled(bool on) { calypsoPassTimersEnabledRef() = on; }
 
-inline void calypsoPassTimersNoteBlit(Uint64 start) { if (start) calypsoPassTimers().blitUs += (Uint64)((SDL_GetPerformanceCounter() - start) * 1000000ull / SDL_GetPerformanceFrequency()); }
-inline Uint64 calypsoPassTimersBeginFlip() { return calypsoPassTimersEnabled() ? SDL_GetPerformanceCounter() : 0; }
-
 inline CalypsoGeoscapePassTimers& calypsoPassTimers()
 {
 	static CalypsoGeoscapePassTimers timers = CalypsoGeoscapePassTimers();
 	return timers;
 }
+
+inline void calypsoPassTimersNoteBlit(Uint64 start) { if (start) calypsoPassTimers().blitUs += (Uint64)((SDL_GetPerformanceCounter() - start) * 1000000ull / SDL_GetPerformanceFrequency()); }
+inline Uint64 calypsoPassTimersBeginFlip() { return calypsoPassTimersEnabled() ? SDL_GetPerformanceCounter() : 0; }
 
 } // namespace Calypso
 } // namespace OpenXcom

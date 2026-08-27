@@ -7,6 +7,7 @@
 #include "CalypsoGeoscapeHdShell.h"
 #include "CalypsoHdScreenRenderer.h"
 #include "CalypsoHdUiOverlay.h"
+#include "../Engine/Game.h"
 #include "../Engine/Logger.h"
 #include "../Mod/Mod.h"
 

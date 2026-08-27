@@ -32,6 +32,15 @@ class Surface;
 class Action;
 class Screen;
 
+namespace Calypso
+{
+bool calypsoScreenRecreateRendererGL(Screen &);
+void calypsoScreenUploadLogicalTexture(Screen &);
+bool calypsoScreenFlipWorldPass(Screen &, bool);
+void calypsoScreenResetDisplayRendererOnly(Screen &);
+void calypsoScreenRebaseStagingSurface(Screen &, int, int);
+}
+
 struct ScreenWorldPassHandle
 {
 	Screen *owner = nullptr;
@@ -102,6 +111,7 @@ private:
 	friend void Calypso::calypsoScreenUploadLogicalTexture(Screen &);
 	friend bool Calypso::calypsoScreenFlipWorldPass(Screen &, bool);
 	friend void Calypso::calypsoScreenResetDisplayRendererOnly(Screen &);
+	friend void Calypso::calypsoScreenRebaseStagingSurface(Screen &, int, int);
 #endif
 public:
 	using WorldPassHandle = ScreenWorldPassHandle;
