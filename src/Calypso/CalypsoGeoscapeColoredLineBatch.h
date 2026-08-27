@@ -64,10 +64,9 @@ static const size_t COLORED_LINE_COMMAND_CAPACITY = 16384u;
 static const size_t COLORED_LINE_VERTEX_CAPACITY =
 	COLORED_LINE_COMMAND_CAPACITY * 2u;
 
-/// §16.5: separate hover-circle overlay capacity.  The hover overlay is
-/// cleared and refilled every frame; it never participates in the static
-/// radar/flight snapshot cache.  10 facility ranges × 48 segments × ~17
-/// raster steps ≈ 8160 commands; 8192 leaves headroom.
+/// §16.5: separate hover-circle overlay capacity. The hover overlay never
+/// participates in the static radar/flight snapshot cache. 10 facility ranges
+/// × 48 segments × ~17 raster steps ≈ 8160 commands; 8192 leaves headroom.
 static const size_t HOVER_LINE_COMMAND_CAPACITY = 8192u;
 static const size_t HOVER_LINE_VERTEX_CAPACITY =
 	HOVER_LINE_COMMAND_CAPACITY * 2u;
@@ -91,10 +90,13 @@ struct CalypsoGeoscapeColoredLineViewport
 class CalypsoGeoscapeColoredLineBatchState
 {
 public:
-	CalypsoGeoscapeColoredLineBatchState()
+	explicit CalypsoGeoscapeColoredLineBatchState(
+		size_t commandCapacity = COLORED_LINE_COMMAND_CAPACITY)
+		: _commandCapacity(commandCapacity > COLORED_LINE_COMMAND_CAPACITY
+			? COLORED_LINE_COMMAND_CAPACITY : commandCapacity)
 	{
-		_commands.reserve(COLORED_LINE_COMMAND_CAPACITY);
-		_vertices.reserve(COLORED_LINE_VERTEX_CAPACITY);
+		_commands.reserve(_commandCapacity);
+		_vertices.reserve(_commandCapacity * 2u);
 	}
 
 	void clearCommands()
@@ -103,12 +105,12 @@ public:
 		_vertices.clear();
 	}
 
-	/// Bounds-checked append. Returns false (recording nothing) when the
-	/// batch is full; the caller fails the route before publication.
+	/// Bounds-checked append. Returns false (recording nothing) when this
+	/// batch's fixed construction-time capacity is exhausted.
 	bool tryRecordCommand(double x1, double y1, double x2, double y2,
 		std::uint8_t r, std::uint8_t g, std::uint8_t b, std::uint8_t a)
 	{
-		if (_commands.size() >= COLORED_LINE_COMMAND_CAPACITY)
+		if (_commands.size() >= _commandCapacity)
 			return false;
 		CalypsoGeoscapeColoredLineCommand command;
 		command.x1 = x1; command.y1 = y1;
@@ -119,6 +121,7 @@ public:
 	}
 
 	size_t commandCount() const { return _commands.size(); }
+	size_t commandCapacity() const { return _commandCapacity; }
 	size_t vertexCount() const { return _commands.size() * 2u; }
 
 	const CalypsoGeoscapeColoredLineCommand* commands() const
@@ -131,7 +134,7 @@ public:
 	/// SIZE_MAX when a preflight bound would be exceeded.
 	size_t packVertices(const CalypsoGeoscapeColoredLineViewport& viewport)
 	{
-		if (_commands.size() > COLORED_LINE_COMMAND_CAPACITY)
+		if (_commands.size() > _commandCapacity)
 			return static_cast<size_t>(-1);
 		if (_vertices.capacity() < _commands.size() * 2u)
 			return static_cast<size_t>(-1);
@@ -173,6 +176,7 @@ private:
 		return static_cast<float>(-(2.0 * mapped - 1.0));
 	}
 
+	const size_t _commandCapacity;
 	std::vector<CalypsoGeoscapeColoredLineCommand> _commands;
 	std::vector<CalypsoGeoscapeColoredLineVertex> _vertices;
 };

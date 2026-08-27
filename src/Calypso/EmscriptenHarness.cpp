@@ -976,14 +976,12 @@ EMSCRIPTEN_KEEPALIVE int calypso_audio_mute()
 	return 1;
 }
 
-/* The SDL2 Emscripten port routes WebGL-canvas pointermove events as
- * SDL_MOUSEBUTTONDOWN (buttonless), not SDL_MOUSEMOTION, which leaves the
- * OXCE Cursor stuck.  Hosting code in main.js registers a JS mousemove
- * listener that calls this with canvas-BACKING coordinates; we update the
- * Cursor directly (the SDL queue path was unreliable).  Backing pixels are
- * NOT assumed equal to engine display coordinates (they diverge at DPR != 1):
- * each coordinate is normalized canvas-backing -> current engine display
- * extent first, then divided by the Screen scale into game coords. */
+/* The SDL2 Emscripten port can route WebGL-canvas pointermove events as a
+ * buttonless SDL_MOUSEBUTTONDOWN rather than SDL_MOUSEMOTION. Hosting code in
+ * main.js therefore calls the direct motion export with canvas-backing
+ * absolute and relative coordinates. The export updates the Cursor and
+ * synchronously dispatches the normalized motion through the gameplay owner
+ * chain; Game::iterate only drains the unreliable queued pointer record. */
 /* Phase 8c §C2: opt-in perf log gate for Globe::drawSphereGPU. */
 int g_calypsoProfileGlobe = 0;
 
@@ -1328,9 +1326,8 @@ void calypso_on_tab_hidden(void)
  * At DPR 1 the normalization is identity; at DPR 2 backing 3024x1540 maps to
  * display 1512x770 (center backing (1512,770) → display (756,385)). Both
  * calypso_push_mouse_motion and calypso_push_mouse_button MUST use this helper
- * so backing→display stays in sync and button dispatch does not double-scale
- * through the normal SDL motion/button normalizer (dispatchCalypsoMouseButton
- * bypasses that path).
+ * so backing→display stays in sync. The Game dispatch methods receive already
+ * normalized display-space values and never rescale them.
  */
 static inline void calypsoNormalizeCanvasPoint(int backingX, int backingY, OpenXcom::Screen *screen, double &outDisplayX, double &outDisplayY)
 {
@@ -1356,15 +1353,18 @@ static inline void calypsoApplyCursorDisplayPoint(OpenXcom::Game *game, OpenXcom
 }
 
 EMSCRIPTEN_KEEPALIVE
-void calypso_push_mouse_motion(int backingX, int backingY)
+void calypso_push_mouse_motion(int backingX, int backingY, int backingXrel, int backingYrel)
 {
 	OpenXcom::Game *g = OpenXcom::getCurrentGame();
 	if (!g) return;
 	OpenXcom::Screen *s = g->getScreen();
 	if (!s) return;
 	double dx = 0.0, dy = 0.0;
+	double dxrel = 0.0, dyrel = 0.0;
 	calypsoNormalizeCanvasPoint(backingX, backingY, s, dx, dy);
+	calypsoNormalizeCanvasPoint(backingXrel, backingYrel, s, dxrel, dyrel);
 	calypsoApplyCursorDisplayPoint(g, s, dx, dy);
+	g->dispatchCalypsoMouseMotion((int)dx, (int)dy, (int)dxrel, (int)dyrel);
 }
 
 /*

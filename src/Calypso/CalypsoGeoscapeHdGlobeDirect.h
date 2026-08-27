@@ -63,13 +63,15 @@ struct CalypsoGlobeGpuState
 	unsigned  _coloredLineVBO     = 0u;
 	Shader*   _coloredLineShader  = nullptr;
 	bool      _coloredLineResourcesReady = false;
-	CalypsoGeoscapeColoredLineBatchState _hoverLineBatch;
+	CalypsoGeoscapeColoredLineBatchState _hoverLineBatch{
+		HOVER_LINE_COMMAND_CAPACITY};
 	unsigned  _hoverLineVAO      = 0u;
 	unsigned  _hoverLineVBO      = 0u;
 	bool      _hoverLineResourcesReady = false;
+	bool      _hoverLineUploadDirty = false;
+	bool      _hoverOverlayActive = false;
 	CalypsoGeoscapeColoredLineBatchState* _activeLineBatch = nullptr;
 	std::vector<double> _hoverCanonicalRanges;
-	bool _hoverRangesReady = false;
 	double _lastHoverOverlayLon = 0.0;
 	double _lastHoverOverlayLat = 0.0;
 	int _lastHoverOverlayRectX = 0;
@@ -204,6 +206,10 @@ struct CalypsoGeoscapeHdGlobeDirect
 			globe->_gpuState->_gpuBorderVertices.clear();
 			globe->_gpuState->_coloredLineBatch.clearCommands();
 			globe->_gpuState->_hoverLineBatch.clearCommands();
+			globe->_gpuState->_hoverLineUploadDirty = false;
+			globe->_gpuState->_hoverOverlayActive = false;
+			globe->_gpuState->_hoverOverlayDirty = true;
+			globe->_gpuState->_activeLineBatch = nullptr;
 			globe->_gpuState->_gpuDebugLines.clear();
 			globe->_gpuState->_gpuDebugVertices.clear();
 			globe->_gpuState->_gpuLabelIconPendingDraws.clear();

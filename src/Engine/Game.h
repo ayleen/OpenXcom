@@ -102,7 +102,11 @@ public:
 	/// Leases setImmediate scheduling to the current state for the next iteration.
 	void requestFastMainLoop(State *requester);
 	static constexpr unsigned int CALYPSO_MOUSE_BRIDGE_ID = 0xC47AB007u;
-	/// Dispatches one browser-owned backing-space mouse button event directly
+	/// Dispatches one browser-owned display-space mouse motion event directly
+	/// through the canonical input owners. Returns false before gameplay input
+	/// is ready.
+	bool dispatchCalypsoMouseMotion(int x, int y, int xrel, int yrel);
+	/// Dispatches one browser-owned display-space mouse button event directly
 	/// through the canonical input owners. Returns false before gameplay input
 	/// is ready or when the event is invalid.
 	bool dispatchCalypsoMouseButton(int x, int y, int button, bool pressed);

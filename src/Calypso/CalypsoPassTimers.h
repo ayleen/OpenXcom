@@ -53,6 +53,7 @@ inline CalypsoGeoscapePassTimers& calypsoPassTimers()
 
 inline void calypsoPassTimersNoteBlit(Uint64 start) { if (start) calypsoPassTimers().blitUs += (Uint64)((SDL_GetPerformanceCounter() - start) * 1000000ull / SDL_GetPerformanceFrequency()); }
 inline Uint64 calypsoPassTimersBeginFlip() { return calypsoPassTimersEnabled() ? SDL_GetPerformanceCounter() : 0; }
+inline void calypsoPassTimersNoteFlip(Uint64 start) { if (start) calypsoPassTimers().flipUs += (Uint64)((SDL_GetPerformanceCounter() - start) * 1000000ull / SDL_GetPerformanceFrequency()); }
 
 } // namespace Calypso
 } // namespace OpenXcom

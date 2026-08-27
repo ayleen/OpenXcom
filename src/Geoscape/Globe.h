@@ -107,6 +107,7 @@ private:
 	bool _mouseMovedOverThreshold;
 
 #ifdef __EMSCRIPTEN__
+	bool _mouseScrollStopApplied = false;
 	/* Phase 8c — HD GPU sphere */
 	/* These are hard per-frame bounds, not merely warm-up reserves.  Recording
 	 * refuses to grow a command vector after preparation, so an immutable

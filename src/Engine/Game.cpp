@@ -25,8 +25,6 @@
 #include <emscripten.h>
 #include "../Calypso/CalypsoTutorial.h"
 #include "../Calypso/CalypsoHdUiOverlay.h" // Phase 46.2-HD (empty on native)
-#include "../Calypso/CalypsoViewportRuntime.h"
-#include "../Calypso/CalypsoCanvasCoordinateMapping.h"
 #endif
 #if defined(__EMSCRIPTEN__) && defined(CALYPSO_VOICE_P_EN)
 #include "../Calypso/CalypsoVoiceG05.h"
@@ -38,7 +36,6 @@
 #ifdef __EMSCRIPTEN__
 #include "GpuInit.h"
 #include "../Calypso/CalypsoPassTimers.h"
-#include "../Calypso/CalypsoGameMouse.h"
 #endif
 #include "Sound.h"
 #include "Music.h"
@@ -229,30 +226,31 @@ bool Game::iterate()
 		// Unpress buttons
 		_states.back()->resetAll();
 
-		// Refresh mouse position
+		// Refresh mouse position. The browser bridge owns pointer coordinates;
+		// reuse its last normalized cursor point rather than SDL's queued CSS
+		// coordinates. Native keeps the historical SDL_GetMouseState path.
+#ifdef __EMSCRIPTEN__
+		const int x = (int)(_cursor->getX() * _screen->getXScale())
+			+ _screen->getCursorLeftBlackBand();
+		const int y = (int)(_cursor->getY() * _screen->getYScale())
+			+ _screen->getCursorTopBlackBand();
+		dispatchCalypsoMouseMotion(x, y, 0, 0);
+#else
 		SDL_Event ev;
 		SDL_memset(&ev, 0, sizeof(ev));
 		int x, y;
 		SDL_GetMouseState(&x, &y);
-#ifdef __EMSCRIPTEN__
-		calypsoNormalizeSdlMousePosition(x, y, _screen);
-#endif
 		ev.type = SDL_MOUSEMOTION;
 		ev.motion.x = x;
 		ev.motion.y = y;
 		Action action = Action(&ev, _screen->getXScale(), _screen->getYScale(), _screen->getCursorTopBlackBand(), _screen->getCursorLeftBlackBand());
 		_states.back()->handle(&action);
+#endif
 	}
 
 	// Process events
 	while (SDL_PollEvent(&_event))
 	{
-#ifdef __EMSCRIPTEN__
-		if (_event.type == SDL_MOUSEMOTION)
-			calypsoNormalizeSdlMouseMotionEvent(_event, _screen);
-		else if (_event.type == SDL_MOUSEBUTTONDOWN || _event.type == SDL_MOUSEBUTTONUP)
-			calypsoNormalizeSdlMouseButtonEvent(_event, _screen);
-#endif
 		if (CrossPlatform::isQuitShortcut(_event))
 			_event.type = SDL_QUIT;
 		switch (_event.type)
@@ -338,6 +336,12 @@ bool Game::iterate()
 				break;
 #endif /* SDL2 */
 			case SDL_MOUSEMOTION:
+#ifdef __EMSCRIPTEN__
+				// The direct canvas bridge owns authoritative normalized motion.
+				// Polling still lets SDL update SDL_GetMouseState, but queued
+				// coordinates must not reach gameplay owners a second time.
+				continue;
+#else
 				if (Options::oxceThrottleMouseMoveEvent > 0)
 				{
 					Uint32 last = SDL_GetTicks();
@@ -356,6 +360,7 @@ bool Game::iterate()
 					_event.motion.yrel += std::exchange(_yrel, 0);
 				}
 				FALLTHROUGH;
+#endif
 #ifdef __EMSCRIPTEN__
 			case SDL_MOUSEWHEEL:
 				if (!_mouseActive) continue;
@@ -376,9 +381,6 @@ bool Game::iterate()
 					int wheelDir = (_event.wheel.y >= 0) ? 1 : -1;
 					int mx = 0, my = 0;
 					SDL_GetMouseState(&mx, &my);
-#ifdef __EMSCRIPTEN__
-					calypsoNormalizeSdlMousePosition(mx, my, _screen);
-#endif
 					Uint8 wheelBtn = (wheelDir > 0) ? SDL_BUTTON_WHEELUP : SDL_BUTTON_WHEELDOWN;
 
 					SDL_Event ev;
@@ -416,6 +418,12 @@ bool Game::iterate()
 #endif /* __EMSCRIPTEN__ */
 			case SDL_MOUSEBUTTONDOWN:
 			case SDL_MOUSEBUTTONUP:
+#ifdef __EMSCRIPTEN__
+				// Capture-phase direct dispatch already delivered this transition.
+				// Drain the queued record only; SDL's internal button state was
+				// updated before SDL_PollEvent exposed it.
+				continue;
+#endif
 				// Skip mouse events if they're disabled
 				if (!_mouseActive) continue;
 				// re-gain focus on mouse-over or keypress.
@@ -572,9 +580,7 @@ bool Game::iterate()
 			// flip() itself still runs on every platform.
 			[[maybe_unused]] const bool presented = _screen->flip();
 #ifdef __EMSCRIPTEN__
-			if (calypsoFlipStart)
-				OpenXcom::Calypso::calypsoPassTimers().flipUs +=
-					(Uint64)((SDL_GetPerformanceCounter() - calypsoFlipStart) * 1000000ull / SDL_GetPerformanceFrequency());
+			Calypso::calypsoPassTimersNoteFlip(calypsoFlipStart);
 			_fastMainLoopLastRenderMs = SDL_GetTicks();
 			calypsoRenderedThisIteration = true;
 			if (presented)

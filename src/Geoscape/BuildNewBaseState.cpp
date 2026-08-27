@@ -260,10 +260,10 @@ void BuildNewBaseState::hoverRedraw(void)
 		_globe->setNewBaseHover(false);
 	}
 #ifdef __EMSCRIPTEN__
-	/* §16.5: hover circles are rendered by a separate GPU overlay batch that
-	 * is cleared and refilled every frame in Globe::draw().  Globe surface
-	 * invalidation is NOT needed for hover-coordinate changes — the hover
-	 * overlay updates independently of the static radar/flight cache. */
+	/* §16.5: hover circles are rendered by a separate GPU overlay batch
+	 * published directly by Globe's hover setters. Globe surface invalidation
+	 * is NOT needed for hover-coordinate changes, so the static radar/flight
+	 * cache remains untouched. */
 	if (decision.publishPosition)
 	{
 		Calypso::CalypsoF21SiteUi::refreshHoverReadouts(*this, lon, lat);

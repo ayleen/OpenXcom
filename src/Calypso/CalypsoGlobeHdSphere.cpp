@@ -7,6 +7,7 @@
 #include "CalypsoGeoscapeHdGlobeDirect.h"
 #include "CalypsoGeoscapeQaPresentation.h"
 #include "CalypsoGeoscapeColoredLineBatch.h"
+#include "CalypsoHdUiOverlay.h"
 #include "CalypsoSdlCompositeBoundary.h"
 #include "../Engine/GpuInit.h"
 #include "../Engine/GpuTexture.h"
@@ -162,13 +163,15 @@ bool calypsoGlobeInitSphereGPU(OpenXcom::Globe& globe)
 		globe._gpuState->_coloredLineVBO = 0u;
 		globe._gpuState->_coloredLineResourcesReady = false;
 		globe._gpuState->_coloredLineCache.notifyContextReset();
-		/* §16.5 review fix: reset hover overlay GL handles and dirty state so
-		 * context restore re-creates the hover VAO/VBO and rebuilds geometry
-		 * on the next hover frame instead of using stale GL handles. */
+		/* Hover is transient: raw handles and committed CPU geometry never
+		 * survive context loss. The first restored hover frame rebuilds both. */
 		globe._gpuState->_hoverLineVAO = 0u;
 		globe._gpuState->_hoverLineVBO = 0u;
 		globe._gpuState->_hoverLineResourcesReady = false;
+		globe._gpuState->_hoverLineUploadDirty = true;
+		globe._gpuState->_hoverOverlayActive = false;
 		globe._gpuState->_hoverOverlayDirty = true;
+		globe._gpuState->_activeLineBatch = nullptr;
 		globe._gpuState->_gpuBorderCapacityExceeded = false;
 		globe._gpuState->_gpuDebugCapacityExceeded = false;
 		globe._gpuState->_gpuRadarFlightCapacityExceeded = false;
@@ -181,10 +184,8 @@ bool calypsoGlobeInitSphereGPU(OpenXcom::Globe& globe)
 			entry.texture = nullptr;
 		}
 		globe._gpuState->_gpuLabelCapacityExceeded = false;
-		/* Keep the committed command snapshot. Context restore invalidates raw
-		 * resources only; gameplay-owned commands remain the source for the
-		 * first rebuilt physical frame.  Hover batch is transient (refilled
-		 * every frame), so clear it to prevent stale vertex draw after reset. */
+		/* Keep the committed static command snapshot: it remains the source for
+		 * the first restored physical frame. Clear only transient hover data. */
 		globe._gpuState->_hoverLineBatch.clearCommands();
 		});
 		globe._gpuState->_gpuResetCallbackRegistered = true;
@@ -470,21 +471,6 @@ void calypsoGlobeDrawHoverCircles(OpenXcom::Globe& globe)
 {
 	if (!globe._hover || !globe._gpuState->_gpuDirectMode || !globe._gpuState->_activeLineBatch) return;
 
-	/* Lazy-init: precompute canonical ranges from the facility list once.
-	 * The list is constant after game load so this never reallocates. */
-	if (!globe._gpuState->_hoverRangesReady)
-	{
-		globe._gpuState->_hoverCanonicalRanges.clear();
-		for (auto& facType : globe._game->getMod()->getBaseFacilitiesList())
-			globe._gpuState->_hoverCanonicalRanges.push_back(
-				Nautical(globe._game->getMod()->getBaseFacility(facType)->getRadarRange()));
-		const size_t distinctRanges = globe._gpuState->_hoverCanonicalRanges.empty()
-			? 0u
-			: OpenXcom::Calypso::calypsoCanonicalizeHoverRanges(
-				&globe._gpuState->_hoverCanonicalRanges[0], globe._gpuState->_hoverCanonicalRanges.size());
-		globe._gpuState->_hoverCanonicalRanges.resize(distinctRanges);
-		globe._gpuState->_hoverRangesReady = true;
-	}
 
 	/* §16.5 review fix: dirty/key gate — skip clear+fill+pack when observable
 	 * inputs are unchanged.  The committed VBO is redrawn by drawHoverPass()
@@ -534,21 +520,32 @@ void calypsoGlobeDrawHoverCircles(OpenXcom::Globe& globe)
 	viewport.scaleY = sy;
 	viewport.displayWidth = dw;
 	viewport.displayHeight = dh;
-	globe._gpuState->_activeLineBatch->packVertices(viewport);
+	const size_t packedVertices = globe._gpuState->_activeLineBatch->packVertices(viewport);
+	if (packedVertices == static_cast<size_t>(-1))
+		Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
+			"Geoscape hover overlay vertex capacity exhausted");
+	globe._gpuState->_hoverLineUploadDirty = true;
 }
 void calypsoGlobeHoverOverlayFrame(Globe& globe)
 {
-	// §16.5: hover circles live in the separate overlay batch; when inactive,
-	// clear so drawHoverPass() never draws stale circles.
+	/* The active edge owns one rebuild/upload; unchanged active frames only
+	 * draw the committed VBO. The inactive edge clears once. */
 	if (globe._hover)
 	{
+		if (!globe._gpuState->_hoverOverlayActive)
+		{
+			globe._gpuState->_hoverOverlayActive = true;
+			globe._gpuState->_hoverOverlayDirty = true;
+		}
 		globe._gpuState->_activeLineBatch = &globe._gpuState->_hoverLineBatch;
 		globe.drawHoverCircles();
 		globe._gpuState->_activeLineBatch = nullptr;
 	}
-	else
+	else if (globe._gpuState->_hoverOverlayActive)
 	{
+		globe._gpuState->_hoverOverlayActive = false;
 		globe._gpuState->_hoverLineBatch.clearCommands();
+		globe._gpuState->_hoverLineUploadDirty = false;
 		globe._gpuState->_hoverOverlayDirty = true;
 	}
 }

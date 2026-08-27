@@ -124,10 +124,15 @@ void CalypsoGeoscapeHdGlobeDirect::destroyGpuState(Globe* globe)
 	if (globe->_gpuState->_coloredLineVAO) glDeleteVertexArrays(1, &globe->_gpuState->_coloredLineVAO);
 	if (globe->_gpuState->_coloredLineVBO) glDeleteBuffers(1, &globe->_gpuState->_coloredLineVBO);
 	globe->_gpuState->_coloredLineResourcesReady = false;
-	/* §16.5: hover overlay resources. */
+	/* §16.5: hover overlay resources and transient committed data. */
 	if (globe->_gpuState->_hoverLineVAO) glDeleteVertexArrays(1, &globe->_gpuState->_hoverLineVAO);
 	if (globe->_gpuState->_hoverLineVBO) glDeleteBuffers(1, &globe->_gpuState->_hoverLineVBO);
+	globe->_gpuState->_hoverLineVAO = 0u;
+	globe->_gpuState->_hoverLineVBO = 0u;
 	globe->_gpuState->_hoverLineResourcesReady = false;
+	globe->_gpuState->_hoverLineUploadDirty = false;
+	globe->_gpuState->_hoverOverlayActive = false;
+	globe->_gpuState->_hoverLineBatch.clearCommands();
 	globe->_gpuState->_activeLineBatch = nullptr;
 	delete globe->_gpuState;
 	globe->_gpuState = nullptr;
@@ -444,25 +449,34 @@ void CalypsoGeoscapeHdGlobeDirect::drawPass(Globe* globe)
 			{
 				if (!radarPalette)
 					Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape radar/flight palette unavailable");
-				/* Fail closed before publication: the hard command bound is
-				 * checked before the append is attempted, and the batch refuses
-				 * growth itself as the backstop. */
+				const bool hoverBatch =
+					globe->_gpuState->_activeLineBatch == &globe->_gpuState->_hoverLineBatch;
+				const size_t commandCapacity = globe->_gpuState->_activeLineBatch
+					? globe->_gpuState->_activeLineBatch->commandCapacity()
+					: OpenXcom::Calypso::COLORED_LINE_COMMAND_CAPACITY;
+				const char* capacityError = hoverBatch
+					? "Geoscape hover overlay batch capacity exhausted"
+					: "Geoscape radar/flight batch capacity exhausted";
+				/* Fail closed before publication: the selected hard command
+				 * bound is checked before append and by the batch itself. */
 				if (globe->_gpuState->_activeLineBatch
-					&& globe->_gpuState->_activeLineBatch->commandCount()
-					>= OpenXcom::Calypso::COLORED_LINE_COMMAND_CAPACITY)
+					&& globe->_gpuState->_activeLineBatch->commandCount() >= commandCapacity)
 				{
-					globe->_gpuState->_gpuRadarFlightCapacityExceeded = true;
-					Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape radar/flight batch capacity exhausted");
+					if (!hoverBatch)
+						globe->_gpuState->_gpuRadarFlightCapacityExceeded = true;
+					Calypso::CalypsoHdUiOverlay::instance().failHdRoute(capacityError);
 				}
 				const double nextX = len > 1.0 ? sampleX + stepX : x2;
 				const double nextY = len > 1.0 ? sampleY + stepY : y2;
 				const SDL_Color resolved = radarPalette[color];
 				if (globe->_gpuState->_activeLineBatch
-					&& !globe->_gpuState->_activeLineBatch->tryRecordCommand(sampleX, sampleY, nextX, nextY,
-					resolved.r, resolved.g, resolved.b, resolved.a))
+					&& !globe->_gpuState->_activeLineBatch->tryRecordCommand(
+						sampleX, sampleY, nextX, nextY,
+						resolved.r, resolved.g, resolved.b, resolved.a))
 				{
-					globe->_gpuState->_gpuRadarFlightCapacityExceeded = true;
-					Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape radar/flight batch capacity exhausted");
+					if (!hoverBatch)
+						globe->_gpuState->_gpuRadarFlightCapacityExceeded = true;
+					Calypso::CalypsoHdUiOverlay::instance().failHdRoute(capacityError);
 				}
 			}
 			sampleX += stepX;
@@ -1020,36 +1034,39 @@ static std::uint64_t calypsoBuildRadarFlightSignature(SavedGame* save)
 
 	void CalypsoGeoscapeHdGlobeDirect::drawHoverPass(Globe* globe)
 	{
-		/* §16.5: the hover overlay is a separate VAO/VBO pair that is cleared
-		 * and refilled every frame.  It never shares the static VBO, so
-		 * uploading hover data cannot overwrite committed radar/flight vertices.
-		 *
-		 * §16.5 review fix: explicitly require _hover to be live.  This is a
-		 * safety predicate — the draw() path already clears the batch when
-		 * !hover, but this guard prevents any stale-data draw even if the
-		 * batch was populated by a different call site. */
-		if (!globe || !globe->_hover || globe->_gpuState->_hoverLineBatch.vertexCount() == 0u || !globe->_gpuState->_directScreen) return;
-		if (!globe->_gpuState->_hoverLineResourcesReady || !globe->_gpuState->_coloredLineShader
+		/* §16.5: hover owns a separate VAO/VBO. Geometry rebuild and upload
+		 * readiness are independent: unchanged active geometry redraws the
+		 * committed VBO without glBufferSubData. */
+		if (!globe || !globe->_hover
+			|| globe->_gpuState->_hoverLineBatch.vertexCount() == 0u
+			|| !globe->_gpuState->_directScreen)
+			return;
+		if (!globe->_gpuState->_hoverLineResourcesReady
+			|| !globe->_gpuState->_coloredLineShader
 			|| !globe->_gpuState->_coloredLineShader->isValid())
-			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape hover overlay resources disappeared");
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
+				"Geoscape hover overlay resources disappeared");
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 		glLineWidth(1.0f);
 		globe->_gpuState->_coloredLineShader->use();
-		/* Always upload the hover batch — it changes every frame when active. */
-		glBindBuffer(GL_ARRAY_BUFFER, globe->_gpuState->_hoverLineVBO);
-		glBufferSubData(GL_ARRAY_BUFFER, 0,
-			(GLsizeiptr)globe->_gpuState->_hoverLineBatch.packedVertexBytes(),
-			globe->_gpuState->_hoverLineBatch.packedVertices());
-		const GLenum uploadError = glGetError();
+		if (globe->_gpuState->_hoverLineUploadDirty)
+		{
+			glBindBuffer(GL_ARRAY_BUFFER, globe->_gpuState->_hoverLineVBO);
+			glBufferSubData(GL_ARRAY_BUFFER, 0,
+				(GLsizeiptr)globe->_gpuState->_hoverLineBatch.packedVertexBytes(),
+				globe->_gpuState->_hoverLineBatch.packedVertices());
+			const GLenum uploadError = glGetError();
+			if (uploadError != GL_NO_ERROR)
+				Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
+					calypsoGlFailure("Geoscape hover overlay upload failed", uploadError));
+			globe->_gpuState->_hoverLineUploadDirty = false;
+		}
 		glBindVertexArray(globe->_gpuState->_hoverLineVAO);
 		glDrawArrays(GL_LINES, 0, (GLsizei)globe->_gpuState->_hoverLineBatch.vertexCount());
 		glBindVertexArray(0u);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 		const GLenum drawError = glGetError();
-		if (uploadError != GL_NO_ERROR)
-			Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
-				calypsoGlFailure("Geoscape hover overlay upload failed", uploadError));
 		if (drawError != GL_NO_ERROR)
 			Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
 				calypsoGlFailure("Geoscape hover overlay draw failed", drawError));

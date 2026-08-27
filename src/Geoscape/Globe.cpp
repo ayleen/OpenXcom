@@ -426,6 +426,19 @@ Globe::Globe(Game* game, int cenX, int cenY, int width, int height, int x, int y
 {
 #ifdef __EMSCRIPTEN__
 	_gpuState = new Calypso::CalypsoGlobeGpuState();
+	/* New Base facility ranges are immutable after ruleset load. Canonicalize
+	 * them once so neither static radar publication nor pointer motion scans
+	 * the ruleset or grows a temporary vector. */
+	const auto& facilityTypes = _game->getMod()->getBaseFacilitiesList();
+	_gpuState->_hoverCanonicalRanges.reserve(facilityTypes.size());
+	for (const auto& facType : facilityTypes)
+		_gpuState->_hoverCanonicalRanges.push_back(
+			Nautical(_game->getMod()->getBaseFacility(facType)->getRadarRange()));
+	const size_t distinctHoverRanges = _gpuState->_hoverCanonicalRanges.empty()
+		? 0u
+		: Calypso::calypsoCanonicalizeHoverRanges(
+			&_gpuState->_hoverCanonicalRanges[0], _gpuState->_hoverCanonicalRanges.size());
+	_gpuState->_hoverCanonicalRanges.resize(distinctHoverRanges);
 #endif
 	_rules = game->getMod()->getGlobe();
 	_texture = new SurfaceSet(*_game->getMod()->getSurfaceSet("TEXTURE.DAT"));
@@ -1355,11 +1368,10 @@ void Globe::drawRadars()
 
 	double tr, range;
 	double lat, lon;
-	std::vector<double> ranges;
 #ifdef __EMSCRIPTEN__
-	/* SS15.4.4: reserve the seen-range storage from the loaded facility count
-	 * before the hot path; canonicalization below never grows it. */
-	ranges.reserve(_game->getMod()->getBaseFacilitiesList().size());
+	const std::vector<double>& ranges = _gpuState->_hoverCanonicalRanges;
+#else
+	std::vector<double> ranges;
 #endif
 
 	_radars->lock();
@@ -1376,21 +1388,7 @@ void Globe::drawRadars()
 
 	if (_hover)
 	{
-#ifdef __EMSCRIPTEN__
-		/* §16.5: populate the ranges vector for globeAllRadarsOnBaseBuild below,
-		 * but do NOT record hover circles here.  Hover circles are drawn by
-		 * drawHoverCircles() into the separate _gpuState->_hoverLineBatch overlay, so
-		 * hover-coordinate changes never invalidate the static radar/flight
-		 * snapshot cache. */
-		for (auto& facType : _game->getMod()->getBaseFacilitiesList())
-		{
-			ranges.push_back(Nautical(_game->getMod()->getBaseFacility(facType)->getRadarRange()));
-		}
-		const size_t distinctRanges = ranges.empty()
-			? 0u
-			: OpenXcom::Calypso::calypsoCanonicalizeHoverRanges(&ranges[0], ranges.size());
-		ranges.resize(distinctRanges);
-#else
+#ifndef __EMSCRIPTEN__
 		for (auto& facType : _game->getMod()->getBaseFacilitiesList())
 		{
 			range = Nautical(_game->getMod()->getBaseFacility(facType)->getRadarRange());
@@ -1488,9 +1486,8 @@ void Globe::drawRadars()
  * refilled only when observable inputs (position, viewport) change; otherwise
  * the committed VBO is redrawn without touching CPU geometry.
  *
- * §16.5 review fix: canonical hover ranges are precomputed into owned storage
- * (_gpuState->_hoverCanonicalRanges) on first hover frame, eliminating the per-frame
- * std::vector allocation that violated the hot-path no-allocation requirement.
+ * Canonical hover ranges are precomputed into owned storage during Globe
+ * construction, so the frame path never scans facilities or grows a vector.
  */
 void Globe::drawHoverCircles()
 {
@@ -1540,19 +1537,31 @@ void Globe::drawGlobeCircle(double lat, double lon, double radius, int segments,
 
 void Globe::setNewBaseHover(bool hover)
 {
-	/* §16.5 review fix: force the hover overlay dirty on the active transition
-	 * so the first frame after re-entry always rebuilds the hover geometry. */
 #ifdef __EMSCRIPTEN__
-	if (hover && !_hover)
+	const bool changed = hover != _hover;
+	if (hover && changed)
 		_gpuState->_hoverOverlayDirty = true;
 #endif
 	_hover=hover;
+#ifdef __EMSCRIPTEN__
+	/* Coordinate-only hover motion deliberately skips Surface invalidation.
+	 * Publish enable/disable edges directly so the world pass never waits for
+	 * an unrelated Globe::draw() before showing or clearing the overlay. */
+	if (changed && _gpuState->_gpuDirectMode)
+		Calypso::calypsoGlobeHoverOverlayFrame(*this);
+#endif
 }
 
 void Globe::setNewBaseHoverPos(double lon, double lat)
 {
 	_hoverLon=lon;
 	_hoverLat=lat;
+#ifdef __EMSCRIPTEN__
+	/* The dynamic overlay owns this event path independently of the static
+	 * radar Surface/cache. The subsequent world pass uploads it exactly once. */
+	if (_hover && _gpuState->_gpuDirectMode)
+		Calypso::calypsoGlobeHoverOverlayFrame(*this);
+#endif
 }
 
 void Globe::drawVHLine(Surface *surface, double lon1, double lat1, double lon2, double lat2, Uint8 color)
@@ -2300,6 +2309,9 @@ void Globe::mousePress(Action *action, State *state)
 		if (!_isMouseScrolling)
 		{
 			_isMouseScrolling = true;
+#ifdef __EMSCRIPTEN__
+			_mouseScrollStopApplied = false;
+#endif
 			_isMouseScrolled = false;
 			SDL_GetMouseState(&_xBeforeMouseScrolling, &_yBeforeMouseScrolling);
 			_lonBeforeMouseScrolling = _cenLon;
@@ -2542,6 +2554,13 @@ void Globe::rebuildEarthData()
  */
 void Globe::stopScrolling(Action *action)
 {
+#ifdef __EMSCRIPTEN__
+	/* A browser button reaches both the synchronous direct bridge and SDL's
+	 * queued path. mouseRelease precedes mouseClick for one event, so preserve
+	 * scroll classification while applying cursor restoration only once. */
+	if (_mouseScrollStopApplied) return;
+	_mouseScrollStopApplied = true;
+#endif
 	SDL_WarpMouse(_xBeforeMouseScrolling, _yBeforeMouseScrolling);
 	action->setMouseAction(_xBeforeMouseScrolling, _yBeforeMouseScrolling, getX(), getY());
 }
