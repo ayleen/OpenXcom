@@ -893,7 +893,11 @@ bool Globe::targetNear(Target* target, int x, int y) const
 
 	int dx = x - tx;
 	int dy = y - ty;
-	return (dx * dx + dy * dy <= NEAR_RADIUS);
+	bool hdMarker = false;
+#ifdef __EMSCRIPTEN__
+	hdMarker = _gpuState && _gpuState->_gpuDirectMode;
+#endif
+	return Calypso::calypsoGeoscapeMarkerHit(dx, dy, hdMarker, NEAR_RADIUS);
 }
 
 /**

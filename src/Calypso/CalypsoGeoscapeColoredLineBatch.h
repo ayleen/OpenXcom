@@ -64,9 +64,10 @@ static const size_t COLORED_LINE_COMMAND_CAPACITY = 16384u;
 static const size_t COLORED_LINE_VERTEX_CAPACITY =
 	COLORED_LINE_COMMAND_CAPACITY * 2u;
 
-/// §16.5: separate hover-circle overlay capacity. The hover overlay never
-/// participates in the static radar/flight snapshot cache. 10 facility ranges
-/// × 48 segments × ~17 raster steps ≈ 8160 commands; 8192 leaves headroom.
+/// §16.5: separate hover-circle overlay capacity. Hover geometry records one
+/// GPU line command per logical circle segment. Preserve the existing 8,192
+/// command reserve so mods with many distinct facility ranges remain valid;
+/// the fast path removes per-move work without narrowing supported content.
 static const size_t HOVER_LINE_COMMAND_CAPACITY = 8192u;
 static const size_t HOVER_LINE_VERTEX_CAPACITY =
 	HOVER_LINE_COMMAND_CAPACITY * 2u;

@@ -345,6 +345,8 @@ void CalypsoGeoscapeHdGlobeDirect::drawPass(Globe* globe)
 	{
 		if (!globe)
 			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape radar/flight owner unavailable");
+		const bool hoverBatch =
+			globe->_gpuState->_activeLineBatch == &globe->_gpuState->_hoverLineBatch;
 		const bool front1 = !globe->pointBack(lon1, lat1);
 		const bool front2 = !globe->pointBack(lon2, lat2);
 		if (!front1 && !front2) return;
@@ -440,6 +442,34 @@ void CalypsoGeoscapeHdGlobeDirect::drawPass(Globe* globe)
 				: (Uint8)shaded;
 		};
 
+		/* Placement hover is transient pointer-following geometry. Preserve the
+		 * terrain-derived palette treatment by sampling the clipped segment
+		 * midpoint once, then let WebGL rasterize the logical segment. The
+		 * static radar/flight path below retains exact per-pixel XuLine
+		 * emulation; running it for hover created ~8k commands and terrain
+		 * lookups synchronously on every pointer move. */
+		if (hoverBatch)
+		{
+			const Uint8 color = resolveStepColor(
+				(x1 + x2) * 0.5, (y1 + y2) * 0.5);
+			if (!color) return;
+			if (!radarPalette)
+				Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
+					"Geoscape radar/flight palette unavailable");
+			if (!globe->_gpuState->_activeLineBatch
+				|| globe->_gpuState->_activeLineBatch->commandCount()
+					>= OpenXcom::Calypso::HOVER_LINE_COMMAND_CAPACITY)
+				Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
+					"Geoscape hover overlay batch capacity exhausted");
+			const SDL_Color resolved = radarPalette[color];
+			if (!globe->_gpuState->_activeLineBatch->tryRecordCommand(
+					x1, y1, x2, y2,
+					resolved.r, resolved.g, resolved.b, resolved.a))
+				Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
+					"Geoscape hover overlay batch capacity exhausted");
+			return;
+		}
+
 		double sampleX = x1;
 		double sampleY = y1;
 		while (len > 0.0)
@@ -449,8 +479,6 @@ void CalypsoGeoscapeHdGlobeDirect::drawPass(Globe* globe)
 			{
 				if (!radarPalette)
 					Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape radar/flight palette unavailable");
-				const bool hoverBatch =
-					globe->_gpuState->_activeLineBatch == &globe->_gpuState->_hoverLineBatch;
 				const size_t commandCapacity = globe->_gpuState->_activeLineBatch
 					? globe->_gpuState->_activeLineBatch->commandCapacity()
 					: OpenXcom::Calypso::COLORED_LINE_COMMAND_CAPACITY;

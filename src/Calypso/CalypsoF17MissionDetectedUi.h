@@ -11,6 +11,7 @@ public:
     static void configure(MissionDetectedState& s, bool allow=true);
     static bool resize(MissionDetectedState& s);
 private:
+    static void applyLayout(MissionDetectedState& s);
     MissionDetectedState* _state=nullptr;
     mutable CalypsoSmallConfirmationMotion _motion;
 }; } }

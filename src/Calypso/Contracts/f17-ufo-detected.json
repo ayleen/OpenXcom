@@ -4,7 +4,7 @@
   "form": {
     "id": "f17-ufo-detected",
     "familyId": 17,
-    "archetype": "small-confirmation",
+    "archetype": "contact-decision",
     "source": "FormConfigs/f17-ufo-detected.json",
     "icon": {
       "kind": "warning",

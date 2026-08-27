@@ -51,6 +51,19 @@ struct GeoscapeVec3
 	double y = 0.0;
 	double z = 0.0;
 };
+constexpr int GEOSCAPE_HD_MARKER_MINIMUM_TARGET = 44;
+
+inline bool calypsoGeoscapeMarkerHit(
+	int dx, int dy, bool hdMarker, int legacyRadiusSquared = 25)
+{
+	const int radiusSquared = hdMarker
+		? (GEOSCAPE_HD_MARKER_MINIMUM_TARGET / 2)
+			* (GEOSCAPE_HD_MARKER_MINIMUM_TARGET / 2)
+		: legacyRadiusSquared;
+	const long long distanceSquared =
+		static_cast<long long>(dx) * dx + static_cast<long long>(dy) * dy;
+	return distanceSquared <= radiusSquared;
+}
 
 inline double calypsoGeoscapeNormalizeLon(double lon)
 {
