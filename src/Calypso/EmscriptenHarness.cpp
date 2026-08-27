@@ -1343,22 +1343,28 @@ static inline void calypsoNormalizeCanvasPoint(int backingX, int backingY, OpenX
 	outDisplayY = Calypso::calypsoCanvasToDisplayCoordinate(backingY, canvasH, screen->getHeight());
 }
 
+static inline void calypsoApplyCursorDisplayPoint(OpenXcom::Game *game, OpenXcom::Screen *screen, double displayX, double displayY)
+{
+	OpenXcom::Cursor *cursor = game->getCursor();
+	if (!cursor) return;
+	double scaleX = screen->getXScale();
+	double scaleY = screen->getYScale();
+	if (scaleX <= 0.0) scaleX = 1.0;
+	if (scaleY <= 0.0) scaleY = 1.0;
+	cursor->setX((int)(displayX / scaleX));
+	cursor->setY((int)(displayY / scaleY));
+}
+
 EMSCRIPTEN_KEEPALIVE
 void calypso_push_mouse_motion(int backingX, int backingY)
 {
 	OpenXcom::Game *g = OpenXcom::getCurrentGame();
 	if (!g) return;
-	OpenXcom::Cursor *c = g->getCursor();
 	OpenXcom::Screen *s = g->getScreen();
-	if (!c || !s) return;
+	if (!s) return;
 	double dx = 0.0, dy = 0.0;
 	calypsoNormalizeCanvasPoint(backingX, backingY, s, dx, dy);
-	double sx = s->getXScale();
-	double sy = s->getYScale();
-	if (sx <= 0.0) sx = 1.0;
-	if (sy <= 0.0) sy = 1.0;
-	c->setX((int)(dx / sx));
-	c->setY((int)(dy / sy));
+	calypsoApplyCursorDisplayPoint(g, s, dx, dy);
 }
 
 /*
@@ -1367,10 +1373,11 @@ void calypso_push_mouse_motion(int backingX, int backingY)
  * Canvas capture listeners own button delivery because SDL's browser button
  * callbacks can disappear after canvas/context lifecycle changes. Coordinates
  * arrive in canvas-backing pixels and are normalized to engine display
- * coordinates (matching calypso_push_mouse_motion) before dispatch through
- * Game's normal Screen/Cursor/FPS/top-state owner order.  At DPR 1 the
- * normalization is identity; at DPR 2+ it prevents the Action constructor
- * from double-scaling the coordinates.
+ * coordinates (matching calypso_push_mouse_motion). The normalized point first
+ * synchronizes the bridge-owned Cursor, then dispatches through Game's normal
+ * Screen/Cursor/FPS/top-state owner order. At DPR 1 the normalization is
+ * identity; at DPR 2+ it prevents the Action constructor from double-scaling
+ * the coordinates.
  */
 EMSCRIPTEN_KEEPALIVE
 int calypso_push_mouse_button(int backingX, int backingY, int sdlButton, int pressed)
@@ -1382,6 +1389,7 @@ int calypso_push_mouse_button(int backingX, int backingY, int sdlButton, int pre
 	if (!s) return 0;
 	double dxD = 0.0, dyD = 0.0;
 	calypsoNormalizeCanvasPoint(backingX, backingY, s, dxD, dyD);
+	calypsoApplyCursorDisplayPoint(g, s, dxD, dyD);
 	const int dx = (int)dxD;
 	const int dy = (int)dyD;
 	return g->dispatchCalypsoMouseButton(dx, dy, sdlButton, pressed != 0) ? 1 : 0;
