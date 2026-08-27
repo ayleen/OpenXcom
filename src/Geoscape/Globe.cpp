@@ -84,6 +84,7 @@ extern "C" void calypso_context_reset_boundary_close(void);
 #endif
 
 #include "../Calypso/CalypsoGeoscapeHdGlobeDirect.h"
+#include "../Calypso/CalypsoGlobeHdSphere.h"
 
 namespace OpenXcom
 {
