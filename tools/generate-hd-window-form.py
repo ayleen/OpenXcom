@@ -110,10 +110,17 @@ def validate_rect(rect, label):
 
 
 def validate_template(template):
-    if template.get("schema") != 1 or template.get("id") != "small-confirmation":
-        raise FormError("template must be schema 1 small-confirmation")
-    if template.get("version") != 3:
-        raise FormError("template must use content-sized small-confirmation version 3")
+    template_id = template.get("id")
+    if template.get("schema") != 1 or template_id not in {
+            "small-confirmation", "contact-decision"}:
+        raise FormError("template must be schema 1 small-confirmation or contact-decision")
+    expected_version = 3 if template_id == "small-confirmation" else 1
+    if template.get("version") != expected_version:
+        raise FormError(
+            "template " + template_id + " must use version " + str(expected_version))
+    button_count = template.get("buttonCount", {"min": 1, "max": 3})
+    if template_id == "contact-decision" and button_count != {"min": 3, "max": 3}:
+        raise FormError("contact-decision template must require exactly three buttons")
     tones = template.get("supportedButtonTones")
     tone_styles = template.get("buttonToneStyles")
     if not isinstance(tones, list) or set(tones) != {"normal", "safe", "primary", "warning", "danger"}:
@@ -156,8 +163,12 @@ def validate_template(template):
         "minimumActionHeightPx": 44,
         "minimumMessageHeightPx": 40,
     }
-    if density_profiles != {"briefAcknowledgement": expected_brief}:
-        raise FormError("template briefAcknowledgement density drifted from the reviewed policy")
+    expected_density_profiles = (
+        {"briefAcknowledgement": expected_brief}
+        if template_id == "small-confirmation" else {})
+    if density_profiles != expected_density_profiles:
+        raise FormError(
+            "template density profiles drifted from the reviewed " + template_id + " policy")
     if set(sizing) != {"wide", "compact"}:
         raise FormError("template contentSizing requires exact wide/compact policies")
     if set(layouts) != {"wide", "compact"}:
@@ -177,8 +188,11 @@ def validate_template(template):
         for key in ("window", "status", "icon", "title", "titleWithoutIcon", "body", "footer"):
             validate_rect(layout.get(key), name + "." + key)
         slots = layout.get("buttonSlots")
-        if not isinstance(slots, list) or len(slots) != 2:
-            raise FormError(name + ".buttonSlots must contain exactly two slots")
+        required_slot_count = 3 if template_id == "contact-decision" else 2
+        if not isinstance(slots, list) or len(slots) != required_slot_count:
+            raise FormError(
+                name + ".buttonSlots must contain exactly "
+                + str(required_slot_count) + " slots")
         for index, rect in enumerate(slots):
             validate_rect(rect, name + ".buttonSlots[" + str(index) + "]")
         window = layout["window"]
@@ -204,13 +218,14 @@ def validate_template(template):
             raise FormError(name + " final content gap drifted")
         if any((slot["width"], slot["height"]) != want["button"] for slot in slots):
             raise FormError(name + " button size drifted")
-        if slots[1]["x"] - right(slots[0]) != want["buttonGap"]:
+        if any(slots[index + 1]["x"] - right(slots[index]) != want["buttonGap"]
+               for index in range(len(slots) - 1)):
             raise FormError(name + " button gap drifted")
         if slots[0]["y"] - layout["footer"]["y"] != want["topPad"]:
             raise FormError(name + " footer top padding drifted")
         if bottom(layout["footer"]) - bottom(slots[0]) != want["bottomPad"]:
             raise FormError(name + " footer bottom padding drifted")
-        if right(slots[1]) != right(layout["body"]):
+        if right(slots[-1]) != right(layout["body"]):
             raise FormError(name + " action group must end on the content rail")
 
 
@@ -263,8 +278,18 @@ def validate_config(config, template):
         raise FormError("config.icon.glyph is required for a visible icon")
 
     buttons = config["buttons"]
-    if not isinstance(buttons, list) or not 1 <= len(buttons) <= 3:
-        raise FormError("config.buttons must contain between one and three buttons")
+    button_policy = template.get("buttonCount", {"min": 1, "max": 3})
+    minimum_buttons = button_policy["min"]
+    maximum_buttons = button_policy["max"]
+    if not isinstance(buttons, list) or not minimum_buttons <= len(buttons) <= maximum_buttons:
+        if minimum_buttons == maximum_buttons == 3:
+            raise FormError("config.buttons must contain exactly three buttons")
+        button_count_words = {1: "one", 2: "two", 3: "three"}
+        minimum_label = button_count_words.get(minimum_buttons, str(minimum_buttons))
+        maximum_label = button_count_words.get(maximum_buttons, str(maximum_buttons))
+        raise FormError(
+            "config.buttons must contain between " + minimum_label
+            + " and " + maximum_label + " buttons")
     ids = set()
     actions = set()
     for index, button in enumerate(buttons):
@@ -427,7 +452,7 @@ def content_sized_shell(config, template, name, table_rows):
         raise FormError(
             name + " semantic content requires a " + str(window_width)
             + "px window, exceeding the " + str(policy["maxWindowWidthPx"])
-            + "px small-confirmation maximum")
+            + "px " + template["id"] + " maximum")
 
     window_x = (authored["designWidth"] - window_width) // 2
     window = _rect(window_x, authored["window"]["y"],
@@ -469,7 +494,8 @@ def content_sized_shell(config, template, name, table_rows):
 def resolved_presentation(config, template):
     """Choose a reviewed density from semantic structure, never caller geometry."""
     is_brief_acknowledgement = (
-        len(config["buttons"]) == 1
+        "briefAcknowledgement" in template["densityProfiles"]
+        and len(config["buttons"]) == 1
         and 1 <= len(config["body"]) <= 2
         and config.get("table") is None
         and config.get("input") is None

@@ -20,6 +20,7 @@
 #include <SDL.h>
 #include "SDL2Helpers.h"
 #include <emscripten.h>
+#include <EGL/egl.h>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -34,6 +35,19 @@
 } while (0)
 
 extern "C" {
+
+/* SDL's GLES2 renderer calls SDL_GL_SetSwapInterval during renderer creation,
+ * before Game::run() has registered Emscripten's MainLoop.func. The Emscripten
+ * EGL shim forwards that call to emscripten_set_main_loop_timing, which emits a
+ * lifecycle error at startup. Calypso owns RAF pacing in Game::run and the
+ * optional hostile-turn lease, so the browser-only EGL seam accepts SDL's
+ * interval request without changing the native SDL/EGL implementation. */
+EGLBoolean EGLAPIENTRY eglSwapInterval(EGLDisplay display, EGLint interval)
+{
+	(void)display;
+	(void)interval;
+	return EGL_TRUE;
+}
 
 /* ---- SDL_Delay ---- */
 

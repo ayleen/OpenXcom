@@ -43,7 +43,7 @@ public:
     size_t debugCachedBytes() const { return _cachedData.size(); }
 
     /* Called by ShaderManager on SDL_RENDER_TARGETS_RESET. */
-    void reupload();
+    bool reupload();
 
     /* L5: evict the GL handle without destroying CPU state or ShaderManager
      * registration. Subsequent bind() calls reach texture name 0 (benign black).

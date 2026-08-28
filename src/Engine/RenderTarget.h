@@ -32,7 +32,7 @@ public:
     unsigned colorTexture() const { return _colorTex; }
 
     /* Called by ShaderManager on SDL_RENDER_TARGETS_RESET. */
-    void reupload();
+    bool reupload();
 
 private:
     unsigned _fbo      = 0u;
@@ -41,6 +41,7 @@ private:
     int      _h        = 0;
     int      _prevFbo  = 0;
 
+    bool createInternal(int w, int h, bool registerTarget);
     void release();
 };
 } // namespace OpenXcom

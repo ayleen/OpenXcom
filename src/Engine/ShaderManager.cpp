@@ -8,6 +8,9 @@
 #include "Logger.h"
 #include <algorithm>
 #include <functional>
+#ifdef __EMSCRIPTEN__
+#include <GLES3/gl3.h>
+#endif
 
 namespace OpenXcom
 {
@@ -42,7 +45,9 @@ void ShaderManager::unregisterTexture(GpuTexture* t)
 
 void ShaderManager::registerTarget(RenderTarget* r)
 {
-    _targets.push_back(r);
+    if (!r) return;
+    if (std::find(_targets.begin(), _targets.end(), r) == _targets.end())
+        _targets.push_back(r);
 }
 
 void ShaderManager::unregisterTarget(RenderTarget* r)
@@ -57,7 +62,7 @@ void ShaderManager::registerResetCallback(std::shared_ptr<bool> alive, std::func
     _resetCallbacks.push_back({alive, std::move(cb)});
 }
 
-void ShaderManager::reuploadAll()
+bool ShaderManager::reuploadAll()
 {
     Log(LOG_INFO) << "ShaderManager: WebGL context restored — reuploading "
                   << _shaders.size()  << " shaders, "
@@ -65,9 +70,10 @@ void ShaderManager::reuploadAll()
                   << _targets.size()  << " render targets";
 
     /* Serialised order: shaders first, then textures, then FBOs. */
-    for (Shader*       s : _shaders)  if (s) s->reupload();
-    for (GpuTexture*   t : _textures) if (t) t->reupload();
-    for (RenderTarget* r : _targets)  if (r) r->reupload();
+    bool ok = true;
+    for (Shader*       s : _shaders)  if (s) ok = s->reupload() && ok;
+    for (GpuTexture*   t : _textures) if (t) ok = t->reupload() && ok;
+    for (RenderTarget* r : _targets)  if (r) ok = r->reupload() && ok;
 
     /* VAO/VBO reset: sweep expired entries, then call live callbacks.
      * Copy snapshot first — callbacks may re-register (e.g. Cursor::initGPU). */
@@ -78,6 +84,11 @@ void ShaderManager::reuploadAll()
     auto snapshot = _resetCallbacks;
     for (const auto& e : snapshot)
         if (!e.alive.expired()) e.cb();
+#ifdef __EMSCRIPTEN__
+    if (glGetError() != GL_NO_ERROR) ok = false;
+#endif
+    if (!ok) Log(LOG_ERROR) << "ShaderManager: context restore resource verification failed";
+    return ok;
 }
 
 } // namespace OpenXcom

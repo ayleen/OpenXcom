@@ -68,6 +68,18 @@ void main()
 }
 )glsl";
 
+static const char* kGeoscape_colored_linesVertSrc = R"glsl(
+layout(location=0) in vec2 a_pos;
+layout(location=1) in vec4 a_col;
+out vec4 v_color;
+
+void main()
+{
+	gl_Position = vec4(a_pos, 0.0, 1.0);
+	v_color = a_col;
+}
+)glsl";
+
 static const char* kGlobe_sphereVertSrc = R"glsl(
 in vec2 a_pos;   // NDC [-1,+1]
 in vec2 a_uv;    // unused; present so VAO layout matches other passes
@@ -452,16 +464,28 @@ void main()
 }
 )glsl";
 
+static const char* kGeoscape_colored_linesFragSrc = R"glsl(
+in  vec4 v_color;
+out vec4 out_color;
+
+void main()
+{
+	out_color = v_color;
+}
+)glsl";
+
 static const char* kGlobe_sphereFragSrc = R"glsl(
 in  vec2 v_pixel;
 out vec4 fragColor;
 
+uniform vec2      u_viewportSize;
 uniform vec2      u_globeCenter;
 uniform float     u_globeRadius;
 uniform float     u_camLat;
 uniform float     u_camLon;
 uniform vec3      u_sunDir;
 uniform float     u_time;
+uniform int       u_background;
 uniform float     u_mipLevel;
 
 uniform sampler2D u_bathymetry;
@@ -489,12 +513,43 @@ vec3 applyCameraRotation(vec3 n, float camLat, float camLon)
     return n;
 }
 
+float backgroundHash(vec2 pixel)
+{
+    return fract(sin(dot(pixel, vec2(127.1, 311.7))) * 43758.5453);
+}
+
+vec3 backgroundColor(vec2 pixel)
+{
+    float t = (u_viewportSize.y > 1.0) ? pixel.y / (u_viewportSize.y - 1.0) : 0.0;
+    vec3 color = vec3(1.0 + t * 2.0, 5.0 + t * 9.0, 17.0 + t * 18.0) / 255.0;
+    if (distance(pixel, u_globeCenter) >= u_globeRadius + 5.0)
+    {
+        vec2 cell = floor(pixel);
+        float starThreshold = 1.0 - 125.0 / max(u_viewportSize.x * u_viewportSize.y, 1.0);
+        float seed = backgroundHash(cell);
+        if (seed > starThreshold)
+        {
+            float phase = backgroundHash(cell + vec2(19.0, 7.0)) * 6.28318530;
+            float pulse = 0.62 + 0.38 * (0.5 + 0.5 * sin(u_time * 1.7 + phase));
+            float value = (100.0 + backgroundHash(cell + vec2(43.0, 13.0)) * 127.0) * pulse;
+            vec3 starColor = vec3(value * 0.78, value * 0.92, value) / 255.0;
+            color = max(color, starColor);
+        }
+    }
+    return color;
+}
+
 void main()
 {
     // Distance from globe disk centre (pixel space)
     vec2  d = v_pixel - u_globeCenter;
     float r = length(d) / u_globeRadius;
-    if (r > 1.0) discard;
+    if (r > 1.0)
+    {
+        if (u_background == 0) discard;
+        fragColor = vec4(backgroundColor(v_pixel), 1.0);
+        return;
+    }
     float edgeAlpha = 1.0 - smoothstep(0.985, 1.0, r);
 
     // Orthographic inverse: pixel → unit-sphere surface normal in view space.
@@ -574,7 +629,11 @@ void main()
     float limb = smoothstep(0.03, 0.55, nz);
     vec3 rim = vec3(0.00, 0.16, 0.20) * pow(1.0 - nz, 3.0);
 
-    fragColor = vec4((daySide + nightSide) * (0.42 + limb * 0.58) + rim, edgeAlpha);
+    vec3 earth = (daySide + nightSide) * (0.42 + limb * 0.58) + rim;
+    if (u_background != 0)
+        fragColor = vec4(mix(backgroundColor(v_pixel), earth, edgeAlpha), 1.0);
+    else
+        fragColor = vec4(earth, edgeAlpha);
 }
 )glsl";
 
@@ -1352,6 +1411,7 @@ static const Entry kTable[] = {
     { "colorquad", kPassthroughVertSrc, kColorquadFragSrc },
     { "cursor", kCursorVertSrc, kCursorFragSrc },
     { "emissive_glow", kEmissive_glowVertSrc, kEmissive_glowFragSrc },
+    { "geoscape_colored_lines", kGeoscape_colored_linesVertSrc, kGeoscape_colored_linesFragSrc },
     { "globe_sphere", kGlobe_sphereVertSrc, kGlobe_sphereFragSrc },
     { "hd_ui", kHd_uiVertSrc, kHd_uiFragSrc },
     { "hd_ui_panel", kPassthroughVertSrc, kHd_ui_panelFragSrc },

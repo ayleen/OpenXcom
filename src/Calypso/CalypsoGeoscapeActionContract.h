@@ -157,11 +157,14 @@ class GeoscapeTimePolicyState
 public:
 	void select(GeoscapeSpeed speed) { _selected = speed; }
 	GeoscapeSpeed selectedSpeed() const { return _selected; }
+	/// Acquire one counted pause-ownership token for `reason`. Duplicate
+	/// acquisitions require matching releases (audit §13 item 1).
 	void acquire(GeoscapePauseReason reason)
 	{
 		auto& owners = _pauseOwners[static_cast<std::size_t>(reason)];
 		++owners;
 	}
+	/// Release one ownership token. An unmatched release is a safe no-op.
 	void release(GeoscapePauseReason reason)
 	{
 		auto& owners = _pauseOwners[static_cast<std::size_t>(reason)];
@@ -173,11 +176,38 @@ public:
 			if (owners != 0u) return true;
 		return false;
 	}
+	/// True while `reason` holds at least one pause-ownership token.
+	bool pausedFor(GeoscapePauseReason reason) const
+	{
+		return _pauseOwners[static_cast<std::size_t>(reason)] != 0u;
+	}
+	/// Flip exactly one User pause-ownership token (the live `time.pause`
+	/// action). Returns whether User now owns a pause. This never touches any
+	/// other reason and never mutates the selected speed.
+	bool toggleUser()
+	{
+		if (pausedFor(GeoscapePauseReason::User))
+		{
+			release(GeoscapePauseReason::User);
+			return false;
+		}
+		acquire(GeoscapePauseReason::User);
+		return true;
+	}
 
 private:
 	GeoscapeSpeed _selected = GeoscapeSpeed::FiveSeconds;
 	std::array<std::size_t, static_cast<std::size_t>(GeoscapePauseReason::Count)> _pauseOwners{};
 };
+
+/// Effective Geoscape pause for gameplay gating: the authoritative vanilla
+/// latch (popup/dogfight/zoom/system reasons owned by GeoscapeState) ORed with
+/// the persistent HD reason ledger. Neither side can resume over the other.
+inline bool calypsoGeoscapeEffectivePause(bool vanillaSystemPause,
+	const GeoscapeTimePolicyState& policy)
+{
+	return vanillaSystemPause || policy.paused();
+}
 
 } // namespace Calypso
 } // namespace OpenXcom

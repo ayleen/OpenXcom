@@ -25,6 +25,11 @@ RenderTarget::~RenderTarget()
 
 bool RenderTarget::create(int w, int h)
 {
+    return createInternal(w, h, true);
+}
+
+bool RenderTarget::createInternal(int w, int h, bool registerTarget)
+{
 #ifdef __EMSCRIPTEN__
     if (!GpuInit::ready()) return false;
     release();
@@ -55,7 +60,8 @@ bool RenderTarget::create(int w, int h)
     }
 
     _w = w; _h = h;
-    ShaderManager::instance().registerTarget(this);
+    if (registerTarget)
+        ShaderManager::instance().registerTarget(this);
     return true;
 #else
     (void)w; (void)h;
@@ -116,10 +122,19 @@ void RenderTarget::blitTo(SDL_Texture* dest)
 #endif
 }
 
-void RenderTarget::reupload()
+bool RenderTarget::reupload()
 {
     int w = _w, h = _h;
-    create(w, h);
+    if (w <= 0 || h <= 0) return true;
+    /* Replacement-context abandon: the GL context that owned the previous
+     * FBO/color texture is gone, so those object names are stale. Zero them
+     * without a GL delete — deleting foreign-context names here would be
+     * meaningless at best. ShaderManager is iterating its stable target
+     * registry, so recreate without re-registering this same owner into
+     * that vector. */
+    _fbo = 0u;
+    _colorTex = 0u;
+    return createInternal(w, h, false) && isValid();
 }
 
 void RenderTarget::release()

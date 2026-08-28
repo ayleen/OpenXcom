@@ -19,15 +19,35 @@
  */
 #include <vector>
 #include <list>
+#include <utility>
+#include <cstdint>
+#include <string>
 #ifdef __EMSCRIPTEN__
 #  include <memory>
 #endif
 #include "../Engine/InteractiveSurface.h"
 #include "../Engine/FastLineClip.h"
 #include "Cord.h"
+#ifdef __EMSCRIPTEN__
+#  include "../Engine/Screen.h"
+#  include "../Calypso/CalypsoGeoscapeColoredLineBatch.h"
+#  include "../Calypso/CalypsoPassTimers.h"
+#endif
 
 namespace OpenXcom
 {
+namespace Calypso { struct CalypsoGlobeGpuState; }
+struct Cord;
+class Globe;
+namespace Calypso
+{
+bool calypsoGlobeInitSphereGPU(Globe& globe);
+Cord calypsoGlobeSunDirectionWorld(const Globe& globe);
+void calypsoGlobeDrawHDStarfield(Globe& globe);
+void calypsoGlobeDrawSphereGPU(Globe& globe);
+void calypsoGlobeDrawHoverCircles(Globe& globe);
+void calypsoGlobeHoverOverlayFrame(Globe& globe);
+} // namespace Calypso
 
 class Game;
 class Polygon;
@@ -39,6 +59,7 @@ class RuleGlobe;
 class Craft;
 #ifdef __EMSCRIPTEN__
 class Shader;
+class GpuTexture;
 #endif
 
 /**
@@ -86,13 +107,26 @@ private:
 	bool _mouseMovedOverThreshold;
 
 #ifdef __EMSCRIPTEN__
+	bool _mouseScrollStopApplied = false;
 	/* Phase 8c — HD GPU sphere */
-	unsigned  _sphereVAO    = 0u;
-	unsigned  _sphereFBO    = 0u;
-	unsigned  _sphereFBOTex = 0u;
-	bool      _gpuSphereOK  = false;
-	Shader*   _globeShader  = nullptr; // owned; created in initSphereGPU()
-	std::shared_ptr<bool> _gpuAliveFlag;   // M6: lifetime token for the ShaderManager reset callback
+	/* These are hard per-frame bounds, not merely warm-up reserves.  Recording
+	 * refuses to grow a command vector after preparation, so an immutable
+	 * production snapshot can only fail closed before Earth publication. */
+	static constexpr size_t GPU_BORDER_LINE_CAPACITY = 16384u;
+	static constexpr size_t GPU_BORDER_VERTEX_FLOAT_CAPACITY = 65536u;
+	static constexpr size_t GPU_DEBUG_LINE_CAPACITY = 16384u;
+	static constexpr size_t GPU_DEBUG_VERTEX_FLOAT_CAPACITY = 65536u;
+	static constexpr size_t GPU_LABEL_TEXTURE_CAPACITY = 1024u;
+	static constexpr size_t GPU_LABEL_DRAW_CAPACITY = 2048u;
+	// Guard R3: browser-only GPU state lives in CalypsoGlobeGpuState (Calypso/CalypsoGeoscapeHdGlobeDirect.h).
+	Calypso::CalypsoGlobeGpuState* _gpuState = nullptr;
+	friend struct CalypsoGeoscapeHdGlobeDirect;	// Stage 10.2.1
+	friend bool Calypso::calypsoGlobeInitSphereGPU(Globe&);
+	friend Cord Calypso::calypsoGlobeSunDirectionWorld(const Globe&);
+	friend void Calypso::calypsoGlobeDrawHDStarfield(Globe&);
+	friend void Calypso::calypsoGlobeDrawSphereGPU(Globe&);
+	friend void Calypso::calypsoGlobeDrawHoverCircles(Globe&);
+	friend void Calypso::calypsoGlobeHoverOverlayFrame(Globe&);
 
 	/// One-time GPU resource initialisation for the sphere.
 	bool initSphereGPU();
@@ -100,6 +134,8 @@ private:
 	void drawHDStarfield();
 	/// Renders the sphere via GPU and reads back pixels into this surface.
 	void drawSphereGPU();
+	/// Stage 10.2.1: physical-resolution direct composite; activation flows
+	/// from the registered F16 hdUiFamilies route (diagnostic override aside).
 	/// Sun direction in the fixed world frame the shader uses.
 	Cord getSunDirectionWorld() const;
 #endif
@@ -122,6 +158,10 @@ private:
 	void XuLine(Surface* surface, Surface* src, double x1, double y1, double x2, double y2, int shade);
 	/// Draw line on globe surface.
 	void drawVHLine(Surface *surface, double lon1, double lat1, double lon2, double lat2, Uint8 color);
+	/// Draw the canonical debug country/region/mission-zone rectangles for one
+	/// debugType. Shared verbatim owner of the saved-game-debug gate and the
+	/// loopback-only Stage 13 QA capture switch.
+	void drawDebugRectangles(int debugType);
 	/// Draw flight path.
 	void drawPath(Surface *surface, double lon1, double lat1, double lon2, double lat2);
 	/// Draw target marker.
@@ -199,6 +239,11 @@ public:
 	/// Rotates the globe.
 	void rotate();
 	/// Draws the whole globe.
+	/// Stage 10.2.1: enables or disables the physical-resolution direct
+	/// composite for this globe; canonical enablement flows from the
+	/// registered F16 hdUiFamilies route in GeoscapeState.
+	void setGpuDirect(bool on);
+
 	void draw() override;
 	/// Draws the ocean of the globe.
 	void drawOcean();
@@ -208,6 +253,8 @@ public:
 	void drawShadow();
 	/// Draws the radar ranges of the globe.
 	void drawRadars();
+	/// §16.5: records hover radar circles into the separate hover overlay batch.
+	void drawHoverCircles();
 	/// Draws the flight paths of the globe.
 	void drawFlights();
 	/// Draws the country details of the globe.

@@ -235,12 +235,14 @@ void PauseState::btnLoadClick(Action *)
 	if (_origin == OPT_BATTLESCAPE && CalypsoDirector::get().activeSceneBlocksSaveLoad()) return;
 #endif
 #ifdef __EMSCRIPTEN__
-	// Phase 41: route to the HTML overlay when the hook exists (fallback: native).
-	int handled = EM_ASM_INT({
-		return (typeof window !== 'undefined' && window.calypsoOpenLoad)
-			? (window.calypsoOpenLoad($0), 1) : 0;
+	// A registered HD router owns this route. Missing/failed ownership is an
+	// explicit error; registered HD routes never fall through to native pixels.
+	int routed = EM_ASM_INT({
+		if (typeof window === 'undefined' || typeof window.calypsoOpenLoad !== 'function') return 0;
+		return window.calypsoOpenLoad($0) ? 1 : 0;
 	}, (int)_origin);
-	if (handled) return;
+	if (!routed) Calypso::calypsoReportHdRouteError("pause/load", "HTML load route failed");
+	return;
 #endif
 	_game->pushState(new ListLoadState(_origin));
 }
@@ -255,12 +257,12 @@ void PauseState::btnSaveClick(Action *)
 	if (_origin == OPT_BATTLESCAPE && CalypsoDirector::get().activeSceneBlocksSaveLoad()) return;
 #endif
 #ifdef __EMSCRIPTEN__
-	// Phase 41: route to the HTML overlay when the hook exists (fallback: native).
-	int handled = EM_ASM_INT({
-		return (typeof window !== 'undefined' && window.calypsoOpenSave)
-			? (window.calypsoOpenSave($0), 1) : 0;
+	int routed = EM_ASM_INT({
+		if (typeof window === 'undefined' || typeof window.calypsoOpenSave !== 'function') return 0;
+		return window.calypsoOpenSave($0) ? 1 : 0;
 	}, (int)_origin);
-	if (handled) return;
+	if (!routed) Calypso::calypsoReportHdRouteError("pause/save", "HTML save route failed");
+	return;
 #endif
 	_game->pushState(new ListSaveState(_origin));
 }
@@ -273,12 +275,12 @@ void PauseState::btnOptionsClick(Action *)
 {
 	Options::backupDisplay();
 #ifdef __EMSCRIPTEN__
-	// Phase 41: route to the HTML overlay when the hook exists (fallback: native).
-	int handled = EM_ASM_INT({
-		return (typeof window !== 'undefined' && window.calypsoOpenOptions)
-			? (window.calypsoOpenOptions($0), 1) : 0;
+	int routed = EM_ASM_INT({
+		if (typeof window === 'undefined' || typeof window.calypsoOpenOptions !== 'function') return 0;
+		return window.calypsoOpenOptions($0) ? 1 : 0;
 	}, (int)_origin);
-	if (handled) return;
+	if (!routed) Calypso::calypsoReportHdRouteError("pause/options", "HTML options route failed");
+	return;
 #endif
 	if (_origin == OPT_GEOSCAPE)
 	{

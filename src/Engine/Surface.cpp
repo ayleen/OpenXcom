@@ -31,6 +31,9 @@
 #include "Logger.h"
 #include "SDL2Helpers.h"
 #include "FileMap.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoHdUiOverlay.h"
+#endif
 #ifdef _WIN32
 #include <malloc.h>
 #endif
@@ -1099,6 +1102,13 @@ void Surface::draw()
  */
 void Surface::blit(SDL_Surface *surface)
 {
+#ifdef __EMSCRIPTEN__
+	const auto& hdOverlay = Calypso::CalypsoHdUiOverlay::instance();
+	const std::uint64_t hdFrameId = hdOverlay.frameId();
+	if (hdOverlay.widgetClaimed(this, hdFrameId)
+		|| hdOverlay.logicalWidgetSuppressed(this, hdFrameId))
+		return;
+#endif
 	if (_visible && !_hidden)
 	{
 		if (_redraw)

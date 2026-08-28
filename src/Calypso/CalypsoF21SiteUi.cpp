@@ -38,6 +38,7 @@
 #include "../Engine/Surface.h"
 #include "../Engine/Unicode.h"
 #include "../Geoscape/BuildNewBaseState.h"
+#include "../Geoscape/GeoscapeState.h"
 #include "../Interface/Text.h"
 #include "../Interface/TextButton.h"
 #include "../Interface/Window.h"
@@ -103,7 +104,71 @@ int f21SiteDetailsLineCount(bool wide, int cellIndex)
 		: CalypsoF21SiteDetailsGen::kCompactLineCounts[cellIndex];
 }
 
-} // namespace
+    } // namespace
+
+    void CalypsoF21SiteUi::claimLowerGeoscapeShell(CalypsoF21Painter& painter,
+        const GeoscapeState* geoscape, std::uint32_t& role)
+    {
+        if (!geoscape) return;
+        painter.claim(geoscape->_sidebar, role++);
+        painter.claim(geoscape->_sideLine, role++);
+        painter.claim(geoscape->_sideTop, role++);
+        painter.claim(geoscape->_sideBottom, role++);
+        painter.claim(geoscape->_btnIntercept, role++);
+        painter.claim(geoscape->_btnBases, role++);
+        painter.claim(geoscape->_btnGraphs, role++);
+        painter.claim(geoscape->_btnUfopaedia, role++);
+        painter.claim(geoscape->_btnOptions, role++);
+        painter.claim(geoscape->_btnFunding, role++);
+        painter.claim(geoscape->_btn5Secs, role++);
+        painter.claim(geoscape->_btn1Min, role++);
+        painter.claim(geoscape->_btn5Mins, role++);
+        painter.claim(geoscape->_btn30Mins, role++);
+        painter.claim(geoscape->_btn1Hour, role++);
+        painter.claim(geoscape->_btn1Day, role++);
+        painter.claim(geoscape->_txtFunds, role++);
+        painter.claim(geoscape->_txtHour, role++);
+        painter.claim(geoscape->_txtHourSep, role++);
+        painter.claim(geoscape->_txtMin, role++);
+        painter.claim(geoscape->_txtMinSep, role++);
+        painter.claim(geoscape->_txtSec, role++);
+        painter.claim(geoscape->_txtWeekday, role++);
+        painter.claim(geoscape->_txtDay, role++);
+        painter.claim(geoscape->_txtMonth, role++);
+        painter.claim(geoscape->_txtYear, role++);
+    }
+
+    void CalypsoF21SiteUi::collectLowerGeoscapeSuppression(
+        const GeoscapeState* geoscape, CalypsoHdLogicalSuppression& suppression)
+    {
+        if (!geoscape) return;
+        suppression.add(geoscape->_sidebar);
+        suppression.add(geoscape->_sideLine);
+        suppression.add(geoscape->_sideTop);
+        suppression.add(geoscape->_sideBottom);
+        suppression.add(geoscape->_btnIntercept);
+        suppression.add(geoscape->_btnBases);
+        suppression.add(geoscape->_btnGraphs);
+        suppression.add(geoscape->_btnUfopaedia);
+        suppression.add(geoscape->_btnOptions);
+        suppression.add(geoscape->_btnFunding);
+        suppression.add(geoscape->_btn5Secs);
+        suppression.add(geoscape->_btn1Min);
+        suppression.add(geoscape->_btn5Mins);
+        suppression.add(geoscape->_btn30Mins);
+        suppression.add(geoscape->_btn1Hour);
+        suppression.add(geoscape->_btn1Day);
+        suppression.add(geoscape->_txtFunds);
+        suppression.add(geoscape->_txtHour);
+        suppression.add(geoscape->_txtHourSep);
+        suppression.add(geoscape->_txtMin);
+        suppression.add(geoscape->_txtMinSep);
+        suppression.add(geoscape->_txtSec);
+        suppression.add(geoscape->_txtWeekday);
+        suppression.add(geoscape->_txtDay);
+        suppression.add(geoscape->_txtMonth);
+        suppression.add(geoscape->_txtYear);
+    }
 
 CalypsoF21SiteUi::~CalypsoF21SiteUi()
 {
@@ -113,6 +178,28 @@ CalypsoF21SiteUi::~CalypsoF21SiteUi()
 const void* CalypsoF21SiteUi::topState() const
 {
 	return _state;
+}
+
+void CalypsoF21SiteUi::collectLogicalSuppression(CalypsoHdLogicalSuppression& suppression) const
+{
+	if (!_state) return;
+	// The F21 state has its own registered HD chrome; keep every native visual
+	// owner suppressed before frame/resource readiness, while retaining its
+	// handlers and globe/placement input ownership.
+	suppression.add(_state->_window);
+	suppression.add(_state->_txtTitle);
+	suppression.add(_state->_btnCancel);
+	suppression.add(_state->_hdProtocol);
+	suppression.add(_state->_hdSlot);
+	suppression.add(_state->_hdFunds);
+	suppression.add(_state->_hdCost);
+	suppression.add(_state->_hdCard);
+	suppression.add(_state->_hdCoords);
+	suppression.add(_state->_hdRegion);
+	suppression.add(_state->_hdLegality);
+	suppression.add(_state->_hdPreview);
+	if (!_state || !_state->_game) return;
+	collectLowerGeoscapeSuppression(_state->_game->getGeoscapeState(), suppression);
 }
 
 void CalypsoF21SiteUi::collect(CalypsoHdFrameBuilder& builder) const
@@ -206,7 +293,13 @@ void CalypsoF21SiteUi::collect(CalypsoHdFrameBuilder& builder) const
 			actionPx);
 	}
 
-	p.textRect(f21ProtocolTextRect(_state->_hdProtocol, wide), _state->_hdProtocol,
+    // The lower Geoscape remains the input owner, but its replaced shell is
+    // claimed in this same atomic subgroup. The globe and placement widgets
+    // are intentionally not in this set.
+    std::uint32_t lowerRole = ROLE_DECORATION + 1;
+    claimLowerGeoscapeShell(p, _state->_game->getGeoscapeState(), lowerRole);
+
+    p.textRect(f21ProtocolTextRect(_state->_hdProtocol, wide), _state->_hdProtocol,
 		mono, _state->_hdProtocol->getText(), kF21ProtocolTextRgba,
 		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, ROLE_PROTOCOL, 0.10,
 		wide ? CalypsoHdThemeGen::kF21ProtocolWidePx : CalypsoHdThemeGen::kF21ProtocolCompactPx);
@@ -337,8 +430,12 @@ void CalypsoF21SiteUi::configure(BuildNewBaseState& state, bool allowPhysicalOve
 	state.enableUiScaling(layout.designWidth, layout.designHeight, 1.0f,
 		/*subtractVanillaCenter=*/false);
 
-	// Site clicks inside the taller HD strip must not place a base.
-	state._hdStripBottom = layout.banner.y + layout.banner.height;
+	// Site clicks inside the taller HD strip must not place a base. The guard
+	// reads the PROJECTED banner widget rect -- the same logical rectangle the
+	// painter claims and hit testing sees -- never design-space constants
+	// (§16.2: one shared CSS/backing/display/logical conversion everywhere).
+	const CalypsoLogicalRect projectedBanner = f21WidgetRect(state._window);
+	state._hdStripBottom = projectedBanner.y + projectedBanner.h;
 
 	CalypsoF21SiteUi* adapter = new CalypsoF21SiteUi(&state);
 	state._hdAdapter = adapter;
@@ -363,12 +460,15 @@ bool CalypsoF21SiteUi::resize(BuildNewBaseState& state)
 		CalypsoF21SiteUi::applyRects(state, layout);
 		state.recaptureUiScaling(layout.designWidth, layout.designHeight, 1.0f,
 			/*subtractVanillaCenter=*/false);
-		state._hdStripBottom = layout.banner.y + layout.banner.height;
 	}
 	else
 	{
 		state.applyUiScaling();
 	}
+	// Keep the strip click guard glued to the projected banner rect on every
+	// resize path (layout swap or plain re-projection) -- §16.2.
+	const CalypsoLogicalRect projectedBanner = f21WidgetRect(state._window);
+	state._hdStripBottom = projectedBanner.y + projectedBanner.h;
 	return true;
 }
 
@@ -396,6 +496,19 @@ void CalypsoF21SiteUi::refreshHoverReadouts(BuildNewBaseState& state, double lon
 			break;
 		}
 	}
+}
+
+void CalypsoF21SiteUi::refreshHoverReadoutsOutside(BuildNewBaseState& state)
+{
+	// §16.3: the pointer left the Earth disk; the candidate card returns to
+	// its pending copies exactly once until a finite sample re-enters.
+	if (!state._hdLayout || !state._hdCoords || !state._hdRegion || !state._hdCost)
+	{
+		return;
+	}
+	state._hdCoords->setText(state.tr("STR_CAL_F21_CANDIDATE_SITE"));
+	state._hdRegion->setText(state.tr("STR_CAL_F21_REGION_PENDING"));
+	state._hdCost->setText(state.tr("STR_CAL_F21_REGION_COST_TBD"));
 }
 
 } // namespace Calypso

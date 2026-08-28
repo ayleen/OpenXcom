@@ -35,7 +35,7 @@ public:
     void unregisterTarget(RenderTarget* r);
 
     /* Call on SDL_RENDER_TARGETS_RESET to rebuild all GPU objects. */
-    void reuploadAll();
+    bool reuploadAll();
 
     /* Per-frame GPU-pass tracking (used by calypso_screenshot). */
     bool hadGPUPass()  const { return _hadGPUPass; }

@@ -18,6 +18,7 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "../Engine/InteractiveSurface.h"
+#include <cstdint>
 #include <vector>
 #include <string>
 #include "../Engine/Unicode.h"
@@ -54,6 +55,12 @@ private:
 	Uint32 _colorRGB = 0;
 	Uint32 _colorRGB2 = 0;
 	bool _useRGB = false;
+#ifdef __EMSCRIPTEN__
+	/// Calypso: monotonic content generation; bumped by setText() only when
+	/// the new content differs, so render caches can key on it without any
+	/// per-frame string read or hashing.
+	std::uint64_t _calypsoTextGeneration = 0;
+#endif
 	TTFFont *_ttf = nullptr;     ///< Calypso: opt-in HD font; null = legacy bitmap path
 	float _ttfFill = 1.0f;       ///< Calypso: shrink factor within the fit box
 
@@ -82,6 +89,13 @@ public:
 	void setText(const std::string &text);
 	/// Gets the text's string.
 	std::string getText() const;
+#ifdef __EMSCRIPTEN__
+	/// Calypso: allocation-free read for steady-state HD render caches.
+	const std::string& calypsoTextRef() const { return _text; }
+	/// Calypso: monotonic generation of the text content. Incremented by
+	/// setText() only when the new content differs from the stored one.
+	std::uint64_t calypsoTextGeneration() const { return _calypsoTextGeneration; }
+#endif
 	/// Sets the text's wordwrap setting.
 	void setWordWrap(bool wrap, bool indent = false, bool ignoreSeparators = false);
 	/// Sets the text's color invert setting.

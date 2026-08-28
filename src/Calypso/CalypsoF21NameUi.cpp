@@ -39,6 +39,7 @@
 #include "../Mod/Mod.h"
 
 #include "CalypsoAbandonPopupUi.h"
+#include "CalypsoF21SiteUi.h"
 #include "CalypsoF21UiShared.h"
 #include "CalypsoHdFontSource.h"
 #include "CalypsoHdHarnessHostState.h"
@@ -84,7 +85,15 @@ const void* CalypsoF21NameUi::topState() const
 
 void CalypsoF21NameUi::collectLogicalSuppression(CalypsoHdLogicalSuppression& suppression) const
 {
-	if (!_state || !_state->_coveredSite) return;
+	if (!_state) return;
+	suppression.add(_state->_window);
+	suppression.add(_state->_txtTitle);
+	suppression.add(_state->_edtName);
+	suppression.add(_state->_hdProtocol);
+	suppression.add(_state->_hdHint);
+	suppression.add(_state->_btnCancel);
+	suppression.add(_state->_btnOk);
+	if (!_state->_coveredSite) return;
 	suppression.add(_state->_coveredSite->_window);
 	suppression.add(_state->_coveredSite->_txtTitle);
 	suppression.add(_state->_coveredSite->_btnCancel);
@@ -97,6 +106,9 @@ void CalypsoF21NameUi::collectLogicalSuppression(CalypsoHdLogicalSuppression& su
 	suppression.add(_state->_coveredSite->_hdRegion);
 	suppression.add(_state->_coveredSite->_hdLegality);
 	suppression.add(_state->_coveredSite->_hdPreview);
+	CalypsoF21SiteUi::collectLowerGeoscapeSuppression(
+		_state->_coveredSite->_game ? _state->_coveredSite->_game->getGeoscapeState() : nullptr,
+		suppression);
 }
 
 void CalypsoF21NameUi::collect(CalypsoHdFrameBuilder& builder) const
@@ -153,6 +165,10 @@ void CalypsoF21NameUi::collect(CalypsoHdFrameBuilder& builder) const
 		p.claim(_state->_coveredSite->_hdRegion, ROLE_COVERED_LEGACY);
 		p.claim(_state->_coveredSite->_hdLegality, ROLE_COVERED_LEGACY);
 		p.claim(_state->_coveredSite->_hdPreview, ROLE_COVERED_LEGACY);
+		std::uint32_t lowerRole = ROLE_COVERED_LEGACY + 1;
+		CalypsoF21SiteUi::claimLowerGeoscapeShell(
+			p, _state->_coveredSite->_game ? _state->_coveredSite->_game->getGeoscapeState() : nullptr,
+			lowerRole);
 	}
 
 	const CalypsoLogicalRect canvasRect{ 0, 0, designLayout.designWidth, designLayout.designHeight };

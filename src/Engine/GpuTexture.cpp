@@ -160,14 +160,16 @@ void GpuTexture::bind(int textureUnit)
 #endif
 }
 
-void GpuTexture::reupload()
+bool GpuTexture::reupload()
 {
+    const bool hadResource = _tex != 0u || _w > 0 || _h > 0 || !_cachedData.empty() || (bool)_reloadCb;
 #ifdef __EMSCRIPTEN__
-    /* Drop the stale GL handle first — shared by both paths below. On a real
-     * context loss glDeleteTextures is a harmless no-op (the name is already
-     * invalid); on a reset without a true loss it prevents leaking the old
-     * texture object. Nulling _tex makes uploadRGBA/uploadR8 re-gen it. */
-    glDeleteTextures(1, &_tex);
+    /* Drop the stale GL handle first — shared by both paths below. The old
+     * name belonged to a pre-reset context; after context loss/reset the
+     * replacement-context handle is abandoned without GL delete (calling
+     * glDeleteTextures on it would target an unknown name in the new
+     * context). Normal release/destructor still delete current-context
+     * handles. Nulling _tex makes uploadRGBA/uploadR8 re-gen it. */
     _tex = 0u;
 #endif
     if (!_cachedData.empty())
@@ -177,13 +179,14 @@ void GpuTexture::reupload()
             uploadR8(_cachedData.data(), _cachedW, _cachedH);
         else
             uploadRGBA(_cachedData.data(), _cachedW, _cachedH, 0);
-        return;
+        return !hadResource || isValid();
     }
     /* L3/L4 callback path: _cachedData deliberately empty (_skipCache=true);
      * re-decode the source from MEMFS and re-upload. */
 #ifdef __EMSCRIPTEN__
     if (_reloadCb) _reloadCb();
 #endif
+    return !hadResource || isValid();
 }
 
 void GpuTexture::evictGL()

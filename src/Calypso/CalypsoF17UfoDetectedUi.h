@@ -11,6 +11,7 @@ public:
     static void configure(UfoDetectedState& s, bool allow=true);
     static bool resize(UfoDetectedState& s);
 private:
+    static void applyLayout(UfoDetectedState& s);
     UfoDetectedState* _state=nullptr;
     mutable CalypsoSmallConfirmationMotion _motion;
 }; } }

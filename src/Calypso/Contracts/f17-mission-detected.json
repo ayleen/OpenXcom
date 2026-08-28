@@ -4,7 +4,7 @@
   "form": {
     "id": "f17-mission-detected",
     "familyId": 17,
-    "archetype": "small-confirmation",
+    "archetype": "contact-decision",
     "source": "FormConfigs/f17-mission-detected.json",
     "icon": {
       "kind": "warning",

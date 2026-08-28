@@ -35,6 +35,7 @@
 #include "Screen.h"
 #ifdef __EMSCRIPTEN__
 #include "GpuInit.h"
+#include "../Calypso/CalypsoPassTimers.h"
 #endif
 #include "Sound.h"
 #include "Music.h"
@@ -225,8 +226,13 @@ bool Game::iterate()
 		// Unpress buttons
 		_states.back()->resetAll();
 
-		// Refresh mouse position
+		// Refresh mouse position. Native reads SDL; the browser bridge owns its
+		// normalized pointer and refresh implementation.
+#ifdef __EMSCRIPTEN__
+		refreshCalypsoMousePosition();
+#else
 		SDL_Event ev;
+		SDL_memset(&ev, 0, sizeof(ev));
 		int x, y;
 		SDL_GetMouseState(&x, &y);
 		ev.type = SDL_MOUSEMOTION;
@@ -234,6 +240,7 @@ bool Game::iterate()
 		ev.motion.y = y;
 		Action action = Action(&ev, _screen->getXScale(), _screen->getYScale(), _screen->getCursorTopBlackBand(), _screen->getCursorLeftBlackBand());
 		_states.back()->handle(&action);
+#endif
 	}
 
 	// Process events
@@ -324,6 +331,12 @@ bool Game::iterate()
 				break;
 #endif /* SDL2 */
 			case SDL_MOUSEMOTION:
+#ifdef __EMSCRIPTEN__
+				// The direct canvas bridge owns authoritative normalized motion.
+				// Polling still lets SDL update SDL_GetMouseState, but queued
+				// coordinates must not reach gameplay owners a second time.
+				continue;
+#else
 				if (Options::oxceThrottleMouseMoveEvent > 0)
 				{
 					Uint32 last = SDL_GetTicks();
@@ -342,6 +355,7 @@ bool Game::iterate()
 					_event.motion.yrel += std::exchange(_yrel, 0);
 				}
 				FALLTHROUGH;
+#endif
 #ifdef __EMSCRIPTEN__
 			case SDL_MOUSEWHEEL:
 				if (!_mouseActive) continue;
@@ -399,6 +413,12 @@ bool Game::iterate()
 #endif /* __EMSCRIPTEN__ */
 			case SDL_MOUSEBUTTONDOWN:
 			case SDL_MOUSEBUTTONUP:
+#ifdef __EMSCRIPTEN__
+				// Capture-phase direct dispatch already delivered this transition.
+				// Drain the queued record only; SDL's internal button state was
+				// updated before SDL_PollEvent exposed it.
+				continue;
+#endif
 				// Skip mouse events if they're disabled
 				if (!_mouseActive) continue;
 				// re-gain focus on mouse-over or keypress.
@@ -465,7 +485,16 @@ bool Game::iterate()
 	if (_runningState != PAUSED)
 	{
 		// Process logic
+#ifdef __EMSCRIPTEN__
+		const Uint64 calypsoThinkStart = OpenXcom::Calypso::calypsoPassTimersEnabled()
+			? SDL_GetPerformanceCounter() : 0;
+#endif
 		_states.back()->think();
+#ifdef __EMSCRIPTEN__
+		if (calypsoThinkStart)
+			OpenXcom::Calypso::calypsoPassTimers().thinkUs +=
+				(Uint64)((SDL_GetPerformanceCounter() - calypsoThinkStart) * 1000000ull / SDL_GetPerformanceFrequency());
+#endif
 #ifdef __EMSCRIPTEN__
 		CalypsoTutorial::get().pump(this);
 		if (_fastMainLoopRequester != 0)
@@ -512,6 +541,10 @@ bool Game::iterate()
 			_fpsCounter->addFrame();
 			_screen->clear();
 #ifdef __EMSCRIPTEN__
+			const Uint64 calypsoBlitStart = OpenXcom::Calypso::calypsoPassTimersEnabled()
+				? SDL_GetPerformanceCounter() : 0;
+#endif
+#ifdef __EMSCRIPTEN__
 			// Phase 46.2-HD pre-blit boundary (A3): freeze metrics, advance the
 			// HD frame, and collect/raster/upload/commit the top state's adapter
 			// BEFORE any visible State::blit() so claimed widgets skip cleanly.
@@ -531,6 +564,10 @@ bool Game::iterate()
 			}
 			_fpsCounter->blit(_screen->getSurface());
 			_cursor->blit(_screen->getSurface());
+#ifdef __EMSCRIPTEN__
+			Calypso::calypsoPassTimersNoteBlit(calypsoBlitStart);
+			const Uint64 calypsoFlipStart = Calypso::calypsoPassTimersBeginFlip();
+#endif
 			// Semantic capture readiness keys on the flip() result: the serial
 			// must advance only when this iteration actually presented. The
 			// result is consumed only by the Emscripten hook below, hence
@@ -538,6 +575,7 @@ bool Game::iterate()
 			// flip() itself still runs on every platform.
 			[[maybe_unused]] const bool presented = _screen->flip();
 #ifdef __EMSCRIPTEN__
+			Calypso::calypsoPassTimersNoteFlip(calypsoFlipStart);
 			_fastMainLoopLastRenderMs = SDL_GetTicks();
 			calypsoRenderedThisIteration = true;
 			if (presented)
@@ -567,14 +605,19 @@ bool Game::iterate()
 }
 
 #ifdef __EMSCRIPTEN__
-static void emscriptenIter(void *arg)
+void Game::emscriptenIter(void *arg)
 {
 	// A viewport/context-loss event can arrive before Game::run registers the
 	// browser loop. Apply that recorded state in the first callback and do not
 	// let one game iteration escape before the pause takes effect.
-	if (calypso_pause_main_loop_before_iterate()) return;
+	const int gate = calypso_pause_main_loop_before_iterate();
 	Game *game = static_cast<Game*>(arg);
 	try {
+		if (gate == 1) return;
+		if (gate == 2) {
+			game->recoverContextTick();
+			return;
+		}
 		if (!game->iterate()) {
 			calypso_reset_main_loop_state();
 			emscripten_cancel_main_loop();
@@ -584,6 +627,13 @@ static void emscriptenIter(void *arg)
 		calypso_reset_main_loop_state();
 		emscripten_cancel_main_loop();
 	}
+}
+#endif
+
+#ifdef __EMSCRIPTEN__
+extern "C" void calypso_restart_main_loop(void)
+{
+	Game::calypsoRestartMainLoop();
 }
 #endif
 

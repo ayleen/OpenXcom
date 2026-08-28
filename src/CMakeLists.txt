@@ -645,6 +645,8 @@ if(EMSCRIPTEN)
   list(APPEND openxcom_src Calypso/CalypsoMenuBridge.cpp)
   # Phase 41 Slice B2: HD Geoscape side panel (friend bridge for GeoscapeState).
   list(APPEND openxcom_src Calypso/CalypsoGeoscapeHd.cpp)
+  # Phase 46.4 Stage 9: contract-projected strategic shell.
+  list(APPEND openxcom_src Calypso/CalypsoGeoscapeHdShell.cpp)
   list(APPEND openxcom_src Calypso/CalypsoGeoscapeMusic.cpp)
   # Phase 46.1 (policy R3): browser-only extractions from the oversized in-place
   # #ifdef __EMSCRIPTEN__ regions of Engine/{EmscriptenHarness,Game,Screen}.cpp.
@@ -653,6 +655,18 @@ if(EMSCRIPTEN)
   list(APPEND openxcom_src Calypso/CalypsoMainLoopGate.cpp)
   list(APPEND openxcom_src Calypso/CalypsoGameReflow.cpp)
   list(APPEND openxcom_src Calypso/CalypsoBrowserScale.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoBuildNewBaseQa.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoGameMouse.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoScreenRecovery.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoScreenWorld.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoGeoscapeStateInit.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoGeoscapeHdGlobeDirect.cpp)
+  list(APPEND openxcom_src Calypso/CalypsoGlobeHdSphere.cpp)
+  # Composite-boundary context-loss helpers relocated from Engine/Screen.cpp
+  # (policy R3): owns the supported-Emscripten context probe, reset-sentinel
+  # consumption, initial-loss arming, and failHdRoute behind a narrow
+  # check/handle seam.
+  list(APPEND openxcom_src Calypso/CalypsoSdlCompositeBoundary.cpp)
   list(APPEND openxcom_src Calypso/CalypsoStateUi.cpp)
   list(APPEND openxcom_src Calypso/CalypsoTextEdit.cpp)
   list(APPEND openxcom_src Calypso/CalypsoTextInputHarnessState.cpp)
@@ -769,6 +783,13 @@ if(EMSCRIPTEN)
     # alone only exposes the header after the port builds during the first
     # link, which fails a from-scratch configure/build on a fresh cache.
     -sUSE_SDL_IMAGE=2
+    # SDL2_mixer supplies <SDL_mixer.h> — needed at compile time for every TU
+    # that includes Engine/Sound.h. USE_SDL_MIXER in target_link_options alone
+    # only exposes the header when a shared ports sysroot was warmed by an
+    # earlier build that installed it; a from-scratch build on a fresh cache
+    # fails with 'SDL_mixer.h file not found' before any link step could
+    # unpack the port (same failure mode as USE_SDL_IMAGE above).
+    -sUSE_SDL_MIXER=2
     # libwebp port supplies <webp/decode.h> — needed at compile time for
     # Mod.cpp (uses WebPDecodeRGBA). --use-port in link options alone only
     # makes the header available after the port builds during the first
@@ -834,7 +855,7 @@ if(EMSCRIPTEN)
     -sMAX_WEBGL_VERSION=2
     -sFULL_ES3=1
     "-sEXPORTED_RUNTIME_METHODS=[\"FS\",\"IDBFS\",\"callMain\",\"ccall\",\"cwrap\",\"wasmMemory\",\"UTF8ToString\",\"HEAPU8\"]"
-    "-sEXPORTED_FUNCTIONS=[\"_main\",\"_calypso_screenshot\",\"_calypso_screenshot_gpu\",\"_calypso_gpu_smoke_activate\",\"_calypso_hd_unit_e1_gpu_probe\"${CALYPSO_HD_UNIT_SPIKE_EXPORTED_FUNCTIONS}${CALYPSO_VOICE_G0_5_EXPORTED_FUNCTIONS},\"_calypso_push_mouse_motion\",\"_calypso_set_profile_globe\",\"_calypso_set_profile_battlescape\",\"_calypso_set_profile_readback\",\"_calypso_dump_emit_once\",\"_calypso_set_ssaa_scale\",\"_calypso_gl_context_lost\",\"_calypso_gl_context_restored\",\"_calypso_log_heap\",\"_calypso_heap_used\",\"_calypso_heap_total\",\"_calypso_on_tab_hidden\",\"_calypso_apply_touch_defaults\",\"_calypso_battlescape_zoom\",\"_calypso_text_set\",\"_calypso_text_commit\",\"_calypso_text_commit_multiline\",\"_calypso_text_cancel\",\"_calypso_tutorial_advance\",\"_calypso_tutorial_stop\",\"_calypso_tutorial_close\",\"_calypso_prologue_ask_yes\",\"_calypso_prologue_ask_no\",\"_calypso_hd_harness_open\",\"_calypso_hd_harness_switch\",\"_calypso_hd_harness_set_motion\",\"_calypso_hd_harness_set_motion_pct\",\"_calypso_hd_harness_reconfigure\",\"_calypso_hd_harness_close\",\"_calypso_hd_harness_abandon\",\"_calypso_hd_harness_f21_site\",\"_calypso_hd_harness_f21_transaction\",\"_calypso_hd_harness_f21_name\",\"_calypso_hd_harness_f21_defense\",\"_calypso_hd_harness_f21_destruction\",\"_calypso_pause_load\",\"_calypso_pause_save\",\"_calypso_pause_abandon\",\"_calypso_pause_options\",\"_calypso_pause_cancel\",\"_calypso_audio_mute\"]"
+         "-sEXPORTED_FUNCTIONS=[\"_main\",\"_calypso_screenshot\",\"_calypso_screenshot_gpu\",\"_calypso_gpu_smoke_activate\",\"_calypso_hd_unit_e1_gpu_probe\"${CALYPSO_HD_UNIT_SPIKE_EXPORTED_FUNCTIONS}${CALYPSO_VOICE_G0_5_EXPORTED_FUNCTIONS},\"_calypso_push_mouse_motion\",\"_calypso_push_mouse_button\",\"_calypso_qa_cursor_canvas_x\",\"_calypso_qa_cursor_canvas_y\",\"_calypso_qa_buildnewbase_hover_count\",\"_calypso_qa_buildnewbase_click_count\",\"_calypso_qa_buildnewbase_last_hover_x\",\"_calypso_qa_buildnewbase_last_hover_y\",\"_calypso_qa_buildnewbase_last_click_x\",\"_calypso_qa_buildnewbase_last_click_y\",\"_calypso_qa_buildnewbase_last_outcome\",\"_calypso_qa_buildnewbase_reset\",\"_calypso_set_profile_globe\",\"_calypso_set_profile_battlescape\",\"_calypso_set_profile_readback\",\"_calypso_dump_emit_once\",\"_calypso_set_ssaa_scale\",\"_calypso_gl_context_lost\",\"_calypso_gl_context_restored\",\"_calypso_log_heap\",\"_calypso_heap_used\",\"_calypso_heap_total\",\"_calypso_on_tab_hidden\",\"_calypso_apply_touch_defaults\",\"_calypso_battlescape_zoom\",\"_calypso_text_set\",\"_calypso_text_commit\",\"_calypso_text_commit_multiline\",\"_calypso_text_cancel\",\"_calypso_tutorial_advance\",\"_calypso_tutorial_stop\",\"_calypso_tutorial_close\",\"_calypso_prologue_ask_yes\",\"_calypso_prologue_ask_no\",\"_calypso_hd_harness_open\",\"_calypso_hd_harness_switch\",\"_calypso_hd_harness_set_motion\",\"_calypso_hd_harness_set_motion_pct\",\"_calypso_hd_harness_reconfigure\",\"_calypso_hd_harness_close\",\"_calypso_hd_harness_abandon\",\"_calypso_hd_harness_f21_site\",\"_calypso_hd_harness_f21_transaction\",\"_calypso_hd_harness_f21_name\",\"_calypso_hd_harness_f21_defense\",\"_calypso_hd_harness_f21_destruction\",\"_calypso_pause_load\",\"_calypso_pause_save\",\"_calypso_pause_abandon\",\"_calypso_pause_options\",\"_calypso_pause_cancel\",\"_calypso_audio_mute\"]"
     -sENVIRONMENT=web
     -sMODULARIZE=1
     -sEXPORT_ES6=1
@@ -971,8 +992,13 @@ if(NOT EMSCRIPTEN AND BUILD_TESTING)
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoUiMetricsTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoGeoscapeHdLayoutTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoGeoscapeActionContractTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoGeoscapeHdSnapshotCacheTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoGeoscapeColoredLineBatchTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoGeoscapeHoverTransitionTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoGeoscapeMotionModelTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoGeoscapeQaPresentationTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoGeoscapeProjectionTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoGeoscapeHdRuntimeTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoUiFamiliesTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoFocusModelTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoFocusCoordinatorTest.cpp
@@ -998,6 +1024,8 @@ if(NOT EMSCRIPTEN AND BUILD_TESTING)
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/SpotterCountFieldTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/OccupancyFieldTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/HdUnitRenderPlanTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoBackingStorePolicyTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoCanvasCoordinateMappingTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoViewportModelTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdUiModelTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdFrameControllerTest.cpp

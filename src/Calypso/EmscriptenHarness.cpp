@@ -38,6 +38,9 @@
 #include "../Engine/GpuInit.h"
 #include "../Engine/Shader.h"
 #include "../Engine/GpuSmokeState.h"
+#include "CalypsoGeoscapeColoredLineBatch.h"
+#include <typeinfo>
+#include "CalypsoPassTimers.h"
 #ifdef CALYPSO_HD_UNIT_SPIKE
 #include "HdUnitSpikeState.h"
 #include "HdUnitBattleSpike.h"
@@ -63,6 +66,11 @@
 #include "../Menu/OptionsVideoState.h"
 #include "../Menu/OptionsBaseState.h"   // OptionsOrigin / OPT_MENU
 #include "CalypsoPrologueCampaign.h" // Phase 41 (commit 4.5): launchScriptedBattle
+#include "CalypsoGeoscapeQaPresentation.h" // Stage 13.2/13.3 loopback-only QA controls
+// Phase 46.4 (Calypso): canvas-backing <-> engine-display coordinate mapping
+// used by the pointer bridge and the DOM text-overlay focus bridge.
+#include "CalypsoViewportRuntime.h"
+#include "CalypsoCanvasCoordinateMapping.h"
 #include <GLES3/gl3.h>
 
 using namespace OpenXcom;
@@ -968,11 +976,12 @@ EMSCRIPTEN_KEEPALIVE int calypso_audio_mute()
 	return 1;
 }
 
-/* The SDL2 Emscripten port routes WebGL-canvas pointermove events as
- * SDL_MOUSEBUTTONDOWN (buttonless), not SDL_MOUSEMOTION, which leaves the
- * OXCE Cursor stuck.  Hosting code in main.js registers a JS mousemove
- * listener that calls this with backing-store coordinates; we update the
- * Cursor directly (the SDL queue path was unreliable). */
+/* The SDL2 Emscripten port can route WebGL-canvas pointermove events as a
+ * buttonless SDL_MOUSEBUTTONDOWN rather than SDL_MOUSEMOTION. Hosting code in
+ * main.js therefore calls the direct motion export with canvas-backing
+ * absolute and relative coordinates. The export updates the Cursor and
+ * synchronously dispatches the normalized motion through the gameplay owner
+ * chain; Game::iterate only drains the unreliable queued pointer record. */
 /* Phase 8c §C2: opt-in perf log gate for Globe::drawSphereGPU. */
 int g_calypsoProfileGlobe = 0;
 
@@ -981,6 +990,125 @@ void calypso_set_profile_globe(int on)
 {
 	g_calypsoProfileGlobe = on ? 1 : 0;
 }
+
+/* Phase 46.4 Stage 10.2.1 (Calypso): loopback DIAGNOSTIC override for the
+ * GPU-direct globe composite. Canonical activation flows from the registered
+ * F16 hdUiFamilies route in GeoscapeState; this export exists only so QA
+ * drivers can force the composite on or off outside the canonical route.
+ * Production code must never call it (see scripts/qa-geoscape-hd-canonical.mjs). */
+int g_calypsoGlobeGpuDirect = 0;
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_set_globe_gpu_direct(int on)
+{
+    g_calypsoGlobeGpuDirect = on ? 1 : 0;
+}
+
+/* Loopback-only Geoscape physical-shell preview token. Canonical F16 is
+ * enabled through the registered hdUiFamilies rollout key; this flag is the
+ * loopback QA capability token for the calypso_qa_globe_* exports below: with
+ * it cleared they must all be no-ops, and clearing it resets the QA
+ * presentation struct so process-global fixture state can never leak into
+ * canonical production rendering. */
+int g_calypsoGeoscapeHdPreview = 0;
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_set_geoscape_hd_preview(int on)
+{
+	g_calypsoGeoscapeHdPreview = on ? 1 : 0;
+	if (!g_calypsoGeoscapeHdPreview)
+	{
+		// Preview-disable path: reset through the internal helper directly;
+		// the calypso_qa_globe_reset export keeps its own token guard.
+		Calypso::calypsoGeoscapeQaResetPresentation(Calypso::calypsoGeoscapeQaPresentation());
+	}
+}
+
+/* Default-off harness-page capability: the JS shell raises this only on
+ * dedicated regression-harness pages (?harness=); ordinary browser play stays
+ * 0 and must never observe harness-page behaviour. */
+int g_calypsoHarnessPage = 0;
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_set_harness_page(int on)
+{
+	g_calypsoHarnessPage = on ? 1 : 0;
+}
+
+/* ---- Phase 46.4 Stage 13.2/13.3: loopback-only deterministic QA presentation
+ * controls for the Geoscape HD capture matrix (day/night/cloud/debug rows).
+ * State lives in Calypso::calypsoGeoscapeQaPresentation(); every default
+ * equals production. The JS shell applies these only on a loopback host
+ * outside harness pages (web/src/main.js `globeQa`), and none of them touch
+ * campaign, simulation, input, or ruleset state.
+ * Capability discipline: every export in this block (reset included) is a
+ * no-op unless g_calypsoGeoscapeHdPreview != 0 -- the preview toggle above is
+ * the single grantor of that capability. */
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_qa_globe_reset()
+{
+	if (g_calypsoGeoscapeHdPreview == 0) return;
+	Calypso::calypsoGeoscapeQaResetPresentation(Calypso::calypsoGeoscapeQaPresentation());
+}
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_qa_globe_freeze_presentation(double seconds)
+{
+	if (g_calypsoGeoscapeHdPreview == 0) return;
+	auto& qa = Calypso::calypsoGeoscapeQaPresentation();
+	qa.reducedMotion = false; // an explicit freeze releases the reduced-motion hold
+	qa.frozenClock = true;
+	qa.frozenSeconds = seconds > 0.0 ? seconds : 0.0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_qa_globe_live_presentation()
+{
+	if (g_calypsoGeoscapeHdPreview == 0) return;
+	auto& qa = Calypso::calypsoGeoscapeQaPresentation();
+	qa.frozenClock = false;
+	qa.reducedMotion = false;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_qa_globe_reduced_motion(int on)
+{
+	if (g_calypsoGeoscapeHdPreview == 0) return;
+	auto& qa = Calypso::calypsoGeoscapeQaPresentation();
+	qa.reducedMotion = on != 0;
+	if (qa.reducedMotion) qa.frozenClock = false; // reduced motion owns the clock
+}
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_qa_globe_sun(int mode)
+{
+	if (g_calypsoGeoscapeHdPreview == 0) return;
+	auto& qa = Calypso::calypsoGeoscapeQaPresentation();
+	switch (mode)
+	{
+	case 1: qa.sunMode = Calypso::GeoscapeQaSunMode::Daylight; break;
+	case 2: qa.sunMode = Calypso::GeoscapeQaSunMode::Night; break;
+	default: qa.sunMode = Calypso::GeoscapeQaSunMode::Live; break;
+	}
+}
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_qa_globe_clouds(int mode)
+{
+	if (g_calypsoGeoscapeHdPreview == 0) return;
+	auto& qa = Calypso::calypsoGeoscapeQaPresentation();
+	qa.cloudMode = mode == 1 ? Calypso::GeoscapeQaCloudMode::Hidden
+	                         : Calypso::GeoscapeQaCloudMode::Live;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void calypso_qa_globe_debug_geometry(int on)
+{
+	if (g_calypsoGeoscapeHdPreview == 0) return;
+	Calypso::calypsoGeoscapeQaPresentation().debugGeometryForced = on != 0;
+}
+
 
 /* Phase 11.0: opt-in CPU perf gate for Map::drawTerrain.
  * JS toggles via calypso_set_profile_battlescape(1); production stays 0. */
@@ -1019,6 +1147,19 @@ void calypso_set_audit_mode(int on)
  * Live-tunable from the JS console: Module._calypso_set_underwater_strength(0.4).
  * Default matches the "L1" starting look chosen during authoring. */
 float g_calypsoUnderwaterStrength = 0.20f;
+
+/* Loopback QA (read-only): demangled-ish name of the top state, so automated
+ * probes can assert WHICH state is on screen instead of guessing from pixels.
+ * No gameplay mutation; safe to call any time after Module boot. */
+EMSCRIPTEN_KEEPALIVE
+const char *calypso_qa_top_state_name()
+{
+	static std::string name;
+	Game *g = getCurrentGame();
+	if (!g || !g->getTopState()) return "";
+	name = std::string(typeid(*g->getTopState()).name());
+	return name.c_str();
+}
 
 EMSCRIPTEN_KEEPALIVE
 void calypso_set_underwater_strength(float v)
@@ -1173,66 +1314,138 @@ void calypso_on_tab_hidden(void)
 	g_calypsoTabHiddenPause = 1;
 }
 
-/* M6c: WebGL context-loss / restore freeze.
+/*
+ * Shared canvas-backing → engine-display normalization for the JS pointer bridge.
  *
- * g_calypsoContextLost is tested at the top of Screen::flip() (and any other
- * per-frame GL entry) so the engine skips ALL GL calls while the context is
- * dead.  JS sets this flag synchronously on the 'webglcontextlost' event
- * (before the browser discards the GL objects) and clears it on restore.
- *
- * Emscripten's main loop is paused so the event / timer callbacks that drive
- * the game loop stop firing; only the SDL event queue (which is safe on a dead
- * context) and the two canvas event listeners continue to run.
- *
- * Edge cases handled:
- *   • Double-loss  — guard in calypso_gl_context_lost prevents double-pause.
- *   • Restore without prior loss — SDL_RENDER_TARGETS_RESET is still pushed;
- *     emscripten_resume_main_loop is a no-op when the loop is already running.
- *   • Loss before callMain — emscripten_pause_main_loop is a no-op when no
- *     loop exists yet; emscripten_resume_main_loop is likewise safe. */
-int g_calypsoContextLost = 0;
-
-EMSCRIPTEN_KEEPALIVE
-void calypso_gl_context_lost(void)
+ * The web bridge always sends canvas-BACKING pixels (canvas.width/height). After
+ * exact backing-store ownership the engine display surface (Screen width/height)
+ * may be CSS-logical at DPR != 1, so the two extents must not be assumed equal.
+ * This helper is the single owner of the mapping: it resolves the current physical
+ * canvas extent from CalypsoViewportRuntime when cached and valid, falls back to
+ * Screen size otherwise, and scales each axis via calypsoCanvasToDisplayCoordinate.
+ * At DPR 1 the normalization is identity; at DPR 2 backing 3024x1540 maps to
+ * display 1512x770 (center backing (1512,770) → display (756,385)). Both
+ * calypso_push_mouse_motion and calypso_push_mouse_button MUST use this helper
+ * so backing→display stays in sync. The Game dispatch methods receive already
+ * normalized display-space values and never rescale them.
+ */
+static inline void calypsoNormalizeCanvasPoint(int backingX, int backingY, OpenXcom::Screen *screen, double &outDisplayX, double &outDisplayY)
 {
-	if (!g_calypsoContextLost)
-	{
-		g_calypsoContextLost = 1;
-		emscripten_pause_main_loop();
-	}
+	const Calypso::CalypsoViewportRuntime &runtime = Calypso::calypsoViewportRuntime();
+	const bool haveCachedCanvas = runtime.hasPhysicalSize()
+		&& runtime.physicalWidth() > 0 && runtime.physicalHeight() > 0;
+	const int canvasW = haveCachedCanvas ? runtime.physicalWidth() : screen->getWidth();
+	const int canvasH = haveCachedCanvas ? runtime.physicalHeight() : screen->getHeight();
+	outDisplayX = Calypso::calypsoCanvasToDisplayCoordinate(backingX, canvasW, screen->getWidth());
+	outDisplayY = Calypso::calypsoCanvasToDisplayCoordinate(backingY, canvasH, screen->getHeight());
+}
+
+static inline void calypsoApplyCursorDisplayPoint(OpenXcom::Game *game, OpenXcom::Screen *screen, double displayX, double displayY)
+{
+	OpenXcom::Cursor *cursor = game->getCursor();
+	if (!cursor) return;
+	double scaleX = screen->getXScale();
+	double scaleY = screen->getYScale();
+	if (scaleX <= 0.0) scaleX = 1.0;
+	if (scaleY <= 0.0) scaleY = 1.0;
+	cursor->setX((int)(displayX / scaleX));
+	cursor->setY((int)(displayY / scaleY));
 }
 
 EMSCRIPTEN_KEEPALIVE
-void calypso_gl_context_restored(void)
-{
-	const int wasLost = g_calypsoContextLost;
-	g_calypsoContextLost = 0;
-
-	SDL_Event e;
-	SDL_zero(e);
-	e.type = SDL_RENDER_TARGETS_RESET;
-	SDL_PushEvent(&e);
-
-	if (wasLost)
-		emscripten_resume_main_loop();
-}
-
-EMSCRIPTEN_KEEPALIVE
-void calypso_push_mouse_motion(int x, int y)
+void calypso_push_mouse_motion(int backingX, int backingY, int backingXrel, int backingYrel)
 {
 	OpenXcom::Game *g = OpenXcom::getCurrentGame();
 	if (!g) return;
+	OpenXcom::Screen *s = g->getScreen();
+	if (!s) return;
+	double dx = 0.0, dy = 0.0;
+	double dxrel = 0.0, dyrel = 0.0;
+	calypsoNormalizeCanvasPoint(backingX, backingY, s, dx, dy);
+	calypsoNormalizeCanvasPoint(backingXrel, backingYrel, s, dxrel, dyrel);
+	calypsoApplyCursorDisplayPoint(g, s, dx, dy);
+	g->dispatchCalypsoMouseMotion((int)dx, (int)dy, (int)dxrel, (int)dyrel);
+}
+
+/*
+ * Canonical JS -> engine mouse-button bridge.
+ *
+ * Canvas capture listeners own button delivery because SDL's browser button
+ * callbacks can disappear after canvas/context lifecycle changes. Coordinates
+ * arrive in canvas-backing pixels and are normalized to engine display
+ * coordinates (matching calypso_push_mouse_motion). The normalized point first
+ * synchronizes the bridge-owned Cursor, then dispatches through Game's normal
+ * Screen/Cursor/FPS/top-state owner order. At DPR 1 the normalization is
+ * identity; at DPR 2+ it prevents the Action constructor from double-scaling
+ * the coordinates.
+ */
+EMSCRIPTEN_KEEPALIVE
+int calypso_push_mouse_button(int backingX, int backingY, int sdlButton, int pressed)
+{
+	if (sdlButton < 1 || sdlButton > 5) return 0;
+	OpenXcom::Game *g = OpenXcom::getCurrentGame();
+	if (!g) return 0;
+	OpenXcom::Screen *s = g->getScreen();
+	if (!s) return 0;
+	double dxD = 0.0, dyD = 0.0;
+	calypsoNormalizeCanvasPoint(backingX, backingY, s, dxD, dyD);
+	calypsoApplyCursorDisplayPoint(g, s, dxD, dyD);
+	const int dx = (int)dxD;
+	const int dy = (int)dyD;
+	return g->dispatchCalypsoMouseButton(dx, dy, sdlButton, pressed != 0) ? 1 : 0;
+}
+
+/* ---- DPR2 cursor-alignment regression gate (loopback QA, read-only) --------
+ * Read-only counterparts of calypso_push_mouse_motion above: report the
+ * canvas-BACKING coordinate where the GPU cursor quad is ACTUALLY presented
+ * this frame -- never the last JS input. Per axis: the live Cursor position
+ * becomes an engine-display coordinate through the Screen scale PLUS this
+ * axis' cursor black-band offset (the same terms Cursor::drawGPUPass places
+ * the quad with), then maps engine display -> cached physical canvas extent
+ * through calypsoDisplayToCanvasCoordinate (identity fallback when the
+ * cached physical extents are invalid) and rounds to nearest int. Returns
+ * -1 when Game/Cursor/Screen are unavailable (pre-boot or torn down);
+ * callers treat -1 as "no reading". Pure reads: nothing here mutates engine
+ * state, so the canonical QA runner may poll both exports freely. */
+static int calypsoQaCursorBackingCoordinate(OpenXcom::Cursor *c,
+	OpenXcom::Screen *s, bool xAxis)
+{
+	const Calypso::CalypsoViewportRuntime &runtime = Calypso::calypsoViewportRuntime();
+	const bool haveCachedCanvas = runtime.hasPhysicalSize()
+		&& runtime.physicalWidth() > 0 && runtime.physicalHeight() > 0;
+	const int displayW = s->getWidth();
+	const int displayH = s->getHeight();
+	const int canvasW = haveCachedCanvas ? runtime.physicalWidth() : displayW;
+	const int canvasH = haveCachedCanvas ? runtime.physicalHeight() : displayH;
+	double sx = s->getXScale(); if (sx <= 0.0) sx = 1.0;
+	double sy = s->getYScale(); if (sy <= 0.0) sy = 1.0;
+	const double presented = xAxis
+		? c->getX() * sx + s->getCursorLeftBlackBand()
+		: c->getY() * sy + s->getCursorTopBlackBand();
+	return (int)llround(Calypso::calypsoDisplayToCanvasCoordinate(presented,
+		xAxis ? displayW : displayH, xAxis ? canvasW : canvasH));
+}
+
+EMSCRIPTEN_KEEPALIVE
+int calypso_qa_cursor_canvas_x(void)
+{
+	OpenXcom::Game *g = getCurrentGame();
+	if (!g) return -1;
 	OpenXcom::Cursor *c = g->getCursor();
 	OpenXcom::Screen *s = g->getScreen();
-	if (!c || !s) return;
-	/* JS sends canvas-backing pixels; convert to game-coords via the
-	 * Screen's current xScale/yScale (canvas / base). */
-	double sx = s->getXScale();
-	double sy = s->getYScale();
-	if (sx <= 0.0) sx = 1.0;
-	if (sy <= 0.0) sy = 1.0;
-	c->setX((int)(x / sx));
-	c->setY((int)(y / sy));
+	if (!c || !s) return -1;
+	return calypsoQaCursorBackingCoordinate(c, s, true);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int calypso_qa_cursor_canvas_y(void)
+{
+	OpenXcom::Game *g = getCurrentGame();
+	if (!g) return -1;
+	OpenXcom::Cursor *c = g->getCursor();
+	OpenXcom::Screen *s = g->getScreen();
+	if (!c || !s) return -1;
+	return calypsoQaCursorBackingCoordinate(c, s, false);
 }
 
 /* Phase 33: one-time touch-device defaults.  Called by JS after callMain
@@ -1275,24 +1488,46 @@ int calypso_battlescape_zoom(int direction)
 /* Phase 33: virtual-keyboard bridge.  TextEdit::setFocus calls
  * calypso_notify_text_focus; it forwards to the JS hook
  * globalThis.__calypsoTextFocus (no-op when the hook is absent, i.e. desktop).
- * Coordinates are converted base-resolution → canvas pixels here, mirroring
- * calypso_push_mouse_motion in reverse. */
+ * Coordinates run base-resolution -> engine display (via the Screen scale),
+ * then engine-display -> canvas-backing pixels -- the exact inverse of
+ * calypso_push_mouse_motion's normalization -- because text-input-overlay.js
+ * keeps receiving canvas-BACKING geometry and its rect.width/canvas.width
+ * conversion is only correct for backing pixels. The two extents are not
+ * assumed equal (they diverge at DPR != 1): the reverse mapping uses the
+ * cached physical canvas extents when valid, otherwise the Screen's own size,
+ * which makes the whole chain an identity pass-through at DPR 1. */
 EMSCRIPTEN_KEEPALIVE
 void calypso_notify_text_focus(int focused, int x, int y, int w, int h,
 	const char *utf8, int multiline, int enterPolicy)
 {
 	OpenXcom::Game *g = OpenXcom::getCurrentGame();
 	double sx = 1.0, sy = 1.0;
+	int displayW = 0, displayH = 0;
 	if (g && g->getScreen())
 	{
-		sx = g->getScreen()->getXScale(); if (sx <= 0.0) sx = 1.0;
-		sy = g->getScreen()->getYScale(); if (sy <= 0.0) sy = 1.0;
+		OpenXcom::Screen *s = g->getScreen();
+		sx = s->getXScale(); if (sx <= 0.0) sx = 1.0;
+		sy = s->getYScale(); if (sy <= 0.0) sy = 1.0;
+		displayW = s->getWidth();
+		displayH = s->getHeight();
 	}
+	/* game coord * Screen scale == engine-display coordinate; map that back to
+	 * canvas-backing geometry before EM_ASM (identity fallback keeps pre-boot
+	 * and degenerate-extent calls unchanged). */
+	const Calypso::CalypsoViewportRuntime &runtime = Calypso::calypsoViewportRuntime();
+	const bool haveCachedCanvas = runtime.hasPhysicalSize()
+		&& runtime.physicalWidth() > 0 && runtime.physicalHeight() > 0;
+	const int canvasW = haveCachedCanvas ? runtime.physicalWidth() : displayW;
+	const int canvasH = haveCachedCanvas ? runtime.physicalHeight() : displayH;
 	EM_ASM({
 		if (globalThis.__calypsoTextFocus)
 			globalThis.__calypsoTextFocus($0, $1, $2, $3, $4, UTF8ToString($5), $6, $7);
-	}, focused, (int)(x * sx), (int)(y * sy), (int)(w * sx), (int)(h * sy), utf8,
-		multiline, enterPolicy);
+	}, focused,
+	   (int)Calypso::calypsoDisplayToCanvasCoordinate(x * sx, displayW, canvasW),
+	   (int)Calypso::calypsoDisplayToCanvasCoordinate(y * sy, displayH, canvasH),
+	   (int)Calypso::calypsoDisplayToCanvasCoordinate(w * sx, displayW, canvasW),
+	   (int)Calypso::calypsoDisplayToCanvasCoordinate(h * sy, displayH, canvasH),
+	   utf8, multiline, enterPolicy);
 }
 
 EMSCRIPTEN_KEEPALIVE
@@ -1385,6 +1620,56 @@ int calypso_hud_layout_probe(const char *outJsonPath)
 	if (!f) return 0;
 	f << out;
 	return 1;
+}
+
+/* Phase 46.4 SS15.6 -- default-off Geoscape radar/flight instrumentation.
+ * Loopback QA capability only: every export below is a no-op unless the
+ * Geoscape HD preview token (the single grantor of loopback QA capability)
+ * is raised. Enabling costs one predictable branch per prepare/draw
+ * boundary in production paths; reset/read never mutate campaign,
+ * rendering, or input state. */
+EMSCRIPTEN_KEEPALIVE
+int calypso_geoscape_radar_counters_enable(int on)
+{
+	if (g_calypsoGeoscapeHdPreview == 0) return 0;
+	OpenXcom::Calypso::calypsoSetRadarCountersEnabled(on != 0);
+	return OpenXcom::Calypso::calypsoRadarCountersEnabled() ? 1 : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void *calypso_geoscape_radar_counters()
+{
+	if (g_calypsoGeoscapeHdPreview == 0) return nullptr;
+	return &OpenXcom::Calypso::calypsoRadarCounters();
+}
+
+EMSCRIPTEN_KEEPALIVE
+void *calypso_heap_probe()
+{
+	if (g_calypsoGeoscapeHdPreview == 0) return nullptr;
+	static struct { std::uint64_t usedBytes; std::uint64_t totalBytes; } probe = {0u, 0u};
+	const struct mallinfo info = mallinfo();
+	probe.usedBytes = (std::uint64_t)info.uordblks;
+	probe.totalBytes = (std::uint64_t)info.arena;
+	return &probe;
+}
+
+/* Option A attribution probes: per-pass main-thread microseconds for the
+ * physical Geoscape frame. Same loopback capability gate as the radar
+ * counters; accumulation is one branch per pass boundary when enabled. */
+EMSCRIPTEN_KEEPALIVE
+int calypso_pass_timers_enable(int on)
+{
+	if (g_calypsoGeoscapeHdPreview == 0) return 0;
+	OpenXcom::Calypso::calypsoSetPassTimersEnabled(on != 0);
+	return OpenXcom::Calypso::calypsoPassTimersEnabled() ? 1 : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void *calypso_pass_timers()
+{
+	if (g_calypsoGeoscapeHdPreview == 0) return nullptr;
+	return &OpenXcom::Calypso::calypsoPassTimers();
 }
 
 } /* extern "C" */

@@ -7,8 +7,9 @@ namespace OpenXcom { namespace Calypso { namespace CalypsoF17UfoDetectedGen {
 inline constexpr const char* kContractVersion = "hd.2026-08-20.22";
 inline constexpr const char* kFormId = "f17-ufo-detected";
 inline constexpr int kFamilyId = 17;
-inline constexpr const char* kArchetype = "small-confirmation";
+inline constexpr const char* kArchetype = "contact-decision";
 inline constexpr const char* kSourceConfig = "FormConfigs/f17-ufo-detected.json";
+inline constexpr const char* kProtocol = "CALYPSO COMMAND · TACTICAL NOTICE F17-UFO-DETECTED";
 
 inline constexpr const char* kDensityProfile = "standard";
 inline constexpr int kPresentationScaleNumerator = 1;

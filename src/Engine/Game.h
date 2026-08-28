@@ -94,8 +94,24 @@ public:
 	/// Executes one frame of the game loop; returns false when the game should quit.
 	bool iterate();
 #ifdef __EMSCRIPTEN__
+	/// Processes only the queued renderer-reset event during context recovery.
+	/// This path must not run gameplay, input, audio, state logic, or present.
+	void recoverContextTick();
+	static void emscriptenIter(void *arg);
+	static void calypsoRestartMainLoop();
 	/// Leases setImmediate scheduling to the current state for the next iteration.
 	void requestFastMainLoop(State *requester);
+	static constexpr unsigned int CALYPSO_MOUSE_BRIDGE_ID = 0xC47AB007u;
+	/// Refreshes the canonical browser-owned pointer position for this frame.
+	void refreshCalypsoMousePosition();
+	/// Dispatches one browser-owned display-space mouse motion event directly
+	/// through the canonical input owners. Returns false before gameplay input
+	/// is ready.
+	bool dispatchCalypsoMouseMotion(int x, int y, int xrel, int yrel);
+	/// Dispatches one browser-owned display-space mouse button event directly
+	/// through the canonical input owners. Returns false before gameplay input
+	/// is ready or when the event is invalid.
+	bool dispatchCalypsoMouseButton(int x, int y, int button, bool pressed);
 #endif
 	/// Quits the game.
 	void quit();

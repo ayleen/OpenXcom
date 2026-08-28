@@ -6,73 +6,59 @@
  */
 #ifdef __EMSCRIPTEN__
 
-#include <string>
-#include <vector>
 
 #include "CalypsoHdFamilyAdapter.h"
 
+#include "CalypsoHdScreenModel.h"
+#include "CalypsoHdFontSource.h"
+// Fully defines CalypsoGeoscapeHdRuntimeModel before the by-value
+// CalypsoGeoscapeHdSnapshotCache<CalypsoGeoscapeHdRuntimeModel> member below.
+#include "CalypsoGeoscapeHdRuntime.h"
+#include "CalypsoGeoscapeHdSnapshot.h"
+
 namespace OpenXcom
 {
+class GeoscapeState;
 namespace Calypso
 {
-
-struct CalypsoHdScreenRect
-{
-	int x = 0;
-	int y = 0;
-	int w = 0;
-	int h = 0;
-};
-
-struct CalypsoHdScreenActionVisual
-{
-	std::string id;
-	std::string label;
-	std::string component;
-	std::string slotRole;
-	std::string coordinateSpace;
-	CalypsoHdScreenRect visible;
-	int focusOrder = 0;
-	int zOrder = 1;
-};
-
-struct CalypsoHdScreenRegionVisual
-{
-	std::string id;
-	CalypsoHdScreenRect rect;
-};
-
-struct CalypsoHdScreenCopy
-{
-	std::string key;
-	std::string value;
-};
-
-struct CalypsoHdScreenRenderModel
-{
-	std::string archetype;
-	int designWidth = 0;
-	int designHeight = 0;
-	bool sideBySidePreview = false;
-	std::vector<CalypsoHdScreenActionVisual> actions;
-	std::vector<CalypsoHdScreenRegionVisual> regions;
-	std::vector<CalypsoHdScreenCopy> copy;
-	std::string selectedActionId;
-};
 
 class CalypsoHdScreenRenderer : public CalypsoHdFamilyAdapter
 {
 public:
-	CalypsoHdScreenRenderer(const void* state, CalypsoHdScreenRenderModel model);
+	CalypsoHdScreenRenderer(const void* state, CalypsoHdScreenRenderModel model,
+		CalypsoHdScreenRenderMode mode = CalypsoHdScreenRenderMode::HarnessFullPhysical);
 	~CalypsoHdScreenRenderer() override;
 
 	const void* topState() const override;
+	bool suppressLogicalState() const override;
+	void collectLogicalSuppression(CalypsoHdLogicalSuppression& suppression) const override;
+	bool physicalReady() const override;
+	bool completeFrameReady() const override;
+	bool retryableReadiness() const override;
 	void collect(CalypsoHdFrameBuilder& builder) const override;
 	void setModel(CalypsoHdScreenRenderModel model);
 
+	/// Fail-closed covered-state ownership (rendering contract, 2026-08-25):
+	/// while the live strategic chrome is covered by any other state it keeps
+	/// feeding its logical suppression list so reprojected legacy controls can
+	/// never leak around a blocking modal.
+	bool suppressWhenCovered() const override
+	{
+		return _mode == CalypsoHdScreenRenderMode::GeoscapeLiveChrome;
+	}
+
 private:
+	static CalypsoGeoscapeHdRuntimeModel liveGeoscapeModel(const GeoscapeState& state);
+	static CalypsoGeoscapeHdSnapshotKey liveGeoscapeKey(const GeoscapeState& state);
+	const CalypsoGeoscapeHdRuntimeModel& liveGeoscapeSnapshot(const GeoscapeState& state) const;
+	bool resolvePhysicalFonts(CalypsoTtfSourceDescriptor& heading,
+		CalypsoTtfSourceDescriptor& body, CalypsoTtfSourceDescriptor& mono) const;
 	const void* _state;
 	CalypsoHdScreenRenderModel _model;
+	CalypsoHdScreenRenderMode _mode;
+	// State-owned generation-invalidated snapshot (one per registered adapter;
+	// dies with the state). Mutable: readiness/collection are const.
+	mutable CalypsoGeoscapeHdSnapshotCache<CalypsoGeoscapeHdRuntimeModel> _liveSnapshot;
 };
 
 } // namespace Calypso

@@ -39,7 +39,7 @@ public:
     bool isValid() const { return _program != 0u; }
 
     /* Called by ShaderManager on SDL_RENDER_TARGETS_RESET. */
-    void reupload();
+    bool reupload();
 
 private:
     unsigned _program = 0u;

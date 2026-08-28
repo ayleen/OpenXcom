@@ -140,14 +140,21 @@
 #include "../Mod/Texture.h"
 #include "../fmath.h"
 #include "../fallthrough.h"
-#ifdef __EMSCRIPTEN__
 #include "../Engine/Logger.h"
 #include "../Calypso/CalypsoTutorial.h"
 #include "../Calypso/CalypsoAdvisor.h"
 #include "../Calypso/CalypsoGeoscapeHd.h"
+#include "../Calypso/CalypsoGeoscapeHdRuntime.h"
+#include "../Calypso/CalypsoGeoscapeStateInit.h"
+#include "../Calypso/CalypsoGeoscapeHdShell.h"
+#include "../Calypso/CalypsoHdScreenRenderer.h"
+#include "../Calypso/CalypsoHdUiOverlay.h"
+#ifdef __EMSCRIPTEN__
+extern "C" int g_calypsoGlobeGpuDirect;
+extern "C" int g_calypsoGeoscapeHdPreview;
+#endif
 extern "C" void calypso_log_heap(const char *tag);  // M5: defined in Calypso/EmscriptenHarness.cpp
 extern "C" int  g_calypsoTabHiddenPause;            // M6h: set by calypso_on_tab_hidden()
-#endif
 
 namespace OpenXcom
 {
@@ -494,9 +501,7 @@ GeoscapeState::GeoscapeState() : _pause(false), _zoomInEffectDone(false), _zoomO
 
 	timeDisplay();
 #ifdef __EMSCRIPTEN__
-	calypsoChecklistBuild();   // Phase 39: task-checklist chip
-	CalypsoGeoscapeHd::applyTtf(this);   // Phase 41 B2: HD side panel
-	CalypsoGeoscapeHd::layout(this);
+	Calypso::calypsoGeoscapeStateInitHd(*this);
 #endif
 }
 
@@ -506,6 +511,9 @@ GeoscapeState::GeoscapeState() : _pause(false), _zoomInEffectDone(false), _zoomO
 GeoscapeState::~GeoscapeState()
 {
 #ifdef __EMSCRIPTEN__
+	delete _calypsoHdRenderer;
+	_calypsoHdRenderer = nullptr;
+	CalypsoGeoscapeHdShell::destroy(this);
 	EM_ASM({
 		if (globalThis.calypsoGeoscapeMusicStop)
 			globalThis.calypsoGeoscapeMusicStop();
@@ -547,6 +555,12 @@ void GeoscapeState::blit()
  */
 void GeoscapeState::handle(Action *action)
 {
+#ifdef __EMSCRIPTEN__
+	// A registered HD drawer is the topmost Escape owner.
+	if (action != nullptr && action->getDetails()->type == SDL_KEYDOWN
+		&& action->getDetails()->key.keysym.sym == Options::keyCancel
+		&& CalypsoGeoscapeHdShell::closeDrawer(this)) return;
+#endif
 	if (_dogfights.size() == _minimizedDogfights)
 	{
 		State::handle(action);
@@ -976,7 +990,11 @@ void GeoscapeState::timeAdvance()
 		}
 	}
 
+#ifdef __EMSCRIPTEN__
+	CalypsoGeoscapeHdShell::syncPause(this, !_popups.empty() || !_dogfightsToBeStarted.empty() || _zoomInEffectTimer->isRunning() || _zoomOutEffectTimer->isRunning());
+#else
 	_pause = !_dogfightsToBeStarted.empty() || _zoomInEffectTimer->isRunning() || _zoomOutEffectTimer->isRunning();
+#endif
 
 	timeDisplay();
 	_globe->draw();
@@ -3024,6 +3042,12 @@ Globe *GeoscapeState::getGlobe() const
 
 void GeoscapeState::globeClick(Action *action)
 {
+#ifdef __EMSCRIPTEN__
+	// While the HD drawer is open, the globe is an outside-click dismissal
+	// surface, not a marker-selection owner.
+	if (CalypsoGeoscapeHdShell::closeDrawer(this))
+		return;
+#endif
 	int mouseX = (int)floor(action->getAbsoluteXMouse()), mouseY = (int)floor(action->getAbsoluteYMouse());
 
 	// Clicking markers on the globe
@@ -4882,7 +4906,8 @@ void GeoscapeState::resize(int &dX, int &dY)
 	_sideLine->setY(0);
 	_sideLine->drawRect(0, 0, _sideLine->getWidth(), _sideLine->getHeight(), 15);
 #ifdef __EMSCRIPTEN__
-	CalypsoGeoscapeHd::layout(this);   // Phase 41 B2: re-run HD panel scale + plate blit
+	CalypsoGeoscapeHd::layout(this);
+	CalypsoGeoscapeHdShell::apply(this);   // Stage 9: contract-projected shell   // Phase 41 B2: re-run HD panel scale + plate blit
 #endif
 }
 bool GeoscapeState::buttonsDisabled()

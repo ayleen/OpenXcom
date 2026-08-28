@@ -19,6 +19,10 @@
 #include "Screen.h"
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoResolutionFloor.h"
+#include "../Calypso/CalypsoSdlCompositeBoundary.h"
+#include "../Calypso/CalypsoPassTimers.h"
+#include "../Calypso/CalypsoScreenRecovery.h"
+#include "../Calypso/CalypsoScreenWorld.h"
 #endif
 #include "Game.h"
 #include "../Mod/Mod.h"
@@ -29,6 +33,7 @@
 #include <climits>
 #include <cstdio>
 #include <vector>
+#include <iterator>
 #include "../lodepng.h"
 #include "Exception.h"
 #include "Surface.h"
@@ -48,11 +53,12 @@
 #include <algorithm>
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
+#include <emscripten/html5.h>
 #include <GLES3/gl3.h>
-/* M6c: context-lost flag; C-linkage definition lives in ../Calypso/CalypsoMainLoopGate.cpp.
- * Declared at file scope (extern "C" is not allowed at block scope) — same
- * pattern as g_calypsoSsaaScale in Map.cpp. */
+/* M6c: g_calypsoContextLost lives in CalypsoMainLoopGate.cpp (guard R3). */
 extern "C" int g_calypsoContextLost;
+// calypso_* recovery/ streaming helpers moved to src/Calypso/ (guard R3)
+extern "C" SDL_Texture *calypsoCreateLogicalStreamingTexture(SDL_Renderer *);
 #endif
 
 namespace OpenXcom
@@ -101,6 +107,8 @@ Screen::~Screen()
 	 * destructor body and would otherwise issue glDelete* against a dead context. */
 	_gpuPasses.clear();
 	_gpuPassesPre.clear();
+	_gpuPassesWorld.clear();
+	_gpuPendingWorldPasses.clear();
 #endif
 	if (_texture)  { SDL_DestroyTexture(_texture);   _texture  = nullptr; }
 	if (_renderer) { SDL_DestroyRenderer(_renderer); _renderer = nullptr; }
@@ -141,75 +149,9 @@ Screen::~Screen()
  * This function MUST run before ShaderManager::reuploadAll().  reuploadAll()
  * makes raw GL calls that need a live GL context; the new renderer provides it.
  */
-void Screen::recreateRendererGL()
+bool Screen::recreateRendererGL()
 {
-	/* M6c Task 2 — dead-mouse fix.
-	 *
-	 * Root cause of the dead mouse after context restore:
-	 *   SDL_DestroyRenderer → GLES2_DestroyRenderer → SDL_GL_DeleteContext →
-	 *   Emscripten GL.deleteContext → JSEvents.removeAllHandlersOnTarget(canvas)
-	 *
-	 * GL.deleteContext strips EVERY handler registered via Emscripten's
-	 * JSEvents infrastructure from the canvas — including SDL's own mouse and
-	 * keyboard event listeners registered by Emscripten_RegisterEventHandlers
-	 * (called from Emscripten_CreateWindow).  SDL_CreateRenderer does NOT
-	 * re-register them because GLES2_CreateRenderer's SDL_RecreateWindow
-	 * branch is skipped once the window already carries an OpenGL ES profile.
-	 *
-	 * Fix: use the full resetDisplay(true, …) path which destroys the SDL
-	 * window too.  SDL_CreateWindow → Emscripten_CreateWindow →
-	 * Emscripten_RegisterEventHandlers re-registers all mouse/key handlers on
-	 * the canvas, restoring input to the identical state as initial boot.
-	 * resetDisplay also calls GpuInit::init() (re-enables float extensions),
-	 * recalculates _scaleX/_scaleY, and resets all SDL surface/texture state.
-	 *
-	 * ShaderManager::reuploadAll() is still called by Screen::handle() after
-	 * this returns to rebuild GPU resources. */
-	try
-	{
-		resetDisplay(true, false);
-
-		/* M6h: force the canvas-size rebase block in flip() to run on the next
-		 * frame even though the polled canvas dimensions will equal
-		 * Options::displayWidth/Height (resetDisplay just wrote them back).
-		 *
-		 * The previous M6g approach zeroed displayWidth/Height to trick the
-		 * canvas-poll condition (wW != Options::displayWidth) into firing.  That
-		 * worked for scale re-derivation but introduced Defect M6h: with the old
-		 * value recorded as 0, BattlescapeState::resize(dX, dY) (called from
-		 * zoom() during the same tick) computed a huge delta (new – 0 = canvas
-		 * width) and shifted the entire battlescape HUD off-screen.
-		 *
-		 * Using a flag instead leaves Options::displayWidth/Height intact (correct
-		 * values set by resetDisplay above).  When the forced rebase pass runs in
-		 * flip(), it assigns displayWidth = wW (same value → delta 0) and then
-		 * calls Screen::updateScale for both scales — re-deriving
-		 * baseXBattlescape / baseYBattlescape / baseXGeoscape / baseYGeoscape from
-		 * the current (correct) display size without displacing any state. */
-		_forceCanvasRebase = true;
-	}
-	catch (Exception &e)
-	{
-		/* M6g Defect 2: on a second GPU crash Chrome throttles WebGL context
-		 * creation, so SDL_CreateRenderer fails inside resetDisplay and throws.
-		 * Never let this exception escape iterate() — catch it here, log it, then
-		 * re-enter the lost state so the JS 13-s reload fallback takes over.
-		 *
-		 * Ordering safety: calypso_gl_context_restored() resumed the main loop
-		 * just before the SDL_RENDER_TARGETS_RESET event was dispatched to this
-		 * handler.  Setting g_calypsoContextLost = 1 here and calling
-		 * emscripten_pause_main_loop() ensures:
-		 *   (a) flip()'s guard at the top ("if (g_calypsoContextLost) return;")
-		 *       skips every GL call in the remainder of this iterate() tick — the
-		 *       flag is set synchronously inside this catch block, before flip()
-		 *       is reached in the same Game::run() iteration, so no GL call slips
-		 *       through between resume and re-pause.
-		 *   (b) The main loop is paused after this iterate() tick completes,
-		 *       giving the JS 13-s reload timer a chance to fire. */
-		Log(LOG_ERROR) << "M6g: recreateRendererGL failed — " << e.what();
-		g_calypsoContextLost = 1;
-		emscripten_pause_main_loop();
-	}
+	return Calypso::calypsoScreenRecreateRendererGL(*this);
 }
 #endif /* __EMSCRIPTEN__ */
 
@@ -249,18 +191,22 @@ void Screen::handle(Action *action)
 		 *
 		 * The SDL renderer and its streaming screen texture both hold internal GLES2
 		 * objects (shader programs, vertex buffer, texture handle) that were created
-		 * in the dead context.  SDL2's Emscripten/GLES2 backend has no
+		 * in the dead context. SDL2's Emscripten/GLES2 backend has no
 		 * webglcontextrestored handling, so those objects are permanently stale.
 		 *
-		 * Destroy and re-create the renderer chain first, then let reuploadAll()
-		 * restore our own GPU resources (GpuTexture atlases, ShaderManager programs,
-		 * FBOs).  The order is critical: recreateRendererGL() must run before
-		 * reuploadAll() so the new renderer establishes the fresh GL context that
-		 * reuploadAll() uploads into. */
+		 * Ordering (PR #51): recreateRendererGL() creates the replacement
+		 * window/renderer/context and runs the sentinel-aware probe (exactly one
+		 * 0x9242 within the bounded window, then GpuInit::init + contextReady).
+		 * Only after that does ShaderManager::reuploadAll() rebuild GPU objects.
+		 * The sentinel stays bounded to the recovery transaction; non-sentinel
+		 * GL errors still fail closed. */
 #ifdef __EMSCRIPTEN__
-		recreateRendererGL();
-#endif
+		// Guard R3: the whole reset transaction lives in CalypsoScreenRecovery.cpp.
+		if (!Calypso::calypsoScreenRecoveryCommit(*this))
+			return;
+#else
 		ShaderManager::instance().reuploadAll();
+#endif
 	}
 	else if (action->getDetails()->type == SDL_KEYDOWN && action->getDetails()->key.keysym.sym == SDLK_RETURN && (SDL_GetModState() & KMOD_ALT) != 0)
 	{
@@ -313,7 +259,9 @@ bool Screen::flip()
 		if (wW > 0 && wH > 0 &&
 		    (wW != Options::displayWidth || wH != Options::displayHeight || _forceCanvasRebase))
 		{
-			reflowCanvasFallback(wW, wH);
+			/* 10.2.9: true => an unauthorized canvas divergence was restored
+			 * this frame; skip presenting the stale HD frame. */
+			if (reflowCanvasFallback(wW, wH)) return false;
 		}
 	}
 	// Phase 46.2-HD: the HD overlay's per-frame metrics freeze + frame advance now
@@ -409,6 +357,12 @@ bool Screen::flip()
 	/* Upload the CPU surface (units, walls, HUD) as a texture and composite
 	 * it over whatever the pre-composite passes drew.  _texture blend mode is
 	 * SDL_BLENDMODE_BLEND so transparent surface pixels let GPU content show. */
+#ifdef __EMSCRIPTEN__
+	Calypso::calypsoScreenUploadLogicalTexture(*this);
+#else
+	/* Native non-OpenGL path (§16.1): keep the full historical composite.
+	 * CPU-scale the LOGICAL surface into the physical staging surface, then
+	 * upload that staging surface verbatim as the streaming texture. */
 	SDL_BlitScaled(_surface.get(), nullptr, _screen, nullptr);
 
 	void *texPixels;
@@ -428,7 +382,28 @@ bool Screen::flip()
 		}
 	}
 	SDL_UnlockTexture(_texture);
+#endif
+#ifdef __EMSCRIPTEN__
+	const bool hasWorldPasses = !_gpuPassesWorld.empty()
+		&& Calypso::CalypsoHdUiOverlay::instance().activeThisFrame();
+	if (hasWorldPasses && !Calypso::SdlCompositeBoundary::check("before SDL_RenderCopy"))
+		return false;
+#endif
+#ifdef __EMSCRIPTEN__
+	if (SDL_RenderCopy(_renderer, _texture, nullptr, nullptr) != 0)
+		Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Calypso HD logical composite failed");
+#else
+	/* Native: the GPU scales the uploaded staging texture to the window. */
 	SDL_RenderCopy(_renderer, _texture, nullptr, nullptr);
+#endif
+	#ifdef __EMSCRIPTEN__
+	if (hasWorldPasses && !Calypso::SdlCompositeBoundary::check("after SDL_RenderCopy"))
+		return false;
+	#endif
+
+#ifdef __EMSCRIPTEN__
+	if (!Calypso::calypsoScreenFlipWorldPass(*this, hasWorldPasses)) return false;
+#endif
 
 	/* Phase 46.2-HD: enabled HD UI + diagnostics stages draw above the legacy
 	 * composite and own presentation gating — renderStages() returns false when
@@ -436,7 +411,7 @@ bool Screen::flip()
 	 * Emscripten-only hook; native has no HD overlay, so presentOk stays true. */
 	bool presentOk = true;
 #ifdef __EMSCRIPTEN__
-	presentOk = Calypso::CalypsoHdUiOverlay::instance().renderStages(_renderer);
+	presentOk = Calypso::calypsoScreenRenderChrome(*this);
 #endif
 
 	/* GPU shader passes (Phase 8b): cursor, projectile, smoke — overlay on top.
@@ -587,26 +562,14 @@ void Screen::resetDisplay(bool resetVideo, bool noShaders)
 	}
 
 #ifdef __EMSCRIPTEN__
-	/* Emscripten: resize screen/texture when canvas size changed without full resetVideo. */
+	Calypso::calypsoScreenRefreshLogicalTexture(*this);
+#endif
+
+#ifdef __EMSCRIPTEN__
+	/* Emscripten: refresh the staging surface after a non-full canvas resize. */
 	if (!resetVideo && _window && _screen
 	    && (_screen->w != width || _screen->h != height))
-	{
-		if (_texture) { SDL_DestroyTexture(_texture);  _texture = nullptr; }
-		SDL_FreeSurface(_screen); _screen = nullptr;
-
-		_screen = SDL_CreateRGBSurface(0, width, height, 32,
-		    0x00FF0000u, 0x0000FF00u, 0x000000FFu, 0xFF000000u);
-		if (!_screen) throw Exception(SDL_GetError());
-
-		_texture = SDL_CreateTexture(_renderer, SDL_PIXELFORMAT_ARGB8888,
-		    SDL_TEXTUREACCESS_STREAMING, width, height);
-		if (!_texture) throw Exception(SDL_GetError());
-		// Phase 13.3: BLEND lets pre-composite GPU content show through transparent surface regions.
-		SDL_SetTextureBlendMode(_texture, SDL_BLENDMODE_BLEND);
-
-		Log(LOG_INFO) << "Display rebased: canvas=" << width << "x" << height
-		              << ", base=" << _baseWidth << "x" << _baseHeight;
-	}
+		Calypso::calypsoScreenRebaseStagingSurface(*this, width, height);
 #endif
 
 	if (resetVideo || !_window)
@@ -670,8 +633,14 @@ void Screen::resetDisplay(bool resetVideo, bool noShaders)
 		}
 		else
 		{
+			#ifdef __EMSCRIPTEN__
+			/* Browser vsync is owned by Game::run(); keep the hint pre-disabled. */
+			SDL_SetHint(SDL_HINT_RENDER_VSYNC, "0");
+			_renderer = SDL_CreateRenderer(_window, -1, SDL_RENDERER_ACCELERATED);
+			#else
 			_renderer = SDL_CreateRenderer(_window, -1,
 			    SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+			#endif
 			if (!_renderer)
 			{
 				Log(LOG_ERROR) << "SDL_CreateRenderer failed: " << SDL_GetError();
@@ -686,23 +655,21 @@ void Screen::resetDisplay(bool resetVideo, bool noShaders)
 				throw Exception(SDL_GetError());
 			}
 
-			_texture = SDL_CreateTexture(_renderer, SDL_PIXELFORMAT_ARGB8888,
-			    SDL_TEXTUREACCESS_STREAMING, width, height);
+#ifdef __EMSCRIPTEN__
+			/* §16.1: every Emscripten streaming texture goes through the factory. */
+			_texture = calypsoCreateLogicalStreamingTexture(_renderer);
 			if (!_texture)
 			{
 				Log(LOG_ERROR) << "SDL_CreateTexture failed: " << SDL_GetError();
 				throw Exception(SDL_GetError());
 			}
-			// Phase 13.3: BLEND lets pre-composite GPU content show through transparent surface regions.
+#else
+			_texture = SDL_CreateTexture(_renderer, SDL_PIXELFORMAT_ARGB8888,
+			    SDL_TEXTUREACCESS_STREAMING, width, height);
+			if (!_texture) throw Exception(SDL_GetError());
 			SDL_SetTextureBlendMode(_texture, SDL_BLENDMODE_BLEND);
-			// Force NEAREST scaling on the main display texture: preScaleHDBilinear
-			// (Surface.cpp) sets SDL_HINT_RENDER_SCALE_QUALITY=1 globally for HD
-			// pre-scaling and never restores it, so by the time we create the main
-			// display texture the hint is "1" → SDL bilinear-blurs base→display
-			// upscale and partial-alpha pixels at HD-overlay tile borders blend
-			// with neighboring transparent fragments, producing the visible thin
-			// dark "seam" between adjacent diamonds. NEAREST keeps tile edges crisp.
 			SDL_SetTextureScaleMode(_texture, SDL_ScaleModeNearest);
+#endif
 		}
 
 		Log(LOG_INFO) << "Display set: " << width << "x" << height
@@ -1089,6 +1056,53 @@ void Screen::registerGPUPass(std::function<void()> pass)
 void Screen::registerGPUPassPreComposite(std::function<void()> pass)
 {
 	_gpuPassesPre.push_back(std::move(pass));
+}
+
+Screen::WorldPassHandle Screen::registerGPUPassWorld(std::function<void()> pass)
+{
+	const std::uint64_t id = _nextGpuWorldPassId++;
+	WorldPassEntry entry{id, std::move(pass), false};
+	if (_gpuWorldPassDispatching)
+		_gpuPendingWorldPasses.push_back(std::move(entry));
+	else
+		_gpuPassesWorld.push_back(std::move(entry));
+	return {this, id};
+}
+
+void Screen::unregisterGPUPassWorld(WorldPassHandle handle)
+{
+	if (handle.owner != this || handle.id == 0u) return;
+	const auto markRemoved = [&handle](std::vector<WorldPassEntry>& entries) {
+		for (auto& entry : entries)
+		{
+			if (entry.id == handle.id)
+			{
+				entry.removed = true;
+				return true;
+			}
+		}
+		return false;
+	};
+	if (markRemoved(_gpuPassesWorld) || markRemoved(_gpuPendingWorldPasses))
+		_gpuWorldPassNeedsCompaction = true;
+}
+
+void Screen::finishGPUPassWorldDispatch()
+{
+	_gpuWorldPassDispatching = false;
+	if (!_gpuPendingWorldPasses.empty())
+	{
+		_gpuPassesWorld.insert(_gpuPassesWorld.end(),
+			std::make_move_iterator(_gpuPendingWorldPasses.begin()),
+			std::make_move_iterator(_gpuPendingWorldPasses.end()));
+		_gpuPendingWorldPasses.clear();
+	}
+	if (_gpuWorldPassNeedsCompaction)
+	{
+		_gpuPassesWorld.erase(std::remove_if(_gpuPassesWorld.begin(), _gpuPassesWorld.end(),
+			[](const WorldPassEntry& entry) { return entry.removed; }), _gpuPassesWorld.end());
+		_gpuWorldPassNeedsCompaction = false;
+	}
 }
 
 /**

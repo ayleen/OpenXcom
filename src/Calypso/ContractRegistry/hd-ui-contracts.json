@@ -93,6 +93,26 @@
       "harnessScenarioIds": [56]
     },
     {
+      "id": "f17-ufo-detected",
+      "contract": "f17-ufo-detected.json",
+      "emitter": "family",
+      "validationProfile": "contact-decision",
+      "native": { "namespace": "CalypsoF17UfoDetectedGen", "prefix": "CalypsoF17UfoDetected", "output": "CalypsoF17UfoDetected.generated.h" },
+      "browser": { "global": "CalypsoF17UfoDetected", "output": "f17-ufo-detected.js" },
+      "rendererOwnership": "contact-decision",
+      "harnessScenarioIds": [73]
+    },
+    {
+      "id": "f17-mission-detected",
+      "contract": "f17-mission-detected.json",
+      "emitter": "family",
+      "validationProfile": "contact-decision",
+      "native": { "namespace": "CalypsoF17MissionDetectedGen", "prefix": "CalypsoF17MissionDetected", "output": "CalypsoF17MissionDetected.generated.h" },
+      "browser": { "global": "CalypsoF17MissionDetected", "output": "f17-mission-detected.js" },
+      "rendererOwnership": "contact-decision",
+      "harnessScenarioIds": [74]
+    },
+    {
       "id": "geoscape-command-shell",
       "contract": "geoscape-command-shell.json",
       "emitter": "screen",

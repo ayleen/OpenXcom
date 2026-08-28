@@ -20,6 +20,12 @@ struct GpuInit
     static void init();
     /* Returns true iff GL3/ES3 functions are available. */
     static bool ready();
+    /* Mark the current context unusable until init() proves a replacement. */
+    static void invalidate();
+    /* Probe the current WebGL2 context without presenting anything. */
+    static bool contextReady();
+    /* Validated texture dimension limit captured at the reset boundary. */
+    static int maxTextureSize();
 
     /* Phase 25 (R0): true iff EXT_color_buffer_float is available, i.e. an
      * RGBA16F colour attachment can be rendered to (the HDR scene buffer).
@@ -41,5 +47,6 @@ private:
     static bool _ready;
     static bool _hdrColorBuffer;
     static bool _floatBlend;
+    static int _maxTextureSize;
 };
 } // namespace OpenXcom

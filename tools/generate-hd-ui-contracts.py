@@ -229,7 +229,7 @@ def validate_registry(registry):
     seen = {"id": set(), "contract": set(), "native output": set(), "browser output": set()}
     allowed_emitters = {"theme", "legacy-abandon", "family", "screen"}
     allowed_profiles = {"theme", "legacy-abandon", "family", "command-card",
-                        "small-confirmation", "content-block", "screen"}
+                        "small-confirmation", "contact-decision", "content-block", "screen"}
     for index, entry in enumerate(entries):
         where = "hd-ui-contracts.json: entries[" + str(index) + "]"
         if not isinstance(entry, dict):
@@ -285,12 +285,12 @@ def validate_family(doc, rel, profile, engine_text_calibration=False):
         fail(rel + ": schema must be 1")
     if not isinstance(doc.get("version"), str) or not VERSION_RE.match(doc.get("version", "")):
         fail(rel + ": version string required")
-    if profile == "small-confirmation":
+    if profile in {"small-confirmation", "contact-decision"}:
         form = doc.get("form") or {}
-        if form.get("archetype") != "small-confirmation" or not form.get("id"):
-            fail(rel + ": small-confirmation form identity required")
+        if form.get("archetype") != profile or not form.get("id"):
+            fail(rel + ": " + profile + " form identity required")
         if doc.get("style") is None or doc.get("layouts") is None:
-            fail(rel + ": small-confirmation form must carry style/layouts")
+            fail(rel + ": " + profile + " form must carry style/layouts")
         presentation = doc.get("presentation") or {}
         density = presentation.get("density")
         numerator = presentation.get("scaleNumerator")
@@ -887,9 +887,10 @@ def emit_f33_h(f33):
 
 
 def emit_small_confirmation_h(doc, rel, ns, prefix):
-    """Emitter for F21 small-confirmation forms (Abandon shell)."""
+    """Emitter for generated modal forms sharing the canonical renderer."""
     layouts = doc["layouts"]
     form = doc["form"]
+    copy = doc["copy"]
     style = doc["style"]
     m = doc["motion"]
     button_ids = [b["id"] for b in form["buttons"]]
@@ -902,8 +903,12 @@ def emit_small_confirmation_h(doc, rel, ns, prefix):
            'inline constexpr const char* kFormId = "' + form["id"] + '";',
            "inline constexpr int kFamilyId = " + str(form["familyId"]) + ";",
            'inline constexpr const char* kArchetype = "' + form["archetype"] + '";',
-           'inline constexpr const char* kSourceConfig = "' + form["source"] + '";',
-           ""]
+           'inline constexpr const char* kSourceConfig = "' + form["source"] + '";']
+    if form["archetype"] == "contact-decision":
+        out += [
+            'inline constexpr const char* kProtocol = ' + json.dumps(copy["protocol"], ensure_ascii=False) + ';',
+        ]
+    out.append("")
     presentation = doc.get("presentation") or {
         "density": "standard", "scaleNumerator": 1, "scaleDenominator": 1}
     out += ['inline constexpr const char* kDensityProfile = "' + presentation["density"] + '";',
@@ -1230,7 +1235,7 @@ def main(argv):
         elif entry["emitter"] == "screen":
             native_text = emit_screen_h(
                 doc, rel, native["namespace"], native["prefix"])
-        elif entry["validationProfile"] == "small-confirmation":
+        elif entry["validationProfile"] in {"small-confirmation", "contact-decision"}:
             native_text = emit_small_confirmation_h(
                 doc, rel, native["namespace"], native["prefix"])
         else:

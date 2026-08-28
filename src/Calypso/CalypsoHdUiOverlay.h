@@ -108,11 +108,18 @@ public:
 
 	const CalypsoHdPresentationMetrics& frozenMetrics() const { return _frozenMetrics; }
 	bool mayGoPhysical() const { return _mayGoPhysical; }
+	bool resourcesReadyForFrame() const;
 	std::uint64_t frameId() const { return _controller.frameId(); }
+	/// Monotonic GL context generation (bumped on every restore). Consumers
+	/// such as the live model snapshot cache key their caches by it.
+	std::uint64_t contextGeneration() const { return _contextGen; }
 
 	/// True once a subgroup (or the harness) committed physical output this
 	/// frame. Derived per frame; never sticky (A7).
 	bool activeThisFrame() const { return _activeThisFrame; }
+
+	/// Fail closed for a registered HD world route; never expose partial or vanilla output.
+	[[noreturn]] void failHdRoute(const std::string& detail);
 
 private:
 	CalypsoHdUiOverlay() = default;
@@ -139,7 +146,6 @@ private:
 	};
 
 	void beginFrame(int logicalWidth, int logicalHeight);
-	[[noreturn]] void failHdRoute(const std::string& detail);
 	void ensureGpu();
 	void onContextRestored();
 
@@ -186,6 +192,8 @@ private:
 	// current top state, so stacked popups of the same family each work when they
 	// become top again -- not just the last-registered one (GLM #3).
 	std::vector<const CalypsoHdFamilyAdapter*> _adapters;
+	const CalypsoHdFamilyAdapter* _activeAdapter = nullptr;
+	std::uint32_t _retryableReadinessFrames = 0;
 
 	// The ONE claim store: identity lives in _controller.claims(); this ephemeral
 	// map is the per-frame widget-ptr -> committed claim lookup used by blit().
@@ -218,6 +226,9 @@ private:
 	CalypsoLruByteBudget _textTexLru{ 16u * 1024u * 1024u };
 	std::uint64_t _texNextHandle = 1;
 	std::uint64_t _contextGen = 0;
+	// Context generation at which the last successful HD frame was prepared;
+	// drives the one-shot "ready after context restore" log line.
+	std::uint64_t _lastReadyContextGen = 0;
 	// Handles resolved THIS frame (referenced by _drawItems); never evicted/freed
 	// mid-frame so a later resolve can't dangle an already-queued texture
 	// (remediation Fable #3). Cleared each beginFrame.

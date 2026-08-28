@@ -54,7 +54,9 @@
 #include "../Interface/Cursor.h"
 #include "../Engine/Screen.h"
 #include "../Calypso/CalypsoGeoscapeProjection.h"
+#include "../Calypso/CalypsoGeoscapeQaPresentation.h"
 #include <limits>
+#include <new>
 #ifdef __EMSCRIPTEN__
 #  include "../Engine/GpuInit.h"
 #  include "../Engine/GpuTexture.h"
@@ -62,6 +64,7 @@
 #  include "../Engine/Shader.h"
 #  include "../Engine/ShaderManager.h"
 #  include "../Engine/Logger.h"
+#  include "../Engine/ShadeTable.h"
 #  include <GLES3/gl3.h>
 #  include <SDL.h>
 #  include <cmath>
@@ -74,10 +77,24 @@
  * carry C linkage; placing it outside `namespace OpenXcom { … }` below is
  * what makes the link symbol resolve. */
 extern "C" int g_calypsoProfileGlobe;
+extern "C" int g_calypsoGlobeGpuDirect;
 #endif
+
+#include "../Calypso/CalypsoGeoscapeHdGlobeDirect.h"
+#include "../Calypso/CalypsoGlobeHdSphere.h"
 
 namespace OpenXcom
 {
+
+
+void Globe::setGpuDirect(bool on)
+{
+#ifdef __EMSCRIPTEN__
+	CalypsoGeoscapeHdGlobeDirect::setGpuDirect(this, on);
+#else
+	(void)on;
+#endif
+}
 
 const double Globe::ROTATE_LONGITUDE = 0.10;
 const double Globe::ROTATE_LATITUDE = 0.06;
@@ -407,6 +424,22 @@ static bool isGlobePanButtonPressed()
 Globe::Globe(Game* game, int cenX, int cenY, int width, int height, int x, int y) : InteractiveSurface(width, height, x, y), _cenX(cenX), _cenY(cenY), _rotLon(0.0), _rotLat(0.0), _hoverLon(0.0), _hoverLat(0.0), _craftLon(0.0), _craftLat(0.0), _craftRange(0.0), _game(game), _hover(false), _craft(false), _blink(-1),
 																					_isMouseScrolling(false), _isMouseScrolled(false), _xBeforeMouseScrolling(0), _yBeforeMouseScrolling(0), _lonBeforeMouseScrolling(0.0), _latBeforeMouseScrolling(0.0), _mouseScrollingStartTime(0), _totalMouseMoveX(0), _totalMouseMoveY(0), _mouseMovedOverThreshold(false)
 {
+#ifdef __EMSCRIPTEN__
+	_gpuState = new Calypso::CalypsoGlobeGpuState();
+	/* New Base facility ranges are immutable after ruleset load. Canonicalize
+	 * them once so neither static radar publication nor pointer motion scans
+	 * the ruleset or grows a temporary vector. */
+	const auto& facilityTypes = _game->getMod()->getBaseFacilitiesList();
+	_gpuState->_hoverCanonicalRanges.reserve(facilityTypes.size());
+	for (const auto& facType : facilityTypes)
+		_gpuState->_hoverCanonicalRanges.push_back(
+			Nautical(_game->getMod()->getBaseFacility(facType)->getRadarRange()));
+	const size_t distinctHoverRanges = _gpuState->_hoverCanonicalRanges.empty()
+		? 0u
+		: Calypso::calypsoCanonicalizeHoverRanges(
+			&_gpuState->_hoverCanonicalRanges[0], _gpuState->_hoverCanonicalRanges.size());
+	_gpuState->_hoverCanonicalRanges.resize(distinctHoverRanges);
+#endif
 	_rules = game->getMod()->getGlobe();
 	_texture = new SurfaceSet(*_game->getMod()->getSurfaceSet("TEXTURE.DAT"));
 	_markerSet = _game->getMod()->getSurfaceSet("GlobeMarkers");
@@ -414,6 +447,18 @@ Globe::Globe(Game* game, int cenX, int cenY, int width, int height, int x, int y
 	_countries = new Surface(width, height, x, y);
 	_markers = new Surface(width, height, x, y);
 	_radars = new Surface(width, height, x, y);
+#ifdef __EMSCRIPTEN__
+	/* Warm the physical world batches once; steady-state frame publication only
+	 * clears and rewrites these existing vectors.  The hover-line batch is
+	 * warmed by its own CalypsoGeoscapeColoredLineBatchState constructor. */
+	_gpuState->_gpuBorderLines.reserve(GPU_BORDER_LINE_CAPACITY);
+	_gpuState->_gpuBorderVertices.reserve(GPU_BORDER_VERTEX_FLOAT_CAPACITY);
+	_gpuState->_gpuDebugLines.reserve(GPU_DEBUG_LINE_CAPACITY);
+	_gpuState->_gpuDebugVertices.reserve(GPU_DEBUG_VERTEX_FLOAT_CAPACITY);
+	_gpuState->_gpuLabelTextures.reserve(GPU_LABEL_TEXTURE_CAPACITY);
+	_gpuState->_gpuLabelIconPendingDraws.reserve(GPU_LABEL_DRAW_CAPACITY);
+	_gpuState->_gpuLabelIconCommittedDraws.reserve(GPU_LABEL_DRAW_CAPACITY);
+#endif
 	_clipper = new FastLineClip(x, x+width, y, y+height);
 
 	// ARGB pipeline: setPixel(idx) only writes to _paletteMirror if it exists.
@@ -464,11 +509,7 @@ Globe::~Globe()
 	}
 
 #ifdef __EMSCRIPTEN__
-	_gpuAliveFlag.reset();  // M6: expire reset callback before deleting GL objects
-	delete _globeShader;
-	if (_sphereFBO)    glDeleteFramebuffers(1,  &_sphereFBO);
-	if (_sphereFBOTex) glDeleteTextures(1,      &_sphereFBOTex);
-	if (_sphereVAO)    glDeleteVertexArrays(1,  &_sphereVAO);
+	CalypsoGeoscapeHdGlobeDirect::destroyGpuState(this);
 #endif
 }
 
@@ -852,7 +893,11 @@ bool Globe::targetNear(Target* target, int x, int y) const
 
 	int dx = x - tx;
 	int dy = y - ty;
-	return (dx * dx + dy * dy <= NEAR_RADIUS);
+	bool hdMarker = false;
+#ifdef __EMSCRIPTEN__
+	hdMarker = _gpuState && _gpuState->_gpuDirectMode;
+#endif
+	return Calypso::calypsoGeoscapeMarkerHit(dx, dy, hdMarker, NEAR_RADIUS);
 }
 
 /**
@@ -1001,6 +1046,9 @@ void Globe::setPalette(const SDL_Color *colors, int firstcolor, int ncolors)
 	_countries->setPalette(colors, firstcolor, ncolors);
 	_markers->setPalette(colors, firstcolor, ncolors);
 	_radars->setPalette(colors, firstcolor, ncolors);
+#ifdef __EMSCRIPTEN__
+	CalypsoGeoscapeHdGlobeDirect::invalidatePaletteCaches(this);
+#endif
 }
 
 /**
@@ -1037,341 +1085,11 @@ void Globe::rotate()
 }
 
 #ifdef __EMSCRIPTEN__
-/* ── GL state save/restore (local helper) ───────────────────────────────── */
-struct GlobeSphereGlSave
-{
-	GLint prog, vao, fbo; GLboolean blend, depth;
-	GLint vp[4];
-	void save()
-	{
-		glGetIntegerv(GL_CURRENT_PROGRAM,      &prog);
-		glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &vao);
-		glGetIntegerv(GL_FRAMEBUFFER_BINDING,  &fbo);
-		glGetIntegerv(GL_VIEWPORT,             vp);
-		blend = glIsEnabled(GL_BLEND);
-		depth = glIsEnabled(GL_DEPTH_TEST);
-	}
-	void restore()
-	{
-		glUseProgram((GLuint)prog);
-		glBindVertexArray((GLuint)vao);
-		glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)fbo);
-		glViewport(vp[0], vp[1], vp[2], vp[3]);
-		if (blend) glEnable(GL_BLEND);      else glDisable(GL_BLEND);
-		if (depth) glEnable(GL_DEPTH_TEST); else glDisable(GL_DEPTH_TEST);
-	}
-};
-
-/**
- * One-time GPU initialisation for the HD sphere path.
- * Called lazily from drawSphereGPU() on the first frame.
- */
-bool Globe::initSphereGPU()
-{
-	if (!GpuInit::ready()) return false;
-
-	_globeShader = new Shader();
-	if (!_globeShader->loadFromEmbedded("globe_sphere"))
-	{
-		Log(LOG_ERROR) << "Globe::initSphereGPU: shader compile failed";
-		delete _globeShader; _globeShader = nullptr;
-		return false;
-	}
-
-	/* Fullscreen-quad VAO (NDC -1..+1, UV 0..1). */
-	float verts[] = {
-		-1.f,-1.f, 0.f,0.f,   1.f,-1.f, 1.f,0.f,  -1.f, 1.f, 0.f,1.f,
-		-1.f, 1.f, 0.f,1.f,   1.f,-1.f, 1.f,0.f,   1.f, 1.f, 1.f,1.f,
-	};
-	GLuint vbo = 0u;
-	glGenVertexArrays(1, &_sphereVAO);
-	glBindVertexArray(_sphereVAO);
-	glGenBuffers(1, &vbo);
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW);
-	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4*sizeof(float), (void*)0);
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4*sizeof(float), (void*)(2*sizeof(float)));
-	glEnableVertexAttribArray(1);
-	glBindVertexArray(0);
-	/* VBO is owned by the VAO after bind; no need to keep a separate handle. */
-
-	/* FBO + colour attachment (same size as globe surface). */
-	int w = getWidth(), h = getHeight();
-	glGenTextures(1, &_sphereFBOTex);
-	glBindTexture(GL_TEXTURE_2D, _sphereFBOTex);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glBindTexture(GL_TEXTURE_2D, 0u);
-
-	glGenFramebuffers(1, &_sphereFBO);
-	glBindFramebuffer(GL_FRAMEBUFFER, _sphereFBO);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, _sphereFBOTex, 0);
-	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-	glBindFramebuffer(GL_FRAMEBUFFER, 0u);
-	if (status != GL_FRAMEBUFFER_COMPLETE)
-	{
-		Log(LOG_ERROR) << "Globe::initSphereGPU: FBO incomplete (status=" << (int)status << ")";
-		return false;
-	}
-
-	_gpuSphereOK = true;
-	Log(LOG_INFO) << "Globe::initSphereGPU: ready (" << w << "x" << h << ")";
-
-	/* M6: register a ShaderManager reset callback so a real WebGL context
-	 * loss (GPU crash, iOS tab switch) is handled correctly.  On restore,
-	 * reuploadAll() re-compiles _globeShader via Shader::reupload(); this
-	 * callback nulls the raw GL handles and clears _gpuSphereOK so the
-	 * next drawSphereGPU() call re-runs initSphereGPU() to rebuild them. */
-	_gpuAliveFlag = std::make_shared<bool>(true);
-	ShaderManager::instance().registerResetCallback(_gpuAliveFlag, [this]() {
-		_sphereVAO    = 0u;
-		_sphereFBO    = 0u;
-		_sphereFBOTex = 0u;
-		_gpuSphereOK  = false;
-	});
-
-	return true;
-}
-
-/**
- * Sun direction in the fixed world frame the GPU shader uses.
- * World frame: Y = north pole, X = +90° lon (east), Z = 0° lon (prime meridian).
- * This is independent of the observer position — unlike getSunDirection(lon, lat)
- * which returns a camera-relative vector.
- */
-Cord Globe::getSunDirectionWorld() const
-{
-	const double rot = _game->getSavedGame()->getTime()->getDaylight() * 2*M_PI;
-	double decl = 0;
-	if (Options::globeSeasons)
-	{
-		const int MonthDays1[] = {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365};
-		const int MonthDays2[] = {0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335, 366};
-
-		int year  = _game->getSavedGame()->getTime()->getYear();
-		int month = _game->getSavedGame()->getTime()->getMonth()-1;
-		int day   = _game->getSavedGame()->getTime()->getDay()-1;
-
-		double tm = (double)((_game->getSavedGame()->getTime()->getHour() * 60
-			+ _game->getSavedGame()->getTime()->getMinute()) * 60
-			+ _game->getSavedGame()->getTime()->getSecond()) / 86400.0;
-
-		double CurDay;
-		if (year%4 == 0 && !(year%100 == 0 && year%400 != 0))
-			CurDay = (MonthDays2[month] + day + tm)/366 - 0.219;
-		else
-			CurDay = (MonthDays1[month] + day + tm)/365 - 0.219;
-		if (CurDay < 0) CurDay += 1.;
-
-		decl = -0.261 * sin(CurDay * 2*M_PI);
-	}
-	// Subsolar point lon = π/2 − rot, lat = decl.
-	// getDaylight()=0 corresponds to 6h GMT (sub-solar at 90° E), daylight=0.25
-	// is noon at Greenwich (sub-solar at 0°), so the offset from rot is +π/2.
-	const double sunLon = M_PI / 2.0 - rot;
-	return Cord(cos(decl) * sin(sunLon),
-	            sin(decl),
-	            cos(decl) * cos(sunLon));
-}
-
-void Globe::drawHDStarfield()
-{
-	if (!isARGB()) return;
-
-	const int w = getWidth();
-	const int h = getHeight();
-	const double globeLimit = (_zoomRadius[_zoom] + 5.0) * (_zoomRadius[_zoom] + 5.0);
-
-	lock();
-	for (int y = 0; y < h; ++y)
-	{
-		const float t = (h > 1) ? (float)y / (float)(h - 1) : 0.f;
-		const Uint8 r = (Uint8)(1 + t * 2);
-		const Uint8 g = (Uint8)(5 + t * 9);
-		const Uint8 b = (Uint8)(17 + t * 18);
-		const Uint32 bg = 0xFF000000u | ((Uint32)r << 16) | ((Uint32)g << 8) | (Uint32)b;
-		for (int x = 0; x < w; ++x)
-		{
-			setPixel32(x, y, bg);
-		}
-	}
-
-	/* Deterministic sparse stars: bright enough to give the globe a space
-	 * setting, sparse enough to avoid fighting Geoscape labels and markers. */
-	const float twinkleTime = (float)SDL_GetTicks() * 0.0017f;
-	for (unsigned i = 0; i < 125; ++i)
-	{
-		unsigned n = i * 747796405u + 2891336453u;
-		n = ((n >> ((n >> 28u) + 4u)) ^ n) * 277803737u;
-		n = (n >> 22u) ^ n;
-		const int x = (int)(n % (unsigned)w);
-		const int y = (int)((n / (unsigned)w) % (unsigned)h);
-		const double dx = (double)x - (double)_cenX;
-		const double dy = (double)y - (double)_cenY;
-		if (dx * dx + dy * dy < globeLimit) continue;
-
-		const float phase = (float)((n >> 8u) & 0xFFu) * 0.024543693f;
-		const float pulse = 0.62f + 0.38f * (0.5f + 0.5f * sinf(twinkleTime + phase));
-		const Uint8 v = (Uint8)((100 + (n & 0x7Fu)) * pulse);
-		const Uint32 star = 0xFF000000u
-			| ((Uint32)(v * 78 / 100) << 16)
-			| ((Uint32)(v * 92 / 100) << 8)
-			| (Uint32)v;
-		setPixel32(x, y, star);
-		if ((n & 0x0Fu) == 0 && x + 1 < w) setPixel32(x + 1, y, star);
-		if ((n & 0x1Fu) == 0 && y + 1 < h) setPixel32(x, y + 1, star);
-	}
-	unlock();
-}
-
-/**
- * Renders the HD sphere using the GPU shader pipeline and reads the pixels
- * back into this Surface so the existing CPU overlay (polylines, markers,
- * text) can be composited on top in the same Globe::draw() call.
- *
- * Performance: glReadPixels for the globe surface is ~0.2–1 ms on typical
- * hardware; acceptable for a 60 fps Geoscape.
- */
-void Globe::drawSphereGPU()
-{
-	if (!_gpuSphereOK && !initSphereGPU()) return;
-
-	Mod* mod = _game->getMod();
-	GpuTexture* bathyTex   = mod->getGlobeTexture("bathymetry");
-	GpuTexture* diffuseTex = mod->getGlobeTexture("diffuse");
-	GpuTexture* nightTex   = mod->getGlobeTexture("night");
-	GpuTexture* cloudsTex  = mod->getGlobeTexture("clouds");
-	if (!bathyTex || !diffuseTex || !nightTex || !cloudsTex) return;
-
-	int w = getWidth(), h = getHeight();
-
-	/* Phase 8c.10 perf instrumentation: wall-clock GPU pass time.  ENTIRELY
-	 * gated on ::g_calypsoProfileGlobe — when the flag is 0 (production
-	 * default) the GpuTimer object is never constructed and steady_clock is
-	 * never read, so the path costs one int load + one branch-not-taken.
-	 * Sampled at the local level instead of Screen::registerGPUPass because
-	 * Globe's draw cycle does FBO render + glReadPixels synchronously into
-	 * _surface; restructuring would have been disproportionate. */
-	const int profileGlobe = ::g_calypsoProfileGlobe;
-	GpuTimer perfTimer;
-	if (profileGlobe) perfTimer.start();
-
-	GlobeSphereGlSave st; st.save();
-
-	/* Render sphere to FBO. */
-	glBindFramebuffer(GL_FRAMEBUFFER, _sphereFBO);
-	glViewport(0, 0, w, h);
-	glClearColor(0.f, 0.f, 0.f, 0.f);
-	glClear(GL_COLOR_BUFFER_BIT);
-	glDisable(GL_BLEND);
-	glDisable(GL_DEPTH_TEST);
-
-	_globeShader->use();
-
-	bathyTex ->bind(0);
-	diffuseTex->bind(1);
-	nightTex ->bind(2);
-	cloudsTex ->bind(3);
-	_globeShader->setUniform1i("u_bathymetry", 0);
-	_globeShader->setUniform1i("u_diffuse",    1);
-	_globeShader->setUniform1i("u_night",      2);
-	_globeShader->setUniform1i("u_clouds",     3);
-
-	/* Viewport and globe geometry. */
-	_globeShader->setUniform2f("u_viewportSize", (float)w, (float)h);
-	_globeShader->setUniform2f("u_globeCenter",  (float)_cenX, (float)_cenY);
-	_globeShader->setUniform1f("u_globeRadius",  (float)_zoomRadius[_zoom]);
-	_globeShader->setUniform1f("u_camLat",       (float)_cenLat);
-	_globeShader->setUniform1f("u_camLon",       (float)_cenLon);
-
-	/* Sun direction in world frame (8c.5 fix: was camera-relative, now world frame). */
-	Cord sd = getSunDirectionWorld();
-	_globeShader->setUniform3f("u_sunDir", (float)sd.x, (float)sd.y, (float)sd.z);
-
-	/* Cloud drift time. */
-	_globeShader->setUniform1f("u_time", (float)SDL_GetTicks() * 0.001f);
-
-	/* Mip level curve: keep the overview detailed enough that land does not
-	 * read as a low-res smear; the globe is small, but 1k mips are too soft. */
-	float mipLvl = std::max(0.f, std::min(1.35f, 1.35f - (float)_zoom * 0.27f));
-	_globeShader->setUniform1f("u_mipLevel", mipLvl);
-
-	glBindVertexArray(_sphereVAO);
-	glDrawArrays(GL_TRIANGLES, 0, 6);
-	glBindVertexArray(0u);
-
-	/* Read back RGBA pixels from FBO; FBO rows are bottom-up, SDL is top-down. */
-	std::vector<uint8_t> rgba((size_t)w * h * 4);
-	glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, rgba.data());
-
-	/* Unbind our textures from units 0..3 and reset the active unit to 0.
-	 * SDL2's renderer reuses these units for SDL_Texture rendering and would
-	 * otherwise pick up our globe textures, blasting them across the canvas
-	 * (sphere shader output is overridden by raw bathymetry on UI blits). */
-	for (int i = 3; i >= 0; --i) {
-		glActiveTexture(GL_TEXTURE0 + i);
-		glBindTexture(GL_TEXTURE_2D, 0u);
-	}
-
-	st.restore();
-
-	/* Convert RGBA (GL) → ARGB8888 (SDL little-endian) and flip Y.
-	 * SDL_PIXELFORMAT_ARGB8888 memory layout: byte0=B, byte1=G, byte2=R, byte3=A. */
-	lock();
-	uint8_t* dst   = reinterpret_cast<uint8_t*>(getSurface()->pixels);
-	int      pitch = getSurface()->pitch;
-	for (int y = 0; y < h; ++y)
-	{
-		const uint8_t* src = rgba.data() + (size_t)(h - 1 - y) * w * 4;
-		uint8_t*       row = dst + y * pitch;
-		for (int x = 0; x < w; ++x)
-		{
-			const uint8_t a = src[x*4 + 3];
-			if (a == 0) continue; // discarded by shader — preserve starfield
-			if (a == 255)
-			{
-				row[x*4 + 0] = src[x*4 + 2]; /* B */
-				row[x*4 + 1] = src[x*4 + 1]; /* G */
-				row[x*4 + 2] = src[x*4 + 0]; /* R */
-				row[x*4 + 3] = 255;
-			}
-			else
-			{
-				const int inv = 255 - a;
-				row[x*4 + 0] = (uint8_t)((src[x*4 + 2] * a + row[x*4 + 0] * inv) / 255);
-				row[x*4 + 1] = (uint8_t)((src[x*4 + 1] * a + row[x*4 + 1] * inv) / 255);
-				row[x*4 + 2] = (uint8_t)((src[x*4 + 0] * a + row[x*4 + 2] * inv) / 255);
-				row[x*4 + 3] = 255;
-			}
-		}
-	}
-	unlock();
-
-	/* Perf log is opt-in via JS-side calypso_set_profile_globe(1)
-	 * (EmscriptenHarness).  Production builds never call the setter so
-	 * g_calypsoProfileGlobe stays 0, perfTimer was never started, and
-	 * the entire branch below is skipped — zero clock reads, zero
-	 * accumulator math, zero log output. */
-	if (profileGlobe)
-	{
-		perfTimer.stop();
-		static long long s_accumUs = 0;
-		static unsigned  s_frameCount = 0;
-		s_accumUs += perfTimer.elapsedUs();
-		const unsigned BATCH = 30u;
-		if (++s_frameCount >= BATCH)
-		{
-			Log(LOG_INFO) << "Globe::drawSphereGPU avg: "
-			              << (s_accumUs / (long long)s_frameCount) << " us/frame"
-			              << " (" << w << "x" << h << ", n=" << s_frameCount
-			              << ", readback included)";
-			s_accumUs    = 0;
-			s_frameCount = 0;
-		}
-	}
-}
+/* Guard R3: HD sphere bodies moved to CalypsoCalypsoGlobeHdSphere.cpp. */
+bool Globe::initSphereGPU() { return Calypso::calypsoGlobeInitSphereGPU(*this); }
+Cord Globe::getSunDirectionWorld() const { return Calypso::calypsoGlobeSunDirectionWorld(*this); }
+void Globe::drawHDStarfield() { Calypso::calypsoGlobeDrawHDStarfield(*this); }
+void Globe::drawSphereGPU() { Calypso::calypsoGlobeDrawSphereGPU(*this); }
 #endif /* __EMSCRIPTEN__ */
 
 /**
@@ -1390,8 +1108,15 @@ void Globe::draw()
 #ifdef __EMSCRIPTEN__
 	if (_game->getMod()->hasGlobeTextures())
 	{
-		drawHDStarfield();
-		drawSphereGPU(); /* renders sphere + reads back; CPU overlays follow */
+        if (_gpuState->_gpuDirectMode)
+        {
+            clear(); // overlay-only surface; sphere arrives via PreComposite pass
+        }
+        else
+        {
+            drawHDStarfield();
+            drawSphereGPU(); /* renders sphere + reads back; CPU overlays follow */
+        }
 	}
 	else
 #endif
@@ -1399,8 +1124,38 @@ void Globe::draw()
 		drawOcean();
 		drawLand();
 	}
-	drawRadars();
-	drawFlights();
+#ifdef __EMSCRIPTEN__
+	/* Review-corrected lifecycle: the cache verdict decides whether the
+	 * radar/flight CPU generation runs at all this frame. A hit keeps the
+	 * committed packed vertices and uploaded VBO untouched. */
+	const bool calypsoRadarCacheHit = _gpuState->_gpuDirectMode
+		&& CalypsoGeoscapeHdGlobeDirect::beginRadarFlightFrame(this);
+	if (!calypsoRadarCacheHit)
+#endif
+	{
+#ifdef __EMSCRIPTEN__
+		const Uint64 calypsoRecordStart = Calypso::calypsoRadarCountersEnabled()
+			? SDL_GetPerformanceCounter() : 0;
+		/* §16.5: redirect recordRadarFlightLine into the static batch during
+		 * radar/flight recording.  Hover circles use a separate batch. */
+		_gpuState->_activeLineBatch = &_gpuState->_coloredLineBatch;
+#endif
+		drawRadars();
+		drawFlights();
+#ifdef __EMSCRIPTEN__
+		_gpuState->_activeLineBatch = nullptr;
+		if (calypsoRecordStart)
+			Calypso::calypsoRadarCounters().radarPrepareUs +=
+				(Uint64)((SDL_GetPerformanceCounter() - calypsoRecordStart) * 1000000ull / SDL_GetPerformanceFrequency());
+#endif
+	}
+#ifdef __EMSCRIPTEN__
+	if (_gpuState->_gpuDirectMode)
+	{
+		CalypsoGeoscapeHdGlobeDirect::finishRadarFlightFrame(this, !calypsoRadarCacheHit);
+		Calypso::calypsoGlobeHoverOverlayFrame(*this);
+	}
+#endif
 #ifdef __EMSCRIPTEN__
 	if (!_game->getMod()->hasGlobeTextures())
 #endif
@@ -1409,6 +1164,10 @@ void Globe::draw()
 	}
 	drawMarkers();
 	drawDetail();
+#ifdef __EMSCRIPTEN__
+	if (_gpuState->_gpuDirectMode)
+		CalypsoGeoscapeHdGlobeDirect::commitLabelIconSnapshot(this);
+#endif
 }
 
 
@@ -1604,13 +1363,20 @@ void Globe::XuLine(Surface* surface, Surface* src, double x1, double y1, double 
 void Globe::drawRadars()
 {
 	_radars->clear();
+	/* Review fix: batch clearing moved OUT of per-frame owners. It happens
+	 * exactly once per snapshot MISS inside beginRadarFlightFrame, so a cache
+	 * hit performs zero command destruction and zero regeneration. */
 
 	if (!Options::globeRadarLines)
 		return;
 
 	double tr, range;
 	double lat, lon;
+#ifdef __EMSCRIPTEN__
+	const std::vector<double>& ranges = _gpuState->_hoverCanonicalRanges;
+#else
 	std::vector<double> ranges;
+#endif
 
 	_radars->lock();
 
@@ -1626,12 +1392,14 @@ void Globe::drawRadars()
 
 	if (_hover)
 	{
+#ifndef __EMSCRIPTEN__
 		for (auto& facType : _game->getMod()->getBaseFacilitiesList())
 		{
 			range = Nautical(_game->getMod()->getBaseFacility(facType)->getRadarRange());
 			drawGlobeCircle(_hoverLat,_hoverLon,range,48);
 			if (Options::globeAllRadarsOnBaseBuild) ranges.push_back(range);
 		}
+#endif
 	}
 
 	// Draw radars around bases
@@ -1714,13 +1482,31 @@ void Globe::drawRadars()
 	_radars->unlock();
 }
 
+#ifdef __EMSCRIPTEN__
+/**
+ * §16.5: record hover radar circles into the separate _gpuState->_hoverLineBatch overlay.
+ * Called from Globe::draw() every frame when hover is active, regardless of
+ * whether the static radar/flight cache hit.  The hover batch is cleared and
+ * refilled only when observable inputs (position, viewport) change; otherwise
+ * the committed VBO is redrawn without touching CPU geometry.
+ *
+ * Canonical hover ranges are precomputed into owned storage during Globe
+ * construction, so the frame path never scans facilities or grows a vector.
+ */
+void Globe::drawHoverCircles()
+{
+	Calypso::calypsoGlobeDrawHoverCircles(*this);
+}
+
+#endif
+
 /**
  *	Draw globe range circle
  */
 void Globe::drawGlobeCircle(double lat, double lon, double radius, int segments, int frac)
 {
 	double x, y, x2 = 0, y2 = 0;
-	double lat1, lon1;
+	double lat1, lon1, lat2 = 0, lon2 = 0;
 	double seg = M_PI / (static_cast<double>(segments) / 2);
 	int i = 0;
 	for (double az = 0; az <= M_PI*2+0.01; az+=seg) //48 circle segments
@@ -1733,28 +1519,64 @@ void Globe::drawGlobeCircle(double lat, double lon, double radius, int segments,
 		{
 			x2=x;
 			y2=y;
+			lon2=lon1;
+			lat2=lat1;
 			continue;
 		}
-		if (!pointBack(lon1,lat1) && i % frac == 0)
-			XuLine(_radars, this, x, y, x2, y2, 6);
-		x2=x; y2=y;
+		if (i % frac == 0)
+		{
+#ifdef __EMSCRIPTEN__
+			if (_gpuState->_gpuDirectMode)
+				CalypsoGeoscapeHdGlobeDirect::recordRadarFlightLine(
+					this, x, y, x2, y2, lon1, lat1, lon2, lat2, 6);
+			else
+#endif
+			if (!pointBack(lon1,lat1))
+				XuLine(_radars, this, x, y, x2, y2, 6);
+		}
+		x2=x; y2=y; lon2=lon1; lat2=lat1;
 		i++;
 	}
 }
 
 void Globe::setNewBaseHover(bool hover)
 {
+#ifdef __EMSCRIPTEN__
+	const bool changed = hover != _hover;
+	if (hover && changed)
+		_gpuState->_hoverOverlayDirty = true;
+#endif
 	_hover=hover;
+#ifdef __EMSCRIPTEN__
+	/* Coordinate-only hover motion deliberately skips Surface invalidation.
+	 * Publish enable/disable edges directly so the world pass never waits for
+	 * an unrelated Globe::draw() before showing or clearing the overlay. */
+	if (changed && _gpuState->_gpuDirectMode)
+		Calypso::calypsoGlobeHoverOverlayFrame(*this);
+#endif
 }
 
 void Globe::setNewBaseHoverPos(double lon, double lat)
 {
 	_hoverLon=lon;
 	_hoverLat=lat;
+#ifdef __EMSCRIPTEN__
+	/* The dynamic overlay owns this event path independently of the static
+	 * radar Surface/cache. The subsequent world pass uploads it exactly once. */
+	if (_hover && _gpuState->_gpuDirectMode)
+		Calypso::calypsoGlobeHoverOverlayFrame(*this);
+#endif
 }
 
 void Globe::drawVHLine(Surface *surface, double lon1, double lat1, double lon2, double lat2, Uint8 color)
 {
+#ifdef __EMSCRIPTEN__
+	if (_gpuState->_gpuDirectMode && surface == _countries)
+	{
+		CalypsoGeoscapeHdGlobeDirect::recordDebugLine(this, lon1, lat1, lon2, lat2, color);
+		return;
+	}
+#endif
 	double sx = lon2 - lon1;
 	double sy = lat2 - lat1;
 	double ln1, lt1, ln2, lt2;
@@ -1801,9 +1623,24 @@ void Globe::drawVHLine(Surface *surface, double lon1, double lat1, double lon2, 
 void Globe::drawDetail()
 {
 	_countries->clear();
+#ifdef __EMSCRIPTEN__
+	if (_gpuState->_gpuDirectMode)
+	{
+		_gpuState->_gpuBorderLines.clear();
+		_gpuState->_gpuDebugLines.clear();
+		_gpuState->_gpuDebugVertices.clear();
+		_gpuState->_gpuLabelIconPendingDraws.clear();
+		_gpuState->_gpuLabelCapacityExceeded = false;
+		_gpuState->_gpuBorderCapacityExceeded = false;
+		_gpuState->_gpuDebugCapacityExceeded = false;
+		_gpuState->_gpuLogicalWorldComplete = true;
+	}
+#endif
 
 	if (!Options::globeDetail)
+	{
 		return;
+	}
 
 	// Draw the country borders
 	if (_zoom >= 1)
@@ -1824,7 +1661,12 @@ void Globe::drawDetail()
 				polarToCart(polyline->getLongitude(j), polyline->getLatitude(j), &x[0], &y[0]);
 				polarToCart(polyline->getLongitude(j + 1), polyline->getLatitude(j + 1), &x[1], &y[1]);
 
-				_countries->drawLine(x[0], y[0], x[1], y[1], LINE_COLOR);
+#ifdef __EMSCRIPTEN__
+				if (_gpuState->_gpuDirectMode)
+					CalypsoGeoscapeHdGlobeDirect::recordBorderLine(this, x[0], y[0], x[1], y[1]);
+				else
+#endif
+					_countries->drawLine(x[0], y[0], x[1], y[1], LINE_COLOR);
 			}
 		}
 
@@ -1835,10 +1677,16 @@ void Globe::drawDetail()
 	// Draw the country names
 	if (_zoom >= 2)
 	{
-		Text *label = new Text(150, 9, 0, 0);
-		label->setPalette(getEffectivePalette());
-		label->initText(_game->getMod()->getFont("FONT_BIG"), _game->getMod()->getFont("FONT_SMALL"), _game->getLanguage());
-		label->setAlign(ALIGN_CENTER);
+		Text *label = nullptr;
+#ifdef __EMSCRIPTEN__
+		if (!_gpuState->_gpuDirectMode)
+#endif
+		{
+			label = new Text(150, 9, 0, 0);
+			label->setPalette(getEffectivePalette());
+			label->initText(_game->getMod()->getFont("FONT_BIG"), _game->getMod()->getFont("FONT_SMALL"), _game->getLanguage());
+			label->setAlign(ALIGN_CENTER);
+		}
 
 		Sint16 x, y;
 		for (auto* country : *_game->getSavedGame()->getCountries())
@@ -1850,15 +1698,24 @@ void Globe::drawDetail()
 			// Convert coordinates
 			polarToCart(country->getRules()->getLabelLongitude(), country->getRules()->getLabelLatitude(), &x, &y);
 
-			label->setX(x - 75);
-			label->setY(y);
-			label->setText(_game->getLanguage()->getString(country->getRules()->getType()));
-			label->setColor(COUNTRY_LABEL_COLOR);
-			if (country->getRules()->getLabelColor() > 0)
+			if (label)
 			{
-				label->setColor(country->getRules()->getLabelColor());
+				label->setX(x - 75);
+				label->setY(y);
+				label->setText(_game->getLanguage()->getString(country->getRules()->getType()));
+				label->setColor(COUNTRY_LABEL_COLOR);
+				if (country->getRules()->getLabelColor() > 0)
+					label->setColor(country->getRules()->getLabelColor());
 			}
-			label->blit(_countries->getSurface());
+#ifdef __EMSCRIPTEN__
+			if (_gpuState->_gpuDirectMode)
+				CalypsoGeoscapeHdGlobeDirect::recordLabelText(this,
+					_game->getLanguage()->getString(country->getRules()->getType()), 150, 9,
+					x - 75, y, country->getRules()->getLabelColor() > 0
+						? country->getRules()->getLabelColor() : COUNTRY_LABEL_COLOR);
+			else
+#endif
+				label->blit(_countries->getSurface());
 		}
 
 		delete label;
@@ -1866,10 +1723,16 @@ void Globe::drawDetail()
 
 	// Draw extra globe labels
 	{
-		Text *label = new Text(120, 18, 0, 0);
-		label->setPalette(getEffectivePalette());
-		label->initText(_game->getMod()->getFont("FONT_BIG"), _game->getMod()->getFont("FONT_SMALL"), _game->getLanguage());
-		label->setAlign(ALIGN_CENTER);
+		Text *label = nullptr;
+#ifdef __EMSCRIPTEN__
+		if (!_gpuState->_gpuDirectMode)
+#endif
+		{
+			label = new Text(120, 18, 0, 0);
+			label->setPalette(getEffectivePalette());
+			label->initText(_game->getMod()->getFont("FONT_BIG"), _game->getMod()->getFont("FONT_SMALL"), _game->getLanguage());
+			label->setAlign(ALIGN_CENTER);
+		}
 
 		Sint16 x, y;
 		for (auto& extraLabelType : _game->getMod()->getExtraGlobeLabelsList())
@@ -1883,16 +1746,24 @@ void Globe::drawDetail()
 
 				// Convert coordinates
 				polarToCart(rule->getLabelLongitude(), rule->getLabelLatitude(), &x, &y);
-
-				label->setX(x - 60);
-				label->setY(y);
-				label->setText(_game->getLanguage()->getString(rule->getType()));
-				label->setColor(COUNTRY_LABEL_COLOR);
-				if (rule->getLabelColor() > 0)
+				if (label)
 				{
-					label->setColor(rule->getLabelColor());
+					label->setX(x - 60);
+					label->setY(y);
+					label->setText(_game->getLanguage()->getString(rule->getType()));
+					label->setColor(COUNTRY_LABEL_COLOR);
+					if (rule->getLabelColor() > 0)
+						label->setColor(rule->getLabelColor());
 				}
-				label->blit(_countries->getSurface());
+#ifdef __EMSCRIPTEN__
+				if (_gpuState->_gpuDirectMode)
+					CalypsoGeoscapeHdGlobeDirect::recordLabelText(this,
+						_game->getLanguage()->getString(rule->getType()), 120, 18,
+						x - 60, y, rule->getLabelColor() > 0
+							? rule->getLabelColor() : COUNTRY_LABEL_COLOR);
+				else
+#endif
+					label->blit(_countries->getSurface());
 			}
 		}
 		delete label;
@@ -1901,11 +1772,17 @@ void Globe::drawDetail()
 	// Draw the city and base markers
 	if (_zoom >= 3)
 	{
-		Text *label = new Text(100, 9, 0, 0);
-		label->setPalette(getEffectivePalette());
-		label->initText(_game->getMod()->getFont("FONT_BIG"), _game->getMod()->getFont("FONT_SMALL"), _game->getLanguage());
-		label->setAlign(ALIGN_CENTER);
-		label->setColor(CITY_LABEL_COLOR);
+		Text *label = nullptr;
+#ifdef __EMSCRIPTEN__
+		if (!_gpuState->_gpuDirectMode)
+#endif
+		{
+			label = new Text(100, 9, 0, 0);
+			label->setPalette(getEffectivePalette());
+			label->initText(_game->getMod()->getFont("FONT_BIG"), _game->getMod()->getFont("FONT_SMALL"), _game->getLanguage());
+			label->setAlign(ALIGN_CENTER);
+			label->setColor(CITY_LABEL_COLOR);
+		}
 
 		Sint16 x, y;
 		for (auto* region : *_game->getSavedGame()->getRegions())
@@ -1921,10 +1798,19 @@ void Globe::drawDetail()
 				// Convert coordinates
 				polarToCart(city->getLongitude(), city->getLatitude(), &x, &y);
 
-				label->setX(x - 50);
-				label->setY(y + 2);
-				label->setText(city->getName(_game->getLanguage()));
-				label->blit(_countries->getSurface());
+				if (label)
+				{
+					label->setX(x - 50);
+					label->setY(y + 2);
+					label->setText(city->getName(_game->getLanguage()));
+				}
+#ifdef __EMSCRIPTEN__
+				if (_gpuState->_gpuDirectMode)
+					CalypsoGeoscapeHdGlobeDirect::recordLabelText(this,
+						city->getName(_game->getLanguage()), 100, 9, x - 50, y + 2, CITY_LABEL_COLOR);
+				else
+#endif
+					label->blit(_countries->getSurface());
 			}
 		}
 		// Draw bases names
@@ -1933,11 +1819,20 @@ void Globe::drawDetail()
 			if (xbase->getMarker() == -1 || pointBack(xbase->getLongitude(), xbase->getLatitude()))
 				continue;
 			polarToCart(xbase->getLongitude(), xbase->getLatitude(), &x, &y);
-			label->setX(x - 50);
-			label->setY(y + 2);
-			label->setColor(BASE_LABEL_COLOR);
-			label->setText(xbase->getName());
-			label->blit(_countries->getSurface());
+			if (label)
+			{
+				label->setX(x - 50);
+				label->setY(y + 2);
+				label->setColor(BASE_LABEL_COLOR);
+				label->setText(xbase->getName());
+			}
+#ifdef __EMSCRIPTEN__
+			if (_gpuState->_gpuDirectMode)
+				CalypsoGeoscapeHdGlobeDirect::recordLabelText(this,
+					xbase->getName(), 100, 9, x - 50, y + 2, BASE_LABEL_COLOR);
+			else
+#endif
+				label->blit(_countries->getSurface());
 		}
 
 		delete label;
@@ -1945,92 +1840,22 @@ void Globe::drawDetail()
 
 	int& debugType = _game->getSavedGame()->debugType;
 	static bool canSwitchDebugType = false;
+	/* Stage 13 QA (loopback-only): the loopback capture switch can ADD debug
+	 * geometry presentation while the save is non-debug. The saved-game debug
+	 * mode stays the sole canonical owner: nothing below mutates SavedGame,
+	 * and forced-on neither suppresses nor rewrites canonical bookkeeping. */
+	const bool qaDebugGeometry =
+		Calypso::calypsoGeoscapeQaDebugGeometry(Calypso::calypsoGeoscapeQaPresentation(), false);
 	if (_game->getSavedGame()->getDebugMode())
 	{
-		int color;
 		canSwitchDebugType = true;
-		if (debugType == 0)
-		{
-			color = 0;
-			for (auto* country : *_game->getSavedGame()->getCountries())
-			{
-				if (_game->getSavedGame()->debugCountry && _game->getSavedGame()->debugCountry != country)
-					continue;
-
-				color += 10;
-				for (size_t k = 0; k != country->getRules()->getLatMax().size(); ++k)
-				{
-					double lon2 = country->getRules()->getLonMax().at(k);
-					double lon1 = country->getRules()->getLonMin().at(k);
-					double lat2 = country->getRules()->getLatMax().at(k);
-					double lat1 = country->getRules()->getLatMin().at(k);
-
-					drawVHLine(_countries, lon1, lat1, lon2, lat1, color);
-					drawVHLine(_countries, lon1, lat2, lon2, lat2, color);
-					drawVHLine(_countries, lon1, lat1, lon1, lat2, color);
-					drawVHLine(_countries, lon2, lat1, lon2, lat2, color);
-				}
-			}
-		}
-		else if (debugType == 1)
-		{
-			color = 0;
-			for (auto* region : *_game->getSavedGame()->getRegions())
-			{
-				if (_game->getSavedGame()->debugRegion && _game->getSavedGame()->debugRegion != region)
-					continue;
-
-				color += 10;
-				for (size_t k = 0; k != region->getRules()->getLatMax().size(); ++k)
-				{
-					double lon2 = region->getRules()->getLonMax().at(k);
-					double lon1 = region->getRules()->getLonMin().at(k);
-					double lat2 = region->getRules()->getLatMax().at(k);
-					double lat1 = region->getRules()->getLatMin().at(k);
-
-					drawVHLine(_countries, lon1, lat1, lon2, lat1, color);
-					drawVHLine(_countries, lon1, lat2, lon2, lat2, color);
-					drawVHLine(_countries, lon1, lat1, lon1, lat2, color);
-					drawVHLine(_countries, lon2, lat1, lon2, lat2, color);
-				}
-			}
-		}
-		else if (debugType == 2)
-		{
-			for (auto* region : *_game->getSavedGame()->getRegions())
-			{
-				if (_game->getSavedGame()->debugRegion && _game->getSavedGame()->debugRegion != region)
-					continue;
-
-				color = -1;
-				size_t zoneNumber = 0;
-				for (const auto& missionZone : region->getRules()->getMissionZones())
-				{
-					++zoneNumber;
-					if (_game->getSavedGame()->debugZone > 0 && _game->getSavedGame()->debugZone != zoneNumber)
-						continue;
-
-					color += 2;
-					size_t areaNumber = 0;
-					for (const auto& missionArea : missionZone.areas)
-					{
-						++areaNumber;
-						if (_game->getSavedGame()->debugArea > 0 && _game->getSavedGame()->debugArea != areaNumber)
-							continue;
-
-						double lon2 = missionArea.lonMax;
-						double lon1 = missionArea.lonMin;
-						double lat2 = missionArea.latMax;
-						double lat1 = missionArea.latMin;
-
-						drawVHLine(_countries, lon1, lat1, lon2, lat1, color);
-						drawVHLine(_countries, lon1, lat2, lon2, lat2, color);
-						drawVHLine(_countries, lon1, lat1, lon1, lat2, color);
-						drawVHLine(_countries, lon2, lat1, lon2, lat2, color);
-					}
-				}
-			}
-		}
+		drawDebugRectangles(debugType);
+	}
+	else if (qaDebugGeometry)
+	{
+		/* Presentation-only QA arm: same canonical rectangle owner, zero
+		 * campaign bookkeeping. */
+		drawDebugRectangles(debugType);
 	}
 	else
 	{
@@ -2039,6 +1864,101 @@ void Globe::drawDetail()
 			++debugType;
 			if (debugType > 2) debugType = 0;
 			canSwitchDebugType = false;
+		}
+	}
+}
+
+/**
+ * Draws the canonical debug country/region/mission-zone rectangles for one
+ * debugType. Shared verbatim owner of the saved-game-debug gate and the
+ * loopback-only Stage 13 QA capture switch: callers decide visibility, this
+ * function only draws and never touches SavedGame state.
+ * Direct mode records these existing debug owners into the physical world
+ * batch through drawVHLine(); direct-off remains SDL-native.
+ */
+void Globe::drawDebugRectangles(int debugType)
+{
+	int color;
+	if (debugType == 0)
+	{
+		color = 0;
+		for (auto* country : *_game->getSavedGame()->getCountries())
+		{
+			if (_game->getSavedGame()->debugCountry && _game->getSavedGame()->debugCountry != country)
+				continue;
+
+			color += 10;
+			for (size_t k = 0; k != country->getRules()->getLatMax().size(); ++k)
+			{
+				double lon2 = country->getRules()->getLonMax().at(k);
+				double lon1 = country->getRules()->getLonMin().at(k);
+				double lat2 = country->getRules()->getLatMax().at(k);
+				double lat1 = country->getRules()->getLatMin().at(k);
+
+				drawVHLine(_countries, lon1, lat1, lon2, lat1, color);
+				drawVHLine(_countries, lon1, lat2, lon2, lat2, color);
+				drawVHLine(_countries, lon1, lat1, lon1, lat2, color);
+				drawVHLine(_countries, lon2, lat1, lon2, lat2, color);
+			}
+		}
+	}
+	else if (debugType == 1)
+	{
+		color = 0;
+		for (auto* region : *_game->getSavedGame()->getRegions())
+		{
+			if (_game->getSavedGame()->debugRegion && _game->getSavedGame()->debugRegion != region)
+				continue;
+
+			color += 10;
+			for (size_t k = 0; k != region->getRules()->getLatMax().size(); ++k)
+			{
+				double lon2 = region->getRules()->getLonMax().at(k);
+				double lon1 = region->getRules()->getLonMin().at(k);
+				double lat2 = region->getRules()->getLatMax().at(k);
+				double lat1 = region->getRules()->getLatMin().at(k);
+
+				drawVHLine(_countries, lon1, lat1, lon2, lat1, color);
+				drawVHLine(_countries, lon1, lat2, lon2, lat2, color);
+				drawVHLine(_countries, lon1, lat1, lon1, lat2, color);
+				drawVHLine(_countries, lon2, lat1, lon2, lat2, color);
+			}
+		}
+	}
+	else if (debugType == 2)
+	{
+		for (auto* region : *_game->getSavedGame()->getRegions())
+		{
+			if (_game->getSavedGame()->debugRegion && _game->getSavedGame()->debugRegion != region)
+				continue;
+
+			color = -1;
+			size_t zoneNumber = 0;
+			for (const auto& missionZone : region->getRules()->getMissionZones())
+			{
+				++zoneNumber;
+				if (_game->getSavedGame()->debugZone > 0 && _game->getSavedGame()->debugZone != zoneNumber)
+					continue;
+
+				color += 2;
+				size_t areaNumber = 0;
+				for (const auto& missionArea : missionZone.areas)
+				{
+					++areaNumber;
+					if (_game->getSavedGame()->debugArea > 0 && _game->getSavedGame()->debugArea != areaNumber)
+						continue;
+
+					double lon2 = missionArea.lonMax;
+					double lon1 = missionArea.lonMin;
+					double lat2 = missionArea.latMax;
+					double lat1 = missionArea.latMin;
+
+					drawVHLine(_countries, lon1, lat1, lon2, lat1, color);
+					drawVHLine(_countries, lon1, lat2, lon2, lat2, color);
+					drawVHLine(_countries, lon1, lat1, lon1, lat2, color);
+					drawVHLine(_countries, lon2, lat1, lon2, lat2, color);
+				}
+			}
 		}
 	}
 }
@@ -2070,10 +1990,16 @@ void Globe::drawPath(Surface *surface, double lon1, double lat1, double lon2, do
 		p2 = CordPolar(a);
 		polarToCart(p2.lon, p2.lat, &x2, &y2);
 
-		if (!pointBack(p1.lon, p1.lat) && !pointBack(p2.lon, p2.lat))
+#ifdef __EMSCRIPTEN__
+		if (_gpuState->_gpuDirectMode && surface == _radars)
 		{
-			XuLine(surface, this, x1, y1, x2, y2, 8);
+			CalypsoGeoscapeHdGlobeDirect::recordRadarFlightLine(
+				this, x1, y1, x2, y2, p1.lon, p1.lat, p2.lon, p2.lat, 8);
 		}
+		else
+#endif
+		if (!pointBack(p1.lon, p1.lat) && !pointBack(p2.lon, p2.lat))
+				XuLine(surface, this, x1, y1, x2, y2, 8);
 
 		p1 = p2;
 		x1 = x2;
@@ -2139,6 +2065,9 @@ void Globe::drawFlights()
 		}
 	}
 
+	/* SS15.4.5: label/icon publication moved out of drawFlights(); it is
+	 * committed explicitly once per frame after drawDetail() records. */
+
 	// Unlock the surface
 	_radars->unlock();
 }
@@ -2162,6 +2091,20 @@ void Globe::drawTarget(Target *target, Surface *surface)
 		// effect by varying the shade attenuation in blitNShade instead, so the
 		// marker stays continuously visible but gets a tiny brightness bob.
 		const int shade = (_blink > 0) ? 0 : 1;
+#ifdef __EMSCRIPTEN__
+		if (_gpuState->_gpuDirectMode && surface == _markers)
+		{
+			CalypsoGeoscapeHdGlobeDirect::recordMarker(this, marker,
+					x - marker->getWidth() / 2, y - marker->getHeight() / 2, shade);
+			return;
+		}
+		if (_gpuState->_gpuDirectMode && surface == _countries)
+		{
+			CalypsoGeoscapeHdGlobeDirect::recordLabelIcon(this, marker,
+				x - marker->getWidth() / 2, y - marker->getHeight() / 2, shade);
+			return;
+		}
+#endif
 		marker->blitNShade(SurfaceRaw<Uint32>(surface), x - marker->getWidth() / 2, y - marker->getHeight() / 2, shade);
 	}
 }
@@ -2173,6 +2116,9 @@ void Globe::drawTarget(Target *target, Surface *surface)
 void Globe::drawMarkers()
 {
 	_markers->clear();
+#ifdef __EMSCRIPTEN__
+	if (_gpuState->_gpuDirectMode) _gpuState->_gpuMarkerPendingDraws.clear();
+#endif
 	_markers->lock();
 	// Draw the base markers
 	for (auto* xbase : *_game->getSavedGame()->getBases())
@@ -2214,6 +2160,13 @@ void Globe::drawMarkers()
 		}
 	}
 	_markers->unlock();
+#ifdef __EMSCRIPTEN__
+	if (_gpuState->_gpuDirectMode)
+	{
+		_gpuState->_gpuMarkerPendingDraws.swap(_gpuState->_gpuMarkerCommittedDraws);
+		_gpuState->_gpuMarkerPendingDraws.clear();
+	}
+#endif
 }
 
 /**
@@ -2223,9 +2176,18 @@ void Globe::drawMarkers()
 void Globe::blit(SDL_Surface *surface)
 {
 	Surface::blit(surface);
+#ifdef __EMSCRIPTEN__
+	if (_gpuState->_gpuDirectMode)
+		return; // all visible overlays must be physical or the route fails closed before Earth
+#endif
 	_radars->blit(surface);
 	_countries->blit(surface);
-	_markers->blit(surface);
+#ifdef __EMSCRIPTEN__
+	if (!_gpuState->_gpuDirectMode)
+#endif
+	{
+		_markers->blit(surface);
+	}
 }
 
 /**
@@ -2341,14 +2303,27 @@ void Globe::mousePress(Action *action, State *state)
 
 	if (isGlobePanButton(action->getDetails()->button.button))
 	{
-		_isMouseScrolling = true;
-		_isMouseScrolled = false;
-		SDL_GetMouseState(&_xBeforeMouseScrolling, &_yBeforeMouseScrolling);
-		_lonBeforeMouseScrolling = _cenLon;
-		_latBeforeMouseScrolling = _cenLat;
-		_totalMouseMoveX = 0; _totalMouseMoveY = 0;
-		_mouseMovedOverThreshold = false;
-		_mouseScrollingStartTime = SDL_GetTicks();
+		/* §16.5 AC-D5 idempotency: the JS bridge dispatches synchronously
+		 * through Game::dispatchCalypsoMouseButton, and SDL's own Emscripten
+		 * handler may queue a second MOUSEBUTTONDOWN into the event queue.
+		 * The second dispatch must NOT re-initialize scroll state (it would
+		 * reset _totalMouseMoveX/Y and re-capture the centre, destroying
+		 * accumulated drag deltas).  Guard with !_isMouseScrolling so only
+		 * the first dispatch takes effect. */
+		if (!_isMouseScrolling)
+		{
+			_isMouseScrolling = true;
+#ifdef __EMSCRIPTEN__
+			_mouseScrollStopApplied = false;
+#endif
+			_isMouseScrolled = false;
+			SDL_GetMouseState(&_xBeforeMouseScrolling, &_yBeforeMouseScrolling);
+			_lonBeforeMouseScrolling = _cenLon;
+			_latBeforeMouseScrolling = _cenLat;
+			_totalMouseMoveX = 0; _totalMouseMoveY = 0;
+			_mouseMovedOverThreshold = false;
+			_mouseScrollingStartTime = SDL_GetTicks();
+		}
 	}
 	// Check for errors
 	if (lat == lat && lon == lon)
@@ -2368,7 +2343,13 @@ void Globe::mouseRelease(Action *action, State *state)
 	cartToPolar((Sint16)floor(action->getAbsoluteXMouse()), (Sint16)floor(action->getAbsoluteYMouse()), &lon, &lat);
 	if (isGlobePanButton(action->getDetails()->button.button))
 	{
-		stopScrolling(action);
+		/* §16.5: guard against duplicate release dispatch (same ownership
+		 * model as mousePress).  stopScrolling warps the cursor back;
+		 * calling it twice is harmless but the guard is cleaner. */
+		if (_isMouseScrolling)
+		{
+			stopScrolling(action);
+		}
 	}
 	// Check for errors
 	if (lat == lat && lon == lon)
@@ -2577,6 +2558,13 @@ void Globe::rebuildEarthData()
  */
 void Globe::stopScrolling(Action *action)
 {
+#ifdef __EMSCRIPTEN__
+	/* A browser button reaches both the synchronous direct bridge and SDL's
+	 * queued path. mouseRelease precedes mouseClick for one event, so preserve
+	 * scroll classification while applying cursor restoration only once. */
+	if (_mouseScrollStopApplied) return;
+	_mouseScrollStopApplied = true;
+#endif
 	SDL_WarpMouse(_xBeforeMouseScrolling, _yBeforeMouseScrolling);
 	action->setMouseAction(_xBeforeMouseScrolling, _yBeforeMouseScrolling, getX(), getY());
 }

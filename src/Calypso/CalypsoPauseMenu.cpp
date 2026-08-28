@@ -27,7 +27,7 @@ bool pauseMenuDomShow(
 		if (!globalThis.__calypsoPauseShow)
 			return 0;
 		try {
-			globalThis.__calypsoPauseShow({
+			return globalThis.__calypsoPauseShow({
 				origin: $0,
 				buttons: {
 					load:    { show: $1, label: UTF8ToString($6) },
@@ -37,8 +37,7 @@ bool pauseMenuDomShow(
 					cancel:  { show: $5, label: UTF8ToString($10) }
 				},
 				title: UTF8ToString($11)
-			});
-			return 1;
+			}) === true ? 1 : 0;
 		} catch (_) {
 			return 0;
 		}
@@ -57,13 +56,61 @@ void pauseMenuDomHide()
 	});
 }
 
+void calypsoReportHdRouteError(const std::string &route, const std::string &detail)
+{
+	EM_ASM_({
+		const route = UTF8ToString($0);
+		const detail = UTF8ToString($1);
+		const message = 'Calypso HD error [' + route + ']: ' + detail;
+		const previous = globalThis.__calypsoHdRouteError;
+		let delegated = false;
+		try {
+			if (typeof globalThis.calypsoReportHdRouteError === 'function') {
+				globalThis.calypsoReportHdRouteError(route, detail);
+				const marker = globalThis.__calypsoHdRouteError;
+				delegated = !!marker && marker !== previous
+					&& marker.route === route && marker.detail === detail;
+			}
+		} catch (_) {
+			delegated = false;
+		}
+		if (!delegated) {
+			if (typeof document !== 'undefined') {
+				const log = document.getElementById('log');
+				if (log) {
+					const current = String(log.textContent || '');
+					if (!current.includes(message)) log.textContent = current + '\n' + message;
+					if (log.classList) log.classList.add('visible');
+				}
+			}
+			if (globalThis.console && typeof globalThis.console.error === 'function')
+				globalThis.console.error(message);
+		}
+	}, route.c_str(), detail.c_str());
+}
+
 void CalypsoPauseMenu::configure(PauseState& state)
 {
+	auto setNativePresentation = [&state](bool visible)
+	{
+		state._window->setVisible(visible ? state._calypsoShowWindow : false);
+		state._txtTitle->setVisible(visible ? state._calypsoShowTitle : false);
+		state._txtVersion->setVisible(visible ? state._calypsoShowVersion : false);
+		state._btnLoad->setVisible(visible ? state._calypsoShowLoad : false);
+		state._btnSave->setVisible(visible ? state._calypsoShowSave : false);
+		state._btnAbandon->setVisible(visible ? state._calypsoShowAbandon : false);
+		state._btnOptions->setVisible(visible ? state._calypsoShowOptions : false);
+		state._btnCancel->setVisible(visible ? state._calypsoShowCancel : false);
+	};
+
 	// Capture the native widget presentation once. The DOM overlay mirrors these
 	// widgets; rereading their visibility after Abandon is cancelled would turn
 	// every action off on the next think() pass.
 	if (!state._calypsoPresentationCaptured)
 	{
+		state._calypsoShowWindow = state._window->getVisible();
+		state._calypsoShowTitle = state._txtTitle->getVisible();
+		state._calypsoShowVersion = state._txtVersion->getVisible();
 		state._calypsoShowLoad = state._btnLoad->getVisible();
 		state._calypsoShowSave = state._btnSave->getVisible();
 		state._calypsoShowAbandon = state._btnAbandon->getVisible();
@@ -76,6 +123,9 @@ void CalypsoPauseMenu::configure(PauseState& state)
 		state._calypsoCancelLabel = state._btnCancel->getText();
 		state._calypsoPresentationCaptured = true;
 	}
+	// Registered HD routes are fail-closed: suppress native pixels before trying
+	// the DOM owner, and never restore them as a fallback after a failed attempt.
+	setNativePresentation(false);
 	// Friend access to the state's immutable presentation snapshot (no event
 	// ownership): same data the native widget layout would have drawn.
 	const bool domPresented = pauseMenuDomShow(
@@ -88,12 +138,10 @@ void CalypsoPauseMenu::configure(PauseState& state)
 		state._calypsoAbandonLabel, state._calypsoOptionsLabel,
 		state._calypsoCancelLabel);
 	if (!domPresented)
-		return;
-
-	// Keep the native surfaces visible. The DOM card is above the canvas, so
-	// they remain visually covered while InteractiveSurface keeps receiving
-	// Options::keyCancel/keyGeoOptions/keyBattleOptions. This is also the
-	// fallback if the host hook disappears after a previous frame.
+	{
+		pauseMenuDomHide();
+		calypsoReportHdRouteError("pause", "DOM pause overlay unavailable");
+	}
 }
 
 void CalypsoPauseMenu::think(PauseState& state, Game& game)

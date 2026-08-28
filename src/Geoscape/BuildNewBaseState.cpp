@@ -38,6 +38,7 @@
 #include "../Mod/RuleInterface.h"
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoAbandonPopupUi.h"
+#include "../Calypso/CalypsoBuildNewBaseQa.h"
 #include "../Calypso/CalypsoF21SiteUi.h"
 #include "../Calypso/CalypsoHdHarnessHostState.h"
 #endif
@@ -52,7 +53,7 @@ namespace OpenXcom
  * @param globe Pointer to the Geoscape globe.
  * @param first Is this the first base in the game?
  */
-BuildNewBaseState::BuildNewBaseState(Base *base, Globe *globe, bool first) : _base(base), _globe(globe), _first(first), _oldlat(0), _oldlon(0), _mousex(0), _mousey(0)
+BuildNewBaseState::BuildNewBaseState(Base *base, Globe *globe, bool first) : _base(base), _globe(globe), _first(first), _mousex(0), _mousey(0)
 {
 	int dx = _game->getScreen()->getDX();
 	int dy = _game->getScreen()->getDY();
@@ -175,8 +176,12 @@ void BuildNewBaseState::init()
 {
 	State::init();
 	_globe->onMouseOver((ActionHandler)&BuildNewBaseState::globeHover);
+	// The underlying GeoscapeState can rebind the shared Globe while the new
+	// campaign stack is initialized. Reassert this state's behavior owner every
+	// time it becomes top, including returns from warning/name modals.
+	_globe->onMouseClick((ActionHandler)&BuildNewBaseState::globeClick);
 	_globe->rotateStop();
-	_globe->setNewBaseHover(true);
+	_globe->setNewBaseHover(_hoverTracker.onGlobe);
 }
 
 /**
@@ -195,7 +200,27 @@ void BuildNewBaseState::think()
  */
 void BuildNewBaseState::handle(Action *action)
 {
+#ifdef __EMSCRIPTEN__
+	const bool bridgeLeftRelease = action->getDetails()->type == SDL_MOUSEBUTTONUP
+		&& action->getDetails()->button.which == Game::CALYPSO_MOUSE_BRIDGE_ID
+		&& action->getDetails()->button.button == SDL_BUTTON_LEFT;
+#else
+	const bool bridgeLeftRelease = false;
+#endif
 	State::handle(action);
+	// GeoscapeState::init() may run after this overlay state's init during a
+	// newly-created campaign and reclaim the shared Globe callback. The active
+	// top state reasserts its behavior owner immediately before dispatch.
+	_globe->onMouseClick((ActionHandler)&BuildNewBaseState::globeClick);
+	if (bridgeLeftRelease && _hoverTracker.onGlobe)
+	{
+		// Browser-owned clicks have already traversed the state's visible
+		// controls. Complete site selection directly because SDL's shared Globe
+		// click bookkeeping can lose the release across the browser bridge.
+		_globe->unpress(this);
+		globeClick(action);
+		return;
+	}
 	_globe->handle(action, this);
 }
 
@@ -207,29 +232,56 @@ void BuildNewBaseState::globeHover(Action *action)
 {
 	_mousex = (int)floor(action->getAbsoluteXMouse());
 	_mousey = (int)floor(action->getAbsoluteYMouse());
+#ifdef __EMSCRIPTEN__
+	Calypso::calypsoBuildNewBaseNoteHover(_mousex, _mousey);
+#endif
 	if (!_hoverTimer->isRunning()) _hoverTimer->start();
 }
 
 void BuildNewBaseState::hoverRedraw(void)
 {
 	double lon, lat;
-	_globe->cartToPolar(_mousex, _mousey, &lon, &lat);
-	if (lon == lon && lat == lat)
+	_globe->cartToPolar((Sint16)_mousex, (Sint16)_mousey, &lon, &lat);
+	// §16.3: a non-finite cartToPolar result (pointer outside the Earth disk)
+	// is a ONE-TIME transition, not data. The pure decision owns the state:
+	// disable hover once, invalidate once, refresh the readout once, then stay
+	// inert while the pointer remains in the starfield; re-entry restores
+	// exactly once. NaN and infinities never reach the stored sample pair.
+	const bool finite = Calypso::calypsoGlobeSampleFinite(lon, lat);
+	const Calypso::CalypsoGlobeHoverDecision decision =
+		Calypso::calypsoDecideBaseHover(_hoverTracker, finite, lon, lat);
+	if (decision.publishPosition)
 	{
-		_globe->setNewBaseHoverPos(lon,lat);
+		_globe->setNewBaseHoverPos(lon, lat);
 		_globe->setNewBaseHover(true);
 	}
-	if (Options::globeRadarLines && !(AreSame(_oldlat, lat) && AreSame(_oldlon, lon)) )
+	if (decision.disableHover)
 	{
-		_oldlat=lat;
-		_oldlon=lon;
-		_globe->invalidate();
-#ifdef __EMSCRIPTEN__
-		// F21: refresh the placement-card readouts from the live hover
-		// snapshot (region + region-defined base cost follow the pointer).
-		Calypso::CalypsoF21SiteUi::refreshHoverReadouts(*this, lon, lat);
-#endif
+		_globe->setNewBaseHover(false);
 	}
+#ifdef __EMSCRIPTEN__
+	/* §16.5: hover circles are rendered by a separate GPU overlay batch
+	 * published directly by Globe's hover setters. Globe surface invalidation
+	 * is NOT needed for hover-coordinate changes, so the static radar/flight
+	 * cache remains untouched. */
+	if (decision.publishPosition)
+	{
+		Calypso::CalypsoF21SiteUi::refreshHoverReadouts(*this, lon, lat);
+	}
+#else
+	if (decision.invalidate && Options::globeRadarLines)
+	{
+		_globe->invalidate();
+	}
+#endif
+#ifdef __EMSCRIPTEN__
+	if (decision.refreshOutside)
+	{
+		// F21: reset the placement card to its pending copy exactly once on
+		// the off-globe transition.
+		Calypso::CalypsoF21SiteUi::refreshHoverReadoutsOutside(*this);
+	}
+#endif
 }
 
 /**
@@ -241,6 +293,9 @@ void BuildNewBaseState::globeClick(Action *action)
 {
 	double lon, lat;
 	int mouseX = (int)floor(action->getAbsoluteXMouse()), mouseY = (int)floor(action->getAbsoluteYMouse());
+#ifdef __EMSCRIPTEN__
+	Calypso::calypsoBuildNewBaseNoteClick(mouseX, mouseY);
+#endif
 	_globe->cartToPolar(mouseX, mouseY, &lon, &lat);
 
 	// Ignore window clicks (the strip; taller while the HD route is active)
@@ -251,6 +306,9 @@ void BuildNewBaseState::globeClick(Action *action)
 #endif
 	if (mouseY < stripBottom)
 	{
+#ifdef __EMSCRIPTEN__
+		Calypso::calypsoBuildNewBaseNoteOutcome(1); // strip ignored
+#endif
 		return;
 	}
 
@@ -274,6 +332,9 @@ void BuildNewBaseState::globeClick(Action *action)
 				"BACK01.SCR",
 				_game->getMod()->getInterface("geoscape")->getElement("palette")->color,
 				0, this, hdForm));
+#ifdef __EMSCRIPTEN__
+			Calypso::calypsoBuildNewBaseNoteOutcome(2); // land warning
+#endif
 		};
 		if (_globe->insideLand(lon, lat))
 		{
@@ -302,10 +363,16 @@ void BuildNewBaseState::globeClick(Action *action)
 				if (_first)
 				{
 					_game->pushState(new BaseNameState(_base, _globe, _first, false));
+#ifdef __EMSCRIPTEN__
+					Calypso::calypsoBuildNewBaseNoteOutcome(3); // base-name pushed
+#endif
 				}
 				else
 				{
 					_game->pushState(new ConfirmNewBaseState(_base, _globe));
+#ifdef __EMSCRIPTEN__
+					Calypso::calypsoBuildNewBaseNoteOutcome(4); // confirm pushed
+#endif
 				}
 			}
 		}
@@ -453,5 +520,7 @@ void BuildNewBaseState::resize(int &dX, int &dY)
 		}
 	}
 }
+
+
 
 }

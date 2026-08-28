@@ -9,6 +9,7 @@
 #include "CalypsoHdHarnessHostState.h"
 #include "CalypsoViewportMailbox.h"
 #include "CalypsoGlStateGuard.h"
+#include "CalypsoPauseMenu.h"
 
 #include <algorithm>
 #include <cmath>
@@ -17,6 +18,7 @@
 #include <SDL.h>
 #include <SDL_render.h>
 #include <set>
+#include <sstream>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -33,15 +35,20 @@ namespace OpenXcom
 namespace Calypso
 {
 
+namespace
+{
+constexpr std::uint32_t kRetryableReadinessFrameBudget = 1800;
+}
+
 [[noreturn]] void CalypsoHdUiOverlay::failHdRoute(const std::string& detail)
 {
-	// The exception cancels the Emscripten loop before State::blit, but clear any
-	// earlier subgroup commits as well so no caller can observe partial claims
-	// while unwinding. Do not latch a logical retry: enabled HD routes are fatal.
-	_controller.claims().clear();
-	_ptrClaim.clear();
+	// The exception cancels the Emscripten loop before State::blit. Keep logical
+	// suppression claims active while unwinding: a registered HD route must never
+	// reveal native pixels as a recovery frame. Claims clear only at frame start
+	// or when the adapter leaves the overlay lifecycle.
 	_drawItems.clear();
 	_activeThisFrame = false;
+	calypsoReportHdRouteError("hd-overlay", detail);
 	throw Exception("Calypso HD route failed: " + detail);
 }
 
@@ -49,6 +56,12 @@ CalypsoHdUiOverlay& CalypsoHdUiOverlay::instance()
 {
 	static CalypsoHdUiOverlay s_overlay;
 	return s_overlay;
+}
+
+bool CalypsoHdUiOverlay::resourcesReadyForFrame() const
+{
+	return _glReady && _vao != 0 && _hdShader != nullptr && _hdShader->isValid()
+		&& _panelShader != nullptr && _panelShader->isValid();
 }
 
 void CalypsoHdUiOverlay::registerAdapter(const CalypsoHdFamilyAdapter* adapter)
@@ -61,6 +74,18 @@ void CalypsoHdUiOverlay::registerAdapter(const CalypsoHdFamilyAdapter* adapter)
 void CalypsoHdUiOverlay::clearAdapter(const CalypsoHdFamilyAdapter* adapter)
 {
 	_adapters.erase(std::remove(_adapters.begin(), _adapters.end(), adapter), _adapters.end());
+	if (adapter == _activeAdapter)
+	{
+		_activeAdapter = nullptr;
+		_retryableReadinessFrames = 0;
+		_drawItems.clear();
+		_ptrClaim.clear();
+		_logicalSuppressedWidgets.clear();
+		_frameLiveHandles.clear();
+		_physicalStateThisFrame = nullptr;
+		_activeThisFrame = false;
+		_controller.claims().clear();
+	}
 }
 
 bool CalypsoHdUiOverlay::widgetClaimed(const void* widget, std::uint64_t frameId) const
@@ -125,15 +150,53 @@ void CalypsoHdUiOverlay::prepareFrame(int logicalWidth, int logicalHeight, const
 	{
 		if (a->topState() == topState) { active = a; break; }
 	}
-	if (!active) return;
+
+	// Fail-closed covered-state ownership (Stage 8/9 closure): a registered
+	// live-chrome adapter that is NOT the active top adapter still owns its
+	// reprojected logical shell while covered, so a blocking modal without its
+	// own adapter can never expose it. Blit-level only; input owners unchanged.
+	if (!active)
+	{
+		CalypsoHdLogicalSuppression covered;
+		for (const CalypsoHdFamilyAdapter* a : _adapters)
+			if (a != active && a->suppressWhenCovered())
+				a->collectLogicalSuppression(covered);
+		_logicalSuppressedWidgets = covered.widgets();
+
+		_activeAdapter = nullptr;
+		_retryableReadinessFrames = 0;
+		return;
+	}
+	if (active != _activeAdapter)
+	{
+		_activeAdapter = active;
+		_retryableReadinessFrames = 0;
+	}
 	CalypsoHdLogicalSuppression suppression;
+	// Covered adapters first, then the active adapter's own list (which may
+	// include lower-state chrome via the shared seams).
+	for (const CalypsoHdFamilyAdapter* a : _adapters)
+		if (a != active && a->suppressWhenCovered())
+			a->collectLogicalSuppression(suppression);
 	active->collectLogicalSuppression(suppression);
 	_logicalSuppressedWidgets = suppression.widgets();
-	if (!active->physicalReady()) return;
+
+	// Stage 10.2.7: a post-restore frame whose physical presentation is still
+	// blocked is a bounded retryable warmup, not a route failure. The logical
+	// suppression installed above stays active (legacy widgets remain
+	// suppressed), and this frame takes no HD claims and draws nothing — the
+	// early return happens before any GPU work or claim commit. Exhausting the
+	// shared readiness budget stays a deterministic fail-closed outcome.
+	if (!_mayGoPhysical)
+	{
+		if (++_retryableReadinessFrames <= kRetryableReadinessFrameBudget)
+			return;
+		failHdRoute("physical presentation is blocked after context loss or restore");
+	}
+	if (!active->physicalReady())
+		failHdRoute("HD route is not physically ready");
 	if (!_frozenMetrics.valid())
 		failHdRoute("invalid presentation metrics");
-	if (!_mayGoPhysical)
-		failHdRoute("physical presentation is blocked after context loss or restore");
 
 	// The pre-blit GPU preparation (shader/VAO creation + texture uploads) touches
 	// GL state that SDL's renderer caches; bracket it in one state guard so the
@@ -147,6 +210,16 @@ void CalypsoHdUiOverlay::prepareFrame(int logicalWidth, int logicalHeight, const
 		ensureGpu();
 		if (!_glReady)
 			failHdRoute("GPU resources are unavailable");
+		if (!active->completeFrameReady())
+		{
+			if (active->retryableReadiness())
+			{
+				if (++_retryableReadinessFrames <= kRetryableReadinessFrameBudget)
+					return;
+				failHdRoute("HD route readiness budget exhausted");
+			}
+			failHdRoute("complete HD frame is not ready");
+		}
 
 		CalypsoHdFrameBuilder builder;
 		active->collect(builder);
@@ -204,6 +277,12 @@ void CalypsoHdUiOverlay::prepareFrame(int logicalWidth, int logicalHeight, const
 		});
 
 	_activeThisFrame = true;
+	_retryableReadinessFrames = 0;
+	if (_contextGen > 0 && _lastReadyContextGen != _contextGen)
+	{
+		Log(LOG_INFO) << "[HD] overlay frame ready after context restore generation=" << _contextGen;
+		_lastReadyContextGen = _contextGen;
+	}
 	if (active->suppressLogicalState())
 		_physicalStateThisFrame = topState;
 }
@@ -690,7 +769,20 @@ bool CalypsoHdUiOverlay::renderStages(SDL_Renderer* renderer)
 	CalypsoGlStateGuard guard;
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	while (glGetError() != GL_NO_ERROR) {} // clear any pre-existing GL error
+	/* Do not drain an earlier owner's error at the chrome boundary. A registered
+	 * world pass or SDL composite must report its own failure before reaching
+	 * this stage; otherwise the HD chrome owns the current error explicitly. */
+	const GLenum chromeEntryError = glGetError();
+	if (chromeEntryError != GL_NO_ERROR)
+	{
+		if (committed)
+			failHdRoute("HD chrome entry GL error (0x" + [&]() {
+				std::ostringstream out;
+				out << std::hex << (unsigned)chromeEntryError;
+				return out.str();
+			}() + ")");
+		return true;
+	}
 
 	bool ok = true;
 

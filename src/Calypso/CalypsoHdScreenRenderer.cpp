@@ -11,11 +11,18 @@
 #include "../Engine/Game.h"
 #include "../Engine/Options.h"
 #include "../Mod/Mod.h"
+#include "../Geoscape/GeoscapeState.h"
+#include "../Interface/Text.h"
+#include "../Interface/TextButton.h"
+#include "../Savegame/SavedGame.h"
 
 #include "CalypsoF21UiShared.h"
 #include "CalypsoHdFontSource.h"
 #include "CalypsoHdTheme.h"
 #include "CalypsoHdUiOverlay.h"
+#include "CalypsoGeoscapeHdRuntime.h"
+#include "CalypsoGeoscapeHdShell.h"
+#include "CalypsoViewportRuntime.h"
 
 namespace OpenXcom
 {
@@ -69,16 +76,184 @@ std::string compactGlyph(const CalypsoHdScreenActionVisual& action)
 	if (action.slotRole == "world-recenter") return "O";
 	if (action.slotRole == "world-zoom-out") return "-";
 	if (action.slotRole == "notification-open") return ">";
-	if (action.slotRole == "session-action") return "MENU";
 	if (action.slotRole == "time-pause") return "II";
 	return action.label;
 }
 
+void paintTimeSpeedRail(const CalypsoHdScreenRenderModel& model, CalypsoF21Painter& painter,
+	const CalypsoTtfSourceDescriptor& mono,
+	bool live, std::uint32_t& role)
+{
+	const CalypsoHdScreenActionVisual* firstSpeed = nullptr;
+	const CalypsoHdScreenActionVisual* lastSpeed = nullptr;
+	for (const auto& action : model.actions)
+	{
+		if (action.component == "time-speed-control" && action.id.rfind("time.speed.", 0) == 0)
+		{
+			if (!firstSpeed) firstSpeed = &action;
+			lastSpeed = &action;
+		}
+	}
+	if (!firstSpeed || !lastSpeed) return;
+
+	if (const auto* time = findRegion(model, "timeControl"))
+	{
+		const CalypsoLogicalRect rail = painter.project(designRect(time->rect));
+		painter.styled(rail, f21TimeSpeedRailStyle(), nullptr, role++);
+	}
+	const CalypsoLogicalRect first = painter.project(designRect(firstSpeed->visible));
+	const CalypsoLogicalRect last = painter.project(designRect(lastSpeed->visible));
+	painter.decoration({ first.x, first.y + first.h / 2,
+		std::max(1, last.x + last.w - first.x), 1 }, CalypsoHdThemeGen::kAccentSoft, role++);
+
+	bool drewSpeed = false;
+	for (const auto& action : model.actions)
+	{
+		if (action.component != "time-speed-control") continue;
+		const bool pause = action.slotRole == "time-pause";
+		if (!pause && action.id.rfind("time.speed.", 0) != 0) continue;
+		if (live && action.widget == nullptr) continue;
+		const CalypsoLogicalRect rect = painter.project(designRect(action.visible));
+		const bool selected = action.id == model.selectedActionId;
+		if (pause)
+		{
+			// Pause alone is the circular dark control (reference .pause).
+			const CalypsoInteractionState state = selected
+				? CalypsoInteractionState::Focus : CalypsoInteractionState::Rest;
+			CalypsoHdPanelStyle style = f21ButtonStyleFor(CalypsoActionTone::Safe, state);
+			style.radiusPx = action.visible.h / 2.0f;
+			painter.styled(rect, style, live ? action.widget : nullptr, role++);
+		}
+		else
+		{
+			// Speed segments stay panel-free bare text (reference
+			// .speed-rail button): thin dividers plus the 2px accent selection
+			// underline drawn as decorations; textRect owns the hit claim.
+			if (drewSpeed)
+				painter.decoration({ rect.x, rect.y + 8, 1, std::max(1, rect.h - 16) },
+					kF21DividerRgba, role++);
+			drewSpeed = true;
+			if (selected)
+				painter.decoration({ rect.x + 8, rect.y + rect.h - 3,
+					std::max(1, rect.w - 16), 2 }, CalypsoHdThemeGen::kAccent, role++);
+		}
+		painter.textRect(rect, live ? action.widget : nullptr, mono,
+			compactGlyph(action),
+			selected ? CalypsoHdThemeGen::kAccent : kF21MutedBodyRgba,
+			CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, role++, 0.04,
+			model.designHeight > 360 ? 12.0 : 9.0);
+	}
+}
+
+
 } // namespace
 
+CalypsoGeoscapeHdRuntimeModel CalypsoHdScreenRenderer::liveGeoscapeModel(const GeoscapeState& state)
+{
+	CalypsoGeoscapeHdRuntimeModel empty;
+	const auto& metrics = calypsoViewportRuntime().current();
+	const bool wide = metrics.layoutClass == CalypsoLayoutClass::Wide;
+	const auto* layout = CalypsoGeoscapeCommandShellGen::layoutForDesign(
+		wide ? 1280 : 740, wide ? 720 : 360);
+	if (!layout) return empty;
+
+	CalypsoGeoscapeHdRuntimeInput input;
+	const auto text = [](const Text* value) {
+		return value ? value->getText() : std::string();
+	};
+	input.copy.emplace_back("time", text(state._txtHour) + ":" + text(state._txtMin));
+	input.copy.emplace_back("date", text(state._txtDay) + " "
+		+ text(state._txtMonth) + " " + text(state._txtYear));
+	input.copy.emplace_back("funds", text(state._txtFunds));
+	const char* runningSpeed = "time.speed.1min";
+	if (state._timeSpeed == state._btn5Secs) runningSpeed = "time.speed.5sec";
+	else if (state._timeSpeed == state._btn5Mins) runningSpeed = "time.speed.5min";
+	else if (state._timeSpeed == state._btn30Mins) runningSpeed = "time.speed.30min";
+	else if (state._timeSpeed == state._btn1Hour) runningSpeed = "time.speed.1hour";
+	else if (state._timeSpeed == state._btn1Day) runningSpeed = "time.speed.1day";
+	input.selectedActionId = calypsoGeoscapeHdSelectedTimeAction(
+		CalypsoGeoscapeHdShell::effectivePause(&state), runningSpeed);
+
+	CalypsoGeoscapeHdRuntimeModel model = calypsoGeoscapeHdRuntimeModel(*layout, input);
+	for (auto& action : model.actions)
+	{
+		bool available = false;
+		std::string role;
+		for (const auto& binding : calypsoGeoscapeHdWidgetBindings())
+		{
+			if (action.id != binding.actionId) continue;
+			role = binding.role;
+			if (std::string(binding.role).rfind("widget:", 0) == 0)
+			{
+				action.widget = CalypsoGeoscapeHdShell::resolveWidget(&state,
+					std::string(binding.role).substr(7));
+			}
+			else
+			{
+				available = CalypsoGeoscapeHdShell::isLiveActionVisible(&state, action.id);
+				action.widget = CalypsoGeoscapeHdShell::resolveLiveWidget(&state, action.id);
+			}
+			if (const auto* button = dynamic_cast<const TextButton*>(
+				static_cast<const Surface*>(action.widget)))
+			{
+				if (!button->getText().empty()) action.label = button->getText();
+			}
+			if (calypsoGeoscapeHdActionExpected(action.id, role, available))
+				model.expectedActionIds.push_back(action.id);
+			break;
+		}
+	}
+	// Recenter/contact are intentionally omitted until an audited owner exists;
+	// every other canonical expected action remains in the model even when its
+	// owner is absent, so readiness fails closed instead of drawing a partial UI.
+	model.actions.erase(std::remove_if(model.actions.begin(), model.actions.end(),
+		[&model](const CalypsoHdScreenActionVisual& action) {
+			return std::find(model.expectedActionIds.begin(), model.expectedActionIds.end(), action.id)
+				== model.expectedActionIds.end();
+		}),
+		model.actions.end());
+	return model;
+}
+
+// --- Stage 8/9 closure: one generation-invalidated snapshot -----------------
+
+/// Cheap allocation-free fingerprint of everything the live model depends on.
+/// Text fields are monotonic content generations from the owning Text widgets
+/// (bumped only when setText() stores different content), so steady-state
+/// frames compare plain integers; actual text is read only inside rebuild().
+CalypsoGeoscapeHdSnapshotKey CalypsoHdScreenRenderer::liveGeoscapeKey(const GeoscapeState& state)
+{
+	CalypsoGeoscapeHdSnapshotKey key;
+	key.viewportGeneration = calypsoViewportRuntime().generation();
+	key.contextGeneration = CalypsoHdUiOverlay::instance().contextGeneration();
+	key.fundsVisible = state._txtFunds && state._txtFunds->getVisible();
+	key.drawerOpen = CalypsoGeoscapeHdShell::isDrawerOpen(&state);
+	key.extendedLinks = Options::oxceLinks;
+	key.debugOption = Options::debug;
+	const SavedGame* save = state._game ? state._game->getSavedGame() : nullptr;
+	key.ironman = save != nullptr && save->isIronman();
+	key.paused = CalypsoGeoscapeHdShell::effectivePause(&state);
+	key.selectedSpeed = state._timeSpeed;
+	key.hourTextGeneration = state._txtHour ? state._txtHour->calypsoTextGeneration() : 0;
+	key.minuteTextGeneration = state._txtMin ? state._txtMin->calypsoTextGeneration() : 0;
+	key.dayTextGeneration = state._txtDay ? state._txtDay->calypsoTextGeneration() : 0;
+	key.monthTextGeneration = state._txtMonth ? state._txtMonth->calypsoTextGeneration() : 0;
+	key.yearTextGeneration = state._txtYear ? state._txtYear->calypsoTextGeneration() : 0;
+	key.fundsTextGeneration = state._txtFunds ? state._txtFunds->calypsoTextGeneration() : 0;
+	return key;
+}
+
+const CalypsoGeoscapeHdRuntimeModel& CalypsoHdScreenRenderer::liveGeoscapeSnapshot(
+	const GeoscapeState& state) const
+{
+	return _liveSnapshot.current(liveGeoscapeKey(state),
+		[&state]() { return liveGeoscapeModel(state); });
+}
+
+
 CalypsoHdScreenRenderer::CalypsoHdScreenRenderer(
-	const void* state, CalypsoHdScreenRenderModel model)
-	: _state(state), _model(std::move(model))
+	const void* state, CalypsoHdScreenRenderModel model, CalypsoHdScreenRenderMode mode)
+	: _state(state), _model(std::move(model)), _mode(mode)
 {
 }
 
@@ -92,36 +267,148 @@ const void* CalypsoHdScreenRenderer::topState() const
 	return _state;
 }
 
+bool CalypsoHdScreenRenderer::suppressLogicalState() const
+{
+	return _mode == CalypsoHdScreenRenderMode::HarnessFullPhysical;
+}
+
+void CalypsoHdScreenRenderer::collectLogicalSuppression(
+	CalypsoHdLogicalSuppression& suppression) const
+{
+	if (_mode != CalypsoHdScreenRenderMode::GeoscapeLiveChrome || !_state) return;
+	const auto* geoscape = static_cast<const GeoscapeState*>(_state);
+	if (!geoscape) return;
+	// Suppress the same lower shell surfaces that the live physical renderer
+	// claims, before fonts/GPU/model readiness is evaluated. They remain hidden
+	// input owners until this adapter is destroyed with the state.
+	if (geoscape->_txtFunds && geoscape->_txtFunds->getVisible())
+		suppression.add(geoscape->_txtFunds);
+	suppression.add(geoscape->_txtHour);
+	suppression.add(geoscape->_txtHourSep);
+	suppression.add(geoscape->_txtMin);
+	suppression.add(geoscape->_txtMinSep);
+	suppression.add(geoscape->_txtSec);
+	suppression.add(geoscape->_txtWeekday);
+	suppression.add(geoscape->_txtDay);
+	suppression.add(geoscape->_txtMonth);
+	suppression.add(geoscape->_txtYear);
+	suppression.add(geoscape->_sidebar);
+	suppression.add(geoscape->_sideLine);
+	suppression.add(geoscape->_sideTop);
+	suppression.add(geoscape->_sideBottom);
+	// One cached snapshot feeds every live consumer; no per-frame model rebuild.
+	const auto& model = liveGeoscapeSnapshot(*geoscape);
+	for (const auto& action : model.actions)
+		suppression.add(action.widget);
+}
+
 void CalypsoHdScreenRenderer::setModel(CalypsoHdScreenRenderModel model)
 {
 	_model = std::move(model);
 }
 
-void CalypsoHdScreenRenderer::collect(CalypsoHdFrameBuilder& builder) const
+bool CalypsoHdScreenRenderer::resolvePhysicalFonts(
+	CalypsoTtfSourceDescriptor& heading, CalypsoTtfSourceDescriptor& body,
+	CalypsoTtfSourceDescriptor& mono) const
 {
-	const CalypsoHdScreenRenderModel& model = _model;
-	if (!_state || model.designWidth <= 0 || model.designHeight <= 0) return;
-	if (model.archetype != "strategic-command-shell") return;
-
 	Game* game = getCurrentGame();
-	Mod* mod = game ? game->getMod() : nullptr;
+	const Mod* mod = game ? game->getMod() : nullptr;
+	const bool resolved = calypsoHdResolveFontDescriptor(mod, "FONT_F34_SAIRA_700", heading)
+		&& calypsoHdResolveFontDescriptor(mod, "FONT_F33_BODY", body)
+		&& calypsoHdResolveFontDescriptor(mod, "FONT_F34_MONO", mono);
+	return resolved && !heading.canonicalVfsPath.empty() && !body.canonicalVfsPath.empty()
+		&& !mono.canonicalVfsPath.empty() && heading.logicalDesignSize > 0
+		&& body.logicalDesignSize > 0 && mono.logicalDesignSize > 0;
+}
+
+bool CalypsoHdScreenRenderer::physicalReady() const
+{
+	if (!_state) return false;
 	CalypsoTtfSourceDescriptor heading;
 	CalypsoTtfSourceDescriptor body;
 	CalypsoTtfSourceDescriptor mono;
-	if (!calypsoHdResolveFontDescriptor(mod, "FONT_F34_SAIRA_700", heading)) return;
-	if (!calypsoHdResolveFontDescriptor(mod, "FONT_F33_BODY", body)) return;
-	if (!calypsoHdResolveFontDescriptor(mod, "FONT_F34_MONO", mono)) return;
+	return resolvePhysicalFonts(heading, body, mono);
+}
 
-	const int availableWidth = model.sideBySidePreview
-		? Options::baseXResolution / 2
-		: Options::baseXResolution;
-	const double scale = std::min(
-		(double)availableWidth / model.designWidth,
-		(double)Options::baseYResolution / model.designHeight);
-	const int logicalWidth = std::max(1, (int)std::llround(model.designWidth * scale));
-	const int logicalHeight = std::max(1, (int)std::llround(model.designHeight * scale));
-	const int originX = (availableWidth - logicalWidth) / 2;
-	const int originY = (Options::baseYResolution - logicalHeight) / 2;
+bool CalypsoHdScreenRenderer::completeFrameReady() const
+{
+	if (!physicalReady()) return false;
+	if (_mode != CalypsoHdScreenRenderMode::GeoscapeLiveChrome) return true;
+	const auto* geoscape = static_cast<const GeoscapeState*>(_state);
+	if (!geoscape) return false;
+	const auto& model = liveGeoscapeSnapshot(*geoscape);
+	const bool fundsVisible = geoscape->_txtFunds && geoscape->_txtFunds->getVisible();
+	return calypsoGeoscapeHdFrameReady(model, model.expectedActionIds,
+		calypsoGeoscapeHdRequiredCopyKeys(fundsVisible),
+		CalypsoHdUiOverlay::instance().resourcesReadyForFrame());
+}
+
+bool CalypsoHdScreenRenderer::retryableReadiness() const
+{
+	if (_mode != CalypsoHdScreenRenderMode::GeoscapeLiveChrome || !_state)
+		return false;
+	const auto* geoscape = static_cast<const GeoscapeState*>(_state);
+	if (!geoscape || !physicalReady()) return false;
+	const auto& model = liveGeoscapeSnapshot(*geoscape);
+	const bool fundsVisible = geoscape->_txtFunds && geoscape->_txtFunds->getVisible();
+	return !calypsoGeoscapeHdModelReady(model, model.expectedActionIds,
+		calypsoGeoscapeHdRequiredCopyKeys(fundsVisible));
+}
+
+void CalypsoHdScreenRenderer::collect(CalypsoHdFrameBuilder& builder) const
+{
+	const bool live = _mode == CalypsoHdScreenRenderMode::GeoscapeLiveChrome;
+	const CalypsoHdScreenRenderModel* modelPtr = &_model;
+	if (live)
+	{
+		const auto* geoscape = static_cast<const GeoscapeState*>(_state);
+		if (!geoscape) return;
+		modelPtr = &liveGeoscapeSnapshot(*geoscape);
+	}
+	const CalypsoHdScreenRenderModel& model = *modelPtr;
+	if (!_state || model.designWidth <= 0 || model.designHeight <= 0) return;
+	if (model.archetype != "strategic-command-shell") return;
+
+	CalypsoTtfSourceDescriptor heading;
+	CalypsoTtfSourceDescriptor body;
+	CalypsoTtfSourceDescriptor mono;
+	if (!resolvePhysicalFonts(heading, body, mono)) return;
+
+	if (live && !completeFrameReady()) return;
+	const auto* projectionLayout = CalypsoGeoscapeCommandShellGen::layoutForDesign(
+		model.designWidth, model.designHeight);
+	if (live && projectionLayout == nullptr) return;
+	const auto& viewportMetrics = calypsoViewportRuntime().current();
+	const CalypsoGeoscapeHdProjection projection = projectionLayout != nullptr
+		? calypsoGeoscapeHdProjection(*projectionLayout, viewportMetrics,
+			Options::baseXResolution, Options::baseYResolution)
+		: CalypsoGeoscapeHdProjection(*CalypsoGeoscapeCommandShellGen::layoutForDesign(1280, 720),
+			viewportMetrics);
+	int availableWidth = Options::baseXResolution;
+	double scale = 1.0;
+	int logicalWidth = model.designWidth;
+	int logicalHeight = model.designHeight;
+	int originX = 0;
+	int originY = 0;
+	if (live)
+	{
+		scale = projection.uiScale();
+		logicalWidth = projection.canvasWidth();
+		logicalHeight = projection.canvasHeight();
+		originX = projection.canvasX();
+		originY = projection.canvasY();
+	}
+	else
+	{
+		availableWidth = model.sideBySidePreview
+			? Options::baseXResolution / 2 : Options::baseXResolution;
+		scale = std::min((double)availableWidth / model.designWidth,
+			(double)Options::baseYResolution / model.designHeight);
+		logicalWidth = std::max(1, (int)std::llround(model.designWidth * scale));
+		logicalHeight = std::max(1, (int)std::llround(model.designHeight * scale));
+		originX = (availableWidth - logicalWidth) / 2;
+		originY = (Options::baseYResolution - logicalHeight) / 2;
+	}
 	const CalypsoHdPresentationMetrics& metrics = CalypsoHdUiOverlay::instance().frozenMetrics();
 
 	builder.beginSubgroup();
@@ -134,40 +421,64 @@ void CalypsoHdScreenRenderer::collect(CalypsoHdFrameBuilder& builder) const
 	painter.uiScale = scale;
 
 	std::uint32_t role = 1;
-	painter.styled(painter.winLogical,
-		screenPanelStyle(0, CalypsoHdThemeGen::kDialogFillTop,
-			CalypsoHdThemeGen::kDialogFillBottom, 0.0f), nullptr, role++);
-
-	// Deterministic sparse starfield. Positions are archetype-owned fractions,
-	// projected through the generated design canvas rather than screen pixels.
-	for (int index = 0; index < 42; ++index)
+	if (!live)
 	{
-		const int x = (index * 211 + 37) % model.designWidth;
-		const int y = (index * 137 + 19) % model.designHeight;
-		painter.decoration(painter.project({ x, y, index % 5 == 0 ? 2 : 1, index % 7 == 0 ? 2 : 1 }),
-			index % 4 == 0 ? CalypsoHdThemeGen::kAccent : CalypsoHdThemeGen::kNearWhite, role++);
+		painter.styled(painter.winLogical,
+			screenPanelStyle(0, CalypsoHdThemeGen::kDialogFillTop,
+				CalypsoHdThemeGen::kDialogFillBottom, 0.0f), nullptr, role++);
+
+		// Deterministic sparse starfield and synthetic globe belong only to the
+		// full-physical harness fixture. Live Geoscape keeps the real Globe/world.
+		for (int index = 0; index < 42; ++index)
+		{
+			const int x = (index * 211 + 37) % model.designWidth;
+			const int y = (index * 137 + 19) % model.designHeight;
+			painter.decoration(painter.project({ x, y, index % 5 == 0 ? 2 : 1, index % 7 == 0 ? 2 : 1 }),
+				index % 4 == 0 ? CalypsoHdThemeGen::kAccent : CalypsoHdThemeGen::kNearWhite, role++);
+		}
+
+		if (const auto* world = findRegion(model, "world"))
+		{
+			const int diameter = std::min(world->rect.w, world->rect.h);
+			const CalypsoF21Rect globe{
+				world->rect.x + (world->rect.w - diameter) / 2,
+				world->rect.y + (world->rect.h - diameter) / 2,
+				diameter, diameter };
+			painter.styled(painter.project(globe),
+				screenPanelStyle(CalypsoHdThemeGen::kAccent,
+					CalypsoHdThemeGen::kSafeRestFill, CalypsoHdThemeGen::kDialogFillBottom,
+					diameter / 2.0f, 18.0f), nullptr, role++);
+			for (int ring = 1; ring <= 4; ++ring)
+			{
+				const int inset = diameter * ring / 10;
+				painter.styled(painter.project({ globe.x + inset, globe.y + inset,
+					globe.width - inset * 2, globe.height - inset * 2 }),
+					screenPanelStyle(CalypsoHdThemeGen::kAccentSoft,
+						calypsoRgba(0, 0, 0, 0), calypsoRgba(0, 0, 0, 0),
+						(globe.width - inset * 2) / 2.0f), nullptr, role++);
+			}
+		}
 	}
 
-	if (const auto* world = findRegion(model, "world"))
+	if (live)
 	{
-		const int diameter = std::min(world->rect.w, world->rect.h);
-		const CalypsoF21Rect globe{
-			world->rect.x + (world->rect.w - diameter) / 2,
-			world->rect.y + (world->rect.h - diameter) / 2,
-			diameter, diameter };
-		painter.styled(painter.project(globe),
-			screenPanelStyle(CalypsoHdThemeGen::kAccent,
-				CalypsoHdThemeGen::kSafeRestFill, CalypsoHdThemeGen::kDialogFillBottom,
-				diameter / 2.0f, 18.0f), nullptr, role++);
-		for (int ring = 1; ring <= 4; ++ring)
-		{
-			const int inset = diameter * ring / 10;
-			painter.styled(painter.project({ globe.x + inset, globe.y + inset,
-				globe.width - inset * 2, globe.height - inset * 2 }),
-				screenPanelStyle(CalypsoHdThemeGen::kAccentSoft,
-					calypsoRgba(0, 0, 0, 0), calypsoRgba(0, 0, 0, 0),
-					(globe.width - inset * 2) / 2.0f), nullptr, role++);
-		}
+		const GeoscapeState* geoscape = static_cast<const GeoscapeState*>(_state);
+		const bool fundsVisible = geoscape->_txtFunds && geoscape->_txtFunds->getVisible();
+		if (fundsVisible)
+			painter.claim(geoscape->_txtFunds, role++);
+		painter.claim(geoscape->_txtHour, role++);
+		painter.claim(geoscape->_txtHourSep, role++);
+		painter.claim(geoscape->_txtMin, role++);
+		painter.claim(geoscape->_txtMinSep, role++);
+		painter.claim(geoscape->_txtSec, role++);
+		painter.claim(geoscape->_txtWeekday, role++);
+		painter.claim(geoscape->_txtDay, role++);
+		painter.claim(geoscape->_txtMonth, role++);
+		painter.claim(geoscape->_txtYear, role++);
+		painter.claim(geoscape->_sidebar, role++);
+		painter.claim(geoscape->_sideLine, role++);
+		painter.claim(geoscape->_sideTop, role++);
+		painter.claim(geoscape->_sideBottom, role++);
 	}
 
 	if (const auto* status = findRegion(model, "status"))
@@ -176,13 +487,18 @@ void CalypsoHdScreenRenderer::collect(CalypsoHdFrameBuilder& builder) const
 		painter.styled(rect, screenPanelStyle(CalypsoHdThemeGen::kAccentSoft,
 			CalypsoHdThemeGen::kDialogFillTop, CalypsoHdThemeGen::kDialogFillBottom,
 			status->rect.h / 2.0f), nullptr, role++);
-		const std::string statusText = copyValue(model, "time") + "  |  "
-			+ copyValue(model, "date") + "  |  " + copyValue(model, "funds");
+		const auto* liveGeoscape = live ? static_cast<const GeoscapeState*>(_state) : nullptr;
+		const bool fundsVisible = !live || (liveGeoscape && liveGeoscape->_txtFunds
+			&& liveGeoscape->_txtFunds->getVisible());
+		std::string statusText = copyValue(model, "time") + "  |  "
+			+ copyValue(model, "date");
+		if (fundsVisible) statusText += "  |  " + copyValue(model, "funds");
 		painter.textRect(rect, nullptr, mono, statusText, CalypsoHdThemeGen::kNearWhite,
 			CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, role++, 0.04,
 			model.designHeight > 360 ? 13.0 : 11.0);
 	}
 
+	if (!live)
 	if (const auto* notification = findRegion(model, "notification"))
 	{
 		const CalypsoLogicalRect rect = painter.project(designRect(notification->rect));
@@ -207,26 +523,23 @@ void CalypsoHdScreenRenderer::collect(CalypsoHdFrameBuilder& builder) const
 			model.designHeight > 360 ? 10.0 : 8.0);
 	}
 
-	if (const auto* time = findRegion(model, "timeControl"))
-	{
-		painter.styled(painter.project(designRect(time->rect)),
-			screenPanelStyle(CalypsoHdThemeGen::kAccentSoft,
-				calypsoRgba(0x05, 0x0F, 0x14, 0x70), calypsoRgba(0x05, 0x0F, 0x14, 0x18),
-				time->rect.h / 2.0f), nullptr, role++);
-	}
+	paintTimeSpeedRail(model, painter, mono, live, role);
 
 	for (const auto& action : model.actions)
 	{
+		if (action.component == "time-speed-control") continue;
+		if (live && action.widget == nullptr) continue;
 		const CalypsoLogicalRect rect = painter.project(designRect(action.visible));
 		const bool selected = action.id == model.selectedActionId;
-		CalypsoHdPanelStyle style = f21QuietButtonStyle(
-			selected ? CalypsoInteractionState::Focus : CalypsoInteractionState::Rest);
-		if (action.component == "command-icon-action" || action.slotRole == "time-pause")
+		const CalypsoInteractionState state = selected
+			? CalypsoInteractionState::Focus : CalypsoInteractionState::Rest;
+		CalypsoHdPanelStyle style = f21QuietButtonStyle(state);
+		if (action.component == "command-icon-action")
 			style.radiusPx = action.visible.h / 2.0f;
 		if (action.component == "notification-action")
 			style.borderColorRgba = CalypsoHdThemeGen::kGold;
-		painter.styled(rect, style, nullptr, role++);
-		painter.textRect(rect, nullptr,
+		painter.styled(rect, style, live ? action.widget : nullptr, role++);
+		painter.textRect(rect, live ? action.widget : nullptr,
 			action.component == "command-icon-action" ? heading : mono,
 			compactGlyph(action), CalypsoHdThemeGen::kNearWhite,
 			CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, role++,
