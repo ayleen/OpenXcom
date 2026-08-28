@@ -83,6 +83,11 @@ extraTTFFonts:
   - id: FONT_F34_MONO
     file: Resources/share-tech-mono-400.ttf
     size: 64
+  # Geoscape HD v2 s.10.1 (2026-08-28): Phosphor icon face fixture for the
+  # wide command rail (mirrors the hd-pack FONT_HD_ICONS registration).
+  - id: FONT_HD_ICONS
+    file: Resources/phosphor-regular.ttf
+    size: 64
   - id: FONT_F33_BODY
     file: Resources/chakra-petch-400.ttf
     size: 64

@@ -374,6 +374,14 @@ void CalypsoHdScreenRenderer::collect(CalypsoHdFrameBuilder& builder) const
 	CalypsoTtfSourceDescriptor body;
 	CalypsoTtfSourceDescriptor mono;
 	if (!resolvePhysicalFonts(heading, body, mono)) return;
+	// Visual contract s.10.1 rule 8: the wide command rail draws Phosphor
+	// line icons from the registered FONT_HD_ICONS face. Optional by design:
+	// a missing icon face fails closed to circle + label, never blocks
+	// readiness or the frame.
+	CalypsoTtfSourceDescriptor icon;
+	const bool iconsResolved = calypsoHdResolveFontDescriptor(
+		getCurrentGame() ? getCurrentGame()->getMod() : nullptr, "FONT_HD_ICONS", icon)
+		&& !icon.canonicalVfsPath.empty() && icon.logicalDesignSize > 0;
 
 	if (live && !completeFrameReady()) return;
 	const auto* projectionLayout = CalypsoGeoscapeCommandShellGen::layoutForDesign(
@@ -544,6 +552,43 @@ void CalypsoHdScreenRenderer::collect(CalypsoHdFrameBuilder& builder) const
 			|| action.component == "compact-command-action";
 		const auto tone = action.id == "action.session"
 			? CalypsoCommandActionTone::Primary : CalypsoCommandActionTone::Normal;
+		// Wide command rail (s.10.1 rule 8): circular icon button with the
+		// label below, exactly as the canonical desktop mockup. Only the tall
+		// rail slots qualify; zoom/time glyphs and every compact card keep the
+		// single-surface presentation.
+		const char32_t iconGlyph = calypsoCommandActionIconGlyph(action.id);
+		const bool wideIconRail = commandAction && iconGlyph != 0
+			&& action.visible.h >= kCommandIconCirclePx + kCommandIconLabelGapPx + 12
+			&& action.visible.w >= kCommandIconCirclePx;
+		if (wideIconRail)
+		{
+			const auto slot = calypsoCommandIconSlotLayout(designRect(action.visible));
+			const CalypsoLogicalRect circleRect = painter.project(slot.circle);
+			const CalypsoLogicalRect labelRect = painter.project(slot.label);
+			CalypsoHdPanelStyle circleStyle = calypsoCommandActionStyle(state, tone);
+			// A circle is the one legitimate full-radius surface (s.10.1 rule 8).
+			circleStyle.radiusPx = slot.circle.height / 2.0f;
+			painter.styled(circleRect, circleStyle, live ? action.widget : nullptr, role++);
+			if (iconsResolved)
+			{
+				// Phosphor PUA codepoints are 3-byte UTF-8 (0xE000..0xF8FF).
+				const char32_t cp = iconGlyph;
+				const std::string glyph{
+					static_cast<char>(0xE0 | (cp >> 12)),
+					static_cast<char>(0x80 | ((cp >> 6) & 0x3F)),
+					static_cast<char>(0x80 | (cp & 0x3F)) };
+				painter.textRect(circleRect, live ? action.widget : nullptr, icon,
+					glyph, CalypsoHdThemeGen::kNearWhite,
+					CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, role++,
+					0.0, 30.0);
+			}
+			painter.textRect(labelRect, live ? action.widget : nullptr, mono,
+				compactGlyph(action), state == CalypsoInteractionState::Focus
+					? CalypsoHdThemeGen::kNearWhite : kF21MutedBodyRgba,
+				CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, role++, 0.08,
+				model.designHeight > 360 ? 11.0 : 9.0);
+			continue;
+		}
 		// Fixed canonical radius; the height-derived stadium is retired.
 		CalypsoHdPanelStyle style = commandAction
 			? calypsoCommandActionStyle(state, tone)

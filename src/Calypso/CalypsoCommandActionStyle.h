@@ -15,7 +15,9 @@
  * CalypsoHdCommandActionStyleTest.
  */
 #include <cstdint>
+#include <string>
 
+#include "CalypsoF21LayoutBase.h"
 #include "CalypsoHdFamilyAdapter.h"
 #include "CalypsoHdInteractionState.h"
 #include "Generated/CalypsoHdTheme.generated.h"
@@ -106,6 +108,48 @@ inline CalypsoHdPanelStyle calypsoCommandActionStyle(CalypsoInteractionState sta
 		break;
 	}
 	return s;
+}
+
+/// One Phosphor line icon for the wide command rail (visual contract s.10.1
+/// rule 8). Codepoints follow the upstream phosphor-icons/web regular face.
+/// Returns 0 for every action that stays glyph-less (Session chip, world
+/// zoom, time controls).
+inline char32_t calypsoCommandActionIconGlyph(const std::string& actionId)
+{
+	if (actionId == "action.bases") return 0xE2C4;     // house-line
+	if (actionId == "action.graphs") return 0xE154;    // chart-line
+	if (actionId == "action.extended") return 0xE434;  // sliders-horizontal
+	if (actionId == "action.intercept") return 0xE398; // paper-plane-tilt
+	if (actionId == "action.ufopaedia") return 0xE0E6; // book-open
+	if (actionId == "action.options") return 0xE472;   // sun
+	return 0;
+}
+
+/// Canonical wide icon-slot geometry: the `120x84` command rail slot renders
+/// as a `56x56` circular button centered horizontally at the slot top with
+/// the label strip filling the space below (desktop mockup). Pure; the
+/// renderer projects both rects like any other design-space geometry.
+struct CalypsoCommandIconSlot
+{
+	CalypsoF21Rect circle;
+	CalypsoF21Rect label;
+};
+
+inline constexpr int kCommandIconCirclePx = 56;
+inline constexpr int kCommandIconLabelGapPx = 4;
+
+inline CalypsoCommandIconSlot calypsoCommandIconSlotLayout(const CalypsoF21Rect& slot)
+{
+	CalypsoCommandIconSlot result;
+	result.circle.width = kCommandIconCirclePx;
+	result.circle.height = kCommandIconCirclePx;
+	result.circle.x = slot.x + (slot.width - kCommandIconCirclePx) / 2;
+	result.circle.y = slot.y;
+	result.label.x = slot.x;
+	result.label.width = slot.width;
+	result.label.y = slot.y + kCommandIconCirclePx + kCommandIconLabelGapPx;
+	result.label.height = slot.height - kCommandIconCirclePx - kCommandIconLabelGapPx;
+	return result;
 }
 
 } // namespace Calypso
