@@ -78,6 +78,19 @@ void calypsoCcRender(CalypsoF21Painter& painter, const CommandCenterLayout& layo
 bool calypsoCcEnabled();
 void calypsoCcSetEnabled(bool on);
 
+/// Physical-pixel stage rect published by the screen renderer each CC frame
+/// and consumed by the globe direct pass (stage 7 clipping).
+struct CcStageRect
+{
+	int x = 0;
+	int y = 0;
+	int w = 0;
+	int h = 0;
+	bool active = false;
+};
+void calypsoCcSetStageRect(const CcStageRect& rect);
+CcStageRect calypsoCcStageRect();
+
 } // namespace CommandCenter
 } // namespace Calypso
 } // namespace OpenXcom

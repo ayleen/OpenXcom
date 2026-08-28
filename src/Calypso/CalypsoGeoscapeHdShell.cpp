@@ -30,6 +30,7 @@ namespace OpenXcom
 const Surface* CalypsoGeoscapeHdShell::resolveWidget(const GeoscapeState* s, const std::string& member)
 {
 	if (s == nullptr) return nullptr;
+	if (member == "bg") return s->_bg;
 	if (member == "btnIntercept") return s->_btnIntercept;
 	if (member == "btnBases") return s->_btnBases;
 	if (member == "btnGraphs") return s->_btnGraphs;

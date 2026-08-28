@@ -441,6 +441,8 @@ void CalypsoHdScreenRenderer::collect(CalypsoHdFrameBuilder& builder) const
 		// canvas the overlay composites correctly); the CC compact grid is
 		// authored to fit inside it. Full-bleed background becomes stage-7
 		// work when the globe moves into the clipped stage.
+		painter.winLogical.x = 0;
+		painter.winLogical.y = 0;
 		const CommandCenter::CommandCenterFonts ccFonts =
 			CommandCenter::calypsoCcResolveFonts(
 				getCurrentGame() ? getCurrentGame()->getMod() : nullptr);
@@ -471,10 +473,14 @@ void CalypsoHdScreenRenderer::collect(CalypsoHdFrameBuilder& builder) const
 		// 1280 wide, which is the spec's compact-desktop band (1024..1279
 		// composition: rail 72, inspector 300 overlaying the stage). Use it
 		// whenever the full desktop grid cannot fit without overflow.
-		const float ccWidth = static_cast<float>(metrics.physicalWidth);
+		// Lay the CC grid out inside the FITTED canvas the overlay composites
+		// (winLogical), not the full design width — the margins around it are
+		// painted by the world pass clear (stage 7).
+		const float ccWidth = static_cast<float>(painter.winLogical.w);
+		const float ccHeight = static_cast<float>(painter.winLogical.h);
 		const auto ccLayout = (ccWidth >= 112.0f + 960.0f + 24.0f + 320.0f + 24.0f)
 			? CommandCenter::computeDesktopLayout(CommandCenter::Size2{ccWidth, static_cast<float>(metrics.logicalHeight)}, true)
-			: CommandCenter::computeCompactDesktopLayout(CommandCenter::Size2{ccWidth, static_cast<float>(metrics.physicalHeight)}, true);
+			: CommandCenter::computeCompactDesktopLayout(CommandCenter::Size2{ccWidth, ccHeight}, true);
 		CommandCenter::calypsoCcRender(painter, ccLayout, snap, ccFonts, live,
 			geoscapeState, role);
 		(void)projectionLayout;

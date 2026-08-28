@@ -12,6 +12,9 @@
 #include <cmath>
 
 #include "../CalypsoGeoscapeHdShell.h"
+#include "../../Geoscape/Globe.h"
+#include "../CalypsoGeoscapeColoredLineBatch.h"
+#include "../CalypsoGeoscapeHdGlobeDirect.h"
 #include "../CalypsoHdFontSource.h"
 #include "../../Geoscape/GeoscapeState.h"
 #include "../../Engine/Options.h"
@@ -127,6 +130,14 @@ constexpr const char* kTimeSteps[6] =
 bool calypsoCcEnabled() { return g_calypsoCcEnabled; }
 void calypsoCcSetEnabled(bool on) { g_calypsoCcEnabled = on; }
 
+namespace
+{
+CcStageRect g_calypsoCcStage;
+}
+
+void calypsoCcSetStageRect(const CcStageRect& rect) { g_calypsoCcStage = rect; }
+CcStageRect calypsoCcStageRect() { return g_calypsoCcStage; }
+
 CommandCenterFonts calypsoCcResolveFonts(const Mod* mod)
 {
 	CommandCenterFonts fonts;
@@ -151,8 +162,10 @@ void calypsoCcRender(CalypsoF21Painter& painter, const CommandCenterLayout& layo
 	using namespace CommandCenterTheme;
 	const auto px = CommandCenterTheme::packed;
 
-	// Pass 1: root background gradient (spec s.17). The radial centre glow
-	// is deferred (decorative; needs a radial-capable primitive).
+	// Pass 1: root background (spec s.17). Live mode paints only the margins
+	// around the stage — the world pass owns the stage interior (stage 7);
+	// fixture mode paints the full gradient. The radial centre glow is
+	// deferred (needs a radial-capable primitive).
 	{
 		CalypsoHdPanelStyle root;
 		root.styled = true;
@@ -160,7 +173,23 @@ void calypsoCcRender(CalypsoF21Painter& painter, const CommandCenterLayout& layo
 		root.fillBottomRgba = 0x03101Eu;
 		root.gradDirX = 0.0f;
 		root.gradDirY = 1.0f;
-		ccRect(painter, layout.root, root, role);
+		if (!live)
+		{
+			ccRect(painter, layout.root, root, role);
+		}
+		else
+		{
+			const RectF& st = layout.stage;
+			const RectF strips[4] = {
+				RectF{0, 0, layout.root.width, st.y},
+				RectF{0, st.y, st.x, layout.root.height - st.y},
+				RectF{st.right(), st.y, layout.root.width - st.right(), layout.root.height - st.y},
+				RectF{st.x, st.bottom(), layout.root.width - st.x, layout.root.height - st.bottom()},
+			};
+			for (auto& strip : strips)
+				if (strip.width > 0.0f && strip.height > 0.0f)
+					ccRect(painter, strip, root, role);
+		}
 	}
 
 	// Pass 2: header background + bottom hairline (spec s.18).
@@ -527,6 +556,24 @@ void calypsoCcRender(CalypsoF21Painter& painter, const CommandCenterLayout& layo
 	// (spec s.76 -- handlers stay, only the call points move).
 	if (live && state != nullptr)
 	{
+		// Stage 7: publish the stage rect in GLOBE-WIDGET logical pixels.
+		// The direct pass multiplies by the screen scales exactly like its
+		// own u_globeCenter math, so the globe disk, routes and scissor land
+		// inside the stage regardless of DPR or canvas fitting.
+		if (const Surface* globe = CalypsoGeoscapeHdShell::resolveWidget(state, "bg"))
+		{
+			const double fx = globe->getWidth() > 0
+				? static_cast<double>(globe->getWidth()) / 1280.0 : 1.0;
+			const double fy = globe->getHeight() > 0
+				? static_cast<double>(globe->getHeight()) / 720.0 : 1.0;
+			CcStageRect sr;
+			sr.active = true;
+			sr.x = (int)std::llround(layout.stage.x * fx);
+			sr.y = (int)std::llround(layout.stage.y * fy);
+			sr.w = (int)std::llround(layout.stage.width * fx);
+			sr.h = (int)std::llround(layout.stage.height * fy);
+			calypsoCcSetStageRect(sr);
+		}
 		Surface* session = const_cast<Surface*>(CalypsoGeoscapeHdShell::resolveLiveWidget(state, "action.session"));
 		Surface* pause = const_cast<Surface*>(CalypsoGeoscapeHdShell::resolveLiveWidget(state, "time.pause"));
 		ccBind(painter, session, layout.sessionSelector, role);

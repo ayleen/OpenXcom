@@ -5,6 +5,7 @@
  */
 #include "../Geoscape/Globe.h"
 #include "CalypsoGeoscapeHdGlobeDirect.h"
+#include "CommandCenter/CommandCenterRenderer.h"
 #include "CalypsoGlobeHdSphere.h"
 #include "CalypsoGeoscapeQaPresentation.h"
 #include "CalypsoGeoscapeColoredLineBatch.h"
@@ -201,6 +202,14 @@ void CalypsoGeoscapeHdGlobeDirect::drawPass(Globe* globe)
 		glViewport(dispX, (int)Options::displayHeight - dispY - dispH, dispW, dispH);
 		glDisable(GL_BLEND);
 		glDisable(GL_DEPTH_TEST);
+		if (Calypso::CommandCenter::calypsoCcEnabled())
+		{
+			// Stage 7: the CC root background owns the full-window base
+			// colour; the world pass draws only inside the stage rect.
+			glClearColor(0.0078f, 0.0235f, 0.0549f, 1.0f); /* #02060E */
+			glDisable(GL_SCISSOR_TEST);
+			glClear(GL_COLOR_BUFFER_BIT);
+		}
 		globe->_gpuState->_globeShader->use();
 		bathyTex->bind(0);   globe->_gpuState->_globeShader->setUniform1i("u_bathymetry", 0);
 		diffuseTex->bind(1); globe->_gpuState->_globeShader->setUniform1i("u_diffuse", 1);
@@ -237,9 +246,31 @@ void CalypsoGeoscapeHdGlobeDirect::drawPass(Globe* globe)
 		globe->_gpuState->_globeShader->setUniform1f("u_time", timeMs * 0.001f);
 		float mipLvl = std::max(0.f, std::min(1.35f, 1.35f - (float)globe->_zoom * 0.27f));
 		globe->_gpuState->_globeShader->setUniform1f("u_mipLevel", mipLvl);
+		if (Calypso::CommandCenter::calypsoCcEnabled())
+		{
+			// Stage 7: clip the world into the CC stage and fit the globe
+			// disk inside it. The published rect is in globe-widget logical
+			// pixels; xs/ys convert to viewport physical pixels exactly like
+			// the camera centre above.
+			const auto sr = Calypso::CommandCenter::calypsoCcStageRect();
+			if (sr.active && sr.w > 0 && sr.h > 0)
+			{
+				const int vx = (int)std::lround(sr.x * xs);
+				const int vy = (int)std::lround(sr.y * ys);
+				const int vw = std::max(1, (int)std::lround(sr.w * xs));
+				const int vh = std::max(1, (int)std::lround(sr.h * ys));
+				glEnable(GL_SCISSOR_TEST);
+				glScissor(vx, (int)Options::displayHeight - vy - vh, vw, vh);
+				globe->_gpuState->_globeShader->setUniform2f("u_globeCenter",
+					(float)vx + vw / 2.0f, (float)vy + vh / 2.0f);
+				globe->_gpuState->_globeShader->setUniform1f("u_globeRadius",
+					(float)std::min(vw, vh) * 0.48f);
+			}
+		}
 		glBindVertexArray(globe->_gpuState->_sphereVAO);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 		glBindVertexArray(0u);
+		glDisable(GL_SCISSOR_TEST);
 		for (int i = 3; i >= 0; --i) { glActiveTexture(GL_TEXTURE0 + i); glBindTexture(GL_TEXTURE_2D, 0u); }
 		if (glGetError() != GL_NO_ERROR)
 			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape Earth draw failed");
