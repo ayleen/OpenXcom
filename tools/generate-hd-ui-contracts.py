@@ -229,7 +229,8 @@ def validate_registry(registry):
     seen = {"id": set(), "contract": set(), "native output": set(), "browser output": set()}
     allowed_emitters = {"theme", "legacy-abandon", "family", "screen"}
     allowed_profiles = {"theme", "legacy-abandon", "family", "command-card",
-                        "small-confirmation", "contact-decision", "content-block", "screen"}
+                        "small-confirmation", "contact-decision",
+                        "contact-intel-board", "content-block", "screen"}
     for index, entry in enumerate(entries):
         where = "hd-ui-contracts.json: entries[" + str(index) + "]"
         if not isinstance(entry, dict):
@@ -285,7 +286,7 @@ def validate_family(doc, rel, profile, engine_text_calibration=False):
         fail(rel + ": schema must be 1")
     if not isinstance(doc.get("version"), str) or not VERSION_RE.match(doc.get("version", "")):
         fail(rel + ": version string required")
-    if profile in {"small-confirmation", "contact-decision"}:
+    if profile in {"small-confirmation", "contact-decision", "contact-intel-board"}:
         form = doc.get("form") or {}
         if form.get("archetype") != profile or not form.get("id"):
             fail(rel + ": " + profile + " form identity required")
@@ -904,10 +905,18 @@ def emit_small_confirmation_h(doc, rel, ns, prefix):
            "inline constexpr int kFamilyId = " + str(form["familyId"]) + ";",
            'inline constexpr const char* kArchetype = "' + form["archetype"] + '";',
            'inline constexpr const char* kSourceConfig = "' + form["source"] + '";']
-    if form["archetype"] == "contact-decision":
+    if form["archetype"] in {"contact-decision", "contact-intel-board"}:
         out += [
             'inline constexpr const char* kProtocol = ' + json.dumps(copy["protocol"], ensure_ascii=False) + ';',
         ]
+    if form["archetype"] == "contact-intel-board":
+        out += [
+            'inline constexpr const char* kNote = ' + json.dumps(copy.get("note", ""), ensure_ascii=False) + ';',
+        ]
+        fact_labels = ", ".join(json.dumps(fact["label"], ensure_ascii=False)
+                                for fact in form.get("facts", []))
+        out.append("inline constexpr const char* kFactLabels[] = { " + fact_labels + " };")
+        out.append("inline constexpr int kFactCount = " + str(len(form.get("facts", []))) + ";")
     out.append("")
     presentation = doc.get("presentation") or {
         "density": "standard", "scaleNumerator": 1, "scaleDenominator": 1}
@@ -924,7 +933,11 @@ def emit_small_confirmation_h(doc, rel, ns, prefix):
     out += ["};", "inline constexpr int kButtonCount = " + str(len(form["buttons"])) + ";", ""]
     out.append("inline constexpr float kCutCornerPx = %.6ff;" % float(style["cutCornerPx"]))
     out.append("inline constexpr float kProtocolTextInsetPx = %.6ff;" % float(style["protocolTextInsetPx"]))
-    for key in ("panelFillTop","panelFillBottom","frame","protocolText","divider","footerFill","footerDot","warning"):
+    fixed_style_keys = ("panelFillTop","panelFillBottom","frame","protocolText","divider","footerFill","footerDot","warning")
+    for key in fixed_style_keys:
+        out.append("inline constexpr std::uint32_t k" + key[0].upper() + key[1:] + " = " + rgba_call(style[key]) + ";")
+    archetype_style_keys = sorted(k for k in style if k not in fixed_style_keys and k not in ("cutCornerPx", "protocolTextInsetPx"))
+    for key in archetype_style_keys:
         out.append("inline constexpr std::uint32_t k" + key[0].upper() + key[1:] + " = " + rgba_call(style[key]) + ";")
     out.append("")
     wide_keys = [k for k,v in layouts["wide"].items() if isinstance(v, dict) and "x" in v]
@@ -1235,7 +1248,8 @@ def main(argv):
         elif entry["emitter"] == "screen":
             native_text = emit_screen_h(
                 doc, rel, native["namespace"], native["prefix"])
-        elif entry["validationProfile"] in {"small-confirmation", "contact-decision"}:
+        elif entry["validationProfile"] in {"small-confirmation", "contact-decision",
+                                            "contact-intel-board"}:
             native_text = emit_small_confirmation_h(
                 doc, rel, native["namespace"], native["prefix"])
         else:

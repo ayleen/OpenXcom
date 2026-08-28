@@ -2,7 +2,7 @@
   "schema": 1,
   "id": "f06-soldier-diary",
   "familyId": 6,
-  "version": "hd.2026-08-20.22",
+  "version": "hd.2026-08-28.1",
   "archetype": "small-confirmation",
   "protocol": {
     "authority": "CALYPSO COMMAND",

@@ -4,7 +4,7 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF17MissionDetectedGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-20.22";
+inline constexpr const char* kContractVersion = "hd.2026-08-28.1";
 inline constexpr const char* kFormId = "f17-mission-detected";
 inline constexpr int kFamilyId = 17;
 inline constexpr const char* kArchetype = "contact-decision";
@@ -34,6 +34,10 @@ inline constexpr std::uint32_t kDivider = 0x74FFB04Du;
 inline constexpr std::uint32_t kFooterFill = 0x061B1CD6u;
 inline constexpr std::uint32_t kFooterDot = 0x74FFB01Fu;
 inline constexpr std::uint32_t kWarning = 0xFFC14DFFu;
+inline constexpr std::uint32_t kDestructiveFill = 0xF25F5CFFu;
+inline constexpr std::uint32_t kDestructiveText = 0x071013FFu;
+inline constexpr std::uint32_t kSafeBorder = 0x74FFB0CCu;
+inline constexpr std::uint32_t kSafeFill = 0x051417B8u;
 
 struct CalypsoF17MissionDetectedGenRect { int x; int y; int w; int h; };
 struct CalypsoF17MissionDetectedGenLayout { int designWidth; int designHeight; CalypsoF17MissionDetectedGenRect window; CalypsoF17MissionDetectedGenRect status; CalypsoF17MissionDetectedGenRect warning; CalypsoF17MissionDetectedGenRect title; CalypsoF17MissionDetectedGenRect message; CalypsoF17MissionDetectedGenRect footer;

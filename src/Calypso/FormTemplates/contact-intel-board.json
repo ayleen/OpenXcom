@@ -1,0 +1,81 @@
+{
+  "schema": 1,
+  "id": "contact-intel-board",
+  "version": 1,
+  "buttonCount": { "min": 3, "max": 3 },
+  "supportedButtonTones": ["normal", "safe", "primary", "warning", "danger"],
+  "buttonToneStyles": {
+    "normal":  { "fill": "051417B8", "border": "74FFB059", "text": "E8FFF5FF" },
+    "safe":    { "fill": "051417B8", "border": "74FFB0CC", "text": "E8FFF5FF" },
+    "primary": { "fill": "74FFB0FF", "border": "74FFB0FF", "text": "071013FF" },
+    "warning": { "fill": "FFC14DFF", "border": "FFC14DFF", "text": "071013FF" },
+    "danger":  { "fill": "F25F5CFF", "border": "F25F5CFF", "text": "071013FF" }
+  },
+  "style": {
+    "cutCornerPx": 14,
+    "protocolTextInsetPx": 26,
+    "panelFillTop": "08191DEB",
+    "panelFillBottom": "041014E8",
+    "frame": "74FFB073",
+    "protocolText": "A9D8C7FF",
+    "divider": "74FFB04D",
+    "footerFill": "061B1CD6",
+    "footerDot": "74FFB01F",
+    "warning": "FFC14DFF",
+    "plotFrame": "74FFB033",
+    "plotGrid": "74FFB01A",
+    "plotContact": "FFC14DFF",
+    "plotContactHalo": "FFC14D40",
+    "plotBase": "74FFB0FF",
+    "plotCourse": "FFC14D8C",
+    "factDivider": "74FFB02B"
+  },
+  "contentSizing": {
+    "wide":   { "safeMarginPx": 24, "factCount": 5, "factLabelWidth": 120, "factRowHeight": 40, "factRowGap": 10, "gridColumns": 12, "gridRows": 9 },
+    "compact": { "safeMarginPx": 16, "factCount": 5, "factLabelWidth": 104, "factRowHeight": 28, "factRowGap": 3, "gridColumns": 8, "gridRows": 7 }
+  },
+  "layouts": {
+    "wide": {
+      "designWidth": 1280,
+      "designHeight": 720,
+      "window":      { "x": 24,  "y": 56,  "width": 1232, "height": 632 },
+      "status":      { "x": 24,  "y": 56,  "width": 1232, "height": 40 },
+      "plotPanel":   { "x": 48,  "y": 112, "width": 760,  "height": 552 },
+      "plotArea":    { "x": 68,  "y": 132, "width": 720,  "height": 512 },
+      "reportPanel": { "x": 832, "y": 112, "width": 400,  "height": 552 },
+      "warning":     { "x": 856, "y": 132, "width": 32,   "height": 32 },
+      "title":       { "x": 904, "y": 128, "width": 304,  "height": 40 },
+      "message":     { "x": 856, "y": 184, "width": 360,  "height": 28 },
+      "footer":      { "x": 832, "y": 568, "width": 400,  "height": 72 },
+      "buttonSlots": [
+        { "x": 856,  "y": 584, "width": 112, "height": 44 },
+        { "x": 980,  "y": 584, "width": 112, "height": 44 },
+        { "x": 1104, "y": 584, "width": 112, "height": 44 }
+      ]
+    },
+    "compact": {
+      "designWidth": 740,
+      "designHeight": 360,
+      "window":      { "x": 16,  "y": 12,  "width": 708, "height": 336 },
+      "status":      { "x": 16,  "y": 12,  "width": 708, "height": 30 },
+      "plotPanel":   { "x": 24,  "y": 50,  "width": 320, "height": 282 },
+      "plotArea":    { "x": 34,  "y": 60,  "width": 300, "height": 262 },
+      "reportPanel": { "x": 356, "y": 50,  "width": 348, "height": 282 },
+      "warning":     { "x": 368, "y": 60,  "width": 24,  "height": 24 },
+      "title":       { "x": 400, "y": 56,  "width": 292, "height": 34 },
+      "message":     { "x": 368, "y": 96,  "width": 324, "height": 22 },
+      "footer":      { "x": 356, "y": 282, "width": 348, "height": 44 },
+      "buttonSlots": [
+        { "x": 368, "y": 282, "width": 104, "height": 44 },
+        { "x": 478, "y": 282, "width": 104, "height": 44 },
+        { "x": 588, "y": 282, "width": 104, "height": 44 }
+      ]
+    }
+  },
+  "motion": {
+    "durationMs": 200,
+    "scaleFrom": 0.96,
+    "easing": "ease-out",
+    "captureModeDurationMs": 0
+  }
+}

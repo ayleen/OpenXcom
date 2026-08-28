@@ -3,7 +3,7 @@
 // Canonical source: src/Calypso/Contracts/geoscape-command-shell.json
 #pragma once
 namespace OpenXcom { namespace Calypso { namespace CalypsoGeoscapeCommandShellGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-20.22";
+inline constexpr const char* kContractVersion = "hd.2026-08-28.1";
 inline constexpr const char* kScreenId = "geoscape-command-shell";
 inline constexpr const char* kArchetype = "strategic-command-shell";
 inline constexpr bool kProductionHook = true;

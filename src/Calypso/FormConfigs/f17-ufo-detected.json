@@ -2,19 +2,18 @@
   "schema": 1,
   "id": "f17-ufo-detected",
   "familyId": 17,
-  "version": "hd.2026-08-20.22",
-  "archetype": "contact-decision",
+  "version": "hd.2026-08-28.1",
+  "archetype": "contact-intel-board",
   "protocol": {
     "authority": "CALYPSO COMMAND",
     "record": "TACTICAL NOTICE",
     "code": "F17-UFO-DETECTED",
-    "revision": "1.0.22",
-    "effectiveDate": "27.08.2061"
+    "revision": "2.0",
+    "effectiveDate": "28.08.2061"
   },
-  "title": "UFO DETECTED",
+  "title": "CONTACT REPORT",
   "body": [
-    "Unidentified craft",
-    "detected on radar."
+    "DETECTED"
   ],
   "icon": {
     "kind": "warning",
@@ -25,13 +24,13 @@
     {
       "id": "intercept",
       "label": "INTERCEPT",
-      "tone": "safe",
+      "tone": "primary",
       "action": "intercept"
     },
     {
       "id": "centre",
       "label": "CENTRE",
-      "tone": "primary",
+      "tone": "safe",
       "action": "centre"
     },
     {
@@ -41,9 +40,39 @@
       "action": "cancel"
     }
   ],
-  "visibleButtons": [
-    "intercept",
-    "centre",
-    "cancel"
-  ]
+  "facts": [
+    {
+      "id": "class",
+      "label": "CLASS",
+      "value": "USO · HEAVY"
+    },
+    {
+      "id": "altitude",
+      "label": "DEPTH",
+      "value": "VERY DEEP"
+    },
+    {
+      "id": "heading",
+      "label": "COURSE",
+      "value": "SE"
+    },
+    {
+      "id": "speed",
+      "label": "SPEED",
+      "value": "642 kt"
+    },
+    {
+      "id": "dist",
+      "label": "DIST TO BASE",
+      "value": "5,404 KM · DERIVED"
+    }
+  ],
+  "plot": {
+    "contact": { "x": 470, "y": 480 },
+    "base": { "x": 815, "y": 775 },
+    "course": "SE",
+    "contactLabel": "USO · HEAVY",
+    "baseLabel": "SIREN-1"
+  },
+  "note": "INTERCEPT OPENS WING ASSEMBLY · CENTRE RECENTRES AT 5 S · DISMISS RETURNS TO THE PLOT"
 }
