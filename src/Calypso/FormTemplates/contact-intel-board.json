@@ -73,7 +73,7 @@
       "safeMarginPx": 16,
       "factCount": 5,
       "factLabelWidth": 112,
-      "factRowHeight": 16,
+      "factRowHeight": 18,
       "factRowGap": 2,
       "gridColumns": 8,
       "gridRows": 7
@@ -163,74 +163,74 @@
       "designHeight": 360,
       "window": {
         "x": 120,
-        "y": 56,
+        "y": 44,
         "width": 500,
-        "height": 248
+        "height": 272
       },
       "status": {
         "x": 120,
-        "y": 56,
+        "y": 44,
         "width": 500,
         "height": 18
       },
       "plotPanel": {
         "x": 130,
-        "y": 80,
+        "y": 68,
         "width": 220,
-        "height": 148
+        "height": 168
       },
       "plotArea": {
         "x": 138,
-        "y": 88,
+        "y": 76,
         "width": 204,
-        "height": 132
+        "height": 152
       },
       "reportPanel": {
         "x": 358,
-        "y": 80,
+        "y": 68,
         "width": 252,
-        "height": 148
+        "height": 168
       },
       "warning": {
         "x": 366,
-        "y": 80,
+        "y": 74,
         "width": 28,
         "height": 28
       },
       "title": {
         "x": 398,
-        "y": 76,
-        "width": 198,
-        "height": 38
+        "y": 72,
+        "width": 212,
+        "height": 36
       },
       "message": {
         "x": 366,
-        "y": 120,
+        "y": 114,
         "width": 234,
         "height": 20
       },
       "footer": {
         "x": 120,
-        "y": 236,
+        "y": 252,
         "width": 500,
-        "height": 66
+        "height": 60
       },
       "buttonSlots": [
         {
           "x": 132,
-          "y": 245,
+          "y": 260,
           "width": 148,
           "height": 44
         },
         {
           "x": 292,
-          "y": 245,
+          "y": 260,
           "width": 148,
           "height": 44
         },
         {
           "x": 452,
-          "y": 245,
+          "y": 260,
           "width": 148,
           "height": 44
         }

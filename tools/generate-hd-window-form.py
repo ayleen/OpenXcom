@@ -381,7 +381,7 @@ def validate_intel_board_template(template):
         "wide": {"safeMarginPx": 24, "factCount": 5, "factLabelWidth": 120,
                  "factRowHeight": 20, "factRowGap": 4, "gridColumns": 4, "gridRows": 3},
         "compact": {"safeMarginPx": 16, "factCount": 5, "factLabelWidth": 112,
-                    "factRowHeight": 16, "factRowGap": 2, "gridColumns": 8, "gridRows": 7},
+                    "factRowHeight": 18, "factRowGap": 2, "gridColumns": 8, "gridRows": 7},
     }
     if sizing != expected_sizing:
         raise FormError("template contentSizing drifted from the reviewed board policy")

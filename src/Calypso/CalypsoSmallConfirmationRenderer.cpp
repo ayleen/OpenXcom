@@ -484,14 +484,13 @@ void calypsoCollectContactIntelBoard(
 
 	builder.beginSubgroup();
 	int order = 0;
-	// Canonical per-role px from the generated theme (F21 data/action scale):
-	// title 34/28, data rows 15/12, action labels 17/14.
-	const int titlePx = model.wide ? CalypsoHdThemeGen::kF21TitleWidePx
-	                               : CalypsoHdThemeGen::kF21TitleCompactPx;
-	const int dataPx = model.wide ? CalypsoHdThemeGen::kF21DataWidePx
-	                              : CalypsoHdThemeGen::kF21DataCompactPx;
-	const int actionPx = model.wide ? CalypsoHdThemeGen::kF21ActionWidePx
-	                                : CalypsoHdThemeGen::kF21ActionCompactPx;
+	// Canonical FORM typography: body/data at kBodyFontSizePx, action labels
+	// at kLabelFontSizePx, title at 0.8x of its box height -- the same scale
+	// the small-confirmation forms use, no per-class downscaling.
+	const int titlePx = std::max(1, (int)calypsoHdRoundToInt(
+		model.titleDesignHeight * CalypsoHdTheme::kTitleFontSizeScale));
+	const int dataPx = CalypsoHdTheme::kBodyFontSizePx;
+	const int actionPx = CalypsoHdTheme::kLabelFontSizePx;
 	auto stamp = [&](CalypsoHdItem& item, std::uint32_t role)
 	{
 		const std::uint64_t instance = reinterpret_cast<std::uintptr_t>(model.instance);
