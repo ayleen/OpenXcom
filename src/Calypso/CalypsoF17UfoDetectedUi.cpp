@@ -16,7 +16,6 @@
 #include "../Savegame/Ufo.h"
 #include "../Mod/Mod.h"
 #include "Generated/CalypsoF17UfoDetected.generated.h"
-#include "CalypsoContactIntelBoardRenderer.h"
 #include "CalypsoHdUiOverlay.h"
 #include "CalypsoSmallConfirmationRenderer.h"
 #include "CalypsoUiFamilies.h"
