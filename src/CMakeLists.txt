@@ -7,6 +7,7 @@ set ( root_src
 set ( calypso_src
   Calypso/BattlescapeHud.cpp
   Calypso/BattleUnitCalypso.cpp
+  Calypso/CommandCenter/CommandCenterLayout.cpp
   Calypso/CalypsoAiQaHarness.cpp
   Calypso/CalypsoAlienPacing.cpp
   Calypso/CalypsoContractDeliverState.cpp
@@ -1035,6 +1036,7 @@ if(NOT EMSCRIPTEN AND BUILD_TESTING)
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdF33ContractTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdF21ContractTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdCommandActionStyleTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CommandCenterLayoutTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdInteractionStateTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdHarnessHostModelTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdDiagnosticsTest.cpp
