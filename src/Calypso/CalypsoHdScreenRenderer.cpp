@@ -16,6 +16,7 @@
 #include "../Interface/TextButton.h"
 #include "../Savegame/SavedGame.h"
 
+#include "CalypsoCommandActionStyle.h"
 #include "CalypsoF21UiShared.h"
 #include "CalypsoHdFontSource.h"
 #include "CalypsoHdTheme.h"
@@ -531,11 +532,22 @@ void CalypsoHdScreenRenderer::collect(CalypsoHdFrameBuilder& builder) const
 		if (live && action.widget == nullptr) continue;
 		const CalypsoLogicalRect rect = painter.project(designRect(action.visible));
 		const bool selected = action.id == model.selectedActionId;
-		const CalypsoInteractionState state = selected
-			? CalypsoInteractionState::Focus : CalypsoInteractionState::Rest;
-		CalypsoHdPanelStyle style = f21QuietButtonStyle(state);
-		if (action.component == "command-icon-action")
-			style.radiusPx = action.visible.h / 2.0f;
+		// Visual contract s.10.1: live buttons read the widget's real
+		// interaction state every frame; the deterministic fixture renders
+		// rest, and a selected action keeps the focus-ring semantics.
+		CalypsoInteractionState state = CalypsoInteractionState::Rest;
+		if (live && action.widget != nullptr)
+			state = f21ButtonVisualState(static_cast<const TextButton*>(action.widget));
+		if (selected && state == CalypsoInteractionState::Rest)
+			state = CalypsoInteractionState::Focus;
+		const bool commandAction = action.component == "command-icon-action"
+			|| action.component == "compact-command-action";
+		const auto tone = action.id == "action.session"
+			? CalypsoCommandActionTone::Primary : CalypsoCommandActionTone::Normal;
+		// Fixed canonical radius; the height-derived stadium is retired.
+		CalypsoHdPanelStyle style = commandAction
+			? calypsoCommandActionStyle(state, tone)
+			: f21QuietButtonStyle(state);
 		if (action.component == "notification-action")
 			style.borderColorRgba = CalypsoHdThemeGen::kGold;
 		painter.styled(rect, style, live ? action.widget : nullptr, role++);

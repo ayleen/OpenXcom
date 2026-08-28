@@ -1,41 +1,641 @@
 {
   "schema": 1,
   "id": "geoscape-command-shell",
-  "version": "hd.2026-08-20.22",
+  "version": "hd.2026-08-28.23",
   "archetype": "strategic-command-shell",
   "runtime": "production",
   "actions": [
-    {"id": "action.session", "labelKey": "STR_SESSION", "icon": "session", "component": "compact-command-action", "slotRole": "session-action", "tone": "normal", "handler": "geoscape.openSession", "inputs": ["pointer", "keyboard", "touch", "controller"], "availability": "always", "timePolicy": "pause-while-open", "focusOrder": 5, "visibility": "persistent"},
-    {"id": "action.bases", "labelKey": "STR_BASES", "icon": "bases", "component": "command-icon-action", "slotRole": "primary-left-1", "tone": "normal", "handler": "geoscape.openBases", "inputs": ["pointer", "keyboard", "touch", "controller"], "availability": "always", "timePolicy": "preserve", "focusOrder": 10, "visibility": "persistent", "hotkey": "b"},
-    {"id": "action.graphs", "labelKey": "STR_GRAPHS", "icon": "graphs", "component": "command-icon-action", "slotRole": "primary-left-2", "tone": "normal", "handler": "geoscape.openGraphs", "inputs": ["pointer", "keyboard", "touch", "controller"], "availability": "always", "timePolicy": "preserve", "focusOrder": 20, "visibility": "persistent", "hotkey": "g"},
-    {"id": "action.extended", "variantContext": "oxceLinks", "icon": "funding", "component": "command-icon-action", "slotRole": "primary-left-3", "tone": "normal", "variants": [{"when": false, "labelKey": "STR_FUNDING", "handler": "geoscape.openFunding"}, {"when": true, "labelKey": "STR_EXTENDED", "handler": "geoscape.openExtended"}], "inputs": ["pointer", "keyboard", "touch", "controller"], "availability": "always", "timePolicy": "preserve", "focusOrder": 30, "visibility": "persistent"},
-    {"id": "action.intercept", "labelKey": "STR_INTERCEPT", "icon": "intercept", "component": "command-icon-action", "slotRole": "primary-right-1", "tone": "primary", "handler": "geoscape.openIntercept", "inputs": ["pointer", "keyboard", "touch", "controller"], "availability": "requires-craft", "timePolicy": "pause-on-open", "focusOrder": 40, "visibility": "persistent", "hotkey": "i"},
-    {"id": "action.ufopaedia", "labelKey": "STR_UFOPAEDIA", "icon": "ufopaedia", "component": "command-icon-action", "slotRole": "primary-right-2", "tone": "normal", "handler": "geoscape.openUfopaedia", "inputs": ["pointer", "keyboard", "touch", "controller"], "availability": "always", "timePolicy": "preserve", "focusOrder": 50, "visibility": "persistent", "hotkey": "u"},
-    {"id": "action.options", "labelKey": "STR_OPTIONS", "icon": "options", "component": "command-icon-action", "slotRole": "primary-right-3", "tone": "normal", "handler": "geoscape.openOptions", "inputs": ["pointer", "keyboard", "touch", "controller"], "availability": "always", "timePolicy": "pause-on-open", "focusOrder": 60, "visibility": "persistent", "hotkey": "o"},
-    {"id": "drawer.funding", "labelKey": "STR_FUNDING", "icon": "funding", "component": "drawer-row", "slotRole": "drawer-row", "rowIndex": 0, "tone": "normal", "handler": "geoscape.openFunding", "inputs": ["pointer", "keyboard", "touch", "controller"], "availability": "extended-links", "timePolicy": "pause-on-open", "focusOrder": 201, "visibility": "drawer", "hotkey": "f"},
-    {"id": "drawer.tech-tree", "labelKey": "STR_TECH_TREE_VIEWER", "icon": "tech-tree", "component": "drawer-row", "slotRole": "drawer-row", "rowIndex": 1, "tone": "normal", "handler": "geoscape.openTechTree", "inputs": ["pointer", "keyboard", "touch", "controller"], "availability": "extended-links", "timePolicy": "pause-on-open", "focusOrder": 202, "visibility": "drawer", "hotkey": "q"},
-    {"id": "drawer.global-research", "labelKey": "STR_GLOBAL_RESEARCH", "icon": "research-overview", "component": "drawer-row", "slotRole": "drawer-row", "rowIndex": 2, "tone": "normal", "handler": "geoscape.openGlobalResearch", "inputs": ["pointer", "keyboard", "touch", "controller"], "availability": "extended-links", "timePolicy": "pause-on-open", "focusOrder": 203, "visibility": "drawer", "hotkey": "c"},
-    {"id": "drawer.global-production", "labelKey": "STR_GLOBAL_MANUFACTURE", "icon": "production-overview", "component": "drawer-row", "slotRole": "drawer-row", "rowIndex": 3, "tone": "normal", "handler": "geoscape.openGlobalProduction", "inputs": ["pointer", "keyboard", "touch", "controller"], "availability": "extended-links", "timePolicy": "pause-on-open", "focusOrder": 204, "visibility": "drawer", "hotkey": "p"},
-    {"id": "drawer.global-containment", "labelKey": "STR_GLOBAL_ALIEN_CONTAINMENT", "icon": "containment", "component": "drawer-row", "slotRole": "drawer-row", "rowIndex": 4, "tone": "normal", "handler": "geoscape.openGlobalContainment", "inputs": ["pointer", "keyboard", "touch", "controller"], "availability": "extended-links", "timePolicy": "pause-on-open", "focusOrder": 205, "visibility": "drawer", "hotkey": "j"},
-    {"id": "drawer.ufo-tracker", "labelKey": "STR_UFO_TRACKER", "icon": "ufo-tracker", "component": "drawer-row", "slotRole": "drawer-row", "rowIndex": 5, "tone": "normal", "handler": "geoscape.openUfoTracker", "inputs": ["pointer", "keyboard", "touch", "controller"], "availability": "extended-links", "timePolicy": "pause-on-open", "focusOrder": 206, "visibility": "drawer", "hotkey": "t"},
-    {"id": "drawer.pilot-experience", "labelKey": "STR_DAILY_PILOT_EXPERIENCE", "icon": "pilot", "component": "drawer-row", "slotRole": "drawer-row", "rowIndex": 6, "tone": "normal", "handler": "geoscape.openPilotExperience", "inputs": ["pointer", "keyboard", "touch", "controller"], "availability": "extended-links", "timePolicy": "pause-on-open", "focusOrder": 207, "visibility": "drawer", "hotkey": "e"},
-    {"id": "drawer.notes", "labelKey": "STR_NOTES", "icon": "notes", "component": "drawer-row", "slotRole": "drawer-row", "rowIndex": 7, "tone": "normal", "handler": "geoscape.openNotes", "inputs": ["pointer", "keyboard", "touch", "controller"], "availability": "extended-links", "timePolicy": "pause-on-open", "focusOrder": 208, "visibility": "drawer"},
-    {"id": "drawer.music", "labelKey": "STR_SELECT_MUSIC_TRACK", "icon": "music", "component": "drawer-row", "slotRole": "drawer-row", "rowIndex": 8, "tone": "normal", "handler": "geoscape.openMusic", "inputs": ["pointer", "keyboard", "touch", "controller"], "availability": "extended-links", "timePolicy": "pause-on-open", "focusOrder": 209, "visibility": "drawer", "hotkey": "end"},
-    {"id": "drawer.debug", "labelKey": "STR_DEBUG", "icon": "debug", "component": "drawer-row", "slotRole": "drawer-row", "rowIndex": 9, "tone": "warning", "handler": "geoscape.openDebug", "inputs": ["pointer", "keyboard", "touch"], "availability": "extended-links", "timePolicy": "pause-on-open", "focusOrder": 210, "visibility": "drawer"},
-    {"id": "drawer.quick-save", "labelKey": "STR_QUICK_SAVE", "icon": "save", "component": "drawer-row", "slotRole": "drawer-row", "rowIndex": 10, "tone": "normal", "handler": "geoscape.quickSave", "inputs": ["pointer", "keyboard", "touch", "controller"], "availability": "non-ironman", "timePolicy": "pause-on-open", "focusOrder": 211, "visibility": "drawer", "hotkey": "f5"},
-    {"id": "drawer.instant-save", "labelKey": "STR_INSTANT_SAVE", "icon": "save", "component": "drawer-row", "slotRole": "drawer-row", "rowIndex": 11, "tone": "normal", "handler": "geoscape.instantSave", "inputs": ["pointer", "keyboard", "touch", "controller"], "availability": "non-ironman", "timePolicy": "pause-on-open", "focusOrder": 212, "visibility": "drawer", "hotkey": "f6"},
-    {"id": "drawer.quick-load", "labelKey": "STR_QUICK_LOAD", "icon": "load", "component": "drawer-row", "slotRole": "drawer-row", "rowIndex": 12, "tone": "warning", "handler": "geoscape.quickLoad", "inputs": ["pointer", "keyboard", "touch", "controller"], "availability": "non-ironman", "timePolicy": "pause-on-open", "focusOrder": 213, "visibility": "drawer", "hotkey": "f9"},
-    {"id": "world.zoom.in", "labelKey": "STR_ZOOM_IN", "icon": "plus", "component": "compact-command-action", "slotRole": "world-zoom-in", "tone": "normal", "handler": "geoscape.zoomIn", "inputs": ["pointer", "keyboard", "touch", "controller"], "availability": "always", "timePolicy": "preserve", "focusOrder": 70, "visibility": "persistent", "hotkey": "+"},
-    {"id": "world.recenter", "labelKey": "STR_CENTER", "icon": "recenter", "component": "compact-command-action", "slotRole": "world-recenter", "tone": "normal", "handler": "geoscape.recenter", "inputs": ["pointer", "keyboard", "touch", "controller"], "availability": "always", "timePolicy": "preserve", "focusOrder": 80, "visibility": "persistent"},
-    {"id": "world.zoom.out", "labelKey": "STR_ZOOM_OUT", "icon": "minus", "component": "compact-command-action", "slotRole": "world-zoom-out", "tone": "normal", "handler": "geoscape.zoomOut", "inputs": ["pointer", "keyboard", "touch", "controller"], "availability": "always", "timePolicy": "preserve", "focusOrder": 90, "visibility": "persistent", "hotkey": "-"},
-    {"id": "notification.contact.open", "labelKey": "STR_OPEN", "icon": "chevron", "component": "notification-action", "slotRole": "notification-open", "tone": "warning", "handler": "geoscape.openNotification", "inputs": ["pointer", "keyboard", "touch", "controller"], "availability": "when-notification-present", "timePolicy": "pause-on-open", "focusOrder": 100, "visibility": "contextual"},
-    {"id": "time.pause", "labelKey": "STR_PAUSE", "icon": "pause", "component": "time-speed-control", "slotRole": "time-pause", "tone": "primary", "handler": "geoscape.setSpeedPause", "inputs": ["pointer", "keyboard", "touch", "controller"], "availability": "always", "timePolicy": "set-speed", "focusOrder": 110, "visibility": "persistent", "hotkey": "space"},
-    {"id": "time.speed.5sec", "labelKey": "STR_5_SECONDS", "component": "time-speed-control", "slotRole": "time-5sec", "tone": "normal", "handler": "geoscape.setSpeed5Seconds", "inputs": ["pointer", "keyboard", "touch", "controller"], "availability": "always", "timePolicy": "set-speed", "focusOrder": 120, "visibility": "persistent", "hotkey": "1"},
-    {"id": "time.speed.1min", "labelKey": "STR_1_MINUTE", "component": "time-speed-control", "slotRole": "time-1min", "tone": "normal", "handler": "geoscape.setSpeed1Minute", "inputs": ["pointer", "keyboard", "touch", "controller"], "availability": "always", "timePolicy": "set-speed", "focusOrder": 130, "visibility": "persistent", "hotkey": "2"},
-    {"id": "time.speed.5min", "labelKey": "STR_5_MINUTES", "component": "time-speed-control", "slotRole": "time-5min", "tone": "normal", "handler": "geoscape.setSpeed5Minutes", "inputs": ["pointer", "keyboard", "touch", "controller"], "availability": "always", "timePolicy": "set-speed", "focusOrder": 140, "visibility": "persistent", "hotkey": "3"},
-    {"id": "time.speed.30min", "labelKey": "STR_30_MINUTES", "component": "time-speed-control", "slotRole": "time-30min", "tone": "normal", "handler": "geoscape.setSpeed30Minutes", "inputs": ["pointer", "keyboard", "touch", "controller"], "availability": "always", "timePolicy": "set-speed", "focusOrder": 150, "visibility": "persistent", "hotkey": "4"},
-    {"id": "time.speed.1hour", "labelKey": "STR_1_HOUR", "component": "time-speed-control", "slotRole": "time-1hour", "tone": "normal", "handler": "geoscape.setSpeed1Hour", "inputs": ["pointer", "keyboard", "touch", "controller"], "availability": "always", "timePolicy": "set-speed", "focusOrder": 160, "visibility": "persistent", "hotkey": "5"},
-    {"id": "time.speed.1day", "labelKey": "STR_1_DAY", "component": "time-speed-control", "slotRole": "time-1day", "tone": "normal", "handler": "geoscape.setSpeed1Day", "inputs": ["pointer", "keyboard", "touch", "controller"], "availability": "always", "timePolicy": "set-speed", "focusOrder": 170, "visibility": "persistent", "hotkey": "6"}
+    {
+      "id": "action.session",
+      "labelKey": "STR_SESSION",
+      "icon": "session",
+      "component": "compact-command-action",
+      "slotRole": "session-action",
+      "tone": "normal",
+      "handler": "geoscape.openSession",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "always",
+      "timePolicy": "pause-while-open",
+      "focusOrder": 5,
+      "visibility": "persistent"
+    },
+    {
+      "id": "action.bases",
+      "labelKey": "STR_BASES",
+      "icon": "bases",
+      "component": "command-icon-action",
+      "slotRole": "primary-left-1",
+      "tone": "normal",
+      "handler": "geoscape.openBases",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "always",
+      "timePolicy": "preserve",
+      "focusOrder": 10,
+      "visibility": "persistent",
+      "hotkey": "b"
+    },
+    {
+      "id": "action.graphs",
+      "labelKey": "STR_GRAPHS",
+      "icon": "graphs",
+      "component": "command-icon-action",
+      "slotRole": "primary-left-2",
+      "tone": "normal",
+      "handler": "geoscape.openGraphs",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "always",
+      "timePolicy": "preserve",
+      "focusOrder": 20,
+      "visibility": "persistent",
+      "hotkey": "g"
+    },
+    {
+      "id": "action.extended",
+      "variantContext": "oxceLinks",
+      "icon": "funding",
+      "component": "command-icon-action",
+      "slotRole": "primary-left-3",
+      "tone": "normal",
+      "variants": [
+        {
+          "when": false,
+          "labelKey": "STR_FUNDING",
+          "handler": "geoscape.openFunding"
+        },
+        {
+          "when": true,
+          "labelKey": "STR_EXTENDED",
+          "handler": "geoscape.openExtended"
+        }
+      ],
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "always",
+      "timePolicy": "preserve",
+      "focusOrder": 30,
+      "visibility": "persistent"
+    },
+    {
+      "id": "action.intercept",
+      "labelKey": "STR_INTERCEPT",
+      "icon": "intercept",
+      "component": "command-icon-action",
+      "slotRole": "primary-right-1",
+      "tone": "primary",
+      "handler": "geoscape.openIntercept",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "requires-craft",
+      "timePolicy": "pause-on-open",
+      "focusOrder": 40,
+      "visibility": "persistent",
+      "hotkey": "i"
+    },
+    {
+      "id": "action.ufopaedia",
+      "labelKey": "STR_UFOPAEDIA",
+      "icon": "ufopaedia",
+      "component": "command-icon-action",
+      "slotRole": "primary-right-2",
+      "tone": "normal",
+      "handler": "geoscape.openUfopaedia",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "always",
+      "timePolicy": "preserve",
+      "focusOrder": 50,
+      "visibility": "persistent",
+      "hotkey": "u"
+    },
+    {
+      "id": "action.options",
+      "labelKey": "STR_OPTIONS",
+      "icon": "options",
+      "component": "command-icon-action",
+      "slotRole": "primary-right-3",
+      "tone": "normal",
+      "handler": "geoscape.openOptions",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "always",
+      "timePolicy": "pause-on-open",
+      "focusOrder": 60,
+      "visibility": "persistent",
+      "hotkey": "o"
+    },
+    {
+      "id": "drawer.funding",
+      "labelKey": "STR_FUNDING",
+      "icon": "funding",
+      "component": "drawer-row",
+      "slotRole": "drawer-row",
+      "rowIndex": 0,
+      "tone": "normal",
+      "handler": "geoscape.openFunding",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "extended-links",
+      "timePolicy": "pause-on-open",
+      "focusOrder": 201,
+      "visibility": "drawer",
+      "hotkey": "f"
+    },
+    {
+      "id": "drawer.tech-tree",
+      "labelKey": "STR_TECH_TREE_VIEWER",
+      "icon": "tech-tree",
+      "component": "drawer-row",
+      "slotRole": "drawer-row",
+      "rowIndex": 1,
+      "tone": "normal",
+      "handler": "geoscape.openTechTree",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "extended-links",
+      "timePolicy": "pause-on-open",
+      "focusOrder": 202,
+      "visibility": "drawer",
+      "hotkey": "q"
+    },
+    {
+      "id": "drawer.global-research",
+      "labelKey": "STR_GLOBAL_RESEARCH",
+      "icon": "research-overview",
+      "component": "drawer-row",
+      "slotRole": "drawer-row",
+      "rowIndex": 2,
+      "tone": "normal",
+      "handler": "geoscape.openGlobalResearch",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "extended-links",
+      "timePolicy": "pause-on-open",
+      "focusOrder": 203,
+      "visibility": "drawer",
+      "hotkey": "c"
+    },
+    {
+      "id": "drawer.global-production",
+      "labelKey": "STR_GLOBAL_MANUFACTURE",
+      "icon": "production-overview",
+      "component": "drawer-row",
+      "slotRole": "drawer-row",
+      "rowIndex": 3,
+      "tone": "normal",
+      "handler": "geoscape.openGlobalProduction",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "extended-links",
+      "timePolicy": "pause-on-open",
+      "focusOrder": 204,
+      "visibility": "drawer",
+      "hotkey": "p"
+    },
+    {
+      "id": "drawer.global-containment",
+      "labelKey": "STR_GLOBAL_ALIEN_CONTAINMENT",
+      "icon": "containment",
+      "component": "drawer-row",
+      "slotRole": "drawer-row",
+      "rowIndex": 4,
+      "tone": "normal",
+      "handler": "geoscape.openGlobalContainment",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "extended-links",
+      "timePolicy": "pause-on-open",
+      "focusOrder": 205,
+      "visibility": "drawer",
+      "hotkey": "j"
+    },
+    {
+      "id": "drawer.ufo-tracker",
+      "labelKey": "STR_UFO_TRACKER",
+      "icon": "ufo-tracker",
+      "component": "drawer-row",
+      "slotRole": "drawer-row",
+      "rowIndex": 5,
+      "tone": "normal",
+      "handler": "geoscape.openUfoTracker",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "extended-links",
+      "timePolicy": "pause-on-open",
+      "focusOrder": 206,
+      "visibility": "drawer",
+      "hotkey": "t"
+    },
+    {
+      "id": "drawer.pilot-experience",
+      "labelKey": "STR_DAILY_PILOT_EXPERIENCE",
+      "icon": "pilot",
+      "component": "drawer-row",
+      "slotRole": "drawer-row",
+      "rowIndex": 6,
+      "tone": "normal",
+      "handler": "geoscape.openPilotExperience",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "extended-links",
+      "timePolicy": "pause-on-open",
+      "focusOrder": 207,
+      "visibility": "drawer",
+      "hotkey": "e"
+    },
+    {
+      "id": "drawer.notes",
+      "labelKey": "STR_NOTES",
+      "icon": "notes",
+      "component": "drawer-row",
+      "slotRole": "drawer-row",
+      "rowIndex": 7,
+      "tone": "normal",
+      "handler": "geoscape.openNotes",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "extended-links",
+      "timePolicy": "pause-on-open",
+      "focusOrder": 208,
+      "visibility": "drawer"
+    },
+    {
+      "id": "drawer.music",
+      "labelKey": "STR_SELECT_MUSIC_TRACK",
+      "icon": "music",
+      "component": "drawer-row",
+      "slotRole": "drawer-row",
+      "rowIndex": 8,
+      "tone": "normal",
+      "handler": "geoscape.openMusic",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "extended-links",
+      "timePolicy": "pause-on-open",
+      "focusOrder": 209,
+      "visibility": "drawer",
+      "hotkey": "end"
+    },
+    {
+      "id": "drawer.debug",
+      "labelKey": "STR_DEBUG",
+      "icon": "debug",
+      "component": "drawer-row",
+      "slotRole": "drawer-row",
+      "rowIndex": 9,
+      "tone": "warning",
+      "handler": "geoscape.openDebug",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch"
+      ],
+      "availability": "extended-links",
+      "timePolicy": "pause-on-open",
+      "focusOrder": 210,
+      "visibility": "drawer"
+    },
+    {
+      "id": "drawer.quick-save",
+      "labelKey": "STR_QUICK_SAVE",
+      "icon": "save",
+      "component": "drawer-row",
+      "slotRole": "drawer-row",
+      "rowIndex": 10,
+      "tone": "normal",
+      "handler": "geoscape.quickSave",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "non-ironman",
+      "timePolicy": "pause-on-open",
+      "focusOrder": 211,
+      "visibility": "drawer",
+      "hotkey": "f5"
+    },
+    {
+      "id": "drawer.instant-save",
+      "labelKey": "STR_INSTANT_SAVE",
+      "icon": "save",
+      "component": "drawer-row",
+      "slotRole": "drawer-row",
+      "rowIndex": 11,
+      "tone": "normal",
+      "handler": "geoscape.instantSave",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "non-ironman",
+      "timePolicy": "pause-on-open",
+      "focusOrder": 212,
+      "visibility": "drawer",
+      "hotkey": "f6"
+    },
+    {
+      "id": "drawer.quick-load",
+      "labelKey": "STR_QUICK_LOAD",
+      "icon": "load",
+      "component": "drawer-row",
+      "slotRole": "drawer-row",
+      "rowIndex": 12,
+      "tone": "warning",
+      "handler": "geoscape.quickLoad",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "non-ironman",
+      "timePolicy": "pause-on-open",
+      "focusOrder": 213,
+      "visibility": "drawer",
+      "hotkey": "f9"
+    },
+    {
+      "id": "world.zoom.in",
+      "labelKey": "STR_ZOOM_IN",
+      "icon": "plus",
+      "component": "compact-command-action",
+      "slotRole": "world-zoom-in",
+      "tone": "normal",
+      "handler": "geoscape.zoomIn",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "always",
+      "timePolicy": "preserve",
+      "focusOrder": 70,
+      "visibility": "persistent",
+      "hotkey": "+"
+    },
+    {
+      "id": "world.recenter",
+      "labelKey": "STR_CENTER",
+      "icon": "recenter",
+      "component": "compact-command-action",
+      "slotRole": "world-recenter",
+      "tone": "normal",
+      "handler": "geoscape.recenter",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "always",
+      "timePolicy": "preserve",
+      "focusOrder": 80,
+      "visibility": "persistent"
+    },
+    {
+      "id": "world.zoom.out",
+      "labelKey": "STR_ZOOM_OUT",
+      "icon": "minus",
+      "component": "compact-command-action",
+      "slotRole": "world-zoom-out",
+      "tone": "normal",
+      "handler": "geoscape.zoomOut",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "always",
+      "timePolicy": "preserve",
+      "focusOrder": 90,
+      "visibility": "persistent",
+      "hotkey": "-"
+    },
+    {
+      "id": "notification.contact.open",
+      "labelKey": "STR_OPEN",
+      "icon": "chevron",
+      "component": "notification-action",
+      "slotRole": "notification-open",
+      "tone": "warning",
+      "handler": "geoscape.openNotification",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "when-notification-present",
+      "timePolicy": "pause-on-open",
+      "focusOrder": 100,
+      "visibility": "contextual"
+    },
+    {
+      "id": "time.pause",
+      "labelKey": "STR_PAUSE",
+      "icon": "pause",
+      "component": "time-speed-control",
+      "slotRole": "time-pause",
+      "tone": "primary",
+      "handler": "geoscape.setSpeedPause",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "always",
+      "timePolicy": "set-speed",
+      "focusOrder": 110,
+      "visibility": "persistent",
+      "hotkey": "space"
+    },
+    {
+      "id": "time.speed.5sec",
+      "labelKey": "STR_5_SECONDS",
+      "component": "time-speed-control",
+      "slotRole": "time-5sec",
+      "tone": "normal",
+      "handler": "geoscape.setSpeed5Seconds",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "always",
+      "timePolicy": "set-speed",
+      "focusOrder": 120,
+      "visibility": "persistent",
+      "hotkey": "1"
+    },
+    {
+      "id": "time.speed.1min",
+      "labelKey": "STR_1_MINUTE",
+      "component": "time-speed-control",
+      "slotRole": "time-1min",
+      "tone": "normal",
+      "handler": "geoscape.setSpeed1Minute",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "always",
+      "timePolicy": "set-speed",
+      "focusOrder": 130,
+      "visibility": "persistent",
+      "hotkey": "2"
+    },
+    {
+      "id": "time.speed.5min",
+      "labelKey": "STR_5_MINUTES",
+      "component": "time-speed-control",
+      "slotRole": "time-5min",
+      "tone": "normal",
+      "handler": "geoscape.setSpeed5Minutes",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "always",
+      "timePolicy": "set-speed",
+      "focusOrder": 140,
+      "visibility": "persistent",
+      "hotkey": "3"
+    },
+    {
+      "id": "time.speed.30min",
+      "labelKey": "STR_30_MINUTES",
+      "component": "time-speed-control",
+      "slotRole": "time-30min",
+      "tone": "normal",
+      "handler": "geoscape.setSpeed30Minutes",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "always",
+      "timePolicy": "set-speed",
+      "focusOrder": 150,
+      "visibility": "persistent",
+      "hotkey": "4"
+    },
+    {
+      "id": "time.speed.1hour",
+      "labelKey": "STR_1_HOUR",
+      "component": "time-speed-control",
+      "slotRole": "time-1hour",
+      "tone": "normal",
+      "handler": "geoscape.setSpeed1Hour",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "always",
+      "timePolicy": "set-speed",
+      "focusOrder": 160,
+      "visibility": "persistent",
+      "hotkey": "5"
+    },
+    {
+      "id": "time.speed.1day",
+      "labelKey": "STR_1_DAY",
+      "component": "time-speed-control",
+      "slotRole": "time-1day",
+      "tone": "normal",
+      "handler": "geoscape.setSpeed1Day",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "always",
+      "timePolicy": "set-speed",
+      "focusOrder": 170,
+      "visibility": "persistent",
+      "hotkey": "6"
+    }
   ],
   "bindings": {
     "world": "geoscape.globe",
@@ -45,8 +645,30 @@
   },
   "entities": [],
   "context": {
-    "primaryNavigation": ["action.bases", "action.graphs", "action.extended", "action.intercept", "action.ufopaedia", "action.options"],
-    "secondaryNavigation": ["drawer.funding", "drawer.tech-tree", "drawer.global-research", "drawer.global-production", "drawer.global-containment", "drawer.ufo-tracker", "drawer.pilot-experience", "drawer.notes", "drawer.music", "drawer.debug", "drawer.quick-save", "drawer.instant-save", "drawer.quick-load", "notification.contact.open"],
+    "primaryNavigation": [
+      "action.bases",
+      "action.graphs",
+      "action.extended",
+      "action.intercept",
+      "action.ufopaedia",
+      "action.options"
+    ],
+    "secondaryNavigation": [
+      "drawer.funding",
+      "drawer.tech-tree",
+      "drawer.global-research",
+      "drawer.global-production",
+      "drawer.global-containment",
+      "drawer.ufo-tracker",
+      "drawer.pilot-experience",
+      "drawer.notes",
+      "drawer.music",
+      "drawer.debug",
+      "drawer.quick-save",
+      "drawer.instant-save",
+      "drawer.quick-load",
+      "notification.contact.open"
+    ],
     "sessionAction": "action.session"
   },
   "fixture": {

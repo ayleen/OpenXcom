@@ -2,7 +2,7 @@
   "schema": 1,
   "id": "f21-transaction",
   "familyId": 21,
-  "version": "hd.2026-08-20.22",
+  "version": "hd.2026-08-28.23",
   "archetype": "small-confirmation",
   "protocol": {
     "authority": "CALYPSO COMMAND",
@@ -13,12 +13,26 @@
   },
   "title": "REVIEW NEW BASE",
   "body": [],
-  "icon": { "kind": "warning", "glyph": "!", "tone": "warning" },
+  "icon": {
+    "kind": "warning",
+    "glyph": "!",
+    "tone": "warning"
+  },
   "buttons": [
-    { "id": "cancel", "label": "CANCEL", "tone": "safe", "action": "cancel" },
-    { "id": "create", "label": "CREATE BASE", "tone": "primary", "action": "confirm" }
+    {
+      "id": "cancel",
+      "label": "CANCEL",
+      "tone": "safe",
+      "action": "cancel"
+    },
+    {
+      "id": "create",
+      "label": "CREATE BASE",
+      "tone": "primary",
+      "action": "confirm"
+    }
   ],
-  "table": "| SLOT | COORDINATES |\n| --- | --- |\n| BASE 1 / 8 | 28.6·N  0.0·E |\n| South Atlantic | $950 000 |",
+  "table": "| SLOT | COORDINATES |\n| --- | --- |\n| BASE 1 / 8 | 28.6\u00b7N  0.0\u00b7E |\n| South Atlantic | $950 000 |",
   "input": {
     "value": "CALYPSO DEEP",
     "hint": "Choose a permanent registry name. Press Enter to confirm."

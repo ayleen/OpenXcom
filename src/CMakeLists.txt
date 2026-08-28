@@ -1034,6 +1034,7 @@ if(NOT EMSCRIPTEN AND BUILD_TESTING)
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdSdfFalloffTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdF33ContractTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdF21ContractTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdCommandActionStyleTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdInteractionStateTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdHarnessHostModelTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdDiagnosticsTest.cpp

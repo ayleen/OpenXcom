@@ -2,7 +2,7 @@
   "schema": 1,
   "id": "f21-defense",
   "familyId": 21,
-  "version": "hd.2026-08-20.22",
+  "version": "hd.2026-08-28.23",
   "archetype": "small-confirmation",
   "protocol": {
     "authority": "CALYPSO COMMAND",
@@ -13,12 +13,34 @@
   },
   "title": "BASE UNDER ATTACK",
   "body": [],
-  "icon": { "kind": "warning", "glyph": "!", "tone": "warning" },
+  "icon": {
+    "kind": "warning",
+    "glyph": "!",
+    "tone": "warning"
+  },
   "buttons": [
-    { "id": "skip", "label": "SKIP TO ASSAULT", "tone": "safe", "action": "skip" },
-    { "id": "start", "label": "START FIRING", "tone": "primary", "action": "start" },
-    { "id": "ok", "label": "CONTINUE", "tone": "safe", "action": "confirm" }
+    {
+      "id": "skip",
+      "label": "SKIP TO ASSAULT",
+      "tone": "safe",
+      "action": "skip"
+    },
+    {
+      "id": "start",
+      "label": "START FIRING",
+      "tone": "primary",
+      "action": "start"
+    },
+    {
+      "id": "ok",
+      "label": "CONTINUE",
+      "tone": "safe",
+      "action": "confirm"
+    }
   ],
-  "visibleButtons": ["skip", "start"],
-  "table": "| DEFENSES · 4 | AMMUNITION · 24 |\n| --- | --- |\n| HIT RATIO · 62% | READY |"
+  "visibleButtons": [
+    "skip",
+    "start"
+  ],
+  "table": "| DEFENSES \u00b7 4 | AMMUNITION \u00b7 24 |\n| --- | --- |\n| HIT RATIO \u00b7 62% | READY |"
 }

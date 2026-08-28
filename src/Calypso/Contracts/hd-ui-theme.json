@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "hd.2026-08-20.22",
+  "version": "hd.2026-08-28.23",
   "colors": {
     "accent": "74FFB0FF",
     "accentSoft": "74FFB059",
@@ -96,5 +96,29 @@
     "protocolInsetYCompactPx": 4,
     "minimumHorizontalPaddingPx": 8,
     "minimumVerticalPaddingPx": 4
+  },
+  "commandAction": {
+    "radiusPx": 14,
+    "restFillTop": "0E2226F0",
+    "restFillBottom": "071418DC",
+    "restBorder": "74FFB059",
+    "restGlow": "74FFB012",
+    "restGlowRadiusPx": 6,
+    "hoverFillTop": "14313AF5",
+    "hoverFillBottom": "0B1E24E8",
+    "hoverBorder": "74FFB0CC",
+    "hoverGlow": "74FFB02B",
+    "hoverGlowRadiusPx": 10,
+    "pressedFillTop": "0A181DFA",
+    "pressedFillBottom": "060F13FA",
+    "pressedBorder": "74FFB099",
+    "pressedGlow": "74FFB01A",
+    "pressedGlowRadiusPx": 3,
+    "disabledFillTop": "0B1216B4",
+    "disabledFillBottom": "060B0EA6",
+    "disabledBorder": "74FFB024",
+    "primaryRestFillTop": "123038F5",
+    "primaryRestFillBottom": "0A1E24E0",
+    "primaryRestBorder": "74FFB0A6"
   }
 }
