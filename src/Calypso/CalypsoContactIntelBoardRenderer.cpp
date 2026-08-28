@@ -350,7 +350,8 @@ void calypsoCollectContactIntelBoard(
 	addStyled(model.warning, warning, model.warningWidget, BOARD_ROLE_WARNING);
 	addText(model.warning, model.warningWidget, heading, model.warningGlyph,
 		model.warningColor, CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle,
-		scaledPx(model.wide ? 18.0 : 16.0, 11), 0, 0.0, BOARD_ROLE_WARNING);
+		std::min(scaledPx(model.wide ? 18.0 : 16.0, 11),
+			std::max(11, (int)model.warning.h)), 0, 0.0, BOARD_ROLE_WARNING);
 	addText(model.title, model.titleWidget, heading, model.titleText,
 		CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle,
 		std::max(1, (int)calypsoHdRoundToInt(

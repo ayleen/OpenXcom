@@ -70,7 +70,7 @@
       {
         "id": "dist",
         "label": "DIST TO BASE",
-        "value": "5,404 KM · DERIVED"
+        "value": "3451KM DERIVED"
       }
     ],
     "plot": {
@@ -93,7 +93,7 @@
     "message": [
       "DETECTED"
     ],
-    "note": "INTERCEPT OPENS WING ASSEMBLY · CENTRE RECENTRES AT 5 S · DISMISS RETURNS TO THE PLOT"
+    "note": "INTERCEPT OPENS WING ASSEMBLY · DISMISS RETURNS TO THE PLOT"
   },
   "presentation": {
     "density": "standard",
@@ -124,282 +124,282 @@
       "designWidth": 1280,
       "designHeight": 720,
       "window": {
-        "x": 24,
-        "y": 56,
-        "width": 1232,
-        "height": 632
+        "x": 332,
+        "y": 202,
+        "width": 616,
+        "height": 316
       },
       "status": {
-        "x": 24,
-        "y": 56,
-        "width": 1232,
-        "height": 40
+        "x": 332,
+        "y": 202,
+        "width": 616,
+        "height": 20
       },
       "plotPanel": {
-        "x": 48,
-        "y": 112,
-        "width": 760,
-        "height": 552
+        "x": 344,
+        "y": 230,
+        "width": 300,
+        "height": 210
       },
       "plotArea": {
-        "x": 68,
-        "y": 132,
-        "width": 720,
-        "height": 512
+        "x": 356,
+        "y": 242,
+        "width": 276,
+        "height": 186
       },
       "reportPanel": {
-        "x": 832,
-        "y": 112,
-        "width": 400,
-        "height": 552
+        "x": 652,
+        "y": 230,
+        "width": 284,
+        "height": 210
       },
       "warning": {
-        "x": 856,
-        "y": 132,
-        "width": 32,
-        "height": 32
+        "x": 664,
+        "y": 236,
+        "width": 16,
+        "height": 16
       },
       "title": {
-        "x": 904,
-        "y": 128,
-        "width": 304,
-        "height": 40
+        "x": 686,
+        "y": 234,
+        "width": 236,
+        "height": 24
       },
       "message": {
-        "x": 856,
-        "y": 184,
-        "width": 360,
-        "height": 28
+        "x": 664,
+        "y": 268,
+        "width": 260,
+        "height": 16
       },
       "footer": {
-        "x": 832,
-        "y": 568,
-        "width": 400,
-        "height": 72
+        "x": 344,
+        "y": 448,
+        "width": 592,
+        "height": 62
       },
       "buttons": {
         "intercept": {
-          "x": 856,
-          "y": 584,
-          "width": 112,
+          "x": 430,
+          "y": 457,
+          "width": 158,
           "height": 44
         },
         "centre": {
-          "x": 980,
-          "y": 584,
-          "width": 112,
+          "x": 598,
+          "y": 457,
+          "width": 158,
           "height": 44
         },
         "cancel": {
-          "x": 1104,
-          "y": 584,
-          "width": 112,
+          "x": 766,
+          "y": 457,
+          "width": 158,
           "height": 44
         }
       },
       "fact1Label": {
-        "x": 844,
-        "y": 222,
+        "x": 664,
+        "y": 289,
         "width": 120,
-        "height": 40
+        "height": 20
       },
       "fact1Value": {
-        "x": 964,
-        "y": 222,
-        "width": 252,
-        "height": 40
+        "x": 784,
+        "y": 289,
+        "width": 140,
+        "height": 20
       },
       "fact2Label": {
-        "x": 844,
-        "y": 272,
+        "x": 664,
+        "y": 314,
         "width": 120,
-        "height": 40
+        "height": 20
       },
       "fact2Value": {
-        "x": 964,
-        "y": 272,
-        "width": 252,
-        "height": 40
+        "x": 784,
+        "y": 314,
+        "width": 140,
+        "height": 20
       },
       "fact3Label": {
-        "x": 844,
-        "y": 322,
+        "x": 664,
+        "y": 339,
         "width": 120,
-        "height": 40
+        "height": 20
       },
       "fact3Value": {
-        "x": 964,
-        "y": 322,
-        "width": 252,
-        "height": 40
+        "x": 784,
+        "y": 339,
+        "width": 140,
+        "height": 20
       },
       "fact4Label": {
-        "x": 844,
-        "y": 372,
+        "x": 664,
+        "y": 364,
         "width": 120,
-        "height": 40
+        "height": 20
       },
       "fact4Value": {
-        "x": 964,
-        "y": 372,
-        "width": 252,
-        "height": 40
+        "x": 784,
+        "y": 364,
+        "width": 140,
+        "height": 20
       },
       "fact5Label": {
-        "x": 844,
-        "y": 422,
+        "x": 664,
+        "y": 389,
         "width": 120,
-        "height": 40
+        "height": 20
       },
       "fact5Value": {
-        "x": 964,
-        "y": 422,
-        "width": 252,
-        "height": 40
+        "x": 784,
+        "y": 389,
+        "width": 140,
+        "height": 20
       },
       "note": {
-        "x": 856,
-        "y": 482,
-        "width": 360,
-        "height": 76
+        "x": 664,
+        "y": 419,
+        "width": 260,
+        "height": 24
       }
     },
     "compact": {
       "designWidth": 740,
       "designHeight": 360,
       "window": {
-        "x": 16,
-        "y": 12,
-        "width": 708,
-        "height": 336
+        "x": 120,
+        "y": 56,
+        "width": 500,
+        "height": 248
       },
       "status": {
-        "x": 16,
-        "y": 12,
-        "width": 708,
-        "height": 30
+        "x": 120,
+        "y": 56,
+        "width": 500,
+        "height": 18
       },
       "plotPanel": {
-        "x": 24,
-        "y": 50,
-        "width": 320,
-        "height": 282
+        "x": 130,
+        "y": 80,
+        "width": 220,
+        "height": 196
       },
       "plotArea": {
-        "x": 34,
-        "y": 60,
-        "width": 300,
-        "height": 262
+        "x": 138,
+        "y": 88,
+        "width": 204,
+        "height": 180
       },
       "reportPanel": {
-        "x": 356,
-        "y": 50,
-        "width": 348,
-        "height": 282
+        "x": 358,
+        "y": 80,
+        "width": 252,
+        "height": 196
       },
       "warning": {
-        "x": 368,
-        "y": 60,
-        "width": 24,
-        "height": 24
+        "x": 366,
+        "y": 92,
+        "width": 14,
+        "height": 14
       },
       "title": {
-        "x": 400,
-        "y": 56,
-        "width": 292,
-        "height": 34
+        "x": 384,
+        "y": 90,
+        "width": 212,
+        "height": 20
       },
       "message": {
-        "x": 368,
-        "y": 96,
-        "width": 324,
-        "height": 22
+        "x": 366,
+        "y": 116,
+        "width": 234,
+        "height": 14
       },
       "footer": {
-        "x": 356,
-        "y": 282,
-        "width": 348,
-        "height": 44
+        "x": 120,
+        "y": 234,
+        "width": 500,
+        "height": 66
       },
       "buttons": {
         "intercept": {
-          "x": 368,
-          "y": 282,
-          "width": 104,
+          "x": 132,
+          "y": 244,
+          "width": 148,
           "height": 44
         },
         "centre": {
-          "x": 478,
-          "y": 282,
-          "width": 104,
+          "x": 292,
+          "y": 244,
+          "width": 148,
           "height": 44
         },
         "cancel": {
-          "x": 588,
-          "y": 282,
-          "width": 104,
+          "x": 452,
+          "y": 244,
+          "width": 148,
           "height": 44
         }
       },
       "fact1Label": {
-        "x": 364,
-        "y": 121,
-        "width": 104,
-        "height": 28
+        "x": 366,
+        "y": 133,
+        "width": 112,
+        "height": 16
       },
       "fact1Value": {
-        "x": 468,
-        "y": 121,
-        "width": 224,
-        "height": 28
+        "x": 478,
+        "y": 133,
+        "width": 122,
+        "height": 16
       },
       "fact2Label": {
-        "x": 364,
+        "x": 366,
         "y": 152,
-        "width": 104,
-        "height": 28
+        "width": 112,
+        "height": 16
       },
       "fact2Value": {
-        "x": 468,
+        "x": 478,
         "y": 152,
-        "width": 224,
-        "height": 28
+        "width": 122,
+        "height": 16
       },
       "fact3Label": {
-        "x": 364,
-        "y": 183,
-        "width": 104,
-        "height": 28
+        "x": 366,
+        "y": 171,
+        "width": 112,
+        "height": 16
       },
       "fact3Value": {
-        "x": 468,
-        "y": 183,
-        "width": 224,
-        "height": 28
+        "x": 478,
+        "y": 171,
+        "width": 122,
+        "height": 16
       },
       "fact4Label": {
-        "x": 364,
-        "y": 214,
-        "width": 104,
-        "height": 28
+        "x": 366,
+        "y": 190,
+        "width": 112,
+        "height": 16
       },
       "fact4Value": {
-        "x": 468,
-        "y": 214,
-        "width": 224,
-        "height": 28
+        "x": 478,
+        "y": 190,
+        "width": 122,
+        "height": 16
       },
       "fact5Label": {
-        "x": 364,
-        "y": 245,
-        "width": 104,
-        "height": 28
+        "x": 366,
+        "y": 209,
+        "width": 112,
+        "height": 16
       },
       "fact5Value": {
-        "x": 468,
-        "y": 245,
-        "width": 224,
-        "height": 28
+        "x": 478,
+        "y": 209,
+        "width": 122,
+        "height": 16
       }
     }
   },

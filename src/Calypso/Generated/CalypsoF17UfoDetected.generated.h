@@ -10,7 +10,7 @@ inline constexpr int kFamilyId = 17;
 inline constexpr const char* kArchetype = "contact-intel-board";
 inline constexpr const char* kSourceConfig = "FormConfigs/f17-ufo-detected.json";
 inline constexpr const char* kProtocol = "CALYPSO COMMAND · TACTICAL NOTICE F17-UFO-DETECTED";
-inline constexpr const char* kNote = "INTERCEPT OPENS WING ASSEMBLY · CENTRE RECENTRES AT 5 S · DISMISS RETURNS TO THE PLOT";
+inline constexpr const char* kNote = "INTERCEPT OPENS WING ASSEMBLY · DISMISS RETURNS TO THE PLOT";
 inline constexpr const char* kFactLabels[] = { "CLASS", "DEPTH", "COURSE", "SPEED", "DIST TO BASE" };
 inline constexpr int kFactCount = 5;
 
@@ -63,13 +63,13 @@ struct CalypsoF17UfoDetectedGenLayout { int designWidth; int designHeight; Calyp
     CalypsoF17UfoDetectedGenRect reportPanel;
 };
 inline constexpr CalypsoF17UfoDetectedGenLayout kLayouts[] = {
-    { 1280, 720, { 24, 56, 1232, 632 }, { 24, 56, 1232, 40 }, { 856, 132, 32, 32 }, { 904, 128, 304, 40 }, { 856, 184, 360, 28 }, { 832, 568, 400, 72 }, { 844, 222, 120, 40 }, { 964, 222, 252, 40 }, { 844, 272, 120, 40 }, { 964, 272, 252, 40 }, { 844, 322, 120, 40 }, { 964, 322, 252, 40 }, { 844, 372, 120, 40 }, { 964, 372, 252, 40 }, { 844, 422, 120, 40 }, { 964, 422, 252, 40 }, { 856, 482, 360, 76 }, { 68, 132, 720, 512 }, { 48, 112, 760, 552 }, { 832, 112, 400, 552 } }, // wide
-    { 740, 360, { 16, 12, 708, 336 }, { 16, 12, 708, 30 }, { 368, 60, 24, 24 }, { 400, 56, 292, 34 }, { 368, 96, 324, 22 }, { 356, 282, 348, 44 }, { 364, 121, 104, 28 }, { 468, 121, 224, 28 }, { 364, 152, 104, 28 }, { 468, 152, 224, 28 }, { 364, 183, 104, 28 }, { 468, 183, 224, 28 }, { 364, 214, 104, 28 }, { 468, 214, 224, 28 }, { 364, 245, 104, 28 }, { 468, 245, 224, 28 }, { 0, 0, 0, 0 }, { 34, 60, 300, 262 }, { 24, 50, 320, 282 }, { 356, 50, 348, 282 } }, // compact
+    { 1280, 720, { 332, 202, 616, 316 }, { 332, 202, 616, 20 }, { 664, 236, 16, 16 }, { 686, 234, 236, 24 }, { 664, 268, 260, 16 }, { 344, 448, 592, 62 }, { 664, 289, 120, 20 }, { 784, 289, 140, 20 }, { 664, 314, 120, 20 }, { 784, 314, 140, 20 }, { 664, 339, 120, 20 }, { 784, 339, 140, 20 }, { 664, 364, 120, 20 }, { 784, 364, 140, 20 }, { 664, 389, 120, 20 }, { 784, 389, 140, 20 }, { 664, 419, 260, 24 }, { 356, 242, 276, 186 }, { 344, 230, 300, 210 }, { 652, 230, 284, 210 } }, // wide
+    { 740, 360, { 120, 56, 500, 248 }, { 120, 56, 500, 18 }, { 366, 92, 14, 14 }, { 384, 90, 212, 20 }, { 366, 116, 234, 14 }, { 120, 234, 500, 66 }, { 366, 133, 112, 16 }, { 478, 133, 122, 16 }, { 366, 152, 112, 16 }, { 478, 152, 122, 16 }, { 366, 171, 112, 16 }, { 478, 171, 122, 16 }, { 366, 190, 112, 16 }, { 478, 190, 122, 16 }, { 366, 209, 112, 16 }, { 478, 209, 122, 16 }, { 0, 0, 0, 0 }, { 138, 88, 204, 180 }, { 130, 80, 220, 196 }, { 358, 80, 252, 196 } }, // compact
 };
 struct CalypsoF17UfoDetectedGenButtonRect { const char* id; CalypsoF17UfoDetectedGenRect rect; };
 inline constexpr CalypsoF17UfoDetectedGenButtonRect kButtonRects[][ 3 ] = {
-    { { "intercept", { 856, 584, 112, 44 } }, { "centre", { 980, 584, 112, 44 } }, { "cancel", { 1104, 584, 112, 44 } } }, // wide
-    { { "intercept", { 368, 282, 104, 44 } }, { "centre", { 478, 282, 104, 44 } }, { "cancel", { 588, 282, 104, 44 } } }, // compact
+    { { "intercept", { 430, 457, 158, 44 } }, { "centre", { 598, 457, 158, 44 } }, { "cancel", { 766, 457, 158, 44 } } }, // wide
+    { { "intercept", { 132, 244, 148, 44 } }, { "centre", { 292, 244, 148, 44 } }, { "cancel", { 452, 244, 148, 44 } } }, // compact
 };
 inline constexpr int kLayoutCount = 2;
 inline constexpr int kMotionDurationMs = 200;

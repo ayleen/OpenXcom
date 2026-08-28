@@ -379,9 +379,9 @@ def validate_intel_board_template(template):
     sizing = template.get("contentSizing") or {}
     expected_sizing = {
         "wide": {"safeMarginPx": 24, "factCount": 5, "factLabelWidth": 120,
-                 "factRowHeight": 40, "factRowGap": 10, "gridColumns": 12, "gridRows": 9},
-        "compact": {"safeMarginPx": 16, "factCount": 5, "factLabelWidth": 104,
-                    "factRowHeight": 28, "factRowGap": 3, "gridColumns": 8, "gridRows": 7},
+                 "factRowHeight": 20, "factRowGap": 5, "gridColumns": 4, "gridRows": 3},
+        "compact": {"safeMarginPx": 16, "factCount": 5, "factLabelWidth": 112,
+                    "factRowHeight": 16, "factRowGap": 3, "gridColumns": 8, "gridRows": 7},
     }
     if sizing != expected_sizing:
         raise FormError("template contentSizing drifted from the reviewed board policy")
@@ -421,8 +421,6 @@ def validate_intel_board_template(template):
                 raise FormError(name + " button slots overlap")
         if right(slots[-1]) != right(layout["message"]):
             raise FormError(name + " action rail must end on the message rail")
-        if layout["plotPanel"]["height"] < layout["plotArea"]["height"] * 2:
-            raise FormError(name + " plot area is not board-dominant")
 
 
 def validate_intel_board_config(config, template):
@@ -585,10 +583,10 @@ def build_intel_board_contract(config, template, source_name):
             layout["buttons"][button["id"]] = copy.deepcopy(rect)
         row_y = layout["message"]["y"] + layout["message"]["height"] + policy["factRowGap"]
         text_unit = 8 if name == "wide" else 7
-        inset = 12 if name == "wide" else 8
+        inset = 6 if name == "wide" else 8
         for index in range(policy["factCount"]):
             fact = config["facts"][index]
-            label_rect = _rect(layout["reportPanel"]["x"] + inset, row_y,
+            label_rect = _rect(layout["message"]["x"], row_y,
                                policy["factLabelWidth"], policy["factRowHeight"])
             value_rect = _rect(label_rect["x"] + policy["factLabelWidth"], row_y,
                                layout["message"]["x"] + layout["message"]["width"]

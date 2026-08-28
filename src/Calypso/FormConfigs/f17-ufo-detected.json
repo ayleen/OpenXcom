@@ -64,15 +64,21 @@
     {
       "id": "dist",
       "label": "DIST TO BASE",
-      "value": "5,404 KM · DERIVED"
+      "value": "3451KM DERIVED"
     }
   ],
   "plot": {
-    "contact": { "x": 470, "y": 480 },
-    "base": { "x": 815, "y": 775 },
+    "contact": {
+      "x": 470,
+      "y": 480
+    },
+    "base": {
+      "x": 815,
+      "y": 775
+    },
     "course": "SE",
     "contactLabel": "USO · HEAVY",
     "baseLabel": "SIREN-1"
   },
-  "note": "INTERCEPT OPENS WING ASSEMBLY · CENTRE RECENTRES AT 5 S · DISMISS RETURNS TO THE PLOT"
+  "note": "INTERCEPT OPENS WING ASSEMBLY · DISMISS RETURNS TO THE PLOT"
 }
