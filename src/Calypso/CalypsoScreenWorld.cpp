@@ -17,8 +17,7 @@ namespace Calypso {
 
 bool calypsoScreenFlipWorldPass(Screen &screen, bool hasWorldPasses)
 {
-	(void)hasWorldPasses;
-	if (screen._gpuPassesWorld.empty())
+	if (!hasWorldPasses)
 	{
 		calypso_context_reset_boundary_close();
 		return true;

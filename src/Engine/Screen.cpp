@@ -384,7 +384,8 @@ bool Screen::flip()
 	SDL_UnlockTexture(_texture);
 #endif
 #ifdef __EMSCRIPTEN__
-	const bool hasWorldPasses = !_gpuPassesWorld.empty();
+	const bool hasWorldPasses = !_gpuPassesWorld.empty()
+		&& Calypso::CalypsoHdUiOverlay::instance().activeThisFrame();
 	if (hasWorldPasses && !Calypso::SdlCompositeBoundary::check("before SDL_RenderCopy"))
 		return false;
 #endif
