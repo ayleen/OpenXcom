@@ -138,6 +138,27 @@ void CalypsoGeoscapeHdGlobeDirect::destroyGpuState(Globe* globe)
 	delete globe->_gpuState;
 	globe->_gpuState = nullptr;
 }
+namespace
+{
+
+/// Stage 7: re-scissor to the CC stage rect (design px -> viewport) after a
+/// setPhysicalGlobeClip call; no-op outside CC mode.
+void ccApplyStageClip()
+{
+	if (!Calypso::CommandCenter::calypsoCcEnabled()) return;
+	const auto sr = Calypso::CommandCenter::calypsoCcStageRect();
+	if (!sr.active || sr.w <= 0 || sr.h <= 0) return;
+	const float kx = (float)Options::displayWidth / 1280.0f;
+	const float ky = (float)Options::displayHeight / 720.0f;
+	const int vx = (int)std::lround(sr.x * kx);
+	const int vy = (int)std::lround(sr.y * ky);
+	const int vw = std::max(1, (int)std::lround(sr.w * kx));
+	const int vh = std::max(1, (int)std::lround(sr.h * ky));
+	glScissor(vx, (int)Options::displayHeight - vy - vh, vw, vh);
+}
+
+} // namespace
+
 void CalypsoGeoscapeHdGlobeDirect::drawPass(Globe* globe)
 	{
 		if (!globe || !globe->_gpuState->_gpuDirectMode || !globe->_gpuState->_directScreen) return;
@@ -249,22 +270,29 @@ void CalypsoGeoscapeHdGlobeDirect::drawPass(Globe* globe)
 		if (Calypso::CommandCenter::calypsoCcEnabled())
 		{
 			// Stage 7: clip the world into the CC stage and fit the globe
-			// disk inside it. The published rect is in globe-widget logical
-			// pixels; xs/ys convert to viewport physical pixels exactly like
-			// the camera centre above.
+			// disk inside it. The published rect is in CC design pixels
+			// (1280x720 reference); kx/ky map it into this pass's viewport
+			// exactly like every other world-space element. v_pixel is
+			// absolute display px, top-left origin (proven by the probe).
 			const auto sr = Calypso::CommandCenter::calypsoCcStageRect();
 			if (sr.active && sr.w > 0 && sr.h > 0)
 			{
-				const int vx = (int)std::lround(sr.x * xs);
-				const int vy = (int)std::lround(sr.y * ys);
-				const int vw = std::max(1, (int)std::lround(sr.w * xs));
-				const int vh = std::max(1, (int)std::lround(sr.h * ys));
+				const float kx = (float)dispW / 1280.0f;
+				const float ky = (float)dispH / 720.0f;
+				const int vx = dispX + (int)std::lround(sr.x * kx);
+				const int vy = dispY + (int)std::lround(sr.y * ky);
+				const int vw = std::max(1, (int)std::lround(sr.w * kx));
+				const int vh = std::max(1, (int)std::lround(sr.h * ky));
 				glEnable(GL_SCISSOR_TEST);
 				glScissor(vx, (int)Options::displayHeight - vy - vh, vw, vh);
 				globe->_gpuState->_globeShader->setUniform2f("u_globeCenter",
 					(float)vx + vw / 2.0f, (float)vy + vh / 2.0f);
+				// Spec s.25: the globe fills the stage -- min(w - 56, h - 8)
+				// of the stage, in physical px.
+				const float fitW = std::max(1.0f, (float)vw - 56.0f * kx);
+				const float fitH = std::max(1.0f, (float)vh - 8.0f * ky);
 				globe->_gpuState->_globeShader->setUniform1f("u_globeRadius",
-					(float)std::min(vw, vh) * 0.48f);
+					(float)std::min(fitW, fitH) * 0.5f);
 			}
 		}
 		glBindVertexArray(globe->_gpuState->_sphereVAO);
@@ -285,6 +313,7 @@ void CalypsoGeoscapeHdGlobeDirect::drawPass(Globe* globe)
 		 * same GL state every frame. */
 		GlobeSphereGlSave stLines; stLines.save();
 		CalypsoGeoscapeHdGlobeDirect::setPhysicalGlobeClip(globe);
+		ccApplyStageClip();
 		/* Review fix: the Earth guard restores with blending disabled, so the
 		 * shared line guard must re-enable it before the border pass draws. */
 		glEnable(GL_BLEND);
@@ -313,6 +342,9 @@ void CalypsoGeoscapeHdGlobeDirect::drawPass(Globe* globe)
 			? SDL_GetPerformanceCounter() : 0;
 		CalypsoGeoscapeHdGlobeDirect::drawDebugPass(globe);
 		CalypsoGeoscapeHdGlobeDirect::drawMarkerPass(globe);
+		// The CC stage scissor must not leak into the overlay presentation
+		// pass, which draws the full-window chrome.
+		glDisable(GL_SCISSOR_TEST);
 		if (calypsoMarkerStart)
 			Calypso::calypsoPassTimers().markerUs +=
 				(Uint64)((SDL_GetPerformanceCounter() - calypsoMarkerStart) * 1000000ull / SDL_GetPerformanceFrequency());
@@ -1346,6 +1378,7 @@ static std::uint64_t calypsoBuildRadarFlightSignature(SavedGame* save)
 		GlobeSphereGlSave st; st.save();
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		CalypsoGeoscapeHdGlobeDirect::setPhysicalGlobeClip(globe);
+		ccApplyStageClip();
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 		globe->_gpuState->_markerShader->use();
@@ -1396,6 +1429,7 @@ static std::uint64_t calypsoBuildRadarFlightSignature(SavedGame* save)
 		GlobeSphereGlSave st; st.save();
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		CalypsoGeoscapeHdGlobeDirect::setPhysicalGlobeClip(globe);
+		ccApplyStageClip();
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 		globe->_gpuState->_markerShader->use();

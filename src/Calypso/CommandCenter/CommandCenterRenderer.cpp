@@ -560,20 +560,13 @@ void calypsoCcRender(CalypsoF21Painter& painter, const CommandCenterLayout& layo
 		// The direct pass multiplies by the screen scales exactly like its
 		// own u_globeCenter math, so the globe disk, routes and scissor land
 		// inside the stage regardless of DPR or canvas fitting.
-		if (const Surface* globe = CalypsoGeoscapeHdShell::resolveWidget(state, "bg"))
-		{
-			const double fx = globe->getWidth() > 0
-				? static_cast<double>(globe->getWidth()) / 1280.0 : 1.0;
-			const double fy = globe->getHeight() > 0
-				? static_cast<double>(globe->getHeight()) / 720.0 : 1.0;
-			CcStageRect sr;
-			sr.active = true;
-			sr.x = (int)std::llround(layout.stage.x * fx);
-			sr.y = (int)std::llround(layout.stage.y * fy);
-			sr.w = (int)std::llround(layout.stage.width * fx);
-			sr.h = (int)std::llround(layout.stage.height * fy);
-			calypsoCcSetStageRect(sr);
-		}
+		CcStageRect sr;
+		sr.active = true;
+		sr.x = (int)std::llround(layout.stage.x);
+		sr.y = (int)std::llround(layout.stage.y);
+		sr.w = (int)std::llround(layout.stage.width);
+		sr.h = (int)std::llround(layout.stage.height);
+		calypsoCcSetStageRect(sr);
 		Surface* session = const_cast<Surface*>(CalypsoGeoscapeHdShell::resolveLiveWidget(state, "action.session"));
 		Surface* pause = const_cast<Surface*>(CalypsoGeoscapeHdShell::resolveLiveWidget(state, "time.pause"));
 		ccBind(painter, session, layout.sessionSelector, role);

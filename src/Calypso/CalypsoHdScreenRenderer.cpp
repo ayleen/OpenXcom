@@ -437,12 +437,15 @@ void CalypsoHdScreenRenderer::collect(CalypsoHdFrameBuilder& builder) const
 	// shell. Compact keeps the F16 shell until the CC mobile wave lands.
 	if (CommandCenter::calypsoCcEnabled() && model.designWidth >= 1024)
 	{
-		// Keep the shell's fitted-canvas mapping (it is the proven logical
-		// canvas the overlay composites correctly); the CC compact grid is
-		// authored to fit inside it. Full-bleed background becomes stage-7
-		// work when the globe moves into the clipped stage.
-		painter.winLogical.x = 0;
-		painter.winLogical.y = 0;
+		// The CC design space maps 1:1 onto the FULL display canvas (spec
+		// s.4): the compact grid is laid out in display pixels, the globe
+		// pass scissors to the same rect (stage 7), and the DPR is absorbed
+		// by the backing-store size itself.
+		painter.winLogical = { 0, 0, Options::displayWidth, Options::displayHeight };
+		painter.windowDesign = { 0, 0, model.designWidth, model.designHeight };
+		painter.uiScale = static_cast<double>(Options::displayWidth) / model.designWidth;
+		painter.sx = 1.0;
+		painter.sy = 1.0;
 		const CommandCenter::CommandCenterFonts ccFonts =
 			CommandCenter::calypsoCcResolveFonts(
 				getCurrentGame() ? getCurrentGame()->getMod() : nullptr);
@@ -476,11 +479,13 @@ void CalypsoHdScreenRenderer::collect(CalypsoHdFrameBuilder& builder) const
 		// Lay the CC grid out inside the FITTED canvas the overlay composites
 		// (winLogical), not the full design width — the margins around it are
 		// painted by the world pass clear (stage 7).
-		const float ccWidth = static_cast<float>(painter.winLogical.w);
-		const float ccHeight = static_cast<float>(painter.winLogical.h);
+		const float ccWidth = static_cast<float>(Options::displayWidth);
+		const float ccHeight = static_cast<float>(Options::displayHeight);
+		// The inspector carries the Intercept block, which ships separately:
+		// keep it closed so the stage expands (spec s.74 no-selection layout).
 		const auto ccLayout = (ccWidth >= 112.0f + 960.0f + 24.0f + 320.0f + 24.0f)
-			? CommandCenter::computeDesktopLayout(CommandCenter::Size2{ccWidth, static_cast<float>(metrics.logicalHeight)}, true)
-			: CommandCenter::computeCompactDesktopLayout(CommandCenter::Size2{ccWidth, ccHeight}, true);
+			? CommandCenter::computeDesktopLayout(CommandCenter::Size2{ccWidth, ccHeight}, false)
+			: CommandCenter::computeCompactDesktopLayout(CommandCenter::Size2{ccWidth, ccHeight}, false);
 		CommandCenter::calypsoCcRender(painter, ccLayout, snap, ccFonts, live,
 			geoscapeState, role);
 		(void)projectionLayout;
