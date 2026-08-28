@@ -648,6 +648,8 @@ if(EMSCRIPTEN)
   list(APPEND openxcom_src Calypso/CalypsoGeoscapeHd.cpp)
   # Phase 46.4 Stage 9: contract-projected strategic shell.
   list(APPEND openxcom_src Calypso/CalypsoGeoscapeHdShell.cpp)
+  # Command Center renderer (normative spec 2026-08-28).
+  list(APPEND openxcom_src Calypso/CommandCenter/CommandCenterRenderer.cpp)
   list(APPEND openxcom_src Calypso/CalypsoGeoscapeMusic.cpp)
   # Phase 46.1 (policy R3): browser-only extractions from the oversized in-place
   # #ifdef __EMSCRIPTEN__ regions of Engine/{EmscriptenHarness,Game,Screen}.cpp.

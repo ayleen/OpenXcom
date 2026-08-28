@@ -16,6 +16,7 @@ extern "C" int g_calypsoGeoscapeHdPreview;
 #include "../Engine/Language.h"
 #include "../Mod/Mod.h"
 #include "../Interface/TextButton.h"
+#include "../Interface/Text.h"
 #include "../Engine/Options.h"
 #include "../Savegame/SavedGame.h"
 #include "../Menu/NotesState.h"
@@ -43,6 +44,27 @@ const Surface* CalypsoGeoscapeHdShell::resolveWidget(const GeoscapeState* s, con
 	if (member == "btn1Day") return s->_btn1Day;
 	if (member == "btnZoomIn") return s->_btnZoomIn;
 	if (member == "btnZoomOut") return s->_btnZoomOut;
+	// Command Center live binding: header texts, side fillers and the old
+	// rotate cluster are claimed away by the CC renderer.
+	if (member == "txtHour") return s->_txtHour;
+	if (member == "txtHourSep") return s->_txtHourSep;
+	if (member == "txtMin") return s->_txtMin;
+	if (member == "txtMinSep") return s->_txtMinSep;
+	if (member == "txtSec") return s->_txtSec;
+	if (member == "txtWeekday") return s->_txtWeekday;
+	if (member == "txtDay") return s->_txtDay;
+	if (member == "txtMonth") return s->_txtMonth;
+	if (member == "txtYear") return s->_txtYear;
+	if (member == "txtFunds") return s->_txtFunds;
+	if (member == "sidebar") return s->_sidebar;
+	if (member == "sideLine") return s->_sideLine;
+	if (member == "sideTop") return s->_sideTop;
+	if (member == "sideBottom") return s->_sideBottom;
+	if (member == "btnRotateLeft") return s->_btnRotateLeft;
+	if (member == "btnRotateRight") return s->_btnRotateRight;
+	if (member == "btnRotateUp") return s->_btnRotateUp;
+	if (member == "btnRotateDown") return s->_btnRotateDown;
+	if (member == "timeSpeed") return s->_timeSpeed;
 	return nullptr;
 }
 

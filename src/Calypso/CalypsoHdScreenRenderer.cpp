@@ -17,6 +17,7 @@
 #include "../Savegame/SavedGame.h"
 
 #include "CalypsoCommandActionStyle.h"
+#include "CommandCenter/CommandCenterRenderer.h"
 #include "CalypsoF21UiShared.h"
 #include "CalypsoHdFontSource.h"
 #include "CalypsoHdTheme.h"
@@ -430,6 +431,56 @@ void CalypsoHdScreenRenderer::collect(CalypsoHdFrameBuilder& builder) const
 	painter.uiScale = scale;
 
 	std::uint32_t role = 1;
+
+	// Command Center gate (normative spec 2026-08-28): the wide canvas
+	// renders through the Command Center renderer instead of the strategic
+	// shell. Compact keeps the F16 shell until the CC mobile wave lands.
+	if (CommandCenter::calypsoCcEnabled() && model.designWidth >= 1024)
+	{
+		// Keep the shell's fitted-canvas mapping (it is the proven logical
+		// canvas the overlay composites correctly); the CC compact grid is
+		// authored to fit inside it. Full-bleed background becomes stage-7
+		// work when the globe moves into the clipped stage.
+		const CommandCenter::CommandCenterFonts ccFonts =
+			CommandCenter::calypsoCcResolveFonts(
+				getCurrentGame() ? getCurrentGame()->getMod() : nullptr);
+		CommandCenter::CommandCenterSnapshot snap;
+		snap.selectedTimeStep = 1; // canonical reference: 1 MIN active
+		auto* geoscapeState = live ? static_cast<GeoscapeState*>(const_cast<void*>(_state)) : nullptr;
+		if (geoscapeState != nullptr)
+		{
+			const auto txt = [](const Text* value) { return value ? value->getText() : std::string(); };
+			snap.displayTime = txt(geoscapeState->_txtHour) + ":" + txt(geoscapeState->_txtMin);
+			snap.displayDate = txt(geoscapeState->_txtDay) + " " + txt(geoscapeState->_txtMonth)
+				+ " " + txt(geoscapeState->_txtYear);
+			snap.simulationPlaying = !geoscapeState->_pause;
+			if (geoscapeState->_timeSpeed == geoscapeState->_btn5Secs) snap.selectedTimeStep = 0;
+			else if (geoscapeState->_timeSpeed == geoscapeState->_btn1Min) snap.selectedTimeStep = 1;
+			else if (geoscapeState->_timeSpeed == geoscapeState->_btn5Mins) snap.selectedTimeStep = 2;
+			else if (geoscapeState->_timeSpeed == geoscapeState->_btn30Mins) snap.selectedTimeStep = 3;
+			else if (geoscapeState->_timeSpeed == geoscapeState->_btn1Hour) snap.selectedTimeStep = 4;
+			else if (geoscapeState->_timeSpeed == geoscapeState->_btn1Day) snap.selectedTimeStep = 5;
+		}
+		else
+		{
+			snap.displayTime = "14:18 UTC"; // reference state (spec s.61)
+			snap.displayDate = "1 JAN 2040";
+		}
+		// The desktop grid's fixed constants (rail 88 + stage 960 + inspector
+		// 320) presuppose the 1440-wide reference; our production canvas is
+		// 1280 wide, which is the spec's compact-desktop band (1024..1279
+		// composition: rail 72, inspector 300 overlaying the stage). Use it
+		// whenever the full desktop grid cannot fit without overflow.
+		const float ccWidth = static_cast<float>(metrics.physicalWidth);
+		const auto ccLayout = (ccWidth >= 112.0f + 960.0f + 24.0f + 320.0f + 24.0f)
+			? CommandCenter::computeDesktopLayout(CommandCenter::Size2{ccWidth, static_cast<float>(metrics.logicalHeight)}, true)
+			: CommandCenter::computeCompactDesktopLayout(CommandCenter::Size2{ccWidth, static_cast<float>(metrics.physicalHeight)}, true);
+		CommandCenter::calypsoCcRender(painter, ccLayout, snap, ccFonts, live,
+			geoscapeState, role);
+		(void)projectionLayout;
+		return;
+	}
+
 	if (!live)
 	{
 		painter.styled(painter.winLogical,
