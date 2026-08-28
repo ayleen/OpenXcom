@@ -435,7 +435,8 @@ int calypso_hd_harness_open(int scenarioId, int layoutClass, int sideBySide)
 	}
 	const OpenXcom::Calypso::CalypsoLayoutClass layout =
 		layoutClass == 1 ? OpenXcom::Calypso::CalypsoLayoutClass::Wide
-		                 : OpenXcom::Calypso::CalypsoLayoutClass::Compact;
+		: layoutClass == 2 ? OpenXcom::Calypso::CalypsoLayoutClass::Portrait
+		                   : OpenXcom::Calypso::CalypsoLayoutClass::Compact;
 	return OpenXcom::Calypso::calypsoHdHarnessOpen(
 		static_cast<OpenXcom::Calypso::CalypsoHarnessScenario>(scenarioId), layout,
 		sideBySide != 0) ? 1 : 0;
@@ -472,7 +473,8 @@ int calypso_hd_harness_switch(int scenarioId, int layoutClass, int sideBySide)
 		OpenXcom::Calypso::calypsoHdHarnessSetSideBySide(false);
 	}
 	const CalypsoLayoutClass layout =
-		layoutClass == 1 ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact;
+		layoutClass == 1 ? CalypsoLayoutClass::Wide
+		: layoutClass == 2 ? CalypsoLayoutClass::Portrait : CalypsoLayoutClass::Compact;
 	return OpenXcom::Calypso::calypsoHdHarnessOpen(
 		static_cast<CalypsoHarnessScenario>(scenarioId), layout,
 		sideBySide != 0) ? 1 : 0;
@@ -503,7 +505,8 @@ int calypso_hd_harness_reconfigure(int layoutClass, int sideBySide)
 {
 	const OpenXcom::Calypso::CalypsoLayoutClass layout =
 		layoutClass == 1 ? OpenXcom::Calypso::CalypsoLayoutClass::Wide
-		                 : OpenXcom::Calypso::CalypsoLayoutClass::Compact;
+		: layoutClass == 2 ? OpenXcom::Calypso::CalypsoLayoutClass::Portrait
+		                   : OpenXcom::Calypso::CalypsoLayoutClass::Compact;
 	return OpenXcom::Calypso::calypsoHdHarnessReconfigure(layout, sideBySide != 0) ? 1 : 0;
 }
 

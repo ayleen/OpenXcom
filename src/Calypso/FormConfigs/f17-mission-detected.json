@@ -2,7 +2,7 @@
   "schema": 1,
   "id": "f17-mission-detected",
   "familyId": 17,
-  "version": "hd.2026-08-28.1",
+  "version": "hd.2026-08-29.1",
   "archetype": "contact-decision",
   "protocol": {
     "authority": "CALYPSO COMMAND",

@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "id": "geoscape-command-shell",
-  "version": "hd.2026-08-28.1",
+  "version": "hd.2026-08-29.1",
   "archetype": "strategic-command-shell",
   "runtime": "production",
   "actions": [

@@ -2,7 +2,7 @@
   "schema": 1,
   "id": "f28-confirm-end",
   "familyId": 28,
-  "version": "hd.2026-08-28.1",
+  "version": "hd.2026-08-29.1",
   "archetype": "small-confirmation",
   "protocol": {
     "authority": "CALYPSO COMMAND",

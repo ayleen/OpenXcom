@@ -127,12 +127,21 @@ struct CalypsoContactIntelMarker
 	std::string label;
 };
 
+/// Which generated composition the board model carries. Replaces the v1
+/// wide/compact bool pair so an impossible state cannot be expressed.
+enum class CalypsoContactIntelLayout
+{
+	Wide,
+	Compact,
+	Portrait
+};
+
 struct CalypsoContactIntelBoardModel
 {
 	std::uint32_t familyId = 0;
 	const void* instance = nullptr;
 	Mod* mod = nullptr;
-	bool wide = false;
+	CalypsoContactIntelLayout layout = CalypsoContactIntelLayout::Compact;
 	bool opaqueHarnessBackdrop = false;
 	int designWidth = 0;
 	int designHeight = 0;
@@ -168,17 +177,27 @@ struct CalypsoContactIntelBoardModel
 	CalypsoContactIntelMarker contact;
 	CalypsoContactIntelMarker base;
 
-	float cutCornerPx = 0.0f;
 	float protocolTextInsetPx = 0.0f;
+	float windowRadiusPx = 18.0f;
+	float innerRadiusPx = 10.0f;
 	std::uint32_t panelFillTop = 0;
 	std::uint32_t panelFillBottom = 0;
 	std::uint32_t frameColor = 0;
 	std::uint32_t protocolColor = 0;
 	std::uint32_t dividerColor = 0;
-	std::uint32_t footerDotColor = 0;
 	std::uint32_t warningColor = 0;
+	/// Per-layout modal dim behind the corner/stacked card.
+	std::uint32_t backdropColor = 0;
+	/// Circular-radar decor tokens (v2 tactical focus card).
+	std::uint32_t radarRingColor = 0;
+	std::uint32_t radarStrongRingColor = 0;
+	std::uint32_t radarAxisColor = 0;
+	std::uint32_t radarSweepColor = 0;
+	std::uint32_t factLabelColor = 0;
+	std::uint32_t factValueColor = 0;
+	/// Radar marker colours; the v1 plot* field names are kept on purpose --
+	/// they ARE the radar contact/base/course/halo/frame tokens.
 	std::uint32_t plotFrameColor = 0;
-	std::uint32_t plotGridColor = 0;
 	std::uint32_t plotContactColor = 0;
 	std::uint32_t plotContactHaloColor = 0;
 	std::uint32_t plotBaseColor = 0;

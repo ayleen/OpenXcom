@@ -16,9 +16,12 @@
 #include "../Savegame/Ufo.h"
 #include "../Mod/Mod.h"
 #include "Generated/CalypsoF17UfoDetected.generated.h"
+#include "CalypsoHdHarnessHostState.h"
 #include "CalypsoHdUiOverlay.h"
 #include "CalypsoSmallConfirmationRenderer.h"
 #include "CalypsoUiFamilies.h"
+#include "CalypsoViewportMailbox.h"
+#include "CalypsoViewportModel.h"
 
 namespace OpenXcom { namespace Calypso {
 
@@ -50,42 +53,133 @@ double wrapLongitudeDelta(double lon, double center)
 
 } // namespace
 
-void CalypsoF17UfoDetectedUi::applyLayout(UfoDetectedState& state)
+CalypsoF17UfoDetectedUi::CalypsoF17UfoDetectedUi(UfoDetectedState* s, LayoutVariant layout)
+	: _state(s), _layout(layout) {}
+
+int CalypsoF17UfoDetectedUi::layoutIndex(LayoutVariant layout)
 {
-	const bool wide = state._hdWideLayout;
-	const auto* layout = CalypsoF17UfoDetectedGen::layoutForDesign(
-		wide ? 1280 : 740, wide ? 720 : 360);
-	if (!layout)
+	switch (layout)
+	{
+	case LayoutVariant::Wide: return 0;
+	case LayoutVariant::Portrait: return 2;
+	case LayoutVariant::Compact: break;
+	}
+	return 1;
+}
+
+int CalypsoF17UfoDetectedUi::designWidth(LayoutVariant layout)
+{
+	switch (layout)
+	{
+	case LayoutVariant::Wide: return 1280;
+	case LayoutVariant::Portrait: return 360;
+	case LayoutVariant::Compact: break;
+	}
+	return 740;
+}
+
+int CalypsoF17UfoDetectedUi::designHeight(LayoutVariant layout)
+{
+	switch (layout)
+	{
+	case LayoutVariant::Wide: return 720;
+	case LayoutVariant::Portrait: return 740;
+	case LayoutVariant::Compact: break;
+	}
+	return 360;
+}
+
+CalypsoF17UfoDetectedUi::LayoutVariant CalypsoF17UfoDetectedUi::chooseLayout()
+{
+	// The harness request is authoritative while a preview is up: it must be
+	// able to pin every variant (incl. Portrait) regardless of the live
+	// browser viewport, exactly like the other family harnesses.
+	const CalypsoHarnessSession& session = calypsoHarnessSession();
+	if (session.hostUp && session.layoutExplicit)
+	{
+		switch (session.requestedLayout)
+		{
+		case CalypsoLayoutClass::Wide: return LayoutVariant::Wide;
+		case CalypsoLayoutClass::Portrait: return LayoutVariant::Portrait;
+		case CalypsoLayoutClass::Compact: break;
+		}
+		return LayoutVariant::Compact;
+	}
+
+	// Live viewport: an explicit or derived portrait orientation wins, then
+	// the established wide threshold; everything else stays compact.
+	const CalypsoViewportState& viewport = calypsoHdViewportModel().state();
+	if (viewport.orientation == CalypsoOrientation::Portrait)
+		return LayoutVariant::Portrait;
+	if (viewport.orientation == CalypsoOrientation::Unknown
+		&& Options::baseYResolution > Options::baseXResolution)
+		return LayoutVariant::Portrait;
+	if (Options::baseXResolution >= 1000)
+		return LayoutVariant::Wide;
+	return LayoutVariant::Compact;
+}
+
+void CalypsoF17UfoDetectedUi::applyLayout(UfoDetectedState& state, LayoutVariant layout)
+{
+	const auto* layoutGen = CalypsoF17UfoDetectedGen::layoutForDesign(
+		designWidth(layout), designHeight(layout));
+	if (!layoutGen)
 		CalypsoHdUiOverlay::instance().failHdRoute(
 			"F17 UFO contact layout is unavailable");
-	auto applyRect = [](auto* widget, const auto& rect)
+
+	// Safe-area translation: shift the whole generated composition (window +
+	// the three input widgets by the SAME delta) inside the design-space safe
+	// rect. Never rescale piecewise; collect() projects everything relative
+	// to the actual window, so one translation moves the entire card.
+	const CalypsoViewportState& viewport = calypsoHdViewportModel().state();
+	const int designW = designWidth(layout);
+	const int designH = designHeight(layout);
+	const int safeLeft = viewport.logicalWidth > 0
+		? (int)((double)viewport.safeLeft * designW / viewport.logicalWidth) : 0;
+	const int safeRight = viewport.logicalWidth > 0
+		? (int)((double)viewport.safeRight * designW / viewport.logicalWidth) : 0;
+	const int safeTop = viewport.logicalHeight > 0
+		? (int)((double)viewport.safeTop * designH / viewport.logicalHeight) : 0;
+	const int safeBottom = viewport.logicalHeight > 0
+		? (int)((double)viewport.safeBottom * designH / viewport.logicalHeight) : 0;
+
+	int dx = 0;
+	int dy = 0;
+	if (layoutGen->window.x < safeLeft)
+		dx = safeLeft - layoutGen->window.x;
+	if (layoutGen->window.x + dx + layoutGen->window.w > designW - safeRight)
+		dx = designW - safeRight - layoutGen->window.x - layoutGen->window.w;
+	if (layoutGen->window.y < safeTop)
+		dy = safeTop - layoutGen->window.y;
+	if (layoutGen->window.y + dy + layoutGen->window.h > designH - safeBottom)
+		dy = designH - safeBottom - layoutGen->window.y - layoutGen->window.h;
+
+	auto applyRect = [](auto* widget, const auto& rect, int shiftX, int shiftY)
 	{
 		if (!widget) return;
-		widget->setX(rect.x);
-		widget->setY(rect.y);
+		widget->setX(rect.x + shiftX);
+		widget->setY(rect.y + shiftY);
 		widget->setWidth(rect.w);
 		widget->setHeight(rect.h);
 	};
-	applyRect(state._window, layout->window);
-	const int layoutIndex = wide ? 0 : 1;
-	applyRect(state._btnIntercept,
-		CalypsoF17UfoDetectedGen::kButtonRects[layoutIndex][0].rect);
-	applyRect(state._btnCentre,
-		CalypsoF17UfoDetectedGen::kButtonRects[layoutIndex][1].rect);
-	applyRect(state._btnCancel,
-		CalypsoF17UfoDetectedGen::kButtonRects[layoutIndex][2].rect);
+	applyRect(state._window, layoutGen->window, dx, dy);
+	const int index = layoutIndex(layout);
+	applyRect(state._btnIntercept, CalypsoF17UfoDetectedGen::kButtonRects[index][0].rect, dx, dy);
+	applyRect(state._btnCentre, CalypsoF17UfoDetectedGen::kButtonRects[index][1].rect, dx, dy);
+	applyRect(state._btnCancel, CalypsoF17UfoDetectedGen::kButtonRects[index][2].rect, dx, dy);
 }
+
 CalypsoF17UfoDetectedUi::~CalypsoF17UfoDetectedUi() { CalypsoHdUiOverlay::instance().clearAdapter(this); }
 const void* CalypsoF17UfoDetectedUi::topState() const { return _state; }
 
 void CalypsoF17UfoDetectedUi::collect(CalypsoHdFrameBuilder& builder) const
 {
     if(!_state || !_state->_hdLayout || !_state->_game) return;
-    const bool wide = _state->_hdWideLayout;
-    const int layoutIndex = wide ? 0 : 1;
-    const auto* g = CalypsoF17UfoDetectedGen::layoutForDesign(wide?1280:740, wide?720:360);
+    const int layoutIdx = layoutIndex(_layout);
+    const auto* g = CalypsoF17UfoDetectedGen::layoutForDesign(
+        designWidth(_layout), designHeight(_layout));
     if(!g) return;
-    auto winRect = _state->_window ? CalypsoLogicalRect{_state->_window->getX(), _state->_window->getY(), _state->_window->getWidth(), _state->_window->getHeight()} : CalypsoLogicalRect{0,0,1280,720};
+    auto winRect = _state->_window ? CalypsoLogicalRect{_state->_window->getX(), _state->_window->getY(), _state->_window->getWidth(), _state->_window->getHeight()} : CalypsoLogicalRect{0,0,g->designWidth,g->designHeight};
     double uiScale = g->window.w ? (double)winRect.w / g->window.w : 1.0;
     auto proj = [&](const auto &r){ return CalypsoLogicalRect{ winRect.x + int((r.x - g->window.x)*uiScale), winRect.y + int((r.y - g->window.y)*uiScale), int(r.w*uiScale), int(r.h*uiScale) }; };
     auto factPart = [&](int index, bool value) -> const CalypsoF17UfoDetectedGen::CalypsoF17UfoDetectedGenRect&
@@ -102,7 +196,13 @@ void CalypsoF17UfoDetectedUi::collect(CalypsoHdFrameBuilder& builder) const
 
     CalypsoContactIntelBoardModel m{};
     m.familyId = CalypsoF17UfoDetectedGen::kFamilyId;
-    m.instance = _state; m.mod = _state->_game->getMod(); m.wide = wide;
+    m.instance = _state; m.mod = _state->_game->getMod();
+    switch (_layout)
+    {
+        case LayoutVariant::Wide: m.layout = CalypsoContactIntelLayout::Wide; break;
+        case LayoutVariant::Portrait: m.layout = CalypsoContactIntelLayout::Portrait; break;
+        case LayoutVariant::Compact: m.layout = CalypsoContactIntelLayout::Compact; break;
+    }
     m.designWidth = g->designWidth; m.designHeight = g->designHeight;
     m.window = proj(g->window); m.status = proj(g->status);
     m.plotPanel = proj(g->plotPanel); m.plotArea = proj(g->plotArea);
@@ -120,21 +220,31 @@ void CalypsoF17UfoDetectedUi::collect(CalypsoHdFrameBuilder& builder) const
     m.protocolText = CalypsoF17UfoDetectedGen::kProtocol;
     m.noteText = CalypsoF17UfoDetectedGen::kNote;
     m.warningGlyph = "!";
-    m.cutCornerPx = CalypsoF17UfoDetectedGen::kCutCornerPx;
     m.protocolTextInsetPx = CalypsoF17UfoDetectedGen::kProtocolTextInsetPx;
+    m.windowRadiusPx = CalypsoF17UfoDetectedGen::kWindowRadiusPx;
+    m.innerRadiusPx = CalypsoF17UfoDetectedGen::kInnerRadiusPx;
     m.panelFillTop = CalypsoF17UfoDetectedGen::kPanelFillTop;
     m.panelFillBottom = CalypsoF17UfoDetectedGen::kPanelFillBottom;
     m.frameColor = CalypsoF17UfoDetectedGen::kFrame;
     m.protocolColor = CalypsoF17UfoDetectedGen::kProtocolText;
     m.dividerColor = CalypsoF17UfoDetectedGen::kDivider;
-    m.footerDotColor = CalypsoF17UfoDetectedGen::kFooterDot;
     m.warningColor = CalypsoF17UfoDetectedGen::kWarning;
+    m.backdropColor = _layout == LayoutVariant::Wide
+        ? CalypsoF17UfoDetectedGen::kBackdropWide
+        : (_layout == LayoutVariant::Portrait
+            ? CalypsoF17UfoDetectedGen::kBackdropPortrait
+            : CalypsoF17UfoDetectedGen::kBackdropCompact);
+    m.radarRingColor = CalypsoF17UfoDetectedGen::kRadarRing;
+    m.radarStrongRingColor = CalypsoF17UfoDetectedGen::kRadarRingStrong;
+    m.radarAxisColor = CalypsoF17UfoDetectedGen::kRadarAxis;
+    m.radarSweepColor = CalypsoF17UfoDetectedGen::kRadarSweep;
+    m.factLabelColor = CalypsoF17UfoDetectedGen::kFactLabel;
+    m.factValueColor = CalypsoF17UfoDetectedGen::kFactValue;
     m.plotFrameColor = CalypsoF17UfoDetectedGen::kPlotFrame;
-    m.plotGridColor = CalypsoF17UfoDetectedGen::kPlotGrid;
-    m.plotContactColor = CalypsoF17UfoDetectedGen::kPlotContact;
-    m.plotContactHaloColor = CalypsoF17UfoDetectedGen::kPlotContactHalo;
-    m.plotBaseColor = CalypsoF17UfoDetectedGen::kPlotBase;
-    m.plotCourseColor = CalypsoF17UfoDetectedGen::kPlotCourse;
+    m.plotContactColor = CalypsoF17UfoDetectedGen::kRadarContact;
+    m.plotContactHaloColor = CalypsoF17UfoDetectedGen::kRadarContactHalo;
+    m.plotBaseColor = CalypsoF17UfoDetectedGen::kRadarBase;
+    m.plotCourseColor = CalypsoF17UfoDetectedGen::kRadarCourse;
     m.factDividerColor = CalypsoF17UfoDetectedGen::kFactDivider;
     m.titleDesignHeight = g->title.h;
     m.motionDurationMs = CalypsoF17UfoDetectedGen::kMotionDurationMs;
@@ -145,9 +255,13 @@ void CalypsoF17UfoDetectedUi::collect(CalypsoHdFrameBuilder& builder) const
     m.titleText = _state->_txtUfo ? _state->_txtUfo->getText() : std::string();
     m.messageText = _state->_txtDetected ? _state->_txtDetected->getText() : std::string();
 
-    // Plot: project the real contact and nearest-base coordinates onto the
-    // plot area (north-up local schematic, wrapped longitude deltas).
+    // Radar: a SCHEMATIC circular bearing plot. The nearest base sits at the
+    // center; the contact lands on the true base->contact direction at a
+    // fixed fraction of the radar radius. Distance stays in the DIST fact
+    // row -- it never becomes a pixel radius.
     const CalypsoLogicalRect& plot = m.plotArea;
+    const int centerX = plot.x + plot.w / 2;
+    const int centerY = plot.y + plot.h / 2;
     const double cLon = ufo ? ufo->getLongitude() : 0.0;
     const double cLat = ufo ? ufo->getLatitude() : 0.0;
     const Base* nearest = nullptr;
@@ -166,31 +280,29 @@ void CalypsoF17UfoDetectedUi::collect(CalypsoHdFrameBuilder& builder) const
     }
     const double bLon = nearest ? nearest->getLongitude() : cLon;
     const double bLat = nearest ? nearest->getLatitude() : cLat;
-    const double midLon = cLon + wrapLongitudeDelta(bLon, cLon) * 0.5;
-    const double midLat = (cLat + bLat) * 0.5;
-    const double halfLon = std::max(1e-4,
-        std::max(std::abs(wrapLongitudeDelta(cLon, midLon)),
-                 std::abs(wrapLongitudeDelta(bLon, midLon))));
-    const double halfLat = std::max(1e-4,
-        std::max(std::abs(cLat - midLat), std::abs(bLat - midLat)));
-    const double pxPerRadian = std::min(
-        0.64 * plot.w / (2.0 * halfLon),
-        0.64 * plot.h / (2.0 * halfLat));
-    auto projectLon = [&](double lon)
+    double dirX = wrapLongitudeDelta(cLon, bLon);
+    dirX *= std::cos((cLat + bLat) * 0.5);
+    double dirY = cLat - bLat;
+    const double dirLen = std::sqrt(dirX * dirX + dirY * dirY);
+    const double contactRadius = std::min(plot.w, plot.h) * 0.36;
+    if (dirLen < 1e-6)
     {
-        return plot.x + plot.w / 2 + (int)std::llround(wrapLongitudeDelta(lon, midLon) * pxPerRadian);
-    };
-    auto projectLat = [&](double lat)
+        m.contact = CalypsoContactIntelMarker{centerX, centerY,
+            ufo ? std::string(_state->tr(ufo->getRules()->getSize())) : std::string()};
+    }
+    else
     {
-        return plot.y + plot.h / 2 - (int)std::llround((lat - midLat) * pxPerRadian);
-    };
-    m.contact = CalypsoContactIntelMarker{projectLon(cLon), projectLat(cLat),
-        ufo ? std::string(_state->tr(ufo->getRules()->getSize())) : std::string()};
-    m.base = CalypsoContactIntelMarker{projectLon(bLon), projectLat(bLat),
+        m.contact = CalypsoContactIntelMarker{
+            centerX + (int)std::llround(dirX / dirLen * contactRadius),
+            centerY - (int)std::llround(dirY / dirLen * contactRadius),
+            ufo ? std::string(_state->tr(ufo->getRules()->getSize())) : std::string()};
+    }
+    m.base = CalypsoContactIntelMarker{centerX, centerY,
         nearest ? nearest->getName(_state->_game->getLanguage()) : std::string()};
     m.courseWord = ufo ? boardCourseWord(ufo->getDirection()) : std::string("NONE");
 
-    // Fact rows: every value maps to a real accessor or is labeled DERIVED.
+    // Fact rows: labels are config-owned generated copy (reference == engine);
+    // every value maps to a real accessor or is labeled DERIVED.
     std::string altitude = ufo ? ufo->getAltitude() : std::string();
     if (ufo)
     {
@@ -219,29 +331,36 @@ void CalypsoF17UfoDetectedUi::collect(CalypsoHdFrameBuilder& builder) const
     {
         distBuffer[0] = '\0';
     }
-    m.facts = {
-        {_state->tr("STR_SIZE_UC"), classWord},
-        {_state->tr("STR_ALTITUDE"), altitude.empty() ? altitude : std::string(_state->tr(altitude))},
-        {_state->tr("STR_HEADING"), courseWord},
-        {_state->tr("STR_SPEED"), speedWord},
-        {CalypsoF17UfoDetectedGen::kFactLabels[4], std::string(distBuffer)},
+    const std::string factValues[CalypsoF17UfoDetectedGen::kFactCount] = {
+        classWord,
+        altitude.empty() ? altitude : std::string(_state->tr(altitude)),
+        courseWord,
+        speedWord,
+        std::string(distBuffer),
     };
+    for (int index = 0; index < CalypsoF17UfoDetectedGen::kFactCount; ++index)
+    {
+        m.facts.push_back({CalypsoF17UfoDetectedGen::kFactLabels[index], factValues[index]});
+    }
 
     auto addButton = [&](TextButton* widget, int index, const std::string& label)
     {
         CalypsoSmallConfirmationButton button{};
         button.widget = widget;
         button.text = label;
-        button.rect = proj(CalypsoF17UfoDetectedGen::kButtonRects[layoutIndex][index].rect);
+        button.rect = proj(CalypsoF17UfoDetectedGen::kButtonRects[layoutIdx][index].rect);
         button.tone = CalypsoActionTone::Safe;
         button.restFill = CalypsoF17UfoDetectedGen::kButtons[index].fill;
         button.restBorder = CalypsoF17UfoDetectedGen::kButtons[index].border;
         button.textColor = CalypsoF17UfoDetectedGen::kButtons[index].text;
         m.buttons.push_back(button);
     };
+    // Labels come from the LIVE widgets (incl. the Ctrl CANCEL/IGNORE flip);
+    // the centre button owns its own translated label.
     addButton(_state->_btnIntercept, 0,
         _state->_btnIntercept ? _state->_btnIntercept->getText() : std::string());
-    addButton(_state->_btnCentre, 1, _state->tr("STR_CENTER_ON_UFO_TIME_5_SECONDS"));
+    addButton(_state->_btnCentre, 1,
+        _state->_btnCentre ? _state->_btnCentre->getText() : std::string());
     addButton(_state->_btnCancel, 2,
         _state->_btnCancel ? _state->_btnCancel->getText() : std::string());
     calypsoCollectContactIntelBoard(builder, m, _motion);
@@ -250,22 +369,25 @@ void CalypsoF17UfoDetectedUi::collect(CalypsoHdFrameBuilder& builder) const
 void CalypsoF17UfoDetectedUi::configure(UfoDetectedState& s, bool allow) {
     if(!allow || !s._game || !s._game->getMod()->isHdUiFamilyEnabled("F17")) { s._hdLayout=false; return; }
     s._hdLayout = true;
-    s._hdWideLayout = (Options::baseXResolution >= 1000);
-    applyLayout(s);
+    const LayoutVariant layout = chooseLayout();
+    s._hdWideLayout = (layout == LayoutVariant::Wide);
+    applyLayout(s, layout);
     // Rebase the state's UI-scaling capture onto the board design canvas so
     // widget geometry (and the vanilla blit skip) lives in design pixels,
     // exactly like the F21 command-card family (F21Defense precedent).
-    s.recaptureUiScaling(s._hdWideLayout ? 1280 : 740, s._hdWideLayout ? 720 : 360, 1.0f,
+    s.recaptureUiScaling(designWidth(layout), designHeight(layout), 1.0f,
         /*subtractVanillaCenter=*/false);
-    auto* a = new CalypsoF17UfoDetectedUi(&s);
+    auto* a = new CalypsoF17UfoDetectedUi(&s, layout);
     s._hdAdapter = a;
     CalypsoHdUiOverlay::instance().registerAdapter(a);
 }
 bool CalypsoF17UfoDetectedUi::resize(UfoDetectedState& s) {
-    if(!s._hdLayout) return false;
-    s._hdWideLayout = (Options::baseXResolution >= 1000);
-    applyLayout(s);
-    s.recaptureUiScaling(s._hdWideLayout ? 1280 : 740, s._hdWideLayout ? 720 : 360, 1.0f,
+    if(!s._hdLayout || !s._hdAdapter) return false;
+    const LayoutVariant layout = chooseLayout();
+    s._hdAdapter->setLayout(layout);
+    s._hdWideLayout = (layout == LayoutVariant::Wide);
+    applyLayout(s, layout);
+    s.recaptureUiScaling(designWidth(layout), designHeight(layout), 1.0f,
         /*subtractVanillaCenter=*/false);
     return true;
 }

@@ -3,7 +3,7 @@
 // Canonical source: src/Calypso/Contracts/basescape-shell-proof.json
 #pragma once
 namespace OpenXcom { namespace Calypso { namespace CalypsoBasescapeShellProofGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-28.1";
+inline constexpr const char* kContractVersion = "hd.2026-08-29.1";
 inline constexpr const char* kScreenId = "basescape-shell-proof";
 inline constexpr const char* kArchetype = "base-management-shell";
 inline constexpr bool kProductionHook = false;

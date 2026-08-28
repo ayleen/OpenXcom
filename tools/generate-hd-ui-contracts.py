@@ -305,7 +305,9 @@ def validate_family(doc, rel, profile, engine_text_calibration=False):
             fail(rel + ": standard density must use scale 1/1")
         if density == "brief-acknowledgement" and (numerator, denominator) != (2, 3):
             fail(rel + ": brief acknowledgement density must use scale 2/3")
-        for layout_name in ("wide", "compact"):
+        layout_names = (("wide", "compact", "portrait")
+                        if profile == "contact-intel-board" else ("wide", "compact"))
+        for layout_name in layout_names:
             layout = doc["layouts"].get(layout_name) or {}
             buttons = layout.get("buttons") or {}
             if set(buttons) != {button["id"] for button in form.get("buttons", [])}:
@@ -317,7 +319,10 @@ def validate_family(doc, rel, profile, engine_text_calibration=False):
                     fail(rel + ": " + layout_name + ".buttons." + button_id
                          + " below the density-scaled " + str(visible_action_floor) + "x"
                          + str(visible_action_floor) + " visible-action floor")
-            if form.get("buttons"):
+            if form.get("buttons") and profile != "contact-intel-board":
+                # Modal archetypes keep the rightmost action on the text rail;
+                # the board's corner/stacked cards legitimately break the rail
+                # (their geometry policy lives in generate-hd-window-form.py).
                 rightmost = buttons[form["buttons"][-1]["id"]]
                 message = layout.get("message") or {}
                 if (rightmost["x"] + rightmost["width"]
@@ -931,14 +936,22 @@ def emit_small_confirmation_h(doc, rel, ns, prefix):
     for b in form["buttons"]:
         out.append('    { "' + b["id"] + '", "' + b["label"] + '", "' + b["tone"] + '", "' + b["action"] + '", ' + rgba_call(b["style"]["fill"]) + ', ' + rgba_call(b["style"]["border"]) + ', ' + rgba_call(b["style"]["text"]) + ' },')
     out += ["};", "inline constexpr int kButtonCount = " + str(len(form["buttons"])) + ";", ""]
-    out.append("inline constexpr float kCutCornerPx = %.6ff;" % float(style["cutCornerPx"]))
+    if "cutCornerPx" in style:
+        # Cut-corner shells only; the rounded contact-intel-board v2 card has
+        # no chamfer token and its consumers must not reference kCutCornerPx.
+        out.append("inline constexpr float kCutCornerPx = %.6ff;" % float(style["cutCornerPx"]))
     out.append("inline constexpr float kProtocolTextInsetPx = %.6ff;" % float(style["protocolTextInsetPx"]))
     fixed_style_keys = ("panelFillTop","panelFillBottom","frame","protocolText","divider","footerFill","footerDot","warning")
     for key in fixed_style_keys:
         out.append("inline constexpr std::uint32_t k" + key[0].upper() + key[1:] + " = " + rgba_call(style[key]) + ";")
     archetype_style_keys = sorted(k for k in style if k not in fixed_style_keys and k not in ("cutCornerPx", "protocolTextInsetPx"))
     for key in archetype_style_keys:
-        out.append("inline constexpr std::uint32_t k" + key[0].upper() + key[1:] + " = " + rgba_call(style[key]) + ";")
+        if isinstance(style[key], (int, float)):
+            # Archetype-local sizing tokens (e.g. the board card radii) are
+            # floats, not packed colours.
+            out.append("inline constexpr float k" + key[0].upper() + key[1:] + " = %.6ff;" % float(style[key]))
+        else:
+            out.append("inline constexpr std::uint32_t k" + key[0].upper() + key[1:] + " = " + rgba_call(style[key]) + ";")
     out.append("")
     wide_keys = [k for k,v in layouts["wide"].items() if isinstance(v, dict) and "x" in v]
     shell_parts = ["window","status","warning","title","message","footer"]
@@ -949,7 +962,10 @@ def emit_small_confirmation_h(doc, rel, ns, prefix):
         out.append("    " + prefix + "GenRect " + tp + ";")
     out.append("};")
     out.append("inline constexpr " + prefix + "GenLayout kLayouts[] = {")
-    for name in ("wide","compact"):
+    # Canonical positional order: the C++ adapters index kLayouts/kButtonRects
+    # by their own layout enums, so key order in the JSON is normative.
+    generated_layouts = [name for name in ("wide", "compact", "portrait") if name in layouts]
+    for name in generated_layouts:
         l = layouts[name]
         vals = [str(l["designWidth"]), str(l["designHeight"]),
                 "{ " + str(l["window"]["x"]) + ", " + str(l["window"]["y"]) + ", " + str(l["window"]["width"]) + ", " + str(l["window"]["height"]) + " }",
@@ -968,7 +984,7 @@ def emit_small_confirmation_h(doc, rel, ns, prefix):
     out.append("};")
     out.append("struct " + prefix + "GenButtonRect { const char* id; " + prefix + "GenRect rect; };")
     out.append("inline constexpr " + prefix + "GenButtonRect kButtonRects[][ " + str(len(button_ids)) + " ] = {")
-    for name in ("wide","compact"):
+    for name in generated_layouts:
         l = layouts[name]
         row = []
         for bid in button_ids:
@@ -976,7 +992,7 @@ def emit_small_confirmation_h(doc, rel, ns, prefix):
             row.append('{ "' + bid + '", { ' + str(rr["x"]) + ", " + str(rr["y"]) + ", " + str(rr["width"]) + ", " + str(rr["height"]) + " } }")
         out.append("    { " + ", ".join(row) + " }, // " + name)
     out.append("};")
-    out.append("inline constexpr int kLayoutCount = 2;")
+    out.append("inline constexpr int kLayoutCount = " + str(len(generated_layouts)) + ";")
     out.append("inline constexpr int kMotionDurationMs = " + str(int(m["durationMs"])) + ";")
     out.append("inline constexpr float kMotionScaleFrom = %.6ff;" % float(m["scaleFrom"]))
     out.append("inline const " + prefix + "GenLayout* layoutForDesign(int dw, int dh)")

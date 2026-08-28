@@ -341,19 +341,29 @@ def validate_config(config, template):
 
 
 BOARD_FACT_COUNT = 5
+BOARD_LAYOUT_ORDER = ("wide", "compact", "portrait")
 BOARD_COURSE_WORDS = {"N", "NE", "E", "SE", "S", "SW", "W", "NW", "NONE"}
+BOARD_NUMERIC_STYLE_KEYS = {"windowRadiusPx", "innerRadiusPx", "protocolTextInsetPx"}
 BOARD_STYLE_KEYS = {
-    "cutCornerPx", "protocolTextInsetPx", "panelFillTop", "panelFillBottom",
+    "windowRadiusPx", "innerRadiusPx", "protocolTextInsetPx",
+    "panelFillTop", "panelFillBottom",
     "frame", "protocolText", "divider", "footerFill", "footerDot", "warning",
+    "backdropWide", "backdropCompact", "backdropPortrait",
+    "radarRing", "radarRingStrong", "radarAxis", "radarSweep",
+    "radarBase", "radarContact", "radarContactHalo", "radarCourse",
+    "factLabel", "factValue", "factDivider",
+    # v1 aliases retained one version: the renderer reads the radar tokens,
+    # the legacy plot* keys stay pinned so older authored configs still diff.
     "plotFrame", "plotGrid", "plotContact", "plotContactHalo", "plotBase",
-    "plotCourse", "factDivider",
+    "plotCourse",
 }
+BOARD_CANVASES = {"wide": (1280, 720), "compact": (740, 360), "portrait": (360, 740)}
 
 
 def validate_intel_board_template(template):
-    """Pin the reviewed contact-intel-board shell: fixed full-canvas board."""
-    if template.get("version") != 1:
-        raise FormError("contact-intel-board template must use version 1")
+    """Pin the reviewed contact-intel-board shell: tactical focus card."""
+    if template.get("version") != 2:
+        raise FormError("contact-intel-board template must use version 2")
     if template.get("buttonCount") != {"min": 3, "max": 3}:
         raise FormError("contact-intel-board template must require exactly three buttons")
     tones = template.get("supportedButtonTones")
@@ -371,26 +381,30 @@ def validate_intel_board_template(template):
     style = template.get("style") or {}
     if set(style) != BOARD_STYLE_KEYS:
         raise FormError("contact-intel-board style keys drifted from the reviewed set")
-    if style.get("cutCornerPx") != 14 or style.get("protocolTextInsetPx") != 26:
-        raise FormError("template chamfer/protocol rail drifted from 14/26")
-    for key in BOARD_STYLE_KEYS - {"cutCornerPx", "protocolTextInsetPx"}:
+    if style.get("windowRadiusPx") != 18 or style.get("innerRadiusPx") != 10 \
+            or style.get("protocolTextInsetPx") != 26:
+        raise FormError("template radii/protocol rail drifted from 18/10/26")
+    for key in BOARD_STYLE_KEYS - BOARD_NUMERIC_STYLE_KEYS:
         if not isinstance(style[key], str) or not COLOR_RE.fullmatch(style[key]):
             raise FormError("template style." + key + " must be RRGGBBAA")
     sizing = template.get("contentSizing") or {}
     expected_sizing = {
-        "wide": {"safeMarginPx": 24, "factCount": 5, "factLabelWidth": 120,
-                 "factRowHeight": 20, "factRowGap": 4, "gridColumns": 4, "gridRows": 3},
-        "compact": {"safeMarginPx": 16, "factCount": 5, "factLabelWidth": 112,
-                    "factRowHeight": 18, "factRowGap": 2, "gridColumns": 8, "gridRows": 7},
+        "wide": {"safeMarginPx": 24, "factCount": 5, "factLabelWidth": 132,
+                 "factRowHeight": 36, "factRowGap": 0},
+        "compact": {"safeMarginPx": 16, "factCount": 5, "factLabelWidth": 120,
+                    "factRowHeight": 32, "factRowGap": 0},
+        "portrait": {"safeMarginPx": 16, "factCount": 5, "factLabelWidth": 112,
+                     "factRowHeight": 38, "factRowGap": 0},
     }
     if sizing != expected_sizing:
         raise FormError("template contentSizing drifted from the reviewed board policy")
     layouts = template.get("layouts") or {}
-    if set(layouts) != {"wide", "compact"}:
-        raise FormError("template requires exact wide/compact layouts")
+    if set(layouts) != set(BOARD_LAYOUT_ORDER):
+        raise FormError("template requires exact wide/compact/portrait layouts")
     part_keys = ("window", "status", "plotPanel", "plotArea", "reportPanel",
-                 "warning", "title", "message", "footer")
-    for name, canvas in (("wide", (1280, 720)), ("compact", (740, 360))):
+                 "factsArea", "warning", "title", "message", "footer")
+    for name in BOARD_LAYOUT_ORDER:
+        canvas = BOARD_CANVASES[name]
         layout = layouts[name]
         if (layout.get("designWidth"), layout.get("designHeight")) != canvas:
             raise FormError(name + " canvas drifted")
@@ -399,15 +413,21 @@ def validate_intel_board_template(template):
             validate_rect(layout.get(key), name + "." + key)
             if not contained(layout[key], canvas_rect):
                 raise FormError(name + "." + key + " escaped the canvas")
-        for key in ("status", "plotPanel", "reportPanel"):
+        for key in ("status", "plotPanel", "reportPanel", "footer", "warning",
+                    "title", "message"):
             if not contained(layout[key], layout["window"]):
                 raise FormError(name + "." + key + " escaped the window")
-        for key in ("plotArea",):
-            if not contained(layout[key], layout["plotPanel"]):
-                raise FormError(name + "." + key + " escaped the plot panel")
-        for key in ("warning", "title", "message", "footer"):
-            if not contained(layout[key], layout["reportPanel"]):
-                raise FormError(name + "." + key + " escaped the report panel")
+        if not contained(layout["plotArea"], layout["plotPanel"]):
+            raise FormError(name + ".plotArea escaped the plot panel")
+        if layout["plotArea"]["width"] != layout["plotArea"]["height"]:
+            raise FormError(name + ".plotArea must stay square (circular radar)")
+        if not contained(layout["factsArea"], layout["reportPanel"]):
+            raise FormError(name + ".factsArea escaped the report panel")
+        authored_note = layout.get("note")
+        if authored_note is not None:
+            validate_rect(authored_note, name + ".note")
+            if not contained(authored_note, layout["window"]):
+                raise FormError(name + ".note escaped the window")
         slots = layout.get("buttonSlots")
         if not isinstance(slots, list) or len(slots) != 3:
             raise FormError(name + ".buttonSlots must contain exactly three slots")
@@ -417,10 +437,18 @@ def validate_intel_board_template(template):
                 raise FormError(name + " button slot escaped the footer")
             if rect["width"] < 44 or rect["height"] < 44:
                 raise FormError(name + " button slot below the 44x44 floor")
-            if index and slots[index]["x"] - right(slots[index - 1]) <= 0:
-                raise FormError(name + " button slots overlap")
-        if right(slots[-1]) != right(layout["message"]):
-            raise FormError(name + " action rail must end on the message rail")
+        # The primary action (first slot) stays visually dominant; the group
+        # may stack (portrait) or split rows (wide/compact), so only mutual
+        # overlap is forbidden -- never a rail direction.
+        if slots[0]["height"] < 48:
+            raise FormError(name + " primary action must stay >= 48px tall")
+        for first in range(len(slots)):
+            for second in range(first + 1, len(slots)):
+                a, b = slots[first], slots[second]
+                if (a["x"] < b["x"] + b["width"] and b["x"] < a["x"] + a["width"]
+                        and a["y"] < b["y"] + b["height"]
+                        and b["y"] < a["y"] + a["height"]):
+                    raise FormError(name + " button slots overlap")
 
 
 def validate_intel_board_config(config, template):
@@ -568,7 +596,7 @@ def build_intel_board_contract(config, template, source_name):
     }
 
     sizing = template["contentSizing"]
-    for name in ("wide", "compact"):
+    for name in BOARD_LAYOUT_ORDER:
         authored = template["layouts"][name]
         policy = sizing[name]
         layout = {
@@ -576,21 +604,26 @@ def build_intel_board_contract(config, template, source_name):
             "designHeight": authored["designHeight"],
         }
         for key in ("window", "status", "plotPanel", "plotArea", "reportPanel",
-                    "warning", "title", "message", "footer"):
+                    "factsArea", "warning", "title", "message", "footer"):
             layout[key] = copy.deepcopy(authored[key])
+        if authored.get("note") is not None:
+            layout["note"] = copy.deepcopy(authored["note"])
         layout["buttons"] = {}
         for button, rect in zip(buttons, authored["buttonSlots"]):
             layout["buttons"][button["id"]] = copy.deepcopy(rect)
-        row_y = layout["message"]["y"] + layout["message"]["height"] + policy["factRowGap"]
+        # Fact rows are generated from the authored factsArea band, not from
+        # the message rail: the v2 composition places facts independently of
+        # the title block in every layout.
+        facts_area = authored["factsArea"]
+        row_y = facts_area["y"]
         text_unit = 8 if name == "wide" else 7
         inset = 6 if name == "wide" else 8
         for index in range(policy["factCount"]):
             fact = config["facts"][index]
-            label_rect = _rect(layout["message"]["x"], row_y,
+            label_rect = _rect(facts_area["x"], row_y,
                                policy["factLabelWidth"], policy["factRowHeight"])
             value_rect = _rect(label_rect["x"] + policy["factLabelWidth"], row_y,
-                               layout["message"]["x"] + layout["message"]["width"]
-                               - label_rect["x"] - policy["factLabelWidth"],
+                               facts_area["width"] - policy["factLabelWidth"],
                                policy["factRowHeight"])
             for rect, text, kind in ((label_rect, fact["label"], "label"),
                                      (value_rect, fact["value"], "value")):
@@ -601,19 +634,13 @@ def build_intel_board_contract(config, template, source_name):
             layout["fact" + str(index + 1) + "Label"] = label_rect
             layout["fact" + str(index + 1) + "Value"] = value_rect
             row_y = row_y + policy["factRowHeight"] + policy["factRowGap"]
-        if name == "wide":
-            note_rect = _rect(layout["message"]["x"], row_y + policy["factRowGap"],
-                              layout["message"]["width"],
-                              layout["footer"]["y"] - row_y - 2 * policy["factRowGap"])
-            if note_rect["height"] < 16:
-                raise FormError("wide note band collapsed below the readable floor")
-            layout["note"] = note_rect
+        row_end = row_y - policy["factRowGap"]
+        if row_end > facts_area["y"] + facts_area["height"]:
+            raise FormError(name + " fact rows escaped the factsArea band")
+        if layout.get("note") is not None:
+            note_rect = layout["note"]
             if proportional_text_width(config["note"], text_unit) > note_rect["width"] * 2:
-                raise FormError("config.note does not fit the generated wide note band")
-        else:
-            row_end = row_y - policy["factRowGap"]
-            if row_end > layout["footer"]["y"]:
-                raise FormError("compact fact rows escaped into the footer")
+                raise FormError("config.note does not fit the generated " + name + " note band")
         out["layouts"][name] = layout
     return out
 
@@ -975,7 +1002,10 @@ def protocol_text(protocol, layouts, template, presentation):
     inset = scaled_edge(
         template["style"]["protocolTextInsetPx"], numerator, denominator)
     limits = []
-    for name, base_font in (("wide", 10), ("compact", 9)):
+    # Portrait is board-v2 only; templates without it simply don't constrain.
+    for name, base_font in (("wide", 10), ("compact", 9), ("portrait", 9)):
+        if name not in layouts:
+            continue
         font_px = max(8, scaled_edge(base_font, numerator, denominator))
         available = (layouts[name]["status"]["width"] - 2 * inset
                      - 2 * PROTOCOL_INLINE_SAFE_PX)

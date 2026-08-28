@@ -4,14 +4,14 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF17UfoDetectedGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-28.1";
+inline constexpr const char* kContractVersion = "hd.2026-08-29.1";
 inline constexpr const char* kFormId = "f17-ufo-detected";
 inline constexpr int kFamilyId = 17;
 inline constexpr const char* kArchetype = "contact-intel-board";
 inline constexpr const char* kSourceConfig = "FormConfigs/f17-ufo-detected.json";
-inline constexpr const char* kProtocol = "CALYPSO COMMAND · TACTICAL NOTICE F17-UFO-DETECTED";
+inline constexpr const char* kProtocol = "TACTICAL NOTICE F17-UFO-DETECTED";
 inline constexpr const char* kNote = "INTERCEPT OPENS WING ASSEMBLY · DISMISS RETURNS TO THE PLOT";
-inline constexpr const char* kFactLabels[] = { "CLASS", "DEPTH", "COURSE", "SPEED", "DIST TO BASE" };
+inline constexpr const char* kFactLabels[] = { "SIZE", "DEPTH", "HEADING", "SPEED", "DIST TO BASE" };
 inline constexpr int kFactCount = 5;
 
 inline constexpr const char* kDensityProfile = "standard";
@@ -27,23 +27,37 @@ inline constexpr CalypsoF17UfoDetectedGenButton kButtons[] = {
 };
 inline constexpr int kButtonCount = 3;
 
-inline constexpr float kCutCornerPx = 14.000000f;
 inline constexpr float kProtocolTextInsetPx = 26.000000f;
-inline constexpr std::uint32_t kPanelFillTop = 0x08191DEBu;
-inline constexpr std::uint32_t kPanelFillBottom = 0x041014E8u;
+inline constexpr std::uint32_t kPanelFillTop = 0x09191DFAu;
+inline constexpr std::uint32_t kPanelFillBottom = 0x050F14FAu;
 inline constexpr std::uint32_t kFrame = 0x74FFB073u;
 inline constexpr std::uint32_t kProtocolText = 0xA9D8C7FFu;
-inline constexpr std::uint32_t kDivider = 0x74FFB04Du;
+inline constexpr std::uint32_t kDivider = 0x74FFB02Bu;
 inline constexpr std::uint32_t kFooterFill = 0x061B1CD6u;
 inline constexpr std::uint32_t kFooterDot = 0x74FFB01Fu;
 inline constexpr std::uint32_t kWarning = 0xFFC14DFFu;
+inline constexpr std::uint32_t kBackdropCompact = 0x00000052u;
+inline constexpr std::uint32_t kBackdropPortrait = 0x00000066u;
+inline constexpr std::uint32_t kBackdropWide = 0x00000026u;
 inline constexpr std::uint32_t kFactDivider = 0x74FFB02Bu;
+inline constexpr std::uint32_t kFactLabel = 0xA9D8C7CCu;
+inline constexpr std::uint32_t kFactValue = 0xE8FFF5FFu;
+inline constexpr float kInnerRadiusPx = 10.000000f;
 inline constexpr std::uint32_t kPlotBase = 0x74FFB0FFu;
 inline constexpr std::uint32_t kPlotContact = 0xFFC14DFFu;
 inline constexpr std::uint32_t kPlotContactHalo = 0xFFC14D40u;
 inline constexpr std::uint32_t kPlotCourse = 0xFFC14D8Cu;
 inline constexpr std::uint32_t kPlotFrame = 0x74FFB033u;
 inline constexpr std::uint32_t kPlotGrid = 0x74FFB01Au;
+inline constexpr std::uint32_t kRadarAxis = 0x74FFB026u;
+inline constexpr std::uint32_t kRadarBase = 0x74FFB0FFu;
+inline constexpr std::uint32_t kRadarContact = 0xFFC14DFFu;
+inline constexpr std::uint32_t kRadarContactHalo = 0xFFC14D40u;
+inline constexpr std::uint32_t kRadarCourse = 0xFFC14D8Cu;
+inline constexpr std::uint32_t kRadarRing = 0x74FFB02Bu;
+inline constexpr std::uint32_t kRadarRingStrong = 0x74FFB059u;
+inline constexpr std::uint32_t kRadarSweep = 0x74FFB01Fu;
+inline constexpr float kWindowRadiusPx = 18.000000f;
 
 struct CalypsoF17UfoDetectedGenRect { int x; int y; int w; int h; };
 struct CalypsoF17UfoDetectedGenLayout { int designWidth; int designHeight; CalypsoF17UfoDetectedGenRect window; CalypsoF17UfoDetectedGenRect status; CalypsoF17UfoDetectedGenRect warning; CalypsoF17UfoDetectedGenRect title; CalypsoF17UfoDetectedGenRect message; CalypsoF17UfoDetectedGenRect footer;
@@ -57,23 +71,26 @@ struct CalypsoF17UfoDetectedGenLayout { int designWidth; int designHeight; Calyp
     CalypsoF17UfoDetectedGenRect fact4Value;
     CalypsoF17UfoDetectedGenRect fact5Label;
     CalypsoF17UfoDetectedGenRect fact5Value;
+    CalypsoF17UfoDetectedGenRect factsArea;
     CalypsoF17UfoDetectedGenRect note;
     CalypsoF17UfoDetectedGenRect plotArea;
     CalypsoF17UfoDetectedGenRect plotPanel;
     CalypsoF17UfoDetectedGenRect reportPanel;
 };
 inline constexpr CalypsoF17UfoDetectedGenLayout kLayouts[] = {
-    { 1280, 720, { 332, 202, 616, 316 }, { 332, 202, 616, 20 }, { 664, 236, 28, 28 }, { 698, 232, 224, 42 }, { 664, 282, 260, 16 }, { 344, 448, 592, 62 }, { 664, 302, 120, 20 }, { 784, 302, 140, 20 }, { 664, 326, 120, 20 }, { 784, 326, 140, 20 }, { 664, 350, 120, 20 }, { 784, 350, 140, 20 }, { 664, 374, 120, 20 }, { 784, 374, 140, 20 }, { 664, 398, 120, 20 }, { 784, 398, 140, 20 }, { 664, 426, 260, 18 }, { 356, 242, 276, 186 }, { 344, 230, 300, 210 }, { 652, 230, 284, 210 } }, // wide
-    { 740, 360, { 120, 44, 500, 272 }, { 120, 44, 500, 18 }, { 366, 74, 28, 28 }, { 398, 72, 212, 36 }, { 366, 114, 234, 20 }, { 120, 252, 500, 60 }, { 366, 136, 112, 18 }, { 478, 136, 122, 18 }, { 366, 156, 112, 18 }, { 478, 156, 122, 18 }, { 366, 176, 112, 18 }, { 478, 176, 122, 18 }, { 366, 196, 112, 18 }, { 478, 196, 122, 18 }, { 366, 216, 112, 18 }, { 478, 216, 122, 18 }, { 0, 0, 0, 0 }, { 138, 76, 204, 152 }, { 130, 68, 220, 168 }, { 358, 68, 252, 168 } }, // compact
+    { 1280, 720, { 552, 300, 704, 396 }, { 576, 316, 656, 20 }, { 576, 350, 24, 24 }, { 616, 344, 212, 40 }, { 616, 382, 212, 20 }, { 872, 548, 344, 124 }, { 872, 354, 132, 36 }, { 1004, 354, 212, 36 }, { 872, 390, 132, 36 }, { 1004, 390, 212, 36 }, { 872, 426, 132, 36 }, { 1004, 426, 212, 36 }, { 872, 462, 132, 36 }, { 1004, 462, 212, 36 }, { 872, 498, 132, 36 }, { 1004, 498, 212, 36 }, { 872, 354, 344, 180 }, { 872, 676, 344, 12 }, { 576, 414, 252, 252 }, { 576, 344, 252, 328 }, { 856, 344, 376, 328 } }, // wide
+    { 740, 360, { 16, 12, 708, 336 }, { 32, 24, 676, 18 }, { 32, 48, 22, 22 }, { 68, 44, 184, 34 }, { 68, 76, 184, 18 }, { 276, 218, 432, 114 }, { 276, 50, 120, 32 }, { 396, 50, 312, 32 }, { 276, 82, 120, 32 }, { 396, 82, 312, 32 }, { 276, 114, 120, 32 }, { 396, 114, 312, 32 }, { 276, 146, 120, 32 }, { 396, 146, 312, 32 }, { 276, 178, 120, 32 }, { 396, 178, 312, 32 }, { 276, 50, 432, 160 }, { 0, 0, 0, 0 }, { 32, 100, 220, 220 }, { 32, 44, 220, 288 }, { 276, 44, 432, 288 } }, // compact
+    { 360, 740, { 8, 8, 344, 724 }, { 24, 22, 312, 18 }, { 24, 52, 24, 24 }, { 24, 84, 312, 38 }, { 24, 122, 312, 18 }, { 24, 548, 312, 164 }, { 24, 346, 112, 38 }, { 136, 346, 200, 38 }, { 24, 384, 112, 38 }, { 136, 384, 200, 38 }, { 24, 422, 112, 38 }, { 136, 422, 200, 38 }, { 24, 460, 112, 38 }, { 136, 460, 200, 38 }, { 24, 498, 112, 38 }, { 136, 498, 200, 38 }, { 24, 346, 312, 190 }, { 0, 0, 0, 0 }, { 70, 112, 220, 220 }, { 24, 106, 312, 232 }, { 24, 346, 312, 190 } }, // portrait
 };
 struct CalypsoF17UfoDetectedGenButtonRect { const char* id; CalypsoF17UfoDetectedGenRect rect; };
 inline constexpr CalypsoF17UfoDetectedGenButtonRect kButtonRects[][ 3 ] = {
-    { { "intercept", { 430, 457, 158, 44 } }, { "centre", { 598, 457, 158, 44 } }, { "cancel", { 766, 457, 158, 44 } } }, // wide
-    { { "intercept", { 132, 260, 148, 44 } }, { "centre", { 292, 260, 148, 44 } }, { "cancel", { 452, 260, 148, 44 } } }, // compact
+    { { "intercept", { 872, 548, 344, 52 } }, { "centre", { 872, 612, 218, 44 } }, { "cancel", { 1102, 612, 114, 44 } } }, // wide
+    { { "intercept", { 276, 218, 432, 48 } }, { "centre", { 276, 278, 276, 44 } }, { "cancel", { 564, 278, 144, 44 } } }, // compact
+    { { "intercept", { 24, 548, 312, 52 } }, { "centre", { 24, 612, 312, 44 } }, { "cancel", { 24, 668, 312, 44 } } }, // portrait
 };
-inline constexpr int kLayoutCount = 2;
-inline constexpr int kMotionDurationMs = 200;
-inline constexpr float kMotionScaleFrom = 0.960000f;
+inline constexpr int kLayoutCount = 3;
+inline constexpr int kMotionDurationMs = 150;
+inline constexpr float kMotionScaleFrom = 0.985000f;
 inline const CalypsoF17UfoDetectedGenLayout* layoutForDesign(int dw, int dh)
 {
 	for (int i = 0; i < kLayoutCount; ++i)

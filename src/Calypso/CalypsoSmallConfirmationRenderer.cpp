@@ -411,6 +411,25 @@ bool courseVector(const std::string& word, double& dx, double& dy)
 	return false;
 }
 
+/// The v2 board window is a rounded corner/stacked card. This is deliberately
+/// board-local: the shared windowStyle() keeps the small-confirmation
+/// archetype's OpposingCutRect, so the global modal family never shifts.
+CalypsoHdPanelStyle contactCardWindowStyle(const CalypsoContactIntelBoardModel& model)
+{
+	CalypsoHdPanelStyle style;
+	style.styled = true;
+	style.shape = CalypsoHdPanelShape::RoundedRect;
+	style.radiusPx = model.windowRadiusPx * model.visualScale;
+	style.borderWidthPx = 1.0f;
+	style.borderColorRgba = model.frameColor;
+	style.fillTopRgba = model.panelFillTop;
+	style.fillBottomRgba = model.panelFillBottom;
+	style.gradDirX = 0.18f;
+	style.gradDirY = 1.0f;
+	style.glowRgba = CalypsoHdTheme::kHaloGlow;
+	style.glowRadiusPx = 14.0f * model.visualScale;
+	return style;
+}
 
 } // namespace
 
@@ -427,6 +446,8 @@ void calypsoCollectContactIntelBoard(
 	if (!calypsoHdResolveFontDescriptor(model.mod, "FONT_F34_SAIRA_700", heading)) return;
 	if (!calypsoHdResolveFontDescriptor(model.mod, "FONT_F33_BODY", body)) return;
 	if (!calypsoHdResolveFontDescriptor(model.mod, "FONT_F34_MONO", mono)) return;
+
+	const bool wide = model.layout == CalypsoContactIntelLayout::Wide;
 
 	if (!motion.presented)
 	{
@@ -521,6 +542,36 @@ void calypsoCollectContactIntelBoard(
 		style.fillBottomRgba = color;
 		addStyled(rect, style, nullptr, role);
 	};
+	// Circle outline through the existing rounded-rect SDF (radius = half the
+	// side). No new shader primitive is required for the v2 radar.
+	auto addRing = [&](int centerX, int centerY, int diameter, std::uint32_t color,
+		float borderWidthPx, std::uint32_t role)
+	{
+		if (diameter <= 0) return;
+		CalypsoHdPanelStyle style;
+		style.styled = true;
+		style.shape = CalypsoHdPanelShape::RoundedRect;
+		style.radiusPx = diameter / 2.0f;
+		style.borderWidthPx = borderWidthPx;
+		style.borderColorRgba = color;
+		style.fillTopRgba = calypsoRgba(0, 0, 0, 0);
+		style.fillBottomRgba = calypsoRgba(0, 0, 0, 0);
+		addStyled({centerX - diameter / 2, centerY - diameter / 2, diameter, diameter},
+			style, nullptr, role);
+	};
+	auto addDisc = [&](int centerX, int centerY, int diameter, std::uint32_t color,
+		std::uint32_t role)
+	{
+		if (diameter <= 0) return;
+		CalypsoHdPanelStyle style;
+		style.styled = true;
+		style.shape = CalypsoHdPanelShape::RoundedRect;
+		style.radiusPx = diameter / 2.0f;
+		style.fillTopRgba = color;
+		style.fillBottomRgba = color;
+		addStyled({centerX - diameter / 2, centerY - diameter / 2, diameter, diameter},
+			style, nullptr, role);
+	};
 	auto addText = [&](const CalypsoLogicalRect& sourceRect, const void* widget,
 		const CalypsoTtfSourceDescriptor& font, const std::string& text,
 		std::uint32_t color, CalypsoHdHAlign hAlign, CalypsoHdVAlign vAlign,
@@ -555,11 +606,11 @@ void calypsoCollectContactIntelBoard(
 	};
 
 	addQuad({0, 0, model.designWidth, model.designHeight},
-		model.opaqueHarnessBackdrop ? calypsoRgba(0, 0, 0, 0xff) : CalypsoHdTheme::kBackdropDim,
+		model.opaqueHarnessBackdrop ? calypsoRgba(0, 0, 0, 0xff) : model.backdropColor,
 		BOARD_ROLE_BACKDROP);
 
-	addQuad(model.window, model.panelFillBottom, BOARD_ROLE_WINDOW);
-	addStyled(model.window, windowStyle(model), model.windowWidget, BOARD_ROLE_WINDOW);
+	addStyled(model.window, contactCardWindowStyle(model), model.windowWidget,
+		BOARD_ROLE_WINDOW);
 
 	// Status strip: protocol rail + closing divider.
 	addQuad({model.status.x, model.status.y + model.status.h - 1, model.status.w, 1},
@@ -570,90 +621,135 @@ void calypsoCollectContactIntelBoard(
 			std::max(1, model.status.w - 2 * protocolInset), model.status.h},
 		model.protocolWidget, mono, model.protocolText, model.protocolColor,
 		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle,
-		scaledPx(model.wide ? 10.0 : 9.0, 8), 0, 0.10, BOARD_ROLE_PROTOCOL);
-	// Plot panel: framed quadrant grid.
-	addStyled(model.plotPanel,
-		CalypsoHdTheme::calypsoHdButtonStyle(model.panelFillTop, model.plotFrameColor),
-		nullptr, BOARD_ROLE_PLOT_PANEL);
-	const int gridCellW = 60;
-	const int gridCellH = 64;
-	for (int gx = model.plotArea.x + gridCellW; gx < model.plotArea.x + model.plotArea.w; gx += gridCellW)
-		addQuad({gx, model.plotArea.y, 1, model.plotArea.h},
-			model.plotGridColor, BOARD_ROLE_PLOT_GRID);
-	for (int gy = model.plotArea.y + gridCellH; gy < model.plotArea.y + model.plotArea.h; gy += gridCellH)
-		addQuad({model.plotArea.x, gy, model.plotArea.w, 1},
-			model.plotGridColor, BOARD_ROLE_PLOT_GRID);
+		scaledPx(wide ? 10.0 : 9.0, 8), 0, 0.10, BOARD_ROLE_PROTOCOL);
 
-	// Course dashes: from the contact marker along the compass word.
-	double dx = 0.0;
-	double dy = 0.0;
-	const bool hasCourse = courseVector(model.courseWord, dx, dy);
+	// Radar panel: rounded framed panel holding the circular schematic.
+	CalypsoHdPanelStyle radarPanel;
+	radarPanel.styled = true;
+	radarPanel.shape = CalypsoHdPanelShape::RoundedRect;
+	radarPanel.radiusPx = model.innerRadiusPx * model.visualScale;
+	radarPanel.borderWidthPx = 1.0f;
+	radarPanel.borderColorRgba = model.plotFrameColor;
+	radarPanel.fillTopRgba = model.panelFillTop;
+	radarPanel.fillBottomRgba = model.panelFillTop;
+	addStyled(model.plotPanel, radarPanel, nullptr, BOARD_ROLE_PLOT_PANEL);
+
+	const int centerX = model.plotArea.x + model.plotArea.w / 2;
+	const int centerY = model.plotArea.y + model.plotArea.h / 2;
+	const int radarMin = std::min(model.plotArea.w, model.plotArea.h);
+	// Concentric range rings; the outer ring is the strong accent.
+	const float ringPx = (float)std::max(1, scaledPx(1.0));
+	for (const double fraction : {0.285, 0.51, 0.73})
+	{
+		addRing(centerX, centerY, (int)std::llround(radarMin * fraction),
+			model.radarRingColor, ringPx, BOARD_ROLE_PLOT_GRID);
+	}
+	addRing(centerX, centerY, (int)std::llround(radarMin * 0.95),
+		model.radarStrongRingColor, ringPx, BOARD_ROLE_PLOT_GRID);
+	// Cross axes.
+	addQuad({model.plotArea.x, centerY, model.plotArea.w, 1},
+		model.radarAxisColor, BOARD_ROLE_PLOT_GRID);
+	addQuad({centerX, model.plotArea.y, 1, model.plotArea.h},
+		model.radarAxisColor, BOARD_ROLE_PLOT_GRID);
+
+	// Base marker: the radar center is the nearest base.
+	if (model.base.x || model.base.y)
+	{
+		addDisc(centerX, centerY, scaledPx(8.0), model.plotBaseColor, BOARD_ROLE_PLOT_BASE);
+	}
+
+	// Contact bearing sweep: soft filled discs behind the contact tint the
+	// direction without a rotated wedge primitive (deterministic, rest state).
+	double cdx = 0.0;
+	double cdy = 0.0;
+	const bool hasCourse = courseVector(model.courseWord, cdx, cdy);
 	if (hasCourse)
 	{
-		const int dash = scaledPx(9.0);
-		const int gap = scaledPx(7.0);
-		double px = (double)model.contact.x;
-		double py = (double)model.contact.y;
-		for (int step = 0; step < 24; ++step)
+		const double sweepDirX = (double)(model.contact.x - centerX);
+		const double sweepDirY = (double)(model.contact.y - centerY);
+		const double sweepLen = std::sqrt(sweepDirX * sweepDirX + sweepDirY * sweepDirY);
+		if (sweepLen > 1.0)
 		{
-			const int sx = (int)std::llround(px);
-			const int sy = (int)std::llround(py);
-			const int ex = (int)std::llround(px + dx * dash);
-			const int ey = (int)std::llround(py + dy * dash);
-			const CalypsoLogicalRect seg{std::min(sx, ex), std::min(sy, ey),
-				std::max(1, std::abs(ex - sx)), std::max(1, std::abs(ey - sy))};
-			if (seg.x < model.plotArea.x || seg.y < model.plotArea.y
-				|| seg.x + seg.w > model.plotArea.x + model.plotArea.w
-				|| seg.y + seg.h > model.plotArea.y + model.plotArea.h)
-				break;
-			addQuad(seg, model.plotCourseColor, BOARD_ROLE_PLOT_COURSE);
-			px += dx * (dash + gap);
-			py += dy * (dash + gap);
+			addDisc(model.contact.x, model.contact.y,
+				(int)std::llround(radarMin * 0.445), model.radarSweepColor,
+				BOARD_ROLE_PLOT_GRID);
+			addDisc(model.contact.x, model.contact.y,
+				(int)std::llround(radarMin * 0.286), model.radarSweepColor,
+				BOARD_ROLE_PLOT_GRID);
 		}
 	}
 
-	// Contact marker: soft halo + hard core (pulsing is capture-hostile; rest state only).
-	const int core = scaledPx(model.wide ? 14.0 : 12.0);
-	const int halo = scaledPx(model.wide ? 26.0 : 22.0);
-	addQuad({model.contact.x - halo / 2, model.contact.y - halo / 2, halo, halo},
-		model.plotContactHaloColor, BOARD_ROLE_PLOT_CONTACT);
+	// Dotted base->contact bearing line; the final quarter picks up the amber
+	// course tint toward the target.
+	{
+		const double dxFull = (double)(model.contact.x - centerX);
+		const double dyFull = (double)(model.contact.y - centerY);
+		const double dist = std::sqrt(dxFull * dxFull + dyFull * dyFull);
+		if (dist > 2.0)
+		{
+			const double step = std::max(3.0, (double)scaledPx(5.0));
+			const int dot = std::max(2, scaledPx(2.0));
+			for (double t = 0.0; t < 1.0; t += step / dist)
+			{
+				const int x = (int)std::llround(centerX + dxFull * t);
+				const int y = (int)std::llround(centerY + dyFull * t);
+				addQuad({x - dot / 2, y - dot / 2, dot, dot},
+					t > 0.75 ? model.plotCourseColor : model.plotBaseColor,
+					BOARD_ROLE_PLOT_COURSE);
+			}
+		}
+	}
+
+	// Contact marker: soft halo disc + hard square core (no pulse; captures).
+	const int core = scaledPx(14.0);
+	const int halo = scaledPx(28.0);
+	addDisc(model.contact.x, model.contact.y, halo, model.plotContactHaloColor,
+		BOARD_ROLE_PLOT_CONTACT);
 	addQuad({model.contact.x - core / 2, model.contact.y - core / 2, core, core},
 		model.plotContactColor, BOARD_ROLE_PLOT_CONTACT);
-	if (!model.contact.label.empty())
-	{
-		addText({model.contact.x + core, model.contact.y - core,
-				model.plotArea.x + model.plotArea.w - model.contact.x - core,
-				core * 2},
-			nullptr, mono, model.contact.label, model.plotContactColor,
-			CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle,
-			scaledPx(dataPx, 9), 0, 0.0, BOARD_ROLE_PLOT_LABEL);
-	}
 
-	// Base marker: bordered triangle + label.
-	if (model.base.x && model.base.y)
+	// Course stub: short dotted heading ray from the contact marker.
+	if (hasCourse)
 	{
-		const int base = scaledPx(model.wide ? 18.0 : 15.0);
-		CalypsoHdPanelStyle triangle;
-		triangle.styled = true;
-		triangle.shape = CalypsoHdPanelShape::WarningTriangle;
-		triangle.borderWidthPx = (float)scaledPx(2.0);
-		triangle.borderColorRgba = model.plotBaseColor;
-		triangle.fillTopRgba = calypsoRgba(0, 0, 0, 0);
-		triangle.fillBottomRgba = calypsoRgba(0, 0, 0, 0);
-		addStyled({model.base.x - base / 2, model.base.y - base / 2, base, base},
-			triangle, nullptr, BOARD_ROLE_PLOT_BASE);
-		if (!model.base.label.empty())
+		const double stubLen = scaledPx(wide ? 28.0 : (model.layout
+			== CalypsoContactIntelLayout::Portrait ? 22.0 : 24.0));
+		const double step = std::max(3.0, (double)scaledPx(4.0));
+		const int dot = std::max(2, scaledPx(2.0));
+		const int start = core / 2 + dot;
+		for (double d = start; d < stubLen; d += step)
 		{
-			addText({model.base.x - base, model.base.y + base / 2,
-					model.plotArea.x + model.plotArea.w - model.base.x + base,
-					base},
-				nullptr, mono, model.base.label, model.plotBaseColor,
-				CalypsoHdHAlign::Center, CalypsoHdVAlign::Top,
-				scaledPx(dataPx, 8), 0, 0.0, BOARD_ROLE_PLOT_LABEL);
+			addQuad({(int)std::llround(model.contact.x + cdx * d) - dot / 2,
+					(int)std::llround(model.contact.y + cdy * d) - dot / 2, dot, dot},
+				model.plotCourseColor, BOARD_ROLE_PLOT_COURSE);
 		}
 	}
 
-	// Report panel: warning glyph, title, detection status, fact rows, note.
+	// Cardinal letters stay inside the plot panel even when the glyph boxes
+	// leave the circular plot area.
+	{
+		const int card = scaledPx(wide ? 12.0 : 11.0, 8);
+		const int box = scaledPx(24.0);
+		const int boxH = scaledPx(18.0);
+		const int left = model.plotArea.x;
+		const int top = model.plotArea.y;
+		const int rightEdge = model.plotArea.x + model.plotArea.w;
+		const int bottomEdge = model.plotArea.y + model.plotArea.h;
+		struct Cardinal { const char* word; CalypsoLogicalRect rect; };
+		const Cardinal cards[] = {
+			{"N", {centerX - box / 2, top - scaledPx(4.0), box, boxH}},
+			{"S", {centerX - box / 2, bottomEdge - scaledPx(14.0), box, boxH}},
+			{"W", {left - scaledPx(4.0), centerY - boxH / 2, box, boxH}},
+			{"E", {rightEdge - scaledPx(20.0), centerY - boxH / 2, box, boxH}},
+		};
+		for (const auto& card_ : cards)
+		{
+			addText(card_.rect, nullptr, mono, card_.word, CalypsoHdTheme::kNearWhite,
+				CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, card, 0, 0.0,
+				BOARD_ROLE_PLOT_LABEL);
+		}
+	}
+
+	// Report panel: warning glyph, title, detection status.
 	CalypsoHdPanelStyle warning;
 	warning.styled = true;
 	warning.shape = CalypsoHdPanelShape::WarningTriangle;
@@ -664,7 +760,7 @@ void calypsoCollectContactIntelBoard(
 	addStyled(model.warning, warning, model.warningWidget, BOARD_ROLE_WARNING);
 	addText(model.warning, model.warningWidget, heading, model.warningGlyph,
 		model.warningColor, CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle,
-		scaledPx(model.wide ? 18.0 : 16.0, 11), 0, 0.0, BOARD_ROLE_WARNING);
+		scaledPx(wide ? 18.0 : 16.0, 11), 0, 0.0, BOARD_ROLE_WARNING);
 	addText(model.title, model.titleWidget, heading, model.titleText,
 		CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle,
 		scaledPx(titlePx, 12), 0, CalypsoHdTheme::kTitleTrackingEm, BOARD_ROLE_TITLE);
@@ -672,7 +768,10 @@ void calypsoCollectContactIntelBoard(
 		CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle,
 		scaledPx(dataPx, 9), 0, 0.08, BOARD_ROLE_MESSAGE);
 
-	const int factLabelPx = scaledPx(dataPx, 9);
+	// Fact rows: dim mono label left, bright heading value right, hairline
+	// divider per row. Labels are captions at 11px mono so the longest
+	// generated label fits every layout's label slot.
+	const int factLabelPx = scaledPx(11.0, 9);
 	for (std::size_t i = 0; i < model.facts.size(); ++i)
 	{
 		const std::size_t labelIndex = i * 2;
@@ -682,25 +781,26 @@ void calypsoCollectContactIntelBoard(
 		if (fact.label.empty() && fact.value.empty()) continue;
 		const CalypsoLogicalRect& labelRect = model.factRects[labelIndex];
 		const CalypsoLogicalRect& valueRect = model.factRects[valueIndex];
-		addQuad({labelRect.x, labelRect.y + labelRect.h - 1, valueRect.x + valueRect.w - labelRect.x, 1},
+		addQuad({labelRect.x, labelRect.y + labelRect.h - 1,
+				valueRect.x + valueRect.w - labelRect.x, 1},
 			model.factDividerColor, BOARD_ROLE_FACT);
-		addText(labelRect, nullptr, mono, fact.label, model.protocolColor,
+		addText(labelRect, nullptr, mono, fact.label, model.factLabelColor,
 			CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, factLabelPx, 0, 0.0,
 			BOARD_ROLE_FACT);
-		addText(valueRect, nullptr, heading, fact.value, CalypsoHdTheme::kNearWhite,
-			CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, dataPx, 0, 0.02,
+		addText(valueRect, nullptr, heading, fact.value, model.factValueColor,
+			CalypsoHdHAlign::Right, CalypsoHdVAlign::Middle, dataPx, 0, 0.02,
 			BOARD_ROLE_FACT);
 	}
 
-	if (!model.noteText.empty())
+	if (!model.noteText.empty() && model.note.w > 0 && model.note.h > 0)
 	{
-		addText(model.note, nullptr, body, model.noteText, model.protocolColor,
-			CalypsoHdHAlign::Left, CalypsoHdVAlign::Top,
-			scaledPx(dataPx, 9), std::max(1, model.note.w), 0.0,
-			BOARD_ROLE_NOTE);
+		addText(model.note, nullptr, mono, model.noteText, model.protocolColor,
+			CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle,
+			scaledPx(9.0, 8), 0, 0.0, BOARD_ROLE_NOTE);
 	}
 
-	// Action rail.
+	// Action area: generated rects drive placement, so portrait stacking and
+	// corner split rows need no renderer-side direction knowledge.
 	addQuad({model.footer.x, model.footer.y, model.footer.w, 1},
 		model.dividerColor, BOARD_ROLE_DECORATION);
 	for (std::size_t i = 0; i < model.buttons.size(); ++i)

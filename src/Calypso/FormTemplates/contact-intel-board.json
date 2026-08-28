@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "id": "contact-intel-board",
-  "version": 1,
+  "version": 2,
   "buttonCount": {
     "min": 3,
     "max": 3
@@ -41,42 +41,59 @@
     }
   },
   "style": {
-    "cutCornerPx": 14,
+    "windowRadiusPx": 18,
+    "innerRadiusPx": 10,
     "protocolTextInsetPx": 26,
-    "panelFillTop": "08191DEB",
-    "panelFillBottom": "041014E8",
+    "panelFillTop": "09191DFA",
+    "panelFillBottom": "050F14FA",
     "frame": "74FFB073",
     "protocolText": "A9D8C7FF",
-    "divider": "74FFB04D",
+    "divider": "74FFB02B",
     "footerFill": "061B1CD6",
     "footerDot": "74FFB01F",
     "warning": "FFC14DFF",
+    "backdropWide": "00000026",
+    "backdropCompact": "00000052",
+    "backdropPortrait": "00000066",
+    "radarRing": "74FFB02B",
+    "radarRingStrong": "74FFB059",
+    "radarAxis": "74FFB026",
+    "radarSweep": "74FFB01F",
+    "radarBase": "74FFB0FF",
+    "radarContact": "FFC14DFF",
+    "radarContactHalo": "FFC14D40",
+    "radarCourse": "FFC14D8C",
+    "factLabel": "A9D8C7CC",
+    "factValue": "E8FFF5FF",
+    "factDivider": "74FFB02B",
     "plotFrame": "74FFB033",
     "plotGrid": "74FFB01A",
     "plotContact": "FFC14DFF",
     "plotContactHalo": "FFC14D40",
     "plotBase": "74FFB0FF",
-    "plotCourse": "FFC14D8C",
-    "factDivider": "74FFB02B"
+    "plotCourse": "FFC14D8C"
   },
   "contentSizing": {
     "wide": {
       "safeMarginPx": 24,
       "factCount": 5,
-      "factLabelWidth": 120,
-      "factRowHeight": 20,
-      "factRowGap": 4,
-      "gridColumns": 4,
-      "gridRows": 3
+      "factLabelWidth": 132,
+      "factRowHeight": 36,
+      "factRowGap": 0
     },
     "compact": {
       "safeMarginPx": 16,
       "factCount": 5,
+      "factLabelWidth": 120,
+      "factRowHeight": 32,
+      "factRowGap": 0
+    },
+    "portrait": {
+      "safeMarginPx": 16,
+      "factCount": 5,
       "factLabelWidth": 112,
-      "factRowHeight": 18,
-      "factRowGap": 2,
-      "gridColumns": 8,
-      "gridRows": 7
+      "factRowHeight": 38,
+      "factRowGap": 0
     }
   },
   "layouts": {
@@ -84,76 +101,88 @@
       "designWidth": 1280,
       "designHeight": 720,
       "window": {
-        "x": 332,
-        "y": 202,
-        "width": 616,
-        "height": 316
+        "x": 552,
+        "y": 300,
+        "width": 704,
+        "height": 396
       },
       "status": {
-        "x": 332,
-        "y": 202,
-        "width": 616,
+        "x": 576,
+        "y": 316,
+        "width": 656,
+        "height": 20
+      },
+      "warning": {
+        "x": 576,
+        "y": 350,
+        "width": 24,
+        "height": 24
+      },
+      "title": {
+        "x": 616,
+        "y": 344,
+        "width": 212,
+        "height": 40
+      },
+      "message": {
+        "x": 616,
+        "y": 382,
+        "width": 212,
         "height": 20
       },
       "plotPanel": {
-        "x": 344,
-        "y": 230,
-        "width": 300,
-        "height": 210
+        "x": 576,
+        "y": 344,
+        "width": 252,
+        "height": 328
       },
       "plotArea": {
-        "x": 356,
-        "y": 242,
-        "width": 276,
-        "height": 186
+        "x": 576,
+        "y": 414,
+        "width": 252,
+        "height": 252
       },
       "reportPanel": {
-        "x": 652,
-        "y": 230,
-        "width": 284,
-        "height": 210
+        "x": 856,
+        "y": 344,
+        "width": 376,
+        "height": 328
       },
-      "warning": {
-        "x": 664,
-        "y": 236,
-        "width": 28,
-        "height": 28
-      },
-      "title": {
-        "x": 698,
-        "y": 232,
-        "width": 224,
-        "height": 42
-      },
-      "message": {
-        "x": 664,
-        "y": 282,
-        "width": 260,
-        "height": 16
+      "factsArea": {
+        "x": 872,
+        "y": 354,
+        "width": 344,
+        "height": 180
       },
       "footer": {
-        "x": 344,
-        "y": 448,
-        "width": 592,
-        "height": 62
+        "x": 872,
+        "y": 548,
+        "width": 344,
+        "height": 124
+      },
+      "note": {
+        "x": 872,
+        "y": 676,
+        "width": 344,
+        "height": 12
       },
       "buttonSlots": [
         {
-          "x": 430,
-          "y": 457,
-          "width": 158,
+          "x": 872,
+          "y": 548,
+          "width": 344,
+          "height": 52
+        },
+        {
+          "x": 872,
+          "y": 612,
+          "width": 218,
           "height": 44
         },
         {
-          "x": 598,
-          "y": 457,
-          "width": 158,
-          "height": 44
-        },
-        {
-          "x": 766,
-          "y": 457,
-          "width": 158,
+          "x": 1102,
+          "y": 612,
+          "width": 114,
           "height": 44
         }
       ]
@@ -162,84 +191,174 @@
       "designWidth": 740,
       "designHeight": 360,
       "window": {
-        "x": 120,
-        "y": 44,
-        "width": 500,
-        "height": 272
+        "x": 16,
+        "y": 12,
+        "width": 708,
+        "height": 336
       },
       "status": {
-        "x": 120,
+        "x": 32,
+        "y": 24,
+        "width": 676,
+        "height": 18
+      },
+      "warning": {
+        "x": 32,
+        "y": 48,
+        "width": 22,
+        "height": 22
+      },
+      "title": {
+        "x": 68,
         "y": 44,
-        "width": 500,
+        "width": 184,
+        "height": 34
+      },
+      "message": {
+        "x": 68,
+        "y": 76,
+        "width": 184,
         "height": 18
       },
       "plotPanel": {
-        "x": 130,
-        "y": 68,
+        "x": 32,
+        "y": 44,
         "width": 220,
-        "height": 168
+        "height": 288
       },
       "plotArea": {
-        "x": 138,
-        "y": 76,
-        "width": 204,
-        "height": 152
+        "x": 32,
+        "y": 100,
+        "width": 220,
+        "height": 220
       },
       "reportPanel": {
-        "x": 358,
-        "y": 68,
-        "width": 252,
-        "height": 168
+        "x": 276,
+        "y": 44,
+        "width": 432,
+        "height": 288
       },
-      "warning": {
-        "x": 366,
-        "y": 74,
-        "width": 28,
-        "height": 28
-      },
-      "title": {
-        "x": 398,
-        "y": 72,
-        "width": 212,
-        "height": 36
-      },
-      "message": {
-        "x": 366,
-        "y": 114,
-        "width": 234,
-        "height": 20
+      "factsArea": {
+        "x": 276,
+        "y": 50,
+        "width": 432,
+        "height": 160
       },
       "footer": {
-        "x": 120,
-        "y": 252,
-        "width": 500,
-        "height": 60
+        "x": 276,
+        "y": 218,
+        "width": 432,
+        "height": 114
       },
       "buttonSlots": [
         {
-          "x": 132,
-          "y": 260,
-          "width": 148,
+          "x": 276,
+          "y": 218,
+          "width": 432,
+          "height": 48
+        },
+        {
+          "x": 276,
+          "y": 278,
+          "width": 276,
           "height": 44
         },
         {
-          "x": 292,
-          "y": 260,
-          "width": 148,
+          "x": 564,
+          "y": 278,
+          "width": 144,
+          "height": 44
+        }
+      ]
+    },
+    "portrait": {
+      "designWidth": 360,
+      "designHeight": 740,
+      "window": {
+        "x": 8,
+        "y": 8,
+        "width": 344,
+        "height": 724
+      },
+      "status": {
+        "x": 24,
+        "y": 22,
+        "width": 312,
+        "height": 18
+      },
+      "warning": {
+        "x": 24,
+        "y": 52,
+        "width": 24,
+        "height": 24
+      },
+      "title": {
+        "x": 24,
+        "y": 84,
+        "width": 312,
+        "height": 38
+      },
+      "message": {
+        "x": 24,
+        "y": 122,
+        "width": 312,
+        "height": 18
+      },
+      "plotPanel": {
+        "x": 24,
+        "y": 106,
+        "width": 312,
+        "height": 232
+      },
+      "plotArea": {
+        "x": 70,
+        "y": 112,
+        "width": 220,
+        "height": 220
+      },
+      "reportPanel": {
+        "x": 24,
+        "y": 346,
+        "width": 312,
+        "height": 190
+      },
+      "factsArea": {
+        "x": 24,
+        "y": 346,
+        "width": 312,
+        "height": 190
+      },
+      "footer": {
+        "x": 24,
+        "y": 548,
+        "width": 312,
+        "height": 164
+      },
+      "buttonSlots": [
+        {
+          "x": 24,
+          "y": 548,
+          "width": 312,
+          "height": 52
+        },
+        {
+          "x": 24,
+          "y": 612,
+          "width": 312,
           "height": 44
         },
         {
-          "x": 452,
-          "y": 260,
-          "width": 148,
+          "x": 24,
+          "y": 668,
+          "width": 312,
           "height": 44
         }
       ]
     }
   },
   "motion": {
-    "durationMs": 200,
-    "scaleFrom": 0.96,
+    "durationMs": 150,
+    "scaleFrom": 0.985,
     "easing": "ease-out",
     "captureModeDurationMs": 0
   }
