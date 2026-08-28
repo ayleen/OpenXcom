@@ -176,6 +176,14 @@ void calypsoCollectContactIntelBoard(
 
 	builder.beginSubgroup();
 	int order = 0;
+	// Canonical per-role px from the generated theme (F21 data/action scale):
+	// title 34/28, data rows 15/12, action labels 17/14.
+	const int titlePx = model.wide ? CalypsoHdThemeGen::kF21TitleWidePx
+	                               : CalypsoHdThemeGen::kF21TitleCompactPx;
+	const int dataPx = model.wide ? CalypsoHdThemeGen::kF21DataWidePx
+	                              : CalypsoHdThemeGen::kF21DataCompactPx;
+	const int actionPx = model.wide ? CalypsoHdThemeGen::kF21ActionWidePx
+	                                : CalypsoHdThemeGen::kF21ActionCompactPx;
 	auto stamp = [&](CalypsoHdItem& item, std::uint32_t role)
 	{
 		const std::uint64_t instance = reinterpret_cast<std::uintptr_t>(model.instance);
@@ -256,7 +264,6 @@ void calypsoCollectContactIntelBoard(
 		model.protocolWidget, mono, model.protocolText, model.protocolColor,
 		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle,
 		scaledPx(model.wide ? 10.0 : 9.0, 8), 0, 0.10, BOARD_ROLE_PROTOCOL);
-
 	// Plot panel: framed quadrant grid.
 	addStyled(model.plotPanel,
 		CalypsoHdTheme::calypsoHdButtonStyle(model.panelFillTop, model.plotFrameColor),
@@ -312,7 +319,7 @@ void calypsoCollectContactIntelBoard(
 				core * 2},
 			nullptr, mono, model.contact.label, model.plotContactColor,
 			CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle,
-			scaledPx(model.wide ? 13.0 : 11.0, 9), 0, 0.0, BOARD_ROLE_PLOT_LABEL);
+			scaledPx(dataPx, 9), 0, 0.0, BOARD_ROLE_PLOT_LABEL);
 	}
 
 	// Base marker: bordered triangle + label.
@@ -335,7 +342,7 @@ void calypsoCollectContactIntelBoard(
 					base},
 				nullptr, mono, model.base.label, model.plotBaseColor,
 				CalypsoHdHAlign::Center, CalypsoHdVAlign::Top,
-				scaledPx(model.wide ? 12.0 : 10.0, 8), 0, 0.0, BOARD_ROLE_PLOT_LABEL);
+				scaledPx(dataPx, 8), 0, 0.0, BOARD_ROLE_PLOT_LABEL);
 		}
 	}
 
@@ -350,19 +357,15 @@ void calypsoCollectContactIntelBoard(
 	addStyled(model.warning, warning, model.warningWidget, BOARD_ROLE_WARNING);
 	addText(model.warning, model.warningWidget, heading, model.warningGlyph,
 		model.warningColor, CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle,
-		std::min(scaledPx(model.wide ? 18.0 : 16.0, 11),
-			std::max(11, (int)model.warning.h)), 0, 0.0, BOARD_ROLE_WARNING);
+		scaledPx(model.wide ? 18.0 : 16.0, 11), 0, 0.0, BOARD_ROLE_WARNING);
 	addText(model.title, model.titleWidget, heading, model.titleText,
 		CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle,
-		std::max(1, (int)calypsoHdRoundToInt(
-			model.titleDesignHeight * CalypsoHdTheme::kTitleFontSizeScale)),
-		0, CalypsoHdTheme::kTitleTrackingEm, BOARD_ROLE_TITLE);
+		scaledPx(titlePx, 12), 0, CalypsoHdTheme::kTitleTrackingEm, BOARD_ROLE_TITLE);
 	addText(model.message, model.messageWidget, body, model.messageText,
 		CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle,
-		scaledPx(model.wide ? 12.0 : 10.0, 9), 0, 0.08, BOARD_ROLE_MESSAGE);
+		scaledPx(dataPx, 9), 0, 0.08, BOARD_ROLE_MESSAGE);
 
-	const int factLabelPx = scaledPx(model.wide ? 11.0 : 9.0, 8);
-	const int factValuePx = scaledPx(model.wide ? 13.0 : 11.0, 9);
+	const int factLabelPx = scaledPx(dataPx, 9);
 	for (std::size_t i = 0; i < model.facts.size(); ++i)
 	{
 		const std::size_t labelIndex = i * 2;
@@ -375,10 +378,10 @@ void calypsoCollectContactIntelBoard(
 		addQuad({labelRect.x, labelRect.y + labelRect.h - 1, valueRect.x + valueRect.w - labelRect.x, 1},
 			model.factDividerColor, BOARD_ROLE_FACT);
 		addText(labelRect, nullptr, mono, fact.label, model.protocolColor,
-			CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, factLabelPx, 0, 0.06,
+			CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, factLabelPx, 0, 0.0,
 			BOARD_ROLE_FACT);
 		addText(valueRect, nullptr, heading, fact.value, CalypsoHdTheme::kNearWhite,
-			CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, factValuePx, 0, 0.02,
+			CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, dataPx, 0, 0.02,
 			BOARD_ROLE_FACT);
 	}
 
@@ -386,7 +389,7 @@ void calypsoCollectContactIntelBoard(
 	{
 		addText(model.note, nullptr, body, model.noteText, model.protocolColor,
 			CalypsoHdHAlign::Left, CalypsoHdVAlign::Top,
-			scaledPx(model.wide ? 11.0 : 9.0, 8), std::max(1, model.note.w), 0.0,
+			scaledPx(dataPx, 9), std::max(1, model.note.w), 0.0,
 			BOARD_ROLE_NOTE);
 	}
 
@@ -400,12 +403,8 @@ void calypsoCollectContactIntelBoard(
 			boardButtonVisualState(button.widget, i ? model.buttons[0].widget : nullptr);
 		addStyled(button.rect, boardButtonStyle(button, state), button.widget,
 			BOARD_ROLE_BUTTON_BASE + (std::uint32_t)i);
-		const int labelPx = scaledPx(
-			CalypsoHdTheme::kLabelFontSizePx * (model.wide
-				? CalypsoHdTheme::kLabelFontSizeScaleWide
-				: CalypsoHdTheme::kLabelFontSizeScaleCompact), 11);
 		addText(button.rect, button.widget, heading, button.text, button.textColor,
-			CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, labelPx, 0,
+			CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, actionPx, 0,
 			CalypsoHdTheme::kLabelTrackingEm,
 			BOARD_ROLE_BUTTON_LABEL_BASE + (std::uint32_t)i);
 	}

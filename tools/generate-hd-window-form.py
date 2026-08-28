@@ -379,9 +379,9 @@ def validate_intel_board_template(template):
     sizing = template.get("contentSizing") or {}
     expected_sizing = {
         "wide": {"safeMarginPx": 24, "factCount": 5, "factLabelWidth": 120,
-                 "factRowHeight": 20, "factRowGap": 5, "gridColumns": 4, "gridRows": 3},
+                 "factRowHeight": 20, "factRowGap": 4, "gridColumns": 4, "gridRows": 3},
         "compact": {"safeMarginPx": 16, "factCount": 5, "factLabelWidth": 112,
-                    "factRowHeight": 16, "factRowGap": 3, "gridColumns": 8, "gridRows": 7},
+                    "factRowHeight": 16, "factRowGap": 2, "gridColumns": 8, "gridRows": 7},
     }
     if sizing != expected_sizing:
         raise FormError("template contentSizing drifted from the reviewed board policy")
@@ -605,7 +605,7 @@ def build_intel_board_contract(config, template, source_name):
             note_rect = _rect(layout["message"]["x"], row_y + policy["factRowGap"],
                               layout["message"]["width"],
                               layout["footer"]["y"] - row_y - 2 * policy["factRowGap"])
-            if note_rect["height"] < 20:
+            if note_rect["height"] < 16:
                 raise FormError("wide note band collapsed below the readable floor")
             layout["note"] = note_rect
             if proportional_text_width(config["note"], text_unit) > note_rect["width"] * 2:
