@@ -1,6 +1,7 @@
 #ifdef __EMSCRIPTEN__
 #include "CalypsoF17UfoDetectedUi.h"
 #include <cmath>
+#include <cstring>
 #include <cstdio>
 #include "../Engine/Game.h"
 #include "../Engine/Options.h"
@@ -49,6 +50,15 @@ double wrapLongitudeDelta(double lon, double center)
 	double delta = std::fmod(lon - center + 3.0 * M_PI, 2.0 * M_PI);
 	if (delta < 0.0) delta += 2.0 * M_PI;
 	return delta - M_PI;
+}
+
+CalypsoActionTone generatedActionTone(const char* tone)
+{
+	if (tone && std::strcmp(tone, "primary") == 0)
+		return CalypsoActionTone::Primary;
+	if (tone && std::strcmp(tone, "danger") == 0)
+		return CalypsoActionTone::Destructive;
+	return CalypsoActionTone::Safe;
 }
 
 } // namespace
@@ -114,7 +124,7 @@ CalypsoF17UfoDetectedUi::LayoutVariant CalypsoF17UfoDetectedUi::chooseLayout()
 	if (viewport.orientation == CalypsoOrientation::Unknown
 		&& Options::baseYResolution > Options::baseXResolution)
 		return LayoutVariant::Portrait;
-	if (Options::baseXResolution >= 1000)
+	if (calypsoViewportLayoutWidth(viewport, Options::baseXResolution) >= 1000)
 		return LayoutVariant::Wide;
 	return LayoutVariant::Compact;
 }
@@ -221,13 +231,14 @@ void CalypsoF17UfoDetectedUi::collect(CalypsoHdFrameBuilder& builder) const
     m.noteText = CalypsoF17UfoDetectedGen::kNote;
     m.warningGlyph = "!";
     m.protocolTextInsetPx = CalypsoF17UfoDetectedGen::kProtocolTextInsetPx;
-    m.windowRadiusPx = CalypsoF17UfoDetectedGen::kWindowRadiusPx;
+    m.cutCornerPx = CalypsoF17UfoDetectedGen::kCutCornerPx;
     m.innerRadiusPx = CalypsoF17UfoDetectedGen::kInnerRadiusPx;
     m.panelFillTop = CalypsoF17UfoDetectedGen::kPanelFillTop;
     m.panelFillBottom = CalypsoF17UfoDetectedGen::kPanelFillBottom;
     m.frameColor = CalypsoF17UfoDetectedGen::kFrame;
     m.protocolColor = CalypsoF17UfoDetectedGen::kProtocolText;
     m.dividerColor = CalypsoF17UfoDetectedGen::kDivider;
+    m.footerDotColor = CalypsoF17UfoDetectedGen::kFooterDot;
     m.warningColor = CalypsoF17UfoDetectedGen::kWarning;
     m.backdropColor = _layout == LayoutVariant::Wide
         ? CalypsoF17UfoDetectedGen::kBackdropWide
@@ -349,7 +360,7 @@ void CalypsoF17UfoDetectedUi::collect(CalypsoHdFrameBuilder& builder) const
         button.widget = widget;
         button.text = label;
         button.rect = proj(CalypsoF17UfoDetectedGen::kButtonRects[layoutIdx][index].rect);
-        button.tone = CalypsoActionTone::Safe;
+        button.tone = generatedActionTone(CalypsoF17UfoDetectedGen::kButtons[index].tone);
         button.restFill = CalypsoF17UfoDetectedGen::kButtons[index].fill;
         button.restBorder = CalypsoF17UfoDetectedGen::kButtons[index].border;
         button.textColor = CalypsoF17UfoDetectedGen::kButtons[index].text;

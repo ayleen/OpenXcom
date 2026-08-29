@@ -343,9 +343,9 @@ def validate_config(config, template):
 BOARD_FACT_COUNT = 5
 BOARD_LAYOUT_ORDER = ("wide", "compact", "portrait")
 BOARD_COURSE_WORDS = {"N", "NE", "E", "SE", "S", "SW", "W", "NW", "NONE"}
-BOARD_NUMERIC_STYLE_KEYS = {"windowRadiusPx", "innerRadiusPx", "protocolTextInsetPx"}
+BOARD_NUMERIC_STYLE_KEYS = {"cutCornerPx", "innerRadiusPx", "protocolTextInsetPx"}
 BOARD_STYLE_KEYS = {
-    "windowRadiusPx", "innerRadiusPx", "protocolTextInsetPx",
+    "cutCornerPx", "innerRadiusPx", "protocolTextInsetPx",
     "panelFillTop", "panelFillBottom",
     "frame", "protocolText", "divider", "footerFill", "footerDot", "warning",
     "backdropWide", "backdropCompact", "backdropPortrait",
@@ -361,9 +361,9 @@ BOARD_CANVASES = {"wide": (1280, 720), "compact": (740, 360), "portrait": (360, 
 
 
 def validate_intel_board_template(template):
-    """Pin the reviewed contact-intel-board shell: tactical focus card."""
-    if template.get("version") != 2:
-        raise FormError("contact-intel-board template must use version 2")
+    """Pin the reviewed contact-intel-board shell and canonical form chrome."""
+    if template.get("version") != 3:
+        raise FormError("contact-intel-board template must use version 3")
     if template.get("buttonCount") != {"min": 3, "max": 3}:
         raise FormError("contact-intel-board template must require exactly three buttons")
     tones = template.get("supportedButtonTones")
@@ -381,9 +381,9 @@ def validate_intel_board_template(template):
     style = template.get("style") or {}
     if set(style) != BOARD_STYLE_KEYS:
         raise FormError("contact-intel-board style keys drifted from the reviewed set")
-    if style.get("windowRadiusPx") != 18 or style.get("innerRadiusPx") != 10 \
+    if style.get("cutCornerPx") != 14 or style.get("innerRadiusPx") != 10 \
             or style.get("protocolTextInsetPx") != 26:
-        raise FormError("template radii/protocol rail drifted from 18/10/26")
+        raise FormError("template cut corner/inner radius/protocol rail drifted from 14/10/26")
     for key in BOARD_STYLE_KEYS - BOARD_NUMERIC_STYLE_KEYS:
         if not isinstance(style[key], str) or not COLOR_RE.fullmatch(style[key]):
             raise FormError("template style." + key + " must be RRGGBBAA")

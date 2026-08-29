@@ -101,14 +101,14 @@
     "scaleDenominator": 1
   },
   "style": {
-    "windowRadiusPx": 18,
+    "cutCornerPx": 14,
     "innerRadiusPx": 10,
     "protocolTextInsetPx": 26,
-    "panelFillTop": "09191DFA",
-    "panelFillBottom": "050F14FA",
+    "panelFillTop": "08191DEB",
+    "panelFillBottom": "041014E8",
     "frame": "74FFB073",
     "protocolText": "A9D8C7FF",
-    "divider": "74FFB02B",
+    "divider": "74FFB04D",
     "footerFill": "061B1CD6",
     "footerDot": "74FFB01F",
     "warning": "FFC14DFF",

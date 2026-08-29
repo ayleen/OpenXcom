@@ -937,8 +937,6 @@ def emit_small_confirmation_h(doc, rel, ns, prefix):
         out.append('    { "' + b["id"] + '", "' + b["label"] + '", "' + b["tone"] + '", "' + b["action"] + '", ' + rgba_call(b["style"]["fill"]) + ', ' + rgba_call(b["style"]["border"]) + ', ' + rgba_call(b["style"]["text"]) + ' },')
     out += ["};", "inline constexpr int kButtonCount = " + str(len(form["buttons"])) + ";", ""]
     if "cutCornerPx" in style:
-        # Cut-corner shells only; the rounded contact-intel-board v2 card has
-        # no chamfer token and its consumers must not reference kCutCornerPx.
         out.append("inline constexpr float kCutCornerPx = %.6ff;" % float(style["cutCornerPx"]))
     out.append("inline constexpr float kProtocolTextInsetPx = %.6ff;" % float(style["protocolTextInsetPx"]))
     fixed_style_keys = ("panelFillTop","panelFillBottom","frame","protocolText","divider","footerFill","footerDot","warning")
@@ -947,8 +945,8 @@ def emit_small_confirmation_h(doc, rel, ns, prefix):
     archetype_style_keys = sorted(k for k in style if k not in fixed_style_keys and k not in ("cutCornerPx", "protocolTextInsetPx"))
     for key in archetype_style_keys:
         if isinstance(style[key], (int, float)):
-            # Archetype-local sizing tokens (e.g. the board card radii) are
-            # floats, not packed colours.
+            # Archetype-local numeric tokens (for example inner panel radius)
+            # are floats, not packed colours.
             out.append("inline constexpr float k" + key[0].upper() + key[1:] + " = %.6ff;" % float(style[key]))
         else:
             out.append("inline constexpr std::uint32_t k" + key[0].upper() + key[1:] + " = " + rgba_call(style[key]) + ";")

@@ -27,12 +27,13 @@ inline constexpr CalypsoF17UfoDetectedGenButton kButtons[] = {
 };
 inline constexpr int kButtonCount = 3;
 
+inline constexpr float kCutCornerPx = 14.000000f;
 inline constexpr float kProtocolTextInsetPx = 26.000000f;
-inline constexpr std::uint32_t kPanelFillTop = 0x09191DFAu;
-inline constexpr std::uint32_t kPanelFillBottom = 0x050F14FAu;
+inline constexpr std::uint32_t kPanelFillTop = 0x08191DEBu;
+inline constexpr std::uint32_t kPanelFillBottom = 0x041014E8u;
 inline constexpr std::uint32_t kFrame = 0x74FFB073u;
 inline constexpr std::uint32_t kProtocolText = 0xA9D8C7FFu;
-inline constexpr std::uint32_t kDivider = 0x74FFB02Bu;
+inline constexpr std::uint32_t kDivider = 0x74FFB04Du;
 inline constexpr std::uint32_t kFooterFill = 0x061B1CD6u;
 inline constexpr std::uint32_t kFooterDot = 0x74FFB01Fu;
 inline constexpr std::uint32_t kWarning = 0xFFC14DFFu;
@@ -57,7 +58,6 @@ inline constexpr std::uint32_t kRadarCourse = 0xFFC14D8Cu;
 inline constexpr std::uint32_t kRadarRing = 0x74FFB02Bu;
 inline constexpr std::uint32_t kRadarRingStrong = 0x74FFB059u;
 inline constexpr std::uint32_t kRadarSweep = 0x74FFB01Fu;
-inline constexpr float kWindowRadiusPx = 18.000000f;
 
 struct CalypsoF17UfoDetectedGenRect { int x; int y; int w; int h; };
 struct CalypsoF17UfoDetectedGenLayout { int designWidth; int designHeight; CalypsoF17UfoDetectedGenRect window; CalypsoF17UfoDetectedGenRect status; CalypsoF17UfoDetectedGenRect warning; CalypsoF17UfoDetectedGenRect title; CalypsoF17UfoDetectedGenRect message; CalypsoF17UfoDetectedGenRect footer;

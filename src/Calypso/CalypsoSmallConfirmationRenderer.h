@@ -178,15 +178,16 @@ struct CalypsoContactIntelBoardModel
 	CalypsoContactIntelMarker base;
 
 	float protocolTextInsetPx = 0.0f;
-	float windowRadiusPx = 18.0f;
+	float cutCornerPx = 0.0f;
 	float innerRadiusPx = 10.0f;
 	std::uint32_t panelFillTop = 0;
 	std::uint32_t panelFillBottom = 0;
 	std::uint32_t frameColor = 0;
 	std::uint32_t protocolColor = 0;
 	std::uint32_t dividerColor = 0;
+	std::uint32_t footerDotColor = 0;
 	std::uint32_t warningColor = 0;
-	/// Per-layout modal dim behind the corner/stacked card.
+	/// Per-layout modal dim behind the canonical shell.
 	std::uint32_t backdropColor = 0;
 	/// Circular-radar decor tokens (v2 tactical focus card).
 	std::uint32_t radarRingColor = 0;

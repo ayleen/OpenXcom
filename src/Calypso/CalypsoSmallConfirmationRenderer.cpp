@@ -60,9 +60,13 @@ CalypsoHdPanelStyle buttonStyle(
 		? CalypsoHdThemeGen::calypsoHdThemeColorForToken(calypsoFocusRingToken(button.tone))
 		: CalypsoHdThemeGen::calypsoHdThemeColorForToken(tokens.borderToken);
 	const std::uint32_t fill = CalypsoHdThemeGen::calypsoHdThemeColorForToken(tokens.fillToken);
-	const std::uint32_t resolvedBorder = state == CalypsoInteractionState::Rest
+	const bool primary = button.tone == CalypsoActionTone::Primary;
+	const std::uint32_t resolvedBorder =
+		(state == CalypsoInteractionState::Rest
+			|| (primary && state != CalypsoInteractionState::Focus))
 		? button.restBorder : border;
-	const std::uint32_t resolvedFill = state == CalypsoInteractionState::Rest
+	const std::uint32_t resolvedFill =
+		(state == CalypsoInteractionState::Rest || primary)
 		? button.restFill : fill;
 
 	CalypsoHdPanelStyle style = CalypsoHdTheme::calypsoHdButtonStyle(
@@ -88,8 +92,9 @@ CalypsoHdPanelStyle windowStyle(const Model& model)
 	return style;
 }
 
+template <typename Model>
 CalypsoHdPanelStyle glowStyle(
-	const CalypsoSmallConfirmationModel& model,
+	const Model& model,
 	std::uint32_t color,
 	float radius)
 {
@@ -97,6 +102,24 @@ CalypsoHdPanelStyle glowStyle(
 	style.shape = CalypsoHdPanelShape::OpposingCutRect;
 	style.cutCornerPx = model.cutCornerPx * model.visualScale;
 	return style;
+}
+
+template <typename ScaleFn, typename AddFn>
+void addCanonicalFooterDots(
+	const CalypsoLogicalRect& footer,
+	int rightEdge,
+	std::uint32_t color,
+	const ScaleFn& scaledPx,
+	const AddFn& addDecoration)
+{
+	const int dotInsetX = scaledPx(12.0);
+	const int dotInsetTop = scaledPx(10.0);
+	const int dotInsetBottom = scaledPx(8.0);
+	const int dotPitch = scaledPx(8.0);
+	for (int y = footer.y + dotInsetTop;
+		y < footer.y + footer.h - dotInsetBottom; y += dotPitch)
+		for (int x = footer.x + dotInsetX; x < rightEdge - dotInsetX; x += dotPitch)
+			addDecoration({x, y, 1, 1}, color);
 }
 
 } // namespace
@@ -266,15 +289,10 @@ void calypsoCollectSmallConfirmation(
 		model.dividerColor);
 	addDecoration({model.footer.x, model.footer.y, model.footer.w, 1}, model.dividerColor);
 	int firstButtonX = model.footer.x + model.footer.w;
-	for (const auto& button : model.buttons) firstButtonX = std::min(firstButtonX, button.rect.x);
-	const int dotInsetX = scaledPx(12.0);
-	const int dotInsetTop = scaledPx(10.0);
-	const int dotInsetBottom = scaledPx(8.0);
-	const int dotPitch = scaledPx(8.0);
-	for (int y = model.footer.y + dotInsetTop;
-		y < model.footer.y + model.footer.h - dotInsetBottom; y += dotPitch)
-		for (int x = model.footer.x + dotInsetX; x < firstButtonX - dotInsetX; x += dotPitch)
-			addDecoration({x, y, 1, 1}, model.footerDotColor);
+	for (const auto& button : model.buttons)
+		firstButtonX = std::min(firstButtonX, button.rect.x);
+	addCanonicalFooterDots(model.footer, firstButtonX, model.footerDotColor,
+		scaledPx, addDecoration);
 
 	CalypsoHdPanelStyle warning;
 	warning.styled = true;
@@ -411,25 +429,6 @@ bool courseVector(const std::string& word, double& dx, double& dy)
 	return false;
 }
 
-/// The v2 board window is a rounded corner/stacked card. This is deliberately
-/// board-local: the shared windowStyle() keeps the small-confirmation
-/// archetype's OpposingCutRect, so the global modal family never shifts.
-CalypsoHdPanelStyle contactCardWindowStyle(const CalypsoContactIntelBoardModel& model)
-{
-	CalypsoHdPanelStyle style;
-	style.styled = true;
-	style.shape = CalypsoHdPanelShape::RoundedRect;
-	style.radiusPx = model.windowRadiusPx * model.visualScale;
-	style.borderWidthPx = 1.0f;
-	style.borderColorRgba = model.frameColor;
-	style.fillTopRgba = model.panelFillTop;
-	style.fillBottomRgba = model.panelFillBottom;
-	style.gradDirX = 0.18f;
-	style.gradDirY = 1.0f;
-	style.glowRgba = CalypsoHdTheme::kHaloGlow;
-	style.glowRadiusPx = 14.0f * model.visualScale;
-	return style;
-}
 
 } // namespace
 
@@ -609,7 +608,18 @@ void calypsoCollectContactIntelBoard(
 		model.opaqueHarnessBackdrop ? calypsoRgba(0, 0, 0, 0xff) : model.backdropColor,
 		BOARD_ROLE_BACKDROP);
 
-	addStyled(model.window, contactCardWindowStyle(model), model.windowWidget,
+	const int shadowX = scaledPx(2.0);
+	const int shadowY = scaledPx(8.0);
+	addStyled({model.window.x - shadowX, model.window.y + shadowY,
+		model.window.w + shadowX * 2, model.window.h},
+		glowStyle(model, CalypsoHdTheme::kShadowGlow,
+			CalypsoHdTheme::kShadowGlowRadiusPx * model.visualScale),
+		nullptr, BOARD_ROLE_WINDOW);
+	addStyled(model.window,
+		glowStyle(model, CalypsoHdTheme::kHaloGlow,
+			CalypsoHdTheme::kHaloGlowRadiusPx * model.visualScale),
+		nullptr, BOARD_ROLE_WINDOW);
+	addStyled(model.window, windowStyle(model), model.windowWidget,
 		BOARD_ROLE_WINDOW);
 
 	// Status strip: protocol rail + closing divider.
@@ -799,15 +809,22 @@ void calypsoCollectContactIntelBoard(
 			scaledPx(9.0, 8), 0, 0.0, BOARD_ROLE_NOTE);
 	}
 
-	// Action area: generated rects drive placement, so portrait stacking and
-	// corner split rows need no renderer-side direction knowledge.
+	// Action area: canonical footer material with generated action geometry.
 	addQuad({model.footer.x, model.footer.y, model.footer.w, 1},
 		model.dividerColor, BOARD_ROLE_DECORATION);
+	addCanonicalFooterDots(model.footer, model.footer.x + model.footer.w,
+		model.footerDotColor, scaledPx,
+		[&](const CalypsoLogicalRect& rect, std::uint32_t color)
+		{
+			addQuad(rect, color, BOARD_ROLE_DECORATION);
+		});
 	for (std::size_t i = 0; i < model.buttons.size(); ++i)
 	{
 		const auto& button = model.buttons[i];
-		const CalypsoInteractionState state =
-			buttonVisualState(button.widget, i ? model.buttons[0].widget : nullptr);
+		const TextButton* peer = model.buttons.size() > 1
+			? model.buttons[(i + 1) % model.buttons.size()].widget
+			: nullptr;
+		const CalypsoInteractionState state = buttonVisualState(button.widget, peer);
 		addStyled(button.rect, buttonStyle(button, state), button.widget,
 			BOARD_ROLE_BUTTON_BASE + (std::uint32_t)i);
 		addText(button.rect, button.widget, heading, button.text, button.textColor,
