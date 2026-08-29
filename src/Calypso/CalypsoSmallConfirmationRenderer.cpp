@@ -506,7 +506,8 @@ void calypsoCollectContactIntelBoard(
 	builder.beginSubgroup();
 	int order = 0;
 	// Canonical form roles: the board changes composition, never typography.
-	const int protocolPx = scaledPx(wide ? 10.0 : 9.0, 8);
+	const int protocolPx = scaledPx(wide ? 10.0
+		: (model.layout == CalypsoContactIntelLayout::Portrait ? 8.0 : 9.0), 8);
 	const int titlePx = std::max(1, (int)calypsoHdRoundToInt(
 		model.titleDesignHeight * CalypsoHdTheme::kTitleFontSizeScale));
 	const int messagePx = scaledPx(CalypsoHdTheme::kBodyFontSizePx, 12);
@@ -654,14 +655,14 @@ void calypsoCollectContactIntelBoard(
 	// than a generic chart. Stronger twelve-point ticks anchor the clock face.
 	const double fullTurn = 6.28318530717958647692;
 	const double tickRadius = radarMin * 0.475;
-	for (int i = 0; i < 72; ++i)
+	for (int i = 0; i < 96; ++i)
 	{
-		const double angle = fullTurn * i / 72.0;
-		const int tick = scaledPx(i % 6 == 0 ? 2.0 : 1.0);
+		const double angle = fullTurn * i / 96.0;
+		const int tick = scaledPx(i % 8 == 0 ? 2.0 : 1.0);
 		addDisc(
 			(int)std::llround(centerX + std::cos(angle) * tickRadius),
 			(int)std::llround(centerY + std::sin(angle) * tickRadius),
-			tick, i % 6 == 0 ? model.radarStrongRingColor : model.radarRingColor,
+			tick, i % 8 == 0 ? model.radarStrongRingColor : model.radarRingColor,
 			BOARD_ROLE_PLOT_GRID);
 	}
 	// Cross axes.
@@ -800,20 +801,24 @@ void calypsoCollectContactIntelBoard(
 		}
 	}
 
-	// Report panel: warning glyph, title, detection status.
-	CalypsoHdPanelStyle warning;
-	warning.styled = true;
-	warning.shape = CalypsoHdPanelShape::WarningTriangle;
-	warning.borderWidthPx = (float)scaledPx(2.0);
-	warning.borderColorRgba = model.warningColor;
-	warning.fillTopRgba = calypsoRgba(0, 0, 0, 0);
-	warning.fillBottomRgba = calypsoRgba(0, 0, 0, 0);
-	addStyled(model.warning, warning, model.warningWidget, BOARD_ROLE_WARNING);
-	addText(model.warning, model.warningWidget, heading, model.warningGlyph,
-		model.warningColor, CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle,
-		scaledPx(wide ? 18.0 : 16.0, 11), 0, 0.0, BOARD_ROLE_WARNING);
+	// Data identity: warning presentation is semantic and absent when the
+	// generated form selects icon.kind=none.
+	if (!model.warningGlyph.empty())
+	{
+		CalypsoHdPanelStyle warning;
+		warning.styled = true;
+		warning.shape = CalypsoHdPanelShape::WarningTriangle;
+		warning.borderWidthPx = (float)scaledPx(2.0);
+		warning.borderColorRgba = model.warningColor;
+		warning.fillTopRgba = calypsoRgba(0, 0, 0, 0);
+		warning.fillBottomRgba = calypsoRgba(0, 0, 0, 0);
+		addStyled(model.warning, warning, model.warningWidget, BOARD_ROLE_WARNING);
+		addText(model.warning, model.warningWidget, heading, model.warningGlyph,
+			model.warningColor, CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle,
+			scaledPx(wide ? 18.0 : 16.0, 11), 0, 0.0, BOARD_ROLE_WARNING);
+	}
 	addText(model.title, model.titleWidget, heading, model.titleText,
-		CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle,
+		CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Right, CalypsoHdVAlign::Middle,
 		titlePx, 0, CalypsoHdTheme::kTitleTrackingEm, BOARD_ROLE_TITLE);
 	addText(model.message, model.messageWidget, body, model.messageText,
 		CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle,

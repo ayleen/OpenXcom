@@ -236,7 +236,7 @@ void CalypsoF17UfoDetectedUi::collect(CalypsoHdFrameBuilder& builder) const
     m.protocolWidget = _state->_txtDetected;
     m.protocolText.clear();
     m.noteText.clear();
-    m.warningGlyph = "!";
+    m.warningGlyph.clear();
     m.protocolTextInsetPx = CalypsoF17UfoDetectedGen::kProtocolTextInsetPx;
     m.cutCornerPx = CalypsoF17UfoDetectedGen::kCutCornerPx;
     m.innerRadiusPx = CalypsoF17UfoDetectedGen::kInnerRadiusPx;
@@ -272,7 +272,7 @@ void CalypsoF17UfoDetectedUi::collect(CalypsoHdFrameBuilder& builder) const
     // Runtime content: the vanilla state and its contact remain authoritative.
     Ufo* ufo = _state->_ufo;
     m.titleText = _state->_txtUfo ? _state->_txtUfo->getText() : std::string();
-    m.protocolText = _state->_txtDetected ? _state->_txtDetected->getText() : std::string();
+    m.protocolText = CalypsoF17UfoDetectedGen::kProtocol;
     m.messageText.clear();
 
     // Radar: a SCHEMATIC circular bearing plot. The nearest base sits at the

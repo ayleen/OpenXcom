@@ -7,9 +7,9 @@
     "archetype": "contact-intel-board",
     "source": "FormConfigs/f17-ufo-detected.json",
     "icon": {
-      "kind": "warning",
-      "glyph": "!",
-      "tone": "warning"
+      "kind": "none",
+      "glyph": "",
+      "tone": "normal"
     },
     "buttons": [
       {
@@ -88,7 +88,7 @@
     }
   },
   "copy": {
-    "protocol": "TACTICAL NOTICE F17-UFO-DETECTED",
+    "protocol": "CALYPSO COMMAND · TACTICAL NOTICE UFO-DETECTED",
     "title": "ARK-1",
     "message": [
       "DETECTED"
@@ -138,288 +138,288 @@
       "designWidth": 1280,
       "designHeight": 720,
       "window": {
-        "x": 160,
-        "y": 72,
-        "width": 960,
-        "height": 576
+        "x": 290,
+        "y": 193,
+        "width": 700,
+        "height": 335
       },
       "status": {
-        "x": 198,
-        "y": 98,
-        "width": 884,
-        "height": 40
+        "x": 290,
+        "y": 193,
+        "width": 700,
+        "height": 34
       },
       "plotPanel": {
-        "x": 184,
-        "y": 148,
-        "width": 392,
-        "height": 456
+        "x": 318,
+        "y": 241,
+        "width": 292,
+        "height": 196
       },
       "plotArea": {
-        "x": 204,
-        "y": 236,
-        "width": 352,
-        "height": 352
+        "x": 362,
+        "y": 231,
+        "width": 220,
+        "height": 220
       },
       "reportPanel": {
-        "x": 600,
-        "y": 160,
-        "width": 480,
-        "height": 440
+        "x": 632,
+        "y": 241,
+        "width": 330,
+        "height": 196
       },
       "factsArea": {
-        "x": 624,
-        "y": 160,
-        "width": 432,
-        "height": 240
+        "x": 647,
+        "y": 280,
+        "width": 300,
+        "height": 155
       },
       "warning": {
-        "x": 192,
-        "y": 104,
-        "width": 28,
-        "height": 28
-      },
-      "title": {
-        "x": 200,
-        "y": 160,
-        "width": 360,
-        "height": 44
-      },
-      "message": {
-        "x": 200,
-        "y": 204,
-        "width": 360,
+        "x": 647,
+        "y": 245,
+        "width": 24,
         "height": 24
       },
+      "title": {
+        "x": 647,
+        "y": 245,
+        "width": 300,
+        "height": 31
+      },
+      "message": {
+        "x": 647,
+        "y": 276,
+        "width": 300,
+        "height": 1
+      },
       "footer": {
-        "x": 624,
-        "y": 424,
-        "width": 432,
-        "height": 176
+        "x": 318,
+        "y": 456,
+        "width": 644,
+        "height": 72
       },
       "buttons": {
         "intercept": {
-          "x": 624,
-          "y": 424,
-          "width": 432,
-          "height": 64
+          "x": 318,
+          "y": 469,
+          "width": 292,
+          "height": 50
         },
         "centre": {
-          "x": 624,
-          "y": 508,
-          "width": 292,
-          "height": 56
+          "x": 632,
+          "y": 469,
+          "width": 232,
+          "height": 50
         },
         "cancel": {
-          "x": 932,
-          "y": 508,
-          "width": 124,
-          "height": 56
+          "x": 874,
+          "y": 469,
+          "width": 88,
+          "height": 50
         }
       },
       "fact1Label": {
-        "x": 624,
-        "y": 160,
-        "width": 160,
-        "height": 48
+        "x": 647,
+        "y": 280,
+        "width": 126,
+        "height": 31
       },
       "fact1Value": {
-        "x": 784,
-        "y": 160,
-        "width": 272,
-        "height": 48
+        "x": 773,
+        "y": 280,
+        "width": 174,
+        "height": 31
       },
       "fact2Label": {
-        "x": 624,
-        "y": 208,
-        "width": 160,
-        "height": 48
+        "x": 647,
+        "y": 311,
+        "width": 126,
+        "height": 31
       },
       "fact2Value": {
-        "x": 784,
-        "y": 208,
-        "width": 272,
-        "height": 48
+        "x": 773,
+        "y": 311,
+        "width": 174,
+        "height": 31
       },
       "fact3Label": {
-        "x": 624,
-        "y": 256,
-        "width": 160,
-        "height": 48
+        "x": 647,
+        "y": 342,
+        "width": 126,
+        "height": 31
       },
       "fact3Value": {
-        "x": 784,
-        "y": 256,
-        "width": 272,
-        "height": 48
+        "x": 773,
+        "y": 342,
+        "width": 174,
+        "height": 31
       },
       "fact4Label": {
-        "x": 624,
-        "y": 304,
-        "width": 160,
-        "height": 48
+        "x": 647,
+        "y": 373,
+        "width": 126,
+        "height": 31
       },
       "fact4Value": {
-        "x": 784,
-        "y": 304,
-        "width": 272,
-        "height": 48
+        "x": 773,
+        "y": 373,
+        "width": 174,
+        "height": 31
       },
       "fact5Label": {
-        "x": 624,
-        "y": 352,
-        "width": 160,
-        "height": 48
+        "x": 647,
+        "y": 404,
+        "width": 126,
+        "height": 31
       },
       "fact5Value": {
-        "x": 784,
-        "y": 352,
-        "width": 272,
-        "height": 48
+        "x": 773,
+        "y": 404,
+        "width": 174,
+        "height": 31
       }
     },
     "compact": {
       "designWidth": 740,
       "designHeight": 360,
       "window": {
-        "x": 72,
-        "y": 20,
-        "width": 596,
-        "height": 320
+        "x": 20,
+        "y": 13,
+        "width": 700,
+        "height": 335
       },
       "status": {
-        "x": 96,
-        "y": 36,
-        "width": 548,
-        "height": 28
+        "x": 20,
+        "y": 13,
+        "width": 700,
+        "height": 34
       },
       "plotPanel": {
-        "x": 88,
-        "y": 72,
-        "width": 236,
-        "height": 252
+        "x": 48,
+        "y": 61,
+        "width": 292,
+        "height": 196
       },
       "plotArea": {
-        "x": 102,
-        "y": 116,
-        "width": 208,
-        "height": 208
+        "x": 92,
+        "y": 51,
+        "width": 220,
+        "height": 220
       },
       "reportPanel": {
-        "x": 340,
-        "y": 76,
-        "width": 304,
-        "height": 262
+        "x": 362,
+        "y": 61,
+        "width": 330,
+        "height": 196
       },
       "factsArea": {
-        "x": 352,
-        "y": 76,
-        "width": 280,
-        "height": 150
+        "x": 377,
+        "y": 100,
+        "width": 300,
+        "height": 155
       },
       "warning": {
-        "x": 96,
-        "y": 38,
-        "width": 22,
-        "height": 22
+        "x": 377,
+        "y": 65,
+        "width": 24,
+        "height": 24
       },
       "title": {
-        "x": 96,
-        "y": 76,
-        "width": 220,
-        "height": 36
+        "x": 377,
+        "y": 65,
+        "width": 300,
+        "height": 31
       },
       "message": {
-        "x": 96,
-        "y": 108,
-        "width": 220,
-        "height": 18
+        "x": 377,
+        "y": 96,
+        "width": 300,
+        "height": 1
       },
       "footer": {
-        "x": 352,
-        "y": 236,
-        "width": 280,
-        "height": 102
+        "x": 48,
+        "y": 276,
+        "width": 644,
+        "height": 72
       },
       "buttons": {
         "intercept": {
-          "x": 352,
-          "y": 236,
-          "width": 280,
-          "height": 48
+          "x": 48,
+          "y": 289,
+          "width": 292,
+          "height": 50
         },
         "centre": {
-          "x": 352,
-          "y": 294,
-          "width": 210,
-          "height": 44
+          "x": 362,
+          "y": 289,
+          "width": 232,
+          "height": 50
         },
         "cancel": {
-          "x": 574,
-          "y": 294,
-          "width": 58,
-          "height": 44
+          "x": 604,
+          "y": 289,
+          "width": 88,
+          "height": 50
         }
       },
       "fact1Label": {
-        "x": 352,
-        "y": 76,
-        "width": 112,
-        "height": 30
+        "x": 377,
+        "y": 100,
+        "width": 126,
+        "height": 31
       },
       "fact1Value": {
-        "x": 464,
-        "y": 76,
-        "width": 168,
-        "height": 30
+        "x": 503,
+        "y": 100,
+        "width": 174,
+        "height": 31
       },
       "fact2Label": {
-        "x": 352,
-        "y": 106,
-        "width": 112,
-        "height": 30
+        "x": 377,
+        "y": 131,
+        "width": 126,
+        "height": 31
       },
       "fact2Value": {
-        "x": 464,
-        "y": 106,
-        "width": 168,
-        "height": 30
+        "x": 503,
+        "y": 131,
+        "width": 174,
+        "height": 31
       },
       "fact3Label": {
-        "x": 352,
-        "y": 136,
-        "width": 112,
-        "height": 30
+        "x": 377,
+        "y": 162,
+        "width": 126,
+        "height": 31
       },
       "fact3Value": {
-        "x": 464,
-        "y": 136,
-        "width": 168,
-        "height": 30
+        "x": 503,
+        "y": 162,
+        "width": 174,
+        "height": 31
       },
       "fact4Label": {
-        "x": 352,
-        "y": 166,
-        "width": 112,
-        "height": 30
+        "x": 377,
+        "y": 193,
+        "width": 126,
+        "height": 31
       },
       "fact4Value": {
-        "x": 464,
-        "y": 166,
-        "width": 168,
-        "height": 30
+        "x": 503,
+        "y": 193,
+        "width": 174,
+        "height": 31
       },
       "fact5Label": {
-        "x": 352,
-        "y": 196,
-        "width": 112,
-        "height": 30
+        "x": 377,
+        "y": 224,
+        "width": 126,
+        "height": 31
       },
       "fact5Value": {
-        "x": 464,
-        "y": 196,
-        "width": 168,
-        "height": 30
+        "x": 503,
+        "y": 224,
+        "width": 174,
+        "height": 31
       }
     },
     "portrait": {
@@ -432,137 +432,137 @@
         "height": 724
       },
       "status": {
-        "x": 24,
-        "y": 22,
-        "width": 312,
-        "height": 18
+        "x": 8,
+        "y": 8,
+        "width": 344,
+        "height": 34
       },
       "plotPanel": {
         "x": 24,
-        "y": 106,
+        "y": 58,
         "width": 312,
         "height": 232
       },
       "plotArea": {
         "x": 70,
-        "y": 112,
+        "y": 64,
         "width": 220,
         "height": 220
       },
       "reportPanel": {
         "x": 24,
-        "y": 346,
+        "y": 298,
         "width": 312,
-        "height": 190
+        "height": 233
       },
       "factsArea": {
-        "x": 24,
-        "y": 346,
-        "width": 312,
+        "x": 39,
+        "y": 337,
+        "width": 282,
         "height": 190
       },
       "warning": {
-        "x": 24,
-        "y": 52,
+        "x": 39,
+        "y": 302,
         "width": 24,
         "height": 24
       },
       "title": {
-        "x": 24,
-        "y": 84,
-        "width": 312,
-        "height": 38
+        "x": 39,
+        "y": 302,
+        "width": 282,
+        "height": 31
       },
       "message": {
-        "x": 24,
-        "y": 122,
-        "width": 312,
-        "height": 18
+        "x": 39,
+        "y": 333,
+        "width": 282,
+        "height": 1
       },
       "footer": {
         "x": 24,
         "y": 548,
         "width": 312,
-        "height": 164
+        "height": 166
       },
       "buttons": {
         "intercept": {
           "x": 24,
           "y": 548,
           "width": 312,
-          "height": 52
+          "height": 50
         },
         "centre": {
           "x": 24,
-          "y": 612,
+          "y": 606,
           "width": 312,
-          "height": 44
+          "height": 50
         },
         "cancel": {
           "x": 24,
-          "y": 668,
+          "y": 664,
           "width": 312,
-          "height": 44
+          "height": 50
         }
       },
       "fact1Label": {
-        "x": 24,
-        "y": 346,
+        "x": 39,
+        "y": 337,
         "width": 112,
         "height": 38
       },
       "fact1Value": {
-        "x": 136,
-        "y": 346,
-        "width": 200,
+        "x": 151,
+        "y": 337,
+        "width": 170,
         "height": 38
       },
       "fact2Label": {
-        "x": 24,
-        "y": 384,
+        "x": 39,
+        "y": 375,
         "width": 112,
         "height": 38
       },
       "fact2Value": {
-        "x": 136,
-        "y": 384,
-        "width": 200,
+        "x": 151,
+        "y": 375,
+        "width": 170,
         "height": 38
       },
       "fact3Label": {
-        "x": 24,
-        "y": 422,
+        "x": 39,
+        "y": 413,
         "width": 112,
         "height": 38
       },
       "fact3Value": {
-        "x": 136,
-        "y": 422,
-        "width": 200,
+        "x": 151,
+        "y": 413,
+        "width": 170,
         "height": 38
       },
       "fact4Label": {
-        "x": 24,
-        "y": 460,
+        "x": 39,
+        "y": 451,
         "width": 112,
         "height": 38
       },
       "fact4Value": {
-        "x": 136,
-        "y": 460,
-        "width": 200,
+        "x": 151,
+        "y": 451,
+        "width": 170,
         "height": 38
       },
       "fact5Label": {
-        "x": 24,
-        "y": 498,
+        "x": 39,
+        "y": 489,
         "width": 112,
         "height": 38
       },
       "fact5Value": {
-        "x": 136,
-        "y": 498,
-        "width": 200,
+        "x": 151,
+        "y": 489,
+        "width": 170,
         "height": 38
       }
     }

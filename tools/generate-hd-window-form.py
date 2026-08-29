@@ -358,6 +358,28 @@ BOARD_STYLE_KEYS = {
     "plotCourse",
 }
 BOARD_CANVASES = {"wide": (1280, 720), "compact": (740, 360), "portrait": (360, 740)}
+BOARD_LANDSCAPE_ORIGINS = {"wide": (290, 193), "compact": (20, 13)}
+BOARD_LANDSCAPE_RECTS = {
+    "window": (0, 0, 700, 335),
+    "status": (0, 0, 700, 34),
+    "plotPanel": (28, 48, 292, 196),
+    "plotArea": (72, 38, 220, 220),
+    "reportPanel": (342, 48, 330, 196),
+    "title": (357, 52, 300, 31),
+    "factsArea": (357, 87, 300, 155),
+    "footer": (28, 263, 644, 72),
+}
+BOARD_LANDSCAPE_BUTTONS = (
+    (28, 276, 292, 50),
+    (342, 276, 232, 50),
+    (584, 276, 88, 50),
+)
+
+
+def offset_board_rect(origin, rect):
+    return _rect(origin[0] + rect[0], origin[1] + rect[1], rect[2], rect[3])
+
+
 
 
 def validate_intel_board_template(template):
@@ -395,10 +417,10 @@ def validate_intel_board_template(template):
         raise FormError("contact-intel-board radar sweep period must stay 3600ms")
     sizing = template.get("contentSizing") or {}
     expected_sizing = {
-        "wide": {"safeMarginPx": 24, "factCount": 5, "factLabelWidth": 160,
-                 "factRowHeight": 48, "factRowGap": 0},
-        "compact": {"safeMarginPx": 16, "factCount": 5, "factLabelWidth": 112,
-                    "factRowHeight": 30, "factRowGap": 0},
+        "wide": {"safeMarginPx": 24, "factCount": 5, "factLabelWidth": 126,
+                 "factRowHeight": 31, "factRowGap": 0},
+        "compact": {"safeMarginPx": 16, "factCount": 5, "factLabelWidth": 126,
+                    "factRowHeight": 31, "factRowGap": 0},
         "portrait": {"safeMarginPx": 16, "factCount": 5, "factLabelWidth": 112,
                      "factRowHeight": 38, "factRowGap": 0},
     }
@@ -407,6 +429,17 @@ def validate_intel_board_template(template):
     layouts = template.get("layouts") or {}
     if set(layouts) != set(BOARD_LAYOUT_ORDER):
         raise FormError("template requires exact wide/compact/portrait layouts")
+    for name, origin in BOARD_LANDSCAPE_ORIGINS.items():
+        layout = layouts[name]
+        for key, rect in BOARD_LANDSCAPE_RECTS.items():
+            if layout.get(key) != offset_board_rect(origin, rect):
+                raise FormError(name + "." + key
+                                + " drifted from locked contact-board geometry")
+        expected_buttons = [
+            offset_board_rect(origin, rect) for rect in BOARD_LANDSCAPE_BUTTONS]
+        if layout.get("buttonSlots") != expected_buttons:
+            raise FormError(name
+                            + ".buttonSlots drifted from locked contact-board geometry")
     part_keys = ("window", "status", "plotPanel", "plotArea", "reportPanel",
                  "factsArea", "warning", "title", "message", "footer")
     for name in BOARD_LAYOUT_ORDER:
@@ -423,8 +456,8 @@ def validate_intel_board_template(template):
                     "title", "message"):
             if not contained(layout[key], layout["window"]):
                 raise FormError(name + "." + key + " escaped the window")
-        if not contained(layout["plotArea"], layout["plotPanel"]):
-            raise FormError(name + ".plotArea escaped the plot panel")
+        if not contained(layout["plotArea"], layout["window"]):
+            raise FormError(name + ".plotArea escaped the window")
         if layout["plotArea"]["width"] != layout["plotArea"]["height"]:
             raise FormError(name + ".plotArea must stay square (circular radar)")
         if not contained(layout["factsArea"], layout["reportPanel"]):
@@ -560,6 +593,7 @@ def validate_intel_board_config(config, template):
 
 def build_intel_board_contract(config, template, source_name):
     """Expand a contact-intel-board config into the canonical contract."""
+    validate_intel_board_template(template)
     validate_intel_board_config(config, template)
 
     def generated_button(button):
@@ -1008,8 +1042,7 @@ def protocol_text(protocol, layouts, template, presentation):
     inset = scaled_edge(
         template["style"]["protocolTextInsetPx"], numerator, denominator)
     limits = []
-    # Portrait is board-v2 only; templates without it simply don't constrain.
-    for name, base_font in (("wide", 10), ("compact", 9), ("portrait", 9)):
+    for name, base_font in (("wide", 10), ("compact", 9), ("portrait", 8)):
         if name not in layouts:
             continue
         font_px = max(8, scaled_edge(base_font, numerator, denominator))
