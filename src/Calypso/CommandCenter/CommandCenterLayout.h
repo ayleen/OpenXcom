@@ -40,7 +40,7 @@ struct CommandCenterLayout
 	RectF timeline;
 	RectF inspector;
 
-	RectF sessionSelector;
+	RectF baseSelector;
 	RectF dateTimeBlock;
 	RectF systemStatusBlock;
 	RectF notificationButton;

@@ -15,6 +15,7 @@
 #include "../Interface/Text.h"
 #include "../Interface/TextButton.h"
 #include "../Savegame/SavedGame.h"
+#include "../Savegame/Base.h"
 
 #include "CalypsoCommandActionStyle.h"
 #include "CommandCenter/CommandCenterRenderer.h"
@@ -481,10 +482,26 @@ void CalypsoHdScreenRenderer::collect(CalypsoHdFrameBuilder& builder) const
 		auto* geoscapeState = live ? static_cast<GeoscapeState*>(const_cast<void*>(_state)) : nullptr;
 		if (geoscapeState != nullptr)
 		{
+			snap.baseCaption = geoscapeState->tr("STR_BASES");
 			const auto txt = [](const Text* value) { return value ? value->getText() : std::string(); };
 			snap.displayTime = txt(geoscapeState->_txtHour) + ":" + txt(geoscapeState->_txtMin);
 			snap.displayDate = txt(geoscapeState->_txtDay) + " " + txt(geoscapeState->_txtMonth)
 				+ " " + txt(geoscapeState->_txtYear);
+			const SavedGame* save = geoscapeState->_game
+				? geoscapeState->_game->getSavedGame() : nullptr;
+			if (save != nullptr && save->getBases() != nullptr)
+			{
+				for (const Base* base : *save->getBases())
+					snap.baseNames.push_back(base->getName());
+				snap.selectedBaseIndex =
+					CalypsoGeoscapeHdShell::selectedBaseIndex(geoscapeState);
+				if (snap.selectedBaseIndex >= snap.baseNames.size())
+					snap.selectedBaseIndex = 0;
+				if (!snap.baseNames.empty())
+					snap.baseName = snap.baseNames[snap.selectedBaseIndex];
+				snap.baseSelectorOpen =
+					CalypsoGeoscapeHdShell::isBaseSelectorOpen(geoscapeState);
+			}
 			snap.simulationPlaying = !geoscapeState->_pause;
 			if (geoscapeState->_timeSpeed == geoscapeState->_btn5Secs) snap.selectedTimeStep = 0;
 			else if (geoscapeState->_timeSpeed == geoscapeState->_btn1Min) snap.selectedTimeStep = 1;
@@ -497,6 +514,7 @@ void CalypsoHdScreenRenderer::collect(CalypsoHdFrameBuilder& builder) const
 		{
 			snap.displayTime = "14:18 UTC"; // reference state (spec s.61)
 			snap.displayDate = "1 JAN 2040";
+			snap.baseNames.push_back(snap.baseName);
 		}
 		// Layout mode selection belongs exclusively to CommandCenterLayout and
 		// receives CSS viewport dimensions, never Retina backing dimensions.

@@ -5,6 +5,7 @@
 #ifdef __EMSCRIPTEN__
 
 #include "CommandCenterRenderer.h"
+#include "CommandCenterInteraction.h"
 
 #include <emscripten/emscripten.h>
 
@@ -43,6 +44,22 @@ CalypsoF21Rect ccF21(const RectF& r)
 CalypsoLogicalRect ccLogical(const CalypsoF21Painter& painter, const RectF& r)
 {
 	return painter.project(ccF21(r));
+}
+
+constexpr float BaseSelectorRowStride = 40.0f;
+
+RectF ccBaseSelectorDropdown(const RectF& selector, std::size_t baseCount)
+{
+	return {selector.x, selector.bottom() + 6.0f, selector.width,
+		8.0f + BaseSelectorRowStride * static_cast<float>(baseCount)};
+}
+
+RectF ccBaseSelectorRow(const RectF& selector, std::size_t index)
+{
+	const RectF dropdown = ccBaseSelectorDropdown(selector, index + 1);
+	return {dropdown.x + 4.0f,
+		dropdown.y + 4.0f + BaseSelectorRowStride * static_cast<float>(index),
+		dropdown.width - 8.0f, BaseSelectorRowStride - 4.0f};
 }
 
 bool g_calypsoCcEnabled = false;
@@ -414,8 +431,8 @@ void calypsoCcRender(CalypsoF21Painter& painter, const CommandCenterLayout& layo
 
 	// Pass 11: header content (spec s.19-21).
 	{
-		// Session selector.
-		const RectF& sel = layout.sessionSelector;
+		// Base selector.
+		const RectF& sel = layout.baseSelector;
 		ccPanel(painter, sel, RadiusSM, BgPanel, BgPanel, Border, false, role);
 		const RectF avatar{ sel.x + 10.0f, sel.y + 8.0f, 32.0f, 32.0f };
 		{
@@ -426,14 +443,44 @@ void calypsoCcRender(CalypsoF21Painter& painter, const CommandCenterLayout& layo
 			ring.borderWidthPx = 1.0f;
 			ring.borderColorRgba = 0x81E0B54Du;
 			ccRect(painter, avatar, ring, role);
-			ccIcon(painter, avatar, CcIcon::World, fonts, px(Accent), 19.0f, role);
+			ccIcon(painter, avatar, CcIcon::Bases, fonts, px(Accent), 19.0f, role);
 		}
 		ccText(painter, RectF{avatar.right() + 10.0f, sel.y + 9.0f, 120.0f, 11.0f}, fonts.plexM,
-			snap.sessionCaption, px(TextMuted), 9.0f, 0.12f, CalypsoHdHAlign::Left, role);
+			snap.baseCaption, px(TextMuted), 9.0f, 0.12f, CalypsoHdHAlign::Left, role);
 		ccText(painter, RectF{avatar.right() + 10.0f, sel.y + 22.0f, 120.0f, 16.0f}, fonts.interSb,
-			snap.sessionName, px(TextPrimary), 12.0f, 0.04f, CalypsoHdHAlign::Left, role);
+			snap.baseName, px(TextPrimary), 12.0f, 0.04f, CalypsoHdHAlign::Left, role);
 		ccIcon(painter, RectF{sel.right() - 26.0f, sel.y, 16.0f, sel.height}, CcIcon::ChevronDown,
 			fonts, px(TextSecondary), 14.0f, role);
+
+		if (snap.baseSelectorOpen && !snap.baseNames.empty())
+		{
+			ccPanel(painter, ccBaseSelectorDropdown(sel, snap.baseNames.size()),
+				RadiusSM, BgPanel, BgRoot, Border, true, role);
+			for (std::size_t index = 0; index < snap.baseNames.size(); ++index)
+			{
+				const RectF row = ccBaseSelectorRow(sel, index);
+				const bool selected = index == snap.selectedBaseIndex;
+				CalypsoHdPanelStyle rowStyle;
+				rowStyle.styled = true;
+				rowStyle.radiusPx = RadiusSM;
+				rowStyle.borderWidthPx = 1.0f;
+				rowStyle.borderColorRgba = selected ? px(Accent) : px(BorderSoft);
+				rowStyle.fillTopRgba = selected ? 0x81E0B51Fu : 0x071522F2u;
+				rowStyle.fillBottomRgba = selected ? 0x81E0B509u : 0x04101CF2u;
+				ccRect(painter, row, rowStyle, role);
+				if (selected)
+					painter.decoration(ccLogical(painter,
+						{row.x, row.y + 8.0f, 3.0f, row.height - 16.0f}),
+						px(Accent), role++);
+				ccIcon(painter, RectF{row.x + 8.0f, row.y, 28.0f, row.height},
+					CcIcon::Bases, fonts, selected ? px(Accent) : px(TextSecondary),
+					16.0f, role);
+				ccText(painter, RectF{row.x + 40.0f, row.y, row.width - 48.0f, row.height},
+					fonts.interSb, snap.baseNames[index],
+					selected ? px(TextPrimary) : px(TextSecondary), 11.0f, 0.02f,
+					CalypsoHdHAlign::Left, role);
+			}
+		}
 
 		// Right group: date/time, divider, system status, bell (spec s.20-21).
 		const float rightGroupX = layout.header.width - 16.0f - 329.0f;
@@ -473,15 +520,26 @@ void calypsoCcRender(CalypsoF21Painter& painter, const CommandCenterLayout& layo
 		calypsoCcSetStageRect(sr);
 		Surface* session = const_cast<Surface*>(CalypsoGeoscapeHdShell::resolveLiveWidget(state, "action.session"));
 		Surface* pause = const_cast<Surface*>(CalypsoGeoscapeHdShell::resolveLiveWidget(state, "time.pause"));
-		ccBind(painter, session, layout.sessionSelector, role);
+		ccBind(painter, session, layout.baseSelector, role);
+		if (snap.baseSelectorOpen)
+		{
+			for (std::size_t index = 0; index < snap.baseNames.size(); ++index)
+				ccBind(painter,
+					CalypsoGeoscapeHdShell::resolveBaseSelectorRow(state, index),
+					ccBaseSelectorRow(layout.baseSelector, index), role);
+		}
 		ccBind(painter, pause, RectF{layout.timeline.x + 20.0f,
 			layout.timeline.y + 12.0f + (layout.timeline.height - 24.0f - 56.0f) / 2.0f, 56.0f, 56.0f}, role);
-		// Rail items: provisional action mapping (spec s.76) until the
-		// backend stage introduces the section router.
-		ccBind(painter, CalypsoGeoscapeHdShell::resolveWidget(state, "btnBases"), RectF{layout.navigationRail.x + 8.0f, layout.navigationRail.y + Space5 + 76.0f, layout.navigationRail.width - 16.0f, 72.0f}, role);
-		ccBind(painter, CalypsoGeoscapeHdShell::resolveWidget(state, "btnGraphs"), RectF{layout.navigationRail.x + 8.0f, layout.navigationRail.y + Space5 + 152.0f, layout.navigationRail.width - 16.0f, 72.0f}, role);
-		ccBind(painter, CalypsoGeoscapeHdShell::resolveWidget(state, "btnIntercept"), RectF{layout.navigationRail.x + 8.0f, layout.navigationRail.y + Space5 + 228.0f, layout.navigationRail.width - 16.0f, 72.0f}, role);
-		ccBind(painter, CalypsoGeoscapeHdShell::resolveWidget(state, "btnUfopaedia"), RectF{layout.navigationRail.x + 8.0f, layout.navigationRail.y + Space5 + 304.0f, layout.navigationRail.width - 16.0f, 72.0f}, role);
+		// Rail labels are presentation categories; the pure interaction contract
+		// pins each slot to its existing native handler.
+		for (int slot = 1; slot < 5; ++slot)
+		{
+			const char* member = nativeWidgetForRailAction(railActionForSlot(slot));
+			ccBind(painter, CalypsoGeoscapeHdShell::resolveWidget(state, member),
+				RectF{layout.navigationRail.x + 8.0f,
+					layout.navigationRail.y + Space5 + 76.0f * slot,
+					layout.navigationRail.width - 16.0f, 72.0f}, role);
+		}
 		ccBind(painter, CalypsoGeoscapeHdShell::resolveWidget(state, "btnOptions"), RectF{layout.navigationRail.x + 24.0f, layout.navigationRail.bottom() - 56.0f, 40.0f, 40.0f}, role);
 		// Time steps: the six native buttons map onto the selector segments.
 		const float stepsX = layout.timeline.x + 12.0f + 64.0f + 12.0f;

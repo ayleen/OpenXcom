@@ -3,10 +3,10 @@
  * Command Center -- renderer (normative spec 2026-08-28, s.11/s.16-48).
  *
  * Emits the Command Center screen as HD overlay items through the shared
- * painter: root background, header (session selector, date/time, divider,
- * system status, bell), navigation rail with active indicator, clipped
- * stage, zoom cluster and timeline (play/pause, time steps, ruler,
- * fullscreen). The selected-object/intercept panel is owned by the separate
+ * painter: root background, header (base selector, date/time, divider,
+ * system status, bell), navigation rail with active indicator, clipped stage,
+ * zoom cluster and timeline (play/pause, time steps, ruler, fullscreen).
+ * The selected-object/intercept panel is owned by the separate
  * interception flow and is intentionally absent here. Layout comes exclusively
  * from CommandCenterLayout; colours exclusively from CommandCenterTheme.
  *
@@ -22,6 +22,8 @@
 #include "../CalypsoF21UiShared.h"
 
 #include <string>
+#include <cstddef>
+#include <vector>
 
 namespace OpenXcom
 {
@@ -39,8 +41,11 @@ namespace CommandCenter
 /// backend state mid-frame; the caller builds this once.
 struct CommandCenterSnapshot
 {
-	std::string sessionCaption = "SESSION";
-	std::string sessionName = "AURORA DAWN";
+	std::string baseCaption = "BASES";
+	std::string baseName = "AURORA DAWN";
+	std::vector<std::string> baseNames;
+	std::size_t selectedBaseIndex = 0;
+	bool baseSelectorOpen = false;
 	std::string displayTime;
 	std::string displayDate;
 	std::string systemStatus = "NOMINAL";

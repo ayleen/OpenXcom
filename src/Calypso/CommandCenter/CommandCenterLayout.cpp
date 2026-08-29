@@ -27,7 +27,7 @@ void layoutHeaderContent(CommandCenterLayout& layout, float viewportWidth,
 {
 	using namespace CommandCenterTheme;
 
-	layout.sessionSelector = { sideInset, (headerHeight - 48.0f) / 2.0f, 220.0f, 48.0f };
+	layout.baseSelector = { sideInset, (headerHeight - 48.0f) / 2.0f, 220.0f, 48.0f };
 
 	const float rightGroupWidth = 112.0f + 16.0f + 1.0f + 16.0f + 128.0f + 16.0f + 40.0f;
 	const float rightGroupX = viewportWidth - sideInset - rightGroupWidth;

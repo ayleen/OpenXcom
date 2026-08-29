@@ -8,6 +8,7 @@
  * container (Stage 9.1.3). Handlers stay authoritative in GeoscapeState. */
 
 #include <string>
+#include <cstddef>
 
 namespace OpenXcom
 {
@@ -25,9 +26,14 @@ struct CalypsoGeoscapeHdShell
 	static const Surface* resolveLiveWidget(const GeoscapeState *s, const std::string& actionId);
 	static Surface* resolveLiveWidget(GeoscapeState *s, const std::string& actionId);
 	static bool isLiveActionVisible(const GeoscapeState *s, const std::string& actionId);
+	static Surface* resolveBaseSelectorRow(GeoscapeState *s, std::size_t index);
+	static bool isBaseSelectorOpen(const GeoscapeState *s);
+	static std::size_t selectedBaseIndex(const GeoscapeState *s);
 	static CalypsoGeoscapeHdShellState* state(GeoscapeState *s);
+	static void applyPendingBaseFocus(GeoscapeState *s);
 
-	/// Toggle the secondary-route drawer (action.session affordance).
+	/// Toggle/close the state-owned secondary drawer or Command Center base
+	/// selector. Both remain scoped to this GeoscapeState instance.
 	static void toggleDrawer(GeoscapeState *s);
 	static bool closeDrawer(GeoscapeState *s);
 
