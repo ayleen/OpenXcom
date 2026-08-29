@@ -32,14 +32,6 @@ namespace
 
 using CommandCenterTheme::Color8;
 
-CalypsoLogicalRect ccLogical(const RectF& r)
-{
-	return { static_cast<int>(std::lround(r.x)), static_cast<int>(std::lround(r.y)),
-		static_cast<int>(std::lround(r.width)), static_cast<int>(std::lround(r.height)) };
-}
-
-bool g_calypsoCcEnabled = false;
-
 /// The painter consumes integer design rects; Command Center geometry is
 /// float (spec s.4), so every draw rounds once at this boundary.
 CalypsoF21Rect ccF21(const RectF& r)
@@ -47,6 +39,13 @@ CalypsoF21Rect ccF21(const RectF& r)
 	return { static_cast<int>(std::lround(r.x)), static_cast<int>(std::lround(r.y)),
 		static_cast<int>(std::lround(r.width)), static_cast<int>(std::lround(r.height)) };
 }
+
+CalypsoLogicalRect ccLogical(const CalypsoF21Painter& painter, const RectF& r)
+{
+	return painter.project(ccF21(r));
+}
+
+bool g_calypsoCcEnabled = false;
 
 /// s.11: one panel helper for every Command Center surface.
 void ccPanel(CalypsoF21Painter& painter, const RectF& rect, float radius,
@@ -57,7 +56,7 @@ void ccPanel(CalypsoF21Painter& painter, const RectF& rect, float radius,
 	{
 		CalypsoHdPanelStyle farShadow;
 		farShadow.styled = true;
-		farShadow.radiusPx = radius + 8.0f;
+		farShadow.radiusPx = (radius + 8.0f) * static_cast<float>(painter.uiScale);
 		farShadow.fillTopRgba = farShadow.fillBottomRgba = 0x0000001Eu;
 		RectF far = inflate(rect, 8.0f);
 		far.y += 8.0f;
@@ -65,8 +64,8 @@ void ccPanel(CalypsoF21Painter& painter, const RectF& rect, float radius,
 	}
 	CalypsoHdPanelStyle panel;
 	panel.styled = true;
-	panel.radiusPx = radius;
-	panel.borderWidthPx = 1.0f;
+	panel.radiusPx = radius * static_cast<float>(painter.uiScale);
+	panel.borderWidthPx = static_cast<float>(painter.uiScale);
 	panel.borderColorRgba = CommandCenterTheme::packed(border);
 	panel.fillTopRgba = CommandCenterTheme::packed(top);
 	panel.fillBottomRgba = CommandCenterTheme::packed(bottom);
@@ -74,7 +73,7 @@ void ccPanel(CalypsoF21Painter& painter, const RectF& rect, float radius,
 	panel.gradDirY = 1.0f;
 	painter.styled(painter.project(ccF21(rect)), panel, nullptr, role++);
 	// Very weak top highlight (s.11 step 5).
-	painter.decoration(ccLogical({rect.x + radius, rect.y + 1.0f,
+	painter.decoration(ccLogical(painter, {rect.x + radius, rect.y + 1.0f,
 		std::max(1.0f, rect.width - radius * 2.0f), 1.0f}), 0xFFFFFF06u, role++);
 }
 
@@ -100,7 +99,13 @@ void ccText(CalypsoF21Painter& painter, const RectF& rect,
 void ccRect(CalypsoF21Painter& painter, const RectF& rect, const CalypsoHdPanelStyle& style,
 	std::uint32_t& role, const void* widget = nullptr)
 {
-	painter.styled(painter.project(ccF21(rect)), style, widget, role++);
+	CalypsoHdPanelStyle projectedStyle = style;
+	const float scale = static_cast<float>(painter.uiScale);
+	projectedStyle.radiusPx *= scale;
+	projectedStyle.cutCornerPx *= scale;
+	projectedStyle.borderWidthPx *= scale;
+	projectedStyle.glowRadiusPx *= scale;
+	painter.styled(painter.project(ccF21(rect)), projectedStyle, widget, role++);
 }
 
 /// Bind one live native widget to a Command Center rect: reposition, claim
@@ -109,10 +114,18 @@ void ccBind(CalypsoF21Painter& painter, Surface* widget, const RectF& rect,
 	std::uint32_t& role)
 {
 	if (widget == nullptr) return;
-	widget->setX(static_cast<int>(rect.x));
-	widget->setY(static_cast<int>(rect.y));
-	widget->setWidth(static_cast<int>(rect.width));
-	widget->setHeight(static_cast<int>(rect.height));
+	const CalypsoLogicalRect projected = painter.project(ccF21(rect));
+	const int x = projected.x;
+	const int y = projected.y;
+	const int width = projected.w;
+	const int height = projected.h;
+	if (widget->getX() != x) widget->setX(x);
+	if (widget->getY() != y) widget->setY(y);
+	// Surface::setWidth/setHeight recreate and copy the SDL surface. Calling
+	// them unconditionally for every bound widget on every frame caused
+	// sustained allocation churn, progressive input lag and eventual stalls.
+	if (widget->getWidth() != width) widget->setWidth(width);
+	if (widget->getHeight() != height) widget->setHeight(height);
 	painter.claim(widget, role++);
 }
 
@@ -157,7 +170,7 @@ CommandCenterFonts calypsoCcResolveFonts(const Mod* mod)
 
 void calypsoCcRender(CalypsoF21Painter& painter, const CommandCenterLayout& layout,
 	const CommandCenterSnapshot& snap, const CommandCenterFonts& fonts,
-	bool live, GeoscapeState* state, std::uint32_t& role)
+	double densityScale, bool live, GeoscapeState* state, std::uint32_t& role)
 {
 	using namespace CommandCenterTheme;
 	const auto px = CommandCenterTheme::packed;
@@ -195,7 +208,7 @@ void calypsoCcRender(CalypsoF21Painter& painter, const CommandCenterLayout& layo
 	// Pass 2: header background + bottom hairline (spec s.18).
 	ccPanel(painter, layout.header, 0.0f, Color8{0x05,0x11,0x1E,0xFF},
 		Color8{0x03,0x0D,0x18,0xFF}, BgHeader, false, role);
-	painter.decoration(ccLogical({layout.header.x, layout.header.bottom() - 1.0f,
+	painter.decoration(ccLogical(painter, {layout.header.x, layout.header.bottom() - 1.0f,
 		layout.header.width, 1.0f}), px(BorderSoft), role++);
 
 	// Pass 3: navigation rail background + right hairline (spec s.22).
@@ -207,7 +220,7 @@ void calypsoCcRender(CalypsoF21Painter& painter, const CommandCenterLayout& layo
 		rail.gradDirX = 0.0f;
 		rail.gradDirY = 1.0f;
 		ccRect(painter, layout.navigationRail, rail, role);
-		painter.decoration(ccLogical({layout.navigationRail.right() - 1.0f,
+		painter.decoration(ccLogical(painter, {layout.navigationRail.right() - 1.0f,
 			layout.navigationRail.y, 1.0f, layout.navigationRail.height}),
 			px(BorderSoft), role++);
 	}
@@ -225,7 +238,7 @@ void calypsoCcRender(CalypsoF21Painter& painter, const CommandCenterLayout& layo
 		ccRect(painter, layout.stage, stageFill, role);
 		for (float y = layout.stage.y + 1.0f; y < layout.stage.bottom() - 2.0f; y += 48.0f)
 			for (float x = layout.stage.x + 1.0f; x < layout.stage.right() - 2.0f; x += 48.0f)
-				painter.decoration(ccLogical({x, y, 1.2f, 1.2f}), 0x8FB1C638u, role++);
+				painter.decoration(ccLogical(painter, {x, y, 1.2f, 1.2f}), 0x8FB1C638u, role++);
 	}
 	{
 		CalypsoHdPanelStyle frame;
@@ -245,7 +258,7 @@ void calypsoCcRender(CalypsoF21Painter& painter, const CommandCenterLayout& layo
 			Color8{0x07,0x16,0x24,0xF5}, Border, false, role);
 		ccIcon(painter, RectF{z.x, z.y, z.width, 42.0f}, CcIcon::Plus, fonts,
 			px(TextSecondary), 18.0f, role);
-		painter.decoration(ccLogical({z.x + 4.0f, z.y + 41.5f, z.width - 8.0f, 1.0f}),
+		painter.decoration(ccLogical(painter, {z.x + 4.0f, z.y + 41.5f, z.width - 8.0f, 1.0f}),
 			px(BorderSoft), role++);
 		ccIcon(painter, RectF{z.x, z.y + 42.0f, z.width, 42.0f}, CcIcon::Minus, fonts,
 			px(TextSecondary), 18.0f, role);
@@ -283,8 +296,8 @@ void calypsoCcRender(CalypsoF21Painter& painter, const CommandCenterLayout& layo
 			circle.borderColorRgba = px(Accent);
 			ccRect(painter, play, circle, role);
 		}
-		painter.decoration(ccLogical({play.x + play.width / 2.0f - 6.0f, play.y + 19.0f, 3.0f, 18.0f}), px(TextPrimary), role++);
-		painter.decoration(ccLogical({play.x + play.width / 2.0f + 3.0f, play.y + 19.0f, 3.0f, 18.0f}), px(TextPrimary), role++);
+		painter.decoration(ccLogical(painter, {play.x + play.width / 2.0f - 6.0f, play.y + 19.0f, 3.0f, 18.0f}), px(TextPrimary), role++);
+		painter.decoration(ccLogical(painter, {play.x + play.width / 2.0f + 3.0f, play.y + 19.0f, 3.0f, 18.0f}), px(TextPrimary), role++);
 
 		// Time step selector (spec s.46).
 		const float stepsX = playCol.right() + 12.0f;
@@ -305,12 +318,12 @@ void calypsoCcRender(CalypsoF21Painter& painter, const CommandCenterLayout& layo
 			const RectF seg{ steps.x + segW * i, steps.y, segW, steps.height };
 			const bool active = i == snap.selectedTimeStep;
 			if (i > 0)
-				painter.decoration(ccLogical({seg.x, seg.y + 6.0f, 1.0f, seg.height - 12.0f}), px(BorderSoft), role++);
+				painter.decoration(ccLogical(painter, {seg.x, seg.y + 6.0f, 1.0f, seg.height - 12.0f}), px(BorderSoft), role++);
 			ccText(painter, RectF{seg.x, seg.y, seg.width, seg.height - 4.0f}, fonts.plexM,
 				kTimeSteps[i], active ? px(Accent) : px(TextMuted), 9.0f, 0.06f,
 				CalypsoHdHAlign::Center, role);
 			if (active)
-				painter.decoration(ccLogical({seg.x + 10.0f, seg.bottom() - 3.0f, seg.width - 20.0f, 2.0f}), px(Accent), role++);
+				painter.decoration(ccLogical(painter, {seg.x + 10.0f, seg.bottom() - 3.0f, seg.width - 20.0f, 2.0f}), px(Accent), role++);
 		}
 
 		// Ruler (spec s.47).
@@ -319,15 +332,15 @@ void calypsoCcRender(CalypsoF21Painter& painter, const CommandCenterLayout& layo
 		if (rulerH > 12.0f)
 		{
 			const RectF ruler{ steps.x, rulerY, steps.width, rulerH };
-			painter.decoration(ccLogical({ruler.x, ruler.y + ruler.height / 2.0f, ruler.width, 1.0f}), px(BorderStrong), role++);
+			painter.decoration(ccLogical(painter, {ruler.x, ruler.y + ruler.height / 2.0f, ruler.width, 1.0f}), px(BorderStrong), role++);
 			const float stepW = ruler.width / 6.0f;
 			for (int i = 0; i <= 6; ++i)
 			{
 				const float x = ruler.x + stepW * i;
-				painter.decoration(ccLogical({x, ruler.y + ruler.height / 2.0f - 4.0f, 1.0f, 8.0f}), px(BorderStrong), role++);
+				painter.decoration(ccLogical(painter, {x, ruler.y + ruler.height / 2.0f - 4.0f, 1.0f, 8.0f}), px(BorderStrong), role++);
 				if (i < 6)
 					for (int m = 1; m <= 4; ++m)
-						painter.decoration(ccLogical({x + stepW * m / 5.0f, ruler.y + ruler.height / 2.0f - 2.0f, 1.0f, 4.0f}), px(BorderStrong), role++);
+						painter.decoration(ccLogical(painter, {x + stepW * m / 5.0f, ruler.y + ruler.height / 2.0f - 2.0f, 1.0f, 4.0f}), px(BorderStrong), role++);
 			}
 			const float markerX = ruler.x + ruler.width * 0.085f;
 			CalypsoHdPanelStyle haloDot;
@@ -378,7 +391,7 @@ void calypsoCcRender(CalypsoF21Painter& painter, const CommandCenterLayout& layo
 				glowBar.glowRgba = 0x81E0B514u;
 				glowBar.glowRadiusPx = 5.0f;
 				ccRect(painter, RectF{item.x - 6.0f, item.y + 13.0f, 13.0f, 46.0f}, glowBar, role);
-				painter.decoration(ccLogical({item.x - 1.0f, item.y + 18.0f, 3.0f, 36.0f}), px(Accent), role++);
+				painter.decoration(ccLogical(painter, {item.x - 1.0f, item.y + 18.0f, 3.0f, 36.0f}), px(Accent), role++);
 			}
 			ccIcon(painter, RectF{item.x, item.y + 14.0f, item.width, 22.0f}, kRailItems[i].icon,
 				fonts, active ? px(Accent) : px(TextSecondary), 22.0f, role);
@@ -429,18 +442,18 @@ void calypsoCcRender(CalypsoF21Painter& painter, const CommandCenterLayout& layo
 			snap.displayTime, px(TextPrimary), 10.0f, 0.08f, CalypsoHdHAlign::Right, role);
 		ccText(painter, RectF{dt.x, dt.y + 18.0f, dt.width, 14.0f}, fonts.plexM,
 			snap.displayDate, px(TextSecondary), 10.0f, 0.08f, CalypsoHdHAlign::Right, role);
-		painter.decoration(ccLogical({rightGroupX + 113.0f, layout.header.y + (layout.header.height - 32.0f) / 2.0f, 1.0f, 32.0f}), px(Border), role++);
+		painter.decoration(ccLogical(painter, {rightGroupX + 113.0f, layout.header.y + (layout.header.height - 32.0f) / 2.0f, 1.0f, 32.0f}), px(Border), role++);
 		const RectF& st = layout.systemStatusBlock;
 		ccText(painter, RectF{st.x, st.y, st.width, 11.0f}, fonts.plexM,
 			"SYSTEM STATUS", px(TextMuted), 8.0f, 0.12f, CalypsoHdHAlign::Left, role);
-		painter.decoration(ccLogical({st.x, st.y + 17.0f, 6.0f, 6.0f}),
+		painter.decoration(ccLogical(painter, {st.x, st.y + 17.0f, 6.0f, 6.0f}),
 			snap.systemNominal ? px(Success) : px(Danger), role++);
 		ccText(painter, RectF{st.x + 12.0f, st.y + 12.0f, st.width - 12.0f, 14.0f}, fonts.plexSb,
 			snap.systemStatus, px(TextSecondary), 10.0f, 0.08f, CalypsoHdHAlign::Left, role);
 		ccIcon(painter, layout.notificationButton, CcIcon::Bell, fonts,
 			snap.hasUnreadNotification ? px(TextPrimary) : px(TextSecondary), 18.0f, role);
 		if (snap.hasUnreadNotification)
-			painter.decoration(ccLogical({layout.notificationButton.right() - 13.0f, layout.notificationButton.y + 7.0f, 6.0f, 6.0f}), px(Accent), role++);
+			painter.decoration(ccLogical(painter, {layout.notificationButton.right() - 13.0f, layout.notificationButton.y + 7.0f, 6.0f, 6.0f}), px(Accent), role++);
 	}
 
 	// Live widget binding: reposition the existing interactive surfaces onto
@@ -448,16 +461,15 @@ void calypsoCcRender(CalypsoF21Painter& painter, const CommandCenterLayout& layo
 	// (spec s.76 -- handlers stay, only the call points move).
 	if (live && state != nullptr)
 	{
-		// Stage 7: publish the stage rect in GLOBE-WIDGET logical pixels.
-		// The direct pass multiplies by the screen scales exactly like its
-		// own u_globeCenter math, so the globe disk, routes and scissor land
-		// inside the stage regardless of DPR or canvas fitting.
+		// Layout is authored in CSS pixels so control size is independent of
+		// Retina backing density. The globe world pass consumes physical
+		// backing pixels, therefore publish the stage through the same DPR.
 		CcStageRect sr;
 		sr.active = true;
-		sr.x = (int)std::llround(layout.stage.x);
-		sr.y = (int)std::llround(layout.stage.y);
-		sr.w = (int)std::llround(layout.stage.width);
-		sr.h = (int)std::llround(layout.stage.height);
+		sr.x = (int)std::llround(layout.stage.x * densityScale);
+		sr.y = (int)std::llround(layout.stage.y * densityScale);
+		sr.w = (int)std::llround(layout.stage.width * densityScale);
+		sr.h = (int)std::llround(layout.stage.height * densityScale);
 		calypsoCcSetStageRect(sr);
 		Surface* session = const_cast<Surface*>(CalypsoGeoscapeHdShell::resolveLiveWidget(state, "action.session"));
 		Surface* pause = const_cast<Surface*>(CalypsoGeoscapeHdShell::resolveLiveWidget(state, "time.pause"));

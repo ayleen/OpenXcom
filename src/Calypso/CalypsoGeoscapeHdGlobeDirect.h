@@ -14,6 +14,7 @@
 #include "../Engine/Game.h"
 #include "../Engine/Logger.h"
 #include "CalypsoHdUiOverlay.h"
+#include "CalypsoViewportRuntime.h"
 #include "../Engine/GpuTexture.h"
 #include "../Engine/Options.h"
 #include "../Engine/Screen.h"
@@ -210,6 +211,18 @@ struct CalypsoGeoscapeHdGlobeDirect
 		if (!Calypso::CommandCenter::calypsoCcEnabled())
 			return true;
 
+		const auto& viewport = Calypso::calypsoViewportRuntime();
+		const auto& viewportMetrics = viewport.current();
+		const double densityX = viewportMetrics.logicalWidth > 0
+			? static_cast<double>(viewport.physicalWidth()) / viewportMetrics.logicalWidth
+			: 1.0;
+		const double densityY = viewportMetrics.logicalHeight > 0
+			? static_cast<double>(viewport.physicalHeight()) / viewportMetrics.logicalHeight
+			: 1.0;
+		if (densityX <= 0.0 || densityY <= 0.0
+			|| std::abs(densityX - densityY) > 0.0001)
+			return false;
+		const double density = densityX;
 		Calypso::CommandCenter::CcStageRect stage =
 			Calypso::CommandCenter::calypsoCcStageRect();
 		if (!stage.active || stage.w <= 0 || stage.h <= 0)
@@ -220,13 +233,13 @@ struct CalypsoGeoscapeHdGlobeDirect
 			const Calypso::CommandCenter::CommandCenterLayout layout =
 				Calypso::CommandCenter::computeLayout(
 					Calypso::CommandCenter::Size2{
-						static_cast<float>(Options::displayWidth),
-						static_cast<float>(Options::displayHeight)},
+						static_cast<float>(Options::displayWidth / density),
+						static_cast<float>(Options::displayHeight / density)},
 					false);
-			stage.x = (int)std::lround(layout.stage.x);
-			stage.y = (int)std::lround(layout.stage.y);
-			stage.w = (int)std::lround(layout.stage.width);
-			stage.h = (int)std::lround(layout.stage.height);
+			stage.x = (int)std::lround(layout.stage.x * density);
+			stage.y = (int)std::lround(layout.stage.y * density);
+			stage.w = (int)std::lround(layout.stage.width * density);
+			stage.h = (int)std::lround(layout.stage.height * density);
 			stage.active = stage.w > 0 && stage.h > 0;
 			Calypso::CommandCenter::calypsoCcSetStageRect(stage);
 		}
@@ -249,13 +262,19 @@ struct CalypsoGeoscapeHdGlobeDirect
 			|| projection.clip.y + projection.clip.h > Options::displayHeight)
 			return false;
 
-		double globeSize = std::max(540.0,
-			std::min(680.0, static_cast<double>(Options::displayHeight) * 0.72));
-		globeSize = std::min(globeSize, static_cast<double>(stage.w) - 56.0);
-		globeSize = std::min(globeSize, static_cast<double>(stage.h) - 8.0);
-		globeSize = std::max(1.0, globeSize);
+		double globeSizeCss = std::max(540.0,
+			std::min(680.0,
+				static_cast<double>(Options::displayHeight) / density * 0.72));
+		globeSizeCss = std::min(globeSizeCss,
+			static_cast<double>(stage.w) / density - 56.0);
+		globeSizeCss = std::min(globeSizeCss,
+			static_cast<double>(stage.h) / density - 8.0);
+		const double globeSize = std::max(1.0, globeSizeCss * density);
 
-		const double fittedRadius = globeSize * 0.5;
+		// Owner-approved Command Center balance: the fitted Earth is 1.2x the
+		// original stage-fit diameter and remains clipped by the stage.
+		constexpr double CommandCenterGlobeScale = 1.2;
+		const double fittedRadius = globeSize * 0.5 * CommandCenterGlobeScale;
 		const double baseLogicalRadius = globe->_zoomRadius.front();
 		const double uniformScale = fittedRadius / baseLogicalRadius;
 		projection.scaleX = uniformScale;

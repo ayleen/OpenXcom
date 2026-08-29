@@ -437,15 +437,42 @@ void CalypsoHdScreenRenderer::collect(CalypsoHdFrameBuilder& builder) const
 	// shell. Compact keeps the F16 shell until the CC mobile wave lands.
 	if (CommandCenter::calypsoCcEnabled() && model.designWidth >= 1024)
 	{
-		// The CC design space maps 1:1 onto the FULL display canvas (spec
-		// s.4): the compact grid is laid out in display pixels, the globe
-		// pass scissors to the same rect (stage 7), and the DPR is absorbed
-		// by the backing-store size itself.
-		painter.winLogical = { 0, 0, Options::displayWidth, Options::displayHeight };
-		painter.windowDesign = { 0, 0, model.designWidth, model.designHeight };
-		painter.uiScale = static_cast<double>(Options::displayWidth) / model.designWidth;
-		painter.sx = 1.0;
-		painter.sy = 1.0;
+		// Command Center contracts are CSS pixels. The overlay consumes engine
+		// logical coordinates, then applies the frozen logical-to-physical
+		// transform. Fold the browser DPR into the painter's projection exactly
+		// once so a 72px control remains 72 CSS px on Retina while its backing
+		// geometry and text raster use 144 physical pixels.
+		const double densityX = viewportMetrics.logicalWidth > 0
+			? static_cast<double>(calypsoViewportRuntime().physicalWidth())
+				/ viewportMetrics.logicalWidth
+			: 1.0;
+		const double densityY = viewportMetrics.logicalHeight > 0
+			? static_cast<double>(calypsoViewportRuntime().physicalHeight())
+				/ viewportMetrics.logicalHeight
+			: 1.0;
+		if (metrics.scaleX <= 0.0 || metrics.scaleY <= 0.0
+			|| densityX <= 0.0 || densityY <= 0.0
+			|| std::abs(metrics.scaleX - metrics.scaleY) > 0.0001
+			|| std::abs(densityX - densityY) > 0.0001)
+			CalypsoHdUiOverlay::instance().failHdRoute(
+				"Command Center requires valid uniform presentation and density scales");
+		const double ccDensity = densityX;
+		const double ccLogicalPerCss = ccDensity / metrics.scaleX;
+		const int ccLogicalX = -(int)std::llround(
+			metrics.contentOffsetX / metrics.scaleX);
+		const int ccLogicalY = -(int)std::llround(
+			metrics.contentOffsetY / metrics.scaleY);
+		const int ccCssWidth = std::max(1,
+			(int)std::llround(Options::displayWidth / ccDensity));
+		const int ccCssHeight = std::max(1,
+			(int)std::llround(Options::displayHeight / ccDensity));
+		painter.winLogical = { ccLogicalX, ccLogicalY,
+			(int)std::llround(ccCssWidth * ccLogicalPerCss),
+			(int)std::llround(ccCssHeight * ccLogicalPerCss) };
+		painter.windowDesign = { 0, 0, ccCssWidth, ccCssHeight };
+		painter.uiScale = ccLogicalPerCss;
+		painter.sx = metrics.scaleX;
+		painter.sy = metrics.scaleY;
 		const CommandCenter::CommandCenterFonts ccFonts =
 			CommandCenter::calypsoCcResolveFonts(
 				getCurrentGame() ? getCurrentGame()->getMod() : nullptr);
@@ -471,15 +498,15 @@ void CalypsoHdScreenRenderer::collect(CalypsoHdFrameBuilder& builder) const
 			snap.displayTime = "14:18 UTC"; // reference state (spec s.61)
 			snap.displayDate = "1 JAN 2040";
 		}
-		// Layout mode selection belongs exclusively to CommandCenterLayout.
-		// In particular, 1280px is Desktop, not CompactDesktop; the previous
-		// inspector-based 1440px threshold made the stage and Earth too large.
-		const float ccWidth = static_cast<float>(Options::displayWidth);
-		const float ccHeight = static_cast<float>(Options::displayHeight);
+		// Layout mode selection belongs exclusively to CommandCenterLayout and
+		// receives CSS viewport dimensions, never Retina backing dimensions.
+		// In particular, 1280px is Desktop, not CompactDesktop.
+		const float ccWidth = static_cast<float>(ccCssWidth);
+		const float ccHeight = static_cast<float>(ccCssHeight);
 		const auto ccLayout = CommandCenter::computeLayout(
 			CommandCenter::Size2{ccWidth, ccHeight}, false);
-		CommandCenter::calypsoCcRender(painter, ccLayout, snap, ccFonts, live,
-			geoscapeState, role);
+		CommandCenter::calypsoCcRender(painter, ccLayout, snap, ccFonts,
+			ccDensity, live, geoscapeState, role);
 		(void)projectionLayout;
 		return;
 	}

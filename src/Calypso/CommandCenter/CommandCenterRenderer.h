@@ -72,7 +72,7 @@ CommandCenterFonts calypsoCcResolveFonts(const class Mod* mod);
 /// in fixture mode. Every draw consumes `role` in sequence.
 void calypsoCcRender(CalypsoF21Painter& painter, const CommandCenterLayout& layout,
 	const CommandCenterSnapshot& snapshot, const CommandCenterFonts& fonts,
-	bool live, GeoscapeState* state, std::uint32_t& role);
+	double densityScale, bool live, GeoscapeState* state, std::uint32_t& role);
 
 /// Runtime gate (loopback QA param ?cc=1 -> main.js ccall).
 bool calypsoCcEnabled();
