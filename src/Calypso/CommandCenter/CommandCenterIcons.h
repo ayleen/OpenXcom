@@ -24,7 +24,6 @@ enum class CcIcon
 	Analytics,
 	Archive,
 	Settings,
-	Intercept,
 	Bell,
 	ChevronDown,
 	Fullscreen,
@@ -43,7 +42,6 @@ inline char32_t ccIconGlyph(CcIcon icon)
 		case CcIcon::Analytics: return 0xE154;  // chart-line
 		case CcIcon::Archive: return 0xE00C;    // archive
 		case CcIcon::Settings: return 0xE270;   // gear
-		case CcIcon::Intercept: return 0xE398;  // paper-plane-tilt
 		case CcIcon::Bell: return 0xE0CE;       // bell
 		case CcIcon::ChevronDown: return 0xE136;// caret-down
 		case CcIcon::Fullscreen: return 0xE1D0; // corners-out

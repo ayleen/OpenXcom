@@ -105,6 +105,7 @@ CommandCenterLayout computeCompactDesktopLayout(Size2 viewport, bool inspectorOp
 
 	CommandCenterLayout layout = computeDesktopFamily(viewport,
 		HeaderHeight, 72.0f, 16.0f, 16.0f, TimelineHeight);
+	layout.mode = LayoutMode::CompactDesktop;
 
 	// Spec s.49: the inspector floats OVER the stage, width 300, opaque.
 	if (inspectorOpen)
@@ -128,6 +129,7 @@ CommandCenterLayout computeTabletLayout(Size2 viewport, bool inspectorOpen)
 
 	CommandCenterLayout layout = computeDesktopFamily(viewport,
 		64.0f, 64.0f, 12.0f, 12.0f, 92.0f);
+	layout.mode = LayoutMode::Tablet;
 
 	// Spec s.50: the inspector is a right drawer overlapping the stage with
 	// width min(360, 42% of the viewport width).

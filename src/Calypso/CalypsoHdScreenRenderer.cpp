@@ -471,21 +471,13 @@ void CalypsoHdScreenRenderer::collect(CalypsoHdFrameBuilder& builder) const
 			snap.displayTime = "14:18 UTC"; // reference state (spec s.61)
 			snap.displayDate = "1 JAN 2040";
 		}
-		// The desktop grid's fixed constants (rail 88 + stage 960 + inspector
-		// 320) presuppose the 1440-wide reference; our production canvas is
-		// 1280 wide, which is the spec's compact-desktop band (1024..1279
-		// composition: rail 72, inspector 300 overlaying the stage). Use it
-		// whenever the full desktop grid cannot fit without overflow.
-		// Lay the CC grid out inside the FITTED canvas the overlay composites
-		// (winLogical), not the full design width — the margins around it are
-		// painted by the world pass clear (stage 7).
+		// Layout mode selection belongs exclusively to CommandCenterLayout.
+		// In particular, 1280px is Desktop, not CompactDesktop; the previous
+		// inspector-based 1440px threshold made the stage and Earth too large.
 		const float ccWidth = static_cast<float>(Options::displayWidth);
 		const float ccHeight = static_cast<float>(Options::displayHeight);
-		// The inspector carries the Intercept block, which ships separately:
-		// keep it closed so the stage expands (spec s.74 no-selection layout).
-		const auto ccLayout = (ccWidth >= 112.0f + 960.0f + 24.0f + 320.0f + 24.0f)
-			? CommandCenter::computeDesktopLayout(CommandCenter::Size2{ccWidth, ccHeight}, false)
-			: CommandCenter::computeCompactDesktopLayout(CommandCenter::Size2{ccWidth, ccHeight}, false);
+		const auto ccLayout = CommandCenter::computeLayout(
+			CommandCenter::Size2{ccWidth, ccHeight}, false);
 		CommandCenter::calypsoCcRender(painter, ccLayout, snap, ccFonts, live,
 			geoscapeState, role);
 		(void)projectionLayout;

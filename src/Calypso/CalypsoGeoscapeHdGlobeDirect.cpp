@@ -141,20 +141,15 @@ void CalypsoGeoscapeHdGlobeDirect::destroyGpuState(Globe* globe)
 namespace
 {
 
-/// Stage 7: re-scissor to the CC stage rect (design px -> viewport) after a
-/// setPhysicalGlobeClip call; no-op outside CC mode.
+/// Reapply the Command Center stage clip after a world sub-pass changes GL
+/// state. The renderer publishes physical display pixels; scaling it again
+/// would double-transform every non-1280x720 viewport.
 void ccApplyStageClip()
 {
 	if (!Calypso::CommandCenter::calypsoCcEnabled()) return;
 	const auto sr = Calypso::CommandCenter::calypsoCcStageRect();
 	if (!sr.active || sr.w <= 0 || sr.h <= 0) return;
-	const float kx = (float)Options::displayWidth / 1280.0f;
-	const float ky = (float)Options::displayHeight / 720.0f;
-	const int vx = (int)std::lround(sr.x * kx);
-	const int vy = (int)std::lround(sr.y * ky);
-	const int vw = std::max(1, (int)std::lround(sr.w * kx));
-	const int vh = std::max(1, (int)std::lround(sr.h * ky));
-	glScissor(vx, (int)Options::displayHeight - vy - vh, vw, vh);
+	glScissor(sr.x, (int)Options::displayHeight - sr.y - sr.h, sr.w, sr.h);
 }
 
 } // namespace
@@ -210,8 +205,9 @@ void CalypsoGeoscapeHdGlobeDirect::drawPass(Globe* globe)
 		CalypsoGeoscapeHdGlobeDirect::PhysicalGlobeRect globeRect;
 		if (!CalypsoGeoscapeHdGlobeDirect::physicalGlobeRect(globe, globeRect))
 			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape physical globe rect is invalid");
-		const double xs = globe->_gpuState->_directScreen->getXScale();
-		const double ys = globe->_gpuState->_directScreen->getYScale();
+		CalypsoGeoscapeHdGlobeDirect::PhysicalGlobeProjection projection;
+		if (!CalypsoGeoscapeHdGlobeDirect::physicalGlobeProjection(globe, projection))
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape physical projection is invalid");
 		const int dispX = globeRect.x;
 		const int dispY = globeRect.y;
 		const int dispW = globeRect.w;
@@ -250,8 +246,9 @@ void CalypsoGeoscapeHdGlobeDirect::drawPass(Globe* globe)
 		cloudsBound->bind(3); globe->_gpuState->_globeShader->setUniform1i("u_clouds", 3);
 		globe->_gpuState->_globeShader->setUniform1i("u_background", 1);
 		globe->_gpuState->_globeShader->setUniform2f("u_viewportSize", (float)dispW, (float)dispH);
-		globe->_gpuState->_globeShader->setUniform2f("u_globeCenter", (float)(globe->_cenX * xs), (float)(globe->_cenY * ys));
-		globe->_gpuState->_globeShader->setUniform1f("u_globeRadius", (float)(globe->_zoomRadius[globe->_zoom] * std::min(xs, ys)));
+		globe->_gpuState->_globeShader->setUniform2f("u_globeCenter",
+			(float)(projection.centerX - dispX), (float)(projection.centerY - dispY));
+		globe->_gpuState->_globeShader->setUniform1f("u_globeRadius", (float)projection.radius);
 		globe->_gpuState->_globeShader->setUniform1f("u_camLat", (float)globe->_cenLat);
 		globe->_gpuState->_globeShader->setUniform1f("u_camLon", (float)globe->_cenLon);
 		Cord sd = globe->getSunDirectionWorld();
@@ -269,31 +266,9 @@ void CalypsoGeoscapeHdGlobeDirect::drawPass(Globe* globe)
 		globe->_gpuState->_globeShader->setUniform1f("u_mipLevel", mipLvl);
 		if (Calypso::CommandCenter::calypsoCcEnabled())
 		{
-			// Stage 7: clip the world into the CC stage and fit the globe
-			// disk inside it. The published rect is in CC design pixels
-			// (1280x720 reference); kx/ky map it into this pass's viewport
-			// exactly like every other world-space element. v_pixel is
-			// absolute display px, top-left origin (proven by the probe).
-			const auto sr = Calypso::CommandCenter::calypsoCcStageRect();
-			if (sr.active && sr.w > 0 && sr.h > 0)
-			{
-				const float kx = (float)dispW / 1280.0f;
-				const float ky = (float)dispH / 720.0f;
-				const int vx = dispX + (int)std::lround(sr.x * kx);
-				const int vy = dispY + (int)std::lround(sr.y * ky);
-				const int vw = std::max(1, (int)std::lround(sr.w * kx));
-				const int vh = std::max(1, (int)std::lround(sr.h * ky));
-				glEnable(GL_SCISSOR_TEST);
-				glScissor(vx, (int)Options::displayHeight - vy - vh, vw, vh);
-				globe->_gpuState->_globeShader->setUniform2f("u_globeCenter",
-					(float)vx + vw / 2.0f, (float)vy + vh / 2.0f);
-				// Spec s.25: the globe fills the stage -- min(w - 56, h - 8)
-				// of the stage, in physical px.
-				const float fitW = std::max(1.0f, (float)vw - 56.0f * kx);
-				const float fitH = std::max(1.0f, (float)vh - 8.0f * ky);
-				globe->_gpuState->_globeShader->setUniform1f("u_globeRadius",
-					(float)std::min(fitW, fitH) * 0.5f);
-			}
+			glEnable(GL_SCISSOR_TEST);
+			glScissor(projection.clip.x, projection.clip.bottom,
+				projection.clip.w, projection.clip.h);
 		}
 		glBindVertexArray(globe->_gpuState->_sphereVAO);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -744,13 +719,11 @@ void CalypsoGeoscapeHdGlobeDirect::drawPass(Globe* globe)
 		if (!globe || globe->_gpuState->_gpuBorderLines.empty() || !globe->_gpuState->_directScreen) return;
 		if (!globe->_gpuState->_gpuBorderReady || !globe->_gpuState->_borderShader || !globe->_gpuState->_borderShader->isValid())
 			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape border resources disappeared");
-		const double xs = globe->_gpuState->_directScreen->getXScale();
-		const double ys = globe->_gpuState->_directScreen->getYScale();
 		const float displayW = static_cast<float>(Options::displayWidth);
 		const float displayH = static_cast<float>(Options::displayHeight);
-		CalypsoGeoscapeHdGlobeDirect::PhysicalGlobeRect rect;
-		if (!CalypsoGeoscapeHdGlobeDirect::physicalGlobeRect(globe, rect))
-			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape physical globe rect is invalid");
+		CalypsoGeoscapeHdGlobeDirect::PhysicalGlobeProjection projection;
+		if (!CalypsoGeoscapeHdGlobeDirect::physicalGlobeProjection(globe, projection))
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape physical projection is invalid");
 		const SDL_Color* palette = globe->getEffectivePalette();
 		if (!palette)
 			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape border palette unavailable");
@@ -763,10 +736,10 @@ void CalypsoGeoscapeHdGlobeDirect::drawPass(Globe* globe)
 		size_t vertexIndex = 0;
 		for (const auto& line : globe->_gpuState->_gpuBorderLines)
 		{
-			const float x1 = 2.0f * ((rect.x + line.x1 * (float)xs) / displayW) - 1.0f;
-			const float x2 = 2.0f * ((rect.x + line.x2 * (float)xs) / displayW) - 1.0f;
-			const float y1 = -(2.0f * ((rect.y + line.y1 * (float)ys) / displayH) - 1.0f);
-			const float y2 = -(2.0f * ((rect.y + line.y2 * (float)ys) / displayH) - 1.0f);
+			const float x1 = 2.0f * ((projection.originX + line.x1 * projection.scaleX) / displayW) - 1.0f;
+			const float x2 = 2.0f * ((projection.originX + line.x2 * projection.scaleX) / displayW) - 1.0f;
+			const float y1 = -(2.0f * ((projection.originY + line.y1 * projection.scaleY) / displayH) - 1.0f);
+			const float y2 = -(2.0f * ((projection.originY + line.y2 * projection.scaleY) / displayH) - 1.0f);
 			globe->_gpuState->_gpuBorderVertices[vertexIndex++] = x1;
 			globe->_gpuState->_gpuBorderVertices[vertexIndex++] = y1;
 			globe->_gpuState->_gpuBorderVertices[vertexIndex++] = x2;
@@ -982,23 +955,23 @@ static std::uint64_t calypsoBuildRadarFlightSignature(SavedGame* save)
 	{
 		if (!globe || !globe->_gpuState->_directScreen)
 			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape radar/flight preparation owner unavailable");
-		CalypsoGeoscapeHdGlobeDirect::PhysicalGlobeRect rect;
-		if (!CalypsoGeoscapeHdGlobeDirect::physicalGlobeRect(globe, rect))
-			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape physical globe rect is invalid");
+		CalypsoGeoscapeHdGlobeDirect::PhysicalGlobeProjection projection;
+		if (!CalypsoGeoscapeHdGlobeDirect::physicalGlobeProjection(globe, projection))
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape physical projection is invalid");
 		Calypso::CalypsoGeoscapeColoredLineSnapshotKey key = Calypso::CalypsoGeoscapeColoredLineSnapshotKey();
 		key.viewportGeneration = 0u;
-		key.rectX = rect.x;
-		key.rectY = rect.y;
-		key.rectW = rect.w;
-		key.rectH = rect.h;
+		key.rectX = (std::int32_t)std::lround(projection.originX);
+		key.rectY = (std::int32_t)std::lround(projection.originY);
+		key.rectW = projection.clip.w;
+		key.rectH = projection.clip.h;
 		key.displayWidth = Options::displayWidth;
 		key.displayHeight = Options::displayHeight;
-		key.sdlScaleX = globe->_gpuState->_directScreen->getXScale();
-		key.sdlScaleY = globe->_gpuState->_directScreen->getYScale();
+		key.sdlScaleX = projection.scaleX;
+		key.sdlScaleY = projection.scaleY;
 		key.centreLongitude = globe->_cenLon;
 		key.centreLatitude = globe->_cenLat;
 		key.zoomLevel = (double)globe->_zoom;
-		key.globeRadius = globe->_zoomRadius[globe->_zoom];
+		key.globeRadius = projection.radius;
 		key.textureZoom = (double)globe->_zoomTexture;
 		key.craftRangeEnabled = globe->_craft;
 		key.craftLongitude = globe->_craftLon;
@@ -1036,14 +1009,14 @@ static std::uint64_t calypsoBuildRadarFlightSignature(SavedGame* save)
 	void CalypsoGeoscapeHdGlobeDirect::finishRadarFlightFrame(Globe* globe, bool rebuilt)
 	{
 		if (!globe || !rebuilt) return; /* Cache-hit frame: nothing to pack. */
-		CalypsoGeoscapeHdGlobeDirect::PhysicalGlobeRect rect;
-		if (!CalypsoGeoscapeHdGlobeDirect::physicalGlobeRect(globe, rect))
-			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape physical globe rect is invalid");
+		CalypsoGeoscapeHdGlobeDirect::PhysicalGlobeProjection projection;
+		if (!CalypsoGeoscapeHdGlobeDirect::physicalGlobeProjection(globe, projection))
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape physical projection is invalid");
 		Calypso::CalypsoGeoscapeColoredLineViewport viewport;
-		viewport.rectX = rect.x;
-		viewport.rectY = rect.y;
-		viewport.scaleX = globe->_gpuState->_directScreen->getXScale();
-		viewport.scaleY = globe->_gpuState->_directScreen->getYScale();
+		viewport.rectX = projection.originX;
+		viewport.rectY = projection.originY;
+		viewport.scaleX = projection.scaleX;
+		viewport.scaleY = projection.scaleY;
 		viewport.displayWidth = Options::displayWidth;
 		viewport.displayHeight = Options::displayHeight;
 		const Uint64 calypsoPackStart = Calypso::calypsoRadarCountersEnabled()
@@ -1170,13 +1143,11 @@ static std::uint64_t calypsoBuildRadarFlightSignature(SavedGame* save)
 			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape debug geometry resources disappeared");
 		if (globe->_gpuState->_gpuDebugCapacityExceeded)
 			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape debug geometry batch capacity exhausted");
-		const double xs = globe->_gpuState->_directScreen->getXScale();
-		const double ys = globe->_gpuState->_directScreen->getYScale();
 		const float displayW = static_cast<float>(Options::displayWidth);
 		const float displayH = static_cast<float>(Options::displayHeight);
-		PhysicalGlobeRect rect;
-		if (!physicalGlobeRect(globe, rect))
-			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape physical globe rect is invalid");
+		PhysicalGlobeProjection projection;
+		if (!physicalGlobeProjection(globe, projection))
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape physical projection is invalid");
 		const SDL_Color* palette = globe->getEffectivePalette();
 		if (!palette)
 			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape debug geometry palette unavailable");
@@ -1188,13 +1159,14 @@ static std::uint64_t calypsoBuildRadarFlightSignature(SavedGame* save)
 		size_t vertexIndex = 0;
 		for (const auto& line : globe->_gpuState->_gpuDebugLines)
 		{
-			globe->_gpuState->_gpuDebugVertices[vertexIndex++] = (float)(2.0 * ((rect.x + line.x1 * xs) / displayW) - 1.0);
-			globe->_gpuState->_gpuDebugVertices[vertexIndex++] = (float)-(2.0 * ((rect.y + line.y1 * ys) / displayH) - 1.0);
-			globe->_gpuState->_gpuDebugVertices[vertexIndex++] = (float)(2.0 * ((rect.x + line.x2 * xs) / displayW) - 1.0);
-			globe->_gpuState->_gpuDebugVertices[vertexIndex++] = (float)-(2.0 * ((rect.y + line.y2 * ys) / displayH) - 1.0);
+			globe->_gpuState->_gpuDebugVertices[vertexIndex++] = (float)(2.0 * ((projection.originX + line.x1 * projection.scaleX) / displayW) - 1.0);
+			globe->_gpuState->_gpuDebugVertices[vertexIndex++] = (float)-(2.0 * ((projection.originY + line.y1 * projection.scaleY) / displayH) - 1.0);
+			globe->_gpuState->_gpuDebugVertices[vertexIndex++] = (float)(2.0 * ((projection.originX + line.x2 * projection.scaleX) / displayW) - 1.0);
+			globe->_gpuState->_gpuDebugVertices[vertexIndex++] = (float)-(2.0 * ((projection.originY + line.y2 * projection.scaleY) / displayH) - 1.0);
 		}
 		GlobeSphereGlSave st; st.save();
 		setPhysicalGlobeClip(globe);
+		ccApplyStageClip();
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 		glLineWidth(1.0f);
@@ -1369,10 +1341,9 @@ static std::uint64_t calypsoBuildRadarFlightSignature(SavedGame* save)
 	{
 		if (!globe || globe->_gpuState->_gpuLabelIconCommittedDraws.empty() || !globe->_gpuState->_directScreen) return;
 		ensureLabelResources(globe);
-		const double xs = globe->_gpuState->_directScreen->getXScale();
-		const double ys = globe->_gpuState->_directScreen->getYScale();
-		const int lbb = globe->_gpuState->_directScreen->getCursorLeftBlackBand();
-		const int tbb = globe->_gpuState->_directScreen->getCursorTopBlackBand();
+		PhysicalGlobeProjection projection;
+		if (!physicalGlobeProjection(globe, projection))
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape physical projection is invalid");
 		const float displayW = static_cast<float>(Options::displayWidth);
 		const float displayH = static_cast<float>(Options::displayHeight);
 		GlobeSphereGlSave st; st.save();
@@ -1392,10 +1363,10 @@ static std::uint64_t calypsoBuildRadarFlightSignature(SavedGame* save)
 				: markerTexture(globe, command.frame, command.shade);
 			if (!frame || !texture)
 				Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape label texture disappeared during draw");
-			const float x = static_cast<float>((globe->getX() + command.x) * xs + lbb);
-			const float y = static_cast<float>((globe->getY() + command.y) * ys + tbb);
-			const float w = static_cast<float>(frame->getWidth() * xs);
-			const float h = static_cast<float>(frame->getHeight() * ys);
+			const float x = static_cast<float>(projection.originX + command.x * projection.scaleX);
+			const float y = static_cast<float>(projection.originY + command.y * projection.scaleY);
+			const float w = static_cast<float>(frame->getWidth() * projection.scaleX);
+			const float h = static_cast<float>(frame->getHeight() * projection.scaleY);
 			const float x0 = 2.0f * x / displayW - 1.0f;
 			const float x1 = 2.0f * (x + w) / displayW - 1.0f;
 			const float y0 = -(2.0f * y / displayH - 1.0f);
@@ -1420,10 +1391,9 @@ static std::uint64_t calypsoBuildRadarFlightSignature(SavedGame* save)
 	{
 		if (!globe || globe->_gpuState->_gpuMarkerCommittedDraws.empty() || !globe->_gpuState->_directScreen) return;
 		CalypsoGeoscapeHdGlobeDirect::ensureMarkerResources(globe);
-		const double xs = globe->_gpuState->_directScreen->getXScale();
-		const double ys = globe->_gpuState->_directScreen->getYScale();
-		const int lbb = globe->_gpuState->_directScreen->getCursorLeftBlackBand();
-		const int tbb = globe->_gpuState->_directScreen->getCursorTopBlackBand();
+		PhysicalGlobeProjection projection;
+		if (!physicalGlobeProjection(globe, projection))
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape physical projection is invalid");
 		const float displayW = static_cast<float>(Options::displayWidth);
 		const float displayH = static_cast<float>(Options::displayHeight);
 		GlobeSphereGlSave st; st.save();
@@ -1440,10 +1410,10 @@ static std::uint64_t calypsoBuildRadarFlightSignature(SavedGame* save)
 			GpuTexture* texture = markerTexture(globe, command.frame, command.shade);
 			if (!texture)
 				Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape marker texture disappeared during draw");
-			const float x = static_cast<float>((globe->getX() + command.x) * xs + lbb);
-			const float y = static_cast<float>((globe->getY() + command.y) * ys + tbb);
-			const float w = static_cast<float>(command.frame->getWidth() * xs);
-			const float h = static_cast<float>(command.frame->getHeight() * ys);
+			const float x = static_cast<float>(projection.originX + command.x * projection.scaleX);
+			const float y = static_cast<float>(projection.originY + command.y * projection.scaleY);
+			const float w = static_cast<float>(command.frame->getWidth() * projection.scaleX);
+			const float h = static_cast<float>(command.frame->getHeight() * projection.scaleY);
 			const float x0 = 2.0f * x / displayW - 1.0f;
 			const float x1 = 2.0f * (x + w) / displayW - 1.0f;
 			const float y0 = -(2.0f * y / displayH - 1.0f);

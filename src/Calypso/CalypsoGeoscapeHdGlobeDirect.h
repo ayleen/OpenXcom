@@ -3,6 +3,7 @@
 #ifdef __EMSCRIPTEN__
 /* Browser-only Geoscape direct-composite state and narrow frozen-file seam.
  * Implementations live in CalypsoGeoscapeHdGlobeDirect.cpp. */
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <memory>
@@ -17,6 +18,7 @@
 #include "../Engine/Options.h"
 #include "../Engine/Screen.h"
 #include "../Mod/Mod.h"
+#include "CommandCenter/CommandCenterRenderer.h"
 
 namespace OpenXcom
 {
@@ -151,6 +153,22 @@ struct CalypsoGeoscapeHdGlobeDirect
 		int bottom = 0;
 	};
 
+	struct PhysicalGlobeProjection
+	{
+		PhysicalGlobeRect clip;
+		double surfaceOriginX = 0.0;
+		double surfaceOriginY = 0.0;
+		double surfaceScaleX = 1.0;
+		double surfaceScaleY = 1.0;
+		double originX = 0.0;
+		double originY = 0.0;
+		double scaleX = 1.0;
+		double scaleY = 1.0;
+		double centerX = 0.0;
+		double centerY = 0.0;
+		double radius = 1.0;
+	};
+
 	static bool physicalGlobeRect(const Globe* globe, PhysicalGlobeRect& rect)
 	{
 		if (!globe || !globe->_gpuState->_directScreen || Options::displayWidth <= 0 || Options::displayHeight <= 0)
@@ -168,6 +186,86 @@ struct CalypsoGeoscapeHdGlobeDirect
 			&& rect.x < Options::displayWidth && rect.y < Options::displayHeight
 			&& rect.bottom >= 0 && rect.x + rect.w <= Options::displayWidth
 			&& rect.y + rect.h <= Options::displayHeight;
+	}
+
+	static bool physicalGlobeProjection(const Globe* globe, PhysicalGlobeProjection& projection)
+	{
+		if (!physicalGlobeRect(globe, projection.clip))
+			return false;
+
+		const double xs = globe->_gpuState->_directScreen->getXScale();
+		const double ys = globe->_gpuState->_directScreen->getYScale();
+		projection.surfaceOriginX = projection.clip.x;
+		projection.surfaceOriginY = projection.clip.y;
+		projection.surfaceScaleX = xs;
+		projection.surfaceScaleY = ys;
+		projection.originX = projection.clip.x;
+		projection.originY = projection.clip.y;
+		projection.scaleX = xs;
+		projection.scaleY = ys;
+		projection.centerX = projection.originX + globe->_cenX * xs;
+		projection.centerY = projection.originY + globe->_cenY * ys;
+		projection.radius = globe->_zoomRadius[globe->_zoom] * std::min(xs, ys);
+
+		if (!Calypso::CommandCenter::calypsoCcEnabled())
+			return true;
+
+		Calypso::CommandCenter::CcStageRect stage =
+			Calypso::CommandCenter::calypsoCcStageRect();
+		if (!stage.active || stage.w <= 0 || stage.h <= 0)
+		{
+			// The world pass can run before overlay collection on the first
+			// Geoscape frame. Derive the same stage from the canonical layout
+			// instead of failing or flashing the legacy full-window globe.
+			const Calypso::CommandCenter::CommandCenterLayout layout =
+				Calypso::CommandCenter::computeLayout(
+					Calypso::CommandCenter::Size2{
+						static_cast<float>(Options::displayWidth),
+						static_cast<float>(Options::displayHeight)},
+					false);
+			stage.x = (int)std::lround(layout.stage.x);
+			stage.y = (int)std::lround(layout.stage.y);
+			stage.w = (int)std::lround(layout.stage.width);
+			stage.h = (int)std::lround(layout.stage.height);
+			stage.active = stage.w > 0 && stage.h > 0;
+			Calypso::CommandCenter::calypsoCcSetStageRect(stage);
+		}
+		if (!stage.active || globe->_zoomRadius.empty()
+			|| globe->_zoomRadius.front() <= 0.0)
+			return false;
+
+		// The CC renderer publishes this rect in physical display pixels.
+		// Keep every world pass on one isotropic transform: Earth, borders,
+		// routes, markers, labels and hover geometry must share the same
+		// centre/radius instead of merely sharing a scissor.
+		projection.clip.x = stage.x;
+		projection.clip.y = stage.y;
+		projection.clip.w = stage.w;
+		projection.clip.h = stage.h;
+		projection.clip.bottom = Options::displayHeight - stage.y - stage.h;
+		if (projection.clip.x < 0 || projection.clip.y < 0
+			|| projection.clip.bottom < 0
+			|| projection.clip.x + projection.clip.w > Options::displayWidth
+			|| projection.clip.y + projection.clip.h > Options::displayHeight)
+			return false;
+
+		double globeSize = std::max(540.0,
+			std::min(680.0, static_cast<double>(Options::displayHeight) * 0.72));
+		globeSize = std::min(globeSize, static_cast<double>(stage.w) - 56.0);
+		globeSize = std::min(globeSize, static_cast<double>(stage.h) - 8.0);
+		globeSize = std::max(1.0, globeSize);
+
+		const double fittedRadius = globeSize * 0.5;
+		const double baseLogicalRadius = globe->_zoomRadius.front();
+		const double uniformScale = fittedRadius / baseLogicalRadius;
+		projection.scaleX = uniformScale;
+		projection.scaleY = uniformScale;
+		projection.centerX = stage.x + stage.w * 0.5;
+		projection.centerY = stage.y + stage.h * 0.5 - globeSize * 0.01;
+		projection.originX = projection.centerX - globe->_cenX * uniformScale;
+		projection.originY = projection.centerY - globe->_cenY * uniformScale;
+		projection.radius = globe->_radius * uniformScale;
+		return true;
 	}
 
 	static void setPhysicalGlobeClip(const Globe* globe)

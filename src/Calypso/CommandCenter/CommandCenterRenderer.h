@@ -5,9 +5,10 @@
  * Emits the Command Center screen as HD overlay items through the shared
  * painter: root background, header (session selector, date/time, divider,
  * system status, bell), navigation rail with active indicator, clipped
- * stage frame, zoom cluster, timeline (play/pause, time steps, ruler,
- * fullscreen) and the inspector panel. Layout comes exclusively from
- * CommandCenterLayout; colours exclusively from CommandCenterTheme.
+ * stage, zoom cluster and timeline (play/pause, time steps, ruler,
+ * fullscreen). The selected-object/intercept panel is owned by the separate
+ * interception flow and is intentionally absent here. Layout comes exclusively
+ * from CommandCenterLayout; colours exclusively from CommandCenterTheme.
  *
  * Emscripten-only: consumed by CalypsoHdScreenRenderer's live/fixture
  * passes behind the command-center gate.
@@ -47,7 +48,6 @@ struct CommandCenterSnapshot
 	bool simulationPlaying = true;
 	int selectedTimeStep = 1; // index into the six canonical steps
 	bool hasUnreadNotification = true;
-	bool inspectorOpen = true;
 };
 
 /// Resolved font descriptors for the Command Center faces.
