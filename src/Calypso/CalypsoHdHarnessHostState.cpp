@@ -232,8 +232,10 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 			ufo->setMissionInfo(new AlienMission(*missionRule),
 				game->getMod()->getUfoTrajectory(UfoTrajectory::RETALIATION_ASSAULT_RUN, true));
 		}
-		ufo->setLongitude(0.6);
-		ufo->setLatitude(0.42);
+		// OpenXcom latitude increases southward. Keep the fixture distinctly
+		// south-east of the base so an inverted vertical projection is visible.
+		ufo->setLongitude(0.2);
+		ufo->setLatitude(0.72);
 		// The vanilla ctor fires the "ufo.detected" tutorial step; disarm the
 		// campaign tutorial so it cannot push itself above the harness target.
 		CalypsoTutorial::get().disableForCampaign();

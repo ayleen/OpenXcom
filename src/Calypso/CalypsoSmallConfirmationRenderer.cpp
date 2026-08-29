@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <SDL.h>
 
 #include "../Interface/TextButton.h"
 #include "CalypsoHdFontSource.h"
@@ -504,13 +505,16 @@ void calypsoCollectContactIntelBoard(
 
 	builder.beginSubgroup();
 	int order = 0;
-	// Canonical FORM typography: body/data at kBodyFontSizePx, action labels
-	// at kLabelFontSizePx, title at 0.8x of its box height -- the same scale
-	// the small-confirmation forms use, no per-class downscaling.
+	// Canonical form roles: the board changes composition, never typography.
+	const int protocolPx = scaledPx(wide ? 10.0 : 9.0, 8);
 	const int titlePx = std::max(1, (int)calypsoHdRoundToInt(
 		model.titleDesignHeight * CalypsoHdTheme::kTitleFontSizeScale));
-	const int dataPx = CalypsoHdTheme::kBodyFontSizePx;
-	const int actionPx = CalypsoHdTheme::kLabelFontSizePx;
+	const int messagePx = scaledPx(CalypsoHdTheme::kBodyFontSizePx, 12);
+	const int factLabelPx = scaledPx(CalypsoHdTheme::kBodyFontSizePx, 11);
+	const int factValuePx = scaledPx(CalypsoHdTheme::kBodyFontSizePx, 12);
+	const int actionPx = scaledPx(CalypsoHdTheme::kLabelFontSizePx, 12);
+	const int cardinalPx = scaledPx(wide ? 12.0 : 11.0, 8);
+	const int notePx = scaledPx(9.0, 8);
 	auto stamp = [&](CalypsoHdItem& item, std::uint32_t role)
 	{
 		const std::uint64_t instance = reinterpret_cast<std::uintptr_t>(model.instance);
@@ -631,18 +635,8 @@ void calypsoCollectContactIntelBoard(
 			std::max(1, model.status.w - 2 * protocolInset), model.status.h},
 		model.protocolWidget, mono, model.protocolText, model.protocolColor,
 		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle,
-		scaledPx(wide ? 10.0 : 9.0, 8), 0, 0.10, BOARD_ROLE_PROTOCOL);
+		protocolPx, 0, 0.10, BOARD_ROLE_PROTOCOL);
 
-	// Radar panel: rounded framed panel holding the circular schematic.
-	CalypsoHdPanelStyle radarPanel;
-	radarPanel.styled = true;
-	radarPanel.shape = CalypsoHdPanelShape::RoundedRect;
-	radarPanel.radiusPx = model.innerRadiusPx * model.visualScale;
-	radarPanel.borderWidthPx = 1.0f;
-	radarPanel.borderColorRgba = model.plotFrameColor;
-	radarPanel.fillTopRgba = model.panelFillTop;
-	radarPanel.fillBottomRgba = model.panelFillTop;
-	addStyled(model.plotPanel, radarPanel, nullptr, BOARD_ROLE_PLOT_PANEL);
 
 	const int centerX = model.plotArea.x + model.plotArea.w / 2;
 	const int centerY = model.plotArea.y + model.plotArea.h / 2;
@@ -656,11 +650,58 @@ void calypsoCollectContactIntelBoard(
 	}
 	addRing(centerX, centerY, (int)std::llround(radarMin * 0.95),
 		model.radarStrongRingColor, ringPx, BOARD_ROLE_PLOT_GRID);
+	// Fine bearing ticks make the circular instrument read as a sonar rather
+	// than a generic chart. Stronger twelve-point ticks anchor the clock face.
+	const double fullTurn = 6.28318530717958647692;
+	const double tickRadius = radarMin * 0.475;
+	for (int i = 0; i < 72; ++i)
+	{
+		const double angle = fullTurn * i / 72.0;
+		const int tick = scaledPx(i % 6 == 0 ? 2.0 : 1.0);
+		addDisc(
+			(int)std::llround(centerX + std::cos(angle) * tickRadius),
+			(int)std::llround(centerY + std::sin(angle) * tickRadius),
+			tick, i % 6 == 0 ? model.radarStrongRingColor : model.radarRingColor,
+			BOARD_ROLE_PLOT_GRID);
+	}
 	// Cross axes.
 	addQuad({model.plotArea.x, centerY, model.plotArea.w, 1},
 		model.radarAxisColor, BOARD_ROLE_PLOT_GRID);
 	addQuad({centerX, model.plotArea.y, 1, model.plotArea.h},
 		model.radarAxisColor, BOARD_ROLE_PLOT_GRID);
+
+	// Clockwise live sonar sweep. Only an explicit deterministic harness
+	// capture may freeze it; stale harness flags never stop production motion.
+	if (model.radarSweepPeriodMs > 0)
+	{
+		const CalypsoHarnessSession& session = calypsoHarnessSession();
+		const bool frozenCapture = session.hostUp && session.motionDisabled;
+		double turn = 0.0;
+		if (!frozenCapture)
+		{
+			const std::uint32_t period = (std::uint32_t)model.radarSweepPeriodMs;
+			turn = (double)(SDL_GetTicks() % period) / (double)period;
+		}
+		const double sweepAngle = turn * fullTurn - 1.57079632679489661923;
+		const double beamRadius = radarMin * 0.475;
+		for (int ray = 3; ray >= 0; --ray)
+		{
+			const double angle = sweepAngle - ray * 0.11;
+			const double beamX = std::cos(angle);
+			const double beamY = std::sin(angle);
+			const int beamDot = std::max(1, scaledPx(ray == 0 ? 3.0 : 2.0));
+			const std::uint32_t color =
+				ray == 0 ? model.plotBaseColor : model.radarSweepColor;
+			for (double distance = scaledPx(5.0); distance <= beamRadius;
+				distance += beamDot)
+			{
+				const int x = (int)std::llround(centerX + beamX * distance);
+				const int y = (int)std::llround(centerY + beamY * distance);
+				addQuad({x - beamDot / 2, y - beamDot / 2, beamDot, beamDot},
+					color, BOARD_ROLE_PLOT_GRID);
+			}
+		}
+	}
 
 	// Base marker: the radar center is the nearest base.
 	if (model.base.x || model.base.y)
@@ -681,10 +722,10 @@ void calypsoCollectContactIntelBoard(
 		if (sweepLen > 1.0)
 		{
 			addDisc(model.contact.x, model.contact.y,
-				(int)std::llround(radarMin * 0.445), model.radarSweepColor,
+				(int)std::llround(radarMin * 0.24), model.radarSweepColor,
 				BOARD_ROLE_PLOT_GRID);
 			addDisc(model.contact.x, model.contact.y,
-				(int)std::llround(radarMin * 0.286), model.radarSweepColor,
+				(int)std::llround(radarMin * 0.14), model.radarSweepColor,
 				BOARD_ROLE_PLOT_GRID);
 		}
 	}
@@ -737,7 +778,7 @@ void calypsoCollectContactIntelBoard(
 	// Cardinal letters stay inside the plot panel even when the glyph boxes
 	// leave the circular plot area.
 	{
-		const int card = scaledPx(wide ? 12.0 : 11.0, 8);
+		const int card = cardinalPx;
 		const int box = scaledPx(24.0);
 		const int boxH = scaledPx(18.0);
 		const int left = model.plotArea.x;
@@ -773,15 +814,13 @@ void calypsoCollectContactIntelBoard(
 		scaledPx(wide ? 18.0 : 16.0, 11), 0, 0.0, BOARD_ROLE_WARNING);
 	addText(model.title, model.titleWidget, heading, model.titleText,
 		CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle,
-		scaledPx(titlePx, 12), 0, CalypsoHdTheme::kTitleTrackingEm, BOARD_ROLE_TITLE);
+		titlePx, 0, CalypsoHdTheme::kTitleTrackingEm, BOARD_ROLE_TITLE);
 	addText(model.message, model.messageWidget, body, model.messageText,
 		CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle,
-		scaledPx(dataPx, 9), 0, 0.08, BOARD_ROLE_MESSAGE);
+		messagePx, 0, 0.08, BOARD_ROLE_MESSAGE);
 
-	// Fact rows: dim mono label left, bright heading value right, hairline
-	// divider per row. Labels are captions at 11px mono so the longest
-	// generated label fits every layout's label slot.
-	const int factLabelPx = scaledPx(11.0, 9);
+	// Fact rows: canonical body-scale mono label left, bright heading value
+	// right, and a hairline divider per row.
 	for (std::size_t i = 0; i < model.facts.size(); ++i)
 	{
 		const std::size_t labelIndex = i * 2;
@@ -798,7 +837,7 @@ void calypsoCollectContactIntelBoard(
 			CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, factLabelPx, 0, 0.0,
 			BOARD_ROLE_FACT);
 		addText(valueRect, nullptr, heading, fact.value, model.factValueColor,
-			CalypsoHdHAlign::Right, CalypsoHdVAlign::Middle, dataPx, 0, 0.02,
+			CalypsoHdHAlign::Right, CalypsoHdVAlign::Middle, factValuePx, 0, 0.02,
 			BOARD_ROLE_FACT);
 	}
 
@@ -806,7 +845,7 @@ void calypsoCollectContactIntelBoard(
 	{
 		addText(model.note, nullptr, mono, model.noteText, model.protocolColor,
 			CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle,
-			scaledPx(9.0, 8), 0, 0.0, BOARD_ROLE_NOTE);
+			notePx, 0, 0.0, BOARD_ROLE_NOTE);
 	}
 
 	// Action area: canonical footer material with generated action geometry.
@@ -827,9 +866,10 @@ void calypsoCollectContactIntelBoard(
 		const CalypsoInteractionState state = buttonVisualState(button.widget, peer);
 		addStyled(button.rect, buttonStyle(button, state), button.widget,
 			BOARD_ROLE_BUTTON_BASE + (std::uint32_t)i);
+		const int buttonWrapWidth = scaledPx(std::max(1, button.rect.w - 12));
 		addText(button.rect, button.widget, heading, button.text, button.textColor,
-			CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, actionPx, 0,
-			CalypsoHdTheme::kLabelTrackingEm,
+			CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, actionPx,
+			buttonWrapWidth, 0.0,
 			BOARD_ROLE_BUTTON_LABEL_BASE + (std::uint32_t)i);
 	}
 }

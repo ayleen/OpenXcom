@@ -362,8 +362,8 @@ BOARD_CANVASES = {"wide": (1280, 720), "compact": (740, 360), "portrait": (360, 
 
 def validate_intel_board_template(template):
     """Pin the reviewed contact-intel-board shell and canonical form chrome."""
-    if template.get("version") != 3:
-        raise FormError("contact-intel-board template must use version 3")
+    if template.get("version") != 5:
+        raise FormError("contact-intel-board template must use version 5")
     if template.get("buttonCount") != {"min": 3, "max": 3}:
         raise FormError("contact-intel-board template must require exactly three buttons")
     tones = template.get("supportedButtonTones")
@@ -387,12 +387,18 @@ def validate_intel_board_template(template):
     for key in BOARD_STYLE_KEYS - BOARD_NUMERIC_STYLE_KEYS:
         if not isinstance(style[key], str) or not COLOR_RE.fullmatch(style[key]):
             raise FormError("template style." + key + " must be RRGGBBAA")
+    motion = template.get("motion") or {}
+    if set(motion) != {"durationMs", "scaleFrom", "easing",
+                       "radarSweepPeriodMs", "captureModeDurationMs"}:
+        raise FormError("contact-intel-board motion keys drifted from the reviewed set")
+    if motion.get("radarSweepPeriodMs") != 3600:
+        raise FormError("contact-intel-board radar sweep period must stay 3600ms")
     sizing = template.get("contentSizing") or {}
     expected_sizing = {
-        "wide": {"safeMarginPx": 24, "factCount": 5, "factLabelWidth": 132,
-                 "factRowHeight": 36, "factRowGap": 0},
-        "compact": {"safeMarginPx": 16, "factCount": 5, "factLabelWidth": 120,
-                    "factRowHeight": 32, "factRowGap": 0},
+        "wide": {"safeMarginPx": 24, "factCount": 5, "factLabelWidth": 160,
+                 "factRowHeight": 48, "factRowGap": 0},
+        "compact": {"safeMarginPx": 16, "factCount": 5, "factLabelWidth": 112,
+                    "factRowHeight": 30, "factRowGap": 0},
         "portrait": {"safeMarginPx": 16, "factCount": 5, "factLabelWidth": 112,
                      "factRowHeight": 38, "factRowGap": 0},
     }
@@ -586,7 +592,7 @@ def build_intel_board_contract(config, template, source_name):
                 {"density": "standard", "scaleNumerator": 1, "scaleDenominator": 1}),
             "title": config["title"],
             "message": copy.deepcopy(config["body"]),
-            "note": config.get("note", ""),
+            "note": config.get("note") or "",
         },
         "presentation": {"density": "standard", "scaleNumerator": 1,
                          "scaleDenominator": 1},

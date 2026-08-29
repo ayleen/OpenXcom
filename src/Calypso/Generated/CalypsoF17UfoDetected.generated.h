@@ -10,7 +10,7 @@ inline constexpr int kFamilyId = 17;
 inline constexpr const char* kArchetype = "contact-intel-board";
 inline constexpr const char* kSourceConfig = "FormConfigs/f17-ufo-detected.json";
 inline constexpr const char* kProtocol = "TACTICAL NOTICE F17-UFO-DETECTED";
-inline constexpr const char* kNote = "INTERCEPT OPENS WING ASSEMBLY · DISMISS RETURNS TO THE PLOT";
+inline constexpr const char* kNote = "";
 inline constexpr const char* kFactLabels[] = { "SIZE", "DEPTH", "HEADING", "SPEED", "DIST TO BASE" };
 inline constexpr int kFactCount = 5;
 
@@ -57,7 +57,7 @@ inline constexpr std::uint32_t kRadarContactHalo = 0xFFC14D40u;
 inline constexpr std::uint32_t kRadarCourse = 0xFFC14D8Cu;
 inline constexpr std::uint32_t kRadarRing = 0x74FFB02Bu;
 inline constexpr std::uint32_t kRadarRingStrong = 0x74FFB059u;
-inline constexpr std::uint32_t kRadarSweep = 0x74FFB01Fu;
+inline constexpr std::uint32_t kRadarSweep = 0x74FFB03Du;
 
 struct CalypsoF17UfoDetectedGenRect { int x; int y; int w; int h; };
 struct CalypsoF17UfoDetectedGenLayout { int designWidth; int designHeight; CalypsoF17UfoDetectedGenRect window; CalypsoF17UfoDetectedGenRect status; CalypsoF17UfoDetectedGenRect warning; CalypsoF17UfoDetectedGenRect title; CalypsoF17UfoDetectedGenRect message; CalypsoF17UfoDetectedGenRect footer;
@@ -72,25 +72,25 @@ struct CalypsoF17UfoDetectedGenLayout { int designWidth; int designHeight; Calyp
     CalypsoF17UfoDetectedGenRect fact5Label;
     CalypsoF17UfoDetectedGenRect fact5Value;
     CalypsoF17UfoDetectedGenRect factsArea;
-    CalypsoF17UfoDetectedGenRect note;
     CalypsoF17UfoDetectedGenRect plotArea;
     CalypsoF17UfoDetectedGenRect plotPanel;
     CalypsoF17UfoDetectedGenRect reportPanel;
 };
 inline constexpr CalypsoF17UfoDetectedGenLayout kLayouts[] = {
-    { 1280, 720, { 552, 300, 704, 396 }, { 576, 316, 656, 20 }, { 576, 350, 24, 24 }, { 616, 344, 212, 40 }, { 616, 382, 212, 20 }, { 872, 548, 344, 124 }, { 872, 354, 132, 36 }, { 1004, 354, 212, 36 }, { 872, 390, 132, 36 }, { 1004, 390, 212, 36 }, { 872, 426, 132, 36 }, { 1004, 426, 212, 36 }, { 872, 462, 132, 36 }, { 1004, 462, 212, 36 }, { 872, 498, 132, 36 }, { 1004, 498, 212, 36 }, { 872, 354, 344, 180 }, { 872, 676, 344, 12 }, { 576, 414, 252, 252 }, { 576, 344, 252, 328 }, { 856, 344, 376, 328 } }, // wide
-    { 740, 360, { 16, 12, 708, 336 }, { 32, 24, 676, 18 }, { 32, 48, 22, 22 }, { 68, 44, 184, 34 }, { 68, 76, 184, 18 }, { 276, 218, 432, 114 }, { 276, 50, 120, 32 }, { 396, 50, 312, 32 }, { 276, 82, 120, 32 }, { 396, 82, 312, 32 }, { 276, 114, 120, 32 }, { 396, 114, 312, 32 }, { 276, 146, 120, 32 }, { 396, 146, 312, 32 }, { 276, 178, 120, 32 }, { 396, 178, 312, 32 }, { 276, 50, 432, 160 }, { 0, 0, 0, 0 }, { 32, 100, 220, 220 }, { 32, 44, 220, 288 }, { 276, 44, 432, 288 } }, // compact
-    { 360, 740, { 8, 8, 344, 724 }, { 24, 22, 312, 18 }, { 24, 52, 24, 24 }, { 24, 84, 312, 38 }, { 24, 122, 312, 18 }, { 24, 548, 312, 164 }, { 24, 346, 112, 38 }, { 136, 346, 200, 38 }, { 24, 384, 112, 38 }, { 136, 384, 200, 38 }, { 24, 422, 112, 38 }, { 136, 422, 200, 38 }, { 24, 460, 112, 38 }, { 136, 460, 200, 38 }, { 24, 498, 112, 38 }, { 136, 498, 200, 38 }, { 24, 346, 312, 190 }, { 0, 0, 0, 0 }, { 70, 112, 220, 220 }, { 24, 106, 312, 232 }, { 24, 346, 312, 190 } }, // portrait
+    { 1280, 720, { 160, 72, 960, 576 }, { 198, 98, 884, 40 }, { 192, 104, 28, 28 }, { 200, 160, 360, 44 }, { 200, 204, 360, 24 }, { 624, 424, 432, 176 }, { 624, 160, 160, 48 }, { 784, 160, 272, 48 }, { 624, 208, 160, 48 }, { 784, 208, 272, 48 }, { 624, 256, 160, 48 }, { 784, 256, 272, 48 }, { 624, 304, 160, 48 }, { 784, 304, 272, 48 }, { 624, 352, 160, 48 }, { 784, 352, 272, 48 }, { 624, 160, 432, 240 }, { 204, 236, 352, 352 }, { 184, 148, 392, 456 }, { 600, 160, 480, 440 } }, // wide
+    { 740, 360, { 72, 20, 596, 320 }, { 96, 36, 548, 28 }, { 96, 38, 22, 22 }, { 96, 76, 220, 36 }, { 96, 108, 220, 18 }, { 352, 236, 280, 102 }, { 352, 76, 112, 30 }, { 464, 76, 168, 30 }, { 352, 106, 112, 30 }, { 464, 106, 168, 30 }, { 352, 136, 112, 30 }, { 464, 136, 168, 30 }, { 352, 166, 112, 30 }, { 464, 166, 168, 30 }, { 352, 196, 112, 30 }, { 464, 196, 168, 30 }, { 352, 76, 280, 150 }, { 102, 116, 208, 208 }, { 88, 72, 236, 252 }, { 340, 76, 304, 262 } }, // compact
+    { 360, 740, { 8, 8, 344, 724 }, { 24, 22, 312, 18 }, { 24, 52, 24, 24 }, { 24, 84, 312, 38 }, { 24, 122, 312, 18 }, { 24, 548, 312, 164 }, { 24, 346, 112, 38 }, { 136, 346, 200, 38 }, { 24, 384, 112, 38 }, { 136, 384, 200, 38 }, { 24, 422, 112, 38 }, { 136, 422, 200, 38 }, { 24, 460, 112, 38 }, { 136, 460, 200, 38 }, { 24, 498, 112, 38 }, { 136, 498, 200, 38 }, { 24, 346, 312, 190 }, { 70, 112, 220, 220 }, { 24, 106, 312, 232 }, { 24, 346, 312, 190 } }, // portrait
 };
 struct CalypsoF17UfoDetectedGenButtonRect { const char* id; CalypsoF17UfoDetectedGenRect rect; };
 inline constexpr CalypsoF17UfoDetectedGenButtonRect kButtonRects[][ 3 ] = {
-    { { "intercept", { 872, 548, 344, 52 } }, { "centre", { 872, 612, 218, 44 } }, { "cancel", { 1102, 612, 114, 44 } } }, // wide
-    { { "intercept", { 276, 218, 432, 48 } }, { "centre", { 276, 278, 276, 44 } }, { "cancel", { 564, 278, 144, 44 } } }, // compact
+    { { "intercept", { 624, 424, 432, 64 } }, { "centre", { 624, 508, 292, 56 } }, { "cancel", { 932, 508, 124, 56 } } }, // wide
+    { { "intercept", { 352, 236, 280, 48 } }, { "centre", { 352, 294, 210, 44 } }, { "cancel", { 574, 294, 58, 44 } } }, // compact
     { { "intercept", { 24, 548, 312, 52 } }, { "centre", { 24, 612, 312, 44 } }, { "cancel", { 24, 668, 312, 44 } } }, // portrait
 };
 inline constexpr int kLayoutCount = 3;
 inline constexpr int kMotionDurationMs = 150;
 inline constexpr float kMotionScaleFrom = 0.985000f;
+inline constexpr int kRadarSweepPeriodMs = 3600;
 inline const CalypsoF17UfoDetectedGenLayout* layoutForDesign(int dw, int dh)
 {
 	for (int i = 0; i < kLayoutCount; ++i)

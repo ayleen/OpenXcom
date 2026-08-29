@@ -214,11 +214,17 @@ void CalypsoF17UfoDetectedUi::collect(CalypsoHdFrameBuilder& builder) const
         case LayoutVariant::Compact: m.layout = CalypsoContactIntelLayout::Compact; break;
     }
     m.designWidth = g->designWidth; m.designHeight = g->designHeight;
+    const CalypsoHdPresentationMetrics& presentation =
+        CalypsoHdUiOverlay::instance().frozenMetrics();
+    m.uiScale = uiScale;
+    m.visualScale = CalypsoF17UfoDetectedGen::kPresentationScale;
+    m.projectionScaleX = uiScale * presentation.scaleX;
+    m.projectionScaleY = uiScale * presentation.scaleY;
     m.window = proj(g->window); m.status = proj(g->status);
     m.plotPanel = proj(g->plotPanel); m.plotArea = proj(g->plotArea);
     m.reportPanel = proj(g->reportPanel);
     m.warning = proj(g->warning); m.title = proj(g->title); m.message = proj(g->message);
-    m.footer = proj(g->footer); m.note = proj(g->note);
+    m.footer = proj(g->footer); m.note = m.footer;
     for (int i = 1; i <= 5; ++i)
     {
         m.factRects.push_back(proj(factPart(i, false)));
@@ -226,9 +232,10 @@ void CalypsoF17UfoDetectedUi::collect(CalypsoHdFrameBuilder& builder) const
     }
     m.windowWidget = _state->_window;
     m.titleWidget = _state->_txtUfo;
-    m.messageWidget = _state->_txtDetected;
-    m.protocolText = CalypsoF17UfoDetectedGen::kProtocol;
-    m.noteText = CalypsoF17UfoDetectedGen::kNote;
+    m.messageWidget = nullptr;
+    m.protocolWidget = _state->_txtDetected;
+    m.protocolText.clear();
+    m.noteText.clear();
     m.warningGlyph = "!";
     m.protocolTextInsetPx = CalypsoF17UfoDetectedGen::kProtocolTextInsetPx;
     m.cutCornerPx = CalypsoF17UfoDetectedGen::kCutCornerPx;
@@ -249,6 +256,7 @@ void CalypsoF17UfoDetectedUi::collect(CalypsoHdFrameBuilder& builder) const
     m.radarStrongRingColor = CalypsoF17UfoDetectedGen::kRadarRingStrong;
     m.radarAxisColor = CalypsoF17UfoDetectedGen::kRadarAxis;
     m.radarSweepColor = CalypsoF17UfoDetectedGen::kRadarSweep;
+    m.radarSweepPeriodMs = CalypsoF17UfoDetectedGen::kRadarSweepPeriodMs;
     m.factLabelColor = CalypsoF17UfoDetectedGen::kFactLabel;
     m.factValueColor = CalypsoF17UfoDetectedGen::kFactValue;
     m.plotFrameColor = CalypsoF17UfoDetectedGen::kPlotFrame;
@@ -264,7 +272,8 @@ void CalypsoF17UfoDetectedUi::collect(CalypsoHdFrameBuilder& builder) const
     // Runtime content: the vanilla state and its contact remain authoritative.
     Ufo* ufo = _state->_ufo;
     m.titleText = _state->_txtUfo ? _state->_txtUfo->getText() : std::string();
-    m.messageText = _state->_txtDetected ? _state->_txtDetected->getText() : std::string();
+    m.protocolText = _state->_txtDetected ? _state->_txtDetected->getText() : std::string();
+    m.messageText.clear();
 
     // Radar: a SCHEMATIC circular bearing plot. The nearest base sits at the
     // center; the contact lands on the true base->contact direction at a
@@ -291,9 +300,15 @@ void CalypsoF17UfoDetectedUi::collect(CalypsoHdFrameBuilder& builder) const
     }
     const double bLon = nearest ? nearest->getLongitude() : cLon;
     const double bLat = nearest ? nearest->getLatitude() : cLat;
-    double dirX = wrapLongitudeDelta(cLon, bLon);
-    dirX *= std::cos((cLat + bLat) * 0.5);
-    double dirY = cLat - bLat;
+    const double deltaLon = wrapLongitudeDelta(cLon, bLon);
+    // OpenXcom latitude grows toward the south, opposite to geographic
+    // latitude. Convert both endpoints before evaluating the exact initial
+    // great-circle bearing so north stays above the radar origin.
+    const double bGeoLat = -bLat;
+    const double cGeoLat = -cLat;
+    const double dirX = std::sin(deltaLon) * std::cos(cGeoLat);
+    const double dirY = std::cos(bGeoLat) * std::sin(cGeoLat)
+        - std::sin(bGeoLat) * std::cos(cGeoLat) * std::cos(deltaLon);
     const double dirLen = std::sqrt(dirX * dirX + dirY * dirY);
     const double contactRadius = std::min(plot.w, plot.h) * 0.36;
     if (dirLen < 1e-6)
@@ -313,7 +328,7 @@ void CalypsoF17UfoDetectedUi::collect(CalypsoHdFrameBuilder& builder) const
     m.courseWord = ufo ? boardCourseWord(ufo->getDirection()) : std::string("NONE");
 
     // Fact rows: labels are config-owned generated copy (reference == engine);
-    // every value maps to a real accessor or is labeled DERIVED.
+    // every value maps to a real runtime accessor or calculation.
     std::string altitude = ufo ? ufo->getAltitude() : std::string();
     if (ufo)
     {
@@ -336,7 +351,7 @@ void CalypsoF17UfoDetectedUi::collect(CalypsoHdFrameBuilder& builder) const
     if (nearest && ufo)
     {
         const int km = (int)std::llround(nearestAngle * 6371.0);
-        snprintf(distBuffer, sizeof(distBuffer), "%d KM %s", km, "\xC2\xB7 DERIVED");
+        snprintf(distBuffer, sizeof(distBuffer), "%d KM", km);
     }
     else
     {

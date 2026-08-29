@@ -177,6 +177,7 @@ struct CalypsoContactIntelBoardModel
 	CalypsoContactIntelMarker contact;
 	CalypsoContactIntelMarker base;
 
+
 	float protocolTextInsetPx = 0.0f;
 	float cutCornerPx = 0.0f;
 	float innerRadiusPx = 10.0f;
@@ -189,11 +190,12 @@ struct CalypsoContactIntelBoardModel
 	std::uint32_t warningColor = 0;
 	/// Per-layout modal dim behind the canonical shell.
 	std::uint32_t backdropColor = 0;
-	/// Circular-radar decor tokens (v2 tactical focus card).
+	/// Circular-radar decor tokens and clockwise sweep timing.
 	std::uint32_t radarRingColor = 0;
 	std::uint32_t radarStrongRingColor = 0;
 	std::uint32_t radarAxisColor = 0;
 	std::uint32_t radarSweepColor = 0;
+	int radarSweepPeriodMs = 0;
 	std::uint32_t factLabelColor = 0;
 	std::uint32_t factValueColor = 0;
 	/// Radar marker colours; the v1 plot* field names are kept on purpose --

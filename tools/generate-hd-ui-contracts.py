@@ -328,6 +328,10 @@ def validate_family(doc, rel, profile, engine_text_calibration=False):
                 if (rightmost["x"] + rightmost["width"]
                         != message.get("x", 0) + message.get("width", 0)):
                     fail(rel + ": " + layout_name + " rightmost action left the text rail")
+        if profile == "contact-intel-board":
+            sweep_period = (doc.get("motion") or {}).get("radarSweepPeriodMs")
+            if not isinstance(sweep_period, int) or not 1000 <= sweep_period <= 10000:
+                fail(rel + ": motion.radarSweepPeriodMs must be an integer in [1000, 10000]")
         return
     if profile == "command-card":
         if doc.get("visualProfile") != "command-card-v1":
@@ -993,6 +997,9 @@ def emit_small_confirmation_h(doc, rel, ns, prefix):
     out.append("inline constexpr int kLayoutCount = " + str(len(generated_layouts)) + ";")
     out.append("inline constexpr int kMotionDurationMs = " + str(int(m["durationMs"])) + ";")
     out.append("inline constexpr float kMotionScaleFrom = %.6ff;" % float(m["scaleFrom"]))
+    if form["archetype"] == "contact-intel-board":
+        out.append("inline constexpr int kRadarSweepPeriodMs = "
+                   + str(int(m["radarSweepPeriodMs"])) + ";")
     out.append("inline const " + prefix + "GenLayout* layoutForDesign(int dw, int dh)")
     out.append("{")
     out.append("	for (int i = 0; i < kLayoutCount; ++i)")
