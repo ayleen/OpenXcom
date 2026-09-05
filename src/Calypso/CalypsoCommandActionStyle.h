@@ -8,9 +8,9 @@
  * the flat quiet fill with the fixed-radius gradient surfaces defined by the
  * hd-ui-theme.json commandAction token block.
  *
- * Pure, dependency-free data (only CalypsoHdFamilyAdapter.h for the style
- * struct, CalypsoHdInteractionState.h for the state enum, and the generated
- * theme header) -- NOT wrapped in #ifdef __EMSCRIPTEN__, matching the
+ * Pure, dependency-free data (only CalypsoHdUiModel.h for the style struct,
+ * CalypsoHdInteractionState.h for the state enum, and the generated theme
+ * header) -- NOT wrapped in #ifdef __EMSCRIPTEN__, matching the
  * Calypso pure-helper convention. Unit-tested natively by
  * CalypsoHdCommandActionStyleTest.
  */
@@ -18,7 +18,7 @@
 #include <string>
 
 #include "CalypsoF21LayoutBase.h"
-#include "CalypsoHdFamilyAdapter.h"
+#include "CalypsoHdUiModel.h"
 #include "CalypsoHdInteractionState.h"
 #include "Generated/CalypsoHdTheme.generated.h"
 
