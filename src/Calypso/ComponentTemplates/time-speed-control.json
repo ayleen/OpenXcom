@@ -3,6 +3,6 @@
   "id": "time-speed-control",
   "version": "hd.2026-08-20.1",
   "minimumTarget": [44, 44],
-  "allowedSlotRoles": ["time-pause", "time-5sec", "time-1min", "time-5min", "time-30min", "time-1hour", "time-1day"],
+  "allowedSlotRoles": ["time-5sec", "time-1min", "time-5min", "time-30min", "time-1hour", "time-1day"],
   "allowedTones": ["normal", "primary"]
 }

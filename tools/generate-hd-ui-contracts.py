@@ -71,6 +71,16 @@ import re as _re
 VERSION_RE = _re.compile(r"^[A-Za-z0-9._-]+$")
 
 
+COMMAND_ACTION_COLOR_KEYS = (
+    "restFillTop", "restFillBottom", "restBorder", "restGlow",
+    "hoverFillTop", "hoverFillBottom", "hoverBorder", "hoverGlow",
+    "pressedFillTop", "pressedFillBottom", "pressedBorder", "pressedGlow",
+    "disabledFillTop", "disabledFillBottom", "disabledBorder",
+    "primaryRestFillTop", "primaryRestFillBottom", "primaryRestBorder",
+)
+COMMAND_ACTION_GLOW_RADIUS_KEYS = ("restGlowRadiusPx", "hoverGlowRadiusPx", "pressedGlowRadiusPx")
+
+
 def validate_theme(theme):
     if theme.get("schema") != 1:
         fail("hd-ui-theme.json: schema must be 1")
@@ -116,6 +126,20 @@ def validate_theme(theme):
                 "minimumHorizontalPaddingPx", "minimumVerticalPaddingPx"):
         if not isinstance(f21_safe.get(key), int) or f21_safe[key] < 4:
             fail("hd-ui-theme.json: f21TextSafeArea." + key + " must be an integer >= 4")
+    command_action = theme.get("commandAction") or {}
+    for key in COMMAND_ACTION_COLOR_KEYS:
+        value = command_action.get(key)
+        if not isinstance(value, str) or not re.fullmatch(r"[0-9A-Fa-f]{8}", value):
+            fail("hd-ui-theme.json: commandAction." + key + " must be packed RRGGBBAA")
+    for key in COMMAND_ACTION_GLOW_RADIUS_KEYS:
+        if not isinstance(command_action.get(key), (int, float)) or command_action[key] <= 0:
+            fail("hd-ui-theme.json: commandAction." + key + " must be > 0")
+    if not isinstance(command_action.get("radiusPx"), (int, float)) or command_action["radiusPx"] <= 0:
+        fail("hd-ui-theme.json: commandAction.radiusPx must be > 0")
+    if command_action.get("hoverGlowRadiusPx", 0) <= command_action.get("restGlowRadiusPx", 1):
+        fail("hd-ui-theme.json: commandAction.hoverGlowRadiusPx must read stronger than rest")
+    if command_action.get("pressedGlowRadiusPx", 1) >= command_action.get("restGlowRadiusPx", 0):
+        fail("hd-ui-theme.json: commandAction.pressedGlowRadiusPx must read tighter than rest")
 
 
 def validate_f33(f33):
@@ -728,6 +752,16 @@ def emit_theme_h(theme):
     out.append("inline constexpr int kTitleFontWeight = %d;" % int(theme["typography"]["titleFontWeight"]))
     out.append("inline constexpr int kLabelFontWeight = %d;" % int(theme["typography"]["labelFontWeight"]))
     out.append("inline constexpr int kBodyFontWeight = %d;" % int(theme["typography"]["bodyFontWeight"]))
+    out.append("")
+    out.append("// Command action styling (Geoscape HD v2 contract s.10.1): fixed")
+    out.append("// canonical radius plus per-state gradient/border/glow tokens.")
+    out.append("inline constexpr float kCommandActionRadiusPx = %.6ff;" % float(theme["commandAction"]["radiusPx"]))
+    for key in COMMAND_ACTION_COLOR_KEYS:
+        const = "kCommandAction" + key[0].upper() + key[1:]
+        out.append("inline constexpr std::uint32_t " + const + " = " + rgba_call(theme["commandAction"][key]) + ";")
+    for key in COMMAND_ACTION_GLOW_RADIUS_KEYS:
+        const = "kCommandAction" + key[0].upper() + key[1:]
+        out.append("inline constexpr float " + const + " = %.6ff;" % float(theme["commandAction"][key]))
     out.append("")
     out.append("// F21 command-card typography and hard text safe area (design px).")
     for key, value in theme["f21Typography"].items():

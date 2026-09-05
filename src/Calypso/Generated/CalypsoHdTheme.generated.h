@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <cstring>
 namespace OpenXcom { namespace Calypso { namespace CalypsoHdThemeGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-20.22";
+inline constexpr const char* kContractVersion = "hd.2026-08-28.23";
 
 // Semantic palette (0xRRGGBBAA).
 inline constexpr std::uint32_t kAccent = 0x74FFB0FFu;
@@ -69,6 +69,31 @@ inline constexpr float kBodyLineHeight = 1.500000f;
 inline constexpr int kTitleFontWeight = 700;
 inline constexpr int kLabelFontWeight = 700;
 inline constexpr int kBodyFontWeight = 400;
+
+// Command action styling (Geoscape HD v2 contract s.10.1): fixed
+// canonical radius plus per-state gradient/border/glow tokens.
+inline constexpr float kCommandActionRadiusPx = 14.000000f;
+inline constexpr std::uint32_t kCommandActionRestFillTop = 0x0E2226F0u;
+inline constexpr std::uint32_t kCommandActionRestFillBottom = 0x071418DCu;
+inline constexpr std::uint32_t kCommandActionRestBorder = 0x74FFB059u;
+inline constexpr std::uint32_t kCommandActionRestGlow = 0x74FFB012u;
+inline constexpr std::uint32_t kCommandActionHoverFillTop = 0x14313AF5u;
+inline constexpr std::uint32_t kCommandActionHoverFillBottom = 0x0B1E24E8u;
+inline constexpr std::uint32_t kCommandActionHoverBorder = 0x74FFB0CCu;
+inline constexpr std::uint32_t kCommandActionHoverGlow = 0x74FFB02Bu;
+inline constexpr std::uint32_t kCommandActionPressedFillTop = 0x0A181DFAu;
+inline constexpr std::uint32_t kCommandActionPressedFillBottom = 0x060F13FAu;
+inline constexpr std::uint32_t kCommandActionPressedBorder = 0x74FFB099u;
+inline constexpr std::uint32_t kCommandActionPressedGlow = 0x74FFB01Au;
+inline constexpr std::uint32_t kCommandActionDisabledFillTop = 0x0B1216B4u;
+inline constexpr std::uint32_t kCommandActionDisabledFillBottom = 0x060B0EA6u;
+inline constexpr std::uint32_t kCommandActionDisabledBorder = 0x74FFB024u;
+inline constexpr std::uint32_t kCommandActionPrimaryRestFillTop = 0x123038F5u;
+inline constexpr std::uint32_t kCommandActionPrimaryRestFillBottom = 0x0A1E24E0u;
+inline constexpr std::uint32_t kCommandActionPrimaryRestBorder = 0x74FFB0A6u;
+inline constexpr float kCommandActionRestGlowRadiusPx = 6.000000f;
+inline constexpr float kCommandActionHoverGlowRadiusPx = 10.000000f;
+inline constexpr float kCommandActionPressedGlowRadiusPx = 3.000000f;
 
 // F21 command-card typography and hard text safe area (design px).
 inline constexpr int kF21ProtocolWidePx = 10;

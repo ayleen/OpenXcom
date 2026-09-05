@@ -57,23 +57,42 @@ float backgroundHash(vec2 pixel)
     return fract(sin(dot(pixel, vec2(127.1, 311.7))) * 43758.5453);
 }
 
+// One soft procedural star field layer. The plane is cut into cellPx grids;
+// each cell hosts at most one star (density = probability a cell is lit),
+// placed by hashing, with a gaussian falloff and a magnitude curve that
+// keeps most stars faint and only a few bright. Returns 0..~1.2 intensity.
+float starLayer(vec2 pixel, float cellPx, float density, float glowSharp, vec2 seed)
+{
+    vec2 grid = pixel / cellPx;
+    vec2 cell = floor(grid);
+    vec2 f    = fract(grid);
+    if (backgroundHash(cell + seed) > density) return 0.0;
+    vec2 starPos = vec2(backgroundHash(cell + seed + vec2(17.0,  91.0)),
+                        backgroundHash(cell + seed + vec2(47.0, 113.0)));
+    vec2 delta = f - starPos;
+    float mag = backgroundHash(cell + seed + vec2(83.0, 29.0));
+    float bright = 0.30 + 0.70 * mag * mag;
+    return bright * exp(-dot(delta, delta) * glowSharp);
+}
+
 vec3 backgroundColor(vec2 pixel)
 {
     float t = (u_viewportSize.y > 1.0) ? pixel.y / (u_viewportSize.y - 1.0) : 0.0;
     vec3 color = vec3(1.0 + t * 2.0, 5.0 + t * 9.0, 17.0 + t * 18.0) / 255.0;
     if (distance(pixel, u_globeCenter) >= u_globeRadius + 5.0)
     {
-        vec2 cell = floor(pixel);
-        float starThreshold = 1.0 - 125.0 / max(u_viewportSize.x * u_viewportSize.y, 1.0);
-        float seed = backgroundHash(cell);
-        if (seed > starThreshold)
-        {
-            float phase = backgroundHash(cell + vec2(19.0, 7.0)) * 6.28318530;
-            float pulse = 0.62 + 0.38 * (0.5 + 0.5 * sin(u_time * 1.7 + phase));
-            float value = (100.0 + backgroundHash(cell + vec2(43.0, 13.0)) * 127.0) * pulse;
-            vec3 starColor = vec3(value * 0.78, value * 0.92, value) / 255.0;
-            color = max(color, starColor);
-        }
+        // Starry sky: three scales — a faint dust of pinpoints, the main
+        // star field, and rare bright accents that twinkle gently. Static
+        // geometry (hash-seeded), so QA frozen-time rows stay deterministic;
+        // u_time only modulates the accent twinkle phase.
+        float stars = starLayer(pixel,  3.0, 0.006, 60.0, vec2(  0.0,   0.0)) * 0.50
+                    + starLayer(pixel,  6.0, 0.008, 26.0, vec2(101.0,   7.0)) * 0.95
+                    + starLayer(pixel, 12.0, 0.0055, 13.0, vec2(211.0,  43.0)) * 1.15
+                        * (0.72 + 0.28 * sin(u_time * 1.4 +
+                            backgroundHash(floor(pixel / 12.0) + vec2(211.0, 43.0)) * 6.2831853));
+        vec3 starTint = mix(vec3(0.74, 0.88, 1.00), vec3(1.00, 0.93, 0.80),
+            backgroundHash(floor(pixel / 6.0) + vec2(5.0, 71.0)));
+        color = max(color, starTint * clamp(stars, 0.0, 1.0));
     }
     return color;
 }

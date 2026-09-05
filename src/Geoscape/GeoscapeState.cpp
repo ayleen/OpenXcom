@@ -832,6 +832,11 @@ void GeoscapeState::init()
 void GeoscapeState::think()
 {
 	State::think();
+#ifdef __EMSCRIPTEN__
+	// Apply selector camera work after the complete pointer dispatch. Globe's
+	// mouse-release path may otherwise restore its pre-click drag centre.
+	CalypsoGeoscapeHdShell::applyPendingBaseFocus(this);
+#endif
 
 	_zoomInEffectTimer->think(this, 0);
 	_zoomOutEffectTimer->think(this, 0);

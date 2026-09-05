@@ -83,6 +83,31 @@ extraTTFFonts:
   - id: FONT_F34_MONO
     file: Resources/share-tech-mono-400.ttf
     size: 64
+  # Geoscape HD v2 s.10.1 (2026-08-28): Phosphor icon face fixture for the
+  # wide command rail (mirrors the hd-pack FONT_HD_ICONS registration).
+  - id: FONT_HD_ICONS
+    file: Resources/phosphor-regular.ttf
+    size: 64
+  # Command Center (mirrors the hd-pack FONT_CC_* registrations): Inter for prose and
+  # IBM Plex Mono for technical copy. Static OFL faces; see font-cc/OFL-*.txt.
+  - id: FONT_CC_INTER_R
+    file: Resources/font-cc/Inter-Regular.ttf
+    size: 64
+  - id: FONT_CC_INTER_M
+    file: Resources/font-cc/Inter-Medium.ttf
+    size: 64
+  - id: FONT_CC_INTER_SB
+    file: Resources/font-cc/Inter-SemiBold.ttf
+    size: 64
+  - id: FONT_CC_PLEX_R
+    file: Resources/font-cc/IBMPlexMono-Regular.ttf
+    size: 64
+  - id: FONT_CC_PLEX_M
+    file: Resources/font-cc/IBMPlexMono-Medium.ttf
+    size: 64
+  - id: FONT_CC_PLEX_SB
+    file: Resources/font-cc/IBMPlexMono-SemiBold.ttf
+    size: 64
   - id: FONT_F33_BODY
     file: Resources/chakra-petch-400.ttf
     size: 64

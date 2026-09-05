@@ -2,10 +2,10 @@
   "schema": 1,
   "id": "f21-site-details",
   "familyId": 21,
-  "version": "hd.2026-08-20.22",
+  "version": "hd.2026-08-28.23",
   "archetype": "content-block",
   "content": {
     "kind": "table",
-    "value": "| COORDINATES · 28.6·N  0.0·E | REGION · South Atlantic |\n| --- | --- |\n| LEGAL LAND SITE REQUIRED | Hover globe to inspect. Cancel discards this base. |"
+    "value": "| COORDINATES \u00b7 28.6\u00b7N  0.0\u00b7E | REGION \u00b7 South Atlantic |\n| --- | --- |\n| LEGAL LAND SITE REQUIRED | Hover globe to inspect. Cancel discards this base. |"
   }
 }

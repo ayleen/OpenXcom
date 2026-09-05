@@ -7,6 +7,7 @@ set ( root_src
 set ( calypso_src
   Calypso/BattlescapeHud.cpp
   Calypso/BattleUnitCalypso.cpp
+  Calypso/CommandCenter/CommandCenterLayout.cpp
   Calypso/CalypsoAiQaHarness.cpp
   Calypso/CalypsoAlienPacing.cpp
   Calypso/CalypsoContractDeliverState.cpp
@@ -647,6 +648,8 @@ if(EMSCRIPTEN)
   list(APPEND openxcom_src Calypso/CalypsoGeoscapeHd.cpp)
   # Phase 46.4 Stage 9: contract-projected strategic shell.
   list(APPEND openxcom_src Calypso/CalypsoGeoscapeHdShell.cpp)
+  # Command Center renderer (normative spec 2026-08-28).
+  list(APPEND openxcom_src Calypso/CommandCenter/CommandCenterRenderer.cpp)
   list(APPEND openxcom_src Calypso/CalypsoGeoscapeMusic.cpp)
   # Phase 46.1 (policy R3): browser-only extractions from the oversized in-place
   # #ifdef __EMSCRIPTEN__ regions of Engine/{EmscriptenHarness,Game,Screen}.cpp.
@@ -1034,6 +1037,8 @@ if(NOT EMSCRIPTEN AND BUILD_TESTING)
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdSdfFalloffTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdF33ContractTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdF21ContractTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdCommandActionStyleTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CommandCenterLayoutTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdInteractionStateTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdHarnessHostModelTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdDiagnosticsTest.cpp

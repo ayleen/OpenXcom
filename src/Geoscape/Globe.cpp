@@ -548,8 +548,26 @@ void Globe::polarToCart(double lon, double lat, double *x, double *y) const
  */
 void Globe::cartToPolar(Sint16 x, Sint16 y, double *lon, double *lat) const
 {
+	double globeX = x;
+	double globeY = y;
+#ifdef __EMSCRIPTEN__
+	if (Calypso::CommandCenter::calypsoCcEnabled() && _gpuState
+		&& _gpuState->_gpuDirectMode && _gpuState->_directScreen)
+	{
+		CalypsoGeoscapeHdGlobeDirect::PhysicalGlobeProjection physical;
+		if (CalypsoGeoscapeHdGlobeDirect::physicalGlobeProjection(this, physical))
+		{
+			const double physicalX = physical.surfaceOriginX
+				+ (x - getX()) * physical.surfaceScaleX;
+			const double physicalY = physical.surfaceOriginY
+				+ (y - getY()) * physical.surfaceScaleY;
+			globeX = (physicalX - physical.originX) / physical.scaleX;
+			globeY = (physicalY - physical.originY) / physical.scaleY;
+		}
+	}
+#endif
 	const Calypso::GeoscapeProjection projection{{(double)_cenX, (double)_cenY}, _radius, _cenLon, _cenLat};
-	const auto unprojected = Calypso::calypsoGeoscapeUnproject(projection, {(double)x, (double)y});
+	const auto unprojected = Calypso::calypsoGeoscapeUnproject(projection, {globeX, globeY});
 	if (!unprojected.valid)
 	{
 		*lon = std::numeric_limits<double>::quiet_NaN();
@@ -890,6 +908,22 @@ bool Globe::targetNear(Target* target, int x, int y) const
 	if (pointBack(target->getLongitude(), target->getLatitude()))
 		return false;
 	polarToCart(target->getLongitude(), target->getLatitude(), &tx, &ty);
+#ifdef __EMSCRIPTEN__
+	if (Calypso::CommandCenter::calypsoCcEnabled() && _gpuState
+		&& _gpuState->_gpuDirectMode && _gpuState->_directScreen)
+	{
+		CalypsoGeoscapeHdGlobeDirect::PhysicalGlobeProjection physical;
+		if (CalypsoGeoscapeHdGlobeDirect::physicalGlobeProjection(this, physical))
+		{
+			const double targetPhysicalX = physical.originX + tx * physical.scaleX;
+			const double targetPhysicalY = physical.originY + ty * physical.scaleY;
+			tx = (Sint16)std::lround(getX()
+				+ (targetPhysicalX - physical.surfaceOriginX) / physical.surfaceScaleX);
+			ty = (Sint16)std::lround(getY()
+				+ (targetPhysicalY - physical.surfaceOriginY) / physical.surfaceScaleY);
+		}
+	}
+#endif
 
 	int dx = x - tx;
 	int dy = y - ty;

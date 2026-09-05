@@ -4,7 +4,7 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF34ErrorGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-20.22";
+inline constexpr const char* kContractVersion = "hd.2026-08-28.23";
 inline constexpr const char* kFormId = "f34-error";
 inline constexpr int kFamilyId = 34;
 inline constexpr const char* kArchetype = "small-confirmation";

@@ -4,7 +4,7 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF21SiteDetailsGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-20.22";
+inline constexpr const char* kContractVersion = "hd.2026-08-28.23";
 
 /// One design-space rectangle (design px).
 struct CalypsoF21SiteDetailsGenRect { int x; int y; int w; int h; };

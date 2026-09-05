@@ -15,7 +15,10 @@
 #include "../Interface/Text.h"
 #include "../Interface/TextButton.h"
 #include "../Savegame/SavedGame.h"
+#include "../Savegame/Base.h"
 
+#include "CalypsoCommandActionStyle.h"
+#include "CommandCenter/CommandCenterRenderer.h"
 #include "CalypsoF21UiShared.h"
 #include "CalypsoHdFontSource.h"
 #include "CalypsoHdTheme.h"
@@ -171,8 +174,7 @@ CalypsoGeoscapeHdRuntimeModel CalypsoHdScreenRenderer::liveGeoscapeModel(const G
 	else if (state._timeSpeed == state._btn30Mins) runningSpeed = "time.speed.30min";
 	else if (state._timeSpeed == state._btn1Hour) runningSpeed = "time.speed.1hour";
 	else if (state._timeSpeed == state._btn1Day) runningSpeed = "time.speed.1day";
-	input.selectedActionId = calypsoGeoscapeHdSelectedTimeAction(
-		CalypsoGeoscapeHdShell::effectivePause(&state), runningSpeed);
+	input.selectedActionId = runningSpeed;
 
 	CalypsoGeoscapeHdRuntimeModel model = calypsoGeoscapeHdRuntimeModel(*layout, input);
 	for (auto& action : model.actions)
@@ -232,7 +234,6 @@ CalypsoGeoscapeHdSnapshotKey CalypsoHdScreenRenderer::liveGeoscapeKey(const Geos
 	key.debugOption = Options::debug;
 	const SavedGame* save = state._game ? state._game->getSavedGame() : nullptr;
 	key.ironman = save != nullptr && save->isIronman();
-	key.paused = CalypsoGeoscapeHdShell::effectivePause(&state);
 	key.selectedSpeed = state._timeSpeed;
 	key.hourTextGeneration = state._txtHour ? state._txtHour->calypsoTextGeneration() : 0;
 	key.minuteTextGeneration = state._txtMin ? state._txtMin->calypsoTextGeneration() : 0;
@@ -373,6 +374,14 @@ void CalypsoHdScreenRenderer::collect(CalypsoHdFrameBuilder& builder) const
 	CalypsoTtfSourceDescriptor body;
 	CalypsoTtfSourceDescriptor mono;
 	if (!resolvePhysicalFonts(heading, body, mono)) return;
+	// Visual contract s.10.1 rule 8: the wide command rail draws Phosphor
+	// line icons from the registered FONT_HD_ICONS face. Optional by design:
+	// a missing icon face fails closed to circle + label, never blocks
+	// readiness or the frame.
+	CalypsoTtfSourceDescriptor icon;
+	const bool iconsResolved = calypsoHdResolveFontDescriptor(
+		getCurrentGame() ? getCurrentGame()->getMod() : nullptr, "FONT_HD_ICONS", icon)
+		&& !icon.canonicalVfsPath.empty() && icon.logicalDesignSize > 0;
 
 	if (live && !completeFrameReady()) return;
 	const auto* projectionLayout = CalypsoGeoscapeCommandShellGen::layoutForDesign(
@@ -421,6 +430,89 @@ void CalypsoHdScreenRenderer::collect(CalypsoHdFrameBuilder& builder) const
 	painter.uiScale = scale;
 
 	std::uint32_t role = 1;
+
+	// Command Center gate (normative spec 2026-08-29): both wide and compact
+	// landscape render through the current physical Command Center surface.
+	if (CommandCenter::calypsoCcEnabled())
+	{
+		// CSS-authored geometry must invert each frozen presentation axis.
+		// The engine canvas is stretched independently in X/Y; requiring a
+		// uniform transform crashes valid desktop and fractional-DPR layouts.
+		if (!metrics.valid() || metrics.scaleX <= 0.0 || metrics.scaleY <= 0.0)
+			CalypsoHdUiOverlay::instance().failHdRoute(
+				"Command Center requires valid presentation metrics");
+		const int ccCssWidth = std::max(1, viewportMetrics.logicalWidth);
+		const int ccCssHeight = std::max(1, viewportMetrics.logicalHeight);
+		const double densityX = static_cast<double>(metrics.physicalWidth) / ccCssWidth;
+		const double densityY = static_cast<double>(metrics.physicalHeight) / ccCssHeight;
+		const double logicalPerCssX = densityX / metrics.scaleX;
+		const double logicalPerCssY = densityY / metrics.scaleY;
+		painter.winLogical = {
+			-(int)std::llround(metrics.contentOffsetX / metrics.scaleX),
+			-(int)std::llround(metrics.contentOffsetY / metrics.scaleY),
+			(int)std::llround(ccCssWidth * logicalPerCssX),
+			(int)std::llround(ccCssHeight * logicalPerCssY) };
+		painter.windowDesign = { 0, 0, ccCssWidth, ccCssHeight };
+		painter.uiScale = logicalPerCssX;
+		painter.uiAspectY = logicalPerCssY / logicalPerCssX;
+		const CommandCenter::CommandCenterFonts ccFonts =
+			CommandCenter::calypsoCcResolveFonts(
+				getCurrentGame() ? getCurrentGame()->getMod() : nullptr);
+		CommandCenter::CommandCenterSnapshot snap;
+		snap.selectedTimeStep = 1; // canonical reference: 1 MIN active
+		auto* geoscapeState = live ? static_cast<GeoscapeState*>(const_cast<void*>(_state)) : nullptr;
+		if (geoscapeState != nullptr)
+		{
+			snap.baseCaption = geoscapeState->tr("STR_BASES");
+			const auto txt = [](const Text* value) { return value ? value->getText() : std::string(); };
+			snap.displayTime = txt(geoscapeState->_txtHour) + ":" + txt(geoscapeState->_txtMin);
+			snap.displayDate = txt(geoscapeState->_txtDay) + " " + txt(geoscapeState->_txtMonth)
+				+ " " + txt(geoscapeState->_txtYear);
+			const SavedGame* save = geoscapeState->_game
+				? geoscapeState->_game->getSavedGame() : nullptr;
+			if (save != nullptr && save->getBases() != nullptr)
+			{
+				for (const Base* base : *save->getBases())
+					snap.baseNames.push_back(base->getName());
+				snap.selectedBaseIndex =
+					CalypsoGeoscapeHdShell::selectedBaseIndex(geoscapeState);
+				if (snap.selectedBaseIndex >= snap.baseNames.size())
+					snap.selectedBaseIndex = 0;
+				if (!snap.baseNames.empty())
+					snap.baseName = snap.baseNames[snap.selectedBaseIndex];
+				snap.baseSelectorOpen =
+					CalypsoGeoscapeHdShell::isBaseSelectorOpen(geoscapeState);
+			}
+			if (geoscapeState->_timeSpeed == geoscapeState->_btn5Secs) snap.selectedTimeStep = 0;
+			else if (geoscapeState->_timeSpeed == geoscapeState->_btn1Min) snap.selectedTimeStep = 1;
+			else if (geoscapeState->_timeSpeed == geoscapeState->_btn5Mins) snap.selectedTimeStep = 2;
+			else if (geoscapeState->_timeSpeed == geoscapeState->_btn30Mins) snap.selectedTimeStep = 3;
+			else if (geoscapeState->_timeSpeed == geoscapeState->_btn1Hour) snap.selectedTimeStep = 4;
+			else if (geoscapeState->_timeSpeed == geoscapeState->_btn1Day) snap.selectedTimeStep = 5;
+		}
+		else
+		{
+			snap.displayTime = "14:18 UTC"; // reference state (spec s.61)
+			snap.displayDate = "1 JAN 2040";
+			snap.baseNames.push_back(snap.baseName);
+		}
+		// Author one desktop composition and fit it uniformly to small windows.
+		const float ccWidth = static_cast<float>(ccCssWidth);
+		const float ccHeight = static_cast<float>(ccCssHeight);
+		const auto ccLayout = CommandCenter::computeLayout(
+			CommandCenter::Size2{ccWidth, ccHeight}, false,
+			CommandCenter::InsetsF{
+				static_cast<float>(viewportMetrics.safeX),
+				static_cast<float>(viewportMetrics.safeY),
+				static_cast<float>(ccCssWidth - viewportMetrics.safeX - viewportMetrics.safeWidth),
+				static_cast<float>(ccCssHeight - viewportMetrics.safeY - viewportMetrics.safeHeight)});
+		painter.uiScale *= ccLayout.scale;
+		CommandCenter::calypsoCcRender(painter, ccLayout, snap, ccFonts,
+			metrics, live, geoscapeState, role);
+		(void)projectionLayout;
+		return;
+	}
+
 	if (!live)
 	{
 		painter.styled(painter.winLogical,
@@ -531,11 +623,59 @@ void CalypsoHdScreenRenderer::collect(CalypsoHdFrameBuilder& builder) const
 		if (live && action.widget == nullptr) continue;
 		const CalypsoLogicalRect rect = painter.project(designRect(action.visible));
 		const bool selected = action.id == model.selectedActionId;
-		const CalypsoInteractionState state = selected
-			? CalypsoInteractionState::Focus : CalypsoInteractionState::Rest;
-		CalypsoHdPanelStyle style = f21QuietButtonStyle(state);
-		if (action.component == "command-icon-action")
-			style.radiusPx = action.visible.h / 2.0f;
+		// Visual contract s.10.1: live buttons read the widget's real
+		// interaction state every frame; the deterministic fixture renders
+		// rest, and a selected action keeps the focus-ring semantics.
+		CalypsoInteractionState state = CalypsoInteractionState::Rest;
+		if (live && action.widget != nullptr)
+			state = f21ButtonVisualState(static_cast<const TextButton*>(action.widget));
+		if (selected && state == CalypsoInteractionState::Rest)
+			state = CalypsoInteractionState::Focus;
+		const bool commandAction = action.component == "command-icon-action"
+			|| action.component == "compact-command-action";
+		const auto tone = action.id == "action.session"
+			? CalypsoCommandActionTone::Primary : CalypsoCommandActionTone::Normal;
+		// Wide command rail (s.10.1 rule 8): circular icon button with the
+		// label below, exactly as the canonical desktop mockup. Only the tall
+		// rail slots qualify; zoom/time glyphs and every compact card keep the
+		// single-surface presentation.
+		const char32_t iconGlyph = calypsoCommandActionIconGlyph(action.id);
+		const bool wideIconRail = commandAction && iconGlyph != 0
+			&& action.visible.h >= kCommandIconCirclePx + kCommandIconLabelGapPx + 12
+			&& action.visible.w >= kCommandIconCirclePx;
+		if (wideIconRail)
+		{
+			const auto slot = calypsoCommandIconSlotLayout(designRect(action.visible));
+			const CalypsoLogicalRect circleRect = painter.project(slot.circle);
+			const CalypsoLogicalRect labelRect = painter.project(slot.label);
+			CalypsoHdPanelStyle circleStyle = calypsoCommandActionStyle(state, tone);
+			// A circle is the one legitimate full-radius surface (s.10.1 rule 8).
+			circleStyle.radiusPx = slot.circle.height / 2.0f;
+			painter.styled(circleRect, circleStyle, live ? action.widget : nullptr, role++);
+			if (iconsResolved)
+			{
+				// Phosphor PUA codepoints are 3-byte UTF-8 (0xE000..0xF8FF).
+				const char32_t cp = iconGlyph;
+				const std::string glyph{
+					static_cast<char>(0xE0 | (cp >> 12)),
+					static_cast<char>(0x80 | ((cp >> 6) & 0x3F)),
+					static_cast<char>(0x80 | (cp & 0x3F)) };
+				painter.textRect(circleRect, live ? action.widget : nullptr, icon,
+					glyph, CalypsoHdThemeGen::kNearWhite,
+					CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, role++,
+					0.0, 30.0);
+			}
+			painter.textRect(labelRect, live ? action.widget : nullptr, mono,
+				compactGlyph(action), state == CalypsoInteractionState::Focus
+					? CalypsoHdThemeGen::kNearWhite : kF21MutedBodyRgba,
+				CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, role++, 0.08,
+				model.designHeight > 360 ? 11.0 : 9.0);
+			continue;
+		}
+		// Fixed canonical radius; the height-derived stadium is retired.
+		CalypsoHdPanelStyle style = commandAction
+			? calypsoCommandActionStyle(state, tone)
+			: f21QuietButtonStyle(state);
 		if (action.component == "notification-action")
 			style.borderColorRgba = CalypsoHdThemeGen::kGold;
 		painter.styled(rect, style, live ? action.widget : nullptr, role++);

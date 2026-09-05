@@ -3,7 +3,7 @@
 // Canonical source: src/Calypso/Contracts/geoscape-command-shell.json
 #pragma once
 namespace OpenXcom { namespace Calypso { namespace CalypsoGeoscapeCommandShellGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-20.22";
+inline constexpr const char* kContractVersion = "hd.2026-08-28.23";
 inline constexpr const char* kScreenId = "geoscape-command-shell";
 inline constexpr const char* kArchetype = "strategic-command-shell";
 inline constexpr bool kProductionHook = true;
@@ -78,13 +78,12 @@ inline constexpr CalypsoGeoscapeCommandShellGenActionLayout kWideActions[] =
 	{ "world.recenter", "Recenter", "compact-command-action", "world-recenter", "screen", { 177, 519, 46, 44 }, { 177, 519, 46, 44 }, 80, 1 },
 	{ "world.zoom.out", "Zoom out", "compact-command-action", "world-zoom-out", "screen", { 177, 563, 46, 44 }, { 177, 563, 46, 44 }, 90, 1 },
 	{ "notification.contact.open", "Open alert", "notification-action", "notification-open", "screen", { 1211, 568, 44, 44 }, { 1211, 568, 44, 44 }, 100, 1 },
-	{ "time.pause", "Pause", "time-speed-control", "time-pause", "screen", { 280, 638, 64, 64 }, { 280, 638, 64, 64 }, 110, 1 },
-	{ "time.speed.5sec", "5 sec", "time-speed-control", "time-5sec", "screen", { 362, 650, 105, 54 }, { 362, 650, 105, 54 }, 120, 1 },
-	{ "time.speed.1min", "1 min", "time-speed-control", "time-1min", "screen", { 467, 650, 105, 54 }, { 467, 650, 105, 54 }, 130, 1 },
-	{ "time.speed.5min", "5 min", "time-speed-control", "time-5min", "screen", { 572, 650, 105, 54 }, { 572, 650, 105, 54 }, 140, 1 },
-	{ "time.speed.30min", "30 min", "time-speed-control", "time-30min", "screen", { 677, 650, 105, 54 }, { 677, 650, 105, 54 }, 150, 1 },
-	{ "time.speed.1hour", "1 hour", "time-speed-control", "time-1hour", "screen", { 782, 650, 105, 54 }, { 782, 650, 105, 54 }, 160, 1 },
-	{ "time.speed.1day", "1 day", "time-speed-control", "time-1day", "screen", { 887, 650, 105, 54 }, { 887, 650, 105, 54 }, 170, 1 },
+	{ "time.speed.5sec", "5 sec", "time-speed-control", "time-5sec", "screen", { 280, 650, 120, 54 }, { 280, 650, 120, 54 }, 120, 1 },
+	{ "time.speed.1min", "1 min", "time-speed-control", "time-1min", "screen", { 400, 650, 120, 54 }, { 400, 650, 120, 54 }, 130, 1 },
+	{ "time.speed.5min", "5 min", "time-speed-control", "time-5min", "screen", { 520, 650, 120, 54 }, { 520, 650, 120, 54 }, 140, 1 },
+	{ "time.speed.30min", "30 min", "time-speed-control", "time-30min", "screen", { 640, 650, 120, 54 }, { 640, 650, 120, 54 }, 150, 1 },
+	{ "time.speed.1hour", "1 hour", "time-speed-control", "time-1hour", "screen", { 760, 650, 120, 54 }, { 760, 650, 120, 54 }, 160, 1 },
+	{ "time.speed.1day", "1 day", "time-speed-control", "time-1day", "screen", { 880, 650, 120, 54 }, { 880, 650, 120, 54 }, 170, 1 },
 };
 
 inline constexpr CalypsoGeoscapeCommandShellGenNamedRect kCompactRegions[] =
@@ -123,19 +122,18 @@ inline constexpr CalypsoGeoscapeCommandShellGenActionLayout kCompactActions[] =
 	{ "world.recenter", "Recenter", "compact-command-action", "world-recenter", "screen", { 465, 201, 44, 44 }, { 465, 201, 44, 44 }, 80, 1 },
 	{ "world.zoom.out", "Zoom out", "compact-command-action", "world-zoom-out", "screen", { 465, 245, 44, 44 }, { 465, 245, 44, 44 }, 90, 1 },
 	{ "notification.contact.open", "Open alert", "notification-action", "notification-open", "screen", { 161, 70, 44, 44 }, { 161, 70, 44, 44 }, 100, 1 },
-	{ "time.pause", "Pause", "time-speed-control", "time-pause", "screen", { 12, 299, 50, 50 }, { 12, 299, 50, 50 }, 110, 1 },
-	{ "time.speed.5sec", "5 sec", "time-speed-control", "time-5sec", "screen", { 74, 303, 109, 48 }, { 74, 303, 109, 48 }, 120, 1 },
-	{ "time.speed.1min", "1 min", "time-speed-control", "time-1min", "screen", { 183, 303, 109, 48 }, { 183, 303, 109, 48 }, 130, 1 },
-	{ "time.speed.5min", "5 min", "time-speed-control", "time-5min", "screen", { 292, 303, 109, 48 }, { 292, 303, 109, 48 }, 140, 1 },
-	{ "time.speed.30min", "30 min", "time-speed-control", "time-30min", "screen", { 401, 303, 109, 48 }, { 401, 303, 109, 48 }, 150, 1 },
-	{ "time.speed.1hour", "1 hour", "time-speed-control", "time-1hour", "screen", { 510, 303, 109, 48 }, { 510, 303, 109, 48 }, 160, 1 },
-	{ "time.speed.1day", "1 day", "time-speed-control", "time-1day", "screen", { 619, 303, 109, 48 }, { 619, 303, 109, 48 }, 170, 1 },
+	{ "time.speed.5sec", "5 sec", "time-speed-control", "time-5sec", "screen", { 12, 303, 119, 48 }, { 12, 303, 119, 48 }, 120, 1 },
+	{ "time.speed.1min", "1 min", "time-speed-control", "time-1min", "screen", { 131, 303, 119, 48 }, { 131, 303, 119, 48 }, 130, 1 },
+	{ "time.speed.5min", "5 min", "time-speed-control", "time-5min", "screen", { 250, 303, 119, 48 }, { 250, 303, 119, 48 }, 140, 1 },
+	{ "time.speed.30min", "30 min", "time-speed-control", "time-30min", "screen", { 369, 303, 119, 48 }, { 369, 303, 119, 48 }, 150, 1 },
+	{ "time.speed.1hour", "1 hour", "time-speed-control", "time-1hour", "screen", { 488, 303, 119, 48 }, { 488, 303, 119, 48 }, 160, 1 },
+	{ "time.speed.1day", "1 day", "time-speed-control", "time-1day", "screen", { 607, 303, 121, 48 }, { 607, 303, 121, 48 }, 170, 1 },
 };
 
 inline constexpr CalypsoGeoscapeCommandShellGenLayout kLayouts[] =
 {
-	{ 1280, 720, kWideActions, 31, kWideRegions, 6 },
-	{ 740, 360, kCompactActions, 31, kCompactRegions, 6 },
+	{ 1280, 720, kWideActions, 30, kWideRegions, 6 },
+	{ 740, 360, kCompactActions, 30, kCompactRegions, 6 },
 };
 inline constexpr int kLayoutCount = 2;
 

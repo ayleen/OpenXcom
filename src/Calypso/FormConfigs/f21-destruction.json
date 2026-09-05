@@ -2,7 +2,7 @@
   "schema": 1,
   "id": "f21-destruction",
   "familyId": 21,
-  "version": "hd.2026-08-20.22",
+  "version": "hd.2026-08-28.23",
   "archetype": "small-confirmation",
   "protocol": {
     "authority": "CALYPSO COMMAND",
@@ -13,12 +13,21 @@
   },
   "title": "BASE DAMAGED",
   "body": [
-    "ALIEN MISSILES HAVE DAMAGED OUR BASE · ATLANTIS POST",
+    "ALIEN MISSILES HAVE DAMAGED OUR BASE \u00b7 ATLANTIS POST",
     "This base is permanently deleted. No refund. No undo."
   ],
-  "icon": { "kind": "warning", "glyph": "!", "tone": "warning" },
+  "icon": {
+    "kind": "warning",
+    "glyph": "!",
+    "tone": "warning"
+  },
   "buttons": [
-    { "id": "acknowledge", "label": "ACKNOWLEDGE", "tone": "safe", "action": "confirm" }
+    {
+      "id": "acknowledge",
+      "label": "ACKNOWLEDGE",
+      "tone": "safe",
+      "action": "confirm"
+    }
   ],
   "table": "| FACILITY | COUNT |\n| --- | --- |\n| SONAR ARRAY | 1 |\n| LIVING QUARTERS | 1 |\n| GENERAL STORES | 1 |"
 }

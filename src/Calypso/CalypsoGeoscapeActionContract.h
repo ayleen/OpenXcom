@@ -14,7 +14,6 @@ enum class GeoscapeActionGate { None, ExtendedLinks, Debug, NonIronman };
 enum class GeoscapeSpeed { FiveSeconds, OneMinute, FiveMinutes, ThirtyMinutes, OneHour, OneDay };
 enum class GeoscapePauseReason : std::size_t
 {
-	User,
 	MoreDrawer,
 	SessionMenu,
 	BlockingPopup,
@@ -51,7 +50,6 @@ enum class GeoscapeActionId : std::size_t
 	Speed30Minutes,
 	Speed1Hour,
 	Speed1Day,
-	Pause,
 	Count
 };
 
@@ -93,7 +91,6 @@ constexpr std::array<GeoscapeActionSpec, static_cast<std::size_t>(GeoscapeAction
 	{GeoscapeActionId::Speed30Minutes, "speed-30-minutes", GeoscapeActionDisposition::Preserve, GeoscapeActionGate::None, false, true, true},
 	{GeoscapeActionId::Speed1Hour, "speed-1-hour", GeoscapeActionDisposition::Preserve, GeoscapeActionGate::None, false, true, true},
 	{GeoscapeActionId::Speed1Day, "speed-1-day", GeoscapeActionDisposition::Preserve, GeoscapeActionGate::None, false, true, true},
-	{GeoscapeActionId::Pause, "pause", GeoscapeActionDisposition::Add, GeoscapeActionGate::None, false, true, true}
 }};
 
 struct GeoscapeActionBinding
@@ -104,7 +101,7 @@ struct GeoscapeActionBinding
 
 // Exact coverage of strategic-command-shell.requiredActionIds. Duplicate
 // nativeAction values are explicit aliases, never implicit string rewriting.
-constexpr std::array<GeoscapeActionBinding, 27> GEOSCAPE_ACTION_BINDINGS{{
+constexpr std::array<GeoscapeActionBinding, 26> GEOSCAPE_ACTION_BINDINGS{{
 	{ "action.session", GeoscapeActionId::Session },
 	{ "action.bases", GeoscapeActionId::Bases },
 	{ "action.graphs", GeoscapeActionId::Graphs },
@@ -125,7 +122,6 @@ constexpr std::array<GeoscapeActionBinding, 27> GEOSCAPE_ACTION_BINDINGS{{
 	{ "drawer.quick-save", GeoscapeActionId::QuickSave },
 	{ "drawer.instant-save", GeoscapeActionId::InstantSave },
 	{ "drawer.quick-load", GeoscapeActionId::QuickLoad },
-	{ "time.pause", GeoscapeActionId::Pause },
 	{ "time.speed.5sec", GeoscapeActionId::Speed5Seconds },
 	{ "time.speed.1min", GeoscapeActionId::Speed1Minute },
 	{ "time.speed.5min", GeoscapeActionId::Speed5Minutes },
@@ -175,24 +171,6 @@ public:
 		for (const auto owners : _pauseOwners)
 			if (owners != 0u) return true;
 		return false;
-	}
-	/// True while `reason` holds at least one pause-ownership token.
-	bool pausedFor(GeoscapePauseReason reason) const
-	{
-		return _pauseOwners[static_cast<std::size_t>(reason)] != 0u;
-	}
-	/// Flip exactly one User pause-ownership token (the live `time.pause`
-	/// action). Returns whether User now owns a pause. This never touches any
-	/// other reason and never mutates the selected speed.
-	bool toggleUser()
-	{
-		if (pausedFor(GeoscapePauseReason::User))
-		{
-			release(GeoscapePauseReason::User);
-			return false;
-		}
-		acquire(GeoscapePauseReason::User);
-		return true;
 	}
 
 private:

@@ -1,13 +1,13 @@
 {
   "schema": 1,
-  "version": "hd.2026-08-20.22",
+  "version": "hd.2026-08-28.23",
   "visualProfile": "command-card-v1",
   "copy": {
-    "protocol": "CALYPSO COMMAND · GEOGRAPHIC SITE ORDER GS-21 · REV. 1.0.21 · EFFECTIVE 15.07.2061",
+    "protocol": "CALYPSO COMMAND \u00b7 GEOGRAPHIC SITE ORDER GS-21 \u00b7 REV. 1.0.21 \u00b7 EFFECTIVE 15.07.2061",
     "title": "SELECT SITE FOR NEW BASE",
     "slot": "BASE 1 / 8",
-    "funds": "AVAILABLE FUNDS · $6 800 000",
-    "cost": "BUILD COST · $950 000",
+    "funds": "AVAILABLE FUNDS \u00b7 $6 800 000",
+    "cost": "BUILD COST \u00b7 $950 000",
     "cancel": "CANCEL"
   },
   "parts": [
