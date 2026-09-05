@@ -174,8 +174,7 @@ CalypsoGeoscapeHdRuntimeModel CalypsoHdScreenRenderer::liveGeoscapeModel(const G
 	else if (state._timeSpeed == state._btn30Mins) runningSpeed = "time.speed.30min";
 	else if (state._timeSpeed == state._btn1Hour) runningSpeed = "time.speed.1hour";
 	else if (state._timeSpeed == state._btn1Day) runningSpeed = "time.speed.1day";
-	input.selectedActionId = calypsoGeoscapeHdSelectedTimeAction(
-		CalypsoGeoscapeHdShell::effectivePause(&state), runningSpeed);
+	input.selectedActionId = runningSpeed;
 
 	CalypsoGeoscapeHdRuntimeModel model = calypsoGeoscapeHdRuntimeModel(*layout, input);
 	for (auto& action : model.actions)
@@ -235,7 +234,6 @@ CalypsoGeoscapeHdSnapshotKey CalypsoHdScreenRenderer::liveGeoscapeKey(const Geos
 	key.debugOption = Options::debug;
 	const SavedGame* save = state._game ? state._game->getSavedGame() : nullptr;
 	key.ironman = save != nullptr && save->isIronman();
-	key.paused = CalypsoGeoscapeHdShell::effectivePause(&state);
 	key.selectedSpeed = state._timeSpeed;
 	key.hourTextGeneration = state._txtHour ? state._txtHour->calypsoTextGeneration() : 0;
 	key.minuteTextGeneration = state._txtMin ? state._txtMin->calypsoTextGeneration() : 0;
@@ -433,47 +431,30 @@ void CalypsoHdScreenRenderer::collect(CalypsoHdFrameBuilder& builder) const
 
 	std::uint32_t role = 1;
 
-	// Command Center gate (normative spec 2026-08-28): the wide canvas
-	// renders through the Command Center renderer instead of the strategic
-	// shell. Compact keeps the F16 shell until the CC mobile wave lands.
-	if (CommandCenter::calypsoCcEnabled() && model.designWidth >= 1024)
+	// Command Center gate (normative spec 2026-08-29): both wide and compact
+	// landscape render through the current physical Command Center surface.
+	if (CommandCenter::calypsoCcEnabled())
 	{
-		// Command Center contracts are CSS pixels. The overlay consumes engine
-		// logical coordinates, then applies the frozen logical-to-physical
-		// transform. Fold the browser DPR into the painter's projection exactly
-		// once so a 72px control remains 72 CSS px on Retina while its backing
-		// geometry and text raster use 144 physical pixels.
-		const double densityX = viewportMetrics.logicalWidth > 0
-			? static_cast<double>(calypsoViewportRuntime().physicalWidth())
-				/ viewportMetrics.logicalWidth
-			: 1.0;
-		const double densityY = viewportMetrics.logicalHeight > 0
-			? static_cast<double>(calypsoViewportRuntime().physicalHeight())
-				/ viewportMetrics.logicalHeight
-			: 1.0;
-		if (metrics.scaleX <= 0.0 || metrics.scaleY <= 0.0
-			|| densityX <= 0.0 || densityY <= 0.0
-			|| std::abs(metrics.scaleX - metrics.scaleY) > 0.0001
-			|| std::abs(densityX - densityY) > 0.0001)
+		// CSS-authored geometry must invert each frozen presentation axis.
+		// The engine canvas is stretched independently in X/Y; requiring a
+		// uniform transform crashes valid desktop and fractional-DPR layouts.
+		if (!metrics.valid() || metrics.scaleX <= 0.0 || metrics.scaleY <= 0.0)
 			CalypsoHdUiOverlay::instance().failHdRoute(
-				"Command Center requires valid uniform presentation and density scales");
-		const double ccDensity = densityX;
-		const double ccLogicalPerCss = ccDensity / metrics.scaleX;
-		const int ccLogicalX = -(int)std::llround(
-			metrics.contentOffsetX / metrics.scaleX);
-		const int ccLogicalY = -(int)std::llround(
-			metrics.contentOffsetY / metrics.scaleY);
-		const int ccCssWidth = std::max(1,
-			(int)std::llround(Options::displayWidth / ccDensity));
-		const int ccCssHeight = std::max(1,
-			(int)std::llround(Options::displayHeight / ccDensity));
-		painter.winLogical = { ccLogicalX, ccLogicalY,
-			(int)std::llround(ccCssWidth * ccLogicalPerCss),
-			(int)std::llround(ccCssHeight * ccLogicalPerCss) };
+				"Command Center requires valid presentation metrics");
+		const int ccCssWidth = std::max(1, viewportMetrics.logicalWidth);
+		const int ccCssHeight = std::max(1, viewportMetrics.logicalHeight);
+		const double densityX = static_cast<double>(metrics.physicalWidth) / ccCssWidth;
+		const double densityY = static_cast<double>(metrics.physicalHeight) / ccCssHeight;
+		const double logicalPerCssX = densityX / metrics.scaleX;
+		const double logicalPerCssY = densityY / metrics.scaleY;
+		painter.winLogical = {
+			-(int)std::llround(metrics.contentOffsetX / metrics.scaleX),
+			-(int)std::llround(metrics.contentOffsetY / metrics.scaleY),
+			(int)std::llround(ccCssWidth * logicalPerCssX),
+			(int)std::llround(ccCssHeight * logicalPerCssY) };
 		painter.windowDesign = { 0, 0, ccCssWidth, ccCssHeight };
-		painter.uiScale = ccLogicalPerCss;
-		painter.sx = metrics.scaleX;
-		painter.sy = metrics.scaleY;
+		painter.uiScale = logicalPerCssX;
+		painter.uiAspectY = logicalPerCssY / logicalPerCssX;
 		const CommandCenter::CommandCenterFonts ccFonts =
 			CommandCenter::calypsoCcResolveFonts(
 				getCurrentGame() ? getCurrentGame()->getMod() : nullptr);
@@ -502,7 +483,6 @@ void CalypsoHdScreenRenderer::collect(CalypsoHdFrameBuilder& builder) const
 				snap.baseSelectorOpen =
 					CalypsoGeoscapeHdShell::isBaseSelectorOpen(geoscapeState);
 			}
-			snap.simulationPlaying = !geoscapeState->_pause;
 			if (geoscapeState->_timeSpeed == geoscapeState->_btn5Secs) snap.selectedTimeStep = 0;
 			else if (geoscapeState->_timeSpeed == geoscapeState->_btn1Min) snap.selectedTimeStep = 1;
 			else if (geoscapeState->_timeSpeed == geoscapeState->_btn5Mins) snap.selectedTimeStep = 2;
@@ -516,15 +496,19 @@ void CalypsoHdScreenRenderer::collect(CalypsoHdFrameBuilder& builder) const
 			snap.displayDate = "1 JAN 2040";
 			snap.baseNames.push_back(snap.baseName);
 		}
-		// Layout mode selection belongs exclusively to CommandCenterLayout and
-		// receives CSS viewport dimensions, never Retina backing dimensions.
-		// In particular, 1280px is Desktop, not CompactDesktop.
+		// Author one desktop composition and fit it uniformly to small windows.
 		const float ccWidth = static_cast<float>(ccCssWidth);
 		const float ccHeight = static_cast<float>(ccCssHeight);
 		const auto ccLayout = CommandCenter::computeLayout(
-			CommandCenter::Size2{ccWidth, ccHeight}, false);
+			CommandCenter::Size2{ccWidth, ccHeight}, false,
+			CommandCenter::InsetsF{
+				static_cast<float>(viewportMetrics.safeX),
+				static_cast<float>(viewportMetrics.safeY),
+				static_cast<float>(ccCssWidth - viewportMetrics.safeX - viewportMetrics.safeWidth),
+				static_cast<float>(ccCssHeight - viewportMetrics.safeY - viewportMetrics.safeHeight)});
+		painter.uiScale *= ccLayout.scale;
 		CommandCenter::calypsoCcRender(painter, ccLayout, snap, ccFonts,
-			ccDensity, live, geoscapeState, role);
+			metrics, live, geoscapeState, role);
 		(void)projectionLayout;
 		return;
 	}

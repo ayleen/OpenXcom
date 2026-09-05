@@ -10,6 +10,7 @@
  * shared by the Emscripten production renderer.
  */
 #include "CommandCenterTypes.h"
+#include <array>
 
 namespace OpenXcom
 {
@@ -22,7 +23,6 @@ enum class LayoutMode
 {
 	Desktop,
 	CompactDesktop,
-	Tablet,
 	Mobile,
 };
 
@@ -30,6 +30,8 @@ enum class LayoutMode
 struct CommandCenterLayout
 {
 	LayoutMode mode = LayoutMode::Desktop;
+	// Uniform layout-unit to CSS-pixel scale; small windows keep the desktop grid.
+	float scale = 1.0f;
 
 	RectF root;
 	RectF header;
@@ -47,23 +49,11 @@ struct CommandCenterLayout
 
 	RectF zoomControls;
 
-	RectF mobileHeader;
-	RectF mobileGlobeViewport;
-	RectF mobileGlobe;
-	RectF mobileObjectSheet;
-	RectF mobilePlayback;
-	RectF mobileBottomNavigation;
+	RectF compactCommandGrid;
+	std::array<RectF, 6> compactCommands{};
+	std::array<RectF, 6> compactTimeSteps{};
 };
 
-/// The only place the responsive mode is decided (spec s.5): by LOGICAL
-/// viewport width, never physical pixels.
-inline LayoutMode selectLayoutMode(float logicalWidth)
-{
-	if (logicalWidth >= 1280.0f) return LayoutMode::Desktop;
-	if (logicalWidth >= 1024.0f) return LayoutMode::CompactDesktop;
-	if (logicalWidth >= 768.0f) return LayoutMode::Tablet;
-	return LayoutMode::Mobile;
-}
 
 /// Desktop grid (spec s.15). With the inspector closed the stage and the
 /// timeline expand across the freed width (spec s.74).
@@ -73,16 +63,14 @@ CommandCenterLayout computeDesktopLayout(Size2 viewport, bool inspectorOpen);
 /// over the stage's right edge with an opaque panel.
 CommandCenterLayout computeCompactDesktopLayout(Size2 viewport, bool inspectorOpen);
 
-/// Tablet (spec s.50): icon-only rail; the inspector opens as a right drawer
-/// min(360, 42% viewport width) overlapping the stage.
-CommandCenterLayout computeTabletLayout(Size2 viewport, bool inspectorOpen);
 
-/// Mobile (spec s.52): dedicated components; the globe is intentionally
-/// cropped inside the mobile viewport.
+/// Compact landscape below 1024 CSS px: modern technical header, clipped
+/// left globe stage, 2x3 command grid and one horizontal six-speed rail.
 CommandCenterLayout computeMobileLayout(Size2 viewport, const InsetsF& safeInsets);
 
-/// Convenience: dispatch on the mode selected from the viewport width.
-CommandCenterLayout computeLayout(Size2 viewport, bool inspectorOpen);
+/// Gameplay uses the desktop grid everywhere, uniformly fitted below 1280x720.
+/// Compact implementations remain dormant while responsive switching is disabled.
+CommandCenterLayout computeLayout(Size2 viewport, bool inspectorOpen, const InsetsF& safeInsets);
 
 } // namespace CommandCenter
 } // namespace Calypso

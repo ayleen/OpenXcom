@@ -503,26 +503,6 @@
       "visibility": "contextual"
     },
     {
-      "id": "time.pause",
-      "labelKey": "STR_PAUSE",
-      "icon": "pause",
-      "component": "time-speed-control",
-      "slotRole": "time-pause",
-      "tone": "primary",
-      "handler": "geoscape.setSpeedPause",
-      "inputs": [
-        "pointer",
-        "keyboard",
-        "touch",
-        "controller"
-      ],
-      "availability": "always",
-      "timePolicy": "set-speed",
-      "focusOrder": 110,
-      "visibility": "persistent",
-      "hotkey": "space"
-    },
-    {
       "id": "time.speed.5sec",
       "labelKey": "STR_5_SECONDS",
       "component": "time-speed-control",
@@ -703,7 +683,6 @@
         "world.recenter": "Recenter",
         "world.zoom.out": "Zoom out",
         "notification.contact.open": "Open alert",
-        "time.pause": "Pause",
         "time.speed.5sec": "5 sec",
         "time.speed.1min": "1 min",
         "time.speed.5min": "5 min",

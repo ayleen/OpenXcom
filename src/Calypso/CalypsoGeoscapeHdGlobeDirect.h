@@ -219,10 +219,11 @@ struct CalypsoGeoscapeHdGlobeDirect
 		const double densityY = viewportMetrics.logicalHeight > 0
 			? static_cast<double>(viewport.physicalHeight()) / viewportMetrics.logicalHeight
 			: 1.0;
-		if (densityX <= 0.0 || densityY <= 0.0
-			|| std::abs(densityX - densityY) > 0.0001)
+		if (densityX <= 0.0 || densityY <= 0.0)
 			return false;
-		const double density = densityX;
+		// Fractional DPR rounds the two backing dimensions independently.
+		// Keep Earth isotropic without rejecting a valid viewport.
+		const double density = std::min(densityX, densityY);
 		Calypso::CommandCenter::CcStageRect stage =
 			Calypso::CommandCenter::calypsoCcStageRect();
 		if (!stage.active || stage.w <= 0 || stage.h <= 0)
@@ -233,13 +234,17 @@ struct CalypsoGeoscapeHdGlobeDirect
 			const Calypso::CommandCenter::CommandCenterLayout layout =
 				Calypso::CommandCenter::computeLayout(
 					Calypso::CommandCenter::Size2{
-						static_cast<float>(Options::displayWidth / density),
-						static_cast<float>(Options::displayHeight / density)},
-					false);
-			stage.x = (int)std::lround(layout.stage.x * density);
-			stage.y = (int)std::lround(layout.stage.y * density);
-			stage.w = (int)std::lround(layout.stage.width * density);
-			stage.h = (int)std::lround(layout.stage.height * density);
+						static_cast<float>(viewportMetrics.logicalWidth),
+						static_cast<float>(viewportMetrics.logicalHeight)},
+					false, Calypso::CommandCenter::InsetsF{
+						static_cast<float>(viewportMetrics.safeX),
+						static_cast<float>(viewportMetrics.safeY),
+						static_cast<float>(viewportMetrics.logicalWidth - viewportMetrics.safeX - viewportMetrics.safeWidth),
+						static_cast<float>(viewportMetrics.logicalHeight - viewportMetrics.safeY - viewportMetrics.safeHeight)});
+			stage.x = (int)std::lround(layout.stage.x * layout.scale * densityX);
+			stage.y = (int)std::lround(layout.stage.y * layout.scale * densityY);
+			stage.w = (int)std::lround(layout.stage.right() * layout.scale * densityX) - stage.x;
+			stage.h = (int)std::lround(layout.stage.bottom() * layout.scale * densityY) - stage.y;
 			stage.active = stage.w > 0 && stage.h > 0;
 			Calypso::CommandCenter::calypsoCcSetStageRect(stage);
 		}

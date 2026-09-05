@@ -524,26 +524,6 @@
       "visibility": "contextual"
     },
     {
-      "id": "time.pause",
-      "labelKey": "STR_PAUSE",
-      "icon": "pause",
-      "component": "time-speed-control",
-      "slotRole": "time-pause",
-      "tone": "primary",
-      "handler": "geoscape.setSpeedPause",
-      "inputs": [
-        "pointer",
-        "keyboard",
-        "touch",
-        "controller"
-      ],
-      "availability": "always",
-      "timePolicy": "set-speed",
-      "focusOrder": 110,
-      "visibility": "persistent",
-      "hotkey": "space"
-    },
-    {
       "id": "time.speed.5sec",
       "labelKey": "STR_5_SECONDS",
       "component": "time-speed-control",
@@ -724,7 +704,6 @@
         "world.recenter": "Recenter",
         "world.zoom.out": "Zoom out",
         "notification.contact.open": "Open alert",
-        "time.pause": "Pause",
         "time.speed.5sec": "5 sec",
         "time.speed.1min": "1 min",
         "time.speed.5min": "5 min",
@@ -1296,41 +1275,21 @@
           "focusOrder": 100,
           "zOrder": 1
         },
-        "time.pause": {
-          "id": "time.pause",
-          "component": "time-speed-control",
-          "slotRole": "time-pause",
-          "coordinateSpace": "screen",
-          "visibleRect": [
-            280,
-            638,
-            64,
-            64
-          ],
-          "hitRect": [
-            280,
-            638,
-            64,
-            64
-          ],
-          "focusOrder": 110,
-          "zOrder": 1
-        },
         "time.speed.5sec": {
           "id": "time.speed.5sec",
           "component": "time-speed-control",
           "slotRole": "time-5sec",
           "coordinateSpace": "screen",
           "visibleRect": [
-            362,
+            280,
             650,
-            105,
+            120,
             54
           ],
           "hitRect": [
-            362,
+            280,
             650,
-            105,
+            120,
             54
           ],
           "focusOrder": 120,
@@ -1342,15 +1301,15 @@
           "slotRole": "time-1min",
           "coordinateSpace": "screen",
           "visibleRect": [
-            467,
+            400,
             650,
-            105,
+            120,
             54
           ],
           "hitRect": [
-            467,
+            400,
             650,
-            105,
+            120,
             54
           ],
           "focusOrder": 130,
@@ -1362,15 +1321,15 @@
           "slotRole": "time-5min",
           "coordinateSpace": "screen",
           "visibleRect": [
-            572,
+            520,
             650,
-            105,
+            120,
             54
           ],
           "hitRect": [
-            572,
+            520,
             650,
-            105,
+            120,
             54
           ],
           "focusOrder": 140,
@@ -1382,15 +1341,15 @@
           "slotRole": "time-30min",
           "coordinateSpace": "screen",
           "visibleRect": [
-            677,
+            640,
             650,
-            105,
+            120,
             54
           ],
           "hitRect": [
-            677,
+            640,
             650,
-            105,
+            120,
             54
           ],
           "focusOrder": 150,
@@ -1402,15 +1361,15 @@
           "slotRole": "time-1hour",
           "coordinateSpace": "screen",
           "visibleRect": [
-            782,
+            760,
             650,
-            105,
+            120,
             54
           ],
           "hitRect": [
-            782,
+            760,
             650,
-            105,
+            120,
             54
           ],
           "focusOrder": 160,
@@ -1422,15 +1381,15 @@
           "slotRole": "time-1day",
           "coordinateSpace": "screen",
           "visibleRect": [
-            887,
+            880,
             650,
-            105,
+            120,
             54
           ],
           "hitRect": [
-            887,
+            880,
             650,
-            105,
+            120,
             54
           ],
           "focusOrder": 170,
@@ -1982,41 +1941,21 @@
           "focusOrder": 100,
           "zOrder": 1
         },
-        "time.pause": {
-          "id": "time.pause",
-          "component": "time-speed-control",
-          "slotRole": "time-pause",
-          "coordinateSpace": "screen",
-          "visibleRect": [
-            12,
-            299,
-            50,
-            50
-          ],
-          "hitRect": [
-            12,
-            299,
-            50,
-            50
-          ],
-          "focusOrder": 110,
-          "zOrder": 1
-        },
         "time.speed.5sec": {
           "id": "time.speed.5sec",
           "component": "time-speed-control",
           "slotRole": "time-5sec",
           "coordinateSpace": "screen",
           "visibleRect": [
-            74,
+            12,
             303,
-            109,
+            119,
             48
           ],
           "hitRect": [
-            74,
+            12,
             303,
-            109,
+            119,
             48
           ],
           "focusOrder": 120,
@@ -2028,15 +1967,15 @@
           "slotRole": "time-1min",
           "coordinateSpace": "screen",
           "visibleRect": [
-            183,
+            131,
             303,
-            109,
+            119,
             48
           ],
           "hitRect": [
-            183,
+            131,
             303,
-            109,
+            119,
             48
           ],
           "focusOrder": 130,
@@ -2048,15 +1987,15 @@
           "slotRole": "time-5min",
           "coordinateSpace": "screen",
           "visibleRect": [
-            292,
+            250,
             303,
-            109,
+            119,
             48
           ],
           "hitRect": [
-            292,
+            250,
             303,
-            109,
+            119,
             48
           ],
           "focusOrder": 140,
@@ -2068,15 +2007,15 @@
           "slotRole": "time-30min",
           "coordinateSpace": "screen",
           "visibleRect": [
-            401,
+            369,
             303,
-            109,
+            119,
             48
           ],
           "hitRect": [
-            401,
+            369,
             303,
-            109,
+            119,
             48
           ],
           "focusOrder": 150,
@@ -2088,15 +2027,15 @@
           "slotRole": "time-1hour",
           "coordinateSpace": "screen",
           "visibleRect": [
-            510,
+            488,
             303,
-            109,
+            119,
             48
           ],
           "hitRect": [
-            510,
+            488,
             303,
-            109,
+            119,
             48
           ],
           "focusOrder": 160,
@@ -2108,15 +2047,15 @@
           "slotRole": "time-1day",
           "coordinateSpace": "screen",
           "visibleRect": [
-            619,
+            607,
             303,
-            109,
+            121,
             48
           ],
           "hitRect": [
-            619,
+            607,
             303,
-            109,
+            121,
             48
           ],
           "focusOrder": 170,

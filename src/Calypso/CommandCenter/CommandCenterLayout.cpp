@@ -123,85 +123,68 @@ CommandCenterLayout computeCompactDesktopLayout(Size2 viewport, bool inspectorOp
 	return layout;
 }
 
-CommandCenterLayout computeTabletLayout(Size2 viewport, bool inspectorOpen)
-{
-	using namespace CommandCenterTheme;
-
-	CommandCenterLayout layout = computeDesktopFamily(viewport,
-		64.0f, 64.0f, 12.0f, 12.0f, 92.0f);
-	layout.mode = LayoutMode::Tablet;
-
-	// Spec s.50: the inspector is a right drawer overlapping the stage with
-	// width min(360, 42% of the viewport width).
-	if (inspectorOpen)
-	{
-		const float drawerWidth = std::min(360.0f, viewport.width * 0.42f);
-		layout.inspector = {
-			layout.stage.right() - 12.0f - drawerWidth,
-			layout.stage.y + 12.0f,
-			drawerWidth,
-			layout.stage.height - 24.0f,
-		};
-	}
-
-	layoutHeaderContent(layout, viewport.width, 64.0f, 12.0f);
-	layoutZoomControls(layout);
-	return layout;
-}
 
 CommandCenterLayout computeMobileLayout(Size2 viewport, const InsetsF& safeInsets)
 {
 	CommandCenterLayout layout;
 	layout.mode = LayoutMode::Mobile;
+	layout.root = {0.0f, 0.0f, viewport.width, viewport.height};
 
-	const float headerHeight = 56.0f;
-	const float navigationHeight = 64.0f;
-	const float playbackHeight = 56.0f;
-	const float objectSheetHeight = 222.0f;
-	const float sideInset = 8.0f;
-	const float verticalGap = 8.0f;
-
+	const float contentLeft = safeInsets.left;
+	const float contentRight = viewport.width - safeInsets.right;
 	const float contentTop = safeInsets.top;
 	const float contentBottom = viewport.height - safeInsets.bottom;
+	const float contentWidth = contentRight - contentLeft;
 
-	layout.mobileHeader = { 0.0f, contentTop, viewport.width, headerHeight };
+	layout.header = {0.0f, contentTop, viewport.width, 48.0f};
+	layout.timeline = {contentLeft + 12.0f, contentBottom - 64.0f,
+		contentWidth - 24.0f, 56.0f};
+	layout.compactCommandGrid = {contentRight - 216.0f,
+		layout.header.bottom() + 6.0f, 208.0f, 214.0f};
+	layout.navigationRail = layout.compactCommandGrid;
+	layout.stage = {contentLeft, layout.header.bottom(),
+		layout.compactCommandGrid.x - 8.0f - contentLeft,
+		layout.timeline.y - layout.header.bottom()};
+	layout.workspace = layout.stage;
 
-	layout.mobileBottomNavigation = { 0.0f, contentBottom - navigationHeight,
-		viewport.width, navigationHeight };
+	layout.baseSelector = {contentLeft + 8.0f, contentTop + 2.0f, 184.0f, 44.0f};
+	layout.notificationButton = {contentRight - 44.0f, contentTop + 4.0f, 40.0f, 40.0f};
+	layout.systemStatusBlock = {layout.notificationButton.x - 104.0f,
+		contentTop + 4.0f, 96.0f, 40.0f};
+	layout.dateTimeBlock = {layout.systemStatusBlock.x - 108.0f,
+		contentTop + 4.0f, 100.0f, 40.0f};
+	layout.zoomControls = {layout.stage.right() - 56.0f,
+		layout.stage.bottom() - 100.0f, 44.0f, 88.0f};
 
-	layout.mobilePlayback = { sideInset,
-		layout.mobileBottomNavigation.y - verticalGap - playbackHeight,
-		viewport.width - sideInset * 2.0f, playbackHeight };
+	const float commandWidth = 96.0f;
+	const float commandHeight = 66.0f;
+	for (std::size_t index = 0; index < layout.compactCommands.size(); ++index)
+	{
+		const float column = static_cast<float>(index % 2);
+		const float row = static_cast<float>(index / 2);
+		layout.compactCommands[index] = {
+			layout.compactCommandGrid.x + column * 104.0f,
+			layout.compactCommandGrid.y + row * 74.0f,
+			commandWidth, commandHeight};
+	}
 
-	layout.mobileObjectSheet = { sideInset,
-		layout.mobilePlayback.y - verticalGap - objectSheetHeight,
-		viewport.width - sideInset * 2.0f, objectSheetHeight };
-
-	layout.mobileGlobeViewport = { 0.0f, layout.mobileHeader.bottom(), viewport.width,
-		layout.mobileBottomNavigation.y - layout.mobileHeader.bottom() };
-
-	const float globeSize = clampFloat(viewport.width * 4.0f / 3.0f, 480.0f, 560.0f);
-
-	layout.mobileGlobe = { (viewport.width - globeSize) * 0.5f,
-		layout.mobileGlobeViewport.y + 20.0f, globeSize, globeSize };
+	const float timeStepsX = layout.timeline.x + 12.0f;
+	const float timeStepWidth = (layout.timeline.width - 24.0f) / 6.0f;
+	for (std::size_t index = 0; index < layout.compactTimeSteps.size(); ++index)
+		layout.compactTimeSteps[index] = {
+			timeStepsX + timeStepWidth * static_cast<float>(index),
+			layout.timeline.y + 7.0f, timeStepWidth, 48.0f};
 
 	return layout;
 }
 
-CommandCenterLayout computeLayout(Size2 viewport, bool inspectorOpen)
+CommandCenterLayout computeLayout(Size2 viewport, bool inspectorOpen, const InsetsF&)
 {
-	switch (selectLayoutMode(viewport.width))
-	{
-		case LayoutMode::Desktop:
-			return computeDesktopLayout(viewport, inspectorOpen);
-		case LayoutMode::CompactDesktop:
-			return computeCompactDesktopLayout(viewport, inspectorOpen);
-		case LayoutMode::Tablet:
-			return computeTabletLayout(viewport, inspectorOpen);
-		case LayoutMode::Mobile:
-		default:
-			return computeMobileLayout(viewport, InsetsF{});
-	}
+	const float scale = std::min({1.0f, viewport.width / 1280.0f, viewport.height / 720.0f});
+	auto layout = computeDesktopLayout(
+		Size2{viewport.width / scale, viewport.height / scale}, inspectorOpen);
+	layout.scale = scale;
+	return layout;
 }
 
 } // namespace CommandCenter

@@ -5,7 +5,7 @@
  * Emits the Command Center screen as HD overlay items through the shared
  * painter: root background, header (base selector, date/time, divider,
  * system status, bell), navigation rail with active indicator, clipped stage,
- * zoom cluster and timeline (play/pause, time steps, ruler, fullscreen).
+ * zoom cluster and timeline (six time steps and ruler).
  * The selected-object/intercept panel is owned by the separate
  * interception flow and is intentionally absent here. Layout comes exclusively
  * from CommandCenterLayout; colours exclusively from CommandCenterTheme.
@@ -50,7 +50,6 @@ struct CommandCenterSnapshot
 	std::string displayDate;
 	std::string systemStatus = "NOMINAL";
 	bool systemNominal = true;
-	bool simulationPlaying = true;
 	int selectedTimeStep = 1; // index into the six canonical steps
 	bool hasUnreadNotification = true;
 };
@@ -77,9 +76,9 @@ CommandCenterFonts calypsoCcResolveFonts(const class Mod* mod);
 /// in fixture mode. Every draw consumes `role` in sequence.
 void calypsoCcRender(CalypsoF21Painter& painter, const CommandCenterLayout& layout,
 	const CommandCenterSnapshot& snapshot, const CommandCenterFonts& fonts,
-	double densityScale, bool live, GeoscapeState* state, std::uint32_t& role);
+	const CalypsoHdPresentationMetrics& metrics, bool live, GeoscapeState* state, std::uint32_t& role);
 
-/// Runtime gate (loopback QA param ?cc=1 -> main.js ccall).
+/// Ordinary gameplay enables Command Center; harnesses keep explicit routes.
 bool calypsoCcEnabled();
 void calypsoCcSetEnabled(bool on);
 

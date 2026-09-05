@@ -96,19 +96,17 @@ namespace
 struct CalypsoGeoscapeHdShellState
 {
 	Calypso::CalypsoGeoscapeHdDrawerState drawer;
-	// Reason-aware pause ledger (audit §13 item 1): user/drawer/session
-	// pauses are counted tokens; vanilla popup/dogfight/system reasons stay
-	// owned by GeoscapeState's own latch.
+	// Reason-aware pause ledger: shell-owned drawer/session pauses are counted
+	// tokens; vanilla popup/dogfight/system reasons stay owned by GeoscapeState.
 	Calypso::GeoscapeTimePolicyState policy;
 	std::vector<std::pair<TextButton*, const char*>> rows;
 	Calypso::CommandCenter::BaseSelectorModel baseSelector;
 	std::vector<TextButton*> baseRows;
 	TextButton* sessionChip = nullptr;
-	TextButton* pauseControl = nullptr;
 	TextButton* speedBeforeOpen = nullptr;
 	bool sessionWasFocused = false;
 	// Most recent authoritative system reason observed by the timeAdvance
-	// recompute hook; reused by HD pause operations between simulation ticks.
+	// recompute hook; reused by HD drawer operations between simulation ticks.
 	bool vanillaSystemReason = false;
 };
 
@@ -117,7 +115,6 @@ const Surface* CalypsoGeoscapeHdShell::resolveLiveWidget(const GeoscapeState* s,
 	if (s == nullptr || s->_calypsoHdShell == nullptr) return nullptr;
 	const auto* shell = s->_calypsoHdShell;
 	if (actionId == "action.session") return shell->sessionChip;
-	if (actionId == "time.pause") return shell->pauseControl;
 	for (const auto& entry : shell->rows)
 		if (entry.second != nullptr && actionId == entry.second)
 			return entry.first != nullptr && entry.first->getVisible() ? entry.first : nullptr;
@@ -156,8 +153,6 @@ bool CalypsoGeoscapeHdShell::isLiveActionVisible(const GeoscapeState* s, const s
 	const auto* shell = s->_calypsoHdShell;
 	if (actionId == "action.session")
 		return shell->sessionChip != nullptr && shell->sessionChip->getVisible();
-	if (actionId == "time.pause")
-		return shell->pauseControl != nullptr && shell->pauseControl->getVisible();
 	for (const auto& entry : shell->rows)
 		if (entry.second != nullptr && actionId == entry.second)
 			return entry.first != nullptr && entry.first->getVisible();
@@ -188,7 +183,6 @@ const char* CalypsoGeoscapeHdShell::apply(GeoscapeState *s)
 		for (auto& row : shell->rows) row.first->setVisible(false);
 		for (auto* row : shell->baseRows) row->setVisible(false);
 		if (shell->sessionChip) shell->sessionChip->setVisible(false);
-		if (shell->pauseControl) shell->pauseControl->setVisible(false);
 		return decision.reason;
 	}
 	const auto& metrics = calypsoViewportRuntime().current();
@@ -237,17 +231,6 @@ const char* CalypsoGeoscapeHdShell::apply(GeoscapeState *s)
 			row->setText(save->getBases()->at(index)->getName());
 		row->setVisible(commandCenter && shell->baseSelector.open() && current);
 	}
-	if (shell->pauseControl == nullptr)
-	{
-		shell->pauseControl = new TextButton(50, 50, 0, 0);
-		s->add(shell->pauseControl, "button", "geoscape");
-		shell->pauseControl->setText(s->tr("STR_PAUSE"));
-		shell->pauseControl->onMouseClick((ActionHandler)&GeoscapeState::calypsoTogglePause);
-	}
-	const auto pause = projection.project("time.pause");
-	shell->pauseControl->setX(pause.x); shell->pauseControl->setY(pause.y);
-	shell->pauseControl->setWidth(pause.w); shell->pauseControl->setHeight(pause.h);
-	shell->pauseControl->setVisible(true);
 	int deferred = 0;
 	for (const auto& def : Calypso::calypsoGeoscapeHdLiveDrawerRows())
 	{
@@ -344,8 +327,8 @@ bool CalypsoGeoscapeHdShell::closeDrawer(GeoscapeState *s)
 	}
 	if (!shell->drawer.open) return false;
 	shell->drawer.open = false;
-	// Closing releases only the drawer's own reason token; a user, session,
-	// popup, dogfight, or system pause can never be resumed over it.
+	// Closing releases only the drawer's own reason token; other popup,
+	// dogfight, or system pauses can never be resumed over it.
 	shell->policy.release(Calypso::GeoscapePauseReason::MoreDrawer);
 	syncPause(s, shell->vanillaSystemReason);
 	if (shell->speedBeforeOpen != nullptr) s->_timeSpeed = shell->speedBeforeOpen;
@@ -354,16 +337,6 @@ bool CalypsoGeoscapeHdShell::closeDrawer(GeoscapeState *s)
 	return true;
 }
 
-/* Stage 8–9 closure: reason-aware explicit pause. The vanilla `_pause` latch
- * stays the single gameplay gate; this only flips the User ledger token and
- * re-derives the latch through the same recompute rule as timeAdvance. No
- * destructive toggle of the latch remains anywhere in the shell. */
-void CalypsoGeoscapeHdShell::togglePause(GeoscapeState *s)
-{
-	auto* shell = state(s);
-	shell->policy.toggleUser();
-	syncPause(s, shell->vanillaSystemReason);
-}
 
 void CalypsoGeoscapeHdShell::syncPause(GeoscapeState *s, bool systemReason)
 {
@@ -372,17 +345,6 @@ void CalypsoGeoscapeHdShell::syncPause(GeoscapeState *s, bool systemReason)
 	s->_pause = Calypso::calypsoGeoscapeEffectivePause(systemReason, shell->policy);
 }
 
-bool CalypsoGeoscapeHdShell::effectivePause(const GeoscapeState *s)
-{
-	if (s == nullptr) return false;
-	const auto* shell = s->_calypsoHdShell;
-	if (shell == nullptr) return s->_pause;
-	// The derived `_pause` latch must never be re-fed as a system input: it
-	// already includes ledger tokens and vanilla writes, so using it here
-	// would make every pause sticky. The last authoritative system reason
-	// observed by timeAdvance is the only system side of the OR.
-	return Calypso::calypsoGeoscapeEffectivePause(shell->vanillaSystemReason, shell->policy);
-}
 
 bool CalypsoGeoscapeHdShell::isDrawerOpen(const GeoscapeState *s)
 {
@@ -403,12 +365,6 @@ void GeoscapeState::calypsoToggleDrawer(Action *)
 	CalypsoGeoscapeHdShell::toggleDrawer(this);
 }
 
-/* Stage 8–9 closure: `time.pause` is a counted User ledger token synced into
- * the authoritative latch — no destructive latch flip remains anywhere. */
-void GeoscapeState::calypsoTogglePause(Action *)
-{
-	CalypsoGeoscapeHdShell::togglePause(this);
-}
 
 bool GeoscapeState::calypsoCenterOnBase(size_t index)
 {

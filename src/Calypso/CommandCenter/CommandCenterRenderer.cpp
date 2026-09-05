@@ -46,6 +46,23 @@ CalypsoLogicalRect ccLogical(const CalypsoF21Painter& painter, const RectF& r)
 	return painter.project(ccF21(r));
 }
 
+// Panel radii/borders use the overlay's mean presentation scale. Cancel it
+// independently from rect projection so stretched engine canvases still draw
+// round CSS controls.
+float ccStyleScale(const CalypsoF21Painter& painter)
+{
+	return static_cast<float>(painter.uiScale
+		* (painter.sx + painter.uiAspectY * painter.sy)
+		/ (painter.sx + painter.sy));
+}
+
+void ccPublishStage(const CalypsoF21Painter& painter, const RectF& stage,
+	const CalypsoHdPresentationMetrics& metrics)
+{
+	const CalypsoPhysRect rect = calypsoMapLogicalRect(ccLogical(painter, stage), metrics);
+	calypsoCcSetStageRect({rect.x, rect.y, rect.w, rect.h, true});
+}
+
 constexpr float BaseSelectorRowStride = 40.0f;
 
 RectF ccBaseSelectorDropdown(const RectF& selector, std::size_t baseCount)
@@ -73,7 +90,7 @@ void ccPanel(CalypsoF21Painter& painter, const RectF& rect, float radius,
 	{
 		CalypsoHdPanelStyle farShadow;
 		farShadow.styled = true;
-		farShadow.radiusPx = (radius + 8.0f) * static_cast<float>(painter.uiScale);
+		farShadow.radiusPx = (radius + 8.0f) * ccStyleScale(painter);
 		farShadow.fillTopRgba = farShadow.fillBottomRgba = 0x0000001Eu;
 		RectF far = inflate(rect, 8.0f);
 		far.y += 8.0f;
@@ -81,8 +98,8 @@ void ccPanel(CalypsoF21Painter& painter, const RectF& rect, float radius,
 	}
 	CalypsoHdPanelStyle panel;
 	panel.styled = true;
-	panel.radiusPx = radius * static_cast<float>(painter.uiScale);
-	panel.borderWidthPx = static_cast<float>(painter.uiScale);
+	panel.radiusPx = radius * ccStyleScale(painter);
+	panel.borderWidthPx = ccStyleScale(painter);
 	panel.borderColorRgba = CommandCenterTheme::packed(border);
 	panel.fillTopRgba = CommandCenterTheme::packed(top);
 	panel.fillBottomRgba = CommandCenterTheme::packed(bottom);
@@ -117,7 +134,7 @@ void ccRect(CalypsoF21Painter& painter, const RectF& rect, const CalypsoHdPanelS
 	std::uint32_t& role, const void* widget = nullptr)
 {
 	CalypsoHdPanelStyle projectedStyle = style;
-	const float scale = static_cast<float>(painter.uiScale);
+	const float scale = ccStyleScale(painter);
 	projectedStyle.radiusPx *= scale;
 	projectedStyle.cutCornerPx *= scale;
 	projectedStyle.borderWidthPx *= scale;
@@ -155,6 +172,240 @@ constexpr RailItemSpec kRailItems[5] = {
 constexpr const char* kTimeSteps[6] =
 	{ "5 SECS", "1 MIN", "5 MINS", "30 MINS", "1 HOUR", "1 DAY" };
 
+void ccRenderBaseSelector(CalypsoF21Painter& painter, const RectF& selector,
+	const CommandCenterSnapshot& snap, const CommandCenterFonts& fonts,
+	std::uint32_t& role)
+{
+	using namespace CommandCenterTheme;
+	const auto px = CommandCenterTheme::packed;
+	const bool compact = selector.height < 48.0f;
+	ccPanel(painter, selector, RadiusSM, BgPanel, BgPanel, Border, false, role);
+	const float avatarSize = compact ? 28.0f : 32.0f;
+	const RectF avatar{selector.x + (compact ? 8.0f : 10.0f),
+		selector.y + (selector.height - avatarSize) * 0.5f,
+		avatarSize, avatarSize};
+	CalypsoHdPanelStyle ring;
+	ring.styled = true;
+	ring.radiusPx = avatarSize * 0.5f;
+	ring.fillTopRgba = ring.fillBottomRgba = px(AccentSoft);
+	ring.borderWidthPx = 1.0f;
+	ring.borderColorRgba = px(BorderAccent);
+	ccRect(painter, avatar, ring, role);
+	ccIcon(painter, avatar, CcIcon::Bases, fonts, px(Accent),
+		compact ? 16.0f : 19.0f, role);
+
+	const float textX = avatar.right() + (compact ? 8.0f : 10.0f);
+	ccText(painter, RectF{textX, selector.y + (compact ? 5.0f : 9.0f),
+		selector.right() - textX - 28.0f, 10.0f}, fonts.plexM,
+		snap.baseCaption, px(TextMuted), 9.0f, 0.12f,
+		CalypsoHdHAlign::Left, role);
+	ccText(painter, RectF{textX, selector.y + (compact ? 16.0f : 22.0f),
+		selector.right() - textX - 28.0f, compact ? 17.0f : 16.0f}, fonts.interSb,
+		snap.baseName, px(TextPrimary), compact ? 11.0f : 12.0f, 0.04f,
+		CalypsoHdHAlign::Left, role);
+	ccIcon(painter, RectF{selector.right() - 24.0f, selector.y, 14.0f,
+		selector.height}, CcIcon::ChevronDown, fonts, px(TextSecondary),
+		compact ? 11.0f : 14.0f, role);
+
+	if (!snap.baseSelectorOpen || snap.baseNames.empty())
+		return;
+	ccPanel(painter, ccBaseSelectorDropdown(selector, snap.baseNames.size()),
+		RadiusSM, BgPanel, BgRoot, Border, true, role);
+	for (std::size_t index = 0; index < snap.baseNames.size(); ++index)
+	{
+		const RectF row = ccBaseSelectorRow(selector, index);
+		const bool selected = index == snap.selectedBaseIndex;
+		CalypsoHdPanelStyle rowStyle;
+		rowStyle.styled = true;
+		rowStyle.radiusPx = RadiusSM;
+		rowStyle.borderWidthPx = 1.0f;
+		if (compact)
+		{
+			rowStyle.borderColorRgba = px(selected ? BorderAccent : BorderSoft);
+			rowStyle.fillTopRgba = px(selected ? BgActive : BgPanelRaised);
+			rowStyle.fillBottomRgba = px(selected ? BgPanel : BgRoot);
+		}
+		else
+		{
+			rowStyle.borderColorRgba = selected ? 0xE0B51FFFu : 0x27364CFFu;
+			rowStyle.fillTopRgba = selected ? 0x81E0B51Fu : 0x071522F2u;
+			rowStyle.fillBottomRgba = selected ? 0x81E0B509u : 0x04101CF2u;
+		}
+		ccRect(painter, row, rowStyle, role);
+		if (selected)
+			painter.decoration(ccLogical(painter,
+				{row.x, row.y + 8.0f, 3.0f, row.height - 16.0f}),
+				px(Accent), role++);
+		ccIcon(painter, RectF{row.x + 8.0f, row.y, 28.0f, row.height},
+			CcIcon::Bases, fonts, selected ? px(Accent) : px(TextSecondary),
+			16.0f, role);
+		ccText(painter, RectF{row.x + 40.0f, row.y, row.width - 48.0f, row.height},
+			fonts.interSb, snap.baseNames[index],
+			selected ? px(TextPrimary) : px(TextSecondary), compact ? 10.0f : 11.0f, 0.02f,
+			CalypsoHdHAlign::Left, role);
+	}
+}
+
+void ccRenderCompact(CalypsoF21Painter& painter,
+	const CommandCenterLayout& layout, const CommandCenterSnapshot& snap,
+	const CommandCenterFonts& fonts, const CalypsoHdPresentationMetrics& metrics, bool live,
+	GeoscapeState* state, std::uint32_t& role)
+{
+	using namespace CommandCenterTheme;
+	const auto px = CommandCenterTheme::packed;
+
+	CalypsoHdPanelStyle root;
+	root.styled = true;
+	root.fillTopRgba = px(BgRoot);
+	root.fillBottomRgba = px(BgStage);
+	root.gradDirY = 1.0f;
+	if (!live)
+		ccRect(painter, layout.root, root, role);
+	else
+	{
+		const RectF& stage = layout.stage;
+		const RectF strips[4] = {
+			{0.0f, 0.0f, layout.root.width, stage.y},
+			{0.0f, stage.y, stage.x, stage.height},
+			{stage.right(), stage.y, layout.root.width - stage.right(), stage.height},
+			{0.0f, stage.bottom(), layout.root.width,
+				layout.root.height - stage.bottom()},
+		};
+		for (const RectF& strip : strips)
+			if (strip.width > 0.0f && strip.height > 0.0f)
+				ccRect(painter, strip, root, role);
+	}
+
+	ccPanel(painter, layout.header, 0.0f, BgHeader, BgRoot, BorderSoft, false, role);
+	painter.decoration(ccLogical(painter, {layout.header.x,
+		layout.header.bottom() - 1.0f, layout.header.width, 1.0f}),
+		px(BorderSoft), role++);
+
+	CalypsoHdPanelStyle stageFrame;
+	stageFrame.styled = true;
+	stageFrame.radiusPx = RadiusSM;
+	stageFrame.borderWidthPx = 1.0f;
+	stageFrame.borderColorRgba = px(BorderSoft);
+	ccRect(painter, layout.stage, stageFrame, role);
+
+	ccText(painter, RectF{layout.dateTimeBlock.x, layout.dateTimeBlock.y,
+		layout.dateTimeBlock.width, 17.0f}, fonts.plexM, snap.displayTime,
+		px(TextPrimary), 11.0f, 0.06f, CalypsoHdHAlign::Right, role);
+	ccText(painter, RectF{layout.dateTimeBlock.x, layout.dateTimeBlock.y + 17.0f,
+		layout.dateTimeBlock.width, 17.0f}, fonts.plexM, snap.displayDate,
+		px(TextSecondary), 10.0f, 0.06f, CalypsoHdHAlign::Right, role);
+	ccText(painter, RectF{layout.systemStatusBlock.x + 10.0f,
+		layout.systemStatusBlock.y, layout.systemStatusBlock.width - 10.0f, 15.0f},
+		fonts.plexM, "SYSTEM", px(TextMuted), 10.0f, 0.06f,
+		CalypsoHdHAlign::Left, role);
+	painter.decoration(ccLogical(painter, {layout.systemStatusBlock.x,
+		layout.systemStatusBlock.y + 22.0f, 5.0f, 5.0f}),
+		snap.systemNominal ? px(Success) : px(Danger), role++);
+	ccText(painter, RectF{layout.systemStatusBlock.x + 10.0f,
+		layout.systemStatusBlock.y + 15.0f,
+		layout.systemStatusBlock.width - 10.0f, 18.0f}, fonts.plexSb,
+		snap.systemStatus, px(TextSecondary), 11.0f, 0.06f,
+		CalypsoHdHAlign::Left, role);
+	ccIcon(painter, layout.notificationButton, CcIcon::Bell, fonts,
+		snap.hasUnreadNotification ? px(TextPrimary) : px(TextSecondary),
+		16.0f, role);
+
+	ccPanel(painter, layout.compactCommandGrid, RadiusMD, BgRail, BgRoot,
+		BorderSoft, false, role);
+	const RailItemSpec compactItems[6] = {
+		{"WORLD", CcIcon::World}, {"BASES", CcIcon::Bases},
+		{"OPERATIONS", CcIcon::Operations}, {"ANALYTICS", CcIcon::Analytics},
+		{"ARCHIVE", CcIcon::Archive}, {"SETTINGS", CcIcon::Settings},
+	};
+	for (std::size_t index = 0; index < layout.compactCommands.size(); ++index)
+	{
+		const bool active = index == 0;
+		CalypsoHdPanelStyle action;
+		action.styled = true;
+		action.radiusPx = RadiusSM;
+		action.borderWidthPx = 1.0f;
+		action.borderColorRgba = px(active ? BorderAccent : Border);
+		action.fillTopRgba = px(active ? BgActive : BgPanelRaised);
+		action.fillBottomRgba = px(active ? BgPanel : BgRoot);
+		ccRect(painter, layout.compactCommands[index], action, role);
+		ccIcon(painter, RectF{layout.compactCommands[index].x,
+			layout.compactCommands[index].y + 7.0f,
+			layout.compactCommands[index].width, 25.0f},
+			compactItems[index].icon, fonts,
+			active ? px(Accent) : px(TextSecondary), 19.0f, role);
+		ccText(painter, RectF{layout.compactCommands[index].x + 4.0f,
+			layout.compactCommands[index].y + 35.0f,
+			layout.compactCommands[index].width - 8.0f, 22.0f},
+			fonts.plexM, compactItems[index].label,
+			active ? px(Accent) : px(TextSecondary), 11.0f, 0.04f,
+			CalypsoHdHAlign::Center, role);
+	}
+
+	ccPanel(painter, layout.zoomControls, RadiusMD, BgPanelRaised, BgPanel,
+		Border, false, role);
+	ccIcon(painter, RectF{layout.zoomControls.x, layout.zoomControls.y,
+		layout.zoomControls.width, layout.zoomControls.height * 0.5f}, CcIcon::Plus, fonts,
+		px(TextSecondary), 17.0f, role);
+	painter.decoration(ccLogical(painter, {layout.zoomControls.x + 4.0f,
+		layout.zoomControls.y + layout.zoomControls.height * 0.5f - 0.5f, layout.zoomControls.width - 8.0f, 1.0f}),
+		px(BorderSoft), role++);
+	ccIcon(painter, RectF{layout.zoomControls.x, layout.zoomControls.y + layout.zoomControls.height * 0.5f,
+		layout.zoomControls.width, layout.zoomControls.height * 0.5f}, CcIcon::Minus, fonts,
+		px(TextSecondary), 17.0f, role);
+
+	ccPanel(painter, layout.timeline, RadiusMD, BgPanel, BgRoot, Border, false, role);
+	for (std::size_t index = 0; index < layout.compactTimeSteps.size(); ++index)
+	{
+		const RectF& step = layout.compactTimeSteps[index];
+		const bool active = static_cast<int>(index) == snap.selectedTimeStep;
+		if (index > 0)
+			painter.decoration(ccLogical(painter, {step.x, step.y + 7.0f,
+				1.0f, step.height - 14.0f}), px(BorderSoft), role++);
+		ccText(painter, step, fonts.plexM, kTimeSteps[index],
+			active ? px(Accent) : px(TextSecondary), 11.0f, 0.05f,
+			CalypsoHdHAlign::Center, role);
+		if (active)
+			painter.decoration(ccLogical(painter, {step.x + 16.0f,
+				step.bottom() - 3.0f, step.width - 32.0f, 2.0f}),
+				px(Accent), role++);
+	}
+
+	ccRenderBaseSelector(painter, layout.baseSelector, snap, fonts, role);
+
+	if (!live || state == nullptr)
+		return;
+	ccPublishStage(painter, layout.stage, metrics);
+
+	ccBind(painter, CalypsoGeoscapeHdShell::resolveLiveWidget(state, "action.session"),
+		layout.baseSelector, role);
+	if (snap.baseSelectorOpen)
+		for (std::size_t index = 0; index < snap.baseNames.size(); ++index)
+			ccBind(painter, CalypsoGeoscapeHdShell::resolveBaseSelectorRow(state, index),
+				ccBaseSelectorRow(layout.baseSelector, index), role);
+
+	const char* commandMembers[6] = {
+		nullptr, "btnBases", "btnIntercept", "btnGraphs", "btnUfopaedia", "btnOptions"};
+	for (std::size_t index = 1; index < layout.compactCommands.size(); ++index)
+		ccBind(painter, CalypsoGeoscapeHdShell::resolveWidget(state,
+			commandMembers[index]), layout.compactCommands[index], role);
+
+	Surface* speeds[6] = {
+		CalypsoGeoscapeHdShell::resolveWidget(state, "btn5Secs"),
+		CalypsoGeoscapeHdShell::resolveWidget(state, "btn1Min"),
+		CalypsoGeoscapeHdShell::resolveWidget(state, "btn5Mins"),
+		CalypsoGeoscapeHdShell::resolveWidget(state, "btn30Mins"),
+		CalypsoGeoscapeHdShell::resolveWidget(state, "btn1Hour"),
+		CalypsoGeoscapeHdShell::resolveWidget(state, "btn1Day")};
+	for (std::size_t index = 0; index < layout.compactTimeSteps.size(); ++index)
+		ccBind(painter, speeds[index], layout.compactTimeSteps[index], role);
+	ccBind(painter, CalypsoGeoscapeHdShell::resolveWidget(state, "btnZoomIn"),
+		RectF{layout.zoomControls.x, layout.zoomControls.y,
+			layout.zoomControls.width, layout.zoomControls.height * 0.5f}, role);
+	ccBind(painter, CalypsoGeoscapeHdShell::resolveWidget(state, "btnZoomOut"),
+		RectF{layout.zoomControls.x, layout.zoomControls.y + layout.zoomControls.height * 0.5f,
+			layout.zoomControls.width, layout.zoomControls.height * 0.5f}, role);
+}
+
 } // namespace
 
 bool calypsoCcEnabled() { return g_calypsoCcEnabled; }
@@ -187,10 +438,29 @@ CommandCenterFonts calypsoCcResolveFonts(const Mod* mod)
 
 void calypsoCcRender(CalypsoF21Painter& painter, const CommandCenterLayout& layout,
 	const CommandCenterSnapshot& snap, const CommandCenterFonts& fonts,
-	double densityScale, bool live, GeoscapeState* state, std::uint32_t& role)
+	const CalypsoHdPresentationMetrics& metrics, bool live, GeoscapeState* state, std::uint32_t& role)
 {
 	using namespace CommandCenterTheme;
 	const auto px = CommandCenterTheme::packed;
+	if (live && state != nullptr)
+	{
+		// Both compositions replace the native header, sidebar and rotate
+		// cluster. Compact must not leave the old chrome over its globe.
+		static constexpr const char* replaced[] = {
+			"txtHour", "txtHourSep", "txtMin", "txtMinSep", "txtSec",
+			"txtWeekday", "txtDay", "txtMonth", "txtYear", "txtFunds",
+			"sidebar", "sideLine", "sideTop", "sideBottom",
+			"btnRotateLeft", "btnRotateRight", "btnRotateUp", "btnRotateDown",
+			"btnFunding"
+		};
+		for (const char* member : replaced)
+			painter.claim(CalypsoGeoscapeHdShell::resolveWidget(state, member), role++);
+	}
+	if (layout.mode == LayoutMode::Mobile)
+	{
+		ccRenderCompact(painter, layout, snap, fonts, metrics, live, state, role);
+		return;
+	}
 
 	// Pass 1: root background (spec s.17). Live mode paints only the margins
 	// around the stage — the world pass owns the stage interior (stage 7);
@@ -286,40 +556,9 @@ void calypsoCcRender(CalypsoF21Painter& painter, const CommandCenterLayout& layo
 		ccPanel(painter, layout.timeline, RadiusMD, Color8{0x08,0x18,0x27,0xFF},
 			Color8{0x04,0x10,0x1D,0xFF}, Border, false, role);
 		const float pad = 12.0f;
-		const float innerHeight = layout.timeline.height - pad * 2.0f;
-
-		// Play/pause: 56 circle inside a 64 halo (spec s.45).
-		const RectF playCol{ layout.timeline.x + pad, layout.timeline.y + pad, 64.0f, innerHeight };
-		const RectF halo{ playCol.x + 4.0f, playCol.y + (innerHeight - 64.0f) / 2.0f, 64.0f, 64.0f };
-		{
-			CalypsoHdPanelStyle ring;
-			ring.styled = true;
-			ring.radiusPx = 32.0f;
-			ring.fillTopRgba = ring.fillBottomRgba = 0x00000000u;
-			ring.glowRgba = 0x81E0B509u;
-			ring.glowRadiusPx = 4.0f;
-			ccRect(painter, halo, ring, role);
-		}
-		const RectF play{ halo.x + 4.0f, halo.y + 4.0f, 56.0f, 56.0f };
-		{
-			CalypsoHdPanelStyle circle;
-			circle.styled = true;
-			circle.radiusPx = 28.0f;
-			circle.fillTopRgba = 0x81E0B521u;
-			circle.fillBottomRgba = 0x81E0B50Du;
-			circle.gradDirX = 0.0f;
-			circle.gradDirY = 1.0f;
-			circle.borderWidthPx = 1.0f;
-			circle.borderColorRgba = px(Accent);
-			ccRect(painter, play, circle, role);
-		}
-		painter.decoration(ccLogical(painter, {play.x + play.width / 2.0f - 6.0f, play.y + 19.0f, 3.0f, 18.0f}), px(TextPrimary), role++);
-		painter.decoration(ccLogical(painter, {play.x + play.width / 2.0f + 3.0f, play.y + 19.0f, 3.0f, 18.0f}), px(TextPrimary), role++);
-
 		// Time step selector (spec s.46).
-		const float stepsX = playCol.right() + 12.0f;
-		const float fullX = layout.timeline.right() - pad - 40.0f - 12.0f;
-		const RectF steps{ stepsX, layout.timeline.y + pad, std::max(0.0f, fullX - stepsX), 42.0f };
+		const RectF steps{layout.timeline.x + pad, layout.timeline.y + pad,
+			std::max(0.0f, layout.timeline.width - pad * 2.0f), 42.0f};
 		{
 			CalypsoHdPanelStyle strip;
 			strip.styled = true;
@@ -374,10 +613,6 @@ void calypsoCcRender(CalypsoF21Painter& painter, const CommandCenterLayout& layo
 			ccRect(painter, RectF{markerX - 4.0f, ruler.y + ruler.height / 2.0f - 4.0f, 8.0f, 8.0f}, dot, role);
 		}
 
-		// Fullscreen ghost (spec s.48).
-		ccIcon(painter, RectF{layout.timeline.right() - pad - 40.0f,
-			layout.timeline.y + pad + (innerHeight - 40.0f) / 2.0f, 40.0f, 40.0f},
-			CcIcon::Fullscreen, fonts, px(TextSecondary), 18.0f, role);
 	}
 
 	// Pass 12: navigation content (spec s.22).
@@ -431,56 +666,7 @@ void calypsoCcRender(CalypsoF21Painter& painter, const CommandCenterLayout& layo
 
 	// Pass 11: header content (spec s.19-21).
 	{
-		// Base selector.
-		const RectF& sel = layout.baseSelector;
-		ccPanel(painter, sel, RadiusSM, BgPanel, BgPanel, Border, false, role);
-		const RectF avatar{ sel.x + 10.0f, sel.y + 8.0f, 32.0f, 32.0f };
-		{
-			CalypsoHdPanelStyle ring;
-			ring.styled = true;
-			ring.radiusPx = 16.0f;
-			ring.fillTopRgba = ring.fillBottomRgba = px(AccentSoft);
-			ring.borderWidthPx = 1.0f;
-			ring.borderColorRgba = 0x81E0B54Du;
-			ccRect(painter, avatar, ring, role);
-			ccIcon(painter, avatar, CcIcon::Bases, fonts, px(Accent), 19.0f, role);
-		}
-		ccText(painter, RectF{avatar.right() + 10.0f, sel.y + 9.0f, 120.0f, 11.0f}, fonts.plexM,
-			snap.baseCaption, px(TextMuted), 9.0f, 0.12f, CalypsoHdHAlign::Left, role);
-		ccText(painter, RectF{avatar.right() + 10.0f, sel.y + 22.0f, 120.0f, 16.0f}, fonts.interSb,
-			snap.baseName, px(TextPrimary), 12.0f, 0.04f, CalypsoHdHAlign::Left, role);
-		ccIcon(painter, RectF{sel.right() - 26.0f, sel.y, 16.0f, sel.height}, CcIcon::ChevronDown,
-			fonts, px(TextSecondary), 14.0f, role);
-
-		if (snap.baseSelectorOpen && !snap.baseNames.empty())
-		{
-			ccPanel(painter, ccBaseSelectorDropdown(sel, snap.baseNames.size()),
-				RadiusSM, BgPanel, BgRoot, Border, true, role);
-			for (std::size_t index = 0; index < snap.baseNames.size(); ++index)
-			{
-				const RectF row = ccBaseSelectorRow(sel, index);
-				const bool selected = index == snap.selectedBaseIndex;
-				CalypsoHdPanelStyle rowStyle;
-				rowStyle.styled = true;
-				rowStyle.radiusPx = RadiusSM;
-				rowStyle.borderWidthPx = 1.0f;
-				rowStyle.borderColorRgba = selected ? px(Accent) : px(BorderSoft);
-				rowStyle.fillTopRgba = selected ? 0x81E0B51Fu : 0x071522F2u;
-				rowStyle.fillBottomRgba = selected ? 0x81E0B509u : 0x04101CF2u;
-				ccRect(painter, row, rowStyle, role);
-				if (selected)
-					painter.decoration(ccLogical(painter,
-						{row.x, row.y + 8.0f, 3.0f, row.height - 16.0f}),
-						px(Accent), role++);
-				ccIcon(painter, RectF{row.x + 8.0f, row.y, 28.0f, row.height},
-					CcIcon::Bases, fonts, selected ? px(Accent) : px(TextSecondary),
-					16.0f, role);
-				ccText(painter, RectF{row.x + 40.0f, row.y, row.width - 48.0f, row.height},
-					fonts.interSb, snap.baseNames[index],
-					selected ? px(TextPrimary) : px(TextSecondary), 11.0f, 0.02f,
-					CalypsoHdHAlign::Left, role);
-			}
-		}
+		ccRenderBaseSelector(painter, layout.baseSelector, snap, fonts, role);
 
 		// Right group: date/time, divider, system status, bell (spec s.20-21).
 		const float rightGroupX = layout.header.width - 16.0f - 329.0f;
@@ -508,18 +694,9 @@ void calypsoCcRender(CalypsoF21Painter& painter, const CommandCenterLayout& layo
 	// (spec s.76 -- handlers stay, only the call points move).
 	if (live && state != nullptr)
 	{
-		// Layout is authored in CSS pixels so control size is independent of
-		// Retina backing density. The globe world pass consumes physical
-		// backing pixels, therefore publish the stage through the same DPR.
-		CcStageRect sr;
-		sr.active = true;
-		sr.x = (int)std::llround(layout.stage.x * densityScale);
-		sr.y = (int)std::llround(layout.stage.y * densityScale);
-		sr.w = (int)std::llround(layout.stage.width * densityScale);
-		sr.h = (int)std::llround(layout.stage.height * densityScale);
-		calypsoCcSetStageRect(sr);
+		// Globe clipping and live hit targets share the frozen per-axis map.
+		ccPublishStage(painter, layout.stage, metrics);
 		Surface* session = const_cast<Surface*>(CalypsoGeoscapeHdShell::resolveLiveWidget(state, "action.session"));
-		Surface* pause = const_cast<Surface*>(CalypsoGeoscapeHdShell::resolveLiveWidget(state, "time.pause"));
 		ccBind(painter, session, layout.baseSelector, role);
 		if (snap.baseSelectorOpen)
 		{
@@ -528,8 +705,6 @@ void calypsoCcRender(CalypsoF21Painter& painter, const CommandCenterLayout& layo
 					CalypsoGeoscapeHdShell::resolveBaseSelectorRow(state, index),
 					ccBaseSelectorRow(layout.baseSelector, index), role);
 		}
-		ccBind(painter, pause, RectF{layout.timeline.x + 20.0f,
-			layout.timeline.y + 12.0f + (layout.timeline.height - 24.0f - 56.0f) / 2.0f, 56.0f, 56.0f}, role);
 		// Rail labels are presentation categories; the pure interaction contract
 		// pins each slot to its existing native handler.
 		for (int slot = 1; slot < 5; ++slot)
@@ -542,8 +717,8 @@ void calypsoCcRender(CalypsoF21Painter& painter, const CommandCenterLayout& layo
 		}
 		ccBind(painter, CalypsoGeoscapeHdShell::resolveWidget(state, "btnOptions"), RectF{layout.navigationRail.x + 24.0f, layout.navigationRail.bottom() - 56.0f, 40.0f, 40.0f}, role);
 		// Time steps: the six native buttons map onto the selector segments.
-		const float stepsX = layout.timeline.x + 12.0f + 64.0f + 12.0f;
-		const float stepsW = layout.timeline.right() - 12.0f - 40.0f - 12.0f - stepsX;
+		const float stepsX = layout.timeline.x + 12.0f;
+		const float stepsW = layout.timeline.width - 24.0f;
 		Surface* speed[6] = { CalypsoGeoscapeHdShell::resolveWidget(state, "btn5Secs"), CalypsoGeoscapeHdShell::resolveWidget(state, "btn1Min"), CalypsoGeoscapeHdShell::resolveWidget(state, "btn5Mins"),
 			CalypsoGeoscapeHdShell::resolveWidget(state, "btn30Mins"), CalypsoGeoscapeHdShell::resolveWidget(state, "btn1Hour"), CalypsoGeoscapeHdShell::resolveWidget(state, "btn1Day") };
 		for (int i = 0; i < 6; ++i)
@@ -551,26 +726,6 @@ void calypsoCcRender(CalypsoF21Painter& painter, const CommandCenterLayout& layo
 		// Zoom cluster buttons.
 		ccBind(painter, CalypsoGeoscapeHdShell::resolveWidget(state, "btnZoomIn"), RectF{layout.zoomControls.x, layout.zoomControls.y, 40.0f, 42.0f}, role);
 		ccBind(painter, CalypsoGeoscapeHdShell::resolveWidget(state, "btnZoomOut"), RectF{layout.zoomControls.x, layout.zoomControls.y + 42.0f, 40.0f, 42.0f}, role);
-		// Header texts are re-drawn by CC; claim the native ones away.
-		painter.claim(CalypsoGeoscapeHdShell::resolveWidget(state, "txtHour"), role++);
-		painter.claim(CalypsoGeoscapeHdShell::resolveWidget(state, "txtHourSep"), role++);
-		painter.claim(CalypsoGeoscapeHdShell::resolveWidget(state, "txtMin"), role++);
-		painter.claim(CalypsoGeoscapeHdShell::resolveWidget(state, "txtMinSep"), role++);
-		painter.claim(CalypsoGeoscapeHdShell::resolveWidget(state, "txtSec"), role++);
-		painter.claim(CalypsoGeoscapeHdShell::resolveWidget(state, "txtWeekday"), role++);
-		painter.claim(CalypsoGeoscapeHdShell::resolveWidget(state, "txtDay"), role++);
-		painter.claim(CalypsoGeoscapeHdShell::resolveWidget(state, "txtMonth"), role++);
-		painter.claim(CalypsoGeoscapeHdShell::resolveWidget(state, "txtYear"), role++);
-		painter.claim(CalypsoGeoscapeHdShell::resolveWidget(state, "txtFunds"), role++);
-		painter.claim(CalypsoGeoscapeHdShell::resolveWidget(state, "sidebar"), role++);
-		painter.claim(CalypsoGeoscapeHdShell::resolveWidget(state, "sideLine"), role++);
-		painter.claim(CalypsoGeoscapeHdShell::resolveWidget(state, "sideTop"), role++);
-		painter.claim(CalypsoGeoscapeHdShell::resolveWidget(state, "sideBottom"), role++);
-		painter.claim(CalypsoGeoscapeHdShell::resolveWidget(state, "btnRotateLeft"), role++);
-		painter.claim(CalypsoGeoscapeHdShell::resolveWidget(state, "btnRotateRight"), role++);
-		painter.claim(CalypsoGeoscapeHdShell::resolveWidget(state, "btnRotateUp"), role++);
-		painter.claim(CalypsoGeoscapeHdShell::resolveWidget(state, "btnRotateDown"), role++);
-		painter.claim(CalypsoGeoscapeHdShell::resolveWidget(state, "btnFunding"), role++);
 	}
 }
 

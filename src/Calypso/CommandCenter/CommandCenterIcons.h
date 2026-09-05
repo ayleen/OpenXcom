@@ -26,7 +26,6 @@ enum class CcIcon
 	Settings,
 	Bell,
 	ChevronDown,
-	Fullscreen,
 	Menu,
 	Plus,
 	Minus,
@@ -44,7 +43,6 @@ inline char32_t ccIconGlyph(CcIcon icon)
 		case CcIcon::Settings: return 0xE270;   // gear
 		case CcIcon::Bell: return 0xE0CE;       // bell
 		case CcIcon::ChevronDown: return 0xE136;// caret-down
-		case CcIcon::Fullscreen: return 0xE1D0; // corners-out
 		case CcIcon::Menu: return 0xE2F0;       // list
 		case CcIcon::Plus: return 0xE3D4;       // plus
 		case CcIcon::Minus: return 0xE32A;      // minus

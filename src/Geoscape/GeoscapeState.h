@@ -100,7 +100,6 @@ private:
 	bool calypsoCenterOnBase(size_t index);
 	public:
 	void calypsoToggleDrawer(Action *);   // Stage 9.1.3 drawer toggle (body in shell cpp)
-	void calypsoTogglePause(Action *);
 	void calypsoDrawerDispatch(Action *);
 	void calypsoBaseSelectorDispatch(Action *);
 	void calypsoDrawerFunding(Action *);

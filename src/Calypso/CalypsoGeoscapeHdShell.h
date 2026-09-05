@@ -37,13 +37,7 @@ struct CalypsoGeoscapeHdShell
 	static void toggleDrawer(GeoscapeState *s);
 	static bool closeDrawer(GeoscapeState *s);
 
-	/// Reason-aware pause ownership (audit §13 item 1). `togglePause` flips
-	/// one User ledger token; `syncPause` re-derives the authoritative vanilla
-	/// `_pause` latch from the frame's system reason plus the persistent
-	/// ledger; `effectivePause` reads the same truth without mutating.
-	static void togglePause(GeoscapeState *s);
 	static void syncPause(GeoscapeState *s, bool systemReason);
-	static bool effectivePause(const GeoscapeState *s);
 	static bool isDrawerOpen(const GeoscapeState *s);
 
 	/// Release per-state shell bookkeeping before State destroys its surfaces.
