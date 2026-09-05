@@ -13,10 +13,24 @@
   },
   "title": "NAME YOUR FIRST BASE",
   "body": [],
-  "icon": { "kind": "info", "glyph": "i", "tone": "primary" },
+  "icon": {
+    "kind": "info",
+    "glyph": "i",
+    "tone": "primary"
+  },
   "buttons": [
-    { "id": "ok", "label": "OK", "tone": "primary", "action": "confirm" },
-    { "id": "cancel", "label": "CANCEL", "tone": "normal", "action": "back" }
+    {
+      "id": "ok",
+      "label": "OK",
+      "tone": "primary",
+      "action": "confirm"
+    },
+    {
+      "id": "cancel",
+      "label": "CANCEL",
+      "tone": "normal",
+      "action": "back"
+    }
   ],
   "input": {
     "value": "CALYPSO DEEP",

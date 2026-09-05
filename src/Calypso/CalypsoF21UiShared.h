@@ -298,6 +298,7 @@ struct CalypsoF21Painter
 	CalypsoLogicalRect winLogical{ 0, 0, 0, 0 }; ///< projected window (logical)
 	CalypsoF21Rect windowDesign{ 0, 0, 0, 0 };   ///< window rect in design space
 	double uiScale = 1.0;        ///< logical/design scale (winLogical.w / windowDesign.width)
+	double uiAspectY = 1.0;      ///< per-axis compensation for CSS-authored surfaces
 
 	/// Project a design-space decoration rect into the current logical canvas
 	/// (the same projection State::enableUiScaling applied to widget rects).
@@ -305,9 +306,9 @@ struct CalypsoF21Painter
 	{
 		return CalypsoLogicalRect{
 			winLogical.x + (int)std::llround((d.x - windowDesign.x) * uiScale),
-			winLogical.y + (int)std::llround((d.y - windowDesign.y) * uiScale),
+			winLogical.y + (int)std::llround((d.y - windowDesign.y) * uiScale * uiAspectY),
 			std::max(1, (int)std::llround(d.width * uiScale)),
-			std::max(1, (int)std::llround(d.height * uiScale)) };
+			std::max(1, (int)std::llround(d.height * uiScale * uiAspectY)) };
 	}
 
 	CalypsoLogicalRect motionRect(const CalypsoLogicalRect& r) const
@@ -411,9 +412,9 @@ inline void CalypsoF21Painter::textRect(const CalypsoLogicalRect& sourceRect,
 	const double designFontSize = fontSizeDesignPx > 0.0
 		? fontSizeDesignPx : (double)sourceRect.h / hint;
 	const double physicalScaleX = std::max(0.01, uiScale * sx);
-	const double physicalScaleY = std::max(0.01, uiScale * sy);
+	const double physicalScaleY = std::max(0.01, uiScale * uiAspectY * sy);
 	const int physicalPixelHeight = std::max(1, (int)calypsoHdRoundToInt(
-		designFontSize * uiScale * sy));
+		designFontSize * physicalScaleY));
 	const int wrapWidth = hint > 1
 		? std::max(1, (int)calypsoHdRoundToInt((double)sourceRect.w * sx)) : 0;
 

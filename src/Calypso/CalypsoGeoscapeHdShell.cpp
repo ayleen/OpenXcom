@@ -7,6 +7,8 @@
 #include "../Geoscape/GeoscapeState.h"
 #include "CalypsoGeoscapeHdRuntime.h"
 #include "CalypsoGeoscapeActionContract.h"
+#include "CommandCenter/CommandCenterInteraction.h"
+#include "CommandCenter/CommandCenterRenderer.h"
 
 extern "C" int g_calypsoGeoscapeHdPreview;
 #include "CalypsoViewportRuntime.h"
@@ -16,19 +18,23 @@ extern "C" int g_calypsoGeoscapeHdPreview;
 #include "../Engine/Language.h"
 #include "../Mod/Mod.h"
 #include "../Interface/TextButton.h"
+#include "../Interface/Text.h"
 #include "../Engine/Options.h"
 #include "../Savegame/SavedGame.h"
+#include "../Savegame/Base.h"
 #include "../Menu/NotesState.h"
 #include "../Menu/SaveGameState.h"
 #include "../Menu/LoadGameState.h"
 #include "../Menu/TestState.h"
 #include "../Geoscape/FundingState.h"
+#include "../Geoscape/Globe.h"
 
 namespace OpenXcom
 {
 const Surface* CalypsoGeoscapeHdShell::resolveWidget(const GeoscapeState* s, const std::string& member)
 {
 	if (s == nullptr) return nullptr;
+	if (member == "bg") return s->_bg;
 	if (member == "btnIntercept") return s->_btnIntercept;
 	if (member == "btnBases") return s->_btnBases;
 	if (member == "btnGraphs") return s->_btnGraphs;
@@ -43,6 +49,27 @@ const Surface* CalypsoGeoscapeHdShell::resolveWidget(const GeoscapeState* s, con
 	if (member == "btn1Day") return s->_btn1Day;
 	if (member == "btnZoomIn") return s->_btnZoomIn;
 	if (member == "btnZoomOut") return s->_btnZoomOut;
+	// Command Center live binding: header texts, side fillers and the old
+	// rotate cluster are claimed away by the CC renderer.
+	if (member == "txtHour") return s->_txtHour;
+	if (member == "txtHourSep") return s->_txtHourSep;
+	if (member == "txtMin") return s->_txtMin;
+	if (member == "txtMinSep") return s->_txtMinSep;
+	if (member == "txtSec") return s->_txtSec;
+	if (member == "txtWeekday") return s->_txtWeekday;
+	if (member == "txtDay") return s->_txtDay;
+	if (member == "txtMonth") return s->_txtMonth;
+	if (member == "txtYear") return s->_txtYear;
+	if (member == "txtFunds") return s->_txtFunds;
+	if (member == "sidebar") return s->_sidebar;
+	if (member == "sideLine") return s->_sideLine;
+	if (member == "sideTop") return s->_sideTop;
+	if (member == "sideBottom") return s->_sideBottom;
+	if (member == "btnRotateLeft") return s->_btnRotateLeft;
+	if (member == "btnRotateRight") return s->_btnRotateRight;
+	if (member == "btnRotateUp") return s->_btnRotateUp;
+	if (member == "btnRotateDown") return s->_btnRotateDown;
+	if (member == "timeSpeed") return s->_timeSpeed;
 	return nullptr;
 }
 
@@ -69,17 +96,17 @@ namespace
 struct CalypsoGeoscapeHdShellState
 {
 	Calypso::CalypsoGeoscapeHdDrawerState drawer;
-	// Reason-aware pause ledger (audit §13 item 1): user/drawer/session
-	// pauses are counted tokens; vanilla popup/dogfight/system reasons stay
-	// owned by GeoscapeState's own latch.
+	// Reason-aware pause ledger: shell-owned drawer/session pauses are counted
+	// tokens; vanilla popup/dogfight/system reasons stay owned by GeoscapeState.
 	Calypso::GeoscapeTimePolicyState policy;
 	std::vector<std::pair<TextButton*, const char*>> rows;
+	Calypso::CommandCenter::BaseSelectorModel baseSelector;
+	std::vector<TextButton*> baseRows;
 	TextButton* sessionChip = nullptr;
-	TextButton* pauseControl = nullptr;
 	TextButton* speedBeforeOpen = nullptr;
 	bool sessionWasFocused = false;
 	// Most recent authoritative system reason observed by the timeAdvance
-	// recompute hook; reused by HD pause operations between simulation ticks.
+	// recompute hook; reused by HD drawer operations between simulation ticks.
 	bool vanillaSystemReason = false;
 };
 
@@ -88,7 +115,6 @@ const Surface* CalypsoGeoscapeHdShell::resolveLiveWidget(const GeoscapeState* s,
 	if (s == nullptr || s->_calypsoHdShell == nullptr) return nullptr;
 	const auto* shell = s->_calypsoHdShell;
 	if (actionId == "action.session") return shell->sessionChip;
-	if (actionId == "time.pause") return shell->pauseControl;
 	for (const auto& entry : shell->rows)
 		if (entry.second != nullptr && actionId == entry.second)
 			return entry.first != nullptr && entry.first->getVisible() ? entry.first : nullptr;
@@ -100,14 +126,33 @@ Surface* CalypsoGeoscapeHdShell::resolveLiveWidget(GeoscapeState* s, const std::
 	return const_cast<Surface*>(resolveLiveWidget(static_cast<const GeoscapeState*>(s), actionId));
 }
 
+Surface* CalypsoGeoscapeHdShell::resolveBaseSelectorRow(
+	GeoscapeState* s, std::size_t index)
+{
+	if (s == nullptr || s->_calypsoHdShell == nullptr
+		|| index >= s->_calypsoHdShell->baseRows.size())
+		return nullptr;
+	return s->_calypsoHdShell->baseRows[index];
+}
+
+bool CalypsoGeoscapeHdShell::isBaseSelectorOpen(const GeoscapeState* s)
+{
+	return s != nullptr && s->_calypsoHdShell != nullptr
+		&& s->_calypsoHdShell->baseSelector.open();
+}
+
+std::size_t CalypsoGeoscapeHdShell::selectedBaseIndex(const GeoscapeState* s)
+{
+	return s != nullptr && s->_calypsoHdShell != nullptr
+		? s->_calypsoHdShell->baseSelector.selectedIndex() : 0;
+}
+
 bool CalypsoGeoscapeHdShell::isLiveActionVisible(const GeoscapeState* s, const std::string& actionId)
 {
 	if (s == nullptr || s->_calypsoHdShell == nullptr) return false;
 	const auto* shell = s->_calypsoHdShell;
 	if (actionId == "action.session")
 		return shell->sessionChip != nullptr && shell->sessionChip->getVisible();
-	if (actionId == "time.pause")
-		return shell->pauseControl != nullptr && shell->pauseControl->getVisible();
 	for (const auto& entry : shell->rows)
 		if (entry.second != nullptr && actionId == entry.second)
 			return entry.first != nullptr && entry.first->getVisible();
@@ -132,11 +177,12 @@ const char* CalypsoGeoscapeHdShell::apply(GeoscapeState *s)
 		g_calypsoGeoscapeHdPreview != 0);
 	const auto decision = calypsoGeoscapeHdGateDecision(true, listed, true, true);
 	auto* shell = state(s);
+	const bool commandCenter = Calypso::CommandCenter::calypsoCcEnabled();
 	if (!decision.enabled)
 	{
 		for (auto& row : shell->rows) row.first->setVisible(false);
+		for (auto* row : shell->baseRows) row->setVisible(false);
 		if (shell->sessionChip) shell->sessionChip->setVisible(false);
-		if (shell->pauseControl) shell->pauseControl->setVisible(false);
 		return decision.reason;
 	}
 	const auto& metrics = calypsoViewportRuntime().current();
@@ -159,24 +205,32 @@ const char* CalypsoGeoscapeHdShell::apply(GeoscapeState *s)
 	{
 		shell->sessionChip = new TextButton(122, 46, 18, 16);
 		s->add(shell->sessionChip, "button", "geoscape");
-		shell->sessionChip->setText(s->tr("STR_SESSION"));
 		shell->sessionChip->onMouseClick((ActionHandler)&GeoscapeState::calypsoToggleDrawer);
 	}
+	shell->sessionChip->setText(s->tr(commandCenter ? "STR_BASES" : "STR_SESSION"));
 	const auto sess = projection.project("action.session");
 	shell->sessionChip->setX(sess.x); shell->sessionChip->setY(sess.y);
 	shell->sessionChip->setWidth(sess.w); shell->sessionChip->setHeight(sess.h);
 	shell->sessionChip->setVisible(true);
-	if (shell->pauseControl == nullptr)
+	const SavedGame* save = s->_game != nullptr ? s->_game->getSavedGame() : nullptr;
+	const std::size_t baseCount = save != nullptr && save->getBases() != nullptr
+		? save->getBases()->size() : 0;
+	shell->baseSelector.reconcile(baseCount);
+	while (shell->baseRows.size() < baseCount)
 	{
-		shell->pauseControl = new TextButton(50, 50, 0, 0);
-		s->add(shell->pauseControl, "button", "geoscape");
-		shell->pauseControl->setText(s->tr("STR_PAUSE"));
-		shell->pauseControl->onMouseClick((ActionHandler)&GeoscapeState::calypsoTogglePause);
+		TextButton* row = new TextButton(220, 36, 0, 0);
+		row->onMouseClick((ActionHandler)&GeoscapeState::calypsoBaseSelectorDispatch);
+		s->add(row, "button", "geoscape");
+		shell->baseRows.push_back(row);
 	}
-	const auto pause = projection.project("time.pause");
-	shell->pauseControl->setX(pause.x); shell->pauseControl->setY(pause.y);
-	shell->pauseControl->setWidth(pause.w); shell->pauseControl->setHeight(pause.h);
-	shell->pauseControl->setVisible(true);
+	for (std::size_t index = 0; index < shell->baseRows.size(); ++index)
+	{
+		TextButton* row = shell->baseRows[index];
+		const bool current = index < baseCount;
+		if (current)
+			row->setText(save->getBases()->at(index)->getName());
+		row->setVisible(commandCenter && shell->baseSelector.open() && current);
+	}
 	int deferred = 0;
 	for (const auto& def : Calypso::calypsoGeoscapeHdLiveDrawerRows())
 	{
@@ -194,15 +248,42 @@ const char* CalypsoGeoscapeHdShell::apply(GeoscapeState *s)
 		row->setX(r.x); row->setY(r.y); row->setWidth(r.w); row->setHeight(r.h);
 		row->setText(s->tr(def.labelKey));   // G-1: localized drawer labels
 		const bool ironman = s->_game->getSavedGame() != nullptr && s->_game->getSavedGame()->isIronman();
-		row->setVisible(shell->drawer.open && rowAvailable(def.availability, ironman));
+		row->setVisible(!commandCenter && shell->drawer.open
+			&& rowAvailable(def.availability, ironman));
 	}
-	Log(LOG_INFO) << "[HD] geoscape shell: layout=" << (wide ? "wide" : "compact") << " projected=" << projected << " drawer=" << (shell->drawer.open ? "open" : "closed");
+	Log(LOG_INFO) << "[HD] geoscape shell: layout=" << (wide ? "wide" : "compact")
+		<< " projected=" << projected
+		<< " drawer=" << (shell->drawer.open ? "open" : "closed")
+		<< " bases=" << baseCount
+		<< " baseSelector=" << (shell->baseSelector.open() ? "open" : "closed");
 	return decision.reason;
+}
+
+void CalypsoGeoscapeHdShell::applyPendingBaseFocus(GeoscapeState *s)
+{
+	if (s == nullptr || s->_calypsoHdShell == nullptr)
+		return;
+	std::size_t index = 0;
+	if (s->_calypsoHdShell->baseSelector.takePendingFocus(index))
+		s->calypsoCenterOnBase(index);
 }
 
 void CalypsoGeoscapeHdShell::toggleDrawer(GeoscapeState *s)
 {
 	auto* shell = state(s);
+	if (Calypso::CommandCenter::calypsoCcEnabled())
+	{
+		const SavedGame* save = s->_game != nullptr ? s->_game->getSavedGame() : nullptr;
+		const std::size_t baseCount = save != nullptr && save->getBases() != nullptr
+			? save->getBases()->size() : 0;
+		shell->baseSelector.toggle(baseCount);
+		apply(s);
+		if (shell->baseSelector.open()
+			&& shell->baseSelector.selectedIndex() < shell->baseRows.size())
+			shell->baseRows[shell->baseSelector.selectedIndex()]->setFocus(true);
+		return;
+	}
+	shell->baseSelector.close();
 	if (!shell->drawer.open)
 	{
 		shell->speedBeforeOpen = s->_timeSpeed;
@@ -236,12 +317,18 @@ void CalypsoGeoscapeHdShell::toggleDrawer(GeoscapeState *s)
 
 bool CalypsoGeoscapeHdShell::closeDrawer(GeoscapeState *s)
 {
-	if (s == nullptr || s->_calypsoHdShell == nullptr || !s->_calypsoHdShell->drawer.open)
-		return false;
+	if (s == nullptr || s->_calypsoHdShell == nullptr) return false;
 	auto* shell = s->_calypsoHdShell;
+	if (shell->baseSelector.open())
+	{
+		shell->baseSelector.close();
+		apply(s);
+		return true;
+	}
+	if (!shell->drawer.open) return false;
 	shell->drawer.open = false;
-	// Closing releases only the drawer's own reason token; a user, session,
-	// popup, dogfight, or system pause can never be resumed over it.
+	// Closing releases only the drawer's own reason token; other popup,
+	// dogfight, or system pauses can never be resumed over it.
 	shell->policy.release(Calypso::GeoscapePauseReason::MoreDrawer);
 	syncPause(s, shell->vanillaSystemReason);
 	if (shell->speedBeforeOpen != nullptr) s->_timeSpeed = shell->speedBeforeOpen;
@@ -250,16 +337,6 @@ bool CalypsoGeoscapeHdShell::closeDrawer(GeoscapeState *s)
 	return true;
 }
 
-/* Stage 8–9 closure: reason-aware explicit pause. The vanilla `_pause` latch
- * stays the single gameplay gate; this only flips the User ledger token and
- * re-derives the latch through the same recompute rule as timeAdvance. No
- * destructive toggle of the latch remains anywhere in the shell. */
-void CalypsoGeoscapeHdShell::togglePause(GeoscapeState *s)
-{
-	auto* shell = state(s);
-	shell->policy.toggleUser();
-	syncPause(s, shell->vanillaSystemReason);
-}
 
 void CalypsoGeoscapeHdShell::syncPause(GeoscapeState *s, bool systemReason)
 {
@@ -268,17 +345,6 @@ void CalypsoGeoscapeHdShell::syncPause(GeoscapeState *s, bool systemReason)
 	s->_pause = Calypso::calypsoGeoscapeEffectivePause(systemReason, shell->policy);
 }
 
-bool CalypsoGeoscapeHdShell::effectivePause(const GeoscapeState *s)
-{
-	if (s == nullptr) return false;
-	const auto* shell = s->_calypsoHdShell;
-	if (shell == nullptr) return s->_pause;
-	// The derived `_pause` latch must never be re-fed as a system input: it
-	// already includes ledger tokens and vanilla writes, so using it here
-	// would make every pause sticky. The last authoritative system reason
-	// observed by timeAdvance is the only system side of the OR.
-	return Calypso::calypsoGeoscapeEffectivePause(shell->vanillaSystemReason, shell->policy);
-}
 
 bool CalypsoGeoscapeHdShell::isDrawerOpen(const GeoscapeState *s)
 {
@@ -292,17 +358,46 @@ void CalypsoGeoscapeHdShell::destroy(GeoscapeState *s)
 }
 
 
-/* Stage 9.1.3 bridge: the session chip toggles the drawer through the state. */
+/* The persistent header chip toggles the generated session drawer or, under
+ * the Command Center gate, the state-owned base selector. */
 void GeoscapeState::calypsoToggleDrawer(Action *)
 {
 	CalypsoGeoscapeHdShell::toggleDrawer(this);
 }
 
-/* Stage 8–9 closure: `time.pause` is a counted User ledger token synced into
- * the authoritative latch — no destructive latch flip remains anywhere. */
-void GeoscapeState::calypsoTogglePause(Action *)
+
+bool GeoscapeState::calypsoCenterOnBase(size_t index)
 {
-	CalypsoGeoscapeHdShell::togglePause(this);
+	if (_game == nullptr || _game->getSavedGame() == nullptr || _globe == nullptr)
+		return false;
+	auto* bases = _game->getSavedGame()->getBases();
+	if (bases == nullptr || index >= bases->size())
+		return false;
+	Base* base = bases->at(index);
+	timerReset();
+	_globe->center(base->getLongitude(), base->getLatitude());
+	return true;
+}
+
+void GeoscapeState::calypsoBaseSelectorDispatch(Action *action)
+{
+	if (action == nullptr || _calypsoHdShell == nullptr || _game == nullptr
+		|| _game->getSavedGame() == nullptr)
+		return;
+	auto* bases = _game->getSavedGame()->getBases();
+	if (bases == nullptr) return;
+	std::size_t selected = _calypsoHdShell->baseRows.size();
+	for (std::size_t index = 0; index < _calypsoHdShell->baseRows.size(); ++index)
+	{
+		if (_calypsoHdShell->baseRows[index] == action->getSender())
+		{
+			selected = index;
+			break;
+		}
+	}
+	if (!_calypsoHdShell->baseSelector.select(selected, bases->size()))
+		return;
+	CalypsoGeoscapeHdShell::apply(this);
 }
 
 void GeoscapeState::calypsoDrawerDispatch(Action *action)

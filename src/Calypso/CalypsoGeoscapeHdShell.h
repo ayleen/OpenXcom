@@ -8,6 +8,7 @@
  * container (Stage 9.1.3). Handlers stay authoritative in GeoscapeState. */
 
 #include <string>
+#include <cstddef>
 
 namespace OpenXcom
 {
@@ -25,19 +26,18 @@ struct CalypsoGeoscapeHdShell
 	static const Surface* resolveLiveWidget(const GeoscapeState *s, const std::string& actionId);
 	static Surface* resolveLiveWidget(GeoscapeState *s, const std::string& actionId);
 	static bool isLiveActionVisible(const GeoscapeState *s, const std::string& actionId);
+	static Surface* resolveBaseSelectorRow(GeoscapeState *s, std::size_t index);
+	static bool isBaseSelectorOpen(const GeoscapeState *s);
+	static std::size_t selectedBaseIndex(const GeoscapeState *s);
 	static CalypsoGeoscapeHdShellState* state(GeoscapeState *s);
+	static void applyPendingBaseFocus(GeoscapeState *s);
 
-	/// Toggle the secondary-route drawer (action.session affordance).
+	/// Toggle/close the state-owned secondary drawer or Command Center base
+	/// selector. Both remain scoped to this GeoscapeState instance.
 	static void toggleDrawer(GeoscapeState *s);
 	static bool closeDrawer(GeoscapeState *s);
 
-	/// Reason-aware pause ownership (audit §13 item 1). `togglePause` flips
-	/// one User ledger token; `syncPause` re-derives the authoritative vanilla
-	/// `_pause` latch from the frame's system reason plus the persistent
-	/// ledger; `effectivePause` reads the same truth without mutating.
-	static void togglePause(GeoscapeState *s);
 	static void syncPause(GeoscapeState *s, bool systemReason);
-	static bool effectivePause(const GeoscapeState *s);
 	static bool isDrawerOpen(const GeoscapeState *s);
 
 	/// Release per-state shell bookkeeping before State destroys its surfaces.

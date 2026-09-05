@@ -3,7 +3,7 @@
   "id": "strategic-command-shell",
   "version": "hd.2026-08-20.2",
   "coordinateSpaces": ["screen", "drawer"],
-  "requiredActionIds": ["action.session", "action.bases", "action.graphs", "action.extended", "action.intercept", "action.ufopaedia", "action.options", "drawer.funding", "drawer.tech-tree", "drawer.global-research", "drawer.global-production", "drawer.global-containment", "drawer.ufo-tracker", "drawer.pilot-experience", "drawer.notes", "drawer.music", "drawer.debug", "drawer.quick-save", "drawer.instant-save", "drawer.quick-load", "time.pause", "time.speed.5sec", "time.speed.1min", "time.speed.5min", "time.speed.30min", "time.speed.1hour", "time.speed.1day"],
+  "requiredActionIds": ["action.session", "action.bases", "action.graphs", "action.extended", "action.intercept", "action.ufopaedia", "action.options", "drawer.funding", "drawer.tech-tree", "drawer.global-research", "drawer.global-production", "drawer.global-containment", "drawer.ufo-tracker", "drawer.pilot-experience", "drawer.notes", "drawer.music", "drawer.debug", "drawer.quick-save", "drawer.instant-save", "drawer.quick-load", "time.speed.5sec", "time.speed.1min", "time.speed.5min", "time.speed.30min", "time.speed.1hour", "time.speed.1day"],
   "forbiddenPersistentPatterns": ["research", "manufacture"],
   "layouts": {
     "wide": {
@@ -36,13 +36,12 @@
         "world-recenter": {"visibleRect": [177, 519, 46, 44]},
         "world-zoom-out": {"visibleRect": [177, 563, 46, 44]},
         "notification-open": {"visibleRect": [1211, 568, 44, 44]},
-        "time-pause": {"visibleRect": [280, 638, 64, 64]},
-        "time-5sec": {"visibleRect": [362, 650, 105, 54]},
-        "time-1min": {"visibleRect": [467, 650, 105, 54]},
-        "time-5min": {"visibleRect": [572, 650, 105, 54]},
-        "time-30min": {"visibleRect": [677, 650, 105, 54]},
-        "time-1hour": {"visibleRect": [782, 650, 105, 54]},
-        "time-1day": {"visibleRect": [887, 650, 105, 54]}
+        "time-5sec": {"visibleRect": [280, 650, 120, 54]},
+        "time-1min": {"visibleRect": [400, 650, 120, 54]},
+        "time-5min": {"visibleRect": [520, 650, 120, 54]},
+        "time-30min": {"visibleRect": [640, 650, 120, 54]},
+        "time-1hour": {"visibleRect": [760, 650, 120, 54]},
+        "time-1day": {"visibleRect": [880, 650, 120, 54]}
       }
     },
     "compact": {
@@ -74,13 +73,12 @@
         "world-recenter": {"visibleRect": [465, 201, 44, 44]},
         "world-zoom-out": {"visibleRect": [465, 245, 44, 44]},
         "notification-open": {"visibleRect": [161, 70, 44, 44]},
-        "time-pause": {"visibleRect": [12, 299, 50, 50]},
-        "time-5sec": {"visibleRect": [74, 303, 109, 48]},
-        "time-1min": {"visibleRect": [183, 303, 109, 48]},
-        "time-5min": {"visibleRect": [292, 303, 109, 48]},
-        "time-30min": {"visibleRect": [401, 303, 109, 48]},
-        "time-1hour": {"visibleRect": [510, 303, 109, 48]},
-        "time-1day": {"visibleRect": [619, 303, 109, 48]}
+        "time-5sec": {"visibleRect": [12, 303, 119, 48]},
+        "time-1min": {"visibleRect": [131, 303, 119, 48]},
+        "time-5min": {"visibleRect": [250, 303, 119, 48]},
+        "time-30min": {"visibleRect": [369, 303, 119, 48]},
+        "time-1hour": {"visibleRect": [488, 303, 119, 48]},
+        "time-1day": {"visibleRect": [607, 303, 121, 48]}
       }
     }
   }

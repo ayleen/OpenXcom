@@ -90,15 +90,9 @@ inline bool calypsoGeoscapeHdActionExpected(const std::string& actionId,
 	const std::string& role, bool available)
 {
 	if (actionId == "world.recenter" || actionId == "notification.contact.open") return false;
-	if (actionId == "action.session" || actionId == "time.pause"
-		|| actionId.rfind("time.speed.", 0) == 0) return true;
+	if (actionId == "action.session" || actionId.rfind("time.speed.", 0) == 0) return true;
 	if (role.rfind("widget:", 0) == 0) return true;
 	return available;
-}
-
-inline const char* calypsoGeoscapeHdSelectedTimeAction(bool paused, const char* runningSpeed)
-{
-	return paused ? "time.pause" : runningSpeed;
 }
 
 inline const std::vector<std::string>& calypsoGeoscapeHdRequiredCopyKeys(bool fundsVisible)
@@ -347,7 +341,6 @@ inline const std::vector<CalypsoGeoscapeHdWidgetBinding>& calypsoGeoscapeHdWidge
 		{ "world.recenter", "geoscape.recenter", "STR_CENTER", "state:recenter" },
 		{ "world.zoom.out", "geoscape.zoomOut", "STR_ZOOM_OUT", "widget:btnZoomOut" },
 		{ "notification.contact.open", "geoscape.openNotification", "STR_OPEN", "state:notification-open" },
-		{ "time.pause", "geoscape.setSpeedPause", "STR_PAUSE", "state:pause-toggle" },
 		{ "time.speed.5sec", "geoscape.setSpeed5Seconds", "STR_5_SECONDS", "widget:btn5Secs" },
 		{ "time.speed.1min", "geoscape.setSpeed1Minute", "STR_1_MINUTE", "widget:btn1Min" },
 		{ "time.speed.5min", "geoscape.setSpeed5Minutes", "STR_5_MINUTES", "widget:btn5Mins" },

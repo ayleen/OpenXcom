@@ -30,6 +30,50 @@ namespace OpenXcom
 {
 namespace Calypso
 {
+/// Reusable SDF silhouettes for styled panels. RoundedRect preserves the
+/// existing family behavior; F33 uses OpposingCutRect for its command frame,
+/// WarningTriangle for the small amber caution glyph, and Radar for the
+/// procedural contact-intel instrument (one GPU quad).
+enum class CalypsoHdPanelShape {
+	RoundedRect = 0,
+	OpposingCutRect = 1,
+	WarningTriangle = 2,
+	Radar = 3
+};
+
+/// Optional styling for a Panel item, rendered by the hd_ui_panel SDF shader.
+/// All px values are DESIGN-space (the same space as `rect`) and scale with
+/// the logical->physical mapping. A style with `styled == false` (default)
+/// keeps the plain tinted-quad path. Colours are packed 0xRRGGBBAA.
+struct CalypsoHdPanelStyle
+{
+	bool styled = false;
+	CalypsoHdPanelShape shape = CalypsoHdPanelShape::RoundedRect;
+	float radiusPx = 0.0f;          // rounded-corner radius
+	float cutCornerPx = 0.0f;       // opposing cut size (top-left/bottom-right)
+	float borderWidthPx = 0.0f;     // ring thickness at the shape edge
+	std::uint32_t borderColorRgba = 0;
+	std::uint32_t fillTopRgba = 0;  // gradient stop at the grad direction origin
+	std::uint32_t fillBottomRgba = 0;
+	float gradDirX = 0.26f;         // gradient direction (normalized-ish);
+	float gradDirY = 1.0f;          // default ~165deg-like downward drift
+	std::uint32_t glowRgba = 0;     // soft outer falloff colour (alpha = strength)
+	float glowRadiusPx = 0.0f;      // 0 => no glow
+
+	// Radar-only uniforms. They are deliberately carried in the existing
+	// per-item style so animation values are uploaded every draw and cannot
+	// become stale in the shared panel shader.
+	std::uint32_t radarRingColorRgba = 0;
+	std::uint32_t radarStrongRingColorRgba = 0;
+	std::uint32_t radarAxisColorRgba = 0;
+	std::uint32_t radarSweepColorRgba = 0;
+	float radarSweepAngle = 0.0f;   // north=0, clockwise radians
+	float radarTrailRadians = 0.55f;
+	float radarRingWidthPx = 1.0f;
+	float radarTickWidthPx = 1.0f;
+	float radarGrainAmount = 0.02f;
+	float radarSeed = 0.0f;
+};
 
 // --- Presentation metrics + logical/physical mapping -----------------------
 

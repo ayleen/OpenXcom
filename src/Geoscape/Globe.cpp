@@ -548,8 +548,26 @@ void Globe::polarToCart(double lon, double lat, double *x, double *y) const
  */
 void Globe::cartToPolar(Sint16 x, Sint16 y, double *lon, double *lat) const
 {
+	double globeX = x;
+	double globeY = y;
+#ifdef __EMSCRIPTEN__
+	if (Calypso::CommandCenter::calypsoCcEnabled() && _gpuState
+		&& _gpuState->_gpuDirectMode && _gpuState->_directScreen)
+	{
+		CalypsoGeoscapeHdGlobeDirect::PhysicalGlobeProjection physical;
+		if (CalypsoGeoscapeHdGlobeDirect::physicalGlobeProjection(this, physical))
+		{
+			const double physicalX = physical.surfaceOriginX
+				+ (x - getX()) * physical.surfaceScaleX;
+			const double physicalY = physical.surfaceOriginY
+				+ (y - getY()) * physical.surfaceScaleY;
+			globeX = (physicalX - physical.originX) / physical.scaleX;
+			globeY = (physicalY - physical.originY) / physical.scaleY;
+		}
+	}
+#endif
 	const Calypso::GeoscapeProjection projection{{(double)_cenX, (double)_cenY}, _radius, _cenLon, _cenLat};
-	const auto unprojected = Calypso::calypsoGeoscapeUnproject(projection, {(double)x, (double)y});
+	const auto unprojected = Calypso::calypsoGeoscapeUnproject(projection, {globeX, globeY});
 	if (!unprojected.valid)
 	{
 		*lon = std::numeric_limits<double>::quiet_NaN();
@@ -889,12 +907,26 @@ bool Globe::targetNear(Target* target, int x, int y) const
 #ifdef __EMSCRIPTEN__
 	if (_gpuState && _gpuState->_gpuDirectMode)
 	{
+		CalypsoGeoscapeHdGlobeDirect::PhysicalGlobeProjection physical;
+		const bool commandCenter = Calypso::CommandCenter::calypsoCcEnabled();
+		if (commandCenter && !CalypsoGeoscapeHdGlobeDirect::physicalGlobeProjection(this, physical))
+			return false;
 		for (const auto& marker : _gpuState->_gpuMarkerCommittedDraws)
 		{
-			if (marker.target == target && marker.frame != nullptr)
-				return Calypso::calypsoGeoscapeMarkerSpriteHit(
-					x, y, marker.x, marker.y,
-					marker.frame->getWidth(), marker.frame->getHeight(), true, NEAR_RADIUS);
+			if (marker.target != target || marker.frame == nullptr)
+				continue;
+			int centerX = marker.x + marker.frame->getWidth() / 2;
+			int centerY = marker.y + marker.frame->getHeight() / 2;
+			if (commandCenter)
+			{
+				centerX = (int)std::lround(getX()
+					+ (physical.originX + centerX * physical.scaleX - physical.surfaceOriginX)
+						/ physical.surfaceScaleX);
+				centerY = (int)std::lround(getY()
+					+ (physical.originY + centerY * physical.scaleY - physical.surfaceOriginY)
+						/ physical.surfaceScaleY);
+			}
+			return Calypso::calypsoGeoscapeMarkerHit(x - centerX, y - centerY, true, NEAR_RADIUS);
 		}
 		return false;
 	}

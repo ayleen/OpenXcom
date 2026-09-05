@@ -476,20 +476,22 @@ void calypsoGlobeDrawHoverCircles(OpenXcom::Globe& globe)
 	 * inputs are unchanged.  The committed VBO is redrawn by drawHoverPass()
 	 * without touching CPU geometry.  The force-dirty flag is set on the first
 	 * frame and after context reset. */
-	CalypsoGeoscapeHdGlobeDirect::PhysicalGlobeRect rect;
-	if (!CalypsoGeoscapeHdGlobeDirect::physicalGlobeRect(&globe, rect))
+	CalypsoGeoscapeHdGlobeDirect::PhysicalGlobeProjection projection;
+	if (!CalypsoGeoscapeHdGlobeDirect::physicalGlobeProjection(&globe, projection))
 		return;
-	const double sx = globe._gpuState->_directScreen->getXScale();
-	const double sy = globe._gpuState->_directScreen->getYScale();
+	const double sx = projection.scaleX;
+	const double sy = projection.scaleY;
+	const int projectionX = (int)std::lround(projection.originX);
+	const int projectionY = (int)std::lround(projection.originY);
 	const int dw = Options::displayWidth;
 	const int dh = Options::displayHeight;
 	if (!globe._gpuState->_hoverOverlayDirty
 		&& globe._gpuState->_lastHoverOverlayLon == globe._hoverLon
 		&& globe._gpuState->_lastHoverOverlayLat == globe._hoverLat
-		&& globe._gpuState->_lastHoverOverlayRectX == rect.x
-		&& globe._gpuState->_lastHoverOverlayRectY == rect.y
-		&& globe._gpuState->_lastHoverOverlayRectW == rect.w
-		&& globe._gpuState->_lastHoverOverlayRectH == rect.h
+		&& globe._gpuState->_lastHoverOverlayRectX == projectionX
+		&& globe._gpuState->_lastHoverOverlayRectY == projectionY
+		&& globe._gpuState->_lastHoverOverlayRectW == projection.clip.w
+		&& globe._gpuState->_lastHoverOverlayRectH == projection.clip.h
 		&& globe._gpuState->_lastHoverOverlayScaleX == sx
 		&& globe._gpuState->_lastHoverOverlayScaleY == sy
 		&& globe._gpuState->_lastHoverOverlayDisplayW == dw
@@ -498,10 +500,10 @@ void calypsoGlobeDrawHoverCircles(OpenXcom::Globe& globe)
 
 	globe._gpuState->_lastHoverOverlayLon = globe._hoverLon;
 	globe._gpuState->_lastHoverOverlayLat = globe._hoverLat;
-	globe._gpuState->_lastHoverOverlayRectX = rect.x;
-	globe._gpuState->_lastHoverOverlayRectY = rect.y;
-	globe._gpuState->_lastHoverOverlayRectW = rect.w;
-	globe._gpuState->_lastHoverOverlayRectH = rect.h;
+	globe._gpuState->_lastHoverOverlayRectX = projectionX;
+	globe._gpuState->_lastHoverOverlayRectY = projectionY;
+	globe._gpuState->_lastHoverOverlayRectW = projection.clip.w;
+	globe._gpuState->_lastHoverOverlayRectH = projection.clip.h;
 	globe._gpuState->_lastHoverOverlayScaleX = sx;
 	globe._gpuState->_lastHoverOverlayScaleY = sy;
 	globe._gpuState->_lastHoverOverlayDisplayW = dw;
@@ -514,10 +516,10 @@ void calypsoGlobeDrawHoverCircles(OpenXcom::Globe& globe)
 	/* Pack the freshly recorded hover commands into the interleaved vertex
 	 * buffer for GPU upload in drawHoverPass. */
 	Calypso::CalypsoGeoscapeColoredLineViewport viewport;
-	viewport.rectX = rect.x;
-	viewport.rectY = rect.y;
-	viewport.scaleX = sx;
-	viewport.scaleY = sy;
+	viewport.rectX = projection.originX;
+	viewport.rectY = projection.originY;
+	viewport.scaleX = projection.scaleX;
+	viewport.scaleY = projection.scaleY;
 	viewport.displayWidth = dw;
 	viewport.displayHeight = dh;
 	const size_t packedVertices = globe._gpuState->_activeLineBatch->packVertices(viewport);

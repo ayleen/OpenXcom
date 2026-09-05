@@ -16,9 +16,20 @@
     "Calypso sea-floor facilities",
     "cannot be built on land."
   ],
-  "icon": { "kind": "warning", "glyph": "!", "tone": "warning" },
+  "icon": {
+    "kind": "warning",
+    "glyph": "!",
+    "tone": "warning"
+  },
   "buttons": [
-    { "id": "ok", "label": "ACKNOWLEDGE", "tone": "safe", "action": "acknowledge" }
+    {
+      "id": "ok",
+      "label": "ACKNOWLEDGE",
+      "tone": "safe",
+      "action": "acknowledge"
+    }
   ],
-  "visibleButtons": ["ok"]
+  "visibleButtons": [
+    "ok"
+  ]
 }

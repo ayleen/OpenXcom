@@ -36,7 +36,6 @@ struct CalypsoGeoscapeHdSnapshotKey
 	bool extendedLinks = false;           ///< oxceLinks availability gate
 	bool debugOption = false;             ///< debug availability gate
 	bool ironman = false;                 ///< non-ironman save-row gate
-	bool paused = false;                  ///< effective pause (time/pause input)
 	const void* selectedSpeed = nullptr;  ///< selected speed widget identity
 	std::uint64_t hourTextGeneration = 0;
 	std::uint64_t minuteTextGeneration = 0;
@@ -56,7 +55,6 @@ inline bool operator==(const CalypsoGeoscapeHdSnapshotKey& a,
 		&& a.extendedLinks == b.extendedLinks
 		&& a.debugOption == b.debugOption
 		&& a.ironman == b.ironman
-		&& a.paused == b.paused
 		&& a.selectedSpeed == b.selectedSpeed
 		&& a.hourTextGeneration == b.hourTextGeneration
 		&& a.minuteTextGeneration == b.minuteTextGeneration
