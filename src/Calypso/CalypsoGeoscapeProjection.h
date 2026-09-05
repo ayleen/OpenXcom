@@ -65,6 +65,18 @@ inline bool calypsoGeoscapeMarkerHit(
 	return distanceSquared <= radiusSquared;
 }
 
+inline bool calypsoGeoscapeMarkerSpriteHit(
+	int x, int y, int markerX, int markerY, int markerWidth, int markerHeight,
+	bool hdMarker, int legacyRadiusSquared = 25)
+{
+	if (markerWidth <= 0 || markerHeight <= 0)
+		return false;
+	const int centerX = markerX + markerWidth / 2;
+	const int centerY = markerY + markerHeight / 2;
+	return calypsoGeoscapeMarkerHit(
+		x - centerX, y - centerY, hdMarker, legacyRadiusSquared);
+}
+
 inline double calypsoGeoscapeNormalizeLon(double lon)
 {
 	lon = std::fmod(lon, GEOSCAPE_TWO_PI);

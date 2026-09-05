@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "id": "basescape-shell-proof",
-  "version": "hd.2026-08-20.22",
+  "version": "hd.2026-08-29.1",
   "archetype": "base-management-shell",
   "runtime": "proof-only",
   "actions": [

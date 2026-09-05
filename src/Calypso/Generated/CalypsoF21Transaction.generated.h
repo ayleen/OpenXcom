@@ -4,7 +4,7 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF21TransactionGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-20.22";
+inline constexpr const char* kContractVersion = "hd.2026-08-29.1";
 inline constexpr const char* kFormId = "f21-transaction";
 inline constexpr int kFamilyId = 21;
 inline constexpr const char* kArchetype = "small-confirmation";
@@ -32,6 +32,10 @@ inline constexpr std::uint32_t kDivider = 0x74FFB04Du;
 inline constexpr std::uint32_t kFooterFill = 0x061B1CD6u;
 inline constexpr std::uint32_t kFooterDot = 0x74FFB01Fu;
 inline constexpr std::uint32_t kWarning = 0xFFC14DFFu;
+inline constexpr std::uint32_t kDestructiveFill = 0xF25F5CFFu;
+inline constexpr std::uint32_t kDestructiveText = 0x071013FFu;
+inline constexpr std::uint32_t kSafeBorder = 0x74FFB0CCu;
+inline constexpr std::uint32_t kSafeFill = 0x051417B8u;
 
 struct CalypsoF21TransactionGenRect { int x; int y; int w; int h; };
 struct CalypsoF21TransactionGenLayout { int designWidth; int designHeight; CalypsoF21TransactionGenRect window; CalypsoF21TransactionGenRect status; CalypsoF21TransactionGenRect warning; CalypsoF21TransactionGenRect title; CalypsoF21TransactionGenRect message; CalypsoF21TransactionGenRect footer;

@@ -60,7 +60,11 @@ enum class CalypsoVisualContext { Strategic, Tactical };
 ///   Compact -- 740x360 minimum and nearby landscape phones, or any viewport
 ///              whose safe area does not meet the Wide thresholds.
 ///   Wide    -- tablet and desktop (safe area >= 1024x600).
-enum class CalypsoLayoutClass { Compact, Wide };
+///   Portrait -- harness-only explicit request (tall phone composition QA).
+///              calypsoClassifySafeArea never produces it; only an explicit
+///              harness export can, so classification stays binary and
+///              non-participating families treat the value as Compact.
+enum class CalypsoLayoutClass { Compact, Wide, Portrait };
 
 // --- Insets ----------------------------------------------------------------
 

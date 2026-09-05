@@ -287,11 +287,12 @@ void CalypsoGeoscapeHdGlobeDirect::drawPass(Globe* globe)
 				(Uint64)((SDL_GetPerformanceCounter() - calypsoMarkerStart) * 1000000ull / SDL_GetPerformanceFrequency());
 	}
 
-	void CalypsoGeoscapeHdGlobeDirect::recordMarker(Globe* globe, Surface* frame, int x, int y, int shade)
+	void CalypsoGeoscapeHdGlobeDirect::recordMarker(
+		Globe* globe, Target* target, Surface* frame, int x, int y, int shade)
 	{
-		if (!globe || !frame)
+		if (!globe || !target || !frame)
 			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape marker frame unavailable");
-		globe->_gpuState->_gpuMarkerPendingDraws.push_back({frame, x, y, shade});
+		globe->_gpuState->_gpuMarkerPendingDraws.push_back({frame, target, x, y, shade});
 	}
 
 	void CalypsoGeoscapeHdGlobeDirect::recordBorderLine(Globe* globe, int x1, int y1, int x2, int y2)

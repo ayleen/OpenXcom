@@ -112,8 +112,12 @@ def validate_rect(rect, label):
 def validate_template(template):
     template_id = template.get("id")
     if template.get("schema") != 1 or template_id not in {
-            "small-confirmation", "contact-decision"}:
-        raise FormError("template must be schema 1 small-confirmation or contact-decision")
+            "small-confirmation", "contact-decision", "contact-intel-board"}:
+        raise FormError("template must be schema 1 small-confirmation, "
+                        "contact-decision, or contact-intel-board")
+    if template_id == "contact-intel-board":
+        validate_intel_board_template(template)
+        return
     expected_version = 3 if template_id == "small-confirmation" else 1
     if template.get("version") != expected_version:
         raise FormError(
@@ -334,6 +338,355 @@ def validate_config(config, template):
             raise FormError("config.input must contain exactly value and hint")
         one_line(inp["value"], "config.input.value", 48)
         one_line(inp["hint"], "config.input.hint", 96)
+
+
+BOARD_FACT_COUNT = 5
+BOARD_LAYOUT_ORDER = ("wide", "compact", "portrait")
+BOARD_COURSE_WORDS = {"N", "NE", "E", "SE", "S", "SW", "W", "NW", "NONE"}
+BOARD_NUMERIC_STYLE_KEYS = {"cutCornerPx", "innerRadiusPx", "protocolTextInsetPx"}
+BOARD_STYLE_KEYS = {
+    "cutCornerPx", "innerRadiusPx", "protocolTextInsetPx",
+    "panelFillTop", "panelFillBottom",
+    "frame", "protocolText", "divider", "footerFill", "footerDot", "warning",
+    "backdropWide", "backdropCompact", "backdropPortrait",
+    "radarRing", "radarRingStrong", "radarAxis", "radarSweep",
+    "radarBase", "radarContact", "radarContactHalo", "radarCourse",
+    "factLabel", "factValue", "factDivider",
+    # v1 aliases retained one version: the renderer reads the radar tokens,
+    # the legacy plot* keys stay pinned so older authored configs still diff.
+    "plotFrame", "plotGrid", "plotContact", "plotContactHalo", "plotBase",
+    "plotCourse",
+}
+BOARD_CANVASES = {"wide": (1280, 720), "compact": (740, 360), "portrait": (360, 740)}
+BOARD_LANDSCAPE_ORIGINS = {"wide": (290, 193), "compact": (20, 13)}
+BOARD_LANDSCAPE_RECTS = {
+    "window": (0, 0, 700, 335),
+    "status": (0, 0, 700, 34),
+    "plotPanel": (28, 48, 292, 196),
+    "plotArea": (72, 38, 220, 220),
+    "reportPanel": (342, 48, 330, 196),
+    "title": (357, 52, 300, 31),
+    "factsArea": (357, 87, 300, 155),
+    "footer": (28, 263, 644, 72),
+}
+BOARD_LANDSCAPE_BUTTONS = (
+    (28, 276, 292, 50),
+    (342, 276, 232, 50),
+    (584, 276, 88, 50),
+)
+
+
+def offset_board_rect(origin, rect):
+    return _rect(origin[0] + rect[0], origin[1] + rect[1], rect[2], rect[3])
+
+
+
+
+def validate_intel_board_template(template):
+    """Pin the reviewed contact-intel-board shell and canonical form chrome."""
+    if template.get("version") != 6:
+        raise FormError("contact-intel-board template must use version 6")
+    if template.get("buttonCount") != {"min": 3, "max": 3}:
+        raise FormError("contact-intel-board template must require exactly three buttons")
+    tones = template.get("supportedButtonTones")
+    tone_styles = template.get("buttonToneStyles")
+    if not isinstance(tones, list) or set(tones) != {"normal", "safe", "primary", "warning", "danger"}:
+        raise FormError("template supportedButtonTones drifted from the standard")
+    if not isinstance(tone_styles, dict) or set(tone_styles) != set(tones):
+        raise FormError("template buttonToneStyles must resolve every supported tone")
+    for tone, style in tone_styles.items():
+        if set(style) != {"fill", "border", "text"}:
+            raise FormError("template button tone " + tone + " must define fill/border/text")
+        for key, value in style.items():
+            if not isinstance(value, str) or not COLOR_RE.fullmatch(value):
+                raise FormError("template button tone " + tone + "." + key + " must be RRGGBBAA")
+    style = template.get("style") or {}
+    if set(style) != BOARD_STYLE_KEYS:
+        raise FormError("contact-intel-board style keys drifted from the reviewed set")
+    if style.get("cutCornerPx") != 14 or style.get("innerRadiusPx") != 10 \
+            or style.get("protocolTextInsetPx") != 26:
+        raise FormError("template cut corner/inner radius/protocol rail drifted from 14/10/26")
+    for key in BOARD_STYLE_KEYS - BOARD_NUMERIC_STYLE_KEYS:
+        if not isinstance(style[key], str) or not COLOR_RE.fullmatch(style[key]):
+            raise FormError("template style." + key + " must be RRGGBBAA")
+    motion = template.get("motion") or {}
+    if set(motion) != {"durationMs", "scaleFrom", "easing",
+                       "radarSweepPeriodMs", "radarContactDecayFloor",
+                       "radarContactDecayExponent", "captureModeDurationMs"}:
+        raise FormError("contact-intel-board motion keys drifted from the reviewed set")
+    if motion.get("radarSweepPeriodMs") != 3600:
+        raise FormError("contact-intel-board radar sweep period must stay 3600ms")
+    if motion.get("radarContactDecayFloor") != 0.12 \
+            or motion.get("radarContactDecayExponent") != 2.4:
+        raise FormError("contact-intel-board contact persistence must stay at floor 0.12 / exponent 2.4")
+    sizing = template.get("contentSizing") or {}
+    expected_sizing = {
+        "wide": {"safeMarginPx": 24, "factCount": 5, "factLabelWidth": 126,
+                 "factRowHeight": 31, "factRowGap": 0},
+        "compact": {"safeMarginPx": 16, "factCount": 5, "factLabelWidth": 126,
+                    "factRowHeight": 31, "factRowGap": 0},
+        "portrait": {"safeMarginPx": 16, "factCount": 5, "factLabelWidth": 112,
+                     "factRowHeight": 38, "factRowGap": 0},
+    }
+    if sizing != expected_sizing:
+        raise FormError("template contentSizing drifted from the reviewed board policy")
+    layouts = template.get("layouts") or {}
+    if set(layouts) != set(BOARD_LAYOUT_ORDER):
+        raise FormError("template requires exact wide/compact/portrait layouts")
+    for name, origin in BOARD_LANDSCAPE_ORIGINS.items():
+        layout = layouts[name]
+        for key, rect in BOARD_LANDSCAPE_RECTS.items():
+            if layout.get(key) != offset_board_rect(origin, rect):
+                raise FormError(name + "." + key
+                                + " drifted from locked contact-board geometry")
+        expected_buttons = [
+            offset_board_rect(origin, rect) for rect in BOARD_LANDSCAPE_BUTTONS]
+        if layout.get("buttonSlots") != expected_buttons:
+            raise FormError(name
+                            + ".buttonSlots drifted from locked contact-board geometry")
+    part_keys = ("window", "status", "plotPanel", "plotArea", "reportPanel",
+                 "factsArea", "warning", "title", "message", "footer")
+    for name in BOARD_LAYOUT_ORDER:
+        canvas = BOARD_CANVASES[name]
+        layout = layouts[name]
+        if (layout.get("designWidth"), layout.get("designHeight")) != canvas:
+            raise FormError(name + " canvas drifted")
+        canvas_rect = {"x": 0, "y": 0, "width": canvas[0], "height": canvas[1]}
+        for key in part_keys:
+            validate_rect(layout.get(key), name + "." + key)
+            if not contained(layout[key], canvas_rect):
+                raise FormError(name + "." + key + " escaped the canvas")
+        for key in ("status", "plotPanel", "reportPanel", "footer", "warning",
+                    "title", "message"):
+            if not contained(layout[key], layout["window"]):
+                raise FormError(name + "." + key + " escaped the window")
+        if not contained(layout["plotArea"], layout["window"]):
+            raise FormError(name + ".plotArea escaped the window")
+        if layout["plotArea"]["width"] != layout["plotArea"]["height"]:
+            raise FormError(name + ".plotArea must stay square (circular radar)")
+        if not contained(layout["factsArea"], layout["reportPanel"]):
+            raise FormError(name + ".factsArea escaped the report panel")
+        authored_note = layout.get("note")
+        if authored_note is not None:
+            validate_rect(authored_note, name + ".note")
+            if not contained(authored_note, layout["window"]):
+                raise FormError(name + ".note escaped the window")
+        slots = layout.get("buttonSlots")
+        if not isinstance(slots, list) or len(slots) != 3:
+            raise FormError(name + ".buttonSlots must contain exactly three slots")
+        for index, rect in enumerate(slots):
+            validate_rect(rect, name + ".buttonSlots[" + str(index) + "]")
+            if not contained(rect, layout["footer"]):
+                raise FormError(name + " button slot escaped the footer")
+            if rect["width"] < 44 or rect["height"] < 44:
+                raise FormError(name + " button slot below the 44x44 floor")
+        # The primary action (first slot) stays visually dominant; the group
+        # may stack (portrait) or split rows (wide/compact), so only mutual
+        # overlap is forbidden -- never a rail direction.
+        if slots[0]["height"] < 48:
+            raise FormError(name + " primary action must stay >= 48px tall")
+        for first in range(len(slots)):
+            for second in range(first + 1, len(slots)):
+                a, b = slots[first], slots[second]
+                if (a["x"] < b["x"] + b["width"] and b["x"] < a["x"] + a["width"]
+                        and a["y"] < b["y"] + b["height"]
+                        and b["y"] < a["y"] + a["height"]):
+                    raise FormError(name + " button slots overlap")
+
+
+def validate_intel_board_config(config, template):
+    """Semantic contact-intel-board config: identity, facts, plot, actions."""
+    if not isinstance(config, dict):
+        raise FormError("config must be an object")
+    board_fields = CONFIG_FIELDS | {"facts", "plot", "note"}
+    unknown = sorted(set(config) - board_fields - OPTIONAL_CONFIG_FIELDS)
+    if unknown:
+        raise FormError("config has unsupported fields: " + ", ".join(unknown))
+    missing = sorted(board_fields - set(config))
+    if missing:
+        raise FormError("config is missing fields: " + ", ".join(missing))
+    if config["schema"] != 1:
+        raise FormError("config.schema must be 1")
+    if not isinstance(config["id"], str) or not ID_RE.fullmatch(config["id"]):
+        raise FormError("config.id must match ^[a-z][a-z0-9-]*$")
+    if not isinstance(config["familyId"], int) or config["familyId"] <= 0:
+        raise FormError("config.familyId must be a positive integer")
+    if not isinstance(config["version"], str) or not VERSION_RE.fullmatch(config["version"]):
+        raise FormError("config.version must be a stable ASCII version")
+    if config["archetype"] != template["id"]:
+        raise FormError("config.archetype must be " + template["id"])
+
+    protocol = config["protocol"]
+    require_exact_fields(protocol, PROTOCOL_FIELDS, "config.protocol")
+    for key in ("authority", "record", "revision"):
+        one_line(protocol[key], "config.protocol." + key, 40)
+    one_line(protocol["code"], "config.protocol.code", 16)
+    if not isinstance(protocol["effectiveDate"], str) or not DATE_RE.fullmatch(protocol["effectiveDate"]):
+        raise FormError("config.protocol.effectiveDate must be DD.MM.YYYY lore copy")
+
+    one_line(config["title"], "config.title", 48)
+    body = config["body"]
+    if not isinstance(body, list) or len(body) != 1:
+        raise FormError("config.body must contain exactly one line")
+    one_line(body[0], "config.body[0]", 96)
+
+    icon = config["icon"]
+    require_exact_fields(icon, ICON_FIELDS, "config.icon")
+    if icon["kind"] not in ICON_KINDS:
+        raise FormError("config.icon.kind must be warning, info, question, or none")
+    if icon["tone"] not in template["supportedButtonTones"]:
+        raise FormError("config.icon.tone is unsupported")
+    if not isinstance(icon["glyph"], str) or len(icon["glyph"]) > 1:
+        raise FormError("config.icon.glyph must contain zero or one character")
+
+    buttons = config["buttons"]
+    if not isinstance(buttons, list) or len(buttons) != 3:
+        raise FormError("config.buttons must contain exactly three buttons")
+    ids = set()
+    actions = set()
+    for index, button in enumerate(buttons):
+        label = "config.buttons[" + str(index) + "]"
+        require_exact_fields(button, BUTTON_FIELDS, label)
+        if not isinstance(button["id"], str) or not ID_RE.fullmatch(button["id"]):
+            raise FormError(label + ".id must be a stable lowercase ASCII ID")
+        if not isinstance(button["action"], str) or not ID_RE.fullmatch(button["action"]):
+            raise FormError(label + ".action must be a stable lowercase ASCII action")
+        one_line(button["label"], label + ".label", 24)
+        if button["tone"] not in template["supportedButtonTones"]:
+            raise FormError(label + ".tone is unsupported")
+        if button["id"] in ids or button["action"] in actions:
+            raise FormError("button IDs and actions must be unique")
+        ids.add(button["id"])
+        actions.add(button["action"])
+
+    facts = config["facts"]
+    if not isinstance(facts, list) or len(facts) != BOARD_FACT_COUNT:
+        raise FormError("config.facts must contain exactly "
+                        + str(BOARD_FACT_COUNT) + " rows")
+    fact_ids = set()
+    for index, fact in enumerate(facts):
+        label = "config.facts[" + str(index) + "]"
+        require_exact_fields(fact, {"id", "label", "value"}, label)
+        if not isinstance(fact["id"], str) or not ID_RE.fullmatch(fact["id"]):
+            raise FormError(label + ".id must be a stable lowercase ASCII ID")
+        one_line(fact["label"], label + ".label", 24)
+        one_line(fact["value"], label + ".value", 32)
+        if fact["id"] in fact_ids:
+            raise FormError("fact IDs must be unique")
+        fact_ids.add(fact["id"])
+
+    plot = config["plot"]
+    require_exact_fields(plot, {"contact", "base", "course", "contactLabel", "baseLabel"},
+                         "config.plot")
+    for point in ("contact", "base"):
+        require_exact_fields(plot[point], {"x", "y"}, "config.plot." + point)
+        for axis in ("x", "y"):
+            value = plot[point][axis]
+            if not isinstance(value, int) or not 20 <= value <= 980:
+                raise FormError("config.plot." + point + "." + axis
+                                + " must be an integer permille within 20..980")
+    if plot["course"] not in BOARD_COURSE_WORDS:
+        raise FormError("config.plot.course must be one of "
+                        + ", ".join(sorted(BOARD_COURSE_WORDS)))
+    one_line(plot["contactLabel"], "config.plot.contactLabel", 32)
+    one_line(plot["baseLabel"], "config.plot.baseLabel", 32)
+
+    if config.get("note") is not None:
+        one_line(config["note"], "config.note", 120)
+
+
+def build_intel_board_contract(config, template, source_name):
+    """Expand a contact-intel-board config into the canonical contract."""
+    validate_intel_board_template(template)
+    validate_intel_board_config(config, template)
+
+    def generated_button(button):
+        tone_style = template["buttonToneStyles"][button["tone"]]
+        return {
+            "id": button["id"],
+            "label": button["label"],
+            "tone": button["tone"],
+            "action": button["action"],
+            "style": copy.deepcopy(tone_style),
+        }
+
+    buttons = [generated_button(button) for button in config["buttons"]]
+    out = {
+        "schema": 1,
+        "version": config["version"],
+        "form": {
+            "id": config["id"],
+            "familyId": config["familyId"],
+            "archetype": config["archetype"],
+            "source": source_name,
+            "icon": copy.deepcopy(config["icon"]),
+            "buttons": buttons,
+            "facts": copy.deepcopy(config["facts"]),
+            "plot": copy.deepcopy(config["plot"]),
+        },
+        "copy": {
+            "protocol": protocol_text(
+                config["protocol"], template["layouts"], template,
+                {"density": "standard", "scaleNumerator": 1, "scaleDenominator": 1}),
+            "title": config["title"],
+            "message": copy.deepcopy(config["body"]),
+            "note": config.get("note") or "",
+        },
+        "presentation": {"density": "standard", "scaleNumerator": 1,
+                         "scaleDenominator": 1},
+        "style": copy.deepcopy(template["style"]),
+        "layouts": {},
+        "motion": copy.deepcopy(template["motion"]),
+    }
+
+    sizing = template["contentSizing"]
+    for name in BOARD_LAYOUT_ORDER:
+        authored = template["layouts"][name]
+        policy = sizing[name]
+        layout = {
+            "designWidth": authored["designWidth"],
+            "designHeight": authored["designHeight"],
+        }
+        for key in ("window", "status", "plotPanel", "plotArea", "reportPanel",
+                    "factsArea", "warning", "title", "message", "footer"):
+            layout[key] = copy.deepcopy(authored[key])
+        if authored.get("note") is not None:
+            layout["note"] = copy.deepcopy(authored["note"])
+        layout["buttons"] = {}
+        for button, rect in zip(buttons, authored["buttonSlots"]):
+            layout["buttons"][button["id"]] = copy.deepcopy(rect)
+        # Fact rows are generated from the authored factsArea band, not from
+        # the message rail: the v2 composition places facts independently of
+        # the title block in every layout.
+        facts_area = authored["factsArea"]
+        row_y = facts_area["y"]
+        text_unit = 8 if name == "wide" else 7
+        inset = 6 if name == "wide" else 8
+        for index in range(policy["factCount"]):
+            fact = config["facts"][index]
+            label_rect = _rect(facts_area["x"], row_y,
+                               policy["factLabelWidth"], policy["factRowHeight"])
+            value_rect = _rect(label_rect["x"] + policy["factLabelWidth"], row_y,
+                               facts_area["width"] - policy["factLabelWidth"],
+                               policy["factRowHeight"])
+            for rect, text, kind in ((label_rect, fact["label"], "label"),
+                                     (value_rect, fact["value"], "value")):
+                available = rect["width"] - 2 * inset
+                if proportional_text_width(text, text_unit) > available:
+                    raise FormError("config.facts[" + str(index) + "]." + kind
+                                    + " does not fit the generated " + name + " slot")
+            layout["fact" + str(index + 1) + "Label"] = label_rect
+            layout["fact" + str(index + 1) + "Value"] = value_rect
+            row_y = row_y + policy["factRowHeight"] + policy["factRowGap"]
+        row_end = row_y - policy["factRowGap"]
+        if row_end > facts_area["y"] + facts_area["height"]:
+            raise FormError(name + " fact rows escaped the factsArea band")
+        if layout.get("note") is not None:
+            note_rect = layout["note"]
+            if proportional_text_width(config["note"], text_unit) > note_rect["width"] * 2:
+                raise FormError("config.note does not fit the generated " + name + " note band")
+        out["layouts"][name] = layout
+    return out
 
 
 def reject_unsupported_markdown(cell):
@@ -693,7 +1046,9 @@ def protocol_text(protocol, layouts, template, presentation):
     inset = scaled_edge(
         template["style"]["protocolTextInsetPx"], numerator, denominator)
     limits = []
-    for name, base_font in (("wide", 10), ("compact", 9)):
+    for name, base_font in (("wide", 10), ("compact", 9), ("portrait", 8)):
+        if name not in layouts:
+            continue
         font_px = max(8, scaled_edge(base_font, numerator, denominator))
         available = (layouts[name]["status"]["width"] - 2 * inset
                      - 2 * PROTOCOL_INLINE_SAFE_PX)
@@ -882,6 +1237,8 @@ def main(argv=None):
             template_name = "FormTemplates/" + os.path.basename(template_path)
             contract = build_extended_contract(
                 config, template, source_name, template_name)
+        elif template.get("id") == "contact-intel-board":
+            contract = build_intel_board_contract(config, template, source_name)
         else:
             contract = build_contract(config, template, source_name)
         rendered = render_json(contract)

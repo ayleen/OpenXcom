@@ -4,7 +4,7 @@
 #pragma once
 #include <cstdint>
 namespace OpenXcom { namespace Calypso { namespace CalypsoF34ErrorGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-20.22";
+inline constexpr const char* kContractVersion = "hd.2026-08-29.1";
 inline constexpr const char* kFormId = "f34-error";
 inline constexpr int kFamilyId = 34;
 inline constexpr const char* kArchetype = "small-confirmation";
@@ -31,6 +31,10 @@ inline constexpr std::uint32_t kDivider = 0x74FFB04Du;
 inline constexpr std::uint32_t kFooterFill = 0x061B1CD6u;
 inline constexpr std::uint32_t kFooterDot = 0x74FFB01Fu;
 inline constexpr std::uint32_t kWarning = 0xFFC14DFFu;
+inline constexpr std::uint32_t kDestructiveFill = 0xF25F5CFFu;
+inline constexpr std::uint32_t kDestructiveText = 0x071013FFu;
+inline constexpr std::uint32_t kSafeBorder = 0x74FFB0CCu;
+inline constexpr std::uint32_t kSafeFill = 0x051417B8u;
 
 struct CalypsoF34ErrorGenRect { int x; int y; int w; int h; };
 struct CalypsoF34ErrorGenLayout { int designWidth; int designHeight; CalypsoF34ErrorGenRect window; CalypsoF34ErrorGenRect status; CalypsoF34ErrorGenRect warning; CalypsoF34ErrorGenRect title; CalypsoF34ErrorGenRect message; CalypsoF34ErrorGenRect footer;

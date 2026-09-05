@@ -1,37 +1,37 @@
 {
   "schema": 1,
-  "version": "hd.2026-08-20.22",
+  "version": "hd.2026-08-29.1",
   "form": {
     "id": "f17-ufo-detected",
     "familyId": 17,
-    "archetype": "contact-decision",
+    "archetype": "contact-intel-board",
     "source": "FormConfigs/f17-ufo-detected.json",
     "icon": {
-      "kind": "warning",
-      "glyph": "!",
-      "tone": "warning"
+      "kind": "none",
+      "glyph": "",
+      "tone": "normal"
     },
     "buttons": [
       {
         "id": "intercept",
         "label": "INTERCEPT",
-        "tone": "safe",
+        "tone": "primary",
         "action": "intercept",
         "style": {
-          "fill": "051417B8",
-          "border": "74FFB0CC",
-          "text": "E8FFF5FF"
+          "fill": "74FFB0FF",
+          "border": "74FFB0FF",
+          "text": "071013FF"
         }
       },
       {
         "id": "centre",
         "label": "CENTRE",
-        "tone": "primary",
+        "tone": "safe",
         "action": "centre",
         "style": {
-          "fill": "74FFB0FF",
-          "border": "74FFB0FF",
-          "text": "071013FF"
+          "fill": "051417B8",
+          "border": "74FFB0CC",
+          "text": "E8FFF5FF"
         }
       },
       {
@@ -46,19 +46,54 @@
         }
       }
     ],
-    "visibleButtons": [
-      "intercept",
-      "centre",
-      "cancel"
-    ]
+    "facts": [
+      {
+        "id": "class",
+        "label": "SIZE",
+        "value": "USO · HEAVY"
+      },
+      {
+        "id": "altitude",
+        "label": "DEPTH",
+        "value": "VERY DEEP"
+      },
+      {
+        "id": "heading",
+        "label": "HEADING",
+        "value": "SE"
+      },
+      {
+        "id": "speed",
+        "label": "SPEED",
+        "value": "642 kt"
+      },
+      {
+        "id": "dist",
+        "label": "DIST TO BASE",
+        "value": "3451 KM"
+      }
+    ],
+    "plot": {
+      "contact": {
+        "x": 470,
+        "y": 480
+      },
+      "base": {
+        "x": 815,
+        "y": 775
+      },
+      "course": "SE",
+      "contactLabel": "USO · HEAVY",
+      "baseLabel": "SIREN-1"
+    }
   },
   "copy": {
-    "protocol": "CALYPSO COMMAND · TACTICAL NOTICE F17-UFO-DETECTED",
-    "title": "UFO DETECTED",
+    "protocol": "CALYPSO COMMAND · TACTICAL NOTICE UFO-DETECTED",
+    "title": "ARK-1",
     "message": [
-      "Unidentified craft",
-      "detected on radar."
-    ]
+      "DETECTED"
+    ],
+    "note": ""
   },
   "presentation": {
     "density": "standard",
@@ -67,6 +102,7 @@
   },
   "style": {
     "cutCornerPx": 14,
+    "innerRadiusPx": 10,
     "protocolTextInsetPx": 26,
     "panelFillTop": "08191DEB",
     "panelFillBottom": "041014E8",
@@ -76,137 +112,468 @@
     "footerFill": "061B1CD6",
     "footerDot": "74FFB01F",
     "warning": "FFC14DFF",
-    "safeFill": "051417B8",
-    "safeBorder": "74FFB0CC",
-    "destructiveFill": "F25F5CFF",
-    "destructiveText": "071013FF"
+    "backdropWide": "00000026",
+    "backdropCompact": "00000052",
+    "backdropPortrait": "00000066",
+    "radarRing": "74FFB02B",
+    "radarRingStrong": "74FFB059",
+    "radarAxis": "74FFB026",
+    "radarSweep": "74FFB03D",
+    "radarBase": "74FFB0FF",
+    "radarContact": "FFC14DFF",
+    "radarContactHalo": "FFC14D40",
+    "radarCourse": "FFC14D8C",
+    "factLabel": "A9D8C7CC",
+    "factValue": "E8FFF5FF",
+    "factDivider": "74FFB02B",
+    "plotFrame": "74FFB033",
+    "plotGrid": "74FFB01A",
+    "plotContact": "FFC14DFF",
+    "plotContactHalo": "FFC14D40",
+    "plotBase": "74FFB0FF",
+    "plotCourse": "FFC14D8C"
   },
   "layouts": {
     "wide": {
       "designWidth": 1280,
       "designHeight": 720,
       "window": {
-        "x": 361,
-        "y": 230,
-        "width": 558,
-        "height": 236
+        "x": 290,
+        "y": 193,
+        "width": 700,
+        "height": 335
       },
       "status": {
-        "x": 361,
-        "y": 230,
-        "width": 558,
-        "height": 38
+        "x": 290,
+        "y": 193,
+        "width": 700,
+        "height": 34
+      },
+      "plotPanel": {
+        "x": 318,
+        "y": 241,
+        "width": 292,
+        "height": 196
+      },
+      "plotArea": {
+        "x": 362,
+        "y": 231,
+        "width": 220,
+        "height": 220
+      },
+      "reportPanel": {
+        "x": 632,
+        "y": 241,
+        "width": 330,
+        "height": 196
+      },
+      "factsArea": {
+        "x": 647,
+        "y": 280,
+        "width": 300,
+        "height": 155
       },
       "warning": {
-        "x": 393,
-        "y": 290,
-        "width": 32,
-        "height": 32
+        "x": 647,
+        "y": 245,
+        "width": 24,
+        "height": 24
       },
       "title": {
-        "x": 441,
-        "y": 284,
-        "width": 446,
-        "height": 44
+        "x": 647,
+        "y": 245,
+        "width": 300,
+        "height": 31
       },
       "message": {
-        "x": 393,
-        "y": 336,
-        "width": 494,
-        "height": 54
+        "x": 647,
+        "y": 276,
+        "width": 300,
+        "height": 1
       },
       "footer": {
-        "x": 361,
-        "y": 404,
-        "width": 558,
-        "height": 62
+        "x": 318,
+        "y": 456,
+        "width": 644,
+        "height": 72
       },
       "buttons": {
         "intercept": {
-          "x": 393,
-          "y": 413,
-          "width": 158,
-          "height": 44
+          "x": 318,
+          "y": 469,
+          "width": 292,
+          "height": 50
         },
         "centre": {
-          "x": 561,
-          "y": 413,
-          "width": 158,
-          "height": 44
+          "x": 632,
+          "y": 469,
+          "width": 232,
+          "height": 50
         },
         "cancel": {
-          "x": 729,
-          "y": 413,
-          "width": 158,
-          "height": 44
+          "x": 874,
+          "y": 469,
+          "width": 88,
+          "height": 50
         }
+      },
+      "fact1Label": {
+        "x": 647,
+        "y": 280,
+        "width": 126,
+        "height": 31
+      },
+      "fact1Value": {
+        "x": 773,
+        "y": 280,
+        "width": 174,
+        "height": 31
+      },
+      "fact2Label": {
+        "x": 647,
+        "y": 311,
+        "width": 126,
+        "height": 31
+      },
+      "fact2Value": {
+        "x": 773,
+        "y": 311,
+        "width": 174,
+        "height": 31
+      },
+      "fact3Label": {
+        "x": 647,
+        "y": 342,
+        "width": 126,
+        "height": 31
+      },
+      "fact3Value": {
+        "x": 773,
+        "y": 342,
+        "width": 174,
+        "height": 31
+      },
+      "fact4Label": {
+        "x": 647,
+        "y": 373,
+        "width": 126,
+        "height": 31
+      },
+      "fact4Value": {
+        "x": 773,
+        "y": 373,
+        "width": 174,
+        "height": 31
+      },
+      "fact5Label": {
+        "x": 647,
+        "y": 404,
+        "width": 126,
+        "height": 31
+      },
+      "fact5Value": {
+        "x": 773,
+        "y": 404,
+        "width": 174,
+        "height": 31
       }
     },
     "compact": {
       "designWidth": 740,
       "designHeight": 360,
       "window": {
-        "x": 108,
-        "y": 60,
-        "width": 524,
-        "height": 221
+        "x": 20,
+        "y": 13,
+        "width": 700,
+        "height": 335
       },
       "status": {
-        "x": 108,
-        "y": 60,
-        "width": 524,
+        "x": 20,
+        "y": 13,
+        "width": 700,
         "height": 34
       },
+      "plotPanel": {
+        "x": 48,
+        "y": 61,
+        "width": 292,
+        "height": 196
+      },
+      "plotArea": {
+        "x": 92,
+        "y": 51,
+        "width": 220,
+        "height": 220
+      },
+      "reportPanel": {
+        "x": 362,
+        "y": 61,
+        "width": 330,
+        "height": 196
+      },
+      "factsArea": {
+        "x": 377,
+        "y": 100,
+        "width": 300,
+        "height": 155
+      },
       "warning": {
-        "x": 136,
-        "y": 111,
-        "width": 28,
-        "height": 28
+        "x": 377,
+        "y": 65,
+        "width": 24,
+        "height": 24
       },
       "title": {
-        "x": 178,
-        "y": 106,
-        "width": 426,
-        "height": 38
+        "x": 377,
+        "y": 65,
+        "width": 300,
+        "height": 31
       },
       "message": {
-        "x": 136,
-        "y": 150,
-        "width": 468,
-        "height": 48
+        "x": 377,
+        "y": 96,
+        "width": 300,
+        "height": 1
       },
       "footer": {
-        "x": 108,
-        "y": 215,
-        "width": 524,
-        "height": 66
+        "x": 48,
+        "y": 276,
+        "width": 644,
+        "height": 72
       },
       "buttons": {
         "intercept": {
-          "x": 136,
-          "y": 225,
-          "width": 148,
-          "height": 44
+          "x": 48,
+          "y": 289,
+          "width": 292,
+          "height": 50
         },
         "centre": {
-          "x": 296,
-          "y": 225,
-          "width": 148,
-          "height": 44
+          "x": 362,
+          "y": 289,
+          "width": 232,
+          "height": 50
         },
         "cancel": {
-          "x": 456,
-          "y": 225,
-          "width": 148,
-          "height": 44
+          "x": 604,
+          "y": 289,
+          "width": 88,
+          "height": 50
         }
+      },
+      "fact1Label": {
+        "x": 377,
+        "y": 100,
+        "width": 126,
+        "height": 31
+      },
+      "fact1Value": {
+        "x": 503,
+        "y": 100,
+        "width": 174,
+        "height": 31
+      },
+      "fact2Label": {
+        "x": 377,
+        "y": 131,
+        "width": 126,
+        "height": 31
+      },
+      "fact2Value": {
+        "x": 503,
+        "y": 131,
+        "width": 174,
+        "height": 31
+      },
+      "fact3Label": {
+        "x": 377,
+        "y": 162,
+        "width": 126,
+        "height": 31
+      },
+      "fact3Value": {
+        "x": 503,
+        "y": 162,
+        "width": 174,
+        "height": 31
+      },
+      "fact4Label": {
+        "x": 377,
+        "y": 193,
+        "width": 126,
+        "height": 31
+      },
+      "fact4Value": {
+        "x": 503,
+        "y": 193,
+        "width": 174,
+        "height": 31
+      },
+      "fact5Label": {
+        "x": 377,
+        "y": 224,
+        "width": 126,
+        "height": 31
+      },
+      "fact5Value": {
+        "x": 503,
+        "y": 224,
+        "width": 174,
+        "height": 31
+      }
+    },
+    "portrait": {
+      "designWidth": 360,
+      "designHeight": 740,
+      "window": {
+        "x": 8,
+        "y": 8,
+        "width": 344,
+        "height": 724
+      },
+      "status": {
+        "x": 8,
+        "y": 8,
+        "width": 344,
+        "height": 34
+      },
+      "plotPanel": {
+        "x": 24,
+        "y": 58,
+        "width": 312,
+        "height": 232
+      },
+      "plotArea": {
+        "x": 70,
+        "y": 64,
+        "width": 220,
+        "height": 220
+      },
+      "reportPanel": {
+        "x": 24,
+        "y": 298,
+        "width": 312,
+        "height": 233
+      },
+      "factsArea": {
+        "x": 39,
+        "y": 337,
+        "width": 282,
+        "height": 190
+      },
+      "warning": {
+        "x": 39,
+        "y": 302,
+        "width": 24,
+        "height": 24
+      },
+      "title": {
+        "x": 39,
+        "y": 302,
+        "width": 282,
+        "height": 31
+      },
+      "message": {
+        "x": 39,
+        "y": 333,
+        "width": 282,
+        "height": 1
+      },
+      "footer": {
+        "x": 24,
+        "y": 548,
+        "width": 312,
+        "height": 166
+      },
+      "buttons": {
+        "intercept": {
+          "x": 24,
+          "y": 548,
+          "width": 312,
+          "height": 50
+        },
+        "centre": {
+          "x": 24,
+          "y": 606,
+          "width": 312,
+          "height": 50
+        },
+        "cancel": {
+          "x": 24,
+          "y": 664,
+          "width": 312,
+          "height": 50
+        }
+      },
+      "fact1Label": {
+        "x": 39,
+        "y": 337,
+        "width": 112,
+        "height": 38
+      },
+      "fact1Value": {
+        "x": 151,
+        "y": 337,
+        "width": 170,
+        "height": 38
+      },
+      "fact2Label": {
+        "x": 39,
+        "y": 375,
+        "width": 112,
+        "height": 38
+      },
+      "fact2Value": {
+        "x": 151,
+        "y": 375,
+        "width": 170,
+        "height": 38
+      },
+      "fact3Label": {
+        "x": 39,
+        "y": 413,
+        "width": 112,
+        "height": 38
+      },
+      "fact3Value": {
+        "x": 151,
+        "y": 413,
+        "width": 170,
+        "height": 38
+      },
+      "fact4Label": {
+        "x": 39,
+        "y": 451,
+        "width": 112,
+        "height": 38
+      },
+      "fact4Value": {
+        "x": 151,
+        "y": 451,
+        "width": 170,
+        "height": 38
+      },
+      "fact5Label": {
+        "x": 39,
+        "y": 489,
+        "width": 112,
+        "height": 38
+      },
+      "fact5Value": {
+        "x": 151,
+        "y": 489,
+        "width": 170,
+        "height": 38
       }
     }
   },
   "motion": {
-    "durationMs": 200,
-    "scaleFrom": 0.96,
+    "durationMs": 150,
+    "scaleFrom": 0.985,
     "easing": "ease-out",
+    "radarSweepPeriodMs": 3600,
+    "radarContactDecayFloor": 0.12,
+    "radarContactDecayExponent": 2.4,
     "captureModeDurationMs": 0
   }
 }

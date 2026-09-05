@@ -1,0 +1,362 @@
+{
+  "schema": 1,
+  "id": "contact-intel-board",
+  "version": 6,
+  "buttonCount": {
+    "min": 3,
+    "max": 3
+  },
+  "supportedButtonTones": [
+    "normal",
+    "safe",
+    "primary",
+    "warning",
+    "danger"
+  ],
+  "buttonToneStyles": {
+    "normal": {
+      "fill": "051417B8",
+      "border": "74FFB059",
+      "text": "E8FFF5FF"
+    },
+    "safe": {
+      "fill": "051417B8",
+      "border": "74FFB0CC",
+      "text": "E8FFF5FF"
+    },
+    "primary": {
+      "fill": "74FFB0FF",
+      "border": "74FFB0FF",
+      "text": "071013FF"
+    },
+    "warning": {
+      "fill": "FFC14DFF",
+      "border": "FFC14DFF",
+      "text": "071013FF"
+    },
+    "danger": {
+      "fill": "F25F5CFF",
+      "border": "F25F5CFF",
+      "text": "071013FF"
+    }
+  },
+  "style": {
+    "cutCornerPx": 14,
+    "innerRadiusPx": 10,
+    "protocolTextInsetPx": 26,
+    "panelFillTop": "08191DEB",
+    "panelFillBottom": "041014E8",
+    "frame": "74FFB073",
+    "protocolText": "A9D8C7FF",
+    "divider": "74FFB04D",
+    "footerFill": "061B1CD6",
+    "footerDot": "74FFB01F",
+    "warning": "FFC14DFF",
+    "backdropWide": "00000026",
+    "backdropCompact": "00000052",
+    "backdropPortrait": "00000066",
+    "radarRing": "74FFB02B",
+    "radarRingStrong": "74FFB059",
+    "radarAxis": "74FFB026",
+    "radarSweep": "74FFB03D",
+    "radarBase": "74FFB0FF",
+    "radarContact": "FFC14DFF",
+    "radarContactHalo": "FFC14D40",
+    "radarCourse": "FFC14D8C",
+    "factLabel": "A9D8C7CC",
+    "factValue": "E8FFF5FF",
+    "factDivider": "74FFB02B",
+    "plotFrame": "74FFB033",
+    "plotGrid": "74FFB01A",
+    "plotContact": "FFC14DFF",
+    "plotContactHalo": "FFC14D40",
+    "plotBase": "74FFB0FF",
+    "plotCourse": "FFC14D8C"
+  },
+  "contentSizing": {
+    "wide": {
+      "safeMarginPx": 24,
+      "factCount": 5,
+      "factLabelWidth": 126,
+      "factRowHeight": 31,
+      "factRowGap": 0
+    },
+    "compact": {
+      "safeMarginPx": 16,
+      "factCount": 5,
+      "factLabelWidth": 126,
+      "factRowHeight": 31,
+      "factRowGap": 0
+    },
+    "portrait": {
+      "safeMarginPx": 16,
+      "factCount": 5,
+      "factLabelWidth": 112,
+      "factRowHeight": 38,
+      "factRowGap": 0
+    }
+  },
+  "layouts": {
+    "wide": {
+      "designWidth": 1280,
+      "designHeight": 720,
+      "window": {
+        "x": 290,
+        "y": 193,
+        "width": 700,
+        "height": 335
+      },
+      "status": {
+        "x": 290,
+        "y": 193,
+        "width": 700,
+        "height": 34
+      },
+      "warning": {
+        "x": 647,
+        "y": 245,
+        "width": 24,
+        "height": 24
+      },
+      "title": {
+        "x": 647,
+        "y": 245,
+        "width": 300,
+        "height": 31
+      },
+      "message": {
+        "x": 647,
+        "y": 276,
+        "width": 300,
+        "height": 1
+      },
+      "plotPanel": {
+        "x": 318,
+        "y": 241,
+        "width": 292,
+        "height": 196
+      },
+      "plotArea": {
+        "x": 362,
+        "y": 231,
+        "width": 220,
+        "height": 220
+      },
+      "reportPanel": {
+        "x": 632,
+        "y": 241,
+        "width": 330,
+        "height": 196
+      },
+      "factsArea": {
+        "x": 647,
+        "y": 280,
+        "width": 300,
+        "height": 155
+      },
+      "footer": {
+        "x": 318,
+        "y": 456,
+        "width": 644,
+        "height": 72
+      },
+      "buttonSlots": [
+        {
+          "x": 318,
+          "y": 469,
+          "width": 292,
+          "height": 50
+        },
+        {
+          "x": 632,
+          "y": 469,
+          "width": 232,
+          "height": 50
+        },
+        {
+          "x": 874,
+          "y": 469,
+          "width": 88,
+          "height": 50
+        }
+      ]
+    },
+    "compact": {
+      "designWidth": 740,
+      "designHeight": 360,
+      "window": {
+        "x": 20,
+        "y": 13,
+        "width": 700,
+        "height": 335
+      },
+      "status": {
+        "x": 20,
+        "y": 13,
+        "width": 700,
+        "height": 34
+      },
+      "warning": {
+        "x": 377,
+        "y": 65,
+        "width": 24,
+        "height": 24
+      },
+      "title": {
+        "x": 377,
+        "y": 65,
+        "width": 300,
+        "height": 31
+      },
+      "message": {
+        "x": 377,
+        "y": 96,
+        "width": 300,
+        "height": 1
+      },
+      "plotPanel": {
+        "x": 48,
+        "y": 61,
+        "width": 292,
+        "height": 196
+      },
+      "plotArea": {
+        "x": 92,
+        "y": 51,
+        "width": 220,
+        "height": 220
+      },
+      "reportPanel": {
+        "x": 362,
+        "y": 61,
+        "width": 330,
+        "height": 196
+      },
+      "factsArea": {
+        "x": 377,
+        "y": 100,
+        "width": 300,
+        "height": 155
+      },
+      "footer": {
+        "x": 48,
+        "y": 276,
+        "width": 644,
+        "height": 72
+      },
+      "buttonSlots": [
+        {
+          "x": 48,
+          "y": 289,
+          "width": 292,
+          "height": 50
+        },
+        {
+          "x": 362,
+          "y": 289,
+          "width": 232,
+          "height": 50
+        },
+        {
+          "x": 604,
+          "y": 289,
+          "width": 88,
+          "height": 50
+        }
+      ]
+    },
+    "portrait": {
+      "designWidth": 360,
+      "designHeight": 740,
+      "window": {
+        "x": 8,
+        "y": 8,
+        "width": 344,
+        "height": 724
+      },
+      "status": {
+        "x": 8,
+        "y": 8,
+        "width": 344,
+        "height": 34
+      },
+      "warning": {
+        "x": 39,
+        "y": 302,
+        "width": 24,
+        "height": 24
+      },
+      "title": {
+        "x": 39,
+        "y": 302,
+        "width": 282,
+        "height": 31
+      },
+      "message": {
+        "x": 39,
+        "y": 333,
+        "width": 282,
+        "height": 1
+      },
+      "plotPanel": {
+        "x": 24,
+        "y": 58,
+        "width": 312,
+        "height": 232
+      },
+      "plotArea": {
+        "x": 70,
+        "y": 64,
+        "width": 220,
+        "height": 220
+      },
+      "reportPanel": {
+        "x": 24,
+        "y": 298,
+        "width": 312,
+        "height": 233
+      },
+      "factsArea": {
+        "x": 39,
+        "y": 337,
+        "width": 282,
+        "height": 190
+      },
+      "footer": {
+        "x": 24,
+        "y": 548,
+        "width": 312,
+        "height": 166
+      },
+      "buttonSlots": [
+        {
+          "x": 24,
+          "y": 548,
+          "width": 312,
+          "height": 50
+        },
+        {
+          "x": 24,
+          "y": 606,
+          "width": 312,
+          "height": 50
+        },
+        {
+          "x": 24,
+          "y": 664,
+          "width": 312,
+          "height": 50
+        }
+      ]
+    }
+  },
+  "motion": {
+    "durationMs": 150,
+    "scaleFrom": 0.985,
+    "easing": "ease-out",
+    "radarSweepPeriodMs": 3600,
+    "radarContactDecayFloor": 0.12,
+    "radarContactDecayExponent": 2.4,
+    "captureModeDurationMs": 0
+  }
+}

@@ -7,10 +7,53 @@
  * projected rectangles. This renderer is the single physical implementation
  * of the archetype.
  */
+#include <algorithm>
+#include <cmath>
+#include <cstdint>
+
+namespace OpenXcom
+{
+namespace Calypso
+{
+
+inline double calypsoContactBearingTurn(double dx, double dy)
+{
+	if (std::abs(dx) < 1e-12 && std::abs(dy) < 1e-12)
+		return 0.0;
+	const double fullTurn = 6.28318530717958647692;
+	double turn = std::atan2(dx, -dy) / fullTurn;
+	if (turn < 0.0) turn += 1.0;
+	return turn;
+}
+
+inline double calypsoContactEchoIntensity(
+	double sweepTurn,
+	double contactTurn,
+	double floor,
+	double exponent)
+{
+	const double safeFloor = std::max(0.0, std::min(1.0, floor));
+	const double safeExponent = std::max(0.01, exponent);
+	double elapsed = std::fmod(sweepTurn - contactTurn, 1.0);
+	if (elapsed < 0.0) elapsed += 1.0;
+	return safeFloor + (1.0 - safeFloor)
+		* std::pow(std::max(0.0, 1.0 - elapsed), safeExponent);
+}
+
+inline std::uint32_t calypsoRgbaScaleAlpha(std::uint32_t rgba, double intensity)
+{
+	const double safeIntensity = std::max(0.0, std::min(1.0, intensity));
+	const std::uint32_t alpha = rgba & 0xffu;
+	const std::uint32_t scaled = static_cast<std::uint32_t>(
+		std::llround(alpha * safeIntensity));
+	return (rgba & 0xffffff00u) | std::min<std::uint32_t>(0xffu, scaled);
+}
+
+} // namespace Calypso
+} // namespace OpenXcom
+
 #ifdef __EMSCRIPTEN__
 
-#include <algorithm>
-#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -110,6 +153,120 @@ struct CalypsoSmallConfirmationModel
 	int motionDurationMs = 0;
 	double motionScaleFrom = 1.0;
 };
+
+/// One semantic fact row of the contact report (label + runtime value).
+struct CalypsoContactIntelFact
+{
+	std::string label;
+	std::string value;
+};
+
+/// One plotted contact position: design-px point inside the plot area rect
+/// plus an optional readable label anchored to the marker.
+struct CalypsoContactIntelMarker
+{
+	int x = 0;
+	int y = 0;
+	std::string label;
+};
+
+/// Which generated composition the board model carries. Replaces the v1
+/// wide/compact bool pair so an impossible state cannot be expressed.
+enum class CalypsoContactIntelLayout
+{
+	Wide,
+	Compact,
+	Portrait
+};
+
+struct CalypsoContactIntelBoardModel
+{
+	std::uint32_t familyId = 0;
+	const void* instance = nullptr;
+	Mod* mod = nullptr;
+	CalypsoContactIntelLayout layout = CalypsoContactIntelLayout::Compact;
+	bool opaqueHarnessBackdrop = false;
+	int designWidth = 0;
+	int designHeight = 0;
+
+	CalypsoLogicalRect window;
+	CalypsoLogicalRect status;
+	CalypsoLogicalRect plotPanel;
+	CalypsoLogicalRect plotArea;
+	CalypsoLogicalRect reportPanel;
+	CalypsoLogicalRect warning;
+	CalypsoLogicalRect title;
+	CalypsoLogicalRect message;
+	CalypsoLogicalRect footer;
+	CalypsoLogicalRect note;
+	/// Fact row rectangles in report order: label, value, label, value, ...
+	std::vector<CalypsoLogicalRect> factRects;
+	std::vector<CalypsoSmallConfirmationButton> buttons;
+	std::vector<CalypsoContactIntelFact> facts;
+
+	Surface* windowWidget = nullptr;
+	Surface* warningWidget = nullptr;
+	Surface* protocolWidget = nullptr;
+	Surface* titleWidget = nullptr;
+	Surface* messageWidget = nullptr;
+
+	std::string protocolText;
+	std::string warningGlyph = "!";
+	std::string titleText;
+	std::string messageText;
+	std::string noteText;
+	/// Course direction word (N/NE/.../NONE) driving the schematic vector.
+	std::string courseWord;
+	CalypsoContactIntelMarker contact;
+	CalypsoContactIntelMarker base;
+
+
+	float protocolTextInsetPx = 0.0f;
+	float cutCornerPx = 0.0f;
+	float innerRadiusPx = 10.0f;
+	std::uint32_t panelFillTop = 0;
+	std::uint32_t panelFillBottom = 0;
+	std::uint32_t frameColor = 0;
+	std::uint32_t protocolColor = 0;
+	std::uint32_t dividerColor = 0;
+	std::uint32_t footerDotColor = 0;
+	std::uint32_t warningColor = 0;
+	/// Per-layout modal dim behind the canonical shell.
+	std::uint32_t backdropColor = 0;
+	/// Circular-radar decor tokens and clockwise sweep timing.
+	std::uint32_t radarRingColor = 0;
+	std::uint32_t radarStrongRingColor = 0;
+	std::uint32_t radarAxisColor = 0;
+	std::uint32_t radarSweepColor = 0;
+	int radarSweepPeriodMs = 0;
+	double radarContactDecayFloor = 0.0;
+	double radarContactDecayExponent = 1.0;
+	std::uint32_t factLabelColor = 0;
+	std::uint32_t factValueColor = 0;
+	/// Radar marker colours; the v1 plot* field names are kept on purpose --
+	/// they ARE the radar contact/base/course/halo/frame tokens.
+	std::uint32_t plotFrameColor = 0;
+	std::uint32_t plotContactColor = 0;
+	std::uint32_t plotContactHaloColor = 0;
+	std::uint32_t plotBaseColor = 0;
+	std::uint32_t plotCourseColor = 0;
+	std::uint32_t factDividerColor = 0;
+
+	double uiScale = 1.0;
+	double visualScale = 1.0;
+	double projectionScaleX = 1.0;
+	double projectionScaleY = 1.0;
+	int titleDesignHeight = 1;
+	int motionDurationMs = 0;
+	double motionScaleFrom = 1.0;
+};
+
+/// Collect the complete physical replacement of one contact-intel-board
+/// frame. All-or-nothing: every item lands in one atomic subgroup.
+void calypsoCollectContactIntelBoard(
+	CalypsoHdFrameBuilder& builder,
+	const CalypsoContactIntelBoardModel& model,
+	CalypsoSmallConfirmationMotion& motion);
 
 void calypsoCollectSmallConfirmation(
 	CalypsoHdFrameBuilder& builder,

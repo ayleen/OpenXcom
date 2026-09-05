@@ -34,11 +34,11 @@ enum class CalypsoInteractionState
 	Disabled
 };
 
-/// Semantic action tone: the safe (e.g. NO / resume) vs the destructive
-/// (e.g. YES / abandon) action.
+/// Semantic action tone used by the generated form contracts.
 enum class CalypsoActionTone
 {
 	Safe,
+	Primary,
 	Destructive
 };
 
@@ -49,13 +49,13 @@ struct CalypsoInteractionTokenPair
 	const char* borderToken; // semantic colour token for the border
 };
 
-/// Map (tone, state) to its semantic token keys. All ten (5 states x 2 tones)
-/// pairs are pairwise distinct.
+/// Map safe/destructive tones to interaction tokens. Primary actions keep
+/// their generated filled surface in the shared button component.
 CalypsoInteractionTokenPair calypsoInteractionTokenPair(
 	CalypsoActionTone tone, CalypsoInteractionState state);
 
-/// The non-colour focus cue token key (focus ring / underline style), distinct
-/// for safe and destructive actions.
+/// The non-colour focus cue token key. Primary uses the safe accent ring
+/// around its generated filled surface.
 const char* calypsoFocusRingToken(CalypsoActionTone tone);
 
 /// Presentation opacity multiplier: Rest/Hover/Focus/Pressed are fully opaque;
@@ -70,7 +70,7 @@ float calypsoInteractionOpacity(CalypsoInteractionState state);
 inline CalypsoInteractionTokenPair calypsoInteractionTokenPair(
 	CalypsoActionTone tone, CalypsoInteractionState state)
 {
-	// Semantic token keys, grouped per tone so the ten pairs stay distinct.
+	// Safe/destructive token families predate generated primary action fills.
 	static const char* const kSafe[5][2] = {
 		{ "token.color.safeRestFill",       "token.color.safeRestBorder" },
 		{ "token.color.safeHoverFill",      "token.color.safeHoverBorder" },
