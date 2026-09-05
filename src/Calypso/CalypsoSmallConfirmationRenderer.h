@@ -80,6 +80,9 @@ struct CalypsoSmallConfirmationButton
 	std::uint32_t restFill = 0;
 	std::uint32_t restBorder = 0;
 	std::uint32_t textColor = 0;
+	/// Optional quieter second line for contact-intel-board actions.
+	/// Empty preserves the single-line presentation exactly.
+	std::string secondaryText;
 };
 
 struct CalypsoSmallConfirmationMotion

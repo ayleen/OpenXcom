@@ -373,11 +373,13 @@ void CalypsoF17UfoDetectedUi::collect(CalypsoHdFrameBuilder& builder) const
         m.facts.push_back({CalypsoF17UfoDetectedGen::kFactLabels[index], factValues[index]});
     }
 
-    auto addButton = [&](TextButton* widget, int index, const std::string& label)
+    auto addButton = [&](TextButton* widget, int index, const std::string& label,
+        const std::string& secondaryText)
     {
         CalypsoSmallConfirmationButton button{};
         button.widget = widget;
         button.text = label;
+        button.secondaryText = secondaryText;
         button.rect = proj(CalypsoF17UfoDetectedGen::kButtonRects[layoutIdx][index].rect);
         button.tone = generatedActionTone(CalypsoF17UfoDetectedGen::kButtons[index].tone);
         button.restFill = CalypsoF17UfoDetectedGen::kButtons[index].fill;
@@ -385,14 +387,17 @@ void CalypsoF17UfoDetectedUi::collect(CalypsoHdFrameBuilder& builder) const
         button.textColor = CalypsoF17UfoDetectedGen::kButtons[index].text;
         m.buttons.push_back(button);
     };
-    // Labels come from the LIVE widgets (incl. the Ctrl CANCEL/IGNORE flip);
-    // the centre button owns its own translated label.
+    // Intercept/Cancel remain live widget labels (including Ctrl IGNORE);
+    // only the centre action uses generated semantic copy and its secondary.
     addButton(_state->_btnIntercept, 0,
-        _state->_btnIntercept ? _state->_btnIntercept->getText() : std::string());
+        _state->_btnIntercept ? _state->_btnIntercept->getText() : std::string(),
+        std::string());
     addButton(_state->_btnCentre, 1,
-        _state->_btnCentre ? _state->_btnCentre->getText() : std::string());
+        CalypsoF17UfoDetectedGen::kButtons[1].label,
+        CalypsoF17UfoDetectedGen::kButtons[1].secondaryLabel);
     addButton(_state->_btnCancel, 2,
-        _state->_btnCancel ? _state->_btnCancel->getText() : std::string());
+        _state->_btnCancel ? _state->_btnCancel->getText() : std::string(),
+        std::string());
     calypsoCollectContactIntelBoard(builder, m, _motion);
 }
 

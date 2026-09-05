@@ -411,7 +411,8 @@ enum BoardRole : std::uint32_t
 	BOARD_ROLE_FACT = 66,
 	BOARD_ROLE_NOTE = 67,
 	BOARD_ROLE_BUTTON_BASE = 80,
-	BOARD_ROLE_BUTTON_LABEL_BASE = 100
+	BOARD_ROLE_BUTTON_LABEL_BASE = 100,
+	BOARD_ROLE_BUTTON_SECONDARY_BASE = 120
 };
 
 /// Design-px course unit vectors for the eight compass words.
@@ -919,11 +920,56 @@ void calypsoCollectContactIntelBoard(
 		const CalypsoInteractionState state = buttonVisualState(button.widget, peer);
 		addStyled(button.rect, buttonStyle(button, state), button.widget,
 			BOARD_ROLE_BUTTON_BASE + (std::uint32_t)i);
-		const int buttonWrapWidth = scaledPx(std::max(1, button.rect.w - 12));
-		addText(button.rect, button.widget, heading, button.text, button.textColor,
-			CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, actionPx,
-			buttonWrapWidth, 0.0,
+		if (button.secondaryText.empty())
+		{
+			// Preserve the established one-line action exactly when no
+			// secondary copy is present.
+			const int buttonWrapWidth = scaledPx(std::max(1, button.rect.w - 12));
+			addText(button.rect, button.widget, heading, button.text, button.textColor,
+				CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, actionPx,
+				buttonWrapWidth, 0.0,
+				BOARD_ROLE_BUTTON_LABEL_BASE + (std::uint32_t)i);
+			continue;
+		}
+
+		// Text rasters use design pixels, but the widget is already scaled by
+		// uiScale. Project cumulative band edges once, just like the adapter's
+		// rectangles, so rounding cannot enlarge the group beyond its button.
+		const double bandScale = model.uiScale * model.visualScale;
+		const int primaryHeight = (int)(
+			CalypsoHdThemeGen::kButtonPrimaryLineHeightPx * bandScale);
+		const int secondaryTop = (int)((
+			CalypsoHdThemeGen::kButtonPrimaryLineHeightPx
+			+ CalypsoHdThemeGen::kButtonLabelGapPx) * bandScale);
+		const int contentHeight = (int)((
+			CalypsoHdThemeGen::kButtonPrimaryLineHeightPx
+			+ CalypsoHdThemeGen::kButtonLabelGapPx
+			+ CalypsoHdThemeGen::kButtonSecondaryLineHeightPx) * bandScale);
+		const int secondaryHeight = contentHeight - secondaryTop;
+		const int requiredHeight = (int)((
+			CalypsoHdThemeGen::kButtonPrimaryLineHeightPx
+			+ CalypsoHdThemeGen::kButtonLabelGapPx
+			+ CalypsoHdThemeGen::kButtonSecondaryLineHeightPx
+			+ 2 * CalypsoHdThemeGen::kButtonLabelPaddingYPx) * bandScale);
+		if (requiredHeight > button.rect.h)
+			CalypsoHdUiOverlay::instance().failHdRoute(
+				"Contact action cannot fit both text lines and their required spacing");
+		const int contentTop = button.rect.y
+			+ std::max(0, (button.rect.h - contentHeight) / 2);
+		const CalypsoLogicalRect primaryRect{
+			button.rect.x, contentTop, button.rect.w, primaryHeight};
+		const CalypsoLogicalRect secondaryRect{
+			button.rect.x, contentTop + secondaryTop,
+			button.rect.w, secondaryHeight};
+		addText(primaryRect, button.widget, heading, button.text, button.textColor,
+			CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, actionPx, 0, 0.0,
 			BOARD_ROLE_BUTTON_LABEL_BASE + (std::uint32_t)i);
+		addText(secondaryRect, button.widget, body, button.secondaryText,
+			calypsoRgbaScaleAlpha(button.textColor,
+				CalypsoHdThemeGen::kButtonSecondaryOpacity),
+			CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle,
+			scaledPx(CalypsoHdThemeGen::kButtonSecondaryFontSizePx, 8),
+			0, 0.0, BOARD_ROLE_BUTTON_SECONDARY_BASE + (std::uint32_t)i);
 	}
 }
 

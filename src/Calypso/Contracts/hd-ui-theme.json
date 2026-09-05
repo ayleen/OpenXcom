@@ -72,7 +72,13 @@
     "bodyLineHeight": 1.5,
     "titleFontWeight": 700,
     "labelFontWeight": 700,
-    "bodyFontWeight": 400
+    "bodyFontWeight": 400,
+    "buttonPrimaryLineHeightPx": 27,
+    "buttonSecondaryLineHeightPx": 15,
+    "buttonLabelGapPx": 2,
+    "buttonLabelPaddingYPx": 3,
+    "buttonSecondaryFontSizePx": 11,
+    "buttonSecondaryOpacity": 0.68
   },
   "f21Typography": {
     "protocolWidePx": 10,

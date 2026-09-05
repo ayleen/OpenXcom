@@ -98,9 +98,15 @@ def validate_theme(theme):
                 "bodyProjectionLineHeightScaleWide", "bodyProjectionLineHeightScaleCompact"):
         if not isinstance(typography.get(key), (int, float)) or typography[key] <= 0:
             fail("hd-ui-theme.json: typography." + key + " must be > 0")
-    for key in ("labelFontSizePx", "bodyFontSizePx", "titleFontWeight", "labelFontWeight", "bodyFontWeight"):
+    for key in ("labelFontSizePx", "bodyFontSizePx", "titleFontWeight", "labelFontWeight", "bodyFontWeight",
+                "buttonPrimaryLineHeightPx", "buttonSecondaryLineHeightPx",
+                "buttonLabelGapPx", "buttonLabelPaddingYPx", "buttonSecondaryFontSizePx"):
         if not isinstance(typography.get(key), int) or typography[key] <= 0:
             fail("hd-ui-theme.json: typography." + key + " must be a positive integer")
+    secondary_opacity = typography.get("buttonSecondaryOpacity")
+    if (not isinstance(secondary_opacity, (int, float))
+            or not 0.0 < secondary_opacity <= 1.0):
+        fail("hd-ui-theme.json: typography.buttonSecondaryOpacity must be in (0, 1]")
     f21_type = theme.get("f21Typography") or {}
     for key in ("protocolWidePx", "protocolCompactPx", "titleWidePx", "titleCompactPx",
                 "dataWidePx", "dataCompactPx", "bodyWidePx", "bodyCompactPx",
@@ -329,6 +335,13 @@ def validate_family(doc, rel, profile, engine_text_calibration=False):
                         != message.get("x", 0) + message.get("width", 0)):
                     fail(rel + ": " + layout_name + " rightmost action left the text rail")
         if profile == "contact-intel-board":
+            for button in form.get("buttons", []):
+                if "secondaryLabel" in button:
+                    secondary = button["secondaryLabel"]
+                    if (not isinstance(secondary, str) or not secondary.strip()
+                            or len(secondary) > 24
+                            or any(ord(char) < 32 for char in secondary)):
+                        fail(rel + ": button.secondaryLabel must be one non-empty line of at most 24 characters")
             motion = doc.get("motion") or {}
             sweep_period = motion.get("radarSweepPeriodMs")
             if not isinstance(sweep_period, int) or not 1000 <= sweep_period <= 10000:
@@ -745,6 +758,12 @@ def emit_theme_h(theme):
     out.append("inline constexpr int kTitleFontWeight = %d;" % int(theme["typography"]["titleFontWeight"]))
     out.append("inline constexpr int kLabelFontWeight = %d;" % int(theme["typography"]["labelFontWeight"]))
     out.append("inline constexpr int kBodyFontWeight = %d;" % int(theme["typography"]["bodyFontWeight"]))
+    for key in ("buttonPrimaryLineHeightPx", "buttonSecondaryLineHeightPx",
+                "buttonLabelGapPx", "buttonLabelPaddingYPx", "buttonSecondaryFontSizePx"):
+        out.append("inline constexpr int k" + key[0].upper() + key[1:]
+                   + " = %d;" % int(theme["typography"][key]))
+    out.append("inline constexpr float kButtonSecondaryOpacity = %.6ff;"
+               % float(theme["typography"]["buttonSecondaryOpacity"]))
     out.append("")
     out.append("// F21 command-card typography and hard text safe area (design px).")
     for key, value in theme["f21Typography"].items():
@@ -942,10 +961,14 @@ def emit_small_confirmation_h(doc, rel, ns, prefix):
             "inline constexpr float kPresentationScale = %.6ff;" % (
                 float(presentation["scaleNumerator"]) / float(presentation["scaleDenominator"])),
             ""]
-    out += ["struct " + prefix + "GenButton { const char* id; const char* label; const char* tone; const char* action; std::uint32_t fill; std::uint32_t border; std::uint32_t text; };",
+    secondary_field = (" const char* secondaryLabel;"
+                       if form["archetype"] == "contact-intel-board" else "")
+    out += ["struct " + prefix + "GenButton { const char* id; const char* label; const char* tone; const char* action; std::uint32_t fill; std::uint32_t border; std::uint32_t text;" + secondary_field + " };",
             "inline constexpr " + prefix + "GenButton kButtons[] = {"]
     for b in form["buttons"]:
-        out.append('    { "' + b["id"] + '", "' + b["label"] + '", "' + b["tone"] + '", "' + b["action"] + '", ' + rgba_call(b["style"]["fill"]) + ', ' + rgba_call(b["style"]["border"]) + ', ' + rgba_call(b["style"]["text"]) + ' },')
+        secondary_value = (", " + json.dumps(b.get("secondaryLabel", ""), ensure_ascii=False)
+                           if form["archetype"] == "contact-intel-board" else "")
+        out.append('    { "' + b["id"] + '", "' + b["label"] + '", "' + b["tone"] + '", "' + b["action"] + '", ' + rgba_call(b["style"]["fill"]) + ', ' + rgba_call(b["style"]["border"]) + ', ' + rgba_call(b["style"]["text"]) + secondary_value + ' },')
     out += ["};", "inline constexpr int kButtonCount = " + str(len(form["buttons"])) + ";", ""]
     if "cutCornerPx" in style:
         out.append("inline constexpr float kCutCornerPx = %.6ff;" % float(style["cutCornerPx"]))

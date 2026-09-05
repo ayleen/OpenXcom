@@ -19,11 +19,11 @@ inline constexpr int kPresentationScaleNumerator = 1;
 inline constexpr int kPresentationScaleDenominator = 1;
 inline constexpr float kPresentationScale = 1.000000f;
 
-struct CalypsoF17UfoDetectedGenButton { const char* id; const char* label; const char* tone; const char* action; std::uint32_t fill; std::uint32_t border; std::uint32_t text; };
+struct CalypsoF17UfoDetectedGenButton { const char* id; const char* label; const char* tone; const char* action; std::uint32_t fill; std::uint32_t border; std::uint32_t text; const char* secondaryLabel; };
 inline constexpr CalypsoF17UfoDetectedGenButton kButtons[] = {
-    { "intercept", "INTERCEPT", "primary", "intercept", 0x74FFB0FFu, 0x74FFB0FFu, 0x071013FFu },
-    { "centre", "CENTRE", "safe", "centre", 0x051417B8u, 0x74FFB0CCu, 0xE8FFF5FFu },
-    { "cancel", "CANCEL", "safe", "cancel", 0x051417B8u, 0x74FFB0CCu, 0xE8FFF5FFu },
+    { "intercept", "INTERCEPT", "primary", "intercept", 0x74FFB0FFu, 0x74FFB0FFu, 0x071013FFu, "" },
+    { "centre", "CENTER ON CONTACT", "safe", "centre", 0x051417B8u, 0x74FFB0CCu, 0xE8FFF5FFu, "5 SEC" },
+    { "cancel", "CANCEL", "safe", "cancel", 0x051417B8u, 0x74FFB0CCu, 0xE8FFF5FFu, "" },
 };
 inline constexpr int kButtonCount = 3;
 
@@ -77,9 +77,9 @@ struct CalypsoF17UfoDetectedGenLayout { int designWidth; int designHeight; Calyp
     CalypsoF17UfoDetectedGenRect reportPanel;
 };
 inline constexpr CalypsoF17UfoDetectedGenLayout kLayouts[] = {
-    { 1280, 720, { 290, 193, 700, 335 }, { 290, 193, 700, 34 }, { 647, 245, 24, 24 }, { 647, 245, 300, 31 }, { 647, 276, 300, 1 }, { 318, 456, 644, 72 }, { 647, 280, 126, 31 }, { 773, 280, 174, 31 }, { 647, 311, 126, 31 }, { 773, 311, 174, 31 }, { 647, 342, 126, 31 }, { 773, 342, 174, 31 }, { 647, 373, 126, 31 }, { 773, 373, 174, 31 }, { 647, 404, 126, 31 }, { 773, 404, 174, 31 }, { 647, 280, 300, 155 }, { 362, 231, 220, 220 }, { 318, 241, 292, 196 }, { 632, 241, 330, 196 } }, // wide
-    { 740, 360, { 20, 13, 700, 335 }, { 20, 13, 700, 34 }, { 377, 65, 24, 24 }, { 377, 65, 300, 31 }, { 377, 96, 300, 1 }, { 48, 276, 644, 72 }, { 377, 100, 126, 31 }, { 503, 100, 174, 31 }, { 377, 131, 126, 31 }, { 503, 131, 174, 31 }, { 377, 162, 126, 31 }, { 503, 162, 174, 31 }, { 377, 193, 126, 31 }, { 503, 193, 174, 31 }, { 377, 224, 126, 31 }, { 503, 224, 174, 31 }, { 377, 100, 300, 155 }, { 92, 51, 220, 220 }, { 48, 61, 292, 196 }, { 362, 61, 330, 196 } }, // compact
-    { 360, 740, { 8, 8, 344, 724 }, { 8, 8, 344, 34 }, { 39, 302, 24, 24 }, { 39, 302, 282, 31 }, { 39, 333, 282, 1 }, { 24, 548, 312, 166 }, { 39, 337, 112, 38 }, { 151, 337, 170, 38 }, { 39, 375, 112, 38 }, { 151, 375, 170, 38 }, { 39, 413, 112, 38 }, { 151, 413, 170, 38 }, { 39, 451, 112, 38 }, { 151, 451, 170, 38 }, { 39, 489, 112, 38 }, { 151, 489, 170, 38 }, { 39, 337, 282, 190 }, { 70, 64, 220, 220 }, { 24, 58, 312, 232 }, { 24, 298, 312, 233 } }, // portrait
+    { 1280, 720, { 290, 193, 700, 335 }, { 290, 193, 700, 34 }, { 647, 245, 24, 24 }, { 647, 245, 300, 31 }, { 647, 276, 300, 1 }, { 318, 456, 644, 72 }, { 647, 280, 126, 31 }, { 773, 280, 174, 31 }, { 647, 311, 126, 31 }, { 773, 311, 174, 31 }, { 647, 342, 126, 31 }, { 773, 342, 174, 31 }, { 647, 373, 126, 31 }, { 773, 373, 174, 31 }, { 647, 404, 126, 31 }, { 773, 404, 174, 31 }, { 647, 280, 300, 155 }, { 374, 243, 196, 196 }, { 318, 241, 292, 196 }, { 632, 241, 330, 196 } }, // wide
+    { 740, 360, { 20, 13, 700, 335 }, { 20, 13, 700, 34 }, { 377, 65, 24, 24 }, { 377, 65, 300, 31 }, { 377, 96, 300, 1 }, { 48, 276, 644, 72 }, { 377, 100, 126, 31 }, { 503, 100, 174, 31 }, { 377, 131, 126, 31 }, { 503, 131, 174, 31 }, { 377, 162, 126, 31 }, { 503, 162, 174, 31 }, { 377, 193, 126, 31 }, { 503, 193, 174, 31 }, { 377, 224, 126, 31 }, { 503, 224, 174, 31 }, { 377, 100, 300, 155 }, { 104, 63, 196, 196 }, { 48, 61, 292, 196 }, { 362, 61, 330, 196 } }, // compact
+    { 360, 740, { 8, 8, 344, 724 }, { 8, 8, 344, 34 }, { 39, 302, 24, 24 }, { 39, 302, 282, 31 }, { 39, 333, 282, 1 }, { 24, 548, 312, 166 }, { 39, 337, 112, 38 }, { 151, 337, 170, 38 }, { 39, 375, 112, 38 }, { 151, 375, 170, 38 }, { 39, 413, 112, 38 }, { 151, 413, 170, 38 }, { 39, 451, 112, 38 }, { 151, 451, 170, 38 }, { 39, 489, 112, 38 }, { 151, 489, 170, 38 }, { 39, 337, 282, 190 }, { 68, 58, 224, 224 }, { 24, 58, 312, 232 }, { 24, 298, 312, 233 } }, // portrait
 };
 struct CalypsoF17UfoDetectedGenButtonRect { const char* id; CalypsoF17UfoDetectedGenRect rect; };
 inline constexpr CalypsoF17UfoDetectedGenButtonRect kButtonRects[][ 3 ] = {

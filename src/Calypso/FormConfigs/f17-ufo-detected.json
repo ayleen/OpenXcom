@@ -29,7 +29,8 @@
     },
     {
       "id": "centre",
-      "label": "CENTRE",
+      "label": "CENTER ON CONTACT",
+      "secondaryLabel": "5 SEC",
       "tone": "safe",
       "action": "centre"
     },

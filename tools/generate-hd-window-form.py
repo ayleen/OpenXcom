@@ -363,7 +363,6 @@ BOARD_LANDSCAPE_RECTS = {
     "window": (0, 0, 700, 335),
     "status": (0, 0, 700, 34),
     "plotPanel": (28, 48, 292, 196),
-    "plotArea": (72, 38, 220, 220),
     "reportPanel": (342, 48, 330, 196),
     "title": (357, 52, 300, 31),
     "factsArea": (357, 87, 300, 155),
@@ -374,18 +373,94 @@ BOARD_LANDSCAPE_BUTTONS = (
     (342, 276, 232, 50),
     (584, 276, 88, 50),
 )
+BOARD_CARDINAL_BOX_WIDTH = 24
+BOARD_CARDINAL_BOX_HEIGHT = 18
+BOARD_CARDINAL_EDGE_OVERFLOW_PX = 4
+BOARD_INSTRUMENT_ANNOTATION_CLEARANCE_PX = 12
+# The landscape plot was intentionally 8px right of its nominal panel center;
+# preserve that authored center while deriving the vertical rail-band fit.
+BOARD_PLOT_CENTER_X_OFFSETS = {"wide": 8, "compact": 8, "portrait": 0}
+
+def board_plot_area(name, layout):
+    """Derive the largest square centered on the authored plot center."""
+    edge = (BOARD_CARDINAL_EDGE_OVERFLOW_PX
+            + BOARD_INSTRUMENT_ANNOTATION_CLEARANCE_PX)
+    rail_top = bottom(layout["status"])
+    rail_bottom = (layout["reportPanel"]["y"] if name == "portrait"
+                   else layout["footer"]["y"])
+    available_height = rail_bottom - rail_top
+    side = min(layout["plotPanel"]["width"], available_height - 2 * edge)
+    if side <= 0:
+        raise FormError(name + " board rail band is too small for instrument clearance")
+    # An even side preserves the integer center used by the native renderer
+    # while retaining the largest square that meets the clearance policy.
+    side -= side % 2
+    panel = layout["plotPanel"]
+    center_x = (panel["x"] + panel["width"] // 2
+                + BOARD_PLOT_CENTER_X_OFFSETS[name])
+    center_y = (rail_top + rail_bottom) // 2
+    return _rect(center_x - side // 2, center_y - side // 2, side, side)
+
+
+def board_cardinal_rects(plot_area):
+    """Return the native renderer's complete cardinal glyph boxes."""
+    center_x = plot_area["x"] + plot_area["width"] // 2
+    center_y = plot_area["y"] + plot_area["height"] // 2
+    top = plot_area["y"]
+    bottom_edge = plot_area["y"] + plot_area["height"]
+    left = plot_area["x"]
+    right_edge = plot_area["x"] + plot_area["width"]
+    return {
+        "N": _rect(center_x - BOARD_CARDINAL_BOX_WIDTH // 2,
+                   top - BOARD_CARDINAL_EDGE_OVERFLOW_PX,
+                   BOARD_CARDINAL_BOX_WIDTH, BOARD_CARDINAL_BOX_HEIGHT),
+        "S": _rect(center_x - BOARD_CARDINAL_BOX_WIDTH // 2,
+                   bottom_edge - (BOARD_CARDINAL_BOX_HEIGHT
+                                  - BOARD_CARDINAL_EDGE_OVERFLOW_PX),
+                   BOARD_CARDINAL_BOX_WIDTH, BOARD_CARDINAL_BOX_HEIGHT),
+        "W": _rect(left - BOARD_CARDINAL_EDGE_OVERFLOW_PX,
+                   center_y - BOARD_CARDINAL_BOX_HEIGHT // 2,
+                   BOARD_CARDINAL_BOX_WIDTH, BOARD_CARDINAL_BOX_HEIGHT),
+        "E": _rect(right_edge - (BOARD_CARDINAL_BOX_WIDTH
+                                 - BOARD_CARDINAL_EDGE_OVERFLOW_PX),
+                   center_y - BOARD_CARDINAL_BOX_HEIGHT // 2,
+                   BOARD_CARDINAL_BOX_WIDTH, BOARD_CARDINAL_BOX_HEIGHT),
+    }
 
 
 def offset_board_rect(origin, rect):
     return _rect(origin[0] + rect[0], origin[1] + rect[1], rect[2], rect[3])
 
 
+def validate_board_instrument_clearance(name, layout):
+    plot_area = layout["plotArea"]
+    expected_plot = board_plot_area(name, layout)
+    if plot_area != expected_plot:
+        raise FormError(name + ".plotArea must be the centered square derived "
+                        + "from the instrument annotation clearance policy")
+    rail_top = bottom(layout["status"])
+    rail_bottom = (layout["reportPanel"]["y"] if name == "portrait"
+                   else layout["footer"]["y"])
+    annotation_band = _rect(layout["window"]["x"], rail_top,
+                             layout["window"]["width"], rail_bottom - rail_top)
+    cardinals = board_cardinal_rects(plot_area)
+    for direction, cardinal in cardinals.items():
+        if not contained(cardinal, annotation_band):
+            raise FormError(name + "." + direction
+                            + " cardinal annotation escaped the instrument band")
+    north_clearance = cardinals["N"]["y"] - rail_top
+    south_clearance = rail_bottom - bottom(cardinals["S"])
+    if (north_clearance < BOARD_INSTRUMENT_ANNOTATION_CLEARANCE_PX
+            or south_clearance < BOARD_INSTRUMENT_ANNOTATION_CLEARANCE_PX):
+        raise FormError(name + " cardinal annotation lacks instrument rail clearance")
+    if name == "portrait" and bottom(cardinals["S"]) > layout["reportPanel"]["y"]:
+        raise FormError(name + " cardinal annotation overlaps the report band")
 
 
 def validate_intel_board_template(template):
     """Pin the reviewed contact-intel-board shell and canonical form chrome."""
-    if template.get("version") != 6:
-        raise FormError("contact-intel-board template must use version 6")
+    if template.get("version") != 7:
+        raise FormError("contact-intel-board template must use version 7")
     if template.get("buttonCount") != {"min": 3, "max": 3}:
         raise FormError("contact-intel-board template must require exactly three buttons")
     tones = template.get("supportedButtonTones")
@@ -464,6 +539,7 @@ def validate_intel_board_template(template):
             raise FormError(name + ".plotArea escaped the window")
         if layout["plotArea"]["width"] != layout["plotArea"]["height"]:
             raise FormError(name + ".plotArea must stay square (circular radar)")
+        validate_board_instrument_clearance(name, layout)
         if not contained(layout["factsArea"], layout["reportPanel"]):
             raise FormError(name + ".factsArea escaped the report panel")
         authored_note = layout.get("note")
@@ -546,12 +622,17 @@ def validate_intel_board_config(config, template):
     actions = set()
     for index, button in enumerate(buttons):
         label = "config.buttons[" + str(index) + "]"
-        require_exact_fields(button, BUTTON_FIELDS, label)
+        if not isinstance(button, dict):
+            raise FormError(label + " must be an object")
+        fields = BUTTON_FIELDS | ({"secondaryLabel"} if "secondaryLabel" in button else set())
+        require_exact_fields(button, fields, label)
         if not isinstance(button["id"], str) or not ID_RE.fullmatch(button["id"]):
             raise FormError(label + ".id must be a stable lowercase ASCII ID")
         if not isinstance(button["action"], str) or not ID_RE.fullmatch(button["action"]):
             raise FormError(label + ".action must be a stable lowercase ASCII action")
         one_line(button["label"], label + ".label", 24)
+        if "secondaryLabel" in button:
+            one_line(button["secondaryLabel"], label + ".secondaryLabel", 24)
         if button["tone"] not in template["supportedButtonTones"]:
             raise FormError(label + ".tone is unsupported")
         if button["id"] in ids or button["action"] in actions:
@@ -602,13 +683,16 @@ def build_intel_board_contract(config, template, source_name):
 
     def generated_button(button):
         tone_style = template["buttonToneStyles"][button["tone"]]
-        return {
+        generated = {
             "id": button["id"],
             "label": button["label"],
             "tone": button["tone"],
             "action": button["action"],
             "style": copy.deepcopy(tone_style),
         }
+        if "secondaryLabel" in button:
+            generated["secondaryLabel"] = button["secondaryLabel"]
+        return generated
 
     buttons = [generated_button(button) for button in config["buttons"]]
     out = {
@@ -647,9 +731,10 @@ def build_intel_board_contract(config, template, source_name):
             "designWidth": authored["designWidth"],
             "designHeight": authored["designHeight"],
         }
-        for key in ("window", "status", "plotPanel", "plotArea", "reportPanel",
+        for key in ("window", "status", "plotPanel", "reportPanel",
                     "factsArea", "warning", "title", "message", "footer"):
             layout[key] = copy.deepcopy(authored[key])
+        layout["plotArea"] = board_plot_area(name, authored)
         if authored.get("note") is not None:
             layout["note"] = copy.deepcopy(authored["note"])
         layout["buttons"] = {}

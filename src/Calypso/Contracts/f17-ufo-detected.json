@@ -25,14 +25,15 @@
       },
       {
         "id": "centre",
-        "label": "CENTRE",
+        "label": "CENTER ON CONTACT",
         "tone": "safe",
         "action": "centre",
         "style": {
           "fill": "051417B8",
           "border": "74FFB0CC",
           "text": "E8FFF5FF"
-        }
+        },
+        "secondaryLabel": "5 SEC"
       },
       {
         "id": "cancel",
@@ -155,12 +156,6 @@
         "width": 292,
         "height": 196
       },
-      "plotArea": {
-        "x": 362,
-        "y": 231,
-        "width": 220,
-        "height": 220
-      },
       "reportPanel": {
         "x": 632,
         "y": 241,
@@ -196,6 +191,12 @@
         "y": 456,
         "width": 644,
         "height": 72
+      },
+      "plotArea": {
+        "x": 374,
+        "y": 243,
+        "width": 196,
+        "height": 196
       },
       "buttons": {
         "intercept": {
@@ -299,12 +300,6 @@
         "width": 292,
         "height": 196
       },
-      "plotArea": {
-        "x": 92,
-        "y": 51,
-        "width": 220,
-        "height": 220
-      },
       "reportPanel": {
         "x": 362,
         "y": 61,
@@ -340,6 +335,12 @@
         "y": 276,
         "width": 644,
         "height": 72
+      },
+      "plotArea": {
+        "x": 104,
+        "y": 63,
+        "width": 196,
+        "height": 196
       },
       "buttons": {
         "intercept": {
@@ -443,12 +444,6 @@
         "width": 312,
         "height": 232
       },
-      "plotArea": {
-        "x": 70,
-        "y": 64,
-        "width": 220,
-        "height": 220
-      },
       "reportPanel": {
         "x": 24,
         "y": 298,
@@ -484,6 +479,12 @@
         "y": 548,
         "width": 312,
         "height": 166
+      },
+      "plotArea": {
+        "x": 68,
+        "y": 58,
+        "width": 224,
+        "height": 224
       },
       "buttons": {
         "intercept": {

@@ -69,6 +69,12 @@ inline constexpr float kBodyLineHeight = 1.500000f;
 inline constexpr int kTitleFontWeight = 700;
 inline constexpr int kLabelFontWeight = 700;
 inline constexpr int kBodyFontWeight = 400;
+inline constexpr int kButtonPrimaryLineHeightPx = 27;
+inline constexpr int kButtonSecondaryLineHeightPx = 15;
+inline constexpr int kButtonLabelGapPx = 2;
+inline constexpr int kButtonLabelPaddingYPx = 3;
+inline constexpr int kButtonSecondaryFontSizePx = 11;
+inline constexpr float kButtonSecondaryOpacity = 0.680000f;
 
 // F21 command-card typography and hard text safe area (design px).
 inline constexpr int kF21ProtocolWidePx = 10;
