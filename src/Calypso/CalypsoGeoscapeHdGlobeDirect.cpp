@@ -8,6 +8,7 @@
 #include "CalypsoGlobeHdSphere.h"
 #include "CalypsoGeoscapeQaPresentation.h"
 #include "CalypsoGeoscapeColoredLineBatch.h"
+#include "CalypsoGeoscapeProjection.h"
 #include "CalypsoHdUiOverlay.h"
 #include "../Engine/GpuInit.h"
 #include "../Engine/GpuTexture.h"
@@ -101,6 +102,7 @@ void CalypsoGeoscapeHdGlobeDirect::destroyGpuState(Globe* globe)
 	globe->_gpuState->_gpuAliveFlag.reset();  // M6: expire reset callback before deleting GL objects
 	delete globe->_gpuState->_globeShader;
 	delete globe->_gpuState->_markerShader;
+	delete globe->_gpuState->_contactMarkerShader;
 	delete globe->_gpuState->_borderShader;
 	/* Review fix: coloured-line resources were leaked on teardown. */
 	delete globe->_gpuState->_coloredLineShader;
@@ -292,7 +294,21 @@ void CalypsoGeoscapeHdGlobeDirect::drawPass(Globe* globe)
 	{
 		if (!globe || !target || !frame)
 			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape marker frame unavailable");
-		globe->_gpuState->_gpuMarkerPendingDraws.push_back({frame, target, x, y, shade});
+		Uint32 contactColor = 0;
+		if (dynamic_cast<Ufo*>(target))
+		{
+			const Uint8* mirror = frame->getPaletteMirror();
+			const ShadeTable* table = frame->getShadeTable();
+			// Retain the ruleset's contact colour, independently of the legacy
+			// blink shade. Resolve it once when publishing the marker snapshot.
+			for (int py = 0; py < frame->getHeight() && !contactColor; ++py)
+				for (int px = 0; px < frame->getWidth() && !contactColor; ++px)
+				{
+					const Uint8 index = mirror ? mirror[py * frame->getWidth() + px] : 0;
+					helper::StandardShade::func(contactColor, frame->getPixel32(px, py), index, 0, table);
+				}
+		}
+		globe->_gpuState->_gpuMarkerPendingDraws.push_back({frame, target, x, y, shade, contactColor});
 	}
 
 	void CalypsoGeoscapeHdGlobeDirect::recordBorderLine(Globe* globe, int x1, int y1, int x2, int y2)
@@ -1200,6 +1216,17 @@ static std::uint64_t calypsoBuildRadarFlightSignature(SavedGame* save)
 			if (!command.frame || command.frame->getWidth() <= 0 || command.frame->getHeight() <= 0
 				|| !CalypsoGeoscapeHdGlobeDirect::markerTexture(globe, command.frame, command.shade))
 				Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape marker texture upload failed");
+			if (command.contactColor)
+			{
+				if (!globe->_gpuState->_contactMarkerShader)
+				{
+					globe->_gpuState->_contactMarkerShader = new Shader();
+					if (!globe->_gpuState->_contactMarkerShader->loadFromEmbedded("geoscape_contact_marker"))
+						Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape contact marker shader compilation failed");
+				}
+				if (!globe->_gpuState->_contactMarkerShader->isValid())
+					Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape contact marker shader is invalid");
+			}
 		}
 		if (glGetError() != GL_NO_ERROR)
 			Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape marker GL preflight failed");
@@ -1224,8 +1251,9 @@ static std::uint64_t calypsoBuildRadarFlightSignature(SavedGame* save)
 		{
 			for (int px = 0; px < w; ++px)
 			{
-				Uint32 argb = frame->getPixel32(px, py);
-				if (mirror && table) argb = table->get(mirror[py * w + px], shade);
+				Uint32 argb = 0;
+				const Uint8 index = mirror ? mirror[py * w + px] : 0;
+				helper::StandardShade::func(argb, frame->getPixel32(px, py), index, shade, table);
 				const size_t i = static_cast<size_t>((py * w + px) * 4);
 				rgba[i + 0] = static_cast<uint8_t>((argb >> 16) & 0xffu);
 				rgba[i + 1] = static_cast<uint8_t>((argb >> 8) & 0xffu);
@@ -1371,15 +1399,8 @@ static std::uint64_t calypsoBuildRadarFlightSignature(SavedGame* save)
 		globe->_gpuState->_markerShader->use();
 		globe->_gpuState->_markerShader->setUniform1f("u_darken", 0.0f);
 		globe->_gpuState->_markerShader->setUniform1i("u_tex", 0);
-		for (const auto& command : globe->_gpuState->_gpuMarkerCommittedDraws)
+		const auto drawQuad = [&](float x, float y, float w, float h)
 		{
-			GpuTexture* texture = markerTexture(globe, command.frame, command.shade);
-			if (!texture)
-				Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape marker texture disappeared during draw");
-			const float x = static_cast<float>((globe->getX() + command.x) * xs + lbb);
-			const float y = static_cast<float>((globe->getY() + command.y) * ys + tbb);
-			const float w = static_cast<float>(command.frame->getWidth() * xs);
-			const float h = static_cast<float>(command.frame->getHeight() * ys);
 			const float x0 = 2.0f * x / displayW - 1.0f;
 			const float x1 = 2.0f * (x + w) / displayW - 1.0f;
 			const float y0 = -(2.0f * y / displayH - 1.0f);
@@ -1388,10 +1409,38 @@ static std::uint64_t calypsoBuildRadarFlightSignature(SavedGame* save)
 			glBindBuffer(GL_ARRAY_BUFFER, globe->_gpuState->_markerVBO);
 			glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)sizeof(verts), verts);
 			glBindBuffer(GL_ARRAY_BUFFER, 0);
-			texture->bind(0);
 			glBindVertexArray(globe->_gpuState->_markerVAO);
 			glDrawArrays(GL_TRIANGLES, 0, 6);
 			glBindVertexArray(0);
+		};
+		for (const auto& command : globe->_gpuState->_gpuMarkerCommittedDraws)
+		{
+			GpuTexture* texture = markerTexture(globe, command.frame, command.shade);
+			if (!texture)
+				Calypso::CalypsoHdUiOverlay::instance().failHdRoute("Geoscape marker texture disappeared during draw");
+			if (command.contactColor)
+			{
+				const float extent = Calypso::GEOSCAPE_HD_MARKER_MINIMUM_TARGET;
+				const float centerX = static_cast<float>((globe->getX() + command.x + command.frame->getWidth() / 2) * xs + lbb);
+				const float centerY = static_cast<float>((globe->getY() + command.y + command.frame->getHeight() / 2) * ys + tbb);
+				Shader* shader = globe->_gpuState->_contactMarkerShader;
+				shader->use();
+				shader->setUniform1f("u_extent", extent);
+				shader->setUniform4f("u_color",
+					((command.contactColor >> 16) & 0xffu) / 255.0f,
+					((command.contactColor >> 8) & 0xffu) / 255.0f,
+					(command.contactColor & 0xffu) / 255.0f,
+					((command.contactColor >> 24) & 0xffu) / 255.0f);
+				drawQuad(centerX - extent * xs * 0.5f, centerY - extent * ys * 0.5f,
+					extent * xs, extent * ys);
+			}
+			globe->_gpuState->_markerShader->use();
+			const float x = static_cast<float>((globe->getX() + command.x) * xs + lbb);
+			const float y = static_cast<float>((globe->getY() + command.y) * ys + tbb);
+			const float w = static_cast<float>(command.frame->getWidth() * xs);
+			const float h = static_cast<float>(command.frame->getHeight() * ys);
+			texture->bind(0);
+			drawQuad(x, y, w, h);
 		}
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, 0u);

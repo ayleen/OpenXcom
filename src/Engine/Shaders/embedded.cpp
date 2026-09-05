@@ -474,6 +474,32 @@ void main()
 }
 )glsl";
 
+static const char* kGeoscape_contact_markerFragSrc = R"glsl(
+uniform float u_extent;
+uniform vec4 u_color;
+in vec2 v_uv;
+out vec4 out_color;
+
+void main()
+{
+    vec2 p = (v_uv - vec2(0.5)) * u_extent;
+    float radial = length(p);
+    float ringDistance = min(abs(radial - 16.5), abs(radial - 10.5)) - 0.5;
+    float ringAA = max(fwidth(ringDistance), 1e-4);
+    float rings = 1.0 - smoothstep(-ringAA, ringAA, ringDistance);
+
+    float diamondDistance = (abs(p.x) + abs(p.y) - 5.65685425) * 0.70710678;
+    float borderDistance = abs(diamondDistance + 1.0) - 1.0;
+    float diamondAA = max(fwidth(diamondDistance), 1e-4);
+    float diamond = 1.0 - smoothstep(-diamondAA, diamondAA, borderDistance);
+    // A dark keyline preserves contrast over bright coastlines and land.
+    float keyline = 0.85 * (1.0 - smoothstep(-diamondAA, diamondAA, borderDistance - 1.0));
+    float ink = max(diamond, rings * 0.24);
+    float alpha = ink + keyline * (1.0 - ink);
+    out_color = vec4(u_color.rgb * ink / max(alpha, 1e-4), alpha * u_color.a);
+}
+)glsl";
+
 static const char* kGlobe_sphereFragSrc = R"glsl(
 in  vec2 v_pixel;
 out vec4 fragColor;
@@ -1485,6 +1511,7 @@ static const Entry kTable[] = {
     { "cursor", kCursorVertSrc, kCursorFragSrc },
     { "emissive_glow", kEmissive_glowVertSrc, kEmissive_glowFragSrc },
     { "geoscape_colored_lines", kGeoscape_colored_linesVertSrc, kGeoscape_colored_linesFragSrc },
+    { "geoscape_contact_marker", kPassthroughVertSrc, kGeoscape_contact_markerFragSrc },
     { "globe_sphere", kGlobe_sphereVertSrc, kGlobe_sphereFragSrc },
     { "hd_ui", kHd_uiVertSrc, kHd_uiFragSrc },
     { "hd_ui_panel", kPassthroughVertSrc, kHd_ui_panelFragSrc },

@@ -2323,7 +2323,15 @@ void Globe::mousePress(Action *action, State *state)
 			_mouseScrollStopApplied = false;
 #endif
 			_isMouseScrolled = false;
+#ifdef __EMSCRIPTEN__
+			// The direct bridge has already normalized this event to display
+			// coordinates. SDL's polled cursor may still describe an earlier
+			// event or the physical canvas; never use it as a click anchor.
+			_xBeforeMouseScrolling = action->getDetails()->button.x;
+			_yBeforeMouseScrolling = action->getDetails()->button.y;
+#else
 			SDL_GetMouseState(&_xBeforeMouseScrolling, &_yBeforeMouseScrolling);
+#endif
 			_lonBeforeMouseScrolling = _cenLon;
 			_latBeforeMouseScrolling = _cenLat;
 			_totalMouseMoveX = 0; _totalMouseMoveY = 0;
@@ -2349,9 +2357,8 @@ void Globe::mouseRelease(Action *action, State *state)
 	cartToPolar((Sint16)floor(action->getAbsoluteXMouse()), (Sint16)floor(action->getAbsoluteYMouse()), &lon, &lat);
 	if (isGlobePanButton(action->getDetails()->button.button))
 	{
-		/* §16.5: guard against duplicate release dispatch (same ownership
-		 * model as mousePress).  stopScrolling warps the cursor back;
-		 * calling it twice is harmless but the guard is cleaner. */
+		// Preserve scroll classification until mouseClick, which distinguishes
+		// a short click from a completed drag.
 		if (_isMouseScrolling)
 		{
 			stopScrolling(action);
@@ -2565,13 +2572,13 @@ void Globe::rebuildEarthData()
 void Globe::stopScrolling(Action *action)
 {
 #ifdef __EMSCRIPTEN__
-	/* A browser button reaches both the synchronous direct bridge and SDL's
-	 * queued path. mouseRelease precedes mouseClick for one event, so preserve
-	 * scroll classification while applying cursor restoration only once. */
+	// mouseRelease precedes mouseClick for the same event. Restore its
+	// display-space press position once without warping the browser cursor.
 	if (_mouseScrollStopApplied) return;
 	_mouseScrollStopApplied = true;
-#endif
+#else
 	SDL_WarpMouse(_xBeforeMouseScrolling, _yBeforeMouseScrolling);
+#endif
 	action->setMouseAction(_xBeforeMouseScrolling, _yBeforeMouseScrolling, getX(), getY());
 }
 

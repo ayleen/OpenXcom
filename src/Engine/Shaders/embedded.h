@@ -11,6 +11,7 @@
  *   "cursor"
  *   "emissive_glow"
  *   "geoscape_colored_lines"
+ *   "geoscape_contact_marker"
  *   "globe_sphere"
  *   "hd_ui"
  *   "hd_ui_panel"

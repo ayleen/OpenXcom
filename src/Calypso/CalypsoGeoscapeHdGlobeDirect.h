@@ -44,6 +44,7 @@ struct CalypsoGlobeGpuState
 		int x = 0;
 		int y = 0;
 		int shade = 0;
+		Uint32 contactColor = 0;
 	};
 	std::vector<MarkerDraw> _gpuMarkerPendingDraws;
 	std::vector<MarkerDraw> _gpuMarkerCommittedDraws;
@@ -134,6 +135,7 @@ struct CalypsoGlobeGpuState
 	unsigned  _markerVAO     = 0u;
 	unsigned  _markerVBO     = 0u;
 	Shader*   _markerShader  = nullptr;
+	Shader*   _contactMarkerShader = nullptr;
 	bool      _gpuMarkerReady = false;
 	unsigned  _borderVAO     = 0u;
 	unsigned  _borderVBO     = 0u;
