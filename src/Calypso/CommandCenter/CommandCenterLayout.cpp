@@ -18,10 +18,7 @@ namespace CommandCenter
 namespace
 {
 
-/// Header content grid shared by the desktop and compact modes (spec s.19,
-/// s.20): the session selector sits at the left edge; the right group is
-/// computed from the right edge with the fixed 329-unit stack
-/// (date/time 112 + 16 + divider 1 + 16 + status 128 + 16 + bell 40).
+/// Shared desktop header: base selector at the left, live date/time at the right.
 void layoutHeaderContent(CommandCenterLayout& layout, float viewportWidth,
 	float headerHeight, float sideInset)
 {
@@ -29,15 +26,10 @@ void layoutHeaderContent(CommandCenterLayout& layout, float viewportWidth,
 
 	layout.baseSelector = { sideInset, (headerHeight - 48.0f) / 2.0f, 220.0f, 48.0f };
 
-	const float rightGroupWidth = 112.0f + 16.0f + 1.0f + 16.0f + 128.0f + 16.0f + 40.0f;
-	const float rightGroupX = viewportWidth - sideInset - rightGroupWidth;
-	const float centerHeight = 40.0f;
-	const float contentY = (headerHeight - centerHeight) / 2.0f;
-
-	layout.dateTimeBlock = { rightGroupX, contentY, 112.0f, centerHeight };
-	layout.systemStatusBlock = { rightGroupX + 112.0f + 16.0f + 1.0f + 16.0f, contentY, 128.0f, centerHeight };
-	layout.notificationButton = { rightGroupX + rightGroupWidth - 40.0f,
-		(headerHeight - 40.0f) / 2.0f, 40.0f, 40.0f };
+	const float dateTimeWidth = 176.0f;
+	const float contentHeight = 40.0f;
+	layout.dateTimeBlock = {viewportWidth - sideInset - dateTimeWidth,
+		(headerHeight - contentHeight) / 2.0f, dateTimeWidth, contentHeight};
 }
 
 /// Zoom cluster anchored inside the stage (spec s.32): left + 16, bottom
@@ -148,11 +140,8 @@ CommandCenterLayout computeMobileLayout(Size2 viewport, const InsetsF& safeInset
 	layout.workspace = layout.stage;
 
 	layout.baseSelector = {contentLeft + 8.0f, contentTop + 2.0f, 184.0f, 44.0f};
-	layout.notificationButton = {contentRight - 44.0f, contentTop + 4.0f, 40.0f, 40.0f};
-	layout.systemStatusBlock = {layout.notificationButton.x - 104.0f,
-		contentTop + 4.0f, 96.0f, 40.0f};
-	layout.dateTimeBlock = {layout.systemStatusBlock.x - 108.0f,
-		contentTop + 4.0f, 100.0f, 40.0f};
+	layout.dateTimeBlock = {contentRight - 8.0f - 176.0f,
+		contentTop + 4.0f, 176.0f, 40.0f};
 	layout.zoomControls = {layout.stage.right() - 56.0f,
 		layout.stage.bottom() - 100.0f, 44.0f, 88.0f};
 

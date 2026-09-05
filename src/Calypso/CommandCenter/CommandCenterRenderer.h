@@ -3,9 +3,9 @@
  * Command Center -- renderer (normative spec 2026-08-28, s.11/s.16-48).
  *
  * Emits the Command Center screen as HD overlay items through the shared
- * painter: root background, header (base selector, date/time, divider,
- * system status, bell), navigation rail with active indicator, clipped stage,
- * zoom cluster and timeline (six time steps and ruler).
+ * painter: root background, header (base selector and live date/time),
+ * navigation rail with active indicator, clipped stage, zoom cluster,
+ * and six-step time selector.
  * The selected-object/intercept panel is owned by the separate
  * interception flow and is intentionally absent here. Layout comes exclusively
  * from CommandCenterLayout; colours exclusively from CommandCenterTheme.
@@ -48,10 +48,7 @@ struct CommandCenterSnapshot
 	bool baseSelectorOpen = false;
 	std::string displayTime;
 	std::string displayDate;
-	std::string systemStatus = "NOMINAL";
-	bool systemNominal = true;
 	int selectedTimeStep = 1; // index into the six canonical steps
-	bool hasUnreadNotification = true;
 };
 
 /// Resolved font descriptors for the Command Center faces.

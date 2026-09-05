@@ -61,7 +61,7 @@ inline constexpr Color8 Success       { 0x81, 0xE0, 0xB5, 0xFF };
 inline constexpr float HeaderHeight   = 72.0f;
 inline constexpr float RailWidth      = 88.0f;
 inline constexpr float InspectorWidth = 320.0f;
-inline constexpr float TimelineHeight = 104.0f;
+inline constexpr float TimelineHeight = 72.0f;
 inline constexpr float WorkspacePad   = 24.0f;
 inline constexpr float WorkspaceGap   = 24.0f;
 

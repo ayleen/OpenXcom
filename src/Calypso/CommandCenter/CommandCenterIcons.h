@@ -24,7 +24,6 @@ enum class CcIcon
 	Analytics,
 	Archive,
 	Settings,
-	Bell,
 	ChevronDown,
 	Menu,
 	Plus,
@@ -41,7 +40,6 @@ inline char32_t ccIconGlyph(CcIcon icon)
 		case CcIcon::Analytics: return 0xE154;  // chart-line
 		case CcIcon::Archive: return 0xE00C;    // archive
 		case CcIcon::Settings: return 0xE270;   // gear
-		case CcIcon::Bell: return 0xE0CE;       // bell
 		case CcIcon::ChevronDown: return 0xE136;// caret-down
 		case CcIcon::Menu: return 0xE2F0;       // list
 		case CcIcon::Plus: return 0xE3D4;       // plus

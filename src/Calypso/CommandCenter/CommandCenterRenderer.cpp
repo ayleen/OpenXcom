@@ -196,12 +196,12 @@ void ccRenderBaseSelector(CalypsoF21Painter& painter, const RectF& selector,
 
 	const float textX = avatar.right() + (compact ? 8.0f : 10.0f);
 	ccText(painter, RectF{textX, selector.y + (compact ? 5.0f : 9.0f),
-		selector.right() - textX - 28.0f, 10.0f}, fonts.plexM,
-		snap.baseCaption, px(TextMuted), 9.0f, 0.12f,
+		selector.right() - textX - 28.0f, 12.0f}, fonts.plexM,
+		snap.baseCaption, px(TextSecondary), 10.0f, 0.08f,
 		CalypsoHdHAlign::Left, role);
 	ccText(painter, RectF{textX, selector.y + (compact ? 16.0f : 22.0f),
 		selector.right() - textX - 28.0f, compact ? 17.0f : 16.0f}, fonts.interSb,
-		snap.baseName, px(TextPrimary), compact ? 11.0f : 12.0f, 0.04f,
+		snap.baseName, px(TextPrimary), compact ? 12.0f : 14.0f, 0.02f,
 		CalypsoHdHAlign::Left, role);
 	ccIcon(painter, RectF{selector.right() - 24.0f, selector.y, 14.0f,
 		selector.height}, CcIcon::ChevronDown, fonts, px(TextSecondary),
@@ -289,26 +289,11 @@ void ccRenderCompact(CalypsoF21Painter& painter,
 	ccRect(painter, layout.stage, stageFrame, role);
 
 	ccText(painter, RectF{layout.dateTimeBlock.x, layout.dateTimeBlock.y,
-		layout.dateTimeBlock.width, 17.0f}, fonts.plexM, snap.displayTime,
-		px(TextPrimary), 11.0f, 0.06f, CalypsoHdHAlign::Right, role);
-	ccText(painter, RectF{layout.dateTimeBlock.x, layout.dateTimeBlock.y + 17.0f,
-		layout.dateTimeBlock.width, 17.0f}, fonts.plexM, snap.displayDate,
-		px(TextSecondary), 10.0f, 0.06f, CalypsoHdHAlign::Right, role);
-	ccText(painter, RectF{layout.systemStatusBlock.x + 10.0f,
-		layout.systemStatusBlock.y, layout.systemStatusBlock.width - 10.0f, 15.0f},
-		fonts.plexM, "SYSTEM", px(TextMuted), 10.0f, 0.06f,
-		CalypsoHdHAlign::Left, role);
-	painter.decoration(ccLogical(painter, {layout.systemStatusBlock.x,
-		layout.systemStatusBlock.y + 22.0f, 5.0f, 5.0f}),
-		snap.systemNominal ? px(Success) : px(Danger), role++);
-	ccText(painter, RectF{layout.systemStatusBlock.x + 10.0f,
-		layout.systemStatusBlock.y + 15.0f,
-		layout.systemStatusBlock.width - 10.0f, 18.0f}, fonts.plexSb,
-		snap.systemStatus, px(TextSecondary), 11.0f, 0.06f,
-		CalypsoHdHAlign::Left, role);
-	ccIcon(painter, layout.notificationButton, CcIcon::Bell, fonts,
-		snap.hasUnreadNotification ? px(TextPrimary) : px(TextSecondary),
-		16.0f, role);
+		layout.dateTimeBlock.width, 20.0f}, fonts.plexM, snap.displayTime,
+		px(TextPrimary), 14.0f, 0.04f, CalypsoHdHAlign::Right, role);
+	ccText(painter, RectF{layout.dateTimeBlock.x, layout.dateTimeBlock.y + 22.0f,
+		layout.dateTimeBlock.width, 18.0f}, fonts.plexM, snap.displayDate,
+		px(TextSecondary), 11.0f, 0.04f, CalypsoHdHAlign::Right, role);
 
 	ccPanel(painter, layout.compactCommandGrid, RadiusMD, BgRail, BgRoot,
 		BorderSoft, false, role);
@@ -558,7 +543,7 @@ void calypsoCcRender(CalypsoF21Painter& painter, const CommandCenterLayout& layo
 		const float pad = 12.0f;
 		// Time step selector (spec s.46).
 		const RectF steps{layout.timeline.x + pad, layout.timeline.y + pad,
-			std::max(0.0f, layout.timeline.width - pad * 2.0f), 42.0f};
+			std::max(0.0f, layout.timeline.width - pad * 2.0f), layout.timeline.height - pad * 2.0f};
 		{
 			CalypsoHdPanelStyle strip;
 			strip.styled = true;
@@ -576,42 +561,12 @@ void calypsoCcRender(CalypsoF21Painter& painter, const CommandCenterLayout& layo
 			if (i > 0)
 				painter.decoration(ccLogical(painter, {seg.x, seg.y + 6.0f, 1.0f, seg.height - 12.0f}), px(BorderSoft), role++);
 			ccText(painter, RectF{seg.x, seg.y, seg.width, seg.height - 4.0f}, fonts.plexM,
-				kTimeSteps[i], active ? px(Accent) : px(TextMuted), 9.0f, 0.06f,
+				kTimeSteps[i], active ? px(Accent) : px(TextSecondary), 12.0f, 0.04f,
 				CalypsoHdHAlign::Center, role);
 			if (active)
 				painter.decoration(ccLogical(painter, {seg.x + 10.0f, seg.bottom() - 3.0f, seg.width - 20.0f, 2.0f}), px(Accent), role++);
 		}
 
-		// Ruler (spec s.47).
-		const float rulerY = steps.bottom() + 6.0f;
-		const float rulerH = std::min(34.0f, layout.timeline.bottom() - pad - rulerY);
-		if (rulerH > 12.0f)
-		{
-			const RectF ruler{ steps.x, rulerY, steps.width, rulerH };
-			painter.decoration(ccLogical(painter, {ruler.x, ruler.y + ruler.height / 2.0f, ruler.width, 1.0f}), px(BorderStrong), role++);
-			const float stepW = ruler.width / 6.0f;
-			for (int i = 0; i <= 6; ++i)
-			{
-				const float x = ruler.x + stepW * i;
-				painter.decoration(ccLogical(painter, {x, ruler.y + ruler.height / 2.0f - 4.0f, 1.0f, 8.0f}), px(BorderStrong), role++);
-				if (i < 6)
-					for (int m = 1; m <= 4; ++m)
-						painter.decoration(ccLogical(painter, {x + stepW * m / 5.0f, ruler.y + ruler.height / 2.0f - 2.0f, 1.0f, 4.0f}), px(BorderStrong), role++);
-			}
-			const float markerX = ruler.x + ruler.width * 0.085f;
-			CalypsoHdPanelStyle haloDot;
-			haloDot.styled = true;
-			haloDot.radiusPx = 8.0f;
-			haloDot.fillTopRgba = haloDot.fillBottomRgba = 0x00000000u;
-			haloDot.glowRgba = 0x81E0B514u;
-			haloDot.glowRadiusPx = 4.0f;
-			ccRect(painter, RectF{markerX - 8.0f, ruler.y + ruler.height / 2.0f - 8.0f, 16.0f, 16.0f}, haloDot, role);
-			CalypsoHdPanelStyle dot;
-			dot.styled = true;
-			dot.radiusPx = 4.0f;
-			dot.fillTopRgba = dot.fillBottomRgba = px(Accent);
-			ccRect(painter, RectF{markerX - 4.0f, ruler.y + ruler.height / 2.0f - 4.0f, 8.0f, 8.0f}, dot, role);
-		}
 
 	}
 
@@ -647,8 +602,8 @@ void calypsoCcRender(CalypsoF21Painter& painter, const CommandCenterLayout& layo
 			}
 			ccIcon(painter, RectF{item.x, item.y + 14.0f, item.width, 22.0f}, kRailItems[i].icon,
 				fonts, active ? px(Accent) : px(TextSecondary), 22.0f, role);
-			ccText(painter, RectF{item.x, item.bottom() - 22.0f, item.width, 14.0f}, fonts.plexM,
-				kRailItems[i].label, active ? px(Accent) : px(TextSecondary), 9.0f, 0.08f,
+			ccText(painter, RectF{rail.x + 4.0f, item.bottom() - 22.0f, rail.width - 8.0f, 14.0f}, fonts.plexM,
+				kRailItems[i].label, active ? px(Accent) : px(TextSecondary), 11.0f, 0.0f,
 				CalypsoHdHAlign::Center, role);
 		}
 		// Settings pinned to the rail bottom (spec s.22.6).
@@ -668,25 +623,11 @@ void calypsoCcRender(CalypsoF21Painter& painter, const CommandCenterLayout& layo
 	{
 		ccRenderBaseSelector(painter, layout.baseSelector, snap, fonts, role);
 
-		// Right group: date/time, divider, system status, bell (spec s.20-21).
-		const float rightGroupX = layout.header.width - 16.0f - 329.0f;
 		const RectF& dt = layout.dateTimeBlock;
-		ccText(painter, RectF{dt.x, dt.y, dt.width, 14.0f}, fonts.plexM,
-			snap.displayTime, px(TextPrimary), 10.0f, 0.08f, CalypsoHdHAlign::Right, role);
-		ccText(painter, RectF{dt.x, dt.y + 18.0f, dt.width, 14.0f}, fonts.plexM,
-			snap.displayDate, px(TextSecondary), 10.0f, 0.08f, CalypsoHdHAlign::Right, role);
-		painter.decoration(ccLogical(painter, {rightGroupX + 113.0f, layout.header.y + (layout.header.height - 32.0f) / 2.0f, 1.0f, 32.0f}), px(Border), role++);
-		const RectF& st = layout.systemStatusBlock;
-		ccText(painter, RectF{st.x, st.y, st.width, 11.0f}, fonts.plexM,
-			"SYSTEM STATUS", px(TextMuted), 8.0f, 0.12f, CalypsoHdHAlign::Left, role);
-		painter.decoration(ccLogical(painter, {st.x, st.y + 17.0f, 6.0f, 6.0f}),
-			snap.systemNominal ? px(Success) : px(Danger), role++);
-		ccText(painter, RectF{st.x + 12.0f, st.y + 12.0f, st.width - 12.0f, 14.0f}, fonts.plexSb,
-			snap.systemStatus, px(TextSecondary), 10.0f, 0.08f, CalypsoHdHAlign::Left, role);
-		ccIcon(painter, layout.notificationButton, CcIcon::Bell, fonts,
-			snap.hasUnreadNotification ? px(TextPrimary) : px(TextSecondary), 18.0f, role);
-		if (snap.hasUnreadNotification)
-			painter.decoration(ccLogical(painter, {layout.notificationButton.right() - 13.0f, layout.notificationButton.y + 7.0f, 6.0f, 6.0f}), px(Accent), role++);
+		ccText(painter, RectF{dt.x, dt.y, dt.width, 20.0f}, fonts.plexM,
+			snap.displayTime, px(TextPrimary), 14.0f, 0.04f, CalypsoHdHAlign::Right, role);
+		ccText(painter, RectF{dt.x, dt.y + 22.0f, dt.width, 18.0f}, fonts.plexM,
+			snap.displayDate, px(TextSecondary), 11.0f, 0.04f, CalypsoHdHAlign::Right, role);
 	}
 
 	// Live widget binding: reposition the existing interactive surfaces onto
@@ -711,9 +652,9 @@ void calypsoCcRender(CalypsoF21Painter& painter, const CommandCenterLayout& layo
 		{
 			const char* member = nativeWidgetForRailAction(railActionForSlot(slot));
 			ccBind(painter, CalypsoGeoscapeHdShell::resolveWidget(state, member),
-				RectF{layout.navigationRail.x + 8.0f,
+				RectF{layout.navigationRail.x + 4.0f,
 					layout.navigationRail.y + Space5 + 76.0f * slot,
-					layout.navigationRail.width - 16.0f, 72.0f}, role);
+					layout.navigationRail.width - 8.0f, 72.0f}, role);
 		}
 		ccBind(painter, CalypsoGeoscapeHdShell::resolveWidget(state, "btnOptions"), RectF{layout.navigationRail.x + 24.0f, layout.navigationRail.bottom() - 56.0f, 40.0f, 40.0f}, role);
 		// Time steps: the six native buttons map onto the selector segments.
@@ -722,7 +663,7 @@ void calypsoCcRender(CalypsoF21Painter& painter, const CommandCenterLayout& layo
 		Surface* speed[6] = { CalypsoGeoscapeHdShell::resolveWidget(state, "btn5Secs"), CalypsoGeoscapeHdShell::resolveWidget(state, "btn1Min"), CalypsoGeoscapeHdShell::resolveWidget(state, "btn5Mins"),
 			CalypsoGeoscapeHdShell::resolveWidget(state, "btn30Mins"), CalypsoGeoscapeHdShell::resolveWidget(state, "btn1Hour"), CalypsoGeoscapeHdShell::resolveWidget(state, "btn1Day") };
 		for (int i = 0; i < 6; ++i)
-			ccBind(painter, speed[i], RectF{stepsX + stepsW / 6.0f * i, layout.timeline.y + 12.0f, stepsW / 6.0f, 42.0f}, role);
+			ccBind(painter, speed[i], RectF{stepsX + stepsW / 6.0f * i, layout.timeline.y + 12.0f, stepsW / 6.0f, layout.timeline.height - 24.0f}, role);
 		// Zoom cluster buttons.
 		ccBind(painter, CalypsoGeoscapeHdShell::resolveWidget(state, "btnZoomIn"), RectF{layout.zoomControls.x, layout.zoomControls.y, 40.0f, 42.0f}, role);
 		ccBind(painter, CalypsoGeoscapeHdShell::resolveWidget(state, "btnZoomOut"), RectF{layout.zoomControls.x, layout.zoomControls.y + 42.0f, 40.0f, 42.0f}, role);

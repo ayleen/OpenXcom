@@ -44,8 +44,6 @@ struct CommandCenterLayout
 
 	RectF baseSelector;
 	RectF dateTimeBlock;
-	RectF systemStatusBlock;
-	RectF notificationButton;
 
 	RectF zoomControls;
 
