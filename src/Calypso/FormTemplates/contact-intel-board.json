@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "id": "contact-intel-board",
-  "version": 5,
+  "version": 6,
   "buttonCount": {
     "min": 3,
     "max": 3
@@ -355,6 +355,8 @@
     "scaleFrom": 0.985,
     "easing": "ease-out",
     "radarSweepPeriodMs": 3600,
+    "radarContactDecayFloor": 0.12,
+    "radarContactDecayExponent": 2.4,
     "captureModeDurationMs": 0
   }
 }

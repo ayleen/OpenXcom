@@ -257,6 +257,8 @@ void CalypsoF17UfoDetectedUi::collect(CalypsoHdFrameBuilder& builder) const
     m.radarAxisColor = CalypsoF17UfoDetectedGen::kRadarAxis;
     m.radarSweepColor = CalypsoF17UfoDetectedGen::kRadarSweep;
     m.radarSweepPeriodMs = CalypsoF17UfoDetectedGen::kRadarSweepPeriodMs;
+    m.radarContactDecayFloor = CalypsoF17UfoDetectedGen::kRadarContactDecayFloor;
+    m.radarContactDecayExponent = CalypsoF17UfoDetectedGen::kRadarContactDecayExponent;
     m.factLabelColor = CalypsoF17UfoDetectedGen::kFactLabel;
     m.factValueColor = CalypsoF17UfoDetectedGen::kFactValue;
     m.plotFrameColor = CalypsoF17UfoDetectedGen::kPlotFrame;
@@ -313,19 +315,21 @@ void CalypsoF17UfoDetectedUi::collect(CalypsoHdFrameBuilder& builder) const
     const double contactRadius = std::min(plot.w, plot.h) * 0.36;
     if (dirLen < 1e-6)
     {
-        m.contact = CalypsoContactIntelMarker{centerX, centerY,
-            ufo ? std::string(_state->tr(ufo->getRules()->getSize())) : std::string()};
+        m.contact = CalypsoContactIntelMarker{centerX, centerY, m.titleText};
     }
     else
     {
         m.contact = CalypsoContactIntelMarker{
             centerX + (int)std::llround(dirX / dirLen * contactRadius),
             centerY - (int)std::llround(dirY / dirLen * contactRadius),
-            ufo ? std::string(_state->tr(ufo->getRules()->getSize())) : std::string()};
+            m.titleText};
     }
     m.base = CalypsoContactIntelMarker{centerX, centerY,
         nearest ? nearest->getName(_state->_game->getLanguage()) : std::string()};
-    m.courseWord = ufo ? boardCourseWord(ufo->getDirection()) : std::string("NONE");
+    // Grounded contacts may retain a stale direction key in the vanilla state;
+    // only a genuinely moving UFO contributes a course vector to the board.
+    m.courseWord = (ufo && ufo->getStatus() == Ufo::FLYING && ufo->getSpeed() > 0)
+        ? boardCourseWord(ufo->getDirection()) : std::string("NONE");
 
     // Fact rows: labels are config-owned generated copy (reference == engine);
     // every value maps to a real runtime accessor or calculation.

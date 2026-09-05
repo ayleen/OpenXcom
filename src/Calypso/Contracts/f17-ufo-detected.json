@@ -572,6 +572,8 @@
     "scaleFrom": 0.985,
     "easing": "ease-out",
     "radarSweepPeriodMs": 3600,
+    "radarContactDecayFloor": 0.12,
+    "radarContactDecayExponent": 2.4,
     "captureModeDurationMs": 0
   }
 }

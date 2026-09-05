@@ -384,8 +384,8 @@ def offset_board_rect(origin, rect):
 
 def validate_intel_board_template(template):
     """Pin the reviewed contact-intel-board shell and canonical form chrome."""
-    if template.get("version") != 5:
-        raise FormError("contact-intel-board template must use version 5")
+    if template.get("version") != 6:
+        raise FormError("contact-intel-board template must use version 6")
     if template.get("buttonCount") != {"min": 3, "max": 3}:
         raise FormError("contact-intel-board template must require exactly three buttons")
     tones = template.get("supportedButtonTones")
@@ -411,10 +411,14 @@ def validate_intel_board_template(template):
             raise FormError("template style." + key + " must be RRGGBBAA")
     motion = template.get("motion") or {}
     if set(motion) != {"durationMs", "scaleFrom", "easing",
-                       "radarSweepPeriodMs", "captureModeDurationMs"}:
+                       "radarSweepPeriodMs", "radarContactDecayFloor",
+                       "radarContactDecayExponent", "captureModeDurationMs"}:
         raise FormError("contact-intel-board motion keys drifted from the reviewed set")
     if motion.get("radarSweepPeriodMs") != 3600:
         raise FormError("contact-intel-board radar sweep period must stay 3600ms")
+    if motion.get("radarContactDecayFloor") != 0.12 \
+            or motion.get("radarContactDecayExponent") != 2.4:
+        raise FormError("contact-intel-board contact persistence must stay at floor 0.12 / exponent 2.4")
     sizing = template.get("contentSizing") or {}
     expected_sizing = {
         "wide": {"safeMarginPx": 24, "factCount": 5, "factLabelWidth": 126,

@@ -36,9 +36,15 @@ namespace Calypso
 enum class CalypsoHdItemKind { Panel, Text };
 
 /// Reusable SDF silhouettes for styled panels. RoundedRect preserves the
-/// existing family behavior; F33 uses OpposingCutRect for its command frame
-/// and WarningTriangle for the small amber caution glyph.
-enum class CalypsoHdPanelShape { RoundedRect = 0, OpposingCutRect = 1, WarningTriangle = 2 };
+/// existing family behavior; F33 uses OpposingCutRect for its command frame,
+/// WarningTriangle for the small amber caution glyph, and Radar for the
+/// procedural contact-intel instrument (one GPU quad).
+enum class CalypsoHdPanelShape {
+	RoundedRect = 0,
+	OpposingCutRect = 1,
+	WarningTriangle = 2,
+	Radar = 3
+};
 
 /// Horizontal/vertical glyph alignment inside the item's logical box. Mirrors
 /// the engine's ALIGN_* enums by value (0/1/2) but kept local so the builder
@@ -64,6 +70,20 @@ struct CalypsoHdPanelStyle
 	float gradDirY = 1.0f;          // default ~165deg-like downward drift
 	std::uint32_t glowRgba = 0;     // soft outer falloff colour (alpha = strength)
 	float glowRadiusPx = 0.0f;      // 0 => no glow
+
+	// Radar-only uniforms. They are deliberately carried in the existing
+	// per-item style so animation values are uploaded every draw and cannot
+	// become stale in the shared panel shader.
+	std::uint32_t radarRingColorRgba = 0;
+	std::uint32_t radarStrongRingColorRgba = 0;
+	std::uint32_t radarAxisColorRgba = 0;
+	std::uint32_t radarSweepColorRgba = 0;
+	float radarSweepAngle = 0.0f;   // north=0, clockwise radians
+	float radarTrailRadians = 0.55f;
+	float radarRingWidthPx = 1.0f;
+	float radarTickWidthPx = 1.0f;
+	float radarGrainAmount = 0.02f;
+	float radarSeed = 0.0f;
 };
 
 /// One physical draw the adapter requests. A Panel is a solid/tinted rect

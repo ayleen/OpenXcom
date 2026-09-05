@@ -329,9 +329,16 @@ def validate_family(doc, rel, profile, engine_text_calibration=False):
                         != message.get("x", 0) + message.get("width", 0)):
                     fail(rel + ": " + layout_name + " rightmost action left the text rail")
         if profile == "contact-intel-board":
-            sweep_period = (doc.get("motion") or {}).get("radarSweepPeriodMs")
+            motion = doc.get("motion") or {}
+            sweep_period = motion.get("radarSweepPeriodMs")
             if not isinstance(sweep_period, int) or not 1000 <= sweep_period <= 10000:
                 fail(rel + ": motion.radarSweepPeriodMs must be an integer in [1000, 10000]")
+            decay_floor = motion.get("radarContactDecayFloor")
+            if not isinstance(decay_floor, (int, float)) or not 0.0 <= decay_floor <= 0.5:
+                fail(rel + ": motion.radarContactDecayFloor must be in [0, 0.5]")
+            decay_exponent = motion.get("radarContactDecayExponent")
+            if not isinstance(decay_exponent, (int, float)) or not 1.0 <= decay_exponent <= 6.0:
+                fail(rel + ": motion.radarContactDecayExponent must be in [1, 6]")
         return
     if profile == "command-card":
         if doc.get("visualProfile") != "command-card-v1":
@@ -1000,6 +1007,10 @@ def emit_small_confirmation_h(doc, rel, ns, prefix):
     if form["archetype"] == "contact-intel-board":
         out.append("inline constexpr int kRadarSweepPeriodMs = "
                    + str(int(m["radarSweepPeriodMs"])) + ";")
+        out.append("inline constexpr double kRadarContactDecayFloor = %.6f;"
+                   % float(m["radarContactDecayFloor"]))
+        out.append("inline constexpr double kRadarContactDecayExponent = %.6f;"
+                   % float(m["radarContactDecayExponent"]))
     out.append("inline const " + prefix + "GenLayout* layoutForDesign(int dw, int dh)")
     out.append("{")
     out.append("	for (int i = 0; i < kLayoutCount; ++i)")

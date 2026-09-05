@@ -7,10 +7,53 @@
  * projected rectangles. This renderer is the single physical implementation
  * of the archetype.
  */
+#include <algorithm>
+#include <cmath>
+#include <cstdint>
+
+namespace OpenXcom
+{
+namespace Calypso
+{
+
+inline double calypsoContactBearingTurn(double dx, double dy)
+{
+	if (std::abs(dx) < 1e-12 && std::abs(dy) < 1e-12)
+		return 0.0;
+	const double fullTurn = 6.28318530717958647692;
+	double turn = std::atan2(dx, -dy) / fullTurn;
+	if (turn < 0.0) turn += 1.0;
+	return turn;
+}
+
+inline double calypsoContactEchoIntensity(
+	double sweepTurn,
+	double contactTurn,
+	double floor,
+	double exponent)
+{
+	const double safeFloor = std::max(0.0, std::min(1.0, floor));
+	const double safeExponent = std::max(0.01, exponent);
+	double elapsed = std::fmod(sweepTurn - contactTurn, 1.0);
+	if (elapsed < 0.0) elapsed += 1.0;
+	return safeFloor + (1.0 - safeFloor)
+		* std::pow(std::max(0.0, 1.0 - elapsed), safeExponent);
+}
+
+inline std::uint32_t calypsoRgbaScaleAlpha(std::uint32_t rgba, double intensity)
+{
+	const double safeIntensity = std::max(0.0, std::min(1.0, intensity));
+	const std::uint32_t alpha = rgba & 0xffu;
+	const std::uint32_t scaled = static_cast<std::uint32_t>(
+		std::llround(alpha * safeIntensity));
+	return (rgba & 0xffffff00u) | std::min<std::uint32_t>(0xffu, scaled);
+}
+
+} // namespace Calypso
+} // namespace OpenXcom
+
 #ifdef __EMSCRIPTEN__
 
-#include <algorithm>
-#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -196,6 +239,8 @@ struct CalypsoContactIntelBoardModel
 	std::uint32_t radarAxisColor = 0;
 	std::uint32_t radarSweepColor = 0;
 	int radarSweepPeriodMs = 0;
+	double radarContactDecayFloor = 0.0;
+	double radarContactDecayExponent = 1.0;
 	std::uint32_t factLabelColor = 0;
 	std::uint32_t factValueColor = 0;
 	/// Radar marker colours; the v1 plot* field names are kept on purpose --

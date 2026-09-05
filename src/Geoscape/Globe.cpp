@@ -886,18 +886,24 @@ void Globe::toggleDetail()
  */
 bool Globe::targetNear(Target* target, int x, int y) const
 {
+#ifdef __EMSCRIPTEN__
+	if (_gpuState && _gpuState->_gpuDirectMode)
+	{
+		for (const auto& marker : _gpuState->_gpuMarkerCommittedDraws)
+		{
+			if (marker.target == target && marker.frame != nullptr)
+				return Calypso::calypsoGeoscapeMarkerSpriteHit(
+					x, y, marker.x, marker.y,
+					marker.frame->getWidth(), marker.frame->getHeight(), true, NEAR_RADIUS);
+		}
+		return false;
+	}
+#endif
 	Sint16 tx, ty;
 	if (pointBack(target->getLongitude(), target->getLatitude()))
 		return false;
 	polarToCart(target->getLongitude(), target->getLatitude(), &tx, &ty);
-
-	int dx = x - tx;
-	int dy = y - ty;
-	bool hdMarker = false;
-#ifdef __EMSCRIPTEN__
-	hdMarker = _gpuState && _gpuState->_gpuDirectMode;
-#endif
-	return Calypso::calypsoGeoscapeMarkerHit(dx, dy, hdMarker, NEAR_RADIUS);
+	return Calypso::calypsoGeoscapeMarkerHit(x - tx, y - ty, false, NEAR_RADIUS);
 }
 
 /**
@@ -2094,7 +2100,7 @@ void Globe::drawTarget(Target *target, Surface *surface)
 #ifdef __EMSCRIPTEN__
 		if (_gpuState->_gpuDirectMode && surface == _markers)
 		{
-			CalypsoGeoscapeHdGlobeDirect::recordMarker(this, marker,
+			CalypsoGeoscapeHdGlobeDirect::recordMarker(this, target, marker,
 					x - marker->getWidth() / 2, y - marker->getHeight() / 2, shade);
 			return;
 		}

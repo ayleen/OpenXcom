@@ -91,6 +91,8 @@ inline constexpr int kLayoutCount = 3;
 inline constexpr int kMotionDurationMs = 150;
 inline constexpr float kMotionScaleFrom = 0.985000f;
 inline constexpr int kRadarSweepPeriodMs = 3600;
+inline constexpr double kRadarContactDecayFloor = 0.120000;
+inline constexpr double kRadarContactDecayExponent = 2.400000;
 inline const CalypsoF17UfoDetectedGenLayout* layoutForDesign(int dw, int dh)
 {
 	for (int i = 0; i < kLayoutCount; ++i)

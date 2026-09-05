@@ -472,6 +472,7 @@ void calypsoCollectContactIntelBoard(
 	const double ease = 1.0 - (1.0 - progress) * (1.0 - progress);
 	const double scale = model.motionScaleFrom + (1.0 - model.motionScaleFrom) * ease;
 	const float opacity = (float)ease;
+	float layerOpacity = opacity;
 
 	auto motionRect = [&](const CalypsoLogicalRect& rect) -> CalypsoLogicalRect
 	{
@@ -532,7 +533,7 @@ void calypsoCollectContactIntelBoard(
 		item.rect = motionRect(rect);
 		item.colorRgba = style.fillTopRgba;
 		item.panelStyle = style;
-		item.opacity = opacity;
+		item.opacity = layerOpacity;
 		item.widget = widget;
 		stamp(item, role);
 		builder.add(item);
@@ -603,7 +604,7 @@ void calypsoCollectContactIntelBoard(
 			model.projectionScaleY, sourceRect, item.rect, true);
 		item.hAlign = hAlign;
 		item.vAlign = vAlign;
-		item.opacity = opacity;
+		item.opacity = layerOpacity;
 		item.widget = widget;
 		stamp(item, role);
 		builder.add(item);
@@ -642,94 +643,78 @@ void calypsoCollectContactIntelBoard(
 	const int centerX = model.plotArea.x + model.plotArea.w / 2;
 	const int centerY = model.plotArea.y + model.plotArea.h / 2;
 	const int radarMin = std::min(model.plotArea.w, model.plotArea.h);
-	// Concentric range rings; the outer ring is the strong accent.
-	const float ringPx = (float)std::max(1, scaledPx(1.0));
-	for (const double fraction : {0.285, 0.51, 0.73})
-	{
-		addRing(centerX, centerY, (int)std::llround(radarMin * fraction),
-			model.radarRingColor, ringPx, BOARD_ROLE_PLOT_GRID);
-	}
-	addRing(centerX, centerY, (int)std::llround(radarMin * 0.95),
-		model.radarStrongRingColor, ringPx, BOARD_ROLE_PLOT_GRID);
-	// Fine bearing ticks make the circular instrument read as a sonar rather
-	// than a generic chart. Stronger twelve-point ticks anchor the clock face.
+	// The complete instrument is one procedural panel draw. Keeping the disk,
+	// rings, bearing ticks, scanlines, grain, and sweep in the fragment shader
+	// avoids the hundreds of CPU quads previously emitted for the beam.
 	const double fullTurn = 6.28318530717958647692;
-	const double tickRadius = radarMin * 0.475;
-	for (int i = 0; i < 96; ++i)
-	{
-		const double angle = fullTurn * i / 96.0;
-		const int tick = scaledPx(i % 8 == 0 ? 2.0 : 1.0);
-		addDisc(
-			(int)std::llround(centerX + std::cos(angle) * tickRadius),
-			(int)std::llround(centerY + std::sin(angle) * tickRadius),
-			tick, i % 8 == 0 ? model.radarStrongRingColor : model.radarRingColor,
-			BOARD_ROLE_PLOT_GRID);
-	}
-	// Cross axes.
-	addQuad({model.plotArea.x, centerY, model.plotArea.w, 1},
-		model.radarAxisColor, BOARD_ROLE_PLOT_GRID);
-	addQuad({centerX, model.plotArea.y, 1, model.plotArea.h},
-		model.radarAxisColor, BOARD_ROLE_PLOT_GRID);
-
-	// Clockwise live sonar sweep. Only an explicit deterministic harness
-	// capture may freeze it; stale harness flags never stop production motion.
+	bool radarFrozenCapture = false;
+	double radarTurn = 0.0;
 	if (model.radarSweepPeriodMs > 0)
 	{
 		const CalypsoHarnessSession& session = calypsoHarnessSession();
-		const bool frozenCapture = session.hostUp && session.motionDisabled;
-		double turn = 0.0;
-		if (!frozenCapture)
+		radarFrozenCapture = session.hostUp && session.motionDisabled;
+		if (!radarFrozenCapture)
 		{
 			const std::uint32_t period = (std::uint32_t)model.radarSweepPeriodMs;
-			turn = (double)(SDL_GetTicks() % period) / (double)period;
-		}
-		const double sweepAngle = turn * fullTurn - 1.57079632679489661923;
-		const double beamRadius = radarMin * 0.475;
-		for (int ray = 3; ray >= 0; --ray)
-		{
-			const double angle = sweepAngle - ray * 0.11;
-			const double beamX = std::cos(angle);
-			const double beamY = std::sin(angle);
-			const int beamDot = std::max(1, scaledPx(ray == 0 ? 3.0 : 2.0));
-			const std::uint32_t color =
-				ray == 0 ? model.plotBaseColor : model.radarSweepColor;
-			for (double distance = scaledPx(5.0); distance <= beamRadius;
-				distance += beamDot)
-			{
-				const int x = (int)std::llround(centerX + beamX * distance);
-				const int y = (int)std::llround(centerY + beamY * distance);
-				addQuad({x - beamDot / 2, y - beamDot / 2, beamDot, beamDot},
-					color, BOARD_ROLE_PLOT_GRID);
-			}
+			radarTurn = (double)(SDL_GetTicks() % period) / (double)period;
 		}
 	}
+	CalypsoHdPanelStyle radar;
+	radar.styled = true;
+	radar.shape = CalypsoHdPanelShape::Radar;
+	radar.borderWidthPx = std::max(1.0f, (float)scaledPx(1.0));
+	radar.borderColorRgba = model.radarStrongRingColor;
+	// Sonar-specific dark green-black material: a radial center lift and
+	// darker edge are applied procedurally by the Radar shader branch.
+	radar.fillTopRgba = calypsoRgba(8, 35, 27, 0xf2);
+	radar.fillBottomRgba = calypsoRgba(1, 10, 9, 0xf2);
+	radar.radarRingColorRgba = model.radarRingColor;
+	radar.radarStrongRingColorRgba = model.radarStrongRingColor;
+	radar.radarAxisColorRgba = model.radarAxisColor;
+	radar.radarSweepColorRgba = model.radarSweepColor;
+	radar.radarSweepAngle = (float)(radarTurn * fullTurn);
+	radar.radarTrailRadians = 0.55f;
+	radar.radarRingWidthPx = 0.5f * scaledPx(1.0);
+	radar.radarTickWidthPx = 0.4f * scaledPx(1.0);
+	radar.radarGrainAmount = 0.018f;
+	radar.radarSeed = 17.0f;
+	addStyled(model.plotArea, radar, nullptr, BOARD_ROLE_PLOT_PANEL);
 
 	// Base marker: the radar center is the nearest base.
 	if (model.base.x || model.base.y)
 	{
 		addDisc(centerX, centerY, scaledPx(8.0), model.plotBaseColor, BOARD_ROLE_PLOT_BASE);
 	}
+	if (!model.base.label.empty())
+	{
+		const int baseLabelW = scaledPx(wide ? 82.0 : 68.0);
+		const int baseLabelH = scaledPx(16.0);
+		const int baseLabelX = std::max(model.plotArea.x + scaledPx(8.0),
+			std::min(model.plotArea.x + model.plotArea.w - baseLabelW - scaledPx(8.0),
+				centerX - baseLabelW / 2));
+		const int baseLabelY = model.contact.y >= centerY
+			? centerY - baseLabelH - scaledPx(10.0) : centerY + scaledPx(10.0);
+		addText({baseLabelX, baseLabelY, baseLabelW, baseLabelH}, nullptr, mono,
+			model.base.label, model.plotBaseColor, CalypsoHdHAlign::Center,
+			CalypsoHdVAlign::Middle, scaledPx(9.0, 8), baseLabelW, 0.0,
+			BOARD_ROLE_PLOT_LABEL);
+	}
 
-	// Contact bearing sweep: soft filled discs behind the contact tint the
-	// direction without a rotated wedge primitive (deterministic, rest state).
+	// Every contact-specific item shares one persistence clock. Apply it at
+	// draw time so fading labels keep a stable text-raster cache key.
+	const double contactTurn = calypsoContactBearingTurn(
+		(double)(model.contact.x - centerX), (double)(model.contact.y - centerY));
+	const double contactIntensity =
+		(model.radarSweepPeriodMs <= 0 || radarFrozenCapture)
+			? 1.0
+			: calypsoContactEchoIntensity(
+				radarTurn, contactTurn,
+				model.radarContactDecayFloor, model.radarContactDecayExponent);
+	layerOpacity = opacity * (float)contactIntensity;
+
 	double cdx = 0.0;
 	double cdy = 0.0;
 	const bool hasCourse = courseVector(model.courseWord, cdx, cdy);
-	if (hasCourse)
-	{
-		const double sweepDirX = (double)(model.contact.x - centerX);
-		const double sweepDirY = (double)(model.contact.y - centerY);
-		const double sweepLen = std::sqrt(sweepDirX * sweepDirX + sweepDirY * sweepDirY);
-		if (sweepLen > 1.0)
-		{
-			addDisc(model.contact.x, model.contact.y,
-				(int)std::llround(radarMin * 0.24), model.radarSweepColor,
-				BOARD_ROLE_PLOT_GRID);
-			addDisc(model.contact.x, model.contact.y,
-				(int)std::llround(radarMin * 0.14), model.radarSweepColor,
-				BOARD_ROLE_PLOT_GRID);
-		}
-	}
 
 	// Dotted base->contact bearing line; the final quarter picks up the amber
 	// course tint toward the target.
@@ -752,13 +737,75 @@ void calypsoCollectContactIntelBoard(
 		}
 	}
 
-	// Contact marker: soft halo disc + hard square core (no pulse; captures).
-	const int core = scaledPx(14.0);
+	const int core = scaledPx(8.0);
 	const int halo = scaledPx(28.0);
-	addDisc(model.contact.x, model.contact.y, halo, model.plotContactHaloColor,
+
+	// The amber acquisition ring is an opening-only event. It expands for
+	// roughly 700ms and then disappears; deterministic motion=0 captures must
+	// remain perfectly still and never hold the pulse on screen.
+	const CalypsoHarnessSession& pulseSession = calypsoHarnessSession();
+	const bool pulseFrozen = pulseSession.hostUp && pulseSession.motionDisabled;
+	const std::uint64_t frameNow = CalypsoHdUiOverlay::instance().frameId();
+	const std::uint64_t openingFrames = frameNow >= motion.presentedAtFrame
+		? frameNow - motion.presentedAtFrame : 0;
+	const double pulseProgress = pulseFrozen ? 1.0
+		: std::min(1.0, (double)openingFrames / (700.0 * 60.0 / 1000.0));
+	if (pulseProgress < 1.0)
+	{
+		const int pulseDiameter = (int)std::llround(core
+			+ radarMin * 0.16 * pulseProgress);
+		const std::uint32_t pulseColor = calypsoRgbaScaleAlpha(
+			model.plotContactColor, (1.0 - pulseProgress) * 0.85);
+		addRing(model.contact.x, model.contact.y, pulseDiameter, pulseColor,
+			std::max(1.0f, (float)scaledPx(1.0)), BOARD_ROLE_PLOT_CONTACT);
+	}
+
+	// Core, halo, brackets, and identity belong to the same fading return.
+	addDisc(model.contact.x, model.contact.y, halo,
+		model.plotContactHaloColor,
 		BOARD_ROLE_PLOT_CONTACT);
 	addQuad({model.contact.x - core / 2, model.contact.y - core / 2, core, core},
-		model.plotContactColor, BOARD_ROLE_PLOT_CONTACT);
+		model.plotContactColor,
+		BOARD_ROLE_PLOT_CONTACT);
+	const std::uint32_t markerColor = model.plotContactColor;
+	const int bracketGap = scaledPx(6.0);
+	const int bracketExtent = scaledPx(10.0);
+	const int bracketStroke = std::max(1, scaledPx(2.0));
+	auto addBracketCorner = [&](int sx, int sy)
+	{
+		const int xInner = model.contact.x + sx * bracketGap;
+		const int xOuter = model.contact.x + sx * bracketExtent;
+		const int yInner = model.contact.y + sy * bracketGap;
+		const int yOuter = model.contact.y + sy * bracketExtent;
+		addQuad({std::min(xInner, xOuter), yOuter - bracketStroke / 2,
+				std::abs(xOuter - xInner) + bracketStroke, bracketStroke},
+			markerColor, BOARD_ROLE_PLOT_CONTACT);
+		addQuad({xOuter - bracketStroke / 2, std::min(yInner, yOuter),
+				bracketStroke, std::abs(yOuter - yInner) + bracketStroke},
+			markerColor, BOARD_ROLE_PLOT_CONTACT);
+	};
+	addBracketCorner(-1, -1);
+	addBracketCorner(1, -1);
+	addBracketCorner(-1, 1);
+	addBracketCorner(1, 1);
+
+	// Identity text comes from the runtime contact model, not a
+	// fabricated SITE-* token. Bias the box toward the plot centre and clamp it
+	// inside the disk so wide/compact/portrait layouts keep it readable.
+	if (!model.contact.label.empty())
+	{
+		const int labelW = std::min(scaledPx(112.0), (int)(radarMin * 0.68));
+		const int labelH = scaledPx(24.0);
+		const int labelX = centerX - labelW / 2;
+		const int labelOffset = std::max(scaledPx(30.0),
+			std::abs(model.contact.y - centerY) - scaledPx(28.0));
+		const int labelY = centerY - labelH / 2
+			+ (model.contact.y >= centerY ? labelOffset : -labelOffset);
+		addText({labelX, labelY, labelW, labelH}, nullptr, mono,
+			model.contact.label, markerColor, CalypsoHdHAlign::Center,
+			CalypsoHdVAlign::Middle, scaledPx(9.0, 8), labelW, 0.0,
+			BOARD_ROLE_PLOT_LABEL);
+	}
 
 	// Course stub: short dotted heading ray from the contact marker.
 	if (hasCourse)
@@ -775,7 +822,8 @@ void calypsoCollectContactIntelBoard(
 				model.plotCourseColor, BOARD_ROLE_PLOT_COURSE);
 		}
 	}
-
+	// The instrument scale and the rest of the card are not contact echoes.
+	layerOpacity = opacity;
 	// Cardinal letters stay inside the plot panel even when the glyph boxes
 	// leave the circular plot area.
 	{
