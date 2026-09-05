@@ -904,34 +904,38 @@ void Globe::toggleDetail()
  */
 bool Globe::targetNear(Target* target, int x, int y) const
 {
+#ifdef __EMSCRIPTEN__
+	if (_gpuState && _gpuState->_gpuDirectMode)
+	{
+		CalypsoGeoscapeHdGlobeDirect::PhysicalGlobeProjection physical;
+		const bool commandCenter = Calypso::CommandCenter::calypsoCcEnabled();
+		if (commandCenter && !CalypsoGeoscapeHdGlobeDirect::physicalGlobeProjection(this, physical))
+			return false;
+		for (const auto& marker : _gpuState->_gpuMarkerCommittedDraws)
+		{
+			if (marker.target != target || marker.frame == nullptr)
+				continue;
+			int centerX = marker.x + marker.frame->getWidth() / 2;
+			int centerY = marker.y + marker.frame->getHeight() / 2;
+			if (commandCenter)
+			{
+				centerX = (int)std::lround(getX()
+					+ (physical.originX + centerX * physical.scaleX - physical.surfaceOriginX)
+						/ physical.surfaceScaleX);
+				centerY = (int)std::lround(getY()
+					+ (physical.originY + centerY * physical.scaleY - physical.surfaceOriginY)
+						/ physical.surfaceScaleY);
+			}
+			return Calypso::calypsoGeoscapeMarkerHit(x - centerX, y - centerY, true, NEAR_RADIUS);
+		}
+		return false;
+	}
+#endif
 	Sint16 tx, ty;
 	if (pointBack(target->getLongitude(), target->getLatitude()))
 		return false;
 	polarToCart(target->getLongitude(), target->getLatitude(), &tx, &ty);
-#ifdef __EMSCRIPTEN__
-	if (Calypso::CommandCenter::calypsoCcEnabled() && _gpuState
-		&& _gpuState->_gpuDirectMode && _gpuState->_directScreen)
-	{
-		CalypsoGeoscapeHdGlobeDirect::PhysicalGlobeProjection physical;
-		if (CalypsoGeoscapeHdGlobeDirect::physicalGlobeProjection(this, physical))
-		{
-			const double targetPhysicalX = physical.originX + tx * physical.scaleX;
-			const double targetPhysicalY = physical.originY + ty * physical.scaleY;
-			tx = (Sint16)std::lround(getX()
-				+ (targetPhysicalX - physical.surfaceOriginX) / physical.surfaceScaleX);
-			ty = (Sint16)std::lround(getY()
-				+ (targetPhysicalY - physical.surfaceOriginY) / physical.surfaceScaleY);
-		}
-	}
-#endif
-
-	int dx = x - tx;
-	int dy = y - ty;
-	bool hdMarker = false;
-#ifdef __EMSCRIPTEN__
-	hdMarker = _gpuState && _gpuState->_gpuDirectMode;
-#endif
-	return Calypso::calypsoGeoscapeMarkerHit(dx, dy, hdMarker, NEAR_RADIUS);
+	return Calypso::calypsoGeoscapeMarkerHit(x - tx, y - ty, false, NEAR_RADIUS);
 }
 
 /**
@@ -2128,7 +2132,7 @@ void Globe::drawTarget(Target *target, Surface *surface)
 #ifdef __EMSCRIPTEN__
 		if (_gpuState->_gpuDirectMode && surface == _markers)
 		{
-			CalypsoGeoscapeHdGlobeDirect::recordMarker(this, marker,
+			CalypsoGeoscapeHdGlobeDirect::recordMarker(this, target, marker,
 					x - marker->getWidth() / 2, y - marker->getHeight() / 2, shade);
 			return;
 		}
@@ -2351,7 +2355,15 @@ void Globe::mousePress(Action *action, State *state)
 			_mouseScrollStopApplied = false;
 #endif
 			_isMouseScrolled = false;
+#ifdef __EMSCRIPTEN__
+			// The direct bridge has already normalized this event to display
+			// coordinates. SDL's polled cursor may still describe an earlier
+			// event or the physical canvas; never use it as a click anchor.
+			_xBeforeMouseScrolling = action->getDetails()->button.x;
+			_yBeforeMouseScrolling = action->getDetails()->button.y;
+#else
 			SDL_GetMouseState(&_xBeforeMouseScrolling, &_yBeforeMouseScrolling);
+#endif
 			_lonBeforeMouseScrolling = _cenLon;
 			_latBeforeMouseScrolling = _cenLat;
 			_totalMouseMoveX = 0; _totalMouseMoveY = 0;
@@ -2377,9 +2389,8 @@ void Globe::mouseRelease(Action *action, State *state)
 	cartToPolar((Sint16)floor(action->getAbsoluteXMouse()), (Sint16)floor(action->getAbsoluteYMouse()), &lon, &lat);
 	if (isGlobePanButton(action->getDetails()->button.button))
 	{
-		/* §16.5: guard against duplicate release dispatch (same ownership
-		 * model as mousePress).  stopScrolling warps the cursor back;
-		 * calling it twice is harmless but the guard is cleaner. */
+		// Preserve scroll classification until mouseClick, which distinguishes
+		// a short click from a completed drag.
 		if (_isMouseScrolling)
 		{
 			stopScrolling(action);
@@ -2593,13 +2604,13 @@ void Globe::rebuildEarthData()
 void Globe::stopScrolling(Action *action)
 {
 #ifdef __EMSCRIPTEN__
-	/* A browser button reaches both the synchronous direct bridge and SDL's
-	 * queued path. mouseRelease precedes mouseClick for one event, so preserve
-	 * scroll classification while applying cursor restoration only once. */
+	// mouseRelease precedes mouseClick for the same event. Restore its
+	// display-space press position once without warping the browser cursor.
 	if (_mouseScrollStopApplied) return;
 	_mouseScrollStopApplied = true;
-#endif
+#else
 	SDL_WarpMouse(_xBeforeMouseScrolling, _yBeforeMouseScrolling);
+#endif
 	action->setMouseAction(_xBeforeMouseScrolling, _yBeforeMouseScrolling, getX(), getY());
 }
 

@@ -34,6 +34,12 @@
 #include "../Geoscape/UfoLostState.h"
 #include "../Geoscape/UfoDetectedState.h"
 #include "../Geoscape/MissionDetectedState.h"
+#include "../Calypso/CalypsoTutorial.h"
+#include "../Geoscape/GeoscapeState.h"
+#include "../Mod/RuleAlienMission.h"
+#include "../Savegame/AlienMission.h"
+#include "../Savegame/Ufo.h"
+#include "../Mod/UfoTrajectory.h"
 #include "../Geoscape/TrainingFinishedState.h"
 #include "../Geoscape/ProductionCompleteState.h"
 #include "../Geoscape/ItemsArrivingState.h"
@@ -190,7 +196,52 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 	case CalypsoHarnessScenario::F17UfoLost:
 		return new CraftErrorState(nullptr, "Contact with UFO has been lost.");
 	case CalypsoHarnessScenario::F17UfoDetected:
-		return new CraftErrorState(nullptr, "Unidentified craft detected on radar.");
+	{
+		// The S01 board renders real contact data, so this fixture builds a
+		// REAL UfoDetectedState (the old CraftErrorState stand-in could not
+		// provide it). Deterministic: first mod USO rule, one fixture base,
+		// fixed coordinates; the unpushed GeoscapeState and fixture campaign
+		// objects intentionally live for the harness process lifetime (F21
+		// defense precedent).
+		Game* game = getCurrentGame();
+		if (!game || !game->getMod() || game->getMod()->getUfosList().empty())
+			return nullptr;
+		SavedGame* save = game->getSavedGame();
+		if (!save)
+		{
+			save = new SavedGame();
+			game->setSavedGame(save);
+		}
+		Base* base = new Base(game->getMod());
+		base->setLongitude(0.0);
+		base->setLatitude(0.5);
+		save->getBases()->push_back(base);
+		RuleUfo* rule = game->getMod()->getUfo(game->getMod()->getUfosList().front(), false);
+		if (!rule) return nullptr;
+		Ufo* ufo = new Ufo(rule, 1);
+		// The vanilla ctor dereferences the mission (hyperwave rows), so the
+		// fixture binds a live mission like the F21 defense fixture does.
+		const RuleAlienMission* missionRule = nullptr;
+		for (const std::string& name : game->getMod()->getAlienMissionList())
+		{
+			missionRule = game->getMod()->getAlienMission(name, false);
+			if (missionRule) break;
+		}
+		if (missionRule)
+		{
+			ufo->setMissionInfo(new AlienMission(*missionRule),
+				game->getMod()->getUfoTrajectory(UfoTrajectory::RETALIATION_ASSAULT_RUN, true));
+		}
+		// OpenXcom latitude increases southward. Keep the fixture distinctly
+		// south-east of the base so an inverted vertical projection is visible.
+		ufo->setLongitude(0.2);
+		ufo->setLatitude(0.72);
+		// The vanilla ctor fires the "ufo.detected" tutorial step; disarm the
+		// campaign tutorial so it cannot push itself above the harness target.
+		CalypsoTutorial::get().disableForCampaign();
+		GeoscapeState* geoscape = new GeoscapeState();
+		return new UfoDetectedState(ufo, geoscape, true, false);
+	}
 	case CalypsoHarnessScenario::F17MissionDetected:
 		return new CraftErrorState(nullptr, "Alien mission detected nearby.");
 	case CalypsoHarnessScenario::F22TrainingFinished:
@@ -386,7 +437,8 @@ int calypso_hd_harness_open(int scenarioId, int layoutClass, int sideBySide)
 	}
 	const OpenXcom::Calypso::CalypsoLayoutClass layout =
 		layoutClass == 1 ? OpenXcom::Calypso::CalypsoLayoutClass::Wide
-		                 : OpenXcom::Calypso::CalypsoLayoutClass::Compact;
+		: layoutClass == 2 ? OpenXcom::Calypso::CalypsoLayoutClass::Portrait
+		                   : OpenXcom::Calypso::CalypsoLayoutClass::Compact;
 	return OpenXcom::Calypso::calypsoHdHarnessOpen(
 		static_cast<OpenXcom::Calypso::CalypsoHarnessScenario>(scenarioId), layout,
 		sideBySide != 0) ? 1 : 0;
@@ -423,7 +475,8 @@ int calypso_hd_harness_switch(int scenarioId, int layoutClass, int sideBySide)
 		OpenXcom::Calypso::calypsoHdHarnessSetSideBySide(false);
 	}
 	const CalypsoLayoutClass layout =
-		layoutClass == 1 ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact;
+		layoutClass == 1 ? CalypsoLayoutClass::Wide
+		: layoutClass == 2 ? CalypsoLayoutClass::Portrait : CalypsoLayoutClass::Compact;
 	return OpenXcom::Calypso::calypsoHdHarnessOpen(
 		static_cast<CalypsoHarnessScenario>(scenarioId), layout,
 		sideBySide != 0) ? 1 : 0;
@@ -454,7 +507,8 @@ int calypso_hd_harness_reconfigure(int layoutClass, int sideBySide)
 {
 	const OpenXcom::Calypso::CalypsoLayoutClass layout =
 		layoutClass == 1 ? OpenXcom::Calypso::CalypsoLayoutClass::Wide
-		                 : OpenXcom::Calypso::CalypsoLayoutClass::Compact;
+		: layoutClass == 2 ? OpenXcom::Calypso::CalypsoLayoutClass::Portrait
+		                   : OpenXcom::Calypso::CalypsoLayoutClass::Compact;
 	return OpenXcom::Calypso::calypsoHdHarnessReconfigure(layout, sideBySide != 0) ? 1 : 0;
 }
 

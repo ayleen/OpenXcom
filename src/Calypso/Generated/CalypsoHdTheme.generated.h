@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <cstring>
 namespace OpenXcom { namespace Calypso { namespace CalypsoHdThemeGen {
-inline constexpr const char* kContractVersion = "hd.2026-08-28.23";
+inline constexpr const char* kContractVersion = "hd.2026-08-29.1";
 
 // Semantic palette (0xRRGGBBAA).
 inline constexpr std::uint32_t kAccent = 0x74FFB0FFu;
@@ -69,6 +69,12 @@ inline constexpr float kBodyLineHeight = 1.500000f;
 inline constexpr int kTitleFontWeight = 700;
 inline constexpr int kLabelFontWeight = 700;
 inline constexpr int kBodyFontWeight = 400;
+inline constexpr int kButtonPrimaryLineHeightPx = 27;
+inline constexpr int kButtonSecondaryLineHeightPx = 15;
+inline constexpr int kButtonLabelGapPx = 2;
+inline constexpr int kButtonLabelPaddingYPx = 3;
+inline constexpr int kButtonSecondaryFontSizePx = 11;
+inline constexpr float kButtonSecondaryOpacity = 0.680000f;
 
 // Command action styling (Geoscape HD v2 contract s.10.1): fixed
 // canonical radius plus per-state gradient/border/glow tokens.

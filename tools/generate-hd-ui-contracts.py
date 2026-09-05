@@ -108,9 +108,15 @@ def validate_theme(theme):
                 "bodyProjectionLineHeightScaleWide", "bodyProjectionLineHeightScaleCompact"):
         if not isinstance(typography.get(key), (int, float)) or typography[key] <= 0:
             fail("hd-ui-theme.json: typography." + key + " must be > 0")
-    for key in ("labelFontSizePx", "bodyFontSizePx", "titleFontWeight", "labelFontWeight", "bodyFontWeight"):
+    for key in ("labelFontSizePx", "bodyFontSizePx", "titleFontWeight", "labelFontWeight", "bodyFontWeight",
+                "buttonPrimaryLineHeightPx", "buttonSecondaryLineHeightPx",
+                "buttonLabelGapPx", "buttonLabelPaddingYPx", "buttonSecondaryFontSizePx"):
         if not isinstance(typography.get(key), int) or typography[key] <= 0:
             fail("hd-ui-theme.json: typography." + key + " must be a positive integer")
+    secondary_opacity = typography.get("buttonSecondaryOpacity")
+    if (not isinstance(secondary_opacity, (int, float))
+            or not 0.0 < secondary_opacity <= 1.0):
+        fail("hd-ui-theme.json: typography.buttonSecondaryOpacity must be in (0, 1]")
     f21_type = theme.get("f21Typography") or {}
     for key in ("protocolWidePx", "protocolCompactPx", "titleWidePx", "titleCompactPx",
                 "dataWidePx", "dataCompactPx", "bodyWidePx", "bodyCompactPx",
@@ -253,7 +259,8 @@ def validate_registry(registry):
     seen = {"id": set(), "contract": set(), "native output": set(), "browser output": set()}
     allowed_emitters = {"theme", "legacy-abandon", "family", "screen"}
     allowed_profiles = {"theme", "legacy-abandon", "family", "command-card",
-                        "small-confirmation", "contact-decision", "content-block", "screen"}
+                        "small-confirmation", "contact-decision",
+                        "contact-intel-board", "content-block", "screen"}
     for index, entry in enumerate(entries):
         where = "hd-ui-contracts.json: entries[" + str(index) + "]"
         if not isinstance(entry, dict):
@@ -309,7 +316,7 @@ def validate_family(doc, rel, profile, engine_text_calibration=False):
         fail(rel + ": schema must be 1")
     if not isinstance(doc.get("version"), str) or not VERSION_RE.match(doc.get("version", "")):
         fail(rel + ": version string required")
-    if profile in {"small-confirmation", "contact-decision"}:
+    if profile in {"small-confirmation", "contact-decision", "contact-intel-board"}:
         form = doc.get("form") or {}
         if form.get("archetype") != profile or not form.get("id"):
             fail(rel + ": " + profile + " form identity required")
@@ -328,7 +335,9 @@ def validate_family(doc, rel, profile, engine_text_calibration=False):
             fail(rel + ": standard density must use scale 1/1")
         if density == "brief-acknowledgement" and (numerator, denominator) != (2, 3):
             fail(rel + ": brief acknowledgement density must use scale 2/3")
-        for layout_name in ("wide", "compact"):
+        layout_names = (("wide", "compact", "portrait")
+                        if profile == "contact-intel-board" else ("wide", "compact"))
+        for layout_name in layout_names:
             layout = doc["layouts"].get(layout_name) or {}
             buttons = layout.get("buttons") or {}
             if set(buttons) != {button["id"] for button in form.get("buttons", [])}:
@@ -340,12 +349,33 @@ def validate_family(doc, rel, profile, engine_text_calibration=False):
                     fail(rel + ": " + layout_name + ".buttons." + button_id
                          + " below the density-scaled " + str(visible_action_floor) + "x"
                          + str(visible_action_floor) + " visible-action floor")
-            if form.get("buttons"):
+            if form.get("buttons") and profile != "contact-intel-board":
+                # Modal archetypes keep the rightmost action on the text rail;
+                # the board's corner/stacked cards legitimately break the rail
+                # (their geometry policy lives in generate-hd-window-form.py).
                 rightmost = buttons[form["buttons"][-1]["id"]]
                 message = layout.get("message") or {}
                 if (rightmost["x"] + rightmost["width"]
                         != message.get("x", 0) + message.get("width", 0)):
                     fail(rel + ": " + layout_name + " rightmost action left the text rail")
+        if profile == "contact-intel-board":
+            for button in form.get("buttons", []):
+                if "secondaryLabel" in button:
+                    secondary = button["secondaryLabel"]
+                    if (not isinstance(secondary, str) or not secondary.strip()
+                            or len(secondary) > 24
+                            or any(ord(char) < 32 for char in secondary)):
+                        fail(rel + ": button.secondaryLabel must be one non-empty line of at most 24 characters")
+            motion = doc.get("motion") or {}
+            sweep_period = motion.get("radarSweepPeriodMs")
+            if not isinstance(sweep_period, int) or not 1000 <= sweep_period <= 10000:
+                fail(rel + ": motion.radarSweepPeriodMs must be an integer in [1000, 10000]")
+            decay_floor = motion.get("radarContactDecayFloor")
+            if not isinstance(decay_floor, (int, float)) or not 0.0 <= decay_floor <= 0.5:
+                fail(rel + ": motion.radarContactDecayFloor must be in [0, 0.5]")
+            decay_exponent = motion.get("radarContactDecayExponent")
+            if not isinstance(decay_exponent, (int, float)) or not 1.0 <= decay_exponent <= 6.0:
+                fail(rel + ": motion.radarContactDecayExponent must be in [1, 6]")
         return
     if profile == "command-card":
         if doc.get("visualProfile") != "command-card-v1":
@@ -752,6 +782,12 @@ def emit_theme_h(theme):
     out.append("inline constexpr int kTitleFontWeight = %d;" % int(theme["typography"]["titleFontWeight"]))
     out.append("inline constexpr int kLabelFontWeight = %d;" % int(theme["typography"]["labelFontWeight"]))
     out.append("inline constexpr int kBodyFontWeight = %d;" % int(theme["typography"]["bodyFontWeight"]))
+    for key in ("buttonPrimaryLineHeightPx", "buttonSecondaryLineHeightPx",
+                "buttonLabelGapPx", "buttonLabelPaddingYPx", "buttonSecondaryFontSizePx"):
+        out.append("inline constexpr int k" + key[0].upper() + key[1:]
+                   + " = %d;" % int(theme["typography"][key]))
+    out.append("inline constexpr float kButtonSecondaryOpacity = %.6ff;"
+               % float(theme["typography"]["buttonSecondaryOpacity"]))
     out.append("")
     out.append("// Command action styling (Geoscape HD v2 contract s.10.1): fixed")
     out.append("// canonical radius plus per-state gradient/border/glow tokens.")
@@ -938,10 +974,18 @@ def emit_small_confirmation_h(doc, rel, ns, prefix):
            "inline constexpr int kFamilyId = " + str(form["familyId"]) + ";",
            'inline constexpr const char* kArchetype = "' + form["archetype"] + '";',
            'inline constexpr const char* kSourceConfig = "' + form["source"] + '";']
-    if form["archetype"] == "contact-decision":
+    if form["archetype"] in {"contact-decision", "contact-intel-board"}:
         out += [
             'inline constexpr const char* kProtocol = ' + json.dumps(copy["protocol"], ensure_ascii=False) + ';',
         ]
+    if form["archetype"] == "contact-intel-board":
+        out += [
+            'inline constexpr const char* kNote = ' + json.dumps(copy.get("note", ""), ensure_ascii=False) + ';',
+        ]
+        fact_labels = ", ".join(json.dumps(fact["label"], ensure_ascii=False)
+                                for fact in form.get("facts", []))
+        out.append("inline constexpr const char* kFactLabels[] = { " + fact_labels + " };")
+        out.append("inline constexpr int kFactCount = " + str(len(form.get("facts", []))) + ";")
     out.append("")
     presentation = doc.get("presentation") or {
         "density": "standard", "scaleNumerator": 1, "scaleDenominator": 1}
@@ -951,15 +995,29 @@ def emit_small_confirmation_h(doc, rel, ns, prefix):
             "inline constexpr float kPresentationScale = %.6ff;" % (
                 float(presentation["scaleNumerator"]) / float(presentation["scaleDenominator"])),
             ""]
-    out += ["struct " + prefix + "GenButton { const char* id; const char* label; const char* tone; const char* action; std::uint32_t fill; std::uint32_t border; std::uint32_t text; };",
+    secondary_field = (" const char* secondaryLabel;"
+                       if form["archetype"] == "contact-intel-board" else "")
+    out += ["struct " + prefix + "GenButton { const char* id; const char* label; const char* tone; const char* action; std::uint32_t fill; std::uint32_t border; std::uint32_t text;" + secondary_field + " };",
             "inline constexpr " + prefix + "GenButton kButtons[] = {"]
     for b in form["buttons"]:
-        out.append('    { "' + b["id"] + '", "' + b["label"] + '", "' + b["tone"] + '", "' + b["action"] + '", ' + rgba_call(b["style"]["fill"]) + ', ' + rgba_call(b["style"]["border"]) + ', ' + rgba_call(b["style"]["text"]) + ' },')
+        secondary_value = (", " + json.dumps(b.get("secondaryLabel", ""), ensure_ascii=False)
+                           if form["archetype"] == "contact-intel-board" else "")
+        out.append('    { "' + b["id"] + '", "' + b["label"] + '", "' + b["tone"] + '", "' + b["action"] + '", ' + rgba_call(b["style"]["fill"]) + ', ' + rgba_call(b["style"]["border"]) + ', ' + rgba_call(b["style"]["text"]) + secondary_value + ' },')
     out += ["};", "inline constexpr int kButtonCount = " + str(len(form["buttons"])) + ";", ""]
-    out.append("inline constexpr float kCutCornerPx = %.6ff;" % float(style["cutCornerPx"]))
+    if "cutCornerPx" in style:
+        out.append("inline constexpr float kCutCornerPx = %.6ff;" % float(style["cutCornerPx"]))
     out.append("inline constexpr float kProtocolTextInsetPx = %.6ff;" % float(style["protocolTextInsetPx"]))
-    for key in ("panelFillTop","panelFillBottom","frame","protocolText","divider","footerFill","footerDot","warning"):
+    fixed_style_keys = ("panelFillTop","panelFillBottom","frame","protocolText","divider","footerFill","footerDot","warning")
+    for key in fixed_style_keys:
         out.append("inline constexpr std::uint32_t k" + key[0].upper() + key[1:] + " = " + rgba_call(style[key]) + ";")
+    archetype_style_keys = sorted(k for k in style if k not in fixed_style_keys and k not in ("cutCornerPx", "protocolTextInsetPx"))
+    for key in archetype_style_keys:
+        if isinstance(style[key], (int, float)):
+            # Archetype-local numeric tokens (for example inner panel radius)
+            # are floats, not packed colours.
+            out.append("inline constexpr float k" + key[0].upper() + key[1:] + " = %.6ff;" % float(style[key]))
+        else:
+            out.append("inline constexpr std::uint32_t k" + key[0].upper() + key[1:] + " = " + rgba_call(style[key]) + ";")
     out.append("")
     wide_keys = [k for k,v in layouts["wide"].items() if isinstance(v, dict) and "x" in v]
     shell_parts = ["window","status","warning","title","message","footer"]
@@ -970,7 +1028,10 @@ def emit_small_confirmation_h(doc, rel, ns, prefix):
         out.append("    " + prefix + "GenRect " + tp + ";")
     out.append("};")
     out.append("inline constexpr " + prefix + "GenLayout kLayouts[] = {")
-    for name in ("wide","compact"):
+    # Canonical positional order: the C++ adapters index kLayouts/kButtonRects
+    # by their own layout enums, so key order in the JSON is normative.
+    generated_layouts = [name for name in ("wide", "compact", "portrait") if name in layouts]
+    for name in generated_layouts:
         l = layouts[name]
         vals = [str(l["designWidth"]), str(l["designHeight"]),
                 "{ " + str(l["window"]["x"]) + ", " + str(l["window"]["y"]) + ", " + str(l["window"]["width"]) + ", " + str(l["window"]["height"]) + " }",
@@ -989,7 +1050,7 @@ def emit_small_confirmation_h(doc, rel, ns, prefix):
     out.append("};")
     out.append("struct " + prefix + "GenButtonRect { const char* id; " + prefix + "GenRect rect; };")
     out.append("inline constexpr " + prefix + "GenButtonRect kButtonRects[][ " + str(len(button_ids)) + " ] = {")
-    for name in ("wide","compact"):
+    for name in generated_layouts:
         l = layouts[name]
         row = []
         for bid in button_ids:
@@ -997,9 +1058,16 @@ def emit_small_confirmation_h(doc, rel, ns, prefix):
             row.append('{ "' + bid + '", { ' + str(rr["x"]) + ", " + str(rr["y"]) + ", " + str(rr["width"]) + ", " + str(rr["height"]) + " } }")
         out.append("    { " + ", ".join(row) + " }, // " + name)
     out.append("};")
-    out.append("inline constexpr int kLayoutCount = 2;")
+    out.append("inline constexpr int kLayoutCount = " + str(len(generated_layouts)) + ";")
     out.append("inline constexpr int kMotionDurationMs = " + str(int(m["durationMs"])) + ";")
     out.append("inline constexpr float kMotionScaleFrom = %.6ff;" % float(m["scaleFrom"]))
+    if form["archetype"] == "contact-intel-board":
+        out.append("inline constexpr int kRadarSweepPeriodMs = "
+                   + str(int(m["radarSweepPeriodMs"])) + ";")
+        out.append("inline constexpr double kRadarContactDecayFloor = %.6f;"
+                   % float(m["radarContactDecayFloor"]))
+        out.append("inline constexpr double kRadarContactDecayExponent = %.6f;"
+                   % float(m["radarContactDecayExponent"]))
     out.append("inline const " + prefix + "GenLayout* layoutForDesign(int dw, int dh)")
     out.append("{")
     out.append("	for (int i = 0; i < kLayoutCount; ++i)")
@@ -1269,7 +1337,8 @@ def main(argv):
         elif entry["emitter"] == "screen":
             native_text = emit_screen_h(
                 doc, rel, native["namespace"], native["prefix"])
-        elif entry["validationProfile"] in {"small-confirmation", "contact-decision"}:
+        elif entry["validationProfile"] in {"small-confirmation", "contact-decision",
+                                            "contact-intel-board"}:
             native_text = emit_small_confirmation_h(
                 doc, rel, native["namespace"], native["prefix"])
         else:

@@ -596,6 +596,24 @@ bool CalypsoHdUiOverlay::drawStyledPanel(const ResolvedDraw& d)
 	_panelShader->setUniform2f("u_gradDir", st.gradDirX, st.gradDirY);
 	_panelShader->setUniform4f("u_glowColor", glowC[0], glowC[1], glowC[2], glowC[3]);
 	_panelShader->setUniform1f("u_glowRadius", glowRadius);
+	if (st.shape == CalypsoHdPanelShape::Radar)
+	{
+		float radarRingC[4], radarStrongRingC[4], radarAxisC[4], radarSweepC[4];
+		rgba(st.radarRingColorRgba, radarRingC);
+		rgba(st.radarStrongRingColorRgba, radarStrongRingC);
+		rgba(st.radarAxisColorRgba, radarAxisC);
+		rgba(st.radarSweepColorRgba, radarSweepC);
+		_panelShader->setUniform4f("u_radarRingColor", radarRingC[0], radarRingC[1], radarRingC[2], radarRingC[3]);
+		_panelShader->setUniform4f("u_radarStrongRingColor", radarStrongRingC[0], radarStrongRingC[1], radarStrongRingC[2], radarStrongRingC[3]);
+		_panelShader->setUniform4f("u_radarAxisColor", radarAxisC[0], radarAxisC[1], radarAxisC[2], radarAxisC[3]);
+		_panelShader->setUniform4f("u_radarSweepColor", radarSweepC[0], radarSweepC[1], radarSweepC[2], radarSweepC[3]);
+		_panelShader->setUniform1f("u_radarSweepAngle", st.radarSweepAngle);
+		_panelShader->setUniform1f("u_radarTrailRadians", st.radarTrailRadians);
+		_panelShader->setUniform1f("u_radarRingWidth", std::max(0.0f, st.radarRingWidthPx * pxScale));
+		_panelShader->setUniform1f("u_radarTickWidth", std::max(0.0f, st.radarTickWidthPx * pxScale));
+		_panelShader->setUniform1f("u_radarGrainAmount", std::max(0.0f, st.radarGrainAmount));
+		_panelShader->setUniform1f("u_radarSeed", st.radarSeed);
+	}
 	_panelShader->setUniform1f("u_opacity", d.opacity); // Phase 46.4-F33 opening motion
 
 	glBindVertexArray(_vao);

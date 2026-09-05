@@ -110,6 +110,20 @@ inline double calypsoViewportClampDpr(double dpr)
 	return dpr;
 }
 
+/// Effective CSS/logical width for layout selection. Browser logical size is
+/// authoritative; a backing-store-only observation is converted through DPR.
+/// Legacy base resolution is only the cold-start fallback.
+inline int calypsoViewportLayoutWidth(
+	const CalypsoViewportState& state, int fallbackWidth)
+{
+	if (state.hasLogicalSize && state.logicalWidth > 0)
+		return state.logicalWidth;
+	if (state.hasPhysicalSize && state.physicalWidth > 0)
+		return std::max(1, (int)std::llround(
+			state.physicalWidth / calypsoViewportClampDpr(state.dpr)));
+	return calypsoViewportClampNonneg(fallbackWidth);
+}
+
 /// Derive orientation from a width/height pair (landscape iff width >= height,
 /// with a positive area). Zero-area yields Unknown.
 inline CalypsoOrientation calypsoOrientationFromSize(int w, int h)

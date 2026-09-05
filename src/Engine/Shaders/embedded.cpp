@@ -474,6 +474,32 @@ void main()
 }
 )glsl";
 
+static const char* kGeoscape_contact_markerFragSrc = R"glsl(
+uniform float u_extent;
+uniform vec4 u_color;
+in vec2 v_uv;
+out vec4 out_color;
+
+void main()
+{
+    vec2 p = (v_uv - vec2(0.5)) * u_extent;
+    float radial = length(p);
+    float ringDistance = min(abs(radial - 16.5), abs(radial - 10.5)) - 0.5;
+    float ringAA = max(fwidth(ringDistance), 1e-4);
+    float rings = 1.0 - smoothstep(-ringAA, ringAA, ringDistance);
+
+    float diamondDistance = (abs(p.x) + abs(p.y) - 5.65685425) * 0.70710678;
+    float borderDistance = abs(diamondDistance + 1.0) - 1.0;
+    float diamondAA = max(fwidth(diamondDistance), 1e-4);
+    float diamond = 1.0 - smoothstep(-diamondAA, diamondAA, borderDistance);
+    // A dark keyline preserves contrast over bright coastlines and land.
+    float keyline = 0.85 * (1.0 - smoothstep(-diamondAA, diamondAA, borderDistance - 1.0));
+    float ink = max(diamond, rings * 0.24);
+    float alpha = ink + keyline * (1.0 - ink);
+    out_color = vec4(u_color.rgb * ink / max(alpha, 1e-4), alpha * u_color.a);
+}
+)glsl";
+
 static const char* kGlobe_sphereFragSrc = R"glsl(
 in  vec2 v_pixel;
 out vec4 fragColor;
@@ -518,23 +544,42 @@ float backgroundHash(vec2 pixel)
     return fract(sin(dot(pixel, vec2(127.1, 311.7))) * 43758.5453);
 }
 
+// One soft procedural star field layer. The plane is cut into cellPx grids;
+// each cell hosts at most one star (density = probability a cell is lit),
+// placed by hashing, with a gaussian falloff and a magnitude curve that
+// keeps most stars faint and only a few bright. Returns 0..~1.2 intensity.
+float starLayer(vec2 pixel, float cellPx, float density, float glowSharp, vec2 seed)
+{
+    vec2 grid = pixel / cellPx;
+    vec2 cell = floor(grid);
+    vec2 f    = fract(grid);
+    if (backgroundHash(cell + seed) > density) return 0.0;
+    vec2 starPos = vec2(backgroundHash(cell + seed + vec2(17.0,  91.0)),
+                        backgroundHash(cell + seed + vec2(47.0, 113.0)));
+    vec2 delta = f - starPos;
+    float mag = backgroundHash(cell + seed + vec2(83.0, 29.0));
+    float bright = 0.30 + 0.70 * mag * mag;
+    return bright * exp(-dot(delta, delta) * glowSharp);
+}
+
 vec3 backgroundColor(vec2 pixel)
 {
     float t = (u_viewportSize.y > 1.0) ? pixel.y / (u_viewportSize.y - 1.0) : 0.0;
     vec3 color = vec3(1.0 + t * 2.0, 5.0 + t * 9.0, 17.0 + t * 18.0) / 255.0;
     if (distance(pixel, u_globeCenter) >= u_globeRadius + 5.0)
     {
-        vec2 cell = floor(pixel);
-        float starThreshold = 1.0 - 125.0 / max(u_viewportSize.x * u_viewportSize.y, 1.0);
-        float seed = backgroundHash(cell);
-        if (seed > starThreshold)
-        {
-            float phase = backgroundHash(cell + vec2(19.0, 7.0)) * 6.28318530;
-            float pulse = 0.62 + 0.38 * (0.5 + 0.5 * sin(u_time * 1.7 + phase));
-            float value = (100.0 + backgroundHash(cell + vec2(43.0, 13.0)) * 127.0) * pulse;
-            vec3 starColor = vec3(value * 0.78, value * 0.92, value) / 255.0;
-            color = max(color, starColor);
-        }
+        // Starry sky: three scales — a faint dust of pinpoints, the main
+        // star field, and rare bright accents that twinkle gently. Static
+        // geometry (hash-seeded), so QA frozen-time rows stay deterministic;
+        // u_time only modulates the accent twinkle phase.
+        float stars = starLayer(pixel,  3.0, 0.006, 60.0, vec2(  0.0,   0.0)) * 0.50
+                    + starLayer(pixel,  6.0, 0.008, 26.0, vec2(101.0,   7.0)) * 0.95
+                    + starLayer(pixel, 12.0, 0.0055, 13.0, vec2(211.0,  43.0)) * 1.15
+                        * (0.72 + 0.28 * sin(u_time * 1.4 +
+                            backgroundHash(floor(pixel / 12.0) + vec2(211.0, 43.0)) * 6.2831853));
+        vec3 starTint = mix(vec3(0.74, 0.88, 1.00), vec3(1.00, 0.93, 0.80),
+            backgroundHash(floor(pixel / 6.0) + vec2(5.0, 71.0)));
+        color = max(color, starTint * clamp(stars, 0.0, 1.0));
     }
     return color;
 }
@@ -668,9 +713,21 @@ uniform vec4  u_fillBottom;
 uniform vec2  u_gradDir;
 uniform vec4  u_glowColor;
 uniform float u_glowRadius;
-uniform float u_opacity; // Phase 46.4-F33 opening motion (1 = opaque)
-in  vec2 v_uv;
+uniform float u_opacity;
+uniform vec4  u_radarRingColor;
+uniform vec4  u_radarStrongRingColor;
+uniform vec4  u_radarAxisColor;
+uniform vec4  u_radarSweepColor;
+uniform float u_radarSweepAngle;
+uniform float u_radarTrailRadians;
+uniform float u_radarRingWidth;
+uniform float u_radarTickWidth;
+uniform float u_radarGrainAmount;
+uniform float u_radarSeed;
+in vec2 v_uv;
 out vec4 out_color;
+
+const float kTau = 6.28318530718;
 
 float sdRoundBox(vec2 p, vec2 b, float r)
 {
@@ -698,43 +755,104 @@ float sdWarningTriangle(vec2 local, vec2 size)
 	return max(max(leftEdge, rightEdge), max(-local.y, local.y - size.y));
 }
 
+float radarHash(vec2 p)
+{
+	return fract(sin(dot(p + u_radarSeed, vec2(12.9898, 78.233))) * 43758.5453);
+}
+
 void main()
 {
 	vec2 half_ = u_size * 0.5;
 	vec2 p = v_uv * u_quadSize - u_shapeOffset - half_;
 	vec2 local = p + half_;
-	float d = sdRoundBox(p, half_, u_radius);
+	bool radar = u_shapeKind == 3;
+	float radarRadius = 0.5 * min(u_size.x, u_size.y) * 0.95;
+	float d = radar ? length(p) - radarRadius : sdRoundBox(p, half_, u_radius);
 	if (u_shapeKind == 1)
 		d = sdOpposingCutBox(p, half_, u_cutCorner);
 	else if (u_shapeKind == 2)
 		d = sdWarningTriangle(local, u_size);
 	float aa = max(fwidth(d), 1e-4);
 
-	// shapeMask: 1 inside / 0 outside with an AA edge; coreMask: everything
-	// deeper than the border ring; their difference is the ring itself.
 	float shapeMask  = 1.0 - smoothstep(-aa, aa, d);
 	float coreMask   = 1.0 - smoothstep(-u_borderWidth - aa, -u_borderWidth + aa, d);
 	float borderMask = clamp(shapeMask - coreMask, 0.0, 1.0);
-
-	// Gradient parameter: projection of the fragment onto the direction,
-	// normalized by the shape's extent along that direction.
 	float t = clamp(dot(p, u_gradDir) / max(dot(u_size, abs(u_gradDir)), 1.0) + 0.5, 0.0, 1.0);
 	vec4 fill = mix(u_fillTop, u_fillBottom, t);
+
+	if (radar)
+	{
+		float radial = length(p);
+		float normalizedRadius = radial / max(radarRadius, 1.0);
+		// Center lift and darker edge are independent of rectangular panel
+		// gradient, keeping the instrument circular in wide and portrait forms.
+		fill = mix(u_fillTop, u_fillBottom,
+			smoothstep(0.0, 1.0, normalizedRadius));
+
+		float ringW = max(u_radarRingWidth, aa);
+		float ringMask = 0.0;
+		ringMask = max(ringMask, 1.0 - smoothstep(ringW, ringW + aa,
+			abs(radial - radarRadius * (0.285 / 0.95))));
+		ringMask = max(ringMask, 1.0 - smoothstep(ringW, ringW + aa,
+			abs(radial - radarRadius * (0.51 / 0.95))));
+		ringMask = max(ringMask, 1.0 - smoothstep(ringW, ringW + aa,
+			abs(radial - radarRadius * (0.73 / 0.95))));
+		float outerRing = 1.0 - smoothstep(ringW, ringW + aa,
+			abs(radial - radarRadius));
+
+		float angle = mod(atan(p.x, -p.y) + kTau, kTau);
+		float tickStep = kTau / 72.0;
+		float tickDelta = abs(mod(angle + tickStep * 0.5, tickStep) - tickStep * 0.5);
+		float angularTick = 1.0 - smoothstep(
+			u_radarTickWidth / max(radial, 1.0),
+			u_radarTickWidth * 1.8 / max(radial, 1.0), tickDelta);
+		float tickIndex = floor(angle / tickStep + 0.5);
+		float major = 1.0 - step(0.5, mod(tickIndex, 6.0));
+		float minorBand = smoothstep(radarRadius * 0.91, radarRadius * 0.92, radial)
+			* (1.0 - smoothstep(radarRadius * 0.975, radarRadius * 0.98, radial));
+		float majorBand = smoothstep(radarRadius * 0.87, radarRadius * 0.88, radial)
+			* (1.0 - smoothstep(radarRadius * 0.975, radarRadius * 0.98, radial));
+		float tickMask = angularTick * mix(minorBand, majorBand, major);
+
+		float axisWidth = max(u_radarTickWidth, 1.0);
+		float axisMask = max(
+			1.0 - smoothstep(axisWidth, axisWidth + aa, abs(p.x)),
+			1.0 - smoothstep(axisWidth, axisWidth + aa, abs(p.y)));
+
+		float trail = clamp(u_radarTrailRadians, 0.01, kTau);
+		float sweepDelta = mod(u_radarSweepAngle - angle + kTau, kTau);
+		float sweepMask = 1.0 - smoothstep(0.0, trail, sweepDelta);
+		float beamMask = 1.0 - smoothstep(0.0, 0.018, sweepDelta);
+		float beamGrid = clamp(sweepMask * 0.45 + beamMask * 0.55, 0.0, 1.0);
+
+		vec3 gridColor = mix(u_radarRingColor.rgb, u_radarStrongRingColor.rgb, outerRing);
+		float gridAlpha = max(ringMask * u_radarRingColor.a,
+			outerRing * u_radarStrongRingColor.a);
+		gridColor = mix(gridColor, u_radarStrongRingColor.rgb, tickMask);
+		gridAlpha = max(gridAlpha, tickMask * u_radarStrongRingColor.a);
+		gridColor = mix(gridColor, u_radarAxisColor.rgb, axisMask);
+		gridAlpha = max(gridAlpha, axisMask * u_radarAxisColor.a);
+		// Sweep lifts the otherwise restrained grid, rather than replacing it.
+		gridColor = mix(gridColor, u_radarSweepColor.rgb, beamGrid * 0.65);
+		gridAlpha = max(gridAlpha, beamGrid * u_radarSweepColor.a);
+		fill.rgb = mix(fill.rgb, gridColor, clamp(gridAlpha, 0.0, 1.0));
+		fill.rgb = mix(fill.rgb, u_radarSweepColor.rgb,
+			clamp(sweepMask * u_radarSweepColor.a * 0.35, 0.0, 1.0));
+		fill.rgb = mix(fill.rgb, u_radarSweepColor.rgb, beamMask * 0.9);
+
+		float grain = (radarHash(floor(gl_FragCoord.xy)) - 0.5) * u_radarGrainAmount;
+		float scanline = (sin(gl_FragCoord.y * 3.14159265) - 0.5) * 0.012;
+		fill.rgb += (grain + scanline) * vec3(0.35, 0.9, 0.65);
+	}
+
 	vec4 shapeCol = mix(fill, u_borderColor, borderMask);
 	float shapeA = shapeCol.a * shapeMask;
-
-	// Soft outer glow: quadratic falloff over u_glowRadius beyond the edge,
-	// suppressed under the shape itself.
-	// F33-PARITY-003: monotonic OUTWARD falloff (1 at the edge, 0 at radius) --
-	// the same formula as calypsoHdGlowFalloff in CalypsoHdSdfMath.h, mirrored
-	// here so the pure native test and the GLSL can never disagree.
 	float glowA = 0.0;
 	if (u_glowRadius > 0.0)
 	{
 		float g = clamp(1.0 - d / u_glowRadius, 0.0, 1.0);
 		glowA = u_glowColor.a * g * (1.0 - shapeMask);
 	}
-
 	vec3 rgb = mix(u_glowColor.rgb, shapeCol.rgb, shapeMask);
 	out_color = vec4(rgb, max(shapeA, glowA) * u_opacity);
 }
@@ -1412,6 +1530,7 @@ static const Entry kTable[] = {
     { "cursor", kCursorVertSrc, kCursorFragSrc },
     { "emissive_glow", kEmissive_glowVertSrc, kEmissive_glowFragSrc },
     { "geoscape_colored_lines", kGeoscape_colored_linesVertSrc, kGeoscape_colored_linesFragSrc },
+    { "geoscape_contact_marker", kPassthroughVertSrc, kGeoscape_contact_markerFragSrc },
     { "globe_sphere", kGlobe_sphereVertSrc, kGlobe_sphereFragSrc },
     { "hd_ui", kHd_uiVertSrc, kHd_uiFragSrc },
     { "hd_ui_panel", kPassthroughVertSrc, kHd_ui_panelFragSrc },

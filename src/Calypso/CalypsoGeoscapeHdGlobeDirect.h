@@ -23,6 +23,7 @@
 
 namespace OpenXcom
 {
+class Target;
 namespace Calypso
 {
 /// Guard-R3: browser-only GPU state owned by Globe (extracted from Globe.h).
@@ -42,9 +43,11 @@ struct CalypsoGlobeGpuState
 	struct MarkerDraw
 	{
 		Surface* frame = nullptr;
+		Target* target = nullptr;
 		int x = 0;
 		int y = 0;
 		int shade = 0;
+		Uint32 contactColor = 0;
 	};
 	std::vector<MarkerDraw> _gpuMarkerPendingDraws;
 	std::vector<MarkerDraw> _gpuMarkerCommittedDraws;
@@ -135,6 +138,7 @@ struct CalypsoGlobeGpuState
 	unsigned  _markerVAO     = 0u;
 	unsigned  _markerVBO     = 0u;
 	Shader*   _markerShader  = nullptr;
+	Shader*   _contactMarkerShader = nullptr;
 	bool      _gpuMarkerReady = false;
 	unsigned  _borderVAO     = 0u;
 	unsigned  _borderVBO     = 0u;
@@ -389,7 +393,8 @@ struct CalypsoGeoscapeHdGlobeDirect
 		});
 	}
 
-	static void recordMarker(Globe* globe, Surface* frame, int x, int y, int shade);
+	static void recordMarker(
+		Globe* globe, Target* target, Surface* frame, int x, int y, int shade);
 	static void recordBorderLine(Globe* globe, int x1, int y1, int x2, int y2);
 	static void recordDebugLine(Globe* globe, double lon1, double lat1, double lon2, double lat2, Uint8 color);
 	static void recordRadarFlightLine(Globe* globe, double x1, double y1, double x2, double y2,

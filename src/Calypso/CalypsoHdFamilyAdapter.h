@@ -41,6 +41,7 @@ enum class CalypsoHdItemKind { Panel, Text };
 enum class CalypsoHdHAlign { Left = 0, Center = 1, Right = 2 };
 enum class CalypsoHdVAlign { Top = 0, Middle = 1, Bottom = 2 };
 
+
 /// One physical draw the adapter requests. A Panel is a solid/tinted rect
 /// (window fill, bevel, badge) -- or, with `panelStyle.styled`, an SDF-shaped
 /// panel (rounded, bordered, gradient, glow). A Text item rasterises
