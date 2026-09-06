@@ -113,6 +113,10 @@ public:
 	/// Monotonic GL context generation (bumped on every restore). Consumers
 	/// such as the live model snapshot cache key their caches by it.
 	std::uint64_t contextGeneration() const { return _contextGen; }
+	/// T06 image-cache diagnostics (test/diagnostic path; never game UI).
+	std::uint64_t imageDecodeCount() const { return _imageDecodes; }
+	std::uint64_t imageUploadCount() const { return _imageUploads; }
+	std::size_t imageCacheBytes() const { return _imageLru.bytes(); }
 
 	/// True once a subgroup (or the harness) committed physical output this
 	/// frame. Derived per frame; never sticky (A7).
@@ -138,6 +142,7 @@ private:
 		GpuTexture* tex = nullptr;
 		int naturalW = 0;
 		int naturalH = 0;
+		CalypsoHdImageDescriptor image; // RgbaImage only: VFS source + UV + clip.
 		float textScaleX = 1.0f;
 		float textScaleY = 1.0f;
 		CalypsoHdHAlign hAlign = CalypsoHdHAlign::Left;
@@ -168,17 +173,27 @@ private:
 	/// Place a natural-size glyph bitmap inside the mapped box per alignment and
 	/// draw it (text) -- the box is the layout/clip target, not a stretch target.
 	bool drawGlyph(const ResolvedDraw& d);
+	/// Stretch the image UV rect over the mapped destination, intersected with
+	/// the mapped clip box (RgbaImage) -- the destination IS a stretch target.
+	bool drawImage(const ResolvedDraw& d);
 	/// Upload one quad's vertices (NDC positions + full UVs) into the shared
 	/// VBO/VAO. Shared by drawPhysQuad and drawStyledPanel.
 	void uploadQuadVerts(const CalypsoPhysRect& r);
 
 	GpuTexture* whiteTexture();
 	GpuTexture* textureForText(const CalypsoHdTextRasterKey& rasterKey);
+	/// T06 cached decode+upload: VFS decode once per (source, generation, UV),
+	/// GPU texture cached by GL context generation with a 64 MiB pin-aware LRU.
+	/// Never returns null: any failure fails the HD route.
+	GpuTexture* textureForImage(const CalypsoHdImageDescriptor& desc,
+		int& decodedW, int& decodedH);
 	/// Process an LRU eviction list: free + forget each evicted text texture,
 	/// EXCEPT handles pinned this frame (still referenced by _drawItems), which
 	/// are re-touched to stay resident and tracked (Fable #3/#9).
 	void evictTextTextures(const std::vector<std::uint64_t>& evicted);
 	void dropTextTextures();
+	void evictImageTextures(const std::vector<std::uint64_t>& evicted);
+	void dropImageTextures();
 
 	CalypsoHdFrameController _controller;
 	CalypsoHdPresentationMetrics _frozenMetrics;
@@ -202,6 +217,16 @@ private:
 
 	// This frame's committed, uploaded draws (sorted by order key).
 	std::vector<ResolvedDraw> _drawItems;
+	// T06 image pipeline: VFS decode (CalypsoHdImageSource) + a bounded,
+	// context-generation-keyed GPU texture cache mirroring the text pipeline.
+	// The cache outlives adapters (keys carry no game pointers); catalog swaps
+	// must bump the descriptor generation so stale art cannot be reused.
+	std::unordered_map<CalypsoHdImageTextureKey, GpuTexture*, CalypsoHdImageTextureKeyHash> _imageTextures;
+	std::unordered_map<CalypsoHdImageTextureKey, std::uint64_t, CalypsoHdImageTextureKeyHash> _imgKeyToHandle;
+	std::unordered_map<std::uint64_t, CalypsoHdImageTextureKey> _imgHandleToKey;
+	CalypsoLruByteBudget _imageLru{ 64u * 1024u * 1024u };
+	std::uint64_t _imageDecodes = 0;
+	std::uint64_t _imageUploads = 0;
 
 	// Shared GL resources (created on first active frame; recovered via the
 	// ShaderManager reset-callback ladder).

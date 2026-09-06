@@ -246,6 +246,26 @@
       "rendererOwnership": "base-management-shell",
       "harnessElement": "basescape-proof",
       "harnessScenarioIds": []
+    },
+    {
+      "id": "basescape-command-shell",
+      "contract": "basescape-command-shell.json",
+      "emitter": "screen",
+      "validationProfile": "screen",
+      "native": {
+        "namespace": "CalypsoBasescapeCommandShellGen",
+        "prefix": "CalypsoBasescapeCommandShell",
+        "output": "CalypsoBasescapeCommandShell.generated.h"
+      },
+      "browser": {
+        "global": "CalypsoBasescapeCommandShell",
+        "output": "basescape-command-shell.js"
+      },
+      "rendererOwnership": "base-command-shell",
+      "harnessElement": "basescape-hd",
+      "harnessScenarioIds": [
+        85
+      ]
     }
   ]
 }

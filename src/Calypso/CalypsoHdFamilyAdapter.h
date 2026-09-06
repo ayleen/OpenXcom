@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "CalypsoHdUiModel.h"
+#include "CalypsoHdImageModel.h"
 #include "CalypsoHdTextRasterKey.h"
 
 namespace OpenXcom
@@ -33,7 +34,7 @@ namespace OpenXcom
 namespace Calypso
 {
 
-enum class CalypsoHdItemKind { Panel, Text };
+enum class CalypsoHdItemKind { Panel, Text, RgbaImage };
 
 /// Horizontal/vertical glyph alignment inside the item's logical box. Mirrors
 /// the engine's ALIGN_* enums by value (0/1/2) but kept local so the builder
@@ -63,6 +64,10 @@ struct CalypsoHdItem
 	// real GPU linear sampler performs the final CSS-like projection.
 	float textScaleX = 1.0f;
 	float textScaleY = 1.0f;
+
+	// RgbaImage only: VFS source, UV rect, and optional clip. The destination
+	// box is `rect`; the clip (when set) intersects it in logical space.
+	CalypsoHdImageDescriptor image;
 
 	// Presentation opacity (Phase 46.4-F33 opening motion): 1 = opaque.
 	float opacity = 1.0f;

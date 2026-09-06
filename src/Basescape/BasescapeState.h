@@ -29,6 +29,9 @@ class TextButton;
 class TextEdit;
 class Base;
 class Globe;
+#ifdef __EMSCRIPTEN__
+namespace Calypso { class CalypsoBasescapeHdUi; class CalypsoHdScreenRenderer; }
+#endif
 
 /**
  * Basescape screen that shows a base's layout
@@ -44,6 +47,11 @@ private:
 	TextButton *_btnNewBase, *_btnBaseInfo, *_btnSoldiers, *_btnCrafts, *_btnFacilities, *_btnResearch, *_btnManufacture, *_btnTransfer, *_btnPurchase, *_btnSell, *_btnGeoscape;
 	Base *_base;
 	Globe *_globe;
+#ifdef __EMSCRIPTEN__
+	friend class Calypso::CalypsoBasescapeHdUi;
+	friend class Calypso::CalypsoHdScreenRenderer;
+	Calypso::CalypsoBasescapeHdUi *_calypsoHdUi = nullptr;
+#endif
 public:
 	/// Creates the Basescape state.
 	BasescapeState(Base *base, Globe *globe);
@@ -93,6 +101,18 @@ public:
 	void edtBaseChange(Action *action);
 	/// Handler for pressing a base selection hotkey.
 	void handleKeyPress(Action *action);
+	/// HD layout refresh hook (T12): the holder consumes it, else legacy.
+	void resize(int &dX, int &dY) override;
+	/// HD covered backing (T16): neutral fill while covered, else legacy.
+	void blit() override;
+#ifdef __EMSCRIPTEN__
+	/// F01 global-rail routes (T15): record the pending intent and close the
+	/// base through the existing popState; Geoscape consumes before timers.
+	void calypsoRailOperationsClick(Action *action);
+	void calypsoRailAnalyticsClick(Action *action);
+	void calypsoRailArchiveClick(Action *action);
+	void calypsoRailSettingsClick(Action *action);
+#endif
 };
 
 }

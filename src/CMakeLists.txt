@@ -675,6 +675,15 @@ if(EMSCRIPTEN)
   list(APPEND openxcom_src Calypso/CalypsoTextInputHarnessState.cpp)
   list(APPEND openxcom_src Calypso/CalypsoViewportMailbox.cpp)
   list(APPEND openxcom_src Calypso/CalypsoHdUiOverlay.cpp)
+  # Phase 46.F01: Basescape HD presentation holder (lifecycle only; the
+  # shared renderer paints once T14 feeds a complete model).
+  list(APPEND openxcom_src Calypso/CalypsoBasescapeHdUi.cpp)
+  # Phase 46.F01: strategic navigation bridge (pending global routes).
+  list(APPEND openxcom_src Calypso/CalypsoStrategicNavigation.cpp)
+  # Phase 46.F01: shared RGBA image source for the HD overlay queue.
+  list(APPEND openxcom_src Calypso/CalypsoHdImageSource.cpp)
+  # Phase 46.F01: base visual catalog loader (strict schema, FileMap read).
+  list(APPEND openxcom_src Calypso/CalypsoBaseVisualCatalog.cpp)
   list(APPEND openxcom_src Calypso/CalypsoHdFontSource.cpp)
   list(APPEND openxcom_src Calypso/CalypsoHdTextRaster.cpp)
   # Phase 46.4-F33: portable tracked TTF composition shared with the native
@@ -1002,6 +1011,12 @@ if(NOT EMSCRIPTEN AND BUILD_TESTING)
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoGeoscapeQaPresentationTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoGeoscapeProjectionTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoGeoscapeHdRuntimeTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoBaseGridInputTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoBasescapeHdLayoutTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoBasescapeHdRuntimeTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoBaseVisualCatalogTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdImageModelTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoStrategicNavigationTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoUiFamiliesTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoFocusModelTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoFocusCoordinatorTest.cpp

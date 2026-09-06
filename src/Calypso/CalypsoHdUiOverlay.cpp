@@ -6,6 +6,7 @@
 #ifdef __EMSCRIPTEN__
 
 #include "CalypsoHdUiOverlay.h"
+#include "CalypsoHdImageSource.h"
 #include "CalypsoHdHarnessHostState.h"
 #include "CalypsoViewportMailbox.h"
 #include "CalypsoGlStateGuard.h"
@@ -82,6 +83,7 @@ void CalypsoHdUiOverlay::clearAdapter(const CalypsoHdFamilyAdapter* adapter)
 		_ptrClaim.clear();
 		_logicalSuppressedWidgets.clear();
 		_frameLiveHandles.clear();
+		// T06: the shared image cache outlives adapters (keys carry no game pointers).
 		_physicalStateThisFrame = nullptr;
 		_activeThisFrame = false;
 		_controller.claims().clear();
@@ -137,6 +139,7 @@ void CalypsoHdUiOverlay::beginFrame(int logicalWidth, int logicalHeight)
 	_ptrClaim.clear();
 	_drawItems.clear();
 	_frameLiveHandles.clear();
+	// T06: the image cache persists across frames by design (pins clear above).
 }
 
 void CalypsoHdUiOverlay::prepareFrame(int logicalWidth, int logicalHeight, const void* topState)
@@ -315,7 +318,7 @@ void CalypsoHdUiOverlay::resolveSubgroup(const CalypsoHdSubgroup& subgroup,
 					+ std::to_string(item.order.itemId));
 			d.tex = white;
 		}
-		else
+		else if (item.kind == CalypsoHdItemKind::Text)
 		{
 			GpuTexture* tex = textureForText(item.rasterKey);
 			if (!tex || !tex->isValid())
@@ -373,6 +376,19 @@ void CalypsoHdUiOverlay::resolveSubgroup(const CalypsoHdSubgroup& subgroup,
 						+ std::to_string(item.order.itemId));
 				}
 			}
+		}
+		else if (item.kind == CalypsoHdItemKind::RgbaImage)
+		{
+			int decodedW = 0, decodedH = 0;
+			GpuTexture* tex = textureForImage(item.image, decodedW, decodedH);
+			d.tex = tex;
+			d.naturalW = decodedW;
+			d.naturalH = decodedH;
+			d.image = item.image;
+		}
+		else
+		{
+			failHdRoute("unknown HD item kind");
 		}
 		tmp.push_back(d);
 	}
@@ -444,6 +460,7 @@ void CalypsoHdUiOverlay::onContextRestored()
 	_glReady = false;
 	++_contextGen;      // A6: segregate the texture cache by generation
 	dropTextTextures(); // free stale-generation GpuTextures
+	dropImageTextures();
 	// Delete (not just null) the shared textures so they are not leaked per
 	// context restore (Fable #8); they are recreated lazily.
 	delete _whiteTex;   _whiteTex = nullptr;
@@ -671,6 +688,39 @@ bool CalypsoHdUiOverlay::drawGlyph(const ResolvedDraw& d)
 	return drawPhysQuad(d.tex, vis, 0 /*text tex is pre-coloured*/, u0, v0, u1, v1, d.opacity);
 }
 
+bool CalypsoHdUiOverlay::drawImage(const ResolvedDraw& d)
+{
+	if (!d.tex || !d.tex->isValid()) return false;
+	if (d.naturalW <= 0 || d.naturalH <= 0) return false;
+	const CalypsoHdImageUvRect uv = calypsoHdImageUv(d.image, d.naturalW, d.naturalH);
+	if (uv.w <= 0 || uv.h <= 0) return false;
+
+	// Images stretch over the destination (unlike glyphs, which keep natural
+	// size). Map the full destination, intersect the mapped clip box, then
+	// express the visible sub-rect as UVs over the decoded source rect.
+	const CalypsoPhysRect full = calypsoMapLogicalRect(d.rect, _frozenMetrics);
+	if (full.empty()) return true; // nothing to draw is not a failure
+	CalypsoPhysRect box = full;
+	if (d.image.hasClip)
+	{
+		const CalypsoLogicalRect clipBox{ d.image.clipX, d.image.clipY,
+			d.image.clipW, d.image.clipH };
+		const CalypsoPhysRect clip = calypsoMapLogicalRect(clipBox, _frozenMetrics);
+		CalypsoPhysRect vis;
+		if (!calypsoClipPhysRect(box, clip, vis)) return true; // fully clipped
+		box = vis;
+	}
+	const float du0 = (float)(box.x - full.x) / (float)full.w;
+	const float dv0 = (float)(box.y - full.y) / (float)full.h;
+	const float du1 = (float)(box.x - full.x + box.w) / (float)full.w;
+	const float dv1 = (float)(box.y - full.y + box.h) / (float)full.h;
+	const float u0 = ((float)uv.x + du0 * (float)uv.w) / (float)d.naturalW;
+	const float v0 = ((float)uv.y + dv0 * (float)uv.h) / (float)d.naturalH;
+	const float u1 = ((float)uv.x + du1 * (float)uv.w) / (float)d.naturalW;
+	const float v1 = ((float)uv.y + dv1 * (float)uv.h) / (float)d.naturalH;
+	return drawPhysQuad(d.tex, box, d.colorRgba, u0, v0, u1, v1, d.opacity);
+}
+
 GpuTexture* CalypsoHdUiOverlay::textureForText(const CalypsoHdTextRasterKey& rasterKey)
 {
 	CalypsoHdTextTextureKey tk;
@@ -719,6 +769,103 @@ GpuTexture* CalypsoHdUiOverlay::textureForText(const CalypsoHdTextRasterKey& ras
 	// textures stay resident AND accounted (external review #7).
 	evictTextTextures(_textTexLru.touch(handle, byteCost, &_frameLiveHandles));
 	return tex;
+}
+
+GpuTexture* CalypsoHdUiOverlay::textureForImage(const CalypsoHdImageDescriptor& desc,
+	int& decodedW, int& decodedH)
+{
+	decodedW = 0;
+	decodedH = 0;
+	CalypsoHdImageTextureKey tk;
+	tk.image = calypsoHdImageCacheKey(desc);
+	tk.contextGeneration = _contextGen;
+
+	auto it = _imageTextures.find(tk);
+	if (it != _imageTextures.end())
+	{
+		auto hit = _imgKeyToHandle.find(tk);
+		if (hit != _imgKeyToHandle.end())
+		{
+			GpuTexture* t = it->second;
+			if (t && t->isValid())
+			{
+				const std::size_t bytes = (std::size_t)t->width() * (std::size_t)t->height() * 4u;
+				_frameLiveHandles.insert(hit->second); // pin this frame
+				evictImageTextures(_imageLru.touch(hit->second, bytes, &_frameLiveHandles));
+				decodedW = (int)t->width();
+				decodedH = (int)t->height();
+				return t;
+			}
+			// Cached entry died without a context-restore drop: forget it and
+			// re-resolve below instead of serving a dead texture.
+			const std::uint64_t dead = hit->second;
+			_imageLru.erase(dead);
+			_imgHandleToKey.erase(dead);
+			_imgKeyToHandle.erase(hit);
+			delete it->second;
+			_imageTextures.erase(it);
+		}
+	}
+
+	CalypsoHdImageRgba decoded;
+	if (!calypsoHdImageDecode(desc.source, decoded))
+	{
+		failHdRoute("image decode failed: " + desc.source);
+	}
+	++_imageDecodes;
+	const CalypsoHdImageValidation valid = calypsoHdImageValidate(desc, decoded.w, decoded.h);
+	if (!valid.ok)
+	{
+		failHdRoute(std::string("invalid image descriptor for ") + desc.source + ": " + valid.reason);
+	}
+	GpuTexture* tex = new GpuTexture(/*srgb=*/false,
+		GpuTexture::Wrap::ClampToEdge, GpuTexture::Filter::Linear);
+	if (!tex->uploadRGBA(decoded.px.data(), decoded.w, decoded.h) || !tex->isValid())
+	{
+		delete tex;
+		failHdRoute("image texture upload failed: " + desc.source);
+	}
+	++_imageUploads;
+	const std::size_t byteCost = (std::size_t)decoded.w * (std::size_t)decoded.h * 4u;
+	const std::uint64_t handle = _texNextHandle++; // shared counter: handles stay unique across both LRUs
+	_imageTextures.emplace(tk, tex);
+	_imgKeyToHandle.emplace(tk, handle);
+	_imgHandleToKey.emplace(handle, tk);
+	_frameLiveHandles.insert(handle); // pin this frame
+	evictImageTextures(_imageLru.touch(handle, byteCost, &_frameLiveHandles));
+	decodedW = decoded.w;
+	decodedH = decoded.h;
+	return tex;
+}
+
+void CalypsoHdUiOverlay::evictImageTextures(const std::vector<std::uint64_t>& evicted)
+{
+	// Same pin-aware contract as evictTextTextures: a frame-pinned handle is
+	// left resident + accounted, never freed (external review #7).
+	for (std::uint64_t ev : evicted)
+	{
+		if (_frameLiveHandles.count(ev)) continue;
+		auto kit = _imgHandleToKey.find(ev);
+		if (kit == _imgHandleToKey.end()) continue;
+		const CalypsoHdImageTextureKey evKey = kit->second;
+		auto tit = _imageTextures.find(evKey);
+		if (tit != _imageTextures.end())
+		{
+			delete tit->second;
+			_imageTextures.erase(tit);
+		}
+		_imgKeyToHandle.erase(evKey);
+		_imgHandleToKey.erase(kit);
+	}
+}
+
+void CalypsoHdUiOverlay::dropImageTextures()
+{
+	for (auto& kv : _imageTextures) delete kv.second;
+	_imageTextures.clear();
+	_imgKeyToHandle.clear();
+	_imgHandleToKey.clear();
+	_imageLru.clear();
 }
 
 void CalypsoHdUiOverlay::evictTextTextures(const std::vector<std::uint64_t>& evicted)
@@ -834,8 +981,12 @@ bool CalypsoHdUiOverlay::renderStages(SDL_Renderer* renderer)
 		if (d.kind == CalypsoHdItemKind::Panel)
 			drawn = d.panelStyle.styled ? drawStyledPanel(d)
 			                            : drawLogicalQuad(d.tex, d.rect, d.colorRgba);
-		else
+		else if (d.kind == CalypsoHdItemKind::Text)
 			drawn = drawGlyph(d);
+		else if (d.kind == CalypsoHdItemKind::RgbaImage)
+			drawn = drawImage(d);
+		else
+			drawn = false;
 		if (!drawn) ok = false;
 	}
 

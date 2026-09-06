@@ -145,6 +145,9 @@
 #include "../Calypso/CalypsoAdvisor.h"
 #include "../Calypso/CalypsoGeoscapeHd.h"
 #include "../Calypso/CalypsoGeoscapeHdRuntime.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoStrategicNavigation.h"
+#endif
 #include "../Calypso/CalypsoGeoscapeStateInit.h"
 #include "../Calypso/CalypsoGeoscapeHdShell.h"
 #include "../Calypso/CalypsoHdScreenRenderer.h"
@@ -833,6 +836,8 @@ void GeoscapeState::think()
 {
 	State::think();
 #ifdef __EMSCRIPTEN__
+	// F01 pending route (T15): consume before timers; a handled route ends think.
+	if (Calypso::calypsoPollStrategicRoute(*this)) return;
 	// Apply selector camera work after the complete pointer dispatch. Globe's
 	// mouse-release path may otherwise restore its pre-click drag centre.
 	CalypsoGeoscapeHdShell::applyPendingBaseFocus(this);

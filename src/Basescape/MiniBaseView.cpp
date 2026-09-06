@@ -20,6 +20,7 @@
 #include <cmath>
 #include "../Engine/SurfaceSet.h"
 #include "../Engine/Action.h"
+#include "../Calypso/CalypsoBaseGridInput.h"
 #include "../Savegame/Base.h"
 #include "../Savegame/BaseFacility.h"
 #include "../Mod/RuleBaseFacility.h"
@@ -153,9 +154,35 @@ void MiniBaseView::draw()
  * @param action Pointer to an action.
  * @param state State that the action handlers belong to.
  */
+#ifdef __EMSCRIPTEN__
+void MiniBaseView::setCalypsoHdMiniGeometry(double slotWidth, double pitch)
+{
+	_calypsoHdMiniSlotW = slotWidth > 0.0 ? slotWidth : 0.0;
+	_calypsoHdMiniPitch = pitch > 0.0 ? pitch : 0.0;
+}
+
+void MiniBaseView::clearCalypsoHdMiniGeometry()
+{
+	_calypsoHdMiniSlotW = 0.0;
+	_calypsoHdMiniPitch = 0.0;
+}
+#endif
+
 void MiniBaseView::mouseOver(Action *action, State *state)
 {
-	_hoverBase = (int)floor(action->getRelativeXMouse() / ((MINI_SIZE + 2) * action->getXScale()));
+#ifdef __EMSCRIPTEN__
+	if (_calypsoHdMiniSlotW > 0.0 && _calypsoHdMiniPitch > 0.0 && action->getXScale() != 0.0)
+	{
+		const std::optional<size_t> slot = Calypso::calypsoMiniBaseSlotAt(
+			action->getRelativeXMouse() / action->getXScale(),
+			_calypsoHdMiniSlotW, _calypsoHdMiniPitch, MAX_BASES);
+		_hoverBase = slot.has_value() ? *slot : MAX_BASES;
+	}
+	else
+#endif
+	{
+		_hoverBase = (int)floor(action->getRelativeXMouse() / ((MINI_SIZE + 2) * action->getXScale()));
+	}
 	InteractiveSurface::mouseOver(action, state);
 }
 

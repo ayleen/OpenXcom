@@ -16,6 +16,7 @@
 #ifdef __EMSCRIPTEN__
 
 #include "CommandCenterIcons.h"
+#include "CommandCenterInteraction.h"
 #include "CommandCenterLayout.h"
 #include "CommandCenterTheme.h"
 
@@ -67,6 +68,23 @@ struct CommandCenterFonts
 /// Resolve the FONT_CC_* faces against the active mod. `icons` is optional
 /// (the screen fails closed to label-only without the icon face).
 CommandCenterFonts calypsoCcResolveFonts(const class Mod* mod);
+
+/// Shared global-rail chrome (T07): header/rail backgrounds plus the five
+/// section items with an explicit active section. Pure paint: no handler
+/// calls, no state lookups, no widget bindings -- the caller binds its own
+/// native widgets at these rects and passes labels it already owns (World
+/// passes the kRailItems labels; Base will resolve live labels). Settings
+/// stays pinned to the rail bottom in every composition.
+void calypsoCcPaintHeaderBackground(CalypsoF21Painter& painter, const RectF& header,
+	std::uint32_t& role);
+void calypsoCcPaintRailBackground(CalypsoF21Painter& painter, const RectF& rail,
+	std::uint32_t& role);
+void calypsoCcPaintRailItems(CalypsoF21Painter& painter, const RectF& rail,
+	RailAction active, const char* const labels[5],
+	const CommandCenterFonts& fonts, std::uint32_t& role);
+/// Shared rail section label (T14): index 0..4 WORLD/BASES/OPERATIONS/
+/// ANALYTICS/ARCHIVE. Single definition site; empty string outside range.
+const char* calypsoCcRailLabel(int index);
 
 /// Emit the whole screen. `live` gates the world-region background (the
 /// real globe pass owns it) and widget claim binding; `state` may be null

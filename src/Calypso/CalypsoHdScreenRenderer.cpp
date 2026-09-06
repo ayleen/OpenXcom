@@ -18,7 +18,12 @@
 #include "../Savegame/Base.h"
 
 #include "CalypsoCommandActionStyle.h"
+#include "CalypsoBaseVisualCatalog.h"
+#include "CalypsoBaseGridInput.h"
+#include "CalypsoBasescapeHdUi.h"
+#include "CalypsoUiMetrics.h"
 #include "CommandCenter/CommandCenterRenderer.h"
+#include "../Basescape/BasescapeState.h"
 #include "CalypsoF21UiShared.h"
 #include "CalypsoHdFontSource.h"
 #include "CalypsoHdTheme.h"
@@ -252,6 +257,371 @@ const CalypsoGeoscapeHdRuntimeModel& CalypsoHdScreenRenderer::liveGeoscapeSnapsh
 }
 
 
+namespace
+{
+constexpr std::uint32_t kBaseScreenFamilyId = 62;
+constexpr int kBaseDesignW = 1280;
+constexpr int kBaseDesignH = 720;
+} // namespace
+
+void CalypsoHdScreenRenderer::collectBasescape(CalypsoHdFrameBuilder& builder) const
+{
+	const CalypsoHdScreenRenderModel& model = _model;
+	if (model.archetype != "base-command-shell") return;
+	// Fixture (harness) mode has no live state: paint from the model only and
+	// claim nothing. Live mode additionally binds the existing input owners.
+	const bool live = _mode == CalypsoHdScreenRenderMode::BasescapeLiveChrome;
+	const BasescapeState* base = live ? static_cast<const BasescapeState*>(_state) : nullptr;
+	if (live && base == nullptr) return;
+	Game* game = getCurrentGame();
+	const Mod* mod = game ? game->getMod() : nullptr;
+	const CommandCenter::CommandCenterFonts ccFonts =
+		CommandCenter::calypsoCcResolveFonts(mod);
+	if (!ccFonts.ready) return;
+	CalypsoBaseVisualCatalog catalog;
+	std::string catalogError;
+	if (!calypsoLoadBaseVisualCatalog(catalog, catalogError))
+	{
+		CalypsoHdUiOverlay::instance().failHdRoute("base visual catalog: " + catalogError);
+	}
+	CalypsoBaseSafeRect safe{ 0, 0, Options::baseXResolution, Options::baseYResolution };
+	(void)calypsoProjectedSafeRectForLayout(Options::baseXResolution,
+		Options::baseYResolution, safe);
+	const double uiScale = calypsoFitUiScale(safe, kBaseDesignW, kBaseDesignH, 1.0);
+	if (!(uiScale > 0.0))
+	{
+		CalypsoHdUiOverlay::instance().failHdRoute("base UI scale is not positive");
+	}
+	const int offX = safe.x + (safe.width - (int)(kBaseDesignW * uiScale + 0.5)) / 2;
+	const int offY = safe.y + (safe.height - (int)(kBaseDesignH * uiScale + 0.5)) / 2;
+	const CalypsoHdPresentationMetrics& metrics = CalypsoHdUiOverlay::instance().frozenMetrics();
+	builder.beginSubgroup();
+	CalypsoF21Painter painter{ builder, kBaseScreenFamilyId,
+		reinterpret_cast<std::uintptr_t>(_state), 0, 1.0f, 1.0,
+		CalypsoF21Rect{ offX, offY,
+			(int)(kBaseDesignW * uiScale + 0.5), (int)(kBaseDesignH * uiScale + 0.5) },
+		metrics.scaleX, metrics.scaleY };
+	painter.winLogical = { offX, offY,
+		(int)(kBaseDesignW * uiScale + 0.5), (int)(kBaseDesignH * uiScale + 0.5) };
+	painter.windowDesign = { 0, 0, kBaseDesignW, kBaseDesignH };
+	painter.uiScale = uiScale;
+	painter.uiAspectY = 1.0;
+	std::uint32_t role = 1;
+	const auto project = [&](const CalypsoHdScreenRect& r) {
+		return painter.project(CalypsoF21Rect{ r.x, r.y, r.w, r.h });
+	};
+	const CalypsoBasescapeHdSnapshot& snapshot = model.baseSnapshot;
+
+	painter.image(project(CalypsoHdScreenRect{ 0, 0, kBaseDesignW, kBaseDesignH }),
+		calypsoBaseCatalogImage(catalog, catalog.background), nullptr, role++);
+
+	const CalypsoHdScreenRegionVisual* deckRegion = findRegion(model, "facilityDeck");
+	if (deckRegion == nullptr)
+	{
+		CalypsoHdUiOverlay::instance().failHdRoute("base deck region missing");
+	}
+	const int deckSide = std::min(deckRegion->rect.w, deckRegion->rect.h);
+	const int deckX = deckRegion->rect.x;
+	const int deckY = deckRegion->rect.y;
+	for (int cy = 0; cy < 6; ++cy)
+	{
+		for (int cx = 0; cx < 6; ++cx)
+		{
+			const BaseGridCellRect cell = calypsoBaseDeckCellRect(
+				deckX, deckY, deckSide, cx, cy, 1, 1);
+			painter.image(project(CalypsoHdScreenRect{ cell.x, cell.y, cell.w, cell.h }),
+				calypsoBaseCatalogImage(catalog, catalog.emptyCell), nullptr, role++);
+		}
+	}
+	if (base != nullptr)
+	{
+		painter.claim(base->_view, role++);
+	}
+	const CalypsoBasescapeHdFacilityVisual* grid[6][6] = {};
+	for (const auto& fac : snapshot.facilities)
+	{
+		for (int yy = 0; yy < fac.sizeY; ++yy)
+		{
+			for (int xx = 0; xx < fac.sizeX; ++xx)
+			{
+				if (fac.x + xx >= 0 && fac.x + xx < 6 && fac.y + yy >= 0 && fac.y + yy < 6)
+				{
+					grid[fac.x + xx][fac.y + yy] = &fac;
+				}
+			}
+		}
+	}
+	const auto builtOrPrevious = [](const CalypsoBasescapeHdFacilityVisual& fac) {
+		return fac.buildTime == 0 || fac.hadPrevious;
+	};
+	for (const auto& fac : snapshot.facilities)
+	{
+		const BaseGridCellRect rect = calypsoBaseDeckCellRect(
+			deckX, deckY, deckSide, fac.x, fac.y, fac.sizeX, fac.sizeY);
+		const CalypsoHdScreenRect dest{ rect.x, rect.y, rect.w, rect.h };
+		std::string art;
+		if (fac.buildTime > 0)
+		{
+			art = catalog.construction;
+		}
+		else
+		{
+			bool known = false;
+			art = calypsoBaseFacilityImage(catalog, fac.ruleType, known);
+		}
+		painter.image(project(dest), calypsoBaseCatalogImage(catalog, art), nullptr, role++);
+		if (fac.craftDrawn && fac.craftIndex >= 0
+			&& (size_t)fac.craftIndex < snapshot.crafts.size())
+		{
+			const std::string craftArt = calypsoBaseCraftImage(
+				catalog, snapshot.crafts[(size_t)fac.craftIndex].artKey);
+			if (craftArt.empty())
+			{
+				CalypsoHdUiOverlay::instance().failHdRoute("base craft art missing: "
+					+ snapshot.crafts[(size_t)fac.craftIndex].artKey);
+			}
+			painter.image(project(dest), calypsoBaseCatalogImage(catalog, craftArt),
+				nullptr, role++);
+		}
+		if (builtOrPrevious(fac) && !fac.connectorsDisabled)
+		{
+			const int nx = fac.x + fac.sizeX;
+			if (nx < 6)
+			{
+				for (int yy = fac.y; yy < fac.y + fac.sizeY; ++yy)
+				{
+					const CalypsoBasescapeHdFacilityVisual* nb =
+						(yy >= 0 && yy < 6) ? grid[nx][yy] : nullptr;
+					if (nb != nullptr && builtOrPrevious(*nb) && !nb->connectorsDisabled)
+					{
+						const int edgeX = deckX + calypsoBaseDeckEdge(deckSide, nx);
+						const int cw = calypsoBaseDeckEdge(deckSide, nx + 1)
+							- calypsoBaseDeckEdge(deckSide, nx);
+						const int edgeY0 = deckY + calypsoBaseDeckEdge(deckSide, yy);
+						const int edgeY1 = deckY + calypsoBaseDeckEdge(deckSide, yy + 1);
+						painter.image(project(CalypsoHdScreenRect{
+							edgeX - cw / 2, edgeY0, cw, edgeY1 - edgeY0 }),
+							calypsoBaseCatalogImage(catalog, catalog.connectorH),
+							nullptr, role++);
+					}
+				}
+			}
+			const int ny = fac.y + fac.sizeY;
+		if (ny < 6)
+		{
+			for (int xx = fac.x; xx < fac.x + fac.sizeX; ++xx)
+			{
+				const CalypsoBasescapeHdFacilityVisual* nb =
+					(xx >= 0 && xx < 6) ? grid[xx][ny] : nullptr;
+			if (nb != nullptr && builtOrPrevious(*nb) && !nb->connectorsDisabled)
+			{
+				const int edgeX0 = deckX + calypsoBaseDeckEdge(deckSide, xx);
+				const int edgeX1 = deckX + calypsoBaseDeckEdge(deckSide, xx + 1);
+				const int edgeY = deckY + calypsoBaseDeckEdge(deckSide, ny);
+				const int ch = calypsoBaseDeckEdge(deckSide, ny + 1)
+					- calypsoBaseDeckEdge(deckSide, ny);
+				painter.image(project(CalypsoHdScreenRect{
+					edgeX0, edgeY - ch / 2, edgeX1 - edgeX0, ch }),
+					calypsoBaseCatalogImage(catalog, catalog.connectorV),
+					nullptr, role++);
+				}
+			}
+			}
+		}
+		if (fac.buildTime > 0 || fac.disabled)
+		{
+			std::string marker = fac.disabled ? "X" : std::to_string(fac.buildTime);
+			if (fac.hadPrevious)
+			{
+				marker += "*";
+			}
+			painter.textRect(project(dest), nullptr, ccFonts.plexM, marker,
+				CommandCenterTheme::packed(CommandCenterTheme::TextPrimary),
+				CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, role++, 0.0, 14.0);
+		}
+		if (fac.buildTime == 0 && fac.ammoMax > 0)
+		{
+			std::uint32_t ammoColor = CommandCenterTheme::packed(CommandCenterTheme::Warning);
+			if (fac.ammo >= fac.ammoMax)
+			{
+				ammoColor = CommandCenterTheme::packed(CommandCenterTheme::Success);
+			}
+			else if (fac.ammo <= fac.ammoMax / 2)
+			{
+				ammoColor = CommandCenterTheme::packed(CommandCenterTheme::Danger);
+			}
+			painter.textRect(project(CalypsoHdScreenRect{
+					rect.x, rect.y, rect.w, 12 }), nullptr, ccFonts.plexM,
+				std::to_string(fac.ammo) + "/" + std::to_string(fac.ammoMax),
+				ammoColor, CalypsoHdHAlign::Left, CalypsoHdVAlign::Top, 1, role++, 0.0, 11.0);
+		}
+	}
+	if (snapshot.hasHoverCell)
+	{
+		const BaseGridCellRect hover = calypsoBaseDeckCellRect(deckX, deckY, deckSide,
+			snapshot.hoverX, snapshot.hoverY, snapshot.hoverSizeX, snapshot.hoverSizeY);
+		CalypsoHdPanelStyle ring;
+		ring.styled = true;
+		ring.radiusPx = 6.0f;
+		ring.borderWidthPx = 2.0f;
+		ring.borderColorRgba = CommandCenterTheme::packed(CommandCenterTheme::Accent);
+		ring.fillTopRgba = ring.fillBottomRgba = 0x00000000u;
+		painter.styled(project(CalypsoHdScreenRect{
+			hover.x, hover.y, hover.w, hover.h }), ring, nullptr, role++);
+	}
+	if (const CalypsoHdScreenRegionVisual* hoverLine = findRegion(model, "hoverLine"))
+	{
+		painter.textRect(project(hoverLine->rect), base != nullptr ? base->_txtFacility : nullptr,
+			ccFonts.plexM, snapshot.hoverFacility,
+			CommandCenterTheme::packed(CommandCenterTheme::TextPrimary),
+			CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, role++, 0.0, 12.0);
+	}
+	if (const CalypsoHdScreenRegionVisual* titleRegion = findRegion(model, "titleRegion"))
+	{
+		painter.textRect(project(titleRegion->rect), base != nullptr ? base->_txtLocation : nullptr,
+			ccFonts.plexM, snapshot.region,
+			CommandCenterTheme::packed(CommandCenterTheme::TextSecondary),
+			CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, role++, 0.0, 11.0);
+	}
+	if (base != nullptr)
+	{
+		painter.claim(base->_mini, role++);
+	}
+	{
+		const int slotW = snapshot.selectorRect.w / 8;
+		for (int i = 0; i < 8; ++i)
+		{
+			const CalypsoHdScreenRect slot{
+				snapshot.selectorRect.x + i * slotW, snapshot.selectorRect.y, slotW,
+				snapshot.selectorRect.h };
+			CalypsoHdPanelStyle slotBg;
+			slotBg.styled = true;
+			slotBg.radiusPx = CommandCenterTheme::RadiusSM;
+			slotBg.borderWidthPx = 1.0f;
+			slotBg.borderColorRgba = CommandCenterTheme::packed(CommandCenterTheme::Border);
+			slotBg.fillTopRgba = slotBg.fillBottomRgba =
+				CommandCenterTheme::packed(CommandCenterTheme::BgPanelRaised);
+			painter.styled(project(slot), slotBg, nullptr, role++);
+			if ((size_t)i < snapshot.bases.size())
+			{
+				const auto& entry = snapshot.bases[(size_t)i];
+				for (const auto& cell : entry.cells)
+				{
+					std::uint32_t fill = CommandCenterTheme::packed(CommandCenterTheme::Success);
+					if (cell.disabled)
+					{
+						fill = CommandCenterTheme::packed(CommandCenterTheme::Info);
+					}
+					else if (!cell.built)
+					{
+						fill = CommandCenterTheme::packed(CommandCenterTheme::Warning);
+					}
+					painter.panel(project(CalypsoHdScreenRect{
+						slot.x + 4 + cell.x * 6, slot.y + 8 + cell.y * 6,
+						cell.sizeX * 6 - 1, cell.sizeY * 6 - 1 }), fill, nullptr, role++);
+				}
+				if (entry.selected)
+				{
+					CalypsoHdPanelStyle ring;
+					ring.styled = true;
+					ring.radiusPx = CommandCenterTheme::RadiusSM;
+					ring.borderWidthPx = 2.0f;
+					ring.borderColorRgba =
+						CommandCenterTheme::packed(CommandCenterTheme::Accent);
+					ring.fillTopRgba = ring.fillBottomRgba = 0x00000000u;
+					painter.styled(project(slot), ring, nullptr, role++);
+				}
+			}
+		}
+	}
+	const CommandCenter::CommandCenterLayout ccLayout =
+		CommandCenter::computeDesktopLayout(CommandCenter::Size2{ 1280.0f, 720.0f }, false);
+	CommandCenter::calypsoCcPaintHeaderBackground(painter, ccLayout.header, role);
+	CommandCenter::calypsoCcPaintRailBackground(painter, ccLayout.navigationRail, role);
+	{
+		const char* railLabels[5] = { CommandCenter::calypsoCcRailLabel(0),
+			CommandCenter::calypsoCcRailLabel(1), CommandCenter::calypsoCcRailLabel(2),
+			CommandCenter::calypsoCcRailLabel(3), CommandCenter::calypsoCcRailLabel(4) };
+		CommandCenter::calypsoCcPaintRailItems(painter, ccLayout.navigationRail,
+			CommandCenter::RailAction::Bases, railLabels, ccFonts, role);
+	}
+	if (const CalypsoHdScreenRegionVisual* fundsRegion = findRegion(model, "headerFunds"))
+	{
+		painter.textRect(project(fundsRegion->rect), base != nullptr ? base->_txtFunds : nullptr,
+			ccFonts.plexM, snapshot.funds,
+			CommandCenterTheme::packed(CommandCenterTheme::TextPrimary),
+			CalypsoHdHAlign::Right, CalypsoHdVAlign::Middle, 1, role++, 0.0, 14.0);
+	}
+	bool groupIllustrated = false;
+	for (const auto& action : model.actions)
+	{
+		if (action.id == "navigation.world")
+		{
+			painter.claim(action.widget, role++);
+			continue;
+		}
+		const TextButton* button = static_cast<const TextButton*>(
+			static_cast<const Surface*>(action.widget));
+		if (button != nullptr && !button->getVisible())
+		{
+			continue;
+		}
+		const bool row = action.component == "management-action-group";
+		if (row && action.id == "base.transfer" && !groupIllustrated)
+		{
+			groupIllustrated = true;
+			const std::string groupArt = calypsoBaseCardImage(catalog, "logistics-group");
+			if (groupArt.empty())
+			{
+				CalypsoHdUiOverlay::instance().failHdRoute("base card art missing: logistics-group");
+			}
+			painter.image(project(CalypsoHdScreenRect{
+				action.hit.x, action.hit.y, 80, 138 }),
+				calypsoBaseCatalogImage(catalog, groupArt), nullptr, role++);
+		}
+		const CalypsoInteractionState state = f21ButtonVisualState(button);
+		CalypsoHdPanelStyle card;
+		card.styled = true;
+		card.radiusPx = CommandCenterTheme::RadiusSM;
+		card.borderWidthPx = (state == CalypsoInteractionState::Focus) ? 2.0f : 1.0f;
+		card.borderColorRgba = (state == CalypsoInteractionState::Focus)
+			? CommandCenterTheme::packed(CommandCenterTheme::Accent)
+			: CommandCenterTheme::packed(CommandCenterTheme::Border);
+		card.fillTopRgba = card.fillBottomRgba = (state == CalypsoInteractionState::Pressed)
+			? CommandCenterTheme::packed(CommandCenterTheme::BgActive)
+			: (state == CalypsoInteractionState::Hover)
+			? CommandCenterTheme::packed(CommandCenterTheme::BgHover)
+			: CommandCenterTheme::packed(CommandCenterTheme::BgPanelRaised);
+		card.gradDirX = 0.0f;
+		card.gradDirY = 1.0f;
+		painter.styled(project(CalypsoHdScreenRect{
+			action.visible.x, action.visible.y, action.visible.w, action.visible.h }),
+			card, nullptr, role++);
+		if (!row && action.component == "illustrated-management-action"
+			&& action.slotRole.rfind("card-", 0) == 0)
+		{
+			const std::string art = calypsoBaseCardImage(catalog, action.id);
+			if (art.empty())
+			{
+				CalypsoHdUiOverlay::instance().failHdRoute("base card art missing: " + action.id);
+			}
+			painter.image(project(CalypsoHdScreenRect{
+				action.visible.x + 6, action.visible.y + 4, 44, action.visible.h - 8 }),
+				calypsoBaseCatalogImage(catalog, art), nullptr, role++);
+		}
+		const bool illustrated = !row && action.component == "illustrated-management-action"
+			&& action.slotRole.rfind("card-", 0) == 0;
+		const int labelX = action.visible.x + (illustrated ? 58 : (row ? 88 : 8));
+		const int labelW = action.visible.w - (illustrated ? 66 : (row ? 96 : 16));
+		const double labelSize = action.visible.h >= 52 ? 15.0 : 13.0;
+		painter.textRect(project(CalypsoHdScreenRect{
+				labelX, action.visible.y + 6, labelW, action.visible.h - 12 }),
+			action.widget, ccFonts.plexM, action.label,
+			CommandCenterTheme::packed(CommandCenterTheme::TextPrimary),
+			CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 2, role++, 0.02, labelSize);
+	}
+}
+
 CalypsoHdScreenRenderer::CalypsoHdScreenRenderer(
 	const void* state, CalypsoHdScreenRenderModel model, CalypsoHdScreenRenderMode mode)
 	: _state(state), _model(std::move(model)), _mode(mode)
@@ -276,6 +646,48 @@ bool CalypsoHdScreenRenderer::suppressLogicalState() const
 void CalypsoHdScreenRenderer::collectLogicalSuppression(
 	CalypsoHdLogicalSuppression& suppression) const
 {
+	if (_mode == CalypsoHdScreenRenderMode::BasescapeLiveChrome && _state != nullptr)
+	{
+		// T15: visible input-only rail owners (no native pixels of their own,
+		// but their frames must never blit).
+		// T16: every other main widget is suppressed with them, so a covered
+		// base can never leak legacy pixels around a child state. The name
+		// field draws natively while top (caret/IME) and joins the list only
+		// when covered.
+		const BasescapeState* base = static_cast<const BasescapeState*>(_state);
+		if (base != nullptr)
+		{
+			suppression.add(base->_view);
+			suppression.add(base->_mini);
+			suppression.add(base->_btnNewBase);
+			suppression.add(base->_btnBaseInfo);
+			suppression.add(base->_btnSoldiers);
+			suppression.add(base->_btnCrafts);
+			suppression.add(base->_btnFacilities);
+			suppression.add(base->_btnResearch);
+			suppression.add(base->_btnManufacture);
+			suppression.add(base->_btnTransfer);
+			suppression.add(base->_btnPurchase);
+			suppression.add(base->_btnSell);
+			suppression.add(base->_btnGeoscape);
+			suppression.add(base->_txtFacility);
+			suppression.add(base->_txtLocation);
+			suppression.add(base->_txtFunds);
+			if (base->_calypsoHdUi != nullptr)
+			{
+				for (const TextButton* button : base->_calypsoHdUi->railButtons())
+				{
+					suppression.add(button);
+				}
+			}
+			Game* game = getCurrentGame();
+			if (game != nullptr && game->getTopState() != _state)
+			{
+				suppression.add(base->_edtBase);
+			}
+		}
+		return;
+	}
 	if (_mode != CalypsoHdScreenRenderMode::GeoscapeLiveChrome || !_state) return;
 	const auto* geoscape = static_cast<const GeoscapeState*>(_state);
 	if (!geoscape) return;
@@ -325,6 +737,13 @@ bool CalypsoHdScreenRenderer::resolvePhysicalFonts(
 bool CalypsoHdScreenRenderer::physicalReady() const
 {
 	if (!_state) return false;
+	if (_mode == CalypsoHdScreenRenderMode::BasescapeLiveChrome)
+	{
+		// Base chrome shares the Command Center faces (single typography).
+		Game* game = getCurrentGame();
+		const Mod* mod = game ? game->getMod() : nullptr;
+		return CommandCenter::calypsoCcResolveFonts(mod).ready;
+	}
 	CalypsoTtfSourceDescriptor heading;
 	CalypsoTtfSourceDescriptor body;
 	CalypsoTtfSourceDescriptor mono;
@@ -334,6 +753,8 @@ bool CalypsoHdScreenRenderer::physicalReady() const
 bool CalypsoHdScreenRenderer::completeFrameReady() const
 {
 	if (!physicalReady()) return false;
+	if (_mode == CalypsoHdScreenRenderMode::BasescapeLiveChrome)
+		return calypsoBasescapeHdModelReady(_model);
 	if (_mode != CalypsoHdScreenRenderMode::GeoscapeLiveChrome) return true;
 	const auto* geoscape = static_cast<const GeoscapeState*>(_state);
 	if (!geoscape) return false;
@@ -368,6 +789,11 @@ void CalypsoHdScreenRenderer::collect(CalypsoHdFrameBuilder& builder) const
 	}
 	const CalypsoHdScreenRenderModel& model = *modelPtr;
 	if (!_state || model.designWidth <= 0 || model.designHeight <= 0) return;
+	if (model.archetype == "base-command-shell")
+	{
+		collectBasescape(builder);
+		return;
+	}
 	if (model.archetype != "strategic-command-shell") return;
 
 	CalypsoTtfSourceDescriptor heading;

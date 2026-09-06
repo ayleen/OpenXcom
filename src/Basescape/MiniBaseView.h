@@ -40,6 +40,10 @@ private:
 	SurfaceSet *_texture;
 	size_t _base, _hoverBase;
 	Uint8 _red, _green, _blue;
+#ifdef __EMSCRIPTEN__
+	double _calypsoHdMiniSlotW = 0.0;
+	double _calypsoHdMiniPitch = 0.0;
+#endif
 public:
 	static const size_t MAX_BASES = 8;
 	/// Creates a new mini base view at the specified position and size.
@@ -54,6 +58,14 @@ public:
 	size_t getHoveredBase() const;
 	/// Sets the selected base for the mini base view.
 	void setSelectedBase(size_t base);
+#ifdef __EMSCRIPTEN__
+	// T11 opt-in HD selector geometry for this instance only (main Basescape
+	// view). Legacy MINI_SIZE stride stays the default; a miss resolves to
+	// MAX_BASES so the existing click guards reject it exactly like far-right
+	// legacy positions.
+	void setCalypsoHdMiniGeometry(double slotWidth, double pitch);
+	void clearCalypsoHdMiniGeometry();
+#endif
 	/// Draws the mini base view.
 	void draw() override;
 	/// Special handling for mouse hovers.

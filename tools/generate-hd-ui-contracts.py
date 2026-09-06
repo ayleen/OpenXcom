@@ -677,10 +677,16 @@ def validate_screen(doc, rel):
                    or not isinstance(value, str)
                    for key, value in fixture_copy.items())):
         fail(rel + ": fixture.labels.copy must be a string map")
+    policy = doc.get("layoutPolicy", "wide-compact")
+    if policy not in ("wide-compact", "desktop-fit"):
+        fail(rel + ": unknown layoutPolicy " + str(policy))
+    expected_layouts = {"wide"} if policy == "desktop-fit" else {"wide", "compact"}
     layouts = doc.get("layouts")
-    if not isinstance(layouts, dict) or set(layouts) != {"wide", "compact"}:
-        fail(rel + ": layouts must contain exactly wide and compact")
+    if not isinstance(layouts, dict) or set(layouts) != expected_layouts:
+        fail(rel + ": layouts must contain exactly " + "/".join(sorted(expected_layouts)))
     for layout_name in ("wide", "compact"):
+        if layout_name not in layouts:
+            continue
         layout = layouts[layout_name]
         if not isinstance(layout, dict):
             fail(rel + ": " + layout_name + " must be an object")
@@ -1223,7 +1229,9 @@ def emit_screen_h(doc, rel, ns, prefix):
            "};",
            ""]
     arrays = []
-    for layout_name, label in (("wide", "Wide"), ("compact", "Compact")):
+    present_layouts = [(name, label) for name, label in (("wide", "Wide"), ("compact", "Compact"))
+                       if name in doc["layouts"]]
+    for layout_name, label in present_layouts:
         layout = doc["layouts"][layout_name]
         array_name = "k" + label + "Actions"
         region_array_name = "k" + label + "Regions"
@@ -1256,7 +1264,7 @@ def emit_screen_h(doc, rel, ns, prefix):
                    + array_name + ", " + str(len(doc["actions"])) + ", "
                    + region_array_name + ", " + str(len(layout["regions"])) + " },")
     out += ["};",
-            "inline constexpr int kLayoutCount = 2;",
+            "inline constexpr int kLayoutCount = " + str(len(present_layouts)) + ";",
             "",
             "inline constexpr " + prefix + "GenFixtureCopy kFixtureCopy[] =",
             "{"]

@@ -1,0 +1,49 @@
+{
+  "schema": 1,
+  "id": "base-command-shell",
+  "version": "hd.2026-09-06.1",
+  "coordinateSpaces": ["screen"],
+  "layoutPolicy": "desktop-fit",
+  "desktopFit": {"minViewport": [1280, 720], "fitRule": "uniform"},
+  "requiredActionIds": ["base.new", "base.info", "base.divers", "base.crafts", "base.build", "base.research", "base.manufacture", "base.transfer", "base.purchase", "base.sell", "navigation.world"],
+  "forbiddenPersistentPatterns": [],
+  "layouts": {
+    "wide": {
+      "canvas": [1280, 720],
+      "regions": {
+        "header": [88, 0, 1192, 72],
+        "titleBand": [112, 96, 781, 52],
+        "titleName": [112, 96, 210, 28],
+        "titleRegion": [112, 124, 210, 20],
+        "titleSelector": [330, 96, 352, 52],
+        "headerFunds": [976, 16, 280, 40],
+        "hoverLine": [112, 148, 500, 14],
+        "facilityDeck": [112, 164, 781, 532],
+        "deckSquare": [112, 164, 532, 532],
+        "commandColumn": [913, 164, 343, 532]
+      },
+      "reservedRegions": [
+        {"id": "facility-deck", "bounds": [112, 164, 781, 532]},
+        {"id": "command-column", "bounds": [913, 164, 343, 532]}
+      ],
+      "slots": {
+        "card-divers": {"visibleRect": [913, 204, 343, 52]},
+        "card-research": {"visibleRect": [913, 262, 343, 52]},
+        "card-manufacture": {"visibleRect": [913, 320, 343, 52]},
+        "card-craft": {"visibleRect": [913, 378, 343, 52]},
+        "card-build": {"visibleRect": [913, 580, 343, 52]},
+        "service-1": {"visibleRect": [913, 640, 167, 44]},
+        "service-2": {"visibleRect": [1089, 640, 167, 44]},
+        "rail-world": {"visibleRect": [8, 92, 72, 72]}
+      },
+      "collections": {
+        "logistics-rows": {
+          "origin": [913, 436],
+          "itemSize": [343, 44],
+          "stride": [0, 47],
+          "maxItems": 3
+        }
+      }
+    }
+  }
+}

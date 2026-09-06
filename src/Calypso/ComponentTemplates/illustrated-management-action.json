@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "id": "illustrated-management-action",
+  "version": "hd.2026-09-06.1",
+  "kind": "illustrated-action",
+  "minimumTarget": [44, 44],
+  "allowedSlotRoles": ["card-divers", "card-research", "card-manufacture", "card-craft", "card-build", "service-1", "service-2"],
+  "allowedTones": ["normal", "primary", "warning", "danger"]
+}

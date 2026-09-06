@@ -378,6 +378,25 @@ struct CalypsoF21Painter
 		++ord;
 	}
 
+	/// RGBA image stretched over the destination (T05 item kind): VFS source,
+	/// UV rect, and optional clip travel in the descriptor; the destination IS
+	/// a stretch target. Shares the claim/order identity of every painter item.
+	void image(const CalypsoLogicalRect& r, const CalypsoHdImageDescriptor& desc,
+		const void* widget, std::uint32_t role)
+	{
+		if (r.w <= 0 || r.h <= 0) return;
+		CalypsoHdItem it;
+		it.kind = CalypsoHdItemKind::RgbaImage;
+		it.rect = motionRect(r);
+		it.image = desc;
+		it.widget = widget;
+		it.opacity = opacity;
+		it.claim = { familyId, role, inst, 1u, (std::uint32_t)ord };
+		it.order = { 0, 0, familyId, inst, 0, 1, ord, role };
+		builder.add(it);
+		++ord;
+	}
+
 	/// Explicit-rect text (decorations like the "!" glyph have no widget).
 	void textRect(const CalypsoLogicalRect& sourceRect, const void* widget,
 		const CalypsoTtfSourceDescriptor& font,

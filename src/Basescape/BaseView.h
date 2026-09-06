@@ -19,6 +19,8 @@
  */
 #include "../Engine/InteractiveSurface.h"
 
+#include <vector>
+
 namespace OpenXcom
 {
 
@@ -26,10 +28,22 @@ class Base;
 class SurfaceSet;
 class BaseFacility;
 class RuleBaseFacility;
+class Craft;
 class Font;
 class Language;
 class Timer;
 enum BasePlacementErrors : int;
+
+// One craft berth assignment in traversal order (T09): the pen, the craft
+// occupying its slot (null when empty), and whether it is drawn. An away
+// craft keeps its slot but is not drawn; an unfinished pen never receives
+// a craft. Shared by draw() and the HD presentation refresh.
+struct BaseCraftDrawing
+{
+	BaseFacility *pen = nullptr;
+	Craft *craft = nullptr;
+	bool drawn = false;
+};
 
 /**
  * Interactive view of a base.
@@ -48,6 +62,10 @@ private:
 	Font *_big, *_small;
 	Language *_lang;
 	int _gridX, _gridY;
+#ifdef __EMSCRIPTEN__
+	int _calypsoHdGridW = 0;
+	int _calypsoHdGridH = 0;
+#endif
 	int _selSizeX, _selSizeY;
 	Surface *_selector;
 	bool _blink;
@@ -66,6 +84,16 @@ public:
 	void initText(Font *big, Font *small, Language *lang) override;
 	/// Sets the base to display.
 	void setBase(Base *base);
+	// Assigns crafts to finished hangars in traversal order (T09). Preserves
+	// the exact legacy order and STR_OUT semantics; only moves the code.
+	void assignCraftsForDrawing(std::vector<BaseCraftDrawing> &out);
+#ifdef __EMSCRIPTEN__
+	// T10 opt-in HD grid extent for this instance only (main Basescape view).
+	// Legacy GRID_SIZE mapping stays the default; placement views never set it,
+	// so the GRID_SIZE-based selector math below is unaffected.
+	void setCalypsoHdGridExtent(int logicalWidth, int logicalHeight);
+	void clearCalypsoHdGridExtent();
+#endif
 	/// Sets the texture for this base view.
 	void setTexture(SurfaceSet *texture);
 	/// Gets the currently selected facility.

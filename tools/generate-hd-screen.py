@@ -29,6 +29,8 @@ ACTION_KEYS = {
     "inputs", "availability", "timePolicy", "focusOrder", "visibility", "hotkey",
     "rowIndex", "variants", "variantContext",
 }
+LAYOUT_POLICIES = {"wide-compact", "desktop-fit"}
+COMPONENT_KINDS = {"action", "illustrated-action", "action-group"}
 
 
 def fail(message):
@@ -156,9 +158,31 @@ def validate_template(template, archetype):
             or any(not isinstance(space, str) or not space for space in coordinate_spaces)
             or len(set(coordinate_spaces)) != len(coordinate_spaces)):
         fail("screen template coordinateSpaces must be a non-empty unique string array")
+    policy = template.get("layoutPolicy", "wide-compact")
+    if policy not in LAYOUT_POLICIES:
+        fail("screen template has unknown layoutPolicy " + str(policy))
     layouts = template.get("layouts")
-    if not isinstance(layouts, dict) or set(layouts) != {"wide", "compact"}:
-        fail("screen template must define exactly wide and compact layouts")
+    if policy == "wide-compact":
+        if not isinstance(layouts, dict) or set(layouts) != {"wide", "compact"}:
+            fail("screen template must define exactly wide and compact layouts")
+        if "desktopFit" in template:
+            fail("wide-compact screen template must not carry desktopFit")
+    else:
+        if not isinstance(layouts, dict) or set(layouts) != {"wide"}:
+            fail("desktop-fit screen template must define exactly the wide layout")
+        fit = template.get("desktopFit")
+        if not isinstance(fit, dict):
+            fail("desktop-fit screen template requires a desktopFit object")
+        unknown_fit = sorted(set(fit) - {"minViewport", "fitRule"})
+        if unknown_fit:
+            fail("screen template desktopFit contains unknown fields: " + ", ".join(unknown_fit))
+        viewport = fit.get("minViewport")
+        if (not isinstance(viewport, list) or len(viewport) != 2
+                or any(not isinstance(value, int) or isinstance(value, bool) or value <= 0
+                       for value in viewport)):
+            fail("screen template desktopFit.minViewport must contain two positive integers")
+        if fit.get("fitRule") != "uniform":
+            fail("screen template desktopFit.fitRule must be uniform")
     for layout_name, layout in layouts.items():
         canvas = layout.get("canvas")
         validate_rect([0, 0] + canvas if isinstance(canvas, list) else canvas,
@@ -206,6 +230,9 @@ def load_component(component_id):
         fail("component template identity mismatch for " + component_id)
     if not isinstance(component.get("version"), str) or not component["version"]:
         fail("component template " + component_id + " requires version")
+    kind = component.get("kind", "action")
+    if kind not in COMPONENT_KINDS:
+        fail("component template " + component_id + " has unknown kind " + str(kind))
     minimum = component.get("minimumTarget")
     if (not isinstance(minimum, list) or len(minimum) != 2
             or any(not isinstance(value, int) or value < MIN_TARGET for value in minimum)):
@@ -250,6 +277,8 @@ def compile_contract(recipe, template, source_name):
 
     compiled_layouts = {}
     for layout_name in ("wide", "compact"):
+        if layout_name not in template["layouts"]:
+            continue
         layout = template["layouts"][layout_name]
         compiled_actions = {}
         for action in recipe["actions"]:
@@ -300,7 +329,8 @@ def compile_contract(recipe, template, source_name):
         }
 
     theme = load_json(THEME_PATH, "HD theme")
-    return {
+    policy = template.get("layoutPolicy", "wide-compact")
+    contract = {
         "schema": 1,
         "version": recipe["version"],
         "provenance": {
@@ -325,6 +355,12 @@ def compile_contract(recipe, template, source_name):
         "fixture": recipe.get("fixture", {}),
         "layouts": compiled_layouts,
     }
+    if policy != "wide-compact" or template.get("desktopFit") is not None:
+        # Default wide-compact contracts keep their exact historical shape;
+        # the policy block appears only when it carries information.
+        contract["layoutPolicy"] = policy
+        contract["desktopFit"] = template.get("desktopFit")
+    return contract
 
 
 def render(contract):

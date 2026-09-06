@@ -7,6 +7,8 @@
  */
 #include <cstddef>
 
+#include "CommandCenterTypes.h"
+
 namespace OpenXcom
 {
 namespace Calypso
@@ -33,6 +35,19 @@ inline constexpr RailAction railActionForSlot(int slot)
 		case 4: return RailAction::Ufopaedia;
 		default: return RailAction::World;
 	}
+}
+
+/// Authored rail item rect shared by the chrome painter and native input
+/// owners (T15): 72px items from rail top + 20px at a 76px stride; Settings
+/// pinned 56px above the rail bottom. Single definition site by design.
+inline RectF calypsoCcRailItemRect(const RectF& rail, int index)
+{
+	return { rail.x + 8.0f, rail.y + 20.0f + 76.0f * index, rail.width - 16.0f, 72.0f };
+}
+
+inline RectF calypsoCcRailSettingsRect(const RectF& rail)
+{
+	return { rail.x + 24.0f, rail.bottom() - 56.0f, 40.0f, 40.0f };
 }
 
 inline constexpr const char* nativeWidgetForRailAction(RailAction action)
