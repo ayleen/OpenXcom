@@ -20,7 +20,11 @@ enum class CalypsoHdScreenRenderMode
 {
 	HarnessFullPhysical,
 	GeoscapeLiveChrome,
-	BasescapeLiveChrome
+	BasescapeLiveChrome,
+	/// F01 placement mode: the same base-command-shell archetype hosted by a
+	/// PlaceFacilityState. Same holder, same renderer, same geometry; only the
+	/// command column is repurposed (facility details + guidance + Cancel).
+	BasescapePlacementChrome
 };
 
 struct CalypsoHdScreenRect

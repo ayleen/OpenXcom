@@ -93,6 +93,16 @@ const void* CalypsoErrorPopupUi::topState() const
 	return _state;
 }
 
+const void* CalypsoErrorPopupUi::physicalUnderlayState() const
+{
+	// Explicit Emscripten-only underlay context supplied by the push site
+	// (placement for in-place errors, chooser after a money/items pop).
+	// Separate from ErrorMessageState::_coveredState, which keeps its
+	// unrelated BuildNewBase suppression meaning.
+	if (!_state) return nullptr;
+	return _state->_hdForm.hdUnderlayState;
+}
+
 void CalypsoErrorPopupUi::collectLogicalSuppression(
 	CalypsoHdLogicalSuppression& suppression) const
 {
@@ -202,13 +212,36 @@ void CalypsoErrorPopupUi::applyRects(
 void CalypsoErrorPopupUi::configure(
 	ErrorMessageState& state, bool allowPhysicalOverlay)
 {
-	state._hdLayout = !state._hdForm.empty()
-		&& state._game && state._game->getMod() && state._game->getLanguage()
-		&& isF34PhysicalRouteEligible(
-			state._game->getMod()->isHdUiFamilyEnabled("F34"),
-			state._game->getLanguage()->getTextDirection() == DIRECTION_RTL,
-			!allowPhysicalOverlay);
-	if (!state._hdLayout) return;
+	// Explicit-underlay construction errors carry _hdForm.hdUnderlayState and
+	// are always HD: no family toggle, no vanilla fallback. Missing
+	// prerequisites or unsupported physical conditions fail the route closed.
+	if (state._hdForm.hdUnderlayState != nullptr)
+	{
+		if (state._hdForm.empty()
+			|| !state._game || !state._game->getMod() || !state._game->getLanguage()
+			|| !state._window || !state._txtMessage || !state._btnOk)
+		{
+			CalypsoHdUiOverlay::instance().failHdRoute(
+				"Error popup HD prerequisites are unavailable");
+		}
+		if (state._game->getLanguage()->getTextDirection() == DIRECTION_RTL
+			|| !allowPhysicalOverlay)
+		{
+			CalypsoHdUiOverlay::instance().failHdRoute(
+				"Error popup HD physical route is unsupported");
+		}
+		state._hdLayout = true;
+	}
+	else
+	{
+		state._hdLayout = !state._hdForm.empty()
+			&& state._game && state._game->getMod() && state._game->getLanguage()
+			&& isF34PhysicalRouteEligible(
+				state._game->getMod()->isHdUiFamilyEnabled("F34"),
+				state._game->getLanguage()->getTextDirection() == DIRECTION_RTL,
+				!allowPhysicalOverlay);
+		if (!state._hdLayout) return;
+	}
 
 	state._hdWideLayout = currentLayoutClass() == CalypsoLayoutClass::Wide;
 	const CalypsoF34ErrorLayout layout = currentPresentationLayout(state._hdWideLayout);

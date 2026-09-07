@@ -84,10 +84,21 @@ void CalypsoHdUiOverlay::clearAdapter(const CalypsoHdFamilyAdapter* adapter)
 		_logicalSuppressedWidgets.clear();
 		_frameLiveHandles.clear();
 		// T06: the shared image cache outlives adapters (keys carry no game pointers).
-		_physicalStateThisFrame = nullptr;
+		_physicalStatesThisFrame.clear();
+		_chainScratch.clear();
 		_activeThisFrame = false;
 		_controller.claims().clear();
 	}
+}
+
+const CalypsoHdFamilyAdapter* CalypsoHdUiOverlay::findAdapterForState(const void* state) const
+{
+	if (!state) return nullptr;
+	for (const CalypsoHdFamilyAdapter* a : _adapters)
+	{
+		if (a && a->topState() == state) return a;
+	}
+	return nullptr;
 }
 
 bool CalypsoHdUiOverlay::widgetClaimed(const void* widget, std::uint64_t frameId) const
@@ -108,7 +119,9 @@ bool CalypsoHdUiOverlay::logicalWidgetSuppressed(const void* widget, std::uint64
 
 bool CalypsoHdUiOverlay::logicalStateSuppressed(const void* state, std::uint64_t frameId) const
 {
-	return state && frameId == _controller.frameId() && state == _physicalStateThisFrame;
+	if (!state || frameId != _controller.frameId()) return false;
+	return std::find(_physicalStatesThisFrame.begin(), _physicalStatesThisFrame.end(), state)
+		!= _physicalStatesThisFrame.end();
 }
 
 void CalypsoHdUiOverlay::beginFrame(int logicalWidth, int logicalHeight)
@@ -134,7 +147,7 @@ void CalypsoHdUiOverlay::beginFrame(int logicalWidth, int logicalHeight)
 
 	// Reset per-frame state (A7: never sticky).
 	_activeThisFrame = false;
-	_physicalStateThisFrame = nullptr;
+	_physicalStatesThisFrame.clear();
 	_logicalSuppressedWidgets.clear();
 	_ptrClaim.clear();
 	_drawItems.clear();
@@ -148,11 +161,7 @@ void CalypsoHdUiOverlay::prepareFrame(int logicalWidth, int logicalHeight, const
 
 	// Drive the registered adapter (if any) whose state is the current top state,
 	// so a lower popup regains HD when an upper one is dismissed (GLM #3).
-	const CalypsoHdFamilyAdapter* active = nullptr;
-	for (const CalypsoHdFamilyAdapter* a : _adapters)
-	{
-		if (a->topState() == topState) { active = a; break; }
-	}
+	const CalypsoHdFamilyAdapter* active = findAdapterForState(topState);
 
 	// Fail-closed covered-state ownership (Stage 8/9 closure): a registered
 	// live-chrome adapter that is NOT the active top adapter still owns its
@@ -175,31 +184,69 @@ void CalypsoHdUiOverlay::prepareFrame(int logicalWidth, int logicalHeight, const
 		_activeAdapter = active;
 		_retryableReadinessFrames = 0;
 	}
+	// Explicit underlay chain: follow the active adapter's requested identities
+	// through registered adapters only, root underlay first and active last. An
+	// unregistered background is never inferred or revealed; a missing link or
+	// a cycle fails the route closed instead of composing a partial frame.
+	// _chainScratch is reused across frames (cleared, never shrunk).
+	_chainScratch.clear();
+	for (const CalypsoHdFamilyAdapter* cursor = active; cursor != nullptr;)
+	{
+		if (std::find(_chainScratch.begin(), _chainScratch.end(), cursor) != _chainScratch.end())
+			failHdRoute("HD underlay chain is cyclic");
+		_chainScratch.push_back(cursor);
+		const void* underlay = cursor->physicalUnderlayState();
+		if (!underlay) break;
+		cursor = findAdapterForState(underlay);
+		if (!cursor)
+			failHdRoute("HD underlay state has no registered adapter");
+	}
+	std::reverse(_chainScratch.begin(), _chainScratch.end());
 	CalypsoHdLogicalSuppression suppression;
-	// Covered adapters first, then the active adapter's own list (which may
-	// include lower-state chrome via the shared seams).
+	// Covered adapters first, then every contributing adapter root-first (each
+	// list may include lower-state chrome via the shared seams).
 	for (const CalypsoHdFamilyAdapter* a : _adapters)
-		if (a != active && a->suppressWhenCovered())
+	{
+		if (a->suppressWhenCovered()
+			&& std::find(_chainScratch.begin(), _chainScratch.end(), a) == _chainScratch.end())
 			a->collectLogicalSuppression(suppression);
-	active->collectLogicalSuppression(suppression);
+	}
+	for (const CalypsoHdFamilyAdapter* contributor : _chainScratch)
+		contributor->collectLogicalSuppression(suppression);
 	_logicalSuppressedWidgets = suppression.widgets();
+
+	// Whole-state logical suppression publishes with the widget list, before
+	// any readiness/warmup return: every explicit contributor requesting
+	// suppressLogicalState() owns its top-state logical UI for this frame even
+	// while physical presentation retries or waits. Draw commit (_activeThisFrame,
+	// _drawItems, claims) stays strictly post-commit below; a missing link or a
+	// failed contributor still fails the route closed.
+	for (const CalypsoHdFamilyAdapter* contributor : _chainScratch)
+	{
+		if (contributor->suppressLogicalState())
+			_physicalStatesThisFrame.push_back(contributor->topState());
+	}
 
 	// Stage 10.2.7: a post-restore frame whose physical presentation is still
 	// blocked is a bounded retryable warmup, not a route failure. The logical
-	// suppression installed above stays active (legacy widgets remain
-	// suppressed), and this frame takes no HD claims and draws nothing — the
-	// early return happens before any GPU work or claim commit. Exhausting the
-	// shared readiness budget stays a deterministic fail-closed outcome.
+	// widget + whole-state suppression installed above stays active (legacy
+	// widgets remain suppressed and no native state paints beneath), and this
+	// frame takes no HD claims and draws nothing — the early return happens
+	// before any GPU work or claim commit. Exhausting the shared readiness
+	// budget stays a deterministic fail-closed outcome.
 	if (!_mayGoPhysical)
 	{
 		if (++_retryableReadinessFrames <= kRetryableReadinessFrameBudget)
 			return;
 		failHdRoute("physical presentation is blocked after context loss or restore");
 	}
-	if (!active->physicalReady())
-		failHdRoute("HD route is not physically ready");
 	if (!_frozenMetrics.valid())
 		failHdRoute("invalid presentation metrics");
+	for (const CalypsoHdFamilyAdapter* contributor : _chainScratch)
+	{
+		if (!contributor->physicalReady())
+			failHdRoute("HD route is not physically ready");
+	}
 
 	// The pre-blit GPU preparation (shader/VAO creation + texture uploads) touches
 	// GL state that SDL's renderer caches; bracket it in one state guard so the
@@ -213,9 +260,22 @@ void CalypsoHdUiOverlay::prepareFrame(int logicalWidth, int logicalHeight, const
 		ensureGpu();
 		if (!_glReady)
 			failHdRoute("GPU resources are unavailable");
-		if (!active->completeFrameReady())
+		// Every contributing adapter must be completely ready before any
+		// presentation: a warming underlay retries the whole frame within the
+		// shared one-per-frame budget, a failed one fails the route closed.
+		bool anyUnready = false;
+		bool allRetryable = true;
+		for (const CalypsoHdFamilyAdapter* contributor : _chainScratch)
 		{
-			if (active->retryableReadiness())
+			if (!contributor->completeFrameReady())
+			{
+				anyUnready = true;
+				if (!contributor->retryableReadiness()) allRetryable = false;
+			}
+		}
+		if (anyUnready)
+		{
+			if (allRetryable)
 			{
 				if (++_retryableReadinessFrames <= kRetryableReadinessFrameBudget)
 					return;
@@ -224,61 +284,83 @@ void CalypsoHdUiOverlay::prepareFrame(int logicalWidth, int logicalHeight, const
 			failHdRoute("complete HD frame is not ready");
 		}
 
-		CalypsoHdFrameBuilder builder;
-		active->collect(builder);
-		if (builder.empty())
-			failHdRoute("adapter collected no HD subgroups");
-
 		// A committed subgroup's order keys must be globally unique this frame: the
 		// model treats a full-tuple collision as a submission bug whose paint order
 		// would otherwise use non-deterministic insertion order. Detect it before
 		// committing and fail the route (external review #11).
 		std::set<CalypsoHdOrderKey, bool (*)(const CalypsoHdOrderKey&, const CalypsoHdOrderKey&)>
 			committedKeys(&calypsoOrderKeyLess);
+		// Scratch for one subgroup's resolved draws; cleared per subgroup so no
+		// per-subgroup allocation recurs once it has grown to the largest item.
+		std::vector<ResolvedDraw> resolved;
 
-		// Resolve + commit each atomic subgroup independently.
-		for (const CalypsoHdSubgroup& subgroup : builder.subgroups())
+		// Collect + resolve + commit root underlay first, active last. Each draw
+		// carries its composition depth so the final sort stacks the chain even
+		// when order keys interleave across adapters.
+		int compositionDepth = 0;
+		for (const CalypsoHdFamilyAdapter* contributor : _chainScratch)
 		{
-			if (subgroup.items.empty())
-				failHdRoute("adapter collected an empty HD subgroup");
-			std::vector<ResolvedDraw> resolved;
-			resolveSubgroup(subgroup, resolved);
+			CalypsoHdFrameBuilder builder;
+			contributor->collect(builder);
+			if (builder.empty())
+				failHdRoute("adapter collected no HD subgroups");
 
-			// Order-key collision check (intra-subgroup or vs an already-committed
-			// subgroup). A collision is an adapter contract violation.
-			std::vector<CalypsoHdOrderKey> justInserted;
-			bool collision = false;
-			for (const ResolvedDraw& d : resolved)
+			// Resolve + commit each atomic subgroup independently.
+			for (const CalypsoHdSubgroup& subgroup : builder.subgroups())
 			{
-				if (!committedKeys.insert(d.order).second) { collision = true; break; }
-				justInserted.push_back(d.order);
-			}
-			if (collision)
-			{
-				for (const CalypsoHdOrderKey& k : justInserted) committedKeys.erase(k);
-				failHdRoute("duplicate HD order key");
-			}
+				if (subgroup.items.empty())
+					failHdRoute("adapter collected an empty HD subgroup");
+				resolved.clear();
+				resolveSubgroup(subgroup, resolved);
+				for (ResolvedDraw& d : resolved) d.compositionDepth = compositionDepth;
 
-			// Commit: take claims for every item, enqueue the resolved draws.
-			for (const CalypsoHdItem& item : subgroup.items)
-			{
-				_controller.claims().add(item.claim);
-				if (item.widget) _ptrClaim[item.widget] = item.claim;
+				// Order-key collision check (intra-subgroup or vs an already-committed
+				// subgroup, across every contributing adapter). A collision is an
+				// adapter contract violation.
+				std::vector<CalypsoHdOrderKey> justInserted;
+				bool collision = false;
+				for (const ResolvedDraw& d : resolved)
+				{
+					if (!committedKeys.insert(d.order).second) { collision = true; break; }
+					justInserted.push_back(d.order);
+				}
+				if (collision)
+				{
+					for (const CalypsoHdOrderKey& k : justInserted) committedKeys.erase(k);
+					failHdRoute("duplicate HD order key");
+				}
+
+				// Commit: take claims for every item, enqueue the resolved draws.
+				for (const CalypsoHdItem& item : subgroup.items)
+				{
+					_controller.claims().add(item.claim);
+					if (item.widget) _ptrClaim[item.widget] = item.claim;
+				}
+				for (ResolvedDraw& d : resolved) _drawItems.push_back(d);
 			}
-			for (ResolvedDraw& d : resolved) _drawItems.push_back(d);
+			++compositionDepth;
 		}
 	} // GL state guard restored
 
 	if (_drawItems.empty())
 		failHdRoute("active adapter produced no drawable HD items");
 
-	// Deterministic paint order. Uniqueness of the full tuple is already enforced
-	// per-subgroup above, so equal keys cannot reach this sort.
+	// Deterministic paint order: stage first, then composition depth (chain root
+	// below active), then the full published order key. Uniqueness of the full
+	// tuple is already enforced per-subgroup above, so equal keys cannot reach
+	// this sort. Single-adapter frames carry depth 0 everywhere, identical to
+	// the order-key sort alone.
 	std::stable_sort(_drawItems.begin(), _drawItems.end(),
 		[](const ResolvedDraw& a, const ResolvedDraw& b) {
-			return calypsoOrderKeyLess(a.order, b.order);
+			CalypsoHdComposedOrder ca{ a.order.stage, a.compositionDepth, a.order };
+			CalypsoHdComposedOrder cb{ b.order.stage, b.compositionDepth, b.order };
+			return calypsoComposedOrderLess(ca, cb);
 		});
 
+	// Draw commit only: claims, draws, and the active flag publish here.
+	// Widget + whole-state logical suppression already published before any
+	// readiness/warmup return above, so warmup frames suppress native UI
+	// without committing physical output.
 	_activeThisFrame = true;
 	_retryableReadinessFrames = 0;
 	if (_contextGen > 0 && _lastReadyContextGen != _contextGen)
@@ -286,8 +368,6 @@ void CalypsoHdUiOverlay::prepareFrame(int logicalWidth, int logicalHeight, const
 		Log(LOG_INFO) << "[HD] overlay frame ready after context restore generation=" << _contextGen;
 		_lastReadyContextGen = _contextGen;
 	}
-	if (active->suppressLogicalState())
-		_physicalStateThisFrame = topState;
 }
 
 void CalypsoHdUiOverlay::resolveSubgroup(const CalypsoHdSubgroup& subgroup,

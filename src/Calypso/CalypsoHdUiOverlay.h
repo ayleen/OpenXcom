@@ -135,6 +135,10 @@ private:
 	struct ResolvedDraw
 	{
 		CalypsoHdOrderKey order;
+		/// Depth inside the frame's explicit underlay chain: 0 is the chain
+		/// root (physical base below), larger values paint above. Single-
+		/// adapter frames carry 0 everywhere, preserving the order-key sort.
+		int compositionDepth = 0;
 		CalypsoHdItemKind kind = CalypsoHdItemKind::Panel;
 		CalypsoLogicalRect rect;
 		std::uint32_t colorRgba = 0;
@@ -157,6 +161,10 @@ private:
 	/// Resolve every item of one subgroup to an uploaded texture. Appends all
 	/// resolved draws to `out`; any failure throws instead of exposing vanilla.
 	void resolveSubgroup(const CalypsoHdSubgroup& subgroup, std::vector<ResolvedDraw>& out);
+	/// Find the registered adapter feeding `state`, or null when no live
+	/// adapter owns it. Used only to resolve an explicit underlay request;
+	/// an unregistered background is never inferred or revealed.
+	const CalypsoHdFamilyAdapter* findAdapterForState(const void* state) const;
 
 	/// Core NDC draw of `tex` into a physical device-pixel rect, sampling the
 	/// texture over the UV sub-rect [u0,v0]-[u1,v1] (default full 0..1). Returns
@@ -199,13 +207,24 @@ private:
 	CalypsoHdPresentationMetrics _frozenMetrics;
 	bool _mayGoPhysical = false;
 	bool _activeThisFrame = false;
-	const void* _physicalStateThisFrame = nullptr;
+	// Every contributing adapter's top state with suppressed logical UI this
+	// frame (chain root through active); logicalStateSuppressed() reports
+	// membership. Published with the widget list before any readiness/warmup
+	// return; draw commit (_activeThisFrame, claims, draws) stays post-commit.
+	// Cleared every beginFrame.
+	std::vector<const void*> _physicalStatesThisFrame;
 	std::vector<const void*> _logicalSuppressedWidgets;
+	// Scratch for the per-frame explicit underlay chain (root first, active
+	// last). Cleared every prepareFrame; reused to avoid per-frame allocation.
+	std::vector<const CalypsoHdFamilyAdapter*> _chainScratch;
 
 	// All currently-registered family adapters (a State registers on create,
 	// clears on destroy). prepareFrame() drives the one whose topState() is the
 	// current top state, so stacked popups of the same family each work when they
-	// become top again -- not just the last-registered one (GLM #3).
+	// become top again -- not just the last-registered one (GLM #3). The active
+	// adapter may explicitly request a physical underlay chain
+	// (physicalUnderlayState()); only explicitly requested, registered states
+	// are composed, root underlay first and active last.
 	std::vector<const CalypsoHdFamilyAdapter*> _adapters;
 	const CalypsoHdFamilyAdapter* _activeAdapter = nullptr;
 	std::uint32_t _retryableReadinessFrames = 0;

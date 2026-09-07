@@ -260,7 +260,8 @@ def validate_registry(registry):
     allowed_emitters = {"theme", "legacy-abandon", "family", "screen"}
     allowed_profiles = {"theme", "legacy-abandon", "family", "command-card",
                         "small-confirmation", "contact-decision",
-                        "contact-intel-board", "content-block", "screen"}
+                        "contact-intel-board", "content-block", "screen",
+                        "selection-list"}
     for index, entry in enumerate(entries):
         where = "hd-ui-contracts.json: entries[" + str(index) + "]"
         if not isinstance(entry, dict):
@@ -377,6 +378,73 @@ def validate_family(doc, rel, profile, engine_text_calibration=False):
             if not isinstance(decay_exponent, (int, float)) or not 1.0 <= decay_exponent <= 6.0:
                 fail(rel + ": motion.radarContactDecayExponent must be in [1, 6]")
         return
+    if profile == "selection-list":
+        form = doc.get("form") or {}
+        if form.get("archetype") != "selection-list" or not form.get("id"):
+            fail(rel + ": selection-list form identity required")
+        if not isinstance(form.get("familyId"), int) or form["familyId"] <= 0:
+            fail(rel + ": selection-list familyId must be a positive integer")
+        if doc.get("style") is None or doc.get("layouts") is None:
+            fail(rel + ": selection-list form must carry style/layouts")
+        buttons = form.get("buttons") or []
+        if len(buttons) != 1 or buttons[0].get("action") != "cancel":
+            fail(rel + ": selection-list requires exactly one cancel button")
+        button = buttons[0]
+        for key in ("id", "label", "tone", "action"):
+            if not isinstance(button.get(key), str) or not button[key]:
+                fail(rel + ": selection-list button." + key + " required")
+        style = button.get("style") or {}
+        for key in ("fill", "border", "text"):
+            if not isinstance(style.get(key), str) or not re.fullmatch(r"[0-9A-Fa-f]{8}", style[key]):
+                fail(rel + ": selection-list button.style." + key + " must be packed 8-digit RGBA")
+        copy = doc.get("copy") or {}
+        if not isinstance(copy.get("protocol"), str) or not copy["protocol"]:
+            fail(rel + ": selection-list copy.protocol required")
+        if not isinstance(copy.get("title"), str) or not copy["title"]:
+            fail(rel + ": selection-list copy.title required")
+        rows = copy.get("rows")
+        if not isinstance(rows, list) or not rows:
+            fail(rel + ": selection-list copy.rows must be a non-empty list")
+        for index, row in enumerate(rows):
+            if not isinstance(row, dict):
+                fail(rel + ": selection-list copy.rows[" + str(index) + "] must be an object")
+            if not isinstance(row.get("label"), str) or not row["label"]:
+                fail(rel + ": selection-list copy.rows[" + str(index) + "].label required")
+            if not isinstance(row.get("enabled"), bool):
+                fail(rel + ": selection-list copy.rows[" + str(index) + "].enabled must be a boolean")
+        presentation = doc.get("presentation") or {}
+        if presentation.get("density") != "standard":
+            fail(rel + ": selection-list density must be standard")
+        if (presentation.get("scaleNumerator"), presentation.get("scaleDenominator")) != (1, 1):
+            fail(rel + ": selection-list density must use scale 1/1")
+        for layout_name in ("wide", "compact"):
+            layout = (doc.get("layouts") or {}).get(layout_name) or {}
+            rect = layout.get("list")
+            if not rect or not all(isinstance(rect.get(k), int) for k in ("x", "y", "width", "height")):
+                fail(rel + ": " + layout_name + " list must be an integer rect")
+            row_height = layout.get("rowHeight")
+            visible_rows = layout.get("visibleRows")
+            if not isinstance(row_height, int) or isinstance(row_height, bool) or row_height < 44:
+                fail(rel + ": " + layout_name + " rowHeight must be an integer >= 44")
+            if not isinstance(visible_rows, int) or isinstance(visible_rows, bool) or visible_rows < 1:
+                fail(rel + ": " + layout_name + " visibleRows must be a positive integer")
+            if rect["height"] != visible_rows * row_height:
+                fail(rel + ": " + layout_name + " list height must equal visibleRows * rowHeight")
+            slots = layout.get("rowSlots")
+            if not isinstance(slots, list) or len(slots) != visible_rows:
+                fail(rel + ": " + layout_name + " rowSlots must cover every visible row")
+            for index, slot in enumerate(slots):
+                slot_rect = (slot or {}).get("rect", slot)
+                expected = {"x": rect["x"], "y": rect["y"] + index * row_height,
+                            "width": rect["width"], "height": row_height}
+                if not isinstance(slot_rect, dict) or any(
+                        slot_rect.get(k) != expected[k] for k in ("x", "y", "width", "height")):
+                    fail(rel + ": " + layout_name + " rowSlots[" + str(index) + "] must match the list stride")
+            cancel_rect = ((layout.get("buttons") or {}).get(button["id"]))
+            if not cancel_rect or not all(isinstance(cancel_rect.get(k), int) for k in ("x", "y", "width", "height")):
+                fail(rel + ": " + layout_name + " buttons.cancel must be an integer rect")
+            if cancel_rect != layout.get("actionCancel"):
+                fail(rel + ": " + layout_name + " buttons.cancel must match the cancel action slot")
     if profile == "command-card":
         if doc.get("visualProfile") != "command-card-v1":
             fail(rel + ": visualProfile must be command-card-v1")
@@ -1084,6 +1152,102 @@ def emit_small_confirmation_h(doc, rel, ns, prefix):
     out.append("} } }")
     return NL.join(out) + NL
 
+def emit_selection_list_h(doc, rel, ns, prefix):
+    """Emitter for selection-list chooser forms sharing the canonical shell."""
+    layouts = doc["layouts"]
+    form = doc["form"]
+    copy = doc["copy"]
+    style = doc["style"]
+    m = doc["motion"]
+    out = [HEADER_BANNER,
+           "// Canonical source: src/Calypso/Contracts/" + rel,
+           "#pragma once",
+           "#include <cstdint>",
+           "namespace OpenXcom { namespace Calypso { namespace " + ns + " {",
+           'inline constexpr const char* kContractVersion = "' + doc["version"] + '";',
+           'inline constexpr const char* kFormId = "' + form["id"] + '";',
+           "inline constexpr int kFamilyId = " + str(form["familyId"]) + ";",
+           'inline constexpr const char* kArchetype = "' + form["archetype"] + '";',
+           'inline constexpr const char* kSourceConfig = "' + form["source"] + '";',
+           "",
+           'inline constexpr const char* kProtocol = ' + json.dumps(copy["protocol"], ensure_ascii=False) + ';',
+           'inline constexpr const char* kTitle = ' + json.dumps(copy["title"], ensure_ascii=False) + ';',
+           ""]
+    presentation = doc["presentation"]
+    out += ['inline constexpr const char* kDensityProfile = "' + presentation["density"] + '";',
+            "inline constexpr int kPresentationScaleNumerator = " + str(presentation["scaleNumerator"]) + ";",
+            "inline constexpr int kPresentationScaleDenominator = " + str(presentation["scaleDenominator"]) + ";",
+            "inline constexpr float kPresentationScale = %.6ff;" % (
+                float(presentation["scaleNumerator"]) / float(presentation["scaleDenominator"])),
+            ""]
+    button = form["buttons"][0]
+    out += ["struct " + prefix + "GenButton { const char* id; const char* label; const char* tone; const char* action; std::uint32_t fill; std::uint32_t border; std::uint32_t text; };",
+            "inline constexpr " + prefix + "GenButton kButtons[] = {",
+            '    { "' + button["id"] + '", "' + button["label"] + '", "' + button["tone"] + '", "' + button["action"] + '", ' + rgba_call(button["style"]["fill"]) + ', ' + rgba_call(button["style"]["border"]) + ', ' + rgba_call(button["style"]["text"]) + ' },',
+            "};",
+            "inline constexpr int kButtonCount = 1;",
+            ""]
+    out.append("inline constexpr float kCutCornerPx = %.6ff;" % float(style["cutCornerPx"]))
+    out.append("inline constexpr float kProtocolTextInsetPx = %.6ff;" % float(style["protocolTextInsetPx"]))
+    fixed_style_keys = ("panelFillTop", "panelFillBottom", "frame", "protocolText",
+                        "divider", "footerFill", "footerDot", "warning")
+    for key in fixed_style_keys:
+        value = style.get(key)
+        if not isinstance(value, str) or not re.fullmatch(r"[0-9A-Fa-f]{8}", value):
+            fail(rel + ": selection-list style." + key + " must be packed 8-digit RGBA")
+        out.append("inline constexpr std::uint32_t k" + key[0].upper() + key[1:] + " = " + rgba_call(value) + ";")
+    archetype_style_keys = sorted(k for k in style if k not in fixed_style_keys and k not in ("cutCornerPx", "protocolTextInsetPx"))
+    for key in archetype_style_keys:
+        if isinstance(style[key], (int, float)):
+            out.append("inline constexpr float k" + key[0].upper() + key[1:] + " = %.6ff;" % float(style[key]))
+        else:
+            out.append("inline constexpr std::uint32_t k" + key[0].upper() + key[1:] + " = " + rgba_call(style[key]) + ";")
+    out.append("")
+    out.append("struct " + prefix + "GenRect { int x; int y; int w; int h; };")
+    out.append("struct " + prefix + "GenLayout { int designWidth; int designHeight; int rowHeight; int visibleRows; int scrollBarWidth; " + prefix + "GenRect window; " + prefix + "GenRect status; " + prefix + "GenRect title; " + prefix + "GenRect list; " + prefix + "GenRect footer;")
+    out.append("};")
+    out.append("inline constexpr " + prefix + "GenLayout kLayouts[] = {")
+    # Canonical positional order: the C++ adapters index kLayouts/kButtonRects
+    # by their own layout enums, so key order in the JSON is normative.
+    generated_layouts = [name for name in ("wide", "compact") if name in layouts]
+    for name in generated_layouts:
+        l = layouts[name]
+        out.append("    { " + str(l["designWidth"]) + ", " + str(l["designHeight"]) + ", "
+                   + str(l["rowHeight"]) + ", " + str(l["visibleRows"]) + ", " + str(l["scrollbarWidth"]) + ", "
+                   + "{ " + str(l["window"]["x"]) + ", " + str(l["window"]["y"]) + ", " + str(l["window"]["width"]) + ", " + str(l["window"]["height"]) + " }, "
+                   + "{ " + str(l["status"]["x"]) + ", " + str(l["status"]["y"]) + ", " + str(l["status"]["width"]) + ", " + str(l["status"]["height"]) + " }, "
+                   + "{ " + str(l["title"]["x"]) + ", " + str(l["title"]["y"]) + ", " + str(l["title"]["width"]) + ", " + str(l["title"]["height"]) + " }, "
+                   + "{ " + str(l["list"]["x"]) + ", " + str(l["list"]["y"]) + ", " + str(l["list"]["width"]) + ", " + str(l["list"]["height"]) + " }, "
+                   + "{ " + str(l["footer"]["x"]) + ", " + str(l["footer"]["y"]) + ", " + str(l["footer"]["width"]) + ", " + str(l["footer"]["height"]) + " } }, // " + name)
+    out.append("};")
+    for name in generated_layouts:
+        slots = layouts[name]["rowSlots"]
+        out.append("inline constexpr " + prefix + "GenRect kRowSlots" + name.capitalize() + "[] = {")
+        for slot in slots:
+            r = slot["rect"]
+            out.append("    { " + str(r["x"]) + ", " + str(r["y"]) + ", " + str(r["width"]) + ", " + str(r["height"]) + " }, // " + slot["id"])
+        out.append("};")
+        out.append("inline constexpr int kRowSlot" + name.capitalize() + "Count = " + str(len(slots)) + ";")
+    out.append("struct " + prefix + "GenButtonRect { const char* id; " + prefix + "GenRect rect; };")
+    out.append("inline constexpr " + prefix + "GenButtonRect kButtonRects[][ 1 ] = {")
+    for name in generated_layouts:
+        rr = layouts[name]["buttons"][button["id"]]
+        out.append('    { { "' + button["id"] + '", { ' + str(rr["x"]) + ", " + str(rr["y"]) + ", " + str(rr["width"]) + ", " + str(rr["height"]) + " } } }, // " + name)
+    out.append("};")
+    out.append("inline constexpr int kLayoutCount = " + str(len(generated_layouts)) + ";")
+    out.append("inline constexpr int kMotionDurationMs = " + str(int(m["durationMs"])) + ";")
+    out.append("inline constexpr float kMotionScaleFrom = %.6ff;" % float(m["scaleFrom"]))
+    out.append("inline const " + prefix + "GenLayout* layoutForDesign(int dw, int dh)")
+    out.append("{")
+    out.append("	for (int i = 0; i < kLayoutCount; ++i)")
+    out.append("		if (kLayouts[i].designWidth == dw && kLayouts[i].designHeight == dh)")
+    out.append("			return &kLayouts[i];")
+    out.append("	return nullptr;")
+    out.append("}")
+    out.append("} } }")
+    return NL.join(out) + NL
+
+
 def emit_family_h(doc, rel, ns, prefix, profile):
     """Generic F21-family emitter: one rect member per declared part."""
     layouts = doc["layouts"]
@@ -1359,6 +1523,9 @@ def main(argv):
         elif entry["validationProfile"] in {"small-confirmation", "contact-decision",
                                             "contact-intel-board"}:
             native_text = emit_small_confirmation_h(
+                doc, rel, native["namespace"], native["prefix"])
+        elif entry["validationProfile"] == "selection-list":
+            native_text = emit_selection_list_h(
                 doc, rel, native["namespace"], native["prefix"])
         else:
             native_text = emit_family_h(

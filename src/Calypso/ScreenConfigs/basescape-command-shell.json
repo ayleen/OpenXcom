@@ -17,7 +17,7 @@
       "availability": "always",
       "timePolicy": "preserve",
       "focusOrder": 10,
-      "visibility": "persistent"
+      "visibility": "management"
     },
     {
       "id": "base.research",
@@ -31,7 +31,7 @@
       "availability": "always",
       "timePolicy": "preserve",
       "focusOrder": 20,
-      "visibility": "persistent"
+      "visibility": "management"
     },
     {
       "id": "base.manufacture",
@@ -45,7 +45,7 @@
       "availability": "always",
       "timePolicy": "preserve",
       "focusOrder": 30,
-      "visibility": "persistent"
+      "visibility": "management"
     },
     {
       "id": "base.crafts",
@@ -59,7 +59,7 @@
       "availability": "always",
       "timePolicy": "preserve",
       "focusOrder": 40,
-      "visibility": "persistent"
+      "visibility": "management"
     },
     {
       "id": "base.transfer",
@@ -74,7 +74,7 @@
       "availability": "always",
       "timePolicy": "preserve",
       "focusOrder": 50,
-      "visibility": "persistent"
+      "visibility": "management"
     },
     {
       "id": "base.purchase",
@@ -89,7 +89,7 @@
       "availability": "economy-branched",
       "timePolicy": "preserve",
       "focusOrder": 60,
-      "visibility": "persistent"
+      "visibility": "management"
     },
     {
       "id": "base.sell",
@@ -104,7 +104,7 @@
       "availability": "economy-branched",
       "timePolicy": "preserve",
       "focusOrder": 70,
-      "visibility": "persistent"
+      "visibility": "management"
     },
     {
       "id": "base.build",
@@ -118,7 +118,7 @@
       "availability": "always",
       "timePolicy": "preserve",
       "focusOrder": 80,
-      "visibility": "persistent"
+      "visibility": "management"
     },
     {
       "id": "base.info",
@@ -132,7 +132,7 @@
       "availability": "always",
       "timePolicy": "preserve",
       "focusOrder": 90,
-      "visibility": "persistent"
+      "visibility": "management"
     },
     {
       "id": "base.new",
@@ -146,7 +146,7 @@
       "availability": "gated-count-research",
       "timePolicy": "preserve",
       "focusOrder": 100,
-      "visibility": "persistent"
+      "visibility": "management"
     },
     {
       "id": "navigation.world",
@@ -160,7 +160,21 @@
       "availability": "always",
       "timePolicy": "preserve",
       "focusOrder": 110,
-      "visibility": "persistent"
+      "visibility": "management"
+    },
+    {
+      "id": "base.placement.cancel",
+      "labelKey": "STR_CANCEL",
+      "icon": "back",
+      "component": "management-action-group",
+      "slotRole": "placement-cancel",
+      "tone": "normal",
+      "handler": "placement.cancel",
+      "inputs": ["pointer", "keyboard", "touch", "controller"],
+      "availability": "placement",
+      "timePolicy": "preserve",
+      "focusOrder": 120,
+      "visibility": "placement"
     }
   ],
   "bindings": {
@@ -185,7 +199,8 @@
         "base.build": "Build facilities",
         "base.info": "Base information",
         "base.new": "New base",
-        "navigation.world": "World"
+        "navigation.world": "World",
+        "base.placement.cancel": "Cancel"
       },
       "entities": {},
       "copy": {

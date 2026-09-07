@@ -440,3 +440,7 @@ en-GB:
   STR_CALYPSO_BASE_LAYOUT: "Base layout"
   STR_CALYPSO_BASE_FUNCTIONS: "Base functions"
   STR_CALYPSO_BASE_LOGISTICS: "Logistics"
+  STR_CALYPSO_BUILD_SELECT_POSITION: "Select a position"
+  STR_CALYPSO_BUILD_VALID_POSITION: "Click to build. Shift: repeat. Esc: cancel."
+  STR_CALYPSO_BUILD_INVALID_POSITION: "Cannot build here. Choose another position."
+  STR_CALYPSO_BUILD_MOVE_POSITION: "Click to move. Esc: cancel."

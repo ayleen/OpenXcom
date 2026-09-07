@@ -34,6 +34,9 @@
 #include "../Engine/Options.h"
 #include "../Engine/Unicode.h"
 #include "../Mod/RuleInterface.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoBasescapeHdUi.h"
+#endif
 #include <algorithm>
 #include <climits>
 #include <cmath>
@@ -138,6 +141,13 @@ PlaceFacilityState::PlaceFacilityState(Base *base, const RuleBaseFacility *rule,
 
 	_numMaintenance->setBig();
 	_numMaintenance->setText(Unicode::formatFunding(_rule->getMonthlyCost()));
+#ifdef __EMSCRIPTEN__
+	// F01 placement is a fullscreen HD presentation of the existing base
+	// shell (no blackout, chooser hidden underneath). Native builds keep the
+	// legacy transparent overlay untouched.
+	_screen = true;
+	Calypso::CalypsoBasescapeHdUi::configure(*this);
+#endif
 }
 
 /**
@@ -145,7 +155,86 @@ PlaceFacilityState::PlaceFacilityState(Base *base, const RuleBaseFacility *rule,
  */
 PlaceFacilityState::~PlaceFacilityState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _calypsoHdUi;
+	_calypsoHdUi = nullptr;
+#endif
+}
 
+#ifdef __EMSCRIPTEN__
+/**
+ * Canonical HD form for a placement validation error. Native gameplay is
+ * untouched: the reason string stays the native one, only the presentation
+ * becomes the canonical HD error popup (facility as title, reason as body).
+ */
+ErrorMessageHdForm PlaceFacilityState::placementErrorForm(const std::string &reason) const
+{
+	ErrorMessageHdForm form;
+	form.protocol = tr(_rule->getType());
+	form.title = tr(_rule->getType());
+	form.bodyLines.push_back(reason);
+	form.actionLabel = tr("STR_OK");
+	// Explicit underlay context: pushPlacementError() calls this AFTER the
+	// optional pop, so the top state is the placement shell for in-place
+	// errors or the chooser after a money/items pop. The error adapter
+	// composes that physical replacement below the popup.
+	form.hdUnderlayState = _game ? _game->getTopState() : nullptr;
+	return form;
+}
+
+/**
+ * State-local placement error push: original native arguments and pop/push
+ * order, canonical HD form attached. Native builds use the same helper
+ * without the form (see below), so gameplay can never drift per platform.
+ */
+void PlaceFacilityState::pushPlacementError(const std::string &reason, const std::string &bg, int errorColor1, int errorColor2, bool popFirst)
+{
+	if (popFirst)
+	{
+		_game->popState();
+	}
+	_game->pushState(new ErrorMessageState(reason, _palette, errorColor1, bg, errorColor2, 0, nullptr, placementErrorForm(reason)));
+}
+#else
+void PlaceFacilityState::pushPlacementError(const std::string &reason, const std::string &bg, int errorColor1, int errorColor2, bool popFirst)
+{
+	if (popFirst)
+	{
+		_game->popState();
+	}
+	_game->pushState(new ErrorMessageState(reason, _palette, errorColor1, bg, errorColor2));
+}
+#endif
+
+void PlaceFacilityState::init()
+{
+	State::init();
+#ifdef __EMSCRIPTEN__
+	if (_calypsoHdUi != nullptr)
+	{
+		_calypsoHdUi->refreshPlacement();
+	}
+#endif
+}
+
+void PlaceFacilityState::resize(int &dX, int &dY)
+{
+#ifdef __EMSCRIPTEN__
+	if (_calypsoHdUi != nullptr && Calypso::CalypsoBasescapeHdUi::resize(*this))
+	{
+		return;
+	}
+#endif
+	State::resize(dX, dY);
+}
+
+void PlaceFacilityState::blit()
+{
+	// No construction blackout: the canonical HD error keeps the same live
+	// HD base underneath (its own approved scrim paints over it). Chooser and
+	// placing take no scrim of their own. Suppression still hides every
+	// native widget individually, so no vanilla pixels leak around the HD shell.
+	State::blit();
 }
 
 /**
@@ -173,7 +262,9 @@ void PlaceFacilityState::viewClick(Action *)
 		}
 		else if (_view->getPlacementError(_rule, _origFac))
 		{
-			_game->pushState(new ErrorMessageState(tr("STR_CANNOT_BUILD_HERE"), _palette, _game->getMod()->getInterface("placeFacility")->getElement("errorMessage")->color, "BACK01.SCR", _game->getMod()->getInterface("placeFacility")->getElement("errorPalette")->color));
+			pushPlacementError(tr("STR_CANNOT_BUILD_HERE"), "BACK01.SCR",
+				_game->getMod()->getInterface("placeFacility")->getElement("errorMessage")->color,
+				_game->getMod()->getInterface("placeFacility")->getElement("errorPalette")->color, false);
 		}
 		else
 		{
@@ -228,68 +319,70 @@ void PlaceFacilityState::viewClick(Action *)
 			switch (placementErrorCode)
 			{
 				case BPE_Used_Stores:
-					_game->pushState(new ErrorMessageState(tr("STR_FACILITY_IN_USE_STORAGE"), _palette, errorColor1, "BACK01.SCR", errorColor2));
+					pushPlacementError(tr("STR_FACILITY_IN_USE_STORAGE"), "BACK01.SCR", errorColor1, errorColor2, false);
 					break;
 				case BPE_Used_Quarters:
-					_game->pushState(new ErrorMessageState(tr("STR_FACILITY_IN_USE_QUARTERS"), _palette, errorColor1, "BACK01.SCR", errorColor2));
+					pushPlacementError(tr("STR_FACILITY_IN_USE_QUARTERS"), "BACK01.SCR", errorColor1, errorColor2, false);
 					break;
 				case BPE_Used_Laboratories:
-					_game->pushState(new ErrorMessageState(tr("STR_FACILITY_IN_USE_LABORATORIES"), _palette, errorColor1, "BACK01.SCR", errorColor2));
+					pushPlacementError(tr("STR_FACILITY_IN_USE_LABORATORIES"), "BACK01.SCR", errorColor1, errorColor2, false);
 					break;
 				case BPE_Used_Workshops:
-					_game->pushState(new ErrorMessageState(tr("STR_FACILITY_IN_USE_WORKSHOPS"), _palette, errorColor1, "BACK01.SCR", errorColor2));
+					pushPlacementError(tr("STR_FACILITY_IN_USE_WORKSHOPS"), "BACK01.SCR", errorColor1, errorColor2, false);
 					break;
 				case BPE_Used_Hangars:
-					_game->pushState(new ErrorMessageState(tr("STR_FACILITY_IN_USE_HANGARS"), _palette, errorColor1, "BACK01.SCR", errorColor2));
+					pushPlacementError(tr("STR_FACILITY_IN_USE_HANGARS"), "BACK01.SCR", errorColor1, errorColor2, false);
 					break;
 				case BPE_Used_PsiLabs:
-					_game->pushState(new ErrorMessageState(tr("STR_FACILITY_IN_USE_PSI_LABS"), _palette, errorColor1, "BACK01.SCR", errorColor2));
+					pushPlacementError(tr("STR_FACILITY_IN_USE_PSI_LABS"), "BACK01.SCR", errorColor1, errorColor2, false);
 					break;
 				case BPE_Used_Gyms:
-					_game->pushState(new ErrorMessageState(tr("STR_FACILITY_IN_USE_GYMS"), _palette, errorColor1, "BACK01.SCR", errorColor2));
+					pushPlacementError(tr("STR_FACILITY_IN_USE_GYMS"), "BACK01.SCR", errorColor1, errorColor2, false);
 					break;
 				case BPE_Used_AlienContainment:
-					_game->pushState(new ErrorMessageState(tr("STR_FACILITY_IN_USE_PRISONS"), _palette, errorColor1, "BACK01.SCR", errorColor2));
+					pushPlacementError(tr("STR_FACILITY_IN_USE_PRISONS"), "BACK01.SCR", errorColor1, errorColor2, false);
 					break;
 				case BPE_NotConnected:
-					_game->pushState(new ErrorMessageState(tr("STR_CANNOT_BUILD_HERE"), _palette, errorColor1, "BACK01.SCR", errorColor2));
+					pushPlacementError(tr("STR_CANNOT_BUILD_HERE"), "BACK01.SCR", errorColor1, errorColor2, false);
 					break;
 				case BPE_Used:
-					_game->pushState(new ErrorMessageState(tr("STR_FACILITY_IN_USE"), _palette, errorColor1, "BACK01.SCR", errorColor2));
+					pushPlacementError(tr("STR_FACILITY_IN_USE"), "BACK01.SCR", errorColor1, errorColor2, false);
 					break;
 				case BPE_Upgrading:
-					_game->pushState(new ErrorMessageState(tr("STR_CANNOT_UPGRADE_FACILITY_ALREADY_UPGRADING"), _palette, errorColor1, "BACK01.SCR", errorColor2));
+					pushPlacementError(tr("STR_CANNOT_UPGRADE_FACILITY_ALREADY_UPGRADING"), "BACK01.SCR", errorColor1, errorColor2, false);
 					break;
 				case BPE_UpgradeSizeMismatch:
-					_game->pushState(new ErrorMessageState(tr("STR_CANNOT_UPGRADE_FACILITY_WRONG_SIZE"), _palette, errorColor1, "BACK13.SCR", errorColor2));
+					pushPlacementError(tr("STR_CANNOT_UPGRADE_FACILITY_WRONG_SIZE"), "BACK13.SCR", errorColor1, errorColor2, false);
 					break;
 				case BPE_UpgradeRequireSpecific:
-					_game->pushState(new ErrorMessageState(tr("STR_CANNOT_UPGRADE_FACILITY_WRONG_TYPE"), _palette, errorColor1, "BACK13.SCR", errorColor2));
+					pushPlacementError(tr("STR_CANNOT_UPGRADE_FACILITY_WRONG_TYPE"), "BACK13.SCR", errorColor1, errorColor2, false);
 					break;
 				case BPE_UpgradeDisallowed:
-					_game->pushState(new ErrorMessageState(tr("STR_CANNOT_UPGRADE_FACILITY_DISALLOWED"), _palette, errorColor1, "BACK13.SCR", errorColor2));
+					pushPlacementError(tr("STR_CANNOT_UPGRADE_FACILITY_DISALLOWED"), "BACK13.SCR", errorColor1, errorColor2, false);
 					break;
 				case BPE_Queue:
-					_game->pushState(new ErrorMessageState(tr("STR_CANNOT_BUILD_QUEUE_OFF"), _palette, errorColor1, "BACK13.SCR", errorColor2));
+					pushPlacementError(tr("STR_CANNOT_BUILD_QUEUE_OFF"), "BACK13.SCR", errorColor1, errorColor2, false);
 					break;
 				case BPE_ForbiddenByOther:
-					_game->pushState(new ErrorMessageState(tr("STR_FACILITY_FORBIDDEN_BY_OTHER"), _palette, errorColor1, "BACK01.SCR", errorColor2));
+					pushPlacementError(tr("STR_FACILITY_FORBIDDEN_BY_OTHER"), "BACK01.SCR", errorColor1, errorColor2, false);
 					break;
 				case BPE_ForbiddenByThis:
-					_game->pushState(new ErrorMessageState(tr("STR_FACILITY_OTHER_FORBIDDEN_BY_THIS"), _palette, errorColor1, "BACK01.SCR", errorColor2));
+					pushPlacementError(tr("STR_FACILITY_OTHER_FORBIDDEN_BY_THIS"), "BACK01.SCR", errorColor1, errorColor2, false);
 					break;
 				case BPE_UpgradeOnly:
-					_game->pushState(new ErrorMessageState(tr("STR_CANNOT_BUILD_UPGRADE_ONLY"), _palette, errorColor1, "BACK13.SCR", errorColor2));
+					pushPlacementError(tr("STR_CANNOT_BUILD_UPGRADE_ONLY"), "BACK13.SCR", errorColor1, errorColor2, false);
 					break;
 				default:
-					_game->pushState(new ErrorMessageState(tr("STR_CANNOT_BUILD_HERE"), _palette, errorColor1, "BACK01.SCR", errorColor2));
+					pushPlacementError(tr("STR_CANNOT_BUILD_HERE"), "BACK01.SCR", errorColor1, errorColor2, false);
 					break;
 			}
 		}
 		else if (_game->getSavedGame()->getFunds() < (_rule->getBuildCost() - refundValueTemp))
 		{
 			_game->popState();
-			_game->pushState(new ErrorMessageState(tr("STR_NOT_ENOUGH_MONEY"), _palette, _game->getMod()->getInterface("placeFacility")->getElement("errorMessage")->color, "BACK01.SCR", _game->getMod()->getInterface("placeFacility")->getElement("errorPalette")->color));
+			pushPlacementError(tr("STR_NOT_ENOUGH_MONEY"), "BACK01.SCR",
+				_game->getMod()->getInterface("placeFacility")->getElement("errorMessage")->color,
+				_game->getMod()->getInterface("placeFacility")->getElement("errorPalette")->color, false);
 		}
 		else
 		{
@@ -299,7 +392,9 @@ void PlaceFacilityState::viewClick(Action *)
 				if (needed > 0)
 				{
 					_game->popState();
-					_game->pushState(new ErrorMessageState(tr("STR_NOT_ENOUGH_ITEMS").arg(tr(item.first)).arg(needed), _palette, _game->getMod()->getInterface("placeFacility")->getElement("errorMessage")->color, "BACK01.SCR", _game->getMod()->getInterface("placeFacility")->getElement("errorPalette")->color));
+					pushPlacementError(tr("STR_NOT_ENOUGH_ITEMS").arg(tr(item.first)).arg(needed), "BACK01.SCR",
+						_game->getMod()->getInterface("placeFacility")->getElement("errorMessage")->color,
+						_game->getMod()->getInterface("placeFacility")->getElement("errorPalette")->color, false);
 					return;
 				}
 			}
@@ -377,18 +472,23 @@ void PlaceFacilityState::viewClick(Action *)
 				if (_view->isQueuedBuilding(_rule)) fac->setBuildTime(INT_MAX);
 				_view->reCalcQueuedBuildings();
 			}
-			_view->setBase(_base);
-			_game->getSavedGame()->setFunds(_game->getSavedGame()->getFunds() - _rule->getBuildCost());
-			for (const auto& item: _rule->getBuildCostItems())
-			{
-				_base->getStorageItems()->removeItem(item.first, item.second.first);
-			}
-			if (!_game->isShiftPressed())
-			{
-				_game->popState();
-			}
+		_view->setBase(_base);
+		_game->getSavedGame()->setFunds(_game->getSavedGame()->getFunds() - _rule->getBuildCost());
+		for (const auto& item: _rule->getBuildCostItems())
+		{
+			_base->getStorageItems()->removeItem(item.first, item.second.first);
+		}
+#ifdef __EMSCRIPTEN__
+		if (_calypsoHdUi != nullptr)
+		{
+			_calypsoHdUi->refreshPlacement();
+		}
+#endif
+		if (!_game->isShiftPressed())
+		{
+			_game->popState();
 		}
 	}
 }
-
 }
+} // namespace OpenXcom

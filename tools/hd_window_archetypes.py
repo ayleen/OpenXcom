@@ -39,6 +39,7 @@ ARCHETYPE_KINDS = {
     "scrollable-collection": "collection",
     "tabbed-management": "tabbed",
     "wide-detail": "detail",
+    "selection-list": "selection",
 }
 LAYOUT_FIELDS = {
     "collection": {
@@ -152,6 +153,24 @@ LAYOUT_FIELDS = {
         "actionGap",
         "actionInset",
     },
+    "selection": {
+        "designWidth",
+        "designHeight",
+        "window",
+        "status",
+        "title",
+        "list",
+        "footer",
+        "rowHeight",
+        "visibleRows",
+        "scrollbarWidth",
+        "minThumbHeight",
+        "textUnitWidth",
+        "cellInlineInset",
+        "actionWidth",
+        "actionGap",
+        "actionInset",
+    },
 }
 LIMIT_FIELDS = {
     "collection": {
@@ -186,6 +205,12 @@ LIMIT_FIELDS = {
         "maxItems",
         "maxColumns",
         "maxCellCharacters",
+    },
+    "selection": {
+        "maxItems",
+        "maxColumns",
+        "maxCellCharacters",
+        "maxActions",
     },
 }
 ZERO_CAPABLE_LAYOUT_FIELDS = {
@@ -555,6 +580,8 @@ def _validate_template(template):
 def _layout_rect_fields(kind):
     if kind == "collection":
         return ("window", "title", "controlBar", "viewport", "footer")
+    if kind == "selection":
+        return ("window", "status", "title", "list", "footer")
     if kind == "tabbed":
         return (
             "window",
@@ -1486,6 +1513,185 @@ def _build_collection(config, template, source_name, template_name):
     return out
 
 
+def _validate_selection_rows(collection, limits, label):
+    if not isinstance(collection, dict):
+        raise ArchetypeError(label + " must be an object")
+    _strict(collection, {"mode", "selectionRole", "columns", "items"}, set(), label)
+    if collection.get("mode") != "list":
+        raise ArchetypeError(label + ".mode must be list for a selection list")
+    _stable_id(collection["selectionRole"], label + ".selectionRole")
+    columns = collection["columns"]
+    if (
+        not isinstance(columns, list)
+        or len(columns) != 1
+        or not isinstance(columns[0], dict)
+    ):
+        raise ArchetypeError(label + ".columns must hold exactly one label column")
+    _strict(columns[0], {"id", "label"}, set(), label + ".columns[0]")
+    _stable_id(columns[0]["id"], label + ".columns[0].id")
+    _one_line(columns[0]["label"], label + ".columns[0].label", 48)
+    items = collection["items"]
+    if not isinstance(items, list) or not 1 <= len(items) <= limits["maxItems"]:
+        raise ArchetypeError(label + ".items exceeds the template item limit")
+    seen = set()
+    for index, item in enumerate(items):
+        item_label = label + ".items[" + str(index) + "]"
+        _strict(item, {"id", "label", "enabled"}, set(), item_label)
+        _stable_id(item["id"], item_label + ".id")
+        if item["id"] in seen:
+            raise ArchetypeError(label + " item ids must be unique")
+        seen.add(item["id"])
+        _one_line(item["label"], item_label + ".label", limits["maxCellCharacters"])
+        if not isinstance(item["enabled"], bool):
+            raise ArchetypeError(item_label + ".enabled must be a boolean")
+
+
+def _validate_selection(config, template):
+    actions = _validate_common(config, template, {"collection"}, {"protocol"})
+    _validate_selection_rows(config["collection"], template["limits"], "config.collection")
+    for action in actions:
+        if action["action"] not in {"cancel", "close", "back"}:
+            raise ArchetypeError(
+                "config.actions behavior must be a close action for a selection list"
+            )
+    protocol = config.get("protocol")
+    if protocol is not None:
+        _strict(
+            protocol,
+            {"authority", "record", "code", "revision", "effectiveDate"},
+            set(),
+            "config.protocol",
+        )
+        _one_line(protocol["authority"], "config.protocol.authority", 64)
+        _one_line(protocol["record"], "config.protocol.record", 64)
+        _one_line(protocol["code"], "config.protocol.code", 16)
+        _one_line(protocol["revision"], "config.protocol.revision", 16)
+        _one_line(protocol["effectiveDate"], "config.protocol.effectiveDate", 16)
+    return actions
+
+
+def _build_selection_fragment(collection, authored, viewport, name):
+    total = len(collection["items"])
+    track = _make_rect(
+        _right(viewport) - authored["scrollbarWidth"],
+        viewport["y"],
+        authored["scrollbarWidth"],
+        viewport["height"],
+    )
+    row_slots = []
+    for row_index in range(authored["visibleRows"]):
+        row_slots.append(
+            _named_rect(
+                _make_rect(
+                    viewport["x"],
+                    viewport["y"] + row_index * authored["rowHeight"],
+                    viewport["width"],
+                    authored["rowHeight"],
+                    stable_id="row-slot-" + str(row_index + 1),
+                )
+            )
+        )
+    metrics = _scroll_metrics(
+        total,
+        authored["visibleRows"],
+        total,
+        authored["visibleRows"],
+        1,
+        track,
+        authored["minThumbHeight"],
+    )
+    return {"rowSlots": row_slots}, metrics
+
+
+def _build_selection(config, template, source_name, template_name):
+    actions = _validate_selection(config, template)
+    out = _base_contract(config, template, source_name, template_name, actions)
+    out["presentation"] = {"density": "standard", "scaleNumerator": 1, "scaleDenominator": 1}
+    collection = copy.deepcopy(config["collection"])
+    out["form"]["collection"] = collection
+    out["form"]["buttons"] = [
+        {
+            "id": action["id"],
+            "label": action["label"],
+            "tone": action["tone"],
+            "action": action["action"],
+            "style": copy.deepcopy(action["style"]),
+        }
+        for action in actions
+    ]
+    out["form"]["visibleButtons"] = [action["id"] for action in actions]
+    protocol = config.get("protocol")
+    if protocol is not None:
+        out["copy"]["protocol"] = (
+            protocol["authority"] + " · " + protocol["record"] + " " + protocol["code"]
+        )
+        for layout_name in ("wide", "compact"):
+            authored_layout = template["layouts"][layout_name]
+            _ensure_text_fits(
+                out["copy"]["protocol"],
+                authored_layout["status"],
+                authored_layout,
+                layout_name + ".protocol",
+            )
+    out["copy"]["rows"] = [
+        {"label": item["label"], "enabled": item["enabled"]}
+        for item in collection["items"]
+    ]
+    out["scrollMetrics"] = {}
+    for name in ("wide", "compact"):
+        authored = template["layouts"][name]
+        if authored["list"]["height"] != authored["visibleRows"] * authored["rowHeight"]:
+            raise ArchetypeError(
+                name + " list height must equal visibleRows * rowHeight"
+            )
+        action_rects = _action_rects(actions, authored)
+        _ensure_action_copy_fits(actions, action_rects, authored, name + ".action")
+        _ensure_text_fits(config["title"], authored["title"], authored, name + ".title")
+        for item in collection["items"]:
+            _ensure_text_fits(
+                item["label"],
+                authored["list"],
+                authored,
+                name + ".collection.item." + item["id"],
+            )
+        fragment, metrics = _build_selection_fragment(
+            collection, authored, authored["list"], name
+        )
+        layout = {
+            "designWidth": authored["designWidth"],
+            "designHeight": authored["designHeight"],
+            "window": copy.deepcopy(authored["window"]),
+            "status": copy.deepcopy(authored["status"]),
+            "title": copy.deepcopy(authored["title"]),
+            "list": copy.deepcopy(authored["list"]),
+            "footer": copy.deepcopy(authored["footer"]),
+            "actionCancel": copy.deepcopy(action_rects[actions[0]["id"]]),
+            "rowHeight": authored["rowHeight"],
+            "visibleRows": authored["visibleRows"],
+            "rowSlots": fragment["rowSlots"],
+            "buttons": {
+                action["id"]: copy.deepcopy(action_rects[action["id"]])
+                for action in actions
+            },
+            "scrollbarWidth": authored["scrollbarWidth"],
+            "minThumbHeight": authored["minThumbHeight"],
+        }
+        if layout["buttons"][actions[0]["id"]] != layout["actionCancel"]:
+            raise ArchetypeError(name + " cancel action left the button slot")
+        out["scrollMetrics"][name] = metrics
+        out["layouts"][name] = layout
+    out["parts"] = [
+        "window",
+        "status",
+        "title",
+        "list",
+        "footer",
+        "actionCancel",
+    ]
+    out["actions"] = ["actionCancel"]
+    return out
+
+
 def _build_tabbed_detail_fragment(detail, authored, name):
     panel = copy.deepcopy(authored["detailPanel"])
     inset = authored["detailInset"]
@@ -2197,6 +2403,8 @@ def build_extended_contract(config, template, source_name, template_name):
     kind = template["generatorKind"]
     if kind == "collection":
         return _build_collection(config, template, source_name, template_name)
+    if kind == "selection":
+        return _build_selection(config, template, source_name, template_name)
     if kind == "tabbed":
         return _build_tabbed(config, template, source_name, template_name)
     if kind == "detail":

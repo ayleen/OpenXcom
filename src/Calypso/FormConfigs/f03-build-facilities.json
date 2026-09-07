@@ -1,0 +1,52 @@
+{
+  "schema": 1,
+  "id": "f03-build-facilities",
+  "familyId": 3,
+  "version": "hd.2026-08-29.1",
+  "archetype": "selection-list",
+  "protocol": {
+    "authority": "CALYPSO COMMAND",
+    "record": "FACILITY REQUISITION",
+    "code": "FB-03",
+    "revision": "1.0.21",
+    "effectiveDate": "15.07.2061"
+  },
+  "title": "Installation",
+  "actions": [
+    {
+      "id": "cancel",
+      "label": "CANCEL",
+      "tone": "safe",
+      "action": "cancel"
+    }
+  ],
+  "collection": {
+    "mode": "list",
+    "selectionRole": "facility",
+    "columns": [
+      {
+        "id": "name",
+        "label": "Facility"
+      }
+    ],
+    "items": [
+      { "id": "living-quarters", "label": "Living Quarters", "enabled": true },
+      { "id": "laboratory", "label": "Laboratory", "enabled": true },
+      { "id": "workshop", "label": "Workshop", "enabled": true },
+      { "id": "standard-sonar", "label": "Standard Sonar", "enabled": true },
+      { "id": "wide-array-sonar", "label": "Wide Array Sonar", "enabled": true },
+      { "id": "torpedo-defenses", "label": "Torpedo Defenses", "enabled": true },
+      { "id": "general-stores", "label": "General Stores", "enabled": true },
+      { "id": "alien-containment", "label": "Alien Containment", "enabled": true },
+      { "id": "gauss-defenses", "label": "Gauss Defenses", "enabled": true },
+      { "id": "sonic-defenses", "label": "Sonic Defenses", "enabled": true },
+      { "id": "pwt-defenses", "label": "P.W.T. Defenses", "enabled": true },
+      { "id": "bombardment-shield", "label": "Bombardment Shield", "enabled": true },
+      { "id": "mc-generator", "label": "M.C. Generator", "enabled": true },
+      { "id": "mc-lab", "label": "M.C.-Lab", "enabled": true },
+      { "id": "transmission-resolver", "label": "Transmission Resolver", "enabled": true },
+      { "id": "sub-pen", "label": "Sub Pen", "enabled": true },
+      { "id": "drill-deck", "label": "Drill Deck", "enabled": true }
+    ]
+  }
+}

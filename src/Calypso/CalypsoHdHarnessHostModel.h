@@ -66,7 +66,11 @@ enum class CalypsoHarnessScenario
 	GeoscapeHd = 84,
 	// T08 reservation: F01 base-command-shell Engine factory lands in T19.
 	// Until then the scenario id is wired but targetless (explicit failure).
-	F01Basescape = 85
+	F01Basescape = 85,
+	// F03 construction chooser (BuildFacilitiesState, real fixture base) and
+	// placement (PlaceFacilityState, real fixture owners, implemented presentation).
+	F03BuildFacilities = 86,
+	F03PlaceFacility = 87
 };
 
 /// True iff `id` names a known scenario (the generic export never guesses).
@@ -104,7 +108,9 @@ inline bool calypsoHarnessScenarioValid(int id)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F13Containment)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F24ItemsArriving)
 		|| id == static_cast<int>(CalypsoHarnessScenario::GeoscapeHd)
-		|| id == static_cast<int>(CalypsoHarnessScenario::F01Basescape);
+		|| id == static_cast<int>(CalypsoHarnessScenario::F01Basescape)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F03BuildFacilities)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F03PlaceFacility);
 }
 
 /// Mutable session state of one harness run.

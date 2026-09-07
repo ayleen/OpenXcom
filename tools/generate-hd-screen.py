@@ -158,6 +158,14 @@ def validate_template(template, archetype):
             or any(not isinstance(space, str) or not space for space in coordinate_spaces)
             or len(set(coordinate_spaces)) != len(coordinate_spaces)):
         fail("screen template coordinateSpaces must be a non-empty unique string array")
+    modes = template.get("presentationModes")
+    if modes is not None:
+        if (not isinstance(modes, list) or not modes
+                or any(not isinstance(mode, str) or not SLUG_RE.match(mode) for mode in modes)
+                or len(set(modes)) != len(modes)):
+            fail("screen template presentationModes must be a non-empty unique slug array")
+        if "persistent" in modes:
+            fail("screen template presentationModes must not declare persistent")
     policy = template.get("layoutPolicy", "wide-compact")
     if policy not in LAYOUT_POLICIES:
         fail("screen template has unknown layoutPolicy " + str(policy))
@@ -273,6 +281,13 @@ def compile_contract(recipe, template, source_name):
         match = next((action_id for action_id in persistent if re.search(pattern, action_id)), None)
         if match:
             fail("persistent action " + match + " is forbidden by " + template["id"])
+    modes = template.get("presentationModes")
+    if modes is not None:
+        for action in recipe["actions"]:
+            visibility = action.get("visibility")
+            if visibility != "persistent" and visibility not in modes:
+                fail(action["id"] + " visibility " + str(visibility)
+                     + " is not a declared presentationMode of " + template["id"])
     collection_positions = set()
     for action in recipe["actions"]:
         if "rowIndex" not in action:
@@ -363,6 +378,8 @@ def compile_contract(recipe, template, source_name):
         "fixture": recipe.get("fixture", {}),
         "layouts": compiled_layouts,
     }
+    if template.get("presentationModes") is not None:
+        contract["presentationModes"] = list(template["presentationModes"])
     if policy != "wide-compact" or template.get("desktopFit") is not None:
         # Default wide-compact contracts keep their exact historical shape;
         # the policy block appears only when it carries information.

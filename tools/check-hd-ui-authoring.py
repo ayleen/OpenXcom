@@ -189,6 +189,37 @@ def validate_contract_geometry(contract_name, contract):
     if (not isinstance(coordinate_spaces, list) or not coordinate_spaces
             or any(not isinstance(space, str) or not space for space in coordinate_spaces)):
         fail(contract_name + ": coordinateSpaces allowlist is missing or invalid")
+    modes = contract.get("presentationModes")
+    visibility_by_id = {}
+    if modes is not None:
+        if (not isinstance(modes, list) or not modes
+                or any(not isinstance(mode, str) or not mode for mode in modes)
+                or len(set(modes)) != len(modes)):
+            fail(contract_name + ": presentationModes must be a non-empty unique string array")
+        if "persistent" in modes:
+            fail(contract_name + ": presentationModes must not declare persistent")
+        for action in contract.get("actions") or []:
+            visibility = action.get("visibility")
+            if visibility != "persistent" and visibility not in modes:
+                fail(contract_name + ": action " + str(action.get("id"))
+                     + " has undeclared visibility " + str(visibility))
+            visibility_by_id[action.get("id")] = visibility
+
+    def modes_of(action_id):
+        if modes is None:
+            return None
+        visibility = visibility_by_id.get(action_id)
+        if visibility == "persistent" or visibility is None:
+            # Persistent actions exist in every declared mode. Unknown layout
+            # ids stay conservative so nothing evades collision validation.
+            return set(modes)
+        return {visibility}
+
+    def can_coexist(first_id, second_id):
+        if modes is None:
+            return True
+        return bool(modes_of(first_id) & modes_of(second_id))
+
     for layout_name, layout in (contract.get("layouts") or {}).items():
         canvas = layout.get("designSize")
         actions = layout.get("actions") or {}
@@ -212,7 +243,7 @@ def validate_contract_geometry(contract_name, contract):
                     or hit[0] + hit[2] > canvas[0] or hit[1] + hit[3] > canvas[1]):
                 fail(contract_name + ": " + layout_name + " screen hit escapes canvas " + action_id)
             for other_id, other_hit in by_space.setdefault(space, []):
-                if rects_overlap(hit, other_hit):
+                if rects_overlap(hit, other_hit) and can_coexist(other_id, action_id):
                     fail(contract_name + ": " + layout_name + " " + str(space)
                          + " hit collision " + other_id + " <> " + action_id)
             by_space[space].append((action_id, hit))

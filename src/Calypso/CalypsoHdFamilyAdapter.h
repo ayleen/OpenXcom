@@ -137,6 +137,14 @@ public:
 	/// popup's physical replacement draw over it.
 	virtual const void* topState() const = 0;
 
+	/// Explicit physical underlay requested by this adapter (default: none).
+	/// The overlay resolves the returned state identity against its registered
+	/// adapters and collects the underlay chain root-first before this adapter,
+	/// so a transparent form shows the physical base below instead of black.
+	/// Never an inferred previous registration: an unknown identity or a cycle
+	/// fails the route closed. Default null preserves every existing family.
+	virtual const void* physicalUnderlayState() const { return nullptr; }
+
 	/// Returns false for a transient frame in which the logical widget is still
 	/// playing its native opening animation. The overlay leaves that logical
 	/// frame visible instead of treating an intentionally empty collection as a

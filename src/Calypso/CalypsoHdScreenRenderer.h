@@ -45,7 +45,8 @@ public:
 	bool suppressWhenCovered() const override
 	{
 		return _mode == CalypsoHdScreenRenderMode::GeoscapeLiveChrome
-			|| _mode == CalypsoHdScreenRenderMode::BasescapeLiveChrome;
+			|| _mode == CalypsoHdScreenRenderMode::BasescapeLiveChrome
+			|| _mode == CalypsoHdScreenRenderMode::BasescapePlacementChrome;
 	}
 
 private:

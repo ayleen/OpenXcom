@@ -314,6 +314,78 @@ inline CalypsoBasescapeHdLogicalRect calypsoBasescapeHdProjectRect(
 	return out;
 }
 
+// --- Placement-mode command column (F01 construction) -----------------------
+// One math source for the placement Cancel widget (CalypsoBasescapeHdUi) and
+// the placement details paint (CalypsoHdScreenRenderer::collectBasescape).
+// Header/rail/background/title/grid come from the shared derived layout
+// above; only the command column is repurposed: facility name reuses the
+// canonical columnHeading rect, details/guidance stack from columnTop, and
+// Cancel pins to the service-row band full width.
+
+struct CalypsoBasescapeHdPlacementColumn
+{
+	CalypsoBasescapeHdRect name;
+	CalypsoBasescapeHdRect details;
+	CalypsoBasescapeHdRect guidance;
+	CalypsoBasescapeHdRect cancel;
+};
+
+inline int calypsoBasescapeHdPlacementDetailFont(const CalypsoBasescapeHdFitParams &params)
+{
+	return params.smallActionFontSize - 2;
+}
+inline int calypsoBasescapeHdPlacementDetailLine(const CalypsoBasescapeHdFitParams &params)
+{
+	return params.smallActionFontSize + 2;
+}
+inline int calypsoBasescapeHdPlacementSelectH(const CalypsoBasescapeHdFitParams &params)
+{
+	return params.smallActionFontSize + 6;
+}
+inline int calypsoBasescapeHdPlacementStatusH(const CalypsoBasescapeHdFitParams &params)
+{
+	return params.smallActionFontSize + 8;
+}
+/// Two-line guidance block (select prompt, validity status) between the
+/// details and the anchored Cancel, sharing the card gap.
+inline int calypsoBasescapeHdPlacementGuidanceH(const CalypsoBasescapeHdFitParams &params)
+{
+	return calypsoBasescapeHdPlacementSelectH(params) + params.cardGap
+		+ calypsoBasescapeHdPlacementStatusH(params);
+}
+
+/// Cancel pins to the derived service-row band at full command width: the
+/// service band top is the shared derivation's service-1 (base.info) row
+/// (rows 0-3 cards, 4-6 logistics, 7 build, 8 info, 9 new, 10 rail-world),
+/// so the holder and the renderer consume one math source, no literals.
+inline CalypsoBasescapeHdRect calypsoBasescapeHdPlacementCancelRect(
+	const CalypsoBasescapeHdDerivedLayout &derived,
+	const CalypsoBasescapeHdFitParams &params)
+{
+	return {derived.commandX, derived.rows[8].rect.y, derived.commandW, params.serviceH};
+}
+
+
+inline CalypsoBasescapeHdPlacementColumn calypsoBasescapeHdPlacementColumn(
+	const CalypsoBasescapeHdDerivedLayout &derived,
+	const CalypsoBasescapeHdFitParams &params)
+{
+	CalypsoBasescapeHdPlacementColumn out;
+	out.name = derived.columnHeading;
+	out.cancel = calypsoBasescapeHdPlacementCancelRect(derived, params);
+	// Details/guidance split the available right column between the column
+	// top and the anchored Cancel: guidance keeps its derived two-line block
+	// at the bottom, details take the rest, so every native detail line fits.
+	const int detailsY = params.columnTop;
+	const int guidanceH = calypsoBasescapeHdPlacementGuidanceH(params);
+	const int detailsH = out.cancel.y - params.cardPad - guidanceH - detailsY;
+	const int lineH = calypsoBasescapeHdPlacementDetailLine(params);
+	out.details = {derived.commandX, detailsY, derived.commandW, std::max(lineH, detailsH)};
+	out.guidance = {derived.commandX, detailsY + out.details.h + params.cardPad,
+		derived.commandW, guidanceH};
+	return out;
+}
+
 // Semantic focus is supplied by the State focus owner, not the native
 // broadcast-key flag, which defaults to true on every InteractiveSurface.
 

@@ -113,11 +113,12 @@ inline constexpr CalypsoBasescapeCommandShellGenActionLayout kWideActions[] =
 	{ "base.info", "Base information", "illustrated-management-action", "service-1", "screen", { 913, 640, 167, 44 }, { 913, 640, 167, 44 }, 90, 1 },
 	{ "base.new", "New base", "illustrated-management-action", "service-2", "screen", { 1089, 640, 167, 44 }, { 1089, 640, 167, 44 }, 100, 1 },
 	{ "navigation.world", "World", "command-icon-action", "rail-world", "screen", { 8, 92, 72, 72 }, { 8, 92, 72, 72 }, 110, 1 },
+	{ "base.placement.cancel", "Cancel", "management-action-group", "placement-cancel", "screen", { 913, 640, 343, 44 }, { 913, 640, 343, 44 }, 120, 1 },
 };
 
 inline constexpr CalypsoBasescapeCommandShellGenLayout kLayouts[] =
 {
-	{ 1280, 720, kWideActions, 11, kWideRegions, 13 },
+	{ 1280, 720, kWideActions, 12, kWideRegions, 13 },
 };
 inline constexpr int kLayoutCount = 1;
 

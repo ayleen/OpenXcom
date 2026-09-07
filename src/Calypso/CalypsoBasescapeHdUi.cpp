@@ -11,8 +11,12 @@
 #include "../Engine/TTFFont.h"
 
 #include "../Basescape/BasescapeState.h"
+#include "../Basescape/PlaceFacilityState.h"
 #include "../Basescape/BaseView.h"
 #include "../Basescape/MiniBaseView.h"
+#include "../Engine/Unicode.h"
+#include "../Savegame/Region.h"
+#include "../Mod/RuleRegion.h"
 #include "../Interface/Text.h"
 #include "../Interface/TextButton.h"
 #include "CommandCenter/CommandCenterInteraction.h"
@@ -44,12 +48,21 @@ namespace Calypso
 {
 
 CalypsoBasescapeHdUi::CalypsoBasescapeHdUi(BasescapeState *state)
-	: _state(state), _renderer(nullptr), _ready(false)
+	: _state(state), _placementState(nullptr), _renderer(nullptr), _ready(false)
 {
 	CalypsoHdScreenRenderModel model;
 	model.archetype = "base-command-shell";
 	_renderer = new CalypsoHdScreenRenderer(state, std::move(model),
 		CalypsoHdScreenRenderMode::BasescapeLiveChrome);
+}
+
+CalypsoBasescapeHdUi::CalypsoBasescapeHdUi(PlaceFacilityState *state)
+	: _state(nullptr), _placementState(state), _renderer(nullptr), _ready(false)
+{
+	CalypsoHdScreenRenderModel model;
+	model.archetype = "base-command-shell";
+	_renderer = new CalypsoHdScreenRenderer(state, std::move(model),
+		CalypsoHdScreenRenderMode::BasescapePlacementChrome);
 }
 
 CalypsoBasescapeHdUi::~CalypsoBasescapeHdUi()
@@ -62,8 +75,9 @@ CalypsoBasescapeHdUi::~CalypsoBasescapeHdUi()
 
 bool CalypsoBasescapeHdUi::checkReadiness() const
 {
-	return _state != nullptr && _state->_game != nullptr
-		&& _state->_game->getMod() != nullptr;
+	Game *game = _placementState != nullptr ? _placementState->_game
+		: (_state != nullptr ? _state->_game : nullptr);
+	return game != nullptr && game->getMod() != nullptr;
 }
 
 void CalypsoBasescapeHdUi::configure(BasescapeState &state)
@@ -75,6 +89,17 @@ void CalypsoBasescapeHdUi::configure(BasescapeState &state)
 	auto *holder = new CalypsoBasescapeHdUi(&state);
 	state._calypsoHdUi = holder;
 	holder->refresh();
+}
+
+void CalypsoBasescapeHdUi::configure(PlaceFacilityState &state)
+{
+	if (state._calypsoHdUi != nullptr)
+	{
+		return;
+	}
+	auto *holder = new CalypsoBasescapeHdUi(&state);
+	state._calypsoHdUi = holder;
+	holder->refreshPlacement();
 }
 
 void CalypsoBasescapeHdUi::ensureRailButtons()
@@ -163,7 +188,7 @@ bool CalypsoBasescapeHdUi::applyGeometry()
 	// legacy uniform-fit UI scaling is never enabled, so no second transform
 	// can drift input away from paint. Never falls through to legacy
 	// State::resize (see resize()): rects are already authored.
-	if (_state == nullptr)
+	if (_state == nullptr && _placementState == nullptr)
 	{
 		return false;
 	}
@@ -203,6 +228,25 @@ bool CalypsoBasescapeHdUi::applyGeometry()
 			changed = true;
 		}
 	};
+	if (_placementState != nullptr)
+	{
+		// Placement mode: the state's own BaseView keeps validation/input
+		// ownership at the shared deck rect with instance-local HD extents;
+		// Cancel is the only other interactive owner, pinned to the
+		// service-row band. The window and detail texts never move: they are
+		// suppressed model sources, never painted.
+		place(_placementState->_view, geo.derived.deckGrid);
+		if (_placementState->_view != nullptr)
+		{
+			_placementState->_view->setCalypsoHdGridExtent(
+				_placementState->_view->getWidth(), _placementState->_view->getHeight());
+		}
+		const CalypsoBasescapeHdPlacementColumn column =
+			calypsoBasescapeHdPlacementColumn(geo.derived, CalypsoBasescapeHdFitParams{});
+		place(_placementState->_btnCancel, column.cancel);
+		(void)changed;
+		return true;
+	}
 	for (int i = 0; i < 11; ++i)
 	{
 		place(resolveActionWidget(*_state, geo.derived.rows[i].actionId),
@@ -269,6 +313,20 @@ bool CalypsoBasescapeHdUi::resize(BasescapeState &state)
 	return false;
 }
 
+bool CalypsoBasescapeHdUi::resize(PlaceFacilityState &state)
+{
+	// Placement consumes resizes the same way: re-apply the authored geometry
+	// (deck rect for paint+input, Cancel rect) and never fall through to the
+	// legacy recenter. No per-frame Surface reallocations.
+	CalypsoBasescapeHdUi *holder = state._calypsoHdUi;
+	if (holder != nullptr && holder->_ready)
+	{
+		holder->applyGeometry();
+		return true;
+	}
+	return false;
+}
+
 Surface *CalypsoBasescapeHdUi::resolveActionWidget(BasescapeState &state, const std::string &id)
 {
 	// T13: one audited table, semantic ID to the existing input owner. No new
@@ -292,8 +350,108 @@ bool CalypsoBasescapeHdUi::covered() const
 	// T16: covered means another state is on top.
 	// Suppression stays applied while covered.
 	// blit() paints the neutral backing below.
-	return _ready && _state != nullptr && _state->_game != nullptr
+	if (!_ready)
+	{
+		return false;
+	}
+	if (_placementState != nullptr)
+	{
+		return _placementState->_game != nullptr
+			&& _placementState->_game->getTopState() != _placementState;
+	}
+	return _state != nullptr && _state->_game != nullptr
 		&& _state->_game->getTopState() != _state;
+}
+
+bool CalypsoBasescapeHdUi::placementMode() const
+{
+	return _placementState != nullptr;
+}
+
+void CalypsoBasescapeHdUi::populateBaseVisuals(CalypsoBasescapeHdSnapshot &snapshot,
+	Game *game, Base *base, BaseView *view)
+{
+	// Single read-only Base -> snapshot population for every native host of
+	// the base-command-shell (BasescapeState, PlaceFacilityState, and the
+	// chooser underlay): facilities with craft slots, craft visuals, and the
+	// base selector entries. No facility/craft painting here; the shared
+	// renderer owns that from this snapshot.
+	snapshot.baseCount = 0;
+	snapshot.selectedBase = 0;
+	snapshot.bases.clear();
+	snapshot.facilities.clear();
+	snapshot.crafts.clear();
+	if (game != nullptr && game->getSavedGame() != nullptr
+		&& game->getSavedGame()->getBases() != nullptr)
+	{
+		const std::vector<Base *> *bases = game->getSavedGame()->getBases();
+		snapshot.baseCount = static_cast<int>(bases->size());
+		for (size_t b = 0; b < bases->size(); ++b)
+		{
+			if (bases->at(b) == base)
+			{
+				snapshot.selectedBase = static_cast<int>(b);
+			}
+			CalypsoBasescapeHdSelectorEntry entry;
+			entry.name = bases->at(b) != nullptr ? bases->at(b)->getName() : std::string();
+			entry.selected = bases->at(b) == base;
+			if (bases->at(b) != nullptr)
+			{
+				for (const BaseFacility *fac : *bases->at(b)->getFacilities())
+				{
+					CalypsoBasescapeHdSelectorCell cell;
+					cell.x = fac->getX();
+					cell.y = fac->getY();
+					cell.sizeX = fac->getRules()->getSizeX();
+					cell.sizeY = fac->getRules()->getSizeY();
+					cell.built = fac->getBuildTime() == 0;
+					cell.disabled = fac->getDisabled();
+					entry.cells.push_back(cell);
+				}
+			}
+			snapshot.bases.push_back(std::move(entry));
+		}
+	}
+	if (base == nullptr)
+	{
+		return;
+	}
+
+	std::vector<BaseCraftDrawing> drawings;
+	if (view != nullptr)
+	{
+		view->assignCraftsForDrawing(drawings);
+	}
+	for (const BaseFacility *fac : *base->getFacilities())
+	{
+		CalypsoBasescapeHdFacilityVisual visual;
+		visual.x = fac->getX();
+		visual.y = fac->getY();
+		visual.sizeX = fac->getRules()->getSizeX();
+		visual.sizeY = fac->getRules()->getSizeY();
+		visual.ruleType = fac->getRules()->getType();
+		visual.buildTime = fac->getBuildTime();
+		visual.disabled = fac->getDisabled();
+		visual.hadPrevious = fac->getIfHadPreviousFacility();
+		visual.connectorsDisabled = fac->getRules()->connectorsDisabled();
+		visual.ammo = fac->getAmmo();
+		visual.ammoMax = fac->getRules()->getAmmoMax();
+		for (const BaseCraftDrawing &row : drawings)
+		{
+			if (row.pen == fac && row.craft != nullptr)
+			{
+				visual.craftIndex = static_cast<int>(snapshot.crafts.size());
+				visual.craftDrawn = row.drawn;
+				CalypsoBasescapeHdCraftVisual craft;
+				craft.name = row.craft->getName(game->getLanguage());
+				craft.away = row.craft->getStatus() == "STR_OUT";
+				craft.artKey = row.craft->getRules()->getType();
+				snapshot.crafts.push_back(std::move(craft));
+				break;
+			}
+		}
+		snapshot.facilities.push_back(std::move(visual));
+	}
 }
 
 void CalypsoBasescapeHdUi::refresh()
@@ -347,6 +505,13 @@ void CalypsoBasescapeHdUi::feedModel()
 	for (int i = 0; i < layout->actionCount; ++i)
 	{
 		const auto &gen = layout->actions[i];
+		// Placement-only semantic action (template slot "placement-cancel"):
+		// the placement holder feeds Cancel from the derived column, never
+		// from the live base layout, so it stays out of the live model.
+		if (std::string(gen.id) == "base.placement.cancel")
+		{
+			continue;
+		}
 		CalypsoHdScreenActionVisual visual;
 		visual.id = gen.id;
 		visual.component = gen.component;
@@ -390,39 +555,7 @@ void CalypsoBasescapeHdUi::feedModel()
 	snapshot.region = textOf(_state->_txtLocation);
 	snapshot.funds = textOf(_state->_txtFunds);
 	snapshot.hoverFacility = textOf(_state->_txtFacility);
-	snapshot.baseCount = 0;
-	snapshot.selectedBase = 0;
-	if (_state->_game != nullptr && _state->_game->getSavedGame() != nullptr
-		&& _state->_game->getSavedGame()->getBases() != nullptr)
-	{
-		const std::vector<Base *> *bases = _state->_game->getSavedGame()->getBases();
-		snapshot.baseCount = static_cast<int>(bases->size());
-		for (size_t b = 0; b < bases->size(); ++b)
-		{
-			if (bases->at(b) == base)
-			{
-				snapshot.selectedBase = static_cast<int>(b);
-			}
-			CalypsoBasescapeHdSelectorEntry entry;
-			entry.name = bases->at(b) != nullptr ? bases->at(b)->getName() : std::string();
-			entry.selected = bases->at(b) == base;
-			if (bases->at(b) != nullptr)
-			{
-				for (const BaseFacility *fac : *bases->at(b)->getFacilities())
-				{
-					CalypsoBasescapeHdSelectorCell cell;
-					cell.x = fac->getX();
-					cell.y = fac->getY();
-					cell.sizeX = fac->getRules()->getSizeX();
-					cell.sizeY = fac->getRules()->getSizeY();
-					cell.built = fac->getBuildTime() == 0;
-					cell.disabled = fac->getDisabled();
-					entry.cells.push_back(cell);
-				}
-			}
-			snapshot.bases.push_back(std::move(entry));
-		}
-	}
+	populateBaseVisuals(snapshot, _state->_game, base, _state->_view);
 
 	snapshot.deckRect = {geo.derived.deckGrid.x, geo.derived.deckGrid.y,
 		geo.derived.deckGrid.w, geo.derived.deckGrid.h};
@@ -439,41 +572,164 @@ void CalypsoBasescapeHdUi::feedModel()
 		snapshot.hoverSizeY = hovered->getRules()->getSizeY();
 	}
 
-	std::vector<BaseCraftDrawing> drawings;
-	if (_state->_view != nullptr)
+	model.baseSnapshot = std::move(snapshot);
+	_renderer->setModel(std::move(model));
+}
+
+void CalypsoBasescapeHdUi::refreshPlacement()
+{
+	// Placement mode model: the same base-command-shell archetype over the
+	// same derived geometry. Cancel is the only interactive owner; every
+	// other base action and the mini selector stay decorative. Detail strings
+	// come from the live native widgets (cost/time/maintenance/resources),
+	// guidance from the chooser-owned STR_CALYPSO_BUILD_* keys.
+	if (_placementState == nullptr)
 	{
-		_state->_view->assignCraftsForDrawing(drawings);
+		return;
 	}
-	for (const BaseFacility *fac : *base->getFacilities())
+	if (!_ready)
 	{
-		CalypsoBasescapeHdFacilityVisual visual;
-		visual.x = fac->getX();
-		visual.y = fac->getY();
-		visual.sizeX = fac->getRules()->getSizeX();
-		visual.sizeY = fac->getRules()->getSizeY();
-		visual.ruleType = fac->getRules()->getType();
-		visual.buildTime = fac->getBuildTime();
-		visual.disabled = fac->getDisabled();
-		visual.hadPrevious = fac->getIfHadPreviousFacility();
-		visual.connectorsDisabled = fac->getRules()->connectorsDisabled();
-		visual.ammo = fac->getAmmo();
-		visual.ammoMax = fac->getRules()->getAmmoMax();
-		for (const BaseCraftDrawing &row : drawings)
+		_ready = checkReadiness();
+	}
+	if (!_ready || _renderer == nullptr)
+	{
+		CalypsoHdUiOverlay::instance().failHdRoute(
+			"Basescape placement prerequisites are unavailable");
+	}
+	CalypsoHdUiOverlay::instance().registerAdapter(_renderer);
+	applyGeometry();
+	feedPlacementModel();
+}
+
+void CalypsoBasescapeHdUi::feedPlacementModel()
+{
+	const BasescapeHdFrameGeometry geo = currentFrameGeometry();
+	if (!geo.valid)
+	{
+		return;
+	}
+	const CalypsoBasescapeCommandShellGen::CalypsoBasescapeCommandShellGenLayout *layout =
+		CalypsoBasescapeCommandShellGen::layoutForDesign(1280, 720);
+	if (layout == nullptr)
+	{
+		return;
+	}
+	PlaceFacilityState *ps = _placementState;
+	if (ps == nullptr || ps->_game == nullptr || ps->_game->getSavedGame() == nullptr)
+	{
+		return;
+	}
+	Game *game = ps->_game;
+	Base *base = ps->_base;
+	const RuleBaseFacility *rule = ps->_rule;
+	if (base == nullptr || rule == nullptr)
+	{
+		return;
+	}
+	const auto textOf = [](const auto *widget) -> std::string {
+		return widget != nullptr ? widget->getText() : std::string();
+	};
+
+	CalypsoHdScreenRenderModel model;
+	model.archetype = CalypsoBasescapeCommandShellGen::kArchetype;
+	model.designWidth = layout->designWidth;
+	model.designHeight = layout->designHeight;
+	const CalypsoBasescapeHdPlacementColumn column =
+		calypsoBasescapeHdPlacementColumn(geo.derived, CalypsoBasescapeHdFitParams{});
+	CalypsoHdScreenActionVisual cancel;
+	cancel.id = "base.placement.cancel";
+	cancel.label = textOf(ps->_btnCancel);
+	cancel.component = "management-action-group";
+	cancel.slotRole = "placement-cancel";
+	cancel.coordinateSpace = "screen";
+	cancel.visible = {column.cancel.x, column.cancel.y, column.cancel.w, column.cancel.h};
+	cancel.hit = cancel.visible;
+	cancel.focusOrder = 120;
+	cancel.zOrder = 1;
+	cancel.widget = ps->_btnCancel;
+	model.actions.push_back(std::move(cancel));
+	for (int i = 0; i < layout->regionCount; ++i)
+	{
+		const auto &gen = layout->regions[i];
+		CalypsoHdScreenRegionVisual region;
+		region.id = gen.id;
+		region.rect = {gen.rect.x, gen.rect.y, gen.rect.w, gen.rect.h};
+		model.regions.push_back(std::move(region));
+	}
+	model.copy.emplace_back("heading.deck", ps->tr("STR_CALYPSO_BASE_LAYOUT"));
+	model.copy.emplace_back("heading.column", ps->tr("STR_CALYPSO_BASE_FUNCTIONS"));
+	model.copy.emplace_back("heading.logistics", ps->tr("STR_CALYPSO_BASE_LOGISTICS"));
+
+	CalypsoBasescapeHdSnapshot snapshot;
+	snapshot.baseName = base->getName();
+	snapshot.baseCaption = ps->tr("STR_BASES");
+	if (const GameTime *time = game->getSavedGame()->getTime())
+	{
+		std::ostringstream clock;
+		clock << time->getHour() << ":" << std::setfill('0') << std::setw(2) << time->getMinute();
+		snapshot.displayTime = clock.str();
+		snapshot.displayDate = time->getDayString(game->getLanguage()) + " "
+			+ std::string(ps->tr(time->getMonthString())) + " " + std::to_string(time->getYear());
+	}
+	for (const auto* region : *game->getSavedGame()->getRegions())
+	{
+		if (region->getRules()->insideRegion(base->getLongitude(), base->getLatitude()))
 		{
-			if (row.pen == fac && row.craft != nullptr)
-			{
-				visual.craftIndex = static_cast<int>(snapshot.crafts.size());
-				visual.craftDrawn = row.drawn;
-				CalypsoBasescapeHdCraftVisual craft;
-				craft.name = row.craft->getName(_state->_game->getLanguage());
-				craft.away = row.craft->getStatus() == "STR_OUT";
-				craft.artKey = row.craft->getRules()->getType();
-				snapshot.crafts.push_back(std::move(craft));
-				break;
-			}
+			snapshot.region = ps->tr(region->getRules()->getType());
+			break;
 		}
-		snapshot.facilities.push_back(std::move(visual));
 	}
+	snapshot.funds = ps->tr("STR_FUNDS").arg(Unicode::formatFunding(game->getSavedGame()->getFunds()));
+	populateBaseVisuals(snapshot, game, base, ps->_view);
+	snapshot.deckRect = {geo.derived.deckGrid.x, geo.derived.deckGrid.y,
+		geo.derived.deckGrid.w, geo.derived.deckGrid.h};
+	snapshot.deckCell = geo.derived.deckCell;
+	snapshot.selectorRect = {geo.derived.titleSelector.x, geo.derived.titleSelector.y,
+		geo.derived.titleSelector.w, geo.derived.titleSelector.h};
+
+	CalypsoBasescapeHdPlacementVisual placement;
+	placement.active = true;
+	placement.ruleType = rule->getType();
+	placement.sizeX = rule->getSizeX();
+	placement.sizeY = rule->getSizeY();
+	placement.isMove = ps->_origFac != nullptr;
+	placement.facilityName = textOf(ps->_txtFacility);
+	if (placement.facilityName.empty())
+	{
+		placement.facilityName = ps->tr(rule->getType());
+	}
+	snapshot.hoverFacility = placement.facilityName;
+	const std::string costLine = textOf(ps->_txtCost) + " " + textOf(ps->_numCost);
+	const std::string timeLine = textOf(ps->_txtTime) + " " + textOf(ps->_numTime);
+	const std::string maintenanceLine = textOf(ps->_txtMaintenance) + " " + textOf(ps->_numMaintenance);
+	if (costLine != " ")
+	{
+		placement.detailLines.push_back(costLine);
+	}
+	if (timeLine != " ")
+	{
+		placement.detailLines.push_back(timeLine);
+	}
+	if (maintenanceLine != " ")
+	{
+		placement.detailLines.push_back(maintenanceLine);
+	}
+	std::istringstream resources(textOf(ps->_numResources));
+	std::string resourceLine;
+	while (std::getline(resources, resourceLine))
+	{
+		if (!resourceLine.empty())
+		{
+			placement.detailLines.push_back(resourceLine);
+		}
+	}
+	placement.guidanceSelect = placement.isMove
+		? ps->tr("STR_CALYPSO_BUILD_MOVE_POSITION")
+		: ps->tr("STR_CALYPSO_BUILD_SELECT_POSITION");
+	placement.guidanceValid = ps->tr("STR_CALYPSO_BUILD_VALID_POSITION");
+	placement.guidanceInvalid = ps->tr("STR_CALYPSO_BUILD_INVALID_POSITION");
+	placement.cancelLabel = textOf(ps->_btnCancel);
+	snapshot.placement = std::move(placement);
 
 	model.baseSnapshot = std::move(snapshot);
 	_renderer->setModel(std::move(model));

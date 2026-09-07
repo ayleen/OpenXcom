@@ -25,6 +25,8 @@
 #include "CalypsoUiMetrics.h"
 #include "CommandCenter/CommandCenterRenderer.h"
 #include "../Basescape/BasescapeState.h"
+#include "../Basescape/PlaceFacilityState.h"
+#include "../Basescape/PlaceStartFacilityState.h"
 #include "CalypsoF21UiShared.h"
 #include "CalypsoHdFontSource.h"
 #include "CalypsoHdTheme.h"
@@ -160,6 +162,119 @@ void paintTimeSpeedRail(const CalypsoHdScreenRenderModel& model, CalypsoF21Paint
 	}
 }
 
+void paintPlacementColumn(CalypsoF21Painter& painter,
+	const CalypsoBasescapeHdDerivedLayout& derived,
+	const CalypsoBasescapeHdFitParams& fitParams,
+	const CalypsoHdScreenRenderModel& model,
+	const CalypsoBasescapeHdSnapshot& snapshot,
+	bool placementCursor, bool placementValid,
+	const CommandCenter::CommandCenterFonts& ccFonts,
+	std::uint32_t& role)
+{
+	// Placement command column (F01 construction): chosen facility details +
+	// guidance + Cancel. Same header/rail/background/title/grid as the base
+	// shell; the base cards are not painted and never interactive here.
+	const CalypsoBasescapeHdPlacementVisual& placement = snapshot.placement;
+	const CalypsoBasescapeHdPlacementColumn column =
+		calypsoBasescapeHdPlacementColumn(derived, fitParams);
+	const CalypsoHdScreenActionVisual* cancel = nullptr;
+	for (const auto& candidate : model.actions)
+	{
+		if (candidate.id == "base.placement.cancel")
+		{
+			cancel = &candidate;
+			break;
+		}
+	}
+	if (cancel == nullptr)
+	{
+		CalypsoHdUiOverlay::instance().failHdRoute(
+			"base action missing: base.placement.cancel");
+	}
+	const auto toLogical = [&](const CalypsoBasescapeHdRect& r) {
+		return painter.project(CalypsoF21Rect{r.x, r.y, r.w, r.h});
+	};
+	painter.textRect(toLogical(column.name), nullptr, ccFonts.interSb,
+		placement.facilityName,
+		CommandCenterTheme::packed(CommandCenterTheme::TextPrimary),
+		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, role++, 0.0,
+		fitParams.headingFontSize);
+	// Detail/guidance metrics come from the same template parameters as
+	// calypsoBasescapeHdPlacementColumn above: the details rect always spans
+	// the available right column, so every native line paints (no truncation).
+	const int detailFont = calypsoBasescapeHdPlacementDetailFont(fitParams);
+	const int detailLineH = calypsoBasescapeHdPlacementDetailLine(fitParams);
+	int lineY = column.details.y;
+	for (const std::string& line : placement.detailLines)
+	{
+		painter.textRect(painter.project(CalypsoF21Rect{
+				column.details.x, lineY, column.details.w, detailLineH }),
+			nullptr, ccFonts.plexM, line,
+			CommandCenterTheme::packed(CommandCenterTheme::TextSecondary),
+			CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, role++, 0.0,
+			static_cast<double>(detailFont));
+		lineY += detailLineH;
+	}
+	const int selectH = calypsoBasescapeHdPlacementSelectH(fitParams);
+	const int statusH = calypsoBasescapeHdPlacementStatusH(fitParams);
+	painter.textRect(painter.project(CalypsoF21Rect{
+			column.guidance.x, column.guidance.y, column.guidance.w, selectH }),
+		nullptr, ccFonts.plexM, placement.guidanceSelect,
+		CommandCenterTheme::packed(CommandCenterTheme::TextSecondary),
+		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, role++, 0.0,
+		static_cast<double>(detailFont));
+	if (placementCursor)
+	{
+		painter.textRect(painter.project(CalypsoF21Rect{
+				column.guidance.x, column.guidance.y + selectH + fitParams.cardGap,
+				column.guidance.w, statusH }),
+			nullptr, ccFonts.interM,
+			placementValid ? placement.guidanceValid : placement.guidanceInvalid,
+			CommandCenterTheme::packed(placementValid
+				? CommandCenterTheme::Accent : CommandCenterTheme::Danger),
+			CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, role++, 0.0,
+			static_cast<double>(fitParams.smallActionFontSize));
+	}
+	if (cancel == nullptr)
+	{
+		// Already failHdRoute'd above: texts paint, no Cancel button.
+		return;
+	}
+	CalypsoInteractionState cancelState = CalypsoInteractionState::Rest;
+	if (const TextButton* button = static_cast<const TextButton*>(
+		static_cast<const Surface*>(cancel->widget)))
+	{
+		if (button->isPressed())
+		{
+			cancelState = CalypsoInteractionState::Pressed;
+		}
+		else if (button->isHovered())
+		{
+			cancelState = CalypsoInteractionState::Hover;
+		}
+	}
+	CalypsoHdPanelStyle cancelStyle;
+	cancelStyle.styled = true;
+	cancelStyle.radiusPx = CommandCenterTheme::RadiusSM;
+	cancelStyle.borderWidthPx = 1.0f;
+	cancelStyle.borderColorRgba = CommandCenterTheme::packed(CommandCenterTheme::Border);
+	cancelStyle.fillTopRgba = cancelStyle.fillBottomRgba = (cancelState == CalypsoInteractionState::Pressed)
+		? CommandCenterTheme::packed(CommandCenterTheme::BgActive)
+		: (cancelState == CalypsoInteractionState::Hover)
+		? CommandCenterTheme::packed(CommandCenterTheme::BgHover)
+		: CommandCenterTheme::packed(CommandCenterTheme::BgPanelRaised);
+	cancelStyle.gradDirX = 0.0f;
+	cancelStyle.gradDirY = 1.0f;
+	painter.styled(painter.project(CalypsoF21Rect{
+			cancel->visible.x, cancel->visible.y, cancel->visible.w, cancel->visible.h }),
+		cancelStyle, nullptr, role++);
+	painter.textRect(painter.project(CalypsoF21Rect{
+			cancel->visible.x, cancel->visible.y, cancel->visible.w, cancel->visible.h }),
+		cancel->widget, ccFonts.interM, cancel->label,
+		CommandCenterTheme::packed(CommandCenterTheme::TextPrimary),
+		CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 2, role++, 0.02,
+		fitParams.smallActionFontSize);
+}
 
 } // namespace
 
@@ -274,10 +389,14 @@ void CalypsoHdScreenRenderer::collectBasescape(CalypsoHdFrameBuilder& builder) c
 	const CalypsoHdScreenRenderModel& model = _model;
 	if (model.archetype != "base-command-shell") return;
 	// Fixture (harness) mode has no live state: paint from the model only and
-	// claim nothing. Live mode additionally binds the existing input owners.
-	const bool live = _mode == CalypsoHdScreenRenderMode::BasescapeLiveChrome;
-	const BasescapeState* base = live ? static_cast<const BasescapeState*>(_state) : nullptr;
-	if (live && base == nullptr) return;
+	// claim nothing. Live modes additionally bind the existing input owners.
+	// Placement is the same archetype on the same geometry, hosted by a
+	// PlaceFacilityState: identical shell paint, repurposed command column.
+	const bool placementMode = _mode == CalypsoHdScreenRenderMode::BasescapePlacementChrome;
+	const bool live = _mode == CalypsoHdScreenRenderMode::BasescapeLiveChrome || placementMode;
+	const BasescapeState* base = !placementMode && live ? static_cast<const BasescapeState*>(_state) : nullptr;
+	const PlaceFacilityState* placing = placementMode ? static_cast<const PlaceFacilityState*>(_state) : nullptr;
+	if (live && base == nullptr && placing == nullptr) return;
 	Game* game = getCurrentGame();
 	const Mod* mod = game ? game->getMod() : nullptr;
 	const CommandCenter::CommandCenterFonts ccFonts =
@@ -394,6 +513,10 @@ void CalypsoHdScreenRenderer::collectBasescape(CalypsoHdFrameBuilder& builder) c
 	{
 		painter.claim(base->_view, role++);
 	}
+	else if (placing != nullptr)
+	{
+		painter.claim(placing->_view, role++);
+	}
 	const CalypsoBasescapeHdFacilityVisual* grid[6][6] = {};
 	for (const auto& fac : snapshot.facilities)
 	{
@@ -500,7 +623,9 @@ void CalypsoHdScreenRenderer::collectBasescape(CalypsoHdFrameBuilder& builder) c
 		}
 	}
 	const BaseFacility* hovered = base != nullptr ? base->_view->getSelectedFacility() : nullptr;
-	if (live ? hovered != nullptr : snapshot.hasHoverCell)
+	// Placement owns cursor feedback itself (footprint preview below); the
+	// base hover ring never paints in placement mode.
+	if (!placementMode && (live ? hovered != nullptr : snapshot.hasHoverCell))
 	{
 		const BaseGridCellRect hover = hovered != nullptr
 			? calypsoBaseDeckCellRect(deckX, deckY, deckSide, hovered->getX(), hovered->getY(),
@@ -515,6 +640,61 @@ void CalypsoHdScreenRenderer::collectBasescape(CalypsoHdFrameBuilder& builder) c
 		ring.fillTopRgba = ring.fillBottomRgba = 0x00000000u;
 		painter.styled(project(CalypsoHdScreenRect{
 			hover.x, hover.y, hover.w, hover.h }), ring, nullptr, role++);
+	}
+	// Placement preview (F01 construction): the true sizeX/sizeY footprint at
+	// the live cursor, clipped to the deck square. Real facility art, a
+	// validity ring from the native getPlacementError (text status lives in
+	// the command column), no phantom craft or rooms, no duplicate rules.
+	bool placementCursor = false;
+	bool placementValid = false;
+	if (placementMode && placing != nullptr && placing->_view != nullptr
+		&& placing->_view->isHovered() && placing->_rule != nullptr && !snapshot.placement.ruleType.empty())
+	{
+		const int gridX = placing->_view->getGridX();
+		const int gridY = placing->_view->getGridY();
+		if (gridX >= 0 && gridX < 6 && gridY >= 0 && gridY < 6)
+		{
+			placementCursor = true;
+			const bool isStart = dynamic_cast<const PlaceStartFacilityState*>(placing) != nullptr;
+			placementValid = placing->_view->getPlacementError(
+				placing->_rule, placing->_origFac, isStart) == BPE_None;
+			const BaseGridCellRect cell = calypsoBaseDeckCellRect(deckX, deckY, deckSide,
+				gridX, gridY, snapshot.placement.sizeX, snapshot.placement.sizeY);
+			const int clipX0 = std::max(cell.x, deckX);
+			const int clipY0 = std::max(cell.y, deckY);
+			const int clipX1 = std::min(cell.x + cell.w, deckX + deckSide);
+			const int clipY1 = std::min(cell.y + cell.h, deckY + deckSide);
+			if (clipX1 > clipX0 && clipY1 > clipY0)
+			{
+				// True footprint scale with proper clipping: the painter has
+				// no partial-sprite clip, so the undistorted sprite paints
+				// only when the whole footprint sits inside the deck; at an
+				// edge the visible clipped outline alone carries validity
+				// (never a squashed sprite). Validity still comes from the
+				// native getPlacementError above.
+				const bool fullyInside = clipX0 == cell.x && clipY0 == cell.y
+					&& clipX1 == cell.x + cell.w && clipY1 == cell.y + cell.h;
+				const CalypsoHdScreenRect preview = fullyInside
+					? CalypsoHdScreenRect{cell.x, cell.y, cell.w, cell.h}
+					: CalypsoHdScreenRect{clipX0, clipY0, clipX1 - clipX0, clipY1 - clipY0};
+				if (fullyInside)
+				{
+					bool known = false;
+					const std::string previewArt = calypsoBaseFacilityImage(
+						catalog, snapshot.placement.ruleType, known);
+					painter.image(project(preview),
+						calypsoBaseCatalogImage(catalog, previewArt), nullptr, role++);
+				}
+				CalypsoHdPanelStyle previewRing;
+				previewRing.styled = true;
+				previewRing.radiusPx = 6.0f;
+				previewRing.borderWidthPx = 2.0f;
+				previewRing.borderColorRgba = CommandCenterTheme::packed(placementValid
+					? CommandCenterTheme::Accent : CommandCenterTheme::Danger);
+				previewRing.fillTopRgba = previewRing.fillBottomRgba = 0x00000000u;
+				painter.styled(project(preview), previewRing, nullptr, role++);
+			}
+		}
 	}
 	// Read the live editor draft; native TextEdit still owns input, caret and IME.
 	const std::string baseName = base != nullptr ? base->_edtBase->getText() : snapshot.baseName;
@@ -697,7 +877,7 @@ void CalypsoHdScreenRenderer::collectBasescape(CalypsoHdFrameBuilder& builder) c
 	for (int i = 0; i < 10; ++i)
 	{
 		cardStates[i] = CalypsoBasescapeHdWidgetState{};
-		if (!live)
+		if (!live || placementMode)
 		{
 			continue;
 		}
@@ -712,6 +892,12 @@ void CalypsoHdScreenRenderer::collectBasescape(CalypsoHdFrameBuilder& builder) c
 			cardStates[i].focused = base->getCalypsoFocusedTarget() == button;
 		}
 	}
+	if (placementMode)
+	{
+		paintPlacementColumn(painter, derived, fitParams, model, snapshot,
+			placementCursor, placementValid, ccFonts, role);
+	}
+	else
 	{
 		const std::string columnHeading = copyValue(model, "heading.column");
 		painter.textRect(projectAuthored(CalypsoBasescapeHdRect{
@@ -724,7 +910,8 @@ void CalypsoHdScreenRenderer::collectBasescape(CalypsoHdFrameBuilder& builder) c
 	}
 	// Pass 1: row fills + input-owner claims. No container hit target: each
 	// logistics row keeps its own direct native action widget.
-	for (int i = 0; i < 10; ++i)
+	// Placement paints no base cards: the column above owns details + Cancel.
+	for (int i = 0; i < 10 && !placementMode; ++i)
 	{
 		const auto& row = derived.rows[i];
 		const CalypsoHdScreenActionVisual* visual = findModelAction(row.actionId);
@@ -762,6 +949,8 @@ void CalypsoHdScreenRenderer::collectBasescape(CalypsoHdFrameBuilder& builder) c
 	}
 	// Pass 2: illustrations ABOVE the row fills (the logistics group art was
 	// hidden behind opaque fills before), then Inter labels above the art.
+	// Skipped in placement mode with pass 1 (no base cards there).
+	if (!placementMode)
 	{
 		bool groupIllustrated = false;
 		for (int i = 0; i < 10; ++i)
@@ -839,7 +1028,7 @@ void CalypsoHdScreenRenderer::collectBasescape(CalypsoHdFrameBuilder& builder) c
 			}
 		}
 	}
-	if (live)
+	if (live && !placementMode)
 	{
 		if (const CalypsoHdScreenActionVisual* world = findModelAction("navigation.world"))
 		{
@@ -914,6 +1103,28 @@ void CalypsoHdScreenRenderer::collectLogicalSuppression(
 		}
 		return;
 	}
+	if (_mode == CalypsoHdScreenRenderMode::BasescapePlacementChrome && _state != nullptr)
+	{
+		// Placement hides its whole native window while top: the grid and
+		// Cancel stay claimed input owners in collect(), every other widget
+		// is suppressed so no vanilla pixels can leak around the HD shell.
+		const PlaceFacilityState* placing = static_cast<const PlaceFacilityState*>(_state);
+		if (placing != nullptr)
+		{
+			suppression.add(placing->_view);
+			suppression.add(placing->_btnCancel);
+			suppression.add(placing->_window);
+			suppression.add(placing->_txtFacility);
+			suppression.add(placing->_txtCost);
+			suppression.add(placing->_numCost);
+			suppression.add(placing->_numResources);
+			suppression.add(placing->_txtTime);
+			suppression.add(placing->_numTime);
+			suppression.add(placing->_txtMaintenance);
+			suppression.add(placing->_numMaintenance);
+		}
+		return;
+	}
 	if (_mode != CalypsoHdScreenRenderMode::GeoscapeLiveChrome || !_state) return;
 	const auto* geoscape = static_cast<const GeoscapeState*>(_state);
 	if (!geoscape) return;
@@ -963,7 +1174,8 @@ bool CalypsoHdScreenRenderer::resolvePhysicalFonts(
 bool CalypsoHdScreenRenderer::physicalReady() const
 {
 	if (!_state) return false;
-	if (_mode == CalypsoHdScreenRenderMode::BasescapeLiveChrome)
+	if (_mode == CalypsoHdScreenRenderMode::BasescapeLiveChrome
+		|| _mode == CalypsoHdScreenRenderMode::BasescapePlacementChrome)
 	{
 		// Base chrome shares the Command Center faces (single typography).
 		Game* game = getCurrentGame();
@@ -979,7 +1191,8 @@ bool CalypsoHdScreenRenderer::physicalReady() const
 bool CalypsoHdScreenRenderer::completeFrameReady() const
 {
 	if (!physicalReady()) return false;
-	if (_mode == CalypsoHdScreenRenderMode::BasescapeLiveChrome)
+	if (_mode == CalypsoHdScreenRenderMode::BasescapeLiveChrome
+		|| _mode == CalypsoHdScreenRenderMode::BasescapePlacementChrome)
 		return calypsoBasescapeHdModelReady(_model);
 	if (_mode != CalypsoHdScreenRenderMode::GeoscapeLiveChrome) return true;
 	const auto* geoscape = static_cast<const GeoscapeState*>(_state);

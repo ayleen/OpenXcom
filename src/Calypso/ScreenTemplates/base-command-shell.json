@@ -3,6 +3,7 @@
   "id": "base-command-shell",
   "version": "hd.2026-09-07.1",
   "coordinateSpaces": ["screen"],
+  "presentationModes": ["management", "placement"],
   "layoutPolicy": "desktop-fit",
   "desktopFit": {
     "minViewport": [1280, 720],
@@ -22,7 +23,7 @@
       "connectorLengthRatio": 0.40, "connectorThicknessRatio": 0.10
     }
   },
-  "requiredActionIds": ["base.new", "base.info", "base.divers", "base.crafts", "base.build", "base.research", "base.manufacture", "base.transfer", "base.purchase", "base.sell", "navigation.world"],
+  "requiredActionIds": ["base.new", "base.info", "base.divers", "base.crafts", "base.build", "base.research", "base.manufacture", "base.transfer", "base.purchase", "base.sell", "navigation.world", "base.placement.cancel"],
   "forbiddenPersistentPatterns": [],
   "layouts": {
     "wide": {
@@ -54,6 +55,7 @@
         "card-build": {"visibleRect": [913, 580, 343, 52]},
         "service-1": {"visibleRect": [913, 640, 167, 44]},
         "service-2": {"visibleRect": [1089, 640, 167, 44]},
+        "placement-cancel": {"visibleRect": [913, 640, 343, 44]},
         "rail-world": {"visibleRect": [8, 92, 72, 72]}
       },
       "collections": {

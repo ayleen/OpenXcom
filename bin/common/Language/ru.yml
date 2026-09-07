@@ -440,3 +440,7 @@ ru:
   STR_CALYPSO_BASE_LAYOUT: "План базы"
   STR_CALYPSO_BASE_FUNCTIONS: "Управление базой"
   STR_CALYPSO_BASE_LOGISTICS: "Снабжение"
+  STR_CALYPSO_BUILD_SELECT_POSITION: "Выберите место"
+  STR_CALYPSO_BUILD_VALID_POSITION: "Нажмите, чтобы построить. Shift: повтор. Esc: отмена."
+  STR_CALYPSO_BUILD_INVALID_POSITION: "Здесь нельзя строить. Выберите другое место."
+  STR_CALYPSO_BUILD_MOVE_POSITION: "Нажмите, чтобы переместить. Esc: отмена."

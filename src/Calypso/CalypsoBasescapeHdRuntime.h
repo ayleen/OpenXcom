@@ -103,6 +103,26 @@ struct CalypsoBasescapeHdAuthoredRect
 	int h = 0;
 };
 
+/// Placement-mode overlay (F01 construction): the chosen facility identity,
+/// its native translated detail lines, and the guidance/cancel labels. Grid
+/// position and validity are NOT snapshotted: the renderer reads the live
+/// placement BaseView each frame (same as the hover ring), so the preview
+/// can never go stale between holder refreshes.
+struct CalypsoBasescapeHdPlacementVisual
+{
+	bool active = false;
+	std::string ruleType;
+	int sizeX = 1;
+	int sizeY = 1;
+	bool isMove = false;
+	std::string facilityName;
+	std::vector<std::string> detailLines;
+	std::string guidanceSelect;
+	std::string guidanceValid;
+	std::string guidanceInvalid;
+	std::string cancelLabel;
+};
+
 struct CalypsoBasescapeHdSnapshot
 {
 	std::string baseName;
@@ -126,6 +146,7 @@ struct CalypsoBasescapeHdSnapshot
 	int hoverSizeX = 1;
 	int hoverSizeY = 1;
 	std::uint64_t viewportGeneration = 0;
+	CalypsoBasescapeHdPlacementVisual placement;
 };
 
 struct CalypsoBasescapeHdPenInput

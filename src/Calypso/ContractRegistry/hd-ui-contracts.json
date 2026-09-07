@@ -172,6 +172,25 @@
       ]
     },
     {
+      "id": "f03-build-facilities",
+      "contract": "f03-build-facilities.json",
+      "emitter": "family",
+      "validationProfile": "selection-list",
+      "native": {
+        "namespace": "CalypsoF03BuildFacilitiesGen",
+        "prefix": "CalypsoF03BuildFacilities",
+        "output": "CalypsoF03BuildFacilities.generated.h"
+      },
+      "browser": {
+        "global": "CalypsoF03BuildFacilities",
+        "output": "f03-build-facilities.js"
+      },
+      "rendererOwnership": "selection-list",
+      "harnessScenarioIds": [
+        86
+      ]
+    },
+    {
       "id": "f17-ufo-detected",
       "contract": "f17-ufo-detected.json",
       "emitter": "family",
