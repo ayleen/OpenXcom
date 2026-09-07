@@ -11,6 +11,7 @@
 #include "CalypsoHdUiOverlay.h"
 #include "CalypsoBasescapeHdRuntime.h"
 #include "Generated/CalypsoBasescapeCommandShell.generated.h"
+#include "CalypsoBasescapeHdLayout.h"
 #include "Generated/CalypsoGeoscapeCommandShell.generated.h"
 
 namespace OpenXcom
@@ -80,22 +81,30 @@ CalypsoHdScreenRenderModel basescapeHarnessModel()
 			{ action.hit.x, action.hit.y, action.hit.w, action.hit.h },
 			action.focusOrder, action.zOrder });
 	}
+	for (const auto& copy : kFixtureCopy)
+		model.copy.emplace_back(copy.key, copy.value);
 	CalypsoBasescapeHdSnapshot snapshot;
 	snapshot.baseName = "AURORA DAWN";
+	snapshot.baseCaption = "BASES";
+	snapshot.displayTime = "12:28";
+	snapshot.displayDate = "14 Jun 2040";
 	snapshot.region = "North Pacific";
 	snapshot.funds = "$10.21M";
 	snapshot.hoverFacility = "Laboratory";
 	snapshot.selectedBase = 0;
 	snapshot.baseCount = 1;
-	snapshot.deckRect = {112, 164, 532, 532};
-	snapshot.deckCell = 88;
-	snapshot.selectorRect = {330, 96, 352, 52};
+	const auto derived = calypsoBasescapeHdDerivedLayout(layout.designWidth, layout.designHeight,
+		CalypsoBasescapeHdFitParams{});
+	snapshot.deckRect = {derived.deckGrid.x, derived.deckGrid.y, derived.deckGrid.w, derived.deckGrid.h};
+	snapshot.deckCell = derived.deckCell;
+	snapshot.selectorRect = {derived.titleSelector.x, derived.titleSelector.y,
+		derived.titleSelector.w, derived.titleSelector.h};
 	snapshot.hasHoverCell = true;
 	snapshot.hoverX = 1;
 	snapshot.hoverY = 0;
 	snapshot.hoverSizeX = 1;
 	snapshot.hoverSizeY = 1;
-	const char* rules[6] = {"STR_ACCESS_LIFT", "STR_LABORATORY", "STR_WORKSHOP",
+	const char* rules[6] = {"STR_AIR_LOCK", "STR_LABORATORY", "STR_WORKSHOP",
 		"STR_GENERAL_STORES", "STR_ALIEN_CONTAINMENT", "STR_SUB_PEN"};
 	const int geo[6][6] = {{0, 0, 1, 1}, {1, 0, 1, 1}, {2, 0, 2, 2}, {5, 0, 1, 1}, {0, 5, 1, 1}, {4, 4, 2, 2}};
 	const int times[6] = {0, 12, 0, 0, 0, 0};

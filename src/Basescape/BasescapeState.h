@@ -106,6 +106,11 @@ public:
 	/// HD covered backing (T16): neutral fill while covered, else legacy.
 	void blit() override;
 #ifdef __EMSCRIPTEN__
+	/// Fullscreen strategic UI owns resize independently of the covered globe.
+	Calypso::CalypsoViewportAffinity calypsoViewportAffinity() const override
+	{
+		return Calypso::CalypsoViewportAffinity::Strategic;
+	}
 	/// F01 global-rail routes (T15): record the pending intent and close the
 	/// base through the existing popState; Geoscape consumes before timers.
 	void calypsoRailOperationsClick(Action *action);

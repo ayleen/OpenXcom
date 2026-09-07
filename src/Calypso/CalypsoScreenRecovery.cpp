@@ -177,6 +177,28 @@ bool calypsoScreenRecreateRendererGL(Screen &screen)
 
 void calypsoScreenUploadLogicalTexture(Screen &screen)
 {
+	// This port deliberately leaves SDL_WINDOW_ALLOW_HIGHDPI off: the web
+	// bridge owns CSS and backing dimensions. SDL's resize listener nevertheless
+	// writes CSS dimensions into SDL_Window, which its GLES renderer then uses
+	// as drawable height. Mirror authoritative backing dimensions into SDL's
+	// window bookkeeping. With externally owned CSS and pixel_ratio == 1,
+	// SDL 2.32's Emscripten_SetWindowSize leaves the CSS box unchanged.
+	int windowW = 0, windowH = 0;
+	SDL_GetWindowSize(screen._window, &windowW, &windowH);
+	if (windowW != screen._screen->w || windowH != screen._screen->h)
+		SDL_SetWindowSize(screen._window, screen._screen->w, screen._screen->h);
+	// SDL's browser resize event can restore a CSS-sized viewport even though
+	// the canvas and staging surface use backing pixels. Own the composite
+	// viewport explicitly; raw HD passes must not depend on a world draw to fix it.
+	SDL_Rect viewport;
+	SDL_RenderGetViewport(screen._renderer, &viewport);
+	if (viewport.x != 0 || viewport.y != 0
+		|| viewport.w != screen._screen->w || viewport.h != screen._screen->h)
+	{
+		const SDL_Rect physical{0, 0, screen._screen->w, screen._screen->h};
+		if (SDL_RenderSetViewport(screen._renderer, &physical) != 0)
+			CalypsoHdUiOverlay::instance().failHdRoute("SDL physical composite viewport failed");
+	}
 	const Uint64 calypsoTexStart = Calypso::calypsoPassTimersEnabled() ? SDL_GetPerformanceCounter() : 0;
 	void *texPixels;
 	int texPitch;

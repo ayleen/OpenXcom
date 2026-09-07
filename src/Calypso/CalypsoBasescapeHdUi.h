@@ -42,7 +42,6 @@ private:
 	BasescapeState *_state;
 	CalypsoHdScreenRenderer *_renderer;
 	bool _ready;
-	bool _scalingApplied;
 	std::vector<TextButton *> _railButtons;
 };
 

@@ -2216,7 +2216,11 @@ void Globe::blit(SDL_Surface *surface)
 	Surface::blit(surface);
 #ifdef __EMSCRIPTEN__
 	if (_gpuState->_gpuDirectMode)
-		return; // all visible overlays must be physical or the route fails closed before Earth
+	{
+		if (_visible && !_hidden)
+			_gpuState->_visibleFrame = Calypso::CalypsoHdUiOverlay::instance().frameId();
+		return; // all visible overlays are physical; retain logical visibility only
+	}
 #endif
 	_radars->blit(surface);
 	_countries->blit(surface);

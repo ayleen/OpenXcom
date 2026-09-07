@@ -2,8 +2,13 @@
 #ifdef __EMSCRIPTEN__
 
 #include "CalypsoBasescapeHdUi.h"
+#include "CalypsoBasescapeHdLayout.h"
 #include "CalypsoHdScreenRenderer.h"
 #include "CalypsoHdUiOverlay.h"
+#include "CalypsoViewportRuntime.h"
+#include "CalypsoViewportMailbox.h"
+#include "../Engine/Options.h"
+#include "../Engine/TTFFont.h"
 
 #include "../Basescape/BasescapeState.h"
 #include "../Basescape/BaseView.h"
@@ -21,6 +26,8 @@
 #include "Generated/CalypsoBasescapeCommandShell.generated.h"
 
 #include <algorithm>
+#include <iomanip>
+#include <sstream>
 #include <string>
 #include <utility>
 
@@ -29,6 +36,7 @@
 
 #include "../Engine/Game.h"
 #include "../Mod/Mod.h"
+#include "../Savegame/GameTime.h"
 
 namespace OpenXcom
 {
@@ -36,7 +44,7 @@ namespace Calypso
 {
 
 CalypsoBasescapeHdUi::CalypsoBasescapeHdUi(BasescapeState *state)
-	: _state(state), _renderer(nullptr), _ready(false), _scalingApplied(false)
+	: _state(state), _renderer(nullptr), _ready(false)
 {
 	CalypsoHdScreenRenderModel model;
 	model.archetype = "base-command-shell";
@@ -96,113 +104,147 @@ void CalypsoBasescapeHdUi::ensureRailButtons()
 	}
 }
 
+namespace
+{
+
+/// Frame geometry shared by widget placement (here) and frame paint
+/// (CalypsoHdScreenRenderer::collectBasescape): real CSS viewport, frozen
+/// presentation metrics, CommandCenter fit at that viewport, and the
+/// canonical base derivation. Both consumers run the same pure helpers, so
+/// input rects and painted pixels agree on each axis, including resize.
+struct BasescapeHdFrameGeometry
+{
+	bool valid = false;
+	CommandCenter::CommandCenterLayout cc;
+	CalypsoBasescapeHdProjection proj;
+	CalypsoBasescapeHdDerivedLayout derived;
+};
+
+BasescapeHdFrameGeometry currentFrameGeometry()
+{
+	BasescapeHdFrameGeometry out;
+	const CalypsoLayoutMetrics& vp = calypsoViewportRuntime().current();
+	const CalypsoHdPresentationMetrics metrics = calypsoHdBuildPresentationMetrics(
+		Options::baseXResolution, Options::baseYResolution);
+	const int cssW = std::max(1, vp.logicalWidth);
+	const int cssH = std::max(1, vp.logicalHeight);
+	if (!metrics.valid() || metrics.scaleX <= 0.0 || metrics.scaleY <= 0.0)
+	{
+		return out;
+	}
+	out.cc = CommandCenter::computeLayout(
+		CommandCenter::Size2{static_cast<float>(cssW), static_cast<float>(cssH)},
+		false, CommandCenter::InsetsF{
+			static_cast<float>(vp.safeX),
+			static_cast<float>(vp.safeY),
+			static_cast<float>(cssW - vp.safeX - vp.safeWidth),
+			static_cast<float>(cssH - vp.safeY - vp.safeHeight)});
+	out.proj = calypsoBasescapeHdProjection(cssW, cssH,
+		metrics.physicalWidth, metrics.physicalHeight,
+		metrics.scaleX, metrics.scaleY,
+		static_cast<double>(metrics.contentOffsetX),
+		static_cast<double>(metrics.contentOffsetY),
+		out.cc.scale);
+	const CalypsoBasescapeHdFitParams params;
+	const CalypsoBasescapeHdAuthoredSize authored =
+		calypsoBasescapeHdAuthoredSize(cssW, cssH, params);
+	out.derived = calypsoBasescapeHdDerivedLayout(authored.w, authored.h, params);
+	out.valid = true;
+	return out;
+}
+
+} // namespace
+
 bool CalypsoBasescapeHdUi::applyGeometry()
 {
-	// T14: position every surface at its generated authored rect (compare-
-	// first: setWidth/setHeight recreate SDL surfaces), wire the T10/T11
-	// input extents to the same numbers, then capture/refresh the one-shot
-	// UI scaling against the authored canvas (no vanilla-center shift: rects
-	// are already authored).
+	// T14: position every surface at the shared CSS-viewport projection of
+	// the canonical derived rects (compare-first: setWidth/setHeight
+	// recreate SDL surfaces). Widgets carry logical pixels directly -- the
+	// legacy uniform-fit UI scaling is never enabled, so no second transform
+	// can drift input away from paint. Never falls through to legacy
+	// State::resize (see resize()): rects are already authored.
 	if (_state == nullptr)
 	{
 		return false;
 	}
-	const auto *layout = CalypsoBasescapeCommandShellGen::layoutForDesign(1280, 720);
-	if (layout == nullptr)
+	const BasescapeHdFrameGeometry geo = currentFrameGeometry();
+	if (!geo.valid)
 	{
-		return false;
+		CalypsoHdUiOverlay::instance().failHdRoute(
+			"Basescape HD requires valid presentation metrics");
+		return true;
 	}
 	bool changed = false;
-	const auto place = [&](Surface *widget, int x, int y, int w, int h) {
+	const auto place = [&](Surface *widget, const CalypsoBasescapeHdRect &design) {
+		const CalypsoBasescapeHdLogicalRect logical =
+			calypsoBasescapeHdProjectRect(geo.proj, design);
 		if (widget == nullptr)
 		{
 			return;
 		}
-		if (widget->getX() != x)
+		if (widget->getX() != logical.x)
 		{
-			widget->setX(x);
+			widget->setX(logical.x);
 			changed = true;
 		}
-		if (widget->getY() != y)
+		if (widget->getY() != logical.y)
 		{
-			widget->setY(y);
+			widget->setY(logical.y);
 			changed = true;
 		}
-		if (widget->getWidth() != w)
+		if (widget->getWidth() != logical.w)
 		{
-			widget->setWidth(w);
+			widget->setWidth(logical.w);
 			changed = true;
 		}
-		if (widget->getHeight() != h)
+		if (widget->getHeight() != logical.h)
 		{
-			widget->setHeight(h);
+			widget->setHeight(logical.h);
 			changed = true;
 		}
 	};
-	for (int i = 0; i < layout->actionCount; ++i)
+	for (int i = 0; i < 11; ++i)
 	{
-		const auto &gen = layout->actions[i];
-		place(resolveActionWidget(*_state, gen.id),
-			gen.visible.x, gen.visible.y, gen.visible.w, gen.visible.h);
+		place(resolveActionWidget(*_state, geo.derived.rows[i].actionId),
+			geo.derived.rows[i].rect);
 	}
-	const auto region = [&](const char *id) -> CalypsoBasescapeCommandShellGen::CalypsoBasescapeCommandShellGenRect {
-		for (int i = 0; i < layout->regionCount; ++i)
-		{
-			if (std::string(layout->regions[i].id) == id)
-			{
-				return layout->regions[i].rect;
-			}
-		}
-		return {0, 0, 0, 0};
-	};
-	const auto deck = region("deckSquare");
-	place(_state->_view, deck.x, deck.y, deck.w, deck.h);
+	place(_state->_view, geo.derived.deckGrid);
 	if (_state->_view != nullptr)
 	{
-		_state->_view->setCalypsoHdGridExtent(deck.w, deck.h);
+		_state->_view->setCalypsoHdGridExtent(
+			_state->_view->getWidth(), _state->_view->getHeight());
 	}
-	const auto selector = region("titleSelector");
-	place(_state->_mini, selector.x, selector.y, selector.w, selector.h);
+	place(_state->_mini, geo.derived.titleSelector);
 	if (_state->_mini != nullptr)
 	{
-		_state->_mini->setCalypsoHdMiniGeometry(44.0, 44.0);
+		const double slot = static_cast<double>(_state->_mini->getWidth()) / 8.0;
+		_state->_mini->setCalypsoHdMiniGeometry(slot, slot);
 	}
-	const auto name = region("titleName");
-	place(_state->_edtBase, name.x, name.y, name.w, name.h);
-	const auto regionText = region("titleRegion");
-	place(_state->_txtLocation, regionText.x, regionText.y, regionText.w, regionText.h);
-	const auto funds = region("headerFunds");
-	place(_state->_txtFunds, funds.x, funds.y, funds.w, funds.h);
-	const auto hover = region("hoverLine");
-	place(_state->_txtFacility, hover.x, hover.y, hover.w, hover.h);
+	place(_state->_edtBase, geo.derived.titleName);
+	TTFFont* editorFont = _state->_game->getMod()->getTTFFont("FONT_CC_INTER_SB", false);
+	if (editorFont == nullptr)
+		CalypsoHdUiOverlay::instance().failHdRoute("Basescape title font is unavailable");
+	_state->_edtBase->setPhysicalTextMetrics(editorFont,
+		CalypsoBasescapeHdFitParams{}.titleFontSize * geo.proj.uiScale / editorFont->pixelSize());
+	place(_state->_txtLocation, geo.derived.titleRegion);
+	place(_state->_txtFunds, geo.derived.fundsLine);
+	place(_state->_txtFacility, geo.derived.hoverLine);
 	ensureRailButtons();
 	{
 		// Rail input owners sit on the shared chrome rects (single source
 		// with the painter). Owned by the state surfaces; never deleted here.
-		const CommandCenter::CommandCenterLayout baseCc =
-			CommandCenter::computeDesktopLayout(CommandCenter::Size2{1280.0f, 720.0f}, false);
 		const int slots[4] = {2, 3, 4, -1};
 		for (size_t k = 0; k < _railButtons.size() && k < 4; ++k)
 		{
 			const CommandCenter::RectF r = slots[k] >= 0
-				? CommandCenter::calypsoCcRailItemRect(baseCc.navigationRail, slots[k])
-				: CommandCenter::calypsoCcRailSettingsRect(baseCc.navigationRail);
-			place(_railButtons[k], (int)r.x, (int)r.y, (int)r.width, (int)r.height);
+				? CommandCenter::calypsoCcRailItemRect(geo.cc.navigationRail, slots[k])
+				: CommandCenter::calypsoCcRailSettingsRect(geo.cc.navigationRail);
+			place(_railButtons[k], CalypsoBasescapeHdRect{
+				static_cast<int>(std::lround(r.x)), static_cast<int>(std::lround(r.y)),
+				static_cast<int>(std::lround(r.width)), static_cast<int>(std::lround(r.height))});
 		}
 	}
-	if (!_scalingApplied)
-	{
-		_state->enableUiScaling(1280, 720, 1.0f, false);
-		_scalingApplied = true;
-	}
-	else if (changed)
-	{
-		_state->recaptureUiScaling(1280, 720, 1.0f, false);
-	}
-	else
-	{
-		_state->applyUiScaling();
-	}
+	(void)changed;
 	return true;
 }
 
@@ -274,9 +316,15 @@ void CalypsoBasescapeHdUi::refresh()
 
 void CalypsoBasescapeHdUi::feedModel()
 {
-	// T14a: project live widgets through the generated desktop contract into
-	// the shared render model. Read-only: strings via getText, placements via
-	// Base, input owners via resolveActionWidget. No handler calls.
+	// T14a: project live widgets through the canonical derived desktop
+	// contract into the shared render model. Read-only: strings via getText,
+	// placements via Base, input owners via resolveActionWidget. No handler
+	// calls, no per-frame setters (the TextEdit keeps rename ownership).
+	const BasescapeHdFrameGeometry geo = currentFrameGeometry();
+	if (!geo.valid)
+	{
+		return;
+	}
 	const CalypsoBasescapeCommandShellGen::CalypsoBasescapeCommandShellGenLayout *layout =
 		CalypsoBasescapeCommandShellGen::layoutForDesign(1280, 720);
 	if (layout == nullptr)
@@ -310,15 +358,10 @@ void CalypsoBasescapeHdUi::feedModel()
 		visual.zOrder = gen.zOrder;
 		Surface *widget = resolveActionWidget(*_state, visual.id);
 		visual.widget = widget;
-		const TextButton *button = dynamic_cast<const TextButton *>(widget);
-		if (button != nullptr && !button->getText().empty())
-		{
-			visual.label = button->getText();
-		}
-		else
-		{
-			visual.label = gen.label;
-		}
+		const auto *binding = calypsoBasescapeHdBindingFor(visual.id);
+		if (binding == nullptr)
+			CalypsoHdUiOverlay::instance().failHdRoute("Basescape action binding is missing: " + visual.id);
+		visual.label = _state->tr(binding->labelKey);
 		model.actions.push_back(std::move(visual));
 	}
 	for (int i = 0; i < layout->regionCount; ++i)
@@ -329,9 +372,21 @@ void CalypsoBasescapeHdUi::feedModel()
 		region.rect = {gen.rect.x, gen.rect.y, gen.rect.w, gen.rect.h};
 		model.regions.push_back(std::move(region));
 	}
+	model.copy.emplace_back("heading.deck", _state->tr("STR_CALYPSO_BASE_LAYOUT"));
+	model.copy.emplace_back("heading.column", _state->tr("STR_CALYPSO_BASE_FUNCTIONS"));
+	model.copy.emplace_back("heading.logistics", _state->tr("STR_CALYPSO_BASE_LOGISTICS"));
 
 	CalypsoBasescapeHdSnapshot snapshot;
 	snapshot.baseName = _state->_edtBase != nullptr ? _state->_edtBase->getText() : std::string();
+	snapshot.baseCaption = _state->tr("STR_BASES");
+	if (const GameTime *time = _state->_game->getSavedGame()->getTime())
+	{
+		std::ostringstream clock;
+		clock << time->getHour() << ":" << std::setfill('0') << std::setw(2) << time->getMinute();
+		snapshot.displayTime = clock.str();
+		snapshot.displayDate = time->getDayString(_state->_game->getLanguage()) + " "
+			+ std::string(_state->tr(time->getMonthString())) + " " + std::to_string(time->getYear());
+	}
 	snapshot.region = textOf(_state->_txtLocation);
 	snapshot.funds = textOf(_state->_txtFunds);
 	snapshot.hoverFacility = textOf(_state->_txtFacility);
@@ -369,23 +424,11 @@ void CalypsoBasescapeHdUi::feedModel()
 		}
 	}
 
-	const auto findRegion = [&](const char *id) {
-		for (int i = 0; i < layout->regionCount; ++i)
-		{
-			if (std::string(layout->regions[i].id) == id)
-			{
-				return layout->regions[i].rect;
-			}
-		}
-		return CalypsoBasescapeCommandShellGen::CalypsoBasescapeCommandShellGenRect{0, 0, 0, 0};
-	};
-	{
-		const auto deck = findRegion("deckSquare");
-		snapshot.deckRect = {deck.x, deck.y, deck.w, deck.h};
-		snapshot.deckCell = std::min(deck.w, deck.h) / 6;
-		const auto sel = findRegion("titleSelector");
-		snapshot.selectorRect = {sel.x, sel.y, sel.w, sel.h};
-	}
+	snapshot.deckRect = {geo.derived.deckGrid.x, geo.derived.deckGrid.y,
+		geo.derived.deckGrid.w, geo.derived.deckGrid.h};
+	snapshot.deckCell = geo.derived.deckCell;
+	snapshot.selectorRect = {geo.derived.titleSelector.x, geo.derived.titleSelector.y,
+		geo.derived.titleSelector.w, geo.derived.titleSelector.h};
 	if (_state->_view != nullptr && _state->_view->getSelectedFacility() != nullptr)
 	{
 		const BaseFacility *hovered = _state->_view->getSelectedFacility();

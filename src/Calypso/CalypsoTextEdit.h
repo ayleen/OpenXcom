@@ -7,6 +7,7 @@ namespace OpenXcom
 class Action;
 class State;
 class TextEdit;
+class TTFFont;
 
 namespace Calypso
 {
@@ -19,6 +20,8 @@ private:
 	static void ensureLayout(TextEdit& edit);
 	static void updateViewport(TextEdit& edit);
 public:
+	/// Read-only caret offset in font pixels; native editor owns blink and input.
+	static bool caretAdvance(const TextEdit& edit, TTFFont* font, double& advance);
 	static void invalidateLayout(TextEdit& edit);
 	static void assignText(TextEdit& edit, const char* utf8);
 	static void setMultiline(TextEdit& edit, bool multiline);

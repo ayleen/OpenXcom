@@ -42,17 +42,61 @@ struct CalypsoBasescapeCommandShellGenFixtureCopy
 	const char* value;
 };
 
+struct DesktopFitParams
+{
+	int minViewportW = 1280;
+	int minViewportH = 720;
+	int railWidth = 88;
+	int headerHeight = 72;
+	int inset = 24;
+	int columnGap = 20;
+	int commandMinW = 343;
+	int commandMaxW = 460;
+	double commandFraction = 0.3;
+	int titleBandH = 52;
+	int titleGapH = 16;
+	int minHit = 44;
+	int minSelectorSlots = 8;
+	int deckHeadingH = 40;
+	int deckFooterH = 44;
+	int deckInset = 12;
+	int columnTop = 204;
+	int cardH = 52;
+	int cardGap = 6;
+	int logisticsH = 44;
+	int logisticsStride = 47;
+	int buildGap = 6;
+	int logisticsArtW = 80;
+	int logisticsGap = 8;
+	int serviceGap = 8;
+	int serviceH = 44;
+	int serviceSplitGap = 9;
+	int bottomPad = 12;
+	int cardPad = 8;
+	int cardLabelMinW = 112;
+	int gutterMinSlack = 24;
+	int actionFontSize = 18;
+	int smallActionFontSize = 14;
+	int headingFontSize = 18;
+	int titleFontSize = 28;
+	double connectorLengthRatio = 0.4;
+	double connectorThicknessRatio = 0.1;
+};
+
 inline constexpr CalypsoBasescapeCommandShellGenNamedRect kWideRegions[] =
 {
-	{ "header", { 88, 0, 1192, 72 } },
+	{ "header", { 0, 0, 1280, 72 } },
 	{ "titleBand", { 112, 96, 781, 52 } },
-	{ "titleName", { 112, 96, 210, 28 } },
-	{ "titleRegion", { 112, 124, 210, 20 } },
-	{ "titleSelector", { 330, 96, 352, 52 } },
-	{ "headerFunds", { 976, 16, 280, 40 } },
+	{ "titleName", { 112, 96, 413, 28 } },
+	{ "titleRegion", { 112, 124, 413, 20 } },
+	{ "titleSelector", { 541, 96, 352, 52 } },
+	{ "fundsLine", { 124, 660, 757, 28 } },
 	{ "hoverLine", { 112, 148, 500, 14 } },
 	{ "facilityDeck", { 112, 164, 781, 532 } },
-	{ "deckSquare", { 112, 164, 532, 532 } },
+	{ "deckSquare", { 290, 216, 424, 424 } },
+	{ "deckHeading", { 112, 164, 781, 40 } },
+	{ "deckFooter", { 112, 652, 781, 44 } },
+	{ "columnHeading", { 913, 176, 343, 24 } },
 	{ "commandColumn", { 913, 164, 343, 532 } },
 };
 
@@ -61,26 +105,29 @@ inline constexpr CalypsoBasescapeCommandShellGenActionLayout kWideActions[] =
 	{ "base.divers", "Divers", "illustrated-management-action", "card-divers", "screen", { 913, 204, 343, 52 }, { 913, 204, 343, 52 }, 10, 1 },
 	{ "base.research", "Research", "illustrated-management-action", "card-research", "screen", { 913, 262, 343, 52 }, { 913, 262, 343, 52 }, 20, 1 },
 	{ "base.manufacture", "Production", "illustrated-management-action", "card-manufacture", "screen", { 913, 320, 343, 52 }, { 913, 320, 343, 52 }, 30, 1 },
-	{ "base.crafts", "Subs", "illustrated-management-action", "card-craft", "screen", { 913, 378, 343, 52 }, { 913, 378, 343, 52 }, 40, 1 },
-	{ "base.transfer", "Transfer", "management-action-group", "logistics-rows", "screen", { 913, 436, 343, 44 }, { 913, 436, 343, 44 }, 50, 1 },
-	{ "base.purchase", "Purchase", "management-action-group", "logistics-rows", "screen", { 913, 483, 343, 44 }, { 913, 483, 343, 44 }, 60, 1 },
-	{ "base.sell", "Sell", "management-action-group", "logistics-rows", "screen", { 913, 530, 343, 44 }, { 913, 530, 343, 44 }, 70, 1 },
-	{ "base.build", "Build", "illustrated-management-action", "card-build", "screen", { 913, 580, 343, 52 }, { 913, 580, 343, 52 }, 80, 1 },
-	{ "base.info", "Info", "illustrated-management-action", "service-1", "screen", { 913, 640, 167, 44 }, { 913, 640, 167, 44 }, 90, 1 },
+	{ "base.crafts", "Submarines", "illustrated-management-action", "card-craft", "screen", { 913, 378, 343, 52 }, { 913, 378, 343, 52 }, 40, 1 },
+	{ "base.transfer", "Transfer", "management-action-group", "logistics-rows", "screen", { 1001, 436, 255, 44 }, { 1001, 436, 255, 44 }, 50, 1 },
+	{ "base.purchase", "Purchase / recruit", "management-action-group", "logistics-rows", "screen", { 1001, 483, 255, 44 }, { 1001, 483, 255, 44 }, 60, 1 },
+	{ "base.sell", "Sell / dismiss", "management-action-group", "logistics-rows", "screen", { 1001, 530, 255, 44 }, { 1001, 530, 255, 44 }, 70, 1 },
+	{ "base.build", "Build facilities", "illustrated-management-action", "card-build", "screen", { 913, 580, 343, 52 }, { 913, 580, 343, 52 }, 80, 1 },
+	{ "base.info", "Base information", "illustrated-management-action", "service-1", "screen", { 913, 640, 167, 44 }, { 913, 640, 167, 44 }, 90, 1 },
 	{ "base.new", "New base", "illustrated-management-action", "service-2", "screen", { 1089, 640, 167, 44 }, { 1089, 640, 167, 44 }, 100, 1 },
 	{ "navigation.world", "World", "command-icon-action", "rail-world", "screen", { 8, 92, 72, 72 }, { 8, 92, 72, 72 }, 110, 1 },
 };
 
 inline constexpr CalypsoBasescapeCommandShellGenLayout kLayouts[] =
 {
-	{ 1280, 720, kWideActions, 11, kWideRegions, 10 },
+	{ 1280, 720, kWideActions, 11, kWideRegions, 13 },
 };
 inline constexpr int kLayoutCount = 1;
 
 inline constexpr CalypsoBasescapeCommandShellGenFixtureCopy kFixtureCopy[] =
 {
+	{ "heading.deck", "Base layout" },
+	{ "heading.column", "Base functions" },
+	{ "heading.logistics", "Logistics" },
 };
-inline constexpr int kFixtureCopyCount = 0;
+inline constexpr int kFixtureCopyCount = 3;
 
 inline const CalypsoBasescapeCommandShellGenLayout* layoutForDesign(int width, int height)
 {

@@ -159,6 +159,11 @@ void ccApplyStageClip()
 void CalypsoGeoscapeHdGlobeDirect::drawPass(Globe* globe)
 	{
 		if (!globe || !globe->_gpuState->_gpuDirectMode || !globe->_gpuState->_directScreen) return;
+		// World passes are registered for the Globe lifetime, but must follow
+		// this frame's logical visibility just like State::blit. A fullscreen
+		// management screen (including a popup above it) covers the globe.
+		if (globe->_gpuState->_visibleFrame != Calypso::CalypsoHdUiOverlay::instance().frameId())
+			return;
 		if (Calypso::calypsoRadarCountersEnabled())
 			++Calypso::calypsoRadarCounters().frames;
 		const GLenum worldPreflightError = calypsoOwnedResetError();

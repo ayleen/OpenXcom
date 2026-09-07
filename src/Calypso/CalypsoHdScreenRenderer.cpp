@@ -20,6 +20,7 @@
 #include "CalypsoCommandActionStyle.h"
 #include "CalypsoBaseVisualCatalog.h"
 #include "CalypsoBaseGridInput.h"
+#include "CalypsoBasescapeHdLayout.h"
 #include "CalypsoBasescapeHdUi.h"
 #include "CalypsoUiMetrics.h"
 #include "CommandCenter/CommandCenterRenderer.h"
@@ -31,6 +32,12 @@
 #include "CalypsoGeoscapeHdRuntime.h"
 #include "CalypsoGeoscapeHdShell.h"
 #include "CalypsoViewportRuntime.h"
+#include "CalypsoTextEdit.h"
+#include "../Engine/TTFFont.h"
+#include "../Interface/TextEdit.h"
+#include "../Basescape/BaseView.h"
+#include "../Savegame/BaseFacility.h"
+#include "../Mod/RuleBaseFacility.h"
 
 namespace OpenXcom
 {
@@ -260,8 +267,6 @@ const CalypsoGeoscapeHdRuntimeModel& CalypsoHdScreenRenderer::liveGeoscapeSnapsh
 namespace
 {
 constexpr std::uint32_t kBaseScreenFamilyId = 62;
-constexpr int kBaseDesignW = 1280;
-constexpr int kBaseDesignH = 720;
 } // namespace
 
 void CalypsoHdScreenRenderer::collectBasescape(CalypsoHdFrameBuilder& builder) const
@@ -284,45 +289,97 @@ void CalypsoHdScreenRenderer::collectBasescape(CalypsoHdFrameBuilder& builder) c
 	{
 		CalypsoHdUiOverlay::instance().failHdRoute("base visual catalog: " + catalogError);
 	}
-	CalypsoBaseSafeRect safe{ 0, 0, Options::baseXResolution, Options::baseYResolution };
-	(void)calypsoProjectedSafeRectForLayout(Options::baseXResolution,
-		Options::baseYResolution, safe);
-	const double uiScale = calypsoFitUiScale(safe, kBaseDesignW, kBaseDesignH, 1.0);
-	if (!(uiScale > 0.0))
-	{
-		CalypsoHdUiOverlay::instance().failHdRoute("base UI scale is not positive");
-	}
-	const int offX = safe.x + (safe.width - (int)(kBaseDesignW * uiScale + 0.5)) / 2;
-	const int offY = safe.y + (safe.height - (int)(kBaseDesignH * uiScale + 0.5)) / 2;
+	// Contract item 1: the base shell shares the Geoscape CSS-viewport
+	// projection (frozen metrics density per axis, offset inversion) and the
+	// CommandCenter layout at the real CSS viewport -- never the legacy
+	// fixed-1280 uniform fit. Widget placement in CalypsoBasescapeHdUi uses
+	// the same CalypsoBasescapeHdLayout helpers, so paint and input agree on
+	// every axis, including resize and fractional DPR. Nothing here mutates
+	// widgets; paint only claims the existing input owners.
 	const CalypsoHdPresentationMetrics& metrics = CalypsoHdUiOverlay::instance().frozenMetrics();
+	const auto& viewportMetrics = calypsoViewportRuntime().current();
+	const int ccCssWidth = std::max(1, viewportMetrics.logicalWidth);
+	const int ccCssHeight = std::max(1, viewportMetrics.logicalHeight);
+	if (!metrics.valid() || metrics.scaleX <= 0.0 || metrics.scaleY <= 0.0)
+	{
+		CalypsoHdUiOverlay::instance().failHdRoute(
+			"Basescape HD requires valid presentation metrics");
+		return;
+	}
+	const CommandCenter::CommandCenterLayout ccLayout = CommandCenter::computeLayout(
+		CommandCenter::Size2{static_cast<float>(ccCssWidth), static_cast<float>(ccCssHeight)},
+		false, CommandCenter::InsetsF{
+			static_cast<float>(viewportMetrics.safeX),
+			static_cast<float>(viewportMetrics.safeY),
+			static_cast<float>(ccCssWidth - viewportMetrics.safeX - viewportMetrics.safeWidth),
+			static_cast<float>(ccCssHeight - viewportMetrics.safeY - viewportMetrics.safeHeight)});
+	const CalypsoBasescapeHdFitParams fitParams;
+	// Live frames derive the composition at the authored CSS size; the
+	// harness fixture keeps its canonical model design size.
+	const CalypsoBasescapeHdAuthoredSize authored = live
+		? calypsoBasescapeHdAuthoredSize(ccCssWidth, ccCssHeight, fitParams)
+		: CalypsoBasescapeHdAuthoredSize{1.0f,
+			std::max(1, model.designWidth), std::max(1, model.designHeight)};
+	const CalypsoBasescapeHdDerivedLayout derived =
+		calypsoBasescapeHdDerivedLayout(authored.w, authored.h, fitParams);
+	const double densityX = static_cast<double>(metrics.physicalWidth) / ccCssWidth;
+	const double densityY = static_cast<double>(metrics.physicalHeight) / ccCssHeight;
+	const double logicalPerCssX = densityX / metrics.scaleX;
+	const double logicalPerCssY = densityY / metrics.scaleY;
 	builder.beginSubgroup();
 	CalypsoF21Painter painter{ builder, kBaseScreenFamilyId,
 		reinterpret_cast<std::uintptr_t>(_state), 0, 1.0f, 1.0,
-		CalypsoF21Rect{ offX, offY,
-			(int)(kBaseDesignW * uiScale + 0.5), (int)(kBaseDesignH * uiScale + 0.5) },
+		CalypsoF21Rect{
+			static_cast<int>(std::llround(-(metrics.contentOffsetX / metrics.scaleX))),
+			static_cast<int>(std::llround(-(metrics.contentOffsetY / metrics.scaleY))),
+			static_cast<int>(std::llround(ccCssWidth * logicalPerCssX)),
+			static_cast<int>(std::llround(ccCssHeight * logicalPerCssY)) },
 		metrics.scaleX, metrics.scaleY };
-	painter.winLogical = { offX, offY,
-		(int)(kBaseDesignW * uiScale + 0.5), (int)(kBaseDesignH * uiScale + 0.5) };
-	painter.windowDesign = { 0, 0, kBaseDesignW, kBaseDesignH };
-	painter.uiScale = uiScale;
-	painter.uiAspectY = 1.0;
+	painter.winLogical = {
+		static_cast<int>(std::llround(-(metrics.contentOffsetX / metrics.scaleX))),
+		static_cast<int>(std::llround(-(metrics.contentOffsetY / metrics.scaleY))),
+		static_cast<int>(std::llround(ccCssWidth * logicalPerCssX)),
+		static_cast<int>(std::llround(ccCssHeight * logicalPerCssY)) };
+	painter.windowDesign = { 0, 0, ccCssWidth, ccCssHeight };
+	painter.uiScale = logicalPerCssX * ccLayout.scale;
+	painter.uiAspectY = logicalPerCssY / logicalPerCssX;
 	std::uint32_t role = 1;
 	const auto project = [&](const CalypsoHdScreenRect& r) {
 		return painter.project(CalypsoF21Rect{ r.x, r.y, r.w, r.h });
 	};
+	// Design rects below are authored CSS pixels at the COMMANDED fit scale:
+	// the painter carries the same layoutScale factor, so one project() call
+	// maps them exactly like the shared widget placement helper.
+	const auto projectAuthored = [&](const CalypsoBasescapeHdRect& r) {
+		return painter.project(CalypsoF21Rect{ r.x, r.y, r.w, r.h });
+	};
 	const CalypsoBasescapeHdSnapshot& snapshot = model.baseSnapshot;
 
-	painter.image(project(CalypsoHdScreenRect{ 0, 0, kBaseDesignW, kBaseDesignH }),
+	painter.panel(projectAuthored({0, 0, authored.w, authored.h}),
+		CommandCenterTheme::packed(CommandCenterTheme::BgRoot), nullptr, role++);
+	painter.image(projectAuthored(CalypsoBasescapeHdRect{
+		fitParams.railWidth, fitParams.headerHeight,
+		authored.w - fitParams.railWidth, authored.h - fitParams.headerHeight }),
 		calypsoBaseCatalogImage(catalog, catalog.background), nullptr, role++);
+	CalypsoHdPanelStyle panel;
+	panel.styled = true;
+	panel.radiusPx = CommandCenterTheme::RadiusMD;
+	panel.borderWidthPx = 1.0f;
+	panel.borderColorRgba = CommandCenterTheme::packed(CommandCenterTheme::Border);
+	panel.fillTopRgba = panel.fillBottomRgba =
+		CommandCenterTheme::packed(CommandCenterTheme::BgPanelGlass);
+	painter.styled(projectAuthored(derived.deckPanel), panel, nullptr, role++);
+	painter.styled(projectAuthored(CalypsoBasescapeHdRect{
+		derived.commandX - fitParams.cardPad, derived.deckPanel.y,
+		derived.commandW + 2 * fitParams.cardPad, derived.deckPanel.h }),
+		panel, nullptr, role++);
 
-	const CalypsoHdScreenRegionVisual* deckRegion = findRegion(model, "facilityDeck");
-	if (deckRegion == nullptr)
-	{
-		CalypsoHdUiOverlay::instance().failHdRoute("base deck region missing");
-	}
-	const int deckSide = std::min(deckRegion->rect.w, deckRegion->rect.h);
-	const int deckX = deckRegion->rect.x;
-	const int deckY = deckRegion->rect.y;
+	// Centered square deck from the canonical derivation (contract item 2):
+	// always six square cells; the native BaseView keeps the same footprint
+	// and input mapping at the derived extent.
+	const int deckSide = derived.deckGrid.w;
+	const int deckX = derived.deckGrid.x;
+	const int deckY = derived.deckGrid.y;
 	for (int cy = 0; cy < 6; ++cy)
 	{
 		for (int cx = 0; cx < 6; ++cx)
@@ -383,83 +440,73 @@ void CalypsoHdScreenRenderer::collectBasescape(CalypsoHdFrameBuilder& builder) c
 			painter.image(project(dest), calypsoBaseCatalogImage(catalog, craftArt),
 				nullptr, role++);
 		}
-		if (builtOrPrevious(fac) && !fac.connectorsDisabled)
+	}
+	// Doorway bridges follow native neighbor eligibility, but do not stretch
+	// an opaque corridor across whole rooms. Complete all room art first.
+	for (const auto& fac : snapshot.facilities)
+	{
+		if (!builtOrPrevious(fac) || fac.connectorsDisabled) continue;
+		const int nx = fac.x + fac.sizeX;
+		if (nx < 6)
 		{
-			const int nx = fac.x + fac.sizeX;
-			if (nx < 6)
+			for (int yy = fac.y; yy < fac.y + fac.sizeY; ++yy)
 			{
-				for (int yy = fac.y; yy < fac.y + fac.sizeY; ++yy)
-				{
-					const CalypsoBasescapeHdFacilityVisual* nb =
-						(yy >= 0 && yy < 6) ? grid[nx][yy] : nullptr;
-					if (nb != nullptr && builtOrPrevious(*nb) && !nb->connectorsDisabled)
-					{
-						const int edgeX = deckX + calypsoBaseDeckEdge(deckSide, nx);
-						const int cw = calypsoBaseDeckEdge(deckSide, nx + 1)
-							- calypsoBaseDeckEdge(deckSide, nx);
-						const int edgeY0 = deckY + calypsoBaseDeckEdge(deckSide, yy);
-						const int edgeY1 = deckY + calypsoBaseDeckEdge(deckSide, yy + 1);
-						painter.image(project(CalypsoHdScreenRect{
-							edgeX - cw / 2, edgeY0, cw, edgeY1 - edgeY0 }),
-							calypsoBaseCatalogImage(catalog, catalog.connectorH),
-							nullptr, role++);
-					}
-				}
+				const auto* neighbor = (yy >= 0 && yy < 6) ? grid[nx][yy] : nullptr;
+				if (!neighbor || !builtOrPrevious(*neighbor) || neighbor->connectorsDisabled) continue;
+				const auto cell = calypsoBaseDeckCellRect(deckX, deckY, deckSide, nx, yy, 1, 1);
+				const auto door = calypsoBasescapeHdConnectorRect(
+					{cell.x, cell.y, cell.w, cell.h}, true, fitParams);
+				painter.image(projectAuthored(door), calypsoBaseCatalogImage(catalog, catalog.connectorH),
+					nullptr, role++);
 			}
-			const int ny = fac.y + fac.sizeY;
+		}
+		const int ny = fac.y + fac.sizeY;
 		if (ny < 6)
 		{
 			for (int xx = fac.x; xx < fac.x + fac.sizeX; ++xx)
 			{
-				const CalypsoBasescapeHdFacilityVisual* nb =
-					(xx >= 0 && xx < 6) ? grid[xx][ny] : nullptr;
-			if (nb != nullptr && builtOrPrevious(*nb) && !nb->connectorsDisabled)
-			{
-				const int edgeX0 = deckX + calypsoBaseDeckEdge(deckSide, xx);
-				const int edgeX1 = deckX + calypsoBaseDeckEdge(deckSide, xx + 1);
-				const int edgeY = deckY + calypsoBaseDeckEdge(deckSide, ny);
-				const int ch = calypsoBaseDeckEdge(deckSide, ny + 1)
-					- calypsoBaseDeckEdge(deckSide, ny);
-				painter.image(project(CalypsoHdScreenRect{
-					edgeX0, edgeY - ch / 2, edgeX1 - edgeX0, ch }),
-					calypsoBaseCatalogImage(catalog, catalog.connectorV),
+				const auto* neighbor = (xx >= 0 && xx < 6) ? grid[xx][ny] : nullptr;
+				if (!neighbor || !builtOrPrevious(*neighbor) || neighbor->connectorsDisabled) continue;
+				const auto cell = calypsoBaseDeckCellRect(deckX, deckY, deckSide, xx, ny, 1, 1);
+				const auto door = calypsoBasescapeHdConnectorRect(
+					{cell.x, cell.y, cell.w, cell.h}, false, fitParams);
+				painter.image(projectAuthored(door), calypsoBaseCatalogImage(catalog, catalog.connectorV),
 					nullptr, role++);
-				}
-			}
 			}
 		}
+	}
+	// Status remains above room/craft art and every connecting doorway.
+	for (const auto& fac : snapshot.facilities)
+	{
+		const auto rect = calypsoBaseDeckCellRect(deckX, deckY, deckSide,
+			fac.x, fac.y, fac.sizeX, fac.sizeY);
+		const CalypsoHdScreenRect dest{rect.x, rect.y, rect.w, rect.h};
 		if (fac.buildTime > 0 || fac.disabled)
 		{
 			std::string marker = fac.disabled ? "X" : std::to_string(fac.buildTime);
-			if (fac.hadPrevious)
-			{
-				marker += "*";
-			}
+			if (fac.hadPrevious) marker += "*";
 			painter.textRect(project(dest), nullptr, ccFonts.plexM, marker,
 				CommandCenterTheme::packed(CommandCenterTheme::TextPrimary),
 				CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, role++, 0.0, 14.0);
 		}
 		if (fac.buildTime == 0 && fac.ammoMax > 0)
 		{
-			std::uint32_t ammoColor = CommandCenterTheme::packed(CommandCenterTheme::Warning);
-			if (fac.ammo >= fac.ammoMax)
-			{
-				ammoColor = CommandCenterTheme::packed(CommandCenterTheme::Success);
-			}
-			else if (fac.ammo <= fac.ammoMax / 2)
-			{
-				ammoColor = CommandCenterTheme::packed(CommandCenterTheme::Danger);
-			}
-			painter.textRect(project(CalypsoHdScreenRect{
-					rect.x, rect.y, rect.w, 12 }), nullptr, ccFonts.plexM,
-				std::to_string(fac.ammo) + "/" + std::to_string(fac.ammoMax),
-				ammoColor, CalypsoHdHAlign::Left, CalypsoHdVAlign::Top, 1, role++, 0.0, 11.0);
+			const auto color = fac.ammo >= fac.ammoMax ? CommandCenterTheme::Success
+				: fac.ammo <= fac.ammoMax / 2 ? CommandCenterTheme::Danger : CommandCenterTheme::Warning;
+			painter.textRect(project(CalypsoHdScreenRect{rect.x, rect.y, rect.w, 12}),
+				nullptr, ccFonts.plexM, std::to_string(fac.ammo) + "/" + std::to_string(fac.ammoMax),
+				CommandCenterTheme::packed(color), CalypsoHdHAlign::Left, CalypsoHdVAlign::Top,
+				1, role++, 0.0, 11.0);
 		}
 	}
-	if (snapshot.hasHoverCell)
+	const BaseFacility* hovered = base != nullptr ? base->_view->getSelectedFacility() : nullptr;
+	if (live ? hovered != nullptr : snapshot.hasHoverCell)
 	{
-		const BaseGridCellRect hover = calypsoBaseDeckCellRect(deckX, deckY, deckSide,
-			snapshot.hoverX, snapshot.hoverY, snapshot.hoverSizeX, snapshot.hoverSizeY);
+		const BaseGridCellRect hover = hovered != nullptr
+			? calypsoBaseDeckCellRect(deckX, deckY, deckSide, hovered->getX(), hovered->getY(),
+				hovered->getRules()->getSizeX(), hovered->getRules()->getSizeY())
+			: calypsoBaseDeckCellRect(deckX, deckY, deckSide,
+				snapshot.hoverX, snapshot.hoverY, snapshot.hoverSizeX, snapshot.hoverSizeY);
 		CalypsoHdPanelStyle ring;
 		ring.styled = true;
 		ring.radiusPx = 6.0f;
@@ -469,31 +516,48 @@ void CalypsoHdScreenRenderer::collectBasescape(CalypsoHdFrameBuilder& builder) c
 		painter.styled(project(CalypsoHdScreenRect{
 			hover.x, hover.y, hover.w, hover.h }), ring, nullptr, role++);
 	}
-	if (const CalypsoHdScreenRegionVisual* hoverLine = findRegion(model, "hoverLine"))
+	// Read the live editor draft; native TextEdit still owns input, caret and IME.
+	const std::string baseName = base != nullptr ? base->_edtBase->getText() : snapshot.baseName;
+	painter.textRect(projectAuthored(derived.titleName), base != nullptr ? base->_edtBase : nullptr,
+		ccFonts.interSb, baseName,
+		CommandCenterTheme::packed(CommandCenterTheme::TextPrimary),
+		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, role++, 0.0, fitParams.titleFontSize);
+	if (base != nullptr)
 	{
-		painter.textRect(project(hoverLine->rect), base != nullptr ? base->_txtFacility : nullptr,
-			ccFonts.plexM, snapshot.hoverFacility,
-			CommandCenterTheme::packed(CommandCenterTheme::TextPrimary),
-			CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, role++, 0.0, 12.0);
+		painter.claim(base->_edtBase, role++);
+		TTFFont* font = mod->getTTFFont("FONT_CC_INTER_SB", false);
+		double advance = 0;
+		if (CalypsoTextEdit::caretAdvance(*base->_edtBase, font, advance))
+		{
+			const int offset = std::min(derived.titleName.w - 2,
+				static_cast<int>(std::lround(advance * fitParams.titleFontSize / font->pixelSize())));
+			painter.panel(projectAuthored(CalypsoBasescapeHdRect{
+				derived.titleName.x + offset, derived.titleName.y + 4, 1, derived.titleName.h - 8 }),
+				CommandCenterTheme::packed(CommandCenterTheme::Accent), nullptr, role++);
+		}
 	}
-	if (const CalypsoHdScreenRegionVisual* titleRegion = findRegion(model, "titleRegion"))
-	{
-		painter.textRect(project(titleRegion->rect), base != nullptr ? base->_txtLocation : nullptr,
-			ccFonts.plexM, snapshot.region,
-			CommandCenterTheme::packed(CommandCenterTheme::TextSecondary),
-			CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, role++, 0.0, 11.0);
-	}
+	painter.textRect(projectAuthored(derived.titleRegion), base != nullptr ? base->_txtLocation : nullptr,
+		ccFonts.plexM, snapshot.region,
+		CommandCenterTheme::packed(CommandCenterTheme::TextSecondary),
+		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, role++, 0.0, 11.0);
+	painter.textRect(projectAuthored(derived.hoverLine), base != nullptr ? base->_txtFacility : nullptr,
+		ccFonts.plexM, base != nullptr ? base->_txtFacility->getText() : snapshot.hoverFacility,
+		CommandCenterTheme::packed(CommandCenterTheme::TextPrimary),
+		CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, role++, 0.0, 12.0);
 	if (base != nullptr)
 	{
 		painter.claim(base->_mini, role++);
 	}
 	{
-		const int slotW = snapshot.selectorRect.w / 8;
+		// MiniBaseView hit geometry: 8 slots across the derived selector
+		// rect (352/8 = 44px, matching setCalypsoHdMiniGeometry). Selection
+		// and reorder stay on the native widget; this is paint only.
+		const int slotW = derived.titleSelector.w / 8;
 		for (int i = 0; i < 8; ++i)
 		{
-			const CalypsoHdScreenRect slot{
-				snapshot.selectorRect.x + i * slotW, snapshot.selectorRect.y, slotW,
-				snapshot.selectorRect.h };
+			const CalypsoBasescapeHdRect slot{
+				derived.titleSelector.x + i * slotW, derived.titleSelector.y, slotW,
+				derived.titleSelector.h };
 			CalypsoHdPanelStyle slotBg;
 			slotBg.styled = true;
 			slotBg.radiusPx = CommandCenterTheme::RadiusSM;
@@ -501,7 +565,7 @@ void CalypsoHdScreenRenderer::collectBasescape(CalypsoHdFrameBuilder& builder) c
 			slotBg.borderColorRgba = CommandCenterTheme::packed(CommandCenterTheme::Border);
 			slotBg.fillTopRgba = slotBg.fillBottomRgba =
 				CommandCenterTheme::packed(CommandCenterTheme::BgPanelRaised);
-			painter.styled(project(slot), slotBg, nullptr, role++);
+			painter.styled(projectAuthored(slot), slotBg, nullptr, role++);
 			if ((size_t)i < snapshot.bases.size())
 			{
 				const auto& entry = snapshot.bases[(size_t)i];
@@ -516,7 +580,7 @@ void CalypsoHdScreenRenderer::collectBasescape(CalypsoHdFrameBuilder& builder) c
 					{
 						fill = CommandCenterTheme::packed(CommandCenterTheme::Warning);
 					}
-					painter.panel(project(CalypsoHdScreenRect{
+					painter.panel(projectAuthored(CalypsoBasescapeHdRect{
 						slot.x + 4 + cell.x * 6, slot.y + 8 + cell.y * 6,
 						cell.sizeX * 6 - 1, cell.sizeY * 6 - 1 }), fill, nullptr, role++);
 				}
@@ -529,13 +593,13 @@ void CalypsoHdScreenRenderer::collectBasescape(CalypsoHdFrameBuilder& builder) c
 					ring.borderColorRgba =
 						CommandCenterTheme::packed(CommandCenterTheme::Accent);
 					ring.fillTopRgba = ring.fillBottomRgba = 0x00000000u;
-					painter.styled(project(slot), ring, nullptr, role++);
+					painter.styled(projectAuthored(slot), ring, nullptr, role++);
 				}
 			}
 		}
 	}
-	const CommandCenter::CommandCenterLayout ccLayout =
-		CommandCenter::computeDesktopLayout(CommandCenter::Size2{ 1280.0f, 720.0f }, false);
+	// Shared strategic chrome at the real CSS viewport (contract item 1):
+	// 72 CSS header, 88 CSS rail, globe-identical rail items.
 	CommandCenter::calypsoCcPaintHeaderBackground(painter, ccLayout.header, role);
 	CommandCenter::calypsoCcPaintRailBackground(painter, ccLayout.navigationRail, role);
 	{
@@ -545,41 +609,141 @@ void CalypsoHdScreenRenderer::collectBasescape(CalypsoHdFrameBuilder& builder) c
 		CommandCenter::calypsoCcPaintRailItems(painter, ccLayout.navigationRail,
 			CommandCenter::RailAction::Bases, railLabels, ccFonts, role);
 	}
-	if (const CalypsoHdScreenRegionVisual* fundsRegion = findRegion(model, "headerFunds"))
 	{
-		painter.textRect(project(fundsRegion->rect), base != nullptr ? base->_txtFunds : nullptr,
-			ccFonts.plexM, snapshot.funds,
-			CommandCenterTheme::packed(CommandCenterTheme::TextPrimary),
-			CalypsoHdHAlign::Right, CalypsoHdVAlign::Middle, 1, role++, 0.0, 14.0);
+		// Contract item 3: the same pure header-content painter as Geoscape
+		// shows the real base identity and the real campaign time/date in the
+		// same positions. Display-only chip: no chevron, no dropdown -- the
+		// native MiniBaseView band in the content owns selection.
+		CommandCenter::CommandCenterSnapshot headerContent;
+		headerContent.baseCaption = snapshot.baseCaption;
+		headerContent.baseName = baseName;
+		headerContent.displayTime = snapshot.displayTime;
+		headerContent.displayDate = snapshot.displayDate;
+		CommandCenter::calypsoCcPaintHeaderContent(painter, ccLayout, headerContent,
+			ccFonts, role, false);
 	}
-	bool groupIllustrated = false;
-	for (const auto& action : model.actions)
+	// Deck furniture over the background art: heading caption, coordinate
+	// gutters when the centered grid leaves slack, and the quiet funds line
+	// in the footer (contract item 7 -- never the header clock).
 	{
-		if (action.id == "navigation.world")
+		const std::string deckHeading = copyValue(model, "heading.deck");
+		painter.textRect(projectAuthored(CalypsoBasescapeHdRect{
+				derived.deckHeading.x + 12, derived.deckHeading.y + 8,
+				derived.deckHeading.w - 24, 24 }),
+			nullptr, ccFonts.interSb, deckHeading,
+			CommandCenterTheme::packed(CommandCenterTheme::TextSecondary),
+			CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, role++, 0.0, fitParams.headingFontSize);
+		if (derived.showRowGutters)
 		{
-			painter.claim(action.widget, role++);
+			static const char *const rowNames[6] = {"A", "B", "C", "D", "E", "F"};
+			const int gutterL = derived.deckGrid.x - fitParams.gutterMinSlack;
+			const int gutterW = fitParams.gutterMinSlack - 4;
+			for (int row = 0; row < 6; ++row)
+			{
+				const BaseGridCellRect cell = calypsoBaseDeckCellRect(
+					deckX, deckY, deckSide, 0, row, 6, 1);
+				painter.textRect(projectAuthored(CalypsoBasescapeHdRect{
+						gutterL, cell.y, std::max(1, gutterW), cell.h }),
+					nullptr, ccFonts.plexM, rowNames[row],
+					CommandCenterTheme::packed(CommandCenterTheme::TextMuted),
+					CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, role++, 0.0, 11.0);
+			}
+		}
+		if (derived.showColGutters)
+		{
+			char colName[2] = {'1', '\0'};
+			const int gutterT = derived.deckGrid.y - 2 * fitParams.cardPad - 4;
+			const int gutterH = 2 * fitParams.cardPad;
+			for (int col = 0; col < 6; ++col)
+			{
+				colName[0] = static_cast<char>('1' + col);
+				const BaseGridCellRect cell = calypsoBaseDeckCellRect(
+					deckX, deckY, deckSide, col, 0, 1, 6);
+				painter.textRect(projectAuthored(CalypsoBasescapeHdRect{
+						cell.x, gutterT, cell.w, std::max(1, gutterH) }),
+					nullptr, ccFonts.plexM, colName,
+					CommandCenterTheme::packed(CommandCenterTheme::TextMuted),
+					CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, role++, 0.0, 11.0);
+			}
+		}
+		// Funds carry the native {ALT} control marker (Language maps it to
+		// 0x01 TOK_COLOR_FLIP): strip engine controls through the shared
+		// normalizer before TTF drawing instead of special-casing money.
+		// The _txtFunds widget stays the (claimed) owner; its text is only
+		// read, never rewritten here.
+		painter.textRect(projectAuthored(derived.fundsLine),
+			base != nullptr ? base->_txtFunds : nullptr,
+			ccFonts.plexM,
+			CommandCenter::calypsoHdNormalizeTtfDisplayText(snapshot.funds),
+			CommandCenterTheme::packed(CommandCenterTheme::TextSecondary),
+			CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, role++, 0.0, 12.0);
+	}
+	// Command column from the canonical derivation (contract item 2): the
+	// model carries labels/components, geometry comes from the derived
+	// layout so paint and widget placement cannot drift. Resting cards use
+	// the selective visual state (contract item 5): native default focus no
+	// longer outlines every card mint.
+	const auto findModelAction = [&](const std::string& id) -> const CalypsoHdScreenActionVisual* {
+		for (const auto& candidate : model.actions)
+		{
+			if (candidate.id == id)
+			{
+				return &candidate;
+			}
+		}
+		return nullptr;
+	};
+	CalypsoBasescapeHdWidgetState cardStates[10];
+	for (int i = 0; i < 10; ++i)
+	{
+		cardStates[i] = CalypsoBasescapeHdWidgetState{};
+		if (!live)
+		{
 			continue;
 		}
-		const TextButton* button = static_cast<const TextButton*>(
-			static_cast<const Surface*>(action.widget));
+		const CalypsoHdScreenActionVisual* visual = findModelAction(derived.rows[i].actionId);
+		const TextButton* button = visual != nullptr
+			? static_cast<const TextButton*>(static_cast<const Surface*>(visual->widget))
+			: nullptr;
+		if (button != nullptr)
+		{
+			cardStates[i].pressed = button->isPressed();
+			cardStates[i].hovered = button->isHovered();
+			cardStates[i].focused = base->getCalypsoFocusedTarget() == button;
+		}
+	}
+	{
+		const std::string columnHeading = copyValue(model, "heading.column");
+		painter.textRect(projectAuthored(CalypsoBasescapeHdRect{
+				derived.columnHeading.x, derived.columnHeading.y,
+				derived.columnHeading.w, derived.columnHeading.h }),
+			nullptr, ccFonts.interSb,
+			columnHeading,
+			CommandCenterTheme::packed(CommandCenterTheme::TextSecondary),
+			CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, role++, 0.0, fitParams.headingFontSize);
+	}
+	// Pass 1: row fills + input-owner claims. No container hit target: each
+	// logistics row keeps its own direct native action widget.
+	for (int i = 0; i < 10; ++i)
+	{
+		const auto& row = derived.rows[i];
+		const CalypsoHdScreenActionVisual* visual = findModelAction(row.actionId);
+		if (visual == nullptr)
+		{
+			CalypsoHdUiOverlay::instance().failHdRoute(
+				std::string("base action missing: ") + row.actionId);
+			continue;
+		}
+		const TextButton* button = live
+			? static_cast<const TextButton*>(static_cast<const Surface*>(visual->widget))
+			: nullptr;
 		if (button != nullptr && !button->getVisible())
 		{
 			continue;
 		}
-		const bool row = action.component == "management-action-group";
-		if (row && action.id == "base.transfer" && !groupIllustrated)
-		{
-			groupIllustrated = true;
-			const std::string groupArt = calypsoBaseCardImage(catalog, "logistics-group");
-			if (groupArt.empty())
-			{
-				CalypsoHdUiOverlay::instance().failHdRoute("base card art missing: logistics-group");
-			}
-			painter.image(project(CalypsoHdScreenRect{
-				action.hit.x, action.hit.y, 80, 138 }),
-				calypsoBaseCatalogImage(catalog, groupArt), nullptr, role++);
-		}
-		const CalypsoInteractionState state = f21ButtonVisualState(button);
+		const CalypsoInteractionState state = live
+			? calypsoBasescapeHdCardVisualState(cardStates, 10, i)
+			: CalypsoInteractionState::Rest;
 		CalypsoHdPanelStyle card;
 		card.styled = true;
 		card.radiusPx = CommandCenterTheme::RadiusSM;
@@ -594,31 +758,93 @@ void CalypsoHdScreenRenderer::collectBasescape(CalypsoHdFrameBuilder& builder) c
 			: CommandCenterTheme::packed(CommandCenterTheme::BgPanelRaised);
 		card.gradDirX = 0.0f;
 		card.gradDirY = 1.0f;
-		painter.styled(project(CalypsoHdScreenRect{
-			action.visible.x, action.visible.y, action.visible.w, action.visible.h }),
-			card, nullptr, role++);
-		if (!row && action.component == "illustrated-management-action"
-			&& action.slotRole.rfind("card-", 0) == 0)
+		painter.styled(projectAuthored(row.rect), card, nullptr, role++);
+	}
+	// Pass 2: illustrations ABOVE the row fills (the logistics group art was
+	// hidden behind opaque fills before), then Inter labels above the art.
+	{
+		bool groupIllustrated = false;
+		for (int i = 0; i < 10; ++i)
 		{
-			const std::string art = calypsoBaseCardImage(catalog, action.id);
-			if (art.empty())
+			const auto& row = derived.rows[i];
+			const CalypsoHdScreenActionVisual* visual = findModelAction(row.actionId);
+			if (visual == nullptr)
 			{
-				CalypsoHdUiOverlay::instance().failHdRoute("base card art missing: " + action.id);
+				continue;
 			}
-			painter.image(project(CalypsoHdScreenRect{
-				action.visible.x + 6, action.visible.y + 4, 44, action.visible.h - 8 }),
-				calypsoBaseCatalogImage(catalog, art), nullptr, role++);
+			const TextButton* button = live
+				? static_cast<const TextButton*>(static_cast<const Surface*>(visual->widget))
+				: nullptr;
+			if (button != nullptr && !button->getVisible())
+			{
+				continue;
+			}
+			const bool logistics = std::string(row.slotRole) == "logistics-rows";
+			const bool illustratedCard = !logistics
+				&& std::string(row.slotRole).rfind("card-", 0) == 0;
+			if (logistics && row.rowIndex == 0 && !groupIllustrated)
+			{
+				groupIllustrated = true;
+				const std::string groupArt = calypsoBaseCardImage(catalog, "logistics-group");
+				if (groupArt.empty())
+				{
+					CalypsoHdUiOverlay::instance().failHdRoute("base card art missing: logistics-group");
+				}
+				const CalypsoBasescapeHdRect art{
+					derived.commandX, row.rect.y + fitParams.logisticsH,
+					fitParams.logisticsArtW, fitParams.logisticsArtW * 2 / 3 };
+				painter.textRect(projectAuthored(CalypsoBasescapeHdRect{
+					derived.commandX, row.rect.y + 8, fitParams.logisticsArtW, 24 }),
+					nullptr, ccFonts.interM, copyValue(model, "heading.logistics"),
+					CommandCenterTheme::packed(CommandCenterTheme::TextSecondary),
+					CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, role++, 0.0, 11.0);
+				painter.image(projectAuthored(art),
+					calypsoBaseCatalogImage(catalog, groupArt), nullptr, role++);
+			}
+			CalypsoBasescapeHdRect thumb{0, 0, 0, 0};
+			bool hasThumb = false;
+			if (illustratedCard)
+			{
+				const std::string art = calypsoBaseCardImage(catalog, row.actionId);
+				if (art.empty())
+				{
+					CalypsoHdUiOverlay::instance().failHdRoute(
+						std::string("base card art missing: ") + row.actionId);
+				}
+				thumb = calypsoBasescapeHdCardThumb(row.rect, fitParams);
+				painter.image(projectAuthored(thumb),
+					calypsoBaseCatalogImage(catalog, art), nullptr, role++);
+				hasThumb = true;
+			}
+			const int labelX = row.rect.x + (hasThumb
+				? thumb.w + 2 * fitParams.cardPad : fitParams.cardPad);
+			const int labelW = row.rect.x + row.rect.w - fitParams.cardPad - labelX
+				- (illustratedCard ? 2 * fitParams.cardPad : 0);
+			const double labelSize = illustratedCard ? fitParams.actionFontSize : fitParams.smallActionFontSize;
+			painter.textRect(projectAuthored(CalypsoBasescapeHdRect{
+					labelX, row.rect.y + 6, std::max(1, labelW), row.rect.h - 12 }),
+				live ? visual->widget : nullptr,
+				illustratedCard ? ccFonts.interSb : ccFonts.interM, visual->label,
+				CommandCenterTheme::packed(CommandCenterTheme::TextPrimary),
+				CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 2, role++, 0.02, labelSize);
+			if (illustratedCard)
+			{
+				painter.textRect(projectAuthored(CalypsoBasescapeHdRect{
+					row.rect.x + row.rect.w - 3 * fitParams.cardPad, row.rect.y,
+					2 * fitParams.cardPad, row.rect.h }),
+					nullptr, ccFonts.interR, "\xE2\x80\xBA",
+					CommandCenterTheme::packed(CommandCenterTheme::TextSecondary),
+					CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, role++, 0.0,
+					fitParams.actionFontSize + 4);
+			}
 		}
-		const bool illustrated = !row && action.component == "illustrated-management-action"
-			&& action.slotRole.rfind("card-", 0) == 0;
-		const int labelX = action.visible.x + (illustrated ? 58 : (row ? 88 : 8));
-		const int labelW = action.visible.w - (illustrated ? 66 : (row ? 96 : 16));
-		const double labelSize = action.visible.h >= 52 ? 15.0 : 13.0;
-		painter.textRect(project(CalypsoHdScreenRect{
-				labelX, action.visible.y + 6, labelW, action.visible.h - 12 }),
-			action.widget, ccFonts.plexM, action.label,
-			CommandCenterTheme::packed(CommandCenterTheme::TextPrimary),
-			CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 2, role++, 0.02, labelSize);
+	}
+	if (live)
+	{
+		if (const CalypsoHdScreenActionVisual* world = findModelAction("navigation.world"))
+		{
+			painter.claim(world->widget, role++);
+		}
 	}
 }
 

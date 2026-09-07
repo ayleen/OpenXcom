@@ -189,7 +189,7 @@ int ccRailIndexForAction(RailAction action)
 
 void ccRenderBaseSelector(CalypsoF21Painter& painter, const RectF& selector,
 	const CommandCenterSnapshot& snap, const CommandCenterFonts& fonts,
-	std::uint32_t& role)
+	std::uint32_t& role, bool interactive = true)
 {
 	using namespace CommandCenterTheme;
 	const auto px = CommandCenterTheme::packed;
@@ -218,11 +218,16 @@ void ccRenderBaseSelector(CalypsoF21Painter& painter, const RectF& selector,
 		selector.right() - textX - 28.0f, compact ? 17.0f : 16.0f}, fonts.interSb,
 		snap.baseName, px(TextPrimary), compact ? 12.0f : 14.0f, 0.02f,
 		CalypsoHdHAlign::Left, role);
-	ccIcon(painter, RectF{selector.right() - 24.0f, selector.y, 14.0f,
-		selector.height}, CcIcon::ChevronDown, fonts, px(TextSecondary),
-		compact ? 11.0f : 14.0f, role);
+	// Display-only chips (Basescape: the MiniBaseView band owns selection)
+	// paint no chevron and never open a dropdown with no route behind it.
+	if (interactive)
+	{
+		ccIcon(painter, RectF{selector.right() - 24.0f, selector.y, 14.0f,
+			selector.height}, CcIcon::ChevronDown, fonts, px(TextSecondary),
+			compact ? 11.0f : 14.0f, role);
+	}
 
-	if (!snap.baseSelectorOpen || snap.baseNames.empty())
+	if (!interactive || !snap.baseSelectorOpen || snap.baseNames.empty())
 		return;
 	ccPanel(painter, ccBaseSelectorDropdown(selector, snap.baseNames.size()),
 		RadiusSM, BgPanel, BgRoot, Border, true, role);
@@ -495,6 +500,24 @@ const char* calypsoCcRailLabel(int index)
 	return (index >= 0 && index < 5) ? kRailItems[index].label : "";
 }
 
+void calypsoCcPaintHeaderContent(CalypsoF21Painter& painter,
+	const CommandCenterLayout& layout, const CommandCenterSnapshot& content,
+	const CommandCenterFonts& fonts, std::uint32_t& role, bool interactive)
+{
+	using namespace CommandCenterTheme;
+	const auto px = CommandCenterTheme::packed;
+	// Pass 11: header content (spec s.19-21). Extracted shared so Geoscape
+	// and Basescape paint one chrome: base chip at layout.baseSelector,
+	// live date/time at layout.dateTimeBlock.
+	ccRenderBaseSelector(painter, layout.baseSelector, content, fonts, role, interactive);
+
+	const RectF& dt = layout.dateTimeBlock;
+	ccText(painter, RectF{dt.x, dt.y, dt.width, 20.0f}, fonts.plexM,
+		content.displayTime, px(TextPrimary), 14.0f, 0.04f, CalypsoHdHAlign::Right, role);
+	ccText(painter, RectF{dt.x, dt.y + 22.0f, dt.width, 18.0f}, fonts.plexM,
+		content.displayDate, px(TextSecondary), 11.0f, 0.04f, CalypsoHdHAlign::Right, role);
+}
+
 bool calypsoCcEnabled() { return g_calypsoCcEnabled; }
 void calypsoCcSetEnabled(bool on) { g_calypsoCcEnabled = on; }
 
@@ -668,16 +691,9 @@ void calypsoCcRender(CalypsoF21Painter& painter, const CommandCenterLayout& layo
 	}
 
 
-	// Pass 11: header content (spec s.19-21).
-	{
-		ccRenderBaseSelector(painter, layout.baseSelector, snap, fonts, role);
-
-		const RectF& dt = layout.dateTimeBlock;
-		ccText(painter, RectF{dt.x, dt.y, dt.width, 20.0f}, fonts.plexM,
-			snap.displayTime, px(TextPrimary), 14.0f, 0.04f, CalypsoHdHAlign::Right, role);
-		ccText(painter, RectF{dt.x, dt.y + 22.0f, dt.width, 18.0f}, fonts.plexM,
-			snap.displayDate, px(TextSecondary), 11.0f, 0.04f, CalypsoHdHAlign::Right, role);
-	}
+	// Pass 11: header content (spec s.19-21) via the shared helper, so the
+	// desktop chrome stays one definition for every strategic family.
+	calypsoCcPaintHeaderContent(painter, layout, snap, fonts, role);
 
 	// Live widget binding: reposition the existing interactive surfaces onto
 	// the Command Center grid and claim them so the native blit stays hidden

@@ -1228,6 +1228,17 @@ def emit_screen_h(doc, rel, ns, prefix):
            TAB + "const char* value;",
            "};",
            ""]
+    parameters = doc.get("desktopFit", {}).get("parameters", {})
+    if parameters:
+        out += ["struct DesktopFitParams", "{"]
+        for name, value in parameters.items():
+            if (not re.fullmatch(r"[a-z][A-Za-z0-9]*", name)
+                    or isinstance(value, bool) or not isinstance(value, (int, float))
+                    or not 0 < value <= 100000):
+                fail(rel + ": desktopFit parameters must be positive numeric identifiers")
+            scalar = "int" if isinstance(value, int) else "double"
+            out.append(TAB + scalar + " " + name + " = " + str(value) + ";")
+        out += ["};", ""]
     arrays = []
     present_layouts = [(name, label) for name, label in (("wide", "Wide"), ("compact", "Compact"))
                        if name in doc["layouts"]]

@@ -1,25 +1,45 @@
 {
   "schema": 1,
   "id": "base-command-shell",
-  "version": "hd.2026-09-06.1",
+  "version": "hd.2026-09-07.1",
   "coordinateSpaces": ["screen"],
   "layoutPolicy": "desktop-fit",
-  "desktopFit": {"minViewport": [1280, 720], "fitRule": "uniform"},
+  "desktopFit": {
+    "minViewport": [1280, 720],
+    "fitRule": "uniform",
+    "parameters": {
+      "minViewportW": 1280, "minViewportH": 720,
+      "railWidth": 88, "headerHeight": 72, "inset": 24, "columnGap": 20,
+      "commandMinW": 343, "commandMaxW": 460, "commandFraction": 0.30,
+      "titleBandH": 52, "titleGapH": 16, "minHit": 44, "minSelectorSlots": 8,
+      "deckHeadingH": 40, "deckFooterH": 44, "deckInset": 12,
+      "columnTop": 204, "cardH": 52, "cardGap": 6,
+      "logisticsH": 44, "logisticsStride": 47, "buildGap": 6,
+      "logisticsArtW": 80, "logisticsGap": 8,
+      "serviceGap": 8, "serviceH": 44, "serviceSplitGap": 9, "bottomPad": 12,
+      "cardPad": 8, "cardLabelMinW": 112, "gutterMinSlack": 24,
+      "actionFontSize": 18, "smallActionFontSize": 14, "headingFontSize": 18, "titleFontSize": 28,
+      "connectorLengthRatio": 0.40, "connectorThicknessRatio": 0.10
+    }
+  },
   "requiredActionIds": ["base.new", "base.info", "base.divers", "base.crafts", "base.build", "base.research", "base.manufacture", "base.transfer", "base.purchase", "base.sell", "navigation.world"],
   "forbiddenPersistentPatterns": [],
   "layouts": {
     "wide": {
       "canvas": [1280, 720],
       "regions": {
-        "header": [88, 0, 1192, 72],
+        "header": [0, 0, 1280, 72],
         "titleBand": [112, 96, 781, 52],
-        "titleName": [112, 96, 210, 28],
-        "titleRegion": [112, 124, 210, 20],
-        "titleSelector": [330, 96, 352, 52],
-        "headerFunds": [976, 16, 280, 40],
+        "titleName": [112, 96, 413, 28],
+        "titleRegion": [112, 124, 413, 20],
+        "titleSelector": [541, 96, 352, 52],
+        "fundsLine": [124, 660, 757, 28],
         "hoverLine": [112, 148, 500, 14],
         "facilityDeck": [112, 164, 781, 532],
-        "deckSquare": [112, 164, 532, 532],
+        "deckSquare": [290, 216, 424, 424],
+        "deckHeading": [112, 164, 781, 40],
+        "deckFooter": [112, 652, 781, 44],
+        "columnHeading": [913, 176, 343, 24],
         "commandColumn": [913, 164, 343, 532]
       },
       "reservedRegions": [
@@ -38,8 +58,8 @@
       },
       "collections": {
         "logistics-rows": {
-          "origin": [913, 436],
-          "itemSize": [343, 44],
+          "origin": [1001, 436],
+          "itemSize": [255, 44],
           "stride": [0, 47],
           "maxItems": 3
         }

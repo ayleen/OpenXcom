@@ -40,6 +40,7 @@ struct CalypsoGlobeGpuState
 	bool      _gpuDirectMode = false;
 	Screen*   _directScreen  = nullptr;
 	ScreenWorldPassHandle _gpuWorldPass;
+	std::uint64_t _visibleFrame = 0;
 	struct MarkerDraw
 	{
 		Surface* frame = nullptr;

@@ -173,7 +173,7 @@ def validate_template(template, archetype):
         fit = template.get("desktopFit")
         if not isinstance(fit, dict):
             fail("desktop-fit screen template requires a desktopFit object")
-        unknown_fit = sorted(set(fit) - {"minViewport", "fitRule"})
+        unknown_fit = sorted(set(fit) - {"minViewport", "fitRule", "parameters"})
         if unknown_fit:
             fail("screen template desktopFit contains unknown fields: " + ", ".join(unknown_fit))
         viewport = fit.get("minViewport")
@@ -183,6 +183,14 @@ def validate_template(template, archetype):
             fail("screen template desktopFit.minViewport must contain two positive integers")
         if fit.get("fitRule") != "uniform":
             fail("screen template desktopFit.fitRule must be uniform")
+        parameters = fit.get("parameters", {})
+        if not isinstance(parameters, dict):
+            fail("screen template desktopFit.parameters must be an object")
+        for name, value in parameters.items():
+            if (not re.fullmatch(r"[a-z][A-Za-z0-9]*", name)
+                    or isinstance(value, bool) or not isinstance(value, (int, float))
+                    or not 0 < value <= 100000):
+                fail("screen template desktopFit.parameters require identifiers and positive finite numbers")
     for layout_name, layout in layouts.items():
         canvas = layout.get("canvas")
         validate_rect([0, 0] + canvas if isinstance(canvas, list) else canvas,

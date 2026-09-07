@@ -10,8 +10,8 @@
  * guard snapshots every piece of GL state the overlay's boundary-zero section
  * touches on construction and restores the EXACT saved values on destruction --
  * program, VAO, array buffer, active texture unit, unit-0 binding, blend enable,
- * blend func (separate), and blend equation (separate). It restores to the saved
- * state, never to an assumed default.
+ * blend func (separate), blend equation (separate), viewport and scissor enable.
+ * It restores to the saved state, never to an assumed default.
  *
  * Whole-file Emscripten guard (Phase 36); the overlay is the only user.
  */
@@ -42,6 +42,8 @@ public:
 		glGetIntegerv(GL_BLEND_DST_ALPHA, &_blendDstAlpha);
 		glGetIntegerv(GL_BLEND_EQUATION_RGB, &_blendEqRgb);
 		glGetIntegerv(GL_BLEND_EQUATION_ALPHA, &_blendEqAlpha);
+		glGetIntegerv(GL_VIEWPORT, _viewport);
+		_scissor = glIsEnabled(GL_SCISSOR_TEST);
 	}
 
 	~CalypsoGlStateGuard()
@@ -58,6 +60,8 @@ public:
 			static_cast<GLenum>(_blendSrcAlpha), static_cast<GLenum>(_blendDstAlpha));
 		glBlendEquationSeparate(
 			static_cast<GLenum>(_blendEqRgb), static_cast<GLenum>(_blendEqAlpha));
+		glViewport(_viewport[0], _viewport[1], _viewport[2], _viewport[3]);
+		if (_scissor) glEnable(GL_SCISSOR_TEST); else glDisable(GL_SCISSOR_TEST);
 	}
 
 	CalypsoGlStateGuard(const CalypsoGlStateGuard&) = delete;
@@ -76,6 +80,8 @@ private:
 	GLint _blendDstAlpha = GL_ZERO;
 	GLint _blendEqRgb = GL_FUNC_ADD;
 	GLint _blendEqAlpha = GL_FUNC_ADD;
+	GLint _viewport[4] = {0, 0, 0, 0};
+	GLboolean _scissor = GL_FALSE;
 };
 
 } // namespace Calypso

@@ -932,6 +932,8 @@ bool CalypsoHdUiOverlay::renderStages(SDL_Renderer* renderer)
 
 	// One scoped guard around the whole boundary-zero section (A4).
 	CalypsoGlStateGuard guard;
+	glViewport(0, 0, _frozenMetrics.physicalWidth, _frozenMetrics.physicalHeight);
+	glDisable(GL_SCISSOR_TEST);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	/* Do not drain an earlier owner's error at the chrome boundary. A registered

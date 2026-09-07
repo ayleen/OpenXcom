@@ -24,19 +24,34 @@ struct CalypsoBasescapeHdActionBinding
 inline const std::vector<CalypsoBasescapeHdActionBinding> &calypsoBasescapeHdActionBindings()
 {
 	static const std::vector<CalypsoBasescapeHdActionBinding> rows = {
-		{ "base.divers", "basescape.openSoldiers", "STR_SOLDIERS_UC" },
-		{ "base.research", "basescape.openResearch", "STR_RESEARCH" },
-		{ "base.manufacture", "basescape.openManufacture", "STR_MANUFACTURE" },
-		{ "base.crafts", "basescape.openCrafts", "STR_EQUIP_CRAFT" },
-		{ "base.transfer", "basescape.openTransfer", "STR_TRANSFER_UC" },
-		{ "base.purchase", "basescape.openPurchase", "STR_PURCHASE_RECRUIT" },
-		{ "base.sell", "basescape.openSell", "STR_SELL_SACK_UC" },
-		{ "base.build", "basescape.openBuild", "STR_BUILD_FACILITIES" },
-		{ "base.info", "basescape.openBaseInfo", "STR_BASE_INFORMATION" },
-		{ "base.new", "basescape.openNewBase", "STR_BUILD_NEW_BASE_UC" },
-		{ "navigation.world", "basescape.exitToGeoscape", "STR_GEOSCAPE_UC" },
+		{ "base.divers", "basescape.openSoldiers", "STR_CALYPSO_BASE_DIVERS" },
+		{ "base.research", "basescape.openResearch", "STR_CALYPSO_BASE_RESEARCH" },
+		{ "base.manufacture", "basescape.openManufacture", "STR_CALYPSO_BASE_PRODUCTION" },
+		{ "base.crafts", "basescape.openCrafts", "STR_CALYPSO_BASE_SUBMARINES" },
+		{ "base.transfer", "basescape.openTransfer", "STR_CALYPSO_BASE_TRANSFER" },
+		{ "base.purchase", "basescape.openPurchase", "STR_CALYPSO_BASE_PURCHASE" },
+		{ "base.sell", "basescape.openSell", "STR_CALYPSO_BASE_SELL" },
+		{ "base.build", "basescape.openBuild", "STR_CALYPSO_BASE_BUILD" },
+		{ "base.info", "basescape.openBaseInfo", "STR_CALYPSO_BASE_INFO" },
+		{ "base.new", "basescape.openNewBase", "STR_CALYPSO_BASE_NEW" },
+		{ "navigation.world", "basescape.exitToGeoscape", "STR_CALYPSO_BASE_WORLD" },
 	};
 	return rows;
+}
+
+/// Runtime lookup of the recipe labelKey/handler by semantic action id.
+/// The holder resolves tr(labelKey) for live labels; the generated fixture
+/// label stays the harness-only fallback. Returns nullptr when unbound.
+inline const CalypsoBasescapeHdActionBinding *calypsoBasescapeHdBindingFor(const std::string &id)
+{
+	for (const auto &row : calypsoBasescapeHdActionBindings())
+	{
+		if (id == row.id)
+		{
+			return &row;
+		}
+	}
+	return nullptr;
 }
 
 struct CalypsoBasescapeHdFacilityVisual
@@ -91,6 +106,9 @@ struct CalypsoBasescapeHdAuthoredRect
 struct CalypsoBasescapeHdSnapshot
 {
 	std::string baseName;
+	std::string baseCaption;
+	std::string displayTime;
+	std::string displayDate;
 	std::string region;
 	std::string funds;
 	std::string hoverFacility;

@@ -13,7 +13,7 @@
     "productionHook": true
   },
   "themeVersion": "hd.2026-08-29.1",
-  "archetypeVersion": "hd.2026-09-06.1",
+  "archetypeVersion": "hd.2026-09-07.1",
   "componentVersions": {
     "command-icon-action": "hd.2026-08-20.1",
     "illustrated-management-action": "hd.2026-09-06.1",
@@ -25,7 +25,7 @@
   "actions": [
     {
       "id": "base.divers",
-      "labelKey": "STR_SOLDIERS_UC",
+      "labelKey": "STR_CALYPSO_BASE_DIVERS",
       "icon": "soldiers",
       "component": "illustrated-management-action",
       "slotRole": "card-divers",
@@ -44,7 +44,7 @@
     },
     {
       "id": "base.research",
-      "labelKey": "STR_RESEARCH",
+      "labelKey": "STR_CALYPSO_BASE_RESEARCH",
       "icon": "research",
       "component": "illustrated-management-action",
       "slotRole": "card-research",
@@ -63,7 +63,7 @@
     },
     {
       "id": "base.manufacture",
-      "labelKey": "STR_MANUFACTURE",
+      "labelKey": "STR_CALYPSO_BASE_PRODUCTION",
       "icon": "manufacture",
       "component": "illustrated-management-action",
       "slotRole": "card-manufacture",
@@ -82,7 +82,7 @@
     },
     {
       "id": "base.crafts",
-      "labelKey": "STR_EQUIP_CRAFT",
+      "labelKey": "STR_CALYPSO_BASE_SUBMARINES",
       "icon": "craft",
       "component": "illustrated-management-action",
       "slotRole": "card-craft",
@@ -101,7 +101,7 @@
     },
     {
       "id": "base.transfer",
-      "labelKey": "STR_TRANSFER_UC",
+      "labelKey": "STR_CALYPSO_BASE_TRANSFER",
       "icon": "transfer",
       "component": "management-action-group",
       "slotRole": "logistics-rows",
@@ -121,7 +121,7 @@
     },
     {
       "id": "base.purchase",
-      "labelKey": "STR_PURCHASE_RECRUIT",
+      "labelKey": "STR_CALYPSO_BASE_PURCHASE",
       "icon": "purchase",
       "component": "management-action-group",
       "slotRole": "logistics-rows",
@@ -141,7 +141,7 @@
     },
     {
       "id": "base.sell",
-      "labelKey": "STR_SELL_SACK_UC",
+      "labelKey": "STR_CALYPSO_BASE_SELL",
       "icon": "sell",
       "component": "management-action-group",
       "slotRole": "logistics-rows",
@@ -161,7 +161,7 @@
     },
     {
       "id": "base.build",
-      "labelKey": "STR_BUILD_FACILITIES",
+      "labelKey": "STR_CALYPSO_BASE_BUILD",
       "icon": "build",
       "component": "illustrated-management-action",
       "slotRole": "card-build",
@@ -180,7 +180,7 @@
     },
     {
       "id": "base.info",
-      "labelKey": "STR_BASE_INFORMATION",
+      "labelKey": "STR_CALYPSO_BASE_INFO",
       "icon": "info",
       "component": "illustrated-management-action",
       "slotRole": "service-1",
@@ -199,7 +199,7 @@
     },
     {
       "id": "base.new",
-      "labelKey": "STR_BUILD_NEW_BASE_UC",
+      "labelKey": "STR_CALYPSO_BASE_NEW",
       "icon": "new-base",
       "component": "illustrated-management-action",
       "slotRole": "service-2",
@@ -218,7 +218,7 @@
     },
     {
       "id": "navigation.world",
-      "labelKey": "STR_GEOSCAPE_UC",
+      "labelKey": "STR_CALYPSO_BASE_WORLD",
       "icon": "world",
       "component": "command-icon-action",
       "slotRole": "rail-world",
@@ -263,17 +263,21 @@
         "base.divers": "Divers",
         "base.research": "Research",
         "base.manufacture": "Production",
-        "base.crafts": "Subs",
+        "base.crafts": "Submarines",
         "base.transfer": "Transfer",
-        "base.purchase": "Purchase",
-        "base.sell": "Sell",
-        "base.build": "Build",
-        "base.info": "Info",
+        "base.purchase": "Purchase / recruit",
+        "base.sell": "Sell / dismiss",
+        "base.build": "Build facilities",
+        "base.info": "Base information",
         "base.new": "New base",
         "navigation.world": "World"
       },
       "entities": {},
-      "copy": {}
+      "copy": {
+        "heading.deck": "Base layout",
+        "heading.column": "Base functions",
+        "heading.logistics": "Logistics"
+      }
     }
   },
   "layouts": {
@@ -284,9 +288,9 @@
       ],
       "regions": {
         "header": [
-          88,
           0,
-          1192,
+          0,
+          1280,
           72
         ],
         "titleBand": [
@@ -298,26 +302,26 @@
         "titleName": [
           112,
           96,
-          210,
+          413,
           28
         ],
         "titleRegion": [
           112,
           124,
-          210,
+          413,
           20
         ],
         "titleSelector": [
-          330,
+          541,
           96,
           352,
           52
         ],
-        "headerFunds": [
-          976,
-          16,
-          280,
-          40
+        "fundsLine": [
+          124,
+          660,
+          757,
+          28
         ],
         "hoverLine": [
           112,
@@ -332,10 +336,28 @@
           532
         ],
         "deckSquare": [
+          290,
+          216,
+          424,
+          424
+        ],
+        "deckHeading": [
           112,
           164,
-          532,
-          532
+          781,
+          40
+        ],
+        "deckFooter": [
+          112,
+          652,
+          781,
+          44
+        ],
+        "columnHeading": [
+          913,
+          176,
+          343,
+          24
         ],
         "commandColumn": [
           913,
@@ -451,15 +473,15 @@
           "slotRole": "logistics-rows",
           "coordinateSpace": "screen",
           "visibleRect": [
-            913,
+            1001,
             436,
-            343,
+            255,
             44
           ],
           "hitRect": [
-            913,
+            1001,
             436,
-            343,
+            255,
             44
           ],
           "focusOrder": 50,
@@ -471,15 +493,15 @@
           "slotRole": "logistics-rows",
           "coordinateSpace": "screen",
           "visibleRect": [
-            913,
+            1001,
             483,
-            343,
+            255,
             44
           ],
           "hitRect": [
-            913,
+            1001,
             483,
-            343,
+            255,
             44
           ],
           "focusOrder": 60,
@@ -491,15 +513,15 @@
           "slotRole": "logistics-rows",
           "coordinateSpace": "screen",
           "visibleRect": [
-            913,
+            1001,
             530,
-            343,
+            255,
             44
           ],
           "hitRect": [
-            913,
+            1001,
             530,
-            343,
+            255,
             44
           ],
           "focusOrder": 70,
@@ -594,6 +616,45 @@
       1280,
       720
     ],
-    "fitRule": "uniform"
+    "fitRule": "uniform",
+    "parameters": {
+      "minViewportW": 1280,
+      "minViewportH": 720,
+      "railWidth": 88,
+      "headerHeight": 72,
+      "inset": 24,
+      "columnGap": 20,
+      "commandMinW": 343,
+      "commandMaxW": 460,
+      "commandFraction": 0.3,
+      "titleBandH": 52,
+      "titleGapH": 16,
+      "minHit": 44,
+      "minSelectorSlots": 8,
+      "deckHeadingH": 40,
+      "deckFooterH": 44,
+      "deckInset": 12,
+      "columnTop": 204,
+      "cardH": 52,
+      "cardGap": 6,
+      "logisticsH": 44,
+      "logisticsStride": 47,
+      "buildGap": 6,
+      "logisticsArtW": 80,
+      "logisticsGap": 8,
+      "serviceGap": 8,
+      "serviceH": 44,
+      "serviceSplitGap": 9,
+      "bottomPad": 12,
+      "cardPad": 8,
+      "cardLabelMinW": 112,
+      "gutterMinSlack": 24,
+      "actionFontSize": 18,
+      "smallActionFontSize": 14,
+      "headingFontSize": 18,
+      "titleFontSize": 28,
+      "connectorLengthRatio": 0.4,
+      "connectorThicknessRatio": 0.1
+    }
   }
 }
