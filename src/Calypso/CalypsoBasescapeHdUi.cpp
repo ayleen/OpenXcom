@@ -54,16 +54,8 @@ CalypsoBasescapeHdUi::~CalypsoBasescapeHdUi()
 
 bool CalypsoBasescapeHdUi::checkReadiness() const
 {
-	if (_state == nullptr || _state->_game == nullptr)
-	{
-		return false;
-	}
-	const Mod *mod = _state->_game->getMod();
-	if (mod == nullptr || !mod->isHdUiFamilyEnabled("F01"))
-	{
-		return false;
-	}
-	return true;
+	return _state != nullptr && _state->_game != nullptr
+		&& _state->_game->getMod() != nullptr;
 }
 
 void CalypsoBasescapeHdUi::configure(BasescapeState &state)
@@ -264,21 +256,18 @@ bool CalypsoBasescapeHdUi::covered() const
 
 void CalypsoBasescapeHdUi::refresh()
 {
-	// Re-check the family gate on every init (cheap, static per session) and
-	// register the renderer once ready. Geometry and model stay untouched
-	// while the gate is off: zero behavior change on the legacy route.
+	// Browser Basescape is always HD. Readiness checks prerequisites, not a
+	// feature toggle; an unavailable route must never resume native drawing.
 	if (!_ready)
 	{
 		_ready = checkReadiness();
 	}
-	if (_ready && _renderer != nullptr)
+	if (!_ready || _renderer == nullptr)
 	{
-		CalypsoHdUiOverlay::instance().registerAdapter(_renderer);
+		CalypsoHdUiOverlay::instance().failHdRoute(
+			"Basescape HD prerequisites are unavailable");
 	}
-	if (!_ready || _renderer == nullptr || _state == nullptr)
-	{
-		return;
-	}
+	CalypsoHdUiOverlay::instance().registerAdapter(_renderer);
 	applyGeometry();
 	feedModel();
 }
