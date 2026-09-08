@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <cmath>
 #include <emscripten.h>
+#include <emscripten/html5.h>
 #include <GLES3/gl3.h>
 #include <SDL.h>
 #include <SDL_render.h>
@@ -1012,7 +1013,16 @@ bool CalypsoHdUiOverlay::renderStages(SDL_Renderer* renderer)
 
 	// One scoped guard around the whole boundary-zero section (A4).
 	CalypsoGlStateGuard guard;
-	glViewport(0, 0, _frozenMetrics.physicalWidth, _frozenMetrics.physicalHeight);
+	int drawingWidth = 0, drawingHeight = 0;
+	if (emscripten_webgl_get_drawing_buffer_size(emscripten_webgl_get_current_context(),
+		&drawingWidth, &drawingHeight) != EMSCRIPTEN_RESULT_SUCCESS
+		|| drawingWidth <= 0 || drawingHeight <= 0)
+	{
+		if (committed) failHdRoute("WebGL drawing-buffer size is unavailable");
+		return true;
+	}
+	// Frozen metrics define projection; the live render target defines viewport.
+	glViewport(0, 0, drawingWidth, drawingHeight);
 	glDisable(GL_SCISSOR_TEST);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
