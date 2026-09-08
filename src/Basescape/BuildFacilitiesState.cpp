@@ -109,6 +109,8 @@ BuildFacilitiesState::~BuildFacilitiesState()
 		Calypso::calypsoHdHarnessDomHide();
 	}
 	Calypso::calypsoHarnessCloseForTarget(Calypso::calypsoHarnessSession(), this, _hdHarnessGeneration);
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
 	if (_hdOwnFixture)
 	{
 		// The fixture covered state owns the fixture base: its destructor
