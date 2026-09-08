@@ -87,6 +87,25 @@ CalypsoLogicalRect touchRect(CalypsoLogicalRect visual)
 	return visual;
 }
 
+/// Configures the native HD selection-list seam AFTER enableUiScaling /
+/// recapture, from the actual projected list rect and the generated metrics.
+/// Same values re-applied preserve drag capture; real changes reset it.
+/// rowStride projects generated.rowHeight by the SAME uiScale so native scroll
+/// count/reveal agrees with the painted generated rowSlots (visibleRows).
+void configureHdSelectionList(
+	TextList* list,
+	Window* window,
+	const CalypsoF03BuildFacilitiesGen::CalypsoF03BuildFacilitiesGenLayout& generated)
+{
+	if (!list || !window || generated.window.w <= 0) return;
+	const double uiScale = (double)window->getWidth() / (double)generated.window.w;
+	const int scrollBarWidth = std::max(1, (int)std::llround(generated.scrollBarWidth * uiScale));
+	const int minThumbHeight = std::max(1, (int)std::llround(generated.minThumbHeight * uiScale));
+	const int rowStride = std::max(1, (int)std::llround(generated.rowHeight * uiScale));
+	const size_t visibleRows = generated.visibleRows > 0 ? (size_t)generated.visibleRows : 0;
+	list->configureCalypsoHdSelectionList(scrollBarWidth, minThumbHeight, rowStride, visibleRows);
+}
+
 } // namespace
 
 CalypsoF03BuildFacilitiesUi::~CalypsoF03BuildFacilitiesUi()
@@ -168,6 +187,18 @@ void CalypsoF03BuildFacilitiesUi::collect(CalypsoHdFrameBuilder& builder) const
 	model.rowHeight = generated->rowHeight;
 	model.visibleRows = generated->visibleRows;
 	model.scrollBarWidth = generated->scrollBarWidth;
+	model.minThumbHeight = std::max(1, (int)std::llround(generated->minThumbHeight * uiScale));
+	// Shared native input geometry in the same logical space, read exactly
+	// once per frame: the painter uses these rects instead of its own formula.
+	if (_state->_lstFacilities && _state->_lstFacilities->isCalypsoHdSelectionList())
+	{
+		const SDL_Rect track = _state->_lstFacilities->getCalypsoHdTrackRect();
+		const SDL_Rect thumb = _state->_lstFacilities->getCalypsoHdThumbRect();
+		model.hasNativeScrollGeometry = track.w > 0 && track.h > 0;
+		model.nativeTrack = {track.x, track.y, track.w, track.h};
+		model.nativeThumb = {thumb.x, thumb.y, thumb.w, thumb.h};
+		model.nativeThumbVisible = thumb.w > 0 && thumb.h > 0;
+	}
 
 	const int slotCount = wide
 		? CalypsoF03BuildFacilitiesGen::kRowSlotWideCount
@@ -287,7 +318,8 @@ void CalypsoF03BuildFacilitiesUi::configure(BuildFacilitiesState& state)
 		CalypsoHdUiOverlay::instance().failHdRoute("F03 chooser generated layout is missing");
 	state.enableUiScaling(generated->designWidth, generated->designHeight, 1.0f,
 		/*subtractVanillaCenter=*/false);
-
+	// Native HD selection-list seam AFTER scaling: shares the inset track and
+	configureHdSelectionList(state._lstFacilities, state._window, *generated);
 	auto* adapter = new CalypsoF03BuildFacilitiesUi(&state);
 	state._hdAdapter = adapter;
 	CalypsoHdUiOverlay::instance().registerAdapter(adapter);
@@ -305,6 +337,8 @@ bool CalypsoF03BuildFacilitiesUi::resize(BuildFacilitiesState& state)
 	if (!generated) return false;
 	state.recaptureUiScaling(generated->designWidth, generated->designHeight, 1.0f,
 		/*subtractVanillaCenter=*/false);
+	// Re-seam after recapture; same values preserve drag capture, real layout
+	configureHdSelectionList(state._lstFacilities, state._window, *generated);
 	return true;
 }
 

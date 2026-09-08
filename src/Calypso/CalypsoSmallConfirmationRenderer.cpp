@@ -622,20 +622,37 @@ void calypsoCollectSelectionList(
 
 	if (total > visible && model.scrollBarWidth > 0)
 	{
-		const CalypsoLogicalRect track{
-			model.list.x + model.list.w - model.scrollBarWidth, model.list.y,
-			model.scrollBarWidth, model.list.h};
-		addPanel(track, model.scrollTrackColor, model.listWidget,
-			SELECTION_ROLE_SCROLL_TRACK, true);
-		const std::size_t steps = total - visible;
-		const int minThumb = scaledPx(44.0);
-		int thumbH = (int)((long long)track.h * (long long)visible / (long long)total);
-		thumbH = std::min(track.h, std::max(minThumb, thumbH));
-		const int thumbY = track.y + (steps > 0 && track.h > thumbH
-			? (int)((long long)(track.h - thumbH) * (long long)std::min(first, steps) / (long long)steps)
-			: 0);
-		addPanel({track.x, thumbY, track.w, thumbH}, model.scrollThumbColor,
-			model.listWidget, SELECTION_ROLE_SCROLL_THUMB, true);
+		// Native input geometry wins when the binder feeds it: the painted
+		// track/thumb match the ScrollBar hit areas exactly (same logical
+		// space, applied once). Unconfigured lists keep the legacy formula,
+		// now fed by the contract minThumbHeight instead of a hardcoded 44.
+		if (model.hasNativeScrollGeometry && model.nativeTrack.w > 0 && model.nativeTrack.h > 0)
+		{
+			addPanel(model.nativeTrack, model.scrollTrackColor, model.listWidget,
+				SELECTION_ROLE_SCROLL_TRACK, true);
+			if (model.nativeThumbVisible && model.nativeThumb.w > 0 && model.nativeThumb.h > 0)
+			{
+				addPanel(model.nativeThumb, model.scrollThumbColor,
+					model.listWidget, SELECTION_ROLE_SCROLL_THUMB, true);
+			}
+		}
+		else
+		{
+			const CalypsoLogicalRect track{
+				model.list.x + model.list.w - model.scrollBarWidth, model.list.y,
+				model.scrollBarWidth, model.list.h};
+			addPanel(track, model.scrollTrackColor, model.listWidget,
+				SELECTION_ROLE_SCROLL_TRACK, true);
+			const std::size_t steps = total - visible;
+			const int minThumb = model.minThumbHeight > 0 ? model.minThumbHeight : scaledPx(44.0);
+			int thumbH = (int)((long long)track.h * (long long)visible / (long long)total);
+			thumbH = std::min(track.h, std::max(minThumb, thumbH));
+			const int thumbY = track.y + (steps > 0 && track.h > thumbH
+				? (int)((long long)(track.h - thumbH) * (long long)std::min(first, steps) / (long long)steps)
+				: 0);
+			addPanel({track.x, thumbY, track.w, thumbH}, model.scrollThumbColor,
+				model.listWidget, SELECTION_ROLE_SCROLL_THUMB, true);
+		}
 	}
 
 	{

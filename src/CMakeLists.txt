@@ -1058,6 +1058,7 @@ if(NOT EMSCRIPTEN AND BUILD_TESTING)
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdInteractionStateTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdHarnessHostModelTest.cpp
         ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoHdDiagnosticsTest.cpp
+        ${CMAKE_SOURCE_DIR}/../../tests/unit_tests/CalypsoSelectionListScrollTest.cpp
         ${CMAKE_SOURCE_DIR}/src/Calypso/CommandCenter/CommandCenterLayout.cpp
         ${CMAKE_SOURCE_DIR}/src/Calypso/CalypsoHdTrackedText.cpp)
 

@@ -373,20 +373,44 @@ bool Game::iterate()
 					// the back of the queue; under bursty wheel input the next
 					// MOUSEBUTTONDOWN gets observed first and InteractiveSurface
 					// sees the synthetic button still latched, dropping the tick.
-					int wheelDir = (_event.wheel.y >= 0) ? 1 : -1;
-					int mx = 0, my = 0;
-					SDL_GetMouseState(&mx, &my);
+					// SDL2 vertical delta: integer y, plus fractional
+					// preciseY for high-resolution wheels/trackpads that
+					// report y == 0. Flipped direction negates the delta.
+					// A truly zero vertical delta (e.g. horizontal-only)
+					// is not a wheel tick in either direction.
+					Sint32 wheelY = _event.wheel.y;
+					float wheelPreciseY = 0.0f;
+#if SDL_VERSION_ATLEAST(2, 0, 18)
+					wheelPreciseY = _event.wheel.preciseY;
+#endif
+					if (_event.wheel.direction == SDL_MOUSEWHEEL_FLIPPED)
+					{
+						wheelY = -wheelY;
+						wheelPreciseY = -wheelPreciseY;
+					}
+					int wheelDir = 0;
+					if (wheelY > 0 || (wheelY == 0 && wheelPreciseY > 0.0f)) wheelDir = 1;
+					else if (wheelY < 0 || (wheelY == 0 && wheelPreciseY < 0.0f)) wheelDir = -1;
+					else continue;
 					Uint8 wheelBtn = (wheelDir > 0) ? SDL_BUTTON_WHEELUP : SDL_BUTTON_WHEELDOWN;
+
+					const double sx = _screen->getXScale();
+					const double sy = _screen->getYScale();
+					const int    tb = _screen->getCursorTopBlackBand();
+					const int    lb = _screen->getCursorLeftBlackBand();
+					// Bridge-owned pointer: the direct canvas bridge owns
+					// normalized motion; SDL_GetMouseState can lag a DPR-scaled
+					// frame behind and retarget the tick. Reuse the
+					// refreshCalypsoMousePosition derivation (game coords ->
+					// display coords) and never move the cursor here.
+					const int mx = static_cast<int>(_cursor->getX() * sx) + lb;
+					const int my = static_cast<int>(_cursor->getY() * sy) + tb;
 
 					SDL_Event ev;
 					SDL_memset(&ev, 0, sizeof(ev));
 					ev.button.button = wheelBtn;
 					ev.button.x = (Sint32)mx;
 					ev.button.y = (Sint32)my;
-					const double sx = _screen->getXScale();
-					const double sy = _screen->getYScale();
-					const int    tb = _screen->getCursorTopBlackBand();
-					const int    lb = _screen->getCursorLeftBlackBand();
 
 					ev.type = SDL_MOUSEBUTTONDOWN;
 					ev.button.state = SDL_PRESSED;

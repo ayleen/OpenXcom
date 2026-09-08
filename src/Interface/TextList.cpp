@@ -31,6 +31,7 @@
 #ifdef __EMSCRIPTEN__
 #include "../Engine/TTFFont.h"
 #include "../Calypso/CalypsoHdUiOverlay.h" // Phase 46.2-HD (empty on native)
+#include "../Calypso/CalypsoSelectionListScroll.h"
 #endif
 
 namespace OpenXcom
@@ -104,6 +105,9 @@ void TextList::setX(int x)
 	_scrollbar->setX(getX() + getWidth() + _scrollPos);
 	if (_selector != 0)
 		_selector->setX(getX());
+#ifdef __EMSCRIPTEN__
+	if (_hdSelList) positionCalypsoHdScrollbar();
+#endif
 }
 
 /**
@@ -122,6 +126,9 @@ void TextList::setY(int y)
 	_scrollbar->setY(_up->getY() + _up->getHeight());
 	if (_selector != 0)
 		_selector->setY(getY());
+#ifdef __EMSCRIPTEN__
+	if (_hdSelList) positionCalypsoHdScrollbar();
+#endif
 }
 
 /**
@@ -628,6 +635,14 @@ void TextList::setHeight(int height)
 {
 	Surface::setHeight(height);
 	setY(getY());
+#ifdef __EMSCRIPTEN__
+	if (_hdSelList)
+	{
+		updateVisible();
+		positionCalypsoHdScrollbar();
+		return;
+	}
+#endif
 	int h = std::max(_down->getY() - _up->getY() - _up->getHeight(), 1);
 	_scrollbar->setHeight(h);
 	updateVisible();
@@ -1121,6 +1136,22 @@ void TextList::updateArrows()
  */
 void TextList::updateVisible()
 {
+#ifdef __EMSCRIPTEN__
+	if (_hdSelList && _hdRowStride > 0 && _hdVisibleRows > 0)
+	{
+		_visibleRows = _hdVisibleRows;
+		if (!_rows.empty() && _scroll + _visibleRows > _rows.size())
+		{
+			_scroll = _rows.size() > _visibleRows ? _rows.size() - _visibleRows : 0;
+		}
+		else if (_rows.size() <= _visibleRows)
+		{
+			_scroll = 0;
+		}
+		updateArrows();
+		return;
+	}
+#endif
 	_visibleRows = 0;
 #ifdef __EMSCRIPTEN__
 	const int stride = std::max(1, std::max(
@@ -1285,9 +1316,39 @@ void TextList::blit(SDL_Surface *surface)
  */
 void TextList::handle(Action *action, State *state)
 {
+#ifdef __EMSCRIPTEN__
+	// HD ownership at entry: track/drag pointer input belongs to the ScrollBar
+	// exclusively and must never arm the TextList (else a drag released over a
+	// row activates a facility via InteractiveSurface::mouseClick).
+	if (_hdSelList && _scrollbar && (action->getDetails()->type == SDL_MOUSEBUTTONDOWN ||
+		action->getDetails()->type == SDL_MOUSEBUTTONUP || action->getDetails()->type == SDL_MOUSEMOTION))
+	{
+		if (_scrollbar->calypsoHdIsDragging())
+		{
+			_scrollbar->handle(action, state);
+			return;
+		}
+		if (action->getDetails()->type != SDL_MOUSEBUTTONUP &&
+			isCalypsoHdTrackHit(action->getAbsoluteXMouse(), action->getAbsoluteYMouse()))
+		{
+			_scrollbar->handle(action, state);
+			return;
+		}
+	}
+#endif
 	InteractiveSurface::handle(action, state);
+#ifdef __EMSCRIPTEN__
+	// Configured HD lists never dispatch to the unpainted legacy _up/_down
+	// ArrowButton children outside the inset track; ordinary lists keep them.
+	if (!_hdSelList)
+	{
+		_up->handle(action, state);
+		_down->handle(action, state);
+	}
+#else
 	_up->handle(action, state);
 	_down->handle(action, state);
+#endif
 	_scrollbar->handle(action, state);
 	if (_arrowPos != -1 && !_rows.empty())
 	{
@@ -1325,7 +1386,34 @@ void TextList::handle(Action *action, State *state)
 		{
 			scrollUp(false, false, _visibleRows);
 		}
+#ifdef __EMSCRIPTEN__
+		else if (_hdSelList && action->getDetails()->key.keysym.sym == SDLK_DOWN)
+		{
+			calypsoHdMoveSelection(1);
+		}
+		else if (_hdSelList && action->getDetails()->key.keysym.sym == SDLK_UP)
+		{
+			calypsoHdMoveSelection(-1);
+		}
+#endif
 	}
+#ifdef __EMSCRIPTEN__
+	// Up/Down navigate the selection even when the whole list fits on screen;
+	// PageUp/PageDown above keep their scroll-only behavior. No activation here.
+	else if (_hdSelList && action->getDetails()->type == SDL_KEYDOWN &&
+		_rows.size() <= _visibleRows && !_rows.empty() &&
+		(_hdSelList || isMouseCursorOverMe(state)))
+	{
+		if (action->getDetails()->key.keysym.sym == SDLK_DOWN)
+		{
+			calypsoHdMoveSelection(1);
+		}
+		else if (action->getDetails()->key.keysym.sym == SDLK_UP)
+		{
+			calypsoHdMoveSelection(-1);
+		}
+	}
+#endif
 }
 
 bool TextList::isMouseCursorOverMe(State* state) const
@@ -1412,7 +1500,6 @@ void TextList::mouseRelease(Action *action, State *state)
 		InteractiveSurface::mouseRelease(action, state);
 	}
 }
-
 /**
  * Ignores any mouse clicks that aren't on a row.
  * @param action Pointer to an action.
@@ -1420,6 +1507,15 @@ void TextList::mouseRelease(Action *action, State *state)
  */
 void TextList::mouseClick(Action *action, State *state)
 {
+#ifdef __EMSCRIPTEN__
+	// Track clicks follow normal scrollbar behavior; they must never select
+	// or activate a facility row. Middle-click ufopaedia actions are untouched.
+	if (_hdSelList && action->getDetails()->button.button == SDL_BUTTON_LEFT &&
+		isCalypsoHdTrackHit(action->getAbsoluteXMouse(), action->getAbsoluteYMouse()))
+	{
+		return;
+	}
+#endif
 	if (_selectable)
 	{
 		if (_selRow < _rows.size())
@@ -1446,10 +1542,45 @@ void TextList::mouseOver(Action *action, State *state)
 {
 	if (_selectable)
 	{
+#ifdef __EMSCRIPTEN__
+		// A drag crossing row content must not reselect rows mid-gesture.
+		if (_hdSelList && _scrollbar->calypsoHdIsDragging())
+		{
+			InteractiveSurface::mouseOver(action, state);
+			return;
+		}
+		// A stationary synthetic hover refresh must not overwrite keyboard
+		// selection; real pointer moves/clicks still select rows normally.
+		if (_hdSelList)
+		{
+			const double absX = action->getAbsoluteXMouse();
+			const double absY = action->getAbsoluteYMouse();
+			if (absX == _hdLastHoverX && absY == _hdLastHoverY)
+			{
+				SDL_Event *hdEv = action->getDetails();
+				const bool hdRealClick = (hdEv && hdEv->type == SDL_MOUSEBUTTONDOWN
+					&& (hdEv->button.button == SDL_BUTTON_LEFT || hdEv->button.button == SDL_BUTTON_MIDDLE || hdEv->button.button == SDL_BUTTON_RIGHT));
+				if (!hdRealClick)
+				{
+					InteractiveSurface::mouseOver(action, state);
+					return;
+				}
+			}
+			_hdLastHoverX = absX;
+			_hdLastHoverY = absY;
+		}
+#endif
 		int rowHeight = std::max(_font->getHeight(), _minimumRowHeight)
 			+ _font->getSpacing(); // theoretical line height
 #ifdef __EMSCRIPTEN__
-		_selRow = std::max(0, (int)(_scroll + (int)floor(action->getRelativeYMouse() / (rowHeight * scale() * action->getYScale()))));
+		if (_hdSelList && _hdRowStride > 0)
+		{
+			_selRow = std::max(0, (int)(_scroll + (int)floor(action->getRelativeYMouse() / ((double)_hdRowStride * action->getYScale()))));
+		}
+		else
+		{
+			_selRow = std::max(0, (int)(_scroll + (int)floor(action->getRelativeYMouse() / (rowHeight * scale() * action->getYScale()))));
+		}
 #else
 		_selRow = std::max(0, (int)(_scroll + (int)floor(action->getRelativeYMouse() / (rowHeight * action->getYScale()))));
 #endif
@@ -1459,17 +1590,16 @@ void TextList::mouseOver(Action *action, State *state)
 	InteractiveSurface::mouseOver(action, state);
 }
 
-/**
- * Deselects the row.
- * @param action Pointer to an action.
- * @param state State that the action handlers belong to.
- */
 void TextList::mouseOut(Action *action, State *state)
 {
 	if (_selectable)
 	{
 		_selector->setVisible(false);
 	}
+#ifdef __EMSCRIPTEN__
+	_hdLastHoverX = 1e30;
+	_hdLastHoverY = 1e30;
+#endif
 
 	InteractiveSurface::mouseOut(action, state);
 }
@@ -1551,6 +1681,10 @@ void TextList::setIgnoreSeparators(bool ignoreSeparators)
  */
 void TextList::setWidth(int w)
 {
+	// Same-size updates must not recreate the arrows/scrollbar for configured
+	// HD lists: recreation drops an in-progress scrollbar drag. Real resizes
+	// reset the capture. Ordinary lists keep the legacy path below.
+	if (_hdSelList && w == getWidth()) return;
 	Surface::setWidth(w);
 	// Recreate scroll arrows at scaled size.
 	float s = scale();
@@ -1586,6 +1720,11 @@ void TextList::setWidth(int w)
 	_scrollbar->setColor(barColor);
 	if (_bg) _scrollbar->setBackground(_bg);
 	_scrollbar->setHighContrast(_contrast);
+	// Re-apply the HD seam onto the recreated scrollbar, then reposition.
+	if (_hdSelList)
+	{
+		_scrollbar->setCalypsoHdMinThumb(_hdMinThumb);
+	}
 	// Reposition _down and recompute scrollbar height.
 	setY(getY());
 	setHeight(getHeight());
@@ -1603,6 +1742,136 @@ void TextList::setTTFFont(TTFFont* font, float fillFrac)
 	for (auto& row : _texts)
 		for (auto* t : row)
 			t->setTTFFont(font, fillFrac);
+}
+
+void TextList::configureCalypsoHdSelectionList(int scrollBarWidth, int minThumbHeight, int rowStride, size_t visibleRows)
+{
+	const int cachedStride = rowStride > 0 ? rowStride : 0;
+	const size_t cachedVisible = visibleRows;
+	const bool changed = !_hdSelList || _hdScrollBarWidth != scrollBarWidth || _hdMinThumb != minThumbHeight ||
+		_hdRowStride != cachedStride || _hdVisibleRows != cachedVisible;
+	_hdSelList = true;
+	_hdScrollBarWidth = scrollBarWidth > 0 ? scrollBarWidth : 0;
+	_hdMinThumb = minThumbHeight > 0 ? minThumbHeight : 0;
+	_hdRowStride = cachedStride;
+	_hdVisibleRows = cachedVisible;
+	if (changed)
+	{
+		_scrollbar->setCalypsoHdMinThumb(_hdMinThumb);
+		_scrollbar->calypsoHdCancelDrag();
+	}
+	else
+	{
+		_scrollbar->setCalypsoHdMinThumb(_hdMinThumb);
+	}
+	updateVisible();
+	positionCalypsoHdScrollbar();
+}
+
+void TextList::clearCalypsoHdSelectionList()
+{
+	if (!_hdSelList) return;
+	_hdSelList = false;
+	_hdScrollBarWidth = 0;
+	_hdMinThumb = 0;
+	_hdRowStride = 0;
+	_hdVisibleRows = 0;
+	_hdLastHoverX = 1e30;
+	_hdLastHoverY = 1e30;
+	_scrollbar->clearCalypsoHd();
+}
+
+bool TextList::isCalypsoHdSelectionList() const
+{
+	return _hdSelList;
+}
+
+SDL_Rect TextList::getCalypsoHdTrackRect() const
+{
+	SDL_Rect track;
+	track.x = getX();
+	track.y = getY();
+	track.w = 0;
+	track.h = 0;
+	if (!_hdSelList || _hdScrollBarWidth <= 0 || getWidth() <= 0 || getHeight() <= 0) return track;
+	const Calypso::CalypsoSelectionListTrack t = Calypso::calypsoSelectionListTrackForList(
+		getX(), getY(), getWidth(), getHeight(), _hdScrollBarWidth);
+	track.x = t.x;
+	track.y = t.y;
+	track.w = t.w;
+	track.h = t.h;
+	return track;
+}
+
+SDL_Rect TextList::getCalypsoHdThumbRect() const
+{
+	SDL_Rect thumb;
+	thumb.x = getX();
+	thumb.y = getY();
+	thumb.w = 0;
+	thumb.h = 0;
+	if (!_hdSelList) return thumb;
+	const SDL_Rect track = getCalypsoHdTrackRect();
+	if (track.w <= 0 || track.h <= 0) return thumb;
+	const std::size_t total = _rows.size();
+	const std::size_t visible = _visibleRows;
+	const std::size_t maxScroll = Calypso::calypsoSelectionListMaxScroll(total, visible);
+	if (maxScroll == 0) return thumb;
+	thumb.x = track.x;
+	thumb.w = track.w;
+	thumb.h = Calypso::calypsoSelectionListThumbHeight(track.h, total, visible, _hdMinThumb);
+	thumb.y = track.y + Calypso::calypsoSelectionListThumbOffset(track.h, thumb.h, _scroll, maxScroll);
+	return thumb;
+}
+
+void TextList::positionCalypsoHdScrollbar()
+{
+	if (!_hdSelList) return;
+	const SDL_Rect track = getCalypsoHdTrackRect();
+	if (track.w <= 0 || track.h <= 0) return;
+	const bool moved = _scrollbar->getX() != track.x || _scrollbar->getY() != track.y ||
+		_scrollbar->getWidth() != track.w || _scrollbar->getHeight() != track.h;
+	if (!moved) return;
+	// A real geometry change invalidates an in-progress drag grab offset.
+	_scrollbar->calypsoHdCancelDrag();
+	_scrollbar->setX(track.x);
+	_scrollbar->setY(track.y);
+	if (_scrollbar->getWidth() != track.w)
+		_scrollbar->setWidth(track.w);
+	if (_scrollbar->getHeight() != track.h)
+		_scrollbar->setHeight(track.h);
+}
+
+bool TextList::isCalypsoHdTrackHit(double absX, double absY) const
+{
+	if (!_hdSelList) return false;
+	const SDL_Rect track = getCalypsoHdTrackRect();
+	if (track.w <= 0 || track.h <= 0) return false;
+	return absX >= track.x && absX < track.x + track.w &&
+		absY >= track.y && absY < track.y + track.h;
+}
+
+void TextList::calypsoHdMoveSelection(int delta)
+{
+	if (!_selectable || _texts.empty() || _rows.empty() || delta == 0) return;
+	// Current logical row under the native selection index.
+	const std::size_t current = static_cast<std::size_t>(getSelectedRow());
+	std::size_t target;
+	if (current >= _texts.size())
+	{
+		target = delta > 0 ? 0 : _texts.size() - 1;
+	}
+	else if (delta > 0)
+	{
+		target = std::min<std::size_t>(_texts.size() - 1, current + 1);
+	}
+	else
+	{
+		target = current > 0 ? current - 1 : 0;
+	}
+	// setSelectedRow reveals the row (scrolls) and clamps at the endpoints;
+	// it never activates handlers.
+	setSelectedRow(target);
 }
 #endif
 

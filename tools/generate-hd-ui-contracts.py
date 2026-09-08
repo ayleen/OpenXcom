@@ -424,10 +424,16 @@ def validate_family(doc, rel, profile, engine_text_calibration=False):
                 fail(rel + ": " + layout_name + " list must be an integer rect")
             row_height = layout.get("rowHeight")
             visible_rows = layout.get("visibleRows")
+            scrollbar_width = layout.get("scrollbarWidth")
+            min_thumb_height = layout.get("minThumbHeight")
             if not isinstance(row_height, int) or isinstance(row_height, bool) or row_height < 44:
                 fail(rel + ": " + layout_name + " rowHeight must be an integer >= 44")
             if not isinstance(visible_rows, int) or isinstance(visible_rows, bool) or visible_rows < 1:
                 fail(rel + ": " + layout_name + " visibleRows must be a positive integer")
+            if not isinstance(scrollbar_width, int) or isinstance(scrollbar_width, bool) or scrollbar_width < 1:
+                fail(rel + ": " + layout_name + " scrollbarWidth must be a positive integer")
+            if not isinstance(min_thumb_height, int) or isinstance(min_thumb_height, bool) or min_thumb_height < 1:
+                fail(rel + ": " + layout_name + " minThumbHeight must be a positive integer")
             if rect["height"] != visible_rows * row_height:
                 fail(rel + ": " + layout_name + " list height must equal visibleRows * rowHeight")
             slots = layout.get("rowSlots")
@@ -1204,7 +1210,7 @@ def emit_selection_list_h(doc, rel, ns, prefix):
             out.append("inline constexpr std::uint32_t k" + key[0].upper() + key[1:] + " = " + rgba_call(style[key]) + ";")
     out.append("")
     out.append("struct " + prefix + "GenRect { int x; int y; int w; int h; };")
-    out.append("struct " + prefix + "GenLayout { int designWidth; int designHeight; int rowHeight; int visibleRows; int scrollBarWidth; " + prefix + "GenRect window; " + prefix + "GenRect status; " + prefix + "GenRect title; " + prefix + "GenRect list; " + prefix + "GenRect footer;")
+    out.append("struct " + prefix + "GenLayout { int designWidth; int designHeight; int rowHeight; int visibleRows; int scrollBarWidth; int minThumbHeight; " + prefix + "GenRect window; " + prefix + "GenRect status; " + prefix + "GenRect title; " + prefix + "GenRect list; " + prefix + "GenRect footer;")
     out.append("};")
     out.append("inline constexpr " + prefix + "GenLayout kLayouts[] = {")
     # Canonical positional order: the C++ adapters index kLayouts/kButtonRects
@@ -1213,7 +1219,7 @@ def emit_selection_list_h(doc, rel, ns, prefix):
     for name in generated_layouts:
         l = layouts[name]
         out.append("    { " + str(l["designWidth"]) + ", " + str(l["designHeight"]) + ", "
-                   + str(l["rowHeight"]) + ", " + str(l["visibleRows"]) + ", " + str(l["scrollbarWidth"]) + ", "
+                   + str(l["rowHeight"]) + ", " + str(l["visibleRows"]) + ", " + str(l["scrollbarWidth"]) + ", " + str(l["minThumbHeight"]) + ", "
                    + "{ " + str(l["window"]["x"]) + ", " + str(l["window"]["y"]) + ", " + str(l["window"]["width"]) + ", " + str(l["window"]["height"]) + " }, "
                    + "{ " + str(l["status"]["x"]) + ", " + str(l["status"]["y"]) + ", " + str(l["status"]["width"]) + ", " + str(l["status"]["height"]) + " }, "
                    + "{ " + str(l["title"]["x"]) + ", " + str(l["title"]["y"]) + ", " + str(l["title"]["width"]) + ", " + str(l["title"]["height"]) + " }, "

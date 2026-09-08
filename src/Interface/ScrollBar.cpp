@@ -21,6 +21,9 @@
 #include "../Engine/Action.h"
 #include "TextList.h"
 #include "../Engine/Palette.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoSelectionListScroll.h"
+#endif
 
 namespace OpenXcom
 {
@@ -154,9 +157,31 @@ void ScrollBar::setPalette(const SDL_Color *colors, int firstcolor, int ncolors)
 void ScrollBar::handle(Action *action, State *state)
 {
 	InteractiveSurface::handle(action, state);
+#ifdef __EMSCRIPTEN__
+	const bool hdDragEvent = action->getDetails()->type == SDL_MOUSEMOTION ||
+		(action->getDetails()->type == SDL_MOUSEBUTTONDOWN && action->getDetails()->button.button == SDL_BUTTON_LEFT);
+#endif
 	if (_pressed && (action->getDetails()->type == SDL_MOUSEMOTION || action->getDetails()->type == SDL_MOUSEBUTTONDOWN))
 	{
-		int cursorY = action->getAbsoluteYMouse() - getY();
+		if (!_list) return;
+		const int cursorY = (int)action->getAbsoluteYMouse() - getY();
+#ifdef __EMSCRIPTEN__
+		if (_hdEnabled)
+		{
+			// A wheel tick while held must keep its own scroll step; remapping
+			// it from drag coordinates would overwrite it from the cursor.
+			if (!hdDragEvent) return;
+			const std::size_t total = _list->getRowsDoNotUse();
+			const std::size_t visible = _list->getVisibleRows();
+			const std::size_t maxScroll = Calypso::calypsoSelectionListMaxScroll(total, visible);
+			if (maxScroll == 0) return;
+			const int thumbH = Calypso::calypsoSelectionListThumbHeight(getHeight(), total, visible, _hdMinThumb);
+			// _offset preserves the initial grab position inside the thumb.
+			const int thumbOffset = cursorY + _offset;
+			_list->scrollTo(Calypso::calypsoSelectionListScrollForOffset(thumbOffset, getHeight(), thumbH, maxScroll));
+			return;
+		}
+#endif
 		int y = Clamp(cursorY + _offset, 0, getHeight() - _thumbRect.h + 1);
 		double scale = (double)_list->getRowsDoNotUse() / getHeight();
 		int scroll = (int)Round(y * scale);
@@ -189,10 +214,27 @@ void ScrollBar::mousePress(Action *action, State *state)
 	InteractiveSurface::mousePress(action, state);
 	if (action->getDetails()->button.button == SDL_BUTTON_LEFT)
 	{
-		int cursorY = action->getAbsoluteYMouse() - getY();
-		if (cursorY >= _thumbRect.y && cursorY < _thumbRect.y + _thumbRect.h)
+		const int cursorY = (int)action->getAbsoluteYMouse() - getY();
+#ifdef __EMSCRIPTEN__
+		if (_hdEnabled && _list)
 		{
-			_offset = _thumbRect.y - cursorY;
+			const SDL_Rect thumb = calypsoHdThumbRect();
+			if (cursorY >= thumb.y && thumb.h > 0 && cursorY < thumb.y + thumb.h)
+			{
+				_offset = thumb.y - cursorY;
+			}
+			else
+			{
+				_offset = -thumb.h / 2;
+			}
+			_pressed = true;
+			return;
+		}
+#endif
+		int legacyCursorY = cursorY;
+		if (legacyCursorY >= _thumbRect.y && legacyCursorY < _thumbRect.y + _thumbRect.h)
+		{
+			_offset = _thumbRect.y - legacyCursorY;
 		}
 		else
 		{
@@ -259,11 +301,30 @@ void ScrollBar::drawTrack()
  */
 void ScrollBar::drawThumb()
 {
+#ifdef __EMSCRIPTEN__
+	if (_hdEnabled && _list)
+	{
+		const SDL_Rect thumb = calypsoHdThumbRect();
+		_thumbRect.x = 0;
+		_thumbRect.y = thumb.y;
+		_thumbRect.w = _thumb->getWidth();
+		_thumbRect.h = thumb.h;
+	}
+	else
+	{
+		double scale = (double)getHeight() / _list->getRowsDoNotUse();
+		_thumbRect.x = 0;
+		_thumbRect.y = (int)floor(_list->getScroll() * scale);
+		_thumbRect.w = _thumb->getWidth();
+		_thumbRect.h = (int)ceil(_list->getVisibleRows() * scale);
+	}
+#else
 	double scale = (double)getHeight() / _list->getRowsDoNotUse();
 	_thumbRect.x = 0;
 	_thumbRect.y = (int)floor(_list->getScroll() * scale);
 	_thumbRect.w = _thumb->getWidth();
 	_thumbRect.h = (int)ceil(_list->getVisibleRows() * scale);
+#endif
 
 	// Draw base button
 	_thumb->clear();
@@ -323,5 +384,57 @@ void ScrollBar::drawThumb()
 	}
 	_thumb->unlock();
 }
+
+#ifdef __EMSCRIPTEN__
+void ScrollBar::setCalypsoHdMinThumb(int minThumb)
+{
+	if (!_hdEnabled || _hdMinThumb != minThumb)
+	{
+		_pressed = false;
+		_offset = 0;
+	}
+	_hdEnabled = true;
+	_hdMinThumb = minThumb;
+	_redraw = true;
+}
+
+void ScrollBar::clearCalypsoHd()
+{
+	if (!_hdEnabled) return;
+	_hdEnabled = false;
+	_hdMinThumb = 0;
+	_pressed = false;
+	_offset = 0;
+	_redraw = true;
+}
+
+bool ScrollBar::calypsoHdIsDragging() const
+{
+	return _hdEnabled && _pressed;
+}
+
+void ScrollBar::calypsoHdCancelDrag()
+{
+	_pressed = false;
+	_offset = 0;
+}
+
+SDL_Rect ScrollBar::calypsoHdThumbRect()
+{
+	SDL_Rect thumb;
+	thumb.x = 0;
+	thumb.y = 0;
+	thumb.w = getWidth();
+	thumb.h = 0;
+	if (!_list || !_hdEnabled || getHeight() <= 0) return thumb;
+	const std::size_t total = _list->getRowsDoNotUse();
+	const std::size_t visible = _list->getVisibleRows();
+	const std::size_t maxScroll = Calypso::calypsoSelectionListMaxScroll(total, visible);
+	if (maxScroll == 0) return thumb;
+	thumb.h = Calypso::calypsoSelectionListThumbHeight(getHeight(), total, visible, _hdMinThumb);
+	thumb.y = Calypso::calypsoSelectionListThumbOffset(getHeight(), thumb.h, _list->getScroll(), maxScroll);
+	return thumb;
+}
+#endif
 
 }

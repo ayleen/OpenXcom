@@ -324,7 +324,15 @@ struct CalypsoSelectionListModel
 	int rowHeight = 1;
 	int visibleRows = 1;
 	int scrollBarWidth = 0;
-
+	/// Projected min thumb height (design minThumbHeight scaled); the legacy
+	/// scrollbar path uses this instead of a hardcoded painter constant.
+	int minThumbHeight = 0;
+	/// Native inset track/thumb in the list's logical space, shared with
+	/// TextList/ScrollBar input. When present the painter uses them exactly.
+	bool hasNativeScrollGeometry = false;
+	CalypsoLogicalRect nativeTrack{};
+	CalypsoLogicalRect nativeThumb{};
+	bool nativeThumbVisible = false;
 	float cutCornerPx = 0.0f;
 	float protocolTextInsetPx = 0.0f;
 	std::uint32_t panelFillTop = 0;

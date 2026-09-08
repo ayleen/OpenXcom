@@ -41,11 +41,11 @@ inline constexpr std::uint32_t kSelection = 0x74FFB033u;
 inline constexpr std::uint32_t kText = 0xE8FFF5FFu;
 
 struct CalypsoF03BuildFacilitiesGenRect { int x; int y; int w; int h; };
-struct CalypsoF03BuildFacilitiesGenLayout { int designWidth; int designHeight; int rowHeight; int visibleRows; int scrollBarWidth; CalypsoF03BuildFacilitiesGenRect window; CalypsoF03BuildFacilitiesGenRect status; CalypsoF03BuildFacilitiesGenRect title; CalypsoF03BuildFacilitiesGenRect list; CalypsoF03BuildFacilitiesGenRect footer;
+struct CalypsoF03BuildFacilitiesGenLayout { int designWidth; int designHeight; int rowHeight; int visibleRows; int scrollBarWidth; int minThumbHeight; CalypsoF03BuildFacilitiesGenRect window; CalypsoF03BuildFacilitiesGenRect status; CalypsoF03BuildFacilitiesGenRect title; CalypsoF03BuildFacilitiesGenRect list; CalypsoF03BuildFacilitiesGenRect footer;
 };
 inline constexpr CalypsoF03BuildFacilitiesGenLayout kLayouts[] = {
-    { 1280, 720, 44, 6, 18, { 340, 130, 600, 448 }, { 340, 130, 600, 38 }, { 372, 176, 536, 44 }, { 372, 228, 536, 264 }, { 340, 508, 600, 70 } }, // wide
-    { 740, 360, 44, 4, 18, { 70, 20, 600, 320 }, { 70, 20, 600, 34 }, { 102, 60, 536, 38 }, { 102, 104, 536, 176 }, { 70, 286, 600, 54 } }, // compact
+    { 1280, 720, 44, 6, 18, 44, { 340, 130, 600, 448 }, { 340, 130, 600, 38 }, { 372, 176, 536, 44 }, { 372, 228, 536, 264 }, { 340, 508, 600, 70 } }, // wide
+    { 740, 360, 44, 4, 18, 44, { 70, 20, 600, 320 }, { 70, 20, 600, 34 }, { 102, 60, 536, 38 }, { 102, 104, 536, 176 }, { 70, 286, 600, 54 } }, // compact
 };
 inline constexpr CalypsoF03BuildFacilitiesGenRect kRowSlotsWide[] = {
     { 372, 228, 536, 44 }, // row-slot-1
