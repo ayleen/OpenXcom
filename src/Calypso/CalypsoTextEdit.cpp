@@ -27,6 +27,18 @@ extern TextEdit *g_calypsoFocusedTextEdit;
 namespace Calypso
 {
 
+bool CalypsoTextEdit::exceedsPhysicalWidth(const TextEdit& edit, char32_t codepoint)
+{
+	UString value = edit._value;
+	value.insert(edit._caretPos, 1, codepoint);
+	std::vector<int> widths, kernings;
+	if (!edit._physicalTextFont->measureGlyphs(value, widths, kernings)) return true;
+	double width = 0;
+	for (size_t index = 0; index < widths.size(); ++index)
+		width += widths[index] + kernings[index];
+	return width * edit._physicalTextScaleX > edit.getWidth();
+}
+
 bool CalypsoTextEdit::caretAdvance(const TextEdit& edit, TTFFont* font, double& advance)
 {
 	if (!edit._isFocused || !edit._blink || font == nullptr) return false;

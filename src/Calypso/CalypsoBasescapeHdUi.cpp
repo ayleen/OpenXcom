@@ -28,6 +28,7 @@
 #include "../Savegame/Craft.h"
 #include "../Savegame/SavedGame.h"
 #include "Generated/CalypsoBasescapeCommandShell.generated.h"
+#include "CalypsoStrategicNavigation.h"
 
 #include <algorithm>
 #include <iomanip>
@@ -752,8 +753,67 @@ void CalypsoBasescapeHdUi::feedPlacementModel()
 	model.baseSnapshot = std::move(snapshot);
 	_renderer->setModel(std::move(model));
 }
-
 } // namespace Calypso
+
+void BasescapeState::calypsoRailOperationsClick(Action *)
+{
+	Calypso::calypsoRequestStrategicRoute(_game, Calypso::CalypsoStrategicRoute::Intercept);
+	_game->popState();
+}
+
+void BasescapeState::calypsoRailAnalyticsClick(Action *)
+{
+	Calypso::calypsoRequestStrategicRoute(_game, Calypso::CalypsoStrategicRoute::Graphs);
+	_game->popState();
+}
+
+void BasescapeState::calypsoRailArchiveClick(Action *)
+{
+	Calypso::calypsoRequestStrategicRoute(_game, Calypso::CalypsoStrategicRoute::Archive);
+	_game->popState();
+}
+
+void BasescapeState::calypsoRailSettingsClick(Action *)
+{
+	Calypso::calypsoRequestStrategicRoute(_game, Calypso::CalypsoStrategicRoute::Options);
+	_game->popState();
+}
+
+/**
+ * Canonical HD form for a placement validation error. Native gameplay is
+ * untouched: the reason string stays the native one, only the presentation
+ * becomes the canonical HD error popup (facility as title, reason as body).
+ */
+ErrorMessageHdForm PlaceFacilityState::placementErrorForm(const std::string &reason) const
+{
+	ErrorMessageHdForm form;
+	form.protocol = tr(_rule->getType());
+	form.title = tr(_rule->getType());
+	form.bodyLines.push_back(reason);
+	form.actionLabel = tr("STR_OK");
+	// Explicit underlay context: pushPlacementError() calls this AFTER the
+	// optional pop, so the top state is the placement shell for in-place
+	// errors or the chooser after a money/items pop. The error adapter
+	// composes that physical replacement below the popup.
+	form.hdUnderlayState = _game ? _game->getTopState() : nullptr;
+	return form;
+}
+
+/**
+ * State-local placement error push: original native arguments and pop/push
+ * order, canonical HD form attached. Native builds use the same helper
+ * without the form (see PlaceFacilityState.cpp), so gameplay can never
+ * drift per platform.
+ */
+void PlaceFacilityState::pushPlacementError(const std::string &reason, const std::string &bg, int errorColor1, int errorColor2, bool popFirst)
+{
+	if (popFirst)
+	{
+		_game->popState();
+	}
+	_game->pushState(new ErrorMessageState(reason, _palette, errorColor1, bg, errorColor2, 0, nullptr, placementErrorForm(reason)));
+}
+
 } // namespace OpenXcom
 
 #endif // __EMSCRIPTEN__

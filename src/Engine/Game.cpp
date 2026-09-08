@@ -358,82 +358,8 @@ bool Game::iterate()
 #endif
 #ifdef __EMSCRIPTEN__
 			case SDL_MOUSEWHEEL:
-				if (!_mouseActive) continue;
-				_runningState = RUNNING;
-				if (_event.type == SDL_MOUSEWHEEL)
-				{
-					// SDL2 delivers mouse-wheel as SDL_MOUSEWHEEL; translate to
-					// a synthetic SDL_MOUSEBUTTONDOWN+UP pair so all existing
-					// BUTTON_WHEELUP/DOWN handlers keep working.
-					// Guard: SDL_MOUSEMOTION falls through here too — skip the
-					// transform in that case or every mouse move becomes a wheel click.
-					//
-					// Both the DOWN and the UP are dispatched inline within this
-					// iteration. Queueing the UP via SDL_PushEvent appends it to
-					// the back of the queue; under bursty wheel input the next
-					// MOUSEBUTTONDOWN gets observed first and InteractiveSurface
-					// sees the synthetic button still latched, dropping the tick.
-					// SDL2 vertical delta: integer y, plus fractional
-					// preciseY for high-resolution wheels/trackpads that
-					// report y == 0. Flipped direction negates the delta.
-					// A truly zero vertical delta (e.g. horizontal-only)
-					// is not a wheel tick in either direction.
-					Sint32 wheelY = _event.wheel.y;
-					float wheelPreciseY = 0.0f;
-#if SDL_VERSION_ATLEAST(2, 0, 18)
-					wheelPreciseY = _event.wheel.preciseY;
-#endif
-					if (_event.wheel.direction == SDL_MOUSEWHEEL_FLIPPED)
-					{
-						wheelY = -wheelY;
-						wheelPreciseY = -wheelPreciseY;
-					}
-					int wheelDir = 0;
-					if (wheelY > 0 || (wheelY == 0 && wheelPreciseY > 0.0f)) wheelDir = 1;
-					else if (wheelY < 0 || (wheelY == 0 && wheelPreciseY < 0.0f)) wheelDir = -1;
-					else continue;
-					Uint8 wheelBtn = (wheelDir > 0) ? SDL_BUTTON_WHEELUP : SDL_BUTTON_WHEELDOWN;
-
-					const double sx = _screen->getXScale();
-					const double sy = _screen->getYScale();
-					const int    tb = _screen->getCursorTopBlackBand();
-					const int    lb = _screen->getCursorLeftBlackBand();
-					// Bridge-owned pointer: the direct canvas bridge owns
-					// normalized motion; SDL_GetMouseState can lag a DPR-scaled
-					// frame behind and retarget the tick. Reuse the
-					// refreshCalypsoMousePosition derivation (game coords ->
-					// display coords) and never move the cursor here.
-					const int mx = static_cast<int>(_cursor->getX() * sx) + lb;
-					const int my = static_cast<int>(_cursor->getY() * sy) + tb;
-
-					SDL_Event ev;
-					SDL_memset(&ev, 0, sizeof(ev));
-					ev.button.button = wheelBtn;
-					ev.button.x = (Sint32)mx;
-					ev.button.y = (Sint32)my;
-
-					ev.type = SDL_MOUSEBUTTONDOWN;
-					ev.button.state = SDL_PRESSED;
-					{
-						Action a(&ev, sx, sy, tb, lb);
-						_screen->handle(&a);
-						_cursor->handle(&a);
-						_fpsCounter->handle(&a);
-						if (!_states.empty()) _states.back()->handle(&a);
-					}
-					ev.type = SDL_MOUSEBUTTONUP;
-					ev.button.state = SDL_RELEASED;
-					{
-						Action a(&ev, sx, sy, tb, lb);
-						_screen->handle(&a);
-						_cursor->handle(&a);
-						_fpsCounter->handle(&a);
-						if (!_states.empty()) _states.back()->handle(&a);
-					}
-					if (!_init) break;
-					continue;
-				}
-				FALLTHROUGH;
+				if (dispatchCalypsoMouseWheel() && !_init) break;
+				continue;
 #endif /* __EMSCRIPTEN__ */
 			case SDL_MOUSEBUTTONDOWN:
 			case SDL_MOUSEBUTTONUP:

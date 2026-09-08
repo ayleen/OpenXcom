@@ -87,6 +87,16 @@ private:
 	/// Rebuilds the selector at the current visible selected row.
 	void updateSelector();
 #ifdef __EMSCRIPTEN__
+	// Calypso HD bodies live in src/Calypso/CalypsoTextList.cpp; hooks here stay short.
+	bool calypsoHdRoutePointerToScrollbar(Action *action, State *state);
+	bool calypsoHdUpdateVisibleFastPath();
+	bool calypsoHdHandleResizedHeight();
+	bool calypsoHdClaimedThisFrame() const;
+	bool calypsoHdFilterMouseOver(Action *action, State *state);
+	int calypsoHdHoverSelRow(double relY, double yScale, int nativeRowH) const;
+	bool calypsoHdSuppressClick(Action *action) const;
+	void calypsoHdMaybeApplyTtf(Text *txt);
+	void calypsoHdNormalizeRowHeights(std::vector<Text*> &row, int rowHeight, int cols);
 	/// Repositions the native scrollbar onto the inset HD track (change-guarded).
 	void positionCalypsoHdScrollbar();
 	/// True when the absolute point hits the inset HD track.

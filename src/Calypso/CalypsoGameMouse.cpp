@@ -21,6 +21,57 @@ void Game::refreshCalypsoMousePosition()
 	dispatchCalypsoMouseMotion(x, y, 0, 0);
 }
 
+bool Game::dispatchCalypsoMouseWheel()
+{
+	if (!_mouseActive) return false;
+	_runningState = RUNNING;
+	Sint32 wheelY = _event.wheel.y;
+	float preciseY = 0.0f;
+#if SDL_VERSION_ATLEAST(2, 0, 18)
+	preciseY = _event.wheel.preciseY;
+#endif
+	if (_event.wheel.direction == SDL_MOUSEWHEEL_FLIPPED)
+	{
+		wheelY = -wheelY;
+		preciseY = -preciseY;
+	}
+	int direction = 0;
+	if (wheelY > 0 || (wheelY == 0 && preciseY > 0.0f)) direction = 1;
+	else if (wheelY < 0 || (wheelY == 0 && preciseY < 0.0f)) direction = -1;
+	else return false;
+
+	const double sx = _screen->getXScale(), sy = _screen->getYScale();
+	const int top = _screen->getCursorTopBlackBand();
+	const int left = _screen->getCursorLeftBlackBand();
+	SDL_Event event;
+	SDL_memset(&event, 0, sizeof(event));
+	event.button.button = direction > 0 ? SDL_BUTTON_WHEELUP : SDL_BUTTON_WHEELDOWN;
+	// Use the bridge-owned pointer, never potentially stale SDL mouse coordinates.
+	event.button.x = static_cast<Sint32>(_cursor->getX() * sx) + left;
+	event.button.y = static_cast<Sint32>(_cursor->getY() * sy) + top;
+	// Keep DOWN and UP inline: queued release can leave the button latched
+	// when a burst delivers its next wheel tick before the release is polled.
+	event.type = SDL_MOUSEBUTTONDOWN;
+	event.button.state = SDL_PRESSED;
+	{
+		Action action(&event, sx, sy, top, left);
+		_screen->handle(&action);
+		_cursor->handle(&action);
+		_fpsCounter->handle(&action);
+		if (!_states.empty()) _states.back()->handle(&action);
+	}
+	event.type = SDL_MOUSEBUTTONUP;
+	event.button.state = SDL_RELEASED;
+	{
+		Action action(&event, sx, sy, top, left);
+		_screen->handle(&action);
+		_cursor->handle(&action);
+		_fpsCounter->handle(&action);
+		if (!_states.empty()) _states.back()->handle(&action);
+	}
+	return true;
+}
+
 bool Game::dispatchCalypsoMouseMotion(int x, int y, int xrel, int yrel)
 {
 	if (!_init || !_mouseActive || !_screen || !_cursor || !_fpsCounter

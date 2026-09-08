@@ -499,21 +499,13 @@ void TextEdit::draw()
  */
 bool TextEdit::exceedsMaxWidth(UCode c) const
 {
-	int w = 0;
-	UString s = _value;
 
 #ifdef __EMSCRIPTEN__
 	if (_physicalTextFont)
-	{
-		s.insert(_caretPos, 1, c);
-		std::vector<int> widths, kernings;
-		if (!_physicalTextFont->measureGlyphs(s, widths, kernings)) return true;
-		double width = 0;
-		for (size_t index = 0; index < widths.size(); ++index)
-			width += widths[index] + kernings[index];
-		return width * _physicalTextScaleX > getWidth();
-	}
+		return Calypso::CalypsoTextEdit::exceedsPhysicalWidth(*this, c);
 #endif
+	int w = 0;
+	UString s = _value;
 	s += c;
 	for (UString::const_iterator i = s.begin(); i < s.end(); ++i)
 	{

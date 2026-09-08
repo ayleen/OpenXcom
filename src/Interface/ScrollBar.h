@@ -47,6 +47,12 @@ private:
 	void drawTrack();
 	/// Draws the scrollbar thumb.
 	void drawThumb();
+#ifdef __EMSCRIPTEN__
+	// Calypso HD bodies live in src/Calypso/CalypsoScrollBar.cpp; hooks stay short.
+	bool calypsoHdDragScrolled(Action *action, int cursorY);
+	bool calypsoHdPressAt(int cursorY);
+	bool calypsoHdSyncThumbRect();
+#endif
 public:
 	/// Creates a new scrollbar with the specified size and position.
 	ScrollBar(int width, int height, int x = 0, int y = 0);

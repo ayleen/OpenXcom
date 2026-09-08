@@ -22,6 +22,7 @@ private:
 public:
 	/// Read-only caret offset in font pixels; native editor owns blink and input.
 	static bool caretAdvance(const TextEdit& edit, TTFFont* font, double& advance);
+	static bool exceedsPhysicalWidth(const TextEdit& edit, char32_t codepoint);
 	static void invalidateLayout(TextEdit& edit);
 	static void assignText(TextEdit& edit, const char* utf8);
 	static void setMultiline(TextEdit& edit, bool multiline);

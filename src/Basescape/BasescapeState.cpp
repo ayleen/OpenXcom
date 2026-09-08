@@ -725,32 +725,6 @@ void BasescapeState::edtBaseChange(Action *)
 	_base->setName(_edtBase->getText());
 }
 
-#ifdef __EMSCRIPTEN__
-void BasescapeState::calypsoRailOperationsClick(Action *)
-{
-	Calypso::calypsoRequestStrategicRoute(_game, Calypso::CalypsoStrategicRoute::Intercept);
-	_game->popState();
-}
-
-void BasescapeState::calypsoRailAnalyticsClick(Action *)
-{
-	Calypso::calypsoRequestStrategicRoute(_game, Calypso::CalypsoStrategicRoute::Graphs);
-	_game->popState();
-}
-
-void BasescapeState::calypsoRailArchiveClick(Action *)
-{
-	Calypso::calypsoRequestStrategicRoute(_game, Calypso::CalypsoStrategicRoute::Archive);
-	_game->popState();
-}
-
-void BasescapeState::calypsoRailSettingsClick(Action *)
-{
-	Calypso::calypsoRequestStrategicRoute(_game, Calypso::CalypsoStrategicRoute::Options);
-	_game->popState();
-}
-#endif
-
 void BasescapeState::blit()
 {
 #ifdef __EMSCRIPTEN__
