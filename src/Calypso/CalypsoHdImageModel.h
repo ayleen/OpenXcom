@@ -28,6 +28,8 @@ struct CalypsoHdImageDescriptor
 	int clipY = 0;
 	int clipW = 0;
 	int clipH = 0;
+	// Center-crop UVs to the physical destination; the decoded texture is reused.
+	bool cover = false;
 };
 
 struct CalypsoHdImageValidation
@@ -94,13 +96,29 @@ struct CalypsoHdImageUvRect
 };
 
 inline CalypsoHdImageUvRect calypsoHdImageUv(
-	const CalypsoHdImageDescriptor &desc, int decodedW, int decodedH)
+	const CalypsoHdImageDescriptor &desc, int decodedW, int decodedH,
+	int destW, int destH)
 {
-	if (desc.srcW == 0 && desc.srcH == 0)
+	CalypsoHdImageUvRect uv = desc.srcW == 0 && desc.srcH == 0
+		? CalypsoHdImageUvRect{0, 0, decodedW, decodedH}
+		: CalypsoHdImageUvRect{desc.srcX, desc.srcY, desc.srcW, desc.srcH};
+	if (!desc.cover) return uv;
+	if (destW <= 0 || destH <= 0 || uv.w <= 0 || uv.h <= 0) return {};
+	if (static_cast<std::int64_t>(uv.w) * destH > static_cast<std::int64_t>(uv.h) * destW)
 	{
-		return {0, 0, decodedW, decodedH};
+		int width = static_cast<int>((static_cast<std::int64_t>(uv.h) * destW + destH / 2) / destH);
+		if (width < 1) width = 1;
+		uv.x += (uv.w - width) / 2;
+		uv.w = width;
 	}
-	return {desc.srcX, desc.srcY, desc.srcW, desc.srcH};
+	else
+	{
+		int height = static_cast<int>((static_cast<std::int64_t>(uv.w) * destH + destW / 2) / destW);
+		if (height < 1) height = 1;
+		uv.y += (uv.h - height) / 2;
+		uv.h = height;
+	}
+	return uv;
 }
 
 struct CalypsoHdImageClipResult

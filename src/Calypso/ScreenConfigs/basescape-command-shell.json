@@ -187,6 +187,13 @@
     "primaryNavigation": ["base.divers", "base.research", "base.manufacture", "base.crafts", "base.transfer", "base.purchase", "base.sell", "base.build", "base.info", "base.new", "navigation.world"]
   },
   "fixture": {
+    "selectedBase": 0,
+    "bases": [
+      {
+        "name": "AURORA DAWN",
+        "cells": [[0, 0, 1, 1], [1, 0, 1, 1], [2, 0, 2, 2], [5, 0, 1, 1], [0, 5, 1, 1], [4, 4, 2, 2]]
+      }
+    ],
     "labels": {
       "actions": {
         "base.divers": "Divers",

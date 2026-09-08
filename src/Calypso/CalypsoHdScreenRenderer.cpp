@@ -476,10 +476,19 @@ void CalypsoHdScreenRenderer::collectBasescape(CalypsoHdFrameBuilder& builder) c
 
 	painter.panel(projectAuthored({0, 0, authored.w, authored.h}),
 		CommandCenterTheme::packed(CommandCenterTheme::BgRoot), nullptr, role++);
+	auto background = calypsoBaseCatalogImage(catalog, catalog.background);
+	background.cover = true;
 	painter.image(projectAuthored(CalypsoBasescapeHdRect{
 		fitParams.railWidth, fitParams.headerHeight,
 		authored.w - fitParams.railWidth, authored.h - fitParams.headerHeight }),
-		calypsoBaseCatalogImage(catalog, catalog.background), nullptr, role++);
+		background, nullptr, role++);
+	// Quiet cinematic interior: a light dim over the underwater plate keeps
+	// the workspace calm behind the deck and command panels. Header and rail
+	// chrome paint above it, unaffected.
+	painter.panel(projectAuthored(CalypsoBasescapeHdRect{
+		fitParams.railWidth, fitParams.headerHeight,
+		authored.w - fitParams.railWidth, authored.h - fitParams.headerHeight }),
+		0x0000002Eu, nullptr, role++);
 	CalypsoHdPanelStyle panel;
 	panel.styled = true;
 	panel.radiusPx = CommandCenterTheme::RadiusMD;
@@ -729,52 +738,82 @@ void CalypsoHdScreenRenderer::collectBasescape(CalypsoHdFrameBuilder& builder) c
 		painter.claim(base->_mini, role++);
 	}
 	{
-		// MiniBaseView hit geometry: 8 slots across the derived selector
-		// rect (352/8 = 44px, matching setCalypsoHdMiniGeometry). Selection
-		// and reorder stay on the native widget; this is paint only.
-		const int slotW = derived.titleSelector.w / 8;
+		// Cinematic selector: eight variable-width slots from the shared
+		// helper (selected wide, others narrow). Selection and reorder stay
+		// on the hidden native MiniBaseView, which consumes the same
+		// geometry; this is paint only, never a duplicate selected state.
+		// Selected slot: live base name, monochrome stroked occupancy plan,
+		// mint underline. Occupied inactive slots: quiet monochrome plans.
+		// Vacant positions: unfilled muted two-digit numbers.
 		for (int i = 0; i < 8; ++i)
 		{
-			const CalypsoBasescapeHdRect slot{
-				derived.titleSelector.x + i * slotW, derived.titleSelector.y, slotW,
-				derived.titleSelector.h };
-			CalypsoHdPanelStyle slotBg;
-			slotBg.styled = true;
-			slotBg.radiusPx = CommandCenterTheme::RadiusSM;
-			slotBg.borderWidthPx = 1.0f;
-			slotBg.borderColorRgba = CommandCenterTheme::packed(CommandCenterTheme::Border);
-			slotBg.fillTopRgba = slotBg.fillBottomRgba =
-				CommandCenterTheme::packed(CommandCenterTheme::BgPanelRaised);
-			painter.styled(projectAuthored(slot), slotBg, nullptr, role++);
-			if ((size_t)i < snapshot.bases.size())
+			const CalypsoBasescapeHdRect slot = calypsoBasescapeHdSelectorSlot(
+				derived.titleSelector, i, snapshot.selectedBase, fitParams);
+			const bool occupied = (size_t)i < snapshot.bases.size();
+			const bool selected = i == snapshot.selectedBase;
+			if (occupied && selected)
 			{
-				const auto& entry = snapshot.bases[(size_t)i];
-				for (const auto& cell : entry.cells)
-				{
-					std::uint32_t fill = CommandCenterTheme::packed(CommandCenterTheme::Success);
-					if (cell.disabled)
-					{
-						fill = CommandCenterTheme::packed(CommandCenterTheme::Info);
-					}
-					else if (!cell.built)
-					{
-						fill = CommandCenterTheme::packed(CommandCenterTheme::Warning);
-					}
-					painter.panel(projectAuthored(CalypsoBasescapeHdRect{
-						slot.x + 4 + cell.x * 6, slot.y + 8 + cell.y * 6,
-						cell.sizeX * 6 - 1, cell.sizeY * 6 - 1 }), fill, nullptr, role++);
-				}
-				if (entry.selected)
-				{
-					CalypsoHdPanelStyle ring;
-					ring.styled = true;
-					ring.radiusPx = CommandCenterTheme::RadiusSM;
-					ring.borderWidthPx = 2.0f;
-					ring.borderColorRgba =
-						CommandCenterTheme::packed(CommandCenterTheme::Accent);
-					ring.fillTopRgba = ring.fillBottomRgba = 0x00000000u;
-					painter.styled(projectAuthored(slot), ring, nullptr, role++);
-				}
+				CalypsoHdPanelStyle slotBg;
+				slotBg.styled = true;
+				slotBg.radiusPx = CommandCenterTheme::RadiusSM;
+				slotBg.borderWidthPx = 1.0f;
+				slotBg.borderColorRgba = CommandCenterTheme::packed(CommandCenterTheme::Border);
+				slotBg.fillTopRgba = slotBg.fillBottomRgba =
+					CommandCenterTheme::packed(CommandCenterTheme::BgPanelRaised);
+				painter.styled(projectAuthored(slot), slotBg, nullptr, role++);
+			}
+			if (!occupied)
+			{
+				char position[3] = {'0', static_cast<char>('1' + i), '\0'};
+				painter.textRect(projectAuthored(slot), nullptr,
+					ccFonts.plexM, position,
+					CommandCenterTheme::packed(CommandCenterTheme::TextMuted),
+					CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle, 1, role++, 0.0, 12.0);
+				continue;
+			}
+			const auto& entry = snapshot.bases[(size_t)i];
+			// Monochrome occupancy plan: stroked outlines only, brighter on
+			// the selected slot. The name reserves the top band of the
+			// selected slot; the underline reserves its bottom edge.
+			const int nameH = selected ? 20 : 0;
+			const int underlineH = selected ? 4 : 0;
+			if (selected)
+			{
+				painter.textRect(projectAuthored(CalypsoBasescapeHdRect{
+						slot.x + 6, slot.y + 2, slot.w - 12, nameH - 2 }),
+					base != nullptr ? base->_edtBase : nullptr,
+					ccFonts.interSb, base != nullptr ? baseName : entry.name,
+					CommandCenterTheme::packed(CommandCenterTheme::TextPrimary),
+					CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle, 1, role++, 0.0,
+					static_cast<float>(fitParams.smallActionFontSize));
+			}
+			const int availW = slot.w - 8;
+			const int availH = slot.h - nameH - underlineH - 8;
+			const int unit = std::max(1, std::min(availW, availH) / 6);
+			const int planW = 6 * unit;
+			const int planH = 6 * unit;
+			const int planX = slot.x + (slot.w - planW) / 2;
+			const int planY = slot.y + nameH + (slot.h - nameH - underlineH - planH) / 2;
+			const std::uint32_t stroke = CommandCenterTheme::packed(
+				selected ? CommandCenterTheme::TextPrimary : CommandCenterTheme::TextMuted);
+			for (const auto& cell : entry.cells)
+			{
+				CalypsoHdPanelStyle outline;
+				outline.styled = true;
+				outline.radiusPx = 1.0f;
+				outline.borderWidthPx = 1.0f;
+				outline.borderColorRgba = stroke;
+				outline.fillTopRgba = outline.fillBottomRgba = 0x00000000u;
+				painter.styled(projectAuthored(CalypsoBasescapeHdRect{
+					planX + cell.x * unit, planY + cell.y * unit,
+					std::max(1, cell.sizeX * unit), std::max(1, cell.sizeY * unit) }),
+					outline, nullptr, role++);
+			}
+			if (selected)
+			{
+				painter.panel(projectAuthored(CalypsoBasescapeHdRect{
+					slot.x + 6, slot.y + slot.h - 3, slot.w - 12, 2 }),
+					CommandCenterTheme::packed(CommandCenterTheme::Accent), nullptr, role++);
 			}
 		}
 	}

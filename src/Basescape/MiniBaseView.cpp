@@ -155,27 +155,31 @@ void MiniBaseView::draw()
  * @param state State that the action handlers belong to.
  */
 #ifdef __EMSCRIPTEN__
-void MiniBaseView::setCalypsoHdMiniGeometry(double slotWidth, double pitch)
+void MiniBaseView::setCalypsoHdSelectorGeometry(int selectedIndex, int activeW, int inactiveW)
 {
-	_calypsoHdMiniSlotW = slotWidth > 0.0 ? slotWidth : 0.0;
-	_calypsoHdMiniPitch = pitch > 0.0 ? pitch : 0.0;
+	_calypsoHdSelectorSelected = selectedIndex;
+	_calypsoHdSelectorActiveW = activeW > 0 ? activeW : 0;
+	_calypsoHdSelectorInactiveW = inactiveW > 0 ? inactiveW : 0;
 }
 
 void MiniBaseView::clearCalypsoHdMiniGeometry()
 {
-	_calypsoHdMiniSlotW = 0.0;
-	_calypsoHdMiniPitch = 0.0;
+	_calypsoHdSelectorSelected = 0;
+	_calypsoHdSelectorActiveW = 0;
+	_calypsoHdSelectorInactiveW = 0;
 }
 #endif
 
 void MiniBaseView::mouseOver(Action *action, State *state)
 {
 #ifdef __EMSCRIPTEN__
-	if (_calypsoHdMiniSlotW > 0.0 && _calypsoHdMiniPitch > 0.0 && action->getXScale() != 0.0)
+	if (_calypsoHdSelectorActiveW > 0 && _calypsoHdSelectorInactiveW > 0
+		&& action->getXScale() != 0.0)
 	{
-		const std::optional<size_t> slot = Calypso::calypsoMiniBaseSlotAt(
+		const std::optional<size_t> slot = Calypso::calypsoSelectorSlotAt(
 			action->getRelativeXMouse() / action->getXScale(),
-			_calypsoHdMiniSlotW, _calypsoHdMiniPitch, MAX_BASES);
+			_calypsoHdSelectorSelected, _calypsoHdSelectorActiveW,
+			_calypsoHdSelectorInactiveW, getWidth(), MAX_BASES);
 		_hoverBase = slot.has_value() ? *slot : MAX_BASES;
 	}
 	else

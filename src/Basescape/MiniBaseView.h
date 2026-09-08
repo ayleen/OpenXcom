@@ -41,8 +41,9 @@ private:
 	size_t _base, _hoverBase;
 	Uint8 _red, _green, _blue;
 #ifdef __EMSCRIPTEN__
-	double _calypsoHdMiniSlotW = 0.0;
-	double _calypsoHdMiniPitch = 0.0;
+	int _calypsoHdSelectorActiveW = 0;
+	int _calypsoHdSelectorInactiveW = 0;
+	int _calypsoHdSelectorSelected = 0;
 #endif
 public:
 	static const size_t MAX_BASES = 8;
@@ -59,11 +60,14 @@ public:
 	/// Sets the selected base for the mini base view.
 	void setSelectedBase(size_t base);
 #ifdef __EMSCRIPTEN__
-	// T11 opt-in HD selector geometry for this instance only (main Basescape
-	// view). Legacy MINI_SIZE stride stays the default; a miss resolves to
-	// MAX_BASES so the existing click guards reject it exactly like far-right
-	// legacy positions.
-	void setCalypsoHdMiniGeometry(double slotWidth, double pitch);
+	// F01 cinematic HD selector geometry for this instance only (main
+	// Basescape view). Widths follow the shared variable-width selector
+	// contract (selected wide, others narrow); the selected index tracks the
+	// live base. Unconfigured instances keep the legacy MINI_SIZE stride.
+	// A miss resolves to MAX_BASES so the existing click guards reject it
+	// exactly like far-right legacy positions. Click, right-click reorder
+	// and keyboard selection semantics are unchanged.
+	void setCalypsoHdSelectorGeometry(int selectedIndex, int activeW, int inactiveW);
 	void clearCalypsoHdMiniGeometry();
 #endif
 	/// Draws the mini base view.

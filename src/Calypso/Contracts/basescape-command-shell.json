@@ -277,6 +277,50 @@
     ]
   },
   "fixture": {
+    "selectedBase": 0,
+    "bases": [
+      {
+        "name": "AURORA DAWN",
+        "cells": [
+          [
+            0,
+            0,
+            1,
+            1
+          ],
+          [
+            1,
+            0,
+            1,
+            1
+          ],
+          [
+            2,
+            0,
+            2,
+            2
+          ],
+          [
+            5,
+            0,
+            1,
+            1
+          ],
+          [
+            0,
+            5,
+            1,
+            1
+          ],
+          [
+            4,
+            4,
+            2,
+            2
+          ]
+        ]
+      }
+    ],
     "labels": {
       "actions": {
         "base.divers": "Divers",
@@ -313,28 +357,22 @@
           1280,
           72
         ],
-        "titleBand": [
-          112,
-          96,
-          781,
-          52
-        ],
         "titleName": [
           112,
           96,
-          413,
+          317,
           28
         ],
         "titleRegion": [
           112,
           124,
-          413,
+          317,
           20
         ],
         "titleSelector": [
-          541,
+          445,
           96,
-          352,
+          448,
           52
         ],
         "fundsLine": [
@@ -675,6 +713,7 @@
       "titleGapH": 16,
       "minHit": 44,
       "minSelectorSlots": 8,
+      "selectorActiveWidth": 140,
       "deckHeadingH": 40,
       "deckFooterH": 44,
       "deckInset": 12,

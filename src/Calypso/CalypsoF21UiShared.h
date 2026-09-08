@@ -378,9 +378,9 @@ struct CalypsoF21Painter
 		++ord;
 	}
 
-	/// RGBA image stretched over the destination (T05 item kind): VFS source,
-	/// UV rect, and optional clip travel in the descriptor; the destination IS
-	/// a stretch target. Shares the claim/order identity of every painter item.
+	/// RGBA image mapped over the destination (T05 item kind): VFS source,
+	/// optional cover-fit, UV rect and clip travel in the descriptor.
+	/// Shares the claim/order identity of every painter item.
 	void image(const CalypsoLogicalRect& r, const CalypsoHdImageDescriptor& desc,
 		const void* widget, std::uint32_t role)
 	{

@@ -1,8 +1,8 @@
 #pragma once
 // F01 desktop-fit geometry (T04): pure derivation of the base-command-shell
-// authored layout from explicit parameters. No engine, SDL, or generated
-// dependencies; the T08 template supplies the numbers, this header only
-// computes fit scale, the clamped command column, and the square deck.
+// authored layout from explicit parameters. No engine or SDL dependencies;
+// the generated template supplies the numbers, this header only computes
+// fit scale, the clamped command column, and the square deck.
 // Not #ifdef-guarded, matching the Calypso pure-helper convention.
 //
 // Cinematic correction (owner remediation): the canonical template owns one
@@ -18,6 +18,7 @@
 #include <cmath>
 #include <string_view>
 
+#include "CalypsoBaseGridInput.h"
 #include "CalypsoHdInteractionState.h"
 #include "Generated/CalypsoBasescapeCommandShell.generated.h"
 
@@ -103,6 +104,27 @@ inline CalypsoBasescapeHdRect calypsoBasescapeHdConnectorRect(
 			neighbor.y + (neighbor.h - thickness) / 2, length, thickness}
 		: CalypsoBasescapeHdRect{neighbor.x + (neighbor.w - thickness) / 2,
 			neighbor.y - length / 2, thickness, length};
+}
+
+/// Variable-width base-selector slot (F01 cinematic): the agreed shared API.
+/// The selected position is selectorActiveWidth wide, every other position
+/// is minHit wide, and the eight slots tile the authored selector rect
+/// exactly (140 + 7 * 44 at the canonical size). A resized container scales
+/// every slot by the same factor. Out-of-range indices return an empty rect;
+/// an out-of-range selectedIndex leaves every slot at the inactive width.
+/// Hidden MiniBaseView hit regions and both painters consume this helper.
+inline CalypsoBasescapeHdRect calypsoBasescapeHdSelectorSlot(
+	const CalypsoBasescapeHdRect &rect, int index, int selectedIndex,
+	const CalypsoBasescapeHdFitParams &params)
+{
+	const CalypsoSelectorSlot slot = calypsoSelectorSlotRect(
+		rect.x, rect.w, index, selectedIndex,
+		params.selectorActiveWidth, params.minHit, 8);
+	if (slot.w <= 0)
+	{
+		return {};
+	}
+	return {slot.x, rect.y, slot.w, rect.h};
 }
 
 /// One command-column row in canonical template order. slotRole/rowIndex

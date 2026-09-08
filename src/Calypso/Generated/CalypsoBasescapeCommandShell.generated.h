@@ -57,6 +57,7 @@ struct DesktopFitParams
 	int titleGapH = 16;
 	int minHit = 44;
 	int minSelectorSlots = 8;
+	int selectorActiveWidth = 140;
 	int deckHeadingH = 40;
 	int deckFooterH = 44;
 	int deckInset = 12;
@@ -86,10 +87,9 @@ struct DesktopFitParams
 inline constexpr CalypsoBasescapeCommandShellGenNamedRect kWideRegions[] =
 {
 	{ "header", { 0, 0, 1280, 72 } },
-	{ "titleBand", { 112, 96, 781, 52 } },
-	{ "titleName", { 112, 96, 413, 28 } },
-	{ "titleRegion", { 112, 124, 413, 20 } },
-	{ "titleSelector", { 541, 96, 352, 52 } },
+	{ "titleName", { 112, 96, 317, 28 } },
+	{ "titleRegion", { 112, 124, 317, 20 } },
+	{ "titleSelector", { 445, 96, 448, 52 } },
 	{ "fundsLine", { 124, 660, 757, 28 } },
 	{ "hoverLine", { 112, 148, 500, 14 } },
 	{ "facilityDeck", { 112, 164, 781, 532 } },
@@ -118,7 +118,7 @@ inline constexpr CalypsoBasescapeCommandShellGenActionLayout kWideActions[] =
 
 inline constexpr CalypsoBasescapeCommandShellGenLayout kLayouts[] =
 {
-	{ 1280, 720, kWideActions, 12, kWideRegions, 13 },
+	{ 1280, 720, kWideActions, 12, kWideRegions, 12 },
 };
 inline constexpr int kLayoutCount = 1;
 

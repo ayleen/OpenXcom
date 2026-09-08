@@ -261,8 +261,26 @@ bool CalypsoBasescapeHdUi::applyGeometry()
 	place(_state->_mini, geo.derived.titleSelector);
 	if (_state->_mini != nullptr)
 	{
-		const double slot = static_cast<double>(_state->_mini->getWidth()) / 8.0;
-		_state->_mini->setCalypsoHdMiniGeometry(slot, slot);
+		// Hidden MiniBaseView keeps native click/reorder ownership on the
+		// same variable-width slots the painters use; the selected index
+		// tracks the live base, never a parallel state model.
+		int selected = 0;
+		if (_state->_game != nullptr && _state->_game->getSavedGame() != nullptr
+			&& _state->_game->getSavedGame()->getBases() != nullptr)
+		{
+			const std::vector<Base *> *bases = _state->_game->getSavedGame()->getBases();
+			for (size_t b = 0; b < bases->size(); ++b)
+			{
+				if (bases->at(b) == _state->_base)
+				{
+					selected = static_cast<int>(b);
+					break;
+				}
+			}
+		}
+		const CalypsoBasescapeHdFitParams selectorFit;
+		_state->_mini->setCalypsoHdSelectorGeometry(
+			selected, selectorFit.selectorActiveWidth, selectorFit.minHit);
 	}
 	place(_state->_edtBase, geo.derived.titleName);
 	TTFFont* editorFont = _state->_game->getMod()->getTTFFont("FONT_CC_INTER_SB", false);

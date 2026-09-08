@@ -38,6 +38,68 @@ inline std::optional<std::size_t> calypsoMiniBaseSlotAt(
 	return static_cast<std::size_t>(index);
 }
 
+/// Variable-width base-selector slot (F01 cinematic): the selected position
+/// is wide (activeW), every other position is narrow (inactiveW). Positions
+/// tile the container exactly; a resized container scales every slot by the
+/// same factor, so paint and hit stay on one math source.
+struct CalypsoSelectorSlot
+{
+	int x = 0;
+	int w = 0;
+};
+
+inline CalypsoSelectorSlot calypsoSelectorSlotRect(
+	int containerX, int containerW, int index, int selectedIndex,
+	int activeW, int inactiveW, int count = 8)
+{
+	if (index < 0 || index >= count || count <= 0
+		|| activeW <= 0 || inactiveW <= 0 || containerW <= 0)
+	{
+		return {};
+	}
+	const double total = static_cast<double>(activeW)
+		+ static_cast<double>(count - 1) * static_cast<double>(inactiveW);
+	if (!(total > 0.0))
+	{
+		return {};
+	}
+	const double scale = static_cast<double>(containerW) / total;
+	double cursor = 0.0;
+	for (int i = 0; i < index; ++i)
+	{
+		cursor += (i == selectedIndex ? activeW : inactiveW);
+	}
+	const double own = (index == selectedIndex ? activeW : inactiveW);
+	const int x0 = containerX + static_cast<int>(std::lround(cursor * scale));
+	const int x1 = containerX + static_cast<int>(std::lround((cursor + own) * scale));
+	return {x0, x1 - x0};
+}
+
+/// Hit-test mirror of calypsoSelectorSlotRect: half-open slots, misses
+/// (including gaps from rounding) resolve to nullopt so native click and
+/// reorder guards reject them exactly like far-right legacy positions.
+inline std::optional<std::size_t> calypsoSelectorSlotAt(
+	double x, int selectedIndex, int activeW, int inactiveW,
+	int containerW, int count = 8)
+{
+	if (!std::isfinite(x) || count <= 0 || activeW <= 0 || inactiveW <= 0
+		|| containerW <= 0 || x < 0.0 || x >= static_cast<double>(containerW))
+	{
+		return std::nullopt;
+	}
+	for (int i = 0; i < count; ++i)
+	{
+		const CalypsoSelectorSlot slot = calypsoSelectorSlotRect(
+			0, containerW, i, selectedIndex, activeW, inactiveW, count);
+		if (x >= static_cast<double>(slot.x)
+			&& x < static_cast<double>(slot.x + slot.w))
+		{
+			return static_cast<std::size_t>(i);
+		}
+	}
+	return std::nullopt;
+}
+
 inline int calypsoBaseDeckEdge(int side, int index)
 {
 	if (side <= 0)

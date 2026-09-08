@@ -772,14 +772,14 @@ bool CalypsoHdUiOverlay::drawImage(const ResolvedDraw& d)
 {
 	if (!d.tex || !d.tex->isValid()) return false;
 	if (d.naturalW <= 0 || d.naturalH <= 0) return false;
-	const CalypsoHdImageUvRect uv = calypsoHdImageUv(d.image, d.naturalW, d.naturalH);
-	if (uv.w <= 0 || uv.h <= 0) return false;
-
-	// Images stretch over the destination (unlike glyphs, which keep natural
-	// size). Map the full destination, intersect the mapped clip box, then
-	// express the visible sub-rect as UVs over the decoded source rect.
 	const CalypsoPhysRect full = calypsoMapLogicalRect(d.rect, _frozenMetrics);
 	if (full.empty()) return true; // nothing to draw is not a failure
+	const CalypsoHdImageUvRect uv = calypsoHdImageUv(
+		d.image, d.naturalW, d.naturalH, full.w, full.h);
+	if (uv.w <= 0 || uv.h <= 0) return false;
+
+	// Map the destination, intersect its clip, then express the visible region
+	// over either the full source or its centered aspect-preserving cover crop.
 	CalypsoPhysRect box = full;
 	if (d.image.hasClip)
 	{
