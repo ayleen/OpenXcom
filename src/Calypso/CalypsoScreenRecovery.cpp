@@ -183,19 +183,23 @@ void calypsoScreenUploadLogicalTexture(Screen &screen)
 	// as drawable height. Mirror authoritative backing dimensions into SDL's
 	// window bookkeeping. With externally owned CSS and pixel_ratio == 1,
 	// SDL 2.32's Emscripten_SetWindowSize leaves the CSS box unchanged.
+	int backingW = 0, backingH = 0;
+	if (emscripten_webgl_get_drawing_buffer_size(emscripten_webgl_get_current_context(),
+		&backingW, &backingH) != EMSCRIPTEN_RESULT_SUCCESS || backingW <= 0 || backingH <= 0)
+		CalypsoHdUiOverlay::instance().failHdRoute("SDL composite drawing-buffer size is unavailable");
 	int windowW = 0, windowH = 0;
 	SDL_GetWindowSize(screen._window, &windowW, &windowH);
-	if (windowW != screen._screen->w || windowH != screen._screen->h)
-		SDL_SetWindowSize(screen._window, screen._screen->w, screen._screen->h);
+	if (windowW != backingW || windowH != backingH)
+		SDL_SetWindowSize(screen._window, backingW, backingH);
 	// SDL's browser resize event can restore a CSS-sized viewport even though
 	// the canvas and staging surface use backing pixels. Own the composite
 	// viewport explicitly; raw HD passes must not depend on a world draw to fix it.
 	SDL_Rect viewport;
 	SDL_RenderGetViewport(screen._renderer, &viewport);
 	if (viewport.x != 0 || viewport.y != 0
-		|| viewport.w != screen._screen->w || viewport.h != screen._screen->h)
+		|| viewport.w != backingW || viewport.h != backingH)
 	{
-		const SDL_Rect physical{0, 0, screen._screen->w, screen._screen->h};
+		const SDL_Rect physical{0, 0, backingW, backingH};
 		if (SDL_RenderSetViewport(screen._renderer, &physical) != 0)
 			CalypsoHdUiOverlay::instance().failHdRoute("SDL physical composite viewport failed");
 	}
