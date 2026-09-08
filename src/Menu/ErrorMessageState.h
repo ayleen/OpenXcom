@@ -40,6 +40,13 @@ struct ErrorMessageHdForm
 	std::string title;
 	std::vector<std::string> bodyLines;
 	std::string actionLabel;
+#ifdef __EMSCRIPTEN__
+	/// Explicit physical underlay for the shared overlay composition (Emscripten
+	/// only): the live state whose physical replacement paints below this
+	/// popup. Separate from ErrorMessageState::_coveredState, which keeps its
+	/// unrelated BuildNewBase suppression meaning. Null means no underlay.
+	const void* hdUnderlayState = nullptr;
+#endif
 
 	bool empty() const
 	{

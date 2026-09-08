@@ -3,6 +3,6 @@
   "id": "command-icon-action",
   "version": "hd.2026-08-20.1",
   "minimumTarget": [44, 44],
-  "allowedSlotRoles": ["primary-left-1", "primary-left-2", "primary-left-3", "primary-right-1", "primary-right-2", "primary-right-3"],
+  "allowedSlotRoles": ["primary-left-1", "primary-left-2", "primary-left-3", "primary-right-1", "primary-right-2", "primary-right-3", "rail-world"],
   "allowedTones": ["normal", "primary", "warning", "danger"]
 }

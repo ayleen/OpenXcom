@@ -65,7 +65,9 @@ namespace OpenXcom
 {
 class Mod;
 class Surface;
+class Text;
 class TextButton;
+class TextList;
 
 namespace Calypso
 {
@@ -274,6 +276,89 @@ void calypsoCollectContactIntelBoard(
 void calypsoCollectSmallConfirmation(
 	CalypsoHdFrameBuilder& builder,
 	const CalypsoSmallConfirmationModel& model,
+	CalypsoSmallConfirmationMotion& motion);
+
+/// One chooser row: the readable native label plus the native availability
+/// verdict. The native TextList remains the behavior/input owner; this model
+/// only carries what the shared shell paints.
+struct CalypsoSelectionListRow
+{
+	std::string text;
+	bool enabled = true;
+};
+
+/// Reusable selection-list model: canonical window shell/theme plus a scroll
+/// window over native rows. Production paints no scrim/backdrop; the isolated
+/// harness host owns the opaque backing.
+struct CalypsoSelectionListModel
+{
+	std::uint32_t familyId = 0;
+	const void* instance = nullptr;
+	Mod* mod = nullptr;
+	bool wide = false;
+	int designWidth = 0;
+	int designHeight = 0;
+
+	CalypsoLogicalRect window;
+	CalypsoLogicalRect status;
+	CalypsoLogicalRect title;
+	CalypsoLogicalRect list;
+	CalypsoLogicalRect footer;
+	/// Design-space row slots at the native stride, in visible order.
+	std::vector<CalypsoLogicalRect> rowSlots;
+
+	Surface* windowWidget = nullptr;
+	Text* titleWidget = nullptr;
+	TextList* listWidget = nullptr;
+
+	std::string protocolText;
+	std::string titleText;
+	/// All native rows in list order; the renderer paints the scrolled window.
+	std::vector<CalypsoSelectionListRow> rows;
+	std::size_t scrollOffset = 0;
+	std::size_t selectedRow = 0;
+	bool hasSelection = false;
+
+	CalypsoSmallConfirmationButton cancel;
+
+	int rowHeight = 1;
+	int visibleRows = 1;
+	int scrollBarWidth = 0;
+	/// Projected min thumb height (design minThumbHeight scaled); the legacy
+	/// scrollbar path uses this instead of a hardcoded painter constant.
+	int minThumbHeight = 0;
+	/// Native inset track/thumb in the list's logical space, shared with
+	/// TextList/ScrollBar input. When present the painter uses them exactly.
+	bool hasNativeScrollGeometry = false;
+	CalypsoLogicalRect nativeTrack{};
+	CalypsoLogicalRect nativeThumb{};
+	bool nativeThumbVisible = false;
+	float cutCornerPx = 0.0f;
+	float protocolTextInsetPx = 0.0f;
+	std::uint32_t panelFillTop = 0;
+	std::uint32_t panelFillBottom = 0;
+	std::uint32_t frameColor = 0;
+	std::uint32_t protocolColor = 0;
+	std::uint32_t dividerColor = 0;
+	std::uint32_t footerDotColor = 0;
+	std::uint32_t textColor = 0;
+	std::uint32_t mutedTextColor = 0;
+	std::uint32_t selectionColor = 0;
+	std::uint32_t scrollTrackColor = 0;
+	std::uint32_t scrollThumbColor = 0;
+
+	double uiScale = 1.0;
+	double visualScale = 1.0;
+	double projectionScaleX = 1.0;
+	double projectionScaleY = 1.0;
+	int titleDesignHeight = 1;
+	int motionDurationMs = 0;
+	double motionScaleFrom = 1.0;
+};
+
+void calypsoCollectSelectionList(
+	CalypsoHdFrameBuilder& builder,
+	const CalypsoSelectionListModel& model,
 	CalypsoSmallConfirmationMotion& motion);
 
 } // namespace Calypso

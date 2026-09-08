@@ -26,6 +26,8 @@
 #include "../Savegame/BaseFacility.h"
 #include "../Mod/RuleBaseFacility.h"
 #include "../Savegame/Craft.h"
+#include "../Calypso/CalypsoBasescapeHdRuntime.h"
+#include "../Calypso/CalypsoBaseGridInput.h"
 #include "../Interface/Text.h"
 #include "../Engine/Timer.h"
 #include "../Engine/Options.h"
@@ -120,6 +122,56 @@ void BaseView::setBase(Base *base)
 	}
 
 	_redraw = true;
+}
+
+#ifdef __EMSCRIPTEN__
+void BaseView::setCalypsoHdGridExtent(int logicalWidth, int logicalHeight)
+{
+	_calypsoHdGridW = logicalWidth > 0 ? logicalWidth : 0;
+	_calypsoHdGridH = logicalHeight > 0 ? logicalHeight : 0;
+}
+
+void BaseView::clearCalypsoHdGridExtent()
+{
+	_calypsoHdGridW = 0;
+	_calypsoHdGridH = 0;
+}
+#endif
+
+void BaseView::assignCraftsForDrawing(std::vector<BaseCraftDrawing> &out)
+{
+	out.clear();
+	std::vector<Calypso::CalypsoBasescapeHdPenInput> pens;
+	pens.reserve(_base->getFacilities()->size());
+	for (const auto *fac : *_base->getFacilities())
+	{
+		Calypso::CalypsoBasescapeHdPenInput pen;
+		pen.finished = fac->getBuildTime() == 0 && fac->getRules()->getCrafts() > 0;
+		pens.push_back(pen);
+	}
+	std::vector<Calypso::CalypsoBasescapeHdCraftInput> crafts;
+	crafts.reserve(_base->getCrafts()->size());
+	for (const auto *craft : *_base->getCrafts())
+	{
+		Calypso::CalypsoBasescapeHdCraftInput input;
+		input.away = craft->getStatus() == "STR_OUT";
+		crafts.push_back(input);
+	}
+	const std::vector<Calypso::CalypsoBasescapeHdCraftSlot> slots =
+		Calypso::calypsoBasescapeHdAssignCrafts(pens, crafts);
+	auto *liveCrafts = _base->getCrafts();
+	for (size_t i = 0; i < _base->getFacilities()->size(); ++i)
+	{
+		BaseFacility *fac = _base->getFacilities()->at(i);
+		Craft *craft = slots[i].craftIndex >= 0
+			? liveCrafts->at(static_cast<size_t>(slots[i].craftIndex)) : nullptr;
+		fac->setCraftForDrawing(slots[i].drawn ? craft : 0);
+		BaseCraftDrawing row;
+		row.pen = fac;
+		row.craft = craft;
+		row.drawn = slots[i].drawn;
+		out.push_back(row);
+	}
 }
 
 /**
@@ -500,8 +552,6 @@ void BaseView::draw()
 		}
 	}
 
-	auto craftIt = _base->getCrafts()->begin();
-
 	for (const auto* fac : *_base->getFacilities())
 	{
 		// Draw facility shape
@@ -566,6 +616,10 @@ void BaseView::draw()
 		}
 	}
 
+	// T09: single shared craft assignment (same order and semantics as before).
+	std::vector<BaseCraftDrawing> craftDrawings;
+	assignCraftsForDrawing(craftDrawings);
+
 	// TODO: make const in the future
 	for (auto* fac : *_base->getFacilities())
 	{
@@ -587,22 +641,17 @@ void BaseView::draw()
 			}
 		}
 
-		// Draw crafts
-		fac->setCraftForDrawing(0);
-		if (fac->getBuildTime() == 0 && fac->getRules()->getCrafts() > 0)
+		// Draw crafts from the shared assignment above.
+		for (const BaseCraftDrawing &row : craftDrawings)
 		{
-			if (craftIt != _base->getCrafts()->end())
+			if (row.pen != fac || !row.drawn || row.craft == nullptr)
 			{
-				if ((*craftIt)->getStatus() != "STR_OUT")
-				{
-					Surface *frame = _texture->getFrame((*craftIt)->getSkinSprite() + 33);
-					int fx = (fac->getX() * GRID_SIZE + (fac->getRules()->getSizeX() - 1) * GRID_SIZE / 2 + 2);
-					int fy = (fac->getY() * GRID_SIZE + (fac->getRules()->getSizeY() - 1) * GRID_SIZE / 2 - 4);
-					frame->blitNShade(this, fx, fy);
-					fac->setCraftForDrawing(*craftIt);
-				}
-				++craftIt;
+				continue;
 			}
+			Surface *frame = _texture->getFrame(row.craft->getSkinSprite() + 33);
+			int fx = (fac->getX() * GRID_SIZE + (fac->getRules()->getSizeX() - 1) * GRID_SIZE / 2 + 2);
+			int fy = (fac->getY() * GRID_SIZE + (fac->getRules()->getSizeY() - 1) * GRID_SIZE / 2 - 4);
+			frame->blitNShade(this, fx, fy);
 		}
 
 		// Draw time remaining
@@ -672,8 +721,23 @@ void BaseView::blit(SDL_Surface *surface)
  */
 void BaseView::mouseOver(Action *action, State *state)
 {
-	_gridX = (int)floor(action->getRelativeXMouse() / (GRID_SIZE * action->getXScale()));
-	_gridY = (int)floor(action->getRelativeYMouse() / (GRID_SIZE * action->getYScale()));
+#ifdef __EMSCRIPTEN__
+	if (_calypsoHdGridW > 0 && _calypsoHdGridH > 0 && action->getXScale() != 0.0
+		&& action->getYScale() != 0.0)
+	{
+		const std::optional<Calypso::BaseGridCell> hd = Calypso::calypsoBaseGridCellAt(
+			action->getRelativeXMouse() / action->getXScale(),
+			action->getRelativeYMouse() / action->getYScale(),
+			_calypsoHdGridW, _calypsoHdGridH);
+		_gridX = hd.has_value() ? hd->column : -1;
+		_gridY = hd.has_value() ? hd->row : -1;
+	}
+	else
+#endif
+	{
+		_gridX = (int)floor(action->getRelativeXMouse() / (GRID_SIZE * action->getXScale()));
+		_gridY = (int)floor(action->getRelativeYMouse() / (GRID_SIZE * action->getYScale()));
+	}
 	if (_gridX >= 0 && _gridX < BASE_SIZE && _gridY >= 0 && _gridY < BASE_SIZE)
 	{
 		_selFacility = _facilities[_gridX][_gridY];

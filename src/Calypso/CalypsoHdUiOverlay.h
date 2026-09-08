@@ -113,6 +113,10 @@ public:
 	/// Monotonic GL context generation (bumped on every restore). Consumers
 	/// such as the live model snapshot cache key their caches by it.
 	std::uint64_t contextGeneration() const { return _contextGen; }
+	/// T06 image-cache diagnostics (test/diagnostic path; never game UI).
+	std::uint64_t imageDecodeCount() const { return _imageDecodes; }
+	std::uint64_t imageUploadCount() const { return _imageUploads; }
+	std::size_t imageCacheBytes() const { return _imageLru.bytes(); }
 
 	/// True once a subgroup (or the harness) committed physical output this
 	/// frame. Derived per frame; never sticky (A7).
@@ -131,6 +135,10 @@ private:
 	struct ResolvedDraw
 	{
 		CalypsoHdOrderKey order;
+		/// Depth inside the frame's explicit underlay chain: 0 is the chain
+		/// root (physical base below), larger values paint above. Single-
+		/// adapter frames carry 0 everywhere, preserving the order-key sort.
+		int compositionDepth = 0;
 		CalypsoHdItemKind kind = CalypsoHdItemKind::Panel;
 		CalypsoLogicalRect rect;
 		std::uint32_t colorRgba = 0;
@@ -138,6 +146,7 @@ private:
 		GpuTexture* tex = nullptr;
 		int naturalW = 0;
 		int naturalH = 0;
+		CalypsoHdImageDescriptor image; // RgbaImage only: VFS source + UV + clip.
 		float textScaleX = 1.0f;
 		float textScaleY = 1.0f;
 		CalypsoHdHAlign hAlign = CalypsoHdHAlign::Left;
@@ -152,6 +161,10 @@ private:
 	/// Resolve every item of one subgroup to an uploaded texture. Appends all
 	/// resolved draws to `out`; any failure throws instead of exposing vanilla.
 	void resolveSubgroup(const CalypsoHdSubgroup& subgroup, std::vector<ResolvedDraw>& out);
+	/// Find the registered adapter feeding `state`, or null when no live
+	/// adapter owns it. Used only to resolve an explicit underlay request;
+	/// an unregistered background is never inferred or revealed.
+	const CalypsoHdFamilyAdapter* findAdapterForState(const void* state) const;
 
 	/// Core NDC draw of `tex` into a physical device-pixel rect, sampling the
 	/// texture over the UV sub-rect [u0,v0]-[u1,v1] (default full 0..1). Returns
@@ -168,29 +181,50 @@ private:
 	/// Place a natural-size glyph bitmap inside the mapped box per alignment and
 	/// draw it (text) -- the box is the layout/clip target, not a stretch target.
 	bool drawGlyph(const ResolvedDraw& d);
+	/// Stretch the image UV rect over the mapped destination, intersected with
+	/// the mapped clip box (RgbaImage) -- the destination IS a stretch target.
+	bool drawImage(const ResolvedDraw& d);
 	/// Upload one quad's vertices (NDC positions + full UVs) into the shared
 	/// VBO/VAO. Shared by drawPhysQuad and drawStyledPanel.
 	void uploadQuadVerts(const CalypsoPhysRect& r);
 
 	GpuTexture* whiteTexture();
 	GpuTexture* textureForText(const CalypsoHdTextRasterKey& rasterKey);
+	/// T06 cached decode+upload: VFS decode once per (source, generation, UV),
+	/// GPU texture cached by GL context generation with a 64 MiB pin-aware LRU.
+	/// Never returns null: any failure fails the HD route.
+	GpuTexture* textureForImage(const CalypsoHdImageDescriptor& desc,
+		int& decodedW, int& decodedH);
 	/// Process an LRU eviction list: free + forget each evicted text texture,
 	/// EXCEPT handles pinned this frame (still referenced by _drawItems), which
 	/// are re-touched to stay resident and tracked (Fable #3/#9).
 	void evictTextTextures(const std::vector<std::uint64_t>& evicted);
 	void dropTextTextures();
+	void evictImageTextures(const std::vector<std::uint64_t>& evicted);
+	void dropImageTextures();
 
 	CalypsoHdFrameController _controller;
 	CalypsoHdPresentationMetrics _frozenMetrics;
 	bool _mayGoPhysical = false;
 	bool _activeThisFrame = false;
-	const void* _physicalStateThisFrame = nullptr;
+	// Every contributing adapter's top state with suppressed logical UI this
+	// frame (chain root through active); logicalStateSuppressed() reports
+	// membership. Published with the widget list before any readiness/warmup
+	// return; draw commit (_activeThisFrame, claims, draws) stays post-commit.
+	// Cleared every beginFrame.
+	std::vector<const void*> _physicalStatesThisFrame;
 	std::vector<const void*> _logicalSuppressedWidgets;
+	// Scratch for the per-frame explicit underlay chain (root first, active
+	// last). Cleared every prepareFrame; reused to avoid per-frame allocation.
+	std::vector<const CalypsoHdFamilyAdapter*> _chainScratch;
 
 	// All currently-registered family adapters (a State registers on create,
 	// clears on destroy). prepareFrame() drives the one whose topState() is the
 	// current top state, so stacked popups of the same family each work when they
-	// become top again -- not just the last-registered one (GLM #3).
+	// become top again -- not just the last-registered one (GLM #3). The active
+	// adapter may explicitly request a physical underlay chain
+	// (physicalUnderlayState()); only explicitly requested, registered states
+	// are composed, root underlay first and active last.
 	std::vector<const CalypsoHdFamilyAdapter*> _adapters;
 	const CalypsoHdFamilyAdapter* _activeAdapter = nullptr;
 	std::uint32_t _retryableReadinessFrames = 0;
@@ -202,6 +236,16 @@ private:
 
 	// This frame's committed, uploaded draws (sorted by order key).
 	std::vector<ResolvedDraw> _drawItems;
+	// T06 image pipeline: VFS decode (CalypsoHdImageSource) + a bounded,
+	// context-generation-keyed GPU texture cache mirroring the text pipeline.
+	// The cache outlives adapters (keys carry no game pointers); catalog swaps
+	// must bump the descriptor generation so stale art cannot be reused.
+	std::unordered_map<CalypsoHdImageTextureKey, GpuTexture*, CalypsoHdImageTextureKeyHash> _imageTextures;
+	std::unordered_map<CalypsoHdImageTextureKey, std::uint64_t, CalypsoHdImageTextureKeyHash> _imgKeyToHandle;
+	std::unordered_map<std::uint64_t, CalypsoHdImageTextureKey> _imgHandleToKey;
+	CalypsoLruByteBudget _imageLru{ 64u * 1024u * 1024u };
+	std::uint64_t _imageDecodes = 0;
+	std::uint64_t _imageUploads = 0;
 
 	// Shared GL resources (created on first active frame; recovered via the
 	// ShaderManager reset-callback ladder).

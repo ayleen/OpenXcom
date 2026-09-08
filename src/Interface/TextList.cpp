@@ -28,10 +28,6 @@
 #include "ComboBox.h"
 #include "ScrollBar.h"
 #include "../fmath.h"
-#ifdef __EMSCRIPTEN__
-#include "../Engine/TTFFont.h"
-#include "../Calypso/CalypsoHdUiOverlay.h" // Phase 46.2-HD (empty on native)
-#endif
 
 namespace OpenXcom
 {
@@ -104,6 +100,9 @@ void TextList::setX(int x)
 	_scrollbar->setX(getX() + getWidth() + _scrollPos);
 	if (_selector != 0)
 		_selector->setX(getX());
+#ifdef __EMSCRIPTEN__
+	if (_hdSelList) positionCalypsoHdScrollbar();
+#endif
 }
 
 /**
@@ -122,6 +121,9 @@ void TextList::setY(int y)
 	_scrollbar->setY(_up->getY() + _up->getHeight());
 	if (_selector != 0)
 		_selector->setY(getY());
+#ifdef __EMSCRIPTEN__
+	if (_hdSelList) positionCalypsoHdScrollbar();
+#endif
 }
 
 /**
@@ -402,13 +404,7 @@ void TextList::addRow(int cols, ...)
 		}
 
 #ifdef __EMSCRIPTEN__
-		// Calypso: give rows added after setTTFFont (Options lists populate in init(),
-		// after applyTTFToTexts) the same crisp HD text — else they render as small
-		// native bitmap glyphs inside the scaled (tall) row box.
-		if (_ttfFont)
-		{
-			txt->setTTFFont(_ttfFont, _ttfFrac);
-		}
+		calypsoHdMaybeApplyTtf(txt);
 #endif
 		temp.push_back(txt);
 		if (_condensed)
@@ -423,19 +419,7 @@ void TextList::addRow(int cols, ...)
 
 	// ensure all elements in this row are the same height
 #ifdef __EMSCRIPTEN__
-	// Calypso: the row Text boxes were created at scaled height, but rowHeight is
-	// measured from the (unscaled) bitmap font — so scale it back up. Without this
-	// the box collapses to native height and the HD TTF glyphs get downscaled to a
-	// tiny block at the top of a tall, mostly-empty row (this is what made combobox
-	// dropdowns + the Advanced/Controls option lists render as small text). The
-	// stride math in draw()/blit()/updateVisible already reads getHeight() and
-	// scales _font metrics by scale(), so a scaled box keeps everything aligned.
-	const int scaledRowHeight = std::max((int)Round(rowHeight * scale()),
-		(int)Round(_minimumRowHeight * scale()));
-	for (int i = 0; i < cols; ++i)
-	{
-		temp[i]->setHeight(scaledRowHeight);
-	}
+	calypsoHdNormalizeRowHeights(temp, rowHeight, cols);
 #else
 	rowHeight = std::max(rowHeight, _minimumRowHeight);
 	for (int i = 0; i < cols; ++i)
@@ -628,6 +612,9 @@ void TextList::setHeight(int height)
 {
 	Surface::setHeight(height);
 	setY(getY());
+#ifdef __EMSCRIPTEN__
+	if (calypsoHdHandleResizedHeight()) return;
+#endif
 	int h = std::max(_down->getY() - _up->getY() - _up->getHeight(), 1);
 	_scrollbar->setHeight(h);
 	updateVisible();
@@ -1121,6 +1108,9 @@ void TextList::updateArrows()
  */
 void TextList::updateVisible()
 {
+#ifdef __EMSCRIPTEN__
+	if (calypsoHdUpdateVisibleFastPath()) return;
+#endif
 	_visibleRows = 0;
 #ifdef __EMSCRIPTEN__
 	const int stride = std::max(1, std::max(
@@ -1208,15 +1198,7 @@ void TextList::draw()
 void TextList::blit(SDL_Surface *surface)
 {
 #ifdef __EMSCRIPTEN__
-	// Phase 46.2-HD (A2): when the HD overlay has claimed this list this frame, the
-	// physical HD rows replace the logical ROW TEXT (drawn post-composite). But the
-	// selector highlight, toggle arrows, and scrollbar are NOT HD-replaced, so we
-	// must keep drawing them -- suppressing the whole blit erased all selection /
-	// scroll-position feedback (external review #8). Input/scroll handling is
-	// unaffected either way; the row-text cache is left intact for an unclaimed
-	// later frame.
-	const bool hdClaimed = Calypso::CalypsoHdUiOverlay::instance().widgetClaimed(this,
-		Calypso::CalypsoHdUiOverlay::instance().frameId());
+	const bool hdClaimed = calypsoHdClaimedThisFrame();
 #else
 	const bool hdClaimed = false;
 #endif
@@ -1285,9 +1267,22 @@ void TextList::blit(SDL_Surface *surface)
  */
 void TextList::handle(Action *action, State *state)
 {
+#ifdef __EMSCRIPTEN__
+	if (calypsoHdRoutePointerToScrollbar(action, state)) return;
+#endif
 	InteractiveSurface::handle(action, state);
+#ifdef __EMSCRIPTEN__
+	// Configured HD lists never dispatch to the unpainted legacy _up/_down
+	// ArrowButton children outside the inset track; ordinary lists keep them.
+	if (!_hdSelList)
+	{
+		_up->handle(action, state);
+		_down->handle(action, state);
+	}
+#else
 	_up->handle(action, state);
 	_down->handle(action, state);
+#endif
 	_scrollbar->handle(action, state);
 	if (_arrowPos != -1 && !_rows.empty())
 	{
@@ -1325,7 +1320,34 @@ void TextList::handle(Action *action, State *state)
 		{
 			scrollUp(false, false, _visibleRows);
 		}
+#ifdef __EMSCRIPTEN__
+		else if (_hdSelList && action->getDetails()->key.keysym.sym == SDLK_DOWN)
+		{
+			calypsoHdMoveSelection(1);
+		}
+		else if (_hdSelList && action->getDetails()->key.keysym.sym == SDLK_UP)
+		{
+			calypsoHdMoveSelection(-1);
+		}
+#endif
 	}
+#ifdef __EMSCRIPTEN__
+	// Up/Down navigate the selection even when the whole list fits on screen;
+	// PageUp/PageDown above keep their scroll-only behavior. No activation here.
+	else if (_hdSelList && action->getDetails()->type == SDL_KEYDOWN &&
+		_rows.size() <= _visibleRows && !_rows.empty() &&
+		(_hdSelList || isMouseCursorOverMe(state)))
+	{
+		if (action->getDetails()->key.keysym.sym == SDLK_DOWN)
+		{
+			calypsoHdMoveSelection(1);
+		}
+		else if (action->getDetails()->key.keysym.sym == SDLK_UP)
+		{
+			calypsoHdMoveSelection(-1);
+		}
+	}
+#endif
 }
 
 bool TextList::isMouseCursorOverMe(State* state) const
@@ -1412,7 +1434,6 @@ void TextList::mouseRelease(Action *action, State *state)
 		InteractiveSurface::mouseRelease(action, state);
 	}
 }
-
 /**
  * Ignores any mouse clicks that aren't on a row.
  * @param action Pointer to an action.
@@ -1420,6 +1441,9 @@ void TextList::mouseRelease(Action *action, State *state)
  */
 void TextList::mouseClick(Action *action, State *state)
 {
+#ifdef __EMSCRIPTEN__
+	if (calypsoHdSuppressClick(action)) return;
+#endif
 	if (_selectable)
 	{
 		if (_selRow < _rows.size())
@@ -1446,10 +1470,13 @@ void TextList::mouseOver(Action *action, State *state)
 {
 	if (_selectable)
 	{
+#ifdef __EMSCRIPTEN__
+		if (calypsoHdFilterMouseOver(action, state)) return;
+#endif
 		int rowHeight = std::max(_font->getHeight(), _minimumRowHeight)
 			+ _font->getSpacing(); // theoretical line height
 #ifdef __EMSCRIPTEN__
-		_selRow = std::max(0, (int)(_scroll + (int)floor(action->getRelativeYMouse() / (rowHeight * scale() * action->getYScale()))));
+		_selRow = calypsoHdHoverSelRow(action->getRelativeYMouse(), action->getYScale(), rowHeight);
 #else
 		_selRow = std::max(0, (int)(_scroll + (int)floor(action->getRelativeYMouse() / (rowHeight * action->getYScale()))));
 #endif
@@ -1459,17 +1486,16 @@ void TextList::mouseOver(Action *action, State *state)
 	InteractiveSurface::mouseOver(action, state);
 }
 
-/**
- * Deselects the row.
- * @param action Pointer to an action.
- * @param state State that the action handlers belong to.
- */
 void TextList::mouseOut(Action *action, State *state)
 {
 	if (_selectable)
 	{
 		_selector->setVisible(false);
 	}
+#ifdef __EMSCRIPTEN__
+	_hdLastHoverX = 1e30;
+	_hdLastHoverY = 1e30;
+#endif
 
 	InteractiveSurface::mouseOut(action, state);
 }
@@ -1544,66 +1570,5 @@ void TextList::setIgnoreSeparators(bool ignoreSeparators)
 	_ignoreSeparators = ignoreSeparators;
 }
 
-#ifdef __EMSCRIPTEN__
-/**
- * Calypso: HD — resize the scroll arrows AND scrollbar at the scaled size, then
- * re-run setY to reposition them.
- */
-void TextList::setWidth(int w)
-{
-	Surface::setWidth(w);
-	// Recreate scroll arrows at scaled size.
-	float s = scale();
-	int aw = (int)Round(13 * s);
-	int ah = (int)Round(14 * s);
-	SDL_Color pal[256];
-	std::copy(getPalette(), getPalette() + 256, pal);
-	Uint8 arrowColor = _up->getColor();
-	Uint8 barColor = _scrollbar->getColor();
-	delete _up;
-	delete _down;
-	delete _scrollbar;
-	_up = new ArrowButton(ARROW_BIG_UP, aw, ah, getX() + w + _scrollPos, getY());
-	_up->setVisible(false);
-	_up->setTextList(this);
-	_up->setPalette(pal);
-	_up->setColor(arrowColor);
-	_down = new ArrowButton(ARROW_BIG_DOWN, aw, ah, getX() + w + _scrollPos, getY() + getHeight() - ah);
-	_down->setVisible(false);
-	_down->setTextList(this);
-	_down->setPalette(pal);
-	_down->setColor(arrowColor);
-	// Recreate the scrollbar at the scaled arrow width and the post-scale X. The
-	// base ctor sized it to the native arrow width and applyUiScaling's setX ran
-	// while getWidth() was still native, so it was left as a thin, mispositioned
-	// bar floating over the list (drawn twice — once direct, once via the
-	// updateArrows blit onto the now-wide list surface that no longer clips it).
-	int sbh = std::max(_down->getY() - _up->getY() - _up->getHeight(), 1);
-	_scrollbar = new ScrollBar(aw, sbh, getX() + w + _scrollPos, _up->getY() + _up->getHeight());
-	_scrollbar->setVisible(false);
-	_scrollbar->setTextList(this);
-	_scrollbar->setPalette(pal);
-	_scrollbar->setColor(barColor);
-	if (_bg) _scrollbar->setBackground(_bg);
-	_scrollbar->setHighContrast(_contrast);
-	// Reposition _down and recompute scrollbar height.
-	setY(getY());
-	setHeight(getHeight());
-}
-
-/**
- * Calypso: HD — forward TTF font opt-in to every text cell.
- */
-void TextList::setTTFFont(TTFFont* font, float fillFrac)
-{
-	// Remember it so rows added LATER (Options lists are populated in the state's init(),
-	// after OptionsBaseState::init() runs applyTTFToTexts) also render crisp HD text.
-	_ttfFont = font;
-	_ttfFrac = fillFrac;
-	for (auto& row : _texts)
-		for (auto* t : row)
-			t->setTTFFont(font, fillFrac);
-}
-#endif
 
 }

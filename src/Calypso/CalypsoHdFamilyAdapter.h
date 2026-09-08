@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "CalypsoHdUiModel.h"
+#include "CalypsoHdImageModel.h"
 #include "CalypsoHdTextRasterKey.h"
 
 namespace OpenXcom
@@ -33,7 +34,7 @@ namespace OpenXcom
 namespace Calypso
 {
 
-enum class CalypsoHdItemKind { Panel, Text };
+enum class CalypsoHdItemKind { Panel, Text, RgbaImage };
 
 /// Horizontal/vertical glyph alignment inside the item's logical box. Mirrors
 /// the engine's ALIGN_* enums by value (0/1/2) but kept local so the builder
@@ -63,6 +64,10 @@ struct CalypsoHdItem
 	// real GPU linear sampler performs the final CSS-like projection.
 	float textScaleX = 1.0f;
 	float textScaleY = 1.0f;
+
+	// RgbaImage only: VFS source, UV rect, and optional clip. The destination
+	// box is `rect`; the clip (when set) intersects it in logical space.
+	CalypsoHdImageDescriptor image;
 
 	// Presentation opacity (Phase 46.4-F33 opening motion): 1 = opaque.
 	float opacity = 1.0f;
@@ -131,6 +136,14 @@ public:
 	/// equals the current top state, so a state pushed on top never lets a lower
 	/// popup's physical replacement draw over it.
 	virtual const void* topState() const = 0;
+
+	/// Explicit physical underlay requested by this adapter (default: none).
+	/// The overlay resolves the returned state identity against its registered
+	/// adapters and collects the underlay chain root-first before this adapter,
+	/// so a transparent form shows the physical base below instead of black.
+	/// Never an inferred previous registration: an unknown identity or a cycle
+	/// fails the route closed. Default null preserves every existing family.
+	virtual const void* physicalUnderlayState() const { return nullptr; }
 
 	/// Returns false for a transient frame in which the logical widget is still
 	/// playing its native opening animation. The overlay leaves that logical

@@ -49,6 +49,10 @@ private:
 	Timer *_timer;
 	TTFFont *_ttf;
 	float _ttfFill;
+#ifdef __EMSCRIPTEN__
+	TTFFont *_physicalTextFont = nullptr;
+	double _physicalTextScaleX = 1.0;
+#endif
 	UCode _char;
 	size_t _caretPos;
 	size_t _firstVisibleLine;
@@ -133,6 +137,12 @@ public:
 	#ifdef __EMSCRIPTEN__
 	/// Skip the native surface when the HD overlay claims this editor.
 	void blit(SDL_Surface *surface) override;
+	/// Match hidden native hit/width measurement to a physical HD text owner.
+	void setPhysicalTextMetrics(TTFFont *font, double logicalScaleX)
+	{
+		_physicalTextFont = font;
+		_physicalTextScaleX = logicalScaleX;
+	}
 	#endif
 	/// Special handling for mouse presses.
 	void mousePress(Action *action, State *state) override;

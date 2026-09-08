@@ -37,10 +37,22 @@ private:
 	SDL_Rect _thumbRect;
 	int _offset;
 	Surface *_bg;
-	/// Draws the scrollbar track.
+#ifdef __EMSCRIPTEN__
+	/// Calypso HD selection-list seam: min thumb height in engine-logical px.
+	///Shares the pure track/thumb mapping with the HD painter so input and
+	/// paint agree even when native draw never runs.
+	bool _hdEnabled = false;
+	int _hdMinThumb = 0;
+#endif
 	void drawTrack();
 	/// Draws the scrollbar thumb.
 	void drawThumb();
+#ifdef __EMSCRIPTEN__
+	// Calypso HD bodies live in src/Calypso/CalypsoScrollBar.cpp; hooks stay short.
+	bool calypsoHdDragScrolled(Action *action, int cursorY);
+	bool calypsoHdPressAt(int cursorY);
+	bool calypsoHdSyncThumbRect();
+#endif
 public:
 	/// Creates a new scrollbar with the specified size and position.
 	ScrollBar(int width, int height, int x = 0, int y = 0);
@@ -74,6 +86,16 @@ public:
 	void mouseRelease(Action *action, State *state) override;
 	/// Draws the scrollbar contents.
 	void draw() override;
+#ifdef __EMSCRIPTEN__
+	/// Calypso HD: enable/disable the shared min-clamped thumb mapping.
+	/// Same value re-applied preserves drag capture; real changes reset it.
+	void setCalypsoHdMinThumb(int minThumb);
+	void clearCalypsoHd();
+	bool calypsoHdIsDragging() const;
+	void calypsoHdCancelDrag();
+	/// Thumb rect in scrollbar-local space, valid without draw().
+	SDL_Rect calypsoHdThumbRect();
+#endif
 };
 
 }

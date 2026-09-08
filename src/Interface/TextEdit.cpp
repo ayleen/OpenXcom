@@ -499,9 +499,13 @@ void TextEdit::draw()
  */
 bool TextEdit::exceedsMaxWidth(UCode c) const
 {
+
+#ifdef __EMSCRIPTEN__
+	if (_physicalTextFont)
+		return Calypso::CalypsoTextEdit::exceedsPhysicalWidth(*this, c);
+#endif
 	int w = 0;
 	UString s = _value;
-
 	s += c;
 	for (UString::const_iterator i = s.begin(); i < s.end(); ++i)
 	{

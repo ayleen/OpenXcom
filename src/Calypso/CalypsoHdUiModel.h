@@ -408,6 +408,29 @@ inline bool calypsoOrderKeyCollides(const CalypsoHdOrderKey& a, const CalypsoHdO
 	return a == b;
 }
 
+/// Composition depth of one committed draw inside an explicit underlay chain:
+/// 0 is the chain root (e.g. the physical base), larger values paint above.
+/// Stage keeps absolute precedence (diagnostics/pointer above HD UI); depth
+/// orders only draws within the same stage, and the published order key
+/// breaks every remaining tie. Single-adapter frames all carry depth 0, so
+/// their paint order is byte-identical to the order-key sort alone.
+struct CalypsoHdComposedOrder
+{
+	int stage = 0;
+	int compositionDepth = 0;
+	CalypsoHdOrderKey order;
+};
+
+/// Strict-weak ordering over (stage, compositionDepth, full order key).
+inline bool calypsoComposedOrderLess(
+	const CalypsoHdComposedOrder& a, const CalypsoHdComposedOrder& b)
+{
+	if (a.stage != b.stage) return a.stage < b.stage;
+	if (a.compositionDepth != b.compositionDepth)
+		return a.compositionDepth < b.compositionDepth;
+	return calypsoOrderKeyLess(a.order, b.order);
+}
+
 /// Sort a vector of order keys deterministically and report whether any
 /// complete-tuple collision exists. On collision the caller must reject the
 /// submission rather than pick a winner by insertion order.

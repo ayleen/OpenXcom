@@ -156,7 +156,11 @@ void ScrollBar::handle(Action *action, State *state)
 	InteractiveSurface::handle(action, state);
 	if (_pressed && (action->getDetails()->type == SDL_MOUSEMOTION || action->getDetails()->type == SDL_MOUSEBUTTONDOWN))
 	{
-		int cursorY = action->getAbsoluteYMouse() - getY();
+		if (!_list) return;
+		const int cursorY = (int)action->getAbsoluteYMouse() - getY();
+#ifdef __EMSCRIPTEN__
+		if (calypsoHdDragScrolled(action, cursorY)) return;
+#endif
 		int y = Clamp(cursorY + _offset, 0, getHeight() - _thumbRect.h + 1);
 		double scale = (double)_list->getRowsDoNotUse() / getHeight();
 		int scroll = (int)Round(y * scale);
@@ -189,10 +193,14 @@ void ScrollBar::mousePress(Action *action, State *state)
 	InteractiveSurface::mousePress(action, state);
 	if (action->getDetails()->button.button == SDL_BUTTON_LEFT)
 	{
-		int cursorY = action->getAbsoluteYMouse() - getY();
-		if (cursorY >= _thumbRect.y && cursorY < _thumbRect.y + _thumbRect.h)
+		const int cursorY = (int)action->getAbsoluteYMouse() - getY();
+#ifdef __EMSCRIPTEN__
+		if (calypsoHdPressAt(cursorY)) return;
+#endif
+		int legacyCursorY = cursorY;
+		if (legacyCursorY >= _thumbRect.y && legacyCursorY < _thumbRect.y + _thumbRect.h)
 		{
-			_offset = _thumbRect.y - cursorY;
+			_offset = _thumbRect.y - legacyCursorY;
 		}
 		else
 		{
@@ -259,11 +267,22 @@ void ScrollBar::drawTrack()
  */
 void ScrollBar::drawThumb()
 {
+#ifdef __EMSCRIPTEN__
+	if (!calypsoHdSyncThumbRect())
+	{
+		double scale = (double)getHeight() / _list->getRowsDoNotUse();
+		_thumbRect.x = 0;
+		_thumbRect.y = (int)floor(_list->getScroll() * scale);
+		_thumbRect.w = _thumb->getWidth();
+		_thumbRect.h = (int)ceil(_list->getVisibleRows() * scale);
+	}
+#else
 	double scale = (double)getHeight() / _list->getRowsDoNotUse();
 	_thumbRect.x = 0;
 	_thumbRect.y = (int)floor(_list->getScroll() * scale);
 	_thumbRect.w = _thumb->getWidth();
 	_thumbRect.h = (int)ceil(_list->getVisibleRows() * scale);
+#endif
 
 	// Draw base button
 	_thumb->clear();
@@ -323,5 +342,6 @@ void ScrollBar::drawThumb()
 	}
 	_thumb->unlock();
 }
+
 
 }

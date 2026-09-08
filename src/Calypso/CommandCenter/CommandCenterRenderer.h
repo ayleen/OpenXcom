@@ -16,6 +16,7 @@
 #ifdef __EMSCRIPTEN__
 
 #include "CommandCenterIcons.h"
+#include "CommandCenterInteraction.h"
 #include "CommandCenterLayout.h"
 #include "CommandCenterTheme.h"
 
@@ -67,6 +68,80 @@ struct CommandCenterFonts
 /// Resolve the FONT_CC_* faces against the active mod. `icons` is optional
 /// (the screen fails closed to label-only without the icon face).
 CommandCenterFonts calypsoCcResolveFonts(const class Mod* mod);
+
+/// Shared global-rail chrome (T07): header/rail backgrounds plus the five
+/// section items with an explicit active section. Pure paint: no handler
+/// calls, no state lookups, no widget bindings -- the caller binds its own
+/// native widgets at these rects and passes labels it already owns (World
+/// passes the kRailItems labels; Base will resolve live labels). Settings
+/// stays pinned to the rail bottom in every composition.
+void calypsoCcPaintHeaderBackground(CalypsoF21Painter& painter, const RectF& header,
+	std::uint32_t& role);
+void calypsoCcPaintRailBackground(CalypsoF21Painter& painter, const RectF& rail,
+	std::uint32_t& role);
+void calypsoCcPaintRailItems(CalypsoF21Painter& painter, const RectF& rail,
+	RailAction active, const char* const labels[5],
+	const CommandCenterFonts& fonts, std::uint32_t& role);
+/// Shared rail section label (T14): index 0..4 WORLD/BASES/OPERATIONS/
+/// ANALYTICS/ARCHIVE. Single definition site; empty string outside range.
+const char* calypsoCcRailLabel(int index);
+
+/// Shared header content (base chip + live date/time, spec s.19-21).
+/// Geoscape and Basescape paint the same chrome from the same helper so the
+/// header cannot drift: caption/name at layout.baseSelector, time/date at
+/// layout.dateTimeBlock. interactive=false paints a display-only chip (no
+/// chevron, no dropdown) for headers whose selector lives in the content,
+/// like the Basescape MiniBaseView band. Pure paint: no handler calls.
+void calypsoCcPaintHeaderContent(CalypsoF21Painter& painter,
+	const CommandCenterLayout& layout, const CommandCenterSnapshot& content,
+	const CommandCenterFonts& fonts, std::uint32_t& role, bool interactive = true);
+
+/// Normalize one engine display string for TTF drawing: drop the OXCE inline
+/// control tokens (TOK_COLOR_FLIP from {ALT}, TOK_NL_SMALL, TOK_CUSTOM_FORMAT
+/// and the C0/C1 controls) that the raster bitmap font consumes as commands
+/// but Inter/Plex render as tofu. Printable text, spaces, NBSP thousand
+/// separators, and newlines pass through untouched; nothing is
+/// string-specific, so funds, names, and regions share it. Pure and
+/// byte-oriented (UTF-8 continuation bytes are never split).
+inline std::string calypsoHdNormalizeTtfDisplayText(const std::string& text)
+{
+	std::string out;
+	out.reserve(text.size());
+	for (std::size_t i = 0; i < text.size();)
+	{
+		const unsigned char c = static_cast<unsigned char>(text[i]);
+		if (c < 0x20)
+		{
+			// Keep LF as the only meaningful control; every other C0 byte
+			// (including 0x01 TOK_COLOR_FLIP behind {ALT}) is an engine
+			// command with no TTF glyph.
+			if (c == 0x0A)
+			{
+				out.push_back(text[i]);
+			}
+			++i;
+			continue;
+		}
+		if (c == 0x7F)
+		{
+			++i;
+			continue;
+		}
+		if (c == 0xC2 && i + 1 < text.size())
+		{
+			const unsigned char next = static_cast<unsigned char>(text[i + 1]);
+			if (next >= 0x80 && next <= 0x9F)
+			{
+				// C1 controls (U+0080..U+009F) have no Inter/Plex glyphs.
+				i += 2;
+				continue;
+			}
+		}
+		out.push_back(text[i]);
+		++i;
+	}
+	return out;
+}
 
 /// Emit the whole screen. `live` gates the world-region background (the
 /// real globe pass owns it) and widget claim binding; `state` may be null

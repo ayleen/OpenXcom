@@ -32,6 +32,10 @@
 #include "../Savegame/Base.h"
 #include "PlaceFacilityState.h"
 #include "../Ufopaedia/Ufopaedia.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF03BuildFacilitiesUi.h"
+#include "../Calypso/CalypsoHdHarnessHostState.h"
+#endif
 
 namespace OpenXcom
 {
@@ -82,14 +86,38 @@ BuildFacilitiesState::BuildFacilitiesState(Base *base, State *state) : _base(bas
 	_lstFacilities->onMouseClick((ActionHandler)&BuildFacilitiesState::lstFacilitiesClick);
 	_lstFacilities->onMouseClick((ActionHandler)&BuildFacilitiesState::lstFacilitiesClick, SDL_BUTTON_MIDDLE);
 
-}
+#ifdef __EMSCRIPTEN__
+	// The close action keeps its native handler; the HD shell carries the
+	// Cancel semantic while the hidden native button stays input owner.
+	_btnOk->setText(tr("STR_CANCEL_UC"));
+	// Configure only after semantic text and behavior widgets are complete so
+	// the physical adapter captures the canonical copy and action labels.
+	// Concrete subclasses (SelectStartFacilityState) re-configure after their
+	// own widgets; configure() replaces any adapter built here.
+	Calypso::CalypsoF03BuildFacilitiesUi::configure(*this);
+#endif
 
+}
 /**
  *
  */
 BuildFacilitiesState::~BuildFacilitiesState()
 {
-
+#ifdef __EMSCRIPTEN__
+	if (_hdLayout)
+	{
+		Calypso::calypsoHdHarnessDomHide();
+	}
+	Calypso::calypsoHarnessCloseForTarget(Calypso::calypsoHarnessSession(), this, _hdHarnessGeneration);
+	if (_hdOwnFixture)
+	{
+		// The fixture covered state owns the fixture base: its destructor
+		// deletes the base when it is not in the saved-game base list.
+		delete _state;
+		_state = nullptr;
+		_base = nullptr;
+	}
+#endif
 }
 
 /**
@@ -230,5 +258,13 @@ void BuildFacilitiesState::lstFacilitiesClick(Action *action)
 	}
 	_game->pushState(new PlaceFacilityState(_base, _facilities[index]));
 }
+
+#ifdef __EMSCRIPTEN__
+void BuildFacilitiesState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF03BuildFacilitiesUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+#endif
 
 }

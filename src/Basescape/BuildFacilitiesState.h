@@ -18,11 +18,12 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include <vector>
+#include <cstdint>
 #include "../Engine/State.h"
 
 namespace OpenXcom
 {
-
+namespace Calypso { class CalypsoF03BuildFacilitiesUi; }
 class Base;
 class TextButton;
 class Window;
@@ -30,12 +31,16 @@ class Text;
 class TextList;
 class RuleBaseFacility;
 
+
 /**
  * Window shown with all the facilities
  * available to build.
  */
 class BuildFacilitiesState : public State
 {
+#ifdef __EMSCRIPTEN__
+friend class Calypso::CalypsoF03BuildFacilitiesUi;
+#endif
 protected:
 	Base *_base;
 	State *_state;
@@ -59,6 +64,17 @@ public:
 	void btnOkClick(Action *action);
 	/// Handler for clicking the Facilities list.
 	virtual void lstFacilitiesClick(Action *action);
+#ifdef __EMSCRIPTEN__
+private:
+	bool _hdLayout = false;
+	bool _hdWideLayout = false;
+	bool _hdOwnFixture = false;
+	Calypso::CalypsoF03BuildFacilitiesUi *_hdAdapter = nullptr;
+	std::uint64_t _hdHarnessGeneration = 0;
+public:
+	void calypsoOwnHarnessFixture() { _hdOwnFixture = true; }
+	void resize(int &dX, int &dY) override;
+#endif
 };
 
-}
+} // namespace OpenXcom

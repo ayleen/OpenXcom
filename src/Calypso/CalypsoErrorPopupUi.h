@@ -56,13 +56,16 @@ public:
 
 	// --- CalypsoHdFamilyAdapter (snapshot-only) ---
 	const void* topState() const override;
+	const void* physicalUnderlayState() const override;
 	void collectLogicalSuppression(CalypsoHdLogicalSuppression& suppression) const override;
 	void collect(CalypsoHdFrameBuilder& builder) const override;
 
 	// --- Entry points called from ErrorMessageState ---
 	/// Build the redesigned widgets (gated on isHdUiFamilyEnabled("F34")),
 	/// create the adapter instance, and register it with the overlay. A no-op
-	/// that leaves the state as the legacy popup when the gate is off.
+	/// that leaves the state as the legacy popup when the gate is off, except
+	/// for explicit-underlay forms (_hdForm.hdUnderlayState != nullptr), which
+	/// are always HD and fail the route closed instead of falling back.
 	static void configure(ErrorMessageState& state, bool allowPhysicalOverlay = true);
 	/// Re-fit widgets on canvas resize and recompute the Compact/Wide layout
 	/// class from the current base resolution. Returns true iff HD handled it.

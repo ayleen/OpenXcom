@@ -81,6 +81,7 @@ private:
 	void syncEmscriptenViewportContext();
 	void trackEmscriptenViewportState(State *state);
 	void initializeEmscriptenTopState();
+	bool dispatchCalypsoMouseWheel();
 	Calypso::CalypsoSceneViewportTracker _calypsoViewportScenes;
 #endif
 

@@ -16,7 +16,10 @@
 #include "../Interface/Cursor.h"
 #include "../Menu/AbandonGameState.h"
 #include "../Basescape/BaseView.h"
+#include "../Basescape/BuildFacilitiesState.h"
+#include "../Basescape/BasescapeState.h"
 #include "../Basescape/DismantleFacilityState.h"
+#include "../Basescape/PlaceFacilityState.h"
 #include "../Basescape/SackSoldierState.h"
 #include "../Basescape/SoldierTransformState.h"
 #include "../Basescape/SoldierDiaryOverviewState.h"
@@ -33,9 +36,8 @@
 #include "../Geoscape/ResearchCompleteState.h"
 #include "../Geoscape/UfoLostState.h"
 #include "../Geoscape/UfoDetectedState.h"
-#include "../Geoscape/MissionDetectedState.h"
-#include "../Calypso/CalypsoTutorial.h"
 #include "../Geoscape/GeoscapeState.h"
+#include "../Geoscape/Globe.h"
 #include "../Mod/RuleAlienMission.h"
 #include "../Savegame/AlienMission.h"
 #include "../Savegame/Ufo.h"
@@ -62,15 +64,17 @@ namespace Calypso
 
 namespace
 {
+CalypsoHarnessSession g_harnessSession;
 
 /// One active harness run at a time (repeated opens are no-ops).
-CalypsoHarnessSession g_harnessSession;
-// F03 harness SavedGame isolation - lease pattern to avoid double-free and dangling pointer
 struct HarnessSaveLease
 {
     SavedGame *original = nullptr;
     SavedGame *fixture = nullptr;
     std::int64_t originalFunds = 0;
+    // Fixture base owned by the harness (not by its target state): the
+    // place-facility target never owns its base, so the lease frees it.
+    Base *fixtureBase = nullptr;
     bool active = false;
 };
 static HarnessSaveLease g_harnessSaveLease;
@@ -170,6 +174,84 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 		auto* state = new DismantleFacilityState(base, view, facility);
 		state->calypsoOwnHarnessFixture();
 		return state;
+	}
+	case CalypsoHarnessScenario::F03BuildFacilities:
+	{
+		Game* game = getCurrentGame();
+		if (!game || !game->getMod()) return nullptr;
+		if (!g_harnessSaveLease.active) {
+			if (game->getSavedGame()) {
+				g_harnessSaveLease.original = game->getSavedGame();
+				g_harnessSaveLease.originalFunds = game->getSavedGame()->getFunds();
+				g_harnessSaveLease.fixture = nullptr;
+			} else {
+				SavedGame* fixture = new SavedGame();
+				game->setSavedGame(fixture);
+				g_harnessSaveLease.original = nullptr;
+				g_harnessSaveLease.fixture = fixture;
+				g_harnessSaveLease.originalFunds = 0;
+			}
+			g_harnessSaveLease.active = true;
+		}
+		if (game->getSavedGame())
+		{
+			game->getSavedGame()->setFunds(6800000);
+			// Deterministic chooser rows: on a fixture-only save every
+			// requirement-gated facility lists enabled in mod order, so the
+			// contract rows and the engine rows agree. A live campaign save
+			// is never touched: debug mode stays off there.
+			if (g_harnessSaveLease.fixture == game->getSavedGame()
+				&& !game->getSavedGame()->getDebugMode())
+				game->getSavedGame()->setDebugMode();
+		}
+		Base* base = new Base(game->getMod());
+		// The fixture globe intentionally lives for the harness process
+		// lifetime (F21 defense precedent); the covered state owns the base.
+		const int sw = 320, sh = 200;
+		Globe* globe = new Globe(game, (sw - 64) / 2, sh / 2, sw - 64, sh, 0, 0);
+		BasescapeState* covered = new BasescapeState(base, globe);
+		auto* state = new BuildFacilitiesState(base, covered);
+		state->calypsoOwnHarnessFixture();
+		return state;
+	}
+	case CalypsoHarnessScenario::F03PlaceFacility:
+	{
+		Game* game = getCurrentGame();
+		if (!game || !game->getMod()) return nullptr;
+		if (!g_harnessSaveLease.active) {
+			if (game->getSavedGame()) {
+				g_harnessSaveLease.original = game->getSavedGame();
+				g_harnessSaveLease.originalFunds = game->getSavedGame()->getFunds();
+				g_harnessSaveLease.fixture = nullptr;
+			} else {
+				SavedGame* fixture = new SavedGame();
+				game->setSavedGame(fixture);
+				g_harnessSaveLease.original = nullptr;
+				g_harnessSaveLease.fixture = fixture;
+				g_harnessSaveLease.originalFunds = 0;
+			}
+			g_harnessSaveLease.active = true;
+		}
+		if (game->getSavedGame()) game->getSavedGame()->setFunds(6800000);
+		const RuleBaseFacility* rule = game->getMod()->getBaseFacility("STR_LIVING_QUARTERS", false);
+		if (!rule)
+		{
+			for (const std::string& name : game->getMod()->getBaseFacilitiesList())
+			{
+				const RuleBaseFacility* candidate = game->getMod()->getBaseFacility(name, false);
+				if (candidate && !candidate->isLift())
+				{
+					rule = candidate;
+					break;
+				}
+			}
+		}
+		if (!rule) return nullptr;
+		// Real native owners for the placement slice; the lease frees the
+		// base because PlaceFacilityState never owns it.
+		Base* placeBase = new Base(game->getMod());
+		g_harnessSaveLease.fixtureBase = placeBase;
+		return new PlaceFacilityState(placeBase, rule);
 	}
 	case CalypsoHarnessScenario::F04SackSoldier:
 		return new CraftErrorState(nullptr, "Dismiss soldier confirmation.");
@@ -386,6 +468,8 @@ void calypsoHdHarnessClose()
 				}
 			}
 		}
+		delete g_harnessSaveLease.fixtureBase;
+		g_harnessSaveLease.fixtureBase = nullptr;
 		g_harnessSaveLease = HarnessSaveLease();
 	}
 	calypsoHarnessClose(calypsoHarnessSession());

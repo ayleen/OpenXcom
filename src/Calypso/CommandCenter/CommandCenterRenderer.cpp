@@ -172,9 +172,24 @@ constexpr RailItemSpec kRailItems[5] = {
 constexpr const char* kTimeSteps[6] =
 	{ "5 SECS", "1 MIN", "5 MINS", "30 MINS", "1 HOUR", "1 DAY" };
 
+/// Rail item index for an explicit active section (T07): World owns slot 0,
+/// the four routed sections own slots 1-4 in railActionForSlot() order.
+int ccRailIndexForAction(RailAction action)
+{
+	switch (action)
+	{
+	case RailAction::Bases: return 1;
+	case RailAction::Intercept: return 2;
+	case RailAction::Graphs: return 3;
+	case RailAction::Ufopaedia: return 4;
+	case RailAction::World:
+	default: return 0;
+	}
+}
+
 void ccRenderBaseSelector(CalypsoF21Painter& painter, const RectF& selector,
 	const CommandCenterSnapshot& snap, const CommandCenterFonts& fonts,
-	std::uint32_t& role)
+	std::uint32_t& role, bool interactive = true)
 {
 	using namespace CommandCenterTheme;
 	const auto px = CommandCenterTheme::packed;
@@ -203,11 +218,16 @@ void ccRenderBaseSelector(CalypsoF21Painter& painter, const RectF& selector,
 		selector.right() - textX - 28.0f, compact ? 17.0f : 16.0f}, fonts.interSb,
 		snap.baseName, px(TextPrimary), compact ? 12.0f : 14.0f, 0.02f,
 		CalypsoHdHAlign::Left, role);
-	ccIcon(painter, RectF{selector.right() - 24.0f, selector.y, 14.0f,
-		selector.height}, CcIcon::ChevronDown, fonts, px(TextSecondary),
-		compact ? 11.0f : 14.0f, role);
+	// Display-only chips (Basescape: the MiniBaseView band owns selection)
+	// paint no chevron and never open a dropdown with no route behind it.
+	if (interactive)
+	{
+		ccIcon(painter, RectF{selector.right() - 24.0f, selector.y, 14.0f,
+			selector.height}, CcIcon::ChevronDown, fonts, px(TextSecondary),
+			compact ? 11.0f : 14.0f, role);
+	}
 
-	if (!snap.baseSelectorOpen || snap.baseNames.empty())
+	if (!interactive || !snap.baseSelectorOpen || snap.baseNames.empty())
 		return;
 	ccPanel(painter, ccBaseSelectorDropdown(selector, snap.baseNames.size()),
 		RadiusSM, BgPanel, BgRoot, Border, true, role);
@@ -393,6 +413,111 @@ void ccRenderCompact(CalypsoF21Painter& painter,
 
 } // namespace
 
+void calypsoCcPaintHeaderBackground(CalypsoF21Painter& painter, const RectF& header,
+	std::uint32_t& role)
+{
+	using namespace CommandCenterTheme;
+	const auto px = CommandCenterTheme::packed;
+	// Desktop pass 2: header background + bottom hairline (spec s.18).
+	ccPanel(painter, header, 0.0f, Color8{0x05,0x11,0x1E,0xFF},
+		Color8{0x03,0x0D,0x18,0xFF}, BgHeader, false, role);
+	painter.decoration(ccLogical(painter, {header.x, header.bottom() - 1.0f,
+		header.width, 1.0f}), px(BorderSoft), role++);
+}
+
+void calypsoCcPaintRailBackground(CalypsoF21Painter& painter, const RectF& rail,
+	std::uint32_t& role)
+{
+	using namespace CommandCenterTheme;
+	const auto px = CommandCenterTheme::packed;
+	// Desktop pass 3: navigation rail background + right hairline (spec s.22).
+	CalypsoHdPanelStyle railBg;
+	railBg.styled = true;
+	railBg.fillTopRgba = 0x051220u;
+	railBg.fillBottomRgba = 0x030D18u;
+	railBg.gradDirX = 0.0f;
+	railBg.gradDirY = 1.0f;
+	ccRect(painter, rail, railBg, role);
+	painter.decoration(ccLogical(painter, {rail.right() - 1.0f,
+		rail.y, 1.0f, rail.height}),
+		px(BorderSoft), role++);
+}
+
+void calypsoCcPaintRailItems(CalypsoF21Painter& painter, const RectF& rail,
+	RailAction active, const char* const labels[5],
+	const CommandCenterFonts& fonts, std::uint32_t& role)
+{
+	using namespace CommandCenterTheme;
+	const auto px = CommandCenterTheme::packed;
+	// Desktop pass 12: navigation content (spec s.22). The active section is
+	// explicit; labels arrive from the caller so no copy is duplicated here.
+	// Widget bindings stay at the call site (live World below, Base in T15).
+	for (int i = 0; i < 5; ++i)
+	{
+		const RectF item = calypsoCcRailItemRect(rail, i);
+		const bool itemActive = ccRailIndexForAction(active) == i;
+		if (itemActive)
+		{
+			CalypsoHdPanelStyle act;
+			act.styled = true;
+			act.radiusPx = RadiusSM;
+			act.gradDirX = 1.0f;
+			act.gradDirY = 0.0f;
+			act.fillTopRgba = 0x81E0B51Fu;
+			act.fillBottomRgba = 0x81E0B509u;
+			act.borderWidthPx = 1.0f;
+			act.borderColorRgba = 0x81E0B529u;
+			ccRect(painter, item, act, role);
+			CalypsoHdPanelStyle glowBar;
+			glowBar.styled = true;
+			glowBar.radiusPx = 8.0f;
+			glowBar.fillTopRgba = glowBar.fillBottomRgba = 0x00000000u;
+			glowBar.glowRgba = 0x81E0B514u;
+			glowBar.glowRadiusPx = 5.0f;
+			ccRect(painter, RectF{item.x - 6.0f, item.y + 13.0f, 13.0f, 46.0f}, glowBar, role);
+			painter.decoration(ccLogical(painter, {item.x - 1.0f, item.y + 18.0f, 3.0f, 36.0f}), px(Accent), role++);
+		}
+		ccIcon(painter, RectF{item.x, item.y + 14.0f, item.width, 22.0f}, kRailItems[i].icon,
+			fonts, itemActive ? px(Accent) : px(TextSecondary), 22.0f, role);
+		ccText(painter, RectF{rail.x + 4.0f, item.bottom() - 22.0f, rail.width - 8.0f, 14.0f}, fonts.plexM,
+			labels[i], itemActive ? px(Accent) : px(TextSecondary), 11.0f, 0.0f,
+			CalypsoHdHAlign::Center, role);
+	}
+	// Settings pinned to the rail bottom (spec s.22.6).
+	const RectF settings = calypsoCcRailSettingsRect(rail);
+	CalypsoHdPanelStyle set;
+	set.styled = true;
+	set.radiusPx = RadiusSM;
+	set.borderWidthPx = 1.0f;
+	set.borderColorRgba = px(Border);
+	set.fillTopRgba = set.fillBottomRgba = 0x00000000u;
+	ccRect(painter, settings, set, role);
+	ccIcon(painter, settings, CcIcon::Settings, fonts, px(TextMuted), 20.0f, role);
+}
+
+const char* calypsoCcRailLabel(int index)
+{
+	return (index >= 0 && index < 5) ? kRailItems[index].label : "";
+}
+
+void calypsoCcPaintHeaderContent(CalypsoF21Painter& painter,
+	const CommandCenterLayout& layout, const CommandCenterSnapshot& content,
+	const CommandCenterFonts& fonts, std::uint32_t& role, bool interactive)
+{
+	using namespace CommandCenterTheme;
+	const auto px = CommandCenterTheme::packed;
+	// Pass 11: header content (spec s.19-21). Extracted shared so Geoscape
+	// and Basescape paint one chrome: base chip at layout.baseSelector,
+	// live date/time at layout.dateTimeBlock.
+	ccRenderBaseSelector(painter, layout.baseSelector, content, fonts, role, interactive);
+
+	const RectF& dt = layout.dateTimeBlock;
+	ccText(painter, RectF{dt.x, dt.y, dt.width, 20.0f}, fonts.plexM,
+		content.displayTime, px(TextPrimary), 14.0f, 0.04f, CalypsoHdHAlign::Right, role);
+	ccText(painter, RectF{dt.x, dt.y + 22.0f, dt.width, 18.0f}, fonts.plexM,
+		content.displayDate, px(TextSecondary), 11.0f, 0.04f, CalypsoHdHAlign::Right, role);
+}
+
 bool calypsoCcEnabled() { return g_calypsoCcEnabled; }
 void calypsoCcSetEnabled(bool on) { g_calypsoCcEnabled = on; }
 
@@ -478,24 +603,10 @@ void calypsoCcRender(CalypsoF21Painter& painter, const CommandCenterLayout& layo
 	}
 
 	// Pass 2: header background + bottom hairline (spec s.18).
-	ccPanel(painter, layout.header, 0.0f, Color8{0x05,0x11,0x1E,0xFF},
-		Color8{0x03,0x0D,0x18,0xFF}, BgHeader, false, role);
-	painter.decoration(ccLogical(painter, {layout.header.x, layout.header.bottom() - 1.0f,
-		layout.header.width, 1.0f}), px(BorderSoft), role++);
+	calypsoCcPaintHeaderBackground(painter, layout.header, role);
 
 	// Pass 3: navigation rail background + right hairline (spec s.22).
-	{
-		CalypsoHdPanelStyle rail;
-		rail.styled = true;
-		rail.fillTopRgba = 0x051220u;
-		rail.fillBottomRgba = 0x030D18u;
-		rail.gradDirX = 0.0f;
-		rail.gradDirY = 1.0f;
-		ccRect(painter, layout.navigationRail, rail, role);
-		painter.decoration(ccLogical(painter, {layout.navigationRail.right() - 1.0f,
-			layout.navigationRail.y, 1.0f, layout.navigationRail.height}),
-			px(BorderSoft), role++);
-	}
+	calypsoCcPaintRailBackground(painter, layout.navigationRail, role);
 
 	// Pass 4: stage. Fixture mode paints the full surface + fixed dot grid;
 	// live keeps the fill transparent because the globe direct pass owns
@@ -570,65 +681,19 @@ void calypsoCcRender(CalypsoF21Painter& painter, const CommandCenterLayout& layo
 
 	}
 
-	// Pass 12: navigation content (spec s.22).
+	// Pass 12: navigation content (spec s.22). WORLD stays the canonical
+	// section (s.61); labels resolve to the same kRailItems copy as before.
 	{
-		const RectF& rail = layout.navigationRail;
-		float y = rail.y + Space5;
-		for (int i = 0; i < 5; ++i)
-		{
-			const RectF item{ rail.x + 8.0f, y, rail.width - 16.0f, 72.0f };
-			y = item.bottom() + 4.0f;
-			const bool active = i == 0; // WORLD is the canonical section (s.61)
-			if (active)
-			{
-				CalypsoHdPanelStyle act;
-				act.styled = true;
-				act.radiusPx = RadiusSM;
-				act.gradDirX = 1.0f;
-				act.gradDirY = 0.0f;
-				act.fillTopRgba = 0x81E0B51Fu;
-				act.fillBottomRgba = 0x81E0B509u;
-				act.borderWidthPx = 1.0f;
-				act.borderColorRgba = 0x81E0B529u;
-				ccRect(painter, item, act, role);
-				CalypsoHdPanelStyle glowBar;
-				glowBar.styled = true;
-				glowBar.radiusPx = 8.0f;
-				glowBar.fillTopRgba = glowBar.fillBottomRgba = 0x00000000u;
-				glowBar.glowRgba = 0x81E0B514u;
-				glowBar.glowRadiusPx = 5.0f;
-				ccRect(painter, RectF{item.x - 6.0f, item.y + 13.0f, 13.0f, 46.0f}, glowBar, role);
-				painter.decoration(ccLogical(painter, {item.x - 1.0f, item.y + 18.0f, 3.0f, 36.0f}), px(Accent), role++);
-			}
-			ccIcon(painter, RectF{item.x, item.y + 14.0f, item.width, 22.0f}, kRailItems[i].icon,
-				fonts, active ? px(Accent) : px(TextSecondary), 22.0f, role);
-			ccText(painter, RectF{rail.x + 4.0f, item.bottom() - 22.0f, rail.width - 8.0f, 14.0f}, fonts.plexM,
-				kRailItems[i].label, active ? px(Accent) : px(TextSecondary), 11.0f, 0.0f,
-				CalypsoHdHAlign::Center, role);
-		}
-		// Settings pinned to the rail bottom (spec s.22.6).
-		const RectF settings{ rail.x + 24.0f, rail.bottom() - 56.0f, 40.0f, 40.0f };
-		CalypsoHdPanelStyle set;
-		set.styled = true;
-		set.radiusPx = RadiusSM;
-		set.borderWidthPx = 1.0f;
-		set.borderColorRgba = px(Border);
-		set.fillTopRgba = set.fillBottomRgba = 0x00000000u;
-		ccRect(painter, settings, set, role);
-		ccIcon(painter, settings, CcIcon::Settings, fonts, px(TextMuted), 20.0f, role);
+		const char* labels[5] = { kRailItems[0].label, kRailItems[1].label,
+			kRailItems[2].label, kRailItems[3].label, kRailItems[4].label };
+		calypsoCcPaintRailItems(painter, layout.navigationRail, RailAction::World,
+			labels, fonts, role);
 	}
 
 
-	// Pass 11: header content (spec s.19-21).
-	{
-		ccRenderBaseSelector(painter, layout.baseSelector, snap, fonts, role);
-
-		const RectF& dt = layout.dateTimeBlock;
-		ccText(painter, RectF{dt.x, dt.y, dt.width, 20.0f}, fonts.plexM,
-			snap.displayTime, px(TextPrimary), 14.0f, 0.04f, CalypsoHdHAlign::Right, role);
-		ccText(painter, RectF{dt.x, dt.y + 22.0f, dt.width, 18.0f}, fonts.plexM,
-			snap.displayDate, px(TextSecondary), 11.0f, 0.04f, CalypsoHdHAlign::Right, role);
-	}
+	// Pass 11: header content (spec s.19-21) via the shared helper, so the
+	// desktop chrome stays one definition for every strategic family.
+	calypsoCcPaintHeaderContent(painter, layout, snap, fonts, role);
 
 	// Live widget binding: reposition the existing interactive surfaces onto
 	// the Command Center grid and claim them so the native blit stays hidden

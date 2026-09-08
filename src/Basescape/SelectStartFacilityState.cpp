@@ -29,6 +29,9 @@
 #include "../Engine/Options.h"
 #include "PlaceStartFacilityState.h"
 #include "PlaceLiftState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF03BuildFacilitiesUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -49,6 +52,12 @@ SelectStartFacilityState::SelectStartFacilityState(Base *base, State *state, Glo
 	_btnOk->onKeyboardPress(0, Options::keyCancel);
 
 	_lstFacilities->onMouseClick((ActionHandler)&SelectStartFacilityState::lstFacilitiesClick);
+#ifdef __EMSCRIPTEN__
+	// The base ctor already configured once against pre-subclass widgets;
+	// re-configure now that Reset semantics and handlers are attached.
+	// configure() replaces the base adapter instead of stacking a second.
+	Calypso::CalypsoF03BuildFacilitiesUi::configure(*this);
+#endif
 }
 
 /**

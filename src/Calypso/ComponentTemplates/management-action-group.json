@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "id": "management-action-group",
+  "version": "hd.2026-09-06.1",
+  "kind": "action-group",
+  "minimumTarget": [44, 44],
+  "allowedSlotRoles": ["logistics-rows", "placement-cancel"],
+  "allowedTones": ["normal"]
+}

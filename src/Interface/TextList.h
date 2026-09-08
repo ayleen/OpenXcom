@@ -68,6 +68,16 @@ private:
 	float scale() const { return _nativeW > 0 ? (float)getWidth() / (float)_nativeW : 1.0f; }
 	TTFFont* _ttfFont = nullptr;   ///< Calypso: HD TTF applied to every row, incl. ones added after setTTFFont
 	float _ttfFrac = 1.0f;
+	/// Calypso HD selection-list seam (per-instance opt-in, no user toggle).
+	/// When enabled the inset track/thumb geometry is shared with the HD
+	/// painter and the ScrollBar owns track/drag input exclusively.
+	bool _hdSelList = false;
+	int _hdScrollBarWidth = 0;
+	int _hdMinThumb = 0;
+	int _hdRowStride = 0;
+	size_t _hdVisibleRows = 0;
+	double _hdLastHoverX = 1e30;
+	double _hdLastHoverY = 1e30;
 #endif
 
 	/// Updates the arrow buttons.
@@ -76,6 +86,24 @@ private:
 	void updateVisible();
 	/// Rebuilds the selector at the current visible selected row.
 	void updateSelector();
+#ifdef __EMSCRIPTEN__
+	// Calypso HD bodies live in src/Calypso/CalypsoTextList.cpp; hooks here stay short.
+	bool calypsoHdRoutePointerToScrollbar(Action *action, State *state);
+	bool calypsoHdUpdateVisibleFastPath();
+	bool calypsoHdHandleResizedHeight();
+	bool calypsoHdClaimedThisFrame() const;
+	bool calypsoHdFilterMouseOver(Action *action, State *state);
+	int calypsoHdHoverSelRow(double relY, double yScale, int nativeRowH) const;
+	bool calypsoHdSuppressClick(Action *action) const;
+	void calypsoHdMaybeApplyTtf(Text *txt);
+	void calypsoHdNormalizeRowHeights(std::vector<Text*> &row, int rowHeight, int cols);
+	/// Repositions the native scrollbar onto the inset HD track (change-guarded).
+	void positionCalypsoHdScrollbar();
+	/// True when the absolute point hits the inset HD track.
+	bool isCalypsoHdTrackHit(double absX, double absY) const;
+	/// Moves the native selection by delta rows, revealing and clamping it.
+	void calypsoHdMoveSelection(int delta);
+#endif
 public:
 	/// Creates a text list with the specified size and position.
 	TextList(int width, int height, int x = 0, int y = 0);
@@ -151,6 +179,19 @@ public:
 	void setWidth(int width) override;
 	/// Calypso: HD — forward TTF font to all text cells.
 	void setTTFFont(TTFFont* font, float fillFrac);
+	/// Calypso HD selection-list seam: per-instance opt-in (no user toggle).
+	/// Configures the inset track width and min thumb height in engine-logical
+	/// px plus the projected generated row stride (generated.rowHeight scaled by
+	/// the SAME adapter uiScale) and generated visibleRows; the track is derived
+	/// from the actual native list rect. Same values re-applied preserve drag
+	/// capture; real changes reset it.
+	void configureCalypsoHdSelectionList(int scrollBarWidth, int minThumbHeight, int rowStride, size_t visibleRows);
+	void clearCalypsoHdSelectionList();
+	bool isCalypsoHdSelectionList() const;
+	/// Read-only native track/thumb in the list's logical space, valid before
+	/// input even when native draw never runs. Thumb h is 0 when nothing scrolls.
+	SDL_Rect getCalypsoHdTrackRect() const;
+	SDL_Rect getCalypsoHdThumbRect() const;
 #endif
 	/// Sets the text color of the text list.
 	void setColor(Uint8 color) override;

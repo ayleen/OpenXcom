@@ -17,6 +17,10 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "BasescapeState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoBasescapeHdUi.h"
+#include "../Calypso/CalypsoStrategicNavigation.h"
+#endif
 #include "../Engine/Game.h"
 #include "../Mod/Mod.h"
 #include "../Engine/LocalizedText.h"
@@ -197,6 +201,9 @@ BasescapeState::BasescapeState(Base *base, Globe *globe) : _base(base), _globe(g
 	_btnGeoscape->setText(tr("STR_GEOSCAPE_UC"));
 	_btnGeoscape->onMouseClick((ActionHandler)&BasescapeState::btnGeoscapeClick);
 	_btnGeoscape->onKeyboardPress((ActionHandler)&BasescapeState::btnGeoscapeClick, Options::keyCancel);
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoBasescapeHdUi::configure(*this);
+#endif
 }
 
 /**
@@ -218,6 +225,10 @@ BasescapeState::~BasescapeState()
 	{
 		delete _base;
 	}
+#ifdef __EMSCRIPTEN__
+	delete _calypsoHdUi;
+	_calypsoHdUi = nullptr;
+#endif
 }
 
 /**
@@ -262,6 +273,10 @@ void BasescapeState::init()
 		{"base.btnSell", _btnSell}, {"base.btnCrafts", _btnCrafts},
 		{"base.btnSoldiers", _btnSoldiers} });
 	CalypsoTutorial::get().fire(_game, "basescape.enter");
+	if (_calypsoHdUi != nullptr)
+	{
+		_calypsoHdUi->refresh();
+	}
 #endif
 }
 
@@ -708,6 +723,32 @@ void BasescapeState::handleKeyPress(Action *action)
 void BasescapeState::edtBaseChange(Action *)
 {
 	_base->setName(_edtBase->getText());
+}
+
+void BasescapeState::blit()
+{
+#ifdef __EMSCRIPTEN__
+	// T16: a covered HD base contributes no legacy pixels. Suppression hides
+	// every widget individually; the neutral backing replaces the frozen
+	// legacy frame behind partial modals (palette-0 black, no surface walk).
+	if (_calypsoHdUi != nullptr && _calypsoHdUi->covered())
+	{
+		SDL_FillRect(_game->getScreen()->getSurface(), nullptr, 0);
+		return;
+	}
+#endif
+	State::blit();
+}
+
+void BasescapeState::resize(int &dX, int &dY)
+{
+#ifdef __EMSCRIPTEN__
+	if (_calypsoHdUi != nullptr && Calypso::CalypsoBasescapeHdUi::resize(*this))
+	{
+		return;
+	}
+#endif
+	State::resize(dX, dY);
 }
 
 }

@@ -16,6 +16,7 @@
 #include "../Engine/Unicode.h"
 #include "../Interface/TextEdit.h"
 
+#include "CalypsoHdFontSource.h"
 extern "C" void calypso_notify_text_focus(int focused, int x, int y, int w, int h,
 	const char *utf8, int multiline, int enterPolicy);
 
@@ -25,6 +26,41 @@ extern TextEdit *g_calypsoFocusedTextEdit;
 
 namespace Calypso
 {
+
+bool CalypsoTextEdit::exceedsPhysicalWidth(const TextEdit& edit, char32_t codepoint)
+{
+	UString value = edit._value;
+	value.insert(edit._caretPos, 1, codepoint);
+	std::vector<int> widths, kernings;
+	if (!edit._physicalTextFont->measureGlyphs(value, widths, kernings)) return true;
+	double width = 0;
+	for (size_t index = 0; index < widths.size(); ++index)
+		width += widths[index] + kernings[index];
+	return width * edit._physicalTextScaleX > edit.getWidth();
+}
+
+bool CalypsoTextEdit::caretAdvance(const TextEdit& edit, TTFFont* font, double& advance)
+{
+	if (!edit._isFocused || !edit._blink || font == nullptr) return false;
+	if (edit._value.empty()) { advance = 0; return true; }
+	// Only one editor owns text focus. Cache glyph metrics across blink frames.
+	static UString value;
+	static TTFFont* cachedFont = nullptr;
+	static std::uint64_t generation = 0;
+	static std::vector<int> widths, kernings;
+	const auto currentGeneration = calypsoHdFontResourceGeneration();
+	if (cachedFont != font || generation != currentGeneration || value != edit._value)
+	{
+		if (!font->measureGlyphs(edit._value, widths, kernings)) return false;
+		value = edit._value;
+		cachedFont = font;
+		generation = currentGeneration;
+	}
+	advance = 0;
+	for (size_t index = 0; index < std::min(edit._caretPos, widths.size()); ++index)
+		advance += widths[index] + kernings[index];
+	return true;
+}
 namespace
 {
 
@@ -284,6 +320,26 @@ bool CalypsoTextEdit::draw(TextEdit& edit)
 
 bool CalypsoTextEdit::mousePress(TextEdit& edit, Action* action, State* state)
 {
+	if (!edit._multiline && edit._physicalTextFont)
+	{
+		std::vector<int> widths, kernings;
+		if (!edit._physicalTextFont->measureGlyphs(edit._value, widths, kernings)) return true;
+		const double scale = action->getXScale() > 0 ? action->getXScale() : 1.0;
+		const double x = action->getRelativeXMouse() / scale;
+		double advance = 0;
+		size_t caret = 0;
+		for (; caret < widths.size(); ++caret)
+		{
+			advance += kernings[caret] * edit._physicalTextScaleX;
+			const double width = widths[caret] * edit._physicalTextScaleX;
+			if (x < advance + width / 2) break;
+			advance += width;
+		}
+		edit._caretPos = caret;
+		edit._redraw = true;
+		edit.InteractiveSurface::mousePress(action, state);
+		return true;
+	}
 	if (!edit._multiline) return false;
 	ensureLayout(edit);
 	if (!edit._multilineLayoutValid) return true;

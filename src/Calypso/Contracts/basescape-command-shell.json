@@ -1,0 +1,743 @@
+{
+  "schema": 1,
+  "version": "hd.2026-08-29.1",
+  "provenance": {
+    "generator": "tools/generate-hd-screen.py",
+    "source": "ScreenConfigs/basescape-command-shell.json",
+    "screenTemplate": "ScreenTemplates/base-command-shell.json"
+  },
+  "screen": {
+    "id": "basescape-command-shell",
+    "archetype": "base-command-shell",
+    "runtime": "production",
+    "productionHook": true
+  },
+  "themeVersion": "hd.2026-08-29.1",
+  "archetypeVersion": "hd.2026-09-07.1",
+  "componentVersions": {
+    "command-icon-action": "hd.2026-08-20.1",
+    "illustrated-management-action": "hd.2026-09-06.1",
+    "management-action-group": "hd.2026-09-06.1"
+  },
+  "coordinateSpaces": [
+    "screen"
+  ],
+  "actions": [
+    {
+      "id": "base.divers",
+      "labelKey": "STR_CALYPSO_BASE_DIVERS",
+      "icon": "soldiers",
+      "component": "illustrated-management-action",
+      "slotRole": "card-divers",
+      "tone": "normal",
+      "handler": "basescape.openSoldiers",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "always",
+      "timePolicy": "preserve",
+      "focusOrder": 10,
+      "visibility": "management"
+    },
+    {
+      "id": "base.research",
+      "labelKey": "STR_CALYPSO_BASE_RESEARCH",
+      "icon": "research",
+      "component": "illustrated-management-action",
+      "slotRole": "card-research",
+      "tone": "normal",
+      "handler": "basescape.openResearch",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "always",
+      "timePolicy": "preserve",
+      "focusOrder": 20,
+      "visibility": "management"
+    },
+    {
+      "id": "base.manufacture",
+      "labelKey": "STR_CALYPSO_BASE_PRODUCTION",
+      "icon": "manufacture",
+      "component": "illustrated-management-action",
+      "slotRole": "card-manufacture",
+      "tone": "normal",
+      "handler": "basescape.openManufacture",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "always",
+      "timePolicy": "preserve",
+      "focusOrder": 30,
+      "visibility": "management"
+    },
+    {
+      "id": "base.crafts",
+      "labelKey": "STR_CALYPSO_BASE_SUBMARINES",
+      "icon": "craft",
+      "component": "illustrated-management-action",
+      "slotRole": "card-craft",
+      "tone": "normal",
+      "handler": "basescape.openCrafts",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "always",
+      "timePolicy": "preserve",
+      "focusOrder": 40,
+      "visibility": "management"
+    },
+    {
+      "id": "base.transfer",
+      "labelKey": "STR_CALYPSO_BASE_TRANSFER",
+      "icon": "transfer",
+      "component": "management-action-group",
+      "slotRole": "logistics-rows",
+      "rowIndex": 0,
+      "tone": "normal",
+      "handler": "basescape.openTransfer",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "always",
+      "timePolicy": "preserve",
+      "focusOrder": 50,
+      "visibility": "management"
+    },
+    {
+      "id": "base.purchase",
+      "labelKey": "STR_CALYPSO_BASE_PURCHASE",
+      "icon": "purchase",
+      "component": "management-action-group",
+      "slotRole": "logistics-rows",
+      "rowIndex": 1,
+      "tone": "normal",
+      "handler": "basescape.openPurchase",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "economy-branched",
+      "timePolicy": "preserve",
+      "focusOrder": 60,
+      "visibility": "management"
+    },
+    {
+      "id": "base.sell",
+      "labelKey": "STR_CALYPSO_BASE_SELL",
+      "icon": "sell",
+      "component": "management-action-group",
+      "slotRole": "logistics-rows",
+      "rowIndex": 2,
+      "tone": "normal",
+      "handler": "basescape.openSell",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "economy-branched",
+      "timePolicy": "preserve",
+      "focusOrder": 70,
+      "visibility": "management"
+    },
+    {
+      "id": "base.build",
+      "labelKey": "STR_CALYPSO_BASE_BUILD",
+      "icon": "build",
+      "component": "illustrated-management-action",
+      "slotRole": "card-build",
+      "tone": "normal",
+      "handler": "basescape.openBuild",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "always",
+      "timePolicy": "preserve",
+      "focusOrder": 80,
+      "visibility": "management"
+    },
+    {
+      "id": "base.info",
+      "labelKey": "STR_CALYPSO_BASE_INFO",
+      "icon": "info",
+      "component": "illustrated-management-action",
+      "slotRole": "service-1",
+      "tone": "normal",
+      "handler": "basescape.openBaseInfo",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "always",
+      "timePolicy": "preserve",
+      "focusOrder": 90,
+      "visibility": "management"
+    },
+    {
+      "id": "base.new",
+      "labelKey": "STR_CALYPSO_BASE_NEW",
+      "icon": "new-base",
+      "component": "illustrated-management-action",
+      "slotRole": "service-2",
+      "tone": "normal",
+      "handler": "basescape.openNewBase",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "gated-count-research",
+      "timePolicy": "preserve",
+      "focusOrder": 100,
+      "visibility": "management"
+    },
+    {
+      "id": "navigation.world",
+      "labelKey": "STR_CALYPSO_BASE_WORLD",
+      "icon": "world",
+      "component": "command-icon-action",
+      "slotRole": "rail-world",
+      "tone": "normal",
+      "handler": "basescape.exitToGeoscape",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "always",
+      "timePolicy": "preserve",
+      "focusOrder": 110,
+      "visibility": "management"
+    },
+    {
+      "id": "base.placement.cancel",
+      "labelKey": "STR_CANCEL",
+      "icon": "back",
+      "component": "management-action-group",
+      "slotRole": "placement-cancel",
+      "tone": "normal",
+      "handler": "placement.cancel",
+      "inputs": [
+        "pointer",
+        "keyboard",
+        "touch",
+        "controller"
+      ],
+      "availability": "placement",
+      "timePolicy": "preserve",
+      "focusOrder": 120,
+      "visibility": "placement"
+    }
+  ],
+  "bindings": {
+    "plan": "basescape.plan",
+    "selector": "basescape.selector",
+    "header": "basescape.header"
+  },
+  "entities": [],
+  "context": {
+    "primaryNavigation": [
+      "base.divers",
+      "base.research",
+      "base.manufacture",
+      "base.crafts",
+      "base.transfer",
+      "base.purchase",
+      "base.sell",
+      "base.build",
+      "base.info",
+      "base.new",
+      "navigation.world"
+    ]
+  },
+  "fixture": {
+    "selectedBase": 0,
+    "bases": [
+      {
+        "name": "AURORA DAWN",
+        "cells": [
+          [
+            0,
+            0,
+            1,
+            1
+          ],
+          [
+            1,
+            0,
+            1,
+            1
+          ],
+          [
+            2,
+            0,
+            2,
+            2
+          ],
+          [
+            5,
+            0,
+            1,
+            1
+          ],
+          [
+            0,
+            5,
+            1,
+            1
+          ],
+          [
+            4,
+            4,
+            2,
+            2
+          ]
+        ]
+      }
+    ],
+    "labels": {
+      "actions": {
+        "base.divers": "Divers",
+        "base.research": "Research",
+        "base.manufacture": "Production",
+        "base.crafts": "Submarines",
+        "base.transfer": "Transfer",
+        "base.purchase": "Purchase / recruit",
+        "base.sell": "Sell / dismiss",
+        "base.build": "Build facilities",
+        "base.info": "Base information",
+        "base.new": "New base",
+        "navigation.world": "World",
+        "base.placement.cancel": "Cancel"
+      },
+      "entities": {},
+      "copy": {
+        "heading.deck": "Base layout",
+        "heading.column": "Base functions",
+        "heading.logistics": "Logistics"
+      }
+    }
+  },
+  "layouts": {
+    "wide": {
+      "designSize": [
+        1280,
+        720
+      ],
+      "regions": {
+        "header": [
+          0,
+          0,
+          1280,
+          72
+        ],
+        "titleName": [
+          112,
+          96,
+          317,
+          28
+        ],
+        "titleRegion": [
+          112,
+          124,
+          317,
+          20
+        ],
+        "titleSelector": [
+          445,
+          96,
+          448,
+          52
+        ],
+        "fundsLine": [
+          124,
+          660,
+          757,
+          28
+        ],
+        "hoverLine": [
+          112,
+          148,
+          500,
+          14
+        ],
+        "facilityDeck": [
+          112,
+          164,
+          781,
+          532
+        ],
+        "deckSquare": [
+          290,
+          216,
+          424,
+          424
+        ],
+        "deckHeading": [
+          112,
+          164,
+          781,
+          40
+        ],
+        "deckFooter": [
+          112,
+          652,
+          781,
+          44
+        ],
+        "columnHeading": [
+          913,
+          176,
+          343,
+          24
+        ],
+        "commandColumn": [
+          913,
+          164,
+          343,
+          532
+        ]
+      },
+      "reservedRegions": [
+        {
+          "id": "facility-deck",
+          "bounds": [
+            112,
+            164,
+            781,
+            532
+          ]
+        },
+        {
+          "id": "command-column",
+          "bounds": [
+            913,
+            164,
+            343,
+            532
+          ]
+        }
+      ],
+      "actions": {
+        "base.divers": {
+          "id": "base.divers",
+          "component": "illustrated-management-action",
+          "slotRole": "card-divers",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            913,
+            204,
+            343,
+            52
+          ],
+          "hitRect": [
+            913,
+            204,
+            343,
+            52
+          ],
+          "focusOrder": 10,
+          "zOrder": 1
+        },
+        "base.research": {
+          "id": "base.research",
+          "component": "illustrated-management-action",
+          "slotRole": "card-research",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            913,
+            262,
+            343,
+            52
+          ],
+          "hitRect": [
+            913,
+            262,
+            343,
+            52
+          ],
+          "focusOrder": 20,
+          "zOrder": 1
+        },
+        "base.manufacture": {
+          "id": "base.manufacture",
+          "component": "illustrated-management-action",
+          "slotRole": "card-manufacture",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            913,
+            320,
+            343,
+            52
+          ],
+          "hitRect": [
+            913,
+            320,
+            343,
+            52
+          ],
+          "focusOrder": 30,
+          "zOrder": 1
+        },
+        "base.crafts": {
+          "id": "base.crafts",
+          "component": "illustrated-management-action",
+          "slotRole": "card-craft",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            913,
+            378,
+            343,
+            52
+          ],
+          "hitRect": [
+            913,
+            378,
+            343,
+            52
+          ],
+          "focusOrder": 40,
+          "zOrder": 1
+        },
+        "base.transfer": {
+          "id": "base.transfer",
+          "component": "management-action-group",
+          "slotRole": "logistics-rows",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            1001,
+            436,
+            255,
+            44
+          ],
+          "hitRect": [
+            1001,
+            436,
+            255,
+            44
+          ],
+          "focusOrder": 50,
+          "zOrder": 1
+        },
+        "base.purchase": {
+          "id": "base.purchase",
+          "component": "management-action-group",
+          "slotRole": "logistics-rows",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            1001,
+            483,
+            255,
+            44
+          ],
+          "hitRect": [
+            1001,
+            483,
+            255,
+            44
+          ],
+          "focusOrder": 60,
+          "zOrder": 1
+        },
+        "base.sell": {
+          "id": "base.sell",
+          "component": "management-action-group",
+          "slotRole": "logistics-rows",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            1001,
+            530,
+            255,
+            44
+          ],
+          "hitRect": [
+            1001,
+            530,
+            255,
+            44
+          ],
+          "focusOrder": 70,
+          "zOrder": 1
+        },
+        "base.build": {
+          "id": "base.build",
+          "component": "illustrated-management-action",
+          "slotRole": "card-build",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            913,
+            580,
+            343,
+            52
+          ],
+          "hitRect": [
+            913,
+            580,
+            343,
+            52
+          ],
+          "focusOrder": 80,
+          "zOrder": 1
+        },
+        "base.info": {
+          "id": "base.info",
+          "component": "illustrated-management-action",
+          "slotRole": "service-1",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            913,
+            640,
+            167,
+            44
+          ],
+          "hitRect": [
+            913,
+            640,
+            167,
+            44
+          ],
+          "focusOrder": 90,
+          "zOrder": 1
+        },
+        "base.new": {
+          "id": "base.new",
+          "component": "illustrated-management-action",
+          "slotRole": "service-2",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            1089,
+            640,
+            167,
+            44
+          ],
+          "hitRect": [
+            1089,
+            640,
+            167,
+            44
+          ],
+          "focusOrder": 100,
+          "zOrder": 1
+        },
+        "navigation.world": {
+          "id": "navigation.world",
+          "component": "command-icon-action",
+          "slotRole": "rail-world",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            8,
+            92,
+            72,
+            72
+          ],
+          "hitRect": [
+            8,
+            92,
+            72,
+            72
+          ],
+          "focusOrder": 110,
+          "zOrder": 1
+        },
+        "base.placement.cancel": {
+          "id": "base.placement.cancel",
+          "component": "management-action-group",
+          "slotRole": "placement-cancel",
+          "coordinateSpace": "screen",
+          "visibleRect": [
+            913,
+            640,
+            343,
+            44
+          ],
+          "hitRect": [
+            913,
+            640,
+            343,
+            44
+          ],
+          "focusOrder": 120,
+          "zOrder": 1
+        }
+      }
+    }
+  },
+  "presentationModes": [
+    "management",
+    "placement"
+  ],
+  "layoutPolicy": "desktop-fit",
+  "desktopFit": {
+    "minViewport": [
+      1280,
+      720
+    ],
+    "fitRule": "uniform",
+    "parameters": {
+      "minViewportW": 1280,
+      "minViewportH": 720,
+      "railWidth": 88,
+      "headerHeight": 72,
+      "inset": 24,
+      "columnGap": 20,
+      "commandMinW": 343,
+      "commandMaxW": 460,
+      "commandFraction": 0.3,
+      "titleBandH": 52,
+      "titleGapH": 16,
+      "minHit": 44,
+      "minSelectorSlots": 8,
+      "selectorActiveWidth": 140,
+      "deckHeadingH": 40,
+      "deckFooterH": 44,
+      "deckInset": 12,
+      "columnTop": 204,
+      "cardH": 52,
+      "cardGap": 6,
+      "logisticsH": 44,
+      "logisticsStride": 47,
+      "buildGap": 6,
+      "logisticsArtW": 80,
+      "logisticsGap": 8,
+      "serviceGap": 8,
+      "serviceH": 44,
+      "serviceSplitGap": 9,
+      "bottomPad": 12,
+      "cardPad": 8,
+      "cardLabelMinW": 112,
+      "gutterMinSlack": 24,
+      "actionFontSize": 18,
+      "smallActionFontSize": 14,
+      "headingFontSize": 18,
+      "titleFontSize": 28,
+      "connectorLengthRatio": 0.4,
+      "connectorThicknessRatio": 0.1
+    }
+  }
+}

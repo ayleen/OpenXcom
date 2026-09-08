@@ -44,7 +44,9 @@ public:
 	/// never leak around a blocking modal.
 	bool suppressWhenCovered() const override
 	{
-		return _mode == CalypsoHdScreenRenderMode::GeoscapeLiveChrome;
+		return _mode == CalypsoHdScreenRenderMode::GeoscapeLiveChrome
+			|| _mode == CalypsoHdScreenRenderMode::BasescapeLiveChrome
+			|| _mode == CalypsoHdScreenRenderMode::BasescapePlacementChrome;
 	}
 
 private:
@@ -53,6 +55,7 @@ private:
 	const CalypsoGeoscapeHdRuntimeModel& liveGeoscapeSnapshot(const GeoscapeState& state) const;
 	bool resolvePhysicalFonts(CalypsoTtfSourceDescriptor& heading,
 		CalypsoTtfSourceDescriptor& body, CalypsoTtfSourceDescriptor& mono) const;
+	void collectBasescape(CalypsoHdFrameBuilder& builder) const;
 	const void* _state;
 	CalypsoHdScreenRenderModel _model;
 	CalypsoHdScreenRenderMode _mode;
