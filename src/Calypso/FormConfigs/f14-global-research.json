@@ -4,6 +4,7 @@
   "familyId": 14,
   "version": "hd.2026-08-29.1",
   "archetype": "operations-workspace",
+  "visual": {"shell": "base-operations", "headerArt": "base-research"},
   "state": "GlobalResearchState",
   "labelKeys": {"title": "STR_RESEARCH_OVERVIEW", "diary": "STR_RESEARCH_DIARY", "done": "STR_DONE", "openBase": "STR_OPEN_BASE_RESEARCH", "techTree": "STR_TECH_TREE", "collectionHeading": "STR_CALYPSO_PROJECTS_ACROSS_ALL_BASES"},
   "title": "RESEARCH OVERVIEW",

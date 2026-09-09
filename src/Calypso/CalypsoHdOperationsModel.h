@@ -64,6 +64,7 @@ struct CalypsoHdOperationsAction
 	std::string component;
 	std::string slotRole;
 	std::string coordinateSpace;
+	std::string tone = "normal";
 	CalypsoHdOperationsRect visible;
 	CalypsoHdOperationsRect hit;
 	int focusOrder = 0;
@@ -188,6 +189,10 @@ struct CalypsoHdOperationsGeometry
 	int designWidth = 0;
 	int designHeight = 0;
 	CalypsoHdOperationsRect window;
+	CalypsoHdOperationsRect topBar;
+	CalypsoHdOperationsRect globalRail;
+	CalypsoHdOperationsRect screenHeader;
+	CalypsoHdOperationsRect headerArt;
 	CalypsoHdOperationsRect status;
 	CalypsoHdOperationsRect title;
 	CalypsoHdOperationsRect summaryBar;
@@ -219,16 +224,17 @@ struct CalypsoHdOperationsReadiness
 
 struct CalypsoHdOperationsStyle
 {
-	std::uint32_t panelFillTop = 0x08191DEBu;
-	std::uint32_t panelFillBottom = 0x041014E8u;
-	std::uint32_t regionFill = 0x061B1CD6u;
-	std::uint32_t frame = 0x74FFB073u;
-	std::uint32_t divider = 0x74FFB04Du;
-	std::uint32_t text = 0xE8FFF5FFu;
-	std::uint32_t mutedText = 0xA9D8C7FFu;
-	std::uint32_t selection = 0x74FFB033u;
+	std::uint32_t panelFillTop = 0x071725E8u;
+	std::uint32_t panelFillBottom = 0x050F19F2u;
+	std::uint32_t regionFill = 0x071725E8u;
+	std::uint32_t frame = 0x16384DFFu;
+	std::uint32_t divider = 0x102E40FFu;
+	std::uint32_t text = 0xE5F0F3FFu;
+	std::uint32_t mutedText = 0x84A0AEFFu;
+	std::uint32_t selection = 0x163C38FFu;
 	std::uint32_t disabled = 0x55756D99u;
 	std::uint32_t accent = 0x74FFB0FFu;
+	float cornerRadiusPx = 12.0f;
 	float cutCornerPx = 14.0f;
 };
 
@@ -243,6 +249,12 @@ struct CalypsoHdOperationsModel
 	std::vector<CalypsoHdOperationsControl> controls;
 	std::vector<CalypsoHdOperationsAction> toolbarActions;
 	CalypsoHdOperationsCollection collection;
+	std::string visualShell;
+	std::string headerArtId;
+	std::string baseName;
+	std::string sectionLabel;
+	std::string clockTime;
+	std::string clockDate;
 	CalypsoHdOperationsDetail detail;
 	std::vector<CalypsoHdOperationsRegion> regions;
 	std::vector<CalypsoHdOperationsAction> footerActions;
@@ -364,6 +376,11 @@ inline bool calypsoHdOperationsModelReady(const CalypsoHdOperationsModel& model)
 		|| !model.readiness.uploadsReady || model.title.empty()
 		|| g.designWidth <= 0 || g.designHeight <= 0 || !g.window.valid()
 		|| !g.title.valid() || !g.footer.valid())
+		return false;
+	if (model.archetype == CalypsoHdOperationsArchetype::OperationsWorkspace
+		&& (model.visualShell != "base-operations" || model.headerArtId.empty()
+			|| !g.topBar.valid() || !g.globalRail.valid()
+			|| !g.screenHeader.valid() || !g.headerArt.valid()))
 		return false;
 	if (model.summaryFields.size() > 4 || model.controls.size() > 3
 		|| model.toolbarActions.size() > 4 || model.collection.columns.size() > 8

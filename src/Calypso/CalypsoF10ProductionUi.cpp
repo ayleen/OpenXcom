@@ -64,15 +64,16 @@ void setWindow(Window *window, const R &rect)
 	window->setX(rect.x); window->setY(rect.y); window->setWidth(rect.w); window->setHeight(rect.h);
 }
 
+
 void setFonts(CalypsoHdOperationsModel &model, const Mod *mod)
 {
 	model.readiness.contractReady = true;
 	model.readiness.uploadsReady = true;
 	model.readiness.retryable = true;
 	model.readiness.fontsReady =
-		calypsoHdResolveFontDescriptor(mod, "FONT_F34_SAIRA_700", model.headingFont)
-		&& calypsoHdResolveFontDescriptor(mod, "FONT_F33_BODY", model.bodyFont)
-		&& calypsoHdResolveFontDescriptor(mod, "FONT_F34_MONO", model.monoFont);
+		calypsoHdResolveFontDescriptor(mod, "FONT_CC_INTER_SB", model.headingFont)
+		&& calypsoHdResolveFontDescriptor(mod, "FONT_CC_INTER_R", model.bodyFont)
+		&& calypsoHdResolveFontDescriptor(mod, "FONT_CC_PLEX_R", model.monoFont);
 }
 
 CalypsoHdOperationsAction action(const std::string &id, const std::string &label,
@@ -415,13 +416,16 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildQueueModel() const
 	const bool wide = _queue->_hdWideLayout;
 	const auto *g = CalypsoF10ProductionQueueGen::layoutForDesign(wide ? 1280 : 740, wide ? 720 : 360);
 	if (!g) return model;
-	const int wx = _queue->_window->getX(), wy = _queue->_window->getY();
-	const double sx = static_cast<double>(_queue->_window->getWidth()) / g->window.w;
-	const double sy = static_cast<double>(_queue->_window->getHeight()) / g->window.h;
-	auto p = [&](const auto &r) { return projectRect(r, wx, wy, sx, sy, g->window.x, g->window.y); };
+	auto p = [&](const auto &r) {
+		return CalypsoHdOperationsRect{r.x, r.y, r.w, r.h};
+	};
 	model.archetype = CalypsoHdOperationsArchetype::OperationsWorkspace;
 	model.familyId = 10;
 	model.ownerState = _queue;
+	model.visualShell = CalypsoF10ProductionQueueGen::kVisualShell;
+	model.headerArtId = CalypsoF10ProductionQueueGen::kHeaderArt;
+	model.baseName = _queue->_base->getName();
+	model.sectionLabel = tr("STR_MANUFACTURE");
 	model.title = _queue->_txtTitle->getText();
 	model.suppressedWidgets = {
 		_queue->_window, _queue->_btnNew, _queue->_btnOk,
@@ -434,6 +438,10 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildQueueModel() const
 	model.geometry.designHeight = g->designHeight;
 	model.geometry.window = p(g->window);
 	model.geometry.title = p(g->title);
+	model.geometry.topBar = p(g->topBar);
+	model.geometry.globalRail = p(g->globalRail);
+	model.geometry.screenHeader = p(g->screenHeader);
+	model.geometry.headerArt = p(g->headerArt);
 	model.geometry.summaryBar = p(g->summaryBar);
 	model.geometry.toolbarBar = p(g->toolbarBar);
 	model.geometry.collectionViewport = p(g->collectionViewport);
@@ -579,13 +587,16 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildCatalogueModel() const
 	const bool wide = _catalogue->_hdWideLayout;
 	const auto *g = CalypsoF10ProductionCatalogueGen::layoutForDesign(wide ? 1280 : 740, wide ? 720 : 360);
 	if (!g) return model;
-	const int wx = _catalogue->_window->getX(), wy = _catalogue->_window->getY();
-	const double sx = static_cast<double>(_catalogue->_window->getWidth()) / g->window.w;
-	const double sy = static_cast<double>(_catalogue->_window->getHeight()) / g->window.h;
-	auto p = [&](const auto &r) { return projectRect(r, wx, wy, sx, sy, g->window.x, g->window.y); };
+	auto p = [&](const auto &r) {
+		return CalypsoHdOperationsRect{r.x, r.y, r.w, r.h};
+	};
 	model.archetype = CalypsoHdOperationsArchetype::OperationsWorkspace;
 	model.familyId = 10;
 	model.ownerState = _catalogue;
+	model.visualShell = CalypsoF10ProductionCatalogueGen::kVisualShell;
+	model.headerArtId = CalypsoF10ProductionCatalogueGen::kHeaderArt;
+	model.baseName = _catalogue->_base->getName();
+	model.sectionLabel = tr("STR_MANUFACTURE");
 	model.title = _catalogue->_txtTitle->getText();
 	model.suppressedWidgets = {
 		_catalogue->_window, _catalogue->_btnQuickSearch, _catalogue->_btnOk,
@@ -596,6 +607,10 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildCatalogueModel() const
 	model.geometry.designWidth = g->designWidth;
 	model.geometry.designHeight = g->designHeight;
 	model.geometry.window = p(g->window); model.geometry.title = p(g->title); model.geometry.summaryBar = p(g->summaryBar);
+	model.geometry.topBar = p(g->topBar);
+	model.geometry.globalRail = p(g->globalRail);
+	model.geometry.screenHeader = p(g->screenHeader);
+	model.geometry.headerArt = p(g->headerArt);
 	model.geometry.toolbarBar = p(g->toolbarBar); model.geometry.collectionViewport = p(g->collectionViewport); model.geometry.detailPanel = p(g->detailPanel); model.geometry.footer = p(g->footer);
 	model.geometry.collectionScrollTrack = p(g->collection_scroll_track); model.geometry.collectionScrollThumb = p(g->collection_scroll_thumb);
 	model.geometry.collectionColumns = {p(g->collection_column_item),p(g->collection_column_category),p(g->collection_column_status)};

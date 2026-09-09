@@ -4,6 +4,7 @@
   "familyId": 9,
   "version": "hd.2026-08-29.1",
   "archetype": "operations-workspace",
+  "visual": {"shell": "base-operations", "headerArt": "base-research"},
   "state": "ResearchState",
   "labelKeys": {"title": "STR_CURRENT_RESEARCH", "globalOverview": "STR_GLOBAL_OVERVIEW", "newProject": "STR_NEW_PROJECT", "done": "STR_DONE", "openProject": "STR_OPEN_PROJECT", "techTree": "STR_TECH_TREE", "collectionHeading": "STR_CALYPSO_RESEARCH_PROJECTS", "collectionMeta": "STR_CALYPSO_ACTIVE_PROJECT_COUNT"},
   "title": "CURRENT RESEARCH",

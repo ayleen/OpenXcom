@@ -4,6 +4,7 @@
   "familyId": 14,
   "version": "hd.2026-08-29.1",
   "archetype": "operations-workspace",
+  "visual": {"shell": "base-operations", "headerArt": "base-research"},
   "state": "GlobalResearchDiaryState",
   "labelKeys": {"title": "STR_RESEARCH_DIARY", "done": "STR_DONE", "search": "STR_QUICK_SEARCH", "sortName": "STR_SORT_NAME", "sortDate": "STR_SORT_DATE", "techTree": "STR_OPEN_TECH_TREE", "ufopaedia": "STR_OPEN_UFOPAEDIA"},
   "title": "RESEARCH DIARY",

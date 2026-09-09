@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <cmath>
 #include <string>
 #include <utility>
 
@@ -28,9 +29,30 @@ std::uint32_t stableHash(const std::string& value)
 	return hash == 0 ? 1u : hash;
 }
 
-CalypsoLogicalRect logical(const CalypsoHdOperationsRect& rect)
+CalypsoLogicalRect logical(const CalypsoHdOperationsModel& model,
+	const CalypsoHdOperationsRect& rect)
 {
-	return {rect.x, rect.y, rect.w, rect.h};
+	const auto& metrics = CalypsoHdUiOverlay::instance().frozenMetrics();
+	if (model.visualShell != "base-operations"
+		|| model.geometry.designWidth <= 0 || model.geometry.designHeight <= 0
+		|| metrics.logicalWidth <= 0 || metrics.logicalHeight <= 0)
+		return {rect.x, rect.y, rect.w, rect.h};
+	const double sx = static_cast<double>(metrics.logicalWidth)
+		/ model.geometry.designWidth;
+	const double sy = static_cast<double>(metrics.logicalHeight)
+		/ model.geometry.designHeight;
+	const int left = calypsoHdRoundToInt(rect.x * sx);
+	const int right = calypsoHdRoundToInt((rect.x + rect.w) * sx);
+	const int top = calypsoHdRoundToInt(rect.y * sy);
+	const int bottom = calypsoHdRoundToInt((rect.y + rect.h) * sy);
+	CalypsoLogicalRect result{left, top, right - left, bottom - top};
+	if (metrics.scaleX > 0.0)
+		result.x -= static_cast<int>(std::llround(
+			metrics.contentOffsetX / metrics.scaleX));
+	if (metrics.scaleY > 0.0)
+		result.y -= static_cast<int>(std::llround(
+			metrics.contentOffsetY / metrics.scaleY));
+	return result;
 }
 CalypsoHdOperationsRect insetHorizontal(CalypsoHdOperationsRect rect, int inset)
 {
@@ -78,7 +100,9 @@ CalypsoHdOperationsRect regionFieldLabelRect(
 struct OperationsTypography
 {
 	int titlePx;
+	int detailTitlePx;
 	int bodyPx;
+	int labelPx;
 	int dataPx;
 	int inputPx;
 	int actionPx;
@@ -93,11 +117,13 @@ OperationsTypography operationsTypography(const CalypsoHdOperationsModel& model)
 			designPx, model.geometry.designHeight, metrics.physicalHeight);
 	};
 	return {
-		px(wide ? CalypsoHdThemeGen::kF21TitleWidePx : CalypsoHdThemeGen::kF21TitleCompactPx),
-		px(wide ? CalypsoHdThemeGen::kF21BodyWidePx : CalypsoHdThemeGen::kF21BodyCompactPx),
-		px(wide ? CalypsoHdThemeGen::kF21DataWidePx : CalypsoHdThemeGen::kF21DataCompactPx),
-		px(wide ? CalypsoHdThemeGen::kF21InputWidePx : CalypsoHdThemeGen::kF21InputCompactPx),
-		px(wide ? CalypsoHdThemeGen::kF21ActionWidePx : CalypsoHdThemeGen::kF21ActionCompactPx)
+		px(wide ? 26 : 18),
+		px(wide ? 22 : 14),
+		px(wide ? 14 : 10),
+		px(wide ? 10 : 8),
+		px(wide ? 15 : 10),
+		px(wide ? 13 : 10),
+		px(wide ? 13 : 10)
 	};
 }
 
@@ -106,8 +132,8 @@ CalypsoHdPanelStyle panelStyle(const CalypsoHdOperationsStyle& style,
 {
 	CalypsoHdPanelStyle result;
 	result.styled = true;
-	result.shape = CalypsoHdPanelShape::OpposingCutRect;
-	result.cutCornerPx = style.cutCornerPx;
+	result.shape = CalypsoHdPanelShape::RoundedRect;
+	result.radiusPx = style.cornerRadiusPx;
 	result.borderWidthPx = 1.0f;
 	result.borderColorRgba = style.frame;
 	result.fillTopRgba = fillTop;
@@ -122,7 +148,7 @@ CalypsoHdItem baseItem(const CalypsoHdOperationsModel& model,
 	const void* widget)
 {
 	CalypsoHdItem item;
-	item.rect = logical(rect);
+	item.rect = logical(model, rect);
 	item.widget = widget;
 	item.claim.familyId = model.familyId;
 	item.claim.stableId = stableHash(stableName);
@@ -177,19 +203,134 @@ void addText(CalypsoHdFrameBuilder& builder, const CalypsoHdOperationsModel& mod
 		: rect.w;
 	builder.add(item);
 }
+void addImage(CalypsoHdFrameBuilder& builder, const CalypsoHdOperationsModel& model,
+	const std::string& name, int order, const CalypsoHdOperationsRect& rect,
+	const std::string& source, float opacity = 1.0f)
+{
+	if (!rect.valid() || source.empty()) return;
+	CalypsoHdItem item = baseItem(model, name, order, rect, nullptr);
+	item.kind = CalypsoHdItemKind::RgbaImage;
+	item.image.source = source;
+	item.image.cover = true;
+	item.opacity = opacity;
+	builder.add(item);
+}
+
+std::string operationsArtSource(const std::string& artId)
+{
+	if (artId == "base-research" || artId == "base-manufacture")
+		return "Resources/basescape/cards/" + artId + ".png";
+	return {};
+}
+
+std::string operationsSection(const CalypsoHdOperationsModel& model)
+{
+	if (!model.sectionLabel.empty()) return model.sectionLabel;
+	if (model.familyId == 9u) return "RESEARCH";
+	if (model.familyId == 10u) return "PRODUCTION";
+	return "OPERATIONS";
+}
+
+void collectOperationsShell(CalypsoHdFrameBuilder& builder,
+	const CalypsoHdOperationsModel& model, const CalypsoTtfSourceDescriptor& source,
+	const OperationsTypography& typography, int& order)
+{
+	const auto& g = model.geometry;
+	const bool wide = g.designWidth >= 1000;
+	addPanel(builder, model, "window", order++, g.window,
+		0x020B14FFu, 0x020B14FFu);
+	const CalypsoHdOperationsRect workspace{
+		g.globalRail.x + g.globalRail.w, g.topBar.y + g.topBar.h,
+		g.designWidth - g.globalRail.x - g.globalRail.w,
+		g.designHeight - g.topBar.y - g.topBar.h};
+	addImage(builder, model, "workspace-background", order++, workspace,
+		"Resources/basescape/background.png", 0.18f);
+	addPanel(builder, model, "workspace-veil", order++, workspace,
+		0x020B14DEu, 0x020B14DEu);
+	addPanel(builder, model, "top-bar", order++, g.topBar,
+		0x061522F7u, 0x061522F7u, nullptr, model.style.divider);
+	addPanel(builder, model, "global-rail", order++, g.globalRail,
+		0x050F19F7u, 0x050F19F7u, nullptr, model.style.divider);
+
+	const CalypsoHdOperationsRect baseChip = wide
+		? CalypsoHdOperationsRect{16, 8, 178, 42}
+		: CalypsoHdOperationsRect{8, 4, 132, 32};
+	addPanel(builder, model, "base-chip", order++, baseChip,
+		0x102939FFu, 0x102939FFu, nullptr, 0x25465BFFu);
+	const auto baseText = stackedTextRects(baseChip);
+	addText(builder, model, source, typography.labelPx, "base-chip-label", order++,
+		baseText.first, "BASES", model.style.mutedText, CalypsoHdHAlign::Center);
+	addText(builder, model, model.monoFont, typography.dataPx, "base-chip-value", order++,
+		baseText.second, model.baseName.empty() ? "BASE" : model.baseName,
+		model.style.text, CalypsoHdHAlign::Center);
+
+	const char* const railLabels[] = {"WORLD", "BASES", "OPERATIONS", "ANALYTICS", "ARCHIVE"};
+	const char* const compactRailLabels[] = {"WORLD", "BASES", "OPS", "DATA", "ARCHIVE"};
+	const int railTop = g.globalRail.y + (wide ? 14 : 8);
+	const int railStep = wide ? 76 : 52;
+	const int railHeight = wide ? 64 : 44;
+	for (int i = 0; i < 5; ++i)
+	{
+		const CalypsoHdOperationsRect item{
+			g.globalRail.x + (wide ? 8 : 4), railTop + i * railStep,
+			g.globalRail.w - (wide ? 16 : 8), railHeight};
+		if (i == 1)
+			addPanel(builder, model, "rail-active", order++, item,
+				0x102939FFu, 0x102939FFu, nullptr, 0x25465BFFu);
+		addText(builder, model, source, typography.labelPx,
+			"rail-label/" + std::to_string(i), order++, item,
+			wide ? railLabels[i] : compactRailLabels[i],
+			i == 1 ? model.style.text : model.style.mutedText,
+			CalypsoHdHAlign::Center);
+	}
+	const CalypsoHdOperationsRect settings{
+		g.globalRail.x, g.globalRail.y + g.globalRail.h - railHeight,
+		g.globalRail.w, railHeight};
+	addText(builder, model, source, typography.labelPx, "rail-settings", order++,
+		settings, "SETTINGS", model.style.mutedText, CalypsoHdHAlign::Center);
+
+	if (!model.clockTime.empty())
+	{
+		const CalypsoHdOperationsRect clock = wide
+			? CalypsoHdOperationsRect{1110, 8, 154, 42}
+			: CalypsoHdOperationsRect{590, 4, 142, 32};
+		const auto clockText = stackedTextRects(clock);
+		addText(builder, model, model.monoFont, typography.dataPx, "clock-time", order++,
+			clockText.first, model.clockTime, model.style.text, CalypsoHdHAlign::Right);
+		addText(builder, model, model.monoFont, typography.labelPx, "clock-date", order++,
+			clockText.second, model.clockDate, model.style.mutedText, CalypsoHdHAlign::Right);
+	}
+
+	addPanel(builder, model, "screen-header", order++, g.screenHeader,
+		model.style.regionFill, model.style.regionFill);
+	addImage(builder, model, "screen-header-art", order++, g.headerArt,
+		operationsArtSource(model.headerArtId), 0.9f);
+	const CalypsoHdOperationsRect breadcrumb{
+		g.title.x, g.screenHeader.y + (wide ? 8 : 3), g.title.w, wide ? 14 : 9};
+	addText(builder, model, model.monoFont, typography.labelPx, "breadcrumb", order++,
+		breadcrumb,
+		(model.baseName.empty() ? std::string("BASES") : model.baseName)
+			+ " / " + operationsSection(model),
+		model.style.accent, CalypsoHdHAlign::Left);
+}
+
 
 void collectAction(CalypsoHdFrameBuilder& builder, const CalypsoHdOperationsModel& model,
 	const CalypsoTtfSourceDescriptor& source, int actionPx,
 	const CalypsoHdOperationsAction& action, int& order)
 {
 	if (!calypsoHdOperationsActionVisible(action)) return;
+	const bool primary = action.tone == "primary";
 	const std::uint32_t fill = action.state.disabled ? model.style.disabled
+		: primary ? model.style.accent
 		: action.state.selected ? model.style.selection : model.style.panelFillTop;
 	const std::uint32_t border = action.state.disabled ? model.style.disabled
+		: primary ? model.style.accent
 		: action.state.selected ? model.style.accent : model.style.frame;
 	addPanel(builder, model, "action/" + action.id, order++, action.visible, fill, fill,
 		action.widget, border);
-	const std::uint32_t text = action.state.disabled ? model.style.disabled : model.style.text;
+	const std::uint32_t text = action.state.disabled ? model.style.disabled
+		: primary ? 0x071013FFu : model.style.text;
 	addText(builder, model, source, actionPx, "action-label/" + action.id, order++,
 		action.visible, action.label, text, CalypsoHdHAlign::Center, action.widget);
 }
@@ -226,7 +367,7 @@ void collectCollection(CalypsoHdFrameBuilder& builder,
 	const CalypsoHdOperationsModel& model,
 	const CalypsoTtfSourceDescriptor& source,
 	const CalypsoTtfSourceDescriptor& headingSource,
-	int titlePx, int bodyPx, int dataPx,
+	int titlePx, int bodyPx, int labelPx, int dataPx,
 	const CalypsoHdOperationsCollection& collection,
 	const CalypsoHdOperationsRect& fallbackViewport,
 	const std::vector<CalypsoHdOperationsRect>& columnGeometry,
@@ -244,7 +385,7 @@ void collectCollection(CalypsoHdFrameBuilder& builder,
 		const auto& column = collection.columns[i];
 		const CalypsoHdOperationsRect rect = i < columnGeometry.size()
 			&& columnGeometry[i].valid() ? columnGeometry[i] : column.rect;
-		addText(builder, model, source, bodyPx, prefix + "/column/" + column.id, order++,
+		addText(builder, model, source, labelPx, prefix + "/column/" + column.id, order++,
 			insetHorizontal(rect, 6), column.label, model.style.mutedText, CalypsoHdHAlign::Left);
 	}
 	if (collection.rows.empty())
@@ -291,8 +432,13 @@ void collectCollection(CalypsoHdFrameBuilder& builder,
 			&& generatedRows[slot].valid() ? generatedRows[slot] : row.rect;
 		const bool selected = rowIndex == collection.selectedIndex || row.state.selected;
 		if (selected)
+		{
 			addPanel(builder, model, prefix + "/row-selection/" + row.id, order++, rowRect,
 				model.style.selection, model.style.selection, row.widget);
+			addPanel(builder, model, prefix + "/row-rule/" + row.id, order++,
+				{rowRect.x, rowRect.y, 3, rowRect.h},
+				model.style.accent, model.style.accent, row.widget);
+		}
 		for (std::size_t col = 0; col < row.values.size()
 			&& col < collection.columns.size(); ++col)
 		{
@@ -326,8 +472,7 @@ void collectOperationsWorkspace(CalypsoHdFrameBuilder& builder,
 	int& order)
 {
 	const auto& g = model.geometry;
-	addPanel(builder, model, "window", order++, g.window,
-		model.style.panelFillTop, model.style.panelFillBottom);
+	collectOperationsShell(builder, model, source, typography, order);
 	addText(builder, model, heading, typography.titlePx, "title", order++, g.title, model.title,
 		model.style.text, CalypsoHdHAlign::Left);
 	if (g.summaryBar.valid())
@@ -338,7 +483,7 @@ void collectOperationsWorkspace(CalypsoHdFrameBuilder& builder,
 		{
 			if (!field.state.visible) continue;
 			const auto textRects = stackedTextRects(field.rect);
-			addText(builder, model, source, typography.bodyPx,
+			addText(builder, model, source, typography.labelPx,
 				"summary-label/" + field.id, order++, textRects.first, field.label,
 				model.style.mutedText, CalypsoHdHAlign::Left, field.widget);
 			addText(builder, model, model.monoFont, typography.dataPx,
@@ -367,7 +512,7 @@ void collectOperationsWorkspace(CalypsoHdFrameBuilder& builder,
 		collectAction(builder, model, source, typography.actionPx, action, order);
 
 	collectCollection(builder, model, source, heading,
-		typography.titlePx, typography.bodyPx, typography.dataPx,
+		typography.titlePx, typography.bodyPx, typography.labelPx, typography.dataPx,
 		model.collection, g.collectionViewport, g.collectionColumns, g.collectionRows,
 		g.collectionScrollTrack, g.collectionScrollThumb, "workspace", order);
 	const CalypsoHdOperationsRect detailPanel = g.detailPanel.valid()
@@ -380,9 +525,9 @@ void collectOperationsWorkspace(CalypsoHdFrameBuilder& builder,
 		? g.detailIdentityTitle : model.detail.identity.titleRect;
 	const CalypsoHdOperationsRect identitySubtitleRect = g.detailIdentitySubtitle.valid()
 		? g.detailIdentitySubtitle : model.detail.identity.subtitleRect;
-	addText(builder, model, source, typography.bodyPx, "detail-label", order++, identityRect,
+	addText(builder, model, source, typography.labelPx, "detail-label", order++, identityRect,
 		model.detail.identity.label, model.style.mutedText, CalypsoHdHAlign::Left);
-	addText(builder, model, heading, typography.titlePx, "detail-title", order++,
+	addText(builder, model, heading, typography.detailTitlePx, "detail-title", order++,
 		identityTitleRect, model.detail.identity.title, model.style.text,
 		CalypsoHdHAlign::Left);
 	addText(builder, model, source, typography.bodyPx, "detail-subtitle", order++,
@@ -396,7 +541,7 @@ void collectOperationsWorkspace(CalypsoHdFrameBuilder& builder,
 		const auto textRects = stackedTextRects(rect);
 		const std::uint32_t valueColor = metric.state.disabled
 			? model.style.disabled : model.style.text;
-		addText(builder, model, source, typography.bodyPx,
+		addText(builder, model, source, typography.labelPx,
 			"metric-label/" + metric.id, order++, textRects.first, metric.label,
 			metric.state.disabled ? model.style.disabled : model.style.mutedText,
 			CalypsoHdHAlign::Left);
@@ -443,7 +588,7 @@ void collectWideDetail(CalypsoHdFrameBuilder& builder,
 				region.previewContent, model.style.text, CalypsoHdHAlign::Left);
 		else if (region.kind == CalypsoHdOperationsRegionKind::Collection)
 			collectCollection(builder, model, source, heading,
-				typography.titlePx, typography.bodyPx, typography.dataPx,
+				typography.titlePx, typography.bodyPx, typography.labelPx, typography.dataPx,
 				region.collection, region.rect, std::vector<CalypsoHdOperationsRect>(),
 				region.collection.rowSlots, CalypsoHdOperationsRect(),
 				CalypsoHdOperationsRect(), "region/" + region.id, order);

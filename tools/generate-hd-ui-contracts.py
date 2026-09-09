@@ -1299,6 +1299,12 @@ def emit_family_h(doc, rel, ns, prefix, profile):
             'inline constexpr const char* kArchetype = "' + archetype + '";',
             'inline constexpr const char* kNativeState = "' + native_state + '";',
         ]
+        if profile == "operations-workspace":
+            visual = form.get("visual") or {}
+            out += [
+                'inline constexpr const char* kVisualShell = "' + visual.get("shell", "") + '";',
+                'inline constexpr const char* kHeaderArt = "' + visual.get("headerArt", "") + '";',
+            ]
     out += ["",
            "/// One design-space rectangle (design px).",
            "struct " + prefix + "GenRect { int x; int y; int w; int h; };",

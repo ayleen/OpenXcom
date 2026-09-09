@@ -81,6 +81,10 @@ LAYOUT_FIELDS = {
         "designWidth",
         "designHeight",
         "window",
+        "topBar",
+        "globalRail",
+        "screenHeader",
+        "headerArt",
         "title",
         "summaryBar",
         "toolbarBar",
@@ -424,6 +428,10 @@ def _layout_rect_fields(kind):
     if kind == "operations":
         return (
             "window",
+            "topBar",
+            "globalRail",
+            "screenHeader",
+            "headerArt",
             "title",
             "summaryBar",
             "toolbarBar",
@@ -617,6 +625,14 @@ def _validate_template(template):
         for index, (first_name, first_rect) in enumerate(owned_rects):
             for second_name, second_rect in owned_rects[index + 1 :]:
                 if _overlaps(first_rect, second_rect):
+                    shell_pair = {first_name, second_name}
+                    if (
+                        template["generatorKind"] == "operations"
+                        and "screenHeader" in shell_pair
+                        and shell_pair
+                        & {"title", "summaryBar", "headerArt"}
+                    ):
+                        continue
                     raise ArchetypeError(
                         "template.layouts."
                         + name
@@ -678,10 +694,7 @@ def _validate_template(template):
                 raise ArchetypeError(
                     "template.layouts." + name + ".detailNoteVisible must be 0 or 1"
                 )
-            if (
-                _bottom(layout["toolbarBar"]) > layout["collectionViewport"]["y"]
-                or _bottom(layout["toolbarBar"]) > layout["detailPanel"]["y"]
-            ):
+            if _bottom(layout["toolbarBar"]) > layout["collectionViewport"]["y"]:
                 raise ArchetypeError(
                     "template.layouts." + name + " toolbar must precede workspace"
                 )
@@ -1047,8 +1060,15 @@ def _validate_tabbed(config, template):
             "controls",
             "toolbar",
         },
-        {"detail"},
+        {"detail", "visual"},
     )
+    if template["generatorKind"] == "operations":
+        visual = config.get("visual")
+        _strict(visual, {"shell", "headerArt"}, set(), "config.visual")
+        if visual["shell"] != "base-operations":
+            raise ArchetypeError("config.visual.shell must be base-operations")
+        if visual["headerArt"] not in {"base-research", "base-manufacture"}:
+            raise ArchetypeError("config.visual.headerArt is not an audited department asset")
     _validate_collection_value(
         config["collection"], template["limits"], "config.collection",
         template["generatorKind"] == "operations"
@@ -1233,23 +1253,38 @@ def _validate_detail(config, template):
     return actions, generated_region_actions, controls
 
 
-def _action_rects(actions, layout):
+def _action_rects(actions, layout, split_last=False):
     footer = layout["footer"]
     width = layout["actionWidth"]
     gap = layout["actionGap"]
     inset = layout["actionInset"]
     height = 44
-    total = len(actions) * width + max(0, len(actions) - 1) * gap
-    x = _right(footer) - inset - total
     y = footer["y"] + (footer["height"] - height) // 2
-    if x < footer["x"]:
-        raise ArchetypeError(
-            "template footer cannot contain the configured action group"
-        )
-    rectangles = {
-        action["id"]: _make_rect(x + index * (width + gap), y, width, height)
-        for index, action in enumerate(actions)
-    }
+    if split_last and len(actions) > 1:
+        left = actions[:-1]
+        left_total = len(left) * width + max(0, len(left) - 1) * gap
+        left_x = footer["x"] + inset
+        primary_x = _right(footer) - inset - width
+        if left_x + left_total > primary_x:
+            raise ArchetypeError(
+                "template footer cannot separate utility and primary actions"
+            )
+        rectangles = {
+            action["id"]: _make_rect(left_x + index * (width + gap), y, width, height)
+            for index, action in enumerate(left)
+        }
+        rectangles[actions[-1]["id"]] = _make_rect(primary_x, y, width, height)
+    else:
+        total = len(actions) * width + max(0, len(actions) - 1) * gap
+        x = _right(footer) - inset - total
+        if x < footer["x"]:
+            raise ArchetypeError(
+                "template footer cannot contain the configured action group"
+            )
+        rectangles = {
+            action["id"]: _make_rect(x + index * (width + gap), y, width, height)
+            for index, action in enumerate(actions)
+        }
     if any(
         not _contained(rect, _right(footer), _bottom(footer))
         or rect["x"] < footer["x"]
@@ -2189,6 +2224,8 @@ def _build_tabbed(config, template, source_name, template_name):
     out["form"]["collection"] = copy.deepcopy(config["collection"])
     out["form"]["controls"] = controls
     out["form"]["toolbar"] = toolbar_actions
+    if "visual" in config:
+        out["form"]["visual"] = copy.deepcopy(config["visual"])
     out["copy"]["tabs"] = {tab["id"]: tab["label"] for tab in config["tabs"]}
     out["copy"]["summary"] = copy.deepcopy(config["summary"])
     out["copy"]["collection"] = copy.deepcopy(config["collection"])
@@ -2267,7 +2304,9 @@ def _build_tabbed(config, template, source_name, template_name):
                 authored,
                 name + ".summary." + field["id"],
             )
-        action_rects = _action_rects(actions, authored)
+        action_rects = _action_rects(
+            actions, authored, template["generatorKind"] == "operations"
+        )
         _ensure_action_copy_fits(actions, action_rects, authored, name + ".action")
         _ensure_text_fits(config["title"], authored["title"], authored, name + ".title")
         collection_viewport = copy.deepcopy(authored["collectionViewport"])
@@ -2310,6 +2349,9 @@ def _build_tabbed(config, template, source_name, template_name):
             "toolbar": toolbar_rects,
             "actions": action_rects,
         }
+        if template["generatorKind"] == "operations":
+            for shell_part in ("topBar", "globalRail", "screenHeader", "headerArt"):
+                generated_layout[shell_part] = copy.deepcopy(authored[shell_part])
         if detail is not None:
             generated_layout["detail"] = _build_tabbed_detail_fragment(
                 detail, authored, name
@@ -2325,6 +2367,13 @@ def _build_tabbed(config, template, source_name, template_name):
         "collectionViewport",
         "footer",
     ]
+    if template["generatorKind"] == "operations":
+        out["_partPaths"][1:1] = [
+            "topBar",
+            "globalRail",
+            "screenHeader",
+            "headerArt",
+        ]
     out["_partPaths"].extend("summary." + field["id"] for field in config["summary"])
     out["_partPaths"].extend("tab." + tab_id for tab_id in tab_ids)
     out["_partPaths"].extend(_control_part_paths(controls))
@@ -2374,10 +2423,10 @@ def _build_operations(config, template, source_name, template_name):
     builder_template = copy.deepcopy(template)
     builder_template["limits"]["maxTabs"] = 2
     builder_template["layouts"]["wide"]["tabBar"] = {
-        "x": 172, "y": 160, "width": 936, "height": 48
+        "x": 92, "y": 158, "width": 836, "height": 44
     }
     builder_template["layouts"]["compact"]["tabBar"] = {
-        "x": 44, "y": 72, "width": 652, "height": 44
+        "x": 52, "y": 102, "width": 466, "height": 44
     }
     builder_template["layouts"]["wide"]["tabGap"] = 8
     builder_template["layouts"]["compact"]["tabGap"] = 6
@@ -2385,7 +2434,7 @@ def _build_operations(config, template, source_name, template_name):
     out["form"].pop("tabs", None)
     out["form"].pop("selectedTab", None)
     removed = {"tabBar"}
-    for name, layout in out["layouts"].items():
+    for layout in out["layouts"].values():
         layout.pop("tabBar", None)
         layout.pop("tabs", None)
     out["parts"] = [

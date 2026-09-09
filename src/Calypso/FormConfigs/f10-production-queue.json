@@ -4,6 +4,7 @@
   "familyId": 10,
   "version": "hd.2026-08-29.1",
   "archetype": "operations-workspace",
+  "visual": {"shell": "base-operations", "headerArt": "base-manufacture"},
   "state": "ManufactureState",
   "labelKeys": {"title": "STR_CURRENT_PRODUCTION", "globalOverview": "STR_GLOBAL_OVERVIEW", "newProduction": "STR_NEW_PRODUCTION", "done": "STR_DONE", "openProduction": "STR_OPEN_PRODUCTION", "techTree": "STR_TECH_TREE", "collectionHeading": "STR_CALYPSO_PRODUCTION_LINES", "collectionMeta": "STR_CALYPSO_FUNDS_VALUE"},
   "title": "CURRENT PRODUCTION",

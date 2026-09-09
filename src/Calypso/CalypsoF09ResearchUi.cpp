@@ -11,6 +11,7 @@
 #include "../Basescape/ResearchInfoState.h"
 #include "../Basescape/ResearchState.h"
 #include "../Engine/Game.h"
+#include "../Engine/Language.h"
 #include "../Engine/LocalizedText.h"
 #include "../Engine/Options.h"
 #include "../Interface/ArrowButton.h"
@@ -27,9 +28,12 @@
 #include "../Savegame/Base.h"
 #include "../Savegame/ResearchProject.h"
 #include "../Savegame/SavedGame.h"
+#include "../Savegame/GameTime.h"
 
 #include <algorithm>
 #include <cmath>
+#include <iomanip>
+#include <sstream>
 #include <string>
 #include <utility>
 
@@ -79,13 +83,28 @@ void setFonts(CalypsoHdOperationsModel &model, const Mod *mod)
 	model.readiness.uploadsReady = true;
 	model.readiness.retryable = true;
 	model.readiness.fontsReady =
-		calypsoHdResolveFontDescriptor(mod, "FONT_F34_SAIRA_700", model.headingFont)
-		&& calypsoHdResolveFontDescriptor(mod, "FONT_F33_BODY", model.bodyFont)
-		&& calypsoHdResolveFontDescriptor(mod, "FONT_F34_MONO", model.monoFont);
+		calypsoHdResolveFontDescriptor(mod, "FONT_CC_INTER_SB", model.headingFont)
+		&& calypsoHdResolveFontDescriptor(mod, "FONT_CC_INTER_R", model.bodyFont)
+		&& calypsoHdResolveFontDescriptor(mod, "FONT_CC_PLEX_R", model.monoFont);
+}
+void setClock(CalypsoHdOperationsModel &model, Game *game)
+{
+	if (!game || !game->getSavedGame()) return;
+	const GameTime *time = game->getSavedGame()->getTime();
+	if (!time) return;
+	std::ostringstream clock;
+	clock << time->getHour() << ":" << std::setfill('0') << std::setw(2)
+		<< time->getMinute();
+	model.clockTime = clock.str();
+	model.clockDate = time->getDayString(game->getLanguage()) + " "
+		+ std::string(game->getLanguage()->getString(time->getMonthString())) + " "
+		+ std::to_string(time->getYear());
 }
 
+
 CalypsoHdOperationsAction action(const std::string &id, const std::string &label,
-	const CalypsoHdOperationsRect &rect, const void *widget, bool visible = true)
+	const CalypsoHdOperationsRect &rect, const void *widget, bool visible = true,
+	const std::string &tone = "normal")
 {
 	CalypsoHdOperationsAction out;
 	out.id = id;
@@ -93,6 +112,7 @@ CalypsoHdOperationsAction action(const std::string &id, const std::string &label
 	out.component = "management-action-group";
 	out.slotRole = "action";
 	out.coordinateSpace = "logical";
+	out.tone = tone;
 	out.visible = rect;
 	out.hit = rect;
 	out.widget = widget;
@@ -127,6 +147,7 @@ void setWindow(Window *window, const CalypsoHdOperationsRect &rect)
 {
 	setSurfaceRect(window, rect);
 }
+
 
 } // namespace
 
@@ -391,15 +412,17 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildQueueModel() const
 	const auto *g = CalypsoF09ResearchQueueGen::layoutForDesign(
 		wide ? 1280 : 740, wide ? 720 : 360);
 	if (!g) return model;
-	const int wx = _queue->_window->getX(), wy = _queue->_window->getY();
-	const double sx = static_cast<double>(_queue->_window->getWidth()) / g->window.w;
-	const double sy = static_cast<double>(_queue->_window->getHeight()) / g->window.h;
 	auto p = [&](const auto &r) {
-		return projectRect(r, wx, wy, sx, sy, g->window.x, g->window.y);
+		return rawRect(r);
 	};
 	model.archetype = CalypsoHdOperationsArchetype::OperationsWorkspace;
 	model.familyId = CalypsoF09ResearchQueueGen::kFamilyId;
 	model.ownerState = _queue;
+	model.visualShell = CalypsoF09ResearchQueueGen::kVisualShell;
+	model.headerArtId = CalypsoF09ResearchQueueGen::kHeaderArt;
+	model.baseName = _queue->_base->getName();
+	model.sectionLabel = tr("STR_RESEARCH");
+	setClock(model, _queue->_game);
 	model.suppressedWidgets = {
 		_queue->_window, _queue->_btnNew, _queue->_btnOk,
 		_queue->_txtTitle, _queue->_txtAvailable, _queue->_txtAllocated,
@@ -411,6 +434,10 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildQueueModel() const
 	model.geometry.designHeight = g->designHeight;
 	model.geometry.window = p(g->window);
 	model.geometry.title = p(g->title);
+	model.geometry.topBar = p(g->topBar);
+	model.geometry.globalRail = p(g->globalRail);
+	model.geometry.screenHeader = p(g->screenHeader);
+	model.geometry.headerArt = p(g->headerArt);
 	model.geometry.footer = p(g->footer);
 	model.geometry.summaryBar = p(g->summaryBar);
 	model.geometry.toolbarBar = p(g->toolbarBar);
@@ -514,7 +541,7 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildQueueModel() const
 	}
 	model.detail.actions.push_back(action("open-project", _queue->_btnOpenProject->getText(),
 		p(g->detail_selected_project_action_open_project), _queue->_btnOpenProject,
-		hasSelection));
+		hasSelection, "primary"));
 	model.detail.actions.push_back(action("tech-tree", _queue->_btnTechTree->getText(),
 		p(g->detail_selected_project_action_tech_tree), _queue->_btnTechTree,
 		hasSelection));
@@ -523,10 +550,9 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildQueueModel() const
 		p(g->action_global_overview), _queue->_btnGlobalOverview));
 	auto newProject = action("new-project", _queue->_btnNew->getText(),
 		p(g->action_new_project), _queue->_btnNew);
-	newProject.state.selected = projects.empty();
 	model.footerActions.push_back(std::move(newProject));
 	model.footerActions.push_back(action("done", _queue->_btnOk->getText(),
-		p(g->action_done), _queue->_btnOk));
+		p(g->action_done), _queue->_btnOk, true, "primary"));
 	setFonts(model, _queue->_game->getMod());
 	calypsoHdOperationsClampSelectionAndScroll(model);
 	return model;
@@ -541,15 +567,17 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildCatalogueModel() const
 	const auto *g = CalypsoF09ResearchCatalogueGen::layoutForDesign(
 		wide ? 1280 : 740, wide ? 720 : 360);
 	if (!g) return model;
-	const int wx = _catalogue->_window->getX(), wy = _catalogue->_window->getY();
-	const double sx = static_cast<double>(_catalogue->_window->getWidth()) / g->window.w;
-	const double sy = static_cast<double>(_catalogue->_window->getHeight()) / g->window.h;
 	auto p = [&](const auto &r) {
-		return projectRect(r, wx, wy, sx, sy, g->window.x, g->window.y);
+		return rawRect(r);
 	};
 	model.archetype = CalypsoHdOperationsArchetype::OperationsWorkspace;
 	model.familyId = CalypsoF09ResearchCatalogueGen::kFamilyId;
 	model.ownerState = _catalogue;
+	model.visualShell = CalypsoF09ResearchCatalogueGen::kVisualShell;
+	model.headerArtId = CalypsoF09ResearchCatalogueGen::kHeaderArt;
+	model.baseName = _catalogue->_base->getName();
+	model.sectionLabel = tr("STR_RESEARCH");
+	setClock(model, _catalogue->_game);
 	model.suppressedWidgets = {
 		_catalogue->_window, _catalogue->_btnQuickSearch, _catalogue->_btnOK,
 		_catalogue->_cbxSort, _catalogue->_btnShowOnlyNew, _catalogue->_txtTitle,
@@ -561,6 +589,10 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildCatalogueModel() const
 	model.geometry.designHeight = g->designHeight;
 	model.geometry.window = p(g->window);
 	model.geometry.title = p(g->title);
+	model.geometry.topBar = p(g->topBar);
+	model.geometry.globalRail = p(g->globalRail);
+	model.geometry.screenHeader = p(g->screenHeader);
+	model.geometry.headerArt = p(g->headerArt);
 	model.geometry.summaryBar = p(g->summaryBar);
 	model.geometry.collectionScrollThumb = p(g->collection_scroll_thumb);
 	model.geometry.toolbarBar = p(g->toolbarBar);
@@ -645,7 +677,7 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildCatalogueModel() const
 			selectedStatusText, p(g->detail_selected_project_metric_status)));
 	model.detail.actions.push_back(action("review-project", tr("STR_REVIEW_PROJECT"),
 		p(g->detail_selected_project_action_review_project), _catalogue->_btnReview,
-		hasSelection));
+		hasSelection, "primary"));
 	auto visibility = action("change-visibility", tr("STR_CHANGE_VISIBILITY"),
 		p(g->detail_selected_project_action_change_visibility),
 		_catalogue->_btnChangeVisibility, hasSelection);
@@ -682,7 +714,7 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildCatalogueModel() const
 	model.footerActions.push_back(action("mark-all-seen", tr("STR_MARK_ALL_AS_SEEN"),
 		p(g->action_mark_all_seen), _catalogue->_btnMarkAllSeen));
 	model.footerActions.push_back(action("done", tr("STR_DONE"),
-		p(g->action_done), _catalogue->_btnOK));
+		p(g->action_done), _catalogue->_btnOK, true, "primary"));
 	setFonts(model, _catalogue->_game->getMod());
 	calypsoHdOperationsClampSelectionAndScroll(model);
 	return model;

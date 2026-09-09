@@ -69,6 +69,7 @@ void setWindow(Window *window, const R &rect)
 }
 
 
+
 CalypsoHdOperationsAction action(const std::string &id, const std::string &label,
 	const CalypsoHdOperationsRect &rect, const void *widget, bool visible = true)
 {
@@ -115,9 +116,9 @@ void setFonts(CalypsoHdOperationsModel &model, const Mod *mod)
 	model.readiness.uploadsReady = true;
 	model.readiness.retryable = true;
 	model.readiness.fontsReady =
-		calypsoHdResolveFontDescriptor(mod, "FONT_F34_SAIRA_700", model.headingFont)
-		&& calypsoHdResolveFontDescriptor(mod, "FONT_F33_BODY", model.bodyFont)
-		&& calypsoHdResolveFontDescriptor(mod, "FONT_F34_MONO", model.monoFont);
+		calypsoHdResolveFontDescriptor(mod, "FONT_CC_INTER_SB", model.headingFont)
+		&& calypsoHdResolveFontDescriptor(mod, "FONT_CC_INTER_R", model.bodyFont)
+		&& calypsoHdResolveFontDescriptor(mod, "FONT_CC_PLEX_R", model.monoFont);
 }
 
 void finish(CalypsoHdOperationsModel &model, const Mod *mod)
@@ -138,6 +139,10 @@ void setWorkspaceGeometry(CalypsoHdOperationsModel &model, const G &g,
 	model.geometry.designWidth = g.designWidth;
 	model.geometry.designHeight = g.designHeight;
 	model.geometry.window = project(g.window);
+	model.geometry.topBar = project(g.topBar);
+	model.geometry.globalRail = project(g.globalRail);
+	model.geometry.screenHeader = project(g.screenHeader);
+	model.geometry.headerArt = project(g.headerArt);
 	model.geometry.title = project(g.title);
 	model.geometry.summaryBar = project(g.summaryBar);
 	model.geometry.toolbarBar = project(g.toolbarBar);
@@ -497,15 +502,16 @@ CalypsoHdOperationsModel CalypsoF14GlobalOperationsUi::buildResearchModel() cons
 		_research->_hdWideLayout ? 1280 : 740,
 		_research->_hdWideLayout ? 720 : 360);
 	if (!g) return model;
-	const int wx = _research->_window->getX(), wy = _research->_window->getY();
-	const double sx = static_cast<double>(_research->_window->getWidth()) / g->window.w;
-	const double sy = static_cast<double>(_research->_window->getHeight()) / g->window.h;
 	auto p = [&](const auto &rect) {
-		return projectRect(rect, wx, wy, sx, sy, g->window.x, g->window.y);
+		return CalypsoHdOperationsRect{rect.x, rect.y, rect.w, rect.h};
 	};
 	model.archetype = CalypsoHdOperationsArchetype::OperationsWorkspace;
 	model.familyId = CalypsoF14GlobalResearchGen::kFamilyId;
 	model.ownerState = _research;
+	model.visualShell = CalypsoF14GlobalResearchGen::kVisualShell;
+	model.headerArtId = CalypsoF14GlobalResearchGen::kHeaderArt;
+	model.baseName = "GLOBAL";
+	model.sectionLabel = tr("STR_RESEARCH");
 	model.title = _research->_txtTitle->getText();
 	setResearchGeometry(model, *g, p);
 	setCollectionGeometry(model, *g, p);
@@ -625,15 +631,16 @@ CalypsoHdOperationsModel CalypsoF14GlobalOperationsUi::buildManufactureModel() c
 		_manufacture->_hdWideLayout ? 1280 : 740,
 		_manufacture->_hdWideLayout ? 720 : 360);
 	if (!g) return model;
-	const int wx = _manufacture->_window->getX(), wy = _manufacture->_window->getY();
-	const double sx = static_cast<double>(_manufacture->_window->getWidth()) / g->window.w;
-	const double sy = static_cast<double>(_manufacture->_window->getHeight()) / g->window.h;
 	auto p = [&](const auto &rect) {
-		return projectRect(rect, wx, wy, sx, sy, g->window.x, g->window.y);
+		return CalypsoHdOperationsRect{rect.x, rect.y, rect.w, rect.h};
 	};
 	model.archetype = CalypsoHdOperationsArchetype::OperationsWorkspace;
 	model.familyId = CalypsoF14GlobalProductionGen::kFamilyId;
 	model.ownerState = _manufacture;
+	model.visualShell = CalypsoF14GlobalProductionGen::kVisualShell;
+	model.headerArtId = CalypsoF14GlobalProductionGen::kHeaderArt;
+	model.baseName = "GLOBAL";
+	model.sectionLabel = tr("STR_MANUFACTURE");
 	model.title = _manufacture->_txtTitle->getText();
 	setProductionGeometry(model, *g, p);
 	model.collection.heading = tr("STR_CALYPSO_PRODUCTION_ACROSS_ALL_BASES");
@@ -759,15 +766,16 @@ CalypsoHdOperationsModel CalypsoF14GlobalOperationsUi::buildDiaryModel() const
 		_diary->_hdWideLayout ? 1280 : 740,
 		_diary->_hdWideLayout ? 720 : 360);
 	if (!g) return model;
-	const int wx = _diary->_window->getX(), wy = _diary->_window->getY();
-	const double sx = static_cast<double>(_diary->_window->getWidth()) / g->window.w;
-	const double sy = static_cast<double>(_diary->_window->getHeight()) / g->window.h;
 	auto p = [&](const auto &rect) {
-		return projectRect(rect, wx, wy, sx, sy, g->window.x, g->window.y);
+		return CalypsoHdOperationsRect{rect.x, rect.y, rect.w, rect.h};
 	};
 	model.archetype = CalypsoHdOperationsArchetype::OperationsWorkspace;
 	model.familyId = CalypsoF14ResearchDiaryGen::kFamilyId;
 	model.ownerState = _diary;
+	model.visualShell = CalypsoF14ResearchDiaryGen::kVisualShell;
+	model.headerArtId = CalypsoF14ResearchDiaryGen::kHeaderArt;
+	model.baseName = "GLOBAL";
+	model.sectionLabel = tr("STR_RESEARCH");
 	model.title = _diary->_txtTitle->getText();
 	setDiaryGeometry(model, *g, p);
 	setCollectionGeometry(model, *g, p);

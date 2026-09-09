@@ -4,6 +4,7 @@
   "familyId": 9,
   "version": "hd.2026-08-29.1",
   "archetype": "operations-workspace",
+  "visual": {"shell": "base-operations", "headerArt": "base-research"},
   "state": "NewResearchListState",
   "labelKeys": {"title": "STR_NEW_RESEARCH_PROJECTS", "markAllSeen": "STR_MARK_ALL_SEEN", "done": "STR_DONE", "review": "STR_REVIEW_PROJECT", "changeVisibility": "STR_CHANGE_VISIBILITY", "techTree": "STR_TECH_TREE"},
   "title": "NEW RESEARCH PROJECTS",
