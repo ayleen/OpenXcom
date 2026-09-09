@@ -32,9 +32,20 @@ inline constexpr CalypsoF12TransferBaseGenSummaryField kSummary[] = {
 inline constexpr int kSummaryCount = 1;
 inline constexpr const char* kCollectionHeading = "AVAILABLE DESTINATIONS";
 inline constexpr int kHasCollectionHeading = 1;
-inline constexpr const char* kHeaderArtAssetId = "logistics-transfer-header";
-inline constexpr const char* kHeaderArtVfsPath = "Resources/ui-hd/f12-transfer-header.png";
-inline constexpr int kHasHeaderArt = 1;
+inline constexpr const char* kHeaderArtAssetId = "";
+inline constexpr const char* kHeaderArtVfsPath = "";
+inline constexpr int kHasHeaderArt = 0;
+inline constexpr int kHasWorkspace = 1;
+inline constexpr const char* kWorkspaceId = "logistics-workspace";
+inline constexpr const char* kWorkspaceInitialTab = "transfer";
+struct CalypsoF12TransferBaseGenWorkspaceTab { const char* id; const char* label; const char* action; };
+inline constexpr CalypsoF12TransferBaseGenWorkspaceTab kWorkspaceTabs[] = {
+    { "purchase", "PURCHASE", "logistics.openPurchase" },
+    { "sell", "SELL", "logistics.openSell" },
+    { "transfer", "TRANSFER", "logistics.openTransfer" },
+};
+inline constexpr int kWorkspaceTabCount = 3;
+
 inline constexpr float kPresentationScale = 1.000000f;
 inline constexpr float kCutCornerPx = 14.000000f;
 struct CalypsoF12TransferBaseGenRect { int x; int y; int w; int h; };
@@ -51,88 +62,101 @@ inline constexpr std::uint32_t kHeaderArtScrim = 0x04090DCCu;
 inline constexpr int kHeaderArtOpacityPct = 85;
 struct CalypsoF12TransferBaseGenButtonRect { const char* id; CalypsoF12TransferBaseGenRect rect; };
 struct CalypsoF12TransferBaseGenControlRect { const char* id; CalypsoF12TransferBaseGenRect rect; };
+struct CalypsoF12TransferBaseGenWorkspaceTabRect { const char* id; CalypsoF12TransferBaseGenRect rect; };
 struct CalypsoF12TransferBaseGenRowStepper { const char* rowSlotId; const char* behaviorOwner; CalypsoF12TransferBaseGenRect decrement; CalypsoF12TransferBaseGenRect increment; };
 struct CalypsoF12TransferBaseGenSummaryRect { CalypsoF12TransferBaseGenRect field; CalypsoF12TransferBaseGenRect label; CalypsoF12TransferBaseGenRect value; };
-struct CalypsoF12TransferBaseGenLayout { int designWidth; int designHeight; int rowHeight; int visibleRows; int headerHeight; int scrollBarWidth; int minThumbHeight; int columnCount; int summaryCount; int hasHeaderArt; CalypsoF12TransferBaseGenRect window; CalypsoF12TransferBaseGenRect title; CalypsoF12TransferBaseGenRect summaryBar; CalypsoF12TransferBaseGenRect headerArt; CalypsoF12TransferBaseGenRect controlBar; CalypsoF12TransferBaseGenRect collectionHeading; CalypsoF12TransferBaseGenRect viewport; CalypsoF12TransferBaseGenRect footer;
+struct CalypsoF12TransferBaseGenLayout { int designWidth; int designHeight; int rowHeight; int visibleRows; int headerHeight; int scrollBarWidth; int minThumbHeight; int columnCount; int summaryCount; int hasHeaderArt; CalypsoF12TransferBaseGenRect window; CalypsoF12TransferBaseGenRect title; CalypsoF12TransferBaseGenRect summaryBar; CalypsoF12TransferBaseGenRect headerArt; CalypsoF12TransferBaseGenRect controlBar; CalypsoF12TransferBaseGenRect collectionHeading; CalypsoF12TransferBaseGenRect viewport; CalypsoF12TransferBaseGenRect footer; CalypsoF12TransferBaseGenRect workspaceHeader; CalypsoF12TransferBaseGenRect workspaceNavigationRail; CalypsoF12TransferBaseGenRect workspaceTabBar; CalypsoF12TransferBaseGenRect workspaceContent;
 };
 inline constexpr CalypsoF12TransferBaseGenLayout kLayouts[] = {
-    { 1280, 720, 44, 8, 36, 18, 44, 2, 1, 1, { 100, 50, 1080, 620 }, { 132, 74, 500, 44 }, { 648, 74, 500, 44 }, { 100, 50, 1080, 68 }, { 132, 124, 1016, 44 }, { 132, 124, 1016, 44 }, { 132, 178, 1016, 406 }, { 100, 600, 1080, 70 } }, // wide
-    { 740, 360, 44, 2, 32, 18, 44, 2, 1, 1, { 20, 8, 700, 344 }, { 44, 24, 328, 44 }, { 384, 24, 312, 44 }, { 20, 8, 700, 60 }, { 44, 72, 652, 44 }, { 44, 72, 652, 44 }, { 44, 122, 652, 160 }, { 20, 294, 700, 58 } }, // compact
+    { 1280, 720, 44, 8, 36, 18, 44, 2, 1, 0, { 0, 0, 1280, 720 }, { 112, 14, 500, 44 }, { 648, 14, 520, 44 }, { 0, 0, 0, 0 }, { 112, 150, 1144, 44 }, { 112, 150, 1144, 44 }, { 112, 204, 1144, 388 }, { 112, 602, 1144, 70 }, { 0, 0, 1280, 72 }, { 0, 72, 88, 648 }, { 112, 88, 1144, 52 }, { 88, 72, 1192, 648 } }, // wide
+    { 740, 360, 44, 2, 32, 18, 44, 2, 1, 0, { 0, 0, 740, 360 }, { 72, 0, 300, 44 }, { 380, 0, 342, 44 }, { 0, 0, 0, 0 }, { 72, 110, 650, 44 }, { 72, 110, 650, 44 }, { 72, 164, 650, 120 }, { 72, 294, 650, 58 }, { 0, 0, 740, 44 }, { 0, 44, 54, 316 }, { 72, 56, 650, 44 }, { 54, 44, 686, 316 } }, // compact
 };
+inline constexpr CalypsoF12TransferBaseGenWorkspaceTabRect kWorkspaceTabRectsWide[] = {
+    { "purchase", { 112, 88, 376, 52 } },
+    { "sell", { 496, 88, 376, 52 } },
+    { "transfer", { 880, 88, 376, 52 } },
+};
+inline constexpr int kWorkspaceTabRectWideCount = 3;
 inline constexpr CalypsoF12TransferBaseGenRect kRowSlotsWide[] = {
-    { 132, 214, 962, 44 }, // row-slot-1
-    { 132, 258, 962, 44 }, // row-slot-2
-    { 132, 302, 962, 44 }, // row-slot-3
-    { 132, 346, 962, 44 }, // row-slot-4
-    { 132, 390, 962, 44 }, // row-slot-5
-    { 132, 434, 962, 44 }, // row-slot-6
-    { 132, 478, 962, 44 }, // row-slot-7
-    { 132, 522, 962, 44 }, // row-slot-8
+    { 112, 240, 1090, 44 }, // row-slot-1
+    { 112, 284, 1090, 44 }, // row-slot-2
+    { 112, 328, 1090, 44 }, // row-slot-3
+    { 112, 372, 1090, 44 }, // row-slot-4
+    { 112, 416, 1090, 44 }, // row-slot-5
+    { 112, 460, 1090, 44 }, // row-slot-6
+    { 112, 504, 1090, 44 }, // row-slot-7
+    { 112, 548, 1090, 44 }, // row-slot-8
 };
 inline constexpr int kRowSlotWideCount = 8;
 inline constexpr CalypsoF12TransferBaseGenRect kRowCellsWide[] = {
-    { 132, 214, 480, 44 }, // destination
-    { 613, 214, 481, 44 }, // area
-    { 132, 258, 480, 44 }, // destination
-    { 613, 258, 481, 44 }, // area
-    { 132, 302, 480, 44 }, // destination
-    { 613, 302, 481, 44 }, // area
-    { 132, 346, 480, 44 }, // destination
-    { 613, 346, 481, 44 }, // area
-    { 132, 390, 480, 44 }, // destination
-    { 613, 390, 481, 44 }, // area
-    { 132, 434, 480, 44 }, // destination
-    { 613, 434, 481, 44 }, // area
-    { 132, 478, 480, 44 }, // destination
-    { 613, 478, 481, 44 }, // area
-    { 132, 522, 480, 44 }, // destination
-    { 613, 522, 481, 44 }, // area
+    { 112, 240, 544, 44 }, // destination
+    { 657, 240, 545, 44 }, // area
+    { 112, 284, 544, 44 }, // destination
+    { 657, 284, 545, 44 }, // area
+    { 112, 328, 544, 44 }, // destination
+    { 657, 328, 545, 44 }, // area
+    { 112, 372, 544, 44 }, // destination
+    { 657, 372, 545, 44 }, // area
+    { 112, 416, 544, 44 }, // destination
+    { 657, 416, 545, 44 }, // area
+    { 112, 460, 544, 44 }, // destination
+    { 657, 460, 545, 44 }, // area
+    { 112, 504, 544, 44 }, // destination
+    { 657, 504, 545, 44 }, // area
+    { 112, 548, 544, 44 }, // destination
+    { 657, 548, 545, 44 }, // area
 };
 inline constexpr int kRowCellWideCount = 16;
-inline constexpr CalypsoF12TransferBaseGenRect kRowHitWide = { 132, 214, 962, 352 };
+inline constexpr CalypsoF12TransferBaseGenRect kRowHitWide = { 112, 240, 1090, 352 };
 inline constexpr int kRowStepperWideCount = 0;
 inline constexpr CalypsoF12TransferBaseGenRect kColumnHeadersWide[] = {
-    { 132, 178, 480, 36 }, // destination
-    { 613, 178, 481, 36 }, // area
+    { 112, 204, 544, 36 }, // destination
+    { 657, 204, 545, 36 }, // area
 };
 inline constexpr int kColumnHeaderWideCount = 2;
 inline constexpr int kTileSlotWideCount = 0;
 inline constexpr CalypsoF12TransferBaseGenButtonRect kButtonRectsWide[] = {
-    { "cancel", { 990, 613, 158, 44 } },
+    { "cancel", { 1066, 615, 158, 44 } },
 };
 inline constexpr int kButtonRectWideCount = 1;
 inline constexpr int kControlRectWideCount = 0;
 inline constexpr CalypsoF12TransferBaseGenSummaryRect kSummaryWide[] = {
-    { { 648, 74, 500, 44 }, { 648, 74, 500, 16 }, { 648, 90, 500, 28 } }, // funds
+    { { 648, 14, 520, 44 }, { 648, 14, 520, 16 }, { 648, 30, 520, 28 } }, // funds
 };
 inline constexpr int kSummaryWideCount = 1;
+inline constexpr CalypsoF12TransferBaseGenWorkspaceTabRect kWorkspaceTabRectsCompact[] = {
+    { "purchase", { 72, 56, 212, 44 } },
+    { "sell", { 292, 56, 211, 44 } },
+    { "transfer", { 511, 56, 211, 44 } },
+};
+inline constexpr int kWorkspaceTabRectCompactCount = 3;
 inline constexpr CalypsoF12TransferBaseGenRect kRowSlotsCompact[] = {
-    { 44, 154, 600, 44 }, // row-slot-1
-    { 44, 198, 600, 44 }, // row-slot-2
+    { 72, 196, 598, 44 }, // row-slot-1
+    { 72, 240, 598, 44 }, // row-slot-2
 };
 inline constexpr int kRowSlotCompactCount = 2;
 inline constexpr CalypsoF12TransferBaseGenRect kRowCellsCompact[] = {
-    { 44, 154, 299, 44 }, // destination
-    { 344, 154, 300, 44 }, // area
-    { 44, 198, 299, 44 }, // destination
-    { 344, 198, 300, 44 }, // area
+    { 72, 196, 298, 44 }, // destination
+    { 371, 196, 299, 44 }, // area
+    { 72, 240, 298, 44 }, // destination
+    { 371, 240, 299, 44 }, // area
 };
 inline constexpr int kRowCellCompactCount = 4;
-inline constexpr CalypsoF12TransferBaseGenRect kRowHitCompact = { 44, 154, 600, 88 };
+inline constexpr CalypsoF12TransferBaseGenRect kRowHitCompact = { 72, 196, 598, 88 };
 inline constexpr int kRowStepperCompactCount = 0;
 inline constexpr CalypsoF12TransferBaseGenRect kColumnHeadersCompact[] = {
-    { 44, 122, 299, 32 }, // destination
-    { 344, 122, 300, 32 }, // area
+    { 72, 164, 298, 32 }, // destination
+    { 371, 164, 299, 32 }, // area
 };
 inline constexpr int kColumnHeaderCompactCount = 2;
 inline constexpr int kTileSlotCompactCount = 0;
 inline constexpr CalypsoF12TransferBaseGenButtonRect kButtonRectsCompact[] = {
-    { "cancel", { 548, 301, 148, 44 } },
+    { "cancel", { 550, 301, 148, 44 } },
 };
 inline constexpr int kButtonRectCompactCount = 1;
 inline constexpr int kControlRectCompactCount = 0;
 inline constexpr CalypsoF12TransferBaseGenSummaryRect kSummaryCompact[] = {
-    { { 384, 24, 312, 44 }, { 384, 24, 312, 14 }, { 384, 38, 312, 30 } }, // funds
+    { { 380, 0, 342, 44 }, { 380, 0, 342, 14 }, { 380, 14, 342, 30 } }, // funds
 };
 inline constexpr int kSummaryCompactCount = 1;
 inline constexpr int kLayoutCount = 2;

@@ -200,8 +200,6 @@ inline int calypsoCollectionTextCaretX(const std::vector<int>& advances, std::si
 /// Map a font-pixel advance (caretAdvance output plus measured prefix) into
 /// the painted row-text coordinate scale. Glyphs rasterize at rowPx from a
 /// fontPixelSize face, so the factor is rowPx/fontPixelSize — never the modal
-/// motion ramp. Invalid sizes fail closed at the text origin; the caller
-/// keeps its field-right clamp only as a backstop. Allocation-free.
 inline int calypsoCollectionCaretProjectedX(int textX, double fontAdvancePx, int rowPx, int fontPixelSize)
 {
 	if (fontPixelSize <= 0 || rowPx <= 0)

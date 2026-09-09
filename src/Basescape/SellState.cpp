@@ -67,6 +67,7 @@
 #endif
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoF11MarketUi.h"
+#include "../Calypso/CalypsoLogisticsWorkspace.h"
 #include "../Calypso/CalypsoHdHarnessHostState.h"
 #endif
 
@@ -405,6 +406,13 @@ SellState::~SellState()
 	delete _timerInc;
 	delete _timerDec;
 }
+#ifdef __EMSCRIPTEN__
+void SellState::calypsoWorkspaceTabClick(Action *action)
+{
+	Calypso::calypsoLogisticsWorkspaceTab(*this,
+		action ? static_cast<TextButton*>(action->getSender()) : nullptr);
+}
+#endif
 
 /**
 * Resets stuff when coming back from other screens.
@@ -695,6 +703,9 @@ void SellState::updateList()
  */
 void SellState::btnOkClick(Action *)
 {
+#ifdef __EMSCRIPTEN__
+	Calypso::calypsoLogisticsWorkspaceClear();
+#endif
 	_game->getSavedGame()->setFunds(_game->getSavedGame()->getFunds() + _total);
 
 	auto cleanUpContainer = [&](ItemContainer* container, const RuleItem* rule, int toRemove) -> int
@@ -911,6 +922,9 @@ void SellState::btnOkClick(Action *)
  */
 void SellState::btnCancelClick(Action *)
 {
+#ifdef __EMSCRIPTEN__
+	Calypso::calypsoLogisticsWorkspaceClear();
+#endif
 	_game->popState();
 }
 

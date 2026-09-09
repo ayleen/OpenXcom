@@ -214,6 +214,7 @@ void CalypsoTextEdit::textInput(TextEdit& edit, Action* action, State* state)
 		changed = true;
 	}
 	if (!changed) return;
+	edit._blink = true;
 	edit._preferredCaretX = -1;
 	if (edit._multiline)
 	{
@@ -441,7 +442,11 @@ bool CalypsoTextEdit::keyboardPress(TextEdit& edit, Action* action, State* state
 	default:
 		break;
 	}
-	if (changed) invalidateLayout(edit);
+	if (changed)
+	{
+		edit._blink = true;
+		invalidateLayout(edit);
+	}
 	updateViewport(edit);
 	edit._redraw = true;
 	if (changed && edit._change) (state->*edit._change)(action);
@@ -476,6 +481,8 @@ void CalypsoTextEdit::setTextExternal(TextEdit& edit, const char* utf8)
 				edit._value.insert(edit._caretPos++, 1, c);
 		}
 	}
+	const bool changed = edit._value != previousValue;
+	if (changed) edit._blink = true;
 	edit._firstVisibleLine = 0;
 	edit._preferredCaretX = -1;
 	invalidateLayout(edit);

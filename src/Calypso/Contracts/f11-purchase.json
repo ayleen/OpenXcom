@@ -209,6 +209,27 @@
       "ok",
       "cancel"
     ],
+    "workspace": {
+      "id": "logistics-workspace",
+      "tabs": [
+        {
+          "id": "purchase",
+          "label": "PURCHASE",
+          "action": "logistics.openPurchase"
+        },
+        {
+          "id": "sell",
+          "label": "SELL",
+          "action": "logistics.openSell"
+        },
+        {
+          "id": "transfer",
+          "label": "TRANSFER",
+          "action": "logistics.openTransfer"
+        }
+      ],
+      "initialTab": "purchase"
+    },
     "summary": [
       {
         "id": "funds",
@@ -220,14 +241,29 @@
         "label": "PURCHASES",
         "value": "$245 000"
       }
-    ],
-    "headerArt": {
-      "assetId": "logistics-purchase-header",
-      "vfsPath": "Resources/ui-hd/f11-purchase-header.png"
-    }
+    ]
   },
   "copy": {
     "title": "PURCHASE / HIRE",
+    "workspace": {
+      "tabs": [
+        {
+          "id": "purchase",
+          "label": "PURCHASE",
+          "action": "logistics.openPurchase"
+        },
+        {
+          "id": "sell",
+          "label": "SELL",
+          "action": "logistics.openSell"
+        },
+        {
+          "id": "transfer",
+          "label": "TRANSFER",
+          "action": "logistics.openTransfer"
+        }
+      ]
+    },
     "summary": [
       {
         "id": "funds",
@@ -239,11 +275,7 @@
         "label": "PURCHASES",
         "value": "$245 000"
       }
-    ],
-    "headerArt": {
-      "assetId": "logistics-purchase-header",
-      "vfsPath": "Resources/ui-hd/f11-purchase-header.png"
-    }
+    ]
   },
   "style": {
     "panelFillTop": "08191DEB",
@@ -264,71 +296,65 @@
       "designWidth": 1280,
       "designHeight": 720,
       "window": {
-        "x": 100,
-        "y": 50,
-        "width": 1080,
-        "height": 620
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 720
       },
       "title": {
-        "x": 132,
-        "y": 74,
+        "x": 112,
+        "y": 14,
         "width": 500,
         "height": 44
       },
       "summaryBar": {
         "x": 648,
-        "y": 74,
-        "width": 500,
+        "y": 14,
+        "width": 520,
         "height": 44
       },
-      "headerArt": {
-        "x": 100,
-        "y": 50,
-        "width": 1080,
-        "height": 68
-      },
       "controlBar": {
-        "x": 132,
-        "y": 124,
-        "width": 1016,
+        "x": 112,
+        "y": 150,
+        "width": 1144,
         "height": 44
       },
       "controls": {
         "category-filter": {
-          "x": 132,
-          "y": 124,
+          "x": 112,
+          "y": 150,
           "width": 220,
           "height": 44
         },
         "quick-search": {
-          "x": 362,
-          "y": 124,
+          "x": 342,
+          "y": 150,
           "width": 220,
           "height": 44
         }
       },
       "viewport": {
-        "x": 132,
-        "y": 178,
-        "width": 1016,
-        "height": 406
+        "x": 112,
+        "y": 204,
+        "width": 1144,
+        "height": 388
       },
       "footer": {
-        "x": 100,
-        "y": 600,
-        "width": 1080,
+        "x": 112,
+        "y": 602,
+        "width": 1144,
         "height": 70
       },
       "actions": {
         "ok": {
-          "x": 822,
-          "y": 613,
+          "x": 898,
+          "y": 615,
           "width": 158,
           "height": 44
         },
         "cancel": {
-          "x": 990,
-          "y": 613,
+          "x": 1066,
+          "y": 615,
           "width": 158,
           "height": 44
         }
@@ -338,84 +364,178 @@
       "headerHeight": 36,
       "scrollbarWidth": 18,
       "minThumbHeight": 44,
+      "headerArt": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "tabBar": {
+        "x": 112,
+        "y": 88,
+        "width": 1144,
+        "height": 52
+      },
       "summaryFields": [
         {
           "id": "funds",
           "rect": {
             "x": 648,
-            "y": 74,
-            "width": 245,
+            "y": 14,
+            "width": 255,
             "height": 44
           },
           "label": {
             "x": 648,
-            "y": 74,
-            "width": 245,
+            "y": 14,
+            "width": 255,
             "height": 16
           },
           "value": {
             "x": 648,
-            "y": 90,
-            "width": 245,
+            "y": 30,
+            "width": 255,
             "height": 28
           }
         },
         {
           "id": "order",
           "rect": {
-            "x": 903,
-            "y": 74,
-            "width": 245,
+            "x": 913,
+            "y": 14,
+            "width": 255,
             "height": 44
           },
           "label": {
-            "x": 903,
-            "y": 74,
-            "width": 245,
+            "x": 913,
+            "y": 14,
+            "width": 255,
             "height": 16
           },
           "value": {
-            "x": 903,
-            "y": 90,
-            "width": 245,
+            "x": 913,
+            "y": 30,
+            "width": 255,
             "height": 28
           }
         }
       ],
+      "workspace": {
+        "window": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 720
+        },
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 72
+        },
+        "navigationRail": {
+          "x": 0,
+          "y": 72,
+          "width": 88,
+          "height": 648
+        },
+        "content": {
+          "x": 88,
+          "y": 72,
+          "width": 1192,
+          "height": 648
+        },
+        "title": {
+          "x": 112,
+          "y": 14,
+          "width": 500,
+          "height": 44
+        },
+        "summaryBar": {
+          "x": 648,
+          "y": 14,
+          "width": 520,
+          "height": 44
+        },
+        "tabBar": {
+          "x": 112,
+          "y": 88,
+          "width": 1144,
+          "height": 52
+        },
+        "controlBar": {
+          "x": 112,
+          "y": 150,
+          "width": 1144,
+          "height": 44
+        },
+        "viewport": {
+          "x": 112,
+          "y": 204,
+          "width": 1144,
+          "height": 388
+        },
+        "footer": {
+          "x": 112,
+          "y": 602,
+          "width": 1144,
+          "height": 70
+        },
+        "tabs": {
+          "purchase": {
+            "x": 112,
+            "y": 88,
+            "width": 376,
+            "height": 52
+          },
+          "sell": {
+            "x": 496,
+            "y": 88,
+            "width": 376,
+            "height": 52
+          },
+          "transfer": {
+            "x": 880,
+            "y": 88,
+            "width": 376,
+            "height": 52
+          }
+        }
+      },
       "columnHeaders": [
         {
           "id": "item",
           "rect": {
-            "x": 132,
-            "y": 178,
-            "width": 239,
+            "x": 112,
+            "y": 204,
+            "width": 271,
             "height": 36
           }
         },
         {
           "id": "cost",
           "rect": {
-            "x": 372,
-            "y": 178,
-            "width": 239,
+            "x": 384,
+            "y": 204,
+            "width": 271,
             "height": 36
           }
         },
         {
           "id": "available",
           "rect": {
-            "x": 612,
-            "y": 178,
-            "width": 239,
+            "x": 656,
+            "y": 204,
+            "width": 271,
             "height": 36
           }
         },
         {
           "id": "order",
           "rect": {
-            "x": 852,
-            "y": 178,
-            "width": 242,
+            "x": 928,
+            "y": 204,
+            "width": 274,
             "height": 36
           }
         }
@@ -424,45 +544,45 @@
         {
           "id": "row-slot-1",
           "rect": {
-            "x": 132,
-            "y": 214,
-            "width": 962,
+            "x": 112,
+            "y": 240,
+            "width": 1090,
             "height": 44
           },
           "cells": [
             {
               "id": "item",
               "rect": {
-                "x": 132,
-                "y": 214,
-                "width": 239,
+                "x": 112,
+                "y": 240,
+                "width": 271,
                 "height": 44
               }
             },
             {
               "id": "cost",
               "rect": {
-                "x": 372,
-                "y": 214,
-                "width": 239,
+                "x": 384,
+                "y": 240,
+                "width": 271,
                 "height": 44
               }
             },
             {
               "id": "available",
               "rect": {
-                "x": 612,
-                "y": 214,
-                "width": 239,
+                "x": 656,
+                "y": 240,
+                "width": 271,
                 "height": 44
               }
             },
             {
               "id": "order",
               "rect": {
-                "x": 852,
-                "y": 214,
-                "width": 242,
+                "x": 928,
+                "y": 240,
+                "width": 274,
                 "height": 44
               }
             }
@@ -471,45 +591,45 @@
         {
           "id": "row-slot-2",
           "rect": {
-            "x": 132,
-            "y": 258,
-            "width": 962,
+            "x": 112,
+            "y": 284,
+            "width": 1090,
             "height": 44
           },
           "cells": [
             {
               "id": "item",
               "rect": {
-                "x": 132,
-                "y": 258,
-                "width": 239,
+                "x": 112,
+                "y": 284,
+                "width": 271,
                 "height": 44
               }
             },
             {
               "id": "cost",
               "rect": {
-                "x": 372,
-                "y": 258,
-                "width": 239,
+                "x": 384,
+                "y": 284,
+                "width": 271,
                 "height": 44
               }
             },
             {
               "id": "available",
               "rect": {
-                "x": 612,
-                "y": 258,
-                "width": 239,
+                "x": 656,
+                "y": 284,
+                "width": 271,
                 "height": 44
               }
             },
             {
               "id": "order",
               "rect": {
-                "x": 852,
-                "y": 258,
-                "width": 242,
+                "x": 928,
+                "y": 284,
+                "width": 274,
                 "height": 44
               }
             }
@@ -518,45 +638,45 @@
         {
           "id": "row-slot-3",
           "rect": {
-            "x": 132,
-            "y": 302,
-            "width": 962,
+            "x": 112,
+            "y": 328,
+            "width": 1090,
             "height": 44
           },
           "cells": [
             {
               "id": "item",
               "rect": {
-                "x": 132,
-                "y": 302,
-                "width": 239,
+                "x": 112,
+                "y": 328,
+                "width": 271,
                 "height": 44
               }
             },
             {
               "id": "cost",
               "rect": {
-                "x": 372,
-                "y": 302,
-                "width": 239,
+                "x": 384,
+                "y": 328,
+                "width": 271,
                 "height": 44
               }
             },
             {
               "id": "available",
               "rect": {
-                "x": 612,
-                "y": 302,
-                "width": 239,
+                "x": 656,
+                "y": 328,
+                "width": 271,
                 "height": 44
               }
             },
             {
               "id": "order",
               "rect": {
-                "x": 852,
-                "y": 302,
-                "width": 242,
+                "x": 928,
+                "y": 328,
+                "width": 274,
                 "height": 44
               }
             }
@@ -565,45 +685,45 @@
         {
           "id": "row-slot-4",
           "rect": {
-            "x": 132,
-            "y": 346,
-            "width": 962,
+            "x": 112,
+            "y": 372,
+            "width": 1090,
             "height": 44
           },
           "cells": [
             {
               "id": "item",
               "rect": {
-                "x": 132,
-                "y": 346,
-                "width": 239,
+                "x": 112,
+                "y": 372,
+                "width": 271,
                 "height": 44
               }
             },
             {
               "id": "cost",
               "rect": {
-                "x": 372,
-                "y": 346,
-                "width": 239,
+                "x": 384,
+                "y": 372,
+                "width": 271,
                 "height": 44
               }
             },
             {
               "id": "available",
               "rect": {
-                "x": 612,
-                "y": 346,
-                "width": 239,
+                "x": 656,
+                "y": 372,
+                "width": 271,
                 "height": 44
               }
             },
             {
               "id": "order",
               "rect": {
-                "x": 852,
-                "y": 346,
-                "width": 242,
+                "x": 928,
+                "y": 372,
+                "width": 274,
                 "height": 44
               }
             }
@@ -612,45 +732,45 @@
         {
           "id": "row-slot-5",
           "rect": {
-            "x": 132,
-            "y": 390,
-            "width": 962,
+            "x": 112,
+            "y": 416,
+            "width": 1090,
             "height": 44
           },
           "cells": [
             {
               "id": "item",
               "rect": {
-                "x": 132,
-                "y": 390,
-                "width": 239,
+                "x": 112,
+                "y": 416,
+                "width": 271,
                 "height": 44
               }
             },
             {
               "id": "cost",
               "rect": {
-                "x": 372,
-                "y": 390,
-                "width": 239,
+                "x": 384,
+                "y": 416,
+                "width": 271,
                 "height": 44
               }
             },
             {
               "id": "available",
               "rect": {
-                "x": 612,
-                "y": 390,
-                "width": 239,
+                "x": 656,
+                "y": 416,
+                "width": 271,
                 "height": 44
               }
             },
             {
               "id": "order",
               "rect": {
-                "x": 852,
-                "y": 390,
-                "width": 242,
+                "x": 928,
+                "y": 416,
+                "width": 274,
                 "height": 44
               }
             }
@@ -659,45 +779,45 @@
         {
           "id": "row-slot-6",
           "rect": {
-            "x": 132,
-            "y": 434,
-            "width": 962,
+            "x": 112,
+            "y": 460,
+            "width": 1090,
             "height": 44
           },
           "cells": [
             {
               "id": "item",
               "rect": {
-                "x": 132,
-                "y": 434,
-                "width": 239,
+                "x": 112,
+                "y": 460,
+                "width": 271,
                 "height": 44
               }
             },
             {
               "id": "cost",
               "rect": {
-                "x": 372,
-                "y": 434,
-                "width": 239,
+                "x": 384,
+                "y": 460,
+                "width": 271,
                 "height": 44
               }
             },
             {
               "id": "available",
               "rect": {
-                "x": 612,
-                "y": 434,
-                "width": 239,
+                "x": 656,
+                "y": 460,
+                "width": 271,
                 "height": 44
               }
             },
             {
               "id": "order",
               "rect": {
-                "x": 852,
-                "y": 434,
-                "width": 242,
+                "x": 928,
+                "y": 460,
+                "width": 274,
                 "height": 44
               }
             }
@@ -706,45 +826,45 @@
         {
           "id": "row-slot-7",
           "rect": {
-            "x": 132,
-            "y": 478,
-            "width": 962,
+            "x": 112,
+            "y": 504,
+            "width": 1090,
             "height": 44
           },
           "cells": [
             {
               "id": "item",
               "rect": {
-                "x": 132,
-                "y": 478,
-                "width": 239,
+                "x": 112,
+                "y": 504,
+                "width": 271,
                 "height": 44
               }
             },
             {
               "id": "cost",
               "rect": {
-                "x": 372,
-                "y": 478,
-                "width": 239,
+                "x": 384,
+                "y": 504,
+                "width": 271,
                 "height": 44
               }
             },
             {
               "id": "available",
               "rect": {
-                "x": 612,
-                "y": 478,
-                "width": 239,
+                "x": 656,
+                "y": 504,
+                "width": 271,
                 "height": 44
               }
             },
             {
               "id": "order",
               "rect": {
-                "x": 852,
-                "y": 478,
-                "width": 242,
+                "x": 928,
+                "y": 504,
+                "width": 274,
                 "height": 44
               }
             }
@@ -753,45 +873,45 @@
         {
           "id": "row-slot-8",
           "rect": {
-            "x": 132,
-            "y": 522,
-            "width": 962,
+            "x": 112,
+            "y": 548,
+            "width": 1090,
             "height": 44
           },
           "cells": [
             {
               "id": "item",
               "rect": {
-                "x": 132,
-                "y": 522,
-                "width": 239,
+                "x": 112,
+                "y": 548,
+                "width": 271,
                 "height": 44
               }
             },
             {
               "id": "cost",
               "rect": {
-                "x": 372,
-                "y": 522,
-                "width": 239,
+                "x": 384,
+                "y": 548,
+                "width": 271,
                 "height": 44
               }
             },
             {
               "id": "available",
               "rect": {
-                "x": 612,
-                "y": 522,
-                "width": 239,
+                "x": 656,
+                "y": 548,
+                "width": 271,
                 "height": 44
               }
             },
             {
               "id": "order",
               "rect": {
-                "x": 852,
-                "y": 522,
-                "width": 242,
+                "x": 928,
+                "y": 548,
+                "width": 274,
                 "height": 44
               }
             }
@@ -799,9 +919,9 @@
         }
       ],
       "rowHit": {
-        "x": 132,
-        "y": 214,
-        "width": 962,
+        "x": 112,
+        "y": 240,
+        "width": 1090,
         "height": 352
       },
       "rowSteppers": [
@@ -809,14 +929,14 @@
           "rowSlotId": "row-slot-1",
           "behaviorOwner": "adjust-quantity",
           "decrement": {
-            "x": 852,
-            "y": 214,
+            "x": 928,
+            "y": 240,
             "width": 44,
             "height": 44
           },
           "increment": {
-            "x": 1050,
-            "y": 214,
+            "x": 1158,
+            "y": 240,
             "width": 44,
             "height": 44
           }
@@ -825,14 +945,14 @@
           "rowSlotId": "row-slot-2",
           "behaviorOwner": "adjust-quantity",
           "decrement": {
-            "x": 852,
-            "y": 258,
+            "x": 928,
+            "y": 284,
             "width": 44,
             "height": 44
           },
           "increment": {
-            "x": 1050,
-            "y": 258,
+            "x": 1158,
+            "y": 284,
             "width": 44,
             "height": 44
           }
@@ -841,14 +961,14 @@
           "rowSlotId": "row-slot-3",
           "behaviorOwner": "adjust-quantity",
           "decrement": {
-            "x": 852,
-            "y": 302,
+            "x": 928,
+            "y": 328,
             "width": 44,
             "height": 44
           },
           "increment": {
-            "x": 1050,
-            "y": 302,
+            "x": 1158,
+            "y": 328,
             "width": 44,
             "height": 44
           }
@@ -857,14 +977,14 @@
           "rowSlotId": "row-slot-4",
           "behaviorOwner": "adjust-quantity",
           "decrement": {
-            "x": 852,
-            "y": 346,
+            "x": 928,
+            "y": 372,
             "width": 44,
             "height": 44
           },
           "increment": {
-            "x": 1050,
-            "y": 346,
+            "x": 1158,
+            "y": 372,
             "width": 44,
             "height": 44
           }
@@ -873,14 +993,14 @@
           "rowSlotId": "row-slot-5",
           "behaviorOwner": "adjust-quantity",
           "decrement": {
-            "x": 852,
-            "y": 390,
+            "x": 928,
+            "y": 416,
             "width": 44,
             "height": 44
           },
           "increment": {
-            "x": 1050,
-            "y": 390,
+            "x": 1158,
+            "y": 416,
             "width": 44,
             "height": 44
           }
@@ -889,14 +1009,14 @@
           "rowSlotId": "row-slot-6",
           "behaviorOwner": "adjust-quantity",
           "decrement": {
-            "x": 852,
-            "y": 434,
+            "x": 928,
+            "y": 460,
             "width": 44,
             "height": 44
           },
           "increment": {
-            "x": 1050,
-            "y": 434,
+            "x": 1158,
+            "y": 460,
             "width": 44,
             "height": 44
           }
@@ -905,14 +1025,14 @@
           "rowSlotId": "row-slot-7",
           "behaviorOwner": "adjust-quantity",
           "decrement": {
-            "x": 852,
-            "y": 478,
+            "x": 928,
+            "y": 504,
             "width": 44,
             "height": 44
           },
           "increment": {
-            "x": 1050,
-            "y": 478,
+            "x": 1158,
+            "y": 504,
             "width": 44,
             "height": 44
           }
@@ -921,14 +1041,14 @@
           "rowSlotId": "row-slot-8",
           "behaviorOwner": "adjust-quantity",
           "decrement": {
-            "x": 852,
-            "y": 522,
+            "x": 928,
+            "y": 548,
             "width": 44,
             "height": 44
           },
           "increment": {
-            "x": 1050,
-            "y": 522,
+            "x": 1158,
+            "y": 548,
             "width": 44,
             "height": 44
           }
@@ -939,70 +1059,64 @@
       "designWidth": 740,
       "designHeight": 360,
       "window": {
-        "x": 20,
-        "y": 8,
-        "width": 700,
-        "height": 344
+        "x": 0,
+        "y": 0,
+        "width": 740,
+        "height": 360
       },
       "title": {
-        "x": 44,
-        "y": 24,
-        "width": 328,
+        "x": 72,
+        "y": 0,
+        "width": 300,
         "height": 44
       },
       "summaryBar": {
-        "x": 384,
-        "y": 24,
-        "width": 312,
+        "x": 380,
+        "y": 0,
+        "width": 342,
         "height": 44
       },
-      "headerArt": {
-        "x": 20,
-        "y": 8,
-        "width": 700,
-        "height": 60
-      },
       "controlBar": {
-        "x": 44,
-        "y": 72,
-        "width": 652,
+        "x": 72,
+        "y": 110,
+        "width": 650,
         "height": 44
       },
       "controls": {
         "category-filter": {
-          "x": 44,
-          "y": 72,
+          "x": 72,
+          "y": 110,
           "width": 196,
           "height": 44
         },
         "quick-search": {
-          "x": 248,
-          "y": 72,
+          "x": 276,
+          "y": 110,
           "width": 196,
           "height": 44
         }
       },
       "viewport": {
-        "x": 44,
-        "y": 122,
-        "width": 652,
-        "height": 160
+        "x": 72,
+        "y": 164,
+        "width": 650,
+        "height": 120
       },
       "footer": {
-        "x": 20,
+        "x": 72,
         "y": 294,
-        "width": 700,
+        "width": 650,
         "height": 58
       },
       "actions": {
         "ok": {
-          "x": 388,
+          "x": 390,
           "y": 301,
           "width": 148,
           "height": 44
         },
         "cancel": {
-          "x": 548,
+          "x": 550,
           "y": 301,
           "width": 148,
           "height": 44
@@ -1013,84 +1127,178 @@
       "headerHeight": 32,
       "scrollbarWidth": 18,
       "minThumbHeight": 44,
+      "headerArt": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "tabBar": {
+        "x": 72,
+        "y": 56,
+        "width": 650,
+        "height": 44
+      },
       "summaryFields": [
         {
           "id": "funds",
           "rect": {
-            "x": 384,
-            "y": 24,
-            "width": 152,
+            "x": 380,
+            "y": 0,
+            "width": 167,
             "height": 44
           },
           "label": {
-            "x": 384,
-            "y": 24,
-            "width": 152,
+            "x": 380,
+            "y": 0,
+            "width": 167,
             "height": 14
           },
           "value": {
-            "x": 384,
-            "y": 38,
-            "width": 152,
+            "x": 380,
+            "y": 14,
+            "width": 167,
             "height": 30
           }
         },
         {
           "id": "order",
           "rect": {
-            "x": 544,
-            "y": 24,
-            "width": 152,
+            "x": 555,
+            "y": 0,
+            "width": 167,
             "height": 44
           },
           "label": {
-            "x": 544,
-            "y": 24,
-            "width": 152,
+            "x": 555,
+            "y": 0,
+            "width": 167,
             "height": 14
           },
           "value": {
-            "x": 544,
-            "y": 38,
-            "width": 152,
+            "x": 555,
+            "y": 14,
+            "width": 167,
             "height": 30
           }
         }
       ],
+      "workspace": {
+        "window": {
+          "x": 0,
+          "y": 0,
+          "width": 740,
+          "height": 360
+        },
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 740,
+          "height": 44
+        },
+        "navigationRail": {
+          "x": 0,
+          "y": 44,
+          "width": 54,
+          "height": 316
+        },
+        "content": {
+          "x": 54,
+          "y": 44,
+          "width": 686,
+          "height": 316
+        },
+        "title": {
+          "x": 72,
+          "y": 0,
+          "width": 300,
+          "height": 44
+        },
+        "summaryBar": {
+          "x": 380,
+          "y": 0,
+          "width": 342,
+          "height": 44
+        },
+        "tabBar": {
+          "x": 72,
+          "y": 56,
+          "width": 650,
+          "height": 44
+        },
+        "controlBar": {
+          "x": 72,
+          "y": 110,
+          "width": 650,
+          "height": 44
+        },
+        "viewport": {
+          "x": 72,
+          "y": 164,
+          "width": 650,
+          "height": 120
+        },
+        "footer": {
+          "x": 72,
+          "y": 294,
+          "width": 650,
+          "height": 58
+        },
+        "tabs": {
+          "purchase": {
+            "x": 72,
+            "y": 56,
+            "width": 212,
+            "height": 44
+          },
+          "sell": {
+            "x": 292,
+            "y": 56,
+            "width": 211,
+            "height": 44
+          },
+          "transfer": {
+            "x": 511,
+            "y": 56,
+            "width": 211,
+            "height": 44
+          }
+        }
+      },
       "columnHeaders": [
         {
           "id": "item",
           "rect": {
-            "x": 44,
-            "y": 122,
-            "width": 149,
+            "x": 72,
+            "y": 164,
+            "width": 148,
             "height": 32
           }
         },
         {
           "id": "cost",
           "rect": {
-            "x": 194,
-            "y": 122,
-            "width": 149,
+            "x": 221,
+            "y": 164,
+            "width": 148,
             "height": 32
           }
         },
         {
           "id": "available",
           "rect": {
-            "x": 344,
-            "y": 122,
-            "width": 149,
+            "x": 370,
+            "y": 164,
+            "width": 148,
             "height": 32
           }
         },
         {
           "id": "order",
           "rect": {
-            "x": 494,
-            "y": 122,
-            "width": 150,
+            "x": 519,
+            "y": 164,
+            "width": 151,
             "height": 32
           }
         }
@@ -1099,45 +1307,45 @@
         {
           "id": "row-slot-1",
           "rect": {
-            "x": 44,
-            "y": 154,
-            "width": 600,
+            "x": 72,
+            "y": 196,
+            "width": 598,
             "height": 44
           },
           "cells": [
             {
               "id": "item",
               "rect": {
-                "x": 44,
-                "y": 154,
-                "width": 149,
+                "x": 72,
+                "y": 196,
+                "width": 148,
                 "height": 44
               }
             },
             {
               "id": "cost",
               "rect": {
-                "x": 194,
-                "y": 154,
-                "width": 149,
+                "x": 221,
+                "y": 196,
+                "width": 148,
                 "height": 44
               }
             },
             {
               "id": "available",
               "rect": {
-                "x": 344,
-                "y": 154,
-                "width": 149,
+                "x": 370,
+                "y": 196,
+                "width": 148,
                 "height": 44
               }
             },
             {
               "id": "order",
               "rect": {
-                "x": 494,
-                "y": 154,
-                "width": 150,
+                "x": 519,
+                "y": 196,
+                "width": 151,
                 "height": 44
               }
             }
@@ -1146,45 +1354,45 @@
         {
           "id": "row-slot-2",
           "rect": {
-            "x": 44,
-            "y": 198,
-            "width": 600,
+            "x": 72,
+            "y": 240,
+            "width": 598,
             "height": 44
           },
           "cells": [
             {
               "id": "item",
               "rect": {
-                "x": 44,
-                "y": 198,
-                "width": 149,
+                "x": 72,
+                "y": 240,
+                "width": 148,
                 "height": 44
               }
             },
             {
               "id": "cost",
               "rect": {
-                "x": 194,
-                "y": 198,
-                "width": 149,
+                "x": 221,
+                "y": 240,
+                "width": 148,
                 "height": 44
               }
             },
             {
               "id": "available",
               "rect": {
-                "x": 344,
-                "y": 198,
-                "width": 149,
+                "x": 370,
+                "y": 240,
+                "width": 148,
                 "height": 44
               }
             },
             {
               "id": "order",
               "rect": {
-                "x": 494,
-                "y": 198,
-                "width": 150,
+                "x": 519,
+                "y": 240,
+                "width": 151,
                 "height": 44
               }
             }
@@ -1192,9 +1400,9 @@
         }
       ],
       "rowHit": {
-        "x": 44,
-        "y": 154,
-        "width": 600,
+        "x": 72,
+        "y": 196,
+        "width": 598,
         "height": 88
       },
       "rowSteppers": [
@@ -1202,14 +1410,14 @@
           "rowSlotId": "row-slot-1",
           "behaviorOwner": "adjust-quantity",
           "decrement": {
-            "x": 494,
-            "y": 154,
+            "x": 519,
+            "y": 196,
             "width": 44,
             "height": 44
           },
           "increment": {
-            "x": 600,
-            "y": 154,
+            "x": 626,
+            "y": 196,
             "width": 44,
             "height": 44
           }
@@ -1218,14 +1426,14 @@
           "rowSlotId": "row-slot-2",
           "behaviorOwner": "adjust-quantity",
           "decrement": {
-            "x": 494,
-            "y": 198,
+            "x": 519,
+            "y": 240,
             "width": 44,
             "height": 44
           },
           "increment": {
-            "x": 600,
-            "y": 198,
+            "x": 626,
+            "y": 240,
             "width": 44,
             "height": 44
           }
@@ -1255,26 +1463,26 @@
       "overflow": true,
       "scrollSteps": 2,
       "track": {
-        "x": 1130,
-        "y": 214,
+        "x": 1238,
+        "y": 240,
         "width": 18,
         "height": 352
       },
       "thumb": {
-        "x": 1130,
-        "y": 214,
+        "x": 1238,
+        "y": 240,
         "width": 18,
         "height": 281
       },
       "trackHitTarget": {
-        "x": 1104,
-        "y": 214,
+        "x": 1212,
+        "y": 240,
         "width": 44,
         "height": 352
       },
       "thumbHitTarget": {
-        "x": 1104,
-        "y": 214,
+        "x": 1212,
+        "y": 240,
         "width": 44,
         "height": 281
       },
@@ -1290,26 +1498,26 @@
       "overflow": true,
       "scrollSteps": 8,
       "track": {
-        "x": 678,
-        "y": 154,
+        "x": 704,
+        "y": 196,
         "width": 18,
         "height": 88
       },
       "thumb": {
-        "x": 678,
-        "y": 154,
+        "x": 704,
+        "y": 196,
         "width": 18,
         "height": 44
       },
       "trackHitTarget": {
-        "x": 652,
-        "y": 154,
+        "x": 678,
+        "y": 196,
         "width": 44,
         "height": 88
       },
       "thumbHitTarget": {
-        "x": 652,
-        "y": 154,
+        "x": 678,
+        "y": 196,
         "width": 44,
         "height": 44
       },
@@ -1320,17 +1528,20 @@
     "window",
     "title",
     "summaryBar",
-    "headerArt",
     "controlBar",
     "viewport",
     "scroll.track",
     "scroll.thumb",
     "footer",
+    "tabBar",
     "summary.funds",
     "summary.order",
-    "headerArt.image",
     "control.category-filter",
     "control.quick-search",
+    "workspace",
+    "tab.purchase",
+    "tab.sell",
+    "tab.transfer",
     "action.ok",
     "action.cancel",
     "column.item",

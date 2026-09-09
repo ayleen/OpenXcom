@@ -20,6 +20,7 @@
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoBasescapeHdUi.h"
 #include "../Calypso/CalypsoStrategicNavigation.h"
+#include "../Calypso/CalypsoLogisticsWorkspace.h"
 #endif
 #include "../Engine/Game.h"
 #include "../Mod/Mod.h"
@@ -390,10 +391,10 @@ void BasescapeState::btnManufactureClick(Action *)
 void BasescapeState::btnPurchaseClick(Action *)
 {
 #ifdef __EMSCRIPTEN__
-	if (auto* eco = _game->getSavedGame()->getCalypsoEconomy())
-		if (eco->active()) { _game->pushState(new CalypsoMarketState(_base, false)); return; }
-#endif
+	Calypso::calypsoLogisticsWorkspaceOpen(_game, _base, Calypso::CalypsoLogisticsTab::Purchase);
+#else
 	_game->pushState(new PurchaseState(_base));
+#endif
 }
 
 /**
@@ -403,10 +404,10 @@ void BasescapeState::btnPurchaseClick(Action *)
 void BasescapeState::btnSellClick(Action *)
 {
 #ifdef __EMSCRIPTEN__
-	if (auto* eco = _game->getSavedGame()->getCalypsoEconomy())
-		if (eco->active()) { _game->pushState(new CalypsoMarketState(_base, true)); return; }
-#endif
+	Calypso::calypsoLogisticsWorkspaceOpen(_game, _base, Calypso::CalypsoLogisticsTab::Sell);
+#else
 	_game->pushState(new SellState(_base, 0));
+#endif
 }
 
 /**
@@ -415,7 +416,11 @@ void BasescapeState::btnSellClick(Action *)
  */
 void BasescapeState::btnTransferClick(Action *)
 {
+#ifdef __EMSCRIPTEN__
+	Calypso::calypsoLogisticsWorkspaceOpen(_game, _base, Calypso::CalypsoLogisticsTab::Transfer);
+#else
 	_game->pushState(new TransferBaseState(_base, nullptr));
+#endif
 }
 
 /**

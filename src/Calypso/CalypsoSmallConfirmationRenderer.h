@@ -419,12 +419,24 @@ struct CalypsoScrollableCollectionControl
 /// Shared scrollable-collection model: canonical window shell/theme, table
 /// viewport over native rows, read-only summary facts, optional header art,
 /// and an optional contract-owned collection heading in the toolbar band
-/// (present only when the toolbar has no live controls).
+/// (present only when the toolbar has no live controls). When hasWorkspace is
+/// true, workspace* rects and exactly three workspaceTabs describe the
+/// full-screen HD shell; otherwise the legacy modal composition is unchanged.
 /// Toolbar controls (category, quick search) paint contract chrome (label
 /// plus live value) in the control-bar band while their native
 /// ComboBox/TextEdit stays the behavior owner; the native list, header
 /// labels, footer buttons, and control widgets are behavior owners whose
 /// pixels are suppressed and replaced here.
+struct CalypsoScrollableCollectionWorkspaceTab
+{
+	std::string id;
+	std::string label;
+	std::string action;
+	CalypsoLogicalRect rect;
+	Surface* widget = nullptr;
+	bool active = false;
+};
+
 struct CalypsoScrollableCollectionModel
 {
 	std::uint32_t familyId = 0;
@@ -433,6 +445,17 @@ struct CalypsoScrollableCollectionModel
 	bool wide = false;
 	int designWidth = 0;
 	int designHeight = 0;
+
+	bool hasWorkspace = false;
+	std::string workspaceId;
+	std::string workspaceInitialTab;
+	CalypsoLogicalRect workspaceHeader;
+	CalypsoLogicalRect workspaceNavigationRail;
+	CalypsoLogicalRect workspaceTabBar;
+	CalypsoLogicalRect workspaceContent;
+	std::string workspaceHeaderContext;
+	std::string workspaceRailContext;
+	std::vector<CalypsoScrollableCollectionWorkspaceTab> workspaceTabs;
 
 	CalypsoLogicalRect window;
 	CalypsoLogicalRect title;

@@ -26,7 +26,7 @@
 namespace OpenXcom
 {
 #ifdef __EMSCRIPTEN__
-namespace Calypso { class CalypsoF11PurchaseUi; }
+namespace Calypso { class CalypsoF11PurchaseUi; class CalypsoLogisticsWorkspace; }
 #endif
 
 class TextButton;
@@ -71,9 +71,11 @@ private:
 	Timer *_timerInc, *_timerDec;
 #ifdef __EMSCRIPTEN__
 	friend class Calypso::CalypsoF11PurchaseUi;
+	friend class Calypso::CalypsoLogisticsWorkspace;
 	bool _hdLayout = false;
 	bool _hdWideLayout = false;
 	Calypso::CalypsoF11PurchaseUi *_hdAdapter = nullptr;
+	TextButton *_hdWorkspaceTabs[3] = {nullptr, nullptr, nullptr};
 	std::uint64_t _hdHarnessGeneration = 0;
 #endif
 	std::string getCategory(int sel) const;
@@ -95,7 +97,10 @@ public:
 	/// Resets state.
 	void init() override;
 #ifdef __EMSCRIPTEN__
+	/// HD layout refresh hook.
 	void resize(int &dX, int &dY) override;
+	/// Hidden native owners for the shared Logistics workspace tab strip.
+	void calypsoWorkspaceTabClick(Action *action);
 #endif
 	/// Runs the timers.
 	void think() override;

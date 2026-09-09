@@ -60,6 +60,7 @@
 #endif
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoF11MarketUi.h"
+#include "../Calypso/CalypsoLogisticsWorkspace.h"
 #include "../Calypso/CalypsoHdHarnessHostState.h"
 #endif
 
@@ -409,6 +410,13 @@ PurchaseState::~PurchaseState()
 	delete _timerInc;
 	delete _timerDec;
 }
+#ifdef __EMSCRIPTEN__
+void PurchaseState::calypsoWorkspaceTabClick(Action *action)
+{
+	Calypso::calypsoLogisticsWorkspaceTab(*this,
+		action ? static_cast<TextButton*>(action->getSender()) : nullptr);
+}
+#endif
 
 /**
  * Resets stuff when coming back from other screens.
@@ -787,6 +795,9 @@ void PurchaseState::updateList()
  */
 void PurchaseState::btnOkClick(Action *)
 {
+#ifdef __EMSCRIPTEN__
+	Calypso::calypsoLogisticsWorkspaceClear();
+#endif
 	if (!_missingItemsMap.empty())
 	{
 		std::string errorMessage;
@@ -906,6 +917,9 @@ void PurchaseState::btnOkClick(Action *)
  */
 void PurchaseState::btnCancelClick(Action *)
 {
+#ifdef __EMSCRIPTEN__
+	Calypso::calypsoLogisticsWorkspaceClear();
+#endif
 	_game->popState();
 }
 

@@ -36,9 +36,20 @@ inline constexpr CalypsoF11PurchaseGenSummaryField kSummary[] = {
 inline constexpr int kSummaryCount = 2;
 inline constexpr const char* kCollectionHeading = "";
 inline constexpr int kHasCollectionHeading = 0;
-inline constexpr const char* kHeaderArtAssetId = "logistics-purchase-header";
-inline constexpr const char* kHeaderArtVfsPath = "Resources/ui-hd/f11-purchase-header.png";
-inline constexpr int kHasHeaderArt = 1;
+inline constexpr const char* kHeaderArtAssetId = "";
+inline constexpr const char* kHeaderArtVfsPath = "";
+inline constexpr int kHasHeaderArt = 0;
+inline constexpr int kHasWorkspace = 1;
+inline constexpr const char* kWorkspaceId = "logistics-workspace";
+inline constexpr const char* kWorkspaceInitialTab = "purchase";
+struct CalypsoF11PurchaseGenWorkspaceTab { const char* id; const char* label; const char* action; };
+inline constexpr CalypsoF11PurchaseGenWorkspaceTab kWorkspaceTabs[] = {
+    { "purchase", "PURCHASE", "logistics.openPurchase" },
+    { "sell", "SELL", "logistics.openSell" },
+    { "transfer", "TRANSFER", "logistics.openTransfer" },
+};
+inline constexpr int kWorkspaceTabCount = 3;
+
 inline constexpr float kPresentationScale = 1.000000f;
 inline constexpr float kCutCornerPx = 14.000000f;
 struct CalypsoF11PurchaseGenRect { int x; int y; int w; int h; };
@@ -55,138 +66,151 @@ inline constexpr std::uint32_t kHeaderArtScrim = 0x04090DCCu;
 inline constexpr int kHeaderArtOpacityPct = 85;
 struct CalypsoF11PurchaseGenButtonRect { const char* id; CalypsoF11PurchaseGenRect rect; };
 struct CalypsoF11PurchaseGenControlRect { const char* id; CalypsoF11PurchaseGenRect rect; };
+struct CalypsoF11PurchaseGenWorkspaceTabRect { const char* id; CalypsoF11PurchaseGenRect rect; };
 struct CalypsoF11PurchaseGenRowStepper { const char* rowSlotId; const char* behaviorOwner; CalypsoF11PurchaseGenRect decrement; CalypsoF11PurchaseGenRect increment; };
 struct CalypsoF11PurchaseGenSummaryRect { CalypsoF11PurchaseGenRect field; CalypsoF11PurchaseGenRect label; CalypsoF11PurchaseGenRect value; };
-struct CalypsoF11PurchaseGenLayout { int designWidth; int designHeight; int rowHeight; int visibleRows; int headerHeight; int scrollBarWidth; int minThumbHeight; int columnCount; int summaryCount; int hasHeaderArt; CalypsoF11PurchaseGenRect window; CalypsoF11PurchaseGenRect title; CalypsoF11PurchaseGenRect summaryBar; CalypsoF11PurchaseGenRect headerArt; CalypsoF11PurchaseGenRect controlBar; CalypsoF11PurchaseGenRect collectionHeading; CalypsoF11PurchaseGenRect viewport; CalypsoF11PurchaseGenRect footer;
+struct CalypsoF11PurchaseGenLayout { int designWidth; int designHeight; int rowHeight; int visibleRows; int headerHeight; int scrollBarWidth; int minThumbHeight; int columnCount; int summaryCount; int hasHeaderArt; CalypsoF11PurchaseGenRect window; CalypsoF11PurchaseGenRect title; CalypsoF11PurchaseGenRect summaryBar; CalypsoF11PurchaseGenRect headerArt; CalypsoF11PurchaseGenRect controlBar; CalypsoF11PurchaseGenRect collectionHeading; CalypsoF11PurchaseGenRect viewport; CalypsoF11PurchaseGenRect footer; CalypsoF11PurchaseGenRect workspaceHeader; CalypsoF11PurchaseGenRect workspaceNavigationRail; CalypsoF11PurchaseGenRect workspaceTabBar; CalypsoF11PurchaseGenRect workspaceContent;
 };
 inline constexpr CalypsoF11PurchaseGenLayout kLayouts[] = {
-    { 1280, 720, 44, 8, 36, 18, 44, 4, 2, 1, { 100, 50, 1080, 620 }, { 132, 74, 500, 44 }, { 648, 74, 500, 44 }, { 100, 50, 1080, 68 }, { 132, 124, 1016, 44 }, { 0, 0, 0, 0 }, { 132, 178, 1016, 406 }, { 100, 600, 1080, 70 } }, // wide
-    { 740, 360, 44, 2, 32, 18, 44, 4, 2, 1, { 20, 8, 700, 344 }, { 44, 24, 328, 44 }, { 384, 24, 312, 44 }, { 20, 8, 700, 60 }, { 44, 72, 652, 44 }, { 0, 0, 0, 0 }, { 44, 122, 652, 160 }, { 20, 294, 700, 58 } }, // compact
+    { 1280, 720, 44, 8, 36, 18, 44, 4, 2, 0, { 0, 0, 1280, 720 }, { 112, 14, 500, 44 }, { 648, 14, 520, 44 }, { 0, 0, 0, 0 }, { 112, 150, 1144, 44 }, { 0, 0, 0, 0 }, { 112, 204, 1144, 388 }, { 112, 602, 1144, 70 }, { 0, 0, 1280, 72 }, { 0, 72, 88, 648 }, { 112, 88, 1144, 52 }, { 88, 72, 1192, 648 } }, // wide
+    { 740, 360, 44, 2, 32, 18, 44, 4, 2, 0, { 0, 0, 740, 360 }, { 72, 0, 300, 44 }, { 380, 0, 342, 44 }, { 0, 0, 0, 0 }, { 72, 110, 650, 44 }, { 0, 0, 0, 0 }, { 72, 164, 650, 120 }, { 72, 294, 650, 58 }, { 0, 0, 740, 44 }, { 0, 44, 54, 316 }, { 72, 56, 650, 44 }, { 54, 44, 686, 316 } }, // compact
 };
+inline constexpr CalypsoF11PurchaseGenWorkspaceTabRect kWorkspaceTabRectsWide[] = {
+    { "purchase", { 112, 88, 376, 52 } },
+    { "sell", { 496, 88, 376, 52 } },
+    { "transfer", { 880, 88, 376, 52 } },
+};
+inline constexpr int kWorkspaceTabRectWideCount = 3;
 inline constexpr CalypsoF11PurchaseGenRect kRowSlotsWide[] = {
-    { 132, 214, 962, 44 }, // row-slot-1
-    { 132, 258, 962, 44 }, // row-slot-2
-    { 132, 302, 962, 44 }, // row-slot-3
-    { 132, 346, 962, 44 }, // row-slot-4
-    { 132, 390, 962, 44 }, // row-slot-5
-    { 132, 434, 962, 44 }, // row-slot-6
-    { 132, 478, 962, 44 }, // row-slot-7
-    { 132, 522, 962, 44 }, // row-slot-8
+    { 112, 240, 1090, 44 }, // row-slot-1
+    { 112, 284, 1090, 44 }, // row-slot-2
+    { 112, 328, 1090, 44 }, // row-slot-3
+    { 112, 372, 1090, 44 }, // row-slot-4
+    { 112, 416, 1090, 44 }, // row-slot-5
+    { 112, 460, 1090, 44 }, // row-slot-6
+    { 112, 504, 1090, 44 }, // row-slot-7
+    { 112, 548, 1090, 44 }, // row-slot-8
 };
 inline constexpr int kRowSlotWideCount = 8;
 inline constexpr CalypsoF11PurchaseGenRect kRowCellsWide[] = {
-    { 132, 214, 239, 44 }, // item
-    { 372, 214, 239, 44 }, // cost
-    { 612, 214, 239, 44 }, // available
-    { 852, 214, 242, 44 }, // order
-    { 132, 258, 239, 44 }, // item
-    { 372, 258, 239, 44 }, // cost
-    { 612, 258, 239, 44 }, // available
-    { 852, 258, 242, 44 }, // order
-    { 132, 302, 239, 44 }, // item
-    { 372, 302, 239, 44 }, // cost
-    { 612, 302, 239, 44 }, // available
-    { 852, 302, 242, 44 }, // order
-    { 132, 346, 239, 44 }, // item
-    { 372, 346, 239, 44 }, // cost
-    { 612, 346, 239, 44 }, // available
-    { 852, 346, 242, 44 }, // order
-    { 132, 390, 239, 44 }, // item
-    { 372, 390, 239, 44 }, // cost
-    { 612, 390, 239, 44 }, // available
-    { 852, 390, 242, 44 }, // order
-    { 132, 434, 239, 44 }, // item
-    { 372, 434, 239, 44 }, // cost
-    { 612, 434, 239, 44 }, // available
-    { 852, 434, 242, 44 }, // order
-    { 132, 478, 239, 44 }, // item
-    { 372, 478, 239, 44 }, // cost
-    { 612, 478, 239, 44 }, // available
-    { 852, 478, 242, 44 }, // order
-    { 132, 522, 239, 44 }, // item
-    { 372, 522, 239, 44 }, // cost
-    { 612, 522, 239, 44 }, // available
-    { 852, 522, 242, 44 }, // order
+    { 112, 240, 271, 44 }, // item
+    { 384, 240, 271, 44 }, // cost
+    { 656, 240, 271, 44 }, // available
+    { 928, 240, 274, 44 }, // order
+    { 112, 284, 271, 44 }, // item
+    { 384, 284, 271, 44 }, // cost
+    { 656, 284, 271, 44 }, // available
+    { 928, 284, 274, 44 }, // order
+    { 112, 328, 271, 44 }, // item
+    { 384, 328, 271, 44 }, // cost
+    { 656, 328, 271, 44 }, // available
+    { 928, 328, 274, 44 }, // order
+    { 112, 372, 271, 44 }, // item
+    { 384, 372, 271, 44 }, // cost
+    { 656, 372, 271, 44 }, // available
+    { 928, 372, 274, 44 }, // order
+    { 112, 416, 271, 44 }, // item
+    { 384, 416, 271, 44 }, // cost
+    { 656, 416, 271, 44 }, // available
+    { 928, 416, 274, 44 }, // order
+    { 112, 460, 271, 44 }, // item
+    { 384, 460, 271, 44 }, // cost
+    { 656, 460, 271, 44 }, // available
+    { 928, 460, 274, 44 }, // order
+    { 112, 504, 271, 44 }, // item
+    { 384, 504, 271, 44 }, // cost
+    { 656, 504, 271, 44 }, // available
+    { 928, 504, 274, 44 }, // order
+    { 112, 548, 271, 44 }, // item
+    { 384, 548, 271, 44 }, // cost
+    { 656, 548, 271, 44 }, // available
+    { 928, 548, 274, 44 }, // order
 };
 inline constexpr int kRowCellWideCount = 32;
-inline constexpr CalypsoF11PurchaseGenRect kRowHitWide = { 132, 214, 962, 352 };
+inline constexpr CalypsoF11PurchaseGenRect kRowHitWide = { 112, 240, 1090, 352 };
 inline constexpr CalypsoF11PurchaseGenRowStepper kRowSteppersWide[] = {
-    { "row-slot-1", "adjust-quantity", { 852, 214, 44, 44 }, { 1050, 214, 44, 44 } },
-    { "row-slot-2", "adjust-quantity", { 852, 258, 44, 44 }, { 1050, 258, 44, 44 } },
-    { "row-slot-3", "adjust-quantity", { 852, 302, 44, 44 }, { 1050, 302, 44, 44 } },
-    { "row-slot-4", "adjust-quantity", { 852, 346, 44, 44 }, { 1050, 346, 44, 44 } },
-    { "row-slot-5", "adjust-quantity", { 852, 390, 44, 44 }, { 1050, 390, 44, 44 } },
-    { "row-slot-6", "adjust-quantity", { 852, 434, 44, 44 }, { 1050, 434, 44, 44 } },
-    { "row-slot-7", "adjust-quantity", { 852, 478, 44, 44 }, { 1050, 478, 44, 44 } },
-    { "row-slot-8", "adjust-quantity", { 852, 522, 44, 44 }, { 1050, 522, 44, 44 } },
+    { "row-slot-1", "adjust-quantity", { 928, 240, 44, 44 }, { 1158, 240, 44, 44 } },
+    { "row-slot-2", "adjust-quantity", { 928, 284, 44, 44 }, { 1158, 284, 44, 44 } },
+    { "row-slot-3", "adjust-quantity", { 928, 328, 44, 44 }, { 1158, 328, 44, 44 } },
+    { "row-slot-4", "adjust-quantity", { 928, 372, 44, 44 }, { 1158, 372, 44, 44 } },
+    { "row-slot-5", "adjust-quantity", { 928, 416, 44, 44 }, { 1158, 416, 44, 44 } },
+    { "row-slot-6", "adjust-quantity", { 928, 460, 44, 44 }, { 1158, 460, 44, 44 } },
+    { "row-slot-7", "adjust-quantity", { 928, 504, 44, 44 }, { 1158, 504, 44, 44 } },
+    { "row-slot-8", "adjust-quantity", { 928, 548, 44, 44 }, { 1158, 548, 44, 44 } },
 };
 inline constexpr int kRowStepperWideCount = 8;
 inline constexpr CalypsoF11PurchaseGenRect kColumnHeadersWide[] = {
-    { 132, 178, 239, 36 }, // item
-    { 372, 178, 239, 36 }, // cost
-    { 612, 178, 239, 36 }, // available
-    { 852, 178, 242, 36 }, // order
+    { 112, 204, 271, 36 }, // item
+    { 384, 204, 271, 36 }, // cost
+    { 656, 204, 271, 36 }, // available
+    { 928, 204, 274, 36 }, // order
 };
 inline constexpr int kColumnHeaderWideCount = 4;
 inline constexpr int kTileSlotWideCount = 0;
 inline constexpr CalypsoF11PurchaseGenButtonRect kButtonRectsWide[] = {
-    { "ok", { 822, 613, 158, 44 } },
-    { "cancel", { 990, 613, 158, 44 } },
+    { "ok", { 898, 615, 158, 44 } },
+    { "cancel", { 1066, 615, 158, 44 } },
 };
 inline constexpr int kButtonRectWideCount = 2;
 inline constexpr CalypsoF11PurchaseGenControlRect kControlRectsWide[] = {
-    { "category-filter", { 132, 124, 220, 44 } },
-    { "quick-search", { 362, 124, 220, 44 } },
+    { "category-filter", { 112, 150, 220, 44 } },
+    { "quick-search", { 342, 150, 220, 44 } },
 };
 inline constexpr int kControlRectWideCount = 2;
 inline constexpr CalypsoF11PurchaseGenSummaryRect kSummaryWide[] = {
-    { { 648, 74, 245, 44 }, { 648, 74, 245, 16 }, { 648, 90, 245, 28 } }, // funds
-    { { 903, 74, 245, 44 }, { 903, 74, 245, 16 }, { 903, 90, 245, 28 } }, // order
+    { { 648, 14, 255, 44 }, { 648, 14, 255, 16 }, { 648, 30, 255, 28 } }, // funds
+    { { 913, 14, 255, 44 }, { 913, 14, 255, 16 }, { 913, 30, 255, 28 } }, // order
 };
 inline constexpr int kSummaryWideCount = 2;
+inline constexpr CalypsoF11PurchaseGenWorkspaceTabRect kWorkspaceTabRectsCompact[] = {
+    { "purchase", { 72, 56, 212, 44 } },
+    { "sell", { 292, 56, 211, 44 } },
+    { "transfer", { 511, 56, 211, 44 } },
+};
+inline constexpr int kWorkspaceTabRectCompactCount = 3;
 inline constexpr CalypsoF11PurchaseGenRect kRowSlotsCompact[] = {
-    { 44, 154, 600, 44 }, // row-slot-1
-    { 44, 198, 600, 44 }, // row-slot-2
+    { 72, 196, 598, 44 }, // row-slot-1
+    { 72, 240, 598, 44 }, // row-slot-2
 };
 inline constexpr int kRowSlotCompactCount = 2;
 inline constexpr CalypsoF11PurchaseGenRect kRowCellsCompact[] = {
-    { 44, 154, 149, 44 }, // item
-    { 194, 154, 149, 44 }, // cost
-    { 344, 154, 149, 44 }, // available
-    { 494, 154, 150, 44 }, // order
-    { 44, 198, 149, 44 }, // item
-    { 194, 198, 149, 44 }, // cost
-    { 344, 198, 149, 44 }, // available
-    { 494, 198, 150, 44 }, // order
+    { 72, 196, 148, 44 }, // item
+    { 221, 196, 148, 44 }, // cost
+    { 370, 196, 148, 44 }, // available
+    { 519, 196, 151, 44 }, // order
+    { 72, 240, 148, 44 }, // item
+    { 221, 240, 148, 44 }, // cost
+    { 370, 240, 148, 44 }, // available
+    { 519, 240, 151, 44 }, // order
 };
 inline constexpr int kRowCellCompactCount = 8;
-inline constexpr CalypsoF11PurchaseGenRect kRowHitCompact = { 44, 154, 600, 88 };
+inline constexpr CalypsoF11PurchaseGenRect kRowHitCompact = { 72, 196, 598, 88 };
 inline constexpr CalypsoF11PurchaseGenRowStepper kRowSteppersCompact[] = {
-    { "row-slot-1", "adjust-quantity", { 494, 154, 44, 44 }, { 600, 154, 44, 44 } },
-    { "row-slot-2", "adjust-quantity", { 494, 198, 44, 44 }, { 600, 198, 44, 44 } },
+    { "row-slot-1", "adjust-quantity", { 519, 196, 44, 44 }, { 626, 196, 44, 44 } },
+    { "row-slot-2", "adjust-quantity", { 519, 240, 44, 44 }, { 626, 240, 44, 44 } },
 };
 inline constexpr int kRowStepperCompactCount = 2;
 inline constexpr CalypsoF11PurchaseGenRect kColumnHeadersCompact[] = {
-    { 44, 122, 149, 32 }, // item
-    { 194, 122, 149, 32 }, // cost
-    { 344, 122, 149, 32 }, // available
-    { 494, 122, 150, 32 }, // order
+    { 72, 164, 148, 32 }, // item
+    { 221, 164, 148, 32 }, // cost
+    { 370, 164, 148, 32 }, // available
+    { 519, 164, 151, 32 }, // order
 };
 inline constexpr int kColumnHeaderCompactCount = 4;
 inline constexpr int kTileSlotCompactCount = 0;
 inline constexpr CalypsoF11PurchaseGenButtonRect kButtonRectsCompact[] = {
-    { "ok", { 388, 301, 148, 44 } },
-    { "cancel", { 548, 301, 148, 44 } },
+    { "ok", { 390, 301, 148, 44 } },
+    { "cancel", { 550, 301, 148, 44 } },
 };
 inline constexpr int kButtonRectCompactCount = 2;
 inline constexpr CalypsoF11PurchaseGenControlRect kControlRectsCompact[] = {
-    { "category-filter", { 44, 72, 196, 44 } },
-    { "quick-search", { 248, 72, 196, 44 } },
+    { "category-filter", { 72, 110, 196, 44 } },
+    { "quick-search", { 276, 110, 196, 44 } },
 };
 inline constexpr int kControlRectCompactCount = 2;
 inline constexpr CalypsoF11PurchaseGenSummaryRect kSummaryCompact[] = {
-    { { 384, 24, 152, 44 }, { 384, 24, 152, 14 }, { 384, 38, 152, 30 } }, // funds
-    { { 544, 24, 152, 44 }, { 544, 24, 152, 14 }, { 544, 38, 152, 30 } }, // order
+    { { 380, 0, 167, 44 }, { 380, 0, 167, 14 }, { 380, 14, 167, 30 } }, // funds
+    { { 555, 0, 167, 44 }, { 555, 0, 167, 14 }, { 555, 14, 167, 30 } }, // order
 };
 inline constexpr int kSummaryCompactCount = 2;
 inline constexpr int kLayoutCount = 2;

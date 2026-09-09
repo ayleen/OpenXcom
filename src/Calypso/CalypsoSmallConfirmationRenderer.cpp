@@ -24,7 +24,8 @@
 #include "CalypsoHdTheme.h"
 #include "CalypsoHdUiOverlay.h"
 #include "CalypsoUiMetrics.h"
-
+#include "CalypsoF21UiShared.h"
+#include "CommandCenter/CommandCenterRenderer.h"
 namespace OpenXcom
 {
 namespace Calypso
@@ -681,7 +682,6 @@ void calypsoCollectSelectionList(
 }
 
 namespace {
-
 enum CollectionRole : std::uint32_t
 {
 	COLLECTION_ROLE_WINDOW = 2,
@@ -705,7 +705,15 @@ enum CollectionRole : std::uint32_t
 	COLLECTION_ROLE_POPUP_BASE = 180,
 	COLLECTION_ROLE_POPUP_OPTION_BASE = 190,
 	COLLECTION_ROLE_CONTROL_CHEVRON_BASE = 200,
-	COLLECTION_ROLE_CARET = 210
+	COLLECTION_ROLE_CARET = 210,
+	COLLECTION_ROLE_WORKSPACE_ROOT = 220,
+	COLLECTION_ROLE_WORKSPACE_CONTENT = 223,
+	COLLECTION_ROLE_WORKSPACE_TAB_BASE = 230,
+	COLLECTION_ROLE_WORKSPACE_TAB_LABEL_BASE = 240,
+	COLLECTION_ROLE_WORKSPACE_HEADER_CONTEXT = 250,
+	COLLECTION_ROLE_WORKSPACE_TAB_ACTIVE_BASE = 260,
+	COLLECTION_ROLE_WORKSPACE_TAB_BAR = 224,
+	COLLECTION_ROLE_WORKSPACE_CHROME = 270
 };
 
 } // namespace
@@ -808,26 +816,27 @@ void calypsoCollectScrollableCollection(
 		builder.add(item);
 	};
 	auto addStyled = [&](const CalypsoLogicalRect& rect, const CalypsoHdPanelStyle& style,
-		const void* widget, std::uint32_t role)
+		const void* widget, std::uint32_t role, bool animate = true)
 	{
 		if (rect.w <= 0 || rect.h <= 0) return;
 		CalypsoHdItem item;
 		item.kind = CalypsoHdItemKind::Panel;
-		item.rect = motionRect(rect);
+		item.rect = animate ? motionRect(rect) : rect;
 		item.colorRgba = style.fillTopRgba;
 		item.panelStyle = style;
-		item.opacity = opacity;
+		item.opacity = animate ? opacity : 1.0f;
 		item.widget = widget;
 		stamp(item, role);
 		builder.add(item);
 	};
-	auto addDecoration = [&](const CalypsoLogicalRect& rect, std::uint32_t color)
+	auto addDecoration = [&](const CalypsoLogicalRect& rect, std::uint32_t color,
+		std::uint32_t role = COLLECTION_ROLE_WINDOW)
 	{
 		CalypsoHdPanelStyle style;
 		style.styled = true;
 		style.fillTopRgba = color;
 		style.fillBottomRgba = color;
-		addStyled(rect, style, nullptr, COLLECTION_ROLE_WINDOW);
+		addStyled(rect, style, nullptr, role);
 	};
 	auto addText = [&](const CalypsoLogicalRect& sourceRect, const void* widget,
 		const CalypsoTtfSourceDescriptor& font, const std::string& text,
@@ -862,20 +871,176 @@ void calypsoCollectScrollableCollection(
 		builder.add(item);
 	};
 
-	const int shadowX = scaledPx(2.0);
-	const int shadowY = scaledPx(8.0);
-	addStyled({model.window.x - shadowX, model.window.y + shadowY,
-		model.window.w + shadowX * 2, model.window.h},
-		glowStyle(model, CalypsoHdTheme::kShadowGlow,
-			CalypsoHdTheme::kShadowGlowRadiusPx * model.visualScale),
-		nullptr, COLLECTION_ROLE_WINDOW);
-	addStyled(model.window,
-		glowStyle(model, CalypsoHdTheme::kHaloGlow,
-			CalypsoHdTheme::kHaloGlowRadiusPx * model.visualScale),
-		nullptr, COLLECTION_ROLE_WINDOW);
-	addStyled(model.window, windowStyle(model), model.windowWidget, COLLECTION_ROLE_WINDOW);
+	const auto ccColor = [](const CommandCenterTheme::Color8& color)
+	{
+		return CommandCenterTheme::packed(color);
+	};
+	if (model.hasWorkspace)
+	{
+		if (model.workspaceTabs.size() != 3)
+			CalypsoHdUiOverlay::instance().failHdRoute(
+				"workspace collection must expose exactly three tabs");
+		if (model.workspaceHeader.w <= 0 || model.workspaceHeader.h <= 0
+			|| model.workspaceNavigationRail.w <= 0 || model.workspaceNavigationRail.h <= 0
+			|| model.workspaceTabBar.w <= 0 || model.workspaceTabBar.h <= 0
+			|| model.workspaceContent.w <= 0 || model.workspaceContent.h <= 0)
+			CalypsoHdUiOverlay::instance().failHdRoute(
+				"workspace collection geometry is missing");
 
-	if (model.hasHeaderArt)
+		CalypsoHdPanelStyle root;
+		root.styled = true;
+		root.fillTopRgba = ccColor(CommandCenterTheme::BgRoot);
+		root.fillBottomRgba = ccColor(CommandCenterTheme::BgStage);
+		root.gradDirY = 1.0f;
+		addStyled(model.window, root, model.windowWidget,
+			COLLECTION_ROLE_WORKSPACE_ROOT, false);
+
+		const auto workspaceRect = [](const CalypsoLogicalRect& rect)
+		{
+			return CommandCenter::RectF{static_cast<float>(rect.x),
+				static_cast<float>(rect.y), static_cast<float>(rect.w),
+				static_cast<float>(rect.h)};
+		};
+		CalypsoF21Painter workspacePainter{
+			builder, model.familyId,
+			reinterpret_cast<std::uintptr_t>(model.instance), order, 1.0f, 1.0,
+			CalypsoF21Rect{model.window.x, model.window.y,
+				model.window.w, model.window.h}, 1.0, 1.0};
+		workspacePainter.winLogical = model.window;
+		workspacePainter.windowDesign = {model.window.x, model.window.y,
+			model.window.w, model.window.h};
+		workspacePainter.uiScale = 1.0;
+		workspacePainter.uiAspectY = 1.0;
+		const CommandCenter::CommandCenterFonts workspaceFonts =
+			CommandCenter::calypsoCcResolveFonts(model.mod);
+		const char* railLabels[5] = {
+			CommandCenter::calypsoCcRailLabel(0),
+			CommandCenter::calypsoCcRailLabel(1),
+			CommandCenter::calypsoCcRailLabel(2),
+			CommandCenter::calypsoCcRailLabel(3),
+			CommandCenter::calypsoCcRailLabel(4) };
+		std::uint32_t workspaceChromeRole = COLLECTION_ROLE_WORKSPACE_CHROME;
+		CommandCenter::calypsoCcPaintHeaderBackground(workspacePainter,
+			workspaceRect(model.workspaceHeader), workspaceChromeRole);
+		CommandCenter::calypsoCcPaintRailBackground(workspacePainter,
+			workspaceRect(model.workspaceNavigationRail), workspaceChromeRole);
+
+		// The canonical rail geometry is authored for the wide 88px rail. Keep
+		// its backgrounds in the workspace painter, but fit the shared item
+		// visuals into compact rails through a local design-space mapping.
+		const CommandCenter::RectF actualRail =
+			workspaceRect(model.workspaceNavigationRail);
+		const CommandCenter::RectF canonicalRailProbe{
+			0.0f, 0.0f, CommandCenterTheme::RailWidth, 0.0f};
+		const CommandCenter::RectF canonicalItem4 =
+			CommandCenter::calypsoCcRailItemRect(canonicalRailProbe, 4);
+		const CommandCenter::RectF canonicalSettings =
+			CommandCenter::calypsoCcRailSettingsRect(canonicalRailProbe);
+		const float settingsTopInset =
+			canonicalRailProbe.bottom() - canonicalSettings.y;
+		const float canonicalContentHeight =
+			canonicalItem4.bottom() - canonicalRailProbe.y + settingsTopInset;
+		const float railScale = std::min(1.0f, std::min(
+			actualRail.width / CommandCenterTheme::RailWidth,
+			actualRail.height / canonicalContentHeight));
+		const CommandCenter::RectF virtualRail{
+			0.0f, 0.0f, actualRail.width / railScale,
+			actualRail.height / railScale};
+		CalypsoF21Painter railPainter{
+			builder, model.familyId,
+			reinterpret_cast<std::uintptr_t>(model.instance),
+			workspacePainter.ord, workspacePainter.opacity, workspacePainter.scale,
+			CalypsoF21Rect{0, 0,
+				static_cast<int>(std::lround(virtualRail.width)),
+				static_cast<int>(std::lround(virtualRail.height))},
+			workspacePainter.sx, workspacePainter.sy};
+		railPainter.winLogical = model.workspaceNavigationRail;
+		railPainter.windowDesign = railPainter.window;
+		railPainter.uiScale = railScale;
+		railPainter.uiAspectY = 1.0;
+		CommandCenter::calypsoCcPaintRailItems(railPainter, virtualRail,
+			CommandCenter::RailAction::Bases, railLabels, workspaceFonts,
+			workspaceChromeRole);
+		workspacePainter.ord = railPainter.ord;
+		order = workspacePainter.ord;
+
+		auto workspacePanel = [&](const CalypsoLogicalRect& rect,
+			const CommandCenterTheme::Color8& fill,
+			const CommandCenterTheme::Color8& border,
+			float radius, const void* widget, std::uint32_t role)
+		{
+			CalypsoHdPanelStyle style;
+			style.styled = true;
+			style.radiusPx = radius * model.visualScale;
+			style.borderWidthPx = CalypsoHdTheme::kBorderWidthPx;
+			style.borderColorRgba = ccColor(border);
+			style.fillTopRgba = ccColor(fill);
+			style.fillBottomRgba = ccColor(fill);
+			addStyled(rect, style, widget, role, false);
+		};
+
+		workspacePanel(model.workspaceContent, CommandCenterTheme::BgStage,
+			CommandCenterTheme::Border, CommandCenterTheme::RadiusMD, nullptr,
+			COLLECTION_ROLE_WORKSPACE_CONTENT);
+		workspacePanel(model.workspaceTabBar, CommandCenterTheme::BgStage,
+			CommandCenterTheme::BorderSoft, CommandCenterTheme::RadiusSM, nullptr,
+			COLLECTION_ROLE_WORKSPACE_TAB_BAR);
+		for (std::size_t tabIndex = 0; tabIndex < model.workspaceTabs.size(); ++tabIndex)
+		{
+			const auto& tab = model.workspaceTabs[tabIndex];
+			if (tab.id.empty() || tab.label.empty() || tab.action.empty())
+				CalypsoHdUiOverlay::instance().failHdRoute(
+					"workspace tab metadata is incomplete");
+			const auto& fill = tab.active
+				? CommandCenterTheme::BgActive : CommandCenterTheme::BgPanel;
+			const auto& border = tab.active
+				? CommandCenterTheme::BorderAccent : CommandCenterTheme::Border;
+			workspacePanel(tab.rect, fill, border, CommandCenterTheme::RadiusSM,
+				tab.widget, COLLECTION_ROLE_WORKSPACE_TAB_BASE
+					+ (std::uint32_t)tabIndex);
+			if (tab.active)
+				addDecoration({tab.rect.x, tab.rect.y + tab.rect.h - scaledPx(2.0),
+					tab.rect.w, scaledPx(2.0)}, ccColor(CommandCenterTheme::Accent),
+					COLLECTION_ROLE_WORKSPACE_TAB_ACTIVE_BASE + (std::uint32_t)tabIndex);
+			addText(tab.rect, tab.widget, body, tab.label,
+				ccColor(tab.active ? CommandCenterTheme::Accent
+					: CommandCenterTheme::TextSecondary),
+				CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle,
+				scaledPx(11.0, 9), 0, 0.08,
+				COLLECTION_ROLE_WORKSPACE_TAB_LABEL_BASE + (std::uint32_t)tabIndex);
+		}
+
+		const std::string headerContext = model.workspaceHeaderContext.empty()
+			? model.workspaceId : model.workspaceHeaderContext;
+		if (!headerContext.empty())
+		{
+			const int inset = scaledPx(CommandCenterTheme::Space4, 8);
+			addText({model.workspaceHeader.x + inset,
+				model.workspaceHeader.y + model.workspaceHeader.h - scaledPx(18.0, 10),
+				std::max(1, model.workspaceHeader.w - inset * 2), scaledPx(14.0, 10)},
+				nullptr, mono, headerContext, ccColor(CommandCenterTheme::TextMuted),
+				CalypsoHdHAlign::Right, CalypsoHdVAlign::Middle,
+				scaledPx(9.0, 8), 0, 0.10, COLLECTION_ROLE_WORKSPACE_HEADER_CONTEXT);
+		}
+	}
+
+	if (!model.hasWorkspace)
+	{
+		const int shadowX = scaledPx(2.0);
+		const int shadowY = scaledPx(8.0);
+		addStyled({model.window.x - shadowX, model.window.y + shadowY,
+			model.window.w + shadowX * 2, model.window.h},
+			glowStyle(model, CalypsoHdTheme::kShadowGlow,
+				CalypsoHdTheme::kShadowGlowRadiusPx * model.visualScale),
+			nullptr, COLLECTION_ROLE_WINDOW);
+		addStyled(model.window,
+			glowStyle(model, CalypsoHdTheme::kHaloGlow,
+				CalypsoHdTheme::kHaloGlowRadiusPx * model.visualScale),
+			nullptr, COLLECTION_ROLE_WINDOW);
+		addStyled(model.window, windowStyle(model), model.windowWidget, COLLECTION_ROLE_WINDOW);
+	}
+
+	if (!model.hasWorkspace && model.hasHeaderArt)
 	{
 		if (model.headerArtPath.empty())
 			CalypsoHdUiOverlay::instance().failHdRoute("collection header art asset is missing");
@@ -891,7 +1056,8 @@ void calypsoCollectScrollableCollection(
 		addPanel(model.headerArt, model.headerArtScrim, nullptr, COLLECTION_ROLE_SCRIM, true);
 	}
 	addText(model.title, model.titleWidget, heading, model.titleText,
-		CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle,
+		model.hasWorkspace ? CommandCenterTheme::packed(CommandCenterTheme::TextPrimary)
+			: CalypsoHdTheme::kNearWhite, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle,
 		std::max(1, (int)calypsoHdRoundToInt(
 			model.titleDesignHeight * CalypsoHdTheme::kTitleFontSizeScale)),
 		0, CalypsoHdTheme::kTitleTrackingEm, COLLECTION_ROLE_TITLE);
@@ -914,10 +1080,12 @@ void calypsoCollectScrollableCollection(
 	{
 		const auto& summary = model.summaries[field];
 		addText(summary.labelRect, nullptr, mono, summary.label,
-			model.mutedTextColor, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle,
+			model.hasWorkspace ? CommandCenterTheme::packed(CommandCenterTheme::TextMuted)
+				: model.mutedTextColor, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle,
 			summaryLabelPx, 0, 0.10, COLLECTION_ROLE_SUMMARY_LABEL_BASE + (std::uint32_t)field);
 		addText(summary.valueRect, nullptr, body, summary.value,
-			model.textColor, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle,
+			model.hasWorkspace ? CommandCenterTheme::packed(CommandCenterTheme::TextPrimary)
+				: model.textColor, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle,
 			summaryValuePx, 0, 0.0, COLLECTION_ROLE_SUMMARY_VALUE_BASE + (std::uint32_t)field);
 	}
 
@@ -1117,7 +1285,8 @@ void calypsoCollectScrollableCollection(
 					for (std::size_t i = 0; i < prefixWidths.size(); ++i)
 						prefixAdvance += prefixWidths[i]
 							+ (i < prefixKerning.size() ? prefixKerning[i] : 0);
-					int caretX = calypsoCollectionCaretProjectedX(textRect.x, prefixAdvance + advance, rowPx, caretFont->pixelSize());
+					int caretX = calypsoCollectionCaretProjectedX(textRect.x,
+						prefixAdvance + advance + kTextCaretGapPx, rowPx, caretFont->pixelSize());
 					caretX = std::min(caretX, textRect.x + textRect.w - 2);
 					const int caretInsetY = scaledPx(4.0);
 					addPanel({caretX, textRect.y + caretInsetY,

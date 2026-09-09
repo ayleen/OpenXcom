@@ -14,8 +14,10 @@
 #include "../Interface/ComboBox.h"
 #include "../Interface/TextList.h"
 #include "../Basescape/PurchaseState.h"
-#include "../Basescape/SellState.h"
 #include "../Mod/Mod.h"
+#include "../Savegame/Base.h"
+#include "../Basescape/SellState.h"
+#include "CalypsoLogisticsWorkspace.h"
 #include "Generated/CalypsoF11Purchase.generated.h"
 #include "Generated/CalypsoF11Sell.generated.h"
 #include "CalypsoCollectionInteraction.h"
@@ -53,7 +55,8 @@ CalypsoLogicalRect shiftedRect(const Rect& rect, int dx)
 	return {rect.x + dx, rect.y, rect.w, rect.h};
 }
 
-void applyRect(Surface* surface, const CalypsoLogicalRect& rect)
+template <typename Rect>
+void applyRect(Surface* surface, const Rect& rect)
 {
 	if (!surface) return;
 	surface->setX(rect.x);
@@ -161,6 +164,56 @@ void conformCollectionList(
 
 } // namespace
 
+template <typename Tab, typename TabRect, typename Layout>
+void populateWorkspace(CalypsoScrollableCollectionModel& model,
+	const Layout& generated, const Tab* tabs, int tabCount,
+	const TabRect* rects, int rectCount, const Projector& project,
+	TextButton* const* widgets, const std::string& baseContext)
+{
+	model.hasWorkspace = true;
+	model.workspaceId = "logistics-workspace";
+	model.workspaceInitialTab = tabCount > 0 ? tabs[0].id : "";
+	model.workspaceHeader = project(generated.workspaceHeader);
+	model.workspaceNavigationRail = project(generated.workspaceNavigationRail);
+	model.workspaceTabBar = project(generated.workspaceTabBar);
+	model.workspaceContent = project(generated.workspaceContent);
+	model.workspaceHeaderContext = baseContext;
+	model.workspaceRailContext = "LOGISTICS";
+	if (tabCount != 3 || rectCount != 3)
+		CalypsoHdUiOverlay::instance().failHdRoute("logistics workspace tab contract drifted");
+	for (int i = 0; i < tabCount; ++i)
+	{
+		CalypsoScrollableCollectionWorkspaceTab tab;
+		tab.id = tabs[i].id;
+		tab.label = tabs[i].label;
+		tab.action = tabs[i].action;
+		tab.widget = widgets[i];
+		tab.active = calypsoLogisticsWorkspace().activeTab()
+			== calypsoLogisticsTabFromId(tab.id);
+		for (int r = 0; r < rectCount; ++r)
+			if (std::string(rects[r].id) == tab.id) tab.rect = project(rects[r].rect);
+		if (tab.rect.w <= 0 || tab.rect.h <= 0)
+			CalypsoHdUiOverlay::instance().failHdRoute("logistics workspace tab geometry is missing");
+		model.workspaceTabs.push_back(tab);
+	}
+}
+
+template <typename Tab, typename TabRect>
+void configureWorkspaceTabs(State& state, TextButton* (&widgets)[3],
+	const Tab* tabs, int tabCount, const TabRect* rects, int rectCount,
+	ActionHandler handler)
+{
+	for (int i = 0; i < 3 && i < tabCount; ++i)
+	{
+		widgets[i] = new TextButton(1, 1);
+		state.add(widgets[i], "workspace-tab", "button");
+		applyRect(widgets[i], findDesignRect(rects, rectCount, tabs[i].id));
+		widgets[i]->setText(tabs[i].label);
+		widgets[i]->setVisible(true);
+		widgets[i]->onMouseClick(handler);
+	}
+}
+
 CalypsoF11PurchaseUi::~CalypsoF11PurchaseUi()
 {
 	CalypsoHdUiOverlay::instance().clearAdapter(this);
@@ -194,6 +247,7 @@ void CalypsoF11PurchaseUi::collectLogicalSuppression(
 	suppression.add(_state->_btnCancel);
 	suppression.add(_state->_cbxCategory);
 	suppression.add(_state->_btnQuickSearch);
+	for (auto* tab : _state->_hdWorkspaceTabs) suppression.add(tab);
 }
 
 void CalypsoF11PurchaseUi::collect(CalypsoHdFrameBuilder& builder) const
@@ -227,6 +281,12 @@ void CalypsoF11PurchaseUi::collect(CalypsoHdFrameBuilder& builder) const
 	model.headerArt = project(generated->headerArt);
 	model.controlBar = project(generated->controlBar);
 	model.viewport = project(generated->viewport);
+	populateWorkspace(model, *generated, Gen::kWorkspaceTabs,
+		Gen::kWorkspaceTabCount,
+		wide ? Gen::kWorkspaceTabRectsWide : Gen::kWorkspaceTabRectsCompact,
+		wide ? Gen::kWorkspaceTabRectWideCount : Gen::kWorkspaceTabRectCompactCount,
+		project, _state->_hdWorkspaceTabs,
+		_state->_base ? _state->_base->getName() : std::string());
 	model.footer = project(generated->footer);
 	model.windowWidget = _state->_window;
 	model.titleWidget = _state->_txtTitle;
@@ -437,52 +497,43 @@ void CalypsoF11PurchaseUi::applyGeneratedLayout(PurchaseState& state, bool wide)
 	namespace Gen = CalypsoF11PurchaseGen;
 	const auto* generated = Gen::layoutForDesign(wide ? 1280 : 740, wide ? 720 : 360);
 	if (!generated) return;
-	const int dx = presentationShiftX(generated->window.w, generated->window.x, wide);
-	applyRect(state._window, shiftedRect(generated->window, dx));
-	applyRect(state._txtTitle, shiftedRect(generated->title, dx));
-	const auto* buttonRects = wide ? Gen::kButtonRectsWide : Gen::kButtonRectsCompact;
-	const int buttonRectCount = wide ? Gen::kButtonRectWideCount : Gen::kButtonRectCompactCount;
-	applyRect(state._btnOk, touchRect(shiftedRect(findDesignRect(buttonRects, buttonRectCount, "ok"), dx)));
-	applyRect(state._btnCancel, touchRect(shiftedRect(findDesignRect(buttonRects, buttonRectCount, "cancel"), dx)));
-	const auto* controlRects = wide ? Gen::kControlRectsWide : Gen::kControlRectsCompact;
-	const int controlRectCount = wide ? Gen::kControlRectWideCount : Gen::kControlRectCompactCount;
+	applyRect(state._window, generated->window);
+	applyRect(state._txtTitle, generated->title);
+	applyRect(state._txtFunds, generated->summaryBar);
+	applyRect(state._txtPurchases, generated->summaryBar);
+	applyRect(state._txtSpaceUsed, generated->summaryBar);
+	applyRect(state._txtCost, generated->controlBar);
+	applyRect(state._txtQuantity, generated->controlBar);
 	const auto& rowHit = wide ? Gen::kRowHitWide : Gen::kRowHitCompact;
-	// Native input starts at the first painted row but spans the full
-	// viewport width: the reserved right rail carries the scrollbar track,
-	// so the track can never overlap a 44px stepper target.
-	applyRect(state._lstItems, {rowHit.x + dx, rowHit.y, generated->viewport.w, rowHit.h});
-	applyRect(state._cbxCategory, shiftedRect(findDesignRect(controlRects, controlRectCount, "category-filter"), dx));
-	applyRect(state._btnQuickSearch, shiftedRect(findDesignRect(controlRects, controlRectCount, "quick-search"), dx));
+	applyRect(state._lstItems, CalypsoLogicalRect{rowHit.x, rowHit.y, generated->viewport.w, rowHit.h});
+	const auto* buttons = wide ? Gen::kButtonRectsWide : Gen::kButtonRectsCompact;
+	const int buttonCount = wide ? Gen::kButtonRectWideCount : Gen::kButtonRectCompactCount;
+	applyRect(state._btnOk, touchRect(findDesignRect(buttons, buttonCount, "ok")));
+	applyRect(state._btnCancel, touchRect(findDesignRect(buttons, buttonCount, "cancel")));
+	const auto* controls = wide ? Gen::kControlRectsWide : Gen::kControlRectsCompact;
+	const int controlCount = wide ? Gen::kControlRectWideCount : Gen::kControlRectCompactCount;
+	applyRect(state._cbxCategory, findDesignRect(controls, controlCount, "category-filter"));
+	applyRect(state._btnQuickSearch, findDesignRect(controls, controlCount, "quick-search"));
+	const auto* tabs = wide ? Gen::kWorkspaceTabRectsWide : Gen::kWorkspaceTabRectsCompact;
+	const int tabCount = wide ? Gen::kWorkspaceTabRectWideCount : Gen::kWorkspaceTabRectCompactCount;
+	for (int i = 0; i < 3; ++i) applyRect(state._hdWorkspaceTabs[i], findDesignRect(tabs, tabCount, Gen::kWorkspaceTabs[i].id));
 	const auto* cells = wide ? Gen::kRowCellsWide : Gen::kRowCellsCompact;
 	const int cellCount = wide ? Gen::kRowCellWideCount : Gen::kRowCellCompactCount;
 	int designCellW[4] = {50, 50, 50, 50};
-	if (cellCount >= 4)
-		for (int c = 0; c < 4; ++c)
-			designCellW[c] = cells[c].w;
+	if (cellCount >= 4) for (int c = 0; c < 4; ++c) designCellW[c] = cells[c].w;
 	const auto* headers = wide ? Gen::kColumnHeadersWide : Gen::kColumnHeadersCompact;
 	const int headerCount = wide ? Gen::kColumnHeaderWideCount : Gen::kColumnHeaderCompactCount;
 	int designArrowX = generated->viewport.x;
-	if (headerCount >= 4)
-		designArrowX = (headers[3].x - generated->viewport.x) + 22;
-	conformCollectionList(state._lstItems, state._window,
-		generated->viewport.w, rowHit.h,
-		designCellW, designArrowX,
-		generated->rowHeight, generated->visibleRows,
+	if (headerCount >= 4) designArrowX = (headers[3].x - generated->viewport.x) + 22;
+	conformCollectionList(state._lstItems, state._window, generated->viewport.w, rowHit.h,
+		designCellW, designArrowX, generated->rowHeight, generated->visibleRows,
 		generated->scrollBarWidth, generated->minThumbHeight,
 		state._game ? state._game->getMod() : nullptr, 1.0);
-	// Bind the painted stepper affordances to the existing native arrow
-	// handlers: the left button keeps increase, so it sits on the increment
-	// target; the right button keeps decrease, so it sits on decrement.
-	const int stepperCount = wide ? Gen::kRowStepperWideCount : Gen::kRowStepperCompactCount;
-	if (stepperCount <= 0)
-		CalypsoHdUiOverlay::instance().failHdRoute("F11 purchase stepper contract is missing");
-	const auto& stepper0 = (wide ? Gen::kRowSteppersWide : Gen::kRowSteppersCompact)[0];
-	if (state._lstItems)
-		state._lstItems->setCalypsoHdArrowTargets(
-			stepper0.increment.x + dx, stepper0.decrement.x + dx,
-			stepper0.decrement.w, stepper0.decrement.h);
-	// Recreate rows after conformance so arrow buttons are born with the HD
-	// stepper geometry instead of the legacy arrow column.
+	if (state._lstItems) state._lstItems->setCalypsoHdArrowTargets(
+		(wide ? Gen::kRowSteppersWide : Gen::kRowSteppersCompact)[0].increment.x,
+		(wide ? Gen::kRowSteppersWide : Gen::kRowSteppersCompact)[0].decrement.x,
+		(wide ? Gen::kRowSteppersWide : Gen::kRowSteppersCompact)[0].decrement.w,
+		(wide ? Gen::kRowSteppersWide : Gen::kRowSteppersCompact)[0].decrement.h);
 	state.updateList();
 }
 
@@ -500,12 +551,20 @@ void CalypsoF11PurchaseUi::configure(PurchaseState& state)
 	state._hdLayout = true;
 
 	state._hdWideLayout = currentLayoutClass() == CalypsoLayoutClass::Wide;
+	calypsoLogisticsWorkspaceEnsure(state._game, state._base, CalypsoLogisticsTab::Purchase);
 	state._hdHarnessGeneration = Calypso::calypsoHarnessSession().generation;
 	applyGeneratedLayout(state, state._hdWideLayout);
 	const auto* generated = CalypsoF11PurchaseGen::layoutForDesign(
 		state._hdWideLayout ? 1280 : 740, state._hdWideLayout ? 720 : 360);
 	if (!generated)
 		CalypsoHdUiOverlay::instance().failHdRoute("F11 purchase generated layout is missing");
+	configureWorkspaceTabs(state, state._hdWorkspaceTabs,
+		CalypsoF11PurchaseGen::kWorkspaceTabs,
+		CalypsoF11PurchaseGen::kWorkspaceTabCount,
+		state._hdWideLayout ? CalypsoF11PurchaseGen::kWorkspaceTabRectsWide : CalypsoF11PurchaseGen::kWorkspaceTabRectsCompact,
+		state._hdWideLayout ? CalypsoF11PurchaseGen::kWorkspaceTabRectWideCount : CalypsoF11PurchaseGen::kWorkspaceTabRectCompactCount,
+		(ActionHandler)&PurchaseState::calypsoWorkspaceTabClick);
+	calypsoLogisticsWorkspaceRestore(state);
 	state.enableUiScaling(generated->designWidth, generated->designHeight, 1.0f,
 		/*subtractVanillaCenter=*/false);
 	auto* adapter = new CalypsoF11PurchaseUi(&state);
@@ -572,6 +631,7 @@ void CalypsoF11SellUi::collectLogicalSuppression(
 	suppression.add(_state->_btnTransfer);
 	suppression.add(_state->_cbxCategory);
 	suppression.add(_state->_btnQuickSearch);
+	for (auto* tab : _state->_hdWorkspaceTabs) suppression.add(tab);
 }
 
 void CalypsoF11SellUi::collect(CalypsoHdFrameBuilder& builder) const
@@ -612,6 +672,12 @@ void CalypsoF11SellUi::collect(CalypsoHdFrameBuilder& builder) const
 	model.titleText = Gen::kTitle;
 
 	const auto* slots = wide ? Gen::kRowSlotsWide : Gen::kRowSlotsCompact;
+	populateWorkspace(model, *generated, Gen::kWorkspaceTabs,
+		Gen::kWorkspaceTabCount,
+		wide ? Gen::kWorkspaceTabRectsWide : Gen::kWorkspaceTabRectsCompact,
+		wide ? Gen::kWorkspaceTabRectWideCount : Gen::kWorkspaceTabRectCompactCount,
+		project, _state->_hdWorkspaceTabs,
+		_state->_base ? _state->_base->getName() : std::string());
 	const int slotCount = wide ? Gen::kRowSlotWideCount : Gen::kRowSlotCompactCount;
 	for (int i = 0; i < slotCount; ++i)
 		model.rowSlots.push_back(project(slots[i]));
@@ -814,53 +880,45 @@ void CalypsoF11SellUi::applyGeneratedLayout(SellState& state, bool wide)
 	namespace Gen = CalypsoF11SellGen;
 	const auto* generated = Gen::layoutForDesign(wide ? 1280 : 740, wide ? 720 : 360);
 	if (!generated) return;
-	const int dx = presentationShiftX(generated->window.w, generated->window.x, wide);
-	applyRect(state._window, shiftedRect(generated->window, dx));
-	applyRect(state._txtTitle, shiftedRect(generated->title, dx));
+	applyRect(state._window, generated->window);
+	applyRect(state._txtTitle, generated->title);
+	applyRect(state._txtFunds, generated->summaryBar);
+	applyRect(state._txtSales, generated->summaryBar);
+	applyRect(state._txtSpaceUsed, generated->summaryBar);
+	applyRect(state._txtQuantity, generated->controlBar);
+	applyRect(state._txtSell, generated->controlBar);
+	applyRect(state._txtValue, generated->controlBar);
 	const auto& rowHit = wide ? Gen::kRowHitWide : Gen::kRowHitCompact;
-	// Native input starts at the first painted row but spans the full
-	// viewport width: the reserved right rail carries the scrollbar track,
-	// so the track can never overlap a 44px stepper target.
-	applyRect(state._lstItems, {rowHit.x + dx, rowHit.y, generated->viewport.w, rowHit.h});
-	const auto* buttonRects = wide ? Gen::kButtonRectsWide : Gen::kButtonRectsCompact;
-	const int buttonRectCount = wide ? Gen::kButtonRectWideCount : Gen::kButtonRectCompactCount;
-	applyRect(state._btnOk, touchRect(shiftedRect(findDesignRect(buttonRects, buttonRectCount, "sell"), dx)));
-	applyRect(state._btnTransfer, touchRect(shiftedRect(findDesignRect(buttonRects, buttonRectCount, "transfer"), dx)));
-	applyRect(state._btnCancel, touchRect(shiftedRect(findDesignRect(buttonRects, buttonRectCount, "cancel"), dx)));
-	const auto* controlRects = wide ? Gen::kControlRectsWide : Gen::kControlRectsCompact;
-	const int controlRectCount = wide ? Gen::kControlRectWideCount : Gen::kControlRectCompactCount;
-	applyRect(state._cbxCategory, shiftedRect(findDesignRect(controlRects, controlRectCount, "category-filter"), dx));
-	applyRect(state._btnQuickSearch, shiftedRect(findDesignRect(controlRects, controlRectCount, "quick-search"), dx));
+	applyRect(state._lstItems, CalypsoLogicalRect{rowHit.x, rowHit.y, generated->viewport.w, rowHit.h});
+	const auto* buttons = wide ? Gen::kButtonRectsWide : Gen::kButtonRectsCompact;
+	const int buttonCount = wide ? Gen::kButtonRectWideCount : Gen::kButtonRectCompactCount;
+	applyRect(state._btnOk, touchRect(findDesignRect(buttons, buttonCount, "sell")));
+	applyRect(state._btnTransfer, touchRect(findDesignRect(buttons, buttonCount, "transfer")));
+	applyRect(state._btnCancel, touchRect(findDesignRect(buttons, buttonCount, "cancel")));
+	const auto* controls = wide ? Gen::kControlRectsWide : Gen::kControlRectsCompact;
+	const int controlCount = wide ? Gen::kControlRectWideCount : Gen::kControlRectCompactCount;
+	applyRect(state._cbxCategory, findDesignRect(controls, controlCount, "category-filter"));
+	applyRect(state._btnQuickSearch, findDesignRect(controls, controlCount, "quick-search"));
+	const auto* tabs = wide ? Gen::kWorkspaceTabRectsWide : Gen::kWorkspaceTabRectsCompact;
+	const int tabCount = wide ? Gen::kWorkspaceTabRectWideCount : Gen::kWorkspaceTabRectCompactCount;
+	for (int i = 0; i < 3; ++i) applyRect(state._hdWorkspaceTabs[i], findDesignRect(tabs, tabCount, Gen::kWorkspaceTabs[i].id));
 	const auto* cells = wide ? Gen::kRowCellsWide : Gen::kRowCellsCompact;
 	const int cellCount = wide ? Gen::kRowCellWideCount : Gen::kRowCellCompactCount;
 	int designCellW[4] = {50, 50, 50, 50};
-	if (cellCount >= 4)
-		for (int c = 0; c < 4; ++c)
-			designCellW[c] = cells[c].w;
+	if (cellCount >= 4) for (int c = 0; c < 4; ++c) designCellW[c] = cells[c].w;
 	const auto* headers = wide ? Gen::kColumnHeadersWide : Gen::kColumnHeadersCompact;
 	const int headerCount = wide ? Gen::kColumnHeaderWideCount : Gen::kColumnHeaderCompactCount;
 	int designArrowX = generated->viewport.x;
-	if (headerCount >= 4)
-		designArrowX = (headers[1].x - generated->viewport.x) + 26;
-	conformCollectionList(state._lstItems, state._window,
-		generated->viewport.w, rowHit.h,
-		designCellW, designArrowX,
-		generated->rowHeight, generated->visibleRows,
+	if (headerCount >= 4) designArrowX = (headers[1].x - generated->viewport.x) + 26;
+	conformCollectionList(state._lstItems, state._window, generated->viewport.w, rowHit.h,
+		designCellW, designArrowX, generated->rowHeight, generated->visibleRows,
 		generated->scrollBarWidth, generated->minThumbHeight,
 		state._game ? state._game->getMod() : nullptr, 1.0);
-	// Bind the painted stepper affordances to the existing native arrow
-	// handlers: the left button keeps increase, so it sits on the increment
-	// target; the right button keeps decrease, so it sits on decrement.
-	const int stepperCount = wide ? Gen::kRowStepperWideCount : Gen::kRowStepperCompactCount;
-	if (stepperCount <= 0)
-		CalypsoHdUiOverlay::instance().failHdRoute("F11 sell stepper contract is missing");
-	const auto& stepper0 = (wide ? Gen::kRowSteppersWide : Gen::kRowSteppersCompact)[0];
-	if (state._lstItems)
-		state._lstItems->setCalypsoHdArrowTargets(
-			stepper0.increment.x + dx, stepper0.decrement.x + dx,
-			stepper0.decrement.w, stepper0.decrement.h);
-	// Recreate rows after conformance so arrow buttons are born with the HD
-	// stepper geometry instead of the legacy arrow column.
+	if (state._lstItems) state._lstItems->setCalypsoHdArrowTargets(
+		(wide ? Gen::kRowSteppersWide : Gen::kRowSteppersCompact)[0].increment.x,
+		(wide ? Gen::kRowSteppersWide : Gen::kRowSteppersCompact)[0].decrement.x,
+		(wide ? Gen::kRowSteppersWide : Gen::kRowSteppersCompact)[0].decrement.w,
+		(wide ? Gen::kRowSteppersWide : Gen::kRowSteppersCompact)[0].decrement.h);
 	state.updateList();
 }
 
@@ -880,10 +938,18 @@ void CalypsoF11SellUi::configure(SellState& state)
 	state._hdWideLayout = currentLayoutClass() == CalypsoLayoutClass::Wide;
 	state._hdHarnessGeneration = Calypso::calypsoHarnessSession().generation;
 	applyGeneratedLayout(state, state._hdWideLayout);
+	calypsoLogisticsWorkspaceEnsure(state._game, state._base, CalypsoLogisticsTab::Sell);
 	const auto* generated = CalypsoF11SellGen::layoutForDesign(
 		state._hdWideLayout ? 1280 : 740, state._hdWideLayout ? 720 : 360);
 	if (!generated)
 		CalypsoHdUiOverlay::instance().failHdRoute("F11 sell generated layout is missing");
+	configureWorkspaceTabs(state, state._hdWorkspaceTabs,
+		CalypsoF11SellGen::kWorkspaceTabs,
+		CalypsoF11SellGen::kWorkspaceTabCount,
+		state._hdWideLayout ? CalypsoF11SellGen::kWorkspaceTabRectsWide : CalypsoF11SellGen::kWorkspaceTabRectsCompact,
+		state._hdWideLayout ? CalypsoF11SellGen::kWorkspaceTabRectWideCount : CalypsoF11SellGen::kWorkspaceTabRectCompactCount,
+		(ActionHandler)&SellState::calypsoWorkspaceTabClick);
+	calypsoLogisticsWorkspaceRestore(state);
 	state.enableUiScaling(generated->designWidth, generated->designHeight, 1.0f,
 		/*subtractVanillaCenter=*/false);
 	auto* adapter = new CalypsoF11SellUi(&state);

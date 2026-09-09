@@ -14,10 +14,12 @@
 #include "../Interface/ComboBox.h"
 #include "../Interface/TextList.h"
 #include "../Basescape/TransferBaseState.h"
+#include "../Savegame/Base.h"
 #include "../Basescape/TransferItemsState.h"
 #include "../Mod/Mod.h"
 #include "Generated/CalypsoF12TransferBase.generated.h"
 #include "Generated/CalypsoF12TransferItems.generated.h"
+#include "CalypsoLogisticsWorkspace.h"
 #include "CalypsoCollectionInteraction.h"
 #include "CalypsoHdHarnessHostState.h"
 #include "CalypsoHdUiOverlay.h"
@@ -53,7 +55,8 @@ CalypsoLogicalRect shiftedRect(const Rect& rect, int dx)
 	return {rect.x + dx, rect.y, rect.w, rect.h};
 }
 
-void applyRect(Surface* surface, const CalypsoLogicalRect& rect)
+template <typename Rect>
+void applyRect(Surface* surface, const Rect& rect)
 {
 	if (!surface) return;
 	surface->setX(rect.x);
@@ -169,6 +172,54 @@ void conformTransferList(
 }
 
 } // namespace
+template <typename Tab, typename TabRect, typename Layout>
+void populateWorkspace(CalypsoScrollableCollectionModel& model,
+	const Layout& generated, const Tab* tabs, int tabCount,
+	const TabRect* rects, int rectCount, const Projector& project,
+	TextButton* const* widgets, const std::string& baseContext)
+{
+	model.hasWorkspace = true;
+	model.workspaceId = "logistics-workspace";
+	model.workspaceInitialTab = tabCount > 0 ? tabs[0].id : "";
+	model.workspaceHeader = project(generated.workspaceHeader);
+	model.workspaceNavigationRail = project(generated.workspaceNavigationRail);
+	model.workspaceTabBar = project(generated.workspaceTabBar);
+	model.workspaceContent = project(generated.workspaceContent);
+	model.workspaceHeaderContext = baseContext;
+	model.workspaceRailContext = "LOGISTICS";
+	if (tabCount != 3 || rectCount != 3)
+		CalypsoHdUiOverlay::instance().failHdRoute("logistics workspace tab contract drifted");
+	for (int i = 0; i < tabCount; ++i)
+	{
+		CalypsoScrollableCollectionWorkspaceTab tab;
+		tab.id = tabs[i].id;
+		tab.label = tabs[i].label;
+		tab.action = tabs[i].action;
+		tab.widget = widgets[i];
+		tab.active = calypsoLogisticsWorkspace().activeTab()
+			== calypsoLogisticsTabFromId(tab.id);
+		for (int r = 0; r < rectCount; ++r)
+			if (std::string(rects[r].id) == tab.id) tab.rect = project(rects[r].rect);
+		model.workspaceTabs.push_back(tab);
+	}
+}
+
+template <typename Tab, typename TabRect>
+void configureWorkspaceTabs(State& state, TextButton* (&widgets)[3],
+	const Tab* tabs, int tabCount, const TabRect* rects, int rectCount,
+	ActionHandler handler)
+{
+	for (int i = 0; i < 3 && i < tabCount; ++i)
+	{
+		widgets[i] = new TextButton(1, 1);
+		state.add(widgets[i], "workspace-tab", "button");
+		applyRect(widgets[i], findDesignRect(rects, rectCount, tabs[i].id));
+		widgets[i]->setText(tabs[i].label);
+		widgets[i]->setVisible(true);
+		widgets[i]->onMouseClick(handler);
+	}
+}
+
 
 CalypsoF12TransferBaseUi::~CalypsoF12TransferBaseUi()
 {
@@ -198,6 +249,7 @@ void CalypsoF12TransferBaseUi::collectLogicalSuppression(
 	suppression.add(_state->_txtArea);
 	suppression.add(_state->_lstBases);
 	suppression.add(_state->_btnCancel);
+	for (auto* tab : _state->_hdWorkspaceTabs) suppression.add(tab);
 }
 
 void CalypsoF12TransferBaseUi::collect(CalypsoHdFrameBuilder& builder) const
@@ -231,6 +283,12 @@ void CalypsoF12TransferBaseUi::collect(CalypsoHdFrameBuilder& builder) const
 	model.headerArt = project(generated->headerArt);
 	model.controlBar = project(generated->controlBar);
 	model.viewport = project(generated->viewport);
+	populateWorkspace(model, *generated, Gen::kWorkspaceTabs,
+		Gen::kWorkspaceTabCount,
+		wide ? Gen::kWorkspaceTabRectsWide : Gen::kWorkspaceTabRectsCompact,
+		wide ? Gen::kWorkspaceTabRectWideCount : Gen::kWorkspaceTabRectCompactCount,
+		project, _state->_hdWorkspaceTabs,
+		_state->_base ? _state->_base->getName() : std::string());
 	model.footer = project(generated->footer);
 	model.windowWidget = _state->_window;
 	model.titleWidget = _state->_txtTitle;
@@ -378,27 +436,25 @@ void CalypsoF12TransferBaseUi::applyGeneratedLayout(TransferBaseState& state, bo
 	namespace Gen = CalypsoF12TransferBaseGen;
 	const auto* generated = Gen::layoutForDesign(wide ? 1280 : 740, wide ? 720 : 360);
 	if (!generated) return;
-	const int dx = presentationShiftX(generated->window.w, generated->window.x, wide);
-	applyRect(state._window, shiftedRect(generated->window, dx));
-	applyRect(state._txtTitle, shiftedRect(generated->title, dx));
+	applyRect(state._window, generated->window);
+	applyRect(state._txtTitle, generated->title);
+	applyRect(state._txtFunds, generated->summaryBar);
+	applyRect(state._txtName, generated->collectionHeading);
+	applyRect(state._txtArea, generated->collectionHeading);
 	const auto& rowHit = wide ? Gen::kRowHitWide : Gen::kRowHitCompact;
-	// Native input starts at the first painted row but spans the full
-	// viewport width: the reserved right rail carries the scrollbar track,
-	// so the track can never overlap row content.
-	applyRect(state._lstBases, {rowHit.x + dx, rowHit.y, generated->viewport.w, rowHit.h});
-	const auto* buttonRects = wide ? Gen::kButtonRectsWide : Gen::kButtonRectsCompact;
-	const int buttonRectCount = wide ? Gen::kButtonRectWideCount : Gen::kButtonRectCompactCount;
-	applyRect(state._btnCancel, touchRect(shiftedRect(findDesignRect(buttonRects, buttonRectCount, "cancel"), dx)));
+	applyRect(state._lstBases, CalypsoLogicalRect{rowHit.x, rowHit.y, generated->viewport.w, rowHit.h});
+	const auto* buttons = wide ? Gen::kButtonRectsWide : Gen::kButtonRectsCompact;
+	const int buttonCount = wide ? Gen::kButtonRectWideCount : Gen::kButtonRectCompactCount;
+	applyRect(state._btnCancel, touchRect(findDesignRect(buttons, buttonCount, "cancel")));
+	const auto* tabs = wide ? Gen::kWorkspaceTabRectsWide : Gen::kWorkspaceTabRectsCompact;
+	const int tabCount = wide ? Gen::kWorkspaceTabRectWideCount : Gen::kWorkspaceTabRectCompactCount;
+	for (int i = 0; i < 3; ++i) applyRect(state._hdWorkspaceTabs[i], findDesignRect(tabs, tabCount, Gen::kWorkspaceTabs[i].id));
 	const auto* cells = wide ? Gen::kRowCellsWide : Gen::kRowCellsCompact;
 	const int cellCount = wide ? Gen::kRowCellWideCount : Gen::kRowCellCompactCount;
 	int designCellW[2] = {50, 50};
-	if (cellCount >= 2)
-		for (int c = 0; c < 2; ++c)
-			designCellW[c] = cells[c].w;
-	conformTransferList(state._lstBases, state._window,
-		generated->viewport.w, rowHit.h,
-		designCellW, 2, -1,
-		generated->rowHeight, generated->visibleRows,
+	if (cellCount >= 2) for (int c = 0; c < 2; ++c) designCellW[c] = cells[c].w;
+	conformTransferList(state._lstBases, state._window, generated->viewport.w, rowHit.h,
+		designCellW, 2, -1, generated->rowHeight, generated->visibleRows,
 		generated->scrollBarWidth, generated->minThumbHeight,
 		state._game ? state._game->getMod() : nullptr, 1.0);
 }
@@ -419,6 +475,7 @@ void CalypsoF12TransferBaseUi::configure(TransferBaseState& state)
 		state._hdLayout = false;
 		return;
 	}
+	calypsoLogisticsWorkspaceEnsure(state._game, state._base, CalypsoLogisticsTab::Transfer);
 	state._hdLayout = true;
 
 	state._hdWideLayout = currentLayoutClass() == CalypsoLayoutClass::Wide;
@@ -428,6 +485,13 @@ void CalypsoF12TransferBaseUi::configure(TransferBaseState& state)
 		state._hdWideLayout ? 1280 : 740, state._hdWideLayout ? 720 : 360);
 	if (!generated)
 		CalypsoHdUiOverlay::instance().failHdRoute("F12 destination generated layout is missing");
+	configureWorkspaceTabs(state, state._hdWorkspaceTabs,
+		CalypsoF12TransferBaseGen::kWorkspaceTabs,
+		CalypsoF12TransferBaseGen::kWorkspaceTabCount,
+		state._hdWideLayout ? CalypsoF12TransferBaseGen::kWorkspaceTabRectsWide : CalypsoF12TransferBaseGen::kWorkspaceTabRectsCompact,
+		state._hdWideLayout ? CalypsoF12TransferBaseGen::kWorkspaceTabRectWideCount : CalypsoF12TransferBaseGen::kWorkspaceTabRectCompactCount,
+		(ActionHandler)&TransferBaseState::calypsoWorkspaceTabClick);
+	calypsoLogisticsWorkspaceRestoreDestination(state);
 	state.enableUiScaling(generated->designWidth, generated->designHeight, 1.0f,
 		/*subtractVanillaCenter=*/false);
 	auto* adapter = new CalypsoF12TransferBaseUi(&state);
@@ -488,6 +552,7 @@ void CalypsoF12TransferItemsUi::collectLogicalSuppression(
 	suppression.add(_state->_btnCancel);
 	suppression.add(_state->_cbxCategory);
 	suppression.add(_state->_btnQuickSearch);
+	for (auto* tab : _state->_hdWorkspaceTabs) suppression.add(tab);
 }
 
 void CalypsoF12TransferItemsUi::collect(CalypsoHdFrameBuilder& builder) const
@@ -520,6 +585,12 @@ void CalypsoF12TransferItemsUi::collect(CalypsoHdFrameBuilder& builder) const
 	model.summaryBar = project(generated->summaryBar);
 	model.headerArt = project(generated->headerArt);
 	model.controlBar = project(generated->controlBar);
+	populateWorkspace(model, *generated, Gen::kWorkspaceTabs,
+		Gen::kWorkspaceTabCount,
+		wide ? Gen::kWorkspaceTabRectsWide : Gen::kWorkspaceTabRectsCompact,
+		wide ? Gen::kWorkspaceTabRectWideCount : Gen::kWorkspaceTabRectCompactCount,
+		project, _state->_hdWorkspaceTabs,
+		_state->_baseFrom ? _state->_baseFrom->getName() : std::string());
 	model.viewport = project(generated->viewport);
 	model.footer = project(generated->footer);
 	model.windowWidget = _state->_window;
@@ -712,52 +783,41 @@ void CalypsoF12TransferItemsUi::applyGeneratedLayout(TransferItemsState& state, 
 	namespace Gen = CalypsoF12TransferItemsGen;
 	const auto* generated = Gen::layoutForDesign(wide ? 1280 : 740, wide ? 720 : 360);
 	if (!generated) return;
-	const int dx = presentationShiftX(generated->window.w, generated->window.x, wide);
-	applyRect(state._window, shiftedRect(generated->window, dx));
-	applyRect(state._txtTitle, shiftedRect(generated->title, dx));
+	applyRect(state._window, generated->window);
+	applyRect(state._txtTitle, generated->title);
+	applyRect(state._txtQuantity, generated->summaryBar);
+	applyRect(state._txtAmountTransfer, generated->summaryBar);
+	applyRect(state._txtAmountDestination, generated->summaryBar);
 	const auto& rowHit = wide ? Gen::kRowHitWide : Gen::kRowHitCompact;
-	// Native input starts at the first painted row but spans the full
-	// viewport width: the reserved right rail carries the scrollbar track,
-	// so the track can never overlap a 44px stepper target.
-	applyRect(state._lstItems, {rowHit.x + dx, rowHit.y, generated->viewport.w, rowHit.h});
-	const auto* buttonRects = wide ? Gen::kButtonRectsWide : Gen::kButtonRectsCompact;
-	const int buttonRectCount = wide ? Gen::kButtonRectWideCount : Gen::kButtonRectCompactCount;
-	applyRect(state._btnOk, touchRect(shiftedRect(findDesignRect(buttonRects, buttonRectCount, "transfer"), dx)));
-	applyRect(state._btnCancel, touchRect(shiftedRect(findDesignRect(buttonRects, buttonRectCount, "cancel"), dx)));
-	const auto* controlRects = wide ? Gen::kControlRectsWide : Gen::kControlRectsCompact;
-	const int controlRectCount = wide ? Gen::kControlRectWideCount : Gen::kControlRectCompactCount;
-	applyRect(state._cbxCategory, shiftedRect(findDesignRect(controlRects, controlRectCount, "category-filter"), dx));
-	applyRect(state._btnQuickSearch, shiftedRect(findDesignRect(controlRects, controlRectCount, "quick-search"), dx));
+	applyRect(state._lstItems, CalypsoLogicalRect{rowHit.x, rowHit.y, generated->viewport.w, rowHit.h});
+	const auto* buttons = wide ? Gen::kButtonRectsWide : Gen::kButtonRectsCompact;
+	const int buttonCount = wide ? Gen::kButtonRectWideCount : Gen::kButtonRectCompactCount;
+	applyRect(state._btnOk, touchRect(findDesignRect(buttons, buttonCount, "transfer")));
+	applyRect(state._btnCancel, touchRect(findDesignRect(buttons, buttonCount, "cancel")));
+	const auto* controls = wide ? Gen::kControlRectsWide : Gen::kControlRectsCompact;
+	const int controlCount = wide ? Gen::kControlRectWideCount : Gen::kControlRectCompactCount;
+	applyRect(state._cbxCategory, findDesignRect(controls, controlCount, "category-filter"));
+	applyRect(state._btnQuickSearch, findDesignRect(controls, controlCount, "quick-search"));
+	const auto* tabs = wide ? Gen::kWorkspaceTabRectsWide : Gen::kWorkspaceTabRectsCompact;
+	const int tabCount = wide ? Gen::kWorkspaceTabRectWideCount : Gen::kWorkspaceTabRectCompactCount;
+	for (int i = 0; i < 3; ++i) applyRect(state._hdWorkspaceTabs[i], findDesignRect(tabs, tabCount, Gen::kWorkspaceTabs[i].id));
 	const auto* cells = wide ? Gen::kRowCellsWide : Gen::kRowCellsCompact;
 	const int cellCount = wide ? Gen::kRowCellWideCount : Gen::kRowCellCompactCount;
 	int designCellW[4] = {50, 50, 50, 50};
-	if (cellCount >= 4)
-		for (int c = 0; c < 4; ++c)
-			designCellW[c] = cells[c].w;
+	if (cellCount >= 4) for (int c = 0; c < 4; ++c) designCellW[c] = cells[c].w;
 	const auto* headers = wide ? Gen::kColumnHeadersWide : Gen::kColumnHeadersCompact;
 	const int headerCount = wide ? Gen::kColumnHeaderWideCount : Gen::kColumnHeaderCompactCount;
 	int designArrowX = generated->viewport.x;
-	if (headerCount >= 4)
-		designArrowX = (headers[1].x - generated->viewport.x) + 22;
-	conformTransferList(state._lstItems, state._window,
-		generated->viewport.w, rowHit.h,
-		designCellW, 4, designArrowX,
-		generated->rowHeight, generated->visibleRows,
+	if (headerCount >= 4) designArrowX = (headers[1].x - generated->viewport.x) + 22;
+	conformTransferList(state._lstItems, state._window, generated->viewport.w, rowHit.h,
+		designCellW, 4, designArrowX, generated->rowHeight, generated->visibleRows,
 		generated->scrollBarWidth, generated->minThumbHeight,
 		state._game ? state._game->getMod() : nullptr, 1.0);
-	// Bind the painted stepper affordances to the existing native arrow
-	// handlers: the left button keeps increase, so it sits on the increment
-	// target; the right button keeps decrease, so it sits on decrement.
-	const int stepperCount = wide ? Gen::kRowStepperWideCount : Gen::kRowStepperCompactCount;
-	if (stepperCount <= 0)
-		CalypsoHdUiOverlay::instance().failHdRoute("F12 transfer stepper contract is missing");
-	const auto& stepper0 = (wide ? Gen::kRowSteppersWide : Gen::kRowSteppersCompact)[0];
-	if (state._lstItems)
-		state._lstItems->setCalypsoHdArrowTargets(
-			stepper0.increment.x + dx, stepper0.decrement.x + dx,
-			stepper0.decrement.w, stepper0.decrement.h);
-	// Recreate rows after conformance so arrow buttons are born with the HD
-	// stepper geometry instead of the legacy arrow column.
+	if (state._lstItems) state._lstItems->setCalypsoHdArrowTargets(
+		(wide ? Gen::kRowSteppersWide : Gen::kRowSteppersCompact)[0].increment.x,
+		(wide ? Gen::kRowSteppersWide : Gen::kRowSteppersCompact)[0].decrement.x,
+		(wide ? Gen::kRowSteppersWide : Gen::kRowSteppersCompact)[0].decrement.w,
+		(wide ? Gen::kRowSteppersWide : Gen::kRowSteppersCompact)[0].decrement.h);
 	state.updateList();
 }
 
@@ -777,6 +837,7 @@ void CalypsoF12TransferItemsUi::configure(TransferItemsState& state)
 		state._hdLayout = false;
 		return;
 	}
+	calypsoLogisticsWorkspaceEnsure(state._game, state._baseFrom, CalypsoLogisticsTab::Transfer);
 	state._hdLayout = true;
 
 	state._hdWideLayout = currentLayoutClass() == CalypsoLayoutClass::Wide;
@@ -786,6 +847,13 @@ void CalypsoF12TransferItemsUi::configure(TransferItemsState& state)
 		state._hdWideLayout ? 1280 : 740, state._hdWideLayout ? 720 : 360);
 	if (!generated)
 		CalypsoHdUiOverlay::instance().failHdRoute("F12 transfer generated layout is missing");
+	configureWorkspaceTabs(state, state._hdWorkspaceTabs,
+		CalypsoF12TransferItemsGen::kWorkspaceTabs,
+		CalypsoF12TransferItemsGen::kWorkspaceTabCount,
+		state._hdWideLayout ? CalypsoF12TransferItemsGen::kWorkspaceTabRectsWide : CalypsoF12TransferItemsGen::kWorkspaceTabRectsCompact,
+		state._hdWideLayout ? CalypsoF12TransferItemsGen::kWorkspaceTabRectWideCount : CalypsoF12TransferItemsGen::kWorkspaceTabRectCompactCount,
+		(ActionHandler)&TransferItemsState::calypsoWorkspaceTabClick);
+	calypsoLogisticsWorkspaceRestore(state);
 	state.enableUiScaling(generated->designWidth, generated->designHeight, 1.0f,
 		/*subtractVanillaCenter=*/false);
 	auto* adapter = new CalypsoF12TransferItemsUi(&state);

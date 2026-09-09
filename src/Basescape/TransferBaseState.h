@@ -19,10 +19,11 @@
  */
 #include "../Engine/State.h"
 #include <vector>
+#include <cstdint>
 
 namespace OpenXcom
 {
-namespace Calypso { class CalypsoF12TransferBaseUi; }
+namespace Calypso { class CalypsoF12TransferBaseUi; class CalypsoLogisticsWorkspace; }
 
 class TextButton;
 class Window;
@@ -39,6 +40,7 @@ class TransferBaseState : public State
 {
 #ifdef __EMSCRIPTEN__
 friend class Calypso::CalypsoF12TransferBaseUi;
+friend class Calypso::CalypsoLogisticsWorkspace;
 #endif
 private:
 	Base *_base;
@@ -49,13 +51,14 @@ private:
 	TextList *_lstBases;
 	std::vector<Base*> _bases;
 #ifdef __EMSCRIPTEN__
-private:
     bool _hdLayout = false;
     bool _hdWideLayout = false;
     Calypso::CalypsoF12TransferBaseUi *_hdAdapter = nullptr;
+    TextButton *_hdWorkspaceTabs[3] = {nullptr, nullptr, nullptr};
     std::uint64_t _hdHarnessGeneration = 0;
 public:
     void resize(int &dX, int &dY) override;
+    void calypsoWorkspaceTabClick(Action *action);
 #endif
 public:
 	/// Creates the Transfer Base state.

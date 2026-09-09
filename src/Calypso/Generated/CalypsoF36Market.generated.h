@@ -32,6 +32,12 @@ inline constexpr int kHasCollectionHeading = 1;
 inline constexpr const char* kHeaderArtAssetId = "";
 inline constexpr const char* kHeaderArtVfsPath = "";
 inline constexpr int kHasHeaderArt = 0;
+inline constexpr int kHasWorkspace = 0;
+inline constexpr const char* kWorkspaceId = "";
+inline constexpr const char* kWorkspaceInitialTab = "";
+struct CalypsoF36MarketGenWorkspaceTab { const char* id; const char* label; const char* action; };
+inline constexpr int kWorkspaceTabCount = 0;
+
 inline constexpr float kPresentationScale = 1.000000f;
 inline constexpr float kCutCornerPx = 14.000000f;
 struct CalypsoF36MarketGenRect { int x; int y; int w; int h; };
@@ -48,14 +54,16 @@ inline constexpr std::uint32_t kHeaderArtScrim = 0x04090DCCu;
 inline constexpr int kHeaderArtOpacityPct = 85;
 struct CalypsoF36MarketGenButtonRect { const char* id; CalypsoF36MarketGenRect rect; };
 struct CalypsoF36MarketGenControlRect { const char* id; CalypsoF36MarketGenRect rect; };
+struct CalypsoF36MarketGenWorkspaceTabRect { const char* id; CalypsoF36MarketGenRect rect; };
 struct CalypsoF36MarketGenRowStepper { const char* rowSlotId; const char* behaviorOwner; CalypsoF36MarketGenRect decrement; CalypsoF36MarketGenRect increment; };
 struct CalypsoF36MarketGenSummaryRect { CalypsoF36MarketGenRect field; CalypsoF36MarketGenRect label; CalypsoF36MarketGenRect value; };
-struct CalypsoF36MarketGenLayout { int designWidth; int designHeight; int rowHeight; int visibleRows; int headerHeight; int scrollBarWidth; int minThumbHeight; int columnCount; int summaryCount; int hasHeaderArt; CalypsoF36MarketGenRect window; CalypsoF36MarketGenRect title; CalypsoF36MarketGenRect summaryBar; CalypsoF36MarketGenRect headerArt; CalypsoF36MarketGenRect controlBar; CalypsoF36MarketGenRect collectionHeading; CalypsoF36MarketGenRect viewport; CalypsoF36MarketGenRect footer;
+struct CalypsoF36MarketGenLayout { int designWidth; int designHeight; int rowHeight; int visibleRows; int headerHeight; int scrollBarWidth; int minThumbHeight; int columnCount; int summaryCount; int hasHeaderArt; CalypsoF36MarketGenRect window; CalypsoF36MarketGenRect title; CalypsoF36MarketGenRect summaryBar; CalypsoF36MarketGenRect headerArt; CalypsoF36MarketGenRect controlBar; CalypsoF36MarketGenRect collectionHeading; CalypsoF36MarketGenRect viewport; CalypsoF36MarketGenRect footer; CalypsoF36MarketGenRect workspaceHeader; CalypsoF36MarketGenRect workspaceNavigationRail; CalypsoF36MarketGenRect workspaceTabBar; CalypsoF36MarketGenRect workspaceContent;
 };
 inline constexpr CalypsoF36MarketGenLayout kLayouts[] = {
-    { 1280, 720, 44, 8, 36, 18, 44, 2, 0, 0, { 100, 50, 1080, 620 }, { 132, 74, 500, 44 }, { 648, 74, 500, 44 }, { 100, 50, 1080, 68 }, { 132, 124, 1016, 44 }, { 132, 124, 1016, 44 }, { 132, 178, 1016, 406 }, { 100, 600, 1080, 70 } }, // wide
-    { 740, 360, 44, 2, 32, 18, 44, 2, 0, 0, { 20, 8, 700, 344 }, { 44, 24, 328, 44 }, { 384, 24, 312, 44 }, { 20, 8, 700, 60 }, { 44, 72, 652, 44 }, { 44, 72, 652, 44 }, { 44, 122, 652, 160 }, { 20, 294, 700, 58 } }, // compact
+    { 1280, 720, 44, 8, 36, 18, 44, 2, 0, 0, { 100, 50, 1080, 620 }, { 132, 74, 500, 44 }, { 648, 74, 500, 44 }, { 100, 50, 1080, 68 }, { 132, 124, 1016, 44 }, { 132, 124, 1016, 44 }, { 132, 178, 1016, 406 }, { 100, 600, 1080, 70 }, { 0, 0, 0, 0 }, { 0, 0, 0, 0 }, { 0, 0, 0, 0 }, { 0, 0, 0, 0 } }, // wide
+    { 740, 360, 44, 2, 32, 18, 44, 2, 0, 0, { 20, 8, 700, 344 }, { 44, 24, 328, 44 }, { 384, 24, 312, 44 }, { 20, 8, 700, 60 }, { 44, 72, 652, 44 }, { 44, 72, 652, 44 }, { 44, 122, 652, 160 }, { 20, 294, 700, 58 }, { 0, 0, 0, 0 }, { 0, 0, 0, 0 }, { 0, 0, 0, 0 }, { 0, 0, 0, 0 } }, // compact
 };
+inline constexpr int kWorkspaceTabRectWideCount = 0;
 inline constexpr CalypsoF36MarketGenRect kRowSlotsWide[] = {
     { 132, 214, 962, 44 }, // row-slot-1
     { 132, 258, 962, 44 }, // row-slot-2
@@ -100,6 +108,7 @@ inline constexpr CalypsoF36MarketGenButtonRect kButtonRectsWide[] = {
 inline constexpr int kButtonRectWideCount = 1;
 inline constexpr int kControlRectWideCount = 0;
 inline constexpr int kSummaryWideCount = 0;
+inline constexpr int kWorkspaceTabRectCompactCount = 0;
 inline constexpr CalypsoF36MarketGenRect kRowSlotsCompact[] = {
     { 44, 154, 600, 44 }, // row-slot-1
     { 44, 198, 600, 44 }, // row-slot-2

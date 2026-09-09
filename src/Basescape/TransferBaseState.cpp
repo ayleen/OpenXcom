@@ -19,6 +19,7 @@
 #include "TransferBaseState.h"
 #include <sstream>
 #include "../Engine/Game.h"
+#include "../Engine/Action.h"
 #include "../Mod/Mod.h"
 #include "../Engine/LocalizedText.h"
 #include "../Engine/Options.h"
@@ -33,9 +34,8 @@
 #include "../Mod/RuleRegion.h"
 #include "TransferItemsState.h"
 #include "../Battlescape/DebriefingState.h"
-#ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoF12TransferUi.h"
-#endif
+#include "../Calypso/CalypsoLogisticsWorkspace.h"
 
 namespace OpenXcom
 {
@@ -131,12 +131,22 @@ TransferBaseState::~TransferBaseState()
 #endif
 }
 
+#ifdef __EMSCRIPTEN__
+void TransferBaseState::calypsoWorkspaceTabClick(Action *action)
+{
+	Calypso::calypsoLogisticsWorkspaceTab(*this,
+		action ? static_cast<TextButton*>(action->getSender()) : nullptr);
+}
+#endif
 /**
  * Returns to the previous screen.
  * @param action Pointer to an action.
  */
 void TransferBaseState::btnCancelClick(Action *)
 {
+#ifdef __EMSCRIPTEN__
+	Calypso::calypsoLogisticsWorkspaceClear();
+#endif
 	_game->popState();
 }
 
@@ -146,6 +156,11 @@ void TransferBaseState::btnCancelClick(Action *)
  */
 void TransferBaseState::lstBasesClick(Action *)
 {
+#ifdef __EMSCRIPTEN__
+	if (_lstBases && _lstBases->getSelectedRow() >= 0 &&
+		static_cast<std::size_t>(_lstBases->getSelectedRow()) < _bases.size())
+		Calypso::calypsoLogisticsWorkspaceRememberDestination(_bases[_lstBases->getSelectedRow()]);
+#endif
 	_game->pushState(new TransferItemsState(_base, _bases[_lstBases->getSelectedRow()], _debriefingState));
 }
 

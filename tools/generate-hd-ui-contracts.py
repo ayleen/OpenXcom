@@ -609,10 +609,12 @@ def validate_family(doc, rel, profile, engine_text_calibration=False):
         if has_steppers != (adjustment is not None):
             fail(rel + ": scrollable-collection adjustment semantics must match generated rowSteppers")
         parts = doc.get("parts") or []
-        for required in ("window", "title", "summaryBar", "headerArt", "controlBar",
+        for required in ("window", "title", "summaryBar", "controlBar",
                          "viewport", "footer"):
             if required not in parts:
                 fail(rel + ": parts must declare " + required)
+        if art is not None and "headerArt" not in parts:
+            fail(rel + ": parts must declare headerArt when form.headerArt exists")
         if heading is not None and "collectionHeading" not in parts:
             fail(rel + ": parts must declare collectionHeading")
         if heading is None and "collectionHeading" in parts:
@@ -623,6 +625,58 @@ def validate_family(doc, rel, profile, engine_text_calibration=False):
             c_identifier = re.sub(r"[^A-Za-z0-9_]", "_", part)
             if not IDENT_RE.match(c_identifier):
                 fail(rel + ": scrollable-collection part cannot map to a C identifier: " + repr(part))
+        workspace = form.get("workspace")
+        if workspace is not None:
+            if not isinstance(workspace, dict) or set(workspace) != {"id", "tabs", "initialTab"}:
+                fail(rel + ": scrollable-collection form.workspace must contain id, tabs, initialTab")
+            if not isinstance(workspace["id"], str) or not workspace["id"]:
+                fail(rel + ": scrollable-collection form.workspace.id must be a non-empty string")
+            tabs = workspace["tabs"]
+            if (not isinstance(tabs, list) or len(tabs) != 3
+                    or any(not isinstance(tab, dict) or set(tab) != {"id", "label", "action"}
+                           for tab in tabs)):
+                fail(rel + ": scrollable-collection form.workspace.tabs must contain three id/label/action records")
+            tab_ids = [tab["id"] for tab in tabs]
+            if (len(set(tab_ids)) != 3
+                    or any(not isinstance(tab["id"], str) or not tab["id"]
+                           or not isinstance(tab["label"], str) or not tab["label"]
+                           or not isinstance(tab["action"], str) or not tab["action"]
+                           for tab in tabs)):
+                fail(rel + ": scrollable-collection form.workspace tabs must have unique non-empty id/label/action values")
+            actions = [tab["action"] for tab in tabs]
+            if len(set(actions)) != 3:
+                fail(rel + ": scrollable-collection form.workspace tab actions must be unique")
+            if workspace["initialTab"] not in tab_ids:
+                fail(rel + ": scrollable-collection form.workspace.initialTab must name a tab")
+        for layout_name in ("wide", "compact"):
+            layout = (doc.get("layouts") or {}).get(layout_name) or {}
+            layout_workspace = layout.get("workspace")
+            if (layout_workspace is not None) != (workspace is not None):
+                fail(rel + ": " + layout_name + ".workspace must match form.workspace opt-in")
+            if layout_workspace is None:
+                continue
+            workspace_parts = {"window", "header", "navigationRail", "content",
+                               "title", "summaryBar", "tabBar", "controlBar",
+                               "viewport", "footer", "tabs"}
+            if set(layout_workspace) != workspace_parts:
+                fail(rel + ": " + layout_name + ".workspace has an unsupported shape")
+            for part in sorted(workspace_parts - {"tabs"}):
+                rect = layout_workspace[part]
+                if (not isinstance(rect, dict)
+                        or any(not isinstance(rect.get(key), int) or isinstance(rect.get(key), bool)
+                               for key in ("x", "y", "width", "height"))):
+                    fail(rel + ": " + layout_name + ".workspace." + part + " must be an integer rect")
+            tab_rects = layout_workspace["tabs"]
+            if (not isinstance(tab_rects, dict)
+                    or set(tab_rects) != set(tab_ids)):
+                fail(rel + ": " + layout_name + ".workspace.tabs must cover every workspace tab")
+            for tab_id in tab_ids:
+                rect = tab_rects[tab_id]
+                if (not isinstance(rect, dict)
+                        or any(not isinstance(rect.get(key), int) or isinstance(rect.get(key), bool)
+                               for key in ("x", "y", "width", "height"))):
+                    fail(rel + ": " + layout_name + ".workspace.tabs." + tab_id
+                         + " must be an integer rect")
         return
     if profile == "command-card":
         if doc.get("visualProfile") != "command-card-v1":
@@ -1507,6 +1561,22 @@ def emit_scrollable_collection_h(doc, rel, ns, prefix):
         out.append('inline constexpr const char* kHeaderArtAssetId = "";')
         out.append('inline constexpr const char* kHeaderArtVfsPath = "";')
     out.append("inline constexpr int kHasHeaderArt = " + ("1" if art is not None else "0") + ";")
+    workspace = form.get("workspace")
+    out.append("inline constexpr int kHasWorkspace = " + ("1" if workspace is not None else "0") + ";")
+    out.append('inline constexpr const char* kWorkspaceId = '
+               + (json.dumps(workspace["id"], ensure_ascii=False) if workspace is not None else '""') + ';')
+    out.append('inline constexpr const char* kWorkspaceInitialTab = '
+               + (json.dumps(workspace["initialTab"], ensure_ascii=False) if workspace is not None else '""') + ';')
+    out.append("struct " + prefix + "GenWorkspaceTab { const char* id; const char* label; const char* action; };")
+    if workspace is not None:
+        out.append("inline constexpr " + prefix + "GenWorkspaceTab kWorkspaceTabs[] = {")
+        for tab in workspace["tabs"]:
+            out.append('    { "' + tab["id"] + '", ' + json.dumps(tab["label"], ensure_ascii=False)
+                       + ', "' + tab["action"] + '" },')
+        out.append("};")
+    out.append("inline constexpr int kWorkspaceTabCount = "
+               + str(len(workspace["tabs"]) if workspace is not None else 0) + ";")
+    out.append("")
     out.append("inline constexpr float kPresentationScale = 1.000000f;")
     out.append("inline constexpr float kCutCornerPx = %.6ff;" % float(style["cutCornerPx"]))
     out.append("struct " + prefix + "GenRect { int x; int y; int w; int h; };")
@@ -1522,16 +1592,24 @@ def emit_scrollable_collection_h(doc, rel, ns, prefix):
     out.append("inline constexpr int kHeaderArtOpacityPct = " + str(opacity) + ";")
     out.append("struct " + prefix + "GenButtonRect { const char* id; " + prefix + "GenRect rect; };")
     out.append("struct " + prefix + "GenControlRect { const char* id; " + prefix + "GenRect rect; };")
+    out.append("struct " + prefix + "GenWorkspaceTabRect { const char* id; " + prefix + "GenRect rect; };")
     out.append("struct " + prefix + "GenRowStepper { const char* rowSlotId; const char* behaviorOwner; " + prefix + "GenRect decrement; " + prefix + "GenRect increment; };")
     out.append("struct " + prefix + "GenSummaryRect { " + prefix + "GenRect field; " + prefix + "GenRect label; " + prefix + "GenRect value; };")
     out.append("struct " + prefix + "GenLayout { int designWidth; int designHeight; int rowHeight; int visibleRows; int headerHeight; int scrollBarWidth; int minThumbHeight; int columnCount; int summaryCount; int hasHeaderArt; "
                + prefix + "GenRect window; " + prefix + "GenRect title; " + prefix + "GenRect summaryBar; " + prefix + "GenRect headerArt; "
-               + prefix + "GenRect controlBar; " + prefix + "GenRect collectionHeading; " + prefix + "GenRect viewport; " + prefix + "GenRect footer;")
+               + prefix + "GenRect controlBar; " + prefix + "GenRect collectionHeading; " + prefix + "GenRect viewport; " + prefix + "GenRect footer; "
+               + prefix + "GenRect workspaceHeader; " + prefix + "GenRect workspaceNavigationRail; "
+               + prefix + "GenRect workspaceTabBar; " + prefix + "GenRect workspaceContent;")
     out.append("};")
     out.append("inline constexpr " + prefix + "GenLayout kLayouts[] = {")
     for name in generated_layouts:
         l = layouts[name]
         heading_rect = l.get("collectionHeading") or {"x": 0, "y": 0, "width": 0, "height": 0}
+        workspace_geometry = l.get("workspace") or {}
+        workspace_header = workspace_geometry.get("header") or {"x": 0, "y": 0, "width": 0, "height": 0}
+        workspace_navigation_rail = workspace_geometry.get("navigationRail") or {"x": 0, "y": 0, "width": 0, "height": 0}
+        workspace_tab_bar = workspace_geometry.get("tabBar") or {"x": 0, "y": 0, "width": 0, "height": 0}
+        workspace_content = workspace_geometry.get("content") or {"x": 0, "y": 0, "width": 0, "height": 0}
         out.append("    { " + str(l["designWidth"]) + ", " + str(l["designHeight"]) + ", "
                    + str(l["rowHeight"]) + ", " + str(l["visibleRows"]) + ", " + str(l.get("headerHeight", 0)) + ", "
                    + str(l["scrollbarWidth"]) + ", " + str(l["minThumbHeight"]) + ", " + str(len(columns)) + ", "
@@ -1539,11 +1617,22 @@ def emit_scrollable_collection_h(doc, rel, ns, prefix):
                    + _collection_rect(l["window"]) + ", " + _collection_rect(l["title"]) + ", "
                    + _collection_rect(l["summaryBar"]) + ", " + _collection_rect(l["headerArt"]) + ", "
                    + _collection_rect(l["controlBar"]) + ", " + _collection_rect(heading_rect) + ", "
-                   + _collection_rect(l["viewport"]) + ", " + _collection_rect(l["footer"]) + " }, // " + name)
+                   + _collection_rect(l["viewport"]) + ", " + _collection_rect(l["footer"]) + ", "
+                   + _collection_rect(workspace_header) + ", " + _collection_rect(workspace_navigation_rail) + ", "
+                   + _collection_rect(workspace_tab_bar) + ", " + _collection_rect(workspace_content) + " }, // " + name)
     out.append("};")
     for name in generated_layouts:
         l = layouts[name]
         tag = name.capitalize()
+        workspace_tabs = (l.get("workspace") or {}).get("tabs") or {}
+        if workspace_tabs:
+            out.append("inline constexpr " + prefix + "GenWorkspaceTabRect kWorkspaceTabRects" + tag + "[] = {")
+            for tab in workspace["tabs"]:
+                out.append('    { "' + tab["id"] + '", '
+                           + _collection_rect(workspace_tabs[tab["id"]]) + " },")
+            out.append("};")
+        out.append("inline constexpr int kWorkspaceTabRect" + tag + "Count = "
+                   + str(len(workspace_tabs)) + ";")
         if l.get("rowSlots"):
             out.append("inline constexpr " + prefix + "GenRect kRowSlots" + tag + "[] = {")
             for slot in l["rowSlots"]:
