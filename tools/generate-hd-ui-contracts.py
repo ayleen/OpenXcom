@@ -1305,6 +1305,13 @@ def emit_family_h(doc, rel, ns, prefix, profile):
                 'inline constexpr const char* kVisualShell = "' + visual.get("shell", "") + '";',
                 'inline constexpr const char* kHeaderArt = "' + visual.get("headerArt", "") + '";',
             ]
+            shared_chrome = form.get("sharedChrome") or {}
+            out += [
+                'inline constexpr const char* kSharedChromeId = "'
+                + shared_chrome.get("id", "") + '";',
+                'inline constexpr const char* kSharedChromeVersion = "'
+                + shared_chrome.get("version", "") + '";',
+            ]
     out += ["",
            "/// One design-space rectangle (design px).",
            "struct " + prefix + "GenRect { int x; int y; int w; int h; };",

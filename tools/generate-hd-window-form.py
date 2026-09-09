@@ -1317,6 +1317,18 @@ def main(argv=None):
             raise FormError("template must be an object")
         if template.get("id") != archetype:
             raise FormError("template.id must match config.archetype")
+        if template.get("generatorKind") == "operations":
+            canonical_path = os.path.join(
+                CALYPSO_DIR, "ScreenTemplates", "base-command-shell.json")
+            canonical = load_json(canonical_path)
+            expected_chrome = {
+                "id": canonical.get("id"),
+                "version": canonical.get("version"),
+            }
+            if template.get("sharedChrome") != expected_chrome:
+                raise FormError(
+                    "operations shared chrome must reference the current "
+                    + expected_chrome["id"] + " " + expected_chrome["version"])
         source_name = "FormConfigs/" + os.path.basename(args.config)
         if template.get("generatorKind"):
             template_name = "FormTemplates/" + os.path.basename(template_path)

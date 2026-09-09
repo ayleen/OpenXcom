@@ -9,6 +9,13 @@
 #include <utility>
 
 #include "CalypsoHdUiOverlay.h"
+#include "CalypsoHdOperationsChrome.h"
+#include "CalypsoViewportRuntime.h"
+#include "CommandCenter/CommandCenterLayout.h"
+#include "CommandCenter/CommandCenterRenderer.h"
+#include "CommandCenter/CommandCenterTheme.h"
+#include "../Engine/Game.h"
+#include "../Mod/Mod.h"
 #include "Generated/CalypsoHdTheme.generated.h"
 
 namespace OpenXcom
@@ -32,27 +39,10 @@ std::uint32_t stableHash(const std::string& value)
 CalypsoLogicalRect logical(const CalypsoHdOperationsModel& model,
 	const CalypsoHdOperationsRect& rect)
 {
-	const auto& metrics = CalypsoHdUiOverlay::instance().frozenMetrics();
-	if (model.visualShell != "base-operations"
-		|| model.geometry.designWidth <= 0 || model.geometry.designHeight <= 0
-		|| metrics.logicalWidth <= 0 || metrics.logicalHeight <= 0)
-		return {rect.x, rect.y, rect.w, rect.h};
-	const double sx = static_cast<double>(metrics.logicalWidth)
-		/ model.geometry.designWidth;
-	const double sy = static_cast<double>(metrics.logicalHeight)
-		/ model.geometry.designHeight;
-	const int left = calypsoHdRoundToInt(rect.x * sx);
-	const int right = calypsoHdRoundToInt((rect.x + rect.w) * sx);
-	const int top = calypsoHdRoundToInt(rect.y * sy);
-	const int bottom = calypsoHdRoundToInt((rect.y + rect.h) * sy);
-	CalypsoLogicalRect result{left, top, right - left, bottom - top};
-	if (metrics.scaleX > 0.0)
-		result.x -= static_cast<int>(std::llround(
-			metrics.contentOffsetX / metrics.scaleX));
-	if (metrics.scaleY > 0.0)
-		result.y -= static_cast<int>(std::llround(
-			metrics.contentOffsetY / metrics.scaleY));
-	return result;
+	const CalypsoHdOperationsRect projected =
+		calypsoHdOperationsProjectForCurrentPresentation(
+			rect, model.geometry.designWidth, model.geometry.designHeight);
+	return {projected.x, projected.y, projected.w, projected.h};
 }
 CalypsoHdOperationsRect insetHorizontal(CalypsoHdOperationsRect rect, int inset)
 {
@@ -110,20 +100,24 @@ struct OperationsTypography
 
 OperationsTypography operationsTypography(const CalypsoHdOperationsModel& model)
 {
-	const bool wide = model.geometry.designWidth >= 1000;
+	const double chromeScale = std::min({1.0,
+		static_cast<double>(model.geometry.designWidth) / 1280.0,
+		static_cast<double>(model.geometry.designHeight) / 720.0});
 	const auto& metrics = CalypsoHdUiOverlay::instance().frozenMetrics();
-	auto px = [&](int designPx) {
+	auto px = [&](int canonicalPx) {
+		const int designPx = std::max(1,
+			static_cast<int>(std::lround(canonicalPx * chromeScale)));
 		return calypsoHdOperationsPhysicalFontPx(
 			designPx, model.geometry.designHeight, metrics.physicalHeight);
 	};
 	return {
-		px(wide ? 26 : 18),
-		px(wide ? 22 : 14),
-		px(wide ? 14 : 10),
-		px(wide ? 10 : 8),
-		px(wide ? 15 : 10),
-		px(wide ? 13 : 10),
-		px(wide ? 13 : 10)
+		px(28),
+		px(18),
+		px(14),
+		px(11),
+		px(15),
+		px(14),
+		px(14)
 	};
 }
 
@@ -232,74 +226,28 @@ std::string operationsSection(const CalypsoHdOperationsModel& model)
 }
 
 void collectOperationsShell(CalypsoHdFrameBuilder& builder,
-	const CalypsoHdOperationsModel& model, const CalypsoTtfSourceDescriptor& source,
+	const CalypsoHdOperationsModel& model,
 	const OperationsTypography& typography, int& order)
 {
 	const auto& g = model.geometry;
 	const bool wide = g.designWidth >= 1000;
+	const double chromeScale = std::min({1.0,
+		static_cast<double>(g.designWidth) / 1280.0,
+		static_cast<double>(g.designHeight) / 720.0});
+	const int railWidth = static_cast<int>(std::lround(
+		CommandCenterTheme::RailWidth * chromeScale));
+	const int headerHeight = static_cast<int>(std::lround(
+		CommandCenterTheme::HeaderHeight * chromeScale));
 	addPanel(builder, model, "window", order++, g.window,
-		0x020B14FFu, 0x020B14FFu);
+		CommandCenterTheme::packed(CommandCenterTheme::BgRoot),
+		CommandCenterTheme::packed(CommandCenterTheme::BgRoot));
 	const CalypsoHdOperationsRect workspace{
-		g.globalRail.x + g.globalRail.w, g.topBar.y + g.topBar.h,
-		g.designWidth - g.globalRail.x - g.globalRail.w,
-		g.designHeight - g.topBar.y - g.topBar.h};
+		railWidth, headerHeight, g.designWidth - railWidth,
+		g.designHeight - headerHeight};
 	addImage(builder, model, "workspace-background", order++, workspace,
 		"Resources/basescape/background.png", 0.18f);
 	addPanel(builder, model, "workspace-veil", order++, workspace,
 		0x020B14DEu, 0x020B14DEu);
-	addPanel(builder, model, "top-bar", order++, g.topBar,
-		0x061522F7u, 0x061522F7u, nullptr, model.style.divider);
-	addPanel(builder, model, "global-rail", order++, g.globalRail,
-		0x050F19F7u, 0x050F19F7u, nullptr, model.style.divider);
-
-	const CalypsoHdOperationsRect baseChip = wide
-		? CalypsoHdOperationsRect{16, 8, 178, 42}
-		: CalypsoHdOperationsRect{8, 4, 132, 32};
-	addPanel(builder, model, "base-chip", order++, baseChip,
-		0x102939FFu, 0x102939FFu, nullptr, 0x25465BFFu);
-	const auto baseText = stackedTextRects(baseChip);
-	addText(builder, model, source, typography.labelPx, "base-chip-label", order++,
-		baseText.first, "BASES", model.style.mutedText, CalypsoHdHAlign::Center);
-	addText(builder, model, model.monoFont, typography.dataPx, "base-chip-value", order++,
-		baseText.second, model.baseName.empty() ? "BASE" : model.baseName,
-		model.style.text, CalypsoHdHAlign::Center);
-
-	const char* const railLabels[] = {"WORLD", "BASES", "OPERATIONS", "ANALYTICS", "ARCHIVE"};
-	const char* const compactRailLabels[] = {"WORLD", "BASES", "OPS", "DATA", "ARCHIVE"};
-	const int railTop = g.globalRail.y + (wide ? 14 : 8);
-	const int railStep = wide ? 76 : 52;
-	const int railHeight = wide ? 64 : 44;
-	for (int i = 0; i < 5; ++i)
-	{
-		const CalypsoHdOperationsRect item{
-			g.globalRail.x + (wide ? 8 : 4), railTop + i * railStep,
-			g.globalRail.w - (wide ? 16 : 8), railHeight};
-		if (i == 1)
-			addPanel(builder, model, "rail-active", order++, item,
-				0x102939FFu, 0x102939FFu, nullptr, 0x25465BFFu);
-		addText(builder, model, source, typography.labelPx,
-			"rail-label/" + std::to_string(i), order++, item,
-			wide ? railLabels[i] : compactRailLabels[i],
-			i == 1 ? model.style.text : model.style.mutedText,
-			CalypsoHdHAlign::Center);
-	}
-	const CalypsoHdOperationsRect settings{
-		g.globalRail.x, g.globalRail.y + g.globalRail.h - railHeight,
-		g.globalRail.w, railHeight};
-	addText(builder, model, source, typography.labelPx, "rail-settings", order++,
-		settings, "SETTINGS", model.style.mutedText, CalypsoHdHAlign::Center);
-
-	if (!model.clockTime.empty())
-	{
-		const CalypsoHdOperationsRect clock = wide
-			? CalypsoHdOperationsRect{1110, 8, 154, 42}
-			: CalypsoHdOperationsRect{590, 4, 142, 32};
-		const auto clockText = stackedTextRects(clock);
-		addText(builder, model, model.monoFont, typography.dataPx, "clock-time", order++,
-			clockText.first, model.clockTime, model.style.text, CalypsoHdHAlign::Right);
-		addText(builder, model, model.monoFont, typography.labelPx, "clock-date", order++,
-			clockText.second, model.clockDate, model.style.mutedText, CalypsoHdHAlign::Right);
-	}
 
 	addPanel(builder, model, "screen-header", order++, g.screenHeader,
 		model.style.regionFill, model.style.regionFill);
@@ -312,6 +260,64 @@ void collectOperationsShell(CalypsoHdFrameBuilder& builder,
 		(model.baseName.empty() ? std::string("BASES") : model.baseName)
 			+ " / " + operationsSection(model),
 		model.style.accent, CalypsoHdHAlign::Left);
+}
+
+void collectCanonicalBasescapeChrome(CalypsoHdFrameBuilder& builder,
+	const CalypsoHdOperationsModel& model, int& order)
+{
+	Game* game = getCurrentGame();
+	const Mod* mod = game ? game->getMod() : nullptr;
+	const CommandCenter::CommandCenterFonts fonts =
+		CommandCenter::calypsoCcResolveFonts(mod);
+	if (!fonts.ready) return;
+	const CalypsoHdPresentationMetrics& metrics =
+		CalypsoHdUiOverlay::instance().frozenMetrics();
+	const CalypsoLayoutMetrics& viewport = calypsoViewportRuntime().current();
+	const int cssWidth = std::max(1, viewport.logicalWidth);
+	const int cssHeight = std::max(1, viewport.logicalHeight);
+	const CommandCenter::CommandCenterLayout layout = CommandCenter::computeLayout(
+		CommandCenter::Size2{static_cast<float>(cssWidth), static_cast<float>(cssHeight)},
+		false, CommandCenter::InsetsF{
+			static_cast<float>(viewport.safeX), static_cast<float>(viewport.safeY),
+			static_cast<float>(cssWidth - viewport.safeX - viewport.safeWidth),
+			static_cast<float>(cssHeight - viewport.safeY - viewport.safeHeight)});
+	const double densityX = static_cast<double>(metrics.physicalWidth) / cssWidth;
+	const double densityY = static_cast<double>(metrics.physicalHeight) / cssHeight;
+	const double logicalPerCssX = densityX / metrics.scaleX;
+	const double logicalPerCssY = densityY / metrics.scaleY;
+	CalypsoF21Painter painter{builder, model.familyId,
+		reinterpret_cast<std::uintptr_t>(model.ownerState), 0, 1.0f, 1.0,
+		CalypsoF21Rect{
+			static_cast<int>(std::llround(-(metrics.contentOffsetX / metrics.scaleX))),
+			static_cast<int>(std::llround(-(metrics.contentOffsetY / metrics.scaleY))),
+			static_cast<int>(std::llround(cssWidth * logicalPerCssX)),
+			static_cast<int>(std::llround(cssHeight * logicalPerCssY))},
+		metrics.scaleX, metrics.scaleY};
+	painter.winLogical = {
+		static_cast<int>(std::llround(-(metrics.contentOffsetX / metrics.scaleX))),
+		static_cast<int>(std::llround(-(metrics.contentOffsetY / metrics.scaleY))),
+		static_cast<int>(std::llround(cssWidth * logicalPerCssX)),
+		static_cast<int>(std::llround(cssHeight * logicalPerCssY))};
+	painter.windowDesign = {0, 0, cssWidth, cssHeight};
+	painter.uiScale = logicalPerCssX * layout.scale;
+	painter.uiAspectY = logicalPerCssY / logicalPerCssX;
+	std::uint32_t role = static_cast<std::uint32_t>(order);
+	CommandCenter::calypsoCcPaintHeaderBackground(painter, layout.header, role);
+	CommandCenter::calypsoCcPaintRailBackground(painter, layout.navigationRail, role);
+	const char* labels[5] = {
+		CommandCenter::calypsoCcRailLabel(0), CommandCenter::calypsoCcRailLabel(1),
+		CommandCenter::calypsoCcRailLabel(2), CommandCenter::calypsoCcRailLabel(3),
+		CommandCenter::calypsoCcRailLabel(4)};
+	CommandCenter::calypsoCcPaintRailItems(painter, layout.navigationRail,
+		CommandCenter::RailAction::Bases, labels, fonts, role);
+	CommandCenter::CommandCenterSnapshot snapshot;
+	snapshot.baseCaption = model.baseCaption;
+	snapshot.baseName = model.baseName;
+	snapshot.displayTime = model.clockTime;
+	snapshot.displayDate = model.clockDate;
+	CommandCenter::calypsoCcPaintHeaderContent(
+		painter, layout, snapshot, fonts, role, false);
+	order = static_cast<int>(role);
 }
 
 
@@ -472,7 +478,7 @@ void collectOperationsWorkspace(CalypsoHdFrameBuilder& builder,
 	int& order)
 {
 	const auto& g = model.geometry;
-	collectOperationsShell(builder, model, source, typography, order);
+	collectOperationsShell(builder, model, typography, order);
 	addText(builder, model, heading, typography.titlePx, "title", order++, g.title, model.title,
 		model.style.text, CalypsoHdHAlign::Left);
 	if (g.summaryBar.valid())
@@ -668,7 +674,12 @@ bool CalypsoHdOperationsRenderer::physicalFontsPresent() const
 
 bool CalypsoHdOperationsRenderer::physicalReady() const
 {
-	return _state != nullptr && _model.readiness.fontsReady && physicalFontsPresent();
+	if (_state == nullptr || !_model.readiness.fontsReady || !physicalFontsPresent())
+		return false;
+	if (_model.archetype != CalypsoHdOperationsArchetype::OperationsWorkspace)
+		return true;
+	Game* game = getCurrentGame();
+	return CommandCenter::calypsoCcResolveFonts(game ? game->getMod() : nullptr).ready;
 }
 
 bool CalypsoHdOperationsRenderer::completeFrameReady() const
@@ -707,11 +718,16 @@ void CalypsoHdOperationsRenderer::collect(CalypsoHdFrameBuilder& builder) const
 	int order = 1;
 	const OperationsTypography typography = operationsTypography(_model);
 	if (_model.archetype == CalypsoHdOperationsArchetype::OperationsWorkspace)
+	{
 		collectOperationsWorkspace(builder, _model, _model.bodyFont, _model.headingFont,
 			typography, order);
+		collectCanonicalBasescapeChrome(builder, _model, order);
+	}
 	else
+	{
 		collectWideDetail(builder, _model, _model.bodyFont, _model.headingFont,
 			typography, order);
+	}
 }
 
 } // namespace Calypso

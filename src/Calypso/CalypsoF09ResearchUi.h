@@ -12,6 +12,7 @@ class ResearchInfoState;
 namespace Calypso
 {
 class CalypsoHdOperationsRenderer;
+class CalypsoHdOperationsChrome;
 
 class CalypsoF09ResearchUi
 {
@@ -33,6 +34,7 @@ public:
 private:
 	enum class Kind { Queue, Catalogue, Staffing };
 
+	void syncGeometry();
 	void applyQueueGeometry();
 	void applyCatalogueGeometry();
 	void applyStaffingGeometry();
@@ -49,6 +51,7 @@ private:
 	NewResearchListState *_catalogue = nullptr;
 	ResearchInfoState *_staffing = nullptr;
 	CalypsoHdOperationsRenderer *_renderer = nullptr;
+	CalypsoHdOperationsChrome *_chrome = nullptr;
 };
 
 } // namespace Calypso

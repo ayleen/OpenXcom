@@ -5,6 +5,7 @@
 #ifdef __EMSCRIPTEN__
 
 #include "CalypsoHdHarnessHostState.h"
+#include "CalypsoTutorial.h"
 
 #include <SDL.h>
 #include <emscripten.h>
@@ -217,6 +218,7 @@ OperationsFixture makeOperationsFixture(Game *game, bool needResearch, bool need
 {
 	OperationsFixture fixture;
 	if (!game || !game->getMod()) return fixture;
+	CalypsoTutorial::get().disableForCampaign();
 	fixture.research = researchRule(game->getMod(), researchName);
 	fixture.manufacture = manufactureRule(game->getMod(), manufactureName);
 	if ((needResearch && !fixture.research) || (needManufacture && !fixture.manufacture)
@@ -256,6 +258,7 @@ OperationsFixture makeGlobalManufactureFixture(Game *game)
 {
 	OperationsFixture fixture;
 	if (!game || !game->getMod()) return fixture;
+	CalypsoTutorial::get().disableForCampaign();
 	fixture.manufacture = manufactureRule(game->getMod(), "STR_MAELSTROM_TORPEDOES");
 	if (!fixture.manufacture || !prepareOperationsSave(game)) return OperationsFixture();
 
@@ -276,6 +279,7 @@ OperationsFixture makeGlobalManufactureFixture(Game *game)
 bool populateDiaryFixture(Game *game)
 {
 	if (!game || !game->getMod()) return false;
+	CalypsoTutorial::get().disableForCampaign();
 	if (game->getSavedGame() && !game->getSavedGame()->getResearchDiary().empty())
 		return prepareOperationsSave(game);
 	const unsigned dates[][3] = {

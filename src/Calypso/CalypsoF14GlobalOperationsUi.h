@@ -13,6 +13,7 @@ class GlobalResearchState;
 namespace Calypso
 {
 class CalypsoHdOperationsRenderer;
+class CalypsoHdOperationsChrome;
 
 /// F14 bridge for the three global operations overview states.
 /// All presentation is delegated to CalypsoHdOperationsRenderer; this class
@@ -42,6 +43,7 @@ private:
 		Manufacture
 	};
 
+	void syncGeometry();
 	void ensureResearchOwners();
 	void ensureDiaryOwners();
 	void ensureManufactureOwners();
@@ -58,6 +60,7 @@ private:
 	GlobalResearchDiaryState *_diary = nullptr;
 	GlobalManufactureState *_manufacture = nullptr;
 	CalypsoHdOperationsRenderer *_renderer = nullptr;
+	CalypsoHdOperationsChrome *_chrome = nullptr;
 };
 } // namespace Calypso
 } // namespace OpenXcom

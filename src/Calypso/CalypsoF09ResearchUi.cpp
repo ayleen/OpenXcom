@@ -2,6 +2,7 @@
 #include "CalypsoF09ResearchUi.h"
 
 #include "CalypsoHdFontSource.h"
+#include "CalypsoHdOperationsChrome.h"
 #include "CalypsoHdOperationsRenderer.h"
 #include "CalypsoHdUiOverlay.h"
 #include "Generated/CalypsoF09ResearchCatalogue.generated.h"
@@ -61,10 +62,10 @@ template <typename R>
 void setSurfaceRect(Surface *surface, const R &rect)
 {
 	if (!surface) return;
-	surface->setX(rect.x);
-	surface->setY(rect.y);
-	surface->setWidth(rect.w);
-	surface->setHeight(rect.h);
+	if (surface->getX() != rect.x) surface->setX(rect.x);
+	if (surface->getY() != rect.y) surface->setY(rect.y);
+	if (surface->getWidth() != rect.w) surface->setWidth(rect.w);
+	if (surface->getHeight() != rect.h) surface->setHeight(rect.h);
 }
 
 template <typename R>
@@ -148,42 +149,50 @@ void setWindow(Window *window, const CalypsoHdOperationsRect &rect)
 	setSurfaceRect(window, rect);
 }
 
+void setOperationsWindow(Window *window, const CalypsoHdOperationsRect &rect)
+{
+	setSurfaceRect(window, calypsoHdOperationsProjectForCurrentPresentation(
+		rect, rect.w, rect.h));
+}
+
 
 } // namespace
 
 
 
 CalypsoF09ResearchUi::CalypsoF09ResearchUi(ResearchState *state)
-	: _kind(Kind::Queue), _queue(state)
+	: _kind(Kind::Queue), _queue(state),
+	  _chrome(new CalypsoHdOperationsChrome(*state))
 {
 	_renderer = new CalypsoHdOperationsRenderer(state, CalypsoHdOperationsModel{});
-	_renderer->setModelProvider([this]() { return buildModel(); });
+	_renderer->setModelProvider([this]() { syncGeometry(); return buildModel(); });
 }
 
 CalypsoF09ResearchUi::CalypsoF09ResearchUi(NewResearchListState *state)
-	: _kind(Kind::Catalogue), _catalogue(state)
+	: _kind(Kind::Catalogue), _catalogue(state),
+	  _chrome(new CalypsoHdOperationsChrome(*state))
 {
 	_renderer = new CalypsoHdOperationsRenderer(state, CalypsoHdOperationsModel{});
-	_renderer->setModelProvider([this]() { return buildModel(); });
+	_renderer->setModelProvider([this]() { syncGeometry(); return buildModel(); });
 }
 
 CalypsoF09ResearchUi::CalypsoF09ResearchUi(ResearchInfoState *state)
 	: _kind(Kind::Staffing), _staffing(state)
 {
 	_renderer = new CalypsoHdOperationsRenderer(state, CalypsoHdOperationsModel{});
-	_renderer->setModelProvider([this]() { return buildModel(); });
+	_renderer->setModelProvider([this]() { syncGeometry(); return buildModel(); });
 }
 
 CalypsoF09ResearchUi::~CalypsoF09ResearchUi()
 {
 	delete _renderer;
+	delete _chrome;
 }
 
 void CalypsoF09ResearchUi::configure(ResearchState &state)
 {
 	if (state._hdAdapter != nullptr) return;
-	if (!state._game || !state._game->getMod()
-		|| !state._game->getMod()->isHdUiFamilyEnabled("F09"))
+	if (!calypsoHdOperationsRouteEnabled(state._game, "F09"))
 	{
 		state._hdLayout = false;
 		return;
@@ -194,13 +203,13 @@ void CalypsoF09ResearchUi::configure(ResearchState &state)
 	state._hdAdapter = adapter;
 	CalypsoHdUiOverlay::instance().registerAdapter(adapter->_renderer);
 	adapter->refresh();
+	calypsoHdOperationsPublishHarnessVisibility();
 }
 
 void CalypsoF09ResearchUi::configure(NewResearchListState &state)
 {
 	if (state._hdAdapter != nullptr) return;
-	if (!state._game || !state._game->getMod()
-		|| !state._game->getMod()->isHdUiFamilyEnabled("F09"))
+	if (!calypsoHdOperationsRouteEnabled(state._game, "F09"))
 	{
 		state._hdLayout = false;
 		return;
@@ -211,13 +220,13 @@ void CalypsoF09ResearchUi::configure(NewResearchListState &state)
 	state._hdAdapter = adapter;
 	CalypsoHdUiOverlay::instance().registerAdapter(adapter->_renderer);
 	adapter->refresh();
+	calypsoHdOperationsPublishHarnessVisibility();
 }
 
 void CalypsoF09ResearchUi::configure(ResearchInfoState &state)
 {
 	if (state._hdAdapter != nullptr) return;
-	if (!state._game || !state._game->getMod()
-		|| !state._game->getMod()->isHdUiFamilyEnabled("F09"))
+	if (!calypsoHdOperationsRouteEnabled(state._game, "F09"))
 	{
 		state._hdLayout = false;
 		return;
@@ -228,6 +237,7 @@ void CalypsoF09ResearchUi::configure(ResearchInfoState &state)
 	state._hdAdapter = adapter;
 	CalypsoHdUiOverlay::instance().registerAdapter(adapter->_renderer);
 	adapter->refresh();
+	calypsoHdOperationsPublishHarnessVisibility();
 }
 
 bool CalypsoF09ResearchUi::resize(ResearchState &state)
@@ -254,27 +264,35 @@ bool CalypsoF09ResearchUi::resize(ResearchInfoState &state)
 	return true;
 }
 
-void CalypsoF09ResearchUi::refresh()
+void CalypsoF09ResearchUi::syncGeometry()
 {
-	if (!_renderer) return;
 	switch (_kind)
 	{
 	case Kind::Queue: applyQueueGeometry(); break;
 	case Kind::Catalogue: applyCatalogueGeometry(); break;
 	case Kind::Staffing: applyStaffingGeometry(); break;
 	}
+	if (_chrome) _chrome->applyGeometry();
+}
+
+void CalypsoF09ResearchUi::refresh()
+{
+	if (!_renderer) return;
+	syncGeometry();
 	_renderer->setModel(buildModel());
 }
 
 CalypsoHdOperationsModel CalypsoF09ResearchUi::buildModel() const
 {
+	CalypsoHdOperationsModel model;
 	switch (_kind)
 	{
-	case Kind::Queue: return buildQueueModel();
-	case Kind::Catalogue: return buildCatalogueModel();
-	case Kind::Staffing: return buildStaffingModel();
+	case Kind::Queue: model = buildQueueModel(); break;
+	case Kind::Catalogue: model = buildCatalogueModel(); break;
+	case Kind::Staffing: model = buildStaffingModel(); break;
 	}
-	return {};
+	if (_chrome) _chrome->populateModel(model);
+	return model;
 }
 
 void CalypsoF09ResearchUi::ensureQueueOwners()
@@ -335,7 +353,7 @@ void CalypsoF09ResearchUi::applyQueueGeometry()
 	const auto *g = CalypsoF09ResearchQueueGen::layoutForDesign(
 		wide ? 1280 : 740, wide ? 720 : 360);
 	if (!g) return;
-	setWindow(_queue->_window, rawRect(g->window));
+	setOperationsWindow(_queue->_window, rawRect(g->window));
 	const int wx = _queue->_window->getX(), wy = _queue->_window->getY();
 	const double sx = static_cast<double>(_queue->_window->getWidth()) / g->window.w;
 	const double sy = static_cast<double>(_queue->_window->getHeight()) / g->window.h;
@@ -374,7 +392,7 @@ void CalypsoF09ResearchUi::applyCatalogueGeometry()
 	const auto *g = CalypsoF09ResearchCatalogueGen::layoutForDesign(
 		wide ? 1280 : 740, wide ? 720 : 360);
 	if (!g) return;
-	setWindow(_catalogue->_window, rawRect(g->window));
+	setOperationsWindow(_catalogue->_window, rawRect(g->window));
 	const int wx = _catalogue->_window->getX(), wy = _catalogue->_window->getY();
 	const double sx = static_cast<double>(_catalogue->_window->getWidth()) / g->window.w;
 	const double sy = static_cast<double>(_catalogue->_window->getHeight()) / g->window.h;
@@ -434,8 +452,6 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildQueueModel() const
 	model.geometry.designHeight = g->designHeight;
 	model.geometry.window = p(g->window);
 	model.geometry.title = p(g->title);
-	model.geometry.topBar = p(g->topBar);
-	model.geometry.globalRail = p(g->globalRail);
 	model.geometry.screenHeader = p(g->screenHeader);
 	model.geometry.headerArt = p(g->headerArt);
 	model.geometry.footer = p(g->footer);
@@ -589,8 +605,6 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildCatalogueModel() const
 	model.geometry.designHeight = g->designHeight;
 	model.geometry.window = p(g->window);
 	model.geometry.title = p(g->title);
-	model.geometry.topBar = p(g->topBar);
-	model.geometry.globalRail = p(g->globalRail);
 	model.geometry.screenHeader = p(g->screenHeader);
 	model.geometry.headerArt = p(g->headerArt);
 	model.geometry.summaryBar = p(g->summaryBar);

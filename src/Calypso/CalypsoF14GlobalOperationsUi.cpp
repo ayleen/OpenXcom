@@ -2,6 +2,7 @@
 #include "CalypsoF14GlobalOperationsUi.h"
 
 #include "CalypsoHdFontSource.h"
+#include "CalypsoHdOperationsChrome.h"
 #include "CalypsoHdOperationsRenderer.h"
 #include "CalypsoHdUiOverlay.h"
 #include "Generated/CalypsoF14GlobalProduction.generated.h"
@@ -52,20 +53,22 @@ void place(Surface *surface, const R &rect, int wx, int wy, double sx,
 {
 	if (!surface) return;
 	const auto projected = projectRect(rect, wx, wy, sx, sy, windowX, windowY);
-	surface->setX(projected.x);
-	surface->setY(projected.y);
-	surface->setWidth(projected.w);
-	surface->setHeight(projected.h);
+	if (surface->getX() != projected.x) surface->setX(projected.x);
+	if (surface->getY() != projected.y) surface->setY(projected.y);
+	if (surface->getWidth() != projected.w) surface->setWidth(projected.w);
+	if (surface->getHeight() != projected.h) surface->setHeight(projected.h);
 }
 
 template <typename R>
 void setWindow(Window *window, const R &rect)
 {
 	if (!window) return;
-	window->setX(rect.x);
-	window->setY(rect.y);
-	window->setWidth(rect.w);
-	window->setHeight(rect.h);
+	const auto projected = calypsoHdOperationsProjectForCurrentPresentation(
+		{rect.x, rect.y, rect.w, rect.h}, rect.w, rect.h);
+	if (window->getX() != projected.x) window->setX(projected.x);
+	if (window->getY() != projected.y) window->setY(projected.y);
+	if (window->getWidth() != projected.w) window->setWidth(projected.w);
+	if (window->getHeight() != projected.h) window->setHeight(projected.h);
 }
 
 
@@ -139,8 +142,6 @@ void setWorkspaceGeometry(CalypsoHdOperationsModel &model, const G &g,
 	model.geometry.designWidth = g.designWidth;
 	model.geometry.designHeight = g.designHeight;
 	model.geometry.window = project(g.window);
-	model.geometry.topBar = project(g.topBar);
-	model.geometry.globalRail = project(g.globalRail);
 	model.geometry.screenHeader = project(g.screenHeader);
 	model.geometry.headerArt = project(g.headerArt);
 	model.geometry.title = project(g.title);
@@ -243,39 +244,42 @@ void setCollectionGeometry(CalypsoHdOperationsModel &model, const G &g,
 } // namespace
 
 CalypsoF14GlobalOperationsUi::CalypsoF14GlobalOperationsUi(GlobalResearchState *state)
-	: _kind(Kind::Research), _research(state)
+	: _kind(Kind::Research), _research(state),
+	  _chrome(new CalypsoHdOperationsChrome(*state))
 {
 	_renderer = new CalypsoHdOperationsRenderer(state, CalypsoHdOperationsModel{});
-	_renderer->setModelProvider([this]() { return buildModel(); });
+	_renderer->setModelProvider([this]() { syncGeometry(); return buildModel(); });
 }
 
 CalypsoF14GlobalOperationsUi::CalypsoF14GlobalOperationsUi(
 	GlobalResearchDiaryState *state)
-	: _kind(Kind::Diary), _diary(state)
+	: _kind(Kind::Diary), _diary(state),
+	  _chrome(new CalypsoHdOperationsChrome(*state))
 {
 	_renderer = new CalypsoHdOperationsRenderer(state, CalypsoHdOperationsModel{});
-	_renderer->setModelProvider([this]() { return buildModel(); });
+	_renderer->setModelProvider([this]() { syncGeometry(); return buildModel(); });
 }
 
 CalypsoF14GlobalOperationsUi::CalypsoF14GlobalOperationsUi(
 	GlobalManufactureState *state)
-	: _kind(Kind::Manufacture), _manufacture(state)
+	: _kind(Kind::Manufacture), _manufacture(state),
+	  _chrome(new CalypsoHdOperationsChrome(*state))
 {
 	_renderer = new CalypsoHdOperationsRenderer(state, CalypsoHdOperationsModel{});
-	_renderer->setModelProvider([this]() { return buildModel(); });
+	_renderer->setModelProvider([this]() { syncGeometry(); return buildModel(); });
 }
 
 CalypsoF14GlobalOperationsUi::~CalypsoF14GlobalOperationsUi()
 {
 	delete _renderer;
+	delete _chrome;
 }
 
 #define F14_CONFIGURE(TYPE) \
 void CalypsoF14GlobalOperationsUi::configure(TYPE &state) \
 { \
 	if (state._hdAdapter) return; \
-	if (!state._game || !state._game->getMod() \
-		|| !state._game->getMod()->isHdUiFamilyEnabled("F14")) \
+	if (!calypsoHdOperationsRouteEnabled(state._game, "F14")) \
 	{ \
 		state._hdLayout = false; \
 		return; \
@@ -286,6 +290,7 @@ void CalypsoF14GlobalOperationsUi::configure(TYPE &state) \
 	state._hdAdapter = adapter; \
 	CalypsoHdUiOverlay::instance().registerAdapter(adapter->_renderer); \
 	adapter->refresh(); \
+	calypsoHdOperationsPublishHarnessVisibility(); \
 }
 F14_CONFIGURE(GlobalResearchState)
 F14_CONFIGURE(GlobalResearchDiaryState)
@@ -305,27 +310,35 @@ F14_RESIZE(GlobalResearchDiaryState)
 F14_RESIZE(GlobalManufactureState)
 #undef F14_RESIZE
 
-void CalypsoF14GlobalOperationsUi::refresh()
+void CalypsoF14GlobalOperationsUi::syncGeometry()
 {
-	if (!_renderer) return;
 	switch (_kind)
 	{
 	case Kind::Research: applyResearchGeometry(); break;
 	case Kind::Diary: applyDiaryGeometry(); break;
 	case Kind::Manufacture: applyManufactureGeometry(); break;
 	}
+	_chrome->applyGeometry();
+}
+
+void CalypsoF14GlobalOperationsUi::refresh()
+{
+	if (!_renderer) return;
+	syncGeometry();
 	_renderer->setModel(buildModel());
 }
 
 CalypsoHdOperationsModel CalypsoF14GlobalOperationsUi::buildModel() const
 {
+	CalypsoHdOperationsModel model;
 	switch (_kind)
 	{
-	case Kind::Research: return buildResearchModel();
-	case Kind::Diary: return buildDiaryModel();
-	case Kind::Manufacture: return buildManufactureModel();
+	case Kind::Research: model = buildResearchModel(); break;
+	case Kind::Diary: model = buildDiaryModel(); break;
+	case Kind::Manufacture: model = buildManufactureModel(); break;
 	}
-	return {};
+	_chrome->populateModel(model);
+	return model;
 }
 
 void CalypsoF14GlobalOperationsUi::ensureResearchOwners()
@@ -379,6 +392,9 @@ void CalypsoF14GlobalOperationsUi::ensureDiaryOwners()
 		(ActionHandler)&GlobalResearchDiaryState::lstItemMClick);
 	make(_diary->_btnQuickSearchToggle,
 		(ActionHandler)&GlobalResearchDiaryState::btnQuickSearchToggle);
+	if (_diary->_btnQuickSearchToggle)
+		_diary->_btnQuickSearchToggle->setVisible(
+			!_diary->_btnQuickSearch->getVisible());
 }
 
 void CalypsoF14GlobalOperationsUi::applyResearchGeometry()

@@ -14,6 +14,7 @@ class ManufactureDependenciesTreeState;
 namespace Calypso
 {
 class CalypsoHdOperationsRenderer;
+class CalypsoHdOperationsChrome;
 
 class CalypsoF10ProductionUi
 {
@@ -40,6 +41,7 @@ public:
 
 private:
 	enum class Kind { Queue, Catalogue, Requirements, Controls, Dependencies };
+	void syncGeometry();
 	CalypsoHdOperationsModel buildModel() const;
 	void applyQueueGeometry();
 	void applyCatalogueGeometry();
@@ -61,6 +63,7 @@ private:
 	ManufactureInfoState *_controls = nullptr;
 	ManufactureDependenciesTreeState *_dependencies = nullptr;
 	CalypsoHdOperationsRenderer *_renderer = nullptr;
+	CalypsoHdOperationsChrome *_chrome = nullptr;
 };
 
 } // namespace Calypso

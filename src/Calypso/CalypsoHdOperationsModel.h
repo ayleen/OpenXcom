@@ -8,6 +8,7 @@
  */
 #include <algorithm>
 #include <cstddef>
+#include <cmath>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -48,6 +49,26 @@ struct CalypsoHdOperationsRect
 
 	bool valid() const { return w > 0 && h > 0; }
 };
+
+/// One composed design-to-logical projection for both overlay paint and the
+/// hidden native input owner. Offsets are already expressed in logical pixels.
+inline CalypsoHdOperationsRect calypsoHdOperationsProjectRect(
+	const CalypsoHdOperationsRect& rect, int designWidth, int designHeight,
+	int logicalWidth, int logicalHeight, int logicalOffsetX, int logicalOffsetY)
+{
+	if (!rect.valid() || designWidth <= 0 || designHeight <= 0
+		|| logicalWidth <= 0 || logicalHeight <= 0)
+		return rect;
+	const double sx = static_cast<double>(logicalWidth) / designWidth;
+	const double sy = static_cast<double>(logicalHeight) / designHeight;
+	const int left = static_cast<int>(std::llround(rect.x * sx)) - logicalOffsetX;
+	const int right = static_cast<int>(std::llround((rect.x + rect.w) * sx))
+		- logicalOffsetX;
+	const int top = static_cast<int>(std::llround(rect.y * sy)) - logicalOffsetY;
+	const int bottom = static_cast<int>(std::llround((rect.y + rect.h) * sy))
+		- logicalOffsetY;
+	return {left, top, std::max(1, right - left), std::max(1, bottom - top)};
+}
 
 struct CalypsoHdOperationsState
 {
@@ -189,8 +210,6 @@ struct CalypsoHdOperationsGeometry
 	int designWidth = 0;
 	int designHeight = 0;
 	CalypsoHdOperationsRect window;
-	CalypsoHdOperationsRect topBar;
-	CalypsoHdOperationsRect globalRail;
 	CalypsoHdOperationsRect screenHeader;
 	CalypsoHdOperationsRect headerArt;
 	CalypsoHdOperationsRect status;
@@ -251,6 +270,7 @@ struct CalypsoHdOperationsModel
 	CalypsoHdOperationsCollection collection;
 	std::string visualShell;
 	std::string headerArtId;
+	std::string baseCaption;
 	std::string baseName;
 	std::string sectionLabel;
 	std::string clockTime;
@@ -379,8 +399,8 @@ inline bool calypsoHdOperationsModelReady(const CalypsoHdOperationsModel& model)
 		return false;
 	if (model.archetype == CalypsoHdOperationsArchetype::OperationsWorkspace
 		&& (model.visualShell != "base-operations" || model.headerArtId.empty()
-			|| !g.topBar.valid() || !g.globalRail.valid()
-			|| !g.screenHeader.valid() || !g.headerArt.valid()))
+			|| model.baseCaption.empty() || !g.screenHeader.valid()
+			|| !g.headerArt.valid()))
 		return false;
 	if (model.summaryFields.size() > 4 || model.controls.size() > 3
 		|| model.toolbarActions.size() > 4 || model.collection.columns.size() > 8

@@ -39,6 +39,7 @@ TEMPLATE_FIELDS = {
     "style",
     "layouts",
     "motion",
+    "sharedChrome",
 }
 ARCHETYPE_KINDS = {
     "scrollable-collection": "collection",
@@ -81,8 +82,6 @@ LAYOUT_FIELDS = {
         "designWidth",
         "designHeight",
         "window",
-        "topBar",
-        "globalRail",
         "screenHeader",
         "headerArt",
         "title",
@@ -428,8 +427,6 @@ def _layout_rect_fields(kind):
     if kind == "operations":
         return (
             "window",
-            "topBar",
-            "globalRail",
             "screenHeader",
             "headerArt",
             "title",
@@ -453,15 +450,25 @@ def _layout_rect_fields(kind):
     return ("window", "status", "title", "controlBar", "footer")
 
 def _validate_template(template):
-    _strict(template, TEMPLATE_FIELDS, set(), "template")
+    _strict(template, TEMPLATE_FIELDS - {"sharedChrome"}, {"sharedChrome"}, "template")
     if template["schema"] != 1:
         raise ArchetypeError("template.schema must be 1")
-    _positive_int(template["version"], "template.version")
     archetype = template["id"]
     if not isinstance(archetype, str) or archetype not in ARCHETYPE_KINDS:
         raise ArchetypeError("unsupported extended template id: " + str(archetype))
     if template["generatorKind"] != ARCHETYPE_KINDS[archetype]:
         raise ArchetypeError("template.generatorKind does not match template.id")
+    if template["generatorKind"] == "operations":
+        _strict(template.get("sharedChrome"), {"id", "version"}, set(),
+                "template.sharedChrome")
+        if template["sharedChrome"]["id"] != "base-command-shell":
+            raise ArchetypeError(
+                "template.sharedChrome.id must be base-command-shell")
+        _one_line(template["sharedChrome"]["version"],
+                  "template.sharedChrome.version", 64)
+    elif "sharedChrome" in template:
+        raise ArchetypeError(
+            "template.sharedChrome is only valid for operations-workspace")
     tones = template["supportedButtonTones"]
     styles = template["buttonToneStyles"]
     expected_tones = {"normal", "safe", "primary", "warning", "danger"}
@@ -2226,6 +2233,8 @@ def _build_tabbed(config, template, source_name, template_name):
     out["form"]["toolbar"] = toolbar_actions
     if "visual" in config:
         out["form"]["visual"] = copy.deepcopy(config["visual"])
+    if template["generatorKind"] == "operations":
+        out["form"]["sharedChrome"] = copy.deepcopy(template["sharedChrome"])
     out["copy"]["tabs"] = {tab["id"]: tab["label"] for tab in config["tabs"]}
     out["copy"]["summary"] = copy.deepcopy(config["summary"])
     out["copy"]["collection"] = copy.deepcopy(config["collection"])
@@ -2350,7 +2359,7 @@ def _build_tabbed(config, template, source_name, template_name):
             "actions": action_rects,
         }
         if template["generatorKind"] == "operations":
-            for shell_part in ("topBar", "globalRail", "screenHeader", "headerArt"):
+            for shell_part in ("screenHeader", "headerArt"):
                 generated_layout[shell_part] = copy.deepcopy(authored[shell_part])
         if detail is not None:
             generated_layout["detail"] = _build_tabbed_detail_fragment(
@@ -2369,8 +2378,6 @@ def _build_tabbed(config, template, source_name, template_name):
     ]
     if template["generatorKind"] == "operations":
         out["_partPaths"][1:1] = [
-            "topBar",
-            "globalRail",
             "screenHeader",
             "headerArt",
         ]

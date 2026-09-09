@@ -32,6 +32,7 @@
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoHdHarnessHostState.h"
 #include "../Calypso/CalypsoHdUiOverlay.h"
+#include "../Calypso/CalypsoStrategicNavigation.h"
 #endif
 #include "../Engine/Sound.h"
 #include "../Engine/Collections.h"
@@ -739,6 +740,42 @@ void State::resize(int &dX, int &dY)
 {
 	recenter(dX, dY);
 }
+
+#ifdef __EMSCRIPTEN__
+void State::calypsoHdNavigateWorldClick(Action *)
+{
+	Calypso::calypsoNavigateToWorld(_game);
+}
+
+void State::calypsoHdNavigateBasesClick(Action *)
+{
+	Calypso::calypsoNavigateToBases(_game);
+}
+
+void State::calypsoHdNavigateOperationsClick(Action *)
+{
+	Calypso::calypsoNavigateToStrategicRoute(
+		_game, Calypso::CalypsoStrategicRoute::Intercept);
+}
+
+void State::calypsoHdNavigateAnalyticsClick(Action *)
+{
+	Calypso::calypsoNavigateToStrategicRoute(
+		_game, Calypso::CalypsoStrategicRoute::Graphs);
+}
+
+void State::calypsoHdNavigateArchiveClick(Action *)
+{
+	Calypso::calypsoNavigateToStrategicRoute(
+		_game, Calypso::CalypsoStrategicRoute::Archive);
+}
+
+void State::calypsoHdNavigateSettingsClick(Action *)
+{
+	Calypso::calypsoNavigateToStrategicRoute(
+		_game, Calypso::CalypsoStrategicRoute::Options);
+}
+#endif
 
 /**
  * Re-orients all the surfaces in the state.

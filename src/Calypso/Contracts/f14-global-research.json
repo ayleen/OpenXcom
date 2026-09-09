@@ -99,6 +99,10 @@
       "shell": "base-operations",
       "headerArt": "base-research"
     },
+    "sharedChrome": {
+      "id": "base-command-shell",
+      "version": "hd.2026-09-07.1"
+    },
     "detail": {
       "id": "selected-project",
       "label": "SELECTED PROJECT",
@@ -261,84 +265,84 @@
         "height": 720
       },
       "title": {
-        "x": 110,
-        "y": 99,
-        "width": 500,
+        "x": 130,
+        "y": 119,
+        "width": 480,
         "height": 36
       },
       "summaryBar": {
-        "x": 1002,
-        "y": 76,
-        "width": 258,
+        "x": 1000,
+        "y": 96,
+        "width": 256,
         "height": 78
       },
       "summary": {
         "available": {
-          "x": 1002,
-          "y": 76,
-          "width": 85,
+          "x": 1000,
+          "y": 96,
+          "width": 84,
           "height": 78
         },
         "allocated": {
-          "x": 1088,
-          "y": 76,
-          "width": 85,
+          "x": 1085,
+          "y": 96,
+          "width": 84,
           "height": 78
         },
         "lab-space": {
-          "x": 1174,
-          "y": 76,
+          "x": 1170,
+          "y": 96,
           "width": 86,
           "height": 78
         }
       },
       "collectionViewport": {
-        "x": 92,
-        "y": 224,
-        "width": 836,
-        "height": 422
+        "x": 112,
+        "y": 234,
+        "width": 816,
+        "height": 412
       },
       "detailPanel": {
         "x": 944,
-        "y": 178,
-        "width": 316,
-        "height": 468
+        "y": 190,
+        "width": 312,
+        "height": 456
       },
       "collection": {
         "columnHeaders": [
           {
             "id": "base",
             "rect": {
-              "x": 92,
-              "y": 224,
-              "width": 194,
+              "x": 112,
+              "y": 234,
+              "width": 189,
               "height": 36
             }
           },
           {
             "id": "project",
             "rect": {
-              "x": 287,
-              "y": 224,
-              "width": 194,
+              "x": 302,
+              "y": 234,
+              "width": 189,
               "height": 36
             }
           },
           {
             "id": "scientists",
             "rect": {
-              "x": 482,
-              "y": 224,
-              "width": 194,
+              "x": 492,
+              "y": 234,
+              "width": 189,
               "height": 36
             }
           },
           {
             "id": "progress",
             "rect": {
-              "x": 677,
-              "y": 224,
-              "width": 197,
+              "x": 682,
+              "y": 234,
+              "width": 192,
               "height": 36
             }
           }
@@ -347,45 +351,45 @@
           {
             "id": "row-slot-1",
             "rect": {
-              "x": 92,
-              "y": 260,
-              "width": 782,
+              "x": 112,
+              "y": 270,
+              "width": 762,
               "height": 50
             },
             "cells": [
               {
                 "id": "base",
                 "rect": {
-                  "x": 92,
-                  "y": 260,
-                  "width": 194,
+                  "x": 112,
+                  "y": 270,
+                  "width": 189,
                   "height": 50
                 }
               },
               {
                 "id": "project",
                 "rect": {
-                  "x": 287,
-                  "y": 260,
-                  "width": 194,
+                  "x": 302,
+                  "y": 270,
+                  "width": 189,
                   "height": 50
                 }
               },
               {
                 "id": "scientists",
                 "rect": {
-                  "x": 482,
-                  "y": 260,
-                  "width": 194,
+                  "x": 492,
+                  "y": 270,
+                  "width": 189,
                   "height": 50
                 }
               },
               {
                 "id": "progress",
                 "rect": {
-                  "x": 677,
-                  "y": 260,
-                  "width": 197,
+                  "x": 682,
+                  "y": 270,
+                  "width": 192,
                   "height": 50
                 }
               }
@@ -394,45 +398,45 @@
           {
             "id": "row-slot-2",
             "rect": {
-              "x": 92,
-              "y": 310,
-              "width": 782,
+              "x": 112,
+              "y": 320,
+              "width": 762,
               "height": 50
             },
             "cells": [
               {
                 "id": "base",
                 "rect": {
-                  "x": 92,
-                  "y": 310,
-                  "width": 194,
+                  "x": 112,
+                  "y": 320,
+                  "width": 189,
                   "height": 50
                 }
               },
               {
                 "id": "project",
                 "rect": {
-                  "x": 287,
-                  "y": 310,
-                  "width": 194,
+                  "x": 302,
+                  "y": 320,
+                  "width": 189,
                   "height": 50
                 }
               },
               {
                 "id": "scientists",
                 "rect": {
-                  "x": 482,
-                  "y": 310,
-                  "width": 194,
+                  "x": 492,
+                  "y": 320,
+                  "width": 189,
                   "height": 50
                 }
               },
               {
                 "id": "progress",
                 "rect": {
-                  "x": 677,
-                  "y": 310,
-                  "width": 197,
+                  "x": 682,
+                  "y": 320,
+                  "width": 192,
                   "height": 50
                 }
               }
@@ -441,45 +445,45 @@
           {
             "id": "row-slot-3",
             "rect": {
-              "x": 92,
-              "y": 360,
-              "width": 782,
+              "x": 112,
+              "y": 370,
+              "width": 762,
               "height": 50
             },
             "cells": [
               {
                 "id": "base",
                 "rect": {
-                  "x": 92,
-                  "y": 360,
-                  "width": 194,
+                  "x": 112,
+                  "y": 370,
+                  "width": 189,
                   "height": 50
                 }
               },
               {
                 "id": "project",
                 "rect": {
-                  "x": 287,
-                  "y": 360,
-                  "width": 194,
+                  "x": 302,
+                  "y": 370,
+                  "width": 189,
                   "height": 50
                 }
               },
               {
                 "id": "scientists",
                 "rect": {
-                  "x": 482,
-                  "y": 360,
-                  "width": 194,
+                  "x": 492,
+                  "y": 370,
+                  "width": 189,
                   "height": 50
                 }
               },
               {
                 "id": "progress",
                 "rect": {
-                  "x": 677,
-                  "y": 360,
-                  "width": 197,
+                  "x": 682,
+                  "y": 370,
+                  "width": 192,
                   "height": 50
                 }
               }
@@ -488,45 +492,45 @@
           {
             "id": "row-slot-4",
             "rect": {
-              "x": 92,
-              "y": 410,
-              "width": 782,
+              "x": 112,
+              "y": 420,
+              "width": 762,
               "height": 50
             },
             "cells": [
               {
                 "id": "base",
                 "rect": {
-                  "x": 92,
-                  "y": 410,
-                  "width": 194,
+                  "x": 112,
+                  "y": 420,
+                  "width": 189,
                   "height": 50
                 }
               },
               {
                 "id": "project",
                 "rect": {
-                  "x": 287,
-                  "y": 410,
-                  "width": 194,
+                  "x": 302,
+                  "y": 420,
+                  "width": 189,
                   "height": 50
                 }
               },
               {
                 "id": "scientists",
                 "rect": {
-                  "x": 482,
-                  "y": 410,
-                  "width": 194,
+                  "x": 492,
+                  "y": 420,
+                  "width": 189,
                   "height": 50
                 }
               },
               {
                 "id": "progress",
                 "rect": {
-                  "x": 677,
-                  "y": 410,
-                  "width": 197,
+                  "x": 682,
+                  "y": 420,
+                  "width": 192,
                   "height": 50
                 }
               }
@@ -535,45 +539,45 @@
           {
             "id": "row-slot-5",
             "rect": {
-              "x": 92,
-              "y": 460,
-              "width": 782,
+              "x": 112,
+              "y": 470,
+              "width": 762,
               "height": 50
             },
             "cells": [
               {
                 "id": "base",
                 "rect": {
-                  "x": 92,
-                  "y": 460,
-                  "width": 194,
+                  "x": 112,
+                  "y": 470,
+                  "width": 189,
                   "height": 50
                 }
               },
               {
                 "id": "project",
                 "rect": {
-                  "x": 287,
-                  "y": 460,
-                  "width": 194,
+                  "x": 302,
+                  "y": 470,
+                  "width": 189,
                   "height": 50
                 }
               },
               {
                 "id": "scientists",
                 "rect": {
-                  "x": 482,
-                  "y": 460,
-                  "width": 194,
+                  "x": 492,
+                  "y": 470,
+                  "width": 189,
                   "height": 50
                 }
               },
               {
                 "id": "progress",
                 "rect": {
-                  "x": 677,
-                  "y": 460,
-                  "width": 197,
+                  "x": 682,
+                  "y": 470,
+                  "width": 192,
                   "height": 50
                 }
               }
@@ -583,68 +587,56 @@
         "scroll": {
           "track": {
             "x": 910,
-            "y": 260,
+            "y": 270,
             "width": 18,
             "height": 250
           },
           "thumb": {
             "x": 910,
-            "y": 260,
+            "y": 270,
             "width": 18,
             "height": 250
           }
         }
       },
       "toolbarBar": {
-        "x": 92,
-        "y": 178,
-        "width": 836,
-        "height": 46
+        "x": 112,
+        "y": 190,
+        "width": 816,
+        "height": 44
       },
       "controls": {},
       "controlParts": {},
       "footer": {
-        "x": 92,
+        "x": 112,
         "y": 658,
-        "width": 1168,
+        "width": 1144,
         "height": 44
       },
       "toolbar": {},
       "actions": {
         "research-diary": {
-          "x": 92,
+          "x": 112,
           "y": 658,
           "width": 158,
           "height": 44
         },
         "done": {
-          "x": 1102,
+          "x": 1098,
           "y": 658,
           "width": 158,
           "height": 44
         }
       },
-      "topBar": {
-        "x": 0,
-        "y": 0,
-        "width": 1280,
-        "height": 58
-      },
-      "globalRail": {
-        "x": 0,
-        "y": 58,
-        "width": 72,
-        "height": 662
-      },
       "screenHeader": {
-        "x": 92,
-        "y": 76,
-        "width": 1168,
+        "x": 112,
+        "y": 96,
+        "width": 1144,
         "height": 78
       },
       "headerArt": {
-        "x": 642,
-        "y": 76,
+        "x": 640,
+        "y": 96,
         "width": 360,
         "height": 78
       },
@@ -652,33 +644,33 @@
         "id": "selected-project",
         "panel": {
           "x": 944,
-          "y": 178,
-          "width": 316,
-          "height": 468
+          "y": 190,
+          "width": 312,
+          "height": 456
         },
         "label": {
           "x": 956,
-          "y": 190,
-          "width": 292,
+          "y": 202,
+          "width": 288,
           "height": 24
         },
         "identity": {
           "rect": {
             "x": 956,
-            "y": 214,
-            "width": 292,
+            "y": 226,
+            "width": 288,
             "height": 48
           },
           "title": {
             "x": 956,
-            "y": 214,
-            "width": 292,
+            "y": 226,
+            "width": 288,
             "height": 24
           },
           "subtitle": {
             "x": 956,
-            "y": 238,
-            "width": 292,
+            "y": 250,
+            "width": 288,
             "height": 24
           }
         },
@@ -686,40 +678,40 @@
           "base": {
             "rect": {
               "x": 956,
-              "y": 262,
-              "width": 145,
+              "y": 274,
+              "width": 143,
               "height": 58
             },
             "label": {
               "x": 956,
-              "y": 262,
-              "width": 145,
+              "y": 274,
+              "width": 143,
               "height": 29
             },
             "value": {
               "x": 956,
-              "y": 291,
-              "width": 145,
+              "y": 303,
+              "width": 143,
               "height": 29
             }
           },
           "research-project": {
             "rect": {
-              "x": 1102,
-              "y": 262,
-              "width": 146,
+              "x": 1100,
+              "y": 274,
+              "width": 144,
               "height": 58
             },
             "label": {
-              "x": 1102,
-              "y": 262,
-              "width": 146,
+              "x": 1100,
+              "y": 274,
+              "width": 144,
               "height": 29
             },
             "value": {
-              "x": 1102,
-              "y": 291,
-              "width": 146,
+              "x": 1100,
+              "y": 303,
+              "width": 144,
               "height": 29
             }
           }
@@ -733,16 +725,16 @@
             "rect": {
               "x": 956,
               "y": 590,
-              "width": 142,
+              "width": 140,
               "height": 44
             }
           },
           {
             "id": "tech-tree",
             "rect": {
-              "x": 1106,
+              "x": 1104,
               "y": 590,
-              "width": 142,
+              "width": 140,
               "height": 44
             }
           }
@@ -755,75 +747,63 @@
           "width": 1280,
           "height": 720
         },
-        "topBar": {
-          "x": 0,
-          "y": 0,
-          "width": 1280,
-          "height": 58
-        },
-        "globalRail": {
-          "x": 0,
-          "y": 58,
-          "width": 72,
-          "height": 662
-        },
         "screenHeader": {
-          "x": 92,
-          "y": 76,
-          "width": 1168,
+          "x": 112,
+          "y": 96,
+          "width": 1144,
           "height": 78
         },
         "headerArt": {
-          "x": 642,
-          "y": 76,
+          "x": 640,
+          "y": 96,
           "width": 360,
           "height": 78
         },
         "title": {
-          "x": 110,
-          "y": 99,
-          "width": 500,
+          "x": 130,
+          "y": 119,
+          "width": 480,
           "height": 36
         },
         "summaryBar": {
-          "x": 1002,
-          "y": 76,
-          "width": 258,
+          "x": 1000,
+          "y": 96,
+          "width": 256,
           "height": 78
         },
         "toolbarBar": {
-          "x": 92,
-          "y": 178,
-          "width": 836,
-          "height": 46
+          "x": 112,
+          "y": 190,
+          "width": 816,
+          "height": 44
         },
         "collectionViewport": {
-          "x": 92,
-          "y": 224,
-          "width": 836,
-          "height": 422
+          "x": 112,
+          "y": 234,
+          "width": 816,
+          "height": 412
         },
         "footer": {
-          "x": 92,
+          "x": 112,
           "y": 658,
-          "width": 1168,
+          "width": 1144,
           "height": 44
         },
         "summary.available": {
-          "x": 1002,
-          "y": 76,
-          "width": 85,
+          "x": 1000,
+          "y": 96,
+          "width": 84,
           "height": 78
         },
         "summary.allocated": {
-          "x": 1088,
-          "y": 76,
-          "width": 85,
+          "x": 1085,
+          "y": 96,
+          "width": 84,
           "height": 78
         },
         "summary.lab-space": {
-          "x": 1174,
-          "y": 76,
+          "x": 1170,
+          "y": 96,
           "width": 86,
           "height": 78
         },
@@ -841,132 +821,132 @@
         },
         "collection.scroll.track": {
           "x": 910,
-          "y": 260,
+          "y": 270,
           "width": 18,
           "height": 250
         },
         "collection.scroll.thumb": {
           "x": 910,
-          "y": 260,
+          "y": 270,
           "width": 18,
           "height": 250
         },
         "collection.column.base": {
-          "x": 92,
-          "y": 224,
-          "width": 194,
+          "x": 112,
+          "y": 234,
+          "width": 189,
           "height": 36
         },
         "collection.column.project": {
-          "x": 287,
-          "y": 224,
-          "width": 194,
+          "x": 302,
+          "y": 234,
+          "width": 189,
           "height": 36
         },
         "collection.column.scientists": {
-          "x": 482,
-          "y": 224,
-          "width": 194,
+          "x": 492,
+          "y": 234,
+          "width": 189,
           "height": 36
         },
         "collection.column.progress": {
-          "x": 677,
-          "y": 224,
-          "width": 197,
+          "x": 682,
+          "y": 234,
+          "width": 192,
           "height": 36
         },
         "collection.row-slot.1": {
-          "x": 92,
-          "y": 260,
-          "width": 782,
+          "x": 112,
+          "y": 270,
+          "width": 762,
           "height": 50
         },
         "collection.row-slot.2": {
-          "x": 92,
-          "y": 310,
-          "width": 782,
+          "x": 112,
+          "y": 320,
+          "width": 762,
           "height": 50
         },
         "collection.row-slot.3": {
-          "x": 92,
-          "y": 360,
-          "width": 782,
+          "x": 112,
+          "y": 370,
+          "width": 762,
           "height": 50
         },
         "collection.row-slot.4": {
-          "x": 92,
-          "y": 410,
-          "width": 782,
+          "x": 112,
+          "y": 420,
+          "width": 762,
           "height": 50
         },
         "collection.row-slot.5": {
-          "x": 92,
-          "y": 460,
-          "width": 782,
+          "x": 112,
+          "y": 470,
+          "width": 762,
           "height": 50
         },
         "detailPanel": {
           "x": 944,
-          "y": 178,
-          "width": 316,
-          "height": 468
+          "y": 190,
+          "width": 312,
+          "height": 456
         },
         "detail.selected-project": {
           "x": 944,
-          "y": 178,
-          "width": 316,
-          "height": 468
+          "y": 190,
+          "width": 312,
+          "height": 456
         },
         "detail.selected-project.label": {
           "x": 956,
-          "y": 190,
-          "width": 292,
+          "y": 202,
+          "width": 288,
           "height": 24
         },
         "detail.selected-project.identity.title": {
           "x": 956,
-          "y": 214,
-          "width": 292,
+          "y": 226,
+          "width": 288,
           "height": 24
         },
         "detail.selected-project.identity.subtitle": {
           "x": 956,
-          "y": 238,
-          "width": 292,
+          "y": 250,
+          "width": 288,
           "height": 24
         },
         "detail.selected-project.metric.base": {
           "x": 956,
-          "y": 262,
-          "width": 145,
+          "y": 274,
+          "width": 143,
           "height": 58
         },
         "detail.selected-project.metric.research-project": {
-          "x": 1102,
-          "y": 262,
-          "width": 146,
+          "x": 1100,
+          "y": 274,
+          "width": 144,
           "height": 58
         },
         "detail.selected-project.action.open-base-research": {
           "x": 956,
           "y": 590,
-          "width": 142,
+          "width": 140,
           "height": 44
         },
         "detail.selected-project.action.tech-tree": {
-          "x": 1106,
+          "x": 1104,
           "y": 590,
-          "width": 142,
+          "width": 140,
           "height": 44
         },
         "action.research-diary": {
-          "x": 92,
+          "x": 112,
           "y": 658,
           "width": 158,
           "height": 44
         },
         "action.done": {
-          "x": 1102,
+          "x": 1098,
           "y": 658,
           "width": 158,
           "height": 44
@@ -1205,18 +1185,6 @@
           "height": 44
         }
       },
-      "topBar": {
-        "x": 0,
-        "y": 0,
-        "width": 740,
-        "height": 40
-      },
-      "globalRail": {
-        "x": 0,
-        "y": 40,
-        "width": 44,
-        "height": 320
-      },
       "screenHeader": {
         "x": 52,
         "y": 48,
@@ -1335,18 +1303,6 @@
           "y": 0,
           "width": 740,
           "height": 360
-        },
-        "topBar": {
-          "x": 0,
-          "y": 0,
-          "width": 740,
-          "height": 40
-        },
-        "globalRail": {
-          "x": 0,
-          "y": 40,
-          "width": 44,
-          "height": 320
         },
         "screenHeader": {
           "x": 52,
@@ -1563,7 +1519,7 @@
   },
   "provenance": {
     "template": "FormTemplates/operations-workspace.json",
-    "templateVersion": 2,
+    "templateVersion": 3,
     "generatorKind": "operations"
   },
   "collectionMetrics": {
@@ -1578,25 +1534,25 @@
       "scrollSteps": 0,
       "track": {
         "x": 910,
-        "y": 260,
+        "y": 270,
         "width": 18,
         "height": 250
       },
       "thumb": {
         "x": 910,
-        "y": 260,
+        "y": 270,
         "width": 18,
         "height": 250
       },
       "trackHitTarget": {
         "x": 884,
-        "y": 260,
+        "y": 270,
         "width": 44,
         "height": 250
       },
       "thumbHitTarget": {
         "x": 884,
-        "y": 260,
+        "y": 270,
         "width": 44,
         "height": 250
       },
@@ -1644,8 +1600,6 @@
   ],
   "parts": [
     "window",
-    "topBar",
-    "globalRail",
     "screenHeader",
     "headerArt",
     "title",

@@ -201,6 +201,10 @@ void GlobalResearchDiaryState::btnQuickSearchToggle(Action *action)
 		_btnQuickSearch->setVisible(true);
 		_btnQuickSearch->setFocus(true);
 	}
+#ifdef __EMSCRIPTEN__
+	if (_btnQuickSearchToggle)
+		_btnQuickSearchToggle->setVisible(!_btnQuickSearch->getVisible());
+#endif
 }
 
 /**

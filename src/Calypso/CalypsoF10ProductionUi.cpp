@@ -1,6 +1,7 @@
 #ifdef __EMSCRIPTEN__
 #include "CalypsoF10ProductionUi.h"
 #include "CalypsoHdFontSource.h"
+#include "CalypsoHdOperationsChrome.h"
 #include "CalypsoHdOperationsRenderer.h"
 #include "CalypsoHdUiOverlay.h"
 #include "Generated/CalypsoF10ProductionQueue.generated.h"
@@ -54,14 +55,28 @@ void place(Surface *surface, const R &rect, int wx, int wy, double sx, double sy
 {
 	if (!surface) return;
 	const auto p = projectRect(rect, wx, wy, sx, sy, windowX, windowY);
-	surface->setX(p.x); surface->setY(p.y); surface->setWidth(p.w); surface->setHeight(p.h);
+	if (surface->getX() != p.x) surface->setX(p.x);
+	if (surface->getY() != p.y) surface->setY(p.y);
+	if (surface->getWidth() != p.w) surface->setWidth(p.w);
+	if (surface->getHeight() != p.h) surface->setHeight(p.h);
 }
 
 template <typename R>
 void setWindow(Window *window, const R &rect)
 {
 	if (!window) return;
-	window->setX(rect.x); window->setY(rect.y); window->setWidth(rect.w); window->setHeight(rect.h);
+	if (window->getX() != rect.x) window->setX(rect.x);
+	if (window->getY() != rect.y) window->setY(rect.y);
+	if (window->getWidth() != rect.w) window->setWidth(rect.w);
+	if (window->getHeight() != rect.h) window->setHeight(rect.h);
+}
+
+template <typename R>
+void setOperationsWindow(Window *window, const R &rect)
+{
+	const auto projected = calypsoHdOperationsProjectForCurrentPresentation(
+		{rect.x, rect.y, rect.w, rect.h}, rect.w, rect.h);
+	setWindow(window, projected);
 }
 
 
@@ -130,47 +145,54 @@ void finishModel(CalypsoHdOperationsModel &model, const Mod *mod)
 } // namespace
 
 CalypsoF10ProductionUi::CalypsoF10ProductionUi(ManufactureState *state)
-	: _kind(Kind::Queue), _queue(state)
+	: _kind(Kind::Queue), _queue(state),
+	  _chrome(new CalypsoHdOperationsChrome(*state))
 {
 	_renderer = new CalypsoHdOperationsRenderer(state, CalypsoHdOperationsModel{});
-	_renderer->setModelProvider([this]() { return buildModel(); });
+	_renderer->setModelProvider([this]() { syncGeometry(); return buildModel(); });
 }
 CalypsoF10ProductionUi::CalypsoF10ProductionUi(NewManufactureListState *state)
-	: _kind(Kind::Catalogue), _catalogue(state)
+	: _kind(Kind::Catalogue), _catalogue(state),
+	  _chrome(new CalypsoHdOperationsChrome(*state))
 {
 	_renderer = new CalypsoHdOperationsRenderer(state, CalypsoHdOperationsModel{});
-	_renderer->setModelProvider([this]() { return buildModel(); });
+	_renderer->setModelProvider([this]() { syncGeometry(); return buildModel(); });
 }
 CalypsoF10ProductionUi::CalypsoF10ProductionUi(ManufactureStartState *state)
 	: _kind(Kind::Requirements), _requirements(state)
 {
 	_renderer = new CalypsoHdOperationsRenderer(state, CalypsoHdOperationsModel{});
-	_renderer->setModelProvider([this]() { return buildModel(); });
+	_renderer->setModelProvider([this]() { syncGeometry(); return buildModel(); });
 }
 CalypsoF10ProductionUi::CalypsoF10ProductionUi(ManufactureInfoState *state)
 	: _kind(Kind::Controls), _controls(state)
 {
 	_renderer = new CalypsoHdOperationsRenderer(state, CalypsoHdOperationsModel{});
-	_renderer->setModelProvider([this]() { return buildModel(); });
+	_renderer->setModelProvider([this]() { syncGeometry(); return buildModel(); });
 }
 CalypsoF10ProductionUi::CalypsoF10ProductionUi(ManufactureDependenciesTreeState *state)
 	: _kind(Kind::Dependencies), _dependencies(state)
 {
 	_renderer = new CalypsoHdOperationsRenderer(state, CalypsoHdOperationsModel{});
-	_renderer->setModelProvider([this]() { return buildModel(); });
+	_renderer->setModelProvider([this]() { syncGeometry(); return buildModel(); });
 }
 
-CalypsoF10ProductionUi::~CalypsoF10ProductionUi() { delete _renderer; }
+CalypsoF10ProductionUi::~CalypsoF10ProductionUi()
+{
+	delete _renderer;
+	delete _chrome;
+}
 
 #define F10_CONFIGURE(TYPE) \
 void CalypsoF10ProductionUi::configure(TYPE &state) \
 { \
 	if (state._hdAdapter) return; \
-	if (!state._game || !state._game->getMod() || !state._game->getMod()->isHdUiFamilyEnabled("F10")) \
+	if (!calypsoHdOperationsRouteEnabled(state._game, "F10")) \
 	{ state._hdLayout = false; return; } \
 	state._hdLayout = true; state._hdWideLayout = Options::baseXResolution >= 1000; \
 	auto *adapter = new CalypsoF10ProductionUi(&state); state._hdAdapter = adapter; \
 	CalypsoHdUiOverlay::instance().registerAdapter(adapter->_renderer); adapter->refresh(); \
+	calypsoHdOperationsPublishHarnessVisibility(); \
 }
 F10_CONFIGURE(ManufactureState)
 F10_CONFIGURE(NewManufactureListState)
@@ -192,9 +214,8 @@ F10_RESIZE(ManufactureInfoState)
 F10_RESIZE(ManufactureDependenciesTreeState)
 #undef F10_RESIZE
 
-void CalypsoF10ProductionUi::refresh()
+void CalypsoF10ProductionUi::syncGeometry()
 {
-	if (!_renderer) return;
 	switch (_kind)
 	{
 	case Kind::Queue: applyQueueGeometry(); break;
@@ -203,20 +224,29 @@ void CalypsoF10ProductionUi::refresh()
 	case Kind::Controls: applyControlsGeometry(); break;
 	case Kind::Dependencies: applyDependenciesGeometry(); break;
 	}
+	if (_chrome) _chrome->applyGeometry();
+}
+
+void CalypsoF10ProductionUi::refresh()
+{
+	if (!_renderer) return;
+	syncGeometry();
 	_renderer->setModel(buildModel());
 }
 
 CalypsoHdOperationsModel CalypsoF10ProductionUi::buildModel() const
 {
+	CalypsoHdOperationsModel model;
 	switch (_kind)
 	{
-	case Kind::Queue: return buildQueueModel();
-	case Kind::Catalogue: return buildCatalogueModel();
-	case Kind::Requirements: return buildRequirementsModel();
-	case Kind::Controls: return buildControlsModel();
-	case Kind::Dependencies: return buildDependenciesModel();
+	case Kind::Queue: model = buildQueueModel(); break;
+	case Kind::Catalogue: model = buildCatalogueModel(); break;
+	case Kind::Requirements: model = buildRequirementsModel(); break;
+	case Kind::Controls: model = buildControlsModel(); break;
+	case Kind::Dependencies: model = buildDependenciesModel(); break;
 	}
-	return {};
+	if (_chrome) _chrome->populateModel(model);
+	return model;
 }
 
 void CalypsoF10ProductionUi::ensureQueueOwners()
@@ -258,7 +288,7 @@ void CalypsoF10ProductionUi::applyQueueGeometry()
 	const bool wide = _queue->_hdWideLayout;
 	const auto *g = CalypsoF10ProductionQueueGen::layoutForDesign(wide ? 1280 : 740, wide ? 720 : 360);
 	if (!g) return;
-	setWindow(_queue->_window, g->window);
+	setOperationsWindow(_queue->_window, g->window);
 	const int wx = _queue->_window->getX(), wy = _queue->_window->getY();
 	const double sx = static_cast<double>(_queue->_window->getWidth()) / g->window.w;
 	const double sy = static_cast<double>(_queue->_window->getHeight()) / g->window.h;
@@ -294,7 +324,7 @@ void CalypsoF10ProductionUi::applyCatalogueGeometry()
 	const bool wide = _catalogue->_hdWideLayout;
 	const auto *g = CalypsoF10ProductionCatalogueGen::layoutForDesign(wide ? 1280 : 740, wide ? 720 : 360);
 	if (!g) return;
-	setWindow(_catalogue->_window, g->window);
+	setOperationsWindow(_catalogue->_window, g->window);
 	const int wx = _catalogue->_window->getX(), wy = _catalogue->_window->getY();
 	const double sx = static_cast<double>(_catalogue->_window->getWidth()) / g->window.w;
 	const double sy = static_cast<double>(_catalogue->_window->getHeight()) / g->window.h;
@@ -438,8 +468,6 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildQueueModel() const
 	model.geometry.designHeight = g->designHeight;
 	model.geometry.window = p(g->window);
 	model.geometry.title = p(g->title);
-	model.geometry.topBar = p(g->topBar);
-	model.geometry.globalRail = p(g->globalRail);
 	model.geometry.screenHeader = p(g->screenHeader);
 	model.geometry.headerArt = p(g->headerArt);
 	model.geometry.summaryBar = p(g->summaryBar);
@@ -607,8 +635,6 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildCatalogueModel() const
 	model.geometry.designWidth = g->designWidth;
 	model.geometry.designHeight = g->designHeight;
 	model.geometry.window = p(g->window); model.geometry.title = p(g->title); model.geometry.summaryBar = p(g->summaryBar);
-	model.geometry.topBar = p(g->topBar);
-	model.geometry.globalRail = p(g->globalRail);
 	model.geometry.screenHeader = p(g->screenHeader);
 	model.geometry.headerArt = p(g->headerArt);
 	model.geometry.toolbarBar = p(g->toolbarBar); model.geometry.collectionViewport = p(g->collectionViewport); model.geometry.detailPanel = p(g->detailPanel); model.geometry.footer = p(g->footer);
