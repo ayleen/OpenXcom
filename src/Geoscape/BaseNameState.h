@@ -17,6 +17,7 @@
  * You should have received a copy of the GNU General Public License
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
+#include <cstdint>
 #include "../Engine/State.h"
 #include "Globe.h"
 
@@ -54,6 +55,7 @@ private:
 	BuildNewBaseState *_coveredSite = nullptr;
 	bool _hdLayout = false;
 	bool _hdWideLayout = false;
+	std::uint64_t _hdHarnessGeneration = 0;
 	Text* _hdHint = nullptr;
 	Text* _hdProtocol = nullptr;
 	Calypso::CalypsoF21NameUi* _hdAdapter = nullptr;

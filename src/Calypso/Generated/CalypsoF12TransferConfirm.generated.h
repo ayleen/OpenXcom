@@ -9,6 +9,10 @@ inline constexpr const char* kFormId = "f12-transfer-confirm";
 inline constexpr int kFamilyId = 12;
 inline constexpr const char* kArchetype = "small-confirmation";
 inline constexpr const char* kSourceConfig = "FormConfigs/f12-transfer-confirm.json";
+inline constexpr const char* kProtocol = "CALYPSO COMMAND · LOGISTICS NOTICE F12-TR-01";
+inline constexpr const char* kTitle = "CONFIRM TRANSFER?";
+inline constexpr const char* kMessage[] = { "Transfer the selected", "items to base?" };
+inline constexpr int kMessageCount = 2;
 
 inline constexpr const char* kDensityProfile = "standard";
 inline constexpr int kPresentationScaleNumerator = 1;

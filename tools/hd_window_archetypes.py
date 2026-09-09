@@ -47,6 +47,10 @@ LAYOUT_FIELDS = {
         "designHeight",
         "window",
         "title",
+        "summaryBar",
+        "headerArt",
+        "summaryGap",
+        "summaryLabelHeight",
         "controlBar",
         "viewport",
         "footer",
@@ -180,6 +184,7 @@ LIMIT_FIELDS = {
         "maxControls",
         "maxControlOptions",
         "maxActions",
+        "maxSummaryFields",
     },
     "tabbed": {
         "maxTabs",
@@ -504,6 +509,8 @@ def _validate_template(template):
                 )
         for index, (first_name, first_rect) in enumerate(owned_rects):
             for second_name, second_rect in owned_rects[index + 1 :]:
+                if first_name == "headerArt" or second_name == "headerArt":
+                    continue
                 if _overlaps(first_rect, second_rect):
                     raise ArchetypeError(
                         "template.layouts."
@@ -524,6 +531,16 @@ def _validate_template(template):
             raise ArchetypeError(
                 "template.layouts." + name + ".controlBar violates the 44px minimum"
             )
+        if template["generatorKind"] == "collection":
+            opacity = template["style"].get("headerArtOpacityPct")
+            if (
+                not isinstance(opacity, int)
+                or isinstance(opacity, bool)
+                or not 1 <= opacity <= 100
+            ):
+                raise ArchetypeError(
+                    "template.style.headerArtOpacityPct must be 1-100"
+                )
         if template["generatorKind"] == "tabbed":
             target_fields.append("toolbarWidth")
             if layout["tabBar"]["height"] < 44:
@@ -579,7 +596,7 @@ def _validate_template(template):
 
 def _layout_rect_fields(kind):
     if kind == "collection":
-        return ("window", "title", "controlBar", "viewport", "footer")
+        return ("window", "title", "summaryBar", "headerArt", "controlBar", "viewport", "footer")
     if kind == "selection":
         return ("window", "status", "title", "list", "footer")
     if kind == "tabbed":
@@ -763,8 +780,9 @@ def _validate_collection_value(collection, limits, label):
     fields = {"mode", "selectionRole", "items"}
     if mode != "grid":
         fields.add("columns")
-    _strict(collection, fields, set(), label)
-    _stable_id(collection["selectionRole"], label + ".selectionRole")
+    _strict(collection, fields, {"heading"}, label)
+    if "heading" in collection:
+        _one_line(collection["heading"], label + ".heading", limits["maxCellCharacters"])
     items = collection["items"]
     if not isinstance(items, list) or not 1 <= len(items) <= limits["maxItems"]:
         raise ArchetypeError(label + ".items exceeds the template item limit")
@@ -817,16 +835,70 @@ def _validate_collection_value(collection, limits, label):
             )
 
 
+HEADER_ART_PATH_RE = re.compile(r"^Resources/ui-hd/[A-Za-z0-9_-]+\.png$")
+
+
+def _validate_summary(summary, limits, label):
+    if (
+        not isinstance(summary, list)
+        or not 1 <= len(summary) <= limits["maxSummaryFields"]
+    ):
+        raise ArchetypeError(label + " is outside the template limit")
+    ids = set()
+    result = []
+    for index, field in enumerate(summary):
+        item_label = label + "[" + str(index) + "]"
+        _strict(field, {"id", "label", "value"}, set(), item_label)
+        _stable_id(field["id"], item_label + ".id")
+        _one_line(field["label"], item_label + ".label", 24)
+        _one_line(field["value"], item_label + ".value", 32)
+        if field["id"] in ids:
+            raise ArchetypeError(label + " IDs must be unique")
+        ids.add(field["id"])
+        result.append(copy.deepcopy(field))
+    return result
+
+
+def _validate_header_art(art, label):
+    _strict(art, {"assetId", "vfsPath"}, set(), label)
+    _stable_id(art["assetId"], label + ".assetId")
+    path = art["vfsPath"]
+    if (
+        not isinstance(path, str)
+        or ".." in path
+        or not HEADER_ART_PATH_RE.fullmatch(path)
+    ):
+        raise ArchetypeError(label + ".vfsPath must be a Resources/ui-hd/ PNG")
+    return copy.deepcopy(art)
+
 def _validate_collection(config, template):
-    actions = _validate_common(config, template, {"collection", "controls"})
+    actions = _validate_common(
+        config, template, {"collection", "controls"}, {"summary", "headerArt"}
+    )
     _validate_collection_value(
         config["collection"], template["limits"], "config.collection"
     )
     controls = _validate_controls(config["controls"], template, "config.controls")
+    heading = None
+    if "heading" in config["collection"]:
+        if controls:
+            raise ArchetypeError(
+                "config.collection.heading owns the toolbar band: remove controls or heading")
+        heading = config["collection"]["heading"]
+    summary = (
+        _validate_summary(config["summary"], template["limits"], "config.summary")
+        if "summary" in config
+        else []
+    )
+    header_art = (
+        _validate_header_art(config["headerArt"], "config.headerArt")
+        if "headerArt" in config
+        else None
+    )
     _ensure_unique_interactions(
         [("config.actions", actions), ("config.controls", controls)]
     )
-    return actions, controls
+    return actions, controls, summary, header_art, heading
 
 
 def _validate_tabbed_detail(detail, template):
@@ -1461,13 +1533,30 @@ def _build_collection_fragment(collection, authored, viewport, name):
 
 
 def _build_collection(config, template, source_name, template_name):
-    actions, controls = _validate_collection(config, template)
+    actions, controls, summary, header_art, heading = _validate_collection(config, template)
     out = _base_contract(config, template, source_name, template_name, actions)
     collection = copy.deepcopy(config["collection"])
     out["form"]["collection"] = collection
     out["form"]["controls"] = controls
-    out["copy"]["collection"] = copy.deepcopy(config["collection"])
-    out["copy"]["controls"] = copy.deepcopy(config["controls"])
+    out["form"]["buttons"] = [
+        {
+            "id": action["id"],
+            "label": action["label"],
+            "tone": action["tone"],
+            "action": action["action"],
+            "style": copy.deepcopy(action["style"]),
+        }
+        for action in actions
+    ]
+    out["form"]["visibleButtons"] = [action["id"] for action in actions]
+    if summary:
+        out["form"]["summary"] = summary
+        out["copy"]["summary"] = copy.deepcopy(summary)
+    if header_art is not None:
+        out["form"]["headerArt"] = header_art
+        out["copy"]["headerArt"] = copy.deepcopy(header_art)
+    if heading is not None:
+        out["copy"]["heading"] = heading
     out["collectionMetrics"] = {}
     for name in ("wide", "compact"):
         authored = template["layouts"][name]
@@ -1479,6 +1568,8 @@ def _build_collection(config, template, source_name, template_name):
             "designHeight": authored["designHeight"],
             "window": copy.deepcopy(authored["window"]),
             "title": copy.deepcopy(authored["title"]),
+            "summaryBar": copy.deepcopy(authored["summaryBar"]),
+            "headerArt": copy.deepcopy(authored["headerArt"]),
             "controlBar": copy.deepcopy(authored["controlBar"]),
             "controls": _control_rects(
                 controls, authored, authored["controlBar"], name
@@ -1486,7 +1577,19 @@ def _build_collection(config, template, source_name, template_name):
             "viewport": copy.deepcopy(authored["viewport"]),
             "footer": copy.deepcopy(authored["footer"]),
             "actions": action_rects,
+            "rowHeight": authored["rowHeight"],
+            "visibleRows": authored["visibleRows"],
+            "headerHeight": authored["headerHeight"],
+            "scrollbarWidth": authored["scrollbarWidth"],
+            "minThumbHeight": authored["minThumbHeight"],
         }
+        if summary:
+            layout["summaryFields"] = _build_summary_fields(
+                summary, authored, name
+            )
+        if heading is not None:
+            layout["collectionHeading"] = copy.deepcopy(authored["controlBar"])
+            _ensure_text_fits(heading, authored["controlBar"], authored, name + ".heading")
         collection_fragment, metrics = _build_collection_fragment(
             collection, authored, authored["viewport"], name
         )
@@ -1496,21 +1599,62 @@ def _build_collection(config, template, source_name, template_name):
     out["parts"] = [
         "window",
         "title",
+        "summaryBar",
+        "headerArt",
         "controlBar",
         "viewport",
         "scroll.track",
         "scroll.thumb",
         "footer",
     ]
+    out["parts"].extend("summary." + field["id"] for field in summary)
+    if header_art is not None:
+        out["parts"].append("headerArt.image")
     out["parts"].extend("control." + control["id"] for control in controls)
+    if heading is not None:
+        out["parts"].append("collectionHeading")
     out["parts"].extend("action." + action["id"] for action in actions)
-    # reuse shared collection helper (empty prefix -> standalone naming)
-    # helper already includes scroll.track/thumb, so extend only column/slot parts
-    # to avoid duplicating scroll entries, slice helper output
     collection_parts = _collection_parts(collection, template, "")
-    # collection_parts[0:2] are scroll.track/thumb already in base list; skip them
     out["parts"].extend(collection_parts[2:])
     return out
+
+
+def _build_summary_fields(summary, authored, name):
+    bar = authored["summaryBar"]
+    label_height = authored["summaryLabelHeight"]
+    if label_height <= 0 or label_height >= bar["height"]:
+        raise ArchetypeError(name + " summary label band exceeds its bar")
+    slots = _equal_rects(
+        bar, len(summary), authored["summaryGap"], [field["id"] for field in summary]
+    )
+    fields = []
+    for field, slot in zip(summary, slots):
+        _ensure_text_fits(
+            field["label"], slot, authored, name + ".summary." + field["id"] + ".label"
+        )
+        _ensure_text_fits(
+            field["value"], slot, authored, name + ".summary." + field["id"] + ".value"
+        )
+        rect = {key: slot[key] for key in ("x", "y", "width", "height")}
+        fields.append(
+            {
+                "id": field["id"],
+                "rect": rect,
+                "label": {
+                    "x": rect["x"],
+                    "y": rect["y"],
+                    "width": rect["width"],
+                    "height": label_height,
+                },
+                "value": {
+                    "x": rect["x"],
+                    "y": rect["y"] + label_height,
+                    "width": rect["width"],
+                    "height": rect["height"] - label_height,
+                },
+            }
+        )
+    return fields
 
 
 def _validate_selection_rows(collection, limits, label):

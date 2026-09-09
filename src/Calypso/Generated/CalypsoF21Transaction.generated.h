@@ -9,6 +9,9 @@ inline constexpr const char* kFormId = "f21-transaction";
 inline constexpr int kFamilyId = 21;
 inline constexpr const char* kArchetype = "small-confirmation";
 inline constexpr const char* kSourceConfig = "FormConfigs/f21-transaction.json";
+inline constexpr const char* kProtocol = "CALYPSO COMMAND · LOGISTICS AUTHORIZATION BE-21";
+inline constexpr const char* kTitle = "REVIEW NEW BASE";
+inline constexpr int kMessageCount = 0;
 
 inline constexpr const char* kDensityProfile = "standard";
 inline constexpr int kPresentationScaleNumerator = 1;

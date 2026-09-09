@@ -10,11 +10,8 @@ inline constexpr bool kProductionHook = true;
 inline constexpr const char* kSelectedSpeed = "time.speed.1min";
 
 struct CalypsoGeoscapeCommandShellGenRect { int x; int y; int w; int h; };
-struct CalypsoGeoscapeCommandShellGenNamedRect
-{
-	const char* id;
-	CalypsoGeoscapeCommandShellGenRect rect;
-};
+struct CalypsoGeoscapeCommandShellGenNamedRect { const char* id; CalypsoGeoscapeCommandShellGenRect rect; };
+
 struct CalypsoGeoscapeCommandShellGenActionLayout
 {
 	const char* id;

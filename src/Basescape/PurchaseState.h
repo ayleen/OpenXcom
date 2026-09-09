@@ -21,9 +21,13 @@
 #include "../Savegame/Transfer.h"
 #include <vector>
 #include <string>
+#include <cstdint>
 
 namespace OpenXcom
 {
+#ifdef __EMSCRIPTEN__
+namespace Calypso { class CalypsoF11PurchaseUi; }
+#endif
 
 class TextButton;
 class Window;
@@ -65,7 +69,13 @@ private:
 	std::map<int, int> _iPrisonQty;
 	Uint8 _ammoColor;
 	Timer *_timerInc, *_timerDec;
-	/// Gets the category of the current selection.
+#ifdef __EMSCRIPTEN__
+	friend class Calypso::CalypsoF11PurchaseUi;
+	bool _hdLayout = false;
+	bool _hdWideLayout = false;
+	Calypso::CalypsoF11PurchaseUi *_hdAdapter = nullptr;
+	std::uint64_t _hdHarnessGeneration = 0;
+#endif
 	std::string getCategory(int sel) const;
 	/// Determines if the current selection belongs to a given category.
 	bool belongsToCategory(int sel, const std::string &cat) const;
@@ -84,6 +94,9 @@ public:
 	~PurchaseState();
 	/// Resets state.
 	void init() override;
+#ifdef __EMSCRIPTEN__
+	void resize(int &dX, int &dY) override;
+#endif
 	/// Runs the timers.
 	void think() override;
 	/// Updates the item list.

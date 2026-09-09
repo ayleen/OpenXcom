@@ -10,11 +10,8 @@ inline constexpr bool kProductionHook = false;
 inline constexpr const char* kSelectedSpeed = "";
 
 struct CalypsoBasescapeShellProofGenRect { int x; int y; int w; int h; };
-struct CalypsoBasescapeShellProofGenNamedRect
-{
-	const char* id;
-	CalypsoBasescapeShellProofGenRect rect;
-};
+struct CalypsoBasescapeShellProofGenNamedRect { const char* id; CalypsoBasescapeShellProofGenRect rect; };
+
 struct CalypsoBasescapeShellProofGenActionLayout
 {
 	const char* id;

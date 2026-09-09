@@ -357,6 +357,7 @@ void CalypsoF21SiteUi::configure(BuildNewBaseState& state, bool allowPhysicalOve
 	if (!state._hdLayout) return;
 
 	state._hdWideLayout = currentF21LayoutClass() == CalypsoLayoutClass::Wide;
+	state._hdHarnessGeneration = calypsoHarnessSession().generation;
 	const CalypsoF21SiteLayout layout = calypsoF21SiteLayout(
 		state._hdWideLayout ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact);
 

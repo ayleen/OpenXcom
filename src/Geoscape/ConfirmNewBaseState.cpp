@@ -138,8 +138,7 @@ ConfirmNewBaseState::ConfirmNewBaseState(Base *base, Globe *globe) : _base(base)
 ConfirmNewBaseState::~ConfirmNewBaseState()
 {
 #ifdef __EMSCRIPTEN__
-	if (_hdLayout) Calypso::hdHarnessDomHide();
-	Calypso::calypsoHdHarnessClose();
+	Calypso::calypsoHdHarnessTeardownForTarget(this, _hdHarnessGeneration);
 	delete _hdAdapter;
 	_hdAdapter = nullptr;
 #endif

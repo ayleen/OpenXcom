@@ -1,6 +1,7 @@
 /* Generated-contract fixture for the shared full-screen HD renderer. */
 #ifdef __EMSCRIPTEN__
 
+#include <cstdint>
 #include <cstring>
 #include <utility>
 
@@ -157,6 +158,7 @@ public:
 		: _scenario(scenario)
 	{
 		_screen = false;
+		_hdHarnessGeneration = calypsoHarnessSession().generation;
 		CalypsoHdScreenRenderModel model = harnessModel();
 		model.sideBySidePreview = calypsoHarnessSession().sideBySide;
 		enableUiScaling(model.designWidth, model.designHeight, 1.0f,
@@ -170,8 +172,7 @@ public:
 	{
 		delete _renderer;
 		_renderer = nullptr;
-		calypsoHdHarnessDomHide();
-		calypsoHdHarnessClose();
+		calypsoHdHarnessTeardownForTarget(this, _hdHarnessGeneration);
 	}
 
 	void resize(int& dX, int& dY) override
@@ -198,6 +199,7 @@ private:
 
 	CalypsoHarnessScenario _scenario;
 	CalypsoHdScreenRenderer* _renderer = nullptr;
+	std::uint64_t _hdHarnessGeneration = 0;
 };
 
 } // namespace

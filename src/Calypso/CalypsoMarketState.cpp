@@ -34,6 +34,9 @@
 #include "../Savegame/SavedGame.h"
 #include "../Engine/Options.h"
 #include "CalypsoEconomy.h"
+#ifdef __EMSCRIPTEN__
+#include "CalypsoF36MarketUi.h"
+#endif
 #include "CalypsoTutorial.h"
 #include "../Basescape/PurchaseState.h"
 #include "../Basescape/SellState.h"
@@ -102,6 +105,9 @@ void CalypsoMarketState::init()
 	refresh();
 	CalypsoTutorial::get().anchorAll({{"market.list", _lstCounterparties}});
 	CalypsoTutorial::get().fire(_game, "market.picker.enter");
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF36MarketUi::configure(*this);
+#endif
 }
 
 /**
@@ -145,6 +151,17 @@ void CalypsoMarketState::lstCounterpartyClick(Action*)
 		_game->pushState(new SellState(_base, 0, OPT_GEOSCAPE, cp));
 	else
 		_game->pushState(new PurchaseState(_base, nullptr, cp));
+}
+
+CalypsoMarketState::~CalypsoMarketState()
+{
+	Calypso::CalypsoF36MarketUi::teardown(*this);
+}
+
+void CalypsoMarketState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF36MarketUi::resize(*this)) return;
+	State::resize(dX, dY);
 }
 
 }

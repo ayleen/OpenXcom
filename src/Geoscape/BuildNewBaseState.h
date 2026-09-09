@@ -17,6 +17,7 @@
  * You should have received a copy of the GNU General Public License
  * along with OpenXcom.  If not, see <http:///www.gnu.org/licenses/>.
  */
+#include <cstdint>
 #include "../Engine/State.h"
 #include "../Calypso/CalypsoGeoscapeHoverTransition.h"
 
@@ -59,6 +60,7 @@ private:
 	friend class Calypso::CalypsoErrorPopupUi;
 	bool _hdLayout = false;
 	bool _hdWideLayout = false;
+	std::uint64_t _hdHarnessGeneration = 0;
 	Text *_hdProtocol = nullptr, *_hdSlot = nullptr, *_hdFunds = nullptr, *_hdCost = nullptr,
 		*_hdCard = nullptr, *_hdCoords = nullptr, *_hdRegion = nullptr,
 		*_hdLegality = nullptr, *_hdPreview = nullptr;

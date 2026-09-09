@@ -261,7 +261,7 @@ def validate_registry(registry):
     allowed_profiles = {"theme", "legacy-abandon", "family", "command-card",
                         "small-confirmation", "contact-decision",
                         "contact-intel-board", "content-block", "screen",
-                        "selection-list"}
+                        "selection-list", "scrollable-collection"}
     for index, entry in enumerate(entries):
         where = "hd-ui-contracts.json: entries[" + str(index) + "]"
         if not isinstance(entry, dict):
@@ -323,6 +323,13 @@ def validate_family(doc, rel, profile, engine_text_calibration=False):
             fail(rel + ": " + profile + " form identity required")
         if doc.get("style") is None or doc.get("layouts") is None:
             fail(rel + ": " + profile + " form must carry style/layouts")
+        copy = doc.get("copy") or {}
+        for key in ("protocol", "title"):
+            if not isinstance(copy.get(key), str) or not copy[key]:
+                fail(rel + ": " + profile + " copy." + key + " required")
+        message = copy.get("message")
+        if not isinstance(message, list) or not all(isinstance(line, str) and line for line in message):
+            fail(rel + ": " + profile + " copy.message must be a list of non-empty lines")
         presentation = doc.get("presentation") or {}
         density = presentation.get("density")
         numerator = presentation.get("scaleNumerator")
@@ -451,6 +458,129 @@ def validate_family(doc, rel, profile, engine_text_calibration=False):
                 fail(rel + ": " + layout_name + " buttons.cancel must be an integer rect")
             if cancel_rect != layout.get("actionCancel"):
                 fail(rel + ": " + layout_name + " buttons.cancel must match the cancel action slot")
+    if profile == "scrollable-collection":
+        form = doc.get("form") or {}
+        if form.get("archetype") != "scrollable-collection" or not form.get("id"):
+            fail(rel + ": scrollable-collection form identity required")
+        if not isinstance(form.get("familyId"), int) or form["familyId"] <= 0:
+            fail(rel + ": scrollable-collection familyId must be a positive integer")
+        if doc.get("style") is None or doc.get("layouts") is None:
+            fail(rel + ": scrollable-collection form must carry style/layouts")
+        collection = form.get("collection") or {}
+        if collection.get("mode") not in ("list", "table", "grid"):
+            fail(rel + ": scrollable-collection mode must be list, table, or grid")
+        columns = collection.get("columns") or []
+        if collection["mode"] != "grid":
+            minimum = 2 if collection["mode"] == "table" else 1
+            if not minimum <= len(columns) <= 8:
+                fail(rel + ": scrollable-collection columns are outside the template limit")
+        actions = form.get("actions") or []
+        if not 1 <= len(actions) <= 3:
+            fail(rel + ": scrollable-collection requires one to three actions")
+        for action in actions:
+            for key in ("id", "label", "tone", "action"):
+                if not isinstance(action.get(key), str) or not action[key]:
+                    fail(rel + ": scrollable-collection action." + key + " required")
+            style = action.get("style") or {}
+            for key in ("fill", "border", "text"):
+                if not isinstance(style.get(key), str) or not re.fullmatch(r"[0-9A-Fa-f]{8}", style[key]):
+                    fail(rel + ": scrollable-collection action.style." + key + " must be packed 8-digit RGBA")
+        copy = doc.get("copy") or {}
+        if not isinstance(copy.get("title"), str) or not copy["title"]:
+            fail(rel + ": scrollable-collection copy.title required")
+        summaries = form.get("summary") or []
+        if len(summaries) > 4:
+            fail(rel + ": scrollable-collection summary exceeds the template limit")
+        for field in summaries:
+            for key in ("id", "label", "value"):
+                if not isinstance(field.get(key), str) or not field[key]:
+                    fail(rel + ": scrollable-collection summary." + key + " required")
+        if ("summary" in form) != ("summary" in copy):
+            fail(rel + ": scrollable-collection summary must appear in form and copy together")
+        if "summary" in copy and copy["summary"] != summaries:
+            fail(rel + ": scrollable-collection copy.summary must match the form fixture")
+        heading = collection.get("heading")
+        if heading is not None:
+            if not isinstance(heading, str) or not heading:
+                fail(rel + ": scrollable-collection collection.heading required")
+            if copy.get("heading") != heading:
+                fail(rel + ": scrollable-collection copy.heading must match the form fixture")
+            if (form.get("controls") or []):
+                fail(rel + ": scrollable-collection heading owns the toolbar band: remove controls or heading")
+        elif "heading" in copy:
+            fail(rel + ": scrollable-collection copy.heading without a form fixture")
+        art = form.get("headerArt")
+        if art is not None:
+            if not isinstance(art.get("assetId"), str) or not art["assetId"]:
+                fail(rel + ": scrollable-collection headerArt.assetId required")
+            path = art.get("vfsPath") or ""
+            if (".." in path or not re.fullmatch(r"Resources/ui-hd/[A-Za-z0-9_-]+\.png", path)):
+                fail(rel + ": scrollable-collection headerArt.vfsPath must be a Resources/ui-hd/ PNG")
+            if copy.get("headerArt") != art:
+                fail(rel + ": scrollable-collection copy.headerArt must match the form fixture")
+        for layout_name in ("wide", "compact"):
+            layout = (doc.get("layouts") or {}).get(layout_name) or {}
+            for part in ("window", "title", "summaryBar", "headerArt", "controlBar",
+                         "viewport", "footer"):
+                rect = layout.get(part)
+                if not rect or not all(isinstance(rect.get(k), int) for k in ("x", "y", "width", "height")):
+                    fail(rel + ": " + layout_name + " " + part + " must be an integer rect")
+            row_height = layout.get("rowHeight")
+            visible_rows = layout.get("visibleRows")
+            if not isinstance(row_height, int) or isinstance(row_height, bool) or row_height < 44:
+                fail(rel + ": " + layout_name + " rowHeight must be an integer >= 44")
+            if not isinstance(visible_rows, int) or isinstance(visible_rows, bool) or visible_rows < 1:
+                fail(rel + ": " + layout_name + " visibleRows must be a positive integer")
+            if collection["mode"] in ("list", "table"):
+                slots = layout.get("rowSlots")
+                if not isinstance(slots, list) or len(slots) != visible_rows:
+                    fail(rel + ": " + layout_name + " rowSlots must cover every visible row")
+                header_height = layout.get("headerHeight", 0)
+                for index, slot in enumerate(slots):
+                    slot_rect = (slot or {}).get("rect", slot)
+                    expected = {"x": layout["viewport"]["x"],
+                                "y": layout["viewport"]["y"] + header_height + index * row_height,
+                                "height": row_height}
+                    if not isinstance(slot_rect, dict) or any(
+                            slot_rect.get(k) != expected[k] for k in ("x", "y", "height")):
+                        fail(rel + ": " + layout_name + " rowSlots[" + str(index) + "] must match the viewport stride")
+            layout_actions = layout.get("actions") or {}
+            for action in actions:
+                rect = layout_actions.get(action["id"])
+                if not rect or not all(isinstance(rect.get(k), int) for k in ("x", "y", "width", "height")):
+                    fail(rel + ": " + layout_name + " actions." + action["id"] + " must be an integer rect")
+            layout_fields = layout.get("summaryFields") or []
+            if len(layout_fields) != len(summaries):
+                fail(rel + ": " + layout_name + " summaryFields must cover every summary fixture")
+            for field, generated in zip(summaries, layout_fields):
+                if generated.get("id") != field["id"]:
+                    fail(rel + ": " + layout_name + " summary field identity drifted")
+                for part in ("rect", "label", "value"):
+                    rect = generated.get(part)
+                    if not rect or not all(isinstance(rect.get(k), int) for k in ("x", "y", "width", "height")):
+                        fail(rel + ": " + layout_name + " summary." + field["id"] + "." + part + " must be an integer rect")
+            heading_rect = layout.get("collectionHeading")
+            if heading is not None:
+                if not heading_rect or not all(isinstance(heading_rect.get(k), int) for k in ("x", "y", "width", "height")):
+                    fail(rel + ": " + layout_name + " collectionHeading must be an integer rect")
+            elif heading_rect is not None:
+                fail(rel + ": " + layout_name + " collectionHeading without a form fixture")
+        parts = doc.get("parts") or []
+        for required in ("window", "title", "summaryBar", "headerArt", "controlBar",
+                         "viewport", "footer"):
+            if required not in parts:
+                fail(rel + ": parts must declare " + required)
+        if heading is not None and "collectionHeading" not in parts:
+            fail(rel + ": parts must declare collectionHeading")
+        if heading is None and "collectionHeading" in parts:
+            fail(rel + ": parts must not declare collectionHeading without a form fixture")
+        for part in parts:
+            if not isinstance(part, str) or not part:
+                fail(rel + ": scrollable-collection part names must be non-empty strings")
+            c_identifier = re.sub(r"[^A-Za-z0-9_]", "_", part)
+            if not IDENT_RE.match(c_identifier):
+                fail(rel + ": scrollable-collection part cannot map to a C identifier: " + repr(part))
+        return
     if profile == "command-card":
         if doc.get("visualProfile") != "command-card-v1":
             fail(rel + ": visualProfile must be command-card-v1")
@@ -1066,6 +1196,17 @@ def emit_small_confirmation_h(doc, rel, ns, prefix):
                                 for fact in form.get("facts", []))
         out.append("inline constexpr const char* kFactLabels[] = { " + fact_labels + " };")
         out.append("inline constexpr int kFactCount = " + str(len(form.get("facts", []))) + ";")
+    if form["archetype"] == "small-confirmation":
+        # Approved contract copy for painted presentation, strictly scoped to
+        # small-confirmation (a bare else here once bound to the wrong branch
+        # and duplicated kProtocol for contact-decision).
+        out += [
+            'inline constexpr const char* kProtocol = ' + json.dumps(copy["protocol"], ensure_ascii=False) + ';',
+            'inline constexpr const char* kTitle = ' + json.dumps(copy["title"], ensure_ascii=False) + ';',
+        ]
+        if copy["message"]:
+            out.append("inline constexpr const char* kMessage[] = { " + ", ".join(json.dumps(line, ensure_ascii=False) for line in copy["message"]) + " };")
+        out.append("inline constexpr int kMessageCount = " + str(len(copy["message"])) + ";")
     out.append("")
     presentation = doc.get("presentation") or {
         "density": "standard", "scaleNumerator": 1, "scaleDenominator": 1}
@@ -1253,6 +1394,178 @@ def emit_selection_list_h(doc, rel, ns, prefix):
     out.append("} } }")
     return NL.join(out) + NL
 
+def _collection_rect(value):
+    return ("{ " + str(value["x"]) + ", " + str(value["y"]) + ", "
+            + str(value["width"]) + ", " + str(value["height"]) + " }")
+
+
+def emit_scrollable_collection_h(doc, rel, ns, prefix):
+    """Emitter for scrollable-collection tables sharing the canonical consumer."""
+    layouts = doc["layouts"]
+    form = doc["form"]
+    copy = doc["copy"]
+    style = doc["style"]
+    m = doc["motion"]
+    generated_layouts = [name for name in ("wide", "compact") if name in layouts]
+    actions = form["actions"]
+    collection = form["collection"]
+    columns = collection.get("columns", [])
+    summaries = form.get("summary", [])
+    art = form.get("headerArt")
+    out = [HEADER_BANNER,
+           "// Canonical source: src/Calypso/Contracts/" + rel,
+           "#pragma once",
+           "#include <cstdint>",
+           "namespace OpenXcom { namespace Calypso { namespace " + ns + " {",
+           'inline constexpr const char* kContractVersion = "' + doc["version"] + '";',
+           'inline constexpr const char* kFormId = "' + form["id"] + '";',
+           "inline constexpr int kFamilyId = " + str(form["familyId"]) + ";",
+           'inline constexpr const char* kArchetype = "' + form["archetype"] + '";',
+           'inline constexpr const char* kSourceConfig = "' + form["source"] + '";',
+           "",
+           'inline constexpr const char* kTitle = ' + json.dumps(copy["title"], ensure_ascii=False) + ';',
+           ""]
+    out.append("struct " + prefix + "GenButton { const char* id; const char* label; const char* tone; const char* action; std::uint32_t fill; std::uint32_t border; std::uint32_t text; };")
+    out.append("inline constexpr " + prefix + "GenButton kButtons[] = {")
+    for button in actions:
+        out.append('    { "' + button["id"] + '", ' + json.dumps(button["label"], ensure_ascii=False)
+                   + ', "' + button["tone"] + '", "' + button["action"] + '", '
+                   + rgba_call(button["style"]["fill"]) + ", " + rgba_call(button["style"]["border"]) + ", "
+                   + rgba_call(button["style"]["text"]) + " },")
+    out.append("};")
+    out.append("inline constexpr int kButtonCount = " + str(len(actions)) + ";")
+    out.append("")
+    out.append("struct " + prefix + "GenColumn { const char* id; const char* label; };")
+    if columns:
+        out.append("inline constexpr " + prefix + "GenColumn kColumns[] = {")
+        for column in columns:
+            out.append('    { "' + column["id"] + '", ' + json.dumps(column["label"], ensure_ascii=False) + " },")
+        out.append("};")
+    out.append("inline constexpr int kColumnCount = " + str(len(columns)) + ";")
+    out.append("")
+    out.append("struct " + prefix + "GenSummaryField { const char* id; const char* label; const char* value; };")
+    if summaries:
+        out.append("inline constexpr " + prefix + "GenSummaryField kSummary[] = {")
+        for field in summaries:
+            out.append('    { "' + field["id"] + '", ' + json.dumps(field["label"], ensure_ascii=False)
+                       + ", " + json.dumps(field["value"], ensure_ascii=False) + " },")
+        out.append("};")
+    out.append("inline constexpr int kSummaryCount = " + str(len(summaries)) + ";")
+    heading = collection.get("heading")
+    if heading is not None:
+        out.append('inline constexpr const char* kCollectionHeading = ' + json.dumps(heading, ensure_ascii=False) + ';')
+    else:
+        out.append('inline constexpr const char* kCollectionHeading = "";')
+    out.append("inline constexpr int kHasCollectionHeading = " + ("1" if heading is not None else "0") + ";")
+    if art is not None:
+        out.append('inline constexpr const char* kHeaderArtAssetId = "' + art["assetId"] + '";')
+        out.append('inline constexpr const char* kHeaderArtVfsPath = "' + art["vfsPath"] + '";')
+    else:
+        out.append('inline constexpr const char* kHeaderArtAssetId = "";')
+        out.append('inline constexpr const char* kHeaderArtVfsPath = "";')
+    out.append("inline constexpr int kHasHeaderArt = " + ("1" if art is not None else "0") + ";")
+    out.append("inline constexpr float kPresentationScale = 1.000000f;")
+    out.append("inline constexpr float kCutCornerPx = %.6ff;" % float(style["cutCornerPx"]))
+    out.append("struct " + prefix + "GenRect { int x; int y; int w; int h; };")
+    for key in ("panelFillTop", "panelFillBottom", "frame", "divider", "text",
+                "mutedText", "selection", "scrollTrack", "scrollThumb", "headerArtScrim"):
+        value = style.get(key)
+        if not isinstance(value, str) or not re.fullmatch(r"[0-9A-Fa-f]{8}", value):
+            fail(rel + ": scrollable-collection style." + key + " must be packed 8-digit RGBA")
+        out.append("inline constexpr std::uint32_t k" + key[0].upper() + key[1:] + " = " + rgba_call(value) + ";")
+    opacity = style.get("headerArtOpacityPct")
+    if not isinstance(opacity, int) or isinstance(opacity, bool) or not 1 <= opacity <= 100:
+        fail(rel + ": scrollable-collection style.headerArtOpacityPct must be an integer percent 1..100")
+    out.append("inline constexpr int kHeaderArtOpacityPct = " + str(opacity) + ";")
+    out.append("struct " + prefix + "GenButtonRect { const char* id; " + prefix + "GenRect rect; };")
+    out.append("struct " + prefix + "GenControlRect { const char* id; " + prefix + "GenRect rect; };")
+    out.append("struct " + prefix + "GenSummaryRect { " + prefix + "GenRect field; " + prefix + "GenRect label; " + prefix + "GenRect value; };")
+    out.append("struct " + prefix + "GenLayout { int designWidth; int designHeight; int rowHeight; int visibleRows; int headerHeight; int scrollBarWidth; int minThumbHeight; int columnCount; int summaryCount; int hasHeaderArt; "
+               + prefix + "GenRect window; " + prefix + "GenRect title; " + prefix + "GenRect summaryBar; " + prefix + "GenRect headerArt; "
+               + prefix + "GenRect controlBar; " + prefix + "GenRect collectionHeading; " + prefix + "GenRect viewport; " + prefix + "GenRect footer;")
+    out.append("};")
+    out.append("inline constexpr " + prefix + "GenLayout kLayouts[] = {")
+    for name in generated_layouts:
+        l = layouts[name]
+        heading_rect = l.get("collectionHeading") or {"x": 0, "y": 0, "width": 0, "height": 0}
+        out.append("    { " + str(l["designWidth"]) + ", " + str(l["designHeight"]) + ", "
+                   + str(l["rowHeight"]) + ", " + str(l["visibleRows"]) + ", " + str(l.get("headerHeight", 0)) + ", "
+                   + str(l["scrollbarWidth"]) + ", " + str(l["minThumbHeight"]) + ", " + str(len(columns)) + ", "
+                   + str(len(summaries)) + ", " + ("1" if art is not None else "0") + ", "
+                   + _collection_rect(l["window"]) + ", " + _collection_rect(l["title"]) + ", "
+                   + _collection_rect(l["summaryBar"]) + ", " + _collection_rect(l["headerArt"]) + ", "
+                   + _collection_rect(l["controlBar"]) + ", " + _collection_rect(heading_rect) + ", "
+                   + _collection_rect(l["viewport"]) + ", " + _collection_rect(l["footer"]) + " }, // " + name)
+    out.append("};")
+    for name in generated_layouts:
+        l = layouts[name]
+        tag = name.capitalize()
+        if l.get("rowSlots"):
+            out.append("inline constexpr " + prefix + "GenRect kRowSlots" + tag + "[] = {")
+            for slot in l["rowSlots"]:
+                out.append("    " + _collection_rect(slot["rect"]) + ", // " + slot["id"])
+            out.append("};")
+            out.append("inline constexpr int kRowSlot" + tag + "Count = " + str(len(l["rowSlots"])) + ";")
+            cells = [cell for slot in l["rowSlots"] for cell in slot.get("cells", [])]
+            if cells:
+                out.append("inline constexpr " + prefix + "GenRect kRowCells" + tag + "[] = {")
+                for cell in cells:
+                    out.append("    " + _collection_rect(cell["rect"]) + ", // " + cell["id"])
+                out.append("};")
+            out.append("inline constexpr int kRowCell" + tag + "Count = " + str(len(cells)) + ";")
+        headers = l.get("columnHeaders", [])
+        if headers:
+            out.append("inline constexpr " + prefix + "GenRect kColumnHeaders" + tag + "[] = {")
+            for header in headers:
+                out.append("    " + _collection_rect(header["rect"]) + ", // " + header["id"])
+            out.append("};")
+        out.append("inline constexpr int kColumnHeader" + tag + "Count = " + str(len(headers)) + ";")
+        tiles = l.get("tileSlots", [])
+        if tiles:
+            out.append("inline constexpr " + prefix + "GenRect kTileSlots" + tag + "[] = {")
+            for tile in tiles:
+                out.append("    " + _collection_rect(tile["rect"]) + ", // " + tile["id"])
+            out.append("};")
+            out.append("inline constexpr " + prefix + "GenRect kTileLabels" + tag + "[] = {")
+            for tile in tiles:
+                out.append("    " + _collection_rect(tile["label"]) + ", // " + tile["id"])
+            out.append("};")
+        out.append("inline constexpr int kTileSlot" + tag + "Count = " + str(len(tiles)) + ";")
+        button_rects = l.get("actions") or {}
+        if button_rects:
+            out.append("inline constexpr " + prefix + "GenButtonRect kButtonRects" + tag + "[] = {")
+            for button in actions:
+                out.append('    { "' + button["id"] + '", ' + _collection_rect(button_rects[button["id"]]) + " },")
+            out.append("};")
+        out.append("inline constexpr int kButtonRect" + tag + "Count = " + str(len(button_rects)) + ";")
+        control_rects = l.get("controls") or {}
+        if control_rects:
+            out.append("inline constexpr " + prefix + "GenControlRect kControlRects" + tag + "[] = {")
+            for control_id in sorted(control_rects):
+                out.append('    { "' + control_id + '", ' + _collection_rect(control_rects[control_id]) + " },")
+            out.append("};")
+        out.append("inline constexpr int kControlRect" + tag + "Count = " + str(len(control_rects)) + ";")
+        summary_rects = l.get("summaryFields", [])
+        if summary_rects:
+            out.append("inline constexpr " + prefix + "GenSummaryRect kSummary" + tag + "[] = {")
+            for field in summary_rects:
+                out.append("    { " + _collection_rect(field["rect"]) + ", " + _collection_rect(field["label"]) + ", "
+                           + _collection_rect(field["value"]) + " }, // " + field["id"])
+            out.append("};")
+        out.append("inline constexpr int kSummary" + tag + "Count = " + str(len(summary_rects)) + ";")
+    out.append("inline constexpr int kLayoutCount = " + str(len(generated_layouts)) + ";")
+    out.append("inline constexpr int kMotionDurationMs = " + str(int(m["durationMs"])) + ";")
+    out.append("inline constexpr float kMotionScaleFrom = %.6ff;" % float(m["scaleFrom"]))
+    out.append("inline const " + prefix + "GenLayout* layoutForDesign(int dw, int dh)")
+    out.append("{")
+    out.append("	for (int i = 0; i < kLayoutCount; ++i)")
+    out.append("		if (kLayouts[i].designWidth == dw && kLayouts[i].designHeight == dh)")
+    out.append("			return &kLayouts[i];")
+    out.append("	return nullptr;")
+    out.append("}")
+    out.append("} } }")
+    return NL.join(out) + NL
+
 
 def emit_family_h(doc, rel, ns, prefix, profile):
     """Generic F21-family emitter: one rect member per declared part."""
@@ -1366,11 +1679,8 @@ def emit_screen_h(doc, rel, ns, prefix):
            + cpp_string(str((doc.get("fixture") or {}).get("selectedSpeed", ""))) + ";",
            "",
            "struct " + prefix + "GenRect { int x; int y; int w; int h; };",
-           "struct " + prefix + "GenNamedRect",
-           "{",
-           TAB + "const char* id;",
-           TAB + prefix + "GenRect rect;",
-           "};",
+           "struct " + prefix + "GenNamedRect { const char* id; " + prefix + "GenRect rect; };",
+           "",
            "struct " + prefix + "GenActionLayout",
            "{",
            TAB + "const char* id;",
@@ -1532,6 +1842,9 @@ def main(argv):
                 doc, rel, native["namespace"], native["prefix"])
         elif entry["validationProfile"] == "selection-list":
             native_text = emit_selection_list_h(
+                doc, rel, native["namespace"], native["prefix"])
+        elif entry["validationProfile"] == "scrollable-collection":
+            native_text = emit_scrollable_collection_h(
                 doc, rel, native["namespace"], native["prefix"])
         else:
             native_text = emit_family_h(

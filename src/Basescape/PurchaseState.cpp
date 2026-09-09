@@ -58,6 +58,10 @@
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoTutorial.h"
 #endif
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF11MarketUi.h"
+#include "../Calypso/CalypsoHdHarnessHostState.h"
+#endif
 
 namespace OpenXcom
 {
@@ -389,6 +393,9 @@ PurchaseState::PurchaseState(Base *base, CannotReequipState *parent, const std::
 	_timerInc->onTimer((StateHandler)&PurchaseState::increase);
 	_timerDec = new Timer(250);
 	_timerDec->onTimer((StateHandler)&PurchaseState::decrease);
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF11PurchaseUi::configure(*this);
+#endif
 }
 
 /**
@@ -396,6 +403,9 @@ PurchaseState::PurchaseState(Base *base, CannotReequipState *parent, const std::
  */
 PurchaseState::~PurchaseState()
 {
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF11PurchaseUi::teardown(*this);
+#endif
 	delete _timerInc;
 	delete _timerDec;
 }
@@ -1372,5 +1382,12 @@ void PurchaseState::cbxCategoryChange(Action *)
 {
 	updateList();
 }
+#ifdef __EMSCRIPTEN__
+void PurchaseState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF11PurchaseUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+#endif
 
 }

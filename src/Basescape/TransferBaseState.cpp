@@ -33,6 +33,9 @@
 #include "../Mod/RuleRegion.h"
 #include "TransferItemsState.h"
 #include "../Battlescape/DebriefingState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF12TransferUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -108,11 +111,14 @@ TransferBaseState::TransferBaseState(Base *base, DebriefingState *debriefingStat
 			}
 			std::ostringstream ss;
 			ss << Unicode::TOK_COLOR_FLIP << area;
-			_lstBases->addRow(2, xbase->getName().c_str(), ss.str().c_str());
-			_bases.push_back(xbase);
-			row++;
+		_lstBases->addRow(2, xbase->getName().c_str(), ss.str().c_str());
+		_bases.push_back(xbase);
+		row++;
 		}
 	}
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF12TransferBaseUi::configure(*this);
+#endif
 }
 
 /**
@@ -120,6 +126,9 @@ TransferBaseState::TransferBaseState(Base *base, DebriefingState *debriefingStat
  */
 TransferBaseState::~TransferBaseState()
 {
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF12TransferBaseUi::teardown(*this);
+#endif
 }
 
 /**
@@ -140,4 +149,11 @@ void TransferBaseState::lstBasesClick(Action *)
 	_game->pushState(new TransferItemsState(_base, _bases[_lstBases->getSelectedRow()], _debriefingState));
 }
 
+#ifdef __EMSCRIPTEN__
+void TransferBaseState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF12TransferBaseUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+#endif
 }

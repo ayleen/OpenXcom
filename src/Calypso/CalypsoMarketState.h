@@ -20,11 +20,16 @@
 #include "../Engine/State.h"
 #include <string>
 #include <vector>
+#include <cstdint>
 namespace OpenXcom {
+#ifdef __EMSCRIPTEN__
+namespace Calypso { class CalypsoF36MarketUi; }
+#endif
 class TextButton; class Window; class Text; class TextList; class Base;
 class CalypsoMarketState : public State
 {
 private:
+	friend class Calypso::CalypsoF36MarketUi;
 	Base* _base;
 	bool _sellMode;
 	Window* _window;
@@ -32,11 +37,20 @@ private:
 	TextButton* _btnCancel;
 	TextList* _lstCounterparties;
 	std::vector<std::string> _rowCp;   // row -> counterparty id (row-aligned with the list)
+#ifdef __EMSCRIPTEN__
+	bool _hdLayout = false;
+	bool _hdWideLayout = false;
+	Calypso::CalypsoF36MarketUi *_hdAdapter = nullptr;
+	std::uint64_t _hdHarnessGeneration = 0;
+#endif
 	void refresh();
 public:
 	CalypsoMarketState(Base* base, bool sellMode);
-	~CalypsoMarketState() override = default;
+	~CalypsoMarketState() override;
 	void init() override;
+#ifdef __EMSCRIPTEN__
+	void resize(int &dX, int &dY) override;
+#endif
 	void btnCancelClick(Action* action);
 	void lstCounterpartyClick(Action* action);
 };

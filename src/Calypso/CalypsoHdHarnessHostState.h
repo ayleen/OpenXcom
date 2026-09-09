@@ -79,6 +79,16 @@ void calypsoHdHarnessClose();
 void calypsoHdHarnessDomShow();
 void calypsoHdHarnessDomHide();
 
+/// Target-scoped teardown for state destructors and adapter teardowns: when
+/// (target, gen) is still the active preview, hides the DOM surface and runs
+/// the full close cleanup (cursor restore, fixture lease restore/delete,
+/// session reset, side-by-side reset) exactly once through the shared close
+/// entry point. Deferred destruction of a superseded target is a no-op and
+/// can never hide or close a newer preview; genuine teardown of the live
+/// target keeps prior behavior. Returns true when it tore down. Callers must
+/// invoke only this helper, never follow it with a second close.
+bool calypsoHdHarnessTeardownForTarget(const void* target, std::uint64_t generation);
+
 } // namespace Calypso
 } // namespace OpenXcom
 

@@ -22,6 +22,7 @@
 
 namespace OpenXcom
 {
+namespace Calypso { class CalypsoF12TransferBaseUi; }
 
 class TextButton;
 class Window;
@@ -36,6 +37,9 @@ class DebriefingState;
  */
 class TransferBaseState : public State
 {
+#ifdef __EMSCRIPTEN__
+friend class Calypso::CalypsoF12TransferBaseUi;
+#endif
 private:
 	Base *_base;
 	DebriefingState *_debriefingState;
@@ -44,6 +48,15 @@ private:
 	Text *_txtTitle, *_txtFunds, *_txtName, *_txtArea;
 	TextList *_lstBases;
 	std::vector<Base*> _bases;
+#ifdef __EMSCRIPTEN__
+private:
+    bool _hdLayout = false;
+    bool _hdWideLayout = false;
+    Calypso::CalypsoF12TransferBaseUi *_hdAdapter = nullptr;
+    std::uint64_t _hdHarnessGeneration = 0;
+public:
+    void resize(int &dX, int &dY) override;
+#endif
 public:
 	/// Creates the Transfer Base state.
 	TransferBaseState(Base *base, DebriefingState *debriefingState);

@@ -1,0 +1,1171 @@
+{
+  "schema": 1,
+  "version": "hd.2026-08-29.1",
+  "form": {
+    "id": "f11-purchase",
+    "familyId": 11,
+    "archetype": "scrollable-collection",
+    "source": "FormConfigs/f11-purchase.json",
+    "actions": [
+      {
+        "action": "confirm",
+        "id": "ok",
+        "label": "OK",
+        "tone": "primary",
+        "style": {
+          "fill": "74FFB0FF",
+          "border": "74FFB0FF",
+          "text": "071013FF"
+        }
+      },
+      {
+        "action": "cancel",
+        "id": "cancel",
+        "label": "CANCEL",
+        "tone": "safe",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB0CC",
+          "text": "E8FFF5FF"
+        }
+      }
+    ],
+    "collection": {
+      "columns": [
+        {
+          "id": "item",
+          "label": "ITEM"
+        },
+        {
+          "id": "cost",
+          "label": "COST PER UNIT"
+        },
+        {
+          "id": "available",
+          "label": "AVAILABLE"
+        },
+        {
+          "id": "order",
+          "label": "ORDER"
+        }
+      ],
+      "items": [
+        {
+          "id": "fixture-diver",
+          "values": [
+            "DIVER",
+            "$40 000",
+            "20",
+            "0"
+          ]
+        },
+        {
+          "id": "fixture-scientist",
+          "values": [
+            "SCIENTIST",
+            "$30 000",
+            "14",
+            "2"
+          ]
+        },
+        {
+          "id": "fixture-engineer",
+          "values": [
+            "ENGINEER",
+            "$25 000",
+            "11",
+            "0"
+          ]
+        },
+        {
+          "id": "fixture-triton",
+          "values": [
+            "TRITON",
+            "$1 200 000",
+            "1",
+            "0"
+          ]
+        },
+        {
+          "id": "fixture-dart-gun",
+          "values": [
+            "DART GUN",
+            "$3 000",
+            "12",
+            "2"
+          ]
+        },
+        {
+          "id": "fixture-dart-pod",
+          "values": [
+            "DART POD",
+            "$250",
+            "40",
+            "8"
+          ]
+        },
+        {
+          "id": "fixture-gauss-rifle",
+          "values": [
+            "GAUSS RIFLE",
+            "$18 000",
+            "3",
+            "1"
+          ]
+        },
+        {
+          "id": "fixture-gauss-clip",
+          "values": [
+            "GAUSS CLIP",
+            "$900",
+            "24",
+            "6"
+          ]
+        },
+        {
+          "id": "fixture-medi-kit",
+          "values": [
+            "MEDI-KIT",
+            "$6 000",
+            "9",
+            "2"
+          ]
+        },
+        {
+          "id": "fixture-aqua-plastics",
+          "values": [
+            "AQUA PLASTICS",
+            "$15 000",
+            "7",
+            "3"
+          ]
+        }
+      ],
+      "mode": "table",
+      "selectionRole": "purchase"
+    },
+    "controls": [
+      {
+        "action": "change-category",
+        "id": "category-filter",
+        "kind": "select",
+        "label": "CATEGORY",
+        "options": [
+          {
+            "id": "all-items",
+            "label": "ALL ITEMS"
+          },
+          {
+            "id": "personnel",
+            "label": "PERSONNEL"
+          },
+          {
+            "id": "craft",
+            "label": "CRAFT"
+          },
+          {
+            "id": "equipment",
+            "label": "EQUIPMENT"
+          }
+        ],
+        "value": "all-items"
+      },
+      {
+        "action": "filter-items",
+        "id": "quick-search",
+        "kind": "text-input",
+        "label": "SEARCH",
+        "placeholder": "TYPE TO FILTER",
+        "value": ""
+      }
+    ],
+    "buttons": [
+      {
+        "id": "ok",
+        "label": "OK",
+        "tone": "primary",
+        "action": "confirm",
+        "style": {
+          "fill": "74FFB0FF",
+          "border": "74FFB0FF",
+          "text": "071013FF"
+        }
+      },
+      {
+        "id": "cancel",
+        "label": "CANCEL",
+        "tone": "safe",
+        "action": "cancel",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB0CC",
+          "text": "E8FFF5FF"
+        }
+      }
+    ],
+    "visibleButtons": [
+      "ok",
+      "cancel"
+    ],
+    "summary": [
+      {
+        "id": "funds",
+        "label": "FUNDS",
+        "value": "$27 550 246"
+      },
+      {
+        "id": "order",
+        "label": "PURCHASES",
+        "value": "$245 000"
+      }
+    ],
+    "headerArt": {
+      "assetId": "logistics-purchase-header",
+      "vfsPath": "Resources/ui-hd/f11-purchase-header.png"
+    }
+  },
+  "copy": {
+    "title": "PURCHASE / HIRE",
+    "summary": [
+      {
+        "id": "funds",
+        "label": "FUNDS",
+        "value": "$27 550 246"
+      },
+      {
+        "id": "order",
+        "label": "PURCHASES",
+        "value": "$245 000"
+      }
+    ],
+    "headerArt": {
+      "assetId": "logistics-purchase-header",
+      "vfsPath": "Resources/ui-hd/f11-purchase-header.png"
+    }
+  },
+  "style": {
+    "panelFillTop": "08191DEB",
+    "panelFillBottom": "041014E8",
+    "frame": "74FFB073",
+    "divider": "74FFB04D",
+    "text": "E8FFF5FF",
+    "mutedText": "A9D8C7FF",
+    "selection": "74FFB033",
+    "scrollTrack": "061B1CD6",
+    "scrollThumb": "74FFB099",
+    "cutCornerPx": 14,
+    "headerArtOpacityPct": 85,
+    "headerArtScrim": "04090DCC"
+  },
+  "layouts": {
+    "wide": {
+      "designWidth": 1280,
+      "designHeight": 720,
+      "window": {
+        "x": 100,
+        "y": 50,
+        "width": 1080,
+        "height": 620
+      },
+      "title": {
+        "x": 132,
+        "y": 74,
+        "width": 500,
+        "height": 44
+      },
+      "summaryBar": {
+        "x": 648,
+        "y": 74,
+        "width": 500,
+        "height": 44
+      },
+      "headerArt": {
+        "x": 100,
+        "y": 50,
+        "width": 1080,
+        "height": 68
+      },
+      "controlBar": {
+        "x": 132,
+        "y": 124,
+        "width": 1016,
+        "height": 44
+      },
+      "controls": {
+        "category-filter": {
+          "x": 132,
+          "y": 124,
+          "width": 220,
+          "height": 44
+        },
+        "quick-search": {
+          "x": 362,
+          "y": 124,
+          "width": 220,
+          "height": 44
+        }
+      },
+      "viewport": {
+        "x": 132,
+        "y": 178,
+        "width": 1016,
+        "height": 406
+      },
+      "footer": {
+        "x": 100,
+        "y": 600,
+        "width": 1080,
+        "height": 70
+      },
+      "actions": {
+        "ok": {
+          "x": 822,
+          "y": 613,
+          "width": 158,
+          "height": 44
+        },
+        "cancel": {
+          "x": 990,
+          "y": 613,
+          "width": 158,
+          "height": 44
+        }
+      },
+      "rowHeight": 44,
+      "visibleRows": 8,
+      "headerHeight": 36,
+      "scrollbarWidth": 18,
+      "minThumbHeight": 44,
+      "summaryFields": [
+        {
+          "id": "funds",
+          "rect": {
+            "x": 648,
+            "y": 74,
+            "width": 245,
+            "height": 44
+          },
+          "label": {
+            "x": 648,
+            "y": 74,
+            "width": 245,
+            "height": 16
+          },
+          "value": {
+            "x": 648,
+            "y": 90,
+            "width": 245,
+            "height": 28
+          }
+        },
+        {
+          "id": "order",
+          "rect": {
+            "x": 903,
+            "y": 74,
+            "width": 245,
+            "height": 44
+          },
+          "label": {
+            "x": 903,
+            "y": 74,
+            "width": 245,
+            "height": 16
+          },
+          "value": {
+            "x": 903,
+            "y": 90,
+            "width": 245,
+            "height": 28
+          }
+        }
+      ],
+      "columnHeaders": [
+        {
+          "id": "item",
+          "rect": {
+            "x": 132,
+            "y": 178,
+            "width": 239,
+            "height": 36
+          }
+        },
+        {
+          "id": "cost",
+          "rect": {
+            "x": 372,
+            "y": 178,
+            "width": 239,
+            "height": 36
+          }
+        },
+        {
+          "id": "available",
+          "rect": {
+            "x": 612,
+            "y": 178,
+            "width": 239,
+            "height": 36
+          }
+        },
+        {
+          "id": "order",
+          "rect": {
+            "x": 852,
+            "y": 178,
+            "width": 242,
+            "height": 36
+          }
+        }
+      ],
+      "rowSlots": [
+        {
+          "id": "row-slot-1",
+          "rect": {
+            "x": 132,
+            "y": 214,
+            "width": 962,
+            "height": 44
+          },
+          "cells": [
+            {
+              "id": "item",
+              "rect": {
+                "x": 132,
+                "y": 214,
+                "width": 239,
+                "height": 44
+              }
+            },
+            {
+              "id": "cost",
+              "rect": {
+                "x": 372,
+                "y": 214,
+                "width": 239,
+                "height": 44
+              }
+            },
+            {
+              "id": "available",
+              "rect": {
+                "x": 612,
+                "y": 214,
+                "width": 239,
+                "height": 44
+              }
+            },
+            {
+              "id": "order",
+              "rect": {
+                "x": 852,
+                "y": 214,
+                "width": 242,
+                "height": 44
+              }
+            }
+          ]
+        },
+        {
+          "id": "row-slot-2",
+          "rect": {
+            "x": 132,
+            "y": 258,
+            "width": 962,
+            "height": 44
+          },
+          "cells": [
+            {
+              "id": "item",
+              "rect": {
+                "x": 132,
+                "y": 258,
+                "width": 239,
+                "height": 44
+              }
+            },
+            {
+              "id": "cost",
+              "rect": {
+                "x": 372,
+                "y": 258,
+                "width": 239,
+                "height": 44
+              }
+            },
+            {
+              "id": "available",
+              "rect": {
+                "x": 612,
+                "y": 258,
+                "width": 239,
+                "height": 44
+              }
+            },
+            {
+              "id": "order",
+              "rect": {
+                "x": 852,
+                "y": 258,
+                "width": 242,
+                "height": 44
+              }
+            }
+          ]
+        },
+        {
+          "id": "row-slot-3",
+          "rect": {
+            "x": 132,
+            "y": 302,
+            "width": 962,
+            "height": 44
+          },
+          "cells": [
+            {
+              "id": "item",
+              "rect": {
+                "x": 132,
+                "y": 302,
+                "width": 239,
+                "height": 44
+              }
+            },
+            {
+              "id": "cost",
+              "rect": {
+                "x": 372,
+                "y": 302,
+                "width": 239,
+                "height": 44
+              }
+            },
+            {
+              "id": "available",
+              "rect": {
+                "x": 612,
+                "y": 302,
+                "width": 239,
+                "height": 44
+              }
+            },
+            {
+              "id": "order",
+              "rect": {
+                "x": 852,
+                "y": 302,
+                "width": 242,
+                "height": 44
+              }
+            }
+          ]
+        },
+        {
+          "id": "row-slot-4",
+          "rect": {
+            "x": 132,
+            "y": 346,
+            "width": 962,
+            "height": 44
+          },
+          "cells": [
+            {
+              "id": "item",
+              "rect": {
+                "x": 132,
+                "y": 346,
+                "width": 239,
+                "height": 44
+              }
+            },
+            {
+              "id": "cost",
+              "rect": {
+                "x": 372,
+                "y": 346,
+                "width": 239,
+                "height": 44
+              }
+            },
+            {
+              "id": "available",
+              "rect": {
+                "x": 612,
+                "y": 346,
+                "width": 239,
+                "height": 44
+              }
+            },
+            {
+              "id": "order",
+              "rect": {
+                "x": 852,
+                "y": 346,
+                "width": 242,
+                "height": 44
+              }
+            }
+          ]
+        },
+        {
+          "id": "row-slot-5",
+          "rect": {
+            "x": 132,
+            "y": 390,
+            "width": 962,
+            "height": 44
+          },
+          "cells": [
+            {
+              "id": "item",
+              "rect": {
+                "x": 132,
+                "y": 390,
+                "width": 239,
+                "height": 44
+              }
+            },
+            {
+              "id": "cost",
+              "rect": {
+                "x": 372,
+                "y": 390,
+                "width": 239,
+                "height": 44
+              }
+            },
+            {
+              "id": "available",
+              "rect": {
+                "x": 612,
+                "y": 390,
+                "width": 239,
+                "height": 44
+              }
+            },
+            {
+              "id": "order",
+              "rect": {
+                "x": 852,
+                "y": 390,
+                "width": 242,
+                "height": 44
+              }
+            }
+          ]
+        },
+        {
+          "id": "row-slot-6",
+          "rect": {
+            "x": 132,
+            "y": 434,
+            "width": 962,
+            "height": 44
+          },
+          "cells": [
+            {
+              "id": "item",
+              "rect": {
+                "x": 132,
+                "y": 434,
+                "width": 239,
+                "height": 44
+              }
+            },
+            {
+              "id": "cost",
+              "rect": {
+                "x": 372,
+                "y": 434,
+                "width": 239,
+                "height": 44
+              }
+            },
+            {
+              "id": "available",
+              "rect": {
+                "x": 612,
+                "y": 434,
+                "width": 239,
+                "height": 44
+              }
+            },
+            {
+              "id": "order",
+              "rect": {
+                "x": 852,
+                "y": 434,
+                "width": 242,
+                "height": 44
+              }
+            }
+          ]
+        },
+        {
+          "id": "row-slot-7",
+          "rect": {
+            "x": 132,
+            "y": 478,
+            "width": 962,
+            "height": 44
+          },
+          "cells": [
+            {
+              "id": "item",
+              "rect": {
+                "x": 132,
+                "y": 478,
+                "width": 239,
+                "height": 44
+              }
+            },
+            {
+              "id": "cost",
+              "rect": {
+                "x": 372,
+                "y": 478,
+                "width": 239,
+                "height": 44
+              }
+            },
+            {
+              "id": "available",
+              "rect": {
+                "x": 612,
+                "y": 478,
+                "width": 239,
+                "height": 44
+              }
+            },
+            {
+              "id": "order",
+              "rect": {
+                "x": 852,
+                "y": 478,
+                "width": 242,
+                "height": 44
+              }
+            }
+          ]
+        },
+        {
+          "id": "row-slot-8",
+          "rect": {
+            "x": 132,
+            "y": 522,
+            "width": 962,
+            "height": 44
+          },
+          "cells": [
+            {
+              "id": "item",
+              "rect": {
+                "x": 132,
+                "y": 522,
+                "width": 239,
+                "height": 44
+              }
+            },
+            {
+              "id": "cost",
+              "rect": {
+                "x": 372,
+                "y": 522,
+                "width": 239,
+                "height": 44
+              }
+            },
+            {
+              "id": "available",
+              "rect": {
+                "x": 612,
+                "y": 522,
+                "width": 239,
+                "height": 44
+              }
+            },
+            {
+              "id": "order",
+              "rect": {
+                "x": 852,
+                "y": 522,
+                "width": 242,
+                "height": 44
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "compact": {
+      "designWidth": 740,
+      "designHeight": 360,
+      "window": {
+        "x": 20,
+        "y": 8,
+        "width": 700,
+        "height": 344
+      },
+      "title": {
+        "x": 44,
+        "y": 24,
+        "width": 328,
+        "height": 44
+      },
+      "summaryBar": {
+        "x": 384,
+        "y": 24,
+        "width": 312,
+        "height": 44
+      },
+      "headerArt": {
+        "x": 20,
+        "y": 8,
+        "width": 700,
+        "height": 60
+      },
+      "controlBar": {
+        "x": 44,
+        "y": 72,
+        "width": 652,
+        "height": 44
+      },
+      "controls": {
+        "category-filter": {
+          "x": 44,
+          "y": 72,
+          "width": 196,
+          "height": 44
+        },
+        "quick-search": {
+          "x": 248,
+          "y": 72,
+          "width": 196,
+          "height": 44
+        }
+      },
+      "viewport": {
+        "x": 44,
+        "y": 122,
+        "width": 652,
+        "height": 160
+      },
+      "footer": {
+        "x": 20,
+        "y": 294,
+        "width": 700,
+        "height": 58
+      },
+      "actions": {
+        "ok": {
+          "x": 388,
+          "y": 301,
+          "width": 148,
+          "height": 44
+        },
+        "cancel": {
+          "x": 548,
+          "y": 301,
+          "width": 148,
+          "height": 44
+        }
+      },
+      "rowHeight": 44,
+      "visibleRows": 2,
+      "headerHeight": 32,
+      "scrollbarWidth": 18,
+      "minThumbHeight": 44,
+      "summaryFields": [
+        {
+          "id": "funds",
+          "rect": {
+            "x": 384,
+            "y": 24,
+            "width": 152,
+            "height": 44
+          },
+          "label": {
+            "x": 384,
+            "y": 24,
+            "width": 152,
+            "height": 14
+          },
+          "value": {
+            "x": 384,
+            "y": 38,
+            "width": 152,
+            "height": 30
+          }
+        },
+        {
+          "id": "order",
+          "rect": {
+            "x": 544,
+            "y": 24,
+            "width": 152,
+            "height": 44
+          },
+          "label": {
+            "x": 544,
+            "y": 24,
+            "width": 152,
+            "height": 14
+          },
+          "value": {
+            "x": 544,
+            "y": 38,
+            "width": 152,
+            "height": 30
+          }
+        }
+      ],
+      "columnHeaders": [
+        {
+          "id": "item",
+          "rect": {
+            "x": 44,
+            "y": 122,
+            "width": 149,
+            "height": 32
+          }
+        },
+        {
+          "id": "cost",
+          "rect": {
+            "x": 194,
+            "y": 122,
+            "width": 149,
+            "height": 32
+          }
+        },
+        {
+          "id": "available",
+          "rect": {
+            "x": 344,
+            "y": 122,
+            "width": 149,
+            "height": 32
+          }
+        },
+        {
+          "id": "order",
+          "rect": {
+            "x": 494,
+            "y": 122,
+            "width": 150,
+            "height": 32
+          }
+        }
+      ],
+      "rowSlots": [
+        {
+          "id": "row-slot-1",
+          "rect": {
+            "x": 44,
+            "y": 154,
+            "width": 600,
+            "height": 44
+          },
+          "cells": [
+            {
+              "id": "item",
+              "rect": {
+                "x": 44,
+                "y": 154,
+                "width": 149,
+                "height": 44
+              }
+            },
+            {
+              "id": "cost",
+              "rect": {
+                "x": 194,
+                "y": 154,
+                "width": 149,
+                "height": 44
+              }
+            },
+            {
+              "id": "available",
+              "rect": {
+                "x": 344,
+                "y": 154,
+                "width": 149,
+                "height": 44
+              }
+            },
+            {
+              "id": "order",
+              "rect": {
+                "x": 494,
+                "y": 154,
+                "width": 150,
+                "height": 44
+              }
+            }
+          ]
+        },
+        {
+          "id": "row-slot-2",
+          "rect": {
+            "x": 44,
+            "y": 198,
+            "width": 600,
+            "height": 44
+          },
+          "cells": [
+            {
+              "id": "item",
+              "rect": {
+                "x": 44,
+                "y": 198,
+                "width": 149,
+                "height": 44
+              }
+            },
+            {
+              "id": "cost",
+              "rect": {
+                "x": 194,
+                "y": 198,
+                "width": 149,
+                "height": 44
+              }
+            },
+            {
+              "id": "available",
+              "rect": {
+                "x": 344,
+                "y": 198,
+                "width": 149,
+                "height": 44
+              }
+            },
+            {
+              "id": "order",
+              "rect": {
+                "x": 494,
+                "y": 198,
+                "width": 150,
+                "height": 44
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "motion": {
+    "durationMs": 200,
+    "scaleFrom": 0.96,
+    "easing": "ease-out",
+    "captureModeDurationMs": 0
+  },
+  "provenance": {
+    "template": "FormTemplates/scrollable-collection.json",
+    "templateVersion": 4,
+    "generatorKind": "collection"
+  },
+  "collectionMetrics": {
+    "wide": {
+      "totalItems": 10,
+      "visibleCapacity": 8,
+      "totalUnits": 10,
+      "visibleUnits": 8,
+      "itemsPerUnit": 1,
+      "scrollUnit": "record",
+      "overflow": true,
+      "scrollSteps": 2,
+      "track": {
+        "x": 1130,
+        "y": 214,
+        "width": 18,
+        "height": 352
+      },
+      "thumb": {
+        "x": 1130,
+        "y": 214,
+        "width": 18,
+        "height": 281
+      },
+      "trackHitTarget": {
+        "x": 1104,
+        "y": 214,
+        "width": 44,
+        "height": 352
+      },
+      "thumbHitTarget": {
+        "x": 1104,
+        "y": 214,
+        "width": 44,
+        "height": 281
+      },
+      "thumbTravelPx": 71
+    },
+    "compact": {
+      "totalItems": 10,
+      "visibleCapacity": 2,
+      "totalUnits": 10,
+      "visibleUnits": 2,
+      "itemsPerUnit": 1,
+      "scrollUnit": "record",
+      "overflow": true,
+      "scrollSteps": 8,
+      "track": {
+        "x": 678,
+        "y": 154,
+        "width": 18,
+        "height": 88
+      },
+      "thumb": {
+        "x": 678,
+        "y": 154,
+        "width": 18,
+        "height": 44
+      },
+      "trackHitTarget": {
+        "x": 652,
+        "y": 154,
+        "width": 44,
+        "height": 88
+      },
+      "thumbHitTarget": {
+        "x": 652,
+        "y": 154,
+        "width": 44,
+        "height": 44
+      },
+      "thumbTravelPx": 44
+    }
+  },
+  "parts": [
+    "window",
+    "title",
+    "summaryBar",
+    "headerArt",
+    "controlBar",
+    "viewport",
+    "scroll.track",
+    "scroll.thumb",
+    "footer",
+    "summary.funds",
+    "summary.order",
+    "headerArt.image",
+    "control.category-filter",
+    "control.quick-search",
+    "action.ok",
+    "action.cancel",
+    "column.item",
+    "column.cost",
+    "column.available",
+    "column.order",
+    "row-slot.1",
+    "row-slot.2",
+    "row-slot.3",
+    "row-slot.4",
+    "row-slot.5",
+    "row-slot.6",
+    "row-slot.7",
+    "row-slot.8"
+  ]
+}

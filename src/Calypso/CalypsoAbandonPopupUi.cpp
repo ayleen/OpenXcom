@@ -210,6 +210,7 @@ void CalypsoAbandonPopupUi::configure(AbandonGameState& state, bool allowPhysica
 	if (!state._hdLayout) return;
 
 	state._hdWideLayout = currentF33LayoutClass() == CalypsoLayoutClass::Wide;
+	state._hdHarnessGeneration = calypsoHarnessSession().generation;
 	// Side-by-side translation is part of the presentation layout, not a
 	// one-time constructor mutation; reconfigure can toggle it at fixed class.
 	CalypsoF33AbandonLayout layout = currentF33PresentationLayout(state._hdWideLayout);

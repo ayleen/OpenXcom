@@ -108,14 +108,11 @@ AbandonGameState::AbandonGameState(OptionsOrigin origin) : _origin(origin)
 AbandonGameState::~AbandonGameState()
 {
 #ifdef __EMSCRIPTEN__
-	if (_hdLayout)
-	{
-		Calypso::hdHarnessDomHide();
-	}
-	// Harness teardown: when this state was the harness target preview,
-	// clear the session; the opaque-black host pops itself on its next
-	// think (F33-PARITY-002). No-op for ordinary gameplay.
-	Calypso::calypsoHdHarnessClose();
+	// Target-scoped harness teardown: a deferred destruction after a switch
+	// to a newer preview is a no-op; genuine teardown keeps prior behavior
+	// (DOM hide plus cursor/lease/side-by-side release). No-op for ordinary
+	// gameplay.
+	Calypso::calypsoHdHarnessTeardownForTarget(this, _hdHarnessGeneration);
 	delete _hdAdapter;
 	_hdAdapter = nullptr;
 #endif

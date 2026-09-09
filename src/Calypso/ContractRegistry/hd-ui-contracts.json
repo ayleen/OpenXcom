@@ -191,6 +191,101 @@
       ]
     },
     {
+      "id": "f11-purchase",
+      "contract": "f11-purchase.json",
+      "emitter": "family",
+      "validationProfile": "scrollable-collection",
+      "native": {
+        "namespace": "CalypsoF11PurchaseGen",
+        "prefix": "CalypsoF11Purchase",
+        "output": "CalypsoF11Purchase.generated.h"
+      },
+      "browser": {
+        "global": "CalypsoF11Purchase",
+        "output": "f11-purchase.js"
+      },
+      "rendererOwnership": "scrollable-collection",
+      "harnessScenarioIds": [
+        88
+      ]
+    },
+    {
+      "id": "f11-sell",
+      "contract": "f11-sell.json",
+      "emitter": "family",
+      "validationProfile": "scrollable-collection",
+      "native": {
+        "namespace": "CalypsoF11SellGen",
+        "prefix": "CalypsoF11Sell",
+        "output": "CalypsoF11Sell.generated.h"
+      },
+      "browser": {
+        "global": "CalypsoF11Sell",
+        "output": "f11-sell.js"
+      },
+      "rendererOwnership": "scrollable-collection",
+      "harnessScenarioIds": [
+        89
+      ]
+    },
+    {
+      "id": "f36-market",
+      "contract": "f36-market.json",
+      "emitter": "family",
+      "validationProfile": "scrollable-collection",
+      "native": {
+        "namespace": "CalypsoF36MarketGen",
+        "prefix": "CalypsoF36Market",
+        "output": "CalypsoF36Market.generated.h"
+      },
+      "browser": {
+        "global": "CalypsoF36Market",
+        "output": "f36-market.js"
+      },
+      "rendererOwnership": "scrollable-collection",
+      "harnessScenarioIds": [
+        90
+      ]
+    },
+    {
+      "id": "f12-transfer-base",
+      "contract": "f12-transfer-base.json",
+      "emitter": "family",
+      "validationProfile": "scrollable-collection",
+      "native": {
+        "namespace": "CalypsoF12TransferBaseGen",
+        "prefix": "CalypsoF12TransferBase",
+        "output": "CalypsoF12TransferBase.generated.h"
+      },
+      "browser": {
+        "global": "CalypsoF12TransferBase",
+        "output": "f12-transfer-base.js"
+      },
+      "rendererOwnership": "scrollable-collection",
+      "harnessScenarioIds": [
+        91
+      ]
+    },
+    {
+      "id": "f12-transfer-items",
+      "contract": "f12-transfer-items.json",
+      "emitter": "family",
+      "validationProfile": "scrollable-collection",
+      "native": {
+        "namespace": "CalypsoF12TransferItemsGen",
+        "prefix": "CalypsoF12TransferItems",
+        "output": "CalypsoF12TransferItems.generated.h"
+      },
+      "browser": {
+        "global": "CalypsoF12TransferItems",
+        "output": "f12-transfer-items.js"
+      },
+      "rendererOwnership": "scrollable-collection",
+      "harnessScenarioIds": [
+        92
+      ]
+    },
+    {
       "id": "f17-ufo-detected",
       "contract": "f17-ufo-detected.json",
       "emitter": "family",

@@ -15,6 +15,7 @@
 #include <algorithm>
 
 #include "CalypsoTutorial.h"
+#include "CalypsoHdHarnessHostState.h"
 #include "CalypsoTutorialPolicy.h"
 #include "CalypsoAdvisor.h"
 #include "../Engine/Surface.h"
@@ -52,6 +53,10 @@ void CalypsoTutorial::fire(Game* game, const std::string& event, const std::stri
 {
 	// FIRST LINE: zero cost when disabled — must run before any allocation/lookup.
 	if (!isActive(game)) return;
+	// Harness previews own the top state: never queue tutorial overlays while
+	// one is up, or the popup would cover (or corrupt teardown of) the
+	// registered target. Production has no harness session, so it is unchanged.
+	if (Calypso::calypsoHarnessHostUp(Calypso::calypsoHarnessSession())) return;
 
 	// Close postpones the rest of a popup until the player reaches another
 	// tutorial event. Moving deferred steps here keeps Close from immediately
@@ -97,6 +102,9 @@ void CalypsoTutorial::pump(Game* game)
 	if (_queue.empty()) return;
 	if (_holdWhileDogfight) return;
 	if (_popupActive) return; // popup-over-popup guard (state resets this in its dtor)
+	// Harness previews own the top state: never push tutorial overlays while
+	// one is up. Production has no harness session, so it is unchanged.
+	if (Calypso::calypsoHarnessHostUp(Calypso::calypsoHarnessSession())) return;
 
 	// Drain the entire queue into one popup; steps are shown back-to-back and
 	// the state pops itself when the batch is exhausted. Its dtor calls

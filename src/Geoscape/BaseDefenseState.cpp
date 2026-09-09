@@ -237,8 +237,7 @@ void BaseDefenseState::resize(int &dX, int &dY)
 BaseDefenseState::~BaseDefenseState()
 {
 #ifdef __EMSCRIPTEN__
-	if (_hdLayout) Calypso::hdHarnessDomHide();
-	Calypso::calypsoHdHarnessClose();
+	Calypso::calypsoHdHarnessTeardownForTarget(this, _hdHarnessGeneration);
 	delete _hdAdapter;
 	_hdAdapter = nullptr;
 #endif

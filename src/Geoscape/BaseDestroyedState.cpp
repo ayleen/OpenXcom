@@ -161,8 +161,7 @@ BaseDestroyedState::BaseDestroyedState(Base *base, const Ufo* ufo, bool missiles
 BaseDestroyedState::~BaseDestroyedState()
 {
 #ifdef __EMSCRIPTEN__
-	if (_hdLayout) Calypso::hdHarnessDomHide();
-	Calypso::calypsoHdHarnessClose();
+	Calypso::calypsoHdHarnessTeardownForTarget(this, _hdHarnessGeneration);
 	delete _hdAdapter;
 	_hdAdapter = nullptr;
 #endif

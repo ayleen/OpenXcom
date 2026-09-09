@@ -9,6 +9,9 @@ inline constexpr const char* kFormId = "f21-defense";
 inline constexpr int kFamilyId = 21;
 inline constexpr const char* kArchetype = "small-confirmation";
 inline constexpr const char* kSourceConfig = "FormConfigs/f21-defense.json";
+inline constexpr const char* kProtocol = "CALYPSO COMMAND · DEFENSE DOSSIER DF-21";
+inline constexpr const char* kTitle = "BASE UNDER ATTACK";
+inline constexpr int kMessageCount = 0;
 
 inline constexpr const char* kDensityProfile = "standard";
 inline constexpr int kPresentationScaleNumerator = 1;

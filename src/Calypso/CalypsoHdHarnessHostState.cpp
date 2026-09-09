@@ -9,6 +9,7 @@
 #include <SDL.h>
 #include <emscripten.h>
 #include <string>
+#include <vector>
 
 #include "../Engine/Game.h"
 #include "../Engine/Screen.h"
@@ -20,11 +21,16 @@
 #include "../Basescape/BasescapeState.h"
 #include "../Basescape/DismantleFacilityState.h"
 #include "../Basescape/PlaceFacilityState.h"
+#include "../Basescape/PurchaseState.h"
+#include "../Basescape/SellState.h"
+#include "../Mod/RuleItem.h"
 #include "../Basescape/SackSoldierState.h"
 #include "../Basescape/SoldierTransformState.h"
 #include "../Basescape/SoldierDiaryOverviewState.h"
 #include "../Basescape/ManufactureInfoState.h"
 #include "../Basescape/ManageAlienContainmentState.h"
+#include "../Basescape/TransferBaseState.h"
+#include "../Basescape/TransferItemsState.h"
 #include "../Basescape/TransferConfirmState.h"
 #include "../Geoscape/CraftErrorState.h"
 #include "../Geoscape/LowFuelState.h"
@@ -53,9 +59,11 @@
 #include "../Savegame/Base.h"
 #include "../Savegame/BaseFacility.h"
 #include "../Savegame/SavedGame.h"
+#include "../Savegame/ItemContainer.h"
 #include <cstdint>
 
 #include "CalypsoAbandonPopupUi.h" // calypsoHdHarnessSetSideBySide (F33 comparison shift)
+#include "CalypsoMarketState.h"
 
 namespace OpenXcom
 {
@@ -72,9 +80,11 @@ struct HarnessSaveLease
     SavedGame *original = nullptr;
     SavedGame *fixture = nullptr;
     std::int64_t originalFunds = 0;
-    // Fixture base owned by the harness (not by its target state): the
-    // place-facility target never owns its base, so the lease frees it.
-    Base *fixtureBase = nullptr;
+    // Fixture bases owned by the harness (not by their target states):
+    // every created fixture base is appended and freed only at full close,
+    // so a deferred old target never dangles and sequential targets never
+    // leak or overwrite each other.
+    std::vector<Base*> fixtureBases;
     bool active = false;
 };
 static HarnessSaveLease g_harnessSaveLease;
@@ -105,6 +115,55 @@ void restoreHarnessCursor(Game* game)
 	g_harnessCursorCaptured = false;
 }
 
+/// F12 transfer fixture: two named GPL bases on one fixture save with
+/// deterministic funds. Fixture bases live for the harness process lifetime
+/// (F17 defense precedent); no TFTD or proprietary payload is involved.
+void ensureTransferFixture(Game* game, Base*& from, Base*& to)
+{
+	from = nullptr;
+	to = nullptr;
+	if (!game || !game->getMod()) return;
+	if (!g_harnessSaveLease.active) {
+		if (game->getSavedGame()) {
+			g_harnessSaveLease.original = game->getSavedGame();
+			g_harnessSaveLease.originalFunds = game->getSavedGame()->getFunds();
+			g_harnessSaveLease.fixture = nullptr;
+		} else {
+			SavedGame* fixture = new SavedGame();
+			game->setSavedGame(fixture);
+			g_harnessSaveLease.original = nullptr;
+			g_harnessSaveLease.fixture = fixture;
+			g_harnessSaveLease.originalFunds = 0;
+		}
+		g_harnessSaveLease.active = true;
+	}
+	if (game->getSavedGame())
+	{
+		game->getSavedGame()->setFunds(27550246);
+		if (g_harnessSaveLease.fixture == game->getSavedGame()
+			&& !game->getSavedGame()->getDebugMode())
+			game->getSavedGame()->setDebugMode();
+	}
+	from = new Base(game->getMod());
+	from->setName("Batumi");
+	from->setLongitude(0.0);
+	from->setLatitude(0.5);
+	to = new Base(game->getMod());
+	to->setName("Garni");
+	to->setLongitude(0.2);
+	to->setLatitude(0.72);
+	game->getSavedGame()->getBases()->push_back(from);
+	game->getSavedGame()->getBases()->push_back(to);
+	for (const std::string& itemType : game->getMod()->getItemsList())
+	{
+		const RuleItem* seed = game->getMod()->getItem(itemType, true);
+		if (seed && !seed->isAlien())
+		{
+			from->getStorageItems()->addItem(seed, 4);
+			break;
+		}
+	}
+}
 } // namespace
 
 CalypsoHarnessSession& calypsoHarnessSession()
@@ -120,6 +179,31 @@ void calypsoHdHarnessDomShow()
 void calypsoHdHarnessDomHide()
 {
 	EM_ASM({ if (globalThis.__calypsoHdHarnessHide) globalThis.__calypsoHdHarnessHide(); });
+}
+
+bool calypsoHdHarnessTeardownForTarget(const void* target, std::uint64_t generation)
+{
+	CalypsoHarnessSession& s = calypsoHarnessSession();
+	// Same match predicate as calypsoHarnessCloseForTarget: only the still-
+	// active preview may tear down. A deferred stale target falls through.
+	if (s.activeTarget != target || s.generation != generation)
+	{
+		// The session is already fully closed with no successor preview (for
+		// example the DOM controller closed it first): hide this target's card
+		// without touching session state. A live successor preview keeps its
+		// own card: never hide for that case.
+		if (!s.hostUp && !s.targetUp)
+		{
+			calypsoHdHarnessDomHide();
+		}
+		return false;
+	}
+	// Genuine teardown of the live preview: DOM hide plus the full close
+	// cleanup (cursor restore, fixture lease restore/delete, session reset,
+	// side-by-side reset) exactly once via the shared close entry point.
+	calypsoHdHarnessDomHide();
+	calypsoHdHarnessClose();
+	return true;
 }
 
 State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
@@ -250,8 +334,119 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 		// Real native owners for the placement slice; the lease frees the
 		// base because PlaceFacilityState never owns it.
 		Base* placeBase = new Base(game->getMod());
-		g_harnessSaveLease.fixtureBase = placeBase;
+		g_harnessSaveLease.fixtureBases.push_back(placeBase);
 		return new PlaceFacilityState(placeBase, rule);
+	}
+	case CalypsoHarnessScenario::F11Purchase:
+	{
+		Game* game = getCurrentGame();
+		if (!game || !game->getMod()) return nullptr;
+		if (!g_harnessSaveLease.active) {
+			if (game->getSavedGame()) {
+				g_harnessSaveLease.original = game->getSavedGame();
+				g_harnessSaveLease.originalFunds = game->getSavedGame()->getFunds();
+				g_harnessSaveLease.fixture = nullptr;
+			} else {
+				SavedGame* fixture = new SavedGame();
+				game->setSavedGame(fixture);
+				g_harnessSaveLease.original = nullptr;
+				g_harnessSaveLease.fixture = fixture;
+				g_harnessSaveLease.originalFunds = 0;
+			}
+			g_harnessSaveLease.active = true;
+		}
+		if (game->getSavedGame())
+		{
+			game->getSavedGame()->setFunds(27550246);
+			if (g_harnessSaveLease.fixture == game->getSavedGame()
+				&& !game->getSavedGame()->getDebugMode())
+				game->getSavedGame()->setDebugMode();
+		}
+		Base* marketBase = new Base(game->getMod());
+		g_harnessSaveLease.fixtureBases.push_back(marketBase);
+		return new PurchaseState(marketBase, nullptr);
+	}
+	case CalypsoHarnessScenario::F11Sell:
+	{
+		Game* game = getCurrentGame();
+		if (!game || !game->getMod()) return nullptr;
+		if (!g_harnessSaveLease.active) {
+			if (game->getSavedGame()) {
+				g_harnessSaveLease.original = game->getSavedGame();
+				g_harnessSaveLease.originalFunds = game->getSavedGame()->getFunds();
+				g_harnessSaveLease.fixture = nullptr;
+			} else {
+				SavedGame* fixture = new SavedGame();
+				game->setSavedGame(fixture);
+				g_harnessSaveLease.original = nullptr;
+				g_harnessSaveLease.fixture = fixture;
+				g_harnessSaveLease.originalFunds = 0;
+			}
+			g_harnessSaveLease.active = true;
+		}
+		if (game->getSavedGame())
+		{
+			game->getSavedGame()->setFunds(27550246);
+			if (g_harnessSaveLease.fixture == game->getSavedGame()
+				&& !game->getSavedGame()->getDebugMode())
+				game->getSavedGame()->setDebugMode();
+		}
+		Base* marketBase = new Base(game->getMod());
+		g_harnessSaveLease.fixtureBases.push_back(marketBase);
+		for (const std::string& itemType : game->getMod()->getItemsList())
+		{
+			const RuleItem* seed = game->getMod()->getItem(itemType, true);
+			if (seed && !seed->isAlien())
+			{
+				marketBase->getStorageItems()->addItem(seed, 4);
+				break;
+			}
+		}
+		return new SellState(marketBase, nullptr);
+	}
+	case CalypsoHarnessScenario::F36Market:
+	{
+		Game* game = getCurrentGame();
+		if (!game || !game->getMod()) return nullptr;
+		if (!g_harnessSaveLease.active) {
+			if (game->getSavedGame()) {
+				g_harnessSaveLease.original = game->getSavedGame();
+				g_harnessSaveLease.originalFunds = game->getSavedGame()->getFunds();
+				g_harnessSaveLease.fixture = nullptr;
+			} else {
+				SavedGame* fixture = new SavedGame();
+				game->setSavedGame(fixture);
+				g_harnessSaveLease.original = nullptr;
+				g_harnessSaveLease.fixture = fixture;
+				g_harnessSaveLease.originalFunds = 0;
+			}
+			g_harnessSaveLease.active = true;
+		}
+		// Purchase-mode picker: the contract captures the Acquisitions title.
+		// SavedGame always owns an Economy under emscripten, so refresh()
+		// lists live ruleset counterparties plus the Black Market row; the
+		// Reference side renders the deterministic GPL fixture rows.
+		Base* marketBase = new Base(game->getMod());
+		g_harnessSaveLease.fixtureBases.push_back(marketBase);
+		return new CalypsoMarketState(marketBase, false);
+	}
+	case CalypsoHarnessScenario::F12TransferBase:
+	{
+		Game* game = getCurrentGame();
+		Base* from = nullptr;
+		Base* to = nullptr;
+		ensureTransferFixture(game, from, to);
+		if (!from) return nullptr;
+		return new TransferBaseState(from, nullptr);
+	}
+	case CalypsoHarnessScenario::F12TransferItems:
+	{
+		Game* game = getCurrentGame();
+		Base* from = nullptr;
+		Base* to = nullptr;
+		ensureTransferFixture(game, from, to);
+		if (!from || !to) return nullptr;
+		return new TransferItemsState(from, to, nullptr);
 	}
 	case CalypsoHarnessScenario::F04SackSoldier:
 		return new CraftErrorState(nullptr, "Dismiss soldier confirmation.");
@@ -337,7 +532,18 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 	case CalypsoHarnessScenario::F06SoldierDiary:
 		return new CraftErrorState(nullptr, "New diary entry has been recorded.");
 	case CalypsoHarnessScenario::F12TransferConfirm:
-		return new CraftErrorState(nullptr, "Confirm transfer of selected items?");
+	{
+		// Real confirm over a real HD-owned items underlay: the underlay is
+		// constructed (configuring its HD adapter) but stays unpushed, living
+		// for the harness process lifetime like the F17 fixtures.
+		Game* game = getCurrentGame();
+		Base* from = nullptr;
+		Base* to = nullptr;
+		ensureTransferFixture(game, from, to);
+		if (!from || !to) return nullptr;
+		TransferItemsState* items = new TransferItemsState(from, to, nullptr);
+		return new TransferConfirmState(to, items);
+	}
 	case CalypsoHarnessScenario::F10ManufactureCheck:
 		return new CraftErrorState(nullptr, "Manufacture requirements check.");
 	case CalypsoHarnessScenario::F13Containment:
@@ -419,7 +625,9 @@ bool calypsoHdHarnessOpen(CalypsoHarnessScenario id, CalypsoLayoutClass layout,
 
 	if (Game* g = getCurrentGame())
 	{
-		g->pushState(new CalypsoHdHarnessHostState(id));
+		State* host = new CalypsoHdHarnessHostState(id);
+		g->pushState(host);
+		s.activeHost = host;
 		State* target = calypsoHarnessCreateTarget(id);
 		if (target)
 		{
@@ -468,8 +676,8 @@ void calypsoHdHarnessClose()
 				}
 			}
 		}
-		delete g_harnessSaveLease.fixtureBase;
-		g_harnessSaveLease.fixtureBase = nullptr;
+		for (Base* fixtureBase : g_harnessSaveLease.fixtureBases) delete fixtureBase;
+		g_harnessSaveLease.fixtureBases.clear();
 		g_harnessSaveLease = HarnessSaveLease();
 	}
 	calypsoHarnessClose(calypsoHarnessSession());
@@ -537,8 +745,8 @@ int calypso_hd_harness_switch(int scenarioId, int layoutClass, int sideBySide)
 	// harness is live. A plain open is rejected in that state ("already
 	// open"), so tear the current pair down first: pop the target, pop the
 	// opaque host (its think-self-pop is bypassed), and reset the session
-	// BEFORE the deferred target destructor runs (its calypsoHdHarnessClose
-	// is idempotent against an already-closed session).
+	// BEFORE the deferred target destructor runs. That destructor's teardown
+	// is target-scoped, so it stays a no-op against the newly opened preview.
 	if (!OpenXcom::Calypso::calypsoHarnessScenarioValid(scenarioId))
 	{
 		OpenXcom::Calypso::warnUnknownScenario(scenarioId);
@@ -548,13 +756,35 @@ int calypso_hd_harness_switch(int scenarioId, int layoutClass, int sideBySide)
 	OpenXcom::Calypso::CalypsoHarnessSession& s = OpenXcom::Calypso::calypsoHarnessSession();
 	if (s.hostUp && g && g->getTopState())
 	{
-		// Use target-scoped close to avoid closing a newly opened harness if old target destructor runs later
-		OpenXcom::State* top = g->getTopState();
-		// The top should be the target; capture its identity before popping
-		const void* targetPtr = top;
+		// The live target is usually buried: settled overlays (tutorial
+		// popups, dialogs) pile above the preview, so the top of stack is
+		// not necessarily the target. Unwind those overlays first, stopping
+		// at the live target, its host, an empty stack, or the bound — never
+		// blindly unwind the underlying game.
+		const void* targetPtr = s.activeTarget;
+		const void* hostPtr = s.activeHost;
 		std::uint64_t gen = s.generation;
-		g->popState(); // the harness target
-		g->popState(); // the opaque host below it
+		int guard = 0;
+		while (g->getTopState() && g->getTopState() != targetPtr
+			&& g->getTopState() != hostPtr && guard++ < 8)
+		{
+			g->popState();
+		}
+		if (g->getTopState() == targetPtr)
+		{
+			g->popState(); // the harness target (deferred; teardown is target-scoped)
+			if (g->getTopState() == hostPtr)
+			{
+				g->popState(); // its opaque host below it
+			}
+		}
+		else if (g->getTopState() == hostPtr)
+		{
+			g->popState(); // target already gone; retire its host
+		}
+		// Identity close resets the session for the fresh open below even
+		// when the stack no longer holds the pair; a deferred old-target
+		// destructor stays a no-op against the new preview.
 		OpenXcom::Calypso::calypsoHarnessCloseForTarget(s, targetPtr, gen);
 		OpenXcom::Calypso::calypsoHdHarnessSetSideBySide(false);
 	}

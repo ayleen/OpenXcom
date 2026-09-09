@@ -127,11 +127,7 @@ DismantleFacilityState::DismantleFacilityState(Base *base, BaseView *view, BaseF
 DismantleFacilityState::~DismantleFacilityState()
 {
 #ifdef __EMSCRIPTEN__
-	if (_hdLayout)
-	{
-		Calypso::calypsoHdHarnessDomHide();
-	}
-	Calypso::calypsoHarnessCloseForTarget(Calypso::calypsoHarnessSession(), this, _hdHarnessGeneration);
+	Calypso::calypsoHdHarnessTeardownForTarget(this, _hdHarnessGeneration);
 	delete _hdAdapter;
 	_hdAdapter = nullptr;
 	if (_hdOwnFixture)

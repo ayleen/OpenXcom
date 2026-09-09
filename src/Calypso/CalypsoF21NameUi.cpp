@@ -267,6 +267,7 @@ void CalypsoF21NameUi::configure(BaseNameState& state, bool allowPhysicalOverlay
 	if (!state._hdLayout) return;
 
 	state._hdWideLayout = currentF21LayoutClass() == CalypsoLayoutClass::Wide;
+	state._hdHarnessGeneration = calypsoHarnessSession().generation;
 	CalypsoF21NameLayout layout = calypsoF21NameLayout(
 		state._hdWideLayout ? CalypsoLayoutClass::Wide : CalypsoLayoutClass::Compact);
 	calypsoF21NameApplyHarnessShift(layout,

@@ -42,6 +42,9 @@
 #include "../Engine/Timer.h"
 #include "../Menu/ErrorMessageState.h"
 #include "TransferConfirmState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF12TransferUi.h"
+#endif
 #include "../Engine/Options.h"
 #include "../fmath.h"
 #include "../Mod/RuleInterface.h"
@@ -282,6 +285,9 @@ TransferItemsState::TransferItemsState(Base *baseFrom, Base *baseTo, DebriefingS
 	_timerInc->onTimer((StateHandler)&TransferItemsState::increase);
 	_timerDec = new Timer(250);
 	_timerDec->onTimer((StateHandler)&TransferItemsState::decrease);
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF12TransferItemsUi::configure(*this);
+#endif
 }
 
 /**
@@ -289,6 +295,9 @@ TransferItemsState::TransferItemsState(Base *baseFrom, Base *baseTo, DebriefingS
  */
 TransferItemsState::~TransferItemsState()
 {
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF12TransferItemsUi::teardown(*this);
+#endif
 	delete _timerInc;
 	delete _timerDec;
 }
@@ -1134,4 +1143,11 @@ void TransferItemsState::cbxCategoryChange(Action *)
 	updateList();
 }
 
+#ifdef __EMSCRIPTEN__
+void TransferItemsState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF12TransferItemsUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+#endif
 }

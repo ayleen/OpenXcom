@@ -163,7 +163,6 @@ void CalypsoHdUiOverlay::prepareFrame(int logicalWidth, int logicalHeight, const
 	// Drive the registered adapter (if any) whose state is the current top state,
 	// so a lower popup regains HD when an upper one is dismissed (GLM #3).
 	const CalypsoHdFamilyAdapter* active = findAdapterForState(topState);
-
 	// Fail-closed covered-state ownership (Stage 8/9 closure): a registered
 	// live-chrome adapter that is NOT the active top adapter still owns its
 	// reprojected logical shell while covered, so a blocking modal without its

@@ -70,7 +70,16 @@ enum class CalypsoHarnessScenario
 	// F03 construction chooser (BuildFacilitiesState, real fixture base) and
 	// placement (PlaceFacilityState, real fixture owners, implemented presentation).
 	F03BuildFacilities = 86,
-	F03PlaceFacility = 87
+	F03PlaceFacility = 87,
+	// F11 logistics market (PurchaseState/SellState over a real fixture base).
+	F11Purchase = 88,
+	F11Sell = 89,
+	// F36 economy counterparty picker (CalypsoMarketState over a real fixture base).
+	F36Market = 90,
+	// F12 transfer slice: destination picker and items list over real fixture
+	// bases; the confirm dialog (80) composes its HD-owned items underlay.
+	F12TransferBase = 91,
+	F12TransferItems = 92
 };
 
 /// True iff `id` names a known scenario (the generic export never guesses).
@@ -110,7 +119,12 @@ inline bool calypsoHarnessScenarioValid(int id)
 		|| id == static_cast<int>(CalypsoHarnessScenario::GeoscapeHd)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F01Basescape)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F03BuildFacilities)
-		|| id == static_cast<int>(CalypsoHarnessScenario::F03PlaceFacility);
+		|| id == static_cast<int>(CalypsoHarnessScenario::F03PlaceFacility)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F11Purchase)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F11Sell)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F36Market)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F12TransferBase)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F12TransferItems);
 }
 
 /// Mutable session state of one harness run.
@@ -119,6 +133,7 @@ struct CalypsoHarnessSession
 	bool hostUp = false;
 	bool targetUp = false;
 	const void* activeTarget = nullptr;
+	const void* activeHost = nullptr;
 	std::uint64_t generation = 0;
 	bool layoutExplicit = false;
 	CalypsoLayoutClass requestedLayout = CalypsoLayoutClass::Compact;
@@ -147,30 +162,38 @@ inline bool calypsoHarnessRequestOpen(CalypsoHarnessSession& s)
 }
 
 /// The target preview appeared (host pushed it once). Returns true and marks
-/// the target up; a second call while already up is a no-op.
+/// the target up; a second call while already up is a no-op. The generation
+/// does NOT advance here: a state constructed for the preview observes the
+/// session generation, which stays valid for that preview's whole lifetime.
 inline bool calypsoHarnessTargetUp(CalypsoHarnessSession& s, const void* target = nullptr)
 {
 	if (!s.hostUp || s.targetUp) return false;
 	s.targetUp = true;
 	s.activeTarget = target;
-	++s.generation;
 	return true;
 }
 
 /// Close: the target popped (or the host was torn down). Resets the session so
 /// a later fresh open works; the host pops itself and clears harness globals.
+/// Advances the generation so deferred teardown of a superseded target — or
+/// any teardown carrying a stale generation — can never match a newer preview.
 inline void calypsoHarnessClose(CalypsoHarnessSession& s)
 {
 	s.hostUp = false;
 	s.targetUp = false;
 	s.activeTarget = nullptr;
+	s.activeHost = nullptr;
 	s.layoutExplicit = false;
 	s.requestedLayout = CalypsoLayoutClass::Compact;
 	s.motionDisabled = false;
 	s.motionHoldPct = -1;
 	s.sideBySide = false;
+	++s.generation;
 }
 
+/// Target-scoped close: resets the session only when (target, gen) is still
+/// the active preview. Deferred destruction of a superseded target — or any
+/// teardown carrying a stale generation — is a no-op. Returns true on close.
 inline bool calypsoHarnessCloseForTarget(CalypsoHarnessSession& s, const void* target, std::uint64_t gen)
 {
 	if (s.activeTarget != target || s.generation != gen) return false;

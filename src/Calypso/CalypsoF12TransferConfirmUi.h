@@ -7,6 +7,8 @@ public:
     explicit CalypsoF12TransferConfirmUi(TransferConfirmState* s) : _state(s) {}
     ~CalypsoF12TransferConfirmUi() override;
     const void* topState() const override;
+    const void* physicalUnderlayState() const override;
+    void collectLogicalSuppression(CalypsoHdLogicalSuppression& suppression) const override;
     void collect(CalypsoHdFrameBuilder& b) const override;
     static void configure(TransferConfirmState& s, bool allow=true);
     static bool resize(TransferConfirmState& s);
