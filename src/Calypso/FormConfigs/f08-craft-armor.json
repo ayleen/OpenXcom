@@ -1,0 +1,109 @@
+{
+  "schema": 1,
+  "id": "f08-craft-armor",
+  "familyId": 8,
+  "version": "hd.2026-08-29.1",
+  "archetype": "tabbed-management",
+  "title": "Armor",
+  "actions": [
+    {
+      "id": "cancel",
+      "label": "OK",
+      "tone": "safe",
+      "action": "cancel"
+    }
+  ],
+  "tabs": [
+    {
+      "id": "overview",
+      "label": "Overview"
+    },
+    {
+      "id": "weapons",
+      "label": "Weapons"
+    },
+    {
+      "id": "crew",
+      "label": "Crew"
+    },
+    {
+      "id": "equipment",
+      "label": "Equipment"
+    },
+    {
+      "id": "armor",
+      "label": "Armor"
+    },
+    {
+      "id": "pilots",
+      "label": "Pilots"
+    }
+  ],
+  "selectedTab": "armor",
+  "summary": [
+    {
+      "id": "divers",
+      "label": "Divers",
+      "value": "14"
+    },
+    {
+      "id": "base",
+      "label": "Base",
+      "value": "Batumi"
+    }
+  ],
+  "collection": {
+    "mode": "table",
+    "selectionRole": "select",
+    "columns": [
+      {
+        "id": "diver",
+        "label": "Diver"
+      },
+      {
+        "id": "armor",
+        "label": "Armor"
+      }
+    ],
+    "items": [
+      {
+        "id": "diver-1",
+        "values": [
+          "Goreng",
+          "Wetsuit"
+        ]
+      },
+      {
+        "id": "diver-2",
+        "values": [
+          "Vermeulen",
+          "Wetsuit"
+        ]
+      }
+    ]
+  },
+  "controls": [
+    {
+      "id": "sort",
+      "label": "Sort",
+      "kind": "select",
+      "action": "sort",
+      "value": "original",
+      "options": [
+        {
+          "id": "original",
+          "label": "Original"
+        },
+        {
+          "id": "name",
+          "label": "Name"
+        },
+        {
+          "id": "rank",
+          "label": "Rank"
+        }
+      ]
+    }
+  ],
+  "toolbar": []
+}

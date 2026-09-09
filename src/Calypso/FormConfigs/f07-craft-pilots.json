@@ -1,0 +1,152 @@
+{
+  "schema": 1,
+  "id": "f07-craft-pilots",
+  "familyId": 7,
+  "version": "hd.2026-08-29.1",
+  "archetype": "tabbed-management",
+  "title": "Pilots",
+  "actions": [
+    {
+      "id": "add",
+      "label": "Add pilot",
+      "tone": "primary",
+      "action": "add"
+    },
+    {
+      "id": "cancel",
+      "label": "OK",
+      "tone": "safe",
+      "action": "cancel"
+    }
+  ],
+  "tabs": [
+    {
+      "id": "overview",
+      "label": "Overview"
+    },
+    {
+      "id": "weapons",
+      "label": "Weapons"
+    },
+    {
+      "id": "crew",
+      "label": "Crew"
+    },
+    {
+      "id": "equipment",
+      "label": "Equipment"
+    },
+    {
+      "id": "armor",
+      "label": "Armor"
+    },
+    {
+      "id": "pilots",
+      "label": "Pilots"
+    }
+  ],
+  "selectedTab": "pilots",
+  "summary": [
+    {
+      "id": "required",
+      "label": "Required",
+      "value": "2 pilots"
+    },
+    {
+      "id": "assigned",
+      "label": "Assigned",
+      "value": "1 / 2"
+    },
+    {
+      "id": "eligible",
+      "label": "Eligible",
+      "value": "3 divers"
+    },
+    {
+      "id": "status",
+      "label": "Status",
+      "value": "Active"
+    }
+  ],
+  "collection": {
+    "mode": "table",
+    "selectionRole": "inspect",
+    "columns": [
+      {
+        "id": "diver",
+        "label": "Diver"
+      },
+      {
+        "id": "firing",
+        "label": "Firing"
+      },
+      {
+        "id": "reactions",
+        "label": "React"
+      },
+      {
+        "id": "bravery",
+        "label": "Bravery"
+      },
+      {
+        "id": "seat",
+        "label": "Seat"
+      }
+    ],
+    "items": [
+      {
+        "id": "pilot-1",
+        "values": [
+          "Moon",
+          "55",
+          "48",
+          "60",
+          "Seat 1"
+        ]
+      },
+      {
+        "id": "pilot-2",
+        "values": [
+          "Volkov",
+          "62",
+          "51",
+          "70",
+          "Open"
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "toolbar": [],
+  "detail": {
+    "id": "bonus",
+    "label": "Pilot bonuses",
+    "title": "Accuracy +6%",
+    "subtitle": "1 of 2 seats",
+    "metrics": [
+      {
+        "id": "accuracy",
+        "label": "Accuracy",
+        "value": "+6%"
+      },
+      {
+        "id": "dodge",
+        "label": "Dodge",
+        "value": "+4%"
+      },
+      {
+        "id": "approach",
+        "label": "Approach",
+        "value": "Normal"
+      }
+    ],
+    "actions": [
+      {
+        "id": "clear",
+        "label": "Clear",
+        "tone": "normal",
+        "action": "clear"
+      }
+    ]
+  }
+}

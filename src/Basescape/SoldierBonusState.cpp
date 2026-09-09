@@ -34,6 +34,9 @@
 #include "../Savegame/SavedGame.h"
 #include "../Savegame/Soldier.h"
 #include "../Ufopaedia/StatsForNerdsState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF04SoldierBonusUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -240,6 +243,9 @@ SoldierBonusState::SoldierBonusState(Base *base, size_t soldier) : _base(base), 
 		if (manaRecovery)
 			_lstSummary->addRow(1, tr("mana").c_str());
 	}
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF04SoldierBonusUi::configure(*this);
+#endif
 }
 
 /**
@@ -247,6 +253,10 @@ SoldierBonusState::SoldierBonusState(Base *base, size_t soldier) : _base(base), 
  */
 SoldierBonusState::~SoldierBonusState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 
 }
 
@@ -278,5 +288,13 @@ void SoldierBonusState::lstBonusesClick(Action *)
 	std::string articleId = _bonuses[_lstBonuses->getSelectedRow()];
 	_game->pushState(new StatsForNerdsState(UFOPAEDIA_TYPE_UNKNOWN, articleId, false, false, false));
 }
+
+#ifdef __EMSCRIPTEN__
+void SoldierBonusState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF04SoldierBonusUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+#endif
 
 }

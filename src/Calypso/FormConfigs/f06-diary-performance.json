@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "id": "f06-diary-performance",
+  "familyId": 6,
+  "version": "hd.2026-08-29.1",
+  "archetype": "selection-list",
+  "protocol": {
+    "authority": "CALYPSO COMMAND",
+    "record": "SERVICE HISTORY",
+    "code": "SH-06P",
+    "revision": "1.0.21",
+    "effectiveDate": "15.07.2061"
+  },
+  "title": "Service Performance",
+  "actions": [
+    {
+      "id": "cancel",
+      "label": "CANCEL",
+      "tone": "safe",
+      "action": "cancel"
+    }
+  ],
+  "collection": {
+    "mode": "list",
+    "selectionRole": "record",
+    "columns": [
+      {
+        "id": "name",
+        "label": "Record"
+      }
+    ],
+    "items": [
+      { "id": "no-performance-record", "label": "No performance record", "enabled": false }
+    ]
+  }
+}

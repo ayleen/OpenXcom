@@ -1,0 +1,1120 @@
+{
+  "schema": 1,
+  "version": "hd.2026-08-29.1",
+  "form": {
+    "id": "f08-craft-weapons",
+    "familyId": 8,
+    "archetype": "tabbed-management",
+    "source": "FormConfigs/f08-craft-weapons.json",
+    "actions": [
+      {
+        "id": "cancel",
+        "label": "OK",
+        "tone": "safe",
+        "action": "cancel",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB0CC",
+          "text": "E8FFF5FF"
+        }
+      }
+    ],
+    "tabs": [
+      {
+        "id": "overview",
+        "label": "Overview"
+      },
+      {
+        "id": "weapons",
+        "label": "Weapons"
+      },
+      {
+        "id": "crew",
+        "label": "Crew"
+      },
+      {
+        "id": "equipment",
+        "label": "Equipment"
+      },
+      {
+        "id": "armor",
+        "label": "Armor"
+      },
+      {
+        "id": "pilots",
+        "label": "Pilots"
+      }
+    ],
+    "selectedTab": "weapons",
+    "summary": [
+      {
+        "id": "mounts",
+        "label": "Mounts",
+        "value": "2"
+      },
+      {
+        "id": "ammo",
+        "label": "Ammo",
+        "value": "100%"
+      }
+    ],
+    "collection": {
+      "mode": "table",
+      "selectionRole": "select",
+      "columns": [
+        {
+          "id": "type",
+          "label": "Type"
+        },
+        {
+          "id": "launchers",
+          "label": "Launchers"
+        },
+        {
+          "id": "clips",
+          "label": "Clips"
+        }
+      ],
+      "items": [
+        {
+          "id": "none",
+          "values": [
+            "None",
+            "-",
+            "-"
+          ]
+        },
+        {
+          "id": "mantis",
+          "values": [
+            "Mantis",
+            "2",
+            "8"
+          ]
+        }
+      ]
+    },
+    "controls": [],
+    "toolbar": [],
+    "detail": {
+      "id": "mount",
+      "label": "Selected mount",
+      "title": "Mantis Projector",
+      "subtitle": "Slot 01",
+      "metrics": [
+        {
+          "id": "ammo",
+          "label": "Ammo",
+          "value": "100 / 100"
+        },
+        {
+          "id": "stock",
+          "label": "Stock",
+          "value": "2"
+        }
+      ],
+      "actions": [
+        {
+          "id": "change",
+          "label": "Change",
+          "tone": "primary",
+          "action": "change",
+          "style": {
+            "fill": "74FFB0FF",
+            "border": "74FFB0FF",
+            "text": "071013FF"
+          }
+        },
+        {
+          "id": "more",
+          "label": "More",
+          "tone": "normal",
+          "action": "more",
+          "style": {
+            "fill": "051417B8",
+            "border": "74FFB059",
+            "text": "E8FFF5FF"
+          }
+        }
+      ]
+    }
+  },
+  "copy": {
+    "title": "Weapons",
+    "tabs": {
+      "overview": "Overview",
+      "weapons": "Weapons",
+      "crew": "Crew",
+      "equipment": "Equipment",
+      "armor": "Armor",
+      "pilots": "Pilots"
+    },
+    "summary": [
+      {
+        "id": "mounts",
+        "label": "Mounts",
+        "value": "2"
+      },
+      {
+        "id": "ammo",
+        "label": "Ammo",
+        "value": "100%"
+      }
+    ],
+    "collection": {
+      "mode": "table",
+      "selectionRole": "select",
+      "columns": [
+        {
+          "id": "type",
+          "label": "Type"
+        },
+        {
+          "id": "launchers",
+          "label": "Launchers"
+        },
+        {
+          "id": "clips",
+          "label": "Clips"
+        }
+      ],
+      "items": [
+        {
+          "id": "none",
+          "values": [
+            "None",
+            "-",
+            "-"
+          ]
+        },
+        {
+          "id": "mantis",
+          "values": [
+            "Mantis",
+            "2",
+            "8"
+          ]
+        }
+      ]
+    },
+    "controls": [],
+    "toolbar": {},
+    "detail": {
+      "id": "mount",
+      "label": "Selected mount",
+      "title": "Mantis Projector",
+      "subtitle": "Slot 01",
+      "metrics": [
+        {
+          "id": "ammo",
+          "label": "Ammo",
+          "value": "100 / 100"
+        },
+        {
+          "id": "stock",
+          "label": "Stock",
+          "value": "2"
+        }
+      ],
+      "actions": [
+        {
+          "id": "change",
+          "label": "Change",
+          "tone": "primary",
+          "action": "change"
+        },
+        {
+          "id": "more",
+          "label": "More",
+          "tone": "normal",
+          "action": "more"
+        }
+      ]
+    }
+  },
+  "style": {
+    "panelFillTop": "08191DEB",
+    "panelFillBottom": "041014E8",
+    "frame": "74FFB073",
+    "divider": "74FFB04D",
+    "text": "E8FFF5FF",
+    "mutedText": "A9D8C7FF",
+    "selectedTab": "74FFB033",
+    "selection": "74FFB033",
+    "scrollTrack": "061B1CD6",
+    "scrollThumb": "74FFB099",
+    "footerFill": "061B1CD6",
+    "footerDot": "74FFB01F",
+    "cutCornerPx": 14
+  },
+  "layouts": {
+    "wide": {
+      "designWidth": 1280,
+      "designHeight": 720,
+      "window": {
+        "x": 140,
+        "y": 50,
+        "width": 1000,
+        "height": 620
+      },
+      "title": {
+        "x": 172,
+        "y": 68,
+        "width": 936,
+        "height": 44
+      },
+      "summaryBar": {
+        "x": 172,
+        "y": 116,
+        "width": 936,
+        "height": 36
+      },
+      "summary": {
+        "mounts": {
+          "x": 172,
+          "y": 116,
+          "width": 467,
+          "height": 36
+        },
+        "ammo": {
+          "x": 640,
+          "y": 116,
+          "width": 468,
+          "height": 36
+        }
+      },
+      "tabBar": {
+        "x": 172,
+        "y": 160,
+        "width": 936,
+        "height": 48
+      },
+      "collectionViewport": {
+        "x": 488,
+        "y": 280,
+        "width": 620,
+        "height": 286
+      },
+      "collection": {
+        "columnHeaders": [
+          {
+            "id": "type",
+            "rect": {
+              "x": 488,
+              "y": 280,
+              "width": 188,
+              "height": 36
+            }
+          },
+          {
+            "id": "launchers",
+            "rect": {
+              "x": 677,
+              "y": 280,
+              "width": 188,
+              "height": 36
+            }
+          },
+          {
+            "id": "clips",
+            "rect": {
+              "x": 866,
+              "y": 280,
+              "width": 188,
+              "height": 36
+            }
+          }
+        ],
+        "rowSlots": [
+          {
+            "id": "row-slot-1",
+            "rect": {
+              "x": 488,
+              "y": 316,
+              "width": 566,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "type",
+                "rect": {
+                  "x": 488,
+                  "y": 316,
+                  "width": 188,
+                  "height": 44
+                }
+              },
+              {
+                "id": "launchers",
+                "rect": {
+                  "x": 677,
+                  "y": 316,
+                  "width": 188,
+                  "height": 44
+                }
+              },
+              {
+                "id": "clips",
+                "rect": {
+                  "x": 866,
+                  "y": 316,
+                  "width": 188,
+                  "height": 44
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-2",
+            "rect": {
+              "x": 488,
+              "y": 360,
+              "width": 566,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "type",
+                "rect": {
+                  "x": 488,
+                  "y": 360,
+                  "width": 188,
+                  "height": 44
+                }
+              },
+              {
+                "id": "launchers",
+                "rect": {
+                  "x": 677,
+                  "y": 360,
+                  "width": 188,
+                  "height": 44
+                }
+              },
+              {
+                "id": "clips",
+                "rect": {
+                  "x": 866,
+                  "y": 360,
+                  "width": 188,
+                  "height": 44
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-3",
+            "rect": {
+              "x": 488,
+              "y": 404,
+              "width": 566,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "type",
+                "rect": {
+                  "x": 488,
+                  "y": 404,
+                  "width": 188,
+                  "height": 44
+                }
+              },
+              {
+                "id": "launchers",
+                "rect": {
+                  "x": 677,
+                  "y": 404,
+                  "width": 188,
+                  "height": 44
+                }
+              },
+              {
+                "id": "clips",
+                "rect": {
+                  "x": 866,
+                  "y": 404,
+                  "width": 188,
+                  "height": 44
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-4",
+            "rect": {
+              "x": 488,
+              "y": 448,
+              "width": 566,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "type",
+                "rect": {
+                  "x": 488,
+                  "y": 448,
+                  "width": 188,
+                  "height": 44
+                }
+              },
+              {
+                "id": "launchers",
+                "rect": {
+                  "x": 677,
+                  "y": 448,
+                  "width": 188,
+                  "height": 44
+                }
+              },
+              {
+                "id": "clips",
+                "rect": {
+                  "x": 866,
+                  "y": 448,
+                  "width": 188,
+                  "height": 44
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-5",
+            "rect": {
+              "x": 488,
+              "y": 492,
+              "width": 566,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "type",
+                "rect": {
+                  "x": 488,
+                  "y": 492,
+                  "width": 188,
+                  "height": 44
+                }
+              },
+              {
+                "id": "launchers",
+                "rect": {
+                  "x": 677,
+                  "y": 492,
+                  "width": 188,
+                  "height": 44
+                }
+              },
+              {
+                "id": "clips",
+                "rect": {
+                  "x": 866,
+                  "y": 492,
+                  "width": 188,
+                  "height": 44
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "toolbarBar": {
+        "x": 172,
+        "y": 218,
+        "width": 936,
+        "height": 52
+      },
+      "controls": {},
+      "footer": {
+        "x": 140,
+        "y": 578,
+        "width": 1000,
+        "height": 92
+      },
+      "tabs": {
+        "overview": {
+          "x": 172,
+          "y": 160,
+          "width": 149,
+          "height": 48
+        },
+        "weapons": {
+          "x": 329,
+          "y": 160,
+          "width": 149,
+          "height": 48
+        },
+        "crew": {
+          "x": 486,
+          "y": 160,
+          "width": 149,
+          "height": 48
+        },
+        "equipment": {
+          "x": 643,
+          "y": 160,
+          "width": 149,
+          "height": 48
+        },
+        "armor": {
+          "x": 800,
+          "y": 160,
+          "width": 149,
+          "height": 48
+        },
+        "pilots": {
+          "x": 957,
+          "y": 160,
+          "width": 151,
+          "height": 48
+        }
+      },
+      "toolbar": {},
+      "actions": {
+        "cancel": {
+          "x": 950,
+          "y": 602,
+          "width": 158,
+          "height": 44
+        }
+      },
+      "detail": {
+        "id": "mount",
+        "panel": {
+          "x": 172,
+          "y": 280,
+          "width": 306,
+          "height": 286
+        },
+        "label": {
+          "x": 184,
+          "y": 292,
+          "width": 282,
+          "height": 24
+        },
+        "identity": {
+          "rect": {
+            "x": 184,
+            "y": 316,
+            "width": 282,
+            "height": 32
+          },
+          "title": {
+            "x": 184,
+            "y": 316,
+            "width": 282,
+            "height": 16
+          },
+          "subtitle": {
+            "x": 184,
+            "y": 332,
+            "width": 282,
+            "height": 16
+          }
+        },
+        "metrics": {
+          "ammo": {
+            "rect": {
+              "x": 184,
+              "y": 348,
+              "width": 140,
+              "height": 28
+            },
+            "label": {
+              "x": 184,
+              "y": 348,
+              "width": 140,
+              "height": 14
+            },
+            "value": {
+              "x": 184,
+              "y": 362,
+              "width": 140,
+              "height": 14
+            }
+          },
+          "stock": {
+            "rect": {
+              "x": 325,
+              "y": 348,
+              "width": 141,
+              "height": 28
+            },
+            "label": {
+              "x": 325,
+              "y": 348,
+              "width": 141,
+              "height": 14
+            },
+            "value": {
+              "x": 325,
+              "y": 362,
+              "width": 141,
+              "height": 14
+            }
+          }
+        },
+        "note": {
+          "visible": false
+        },
+        "actions": [
+          {
+            "id": "change",
+            "rect": {
+              "x": 184,
+              "y": 510,
+              "width": 137,
+              "height": 44
+            }
+          },
+          {
+            "id": "more",
+            "rect": {
+              "x": 329,
+              "y": 510,
+              "width": 137,
+              "height": 44
+            }
+          }
+        ]
+      }
+    },
+    "compact": {
+      "designWidth": 740,
+      "designHeight": 360,
+      "window": {
+        "x": 20,
+        "y": 8,
+        "width": 700,
+        "height": 344
+      },
+      "title": {
+        "x": 44,
+        "y": 8,
+        "width": 652,
+        "height": 32
+      },
+      "summaryBar": {
+        "x": 44,
+        "y": 44,
+        "width": 652,
+        "height": 24
+      },
+      "summary": {
+        "mounts": {
+          "x": 44,
+          "y": 44,
+          "width": 325,
+          "height": 24
+        },
+        "ammo": {
+          "x": 370,
+          "y": 44,
+          "width": 326,
+          "height": 24
+        }
+      },
+      "tabBar": {
+        "x": 44,
+        "y": 72,
+        "width": 652,
+        "height": 44
+      },
+      "collectionViewport": {
+        "x": 304,
+        "y": 168,
+        "width": 392,
+        "height": 112
+      },
+      "collection": {
+        "columnHeaders": [
+          {
+            "id": "type",
+            "rect": {
+              "x": 304,
+              "y": 168,
+              "width": 112,
+              "height": 24
+            }
+          },
+          {
+            "id": "launchers",
+            "rect": {
+              "x": 417,
+              "y": 168,
+              "width": 112,
+              "height": 24
+            }
+          },
+          {
+            "id": "clips",
+            "rect": {
+              "x": 530,
+              "y": 168,
+              "width": 114,
+              "height": 24
+            }
+          }
+        ],
+        "rowSlots": [
+          {
+            "id": "row-slot-1",
+            "rect": {
+              "x": 304,
+              "y": 192,
+              "width": 340,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "type",
+                "rect": {
+                  "x": 304,
+                  "y": 192,
+                  "width": 112,
+                  "height": 44
+                }
+              },
+              {
+                "id": "launchers",
+                "rect": {
+                  "x": 417,
+                  "y": 192,
+                  "width": 112,
+                  "height": 44
+                }
+              },
+              {
+                "id": "clips",
+                "rect": {
+                  "x": 530,
+                  "y": 192,
+                  "width": 114,
+                  "height": 44
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-2",
+            "rect": {
+              "x": 304,
+              "y": 236,
+              "width": 340,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "type",
+                "rect": {
+                  "x": 304,
+                  "y": 236,
+                  "width": 112,
+                  "height": 44
+                }
+              },
+              {
+                "id": "launchers",
+                "rect": {
+                  "x": 417,
+                  "y": 236,
+                  "width": 112,
+                  "height": 44
+                }
+              },
+              {
+                "id": "clips",
+                "rect": {
+                  "x": 530,
+                  "y": 236,
+                  "width": 114,
+                  "height": 44
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "toolbarBar": {
+        "x": 44,
+        "y": 120,
+        "width": 652,
+        "height": 44
+      },
+      "controls": {},
+      "footer": {
+        "x": 20,
+        "y": 284,
+        "width": 700,
+        "height": 68
+      },
+      "tabs": {
+        "overview": {
+          "x": 44,
+          "y": 72,
+          "width": 103,
+          "height": 44
+        },
+        "weapons": {
+          "x": 153,
+          "y": 72,
+          "width": 103,
+          "height": 44
+        },
+        "crew": {
+          "x": 262,
+          "y": 72,
+          "width": 103,
+          "height": 44
+        },
+        "equipment": {
+          "x": 371,
+          "y": 72,
+          "width": 103,
+          "height": 44
+        },
+        "armor": {
+          "x": 480,
+          "y": 72,
+          "width": 103,
+          "height": 44
+        },
+        "pilots": {
+          "x": 589,
+          "y": 72,
+          "width": 107,
+          "height": 44
+        }
+      },
+      "toolbar": {},
+      "actions": {
+        "cancel": {
+          "x": 548,
+          "y": 296,
+          "width": 148,
+          "height": 44
+        }
+      },
+      "detail": {
+        "id": "mount",
+        "panel": {
+          "x": 44,
+          "y": 168,
+          "width": 250,
+          "height": 112
+        },
+        "label": {
+          "x": 48,
+          "y": 172,
+          "width": 242,
+          "height": 16
+        },
+        "identity": {
+          "rect": {
+            "x": 48,
+            "y": 188,
+            "width": 242,
+            "height": 24
+          },
+          "title": {
+            "x": 48,
+            "y": 188,
+            "width": 242,
+            "height": 12
+          },
+          "subtitle": {
+            "x": 48,
+            "y": 200,
+            "width": 242,
+            "height": 12
+          }
+        },
+        "metrics": {
+          "ammo": {
+            "rect": {
+              "x": 48,
+              "y": 212,
+              "width": 120,
+              "height": 16
+            },
+            "label": {
+              "x": 48,
+              "y": 212,
+              "width": 120,
+              "height": 8
+            },
+            "value": {
+              "x": 48,
+              "y": 220,
+              "width": 120,
+              "height": 8
+            }
+          },
+          "stock": {
+            "rect": {
+              "x": 169,
+              "y": 212,
+              "width": 121,
+              "height": 16
+            },
+            "label": {
+              "x": 169,
+              "y": 212,
+              "width": 121,
+              "height": 8
+            },
+            "value": {
+              "x": 169,
+              "y": 220,
+              "width": 121,
+              "height": 8
+            }
+          }
+        },
+        "note": {
+          "visible": false
+        },
+        "actions": [
+          {
+            "id": "change",
+            "rect": {
+              "x": 48,
+              "y": 232,
+              "width": 118,
+              "height": 44
+            }
+          },
+          {
+            "id": "more",
+            "rect": {
+              "x": 172,
+              "y": 232,
+              "width": 118,
+              "height": 44
+            }
+          }
+        ]
+      }
+    }
+  },
+  "motion": {
+    "durationMs": 200,
+    "scaleFrom": 0.96,
+    "easing": "ease-out",
+    "captureModeDurationMs": 0
+  },
+  "provenance": {
+    "template": "FormTemplates/tabbed-management.json",
+    "templateVersion": 5,
+    "generatorKind": "tabbed"
+  },
+  "collectionMetrics": {
+    "wide": {
+      "totalItems": 2,
+      "visibleCapacity": 5,
+      "totalUnits": 2,
+      "visibleUnits": 5,
+      "itemsPerUnit": 1,
+      "scrollUnit": "record",
+      "overflow": false,
+      "scrollSteps": 0,
+      "track": {
+        "x": 1090,
+        "y": 316,
+        "width": 18,
+        "height": 220
+      },
+      "thumb": {
+        "x": 1090,
+        "y": 316,
+        "width": 18,
+        "height": 220
+      },
+      "trackHitTarget": {
+        "x": 1064,
+        "y": 316,
+        "width": 44,
+        "height": 220
+      },
+      "thumbHitTarget": {
+        "x": 1064,
+        "y": 316,
+        "width": 44,
+        "height": 220
+      },
+      "thumbTravelPx": 0
+    },
+    "compact": {
+      "totalItems": 2,
+      "visibleCapacity": 2,
+      "totalUnits": 2,
+      "visibleUnits": 2,
+      "itemsPerUnit": 1,
+      "scrollUnit": "record",
+      "overflow": false,
+      "scrollSteps": 0,
+      "track": {
+        "x": 678,
+        "y": 192,
+        "width": 18,
+        "height": 88
+      },
+      "thumb": {
+        "x": 678,
+        "y": 192,
+        "width": 18,
+        "height": 88
+      },
+      "trackHitTarget": {
+        "x": 652,
+        "y": 192,
+        "width": 44,
+        "height": 88
+      },
+      "thumbHitTarget": {
+        "x": 652,
+        "y": 192,
+        "width": 44,
+        "height": 88
+      },
+      "thumbTravelPx": 0
+    }
+  },
+  "parts": [
+    "window",
+    "title",
+    "summaryBar",
+    "tabBar",
+    "toolbarBar",
+    "collectionViewport",
+    "footer",
+    "summary.mounts",
+    "summary.ammo",
+    "tab.overview",
+    "tab.weapons",
+    "tab.crew",
+    "tab.equipment",
+    "tab.armor",
+    "tab.pilots",
+    "collection.scroll.track",
+    "collection.scroll.thumb",
+    "collection.column.type",
+    "collection.column.launchers",
+    "collection.column.clips",
+    "collection.row-slot.1",
+    "collection.row-slot.2",
+    "collection.row-slot.3",
+    "collection.row-slot.4",
+    "collection.row-slot.5",
+    "detailPanel",
+    "detail.mount",
+    "detail.mount.label",
+    "detail.mount.identity.title",
+    "detail.mount.identity.subtitle",
+    "detail.mount.metric.ammo",
+    "detail.mount.metric.stock",
+    "detail.mount.action.change",
+    "detail.mount.action.more",
+    "action.cancel"
+  ]
+}

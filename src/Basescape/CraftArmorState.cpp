@@ -41,6 +41,9 @@
 #include "../Ufopaedia/Ufopaedia.h"
 #include <algorithm>
 #include "../Engine/Unicode.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF08CraftArmorUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -156,6 +159,9 @@ CraftArmorState::CraftArmorState(Base *base, size_t craft) : _base(base), _craft
 	_lstSoldiers->onRightArrowClick((ActionHandler)&CraftArmorState::lstItemsRightArrowClick);
 	_lstSoldiers->onMouseClick((ActionHandler)&CraftArmorState::lstSoldiersClick, 0);
 	_lstSoldiers->onMousePress((ActionHandler)&CraftArmorState::lstSoldiersMousePress);
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF08CraftArmorUi::configure(*this);
+#endif
 }
 
 /**
@@ -167,6 +173,10 @@ CraftArmorState::~CraftArmorState()
 	{
 		delete sortFunctor;
 	}
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 }
 
 /**
@@ -681,5 +691,13 @@ void CraftArmorState::btnDeequipCraftArmorClick(Action *action)
 		row++;
 	}
 }
+
+#ifdef __EMSCRIPTEN__
+void CraftArmorState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF08CraftArmorUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+#endif
 
 }

@@ -23,6 +23,8 @@
 namespace OpenXcom
 {
 
+namespace Calypso { class CalypsoF08CraftWeaponsUi; }
+
 class Base;
 class Craft;
 class TextButton;
@@ -58,6 +60,15 @@ public:
 	void lstWeaponsClick(Action *action);
 	/// Handler for middle clicking the Weapons list.
 	void lstWeaponsMiddleClick(Action *action);
+#ifdef __EMSCRIPTEN__
+private:
+	friend class Calypso::CalypsoF08CraftWeaponsUi;
+	bool _hdLayout = false;
+	bool _hdWideLayout = false;
+	Calypso::CalypsoF08CraftWeaponsUi *_hdAdapter = nullptr;
+public:
+	void resize(int &dX, int &dY) override;
+#endif
 };
 
 }

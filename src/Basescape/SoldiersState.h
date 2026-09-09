@@ -24,6 +24,8 @@
 namespace OpenXcom
 {
 
+namespace Calypso { class CalypsoF04SoldiersUi; }
+
 class TextButton;
 class Window;
 class Text;
@@ -39,6 +41,9 @@ struct SortFunctor;
  */
 class SoldiersState : public State
 {
+#ifdef __EMSCRIPTEN__
+friend class Calypso::CalypsoF04SoldiersUi;
+#endif
 private:
 	TextButton *_btnOk, *_btnPsiTraining, *_btnTraining, *_btnMemorial;
 	Window *_window;
@@ -88,6 +93,15 @@ public:
 	void lstSoldiersClick(Action *action);
 	/// Handler for pressing-down a mouse-button in the list.
 	void lstSoldiersMousePress(Action *action);
+
+#ifdef __EMSCRIPTEN__
+private:
+	bool _hdLayout = false;
+	bool _hdWideLayout = false;
+	Calypso::CalypsoF04SoldiersUi *_hdAdapter = nullptr;
+public:
+	void resize(int &dX, int &dY) override;
+#endif
 };
 
 }

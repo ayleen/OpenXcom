@@ -1,0 +1,1159 @@
+{
+  "schema": 1,
+  "version": "hd.2026-08-29.1",
+  "form": {
+    "id": "f08-craft-soldiers",
+    "familyId": 8,
+    "archetype": "tabbed-management",
+    "source": "FormConfigs/f08-craft-soldiers.json",
+    "actions": [
+      {
+        "id": "cancel",
+        "label": "OK",
+        "tone": "safe",
+        "action": "cancel",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB0CC",
+          "text": "E8FFF5FF"
+        }
+      }
+    ],
+    "tabs": [
+      {
+        "id": "overview",
+        "label": "Overview"
+      },
+      {
+        "id": "weapons",
+        "label": "Weapons"
+      },
+      {
+        "id": "crew",
+        "label": "Crew"
+      },
+      {
+        "id": "equipment",
+        "label": "Equipment"
+      },
+      {
+        "id": "armor",
+        "label": "Armor"
+      },
+      {
+        "id": "pilots",
+        "label": "Pilots"
+      }
+    ],
+    "selectedTab": "crew",
+    "summary": [
+      {
+        "id": "capacity",
+        "label": "Capacity",
+        "value": "14 / 14"
+      },
+      {
+        "id": "available",
+        "label": "Available",
+        "value": "6 free"
+      }
+    ],
+    "collection": {
+      "mode": "table",
+      "selectionRole": "select",
+      "columns": [
+        {
+          "id": "diver",
+          "label": "Diver"
+        },
+        {
+          "id": "rank",
+          "label": "Rank"
+        },
+        {
+          "id": "assignment",
+          "label": "Assign"
+        }
+      ],
+      "items": [
+        {
+          "id": "diver-1",
+          "values": [
+            "Goreng",
+            "Ensign",
+            "Nereid-1"
+          ]
+        },
+        {
+          "id": "diver-2",
+          "values": [
+            "Vermeulen",
+            "Ensign",
+            "None"
+          ]
+        },
+        {
+          "id": "diver-3",
+          "values": [
+            "Leclercq",
+            "Lieutenant",
+            "Nereid-1"
+          ]
+        }
+      ]
+    },
+    "controls": [
+      {
+        "id": "sort",
+        "label": "Sort",
+        "kind": "select",
+        "action": "sort",
+        "value": "original",
+        "options": [
+          {
+            "id": "original",
+            "label": "Original"
+          },
+          {
+            "id": "name",
+            "label": "Name"
+          },
+          {
+            "id": "rank",
+            "label": "Rank"
+          }
+        ]
+      }
+    ],
+    "toolbar": [],
+    "detail": {
+      "id": "diver",
+      "label": "Selected diver",
+      "title": "Stefan Goreng",
+      "subtitle": "Ensign · Nereid-1",
+      "metrics": [
+        {
+          "id": "missions",
+          "label": "Missions",
+          "value": "31"
+        },
+        {
+          "id": "kills",
+          "label": "Kills",
+          "value": "20"
+        }
+      ],
+      "actions": [
+        {
+          "id": "preview",
+          "label": "Preview",
+          "tone": "normal",
+          "action": "preview",
+          "style": {
+            "fill": "051417B8",
+            "border": "74FFB059",
+            "text": "E8FFF5FF"
+          }
+        }
+      ]
+    }
+  },
+  "copy": {
+    "title": "Crew",
+    "tabs": {
+      "overview": "Overview",
+      "weapons": "Weapons",
+      "crew": "Crew",
+      "equipment": "Equipment",
+      "armor": "Armor",
+      "pilots": "Pilots"
+    },
+    "summary": [
+      {
+        "id": "capacity",
+        "label": "Capacity",
+        "value": "14 / 14"
+      },
+      {
+        "id": "available",
+        "label": "Available",
+        "value": "6 free"
+      }
+    ],
+    "collection": {
+      "mode": "table",
+      "selectionRole": "select",
+      "columns": [
+        {
+          "id": "diver",
+          "label": "Diver"
+        },
+        {
+          "id": "rank",
+          "label": "Rank"
+        },
+        {
+          "id": "assignment",
+          "label": "Assign"
+        }
+      ],
+      "items": [
+        {
+          "id": "diver-1",
+          "values": [
+            "Goreng",
+            "Ensign",
+            "Nereid-1"
+          ]
+        },
+        {
+          "id": "diver-2",
+          "values": [
+            "Vermeulen",
+            "Ensign",
+            "None"
+          ]
+        },
+        {
+          "id": "diver-3",
+          "values": [
+            "Leclercq",
+            "Lieutenant",
+            "Nereid-1"
+          ]
+        }
+      ]
+    },
+    "controls": [
+      {
+        "id": "sort",
+        "label": "Sort",
+        "kind": "select",
+        "action": "sort",
+        "value": "original",
+        "options": [
+          {
+            "id": "original",
+            "label": "Original"
+          },
+          {
+            "id": "name",
+            "label": "Name"
+          },
+          {
+            "id": "rank",
+            "label": "Rank"
+          }
+        ]
+      }
+    ],
+    "toolbar": {},
+    "detail": {
+      "id": "diver",
+      "label": "Selected diver",
+      "title": "Stefan Goreng",
+      "subtitle": "Ensign · Nereid-1",
+      "metrics": [
+        {
+          "id": "missions",
+          "label": "Missions",
+          "value": "31"
+        },
+        {
+          "id": "kills",
+          "label": "Kills",
+          "value": "20"
+        }
+      ],
+      "actions": [
+        {
+          "id": "preview",
+          "label": "Preview",
+          "tone": "normal",
+          "action": "preview"
+        }
+      ]
+    }
+  },
+  "style": {
+    "panelFillTop": "08191DEB",
+    "panelFillBottom": "041014E8",
+    "frame": "74FFB073",
+    "divider": "74FFB04D",
+    "text": "E8FFF5FF",
+    "mutedText": "A9D8C7FF",
+    "selectedTab": "74FFB033",
+    "selection": "74FFB033",
+    "scrollTrack": "061B1CD6",
+    "scrollThumb": "74FFB099",
+    "footerFill": "061B1CD6",
+    "footerDot": "74FFB01F",
+    "cutCornerPx": 14
+  },
+  "layouts": {
+    "wide": {
+      "designWidth": 1280,
+      "designHeight": 720,
+      "window": {
+        "x": 140,
+        "y": 50,
+        "width": 1000,
+        "height": 620
+      },
+      "title": {
+        "x": 172,
+        "y": 68,
+        "width": 936,
+        "height": 44
+      },
+      "summaryBar": {
+        "x": 172,
+        "y": 116,
+        "width": 936,
+        "height": 36
+      },
+      "summary": {
+        "capacity": {
+          "x": 172,
+          "y": 116,
+          "width": 467,
+          "height": 36
+        },
+        "available": {
+          "x": 640,
+          "y": 116,
+          "width": 468,
+          "height": 36
+        }
+      },
+      "tabBar": {
+        "x": 172,
+        "y": 160,
+        "width": 936,
+        "height": 48
+      },
+      "collectionViewport": {
+        "x": 488,
+        "y": 280,
+        "width": 620,
+        "height": 286
+      },
+      "collection": {
+        "columnHeaders": [
+          {
+            "id": "diver",
+            "rect": {
+              "x": 488,
+              "y": 280,
+              "width": 188,
+              "height": 36
+            }
+          },
+          {
+            "id": "rank",
+            "rect": {
+              "x": 677,
+              "y": 280,
+              "width": 188,
+              "height": 36
+            }
+          },
+          {
+            "id": "assignment",
+            "rect": {
+              "x": 866,
+              "y": 280,
+              "width": 188,
+              "height": 36
+            }
+          }
+        ],
+        "rowSlots": [
+          {
+            "id": "row-slot-1",
+            "rect": {
+              "x": 488,
+              "y": 316,
+              "width": 566,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "diver",
+                "rect": {
+                  "x": 488,
+                  "y": 316,
+                  "width": 188,
+                  "height": 44
+                }
+              },
+              {
+                "id": "rank",
+                "rect": {
+                  "x": 677,
+                  "y": 316,
+                  "width": 188,
+                  "height": 44
+                }
+              },
+              {
+                "id": "assignment",
+                "rect": {
+                  "x": 866,
+                  "y": 316,
+                  "width": 188,
+                  "height": 44
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-2",
+            "rect": {
+              "x": 488,
+              "y": 360,
+              "width": 566,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "diver",
+                "rect": {
+                  "x": 488,
+                  "y": 360,
+                  "width": 188,
+                  "height": 44
+                }
+              },
+              {
+                "id": "rank",
+                "rect": {
+                  "x": 677,
+                  "y": 360,
+                  "width": 188,
+                  "height": 44
+                }
+              },
+              {
+                "id": "assignment",
+                "rect": {
+                  "x": 866,
+                  "y": 360,
+                  "width": 188,
+                  "height": 44
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-3",
+            "rect": {
+              "x": 488,
+              "y": 404,
+              "width": 566,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "diver",
+                "rect": {
+                  "x": 488,
+                  "y": 404,
+                  "width": 188,
+                  "height": 44
+                }
+              },
+              {
+                "id": "rank",
+                "rect": {
+                  "x": 677,
+                  "y": 404,
+                  "width": 188,
+                  "height": 44
+                }
+              },
+              {
+                "id": "assignment",
+                "rect": {
+                  "x": 866,
+                  "y": 404,
+                  "width": 188,
+                  "height": 44
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-4",
+            "rect": {
+              "x": 488,
+              "y": 448,
+              "width": 566,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "diver",
+                "rect": {
+                  "x": 488,
+                  "y": 448,
+                  "width": 188,
+                  "height": 44
+                }
+              },
+              {
+                "id": "rank",
+                "rect": {
+                  "x": 677,
+                  "y": 448,
+                  "width": 188,
+                  "height": 44
+                }
+              },
+              {
+                "id": "assignment",
+                "rect": {
+                  "x": 866,
+                  "y": 448,
+                  "width": 188,
+                  "height": 44
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-5",
+            "rect": {
+              "x": 488,
+              "y": 492,
+              "width": 566,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "diver",
+                "rect": {
+                  "x": 488,
+                  "y": 492,
+                  "width": 188,
+                  "height": 44
+                }
+              },
+              {
+                "id": "rank",
+                "rect": {
+                  "x": 677,
+                  "y": 492,
+                  "width": 188,
+                  "height": 44
+                }
+              },
+              {
+                "id": "assignment",
+                "rect": {
+                  "x": 866,
+                  "y": 492,
+                  "width": 188,
+                  "height": 44
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "toolbarBar": {
+        "x": 172,
+        "y": 218,
+        "width": 936,
+        "height": 52
+      },
+      "controls": {
+        "sort": {
+          "x": 172,
+          "y": 222,
+          "width": 220,
+          "height": 44
+        }
+      },
+      "footer": {
+        "x": 140,
+        "y": 578,
+        "width": 1000,
+        "height": 92
+      },
+      "tabs": {
+        "overview": {
+          "x": 172,
+          "y": 160,
+          "width": 149,
+          "height": 48
+        },
+        "weapons": {
+          "x": 329,
+          "y": 160,
+          "width": 149,
+          "height": 48
+        },
+        "crew": {
+          "x": 486,
+          "y": 160,
+          "width": 149,
+          "height": 48
+        },
+        "equipment": {
+          "x": 643,
+          "y": 160,
+          "width": 149,
+          "height": 48
+        },
+        "armor": {
+          "x": 800,
+          "y": 160,
+          "width": 149,
+          "height": 48
+        },
+        "pilots": {
+          "x": 957,
+          "y": 160,
+          "width": 151,
+          "height": 48
+        }
+      },
+      "toolbar": {},
+      "actions": {
+        "cancel": {
+          "x": 950,
+          "y": 602,
+          "width": 158,
+          "height": 44
+        }
+      },
+      "detail": {
+        "id": "diver",
+        "panel": {
+          "x": 172,
+          "y": 280,
+          "width": 306,
+          "height": 286
+        },
+        "label": {
+          "x": 184,
+          "y": 292,
+          "width": 282,
+          "height": 24
+        },
+        "identity": {
+          "rect": {
+            "x": 184,
+            "y": 316,
+            "width": 282,
+            "height": 32
+          },
+          "title": {
+            "x": 184,
+            "y": 316,
+            "width": 282,
+            "height": 16
+          },
+          "subtitle": {
+            "x": 184,
+            "y": 332,
+            "width": 282,
+            "height": 16
+          }
+        },
+        "metrics": {
+          "missions": {
+            "rect": {
+              "x": 184,
+              "y": 348,
+              "width": 140,
+              "height": 28
+            },
+            "label": {
+              "x": 184,
+              "y": 348,
+              "width": 140,
+              "height": 14
+            },
+            "value": {
+              "x": 184,
+              "y": 362,
+              "width": 140,
+              "height": 14
+            }
+          },
+          "kills": {
+            "rect": {
+              "x": 325,
+              "y": 348,
+              "width": 141,
+              "height": 28
+            },
+            "label": {
+              "x": 325,
+              "y": 348,
+              "width": 141,
+              "height": 14
+            },
+            "value": {
+              "x": 325,
+              "y": 362,
+              "width": 141,
+              "height": 14
+            }
+          }
+        },
+        "note": {
+          "visible": false
+        },
+        "actions": [
+          {
+            "id": "preview",
+            "rect": {
+              "x": 184,
+              "y": 510,
+              "width": 282,
+              "height": 44
+            }
+          }
+        ]
+      }
+    },
+    "compact": {
+      "designWidth": 740,
+      "designHeight": 360,
+      "window": {
+        "x": 20,
+        "y": 8,
+        "width": 700,
+        "height": 344
+      },
+      "title": {
+        "x": 44,
+        "y": 8,
+        "width": 652,
+        "height": 32
+      },
+      "summaryBar": {
+        "x": 44,
+        "y": 44,
+        "width": 652,
+        "height": 24
+      },
+      "summary": {
+        "capacity": {
+          "x": 44,
+          "y": 44,
+          "width": 325,
+          "height": 24
+        },
+        "available": {
+          "x": 370,
+          "y": 44,
+          "width": 326,
+          "height": 24
+        }
+      },
+      "tabBar": {
+        "x": 44,
+        "y": 72,
+        "width": 652,
+        "height": 44
+      },
+      "collectionViewport": {
+        "x": 304,
+        "y": 168,
+        "width": 392,
+        "height": 112
+      },
+      "collection": {
+        "columnHeaders": [
+          {
+            "id": "diver",
+            "rect": {
+              "x": 304,
+              "y": 168,
+              "width": 112,
+              "height": 24
+            }
+          },
+          {
+            "id": "rank",
+            "rect": {
+              "x": 417,
+              "y": 168,
+              "width": 112,
+              "height": 24
+            }
+          },
+          {
+            "id": "assignment",
+            "rect": {
+              "x": 530,
+              "y": 168,
+              "width": 114,
+              "height": 24
+            }
+          }
+        ],
+        "rowSlots": [
+          {
+            "id": "row-slot-1",
+            "rect": {
+              "x": 304,
+              "y": 192,
+              "width": 340,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "diver",
+                "rect": {
+                  "x": 304,
+                  "y": 192,
+                  "width": 112,
+                  "height": 44
+                }
+              },
+              {
+                "id": "rank",
+                "rect": {
+                  "x": 417,
+                  "y": 192,
+                  "width": 112,
+                  "height": 44
+                }
+              },
+              {
+                "id": "assignment",
+                "rect": {
+                  "x": 530,
+                  "y": 192,
+                  "width": 114,
+                  "height": 44
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-2",
+            "rect": {
+              "x": 304,
+              "y": 236,
+              "width": 340,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "diver",
+                "rect": {
+                  "x": 304,
+                  "y": 236,
+                  "width": 112,
+                  "height": 44
+                }
+              },
+              {
+                "id": "rank",
+                "rect": {
+                  "x": 417,
+                  "y": 236,
+                  "width": 112,
+                  "height": 44
+                }
+              },
+              {
+                "id": "assignment",
+                "rect": {
+                  "x": 530,
+                  "y": 236,
+                  "width": 114,
+                  "height": 44
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "toolbarBar": {
+        "x": 44,
+        "y": 120,
+        "width": 652,
+        "height": 44
+      },
+      "controls": {
+        "sort": {
+          "x": 44,
+          "y": 120,
+          "width": 180,
+          "height": 44
+        }
+      },
+      "footer": {
+        "x": 20,
+        "y": 284,
+        "width": 700,
+        "height": 68
+      },
+      "tabs": {
+        "overview": {
+          "x": 44,
+          "y": 72,
+          "width": 103,
+          "height": 44
+        },
+        "weapons": {
+          "x": 153,
+          "y": 72,
+          "width": 103,
+          "height": 44
+        },
+        "crew": {
+          "x": 262,
+          "y": 72,
+          "width": 103,
+          "height": 44
+        },
+        "equipment": {
+          "x": 371,
+          "y": 72,
+          "width": 103,
+          "height": 44
+        },
+        "armor": {
+          "x": 480,
+          "y": 72,
+          "width": 103,
+          "height": 44
+        },
+        "pilots": {
+          "x": 589,
+          "y": 72,
+          "width": 107,
+          "height": 44
+        }
+      },
+      "toolbar": {},
+      "actions": {
+        "cancel": {
+          "x": 548,
+          "y": 296,
+          "width": 148,
+          "height": 44
+        }
+      },
+      "detail": {
+        "id": "diver",
+        "panel": {
+          "x": 44,
+          "y": 168,
+          "width": 250,
+          "height": 112
+        },
+        "label": {
+          "x": 48,
+          "y": 172,
+          "width": 242,
+          "height": 16
+        },
+        "identity": {
+          "rect": {
+            "x": 48,
+            "y": 188,
+            "width": 242,
+            "height": 24
+          },
+          "title": {
+            "x": 48,
+            "y": 188,
+            "width": 242,
+            "height": 12
+          },
+          "subtitle": {
+            "x": 48,
+            "y": 200,
+            "width": 242,
+            "height": 12
+          }
+        },
+        "metrics": {
+          "missions": {
+            "rect": {
+              "x": 48,
+              "y": 212,
+              "width": 120,
+              "height": 16
+            },
+            "label": {
+              "x": 48,
+              "y": 212,
+              "width": 120,
+              "height": 8
+            },
+            "value": {
+              "x": 48,
+              "y": 220,
+              "width": 120,
+              "height": 8
+            }
+          },
+          "kills": {
+            "rect": {
+              "x": 169,
+              "y": 212,
+              "width": 121,
+              "height": 16
+            },
+            "label": {
+              "x": 169,
+              "y": 212,
+              "width": 121,
+              "height": 8
+            },
+            "value": {
+              "x": 169,
+              "y": 220,
+              "width": 121,
+              "height": 8
+            }
+          }
+        },
+        "note": {
+          "visible": false
+        },
+        "actions": [
+          {
+            "id": "preview",
+            "rect": {
+              "x": 48,
+              "y": 232,
+              "width": 242,
+              "height": 44
+            }
+          }
+        ]
+      }
+    }
+  },
+  "motion": {
+    "durationMs": 200,
+    "scaleFrom": 0.96,
+    "easing": "ease-out",
+    "captureModeDurationMs": 0
+  },
+  "provenance": {
+    "template": "FormTemplates/tabbed-management.json",
+    "templateVersion": 5,
+    "generatorKind": "tabbed"
+  },
+  "collectionMetrics": {
+    "wide": {
+      "totalItems": 3,
+      "visibleCapacity": 5,
+      "totalUnits": 3,
+      "visibleUnits": 5,
+      "itemsPerUnit": 1,
+      "scrollUnit": "record",
+      "overflow": false,
+      "scrollSteps": 0,
+      "track": {
+        "x": 1090,
+        "y": 316,
+        "width": 18,
+        "height": 220
+      },
+      "thumb": {
+        "x": 1090,
+        "y": 316,
+        "width": 18,
+        "height": 220
+      },
+      "trackHitTarget": {
+        "x": 1064,
+        "y": 316,
+        "width": 44,
+        "height": 220
+      },
+      "thumbHitTarget": {
+        "x": 1064,
+        "y": 316,
+        "width": 44,
+        "height": 220
+      },
+      "thumbTravelPx": 0
+    },
+    "compact": {
+      "totalItems": 3,
+      "visibleCapacity": 2,
+      "totalUnits": 3,
+      "visibleUnits": 2,
+      "itemsPerUnit": 1,
+      "scrollUnit": "record",
+      "overflow": true,
+      "scrollSteps": 1,
+      "track": {
+        "x": 678,
+        "y": 192,
+        "width": 18,
+        "height": 88
+      },
+      "thumb": {
+        "x": 678,
+        "y": 192,
+        "width": 18,
+        "height": 58
+      },
+      "trackHitTarget": {
+        "x": 652,
+        "y": 192,
+        "width": 44,
+        "height": 88
+      },
+      "thumbHitTarget": {
+        "x": 652,
+        "y": 192,
+        "width": 44,
+        "height": 58
+      },
+      "thumbTravelPx": 30
+    }
+  },
+  "parts": [
+    "window",
+    "title",
+    "summaryBar",
+    "tabBar",
+    "toolbarBar",
+    "collectionViewport",
+    "footer",
+    "summary.capacity",
+    "summary.available",
+    "tab.overview",
+    "tab.weapons",
+    "tab.crew",
+    "tab.equipment",
+    "tab.armor",
+    "tab.pilots",
+    "control.sort",
+    "collection.scroll.track",
+    "collection.scroll.thumb",
+    "collection.column.diver",
+    "collection.column.rank",
+    "collection.column.assignment",
+    "collection.row-slot.1",
+    "collection.row-slot.2",
+    "collection.row-slot.3",
+    "collection.row-slot.4",
+    "collection.row-slot.5",
+    "detailPanel",
+    "detail.diver",
+    "detail.diver.label",
+    "detail.diver.identity.title",
+    "detail.diver.identity.subtitle",
+    "detail.diver.metric.missions",
+    "detail.diver.metric.kills",
+    "detail.diver.action.preview",
+    "action.cancel"
+  ]
+}

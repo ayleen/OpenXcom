@@ -43,6 +43,9 @@
 #include "../Battlescape/BattlescapeGenerator.h"
 #include "../Battlescape/BriefingState.h"
 #include "../Savegame/SavedBattleGame.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF08CraftSoldiersUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -189,6 +192,9 @@ CraftSoldiersState::CraftSoldiersState(Base *base, size_t craft)
 	_lstSoldiers->onRightArrowClick((ActionHandler)&CraftSoldiersState::lstItemsRightArrowClick);
 	_lstSoldiers->onMouseClick((ActionHandler)&CraftSoldiersState::lstSoldiersClick, 0);
 	_lstSoldiers->onMousePress((ActionHandler)&CraftSoldiersState::lstSoldiersMousePress);
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF08CraftSoldiersUi::configure(*this);
+#endif
 }
 
 /**
@@ -200,6 +206,10 @@ CraftSoldiersState::~CraftSoldiersState()
 	{
 		delete sortFunctor;
 	}
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 }
 
 /**
@@ -654,5 +664,13 @@ void CraftSoldiersState::btnDeassignCraftSoldiersClick(Action *action)
 	_txtAvailable->setText(tr("STR_SPACE_AVAILABLE").arg(c->getSpaceAvailable()));
 	_txtUsed->setText(tr("STR_SPACE_USED").arg(c->getSpaceUsed()));
 }
+
+#ifdef __EMSCRIPTEN__
+void CraftSoldiersState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF08CraftSoldiersUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+#endif
 
 }

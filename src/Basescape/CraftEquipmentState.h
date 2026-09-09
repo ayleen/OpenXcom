@@ -25,6 +25,8 @@
 namespace OpenXcom
 {
 
+namespace Calypso { class CalypsoF08CraftEquipmentUi; }
+
 class TextButton;
 class Window;
 class Text;
@@ -115,6 +117,15 @@ public:
 	void btnLoadClick(Action *action);
 	/// Handler for clicking the Save button.
 	void btnSaveClick(Action *action);
+#ifdef __EMSCRIPTEN__
+private:
+	friend class Calypso::CalypsoF08CraftEquipmentUi;
+	bool _hdLayout = false;
+	bool _hdWideLayout = false;
+	Calypso::CalypsoF08CraftEquipmentUi *_hdAdapter = nullptr;
+public:
+	void resize(int &dX, int &dY) override;
+#endif
 };
 
 }

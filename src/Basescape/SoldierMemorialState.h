@@ -21,6 +21,7 @@
 
 namespace OpenXcom
 {
+namespace Calypso { class CalypsoF06SoldierMemorialUi; }
 
 class TextButton;
 class Window;
@@ -34,6 +35,9 @@ class TextList;
  */
 class SoldierMemorialState : public State
 {
+#ifdef __EMSCRIPTEN__
+friend class Calypso::CalypsoF06SoldierMemorialUi;
+#endif
 private:
 	TextButton *_btnOk, *_btnStatistics;
 	TextEdit *_btnQuickSearch;
@@ -58,6 +62,15 @@ public:
 	void btnStatisticsClick(Action *action);
 	/// Handler for clicking the Soldiers list.
 	void lstSoldiersClick(Action *action);
+
+#ifdef __EMSCRIPTEN__
+private:
+	bool _hdLayout = false;
+	bool _hdWideLayout = false;
+	Calypso::CalypsoF06SoldierMemorialUi *_hdAdapter = nullptr;
+public:
+	void resize(int &dX, int &dY) override;
+#endif
 };
 
 }

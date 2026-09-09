@@ -191,6 +191,405 @@
       ]
     },
     {
+      "id": "f04-soldiers",
+      "contract": "f04-soldiers.json",
+      "emitter": "family",
+      "validationProfile": "selection-list",
+      "native": {
+        "namespace": "CalypsoF04SoldiersGen",
+        "prefix": "CalypsoF04Soldiers",
+        "output": "CalypsoF04Soldiers.generated.h"
+      },
+      "browser": {
+        "global": "CalypsoF04Soldiers",
+        "output": "f04-soldiers.js"
+      },
+      "rendererOwnership": "selection-list",
+      "harnessScenarioIds": [
+        103
+      ]
+    },
+    {
+      "id": "f05-soldier-armor",
+      "contract": "f05-soldier-armor.json",
+      "emitter": "family",
+      "validationProfile": "selection-list",
+      "native": {
+        "namespace": "CalypsoF05SoldierArmorGen",
+        "prefix": "CalypsoF05SoldierArmor",
+        "output": "CalypsoF05SoldierArmor.generated.h"
+      },
+      "browser": {
+        "global": "CalypsoF05SoldierArmor",
+        "output": "f05-soldier-armor.js"
+      },
+      "rendererOwnership": "selection-list",
+      "harnessScenarioIds": [
+        104
+      ]
+    },
+    {
+      "id": "f05-soldier-avatar",
+      "contract": "f05-soldier-avatar.json",
+      "emitter": "family",
+      "validationProfile": "selection-list",
+      "native": {
+        "namespace": "CalypsoF05SoldierAvatarGen",
+        "prefix": "CalypsoF05SoldierAvatar",
+        "output": "CalypsoF05SoldierAvatar.generated.h"
+      },
+      "browser": {
+        "global": "CalypsoF05SoldierAvatar",
+        "output": "f05-soldier-avatar.js"
+      },
+      "rendererOwnership": "selection-list",
+      "harnessScenarioIds": [
+        105
+      ]
+    },
+    {
+      "id": "f05-transform-select",
+      "contract": "f05-transform-select.json",
+      "emitter": "family",
+      "validationProfile": "selection-list",
+      "native": {
+        "namespace": "CalypsoF05TransformSelectGen",
+        "prefix": "CalypsoF05TransformSelect",
+        "output": "CalypsoF05TransformSelect.generated.h"
+      },
+      "browser": {
+        "global": "CalypsoF05TransformSelect",
+        "output": "f05-transform-select.js"
+      },
+      "rendererOwnership": "selection-list",
+      "harnessScenarioIds": [
+        106
+      ]
+    },
+    {
+      "id": "f05-transformation-list",
+      "contract": "f05-transformation-list.json",
+      "emitter": "family",
+      "validationProfile": "selection-list",
+      "native": {
+        "namespace": "CalypsoF05TransformationListGen",
+        "prefix": "CalypsoF05TransformationList",
+        "output": "CalypsoF05TransformationList.generated.h"
+      },
+      "browser": {
+        "global": "CalypsoF05TransformationList",
+        "output": "f05-transformation-list.js"
+      },
+      "rendererOwnership": "selection-list",
+      "harnessScenarioIds": [
+        107
+      ]
+    },
+    {
+      "id": "f05-transformation-review",
+      "contract": "f05-transformation-review.json",
+      "emitter": "family",
+      "validationProfile": "selection-list",
+      "native": {
+        "namespace": "CalypsoF05TransformationReviewGen",
+        "prefix": "CalypsoF05TransformationReview",
+        "output": "CalypsoF05TransformationReview.generated.h"
+      },
+      "browser": {
+        "global": "CalypsoF05TransformationReview",
+        "output": "f05-transformation-review.js"
+      },
+      "rendererOwnership": "selection-list",
+      "harnessScenarioIds": [
+        108
+      ]
+    },
+    {
+      "id": "f06-soldier-memorial",
+      "contract": "f06-soldier-memorial.json",
+      "emitter": "family",
+      "validationProfile": "selection-list",
+      "native": {
+        "namespace": "CalypsoF06SoldierMemorialGen",
+        "prefix": "CalypsoF06SoldierMemorial",
+        "output": "CalypsoF06SoldierMemorial.generated.h"
+      },
+      "browser": {
+        "global": "CalypsoF06SoldierMemorial",
+        "output": "f06-soldier-memorial.js"
+      },
+      "rendererOwnership": "selection-list",
+      "harnessScenarioIds": [
+        88
+      ]
+    },
+    {
+      "id": "f06-soldier-diary",
+      "contract": "f06-soldier-diary.json",
+      "emitter": "family",
+      "validationProfile": "selection-list",
+      "native": {
+        "namespace": "CalypsoF06SoldierDiaryGen",
+        "prefix": "CalypsoF06SoldierDiary",
+        "output": "CalypsoF06SoldierDiary.generated.h"
+      },
+      "browser": {
+        "global": "CalypsoF06SoldierDiary",
+        "output": "f06-soldier-diary.js"
+      },
+      "rendererOwnership": "selection-list",
+      "harnessScenarioIds": [
+        89
+      ]
+    },
+    {
+      "id": "f06-diary-light",
+      "contract": "f06-diary-light.json",
+      "emitter": "family",
+      "validationProfile": "selection-list",
+      "native": {
+        "namespace": "CalypsoF06DiaryLightGen",
+        "prefix": "CalypsoF06DiaryLight",
+        "output": "CalypsoF06DiaryLight.generated.h"
+      },
+      "browser": {
+        "global": "CalypsoF06DiaryLight",
+        "output": "f06-diary-light.js"
+      },
+      "rendererOwnership": "selection-list",
+      "harnessScenarioIds": [
+        90
+      ]
+    },
+    {
+      "id": "f06-diary-mission",
+      "contract": "f06-diary-mission.json",
+      "emitter": "family",
+      "validationProfile": "selection-list",
+      "native": {
+        "namespace": "CalypsoF06DiaryMissionGen",
+        "prefix": "CalypsoF06DiaryMission",
+        "output": "CalypsoF06DiaryMission.generated.h"
+      },
+      "browser": {
+        "global": "CalypsoF06DiaryMission",
+        "output": "f06-diary-mission.js"
+      },
+      "rendererOwnership": "selection-list",
+      "harnessScenarioIds": [
+        91
+      ]
+    },
+    {
+      "id": "f06-diary-performance",
+      "contract": "f06-diary-performance.json",
+      "emitter": "family",
+      "validationProfile": "selection-list",
+      "native": {
+        "namespace": "CalypsoF06DiaryPerformanceGen",
+        "prefix": "CalypsoF06DiaryPerformance",
+        "output": "CalypsoF06DiaryPerformance.generated.h"
+      },
+      "browser": {
+        "global": "CalypsoF06DiaryPerformance",
+        "output": "f06-diary-performance.js"
+      },
+      "rendererOwnership": "selection-list",
+      "harnessScenarioIds": [
+        92
+      ]
+    },
+    {
+      "id": "f07-crafts",
+      "contract": "f07-crafts.json",
+      "emitter": "family",
+      "validationProfile": "tabbed-management",
+      "native": {
+        "namespace": "CalypsoF07CraftsGen",
+        "prefix": "CalypsoF07Crafts",
+        "output": "CalypsoF07Crafts.generated.h"
+      },
+      "browser": {
+        "global": "CalypsoF07Crafts",
+        "output": "f07-crafts.js"
+      },
+      "rendererOwnership": "tabbed-management",
+      "harnessScenarioIds": [
+        93
+      ]
+    },
+    {
+      "id": "f07-craft-info",
+      "contract": "f07-craft-info.json",
+      "emitter": "family",
+      "validationProfile": "tabbed-management",
+      "native": {
+        "namespace": "CalypsoF07CraftInfoGen",
+        "prefix": "CalypsoF07CraftInfo",
+        "output": "CalypsoF07CraftInfo.generated.h"
+      },
+      "browser": {
+        "global": "CalypsoF07CraftInfo",
+        "output": "f07-craft-info.js"
+      },
+      "rendererOwnership": "tabbed-management",
+      "harnessScenarioIds": [
+        94
+      ]
+    },
+    {
+      "id": "f07-pilot-select",
+      "contract": "f07-pilot-select.json",
+      "emitter": "family",
+      "validationProfile": "tabbed-management",
+      "native": {
+        "namespace": "CalypsoF07PilotSelectGen",
+        "prefix": "CalypsoF07PilotSelect",
+        "output": "CalypsoF07PilotSelect.generated.h"
+      },
+      "browser": {
+        "global": "CalypsoF07PilotSelect",
+        "output": "f07-pilot-select.js"
+      },
+      "rendererOwnership": "tabbed-management",
+      "harnessScenarioIds": [
+        95
+      ]
+    },
+    {
+      "id": "f07-craft-pilots",
+      "contract": "f07-craft-pilots.json",
+      "emitter": "family",
+      "validationProfile": "tabbed-management",
+      "native": {
+        "namespace": "CalypsoF07CraftPilotsGen",
+        "prefix": "CalypsoF07CraftPilots",
+        "output": "CalypsoF07CraftPilots.generated.h"
+      },
+      "browser": {
+        "global": "CalypsoF07CraftPilots",
+        "output": "f07-craft-pilots.js"
+      },
+      "rendererOwnership": "tabbed-management",
+      "harnessScenarioIds": [
+        96
+      ]
+    },
+    {
+      "id": "f08-craft-soldiers",
+      "contract": "f08-craft-soldiers.json",
+      "emitter": "family",
+      "validationProfile": "tabbed-management",
+      "native": {
+        "namespace": "CalypsoF08CraftSoldiersGen",
+        "prefix": "CalypsoF08CraftSoldiers",
+        "output": "CalypsoF08CraftSoldiers.generated.h"
+      },
+      "browser": {
+        "global": "CalypsoF08CraftSoldiers",
+        "output": "f08-craft-soldiers.js"
+      },
+      "rendererOwnership": "tabbed-management",
+      "harnessScenarioIds": [
+        97
+      ]
+    },
+    {
+      "id": "f08-craft-armor",
+      "contract": "f08-craft-armor.json",
+      "emitter": "family",
+      "validationProfile": "tabbed-management",
+      "native": {
+        "namespace": "CalypsoF08CraftArmorGen",
+        "prefix": "CalypsoF08CraftArmor",
+        "output": "CalypsoF08CraftArmor.generated.h"
+      },
+      "browser": {
+        "global": "CalypsoF08CraftArmor",
+        "output": "f08-craft-armor.js"
+      },
+      "rendererOwnership": "tabbed-management",
+      "harnessScenarioIds": [
+        98
+      ]
+    },
+    {
+      "id": "f08-craft-weapons",
+      "contract": "f08-craft-weapons.json",
+      "emitter": "family",
+      "validationProfile": "tabbed-management",
+      "native": {
+        "namespace": "CalypsoF08CraftWeaponsGen",
+        "prefix": "CalypsoF08CraftWeapons",
+        "output": "CalypsoF08CraftWeapons.generated.h"
+      },
+      "browser": {
+        "global": "CalypsoF08CraftWeapons",
+        "output": "f08-craft-weapons.js"
+      },
+      "rendererOwnership": "tabbed-management",
+      "harnessScenarioIds": [
+        99
+      ]
+    },
+    {
+      "id": "f08-craft-equipment",
+      "contract": "f08-craft-equipment.json",
+      "emitter": "family",
+      "validationProfile": "tabbed-management",
+      "native": {
+        "namespace": "CalypsoF08CraftEquipmentGen",
+        "prefix": "CalypsoF08CraftEquipment",
+        "output": "CalypsoF08CraftEquipment.generated.h"
+      },
+      "browser": {
+        "global": "CalypsoF08CraftEquipment",
+        "output": "f08-craft-equipment.js"
+      },
+      "rendererOwnership": "tabbed-management",
+      "harnessScenarioIds": [
+        100
+      ]
+    },
+    {
+      "id": "f08-craft-equipment-load",
+      "contract": "f08-craft-equipment-load.json",
+      "emitter": "family",
+      "validationProfile": "tabbed-management",
+      "native": {
+        "namespace": "CalypsoF08CraftEquipmentLoadGen",
+        "prefix": "CalypsoF08CraftEquipmentLoad",
+        "output": "CalypsoF08CraftEquipmentLoad.generated.h"
+      },
+      "browser": {
+        "global": "CalypsoF08CraftEquipmentLoad",
+        "output": "f08-craft-equipment-load.js"
+      },
+      "rendererOwnership": "tabbed-management",
+      "harnessScenarioIds": [
+        101
+      ]
+    },
+    {
+      "id": "f08-craft-equipment-save",
+      "contract": "f08-craft-equipment-save.json",
+      "emitter": "family",
+      "validationProfile": "tabbed-management",
+      "native": {
+        "namespace": "CalypsoF08CraftEquipmentSaveGen",
+        "prefix": "CalypsoF08CraftEquipmentSave",
+        "output": "CalypsoF08CraftEquipmentSave.generated.h"
+      },
+      "browser": {
+        "global": "CalypsoF08CraftEquipmentSave",
+        "output": "f08-craft-equipment-save.js"
+      },
+      "rendererOwnership": "tabbed-management",
+      "harnessScenarioIds": [
+        102
+      ]
+    },
+    {
       "id": "f17-ufo-detected",
       "contract": "f17-ufo-detected.json",
       "emitter": "family",

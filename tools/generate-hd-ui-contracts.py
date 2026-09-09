@@ -261,7 +261,7 @@ def validate_registry(registry):
     allowed_profiles = {"theme", "legacy-abandon", "family", "command-card",
                         "small-confirmation", "contact-decision",
                         "contact-intel-board", "content-block", "screen",
-                        "selection-list"}
+                        "selection-list", "tabbed-management"}
     for index, entry in enumerate(entries):
         where = "hd-ui-contracts.json: entries[" + str(index) + "]"
         if not isinstance(entry, dict):
@@ -387,16 +387,20 @@ def validate_family(doc, rel, profile, engine_text_calibration=False):
         if doc.get("style") is None or doc.get("layouts") is None:
             fail(rel + ": selection-list form must carry style/layouts")
         buttons = form.get("buttons") or []
-        if len(buttons) != 1 or buttons[0].get("action") != "cancel":
-            fail(rel + ": selection-list requires exactly one cancel button")
-        button = buttons[0]
-        for key in ("id", "label", "tone", "action"):
-            if not isinstance(button.get(key), str) or not button[key]:
-                fail(rel + ": selection-list button." + key + " required")
-        style = button.get("style") or {}
-        for key in ("fill", "border", "text"):
-            if not isinstance(style.get(key), str) or not re.fullmatch(r"[0-9A-Fa-f]{8}", style[key]):
-                fail(rel + ": selection-list button.style." + key + " must be packed 8-digit RGBA")
+        if not isinstance(buttons, list) or not buttons:
+            fail(rel + ": selection-list requires at least one button")
+        close = [button for button in buttons
+                 if isinstance(button, dict) and button.get("action") in ("cancel", "close", "back")]
+        if len(close) != 1:
+            fail(rel + ": selection-list requires exactly one close action")
+        for button in buttons:
+            for key in ("id", "label", "tone", "action"):
+                if not isinstance(button.get(key), str) or not button[key]:
+                    fail(rel + ": selection-list button." + key + " required")
+            style = button.get("style") or {}
+            for key in ("fill", "border", "text"):
+                if not isinstance(style.get(key), str) or not re.fullmatch(r"[0-9A-Fa-f]{8}", style[key]):
+                    fail(rel + ": selection-list button.style." + key + " must be packed 8-digit RGBA")
         copy = doc.get("copy") or {}
         if not isinstance(copy.get("protocol"), str) or not copy["protocol"]:
             fail(rel + ": selection-list copy.protocol required")
@@ -446,11 +450,326 @@ def validate_family(doc, rel, profile, engine_text_calibration=False):
                 if not isinstance(slot_rect, dict) or any(
                         slot_rect.get(k) != expected[k] for k in ("x", "y", "width", "height")):
                     fail(rel + ": " + layout_name + " rowSlots[" + str(index) + "] must match the list stride")
-            cancel_rect = ((layout.get("buttons") or {}).get(button["id"]))
-            if not cancel_rect or not all(isinstance(cancel_rect.get(k), int) for k in ("x", "y", "width", "height")):
-                fail(rel + ": " + layout_name + " buttons.cancel must be an integer rect")
-            if cancel_rect != layout.get("actionCancel"):
-                fail(rel + ": " + layout_name + " buttons.cancel must match the cancel action slot")
+            for button in buttons:
+                button_rect = ((layout.get("buttons") or {}).get(button["id"]))
+                if not button_rect or not all(isinstance(button_rect.get(k), int) for k in ("x", "y", "width", "height")):
+                    fail(rel + ": " + layout_name + " buttons." + button["id"] + " must be an integer rect")
+                if button_rect["width"] < 44 or button_rect["height"] < 44:
+                    fail(rel + ": " + layout_name + " buttons." + button["id"] + " must stay touch-safe")
+            if ((layout.get("buttons") or {}).get(close[0]["id"])) != layout.get("actionCancel"):
+                fail(rel + ": " + layout_name + " buttons." + close[0]["id"] + " must match the cancel action slot")
+    if profile == "tabbed-management":
+        form = doc.get("form") or {}
+        if form.get("archetype") != "tabbed-management" or not form.get("id"):
+            fail(rel + ": tabbed-management form identity required")
+        if not isinstance(form.get("familyId"), int) or form["familyId"] <= 0:
+            fail(rel + ": tabbed-management familyId must be a positive integer")
+        tabs = form.get("tabs") or []
+        if not isinstance(tabs, list) or len(tabs) < 2:
+            fail(rel + ": tabbed-management requires at least two section tabs")
+        tab_ids = set()
+        for tab in tabs:
+            if not isinstance(tab, dict) or not tab.get("id") or not tab.get("label"):
+                fail(rel + ": tabbed-management tab id/label required")
+            tab_ids.add(tab["id"])
+        if form.get("selectedTab") not in tab_ids:
+            fail(rel + ": tabbed-management selectedTab must name a declared tab")
+        summary = form.get("summary") or []
+        if not isinstance(summary, list) or not summary:
+            fail(rel + ": tabbed-management requires at least one summary field")
+        for field in summary:
+            for key in ("id", "label", "value"):
+                if not isinstance(field.get(key), str) or not field[key]:
+                    fail(rel + ": tabbed-management summary." + key + " required")
+        collection = form.get("collection")
+        if not isinstance(collection, dict):
+            fail(rel + ": tabbed-management collection must be an object")
+        if collection.get("mode") not in ("list", "table", "grid"):
+            fail(rel + ": tabbed-management collection mode must be list, table, or grid")
+        if collection.get("mode") in ("list", "table"):
+            columns = collection.get("columns") or []
+            if not isinstance(columns, list) or not columns:
+                fail(rel + ": tabbed-management list/table collection requires columns")
+            for column in columns:
+                if not isinstance(column, dict) or not column.get("id") or not column.get("label"):
+                    fail(rel + ": tabbed-management column id/label required")
+        if collection.get("mode") == "grid":
+            for index, item in enumerate(collection.get("items") or []):
+                if (not isinstance(item, dict) or not item.get("id")
+                        or not isinstance(item.get("label"), str) or not item["label"]):
+                    fail(rel + ": tabbed-management grid item " + str(index) + " needs id+label")
+        actions = form.get("actions") or []
+        if not isinstance(actions, list) or not actions:
+            fail(rel + ": tabbed-management requires at least one footer action")
+        for action in actions:
+            for key in ("id", "label", "tone", "action"):
+                if not isinstance(action.get(key), str) or not action[key]:
+                    fail(rel + ": tabbed-management footer action." + key + " required")
+            if action["tone"] not in ("normal", "safe", "primary", "warning", "danger"):
+                fail(rel + ": tabbed-management footer action tone is unsupported")
+            action_style = action.get("style") or {}
+            for key in ("fill", "border", "text"):
+                if not isinstance(action_style.get(key), str) or not re.fullmatch(r"[0-9A-Fa-f]{8}", action_style[key]):
+                    fail(rel + ": tabbed-management footer action style " + key + " must be packed 8-digit RGBA")
+        controls = form.get("controls")
+        if controls is None:
+            controls = []
+        if not isinstance(controls, list):
+            fail(rel + ": tabbed-management controls must be a list")
+        for control in controls:
+            for key in ("id", "label", "kind", "action"):
+                if not isinstance(control.get(key), str) or not control[key]:
+                    fail(rel + ": tabbed-management control." + key + " required")
+            if control["kind"] not in ("select", "toggle", "text-input", "action"):
+                fail(rel + ": tabbed-management control kind is unsupported")
+        toolbar = form.get("toolbar")
+        if toolbar is None:
+            toolbar = []
+        if not isinstance(toolbar, list):
+            fail(rel + ": tabbed-management toolbar must be a list")
+        for item in toolbar:
+            for key in ("id", "label", "tone", "action"):
+                if not isinstance(item.get(key), str) or not item[key]:
+                    fail(rel + ": tabbed-management toolbar action." + key + " required")
+            if item["tone"] not in ("normal", "safe", "primary", "warning", "danger"):
+                fail(rel + ": tabbed-management toolbar action tone is unsupported")
+            item_style = item.get("style") or {}
+            for key in ("fill", "border", "text"):
+                if not isinstance(item_style.get(key), str) or not re.fullmatch(r"[0-9A-Fa-f]{8}", item_style[key]):
+                    fail(rel + ": tabbed-management toolbar action style " + key + " must be packed 8-digit RGBA")
+        detail = form.get("detail")
+        if detail is not None:
+            if not isinstance(detail, dict):
+                fail(rel + ": tabbed-management detail must be an object")
+            for key in ("id", "label", "title", "subtitle"):
+                if not isinstance(detail.get(key), str) or not detail[key]:
+                    fail(rel + ": tabbed-management detail." + key + " required")
+            detail_metrics = detail.get("metrics") or []
+            if not isinstance(detail_metrics, list) or not detail_metrics:
+                fail(rel + ": tabbed-management detail requires at least one metric")
+            for metric in detail_metrics:
+                for key in ("id", "label", "value"):
+                    if not isinstance(metric.get(key), str) or not metric[key]:
+                        fail(rel + ": tabbed-management detail metric." + key + " required")
+            detail_actions = detail.get("actions") or []
+            if not isinstance(detail_actions, list) or not detail_actions:
+                fail(rel + ": tabbed-management detail requires at least one action")
+            for item in detail_actions:
+                for key in ("id", "label", "tone", "action"):
+                    if not isinstance(item.get(key), str) or not item[key]:
+                        fail(rel + ": tabbed-management detail action." + key + " required")
+                if item["tone"] not in ("normal", "safe", "primary", "warning", "danger"):
+                    fail(rel + ": tabbed-management detail action tone is unsupported")
+                item_style = item.get("style") or {}
+                for key in ("fill", "border", "text"):
+                    if not isinstance(item_style.get(key), str) or not re.fullmatch(r"[0-9A-Fa-f]{8}", item_style[key]):
+                        fail(rel + ": tabbed-management detail action style " + key + " must be packed 8-digit RGBA")
+        copy = doc.get("copy")
+        if not isinstance(copy, dict):
+            fail(rel + ": tabbed-management copy must be an object")
+        if not isinstance(copy.get("title"), str) or not copy["title"]:
+            fail(rel + ": tabbed-management copy.title required")
+        if not isinstance(copy.get("tabs"), dict) or not copy["tabs"]:
+            fail(rel + ": tabbed-management copy.tabs required")
+        if set(copy["tabs"]) != tab_ids:
+            fail(rel + ": tabbed-management copy.tabs must cover every declared tab")
+        copy_summary = copy.get("summary")
+        if not isinstance(copy_summary, list) or not copy_summary:
+            fail(rel + ": tabbed-management copy.summary must be a non-empty list")
+        for field in copy_summary:
+            for key in ("id", "label", "value"):
+                if not isinstance(field.get(key), str) or not field[key]:
+                    fail(rel + ": tabbed-management copy.summary." + key + " required")
+        if [field["id"] for field in copy_summary] != [field["id"] for field in summary]:
+            fail(rel + ": tabbed-management copy.summary must mirror the declared summary")
+        if not isinstance(copy.get("collection"), dict):
+            fail(rel + ": tabbed-management copy.collection required")
+        if not isinstance(copy.get("controls"), list):
+            fail(rel + ": tabbed-management copy.controls must be a list")
+        if not isinstance(copy.get("toolbar"), dict):
+            fail(rel + ": tabbed-management copy.toolbar must be an object")
+        if detail is None:
+            if copy.get("detail") is not None:
+                fail(rel + ": tabbed-management copy.detail must stay absent without a declared detail")
+        elif not isinstance(copy.get("detail"), dict):
+            fail(rel + ": tabbed-management copy.detail required")
+        style = doc.get("style")
+        if not isinstance(style, dict):
+            fail(rel + ": tabbed-management style must be an object")
+        for key in ("panelFillTop", "panelFillBottom", "frame", "divider", "text",
+                    "mutedText", "selectedTab", "selection", "scrollTrack",
+                    "scrollThumb", "footerFill", "footerDot"):
+            value = style.get(key)
+            if not isinstance(value, str) or not re.fullmatch(r"[0-9A-Fa-f]{8}", value):
+                fail(rel + ": tabbed-management style." + key + " must be packed 8-digit RGBA")
+        if (not isinstance(style.get("cutCornerPx"), (int, float))
+                or isinstance(style.get("cutCornerPx"), bool)
+                or style["cutCornerPx"] <= 0):
+            fail(rel + ": tabbed-management style.cutCornerPx must be positive")
+        layouts = doc.get("layouts")
+        if not isinstance(layouts, dict):
+            fail(rel + ": tabbed-management layouts must be an object")
+        for layout_name, design in (("wide", (1280, 720)), ("compact", (740, 360))):
+            layout = layouts.get(layout_name) or {}
+            if (layout.get("designWidth"), layout.get("designHeight")) != design:
+                fail(rel + ": " + layout_name + " must use the template design canvas")
+            for part in ("window", "title", "summaryBar", "tabBar", "toolbarBar",
+                         "collectionViewport", "footer"):
+                rect = layout.get(part)
+                if (not isinstance(rect, dict)
+                        or not all(isinstance(rect.get(k), int) for k in ("x", "y", "width", "height"))
+                        or rect["width"] <= 0 or rect["height"] <= 0):
+                    fail(rel + ": " + layout_name + "." + part + " must be a non-empty integer rect")
+            summary_cells = layout.get("summary")
+            if not isinstance(summary_cells, dict) or set(summary_cells) != {field["id"] for field in summary}:
+                fail(rel + ": " + layout_name + " summary geometry must cover every declared field")
+            for cell_id, rect in summary_cells.items():
+                if (not isinstance(rect, dict)
+                        or not all(isinstance(rect.get(k), int) for k in ("x", "y", "width", "height"))):
+                    fail(rel + ": " + layout_name + ".summary." + cell_id + " must be an integer rect")
+            tab_cells = layout.get("tabs")
+            if not isinstance(tab_cells, dict) or set(tab_cells) != tab_ids:
+                fail(rel + ": " + layout_name + " tab geometry must cover every declared tab")
+            for cell_id, rect in tab_cells.items():
+                if (not isinstance(rect, dict)
+                        or not all(isinstance(rect.get(k), int) for k in ("x", "y", "width", "height"))):
+                    fail(rel + ": " + layout_name + ".tabs." + cell_id + " must be an integer rect")
+                if rect["width"] < 44 or rect["height"] < 44:
+                    fail(rel + ": " + layout_name + ".tabs." + cell_id + " must stay touch-safe")
+            toolbar_cells = layout.get("toolbar")
+            if toolbar_cells is None:
+                toolbar_cells = {}
+            if not isinstance(toolbar_cells, dict):
+                fail(rel + ": " + layout_name + ".toolbar must be an object")
+            if set(toolbar_cells) != {item["id"] for item in toolbar}:
+                fail(rel + ": " + layout_name + " toolbar geometry must cover every declared action")
+            for cell_id, rect in toolbar_cells.items():
+                if (not isinstance(rect, dict)
+                        or not all(isinstance(rect.get(k), int) for k in ("x", "y", "width", "height"))):
+                    fail(rel + ": " + layout_name + ".toolbar." + cell_id + " must be an integer rect")
+                if rect["width"] < 44 or rect["height"] < 44:
+                    fail(rel + ": " + layout_name + ".toolbar." + cell_id + " must stay touch-safe")
+            controls_cells = layout.get("controls")
+            if controls_cells is None:
+                controls_cells = {}
+            if not isinstance(controls_cells, dict):
+                fail(rel + ": " + layout_name + ".controls must be an object")
+            if set(controls_cells) != {control["id"] for control in controls}:
+                fail(rel + ": " + layout_name + " controls geometry must cover every declared control")
+            for cell_id, rect in controls_cells.items():
+                if (not isinstance(rect, dict)
+                        or not all(isinstance(rect.get(k), int) for k in ("x", "y", "width", "height"))):
+                    fail(rel + ": " + layout_name + ".controls." + cell_id + " must be an integer rect")
+            actions_cells = layout.get("actions")
+            if not isinstance(actions_cells, dict) or set(actions_cells) != {action["id"] for action in actions}:
+                fail(rel + ": " + layout_name + " footer geometry must cover every declared action")
+            for cell_id, rect in actions_cells.items():
+                if (not isinstance(rect, dict)
+                        or not all(isinstance(rect.get(k), int) for k in ("x", "y", "width", "height"))):
+                    fail(rel + ": " + layout_name + ".actions." + cell_id + " must be an integer rect")
+                if rect["width"] < 44 or rect["height"] < 44:
+                    fail(rel + ": " + layout_name + ".actions." + cell_id + " must stay touch-safe")
+            collection_layout = layout.get("collection")
+            if not isinstance(collection_layout, dict):
+                fail(rel + ": " + layout_name + ".collection must be an object")
+            if collection.get("mode") in ("list", "table"):
+                header_cells = collection_layout.get("columnHeaders") or []
+                if not isinstance(header_cells, list) or not header_cells:
+                    fail(rel + ": " + layout_name + " collection must carry column headers")
+                for cell in header_cells:
+                    if not isinstance(cell, dict) or not cell.get("id"):
+                        fail(rel + ": " + layout_name + " column header must be an object")
+                if [cell["id"] for cell in header_cells] != [column["id"] for column in columns]:
+                    fail(rel + ": " + layout_name + " column headers must cover every declared column")
+                for cell in header_cells:
+                    rect = cell.get("rect") if isinstance(cell, dict) else None
+                    if (not isinstance(rect, dict)
+                            or not all(isinstance(rect.get(k), int) for k in ("x", "y", "width", "height"))):
+                        fail(rel + ": " + layout_name + " column header must be an integer rect")
+                slots = collection_layout.get("rowSlots")
+                if not isinstance(slots, list) or not slots:
+                    fail(rel + ": " + layout_name + " collection must carry visible row slots")
+                heights = set()
+                for slot in slots:
+                    rect = slot.get("rect", slot) if isinstance(slot, dict) else None
+                    if (not isinstance(rect, dict)
+                            or not all(isinstance(rect.get(k), int) for k in ("x", "y", "width", "height"))):
+                        fail(rel + ": " + layout_name + " row slot must be an integer rect")
+                    heights.add(rect["height"])
+                if len(heights) != 1:
+                    fail(rel + ": " + layout_name + " row slots must share one stride")
+            layout_detail = layout.get("detail")
+            if detail is None:
+                if layout_detail is not None:
+                    fail(rel + ": " + layout_name + " detail geometry must stay absent without a declared detail")
+            else:
+                if not isinstance(layout_detail, dict):
+                    fail(rel + ": " + layout_name + " detail must carry the inspector geometry")
+                if layout_detail.get("id") != detail["id"]:
+                    fail(rel + ": " + layout_name + " detail geometry must resolve the declared inspector")
+                for part in ("panel", "label"):
+                    rect = layout_detail.get(part)
+                    if (not isinstance(rect, dict)
+                            or not all(isinstance(rect.get(k), int) for k in ("x", "y", "width", "height"))
+                            or rect["width"] <= 0 or rect["height"] <= 0):
+                        fail(rel + ": " + layout_name + ".detail." + part + " must be a non-empty integer rect")
+                identity = layout_detail.get("identity")
+                if not isinstance(identity, dict):
+                    fail(rel + ": " + layout_name + " detail must carry the identity geometry")
+                for part in ("rect", "title", "subtitle"):
+                    rect = identity.get(part)
+                    if (not isinstance(rect, dict)
+                            or not all(isinstance(rect.get(k), int) for k in ("x", "y", "width", "height"))
+                            or rect["width"] <= 0 or rect["height"] <= 0):
+                        fail(rel + ": " + layout_name + ".detail.identity." + part + " must be a non-empty integer rect")
+                layout_metrics = layout_detail.get("metrics")
+                if not isinstance(layout_metrics, dict) or set(layout_metrics) != {metric["id"] for metric in detail["metrics"]}:
+                    fail(rel + ": " + layout_name + " detail metrics must cover every declared metric")
+                for metric_id, cell in layout_metrics.items():
+                    if not isinstance(cell, dict):
+                        fail(rel + ": " + layout_name + " detail metric." + metric_id + " must be an object")
+                    for part in ("rect", "label", "value"):
+                        rect = cell.get(part)
+                        if (not isinstance(rect, dict)
+                                or not all(isinstance(rect.get(k), int) for k in ("x", "y", "width", "height"))
+                                or rect["width"] <= 0 or rect["height"] <= 0):
+                            fail(rel + ": " + layout_name + ".detail.metric." + metric_id + "." + part + " must be a non-empty integer rect")
+                layout_actions = layout_detail.get("actions")
+                if not isinstance(layout_actions, list):
+                    fail(rel + ": " + layout_name + " detail must carry inspector actions")
+                if [item.get("id") for item in layout_actions if isinstance(item, dict)] != [item["id"] for item in detail["actions"]]:
+                    fail(rel + ": " + layout_name + " detail actions must resolve every declared action in order")
+                for item in layout_actions:
+                    if not isinstance(item, dict):
+                        fail(rel + ": " + layout_name + " detail action must be an object")
+                    rect = item.get("rect")
+                    if (not isinstance(rect, dict)
+                            or not all(isinstance(rect.get(k), int) for k in ("x", "y", "width", "height"))
+                            or rect["width"] < 44 or rect["height"] < 44):
+                        fail(rel + ": " + layout_name + " detail action must stay touch-safe")
+                note = layout_detail.get("note") or {}
+                if not isinstance(note, dict) or not isinstance(note.get("visible"), bool):
+                    fail(rel + ": " + layout_name + " detail must carry the note visibility flag")
+        parts = doc.get("parts")
+        if not isinstance(parts, list) or not parts:
+            fail(rel + ": parts list required")
+        if len(set(parts)) != len(parts):
+            fail(rel + ": parts must be unique")
+        for p in parts:
+            if not isinstance(p, str) or not p:
+                fail(rel + ": part name must be a non-empty string")
+        if parts[0] != "window":
+            fail(rel + ": first part must be the window root")
+        m = doc.get("motion")
+        if not isinstance(m, dict):
+            fail(rel + ": tabbed-management motion must be an object")
+        if m.get("durationMs", 0) <= 0 or m.get("durationMs", 0) > 1000:
+            fail(rel + ": motion.durationMs must be in (0, 1000]")
+        if not (0.0 < m.get("scaleFrom", 0.0) <= 1.0):
+            fail(rel + ": motion.scaleFrom must be in (0, 1]")
+        if m.get("captureModeDurationMs") != 0:
+            fail(rel + ": captureModeDurationMs must be 0 (deterministic captures)")
+        return
     if profile == "command-card":
         if doc.get("visualProfile") != "command-card-v1":
             fail(rel + ": visualProfile must be command-card-v1")
@@ -1186,12 +1505,13 @@ def emit_selection_list_h(doc, rel, ns, prefix):
             "inline constexpr float kPresentationScale = %.6ff;" % (
                 float(presentation["scaleNumerator"]) / float(presentation["scaleDenominator"])),
             ""]
-    button = form["buttons"][0]
+    buttons = form["buttons"]
     out += ["struct " + prefix + "GenButton { const char* id; const char* label; const char* tone; const char* action; std::uint32_t fill; std::uint32_t border; std::uint32_t text; };",
-            "inline constexpr " + prefix + "GenButton kButtons[] = {",
-            '    { "' + button["id"] + '", "' + button["label"] + '", "' + button["tone"] + '", "' + button["action"] + '", ' + rgba_call(button["style"]["fill"]) + ', ' + rgba_call(button["style"]["border"]) + ', ' + rgba_call(button["style"]["text"]) + ' },',
-            "};",
-            "inline constexpr int kButtonCount = 1;",
+            "inline constexpr " + prefix + "GenButton kButtons[] = {"]
+    for button in buttons:
+        out += ['    { "' + button["id"] + '", "' + button["label"] + '", "' + button["tone"] + '", "' + button["action"] + '", ' + rgba_call(button["style"]["fill"]) + ', ' + rgba_call(button["style"]["border"]) + ', ' + rgba_call(button["style"]["text"]) + ' },']
+    out += ["};",
+            "inline constexpr int kButtonCount = " + str(len(buttons)) + ";",
             ""]
     out.append("inline constexpr float kCutCornerPx = %.6ff;" % float(style["cutCornerPx"]))
     out.append("inline constexpr float kProtocolTextInsetPx = %.6ff;" % float(style["protocolTextInsetPx"]))
@@ -1235,11 +1555,276 @@ def emit_selection_list_h(doc, rel, ns, prefix):
         out.append("};")
         out.append("inline constexpr int kRowSlot" + name.capitalize() + "Count = " + str(len(slots)) + ";")
     out.append("struct " + prefix + "GenButtonRect { const char* id; " + prefix + "GenRect rect; };")
-    out.append("inline constexpr " + prefix + "GenButtonRect kButtonRects[][ 1 ] = {")
+    out.append("inline constexpr " + prefix + "GenButtonRect kButtonRects[][ " + str(len(buttons)) + " ] = {")
     for name in generated_layouts:
-        rr = layouts[name]["buttons"][button["id"]]
-        out.append('    { { "' + button["id"] + '", { ' + str(rr["x"]) + ", " + str(rr["y"]) + ", " + str(rr["width"]) + ", " + str(rr["height"]) + " } } }, // " + name)
+        cells = []
+        for button in buttons:
+            rr = layouts[name]["buttons"][button["id"]]
+            cells.append('{ "' + button["id"] + '", { ' + str(rr["x"]) + ", " + str(rr["y"]) + ", " + str(rr["width"]) + ", " + str(rr["height"]) + " } }")
+        out.append("    { " + ", ".join(cells) + " }, // " + name)
     out.append("};")
+    out.append("inline constexpr int kLayoutCount = " + str(len(generated_layouts)) + ";")
+    out.append("inline constexpr int kMotionDurationMs = " + str(int(m["durationMs"])) + ";")
+    out.append("inline constexpr float kMotionScaleFrom = %.6ff;" % float(m["scaleFrom"]))
+    out.append("inline const " + prefix + "GenLayout* layoutForDesign(int dw, int dh)")
+    out.append("{")
+    out.append("	for (int i = 0; i < kLayoutCount; ++i)")
+    out.append("		if (kLayouts[i].designWidth == dw && kLayouts[i].designHeight == dh)")
+    out.append("			return &kLayouts[i];")
+    out.append("	return nullptr;")
+    out.append("}")
+    out.append("} } }")
+    return NL.join(out) + NL
+
+
+def emit_tabbed_h(doc, rel, ns, prefix):
+    """Emitter for tabbed-management shells sharing one canonical composition.
+
+    One design-space rectangle per named part, stable-ID arrays for tabs,
+    summary fields, controls, toolbar/footer/detail actions, metrics, columns,
+    and row slots. Runtime text stays native/localized; the header carries
+    only geometry, stable IDs, fixture labels for reference, and style words.
+    """
+    layouts = doc["layouts"]
+    form = doc["form"]
+    copy = doc["copy"]
+    style = doc["style"]
+    m = doc["motion"]
+    metrics = doc.get("collectionMetrics") or {}
+    out = [HEADER_BANNER,
+           "// Canonical source: src/Calypso/Contracts/" + rel,
+           "#pragma once",
+           "#include <cstdint>",
+           "namespace OpenXcom { namespace Calypso { namespace " + ns + " {",
+           'inline constexpr const char* kContractVersion = "' + doc["version"] + '";',
+           'inline constexpr const char* kFormId = "' + form["id"] + '";',
+           "inline constexpr int kFamilyId = " + str(form["familyId"]) + ";",
+           'inline constexpr const char* kArchetype = "' + form["archetype"] + '";',
+           'inline constexpr const char* kSourceConfig = "' + form["source"] + '";',
+           'inline constexpr const char* kTitle = ' + json.dumps(copy["title"], ensure_ascii=False) + ';',
+           ""]
+    out.append("struct " + prefix + "GenRect { int x; int y; int w; int h; };")
+    out.append("struct " + prefix + "GenNamedRect { const char* id; " + prefix + "GenRect rect; };")
+    out.append("struct " + prefix + "GenTileSlot { const char* id; " + prefix + "GenRect rect; " + prefix + "GenRect label; };")
+    out.append("struct " + prefix + "GenAction { const char* id; const char* label; const char* tone; const char* action; std::uint32_t fill; std::uint32_t border; std::uint32_t text; };")
+    out.append("struct " + prefix + "GenControl { const char* id; const char* label; const char* kind; const char* action; };")
+    out.append("")
+    for key in ("panelFillTop", "panelFillBottom", "frame", "divider", "text",
+                "mutedText", "selectedTab", "selection", "scrollTrack",
+                "scrollThumb", "footerFill", "footerDot"):
+        value = style.get(key)
+        if not isinstance(value, str) or not re.fullmatch(r"[0-9A-Fa-f]{8}", value):
+            fail(rel + ": tabbed-management style." + key + " must be packed 8-digit RGBA")
+        out.append("inline constexpr std::uint32_t k" + key[0].upper() + key[1:] + " = " + rgba_call(value) + ";")
+    out.append("inline constexpr float kCutCornerPx = %.6ff;" % float(style["cutCornerPx"]))
+    out.append("")
+    tabs = form["tabs"]
+    out.append("inline constexpr const char* kTabIds[] = {"
+               + ", ".join('"' + tab["id"] + '"' for tab in tabs) + "};")
+    out.append("inline constexpr int kTabCount = " + str(len(tabs)) + ";")
+    out.append('inline constexpr const char* kSelectedTabId = "' + form["selectedTab"] + '";')
+    out.append("")
+    summary = form["summary"]
+    out.append("inline constexpr const char* kSummaryIds[] = {"
+               + ", ".join('"' + field["id"] + '"' for field in summary) + "};")
+    out.append("inline constexpr int kSummaryCount = " + str(len(summary)) + ";")
+    out.append("")
+    toolbar = form.get("toolbar") or []
+    out.append("inline constexpr " + prefix + "GenAction kToolbar[] = {")
+    for item in toolbar:
+        out.append('    { "' + item["id"] + '", ' + json.dumps(item["label"], ensure_ascii=False)
+                   + ', "' + item["tone"] + '", "' + item["action"] + '", '
+                   + rgba_call(item["style"]["fill"]) + ', ' + rgba_call(item["style"]["border"]) + ', '
+                   + rgba_call(item["style"]["text"]) + ' },')
+    out.append("};")
+    out.append("inline constexpr int kToolbarCount = " + str(len(toolbar)) + ";")
+    out.append("")
+    buttons = form["actions"]
+    out.append("inline constexpr " + prefix + "GenAction kActions[] = {")
+    for button in buttons:
+        out.append('    { "' + button["id"] + '", ' + json.dumps(button["label"], ensure_ascii=False)
+                   + ', "' + button["tone"] + '", "' + button["action"] + '", '
+                   + rgba_call(button["style"]["fill"]) + ', ' + rgba_call(button["style"]["border"]) + ', '
+                   + rgba_call(button["style"]["text"]) + ' },')
+    out.append("};")
+    out.append("inline constexpr int kActionCount = " + str(len(buttons)) + ";")
+    out.append("")
+    controls = form.get("controls") or []
+    out.append("inline constexpr " + prefix + "GenControl kControls[] = {")
+    for control in controls:
+        out.append('    { "' + control["id"] + '", ' + json.dumps(control["label"], ensure_ascii=False)
+                   + ', "' + control["kind"] + '", "' + control["action"] + '" },')
+    out.append("};")
+    out.append("inline constexpr int kControlCount = " + str(len(controls)) + ";")
+    out.append("")
+    detail = form.get("detail")
+    out.append("inline constexpr bool kHasDetail = " + ("true" if detail else "false") + ";")
+    if detail:
+        out.append('inline constexpr const char* kDetailId = "' + detail["id"] + '";')
+        out.append('inline constexpr const char* kDetailTitle = ' + json.dumps(detail["title"], ensure_ascii=False) + ';')
+        out.append('inline constexpr const char* kDetailSubtitle = ' + json.dumps(detail["subtitle"], ensure_ascii=False) + ';')
+        out.append("inline constexpr const char* kDetailMetricIds[] = {"
+                   + ", ".join('"' + metric["id"] + '"' for metric in detail["metrics"]) + "};")
+        out.append("inline constexpr int kDetailMetricCount = " + str(len(detail["metrics"])) + ";")
+        out.append("inline constexpr " + prefix + "GenAction kDetailActions[] = {")
+        for item in detail["actions"]:
+            out.append('    { "' + item["id"] + '", ' + json.dumps(item["label"], ensure_ascii=False)
+                       + ', "' + item["tone"] + '", "' + item["action"] + '", '
+                       + rgba_call(item["style"]["fill"]) + ', ' + rgba_call(item["style"]["border"]) + ', '
+                       + rgba_call(item["style"]["text"]) + ' },')
+        out.append("};")
+        out.append("inline constexpr int kDetailActionCount = " + str(len(detail["actions"])) + ";")
+    out.append("")
+    columns = (form.get("collection") or {}).get("columns") or []
+    out.append("inline constexpr const char* kColumnIds[] = {"
+               + ", ".join('"' + column["id"] + '"' for column in columns) + "};")
+    out.append("inline constexpr int kColumnCount = " + str(len(columns)) + ";")
+    out.append('inline constexpr const char* kCollectionMode = "'
+               + (form.get("collection") or {}).get("mode", "") + '";')
+    out.append("")
+    out.append("struct " + prefix + "GenLayout { int designWidth; int designHeight; int rowHeight; int visibleRows; int scrollBarWidth; "
+               + prefix + "GenRect window; " + prefix + "GenRect title; " + prefix + "GenRect summaryBar; "
+               + prefix + "GenRect tabBar; " + prefix + "GenRect toolbarBar; " + prefix + "GenRect collectionViewport; "
+               + prefix + "GenRect footer; " + prefix + "GenRect detailPanel;")
+    out.append("};")
+    out.append("inline constexpr " + prefix + "GenLayout kLayouts[] = {")
+    generated_layouts = [name for name in ("wide", "compact") if name in layouts]
+    for name in generated_layouts:
+        l = layouts[name]
+        slots = (l.get("collection") or {}).get("rowSlots") or []
+        row_height = slots[0]["rect"]["height"] if slots else 0
+        track = (metrics.get(name) or {}).get("track") or {"width": 0}
+        # Layouts carry no standalone detailPanel rect: the panel geometry
+        # lives in the detail fragment when a detail is declared, and the
+        # header member stays zeroed otherwise (adapters skip empty rects).
+        # Grid collections expose tileSlots instead of rowSlots; list/table
+        # contracts expose rowSlots and an empty tile list.
+        detail_panel = ((l.get("detail") or {}).get("panel")
+                        or {"x": 0, "y": 0, "width": 0, "height": 0})
+        out.append("    { " + str(l["designWidth"]) + ", " + str(l["designHeight"]) + ", "
+                   + str(row_height) + ", " + str(len(slots)) + ", " + str(track.get("width", 0)) + ", "
+                   + "{ " + str(l["window"]["x"]) + ", " + str(l["window"]["y"]) + ", " + str(l["window"]["width"]) + ", " + str(l["window"]["height"]) + " }, "
+                   + "{ " + str(l["title"]["x"]) + ", " + str(l["title"]["y"]) + ", " + str(l["title"]["width"]) + ", " + str(l["title"]["height"]) + " }, "
+                   + "{ " + str(l["summaryBar"]["x"]) + ", " + str(l["summaryBar"]["y"]) + ", " + str(l["summaryBar"]["width"]) + ", " + str(l["summaryBar"]["height"]) + " }, "
+                   + "{ " + str(l["tabBar"]["x"]) + ", " + str(l["tabBar"]["y"]) + ", " + str(l["tabBar"]["width"]) + ", " + str(l["tabBar"]["height"]) + " }, "
+                   + "{ " + str(l["toolbarBar"]["x"]) + ", " + str(l["toolbarBar"]["y"]) + ", " + str(l["toolbarBar"]["width"]) + ", " + str(l["toolbarBar"]["height"]) + " }, "
+                   + "{ " + str(l["collectionViewport"]["x"]) + ", " + str(l["collectionViewport"]["y"]) + ", " + str(l["collectionViewport"]["width"]) + ", " + str(l["collectionViewport"]["height"]) + " }, "
+                   + "{ " + str(l["footer"]["x"]) + ", " + str(l["footer"]["y"]) + ", " + str(l["footer"]["width"]) + ", " + str(l["footer"]["height"]) + " }, "
+                    + "{ " + str(detail_panel["x"]) + ", " + str(detail_panel["y"]) + ", " + str(detail_panel["width"]) + ", " + str(detail_panel["height"]) + " } }, // " + name)
+    out.append("};")
+    for group, source in (("Tab", tabs), ("Summary", summary)):
+        key = "tabs" if group == "Tab" else "summary"
+        out.append("inline constexpr " + prefix + "GenNamedRect k" + group + "Rects[][ " + str(len(source)) + " ] = {")
+        for name in generated_layouts:
+            cells = []
+            for item in source:
+                rr = layouts[name][key][item["id"]]
+                cells.append('{ "' + item["id"] + '", { ' + str(rr["x"]) + ", " + str(rr["y"]) + ", " + str(rr["width"]) + ", " + str(rr["height"]) + " } }")
+            out.append("    { " + ", ".join(cells) + " }, // " + name)
+        out.append("};")
+    out.append("inline constexpr " + prefix + "GenNamedRect kControlRects[][ " + str(max(1, len(controls))) + " ] = {")
+    for name in generated_layouts:
+        cells = []
+        for control in controls:
+            rr = layouts[name]["controls"][control["id"]]
+            cells.append('{ "' + control["id"] + '", { ' + str(rr["x"]) + ", " + str(rr["y"]) + ", " + str(rr["width"]) + ", " + str(rr["height"]) + " } }")
+        if not cells:
+            cells.append('{ "", { 0, 0, 0, 0 } }')
+        out.append("    { " + ", ".join(cells) + " }, // " + name)
+    out.append("};")
+    out.append("inline constexpr " + prefix + "GenNamedRect kToolbarRects[][ " + str(max(1, len(toolbar))) + " ] = {")
+    for name in generated_layouts:
+        cells = []
+        for item in toolbar:
+            rr = layouts[name]["toolbar"][item["id"]]
+            cells.append('{ "' + item["id"] + '", { ' + str(rr["x"]) + ", " + str(rr["y"]) + ", " + str(rr["width"]) + ", " + str(rr["height"]) + " } }")
+        if not cells:
+            cells.append('{ "", { 0, 0, 0, 0 } }')
+        out.append("    { " + ", ".join(cells) + " }, // " + name)
+    out.append("};")
+    out.append("inline constexpr " + prefix + "GenNamedRect kActionRects[][ " + str(len(buttons)) + " ] = {")
+    for name in generated_layouts:
+        cells = []
+        for button in buttons:
+            rr = layouts[name]["actions"][button["id"]]
+            cells.append('{ "' + button["id"] + '", { ' + str(rr["x"]) + ", " + str(rr["y"]) + ", " + str(rr["width"]) + ", " + str(rr["height"]) + " } }")
+        out.append("    { " + ", ".join(cells) + " }, // " + name)
+    out.append("};")
+    out.append("inline constexpr " + prefix + "GenNamedRect kColumnHeaders[][ " + str(max(1, len(columns))) + " ] = {")
+    for name in generated_layouts:
+        header_cells = ((layouts[name].get("collection") or {}).get("columnHeaders") or [])
+        cells = []
+        for cell in header_cells:
+            rr = cell["rect"]
+            cells.append('{ "' + cell["id"] + '", { ' + str(rr["x"]) + ", " + str(rr["y"]) + ", " + str(rr["width"]) + ", " + str(rr["height"]) + " } }")
+        if not cells:
+            cells.append('{ "", { 0, 0, 0, 0 } }')
+        out.append("    { " + ", ".join(cells) + " }, // " + name)
+    out.append("};")
+    out.append("inline constexpr " + prefix + "GenNamedRect kRowSlots[][ " + str(max(1, len((layouts[generated_layouts[0]].get("collection") or {}).get("rowSlots") or []))) + " ] = {")
+    for name in generated_layouts:
+        slot_cells = ((layouts[name].get("collection") or {}).get("rowSlots") or [])
+        cells = []
+        for slot in slot_cells:
+            rr = slot["rect"]
+            cells.append('{ "' + slot["id"] + '", { ' + str(rr["x"]) + ", " + str(rr["y"]) + ", " + str(rr["width"]) + ", " + str(rr["height"]) + " } }")
+        if not cells:
+            cells.append('{ "", { 0, 0, 0, 0 } }')
+        out.append("    { " + ", ".join(cells) + " }, // " + name)
+    out.append("};")
+    wide_tile_slots = ((layouts[generated_layouts[0]].get("collection") or {}).get("tileSlots") or [])
+    out.append("inline constexpr " + prefix + "GenTileSlot kTileSlots[][ " + str(max(1, len(wide_tile_slots))) + " ] = {")
+    for name in generated_layouts:
+        tile_cells = ((layouts[name].get("collection") or {}).get("tileSlots") or [])
+        cells = []
+        for tile in tile_cells:
+            rr = tile["rect"]
+            lr = tile["label"]
+            cells.append('{ "' + tile["id"] + '", { ' + str(rr["x"]) + ", " + str(rr["y"]) + ", " + str(rr["width"]) + ", " + str(rr["height"]) + " }, "
+                         + "{ " + str(lr["x"]) + ", " + str(lr["y"]) + ", " + str(lr["width"]) + ", " + str(lr["height"]) + " } }")
+        if not cells:
+            cells.append('{ "", { 0, 0, 0, 0 }, { 0, 0, 0, 0 } }')
+        out.append("    { " + ", ".join(cells) + " }, // " + name)
+    out.append("};")
+    out.append("inline constexpr int kTileSlotCounts[] = {"
+               + ", ".join(str(len(((layouts[name].get("collection") or {}).get("tileSlots") or [])))
+                           for name in generated_layouts) + "};")
+    if detail:
+        out.append("inline constexpr " + prefix + "GenRect kDetailLabelRects[] = {")
+        for name in generated_layouts:
+            rr = ((layouts[name].get("detail") or {}).get("label") or {})
+            out.append("    { " + str(rr.get("x", 0)) + ", " + str(rr.get("y", 0)) + ", " + str(rr.get("width", 0)) + ", " + str(rr.get("height", 0)) + " }, // " + name)
+        out.append("};")
+        out.append("inline constexpr " + prefix + "GenRect kDetailTitleRects[] = {")
+        for name in generated_layouts:
+            rr = ((layouts[name].get("detail") or {}).get("identity") or {}).get("title") or {}
+            out.append("    { " + str(rr.get("x", 0)) + ", " + str(rr.get("y", 0)) + ", " + str(rr.get("width", 0)) + ", " + str(rr.get("height", 0)) + " }, // " + name)
+        out.append("};")
+        out.append("inline constexpr " + prefix + "GenRect kDetailSubtitleRects[] = {")
+        for name in generated_layouts:
+            rr = ((layouts[name].get("detail") or {}).get("identity") or {}).get("subtitle") or {}
+            out.append("    { " + str(rr.get("x", 0)) + ", " + str(rr.get("y", 0)) + ", " + str(rr.get("width", 0)) + ", " + str(rr.get("height", 0)) + " }, // " + name)
+        out.append("};")
+        out.append("inline constexpr " + prefix + "GenNamedRect kDetailMetricRects[][ " + str(len(detail["metrics"])) + " ] = {")
+        for name in generated_layouts:
+            detail_metrics = ((layouts[name].get("detail") or {}).get("metrics") or {})
+            cells = []
+            for metric in detail["metrics"]:
+                rr = detail_metrics[metric["id"]]["rect"]
+                cells.append('{ "' + metric["id"] + '", { ' + str(rr["x"]) + ", " + str(rr["y"]) + ", " + str(rr["width"]) + ", " + str(rr["height"]) + " } }")
+            out.append("    { " + ", ".join(cells) + " }, // " + name)
+        out.append("};")
+        out.append("inline constexpr " + prefix + "GenNamedRect kDetailActionRects[][ " + str(len(detail["actions"])) + " ] = {")
+        for name in generated_layouts:
+            layout_action_list = ((layouts[name].get("detail") or {}).get("actions") or [])
+            layout_action_map = {item["id"]: item["rect"] for item in layout_action_list
+                                 if isinstance(item, dict) and isinstance(item.get("rect"), dict)}
+            cells = []
+            for item in detail["actions"]:
+                rr = layout_action_map.get(item["id"]) or {}
+                cells.append('{ "' + item["id"] + '", { ' + str(rr.get("x", 0)) + ", " + str(rr.get("y", 0)) + ", " + str(rr.get("width", 0)) + ", " + str(rr.get("height", 0)) + " } }")
+            out.append("    { " + ", ".join(cells) + " }, // " + name)
+        out.append("};")
     out.append("inline constexpr int kLayoutCount = " + str(len(generated_layouts)) + ";")
     out.append("inline constexpr int kMotionDurationMs = " + str(int(m["durationMs"])) + ";")
     out.append("inline constexpr float kMotionScaleFrom = %.6ff;" % float(m["scaleFrom"]))
@@ -1532,6 +2117,9 @@ def main(argv):
                 doc, rel, native["namespace"], native["prefix"])
         elif entry["validationProfile"] == "selection-list":
             native_text = emit_selection_list_h(
+                doc, rel, native["namespace"], native["prefix"])
+        elif entry["validationProfile"] == "tabbed-management":
+            native_text = emit_tabbed_h(
                 doc, rel, native["namespace"], native["prefix"])
         else:
             native_text = emit_family_h(

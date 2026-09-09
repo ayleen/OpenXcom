@@ -30,6 +30,9 @@
 #include "../Savegame/SoldierDiary.h"
 #include "../Savegame/MissionStatistics.h"
 #include "../Savegame/BattleUnitStatistics.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF06DiaryMissionUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -78,6 +81,9 @@ SoldierDiaryMissionState::SoldierDiaryMissionState(Soldier *soldier, int rowEntr
 	add(_lstKills, "list", "soldierDiaryMission");
 
 	centerAllSurfaces();
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF06DiaryMissionUi::configure(*this);
+#endif
 
 	// Set up object
 	setWindowBackground(_window, "soldierDiaryMission");
@@ -106,7 +112,10 @@ SoldierDiaryMissionState::SoldierDiaryMissionState(Soldier *soldier, int rowEntr
  */
 SoldierDiaryMissionState::~SoldierDiaryMissionState()
 {
-
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 }
 
 /**
@@ -218,3 +227,13 @@ void SoldierDiaryMissionState::btnNextClick(Action *)
 }
 
 }
+
+#ifdef __EMSCRIPTEN__
+namespace OpenXcom {
+void SoldierDiaryMissionState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF06DiaryMissionUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+}
+#endif

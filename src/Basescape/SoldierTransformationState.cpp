@@ -38,6 +38,9 @@
 #include "../Savegame/SavedGame.h"
 #include "../Savegame/Soldier.h"
 #include "../Savegame/Transfer.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF05SoldierTransformationUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -153,6 +156,9 @@ SoldierTransformationState::SoldierTransformationState(RuleSoldierTransformation
 	_lstStatChanges->setAlign(ALIGN_LEFT, 0);
 
 	initTransformationData();
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF05SoldierTransformationUi::configure(*this);
+#endif
 }
 
 /**
@@ -160,7 +166,10 @@ SoldierTransformationState::SoldierTransformationState(RuleSoldierTransformation
  */
 SoldierTransformationState::~SoldierTransformationState()
 {
-
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 }
 
 /**
@@ -183,6 +192,15 @@ std::string SoldierTransformationState::formatStat(int stat, bool plus, bool hid
  */
 void SoldierTransformationState::initTransformationData()
 {
+#ifdef __EMSCRIPTEN__
+	// Personnel cycling recomputes requirements: drop any armed confirm and
+	// restore the transformation-named Start label (re-arms on next press).
+	_hdStartArmed = false;
+	_hdArmedSoldier = nullptr;
+	_hdArmedRule = nullptr;
+	if (_btnStart && _transformationRule)
+		_btnStart->setText(tr(_transformationRule->getName()));
+#endif
 	_edtSoldier->setText(_sourceSoldier->getName());
 
 	_lstRequiredItems->clearList();
@@ -418,6 +436,9 @@ void SoldierTransformationState::initTransformationData()
 				"");
 		}
 	}
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF05SoldierTransformationUi::refreshReviewRows(*this);
+#endif
 }
 
 /**
@@ -621,3 +642,27 @@ void SoldierTransformationState::btnRightArrowClick(Action *action)
 }
 
 }
+
+#ifdef __EMSCRIPTEN__
+namespace OpenXcom {
+void SoldierTransformationState::hdStartClickGate(Action *action)
+{
+	if (_hdStartArmed && _hdArmedSoldier == _sourceSoldier && _hdArmedRule == _transformationRule)
+	{
+		_hdStartArmed = false;
+		btnStartClick(action);
+		return;
+	}
+	_hdStartArmed = true;
+	_hdArmedSoldier = _sourceSoldier;
+	_hdArmedRule = _transformationRule;
+	if (_btnStart)
+		_btnStart->setText(tr("STR_CAL_F05_CONFIRM_START"));
+}
+void SoldierTransformationState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF05SoldierTransformationUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+}
+#endif

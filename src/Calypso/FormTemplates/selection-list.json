@@ -15,7 +15,7 @@
     "maxItems": 64,
     "maxColumns": 1,
     "maxCellCharacters": 48,
-    "maxActions": 1
+    "maxActions": 2
   },
   "style": {
     "cutCornerPx": 14,

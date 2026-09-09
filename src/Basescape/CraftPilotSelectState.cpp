@@ -30,6 +30,9 @@
 #include "../Savegame/Craft.h"
 #include "../Savegame/Soldier.h"
 #include "../Mod/RuleSoldier.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF07PilotSelectUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -114,6 +117,9 @@ CraftPilotSelectState::CraftPilotSelectState(Base *base, size_t craft) : _base(b
 	}
 
 	_lstPilot->onMouseClick((ActionHandler)&CraftPilotSelectState::lstPilotClick);
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF07PilotSelectUi::configure(*this);
+#endif
 }
 
 /**
@@ -121,7 +127,10 @@ CraftPilotSelectState::CraftPilotSelectState(Base *base, size_t craft) : _base(b
  */
 CraftPilotSelectState::~CraftPilotSelectState()
 {
-
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 }
 
 /**
@@ -145,5 +154,13 @@ void CraftPilotSelectState::lstPilotClick(Action *)
 
 	_game->popState();
 }
+
+#ifdef __EMSCRIPTEN__
+void CraftPilotSelectState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF07PilotSelectUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+#endif
 
 }

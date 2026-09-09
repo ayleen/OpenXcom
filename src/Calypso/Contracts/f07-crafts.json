@@ -1,0 +1,900 @@
+{
+  "schema": 1,
+  "version": "hd.2026-08-29.1",
+  "form": {
+    "id": "f07-crafts",
+    "familyId": 7,
+    "archetype": "tabbed-management",
+    "source": "FormConfigs/f07-crafts.json",
+    "actions": [
+      {
+        "id": "overview",
+        "label": "Base Overview",
+        "tone": "safe",
+        "action": "cancel",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB0CC",
+          "text": "E8FFF5FF"
+        }
+      }
+    ],
+    "tabs": [
+      {
+        "id": "divers",
+        "label": "Divers"
+      },
+      {
+        "id": "submarines",
+        "label": "Submarines"
+      }
+    ],
+    "selectedTab": "submarines",
+    "summary": [
+      {
+        "id": "active-base",
+        "label": "Active Base",
+        "value": "Batumi"
+      },
+      {
+        "id": "funds",
+        "label": "Funds",
+        "value": "$27,550,246"
+      },
+      {
+        "id": "strength",
+        "label": "Strength",
+        "value": "1 ready"
+      }
+    ],
+    "collection": {
+      "mode": "table",
+      "selectionRole": "select",
+      "columns": [
+        {
+          "id": "submarine",
+          "label": "Submarine"
+        },
+        {
+          "id": "status",
+          "label": "Status"
+        },
+        {
+          "id": "weapons-crew",
+          "label": "Wpn-Crew"
+        },
+        {
+          "id": "open",
+          "label": "Open"
+        }
+      ],
+      "items": [
+        {
+          "id": "ketos-1",
+          "values": [
+            "Ketos-1",
+            "Ready",
+            "2/2 · 1",
+            "›"
+          ]
+        },
+        {
+          "id": "ketos-2",
+          "values": [
+            "Ketos-2",
+            "Out",
+            "2/2 · 0",
+            "›"
+          ]
+        },
+        {
+          "id": "nereid-1",
+          "values": [
+            "Nereid-1",
+            "Ready",
+            "0/0 · 14",
+            "›"
+          ]
+        }
+      ]
+    },
+    "controls": [],
+    "toolbar": []
+  },
+  "copy": {
+    "title": "Forces",
+    "tabs": {
+      "divers": "Divers",
+      "submarines": "Submarines"
+    },
+    "summary": [
+      {
+        "id": "active-base",
+        "label": "Active Base",
+        "value": "Batumi"
+      },
+      {
+        "id": "funds",
+        "label": "Funds",
+        "value": "$27,550,246"
+      },
+      {
+        "id": "strength",
+        "label": "Strength",
+        "value": "1 ready"
+      }
+    ],
+    "collection": {
+      "mode": "table",
+      "selectionRole": "select",
+      "columns": [
+        {
+          "id": "submarine",
+          "label": "Submarine"
+        },
+        {
+          "id": "status",
+          "label": "Status"
+        },
+        {
+          "id": "weapons-crew",
+          "label": "Wpn-Crew"
+        },
+        {
+          "id": "open",
+          "label": "Open"
+        }
+      ],
+      "items": [
+        {
+          "id": "ketos-1",
+          "values": [
+            "Ketos-1",
+            "Ready",
+            "2/2 · 1",
+            "›"
+          ]
+        },
+        {
+          "id": "ketos-2",
+          "values": [
+            "Ketos-2",
+            "Out",
+            "2/2 · 0",
+            "›"
+          ]
+        },
+        {
+          "id": "nereid-1",
+          "values": [
+            "Nereid-1",
+            "Ready",
+            "0/0 · 14",
+            "›"
+          ]
+        }
+      ]
+    },
+    "controls": [],
+    "toolbar": {}
+  },
+  "style": {
+    "panelFillTop": "08191DEB",
+    "panelFillBottom": "041014E8",
+    "frame": "74FFB073",
+    "divider": "74FFB04D",
+    "text": "E8FFF5FF",
+    "mutedText": "A9D8C7FF",
+    "selectedTab": "74FFB033",
+    "selection": "74FFB033",
+    "scrollTrack": "061B1CD6",
+    "scrollThumb": "74FFB099",
+    "footerFill": "061B1CD6",
+    "footerDot": "74FFB01F",
+    "cutCornerPx": 14
+  },
+  "layouts": {
+    "wide": {
+      "designWidth": 1280,
+      "designHeight": 720,
+      "window": {
+        "x": 140,
+        "y": 50,
+        "width": 1000,
+        "height": 620
+      },
+      "title": {
+        "x": 172,
+        "y": 68,
+        "width": 936,
+        "height": 44
+      },
+      "summaryBar": {
+        "x": 172,
+        "y": 116,
+        "width": 936,
+        "height": 36
+      },
+      "summary": {
+        "active-base": {
+          "x": 172,
+          "y": 116,
+          "width": 311,
+          "height": 36
+        },
+        "funds": {
+          "x": 484,
+          "y": 116,
+          "width": 311,
+          "height": 36
+        },
+        "strength": {
+          "x": 796,
+          "y": 116,
+          "width": 312,
+          "height": 36
+        }
+      },
+      "tabBar": {
+        "x": 172,
+        "y": 160,
+        "width": 936,
+        "height": 48
+      },
+      "collectionViewport": {
+        "x": 172,
+        "y": 280,
+        "width": 936,
+        "height": 286
+      },
+      "collection": {
+        "columnHeaders": [
+          {
+            "id": "submarine",
+            "rect": {
+              "x": 172,
+              "y": 280,
+              "width": 219,
+              "height": 36
+            }
+          },
+          {
+            "id": "status",
+            "rect": {
+              "x": 392,
+              "y": 280,
+              "width": 219,
+              "height": 36
+            }
+          },
+          {
+            "id": "weapons-crew",
+            "rect": {
+              "x": 612,
+              "y": 280,
+              "width": 219,
+              "height": 36
+            }
+          },
+          {
+            "id": "open",
+            "rect": {
+              "x": 832,
+              "y": 280,
+              "width": 222,
+              "height": 36
+            }
+          }
+        ],
+        "rowSlots": [
+          {
+            "id": "row-slot-1",
+            "rect": {
+              "x": 172,
+              "y": 316,
+              "width": 882,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "submarine",
+                "rect": {
+                  "x": 172,
+                  "y": 316,
+                  "width": 219,
+                  "height": 44
+                }
+              },
+              {
+                "id": "status",
+                "rect": {
+                  "x": 392,
+                  "y": 316,
+                  "width": 219,
+                  "height": 44
+                }
+              },
+              {
+                "id": "weapons-crew",
+                "rect": {
+                  "x": 612,
+                  "y": 316,
+                  "width": 219,
+                  "height": 44
+                }
+              },
+              {
+                "id": "open",
+                "rect": {
+                  "x": 832,
+                  "y": 316,
+                  "width": 222,
+                  "height": 44
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-2",
+            "rect": {
+              "x": 172,
+              "y": 360,
+              "width": 882,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "submarine",
+                "rect": {
+                  "x": 172,
+                  "y": 360,
+                  "width": 219,
+                  "height": 44
+                }
+              },
+              {
+                "id": "status",
+                "rect": {
+                  "x": 392,
+                  "y": 360,
+                  "width": 219,
+                  "height": 44
+                }
+              },
+              {
+                "id": "weapons-crew",
+                "rect": {
+                  "x": 612,
+                  "y": 360,
+                  "width": 219,
+                  "height": 44
+                }
+              },
+              {
+                "id": "open",
+                "rect": {
+                  "x": 832,
+                  "y": 360,
+                  "width": 222,
+                  "height": 44
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-3",
+            "rect": {
+              "x": 172,
+              "y": 404,
+              "width": 882,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "submarine",
+                "rect": {
+                  "x": 172,
+                  "y": 404,
+                  "width": 219,
+                  "height": 44
+                }
+              },
+              {
+                "id": "status",
+                "rect": {
+                  "x": 392,
+                  "y": 404,
+                  "width": 219,
+                  "height": 44
+                }
+              },
+              {
+                "id": "weapons-crew",
+                "rect": {
+                  "x": 612,
+                  "y": 404,
+                  "width": 219,
+                  "height": 44
+                }
+              },
+              {
+                "id": "open",
+                "rect": {
+                  "x": 832,
+                  "y": 404,
+                  "width": 222,
+                  "height": 44
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-4",
+            "rect": {
+              "x": 172,
+              "y": 448,
+              "width": 882,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "submarine",
+                "rect": {
+                  "x": 172,
+                  "y": 448,
+                  "width": 219,
+                  "height": 44
+                }
+              },
+              {
+                "id": "status",
+                "rect": {
+                  "x": 392,
+                  "y": 448,
+                  "width": 219,
+                  "height": 44
+                }
+              },
+              {
+                "id": "weapons-crew",
+                "rect": {
+                  "x": 612,
+                  "y": 448,
+                  "width": 219,
+                  "height": 44
+                }
+              },
+              {
+                "id": "open",
+                "rect": {
+                  "x": 832,
+                  "y": 448,
+                  "width": 222,
+                  "height": 44
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-5",
+            "rect": {
+              "x": 172,
+              "y": 492,
+              "width": 882,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "submarine",
+                "rect": {
+                  "x": 172,
+                  "y": 492,
+                  "width": 219,
+                  "height": 44
+                }
+              },
+              {
+                "id": "status",
+                "rect": {
+                  "x": 392,
+                  "y": 492,
+                  "width": 219,
+                  "height": 44
+                }
+              },
+              {
+                "id": "weapons-crew",
+                "rect": {
+                  "x": 612,
+                  "y": 492,
+                  "width": 219,
+                  "height": 44
+                }
+              },
+              {
+                "id": "open",
+                "rect": {
+                  "x": 832,
+                  "y": 492,
+                  "width": 222,
+                  "height": 44
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "toolbarBar": {
+        "x": 172,
+        "y": 218,
+        "width": 936,
+        "height": 52
+      },
+      "controls": {},
+      "footer": {
+        "x": 140,
+        "y": 578,
+        "width": 1000,
+        "height": 92
+      },
+      "tabs": {
+        "divers": {
+          "x": 172,
+          "y": 160,
+          "width": 464,
+          "height": 48
+        },
+        "submarines": {
+          "x": 644,
+          "y": 160,
+          "width": 464,
+          "height": 48
+        }
+      },
+      "toolbar": {},
+      "actions": {
+        "overview": {
+          "x": 950,
+          "y": 602,
+          "width": 158,
+          "height": 44
+        }
+      }
+    },
+    "compact": {
+      "designWidth": 740,
+      "designHeight": 360,
+      "window": {
+        "x": 20,
+        "y": 8,
+        "width": 700,
+        "height": 344
+      },
+      "title": {
+        "x": 44,
+        "y": 8,
+        "width": 652,
+        "height": 32
+      },
+      "summaryBar": {
+        "x": 44,
+        "y": 44,
+        "width": 652,
+        "height": 24
+      },
+      "summary": {
+        "active-base": {
+          "x": 44,
+          "y": 44,
+          "width": 216,
+          "height": 24
+        },
+        "funds": {
+          "x": 261,
+          "y": 44,
+          "width": 216,
+          "height": 24
+        },
+        "strength": {
+          "x": 478,
+          "y": 44,
+          "width": 218,
+          "height": 24
+        }
+      },
+      "tabBar": {
+        "x": 44,
+        "y": 72,
+        "width": 652,
+        "height": 44
+      },
+      "collectionViewport": {
+        "x": 44,
+        "y": 168,
+        "width": 652,
+        "height": 112
+      },
+      "collection": {
+        "columnHeaders": [
+          {
+            "id": "submarine",
+            "rect": {
+              "x": 44,
+              "y": 168,
+              "width": 149,
+              "height": 24
+            }
+          },
+          {
+            "id": "status",
+            "rect": {
+              "x": 194,
+              "y": 168,
+              "width": 149,
+              "height": 24
+            }
+          },
+          {
+            "id": "weapons-crew",
+            "rect": {
+              "x": 344,
+              "y": 168,
+              "width": 149,
+              "height": 24
+            }
+          },
+          {
+            "id": "open",
+            "rect": {
+              "x": 494,
+              "y": 168,
+              "width": 150,
+              "height": 24
+            }
+          }
+        ],
+        "rowSlots": [
+          {
+            "id": "row-slot-1",
+            "rect": {
+              "x": 44,
+              "y": 192,
+              "width": 600,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "submarine",
+                "rect": {
+                  "x": 44,
+                  "y": 192,
+                  "width": 149,
+                  "height": 44
+                }
+              },
+              {
+                "id": "status",
+                "rect": {
+                  "x": 194,
+                  "y": 192,
+                  "width": 149,
+                  "height": 44
+                }
+              },
+              {
+                "id": "weapons-crew",
+                "rect": {
+                  "x": 344,
+                  "y": 192,
+                  "width": 149,
+                  "height": 44
+                }
+              },
+              {
+                "id": "open",
+                "rect": {
+                  "x": 494,
+                  "y": 192,
+                  "width": 150,
+                  "height": 44
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-2",
+            "rect": {
+              "x": 44,
+              "y": 236,
+              "width": 600,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "submarine",
+                "rect": {
+                  "x": 44,
+                  "y": 236,
+                  "width": 149,
+                  "height": 44
+                }
+              },
+              {
+                "id": "status",
+                "rect": {
+                  "x": 194,
+                  "y": 236,
+                  "width": 149,
+                  "height": 44
+                }
+              },
+              {
+                "id": "weapons-crew",
+                "rect": {
+                  "x": 344,
+                  "y": 236,
+                  "width": 149,
+                  "height": 44
+                }
+              },
+              {
+                "id": "open",
+                "rect": {
+                  "x": 494,
+                  "y": 236,
+                  "width": 150,
+                  "height": 44
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "toolbarBar": {
+        "x": 44,
+        "y": 120,
+        "width": 652,
+        "height": 44
+      },
+      "controls": {},
+      "footer": {
+        "x": 20,
+        "y": 284,
+        "width": 700,
+        "height": 68
+      },
+      "tabs": {
+        "divers": {
+          "x": 44,
+          "y": 72,
+          "width": 323,
+          "height": 44
+        },
+        "submarines": {
+          "x": 373,
+          "y": 72,
+          "width": 323,
+          "height": 44
+        }
+      },
+      "toolbar": {},
+      "actions": {
+        "overview": {
+          "x": 548,
+          "y": 296,
+          "width": 148,
+          "height": 44
+        }
+      }
+    }
+  },
+  "motion": {
+    "durationMs": 200,
+    "scaleFrom": 0.96,
+    "easing": "ease-out",
+    "captureModeDurationMs": 0
+  },
+  "provenance": {
+    "template": "FormTemplates/tabbed-management.json",
+    "templateVersion": 5,
+    "generatorKind": "tabbed"
+  },
+  "collectionMetrics": {
+    "wide": {
+      "totalItems": 3,
+      "visibleCapacity": 5,
+      "totalUnits": 3,
+      "visibleUnits": 5,
+      "itemsPerUnit": 1,
+      "scrollUnit": "record",
+      "overflow": false,
+      "scrollSteps": 0,
+      "track": {
+        "x": 1090,
+        "y": 316,
+        "width": 18,
+        "height": 220
+      },
+      "thumb": {
+        "x": 1090,
+        "y": 316,
+        "width": 18,
+        "height": 220
+      },
+      "trackHitTarget": {
+        "x": 1064,
+        "y": 316,
+        "width": 44,
+        "height": 220
+      },
+      "thumbHitTarget": {
+        "x": 1064,
+        "y": 316,
+        "width": 44,
+        "height": 220
+      },
+      "thumbTravelPx": 0
+    },
+    "compact": {
+      "totalItems": 3,
+      "visibleCapacity": 2,
+      "totalUnits": 3,
+      "visibleUnits": 2,
+      "itemsPerUnit": 1,
+      "scrollUnit": "record",
+      "overflow": true,
+      "scrollSteps": 1,
+      "track": {
+        "x": 678,
+        "y": 192,
+        "width": 18,
+        "height": 88
+      },
+      "thumb": {
+        "x": 678,
+        "y": 192,
+        "width": 18,
+        "height": 58
+      },
+      "trackHitTarget": {
+        "x": 652,
+        "y": 192,
+        "width": 44,
+        "height": 88
+      },
+      "thumbHitTarget": {
+        "x": 652,
+        "y": 192,
+        "width": 44,
+        "height": 58
+      },
+      "thumbTravelPx": 30
+    }
+  },
+  "parts": [
+    "window",
+    "title",
+    "summaryBar",
+    "tabBar",
+    "toolbarBar",
+    "collectionViewport",
+    "footer",
+    "summary.active-base",
+    "summary.funds",
+    "summary.strength",
+    "tab.divers",
+    "tab.submarines",
+    "collection.scroll.track",
+    "collection.scroll.thumb",
+    "collection.column.submarine",
+    "collection.column.status",
+    "collection.column.weapons-crew",
+    "collection.column.open",
+    "collection.row-slot.1",
+    "collection.row-slot.2",
+    "collection.row-slot.3",
+    "collection.row-slot.4",
+    "collection.row-slot.5",
+    "action.overview"
+  ]
+}

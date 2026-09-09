@@ -29,6 +29,9 @@
 #include "../Interface/TextList.h"
 #include "../Savegame/ItemContainer.h"
 #include "../Savegame/SavedGame.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF08CraftEquipmentLoadUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -96,6 +99,9 @@ CraftEquipmentLoadState::CraftEquipmentLoadState(CraftEquipmentState *parent) : 
 			}
 		}
 	}
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF08CraftEquipmentLoadUi::configure(*this);
+#endif
 }
 
 /**
@@ -103,7 +109,10 @@ CraftEquipmentLoadState::CraftEquipmentLoadState(CraftEquipmentState *parent) : 
 */
 CraftEquipmentLoadState::~CraftEquipmentLoadState()
 {
-
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 }
 
 /**
@@ -121,9 +130,29 @@ void CraftEquipmentLoadState::btnCancelClick(Action *)
 */
 void CraftEquipmentLoadState::lstLoadoutClick(Action *)
 {
+#ifdef __EMSCRIPTEN__
+	// HD empty-preset rejection (§8.3): an empty slot never applies, in
+	// either mode. Rejection runs before the pop and before the parent's
+	// filter reset or any inventory mutation, so a Replace apply can never
+	// clear the craft without warning. Silent, like any disabled control.
+	if (_hdLayout
+		&& Calypso::CalypsoF08CraftEquipmentLoadUi::isEmptyPreset(
+			_game, (int)_lstLoadout->getSelectedRow()))
+	{
+		return;
+	}
+#endif
 	_game->popState();
 	bool addOnTop = _btnOnlyAdd->getPressed() || _game->isCtrlPressed();
 	_parent->loadGlobalLoadout(_lstLoadout->getSelectedRow(), addOnTop);
 }
+
+#ifdef __EMSCRIPTEN__
+void CraftEquipmentLoadState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF08CraftEquipmentLoadUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+#endif
 
 }

@@ -31,6 +31,9 @@
 #include "../Interface/TextList.h"
 #include "../Savegame/ItemContainer.h"
 #include "../Savegame/SavedGame.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF08CraftEquipmentSaveUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -105,6 +108,9 @@ CraftEquipmentSaveState::CraftEquipmentSaveState(CraftEquipmentState *parent) : 
 			}
 		}
 	}
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF08CraftEquipmentSaveUi::configure(*this);
+#endif
 }
 
 /**
@@ -112,7 +118,10 @@ CraftEquipmentSaveState::CraftEquipmentSaveState(CraftEquipmentState *parent) : 
 */
 CraftEquipmentSaveState::~CraftEquipmentSaveState()
 {
-
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 }
 
 /**
@@ -144,6 +153,11 @@ void CraftEquipmentSaveState::lstLoadoutPress(Action *action)
 {
 	_previousSelectedRow = _selectedRow;
 	_selectedRow = _lstLoadout->getSelectedRow();
+#ifdef __EMSCRIPTEN__
+	// Reselecting always re-arms the overwrite review: a commit needs two
+	// Save activations for the currently selected slot.
+	hdDisarmSave();
+#endif
 	if (_previousSelectedRow > -1)
 	{
 		_lstLoadout->setCellText(_previousSelectedRow, 0, _selected);
@@ -183,6 +197,15 @@ void CraftEquipmentSaveState::edtSaveKeyPress(Action *action)
 	if (action->getDetails()->key.keysym.sym == SDLK_RETURN ||
 		action->getDetails()->key.keysym.sym == SDLK_KP_ENTER)
 	{
+#ifdef __EMSCRIPTEN__
+		// The Return key travels the same overwrite gate as the Save
+		// button; gate-off behavior is unchanged.
+		if (_hdLayout)
+		{
+			hdSaveClickGate(action);
+			return;
+		}
+#endif
 		saveTemplate();
 	}
 }
@@ -200,5 +223,47 @@ void CraftEquipmentSaveState::saveTemplate()
 		_game->popState();
 	}
 }
+
+#ifdef __EMSCRIPTEN__
+void CraftEquipmentSaveState::hdDisarmSave()
+{
+	_hdSaveArmed = false;
+	_hdArmedRow = -1;
+	if (_btnSave)
+		_btnSave->setText(tr("STR_SAVE_UC"));
+}
+void CraftEquipmentSaveState::hdSaveClickGate(Action *)
+{
+	// Mirror btnSaveClick: nothing is selected, nothing happens.
+	if (_selectedRow < 0 || _selectedRow >= SavedGame::MAX_CRAFT_LOADOUT_TEMPLATES)
+		return;
+	ItemContainer* slot = _game->getSavedGame()->getGlobalCraftLoadout(_selectedRow);
+	if (!slot || slot->empty())
+	{
+		// Empty slots commit directly through the unchanged save path.
+		hdDisarmSave();
+		saveTemplate();
+		return;
+	}
+	// Non-empty slots require the explicit two-press review (C1) before
+	// the existing save mutation runs: the first activation only arms and
+	// relabels, the second activation on the same slot commits.
+	if (_hdSaveArmed && _hdArmedRow == _selectedRow)
+	{
+		hdDisarmSave();
+		saveTemplate();
+		return;
+	}
+	_hdSaveArmed = true;
+	_hdArmedRow = _selectedRow;
+	if (_btnSave)
+		_btnSave->setText(tr("STR_CAL_F08_CONFIRM_OVERWRITE"));
+}
+void CraftEquipmentSaveState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF08CraftEquipmentSaveUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+#endif
 
 }

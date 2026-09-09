@@ -40,6 +40,9 @@
 #include "../Savegame/ItemContainer.h"
 #include "../Mod/RuleSoldier.h"
 #include "../Ufopaedia/Ufopaedia.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF05SoldierArmorUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -157,6 +160,9 @@ SoldierArmorState::SoldierArmorState(Base *base, size_t soldier, SoldierArmorOri
 
 	_lstArmor->onMouseClick((ActionHandler)&SoldierArmorState::lstArmorClick);
 	_lstArmor->onMouseClick((ActionHandler)&SoldierArmorState::lstArmorClickMiddle, SDL_BUTTON_MIDDLE);
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF05SoldierArmorUi::configure(*this);
+#endif
 
 	// switch to battlescape theme if called from inventory
 	if (_origin == SA_BATTLESCAPE)
@@ -170,7 +176,10 @@ SoldierArmorState::SoldierArmorState(Base *base, size_t soldier, SoldierArmorOri
  */
 SoldierArmorState::~SoldierArmorState()
 {
-
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 }
 
 /**
@@ -226,6 +235,9 @@ void SoldierArmorState::updateList()
 
 	_lstArmor->clearList();
 	_indices.clear();
+#ifdef __EMSCRIPTEN__
+	_hdInspectedArmor.clear();
+#endif
 
 	int index = -1;
 	for (const auto& armorItem : _armors)
@@ -342,3 +354,30 @@ void SoldierArmorState::sortNameClick(Action *)
 }
 
 }
+
+#ifdef __EMSCRIPTEN__
+namespace OpenXcom {
+void SoldierArmorState::hdArmorClickGate(Action *action)
+{
+	std::string current;
+	const size_t sel = _lstArmor ? _lstArmor->getSelectedRow() : 0;
+	if (_lstArmor && sel < _indices.size())
+	{
+		const int native = _indices[sel];
+		if (native >= 0 && (size_t)native < _armors.size())
+			current = _armors[(size_t)native].type;
+	}
+	if (!current.empty() && current == _hdInspectedArmor)
+	{
+		lstArmorClick(action);
+		return;
+	}
+	_hdInspectedArmor = current;
+}
+void SoldierArmorState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF05SoldierArmorUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+}
+#endif

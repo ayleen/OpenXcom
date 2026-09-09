@@ -1,0 +1,109 @@
+{
+  "schema": 1,
+  "id": "f08-craft-equipment-load",
+  "familyId": 8,
+  "version": "hd.2026-08-29.1",
+  "archetype": "tabbed-management",
+  "title": "Load preset",
+  "actions": [
+    {
+      "id": "cancel",
+      "label": "Cancel",
+      "tone": "safe",
+      "action": "cancel"
+    }
+  ],
+  "tabs": [
+    {
+      "id": "overview",
+      "label": "Overview"
+    },
+    {
+      "id": "weapons",
+      "label": "Weapons"
+    },
+    {
+      "id": "crew",
+      "label": "Crew"
+    },
+    {
+      "id": "equipment",
+      "label": "Equipment"
+    },
+    {
+      "id": "armor",
+      "label": "Armor"
+    },
+    {
+      "id": "pilots",
+      "label": "Pilots"
+    }
+  ],
+  "selectedTab": "equipment",
+  "summary": [
+    {
+      "id": "slots",
+      "label": "Slots",
+      "value": "10"
+    },
+    {
+      "id": "named",
+      "label": "Named",
+      "value": "3"
+    }
+  ],
+  "collection": {
+    "mode": "list",
+    "selectionRole": "select",
+    "columns": [
+      {
+        "id": "slot",
+        "label": "Slot"
+      },
+      {
+        "id": "preset",
+        "label": "Preset"
+      }
+    ],
+    "items": [
+      {
+        "id": "slot-1",
+        "values": [
+          "01",
+          "Standard"
+        ]
+      },
+      {
+        "id": "slot-2",
+        "values": [
+          "02",
+          "Capture"
+        ]
+      },
+      {
+        "id": "slot-3",
+        "values": [
+          "03",
+          "Empty"
+        ]
+      },
+      {
+        "id": "slot-4",
+        "values": [
+          "04",
+          "Empty"
+        ]
+      }
+    ]
+  },
+  "controls": [
+    {
+      "id": "mode",
+      "label": "Add on top",
+      "kind": "toggle",
+      "action": "mode-toggle",
+      "checked": false
+    }
+  ],
+  "toolbar": []
+}

@@ -41,6 +41,10 @@ ARCHETYPE_KINDS = {
     "wide-detail": "detail",
     "selection-list": "selection",
 }
+# Native selection lists carry exactly one close action (cancel/close/back)
+# plus zero or more explicit confirm/primary actions (apply, start, save, ...).
+# A confirm label must never borrow a close behavior.
+SELECTION_CLOSE_BEHAVIORS = {"cancel", "close", "back"}
 LAYOUT_FIELDS = {
     "collection": {
         "designWidth",
@@ -1549,11 +1553,11 @@ def _validate_selection_rows(collection, limits, label):
 def _validate_selection(config, template):
     actions = _validate_common(config, template, {"collection"}, {"protocol"})
     _validate_selection_rows(config["collection"], template["limits"], "config.collection")
-    for action in actions:
-        if action["action"] not in {"cancel", "close", "back"}:
-            raise ArchetypeError(
-                "config.actions behavior must be a close action for a selection list"
-            )
+    close = [action for action in actions if action["action"] in SELECTION_CLOSE_BEHAVIORS]
+    if len(close) != 1:
+        raise ArchetypeError(
+            "config.actions must contain exactly one close action for a selection list"
+        )
     protocol = config.get("protocol")
     if protocol is not None:
         _strict(
@@ -1605,6 +1609,9 @@ def _build_selection_fragment(collection, authored, viewport, name):
 
 def _build_selection(config, template, source_name, template_name):
     actions = _validate_selection(config, template)
+    close_action = next(
+        action for action in actions if action["action"] in SELECTION_CLOSE_BEHAVIORS
+    )
     out = _base_contract(config, template, source_name, template_name, actions)
     out["presentation"] = {"density": "standard", "scaleNumerator": 1, "scaleDenominator": 1}
     collection = copy.deepcopy(config["collection"])
@@ -1665,7 +1672,7 @@ def _build_selection(config, template, source_name, template_name):
             "title": copy.deepcopy(authored["title"]),
             "list": copy.deepcopy(authored["list"]),
             "footer": copy.deepcopy(authored["footer"]),
-            "actionCancel": copy.deepcopy(action_rects[actions[0]["id"]]),
+            "actionCancel": copy.deepcopy(action_rects[close_action["id"]]),
             "rowHeight": authored["rowHeight"],
             "visibleRows": authored["visibleRows"],
             "rowSlots": fragment["rowSlots"],
@@ -1676,7 +1683,7 @@ def _build_selection(config, template, source_name, template_name):
             "scrollbarWidth": authored["scrollbarWidth"],
             "minThumbHeight": authored["minThumbHeight"],
         }
-        if layout["buttons"][actions[0]["id"]] != layout["actionCancel"]:
+        if layout["buttons"][close_action["id"]] != layout["actionCancel"]:
             raise ArchetypeError(name + " cancel action left the button slot")
         out["scrollMetrics"][name] = metrics
         out["layouts"][name] = layout
@@ -1956,16 +1963,24 @@ def _build_tabbed(config, template, source_name, template_name):
         _ensure_text_fits(config["title"], authored["title"], authored, name + ".title")
         collection_viewport = copy.deepcopy(authored["collectionViewport"])
         if detail is None:
-            collection_viewport["width"] = (
-                _right(authored["detailPanel"]) - collection_viewport["x"]
+            # Order-independent union of the authored collection and detail
+            # slots: geometry must not assume which panel sits left.
+            union_x = min(
+                collection_viewport["x"], authored["detailPanel"]["x"]
             )
-            collection_viewport["height"] = (
-                max(
-                    _bottom(authored["collectionViewport"]),
-                    _bottom(authored["detailPanel"]),
-                )
-                - collection_viewport["y"]
+            union_y = min(
+                collection_viewport["y"], authored["detailPanel"]["y"]
             )
+            union_right = max(
+                _right(collection_viewport), _right(authored["detailPanel"])
+            )
+            union_bottom = max(
+                _bottom(collection_viewport), _bottom(authored["detailPanel"])
+            )
+            collection_viewport["x"] = union_x
+            collection_viewport["y"] = union_y
+            collection_viewport["width"] = union_right - union_x
+            collection_viewport["height"] = union_bottom - union_y
         collection_fragment, collection_metrics = _build_collection_fragment(
             config["collection"], authored, collection_viewport, name
         )

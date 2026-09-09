@@ -24,6 +24,8 @@
 namespace OpenXcom
 {
 
+namespace Calypso { class CalypsoF08CraftSoldiersUi; }
+
 class TextButton;
 class Window;
 class Text;
@@ -83,6 +85,15 @@ public:
 	/// Handler for clicking the De-assign All Soldiers button.
 	void btnDeassignAllSoldiersClick(Action *action);
 	void btnDeassignCraftSoldiersClick(Action *action);
+#ifdef __EMSCRIPTEN__
+private:
+	friend class Calypso::CalypsoF08CraftSoldiersUi;
+	bool _hdLayout = false;
+	bool _hdWideLayout = false;
+	Calypso::CalypsoF08CraftSoldiersUi *_hdAdapter = nullptr;
+public:
+	void resize(int &dX, int &dY) override;
+#endif
 };
 
 }

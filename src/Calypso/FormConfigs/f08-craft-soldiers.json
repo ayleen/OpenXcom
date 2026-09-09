@@ -1,0 +1,149 @@
+{
+  "schema": 1,
+  "id": "f08-craft-soldiers",
+  "familyId": 8,
+  "version": "hd.2026-08-29.1",
+  "archetype": "tabbed-management",
+  "title": "Crew",
+  "actions": [
+    {
+      "id": "cancel",
+      "label": "OK",
+      "tone": "safe",
+      "action": "cancel"
+    }
+  ],
+  "tabs": [
+    {
+      "id": "overview",
+      "label": "Overview"
+    },
+    {
+      "id": "weapons",
+      "label": "Weapons"
+    },
+    {
+      "id": "crew",
+      "label": "Crew"
+    },
+    {
+      "id": "equipment",
+      "label": "Equipment"
+    },
+    {
+      "id": "armor",
+      "label": "Armor"
+    },
+    {
+      "id": "pilots",
+      "label": "Pilots"
+    }
+  ],
+  "selectedTab": "crew",
+  "summary": [
+    {
+      "id": "capacity",
+      "label": "Capacity",
+      "value": "14 / 14"
+    },
+    {
+      "id": "available",
+      "label": "Available",
+      "value": "6 free"
+    }
+  ],
+  "collection": {
+    "mode": "table",
+    "selectionRole": "select",
+    "columns": [
+      {
+        "id": "diver",
+        "label": "Diver"
+      },
+      {
+        "id": "rank",
+        "label": "Rank"
+      },
+      {
+        "id": "assignment",
+        "label": "Assign"
+      }
+    ],
+    "items": [
+      {
+        "id": "diver-1",
+        "values": [
+          "Goreng",
+          "Ensign",
+          "Nereid-1"
+        ]
+      },
+      {
+        "id": "diver-2",
+        "values": [
+          "Vermeulen",
+          "Ensign",
+          "None"
+        ]
+      },
+      {
+        "id": "diver-3",
+        "values": [
+          "Leclercq",
+          "Lieutenant",
+          "Nereid-1"
+        ]
+      }
+    ]
+  },
+  "controls": [
+    {
+      "id": "sort",
+      "label": "Sort",
+      "kind": "select",
+      "action": "sort",
+      "value": "original",
+      "options": [
+        {
+          "id": "original",
+          "label": "Original"
+        },
+        {
+          "id": "name",
+          "label": "Name"
+        },
+        {
+          "id": "rank",
+          "label": "Rank"
+        }
+      ]
+    }
+  ],
+  "toolbar": [],
+  "detail": {
+    "id": "diver",
+    "label": "Selected diver",
+    "title": "Stefan Goreng",
+    "subtitle": "Ensign · Nereid-1",
+    "metrics": [
+      {
+        "id": "missions",
+        "label": "Missions",
+        "value": "31"
+      },
+      {
+        "id": "kills",
+        "label": "Kills",
+        "value": "20"
+      }
+    ],
+    "actions": [
+      {
+        "id": "preview",
+        "label": "Preview",
+        "tone": "normal",
+        "action": "preview"
+      }
+    ]
+  }
+}

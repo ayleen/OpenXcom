@@ -40,6 +40,9 @@
 #include "../Savegame/SavedGame.h"
 #include "../Savegame/Soldier.h"
 #include "../Ufopaedia/Ufopaedia.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF05SoldierTransformationListUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -83,6 +86,9 @@ SoldierTransformationListState::SoldierTransformationListState(Base *base, Combo
 	add(_cbxSoldierStatus, "button2", "transformationList");
 
 	centerAllSurfaces();
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF05SoldierTransformationListUi::configure(*this);
+#endif
 
 	// Set up objects
 	setWindowBackground(_window, "transformationList");
@@ -155,7 +161,10 @@ SoldierTransformationListState::SoldierTransformationListState(Base *base, Combo
  */
 SoldierTransformationListState::~SoldierTransformationListState()
 {
-
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 }
 
 /**
@@ -348,7 +357,10 @@ void SoldierTransformationListState::btnOnlyEligibleClick(Action *)
  */
 void SoldierTransformationListState::btnOkClick(Action *)
 {
-	_screenActions->setSelected(0);
+	// Harness previews construct this state without the originating roster
+	// combo; the combo write-back is skipped there (pop is unconditional).
+	if (_screenActions)
+		_screenActions->setSelected(0);
 	_game->popState();
 }
 
@@ -367,8 +379,24 @@ void SoldierTransformationListState::lstTransformationsClick(Action *action)
 		return;
 	}
 
+	// Harness previews construct this state without the originating roster
+	// combo: row activation is a covered no-op there instead of a null call.
+	if (!_screenActions)
+	{
+		return;
+	}
 	_screenActions->setSelected(_screenActions->getSelected() + transformationIndex + 1);
 	_game->popState();
 }
 
 }
+
+#ifdef __EMSCRIPTEN__
+namespace OpenXcom {
+void SoldierTransformationListState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF05SoldierTransformationListUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+}
+#endif

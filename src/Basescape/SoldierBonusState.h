@@ -24,6 +24,8 @@
 namespace OpenXcom
 {
 
+namespace Calypso { class CalypsoF04SoldierBonusUi; }
+
 class Base;
 class TextButton;
 class ToggleTextButton;
@@ -36,6 +38,9 @@ class TextList;
  */
 class SoldierBonusState : public State
 {
+#ifdef __EMSCRIPTEN__
+friend class Calypso::CalypsoF04SoldierBonusUi;
+#endif
 private:
 	Base *_base;
 	size_t _soldier;
@@ -58,6 +63,15 @@ public:
 	void btnCancelClick(Action *action);
 	/// Handler for clicking the Bonuses list.
 	void lstBonusesClick(Action *action);
+
+#ifdef __EMSCRIPTEN__
+private:
+	bool _hdLayout = false;
+	bool _hdWideLayout = false;
+	Calypso::CalypsoF04SoldierBonusUi *_hdAdapter = nullptr;
+public:
+	void resize(int &dX, int &dY) override;
+#endif
 };
 
 }

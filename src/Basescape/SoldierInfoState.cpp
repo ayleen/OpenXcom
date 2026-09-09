@@ -41,6 +41,9 @@
 #include "SoldierArmorState.h"
 #include "SoldierBonusState.h"
 #include "SoldierTransformState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF04SoldierInfoUi.h"
+#endif
 #include "SoldierRankState.h"
 #include "SackSoldierState.h"
 #include "../Mod/RuleInterface.h"
@@ -374,6 +377,9 @@ SoldierInfoState::SoldierInfoState(Base *base, size_t soldierId, bool forceLimit
 	_txtPsiSkill->setText(tr("STR_PSIONIC_SKILL"));
 
 	_barPsiSkill->setScale(1.0);
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF04SoldierInfoUi::configure(*this);
+#endif
 }
 
 /**
@@ -381,6 +387,10 @@ SoldierInfoState::SoldierInfoState(Base *base, size_t soldierId, bool forceLimit
  */
 SoldierInfoState::~SoldierInfoState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 
 }
 
@@ -607,6 +617,9 @@ void SoldierInfoState::init()
 	{
 		_txtDead->setVisible(false);
 	}
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF04SoldierInfoUi::refreshInspectorRows(*this);
+#endif
 }
 
 /**
@@ -802,3 +815,13 @@ void SoldierInfoState::btnRankClick(Action *)
 }
 
 }
+
+#ifdef __EMSCRIPTEN__
+namespace OpenXcom {
+void SoldierInfoState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF04SoldierInfoUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+}
+#endif

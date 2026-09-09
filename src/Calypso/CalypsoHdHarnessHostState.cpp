@@ -22,7 +22,27 @@
 #include "../Basescape/PlaceFacilityState.h"
 #include "../Basescape/SackSoldierState.h"
 #include "../Basescape/SoldierTransformState.h"
+#include "../Basescape/SoldiersState.h"
+#include "../Basescape/SoldierArmorState.h"
+#include "../Basescape/SoldierAvatarState.h"
+#include "../Basescape/SoldierTransformationListState.h"
+#include "../Basescape/SoldierTransformationState.h"
+#include "../Basescape/SoldierMemorialState.h"
 #include "../Basescape/SoldierDiaryOverviewState.h"
+#include "../Basescape/SoldierDiaryLightState.h"
+#include "../Basescape/SoldierDiaryMissionState.h"
+#include "../Basescape/SoldierDiaryPerformanceState.h"
+#include "../Basescape/SoldierInfoState.h"
+#include "../Basescape/CraftsState.h"
+#include "../Basescape/CraftInfoState.h"
+#include "../Basescape/CraftPilotsState.h"
+#include "../Basescape/CraftPilotSelectState.h"
+#include "../Basescape/CraftSoldiersState.h"
+#include "../Basescape/CraftArmorState.h"
+#include "../Basescape/CraftWeaponsState.h"
+#include "../Basescape/CraftEquipmentState.h"
+#include "../Basescape/CraftEquipmentLoadState.h"
+#include "../Basescape/CraftEquipmentSaveState.h"
 #include "../Basescape/ManufactureInfoState.h"
 #include "../Basescape/ManageAlienContainmentState.h"
 #include "../Basescape/TransferConfirmState.h"
@@ -50,9 +70,14 @@
 #include "../Battlescape/NoExperienceState.h" 
 #include "../Mod/Mod.h"
 #include "../Mod/RuleBaseFacility.h"
+#include "../Mod/RuleCraft.h"
+#include "../Mod/RuleSoldierTransformation.h"
 #include "../Savegame/Base.h"
+#include "../Savegame/Craft.h"
 #include "../Savegame/BaseFacility.h"
 #include "../Savegame/SavedGame.h"
+#include "../Savegame/Soldier.h"
+#include "../Savegame/SoldierDiary.h"
 #include <cstdint>
 
 #include "CalypsoAbandonPopupUi.h" // calypsoHdHarnessSetSideBySide (F33 comparison shift)
@@ -334,8 +359,307 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 		return new CraftErrorState(nullptr, "Manufacturing project completed.");
 	case CalypsoHarnessScenario::F05SoldierTransform:
 		return new CraftErrorState(nullptr, "Soldier transformation is now available.");
-	case CalypsoHarnessScenario::F06SoldierDiary:
-		return new CraftErrorState(nullptr, "New diary entry has been recorded.");
+	case CalypsoHarnessScenario::F06SoldierMemorial:
+		// Campaign-wide ledger over the live save; an empty loss record is
+		// the honest empty harness state (no fake rows).
+		return new SoldierMemorialState();
+	case CalypsoHarnessScenario::F06DiaryOverview:
+	{
+		// First live diver supplies the ledger; unpushed profile context
+		// keeps the OK path's return-to-profile id contract intact.
+		Game* game = getCurrentGame();
+		if (!game || !game->getSavedGame()) return nullptr;
+		for (Base* base : *game->getSavedGame()->getBases())
+		{
+			if (base && !base->getSoldiers()->empty())
+			{
+				SoldierInfoState* info = new SoldierInfoState(base, 0);
+				return new SoldierDiaryOverviewState(base, 0, info);
+			}
+		}
+		return nullptr;
+	}
+	case CalypsoHarnessScenario::F06DiaryLight:
+	{
+		Game* game = getCurrentGame();
+		if (!game || !game->getSavedGame()) return nullptr;
+		for (Base* base : *game->getSavedGame()->getBases())
+		{
+			if (base && !base->getSoldiers()->empty())
+				return new SoldierDiaryLightState(base->getSoldiers()->at(0));
+		}
+		if (!game->getSavedGame()->getDeadSoldiers()->empty())
+			return new SoldierDiaryLightState(game->getSavedGame()->getDeadSoldiers()->at(0));
+		return nullptr;
+	}
+	case CalypsoHarnessScenario::F06DiaryMission:
+	{
+		// Only a diver with recorded missions yields a mission record;
+		// otherwise the native init would pop immediately (no harness).
+		Game* game = getCurrentGame();
+		if (!game || !game->getSavedGame()) return nullptr;
+		for (Base* base : *game->getSavedGame()->getBases())
+		{
+			if (!base) continue;
+			for (Soldier* soldier : *base->getSoldiers())
+			{
+				if (soldier && soldier->getDiary()
+					&& !soldier->getDiary()->getMissionIdList().empty())
+					return new SoldierDiaryMissionState(soldier, 0);
+			}
+		}
+		return nullptr;
+	}
+	case CalypsoHarnessScenario::F06DiaryPerformance:
+	{
+		Game* game = getCurrentGame();
+		if (!game || !game->getSavedGame()) return nullptr;
+		for (Base* base : *game->getSavedGame()->getBases())
+		{
+			if (base && !base->getSoldiers()->empty())
+			{
+				SoldierInfoState* info = new SoldierInfoState(base, 0);
+				SoldierDiaryOverviewState* overview =
+					new SoldierDiaryOverviewState(base, 0, info);
+				return new SoldierDiaryPerformanceState(base, 0, overview, DIARY_KILLS);
+			}
+		}
+		return nullptr;
+	}
+	case CalypsoHarnessScenario::F07Crafts:
+	{
+		// First live base fielding at least one craft; no fixture craft,
+		// diver, or pilot is ever invented (honest empty harness state).
+		Game* game = getCurrentGame();
+		if (!game || !game->getSavedGame()) return nullptr;
+		for (Base* base : *game->getSavedGame()->getBases())
+		{
+			if (base && !base->getCrafts()->empty())
+				return new CraftsState(base);
+		}
+		return nullptr;
+	}
+	case CalypsoHarnessScenario::F07CraftInfo:
+	{
+		// First live craft supplies the overview; capability tabs render
+		// exactly under their native visibility gates (a Ketos-like
+		// zero-capacity craft shows Overview + Weapons only).
+		Game* game = getCurrentGame();
+		if (!game || !game->getSavedGame()) return nullptr;
+		for (Base* base : *game->getSavedGame()->getBases())
+		{
+			if (base && !base->getCrafts()->empty())
+				return new CraftInfoState(base, 0);
+		}
+		return nullptr;
+	}
+	case CalypsoHarnessScenario::F07PilotSelect:
+	{
+		// Candidate rows are the live eligible divers aboard the first
+		// live craft; an empty list is the honest empty harness state.
+		Game* game = getCurrentGame();
+		if (!game || !game->getSavedGame()) return nullptr;
+		for (Base* base : *game->getSavedGame()->getBases())
+		{
+			if (base && !base->getCrafts()->empty())
+				return new CraftPilotSelectState(base, 0);
+		}
+		return nullptr;
+	}
+	case CalypsoHarnessScenario::F07CraftPilots:
+	{
+		// Assigned pilots, required seats, and bonus facts all come from
+		// the live craft; immediate add/remove recalculates on return.
+		Game* game = getCurrentGame();
+		if (!game || !game->getSavedGame()) return nullptr;
+		for (Base* base : *game->getSavedGame()->getBases())
+		{
+			if (base && !base->getCrafts()->empty())
+				return new CraftPilotsState(base, 0);
+		}
+		return nullptr;
+	}
+	case CalypsoHarnessScenario::F08CraftSoldiers:
+	{
+		// First live base fielding a craft; crew rows, capacity scope, and
+		// deployment order all come from live state (an empty roster is the
+		// honest empty harness state; no fixture diver is ever invented).
+		Game* game = getCurrentGame();
+		if (!game || !game->getSavedGame()) return nullptr;
+		for (Base* base : *game->getSavedGame()->getBases())
+		{
+			if (base && !base->getCrafts()->empty())
+				return new CraftSoldiersState(base, 0);
+		}
+		return nullptr;
+	}
+	case CalypsoHarnessScenario::F08CraftArmor:
+	{
+		// Per-diver armor rows come from the live base roster; research,
+		// compatibility, stock, and capacity gates stay native-owned.
+		Game* game = getCurrentGame();
+		if (!game || !game->getSavedGame()) return nullptr;
+		for (Base* base : *game->getSavedGame()->getBases())
+		{
+			if (base && !base->getCrafts()->empty())
+				return new CraftArmorState(base, 0);
+		}
+		return nullptr;
+	}
+	case CalypsoHarnessScenario::F08CraftWeapons:
+	{
+		// First live craft fielding at least one weapon mount; candidates,
+		// exchange, and errors all come from live ruleset, stock, and
+		// research state. A mount-less first craft is skipped (the mount-0
+		// row would index an empty weapon vector); no craft means no
+		// harness, never a fixture.
+		Game* game = getCurrentGame();
+		if (!game || !game->getSavedGame()) return nullptr;
+		for (Base* base : *game->getSavedGame()->getBases())
+		{
+			if (!base || !base->getCrafts()) continue;
+			for (std::size_t i = 0; i < base->getCrafts()->size(); ++i)
+			{
+				Craft* craft = base->getCrafts()->at(i);
+				if (craft && craft->getRules() && craft->getRules()->getWeapons() > 0)
+					return new CraftWeaponsState(base, i, 0);
+			}
+		}
+		return nullptr;
+	}
+	case CalypsoHarnessScenario::F08CraftEquipment:
+	{
+		// First live base fielding a craft; categories, quantities, and
+		// transfers all come from live ruleset, stock, and research state.
+		Game* game = getCurrentGame();
+		if (!game || !game->getSavedGame()) return nullptr;
+		for (Base* base : *game->getSavedGame()->getBases())
+		{
+			if (base && !base->getCrafts()->empty())
+				return new CraftEquipmentState(base, 0);
+		}
+		return nullptr;
+	}
+	case CalypsoHarnessScenario::F08CraftEquipmentLoad:
+	{
+		// Preset slots come from the live campaign-global namespace; the
+		// picker needs its live parent for the apply path, so the target
+		// carries an unpushed live parent context (harness-lifetime, same
+		// precedent as the diary profile context). Empty slots reject
+		// before any mutation, exactly as in production.
+		Game* game = getCurrentGame();
+		if (!game || !game->getSavedGame()) return nullptr;
+		for (Base* base : *game->getSavedGame()->getBases())
+		{
+			if (base && !base->getCrafts()->empty())
+				return new CraftEquipmentLoadState(new CraftEquipmentState(base, 0));
+		}
+		return nullptr;
+	}
+	case CalypsoHarnessScenario::F08CraftEquipmentSave:
+	{
+		// Same live-parent context as the load picker; the overwrite
+		// review arms on the live slot contents.
+		Game* game = getCurrentGame();
+		if (!game || !game->getSavedGame()) return nullptr;
+		for (Base* base : *game->getSavedGame()->getBases())
+		{
+			if (base && !base->getCrafts()->empty())
+				return new CraftEquipmentSaveState(new CraftEquipmentState(base, 0));
+		}
+		return nullptr;
+	}
+	case CalypsoHarnessScenario::F04Soldiers:
+	{
+		// First live base supplies the roster; sorts, reorder arrows,
+		// allocators, memorial, and inventory all come from live state
+		// (an empty roster is the honest empty harness state; no
+		// fixture diver is ever invented).
+		Game* game = getCurrentGame();
+		if (!game || !game->getSavedGame()) return nullptr;
+		for (Base* base : *game->getSavedGame()->getBases())
+		{
+			if (base)
+				return new SoldiersState(base);
+		}
+		return nullptr;
+	}
+	case CalypsoHarnessScenario::F05SoldierArmor:
+	{
+		// First live diver supplies the armor picker; research,
+		// compatibility, stock, and craft-space validation stay
+		// native-owned.
+		Game* game = getCurrentGame();
+		if (!game || !game->getSavedGame()) return nullptr;
+		for (Base* base : *game->getSavedGame()->getBases())
+		{
+			if (base && !base->getSoldiers()->empty())
+				return new SoldierArmorState(base, 0, SA_GEOSCAPE);
+		}
+		return nullptr;
+	}
+	case CalypsoHarnessScenario::F05SoldierAvatar:
+	{
+		// First live diver supplies the avatar picker; preview, Apply,
+		// and Cancel-restore keep their existing handlers.
+		Game* game = getCurrentGame();
+		if (!game || !game->getSavedGame()) return nullptr;
+		for (Base* base : *game->getSavedGame()->getBases())
+		{
+			if (base && !base->getSoldiers()->empty())
+				return new SoldierAvatarState(base, 0);
+		}
+		return nullptr;
+	}
+	case CalypsoHarnessScenario::F05TransformSelect:
+	{
+		// First live diver supplies the project selector; eligibility
+		// and the review handoff stay native-owned.
+		Game* game = getCurrentGame();
+		if (!game || !game->getSavedGame()) return nullptr;
+		for (Base* base : *game->getSavedGame()->getBases())
+		{
+			if (base && !base->getSoldiers()->empty())
+				return new SoldierTransformState(base, 0);
+		}
+		return nullptr;
+	}
+	case CalypsoHarnessScenario::F05TransformationList:
+	{
+		// Global project overview over the live campaign; the roster
+		// combo write-back context is absent in the harness (production
+		// always provides the parent roster), so row activation and OK
+		// write back into no roster here — paint, scroll, filters, and
+		// selection state are the covered surface.
+		Game* game = getCurrentGame();
+		if (!game || !game->getSavedGame()) return nullptr;
+		for (Base* base : *game->getSavedGame()->getBases())
+		{
+			if (base)
+				return new SoldierTransformationListState(base, nullptr);
+		}
+		return nullptr;
+	}
+	case CalypsoHarnessScenario::F05TransformationReview:
+	{
+		// First ruleset transformation project reviewed against the
+		// first live diver; cost, items, quarters, and stat changes all
+		// come from live ruleset and campaign state (no Calypso
+		// transformation rows are invented; empty project list is the
+		// honest empty harness state).
+		Game* game = getCurrentGame();
+		if (!game || !game->getMod() || !game->getSavedGame()) return nullptr;
+		if (game->getMod()->getSoldierTransformationList().empty()) return nullptr;
+		RuleSoldierTransformation* rule = game->getMod()->getSoldierTransformation(
+			game->getMod()->getSoldierTransformationList().front(), false);
+		if (!rule) return nullptr;
+		for (Base* base : *game->getSavedGame()->getBases())
+		{
+			if (base && !base->getSoldiers()->empty())
+				return new SoldierTransformationState(rule, base, base->getSoldiers()->at(0), nullptr);
+		}
+		return nullptr;
+	}
 	case CalypsoHarnessScenario::F12TransferConfirm:
 		return new CraftErrorState(nullptr, "Confirm transfer of selected items?");
 	case CalypsoHarnessScenario::F10ManufactureCheck:

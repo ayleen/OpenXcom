@@ -23,6 +23,8 @@
 namespace OpenXcom
 {
 
+namespace Calypso { class CalypsoF07CraftInfoUi; }
+
 class Base;
 class InteractiveSurface;
 class TextButton;
@@ -31,6 +33,7 @@ class Text;
 class TextEdit;
 class Surface;
 class Craft;
+class TextList;
 
 /**
  * Craft Info screen that shows all the
@@ -83,6 +86,16 @@ public:
 	void btnPilotsClick(Action *action);
 	/// Handler for changing the text on the Name edit.
 	void edtCraftChange(Action *action);
+#ifdef __EMSCRIPTEN__
+private:
+	friend class Calypso::CalypsoF07CraftInfoUi;
+	bool _hdLayout = false;
+	bool _hdWideLayout = false;
+	Calypso::CalypsoF07CraftInfoUi *_hdAdapter = nullptr;
+	TextList *_hdInspectorList = nullptr;
+public:
+	void resize(int &dX, int &dY) override;
+#endif
 };
 
 }

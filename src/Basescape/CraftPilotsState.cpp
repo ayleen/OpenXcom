@@ -33,6 +33,9 @@
 #include "../Mod/RuleCraft.h"
 #include "../Savegame/Soldier.h"
 #include "../Mod/RuleSoldier.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF07CraftPilotsUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -134,6 +137,9 @@ CraftPilotsState::CraftPilotsState(Base *base, size_t craft) : _base(base), _cra
 			soldier->prepareStatsWithBonuses(_game->getMod()); // refresh soldier bonuses
 		}
 	}
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF07CraftPilotsUi::configure(*this);
+#endif
 }
 
 /**
@@ -141,7 +147,10 @@ CraftPilotsState::CraftPilotsState(Base *base, size_t craft) : _base(base), _cra
  */
 CraftPilotsState::~CraftPilotsState()
 {
-
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 }
 
 /**
@@ -151,6 +160,9 @@ void CraftPilotsState::init()
 {
 	State::init();
 	updateUI();
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF07CraftPilotsUi::refreshForInit(*this);
+#endif
 }
 
 /**
@@ -249,6 +261,20 @@ void CraftPilotsState::btnRemoveAllClick(Action *)
 	c->removeAllPilots();
 
 	updateUI();
+#ifdef __EMSCRIPTEN__
+	// Immediate removal re-seats the Add/Clear hit areas and re-applies
+	// the Remove-All readout correction without waiting for an init cycle
+	// (removal commits natively; only HD presentation refreshes here).
+	Calypso::CalypsoF07CraftPilotsUi::refreshForInit(*this);
+#endif
 }
+
+#ifdef __EMSCRIPTEN__
+void CraftPilotsState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF07CraftPilotsUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+#endif
 
 }

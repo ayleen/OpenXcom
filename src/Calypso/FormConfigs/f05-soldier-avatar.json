@@ -1,0 +1,42 @@
+{
+  "schema": 1,
+  "id": "f05-soldier-avatar",
+  "familyId": 5,
+  "version": "hd.2026-08-29.1",
+  "archetype": "selection-list",
+  "protocol": {
+    "authority": "CALYPSO COMMAND",
+    "record": "PERSONNEL DOSSIER",
+    "code": "PD-05",
+    "revision": "1.0.21",
+    "effectiveDate": "15.07.2061"
+  },
+  "title": "Avatar",
+  "actions": [
+    {
+      "id": "cancel",
+      "label": "CANCEL",
+      "tone": "safe",
+      "action": "cancel"
+    },
+    {
+      "id": "apply",
+      "label": "APPLY",
+      "tone": "primary",
+      "action": "apply"
+    }
+  ],
+  "collection": {
+    "mode": "list",
+    "selectionRole": "avatar",
+    "columns": [
+      {
+        "id": "name",
+        "label": "Avatar"
+      }
+    ],
+    "items": [
+      { "id": "no-avatar", "label": "No avatar", "enabled": false }
+    ]
+  }
+}

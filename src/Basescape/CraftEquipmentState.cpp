@@ -57,6 +57,7 @@
 #include "../Ufopaedia/Ufopaedia.h"
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoTutorial.h"
+#include "../Calypso/CalypsoF08CraftEquipmentUi.h"
 #endif
 
 namespace OpenXcom
@@ -232,6 +233,9 @@ CraftEquipmentState::CraftEquipmentState(Base *base, size_t craft) :
 	_timerLeft->onTimer((StateHandler)&CraftEquipmentState::moveLeft);
 	_timerRight = new Timer(250);
 	_timerRight->onTimer((StateHandler)&CraftEquipmentState::moveRight);
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF08CraftEquipmentUi::configure(*this);
+#endif
 }
 
 /**
@@ -241,6 +245,10 @@ CraftEquipmentState::~CraftEquipmentState()
 {
 	delete _timerLeft;
 	delete _timerRight;
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 }
 
 /**
@@ -1175,5 +1183,13 @@ void CraftEquipmentState::btnSaveClick(Action *)
 		_returningFromGlobalTemplates = true;
 	}
 }
+
+#ifdef __EMSCRIPTEN__
+void CraftEquipmentState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF08CraftEquipmentUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+#endif
 
 }

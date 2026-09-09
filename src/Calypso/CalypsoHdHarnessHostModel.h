@@ -58,7 +58,6 @@ enum class CalypsoHarnessScenario
 	F30NoExperience = 76,
 	F24ProductionComplete = 77,
 	F05SoldierTransform = 78,
-	F06SoldierDiary = 79,
 	F12TransferConfirm = 80,
 	F10ManufactureCheck = 81,
 	F13Containment = 82,
@@ -70,7 +69,39 @@ enum class CalypsoHarnessScenario
 	// F03 construction chooser (BuildFacilitiesState, real fixture base) and
 	// placement (PlaceFacilityState, real fixture owners, implemented presentation).
 	F03BuildFacilities = 86,
-	F03PlaceFacility = 87
+	F03PlaceFacility = 87,
+	// F06 personnel diary and memorial (production selection-list routes).
+	F06SoldierMemorial = 88,
+	F06DiaryOverview = 89,
+	F06DiaryLight = 90,
+	F06DiaryMission = 91,
+	F06DiaryPerformance = 92,
+	// F07 submarine roster, overview, and pilots (production
+	// selection-list routes; live-save fixtures, honest empty states).
+	F07Crafts = 93,
+	F07CraftInfo = 94,
+	F07PilotSelect = 95,
+	F07CraftPilots = 96,
+	// F08 submarine crew, loadout, and armament (production
+	// selection-list routes; live-save fixtures, honest empty states).
+	// All six routes are now in scope: crew, armor, weapons, equipment,
+	// and the two preset pickers.
+	F08CraftSoldiers = 97,
+	F08CraftArmor = 98,
+	F08CraftWeapons = 99,
+	F08CraftEquipment = 100,
+	F08CraftEquipmentLoad = 101,
+	F08CraftEquipmentSave = 102,
+	// F04 roster and F05 appearance/transformation (production
+	// selection-list routes; live-save fixtures, honest empty states).
+	// F05SoldierTransform (78) stays the small-confirmation project
+	// selector confirmation and is untouched by this range.
+	F04Soldiers = 103,
+	F05SoldierArmor = 104,
+	F05SoldierAvatar = 105,
+	F05TransformSelect = 106,
+	F05TransformationList = 107,
+	F05TransformationReview = 108
 };
 
 /// True iff `id` names a known scenario (the generic export never guesses).
@@ -102,7 +133,6 @@ inline bool calypsoHarnessScenarioValid(int id)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F30NoExperience)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F24ProductionComplete)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F05SoldierTransform)
-		|| id == static_cast<int>(CalypsoHarnessScenario::F06SoldierDiary)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F12TransferConfirm)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F10ManufactureCheck)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F13Containment)
@@ -110,7 +140,28 @@ inline bool calypsoHarnessScenarioValid(int id)
 		|| id == static_cast<int>(CalypsoHarnessScenario::GeoscapeHd)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F01Basescape)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F03BuildFacilities)
-		|| id == static_cast<int>(CalypsoHarnessScenario::F03PlaceFacility);
+		|| id == static_cast<int>(CalypsoHarnessScenario::F03PlaceFacility)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F06SoldierMemorial)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F06DiaryOverview)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F06DiaryLight)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F06DiaryMission)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F06DiaryPerformance)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F07Crafts)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F07CraftInfo)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F07PilotSelect)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F07CraftPilots)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F08CraftSoldiers)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F08CraftArmor)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F08CraftWeapons)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F08CraftEquipment)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F08CraftEquipmentLoad)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F08CraftEquipmentSave)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F04Soldiers)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F05SoldierArmor)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F05SoldierAvatar)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F05TransformSelect)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F05TransformationList)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F05TransformationReview);
 }
 
 /// Mutable session state of one harness run.

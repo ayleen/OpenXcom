@@ -30,6 +30,9 @@
 #include "../Savegame/SavedGame.h"
 #include "../Savegame/Soldier.h"
 #include "../Ufopaedia/Ufopaedia.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF04SoldierRankUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -119,6 +122,9 @@ SoldierRankState::SoldierRankState(Base* base, size_t soldierId) : _base(base), 
 
 	_lstRanks->onMouseClick((ActionHandler)&SoldierRankState::lstRankClick);
 	_lstRanks->onMouseClick((ActionHandler)&SoldierRankState::lstRankClickMiddle, SDL_BUTTON_MIDDLE);
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF04SoldierRankUi::configure(*this);
+#endif
 }
 
 /**
@@ -126,6 +132,10 @@ SoldierRankState::SoldierRankState(Base* base, size_t soldierId) : _base(base), 
  */
 SoldierRankState::~SoldierRankState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 }
 
 
@@ -163,5 +173,13 @@ void SoldierRankState::lstRankClickMiddle(Action* action)
 	std::string articleId = _ranks[_lstRanks->getSelectedRow()].name;
 	Ufopaedia::openArticle(_game, articleId);
 }
+
+#ifdef __EMSCRIPTEN__
+void SoldierRankState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF04SoldierRankUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+#endif
 
 }

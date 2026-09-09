@@ -23,6 +23,8 @@
 namespace OpenXcom
 {
 
+namespace Calypso { class CalypsoF08CraftEquipmentSaveUi; }
+
 class TextEdit;
 class TextButton;
 class Window;
@@ -59,6 +61,24 @@ public:
 	void edtSaveKeyPress(Action *action);
 	/// Save template.
 	void saveTemplate();
+#ifdef __EMSCRIPTEN__
+	/// HD explicit-overwrite gate (C1): saving to an empty slot commits
+	/// directly through the unchanged save path, while a non-empty slot
+	/// arms first and only commits on the second Save activation for the
+	/// same slot. Arming is slot-bound, so reselecting always re-arms.
+	void hdSaveClickGate(Action *action);
+	/// Drops an armed overwrite review and restores the Save label.
+	void hdDisarmSave();
+private:
+	friend class Calypso::CalypsoF08CraftEquipmentSaveUi;
+	bool _hdLayout = false;
+	bool _hdWideLayout = false;
+	Calypso::CalypsoF08CraftEquipmentSaveUi *_hdAdapter = nullptr;
+	bool _hdSaveArmed = false;
+	int _hdArmedRow = -1;
+public:
+	void resize(int &dX, int &dY) override;
+#endif
 };
 
 }

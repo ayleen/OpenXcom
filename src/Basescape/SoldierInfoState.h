@@ -23,11 +23,14 @@
 namespace OpenXcom
 {
 
+namespace Calypso { class CalypsoF04SoldierInfoUi; }
+
 class Base;
 class Surface;
 class TextButton;
 class Text;
 class TextEdit;
+class TextList;
 class Bar;
 class Soldier;
 
@@ -37,6 +40,9 @@ class Soldier;
  */
 class SoldierInfoState : public State
 {
+#ifdef __EMSCRIPTEN__
+friend class Calypso::CalypsoF04SoldierInfoUi;
+#endif
 private:
 	Base *_base;
 	size_t _soldierId;
@@ -93,6 +99,16 @@ public:
 	void btnFlagClick(Action *action);
 	/// Handler for clicking the rank.
 	void btnRankClick(Action *action);
+
+#ifdef __EMSCRIPTEN__
+private:
+	bool _hdLayout = false;
+	bool _hdWideLayout = false;
+	Calypso::CalypsoF04SoldierInfoUi *_hdAdapter = nullptr;
+	TextList *_hdInspectorList = nullptr;
+public:
+	void resize(int &dX, int &dY) override;
+#endif
 };
 
 }

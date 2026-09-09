@@ -1,0 +1,93 @@
+{
+  "schema": 1,
+  "id": "f07-pilot-select",
+  "familyId": 7,
+  "version": "hd.2026-08-29.1",
+  "archetype": "tabbed-management",
+  "title": "Select Pilot",
+  "actions": [
+    {
+      "id": "assign",
+      "label": "Assign",
+      "tone": "primary",
+      "action": "assign"
+    },
+    {
+      "id": "cancel",
+      "label": "Cancel",
+      "tone": "safe",
+      "action": "cancel"
+    }
+  ],
+  "tabs": [
+    {
+      "id": "overview",
+      "label": "Overview"
+    },
+    {
+      "id": "weapons",
+      "label": "Weapons"
+    },
+    {
+      "id": "crew",
+      "label": "Crew"
+    },
+    {
+      "id": "equipment",
+      "label": "Equipment"
+    },
+    {
+      "id": "armor",
+      "label": "Armor"
+    },
+    {
+      "id": "pilots",
+      "label": "Pilots"
+    }
+  ],
+  "selectedTab": "pilots",
+  "summary": [
+    {
+      "id": "craft",
+      "label": "Craft",
+      "value": "Nereid-1"
+    },
+    {
+      "id": "seats",
+      "label": "Seats",
+      "value": "2 seats"
+    }
+  ],
+  "collection": {
+    "mode": "list",
+    "selectionRole": "select",
+    "columns": [
+      {
+        "id": "pilot",
+        "label": "Pilot"
+      },
+      {
+        "id": "firing",
+        "label": "Firing"
+      }
+    ],
+    "items": [
+      {
+        "id": "candidate-1",
+        "values": [
+          "Dendo",
+          "58"
+        ]
+      },
+      {
+        "id": "candidate-2",
+        "values": [
+          "Voss",
+          "61"
+        ]
+      }
+    ]
+  },
+  "controls": [],
+  "toolbar": []
+}

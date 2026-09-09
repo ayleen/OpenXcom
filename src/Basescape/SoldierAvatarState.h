@@ -24,6 +24,8 @@
 namespace OpenXcom
 {
 
+namespace Calypso { class CalypsoF05SoldierAvatarUi; }
+
 class Base;
 class TextButton;
 class Window;
@@ -38,6 +40,9 @@ class SoldierAvatar;
  */
 class SoldierAvatarState : public State
 {
+#ifdef __EMSCRIPTEN__
+friend class Calypso::CalypsoF05SoldierAvatarUi;
+#endif
 private:
 	Base *_base;
 	size_t _soldier;
@@ -62,6 +67,14 @@ public:
 	void btnOkClick(Action *action);
 	/// Handler for clicking the Avatar list.
 	void lstAvatarClick(Action *action);
+#ifdef __EMSCRIPTEN__
+private:
+	bool _hdLayout = false;
+	bool _hdWideLayout = false;
+	Calypso::CalypsoF05SoldierAvatarUi *_hdAdapter = nullptr;
+public:
+	void resize(int &dX, int &dY) override;
+#endif
 };
 
 }

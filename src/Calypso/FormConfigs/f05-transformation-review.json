@@ -1,0 +1,42 @@
+{
+  "schema": 1,
+  "id": "f05-transformation-review",
+  "familyId": 5,
+  "version": "hd.2026-08-29.1",
+  "archetype": "selection-list",
+  "protocol": {
+    "authority": "CALYPSO COMMAND",
+    "record": "PERSONNEL DOSSIER",
+    "code": "PD-05",
+    "revision": "1.0.21",
+    "effectiveDate": "15.07.2061"
+  },
+  "title": "Transformation",
+  "actions": [
+    {
+      "id": "cancel",
+      "label": "CANCEL",
+      "tone": "safe",
+      "action": "cancel"
+    },
+    {
+      "id": "start",
+      "label": "START",
+      "tone": "danger",
+      "action": "start"
+    }
+  ],
+  "collection": {
+    "mode": "list",
+    "selectionRole": "transformation",
+    "columns": [
+      {
+        "id": "name",
+        "label": "Review"
+      }
+    ],
+    "items": [
+      { "id": "no-review", "label": "No review", "enabled": false }
+    ]
+  }
+}

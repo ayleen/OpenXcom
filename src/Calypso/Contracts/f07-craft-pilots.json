@@ -1,0 +1,1393 @@
+{
+  "schema": 1,
+  "version": "hd.2026-08-29.1",
+  "form": {
+    "id": "f07-craft-pilots",
+    "familyId": 7,
+    "archetype": "tabbed-management",
+    "source": "FormConfigs/f07-craft-pilots.json",
+    "actions": [
+      {
+        "id": "add",
+        "label": "Add pilot",
+        "tone": "primary",
+        "action": "add",
+        "style": {
+          "fill": "74FFB0FF",
+          "border": "74FFB0FF",
+          "text": "071013FF"
+        }
+      },
+      {
+        "id": "cancel",
+        "label": "OK",
+        "tone": "safe",
+        "action": "cancel",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB0CC",
+          "text": "E8FFF5FF"
+        }
+      }
+    ],
+    "tabs": [
+      {
+        "id": "overview",
+        "label": "Overview"
+      },
+      {
+        "id": "weapons",
+        "label": "Weapons"
+      },
+      {
+        "id": "crew",
+        "label": "Crew"
+      },
+      {
+        "id": "equipment",
+        "label": "Equipment"
+      },
+      {
+        "id": "armor",
+        "label": "Armor"
+      },
+      {
+        "id": "pilots",
+        "label": "Pilots"
+      }
+    ],
+    "selectedTab": "pilots",
+    "summary": [
+      {
+        "id": "required",
+        "label": "Required",
+        "value": "2 pilots"
+      },
+      {
+        "id": "assigned",
+        "label": "Assigned",
+        "value": "1 / 2"
+      },
+      {
+        "id": "eligible",
+        "label": "Eligible",
+        "value": "3 divers"
+      },
+      {
+        "id": "status",
+        "label": "Status",
+        "value": "Active"
+      }
+    ],
+    "collection": {
+      "mode": "table",
+      "selectionRole": "inspect",
+      "columns": [
+        {
+          "id": "diver",
+          "label": "Diver"
+        },
+        {
+          "id": "firing",
+          "label": "Firing"
+        },
+        {
+          "id": "reactions",
+          "label": "React"
+        },
+        {
+          "id": "bravery",
+          "label": "Bravery"
+        },
+        {
+          "id": "seat",
+          "label": "Seat"
+        }
+      ],
+      "items": [
+        {
+          "id": "pilot-1",
+          "values": [
+            "Moon",
+            "55",
+            "48",
+            "60",
+            "Seat 1"
+          ]
+        },
+        {
+          "id": "pilot-2",
+          "values": [
+            "Volkov",
+            "62",
+            "51",
+            "70",
+            "Open"
+          ]
+        }
+      ]
+    },
+    "controls": [],
+    "toolbar": [],
+    "detail": {
+      "id": "bonus",
+      "label": "Pilot bonuses",
+      "title": "Accuracy +6%",
+      "subtitle": "1 of 2 seats",
+      "metrics": [
+        {
+          "id": "accuracy",
+          "label": "Accuracy",
+          "value": "+6%"
+        },
+        {
+          "id": "dodge",
+          "label": "Dodge",
+          "value": "+4%"
+        },
+        {
+          "id": "approach",
+          "label": "Approach",
+          "value": "Normal"
+        }
+      ],
+      "actions": [
+        {
+          "id": "clear",
+          "label": "Clear",
+          "tone": "normal",
+          "action": "clear",
+          "style": {
+            "fill": "051417B8",
+            "border": "74FFB059",
+            "text": "E8FFF5FF"
+          }
+        }
+      ]
+    }
+  },
+  "copy": {
+    "title": "Pilots",
+    "tabs": {
+      "overview": "Overview",
+      "weapons": "Weapons",
+      "crew": "Crew",
+      "equipment": "Equipment",
+      "armor": "Armor",
+      "pilots": "Pilots"
+    },
+    "summary": [
+      {
+        "id": "required",
+        "label": "Required",
+        "value": "2 pilots"
+      },
+      {
+        "id": "assigned",
+        "label": "Assigned",
+        "value": "1 / 2"
+      },
+      {
+        "id": "eligible",
+        "label": "Eligible",
+        "value": "3 divers"
+      },
+      {
+        "id": "status",
+        "label": "Status",
+        "value": "Active"
+      }
+    ],
+    "collection": {
+      "mode": "table",
+      "selectionRole": "inspect",
+      "columns": [
+        {
+          "id": "diver",
+          "label": "Diver"
+        },
+        {
+          "id": "firing",
+          "label": "Firing"
+        },
+        {
+          "id": "reactions",
+          "label": "React"
+        },
+        {
+          "id": "bravery",
+          "label": "Bravery"
+        },
+        {
+          "id": "seat",
+          "label": "Seat"
+        }
+      ],
+      "items": [
+        {
+          "id": "pilot-1",
+          "values": [
+            "Moon",
+            "55",
+            "48",
+            "60",
+            "Seat 1"
+          ]
+        },
+        {
+          "id": "pilot-2",
+          "values": [
+            "Volkov",
+            "62",
+            "51",
+            "70",
+            "Open"
+          ]
+        }
+      ]
+    },
+    "controls": [],
+    "toolbar": {},
+    "detail": {
+      "id": "bonus",
+      "label": "Pilot bonuses",
+      "title": "Accuracy +6%",
+      "subtitle": "1 of 2 seats",
+      "metrics": [
+        {
+          "id": "accuracy",
+          "label": "Accuracy",
+          "value": "+6%"
+        },
+        {
+          "id": "dodge",
+          "label": "Dodge",
+          "value": "+4%"
+        },
+        {
+          "id": "approach",
+          "label": "Approach",
+          "value": "Normal"
+        }
+      ],
+      "actions": [
+        {
+          "id": "clear",
+          "label": "Clear",
+          "tone": "normal",
+          "action": "clear"
+        }
+      ]
+    }
+  },
+  "style": {
+    "panelFillTop": "08191DEB",
+    "panelFillBottom": "041014E8",
+    "frame": "74FFB073",
+    "divider": "74FFB04D",
+    "text": "E8FFF5FF",
+    "mutedText": "A9D8C7FF",
+    "selectedTab": "74FFB033",
+    "selection": "74FFB033",
+    "scrollTrack": "061B1CD6",
+    "scrollThumb": "74FFB099",
+    "footerFill": "061B1CD6",
+    "footerDot": "74FFB01F",
+    "cutCornerPx": 14
+  },
+  "layouts": {
+    "wide": {
+      "designWidth": 1280,
+      "designHeight": 720,
+      "window": {
+        "x": 140,
+        "y": 50,
+        "width": 1000,
+        "height": 620
+      },
+      "title": {
+        "x": 172,
+        "y": 68,
+        "width": 936,
+        "height": 44
+      },
+      "summaryBar": {
+        "x": 172,
+        "y": 116,
+        "width": 936,
+        "height": 36
+      },
+      "summary": {
+        "required": {
+          "x": 172,
+          "y": 116,
+          "width": 233,
+          "height": 36
+        },
+        "assigned": {
+          "x": 406,
+          "y": 116,
+          "width": 233,
+          "height": 36
+        },
+        "eligible": {
+          "x": 640,
+          "y": 116,
+          "width": 233,
+          "height": 36
+        },
+        "status": {
+          "x": 874,
+          "y": 116,
+          "width": 234,
+          "height": 36
+        }
+      },
+      "tabBar": {
+        "x": 172,
+        "y": 160,
+        "width": 936,
+        "height": 48
+      },
+      "collectionViewport": {
+        "x": 488,
+        "y": 280,
+        "width": 620,
+        "height": 286
+      },
+      "collection": {
+        "columnHeaders": [
+          {
+            "id": "diver",
+            "rect": {
+              "x": 488,
+              "y": 280,
+              "width": 112,
+              "height": 36
+            }
+          },
+          {
+            "id": "firing",
+            "rect": {
+              "x": 601,
+              "y": 280,
+              "width": 112,
+              "height": 36
+            }
+          },
+          {
+            "id": "reactions",
+            "rect": {
+              "x": 714,
+              "y": 280,
+              "width": 112,
+              "height": 36
+            }
+          },
+          {
+            "id": "bravery",
+            "rect": {
+              "x": 827,
+              "y": 280,
+              "width": 112,
+              "height": 36
+            }
+          },
+          {
+            "id": "seat",
+            "rect": {
+              "x": 940,
+              "y": 280,
+              "width": 114,
+              "height": 36
+            }
+          }
+        ],
+        "rowSlots": [
+          {
+            "id": "row-slot-1",
+            "rect": {
+              "x": 488,
+              "y": 316,
+              "width": 566,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "diver",
+                "rect": {
+                  "x": 488,
+                  "y": 316,
+                  "width": 112,
+                  "height": 44
+                }
+              },
+              {
+                "id": "firing",
+                "rect": {
+                  "x": 601,
+                  "y": 316,
+                  "width": 112,
+                  "height": 44
+                }
+              },
+              {
+                "id": "reactions",
+                "rect": {
+                  "x": 714,
+                  "y": 316,
+                  "width": 112,
+                  "height": 44
+                }
+              },
+              {
+                "id": "bravery",
+                "rect": {
+                  "x": 827,
+                  "y": 316,
+                  "width": 112,
+                  "height": 44
+                }
+              },
+              {
+                "id": "seat",
+                "rect": {
+                  "x": 940,
+                  "y": 316,
+                  "width": 114,
+                  "height": 44
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-2",
+            "rect": {
+              "x": 488,
+              "y": 360,
+              "width": 566,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "diver",
+                "rect": {
+                  "x": 488,
+                  "y": 360,
+                  "width": 112,
+                  "height": 44
+                }
+              },
+              {
+                "id": "firing",
+                "rect": {
+                  "x": 601,
+                  "y": 360,
+                  "width": 112,
+                  "height": 44
+                }
+              },
+              {
+                "id": "reactions",
+                "rect": {
+                  "x": 714,
+                  "y": 360,
+                  "width": 112,
+                  "height": 44
+                }
+              },
+              {
+                "id": "bravery",
+                "rect": {
+                  "x": 827,
+                  "y": 360,
+                  "width": 112,
+                  "height": 44
+                }
+              },
+              {
+                "id": "seat",
+                "rect": {
+                  "x": 940,
+                  "y": 360,
+                  "width": 114,
+                  "height": 44
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-3",
+            "rect": {
+              "x": 488,
+              "y": 404,
+              "width": 566,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "diver",
+                "rect": {
+                  "x": 488,
+                  "y": 404,
+                  "width": 112,
+                  "height": 44
+                }
+              },
+              {
+                "id": "firing",
+                "rect": {
+                  "x": 601,
+                  "y": 404,
+                  "width": 112,
+                  "height": 44
+                }
+              },
+              {
+                "id": "reactions",
+                "rect": {
+                  "x": 714,
+                  "y": 404,
+                  "width": 112,
+                  "height": 44
+                }
+              },
+              {
+                "id": "bravery",
+                "rect": {
+                  "x": 827,
+                  "y": 404,
+                  "width": 112,
+                  "height": 44
+                }
+              },
+              {
+                "id": "seat",
+                "rect": {
+                  "x": 940,
+                  "y": 404,
+                  "width": 114,
+                  "height": 44
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-4",
+            "rect": {
+              "x": 488,
+              "y": 448,
+              "width": 566,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "diver",
+                "rect": {
+                  "x": 488,
+                  "y": 448,
+                  "width": 112,
+                  "height": 44
+                }
+              },
+              {
+                "id": "firing",
+                "rect": {
+                  "x": 601,
+                  "y": 448,
+                  "width": 112,
+                  "height": 44
+                }
+              },
+              {
+                "id": "reactions",
+                "rect": {
+                  "x": 714,
+                  "y": 448,
+                  "width": 112,
+                  "height": 44
+                }
+              },
+              {
+                "id": "bravery",
+                "rect": {
+                  "x": 827,
+                  "y": 448,
+                  "width": 112,
+                  "height": 44
+                }
+              },
+              {
+                "id": "seat",
+                "rect": {
+                  "x": 940,
+                  "y": 448,
+                  "width": 114,
+                  "height": 44
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-5",
+            "rect": {
+              "x": 488,
+              "y": 492,
+              "width": 566,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "diver",
+                "rect": {
+                  "x": 488,
+                  "y": 492,
+                  "width": 112,
+                  "height": 44
+                }
+              },
+              {
+                "id": "firing",
+                "rect": {
+                  "x": 601,
+                  "y": 492,
+                  "width": 112,
+                  "height": 44
+                }
+              },
+              {
+                "id": "reactions",
+                "rect": {
+                  "x": 714,
+                  "y": 492,
+                  "width": 112,
+                  "height": 44
+                }
+              },
+              {
+                "id": "bravery",
+                "rect": {
+                  "x": 827,
+                  "y": 492,
+                  "width": 112,
+                  "height": 44
+                }
+              },
+              {
+                "id": "seat",
+                "rect": {
+                  "x": 940,
+                  "y": 492,
+                  "width": 114,
+                  "height": 44
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "toolbarBar": {
+        "x": 172,
+        "y": 218,
+        "width": 936,
+        "height": 52
+      },
+      "controls": {},
+      "footer": {
+        "x": 140,
+        "y": 578,
+        "width": 1000,
+        "height": 92
+      },
+      "tabs": {
+        "overview": {
+          "x": 172,
+          "y": 160,
+          "width": 149,
+          "height": 48
+        },
+        "weapons": {
+          "x": 329,
+          "y": 160,
+          "width": 149,
+          "height": 48
+        },
+        "crew": {
+          "x": 486,
+          "y": 160,
+          "width": 149,
+          "height": 48
+        },
+        "equipment": {
+          "x": 643,
+          "y": 160,
+          "width": 149,
+          "height": 48
+        },
+        "armor": {
+          "x": 800,
+          "y": 160,
+          "width": 149,
+          "height": 48
+        },
+        "pilots": {
+          "x": 957,
+          "y": 160,
+          "width": 151,
+          "height": 48
+        }
+      },
+      "toolbar": {},
+      "actions": {
+        "add": {
+          "x": 782,
+          "y": 602,
+          "width": 158,
+          "height": 44
+        },
+        "cancel": {
+          "x": 950,
+          "y": 602,
+          "width": 158,
+          "height": 44
+        }
+      },
+      "detail": {
+        "id": "bonus",
+        "panel": {
+          "x": 172,
+          "y": 280,
+          "width": 306,
+          "height": 286
+        },
+        "label": {
+          "x": 184,
+          "y": 292,
+          "width": 282,
+          "height": 24
+        },
+        "identity": {
+          "rect": {
+            "x": 184,
+            "y": 316,
+            "width": 282,
+            "height": 32
+          },
+          "title": {
+            "x": 184,
+            "y": 316,
+            "width": 282,
+            "height": 16
+          },
+          "subtitle": {
+            "x": 184,
+            "y": 332,
+            "width": 282,
+            "height": 16
+          }
+        },
+        "metrics": {
+          "accuracy": {
+            "rect": {
+              "x": 184,
+              "y": 348,
+              "width": 140,
+              "height": 28
+            },
+            "label": {
+              "x": 184,
+              "y": 348,
+              "width": 140,
+              "height": 14
+            },
+            "value": {
+              "x": 184,
+              "y": 362,
+              "width": 140,
+              "height": 14
+            }
+          },
+          "dodge": {
+            "rect": {
+              "x": 325,
+              "y": 348,
+              "width": 141,
+              "height": 28
+            },
+            "label": {
+              "x": 325,
+              "y": 348,
+              "width": 141,
+              "height": 14
+            },
+            "value": {
+              "x": 325,
+              "y": 362,
+              "width": 141,
+              "height": 14
+            }
+          },
+          "approach": {
+            "rect": {
+              "x": 184,
+              "y": 376,
+              "width": 282,
+              "height": 28
+            },
+            "label": {
+              "x": 184,
+              "y": 376,
+              "width": 282,
+              "height": 14
+            },
+            "value": {
+              "x": 184,
+              "y": 390,
+              "width": 282,
+              "height": 14
+            }
+          }
+        },
+        "note": {
+          "visible": false
+        },
+        "actions": [
+          {
+            "id": "clear",
+            "rect": {
+              "x": 184,
+              "y": 510,
+              "width": 282,
+              "height": 44
+            }
+          }
+        ]
+      }
+    },
+    "compact": {
+      "designWidth": 740,
+      "designHeight": 360,
+      "window": {
+        "x": 20,
+        "y": 8,
+        "width": 700,
+        "height": 344
+      },
+      "title": {
+        "x": 44,
+        "y": 8,
+        "width": 652,
+        "height": 32
+      },
+      "summaryBar": {
+        "x": 44,
+        "y": 44,
+        "width": 652,
+        "height": 24
+      },
+      "summary": {
+        "required": {
+          "x": 44,
+          "y": 44,
+          "width": 162,
+          "height": 24
+        },
+        "assigned": {
+          "x": 207,
+          "y": 44,
+          "width": 162,
+          "height": 24
+        },
+        "eligible": {
+          "x": 370,
+          "y": 44,
+          "width": 162,
+          "height": 24
+        },
+        "status": {
+          "x": 533,
+          "y": 44,
+          "width": 163,
+          "height": 24
+        }
+      },
+      "tabBar": {
+        "x": 44,
+        "y": 72,
+        "width": 652,
+        "height": 44
+      },
+      "collectionViewport": {
+        "x": 304,
+        "y": 168,
+        "width": 392,
+        "height": 112
+      },
+      "collection": {
+        "columnHeaders": [
+          {
+            "id": "diver",
+            "rect": {
+              "x": 304,
+              "y": 168,
+              "width": 67,
+              "height": 24
+            }
+          },
+          {
+            "id": "firing",
+            "rect": {
+              "x": 372,
+              "y": 168,
+              "width": 67,
+              "height": 24
+            }
+          },
+          {
+            "id": "reactions",
+            "rect": {
+              "x": 440,
+              "y": 168,
+              "width": 67,
+              "height": 24
+            }
+          },
+          {
+            "id": "bravery",
+            "rect": {
+              "x": 508,
+              "y": 168,
+              "width": 67,
+              "height": 24
+            }
+          },
+          {
+            "id": "seat",
+            "rect": {
+              "x": 576,
+              "y": 168,
+              "width": 68,
+              "height": 24
+            }
+          }
+        ],
+        "rowSlots": [
+          {
+            "id": "row-slot-1",
+            "rect": {
+              "x": 304,
+              "y": 192,
+              "width": 340,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "diver",
+                "rect": {
+                  "x": 304,
+                  "y": 192,
+                  "width": 67,
+                  "height": 44
+                }
+              },
+              {
+                "id": "firing",
+                "rect": {
+                  "x": 372,
+                  "y": 192,
+                  "width": 67,
+                  "height": 44
+                }
+              },
+              {
+                "id": "reactions",
+                "rect": {
+                  "x": 440,
+                  "y": 192,
+                  "width": 67,
+                  "height": 44
+                }
+              },
+              {
+                "id": "bravery",
+                "rect": {
+                  "x": 508,
+                  "y": 192,
+                  "width": 67,
+                  "height": 44
+                }
+              },
+              {
+                "id": "seat",
+                "rect": {
+                  "x": 576,
+                  "y": 192,
+                  "width": 68,
+                  "height": 44
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-2",
+            "rect": {
+              "x": 304,
+              "y": 236,
+              "width": 340,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "diver",
+                "rect": {
+                  "x": 304,
+                  "y": 236,
+                  "width": 67,
+                  "height": 44
+                }
+              },
+              {
+                "id": "firing",
+                "rect": {
+                  "x": 372,
+                  "y": 236,
+                  "width": 67,
+                  "height": 44
+                }
+              },
+              {
+                "id": "reactions",
+                "rect": {
+                  "x": 440,
+                  "y": 236,
+                  "width": 67,
+                  "height": 44
+                }
+              },
+              {
+                "id": "bravery",
+                "rect": {
+                  "x": 508,
+                  "y": 236,
+                  "width": 67,
+                  "height": 44
+                }
+              },
+              {
+                "id": "seat",
+                "rect": {
+                  "x": 576,
+                  "y": 236,
+                  "width": 68,
+                  "height": 44
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "toolbarBar": {
+        "x": 44,
+        "y": 120,
+        "width": 652,
+        "height": 44
+      },
+      "controls": {},
+      "footer": {
+        "x": 20,
+        "y": 284,
+        "width": 700,
+        "height": 68
+      },
+      "tabs": {
+        "overview": {
+          "x": 44,
+          "y": 72,
+          "width": 103,
+          "height": 44
+        },
+        "weapons": {
+          "x": 153,
+          "y": 72,
+          "width": 103,
+          "height": 44
+        },
+        "crew": {
+          "x": 262,
+          "y": 72,
+          "width": 103,
+          "height": 44
+        },
+        "equipment": {
+          "x": 371,
+          "y": 72,
+          "width": 103,
+          "height": 44
+        },
+        "armor": {
+          "x": 480,
+          "y": 72,
+          "width": 103,
+          "height": 44
+        },
+        "pilots": {
+          "x": 589,
+          "y": 72,
+          "width": 107,
+          "height": 44
+        }
+      },
+      "toolbar": {},
+      "actions": {
+        "add": {
+          "x": 388,
+          "y": 296,
+          "width": 148,
+          "height": 44
+        },
+        "cancel": {
+          "x": 548,
+          "y": 296,
+          "width": 148,
+          "height": 44
+        }
+      },
+      "detail": {
+        "id": "bonus",
+        "panel": {
+          "x": 44,
+          "y": 168,
+          "width": 250,
+          "height": 112
+        },
+        "label": {
+          "x": 48,
+          "y": 172,
+          "width": 242,
+          "height": 16
+        },
+        "identity": {
+          "rect": {
+            "x": 48,
+            "y": 188,
+            "width": 242,
+            "height": 24
+          },
+          "title": {
+            "x": 48,
+            "y": 188,
+            "width": 242,
+            "height": 12
+          },
+          "subtitle": {
+            "x": 48,
+            "y": 200,
+            "width": 242,
+            "height": 12
+          }
+        },
+        "metrics": {
+          "accuracy": {
+            "rect": {
+              "x": 48,
+              "y": 212,
+              "width": 80,
+              "height": 16
+            },
+            "label": {
+              "x": 48,
+              "y": 212,
+              "width": 80,
+              "height": 8
+            },
+            "value": {
+              "x": 48,
+              "y": 220,
+              "width": 80,
+              "height": 8
+            }
+          },
+          "dodge": {
+            "rect": {
+              "x": 129,
+              "y": 212,
+              "width": 80,
+              "height": 16
+            },
+            "label": {
+              "x": 129,
+              "y": 212,
+              "width": 80,
+              "height": 8
+            },
+            "value": {
+              "x": 129,
+              "y": 220,
+              "width": 80,
+              "height": 8
+            }
+          },
+          "approach": {
+            "rect": {
+              "x": 210,
+              "y": 212,
+              "width": 80,
+              "height": 16
+            },
+            "label": {
+              "x": 210,
+              "y": 212,
+              "width": 80,
+              "height": 8
+            },
+            "value": {
+              "x": 210,
+              "y": 220,
+              "width": 80,
+              "height": 8
+            }
+          }
+        },
+        "note": {
+          "visible": false
+        },
+        "actions": [
+          {
+            "id": "clear",
+            "rect": {
+              "x": 48,
+              "y": 232,
+              "width": 242,
+              "height": 44
+            }
+          }
+        ]
+      }
+    }
+  },
+  "motion": {
+    "durationMs": 200,
+    "scaleFrom": 0.96,
+    "easing": "ease-out",
+    "captureModeDurationMs": 0
+  },
+  "provenance": {
+    "template": "FormTemplates/tabbed-management.json",
+    "templateVersion": 5,
+    "generatorKind": "tabbed"
+  },
+  "collectionMetrics": {
+    "wide": {
+      "totalItems": 2,
+      "visibleCapacity": 5,
+      "totalUnits": 2,
+      "visibleUnits": 5,
+      "itemsPerUnit": 1,
+      "scrollUnit": "record",
+      "overflow": false,
+      "scrollSteps": 0,
+      "track": {
+        "x": 1090,
+        "y": 316,
+        "width": 18,
+        "height": 220
+      },
+      "thumb": {
+        "x": 1090,
+        "y": 316,
+        "width": 18,
+        "height": 220
+      },
+      "trackHitTarget": {
+        "x": 1064,
+        "y": 316,
+        "width": 44,
+        "height": 220
+      },
+      "thumbHitTarget": {
+        "x": 1064,
+        "y": 316,
+        "width": 44,
+        "height": 220
+      },
+      "thumbTravelPx": 0
+    },
+    "compact": {
+      "totalItems": 2,
+      "visibleCapacity": 2,
+      "totalUnits": 2,
+      "visibleUnits": 2,
+      "itemsPerUnit": 1,
+      "scrollUnit": "record",
+      "overflow": false,
+      "scrollSteps": 0,
+      "track": {
+        "x": 678,
+        "y": 192,
+        "width": 18,
+        "height": 88
+      },
+      "thumb": {
+        "x": 678,
+        "y": 192,
+        "width": 18,
+        "height": 88
+      },
+      "trackHitTarget": {
+        "x": 652,
+        "y": 192,
+        "width": 44,
+        "height": 88
+      },
+      "thumbHitTarget": {
+        "x": 652,
+        "y": 192,
+        "width": 44,
+        "height": 88
+      },
+      "thumbTravelPx": 0
+    }
+  },
+  "parts": [
+    "window",
+    "title",
+    "summaryBar",
+    "tabBar",
+    "toolbarBar",
+    "collectionViewport",
+    "footer",
+    "summary.required",
+    "summary.assigned",
+    "summary.eligible",
+    "summary.status",
+    "tab.overview",
+    "tab.weapons",
+    "tab.crew",
+    "tab.equipment",
+    "tab.armor",
+    "tab.pilots",
+    "collection.scroll.track",
+    "collection.scroll.thumb",
+    "collection.column.diver",
+    "collection.column.firing",
+    "collection.column.reactions",
+    "collection.column.bravery",
+    "collection.column.seat",
+    "collection.row-slot.1",
+    "collection.row-slot.2",
+    "collection.row-slot.3",
+    "collection.row-slot.4",
+    "collection.row-slot.5",
+    "detailPanel",
+    "detail.bonus",
+    "detail.bonus.label",
+    "detail.bonus.identity.title",
+    "detail.bonus.identity.subtitle",
+    "detail.bonus.metric.accuracy",
+    "detail.bonus.metric.dodge",
+    "detail.bonus.metric.approach",
+    "detail.bonus.action.clear",
+    "action.add",
+    "action.cancel"
+  ]
+}

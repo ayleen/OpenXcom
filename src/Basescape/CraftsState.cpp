@@ -33,6 +33,9 @@
 #include "../Menu/ErrorMessageState.h"
 #include "CraftInfoState.h"
 #include "SellState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF07CraftsUi.h"
+#endif
 #include "../Savegame/SavedGame.h"
 #include "../Mod/RuleInterface.h"
 #include "../Ufopaedia/Ufopaedia.h"
@@ -105,6 +108,9 @@ CraftsState::CraftsState(Base *base) : _base(base)
 	_lstCrafts->onMouseClick((ActionHandler)&CraftsState::lstCraftsClick);
 	_lstCrafts->onMouseClick((ActionHandler)&CraftsState::lstCraftsClick, SDL_BUTTON_RIGHT);
 	_lstCrafts->onMouseClick((ActionHandler)&CraftsState::lstCraftsClick, SDL_BUTTON_MIDDLE);
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF07CraftsUi::configure(*this);
+#endif
 }
 
 /**
@@ -112,7 +118,10 @@ CraftsState::CraftsState(Base *base) : _base(base)
  */
 CraftsState::~CraftsState()
 {
-
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 }
 
 /**
@@ -222,5 +231,13 @@ void CraftsState::lstCraftsClick(Action *action)
 		Ufopaedia::openArticle(_game, articleId);
 	}
 }
+
+#ifdef __EMSCRIPTEN__
+void CraftsState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF07CraftsUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+#endif
 
 }

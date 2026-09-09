@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "id": "f06-soldier-memorial",
+  "familyId": 6,
+  "version": "hd.2026-08-29.1",
+  "archetype": "selection-list",
+  "protocol": {
+    "authority": "CALYPSO COMMAND",
+    "record": "PERSONNEL DOSSIER",
+    "code": "PD-06",
+    "revision": "1.0.21",
+    "effectiveDate": "15.07.2061"
+  },
+  "title": "Memorial",
+  "actions": [
+    {
+      "id": "cancel",
+      "label": "CANCEL",
+      "tone": "safe",
+      "action": "cancel"
+    }
+  ],
+  "collection": {
+    "mode": "list",
+    "selectionRole": "soldier",
+    "columns": [
+      {
+        "id": "name",
+        "label": "Soldier"
+      }
+    ],
+    "items": [
+      { "id": "no-memorial-entries", "label": "No memorial entries", "enabled": false }
+    ]
+  }
+}
