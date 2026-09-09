@@ -121,6 +121,8 @@ struct CalypsoHdOperationsCollection
 {
 	std::string heading;
 	std::string meta;
+	std::string emptyTitle;
+	std::string emptyBody;
 	std::vector<CalypsoHdOperationsColumn> columns;
 	std::vector<CalypsoHdOperationsRow> rows;
 	std::vector<CalypsoHdOperationsRect> rowSlots;
@@ -255,6 +257,21 @@ struct CalypsoHdOperationsModel
 	CalypsoHdOperationsStyle style;
 };
 
+/// Project a generated design-space font size into the canvas backing store.
+/// The physical/design-height ratio includes both logical layout projection and
+/// DPR, matching the rect edge mapping used by the HD overlay.
+inline int calypsoHdOperationsPhysicalFontPx(
+	int designFontPx, int designHeight, int physicalHeight)
+{
+	if (designFontPx <= 0 || designHeight <= 0 || physicalHeight <= 0) return 1;
+	const std::int64_t numerator =
+		static_cast<std::int64_t>(designFontPx) * physicalHeight;
+	const std::int64_t rounded =
+		(numerator + static_cast<std::int64_t>(designHeight) / 2) / designHeight;
+	return static_cast<int>(std::max<std::int64_t>(
+		1, std::min<std::int64_t>(rounded, 2147483647)));
+}
+
 
 inline std::size_t calypsoHdOperationsMaxScroll(const CalypsoHdOperationsCollection& collection)
 {
@@ -335,7 +352,8 @@ inline bool calypsoHdOperationsHitTargetValid(const CalypsoHdOperationsAction& a
 inline bool calypsoHdOperationsActionReady(const CalypsoHdOperationsAction& action)
 {
 	return !action.state.visible
-		|| (action.widget != nullptr && calypsoHdOperationsActionVisible(action)
+		|| (action.widget != nullptr && !action.label.empty()
+			&& calypsoHdOperationsActionVisible(action)
 			&& calypsoHdOperationsHitTargetValid(action));
 }
 
@@ -425,6 +443,9 @@ inline bool calypsoHdOperationsModelReady(const CalypsoHdOperationsModel& model)
 		if (!g.summaryBar.valid() || !g.toolbarBar.valid() || !g.collectionViewport.valid()
 			|| !g.detailPanel.valid() || model.collection.columns.empty()
 			|| model.collection.visibleRows == 0 || model.collection.rowHeight <= 0
+			|| (model.collection.rows.empty()
+				&& (model.collection.emptyTitle.empty()
+					|| model.collection.emptyBody.empty()))
 			|| model.detail.identity.id.empty() || model.detail.identity.label.empty()
 			|| model.detail.identity.title.empty())
 			return false;

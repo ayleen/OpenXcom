@@ -569,8 +569,7 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 	}
 	case CalypsoHarnessScenario::F09ResearchQueue:
 	{
-		OperationsFixture fixture = makeOperationsFixture(getCurrentGame(), true, false,
-			"STR_DECANTED_CORPSE", nullptr, true, false);
+		OperationsFixture fixture = makeOperationsFixture(getCurrentGame(), false, false);
 		return fixture.base ? new ResearchState(fixture.base) : nullptr;
 	}
 	case CalypsoHarnessScenario::F09ResearchCatalogue:
@@ -586,8 +585,7 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 	}
 	case CalypsoHarnessScenario::F10ProductionQueue:
 	{
-		OperationsFixture fixture = makeOperationsFixture(getCurrentGame(), false, true,
-			nullptr, "STR_MAELSTROM_TORPEDOES", false, true);
+		OperationsFixture fixture = makeOperationsFixture(getCurrentGame(), false, false);
 		return fixture.base ? new ManufactureState(fixture.base) : nullptr;
 	}
 	case CalypsoHarnessScenario::F10ProductionCatalogue:

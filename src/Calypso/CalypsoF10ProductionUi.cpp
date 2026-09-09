@@ -230,6 +230,9 @@ void CalypsoF10ProductionUi::ensureQueueOwners()
 	make(_queue->_btnGlobalOverview, (ActionHandler)&ManufactureState::onCurrentGlobalProductionClick);
 	make(_queue->_btnOpenProduction, (ActionHandler)&ManufactureState::lstManufactureClickLeft);
 	make(_queue->_btnTechTree, (ActionHandler)&ManufactureState::lstManufactureClickMiddle);
+	_queue->_btnGlobalOverview->setText(_queue->tr("STR_GLOBAL_OVERVIEW"));
+	_queue->_btnOpenProduction->setText(_queue->tr("STR_OPEN_PRODUCTION"));
+	_queue->_btnTechTree->setText(_queue->tr("STR_TECH_TREE"));
 }
 
 void CalypsoF10ProductionUi::ensureCatalogueOwners()
@@ -473,15 +476,21 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildQueueModel() const
 		std::to_string(_queue->_base->getFreeWorkshops()),
 		p(g->summary_workshop_space), _queue->_txtSpace));
 	model.collection.columns = {
-		{"item", _queue->_txtItem->getText(), p(g->collection_column_item), {}},
-		{"engineers", _queue->_txtEngineers->getText(), p(g->collection_column_engineers), {}},
-		{"produced", _queue->_txtProduced->getText(), p(g->collection_column_produced), {}},
-		{"cost", _queue->_txtCost->getText(), p(g->collection_column_cost), {}},
-		{"time", _queue->_txtTimeLeft->getText(), p(g->collection_column_time), {}}};
+		{"item", tr("STR_ITEM"), p(g->collection_column_item), {}},
+		{"engineers", tr("STR_CALYPSO_ENGINEERS_ALLOCATED"),
+			p(g->collection_column_engineers), {}},
+		{"produced", tr("STR_CALYPSO_PRODUCED"),
+			p(g->collection_column_produced), {}},
+		{"cost", tr("STR_CALYPSO_COST_PER_UNIT"),
+			p(g->collection_column_cost), {}},
+		{"time", _queue->_txtTimeLeft->getText(),
+			p(g->collection_column_time), {}}};
 	const auto &productions = _queue->_base->getProductions();
 	model.collection.heading = tr("STR_CALYPSO_PRODUCTION_LINES");
 	model.collection.meta = tr("STR_CALYPSO_FUNDS_VALUE").arg(
 		Unicode::formatFunding(_queue->_game->getSavedGame()->getFunds()));
+	model.collection.emptyTitle = tr("STR_CALYPSO_NO_ACTIVE_PRODUCTION");
+	model.collection.emptyBody = tr("STR_CALYPSO_START_PRODUCTION_PROMPT");
 	for (std::size_t i = 0; i < productions.size(); ++i)
 	{
 		const Production *prod = productions[i];
@@ -514,8 +523,12 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildQueueModel() const
 	model.detail.panel = p(g->detailPanel);
 	model.detail.identity.id = "selected-production";
 	model.detail.identity.label = tr("STR_CALYPSO_SELECTED_PRODUCTION");
-	model.detail.identity.title = prod ? tr(prod->getRules()->getName()) : tr("STR_NONE");
-	model.detail.identity.subtitle = prod ? tr(prod->getRules()->getCategory()) : tr("STR_NONE");
+	model.detail.identity.title = prod
+		? std::string(tr(prod->getRules()->getName()))
+		: std::string(tr("STR_NONE"));
+	model.detail.identity.subtitle = prod
+		? std::string(tr(prod->getRules()->getCategory()))
+		: _queue->_btnNew->getText();
 	model.detail.identity.rect = p(g->detail_selected_production);
 	model.detail.identity.titleRect = p(g->detail_selected_production_identity_title);
 	model.detail.identity.subtitleRect = p(g->detail_selected_production_identity_subtitle);
@@ -538,17 +551,21 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildQueueModel() const
 			productionTimeLeft(prod),
 			p(g->detail_selected_production_metric_time_left)));
 	}
-	model.detail.actions.push_back(action("open-production", tr("STR_OPEN_PRODUCTION"),
+	model.detail.actions.push_back(action("open-production",
+		_queue->_btnOpenProduction->getText(),
 		p(g->detail_selected_production_action_open_production),
 		_queue->_btnOpenProduction, selected));
-	model.detail.actions.push_back(action("tech-tree", tr("STR_TECH_TREE"),
+	model.detail.actions.push_back(action("tech-tree", _queue->_btnTechTree->getText(),
 		p(g->detail_selected_production_action_tech_tree), _queue->_btnTechTree,
 		selected));
-	model.footerActions.push_back(action("global-overview", tr("STR_GLOBAL_OVERVIEW"),
+	model.footerActions.push_back(action("global-overview",
+		_queue->_btnGlobalOverview->getText(),
 		p(g->action_global_overview), _queue->_btnGlobalOverview));
-	model.footerActions.push_back(action("new-production", tr("STR_NEW_PRODUCTION"),
-		p(g->action_new_production), _queue->_btnNew));
-	model.footerActions.push_back(action("done", tr("STR_DONE"),
+	auto newProduction = action("new-production", _queue->_btnNew->getText(),
+		p(g->action_new_production), _queue->_btnNew);
+	newProduction.state.selected = productions.empty();
+	model.footerActions.push_back(std::move(newProduction));
+	model.footerActions.push_back(action("done", _queue->_btnOk->getText(),
 		p(g->action_done), _queue->_btnOk));
 	finishModel(model, _queue->_game->getMod());
 	return model;
@@ -590,6 +607,8 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildCatalogueModel() const
 	model.geometry.footerActions = {p(g->action_mark_all_seen),p(g->action_done)};
 	const auto &items = _catalogue->_displayedStrings;
 	model.collection.columns = {{"item",_catalogue->_txtItem->getText(),p(g->collection_column_item),{}},{"category",_catalogue->_txtCategory->getText(),p(g->collection_column_category),{}},{"status",tr("STR_STATUS"),p(g->collection_column_status),{}}};
+	model.collection.emptyTitle = tr("STR_CALYPSO_NO_AVAILABLE_PRODUCTION");
+	model.collection.emptyBody = tr("STR_CALYPSO_NO_AVAILABLE_PRODUCTION_PROMPT");
 	for (std::size_t i = 0; i < items.size(); ++i)
 	{
 		CalypsoHdOperationsRow row; row.id = items[i]; row.values = {_catalogue->_lstManufacture->getCellText(i,0), _catalogue->_lstManufacture->getCellText(i,1), _catalogue->_lstManufacture->getCellText(i,2)};

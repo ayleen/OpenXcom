@@ -262,7 +262,7 @@ void CalypsoF09ResearchUi::ensureQueueOwners()
 	if (!_queue->_btnGlobalOverview)
 	{
 		_queue->_btnGlobalOverview = new TextButton(1, 1, 0, 0);
-		_queue->_btnGlobalOverview->setText("");
+		_queue->_btnGlobalOverview->setText(_queue->tr("STR_GLOBAL_OVERVIEW"));
 		_queue->add(_queue->_btnGlobalOverview, "button", "researchMenu");
 		_queue->_btnGlobalOverview->onMouseClick(
 			(ActionHandler)&ResearchState::onCurrentGlobalResearchClick);
@@ -270,7 +270,7 @@ void CalypsoF09ResearchUi::ensureQueueOwners()
 	if (!_queue->_btnOpenProject)
 	{
 		_queue->_btnOpenProject = new TextButton(1, 1, 0, 0);
-		_queue->_btnOpenProject->setText("");
+		_queue->_btnOpenProject->setText(_queue->tr("STR_OPEN_PROJECT"));
 		_queue->add(_queue->_btnOpenProject, "button", "researchMenu");
 		_queue->_btnOpenProject->onMouseClick(
 			(ActionHandler)&ResearchState::onSelectProject);
@@ -278,7 +278,7 @@ void CalypsoF09ResearchUi::ensureQueueOwners()
 	if (!_queue->_btnTechTree)
 	{
 		_queue->_btnTechTree = new TextButton(1, 1, 0, 0);
-		_queue->_btnTechTree->setText("");
+		_queue->_btnTechTree->setText(_queue->tr("STR_TECH_TREE"));
 		_queue->add(_queue->_btnTechTree, "button", "researchMenu");
 		_queue->_btnTechTree->onMouseClick(
 			(ActionHandler)&ResearchState::onOpenTechTreeViewer);
@@ -459,6 +459,8 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildQueueModel() const
 	const auto &projects = _queue->_base->getResearch();
 	model.collection.heading = tr("STR_CALYPSO_RESEARCH_PROJECTS");
 	model.collection.meta = tr("STR_CALYPSO_ACTIVE_PROJECT_COUNT").arg(projects.size());
+	model.collection.emptyTitle = tr("STR_CALYPSO_NO_ACTIVE_RESEARCH");
+	model.collection.emptyBody = tr("STR_CALYPSO_START_RESEARCH_PROMPT");
 	for (std::size_t i = 0; i < projects.size(); ++i)
 	{
 		const auto *project = projects[i];
@@ -491,8 +493,12 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildQueueModel() const
 	model.detail.panel = p(g->detailPanel);
 	model.detail.identity.id = "selected-project";
 	model.detail.identity.label = tr("STR_CALYPSO_RESEARCH_SELECTED_PROJECT");
-	model.detail.identity.title = selected ? tr(selected->getRules()->getName()) : tr("STR_NONE");
-	model.detail.identity.subtitle = tr("STR_RESEARCH_PROJECT");
+	model.detail.identity.title = selected
+		? std::string(tr(selected->getRules()->getName()))
+		: std::string(tr("STR_NONE"));
+	model.detail.identity.subtitle = selected
+		? std::string(tr("STR_RESEARCH_PROJECT"))
+		: _queue->_btnNew->getText();
 	model.detail.identity.rect = p(g->detail_selected_project);
 	model.detail.identity.titleRect = p(g->detail_selected_project_identity_title);
 	model.detail.identity.subtitleRect = p(g->detail_selected_project_identity_subtitle);
@@ -506,17 +512,20 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildQueueModel() const
 			tr(selected->getResearchProgress()),
 			p(g->detail_selected_project_metric_progress)));
 	}
-	model.detail.actions.push_back(action("open-project", tr("STR_OPEN_PROJECT"),
+	model.detail.actions.push_back(action("open-project", _queue->_btnOpenProject->getText(),
 		p(g->detail_selected_project_action_open_project), _queue->_btnOpenProject,
 		hasSelection));
-	model.detail.actions.push_back(action("tech-tree", tr("STR_TECH_TREE"),
+	model.detail.actions.push_back(action("tech-tree", _queue->_btnTechTree->getText(),
 		p(g->detail_selected_project_action_tech_tree), _queue->_btnTechTree,
 		hasSelection));
-	model.footerActions.push_back(action("global-overview", tr("STR_GLOBAL_OVERVIEW"),
+	model.footerActions.push_back(action("global-overview",
+		_queue->_btnGlobalOverview->getText(),
 		p(g->action_global_overview), _queue->_btnGlobalOverview));
-	model.footerActions.push_back(action("new-project", tr("STR_NEW_PROJECT"),
-		p(g->action_new_project), _queue->_btnNew));
-	model.footerActions.push_back(action("done", tr("STR_DONE"),
+	auto newProject = action("new-project", _queue->_btnNew->getText(),
+		p(g->action_new_project), _queue->_btnNew);
+	newProject.state.selected = projects.empty();
+	model.footerActions.push_back(std::move(newProject));
+	model.footerActions.push_back(action("done", _queue->_btnOk->getText(),
 		p(g->action_done), _queue->_btnOk));
 	setFonts(model, _queue->_game->getMod());
 	calypsoHdOperationsClampSelectionAndScroll(model);
@@ -579,6 +588,8 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildCatalogueModel() const
 		{"project", tr("STR_RESEARCH_PROJECT"), p(g->collection_column_project), {}});
 	model.collection.columns.push_back(
 		{"status", tr("STR_CALYPSO_RESEARCH_STATUS"), p(g->collection_column_status), {}});
+	model.collection.emptyTitle = tr("STR_CALYPSO_NO_AVAILABLE_RESEARCH");
+	model.collection.emptyBody = tr("STR_CALYPSO_NO_AVAILABLE_RESEARCH_PROMPT");
 	for (std::size_t i = 0; i < _catalogue->_projects.size(); ++i)
 	{
 		const RuleResearch *rule = _catalogue->_projects[i];

@@ -87,12 +87,17 @@ struct OperationsTypography
 OperationsTypography operationsTypography(const CalypsoHdOperationsModel& model)
 {
 	const bool wide = model.geometry.designWidth >= 1000;
+	const auto& metrics = CalypsoHdUiOverlay::instance().frozenMetrics();
+	auto px = [&](int designPx) {
+		return calypsoHdOperationsPhysicalFontPx(
+			designPx, model.geometry.designHeight, metrics.physicalHeight);
+	};
 	return {
-		wide ? CalypsoHdThemeGen::kF21TitleWidePx : CalypsoHdThemeGen::kF21TitleCompactPx,
-		wide ? CalypsoHdThemeGen::kF21BodyWidePx : CalypsoHdThemeGen::kF21BodyCompactPx,
-		wide ? CalypsoHdThemeGen::kF21DataWidePx : CalypsoHdThemeGen::kF21DataCompactPx,
-		wide ? CalypsoHdThemeGen::kF21InputWidePx : CalypsoHdThemeGen::kF21InputCompactPx,
-		wide ? CalypsoHdThemeGen::kF21ActionWidePx : CalypsoHdThemeGen::kF21ActionCompactPx
+		px(wide ? CalypsoHdThemeGen::kF21TitleWidePx : CalypsoHdThemeGen::kF21TitleCompactPx),
+		px(wide ? CalypsoHdThemeGen::kF21BodyWidePx : CalypsoHdThemeGen::kF21BodyCompactPx),
+		px(wide ? CalypsoHdThemeGen::kF21DataWidePx : CalypsoHdThemeGen::kF21DataCompactPx),
+		px(wide ? CalypsoHdThemeGen::kF21InputWidePx : CalypsoHdThemeGen::kF21InputCompactPx),
+		px(wide ? CalypsoHdThemeGen::kF21ActionWidePx : CalypsoHdThemeGen::kF21ActionCompactPx)
 	};
 }
 
@@ -126,7 +131,7 @@ CalypsoHdItem baseItem(const CalypsoHdOperationsModel& model,
 	item.claim.stableVisualId = static_cast<std::uint32_t>(itemOrder);
 	item.order.stage = static_cast<int>(CalypsoHdStage::HdUi);
 	item.order.groupOrder = 0;
-	item.order.stableId = item.claim.stableId;
+	item.order.stableId = model.familyId;
 	item.order.instanceKey = item.claim.instanceKey;
 	item.order.subgroupOrder = 0;
 	item.order.subgroupId = 1;
@@ -166,7 +171,10 @@ void addText(CalypsoHdFrameBuilder& builder, const CalypsoHdOperationsModel& mod
 	item.rasterKey.text = text;
 	item.rasterKey.colorRgba = color;
 	item.rasterKey.explicitBreaksOnly = true;
-	item.rasterKey.wrapWidth = rect.w;
+	const auto& metrics = CalypsoHdUiOverlay::instance().frozenMetrics();
+	item.rasterKey.wrapWidth = metrics.valid()
+		? std::max(1, calypsoHdRoundToInt(rect.w * metrics.scaleX))
+		: rect.w;
 	builder.add(item);
 }
 
@@ -215,8 +223,11 @@ void collectControl(CalypsoHdFrameBuilder& builder,
 }
 
 void collectCollection(CalypsoHdFrameBuilder& builder,
-	const CalypsoHdOperationsModel& model, const CalypsoTtfSourceDescriptor& source,
-	int bodyPx, int dataPx, const CalypsoHdOperationsCollection& collection,
+	const CalypsoHdOperationsModel& model,
+	const CalypsoTtfSourceDescriptor& source,
+	const CalypsoTtfSourceDescriptor& headingSource,
+	int titlePx, int bodyPx, int dataPx,
+	const CalypsoHdOperationsCollection& collection,
 	const CalypsoHdOperationsRect& fallbackViewport,
 	const std::vector<CalypsoHdOperationsRect>& columnGeometry,
 	const std::vector<CalypsoHdOperationsRect>& rowGeometry,
@@ -235,6 +246,36 @@ void collectCollection(CalypsoHdFrameBuilder& builder,
 			&& columnGeometry[i].valid() ? columnGeometry[i] : column.rect;
 		addText(builder, model, source, bodyPx, prefix + "/column/" + column.id, order++,
 			insetHorizontal(rect, 6), column.label, model.style.mutedText, CalypsoHdHAlign::Left);
+	}
+	if (collection.rows.empty())
+	{
+		int contentTop = viewport.y;
+		for (const auto& rect : columnGeometry)
+			if (rect.valid()) contentTop = std::max(contentTop, rect.y + rect.h);
+		const int requestedInset = model.geometry.designWidth >= 1000 ? 48 : 24;
+		const int inset = std::min(requestedInset, std::max(0, (viewport.w - 2) / 2));
+		const int width = std::max(1, viewport.w - 2 * inset);
+		const int availableHeight = std::max(1, viewport.y + viewport.h - contentTop);
+		const int titleHeight = std::max(32, collection.rowHeight);
+		const int bodyHeight = std::max(24, collection.rowHeight / 2);
+		const int contentHeight = titleHeight + bodyHeight + 8;
+		const int titleY = contentTop + std::max(0, (availableHeight - contentHeight) / 2);
+		const int cardY = std::max(contentTop, titleY - 16);
+		const int cardBottom = std::min(
+			viewport.y + viewport.h, titleY + contentHeight + 16);
+		const CalypsoHdOperationsRect emptyCard{
+			viewport.x + inset, cardY, width, std::max(1, cardBottom - cardY)};
+		addPanel(builder, model, prefix + "/empty-card", order++, emptyCard,
+			model.style.panelFillTop, model.style.panelFillTop, nullptr,
+			model.style.accent);
+		addText(builder, model, headingSource, titlePx,
+			prefix + "/empty-title", order++,
+			{viewport.x + inset, titleY, width, titleHeight},
+			collection.emptyTitle, model.style.text, CalypsoHdHAlign::Center);
+		addText(builder, model, source, bodyPx,
+			prefix + "/empty-body", order++,
+			{viewport.x + inset, titleY + titleHeight + 8, width, bodyHeight},
+			collection.emptyBody, model.style.mutedText, CalypsoHdHAlign::Center);
 	}
 	const auto& generatedRows = rowGeometry.empty() ? collection.rowSlots : rowGeometry;
 	const std::size_t offset = std::min(collection.scrollOffset,
@@ -325,7 +366,8 @@ void collectOperationsWorkspace(CalypsoHdFrameBuilder& builder,
 	for (const auto& action : model.toolbarActions)
 		collectAction(builder, model, source, typography.actionPx, action, order);
 
-	collectCollection(builder, model, source, typography.bodyPx, typography.dataPx,
+	collectCollection(builder, model, source, heading,
+		typography.titlePx, typography.bodyPx, typography.dataPx,
 		model.collection, g.collectionViewport, g.collectionColumns, g.collectionRows,
 		g.collectionScrollTrack, g.collectionScrollThumb, "workspace", order);
 	const CalypsoHdOperationsRect detailPanel = g.detailPanel.valid()
@@ -400,7 +442,8 @@ void collectWideDetail(CalypsoHdFrameBuilder& builder,
 				"region-preview/" + region.id, order++, region.previewRect,
 				region.previewContent, model.style.text, CalypsoHdHAlign::Left);
 		else if (region.kind == CalypsoHdOperationsRegionKind::Collection)
-			collectCollection(builder, model, source, typography.bodyPx, typography.dataPx,
+			collectCollection(builder, model, source, heading,
+				typography.titlePx, typography.bodyPx, typography.dataPx,
 				region.collection, region.rect, std::vector<CalypsoHdOperationsRect>(),
 				region.collection.rowSlots, CalypsoHdOperationsRect(),
 				CalypsoHdOperationsRect(), "region/" + region.id, order);

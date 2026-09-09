@@ -510,6 +510,8 @@ CalypsoHdOperationsModel CalypsoF14GlobalOperationsUi::buildResearchModel() cons
 	setResearchGeometry(model, *g, p);
 	setCollectionGeometry(model, *g, p);
 	model.collection.heading = tr("STR_CALYPSO_PROJECTS_ACROSS_ALL_BASES");
+	model.collection.emptyTitle = tr("STR_CALYPSO_NO_ACTIVE_RESEARCH");
+	model.collection.emptyBody = tr("STR_CALYPSO_NO_GLOBAL_RESEARCH_PROMPT");
 	model.summaryFields.push_back(summary("available",
 		tr("STR_CALYPSO_RESEARCH_SCIENTISTS_AVAILABLE"),
 		std::to_string([&]() {
@@ -637,6 +639,8 @@ CalypsoHdOperationsModel CalypsoF14GlobalOperationsUi::buildManufactureModel() c
 	model.collection.heading = tr("STR_CALYPSO_PRODUCTION_ACROSS_ALL_BASES");
 	model.collection.meta = tr("STR_CALYPSO_FUNDS_VALUE").arg(
 		Unicode::formatFunding(_manufacture->_game->getSavedGame()->getFunds()));
+	model.collection.emptyTitle = tr("STR_CALYPSO_NO_ACTIVE_PRODUCTION");
+	model.collection.emptyBody = tr("STR_CALYPSO_NO_GLOBAL_PRODUCTION_PROMPT");
 	setCollectionGeometry(model, *g, p);
 	model.summaryFields.push_back(summary("available",
 		tr("STR_CALYPSO_ENGINEERS_AVAILABLE"),
@@ -771,6 +775,8 @@ CalypsoHdOperationsModel CalypsoF14GlobalOperationsUi::buildDiaryModel() const
 		{"name", tr("STR_NAME_UC"), p(g->collection_column_name), {}},
 		{"type", tr("STR_TYPE"), p(g->collection_column_type), {}},
 		{"date", tr("STR_DATE_UC"), p(g->collection_column_date), {}}};
+	model.collection.emptyTitle = tr("STR_CALYPSO_NO_RESEARCH_RECORDS");
+	model.collection.emptyBody = tr("STR_CALYPSO_NO_RESEARCH_RECORDS_PROMPT");
 	for (std::size_t i = 0; i < _diary->_filteredItemList.size(); ++i)
 	{
 		const auto *item = _diary->_filteredItemList[i];
