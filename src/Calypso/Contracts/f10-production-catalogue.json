@@ -1,0 +1,1641 @@
+{
+  "schema": 1,
+  "version": "hd.2026-08-29.1",
+  "form": {
+    "id": "f10-production-catalogue",
+    "familyId": 10,
+    "archetype": "operations-workspace",
+    "source": "FormConfigs/f10-production-catalogue.json",
+    "actions": [
+      {
+        "id": "mark-all-seen",
+        "label": "MARK ALL SEEN",
+        "labelKey": "STR_MARK_ALL_SEEN",
+        "tone": "safe",
+        "action": "mark-all-seen",
+        "style": {
+          "fill": "102939FF",
+          "border": "25465BFF",
+          "text": "E5F0F3FF"
+        }
+      },
+      {
+        "id": "done",
+        "label": "DONE",
+        "labelKey": "STR_DONE",
+        "tone": "primary",
+        "action": "done",
+        "style": {
+          "fill": "74FFB0FF",
+          "border": "74FFB0FF",
+          "text": "071013FF"
+        }
+      }
+    ],
+    "state": "NewManufactureListState",
+    "labelKeys": {
+      "title": "STR_PRODUCTION_ITEMS",
+      "markAllSeen": "STR_MARK_ALL_SEEN",
+      "done": "STR_DONE",
+      "review": "STR_REVIEW_PRODUCTION",
+      "techTree": "STR_TECH_TREE",
+      "ufopaedia": "STR_UFOPAEDIA"
+    },
+    "summary": [],
+    "collection": {
+      "mode": "list",
+      "selectionRole": "production-item",
+      "columns": [
+        {
+          "id": "item",
+          "label": "ITEM"
+        },
+        {
+          "id": "category",
+          "label": "CATEGORY"
+        },
+        {
+          "id": "status",
+          "label": "STATUS"
+        }
+      ],
+      "items": [
+        {
+          "id": "maelstrom-launcher",
+          "values": [
+            "MAELSTROM Launcher",
+            "Sub Weapon",
+            "New"
+          ]
+        },
+        {
+          "id": "keravnos-m",
+          "values": [
+            "Keravnos-M",
+            "Sub Weapon",
+            "Normal"
+          ]
+        },
+        {
+          "id": "keravnos-m-ammo",
+          "values": [
+            "Keravnos-M Ammo",
+            "Ammunition",
+            "Normal"
+          ]
+        },
+        {
+          "id": "mantis-projector",
+          "values": [
+            "MANTIS Projector",
+            "Sub Weapon",
+            "Normal"
+          ]
+        },
+        {
+          "id": "keravnos-p",
+          "values": [
+            "Keravnos-P",
+            "Weapon",
+            "Normal"
+          ]
+        },
+        {
+          "id": "keravnos-p-magazine",
+          "values": [
+            "Keravnos-P Magazine",
+            "Ammunition",
+            "Normal"
+          ]
+        }
+      ]
+    },
+    "controls": [],
+    "toolbar": [
+      {
+        "id": "availability-default",
+        "label": "AVAILABILITY: DEFAULT",
+        "tone": "normal",
+        "action": "availability-default",
+        "style": {
+          "fill": "071725E8",
+          "border": "16384DFF",
+          "text": "E5F0F3FF"
+        }
+      },
+      {
+        "id": "category-all",
+        "label": "CATEGORY: ALL ITEMS",
+        "tone": "normal",
+        "action": "category-all",
+        "style": {
+          "fill": "071725E8",
+          "border": "16384DFF",
+          "text": "E5F0F3FF"
+        }
+      },
+      {
+        "id": "show-only-new",
+        "label": "SHOW ONLY NEW",
+        "tone": "normal",
+        "action": "show-only-new",
+        "style": {
+          "fill": "071725E8",
+          "border": "16384DFF",
+          "text": "E5F0F3FF"
+        }
+      },
+      {
+        "id": "quick-search",
+        "label": "QUICK SEARCH",
+        "tone": "normal",
+        "action": "quick-search",
+        "style": {
+          "fill": "071725E8",
+          "border": "16384DFF",
+          "text": "E5F0F3FF"
+        }
+      }
+    ],
+    "visual": {
+      "shell": "base-operations",
+      "headerArt": "base-manufacture"
+    },
+    "sharedChrome": {
+      "id": "base-command-shell",
+      "version": "hd.2026-09-07.1"
+    },
+    "detail": {
+      "id": "selected-item",
+      "label": "SELECTED ITEM",
+      "title": "MANTIS Projector",
+      "subtitle": "PRODUCTION ITEM",
+      "metrics": [
+        {
+          "id": "category",
+          "label": "CATEGORY",
+          "value": "Sub Weapon"
+        }
+      ],
+      "actions": [
+        {
+          "id": "review-production",
+          "label": "REVIEW PRODUCTION",
+          "labelKey": "STR_REVIEW_PRODUCTION",
+          "tone": "primary",
+          "action": "review-production",
+          "style": {
+            "fill": "74FFB0FF",
+            "border": "74FFB0FF",
+            "text": "071013FF"
+          }
+        },
+        {
+          "id": "tech-tree",
+          "label": "TECH TREE",
+          "labelKey": "STR_TECH_TREE",
+          "tone": "normal",
+          "action": "open-tech-tree",
+          "style": {
+            "fill": "071725E8",
+            "border": "16384DFF",
+            "text": "E5F0F3FF"
+          }
+        },
+        {
+          "id": "ufopaedia",
+          "label": "UFOPAEDIA",
+          "labelKey": "STR_UFOPAEDIA",
+          "tone": "normal",
+          "action": "open-ufopaedia",
+          "style": {
+            "fill": "071725E8",
+            "border": "16384DFF",
+            "text": "E5F0F3FF"
+          }
+        }
+      ]
+    }
+  },
+  "copy": {
+    "title": "PRODUCTION ITEMS",
+    "tabs": {
+      "workspace-a": "WORKSPACE",
+      "workspace-b": "WORKSPACE"
+    },
+    "summary": [],
+    "collection": {
+      "mode": "list",
+      "selectionRole": "production-item",
+      "columns": [
+        {
+          "id": "item",
+          "label": "ITEM"
+        },
+        {
+          "id": "category",
+          "label": "CATEGORY"
+        },
+        {
+          "id": "status",
+          "label": "STATUS"
+        }
+      ],
+      "items": [
+        {
+          "id": "maelstrom-launcher",
+          "values": [
+            "MAELSTROM Launcher",
+            "Sub Weapon",
+            "New"
+          ]
+        },
+        {
+          "id": "keravnos-m",
+          "values": [
+            "Keravnos-M",
+            "Sub Weapon",
+            "Normal"
+          ]
+        },
+        {
+          "id": "keravnos-m-ammo",
+          "values": [
+            "Keravnos-M Ammo",
+            "Ammunition",
+            "Normal"
+          ]
+        },
+        {
+          "id": "mantis-projector",
+          "values": [
+            "MANTIS Projector",
+            "Sub Weapon",
+            "Normal"
+          ]
+        },
+        {
+          "id": "keravnos-p",
+          "values": [
+            "Keravnos-P",
+            "Weapon",
+            "Normal"
+          ]
+        },
+        {
+          "id": "keravnos-p-magazine",
+          "values": [
+            "Keravnos-P Magazine",
+            "Ammunition",
+            "Normal"
+          ]
+        }
+      ]
+    },
+    "controls": [],
+    "toolbar": {
+      "availability-default": "AVAILABILITY: DEFAULT",
+      "category-all": "CATEGORY: ALL ITEMS",
+      "show-only-new": "SHOW ONLY NEW",
+      "quick-search": "QUICK SEARCH"
+    },
+    "detail": {
+      "id": "selected-item",
+      "label": "SELECTED ITEM",
+      "title": "MANTIS Projector",
+      "subtitle": "PRODUCTION ITEM",
+      "metrics": [
+        {
+          "id": "category",
+          "label": "CATEGORY",
+          "value": "Sub Weapon"
+        }
+      ],
+      "actions": [
+        {
+          "id": "review-production",
+          "label": "REVIEW PRODUCTION",
+          "labelKey": "STR_REVIEW_PRODUCTION",
+          "tone": "primary",
+          "action": "review-production"
+        },
+        {
+          "id": "tech-tree",
+          "label": "TECH TREE",
+          "labelKey": "STR_TECH_TREE",
+          "tone": "normal",
+          "action": "open-tech-tree"
+        },
+        {
+          "id": "ufopaedia",
+          "label": "UFOPAEDIA",
+          "labelKey": "STR_UFOPAEDIA",
+          "tone": "normal",
+          "action": "open-ufopaedia"
+        }
+      ]
+    }
+  },
+  "style": {
+    "panelFillTop": "071725E8",
+    "panelFillBottom": "050F19F2",
+    "frame": "16384DFF",
+    "divider": "102E40FF",
+    "text": "E5F0F3FF",
+    "mutedText": "84A0AEFF",
+    "selectedTab": "163C38FF",
+    "cutCornerPx": 14,
+    "cornerRadiusPx": 12
+  },
+  "layouts": {
+    "wide": {
+      "designWidth": 1280,
+      "designHeight": 720,
+      "window": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 720
+      },
+      "title": {
+        "x": 130,
+        "y": 119,
+        "width": 480,
+        "height": 36
+      },
+      "summaryBar": {
+        "x": 1000,
+        "y": 96,
+        "width": 256,
+        "height": 78
+      },
+      "summary": {},
+      "collectionViewport": {
+        "x": 112,
+        "y": 234,
+        "width": 816,
+        "height": 412
+      },
+      "detailPanel": {
+        "x": 944,
+        "y": 190,
+        "width": 312,
+        "height": 456
+      },
+      "collection": {
+        "columnHeaders": [
+          {
+            "id": "item",
+            "rect": {
+              "x": 112,
+              "y": 234,
+              "width": 253,
+              "height": 36
+            }
+          },
+          {
+            "id": "category",
+            "rect": {
+              "x": 366,
+              "y": 234,
+              "width": 253,
+              "height": 36
+            }
+          },
+          {
+            "id": "status",
+            "rect": {
+              "x": 620,
+              "y": 234,
+              "width": 254,
+              "height": 36
+            }
+          }
+        ],
+        "rowSlots": [
+          {
+            "id": "row-slot-1",
+            "rect": {
+              "x": 112,
+              "y": 270,
+              "width": 762,
+              "height": 50
+            },
+            "cells": [
+              {
+                "id": "item",
+                "rect": {
+                  "x": 112,
+                  "y": 270,
+                  "width": 253,
+                  "height": 50
+                }
+              },
+              {
+                "id": "category",
+                "rect": {
+                  "x": 366,
+                  "y": 270,
+                  "width": 253,
+                  "height": 50
+                }
+              },
+              {
+                "id": "status",
+                "rect": {
+                  "x": 620,
+                  "y": 270,
+                  "width": 254,
+                  "height": 50
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-2",
+            "rect": {
+              "x": 112,
+              "y": 320,
+              "width": 762,
+              "height": 50
+            },
+            "cells": [
+              {
+                "id": "item",
+                "rect": {
+                  "x": 112,
+                  "y": 320,
+                  "width": 253,
+                  "height": 50
+                }
+              },
+              {
+                "id": "category",
+                "rect": {
+                  "x": 366,
+                  "y": 320,
+                  "width": 253,
+                  "height": 50
+                }
+              },
+              {
+                "id": "status",
+                "rect": {
+                  "x": 620,
+                  "y": 320,
+                  "width": 254,
+                  "height": 50
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-3",
+            "rect": {
+              "x": 112,
+              "y": 370,
+              "width": 762,
+              "height": 50
+            },
+            "cells": [
+              {
+                "id": "item",
+                "rect": {
+                  "x": 112,
+                  "y": 370,
+                  "width": 253,
+                  "height": 50
+                }
+              },
+              {
+                "id": "category",
+                "rect": {
+                  "x": 366,
+                  "y": 370,
+                  "width": 253,
+                  "height": 50
+                }
+              },
+              {
+                "id": "status",
+                "rect": {
+                  "x": 620,
+                  "y": 370,
+                  "width": 254,
+                  "height": 50
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-4",
+            "rect": {
+              "x": 112,
+              "y": 420,
+              "width": 762,
+              "height": 50
+            },
+            "cells": [
+              {
+                "id": "item",
+                "rect": {
+                  "x": 112,
+                  "y": 420,
+                  "width": 253,
+                  "height": 50
+                }
+              },
+              {
+                "id": "category",
+                "rect": {
+                  "x": 366,
+                  "y": 420,
+                  "width": 253,
+                  "height": 50
+                }
+              },
+              {
+                "id": "status",
+                "rect": {
+                  "x": 620,
+                  "y": 420,
+                  "width": 254,
+                  "height": 50
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-5",
+            "rect": {
+              "x": 112,
+              "y": 470,
+              "width": 762,
+              "height": 50
+            },
+            "cells": [
+              {
+                "id": "item",
+                "rect": {
+                  "x": 112,
+                  "y": 470,
+                  "width": 253,
+                  "height": 50
+                }
+              },
+              {
+                "id": "category",
+                "rect": {
+                  "x": 366,
+                  "y": 470,
+                  "width": 253,
+                  "height": 50
+                }
+              },
+              {
+                "id": "status",
+                "rect": {
+                  "x": 620,
+                  "y": 470,
+                  "width": 254,
+                  "height": 50
+                }
+              }
+            ]
+          }
+        ],
+        "scroll": {
+          "track": {
+            "x": 910,
+            "y": 270,
+            "width": 18,
+            "height": 250
+          },
+          "thumb": {
+            "x": 910,
+            "y": 270,
+            "width": 18,
+            "height": 208
+          }
+        }
+      },
+      "toolbarBar": {
+        "x": 112,
+        "y": 190,
+        "width": 816,
+        "height": 44
+      },
+      "controls": {},
+      "controlParts": {},
+      "footer": {
+        "x": 112,
+        "y": 658,
+        "width": 1144,
+        "height": 44
+      },
+      "toolbar": {
+        "availability-default": {
+          "x": 138,
+          "y": 190,
+          "width": 190,
+          "height": 44
+        },
+        "category-all": {
+          "x": 338,
+          "y": 190,
+          "width": 190,
+          "height": 44
+        },
+        "show-only-new": {
+          "x": 538,
+          "y": 190,
+          "width": 190,
+          "height": 44
+        },
+        "quick-search": {
+          "x": 738,
+          "y": 190,
+          "width": 190,
+          "height": 44
+        }
+      },
+      "actions": {
+        "mark-all-seen": {
+          "x": 112,
+          "y": 658,
+          "width": 158,
+          "height": 44
+        },
+        "done": {
+          "x": 1098,
+          "y": 658,
+          "width": 158,
+          "height": 44
+        }
+      },
+      "screenHeader": {
+        "x": 112,
+        "y": 96,
+        "width": 1144,
+        "height": 78
+      },
+      "headerArt": {
+        "x": 640,
+        "y": 96,
+        "width": 360,
+        "height": 78
+      },
+      "detail": {
+        "id": "selected-item",
+        "panel": {
+          "x": 944,
+          "y": 190,
+          "width": 312,
+          "height": 456
+        },
+        "label": {
+          "x": 956,
+          "y": 202,
+          "width": 288,
+          "height": 24
+        },
+        "identity": {
+          "rect": {
+            "x": 956,
+            "y": 226,
+            "width": 288,
+            "height": 48
+          },
+          "title": {
+            "x": 956,
+            "y": 226,
+            "width": 288,
+            "height": 24
+          },
+          "subtitle": {
+            "x": 956,
+            "y": 250,
+            "width": 288,
+            "height": 24
+          }
+        },
+        "metrics": {
+          "category": {
+            "rect": {
+              "x": 956,
+              "y": 274,
+              "width": 288,
+              "height": 58
+            },
+            "label": {
+              "x": 956,
+              "y": 274,
+              "width": 288,
+              "height": 29
+            },
+            "value": {
+              "x": 956,
+              "y": 303,
+              "width": 288,
+              "height": 29
+            }
+          }
+        },
+        "note": {
+          "visible": false
+        },
+        "actions": [
+          {
+            "id": "review-production",
+            "rect": {
+              "x": 956,
+              "y": 590,
+              "width": 90,
+              "height": 44
+            }
+          },
+          {
+            "id": "tech-tree",
+            "rect": {
+              "x": 1054,
+              "y": 590,
+              "width": 90,
+              "height": 44
+            }
+          },
+          {
+            "id": "ufopaedia",
+            "rect": {
+              "x": 1152,
+              "y": 590,
+              "width": 92,
+              "height": 44
+            }
+          }
+        ]
+      },
+      "partRects": {
+        "window": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 720
+        },
+        "screenHeader": {
+          "x": 112,
+          "y": 96,
+          "width": 1144,
+          "height": 78
+        },
+        "headerArt": {
+          "x": 640,
+          "y": 96,
+          "width": 360,
+          "height": 78
+        },
+        "title": {
+          "x": 130,
+          "y": 119,
+          "width": 480,
+          "height": 36
+        },
+        "summaryBar": {
+          "x": 1000,
+          "y": 96,
+          "width": 256,
+          "height": 78
+        },
+        "toolbarBar": {
+          "x": 112,
+          "y": 190,
+          "width": 816,
+          "height": 44
+        },
+        "collectionViewport": {
+          "x": 112,
+          "y": 234,
+          "width": 816,
+          "height": 412
+        },
+        "footer": {
+          "x": 112,
+          "y": 658,
+          "width": 1144,
+          "height": 44
+        },
+        "tab.workspace-a": {
+          "x": 92,
+          "y": 158,
+          "width": 414,
+          "height": 44
+        },
+        "tab.workspace-b": {
+          "x": 514,
+          "y": 158,
+          "width": 414,
+          "height": 44
+        },
+        "toolbar.availability-default": {
+          "x": 138,
+          "y": 190,
+          "width": 190,
+          "height": 44
+        },
+        "toolbar.category-all": {
+          "x": 338,
+          "y": 190,
+          "width": 190,
+          "height": 44
+        },
+        "toolbar.show-only-new": {
+          "x": 538,
+          "y": 190,
+          "width": 190,
+          "height": 44
+        },
+        "toolbar.quick-search": {
+          "x": 738,
+          "y": 190,
+          "width": 190,
+          "height": 44
+        },
+        "collection.scroll.track": {
+          "x": 910,
+          "y": 270,
+          "width": 18,
+          "height": 250
+        },
+        "collection.scroll.thumb": {
+          "x": 910,
+          "y": 270,
+          "width": 18,
+          "height": 208
+        },
+        "collection.column.item": {
+          "x": 112,
+          "y": 234,
+          "width": 253,
+          "height": 36
+        },
+        "collection.column.category": {
+          "x": 366,
+          "y": 234,
+          "width": 253,
+          "height": 36
+        },
+        "collection.column.status": {
+          "x": 620,
+          "y": 234,
+          "width": 254,
+          "height": 36
+        },
+        "collection.row-slot.1": {
+          "x": 112,
+          "y": 270,
+          "width": 762,
+          "height": 50
+        },
+        "collection.row-slot.2": {
+          "x": 112,
+          "y": 320,
+          "width": 762,
+          "height": 50
+        },
+        "collection.row-slot.3": {
+          "x": 112,
+          "y": 370,
+          "width": 762,
+          "height": 50
+        },
+        "collection.row-slot.4": {
+          "x": 112,
+          "y": 420,
+          "width": 762,
+          "height": 50
+        },
+        "collection.row-slot.5": {
+          "x": 112,
+          "y": 470,
+          "width": 762,
+          "height": 50
+        },
+        "detailPanel": {
+          "x": 944,
+          "y": 190,
+          "width": 312,
+          "height": 456
+        },
+        "detail.selected-item": {
+          "x": 944,
+          "y": 190,
+          "width": 312,
+          "height": 456
+        },
+        "detail.selected-item.label": {
+          "x": 956,
+          "y": 202,
+          "width": 288,
+          "height": 24
+        },
+        "detail.selected-item.identity.title": {
+          "x": 956,
+          "y": 226,
+          "width": 288,
+          "height": 24
+        },
+        "detail.selected-item.identity.subtitle": {
+          "x": 956,
+          "y": 250,
+          "width": 288,
+          "height": 24
+        },
+        "detail.selected-item.metric.category": {
+          "x": 956,
+          "y": 274,
+          "width": 288,
+          "height": 58
+        },
+        "detail.selected-item.action.review-production": {
+          "x": 956,
+          "y": 590,
+          "width": 90,
+          "height": 44
+        },
+        "detail.selected-item.action.tech-tree": {
+          "x": 1054,
+          "y": 590,
+          "width": 90,
+          "height": 44
+        },
+        "detail.selected-item.action.ufopaedia": {
+          "x": 1152,
+          "y": 590,
+          "width": 92,
+          "height": 44
+        },
+        "action.mark-all-seen": {
+          "x": 112,
+          "y": 658,
+          "width": 158,
+          "height": 44
+        },
+        "action.done": {
+          "x": 1098,
+          "y": 658,
+          "width": 158,
+          "height": 44
+        }
+      }
+    },
+    "compact": {
+      "designWidth": 740,
+      "designHeight": 360,
+      "window": {
+        "x": 0,
+        "y": 0,
+        "width": 740,
+        "height": 360
+      },
+      "title": {
+        "x": 60,
+        "y": 61,
+        "width": 350,
+        "height": 26
+      },
+      "summaryBar": {
+        "x": 590,
+        "y": 48,
+        "width": 142,
+        "height": 52
+      },
+      "summary": {},
+      "collectionViewport": {
+        "x": 52,
+        "y": 152,
+        "width": 466,
+        "height": 152
+      },
+      "detailPanel": {
+        "x": 526,
+        "y": 108,
+        "width": 206,
+        "height": 196
+      },
+      "collection": {
+        "columnHeaders": [
+          {
+            "id": "item",
+            "rect": {
+              "x": 52,
+              "y": 152,
+              "width": 137,
+              "height": 28
+            }
+          },
+          {
+            "id": "category",
+            "rect": {
+              "x": 190,
+              "y": 152,
+              "width": 137,
+              "height": 28
+            }
+          },
+          {
+            "id": "status",
+            "rect": {
+              "x": 328,
+              "y": 152,
+              "width": 138,
+              "height": 28
+            }
+          }
+        ],
+        "rowSlots": [
+          {
+            "id": "row-slot-1",
+            "rect": {
+              "x": 52,
+              "y": 180,
+              "width": 414,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "item",
+                "rect": {
+                  "x": 52,
+                  "y": 180,
+                  "width": 137,
+                  "height": 44
+                }
+              },
+              {
+                "id": "category",
+                "rect": {
+                  "x": 190,
+                  "y": 180,
+                  "width": 137,
+                  "height": 44
+                }
+              },
+              {
+                "id": "status",
+                "rect": {
+                  "x": 328,
+                  "y": 180,
+                  "width": 138,
+                  "height": 44
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-2",
+            "rect": {
+              "x": 52,
+              "y": 224,
+              "width": 414,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "item",
+                "rect": {
+                  "x": 52,
+                  "y": 224,
+                  "width": 137,
+                  "height": 44
+                }
+              },
+              {
+                "id": "category",
+                "rect": {
+                  "x": 190,
+                  "y": 224,
+                  "width": 137,
+                  "height": 44
+                }
+              },
+              {
+                "id": "status",
+                "rect": {
+                  "x": 328,
+                  "y": 224,
+                  "width": 138,
+                  "height": 44
+                }
+              }
+            ]
+          }
+        ],
+        "scroll": {
+          "track": {
+            "x": 500,
+            "y": 180,
+            "width": 18,
+            "height": 88
+          },
+          "thumb": {
+            "x": 500,
+            "y": 180,
+            "width": 18,
+            "height": 44
+          }
+        }
+      },
+      "toolbarBar": {
+        "x": 52,
+        "y": 108,
+        "width": 466,
+        "height": 44
+      },
+      "controls": {},
+      "controlParts": {},
+      "footer": {
+        "x": 52,
+        "y": 312,
+        "width": 680,
+        "height": 44
+      },
+      "toolbar": {
+        "availability-default": {
+          "x": 78,
+          "y": 108,
+          "width": 104,
+          "height": 44
+        },
+        "category-all": {
+          "x": 190,
+          "y": 108,
+          "width": 104,
+          "height": 44
+        },
+        "show-only-new": {
+          "x": 302,
+          "y": 108,
+          "width": 104,
+          "height": 44
+        },
+        "quick-search": {
+          "x": 414,
+          "y": 108,
+          "width": 104,
+          "height": 44
+        }
+      },
+      "actions": {
+        "mark-all-seen": {
+          "x": 52,
+          "y": 312,
+          "width": 120,
+          "height": 44
+        },
+        "done": {
+          "x": 612,
+          "y": 312,
+          "width": 120,
+          "height": 44
+        }
+      },
+      "screenHeader": {
+        "x": 52,
+        "y": 48,
+        "width": 680,
+        "height": 52
+      },
+      "headerArt": {
+        "x": 420,
+        "y": 48,
+        "width": 170,
+        "height": 52
+      },
+      "detail": {
+        "id": "selected-item",
+        "panel": {
+          "x": 526,
+          "y": 108,
+          "width": 206,
+          "height": 196
+        },
+        "label": {
+          "x": 532,
+          "y": 114,
+          "width": 194,
+          "height": 16
+        },
+        "identity": {
+          "rect": {
+            "x": 532,
+            "y": 130,
+            "width": 194,
+            "height": 28
+          },
+          "title": {
+            "x": 532,
+            "y": 130,
+            "width": 194,
+            "height": 14
+          },
+          "subtitle": {
+            "x": 532,
+            "y": 144,
+            "width": 194,
+            "height": 14
+          }
+        },
+        "metrics": {
+          "category": {
+            "rect": {
+              "x": 532,
+              "y": 158,
+              "width": 194,
+              "height": 28
+            },
+            "label": {
+              "x": 532,
+              "y": 158,
+              "width": 194,
+              "height": 14
+            },
+            "value": {
+              "x": 532,
+              "y": 172,
+              "width": 194,
+              "height": 14
+            }
+          }
+        },
+        "note": {
+          "visible": false
+        },
+        "actions": [
+          {
+            "id": "review-production",
+            "rect": {
+              "x": 532,
+              "y": 254,
+              "width": 60,
+              "height": 44
+            }
+          },
+          {
+            "id": "tech-tree",
+            "rect": {
+              "x": 598,
+              "y": 254,
+              "width": 60,
+              "height": 44
+            }
+          },
+          {
+            "id": "ufopaedia",
+            "rect": {
+              "x": 664,
+              "y": 254,
+              "width": 62,
+              "height": 44
+            }
+          }
+        ]
+      },
+      "partRects": {
+        "window": {
+          "x": 0,
+          "y": 0,
+          "width": 740,
+          "height": 360
+        },
+        "screenHeader": {
+          "x": 52,
+          "y": 48,
+          "width": 680,
+          "height": 52
+        },
+        "headerArt": {
+          "x": 420,
+          "y": 48,
+          "width": 170,
+          "height": 52
+        },
+        "title": {
+          "x": 60,
+          "y": 61,
+          "width": 350,
+          "height": 26
+        },
+        "summaryBar": {
+          "x": 590,
+          "y": 48,
+          "width": 142,
+          "height": 52
+        },
+        "toolbarBar": {
+          "x": 52,
+          "y": 108,
+          "width": 466,
+          "height": 44
+        },
+        "collectionViewport": {
+          "x": 52,
+          "y": 152,
+          "width": 466,
+          "height": 152
+        },
+        "footer": {
+          "x": 52,
+          "y": 312,
+          "width": 680,
+          "height": 44
+        },
+        "tab.workspace-a": {
+          "x": 52,
+          "y": 102,
+          "width": 230,
+          "height": 44
+        },
+        "tab.workspace-b": {
+          "x": 288,
+          "y": 102,
+          "width": 230,
+          "height": 44
+        },
+        "toolbar.availability-default": {
+          "x": 78,
+          "y": 108,
+          "width": 104,
+          "height": 44
+        },
+        "toolbar.category-all": {
+          "x": 190,
+          "y": 108,
+          "width": 104,
+          "height": 44
+        },
+        "toolbar.show-only-new": {
+          "x": 302,
+          "y": 108,
+          "width": 104,
+          "height": 44
+        },
+        "toolbar.quick-search": {
+          "x": 414,
+          "y": 108,
+          "width": 104,
+          "height": 44
+        },
+        "collection.scroll.track": {
+          "x": 500,
+          "y": 180,
+          "width": 18,
+          "height": 88
+        },
+        "collection.scroll.thumb": {
+          "x": 500,
+          "y": 180,
+          "width": 18,
+          "height": 44
+        },
+        "collection.column.item": {
+          "x": 52,
+          "y": 152,
+          "width": 137,
+          "height": 28
+        },
+        "collection.column.category": {
+          "x": 190,
+          "y": 152,
+          "width": 137,
+          "height": 28
+        },
+        "collection.column.status": {
+          "x": 328,
+          "y": 152,
+          "width": 138,
+          "height": 28
+        },
+        "collection.row-slot.1": {
+          "x": 52,
+          "y": 180,
+          "width": 414,
+          "height": 44
+        },
+        "collection.row-slot.2": {
+          "x": 52,
+          "y": 224,
+          "width": 414,
+          "height": 44
+        },
+        "collection.row-slot.3": {
+          "x": 52,
+          "y": 224,
+          "width": 414,
+          "height": 44
+        },
+        "collection.row-slot.4": {
+          "x": 52,
+          "y": 224,
+          "width": 414,
+          "height": 44
+        },
+        "collection.row-slot.5": {
+          "x": 52,
+          "y": 224,
+          "width": 414,
+          "height": 44
+        },
+        "detailPanel": {
+          "x": 526,
+          "y": 108,
+          "width": 206,
+          "height": 196
+        },
+        "detail.selected-item": {
+          "x": 526,
+          "y": 108,
+          "width": 206,
+          "height": 196
+        },
+        "detail.selected-item.label": {
+          "x": 532,
+          "y": 114,
+          "width": 194,
+          "height": 16
+        },
+        "detail.selected-item.identity.title": {
+          "x": 532,
+          "y": 130,
+          "width": 194,
+          "height": 14
+        },
+        "detail.selected-item.identity.subtitle": {
+          "x": 532,
+          "y": 144,
+          "width": 194,
+          "height": 14
+        },
+        "detail.selected-item.metric.category": {
+          "x": 532,
+          "y": 158,
+          "width": 194,
+          "height": 28
+        },
+        "detail.selected-item.action.review-production": {
+          "x": 532,
+          "y": 254,
+          "width": 60,
+          "height": 44
+        },
+        "detail.selected-item.action.tech-tree": {
+          "x": 598,
+          "y": 254,
+          "width": 60,
+          "height": 44
+        },
+        "detail.selected-item.action.ufopaedia": {
+          "x": 664,
+          "y": 254,
+          "width": 62,
+          "height": 44
+        },
+        "action.mark-all-seen": {
+          "x": 52,
+          "y": 312,
+          "width": 120,
+          "height": 44
+        },
+        "action.done": {
+          "x": 612,
+          "y": 312,
+          "width": 120,
+          "height": 44
+        }
+      }
+    }
+  },
+  "motion": {
+    "durationMs": 200,
+    "scaleFrom": 0.96,
+    "easing": "ease-out",
+    "captureModeDurationMs": 0
+  },
+  "provenance": {
+    "template": "FormTemplates/operations-workspace.json",
+    "templateVersion": 3,
+    "generatorKind": "operations"
+  },
+  "collectionMetrics": {
+    "wide": {
+      "totalItems": 6,
+      "visibleCapacity": 5,
+      "totalUnits": 6,
+      "visibleUnits": 5,
+      "itemsPerUnit": 1,
+      "scrollUnit": "record",
+      "overflow": true,
+      "scrollSteps": 1,
+      "track": {
+        "x": 910,
+        "y": 270,
+        "width": 18,
+        "height": 250
+      },
+      "thumb": {
+        "x": 910,
+        "y": 270,
+        "width": 18,
+        "height": 208
+      },
+      "trackHitTarget": {
+        "x": 884,
+        "y": 270,
+        "width": 44,
+        "height": 250
+      },
+      "thumbHitTarget": {
+        "x": 884,
+        "y": 270,
+        "width": 44,
+        "height": 208
+      },
+      "thumbTravelPx": 42
+    },
+    "compact": {
+      "totalItems": 6,
+      "visibleCapacity": 2,
+      "totalUnits": 6,
+      "visibleUnits": 2,
+      "itemsPerUnit": 1,
+      "scrollUnit": "record",
+      "overflow": true,
+      "scrollSteps": 4,
+      "track": {
+        "x": 500,
+        "y": 180,
+        "width": 18,
+        "height": 88
+      },
+      "thumb": {
+        "x": 500,
+        "y": 180,
+        "width": 18,
+        "height": 44
+      },
+      "trackHitTarget": {
+        "x": 474,
+        "y": 180,
+        "width": 44,
+        "height": 88
+      },
+      "thumbHitTarget": {
+        "x": 474,
+        "y": 180,
+        "width": 44,
+        "height": 44
+      },
+      "thumbTravelPx": 44
+    }
+  },
+  "actions": [
+    "action.mark-all-seen",
+    "action.done"
+  ],
+  "parts": [
+    "window",
+    "screenHeader",
+    "headerArt",
+    "title",
+    "summaryBar",
+    "toolbarBar",
+    "collectionViewport",
+    "footer",
+    "tab.workspace-a",
+    "tab.workspace-b",
+    "toolbar.availability-default",
+    "toolbar.category-all",
+    "toolbar.show-only-new",
+    "toolbar.quick-search",
+    "collection.scroll.track",
+    "collection.scroll.thumb",
+    "collection.column.item",
+    "collection.column.category",
+    "collection.column.status",
+    "collection.row-slot.1",
+    "collection.row-slot.2",
+    "collection.row-slot.3",
+    "collection.row-slot.4",
+    "collection.row-slot.5",
+    "detailPanel",
+    "detail.selected-item",
+    "detail.selected-item.label",
+    "detail.selected-item.identity.title",
+    "detail.selected-item.identity.subtitle",
+    "detail.selected-item.metric.category",
+    "detail.selected-item.action.review-production",
+    "detail.selected-item.action.tech-tree",
+    "detail.selected-item.action.ufopaedia",
+    "action.mark-all-seen",
+    "action.done"
+  ],
+  "spacingRules": []
+}

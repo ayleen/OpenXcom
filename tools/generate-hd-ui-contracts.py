@@ -240,6 +240,9 @@ def validate_f33(f33):
 
 
 IDENT_RE = _re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+PART_PATH_RE = _re.compile(
+    r"^[A-Za-z_][A-Za-z0-9_-]*(?:\.[A-Za-z0-9_-]+)*$"
+)
 SLUG_RE = _re.compile(r"^[a-z0-9][a-z0-9-]*$")
 
 
@@ -261,7 +264,8 @@ def validate_registry(registry):
     allowed_profiles = {"theme", "legacy-abandon", "family", "command-card",
                         "small-confirmation", "contact-decision",
                         "contact-intel-board", "content-block", "screen",
-                        "selection-list"}
+                        "selection-list", "operations-workspace", "operations-detail",
+                        "tabbed-management", "wide-detail"}
     for index, entry in enumerate(entries):
         where = "hd-ui-contracts.json: entries[" + str(index) + "]"
         if not isinstance(entry, dict):
@@ -557,8 +561,11 @@ def validate_family(doc, rel, profile, engine_text_calibration=False):
     if len(set(parts)) != len(parts):
         fail(rel + ": parts must be unique")
     for p in parts:
-        if not isinstance(p, str) or not IDENT_RE.match(p):
-            fail(rel + ": part name must be a C identifier: " + repr(p))
+        if not isinstance(p, str) or not PART_PATH_RE.match(p):
+            fail(rel + ": invalid semantic part path: " + repr(p))
+    native_part_names = [cpp_part_name(part) for part in parts]
+    if len(set(native_part_names)) != len(native_part_names):
+        fail(rel + ": semantic part paths collide as C identifiers")
     if parts[0] != "window":
         fail(rel + ": first part must be the window root")
     actions = doc.get("actions")
@@ -574,12 +581,13 @@ def validate_family(doc, rel, profile, engine_text_calibration=False):
         l = layouts[name]
         if l.get("designWidth", 0) <= 0 or l.get("designHeight", 0) <= 0:
             fail(rel + ": " + name + " design canvas required")
+        part_rects = l.get("partRects", {})
         for part in parts:
-            r = l.get(part)
+            r = part_rects.get(part, l.get(part))
             if not r or not all(isinstance(r[k], int) for k in ("x", "y", "width", "height")):
                 fail(rel + ": " + name + "." + part + " must be an integer rect")
         for a in actions:
-            r = l[a]
+            r = part_rects.get(a, l.get(a))
             if r["width"] < MIN_ACTION_TARGET or r["height"] < MIN_ACTION_TARGET:
                 fail(rel + ": " + name + "." + a
                      + " below the " + str(MIN_ACTION_TARGET) + "x" + str(MIN_ACTION_TARGET)
@@ -592,11 +600,13 @@ def validate_family(doc, rel, profile, engine_text_calibration=False):
         if not contained(l["window"], {"x": 0, "y": 0, "width": l["designWidth"], "height": l["designHeight"]}):
             fail(rel + ": " + name + ".window must fit the design canvas")
         for part in parts:
-            if part != "window" and not contained(l[part], l["window"]):
+            r = part_rects.get(part, l.get(part))
+            if part != "window" and not contained(r, part_rects.get("window", l["window"])):
                 fail(rel + ": " + name + "." + part + " must be inside the window")
         for i, a1 in enumerate(actions):
             for a2 in actions[i + 1:]:
-                r1, r2 = l[a1], l[a2]
+                r1 = part_rects.get(a1, l.get(a1))
+                r2 = part_rects.get(a2, l.get(a2))
                 if (r1["x"] < r2["x"] + r2["width"] and r2["x"] < r1["x"] + r1["width"]
                         and r1["y"] < r2["y"] + r2["height"] and r2["y"] < r1["y"] + r1["height"]):
                     fail(rel + ": " + name + " actions " + a1 + " and " + a2 + " must not overlap")
@@ -1254,18 +1264,55 @@ def emit_selection_list_h(doc, rel, ns, prefix):
     return NL.join(out) + NL
 
 
+def family_part_rect(layout, part):
+    rects = layout.get("partRects", {})
+    if part in rects:
+        return rects[part]
+    return layout[part]
+
+
+def cpp_part_name(path):
+    name = re.sub(r"[^A-Za-z0-9_]", "_", path)
+    return "_" + name if name and name[0].isdigit() else name
+
+
 def emit_family_h(doc, rel, ns, prefix, profile):
-    """Generic F21-family emitter: one rect member per declared part."""
+    """Generic family emitter: one rect member per declared part."""
     layouts = doc["layouts"]
     m = doc["motion"]
     parts = doc["parts"]
+    form = doc.get("form") or {}
+    form_id = form.get("id", "")
+    family_id = form.get("familyId", 0)
+    archetype = form.get("archetype", profile)
+    native_state = form.get("state", "")
     out = [HEADER_BANNER,
            "// Canonical source: src/Calypso/Contracts/" + rel,
            "#pragma once",
            "#include <cstdint>",
            "namespace OpenXcom { namespace Calypso { namespace " + ns + " {",
-           'inline constexpr const char* kContractVersion = "' + doc["version"] + '";',
-           "",
+           'inline constexpr const char* kContractVersion = "' + doc["version"] + '";']
+    if profile in {"operations-workspace", "operations-detail", "wide-detail"}:
+        out += [
+            'inline constexpr const char* kFormId = "' + form_id + '";',
+            "inline constexpr int kFamilyId = " + str(family_id) + ";",
+            'inline constexpr const char* kArchetype = "' + archetype + '";',
+            'inline constexpr const char* kNativeState = "' + native_state + '";',
+        ]
+        if profile in {"operations-workspace", "operations-detail"}:
+            visual = form.get("visual") or {}
+            out += [
+                'inline constexpr const char* kVisualShell = "' + visual.get("shell", "") + '";',
+                'inline constexpr const char* kHeaderArt = "' + visual.get("headerArt", "") + '";',
+            ]
+            shared_chrome = form.get("sharedChrome") or {}
+            out += [
+                'inline constexpr const char* kSharedChromeId = "'
+                + shared_chrome.get("id", "") + '";',
+                'inline constexpr const char* kSharedChromeVersion = "'
+                + shared_chrome.get("version", "") + '";',
+            ]
+    out += ["",
            "/// One design-space rectangle (design px).",
            "struct " + prefix + "GenRect { int x; int y; int w; int h; };",
            "",
@@ -1275,7 +1322,7 @@ def emit_family_h(doc, rel, ns, prefix, profile):
            TAB + "int designWidth;",
            TAB + "int designHeight;"]
     for p in parts:
-        out.append(TAB + prefix + "GenRect " + p + ";")
+        out.append(TAB + prefix + "GenRect " + cpp_part_name(p) + ";")
     out += ["};",
             "",
             "inline constexpr " + prefix + "GenLayout kLayouts[] =",
@@ -1284,8 +1331,8 @@ def emit_family_h(doc, rel, ns, prefix, profile):
         l = layouts[name]
         out.append(TAB + "// " + name)
         out.append(TAB + "{ " + str(l["designWidth"]) + ", " + str(l["designHeight"]) + ", "
-                   + ", ".join("{ " + str(l[p]["x"]) + ", " + str(l[p]["y"]) + ", "
-                               + str(l[p]["width"]) + ", " + str(l[p]["height"]) + " }" for p in parts) + " },")
+                   + ", ".join("{ " + str(family_part_rect(l, p)["x"]) + ", " + str(family_part_rect(l, p)["y"]) + ", "
+                               + str(family_part_rect(l, p)["width"]) + ", " + str(family_part_rect(l, p)["height"]) + " }" for p in parts) + " },")
     out += ["};",
             "inline constexpr int kLayoutCount = " + str(len(layouts)) + ";",
             ""]

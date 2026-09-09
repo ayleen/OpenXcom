@@ -22,6 +22,10 @@
 namespace OpenXcom
 {
 
+#ifdef __EMSCRIPTEN__
+namespace Calypso { class CalypsoF10ProductionUi; }
+#endif
+
 class Window;
 class Text;
 class TextButton;
@@ -33,6 +37,9 @@ class TextList;
 class ManufactureDependenciesTreeState : public State
 {
 private:
+#ifdef __EMSCRIPTEN__
+	friend class Calypso::CalypsoF10ProductionUi;
+#endif
 	Window *_window;
 	Text *_txtTitle;
 	TextList *_lstTopics;
@@ -40,6 +47,11 @@ private:
 	std::string _selectedItem;
 	bool _showAll;
 	void initList();
+#ifdef __EMSCRIPTEN__
+	bool _hdLayout = false;
+	bool _hdWideLayout = false;
+	Calypso::CalypsoF10ProductionUi *_hdAdapter = nullptr;
+#endif
 public:
 	/// Creates the ManufactureDependenciesTree state.
 	ManufactureDependenciesTreeState(const std::string &selectedItem);
@@ -51,5 +63,8 @@ public:
 	void btnOkClick(Action *action);
 	/// Handler for clicking the [Show All] button.
 	void btnShowAllClick(Action *action);
+#ifdef __EMSCRIPTEN__
+	void resize(int &dX, int &dY) override;
+#endif
 };
 }

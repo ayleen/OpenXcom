@@ -17,6 +17,9 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "ManufactureDependenciesTreeState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF10ProductionUi.h"
+#endif
 #include "../Engine/Action.h"
 #include "../Engine/Game.h"
 #include "../Mod/Mod.h"
@@ -78,6 +81,9 @@ ManufactureDependenciesTreeState::ManufactureDependenciesTreeState(const std::st
 	_lstTopics->setMargin(0);
 	_lstTopics->setAlign(ALIGN_CENTER);
 
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF10ProductionUi::configure(*this);
+#endif
 	if (Options::oxceDisableProductionDependencyTree)
 	{
 		_txtTitle->setHeight(_txtTitle->getHeight() * 11);
@@ -91,6 +97,10 @@ ManufactureDependenciesTreeState::ManufactureDependenciesTreeState(const std::st
 
 ManufactureDependenciesTreeState::~ManufactureDependenciesTreeState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 }
 
 /**
@@ -104,6 +114,9 @@ void ManufactureDependenciesTreeState::init()
 	{
 		initList();
 	}
+#ifdef __EMSCRIPTEN__
+	if (_hdAdapter) _hdAdapter->refresh();
+#endif
 }
 
 /**
@@ -126,6 +139,9 @@ void ManufactureDependenciesTreeState::btnShowAllClick(Action *)
 	_btnOk->setX(_btnShowAll->getX());
 	_btnShowAll->setVisible(false);
 	initList();
+#ifdef __EMSCRIPTEN__
+	if (_hdAdapter) _hdAdapter->refresh();
+#endif
 }
 
 /**
@@ -350,5 +366,13 @@ void ManufactureDependenciesTreeState::initList()
 	_lstTopics->setRowColor(row, _lstTopics->getSecondaryColor());
 	++row;
 }
+
+#ifdef __EMSCRIPTEN__
+void ManufactureDependenciesTreeState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF10ProductionUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+#endif
 
 }

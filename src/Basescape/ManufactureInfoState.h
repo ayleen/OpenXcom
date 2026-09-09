@@ -21,7 +21,9 @@
 
 namespace OpenXcom
 {
-namespace Calypso { class CalypsoF10ManufactureCheckUi; }
+#ifdef __EMSCRIPTEN__
+namespace Calypso { class CalypsoF10ProductionUi; }
+#endif
 
 class Base;
 class Window;
@@ -40,7 +42,7 @@ class InteractiveSurface;
 class ManufactureInfoState : public State
 {
 #ifdef __EMSCRIPTEN__
-friend class Calypso::CalypsoF10ManufactureCheckUi;
+	friend class Calypso::CalypsoF10ProductionUi;
 #endif
 private:
 	Base * _base;
@@ -107,9 +109,9 @@ private:
 	void onLessEngineer();
 	/// Handler for using the mouse wheel on the Engineer-part of the screen.
 	void handleWheelEngineer(Action *action);
-	/// Increases count of number of units to make.
+	/// Increases count of number of units to produce.
 	void onMoreUnit();
-	/// Decreases count of number of units to make (if possible).
+	/// Decreases count of number of units to produce (if possible).
 	void onLessUnit();
 	/// Handler for using the mouse wheel on the Unit-part of the screen.
 	void handleWheelUnit(Action *action);
@@ -124,6 +126,7 @@ private:
 public:
 	/// Creates the State (new production).
 	ManufactureInfoState(Base * base, RuleManufacture * _item);
+	void init() override;
 	/// Creates the State (modify production).
 	ManufactureInfoState(Base * base, Production * production);
 	/// Cleans up the state
@@ -131,11 +134,11 @@ public:
 
 #ifdef __EMSCRIPTEN__
 private:
-    bool _hdLayout = false;
-    bool _hdWideLayout = false;
-    Calypso::CalypsoF10ManufactureCheckUi *_hdAdapter = nullptr;
+	bool _hdLayout = false;
+	bool _hdWideLayout = false;
+	Calypso::CalypsoF10ProductionUi *_hdAdapter = nullptr;
 public:
-    void resize(int &dX, int &dY) override;
+	void resize(int &dX, int &dY) override;
 #endif
 };
 

@@ -33,6 +33,9 @@
 #include "ManufactureState.h"
 #include "TechTreeViewerState.h"
 #include "../Ufopaedia/Ufopaedia.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF14GlobalOperationsUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -112,6 +115,9 @@ GlobalManufactureState::GlobalManufactureState(bool openedFromBasescape) : _open
 	_lstManufacture->setWordWrap(true);
 	_lstManufacture->onMouseClick((ActionHandler)&GlobalManufactureState::onSelectBase, SDL_BUTTON_LEFT);
 	_lstManufacture->onMouseClick((ActionHandler)&GlobalManufactureState::onOpenTechTreeViewer, SDL_BUTTON_MIDDLE);
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF14GlobalOperationsUi::configure(*this);
+#endif
 }
 
 /**
@@ -119,7 +125,10 @@ GlobalManufactureState::GlobalManufactureState(bool openedFromBasescape) : _open
  */
 GlobalManufactureState::~GlobalManufactureState()
 {
-
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 }
 
 /**
@@ -137,7 +146,9 @@ void GlobalManufactureState::btnOkClick(Action *)
  */
 void GlobalManufactureState::onSelectBase(Action *)
 {
-	Base *base = _bases[_lstManufacture->getSelectedRow()];
+	const size_t selectedRow = _lstManufacture->getSelectedRow();
+	if (selectedRow >= _bases.size()) return;
+	Base *base = _bases[selectedRow];
 
 	if (base)
 	{
@@ -161,7 +172,9 @@ void GlobalManufactureState::onSelectBase(Action *)
  */
 void GlobalManufactureState::onOpenTechTreeViewer(Action *)
 {
-	const RuleManufacture *selectedTopic = _topics[_lstManufacture->getSelectedRow()];
+	const size_t selectedRow = _lstManufacture->getSelectedRow();
+	if (selectedRow >= _topics.size()) return;
+	const RuleManufacture *selectedTopic = _topics[selectedRow];
 
 	if (selectedTopic)
 	{
@@ -185,6 +198,9 @@ void GlobalManufactureState::init()
 {
 	State::init();
 	fillProductionList();
+#ifdef __EMSCRIPTEN__
+	if (_hdAdapter) _hdAdapter->refresh();
+#endif
 }
 
 /**
@@ -266,5 +282,13 @@ void GlobalManufactureState::fillProductionList()
 	_txtAllocated->setText(tr("STR_ENGINEERS_ALLOCATED").arg(allocatedEngineers));
 	_txtSpace->setText(tr("STR_WORKSHOP_SPACE_AVAILABLE").arg(freeWorkshops));
 }
+
+#ifdef __EMSCRIPTEN__
+void GlobalManufactureState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF14GlobalOperationsUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+#endif
 
 }

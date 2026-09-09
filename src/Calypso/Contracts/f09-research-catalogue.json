@@ -1,0 +1,1490 @@
+{
+  "schema": 1,
+  "version": "hd.2026-08-29.1",
+  "form": {
+    "id": "f09-research-catalogue",
+    "familyId": 9,
+    "archetype": "operations-workspace",
+    "source": "FormConfigs/f09-research-catalogue.json",
+    "actions": [
+      {
+        "id": "mark-all-seen",
+        "label": "MARK ALL SEEN",
+        "labelKey": "STR_MARK_ALL_SEEN",
+        "tone": "safe",
+        "action": "mark-all-seen",
+        "style": {
+          "fill": "102939FF",
+          "border": "25465BFF",
+          "text": "E5F0F3FF"
+        }
+      },
+      {
+        "id": "done",
+        "label": "DONE",
+        "labelKey": "STR_DONE",
+        "tone": "primary",
+        "action": "done",
+        "style": {
+          "fill": "74FFB0FF",
+          "border": "74FFB0FF",
+          "text": "071013FF"
+        }
+      }
+    ],
+    "state": "NewResearchListState",
+    "labelKeys": {
+      "title": "STR_NEW_RESEARCH_PROJECTS",
+      "markAllSeen": "STR_MARK_ALL_SEEN",
+      "done": "STR_DONE",
+      "review": "STR_REVIEW_PROJECT",
+      "changeVisibility": "STR_CHANGE_VISIBILITY",
+      "techTree": "STR_TECH_TREE"
+    },
+    "summary": [],
+    "collection": {
+      "mode": "list",
+      "selectionRole": "research-project",
+      "columns": [
+        {
+          "id": "project",
+          "label": "RESEARCH PROJECT"
+        },
+        {
+          "id": "status",
+          "label": "STATUS"
+        }
+      ],
+      "items": [
+        {
+          "id": "maelstrom-battery",
+          "values": [
+            "Maelstrom Battery",
+            "New"
+          ]
+        },
+        {
+          "id": "cavitation-battery",
+          "values": [
+            "Cavitation Battery",
+            "New"
+          ]
+        },
+        {
+          "id": "reliquary-corpse",
+          "values": [
+            "Reliquary Corpse",
+            "New"
+          ]
+        },
+        {
+          "id": "vector-corpse",
+          "values": [
+            "Vector Corpse",
+            "Normal"
+          ]
+        },
+        {
+          "id": "behemoth-corpse",
+          "values": [
+            "Behemoth Corpse",
+            "Normal"
+          ]
+        },
+        {
+          "id": "shrieker-corpse",
+          "values": [
+            "Shrieker Corpse",
+            "Normal"
+          ]
+        }
+      ]
+    },
+    "controls": [],
+    "toolbar": [
+      {
+        "id": "sort-default",
+        "label": "SORT: DEFAULT",
+        "tone": "normal",
+        "action": "sort-default",
+        "style": {
+          "fill": "071725E8",
+          "border": "16384DFF",
+          "text": "E5F0F3FF"
+        }
+      },
+      {
+        "id": "show-only-new",
+        "label": "SHOW ONLY NEW",
+        "tone": "normal",
+        "action": "show-only-new",
+        "style": {
+          "fill": "071725E8",
+          "border": "16384DFF",
+          "text": "E5F0F3FF"
+        }
+      },
+      {
+        "id": "quick-search",
+        "label": "QUICK SEARCH",
+        "tone": "normal",
+        "action": "quick-search",
+        "style": {
+          "fill": "071725E8",
+          "border": "16384DFF",
+          "text": "E5F0F3FF"
+        }
+      }
+    ],
+    "visual": {
+      "shell": "base-operations",
+      "headerArt": "base-research"
+    },
+    "sharedChrome": {
+      "id": "base-command-shell",
+      "version": "hd.2026-09-07.1"
+    },
+    "detail": {
+      "id": "selected-project",
+      "label": "SELECTED PROJECT",
+      "title": "Maelstrom Battery",
+      "subtitle": "RESEARCH PROJECT",
+      "metrics": [
+        {
+          "id": "status",
+          "label": "VISIBILITY STATUS",
+          "value": "New"
+        }
+      ],
+      "actions": [
+        {
+          "id": "review-project",
+          "label": "REVIEW PROJECT",
+          "labelKey": "STR_REVIEW_PROJECT",
+          "tone": "primary",
+          "action": "review-project",
+          "style": {
+            "fill": "74FFB0FF",
+            "border": "74FFB0FF",
+            "text": "071013FF"
+          }
+        },
+        {
+          "id": "change-visibility",
+          "label": "CHANGE VISIBILITY",
+          "labelKey": "STR_CHANGE_VISIBILITY",
+          "tone": "normal",
+          "action": "change-visibility",
+          "style": {
+            "fill": "071725E8",
+            "border": "16384DFF",
+            "text": "E5F0F3FF"
+          }
+        },
+        {
+          "id": "tech-tree",
+          "label": "TECH TREE",
+          "labelKey": "STR_TECH_TREE",
+          "tone": "normal",
+          "action": "open-tech-tree",
+          "style": {
+            "fill": "071725E8",
+            "border": "16384DFF",
+            "text": "E5F0F3FF"
+          }
+        }
+      ]
+    }
+  },
+  "copy": {
+    "title": "NEW RESEARCH PROJECTS",
+    "tabs": {
+      "workspace-a": "WORKSPACE",
+      "workspace-b": "WORKSPACE"
+    },
+    "summary": [],
+    "collection": {
+      "mode": "list",
+      "selectionRole": "research-project",
+      "columns": [
+        {
+          "id": "project",
+          "label": "RESEARCH PROJECT"
+        },
+        {
+          "id": "status",
+          "label": "STATUS"
+        }
+      ],
+      "items": [
+        {
+          "id": "maelstrom-battery",
+          "values": [
+            "Maelstrom Battery",
+            "New"
+          ]
+        },
+        {
+          "id": "cavitation-battery",
+          "values": [
+            "Cavitation Battery",
+            "New"
+          ]
+        },
+        {
+          "id": "reliquary-corpse",
+          "values": [
+            "Reliquary Corpse",
+            "New"
+          ]
+        },
+        {
+          "id": "vector-corpse",
+          "values": [
+            "Vector Corpse",
+            "Normal"
+          ]
+        },
+        {
+          "id": "behemoth-corpse",
+          "values": [
+            "Behemoth Corpse",
+            "Normal"
+          ]
+        },
+        {
+          "id": "shrieker-corpse",
+          "values": [
+            "Shrieker Corpse",
+            "Normal"
+          ]
+        }
+      ]
+    },
+    "controls": [],
+    "toolbar": {
+      "sort-default": "SORT: DEFAULT",
+      "show-only-new": "SHOW ONLY NEW",
+      "quick-search": "QUICK SEARCH"
+    },
+    "detail": {
+      "id": "selected-project",
+      "label": "SELECTED PROJECT",
+      "title": "Maelstrom Battery",
+      "subtitle": "RESEARCH PROJECT",
+      "metrics": [
+        {
+          "id": "status",
+          "label": "VISIBILITY STATUS",
+          "value": "New"
+        }
+      ],
+      "actions": [
+        {
+          "id": "review-project",
+          "label": "REVIEW PROJECT",
+          "labelKey": "STR_REVIEW_PROJECT",
+          "tone": "primary",
+          "action": "review-project"
+        },
+        {
+          "id": "change-visibility",
+          "label": "CHANGE VISIBILITY",
+          "labelKey": "STR_CHANGE_VISIBILITY",
+          "tone": "normal",
+          "action": "change-visibility"
+        },
+        {
+          "id": "tech-tree",
+          "label": "TECH TREE",
+          "labelKey": "STR_TECH_TREE",
+          "tone": "normal",
+          "action": "open-tech-tree"
+        }
+      ]
+    }
+  },
+  "style": {
+    "panelFillTop": "071725E8",
+    "panelFillBottom": "050F19F2",
+    "frame": "16384DFF",
+    "divider": "102E40FF",
+    "text": "E5F0F3FF",
+    "mutedText": "84A0AEFF",
+    "selectedTab": "163C38FF",
+    "cutCornerPx": 14,
+    "cornerRadiusPx": 12
+  },
+  "layouts": {
+    "wide": {
+      "designWidth": 1280,
+      "designHeight": 720,
+      "window": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 720
+      },
+      "title": {
+        "x": 130,
+        "y": 119,
+        "width": 480,
+        "height": 36
+      },
+      "summaryBar": {
+        "x": 1000,
+        "y": 96,
+        "width": 256,
+        "height": 78
+      },
+      "summary": {},
+      "collectionViewport": {
+        "x": 112,
+        "y": 234,
+        "width": 816,
+        "height": 412
+      },
+      "detailPanel": {
+        "x": 944,
+        "y": 190,
+        "width": 312,
+        "height": 456
+      },
+      "collection": {
+        "columnHeaders": [
+          {
+            "id": "project",
+            "rect": {
+              "x": 112,
+              "y": 234,
+              "width": 380,
+              "height": 36
+            }
+          },
+          {
+            "id": "status",
+            "rect": {
+              "x": 493,
+              "y": 234,
+              "width": 381,
+              "height": 36
+            }
+          }
+        ],
+        "rowSlots": [
+          {
+            "id": "row-slot-1",
+            "rect": {
+              "x": 112,
+              "y": 270,
+              "width": 762,
+              "height": 50
+            },
+            "cells": [
+              {
+                "id": "project",
+                "rect": {
+                  "x": 112,
+                  "y": 270,
+                  "width": 380,
+                  "height": 50
+                }
+              },
+              {
+                "id": "status",
+                "rect": {
+                  "x": 493,
+                  "y": 270,
+                  "width": 381,
+                  "height": 50
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-2",
+            "rect": {
+              "x": 112,
+              "y": 320,
+              "width": 762,
+              "height": 50
+            },
+            "cells": [
+              {
+                "id": "project",
+                "rect": {
+                  "x": 112,
+                  "y": 320,
+                  "width": 380,
+                  "height": 50
+                }
+              },
+              {
+                "id": "status",
+                "rect": {
+                  "x": 493,
+                  "y": 320,
+                  "width": 381,
+                  "height": 50
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-3",
+            "rect": {
+              "x": 112,
+              "y": 370,
+              "width": 762,
+              "height": 50
+            },
+            "cells": [
+              {
+                "id": "project",
+                "rect": {
+                  "x": 112,
+                  "y": 370,
+                  "width": 380,
+                  "height": 50
+                }
+              },
+              {
+                "id": "status",
+                "rect": {
+                  "x": 493,
+                  "y": 370,
+                  "width": 381,
+                  "height": 50
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-4",
+            "rect": {
+              "x": 112,
+              "y": 420,
+              "width": 762,
+              "height": 50
+            },
+            "cells": [
+              {
+                "id": "project",
+                "rect": {
+                  "x": 112,
+                  "y": 420,
+                  "width": 380,
+                  "height": 50
+                }
+              },
+              {
+                "id": "status",
+                "rect": {
+                  "x": 493,
+                  "y": 420,
+                  "width": 381,
+                  "height": 50
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-5",
+            "rect": {
+              "x": 112,
+              "y": 470,
+              "width": 762,
+              "height": 50
+            },
+            "cells": [
+              {
+                "id": "project",
+                "rect": {
+                  "x": 112,
+                  "y": 470,
+                  "width": 380,
+                  "height": 50
+                }
+              },
+              {
+                "id": "status",
+                "rect": {
+                  "x": 493,
+                  "y": 470,
+                  "width": 381,
+                  "height": 50
+                }
+              }
+            ]
+          }
+        ],
+        "scroll": {
+          "track": {
+            "x": 910,
+            "y": 270,
+            "width": 18,
+            "height": 250
+          },
+          "thumb": {
+            "x": 910,
+            "y": 270,
+            "width": 18,
+            "height": 208
+          }
+        }
+      },
+      "toolbarBar": {
+        "x": 112,
+        "y": 190,
+        "width": 816,
+        "height": 44
+      },
+      "controls": {},
+      "controlParts": {},
+      "footer": {
+        "x": 112,
+        "y": 658,
+        "width": 1144,
+        "height": 44
+      },
+      "toolbar": {
+        "sort-default": {
+          "x": 338,
+          "y": 190,
+          "width": 190,
+          "height": 44
+        },
+        "show-only-new": {
+          "x": 538,
+          "y": 190,
+          "width": 190,
+          "height": 44
+        },
+        "quick-search": {
+          "x": 738,
+          "y": 190,
+          "width": 190,
+          "height": 44
+        }
+      },
+      "actions": {
+        "mark-all-seen": {
+          "x": 112,
+          "y": 658,
+          "width": 158,
+          "height": 44
+        },
+        "done": {
+          "x": 1098,
+          "y": 658,
+          "width": 158,
+          "height": 44
+        }
+      },
+      "screenHeader": {
+        "x": 112,
+        "y": 96,
+        "width": 1144,
+        "height": 78
+      },
+      "headerArt": {
+        "x": 640,
+        "y": 96,
+        "width": 360,
+        "height": 78
+      },
+      "detail": {
+        "id": "selected-project",
+        "panel": {
+          "x": 944,
+          "y": 190,
+          "width": 312,
+          "height": 456
+        },
+        "label": {
+          "x": 956,
+          "y": 202,
+          "width": 288,
+          "height": 24
+        },
+        "identity": {
+          "rect": {
+            "x": 956,
+            "y": 226,
+            "width": 288,
+            "height": 48
+          },
+          "title": {
+            "x": 956,
+            "y": 226,
+            "width": 288,
+            "height": 24
+          },
+          "subtitle": {
+            "x": 956,
+            "y": 250,
+            "width": 288,
+            "height": 24
+          }
+        },
+        "metrics": {
+          "status": {
+            "rect": {
+              "x": 956,
+              "y": 274,
+              "width": 288,
+              "height": 58
+            },
+            "label": {
+              "x": 956,
+              "y": 274,
+              "width": 288,
+              "height": 29
+            },
+            "value": {
+              "x": 956,
+              "y": 303,
+              "width": 288,
+              "height": 29
+            }
+          }
+        },
+        "note": {
+          "visible": false
+        },
+        "actions": [
+          {
+            "id": "review-project",
+            "rect": {
+              "x": 956,
+              "y": 590,
+              "width": 90,
+              "height": 44
+            }
+          },
+          {
+            "id": "change-visibility",
+            "rect": {
+              "x": 1054,
+              "y": 590,
+              "width": 90,
+              "height": 44
+            }
+          },
+          {
+            "id": "tech-tree",
+            "rect": {
+              "x": 1152,
+              "y": 590,
+              "width": 92,
+              "height": 44
+            }
+          }
+        ]
+      },
+      "partRects": {
+        "window": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 720
+        },
+        "screenHeader": {
+          "x": 112,
+          "y": 96,
+          "width": 1144,
+          "height": 78
+        },
+        "headerArt": {
+          "x": 640,
+          "y": 96,
+          "width": 360,
+          "height": 78
+        },
+        "title": {
+          "x": 130,
+          "y": 119,
+          "width": 480,
+          "height": 36
+        },
+        "summaryBar": {
+          "x": 1000,
+          "y": 96,
+          "width": 256,
+          "height": 78
+        },
+        "toolbarBar": {
+          "x": 112,
+          "y": 190,
+          "width": 816,
+          "height": 44
+        },
+        "collectionViewport": {
+          "x": 112,
+          "y": 234,
+          "width": 816,
+          "height": 412
+        },
+        "footer": {
+          "x": 112,
+          "y": 658,
+          "width": 1144,
+          "height": 44
+        },
+        "tab.workspace-a": {
+          "x": 92,
+          "y": 158,
+          "width": 414,
+          "height": 44
+        },
+        "tab.workspace-b": {
+          "x": 514,
+          "y": 158,
+          "width": 414,
+          "height": 44
+        },
+        "toolbar.sort-default": {
+          "x": 338,
+          "y": 190,
+          "width": 190,
+          "height": 44
+        },
+        "toolbar.show-only-new": {
+          "x": 538,
+          "y": 190,
+          "width": 190,
+          "height": 44
+        },
+        "toolbar.quick-search": {
+          "x": 738,
+          "y": 190,
+          "width": 190,
+          "height": 44
+        },
+        "collection.scroll.track": {
+          "x": 910,
+          "y": 270,
+          "width": 18,
+          "height": 250
+        },
+        "collection.scroll.thumb": {
+          "x": 910,
+          "y": 270,
+          "width": 18,
+          "height": 208
+        },
+        "collection.column.project": {
+          "x": 112,
+          "y": 234,
+          "width": 380,
+          "height": 36
+        },
+        "collection.column.status": {
+          "x": 493,
+          "y": 234,
+          "width": 381,
+          "height": 36
+        },
+        "collection.row-slot.1": {
+          "x": 112,
+          "y": 270,
+          "width": 762,
+          "height": 50
+        },
+        "collection.row-slot.2": {
+          "x": 112,
+          "y": 320,
+          "width": 762,
+          "height": 50
+        },
+        "collection.row-slot.3": {
+          "x": 112,
+          "y": 370,
+          "width": 762,
+          "height": 50
+        },
+        "collection.row-slot.4": {
+          "x": 112,
+          "y": 420,
+          "width": 762,
+          "height": 50
+        },
+        "collection.row-slot.5": {
+          "x": 112,
+          "y": 470,
+          "width": 762,
+          "height": 50
+        },
+        "detailPanel": {
+          "x": 944,
+          "y": 190,
+          "width": 312,
+          "height": 456
+        },
+        "detail.selected-project": {
+          "x": 944,
+          "y": 190,
+          "width": 312,
+          "height": 456
+        },
+        "detail.selected-project.label": {
+          "x": 956,
+          "y": 202,
+          "width": 288,
+          "height": 24
+        },
+        "detail.selected-project.identity.title": {
+          "x": 956,
+          "y": 226,
+          "width": 288,
+          "height": 24
+        },
+        "detail.selected-project.identity.subtitle": {
+          "x": 956,
+          "y": 250,
+          "width": 288,
+          "height": 24
+        },
+        "detail.selected-project.metric.status": {
+          "x": 956,
+          "y": 274,
+          "width": 288,
+          "height": 58
+        },
+        "detail.selected-project.action.review-project": {
+          "x": 956,
+          "y": 590,
+          "width": 90,
+          "height": 44
+        },
+        "detail.selected-project.action.change-visibility": {
+          "x": 1054,
+          "y": 590,
+          "width": 90,
+          "height": 44
+        },
+        "detail.selected-project.action.tech-tree": {
+          "x": 1152,
+          "y": 590,
+          "width": 92,
+          "height": 44
+        },
+        "action.mark-all-seen": {
+          "x": 112,
+          "y": 658,
+          "width": 158,
+          "height": 44
+        },
+        "action.done": {
+          "x": 1098,
+          "y": 658,
+          "width": 158,
+          "height": 44
+        }
+      }
+    },
+    "compact": {
+      "designWidth": 740,
+      "designHeight": 360,
+      "window": {
+        "x": 0,
+        "y": 0,
+        "width": 740,
+        "height": 360
+      },
+      "title": {
+        "x": 60,
+        "y": 61,
+        "width": 350,
+        "height": 26
+      },
+      "summaryBar": {
+        "x": 590,
+        "y": 48,
+        "width": 142,
+        "height": 52
+      },
+      "summary": {},
+      "collectionViewport": {
+        "x": 52,
+        "y": 152,
+        "width": 466,
+        "height": 152
+      },
+      "detailPanel": {
+        "x": 526,
+        "y": 108,
+        "width": 206,
+        "height": 196
+      },
+      "collection": {
+        "columnHeaders": [
+          {
+            "id": "project",
+            "rect": {
+              "x": 52,
+              "y": 152,
+              "width": 206,
+              "height": 28
+            }
+          },
+          {
+            "id": "status",
+            "rect": {
+              "x": 259,
+              "y": 152,
+              "width": 207,
+              "height": 28
+            }
+          }
+        ],
+        "rowSlots": [
+          {
+            "id": "row-slot-1",
+            "rect": {
+              "x": 52,
+              "y": 180,
+              "width": 414,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "project",
+                "rect": {
+                  "x": 52,
+                  "y": 180,
+                  "width": 206,
+                  "height": 44
+                }
+              },
+              {
+                "id": "status",
+                "rect": {
+                  "x": 259,
+                  "y": 180,
+                  "width": 207,
+                  "height": 44
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-2",
+            "rect": {
+              "x": 52,
+              "y": 224,
+              "width": 414,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "project",
+                "rect": {
+                  "x": 52,
+                  "y": 224,
+                  "width": 206,
+                  "height": 44
+                }
+              },
+              {
+                "id": "status",
+                "rect": {
+                  "x": 259,
+                  "y": 224,
+                  "width": 207,
+                  "height": 44
+                }
+              }
+            ]
+          }
+        ],
+        "scroll": {
+          "track": {
+            "x": 500,
+            "y": 180,
+            "width": 18,
+            "height": 88
+          },
+          "thumb": {
+            "x": 500,
+            "y": 180,
+            "width": 18,
+            "height": 44
+          }
+        }
+      },
+      "toolbarBar": {
+        "x": 52,
+        "y": 108,
+        "width": 466,
+        "height": 44
+      },
+      "controls": {},
+      "controlParts": {},
+      "footer": {
+        "x": 52,
+        "y": 312,
+        "width": 680,
+        "height": 44
+      },
+      "toolbar": {
+        "sort-default": {
+          "x": 190,
+          "y": 108,
+          "width": 104,
+          "height": 44
+        },
+        "show-only-new": {
+          "x": 302,
+          "y": 108,
+          "width": 104,
+          "height": 44
+        },
+        "quick-search": {
+          "x": 414,
+          "y": 108,
+          "width": 104,
+          "height": 44
+        }
+      },
+      "actions": {
+        "mark-all-seen": {
+          "x": 52,
+          "y": 312,
+          "width": 120,
+          "height": 44
+        },
+        "done": {
+          "x": 612,
+          "y": 312,
+          "width": 120,
+          "height": 44
+        }
+      },
+      "screenHeader": {
+        "x": 52,
+        "y": 48,
+        "width": 680,
+        "height": 52
+      },
+      "headerArt": {
+        "x": 420,
+        "y": 48,
+        "width": 170,
+        "height": 52
+      },
+      "detail": {
+        "id": "selected-project",
+        "panel": {
+          "x": 526,
+          "y": 108,
+          "width": 206,
+          "height": 196
+        },
+        "label": {
+          "x": 532,
+          "y": 114,
+          "width": 194,
+          "height": 16
+        },
+        "identity": {
+          "rect": {
+            "x": 532,
+            "y": 130,
+            "width": 194,
+            "height": 28
+          },
+          "title": {
+            "x": 532,
+            "y": 130,
+            "width": 194,
+            "height": 14
+          },
+          "subtitle": {
+            "x": 532,
+            "y": 144,
+            "width": 194,
+            "height": 14
+          }
+        },
+        "metrics": {
+          "status": {
+            "rect": {
+              "x": 532,
+              "y": 158,
+              "width": 194,
+              "height": 28
+            },
+            "label": {
+              "x": 532,
+              "y": 158,
+              "width": 194,
+              "height": 14
+            },
+            "value": {
+              "x": 532,
+              "y": 172,
+              "width": 194,
+              "height": 14
+            }
+          }
+        },
+        "note": {
+          "visible": false
+        },
+        "actions": [
+          {
+            "id": "review-project",
+            "rect": {
+              "x": 532,
+              "y": 254,
+              "width": 60,
+              "height": 44
+            }
+          },
+          {
+            "id": "change-visibility",
+            "rect": {
+              "x": 598,
+              "y": 254,
+              "width": 60,
+              "height": 44
+            }
+          },
+          {
+            "id": "tech-tree",
+            "rect": {
+              "x": 664,
+              "y": 254,
+              "width": 62,
+              "height": 44
+            }
+          }
+        ]
+      },
+      "partRects": {
+        "window": {
+          "x": 0,
+          "y": 0,
+          "width": 740,
+          "height": 360
+        },
+        "screenHeader": {
+          "x": 52,
+          "y": 48,
+          "width": 680,
+          "height": 52
+        },
+        "headerArt": {
+          "x": 420,
+          "y": 48,
+          "width": 170,
+          "height": 52
+        },
+        "title": {
+          "x": 60,
+          "y": 61,
+          "width": 350,
+          "height": 26
+        },
+        "summaryBar": {
+          "x": 590,
+          "y": 48,
+          "width": 142,
+          "height": 52
+        },
+        "toolbarBar": {
+          "x": 52,
+          "y": 108,
+          "width": 466,
+          "height": 44
+        },
+        "collectionViewport": {
+          "x": 52,
+          "y": 152,
+          "width": 466,
+          "height": 152
+        },
+        "footer": {
+          "x": 52,
+          "y": 312,
+          "width": 680,
+          "height": 44
+        },
+        "tab.workspace-a": {
+          "x": 52,
+          "y": 102,
+          "width": 230,
+          "height": 44
+        },
+        "tab.workspace-b": {
+          "x": 288,
+          "y": 102,
+          "width": 230,
+          "height": 44
+        },
+        "toolbar.sort-default": {
+          "x": 190,
+          "y": 108,
+          "width": 104,
+          "height": 44
+        },
+        "toolbar.show-only-new": {
+          "x": 302,
+          "y": 108,
+          "width": 104,
+          "height": 44
+        },
+        "toolbar.quick-search": {
+          "x": 414,
+          "y": 108,
+          "width": 104,
+          "height": 44
+        },
+        "collection.scroll.track": {
+          "x": 500,
+          "y": 180,
+          "width": 18,
+          "height": 88
+        },
+        "collection.scroll.thumb": {
+          "x": 500,
+          "y": 180,
+          "width": 18,
+          "height": 44
+        },
+        "collection.column.project": {
+          "x": 52,
+          "y": 152,
+          "width": 206,
+          "height": 28
+        },
+        "collection.column.status": {
+          "x": 259,
+          "y": 152,
+          "width": 207,
+          "height": 28
+        },
+        "collection.row-slot.1": {
+          "x": 52,
+          "y": 180,
+          "width": 414,
+          "height": 44
+        },
+        "collection.row-slot.2": {
+          "x": 52,
+          "y": 224,
+          "width": 414,
+          "height": 44
+        },
+        "collection.row-slot.3": {
+          "x": 52,
+          "y": 224,
+          "width": 414,
+          "height": 44
+        },
+        "collection.row-slot.4": {
+          "x": 52,
+          "y": 224,
+          "width": 414,
+          "height": 44
+        },
+        "collection.row-slot.5": {
+          "x": 52,
+          "y": 224,
+          "width": 414,
+          "height": 44
+        },
+        "detailPanel": {
+          "x": 526,
+          "y": 108,
+          "width": 206,
+          "height": 196
+        },
+        "detail.selected-project": {
+          "x": 526,
+          "y": 108,
+          "width": 206,
+          "height": 196
+        },
+        "detail.selected-project.label": {
+          "x": 532,
+          "y": 114,
+          "width": 194,
+          "height": 16
+        },
+        "detail.selected-project.identity.title": {
+          "x": 532,
+          "y": 130,
+          "width": 194,
+          "height": 14
+        },
+        "detail.selected-project.identity.subtitle": {
+          "x": 532,
+          "y": 144,
+          "width": 194,
+          "height": 14
+        },
+        "detail.selected-project.metric.status": {
+          "x": 532,
+          "y": 158,
+          "width": 194,
+          "height": 28
+        },
+        "detail.selected-project.action.review-project": {
+          "x": 532,
+          "y": 254,
+          "width": 60,
+          "height": 44
+        },
+        "detail.selected-project.action.change-visibility": {
+          "x": 598,
+          "y": 254,
+          "width": 60,
+          "height": 44
+        },
+        "detail.selected-project.action.tech-tree": {
+          "x": 664,
+          "y": 254,
+          "width": 62,
+          "height": 44
+        },
+        "action.mark-all-seen": {
+          "x": 52,
+          "y": 312,
+          "width": 120,
+          "height": 44
+        },
+        "action.done": {
+          "x": 612,
+          "y": 312,
+          "width": 120,
+          "height": 44
+        }
+      }
+    }
+  },
+  "motion": {
+    "durationMs": 200,
+    "scaleFrom": 0.96,
+    "easing": "ease-out",
+    "captureModeDurationMs": 0
+  },
+  "provenance": {
+    "template": "FormTemplates/operations-workspace.json",
+    "templateVersion": 3,
+    "generatorKind": "operations"
+  },
+  "collectionMetrics": {
+    "wide": {
+      "totalItems": 6,
+      "visibleCapacity": 5,
+      "totalUnits": 6,
+      "visibleUnits": 5,
+      "itemsPerUnit": 1,
+      "scrollUnit": "record",
+      "overflow": true,
+      "scrollSteps": 1,
+      "track": {
+        "x": 910,
+        "y": 270,
+        "width": 18,
+        "height": 250
+      },
+      "thumb": {
+        "x": 910,
+        "y": 270,
+        "width": 18,
+        "height": 208
+      },
+      "trackHitTarget": {
+        "x": 884,
+        "y": 270,
+        "width": 44,
+        "height": 250
+      },
+      "thumbHitTarget": {
+        "x": 884,
+        "y": 270,
+        "width": 44,
+        "height": 208
+      },
+      "thumbTravelPx": 42
+    },
+    "compact": {
+      "totalItems": 6,
+      "visibleCapacity": 2,
+      "totalUnits": 6,
+      "visibleUnits": 2,
+      "itemsPerUnit": 1,
+      "scrollUnit": "record",
+      "overflow": true,
+      "scrollSteps": 4,
+      "track": {
+        "x": 500,
+        "y": 180,
+        "width": 18,
+        "height": 88
+      },
+      "thumb": {
+        "x": 500,
+        "y": 180,
+        "width": 18,
+        "height": 44
+      },
+      "trackHitTarget": {
+        "x": 474,
+        "y": 180,
+        "width": 44,
+        "height": 88
+      },
+      "thumbHitTarget": {
+        "x": 474,
+        "y": 180,
+        "width": 44,
+        "height": 44
+      },
+      "thumbTravelPx": 44
+    }
+  },
+  "actions": [
+    "action.mark-all-seen",
+    "action.done"
+  ],
+  "parts": [
+    "window",
+    "screenHeader",
+    "headerArt",
+    "title",
+    "summaryBar",
+    "toolbarBar",
+    "collectionViewport",
+    "footer",
+    "tab.workspace-a",
+    "tab.workspace-b",
+    "toolbar.sort-default",
+    "toolbar.show-only-new",
+    "toolbar.quick-search",
+    "collection.scroll.track",
+    "collection.scroll.thumb",
+    "collection.column.project",
+    "collection.column.status",
+    "collection.row-slot.1",
+    "collection.row-slot.2",
+    "collection.row-slot.3",
+    "collection.row-slot.4",
+    "collection.row-slot.5",
+    "detailPanel",
+    "detail.selected-project",
+    "detail.selected-project.label",
+    "detail.selected-project.identity.title",
+    "detail.selected-project.identity.subtitle",
+    "detail.selected-project.metric.status",
+    "detail.selected-project.action.review-project",
+    "detail.selected-project.action.change-visibility",
+    "detail.selected-project.action.tech-tree",
+    "action.mark-all-seen",
+    "action.done"
+  ],
+  "spacingRules": []
+}

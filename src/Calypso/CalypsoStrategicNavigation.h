@@ -25,6 +25,9 @@ enum class CalypsoStrategicRoute
 };
 
 void calypsoRequestStrategicRoute(Game *game, CalypsoStrategicRoute route);
+void calypsoNavigateToWorld(Game *game);
+void calypsoNavigateToBases(Game *game);
+void calypsoNavigateToStrategicRoute(Game *game, CalypsoStrategicRoute route);
 
 bool calypsoPollStrategicRoute(GeoscapeState &state);
 

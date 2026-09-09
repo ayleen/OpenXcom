@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "id": "f10-production-controls",
+  "familyId": 10,
+  "version": "hd.2026-08-29.1",
+  "archetype": "operations-detail",
+  "state": "ManufactureInfoState",
+  "visual": {"shell": "base-operations", "headerArt": "base-manufacture"},
+  "labelKeys": {"title": "STR_MAELSTROM_TORPEDOES", "stop": "STR_STOP_PRODUCTION", "ok": "STR_OK", "sell": "STR_SELL_PRODUCTION"},
+  "title": "MAELSTROM Torpedoes",
+  "actions": [{"id": "stop-production", "label": "STOP", "labelKey": "STR_STOP_PRODUCTION", "tone": "danger", "action": "stop-production"}, {"id": "ok", "label": "OK", "labelKey": "STR_OK", "tone": "primary", "action": "ok"}],
+  "controls": [{"id": "engineers", "label": "ENGINEERS", "kind": "stepper", "value": 94, "minimum": 0, "maximum": 94, "action": "adjust-engineers"}, {"id": "units", "label": "UNITS", "kind": "stepper", "value": 40, "minimum": 0, "maximum": 40, "action": "adjust-units"}],
+  "regions": [
+    {"id": "output", "role": "primary", "kind": "preview", "label": "CURRENT PRODUCTION", "contentId": "production-line"},
+    {"id": "result", "role": "summary", "kind": "fields", "label": "CURRENT PRODUCTION", "fields": [{"id": "produced", "label": "PRODUCED", "value": "22 / 40"}, {"id": "assigned", "label": "ASSIGNED", "value": "94"}, {"id": "monthly-profit", "label": "MONTHLY PROFIT", "value": "-$504,000"}]},
+    {"id": "sell", "role": "navigation", "kind": "actions", "label": "SELL PRODUCTION", "actions": [{"id": "toggle-sell", "label": "SELL: OFF", "labelKey": "STR_SELL_PRODUCTION", "tone": "normal", "action": "toggle-sell"}]}
+  ]
+}

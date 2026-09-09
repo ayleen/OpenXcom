@@ -23,6 +23,8 @@
 namespace OpenXcom
 {
 
+namespace Calypso { class CalypsoF09ResearchUi; }
+
 class TextButton;
 class ToggleTextButton;
 class Window;
@@ -39,9 +41,16 @@ class ComboBox;
 class NewResearchListState : public TouchState
 {
 private:
+#ifdef __EMSCRIPTEN__
+	friend class Calypso::CalypsoF09ResearchUi;
+#endif
 	Base *_base;
 	bool _sortByCost;
 	TextButton *_btnOK;
+#ifdef __EMSCRIPTEN__
+	TextButton *_btnReview = nullptr, *_btnChangeVisibility = nullptr;
+	TextButton *_btnTechTree = nullptr, *_btnMarkAllSeen = nullptr;
+#endif
 	ComboBox *_cbxSort;
 	ToggleTextButton *_btnShowOnlyNew;
 	TextEdit *_btnQuickSearch;
@@ -51,6 +60,11 @@ private:
 	size_t _lstScroll;
 	Uint8 _colorNormal, _colorNew, _colorHidden;
 	bool _isSortingEnabled;
+#ifdef __EMSCRIPTEN__
+	bool _hdLayout = false;
+	bool _hdWideLayout = false;
+	Calypso::CalypsoF09ResearchUi *_hdAdapter = nullptr;
+#endif
 	void onClick(Action* action);
 	void onSelectProject(Action *action);
 	void onToggleProjectStatus(Action *action);
@@ -59,6 +73,7 @@ private:
 public:
 	/// Creates the New research list state.
 	NewResearchListState(Base *base, bool sortByCost);
+	~NewResearchListState();
 	/// Handler for clicking the OK button.
 	void btnOKClick(Action *action);
 	/// Handlers for Quick Search.
@@ -74,5 +89,8 @@ public:
 	void fillProjectList(bool markAllAsSeen);
 	/// Initializes the state.
 	void init() override;
+#ifdef __EMSCRIPTEN__
+	void resize(int &dX, int &dY) override;
+#endif
 };
 }

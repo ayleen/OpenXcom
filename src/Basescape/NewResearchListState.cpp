@@ -18,6 +18,9 @@
  */
 #include <locale>
 #include "NewResearchListState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF09ResearchUi.h"
+#endif
 #include "../Engine/Game.h"
 #include "../Mod/Mod.h"
 #include "../Engine/LocalizedText.h"
@@ -133,6 +136,17 @@ NewResearchListState::NewResearchListState(Base *base, bool sortByCost) : _base(
 	_btnQuickSearch->setVisible(Options::oxceQuickSearchButton);
 
 	_btnOK->onKeyboardRelease((ActionHandler)&NewResearchListState::btnQuickSearchToggle, Options::keyToggleQuickSearch);
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF09ResearchUi::configure(*this);
+#endif
+}
+
+NewResearchListState::~NewResearchListState()
+{
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 }
 
 /**
@@ -144,6 +158,10 @@ void NewResearchListState::init()
 	fillProjectList(false);
 
 	touchComponentsRefresh();
+#ifdef __EMSCRIPTEN__
+	if (_hdAdapter != nullptr)
+		_hdAdapter->refresh();
+#endif
 }
 
 /**
@@ -172,6 +190,10 @@ void NewResearchListState::onClick(Action* action)
  */
 void NewResearchListState::onSelectProject(Action *)
 {
+	if (_lstResearch->getSelectedRow() >= _projects.size())
+	{
+		return;
+	}
 	_lstScroll = _lstResearch->getScroll();
 	_game->pushState(new ResearchInfoState(_base, _projects[_lstResearch->getSelectedRow()]));
 }
@@ -185,6 +207,10 @@ void NewResearchListState::onToggleProjectStatus(Action *)
 	if (!Options::oxceHighlightNewTopics && !_isSortingEnabled)
 	{
 		// there are no statuses to toggle
+		return;
+	}
+	if (_lstResearch->getSelectedRow() >= _projects.size())
+	{
 		return;
 	}
 
@@ -216,6 +242,10 @@ void NewResearchListState::onToggleProjectStatus(Action *)
 	{
 		_lstResearch->setRowColor(_lstResearch->getSelectedRow(), _colorNormal);
 	}
+#ifdef __EMSCRIPTEN__
+	if (_hdAdapter != nullptr)
+		_hdAdapter->refresh();
+#endif
 }
 
 /**
@@ -225,6 +255,10 @@ void NewResearchListState::onToggleProjectStatus(Action *)
 void NewResearchListState::onOpenTechTreeViewer(Action *)
 {
 	_lstScroll = _lstResearch->getScroll();
+	if (_lstResearch->getSelectedRow() >= _projects.size())
+	{
+		return;
+	}
 	const RuleResearch *selectedTopic = _projects[_lstResearch->getSelectedRow()];
 	_game->pushState(new TechTreeViewerState(selectedTopic, 0));
 }
@@ -416,6 +450,21 @@ void NewResearchListState::fillProjectList(bool markAllAsSeen)
 		_lstResearch->scrollTo(_lstScroll);
 		_lstScroll = 0;
 	}
+#ifdef __EMSCRIPTEN__
+	if (_hdAdapter != nullptr)
+		_hdAdapter->refresh();
+#endif
 }
 
 }
+
+#ifdef __EMSCRIPTEN__
+namespace OpenXcom
+{
+void NewResearchListState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF09ResearchUi::resize(*this)) return;
+	TouchState::resize(dX, dY);
+}
+}
+#endif

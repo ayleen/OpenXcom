@@ -4,6 +4,7 @@
 #include "CalypsoStrategicNavigation.h"
 
 #include "../Engine/Game.h"
+#include "../Basescape/BasescapeState.h"
 #include "../Geoscape/GeoscapeState.h"
 
 namespace OpenXcom
@@ -34,6 +35,34 @@ void calypsoRequestStrategicRoute(Game *game, CalypsoStrategicRoute route)
 	g_pendingRoute.game = game;
 	g_pendingRoute.save = game->getSavedGame();
 	g_pendingRoute.route = route;
+}
+
+void calypsoNavigateToWorld(Game *game)
+{
+	if (game == nullptr) return;
+	while (game->getTopState() != nullptr
+		&& dynamic_cast<GeoscapeState*>(game->getTopState()) == nullptr)
+		game->popState();
+}
+
+void calypsoNavigateToBases(Game *game)
+{
+	if (game == nullptr) return;
+	while (game->getTopState() != nullptr
+		&& dynamic_cast<BasescapeState*>(game->getTopState()) == nullptr
+		&& dynamic_cast<GeoscapeState*>(game->getTopState()) == nullptr)
+		game->popState();
+	if (dynamic_cast<BasescapeState*>(game->getTopState()) != nullptr)
+		return;
+	if (auto* geoscape = dynamic_cast<GeoscapeState*>(game->getTopState()))
+		geoscape->btnBasesClick(nullptr);
+}
+
+void calypsoNavigateToStrategicRoute(Game *game, CalypsoStrategicRoute route)
+{
+	if (game == nullptr || route == CalypsoStrategicRoute::None) return;
+	calypsoRequestStrategicRoute(game, route);
+	calypsoNavigateToWorld(game);
 }
 
 bool calypsoPollStrategicRoute(GeoscapeState &state)

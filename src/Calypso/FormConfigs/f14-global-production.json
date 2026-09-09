@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "id": "f14-global-production",
+  "familyId": 14,
+  "version": "hd.2026-08-29.1",
+  "archetype": "operations-workspace",
+  "visual": {"shell": "base-operations", "headerArt": "base-manufacture"},
+  "state": "GlobalManufactureState",
+  "labelKeys": {"title": "STR_PRODUCTION_OVERVIEW", "done": "STR_DONE", "openBase": "STR_OPEN_BASE_PRODUCTION", "techTree": "STR_TECH_TREE", "collectionHeading": "STR_CALYPSO_PRODUCTION_ACROSS_ALL_BASES", "collectionMeta": "STR_CALYPSO_FUNDS_VALUE"},
+  "title": "PRODUCTION OVERVIEW",
+  "actions": [{"id": "done", "label": "DONE", "labelKey": "STR_DONE", "tone": "primary", "action": "done"}],
+  "summary": [{"id": "available", "label": "AVAILABLE", "value": "2"}, {"id": "allocated", "label": "ALLOCATED", "value": "184"}, {"id": "workshop-space", "label": "WORKSHOP SPACE", "value": "4"}],
+  "collection": {"mode": "table", "selectionRole": "global-production-line", "heading": "PRODUCTION ACROSS ALL BASES", "meta": "FUNDS $27,550,246", "columns": [{"id": "base", "label": "BASE"}, {"id": "item", "label": "ITEM"}, {"id": "engineers", "label": "ENGINEERS"}, {"id": "produced", "label": "PRODUCED"}, {"id": "cost", "label": "COST"}, {"id": "time-left", "label": "TIME LEFT"}], "items": [{"id": "batumi-maelstrom", "values": ["Batumi", "MAELSTROM Torpedoes", "94", "22 / 40", "$28,000", "4 d 15 h"]}, {"id": "garni-maelstrom", "values": ["Garni", "MAELSTROM Torpedoes", "90", "4 / 20", "$28,000", "4 d 11 h"]}]},
+  "controls": [],
+  "toolbar": [],
+  "detail": {"id": "selected-production", "label": "SELECTED PRODUCTION", "title": "MAELSTROM Torpedoes", "subtitle": "GLOBAL PRODUCTION", "metrics": [{"id": "base", "label": "BASE", "value": "Batumi"}, {"id": "item", "label": "ITEM", "value": "MAELSTROM Torpedoes"}], "actions": [{"id": "open-base-production", "label": "OPEN BASE PRODUCTION", "labelKey": "STR_OPEN_BASE_PRODUCTION", "tone": "primary", "action": "open-base-production"}, {"id": "tech-tree", "label": "TECH TREE", "labelKey": "STR_TECH_TREE", "tone": "normal", "action": "open-tech-tree"}]}
+}

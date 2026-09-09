@@ -5,9 +5,13 @@
 #ifdef __EMSCRIPTEN__
 
 #include "CalypsoHdHarnessHostState.h"
+#include "CalypsoTutorial.h"
 
 #include <SDL.h>
 #include <emscripten.h>
+#include <algorithm>
+#include <vector>
+#include <cstdint>
 #include <string>
 
 #include "../Engine/Game.h"
@@ -16,21 +20,27 @@
 #include "../Interface/Cursor.h"
 #include "../Menu/AbandonGameState.h"
 #include "../Basescape/BaseView.h"
+#include "../Basescape/ManageAlienContainmentState.h"
 #include "../Basescape/BuildFacilitiesState.h"
-#include "../Basescape/BasescapeState.h"
 #include "../Basescape/DismantleFacilityState.h"
 #include "../Basescape/PlaceFacilityState.h"
 #include "../Basescape/SackSoldierState.h"
 #include "../Basescape/SoldierTransformState.h"
 #include "../Basescape/SoldierDiaryOverviewState.h"
+#include "../Basescape/ResearchState.h"
+#include "../Basescape/NewResearchListState.h"
+#include "../Basescape/ResearchInfoState.h"
+#include "../Basescape/ManufactureState.h"
+#include "../Basescape/NewManufactureListState.h"
+#include "../Basescape/ManufactureStartState.h"
 #include "../Basescape/ManufactureInfoState.h"
-#include "../Basescape/ManageAlienContainmentState.h"
-#include "../Basescape/TransferConfirmState.h"
-#include "../Geoscape/CraftErrorState.h"
-#include "../Geoscape/LowFuelState.h"
-#include "../Geoscape/CraftNotEnoughPilotsState.h"
-#include "../Geoscape/DogfightErrorState.h"
+#include "../Basescape/ManufactureDependenciesTreeState.h"
+#include "../Basescape/GlobalResearchState.h"
+#include "../Basescape/GlobalResearchDiaryState.h"
+#include "../Basescape/GlobalManufactureState.h"
+#include "../Basescape/BasescapeState.h"
 #include "../Geoscape/ConfirmLandingState.h"
+#include "../Geoscape/CraftErrorState.h"
 #include "../Geoscape/ConfirmCydoniaState.h"
 #include "../Geoscape/ResearchRequiredState.h"
 #include "../Geoscape/ResearchCompleteState.h"
@@ -38,9 +48,15 @@
 #include "../Geoscape/UfoDetectedState.h"
 #include "../Geoscape/GeoscapeState.h"
 #include "../Geoscape/Globe.h"
+#include "../Mod/RuleResearch.h"
+#include "../Mod/RuleManufacture.h"
+#include "../Mod/RuleItem.h"
 #include "../Mod/RuleAlienMission.h"
-#include "../Savegame/AlienMission.h"
+#include "../Savegame/ResearchProject.h"
+#include "../Savegame/Production.h"
 #include "../Savegame/Ufo.h"
+#include "../Savegame/ItemContainer.h"
+#include "../Savegame/AlienMission.h"
 #include "../Mod/UfoTrajectory.h"
 #include "../Geoscape/TrainingFinishedState.h"
 #include "../Geoscape/ProductionCompleteState.h"
@@ -53,7 +69,6 @@
 #include "../Savegame/Base.h"
 #include "../Savegame/BaseFacility.h"
 #include "../Savegame/SavedGame.h"
-#include <cstdint>
 
 #include "CalypsoAbandonPopupUi.h" // calypsoHdHarnessSetSideBySide (F33 comparison shift)
 
@@ -66,15 +81,16 @@ namespace
 {
 CalypsoHarnessSession g_harnessSession;
 
-/// One active harness run at a time (repeated opens are no-ops).
 struct HarnessSaveLease
 {
     SavedGame *original = nullptr;
     SavedGame *fixture = nullptr;
     std::int64_t originalFunds = 0;
-    // Fixture base owned by the harness (not by its target state): the
+    // Fixture bases owned by the harness (not by their target states): the
     // place-facility target never owns its base, so the lease frees it.
     Base *fixtureBase = nullptr;
+    std::vector<Base*> fixtureBases;
+    bool fixtureBaseInSave = false;
     bool active = false;
 };
 static HarnessSaveLease g_harnessSaveLease;
@@ -103,6 +119,223 @@ void restoreHarnessCursor(Game* game)
 		cursor->setHidden(g_harnessCursorHidden);
 	}
 	g_harnessCursorCaptured = false;
+}
+bool prepareOperationsSave(Game *game)
+{
+	if (!game || !game->getMod()) return false;
+	if (!g_harnessSaveLease.active)
+	{
+		if (game->getSavedGame())
+		{
+			g_harnessSaveLease.original = game->getSavedGame();
+			g_harnessSaveLease.originalFunds = g_harnessSaveLease.original->getFunds();
+		}
+		else
+		{
+			g_harnessSaveLease.fixture = new SavedGame();
+			game->setSavedGame(g_harnessSaveLease.fixture);
+		}
+		g_harnessSaveLease.active = true;
+	}
+	SavedGame *save = game->getSavedGame();
+	if (!save) return false;
+	save->setFunds(27550246);
+	if (save == g_harnessSaveLease.fixture && !save->getDebugMode())
+		save->setDebugMode();
+	return true;
+}
+
+RuleResearch *firstResearchRule(Mod *mod)
+{
+	if (!mod) return nullptr;
+	for (const std::string &name : mod->getResearchList())
+	{
+		if (RuleResearch *rule = mod->getResearch(name, false)) return rule;
+	}
+	return nullptr;
+}
+
+RuleManufacture *firstManufactureRule(Mod *mod)
+{
+	if (!mod) return nullptr;
+	for (const std::string &name : mod->getManufactureList())
+	{
+		if (RuleManufacture *rule = mod->getManufacture(name, false)) return rule;
+	}
+	return nullptr;
+}
+
+RuleResearch *researchRule(Mod *mod, const char *name)
+{
+	if (!mod) return nullptr;
+	if (name)
+	{
+		if (RuleResearch *rule = mod->getResearch(name, false)) return rule;
+	}
+	return firstResearchRule(mod);
+}
+
+RuleManufacture *manufactureRule(Mod *mod, const char *name)
+{
+	if (!mod) return nullptr;
+	if (name)
+	{
+		if (RuleManufacture *rule = mod->getManufacture(name, false)) return rule;
+	}
+	return firstManufactureRule(mod);
+}
+
+void trackFixtureBase(Base *base)
+{
+	if (!base) return;
+	if (!g_harnessSaveLease.fixtureBase) g_harnessSaveLease.fixtureBase = base;
+	g_harnessSaveLease.fixtureBases.push_back(base);
+	g_harnessSaveLease.fixtureBaseInSave = true;
+}
+
+struct OperationsFixture
+{
+	Base *base = nullptr;
+	RuleResearch *research = nullptr;
+	RuleManufacture *manufacture = nullptr;
+	Production *production = nullptr;
+};
+
+Production *addProductionFixture(Base *base, RuleManufacture *rule, int engineers,
+	int amount, int timeSpent)
+{
+	if (!base || !rule) return nullptr;
+	auto *production = new Production(rule, amount);
+	production->setAssignedEngineers(engineers);
+	production->setTimeSpent(timeSpent);
+	base->addProduction(production);
+	return production;
+}
+
+bool addLaboratoryFixture(Base *base, Mod *mod)
+{
+	if (!base || !mod) return false;
+	for (const std::string& name : mod->getBaseFacilitiesList())
+	{
+		const RuleBaseFacility *rule = mod->getBaseFacility(name, false);
+		if (!rule || rule->getLaboratories() < 10) continue;
+		auto *facility = new BaseFacility(rule, base);
+		facility->setBuildTime(0);
+		base->getFacilities()->push_back(facility);
+		return true;
+	}
+	return false;
+}
+
+OperationsFixture makeOperationsFixture(Game *game, bool needResearch, bool needManufacture,
+	const char *researchName = nullptr, const char *manufactureName = nullptr,
+	bool activeResearch = false, bool activeManufacture = false)
+{
+	OperationsFixture fixture;
+	if (!game || !game->getMod()) return fixture;
+	CalypsoTutorial::get().disableForCampaign();
+	fixture.research = researchRule(game->getMod(), researchName);
+	fixture.manufacture = manufactureRule(game->getMod(), manufactureName);
+	if ((needResearch && !fixture.research) || (needManufacture && !fixture.manufacture)
+		|| !prepareOperationsSave(game))
+		return OperationsFixture();
+
+	fixture.base = new Base(game->getMod());
+	fixture.base->setName("Batumi");
+	if (needResearch)
+	{
+		fixture.base->setScientists(0);
+		if (activeResearch && fixture.research)
+		{
+			auto *project = new ResearchProject(fixture.research, fixture.research->getCost());
+			project->setAssigned(100);
+			fixture.base->addResearch(project);
+		}
+	}
+	if (needManufacture)
+	{
+		fixture.base->setEngineers(2);
+		if (activeManufacture && fixture.manufacture)
+			fixture.production = addProductionFixture(
+				fixture.base, fixture.manufacture, 94, 40, 13600);
+	}
+	if (manufactureName && std::string(manufactureName) == "STR_MANTIS_PROJECTOR")
+	{
+		if (RuleItem *ichor = game->getMod()->getItem("STR_ICHOR", false))
+			fixture.base->getStorageItems()->addItem(ichor, 1188);
+	}
+	game->getSavedGame()->getBases()->push_back(fixture.base);
+	trackFixtureBase(fixture.base);
+	return fixture;
+}
+
+OperationsFixture makeGlobalManufactureFixture(Game *game)
+{
+	OperationsFixture fixture;
+	if (!game || !game->getMod()) return fixture;
+	CalypsoTutorial::get().disableForCampaign();
+	fixture.manufacture = manufactureRule(game->getMod(), "STR_MAELSTROM_TORPEDOES");
+	if (!fixture.manufacture || !prepareOperationsSave(game)) return OperationsFixture();
+
+	Base *batumi = new Base(game->getMod());
+	batumi->setName("Batumi");
+	batumi->setEngineers(2);
+	addProductionFixture(batumi, fixture.manufacture, 94, 40, 13600);
+	Base *garni = new Base(game->getMod());
+	garni->setName("Garni");
+	addProductionFixture(garni, fixture.manufacture, 90, 20, 2400);
+	game->getSavedGame()->getBases()->push_back(batumi);
+	game->getSavedGame()->getBases()->push_back(garni);
+	trackFixtureBase(batumi);
+	trackFixtureBase(garni);
+	fixture.base = batumi;
+	return fixture;
+}
+bool populateDiaryFixture(Game *game)
+{
+	if (!game || !game->getMod()) return false;
+	CalypsoTutorial::get().disableForCampaign();
+	if (game->getSavedGame() && !game->getSavedGame()->getResearchDiary().empty())
+		return prepareOperationsSave(game);
+	const unsigned dates[][3] = {
+		{2040, 9, 28}, {2040, 9, 28}, {2040, 8, 14}, {2040, 7, 21}
+	};
+	const std::vector<std::string> &names = game->getMod()->getResearchList();
+	std::vector<RuleResearch *> rules;
+	rules.reserve(4);
+	for (const std::string &name : names)
+	{
+		if (RuleResearch *rule = game->getMod()->getResearch(name, false))
+			rules.push_back(rule);
+		if (rules.size() == 4) break;
+	}
+	if (rules.size() != 4) return false;
+	if (!prepareOperationsSave(game)) return false;
+	SavedGame *save = game->getSavedGame();
+	for (int i = 0; i < 4; ++i)
+	{
+		auto *entry = new ResearchDiaryEntry(rules[i]);
+		entry->year = dates[i][0];
+		entry->month = dates[i][1];
+		entry->day = dates[i][2];
+		entry->source.type = DiscoverySourceType::BASE;
+		entry->source.name = "Batumi";
+		entry->source.research = nullptr;
+		entry->source.event = nullptr;
+		entry->source.mission = nullptr;
+		save->addResearchDiaryEntry(entry);
+	}
+	return true;
+}
+
+std::string dependencyItem(const RuleManufacture *rule)
+{
+	if (!rule) return std::string();
+	if (!rule->getRequiredItems().empty())
+		return rule->getRequiredItems().begin()->first->getType();
+	if (!rule->getProducedItems().empty())
+		return rule->getProducedItems().begin()->first->getType();
+	return rule->getName();
 }
 
 } // namespace
@@ -338,12 +571,88 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 		return new CraftErrorState(nullptr, "New diary entry has been recorded.");
 	case CalypsoHarnessScenario::F12TransferConfirm:
 		return new CraftErrorState(nullptr, "Confirm transfer of selected items?");
-	case CalypsoHarnessScenario::F10ManufactureCheck:
-		return new CraftErrorState(nullptr, "Manufacture requirements check.");
 	case CalypsoHarnessScenario::F13Containment:
-		return new CraftErrorState(nullptr, "Alien containment overview.");
+	{
+		OperationsFixture fixture = makeOperationsFixture(getCurrentGame(), false, false);
+		return fixture.base ? new ManageAlienContainmentState(fixture.base, 0, OPT_GEOSCAPE) : nullptr;
+	}
 	case CalypsoHarnessScenario::F24ItemsArriving:
-		return new CraftErrorState(nullptr, "Incoming transfer at base.");
+	{
+		Game *game = getCurrentGame();
+		if (!game || !game->getMod() || !prepareOperationsSave(game)) return nullptr;
+		// ItemsArrivingState reads the campaign transfer queues during
+		// construction; the empty deterministic save is a valid no-arrivals
+		// fixture and keeps the native route available.
+		GeoscapeState *geoscape = new GeoscapeState();
+		return new ItemsArrivingState(geoscape);
+	}
+	case CalypsoHarnessScenario::F09ResearchQueue:
+	{
+		OperationsFixture fixture = makeOperationsFixture(getCurrentGame(), false, false);
+		return fixture.base ? new ResearchState(fixture.base) : nullptr;
+	}
+	case CalypsoHarnessScenario::F09ResearchCatalogue:
+	{
+		OperationsFixture fixture = makeOperationsFixture(getCurrentGame(), false, false);
+		return fixture.base ? new NewResearchListState(fixture.base, true) : nullptr;
+	}
+	case CalypsoHarnessScenario::F09ResearchStaffing:
+	{
+		OperationsFixture fixture = makeOperationsFixture(getCurrentGame(), true, false,
+			"STR_MAELSTROM_BATTERY", nullptr, false, false);
+		if (fixture.base)
+		{
+			fixture.base->setScientists(10);
+			if (!addLaboratoryFixture(fixture.base, getCurrentGame()->getMod()))
+				return nullptr;
+		}
+		return fixture.base ? new ResearchInfoState(fixture.base, fixture.research) : nullptr;
+	}
+	case CalypsoHarnessScenario::F10ProductionQueue:
+	{
+		OperationsFixture fixture = makeOperationsFixture(getCurrentGame(), false, false);
+		return fixture.base ? new ManufactureState(fixture.base) : nullptr;
+	}
+	case CalypsoHarnessScenario::F10ProductionCatalogue:
+	{
+		OperationsFixture fixture = makeOperationsFixture(getCurrentGame(), false, true,
+			nullptr, "STR_MAELSTROM_TORPEDOES", false, false);
+		return fixture.base ? new NewManufactureListState(fixture.base) : nullptr;
+	}
+	case CalypsoHarnessScenario::F10ProductionRequirements:
+	{
+		OperationsFixture fixture = makeOperationsFixture(getCurrentGame(), false, true,
+			nullptr, "STR_MANTIS_PROJECTOR", false, false);
+		return fixture.base ? new ManufactureStartState(fixture.base, fixture.manufacture) : nullptr;
+	}
+	case CalypsoHarnessScenario::F10ProductionControls:
+	{
+		OperationsFixture fixture = makeOperationsFixture(getCurrentGame(), false, true,
+			nullptr, "STR_MAELSTROM_TORPEDOES", false, true);
+		return fixture.production
+			? new ManufactureInfoState(fixture.base, fixture.production) : nullptr;
+	}
+	case CalypsoHarnessScenario::F10ProductionDependencies:
+	{
+		OperationsFixture fixture = makeOperationsFixture(getCurrentGame(), false, true,
+			nullptr, "STR_MAELSTROM_TORPEDOES", false, false);
+		return fixture.base ? new ManufactureDependenciesTreeState(dependencyItem(fixture.manufacture)) : nullptr;
+	}
+	case CalypsoHarnessScenario::F14GlobalResearch:
+	{
+		OperationsFixture fixture = makeOperationsFixture(getCurrentGame(), true, false,
+			"STR_DECANTED_CORPSE", nullptr, true, false);
+		return fixture.base ? new GlobalResearchState(true) : nullptr;
+	}
+	case CalypsoHarnessScenario::F14ResearchDiary:
+	{
+		return populateDiaryFixture(getCurrentGame()) ? new GlobalResearchDiaryState() : nullptr;
+	}
+	case CalypsoHarnessScenario::F14GlobalProduction:
+	{
+		OperationsFixture fixture = makeGlobalManufactureFixture(getCurrentGame());
+		return fixture.base ? new GlobalManufactureState(true) : nullptr;
+	}
 	default:
 		break;
 	}
@@ -442,34 +751,67 @@ bool calypsoHdHarnessOpen(CalypsoHarnessScenario id, CalypsoLayoutClass layout,
 void calypsoHdHarnessClose()
 {
 	restoreHarnessCursor(getCurrentGame());
-	// Restore original SavedGame state for F03 fixture isolation - lease pattern, no double-free
-	if (g_harnessSaveLease.active) {
-		if (Game* g = getCurrentGame()) {
-			SavedGame* current = g->getSavedGame();
-			if (g_harnessSaveLease.fixture) {
-				// Fixture was created - it is current save, just clear it via setSavedGame (which deletes)
-				if (current == g_harnessSaveLease.fixture) {
+	// Restore original SavedGame state for harness fixtures without deleting
+	// campaign-owned data. Operation fixtures are removed from an existing
+	// save before the lease frees them; a fixture save owns its own base.
+	if (g_harnessSaveLease.active)
+	{
+		bool fixtureBaseOwnedBySave = false;
+		if (Game *g = getCurrentGame())
+		{
+			SavedGame *current = g->getSavedGame();
+			if (g_harnessSaveLease.fixture)
+			{
+				if (current == g_harnessSaveLease.fixture)
+				{
+					fixtureBaseOwnedBySave = g_harnessSaveLease.fixtureBaseInSave;
 					g->setSavedGame(g_harnessSaveLease.original);
-				} else if (current && current != g_harnessSaveLease.original) {
-					// Unexpected pointer changed externally - do not delete old lease pointers, just clear lease
-					// to avoid dangling. Log and continue.
+				}
+				else if (current && current != g_harnessSaveLease.original)
+				{
 					Log(LOG_WARNING) << "HarnessSaveLease: unexpected SavedGame pointer change";
 				}
-				// If we had an original save, restore its funds
-				if (g_harnessSaveLease.original) {
+				if (g_harnessSaveLease.original)
 					g_harnessSaveLease.original->setFunds(g_harnessSaveLease.originalFunds);
-				}
-			} else if (g_harnessSaveLease.original) {
-				// Existing save was kept - just restore funds if current is still original
-				if (current == g_harnessSaveLease.original) {
+			}
+			else if (g_harnessSaveLease.original)
+			{
+				if (current == g_harnessSaveLease.original)
+				{
+					if (!g_harnessSaveLease.fixtureBases.empty())
+					{
+						auto *bases = current->getBases();
+						for (Base *fixtureBase : g_harnessSaveLease.fixtureBases)
+						{
+							auto it = std::find(bases->begin(), bases->end(), fixtureBase);
+							if (it != bases->end()) bases->erase(it);
+						}
+					}
+					else if (g_harnessSaveLease.fixtureBase)
+					{
+						auto *bases = current->getBases();
+						auto it = std::find(bases->begin(), bases->end(), g_harnessSaveLease.fixtureBase);
+						if (it != bases->end()) bases->erase(it);
+					}
 					current->setFunds(g_harnessSaveLease.originalFunds);
-				} else {
+				}
+				else
+				{
 					Log(LOG_WARNING) << "HarnessSaveLease: original save pointer changed";
 				}
 			}
 		}
-		delete g_harnessSaveLease.fixtureBase;
-		g_harnessSaveLease.fixtureBase = nullptr;
+		if (!fixtureBaseOwnedBySave)
+		{
+			if (!g_harnessSaveLease.fixtureBases.empty())
+			{
+				for (Base *fixtureBase : g_harnessSaveLease.fixtureBases) delete fixtureBase;
+			}
+			else
+			{
+				delete g_harnessSaveLease.fixtureBase;
+			}
+		}
 		g_harnessSaveLease = HarnessSaveLease();
 	}
 	calypsoHarnessClose(calypsoHarnessSession());

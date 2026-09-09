@@ -17,6 +17,9 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "ResearchInfoState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF09ResearchUi.h"
+#endif
 #include "../Engine/Action.h"
 #include "../Engine/Game.h"
 #include "../Mod/Mod.h"
@@ -44,16 +47,8 @@ namespace OpenXcom
  * @param base Pointer to the base to get info from.
  * @param rule A RuleResearch which will be used to create a new ResearchProject
  */
-ResearchInfoState::ResearchInfoState(Base *base, RuleResearch *rule) : _base(base), _project(nullptr), _rule(rule)
+ResearchInfoState::ResearchInfoState(Base *base, RuleResearch *rule) : _base(base), _project(new ResearchProject(rule)), _rule(rule), _transaction(true)
 {
-	int rng = RNG::generate(50, 150);
-	int randomizedCost = rule->getCost() * rng / 100;
-	if (rule->getCost() > 0)
-	{
-		randomizedCost = std::max(1, randomizedCost);
-	}
-	_project = new ResearchProject(rule, randomizedCost);
-
 	buildUi();
 }
 
@@ -63,7 +58,7 @@ ResearchInfoState::ResearchInfoState(Base *base, RuleResearch *rule) : _base(bas
  * @param base Pointer to the base to get info from.
  * @param project A ResearchProject to modify
  */
-ResearchInfoState::ResearchInfoState(Base *base, ResearchProject *project) : _base(base), _project(project), _rule(0)
+ResearchInfoState::ResearchInfoState(Base *base, ResearchProject *project) : _base(base), _project(project), _rule(0), _transaction(false)
 {
 	buildUi();
 }
@@ -125,22 +120,7 @@ void ResearchInfoState::buildUi()
 	_txtMore->setBig();
 	_txtLess->setBig();
 
-	if (_rule)
-	{
-		_base->addResearch(_project);
-		if (_rule->isHoldingNeededItem())
-		{
-			_base->getStorageItems()->removeItem(_rule->getNeededItem(), 1);
-		}
-	}
 	setAssignedScientist();
-	_btnMore->onMousePress((ActionHandler)&ResearchInfoState::morePress);
-	_btnMore->onMouseRelease((ActionHandler)&ResearchInfoState::moreRelease);
-	_btnMore->onMouseClick((ActionHandler)&ResearchInfoState::moreClick, 0);
-	_btnLess->onMousePress((ActionHandler)&ResearchInfoState::lessPress);
-	_btnLess->onMouseRelease((ActionHandler)&ResearchInfoState::lessRelease);
-	_btnLess->onMouseClick((ActionHandler)&ResearchInfoState::lessClick, 0);
-
 	_timerMore = new Timer(250);
 	_timerMore->onTimer((StateHandler)&ResearchInfoState::more);
 	_timerLess = new Timer(250);
@@ -162,18 +142,78 @@ void ResearchInfoState::buildUi()
 	}
 	_btnCancel->onMouseClick((ActionHandler)&ResearchInfoState::btnCancelClick);
 
-	if (_rule)
+	_btnMore->onMousePress((ActionHandler)&ResearchInfoState::morePress);
+	_btnMore->onMouseRelease((ActionHandler)&ResearchInfoState::moreRelease);
+	_btnMore->onMouseClick((ActionHandler)&ResearchInfoState::moreClick, 0);
+	_btnLess->onMousePress((ActionHandler)&ResearchInfoState::lessPress);
+	_btnLess->onMouseRelease((ActionHandler)&ResearchInfoState::lessRelease);
+	_btnLess->onMouseClick((ActionHandler)&ResearchInfoState::lessClick, 0);
+
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF09ResearchUi::configure(*this);
+#endif
+}
+void ResearchInfoState::cancelPreview()
+{
+	if (!_transaction.pending())
 	{
-		// mark new/hidden as normal
-		_game->getSavedGame()->setResearchRuleStatus(_rule->getName(), RuleResearch::RESEARCH_STATUS_NORMAL);
+		return;
 	}
+	if (!_transaction.cancel().applied)
+	{
+		return;
+	}
+
+	delete _project;
+	_project = nullptr;
+	_rule = nullptr;
 }
 
-/**
- * Frees up memory that's not automatically cleaned on exit
- */
+void ResearchInfoState::commitPreview()
+{
+	if (!_transaction.pending())
+	{
+		return;
+	}
+	const auto transition = _transaction.start();
+	if (!transition.applied)
+	{
+		return;
+	}
+	_base->setScientists(_base->getScientists() - transition.assigned);
+	RuleResearch *rule = _rule;
+	ResearchProject *preview = _project;
+	int rng = RNG::generate(50, 150);
+	int randomizedCost = rule->getCost() * rng / 100;
+	if (rule->getCost() > 0)
+	{
+		randomizedCost = std::max(1, randomizedCost);
+	}
+
+	ResearchProject *project = new ResearchProject(rule, randomizedCost);
+	project->setAssigned(transition.assigned);
+	_base->addResearch(project);
+	if (rule->isHoldingNeededItem())
+	{
+		_base->getStorageItems()->removeItem(rule->getNeededItem(), 1);
+	}
+	_game->getSavedGame()->setResearchRuleStatus(rule->getName(), RuleResearch::RESEARCH_STATUS_NORMAL);
+
+	delete preview;
+	_project = project;
+	_rule = nullptr;
+}
+
 ResearchInfoState::~ResearchInfoState()
 {
+	if (_transaction.pending())
+	{
+		cancelPreview();
+	}
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 	delete _timerLess;
 	delete _timerMore;
 }
@@ -184,6 +224,10 @@ ResearchInfoState::~ResearchInfoState()
  */
 void ResearchInfoState::btnOkClick(Action *)
 {
+	if (_transaction.pending())
+	{
+		commitPreview();
+	}
 	_game->popState();
 }
 
@@ -194,7 +238,15 @@ void ResearchInfoState::btnOkClick(Action *)
  */
 void ResearchInfoState::btnCancelClick(Action *)
 {
-	_base->removeResearch(_project);
+	if (_transaction.pending())
+	{
+		cancelPreview();
+	}
+	else if (_project)
+	{
+		_base->removeResearch(_project);
+		_project = nullptr;
+	}
 	_game->popState();
 }
 
@@ -203,34 +255,43 @@ void ResearchInfoState::btnCancelClick(Action *)
  */
 void ResearchInfoState::setAssignedScientist()
 {
-	_txtAvailableScientist->setText(tr("STR_SCIENTISTS_AVAILABLE_UC").arg(_base->getAvailableScientists()));
-	_txtAvailableSpace->setText(tr("STR_LABORATORY_SPACE_AVAILABLE_UC").arg(_base->getFreeLaboratories()));
+	int availableScientist = _base->getAvailableScientists();
+	if (_transaction.pending())
+	{
+		availableScientist -= _transaction.assigned();
+	}
+	_txtAvailableScientist->setText(tr("STR_SCIENTISTS_AVAILABLE_UC").arg(availableScientist));
+	int freeSpaceLab = _base->getFreeLaboratories();
+	if (_transaction.pending())
+	{
+		freeSpaceLab -= _transaction.assigned();
+	}
+	_txtAvailableSpace->setText(tr("STR_LABORATORY_SPACE_AVAILABLE_UC").arg(freeSpaceLab));
 	_txtAllocatedScientist->setText(tr("STR_SCIENTISTS_ALLOCATED").arg(_project->getAssigned()));
+#ifdef __EMSCRIPTEN__
+	if (_hdAdapter != nullptr)
+		_hdAdapter->refresh();
+#endif
 }
 
 /**
  * Increases or decreases the scientists according the mouse-wheel used.
- * @param action Pointer to an Action.
+ * @param action Pointer to an action.
  */
 void ResearchInfoState::handleWheel(Action *action)
 {
 	if (action->getDetails()->button.button == SDL_BUTTON_WHEELUP) moreByValue(Options::changeValueByMouseWheel);
 	else if (action->getDetails()->button.button == SDL_BUTTON_WHEELDOWN) lessByValue(Options::changeValueByMouseWheel);
 }
-
 /**
  * Starts the timeMore timer.
- * @param action Pointer to an Action.
+ * @param action Pointer to an action.
  */
 void ResearchInfoState::morePress(Action *action)
 {
 	if (action->getDetails()->button.button == SDL_BUTTON_LEFT) _timerMore->start();
 }
 
-/**
- * Stops the timeMore timer.
- * @param action Pointer to an Action.
- */
 void ResearchInfoState::moreRelease(Action *action)
 {
 	if (action->getDetails()->button.button == SDL_BUTTON_LEFT)
@@ -288,6 +349,16 @@ void ResearchInfoState::lessClick(Action *action)
 		lessByValue(1);
 }
 
+void ResearchInfoState::allAvailableClick(Action *)
+{
+	moreByValue(INT_MAX);
+}
+
+void ResearchInfoState::removeAllClick(Action *)
+{
+	lessByValue(INT_MAX);
+}
+
 /**
  * Adds one scientist to the project if possible.
  */
@@ -306,11 +377,23 @@ void ResearchInfoState::moreByValue(int change)
 	if (0 >= change) return;
 	int freeScientist = _base->getAvailableScientists();
 	int freeSpaceLab = _base->getFreeLaboratories();
+	if (_transaction.pending())
+	{
+		freeScientist -= _transaction.assigned();
+		freeSpaceLab -= _transaction.assigned();
+	}
 	if (freeScientist > 0 && freeSpaceLab > 0)
 	{
 		change = std::min(std::min(freeScientist, freeSpaceLab), change);
 		_project->setAssigned(_project->getAssigned()+change);
-		_base->setScientists(_base->getScientists()-change);
+		if (_transaction.pending())
+		{
+			_transaction.setAssigned(_project->getAssigned());
+		}
+		else
+		{
+			_base->setScientists(_base->getScientists()-change);
+		}
 		setAssignedScientist();
 	}
 }
@@ -336,7 +419,14 @@ void ResearchInfoState::lessByValue(int change)
 	{
 		change = std::min(assigned, change);
 		_project->setAssigned(assigned-change);
-		_base->setScientists(_base->getScientists()+change);
+		if (_transaction.pending())
+		{
+			_transaction.setAssigned(_project->getAssigned());
+		}
+		else
+		{
+			_base->setScientists(_base->getScientists()+change);
+		}
 		setAssignedScientist();
 	}
 }
@@ -353,3 +443,14 @@ void ResearchInfoState::think()
 }
 
 }
+
+#ifdef __EMSCRIPTEN__
+namespace OpenXcom
+{
+void ResearchInfoState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF09ResearchUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+}
+#endif
