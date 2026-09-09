@@ -159,19 +159,22 @@ CalypsoF10ProductionUi::CalypsoF10ProductionUi(NewManufactureListState *state)
 	_renderer->setModelProvider([this]() { syncGeometry(); return buildModel(); });
 }
 CalypsoF10ProductionUi::CalypsoF10ProductionUi(ManufactureStartState *state)
-	: _kind(Kind::Requirements), _requirements(state)
+	: _kind(Kind::Requirements), _requirements(state),
+	  _chrome(new CalypsoHdOperationsChrome(*state))
 {
 	_renderer = new CalypsoHdOperationsRenderer(state, CalypsoHdOperationsModel{});
 	_renderer->setModelProvider([this]() { syncGeometry(); return buildModel(); });
 }
 CalypsoF10ProductionUi::CalypsoF10ProductionUi(ManufactureInfoState *state)
-	: _kind(Kind::Controls), _controls(state)
+	: _kind(Kind::Controls), _controls(state),
+	  _chrome(new CalypsoHdOperationsChrome(*state))
 {
 	_renderer = new CalypsoHdOperationsRenderer(state, CalypsoHdOperationsModel{});
 	_renderer->setModelProvider([this]() { syncGeometry(); return buildModel(); });
 }
 CalypsoF10ProductionUi::CalypsoF10ProductionUi(ManufactureDependenciesTreeState *state)
-	: _kind(Kind::Dependencies), _dependencies(state)
+	: _kind(Kind::Dependencies), _dependencies(state),
+	  _chrome(new CalypsoHdOperationsChrome(*state))
 {
 	_renderer = new CalypsoHdOperationsRenderer(state, CalypsoHdOperationsModel{});
 	_renderer->setModelProvider([this]() { syncGeometry(); return buildModel(); });
@@ -189,6 +192,7 @@ void CalypsoF10ProductionUi::configure(TYPE &state) \
 	if (state._hdAdapter) return; \
 	if (!calypsoHdOperationsRouteEnabled(state._game, "F10")) \
 	{ state._hdLayout = false; return; } \
+	state._screen = true; \
 	state._hdLayout = true; state._hdWideLayout = Options::baseXResolution >= 1000; \
 	auto *adapter = new CalypsoF10ProductionUi(&state); state._hdAdapter = adapter; \
 	CalypsoHdUiOverlay::instance().registerAdapter(adapter->_renderer); adapter->refresh(); \
@@ -353,7 +357,7 @@ void CalypsoF10ProductionUi::applyRequirementsGeometry()
 	const auto *g = CalypsoF10ProductionRequirementsGen::layoutForDesign(
 		wide ? 1280 : 740, wide ? 720 : 360);
 	if (!g) return;
-	setWindow(_requirements->_window, g->window);
+	setOperationsWindow(_requirements->_window, g->window);
 	const int wx = _requirements->_window->getX(), wy = _requirements->_window->getY();
 	const double sx = static_cast<double>(_requirements->_window->getWidth()) / g->window.w;
 	const double sy = static_cast<double>(_requirements->_window->getHeight()) / g->window.h;
@@ -386,7 +390,7 @@ void CalypsoF10ProductionUi::applyControlsGeometry()
 	const bool wide = _controls->_hdWideLayout;
 	const auto *g = CalypsoF10ProductionControlsGen::layoutForDesign(wide ? 1280 : 740, wide ? 720 : 360);
 	if (!g) return;
-	setWindow(_controls->_window, g->window);
+	setOperationsWindow(_controls->_window, g->window);
 	const int wx = _controls->_window->getX(), wy = _controls->_window->getY();
 	const double sx = static_cast<double>(_controls->_window->getWidth()) / g->window.w;
 	const double sy = static_cast<double>(_controls->_window->getHeight()) / g->window.h;
@@ -418,7 +422,7 @@ void CalypsoF10ProductionUi::applyDependenciesGeometry()
 	const auto *g = CalypsoF10ProductionDependenciesGen::layoutForDesign(
 		wide ? 1280 : 740, wide ? 720 : 360);
 	if (!g) return;
-	setWindow(_dependencies->_window, g->window);
+	setOperationsWindow(_dependencies->_window, g->window);
 	const int wx = _dependencies->_window->getX(), wy = _dependencies->_window->getY();
 	const double sx = static_cast<double>(_dependencies->_window->getWidth()) / g->window.w;
 	const double sy = static_cast<double>(_dependencies->_window->getHeight()) / g->window.h;
@@ -719,11 +723,14 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildRequirementsModel() const
 	const auto tr = [this](const std::string &key) { return _requirements->tr(key); };
 	const bool wide = _requirements->_hdWideLayout; const auto *g = CalypsoF10ProductionRequirementsGen::layoutForDesign(wide ? 1280 : 740, wide ? 720 : 360);
 	if (!g) return model;
-	const int wx = _requirements->_window->getX(), wy = _requirements->_window->getY(); const double sx = static_cast<double>(_requirements->_window->getWidth()) / g->window.w; const double sy = static_cast<double>(_requirements->_window->getHeight()) / g->window.h;
-	auto p = [&](const auto &r) { return projectRect(r, wx, wy, sx, sy, g->window.x, g->window.y); };
+	auto p = [&](const auto &r) {
+		return CalypsoHdOperationsRect{r.x, r.y, r.w, r.h};
+	};
 	model.archetype = CalypsoHdOperationsArchetype::WideDetail;
 	model.familyId = 10;
 	model.ownerState = _requirements;
+	model.visualShell = CalypsoF10ProductionRequirementsGen::kVisualShell;
+	model.headerArtId = CalypsoF10ProductionRequirementsGen::kHeaderArt;
 	model.title = _requirements->_txtTitle->getText();
 	model.suppressedWidgets = {
 		_requirements->_window, _requirements->_btnCancel, _requirements->_btnStart,
@@ -736,6 +743,8 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildRequirementsModel() const
 	model.geometry.window = p(g->window);
 	model.geometry.status = p(g->status);
 	model.geometry.title = p(g->title);
+	model.geometry.screenHeader = p(g->status);
+	model.geometry.headerArt = p(g->headerArt);
 	model.geometry.controlBar = p(g->controlBar);
 	model.geometry.footer = p(g->footer);
 	CalypsoHdOperationsRegion requirements;
@@ -825,16 +834,14 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildControlsModel() const
 	const auto *g = CalypsoF10ProductionControlsGen::layoutForDesign(
 		wide ? 1280 : 740, wide ? 720 : 360);
 	if (!g) return model;
-	const int wx = _controls->_window->getX();
-	const int wy = _controls->_window->getY();
-	const double sx = static_cast<double>(_controls->_window->getWidth()) / g->window.w;
-	const double sy = static_cast<double>(_controls->_window->getHeight()) / g->window.h;
 	auto p = [&](const auto &r) {
-		return projectRect(r, wx, wy, sx, sy, g->window.x, g->window.y);
+		return CalypsoHdOperationsRect{r.x, r.y, r.w, r.h};
 	};
 	model.archetype = CalypsoHdOperationsArchetype::WideDetail;
 	model.familyId = 10;
 	model.ownerState = _controls;
+	model.visualShell = CalypsoF10ProductionControlsGen::kVisualShell;
+	model.headerArtId = CalypsoF10ProductionControlsGen::kHeaderArt;
 	model.title = _controls->_txtTitle->getText();
 	model.suppressedWidgets = {
 		_controls->_window, _controls->_txtTitle, _controls->_txtAvailableEngineer,
@@ -852,6 +859,8 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildControlsModel() const
 	model.geometry.window = p(g->window);
 	model.geometry.status = p(g->status);
 	model.geometry.title = p(g->title);
+	model.geometry.screenHeader = p(g->status);
+	model.geometry.headerArt = p(g->headerArt);
 	model.geometry.controlBar = p(g->controlBar);
 	model.geometry.footer = p(g->footer);
 	model.geometry.detailPanel = p(g->region_result);
@@ -947,18 +956,6 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildControlsModel() const
 	sell.actions.push_back(action("minimum", tr("STR_CALYPSO_MINIMUM"),
 		p(g->region_sell_action_slot_4), _controls->_btnUnitMinimum,
 		_controls->_btnUnitMinimum->getVisible()));
-	sell.actions.push_back(action("sell-slot-5", "", p(g->region_sell_action_slot_5),
-		nullptr, false));
-	sell.actions.push_back(action("sell-slot-6", "", p(g->region_sell_action_slot_6),
-		nullptr, false));
-	sell.actions.push_back(action("sell-slot-7", "", p(g->region_sell_action_slot_7),
-		nullptr, false));
-	sell.actions.push_back(action("sell-slot-8", "", p(g->region_sell_action_slot_8),
-		nullptr, false));
-	sell.actions.push_back(action("sell-slot-9", "", p(g->region_sell_action_slot_9),
-		nullptr, false));
-	sell.actions.push_back(action("sell-slot-10", "", p(g->region_sell_action_slot_10),
-		nullptr, false));
 	model.regions.push_back(std::move(sell));
 
 	model.footerActions.push_back(action("stop-production", _controls->_btnStop->getText(),
@@ -978,21 +975,22 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildDependenciesModel() const
 	const auto *g = CalypsoF10ProductionDependenciesGen::layoutForDesign(
 		wide ? 1280 : 740, wide ? 720 : 360);
 	if (!g) return model;
-	const int wx = _dependencies->_window->getX(), wy = _dependencies->_window->getY();
-	const double sx = static_cast<double>(_dependencies->_window->getWidth()) / g->window.w;
-	const double sy = static_cast<double>(_dependencies->_window->getHeight()) / g->window.h;
 	auto p = [&](const auto &r) {
-		return projectRect(r, wx, wy, sx, sy, g->window.x, g->window.y);
+		return CalypsoHdOperationsRect{r.x, r.y, r.w, r.h};
 	};
 	model.archetype = CalypsoHdOperationsArchetype::WideDetail;
 	model.familyId = 10;
 	model.ownerState = _dependencies;
+	model.visualShell = CalypsoF10ProductionDependenciesGen::kVisualShell;
+	model.headerArtId = CalypsoF10ProductionDependenciesGen::kHeaderArt;
 	model.title = _dependencies->_txtTitle->getText();
 	model.geometry.designWidth = g->designWidth;
 	model.geometry.designHeight = g->designHeight;
 	model.geometry.window = p(g->window);
 	model.geometry.status = p(g->status);
 	model.geometry.title = p(g->title);
+	model.geometry.screenHeader = p(g->status);
+	model.geometry.headerArt = p(g->headerArt);
 	model.geometry.controlBar = p(g->controlBar);
 	model.geometry.footer = p(g->footer);
 	model.suppressedWidgets = {

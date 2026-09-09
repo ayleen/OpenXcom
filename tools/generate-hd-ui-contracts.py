@@ -264,8 +264,8 @@ def validate_registry(registry):
     allowed_profiles = {"theme", "legacy-abandon", "family", "command-card",
                         "small-confirmation", "contact-decision",
                         "contact-intel-board", "content-block", "screen",
-                        "selection-list", "operations-workspace", "tabbed-management",
-                        "wide-detail"}
+                        "selection-list", "operations-workspace", "operations-detail",
+                        "tabbed-management", "wide-detail"}
     for index, entry in enumerate(entries):
         where = "hd-ui-contracts.json: entries[" + str(index) + "]"
         if not isinstance(entry, dict):
@@ -1292,14 +1292,14 @@ def emit_family_h(doc, rel, ns, prefix, profile):
            "#include <cstdint>",
            "namespace OpenXcom { namespace Calypso { namespace " + ns + " {",
            'inline constexpr const char* kContractVersion = "' + doc["version"] + '";']
-    if profile in {"operations-workspace", "wide-detail"}:
+    if profile in {"operations-workspace", "operations-detail", "wide-detail"}:
         out += [
             'inline constexpr const char* kFormId = "' + form_id + '";',
             "inline constexpr int kFamilyId = " + str(family_id) + ";",
             'inline constexpr const char* kArchetype = "' + archetype + '";',
             'inline constexpr const char* kNativeState = "' + native_state + '";',
         ]
-        if profile == "operations-workspace":
+        if profile in {"operations-workspace", "operations-detail"}:
             visual = form.get("visual") or {}
             out += [
                 'inline constexpr const char* kVisualShell = "' + visual.get("shell", "") + '";',

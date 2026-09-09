@@ -4,7 +4,7 @@
   "form": {
     "id": "f10-production-controls",
     "familyId": 10,
-    "archetype": "wide-detail",
+    "archetype": "operations-detail",
     "source": "FormConfigs/f10-production-controls.json",
     "actions": [
       {
@@ -110,7 +110,15 @@
         "maximum": 40,
         "action": "adjust-units"
       }
-    ]
+    ],
+    "visual": {
+      "shell": "base-operations",
+      "headerArt": "base-manufacture"
+    },
+    "sharedChrome": {
+      "id": "base-command-shell",
+      "version": "hd.2026-09-07.1"
+    }
   },
   "copy": {
     "title": "MAELSTROM Torpedoes",
@@ -200,40 +208,40 @@
       "designWidth": 1280,
       "designHeight": 720,
       "window": {
-        "x": 60,
-        "y": 20,
-        "width": 1160,
-        "height": 690
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 720
       },
       "status": {
-        "x": 60,
-        "y": 20,
-        "width": 1160,
-        "height": 36
+        "x": 112,
+        "y": 96,
+        "width": 1144,
+        "height": 78
       },
       "title": {
-        "x": 92,
-        "y": 72,
-        "width": 680,
-        "height": 48
+        "x": 130,
+        "y": 114,
+        "width": 480,
+        "height": 36
       },
       "controlBar": {
         "x": 788,
-        "y": 72,
-        "width": 400,
-        "height": 48
+        "y": 113,
+        "width": 450,
+        "height": 44
       },
       "controls": {
         "engineers": {
           "x": 788,
-          "y": 74,
-          "width": 190,
+          "y": 113,
+          "width": 220,
           "height": 44
         },
         "units": {
-          "x": 988,
-          "y": 74,
-          "width": 190,
+          "x": 1018,
+          "y": 113,
+          "width": 220,
           "height": 44
         }
       },
@@ -241,142 +249,142 @@
         "engineers": {
           "decrement": {
             "x": 788,
-            "y": 74,
+            "y": 113,
             "width": 44,
             "height": 44
           },
           "value": {
             "x": 832,
-            "y": 74,
-            "width": 102,
+            "y": 113,
+            "width": 132,
             "height": 44
           },
           "increment": {
-            "x": 934,
-            "y": 74,
+            "x": 964,
+            "y": 113,
             "width": 44,
             "height": 44
           }
         },
         "units": {
           "decrement": {
-            "x": 988,
-            "y": 74,
+            "x": 1018,
+            "y": 113,
             "width": 44,
             "height": 44
           },
           "value": {
-            "x": 1032,
-            "y": 74,
-            "width": 102,
+            "x": 1062,
+            "y": 113,
+            "width": 132,
             "height": 44
           },
           "increment": {
-            "x": 1134,
-            "y": 74,
+            "x": 1194,
+            "y": 113,
             "width": 44,
             "height": 44
           }
         }
       },
       "footer": {
-        "x": 60,
-        "y": 650,
-        "width": 1160,
-        "height": 60
+        "x": 112,
+        "y": 658,
+        "width": 1144,
+        "height": 44
       },
       "regions": {
         "output": {
           "panel": {
-            "x": 92,
-            "y": 136,
-            "width": 680,
-            "height": 390
+            "x": 112,
+            "y": 190,
+            "width": 560,
+            "height": 336
           },
           "label": {
-            "x": 104,
-            "y": 148,
-            "width": 656,
+            "x": 124,
+            "y": 202,
+            "width": 536,
             "height": 20
           },
           "content": {
-            "x": 104,
-            "y": 168,
-            "width": 656,
-            "height": 346
+            "x": 124,
+            "y": 222,
+            "width": 536,
+            "height": 292
           }
         },
         "result": {
           "panel": {
-            "x": 92,
+            "x": 112,
             "y": 538,
-            "width": 680,
-            "height": 104
+            "width": 560,
+            "height": 108
           },
           "label": {
-            "x": 104,
+            "x": 124,
             "y": 550,
-            "width": 656,
+            "width": 536,
             "height": 20
           },
           "fields": {
             "produced": {
               "row": {
-                "x": 104,
+                "x": 124,
                 "y": 570,
-                "width": 656,
+                "width": 536,
                 "height": 20
               },
               "label": {
-                "x": 104,
+                "x": 124,
                 "y": 570,
-                "width": 295,
+                "width": 241,
                 "height": 20
               },
               "value": {
-                "x": 411,
+                "x": 377,
                 "y": 570,
-                "width": 349,
+                "width": 283,
                 "height": 20
               }
             },
             "assigned": {
               "row": {
-                "x": 104,
+                "x": 124,
                 "y": 590,
-                "width": 656,
+                "width": 536,
                 "height": 20
               },
               "label": {
-                "x": 104,
+                "x": 124,
                 "y": 590,
-                "width": 295,
+                "width": 241,
                 "height": 20
               },
               "value": {
-                "x": 411,
+                "x": 377,
                 "y": 590,
-                "width": 349,
+                "width": 283,
                 "height": 20
               }
             },
             "monthly-profit": {
               "row": {
-                "x": 104,
+                "x": 124,
                 "y": 610,
-                "width": 656,
+                "width": 536,
                 "height": 20
               },
               "label": {
-                "x": 104,
+                "x": 124,
                 "y": 610,
-                "width": 295,
+                "width": 241,
                 "height": 20
               },
               "value": {
-                "x": 411,
+                "x": 377,
                 "y": 610,
-                "width": 349,
+                "width": 283,
                 "height": 20
               }
             }
@@ -384,406 +392,328 @@
         },
         "sell": {
           "panel": {
-            "x": 788,
-            "y": 332,
-            "width": 400,
-            "height": 310
+            "x": 688,
+            "y": 418,
+            "width": 568,
+            "height": 228
           },
           "label": {
-            "x": 800,
-            "y": 344,
-            "width": 376,
+            "x": 700,
+            "y": 430,
+            "width": 544,
             "height": 20
           },
           "content": {
-            "x": 800,
-            "y": 364,
-            "width": 376,
-            "height": 266
+            "x": 700,
+            "y": 450,
+            "width": 544,
+            "height": 184
           },
           "actionSlots": [
             {
               "id": "action-slot-1",
               "rect": {
-                "x": 800,
-                "y": 364,
-                "width": 159,
+                "x": 700,
+                "y": 450,
+                "width": 243,
                 "height": 44
               }
             },
             {
               "id": "action-slot-2",
               "rect": {
-                "x": 962,
-                "y": 364,
-                "width": 159,
+                "x": 946,
+                "y": 450,
+                "width": 243,
                 "height": 44
               }
             },
             {
               "id": "action-slot-3",
               "rect": {
-                "x": 800,
-                "y": 411,
-                "width": 159,
+                "x": 700,
+                "y": 497,
+                "width": 243,
                 "height": 44
               }
             },
             {
               "id": "action-slot-4",
               "rect": {
-                "x": 962,
-                "y": 411,
-                "width": 159,
-                "height": 44
-              }
-            },
-            {
-              "id": "action-slot-5",
-              "rect": {
-                "x": 800,
-                "y": 458,
-                "width": 159,
-                "height": 44
-              }
-            },
-            {
-              "id": "action-slot-6",
-              "rect": {
-                "x": 962,
-                "y": 458,
-                "width": 159,
-                "height": 44
-              }
-            },
-            {
-              "id": "action-slot-7",
-              "rect": {
-                "x": 800,
-                "y": 505,
-                "width": 159,
-                "height": 44
-              }
-            },
-            {
-              "id": "action-slot-8",
-              "rect": {
-                "x": 962,
-                "y": 505,
-                "width": 159,
-                "height": 44
-              }
-            },
-            {
-              "id": "action-slot-9",
-              "rect": {
-                "x": 800,
-                "y": 552,
-                "width": 159,
-                "height": 44
-              }
-            },
-            {
-              "id": "action-slot-10",
-              "rect": {
-                "x": 962,
-                "y": 552,
-                "width": 159,
+                "x": 946,
+                "y": 497,
+                "width": 243,
                 "height": 44
               }
             }
           ],
           "scroll": {
             "track": {
-              "x": 1158,
-              "y": 364,
+              "x": 1226,
+              "y": 450,
               "width": 18,
-              "height": 266
+              "height": 184
             },
             "thumb": {
-              "x": 1158,
-              "y": 364,
+              "x": 1226,
+              "y": 450,
               "width": 18,
-              "height": 266
+              "height": 184
             }
           }
         }
       },
       "actions": {
         "stop-production": {
-          "x": 862,
+          "x": 898,
           "y": 658,
           "width": 158,
           "height": 44
         },
         "ok": {
-          "x": 1030,
+          "x": 1066,
           "y": 658,
           "width": 158,
           "height": 44
         }
       },
+      "headerArt": {
+        "x": 640,
+        "y": 96,
+        "width": 140,
+        "height": 78
+      },
       "partRects": {
         "window": {
-          "x": 60,
-          "y": 20,
-          "width": 1160,
-          "height": 690
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 720
         },
         "status": {
-          "x": 60,
-          "y": 20,
-          "width": 1160,
-          "height": 36
+          "x": 112,
+          "y": 96,
+          "width": 1144,
+          "height": 78
+        },
+        "headerArt": {
+          "x": 640,
+          "y": 96,
+          "width": 140,
+          "height": 78
         },
         "title": {
-          "x": 92,
-          "y": 72,
-          "width": 680,
-          "height": 48
+          "x": 130,
+          "y": 114,
+          "width": 480,
+          "height": 36
         },
         "controlBar": {
           "x": 788,
-          "y": 72,
-          "width": 400,
-          "height": 48
+          "y": 113,
+          "width": 450,
+          "height": 44
         },
         "footer": {
-          "x": 60,
-          "y": 650,
-          "width": 1160,
-          "height": 60
+          "x": 112,
+          "y": 658,
+          "width": 1144,
+          "height": 44
         },
         "control.engineers": {
           "x": 788,
-          "y": 74,
-          "width": 190,
+          "y": 113,
+          "width": 220,
           "height": 44
         },
         "control.units": {
-          "x": 988,
-          "y": 74,
-          "width": 190,
+          "x": 1018,
+          "y": 113,
+          "width": 220,
           "height": 44
         },
         "control.engineers.decrement": {
           "x": 788,
-          "y": 74,
+          "y": 113,
           "width": 44,
           "height": 44
         },
         "control.engineers.value": {
           "x": 832,
-          "y": 74,
-          "width": 102,
+          "y": 113,
+          "width": 132,
           "height": 44
         },
         "control.engineers.increment": {
-          "x": 934,
-          "y": 74,
+          "x": 964,
+          "y": 113,
           "width": 44,
           "height": 44
         },
         "control.units.decrement": {
-          "x": 988,
-          "y": 74,
+          "x": 1018,
+          "y": 113,
           "width": 44,
           "height": 44
         },
         "control.units.value": {
-          "x": 1032,
-          "y": 74,
-          "width": 102,
+          "x": 1062,
+          "y": 113,
+          "width": 132,
           "height": 44
         },
         "control.units.increment": {
-          "x": 1134,
-          "y": 74,
+          "x": 1194,
+          "y": 113,
           "width": 44,
           "height": 44
         },
         "region.output": {
-          "x": 92,
-          "y": 136,
-          "width": 680,
-          "height": 390
+          "x": 112,
+          "y": 190,
+          "width": 560,
+          "height": 336
         },
         "region.output.label": {
-          "x": 104,
-          "y": 148,
-          "width": 656,
+          "x": 124,
+          "y": 202,
+          "width": 536,
           "height": 20
         },
         "region.output.content": {
-          "x": 104,
-          "y": 168,
-          "width": 656,
-          "height": 346
+          "x": 124,
+          "y": 222,
+          "width": 536,
+          "height": 292
         },
         "region.result": {
-          "x": 92,
+          "x": 112,
           "y": 538,
-          "width": 680,
-          "height": 104
+          "width": 560,
+          "height": 108
         },
         "region.result.label": {
-          "x": 104,
+          "x": 124,
           "y": 550,
-          "width": 656,
+          "width": 536,
           "height": 20
         },
         "region.result.field.produced": {
-          "x": 104,
+          "x": 124,
           "y": 570,
-          "width": 656,
+          "width": 536,
           "height": 20
         },
         "region.result.field.produced.label": {
-          "x": 104,
+          "x": 124,
           "y": 570,
-          "width": 295,
+          "width": 241,
           "height": 20
         },
         "region.result.field.produced.value": {
-          "x": 411,
+          "x": 377,
           "y": 570,
-          "width": 349,
+          "width": 283,
           "height": 20
         },
         "region.result.field.assigned": {
-          "x": 104,
+          "x": 124,
           "y": 590,
-          "width": 656,
+          "width": 536,
           "height": 20
         },
         "region.result.field.assigned.label": {
-          "x": 104,
+          "x": 124,
           "y": 590,
-          "width": 295,
+          "width": 241,
           "height": 20
         },
         "region.result.field.assigned.value": {
-          "x": 411,
+          "x": 377,
           "y": 590,
-          "width": 349,
+          "width": 283,
           "height": 20
         },
         "region.result.field.monthly-profit": {
-          "x": 104,
+          "x": 124,
           "y": 610,
-          "width": 656,
+          "width": 536,
           "height": 20
         },
         "region.result.field.monthly-profit.label": {
-          "x": 104,
+          "x": 124,
           "y": 610,
-          "width": 295,
+          "width": 241,
           "height": 20
         },
         "region.result.field.monthly-profit.value": {
-          "x": 411,
+          "x": 377,
           "y": 610,
-          "width": 349,
+          "width": 283,
           "height": 20
         },
         "region.sell": {
-          "x": 788,
-          "y": 332,
-          "width": 400,
-          "height": 310
+          "x": 688,
+          "y": 418,
+          "width": 568,
+          "height": 228
         },
         "region.sell.label": {
-          "x": 800,
-          "y": 344,
-          "width": 376,
+          "x": 700,
+          "y": 430,
+          "width": 544,
           "height": 20
         },
         "region.sell.content": {
-          "x": 800,
-          "y": 364,
-          "width": 376,
-          "height": 266
+          "x": 700,
+          "y": 450,
+          "width": 544,
+          "height": 184
         },
         "region.sell.scroll.track": {
-          "x": 1158,
-          "y": 364,
+          "x": 1226,
+          "y": 450,
           "width": 18,
-          "height": 266
+          "height": 184
         },
         "region.sell.scroll.thumb": {
-          "x": 1158,
-          "y": 364,
+          "x": 1226,
+          "y": 450,
           "width": 18,
-          "height": 266
+          "height": 184
         },
         "region.sell.action-slot-1": {
-          "x": 800,
-          "y": 364,
-          "width": 159,
+          "x": 700,
+          "y": 450,
+          "width": 243,
           "height": 44
         },
         "region.sell.action-slot-2": {
-          "x": 962,
-          "y": 364,
-          "width": 159,
+          "x": 946,
+          "y": 450,
+          "width": 243,
           "height": 44
         },
         "region.sell.action-slot-3": {
-          "x": 800,
-          "y": 411,
-          "width": 159,
+          "x": 700,
+          "y": 497,
+          "width": 243,
           "height": 44
         },
         "region.sell.action-slot-4": {
-          "x": 962,
-          "y": 411,
-          "width": 159,
-          "height": 44
-        },
-        "region.sell.action-slot-5": {
-          "x": 800,
-          "y": 458,
-          "width": 159,
-          "height": 44
-        },
-        "region.sell.action-slot-6": {
-          "x": 962,
-          "y": 458,
-          "width": 159,
-          "height": 44
-        },
-        "region.sell.action-slot-7": {
-          "x": 800,
-          "y": 505,
-          "width": 159,
-          "height": 44
-        },
-        "region.sell.action-slot-8": {
-          "x": 962,
-          "y": 505,
-          "width": 159,
-          "height": 44
-        },
-        "region.sell.action-slot-9": {
-          "x": 800,
-          "y": 552,
-          "width": 159,
-          "height": 44
-        },
-        "region.sell.action-slot-10": {
-          "x": 962,
-          "y": 552,
-          "width": 159,
+          "x": 946,
+          "y": 497,
+          "width": 243,
           "height": 44
         },
         "action.stop-production": {
-          "x": 862,
+          "x": 898,
           "y": 658,
           "width": 158,
           "height": 44
         },
         "action.ok": {
-          "x": 1030,
+          "x": 1066,
           "y": 658,
           "width": 158,
           "height": 44
@@ -794,183 +724,183 @@
       "designWidth": 740,
       "designHeight": 360,
       "window": {
-        "x": 8,
-        "y": 4,
-        "width": 724,
-        "height": 352
+        "x": 0,
+        "y": 0,
+        "width": 740,
+        "height": 360
       },
       "status": {
-        "x": 8,
-        "y": 4,
-        "width": 724,
-        "height": 32
+        "x": 52,
+        "y": 48,
+        "width": 680,
+        "height": 52
       },
       "title": {
-        "x": 24,
-        "y": 42,
-        "width": 430,
-        "height": 40
+        "x": 62,
+        "y": 58,
+        "width": 330,
+        "height": 24
       },
       "controlBar": {
-        "x": 462,
-        "y": 38,
-        "width": 270,
+        "x": 500,
+        "y": 52,
+        "width": 220,
         "height": 44
       },
       "controls": {
         "engineers": {
-          "x": 462,
-          "y": 38,
-          "width": 130,
+          "x": 500,
+          "y": 52,
+          "width": 106,
           "height": 44
         },
         "units": {
-          "x": 600,
-          "y": 38,
-          "width": 130,
+          "x": 614,
+          "y": 52,
+          "width": 106,
           "height": 44
         }
       },
       "controlParts": {
         "engineers": {
           "decrement": {
-            "x": 462,
-            "y": 38,
+            "x": 500,
+            "y": 52,
             "width": 44,
             "height": 44
           },
           "value": {
-            "x": 506,
-            "y": 38,
-            "width": 42,
+            "x": 544,
+            "y": 52,
+            "width": 18,
             "height": 44
           },
           "increment": {
-            "x": 548,
-            "y": 38,
+            "x": 562,
+            "y": 52,
             "width": 44,
             "height": 44
           }
         },
         "units": {
           "decrement": {
-            "x": 600,
-            "y": 38,
+            "x": 614,
+            "y": 52,
             "width": 44,
             "height": 44
           },
           "value": {
-            "x": 644,
-            "y": 38,
-            "width": 42,
+            "x": 658,
+            "y": 52,
+            "width": 18,
             "height": 44
           },
           "increment": {
-            "x": 686,
-            "y": 38,
+            "x": 676,
+            "y": 52,
             "width": 44,
             "height": 44
           }
         }
       },
       "footer": {
-        "x": 462,
-        "y": 300,
-        "width": 254,
-        "height": 52
+        "x": 52,
+        "y": 312,
+        "width": 680,
+        "height": 44
       },
       "regions": {
         "output": {
           "panel": {
-            "x": 24,
-            "y": 90,
-            "width": 430,
-            "height": 158
+            "x": 52,
+            "y": 108,
+            "width": 360,
+            "height": 196
           },
           "label": {
-            "x": 32,
-            "y": 98,
-            "width": 414,
+            "x": 60,
+            "y": 116,
+            "width": 344,
             "height": 16
           },
           "content": {
-            "x": 32,
-            "y": 114,
-            "width": 414,
-            "height": 126
+            "x": 60,
+            "y": 132,
+            "width": 344,
+            "height": 164
           }
         },
         "result": {
           "panel": {
-            "x": 24,
-            "y": 256,
-            "width": 430,
+            "x": 420,
+            "y": 108,
+            "width": 312,
             "height": 80
           },
           "label": {
-            "x": 32,
-            "y": 264,
-            "width": 414,
+            "x": 428,
+            "y": 116,
+            "width": 296,
             "height": 16
           },
           "fields": {
             "produced": {
               "row": {
-                "x": 32,
-                "y": 280,
-                "width": 414,
+                "x": 428,
+                "y": 132,
+                "width": 296,
                 "height": 16
               },
               "label": {
-                "x": 32,
-                "y": 280,
-                "width": 186,
+                "x": 428,
+                "y": 132,
+                "width": 177,
                 "height": 16
               },
               "value": {
-                "x": 226,
-                "y": 280,
-                "width": 220,
+                "x": 613,
+                "y": 132,
+                "width": 111,
                 "height": 16
               }
             },
             "assigned": {
               "row": {
-                "x": 32,
-                "y": 296,
-                "width": 414,
+                "x": 428,
+                "y": 148,
+                "width": 296,
                 "height": 16
               },
               "label": {
-                "x": 32,
-                "y": 296,
-                "width": 186,
+                "x": 428,
+                "y": 148,
+                "width": 177,
                 "height": 16
               },
               "value": {
-                "x": 226,
-                "y": 296,
-                "width": 220,
+                "x": 613,
+                "y": 148,
+                "width": 111,
                 "height": 16
               }
             },
             "monthly-profit": {
               "row": {
-                "x": 32,
-                "y": 312,
-                "width": 414,
+                "x": 428,
+                "y": 164,
+                "width": 296,
                 "height": 16
               },
               "label": {
-                "x": 32,
-                "y": 312,
-                "width": 186,
+                "x": 428,
+                "y": 164,
+                "width": 177,
                 "height": 16
               },
               "value": {
-                "x": 226,
-                "y": 312,
-                "width": 220,
+                "x": 613,
+                "y": 164,
+                "width": 111,
                 "height": 16
               }
             }
@@ -978,353 +908,311 @@
         },
         "sell": {
           "panel": {
-            "x": 462,
-            "y": 174,
-            "width": 254,
-            "height": 124
+            "x": 420,
+            "y": 196,
+            "width": 312,
+            "height": 108
           },
           "label": {
-            "x": 470,
-            "y": 182,
-            "width": 238,
+            "x": 428,
+            "y": 204,
+            "width": 296,
             "height": 16
           },
           "content": {
-            "x": 470,
-            "y": 198,
-            "width": 238,
-            "height": 92
+            "x": 428,
+            "y": 220,
+            "width": 296,
+            "height": 76
           },
           "actionSlots": [
             {
               "id": "action-slot-1",
               "rect": {
-                "x": 470,
-                "y": 198,
-                "width": 91,
+                "x": 428,
+                "y": 220,
+                "width": 120,
                 "height": 44
               }
             },
             {
               "id": "action-slot-2",
               "rect": {
-                "x": 565,
-                "y": 198,
-                "width": 91,
-                "height": 44
-              }
-            },
-            {
-              "id": "action-slot-3",
-              "rect": {
-                "x": 470,
-                "y": 246,
-                "width": 91,
-                "height": 44
-              }
-            },
-            {
-              "id": "action-slot-4",
-              "rect": {
-                "x": 565,
-                "y": 246,
-                "width": 91,
+                "x": 552,
+                "y": 220,
+                "width": 120,
                 "height": 44
               }
             }
           ],
           "scroll": {
             "track": {
-              "x": 690,
-              "y": 198,
+              "x": 706,
+              "y": 220,
               "width": 18,
-              "height": 92
+              "height": 76
             },
             "thumb": {
-              "x": 690,
-              "y": 198,
+              "x": 706,
+              "y": 220,
               "width": 18,
-              "height": 92
+              "height": 76
             }
           }
         }
       },
       "actions": {
         "stop-production": {
-          "x": 476,
-          "y": 304,
+          "x": 492,
+          "y": 312,
           "width": 110,
           "height": 44
         },
         "ok": {
-          "x": 598,
-          "y": 304,
+          "x": 614,
+          "y": 312,
           "width": 110,
           "height": 44
         }
       },
+      "headerArt": {
+        "x": 400,
+        "y": 48,
+        "width": 100,
+        "height": 52
+      },
       "partRects": {
         "window": {
-          "x": 8,
-          "y": 4,
-          "width": 724,
-          "height": 352
+          "x": 0,
+          "y": 0,
+          "width": 740,
+          "height": 360
         },
         "status": {
-          "x": 8,
-          "y": 4,
-          "width": 724,
-          "height": 32
+          "x": 52,
+          "y": 48,
+          "width": 680,
+          "height": 52
+        },
+        "headerArt": {
+          "x": 400,
+          "y": 48,
+          "width": 100,
+          "height": 52
         },
         "title": {
-          "x": 24,
-          "y": 42,
-          "width": 430,
-          "height": 40
+          "x": 62,
+          "y": 58,
+          "width": 330,
+          "height": 24
         },
         "controlBar": {
-          "x": 462,
-          "y": 38,
-          "width": 270,
+          "x": 500,
+          "y": 52,
+          "width": 220,
           "height": 44
         },
         "footer": {
-          "x": 462,
-          "y": 300,
-          "width": 254,
-          "height": 52
+          "x": 52,
+          "y": 312,
+          "width": 680,
+          "height": 44
         },
         "control.engineers": {
-          "x": 462,
-          "y": 38,
-          "width": 130,
+          "x": 500,
+          "y": 52,
+          "width": 106,
           "height": 44
         },
         "control.units": {
-          "x": 600,
-          "y": 38,
-          "width": 130,
+          "x": 614,
+          "y": 52,
+          "width": 106,
           "height": 44
         },
         "control.engineers.decrement": {
-          "x": 462,
-          "y": 38,
+          "x": 500,
+          "y": 52,
           "width": 44,
           "height": 44
         },
         "control.engineers.value": {
-          "x": 506,
-          "y": 38,
-          "width": 42,
+          "x": 544,
+          "y": 52,
+          "width": 18,
           "height": 44
         },
         "control.engineers.increment": {
-          "x": 548,
-          "y": 38,
+          "x": 562,
+          "y": 52,
           "width": 44,
           "height": 44
         },
         "control.units.decrement": {
-          "x": 600,
-          "y": 38,
+          "x": 614,
+          "y": 52,
           "width": 44,
           "height": 44
         },
         "control.units.value": {
-          "x": 644,
-          "y": 38,
-          "width": 42,
+          "x": 658,
+          "y": 52,
+          "width": 18,
           "height": 44
         },
         "control.units.increment": {
-          "x": 686,
-          "y": 38,
+          "x": 676,
+          "y": 52,
           "width": 44,
           "height": 44
         },
         "region.output": {
-          "x": 24,
-          "y": 90,
-          "width": 430,
-          "height": 158
+          "x": 52,
+          "y": 108,
+          "width": 360,
+          "height": 196
         },
         "region.output.label": {
-          "x": 32,
-          "y": 98,
-          "width": 414,
+          "x": 60,
+          "y": 116,
+          "width": 344,
           "height": 16
         },
         "region.output.content": {
-          "x": 32,
-          "y": 114,
-          "width": 414,
-          "height": 126
+          "x": 60,
+          "y": 132,
+          "width": 344,
+          "height": 164
         },
         "region.result": {
-          "x": 24,
-          "y": 256,
-          "width": 430,
+          "x": 420,
+          "y": 108,
+          "width": 312,
           "height": 80
         },
         "region.result.label": {
-          "x": 32,
-          "y": 264,
-          "width": 414,
+          "x": 428,
+          "y": 116,
+          "width": 296,
           "height": 16
         },
         "region.result.field.produced": {
-          "x": 32,
-          "y": 280,
-          "width": 414,
+          "x": 428,
+          "y": 132,
+          "width": 296,
           "height": 16
         },
         "region.result.field.produced.label": {
-          "x": 32,
-          "y": 280,
-          "width": 186,
+          "x": 428,
+          "y": 132,
+          "width": 177,
           "height": 16
         },
         "region.result.field.produced.value": {
-          "x": 226,
-          "y": 280,
-          "width": 220,
+          "x": 613,
+          "y": 132,
+          "width": 111,
           "height": 16
         },
         "region.result.field.assigned": {
-          "x": 32,
-          "y": 296,
-          "width": 414,
+          "x": 428,
+          "y": 148,
+          "width": 296,
           "height": 16
         },
         "region.result.field.assigned.label": {
-          "x": 32,
-          "y": 296,
-          "width": 186,
+          "x": 428,
+          "y": 148,
+          "width": 177,
           "height": 16
         },
         "region.result.field.assigned.value": {
-          "x": 226,
-          "y": 296,
-          "width": 220,
+          "x": 613,
+          "y": 148,
+          "width": 111,
           "height": 16
         },
         "region.result.field.monthly-profit": {
-          "x": 32,
-          "y": 312,
-          "width": 414,
+          "x": 428,
+          "y": 164,
+          "width": 296,
           "height": 16
         },
         "region.result.field.monthly-profit.label": {
-          "x": 32,
-          "y": 312,
-          "width": 186,
+          "x": 428,
+          "y": 164,
+          "width": 177,
           "height": 16
         },
         "region.result.field.monthly-profit.value": {
-          "x": 226,
-          "y": 312,
-          "width": 220,
+          "x": 613,
+          "y": 164,
+          "width": 111,
           "height": 16
         },
         "region.sell": {
-          "x": 462,
-          "y": 174,
-          "width": 254,
-          "height": 124
+          "x": 420,
+          "y": 196,
+          "width": 312,
+          "height": 108
         },
         "region.sell.label": {
-          "x": 470,
-          "y": 182,
-          "width": 238,
+          "x": 428,
+          "y": 204,
+          "width": 296,
           "height": 16
         },
         "region.sell.content": {
-          "x": 470,
-          "y": 198,
-          "width": 238,
-          "height": 92
+          "x": 428,
+          "y": 220,
+          "width": 296,
+          "height": 76
         },
         "region.sell.scroll.track": {
-          "x": 690,
-          "y": 198,
+          "x": 706,
+          "y": 220,
           "width": 18,
-          "height": 92
+          "height": 76
         },
         "region.sell.scroll.thumb": {
-          "x": 690,
-          "y": 198,
+          "x": 706,
+          "y": 220,
           "width": 18,
-          "height": 92
+          "height": 76
         },
         "region.sell.action-slot-1": {
-          "x": 470,
-          "y": 198,
-          "width": 91,
+          "x": 428,
+          "y": 220,
+          "width": 120,
           "height": 44
         },
         "region.sell.action-slot-2": {
-          "x": 565,
-          "y": 198,
-          "width": 91,
+          "x": 552,
+          "y": 220,
+          "width": 120,
           "height": 44
         },
         "region.sell.action-slot-3": {
-          "x": 470,
-          "y": 246,
-          "width": 91,
+          "x": 552,
+          "y": 220,
+          "width": 120,
           "height": 44
         },
         "region.sell.action-slot-4": {
-          "x": 565,
-          "y": 246,
-          "width": 91,
-          "height": 44
-        },
-        "region.sell.action-slot-5": {
-          "x": 565,
-          "y": 246,
-          "width": 91,
-          "height": 44
-        },
-        "region.sell.action-slot-6": {
-          "x": 565,
-          "y": 246,
-          "width": 91,
-          "height": 44
-        },
-        "region.sell.action-slot-7": {
-          "x": 565,
-          "y": 246,
-          "width": 91,
-          "height": 44
-        },
-        "region.sell.action-slot-8": {
-          "x": 565,
-          "y": 246,
-          "width": 91,
-          "height": 44
-        },
-        "region.sell.action-slot-9": {
-          "x": 565,
-          "y": 246,
-          "width": 91,
-          "height": 44
-        },
-        "region.sell.action-slot-10": {
-          "x": 565,
-          "y": 246,
-          "width": 91,
+          "x": 552,
+          "y": 220,
+          "width": 120,
           "height": 44
         },
         "action.stop-production": {
-          "x": 476,
-          "y": 304,
+          "x": 492,
+          "y": 312,
           "width": 110,
           "height": 44
         },
         "action.ok": {
-          "x": 598,
-          "y": 304,
+          "x": 614,
+          "y": 312,
           "width": 110,
           "height": 44
         }
@@ -1338,49 +1226,12 @@
     "captureModeDurationMs": 0
   },
   "provenance": {
-    "template": "FormTemplates/wide-detail.json",
-    "templateVersion": 5,
+    "template": "FormTemplates/operations-detail.json",
+    "templateVersion": 1,
     "generatorKind": "detail"
   },
   "regionMetrics": {
     "wide": {
-      "sell": {
-        "totalItems": 1,
-        "visibleCapacity": 10,
-        "totalUnits": 1,
-        "visibleUnits": 5,
-        "itemsPerUnit": 2,
-        "scrollUnit": "row",
-        "overflow": false,
-        "scrollSteps": 0,
-        "track": {
-          "x": 1158,
-          "y": 364,
-          "width": 18,
-          "height": 266
-        },
-        "thumb": {
-          "x": 1158,
-          "y": 364,
-          "width": 18,
-          "height": 266
-        },
-        "trackHitTarget": {
-          "x": 1132,
-          "y": 364,
-          "width": 44,
-          "height": 266
-        },
-        "thumbHitTarget": {
-          "x": 1132,
-          "y": 364,
-          "width": 44,
-          "height": 266
-        },
-        "thumbTravelPx": 0
-      }
-    },
-    "compact": {
       "sell": {
         "totalItems": 1,
         "visibleCapacity": 4,
@@ -1391,28 +1242,65 @@
         "overflow": false,
         "scrollSteps": 0,
         "track": {
-          "x": 690,
-          "y": 198,
+          "x": 1226,
+          "y": 450,
           "width": 18,
-          "height": 92
+          "height": 184
         },
         "thumb": {
-          "x": 690,
-          "y": 198,
+          "x": 1226,
+          "y": 450,
           "width": 18,
-          "height": 92
+          "height": 184
         },
         "trackHitTarget": {
-          "x": 664,
-          "y": 198,
+          "x": 1200,
+          "y": 450,
           "width": 44,
-          "height": 92
+          "height": 184
         },
         "thumbHitTarget": {
-          "x": 664,
-          "y": 198,
+          "x": 1200,
+          "y": 450,
           "width": 44,
-          "height": 92
+          "height": 184
+        },
+        "thumbTravelPx": 0
+      }
+    },
+    "compact": {
+      "sell": {
+        "totalItems": 1,
+        "visibleCapacity": 2,
+        "totalUnits": 1,
+        "visibleUnits": 1,
+        "itemsPerUnit": 2,
+        "scrollUnit": "row",
+        "overflow": false,
+        "scrollSteps": 0,
+        "track": {
+          "x": 706,
+          "y": 220,
+          "width": 18,
+          "height": 76
+        },
+        "thumb": {
+          "x": 706,
+          "y": 220,
+          "width": 18,
+          "height": 76
+        },
+        "trackHitTarget": {
+          "x": 680,
+          "y": 220,
+          "width": 44,
+          "height": 76
+        },
+        "thumbHitTarget": {
+          "x": 680,
+          "y": 220,
+          "width": 44,
+          "height": 76
         },
         "thumbTravelPx": 0
       }
@@ -1421,12 +1309,15 @@
   "spacingRules": [
     {
       "id": "status-title",
-      "kind": "gap",
-      "first": "status",
-      "second": "title",
-      "axis": "vertical",
-      "wide": 16,
-      "compact": 6
+      "kind": "inset",
+      "container": "status",
+      "child": "title",
+      "edges": [
+        "left",
+        "top"
+      ],
+      "wide": 18,
+      "compact": 10
     },
     {
       "id": "title-first-region",
@@ -1434,8 +1325,8 @@
       "first": "title",
       "second": "region.output",
       "axis": "vertical",
-      "wide": 16,
-      "compact": 8
+      "wide": 40,
+      "compact": 26
     },
     {
       "id": "title-control",
@@ -1443,8 +1334,8 @@
       "first": "title",
       "second": "controlBar",
       "axis": "horizontal",
-      "wide": 16,
-      "compact": 8
+      "wide": 178,
+      "compact": 108
     },
     {
       "id": "control-first-region",
@@ -1452,8 +1343,8 @@
       "first": "controlBar",
       "second": "region.output",
       "axis": "vertical",
-      "wide": 16,
-      "compact": 8
+      "wide": 33,
+      "compact": 12
     },
     {
       "id": "region-inset-output",
@@ -1501,7 +1392,7 @@
       "second": "region.result",
       "axis": "vertical",
       "wide": 12,
-      "compact": 8
+      "compact": -196
     },
     {
       "id": "footer-action-inset",
@@ -1522,6 +1413,7 @@
   "parts": [
     "window",
     "status",
+    "headerArt",
     "title",
     "controlBar",
     "footer",
@@ -1556,12 +1448,6 @@
     "region.sell.action-slot-2",
     "region.sell.action-slot-3",
     "region.sell.action-slot-4",
-    "region.sell.action-slot-5",
-    "region.sell.action-slot-6",
-    "region.sell.action-slot-7",
-    "region.sell.action-slot-8",
-    "region.sell.action-slot-9",
-    "region.sell.action-slot-10",
     "action.stop-production",
     "action.ok"
   ]

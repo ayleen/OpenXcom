@@ -1,6 +1,7 @@
 #pragma once
 /*
- * Shared native HD renderer for operations-workspace and wide-detail forms.
+ * Shared native HD renderer for operations-workspace, operations-detail, and
+ * wide-detail forms.
  * It is deliberately unaware of route/screen identities and receives all
  * geometry from an adapter-populated CalypsoHdOperationsModel.
  */

@@ -177,7 +177,8 @@ CalypsoF09ResearchUi::CalypsoF09ResearchUi(NewResearchListState *state)
 }
 
 CalypsoF09ResearchUi::CalypsoF09ResearchUi(ResearchInfoState *state)
-	: _kind(Kind::Staffing), _staffing(state)
+	: _kind(Kind::Staffing), _staffing(state),
+	  _chrome(new CalypsoHdOperationsChrome(*state))
 {
 	_renderer = new CalypsoHdOperationsRenderer(state, CalypsoHdOperationsModel{});
 	_renderer->setModelProvider([this]() { syncGeometry(); return buildModel(); });
@@ -231,6 +232,7 @@ void CalypsoF09ResearchUi::configure(ResearchInfoState &state)
 		state._hdLayout = false;
 		return;
 	}
+	state._screen = true;
 	state._hdLayout = true;
 	state._hdWideLayout = Options::baseXResolution >= 1000;
 	auto *adapter = new CalypsoF09ResearchUi(&state);
@@ -762,7 +764,7 @@ void CalypsoF09ResearchUi::applyStaffingGeometry()
 	const auto *g = CalypsoF09ResearchStaffingGen::layoutForDesign(
 		wide ? 1280 : 740, wide ? 720 : 360);
 	if (!g) return;
-	setWindow(_staffing->_window, rawRect(g->window));
+	setOperationsWindow(_staffing->_window, rawRect(g->window));
 	const int wx = _staffing->_window->getX(), wy = _staffing->_window->getY();
 	const double sx = static_cast<double>(_staffing->_window->getWidth()) / g->window.w;
 	const double sy = static_cast<double>(_staffing->_window->getHeight()) / g->window.h;
@@ -799,15 +801,17 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildStaffingModel() const
 	const auto *g = CalypsoF09ResearchStaffingGen::layoutForDesign(
 		wide ? 1280 : 740, wide ? 720 : 360);
 	if (!g) return model;
-	const int wx = _staffing->_window->getX(), wy = _staffing->_window->getY();
-	const double sx = static_cast<double>(_staffing->_window->getWidth()) / g->window.w;
-	const double sy = static_cast<double>(_staffing->_window->getHeight()) / g->window.h;
 	auto p = [&](const auto &r) {
-		return projectRect(r, wx, wy, sx, sy, g->window.x, g->window.y);
+		return rawRect(r);
 	};
 	model.archetype = CalypsoHdOperationsArchetype::WideDetail;
 	model.familyId = CalypsoF09ResearchStaffingGen::kFamilyId;
 	model.ownerState = _staffing;
+	model.visualShell = CalypsoF09ResearchStaffingGen::kVisualShell;
+	model.headerArtId = CalypsoF09ResearchStaffingGen::kHeaderArt;
+	model.baseName = _staffing->_base ? _staffing->_base->getName() : std::string();
+	model.sectionLabel = tr("STR_RESEARCH");
+	setClock(model, _staffing->_game);
 	model.suppressedWidgets = {
 		_staffing->_window, _staffing->_txtTitle, _staffing->_txtAvailableScientist,
 		_staffing->_txtAvailableSpace, _staffing->_txtAllocatedScientist,
@@ -821,6 +825,8 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildStaffingModel() const
 	model.geometry.window = p(g->window);
 	model.geometry.status = p(g->status);
 	model.geometry.title = p(g->title);
+	model.geometry.screenHeader = p(g->status);
+	model.geometry.headerArt = p(g->headerArt);
 	model.geometry.controlBar = p(g->controlBar);
 	model.geometry.footer = p(g->footer);
 	auto addRegion = [&](const std::string &id, const std::string &label,
@@ -842,13 +848,20 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildStaffingModel() const
 	addRegion("capacity", tr("STR_CALYPSO_RESEARCH_STAFFING"),
 		g->region_capacity, g->region_capacity_label);
 	auto &capacity = model.regions.back();
+	int availableScientists = _staffing->_base ? _staffing->_base->getAvailableScientists() : 0;
+	int availableLaboratories = _staffing->_base ? _staffing->_base->getFreeLaboratories() : 0;
+	if (_staffing->_transaction.pending())
+	{
+		availableScientists -= _staffing->_transaction.assigned();
+		availableLaboratories -= _staffing->_transaction.assigned();
+	}
 	capacity.fields.push_back(metric("available",
 		tr("STR_CALYPSO_RESEARCH_SCIENTISTS_AVAILABLE_UC"),
-		_staffing->_txtAvailableScientist->getText(),
+		std::to_string(availableScientists),
 		p(g->region_capacity_field_available_value)));
 	capacity.fields.push_back(metric("labs",
 		tr("STR_CALYPSO_RESEARCH_LABORATORY_SPACE_AVAILABLE_UC"),
-		_staffing->_txtAvailableSpace->getText(),
+		std::to_string(availableLaboratories),
 		p(g->region_capacity_field_labs_value)));
 	capacity.fields.push_back(metric("allocated",
 		tr("STR_CALYPSO_RESEARCH_SCIENTISTS_ALLOCATED"),

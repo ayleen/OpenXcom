@@ -7,8 +7,12 @@ namespace OpenXcom { namespace Calypso { namespace CalypsoF09ResearchStaffingGen
 inline constexpr const char* kContractVersion = "hd.2026-08-29.1";
 inline constexpr const char* kFormId = "f09-research-staffing";
 inline constexpr int kFamilyId = 9;
-inline constexpr const char* kArchetype = "wide-detail";
+inline constexpr const char* kArchetype = "operations-detail";
 inline constexpr const char* kNativeState = "ResearchInfoState";
+inline constexpr const char* kVisualShell = "base-operations";
+inline constexpr const char* kHeaderArt = "base-research";
+inline constexpr const char* kSharedChromeId = "base-command-shell";
+inline constexpr const char* kSharedChromeVersion = "hd.2026-09-07.1";
 
 /// One design-space rectangle (design px).
 struct CalypsoF09ResearchStaffingGenRect { int x; int y; int w; int h; };
@@ -20,6 +24,7 @@ struct CalypsoF09ResearchStaffingGenLayout
 	int designHeight;
 	CalypsoF09ResearchStaffingGenRect window;
 	CalypsoF09ResearchStaffingGenRect status;
+	CalypsoF09ResearchStaffingGenRect headerArt;
 	CalypsoF09ResearchStaffingGenRect title;
 	CalypsoF09ResearchStaffingGenRect controlBar;
 	CalypsoF09ResearchStaffingGenRect footer;
@@ -50,12 +55,6 @@ struct CalypsoF09ResearchStaffingGenLayout
 	CalypsoF09ResearchStaffingGenRect region_staffing_actions_action_slot_2;
 	CalypsoF09ResearchStaffingGenRect region_staffing_actions_action_slot_3;
 	CalypsoF09ResearchStaffingGenRect region_staffing_actions_action_slot_4;
-	CalypsoF09ResearchStaffingGenRect region_staffing_actions_action_slot_5;
-	CalypsoF09ResearchStaffingGenRect region_staffing_actions_action_slot_6;
-	CalypsoF09ResearchStaffingGenRect region_staffing_actions_action_slot_7;
-	CalypsoF09ResearchStaffingGenRect region_staffing_actions_action_slot_8;
-	CalypsoF09ResearchStaffingGenRect region_staffing_actions_action_slot_9;
-	CalypsoF09ResearchStaffingGenRect region_staffing_actions_action_slot_10;
 	CalypsoF09ResearchStaffingGenRect action_cancel;
 	CalypsoF09ResearchStaffingGenRect action_start_project;
 };
@@ -63,9 +62,9 @@ struct CalypsoF09ResearchStaffingGenLayout
 inline constexpr CalypsoF09ResearchStaffingGenLayout kLayouts[] =
 {
 	// wide
-	{ 1280, 720, { 60, 20, 1160, 690 }, { 60, 20, 1160, 36 }, { 92, 72, 680, 48 }, { 788, 72, 400, 48 }, { 60, 650, 1160, 60 }, { 788, 74, 190, 44 }, { 788, 74, 44, 44 }, { 832, 74, 102, 44 }, { 934, 74, 44, 44 }, { 92, 136, 680, 390 }, { 104, 148, 656, 20 }, { 104, 168, 656, 346 }, { 92, 538, 680, 104 }, { 104, 550, 656, 20 }, { 104, 570, 656, 20 }, { 104, 570, 295, 20 }, { 411, 570, 349, 20 }, { 104, 590, 656, 20 }, { 104, 590, 295, 20 }, { 411, 590, 349, 20 }, { 104, 610, 656, 20 }, { 104, 610, 295, 20 }, { 411, 610, 349, 20 }, { 788, 332, 400, 310 }, { 800, 344, 376, 20 }, { 800, 364, 376, 266 }, { 1158, 364, 18, 266 }, { 1158, 364, 18, 266 }, { 800, 364, 159, 44 }, { 962, 364, 159, 44 }, { 800, 411, 159, 44 }, { 962, 411, 159, 44 }, { 800, 458, 159, 44 }, { 962, 458, 159, 44 }, { 800, 505, 159, 44 }, { 962, 505, 159, 44 }, { 800, 552, 159, 44 }, { 962, 552, 159, 44 }, { 862, 658, 158, 44 }, { 1030, 658, 158, 44 } },
+	{ 1280, 720, { 0, 0, 1280, 720 }, { 112, 96, 1144, 78 }, { 640, 96, 140, 78 }, { 130, 114, 480, 36 }, { 788, 113, 450, 44 }, { 112, 658, 1144, 44 }, { 788, 113, 220, 44 }, { 788, 113, 44, 44 }, { 832, 113, 132, 44 }, { 964, 113, 44, 44 }, { 112, 190, 560, 336 }, { 124, 202, 536, 20 }, { 124, 222, 536, 292 }, { 112, 538, 560, 108 }, { 124, 550, 536, 20 }, { 124, 570, 536, 20 }, { 124, 570, 241, 20 }, { 377, 570, 283, 20 }, { 124, 590, 536, 20 }, { 124, 590, 241, 20 }, { 377, 590, 283, 20 }, { 124, 610, 536, 20 }, { 124, 610, 241, 20 }, { 377, 610, 283, 20 }, { 688, 418, 568, 228 }, { 700, 430, 544, 20 }, { 700, 450, 544, 184 }, { 1226, 450, 18, 184 }, { 1226, 450, 18, 184 }, { 700, 450, 243, 44 }, { 946, 450, 243, 44 }, { 700, 497, 243, 44 }, { 946, 497, 243, 44 }, { 898, 658, 158, 44 }, { 1066, 658, 158, 44 } },
 	// compact
-	{ 740, 360, { 8, 4, 724, 352 }, { 8, 4, 724, 32 }, { 24, 42, 430, 40 }, { 462, 38, 270, 44 }, { 462, 300, 254, 52 }, { 462, 38, 130, 44 }, { 462, 38, 44, 44 }, { 506, 38, 42, 44 }, { 548, 38, 44, 44 }, { 24, 90, 430, 158 }, { 32, 98, 414, 16 }, { 32, 114, 414, 126 }, { 24, 256, 430, 80 }, { 32, 264, 414, 16 }, { 32, 280, 414, 16 }, { 32, 280, 186, 16 }, { 226, 280, 220, 16 }, { 32, 296, 414, 16 }, { 32, 296, 186, 16 }, { 226, 296, 220, 16 }, { 32, 312, 414, 16 }, { 32, 312, 186, 16 }, { 226, 312, 220, 16 }, { 462, 174, 254, 124 }, { 470, 182, 238, 16 }, { 470, 198, 238, 92 }, { 690, 198, 18, 92 }, { 690, 198, 18, 92 }, { 470, 198, 91, 44 }, { 565, 198, 91, 44 }, { 470, 246, 91, 44 }, { 565, 246, 91, 44 }, { 565, 246, 91, 44 }, { 565, 246, 91, 44 }, { 565, 246, 91, 44 }, { 565, 246, 91, 44 }, { 565, 246, 91, 44 }, { 565, 246, 91, 44 }, { 476, 304, 110, 44 }, { 598, 304, 110, 44 } },
+	{ 740, 360, { 0, 0, 740, 360 }, { 52, 48, 680, 52 }, { 400, 48, 100, 52 }, { 62, 58, 330, 24 }, { 500, 52, 220, 44 }, { 52, 312, 680, 44 }, { 500, 52, 106, 44 }, { 500, 52, 44, 44 }, { 544, 52, 18, 44 }, { 562, 52, 44, 44 }, { 52, 108, 360, 196 }, { 60, 116, 344, 16 }, { 60, 132, 344, 164 }, { 420, 108, 312, 80 }, { 428, 116, 296, 16 }, { 428, 132, 296, 16 }, { 428, 132, 177, 16 }, { 613, 132, 111, 16 }, { 428, 148, 296, 16 }, { 428, 148, 177, 16 }, { 613, 148, 111, 16 }, { 428, 164, 296, 16 }, { 428, 164, 177, 16 }, { 613, 164, 111, 16 }, { 420, 196, 312, 108 }, { 428, 204, 296, 16 }, { 428, 220, 296, 76 }, { 706, 220, 18, 76 }, { 706, 220, 18, 76 }, { 428, 220, 120, 44 }, { 552, 220, 120, 44 }, { 552, 220, 120, 44 }, { 552, 220, 120, 44 }, { 492, 312, 110, 44 }, { 614, 312, 110, 44 } },
 };
 inline constexpr int kLayoutCount = 2;
 

@@ -397,7 +397,8 @@ inline bool calypsoHdOperationsModelReady(const CalypsoHdOperationsModel& model)
 		|| g.designWidth <= 0 || g.designHeight <= 0 || !g.window.valid()
 		|| !g.title.valid() || !g.footer.valid())
 		return false;
-	if (model.archetype == CalypsoHdOperationsArchetype::OperationsWorkspace
+	if ((model.archetype == CalypsoHdOperationsArchetype::OperationsWorkspace
+			|| model.archetype == CalypsoHdOperationsArchetype::WideDetail)
 		&& (model.visualShell != "base-operations" || model.headerArtId.empty()
 			|| model.baseCaption.empty() || !g.screenHeader.valid()
 			|| !g.headerArt.valid()))

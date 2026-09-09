@@ -1317,7 +1317,8 @@ def main(argv=None):
             raise FormError("template must be an object")
         if template.get("id") != archetype:
             raise FormError("template.id must match config.archetype")
-        if template.get("generatorKind") == "operations":
+        if (template.get("generatorKind") == "operations"
+                or template.get("id") == "operations-detail"):
             canonical_path = os.path.join(
                 CALYPSO_DIR, "ScreenTemplates", "base-command-shell.json")
             canonical = load_json(canonical_path)
@@ -1327,7 +1328,7 @@ def main(argv=None):
             }
             if template.get("sharedChrome") != expected_chrome:
                 raise FormError(
-                    "operations shared chrome must reference the current "
+                    "Basescape child shared chrome must reference the current "
                     + expected_chrome["id"] + " " + expected_chrome["version"])
         source_name = "FormConfigs/" + os.path.basename(args.config)
         if template.get("generatorKind"):

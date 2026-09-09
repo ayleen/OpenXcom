@@ -46,6 +46,7 @@ ARCHETYPE_KINDS = {
     "operations-workspace": "operations",
     "tabbed-management": "tabbed",
     "wide-detail": "detail",
+    "operations-detail": "detail",
     "selection-list": "selection",
 }
 LAYOUT_FIELDS = {
@@ -458,7 +459,7 @@ def _validate_template(template):
         raise ArchetypeError("unsupported extended template id: " + str(archetype))
     if template["generatorKind"] != ARCHETYPE_KINDS[archetype]:
         raise ArchetypeError("template.generatorKind does not match template.id")
-    if template["generatorKind"] == "operations":
+    if template["generatorKind"] == "operations" or archetype == "operations-detail":
         _strict(template.get("sharedChrome"), {"id", "version"}, set(),
                 "template.sharedChrome")
         if template["sharedChrome"]["id"] != "base-command-shell":
@@ -468,7 +469,7 @@ def _validate_template(template):
                   "template.sharedChrome.version", 64)
     elif "sharedChrome" in template:
         raise ArchetypeError(
-            "template.sharedChrome is only valid for operations-workspace")
+            "template.sharedChrome is only valid for Basescape child forms")
     tones = template["supportedButtonTones"]
     styles = template["buttonToneStyles"]
     expected_tones = {"normal", "safe", "primary", "warning", "danger"}
@@ -532,18 +533,21 @@ def _validate_template(template):
         raise ArchetypeError("template.motion.captureModeDurationMs must be 0")
     for name in ("wide", "compact"):
         layout = template["layouts"][name]
+        layout_fields = set(LAYOUT_FIELDS[template["generatorKind"]])
+        if archetype == "operations-detail":
+            layout_fields.add("headerArt")
         _strict(
             layout,
-            LAYOUT_FIELDS[template["generatorKind"]],
+            layout_fields,
             set(),
             "template.layouts." + name,
         )
         for field in ("designWidth", "designHeight"):
             _positive_int(layout.get(field), "template.layouts." + name + "." + field)
         non_rect_fields = (
-            LAYOUT_FIELDS[template["generatorKind"]]
+            layout_fields
             - set(_layout_rect_fields(template["generatorKind"]))
-            - {"designWidth", "designHeight", "regionSlots"}
+            - {"designWidth", "designHeight", "regionSlots", "headerArt"}
         )
         for field in non_rect_fields:
             minimum = 0 if field in ZERO_CAPABLE_LAYOUT_FIELDS else 1
@@ -566,7 +570,10 @@ def _validate_template(template):
                     "template.layouts." + name + "." + field,
                     minimum,
                 )
-        for field in _layout_rect_fields(template["generatorKind"]):
+        layout_rect_fields = list(_layout_rect_fields(template["generatorKind"]))
+        if archetype == "operations-detail":
+            layout_rect_fields.append("headerArt")
+        for field in layout_rect_fields:
             _rect(layout.get(field), "template.layouts." + name + "." + field)
             if not _contained(
                 layout[field], layout["designWidth"], layout["designHeight"]
@@ -576,7 +583,7 @@ def _validate_template(template):
                 )
         window = layout["window"]
         owned_rects = []
-        for field in _layout_rect_fields(template["generatorKind"]):
+        for field in layout_rect_fields:
             if field == "window":
                 continue
             if not _contained_by(layout[field], window):
@@ -636,8 +643,17 @@ def _validate_template(template):
                     if (
                         template["generatorKind"] == "operations"
                         and "screenHeader" in shell_pair
+                        and shell_pair & {"title", "summaryBar", "headerArt"}
+                    ) or (
+                        archetype == "operations-detail"
+                        and "status" in shell_pair
+                        and shell_pair & {"title", "controlBar", "headerArt"}
+                    ):
+                        continue
+                    if (
+                        archetype == "operations-detail"
                         and shell_pair
-                        & {"title", "summaryBar", "headerArt"}
+                        == {"regionSlots.secondary", "regionSlots.navigation"}
                     ):
                         continue
                     raise ArchetypeError(
@@ -1168,9 +1184,18 @@ def _validate_tabbed(config, template):
     _ensure_unique_interactions(interaction_groups)
     return actions, toolbar_actions, controls, detail
 
-
 def _validate_detail(config, template):
-    actions = _validate_common(config, template, {"controls", "regions"})
+    is_operations_detail = template["id"] == "operations-detail"
+    required = {"controls", "regions", "visual"} if is_operations_detail else {
+        "controls", "regions"}
+    actions = _validate_common(config, template, required)
+    if is_operations_detail:
+        visual = config["visual"]
+        _strict(visual, {"shell", "headerArt"}, set(), "config.visual")
+        if visual["shell"] != "base-operations":
+            raise ArchetypeError("config.visual.shell must be base-operations")
+        if visual["headerArt"] not in {"base-research", "base-manufacture"}:
+            raise ArchetypeError("config.visual.headerArt is not an audited department asset")
     controls = _validate_controls(config["controls"], template, "config.controls")
     regions = config["regions"]
     limits = template["limits"]
@@ -2233,7 +2258,7 @@ def _build_tabbed(config, template, source_name, template_name):
     out["form"]["toolbar"] = toolbar_actions
     if "visual" in config:
         out["form"]["visual"] = copy.deepcopy(config["visual"])
-    if template["generatorKind"] == "operations":
+    if "sharedChrome" in template:
         out["form"]["sharedChrome"] = copy.deepcopy(template["sharedChrome"])
     out["copy"]["tabs"] = {tab["id"]: tab["label"] for tab in config["tabs"]}
     out["copy"]["summary"] = copy.deepcopy(config["summary"])
@@ -2585,6 +2610,9 @@ def _build_detail_regions(config, template, source_name, template_name):
             region["actions"] = generated_region_actions[region["id"]]
     out["form"]["regions"] = form_regions
     out["form"]["controls"] = controls
+    if template["id"] == "operations-detail":
+        out["form"]["visual"] = copy.deepcopy(config["visual"])
+        out["form"]["sharedChrome"] = copy.deepcopy(template["sharedChrome"])
     out["copy"]["regions"] = copy.deepcopy(config["regions"])
     out["copy"]["controls"] = copy.deepcopy(config["controls"])
     out["regionMetrics"] = {}
@@ -2686,7 +2714,7 @@ def _build_detail_regions(config, template, source_name, template_name):
                     )
                 out["regionMetrics"][name][region["id"]] = metrics
             regions[region["id"]] = generated
-        out["layouts"][name] = {
+        generated_layout = {
             "designWidth": authored["designWidth"],
             "designHeight": authored["designHeight"],
             "window": copy.deepcopy(authored["window"]),
@@ -2699,9 +2727,22 @@ def _build_detail_regions(config, template, source_name, template_name):
             "regions": regions,
             "actions": action_rects,
         }
+        if template["id"] == "operations-detail":
+            generated_layout["headerArt"] = copy.deepcopy(authored["headerArt"])
+        out["layouts"][name] = generated_layout
     first_region = config["regions"][0]
-    rules = [
-        {
+    if template["id"] == "operations-detail":
+        status_title_rule = {
+            "id": "status-title",
+            "kind": "inset",
+            "container": "status",
+            "child": "title",
+            "edges": ["left", "top"],
+            "wide": 18,
+            "compact": 10,
+        }
+    else:
+        status_title_rule = {
             "id": "status-title",
             "kind": "gap",
             "first": "status",
@@ -2711,7 +2752,9 @@ def _build_detail_regions(config, template, source_name, template_name):
             - _bottom(template["layouts"]["wide"]["status"]),
             "compact": template["layouts"]["compact"]["title"]["y"]
             - _bottom(template["layouts"]["compact"]["status"]),
-        },
+        }
+    rules = [
+        status_title_rule,
         {
             "id": "title-first-region",
             "kind": "gap",
@@ -2808,6 +2851,8 @@ def _build_detail_regions(config, template, source_name, template_name):
     )
     out["spacingRules"] = rules
     out["_partPaths"] = ["window", "status", "title", "controlBar", "footer"]
+    if template["id"] == "operations-detail":
+        out["_partPaths"].insert(2, "headerArt")
     out["_partPaths"].extend(_control_part_paths(controls))
     out["actions"] = ["action." + action["id"] for action in actions]
     for region in config["regions"]:

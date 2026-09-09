@@ -567,10 +567,6 @@ void collectWideDetail(CalypsoHdFrameBuilder& builder,
 	int& order)
 {
 	const auto& g = model.geometry;
-	addPanel(builder, model, "window", order++, g.window,
-		model.style.panelFillTop, model.style.panelFillBottom);
-	addPanel(builder, model, "status", order++, g.status,
-		model.style.regionFill, model.style.regionFill);
 	addText(builder, model, heading, typography.titlePx, "title", order++, g.title, model.title,
 		model.style.text, CalypsoHdHAlign::Left);
 	addPanel(builder, model, "control-bar", order++, g.controlBar,
@@ -676,8 +672,6 @@ bool CalypsoHdOperationsRenderer::physicalReady() const
 {
 	if (_state == nullptr || !_model.readiness.fontsReady || !physicalFontsPresent())
 		return false;
-	if (_model.archetype != CalypsoHdOperationsArchetype::OperationsWorkspace)
-		return true;
 	Game* game = getCurrentGame();
 	return CommandCenter::calypsoCcResolveFonts(game ? game->getMod() : nullptr).ready;
 }
@@ -725,8 +719,10 @@ void CalypsoHdOperationsRenderer::collect(CalypsoHdFrameBuilder& builder) const
 	}
 	else
 	{
+		collectOperationsShell(builder, _model, typography, order);
 		collectWideDetail(builder, _model, _model.bodyFont, _model.headingFont,
 			typography, order);
+		collectCanonicalBasescapeChrome(builder, _model, order);
 	}
 }
 

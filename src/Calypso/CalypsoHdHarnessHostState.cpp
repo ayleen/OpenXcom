@@ -212,6 +212,21 @@ Production *addProductionFixture(Base *base, RuleManufacture *rule, int engineer
 	return production;
 }
 
+bool addLaboratoryFixture(Base *base, Mod *mod)
+{
+	if (!base || !mod) return false;
+	for (const std::string& name : mod->getBaseFacilitiesList())
+	{
+		const RuleBaseFacility *rule = mod->getBaseFacility(name, false);
+		if (!rule || rule->getLaboratories() < 10) continue;
+		auto *facility = new BaseFacility(rule, base);
+		facility->setBuildTime(0);
+		base->getFacilities()->push_back(facility);
+		return true;
+	}
+	return false;
+}
+
 OperationsFixture makeOperationsFixture(Game *game, bool needResearch, bool needManufacture,
 	const char *researchName = nullptr, const char *manufactureName = nullptr,
 	bool activeResearch = false, bool activeManufacture = false)
@@ -585,6 +600,12 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 	{
 		OperationsFixture fixture = makeOperationsFixture(getCurrentGame(), true, false,
 			"STR_MAELSTROM_BATTERY", nullptr, false, false);
+		if (fixture.base)
+		{
+			fixture.base->setScientists(10);
+			if (!addLaboratoryFixture(fixture.base, getCurrentGame()->getMod()))
+				return nullptr;
+		}
 		return fixture.base ? new ResearchInfoState(fixture.base, fixture.research) : nullptr;
 	}
 	case CalypsoHarnessScenario::F10ProductionQueue:

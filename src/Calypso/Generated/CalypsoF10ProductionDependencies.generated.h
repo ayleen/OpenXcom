@@ -7,8 +7,12 @@ namespace OpenXcom { namespace Calypso { namespace CalypsoF10ProductionDependenc
 inline constexpr const char* kContractVersion = "hd.2026-08-29.1";
 inline constexpr const char* kFormId = "f10-production-dependencies";
 inline constexpr int kFamilyId = 10;
-inline constexpr const char* kArchetype = "wide-detail";
+inline constexpr const char* kArchetype = "operations-detail";
 inline constexpr const char* kNativeState = "ManufactureDependenciesTreeState";
+inline constexpr const char* kVisualShell = "base-operations";
+inline constexpr const char* kHeaderArt = "base-manufacture";
+inline constexpr const char* kSharedChromeId = "base-command-shell";
+inline constexpr const char* kSharedChromeVersion = "hd.2026-09-07.1";
 
 /// One design-space rectangle (design px).
 struct CalypsoF10ProductionDependenciesGenRect { int x; int y; int w; int h; };
@@ -20,6 +24,7 @@ struct CalypsoF10ProductionDependenciesGenLayout
 	int designHeight;
 	CalypsoF10ProductionDependenciesGenRect window;
 	CalypsoF10ProductionDependenciesGenRect status;
+	CalypsoF10ProductionDependenciesGenRect headerArt;
 	CalypsoF10ProductionDependenciesGenRect title;
 	CalypsoF10ProductionDependenciesGenRect controlBar;
 	CalypsoF10ProductionDependenciesGenRect footer;
@@ -52,9 +57,9 @@ struct CalypsoF10ProductionDependenciesGenLayout
 inline constexpr CalypsoF10ProductionDependenciesGenLayout kLayouts[] =
 {
 	// wide
-	{ 1280, 720, { 60, 20, 1160, 690 }, { 60, 20, 1160, 36 }, { 92, 72, 680, 48 }, { 788, 72, 400, 48 }, { 60, 650, 1160, 60 }, { 92, 136, 680, 390 }, { 104, 148, 656, 20 }, { 104, 168, 656, 346 }, { 104, 168, 656, 346 }, { 742, 200, 18, 220 }, { 742, 200, 18, 220 }, { 104, 168, 200, 32 }, { 305, 168, 200, 32 }, { 506, 168, 200, 32 }, { 104, 200, 602, 44 }, { 104, 244, 602, 44 }, { 104, 288, 602, 44 }, { 104, 332, 602, 44 }, { 104, 376, 602, 44 }, { 788, 136, 400, 180 }, { 800, 148, 376, 20 }, { 800, 168, 376, 136 }, { 92, 538, 680, 104 }, { 104, 550, 656, 20 }, { 104, 570, 656, 20 }, { 104, 570, 295, 20 }, { 411, 570, 349, 20 }, { 862, 658, 158, 44 }, { 1030, 658, 158, 44 } },
+	{ 1280, 720, { 0, 0, 1280, 720 }, { 112, 96, 1144, 78 }, { 640, 96, 140, 78 }, { 130, 114, 480, 36 }, { 788, 113, 450, 44 }, { 112, 658, 1144, 44 }, { 112, 190, 560, 336 }, { 124, 202, 536, 20 }, { 124, 222, 536, 292 }, { 124, 222, 536, 292 }, { 642, 254, 18, 220 }, { 642, 254, 18, 220 }, { 124, 222, 160, 32 }, { 285, 222, 160, 32 }, { 446, 222, 160, 32 }, { 124, 254, 482, 44 }, { 124, 298, 482, 44 }, { 124, 342, 482, 44 }, { 124, 386, 482, 44 }, { 124, 430, 482, 44 }, { 688, 190, 568, 216 }, { 700, 202, 544, 20 }, { 700, 222, 544, 172 }, { 112, 538, 560, 108 }, { 124, 550, 536, 20 }, { 124, 570, 536, 20 }, { 124, 570, 241, 20 }, { 377, 570, 283, 20 }, { 898, 658, 158, 44 }, { 1066, 658, 158, 44 } },
 	// compact
-	{ 740, 360, { 8, 4, 724, 352 }, { 8, 4, 724, 32 }, { 24, 42, 430, 40 }, { 462, 38, 270, 44 }, { 462, 300, 254, 52 }, { 24, 90, 430, 158 }, { 32, 98, 414, 16 }, { 32, 114, 414, 126 }, { 32, 114, 414, 126 }, { 428, 138, 18, 88 }, { 428, 138, 18, 44 }, { 32, 114, 120, 24 }, { 153, 114, 120, 24 }, { 274, 114, 120, 24 }, { 32, 138, 362, 44 }, { 32, 182, 362, 44 }, { 32, 182, 362, 44 }, { 32, 182, 362, 44 }, { 32, 182, 362, 44 }, { 462, 90, 254, 76 }, { 470, 98, 238, 16 }, { 470, 114, 238, 44 }, { 24, 256, 430, 80 }, { 32, 264, 414, 16 }, { 32, 280, 414, 16 }, { 32, 280, 186, 16 }, { 226, 280, 220, 16 }, { 476, 304, 110, 44 }, { 598, 304, 110, 44 } },
+	{ 740, 360, { 0, 0, 740, 360 }, { 52, 48, 680, 52 }, { 400, 48, 100, 52 }, { 62, 58, 330, 24 }, { 500, 52, 220, 44 }, { 52, 312, 680, 44 }, { 52, 108, 360, 196 }, { 60, 116, 344, 16 }, { 60, 132, 344, 164 }, { 60, 132, 344, 164 }, { 386, 156, 18, 88 }, { 386, 156, 18, 44 }, { 60, 132, 96, 24 }, { 157, 132, 96, 24 }, { 254, 132, 98, 24 }, { 60, 156, 292, 44 }, { 60, 200, 292, 44 }, { 60, 200, 292, 44 }, { 60, 200, 292, 44 }, { 60, 200, 292, 44 }, { 420, 196, 312, 108 }, { 428, 204, 296, 16 }, { 428, 220, 296, 76 }, { 420, 108, 312, 80 }, { 428, 116, 296, 16 }, { 428, 132, 296, 16 }, { 428, 132, 177, 16 }, { 613, 132, 111, 16 }, { 492, 312, 110, 44 }, { 614, 312, 110, 44 } },
 };
 inline constexpr int kLayoutCount = 2;
 
