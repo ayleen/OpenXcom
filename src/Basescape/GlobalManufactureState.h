@@ -22,6 +22,10 @@
 namespace OpenXcom
 {
 
+#ifdef __EMSCRIPTEN__
+namespace Calypso { class CalypsoF14GlobalOperationsUi; }
+#endif
+
 class TextButton;
 class Window;
 class Text;
@@ -36,7 +40,14 @@ class RuleManufacture;
 class GlobalManufactureState : public State
 {
 private:
+#ifdef __EMSCRIPTEN__
+	friend class Calypso::CalypsoF14GlobalOperationsUi;
+#endif
 	TextButton *_btnOk;
+#ifdef __EMSCRIPTEN__
+	TextButton *_btnOpenBaseProduction = nullptr;
+	TextButton *_btnTechTree = nullptr;
+#endif
 	Window *_window;
 	Text *_txtTitle, *_txtAvailable, *_txtAllocated, *_txtSpace, *_txtFunds, *_txtItem, *_txtEngineers, *_txtProduced, *_txtCost, *_txtTimeLeft;
 	TextList *_lstManufacture;
@@ -44,6 +55,11 @@ private:
 	std::vector<Base*> _bases;
 	std::vector<const RuleManufacture*> _topics;
 	bool _openedFromBasescape;
+#ifdef __EMSCRIPTEN__
+	bool _hdLayout = false;
+	bool _hdWideLayout = false;
+	Calypso::CalypsoF14GlobalOperationsUi *_hdAdapter = nullptr;
+#endif
 public:
 	/// Creates the GlobalManufacture state.
 	GlobalManufactureState(bool openedFromBasescape);
@@ -58,6 +74,11 @@ public:
 	void init() override;
 	/// Fills the list with Productions from all bases.
 	void fillProductionList();
+#ifdef __EMSCRIPTEN__
+	void resize(int &dX, int &dY) override;
+#endif
+
 };
+
 
 }

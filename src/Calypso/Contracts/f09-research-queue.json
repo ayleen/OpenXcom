@@ -1,0 +1,1516 @@
+{
+  "schema": 1,
+  "version": "hd.2026-08-29.1",
+  "form": {
+    "id": "f09-research-queue",
+    "familyId": 9,
+    "archetype": "operations-workspace",
+    "source": "FormConfigs/f09-research-queue.json",
+    "actions": [
+      {
+        "id": "global-overview",
+        "label": "GLOBAL OVERVIEW",
+        "labelKey": "STR_GLOBAL_OVERVIEW",
+        "tone": "safe",
+        "action": "open-global-research",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB0CC",
+          "text": "E8FFF5FF"
+        }
+      },
+      {
+        "id": "new-project",
+        "label": "NEW PROJECT",
+        "labelKey": "STR_NEW_PROJECT",
+        "tone": "safe",
+        "action": "new-research-project",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB0CC",
+          "text": "E8FFF5FF"
+        }
+      },
+      {
+        "id": "done",
+        "label": "DONE",
+        "labelKey": "STR_DONE",
+        "tone": "primary",
+        "action": "done",
+        "style": {
+          "fill": "74FFB0FF",
+          "border": "74FFB0FF",
+          "text": "071013FF"
+        }
+      }
+    ],
+    "state": "ResearchState",
+    "labelKeys": {
+      "title": "STR_CURRENT_RESEARCH",
+      "globalOverview": "STR_GLOBAL_OVERVIEW",
+      "newProject": "STR_NEW_PROJECT",
+      "done": "STR_DONE",
+      "openProject": "STR_OPEN_PROJECT",
+      "techTree": "STR_TECH_TREE",
+      "collectionHeading": "STR_CALYPSO_RESEARCH_PROJECTS",
+      "collectionMeta": "STR_CALYPSO_ACTIVE_PROJECT_COUNT"
+    },
+    "summary": [
+      {
+        "id": "available",
+        "label": "AVAILABLE",
+        "value": "0"
+      },
+      {
+        "id": "allocated",
+        "label": "ALLOCATED",
+        "value": "100"
+      },
+      {
+        "id": "lab-space",
+        "label": "LAB SPACE",
+        "value": "0"
+      }
+    ],
+    "collection": {
+      "mode": "table",
+      "selectionRole": "research-project",
+      "heading": "RESEARCH PROJECTS",
+      "meta": "1 ACTIVE",
+      "columns": [
+        {
+          "id": "project",
+          "label": "RESEARCH PROJECT"
+        },
+        {
+          "id": "scientists",
+          "label": "SCIENTISTS ALLOCATED"
+        },
+        {
+          "id": "progress",
+          "label": "PROGRESS"
+        }
+      ],
+      "items": [
+        {
+          "id": "decanted-corpse",
+          "values": [
+            "Decanted Corpse",
+            "100",
+            "Unknown"
+          ]
+        }
+      ]
+    },
+    "controls": [],
+    "toolbar": [],
+    "detail": {
+      "id": "selected-project",
+      "label": "SELECTED PROJECT",
+      "title": "Decanted Corpse",
+      "subtitle": "RESEARCH PROJECT",
+      "metrics": [
+        {
+          "id": "scientists",
+          "label": "SCIENTISTS",
+          "value": "100"
+        },
+        {
+          "id": "progress",
+          "label": "PROGRESS",
+          "value": "Unknown"
+        }
+      ],
+      "actions": [
+        {
+          "id": "open-project",
+          "label": "OPEN PROJECT",
+          "labelKey": "STR_OPEN_PROJECT",
+          "tone": "primary",
+          "action": "open-project",
+          "style": {
+            "fill": "74FFB0FF",
+            "border": "74FFB0FF",
+            "text": "071013FF"
+          }
+        },
+        {
+          "id": "tech-tree",
+          "label": "TECH TREE",
+          "labelKey": "STR_TECH_TREE",
+          "tone": "normal",
+          "action": "open-tech-tree",
+          "style": {
+            "fill": "051417B8",
+            "border": "74FFB059",
+            "text": "E8FFF5FF"
+          }
+        }
+      ]
+    }
+  },
+  "copy": {
+    "title": "CURRENT RESEARCH",
+    "tabs": {
+      "workspace-a": "WORKSPACE",
+      "workspace-b": "WORKSPACE"
+    },
+    "summary": [
+      {
+        "id": "available",
+        "label": "AVAILABLE",
+        "value": "0"
+      },
+      {
+        "id": "allocated",
+        "label": "ALLOCATED",
+        "value": "100"
+      },
+      {
+        "id": "lab-space",
+        "label": "LAB SPACE",
+        "value": "0"
+      }
+    ],
+    "collection": {
+      "mode": "table",
+      "selectionRole": "research-project",
+      "heading": "RESEARCH PROJECTS",
+      "meta": "1 ACTIVE",
+      "columns": [
+        {
+          "id": "project",
+          "label": "RESEARCH PROJECT"
+        },
+        {
+          "id": "scientists",
+          "label": "SCIENTISTS ALLOCATED"
+        },
+        {
+          "id": "progress",
+          "label": "PROGRESS"
+        }
+      ],
+      "items": [
+        {
+          "id": "decanted-corpse",
+          "values": [
+            "Decanted Corpse",
+            "100",
+            "Unknown"
+          ]
+        }
+      ]
+    },
+    "controls": [],
+    "toolbar": {},
+    "detail": {
+      "id": "selected-project",
+      "label": "SELECTED PROJECT",
+      "title": "Decanted Corpse",
+      "subtitle": "RESEARCH PROJECT",
+      "metrics": [
+        {
+          "id": "scientists",
+          "label": "SCIENTISTS",
+          "value": "100"
+        },
+        {
+          "id": "progress",
+          "label": "PROGRESS",
+          "value": "Unknown"
+        }
+      ],
+      "actions": [
+        {
+          "id": "open-project",
+          "label": "OPEN PROJECT",
+          "labelKey": "STR_OPEN_PROJECT",
+          "tone": "primary",
+          "action": "open-project"
+        },
+        {
+          "id": "tech-tree",
+          "label": "TECH TREE",
+          "labelKey": "STR_TECH_TREE",
+          "tone": "normal",
+          "action": "open-tech-tree"
+        }
+      ]
+    }
+  },
+  "style": {
+    "panelFillTop": "08191DEB",
+    "panelFillBottom": "041014E8",
+    "frame": "74FFB073",
+    "divider": "74FFB04D",
+    "text": "E8FFF5FF",
+    "mutedText": "A9D8C7FF",
+    "selectedTab": "74FFB033",
+    "cutCornerPx": 14
+  },
+  "layouts": {
+    "wide": {
+      "designWidth": 1280,
+      "designHeight": 720,
+      "window": {
+        "x": 140,
+        "y": 50,
+        "width": 1000,
+        "height": 620
+      },
+      "title": {
+        "x": 172,
+        "y": 68,
+        "width": 936,
+        "height": 44
+      },
+      "summaryBar": {
+        "x": 172,
+        "y": 116,
+        "width": 936,
+        "height": 36
+      },
+      "summary": {
+        "available": {
+          "x": 172,
+          "y": 116,
+          "width": 311,
+          "height": 36
+        },
+        "allocated": {
+          "x": 484,
+          "y": 116,
+          "width": 311,
+          "height": 36
+        },
+        "lab-space": {
+          "x": 796,
+          "y": 116,
+          "width": 312,
+          "height": 36
+        }
+      },
+      "collectionViewport": {
+        "x": 172,
+        "y": 280,
+        "width": 580,
+        "height": 286
+      },
+      "detailPanel": {
+        "x": 762,
+        "y": 280,
+        "width": 346,
+        "height": 286
+      },
+      "collection": {
+        "columnHeaders": [
+          {
+            "id": "project",
+            "rect": {
+              "x": 172,
+              "y": 280,
+              "width": 174,
+              "height": 36
+            }
+          },
+          {
+            "id": "scientists",
+            "rect": {
+              "x": 347,
+              "y": 280,
+              "width": 174,
+              "height": 36
+            }
+          },
+          {
+            "id": "progress",
+            "rect": {
+              "x": 522,
+              "y": 280,
+              "width": 176,
+              "height": 36
+            }
+          }
+        ],
+        "rowSlots": [
+          {
+            "id": "row-slot-1",
+            "rect": {
+              "x": 172,
+              "y": 316,
+              "width": 526,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "project",
+                "rect": {
+                  "x": 172,
+                  "y": 316,
+                  "width": 174,
+                  "height": 44
+                }
+              },
+              {
+                "id": "scientists",
+                "rect": {
+                  "x": 347,
+                  "y": 316,
+                  "width": 174,
+                  "height": 44
+                }
+              },
+              {
+                "id": "progress",
+                "rect": {
+                  "x": 522,
+                  "y": 316,
+                  "width": 176,
+                  "height": 44
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-2",
+            "rect": {
+              "x": 172,
+              "y": 360,
+              "width": 526,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "project",
+                "rect": {
+                  "x": 172,
+                  "y": 360,
+                  "width": 174,
+                  "height": 44
+                }
+              },
+              {
+                "id": "scientists",
+                "rect": {
+                  "x": 347,
+                  "y": 360,
+                  "width": 174,
+                  "height": 44
+                }
+              },
+              {
+                "id": "progress",
+                "rect": {
+                  "x": 522,
+                  "y": 360,
+                  "width": 176,
+                  "height": 44
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-3",
+            "rect": {
+              "x": 172,
+              "y": 404,
+              "width": 526,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "project",
+                "rect": {
+                  "x": 172,
+                  "y": 404,
+                  "width": 174,
+                  "height": 44
+                }
+              },
+              {
+                "id": "scientists",
+                "rect": {
+                  "x": 347,
+                  "y": 404,
+                  "width": 174,
+                  "height": 44
+                }
+              },
+              {
+                "id": "progress",
+                "rect": {
+                  "x": 522,
+                  "y": 404,
+                  "width": 176,
+                  "height": 44
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-4",
+            "rect": {
+              "x": 172,
+              "y": 448,
+              "width": 526,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "project",
+                "rect": {
+                  "x": 172,
+                  "y": 448,
+                  "width": 174,
+                  "height": 44
+                }
+              },
+              {
+                "id": "scientists",
+                "rect": {
+                  "x": 347,
+                  "y": 448,
+                  "width": 174,
+                  "height": 44
+                }
+              },
+              {
+                "id": "progress",
+                "rect": {
+                  "x": 522,
+                  "y": 448,
+                  "width": 176,
+                  "height": 44
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-5",
+            "rect": {
+              "x": 172,
+              "y": 492,
+              "width": 526,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "project",
+                "rect": {
+                  "x": 172,
+                  "y": 492,
+                  "width": 174,
+                  "height": 44
+                }
+              },
+              {
+                "id": "scientists",
+                "rect": {
+                  "x": 347,
+                  "y": 492,
+                  "width": 174,
+                  "height": 44
+                }
+              },
+              {
+                "id": "progress",
+                "rect": {
+                  "x": 522,
+                  "y": 492,
+                  "width": 176,
+                  "height": 44
+                }
+              }
+            ]
+          }
+        ],
+        "scroll": {
+          "track": {
+            "x": 734,
+            "y": 316,
+            "width": 18,
+            "height": 220
+          },
+          "thumb": {
+            "x": 734,
+            "y": 316,
+            "width": 18,
+            "height": 220
+          }
+        }
+      },
+      "toolbarBar": {
+        "x": 172,
+        "y": 218,
+        "width": 936,
+        "height": 52
+      },
+      "controls": {},
+      "controlParts": {},
+      "footer": {
+        "x": 140,
+        "y": 578,
+        "width": 1000,
+        "height": 92
+      },
+      "toolbar": {},
+      "actions": {
+        "global-overview": {
+          "x": 614,
+          "y": 602,
+          "width": 158,
+          "height": 44
+        },
+        "new-project": {
+          "x": 782,
+          "y": 602,
+          "width": 158,
+          "height": 44
+        },
+        "done": {
+          "x": 950,
+          "y": 602,
+          "width": 158,
+          "height": 44
+        }
+      },
+      "detail": {
+        "id": "selected-project",
+        "panel": {
+          "x": 762,
+          "y": 280,
+          "width": 346,
+          "height": 286
+        },
+        "label": {
+          "x": 774,
+          "y": 292,
+          "width": 322,
+          "height": 24
+        },
+        "identity": {
+          "rect": {
+            "x": 774,
+            "y": 316,
+            "width": 322,
+            "height": 32
+          },
+          "title": {
+            "x": 774,
+            "y": 316,
+            "width": 322,
+            "height": 16
+          },
+          "subtitle": {
+            "x": 774,
+            "y": 332,
+            "width": 322,
+            "height": 16
+          }
+        },
+        "metrics": {
+          "scientists": {
+            "rect": {
+              "x": 774,
+              "y": 348,
+              "width": 160,
+              "height": 28
+            },
+            "label": {
+              "x": 774,
+              "y": 348,
+              "width": 160,
+              "height": 14
+            },
+            "value": {
+              "x": 774,
+              "y": 362,
+              "width": 160,
+              "height": 14
+            }
+          },
+          "progress": {
+            "rect": {
+              "x": 935,
+              "y": 348,
+              "width": 161,
+              "height": 28
+            },
+            "label": {
+              "x": 935,
+              "y": 348,
+              "width": 161,
+              "height": 14
+            },
+            "value": {
+              "x": 935,
+              "y": 362,
+              "width": 161,
+              "height": 14
+            }
+          }
+        },
+        "note": {
+          "visible": false
+        },
+        "actions": [
+          {
+            "id": "open-project",
+            "rect": {
+              "x": 774,
+              "y": 510,
+              "width": 157,
+              "height": 44
+            }
+          },
+          {
+            "id": "tech-tree",
+            "rect": {
+              "x": 939,
+              "y": 510,
+              "width": 157,
+              "height": 44
+            }
+          }
+        ]
+      },
+      "partRects": {
+        "window": {
+          "x": 140,
+          "y": 50,
+          "width": 1000,
+          "height": 620
+        },
+        "title": {
+          "x": 172,
+          "y": 68,
+          "width": 936,
+          "height": 44
+        },
+        "summaryBar": {
+          "x": 172,
+          "y": 116,
+          "width": 936,
+          "height": 36
+        },
+        "toolbarBar": {
+          "x": 172,
+          "y": 218,
+          "width": 936,
+          "height": 52
+        },
+        "collectionViewport": {
+          "x": 172,
+          "y": 280,
+          "width": 580,
+          "height": 286
+        },
+        "footer": {
+          "x": 140,
+          "y": 578,
+          "width": 1000,
+          "height": 92
+        },
+        "summary.available": {
+          "x": 172,
+          "y": 116,
+          "width": 311,
+          "height": 36
+        },
+        "summary.allocated": {
+          "x": 484,
+          "y": 116,
+          "width": 311,
+          "height": 36
+        },
+        "summary.lab-space": {
+          "x": 796,
+          "y": 116,
+          "width": 312,
+          "height": 36
+        },
+        "tab.workspace-a": {
+          "x": 172,
+          "y": 160,
+          "width": 464,
+          "height": 48
+        },
+        "tab.workspace-b": {
+          "x": 644,
+          "y": 160,
+          "width": 464,
+          "height": 48
+        },
+        "collection.scroll.track": {
+          "x": 734,
+          "y": 316,
+          "width": 18,
+          "height": 220
+        },
+        "collection.scroll.thumb": {
+          "x": 734,
+          "y": 316,
+          "width": 18,
+          "height": 220
+        },
+        "collection.column.project": {
+          "x": 172,
+          "y": 280,
+          "width": 174,
+          "height": 36
+        },
+        "collection.column.scientists": {
+          "x": 347,
+          "y": 280,
+          "width": 174,
+          "height": 36
+        },
+        "collection.column.progress": {
+          "x": 522,
+          "y": 280,
+          "width": 176,
+          "height": 36
+        },
+        "collection.row-slot.1": {
+          "x": 172,
+          "y": 316,
+          "width": 526,
+          "height": 44
+        },
+        "collection.row-slot.2": {
+          "x": 172,
+          "y": 360,
+          "width": 526,
+          "height": 44
+        },
+        "collection.row-slot.3": {
+          "x": 172,
+          "y": 404,
+          "width": 526,
+          "height": 44
+        },
+        "collection.row-slot.4": {
+          "x": 172,
+          "y": 448,
+          "width": 526,
+          "height": 44
+        },
+        "collection.row-slot.5": {
+          "x": 172,
+          "y": 492,
+          "width": 526,
+          "height": 44
+        },
+        "detailPanel": {
+          "x": 762,
+          "y": 280,
+          "width": 346,
+          "height": 286
+        },
+        "detail.selected-project": {
+          "x": 762,
+          "y": 280,
+          "width": 346,
+          "height": 286
+        },
+        "detail.selected-project.label": {
+          "x": 774,
+          "y": 292,
+          "width": 322,
+          "height": 24
+        },
+        "detail.selected-project.identity.title": {
+          "x": 774,
+          "y": 316,
+          "width": 322,
+          "height": 16
+        },
+        "detail.selected-project.identity.subtitle": {
+          "x": 774,
+          "y": 332,
+          "width": 322,
+          "height": 16
+        },
+        "detail.selected-project.metric.scientists": {
+          "x": 774,
+          "y": 348,
+          "width": 160,
+          "height": 28
+        },
+        "detail.selected-project.metric.progress": {
+          "x": 935,
+          "y": 348,
+          "width": 161,
+          "height": 28
+        },
+        "detail.selected-project.action.open-project": {
+          "x": 774,
+          "y": 510,
+          "width": 157,
+          "height": 44
+        },
+        "detail.selected-project.action.tech-tree": {
+          "x": 939,
+          "y": 510,
+          "width": 157,
+          "height": 44
+        },
+        "action.global-overview": {
+          "x": 614,
+          "y": 602,
+          "width": 158,
+          "height": 44
+        },
+        "action.new-project": {
+          "x": 782,
+          "y": 602,
+          "width": 158,
+          "height": 44
+        },
+        "action.done": {
+          "x": 950,
+          "y": 602,
+          "width": 158,
+          "height": 44
+        }
+      }
+    },
+    "compact": {
+      "designWidth": 740,
+      "designHeight": 360,
+      "window": {
+        "x": 20,
+        "y": 8,
+        "width": 700,
+        "height": 344
+      },
+      "title": {
+        "x": 44,
+        "y": 8,
+        "width": 652,
+        "height": 32
+      },
+      "summaryBar": {
+        "x": 44,
+        "y": 44,
+        "width": 652,
+        "height": 24
+      },
+      "summary": {
+        "available": {
+          "x": 44,
+          "y": 44,
+          "width": 216,
+          "height": 24
+        },
+        "allocated": {
+          "x": 261,
+          "y": 44,
+          "width": 216,
+          "height": 24
+        },
+        "lab-space": {
+          "x": 478,
+          "y": 44,
+          "width": 218,
+          "height": 24
+        }
+      },
+      "collectionViewport": {
+        "x": 44,
+        "y": 168,
+        "width": 450,
+        "height": 112
+      },
+      "detailPanel": {
+        "x": 502,
+        "y": 168,
+        "width": 194,
+        "height": 112
+      },
+      "collection": {
+        "columnHeaders": [
+          {
+            "id": "project",
+            "rect": {
+              "x": 44,
+              "y": 168,
+              "width": 132,
+              "height": 24
+            }
+          },
+          {
+            "id": "scientists",
+            "rect": {
+              "x": 177,
+              "y": 168,
+              "width": 132,
+              "height": 24
+            }
+          },
+          {
+            "id": "progress",
+            "rect": {
+              "x": 310,
+              "y": 168,
+              "width": 132,
+              "height": 24
+            }
+          }
+        ],
+        "rowSlots": [
+          {
+            "id": "row-slot-1",
+            "rect": {
+              "x": 44,
+              "y": 192,
+              "width": 398,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "project",
+                "rect": {
+                  "x": 44,
+                  "y": 192,
+                  "width": 132,
+                  "height": 44
+                }
+              },
+              {
+                "id": "scientists",
+                "rect": {
+                  "x": 177,
+                  "y": 192,
+                  "width": 132,
+                  "height": 44
+                }
+              },
+              {
+                "id": "progress",
+                "rect": {
+                  "x": 310,
+                  "y": 192,
+                  "width": 132,
+                  "height": 44
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-2",
+            "rect": {
+              "x": 44,
+              "y": 236,
+              "width": 398,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "project",
+                "rect": {
+                  "x": 44,
+                  "y": 236,
+                  "width": 132,
+                  "height": 44
+                }
+              },
+              {
+                "id": "scientists",
+                "rect": {
+                  "x": 177,
+                  "y": 236,
+                  "width": 132,
+                  "height": 44
+                }
+              },
+              {
+                "id": "progress",
+                "rect": {
+                  "x": 310,
+                  "y": 236,
+                  "width": 132,
+                  "height": 44
+                }
+              }
+            ]
+          }
+        ],
+        "scroll": {
+          "track": {
+            "x": 476,
+            "y": 192,
+            "width": 18,
+            "height": 88
+          },
+          "thumb": {
+            "x": 476,
+            "y": 192,
+            "width": 18,
+            "height": 88
+          }
+        }
+      },
+      "toolbarBar": {
+        "x": 44,
+        "y": 120,
+        "width": 652,
+        "height": 44
+      },
+      "controls": {},
+      "controlParts": {},
+      "footer": {
+        "x": 20,
+        "y": 284,
+        "width": 700,
+        "height": 68
+      },
+      "toolbar": {},
+      "actions": {
+        "global-overview": {
+          "x": 312,
+          "y": 296,
+          "width": 120,
+          "height": 44
+        },
+        "new-project": {
+          "x": 444,
+          "y": 296,
+          "width": 120,
+          "height": 44
+        },
+        "done": {
+          "x": 576,
+          "y": 296,
+          "width": 120,
+          "height": 44
+        }
+      },
+      "detail": {
+        "id": "selected-project",
+        "panel": {
+          "x": 502,
+          "y": 168,
+          "width": 194,
+          "height": 112
+        },
+        "label": {
+          "x": 506,
+          "y": 172,
+          "width": 186,
+          "height": 16
+        },
+        "identity": {
+          "rect": {
+            "x": 506,
+            "y": 188,
+            "width": 186,
+            "height": 24
+          },
+          "title": {
+            "x": 506,
+            "y": 188,
+            "width": 186,
+            "height": 12
+          },
+          "subtitle": {
+            "x": 506,
+            "y": 200,
+            "width": 186,
+            "height": 12
+          }
+        },
+        "metrics": {
+          "scientists": {
+            "rect": {
+              "x": 506,
+              "y": 212,
+              "width": 92,
+              "height": 16
+            },
+            "label": {
+              "x": 506,
+              "y": 212,
+              "width": 92,
+              "height": 8
+            },
+            "value": {
+              "x": 506,
+              "y": 220,
+              "width": 92,
+              "height": 8
+            }
+          },
+          "progress": {
+            "rect": {
+              "x": 599,
+              "y": 212,
+              "width": 93,
+              "height": 16
+            },
+            "label": {
+              "x": 599,
+              "y": 212,
+              "width": 93,
+              "height": 8
+            },
+            "value": {
+              "x": 599,
+              "y": 220,
+              "width": 93,
+              "height": 8
+            }
+          }
+        },
+        "note": {
+          "visible": false
+        },
+        "actions": [
+          {
+            "id": "open-project",
+            "rect": {
+              "x": 506,
+              "y": 232,
+              "width": 90,
+              "height": 44
+            }
+          },
+          {
+            "id": "tech-tree",
+            "rect": {
+              "x": 602,
+              "y": 232,
+              "width": 90,
+              "height": 44
+            }
+          }
+        ]
+      },
+      "partRects": {
+        "window": {
+          "x": 20,
+          "y": 8,
+          "width": 700,
+          "height": 344
+        },
+        "title": {
+          "x": 44,
+          "y": 8,
+          "width": 652,
+          "height": 32
+        },
+        "summaryBar": {
+          "x": 44,
+          "y": 44,
+          "width": 652,
+          "height": 24
+        },
+        "toolbarBar": {
+          "x": 44,
+          "y": 120,
+          "width": 652,
+          "height": 44
+        },
+        "collectionViewport": {
+          "x": 44,
+          "y": 168,
+          "width": 450,
+          "height": 112
+        },
+        "footer": {
+          "x": 20,
+          "y": 284,
+          "width": 700,
+          "height": 68
+        },
+        "summary.available": {
+          "x": 44,
+          "y": 44,
+          "width": 216,
+          "height": 24
+        },
+        "summary.allocated": {
+          "x": 261,
+          "y": 44,
+          "width": 216,
+          "height": 24
+        },
+        "summary.lab-space": {
+          "x": 478,
+          "y": 44,
+          "width": 218,
+          "height": 24
+        },
+        "tab.workspace-a": {
+          "x": 44,
+          "y": 72,
+          "width": 323,
+          "height": 44
+        },
+        "tab.workspace-b": {
+          "x": 373,
+          "y": 72,
+          "width": 323,
+          "height": 44
+        },
+        "collection.scroll.track": {
+          "x": 476,
+          "y": 192,
+          "width": 18,
+          "height": 88
+        },
+        "collection.scroll.thumb": {
+          "x": 476,
+          "y": 192,
+          "width": 18,
+          "height": 88
+        },
+        "collection.column.project": {
+          "x": 44,
+          "y": 168,
+          "width": 132,
+          "height": 24
+        },
+        "collection.column.scientists": {
+          "x": 177,
+          "y": 168,
+          "width": 132,
+          "height": 24
+        },
+        "collection.column.progress": {
+          "x": 310,
+          "y": 168,
+          "width": 132,
+          "height": 24
+        },
+        "collection.row-slot.1": {
+          "x": 44,
+          "y": 192,
+          "width": 398,
+          "height": 44
+        },
+        "collection.row-slot.2": {
+          "x": 44,
+          "y": 236,
+          "width": 398,
+          "height": 44
+        },
+        "collection.row-slot.3": {
+          "x": 44,
+          "y": 236,
+          "width": 398,
+          "height": 44
+        },
+        "collection.row-slot.4": {
+          "x": 44,
+          "y": 236,
+          "width": 398,
+          "height": 44
+        },
+        "collection.row-slot.5": {
+          "x": 44,
+          "y": 236,
+          "width": 398,
+          "height": 44
+        },
+        "detailPanel": {
+          "x": 502,
+          "y": 168,
+          "width": 194,
+          "height": 112
+        },
+        "detail.selected-project": {
+          "x": 502,
+          "y": 168,
+          "width": 194,
+          "height": 112
+        },
+        "detail.selected-project.label": {
+          "x": 506,
+          "y": 172,
+          "width": 186,
+          "height": 16
+        },
+        "detail.selected-project.identity.title": {
+          "x": 506,
+          "y": 188,
+          "width": 186,
+          "height": 12
+        },
+        "detail.selected-project.identity.subtitle": {
+          "x": 506,
+          "y": 200,
+          "width": 186,
+          "height": 12
+        },
+        "detail.selected-project.metric.scientists": {
+          "x": 506,
+          "y": 212,
+          "width": 92,
+          "height": 16
+        },
+        "detail.selected-project.metric.progress": {
+          "x": 599,
+          "y": 212,
+          "width": 93,
+          "height": 16
+        },
+        "detail.selected-project.action.open-project": {
+          "x": 506,
+          "y": 232,
+          "width": 90,
+          "height": 44
+        },
+        "detail.selected-project.action.tech-tree": {
+          "x": 602,
+          "y": 232,
+          "width": 90,
+          "height": 44
+        },
+        "action.global-overview": {
+          "x": 312,
+          "y": 296,
+          "width": 120,
+          "height": 44
+        },
+        "action.new-project": {
+          "x": 444,
+          "y": 296,
+          "width": 120,
+          "height": 44
+        },
+        "action.done": {
+          "x": 576,
+          "y": 296,
+          "width": 120,
+          "height": 44
+        }
+      }
+    }
+  },
+  "motion": {
+    "durationMs": 200,
+    "scaleFrom": 0.96,
+    "easing": "ease-out",
+    "captureModeDurationMs": 0
+  },
+  "provenance": {
+    "template": "FormTemplates/operations-workspace.json",
+    "templateVersion": 1,
+    "generatorKind": "operations"
+  },
+  "collectionMetrics": {
+    "wide": {
+      "totalItems": 1,
+      "visibleCapacity": 5,
+      "totalUnits": 1,
+      "visibleUnits": 5,
+      "itemsPerUnit": 1,
+      "scrollUnit": "record",
+      "overflow": false,
+      "scrollSteps": 0,
+      "track": {
+        "x": 734,
+        "y": 316,
+        "width": 18,
+        "height": 220
+      },
+      "thumb": {
+        "x": 734,
+        "y": 316,
+        "width": 18,
+        "height": 220
+      },
+      "trackHitTarget": {
+        "x": 708,
+        "y": 316,
+        "width": 44,
+        "height": 220
+      },
+      "thumbHitTarget": {
+        "x": 708,
+        "y": 316,
+        "width": 44,
+        "height": 220
+      },
+      "thumbTravelPx": 0
+    },
+    "compact": {
+      "totalItems": 1,
+      "visibleCapacity": 2,
+      "totalUnits": 1,
+      "visibleUnits": 2,
+      "itemsPerUnit": 1,
+      "scrollUnit": "record",
+      "overflow": false,
+      "scrollSteps": 0,
+      "track": {
+        "x": 476,
+        "y": 192,
+        "width": 18,
+        "height": 88
+      },
+      "thumb": {
+        "x": 476,
+        "y": 192,
+        "width": 18,
+        "height": 88
+      },
+      "trackHitTarget": {
+        "x": 450,
+        "y": 192,
+        "width": 44,
+        "height": 88
+      },
+      "thumbHitTarget": {
+        "x": 450,
+        "y": 192,
+        "width": 44,
+        "height": 88
+      },
+      "thumbTravelPx": 0
+    }
+  },
+  "actions": [
+    "action.global-overview",
+    "action.new-project",
+    "action.done"
+  ],
+  "parts": [
+    "window",
+    "title",
+    "summaryBar",
+    "toolbarBar",
+    "collectionViewport",
+    "footer",
+    "summary.available",
+    "summary.allocated",
+    "summary.lab-space",
+    "tab.workspace-a",
+    "tab.workspace-b",
+    "collection.scroll.track",
+    "collection.scroll.thumb",
+    "collection.column.project",
+    "collection.column.scientists",
+    "collection.column.progress",
+    "collection.row-slot.1",
+    "collection.row-slot.2",
+    "collection.row-slot.3",
+    "collection.row-slot.4",
+    "collection.row-slot.5",
+    "detailPanel",
+    "detail.selected-project",
+    "detail.selected-project.label",
+    "detail.selected-project.identity.title",
+    "detail.selected-project.identity.subtitle",
+    "detail.selected-project.metric.scientists",
+    "detail.selected-project.metric.progress",
+    "detail.selected-project.action.open-project",
+    "detail.selected-project.action.tech-tree",
+    "action.global-overview",
+    "action.new-project",
+    "action.done"
+  ],
+  "spacingRules": []
+}

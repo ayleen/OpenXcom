@@ -1,0 +1,1418 @@
+{
+  "schema": 1,
+  "version": "hd.2026-08-29.1",
+  "form": {
+    "id": "f10-production-dependencies",
+    "familyId": 10,
+    "archetype": "wide-detail",
+    "source": "FormConfigs/f10-production-dependencies.json",
+    "actions": [
+      {
+        "id": "show-all",
+        "label": "SHOW ALL",
+        "labelKey": "STR_SHOW_ALL",
+        "tone": "safe",
+        "action": "show-all",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB0CC",
+          "text": "E8FFF5FF"
+        }
+      },
+      {
+        "id": "ok",
+        "label": "OK",
+        "labelKey": "STR_OK",
+        "tone": "primary",
+        "action": "ok",
+        "style": {
+          "fill": "74FFB0FF",
+          "border": "74FFB0FF",
+          "text": "071013FF"
+        }
+      }
+    ],
+    "state": "ManufactureDependenciesTreeState",
+    "labelKeys": {
+      "title": "STR_PRODUCTION_DEPENDENCIES",
+      "showAll": "STR_SHOW_ALL",
+      "ok": "STR_OK"
+    },
+    "regions": [
+      {
+        "id": "tree",
+        "role": "primary",
+        "kind": "collection",
+        "label": "PRODUCTION DEPENDENCIES",
+        "collection": {
+          "mode": "table",
+          "selectionRole": "dependency",
+          "columns": [
+            {
+              "id": "direct",
+              "label": "DIRECT"
+            },
+            {
+              "id": "level-two",
+              "label": "LEVEL 2"
+            },
+            {
+              "id": "level-three",
+              "label": "LEVEL 3"
+            }
+          ],
+          "items": [
+            {
+              "id": "dependency-1",
+              "values": [
+                "MAELSTROM",
+                "Keravnos-M",
+                "Search end"
+              ]
+            },
+            {
+              "id": "dependency-2",
+              "values": [
+                "MANTIS",
+                "***",
+                "Search end"
+              ]
+            },
+            {
+              "id": "dependency-3",
+              "values": [
+                "Cavitation",
+                "***",
+                "Search end"
+              ]
+            },
+            {
+              "id": "dependency-4",
+              "values": [
+                "***",
+                "***",
+                "Search end"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "context",
+        "role": "secondary",
+        "kind": "preview",
+        "label": "DEPENDENCY TREE",
+        "contentId": "production-item"
+      },
+      {
+        "id": "summary",
+        "role": "summary",
+        "kind": "fields",
+        "label": "SEARCH",
+        "fields": [
+          {
+            "id": "topic",
+            "label": "TOPIC",
+            "value": "Ichor"
+          }
+        ]
+      }
+    ],
+    "controls": []
+  },
+  "copy": {
+    "title": "TOPIC: ICHOR",
+    "regions": [
+      {
+        "id": "tree",
+        "role": "primary",
+        "kind": "collection",
+        "label": "PRODUCTION DEPENDENCIES",
+        "collection": {
+          "mode": "table",
+          "selectionRole": "dependency",
+          "columns": [
+            {
+              "id": "direct",
+              "label": "DIRECT"
+            },
+            {
+              "id": "level-two",
+              "label": "LEVEL 2"
+            },
+            {
+              "id": "level-three",
+              "label": "LEVEL 3"
+            }
+          ],
+          "items": [
+            {
+              "id": "dependency-1",
+              "values": [
+                "MAELSTROM",
+                "Keravnos-M",
+                "Search end"
+              ]
+            },
+            {
+              "id": "dependency-2",
+              "values": [
+                "MANTIS",
+                "***",
+                "Search end"
+              ]
+            },
+            {
+              "id": "dependency-3",
+              "values": [
+                "Cavitation",
+                "***",
+                "Search end"
+              ]
+            },
+            {
+              "id": "dependency-4",
+              "values": [
+                "***",
+                "***",
+                "Search end"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "context",
+        "role": "secondary",
+        "kind": "preview",
+        "label": "DEPENDENCY TREE",
+        "contentId": "production-item"
+      },
+      {
+        "id": "summary",
+        "role": "summary",
+        "kind": "fields",
+        "label": "SEARCH",
+        "fields": [
+          {
+            "id": "topic",
+            "label": "TOPIC",
+            "value": "Ichor"
+          }
+        ]
+      }
+    ],
+    "controls": []
+  },
+  "style": {
+    "panelFillTop": "08191DEB",
+    "panelFillBottom": "041014E8",
+    "regionFill": "061B1CD6",
+    "frame": "74FFB073",
+    "divider": "74FFB04D",
+    "text": "E8FFF5FF",
+    "mutedText": "A9D8C7FF",
+    "selection": "74FFB033",
+    "scrollTrack": "061B1CD6",
+    "scrollThumb": "74FFB099",
+    "cutCornerPx": 14
+  },
+  "layouts": {
+    "wide": {
+      "designWidth": 1280,
+      "designHeight": 720,
+      "window": {
+        "x": 60,
+        "y": 20,
+        "width": 1160,
+        "height": 690
+      },
+      "status": {
+        "x": 60,
+        "y": 20,
+        "width": 1160,
+        "height": 36
+      },
+      "title": {
+        "x": 92,
+        "y": 72,
+        "width": 680,
+        "height": 48
+      },
+      "controlBar": {
+        "x": 788,
+        "y": 72,
+        "width": 400,
+        "height": 48
+      },
+      "controls": {},
+      "controlParts": {},
+      "footer": {
+        "x": 60,
+        "y": 650,
+        "width": 1160,
+        "height": 60
+      },
+      "regions": {
+        "tree": {
+          "panel": {
+            "x": 92,
+            "y": 136,
+            "width": 680,
+            "height": 390
+          },
+          "label": {
+            "x": 104,
+            "y": 148,
+            "width": 656,
+            "height": 20
+          },
+          "content": {
+            "x": 104,
+            "y": 168,
+            "width": 656,
+            "height": 346
+          },
+          "collection": {
+            "columnHeaders": [
+              {
+                "id": "direct",
+                "rect": {
+                  "x": 104,
+                  "y": 168,
+                  "width": 200,
+                  "height": 32
+                }
+              },
+              {
+                "id": "level-two",
+                "rect": {
+                  "x": 305,
+                  "y": 168,
+                  "width": 200,
+                  "height": 32
+                }
+              },
+              {
+                "id": "level-three",
+                "rect": {
+                  "x": 506,
+                  "y": 168,
+                  "width": 200,
+                  "height": 32
+                }
+              }
+            ],
+            "rowSlots": [
+              {
+                "id": "row-slot-1",
+                "rect": {
+                  "x": 104,
+                  "y": 200,
+                  "width": 602,
+                  "height": 44
+                },
+                "cells": [
+                  {
+                    "id": "direct",
+                    "rect": {
+                      "x": 104,
+                      "y": 200,
+                      "width": 200,
+                      "height": 44
+                    }
+                  },
+                  {
+                    "id": "level-two",
+                    "rect": {
+                      "x": 305,
+                      "y": 200,
+                      "width": 200,
+                      "height": 44
+                    }
+                  },
+                  {
+                    "id": "level-three",
+                    "rect": {
+                      "x": 506,
+                      "y": 200,
+                      "width": 200,
+                      "height": 44
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "row-slot-2",
+                "rect": {
+                  "x": 104,
+                  "y": 244,
+                  "width": 602,
+                  "height": 44
+                },
+                "cells": [
+                  {
+                    "id": "direct",
+                    "rect": {
+                      "x": 104,
+                      "y": 244,
+                      "width": 200,
+                      "height": 44
+                    }
+                  },
+                  {
+                    "id": "level-two",
+                    "rect": {
+                      "x": 305,
+                      "y": 244,
+                      "width": 200,
+                      "height": 44
+                    }
+                  },
+                  {
+                    "id": "level-three",
+                    "rect": {
+                      "x": 506,
+                      "y": 244,
+                      "width": 200,
+                      "height": 44
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "row-slot-3",
+                "rect": {
+                  "x": 104,
+                  "y": 288,
+                  "width": 602,
+                  "height": 44
+                },
+                "cells": [
+                  {
+                    "id": "direct",
+                    "rect": {
+                      "x": 104,
+                      "y": 288,
+                      "width": 200,
+                      "height": 44
+                    }
+                  },
+                  {
+                    "id": "level-two",
+                    "rect": {
+                      "x": 305,
+                      "y": 288,
+                      "width": 200,
+                      "height": 44
+                    }
+                  },
+                  {
+                    "id": "level-three",
+                    "rect": {
+                      "x": 506,
+                      "y": 288,
+                      "width": 200,
+                      "height": 44
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "row-slot-4",
+                "rect": {
+                  "x": 104,
+                  "y": 332,
+                  "width": 602,
+                  "height": 44
+                },
+                "cells": [
+                  {
+                    "id": "direct",
+                    "rect": {
+                      "x": 104,
+                      "y": 332,
+                      "width": 200,
+                      "height": 44
+                    }
+                  },
+                  {
+                    "id": "level-two",
+                    "rect": {
+                      "x": 305,
+                      "y": 332,
+                      "width": 200,
+                      "height": 44
+                    }
+                  },
+                  {
+                    "id": "level-three",
+                    "rect": {
+                      "x": 506,
+                      "y": 332,
+                      "width": 200,
+                      "height": 44
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "row-slot-5",
+                "rect": {
+                  "x": 104,
+                  "y": 376,
+                  "width": 602,
+                  "height": 44
+                },
+                "cells": [
+                  {
+                    "id": "direct",
+                    "rect": {
+                      "x": 104,
+                      "y": 376,
+                      "width": 200,
+                      "height": 44
+                    }
+                  },
+                  {
+                    "id": "level-two",
+                    "rect": {
+                      "x": 305,
+                      "y": 376,
+                      "width": 200,
+                      "height": 44
+                    }
+                  },
+                  {
+                    "id": "level-three",
+                    "rect": {
+                      "x": 506,
+                      "y": 376,
+                      "width": 200,
+                      "height": 44
+                    }
+                  }
+                ]
+              }
+            ],
+            "scroll": {
+              "track": {
+                "x": 742,
+                "y": 200,
+                "width": 18,
+                "height": 220
+              },
+              "thumb": {
+                "x": 742,
+                "y": 200,
+                "width": 18,
+                "height": 220
+              }
+            }
+          }
+        },
+        "context": {
+          "panel": {
+            "x": 788,
+            "y": 136,
+            "width": 400,
+            "height": 180
+          },
+          "label": {
+            "x": 800,
+            "y": 148,
+            "width": 376,
+            "height": 20
+          },
+          "content": {
+            "x": 800,
+            "y": 168,
+            "width": 376,
+            "height": 136
+          }
+        },
+        "summary": {
+          "panel": {
+            "x": 92,
+            "y": 538,
+            "width": 680,
+            "height": 104
+          },
+          "label": {
+            "x": 104,
+            "y": 550,
+            "width": 656,
+            "height": 20
+          },
+          "fields": {
+            "topic": {
+              "row": {
+                "x": 104,
+                "y": 570,
+                "width": 656,
+                "height": 20
+              },
+              "label": {
+                "x": 104,
+                "y": 570,
+                "width": 295,
+                "height": 20
+              },
+              "value": {
+                "x": 411,
+                "y": 570,
+                "width": 349,
+                "height": 20
+              }
+            }
+          }
+        }
+      },
+      "actions": {
+        "show-all": {
+          "x": 862,
+          "y": 658,
+          "width": 158,
+          "height": 44
+        },
+        "ok": {
+          "x": 1030,
+          "y": 658,
+          "width": 158,
+          "height": 44
+        }
+      },
+      "partRects": {
+        "window": {
+          "x": 60,
+          "y": 20,
+          "width": 1160,
+          "height": 690
+        },
+        "status": {
+          "x": 60,
+          "y": 20,
+          "width": 1160,
+          "height": 36
+        },
+        "title": {
+          "x": 92,
+          "y": 72,
+          "width": 680,
+          "height": 48
+        },
+        "controlBar": {
+          "x": 788,
+          "y": 72,
+          "width": 400,
+          "height": 48
+        },
+        "footer": {
+          "x": 60,
+          "y": 650,
+          "width": 1160,
+          "height": 60
+        },
+        "region.tree": {
+          "x": 92,
+          "y": 136,
+          "width": 680,
+          "height": 390
+        },
+        "region.tree.label": {
+          "x": 104,
+          "y": 148,
+          "width": 656,
+          "height": 20
+        },
+        "region.tree.content": {
+          "x": 104,
+          "y": 168,
+          "width": 656,
+          "height": 346
+        },
+        "region.tree.collection": {
+          "x": 104,
+          "y": 168,
+          "width": 656,
+          "height": 346
+        },
+        "region.tree.collection.scroll.track": {
+          "x": 742,
+          "y": 200,
+          "width": 18,
+          "height": 220
+        },
+        "region.tree.collection.scroll.thumb": {
+          "x": 742,
+          "y": 200,
+          "width": 18,
+          "height": 220
+        },
+        "region.tree.collection.column.direct": {
+          "x": 104,
+          "y": 168,
+          "width": 200,
+          "height": 32
+        },
+        "region.tree.collection.column.level-two": {
+          "x": 305,
+          "y": 168,
+          "width": 200,
+          "height": 32
+        },
+        "region.tree.collection.column.level-three": {
+          "x": 506,
+          "y": 168,
+          "width": 200,
+          "height": 32
+        },
+        "region.tree.collection.row-slot.1": {
+          "x": 104,
+          "y": 200,
+          "width": 602,
+          "height": 44
+        },
+        "region.tree.collection.row-slot.2": {
+          "x": 104,
+          "y": 244,
+          "width": 602,
+          "height": 44
+        },
+        "region.tree.collection.row-slot.3": {
+          "x": 104,
+          "y": 288,
+          "width": 602,
+          "height": 44
+        },
+        "region.tree.collection.row-slot.4": {
+          "x": 104,
+          "y": 332,
+          "width": 602,
+          "height": 44
+        },
+        "region.tree.collection.row-slot.5": {
+          "x": 104,
+          "y": 376,
+          "width": 602,
+          "height": 44
+        },
+        "region.context": {
+          "x": 788,
+          "y": 136,
+          "width": 400,
+          "height": 180
+        },
+        "region.context.label": {
+          "x": 800,
+          "y": 148,
+          "width": 376,
+          "height": 20
+        },
+        "region.context.content": {
+          "x": 800,
+          "y": 168,
+          "width": 376,
+          "height": 136
+        },
+        "region.summary": {
+          "x": 92,
+          "y": 538,
+          "width": 680,
+          "height": 104
+        },
+        "region.summary.label": {
+          "x": 104,
+          "y": 550,
+          "width": 656,
+          "height": 20
+        },
+        "region.summary.field.topic": {
+          "x": 104,
+          "y": 570,
+          "width": 656,
+          "height": 20
+        },
+        "region.summary.field.topic.label": {
+          "x": 104,
+          "y": 570,
+          "width": 295,
+          "height": 20
+        },
+        "region.summary.field.topic.value": {
+          "x": 411,
+          "y": 570,
+          "width": 349,
+          "height": 20
+        },
+        "action.show-all": {
+          "x": 862,
+          "y": 658,
+          "width": 158,
+          "height": 44
+        },
+        "action.ok": {
+          "x": 1030,
+          "y": 658,
+          "width": 158,
+          "height": 44
+        }
+      }
+    },
+    "compact": {
+      "designWidth": 740,
+      "designHeight": 360,
+      "window": {
+        "x": 8,
+        "y": 4,
+        "width": 724,
+        "height": 352
+      },
+      "status": {
+        "x": 8,
+        "y": 4,
+        "width": 724,
+        "height": 32
+      },
+      "title": {
+        "x": 24,
+        "y": 42,
+        "width": 430,
+        "height": 40
+      },
+      "controlBar": {
+        "x": 462,
+        "y": 38,
+        "width": 270,
+        "height": 44
+      },
+      "controls": {},
+      "controlParts": {},
+      "footer": {
+        "x": 462,
+        "y": 300,
+        "width": 254,
+        "height": 52
+      },
+      "regions": {
+        "tree": {
+          "panel": {
+            "x": 24,
+            "y": 90,
+            "width": 430,
+            "height": 158
+          },
+          "label": {
+            "x": 32,
+            "y": 98,
+            "width": 414,
+            "height": 16
+          },
+          "content": {
+            "x": 32,
+            "y": 114,
+            "width": 414,
+            "height": 126
+          },
+          "collection": {
+            "columnHeaders": [
+              {
+                "id": "direct",
+                "rect": {
+                  "x": 32,
+                  "y": 114,
+                  "width": 120,
+                  "height": 24
+                }
+              },
+              {
+                "id": "level-two",
+                "rect": {
+                  "x": 153,
+                  "y": 114,
+                  "width": 120,
+                  "height": 24
+                }
+              },
+              {
+                "id": "level-three",
+                "rect": {
+                  "x": 274,
+                  "y": 114,
+                  "width": 120,
+                  "height": 24
+                }
+              }
+            ],
+            "rowSlots": [
+              {
+                "id": "row-slot-1",
+                "rect": {
+                  "x": 32,
+                  "y": 138,
+                  "width": 362,
+                  "height": 44
+                },
+                "cells": [
+                  {
+                    "id": "direct",
+                    "rect": {
+                      "x": 32,
+                      "y": 138,
+                      "width": 120,
+                      "height": 44
+                    }
+                  },
+                  {
+                    "id": "level-two",
+                    "rect": {
+                      "x": 153,
+                      "y": 138,
+                      "width": 120,
+                      "height": 44
+                    }
+                  },
+                  {
+                    "id": "level-three",
+                    "rect": {
+                      "x": 274,
+                      "y": 138,
+                      "width": 120,
+                      "height": 44
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "row-slot-2",
+                "rect": {
+                  "x": 32,
+                  "y": 182,
+                  "width": 362,
+                  "height": 44
+                },
+                "cells": [
+                  {
+                    "id": "direct",
+                    "rect": {
+                      "x": 32,
+                      "y": 182,
+                      "width": 120,
+                      "height": 44
+                    }
+                  },
+                  {
+                    "id": "level-two",
+                    "rect": {
+                      "x": 153,
+                      "y": 182,
+                      "width": 120,
+                      "height": 44
+                    }
+                  },
+                  {
+                    "id": "level-three",
+                    "rect": {
+                      "x": 274,
+                      "y": 182,
+                      "width": 120,
+                      "height": 44
+                    }
+                  }
+                ]
+              }
+            ],
+            "scroll": {
+              "track": {
+                "x": 428,
+                "y": 138,
+                "width": 18,
+                "height": 88
+              },
+              "thumb": {
+                "x": 428,
+                "y": 138,
+                "width": 18,
+                "height": 44
+              }
+            }
+          }
+        },
+        "context": {
+          "panel": {
+            "x": 462,
+            "y": 90,
+            "width": 254,
+            "height": 76
+          },
+          "label": {
+            "x": 470,
+            "y": 98,
+            "width": 238,
+            "height": 16
+          },
+          "content": {
+            "x": 470,
+            "y": 114,
+            "width": 238,
+            "height": 44
+          }
+        },
+        "summary": {
+          "panel": {
+            "x": 24,
+            "y": 256,
+            "width": 430,
+            "height": 80
+          },
+          "label": {
+            "x": 32,
+            "y": 264,
+            "width": 414,
+            "height": 16
+          },
+          "fields": {
+            "topic": {
+              "row": {
+                "x": 32,
+                "y": 280,
+                "width": 414,
+                "height": 16
+              },
+              "label": {
+                "x": 32,
+                "y": 280,
+                "width": 186,
+                "height": 16
+              },
+              "value": {
+                "x": 226,
+                "y": 280,
+                "width": 220,
+                "height": 16
+              }
+            }
+          }
+        }
+      },
+      "actions": {
+        "show-all": {
+          "x": 476,
+          "y": 304,
+          "width": 110,
+          "height": 44
+        },
+        "ok": {
+          "x": 598,
+          "y": 304,
+          "width": 110,
+          "height": 44
+        }
+      },
+      "partRects": {
+        "window": {
+          "x": 8,
+          "y": 4,
+          "width": 724,
+          "height": 352
+        },
+        "status": {
+          "x": 8,
+          "y": 4,
+          "width": 724,
+          "height": 32
+        },
+        "title": {
+          "x": 24,
+          "y": 42,
+          "width": 430,
+          "height": 40
+        },
+        "controlBar": {
+          "x": 462,
+          "y": 38,
+          "width": 270,
+          "height": 44
+        },
+        "footer": {
+          "x": 462,
+          "y": 300,
+          "width": 254,
+          "height": 52
+        },
+        "region.tree": {
+          "x": 24,
+          "y": 90,
+          "width": 430,
+          "height": 158
+        },
+        "region.tree.label": {
+          "x": 32,
+          "y": 98,
+          "width": 414,
+          "height": 16
+        },
+        "region.tree.content": {
+          "x": 32,
+          "y": 114,
+          "width": 414,
+          "height": 126
+        },
+        "region.tree.collection": {
+          "x": 32,
+          "y": 114,
+          "width": 414,
+          "height": 126
+        },
+        "region.tree.collection.scroll.track": {
+          "x": 428,
+          "y": 138,
+          "width": 18,
+          "height": 88
+        },
+        "region.tree.collection.scroll.thumb": {
+          "x": 428,
+          "y": 138,
+          "width": 18,
+          "height": 44
+        },
+        "region.tree.collection.column.direct": {
+          "x": 32,
+          "y": 114,
+          "width": 120,
+          "height": 24
+        },
+        "region.tree.collection.column.level-two": {
+          "x": 153,
+          "y": 114,
+          "width": 120,
+          "height": 24
+        },
+        "region.tree.collection.column.level-three": {
+          "x": 274,
+          "y": 114,
+          "width": 120,
+          "height": 24
+        },
+        "region.tree.collection.row-slot.1": {
+          "x": 32,
+          "y": 138,
+          "width": 362,
+          "height": 44
+        },
+        "region.tree.collection.row-slot.2": {
+          "x": 32,
+          "y": 182,
+          "width": 362,
+          "height": 44
+        },
+        "region.tree.collection.row-slot.3": {
+          "x": 32,
+          "y": 182,
+          "width": 362,
+          "height": 44
+        },
+        "region.tree.collection.row-slot.4": {
+          "x": 32,
+          "y": 182,
+          "width": 362,
+          "height": 44
+        },
+        "region.tree.collection.row-slot.5": {
+          "x": 32,
+          "y": 182,
+          "width": 362,
+          "height": 44
+        },
+        "region.context": {
+          "x": 462,
+          "y": 90,
+          "width": 254,
+          "height": 76
+        },
+        "region.context.label": {
+          "x": 470,
+          "y": 98,
+          "width": 238,
+          "height": 16
+        },
+        "region.context.content": {
+          "x": 470,
+          "y": 114,
+          "width": 238,
+          "height": 44
+        },
+        "region.summary": {
+          "x": 24,
+          "y": 256,
+          "width": 430,
+          "height": 80
+        },
+        "region.summary.label": {
+          "x": 32,
+          "y": 264,
+          "width": 414,
+          "height": 16
+        },
+        "region.summary.field.topic": {
+          "x": 32,
+          "y": 280,
+          "width": 414,
+          "height": 16
+        },
+        "region.summary.field.topic.label": {
+          "x": 32,
+          "y": 280,
+          "width": 186,
+          "height": 16
+        },
+        "region.summary.field.topic.value": {
+          "x": 226,
+          "y": 280,
+          "width": 220,
+          "height": 16
+        },
+        "action.show-all": {
+          "x": 476,
+          "y": 304,
+          "width": 110,
+          "height": 44
+        },
+        "action.ok": {
+          "x": 598,
+          "y": 304,
+          "width": 110,
+          "height": 44
+        }
+      }
+    }
+  },
+  "motion": {
+    "durationMs": 200,
+    "scaleFrom": 0.96,
+    "easing": "ease-out",
+    "captureModeDurationMs": 0
+  },
+  "provenance": {
+    "template": "FormTemplates/wide-detail.json",
+    "templateVersion": 5,
+    "generatorKind": "detail"
+  },
+  "regionMetrics": {
+    "wide": {
+      "tree": {
+        "totalItems": 4,
+        "visibleCapacity": 5,
+        "totalUnits": 4,
+        "visibleUnits": 5,
+        "itemsPerUnit": 1,
+        "scrollUnit": "record",
+        "overflow": false,
+        "scrollSteps": 0,
+        "track": {
+          "x": 742,
+          "y": 200,
+          "width": 18,
+          "height": 220
+        },
+        "thumb": {
+          "x": 742,
+          "y": 200,
+          "width": 18,
+          "height": 220
+        },
+        "trackHitTarget": {
+          "x": 716,
+          "y": 200,
+          "width": 44,
+          "height": 220
+        },
+        "thumbHitTarget": {
+          "x": 716,
+          "y": 200,
+          "width": 44,
+          "height": 220
+        },
+        "thumbTravelPx": 0
+      }
+    },
+    "compact": {
+      "tree": {
+        "totalItems": 4,
+        "visibleCapacity": 2,
+        "totalUnits": 4,
+        "visibleUnits": 2,
+        "itemsPerUnit": 1,
+        "scrollUnit": "record",
+        "overflow": true,
+        "scrollSteps": 2,
+        "track": {
+          "x": 428,
+          "y": 138,
+          "width": 18,
+          "height": 88
+        },
+        "thumb": {
+          "x": 428,
+          "y": 138,
+          "width": 18,
+          "height": 44
+        },
+        "trackHitTarget": {
+          "x": 402,
+          "y": 138,
+          "width": 44,
+          "height": 88
+        },
+        "thumbHitTarget": {
+          "x": 402,
+          "y": 138,
+          "width": 44,
+          "height": 44
+        },
+        "thumbTravelPx": 44
+      }
+    }
+  },
+  "spacingRules": [
+    {
+      "id": "status-title",
+      "kind": "gap",
+      "first": "status",
+      "second": "title",
+      "axis": "vertical",
+      "wide": 16,
+      "compact": 6
+    },
+    {
+      "id": "title-first-region",
+      "kind": "gap",
+      "first": "title",
+      "second": "region.tree",
+      "axis": "vertical",
+      "wide": 16,
+      "compact": 8
+    },
+    {
+      "id": "title-control",
+      "kind": "gap",
+      "first": "title",
+      "second": "controlBar",
+      "axis": "horizontal",
+      "wide": 16,
+      "compact": 8
+    },
+    {
+      "id": "control-first-region",
+      "kind": "gap",
+      "first": "controlBar",
+      "second": "region.tree",
+      "axis": "vertical",
+      "wide": 16,
+      "compact": 8
+    },
+    {
+      "id": "region-inset-tree",
+      "kind": "inset",
+      "container": "region.tree",
+      "child": "region.tree.label",
+      "edges": [
+        "left",
+        "top",
+        "right"
+      ],
+      "wide": 12,
+      "compact": 8
+    },
+    {
+      "id": "region-inset-context",
+      "kind": "inset",
+      "container": "region.context",
+      "child": "region.context.label",
+      "edges": [
+        "left",
+        "top",
+        "right"
+      ],
+      "wide": 12,
+      "compact": 8
+    },
+    {
+      "id": "region-inset-summary",
+      "kind": "inset",
+      "container": "region.summary",
+      "child": "region.summary.label",
+      "edges": [
+        "left",
+        "top",
+        "right"
+      ],
+      "wide": 12,
+      "compact": 8
+    },
+    {
+      "id": "primary-secondary",
+      "kind": "gap",
+      "first": "region.tree",
+      "second": "region.context",
+      "axis": "horizontal",
+      "wide": 16,
+      "compact": 8
+    },
+    {
+      "id": "primary-summary",
+      "kind": "gap",
+      "first": "region.tree",
+      "second": "region.summary",
+      "axis": "vertical",
+      "wide": 12,
+      "compact": 8
+    },
+    {
+      "id": "footer-action-inset",
+      "kind": "inset",
+      "container": "footer",
+      "child": "action.ok",
+      "edges": [
+        "right"
+      ],
+      "wide": 32,
+      "compact": 8
+    }
+  ],
+  "actions": [
+    "action.show-all",
+    "action.ok"
+  ],
+  "parts": [
+    "window",
+    "status",
+    "title",
+    "controlBar",
+    "footer",
+    "region.tree",
+    "region.tree.label",
+    "region.tree.content",
+    "region.tree.collection",
+    "region.tree.collection.scroll.track",
+    "region.tree.collection.scroll.thumb",
+    "region.tree.collection.column.direct",
+    "region.tree.collection.column.level-two",
+    "region.tree.collection.column.level-three",
+    "region.tree.collection.row-slot.1",
+    "region.tree.collection.row-slot.2",
+    "region.tree.collection.row-slot.3",
+    "region.tree.collection.row-slot.4",
+    "region.tree.collection.row-slot.5",
+    "region.context",
+    "region.context.label",
+    "region.context.content",
+    "region.summary",
+    "region.summary.label",
+    "region.summary.field.topic",
+    "region.summary.field.topic.label",
+    "region.summary.field.topic.value",
+    "action.show-all",
+    "action.ok"
+  ]
+}

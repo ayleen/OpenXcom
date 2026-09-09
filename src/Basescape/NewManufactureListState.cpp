@@ -19,6 +19,9 @@
 #include <algorithm>
 #include <locale>
 #include "NewManufactureListState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF10ProductionUi.h"
+#endif
 #include "../Interface/Window.h"
 #include "../Interface/TextButton.h"
 #include "../Interface/ToggleTextButton.h"
@@ -139,15 +142,21 @@ NewManufactureListState::NewManufactureListState(Base *base) : _base(base), _sho
 	_btnQuickSearch->setVisible(Options::oxceQuickSearchButton);
 
 	_btnOk->onKeyboardRelease((ActionHandler)&NewManufactureListState::btnQuickSearchToggle, Options::keyToggleQuickSearch);
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF10ProductionUi::configure(*this);
+#endif
 }
 
-/**
- * Initializes state (fills list of possible productions).
- */
+NewManufactureListState::~NewManufactureListState()
+{
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
+}
 void NewManufactureListState::init()
 {
 	State::init();
-
 	if (_doInit)
 	{
 		fillProductionList(_refreshCategories);
@@ -273,6 +282,9 @@ void NewManufactureListState::lstProdClickRight(Action *)
 			_lstManufacture->setRowColor(_lstManufacture->getSelectedRow(), _colorNormal);
 		}
 	}
+#ifdef __EMSCRIPTEN__
+	if (_hdAdapter) _hdAdapter->refresh();
+#endif
 }
 
 /**
@@ -294,6 +306,13 @@ void NewManufactureListState::lstProdClickMiddle(Action *)
 		_game->pushState(new TechTreeViewerState(0, selectedTopic));
 	}
 }
+#ifdef __EMSCRIPTEN__
+void NewManufactureListState::onUfopaedia(Action *)
+{
+	if (_displayedStrings.empty() || _lstManufacture->getSelectedRow() >= _displayedStrings.size()) return;
+	Ufopaedia::openArticle(_game, _displayedStrings[_lstManufacture->getSelectedRow()]);
+}
+#endif
 
 /**
 * Updates the production list to match the basic filter
@@ -529,6 +548,20 @@ void NewManufactureListState::fillProductionList(bool refreshCategories)
 		_cbxCategory->setOptions(_catStrings, true);
 		_cbxCategory->onChange((ActionHandler)&NewManufactureListState::cbxCategoryChange);
 	}
+#ifdef __EMSCRIPTEN__
+	if (_hdAdapter) _hdAdapter->refresh();
+#endif
 }
 
 }
+
+#ifdef __EMSCRIPTEN__
+namespace OpenXcom
+{
+void NewManufactureListState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF10ProductionUi::resize(*this)) return;
+	TouchState::resize(dX, dY);
+}
+}
+#endif

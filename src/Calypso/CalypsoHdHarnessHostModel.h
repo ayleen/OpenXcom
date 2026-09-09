@@ -60,7 +60,6 @@ enum class CalypsoHarnessScenario
 	F05SoldierTransform = 78,
 	F06SoldierDiary = 79,
 	F12TransferConfirm = 80,
-	F10ManufactureCheck = 81,
 	F13Containment = 82,
 	F24ItemsArriving = 83,
 	GeoscapeHd = 84,
@@ -70,7 +69,18 @@ enum class CalypsoHarnessScenario
 	// F03 construction chooser (BuildFacilitiesState, real fixture base) and
 	// placement (PlaceFacilityState, real fixture owners, implemented presentation).
 	F03BuildFacilities = 86,
-	F03PlaceFacility = 87
+	F03PlaceFacility = 87,
+	F09ResearchQueue = 91,
+	F09ResearchCatalogue = 92,
+	F09ResearchStaffing = 93,
+	F10ProductionQueue = 94,
+	F10ProductionCatalogue = 95,
+	F10ProductionRequirements = 96,
+	F10ProductionControls = 97,
+	F10ProductionDependencies = 98,
+	F14GlobalResearch = 99,
+	F14ResearchDiary = 100,
+	F14GlobalProduction = 101
 };
 
 /// True iff `id` names a known scenario (the generic export never guesses).
@@ -104,7 +114,17 @@ inline bool calypsoHarnessScenarioValid(int id)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F05SoldierTransform)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F06SoldierDiary)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F12TransferConfirm)
-		|| id == static_cast<int>(CalypsoHarnessScenario::F10ManufactureCheck)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F09ResearchQueue)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F09ResearchCatalogue)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F09ResearchStaffing)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F10ProductionQueue)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F10ProductionCatalogue)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F10ProductionRequirements)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F10ProductionControls)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F10ProductionDependencies)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F14GlobalResearch)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F14ResearchDiary)
+		|| id == static_cast<int>(CalypsoHarnessScenario::F14GlobalProduction)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F13Containment)
 		|| id == static_cast<int>(CalypsoHarnessScenario::F24ItemsArriving)
 		|| id == static_cast<int>(CalypsoHarnessScenario::GeoscapeHd)

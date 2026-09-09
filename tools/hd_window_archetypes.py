@@ -21,8 +21,13 @@ COMMON_CONFIG_FIELDS = {
     "title",
     "actions",
 }
+COMMON_CONFIG_OPTIONAL_FIELDS = {"state", "labelKeys"}
 ACTION_FIELDS = {"id", "label", "tone", "action"}
+ACTION_OPTIONAL_FIELDS = {"labelKey"}
 CONTROL_COMMON_FIELDS = {"id", "label", "kind", "action"}
+CONTROL_OPTIONAL_FIELDS = {"labelKey"}
+LABEL_KEY_RE = re.compile(r"^[A-Z][A-Z0-9_]*$")
+STATE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
 TEMPLATE_FIELDS = {
     "schema",
     "id",
@@ -37,6 +42,7 @@ TEMPLATE_FIELDS = {
 }
 ARCHETYPE_KINDS = {
     "scrollable-collection": "collection",
+    "operations-workspace": "operations",
     "tabbed-management": "tabbed",
     "wide-detail": "detail",
     "selection-list": "selection",
@@ -54,6 +60,47 @@ LAYOUT_FIELDS = {
         "controlActionWidth",
         "controlGap",
         "controlInset",
+        "headerHeight",
+        "rowHeight",
+        "visibleRows",
+        "gridColumns",
+        "gridRows",
+        "gridGap",
+        "gridLabelLineHeight",
+        "gridLabelMaxLines",
+        "scrollbarWidth",
+        "scrollbarGap",
+        "minThumbHeight",
+        "textUnitWidth",
+        "cellInlineInset",
+        "actionWidth",
+        "actionGap",
+        "actionInset",
+    },
+    "operations": {
+        "designWidth",
+        "designHeight",
+        "window",
+        "title",
+        "summaryBar",
+        "toolbarBar",
+        "collectionViewport",
+        "detailPanel",
+        "footer",
+        "controlWidth",
+        "controlActionWidth",
+        "controlGap",
+        "controlInset",
+        "toolbarWidth",
+        "toolbarGap",
+        "detailInset",
+        "detailLabelHeight",
+        "detailIdentityHeight",
+        "detailMetricColumns",
+        "detailMetricRowHeight",
+        "detailNoteLineHeight",
+        "detailNoteVisible",
+        "detailActionGap",
         "headerHeight",
         "rowHeight",
         "visibleRows",
@@ -181,6 +228,20 @@ LIMIT_FIELDS = {
         "maxControlOptions",
         "maxActions",
     },
+    "operations": {
+        "maxTabs",
+        "maxToolbarActions",
+        "maxSummaryFields",
+        "maxControls",
+        "maxControlOptions",
+        "maxActions",
+        "maxDetailMetrics",
+        "maxDetailActions",
+        "maxDetailNoteLines",
+        "maxItems",
+        "maxColumns",
+        "maxCellCharacters",
+    },
     "tabbed": {
         "maxTabs",
         "maxToolbarActions",
@@ -216,7 +277,6 @@ LIMIT_FIELDS = {
 ZERO_CAPABLE_LAYOUT_FIELDS = {
     "actionGap",
     "actionInset",
-    "cellInlineInset",
     "controlGap",
     "controlInset",
     "detailActionGap",
@@ -262,6 +322,30 @@ def _one_line(value, label, limit=64):
     if len(value) > limit:
         raise ArchetypeError(label + " exceeds the " + str(limit) + " character limit")
 
+def _label_key(value, label):
+    if not isinstance(value, str) or not LABEL_KEY_RE.fullmatch(value):
+        raise ArchetypeError(label + " must be an uppercase localization key")
+
+
+def _validate_metadata(config):
+    state = config.get("state")
+    if state is not None and not isinstance(state, str):
+        raise ArchetypeError("config.state must be a native state identifier")
+    if state is not None and not STATE_RE.fullmatch(state):
+        raise ArchetypeError("config.state must be a native state identifier")
+    label_keys = config.get("labelKeys")
+    if label_keys is not None:
+        if not isinstance(label_keys, dict):
+            raise ArchetypeError("config.labelKeys must be an object")
+        for key, value in label_keys.items():
+            if not isinstance(key, str) or not key:
+                raise ArchetypeError("config.labelKeys keys must be non-empty strings")
+            _label_key(value, "config.labelKeys." + key)
+
+
+def _validate_optional_label_key(obj, label):
+    if "labelKey" in obj:
+        _label_key(obj["labelKey"], label + ".labelKey")
 
 def _stable_id(value, label):
     if not isinstance(value, str) or not ID_RE.fullmatch(value):
@@ -331,6 +415,34 @@ def _named_rect(rect):
         "rect": {key: rect[key] for key in ("x", "y", "width", "height")},
     }
 
+
+def _layout_rect_fields(kind):
+    if kind == "collection":
+        return ("window", "title", "controlBar", "viewport", "footer")
+    if kind == "selection":
+        return ("window", "status", "title", "list", "footer")
+    if kind == "operations":
+        return (
+            "window",
+            "title",
+            "summaryBar",
+            "toolbarBar",
+            "collectionViewport",
+            "detailPanel",
+            "footer",
+        )
+    if kind == "tabbed":
+        return (
+            "window",
+            "title",
+            "summaryBar",
+            "tabBar",
+            "toolbarBar",
+            "collectionViewport",
+            "detailPanel",
+            "footer",
+        )
+    return ("window", "status", "title", "controlBar", "footer")
 
 def _validate_template(template):
     _strict(template, TEMPLATE_FIELDS, set(), "template")
@@ -425,7 +537,7 @@ def _validate_template(template):
                 "template.layouts." + name + "." + field,
                 minimum,
             )
-        if template["generatorKind"] == "tabbed":
+        if template["generatorKind"] in {"tabbed", "operations"}:
             detail_minimums = {
                 "detailLabelHeight": 12,
                 "detailIdentityHeight": 20,
@@ -515,7 +627,7 @@ def _validate_template(template):
                         + " overlap"
                     )
         target_fields = ["actionWidth", "rowHeight", "minThumbHeight"]
-        if template["generatorKind"] in {"collection", "tabbed", "detail"}:
+        if template["generatorKind"] in {"collection", "tabbed", "operations", "detail"}:
             target_fields.extend(("controlWidth", "controlActionWidth"))
         if (
             template["generatorKind"] in {"collection", "detail"}
@@ -556,6 +668,30 @@ def _validate_template(template):
                 raise ArchetypeError(
                     "template.layouts." + name + " workspace must precede footer"
                 )
+        if template["generatorKind"] == "operations":
+            target_fields.append("toolbarWidth")
+            if layout["toolbarBar"]["height"] < 44:
+                raise ArchetypeError(
+                    "template.layouts." + name + ".toolbarBar violates the 44px minimum"
+                )
+            if layout["detailNoteVisible"] not in {0, 1}:
+                raise ArchetypeError(
+                    "template.layouts." + name + ".detailNoteVisible must be 0 or 1"
+                )
+            if (
+                _bottom(layout["toolbarBar"]) > layout["collectionViewport"]["y"]
+                or _bottom(layout["toolbarBar"]) > layout["detailPanel"]["y"]
+            ):
+                raise ArchetypeError(
+                    "template.layouts." + name + " toolbar must precede workspace"
+                )
+            if (
+                _bottom(layout["collectionViewport"]) > layout["footer"]["y"]
+                or _bottom(layout["detailPanel"]) > layout["footer"]["y"]
+            ):
+                raise ArchetypeError(
+                    "template.layouts." + name + " workspace must precede footer"
+                )
         for field in target_fields:
             if layout[field] < 44:
                 raise ArchetypeError(
@@ -573,34 +709,18 @@ def _validate_template(template):
         )
         if required_action_width > layout["footer"]["width"]:
             raise ArchetypeError(
-                "template.limits.maxActions is not achievable in " + name + " footer"
+                "template.layouts."
+                + name
+                + " maxActions is not achievable in the footer"
             )
 
 
-def _layout_rect_fields(kind):
-    if kind == "collection":
-        return ("window", "title", "controlBar", "viewport", "footer")
-    if kind == "selection":
-        return ("window", "status", "title", "list", "footer")
-    if kind == "tabbed":
-        return (
-            "window",
-            "title",
-            "summaryBar",
-            "tabBar",
-            "toolbarBar",
-            "collectionViewport",
-            "detailPanel",
-            "footer",
-        )
-    return ("window", "status", "title", "controlBar", "footer")
-
-
 def _validate_common(config, template, required_fields, optional_fields=None):
+
     _strict(
         config,
         COMMON_CONFIG_FIELDS | set(required_fields),
-        set(optional_fields or ()),
+        COMMON_CONFIG_OPTIONAL_FIELDS | set(optional_fields or ()),
         "config",
     )
     if config["schema"] != 1:
@@ -619,6 +739,7 @@ def _validate_common(config, template, required_fields, optional_fields=None):
     if config["archetype"] != template["id"]:
         raise ArchetypeError("config.archetype must match template.id")
     _one_line(config["title"], "config.title", 64)
+    _validate_metadata(config)
     return _validate_actions(config["actions"], template, "config.actions")
 
 
@@ -638,7 +759,8 @@ def _validate_action_items(actions, template, label, maximum):
     result = []
     for index, action in enumerate(actions):
         item_label = label + "[" + str(index) + "]"
-        _strict(action, ACTION_FIELDS, set(), item_label)
+        _strict(action, ACTION_FIELDS, ACTION_OPTIONAL_FIELDS, item_label)
+        _validate_optional_label_key(action, item_label)
         _stable_id(action["id"], item_label + ".id")
         _stable_id(action["action"], item_label + ".action")
         _one_line(action["label"], item_label + ".label", 24)
@@ -660,14 +782,16 @@ def _validate_controls(controls, template, label):
     if not isinstance(controls, list) or len(controls) > limits["maxControls"]:
         raise ArchetypeError(label + " exceeds the template limit")
     ids = set()
-    actions = set()
     result = []
+    actions = set()
     for index, control in enumerate(controls):
         item_label = label + "[" + str(index) + "]"
         if not isinstance(control, dict):
             raise ArchetypeError(item_label + " must be an object")
         kind = control.get("kind")
-        if kind == "select":
+        if kind == "stepper":
+            fields = CONTROL_COMMON_FIELDS | {"value", "minimum", "maximum"}
+        elif kind == "select":
             fields = CONTROL_COMMON_FIELDS | {"value", "options"}
         elif kind == "toggle":
             fields = CONTROL_COMMON_FIELDS | {"checked"}
@@ -677,9 +801,10 @@ def _validate_controls(controls, template, label):
             fields = CONTROL_COMMON_FIELDS | {"tone"}
         else:
             raise ArchetypeError(
-                item_label + ".kind must be select, toggle, text-input, or action"
+                item_label + ".kind must be stepper, select, toggle, text-input, or action"
             )
-        _strict(control, fields, set(), item_label)
+        _strict(control, fields, CONTROL_OPTIONAL_FIELDS, item_label)
+        _validate_optional_label_key(control, item_label)
         _stable_id(control["id"], item_label + ".id")
         _stable_id(control["action"], item_label + ".action")
         _one_line(control["label"], item_label + ".label", 24)
@@ -687,7 +812,18 @@ def _validate_controls(controls, template, label):
             raise ArchetypeError(label + " IDs and behavior actions must be unique")
         ids.add(control["id"])
         actions.add(control["action"])
-        if kind == "select":
+        if kind == "stepper":
+            value = control["value"]
+            minimum = control["minimum"]
+            maximum = control["maximum"]
+            if (
+                not all(isinstance(item, int) and not isinstance(item, bool)
+                        for item in (value, minimum, maximum))
+                or minimum > value
+                or value > maximum
+            ):
+                raise ArchetypeError(item_label + ".stepper values are invalid")
+        elif kind == "select":
             options = control["options"]
             if (
                 not isinstance(options, list)
@@ -699,7 +835,8 @@ def _validate_controls(controls, template, label):
             option_ids = set()
             for option_index, option in enumerate(options):
                 option_label = item_label + ".options[" + str(option_index) + "]"
-                _strict(option, {"id", "label"}, set(), option_label)
+                _strict(option, {"id", "label"}, {"labelKey"}, option_label)
+                _validate_optional_label_key(option, option_label)
                 _stable_id(option["id"], option_label + ".id")
                 _one_line(option["label"], option_label + ".label", 32)
                 if option["id"] in option_ids:
@@ -754,7 +891,7 @@ def _ensure_unique_interactions(groups):
             actions.add(item["action"])
 
 
-def _validate_collection_value(collection, limits, label):
+def _validate_collection_value(collection, limits, label, allow_bands=False):
     if not isinstance(collection, dict):
         raise ArchetypeError(label + " must be an object")
     mode = collection.get("mode")
@@ -763,7 +900,15 @@ def _validate_collection_value(collection, limits, label):
     fields = {"mode", "selectionRole", "items"}
     if mode != "grid":
         fields.add("columns")
-    _strict(collection, fields, set(), label)
+    optional = {"heading", "meta"} if allow_bands else set()
+    _strict(collection, fields, optional, label)
+    if "heading" in collection:
+        _one_line(collection["heading"], label + ".heading", limits["maxCellCharacters"])
+    if "meta" in collection:
+        if (not isinstance(collection["meta"], str)
+                or "\n" in collection["meta"] or "\r" in collection["meta"]
+                or len(collection["meta"]) > limits["maxCellCharacters"]):
+            raise ArchetypeError(label + ".meta must be one line within the cell character limit")
     _stable_id(collection["selectionRole"], label + ".selectionRole")
     items = collection["items"]
     if not isinstance(items, list) or not 1 <= len(items) <= limits["maxItems"]:
@@ -817,6 +962,8 @@ def _validate_collection_value(collection, limits, label):
             )
 
 
+
+
 def _validate_collection(config, template):
     actions = _validate_common(config, template, {"collection", "controls"})
     _validate_collection_value(
@@ -839,7 +986,11 @@ def _validate_tabbed_detail(detail, template):
     _stable_id(detail["id"], "config.detail.id")
     _one_line(detail["label"], "config.detail.label", 32)
     _one_line(detail["title"], "config.detail.title", 48)
-    _one_line(detail["subtitle"], "config.detail.subtitle", 48)
+    subtitle = detail["subtitle"]
+    if not isinstance(subtitle, str) or "\n" in subtitle or "\r" in subtitle or len(subtitle) > 48:
+        raise ArchetypeError("config.detail.subtitle must be a single line of at most 48 characters")
+    if not subtitle and template["id"] not in {"operations-workspace", "wide-detail"}:
+        raise ArchetypeError("config.detail.subtitle must be non-empty")
 
     metrics = detail["metrics"]
     if (
@@ -899,12 +1050,14 @@ def _validate_tabbed(config, template):
         {"detail"},
     )
     _validate_collection_value(
-        config["collection"], template["limits"], "config.collection"
+        config["collection"], template["limits"], "config.collection",
+        template["generatorKind"] == "operations"
     )
     summary = config["summary"]
     if (
         not isinstance(summary, list)
-        or not 1 <= len(summary) <= template["limits"]["maxSummaryFields"]
+        or not (0 if template["generatorKind"] == "operations" else 1)
+        <= len(summary) <= template["limits"]["maxSummaryFields"]
     ):
         raise ArchetypeError("config.summary is outside the template limit")
     summary_ids = set()
@@ -949,7 +1102,8 @@ def _validate_tabbed(config, template):
     toolbar_roles = set()
     for index, action in enumerate(toolbar):
         label = "config.toolbar[" + str(index) + "]"
-        _strict(action, ACTION_FIELDS, set(), label)
+        _strict(action, ACTION_FIELDS, ACTION_OPTIONAL_FIELDS, label)
+        _validate_optional_label_key(action, label)
         _stable_id(action["id"], label + ".id")
         _stable_id(action["action"], label + ".action")
         _one_line(action["label"], label + ".label", 24)
@@ -1025,9 +1179,14 @@ def _validate_detail(config, template):
         if not isinstance(role, str) or role not in allowed_roles:
             raise ArchetypeError(region_label + ".role is unsupported")
         expected_role = DETAIL_ROLE_BY_KIND[kind]
-        if region["role"] != expected_role:
+        role_ok = region["role"] == expected_role
+        if kind == "fields":
+            role_ok = region["role"] in {"primary", "summary"}
+        elif kind == "preview":
+            role_ok = region["role"] in {"primary", "secondary"}
+        if not role_ok:
             raise ArchetypeError(
-                region_label + ".kind " + kind + " requires role " + expected_role
+                region_label + ".kind " + kind + " has an unsupported role"
             )
         if region["id"] in region_ids:
             raise ArchetypeError("config.regions IDs must be unique")
@@ -1194,6 +1353,38 @@ def _control_rects(controls, authored, bar, name, right_limit=None):
             )
     return rectangles
 
+def _control_parts(controls, rectangles):
+    parts = {}
+    for control in controls:
+        if control["kind"] != "stepper":
+            continue
+        control_id = control["id"]
+        rect = rectangles[control_id]
+        if rect["width"] < 88:
+            raise ArchetypeError("stepper control is too narrow for +/- targets")
+        parts[control_id] = {
+            "decrement": _make_rect(rect["x"], rect["y"], 44, 44),
+            "value": _make_rect(
+                rect["x"] + 44,
+                rect["y"],
+                rect["width"] - 88,
+                44,
+            ),
+            "increment": _make_rect(
+                _right(rect) - 44, rect["y"], 44, 44
+            ),
+        }
+    return parts
+
+
+def _control_part_paths(controls):
+    paths = ["control." + control["id"] for control in controls]
+    for control in controls:
+        if control["kind"] == "stepper":
+            base = "control." + control["id"]
+            paths.extend((base + ".decrement", base + ".value", base + ".increment"))
+    return paths
+
 
 def _equal_rects(parent, count, gap, ids):
     if count <= 0 or len(ids) != count:
@@ -1294,16 +1485,21 @@ def _collection_parts(collection, template, prefix):
 
 
 def _base_contract(config, template, source_name, template_name, actions):
+    form = {
+        "id": config["id"],
+        "familyId": config["familyId"],
+        "archetype": config["archetype"],
+        "source": source_name,
+        "actions": actions,
+    }
+    if "state" in config:
+        form["state"] = config["state"]
+    if "labelKeys" in config:
+        form["labelKeys"] = copy.deepcopy(config["labelKeys"])
     return {
         "schema": 1,
         "version": config["version"],
-        "form": {
-            "id": config["id"],
-            "familyId": config["familyId"],
-            "archetype": config["archetype"],
-            "source": source_name,
-            "actions": actions,
-        },
+        "form": form,
         "copy": {"title": config["title"]},
         "style": copy.deepcopy(template["style"]),
         "layouts": {},
@@ -1315,6 +1511,117 @@ def _base_contract(config, template, source_name, template_name, actions):
         },
     }
 
+def _cpp_part_name(path):
+    name = re.sub(r"[^A-Za-z0-9_]", "_", path)
+    if name and name[0].isdigit():
+        name = "_" + name
+    return name
+
+
+def _resolve_part_rect(node, segments):
+    if not segments:
+        if not isinstance(node, dict):
+            return None
+        if "rect" in node:
+            return _resolve_part_rect(node["rect"], [])
+        if "panel" in node:
+            return _resolve_part_rect(node["panel"], [])
+        if "row" in node:
+            return _resolve_part_rect(node["row"], [])
+        if set(("x", "y", "width", "height")) <= set(node):
+            return {key: node[key] for key in ("x", "y", "width", "height")}
+        return None
+    if isinstance(node, dict):
+        segment = segments[0]
+        if segment == "collection" and len(segments) == 1 and "content" in node:
+            return _resolve_part_rect(node["content"], segments[1:])
+        if segment == "control" and len(segments) > 1:
+            wanted = segments[1]
+            if len(segments) == 2 and wanted in node.get("controls", {}):
+                return _resolve_part_rect(node["controls"][wanted], [])
+            if wanted in node.get("controlParts", {}):
+                return _resolve_part_rect(
+                    node["controlParts"][wanted], segments[2:]
+                )
+        if (segment == "note" and isinstance(node.get("note"), dict)
+                and not node["note"].get("visible", False) and "panel" in node):
+            return _resolve_part_rect(node["panel"], [])
+        if segment in node:
+            return _resolve_part_rect(node[segment], segments[1:])
+        if "collection" in node and segment != "collection":
+            resolved = _resolve_part_rect(node["collection"], segments)
+            if resolved is not None:
+                return resolved
+        if "content" in node and isinstance(node["content"], dict):
+            resolved = _resolve_part_rect(node["content"], segments)
+            if resolved is not None:
+                return resolved
+        if segment == "detail" and "detail" in node:
+            return _resolve_part_rect(node["detail"], segments[1:])
+        for slot_key, slot_prefix in (
+            ("actionSlots", "action-slot-"),
+            ("rowSlots", "row-slot-"),
+            ("tileSlots", "tile-slot-"),
+        ):
+            if segment.startswith(slot_prefix) and slot_key in node:
+                for slot in node[slot_key]:
+                    if isinstance(slot, dict) and slot.get("id") == segment:
+                        return _resolve_part_rect(slot, segments[1:])
+                if node[slot_key]:
+                    return _resolve_part_rect(node[slot_key][-1], [])
+        if segment.startswith("line-") and isinstance(node.get("lines"), list):
+            try:
+                index = int(segment[5:]) - 1
+            except ValueError:
+                index = -1
+            if 0 <= index < len(node["lines"]):
+                return _resolve_part_rect(node["lines"][index], segments[1:])
+        maps = {
+            "action": "actions",
+            "tab": "tabs",
+            "toolbar": "toolbar",
+            "control": "controls",
+            "summary": "summary",
+            "metric": "metrics",
+            "region": "regions",
+            "field": "fields",
+            "column": "columnHeaders",
+            "row-slot": "rowSlots",
+            "tile-slot": "tileSlots",
+            "action-slot": "actionSlots",
+        }
+        collection_key = maps.get(segment)
+        if collection_key in node:
+            values = node[collection_key]
+            wanted = segments[1] if len(segments) > 1 else None
+            if isinstance(values, dict) and wanted in values:
+                return _resolve_part_rect(values[wanted], segments[2:])
+            if isinstance(values, list):
+                candidates = {wanted, segment + "-" + str(wanted)}
+                for value in values:
+                    if isinstance(value, dict) and value.get("id") in candidates:
+                        return _resolve_part_rect(value, segments[2:])
+                if values and segment in {"row-slot", "tile-slot", "action-slot"} and str(wanted).isdigit():
+                    return _resolve_part_rect(values[-1], segments[2:])
+        if node.get("id") == segment:
+            return _resolve_part_rect(node, segments[1:])
+    return None
+
+def _finalize_parts(contract):
+    semantic_parts = contract.pop("_partPaths", contract.get("parts", []))
+    names = [_cpp_part_name(path) for path in semantic_parts]
+    if len(set(names)) != len(names):
+        raise ArchetypeError("parts must map to unique C++ identifiers")
+    contract["parts"] = semantic_parts
+    for layout in contract["layouts"].values():
+        part_rects = {}
+        for semantic in semantic_parts:
+            rect = _resolve_part_rect(layout, semantic.split("."))
+            if rect is None:
+                raise ArchetypeError("layout is missing part geometry: " + semantic)
+            part_rects[semantic] = rect
+        layout["partRects"] = part_rects
+    return contract
 
 def _build_collection_fragment(collection, authored, viewport, name):
     fragment = {}
@@ -1457,6 +1764,10 @@ def _build_collection_fragment(collection, authored, viewport, name):
         track,
         authored["minThumbHeight"],
     )
+    fragment["scroll"] = {
+        "track": metrics["track"],
+        "thumb": metrics["thumb"],
+    }
     return fragment, metrics
 
 
@@ -1474,15 +1785,15 @@ def _build_collection(config, template, source_name, template_name):
         action_rects = _action_rects(actions, authored)
         _ensure_action_copy_fits(actions, action_rects, authored, name + ".action")
         _ensure_text_fits(config["title"], authored["title"], authored, name + ".title")
+        control_rects = _control_rects(controls, authored, authored["controlBar"], name)
         layout = {
             "designWidth": authored["designWidth"],
             "designHeight": authored["designHeight"],
             "window": copy.deepcopy(authored["window"]),
             "title": copy.deepcopy(authored["title"]),
             "controlBar": copy.deepcopy(authored["controlBar"]),
-            "controls": _control_rects(
-                controls, authored, authored["controlBar"], name
-            ),
+            "controls": control_rects,
+            "controlParts": _control_parts(controls, control_rects),
             "viewport": copy.deepcopy(authored["viewport"]),
             "footer": copy.deepcopy(authored["footer"]),
             "actions": action_rects,
@@ -1493,7 +1804,7 @@ def _build_collection(config, template, source_name, template_name):
         layout.update(collection_fragment)
         out["collectionMetrics"][name] = metrics
         out["layouts"][name] = layout
-    out["parts"] = [
+    out["_partPaths"] = [
         "window",
         "title",
         "controlBar",
@@ -1502,15 +1813,16 @@ def _build_collection(config, template, source_name, template_name):
         "scroll.thumb",
         "footer",
     ]
-    out["parts"].extend("control." + control["id"] for control in controls)
-    out["parts"].extend("action." + action["id"] for action in actions)
+    out["_partPaths"].extend(_control_part_paths(controls))
+    out["actions"] = ["action." + action["id"] for action in actions]
+    out["_partPaths"].extend("action." + action["id"] for action in actions)
     # reuse shared collection helper (empty prefix -> standalone naming)
     # helper already includes scroll.track/thumb, so extend only column/slot parts
     # to avoid duplicating scroll entries, slice helper output
     collection_parts = _collection_parts(collection, template, "")
     # collection_parts[0:2] are scroll.track/thumb already in base list; skip them
-    out["parts"].extend(collection_parts[2:])
-    return out
+    out["_partPaths"].extend(collection_parts[2:])
+    return _finalize_parts(out)
 
 
 def _validate_selection_rows(collection, limits, label):
@@ -1680,7 +1992,7 @@ def _build_selection(config, template, source_name, template_name):
             raise ArchetypeError(name + " cancel action left the button slot")
         out["scrollMetrics"][name] = metrics
         out["layouts"][name] = layout
-    out["parts"] = [
+    out["_partPaths"] = [
         "window",
         "status",
         "title",
@@ -1689,7 +2001,7 @@ def _build_selection(config, template, source_name, template_name):
         "actionCancel",
     ]
     out["actions"] = ["actionCancel"]
-    return out
+    return _finalize_parts(out)
 
 
 def _build_tabbed_detail_fragment(detail, authored, name):
@@ -1938,11 +2250,15 @@ def _build_tabbed(config, template, source_name, template_name):
             name,
             control_right_limit,
         )
-        summary_rects = _equal_rects(
-            authored["summaryBar"],
-            len(config["summary"]),
-            1,
-            [field["id"] for field in config["summary"]],
+        summary_rects = (
+            _equal_rects(
+                authored["summaryBar"],
+                len(config["summary"]),
+                1,
+                [field["id"] for field in config["summary"]],
+            )
+            if config["summary"]
+            else []
         )
         for field, rect in zip(config["summary"], summary_rects):
             _ensure_text_fits(
@@ -1981,9 +2297,11 @@ def _build_tabbed(config, template, source_name, template_name):
             },
             "tabBar": copy.deepcopy(authored["tabBar"]),
             "collectionViewport": collection_viewport,
+            "detailPanel": copy.deepcopy(authored["detailPanel"]),
             "collection": collection_fragment,
             "toolbarBar": copy.deepcopy(authored["toolbarBar"]),
             "controls": control_rects,
+            "controlParts": _control_parts(controls, control_rects),
             "footer": copy.deepcopy(authored["footer"]),
             "tabs": {
                 tab["id"]: {key: value for key, value in tab.items() if key != "id"}
@@ -1998,7 +2316,7 @@ def _build_tabbed(config, template, source_name, template_name):
             )
         out["layouts"][name] = generated_layout
         out["collectionMetrics"][name] = collection_metrics
-    out["parts"] = [
+    out["_partPaths"] = [
         "window",
         "title",
         "summaryBar",
@@ -2007,42 +2325,82 @@ def _build_tabbed(config, template, source_name, template_name):
         "collectionViewport",
         "footer",
     ]
-    out["parts"].extend("summary." + field["id"] for field in config["summary"])
-    out["parts"].extend("tab." + tab_id for tab_id in tab_ids)
-    out["parts"].extend("control." + control["id"] for control in controls)
-    out["parts"].extend("toolbar." + item["id"] for item in toolbar_actions)
+    out["_partPaths"].extend("summary." + field["id"] for field in config["summary"])
+    out["_partPaths"].extend("tab." + tab_id for tab_id in tab_ids)
+    out["_partPaths"].extend(_control_part_paths(controls))
+    out["_partPaths"].extend("toolbar." + item["id"] for item in toolbar_actions)
     # collection geometry - shared helper ensures list/table/grid parity with standalone and detail
-    out["parts"].extend(_collection_parts(config["collection"], template, "collection"))
+    out["_partPaths"].extend(_collection_parts(config["collection"], template, "collection"))
     if detail is not None:
-        out["parts"].append("detailPanel")
-        out["parts"].append("detail." + detail["id"])
-        out["parts"].extend(
+        out["_partPaths"].append("detailPanel")
+        out["_partPaths"].append("detail." + detail["id"])
+        out["_partPaths"].extend(
             (
                 "detail." + detail["id"] + ".label",
                 "detail." + detail["id"] + ".identity.title",
                 "detail." + detail["id"] + ".identity.subtitle",
             )
         )
-        out["parts"].extend(
+        out["_partPaths"].extend(
             "detail." + detail["id"] + ".metric." + item["id"]
             for item in detail["metrics"]
         )
         if "note" in detail:
-            out["parts"].extend(
+            out["_partPaths"].extend(
                 (
                     "detail." + detail["id"] + ".note.label",
                     "detail." + detail["id"] + ".note.title",
                 )
             )
-            out["parts"].extend(
+            out["_partPaths"].extend(
                 "detail." + detail["id"] + ".note.line-" + str(index + 1)
                 for index in range(len(detail["note"]["body"]))
             )
-        out["parts"].extend(
+        out["_partPaths"].extend(
             "detail." + detail["id"] + ".action." + item["id"]
             for item in detail["actions"]
         )
-    out["parts"].extend("action." + action["id"] for action in actions)
+    out["_partPaths"].extend("action." + action["id"] for action in actions)
+    out["actions"] = ["action." + action["id"] for action in actions]
+    return _finalize_parts(out)
+
+def _build_operations(config, template, source_name, template_name):
+    synthetic = copy.deepcopy(config)
+    synthetic["tabs"] = [
+        {"id": "workspace-a", "label": "WORKSPACE"},
+        {"id": "workspace-b", "label": "WORKSPACE"},
+    ]
+    synthetic["selectedTab"] = "workspace-a"
+    builder_template = copy.deepcopy(template)
+    builder_template["limits"]["maxTabs"] = 2
+    builder_template["layouts"]["wide"]["tabBar"] = {
+        "x": 172, "y": 160, "width": 936, "height": 48
+    }
+    builder_template["layouts"]["compact"]["tabBar"] = {
+        "x": 44, "y": 72, "width": 652, "height": 44
+    }
+    builder_template["layouts"]["wide"]["tabGap"] = 8
+    builder_template["layouts"]["compact"]["tabGap"] = 6
+    out = _build_tabbed(synthetic, builder_template, source_name, template_name)
+    out["form"].pop("tabs", None)
+    out["form"].pop("selectedTab", None)
+    removed = {"tabBar"}
+    for name, layout in out["layouts"].items():
+        layout.pop("tabBar", None)
+        layout.pop("tabs", None)
+    out["parts"] = [
+        part for part in out["parts"]
+        if not part.startswith("tab_workspace_") and part != "tabBar"
+    ]
+    for layout in out["layouts"].values():
+        rects = layout.get("partRects", {})
+        for part in list(rects):
+            if part.startswith("tab_workspace_") or part == "tabBar":
+                rects.pop(part, None)
+    out["spacingRules"] = [
+        rule for rule in out.get("spacingRules", [])
+        if not any(rule.get(key) in removed for key in ("first", "second", "container", "child"))
+    ]
     return out
 
 
@@ -2259,6 +2617,10 @@ def _build_detail_regions(config, template, source_name, template_name):
                 )
                 generated["content"] = content
                 generated["actionSlots"] = action_slots
+                generated["scroll"] = {
+                    "track": metrics["track"],
+                    "thumb": metrics["thumb"],
+                }
                 for region_action in generated_region_actions[region["id"]]:
                     _ensure_text_fits(
                         region_action["label"],
@@ -2276,6 +2638,7 @@ def _build_detail_regions(config, template, source_name, template_name):
             "title": copy.deepcopy(authored["title"]),
             "controlBar": copy.deepcopy(authored["controlBar"]),
             "controls": control_rects,
+            "controlParts": _control_parts(controls, control_rects),
             "footer": copy.deepcopy(authored["footer"]),
             "regions": regions,
             "actions": action_rects,
@@ -2388,19 +2751,22 @@ def _build_detail_regions(config, template, source_name, template_name):
         }
     )
     out["spacingRules"] = rules
-    out["parts"] = ["window", "status", "title", "controlBar", "footer"]
-    out["parts"].extend("control." + control["id"] for control in controls)
+    out["_partPaths"] = ["window", "status", "title", "controlBar", "footer"]
+    out["_partPaths"].extend(_control_part_paths(controls))
+    out["actions"] = ["action." + action["id"] for action in actions]
     for region in config["regions"]:
-        out["parts"].extend(_detail_region_parts(region, template))
-    out["parts"].extend("action." + action["id"] for action in actions)
-    _ensure_spacing_rules_resolve(out["parts"], rules)
-    return out
+        out["_partPaths"].extend(_detail_region_parts(region, template))
+    out["_partPaths"].extend("action." + action["id"] for action in actions)
+    _ensure_spacing_rules_resolve(out["_partPaths"], rules)
+    return _finalize_parts(out)
 
 
 def build_extended_contract(config, template, source_name, template_name):
     """Validate and build one non-confirmation contract."""
     _validate_template(template)
     kind = template["generatorKind"]
+    if kind == "operations":
+        return _build_operations(config, template, source_name, template_name)
     if kind == "collection":
         return _build_collection(config, template, source_name, template_name)
     if kind == "selection":

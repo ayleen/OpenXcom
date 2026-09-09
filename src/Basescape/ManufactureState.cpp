@@ -37,9 +37,9 @@
 #include "TechTreeViewerState.h"
 #include "../Ufopaedia/Ufopaedia.h"
 #include <algorithm>
-
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoTutorial.h"
+#include "../Calypso/CalypsoF10ProductionUi.h"
 #endif
 
 namespace OpenXcom
@@ -128,6 +128,9 @@ ManufactureState::ManufactureState(Base *base) : _base(base)
 	_lstManufacture->onMouseClick((ActionHandler)&ManufactureState::lstManufactureClickLeft, SDL_BUTTON_LEFT);
 	_lstManufacture->onMouseClick((ActionHandler)&ManufactureState::lstManufactureClickMiddle, SDL_BUTTON_MIDDLE);
 	_lstManufacture->onMousePress((ActionHandler)&ManufactureState::lstManufactureMousePress);
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF10ProductionUi::configure(*this);
+#endif
 }
 
 /**
@@ -135,7 +138,10 @@ ManufactureState::ManufactureState(Base *base) : _base(base)
  */
 ManufactureState::~ManufactureState()
 {
-
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 }
 
 /**
@@ -234,6 +240,9 @@ void ManufactureState::fillProductionList(size_t scrl)
 
 	if (scrl)
 		_lstManufacture->scrollTo(scrl);
+#ifdef __EMSCRIPTEN__
+	if (_hdAdapter) _hdAdapter->refresh();
+#endif
 }
 
 /**
@@ -312,3 +321,14 @@ void ManufactureState::lstManufactureMousePress(Action *action)
 }
 
 }
+
+#ifdef __EMSCRIPTEN__
+namespace OpenXcom
+{
+void ManufactureState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF10ProductionUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+}
+#endif

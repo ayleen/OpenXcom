@@ -285,6 +285,116 @@
       "harnessScenarioIds": [
         85
       ]
+    },
+    {
+      "id": "f09-research-queue",
+      "contract": "f09-research-queue.json",
+      "emitter": "family",
+      "validationProfile": "operations-workspace",
+      "native": {"namespace": "CalypsoF09ResearchQueueGen", "prefix": "CalypsoF09ResearchQueue", "output": "CalypsoF09ResearchQueue.generated.h"},
+      "browser": {"global": "CalypsoF09ResearchQueue", "output": "f09-research-queue.js"},
+      "rendererOwnership": "research-manufacture-operations",
+      "harnessScenarioIds": [91]
+    },
+    {
+      "id": "f09-research-catalogue",
+      "contract": "f09-research-catalogue.json",
+      "emitter": "family",
+      "validationProfile": "operations-workspace",
+      "native": {"namespace": "CalypsoF09ResearchCatalogueGen", "prefix": "CalypsoF09ResearchCatalogue", "output": "CalypsoF09ResearchCatalogue.generated.h"},
+      "browser": {"global": "CalypsoF09ResearchCatalogue", "output": "f09-research-catalogue.js"},
+      "rendererOwnership": "research-manufacture-operations",
+      "harnessScenarioIds": [92]
+    },
+    {
+      "id": "f09-research-staffing",
+      "contract": "f09-research-staffing.json",
+      "emitter": "family",
+      "validationProfile": "wide-detail",
+      "native": {"namespace": "CalypsoF09ResearchStaffingGen", "prefix": "CalypsoF09ResearchStaffing", "output": "CalypsoF09ResearchStaffing.generated.h"},
+      "browser": {"global": "CalypsoF09ResearchStaffing", "output": "f09-research-staffing.js"},
+      "rendererOwnership": "research-manufacture-operations",
+      "harnessScenarioIds": [93]
+    },
+    {
+      "id": "f10-production-queue",
+      "contract": "f10-production-queue.json",
+      "emitter": "family",
+      "validationProfile": "operations-workspace",
+      "native": {"namespace": "CalypsoF10ProductionQueueGen", "prefix": "CalypsoF10ProductionQueue", "output": "CalypsoF10ProductionQueue.generated.h"},
+      "browser": {"global": "CalypsoF10ProductionQueue", "output": "f10-production-queue.js"},
+      "rendererOwnership": "research-manufacture-operations",
+      "harnessScenarioIds": [94]
+    },
+    {
+      "id": "f10-production-catalogue",
+      "contract": "f10-production-catalogue.json",
+      "emitter": "family",
+      "validationProfile": "operations-workspace",
+      "native": {"namespace": "CalypsoF10ProductionCatalogueGen", "prefix": "CalypsoF10ProductionCatalogue", "output": "CalypsoF10ProductionCatalogue.generated.h"},
+      "browser": {"global": "CalypsoF10ProductionCatalogue", "output": "f10-production-catalogue.js"},
+      "rendererOwnership": "research-manufacture-operations",
+      "harnessScenarioIds": [95]
+    },
+    {
+      "id": "f10-production-requirements",
+      "contract": "f10-production-requirements.json",
+      "emitter": "family",
+      "validationProfile": "wide-detail",
+      "native": {"namespace": "CalypsoF10ProductionRequirementsGen", "prefix": "CalypsoF10ProductionRequirements", "output": "CalypsoF10ProductionRequirements.generated.h"},
+      "browser": {"global": "CalypsoF10ProductionRequirements", "output": "f10-production-requirements.js"},
+      "rendererOwnership": "research-manufacture-operations",
+      "harnessScenarioIds": [96]
+    },
+    {
+      "id": "f10-production-controls",
+      "contract": "f10-production-controls.json",
+      "emitter": "family",
+      "validationProfile": "wide-detail",
+      "native": {"namespace": "CalypsoF10ProductionControlsGen", "prefix": "CalypsoF10ProductionControls", "output": "CalypsoF10ProductionControls.generated.h"},
+      "browser": {"global": "CalypsoF10ProductionControls", "output": "f10-production-controls.js"},
+      "rendererOwnership": "research-manufacture-operations",
+      "harnessScenarioIds": [97]
+    },
+    {
+      "id": "f10-production-dependencies",
+      "contract": "f10-production-dependencies.json",
+      "emitter": "family",
+      "validationProfile": "wide-detail",
+      "native": {"namespace": "CalypsoF10ProductionDependenciesGen", "prefix": "CalypsoF10ProductionDependencies", "output": "CalypsoF10ProductionDependencies.generated.h"},
+      "browser": {"global": "CalypsoF10ProductionDependencies", "output": "f10-production-dependencies.js"},
+      "rendererOwnership": "research-manufacture-operations",
+      "harnessScenarioIds": [98]
+    },
+    {
+      "id": "f14-global-research",
+      "contract": "f14-global-research.json",
+      "emitter": "family",
+      "validationProfile": "operations-workspace",
+      "native": {"namespace": "CalypsoF14GlobalResearchGen", "prefix": "CalypsoF14GlobalResearch", "output": "CalypsoF14GlobalResearch.generated.h"},
+      "browser": {"global": "CalypsoF14GlobalResearch", "output": "f14-global-research.js"},
+      "rendererOwnership": "research-manufacture-operations",
+      "harnessScenarioIds": [99]
+    },
+    {
+      "id": "f14-research-diary",
+      "contract": "f14-research-diary.json",
+      "emitter": "family",
+      "validationProfile": "operations-workspace",
+      "native": {"namespace": "CalypsoF14ResearchDiaryGen", "prefix": "CalypsoF14ResearchDiary", "output": "CalypsoF14ResearchDiary.generated.h"},
+      "browser": {"global": "CalypsoF14ResearchDiary", "output": "f14-research-diary.js"},
+      "rendererOwnership": "research-manufacture-operations",
+      "harnessScenarioIds": [100]
+    },
+    {
+      "id": "f14-global-production",
+      "contract": "f14-global-production.json",
+      "emitter": "family",
+      "validationProfile": "operations-workspace",
+      "native": {"namespace": "CalypsoF14GlobalProductionGen", "prefix": "CalypsoF14GlobalProduction", "output": "CalypsoF14GlobalProduction.generated.h"},
+      "browser": {"global": "CalypsoF14GlobalProduction", "output": "f14-global-production.js"},
+      "rendererOwnership": "research-manufacture-operations",
+      "harnessScenarioIds": [101]
     }
   ]
 }

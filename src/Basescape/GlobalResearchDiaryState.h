@@ -23,6 +23,10 @@
 namespace OpenXcom
 {
 
+#ifdef __EMSCRIPTEN__
+namespace Calypso { class CalypsoF14GlobalOperationsUi; }
+#endif
+
 class TextButton;
 class Window;
 class Text;
@@ -60,9 +64,17 @@ struct TranslatedResearchDiaryItem
 class GlobalResearchDiaryState : public State
 {
 private:
+#ifdef __EMSCRIPTEN__
+	friend class Calypso::CalypsoF14GlobalOperationsUi;
+#endif
+	Window *_window;
 	TextButton *_btnOk;
 	TextEdit *_btnQuickSearch;
-	Window *_window;
+#ifdef __EMSCRIPTEN__
+	TextButton *_btnOpenTechTree = nullptr;
+	TextButton *_btnOpenUfopaedia = nullptr;
+	TextButton *_btnQuickSearchToggle = nullptr;
+#endif
 	Text *_txtTitle, *_txtName, *_txtType, *_txtDate;
 	TextList *_lstItems;
 	ArrowButton *_sortName, *_sortDate;
@@ -74,6 +86,11 @@ private:
 	void initList();
 	ReserachDiarySort _itemOrder;
 	void updateArrows();
+#ifdef __EMSCRIPTEN__
+	bool _hdLayout = false;
+	bool _hdWideLayout = false;
+	Calypso::CalypsoF14GlobalOperationsUi *_hdAdapter = nullptr;
+#endif
 public:
 	/// Creates the GlobalResearchDiary state.
 	GlobalResearchDiaryState();
@@ -100,7 +117,12 @@ public:
 	/// Handler for moving the mouse over an item.
 	void lstItemMouseOver(Action* action);
 	/// Handler for moving the mouse outside the list.
+
 	void lstItemMouseOut(Action* action);
+#ifdef __EMSCRIPTEN__
+	void resize(int &dX, int &dY) override;
+#endif
+
 };
 
 }

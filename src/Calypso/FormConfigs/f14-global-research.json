@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "id": "f14-global-research",
+  "familyId": 14,
+  "version": "hd.2026-08-29.1",
+  "archetype": "operations-workspace",
+  "state": "GlobalResearchState",
+  "labelKeys": {"title": "STR_RESEARCH_OVERVIEW", "diary": "STR_RESEARCH_DIARY", "done": "STR_DONE", "openBase": "STR_OPEN_BASE_RESEARCH", "techTree": "STR_TECH_TREE", "collectionHeading": "STR_CALYPSO_PROJECTS_ACROSS_ALL_BASES"},
+  "title": "RESEARCH OVERVIEW",
+  "actions": [{"id": "research-diary", "label": "RESEARCH DIARY", "labelKey": "STR_RESEARCH_DIARY", "tone": "safe", "action": "open-research-diary"}, {"id": "done", "label": "DONE", "labelKey": "STR_DONE", "tone": "primary", "action": "done"}],
+  "summary": [{"id": "available", "label": "AVAILABLE", "value": "0"}, {"id": "allocated", "label": "ALLOCATED", "value": "100"}, {"id": "lab-space", "label": "LAB SPACE", "value": "0"}],
+  "collection": {"mode": "table", "selectionRole": "global-research-project", "heading": "PROJECTS ACROSS ALL BASES", "meta": "", "columns": [{"id": "base", "label": "BASE"}, {"id": "project", "label": "RESEARCH PROJECT"}, {"id": "scientists", "label": "SCIENTISTS"}, {"id": "progress", "label": "PROGRESS"}], "items": [{"id": "batumi-decanted-corpse", "values": ["Batumi", "Decanted Corpse", "100", "Unknown"]}]},
+  "controls": [],
+  "toolbar": [],
+  "detail": {"id": "selected-project", "label": "SELECTED PROJECT", "title": "Decanted Corpse", "subtitle": "GLOBAL PROJECT", "metrics": [{"id": "base", "label": "BASE", "value": "Batumi"}, {"id": "research-project", "label": "RESEARCH PROJECT", "value": "Decanted Corpse"}], "actions": [{"id": "open-base-research", "label": "OPEN BASE RESEARCH", "labelKey": "STR_OPEN_BASE_RESEARCH", "tone": "primary", "action": "open-base-research"}, {"id": "tech-tree", "label": "TECH TREE", "labelKey": "STR_TECH_TREE", "tone": "normal", "action": "open-tech-tree"}]}
+}

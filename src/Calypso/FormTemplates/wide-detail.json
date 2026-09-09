@@ -17,7 +17,7 @@
     "maxControlOptions": 32,
     "maxFieldsPerRegion": 3,
     "maxRegionActions": 12,
-    "maxActions": 1,
+    "maxActions": 2,
     "maxItems": 64,
     "maxColumns": 8,
     "maxCellCharacters": 48
@@ -87,16 +87,16 @@
       "window": { "x": 8, "y": 4, "width": 724, "height": 352 },
       "status": { "x": 8, "y": 4, "width": 724, "height": 32 },
       "title": { "x": 24, "y": 42, "width": 430, "height": 40 },
-      "controlBar": { "x": 462, "y": 38, "width": 254, "height": 44 },
+      "controlBar": { "x": 462, "y": 38, "width": 270, "height": 44 },
       "footer": { "x": 462, "y": 300, "width": 254, "height": 52 },
       "regionSlots": {
         "primary": { "x": 24, "y": 90, "width": 430, "height": 158 },
         "secondary": { "x": 462, "y": 90, "width": 254, "height": 76 },
         "summary": { "x": 24, "y": 256, "width": 430, "height": 80 },
-        "navigation": { "x": 462, "y": 174, "width": 254, "height": 118 }
+        "navigation": { "x": 462, "y": 174, "width": 254, "height": 124 }
       },
       "regionInset": 8,
-      "controlWidth": 119,
+      "controlWidth": 130,
       "controlActionWidth": 44,
       "controlGap": 8,
       "controlInset": 0,
@@ -104,9 +104,9 @@
       "fieldRowHeight": 16,
       "fieldLabelPercent": 45,
       "fieldColumnGap": 8,
-      "regionActionColumns": 1,
-      "regionActionVisibleRows": 1,
-      "regionActionGap": 8,
+      "regionActionColumns": 2,
+      "regionActionVisibleRows": 2,
+      "regionActionGap": 4,
       "headerHeight": 24,
       "rowHeight": 44,
       "visibleRows": 2,
@@ -119,8 +119,8 @@
       "scrollbarGap": 8,
       "minThumbHeight": 44,
       "textUnitWidth": 7,
-      "cellInlineInset": 8,
-      "actionWidth": 148,
+      "cellInlineInset": 7,
+      "actionWidth": 110,
       "actionGap": 12,
       "actionInset": 8
     }

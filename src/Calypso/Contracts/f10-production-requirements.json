@@ -1,0 +1,1548 @@
+{
+  "schema": 1,
+  "version": "hd.2026-08-29.1",
+  "form": {
+    "id": "f10-production-requirements",
+    "familyId": 10,
+    "archetype": "wide-detail",
+    "source": "FormConfigs/f10-production-requirements.json",
+    "actions": [
+      {
+        "id": "cancel",
+        "label": "CANCEL",
+        "labelKey": "STR_CANCEL",
+        "tone": "safe",
+        "action": "cancel",
+        "style": {
+          "fill": "051417B8",
+          "border": "74FFB0CC",
+          "text": "E8FFF5FF"
+        }
+      },
+      {
+        "id": "start-production",
+        "label": "START",
+        "labelKey": "STR_START_PRODUCTION",
+        "tone": "primary",
+        "action": "start-production",
+        "style": {
+          "fill": "74FFB0FF",
+          "border": "74FFB0FF",
+          "text": "071013FF"
+        }
+      }
+    ],
+    "state": "ManufactureStartState",
+    "labelKeys": {
+      "title": "STR_MANTIS_PROJECTOR",
+      "cancel": "STR_CANCEL",
+      "start": "STR_START_PRODUCTION"
+    },
+    "regions": [
+      {
+        "id": "requirements",
+        "role": "primary",
+        "kind": "collection",
+        "label": "SPECIAL MATERIALS REQUIRED",
+        "collection": {
+          "mode": "table",
+          "selectionRole": "production-requirement",
+          "columns": [
+            {
+              "id": "item",
+              "label": "ITEM REQUIRED"
+            },
+            {
+              "id": "required",
+              "label": "UNITS REQUIRED"
+            },
+            {
+              "id": "available",
+              "label": "UNITS AVAILABLE"
+            }
+          ],
+          "items": [
+            {
+              "id": "ichor",
+              "values": [
+                "Ichor",
+                "15",
+                "1,188"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "context",
+        "role": "secondary",
+        "kind": "preview",
+        "label": "PRODUCTION REQUIREMENTS",
+        "contentId": "production-item"
+      },
+      {
+        "id": "facts",
+        "role": "summary",
+        "kind": "fields",
+        "label": "REQUIREMENTS",
+        "fields": [
+          {
+            "id": "hours",
+            "label": "ENGINEER HOURS",
+            "value": "500"
+          },
+          {
+            "id": "cost",
+            "label": "COST PER UNIT",
+            "value": "$225,000"
+          },
+          {
+            "id": "items",
+            "label": "ITEMS / SPACE",
+            "value": "Ichor 15 · Space 8"
+          }
+        ]
+      }
+    ],
+    "controls": []
+  },
+  "copy": {
+    "title": "MANTIS Projector",
+    "regions": [
+      {
+        "id": "requirements",
+        "role": "primary",
+        "kind": "collection",
+        "label": "SPECIAL MATERIALS REQUIRED",
+        "collection": {
+          "mode": "table",
+          "selectionRole": "production-requirement",
+          "columns": [
+            {
+              "id": "item",
+              "label": "ITEM REQUIRED"
+            },
+            {
+              "id": "required",
+              "label": "UNITS REQUIRED"
+            },
+            {
+              "id": "available",
+              "label": "UNITS AVAILABLE"
+            }
+          ],
+          "items": [
+            {
+              "id": "ichor",
+              "values": [
+                "Ichor",
+                "15",
+                "1,188"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "context",
+        "role": "secondary",
+        "kind": "preview",
+        "label": "PRODUCTION REQUIREMENTS",
+        "contentId": "production-item"
+      },
+      {
+        "id": "facts",
+        "role": "summary",
+        "kind": "fields",
+        "label": "REQUIREMENTS",
+        "fields": [
+          {
+            "id": "hours",
+            "label": "ENGINEER HOURS",
+            "value": "500"
+          },
+          {
+            "id": "cost",
+            "label": "COST PER UNIT",
+            "value": "$225,000"
+          },
+          {
+            "id": "items",
+            "label": "ITEMS / SPACE",
+            "value": "Ichor 15 · Space 8"
+          }
+        ]
+      }
+    ],
+    "controls": []
+  },
+  "style": {
+    "panelFillTop": "08191DEB",
+    "panelFillBottom": "041014E8",
+    "regionFill": "061B1CD6",
+    "frame": "74FFB073",
+    "divider": "74FFB04D",
+    "text": "E8FFF5FF",
+    "mutedText": "A9D8C7FF",
+    "selection": "74FFB033",
+    "scrollTrack": "061B1CD6",
+    "scrollThumb": "74FFB099",
+    "cutCornerPx": 14
+  },
+  "layouts": {
+    "wide": {
+      "designWidth": 1280,
+      "designHeight": 720,
+      "window": {
+        "x": 60,
+        "y": 20,
+        "width": 1160,
+        "height": 690
+      },
+      "status": {
+        "x": 60,
+        "y": 20,
+        "width": 1160,
+        "height": 36
+      },
+      "title": {
+        "x": 92,
+        "y": 72,
+        "width": 680,
+        "height": 48
+      },
+      "controlBar": {
+        "x": 788,
+        "y": 72,
+        "width": 400,
+        "height": 48
+      },
+      "controls": {},
+      "controlParts": {},
+      "footer": {
+        "x": 60,
+        "y": 650,
+        "width": 1160,
+        "height": 60
+      },
+      "regions": {
+        "requirements": {
+          "panel": {
+            "x": 92,
+            "y": 136,
+            "width": 680,
+            "height": 390
+          },
+          "label": {
+            "x": 104,
+            "y": 148,
+            "width": 656,
+            "height": 20
+          },
+          "content": {
+            "x": 104,
+            "y": 168,
+            "width": 656,
+            "height": 346
+          },
+          "collection": {
+            "columnHeaders": [
+              {
+                "id": "item",
+                "rect": {
+                  "x": 104,
+                  "y": 168,
+                  "width": 200,
+                  "height": 32
+                }
+              },
+              {
+                "id": "required",
+                "rect": {
+                  "x": 305,
+                  "y": 168,
+                  "width": 200,
+                  "height": 32
+                }
+              },
+              {
+                "id": "available",
+                "rect": {
+                  "x": 506,
+                  "y": 168,
+                  "width": 200,
+                  "height": 32
+                }
+              }
+            ],
+            "rowSlots": [
+              {
+                "id": "row-slot-1",
+                "rect": {
+                  "x": 104,
+                  "y": 200,
+                  "width": 602,
+                  "height": 44
+                },
+                "cells": [
+                  {
+                    "id": "item",
+                    "rect": {
+                      "x": 104,
+                      "y": 200,
+                      "width": 200,
+                      "height": 44
+                    }
+                  },
+                  {
+                    "id": "required",
+                    "rect": {
+                      "x": 305,
+                      "y": 200,
+                      "width": 200,
+                      "height": 44
+                    }
+                  },
+                  {
+                    "id": "available",
+                    "rect": {
+                      "x": 506,
+                      "y": 200,
+                      "width": 200,
+                      "height": 44
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "row-slot-2",
+                "rect": {
+                  "x": 104,
+                  "y": 244,
+                  "width": 602,
+                  "height": 44
+                },
+                "cells": [
+                  {
+                    "id": "item",
+                    "rect": {
+                      "x": 104,
+                      "y": 244,
+                      "width": 200,
+                      "height": 44
+                    }
+                  },
+                  {
+                    "id": "required",
+                    "rect": {
+                      "x": 305,
+                      "y": 244,
+                      "width": 200,
+                      "height": 44
+                    }
+                  },
+                  {
+                    "id": "available",
+                    "rect": {
+                      "x": 506,
+                      "y": 244,
+                      "width": 200,
+                      "height": 44
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "row-slot-3",
+                "rect": {
+                  "x": 104,
+                  "y": 288,
+                  "width": 602,
+                  "height": 44
+                },
+                "cells": [
+                  {
+                    "id": "item",
+                    "rect": {
+                      "x": 104,
+                      "y": 288,
+                      "width": 200,
+                      "height": 44
+                    }
+                  },
+                  {
+                    "id": "required",
+                    "rect": {
+                      "x": 305,
+                      "y": 288,
+                      "width": 200,
+                      "height": 44
+                    }
+                  },
+                  {
+                    "id": "available",
+                    "rect": {
+                      "x": 506,
+                      "y": 288,
+                      "width": 200,
+                      "height": 44
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "row-slot-4",
+                "rect": {
+                  "x": 104,
+                  "y": 332,
+                  "width": 602,
+                  "height": 44
+                },
+                "cells": [
+                  {
+                    "id": "item",
+                    "rect": {
+                      "x": 104,
+                      "y": 332,
+                      "width": 200,
+                      "height": 44
+                    }
+                  },
+                  {
+                    "id": "required",
+                    "rect": {
+                      "x": 305,
+                      "y": 332,
+                      "width": 200,
+                      "height": 44
+                    }
+                  },
+                  {
+                    "id": "available",
+                    "rect": {
+                      "x": 506,
+                      "y": 332,
+                      "width": 200,
+                      "height": 44
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "row-slot-5",
+                "rect": {
+                  "x": 104,
+                  "y": 376,
+                  "width": 602,
+                  "height": 44
+                },
+                "cells": [
+                  {
+                    "id": "item",
+                    "rect": {
+                      "x": 104,
+                      "y": 376,
+                      "width": 200,
+                      "height": 44
+                    }
+                  },
+                  {
+                    "id": "required",
+                    "rect": {
+                      "x": 305,
+                      "y": 376,
+                      "width": 200,
+                      "height": 44
+                    }
+                  },
+                  {
+                    "id": "available",
+                    "rect": {
+                      "x": 506,
+                      "y": 376,
+                      "width": 200,
+                      "height": 44
+                    }
+                  }
+                ]
+              }
+            ],
+            "scroll": {
+              "track": {
+                "x": 742,
+                "y": 200,
+                "width": 18,
+                "height": 220
+              },
+              "thumb": {
+                "x": 742,
+                "y": 200,
+                "width": 18,
+                "height": 220
+              }
+            }
+          }
+        },
+        "context": {
+          "panel": {
+            "x": 788,
+            "y": 136,
+            "width": 400,
+            "height": 180
+          },
+          "label": {
+            "x": 800,
+            "y": 148,
+            "width": 376,
+            "height": 20
+          },
+          "content": {
+            "x": 800,
+            "y": 168,
+            "width": 376,
+            "height": 136
+          }
+        },
+        "facts": {
+          "panel": {
+            "x": 92,
+            "y": 538,
+            "width": 680,
+            "height": 104
+          },
+          "label": {
+            "x": 104,
+            "y": 550,
+            "width": 656,
+            "height": 20
+          },
+          "fields": {
+            "hours": {
+              "row": {
+                "x": 104,
+                "y": 570,
+                "width": 656,
+                "height": 20
+              },
+              "label": {
+                "x": 104,
+                "y": 570,
+                "width": 295,
+                "height": 20
+              },
+              "value": {
+                "x": 411,
+                "y": 570,
+                "width": 349,
+                "height": 20
+              }
+            },
+            "cost": {
+              "row": {
+                "x": 104,
+                "y": 590,
+                "width": 656,
+                "height": 20
+              },
+              "label": {
+                "x": 104,
+                "y": 590,
+                "width": 295,
+                "height": 20
+              },
+              "value": {
+                "x": 411,
+                "y": 590,
+                "width": 349,
+                "height": 20
+              }
+            },
+            "items": {
+              "row": {
+                "x": 104,
+                "y": 610,
+                "width": 656,
+                "height": 20
+              },
+              "label": {
+                "x": 104,
+                "y": 610,
+                "width": 295,
+                "height": 20
+              },
+              "value": {
+                "x": 411,
+                "y": 610,
+                "width": 349,
+                "height": 20
+              }
+            }
+          }
+        }
+      },
+      "actions": {
+        "cancel": {
+          "x": 862,
+          "y": 658,
+          "width": 158,
+          "height": 44
+        },
+        "start-production": {
+          "x": 1030,
+          "y": 658,
+          "width": 158,
+          "height": 44
+        }
+      },
+      "partRects": {
+        "window": {
+          "x": 60,
+          "y": 20,
+          "width": 1160,
+          "height": 690
+        },
+        "status": {
+          "x": 60,
+          "y": 20,
+          "width": 1160,
+          "height": 36
+        },
+        "title": {
+          "x": 92,
+          "y": 72,
+          "width": 680,
+          "height": 48
+        },
+        "controlBar": {
+          "x": 788,
+          "y": 72,
+          "width": 400,
+          "height": 48
+        },
+        "footer": {
+          "x": 60,
+          "y": 650,
+          "width": 1160,
+          "height": 60
+        },
+        "region.requirements": {
+          "x": 92,
+          "y": 136,
+          "width": 680,
+          "height": 390
+        },
+        "region.requirements.label": {
+          "x": 104,
+          "y": 148,
+          "width": 656,
+          "height": 20
+        },
+        "region.requirements.content": {
+          "x": 104,
+          "y": 168,
+          "width": 656,
+          "height": 346
+        },
+        "region.requirements.collection": {
+          "x": 104,
+          "y": 168,
+          "width": 656,
+          "height": 346
+        },
+        "region.requirements.collection.scroll.track": {
+          "x": 742,
+          "y": 200,
+          "width": 18,
+          "height": 220
+        },
+        "region.requirements.collection.scroll.thumb": {
+          "x": 742,
+          "y": 200,
+          "width": 18,
+          "height": 220
+        },
+        "region.requirements.collection.column.item": {
+          "x": 104,
+          "y": 168,
+          "width": 200,
+          "height": 32
+        },
+        "region.requirements.collection.column.required": {
+          "x": 305,
+          "y": 168,
+          "width": 200,
+          "height": 32
+        },
+        "region.requirements.collection.column.available": {
+          "x": 506,
+          "y": 168,
+          "width": 200,
+          "height": 32
+        },
+        "region.requirements.collection.row-slot.1": {
+          "x": 104,
+          "y": 200,
+          "width": 602,
+          "height": 44
+        },
+        "region.requirements.collection.row-slot.2": {
+          "x": 104,
+          "y": 244,
+          "width": 602,
+          "height": 44
+        },
+        "region.requirements.collection.row-slot.3": {
+          "x": 104,
+          "y": 288,
+          "width": 602,
+          "height": 44
+        },
+        "region.requirements.collection.row-slot.4": {
+          "x": 104,
+          "y": 332,
+          "width": 602,
+          "height": 44
+        },
+        "region.requirements.collection.row-slot.5": {
+          "x": 104,
+          "y": 376,
+          "width": 602,
+          "height": 44
+        },
+        "region.context": {
+          "x": 788,
+          "y": 136,
+          "width": 400,
+          "height": 180
+        },
+        "region.context.label": {
+          "x": 800,
+          "y": 148,
+          "width": 376,
+          "height": 20
+        },
+        "region.context.content": {
+          "x": 800,
+          "y": 168,
+          "width": 376,
+          "height": 136
+        },
+        "region.facts": {
+          "x": 92,
+          "y": 538,
+          "width": 680,
+          "height": 104
+        },
+        "region.facts.label": {
+          "x": 104,
+          "y": 550,
+          "width": 656,
+          "height": 20
+        },
+        "region.facts.field.hours": {
+          "x": 104,
+          "y": 570,
+          "width": 656,
+          "height": 20
+        },
+        "region.facts.field.hours.label": {
+          "x": 104,
+          "y": 570,
+          "width": 295,
+          "height": 20
+        },
+        "region.facts.field.hours.value": {
+          "x": 411,
+          "y": 570,
+          "width": 349,
+          "height": 20
+        },
+        "region.facts.field.cost": {
+          "x": 104,
+          "y": 590,
+          "width": 656,
+          "height": 20
+        },
+        "region.facts.field.cost.label": {
+          "x": 104,
+          "y": 590,
+          "width": 295,
+          "height": 20
+        },
+        "region.facts.field.cost.value": {
+          "x": 411,
+          "y": 590,
+          "width": 349,
+          "height": 20
+        },
+        "region.facts.field.items": {
+          "x": 104,
+          "y": 610,
+          "width": 656,
+          "height": 20
+        },
+        "region.facts.field.items.label": {
+          "x": 104,
+          "y": 610,
+          "width": 295,
+          "height": 20
+        },
+        "region.facts.field.items.value": {
+          "x": 411,
+          "y": 610,
+          "width": 349,
+          "height": 20
+        },
+        "action.cancel": {
+          "x": 862,
+          "y": 658,
+          "width": 158,
+          "height": 44
+        },
+        "action.start-production": {
+          "x": 1030,
+          "y": 658,
+          "width": 158,
+          "height": 44
+        }
+      }
+    },
+    "compact": {
+      "designWidth": 740,
+      "designHeight": 360,
+      "window": {
+        "x": 8,
+        "y": 4,
+        "width": 724,
+        "height": 352
+      },
+      "status": {
+        "x": 8,
+        "y": 4,
+        "width": 724,
+        "height": 32
+      },
+      "title": {
+        "x": 24,
+        "y": 42,
+        "width": 430,
+        "height": 40
+      },
+      "controlBar": {
+        "x": 462,
+        "y": 38,
+        "width": 270,
+        "height": 44
+      },
+      "controls": {},
+      "controlParts": {},
+      "footer": {
+        "x": 462,
+        "y": 300,
+        "width": 254,
+        "height": 52
+      },
+      "regions": {
+        "requirements": {
+          "panel": {
+            "x": 24,
+            "y": 90,
+            "width": 430,
+            "height": 158
+          },
+          "label": {
+            "x": 32,
+            "y": 98,
+            "width": 414,
+            "height": 16
+          },
+          "content": {
+            "x": 32,
+            "y": 114,
+            "width": 414,
+            "height": 126
+          },
+          "collection": {
+            "columnHeaders": [
+              {
+                "id": "item",
+                "rect": {
+                  "x": 32,
+                  "y": 114,
+                  "width": 120,
+                  "height": 24
+                }
+              },
+              {
+                "id": "required",
+                "rect": {
+                  "x": 153,
+                  "y": 114,
+                  "width": 120,
+                  "height": 24
+                }
+              },
+              {
+                "id": "available",
+                "rect": {
+                  "x": 274,
+                  "y": 114,
+                  "width": 120,
+                  "height": 24
+                }
+              }
+            ],
+            "rowSlots": [
+              {
+                "id": "row-slot-1",
+                "rect": {
+                  "x": 32,
+                  "y": 138,
+                  "width": 362,
+                  "height": 44
+                },
+                "cells": [
+                  {
+                    "id": "item",
+                    "rect": {
+                      "x": 32,
+                      "y": 138,
+                      "width": 120,
+                      "height": 44
+                    }
+                  },
+                  {
+                    "id": "required",
+                    "rect": {
+                      "x": 153,
+                      "y": 138,
+                      "width": 120,
+                      "height": 44
+                    }
+                  },
+                  {
+                    "id": "available",
+                    "rect": {
+                      "x": 274,
+                      "y": 138,
+                      "width": 120,
+                      "height": 44
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "row-slot-2",
+                "rect": {
+                  "x": 32,
+                  "y": 182,
+                  "width": 362,
+                  "height": 44
+                },
+                "cells": [
+                  {
+                    "id": "item",
+                    "rect": {
+                      "x": 32,
+                      "y": 182,
+                      "width": 120,
+                      "height": 44
+                    }
+                  },
+                  {
+                    "id": "required",
+                    "rect": {
+                      "x": 153,
+                      "y": 182,
+                      "width": 120,
+                      "height": 44
+                    }
+                  },
+                  {
+                    "id": "available",
+                    "rect": {
+                      "x": 274,
+                      "y": 182,
+                      "width": 120,
+                      "height": 44
+                    }
+                  }
+                ]
+              }
+            ],
+            "scroll": {
+              "track": {
+                "x": 428,
+                "y": 138,
+                "width": 18,
+                "height": 88
+              },
+              "thumb": {
+                "x": 428,
+                "y": 138,
+                "width": 18,
+                "height": 88
+              }
+            }
+          }
+        },
+        "context": {
+          "panel": {
+            "x": 462,
+            "y": 90,
+            "width": 254,
+            "height": 76
+          },
+          "label": {
+            "x": 470,
+            "y": 98,
+            "width": 238,
+            "height": 16
+          },
+          "content": {
+            "x": 470,
+            "y": 114,
+            "width": 238,
+            "height": 44
+          }
+        },
+        "facts": {
+          "panel": {
+            "x": 24,
+            "y": 256,
+            "width": 430,
+            "height": 80
+          },
+          "label": {
+            "x": 32,
+            "y": 264,
+            "width": 414,
+            "height": 16
+          },
+          "fields": {
+            "hours": {
+              "row": {
+                "x": 32,
+                "y": 280,
+                "width": 414,
+                "height": 16
+              },
+              "label": {
+                "x": 32,
+                "y": 280,
+                "width": 186,
+                "height": 16
+              },
+              "value": {
+                "x": 226,
+                "y": 280,
+                "width": 220,
+                "height": 16
+              }
+            },
+            "cost": {
+              "row": {
+                "x": 32,
+                "y": 296,
+                "width": 414,
+                "height": 16
+              },
+              "label": {
+                "x": 32,
+                "y": 296,
+                "width": 186,
+                "height": 16
+              },
+              "value": {
+                "x": 226,
+                "y": 296,
+                "width": 220,
+                "height": 16
+              }
+            },
+            "items": {
+              "row": {
+                "x": 32,
+                "y": 312,
+                "width": 414,
+                "height": 16
+              },
+              "label": {
+                "x": 32,
+                "y": 312,
+                "width": 186,
+                "height": 16
+              },
+              "value": {
+                "x": 226,
+                "y": 312,
+                "width": 220,
+                "height": 16
+              }
+            }
+          }
+        }
+      },
+      "actions": {
+        "cancel": {
+          "x": 476,
+          "y": 304,
+          "width": 110,
+          "height": 44
+        },
+        "start-production": {
+          "x": 598,
+          "y": 304,
+          "width": 110,
+          "height": 44
+        }
+      },
+      "partRects": {
+        "window": {
+          "x": 8,
+          "y": 4,
+          "width": 724,
+          "height": 352
+        },
+        "status": {
+          "x": 8,
+          "y": 4,
+          "width": 724,
+          "height": 32
+        },
+        "title": {
+          "x": 24,
+          "y": 42,
+          "width": 430,
+          "height": 40
+        },
+        "controlBar": {
+          "x": 462,
+          "y": 38,
+          "width": 270,
+          "height": 44
+        },
+        "footer": {
+          "x": 462,
+          "y": 300,
+          "width": 254,
+          "height": 52
+        },
+        "region.requirements": {
+          "x": 24,
+          "y": 90,
+          "width": 430,
+          "height": 158
+        },
+        "region.requirements.label": {
+          "x": 32,
+          "y": 98,
+          "width": 414,
+          "height": 16
+        },
+        "region.requirements.content": {
+          "x": 32,
+          "y": 114,
+          "width": 414,
+          "height": 126
+        },
+        "region.requirements.collection": {
+          "x": 32,
+          "y": 114,
+          "width": 414,
+          "height": 126
+        },
+        "region.requirements.collection.scroll.track": {
+          "x": 428,
+          "y": 138,
+          "width": 18,
+          "height": 88
+        },
+        "region.requirements.collection.scroll.thumb": {
+          "x": 428,
+          "y": 138,
+          "width": 18,
+          "height": 88
+        },
+        "region.requirements.collection.column.item": {
+          "x": 32,
+          "y": 114,
+          "width": 120,
+          "height": 24
+        },
+        "region.requirements.collection.column.required": {
+          "x": 153,
+          "y": 114,
+          "width": 120,
+          "height": 24
+        },
+        "region.requirements.collection.column.available": {
+          "x": 274,
+          "y": 114,
+          "width": 120,
+          "height": 24
+        },
+        "region.requirements.collection.row-slot.1": {
+          "x": 32,
+          "y": 138,
+          "width": 362,
+          "height": 44
+        },
+        "region.requirements.collection.row-slot.2": {
+          "x": 32,
+          "y": 182,
+          "width": 362,
+          "height": 44
+        },
+        "region.requirements.collection.row-slot.3": {
+          "x": 32,
+          "y": 182,
+          "width": 362,
+          "height": 44
+        },
+        "region.requirements.collection.row-slot.4": {
+          "x": 32,
+          "y": 182,
+          "width": 362,
+          "height": 44
+        },
+        "region.requirements.collection.row-slot.5": {
+          "x": 32,
+          "y": 182,
+          "width": 362,
+          "height": 44
+        },
+        "region.context": {
+          "x": 462,
+          "y": 90,
+          "width": 254,
+          "height": 76
+        },
+        "region.context.label": {
+          "x": 470,
+          "y": 98,
+          "width": 238,
+          "height": 16
+        },
+        "region.context.content": {
+          "x": 470,
+          "y": 114,
+          "width": 238,
+          "height": 44
+        },
+        "region.facts": {
+          "x": 24,
+          "y": 256,
+          "width": 430,
+          "height": 80
+        },
+        "region.facts.label": {
+          "x": 32,
+          "y": 264,
+          "width": 414,
+          "height": 16
+        },
+        "region.facts.field.hours": {
+          "x": 32,
+          "y": 280,
+          "width": 414,
+          "height": 16
+        },
+        "region.facts.field.hours.label": {
+          "x": 32,
+          "y": 280,
+          "width": 186,
+          "height": 16
+        },
+        "region.facts.field.hours.value": {
+          "x": 226,
+          "y": 280,
+          "width": 220,
+          "height": 16
+        },
+        "region.facts.field.cost": {
+          "x": 32,
+          "y": 296,
+          "width": 414,
+          "height": 16
+        },
+        "region.facts.field.cost.label": {
+          "x": 32,
+          "y": 296,
+          "width": 186,
+          "height": 16
+        },
+        "region.facts.field.cost.value": {
+          "x": 226,
+          "y": 296,
+          "width": 220,
+          "height": 16
+        },
+        "region.facts.field.items": {
+          "x": 32,
+          "y": 312,
+          "width": 414,
+          "height": 16
+        },
+        "region.facts.field.items.label": {
+          "x": 32,
+          "y": 312,
+          "width": 186,
+          "height": 16
+        },
+        "region.facts.field.items.value": {
+          "x": 226,
+          "y": 312,
+          "width": 220,
+          "height": 16
+        },
+        "action.cancel": {
+          "x": 476,
+          "y": 304,
+          "width": 110,
+          "height": 44
+        },
+        "action.start-production": {
+          "x": 598,
+          "y": 304,
+          "width": 110,
+          "height": 44
+        }
+      }
+    }
+  },
+  "motion": {
+    "durationMs": 200,
+    "scaleFrom": 0.96,
+    "easing": "ease-out",
+    "captureModeDurationMs": 0
+  },
+  "provenance": {
+    "template": "FormTemplates/wide-detail.json",
+    "templateVersion": 5,
+    "generatorKind": "detail"
+  },
+  "regionMetrics": {
+    "wide": {
+      "requirements": {
+        "totalItems": 1,
+        "visibleCapacity": 5,
+        "totalUnits": 1,
+        "visibleUnits": 5,
+        "itemsPerUnit": 1,
+        "scrollUnit": "record",
+        "overflow": false,
+        "scrollSteps": 0,
+        "track": {
+          "x": 742,
+          "y": 200,
+          "width": 18,
+          "height": 220
+        },
+        "thumb": {
+          "x": 742,
+          "y": 200,
+          "width": 18,
+          "height": 220
+        },
+        "trackHitTarget": {
+          "x": 716,
+          "y": 200,
+          "width": 44,
+          "height": 220
+        },
+        "thumbHitTarget": {
+          "x": 716,
+          "y": 200,
+          "width": 44,
+          "height": 220
+        },
+        "thumbTravelPx": 0
+      }
+    },
+    "compact": {
+      "requirements": {
+        "totalItems": 1,
+        "visibleCapacity": 2,
+        "totalUnits": 1,
+        "visibleUnits": 2,
+        "itemsPerUnit": 1,
+        "scrollUnit": "record",
+        "overflow": false,
+        "scrollSteps": 0,
+        "track": {
+          "x": 428,
+          "y": 138,
+          "width": 18,
+          "height": 88
+        },
+        "thumb": {
+          "x": 428,
+          "y": 138,
+          "width": 18,
+          "height": 88
+        },
+        "trackHitTarget": {
+          "x": 402,
+          "y": 138,
+          "width": 44,
+          "height": 88
+        },
+        "thumbHitTarget": {
+          "x": 402,
+          "y": 138,
+          "width": 44,
+          "height": 88
+        },
+        "thumbTravelPx": 0
+      }
+    }
+  },
+  "spacingRules": [
+    {
+      "id": "status-title",
+      "kind": "gap",
+      "first": "status",
+      "second": "title",
+      "axis": "vertical",
+      "wide": 16,
+      "compact": 6
+    },
+    {
+      "id": "title-first-region",
+      "kind": "gap",
+      "first": "title",
+      "second": "region.requirements",
+      "axis": "vertical",
+      "wide": 16,
+      "compact": 8
+    },
+    {
+      "id": "title-control",
+      "kind": "gap",
+      "first": "title",
+      "second": "controlBar",
+      "axis": "horizontal",
+      "wide": 16,
+      "compact": 8
+    },
+    {
+      "id": "control-first-region",
+      "kind": "gap",
+      "first": "controlBar",
+      "second": "region.requirements",
+      "axis": "vertical",
+      "wide": 16,
+      "compact": 8
+    },
+    {
+      "id": "region-inset-requirements",
+      "kind": "inset",
+      "container": "region.requirements",
+      "child": "region.requirements.label",
+      "edges": [
+        "left",
+        "top",
+        "right"
+      ],
+      "wide": 12,
+      "compact": 8
+    },
+    {
+      "id": "region-inset-context",
+      "kind": "inset",
+      "container": "region.context",
+      "child": "region.context.label",
+      "edges": [
+        "left",
+        "top",
+        "right"
+      ],
+      "wide": 12,
+      "compact": 8
+    },
+    {
+      "id": "region-inset-facts",
+      "kind": "inset",
+      "container": "region.facts",
+      "child": "region.facts.label",
+      "edges": [
+        "left",
+        "top",
+        "right"
+      ],
+      "wide": 12,
+      "compact": 8
+    },
+    {
+      "id": "primary-secondary",
+      "kind": "gap",
+      "first": "region.requirements",
+      "second": "region.context",
+      "axis": "horizontal",
+      "wide": 16,
+      "compact": 8
+    },
+    {
+      "id": "primary-summary",
+      "kind": "gap",
+      "first": "region.requirements",
+      "second": "region.facts",
+      "axis": "vertical",
+      "wide": 12,
+      "compact": 8
+    },
+    {
+      "id": "footer-action-inset",
+      "kind": "inset",
+      "container": "footer",
+      "child": "action.start-production",
+      "edges": [
+        "right"
+      ],
+      "wide": 32,
+      "compact": 8
+    }
+  ],
+  "actions": [
+    "action.cancel",
+    "action.start-production"
+  ],
+  "parts": [
+    "window",
+    "status",
+    "title",
+    "controlBar",
+    "footer",
+    "region.requirements",
+    "region.requirements.label",
+    "region.requirements.content",
+    "region.requirements.collection",
+    "region.requirements.collection.scroll.track",
+    "region.requirements.collection.scroll.thumb",
+    "region.requirements.collection.column.item",
+    "region.requirements.collection.column.required",
+    "region.requirements.collection.column.available",
+    "region.requirements.collection.row-slot.1",
+    "region.requirements.collection.row-slot.2",
+    "region.requirements.collection.row-slot.3",
+    "region.requirements.collection.row-slot.4",
+    "region.requirements.collection.row-slot.5",
+    "region.context",
+    "region.context.label",
+    "region.context.content",
+    "region.facts",
+    "region.facts.label",
+    "region.facts.field.hours",
+    "region.facts.field.hours.label",
+    "region.facts.field.hours.value",
+    "region.facts.field.cost",
+    "region.facts.field.cost.label",
+    "region.facts.field.cost.value",
+    "region.facts.field.items",
+    "region.facts.field.items.label",
+    "region.facts.field.items.value",
+    "action.cancel",
+    "action.start-production"
+  ]
+}

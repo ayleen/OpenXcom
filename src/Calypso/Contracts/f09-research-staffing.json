@@ -1,0 +1,1466 @@
+{
+  "schema": 1,
+  "version": "hd.2026-08-29.1",
+  "form": {
+    "id": "f09-research-staffing",
+    "familyId": 9,
+    "archetype": "wide-detail",
+    "source": "FormConfigs/f09-research-staffing.json",
+    "actions": [
+      {
+        "id": "cancel",
+        "label": "CANCEL",
+        "labelKey": "STR_CANCEL",
+        "tone": "danger",
+        "action": "cancel",
+        "style": {
+          "fill": "F25F5CFF",
+          "border": "F25F5CFF",
+          "text": "071013FF"
+        }
+      },
+      {
+        "id": "start-project",
+        "label": "START PROJECT",
+        "labelKey": "STR_START_PROJECT",
+        "tone": "primary",
+        "action": "start-project",
+        "style": {
+          "fill": "74FFB0FF",
+          "border": "74FFB0FF",
+          "text": "071013FF"
+        }
+      }
+    ],
+    "state": "ResearchInfoState",
+    "labelKeys": {
+      "title": "STR_MAELSTROM_BATTERY",
+      "cancel": "STR_CANCEL",
+      "start": "STR_START_PROJECT",
+      "removeAll": "STR_REMOVE_ALL",
+      "allAvailable": "STR_ALL_AVAILABLE"
+    },
+    "regions": [
+      {
+        "id": "staffing",
+        "role": "primary",
+        "kind": "preview",
+        "label": "RESEARCH STAFFING",
+        "contentId": "research-project"
+      },
+      {
+        "id": "capacity",
+        "role": "summary",
+        "kind": "fields",
+        "label": "RESEARCH STAFFING",
+        "fields": [
+          {
+            "id": "available",
+            "label": "SCIENTISTS AVAILABLE",
+            "value": "0"
+          },
+          {
+            "id": "labs",
+            "label": "LABORATORY SPACE",
+            "value": "0"
+          },
+          {
+            "id": "allocated",
+            "label": "SCIENTISTS ALLOCATED",
+            "value": "0"
+          }
+        ]
+      },
+      {
+        "id": "staffing-actions",
+        "role": "navigation",
+        "kind": "actions",
+        "label": "STAFFING ACTIONS",
+        "actions": [
+          {
+            "id": "remove-all",
+            "label": "REMOVE ALL",
+            "labelKey": "STR_REMOVE_ALL",
+            "tone": "normal",
+            "action": "remove-all",
+            "style": {
+              "fill": "051417B8",
+              "border": "74FFB059",
+              "text": "E8FFF5FF"
+            }
+          },
+          {
+            "id": "all-available",
+            "label": "USE ALL",
+            "labelKey": "STR_ALL_AVAILABLE",
+            "tone": "normal",
+            "action": "all-available",
+            "style": {
+              "fill": "051417B8",
+              "border": "74FFB059",
+              "text": "E8FFF5FF"
+            }
+          }
+        ]
+      }
+    ],
+    "controls": [
+      {
+        "id": "scientists",
+        "label": "SCIENTISTS",
+        "kind": "stepper",
+        "value": 0,
+        "minimum": 0,
+        "maximum": 0,
+        "action": "adjust-scientists"
+      }
+    ]
+  },
+  "copy": {
+    "title": "MAELSTROM BATTERY",
+    "regions": [
+      {
+        "id": "staffing",
+        "role": "primary",
+        "kind": "preview",
+        "label": "RESEARCH STAFFING",
+        "contentId": "research-project"
+      },
+      {
+        "id": "capacity",
+        "role": "summary",
+        "kind": "fields",
+        "label": "RESEARCH STAFFING",
+        "fields": [
+          {
+            "id": "available",
+            "label": "SCIENTISTS AVAILABLE",
+            "value": "0"
+          },
+          {
+            "id": "labs",
+            "label": "LABORATORY SPACE",
+            "value": "0"
+          },
+          {
+            "id": "allocated",
+            "label": "SCIENTISTS ALLOCATED",
+            "value": "0"
+          }
+        ]
+      },
+      {
+        "id": "staffing-actions",
+        "role": "navigation",
+        "kind": "actions",
+        "label": "STAFFING ACTIONS",
+        "actions": [
+          {
+            "id": "remove-all",
+            "label": "REMOVE ALL",
+            "labelKey": "STR_REMOVE_ALL",
+            "tone": "normal",
+            "action": "remove-all"
+          },
+          {
+            "id": "all-available",
+            "label": "USE ALL",
+            "labelKey": "STR_ALL_AVAILABLE",
+            "tone": "normal",
+            "action": "all-available"
+          }
+        ]
+      }
+    ],
+    "controls": [
+      {
+        "id": "scientists",
+        "label": "SCIENTISTS",
+        "kind": "stepper",
+        "value": 0,
+        "minimum": 0,
+        "maximum": 0,
+        "action": "adjust-scientists"
+      }
+    ]
+  },
+  "style": {
+    "panelFillTop": "08191DEB",
+    "panelFillBottom": "041014E8",
+    "regionFill": "061B1CD6",
+    "frame": "74FFB073",
+    "divider": "74FFB04D",
+    "text": "E8FFF5FF",
+    "mutedText": "A9D8C7FF",
+    "selection": "74FFB033",
+    "scrollTrack": "061B1CD6",
+    "scrollThumb": "74FFB099",
+    "cutCornerPx": 14
+  },
+  "layouts": {
+    "wide": {
+      "designWidth": 1280,
+      "designHeight": 720,
+      "window": {
+        "x": 60,
+        "y": 20,
+        "width": 1160,
+        "height": 690
+      },
+      "status": {
+        "x": 60,
+        "y": 20,
+        "width": 1160,
+        "height": 36
+      },
+      "title": {
+        "x": 92,
+        "y": 72,
+        "width": 680,
+        "height": 48
+      },
+      "controlBar": {
+        "x": 788,
+        "y": 72,
+        "width": 400,
+        "height": 48
+      },
+      "controls": {
+        "scientists": {
+          "x": 788,
+          "y": 74,
+          "width": 190,
+          "height": 44
+        }
+      },
+      "controlParts": {
+        "scientists": {
+          "decrement": {
+            "x": 788,
+            "y": 74,
+            "width": 44,
+            "height": 44
+          },
+          "value": {
+            "x": 832,
+            "y": 74,
+            "width": 102,
+            "height": 44
+          },
+          "increment": {
+            "x": 934,
+            "y": 74,
+            "width": 44,
+            "height": 44
+          }
+        }
+      },
+      "footer": {
+        "x": 60,
+        "y": 650,
+        "width": 1160,
+        "height": 60
+      },
+      "regions": {
+        "staffing": {
+          "panel": {
+            "x": 92,
+            "y": 136,
+            "width": 680,
+            "height": 390
+          },
+          "label": {
+            "x": 104,
+            "y": 148,
+            "width": 656,
+            "height": 20
+          },
+          "content": {
+            "x": 104,
+            "y": 168,
+            "width": 656,
+            "height": 346
+          }
+        },
+        "capacity": {
+          "panel": {
+            "x": 92,
+            "y": 538,
+            "width": 680,
+            "height": 104
+          },
+          "label": {
+            "x": 104,
+            "y": 550,
+            "width": 656,
+            "height": 20
+          },
+          "fields": {
+            "available": {
+              "row": {
+                "x": 104,
+                "y": 570,
+                "width": 656,
+                "height": 20
+              },
+              "label": {
+                "x": 104,
+                "y": 570,
+                "width": 295,
+                "height": 20
+              },
+              "value": {
+                "x": 411,
+                "y": 570,
+                "width": 349,
+                "height": 20
+              }
+            },
+            "labs": {
+              "row": {
+                "x": 104,
+                "y": 590,
+                "width": 656,
+                "height": 20
+              },
+              "label": {
+                "x": 104,
+                "y": 590,
+                "width": 295,
+                "height": 20
+              },
+              "value": {
+                "x": 411,
+                "y": 590,
+                "width": 349,
+                "height": 20
+              }
+            },
+            "allocated": {
+              "row": {
+                "x": 104,
+                "y": 610,
+                "width": 656,
+                "height": 20
+              },
+              "label": {
+                "x": 104,
+                "y": 610,
+                "width": 295,
+                "height": 20
+              },
+              "value": {
+                "x": 411,
+                "y": 610,
+                "width": 349,
+                "height": 20
+              }
+            }
+          }
+        },
+        "staffing-actions": {
+          "panel": {
+            "x": 788,
+            "y": 332,
+            "width": 400,
+            "height": 310
+          },
+          "label": {
+            "x": 800,
+            "y": 344,
+            "width": 376,
+            "height": 20
+          },
+          "content": {
+            "x": 800,
+            "y": 364,
+            "width": 376,
+            "height": 266
+          },
+          "actionSlots": [
+            {
+              "id": "action-slot-1",
+              "rect": {
+                "x": 800,
+                "y": 364,
+                "width": 159,
+                "height": 44
+              }
+            },
+            {
+              "id": "action-slot-2",
+              "rect": {
+                "x": 962,
+                "y": 364,
+                "width": 159,
+                "height": 44
+              }
+            },
+            {
+              "id": "action-slot-3",
+              "rect": {
+                "x": 800,
+                "y": 411,
+                "width": 159,
+                "height": 44
+              }
+            },
+            {
+              "id": "action-slot-4",
+              "rect": {
+                "x": 962,
+                "y": 411,
+                "width": 159,
+                "height": 44
+              }
+            },
+            {
+              "id": "action-slot-5",
+              "rect": {
+                "x": 800,
+                "y": 458,
+                "width": 159,
+                "height": 44
+              }
+            },
+            {
+              "id": "action-slot-6",
+              "rect": {
+                "x": 962,
+                "y": 458,
+                "width": 159,
+                "height": 44
+              }
+            },
+            {
+              "id": "action-slot-7",
+              "rect": {
+                "x": 800,
+                "y": 505,
+                "width": 159,
+                "height": 44
+              }
+            },
+            {
+              "id": "action-slot-8",
+              "rect": {
+                "x": 962,
+                "y": 505,
+                "width": 159,
+                "height": 44
+              }
+            },
+            {
+              "id": "action-slot-9",
+              "rect": {
+                "x": 800,
+                "y": 552,
+                "width": 159,
+                "height": 44
+              }
+            },
+            {
+              "id": "action-slot-10",
+              "rect": {
+                "x": 962,
+                "y": 552,
+                "width": 159,
+                "height": 44
+              }
+            }
+          ],
+          "scroll": {
+            "track": {
+              "x": 1158,
+              "y": 364,
+              "width": 18,
+              "height": 266
+            },
+            "thumb": {
+              "x": 1158,
+              "y": 364,
+              "width": 18,
+              "height": 266
+            }
+          }
+        }
+      },
+      "actions": {
+        "cancel": {
+          "x": 862,
+          "y": 658,
+          "width": 158,
+          "height": 44
+        },
+        "start-project": {
+          "x": 1030,
+          "y": 658,
+          "width": 158,
+          "height": 44
+        }
+      },
+      "partRects": {
+        "window": {
+          "x": 60,
+          "y": 20,
+          "width": 1160,
+          "height": 690
+        },
+        "status": {
+          "x": 60,
+          "y": 20,
+          "width": 1160,
+          "height": 36
+        },
+        "title": {
+          "x": 92,
+          "y": 72,
+          "width": 680,
+          "height": 48
+        },
+        "controlBar": {
+          "x": 788,
+          "y": 72,
+          "width": 400,
+          "height": 48
+        },
+        "footer": {
+          "x": 60,
+          "y": 650,
+          "width": 1160,
+          "height": 60
+        },
+        "control.scientists": {
+          "x": 788,
+          "y": 74,
+          "width": 190,
+          "height": 44
+        },
+        "control.scientists.decrement": {
+          "x": 788,
+          "y": 74,
+          "width": 44,
+          "height": 44
+        },
+        "control.scientists.value": {
+          "x": 832,
+          "y": 74,
+          "width": 102,
+          "height": 44
+        },
+        "control.scientists.increment": {
+          "x": 934,
+          "y": 74,
+          "width": 44,
+          "height": 44
+        },
+        "region.staffing": {
+          "x": 92,
+          "y": 136,
+          "width": 680,
+          "height": 390
+        },
+        "region.staffing.label": {
+          "x": 104,
+          "y": 148,
+          "width": 656,
+          "height": 20
+        },
+        "region.staffing.content": {
+          "x": 104,
+          "y": 168,
+          "width": 656,
+          "height": 346
+        },
+        "region.capacity": {
+          "x": 92,
+          "y": 538,
+          "width": 680,
+          "height": 104
+        },
+        "region.capacity.label": {
+          "x": 104,
+          "y": 550,
+          "width": 656,
+          "height": 20
+        },
+        "region.capacity.field.available": {
+          "x": 104,
+          "y": 570,
+          "width": 656,
+          "height": 20
+        },
+        "region.capacity.field.available.label": {
+          "x": 104,
+          "y": 570,
+          "width": 295,
+          "height": 20
+        },
+        "region.capacity.field.available.value": {
+          "x": 411,
+          "y": 570,
+          "width": 349,
+          "height": 20
+        },
+        "region.capacity.field.labs": {
+          "x": 104,
+          "y": 590,
+          "width": 656,
+          "height": 20
+        },
+        "region.capacity.field.labs.label": {
+          "x": 104,
+          "y": 590,
+          "width": 295,
+          "height": 20
+        },
+        "region.capacity.field.labs.value": {
+          "x": 411,
+          "y": 590,
+          "width": 349,
+          "height": 20
+        },
+        "region.capacity.field.allocated": {
+          "x": 104,
+          "y": 610,
+          "width": 656,
+          "height": 20
+        },
+        "region.capacity.field.allocated.label": {
+          "x": 104,
+          "y": 610,
+          "width": 295,
+          "height": 20
+        },
+        "region.capacity.field.allocated.value": {
+          "x": 411,
+          "y": 610,
+          "width": 349,
+          "height": 20
+        },
+        "region.staffing-actions": {
+          "x": 788,
+          "y": 332,
+          "width": 400,
+          "height": 310
+        },
+        "region.staffing-actions.label": {
+          "x": 800,
+          "y": 344,
+          "width": 376,
+          "height": 20
+        },
+        "region.staffing-actions.content": {
+          "x": 800,
+          "y": 364,
+          "width": 376,
+          "height": 266
+        },
+        "region.staffing-actions.scroll.track": {
+          "x": 1158,
+          "y": 364,
+          "width": 18,
+          "height": 266
+        },
+        "region.staffing-actions.scroll.thumb": {
+          "x": 1158,
+          "y": 364,
+          "width": 18,
+          "height": 266
+        },
+        "region.staffing-actions.action-slot-1": {
+          "x": 800,
+          "y": 364,
+          "width": 159,
+          "height": 44
+        },
+        "region.staffing-actions.action-slot-2": {
+          "x": 962,
+          "y": 364,
+          "width": 159,
+          "height": 44
+        },
+        "region.staffing-actions.action-slot-3": {
+          "x": 800,
+          "y": 411,
+          "width": 159,
+          "height": 44
+        },
+        "region.staffing-actions.action-slot-4": {
+          "x": 962,
+          "y": 411,
+          "width": 159,
+          "height": 44
+        },
+        "region.staffing-actions.action-slot-5": {
+          "x": 800,
+          "y": 458,
+          "width": 159,
+          "height": 44
+        },
+        "region.staffing-actions.action-slot-6": {
+          "x": 962,
+          "y": 458,
+          "width": 159,
+          "height": 44
+        },
+        "region.staffing-actions.action-slot-7": {
+          "x": 800,
+          "y": 505,
+          "width": 159,
+          "height": 44
+        },
+        "region.staffing-actions.action-slot-8": {
+          "x": 962,
+          "y": 505,
+          "width": 159,
+          "height": 44
+        },
+        "region.staffing-actions.action-slot-9": {
+          "x": 800,
+          "y": 552,
+          "width": 159,
+          "height": 44
+        },
+        "region.staffing-actions.action-slot-10": {
+          "x": 962,
+          "y": 552,
+          "width": 159,
+          "height": 44
+        },
+        "action.cancel": {
+          "x": 862,
+          "y": 658,
+          "width": 158,
+          "height": 44
+        },
+        "action.start-project": {
+          "x": 1030,
+          "y": 658,
+          "width": 158,
+          "height": 44
+        }
+      }
+    },
+    "compact": {
+      "designWidth": 740,
+      "designHeight": 360,
+      "window": {
+        "x": 8,
+        "y": 4,
+        "width": 724,
+        "height": 352
+      },
+      "status": {
+        "x": 8,
+        "y": 4,
+        "width": 724,
+        "height": 32
+      },
+      "title": {
+        "x": 24,
+        "y": 42,
+        "width": 430,
+        "height": 40
+      },
+      "controlBar": {
+        "x": 462,
+        "y": 38,
+        "width": 270,
+        "height": 44
+      },
+      "controls": {
+        "scientists": {
+          "x": 462,
+          "y": 38,
+          "width": 130,
+          "height": 44
+        }
+      },
+      "controlParts": {
+        "scientists": {
+          "decrement": {
+            "x": 462,
+            "y": 38,
+            "width": 44,
+            "height": 44
+          },
+          "value": {
+            "x": 506,
+            "y": 38,
+            "width": 42,
+            "height": 44
+          },
+          "increment": {
+            "x": 548,
+            "y": 38,
+            "width": 44,
+            "height": 44
+          }
+        }
+      },
+      "footer": {
+        "x": 462,
+        "y": 300,
+        "width": 254,
+        "height": 52
+      },
+      "regions": {
+        "staffing": {
+          "panel": {
+            "x": 24,
+            "y": 90,
+            "width": 430,
+            "height": 158
+          },
+          "label": {
+            "x": 32,
+            "y": 98,
+            "width": 414,
+            "height": 16
+          },
+          "content": {
+            "x": 32,
+            "y": 114,
+            "width": 414,
+            "height": 126
+          }
+        },
+        "capacity": {
+          "panel": {
+            "x": 24,
+            "y": 256,
+            "width": 430,
+            "height": 80
+          },
+          "label": {
+            "x": 32,
+            "y": 264,
+            "width": 414,
+            "height": 16
+          },
+          "fields": {
+            "available": {
+              "row": {
+                "x": 32,
+                "y": 280,
+                "width": 414,
+                "height": 16
+              },
+              "label": {
+                "x": 32,
+                "y": 280,
+                "width": 186,
+                "height": 16
+              },
+              "value": {
+                "x": 226,
+                "y": 280,
+                "width": 220,
+                "height": 16
+              }
+            },
+            "labs": {
+              "row": {
+                "x": 32,
+                "y": 296,
+                "width": 414,
+                "height": 16
+              },
+              "label": {
+                "x": 32,
+                "y": 296,
+                "width": 186,
+                "height": 16
+              },
+              "value": {
+                "x": 226,
+                "y": 296,
+                "width": 220,
+                "height": 16
+              }
+            },
+            "allocated": {
+              "row": {
+                "x": 32,
+                "y": 312,
+                "width": 414,
+                "height": 16
+              },
+              "label": {
+                "x": 32,
+                "y": 312,
+                "width": 186,
+                "height": 16
+              },
+              "value": {
+                "x": 226,
+                "y": 312,
+                "width": 220,
+                "height": 16
+              }
+            }
+          }
+        },
+        "staffing-actions": {
+          "panel": {
+            "x": 462,
+            "y": 174,
+            "width": 254,
+            "height": 124
+          },
+          "label": {
+            "x": 470,
+            "y": 182,
+            "width": 238,
+            "height": 16
+          },
+          "content": {
+            "x": 470,
+            "y": 198,
+            "width": 238,
+            "height": 92
+          },
+          "actionSlots": [
+            {
+              "id": "action-slot-1",
+              "rect": {
+                "x": 470,
+                "y": 198,
+                "width": 91,
+                "height": 44
+              }
+            },
+            {
+              "id": "action-slot-2",
+              "rect": {
+                "x": 565,
+                "y": 198,
+                "width": 91,
+                "height": 44
+              }
+            },
+            {
+              "id": "action-slot-3",
+              "rect": {
+                "x": 470,
+                "y": 246,
+                "width": 91,
+                "height": 44
+              }
+            },
+            {
+              "id": "action-slot-4",
+              "rect": {
+                "x": 565,
+                "y": 246,
+                "width": 91,
+                "height": 44
+              }
+            }
+          ],
+          "scroll": {
+            "track": {
+              "x": 690,
+              "y": 198,
+              "width": 18,
+              "height": 92
+            },
+            "thumb": {
+              "x": 690,
+              "y": 198,
+              "width": 18,
+              "height": 92
+            }
+          }
+        }
+      },
+      "actions": {
+        "cancel": {
+          "x": 476,
+          "y": 304,
+          "width": 110,
+          "height": 44
+        },
+        "start-project": {
+          "x": 598,
+          "y": 304,
+          "width": 110,
+          "height": 44
+        }
+      },
+      "partRects": {
+        "window": {
+          "x": 8,
+          "y": 4,
+          "width": 724,
+          "height": 352
+        },
+        "status": {
+          "x": 8,
+          "y": 4,
+          "width": 724,
+          "height": 32
+        },
+        "title": {
+          "x": 24,
+          "y": 42,
+          "width": 430,
+          "height": 40
+        },
+        "controlBar": {
+          "x": 462,
+          "y": 38,
+          "width": 270,
+          "height": 44
+        },
+        "footer": {
+          "x": 462,
+          "y": 300,
+          "width": 254,
+          "height": 52
+        },
+        "control.scientists": {
+          "x": 462,
+          "y": 38,
+          "width": 130,
+          "height": 44
+        },
+        "control.scientists.decrement": {
+          "x": 462,
+          "y": 38,
+          "width": 44,
+          "height": 44
+        },
+        "control.scientists.value": {
+          "x": 506,
+          "y": 38,
+          "width": 42,
+          "height": 44
+        },
+        "control.scientists.increment": {
+          "x": 548,
+          "y": 38,
+          "width": 44,
+          "height": 44
+        },
+        "region.staffing": {
+          "x": 24,
+          "y": 90,
+          "width": 430,
+          "height": 158
+        },
+        "region.staffing.label": {
+          "x": 32,
+          "y": 98,
+          "width": 414,
+          "height": 16
+        },
+        "region.staffing.content": {
+          "x": 32,
+          "y": 114,
+          "width": 414,
+          "height": 126
+        },
+        "region.capacity": {
+          "x": 24,
+          "y": 256,
+          "width": 430,
+          "height": 80
+        },
+        "region.capacity.label": {
+          "x": 32,
+          "y": 264,
+          "width": 414,
+          "height": 16
+        },
+        "region.capacity.field.available": {
+          "x": 32,
+          "y": 280,
+          "width": 414,
+          "height": 16
+        },
+        "region.capacity.field.available.label": {
+          "x": 32,
+          "y": 280,
+          "width": 186,
+          "height": 16
+        },
+        "region.capacity.field.available.value": {
+          "x": 226,
+          "y": 280,
+          "width": 220,
+          "height": 16
+        },
+        "region.capacity.field.labs": {
+          "x": 32,
+          "y": 296,
+          "width": 414,
+          "height": 16
+        },
+        "region.capacity.field.labs.label": {
+          "x": 32,
+          "y": 296,
+          "width": 186,
+          "height": 16
+        },
+        "region.capacity.field.labs.value": {
+          "x": 226,
+          "y": 296,
+          "width": 220,
+          "height": 16
+        },
+        "region.capacity.field.allocated": {
+          "x": 32,
+          "y": 312,
+          "width": 414,
+          "height": 16
+        },
+        "region.capacity.field.allocated.label": {
+          "x": 32,
+          "y": 312,
+          "width": 186,
+          "height": 16
+        },
+        "region.capacity.field.allocated.value": {
+          "x": 226,
+          "y": 312,
+          "width": 220,
+          "height": 16
+        },
+        "region.staffing-actions": {
+          "x": 462,
+          "y": 174,
+          "width": 254,
+          "height": 124
+        },
+        "region.staffing-actions.label": {
+          "x": 470,
+          "y": 182,
+          "width": 238,
+          "height": 16
+        },
+        "region.staffing-actions.content": {
+          "x": 470,
+          "y": 198,
+          "width": 238,
+          "height": 92
+        },
+        "region.staffing-actions.scroll.track": {
+          "x": 690,
+          "y": 198,
+          "width": 18,
+          "height": 92
+        },
+        "region.staffing-actions.scroll.thumb": {
+          "x": 690,
+          "y": 198,
+          "width": 18,
+          "height": 92
+        },
+        "region.staffing-actions.action-slot-1": {
+          "x": 470,
+          "y": 198,
+          "width": 91,
+          "height": 44
+        },
+        "region.staffing-actions.action-slot-2": {
+          "x": 565,
+          "y": 198,
+          "width": 91,
+          "height": 44
+        },
+        "region.staffing-actions.action-slot-3": {
+          "x": 470,
+          "y": 246,
+          "width": 91,
+          "height": 44
+        },
+        "region.staffing-actions.action-slot-4": {
+          "x": 565,
+          "y": 246,
+          "width": 91,
+          "height": 44
+        },
+        "region.staffing-actions.action-slot-5": {
+          "x": 565,
+          "y": 246,
+          "width": 91,
+          "height": 44
+        },
+        "region.staffing-actions.action-slot-6": {
+          "x": 565,
+          "y": 246,
+          "width": 91,
+          "height": 44
+        },
+        "region.staffing-actions.action-slot-7": {
+          "x": 565,
+          "y": 246,
+          "width": 91,
+          "height": 44
+        },
+        "region.staffing-actions.action-slot-8": {
+          "x": 565,
+          "y": 246,
+          "width": 91,
+          "height": 44
+        },
+        "region.staffing-actions.action-slot-9": {
+          "x": 565,
+          "y": 246,
+          "width": 91,
+          "height": 44
+        },
+        "region.staffing-actions.action-slot-10": {
+          "x": 565,
+          "y": 246,
+          "width": 91,
+          "height": 44
+        },
+        "action.cancel": {
+          "x": 476,
+          "y": 304,
+          "width": 110,
+          "height": 44
+        },
+        "action.start-project": {
+          "x": 598,
+          "y": 304,
+          "width": 110,
+          "height": 44
+        }
+      }
+    }
+  },
+  "motion": {
+    "durationMs": 200,
+    "scaleFrom": 0.96,
+    "easing": "ease-out",
+    "captureModeDurationMs": 0
+  },
+  "provenance": {
+    "template": "FormTemplates/wide-detail.json",
+    "templateVersion": 5,
+    "generatorKind": "detail"
+  },
+  "regionMetrics": {
+    "wide": {
+      "staffing-actions": {
+        "totalItems": 2,
+        "visibleCapacity": 10,
+        "totalUnits": 1,
+        "visibleUnits": 5,
+        "itemsPerUnit": 2,
+        "scrollUnit": "row",
+        "overflow": false,
+        "scrollSteps": 0,
+        "track": {
+          "x": 1158,
+          "y": 364,
+          "width": 18,
+          "height": 266
+        },
+        "thumb": {
+          "x": 1158,
+          "y": 364,
+          "width": 18,
+          "height": 266
+        },
+        "trackHitTarget": {
+          "x": 1132,
+          "y": 364,
+          "width": 44,
+          "height": 266
+        },
+        "thumbHitTarget": {
+          "x": 1132,
+          "y": 364,
+          "width": 44,
+          "height": 266
+        },
+        "thumbTravelPx": 0
+      }
+    },
+    "compact": {
+      "staffing-actions": {
+        "totalItems": 2,
+        "visibleCapacity": 4,
+        "totalUnits": 1,
+        "visibleUnits": 2,
+        "itemsPerUnit": 2,
+        "scrollUnit": "row",
+        "overflow": false,
+        "scrollSteps": 0,
+        "track": {
+          "x": 690,
+          "y": 198,
+          "width": 18,
+          "height": 92
+        },
+        "thumb": {
+          "x": 690,
+          "y": 198,
+          "width": 18,
+          "height": 92
+        },
+        "trackHitTarget": {
+          "x": 664,
+          "y": 198,
+          "width": 44,
+          "height": 92
+        },
+        "thumbHitTarget": {
+          "x": 664,
+          "y": 198,
+          "width": 44,
+          "height": 92
+        },
+        "thumbTravelPx": 0
+      }
+    }
+  },
+  "spacingRules": [
+    {
+      "id": "status-title",
+      "kind": "gap",
+      "first": "status",
+      "second": "title",
+      "axis": "vertical",
+      "wide": 16,
+      "compact": 6
+    },
+    {
+      "id": "title-first-region",
+      "kind": "gap",
+      "first": "title",
+      "second": "region.staffing",
+      "axis": "vertical",
+      "wide": 16,
+      "compact": 8
+    },
+    {
+      "id": "title-control",
+      "kind": "gap",
+      "first": "title",
+      "second": "controlBar",
+      "axis": "horizontal",
+      "wide": 16,
+      "compact": 8
+    },
+    {
+      "id": "control-first-region",
+      "kind": "gap",
+      "first": "controlBar",
+      "second": "region.staffing",
+      "axis": "vertical",
+      "wide": 16,
+      "compact": 8
+    },
+    {
+      "id": "region-inset-staffing",
+      "kind": "inset",
+      "container": "region.staffing",
+      "child": "region.staffing.label",
+      "edges": [
+        "left",
+        "top",
+        "right"
+      ],
+      "wide": 12,
+      "compact": 8
+    },
+    {
+      "id": "region-inset-capacity",
+      "kind": "inset",
+      "container": "region.capacity",
+      "child": "region.capacity.label",
+      "edges": [
+        "left",
+        "top",
+        "right"
+      ],
+      "wide": 12,
+      "compact": 8
+    },
+    {
+      "id": "region-inset-staffing-actions",
+      "kind": "inset",
+      "container": "region.staffing-actions",
+      "child": "region.staffing-actions.label",
+      "edges": [
+        "left",
+        "top",
+        "right"
+      ],
+      "wide": 12,
+      "compact": 8
+    },
+    {
+      "id": "primary-summary",
+      "kind": "gap",
+      "first": "region.staffing",
+      "second": "region.capacity",
+      "axis": "vertical",
+      "wide": 12,
+      "compact": 8
+    },
+    {
+      "id": "footer-action-inset",
+      "kind": "inset",
+      "container": "footer",
+      "child": "action.start-project",
+      "edges": [
+        "right"
+      ],
+      "wide": 32,
+      "compact": 8
+    }
+  ],
+  "actions": [
+    "action.cancel",
+    "action.start-project"
+  ],
+  "parts": [
+    "window",
+    "status",
+    "title",
+    "controlBar",
+    "footer",
+    "control.scientists",
+    "control.scientists.decrement",
+    "control.scientists.value",
+    "control.scientists.increment",
+    "region.staffing",
+    "region.staffing.label",
+    "region.staffing.content",
+    "region.capacity",
+    "region.capacity.label",
+    "region.capacity.field.available",
+    "region.capacity.field.available.label",
+    "region.capacity.field.available.value",
+    "region.capacity.field.labs",
+    "region.capacity.field.labs.label",
+    "region.capacity.field.labs.value",
+    "region.capacity.field.allocated",
+    "region.capacity.field.allocated.label",
+    "region.capacity.field.allocated.value",
+    "region.staffing-actions",
+    "region.staffing-actions.label",
+    "region.staffing-actions.content",
+    "region.staffing-actions.scroll.track",
+    "region.staffing-actions.scroll.thumb",
+    "region.staffing-actions.action-slot-1",
+    "region.staffing-actions.action-slot-2",
+    "region.staffing-actions.action-slot-3",
+    "region.staffing-actions.action-slot-4",
+    "region.staffing-actions.action-slot-5",
+    "region.staffing-actions.action-slot-6",
+    "region.staffing-actions.action-slot-7",
+    "region.staffing-actions.action-slot-8",
+    "region.staffing-actions.action-slot-9",
+    "region.staffing-actions.action-slot-10",
+    "action.cancel",
+    "action.start-project"
+  ]
+}

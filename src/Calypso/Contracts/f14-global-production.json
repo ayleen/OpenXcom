@@ -1,0 +1,1772 @@
+{
+  "schema": 1,
+  "version": "hd.2026-08-29.1",
+  "form": {
+    "id": "f14-global-production",
+    "familyId": 14,
+    "archetype": "operations-workspace",
+    "source": "FormConfigs/f14-global-production.json",
+    "actions": [
+      {
+        "id": "done",
+        "label": "DONE",
+        "labelKey": "STR_DONE",
+        "tone": "primary",
+        "action": "done",
+        "style": {
+          "fill": "74FFB0FF",
+          "border": "74FFB0FF",
+          "text": "071013FF"
+        }
+      }
+    ],
+    "state": "GlobalManufactureState",
+    "labelKeys": {
+      "title": "STR_PRODUCTION_OVERVIEW",
+      "done": "STR_DONE",
+      "openBase": "STR_OPEN_BASE_PRODUCTION",
+      "techTree": "STR_TECH_TREE",
+      "collectionHeading": "STR_CALYPSO_PRODUCTION_ACROSS_ALL_BASES",
+      "collectionMeta": "STR_CALYPSO_FUNDS_VALUE"
+    },
+    "summary": [
+      {
+        "id": "available",
+        "label": "AVAILABLE",
+        "value": "2"
+      },
+      {
+        "id": "allocated",
+        "label": "ALLOCATED",
+        "value": "184"
+      },
+      {
+        "id": "workshop-space",
+        "label": "WORKSHOP SPACE",
+        "value": "4"
+      }
+    ],
+    "collection": {
+      "mode": "table",
+      "selectionRole": "global-production-line",
+      "heading": "PRODUCTION ACROSS ALL BASES",
+      "meta": "FUNDS $27,550,246",
+      "columns": [
+        {
+          "id": "base",
+          "label": "BASE"
+        },
+        {
+          "id": "item",
+          "label": "ITEM"
+        },
+        {
+          "id": "engineers",
+          "label": "ENGINEERS"
+        },
+        {
+          "id": "produced",
+          "label": "PRODUCED"
+        },
+        {
+          "id": "cost",
+          "label": "COST"
+        },
+        {
+          "id": "time-left",
+          "label": "TIME LEFT"
+        }
+      ],
+      "items": [
+        {
+          "id": "batumi-maelstrom",
+          "values": [
+            "Batumi",
+            "MAELSTROM Torpedoes",
+            "94",
+            "22 / 40",
+            "$28,000",
+            "4 d 15 h"
+          ]
+        },
+        {
+          "id": "garni-maelstrom",
+          "values": [
+            "Garni",
+            "MAELSTROM Torpedoes",
+            "90",
+            "4 / 20",
+            "$28,000",
+            "4 d 11 h"
+          ]
+        }
+      ]
+    },
+    "controls": [],
+    "toolbar": [],
+    "detail": {
+      "id": "selected-production",
+      "label": "SELECTED PRODUCTION",
+      "title": "MAELSTROM Torpedoes",
+      "subtitle": "GLOBAL PRODUCTION",
+      "metrics": [
+        {
+          "id": "base",
+          "label": "BASE",
+          "value": "Batumi"
+        },
+        {
+          "id": "item",
+          "label": "ITEM",
+          "value": "MAELSTROM Torpedoes"
+        }
+      ],
+      "actions": [
+        {
+          "id": "open-base-production",
+          "label": "OPEN BASE PRODUCTION",
+          "labelKey": "STR_OPEN_BASE_PRODUCTION",
+          "tone": "primary",
+          "action": "open-base-production",
+          "style": {
+            "fill": "74FFB0FF",
+            "border": "74FFB0FF",
+            "text": "071013FF"
+          }
+        },
+        {
+          "id": "tech-tree",
+          "label": "TECH TREE",
+          "labelKey": "STR_TECH_TREE",
+          "tone": "normal",
+          "action": "open-tech-tree",
+          "style": {
+            "fill": "051417B8",
+            "border": "74FFB059",
+            "text": "E8FFF5FF"
+          }
+        }
+      ]
+    }
+  },
+  "copy": {
+    "title": "PRODUCTION OVERVIEW",
+    "tabs": {
+      "workspace-a": "WORKSPACE",
+      "workspace-b": "WORKSPACE"
+    },
+    "summary": [
+      {
+        "id": "available",
+        "label": "AVAILABLE",
+        "value": "2"
+      },
+      {
+        "id": "allocated",
+        "label": "ALLOCATED",
+        "value": "184"
+      },
+      {
+        "id": "workshop-space",
+        "label": "WORKSHOP SPACE",
+        "value": "4"
+      }
+    ],
+    "collection": {
+      "mode": "table",
+      "selectionRole": "global-production-line",
+      "heading": "PRODUCTION ACROSS ALL BASES",
+      "meta": "FUNDS $27,550,246",
+      "columns": [
+        {
+          "id": "base",
+          "label": "BASE"
+        },
+        {
+          "id": "item",
+          "label": "ITEM"
+        },
+        {
+          "id": "engineers",
+          "label": "ENGINEERS"
+        },
+        {
+          "id": "produced",
+          "label": "PRODUCED"
+        },
+        {
+          "id": "cost",
+          "label": "COST"
+        },
+        {
+          "id": "time-left",
+          "label": "TIME LEFT"
+        }
+      ],
+      "items": [
+        {
+          "id": "batumi-maelstrom",
+          "values": [
+            "Batumi",
+            "MAELSTROM Torpedoes",
+            "94",
+            "22 / 40",
+            "$28,000",
+            "4 d 15 h"
+          ]
+        },
+        {
+          "id": "garni-maelstrom",
+          "values": [
+            "Garni",
+            "MAELSTROM Torpedoes",
+            "90",
+            "4 / 20",
+            "$28,000",
+            "4 d 11 h"
+          ]
+        }
+      ]
+    },
+    "controls": [],
+    "toolbar": {},
+    "detail": {
+      "id": "selected-production",
+      "label": "SELECTED PRODUCTION",
+      "title": "MAELSTROM Torpedoes",
+      "subtitle": "GLOBAL PRODUCTION",
+      "metrics": [
+        {
+          "id": "base",
+          "label": "BASE",
+          "value": "Batumi"
+        },
+        {
+          "id": "item",
+          "label": "ITEM",
+          "value": "MAELSTROM Torpedoes"
+        }
+      ],
+      "actions": [
+        {
+          "id": "open-base-production",
+          "label": "OPEN BASE PRODUCTION",
+          "labelKey": "STR_OPEN_BASE_PRODUCTION",
+          "tone": "primary",
+          "action": "open-base-production"
+        },
+        {
+          "id": "tech-tree",
+          "label": "TECH TREE",
+          "labelKey": "STR_TECH_TREE",
+          "tone": "normal",
+          "action": "open-tech-tree"
+        }
+      ]
+    }
+  },
+  "style": {
+    "panelFillTop": "08191DEB",
+    "panelFillBottom": "041014E8",
+    "frame": "74FFB073",
+    "divider": "74FFB04D",
+    "text": "E8FFF5FF",
+    "mutedText": "A9D8C7FF",
+    "selectedTab": "74FFB033",
+    "cutCornerPx": 14
+  },
+  "layouts": {
+    "wide": {
+      "designWidth": 1280,
+      "designHeight": 720,
+      "window": {
+        "x": 140,
+        "y": 50,
+        "width": 1000,
+        "height": 620
+      },
+      "title": {
+        "x": 172,
+        "y": 68,
+        "width": 936,
+        "height": 44
+      },
+      "summaryBar": {
+        "x": 172,
+        "y": 116,
+        "width": 936,
+        "height": 36
+      },
+      "summary": {
+        "available": {
+          "x": 172,
+          "y": 116,
+          "width": 311,
+          "height": 36
+        },
+        "allocated": {
+          "x": 484,
+          "y": 116,
+          "width": 311,
+          "height": 36
+        },
+        "workshop-space": {
+          "x": 796,
+          "y": 116,
+          "width": 312,
+          "height": 36
+        }
+      },
+      "collectionViewport": {
+        "x": 172,
+        "y": 280,
+        "width": 580,
+        "height": 286
+      },
+      "detailPanel": {
+        "x": 762,
+        "y": 280,
+        "width": 346,
+        "height": 286
+      },
+      "collection": {
+        "columnHeaders": [
+          {
+            "id": "base",
+            "rect": {
+              "x": 172,
+              "y": 280,
+              "width": 86,
+              "height": 36
+            }
+          },
+          {
+            "id": "item",
+            "rect": {
+              "x": 259,
+              "y": 280,
+              "width": 86,
+              "height": 36
+            }
+          },
+          {
+            "id": "engineers",
+            "rect": {
+              "x": 346,
+              "y": 280,
+              "width": 86,
+              "height": 36
+            }
+          },
+          {
+            "id": "produced",
+            "rect": {
+              "x": 433,
+              "y": 280,
+              "width": 86,
+              "height": 36
+            }
+          },
+          {
+            "id": "cost",
+            "rect": {
+              "x": 520,
+              "y": 280,
+              "width": 86,
+              "height": 36
+            }
+          },
+          {
+            "id": "time-left",
+            "rect": {
+              "x": 607,
+              "y": 280,
+              "width": 91,
+              "height": 36
+            }
+          }
+        ],
+        "rowSlots": [
+          {
+            "id": "row-slot-1",
+            "rect": {
+              "x": 172,
+              "y": 316,
+              "width": 526,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "base",
+                "rect": {
+                  "x": 172,
+                  "y": 316,
+                  "width": 86,
+                  "height": 44
+                }
+              },
+              {
+                "id": "item",
+                "rect": {
+                  "x": 259,
+                  "y": 316,
+                  "width": 86,
+                  "height": 44
+                }
+              },
+              {
+                "id": "engineers",
+                "rect": {
+                  "x": 346,
+                  "y": 316,
+                  "width": 86,
+                  "height": 44
+                }
+              },
+              {
+                "id": "produced",
+                "rect": {
+                  "x": 433,
+                  "y": 316,
+                  "width": 86,
+                  "height": 44
+                }
+              },
+              {
+                "id": "cost",
+                "rect": {
+                  "x": 520,
+                  "y": 316,
+                  "width": 86,
+                  "height": 44
+                }
+              },
+              {
+                "id": "time-left",
+                "rect": {
+                  "x": 607,
+                  "y": 316,
+                  "width": 91,
+                  "height": 44
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-2",
+            "rect": {
+              "x": 172,
+              "y": 360,
+              "width": 526,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "base",
+                "rect": {
+                  "x": 172,
+                  "y": 360,
+                  "width": 86,
+                  "height": 44
+                }
+              },
+              {
+                "id": "item",
+                "rect": {
+                  "x": 259,
+                  "y": 360,
+                  "width": 86,
+                  "height": 44
+                }
+              },
+              {
+                "id": "engineers",
+                "rect": {
+                  "x": 346,
+                  "y": 360,
+                  "width": 86,
+                  "height": 44
+                }
+              },
+              {
+                "id": "produced",
+                "rect": {
+                  "x": 433,
+                  "y": 360,
+                  "width": 86,
+                  "height": 44
+                }
+              },
+              {
+                "id": "cost",
+                "rect": {
+                  "x": 520,
+                  "y": 360,
+                  "width": 86,
+                  "height": 44
+                }
+              },
+              {
+                "id": "time-left",
+                "rect": {
+                  "x": 607,
+                  "y": 360,
+                  "width": 91,
+                  "height": 44
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-3",
+            "rect": {
+              "x": 172,
+              "y": 404,
+              "width": 526,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "base",
+                "rect": {
+                  "x": 172,
+                  "y": 404,
+                  "width": 86,
+                  "height": 44
+                }
+              },
+              {
+                "id": "item",
+                "rect": {
+                  "x": 259,
+                  "y": 404,
+                  "width": 86,
+                  "height": 44
+                }
+              },
+              {
+                "id": "engineers",
+                "rect": {
+                  "x": 346,
+                  "y": 404,
+                  "width": 86,
+                  "height": 44
+                }
+              },
+              {
+                "id": "produced",
+                "rect": {
+                  "x": 433,
+                  "y": 404,
+                  "width": 86,
+                  "height": 44
+                }
+              },
+              {
+                "id": "cost",
+                "rect": {
+                  "x": 520,
+                  "y": 404,
+                  "width": 86,
+                  "height": 44
+                }
+              },
+              {
+                "id": "time-left",
+                "rect": {
+                  "x": 607,
+                  "y": 404,
+                  "width": 91,
+                  "height": 44
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-4",
+            "rect": {
+              "x": 172,
+              "y": 448,
+              "width": 526,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "base",
+                "rect": {
+                  "x": 172,
+                  "y": 448,
+                  "width": 86,
+                  "height": 44
+                }
+              },
+              {
+                "id": "item",
+                "rect": {
+                  "x": 259,
+                  "y": 448,
+                  "width": 86,
+                  "height": 44
+                }
+              },
+              {
+                "id": "engineers",
+                "rect": {
+                  "x": 346,
+                  "y": 448,
+                  "width": 86,
+                  "height": 44
+                }
+              },
+              {
+                "id": "produced",
+                "rect": {
+                  "x": 433,
+                  "y": 448,
+                  "width": 86,
+                  "height": 44
+                }
+              },
+              {
+                "id": "cost",
+                "rect": {
+                  "x": 520,
+                  "y": 448,
+                  "width": 86,
+                  "height": 44
+                }
+              },
+              {
+                "id": "time-left",
+                "rect": {
+                  "x": 607,
+                  "y": 448,
+                  "width": 91,
+                  "height": 44
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-5",
+            "rect": {
+              "x": 172,
+              "y": 492,
+              "width": 526,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "base",
+                "rect": {
+                  "x": 172,
+                  "y": 492,
+                  "width": 86,
+                  "height": 44
+                }
+              },
+              {
+                "id": "item",
+                "rect": {
+                  "x": 259,
+                  "y": 492,
+                  "width": 86,
+                  "height": 44
+                }
+              },
+              {
+                "id": "engineers",
+                "rect": {
+                  "x": 346,
+                  "y": 492,
+                  "width": 86,
+                  "height": 44
+                }
+              },
+              {
+                "id": "produced",
+                "rect": {
+                  "x": 433,
+                  "y": 492,
+                  "width": 86,
+                  "height": 44
+                }
+              },
+              {
+                "id": "cost",
+                "rect": {
+                  "x": 520,
+                  "y": 492,
+                  "width": 86,
+                  "height": 44
+                }
+              },
+              {
+                "id": "time-left",
+                "rect": {
+                  "x": 607,
+                  "y": 492,
+                  "width": 91,
+                  "height": 44
+                }
+              }
+            ]
+          }
+        ],
+        "scroll": {
+          "track": {
+            "x": 734,
+            "y": 316,
+            "width": 18,
+            "height": 220
+          },
+          "thumb": {
+            "x": 734,
+            "y": 316,
+            "width": 18,
+            "height": 220
+          }
+        }
+      },
+      "toolbarBar": {
+        "x": 172,
+        "y": 218,
+        "width": 936,
+        "height": 52
+      },
+      "controls": {},
+      "controlParts": {},
+      "footer": {
+        "x": 140,
+        "y": 578,
+        "width": 1000,
+        "height": 92
+      },
+      "toolbar": {},
+      "actions": {
+        "done": {
+          "x": 950,
+          "y": 602,
+          "width": 158,
+          "height": 44
+        }
+      },
+      "detail": {
+        "id": "selected-production",
+        "panel": {
+          "x": 762,
+          "y": 280,
+          "width": 346,
+          "height": 286
+        },
+        "label": {
+          "x": 774,
+          "y": 292,
+          "width": 322,
+          "height": 24
+        },
+        "identity": {
+          "rect": {
+            "x": 774,
+            "y": 316,
+            "width": 322,
+            "height": 32
+          },
+          "title": {
+            "x": 774,
+            "y": 316,
+            "width": 322,
+            "height": 16
+          },
+          "subtitle": {
+            "x": 774,
+            "y": 332,
+            "width": 322,
+            "height": 16
+          }
+        },
+        "metrics": {
+          "base": {
+            "rect": {
+              "x": 774,
+              "y": 348,
+              "width": 160,
+              "height": 28
+            },
+            "label": {
+              "x": 774,
+              "y": 348,
+              "width": 160,
+              "height": 14
+            },
+            "value": {
+              "x": 774,
+              "y": 362,
+              "width": 160,
+              "height": 14
+            }
+          },
+          "item": {
+            "rect": {
+              "x": 935,
+              "y": 348,
+              "width": 161,
+              "height": 28
+            },
+            "label": {
+              "x": 935,
+              "y": 348,
+              "width": 161,
+              "height": 14
+            },
+            "value": {
+              "x": 935,
+              "y": 362,
+              "width": 161,
+              "height": 14
+            }
+          }
+        },
+        "note": {
+          "visible": false
+        },
+        "actions": [
+          {
+            "id": "open-base-production",
+            "rect": {
+              "x": 774,
+              "y": 510,
+              "width": 157,
+              "height": 44
+            }
+          },
+          {
+            "id": "tech-tree",
+            "rect": {
+              "x": 939,
+              "y": 510,
+              "width": 157,
+              "height": 44
+            }
+          }
+        ]
+      },
+      "partRects": {
+        "window": {
+          "x": 140,
+          "y": 50,
+          "width": 1000,
+          "height": 620
+        },
+        "title": {
+          "x": 172,
+          "y": 68,
+          "width": 936,
+          "height": 44
+        },
+        "summaryBar": {
+          "x": 172,
+          "y": 116,
+          "width": 936,
+          "height": 36
+        },
+        "toolbarBar": {
+          "x": 172,
+          "y": 218,
+          "width": 936,
+          "height": 52
+        },
+        "collectionViewport": {
+          "x": 172,
+          "y": 280,
+          "width": 580,
+          "height": 286
+        },
+        "footer": {
+          "x": 140,
+          "y": 578,
+          "width": 1000,
+          "height": 92
+        },
+        "summary.available": {
+          "x": 172,
+          "y": 116,
+          "width": 311,
+          "height": 36
+        },
+        "summary.allocated": {
+          "x": 484,
+          "y": 116,
+          "width": 311,
+          "height": 36
+        },
+        "summary.workshop-space": {
+          "x": 796,
+          "y": 116,
+          "width": 312,
+          "height": 36
+        },
+        "tab.workspace-a": {
+          "x": 172,
+          "y": 160,
+          "width": 464,
+          "height": 48
+        },
+        "tab.workspace-b": {
+          "x": 644,
+          "y": 160,
+          "width": 464,
+          "height": 48
+        },
+        "collection.scroll.track": {
+          "x": 734,
+          "y": 316,
+          "width": 18,
+          "height": 220
+        },
+        "collection.scroll.thumb": {
+          "x": 734,
+          "y": 316,
+          "width": 18,
+          "height": 220
+        },
+        "collection.column.base": {
+          "x": 172,
+          "y": 280,
+          "width": 86,
+          "height": 36
+        },
+        "collection.column.item": {
+          "x": 259,
+          "y": 280,
+          "width": 86,
+          "height": 36
+        },
+        "collection.column.engineers": {
+          "x": 346,
+          "y": 280,
+          "width": 86,
+          "height": 36
+        },
+        "collection.column.produced": {
+          "x": 433,
+          "y": 280,
+          "width": 86,
+          "height": 36
+        },
+        "collection.column.cost": {
+          "x": 520,
+          "y": 280,
+          "width": 86,
+          "height": 36
+        },
+        "collection.column.time-left": {
+          "x": 607,
+          "y": 280,
+          "width": 91,
+          "height": 36
+        },
+        "collection.row-slot.1": {
+          "x": 172,
+          "y": 316,
+          "width": 526,
+          "height": 44
+        },
+        "collection.row-slot.2": {
+          "x": 172,
+          "y": 360,
+          "width": 526,
+          "height": 44
+        },
+        "collection.row-slot.3": {
+          "x": 172,
+          "y": 404,
+          "width": 526,
+          "height": 44
+        },
+        "collection.row-slot.4": {
+          "x": 172,
+          "y": 448,
+          "width": 526,
+          "height": 44
+        },
+        "collection.row-slot.5": {
+          "x": 172,
+          "y": 492,
+          "width": 526,
+          "height": 44
+        },
+        "detailPanel": {
+          "x": 762,
+          "y": 280,
+          "width": 346,
+          "height": 286
+        },
+        "detail.selected-production": {
+          "x": 762,
+          "y": 280,
+          "width": 346,
+          "height": 286
+        },
+        "detail.selected-production.label": {
+          "x": 774,
+          "y": 292,
+          "width": 322,
+          "height": 24
+        },
+        "detail.selected-production.identity.title": {
+          "x": 774,
+          "y": 316,
+          "width": 322,
+          "height": 16
+        },
+        "detail.selected-production.identity.subtitle": {
+          "x": 774,
+          "y": 332,
+          "width": 322,
+          "height": 16
+        },
+        "detail.selected-production.metric.base": {
+          "x": 774,
+          "y": 348,
+          "width": 160,
+          "height": 28
+        },
+        "detail.selected-production.metric.item": {
+          "x": 935,
+          "y": 348,
+          "width": 161,
+          "height": 28
+        },
+        "detail.selected-production.action.open-base-production": {
+          "x": 774,
+          "y": 510,
+          "width": 157,
+          "height": 44
+        },
+        "detail.selected-production.action.tech-tree": {
+          "x": 939,
+          "y": 510,
+          "width": 157,
+          "height": 44
+        },
+        "action.done": {
+          "x": 950,
+          "y": 602,
+          "width": 158,
+          "height": 44
+        }
+      }
+    },
+    "compact": {
+      "designWidth": 740,
+      "designHeight": 360,
+      "window": {
+        "x": 20,
+        "y": 8,
+        "width": 700,
+        "height": 344
+      },
+      "title": {
+        "x": 44,
+        "y": 8,
+        "width": 652,
+        "height": 32
+      },
+      "summaryBar": {
+        "x": 44,
+        "y": 44,
+        "width": 652,
+        "height": 24
+      },
+      "summary": {
+        "available": {
+          "x": 44,
+          "y": 44,
+          "width": 216,
+          "height": 24
+        },
+        "allocated": {
+          "x": 261,
+          "y": 44,
+          "width": 216,
+          "height": 24
+        },
+        "workshop-space": {
+          "x": 478,
+          "y": 44,
+          "width": 218,
+          "height": 24
+        }
+      },
+      "collectionViewport": {
+        "x": 44,
+        "y": 168,
+        "width": 450,
+        "height": 112
+      },
+      "detailPanel": {
+        "x": 502,
+        "y": 168,
+        "width": 194,
+        "height": 112
+      },
+      "collection": {
+        "columnHeaders": [
+          {
+            "id": "base",
+            "rect": {
+              "x": 44,
+              "y": 168,
+              "width": 65,
+              "height": 24
+            }
+          },
+          {
+            "id": "item",
+            "rect": {
+              "x": 110,
+              "y": 168,
+              "width": 65,
+              "height": 24
+            }
+          },
+          {
+            "id": "engineers",
+            "rect": {
+              "x": 176,
+              "y": 168,
+              "width": 65,
+              "height": 24
+            }
+          },
+          {
+            "id": "produced",
+            "rect": {
+              "x": 242,
+              "y": 168,
+              "width": 65,
+              "height": 24
+            }
+          },
+          {
+            "id": "cost",
+            "rect": {
+              "x": 308,
+              "y": 168,
+              "width": 65,
+              "height": 24
+            }
+          },
+          {
+            "id": "time-left",
+            "rect": {
+              "x": 374,
+              "y": 168,
+              "width": 68,
+              "height": 24
+            }
+          }
+        ],
+        "rowSlots": [
+          {
+            "id": "row-slot-1",
+            "rect": {
+              "x": 44,
+              "y": 192,
+              "width": 398,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "base",
+                "rect": {
+                  "x": 44,
+                  "y": 192,
+                  "width": 65,
+                  "height": 44
+                }
+              },
+              {
+                "id": "item",
+                "rect": {
+                  "x": 110,
+                  "y": 192,
+                  "width": 65,
+                  "height": 44
+                }
+              },
+              {
+                "id": "engineers",
+                "rect": {
+                  "x": 176,
+                  "y": 192,
+                  "width": 65,
+                  "height": 44
+                }
+              },
+              {
+                "id": "produced",
+                "rect": {
+                  "x": 242,
+                  "y": 192,
+                  "width": 65,
+                  "height": 44
+                }
+              },
+              {
+                "id": "cost",
+                "rect": {
+                  "x": 308,
+                  "y": 192,
+                  "width": 65,
+                  "height": 44
+                }
+              },
+              {
+                "id": "time-left",
+                "rect": {
+                  "x": 374,
+                  "y": 192,
+                  "width": 68,
+                  "height": 44
+                }
+              }
+            ]
+          },
+          {
+            "id": "row-slot-2",
+            "rect": {
+              "x": 44,
+              "y": 236,
+              "width": 398,
+              "height": 44
+            },
+            "cells": [
+              {
+                "id": "base",
+                "rect": {
+                  "x": 44,
+                  "y": 236,
+                  "width": 65,
+                  "height": 44
+                }
+              },
+              {
+                "id": "item",
+                "rect": {
+                  "x": 110,
+                  "y": 236,
+                  "width": 65,
+                  "height": 44
+                }
+              },
+              {
+                "id": "engineers",
+                "rect": {
+                  "x": 176,
+                  "y": 236,
+                  "width": 65,
+                  "height": 44
+                }
+              },
+              {
+                "id": "produced",
+                "rect": {
+                  "x": 242,
+                  "y": 236,
+                  "width": 65,
+                  "height": 44
+                }
+              },
+              {
+                "id": "cost",
+                "rect": {
+                  "x": 308,
+                  "y": 236,
+                  "width": 65,
+                  "height": 44
+                }
+              },
+              {
+                "id": "time-left",
+                "rect": {
+                  "x": 374,
+                  "y": 236,
+                  "width": 68,
+                  "height": 44
+                }
+              }
+            ]
+          }
+        ],
+        "scroll": {
+          "track": {
+            "x": 476,
+            "y": 192,
+            "width": 18,
+            "height": 88
+          },
+          "thumb": {
+            "x": 476,
+            "y": 192,
+            "width": 18,
+            "height": 88
+          }
+        }
+      },
+      "toolbarBar": {
+        "x": 44,
+        "y": 120,
+        "width": 652,
+        "height": 44
+      },
+      "controls": {},
+      "controlParts": {},
+      "footer": {
+        "x": 20,
+        "y": 284,
+        "width": 700,
+        "height": 68
+      },
+      "toolbar": {},
+      "actions": {
+        "done": {
+          "x": 576,
+          "y": 296,
+          "width": 120,
+          "height": 44
+        }
+      },
+      "detail": {
+        "id": "selected-production",
+        "panel": {
+          "x": 502,
+          "y": 168,
+          "width": 194,
+          "height": 112
+        },
+        "label": {
+          "x": 506,
+          "y": 172,
+          "width": 186,
+          "height": 16
+        },
+        "identity": {
+          "rect": {
+            "x": 506,
+            "y": 188,
+            "width": 186,
+            "height": 24
+          },
+          "title": {
+            "x": 506,
+            "y": 188,
+            "width": 186,
+            "height": 12
+          },
+          "subtitle": {
+            "x": 506,
+            "y": 200,
+            "width": 186,
+            "height": 12
+          }
+        },
+        "metrics": {
+          "base": {
+            "rect": {
+              "x": 506,
+              "y": 212,
+              "width": 92,
+              "height": 16
+            },
+            "label": {
+              "x": 506,
+              "y": 212,
+              "width": 92,
+              "height": 8
+            },
+            "value": {
+              "x": 506,
+              "y": 220,
+              "width": 92,
+              "height": 8
+            }
+          },
+          "item": {
+            "rect": {
+              "x": 599,
+              "y": 212,
+              "width": 93,
+              "height": 16
+            },
+            "label": {
+              "x": 599,
+              "y": 212,
+              "width": 93,
+              "height": 8
+            },
+            "value": {
+              "x": 599,
+              "y": 220,
+              "width": 93,
+              "height": 8
+            }
+          }
+        },
+        "note": {
+          "visible": false
+        },
+        "actions": [
+          {
+            "id": "open-base-production",
+            "rect": {
+              "x": 506,
+              "y": 232,
+              "width": 90,
+              "height": 44
+            }
+          },
+          {
+            "id": "tech-tree",
+            "rect": {
+              "x": 602,
+              "y": 232,
+              "width": 90,
+              "height": 44
+            }
+          }
+        ]
+      },
+      "partRects": {
+        "window": {
+          "x": 20,
+          "y": 8,
+          "width": 700,
+          "height": 344
+        },
+        "title": {
+          "x": 44,
+          "y": 8,
+          "width": 652,
+          "height": 32
+        },
+        "summaryBar": {
+          "x": 44,
+          "y": 44,
+          "width": 652,
+          "height": 24
+        },
+        "toolbarBar": {
+          "x": 44,
+          "y": 120,
+          "width": 652,
+          "height": 44
+        },
+        "collectionViewport": {
+          "x": 44,
+          "y": 168,
+          "width": 450,
+          "height": 112
+        },
+        "footer": {
+          "x": 20,
+          "y": 284,
+          "width": 700,
+          "height": 68
+        },
+        "summary.available": {
+          "x": 44,
+          "y": 44,
+          "width": 216,
+          "height": 24
+        },
+        "summary.allocated": {
+          "x": 261,
+          "y": 44,
+          "width": 216,
+          "height": 24
+        },
+        "summary.workshop-space": {
+          "x": 478,
+          "y": 44,
+          "width": 218,
+          "height": 24
+        },
+        "tab.workspace-a": {
+          "x": 44,
+          "y": 72,
+          "width": 323,
+          "height": 44
+        },
+        "tab.workspace-b": {
+          "x": 373,
+          "y": 72,
+          "width": 323,
+          "height": 44
+        },
+        "collection.scroll.track": {
+          "x": 476,
+          "y": 192,
+          "width": 18,
+          "height": 88
+        },
+        "collection.scroll.thumb": {
+          "x": 476,
+          "y": 192,
+          "width": 18,
+          "height": 88
+        },
+        "collection.column.base": {
+          "x": 44,
+          "y": 168,
+          "width": 65,
+          "height": 24
+        },
+        "collection.column.item": {
+          "x": 110,
+          "y": 168,
+          "width": 65,
+          "height": 24
+        },
+        "collection.column.engineers": {
+          "x": 176,
+          "y": 168,
+          "width": 65,
+          "height": 24
+        },
+        "collection.column.produced": {
+          "x": 242,
+          "y": 168,
+          "width": 65,
+          "height": 24
+        },
+        "collection.column.cost": {
+          "x": 308,
+          "y": 168,
+          "width": 65,
+          "height": 24
+        },
+        "collection.column.time-left": {
+          "x": 374,
+          "y": 168,
+          "width": 68,
+          "height": 24
+        },
+        "collection.row-slot.1": {
+          "x": 44,
+          "y": 192,
+          "width": 398,
+          "height": 44
+        },
+        "collection.row-slot.2": {
+          "x": 44,
+          "y": 236,
+          "width": 398,
+          "height": 44
+        },
+        "collection.row-slot.3": {
+          "x": 44,
+          "y": 236,
+          "width": 398,
+          "height": 44
+        },
+        "collection.row-slot.4": {
+          "x": 44,
+          "y": 236,
+          "width": 398,
+          "height": 44
+        },
+        "collection.row-slot.5": {
+          "x": 44,
+          "y": 236,
+          "width": 398,
+          "height": 44
+        },
+        "detailPanel": {
+          "x": 502,
+          "y": 168,
+          "width": 194,
+          "height": 112
+        },
+        "detail.selected-production": {
+          "x": 502,
+          "y": 168,
+          "width": 194,
+          "height": 112
+        },
+        "detail.selected-production.label": {
+          "x": 506,
+          "y": 172,
+          "width": 186,
+          "height": 16
+        },
+        "detail.selected-production.identity.title": {
+          "x": 506,
+          "y": 188,
+          "width": 186,
+          "height": 12
+        },
+        "detail.selected-production.identity.subtitle": {
+          "x": 506,
+          "y": 200,
+          "width": 186,
+          "height": 12
+        },
+        "detail.selected-production.metric.base": {
+          "x": 506,
+          "y": 212,
+          "width": 92,
+          "height": 16
+        },
+        "detail.selected-production.metric.item": {
+          "x": 599,
+          "y": 212,
+          "width": 93,
+          "height": 16
+        },
+        "detail.selected-production.action.open-base-production": {
+          "x": 506,
+          "y": 232,
+          "width": 90,
+          "height": 44
+        },
+        "detail.selected-production.action.tech-tree": {
+          "x": 602,
+          "y": 232,
+          "width": 90,
+          "height": 44
+        },
+        "action.done": {
+          "x": 576,
+          "y": 296,
+          "width": 120,
+          "height": 44
+        }
+      }
+    }
+  },
+  "motion": {
+    "durationMs": 200,
+    "scaleFrom": 0.96,
+    "easing": "ease-out",
+    "captureModeDurationMs": 0
+  },
+  "provenance": {
+    "template": "FormTemplates/operations-workspace.json",
+    "templateVersion": 1,
+    "generatorKind": "operations"
+  },
+  "collectionMetrics": {
+    "wide": {
+      "totalItems": 2,
+      "visibleCapacity": 5,
+      "totalUnits": 2,
+      "visibleUnits": 5,
+      "itemsPerUnit": 1,
+      "scrollUnit": "record",
+      "overflow": false,
+      "scrollSteps": 0,
+      "track": {
+        "x": 734,
+        "y": 316,
+        "width": 18,
+        "height": 220
+      },
+      "thumb": {
+        "x": 734,
+        "y": 316,
+        "width": 18,
+        "height": 220
+      },
+      "trackHitTarget": {
+        "x": 708,
+        "y": 316,
+        "width": 44,
+        "height": 220
+      },
+      "thumbHitTarget": {
+        "x": 708,
+        "y": 316,
+        "width": 44,
+        "height": 220
+      },
+      "thumbTravelPx": 0
+    },
+    "compact": {
+      "totalItems": 2,
+      "visibleCapacity": 2,
+      "totalUnits": 2,
+      "visibleUnits": 2,
+      "itemsPerUnit": 1,
+      "scrollUnit": "record",
+      "overflow": false,
+      "scrollSteps": 0,
+      "track": {
+        "x": 476,
+        "y": 192,
+        "width": 18,
+        "height": 88
+      },
+      "thumb": {
+        "x": 476,
+        "y": 192,
+        "width": 18,
+        "height": 88
+      },
+      "trackHitTarget": {
+        "x": 450,
+        "y": 192,
+        "width": 44,
+        "height": 88
+      },
+      "thumbHitTarget": {
+        "x": 450,
+        "y": 192,
+        "width": 44,
+        "height": 88
+      },
+      "thumbTravelPx": 0
+    }
+  },
+  "actions": [
+    "action.done"
+  ],
+  "parts": [
+    "window",
+    "title",
+    "summaryBar",
+    "toolbarBar",
+    "collectionViewport",
+    "footer",
+    "summary.available",
+    "summary.allocated",
+    "summary.workshop-space",
+    "tab.workspace-a",
+    "tab.workspace-b",
+    "collection.scroll.track",
+    "collection.scroll.thumb",
+    "collection.column.base",
+    "collection.column.item",
+    "collection.column.engineers",
+    "collection.column.produced",
+    "collection.column.cost",
+    "collection.column.time-left",
+    "collection.row-slot.1",
+    "collection.row-slot.2",
+    "collection.row-slot.3",
+    "collection.row-slot.4",
+    "collection.row-slot.5",
+    "detailPanel",
+    "detail.selected-production",
+    "detail.selected-production.label",
+    "detail.selected-production.identity.title",
+    "detail.selected-production.identity.subtitle",
+    "detail.selected-production.metric.base",
+    "detail.selected-production.metric.item",
+    "detail.selected-production.action.open-base-production",
+    "detail.selected-production.action.tech-tree",
+    "action.done"
+  ],
+  "spacingRules": []
+}

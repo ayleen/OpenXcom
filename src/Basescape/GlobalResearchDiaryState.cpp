@@ -35,6 +35,9 @@
 #include "TechTreeViewerState.h"
 #include <algorithm>
 #include <locale>
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF14GlobalOperationsUi.h"
+#endif
 
 namespace OpenXcom
 {
@@ -157,6 +160,9 @@ GlobalResearchDiaryState::GlobalResearchDiaryState() : _doNotReset(false)
 
 	_txtTooltip->setVerticalAlign(ALIGN_MIDDLE);
 	_txtTooltip->setWordWrap(true);
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF14GlobalOperationsUi::configure(*this);
+#endif
 }
 
 /**
@@ -164,7 +170,10 @@ GlobalResearchDiaryState::GlobalResearchDiaryState() : _doNotReset(false)
  */
 GlobalResearchDiaryState::~GlobalResearchDiaryState()
 {
-
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 }
 
 /**
@@ -242,10 +251,16 @@ void GlobalResearchDiaryState::init()
 	if (_doNotReset)
 	{
 		_doNotReset = false;
+#ifdef __EMSCRIPTEN__
+		if (_hdAdapter) _hdAdapter->refresh();
+#endif
 		return;
 	}
 
 	initList();
+#ifdef __EMSCRIPTEN__
+	if (_hdAdapter) _hdAdapter->refresh();
+#endif
 }
 
 /**
@@ -344,7 +359,9 @@ void GlobalResearchDiaryState::sortDateClick(Action *)
  */
 void GlobalResearchDiaryState::lstItemLClick(Action* action)
 {
-	auto* selectedTopic = _filteredItemList[_lstItems->getSelectedRow()]->diaryEntry->research;
+	const size_t selectedRow = _lstItems->getSelectedRow();
+	if (selectedRow >= _filteredItemList.size()) return;
+	auto* selectedTopic = _filteredItemList[selectedRow]->diaryEntry->research;
 	_doNotReset = true;
 	_game->pushState(new TechTreeViewerState(selectedTopic, 0));
 }
@@ -355,7 +372,9 @@ void GlobalResearchDiaryState::lstItemLClick(Action* action)
  */
 void GlobalResearchDiaryState::lstItemMClick(Action* action)
 {
-	auto* selectedTopic = _filteredItemList[_lstItems->getSelectedRow()]->diaryEntry->research;
+	const size_t selectedRow = _lstItems->getSelectedRow();
+	if (selectedRow >= _filteredItemList.size()) return;
+	auto* selectedTopic = _filteredItemList[selectedRow]->diaryEntry->research;
 	_doNotReset = true;
 	Ufopaedia::openArticle(_game, selectedTopic->getName());
 }
@@ -387,3 +406,14 @@ void GlobalResearchDiaryState::lstItemMouseOut(Action *)
 }
 
 }
+
+#ifdef __EMSCRIPTEN__
+namespace OpenXcom
+{
+void GlobalResearchDiaryState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF14GlobalOperationsUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+}
+#endif

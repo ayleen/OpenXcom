@@ -22,6 +22,10 @@
 namespace OpenXcom
 {
 
+#ifdef __EMSCRIPTEN__
+namespace Calypso { class CalypsoF14GlobalOperationsUi; }
+#endif
+
 class TextButton;
 class Window;
 class Text;
@@ -36,8 +40,15 @@ class RuleResearch;
 class GlobalResearchState : public State
 {
 private:
+#ifdef __EMSCRIPTEN__
+	friend class Calypso::CalypsoF14GlobalOperationsUi;
+#endif
 	TextButton *_btnOk;
 	TextButton *_btnDiary;
+#ifdef __EMSCRIPTEN__
+	TextButton *_btnOpenBaseResearch = nullptr;
+	TextButton *_btnTechTree = nullptr;
+#endif
 	Window *_window;
 	Text *_txtTitle, *_txtAvailable, *_txtAllocated, *_txtSpace, *_txtProject, *_txtScientists, *_txtProgress;
 	TextList *_lstResearch;
@@ -45,6 +56,11 @@ private:
 	std::vector<Base*> _bases;
 	std::vector<const RuleResearch*> _topics;
 	bool _openedFromBasescape;
+#ifdef __EMSCRIPTEN__
+	bool _hdLayout = false;
+	bool _hdWideLayout = false;
+	Calypso::CalypsoF14GlobalOperationsUi *_hdAdapter = nullptr;
+#endif
 public:
 	/// Creates the GlobalResearchState.
 	GlobalResearchState(bool openedFromBasescape);
@@ -61,6 +77,11 @@ public:
 	void fillProjectList();
 	/// Updates the research list.
 	void init() override;
+#ifdef __EMSCRIPTEN__
+	void resize(int &dX, int &dY) override;
+#endif
+
 };
+
 
 }

@@ -22,12 +22,13 @@
 namespace OpenXcom
 {
 
+namespace Calypso { class CalypsoF09ResearchUi; }
+
 class TextButton;
 class Window;
 class Text;
 class TextList;
 class Base;
-
 /**
  * Research screen that lets the player manage
  * all the researching operations of a base.
@@ -35,11 +36,22 @@ class Base;
 class ResearchState : public State
 {
 private:
+#ifdef __EMSCRIPTEN__
+	friend class Calypso::CalypsoF09ResearchUi;
+#endif
 	Base *_base;
 	TextButton *_btnNew, *_btnOk;
+#ifdef __EMSCRIPTEN__
+	TextButton *_btnGlobalOverview = nullptr, *_btnOpenProject = nullptr, *_btnTechTree = nullptr;
+#endif
 	Window *_window;
 	Text *_txtTitle, *_txtAvailable, *_txtAllocated, *_txtSpace, *_txtProject, *_txtScientists, *_txtProgress;
 	TextList *_lstResearch;
+#ifdef __EMSCRIPTEN__
+	bool _hdLayout = false;
+	bool _hdWideLayout = false;
+	Calypso::CalypsoF09ResearchUi *_hdAdapter = nullptr;
+#endif
 public:
 	/// Creates the Research state.
 	ResearchState(Base *base);
@@ -59,6 +71,9 @@ public:
 	void fillProjectList(size_t scrl);
 	/// Updates the research list.
 	void init() override;
+#ifdef __EMSCRIPTEN__
+	void resize(int &dX, int &dY) override;
+#endif
 
 	/// Handler for clicking the reordering up button.
 	void lstResearchLeftArrowClick(Action* action);
