@@ -268,6 +268,14 @@ def _one_line(value, label, limit=64):
         raise ArchetypeError(label + " exceeds the " + str(limit) + " character limit")
 
 
+def _strip_presentation_controls(value):
+    """Drop OXCE presentation control tokens from a display string: raw 0x01
+    TOK_COLOR_FLIP bytes (what Language maps {ALT} to at runtime) and literal
+    "{ALT}" markers (what pre-mapping authoring copy carries). Currency,
+    spacing, and multi-byte UTF-8 payload pass through untouched."""
+    return value.replace("\x01", "").replace("{ALT}", "")
+
+
 def _stable_id(value, label):
     if not isinstance(value, str) or not ID_RE.fullmatch(value):
         raise ArchetypeError(label + " must match ^[a-z][a-z0-9-]*$")
@@ -780,7 +788,10 @@ def _validate_collection_value(collection, limits, label):
     fields = {"mode", "selectionRole", "items"}
     if mode != "grid":
         fields.add("columns")
-    _strict(collection, fields, {"heading"}, label)
+    optional = {"heading"}
+    if mode != "grid":
+        optional |= {"adjustmentColumnId", "behaviorOwner"}
+    _strict(collection, fields, optional, label)
     if "heading" in collection:
         _one_line(collection["heading"], label + ".heading", limits["maxCellCharacters"])
     items = collection["items"]
@@ -818,6 +829,16 @@ def _validate_collection_value(collection, limits, label):
         if column["id"] in column_ids:
             raise ArchetypeError(label + " column IDs must be unique")
         column_ids.add(column["id"])
+    adjustment = collection.get("adjustmentColumnId")
+    owner = collection.get("behaviorOwner")
+    if (adjustment is None) != (owner is None):
+        raise ArchetypeError(
+            label + " needs adjustmentColumnId and behaviorOwner together")
+    if adjustment is not None:
+        if adjustment not in column_ids:
+            raise ArchetypeError(
+                label + ".adjustmentColumnId must name a declared column")
+        _one_line(owner, label + ".behaviorOwner", 64)
     for index, item in enumerate(items):
         item_label = label + ".items[" + str(index) + "]"
         _strict(item, {"id", "values"}, set(), item_label)
@@ -850,12 +871,14 @@ def _validate_summary(summary, limits, label):
         item_label = label + "[" + str(index) + "]"
         _strict(field, {"id", "label", "value"}, set(), item_label)
         _stable_id(field["id"], item_label + ".id")
-        _one_line(field["label"], item_label + ".label", 24)
-        _one_line(field["value"], item_label + ".value", 32)
+        clean_label = _strip_presentation_controls(field["label"])
+        clean_value = _strip_presentation_controls(field["value"])
+        _one_line(clean_label, item_label + ".label", 24)
+        _one_line(clean_value, item_label + ".value", 32)
         if field["id"] in ids:
             raise ArchetypeError(label + " IDs must be unique")
         ids.add(field["id"])
-        result.append(copy.deepcopy(field))
+        result.append({"id": field["id"], "label": clean_label, "value": clean_value})
     return result
 
 
@@ -1594,6 +1617,33 @@ def _build_collection(config, template, source_name, template_name):
             collection, authored, authored["viewport"], name
         )
         layout.update(collection_fragment)
+        if collection["mode"] in ("list", "table"):
+            header_bottom = authored["viewport"]["y"] + authored["headerHeight"]
+            layout["rowHit"] = {
+                "x": authored["viewport"]["x"],
+                "y": header_bottom,
+                "width": collection_fragment["rowSlots"][0]["rect"]["width"],
+                "height": authored["visibleRows"] * authored["rowHeight"],
+            }
+            if collection.get("adjustmentColumnId") is not None:
+                adjust_index = [column["id"] for column in collection["columns"]].index(
+                    collection["adjustmentColumnId"])
+                owner = collection["behaviorOwner"]
+                steppers = []
+                for slot in collection_fragment["rowSlots"]:
+                    cell = slot["cells"][adjust_index]["rect"]
+                    if cell["width"] < 88:
+                        raise ArchetypeError(
+                            name + " adjustment column breaks the 44px stepper floor")
+                    steppers.append({
+                        "rowSlotId": slot["id"],
+                        "behaviorOwner": owner,
+                        "decrement": {"x": cell["x"], "y": cell["y"],
+                                      "width": 44, "height": cell["height"]},
+                        "increment": {"x": cell["x"] + cell["width"] - 44, "y": cell["y"],
+                                      "width": 44, "height": cell["height"]},
+                    })
+                layout["rowSteppers"] = steppers
         out["collectionMetrics"][name] = metrics
         out["layouts"][name] = layout
     out["parts"] = [
@@ -1616,6 +1666,10 @@ def _build_collection(config, template, source_name, template_name):
     out["parts"].extend("action." + action["id"] for action in actions)
     collection_parts = _collection_parts(collection, template, "")
     out["parts"].extend(collection_parts[2:])
+    if collection.get("adjustmentColumnId") is not None:
+        max_steppers = max(template["layouts"]["wide"]["visibleRows"],
+                            template["layouts"]["compact"]["visibleRows"])
+        out["parts"].extend("row-stepper." + str(index + 1) for index in range(max_steppers))
     return out
 
 

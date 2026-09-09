@@ -48,6 +48,7 @@ inline constexpr std::uint32_t kHeaderArtScrim = 0x04090DCCu;
 inline constexpr int kHeaderArtOpacityPct = 85;
 struct CalypsoF36MarketGenButtonRect { const char* id; CalypsoF36MarketGenRect rect; };
 struct CalypsoF36MarketGenControlRect { const char* id; CalypsoF36MarketGenRect rect; };
+struct CalypsoF36MarketGenRowStepper { const char* rowSlotId; const char* behaviorOwner; CalypsoF36MarketGenRect decrement; CalypsoF36MarketGenRect increment; };
 struct CalypsoF36MarketGenSummaryRect { CalypsoF36MarketGenRect field; CalypsoF36MarketGenRect label; CalypsoF36MarketGenRect value; };
 struct CalypsoF36MarketGenLayout { int designWidth; int designHeight; int rowHeight; int visibleRows; int headerHeight; int scrollBarWidth; int minThumbHeight; int columnCount; int summaryCount; int hasHeaderArt; CalypsoF36MarketGenRect window; CalypsoF36MarketGenRect title; CalypsoF36MarketGenRect summaryBar; CalypsoF36MarketGenRect headerArt; CalypsoF36MarketGenRect controlBar; CalypsoF36MarketGenRect collectionHeading; CalypsoF36MarketGenRect viewport; CalypsoF36MarketGenRect footer;
 };
@@ -85,6 +86,8 @@ inline constexpr CalypsoF36MarketGenRect kRowCellsWide[] = {
     { 613, 522, 481, 44 }, // standing
 };
 inline constexpr int kRowCellWideCount = 16;
+inline constexpr CalypsoF36MarketGenRect kRowHitWide = { 132, 214, 962, 352 };
+inline constexpr int kRowStepperWideCount = 0;
 inline constexpr CalypsoF36MarketGenRect kColumnHeadersWide[] = {
     { 132, 178, 480, 36 }, // counterparty
     { 613, 178, 481, 36 }, // standing
@@ -109,6 +112,8 @@ inline constexpr CalypsoF36MarketGenRect kRowCellsCompact[] = {
     { 344, 198, 300, 44 }, // standing
 };
 inline constexpr int kRowCellCompactCount = 4;
+inline constexpr CalypsoF36MarketGenRect kRowHitCompact = { 44, 154, 600, 88 };
+inline constexpr int kRowStepperCompactCount = 0;
 inline constexpr CalypsoF36MarketGenRect kColumnHeadersCompact[] = {
     { 44, 122, 299, 32 }, // counterparty
     { 344, 122, 300, 32 }, // standing

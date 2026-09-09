@@ -42,6 +42,8 @@
       }
     ],
     "collection": {
+      "adjustmentColumnId": "sell",
+      "behaviorOwner": "adjust-quantity",
       "columns": [
         {
           "id": "item",
@@ -824,6 +826,142 @@
             }
           ]
         }
+      ],
+      "rowHit": {
+        "x": 132,
+        "y": 214,
+        "width": 962,
+        "height": 352
+      },
+      "rowSteppers": [
+        {
+          "rowSlotId": "row-slot-1",
+          "behaviorOwner": "adjust-quantity",
+          "decrement": {
+            "x": 612,
+            "y": 214,
+            "width": 44,
+            "height": 44
+          },
+          "increment": {
+            "x": 807,
+            "y": 214,
+            "width": 44,
+            "height": 44
+          }
+        },
+        {
+          "rowSlotId": "row-slot-2",
+          "behaviorOwner": "adjust-quantity",
+          "decrement": {
+            "x": 612,
+            "y": 258,
+            "width": 44,
+            "height": 44
+          },
+          "increment": {
+            "x": 807,
+            "y": 258,
+            "width": 44,
+            "height": 44
+          }
+        },
+        {
+          "rowSlotId": "row-slot-3",
+          "behaviorOwner": "adjust-quantity",
+          "decrement": {
+            "x": 612,
+            "y": 302,
+            "width": 44,
+            "height": 44
+          },
+          "increment": {
+            "x": 807,
+            "y": 302,
+            "width": 44,
+            "height": 44
+          }
+        },
+        {
+          "rowSlotId": "row-slot-4",
+          "behaviorOwner": "adjust-quantity",
+          "decrement": {
+            "x": 612,
+            "y": 346,
+            "width": 44,
+            "height": 44
+          },
+          "increment": {
+            "x": 807,
+            "y": 346,
+            "width": 44,
+            "height": 44
+          }
+        },
+        {
+          "rowSlotId": "row-slot-5",
+          "behaviorOwner": "adjust-quantity",
+          "decrement": {
+            "x": 612,
+            "y": 390,
+            "width": 44,
+            "height": 44
+          },
+          "increment": {
+            "x": 807,
+            "y": 390,
+            "width": 44,
+            "height": 44
+          }
+        },
+        {
+          "rowSlotId": "row-slot-6",
+          "behaviorOwner": "adjust-quantity",
+          "decrement": {
+            "x": 612,
+            "y": 434,
+            "width": 44,
+            "height": 44
+          },
+          "increment": {
+            "x": 807,
+            "y": 434,
+            "width": 44,
+            "height": 44
+          }
+        },
+        {
+          "rowSlotId": "row-slot-7",
+          "behaviorOwner": "adjust-quantity",
+          "decrement": {
+            "x": 612,
+            "y": 478,
+            "width": 44,
+            "height": 44
+          },
+          "increment": {
+            "x": 807,
+            "y": 478,
+            "width": 44,
+            "height": 44
+          }
+        },
+        {
+          "rowSlotId": "row-slot-8",
+          "behaviorOwner": "adjust-quantity",
+          "decrement": {
+            "x": 612,
+            "y": 522,
+            "width": 44,
+            "height": 44
+          },
+          "increment": {
+            "x": 807,
+            "y": 522,
+            "width": 44,
+            "height": 44
+          }
+        }
       ]
     },
     "compact": {
@@ -1087,6 +1225,46 @@
             }
           ]
         }
+      ],
+      "rowHit": {
+        "x": 44,
+        "y": 154,
+        "width": 600,
+        "height": 88
+      },
+      "rowSteppers": [
+        {
+          "rowSlotId": "row-slot-1",
+          "behaviorOwner": "adjust-quantity",
+          "decrement": {
+            "x": 344,
+            "y": 154,
+            "width": 44,
+            "height": 44
+          },
+          "increment": {
+            "x": 449,
+            "y": 154,
+            "width": 44,
+            "height": 44
+          }
+        },
+        {
+          "rowSlotId": "row-slot-2",
+          "behaviorOwner": "adjust-quantity",
+          "decrement": {
+            "x": 344,
+            "y": 198,
+            "width": 44,
+            "height": 44
+          },
+          "increment": {
+            "x": 449,
+            "y": 198,
+            "width": 44,
+            "height": 44
+          }
+        }
       ]
     }
   },
@@ -1098,7 +1276,7 @@
   },
   "provenance": {
     "template": "FormTemplates/scrollable-collection.json",
-    "templateVersion": 4,
+    "templateVersion": 5,
     "generatorKind": "collection"
   },
   "collectionMetrics": {
@@ -1202,6 +1380,14 @@
     "row-slot.5",
     "row-slot.6",
     "row-slot.7",
-    "row-slot.8"
+    "row-slot.8",
+    "row-stepper.1",
+    "row-stepper.2",
+    "row-stepper.3",
+    "row-stepper.4",
+    "row-stepper.5",
+    "row-stepper.6",
+    "row-stepper.7",
+    "row-stepper.8"
   ]
 }

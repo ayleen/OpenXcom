@@ -510,7 +510,13 @@
             }
           ]
         }
-      ]
+      ],
+      "rowHit": {
+        "x": 132,
+        "y": 214,
+        "width": 962,
+        "height": 352
+      }
     },
     "compact": {
       "designWidth": 740,
@@ -656,7 +662,13 @@
             }
           ]
         }
-      ]
+      ],
+      "rowHit": {
+        "x": 44,
+        "y": 154,
+        "width": 600,
+        "height": 88
+      }
     }
   },
   "motion": {
@@ -667,7 +679,7 @@
   },
   "provenance": {
     "template": "FormTemplates/scrollable-collection.json",
-    "templateVersion": 4,
+    "templateVersion": 5,
     "generatorKind": "collection"
   },
   "collectionMetrics": {

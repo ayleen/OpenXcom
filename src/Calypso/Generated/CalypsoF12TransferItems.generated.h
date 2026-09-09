@@ -51,6 +51,7 @@ inline constexpr std::uint32_t kHeaderArtScrim = 0x04090DCCu;
 inline constexpr int kHeaderArtOpacityPct = 85;
 struct CalypsoF12TransferItemsGenButtonRect { const char* id; CalypsoF12TransferItemsGenRect rect; };
 struct CalypsoF12TransferItemsGenControlRect { const char* id; CalypsoF12TransferItemsGenRect rect; };
+struct CalypsoF12TransferItemsGenRowStepper { const char* rowSlotId; const char* behaviorOwner; CalypsoF12TransferItemsGenRect decrement; CalypsoF12TransferItemsGenRect increment; };
 struct CalypsoF12TransferItemsGenSummaryRect { CalypsoF12TransferItemsGenRect field; CalypsoF12TransferItemsGenRect label; CalypsoF12TransferItemsGenRect value; };
 struct CalypsoF12TransferItemsGenLayout { int designWidth; int designHeight; int rowHeight; int visibleRows; int headerHeight; int scrollBarWidth; int minThumbHeight; int columnCount; int summaryCount; int hasHeaderArt; CalypsoF12TransferItemsGenRect window; CalypsoF12TransferItemsGenRect title; CalypsoF12TransferItemsGenRect summaryBar; CalypsoF12TransferItemsGenRect headerArt; CalypsoF12TransferItemsGenRect controlBar; CalypsoF12TransferItemsGenRect collectionHeading; CalypsoF12TransferItemsGenRect viewport; CalypsoF12TransferItemsGenRect footer;
 };
@@ -104,6 +105,18 @@ inline constexpr CalypsoF12TransferItemsGenRect kRowCellsWide[] = {
     { 852, 522, 242, 44 }, // at-destination
 };
 inline constexpr int kRowCellWideCount = 32;
+inline constexpr CalypsoF12TransferItemsGenRect kRowHitWide = { 132, 214, 962, 352 };
+inline constexpr CalypsoF12TransferItemsGenRowStepper kRowSteppersWide[] = {
+    { "row-slot-1", "adjust-quantity", { 612, 214, 44, 44 }, { 807, 214, 44, 44 } },
+    { "row-slot-2", "adjust-quantity", { 612, 258, 44, 44 }, { 807, 258, 44, 44 } },
+    { "row-slot-3", "adjust-quantity", { 612, 302, 44, 44 }, { 807, 302, 44, 44 } },
+    { "row-slot-4", "adjust-quantity", { 612, 346, 44, 44 }, { 807, 346, 44, 44 } },
+    { "row-slot-5", "adjust-quantity", { 612, 390, 44, 44 }, { 807, 390, 44, 44 } },
+    { "row-slot-6", "adjust-quantity", { 612, 434, 44, 44 }, { 807, 434, 44, 44 } },
+    { "row-slot-7", "adjust-quantity", { 612, 478, 44, 44 }, { 807, 478, 44, 44 } },
+    { "row-slot-8", "adjust-quantity", { 612, 522, 44, 44 }, { 807, 522, 44, 44 } },
+};
+inline constexpr int kRowStepperWideCount = 8;
 inline constexpr CalypsoF12TransferItemsGenRect kColumnHeadersWide[] = {
     { 132, 178, 239, 36 }, // item
     { 372, 178, 239, 36 }, // at-source
@@ -139,6 +152,12 @@ inline constexpr CalypsoF12TransferItemsGenRect kRowCellsCompact[] = {
     { 494, 198, 150, 44 }, // at-destination
 };
 inline constexpr int kRowCellCompactCount = 8;
+inline constexpr CalypsoF12TransferItemsGenRect kRowHitCompact = { 44, 154, 600, 88 };
+inline constexpr CalypsoF12TransferItemsGenRowStepper kRowSteppersCompact[] = {
+    { "row-slot-1", "adjust-quantity", { 344, 154, 44, 44 }, { 449, 154, 44, 44 } },
+    { "row-slot-2", "adjust-quantity", { 344, 198, 44, 44 }, { 449, 198, 44, 44 } },
+};
+inline constexpr int kRowStepperCompactCount = 2;
 inline constexpr CalypsoF12TransferItemsGenRect kColumnHeadersCompact[] = {
     { 44, 122, 149, 32 }, // item
     { 194, 122, 149, 32 }, // at-source

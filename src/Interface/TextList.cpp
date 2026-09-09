@@ -28,6 +28,9 @@
 #include "ComboBox.h"
 #include "ScrollBar.h"
 #include "../fmath.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoSelectionListScroll.h"
+#endif
 
 namespace OpenXcom
 {
@@ -102,6 +105,9 @@ void TextList::setX(int x)
 		_selector->setX(getX());
 #ifdef __EMSCRIPTEN__
 	if (_hdSelList) positionCalypsoHdScrollbar();
+#endif
+#ifdef __EMSCRIPTEN__
+	calypsoHdLayoutArrows();
 #endif
 }
 
@@ -449,7 +455,32 @@ void TextList::addRow(int cols, ...)
 			shape1 = ARROW_SMALL_LEFT;
 			shape2 = ARROW_SMALL_RIGHT;
 		}
-		ArrowButton *a1 = new ArrowButton(shape1, 11, 8, getX() + _arrowPos, getY());
+		int leftX = getX() + _arrowPos, leftW = 11, leftH = 8;
+		int rightX = getX() + _arrowPos + 12, rightW = 11, rightH = 8;
+#ifdef __EMSCRIPTEN__
+		if (_hdArrowRelLeftX >= 0)
+		{
+			// List-relative design offsets projected through the live
+			// scale: identical math to calypsoHdLayoutArrows below, so
+			// creation-time and relayout rects always agree.
+			const Calypso::CalypsoHdArrowProjection left =
+				Calypso::calypsoHdArrowProjectTarget(getX(), _hdArrowRelLeftX,
+					_hdArrowDesignW, _hdArrowDesignH, (double)scale());
+			leftX = left.x;
+			leftW = left.w;
+			leftH = left.h;
+		}
+		if (_hdArrowRelRightX >= 0)
+		{
+			const Calypso::CalypsoHdArrowProjection right =
+				Calypso::calypsoHdArrowProjectTarget(getX(), _hdArrowRelRightX,
+					_hdArrowDesignW, _hdArrowDesignH, (double)scale());
+			rightX = right.x;
+			rightW = right.w;
+			rightH = right.h;
+		}
+#endif
+		ArrowButton *a1 = new ArrowButton(shape1, leftW, leftH, leftX, getY());
 		a1->setListButton();
 		a1->setPalette(this->getPalette());
 		a1->setColor(_up->getColor());
@@ -457,7 +488,7 @@ void TextList::addRow(int cols, ...)
 		a1->onMousePress(_leftPress);
 		a1->onMouseRelease(_leftRelease);
 		_arrowLeft.push_back(a1);
-		ArrowButton *a2 = new ArrowButton(shape2, 11, 8, getX() + _arrowPos + 12, getY());
+		ArrowButton *a2 = new ArrowButton(shape2, rightW, rightH, rightX, getY());
 		a2->setListButton();
 		a2->setPalette(this->getPalette());
 		a2->setColor(_up->getColor());
@@ -1025,6 +1056,21 @@ void TextList::clearList()
 		}
 		vec.clear();
 	}
+	for (auto* ab : _arrowLeft)
+	{
+		delete ab;
+	}
+	_arrowLeft.clear();
+	for (auto* ab : _arrowRight)
+	{
+		delete ab;
+	}
+	_arrowRight.clear();
+#ifdef __EMSCRIPTEN__
+	// A rebuild invalidates any recorded press target: clear through the
+	// shared pairing helper so a later release can never click a stale row.
+	Calypso::calypsoHdStepperPressRelease(_hdArrowPress, -1, 0);
+#endif
 	scrollUp(true, false);
 	_texts.clear();
 	_rows.clear();
@@ -1269,6 +1315,7 @@ void TextList::handle(Action *action, State *state)
 {
 #ifdef __EMSCRIPTEN__
 	if (calypsoHdRoutePointerToScrollbar(action, state)) return;
+	if (calypsoHdRoutePointerToSteppers(action, state)) return;
 #endif
 	InteractiveSurface::handle(action, state);
 #ifdef __EMSCRIPTEN__
@@ -1505,6 +1552,11 @@ void TextList::mouseOut(Action *action, State *state)
  * @return scroll depth.
  */
 size_t TextList::getScroll()
+{
+	return _scroll;
+}
+
+size_t TextList::getScroll() const
 {
 	return _scroll;
 }

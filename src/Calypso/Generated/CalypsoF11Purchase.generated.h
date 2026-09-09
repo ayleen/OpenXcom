@@ -55,6 +55,7 @@ inline constexpr std::uint32_t kHeaderArtScrim = 0x04090DCCu;
 inline constexpr int kHeaderArtOpacityPct = 85;
 struct CalypsoF11PurchaseGenButtonRect { const char* id; CalypsoF11PurchaseGenRect rect; };
 struct CalypsoF11PurchaseGenControlRect { const char* id; CalypsoF11PurchaseGenRect rect; };
+struct CalypsoF11PurchaseGenRowStepper { const char* rowSlotId; const char* behaviorOwner; CalypsoF11PurchaseGenRect decrement; CalypsoF11PurchaseGenRect increment; };
 struct CalypsoF11PurchaseGenSummaryRect { CalypsoF11PurchaseGenRect field; CalypsoF11PurchaseGenRect label; CalypsoF11PurchaseGenRect value; };
 struct CalypsoF11PurchaseGenLayout { int designWidth; int designHeight; int rowHeight; int visibleRows; int headerHeight; int scrollBarWidth; int minThumbHeight; int columnCount; int summaryCount; int hasHeaderArt; CalypsoF11PurchaseGenRect window; CalypsoF11PurchaseGenRect title; CalypsoF11PurchaseGenRect summaryBar; CalypsoF11PurchaseGenRect headerArt; CalypsoF11PurchaseGenRect controlBar; CalypsoF11PurchaseGenRect collectionHeading; CalypsoF11PurchaseGenRect viewport; CalypsoF11PurchaseGenRect footer;
 };
@@ -108,6 +109,18 @@ inline constexpr CalypsoF11PurchaseGenRect kRowCellsWide[] = {
     { 852, 522, 242, 44 }, // order
 };
 inline constexpr int kRowCellWideCount = 32;
+inline constexpr CalypsoF11PurchaseGenRect kRowHitWide = { 132, 214, 962, 352 };
+inline constexpr CalypsoF11PurchaseGenRowStepper kRowSteppersWide[] = {
+    { "row-slot-1", "adjust-quantity", { 852, 214, 44, 44 }, { 1050, 214, 44, 44 } },
+    { "row-slot-2", "adjust-quantity", { 852, 258, 44, 44 }, { 1050, 258, 44, 44 } },
+    { "row-slot-3", "adjust-quantity", { 852, 302, 44, 44 }, { 1050, 302, 44, 44 } },
+    { "row-slot-4", "adjust-quantity", { 852, 346, 44, 44 }, { 1050, 346, 44, 44 } },
+    { "row-slot-5", "adjust-quantity", { 852, 390, 44, 44 }, { 1050, 390, 44, 44 } },
+    { "row-slot-6", "adjust-quantity", { 852, 434, 44, 44 }, { 1050, 434, 44, 44 } },
+    { "row-slot-7", "adjust-quantity", { 852, 478, 44, 44 }, { 1050, 478, 44, 44 } },
+    { "row-slot-8", "adjust-quantity", { 852, 522, 44, 44 }, { 1050, 522, 44, 44 } },
+};
+inline constexpr int kRowStepperWideCount = 8;
 inline constexpr CalypsoF11PurchaseGenRect kColumnHeadersWide[] = {
     { 132, 178, 239, 36 }, // item
     { 372, 178, 239, 36 }, // cost
@@ -147,6 +160,12 @@ inline constexpr CalypsoF11PurchaseGenRect kRowCellsCompact[] = {
     { 494, 198, 150, 44 }, // order
 };
 inline constexpr int kRowCellCompactCount = 8;
+inline constexpr CalypsoF11PurchaseGenRect kRowHitCompact = { 44, 154, 600, 88 };
+inline constexpr CalypsoF11PurchaseGenRowStepper kRowSteppersCompact[] = {
+    { "row-slot-1", "adjust-quantity", { 494, 154, 44, 44 }, { 600, 154, 44, 44 } },
+    { "row-slot-2", "adjust-quantity", { 494, 198, 44, 44 }, { 600, 198, 44, 44 } },
+};
+inline constexpr int kRowStepperCompactCount = 2;
 inline constexpr CalypsoF11PurchaseGenRect kColumnHeadersCompact[] = {
     { 44, 122, 149, 32 }, // item
     { 194, 122, 149, 32 }, // cost

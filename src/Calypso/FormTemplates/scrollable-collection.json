@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "id": "scrollable-collection",
-  "version": 4,
+  "version": 5,
   "generatorKind": "collection",
   "supportedButtonTones": ["normal", "safe", "primary", "warning", "danger"],
   "buttonToneStyles": {

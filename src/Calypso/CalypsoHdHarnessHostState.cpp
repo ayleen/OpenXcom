@@ -115,6 +115,40 @@ void restoreHarnessCursor(Game* game)
 	g_harnessCursorCaptured = false;
 }
 
+/// Gives a harness fixture base completed live-ruleset capacity so behavior
+/// proofs satisfy native preconditions (personnel quarters, item storage).
+/// Selects real non-lift RuleBaseFacility rules by capacity, builds them
+/// completed, and leaves ownership with the base. Returns false when the
+/// ruleset cannot provide a requested capacity; callers fail closed.
+bool addCompletedFixtureCapacity(Game* game, Base* base, bool needQuarters, bool needStores)
+{
+	if (!game || !game->getMod() || !base) return false;
+	if (!needQuarters && !needStores) return true;
+	const RuleBaseFacility* quartersRule = nullptr;
+	const RuleBaseFacility* storesRule = nullptr;
+	for (const std::string& facilityType : game->getMod()->getBaseFacilitiesList())
+	{
+		const RuleBaseFacility* candidate = game->getMod()->getBaseFacility(facilityType, false);
+		if (!candidate || candidate->isLift()) continue;
+		if (needQuarters && !quartersRule && candidate->getPersonnel() > 0) quartersRule = candidate;
+		if (needStores && !storesRule && candidate->getStorage() > 0) storesRule = candidate;
+	}
+	if ((needQuarters && !quartersRule) || (needStores && !storesRule)) return false;
+	if (needQuarters)
+	{
+		BaseFacility* facility = new BaseFacility(quartersRule, base);
+		facility->setBuildTime(0);
+		base->getFacilities()->push_back(facility);
+	}
+	if (needStores)
+	{
+		BaseFacility* facility = new BaseFacility(storesRule, base);
+		facility->setBuildTime(0);
+		base->getFacilities()->push_back(facility);
+	}
+	return true;
+}
+
 /// F12 transfer fixture: two named GPL bases on one fixture save with
 /// deterministic funds. Fixture bases live for the harness process lifetime
 /// (F17 defense precedent); no TFTD or proprietary payload is involved.
@@ -152,6 +186,17 @@ void ensureTransferFixture(Game* game, Base*& from, Base*& to)
 	to->setName("Garni");
 	to->setLongitude(0.2);
 	to->setLatitude(0.72);
+	// Completed destination storage so a correctly dispatched transfer click
+	// proves a quantity delta instead of a capacity error. Source quantity,
+	// base names, and save ownership are untouched.
+	if (!addCompletedFixtureCapacity(game, to, false, true))
+	{
+		delete from;
+		delete to;
+		from = nullptr;
+		to = nullptr;
+		return;
+	}
 	game->getSavedGame()->getBases()->push_back(from);
 	game->getSavedGame()->getBases()->push_back(to);
 	for (const std::string& itemType : game->getMod()->getItemsList())
@@ -364,6 +409,11 @@ State* calypsoHarnessCreateTarget(CalypsoHarnessScenario id)
 		}
 		Base* marketBase = new Base(game->getMod());
 		g_harnessSaveLease.fixtureBases.push_back(marketBase);
+		// Completed fixture facilities so a successful stepper click is
+		// behavior-testable: an empty base has zero quarters/storage, and a
+		// real purchase then raises a capacity error that looks like dead
+		// input. Rules come from the live ruleset, owned by the fixture base.
+		if (!addCompletedFixtureCapacity(game, marketBase, true, true)) return nullptr;
 		return new PurchaseState(marketBase, nullptr);
 	}
 	case CalypsoHarnessScenario::F11Sell:

@@ -18,6 +18,7 @@
 #include "../Mod/Mod.h"
 #include "Generated/CalypsoF11Purchase.generated.h"
 #include "Generated/CalypsoF11Sell.generated.h"
+#include "CalypsoCollectionInteraction.h"
 #include "CalypsoHdHarnessHostState.h"
 #include "CalypsoHdUiOverlay.h"
 #include "CalypsoSmallConfirmationRenderer.h"
@@ -119,14 +120,7 @@ std::string splitSummaryValue(const std::string& text)
 	std::string value = text;
 	const std::string::size_type cut = value.find('>');
 	if (cut != std::string::npos) value = value.substr(cut + 1);
-	std::string out;
-	for (std::string::size_type i = 0; i < value.size(); ++i)
-	{
-		if (value.compare(i, 5, "{ALT}") == 0) { i += 4; continue; }
-		out += value[i];
-	}
-	const std::string::size_type first = out.find_first_not_of(" \t");
-	return first == std::string::npos ? std::string() : out.substr(first);
+	return calypsoStripPresentationControls(value);
 }
 template <typename Entry>
 CalypsoLogicalRect findDesignRect(const Entry* entries, int count, const char* id)
@@ -265,6 +259,20 @@ void CalypsoF11PurchaseUi::collect(CalypsoHdFrameBuilder& builder) const
 		CalypsoHdUiOverlay::instance().failHdRoute("F11 purchase cell contract drifted");
 	for (int i = 0; i < cellCount; ++i)
 		model.rowCells[i / Gen::kColumnCount].push_back(project(cells[i]));
+	const auto* genSteppers = wide ? Gen::kRowSteppersWide : Gen::kRowSteppersCompact;
+	const int genStepperCount = wide ? Gen::kRowStepperWideCount : Gen::kRowStepperCompactCount;
+	if (genStepperCount != slotCount)
+		CalypsoHdUiOverlay::instance().failHdRoute("F11 purchase stepper contract drifted");
+	for (int i = 0; i < genStepperCount; ++i)
+	{
+		CalypsoScrollableCollectionStepper entry{};
+		if (genSteppers[i].behaviorOwner == nullptr || genSteppers[i].behaviorOwner[0] == '\0')
+			CalypsoHdUiOverlay::instance().failHdRoute("F11 purchase stepper owner is missing");
+		entry.owner = genSteppers[i].behaviorOwner;
+		entry.decrement = project(genSteppers[i].decrement);
+		entry.increment = project(genSteppers[i].increment);
+		model.steppers.push_back(entry);
+	}
 
 	if (!_state->_txtFunds || !_state->_txtPurchases)
 		CalypsoHdUiOverlay::instance().failHdRoute("F11 purchase total widgets are missing");
@@ -328,6 +336,26 @@ void CalypsoF11PurchaseUi::collect(CalypsoHdFrameBuilder& builder) const
 		if (category.rect.w <= 0 || category.rect.h <= 0)
 			CalypsoHdUiOverlay::instance().failHdRoute("F11 purchase control geometry is missing");
 		category.widget = _state->_cbxCategory;
+		category.comboBox = _state->_cbxCategory;
+		// Expanded select popup is runtime state: live translated options,
+		// selection, and hover from the native behavior owner, painted over
+		// the native popup list's exact input geometry.
+		if (_state->_cbxCategory && _state->_cbxCategory->isPopupOpen())
+		{
+			const TextList* popup = _state->_cbxCategory->popupList();
+			if (popup && popup->getTexts() > 0)
+			{
+				category.popupOpen = true;
+				for (size_t i = 0; i < popup->getTexts(); ++i)
+					category.popupOptions.push_back(popup->getCellText(i, 0));
+				category.popupSelected = _state->_cbxCategory->getSelected();
+				category.popupHovered = _state->_cbxCategory->getHoveredListIdx();
+				category.popupScroll = popup->getScroll();
+				category.popupVisibleRows = popup->getVisibleRows();
+				category.popupRect = {popup->getX(), popup->getY(),
+					popup->getWidth(), popup->getHeight()};
+			}
+		}
 		model.controls.push_back(category);
 		CalypsoScrollableCollectionControl query{};
 		query.id = "quick-search";
@@ -340,6 +368,7 @@ void CalypsoF11PurchaseUi::collect(CalypsoHdFrameBuilder& builder) const
 		if (query.rect.w <= 0 || query.rect.h <= 0)
 			CalypsoHdUiOverlay::instance().failHdRoute("F11 purchase control geometry is missing");
 		query.widget = _state->_btnQuickSearch;
+		query.textEdit = _state->_btnQuickSearch;
 		model.controls.push_back(query);
 	}
 
@@ -411,13 +440,17 @@ void CalypsoF11PurchaseUi::applyGeneratedLayout(PurchaseState& state, bool wide)
 	const int dx = presentationShiftX(generated->window.w, generated->window.x, wide);
 	applyRect(state._window, shiftedRect(generated->window, dx));
 	applyRect(state._txtTitle, shiftedRect(generated->title, dx));
-	applyRect(state._lstItems, shiftedRect(generated->viewport, dx));
 	const auto* buttonRects = wide ? Gen::kButtonRectsWide : Gen::kButtonRectsCompact;
 	const int buttonRectCount = wide ? Gen::kButtonRectWideCount : Gen::kButtonRectCompactCount;
 	applyRect(state._btnOk, touchRect(shiftedRect(findDesignRect(buttonRects, buttonRectCount, "ok"), dx)));
 	applyRect(state._btnCancel, touchRect(shiftedRect(findDesignRect(buttonRects, buttonRectCount, "cancel"), dx)));
 	const auto* controlRects = wide ? Gen::kControlRectsWide : Gen::kControlRectsCompact;
 	const int controlRectCount = wide ? Gen::kControlRectWideCount : Gen::kControlRectCompactCount;
+	const auto& rowHit = wide ? Gen::kRowHitWide : Gen::kRowHitCompact;
+	// Native input starts at the first painted row but spans the full
+	// viewport width: the reserved right rail carries the scrollbar track,
+	// so the track can never overlap a 44px stepper target.
+	applyRect(state._lstItems, {rowHit.x + dx, rowHit.y, generated->viewport.w, rowHit.h});
 	applyRect(state._cbxCategory, shiftedRect(findDesignRect(controlRects, controlRectCount, "category-filter"), dx));
 	applyRect(state._btnQuickSearch, shiftedRect(findDesignRect(controlRects, controlRectCount, "quick-search"), dx));
 	const auto* cells = wide ? Gen::kRowCellsWide : Gen::kRowCellsCompact;
@@ -432,11 +465,24 @@ void CalypsoF11PurchaseUi::applyGeneratedLayout(PurchaseState& state, bool wide)
 	if (headerCount >= 4)
 		designArrowX = (headers[3].x - generated->viewport.x) + 22;
 	conformCollectionList(state._lstItems, state._window,
-		generated->viewport.w, generated->viewport.h,
+		generated->viewport.w, rowHit.h,
 		designCellW, designArrowX,
 		generated->rowHeight, generated->visibleRows,
 		generated->scrollBarWidth, generated->minThumbHeight,
 		state._game ? state._game->getMod() : nullptr, 1.0);
+	// Bind the painted stepper affordances to the existing native arrow
+	// handlers: the left button keeps increase, so it sits on the increment
+	// target; the right button keeps decrease, so it sits on decrement.
+	const int stepperCount = wide ? Gen::kRowStepperWideCount : Gen::kRowStepperCompactCount;
+	if (stepperCount <= 0)
+		CalypsoHdUiOverlay::instance().failHdRoute("F11 purchase stepper contract is missing");
+	const auto& stepper0 = (wide ? Gen::kRowSteppersWide : Gen::kRowSteppersCompact)[0];
+	if (state._lstItems)
+		state._lstItems->setCalypsoHdArrowTargets(
+			stepper0.increment.x + dx, stepper0.decrement.x + dx,
+			stepper0.decrement.w, stepper0.decrement.h);
+	// Recreate rows after conformance so arrow buttons are born with the HD
+	// stepper geometry instead of the legacy arrow column.
 	state.updateList();
 }
 
@@ -590,6 +636,20 @@ void CalypsoF11SellUi::collect(CalypsoHdFrameBuilder& builder) const
 		CalypsoHdUiOverlay::instance().failHdRoute("F11 sell cell contract drifted");
 	for (int i = 0; i < cellCount; ++i)
 		model.rowCells[i / Gen::kColumnCount].push_back(project(cells[i]));
+	const auto* genSteppers = wide ? Gen::kRowSteppersWide : Gen::kRowSteppersCompact;
+	const int genStepperCount = wide ? Gen::kRowStepperWideCount : Gen::kRowStepperCompactCount;
+	if (genStepperCount != slotCount)
+		CalypsoHdUiOverlay::instance().failHdRoute("F11 sell stepper contract drifted");
+	for (int i = 0; i < genStepperCount; ++i)
+	{
+		CalypsoScrollableCollectionStepper entry{};
+		if (genSteppers[i].behaviorOwner == nullptr || genSteppers[i].behaviorOwner[0] == '\0')
+			CalypsoHdUiOverlay::instance().failHdRoute("F11 sell stepper owner is missing");
+		entry.owner = genSteppers[i].behaviorOwner;
+		entry.decrement = project(genSteppers[i].decrement);
+		entry.increment = project(genSteppers[i].increment);
+		model.steppers.push_back(entry);
+	}
 
 	if (!_state->_txtFunds || !_state->_txtSales)
 		CalypsoHdUiOverlay::instance().failHdRoute("F11 sell total widgets are missing");
@@ -653,6 +713,26 @@ void CalypsoF11SellUi::collect(CalypsoHdFrameBuilder& builder) const
 		if (category.rect.w <= 0 || category.rect.h <= 0)
 			CalypsoHdUiOverlay::instance().failHdRoute("F11 sell control geometry is missing");
 		category.widget = _state->_cbxCategory;
+		category.comboBox = _state->_cbxCategory;
+		// Expanded select popup is runtime state: live translated options,
+		// selection, and hover from the native behavior owner, painted over
+		// the native popup list's exact input geometry.
+		if (_state->_cbxCategory && _state->_cbxCategory->isPopupOpen())
+		{
+			const TextList* popup = _state->_cbxCategory->popupList();
+			if (popup && popup->getTexts() > 0)
+			{
+				category.popupOpen = true;
+				for (size_t i = 0; i < popup->getTexts(); ++i)
+					category.popupOptions.push_back(popup->getCellText(i, 0));
+				category.popupSelected = _state->_cbxCategory->getSelected();
+				category.popupHovered = _state->_cbxCategory->getHoveredListIdx();
+				category.popupScroll = popup->getScroll();
+				category.popupVisibleRows = popup->getVisibleRows();
+				category.popupRect = {popup->getX(), popup->getY(),
+					popup->getWidth(), popup->getHeight()};
+			}
+		}
 		model.controls.push_back(category);
 		CalypsoScrollableCollectionControl query{};
 		query.id = "quick-search";
@@ -665,6 +745,7 @@ void CalypsoF11SellUi::collect(CalypsoHdFrameBuilder& builder) const
 		if (query.rect.w <= 0 || query.rect.h <= 0)
 			CalypsoHdUiOverlay::instance().failHdRoute("F11 sell control geometry is missing");
 		query.widget = _state->_btnQuickSearch;
+		query.textEdit = _state->_btnQuickSearch;
 		model.controls.push_back(query);
 	}
 
@@ -736,7 +817,11 @@ void CalypsoF11SellUi::applyGeneratedLayout(SellState& state, bool wide)
 	const int dx = presentationShiftX(generated->window.w, generated->window.x, wide);
 	applyRect(state._window, shiftedRect(generated->window, dx));
 	applyRect(state._txtTitle, shiftedRect(generated->title, dx));
-	applyRect(state._lstItems, shiftedRect(generated->viewport, dx));
+	const auto& rowHit = wide ? Gen::kRowHitWide : Gen::kRowHitCompact;
+	// Native input starts at the first painted row but spans the full
+	// viewport width: the reserved right rail carries the scrollbar track,
+	// so the track can never overlap a 44px stepper target.
+	applyRect(state._lstItems, {rowHit.x + dx, rowHit.y, generated->viewport.w, rowHit.h});
 	const auto* buttonRects = wide ? Gen::kButtonRectsWide : Gen::kButtonRectsCompact;
 	const int buttonRectCount = wide ? Gen::kButtonRectWideCount : Gen::kButtonRectCompactCount;
 	applyRect(state._btnOk, touchRect(shiftedRect(findDesignRect(buttonRects, buttonRectCount, "sell"), dx)));
@@ -758,11 +843,24 @@ void CalypsoF11SellUi::applyGeneratedLayout(SellState& state, bool wide)
 	if (headerCount >= 4)
 		designArrowX = (headers[1].x - generated->viewport.x) + 26;
 	conformCollectionList(state._lstItems, state._window,
-		generated->viewport.w, generated->viewport.h,
+		generated->viewport.w, rowHit.h,
 		designCellW, designArrowX,
 		generated->rowHeight, generated->visibleRows,
 		generated->scrollBarWidth, generated->minThumbHeight,
 		state._game ? state._game->getMod() : nullptr, 1.0);
+	// Bind the painted stepper affordances to the existing native arrow
+	// handlers: the left button keeps increase, so it sits on the increment
+	// target; the right button keeps decrease, so it sits on decrement.
+	const int stepperCount = wide ? Gen::kRowStepperWideCount : Gen::kRowStepperCompactCount;
+	if (stepperCount <= 0)
+		CalypsoHdUiOverlay::instance().failHdRoute("F11 sell stepper contract is missing");
+	const auto& stepper0 = (wide ? Gen::kRowSteppersWide : Gen::kRowSteppersCompact)[0];
+	if (state._lstItems)
+		state._lstItems->setCalypsoHdArrowTargets(
+			stepper0.increment.x + dx, stepper0.decrement.x + dx,
+			stepper0.decrement.w, stepper0.decrement.h);
+	// Recreate rows after conformance so arrow buttons are born with the HD
+	// stepper geometry instead of the legacy arrow column.
 	state.updateList();
 }
 

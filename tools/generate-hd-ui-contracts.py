@@ -544,6 +544,36 @@ def validate_family(doc, rel, profile, engine_text_calibration=False):
                     if not isinstance(slot_rect, dict) or any(
                             slot_rect.get(k) != expected[k] for k in ("x", "y", "height")):
                         fail(rel + ": " + layout_name + " rowSlots[" + str(index) + "] must match the viewport stride")
+            hit = layout.get("rowHit")
+            if not hit or not all(isinstance(hit.get(k), int) for k in ("x", "y", "width", "height")):
+                fail(rel + ": " + layout_name + " rowHit must be an integer rect")
+            slot0 = (slots[0] or {}).get("rect", slots[0])
+            if (hit["x"] != layout["viewport"]["x"]
+                    or hit["y"] != layout["viewport"]["y"] + header_height
+                    or hit["width"] != slot0.get("width")
+                    or hit["height"] != visible_rows * row_height):
+                fail(rel + ": " + layout_name + " rowHit must start after the header band and cover the painted rows")
+            steppers = layout.get("rowSteppers")
+            if steppers is not None:
+                if len(steppers) != visible_rows:
+                    fail(rel + ": " + layout_name + " rowSteppers must map 1:1 onto painted rows")
+                for index, stepper in enumerate(steppers):
+                    slot_rect = (slots[index] or {}).get("rect", slots[index])
+                    if stepper.get("rowSlotId") != slots[index].get("id"):
+                        fail(rel + ": " + layout_name + " rowSteppers[" + str(index) + "] must name its row slot")
+                    stepper_owner = stepper.get("behaviorOwner")
+                    if not isinstance(stepper_owner, str) or not stepper_owner:
+                        fail(rel + ": " + layout_name + " rowSteppers[" + str(index) + "] needs a native behavior owner")
+                    for side in ("decrement", "increment"):
+                        target = (stepper or {}).get(side)
+                        if not target or not all(isinstance(target.get(k), int) for k in ("x", "y", "width", "height")):
+                            fail(rel + ": " + layout_name + " rowSteppers[" + str(index) + "]." + side + " must be an integer rect")
+                        if target["width"] < 44 or target["height"] < 44:
+                            fail(rel + ": " + layout_name + " rowSteppers[" + str(index) + "]." + side + " breaks the 44px touch floor")
+                        if (target["x"] < slot_rect.get("x", 0) or target["y"] < slot_rect.get("y", 0)
+                                or target["x"] + target["width"] > slot_rect.get("x", 0) + slot_rect.get("width", 0)
+                                or target["y"] + target["height"] > slot_rect.get("y", 0) + slot_rect.get("height", 0)):
+                            fail(rel + ": " + layout_name + " rowSteppers[" + str(index) + "]." + side + " escapes its row")
             layout_actions = layout.get("actions") or {}
             for action in actions:
                 rect = layout_actions.get(action["id"])
@@ -565,6 +595,19 @@ def validate_family(doc, rel, profile, engine_text_calibration=False):
                     fail(rel + ": " + layout_name + " collectionHeading must be an integer rect")
             elif heading_rect is not None:
                 fail(rel + ": " + layout_name + " collectionHeading without a form fixture")
+        adjustment = collection.get("adjustmentColumnId")
+        contract_owner = collection.get("behaviorOwner")
+        if (adjustment is None) != (contract_owner is None):
+            fail(rel + ": scrollable-collection adjustmentColumnId and behaviorOwner belong together")
+        if adjustment is not None:
+            if adjustment not in [column.get("id") for column in columns]:
+                fail(rel + ": scrollable-collection adjustmentColumnId must name a declared column")
+            if not isinstance(contract_owner, str) or not contract_owner:
+                fail(rel + ": scrollable-collection behaviorOwner must be a non-empty string")
+        has_steppers = any("rowSteppers" in ((doc.get("layouts") or {}).get(layout_name) or {})
+                           for layout_name in ("wide", "compact"))
+        if has_steppers != (adjustment is not None):
+            fail(rel + ": scrollable-collection adjustment semantics must match generated rowSteppers")
         parts = doc.get("parts") or []
         for required in ("window", "title", "summaryBar", "headerArt", "controlBar",
                          "viewport", "footer"):
@@ -1479,6 +1522,7 @@ def emit_scrollable_collection_h(doc, rel, ns, prefix):
     out.append("inline constexpr int kHeaderArtOpacityPct = " + str(opacity) + ";")
     out.append("struct " + prefix + "GenButtonRect { const char* id; " + prefix + "GenRect rect; };")
     out.append("struct " + prefix + "GenControlRect { const char* id; " + prefix + "GenRect rect; };")
+    out.append("struct " + prefix + "GenRowStepper { const char* rowSlotId; const char* behaviorOwner; " + prefix + "GenRect decrement; " + prefix + "GenRect increment; };")
     out.append("struct " + prefix + "GenSummaryRect { " + prefix + "GenRect field; " + prefix + "GenRect label; " + prefix + "GenRect value; };")
     out.append("struct " + prefix + "GenLayout { int designWidth; int designHeight; int rowHeight; int visibleRows; int headerHeight; int scrollBarWidth; int minThumbHeight; int columnCount; int summaryCount; int hasHeaderArt; "
                + prefix + "GenRect window; " + prefix + "GenRect title; " + prefix + "GenRect summaryBar; " + prefix + "GenRect headerArt; "
@@ -1513,6 +1557,17 @@ def emit_scrollable_collection_h(doc, rel, ns, prefix):
                     out.append("    " + _collection_rect(cell["rect"]) + ", // " + cell["id"])
                 out.append("};")
             out.append("inline constexpr int kRowCell" + tag + "Count = " + str(len(cells)) + ";")
+        hit = l.get("rowHit")
+        if hit:
+            out.append("inline constexpr " + prefix + "GenRect kRowHit" + tag + " = " + _collection_rect(hit) + ";")
+        steppers = l.get("rowSteppers", [])
+        if steppers:
+            out.append("inline constexpr " + prefix + "GenRowStepper kRowSteppers" + tag + "[] = {")
+            for stepper in steppers:
+                out.append('    { "' + stepper["rowSlotId"] + '", "' + stepper["behaviorOwner"] + '", '
+                           + _collection_rect(stepper["decrement"]) + ", " + _collection_rect(stepper["increment"]) + " },")
+            out.append("};")
+        out.append("inline constexpr int kRowStepper" + tag + "Count = " + str(len(steppers)) + ";")
         headers = l.get("columnHeaders", [])
         if headers:
             out.append("inline constexpr " + prefix + "GenRect kColumnHeaders" + tag + "[] = {")

@@ -341,7 +341,11 @@ void CalypsoF36MarketUi::applyGeneratedLayout(CalypsoMarketState& state, bool wi
 	const int dx = presentationShiftX(generated->window.w, generated->window.x, wide);
 	applyRect(state._window, shiftedRect(generated->window, dx));
 	applyRect(state._txtTitle, shiftedRect(generated->title, dx));
-	applyRect(state._lstCounterparties, shiftedRect(generated->viewport, dx));
+	const auto& rowHit = wide ? Gen::kRowHitWide : Gen::kRowHitCompact;
+	// Native input starts at the first painted row but spans the full
+	// viewport width: the reserved right rail carries the scrollbar track,
+	// so the track can never overlap row content.
+	applyRect(state._lstCounterparties, {rowHit.x + dx, rowHit.y, generated->viewport.w, rowHit.h});
 	const auto* buttonRects = wide ? Gen::kButtonRectsWide : Gen::kButtonRectsCompact;
 	const int buttonRectCount = wide ? Gen::kButtonRectWideCount : Gen::kButtonRectCompactCount;
 	applyRect(state._btnCancel, touchRect(shiftedRect(findDesignRect(buttonRects, buttonRectCount, "cancel"), dx)));
@@ -351,9 +355,8 @@ void CalypsoF36MarketUi::applyGeneratedLayout(CalypsoMarketState& state, bool wi
 	if (cellCount >= 2)
 		for (int c = 0; c < 2; ++c)
 			designCellW[c] = cells[c].w;
-	// No quantity arrows on this list: pass TextList's disabled sentinel.
 	conformCounterpartyList(state._lstCounterparties, state._window,
-		generated->viewport.w, generated->viewport.h,
+		generated->viewport.w, rowHit.h,
 		designCellW, -1,
 		generated->rowHeight, generated->visibleRows,
 		generated->scrollBarWidth, generated->minThumbHeight,

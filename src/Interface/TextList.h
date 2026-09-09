@@ -21,6 +21,9 @@
 #include <map>
 #include "../Engine/InteractiveSurface.h"
 #include "Text.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoSelectionListScroll.h"
+#endif
 
 namespace OpenXcom
 {
@@ -78,8 +81,16 @@ private:
 	size_t _hdVisibleRows = 0;
 	double _hdLastHoverX = 1e30;
 	double _hdLastHoverY = 1e30;
+	/// Calypso HD per-row quantity-arrow targets, stored as list-relative
+	/// design offsets plus design w/h. Adapters pass absolute design-space
+	/// targets (generated stepper rects); the setter captures them against
+	/// the current list X, and every use projects through the live scale(),
+	/// so enableUiScaling/resize can never strand absolute coordinates.
+	/// The left button keeps the increase handler, the right button the
+	/// decrease handler; adapters place them at the increment/decrement
+	/// targets. Negative offsets disable per-side placement.
+	int _hdArrowRelLeftX = -1, _hdArrowRelRightX = -1, _hdArrowDesignW = 0, _hdArrowDesignH = 0;
 #endif
-
 	/// Updates the arrow buttons.
 	void updateArrows();
 	/// Updates the visible rows.
@@ -103,6 +114,16 @@ private:
 	bool isCalypsoHdTrackHit(double absX, double absY) const;
 	/// Moves the native selection by delta rows, revealing and clamping it.
 	void calypsoHdMoveSelection(int delta);
+	/// Re-projects existing HD arrow buttons from the stored list-relative
+	/// design offsets through the live scale(). No-op unless targets are set.
+	void calypsoHdLayoutArrows();
+	/// In-flight HD stepper gesture (press side/text row); a click fires
+	/// only when release lands on the same target. Release always clears.
+	Calypso::CalypsoHdStepperPress _hdArrowPress;
+	/// Explicit HD stepper routing: hit-tests the two painted target columns
+	/// plus the visible row window before ordinary handling and dispatches
+	/// the row ArrowButton callbacks directly. Returns true when consumed.
+	bool calypsoHdRoutePointerToSteppers(Action* action, State* state);
 #endif
 public:
 	/// Creates a text list with the specified size and position.
@@ -192,6 +213,18 @@ public:
 	/// input even when native draw never runs. Thumb h is 0 when nothing scrolls.
 	SDL_Rect getCalypsoHdTrackRect() const;
 	SDL_Rect getCalypsoHdThumbRect() const;
+	/// Points row arrow buttons at generated stepper targets. Inputs are
+	/// absolute design-space coords (generated stepper rects, presentation
+	/// dx already applied); they are captured list-relative against the
+	/// current list X, so call after the list rect is placed. Every use
+	/// projects through the live scale(), and existing buttons are
+	/// re-projected on setX/setWidth/native-basis changes. Public so HD
+	/// family adapters can bind painted stepper affordances to the existing
+	/// native arrow handlers; the left button keeps the increase handler
+	/// and the right button the decrease handler.
+	void setCalypsoHdArrowTargets(int leftX, int rightX, int width, int height);
+	/// Restores legacy _arrowPos arrow placement.
+	void clearCalypsoHdArrowTargets();
 #endif
 	/// Sets the text color of the text list.
 	void setColor(Uint8 color) override;
@@ -276,6 +309,8 @@ public:
 	void mouseOut(Action *action, State *state) override;
 	/// get the scroll depth
 	size_t getScroll();
+	/// Read-only scroll depth for HD presentation snapshots.
+	size_t getScroll() const;
 	/// set the scroll depth
 	void scrollTo(size_t scroll);
 	/// Attaches this button to a combobox.

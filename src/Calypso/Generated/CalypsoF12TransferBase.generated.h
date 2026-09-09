@@ -51,6 +51,7 @@ inline constexpr std::uint32_t kHeaderArtScrim = 0x04090DCCu;
 inline constexpr int kHeaderArtOpacityPct = 85;
 struct CalypsoF12TransferBaseGenButtonRect { const char* id; CalypsoF12TransferBaseGenRect rect; };
 struct CalypsoF12TransferBaseGenControlRect { const char* id; CalypsoF12TransferBaseGenRect rect; };
+struct CalypsoF12TransferBaseGenRowStepper { const char* rowSlotId; const char* behaviorOwner; CalypsoF12TransferBaseGenRect decrement; CalypsoF12TransferBaseGenRect increment; };
 struct CalypsoF12TransferBaseGenSummaryRect { CalypsoF12TransferBaseGenRect field; CalypsoF12TransferBaseGenRect label; CalypsoF12TransferBaseGenRect value; };
 struct CalypsoF12TransferBaseGenLayout { int designWidth; int designHeight; int rowHeight; int visibleRows; int headerHeight; int scrollBarWidth; int minThumbHeight; int columnCount; int summaryCount; int hasHeaderArt; CalypsoF12TransferBaseGenRect window; CalypsoF12TransferBaseGenRect title; CalypsoF12TransferBaseGenRect summaryBar; CalypsoF12TransferBaseGenRect headerArt; CalypsoF12TransferBaseGenRect controlBar; CalypsoF12TransferBaseGenRect collectionHeading; CalypsoF12TransferBaseGenRect viewport; CalypsoF12TransferBaseGenRect footer;
 };
@@ -88,6 +89,8 @@ inline constexpr CalypsoF12TransferBaseGenRect kRowCellsWide[] = {
     { 613, 522, 481, 44 }, // area
 };
 inline constexpr int kRowCellWideCount = 16;
+inline constexpr CalypsoF12TransferBaseGenRect kRowHitWide = { 132, 214, 962, 352 };
+inline constexpr int kRowStepperWideCount = 0;
 inline constexpr CalypsoF12TransferBaseGenRect kColumnHeadersWide[] = {
     { 132, 178, 480, 36 }, // destination
     { 613, 178, 481, 36 }, // area
@@ -115,6 +118,8 @@ inline constexpr CalypsoF12TransferBaseGenRect kRowCellsCompact[] = {
     { 344, 198, 300, 44 }, // area
 };
 inline constexpr int kRowCellCompactCount = 4;
+inline constexpr CalypsoF12TransferBaseGenRect kRowHitCompact = { 44, 154, 600, 88 };
+inline constexpr int kRowStepperCompactCount = 0;
 inline constexpr CalypsoF12TransferBaseGenRect kColumnHeadersCompact[] = {
     { 44, 122, 299, 32 }, // destination
     { 344, 122, 300, 32 }, // area

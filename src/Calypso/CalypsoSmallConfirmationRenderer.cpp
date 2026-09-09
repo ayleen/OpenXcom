@@ -9,8 +9,16 @@
 #include <cmath>
 #include <cstdint>
 #include <SDL.h>
+#include <string>
+#include <vector>
 
 #include "../Interface/TextButton.h"
+#include "../Engine/TTFFont.h"
+#include "../Engine/Unicode.h"
+#include "../Interface/TextEdit.h"
+#include "../Mod/Mod.h"
+#include "CalypsoTextEdit.h"
+#include "CalypsoCollectionInteraction.h"
 #include "CalypsoHdFontSource.h"
 #include "CalypsoHdHarnessHostState.h"
 #include "CalypsoHdTheme.h"
@@ -691,7 +699,13 @@ enum CollectionRole : std::uint32_t
 	COLLECTION_ROLE_SCROLL_TRACK = 130,
 	COLLECTION_ROLE_SCROLL_THUMB = 131,
 	COLLECTION_ROLE_BUTTON_BASE = 140,
-	COLLECTION_ROLE_BUTTON_LABEL_BASE = 150
+	COLLECTION_ROLE_BUTTON_LABEL_BASE = 150,
+	COLLECTION_ROLE_STEPPER_BASE = 160,
+	COLLECTION_ROLE_STEPPER_LABEL_BASE = 170,
+	COLLECTION_ROLE_POPUP_BASE = 180,
+	COLLECTION_ROLE_POPUP_OPTION_BASE = 190,
+	COLLECTION_ROLE_CONTROL_CHEVRON_BASE = 200,
+	COLLECTION_ROLE_CARET = 210
 };
 
 } // namespace
@@ -936,11 +950,60 @@ void calypsoCollectScrollableCollection(
 			addPanel(slotRect, model.selectionColor, model.listWidget,
 				COLLECTION_ROLE_ROW_BASE + (std::uint32_t)slot, true);
 		const CalypsoScrollableCollectionRow& data = model.rows[row];
+		// Quantity steppers, if the adapter projected any: the decrement and
+		// increment targets coincide with the native arrow-button hit targets
+		// bound in applyGeneratedLayout, so painted presses land natively.
+		const CalypsoScrollableCollectionStepper* stepper = slot < model.steppers.size()
+			? &model.steppers[slot] : nullptr;
+		std::size_t adjustColumn = data.values.size();
+		if (stepper && stepper->decrement.w > 0 && stepper->increment.w > 0
+			&& slot < model.rowCells.size())
+		{
+			for (std::size_t column = 0; column < data.values.size()
+				&& column < model.rowCells[slot].size(); ++column)
+			{
+				const CalypsoLogicalRect& cell = model.rowCells[slot][column];
+				if (stepper->decrement.x >= cell.x
+					&& stepper->decrement.x + stepper->decrement.w <= cell.x + cell.w)
+				{
+					adjustColumn = column;
+					break;
+				}
+			}
+		}
 		for (std::size_t column = 0; column < data.values.size()
 			&& slot < model.rowCells.size()
 			&& column < model.rowCells[slot].size(); ++column)
 		{
 			const CalypsoLogicalRect& cell = model.rowCells[slot][column];
+			if (column == adjustColumn && stepper)
+			{
+				CalypsoHdPanelStyle stepperStyle = windowStyle(model);
+				stepperStyle.cutCornerPx = 0.0f;
+				addStyled(stepper->decrement, stepperStyle, model.listWidget,
+					COLLECTION_ROLE_STEPPER_BASE + (std::uint32_t)slot);
+				addText(stepper->decrement, model.listWidget, body, "-",
+					model.textColor, CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle,
+					rowPx, 0, 0.0, COLLECTION_ROLE_STEPPER_LABEL_BASE + (std::uint32_t)slot);
+				addStyled(stepper->increment, stepperStyle, model.listWidget,
+					COLLECTION_ROLE_STEPPER_BASE + (std::uint32_t)slot);
+				addText(stepper->increment, model.listWidget, body, "+",
+					model.textColor, CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle,
+					rowPx, 0, 0.0, COLLECTION_ROLE_STEPPER_LABEL_BASE + (std::uint32_t)slot);
+				// The quantity stays legible centered between the targets.
+				const int middleX = stepper->decrement.x + stepper->decrement.w;
+				const int middleW = stepper->increment.x - middleX;
+				if (middleW > 1)
+				{
+					addText({middleX, cell.y, middleW, cell.h}, model.listWidget, body,
+						data.values[column],
+						data.muted ? model.mutedTextColor : model.textColor,
+						CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle,
+						rowPx, 0, 0.0, COLLECTION_ROLE_ROW_LABEL_BASE
+							+ (std::uint32_t)(slot * 8 + column));
+				}
+				continue;
+			}
 			const CalypsoLogicalRect textRect{
 				cell.x + rowInsetX, cell.y,
 				std::max(1, cell.w - 2 * rowInsetX), cell.h};
@@ -1026,6 +1089,86 @@ void calypsoCollectScrollableCollection(
 		addText(textRect, field.widget, body, field.label + ": " + text,
 			model.textColor, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle,
 			rowPx, 0, 0.0, COLLECTION_ROLE_CONTROL_LABEL_BASE + (std::uint32_t)control);
+		// The closed select carries its chevron; the native ComboBox stays
+		// the behavior owner and its popup is painted last, above content.
+		if (field.comboBox)
+		{
+			const int chevronW = rowInsetX;
+			addText({field.rect.x + field.rect.w - rowInsetX - chevronW, field.rect.y,
+				chevronW, field.rect.h}, field.widget, body, "v",
+				model.mutedTextColor, CalypsoHdHAlign::Center, CalypsoHdVAlign::Middle,
+				rowPx, 0, 0.0, COLLECTION_ROLE_CONTROL_CHEVRON_BASE + (std::uint32_t)control);
+		}
+		// The focused search paints a blinking caret at the live native
+		// code-point position; caretAdvance already gates on native focus
+		// and blink, so an unfocused or blink-off editor paints nothing.
+		if (field.textEdit)
+		{
+			TTFFont* caretFont = model.mod ? model.mod->getTTFFont("FONT_F33_BODY", false) : nullptr;
+			double advance = 0;
+			if (caretFont && caretFont->pixelSize() > 0
+				&& CalypsoTextEdit::caretAdvance(*field.textEdit, caretFont, advance))
+			{
+				const UString prefix = Unicode::convUtf8ToUtf32(field.label + ": ");
+				std::vector<int> prefixWidths, prefixKerning;
+				double prefixAdvance = 0;
+				if (caretFont->measureGlyphs(prefix, prefixWidths, prefixKerning))
+				{
+					for (std::size_t i = 0; i < prefixWidths.size(); ++i)
+						prefixAdvance += prefixWidths[i]
+							+ (i < prefixKerning.size() ? prefixKerning[i] : 0);
+					int caretX = calypsoCollectionCaretProjectedX(textRect.x, prefixAdvance + advance, rowPx, caretFont->pixelSize());
+					caretX = std::min(caretX, textRect.x + textRect.w - 2);
+					const int caretInsetY = scaledPx(4.0);
+					addPanel({caretX, textRect.y + caretInsetY,
+						scaledPx(1.0), std::max(1, textRect.h - 2 * caretInsetY)},
+						model.textColor, field.widget,
+						COLLECTION_ROLE_CARET, true);
+				}
+			}
+		}
+	}
+	// Expanded select popups paint last, above table rows and controls. The
+	// rect copies the native popup list's exact input geometry, so painted
+	// option rows coincide with native hit targets and clicks continue
+	// through the native ComboBox behavior owner.
+	for (std::size_t control = 0; control < model.controls.size(); ++control)
+	{
+		const auto& field = model.controls[control];
+		if (!field.popupOpen || field.popupOptions.empty()
+			|| field.popupRect.w <= 0 || field.popupRect.h <= 0)
+			continue;
+		CalypsoHdPanelStyle popupStyle = windowStyle(model);
+		popupStyle.cutCornerPx = 0.0f;
+		addStyled(field.popupRect, popupStyle, field.comboBox,
+			COLLECTION_ROLE_POPUP_BASE + (std::uint32_t)control);
+		const std::size_t span = field.popupVisibleRows > 0
+			? field.popupVisibleRows : field.popupOptions.size();
+		const std::size_t shown = std::min(field.popupOptions.size(), span);
+		if (shown == 0) continue;
+		const int optionH = field.popupRect.h / (int)shown;
+		if (optionH <= 0) continue;
+		for (std::size_t s = 0; s < shown; ++s)
+		{
+			const std::size_t index = field.popupScroll + s;
+			if (index >= field.popupOptions.size()) break;
+			const int optionY = field.popupRect.y + (int)s * optionH;
+			const int optionBottom = (s + 1 == shown)
+				? field.popupRect.y + field.popupRect.h : optionY + optionH;
+			const CalypsoLogicalRect optionRect{field.popupRect.x, optionY,
+				field.popupRect.w, std::max(1, optionBottom - optionY)};
+			if (index == field.popupSelected)
+				addPanel(optionRect, model.selectionColor, field.comboBox,
+					COLLECTION_ROLE_POPUP_OPTION_BASE + (std::uint32_t)s, true);
+			else if (index == field.popupHovered)
+				addPanel(optionRect, model.scrollTrackColor, field.comboBox,
+					COLLECTION_ROLE_POPUP_OPTION_BASE + (std::uint32_t)s, true);
+			addText({optionRect.x + rowInsetX, optionRect.y,
+				std::max(1, optionRect.w - 2 * rowInsetX), optionRect.h},
+				field.comboBox, body, field.popupOptions[index],
+				model.textColor, CalypsoHdHAlign::Left, CalypsoHdVAlign::Middle,
+				rowPx, 0, 0.0, COLLECTION_ROLE_POPUP_OPTION_BASE + (std::uint32_t)s);
+		}
 	}
 }
 

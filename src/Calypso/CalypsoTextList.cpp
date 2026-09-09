@@ -25,6 +25,176 @@ void TextList::rebaseNativeSize(int nativeW, int nativeH)
 	// (external review #2). Only meaningful before rows are (re)built.
 	if (nativeW > 0) _nativeW = nativeW;
 	if (nativeH > 0) _nativeH = nativeH;
+	calypsoHdLayoutArrows();
+}
+
+void TextList::setCalypsoHdArrowTargets(int leftX, int rightX, int width, int height)
+{
+	// Absolute design-space targets (generated stepper rects, presentation
+	// dx already applied). Captured list-relative against the current list
+	// X — adapters place the list rect first — so later setX/setWidth and
+	// enableUiScaling/resize re-project instead of replaying stale absolutes.
+	_hdArrowRelLeftX = Calypso::calypsoHdArrowRelOffset(leftX, getX());
+	_hdArrowRelRightX = Calypso::calypsoHdArrowRelOffset(rightX, getX());
+	_hdArrowDesignW = width;
+	_hdArrowDesignH = height;
+	calypsoHdLayoutArrows();
+}
+
+void TextList::clearCalypsoHdArrowTargets()
+{
+	_hdArrowRelLeftX = -1;
+	_hdArrowRelRightX = -1;
+	_hdArrowDesignW = 0;
+	_hdArrowDesignH = 0;
+}
+
+void TextList::calypsoHdLayoutArrows()
+{
+	if (_hdArrowRelLeftX < 0 && _hdArrowRelRightX < 0)
+	{
+		return;
+	}
+	const double s = (double)scale();
+	if (_hdArrowRelLeftX >= 0)
+	{
+		for (size_t i = 0; i < _arrowLeft.size(); ++i)
+		{
+			const Calypso::CalypsoHdArrowProjection left =
+				Calypso::calypsoHdArrowProjectTarget(getX(), _hdArrowRelLeftX,
+					_hdArrowDesignW, _hdArrowDesignH, s);
+			_arrowLeft[i]->setX(left.x);
+			_arrowLeft[i]->setWidth(left.w);
+			_arrowLeft[i]->setHeight(left.h);
+		}
+	}
+	if (_hdArrowRelRightX >= 0)
+	{
+		for (size_t i = 0; i < _arrowRight.size(); ++i)
+		{
+			const Calypso::CalypsoHdArrowProjection right =
+				Calypso::calypsoHdArrowProjectTarget(getX(), _hdArrowRelRightX,
+					_hdArrowDesignW, _hdArrowDesignH, s);
+			_arrowRight[i]->setX(right.x);
+			_arrowRight[i]->setWidth(right.w);
+			_arrowRight[i]->setHeight(right.h);
+		}
+	}
+}
+
+bool TextList::calypsoHdRoutePointerToSteppers(Action* action, State* state)
+{
+	if (_arrowPos == -1)
+	{
+		return false;
+	}
+	if (_hdArrowRelLeftX < 0 && _hdArrowRelRightX < 0)
+	{
+		return false;
+	}
+	SDL_Event* ev = action->getDetails();
+	if (!ev)
+	{
+		return false;
+	}
+	const bool down = ev->type == SDL_MOUSEBUTTONDOWN;
+	const bool up = ev->type == SDL_MOUSEBUTTONUP;
+	if (!down && !up)
+	{
+		return false;
+	}
+	if (ev->button.button != SDL_BUTTON_LEFT && ev->button.button != SDL_BUTTON_RIGHT)
+	{
+		return false;
+	}
+	if (_rows.empty() || !_hdSelList || _hdRowStride <= 0)
+	{
+		return false;
+	}
+	// The pointer and the list origin arrive in projected/native px, so the
+	// design stride must be projected before it can divide them; at scale 1
+	// this is exactly the old stride.
+	const int rowStride = Calypso::calypsoHdProjectedRowStride(_hdRowStride, (double)scale());
+	if (rowStride <= 0)
+	{
+		return false;
+	}
+	// Same projection the painter and the arrow layout share: generated
+	// design targets through the live scale, so routing agrees with paint
+	// at DPR1, fractional backing scales, and resize.
+	const double s = (double)scale();
+	const Calypso::CalypsoHdArrowProjection left =
+		Calypso::calypsoHdArrowProjectTarget(getX(), _hdArrowRelLeftX,
+			_hdArrowDesignW, _hdArrowDesignH, s);
+	const Calypso::CalypsoHdArrowProjection right =
+		Calypso::calypsoHdArrowProjectTarget(getX(), _hdArrowRelRightX,
+			_hdArrowDesignW, _hdArrowDesignH, s);
+	const int leftW = _hdArrowRelLeftX >= 0 ? left.w : 0;
+	const int rightW = _hdArrowRelRightX >= 0 ? right.w : 0;
+	const Calypso::CalypsoHdStepperHit hit = Calypso::calypsoHdStepperHit(
+		action->getAbsoluteXMouse(), action->getAbsoluteYMouse(),
+		left.x, leftW, right.x, rightW,
+		getY(), rowStride, _scroll, _rows.size(), _visibleRows);
+	if (down)
+	{
+		if (hit.side < 0)
+		{
+			return false;
+		}
+		const size_t logical = _scroll + (size_t)hit.slot;
+		if (logical >= _rows.size())
+		{
+			return false;
+		}
+		const size_t textIdx = _rows[logical];
+		const std::vector<ArrowButton*>& buttons =
+			hit.side == 0 ? _arrowLeft : _arrowRight;
+		if (textIdx >= buttons.size() || !buttons[textIdx])
+		{
+			return false;
+		}
+		// Select the hit logical row before dispatch so the state row
+		// handlers (which read getSelectedRow) act on the pressed row,
+		// mirroring mouseOver without moving the scroll window.
+		_selRow = logical;
+		updateSelector();
+		Calypso::calypsoHdStepperPressBegin(_hdArrowPress, hit.side, textIdx);
+		buttons[textIdx]->mousePress(action, state);
+		return true;
+	}
+	// Button-up with no recorded press belongs to ordinary handling.
+	if (!_hdArrowPress.active)
+	{
+		return false;
+	}
+	const int recSide = _hdArrowPress.side;
+	const size_t recIdx = _hdArrowPress.index;
+	size_t releaseIdx = (size_t)-1;
+	int releaseSide = -1;
+	if (hit.side >= 0)
+	{
+		const size_t logical = _scroll + (size_t)hit.slot;
+		if (logical < _rows.size())
+		{
+			releaseIdx = _rows[logical];
+			releaseSide = hit.side;
+		}
+	}
+	const bool click = Calypso::calypsoHdStepperPressRelease(
+		_hdArrowPress, releaseSide, releaseIdx);
+	// The release always lands on the recorded button so press timers stop
+	// even when the pointer left the target; the click fires only there
+	// when release is over the same target.
+	if (recIdx < (recSide == 0 ? _arrowLeft : _arrowRight).size()
+		&& (recSide == 0 ? _arrowLeft : _arrowRight)[recIdx])
+	{
+		(recSide == 0 ? _arrowLeft : _arrowRight)[recIdx]->mouseRelease(action, state);
+		if (click)
+		{
+			(recSide == 0 ? _arrowLeft : _arrowRight)[recIdx]->mouseClick(action, state);
+		}
+	}
+	return true;
 }
 
 bool TextList::calypsoHdUpdateVisibleFastPath()
@@ -136,7 +306,15 @@ int TextList::calypsoHdHoverSelRow(double relY, double yScale, int nativeRowH) c
 {
 	if (_hdSelList && _hdRowStride > 0)
 	{
-		return std::max(0, (int)(_scroll + (int)floor(relY / ((double)_hdRowStride * yScale))));
+		// The ordinate arrives in projected/native px, so the design stride
+		// must be projected before it can divide it; at scale 1 this is
+		// exactly the old denominator.
+		const int stride = Calypso::calypsoHdProjectedRowStride(_hdRowStride, (double)scale());
+		if (stride <= 0)
+		{
+			return std::max(0, (int)_scroll);
+		}
+		return std::max(0, (int)(_scroll + Calypso::calypsoHdHoverSlotIndex(relY, stride, yScale)));
 	}
 	return std::max(0, (int)(_scroll + (int)floor(relY / (nativeRowH * scale() * yScale))));
 }
@@ -222,6 +400,10 @@ void TextList::setWidth(int w)
 	// Reposition _down and recompute scrollbar height.
 	setY(getY());
 	setHeight(getHeight());
+	// The width basis changed under every existing row button: re-project
+	// the stored list-relative design offsets through the live scale so HD
+	// stepper hit rects track resizes and enableUiScaling.
+	calypsoHdLayoutArrows();
 }
 
 /**

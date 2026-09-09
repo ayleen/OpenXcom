@@ -113,6 +113,13 @@ public:
 	void setOptions(const std::vector<std::string> &options, bool translate = false);
 #ifdef __EMSCRIPTEN__
 	void setOptionEnabled(size_t index, bool enabled);
+	/// Read-only HD presentation snapshot for the expanded select popup. The
+	/// native popup list stays the behavior owner: clicks continue through it
+	/// while the shared collection renderer paints its live translated
+	/// options, selection, and hover over the same geometry.
+	bool isPopupOpen() const;
+	/// The native popup list (exact hit targets); null when never built.
+	const TextList *popupList() const;
 #endif
 	/// Blits the combo box onto another surface.
 	void blit(SDL_Surface *surface) override;
