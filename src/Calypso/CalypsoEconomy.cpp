@@ -87,7 +87,7 @@ bool loadEconomyRules(const YAML::YamlNodeReader& node, EconomyRules& out)
 		{
 			auto readMultiplier = [](const auto& node, double& target) {
 				double value = target;
-				if (node.tryReadVal<double>(value))
+				if (node.template tryReadVal<double>(value))
 					target = normalizeStandingPriceMultiplier(value);
 			};
 			readMultiplier(price["playerBuy"]["hostile"], out.standingPrice.buyHostile);
