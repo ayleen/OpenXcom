@@ -966,7 +966,7 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildControlsModel() const
 {
 	CalypsoHdOperationsModel model;
 	if (!_controls || !_controls->_window || !_controls->_game
-		|| !_controls->_production || !_controls->_item
+		|| !_controls->_production
 		|| !_controls->_txtTitle || !_controls->_txtAvailableEngineer
 		|| !_controls->_txtAvailableSpace || !_controls->_txtHoursPerUnit
 		|| !_controls->_txtMonthlyProfit || !_controls->_txtAllocatedEngineer
