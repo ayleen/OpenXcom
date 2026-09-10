@@ -4,6 +4,7 @@
   "familyId": 10,
   "version": "hd.2026-08-29.1",
   "archetype": "operations-detail",
+  "presentation": "controls-summary",
   "state": "ManufactureInfoState",
   "visual": {"shell": "base-operations", "headerArt": "base-manufacture"},
   "labelKeys": {"title": "STR_MAELSTROM_TORPEDOES", "stop": "STR_STOP_PRODUCTION", "ok": "STR_OK", "sell": "STR_SELL_PRODUCTION"},

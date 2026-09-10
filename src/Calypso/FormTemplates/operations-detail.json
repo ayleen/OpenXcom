@@ -1,19 +1,20 @@
 {
   "schema": 1,
   "id": "operations-detail",
-  "version": 1,
+  "version": 2,
   "generatorKind": "detail",
+  "styleProfile": "StyleProfiles/operations-ac.json",
   "sharedChrome": {
     "id": "base-command-shell",
     "version": "hd.2026-09-07.1"
   },
   "supportedButtonTones": ["normal", "safe", "primary", "warning", "danger"],
-  "buttonToneStyles": {
-    "normal":  { "fill": "051417B8", "border": "74FFB059", "text": "E8FFF5FF" },
-    "safe":    { "fill": "051417B8", "border": "74FFB0CC", "text": "E8FFF5FF" },
-    "primary": { "fill": "74FFB0FF", "border": "74FFB0FF", "text": "071013FF" },
-    "warning": { "fill": "FFC14DFF", "border": "FFC14DFF", "text": "071013FF" },
-    "danger":  { "fill": "F25F5CFF", "border": "F25F5CFF", "text": "071013FF" }
+  "buttonToneTokens": {
+    "normal":  { "fill": "BgPanel", "border": "Border", "text": "TextPrimary" },
+    "safe":    { "fill": "BgPanel", "border": "BorderStrong", "text": "TextPrimary" },
+    "primary": { "fill": "Accent", "border": "Accent", "text": "TextOnAccent" },
+    "warning": { "fill": "Warning", "border": "Warning", "text": "TextOnAccent" },
+    "danger":  { "fill": "Danger", "border": "Danger", "text": "TextPrimary" }
   },
   "limits": {
     "maxRegions": 4,
@@ -27,16 +28,6 @@
     "maxCellCharacters": 48
   },
   "style": {
-    "panelFillTop": "08191DEB",
-    "panelFillBottom": "041014E8",
-    "regionFill": "061B1CD6",
-    "frame": "74FFB073",
-    "divider": "74FFB04D",
-    "text": "E8FFF5FF",
-    "mutedText": "A9D8C7FF",
-    "selection": "74FFB033",
-    "scrollTrack": "061B1CD6",
-    "scrollThumb": "74FFB099",
     "cutCornerPx": 14
   },
   "layouts": {

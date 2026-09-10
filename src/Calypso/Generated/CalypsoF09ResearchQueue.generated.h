@@ -42,9 +42,6 @@ struct CalypsoF09ResearchQueueGenLayout
 	CalypsoF09ResearchQueueGenRect collection_column_progress;
 	CalypsoF09ResearchQueueGenRect collection_row_slot_1;
 	CalypsoF09ResearchQueueGenRect collection_row_slot_2;
-	CalypsoF09ResearchQueueGenRect collection_row_slot_3;
-	CalypsoF09ResearchQueueGenRect collection_row_slot_4;
-	CalypsoF09ResearchQueueGenRect collection_row_slot_5;
 	CalypsoF09ResearchQueueGenRect detailPanel;
 	CalypsoF09ResearchQueueGenRect detail_selected_project;
 	CalypsoF09ResearchQueueGenRect detail_selected_project_label;
@@ -62,11 +59,187 @@ struct CalypsoF09ResearchQueueGenLayout
 inline constexpr CalypsoF09ResearchQueueGenLayout kLayouts[] =
 {
 	// wide
-	{ 1280, 720, { 0, 0, 1280, 720 }, { 112, 96, 1144, 78 }, { 640, 96, 360, 78 }, { 130, 119, 480, 36 }, { 1000, 96, 256, 78 }, { 112, 190, 816, 44 }, { 112, 234, 816, 412 }, { 112, 658, 1144, 44 }, { 1000, 96, 84, 78 }, { 1085, 96, 84, 78 }, { 1170, 96, 86, 78 }, { 92, 158, 414, 44 }, { 514, 158, 414, 44 }, { 910, 270, 18, 250 }, { 910, 270, 18, 250 }, { 112, 234, 253, 36 }, { 366, 234, 253, 36 }, { 620, 234, 254, 36 }, { 112, 270, 762, 50 }, { 112, 320, 762, 50 }, { 112, 370, 762, 50 }, { 112, 420, 762, 50 }, { 112, 470, 762, 50 }, { 944, 190, 312, 456 }, { 944, 190, 312, 456 }, { 956, 202, 288, 24 }, { 956, 226, 288, 24 }, { 956, 250, 288, 24 }, { 956, 274, 143, 58 }, { 1100, 274, 144, 58 }, { 956, 590, 140, 44 }, { 1104, 590, 140, 44 }, { 112, 658, 158, 44 }, { 280, 658, 158, 44 }, { 1098, 658, 158, 44 } },
+	{ 1280, 720, { 0, 0, 1280, 720 }, { 112, 96, 1144, 78 }, { 640, 96, 360, 78 }, { 130, 119, 480, 36 }, { 1000, 96, 256, 78 }, { 112, 190, 816, 44 }, { 112, 234, 816, 412 }, { 112, 658, 1144, 44 }, { 1000, 96, 84, 78 }, { 1085, 96, 84, 78 }, { 1170, 96, 86, 78 }, { 92, 158, 414, 44 }, { 514, 158, 414, 44 }, { 910, 270, 18, 250 }, { 910, 270, 18, 250 }, { 112, 234, 446, 36 }, { 559, 234, 134, 36 }, { 694, 234, 180, 36 }, { 112, 270, 762, 50 }, { 112, 320, 762, 50 }, { 944, 190, 312, 456 }, { 944, 190, 312, 456 }, { 956, 202, 288, 24 }, { 956, 226, 288, 24 }, { 956, 250, 288, 24 }, { 956, 274, 143, 58 }, { 1100, 274, 144, 58 }, { 956, 590, 140, 44 }, { 1104, 590, 140, 44 }, { 112, 658, 158, 44 }, { 280, 658, 158, 44 }, { 1098, 658, 158, 44 } },
 	// compact
-	{ 740, 360, { 0, 0, 740, 360 }, { 52, 48, 680, 52 }, { 420, 48, 170, 52 }, { 60, 61, 350, 26 }, { 590, 48, 142, 52 }, { 52, 108, 466, 44 }, { 52, 152, 466, 152 }, { 52, 312, 680, 44 }, { 590, 48, 46, 52 }, { 637, 48, 46, 52 }, { 684, 48, 48, 52 }, { 52, 102, 230, 44 }, { 288, 102, 230, 44 }, { 500, 180, 18, 88 }, { 500, 180, 18, 88 }, { 52, 152, 137, 28 }, { 190, 152, 137, 28 }, { 328, 152, 138, 28 }, { 52, 180, 414, 44 }, { 52, 224, 414, 44 }, { 52, 224, 414, 44 }, { 52, 224, 414, 44 }, { 52, 224, 414, 44 }, { 526, 108, 206, 196 }, { 526, 108, 206, 196 }, { 532, 114, 194, 16 }, { 532, 130, 194, 14 }, { 532, 144, 194, 14 }, { 532, 158, 96, 28 }, { 629, 158, 97, 28 }, { 532, 254, 94, 44 }, { 632, 254, 94, 44 }, { 52, 312, 120, 44 }, { 184, 312, 120, 44 }, { 612, 312, 120, 44 } },
+	{ 740, 360, { 0, 0, 740, 360 }, { 52, 48, 680, 52 }, { 420, 48, 170, 52 }, { 60, 61, 350, 26 }, { 590, 48, 142, 52 }, { 52, 108, 466, 44 }, { 52, 152, 466, 152 }, { 52, 312, 680, 44 }, { 590, 48, 46, 52 }, { 637, 48, 46, 52 }, { 684, 48, 48, 52 }, { 52, 102, 230, 44 }, { 288, 102, 230, 44 }, { 500, 180, 18, 88 }, { 500, 180, 18, 88 }, { 52, 152, 222, 28 }, { 275, 152, 85, 28 }, { 361, 152, 105, 28 }, { 52, 180, 414, 44 }, { 52, 224, 414, 44 }, { 526, 108, 206, 196 }, { 526, 108, 206, 196 }, { 532, 114, 194, 16 }, { 532, 130, 194, 14 }, { 532, 144, 194, 14 }, { 532, 158, 96, 28 }, { 629, 158, 97, 28 }, { 532, 254, 94, 44 }, { 632, 254, 94, 44 }, { 52, 312, 120, 44 }, { 184, 312, 120, 44 }, { 612, 312, 120, 44 } },
 };
 inline constexpr int kLayoutCount = 2;
+
+inline constexpr const char* kSourceConfig = "FormConfigs/f09-research-queue.json";
+inline constexpr const char* kPresentationProfile = "table-context";
+inline constexpr const char* kProvenanceTemplate = "FormTemplates/operations-workspace.json";
+inline constexpr int kProvenanceTemplateVersion = 4;
+inline constexpr const char* kProvenanceGeneratorKind = "operations";
+inline constexpr const char* kProfileId = "operations-ac";
+inline constexpr const char* kProfileVersion = "hd.2026-09-10.1";
+inline constexpr const char* kProfileThemeSource = "CommandCenter/CommandCenterTheme.h";
+inline constexpr const char* kProfileThemeSourceHash = "8c4eb7f074fe2868aac3d0835b324d42f4d57ca727dcea7ab1e16220c19e53b2";
+
+struct CalypsoF09ResearchQueueGenActionTone
+{
+	const char* id;
+	std::uint32_t fill;
+	std::uint32_t border;
+	std::uint32_t text;
+};
+inline constexpr CalypsoF09ResearchQueueGenActionTone kActionTones[] = {
+    { "normal", 0x071624FFu, 0x173246FFu, 0xE7F0F3FFu },
+    { "safe", 0x071624FFu, 0x285267FFu, 0xE7F0F3FFu },
+    { "primary", 0x81E0B5FFu, 0x81E0B5FFu, 0x03130DFFu },
+    { "warning", 0xF2C56DFFu, 0xF2C56DFFu, 0x03130DFFu },
+    { "danger", 0xFF6E72FFu, 0xFF6E72FFu, 0xE7F0F3FFu },
+};
+inline constexpr int kActionToneCount = 5;
+
+struct CalypsoF09ResearchQueueGenColumnRole
+{
+	const char* id;
+	int weight;
+	int minWidth;
+	const char* font;
+	const char* align;
+};
+inline constexpr CalypsoF09ResearchQueueGenColumnRole kColumnRoles[] = {
+    { "category", 3, 72, "body", "left" },
+    { "count", 1, 64, "data", "right" },
+    { "date", 2, 72, "data", "right" },
+    { "money", 2, 72, "data", "right" },
+    { "name", 6, 96, "body", "left" },
+    { "quantity", 2, 64, "data", "right" },
+    { "status", 2, 64, "body", "left" },
+    { "time", 2, 64, "data", "right" },
+    { "type", 1, 64, "data", "right" },
+};
+inline constexpr int kColumnRoleCount = 9;
+
+struct CalypsoF09ResearchQueueGenCollectionCell
+{
+	const char* id;
+	CalypsoF09ResearchQueueGenRect rect;
+	const char* contentRole;
+	const char* font;
+	const char* align;
+	int minWidth;
+	int weight;
+};
+struct CalypsoF09ResearchQueueGenCollectionRowSlot
+{
+	const char* id;
+	CalypsoF09ResearchQueueGenRect rect;
+	const CalypsoF09ResearchQueueGenCollectionCell* cells;
+	int cellCount;
+};
+struct CalypsoF09ResearchQueueGenCollectionMetrics
+{
+	int totalItems;
+	int visibleCapacity;
+	int totalUnits;
+	int visibleUnits;
+	int itemsPerUnit;
+	const char* scrollUnit;
+	bool overflow;
+	int scrollSteps;
+	CalypsoF09ResearchQueueGenRect track;
+	CalypsoF09ResearchQueueGenRect thumb;
+	CalypsoF09ResearchQueueGenRect trackHitTarget;
+	CalypsoF09ResearchQueueGenRect thumbHitTarget;
+	int thumbTravelPx;
+};
+struct CalypsoF09ResearchQueueGenCollectionLayout
+{
+	const char* id;
+	const CalypsoF09ResearchQueueGenCollectionCell* columns;
+	int columnCount;
+	const CalypsoF09ResearchQueueGenCollectionRowSlot* rowSlots;
+	int rowSlotCount;
+	int count;
+	CalypsoF09ResearchQueueGenCollectionMetrics metrics;
+};
+
+inline constexpr CalypsoF09ResearchQueueGenCollectionCell kCollectionColumnHeadersWide[] = {
+    { "project", { 112, 234, 446, 36 }, "name", "body", "left", 96, 6 },
+    { "scientists", { 559, 234, 134, 36 }, "count", "data", "right", 76, 1 },
+    { "progress", { 694, 234, 180, 36 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF09ResearchQueueGenCollectionCell kCollectionRowSlot1CellsWide[] = {
+    { "project", { 112, 270, 446, 50 }, "name", "body", "left", 96, 6 },
+    { "scientists", { 559, 270, 134, 50 }, "count", "data", "right", 76, 1 },
+    { "progress", { 694, 270, 180, 50 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF09ResearchQueueGenCollectionCell kCollectionRowSlot2CellsWide[] = {
+    { "project", { 112, 320, 446, 50 }, "name", "body", "left", 96, 6 },
+    { "scientists", { 559, 320, 134, 50 }, "count", "data", "right", 76, 1 },
+    { "progress", { 694, 320, 180, 50 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF09ResearchQueueGenCollectionCell kCollectionRowSlot3CellsWide[] = {
+    { "project", { 112, 370, 446, 50 }, "name", "body", "left", 96, 6 },
+    { "scientists", { 559, 370, 134, 50 }, "count", "data", "right", 76, 1 },
+    { "progress", { 694, 370, 180, 50 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF09ResearchQueueGenCollectionCell kCollectionRowSlot4CellsWide[] = {
+    { "project", { 112, 420, 446, 50 }, "name", "body", "left", 96, 6 },
+    { "scientists", { 559, 420, 134, 50 }, "count", "data", "right", 76, 1 },
+    { "progress", { 694, 420, 180, 50 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF09ResearchQueueGenCollectionCell kCollectionRowSlot5CellsWide[] = {
+    { "project", { 112, 470, 446, 50 }, "name", "body", "left", 96, 6 },
+    { "scientists", { 559, 470, 134, 50 }, "count", "data", "right", 76, 1 },
+    { "progress", { 694, 470, 180, 50 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF09ResearchQueueGenCollectionRowSlot kCollectionRowSlotsWide[] = {
+    { "row-slot-1", { 112, 270, 762, 50 }, kCollectionRowSlot1CellsWide, 3 },
+    { "row-slot-2", { 112, 320, 762, 50 }, kCollectionRowSlot2CellsWide, 3 },
+    { "row-slot-3", { 112, 370, 762, 50 }, kCollectionRowSlot3CellsWide, 3 },
+    { "row-slot-4", { 112, 420, 762, 50 }, kCollectionRowSlot4CellsWide, 3 },
+    { "row-slot-5", { 112, 470, 762, 50 }, kCollectionRowSlot5CellsWide, 3 },
+};
+inline constexpr int kCollectionRowSlotWideCount = 5;
+inline constexpr CalypsoF09ResearchQueueGenCollectionMetrics kCollectionMetricsWide = { 1, 5, 1, 5, 1, "record", false, 0, { 910, 270, 18, 250 }, { 910, 270, 18, 250 }, { 884, 270, 44, 250 }, { 884, 270, 44, 250 }, 0 };
+
+inline constexpr CalypsoF09ResearchQueueGenCollectionCell kCollectionColumnHeadersCompact[] = {
+    { "project", { 52, 152, 222, 28 }, "name", "body", "left", 96, 6 },
+    { "scientists", { 275, 152, 85, 28 }, "count", "data", "right", 64, 1 },
+    { "progress", { 361, 152, 105, 28 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF09ResearchQueueGenCollectionCell kCollectionRowSlot1CellsCompact[] = {
+    { "project", { 52, 180, 222, 44 }, "name", "body", "left", 96, 6 },
+    { "scientists", { 275, 180, 85, 44 }, "count", "data", "right", 64, 1 },
+    { "progress", { 361, 180, 105, 44 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF09ResearchQueueGenCollectionCell kCollectionRowSlot2CellsCompact[] = {
+    { "project", { 52, 224, 222, 44 }, "name", "body", "left", 96, 6 },
+    { "scientists", { 275, 224, 85, 44 }, "count", "data", "right", 64, 1 },
+    { "progress", { 361, 224, 105, 44 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF09ResearchQueueGenCollectionRowSlot kCollectionRowSlotsCompact[] = {
+    { "row-slot-1", { 52, 180, 414, 44 }, kCollectionRowSlot1CellsCompact, 3 },
+    { "row-slot-2", { 52, 224, 414, 44 }, kCollectionRowSlot2CellsCompact, 3 },
+};
+inline constexpr int kCollectionRowSlotCompactCount = 2;
+inline constexpr CalypsoF09ResearchQueueGenCollectionMetrics kCollectionMetricsCompact = { 1, 2, 1, 2, 1, "record", false, 0, { 500, 180, 18, 88 }, { 500, 180, 18, 88 }, { 474, 180, 44, 88 }, { 474, 180, 44, 88 }, 0 };
+
+inline constexpr CalypsoF09ResearchQueueGenCollectionLayout kCollectionsWide[1] = {
+    { "collection", kCollectionColumnHeadersWide, 3, kCollectionRowSlotsWide, 5, 1, kCollectionMetricsWide },
+};
+inline constexpr int kCollectionLayoutWideCount = 1;
+inline constexpr CalypsoF09ResearchQueueGenCollectionLayout kCollectionsCompact[1] = {
+    { "collection", kCollectionColumnHeadersCompact, 3, kCollectionRowSlotsCompact, 2, 1, kCollectionMetricsCompact },
+};
+inline constexpr int kCollectionLayoutCompactCount = 1;
+
+struct CalypsoF09ResearchQueueGenActionSlot { const char* id; CalypsoF09ResearchQueueGenRect rect; };
+struct CalypsoF09ResearchQueueGenStrictActionSlotGroup
+{
+	const char* id;
+	const CalypsoF09ResearchQueueGenActionSlot* slots;
+	int slotCount;
+};
+inline constexpr CalypsoF09ResearchQueueGenStrictActionSlotGroup kStrictActionSlotGroupsWide[1] = {
+};
+inline constexpr int kStrictActionSlotGroupWideCount = 0;
+inline constexpr CalypsoF09ResearchQueueGenStrictActionSlotGroup kStrictActionSlotGroupsCompact[1] = {
+};
+inline constexpr int kStrictActionSlotGroupCompactCount = 0;
 
 /// Layout for a design canvas, or nullptr (the harness never guesses).
 inline const CalypsoF09ResearchQueueGenLayout* layoutForDesign(int dw, int dh)

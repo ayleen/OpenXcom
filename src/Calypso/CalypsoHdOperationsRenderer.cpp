@@ -326,19 +326,12 @@ void collectAction(CalypsoHdFrameBuilder& builder, const CalypsoHdOperationsMode
 	const CalypsoHdOperationsAction& action, int& order)
 {
 	if (!calypsoHdOperationsActionVisible(action)) return;
-	const bool primary = action.tone == "primary";
-	const std::uint32_t fill = action.state.disabled ? model.style.disabled
-		: primary ? model.style.accent
-		: action.state.selected ? model.style.selection : model.style.panelFillTop;
-	const std::uint32_t border = action.state.disabled ? model.style.disabled
-		: primary ? model.style.accent
-		: action.state.selected ? model.style.accent : model.style.frame;
-	addPanel(builder, model, "action/" + action.id, order++, action.visible, fill, fill,
-		action.widget, border);
-	const std::uint32_t text = action.state.disabled ? model.style.disabled
-		: primary ? 0x071013FFu : model.style.text;
+	const auto palette = calypsoHdOperationsActionPalette(
+		model.style, action.tone, action.state);
+	addPanel(builder, model, "action/" + action.id, order++, action.visible,
+		palette.fill, palette.fill, action.widget, palette.border);
 	addText(builder, model, source, actionPx, "action-label/" + action.id, order++,
-		action.visible, action.label, text, CalypsoHdHAlign::Center, action.widget);
+		action.visible, action.label, palette.text, CalypsoHdHAlign::Center, action.widget);
 }
 
 void collectControl(CalypsoHdFrameBuilder& builder,
@@ -362,10 +355,11 @@ void collectControl(CalypsoHdFrameBuilder& builder,
 		collectAction(builder, model, source, actionPx, control.increment, order);
 		return;
 	}
-	std::string value = control.label + (control.toggled ? ": ON" : ": OFF");
+	const std::string value = control.displayValue.empty()
+		? control.label : control.displayValue;
 	addText(builder, model, source, inputPx, "control-label/" + control.id, order++,
 		control.rect, value,
-		control.state.disabled ? model.style.disabled : model.style.text,
+		control.state.disabled ? model.style.disabledText : model.style.text,
 		CalypsoHdHAlign::Center, control.widget);
 }
 
@@ -382,8 +376,8 @@ void collectCollection(CalypsoHdFrameBuilder& builder,
 	const CalypsoHdOperationsRect& fallbackScrollThumb,
 	const std::string& prefix, int& order)
 {
-	const CalypsoHdOperationsRect viewport = collection.viewport.valid()
-		? collection.viewport : fallbackViewport;
+	const CalypsoHdOperationsRect viewport =
+		calypsoHdOperationsCollectionViewport(collection, fallbackViewport);
 	addPanel(builder, model, prefix + "/collection", order++, viewport,
 		model.style.regionFill, model.style.regionFill);
 	for (std::size_t i = 0; i < collection.columns.size(); ++i)
@@ -391,8 +385,17 @@ void collectCollection(CalypsoHdFrameBuilder& builder,
 		const auto& column = collection.columns[i];
 		const CalypsoHdOperationsRect rect = i < columnGeometry.size()
 			&& columnGeometry[i].valid() ? columnGeometry[i] : column.rect;
-		addText(builder, model, source, labelPx, prefix + "/column/" + column.id, order++,
-			insetHorizontal(rect, 6), column.label, model.style.mutedText, CalypsoHdHAlign::Left);
+		const auto role = calypsoHdOperationsContentRole(column.contentRole, column.id);
+		const bool data = role == CalypsoHdOperationsContentRole::Count
+			|| role == CalypsoHdOperationsContentRole::Quantity
+			|| role == CalypsoHdOperationsContentRole::Money
+			|| role == CalypsoHdOperationsContentRole::Time
+			|| role == CalypsoHdOperationsContentRole::Date
+			|| role == CalypsoHdOperationsContentRole::Type;
+		addText(builder, model, data ? model.monoFont : source,
+			data ? dataPx : labelPx, prefix + "/column/" + column.id, order++,
+			insetHorizontal(rect, 6), column.label, model.style.mutedText,
+			data ? CalypsoHdHAlign::Right : CalypsoHdHAlign::Left);
 	}
 	if (collection.rows.empty())
 	{
@@ -408,13 +411,13 @@ void collectCollection(CalypsoHdFrameBuilder& builder,
 		const int contentHeight = titleHeight + bodyHeight + 8;
 		const int titleY = contentTop + std::max(0, (availableHeight - contentHeight) / 2);
 		const int cardY = std::max(contentTop, titleY - 16);
-		const int cardBottom = std::min(
-			viewport.y + viewport.h, titleY + contentHeight + 16);
+		const int cardBottom = std::min(viewport.y + viewport.h, titleY + contentHeight + 16);
 		const CalypsoHdOperationsRect emptyCard{
 			viewport.x + inset, cardY, width, std::max(1, cardBottom - cardY)};
+		const bool noMatch = collection.emptyKind == "no-match";
 		addPanel(builder, model, prefix + "/empty-card", order++, emptyCard,
 			model.style.panelFillTop, model.style.panelFillTop, nullptr,
-			model.style.accent);
+			noMatch ? model.style.selection : model.style.accent);
 		addText(builder, model, headingSource, titlePx,
 			prefix + "/empty-title", order++,
 			{viewport.x + inset, titleY, width, titleHeight},
@@ -424,46 +427,64 @@ void collectCollection(CalypsoHdFrameBuilder& builder,
 			{viewport.x + inset, titleY + titleHeight + 8, width, bodyHeight},
 			collection.emptyBody, model.style.mutedText, CalypsoHdHAlign::Center);
 	}
+	// Generated rowSlots are the only geometry authority. `rowGeometry` is
+	// supplied for the main workspace's generated geometry; nested collections
+	// carry the same contract directly on the collection.
 	const auto& generatedRows = rowGeometry.empty() ? collection.rowSlots : rowGeometry;
-	const std::size_t offset = std::min(collection.scrollOffset,
-		calypsoHdOperationsMaxScroll(collection));
-	const std::size_t slots = std::min(collection.visibleRows,
-		generatedRows.empty() ? collection.rows.size() : generatedRows.size());
+	const std::size_t visible = calypsoHdOperationsVisibleRows(collection);
+	const std::size_t slots = std::min(visible, generatedRows.size());
 	for (std::size_t slot = 0; slot < slots; ++slot)
 	{
-		const std::size_t rowIndex = offset + slot;
-		if (rowIndex >= collection.rows.size()) break;
+		const auto rowSlot = slot < collection.rowSlots.size()
+			? calypsoHdOperationsRowSlot(collection, slot)
+			: (slot < generatedRows.size() ? generatedRows[slot]
+				: CalypsoHdOperationsRect{});
+		const auto rowIndexResult = calypsoHdOperationsRowIndexForSlot(collection, slot);
+		if (!rowSlot.valid() || !rowIndexResult.has_value())
+			continue;
+		const std::size_t rowIndex = rowIndexResult.value();
 		const auto& row = collection.rows[rowIndex];
-		const CalypsoHdOperationsRect rowRect = slot < generatedRows.size()
-			&& generatedRows[slot].valid() ? generatedRows[slot] : row.rect;
 		const bool selected = rowIndex == collection.selectedIndex || row.state.selected;
 		if (selected)
 		{
-			addPanel(builder, model, prefix + "/row-selection/" + row.id, order++, rowRect,
+			addPanel(builder, model, prefix + "/row-selection/" + row.id, order++, rowSlot,
 				model.style.selection, model.style.selection, row.widget);
 			addPanel(builder, model, prefix + "/row-rule/" + row.id, order++,
-				{rowRect.x, rowRect.y, 3, rowRect.h},
+				{rowSlot.x, rowSlot.y, 3, rowSlot.h},
 				model.style.accent, model.style.accent, row.widget);
 		}
-		for (std::size_t col = 0; col < row.values.size()
-			&& col < collection.columns.size(); ++col)
+		for (std::size_t col = 0; col < collection.columns.size(); ++col)
 		{
 			const auto& column = collection.columns[col];
+			const CalypsoHdOperationsCell* typed = col < row.cells.size()
+				? &row.cells[col] : nullptr;
+			const std::string value = typed ? typed->value
+				: (col < row.values.size() ? row.values[col] : std::string());
+			if (value.empty()) continue;
+			const auto role = calypsoHdOperationsContentRole(
+				typed && !typed->contentRole.empty() ? typed->contentRole
+					: column.contentRole, column.id);
+			const bool data = role == CalypsoHdOperationsContentRole::Count
+				|| role == CalypsoHdOperationsContentRole::Quantity
+				|| role == CalypsoHdOperationsContentRole::Money
+				|| role == CalypsoHdOperationsContentRole::Time
+				|| role == CalypsoHdOperationsContentRole::Date
+				|| role == CalypsoHdOperationsContentRole::Type;
 			CalypsoHdOperationsRect cell = col < columnGeometry.size()
 				&& columnGeometry[col].valid() ? columnGeometry[col] : column.rect;
-			cell.y = rowRect.y;
-			cell.h = rowRect.h;
-			addText(builder, model, model.monoFont, dataPx,
-				prefix + "/cell/" + row.id + "/" + column.id, order++, cell,
-				row.values[col], row.state.disabled ? model.style.disabled : model.style.text,
-				CalypsoHdHAlign::Left, row.widget);
+			cell.y = rowSlot.y;
+			cell.h = rowSlot.h;
+			addText(builder, model, data ? model.monoFont : source,
+				data ? dataPx : bodyPx,
+				prefix + "/cell/" + row.id + "/" + column.id, order++, cell, value,
+				(typed && typed->state.disabled) || row.state.disabled
+					? model.style.disabledText : model.style.text,
+				data ? CalypsoHdHAlign::Right : CalypsoHdHAlign::Left, row.widget);
 		}
 	}
-	const CalypsoHdOperationsRect scrollTrack = collection.scrollTrack.valid()
-		? collection.scrollTrack : fallbackScrollTrack;
-	const CalypsoHdOperationsRect visibleScrollThumb =
-		calypsoHdOperationsVisibleScrollThumb(
-			collection, fallbackScrollTrack, fallbackScrollThumb);
+	const auto scrollTrack = calypsoHdOperationsScrollTrack(collection, fallbackScrollTrack);
+	const auto visibleScrollThumb = calypsoHdOperationsVisibleScrollThumb(
+		collection, fallbackScrollTrack, fallbackScrollThumb);
 	if (visibleScrollThumb.valid() && scrollTrack.valid())
 		addPanel(builder, model, prefix + "/scroll-track", order++, scrollTrack,
 			model.style.regionFill, model.style.regionFill);
@@ -471,7 +492,6 @@ void collectCollection(CalypsoHdFrameBuilder& builder,
 		addPanel(builder, model, prefix + "/scroll-thumb", order++, visibleScrollThumb,
 			model.style.selection, model.style.selection);
 }
-
 void collectOperationsWorkspace(CalypsoHdFrameBuilder& builder,
 	const CalypsoHdOperationsModel& model, const CalypsoTtfSourceDescriptor& source,
 	const CalypsoTtfSourceDescriptor& heading, const OperationsTypography& typography,

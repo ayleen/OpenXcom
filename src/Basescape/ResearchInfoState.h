@@ -66,6 +66,7 @@ private:
 #ifdef __EMSCRIPTEN__
 	bool _hdLayout = false;
 	bool _hdWideLayout = false;
+	bool _hdStrategicExitPrepared = false;
 	Calypso::CalypsoF09ResearchUi *_hdAdapter = nullptr;
 #endif
 public:
@@ -103,6 +104,10 @@ public:
 	/// Assign/remove all scientists for the HD staffing action owners.
 	void allAvailableClick(Action *action);
 	void removeAllClick(Action *action);
+	/// Finalizes transient HD state before strategic navigation pops this state.
+#ifdef __EMSCRIPTEN__
+	void prepareHdStrategicExit();
+#endif
 	/// Runs state functionality every cycle(used to update the timer).
 #ifdef __EMSCRIPTEN__
 	void resize(int &dX, int &dY) override;

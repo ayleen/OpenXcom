@@ -42,6 +42,7 @@
 #include <climits>
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoF10ProductionUi.h"
+#include "../Calypso/CalypsoStrategicNavigation.h"
 #endif
 
 namespace OpenXcom
@@ -308,7 +309,60 @@ int ManufactureInfoState::getMonthlyNetFunds () const
 
 	return (saleValue - item->getManufactureCost()) * itemsPerMonth;
 }
+void ManufactureInfoState::applyDeferredProductionOptions()
+{
+	if (!_production)
+	{
+		return;
+	}
+	_production->setSellItems(_btnSell->getPressed());
+	if (_btnFallback->getPressed())
+	{
+		for (auto* p : _base->getProductions())
+		{
+			p->setFallback(false);
+		}
+		_production->setFallback(true);
+	}
+}
 
+#ifdef __EMSCRIPTEN__
+void ManufactureInfoState::cancelUnstartedProductionForHdExit()
+{
+	if (_item == nullptr || _production == nullptr)
+	{
+		return;
+	}
+	_base->removeProduction(_production);
+	_production = nullptr;
+}
+
+void ManufactureInfoState::prepareHdStrategicExit()
+{
+	if (!Calypso::calypsoHdExitOnce(_hdStrategicExitPrepared))
+	{
+		return;
+	}
+	const auto owner = _item != nullptr
+		? Calypso::CalypsoHdExitOwner::NewProduction
+		: Calypso::CalypsoHdExitOwner::ExistingProduction;
+	const auto plan = Calypso::calypsoHdExitPlan(owner);
+	_timerMoreEngineer->stop();
+	_timerLessEngineer->stop();
+	_timerMoreUnit->stop();
+	_timerLessUnit->stop();
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+	if (plan.removeUnstartedProduction)
+	{
+		cancelUnstartedProductionForHdExit();
+	}
+	else if (plan.applyDeferredProductionOptions)
+	{
+		applyDeferredProductionOptions();
+	}
+}
+#endif
 /**
  * Frees up memory that's not automatically cleaned on exit
  */
@@ -357,15 +411,7 @@ void ManufactureInfoState::btnOkClick(Action *)
 	{
 		_production->startItem(_base, _game->getSavedGame(), _game->getMod());
 	}
-	_production->setSellItems(_btnSell->getPressed());
-	if (_btnFallback->getPressed())
-	{
-		for (auto* p : _base->getProductions())
-		{
-			p->setFallback(false);
-		}
-		_production->setFallback(true);
-	}
+	applyDeferredProductionOptions();
 	exitState();
 }
 

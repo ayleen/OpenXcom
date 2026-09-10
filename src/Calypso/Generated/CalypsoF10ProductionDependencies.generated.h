@@ -39,9 +39,6 @@ struct CalypsoF10ProductionDependenciesGenLayout
 	CalypsoF10ProductionDependenciesGenRect region_tree_collection_column_level_three;
 	CalypsoF10ProductionDependenciesGenRect region_tree_collection_row_slot_1;
 	CalypsoF10ProductionDependenciesGenRect region_tree_collection_row_slot_2;
-	CalypsoF10ProductionDependenciesGenRect region_tree_collection_row_slot_3;
-	CalypsoF10ProductionDependenciesGenRect region_tree_collection_row_slot_4;
-	CalypsoF10ProductionDependenciesGenRect region_tree_collection_row_slot_5;
 	CalypsoF10ProductionDependenciesGenRect region_context;
 	CalypsoF10ProductionDependenciesGenRect region_context_label;
 	CalypsoF10ProductionDependenciesGenRect region_context_content;
@@ -57,11 +54,187 @@ struct CalypsoF10ProductionDependenciesGenLayout
 inline constexpr CalypsoF10ProductionDependenciesGenLayout kLayouts[] =
 {
 	// wide
-	{ 1280, 720, { 0, 0, 1280, 720 }, { 112, 96, 1144, 78 }, { 640, 96, 140, 78 }, { 130, 114, 480, 36 }, { 788, 113, 450, 44 }, { 112, 658, 1144, 44 }, { 112, 190, 560, 336 }, { 124, 202, 536, 20 }, { 124, 222, 536, 292 }, { 124, 222, 536, 292 }, { 642, 254, 18, 220 }, { 642, 254, 18, 220 }, { 124, 222, 160, 32 }, { 285, 222, 160, 32 }, { 446, 222, 160, 32 }, { 124, 254, 482, 44 }, { 124, 298, 482, 44 }, { 124, 342, 482, 44 }, { 124, 386, 482, 44 }, { 124, 430, 482, 44 }, { 688, 190, 568, 216 }, { 700, 202, 544, 20 }, { 700, 222, 544, 172 }, { 112, 538, 560, 108 }, { 124, 550, 536, 20 }, { 124, 570, 536, 20 }, { 124, 570, 241, 20 }, { 377, 570, 283, 20 }, { 898, 658, 158, 44 }, { 1066, 658, 158, 44 } },
+	{ 1280, 720, { 0, 0, 1280, 720 }, { 112, 96, 1144, 78 }, { 640, 96, 140, 78 }, { 130, 114, 480, 36 }, { 788, 113, 450, 44 }, { 112, 658, 1144, 44 }, { 112, 190, 560, 336 }, { 124, 202, 536, 20 }, { 124, 222, 536, 292 }, { 124, 222, 536, 292 }, { 642, 254, 18, 220 }, { 642, 254, 18, 220 }, { 124, 222, 160, 32 }, { 285, 222, 160, 32 }, { 446, 222, 160, 32 }, { 124, 254, 482, 44 }, { 124, 298, 482, 44 }, { 688, 190, 568, 216 }, { 700, 202, 544, 20 }, { 700, 222, 544, 172 }, { 112, 538, 560, 108 }, { 124, 550, 536, 20 }, { 124, 570, 536, 20 }, { 124, 570, 241, 20 }, { 377, 570, 283, 20 }, { 898, 658, 158, 44 }, { 1066, 658, 158, 44 } },
 	// compact
-	{ 740, 360, { 0, 0, 740, 360 }, { 52, 48, 680, 52 }, { 400, 48, 100, 52 }, { 62, 58, 330, 24 }, { 500, 52, 220, 44 }, { 52, 312, 680, 44 }, { 52, 108, 360, 196 }, { 60, 116, 344, 16 }, { 60, 132, 344, 164 }, { 60, 132, 344, 164 }, { 386, 156, 18, 88 }, { 386, 156, 18, 44 }, { 60, 132, 96, 24 }, { 157, 132, 96, 24 }, { 254, 132, 98, 24 }, { 60, 156, 292, 44 }, { 60, 200, 292, 44 }, { 60, 200, 292, 44 }, { 60, 200, 292, 44 }, { 60, 200, 292, 44 }, { 420, 196, 312, 108 }, { 428, 204, 296, 16 }, { 428, 220, 296, 76 }, { 420, 108, 312, 80 }, { 428, 116, 296, 16 }, { 428, 132, 296, 16 }, { 428, 132, 177, 16 }, { 613, 132, 111, 16 }, { 492, 312, 110, 44 }, { 614, 312, 110, 44 } },
+	{ 740, 360, { 0, 0, 740, 360 }, { 52, 48, 680, 52 }, { 400, 48, 100, 52 }, { 62, 58, 330, 24 }, { 500, 52, 220, 44 }, { 52, 312, 680, 44 }, { 52, 108, 360, 196 }, { 60, 116, 344, 16 }, { 60, 132, 344, 164 }, { 60, 132, 344, 164 }, { 386, 156, 18, 88 }, { 386, 156, 18, 44 }, { 60, 132, 97, 24 }, { 158, 132, 97, 24 }, { 256, 132, 96, 24 }, { 60, 156, 292, 44 }, { 60, 200, 292, 44 }, { 420, 196, 312, 108 }, { 428, 204, 296, 16 }, { 428, 220, 296, 76 }, { 420, 108, 312, 80 }, { 428, 116, 296, 16 }, { 428, 132, 296, 16 }, { 428, 132, 177, 16 }, { 613, 132, 111, 16 }, { 492, 312, 110, 44 }, { 614, 312, 110, 44 } },
 };
 inline constexpr int kLayoutCount = 2;
+
+inline constexpr const char* kSourceConfig = "FormConfigs/f10-production-dependencies.json";
+inline constexpr const char* kPresentationProfile = "dependency-list";
+inline constexpr const char* kProvenanceTemplate = "FormTemplates/operations-detail.json";
+inline constexpr int kProvenanceTemplateVersion = 2;
+inline constexpr const char* kProvenanceGeneratorKind = "detail";
+inline constexpr const char* kProfileId = "operations-ac";
+inline constexpr const char* kProfileVersion = "hd.2026-09-10.1";
+inline constexpr const char* kProfileThemeSource = "CommandCenter/CommandCenterTheme.h";
+inline constexpr const char* kProfileThemeSourceHash = "8c4eb7f074fe2868aac3d0835b324d42f4d57ca727dcea7ab1e16220c19e53b2";
+
+struct CalypsoF10ProductionDependenciesGenActionTone
+{
+	const char* id;
+	std::uint32_t fill;
+	std::uint32_t border;
+	std::uint32_t text;
+};
+inline constexpr CalypsoF10ProductionDependenciesGenActionTone kActionTones[] = {
+    { "normal", 0x071624FFu, 0x173246FFu, 0xE7F0F3FFu },
+    { "safe", 0x071624FFu, 0x285267FFu, 0xE7F0F3FFu },
+    { "primary", 0x81E0B5FFu, 0x81E0B5FFu, 0x03130DFFu },
+    { "warning", 0xF2C56DFFu, 0xF2C56DFFu, 0x03130DFFu },
+    { "danger", 0xFF6E72FFu, 0xFF6E72FFu, 0xE7F0F3FFu },
+};
+inline constexpr int kActionToneCount = 5;
+
+struct CalypsoF10ProductionDependenciesGenColumnRole
+{
+	const char* id;
+	int weight;
+	int minWidth;
+	const char* font;
+	const char* align;
+};
+inline constexpr CalypsoF10ProductionDependenciesGenColumnRole kColumnRoles[] = {
+    { "category", 3, 72, "body", "left" },
+    { "count", 1, 64, "data", "right" },
+    { "date", 2, 72, "data", "right" },
+    { "money", 2, 72, "data", "right" },
+    { "name", 6, 96, "body", "left" },
+    { "quantity", 2, 64, "data", "right" },
+    { "status", 2, 64, "body", "left" },
+    { "time", 2, 64, "data", "right" },
+    { "type", 1, 64, "data", "right" },
+};
+inline constexpr int kColumnRoleCount = 9;
+
+struct CalypsoF10ProductionDependenciesGenCollectionCell
+{
+	const char* id;
+	CalypsoF10ProductionDependenciesGenRect rect;
+	const char* contentRole;
+	const char* font;
+	const char* align;
+	int minWidth;
+	int weight;
+};
+struct CalypsoF10ProductionDependenciesGenCollectionRowSlot
+{
+	const char* id;
+	CalypsoF10ProductionDependenciesGenRect rect;
+	const CalypsoF10ProductionDependenciesGenCollectionCell* cells;
+	int cellCount;
+};
+struct CalypsoF10ProductionDependenciesGenCollectionMetrics
+{
+	int totalItems;
+	int visibleCapacity;
+	int totalUnits;
+	int visibleUnits;
+	int itemsPerUnit;
+	const char* scrollUnit;
+	bool overflow;
+	int scrollSteps;
+	CalypsoF10ProductionDependenciesGenRect track;
+	CalypsoF10ProductionDependenciesGenRect thumb;
+	CalypsoF10ProductionDependenciesGenRect trackHitTarget;
+	CalypsoF10ProductionDependenciesGenRect thumbHitTarget;
+	int thumbTravelPx;
+};
+struct CalypsoF10ProductionDependenciesGenCollectionLayout
+{
+	const char* id;
+	const CalypsoF10ProductionDependenciesGenCollectionCell* columns;
+	int columnCount;
+	const CalypsoF10ProductionDependenciesGenCollectionRowSlot* rowSlots;
+	int rowSlotCount;
+	int count;
+	CalypsoF10ProductionDependenciesGenCollectionMetrics metrics;
+};
+
+inline constexpr CalypsoF10ProductionDependenciesGenCollectionCell kRegionTreeCollectionColumnHeadersWide[] = {
+    { "direct", { 124, 222, 160, 32 }, "name", "body", "left", 96, 6 },
+    { "level-two", { 285, 222, 160, 32 }, "name", "body", "left", 96, 6 },
+    { "level-three", { 446, 222, 160, 32 }, "name", "body", "left", 96, 6 },
+};
+inline constexpr CalypsoF10ProductionDependenciesGenCollectionCell kRegionTreeCollectionRowSlot1CellsWide[] = {
+    { "direct", { 124, 254, 160, 44 }, "name", "body", "left", 96, 6 },
+    { "level-two", { 285, 254, 160, 44 }, "name", "body", "left", 96, 6 },
+    { "level-three", { 446, 254, 160, 44 }, "name", "body", "left", 96, 6 },
+};
+inline constexpr CalypsoF10ProductionDependenciesGenCollectionCell kRegionTreeCollectionRowSlot2CellsWide[] = {
+    { "direct", { 124, 298, 160, 44 }, "name", "body", "left", 96, 6 },
+    { "level-two", { 285, 298, 160, 44 }, "name", "body", "left", 96, 6 },
+    { "level-three", { 446, 298, 160, 44 }, "name", "body", "left", 96, 6 },
+};
+inline constexpr CalypsoF10ProductionDependenciesGenCollectionCell kRegionTreeCollectionRowSlot3CellsWide[] = {
+    { "direct", { 124, 342, 160, 44 }, "name", "body", "left", 96, 6 },
+    { "level-two", { 285, 342, 160, 44 }, "name", "body", "left", 96, 6 },
+    { "level-three", { 446, 342, 160, 44 }, "name", "body", "left", 96, 6 },
+};
+inline constexpr CalypsoF10ProductionDependenciesGenCollectionCell kRegionTreeCollectionRowSlot4CellsWide[] = {
+    { "direct", { 124, 386, 160, 44 }, "name", "body", "left", 96, 6 },
+    { "level-two", { 285, 386, 160, 44 }, "name", "body", "left", 96, 6 },
+    { "level-three", { 446, 386, 160, 44 }, "name", "body", "left", 96, 6 },
+};
+inline constexpr CalypsoF10ProductionDependenciesGenCollectionCell kRegionTreeCollectionRowSlot5CellsWide[] = {
+    { "direct", { 124, 430, 160, 44 }, "name", "body", "left", 96, 6 },
+    { "level-two", { 285, 430, 160, 44 }, "name", "body", "left", 96, 6 },
+    { "level-three", { 446, 430, 160, 44 }, "name", "body", "left", 96, 6 },
+};
+inline constexpr CalypsoF10ProductionDependenciesGenCollectionRowSlot kRegionTreeCollectionRowSlotsWide[] = {
+    { "row-slot-1", { 124, 254, 482, 44 }, kRegionTreeCollectionRowSlot1CellsWide, 3 },
+    { "row-slot-2", { 124, 298, 482, 44 }, kRegionTreeCollectionRowSlot2CellsWide, 3 },
+    { "row-slot-3", { 124, 342, 482, 44 }, kRegionTreeCollectionRowSlot3CellsWide, 3 },
+    { "row-slot-4", { 124, 386, 482, 44 }, kRegionTreeCollectionRowSlot4CellsWide, 3 },
+    { "row-slot-5", { 124, 430, 482, 44 }, kRegionTreeCollectionRowSlot5CellsWide, 3 },
+};
+inline constexpr int kRegionTreeCollectionRowSlotWideCount = 5;
+inline constexpr CalypsoF10ProductionDependenciesGenCollectionMetrics kRegionTreeCollectionMetricsWide = { 4, 5, 4, 5, 1, "record", false, 0, { 642, 254, 18, 220 }, { 642, 254, 18, 220 }, { 616, 254, 44, 220 }, { 616, 254, 44, 220 }, 0 };
+
+inline constexpr CalypsoF10ProductionDependenciesGenCollectionCell kRegionTreeCollectionColumnHeadersCompact[] = {
+    { "direct", { 60, 132, 97, 24 }, "name", "body", "left", 96, 6 },
+    { "level-two", { 158, 132, 97, 24 }, "name", "body", "left", 96, 6 },
+    { "level-three", { 256, 132, 96, 24 }, "name", "body", "left", 96, 6 },
+};
+inline constexpr CalypsoF10ProductionDependenciesGenCollectionCell kRegionTreeCollectionRowSlot1CellsCompact[] = {
+    { "direct", { 60, 156, 97, 44 }, "name", "body", "left", 96, 6 },
+    { "level-two", { 158, 156, 97, 44 }, "name", "body", "left", 96, 6 },
+    { "level-three", { 256, 156, 96, 44 }, "name", "body", "left", 96, 6 },
+};
+inline constexpr CalypsoF10ProductionDependenciesGenCollectionCell kRegionTreeCollectionRowSlot2CellsCompact[] = {
+    { "direct", { 60, 200, 97, 44 }, "name", "body", "left", 96, 6 },
+    { "level-two", { 158, 200, 97, 44 }, "name", "body", "left", 96, 6 },
+    { "level-three", { 256, 200, 96, 44 }, "name", "body", "left", 96, 6 },
+};
+inline constexpr CalypsoF10ProductionDependenciesGenCollectionRowSlot kRegionTreeCollectionRowSlotsCompact[] = {
+    { "row-slot-1", { 60, 156, 292, 44 }, kRegionTreeCollectionRowSlot1CellsCompact, 3 },
+    { "row-slot-2", { 60, 200, 292, 44 }, kRegionTreeCollectionRowSlot2CellsCompact, 3 },
+};
+inline constexpr int kRegionTreeCollectionRowSlotCompactCount = 2;
+inline constexpr CalypsoF10ProductionDependenciesGenCollectionMetrics kRegionTreeCollectionMetricsCompact = { 4, 2, 4, 2, 1, "record", true, 2, { 386, 156, 18, 88 }, { 386, 156, 18, 44 }, { 360, 156, 44, 88 }, { 360, 156, 44, 44 }, 44 };
+
+inline constexpr CalypsoF10ProductionDependenciesGenCollectionLayout kCollectionsWide[1] = {
+    { "region.tree.collection", kRegionTreeCollectionColumnHeadersWide, 3, kRegionTreeCollectionRowSlotsWide, 5, 4, kRegionTreeCollectionMetricsWide },
+};
+inline constexpr int kCollectionLayoutWideCount = 1;
+inline constexpr CalypsoF10ProductionDependenciesGenCollectionLayout kCollectionsCompact[1] = {
+    { "region.tree.collection", kRegionTreeCollectionColumnHeadersCompact, 3, kRegionTreeCollectionRowSlotsCompact, 2, 2, kRegionTreeCollectionMetricsCompact },
+};
+inline constexpr int kCollectionLayoutCompactCount = 1;
+
+struct CalypsoF10ProductionDependenciesGenActionSlot { const char* id; CalypsoF10ProductionDependenciesGenRect rect; };
+struct CalypsoF10ProductionDependenciesGenStrictActionSlotGroup
+{
+	const char* id;
+	const CalypsoF10ProductionDependenciesGenActionSlot* slots;
+	int slotCount;
+};
+inline constexpr CalypsoF10ProductionDependenciesGenStrictActionSlotGroup kStrictActionSlotGroupsWide[1] = {
+};
+inline constexpr int kStrictActionSlotGroupWideCount = 0;
+inline constexpr CalypsoF10ProductionDependenciesGenStrictActionSlotGroup kStrictActionSlotGroupsCompact[1] = {
+};
+inline constexpr int kStrictActionSlotGroupCompactCount = 0;
 
 /// Layout for a design canvas, or nullptr (the harness never guesses).
 inline const CalypsoF10ProductionDependenciesGenLayout* layoutForDesign(int dw, int dh)

@@ -113,21 +113,45 @@ CalypsoHdOperationsMetric metric(const std::string &id, const std::string &label
 	return result;
 }
 
+void setContractMetadata(CalypsoHdOperationsModel &model,
+	const char *presentation, const char *profileId, const char *profileVersion,
+	const char *provenance)
+{
+	model.presentation = presentation ? presentation : "";
+	model.profileId = profileId ? profileId : "";
+	model.profileVersion = profileVersion ? profileVersion : "";
+	model.provenance = provenance ? provenance : "";
+	model.readiness.contractReady = !model.presentation.empty()
+		&& !model.profileId.empty() && !model.profileVersion.empty()
+		&& !model.provenance.empty();
+}
+
 void setFonts(CalypsoHdOperationsModel &model, const Mod *mod)
 {
-	model.readiness.contractReady = true;
 	model.readiness.uploadsReady = true;
 	model.readiness.retryable = true;
 	model.readiness.fontsReady =
-		calypsoHdResolveFontDescriptor(mod, "FONT_CC_INTER_SB", model.headingFont)
+		mod != nullptr
+		&& calypsoHdResolveFontDescriptor(mod, "FONT_CC_INTER_SB", model.headingFont)
 		&& calypsoHdResolveFontDescriptor(mod, "FONT_CC_INTER_R", model.bodyFont)
 		&& calypsoHdResolveFontDescriptor(mod, "FONT_CC_PLEX_R", model.monoFont);
 }
 
-void finish(CalypsoHdOperationsModel &model, const Mod *mod)
+template <typename Collection, typename Project>
+void setGeneratedCollectionRows(CalypsoHdOperationsModel &model,
+	const Collection &collection, const Project &project)
 {
+	model.geometry.collectionRows.clear();
+	for (int i = 0; i < collection.rowSlotCount; ++i)
+		model.geometry.collectionRows.push_back(project(collection.rowSlots[i].rect));
+}
+
+void finish(CalypsoHdOperationsModel &model, const Mod *mod,
+	const char *presentation, const char *profileId, const char *profileVersion,
+	const char *provenance)
+{
+	setContractMetadata(model, presentation, profileId, profileVersion, provenance);
 	setFonts(model, mod);
-	calypsoHdOperationsClampSelectionAndScroll(model);
 }
 
 void suppress(CalypsoHdOperationsModel &model, const void *widget)
@@ -148,15 +172,11 @@ void setWorkspaceGeometry(CalypsoHdOperationsModel &model, const G &g,
 	model.geometry.summaryBar = project(g.summaryBar);
 	model.geometry.toolbarBar = project(g.toolbarBar);
 	model.geometry.collectionViewport = project(g.collectionViewport);
-	model.geometry.footer = project(g.footer);
 	model.geometry.detailPanel = project(g.detailPanel);
+	model.geometry.footer = project(g.footer);
+	model.geometry.collectionRows.clear();
 	model.geometry.collectionScrollTrack = project(g.collection_scroll_track);
 	model.geometry.collectionScrollThumb = project(g.collection_scroll_thumb);
-	model.geometry.collectionRows = {
-		project(g.collection_row_slot_1), project(g.collection_row_slot_2),
-		project(g.collection_row_slot_3), project(g.collection_row_slot_4),
-		project(g.collection_row_slot_5)};
-	model.geometry.collectionRows.resize(g.designWidth >= 1000 ? 5 : 2);
 }
 
 template <typename G, typename Project>
@@ -164,14 +184,11 @@ void setResearchGeometry(CalypsoHdOperationsModel &model, const G &g,
 	const Project &project)
 {
 	setWorkspaceGeometry(model, g, project);
-	model.geometry.detailIdentity = project(g.detail_selected_project);
+	model.geometry.detailIdentity = project(g.detail_selected_project_label);
 	model.geometry.detailIdentityTitle =
 		project(g.detail_selected_project_identity_title);
 	model.geometry.detailIdentitySubtitle =
 		project(g.detail_selected_project_identity_subtitle);
-	model.geometry.collectionColumns = {
-		project(g.collection_column_base), project(g.collection_column_project),
-		project(g.collection_column_scientists), project(g.collection_column_progress)};
 	model.geometry.detailMetrics = {
 		project(g.detail_selected_project_metric_base),
 		project(g.detail_selected_project_metric_research_project)};
@@ -187,15 +204,11 @@ void setProductionGeometry(CalypsoHdOperationsModel &model, const G &g,
 	const Project &project)
 {
 	setWorkspaceGeometry(model, g, project);
-	model.geometry.detailIdentity = project(g.detail_selected_production);
+	model.geometry.detailIdentity = project(g.detail_selected_production_label);
 	model.geometry.detailIdentityTitle =
 		project(g.detail_selected_production_identity_title);
 	model.geometry.detailIdentitySubtitle =
 		project(g.detail_selected_production_identity_subtitle);
-	model.geometry.collectionColumns = {
-		project(g.collection_column_base), project(g.collection_column_item),
-		project(g.collection_column_engineers), project(g.collection_column_produced),
-		project(g.collection_column_cost), project(g.collection_column_time_left)};
 	model.geometry.detailMetrics = {
 		project(g.detail_selected_production_metric_base),
 		project(g.detail_selected_production_metric_item)};
@@ -210,7 +223,7 @@ void setDiaryGeometry(CalypsoHdOperationsModel &model, const G &g,
 	const Project &project)
 {
 	setWorkspaceGeometry(model, g, project);
-	model.geometry.detailIdentity = project(g.detail_selected_entry);
+	model.geometry.detailIdentity = project(g.detail_selected_entry_label);
 	model.geometry.detailIdentityTitle =
 		project(g.detail_selected_entry_identity_title);
 	model.geometry.detailIdentitySubtitle =
@@ -512,12 +525,15 @@ CalypsoHdOperationsModel CalypsoF14GlobalOperationsUi::buildResearchModel() cons
 {
 	CalypsoHdOperationsModel model;
 	if (!_research || !_research->_window || !_research->_game
-		|| !_research->_lstResearch) return model;
+		|| !_research->_game->getSavedGame() || !_research->_lstResearch) return model;
 	const auto tr = [this](const std::string &key) { return _research->tr(key); };
 	const auto *g = CalypsoF14GlobalResearchGen::layoutForDesign(
 		_research->_hdWideLayout ? 1280 : 740,
 		_research->_hdWideLayout ? 720 : 360);
 	if (!g) return model;
+	const auto &generated = _research->_hdWideLayout
+		? CalypsoF14GlobalResearchGen::kCollectionsWide[0]
+		: CalypsoF14GlobalResearchGen::kCollectionsCompact[0];
 	auto p = [&](const auto &rect) {
 		return CalypsoHdOperationsRect{rect.x, rect.y, rect.w, rect.h};
 	};
@@ -526,11 +542,16 @@ CalypsoHdOperationsModel CalypsoF14GlobalOperationsUi::buildResearchModel() cons
 	model.ownerState = _research;
 	model.visualShell = CalypsoF14GlobalResearchGen::kVisualShell;
 	model.headerArtId = CalypsoF14GlobalResearchGen::kHeaderArt;
+	model.baseCaption = tr("STR_BASES");
 	model.baseName = "GLOBAL";
 	model.sectionLabel = tr("STR_RESEARCH");
 	model.title = _research->_txtTitle->getText();
 	setResearchGeometry(model, *g, p);
+	setGeneratedCollectionRows(model, generated, p);
 	setCollectionGeometry(model, *g, p);
+	model.geometry.collectionColumns.clear();
+	for (int c = 0; c < generated.columnCount; ++c)
+		model.geometry.collectionColumns.push_back(p(generated.columns[c].rect));
 	model.collection.heading = tr("STR_CALYPSO_PROJECTS_ACROSS_ALL_BASES");
 	model.collection.emptyTitle = tr("STR_CALYPSO_NO_ACTIVE_RESEARCH");
 	model.collection.emptyBody = tr("STR_CALYPSO_NO_GLOBAL_RESEARCH_PROMPT");
@@ -558,40 +579,49 @@ CalypsoHdOperationsModel CalypsoF14GlobalOperationsUi::buildResearchModel() cons
 				value += base->getFreeLaboratories();
 			return value;
 		}()), p(g->summary_lab_space), _research->_txtSpace));
-	model.collection.columns = {
-		{"base", tr("STR_BASE"), p(g->collection_column_base), {}},
-		{"project", tr("STR_RESEARCH_PROJECT"), p(g->collection_column_project), {}},
-		{"scientists", tr("STR_CALYPSO_RESEARCH_SCIENTISTS_ALLOCATED_UC"),
-			p(g->collection_column_scientists), {}},
-		{"progress", tr("STR_PROGRESS"), p(g->collection_column_progress), {}}};
-	for (std::size_t i = 0; i < _research->_bases.size(); ++i)
+	const std::string columnLabels[] = {
+		tr("STR_RESEARCH_PROJECT"),
+		tr("STR_CALYPSO_RESEARCH_SCIENTISTS_ALLOCATED_UC"), tr("STR_PROGRESS")};
+	for (int c = 0; c < generated.columnCount; ++c)
+		model.collection.columns.push_back({
+			generated.columns[c].id, columnLabels[c],
+			p(generated.columns[c].rect), {}, generated.columns[c].contentRole});
+	const auto &nativeRows = _research->_lstResearch->getCellTextsSnapshot();
+	const std::size_t nativeSelected =
+		static_cast<std::size_t>(_research->_lstResearch->getSelectedRow());
+	const std::size_t nativeOffset = _research->_lstResearch->getScroll();
+	for (std::size_t i = 0; i < nativeRows.size(); ++i)
 	{
-		const Base *base = _research->_bases[i];
+		const Base *base = i < _research->_bases.size() ? _research->_bases[i] : nullptr;
 		CalypsoHdOperationsRow row;
 		row.id = "row-" + std::to_string(i);
-		const std::string first = _research->_lstResearch->getCellText(i, 0);
-		if (!base)
-			row.values = {first, "", "", ""};
-		else
-			row.values = {"", first, _research->_lstResearch->getCellText(i, 1),
-				_research->_lstResearch->getCellText(i, 2)};
-		row.rect = model.geometry.collectionRows[
-			std::min(i, model.geometry.collectionRows.size() - 1)];
 		row.state.disabled = base == nullptr;
-		row.state.selected = i == _research->_lstResearch->getSelectedRow();
+		row.state.selected = i == nativeSelected;
+		for (std::size_t c = 0; c < generated.columnCount; ++c)
+			row.values.push_back(c < nativeRows[i].size() && nativeRows[i][c]
+				? nativeRows[i][c]->getText() : std::string());
+		if (i >= nativeOffset && i - nativeOffset < generated.rowSlotCount)
+			row.rect = model.geometry.collectionRows[i - nativeOffset];
+		for (std::size_t c = 0; c < row.values.size(); ++c)
+			row.cells.push_back({row.values[c], generated.columns[c].contentRole,
+				{true, false, row.state.selected, row.state.disabled}});
 		row.widget = _research->_lstResearch;
 		model.collection.rows.push_back(std::move(row));
 	}
-	model.collection.selectedIndex = _research->_lstResearch->getSelectedRow();
-	model.collection.scrollOffset = _research->_lstResearch->getScroll();
-	const std::size_t selectedIndex = model.collection.selectedIndex;
+	model.collection.selectedIndex = nativeSelected;
+	model.collection.scrollOffset = nativeOffset;
+	model.collection.count = nativeRows.size();
+	model.collection.scroll = {
+		nativeOffset, nativeRows.size(), static_cast<std::size_t>(generated.rowSlotCount),
+		model.collection.viewport, model.collection.scrollTrack,
+		model.collection.scrollThumb};
+	const std::size_t selectedIndex = nativeSelected;
 	const bool hasSelection = selectedIndex < model.collection.rows.size();
-	const Base *selectedBase = hasSelection ? _research->_bases[selectedIndex] : nullptr;
+	const Base *selectedBase = hasSelection && selectedIndex < _research->_bases.size()
+		? _research->_bases[selectedIndex] : nullptr;
 	const RuleResearch *selectedTopic = hasSelection
 		&& selectedIndex < _research->_topics.size()
 			? _research->_topics[selectedIndex] : nullptr;
-	_research->_btnOpenBaseResearch->setVisible(selectedBase != nullptr);
-	_research->_btnTechTree->setVisible(selectedTopic != nullptr);
 	model.detail.id = "selected-project";
 	model.detail.panel = p(g->detailPanel);
 	model.detail.identity.id = "selected-project";
@@ -633,7 +663,11 @@ CalypsoHdOperationsModel CalypsoF14GlobalOperationsUi::buildResearchModel() cons
 	suppress(model, _research->_lstResearch);
 	suppress(model, _research->_btnOpenBaseResearch);
 	suppress(model, _research->_btnTechTree);
-	finish(model, _research->_game->getMod());
+	finish(model, _research->_game->getMod(),
+		CalypsoF14GlobalResearchGen::kPresentationProfile,
+		CalypsoF14GlobalResearchGen::kProfileId,
+		CalypsoF14GlobalResearchGen::kProfileVersion,
+		CalypsoF14GlobalResearchGen::kProvenanceTemplate);
 	return model;
 }
 
@@ -641,12 +675,16 @@ CalypsoHdOperationsModel CalypsoF14GlobalOperationsUi::buildManufactureModel() c
 {
 	CalypsoHdOperationsModel model;
 	if (!_manufacture || !_manufacture->_window || !_manufacture->_game
-		|| !_manufacture->_lstManufacture) return model;
+		|| !_manufacture->_game->getSavedGame() || !_manufacture->_lstManufacture)
+		return model;
 	const auto tr = [this](const std::string &key) { return _manufacture->tr(key); };
 	const auto *g = CalypsoF14GlobalProductionGen::layoutForDesign(
 		_manufacture->_hdWideLayout ? 1280 : 740,
 		_manufacture->_hdWideLayout ? 720 : 360);
 	if (!g) return model;
+	const auto &generated = _manufacture->_hdWideLayout
+		? CalypsoF14GlobalProductionGen::kCollectionsWide[0]
+		: CalypsoF14GlobalProductionGen::kCollectionsCompact[0];
 	auto p = [&](const auto &rect) {
 		return CalypsoHdOperationsRect{rect.x, rect.y, rect.w, rect.h};
 	};
@@ -659,12 +697,16 @@ CalypsoHdOperationsModel CalypsoF14GlobalOperationsUi::buildManufactureModel() c
 	model.sectionLabel = tr("STR_MANUFACTURE");
 	model.title = _manufacture->_txtTitle->getText();
 	setProductionGeometry(model, *g, p);
+	setGeneratedCollectionRows(model, generated, p);
+	setCollectionGeometry(model, *g, p);
+	model.geometry.collectionColumns.clear();
+	for (int c = 0; c < generated.columnCount; ++c)
+		model.geometry.collectionColumns.push_back(p(generated.columns[c].rect));
 	model.collection.heading = tr("STR_CALYPSO_PRODUCTION_ACROSS_ALL_BASES");
 	model.collection.meta = tr("STR_CALYPSO_FUNDS_VALUE").arg(
 		Unicode::formatFunding(_manufacture->_game->getSavedGame()->getFunds()));
 	model.collection.emptyTitle = tr("STR_CALYPSO_NO_ACTIVE_PRODUCTION");
 	model.collection.emptyBody = tr("STR_CALYPSO_NO_GLOBAL_PRODUCTION_PROMPT");
-	setCollectionGeometry(model, *g, p);
 	model.summaryFields.push_back(summary("available",
 		tr("STR_CALYPSO_ENGINEERS_AVAILABLE"),
 		std::to_string([&]() {
@@ -689,45 +731,51 @@ CalypsoHdOperationsModel CalypsoF14GlobalOperationsUi::buildManufactureModel() c
 				value += base->getFreeWorkshops();
 			return value;
 		}()), p(g->summary_workshop_space), _manufacture->_txtSpace));
-	model.collection.columns = {
-		{"base", tr("STR_BASE"), p(g->collection_column_base), {}},
-		{"item", tr("STR_ITEM"), p(g->collection_column_item), {}},
-		{"engineers", tr("STR_ENGINEERS__ALLOCATED"),
-			p(g->collection_column_engineers), {}},
-		{"produced", tr("STR_UNITS_PRODUCED"), p(g->collection_column_produced), {}},
-		{"cost", tr("STR_COST__PER__UNIT"), p(g->collection_column_cost), {}},
-		{"time-left", tr("STR_DAYS_HOURS_LEFT"), p(g->collection_column_time_left), {}}};
-	for (std::size_t i = 0; i < _manufacture->_bases.size(); ++i)
+	const std::string columnLabels[] = {
+		tr("STR_ITEM"), tr("STR_ENGINEERS__ALLOCATED"),
+		tr("STR_UNITS_PRODUCED"), tr("STR_COST__PER__UNIT"),
+		tr("STR_DAYS_HOURS_LEFT")};
+	for (int c = 0; c < generated.columnCount; ++c)
+		model.collection.columns.push_back({
+			generated.columns[c].id, columnLabels[c],
+			p(generated.columns[c].rect), {}, generated.columns[c].contentRole});
+	const auto &nativeRows = _manufacture->_lstManufacture->getCellTextsSnapshot();
+	const std::size_t nativeSelected =
+		static_cast<std::size_t>(_manufacture->_lstManufacture->getSelectedRow());
+	const std::size_t nativeOffset = _manufacture->_lstManufacture->getScroll();
+	for (std::size_t i = 0; i < nativeRows.size(); ++i)
 	{
-		const Base *base = _manufacture->_bases[i];
+		const Base *base = i < _manufacture->_bases.size()
+			? _manufacture->_bases[i] : nullptr;
 		CalypsoHdOperationsRow row;
 		row.id = "row-" + std::to_string(i);
-		const std::string first = _manufacture->_lstManufacture->getCellText(i, 0);
-		if (!base)
-			row.values = {first, "", "", "", "", ""};
-		else
-			row.values = {"", first,
-				_manufacture->_lstManufacture->getCellText(i, 1),
-				_manufacture->_lstManufacture->getCellText(i, 2),
-				_manufacture->_lstManufacture->getCellText(i, 3),
-				_manufacture->_lstManufacture->getCellText(i, 4)};
-		row.rect = model.geometry.collectionRows[
-			std::min(i, model.geometry.collectionRows.size() - 1)];
 		row.state.disabled = base == nullptr;
-		row.state.selected = i == _manufacture->_lstManufacture->getSelectedRow();
+		row.state.selected = i == nativeSelected;
+		for (std::size_t c = 0; c < generated.columnCount; ++c)
+			row.values.push_back(c < nativeRows[i].size() && nativeRows[i][c]
+				? nativeRows[i][c]->getText() : std::string());
+		if (i >= nativeOffset && i - nativeOffset < generated.rowSlotCount)
+			row.rect = model.geometry.collectionRows[i - nativeOffset];
+		for (std::size_t c = 0; c < row.values.size(); ++c)
+			row.cells.push_back({row.values[c], generated.columns[c].contentRole,
+				{true, false, row.state.selected, row.state.disabled}});
 		row.widget = _manufacture->_lstManufacture;
 		model.collection.rows.push_back(std::move(row));
 	}
-	model.collection.selectedIndex = _manufacture->_lstManufacture->getSelectedRow();
-	model.collection.scrollOffset = _manufacture->_lstManufacture->getScroll();
-	const std::size_t selectedIndex = model.collection.selectedIndex;
+	model.collection.selectedIndex = nativeSelected;
+	model.collection.scrollOffset = nativeOffset;
+	model.collection.count = nativeRows.size();
+	model.collection.scroll = {
+		nativeOffset, nativeRows.size(), static_cast<std::size_t>(generated.rowSlotCount),
+		model.collection.viewport, model.collection.scrollTrack,
+		model.collection.scrollThumb};
+	const std::size_t selectedIndex = nativeSelected;
 	const bool hasSelection = selectedIndex < model.collection.rows.size();
-	const Base *selectedBase = hasSelection ? _manufacture->_bases[selectedIndex] : nullptr;
+	const Base *selectedBase = hasSelection && selectedIndex < _manufacture->_bases.size()
+		? _manufacture->_bases[selectedIndex] : nullptr;
 	const RuleManufacture *selectedTopic = hasSelection
 		&& selectedIndex < _manufacture->_topics.size()
 			? _manufacture->_topics[selectedIndex] : nullptr;
-	_manufacture->_btnOpenBaseProduction->setVisible(selectedBase != nullptr);
-	_manufacture->_btnTechTree->setVisible(selectedTopic != nullptr);
 	model.detail.id = "selected-production";
 	model.detail.panel = p(g->detailPanel);
 	model.detail.identity.id = "selected-production";
@@ -768,20 +816,27 @@ CalypsoHdOperationsModel CalypsoF14GlobalOperationsUi::buildManufactureModel() c
 	suppress(model, _manufacture->_lstManufacture);
 	suppress(model, _manufacture->_btnOpenBaseProduction);
 	suppress(model, _manufacture->_btnTechTree);
-	finish(model, _manufacture->_game->getMod());
+	finish(model, _manufacture->_game->getMod(),
+		CalypsoF14GlobalProductionGen::kPresentationProfile,
+		CalypsoF14GlobalProductionGen::kProfileId,
+		CalypsoF14GlobalProductionGen::kProfileVersion,
+		CalypsoF14GlobalProductionGen::kProvenanceTemplate);
 	return model;
 }
-
 CalypsoHdOperationsModel CalypsoF14GlobalOperationsUi::buildDiaryModel() const
 {
 	CalypsoHdOperationsModel model;
-	if (!_diary || !_diary->_window || !_diary->_game || !_diary->_lstItems)
+	if (!_diary || !_diary->_window || !_diary->_game
+		|| !_diary->_game->getSavedGame() || !_diary->_lstItems)
 		return model;
 	const auto tr = [this](const std::string &key) { return _diary->tr(key); };
 	const auto *g = CalypsoF14ResearchDiaryGen::layoutForDesign(
 		_diary->_hdWideLayout ? 1280 : 740,
 		_diary->_hdWideLayout ? 720 : 360);
 	if (!g) return model;
+	const auto &generated = _diary->_hdWideLayout
+		? CalypsoF14ResearchDiaryGen::kCollectionsWide[0]
+		: CalypsoF14ResearchDiaryGen::kCollectionsCompact[0];
 	auto p = [&](const auto &rect) {
 		return CalypsoHdOperationsRect{rect.x, rect.y, rect.w, rect.h};
 	};
@@ -790,37 +845,53 @@ CalypsoHdOperationsModel CalypsoF14GlobalOperationsUi::buildDiaryModel() const
 	model.ownerState = _diary;
 	model.visualShell = CalypsoF14ResearchDiaryGen::kVisualShell;
 	model.headerArtId = CalypsoF14ResearchDiaryGen::kHeaderArt;
+	model.baseCaption = tr("STR_BASES");
 	model.baseName = "GLOBAL";
 	model.sectionLabel = tr("STR_RESEARCH");
 	model.title = _diary->_txtTitle->getText();
 	setDiaryGeometry(model, *g, p);
+	setGeneratedCollectionRows(model, generated, p);
 	setCollectionGeometry(model, *g, p);
-	model.collection.columns = {
-		{"name", tr("STR_NAME_UC"), p(g->collection_column_name), {}},
-		{"type", tr("STR_TYPE"), p(g->collection_column_type), {}},
-		{"date", tr("STR_DATE_UC"), p(g->collection_column_date), {}}};
+	const std::string columnLabels[] = {
+		tr("STR_NAME_UC"), tr("STR_TYPE"), tr("STR_DATE_UC")};
+	for (int c = 0; c < generated.columnCount; ++c)
+		model.collection.columns.push_back({
+			generated.columns[c].id, columnLabels[c],
+			p(generated.columns[c].rect), {}, generated.columns[c].contentRole});
 	model.collection.emptyTitle = tr("STR_CALYPSO_NO_RESEARCH_RECORDS");
 	model.collection.emptyBody = tr("STR_CALYPSO_NO_RESEARCH_RECORDS_PROMPT");
-	for (std::size_t i = 0; i < _diary->_filteredItemList.size(); ++i)
+	const auto &nativeRows = _diary->_lstItems->getCellTextsSnapshot();
+	model.collection.emptyKind = _diary->_btnQuickSearch->getText().empty()
+		? "empty" : "no-match";
+	const std::size_t nativeSelected =
+		static_cast<std::size_t>(_diary->_lstItems->getSelectedRow());
+	const std::size_t nativeOffset = _diary->_lstItems->getScroll();
+	for (std::size_t i = 0; i < nativeRows.size(); ++i)
 	{
-		const auto *item = _diary->_filteredItemList[i];
 		CalypsoHdOperationsRow row;
-		row.id = "entry-" + std::to_string(i) + "-" + item->name;
-		row.values = {item->name,
-			std::to_string(static_cast<int>(item->diaryEntry->source.type)), item->date};
-		row.rect = model.geometry.collectionRows[
-			std::min(i, model.geometry.collectionRows.size() - 1)];
-		row.state.selected = i == _diary->_lstItems->getSelectedRow();
+		row.id = "entry-" + std::to_string(i);
+		row.state.selected = i == nativeSelected;
+		for (std::size_t c = 0; c < generated.columnCount; ++c)
+			row.values.push_back(c < nativeRows[i].size() && nativeRows[i][c]
+				? nativeRows[i][c]->getText() : std::string());
+		if (i >= nativeOffset && i - nativeOffset < generated.rowSlotCount)
+			row.rect = model.geometry.collectionRows[i - nativeOffset];
+		for (std::size_t c = 0; c < row.values.size(); ++c)
+			row.cells.push_back({row.values[c], generated.columns[c].contentRole,
+				{true, false, row.state.selected, false}});
 		row.widget = _diary->_lstItems;
 		model.collection.rows.push_back(std::move(row));
 	}
-	model.collection.selectedIndex = _diary->_lstItems->getSelectedRow();
-	model.collection.scrollOffset = _diary->_lstItems->getScroll();
-	const std::size_t selectedIndex = model.collection.selectedIndex;
+	model.collection.selectedIndex = nativeSelected;
+	model.collection.scrollOffset = nativeOffset;
+	model.collection.count = nativeRows.size();
+	model.collection.scroll = {
+		nativeOffset, nativeRows.size(), static_cast<std::size_t>(generated.rowSlotCount),
+		model.collection.viewport, model.collection.scrollTrack,
+		model.collection.scrollThumb};
+	const std::size_t selectedIndex = nativeSelected;
 	const bool hasSelection = selectedIndex < _diary->_filteredItemList.size();
 	const auto *selected = hasSelection ? _diary->_filteredItemList[selectedIndex] : nullptr;
-	_diary->_btnOpenTechTree->setVisible(selected != nullptr);
-	_diary->_btnOpenUfopaedia->setVisible(selected != nullptr);
 	model.detail.id = "selected-entry";
 	model.detail.panel = p(g->detailPanel);
 	model.detail.identity.id = "selected-entry";
@@ -873,7 +944,11 @@ CalypsoHdOperationsModel CalypsoF14GlobalOperationsUi::buildDiaryModel() const
 	suppress(model, _diary->_txtTooltip);
 	suppress(model, _diary->_btnOpenTechTree);
 	suppress(model, _diary->_btnOpenUfopaedia);
-	finish(model, _diary->_game->getMod());
+	finish(model, _diary->_game->getMod(),
+		CalypsoF14ResearchDiaryGen::kPresentationProfile,
+		CalypsoF14ResearchDiaryGen::kProfileId,
+		CalypsoF14ResearchDiaryGen::kProfileVersion,
+		CalypsoF14ResearchDiaryGen::kProvenanceTemplate);
 	return model;
 }
 

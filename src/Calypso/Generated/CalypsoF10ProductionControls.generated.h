@@ -57,8 +57,6 @@ struct CalypsoF10ProductionControlsGenLayout
 	CalypsoF10ProductionControlsGenRect region_sell_scroll_thumb;
 	CalypsoF10ProductionControlsGenRect region_sell_action_slot_1;
 	CalypsoF10ProductionControlsGenRect region_sell_action_slot_2;
-	CalypsoF10ProductionControlsGenRect region_sell_action_slot_3;
-	CalypsoF10ProductionControlsGenRect region_sell_action_slot_4;
 	CalypsoF10ProductionControlsGenRect action_stop_production;
 	CalypsoF10ProductionControlsGenRect action_ok;
 };
@@ -66,11 +64,137 @@ struct CalypsoF10ProductionControlsGenLayout
 inline constexpr CalypsoF10ProductionControlsGenLayout kLayouts[] =
 {
 	// wide
-	{ 1280, 720, { 0, 0, 1280, 720 }, { 112, 96, 1144, 78 }, { 640, 96, 140, 78 }, { 130, 114, 480, 36 }, { 788, 113, 450, 44 }, { 112, 658, 1144, 44 }, { 788, 113, 220, 44 }, { 1018, 113, 220, 44 }, { 788, 113, 44, 44 }, { 832, 113, 132, 44 }, { 964, 113, 44, 44 }, { 1018, 113, 44, 44 }, { 1062, 113, 132, 44 }, { 1194, 113, 44, 44 }, { 112, 190, 560, 336 }, { 124, 202, 536, 20 }, { 124, 222, 536, 292 }, { 112, 538, 560, 108 }, { 124, 550, 536, 20 }, { 124, 570, 536, 20 }, { 124, 570, 241, 20 }, { 377, 570, 283, 20 }, { 124, 590, 536, 20 }, { 124, 590, 241, 20 }, { 377, 590, 283, 20 }, { 124, 610, 536, 20 }, { 124, 610, 241, 20 }, { 377, 610, 283, 20 }, { 688, 418, 568, 228 }, { 700, 430, 544, 20 }, { 700, 450, 544, 184 }, { 1226, 450, 18, 184 }, { 1226, 450, 18, 184 }, { 700, 450, 243, 44 }, { 946, 450, 243, 44 }, { 700, 497, 243, 44 }, { 946, 497, 243, 44 }, { 898, 658, 158, 44 }, { 1066, 658, 158, 44 } },
+	{ 1280, 720, { 0, 0, 1280, 720 }, { 112, 96, 1144, 78 }, { 640, 96, 140, 78 }, { 130, 114, 480, 36 }, { 788, 113, 450, 44 }, { 112, 658, 1144, 44 }, { 788, 113, 220, 44 }, { 1018, 113, 220, 44 }, { 788, 113, 44, 44 }, { 832, 113, 132, 44 }, { 964, 113, 44, 44 }, { 1018, 113, 44, 44 }, { 1062, 113, 132, 44 }, { 1194, 113, 44, 44 }, { 112, 190, 560, 336 }, { 124, 202, 536, 20 }, { 124, 222, 536, 292 }, { 112, 538, 560, 108 }, { 124, 550, 536, 20 }, { 124, 570, 536, 20 }, { 124, 570, 241, 20 }, { 377, 570, 283, 20 }, { 124, 590, 536, 20 }, { 124, 590, 241, 20 }, { 377, 590, 283, 20 }, { 124, 610, 536, 20 }, { 124, 610, 241, 20 }, { 377, 610, 283, 20 }, { 688, 418, 568, 228 }, { 700, 430, 544, 20 }, { 700, 450, 544, 184 }, { 1226, 450, 18, 184 }, { 1226, 450, 18, 184 }, { 700, 450, 243, 44 }, { 946, 450, 243, 44 }, { 898, 658, 158, 44 }, { 1066, 658, 158, 44 } },
 	// compact
-	{ 740, 360, { 0, 0, 740, 360 }, { 52, 48, 680, 52 }, { 400, 48, 100, 52 }, { 62, 58, 330, 24 }, { 500, 52, 220, 44 }, { 52, 312, 680, 44 }, { 500, 52, 106, 44 }, { 614, 52, 106, 44 }, { 500, 52, 44, 44 }, { 544, 52, 18, 44 }, { 562, 52, 44, 44 }, { 614, 52, 44, 44 }, { 658, 52, 18, 44 }, { 676, 52, 44, 44 }, { 52, 108, 360, 196 }, { 60, 116, 344, 16 }, { 60, 132, 344, 164 }, { 420, 108, 312, 80 }, { 428, 116, 296, 16 }, { 428, 132, 296, 16 }, { 428, 132, 177, 16 }, { 613, 132, 111, 16 }, { 428, 148, 296, 16 }, { 428, 148, 177, 16 }, { 613, 148, 111, 16 }, { 428, 164, 296, 16 }, { 428, 164, 177, 16 }, { 613, 164, 111, 16 }, { 420, 196, 312, 108 }, { 428, 204, 296, 16 }, { 428, 220, 296, 76 }, { 706, 220, 18, 76 }, { 706, 220, 18, 76 }, { 428, 220, 120, 44 }, { 552, 220, 120, 44 }, { 552, 220, 120, 44 }, { 552, 220, 120, 44 }, { 492, 312, 110, 44 }, { 614, 312, 110, 44 } },
+	{ 740, 360, { 0, 0, 740, 360 }, { 52, 48, 680, 52 }, { 400, 48, 100, 52 }, { 62, 58, 330, 24 }, { 500, 52, 220, 44 }, { 52, 312, 680, 44 }, { 500, 52, 106, 44 }, { 614, 52, 106, 44 }, { 500, 52, 44, 44 }, { 544, 52, 18, 44 }, { 562, 52, 44, 44 }, { 614, 52, 44, 44 }, { 658, 52, 18, 44 }, { 676, 52, 44, 44 }, { 52, 108, 360, 196 }, { 60, 116, 344, 16 }, { 60, 132, 344, 164 }, { 420, 108, 312, 80 }, { 428, 116, 296, 16 }, { 428, 132, 296, 16 }, { 428, 132, 177, 16 }, { 613, 132, 111, 16 }, { 428, 148, 296, 16 }, { 428, 148, 177, 16 }, { 613, 148, 111, 16 }, { 428, 164, 296, 16 }, { 428, 164, 177, 16 }, { 613, 164, 111, 16 }, { 420, 196, 312, 108 }, { 428, 204, 296, 16 }, { 428, 220, 296, 76 }, { 706, 220, 18, 76 }, { 706, 220, 18, 76 }, { 428, 220, 120, 44 }, { 552, 220, 120, 44 }, { 492, 312, 110, 44 }, { 614, 312, 110, 44 } },
 };
 inline constexpr int kLayoutCount = 2;
+
+inline constexpr const char* kSourceConfig = "FormConfigs/f10-production-controls.json";
+inline constexpr const char* kPresentationProfile = "controls-summary";
+inline constexpr const char* kProvenanceTemplate = "FormTemplates/operations-detail.json";
+inline constexpr int kProvenanceTemplateVersion = 2;
+inline constexpr const char* kProvenanceGeneratorKind = "detail";
+inline constexpr const char* kProfileId = "operations-ac";
+inline constexpr const char* kProfileVersion = "hd.2026-09-10.1";
+inline constexpr const char* kProfileThemeSource = "CommandCenter/CommandCenterTheme.h";
+inline constexpr const char* kProfileThemeSourceHash = "8c4eb7f074fe2868aac3d0835b324d42f4d57ca727dcea7ab1e16220c19e53b2";
+
+struct CalypsoF10ProductionControlsGenActionTone
+{
+	const char* id;
+	std::uint32_t fill;
+	std::uint32_t border;
+	std::uint32_t text;
+};
+inline constexpr CalypsoF10ProductionControlsGenActionTone kActionTones[] = {
+    { "normal", 0x071624FFu, 0x173246FFu, 0xE7F0F3FFu },
+    { "safe", 0x071624FFu, 0x285267FFu, 0xE7F0F3FFu },
+    { "primary", 0x81E0B5FFu, 0x81E0B5FFu, 0x03130DFFu },
+    { "warning", 0xF2C56DFFu, 0xF2C56DFFu, 0x03130DFFu },
+    { "danger", 0xFF6E72FFu, 0xFF6E72FFu, 0xE7F0F3FFu },
+};
+inline constexpr int kActionToneCount = 5;
+
+struct CalypsoF10ProductionControlsGenColumnRole
+{
+	const char* id;
+	int weight;
+	int minWidth;
+	const char* font;
+	const char* align;
+};
+inline constexpr CalypsoF10ProductionControlsGenColumnRole kColumnRoles[] = {
+    { "category", 3, 72, "body", "left" },
+    { "count", 1, 64, "data", "right" },
+    { "date", 2, 72, "data", "right" },
+    { "money", 2, 72, "data", "right" },
+    { "name", 6, 96, "body", "left" },
+    { "quantity", 2, 64, "data", "right" },
+    { "status", 2, 64, "body", "left" },
+    { "time", 2, 64, "data", "right" },
+    { "type", 1, 64, "data", "right" },
+};
+inline constexpr int kColumnRoleCount = 9;
+
+struct CalypsoF10ProductionControlsGenCollectionCell
+{
+	const char* id;
+	CalypsoF10ProductionControlsGenRect rect;
+	const char* contentRole;
+	const char* font;
+	const char* align;
+	int minWidth;
+	int weight;
+};
+struct CalypsoF10ProductionControlsGenCollectionRowSlot
+{
+	const char* id;
+	CalypsoF10ProductionControlsGenRect rect;
+	const CalypsoF10ProductionControlsGenCollectionCell* cells;
+	int cellCount;
+};
+struct CalypsoF10ProductionControlsGenCollectionMetrics
+{
+	int totalItems;
+	int visibleCapacity;
+	int totalUnits;
+	int visibleUnits;
+	int itemsPerUnit;
+	const char* scrollUnit;
+	bool overflow;
+	int scrollSteps;
+	CalypsoF10ProductionControlsGenRect track;
+	CalypsoF10ProductionControlsGenRect thumb;
+	CalypsoF10ProductionControlsGenRect trackHitTarget;
+	CalypsoF10ProductionControlsGenRect thumbHitTarget;
+	int thumbTravelPx;
+};
+struct CalypsoF10ProductionControlsGenCollectionLayout
+{
+	const char* id;
+	const CalypsoF10ProductionControlsGenCollectionCell* columns;
+	int columnCount;
+	const CalypsoF10ProductionControlsGenCollectionRowSlot* rowSlots;
+	int rowSlotCount;
+	int count;
+	CalypsoF10ProductionControlsGenCollectionMetrics metrics;
+};
+
+inline constexpr CalypsoF10ProductionControlsGenCollectionLayout kCollectionsWide[1] = {
+};
+inline constexpr int kCollectionLayoutWideCount = 0;
+inline constexpr CalypsoF10ProductionControlsGenCollectionLayout kCollectionsCompact[1] = {
+};
+inline constexpr int kCollectionLayoutCompactCount = 0;
+
+struct CalypsoF10ProductionControlsGenActionSlot { const char* id; CalypsoF10ProductionControlsGenRect rect; };
+inline constexpr CalypsoF10ProductionControlsGenActionSlot kRegionSellActionSlotsWide[] = {
+    { "action-slot-1", { 700, 450, 243, 44 } },
+    { "action-slot-2", { 946, 450, 243, 44 } },
+    { "action-slot-3", { 700, 497, 243, 44 } },
+    { "action-slot-4", { 946, 497, 243, 44 } },
+};
+
+inline constexpr CalypsoF10ProductionControlsGenActionSlot kRegionSellActionSlotsCompact[] = {
+    { "action-slot-1", { 428, 220, 120, 44 } },
+    { "action-slot-2", { 552, 220, 120, 44 } },
+};
+
+struct CalypsoF10ProductionControlsGenStrictActionSlotGroup
+{
+	const char* id;
+	const CalypsoF10ProductionControlsGenActionSlot* slots;
+	int slotCount;
+};
+inline constexpr CalypsoF10ProductionControlsGenStrictActionSlotGroup kStrictActionSlotGroupsWide[1] = {
+    { "region.sell", kRegionSellActionSlotsWide, 4 },
+};
+inline constexpr int kStrictActionSlotGroupWideCount = 1;
+inline constexpr CalypsoF10ProductionControlsGenStrictActionSlotGroup kStrictActionSlotGroupsCompact[1] = {
+    { "region.sell", kRegionSellActionSlotsCompact, 2 },
+};
+inline constexpr int kStrictActionSlotGroupCompactCount = 1;
 
 /// Layout for a design canvas, or nullptr (the harness never guesses).
 inline const CalypsoF10ProductionControlsGenLayout* layoutForDesign(int dw, int dh)

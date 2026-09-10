@@ -19,6 +19,7 @@
 #include "ResearchInfoState.h"
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoF09ResearchUi.h"
+#include "../Calypso/CalypsoStrategicNavigation.h"
 #endif
 #include "../Engine/Action.h"
 #include "../Engine/Game.h"
@@ -203,6 +204,28 @@ void ResearchInfoState::commitPreview()
 	_project = project;
 	_rule = nullptr;
 }
+
+#ifdef __EMSCRIPTEN__
+void ResearchInfoState::prepareHdStrategicExit()
+{
+	if (!Calypso::calypsoHdExitOnce(_hdStrategicExitPrepared))
+	{
+		return;
+	}
+	const auto owner = _rule != nullptr
+		? Calypso::CalypsoHdExitOwner::NewResearch
+		: Calypso::CalypsoHdExitOwner::ExistingResearch;
+	const auto plan = Calypso::calypsoHdExitPlan(owner);
+	_timerMore->stop();
+	_timerLess->stop();
+	if (plan.cancelResearchPreview)
+	{
+		cancelPreview();
+	}
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+}
+#endif
 
 ResearchInfoState::~ResearchInfoState()
 {

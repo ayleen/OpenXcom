@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <cmath>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -70,12 +71,52 @@ inline CalypsoHdOperationsRect calypsoHdOperationsProjectRect(
 	return {left, top, std::max(1, right - left), std::max(1, bottom - top)};
 }
 
+enum class CalypsoHdOperationsContentRole
+{
+	Unknown,
+	Name,
+	Category,
+	Status,
+	Count,
+	Quantity,
+	Money,
+	Time,
+	Date,
+	Type
+};
+
+/// The generated profile describes these roles as strings.  Keeping the
+/// conversion here lets native adapters remain screen-identity-neutral while
+/// still giving the renderer typed font/alignment metadata.
+inline CalypsoHdOperationsContentRole calypsoHdOperationsContentRole(
+	const std::string& role, const std::string& id = {})
+{
+	const std::string& value = role.empty() ? id : role;
+	if (value == "name") return CalypsoHdOperationsContentRole::Name;
+	if (value == "category") return CalypsoHdOperationsContentRole::Category;
+	if (value == "status") return CalypsoHdOperationsContentRole::Status;
+	if (value == "count") return CalypsoHdOperationsContentRole::Count;
+	if (value == "quantity") return CalypsoHdOperationsContentRole::Quantity;
+	if (value == "money") return CalypsoHdOperationsContentRole::Money;
+	if (value == "time") return CalypsoHdOperationsContentRole::Time;
+	if (value == "date") return CalypsoHdOperationsContentRole::Date;
+	if (value == "type") return CalypsoHdOperationsContentRole::Type;
+	return CalypsoHdOperationsContentRole::Unknown;
+}
+
 struct CalypsoHdOperationsState
 {
 	bool visible = true;
 	bool focused = false;
 	bool selected = false;
 	bool disabled = false;
+};
+
+struct CalypsoHdOperationsCell
+{
+	std::string value;
+	std::string contentRole;
+	CalypsoHdOperationsState state;
 };
 
 struct CalypsoHdOperationsAction
@@ -128,6 +169,8 @@ struct CalypsoHdOperationsColumn
 	std::string label;
 	CalypsoHdOperationsRect rect;
 	CalypsoHdOperationsState state;
+	/// Generated profile role (name/count/money/...). Empty means infer from id.
+	std::string contentRole;
 };
 
 struct CalypsoHdOperationsRow
@@ -137,6 +180,18 @@ struct CalypsoHdOperationsRow
 	CalypsoHdOperationsRect rect;
 	CalypsoHdOperationsState state;
 	const void* widget = nullptr;
+	/// Optional typed cells. Legacy adapters may continue publishing values.
+	std::vector<CalypsoHdOperationsCell> cells;
+};
+
+struct CalypsoHdOperationsScroll
+{
+	std::size_t offset = 0;
+	std::size_t count = 0;
+	std::size_t visibleRows = 0;
+	CalypsoHdOperationsRect viewport;
+	CalypsoHdOperationsRect track;
+	CalypsoHdOperationsRect thumb;
 };
 
 struct CalypsoHdOperationsCollection
@@ -145,6 +200,7 @@ struct CalypsoHdOperationsCollection
 	std::string meta;
 	std::string emptyTitle;
 	std::string emptyBody;
+	std::string emptyKind = "empty";
 	std::vector<CalypsoHdOperationsColumn> columns;
 	std::vector<CalypsoHdOperationsRow> rows;
 	std::vector<CalypsoHdOperationsRect> rowSlots;
@@ -155,7 +211,11 @@ struct CalypsoHdOperationsCollection
 	CalypsoHdOperationsRect viewport;
 	CalypsoHdOperationsRect scrollTrack;
 	CalypsoHdOperationsRect scrollThumb;
+	/// New contract-shaped metadata. Legacy fields above remain adapter-compatible.
+	std::size_t count = 0;
+	CalypsoHdOperationsScroll scroll;
 };
+
 
 struct CalypsoHdOperationsMetric
 {
@@ -252,7 +312,11 @@ struct CalypsoHdOperationsStyle
 	std::uint32_t mutedText = 0x84A0AEFFu;
 	std::uint32_t selection = 0x163C38FFu;
 	std::uint32_t disabled = 0x55756D99u;
+	std::uint32_t disabledText = 0xA9D8C7FFu;
 	std::uint32_t accent = 0x74FFB0FFu;
+	std::uint32_t warning = 0xF2B84BFFu;
+	std::uint32_t danger = 0xF25F5CFFu;
+	std::uint32_t textOnAccent = 0x071013FFu;
 	float cornerRadiusPx = 12.0f;
 	float cutCornerPx = 14.0f;
 };
@@ -260,6 +324,12 @@ struct CalypsoHdOperationsStyle
 struct CalypsoHdOperationsModel
 {
 	CalypsoHdOperationsArchetype archetype = CalypsoHdOperationsArchetype::OperationsWorkspace;
+	/// Generated descriptor metadata; identities are intentionally opaque to
+	/// the shared renderer and are never used to select a layout branch.
+	std::string presentation;
+	std::string profileId;
+	std::string profileVersion;
+	std::string provenance;
 	/// Contract family identity is supplied by the adapter; zero is never ready.
 	std::uint32_t familyId = 0;
 	const void* ownerState = nullptr;
@@ -288,7 +358,6 @@ struct CalypsoHdOperationsModel
 	CalypsoTtfSourceDescriptor monoFont;
 	CalypsoHdOperationsStyle style;
 };
-
 /// Project a generated design-space font size into the canvas backing store.
 /// The physical/design-height ratio includes both logical layout projection and
 /// DPR, matching the rect edge mapping used by the HD overlay.
@@ -305,46 +374,175 @@ inline int calypsoHdOperationsPhysicalFontPx(
 }
 
 
-inline std::size_t calypsoHdOperationsMaxScroll(const CalypsoHdOperationsCollection& collection)
+inline bool calypsoHdOperationsHasScrollMetadata(
+	const CalypsoHdOperationsCollection& collection)
 {
-	if (collection.visibleRows == 0 || collection.rows.size() <= collection.visibleRows)
-		return 0;
-	return collection.rows.size() - collection.visibleRows;
+	const auto& scroll = collection.scroll;
+	return scroll.offset != 0 || scroll.count != 0 || scroll.visibleRows != 0
+		|| scroll.viewport.valid() || scroll.track.valid() || scroll.thumb.valid();
 }
+
+inline std::size_t calypsoHdOperationsCollectionCount(
+	const CalypsoHdOperationsCollection& collection)
+{
+	if (collection.count != 0) return collection.count;
+	if (calypsoHdOperationsHasScrollMetadata(collection)
+		&& collection.scroll.count != 0)
+		return collection.scroll.count;
+	return collection.rows.size();
+}
+
+inline std::size_t calypsoHdOperationsVisibleRows(
+	const CalypsoHdOperationsCollection& collection)
+{
+	if (collection.visibleRows != 0) return collection.visibleRows;
+	if (calypsoHdOperationsHasScrollMetadata(collection)
+		&& collection.scroll.visibleRows != 0)
+		return collection.scroll.visibleRows;
+	return collection.rowSlots.size();
+}
+
+inline std::size_t calypsoHdOperationsScrollOffset(
+	const CalypsoHdOperationsCollection& collection)
+{
+	return calypsoHdOperationsHasScrollMetadata(collection)
+		? collection.scroll.offset : collection.scrollOffset;
+}
+
+inline CalypsoHdOperationsRect calypsoHdOperationsScrollTrack(
+	const CalypsoHdOperationsCollection& collection,
+	const CalypsoHdOperationsRect& fallback = {})
+{
+	if (collection.scroll.track.valid()) return collection.scroll.track;
+	return collection.scrollTrack.valid() ? collection.scrollTrack : fallback;
+}
+
+inline CalypsoHdOperationsRect calypsoHdOperationsScrollThumb(
+	const CalypsoHdOperationsCollection& collection,
+	const CalypsoHdOperationsRect& fallback = {})
+{
+	if (collection.scroll.thumb.valid()) return collection.scroll.thumb;
+	return collection.scrollThumb.valid() ? collection.scrollThumb : fallback;
+}
+
+inline std::size_t calypsoHdOperationsMaxScroll(
+	const CalypsoHdOperationsCollection& collection)
+{
+	const std::size_t visible = calypsoHdOperationsVisibleRows(collection);
+	const std::size_t count = calypsoHdOperationsCollectionCount(collection);
+	return visible == 0 || count <= visible ? 0 : count - visible;
+}
+
+/// Resolve a visible slot only from generated geometry. Missing or invalid
+/// slots deliberately fail closed rather than reusing a runtime row rectangle.
+inline CalypsoHdOperationsRect calypsoHdOperationsRowSlot(
+	const CalypsoHdOperationsCollection& collection, std::size_t slot)
+{
+	if (slot >= calypsoHdOperationsVisibleRows(collection)
+		|| slot >= collection.rowSlots.size())
+		return {};
+	const auto result = collection.rowSlots[slot];
+	return result.valid() ? result : CalypsoHdOperationsRect{};
+}
+
+inline std::optional<std::size_t> calypsoHdOperationsRowIndexForSlot(
+	const CalypsoHdOperationsCollection& collection, std::size_t slot)
+{
+	const auto rowSlot = calypsoHdOperationsRowSlot(collection, slot);
+	if (!rowSlot.valid()) return std::nullopt;
+	const std::size_t offset = calypsoHdOperationsScrollOffset(collection);
+	if (offset > collection.rows.size() || slot > collection.rows.size() - offset)
+		return std::nullopt;
+	const std::size_t index = offset + slot;
+	return index < calypsoHdOperationsCollectionCount(collection)
+		? std::optional<std::size_t>(index) : std::nullopt;
+}
+
+inline CalypsoHdOperationsRect calypsoHdOperationsScrollHitRail(
+	const CalypsoHdOperationsCollection& collection,
+	const CalypsoHdOperationsRect& fallback = {})
+{
+	const auto track = calypsoHdOperationsScrollTrack(collection, fallback);
+	if (!track.valid() || calypsoHdOperationsMaxScroll(collection) == 0) return {};
+	constexpr int minimumWidth = 44;
+	const int width = std::max(minimumWidth, track.w);
+	return {track.x - (width - track.w) / 2, track.y, width, track.h};
+}
+
+inline CalypsoHdOperationsRect calypsoHdOperationsRowHitRect(
+	const CalypsoHdOperationsCollection& collection, std::size_t slot)
+{
+	auto row = calypsoHdOperationsRowSlot(collection, slot);
+	if (!row.valid()) return {};
+	const auto rail = calypsoHdOperationsScrollHitRail(collection);
+	if (rail.valid() && row.x < rail.x + rail.w && rail.x < row.x + row.w)
+	{
+		const int right = std::min(row.x + row.w, rail.x);
+		row.w = std::max(0, right - row.x);
+	}
+	return row.valid() ? row : CalypsoHdOperationsRect{};
+}
+struct CalypsoHdOperationsActionPalette
+{
+	std::uint32_t fill = 0;
+	std::uint32_t border = 0;
+	std::uint32_t text = 0;
+};
+
+inline CalypsoHdOperationsActionPalette calypsoHdOperationsActionPalette(
+	const CalypsoHdOperationsStyle& style, const std::string& tone,
+	const CalypsoHdOperationsState& state)
+{
+	CalypsoHdOperationsActionPalette palette;
+	if (state.disabled)
+		return {style.disabled, style.frame, style.disabledText};
+	if (tone == "safe")
+		palette = {style.panelFillTop, style.accent, style.text};
+	else if (tone == "primary")
+		palette = {style.accent, style.accent, style.textOnAccent};
+	else if (tone == "warning")
+		palette = {style.warning, style.warning, style.textOnAccent};
+	else if (tone == "danger")
+		palette = {style.danger, style.danger, style.text};
+	else
+		palette = {style.panelFillTop, style.frame, style.text};
+	if (state.selected && tone != "primary" && tone != "warning"
+		&& tone != "danger")
+		palette.fill = style.selection;
+	if (state.focused) palette.border = style.accent;
+	return palette;
+}
+
 inline CalypsoHdOperationsRect calypsoHdOperationsVisibleScrollThumb(
 	const CalypsoHdOperationsCollection& collection,
 	const CalypsoHdOperationsRect& fallbackTrack = {},
 	const CalypsoHdOperationsRect& fallbackThumb = {})
 {
-	const auto& track = collection.scrollTrack.valid()
-		? collection.scrollTrack : fallbackTrack;
-	const auto& generatedThumb = collection.scrollThumb.valid()
-		? collection.scrollThumb : fallbackThumb;
-	if (collection.visibleRows == 0
-		|| collection.rows.size() <= collection.visibleRows
-		|| !track.valid())
+	const auto track = calypsoHdOperationsScrollTrack(collection, fallbackTrack);
+	const auto generatedThumb = calypsoHdOperationsScrollThumb(collection, fallbackThumb);
+	const std::size_t visible = calypsoHdOperationsVisibleRows(collection);
+	const std::size_t count = calypsoHdOperationsCollectionCount(collection);
+	if (visible == 0 || count <= visible || !track.valid()
+		|| calypsoHdOperationsScrollOffset(collection) > count - visible)
 		return {};
-	const std::size_t maxScroll = collection.rows.size() - collection.visibleRows;
-	const std::size_t offset = std::min(collection.scrollOffset, maxScroll);
+	const std::size_t maxScroll = count - visible;
+	const std::size_t offset = calypsoHdOperationsScrollOffset(collection);
 	constexpr int minimumHeight = 44;
 	const auto proportionalHeight = static_cast<int>(
-		(static_cast<long long>(track.h) * collection.visibleRows)
-		/ collection.rows.size());
+		(static_cast<long long>(track.h) * visible) / count);
 	const int thumbHeight = std::min(track.h,
 		std::max(minimumHeight, proportionalHeight));
 	const int travel = track.h - thumbHeight;
 	const int y = track.y + static_cast<int>(
 		(static_cast<long long>(travel) * offset) / maxScroll);
-	return {
-		generatedThumb.valid() ? generatedThumb.x : track.x,
-		y,
-		generatedThumb.valid() ? generatedThumb.w : track.w,
-		thumbHeight
-	};
+	return {generatedThumb.valid() ? generatedThumb.x : track.x, y,
+		generatedThumb.valid() ? generatedThumb.w : track.w, thumbHeight};
 }
 
 
-/// Clamp collection selection and scroll without changing row order or gameplay state.
+/// Explicit validation helper retained for callers that need to sanitize a
+/// local model snapshot. Renderers never call it: native selection/scroll are
+/// published exactly as read from their owner.
 inline void calypsoHdOperationsClampSelectionAndScroll(
 	CalypsoHdOperationsCollection& collection)
 {
@@ -388,6 +586,14 @@ inline bool calypsoHdOperationsActionReady(const CalypsoHdOperationsAction& acti
 			&& calypsoHdOperationsActionVisible(action)
 			&& calypsoHdOperationsHitTargetValid(action));
 }
+inline CalypsoHdOperationsRect calypsoHdOperationsCollectionViewport(
+	const CalypsoHdOperationsCollection& collection,
+	const CalypsoHdOperationsRect& fallback = {})
+{
+	return collection.scroll.viewport.valid() ? collection.scroll.viewport
+		: (collection.viewport.valid() ? collection.viewport : fallback);
+}
+
 
 inline bool calypsoHdOperationsModelReady(const CalypsoHdOperationsModel& model)
 {
@@ -424,14 +630,17 @@ inline bool calypsoHdOperationsModelReady(const CalypsoHdOperationsModel& model)
 	}
 	const auto& mainRowSlots = g.collectionRows.empty()
 		? model.collection.rowSlots : g.collectionRows;
+	const std::size_t rowCount = calypsoHdOperationsCollectionCount(model.collection);
+	const std::size_t visibleMainRows = std::min(
+		calypsoHdOperationsVisibleRows(model.collection), rowCount);
+	if (rowCount != model.collection.rows.size()) return false;
 	for (const auto& row : model.collection.rows)
 	{
-		if (row.values.size() > model.collection.columns.size()
+		if ((row.values.size() > model.collection.columns.size()
+				&& row.cells.size() > model.collection.columns.size())
 			|| row.widget == nullptr)
 			return false;
 	}
-	const std::size_t visibleMainRows = std::min(model.collection.visibleRows,
-		model.collection.rows.size());
 	if (mainRowSlots.size() < visibleMainRows) return false;
 	for (std::size_t i = 0; i < visibleMainRows; ++i)
 		if (!mainRowSlots[i].valid()) return false;
@@ -458,17 +667,22 @@ inline bool calypsoHdOperationsModelReady(const CalypsoHdOperationsModel& model)
 		case CalypsoHdOperationsRegionKind::Collection:
 		{
 			const auto& collection = region.collection;
+			const std::size_t count = calypsoHdOperationsCollectionCount(collection);
+			const std::size_t visible = calypsoHdOperationsVisibleRows(collection);
 			if (collection.columns.empty() || collection.columns.size() > 8
-				|| collection.rowSlots.size() > 64 || collection.visibleRows == 0
-				|| collection.rowHeight <= 0 || !collection.viewport.valid())
+				|| collection.rowSlots.size() > 64 || visible == 0
+				|| collection.rowHeight <= 0
+				|| !calypsoHdOperationsCollectionViewport(collection, region.rect).valid()
+				|| count != collection.rows.size())
 				return false;
 			for (const auto& row : collection.rows)
 			{
-				if (row.widget == nullptr || row.values.size() > collection.columns.size())
+				if (row.widget == nullptr
+					|| (row.values.size() > collection.columns.size()
+						&& row.cells.size() > collection.columns.size()))
 					return false;
 			}
-			const std::size_t visibleRows = std::min(collection.visibleRows,
-				collection.rows.size());
+			const std::size_t visibleRows = std::min(visible, count);
 			if (collection.rowSlots.size() < visibleRows) return false;
 			for (std::size_t i = 0; i < visibleRows; ++i)
 				if (!collection.rowSlots[i].valid()) return false;
@@ -480,7 +694,8 @@ inline bool calypsoHdOperationsModelReady(const CalypsoHdOperationsModel& model)
 	{
 		if (!g.summaryBar.valid() || !g.toolbarBar.valid() || !g.collectionViewport.valid()
 			|| !g.detailPanel.valid() || model.collection.columns.empty()
-			|| model.collection.visibleRows == 0 || model.collection.rowHeight <= 0
+			|| calypsoHdOperationsVisibleRows(model.collection) == 0
+			|| model.collection.rowHeight <= 0
 			|| (model.collection.rows.empty()
 				&& (model.collection.emptyTitle.empty()
 					|| model.collection.emptyBody.empty()))

@@ -6,6 +6,8 @@
 #include "../Engine/Game.h"
 #include "../Basescape/BasescapeState.h"
 #include "../Geoscape/GeoscapeState.h"
+#include "../Basescape/ResearchInfoState.h"
+#include "../Basescape/ManufactureInfoState.h"
 
 namespace OpenXcom
 {
@@ -37,12 +39,32 @@ void calypsoRequestStrategicRoute(Game *game, CalypsoStrategicRoute route)
 	g_pendingRoute.route = route;
 }
 
+void prepareHdStrategicExit(Game *game)
+{
+	if (game == nullptr)
+	{
+		return;
+	}
+	State *top = game->getTopState();
+	if (auto* research = dynamic_cast<ResearchInfoState*>(top))
+	{
+		research->prepareHdStrategicExit();
+	}
+	else if (auto* manufacture = dynamic_cast<ManufactureInfoState*>(top))
+	{
+		manufacture->prepareHdStrategicExit();
+	}
+}
+
 void calypsoNavigateToWorld(Game *game)
 {
 	if (game == nullptr) return;
 	while (game->getTopState() != nullptr
 		&& dynamic_cast<GeoscapeState*>(game->getTopState()) == nullptr)
+	{
+		prepareHdStrategicExit(game);
 		game->popState();
+	}
 }
 
 void calypsoNavigateToBases(Game *game)
@@ -51,7 +73,10 @@ void calypsoNavigateToBases(Game *game)
 	while (game->getTopState() != nullptr
 		&& dynamic_cast<BasescapeState*>(game->getTopState()) == nullptr
 		&& dynamic_cast<GeoscapeState*>(game->getTopState()) == nullptr)
+	{
+		prepareHdStrategicExit(game);
 		game->popState();
+	}
 	if (dynamic_cast<BasescapeState*>(game->getTopState()) != nullptr)
 		return;
 	if (auto* geoscape = dynamic_cast<GeoscapeState*>(game->getTopState()))

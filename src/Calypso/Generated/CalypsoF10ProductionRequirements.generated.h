@@ -39,9 +39,6 @@ struct CalypsoF10ProductionRequirementsGenLayout
 	CalypsoF10ProductionRequirementsGenRect region_requirements_collection_column_available;
 	CalypsoF10ProductionRequirementsGenRect region_requirements_collection_row_slot_1;
 	CalypsoF10ProductionRequirementsGenRect region_requirements_collection_row_slot_2;
-	CalypsoF10ProductionRequirementsGenRect region_requirements_collection_row_slot_3;
-	CalypsoF10ProductionRequirementsGenRect region_requirements_collection_row_slot_4;
-	CalypsoF10ProductionRequirementsGenRect region_requirements_collection_row_slot_5;
 	CalypsoF10ProductionRequirementsGenRect region_context;
 	CalypsoF10ProductionRequirementsGenRect region_context_label;
 	CalypsoF10ProductionRequirementsGenRect region_context_content;
@@ -63,11 +60,187 @@ struct CalypsoF10ProductionRequirementsGenLayout
 inline constexpr CalypsoF10ProductionRequirementsGenLayout kLayouts[] =
 {
 	// wide
-	{ 1280, 720, { 0, 0, 1280, 720 }, { 112, 96, 1144, 78 }, { 640, 96, 140, 78 }, { 130, 114, 480, 36 }, { 788, 113, 450, 44 }, { 112, 658, 1144, 44 }, { 112, 190, 560, 336 }, { 124, 202, 536, 20 }, { 124, 222, 536, 292 }, { 124, 222, 536, 292 }, { 642, 254, 18, 220 }, { 642, 254, 18, 220 }, { 124, 222, 160, 32 }, { 285, 222, 160, 32 }, { 446, 222, 160, 32 }, { 124, 254, 482, 44 }, { 124, 298, 482, 44 }, { 124, 342, 482, 44 }, { 124, 386, 482, 44 }, { 124, 430, 482, 44 }, { 688, 190, 568, 216 }, { 700, 202, 544, 20 }, { 700, 222, 544, 172 }, { 112, 538, 560, 108 }, { 124, 550, 536, 20 }, { 124, 570, 536, 20 }, { 124, 570, 241, 20 }, { 377, 570, 283, 20 }, { 124, 590, 536, 20 }, { 124, 590, 241, 20 }, { 377, 590, 283, 20 }, { 124, 610, 536, 20 }, { 124, 610, 241, 20 }, { 377, 610, 283, 20 }, { 898, 658, 158, 44 }, { 1066, 658, 158, 44 } },
+	{ 1280, 720, { 0, 0, 1280, 720 }, { 112, 96, 1144, 78 }, { 640, 96, 140, 78 }, { 130, 114, 480, 36 }, { 788, 113, 450, 44 }, { 112, 658, 1144, 44 }, { 112, 190, 560, 336 }, { 124, 202, 536, 20 }, { 124, 222, 536, 292 }, { 124, 222, 536, 292 }, { 642, 254, 18, 220 }, { 642, 254, 18, 220 }, { 124, 222, 186, 32 }, { 311, 222, 147, 32 }, { 459, 222, 147, 32 }, { 124, 254, 482, 44 }, { 124, 298, 482, 44 }, { 688, 190, 568, 216 }, { 700, 202, 544, 20 }, { 700, 222, 544, 172 }, { 112, 538, 560, 108 }, { 124, 550, 536, 20 }, { 124, 570, 536, 20 }, { 124, 570, 241, 20 }, { 377, 570, 283, 20 }, { 124, 590, 536, 20 }, { 124, 590, 241, 20 }, { 377, 590, 283, 20 }, { 124, 610, 536, 20 }, { 124, 610, 241, 20 }, { 377, 610, 283, 20 }, { 898, 658, 158, 44 }, { 1066, 658, 158, 44 } },
 	// compact
-	{ 740, 360, { 0, 0, 740, 360 }, { 52, 48, 680, 52 }, { 400, 48, 100, 52 }, { 62, 58, 330, 24 }, { 500, 52, 220, 44 }, { 52, 312, 680, 44 }, { 52, 108, 360, 196 }, { 60, 116, 344, 16 }, { 60, 132, 344, 164 }, { 60, 132, 344, 164 }, { 386, 156, 18, 88 }, { 386, 156, 18, 88 }, { 60, 132, 96, 24 }, { 157, 132, 96, 24 }, { 254, 132, 98, 24 }, { 60, 156, 292, 44 }, { 60, 200, 292, 44 }, { 60, 200, 292, 44 }, { 60, 200, 292, 44 }, { 60, 200, 292, 44 }, { 420, 196, 312, 108 }, { 428, 204, 296, 16 }, { 428, 220, 296, 76 }, { 420, 108, 312, 80 }, { 428, 116, 296, 16 }, { 428, 132, 296, 16 }, { 428, 132, 177, 16 }, { 613, 132, 111, 16 }, { 428, 148, 296, 16 }, { 428, 148, 177, 16 }, { 613, 148, 111, 16 }, { 428, 164, 296, 16 }, { 428, 164, 177, 16 }, { 613, 164, 111, 16 }, { 492, 312, 110, 44 }, { 614, 312, 110, 44 } },
+	{ 740, 360, { 0, 0, 740, 360 }, { 52, 48, 680, 52 }, { 400, 48, 100, 52 }, { 62, 58, 330, 24 }, { 500, 52, 220, 44 }, { 52, 312, 680, 44 }, { 52, 108, 360, 196 }, { 60, 116, 344, 16 }, { 60, 132, 344, 164 }, { 60, 132, 344, 164 }, { 386, 156, 18, 88 }, { 386, 156, 18, 88 }, { 60, 132, 108, 24 }, { 169, 132, 91, 24 }, { 261, 132, 91, 24 }, { 60, 156, 292, 44 }, { 60, 200, 292, 44 }, { 420, 196, 312, 108 }, { 428, 204, 296, 16 }, { 428, 220, 296, 76 }, { 420, 108, 312, 80 }, { 428, 116, 296, 16 }, { 428, 132, 296, 16 }, { 428, 132, 177, 16 }, { 613, 132, 111, 16 }, { 428, 148, 296, 16 }, { 428, 148, 177, 16 }, { 613, 148, 111, 16 }, { 428, 164, 296, 16 }, { 428, 164, 177, 16 }, { 613, 164, 111, 16 }, { 492, 312, 110, 44 }, { 614, 312, 110, 44 } },
 };
 inline constexpr int kLayoutCount = 2;
+
+inline constexpr const char* kSourceConfig = "FormConfigs/f10-production-requirements.json";
+inline constexpr const char* kPresentationProfile = "requirements-summary";
+inline constexpr const char* kProvenanceTemplate = "FormTemplates/operations-detail.json";
+inline constexpr int kProvenanceTemplateVersion = 2;
+inline constexpr const char* kProvenanceGeneratorKind = "detail";
+inline constexpr const char* kProfileId = "operations-ac";
+inline constexpr const char* kProfileVersion = "hd.2026-09-10.1";
+inline constexpr const char* kProfileThemeSource = "CommandCenter/CommandCenterTheme.h";
+inline constexpr const char* kProfileThemeSourceHash = "8c4eb7f074fe2868aac3d0835b324d42f4d57ca727dcea7ab1e16220c19e53b2";
+
+struct CalypsoF10ProductionRequirementsGenActionTone
+{
+	const char* id;
+	std::uint32_t fill;
+	std::uint32_t border;
+	std::uint32_t text;
+};
+inline constexpr CalypsoF10ProductionRequirementsGenActionTone kActionTones[] = {
+    { "normal", 0x071624FFu, 0x173246FFu, 0xE7F0F3FFu },
+    { "safe", 0x071624FFu, 0x285267FFu, 0xE7F0F3FFu },
+    { "primary", 0x81E0B5FFu, 0x81E0B5FFu, 0x03130DFFu },
+    { "warning", 0xF2C56DFFu, 0xF2C56DFFu, 0x03130DFFu },
+    { "danger", 0xFF6E72FFu, 0xFF6E72FFu, 0xE7F0F3FFu },
+};
+inline constexpr int kActionToneCount = 5;
+
+struct CalypsoF10ProductionRequirementsGenColumnRole
+{
+	const char* id;
+	int weight;
+	int minWidth;
+	const char* font;
+	const char* align;
+};
+inline constexpr CalypsoF10ProductionRequirementsGenColumnRole kColumnRoles[] = {
+    { "category", 3, 72, "body", "left" },
+    { "count", 1, 64, "data", "right" },
+    { "date", 2, 72, "data", "right" },
+    { "money", 2, 72, "data", "right" },
+    { "name", 6, 96, "body", "left" },
+    { "quantity", 2, 64, "data", "right" },
+    { "status", 2, 64, "body", "left" },
+    { "time", 2, 64, "data", "right" },
+    { "type", 1, 64, "data", "right" },
+};
+inline constexpr int kColumnRoleCount = 9;
+
+struct CalypsoF10ProductionRequirementsGenCollectionCell
+{
+	const char* id;
+	CalypsoF10ProductionRequirementsGenRect rect;
+	const char* contentRole;
+	const char* font;
+	const char* align;
+	int minWidth;
+	int weight;
+};
+struct CalypsoF10ProductionRequirementsGenCollectionRowSlot
+{
+	const char* id;
+	CalypsoF10ProductionRequirementsGenRect rect;
+	const CalypsoF10ProductionRequirementsGenCollectionCell* cells;
+	int cellCount;
+};
+struct CalypsoF10ProductionRequirementsGenCollectionMetrics
+{
+	int totalItems;
+	int visibleCapacity;
+	int totalUnits;
+	int visibleUnits;
+	int itemsPerUnit;
+	const char* scrollUnit;
+	bool overflow;
+	int scrollSteps;
+	CalypsoF10ProductionRequirementsGenRect track;
+	CalypsoF10ProductionRequirementsGenRect thumb;
+	CalypsoF10ProductionRequirementsGenRect trackHitTarget;
+	CalypsoF10ProductionRequirementsGenRect thumbHitTarget;
+	int thumbTravelPx;
+};
+struct CalypsoF10ProductionRequirementsGenCollectionLayout
+{
+	const char* id;
+	const CalypsoF10ProductionRequirementsGenCollectionCell* columns;
+	int columnCount;
+	const CalypsoF10ProductionRequirementsGenCollectionRowSlot* rowSlots;
+	int rowSlotCount;
+	int count;
+	CalypsoF10ProductionRequirementsGenCollectionMetrics metrics;
+};
+
+inline constexpr CalypsoF10ProductionRequirementsGenCollectionCell kRegionRequirementsCollectionColumnHeadersWide[] = {
+    { "item", { 124, 222, 186, 32 }, "name", "body", "left", 120, 6 },
+    { "required", { 311, 222, 147, 32 }, "count", "data", "right", 136, 1 },
+    { "available", { 459, 222, 147, 32 }, "count", "data", "right", 136, 1 },
+};
+inline constexpr CalypsoF10ProductionRequirementsGenCollectionCell kRegionRequirementsCollectionRowSlot1CellsWide[] = {
+    { "item", { 124, 254, 186, 44 }, "name", "body", "left", 120, 6 },
+    { "required", { 311, 254, 147, 44 }, "count", "data", "right", 136, 1 },
+    { "available", { 459, 254, 147, 44 }, "count", "data", "right", 136, 1 },
+};
+inline constexpr CalypsoF10ProductionRequirementsGenCollectionCell kRegionRequirementsCollectionRowSlot2CellsWide[] = {
+    { "item", { 124, 298, 186, 44 }, "name", "body", "left", 120, 6 },
+    { "required", { 311, 298, 147, 44 }, "count", "data", "right", 136, 1 },
+    { "available", { 459, 298, 147, 44 }, "count", "data", "right", 136, 1 },
+};
+inline constexpr CalypsoF10ProductionRequirementsGenCollectionCell kRegionRequirementsCollectionRowSlot3CellsWide[] = {
+    { "item", { 124, 342, 186, 44 }, "name", "body", "left", 120, 6 },
+    { "required", { 311, 342, 147, 44 }, "count", "data", "right", 136, 1 },
+    { "available", { 459, 342, 147, 44 }, "count", "data", "right", 136, 1 },
+};
+inline constexpr CalypsoF10ProductionRequirementsGenCollectionCell kRegionRequirementsCollectionRowSlot4CellsWide[] = {
+    { "item", { 124, 386, 186, 44 }, "name", "body", "left", 120, 6 },
+    { "required", { 311, 386, 147, 44 }, "count", "data", "right", 136, 1 },
+    { "available", { 459, 386, 147, 44 }, "count", "data", "right", 136, 1 },
+};
+inline constexpr CalypsoF10ProductionRequirementsGenCollectionCell kRegionRequirementsCollectionRowSlot5CellsWide[] = {
+    { "item", { 124, 430, 186, 44 }, "name", "body", "left", 120, 6 },
+    { "required", { 311, 430, 147, 44 }, "count", "data", "right", 136, 1 },
+    { "available", { 459, 430, 147, 44 }, "count", "data", "right", 136, 1 },
+};
+inline constexpr CalypsoF10ProductionRequirementsGenCollectionRowSlot kRegionRequirementsCollectionRowSlotsWide[] = {
+    { "row-slot-1", { 124, 254, 482, 44 }, kRegionRequirementsCollectionRowSlot1CellsWide, 3 },
+    { "row-slot-2", { 124, 298, 482, 44 }, kRegionRequirementsCollectionRowSlot2CellsWide, 3 },
+    { "row-slot-3", { 124, 342, 482, 44 }, kRegionRequirementsCollectionRowSlot3CellsWide, 3 },
+    { "row-slot-4", { 124, 386, 482, 44 }, kRegionRequirementsCollectionRowSlot4CellsWide, 3 },
+    { "row-slot-5", { 124, 430, 482, 44 }, kRegionRequirementsCollectionRowSlot5CellsWide, 3 },
+};
+inline constexpr int kRegionRequirementsCollectionRowSlotWideCount = 5;
+inline constexpr CalypsoF10ProductionRequirementsGenCollectionMetrics kRegionRequirementsCollectionMetricsWide = { 1, 5, 1, 5, 1, "record", false, 0, { 642, 254, 18, 220 }, { 642, 254, 18, 220 }, { 616, 254, 44, 220 }, { 616, 254, 44, 220 }, 0 };
+
+inline constexpr CalypsoF10ProductionRequirementsGenCollectionCell kRegionRequirementsCollectionColumnHeadersCompact[] = {
+    { "item", { 60, 132, 108, 24 }, "name", "body", "left", 96, 6 },
+    { "required", { 169, 132, 91, 24 }, "count", "data", "right", 89, 1 },
+    { "available", { 261, 132, 91, 24 }, "count", "data", "right", 89, 1 },
+};
+inline constexpr CalypsoF10ProductionRequirementsGenCollectionCell kRegionRequirementsCollectionRowSlot1CellsCompact[] = {
+    { "item", { 60, 156, 108, 44 }, "name", "body", "left", 96, 6 },
+    { "required", { 169, 156, 91, 44 }, "count", "data", "right", 89, 1 },
+    { "available", { 261, 156, 91, 44 }, "count", "data", "right", 89, 1 },
+};
+inline constexpr CalypsoF10ProductionRequirementsGenCollectionCell kRegionRequirementsCollectionRowSlot2CellsCompact[] = {
+    { "item", { 60, 200, 108, 44 }, "name", "body", "left", 96, 6 },
+    { "required", { 169, 200, 91, 44 }, "count", "data", "right", 89, 1 },
+    { "available", { 261, 200, 91, 44 }, "count", "data", "right", 89, 1 },
+};
+inline constexpr CalypsoF10ProductionRequirementsGenCollectionRowSlot kRegionRequirementsCollectionRowSlotsCompact[] = {
+    { "row-slot-1", { 60, 156, 292, 44 }, kRegionRequirementsCollectionRowSlot1CellsCompact, 3 },
+    { "row-slot-2", { 60, 200, 292, 44 }, kRegionRequirementsCollectionRowSlot2CellsCompact, 3 },
+};
+inline constexpr int kRegionRequirementsCollectionRowSlotCompactCount = 2;
+inline constexpr CalypsoF10ProductionRequirementsGenCollectionMetrics kRegionRequirementsCollectionMetricsCompact = { 1, 2, 1, 2, 1, "record", false, 0, { 386, 156, 18, 88 }, { 386, 156, 18, 88 }, { 360, 156, 44, 88 }, { 360, 156, 44, 88 }, 0 };
+
+inline constexpr CalypsoF10ProductionRequirementsGenCollectionLayout kCollectionsWide[1] = {
+    { "region.requirements.collection", kRegionRequirementsCollectionColumnHeadersWide, 3, kRegionRequirementsCollectionRowSlotsWide, 5, 1, kRegionRequirementsCollectionMetricsWide },
+};
+inline constexpr int kCollectionLayoutWideCount = 1;
+inline constexpr CalypsoF10ProductionRequirementsGenCollectionLayout kCollectionsCompact[1] = {
+    { "region.requirements.collection", kRegionRequirementsCollectionColumnHeadersCompact, 3, kRegionRequirementsCollectionRowSlotsCompact, 2, 1, kRegionRequirementsCollectionMetricsCompact },
+};
+inline constexpr int kCollectionLayoutCompactCount = 1;
+
+struct CalypsoF10ProductionRequirementsGenActionSlot { const char* id; CalypsoF10ProductionRequirementsGenRect rect; };
+struct CalypsoF10ProductionRequirementsGenStrictActionSlotGroup
+{
+	const char* id;
+	const CalypsoF10ProductionRequirementsGenActionSlot* slots;
+	int slotCount;
+};
+inline constexpr CalypsoF10ProductionRequirementsGenStrictActionSlotGroup kStrictActionSlotGroupsWide[1] = {
+};
+inline constexpr int kStrictActionSlotGroupWideCount = 0;
+inline constexpr CalypsoF10ProductionRequirementsGenStrictActionSlotGroup kStrictActionSlotGroupsCompact[1] = {
+};
+inline constexpr int kStrictActionSlotGroupCompactCount = 0;
 
 /// Layout for a design canvas, or nullptr (the harness never guesses).
 inline const CalypsoF10ProductionRequirementsGenLayout* layoutForDesign(int dw, int dh)

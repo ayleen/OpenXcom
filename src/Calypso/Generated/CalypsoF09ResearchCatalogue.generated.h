@@ -41,9 +41,6 @@ struct CalypsoF09ResearchCatalogueGenLayout
 	CalypsoF09ResearchCatalogueGenRect collection_column_status;
 	CalypsoF09ResearchCatalogueGenRect collection_row_slot_1;
 	CalypsoF09ResearchCatalogueGenRect collection_row_slot_2;
-	CalypsoF09ResearchCatalogueGenRect collection_row_slot_3;
-	CalypsoF09ResearchCatalogueGenRect collection_row_slot_4;
-	CalypsoF09ResearchCatalogueGenRect collection_row_slot_5;
 	CalypsoF09ResearchCatalogueGenRect detailPanel;
 	CalypsoF09ResearchCatalogueGenRect detail_selected_project;
 	CalypsoF09ResearchCatalogueGenRect detail_selected_project_label;
@@ -60,11 +57,178 @@ struct CalypsoF09ResearchCatalogueGenLayout
 inline constexpr CalypsoF09ResearchCatalogueGenLayout kLayouts[] =
 {
 	// wide
-	{ 1280, 720, { 0, 0, 1280, 720 }, { 112, 96, 1144, 78 }, { 640, 96, 360, 78 }, { 130, 119, 480, 36 }, { 1000, 96, 256, 78 }, { 112, 190, 816, 44 }, { 112, 234, 816, 412 }, { 112, 658, 1144, 44 }, { 92, 158, 414, 44 }, { 514, 158, 414, 44 }, { 338, 190, 190, 44 }, { 538, 190, 190, 44 }, { 738, 190, 190, 44 }, { 910, 270, 18, 250 }, { 910, 270, 18, 208 }, { 112, 234, 380, 36 }, { 493, 234, 381, 36 }, { 112, 270, 762, 50 }, { 112, 320, 762, 50 }, { 112, 370, 762, 50 }, { 112, 420, 762, 50 }, { 112, 470, 762, 50 }, { 944, 190, 312, 456 }, { 944, 190, 312, 456 }, { 956, 202, 288, 24 }, { 956, 226, 288, 24 }, { 956, 250, 288, 24 }, { 956, 274, 288, 58 }, { 956, 590, 90, 44 }, { 1054, 590, 90, 44 }, { 1152, 590, 92, 44 }, { 112, 658, 158, 44 }, { 1098, 658, 158, 44 } },
+	{ 1280, 720, { 0, 0, 1280, 720 }, { 112, 96, 1144, 78 }, { 640, 96, 360, 78 }, { 130, 119, 480, 36 }, { 1000, 96, 256, 78 }, { 112, 190, 816, 44 }, { 112, 234, 816, 412 }, { 112, 658, 1144, 44 }, { 92, 158, 414, 44 }, { 514, 158, 414, 44 }, { 338, 190, 190, 44 }, { 538, 190, 190, 44 }, { 738, 190, 190, 44 }, { 910, 270, 18, 250 }, { 910, 270, 18, 208 }, { 112, 234, 547, 36 }, { 660, 234, 214, 36 }, { 112, 270, 762, 50 }, { 112, 320, 762, 50 }, { 944, 190, 312, 456 }, { 944, 190, 312, 456 }, { 956, 202, 288, 24 }, { 956, 226, 288, 24 }, { 956, 250, 288, 24 }, { 956, 274, 288, 58 }, { 956, 590, 90, 44 }, { 1054, 590, 90, 44 }, { 1152, 590, 92, 44 }, { 112, 658, 158, 44 }, { 1098, 658, 158, 44 } },
 	// compact
-	{ 740, 360, { 0, 0, 740, 360 }, { 52, 48, 680, 52 }, { 420, 48, 170, 52 }, { 60, 61, 350, 26 }, { 590, 48, 142, 52 }, { 52, 108, 466, 44 }, { 52, 152, 466, 152 }, { 52, 312, 680, 44 }, { 52, 102, 230, 44 }, { 288, 102, 230, 44 }, { 190, 108, 104, 44 }, { 302, 108, 104, 44 }, { 414, 108, 104, 44 }, { 500, 180, 18, 88 }, { 500, 180, 18, 44 }, { 52, 152, 206, 28 }, { 259, 152, 207, 28 }, { 52, 180, 414, 44 }, { 52, 224, 414, 44 }, { 52, 224, 414, 44 }, { 52, 224, 414, 44 }, { 52, 224, 414, 44 }, { 526, 108, 206, 196 }, { 526, 108, 206, 196 }, { 532, 114, 194, 16 }, { 532, 130, 194, 14 }, { 532, 144, 194, 14 }, { 532, 158, 194, 28 }, { 532, 254, 60, 44 }, { 598, 254, 60, 44 }, { 664, 254, 62, 44 }, { 52, 312, 120, 44 }, { 612, 312, 120, 44 } },
+	{ 740, 360, { 0, 0, 740, 360 }, { 52, 48, 680, 52 }, { 420, 48, 170, 52 }, { 60, 61, 350, 26 }, { 590, 48, 142, 52 }, { 52, 108, 466, 44 }, { 52, 152, 466, 152 }, { 52, 312, 680, 44 }, { 52, 102, 230, 44 }, { 288, 102, 230, 44 }, { 190, 108, 104, 44 }, { 302, 108, 104, 44 }, { 414, 108, 104, 44 }, { 500, 180, 18, 88 }, { 500, 180, 18, 44 }, { 52, 152, 286, 28 }, { 339, 152, 127, 28 }, { 52, 180, 414, 44 }, { 52, 224, 414, 44 }, { 526, 108, 206, 196 }, { 526, 108, 206, 196 }, { 532, 114, 194, 16 }, { 532, 130, 194, 14 }, { 532, 144, 194, 14 }, { 532, 158, 194, 28 }, { 532, 254, 60, 44 }, { 598, 254, 60, 44 }, { 664, 254, 62, 44 }, { 52, 312, 120, 44 }, { 612, 312, 120, 44 } },
 };
 inline constexpr int kLayoutCount = 2;
+
+inline constexpr const char* kSourceConfig = "FormConfigs/f09-research-catalogue.json";
+inline constexpr const char* kPresentationProfile = "list-inspector";
+inline constexpr const char* kProvenanceTemplate = "FormTemplates/operations-workspace.json";
+inline constexpr int kProvenanceTemplateVersion = 4;
+inline constexpr const char* kProvenanceGeneratorKind = "operations";
+inline constexpr const char* kProfileId = "operations-ac";
+inline constexpr const char* kProfileVersion = "hd.2026-09-10.1";
+inline constexpr const char* kProfileThemeSource = "CommandCenter/CommandCenterTheme.h";
+inline constexpr const char* kProfileThemeSourceHash = "8c4eb7f074fe2868aac3d0835b324d42f4d57ca727dcea7ab1e16220c19e53b2";
+
+struct CalypsoF09ResearchCatalogueGenActionTone
+{
+	const char* id;
+	std::uint32_t fill;
+	std::uint32_t border;
+	std::uint32_t text;
+};
+inline constexpr CalypsoF09ResearchCatalogueGenActionTone kActionTones[] = {
+    { "normal", 0x071624FFu, 0x173246FFu, 0xE7F0F3FFu },
+    { "safe", 0x071624FFu, 0x285267FFu, 0xE7F0F3FFu },
+    { "primary", 0x81E0B5FFu, 0x81E0B5FFu, 0x03130DFFu },
+    { "warning", 0xF2C56DFFu, 0xF2C56DFFu, 0x03130DFFu },
+    { "danger", 0xFF6E72FFu, 0xFF6E72FFu, 0xE7F0F3FFu },
+};
+inline constexpr int kActionToneCount = 5;
+
+struct CalypsoF09ResearchCatalogueGenColumnRole
+{
+	const char* id;
+	int weight;
+	int minWidth;
+	const char* font;
+	const char* align;
+};
+inline constexpr CalypsoF09ResearchCatalogueGenColumnRole kColumnRoles[] = {
+    { "category", 3, 72, "body", "left" },
+    { "count", 1, 64, "data", "right" },
+    { "date", 2, 72, "data", "right" },
+    { "money", 2, 72, "data", "right" },
+    { "name", 6, 96, "body", "left" },
+    { "quantity", 2, 64, "data", "right" },
+    { "status", 2, 64, "body", "left" },
+    { "time", 2, 64, "data", "right" },
+    { "type", 1, 64, "data", "right" },
+};
+inline constexpr int kColumnRoleCount = 9;
+
+struct CalypsoF09ResearchCatalogueGenCollectionCell
+{
+	const char* id;
+	CalypsoF09ResearchCatalogueGenRect rect;
+	const char* contentRole;
+	const char* font;
+	const char* align;
+	int minWidth;
+	int weight;
+};
+struct CalypsoF09ResearchCatalogueGenCollectionRowSlot
+{
+	const char* id;
+	CalypsoF09ResearchCatalogueGenRect rect;
+	const CalypsoF09ResearchCatalogueGenCollectionCell* cells;
+	int cellCount;
+};
+struct CalypsoF09ResearchCatalogueGenCollectionMetrics
+{
+	int totalItems;
+	int visibleCapacity;
+	int totalUnits;
+	int visibleUnits;
+	int itemsPerUnit;
+	const char* scrollUnit;
+	bool overflow;
+	int scrollSteps;
+	CalypsoF09ResearchCatalogueGenRect track;
+	CalypsoF09ResearchCatalogueGenRect thumb;
+	CalypsoF09ResearchCatalogueGenRect trackHitTarget;
+	CalypsoF09ResearchCatalogueGenRect thumbHitTarget;
+	int thumbTravelPx;
+};
+struct CalypsoF09ResearchCatalogueGenCollectionLayout
+{
+	const char* id;
+	const CalypsoF09ResearchCatalogueGenCollectionCell* columns;
+	int columnCount;
+	const CalypsoF09ResearchCatalogueGenCollectionRowSlot* rowSlots;
+	int rowSlotCount;
+	int count;
+	CalypsoF09ResearchCatalogueGenCollectionMetrics metrics;
+};
+
+inline constexpr CalypsoF09ResearchCatalogueGenCollectionCell kCollectionColumnHeadersWide[] = {
+    { "project", { 112, 234, 547, 36 }, "name", "body", "left", 96, 6 },
+    { "status", { 660, 234, 214, 36 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF09ResearchCatalogueGenCollectionCell kCollectionRowSlot1CellsWide[] = {
+    { "project", { 112, 270, 547, 50 }, "name", "body", "left", 96, 6 },
+    { "status", { 660, 270, 214, 50 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF09ResearchCatalogueGenCollectionCell kCollectionRowSlot2CellsWide[] = {
+    { "project", { 112, 320, 547, 50 }, "name", "body", "left", 96, 6 },
+    { "status", { 660, 320, 214, 50 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF09ResearchCatalogueGenCollectionCell kCollectionRowSlot3CellsWide[] = {
+    { "project", { 112, 370, 547, 50 }, "name", "body", "left", 96, 6 },
+    { "status", { 660, 370, 214, 50 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF09ResearchCatalogueGenCollectionCell kCollectionRowSlot4CellsWide[] = {
+    { "project", { 112, 420, 547, 50 }, "name", "body", "left", 96, 6 },
+    { "status", { 660, 420, 214, 50 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF09ResearchCatalogueGenCollectionCell kCollectionRowSlot5CellsWide[] = {
+    { "project", { 112, 470, 547, 50 }, "name", "body", "left", 96, 6 },
+    { "status", { 660, 470, 214, 50 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF09ResearchCatalogueGenCollectionRowSlot kCollectionRowSlotsWide[] = {
+    { "row-slot-1", { 112, 270, 762, 50 }, kCollectionRowSlot1CellsWide, 2 },
+    { "row-slot-2", { 112, 320, 762, 50 }, kCollectionRowSlot2CellsWide, 2 },
+    { "row-slot-3", { 112, 370, 762, 50 }, kCollectionRowSlot3CellsWide, 2 },
+    { "row-slot-4", { 112, 420, 762, 50 }, kCollectionRowSlot4CellsWide, 2 },
+    { "row-slot-5", { 112, 470, 762, 50 }, kCollectionRowSlot5CellsWide, 2 },
+};
+inline constexpr int kCollectionRowSlotWideCount = 5;
+inline constexpr CalypsoF09ResearchCatalogueGenCollectionMetrics kCollectionMetricsWide = { 6, 5, 6, 5, 1, "record", true, 1, { 910, 270, 18, 250 }, { 910, 270, 18, 208 }, { 884, 270, 44, 250 }, { 884, 270, 44, 208 }, 42 };
+
+inline constexpr CalypsoF09ResearchCatalogueGenCollectionCell kCollectionColumnHeadersCompact[] = {
+    { "project", { 52, 152, 286, 28 }, "name", "body", "left", 96, 6 },
+    { "status", { 339, 152, 127, 28 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF09ResearchCatalogueGenCollectionCell kCollectionRowSlot1CellsCompact[] = {
+    { "project", { 52, 180, 286, 44 }, "name", "body", "left", 96, 6 },
+    { "status", { 339, 180, 127, 44 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF09ResearchCatalogueGenCollectionCell kCollectionRowSlot2CellsCompact[] = {
+    { "project", { 52, 224, 286, 44 }, "name", "body", "left", 96, 6 },
+    { "status", { 339, 224, 127, 44 }, "status", "body", "left", 64, 2 },
+};
+inline constexpr CalypsoF09ResearchCatalogueGenCollectionRowSlot kCollectionRowSlotsCompact[] = {
+    { "row-slot-1", { 52, 180, 414, 44 }, kCollectionRowSlot1CellsCompact, 2 },
+    { "row-slot-2", { 52, 224, 414, 44 }, kCollectionRowSlot2CellsCompact, 2 },
+};
+inline constexpr int kCollectionRowSlotCompactCount = 2;
+inline constexpr CalypsoF09ResearchCatalogueGenCollectionMetrics kCollectionMetricsCompact = { 6, 2, 6, 2, 1, "record", true, 4, { 500, 180, 18, 88 }, { 500, 180, 18, 44 }, { 474, 180, 44, 88 }, { 474, 180, 44, 44 }, 44 };
+
+inline constexpr CalypsoF09ResearchCatalogueGenCollectionLayout kCollectionsWide[1] = {
+    { "collection", kCollectionColumnHeadersWide, 2, kCollectionRowSlotsWide, 5, 5, kCollectionMetricsWide },
+};
+inline constexpr int kCollectionLayoutWideCount = 1;
+inline constexpr CalypsoF09ResearchCatalogueGenCollectionLayout kCollectionsCompact[1] = {
+    { "collection", kCollectionColumnHeadersCompact, 2, kCollectionRowSlotsCompact, 2, 2, kCollectionMetricsCompact },
+};
+inline constexpr int kCollectionLayoutCompactCount = 1;
+
+struct CalypsoF09ResearchCatalogueGenActionSlot { const char* id; CalypsoF09ResearchCatalogueGenRect rect; };
+struct CalypsoF09ResearchCatalogueGenStrictActionSlotGroup
+{
+	const char* id;
+	const CalypsoF09ResearchCatalogueGenActionSlot* slots;
+	int slotCount;
+};
+inline constexpr CalypsoF09ResearchCatalogueGenStrictActionSlotGroup kStrictActionSlotGroupsWide[1] = {
+};
+inline constexpr int kStrictActionSlotGroupWideCount = 0;
+inline constexpr CalypsoF09ResearchCatalogueGenStrictActionSlotGroup kStrictActionSlotGroupsCompact[1] = {
+};
+inline constexpr int kStrictActionSlotGroupCompactCount = 0;
 
 /// Layout for a design canvas, or nullptr (the harness never guesses).
 inline const CalypsoF09ResearchCatalogueGenLayout* layoutForDesign(int dw, int dh)

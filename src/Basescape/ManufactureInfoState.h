@@ -63,6 +63,8 @@ private:
 	void initProfitInfo ();
 	/// Calculates the monthly change in funds due to the job
 	int getMonthlyNetFunds () const;
+	/// Applies the sell/fallback choices made in the dialog.
+	void applyDeferredProductionOptions();
 	/// Handler for the Sell button.
 	void btnSellClick (Action * action);
 	/// Handler for the Stop button.
@@ -136,7 +138,13 @@ public:
 private:
 	bool _hdLayout = false;
 	bool _hdWideLayout = false;
+	bool _hdStrategicExitPrepared = false;
 	Calypso::CalypsoF10ProductionUi *_hdAdapter = nullptr;
+public:
+	/// Finalizes gameplay state before strategic navigation pops this state.
+	void prepareHdStrategicExit();
+	/// Removes a new, unstarted production without starting or refunding it.
+	void cancelUnstartedProductionForHdExit();
 public:
 	void resize(int &dX, int &dY) override;
 #endif
