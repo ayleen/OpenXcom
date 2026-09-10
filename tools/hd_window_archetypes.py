@@ -6,8 +6,10 @@ all geometry, density, limits, style, and motion remain template-owned.
 """
 
 import copy
+import hashlib
+import json
+import os
 import re
-
 
 ID_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 VERSION_RE = re.compile(r"^[A-Za-z0-9._-]+$")
@@ -21,20 +23,36 @@ COMMON_CONFIG_FIELDS = {
     "title",
     "actions",
 }
-COMMON_CONFIG_OPTIONAL_FIELDS = {"state", "labelKeys"}
+COMMON_CONFIG_OPTIONAL_FIELDS = {
+    "state", "labelKeys", "presentation", "contentRole",
+}
 ACTION_FIELDS = {"id", "label", "tone", "action"}
 ACTION_OPTIONAL_FIELDS = {"labelKey"}
 CONTROL_COMMON_FIELDS = {"id", "label", "kind", "action"}
 CONTROL_OPTIONAL_FIELDS = {"labelKey"}
 LABEL_KEY_RE = re.compile(r"^[A-Z][A-Z0-9_]*$")
+OPS_WORKSPACE_PRESENTATIONS = {"list-inspector", "table-context"}
+OPS_DETAIL_PRESENTATIONS = {"controls-summary", "requirements-summary", "dependency-list"}
+OPS_COLUMN_ROLES = {
+    "name", "category", "status", "count", "quantity",
+    "money", "time", "date", "type",
+}
+OPERATIONS_TEMPLATE_VERSIONS = {
+    "operations-workspace": 4,
+    "operations-detail": 2,
+}
+OPERATIONS_PROFILE_ID = "operations-ac"
+OPERATIONS_PROFILE_VERSION = "hd.2026-09-10.1"
 STATE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
 TEMPLATE_FIELDS = {
     "schema",
     "id",
     "version",
     "generatorKind",
+    "styleProfile",
     "supportedButtonTones",
     "buttonToneStyles",
+    "buttonToneTokens",
     "limits",
     "style",
     "layouts",
@@ -317,6 +335,119 @@ def _strict(obj, required, optional, label):
     if missing:
         raise ArchetypeError(label + " is missing fields: " + ", ".join(missing))
 
+PROFILE_BASE = os.path.normpath(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src", "Calypso")
+)
+TOKEN_RE = re.compile(
+    r"inline\s+constexpr\s+Color8\s+([A-Za-z_][A-Za-z0-9_]*)\s*\{\s*"
+    r"0x([0-9A-Fa-f]{2})\s*,\s*0x([0-9A-Fa-f]{2})\s*,\s*"
+    r"0x([0-9A-Fa-f]{2})\s*,\s*0x([0-9A-Fa-f]{2})\s*\}"
+)
+
+
+def _load_operations_profile(template):
+    profile_name = template.get("styleProfile")
+    if not isinstance(profile_name, str) or not profile_name:
+        raise ArchetypeError("operations template.styleProfile is required")
+    profile_path = os.path.normpath(os.path.join(PROFILE_BASE, profile_name))
+    if not profile_path.startswith(PROFILE_BASE + os.sep) or not os.path.isfile(profile_path):
+        raise ArchetypeError("operations style profile is missing: " + profile_name)
+    try:
+        with open(profile_path, "r", encoding="utf-8") as handle:
+            profile = json.load(handle)
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ArchetypeError("operations style profile is not parseable: " + str(exc))
+    _strict(profile, {"schema", "id", "version", "theme", "actionTones",
+                      "columnRoles", "layouts", "art", "minimumHitTarget"}, set(),
+            "operations style profile")
+    if profile["schema"] != 1 or profile["id"] != OPERATIONS_PROFILE_ID:
+        raise ArchetypeError("operations style profile schema/id is invalid")
+    if profile["version"] != OPERATIONS_PROFILE_VERSION:
+        raise ArchetypeError("operations style profile version is stale")
+    theme = profile["theme"]
+    _strict(theme, {"source", "sourceHash", "tokens"}, set(),
+            "operations style profile.theme")
+    theme_path = os.path.normpath(os.path.join(PROFILE_BASE, theme["source"]))
+    if not theme_path.startswith(PROFILE_BASE + os.sep) or not os.path.isfile(theme_path):
+        raise ArchetypeError("operations theme source is missing: " + theme["source"])
+    with open(theme_path, "rb") as handle:
+        source = handle.read()
+    actual_hash = hashlib.sha256(source).hexdigest()
+    if actual_hash != theme["sourceHash"]:
+        raise ArchetypeError("operations theme source hash is stale")
+    values = {
+        name: "".join(ch.upper() for ch in rgba)
+        for name, *rgba in TOKEN_RE.findall(source.decode("utf-8"))
+    }
+    if not values:
+        raise ArchetypeError("operations theme source has no parseable Color8 tokens")
+    resolved_tokens = {}
+    for name, token in theme["tokens"].items():
+        if not isinstance(token, str) or token not in values:
+            raise ArchetypeError("operations profile token is missing: " + str(token))
+        resolved_tokens[name] = values[token]
+    tone_tokens = profile["actionTones"]
+    if set(tone_tokens) != {"normal", "safe", "primary", "warning", "danger"}:
+        raise ArchetypeError("operations profile action tones are incomplete")
+    resolved_tones = {}
+    for tone, refs in tone_tokens.items():
+        _strict(refs, {"fill", "border", "text"}, set(),
+                "operations profile.actionTones." + tone)
+        resolved_tones[tone] = {}
+        for field, token in refs.items():
+            if not isinstance(token, str) or token not in values:
+                raise ArchetypeError(
+                    "operations profile action token is missing: " + str(token)
+                )
+            resolved_tones[tone][field] = values[token]
+    resolved_roles = {}
+    for role, policy in profile["columnRoles"].items():
+        if role not in OPS_COLUMN_ROLES:
+            raise ArchetypeError("operations profile column role is unsupported: " + str(role))
+        _strict(policy, {"weight", "minWidth", "font", "align"}, set(),
+                "operations profile.columnRoles." + role)
+        _positive_int(policy["weight"], "operations profile.columnRoles." + role + ".weight")
+        _positive_int(policy["minWidth"], "operations profile.columnRoles." + role + ".minWidth")
+        if policy["font"] not in {"body", "data"} or policy["align"] not in {"left", "right"}:
+            raise ArchetypeError("operations profile column role policy is invalid: " + role)
+        resolved_roles[role] = copy.deepcopy(policy)
+    if set(resolved_roles) != OPS_COLUMN_ROLES:
+        raise ArchetypeError("operations profile column roles are incomplete")
+    return {
+        "path": profile_name,
+        "data": profile,
+        "resolvedTokens": resolved_tokens,
+        "resolvedTones": resolved_tones,
+        "resolvedRoles": resolved_roles,
+        "themeValues": values,
+    }
+
+
+def _prepare_operations_template(template):
+    if template.get("generatorKind") != "operations" and template.get("id") != "operations-detail":
+        return template, None
+    resolved = _load_operations_profile(template)
+    prepared = copy.deepcopy(template)
+    prepared["buttonToneStyles"] = copy.deepcopy(resolved["resolvedTones"])
+    token_values = resolved["resolvedTokens"]
+    prepared["style"] = copy.deepcopy(template.get("style") or {})
+    prepared["style"].update({
+        "panelFillBottom": token_values["background"],
+        "frame": token_values["border"],
+        "divider": token_values["border"],
+        "text": token_values["text"],
+        "mutedText": token_values["secondary"],
+        "selection": token_values["selected"],
+    })
+    prepared["_operationsProfile"] = resolved
+    if template["id"] == "operations-detail":
+        prepared["style"].update({
+            "regionFill": token_values["panel"],
+            "scrollTrack": token_values["panel"],
+            "scrollThumb": token_values["accent"],
+        })
+    return prepared, resolved
+
 
 def _one_line(value, label, limit=64):
     if not isinstance(value, str) or not value.strip():
@@ -373,7 +504,26 @@ def _rect(value, label):
 
 def _right(rect):
     return rect["x"] + rect["width"]
+def _operations_presentation(config, template):
+    if template["generatorKind"] == "operations":
+        allowed = OPS_WORKSPACE_PRESENTATIONS
+    elif template["id"] == "operations-detail":
+        allowed = OPS_DETAIL_PRESENTATIONS
+    else:
+        return None
+    presentation = config.get("presentation")
+    if not isinstance(presentation, str) or presentation not in allowed:
+        raise ArchetypeError(
+            "config.presentation must be one of " + ", ".join(sorted(allowed))
+        )
+    return presentation
 
+
+def _operations_column_roles(template):
+    profile = template.get("_operationsProfile")
+    if not isinstance(profile, dict):
+        raise ArchetypeError("operations style profile was not resolved")
+    return profile["resolvedRoles"]
 
 def _bottom(rect):
     return rect["y"] + rect["height"]
@@ -451,7 +601,12 @@ def _layout_rect_fields(kind):
     return ("window", "status", "title", "controlBar", "footer")
 
 def _validate_template(template):
-    _strict(template, TEMPLATE_FIELDS - {"sharedChrome"}, {"sharedChrome"}, "template")
+    _strict(
+        template,
+        TEMPLATE_FIELDS - {"sharedChrome"},
+        {"sharedChrome", "styleProfile", "buttonToneTokens", "_operationsProfile"},
+        "template",
+    )
     if template["schema"] != 1:
         raise ArchetypeError("template.schema must be 1")
     archetype = template["id"]
@@ -459,12 +614,22 @@ def _validate_template(template):
         raise ArchetypeError("unsupported extended template id: " + str(archetype))
     if template["generatorKind"] != ARCHETYPE_KINDS[archetype]:
         raise ArchetypeError("template.generatorKind does not match template.id")
-    if template["generatorKind"] == "operations" or archetype == "operations-detail":
+    is_operations = template["generatorKind"] == "operations" or archetype == "operations-detail"
+    if is_operations:
+        expected_version = OPERATIONS_TEMPLATE_VERSIONS[archetype]
+        if template["version"] != expected_version:
+            raise ArchetypeError(
+                "template " + archetype + " must use version " + str(expected_version)
+            )
+        profile = template.get("_operationsProfile")
+        if not isinstance(profile, dict):
+            raise ArchetypeError("operations template profile was not resolved")
+        if template.get("buttonToneTokens") != profile["data"]["actionTones"]:
+            raise ArchetypeError("operations template button tone token refs drifted")
         _strict(template.get("sharedChrome"), {"id", "version"}, set(),
                 "template.sharedChrome")
         if template["sharedChrome"]["id"] != "base-command-shell":
-            raise ArchetypeError(
-                "template.sharedChrome.id must be base-command-shell")
+            raise ArchetypeError("template.sharedChrome.id must be base-command-shell")
         _one_line(template["sharedChrome"]["version"],
                   "template.sharedChrome.version", 64)
     elif "sharedChrome" in template:
@@ -776,6 +941,7 @@ def _validate_common(config, template, required_fields, optional_fields=None):
         raise ArchetypeError("config.archetype must match template.id")
     _one_line(config["title"], "config.title", 64)
     _validate_metadata(config)
+    _operations_presentation(config, template)
     return _validate_actions(config["actions"], template, "config.actions")
 
 
@@ -783,7 +949,6 @@ def _validate_actions(actions, template, label):
     return _validate_action_items(
         actions, template, label, template["limits"]["maxActions"]
     )
-
 
 def _validate_action_items(actions, template, label, maximum):
     if not isinstance(actions, list) or not 1 <= len(actions) <= maximum:
@@ -927,7 +1092,9 @@ def _ensure_unique_interactions(groups):
             actions.add(item["action"])
 
 
-def _validate_collection_value(collection, limits, label, allow_bands=False):
+def _validate_collection_value(
+    collection, limits, label, allow_bands=False, column_roles=None
+):
     if not isinstance(collection, dict):
         raise ArchetypeError(label + " must be an object")
     mode = collection.get("mode")
@@ -971,7 +1138,14 @@ def _validate_collection_value(collection, limits, label, allow_bands=False):
     column_ids = set()
     for index, column in enumerate(columns):
         column_label = label + ".columns[" + str(index) + "]"
-        _strict(column, {"id", "label"}, set(), column_label)
+        column_fields = {"id", "label"}
+        if column_roles is not None:
+            column_fields.add("contentRole")
+        _strict(column, column_fields, set(), column_label)
+        if column_roles is not None:
+            role = column["contentRole"]
+            if role not in OPS_COLUMN_ROLES or role not in column_roles:
+                raise ArchetypeError(column_label + ".contentRole is unsupported")
         _stable_id(column["id"], column_label + ".id")
         _one_line(
             column["label"],
@@ -998,12 +1172,12 @@ def _validate_collection_value(collection, limits, label, allow_bands=False):
             )
 
 
-
-
 def _validate_collection(config, template):
     actions = _validate_common(config, template, {"collection", "controls"})
+    roles = _operations_column_roles(template) if template["generatorKind"] == "operations" else None
     _validate_collection_value(
-        config["collection"], template["limits"], "config.collection"
+        config["collection"], template["limits"], "config.collection",
+        column_roles=roles,
     )
     controls = _validate_controls(config["controls"], template, "config.controls")
     _ensure_unique_interactions(
@@ -1087,14 +1261,29 @@ def _validate_tabbed(config, template):
     )
     if template["generatorKind"] == "operations":
         visual = config.get("visual")
-        _strict(visual, {"shell", "headerArt"}, set(), "config.visual")
-        if visual["shell"] != "base-operations":
-            raise ArchetypeError("config.visual.shell must be base-operations")
-        if visual["headerArt"] not in {"base-research", "base-manufacture"}:
-            raise ArchetypeError("config.visual.headerArt is not an audited department asset")
+        presentation = _operations_presentation(config, template)
+        if visual is not None:
+            _strict(visual, {"shell", "headerArt"}, set(), "config.visual")
+            if visual["shell"] != "base-operations":
+                raise ArchetypeError("config.visual.shell must be base-operations")
+            if visual["headerArt"] not in {"base-research", "base-manufacture"}:
+                raise ArchetypeError("config.visual.headerArt is not an audited department asset")
+        expected_mode = "list" if presentation == "list-inspector" else "table"
+        if config["collection"]["mode"] != expected_mode:
+            raise ArchetypeError(
+                "config.collection.mode must be " + expected_mode
+                + " for " + presentation
+            )
+        if presentation == "list-inspector" and "detail" not in config:
+            raise ArchetypeError("list-inspector requires semantic detail identity/actions")
+    collection_roles = (
+        _operations_column_roles(template)
+        if template["generatorKind"] == "operations" else None
+    )
     _validate_collection_value(
         config["collection"], template["limits"], "config.collection",
-        template["generatorKind"] == "operations"
+        template["generatorKind"] == "operations",
+        collection_roles,
     )
     summary = config["summary"]
     if (
@@ -1199,6 +1388,8 @@ def _validate_detail(config, template):
     controls = _validate_controls(config["controls"], template, "config.controls")
     regions = config["regions"]
     limits = template["limits"]
+    presentation = _operations_presentation(config, template) if is_operations_detail else None
+    operation_roles = _operations_column_roles(template) if is_operations_detail else None
     if not isinstance(regions, list) or not 1 <= len(regions) <= limits["maxRegions"]:
         raise ArchetypeError("config.regions is outside the template limit")
     region_ids = set()
@@ -1248,7 +1439,8 @@ def _validate_detail(config, template):
         roles.add(region["role"])
         if kind == "collection":
             _validate_collection_value(
-                region["collection"], limits, region_label + ".collection"
+                region["collection"], limits, region_label + ".collection",
+                column_roles=operation_roles,
             )
         elif kind == "preview":
             _stable_id(region["contentId"], region_label + ".contentId")
@@ -1281,6 +1473,30 @@ def _validate_detail(config, template):
             interaction_groups.append(
                 (region_label + ".actions", generated_region_actions[region["id"]])
             )
+    if is_operations_detail:
+        required_regions = {
+            "controls-summary": {
+                "primary": "preview", "summary": "fields", "navigation": "actions",
+            },
+            "requirements-summary": {
+                "primary": "collection", "summary": "fields", "navigation": "actions",
+            },
+            "dependency-list": {"primary": "collection"},
+        }[presentation]
+        kinds_by_role = {region["role"]: region["kind"] for region in regions}
+        for role, expected_kind in required_regions.items():
+            if (
+                role == "navigation"
+                and expected_kind == "actions"
+                and role not in kinds_by_role
+                and actions
+            ):
+                continue
+            if kinds_by_role.get(role) != expected_kind:
+                raise ArchetypeError(
+                    "config.presentation " + presentation + " requires "
+                    + expected_kind + " region with role " + role
+                )
     _ensure_unique_interactions(interaction_groups)
     return actions, generated_region_actions, controls
 
@@ -1451,6 +1667,51 @@ def _control_part_paths(controls):
             base = "control." + control["id"]
             paths.extend((base + ".decrement", base + ".value", base + ".increment"))
     return paths
+def _weighted_rects(parent, columns, gap, roles):
+    if len(columns) < 1:
+        raise ArchetypeError("weighted rectangle group requires columns")
+    available = parent["width"] - gap * (len(columns) - 1)
+    minimum = sum(roles[column["contentRole"]]["minWidth"] for column in columns)
+    if available < minimum:
+        raise ArchetypeError("operations collection columns cannot satisfy profile minimum widths")
+    weights = [roles[column["contentRole"]]["weight"] for column in columns]
+    extra = available - minimum
+    weight_total = sum(weights)
+    widths = [
+        roles[column["contentRole"]]["minWidth"] + extra * weight // weight_total
+        for column, weight in zip(columns, weights)
+    ]
+    remainder = available - sum(widths)
+    for index in range(remainder):
+        widths[index % len(widths)] += 1
+    out = []
+    x = parent["x"]
+    for column, width in zip(columns, widths):
+        out.append(_make_rect(x, parent["y"], width, parent["height"], column["id"]))
+        x += width + gap
+    return out
+def _collection_column_rects(parent, columns, gap, roles):
+    if roles is None:
+        return _equal_rects(parent, len(columns), gap, [column["id"] for column in columns])
+    return _weighted_rects(parent, columns, gap, roles)
+
+
+def _collection_column_cell(rect, column, roles):
+    cell = _named_rect(rect)
+    if roles is not None:
+        policy = roles[column["contentRole"]]
+        cell.update({
+            "contentRole": column["contentRole"],
+            "font": policy["font"],
+            "align": policy["align"],
+            "minWidth": policy["minWidth"],
+            "weight": policy["weight"],
+        })
+    return cell
+
+
+
+
 
 
 def _equal_rects(parent, count, gap, ids):
@@ -1531,11 +1792,19 @@ def _collection_parts(collection, template, prefix):
         parts.extend(
             base + "column." + column["id"] for column in collection["columns"]
         )
-        max_slots = max(
-            template["layouts"]["wide"]["visibleRows"],
-            template["layouts"]["compact"]["visibleRows"],
+        visible_rows = (
+            min(
+                template["layouts"]["wide"]["visibleRows"],
+                template["layouts"]["compact"]["visibleRows"],
+            )
+            if template.get("generatorKind") == "operations"
+            or template.get("id") == "operations-detail"
+            else max(
+                template["layouts"]["wide"]["visibleRows"],
+                template["layouts"]["compact"]["visibleRows"],
+            )
         )
-        parts.extend(base + "row-slot." + str(index + 1) for index in range(max_slots))
+        parts.extend(base + "row-slot." + str(index + 1) for index in range(visible_rows))
     else:
         max_slots = max(
             template["layouts"]["wide"]["gridColumns"]
@@ -1559,11 +1828,15 @@ def _base_contract(config, template, source_name, template_name, actions):
         "source": source_name,
         "actions": actions,
     }
+    if "presentation" in config:
+        form["presentation"] = config["presentation"]
+    if "contentRole" in config:
+        form["contentRole"] = config["contentRole"]
     if "state" in config:
         form["state"] = config["state"]
     if "labelKeys" in config:
         form["labelKeys"] = copy.deepcopy(config["labelKeys"])
-    return {
+    out = {
         "schema": 1,
         "version": config["version"],
         "form": form,
@@ -1577,6 +1850,35 @@ def _base_contract(config, template, source_name, template_name, actions):
             "generatorKind": template["generatorKind"],
         },
     }
+    profile = template.get("_operationsProfile")
+    if profile is not None:
+        profile_data = copy.deepcopy(profile["data"])
+        profile_data["theme"]["resolvedTokens"] = copy.deepcopy(profile["resolvedTokens"])
+        profile_data["resolvedActionTones"] = copy.deepcopy(profile["resolvedTones"])
+        profile_data["resolvedColumnRoles"] = copy.deepcopy(profile["resolvedRoles"])
+        out["profile"] = profile_data
+        out["provenance"]["profile"] = profile["path"]
+        out["provenance"]["profileVersion"] = profile_data["version"]
+        out["provenance"]["themeSource"] = profile_data["theme"]["source"]
+        out["provenance"]["themeSourceHash"] = profile_data["theme"]["sourceHash"]
+    return out
+
+
+def build_extended_contract(config, template, source_name, template_name):
+    """Validate and build one non-confirmation contract."""
+    template, profile = _prepare_operations_template(template)
+    kind = template["generatorKind"]
+    if kind == "operations":
+        return _build_operations(config, template, source_name, template_name)
+    if kind == "collection":
+        return _build_collection(config, template, source_name, template_name)
+    if kind == "selection":
+        return _build_selection(config, template, source_name, template_name)
+    if kind == "tabbed":
+        return _build_tabbed(config, template, source_name, template_name)
+    if kind == "detail":
+        return _build_detail_regions(config, template, source_name, template_name)
+    raise ArchetypeError("unsupported template.generatorKind: " + str(kind))
 
 def _cpp_part_name(path):
     name = re.sub(r"[^A-Za-z0-9_]", "_", path)
@@ -1634,7 +1936,7 @@ def _resolve_part_rect(node, segments):
                 for slot in node[slot_key]:
                     if isinstance(slot, dict) and slot.get("id") == segment:
                         return _resolve_part_rect(slot, segments[1:])
-                if node[slot_key]:
+                if node[slot_key] and not node.get("_strictSlots"):
                     return _resolve_part_rect(node[slot_key][-1], [])
         if segment.startswith("line-") and isinstance(node.get("lines"), list):
             try:
@@ -1668,11 +1970,26 @@ def _resolve_part_rect(node, segments):
                 for value in values:
                     if isinstance(value, dict) and value.get("id") in candidates:
                         return _resolve_part_rect(value, segments[2:])
-                if values and segment in {"row-slot", "tile-slot", "action-slot"} and str(wanted).isdigit():
+                if (
+                    values
+                    and segment in {"row-slot", "tile-slot", "action-slot"}
+                    and str(wanted).isdigit()
+                    and not node.get("_strictSlots")
+                ):
                     return _resolve_part_rect(values[-1], segments[2:])
         if node.get("id") == segment:
             return _resolve_part_rect(node, segments[1:])
     return None
+
+
+def _strip_internal_markers(node):
+    if isinstance(node, dict):
+        node.pop("_strictSlots", None)
+        for value in node.values():
+            _strip_internal_markers(value)
+    elif isinstance(node, list):
+        for value in node:
+            _strip_internal_markers(value)
 
 def _finalize_parts(contract):
     semantic_parts = contract.pop("_partPaths", contract.get("parts", []))
@@ -1688,9 +2005,10 @@ def _finalize_parts(contract):
                 raise ArchetypeError("layout is missing part geometry: " + semantic)
             part_rects[semantic] = rect
         layout["partRects"] = part_rects
+        _strip_internal_markers(layout)
     return contract
 
-def _build_collection_fragment(collection, authored, viewport, name):
+def _build_collection_fragment(collection, authored, viewport, name, column_roles=None):
     fragment = {}
     mode = collection["mode"]
     total = len(collection["items"])
@@ -1713,14 +2031,28 @@ def _build_collection_fragment(collection, authored, viewport, name):
         raise ArchetypeError(name + " scrollbar rail leaves no collection width")
     if mode in {"list", "table"}:
         columns = collection["columns"]
+        layout_roles = column_roles
+        if column_roles is not None:
+            layout_roles = copy.deepcopy(column_roles)
+            for index, column in enumerate(columns):
+                candidates = [column["label"]]
+                candidates.extend(item["values"][index] for item in collection["items"])
+                semantic_minimum = (
+                    max(len(value) for value in candidates)
+                    * authored["textUnitWidth"]
+                    + 2 * authored["cellInlineInset"]
+                )
+                role = column["contentRole"]
+                layout_roles[role]["minWidth"] = max(
+                    layout_roles[role]["minWidth"], semantic_minimum
+                )
         header = _make_rect(
             viewport["x"], viewport["y"], data_width, authored["headerHeight"]
         )
+        header_rects = _collection_column_rects(header, columns, 1, layout_roles)
         header_cells = [
-            _named_rect(rect)
-            for rect in _equal_rects(
-                header, len(columns), 1, [column["id"] for column in columns]
-            )
+            _collection_column_cell(rect, column, layout_roles)
+            for rect, column in zip(header_rects, columns)
         ]
         for column_index, column in enumerate(columns):
             available_text_width = (
@@ -1750,11 +2082,10 @@ def _build_collection_fragment(collection, authored, viewport, name):
                 data_width,
                 authored["rowHeight"],
             )
+            row_rects = _collection_column_rects(row, columns, 1, layout_roles)
             cells = [
-                _named_rect(rect)
-                for rect in _equal_rects(
-                    row, len(columns), 1, [column["id"] for column in columns]
-                )
+                _collection_column_cell(rect, column, layout_roles)
+                for rect, column in zip(row_rects, columns)
             ]
             fragment["rowSlots"].append(
                 {
@@ -1831,6 +2162,9 @@ def _build_collection_fragment(collection, authored, viewport, name):
         track,
         authored["minThumbHeight"],
     )
+    if column_roles is not None:
+        fragment["_strictSlots"] = True
+        fragment["count"] = min(total, capacity)
     fragment["scroll"] = {
         "track": metrics["track"],
         "thumb": metrics["thumb"],
@@ -2356,7 +2690,8 @@ def _build_tabbed(config, template, source_name, template_name):
                 - collection_viewport["y"]
             )
         collection_fragment, collection_metrics = _build_collection_fragment(
-            config["collection"], authored, collection_viewport, name
+            config["collection"], authored, collection_viewport, name,
+            _operations_column_roles(template) if template["generatorKind"] == "operations" else None,
         )
         generated_layout = {
             "designWidth": authored["designWidth"],
@@ -2581,8 +2916,12 @@ def _detail_region_parts(region, template):
             template["layouts"]["compact"]["regionActionColumns"]
             * template["layouts"]["compact"]["regionActionVisibleRows"]
         )
-        max_slots = max(wide_slots, compact_slots)
-        parts.extend(f"{prefix}.action-slot-{index + 1}" for index in range(max_slots))
+        slots = (
+            min(wide_slots, compact_slots)
+            if template.get("id") == "operations-detail"
+            else max(wide_slots, compact_slots)
+        )
+        parts.extend(f"{prefix}.action-slot-{index + 1}" for index in range(slots))
     return parts
 
 
@@ -2638,7 +2977,8 @@ def _build_detail_regions(config, template, source_name, template_name):
                 generated["content"] = content
             elif region["kind"] == "collection":
                 fragment, metrics = _build_collection_fragment(
-                    region["collection"], authored, content, name + "." + region["id"]
+                    region["collection"], authored, content, name + "." + region["id"],
+                    _operations_column_roles(template) if template["id"] == "operations-detail" else None,
                 )
                 generated["content"] = content
                 generated["collection"] = fragment
@@ -2705,6 +3045,8 @@ def _build_detail_regions(config, template, source_name, template_name):
                     "track": metrics["track"],
                     "thumb": metrics["thumb"],
                 }
+                if template["id"] == "operations-detail":
+                    generated["_strictSlots"] = True
                 for region_action in generated_region_actions[region["id"]]:
                     _ensure_text_fits(
                         region_action["label"],
@@ -2860,20 +3202,3 @@ def _build_detail_regions(config, template, source_name, template_name):
     out["_partPaths"].extend("action." + action["id"] for action in actions)
     _ensure_spacing_rules_resolve(out["_partPaths"], rules)
     return _finalize_parts(out)
-
-
-def build_extended_contract(config, template, source_name, template_name):
-    """Validate and build one non-confirmation contract."""
-    _validate_template(template)
-    kind = template["generatorKind"]
-    if kind == "operations":
-        return _build_operations(config, template, source_name, template_name)
-    if kind == "collection":
-        return _build_collection(config, template, source_name, template_name)
-    if kind == "selection":
-        return _build_selection(config, template, source_name, template_name)
-    if kind == "tabbed":
-        return _build_tabbed(config, template, source_name, template_name)
-    if kind == "detail":
-        return _build_detail_regions(config, template, source_name, template_name)
-    raise ArchetypeError("unsupported template.generatorKind: " + str(kind))
