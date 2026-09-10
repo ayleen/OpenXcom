@@ -6,8 +6,8 @@
 // All inputs are engine-logical px; DPR is never applied here. Empty and
 // non-scrolling lists are safe (thumb height 0, scroll 0).
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
-
 namespace OpenXcom
 {
 namespace Calypso
@@ -103,6 +103,19 @@ inline std::size_t calypsoSelectionListScrollForOffset(int offset, int trackH, i
 		o = travel;
 	}
 	return (std::size_t)((o * (long long)maxScroll + travel / 2) / travel);
+}
+
+/// Maps display-space pointer Y to the native row index. `rowStride` is
+/// already projected into display pixels; callers must not apply screen scale
+/// a second time.
+inline std::size_t calypsoSelectionListRowAtDisplayY(
+	double relativeY, int rowStride, std::size_t scroll, std::size_t total)
+{
+	if (total == 0 || rowStride <= 0) return 0;
+	const long long offset = static_cast<long long>(
+		std::floor(std::max(0.0, relativeY) / static_cast<double>(rowStride)));
+	const std::size_t index = scroll + static_cast<std::size_t>(offset);
+	return std::min(index, total - 1);
 }
 
 } // namespace Calypso

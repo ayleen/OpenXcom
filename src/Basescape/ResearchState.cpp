@@ -39,6 +39,7 @@
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoTutorial.h"
 #include "../Calypso/CalypsoF09ResearchUi.h"
+#include "../Calypso/CalypsoHdUiOverlay.h"
 #endif
 
 namespace OpenXcom
@@ -194,8 +195,12 @@ void ResearchState::onOpenTechTreeViewer(Action *action)
 	{
 		return;
 	}
-	const RuleResearch *selectedTopic = baseProjects[_lstResearch->getSelectedRow()]->getRules();
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
+		"Technology Tree HD route is not available");
+#else
 	_game->pushState(new TechTreeViewerState(selectedTopic, 0));
+#endif
 }
 
 /**

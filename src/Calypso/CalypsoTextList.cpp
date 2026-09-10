@@ -136,7 +136,9 @@ int TextList::calypsoHdHoverSelRow(double relY, double yScale, int nativeRowH) c
 {
 	if (_hdSelList && _hdRowStride > 0)
 	{
-		return std::max(0, (int)(_scroll + (int)floor(relY / ((double)_hdRowStride * yScale))));
+		(void)yScale;
+		return static_cast<int>(Calypso::calypsoSelectionListRowAtDisplayY(
+			relY, _hdRowStride, _scroll, _rows.size()));
 	}
 	return std::max(0, (int)(_scroll + (int)floor(relY / (nativeRowH * scale() * yScale))));
 }

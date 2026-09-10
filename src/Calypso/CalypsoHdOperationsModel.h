@@ -173,6 +173,13 @@ struct CalypsoHdOperationsColumn
 	std::string contentRole;
 };
 
+enum class CalypsoHdOperationsRowKind
+{
+	Item,
+	GroupHeader,
+	Empty
+};
+
 struct CalypsoHdOperationsRow
 {
 	std::string id;
@@ -182,7 +189,9 @@ struct CalypsoHdOperationsRow
 	const void* widget = nullptr;
 	/// Optional typed cells. Legacy adapters may continue publishing values.
 	std::vector<CalypsoHdOperationsCell> cells;
+	CalypsoHdOperationsRowKind kind = CalypsoHdOperationsRowKind::Item;
 };
+
 
 struct CalypsoHdOperationsScroll
 {
@@ -215,6 +224,16 @@ struct CalypsoHdOperationsCollection
 	std::size_t count = 0;
 	CalypsoHdOperationsScroll scroll;
 };
+
+inline bool calypsoHdOperationsRowSelected(
+	const CalypsoHdOperationsCollection& collection, std::size_t index)
+{
+	if (index >= collection.rows.size()) return false;
+	const auto& row = collection.rows[index];
+	return row.kind == CalypsoHdOperationsRowKind::Item
+		&& !row.state.disabled
+		&& (index == collection.selectedIndex || row.state.selected);
+}
 
 
 struct CalypsoHdOperationsMetric

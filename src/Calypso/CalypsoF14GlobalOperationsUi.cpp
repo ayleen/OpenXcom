@@ -593,9 +593,13 @@ CalypsoHdOperationsModel CalypsoF14GlobalOperationsUi::buildResearchModel() cons
 	for (std::size_t i = 0; i < nativeRows.size(); ++i)
 	{
 		const Base *base = i < _research->_bases.size() ? _research->_bases[i] : nullptr;
+		const RuleResearch *topic = i < _research->_topics.size() ? _research->_topics[i] : nullptr;
 		CalypsoHdOperationsRow row;
 		row.id = "row-" + std::to_string(i);
-		row.state.disabled = base == nullptr;
+		row.kind = base == nullptr ? CalypsoHdOperationsRowKind::GroupHeader
+			: (topic == nullptr ? CalypsoHdOperationsRowKind::Empty
+				: CalypsoHdOperationsRowKind::Item);
+		row.state.disabled = row.kind == CalypsoHdOperationsRowKind::GroupHeader;
 		row.state.selected = i == nativeSelected;
 		for (std::size_t c = 0; c < generated.columnCount; ++c)
 			row.values.push_back(c < nativeRows[i].size() && nativeRows[i][c]
@@ -747,9 +751,14 @@ CalypsoHdOperationsModel CalypsoF14GlobalOperationsUi::buildManufactureModel() c
 	{
 		const Base *base = i < _manufacture->_bases.size()
 			? _manufacture->_bases[i] : nullptr;
+		const RuleManufacture *topic = i < _manufacture->_topics.size()
+			? _manufacture->_topics[i] : nullptr;
 		CalypsoHdOperationsRow row;
 		row.id = "row-" + std::to_string(i);
-		row.state.disabled = base == nullptr;
+		row.kind = base == nullptr ? CalypsoHdOperationsRowKind::GroupHeader
+			: (topic == nullptr ? CalypsoHdOperationsRowKind::Empty
+				: CalypsoHdOperationsRowKind::Item);
+		row.state.disabled = row.kind == CalypsoHdOperationsRowKind::GroupHeader;
 		row.state.selected = i == nativeSelected;
 		for (std::size_t c = 0; c < generated.columnCount; ++c)
 			row.values.push_back(c < nativeRows[i].size() && nativeRows[i][c]

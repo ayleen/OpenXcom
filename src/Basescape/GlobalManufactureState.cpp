@@ -35,6 +35,7 @@
 #include "../Ufopaedia/Ufopaedia.h"
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoF14GlobalOperationsUi.h"
+#include "../Calypso/CalypsoHdUiOverlay.h"
 #endif
 
 namespace OpenXcom
@@ -185,7 +186,12 @@ void GlobalManufactureState::onOpenTechTreeViewer(Action *)
 		}
 		else
 		{
+#ifdef __EMSCRIPTEN__
+			Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
+				"Technology Tree HD route is not available");
+#else
 			_game->pushState(new TechTreeViewerState(0, selectedTopic));
+#endif
 		}
 	}
 }

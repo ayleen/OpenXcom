@@ -444,7 +444,19 @@ void collectCollection(CalypsoHdFrameBuilder& builder,
 			continue;
 		const std::size_t rowIndex = rowIndexResult.value();
 		const auto& row = collection.rows[rowIndex];
-		const bool selected = rowIndex == collection.selectedIndex || row.state.selected;
+		const bool selected = calypsoHdOperationsRowSelected(collection, rowIndex);
+		if (row.kind == CalypsoHdOperationsRowKind::GroupHeader)
+		{
+			addPanel(builder, model, prefix + "/group/" + row.id, order++, rowSlot,
+				model.style.panelFillTop, model.style.panelFillTop, row.widget);
+			const std::string label = !row.values.empty() ? row.values.front() : std::string();
+			if (!label.empty())
+				addText(builder, model, headingSource, labelPx,
+					prefix + "/group-label/" + row.id, order++,
+					{rowSlot.x + 8, rowSlot.y, std::max(1, rowSlot.w - 16), rowSlot.h},
+					label, model.style.text, CalypsoHdHAlign::Left, row.widget);
+			continue;
+		}
 		if (selected)
 		{
 			addPanel(builder, model, prefix + "/row-selection/" + row.id, order++, rowSlot,
