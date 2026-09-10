@@ -83,6 +83,24 @@ bool loadEconomyRules(const YAML::YamlNodeReader& node, EconomyRules& out)
 		standing["onContractDelivered"].tryReadVal<int>(out.onContractDelivered);
 		standing["onContractExpired"].tryReadVal<int>(out.onContractExpired);
 		standing["activityDivisor"].tryReadVal<int>(out.activityDivisor);
+		if (auto price = standing["price"])
+		{
+			auto readMultiplier = [](const auto& node, double& target) {
+				double value = target;
+				if (node.tryReadVal<double>(value))
+					target = normalizeStandingPriceMultiplier(value);
+			};
+			readMultiplier(price["playerBuy"]["hostile"], out.standingPrice.buyHostile);
+			readMultiplier(price["playerBuy"]["distrusted"], out.standingPrice.buyDistrusted);
+			readMultiplier(price["playerBuy"]["neutral"], out.standingPrice.buyNeutral);
+			readMultiplier(price["playerBuy"]["preferred"], out.standingPrice.buyPreferred);
+			readMultiplier(price["playerBuy"]["trusted"], out.standingPrice.buyTrusted);
+			readMultiplier(price["playerSell"]["hostile"], out.standingPrice.sellHostile);
+			readMultiplier(price["playerSell"]["distrusted"], out.standingPrice.sellDistrusted);
+			readMultiplier(price["playerSell"]["neutral"], out.standingPrice.sellNeutral);
+			readMultiplier(price["playerSell"]["preferred"], out.standingPrice.sellPreferred);
+			readMultiplier(price["playerSell"]["trusted"], out.standingPrice.sellTrusted);
+		}
 	}
 
 	// ---- contracts ----
@@ -312,15 +330,19 @@ int Economy::getDemand(const std::string& cp, const RuleItem* item, const SavedG
 
 int64_t Economy::buyPrice(const std::string& cp, const RuleItem* item, const EconomyRules& r) const
 {
-	double mult = (cp == BLACK_MARKET) ? r.bmBuyMult : 1.0;
-	double tf = (cp == BLACK_MARKET) ? 1.0 : terrorFactor(item, r);   // black market is a stable floor
+	const double mult = (cp == BLACK_MARKET)
+		? r.bmBuyMult
+		: standingBuyMultiplier(getTier(cp, r), r.standingPrice);
+	const double tf = (cp == BLACK_MARKET) ? 1.0 : terrorFactor(item, r);   // black market is a stable floor
 	return marketPrice(item->getBuyCost(), mult, priceMod(item->getType()) * tf);
 }
 
 int64_t Economy::sellPrice(const std::string& cp, const RuleItem* item, const EconomyRules& r) const
 {
-	double mult = (cp == BLACK_MARKET) ? r.bmSellMult : 1.0;
-	double tf = (cp == BLACK_MARKET) ? 1.0 : terrorFactor(item, r);
+	const double mult = (cp == BLACK_MARKET)
+		? r.bmSellMult
+		: standingSellMultiplier(getTier(cp, r), r.standingPrice);
+	const double tf = (cp == BLACK_MARKET) ? 1.0 : terrorFactor(item, r);
 	return marketPrice(item->getSellCost(), mult, priceMod(item->getType()) * tf);
 }
 

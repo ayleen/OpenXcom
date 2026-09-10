@@ -6,7 +6,7 @@
  * doctest suite can exercise the real formulas (CalypsoEconomy.cpp delegates
  * here). No engine, YAML, or GL includes may ever be added to this header.
  */
-#include <vector>
+#include <cmath>
 #include <cstdint>
 
 namespace OpenXcom
@@ -19,6 +19,53 @@ enum class StandingTier { Hostile, Distrusted, Neutral, Preferred, Trusted };
 
 /// Upper bounds for the first four tiers (Trusted = above `preferred`).
 struct StandingThresholds { int hostile; int distrusted; int neutral; int preferred; };
+
+/// Ruleset-owned buy/sell multipliers for each standing tier.
+struct StandingPriceMultipliers
+{
+	double buyHostile = 1.0;
+	double buyDistrusted = 1.0;
+	double buyNeutral = 1.0;
+	double buyPreferred = 1.0;
+	double buyTrusted = 1.0;
+	double sellHostile = 1.0;
+	double sellDistrusted = 1.0;
+	double sellNeutral = 1.0;
+	double sellPreferred = 1.0;
+	double sellTrusted = 1.0;
+};
+
+/// Invalid or non-positive ruleset multipliers fail closed to neutral pricing.
+inline double normalizeStandingPriceMultiplier(double multiplier)
+{
+	return std::isfinite(multiplier) && multiplier > 0.0 ? multiplier : 1.0;
+}
+
+inline double standingBuyMultiplier(StandingTier tier,
+	const StandingPriceMultipliers& multipliers)
+{
+	switch (tier)
+	{
+		case StandingTier::Distrusted: return multipliers.buyDistrusted;
+		case StandingTier::Neutral:    return multipliers.buyNeutral;
+		case StandingTier::Preferred:  return multipliers.buyPreferred;
+		case StandingTier::Trusted:    return multipliers.buyTrusted;
+		default:                       return multipliers.buyHostile;
+	}
+}
+
+inline double standingSellMultiplier(StandingTier tier,
+	const StandingPriceMultipliers& multipliers)
+{
+	switch (tier)
+	{
+		case StandingTier::Distrusted: return multipliers.sellDistrusted;
+		case StandingTier::Neutral:    return multipliers.sellNeutral;
+		case StandingTier::Preferred:  return multipliers.sellPreferred;
+		case StandingTier::Trusted:    return multipliers.sellTrusted;
+		default:                       return multipliers.sellHostile;
+	}
+}
 
 /// Grant for a given campaign month: base * schedule[monthsPassed], 0 past the schedule.
 inline int grantForMonth(int base, int monthsPassed, const std::vector<double>& schedule)

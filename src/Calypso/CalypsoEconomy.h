@@ -86,6 +86,7 @@ struct EconomyRules
 	int onContractDelivered = 8;
 	int onContractExpired = -12;
 	int activityDivisor = 25;
+	StandingPriceMultipliers standingPrice;
 
 	// contracts
 	int    contractsStartMonth = 1;
