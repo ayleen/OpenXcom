@@ -33,6 +33,7 @@
 #include <cstdint>
 
 #include "CalypsoEconomyMath.h"
+#include "CalypsoMarketMath.h"
 
 namespace OpenXcom
 {
@@ -175,7 +176,7 @@ public:
 	bool accept(int contractId);
 	bool deliver(int contractId, Base* base, SavedGame* save, const EconomyRules& r);
 
-	// counterparty market (declared; bodies land in slice B) -- keep simple stubs returning safe defaults
+	// counterparty market
 	bool    sellsToPlayer(const std::string& cp, const RuleItem* item, const EconomyRules& r) const;
 	bool    buysFromPlayer(const std::string& cp, const RuleItem* item, const EconomyRules& r) const;
 
@@ -183,6 +184,12 @@ public:
 	int     getDemand(const std::string& cp, const RuleItem* item, const SavedGame* save, const EconomyRules& r) const;
 	int64_t buyPrice(const std::string& cp, const RuleItem* item, const EconomyRules& r) const;
 	int64_t sellPrice(const std::string& cp, const RuleItem* item, const EconomyRules& r) const;
+	std::vector<MarketOffer> buildMarketOffers(
+		MarketSide side, const RuleItem* item, const SavedGame* save,
+		const EconomyRules& r, bool includeBlackMarket) const;
+	std::vector<MarketAllocation> allocateMarketOrder(
+		MarketSide side, const RuleItem* item, const SavedGame* save,
+		const EconomyRules& r, int requested, bool includeBlackMarket) const;
 	void    recordPurchase(const std::string& cp, const RuleItem* item, int qty);
 	void    recordSale(const std::string& cp, const RuleItem* item, int qty, const EconomyRules& r);
 

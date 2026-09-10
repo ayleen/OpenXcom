@@ -346,6 +346,44 @@ int64_t Economy::sellPrice(const std::string& cp, const RuleItem* item, const Ec
 	return marketPrice(item->getSellCost(), mult, priceMod(item->getType()) * tf);
 }
 
+std::vector<MarketOffer> Economy::buildMarketOffers(
+	MarketSide side, const RuleItem* item, const SavedGame* save,
+	const EconomyRules& r, bool includeBlackMarket) const
+{
+	if (!item || !save) return {};
+	std::vector<MarketOffer> offers;
+	auto append = [&](const std::string& cp, bool blackMarket) {
+		const bool eligible = side == MarketSide::Buy
+			? sellsToPlayer(cp, item, r)
+			: buysFromPlayer(cp, item, r);
+		if (!eligible) return;
+		const int remaining = side == MarketSide::Buy
+			? getStock(cp, item, save, r)
+			: getDemand(cp, item, save, r);
+		if (remaining <= 0) return;
+		const int64_t price = side == MarketSide::Buy
+			? buyPrice(cp, item, r)
+			: sellPrice(cp, item, r);
+		offers.push_back({ cp, cp,
+			blackMarket ? StandingTier::Hostile : getTier(cp, r),
+			price, remaining, blackMarket });
+	};
+
+	for (const CounterpartyRules& cp : r.counterparties)
+		append(cp.country, false);
+	if (includeBlackMarket) append(BLACK_MARKET, true);
+	return offers;
+}
+
+std::vector<MarketAllocation> Economy::allocateMarketOrder(
+	MarketSide side, const RuleItem* item, const SavedGame* save,
+	const EconomyRules& r, int requested, bool includeBlackMarket) const
+{
+	return Calypso::allocateMarketOrder(
+		buildMarketOffers(side, item, save, r, includeBlackMarket),
+		side, requested, includeBlackMarket);
+}
+
 void Economy::recordPurchase(const std::string& cp, const RuleItem* item, int qty)
 {
 	if (cp == BLACK_MARKET || qty <= 0) return;   // black market never depletes
