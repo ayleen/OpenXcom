@@ -8,6 +8,7 @@
  */
 #include <cmath>
 #include <cstdint>
+#include <vector>
 
 namespace OpenXcom
 {
