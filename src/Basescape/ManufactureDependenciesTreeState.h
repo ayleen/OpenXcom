@@ -18,6 +18,8 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "../Engine/State.h"
+#include <string>
+#include <vector>
 
 namespace OpenXcom
 {
@@ -47,10 +49,31 @@ private:
 	std::string _selectedItem;
 	bool _showAll;
 	void initList();
+public:
+	/// Typed presentation snapshot for the HD dependency list (external review
+	/// R08). Parallel to the native rows: one entry per addRow, emitted at the
+	/// traversal site so row kind and depth never come from translated text.
+	/// `text` carries only already-authorized display text ("***" when hidden).
+	/// Plain data with no HD dependency, so native builds keep it too.
+	enum class RowKind { Item, Header, Separator, NoDependencies, End, More, FeatureDisabled };
+	struct PresentationRow
+	{
+		RowKind kind = RowKind::Item;
+		int depth = 0; ///< 0 for structural rows, 1..4 for content rows
+		std::string text;
+	};
+	const std::vector<PresentationRow> &calypsoPresentationRows() const
+	{
+		return _calypsoPresentationRows;
+	}
+private:
+	std::vector<PresentationRow> _calypsoPresentationRows;
+	/// Adds one native row and its parallel typed metadata.
+	void calypsoAddRow(RowKind kind, int depth, const std::string &text);
 #ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF10ProductionUi *_hdAdapter = nullptr;
 	bool _hdLayout = false;
 	bool _hdWideLayout = false;
-	Calypso::CalypsoF10ProductionUi *_hdAdapter = nullptr;
 #endif
 public:
 	/// Creates the ManufactureDependenciesTree state.

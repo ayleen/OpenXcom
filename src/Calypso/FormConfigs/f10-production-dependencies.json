@@ -6,14 +6,96 @@
   "archetype": "operations-detail",
   "presentation": "dependency-list",
   "state": "ManufactureDependenciesTreeState",
-  "visual": {"shell": "base-operations", "headerArt": "base-manufacture"},
-  "labelKeys": {"title": "STR_PRODUCTION_DEPENDENCIES", "showAll": "STR_SHOW_ALL", "ok": "STR_OK"},
+  "visual": {
+    "shell": "base-operations",
+    "headerArt": "base-manufacture"
+  },
+  "labelKeys": {
+    "title": "STR_PRODUCTION_DEPENDENCIES",
+    "showAll": "STR_SHOW_ALL",
+    "ok": "STR_OK"
+  },
   "title": "TOPIC: ICHOR",
-  "actions": [{"id": "show-all", "label": "SHOW ALL", "labelKey": "STR_SHOW_ALL", "tone": "safe", "action": "show-all"}, {"id": "ok", "label": "OK", "labelKey": "STR_OK", "tone": "primary", "action": "ok"}],
+  "actions": [
+    {
+      "id": "show-all",
+      "label": "SHOW ALL",
+      "labelKey": "STR_SHOW_ALL",
+      "tone": "safe",
+      "action": "show-all"
+    },
+    {
+      "id": "ok",
+      "label": "OK",
+      "labelKey": "STR_OK",
+      "tone": "primary",
+      "action": "ok"
+    }
+  ],
   "controls": [],
   "regions": [
-    {"id": "tree", "role": "primary", "kind": "collection", "label": "PRODUCTION DEPENDENCIES", "collection": {"mode": "table", "selectionRole": "dependency", "columns": [{"id": "direct", "label": "DIRECT", "contentRole": "name"}, {"id": "level-two", "label": "LEVEL 2", "contentRole": "name"}, {"id": "level-three", "label": "LEVEL 3", "contentRole": "name"}], "items": [{"id": "dependency-1", "values": ["MAELSTROM", "Keravnos-M", "Search end"]}, {"id": "dependency-2", "values": ["MANTIS", "***", "Search end"]}, {"id": "dependency-3", "values": ["Cavitation", "***", "Search end"]}, {"id": "dependency-4", "values": ["***", "***", "Search end"]}]}},
-    {"id": "context", "role": "secondary", "kind": "preview", "label": "DEPENDENCY TREE", "contentId": "production-item"},
-    {"id": "summary", "role": "summary", "kind": "fields", "label": "SEARCH", "fields": [{"id": "topic", "label": "TOPIC", "value": "Ichor"}]}
+    {
+      "id": "tree",
+      "role": "primary",
+      "kind": "collection",
+      "label": "PRODUCTION DEPENDENCIES",
+      "collection": {
+        "mode": "list",
+        "selectionRole": "dependency",
+        "columns": [
+          {
+            "id": "topic",
+            "label": "TOPIC",
+            "contentRole": "name"
+          }
+        ],
+        "items": [
+          {
+            "id": "dependency-1",
+            "values": [
+              "MAELSTROM"
+            ]
+          },
+          {
+            "id": "dependency-2",
+            "values": [
+              "MANTIS"
+            ]
+          },
+          {
+            "id": "dependency-3",
+            "values": [
+              "Cavitation"
+            ]
+          },
+          {
+            "id": "dependency-4",
+            "values": [
+              "***"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "context",
+      "role": "secondary",
+      "kind": "preview",
+      "label": "DEPENDENCY TREE",
+      "contentId": "production-item"
+    },
+    {
+      "id": "summary",
+      "role": "summary",
+      "kind": "fields",
+      "label": "SEARCH",
+      "fields": [
+        {
+          "id": "topic",
+          "label": "TOPIC",
+          "value": "Ichor"
+        }
+      ]
+    }
   ]
 }

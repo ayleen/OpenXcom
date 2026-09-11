@@ -354,6 +354,12 @@
         "width": 312,
         "height": 456
       },
+      "contextDock": {
+        "x": 944,
+        "y": 586,
+        "width": 312,
+        "height": 52
+      },
       "collection": {
         "columnHeaders": [
           {
@@ -856,17 +862,17 @@
           "width": 762,
           "height": 50
         },
-        "collection.row-slot.2": {
-          "x": 112,
-          "y": 320,
-          "width": 762,
-          "height": 50
-        },
         "detailPanel": {
           "x": 944,
           "y": 190,
           "width": 312,
           "height": 456
+        },
+        "contextDock": {
+          "x": 944,
+          "y": 586,
+          "width": 312,
+          "height": 52
         },
         "detail.selected-project": {
           "x": 944,
@@ -955,14 +961,20 @@
       "collectionViewport": {
         "x": 52,
         "y": 152,
-        "width": 466,
-        "height": 152
+        "width": 680,
+        "height": 92
       },
       "detailPanel": {
-        "x": 526,
-        "y": 108,
-        "width": 206,
-        "height": 196
+        "x": 52,
+        "y": 252,
+        "width": 680,
+        "height": 52
+      },
+      "contextDock": {
+        "x": 52,
+        "y": 252,
+        "width": 680,
+        "height": 52
       },
       "collection": {
         "columnHeaders": [
@@ -971,7 +983,7 @@
             "rect": {
               "x": 52,
               "y": 152,
-              "width": 286,
+              "width": 447,
               "height": 28
             },
             "contentRole": "name",
@@ -983,9 +995,9 @@
           {
             "id": "status",
             "rect": {
-              "x": 339,
+              "x": 500,
               "y": 152,
-              "width": 127,
+              "width": 180,
               "height": 28
             },
             "contentRole": "status",
@@ -1001,7 +1013,7 @@
             "rect": {
               "x": 52,
               "y": 180,
-              "width": 414,
+              "width": 628,
               "height": 44
             },
             "cells": [
@@ -1010,7 +1022,7 @@
                 "rect": {
                   "x": 52,
                   "y": 180,
-                  "width": 286,
+                  "width": 447,
                   "height": 44
                 },
                 "contentRole": "name",
@@ -1022,48 +1034,9 @@
               {
                 "id": "status",
                 "rect": {
-                  "x": 339,
+                  "x": 500,
                   "y": 180,
-                  "width": 127,
-                  "height": 44
-                },
-                "contentRole": "status",
-                "font": "body",
-                "align": "left",
-                "minWidth": 64,
-                "weight": 2
-              }
-            ]
-          },
-          {
-            "id": "row-slot-2",
-            "rect": {
-              "x": 52,
-              "y": 224,
-              "width": 414,
-              "height": 44
-            },
-            "cells": [
-              {
-                "id": "project",
-                "rect": {
-                  "x": 52,
-                  "y": 224,
-                  "width": 286,
-                  "height": 44
-                },
-                "contentRole": "name",
-                "font": "body",
-                "align": "left",
-                "minWidth": 96,
-                "weight": 6
-              },
-              {
-                "id": "status",
-                "rect": {
-                  "x": 339,
-                  "y": 224,
-                  "width": 127,
+                  "width": 180,
                   "height": 44
                 },
                 "contentRole": "status",
@@ -1075,19 +1048,19 @@
             ]
           }
         ],
-        "count": 2,
+        "count": 1,
         "scroll": {
           "track": {
-            "x": 500,
-            "y": 180,
-            "width": 18,
-            "height": 88
-          },
-          "thumb": {
-            "x": 500,
+            "x": 714,
             "y": 180,
             "width": 18,
             "height": 44
+          },
+          "thumb": {
+            "x": 714,
+            "y": 180,
+            "width": 18,
+            "height": 22
           }
         }
       },
@@ -1154,56 +1127,56 @@
       "detail": {
         "id": "selected-project",
         "panel": {
-          "x": 526,
-          "y": 108,
-          "width": 206,
-          "height": 196
+          "x": 52,
+          "y": 252,
+          "width": 680,
+          "height": 52
         },
         "label": {
-          "x": 532,
-          "y": 114,
-          "width": 194,
-          "height": 16
+          "x": 64,
+          "y": 256,
+          "width": 160,
+          "height": 13
         },
         "identity": {
           "rect": {
-            "x": 532,
-            "y": 130,
-            "width": 194,
-            "height": 28
+            "x": 64,
+            "y": 269,
+            "width": 160,
+            "height": 31
           },
           "title": {
-            "x": 532,
-            "y": 130,
-            "width": 194,
-            "height": 14
+            "x": 64,
+            "y": 269,
+            "width": 160,
+            "height": 15
           },
           "subtitle": {
-            "x": 532,
-            "y": 144,
-            "width": 194,
-            "height": 14
+            "x": 64,
+            "y": 284,
+            "width": 160,
+            "height": 16
           }
         },
         "metrics": {
           "status": {
             "rect": {
-              "x": 532,
-              "y": 158,
-              "width": 194,
-              "height": 28
+              "x": 236,
+              "y": 256,
+              "width": 120,
+              "height": 44
             },
             "label": {
-              "x": 532,
-              "y": 158,
-              "width": 194,
-              "height": 14
+              "x": 236,
+              "y": 256,
+              "width": 120,
+              "height": 22
             },
             "value": {
-              "x": 532,
-              "y": 172,
-              "width": 194,
-              "height": 14
+              "x": 236,
+              "y": 278,
+              "width": 120,
+              "height": 22
             }
           }
         },
@@ -1214,27 +1187,27 @@
           {
             "id": "review-project",
             "rect": {
-              "x": 532,
-              "y": 254,
-              "width": 60,
+              "x": 368,
+              "y": 256,
+              "width": 112,
               "height": 44
             }
           },
           {
             "id": "change-visibility",
             "rect": {
-              "x": 598,
-              "y": 254,
-              "width": 60,
+              "x": 488,
+              "y": 256,
+              "width": 112,
               "height": 44
             }
           },
           {
             "id": "tech-tree",
             "rect": {
-              "x": 664,
-              "y": 254,
-              "width": 62,
+              "x": 608,
+              "y": 256,
+              "width": 112,
               "height": 44
             }
           }
@@ -1280,8 +1253,8 @@
         "collectionViewport": {
           "x": 52,
           "y": 152,
-          "width": 466,
-          "height": 152
+          "width": 680,
+          "height": 92
         },
         "footer": {
           "x": 52,
@@ -1320,93 +1293,93 @@
           "height": 44
         },
         "collection.scroll.track": {
-          "x": 500,
-          "y": 180,
-          "width": 18,
-          "height": 88
-        },
-        "collection.scroll.thumb": {
-          "x": 500,
+          "x": 714,
           "y": 180,
           "width": 18,
           "height": 44
         },
+        "collection.scroll.thumb": {
+          "x": 714,
+          "y": 180,
+          "width": 18,
+          "height": 22
+        },
         "collection.column.project": {
           "x": 52,
           "y": 152,
-          "width": 286,
+          "width": 447,
           "height": 28
         },
         "collection.column.status": {
-          "x": 339,
+          "x": 500,
           "y": 152,
-          "width": 127,
+          "width": 180,
           "height": 28
         },
         "collection.row-slot.1": {
           "x": 52,
           "y": 180,
-          "width": 414,
-          "height": 44
-        },
-        "collection.row-slot.2": {
-          "x": 52,
-          "y": 224,
-          "width": 414,
+          "width": 628,
           "height": 44
         },
         "detailPanel": {
-          "x": 526,
-          "y": 108,
-          "width": 206,
-          "height": 196
+          "x": 52,
+          "y": 252,
+          "width": 680,
+          "height": 52
+        },
+        "contextDock": {
+          "x": 52,
+          "y": 252,
+          "width": 680,
+          "height": 52
         },
         "detail.selected-project": {
-          "x": 526,
-          "y": 108,
-          "width": 206,
-          "height": 196
+          "x": 52,
+          "y": 252,
+          "width": 680,
+          "height": 52
         },
         "detail.selected-project.label": {
-          "x": 532,
-          "y": 114,
-          "width": 194,
-          "height": 16
+          "x": 64,
+          "y": 256,
+          "width": 160,
+          "height": 13
         },
         "detail.selected-project.identity.title": {
-          "x": 532,
-          "y": 130,
-          "width": 194,
-          "height": 14
+          "x": 64,
+          "y": 269,
+          "width": 160,
+          "height": 15
         },
         "detail.selected-project.identity.subtitle": {
-          "x": 532,
-          "y": 144,
-          "width": 194,
-          "height": 14
+          "x": 64,
+          "y": 284,
+          "width": 160,
+          "height": 16
         },
         "detail.selected-project.metric.status": {
-          "x": 532,
-          "y": 158,
-          "width": 194,
-          "height": 28
+          "x": 236,
+          "y": 256,
+          "width": 120,
+          "height": 44
         },
         "detail.selected-project.action.review-project": {
-          "x": 532,
-          "y": 254,
-          "width": 60,
+          "x": 368,
+          "y": 256,
+          "width": 112,
           "height": 44
         },
         "detail.selected-project.action.change-visibility": {
-          "x": 598,
-          "y": 254,
-          "width": 60,
+          "x": 488,
+          "y": 256,
+          "width": 112,
           "height": 44
         },
         "detail.selected-project.action.tech-tree": {
-          "x": 664,
-          "y": 254,
-          "width": 62,
+          "x": 608,
+          "y": 256,
+          "width": 112,
           "height": 44
         },
         "action.mark-all-seen": {
@@ -1735,38 +1708,38 @@
     },
     "compact": {
       "totalItems": 6,
-      "visibleCapacity": 2,
+      "visibleCapacity": 1,
       "totalUnits": 6,
-      "visibleUnits": 2,
+      "visibleUnits": 1,
       "itemsPerUnit": 1,
       "scrollUnit": "record",
       "overflow": true,
-      "scrollSteps": 4,
+      "scrollSteps": 5,
       "track": {
-        "x": 500,
+        "x": 714,
         "y": 180,
         "width": 18,
-        "height": 88
+        "height": 44
       },
       "thumb": {
-        "x": 500,
+        "x": 714,
         "y": 180,
         "width": 18,
-        "height": 44
+        "height": 22
       },
       "trackHitTarget": {
-        "x": 474,
-        "y": 180,
-        "width": 44,
-        "height": 88
-      },
-      "thumbHitTarget": {
-        "x": 474,
+        "x": 688,
         "y": 180,
         "width": 44,
         "height": 44
       },
-      "thumbTravelPx": 44
+      "thumbHitTarget": {
+        "x": 688,
+        "y": 180,
+        "width": 44,
+        "height": 44
+      },
+      "thumbTravelPx": 22
     }
   },
   "actions": [
@@ -1792,8 +1765,8 @@
     "collection.column.project",
     "collection.column.status",
     "collection.row-slot.1",
-    "collection.row-slot.2",
     "detailPanel",
+    "contextDock",
     "detail.selected-project",
     "detail.selected-project.label",
     "detail.selected-project.identity.title",

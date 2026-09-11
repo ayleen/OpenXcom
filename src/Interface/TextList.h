@@ -21,6 +21,9 @@
 #include <map>
 #include "../Engine/InteractiveSurface.h"
 #include "Text.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoSelectionListScroll.h"
+#endif
 
 namespace OpenXcom
 {
@@ -75,6 +78,11 @@ private:
 	int _hdScrollBarWidth = 0;
 	int _hdMinThumb = 0;
 	int _hdRowStride = 0;
+	/// Calypso HD data viewport (engine-logical px): offset from the surface
+	/// top to the first painted row slot (header owns no rows) and the union
+	/// height of the painted row slots (trailing panel remainder owns none).
+	int _hdRowOriginY = 0;
+	int _hdDataViewportH = 0;
 	size_t _hdVisibleRows = 0;
 	double _hdLastHoverX = 1e30;
 	double _hdLastHoverY = 1e30;
@@ -93,7 +101,7 @@ private:
 	bool calypsoHdHandleResizedHeight();
 	bool calypsoHdClaimedThisFrame() const;
 	bool calypsoHdFilterMouseOver(Action *action, State *state);
-	int calypsoHdHoverSelRow(double relY, double yScale, int nativeRowH) const;
+	Calypso::CalypsoSelectionListRowHit calypsoHdRowHit(const Action *action) const;
 	bool calypsoHdSuppressClick(Action *action) const;
 	void calypsoHdMaybeApplyTtf(Text *txt);
 	void calypsoHdNormalizeRowHeights(std::vector<Text*> &row, int rowHeight, int cols);
@@ -182,10 +190,14 @@ public:
 	/// Calypso HD selection-list seam: per-instance opt-in (no user toggle).
 	/// Configures the inset track width and min thumb height in engine-logical
 	/// px plus the projected generated row stride (generated.rowHeight scaled by
-	/// the SAME adapter uiScale) and generated visibleRows; the track is derived
-	/// from the actual native list rect. Same values re-applied preserve drag
-	/// capture; real changes reset it.
-	void configureCalypsoHdSelectionList(int scrollBarWidth, int minThumbHeight, int rowStride, size_t visibleRows);
+	/// the SAME adapter uiScale), the logical offset from the surface top to the
+	/// first painted row slot (column header excluded) and the logical height of
+	/// the union of painted row slots (trailing panel remainder excluded), and
+	/// the emitted visible slot capacity. One descriptor drives paint, native
+	/// scrollbar placement and row hit-testing; same values re-applied preserve
+	/// drag capture, real changes reset it.
+	void configureCalypsoHdSelectionList(int scrollBarWidth, int minThumbHeight,
+		int rowStride, int rowOriginY, int dataViewportH, size_t visibleRows);
 	void clearCalypsoHdSelectionList();
 	bool isCalypsoHdSelectionList() const;
 	/// Read-only native track/thumb in the list's logical space, valid before

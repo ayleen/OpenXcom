@@ -37,6 +37,7 @@
 #include <locale>
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoF14GlobalOperationsUi.h"
+#include "../Calypso/CalypsoHdUiOverlay.h"
 #endif
 
 namespace OpenXcom
@@ -365,9 +366,14 @@ void GlobalResearchDiaryState::lstItemLClick(Action* action)
 {
 	const size_t selectedRow = _lstItems->getSelectedRow();
 	if (selectedRow >= _filteredItemList.size()) return;
-	auto* selectedTopic = _filteredItemList[selectedRow]->diaryEntry->research;
 	_doNotReset = true;
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
+		"Technology Tree HD route is not available");
+#else
+	auto* selectedTopic = _filteredItemList[selectedRow]->diaryEntry->research;
 	_game->pushState(new TechTreeViewerState(selectedTopic, 0));
+#endif
 }
 
 /**

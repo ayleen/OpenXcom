@@ -100,24 +100,37 @@ struct OperationsTypography
 
 OperationsTypography operationsTypography(const CalypsoHdOperationsModel& model)
 {
-	const double chromeScale = std::min({1.0,
-		static_cast<double>(model.geometry.designWidth) / 1280.0,
-		static_cast<double>(model.geometry.designHeight) / 720.0});
+	// Workspace typography is authored per canonical design class and must not
+	// inherit the F01 chrome downscale: the compact 740x360 canvas is its own
+	// CSS canvas, not a half-scale 1280x720 shell (external review R06).
 	const auto& metrics = CalypsoHdUiOverlay::instance().frozenMetrics();
-	auto px = [&](int canonicalPx) {
-		const int designPx = std::max(1,
-			static_cast<int>(std::lround(canonicalPx * chromeScale)));
+	const bool wide = model.geometry.designWidth >= 1000;
+	auto px = [&](int designPx) {
 		return calypsoHdOperationsPhysicalFontPx(
 			designPx, model.geometry.designHeight, metrics.physicalHeight);
 	};
+	if (wide)
+	{
+		return {
+			px(28),
+			px(18),
+			px(14),
+			px(11),
+			px(15),
+			px(14),
+			px(14)
+		};
+	}
+	// Compact CSS targets per the approved guide: title 18, detail title 16,
+	// body/button 12, label 10, data 13.
 	return {
-		px(28),
 		px(18),
-		px(14),
-		px(11),
-		px(15),
-		px(14),
-		px(14)
+		px(16),
+		px(12),
+		px(10),
+		px(13),
+		px(12),
+		px(12)
 	};
 }
 
@@ -336,8 +349,11 @@ void collectAction(CalypsoHdFrameBuilder& builder, const CalypsoHdOperationsMode
 
 void collectControl(CalypsoHdFrameBuilder& builder,
 	const CalypsoHdOperationsModel& model, const CalypsoTtfSourceDescriptor& source,
-	int inputPx, int actionPx, const CalypsoHdOperationsControl& control, int& order)
+	const OperationsTypography& typography, const CalypsoHdOperationsControl& control,
+	int& order)
 {
+	const int inputPx = typography.inputPx;
+	const int actionPx = typography.actionPx;
 	if (!control.state.visible) return;
 	const std::uint32_t fill = control.state.disabled
 		? model.style.disabled : model.style.panelFillTop;
@@ -351,6 +367,15 @@ void collectControl(CalypsoHdFrameBuilder& builder,
 			control.valueRect, control.displayValue,
 			control.state.disabled ? model.style.disabled : model.style.text,
 			CalypsoHdHAlign::Center, control.widget);
+		if (control.labelRect.valid())
+		{
+			// Visible localized caption for the quantity being stepped; the
+			// value cell stays numeric-only (external review R07).
+			addText(builder, model, source, typography.labelPx,
+				"control-caption/" + control.id, order++,
+				control.labelRect, control.label,
+				model.style.mutedText, CalypsoHdHAlign::Left, control.widget);
+		}
 		collectAction(builder, model, source, actionPx, control.decrement, order);
 		collectAction(builder, model, source, actionPx, control.increment, order);
 		return;
@@ -544,8 +569,7 @@ void collectOperationsWorkspace(CalypsoHdFrameBuilder& builder,
 				CalypsoHdHAlign::Right);
 	}
 	for (const auto& control : model.controls)
-		collectControl(builder, model, source, typography.inputPx, typography.actionPx,
-			control, order);
+		collectControl(builder, model, source, typography, control, order);
 	for (const auto& action : model.toolbarActions)
 		collectAction(builder, model, source, typography.actionPx, action, order);
 
@@ -604,8 +628,7 @@ void collectWideDetail(CalypsoHdFrameBuilder& builder,
 	addPanel(builder, model, "control-bar", order++, g.controlBar,
 		model.style.regionFill, model.style.regionFill);
 	for (const auto& control : model.controls)
-		collectControl(builder, model, source, typography.inputPx, typography.actionPx,
-			control, order);
+		collectControl(builder, model, source, typography, control, order);
 	for (const auto& action : model.toolbarActions)
 		collectAction(builder, model, source, typography.actionPx, action, order);
 	for (const auto& region : model.regions)

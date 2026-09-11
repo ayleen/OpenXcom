@@ -381,6 +381,9 @@ void CalypsoF09ResearchUi::applyQueueGeometry()
 	const auto *g = CalypsoF09ResearchQueueGen::layoutForDesign(
 		wide ? 1280 : 740, wide ? 720 : 360);
 	if (!g) return;
+	const auto &generated = wide
+		? CalypsoF09ResearchQueueGen::kCollectionsWide[0]
+		: CalypsoF09ResearchQueueGen::kCollectionsCompact[0];
 	setOperationsWindow(_queue->_window, rawRect(g->window));
 	const int wx = _queue->_window->getX(), wy = _queue->_window->getY();
 	const double sx = static_cast<double>(_queue->_window->getWidth()) / g->window.w;
@@ -405,11 +408,35 @@ void CalypsoF09ResearchUi::applyQueueGeometry()
 	place(_queue->_btnOk, g->action_done);
 	place(_queue->_btnOpenProject, g->detail_selected_project_action_open_project);
 	place(_queue->_btnTechTree, g->detail_selected_project_action_tech_tree);
+	// Staffing wheel zone: the projected scientists column of the collection,
+	// not the HD-moved summary texts. Without scroll speeds the column scrolls
+	// the list like every other position.
+	if (Options::oxceResearchScrollSpeed > 0 || Options::oxceResearchScrollSpeedWithCtrl > 0)
+	{
+		const auto scientistsColumn = projectRect(
+			g->collection_column_scientists, wx, wy, sx, sy, g->window.x, g->window.y);
+		_queue->_lstResearch->setNoScrollArea(
+			scientistsColumn.x, scientistsColumn.x + scientistsColumn.w);
+	}
+	else
+	{
+		_queue->_lstResearch->setNoScrollArea(0, 0);
+	}
+	// One descriptor drives paint, hit-testing and the native scrollbar:
+	// logical row stride, logical offset from the list top to the first painted
+	// row slot (column header owns no rows), the logical union height of the
+	// emitted row slots (trailing panel remainder owns no rows) and the emitted
+	// visible slot capacity — never a hardcoded wide/compact guess.
+	const int rowOrigin = std::max(0, static_cast<int>(
+		(g->collection_row_slot_1.y - g->collectionViewport.y) * sy));
 	_queue->_lstResearch->configureCalypsoHdSelectionList(
 		std::max(1, static_cast<int>(g->collection_scroll_track.w * sx)),
 		std::max(1, static_cast<int>(44 * sy)),
 		std::max(1, static_cast<int>(g->collection_row_slot_1.h * sy)),
-		wide ? 5 : 2);
+		rowOrigin,
+		std::max(rowOrigin + 1, rowOrigin + static_cast<int>(
+			generated.rowSlotCount * g->collection_row_slot_1.h * sy)),
+		static_cast<std::size_t>(generated.rowSlotCount));
 }
 
 void CalypsoF09ResearchUi::applyCatalogueGeometry()
@@ -420,6 +447,9 @@ void CalypsoF09ResearchUi::applyCatalogueGeometry()
 	const auto *g = CalypsoF09ResearchCatalogueGen::layoutForDesign(
 		wide ? 1280 : 740, wide ? 720 : 360);
 	if (!g) return;
+	const auto &generated = wide
+		? CalypsoF09ResearchCatalogueGen::kCollectionsWide[0]
+		: CalypsoF09ResearchCatalogueGen::kCollectionsCompact[0];
 	setOperationsWindow(_catalogue->_window, rawRect(g->window));
 	const int wx = _catalogue->_window->getX(), wy = _catalogue->_window->getY();
 	const double sx = static_cast<double>(_catalogue->_window->getWidth()) / g->window.w;
@@ -442,11 +472,16 @@ void CalypsoF09ResearchUi::applyCatalogueGeometry()
 	place(_catalogue->_btnQuickSearch, g->toolbar_quick_search);
 	place(_catalogue->_cbxSort, g->toolbar_sort_default);
 	place(_catalogue->_btnShowOnlyNew, g->toolbar_show_only_new);
+	const int rowOrigin = std::max(0, static_cast<int>(
+		(g->collection_row_slot_1.y - g->collectionViewport.y) * sy));
 	_catalogue->_lstResearch->configureCalypsoHdSelectionList(
 		std::max(1, static_cast<int>(g->collection_scroll_track.w * sx)),
 		std::max(1, static_cast<int>(44 * sy)),
 		std::max(1, static_cast<int>(g->collection_row_slot_1.h * sy)),
-		wide ? 5 : 2);
+		rowOrigin,
+		std::max(rowOrigin + 1, rowOrigin + static_cast<int>(
+			generated.rowSlotCount * g->collection_row_slot_1.h * sy)),
+		static_cast<std::size_t>(generated.rowSlotCount));
 }
 
 CalypsoHdOperationsModel CalypsoF09ResearchUi::buildQueueModel() const
@@ -472,6 +507,7 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildQueueModel() const
 		CalypsoF09ResearchQueueGen::kProfileId,
 		CalypsoF09ResearchQueueGen::kProfileVersion,
 		CalypsoF09ResearchQueueGen::kProvenanceTemplate);
+	calypsoHdOperationsApplyGeneratedStyle(model, CalypsoF09ResearchQueueGen::kProfileStyle);
 	model.ownerState = _queue;
 	model.visualShell = CalypsoF09ResearchQueueGen::kVisualShell;
 	model.headerArtId = CalypsoF09ResearchQueueGen::kHeaderArt;
@@ -603,7 +639,7 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildQueueModel() const
 	}
 	model.detail.actions.push_back(action("open-project", _queue->_btnOpenProject->getText(),
 		p(g->detail_selected_project_action_open_project), _queue->_btnOpenProject,
-		hasSelection, "primary"));
+		hasSelection));
 	model.detail.actions.push_back(action("tech-tree", _queue->_btnTechTree->getText(),
 		p(g->detail_selected_project_action_tech_tree), _queue->_btnTechTree,
 		hasSelection));
@@ -611,10 +647,10 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildQueueModel() const
 		_queue->_btnGlobalOverview->getText(),
 		p(g->action_global_overview), _queue->_btnGlobalOverview, true, "safe"));
 	auto newProject = action("new-project", _queue->_btnNew->getText(),
-		p(g->action_new_project), _queue->_btnNew, true, "safe");
+		p(g->action_new_project), _queue->_btnNew, true, "primary");
 	model.footerActions.push_back(std::move(newProject));
 	model.footerActions.push_back(action("done", _queue->_btnOk->getText(),
-		p(g->action_done), _queue->_btnOk, true, "primary"));
+		p(g->action_done), _queue->_btnOk));
 	setFonts(model, _queue->_game->getMod());
 	return model;
 }
@@ -643,6 +679,7 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildCatalogueModel() const
 		CalypsoF09ResearchCatalogueGen::kProfileId,
 		CalypsoF09ResearchCatalogueGen::kProfileVersion,
 		CalypsoF09ResearchCatalogueGen::kProvenanceTemplate);
+	calypsoHdOperationsApplyGeneratedStyle(model, CalypsoF09ResearchCatalogueGen::kProfileStyle);
 	model.ownerState = _catalogue;
 	model.visualShell = CalypsoF09ResearchCatalogueGen::kVisualShell;
 	model.headerArtId = CalypsoF09ResearchCatalogueGen::kHeaderArt;
@@ -788,7 +825,7 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildCatalogueModel() const
 	model.footerActions.push_back(action("mark-all-seen", tr("STR_MARK_ALL_SEEN"),
 		p(g->action_mark_all_seen), _catalogue->_btnMarkAllSeen, true, "safe"));
 	model.footerActions.push_back(action("done", tr("STR_DONE"),
-		p(g->action_done), _catalogue->_btnOK, true, "primary"));
+		p(g->action_done), _catalogue->_btnOK));
 	setFonts(model, _catalogue->_game->getMod());
 	return model;
 }
@@ -876,6 +913,7 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildStaffingModel() const
 		CalypsoF09ResearchStaffingGen::kProfileId,
 		CalypsoF09ResearchStaffingGen::kProfileVersion,
 		CalypsoF09ResearchStaffingGen::kProvenanceTemplate);
+	calypsoHdOperationsApplyGeneratedStyle(model, CalypsoF09ResearchStaffingGen::kProfileStyle);
 	model.visualShell = CalypsoF09ResearchStaffingGen::kVisualShell;
 	model.headerArtId = CalypsoF09ResearchStaffingGen::kHeaderArt;
 	model.baseName = _staffing->_base ? _staffing->_base->getName() : std::string();
@@ -951,6 +989,7 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildStaffingModel() const
 	control.displayValue = std::to_string(_staffing->_project->getAssigned());
 	control.rect = p(g->control_scientists);
 	control.valueRect = p(g->control_scientists_value);
+	control.labelRect = p(g->control_scientists_label);
 	control.widget = _staffing->_btnMore;
 	control.decrement = action("scientists-decrement", "−",
 		p(g->control_scientists_decrement), _staffing->_btnLess);

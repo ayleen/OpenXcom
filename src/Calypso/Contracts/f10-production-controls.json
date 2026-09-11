@@ -72,6 +72,29 @@
         ]
       },
       {
+        "id": "resources",
+        "role": "secondary",
+        "kind": "fields",
+        "label": "RESOURCES",
+        "fields": [
+          {
+            "id": "available-engineers",
+            "label": "ENGINEERS AVAILABLE",
+            "value": "0"
+          },
+          {
+            "id": "workshop-space",
+            "label": "WORKSHOP SPACE",
+            "value": "0"
+          },
+          {
+            "id": "hours-per-unit",
+            "label": "ENGINEER HOURS",
+            "value": "0"
+          }
+        ]
+      },
+      {
         "id": "sell",
         "role": "navigation",
         "kind": "actions",
@@ -83,6 +106,42 @@
             "labelKey": "STR_SELL_PRODUCTION",
             "tone": "normal",
             "action": "toggle-sell",
+            "style": {
+              "fill": "071624FF",
+              "border": "173246FF",
+              "text": "E7F0F3FF"
+            }
+          },
+          {
+            "id": "fallback-production",
+            "label": "FALLBACK: OFF",
+            "labelKey": "STR_FALLBACK_PRODUCTION",
+            "tone": "normal",
+            "action": "fallback-production",
+            "style": {
+              "fill": "071624FF",
+              "border": "173246FF",
+              "text": "E7F0F3FF"
+            }
+          },
+          {
+            "id": "unit-infinity",
+            "label": "INFINITY",
+            "labelKey": "STR_CALYPSO_INFINITY",
+            "tone": "normal",
+            "action": "unit-infinity",
+            "style": {
+              "fill": "071624FF",
+              "border": "173246FF",
+              "text": "E7F0F3FF"
+            }
+          },
+          {
+            "id": "unit-minimum",
+            "label": "MINIMUM",
+            "labelKey": "STR_CALYPSO_MINIMUM",
+            "tone": "normal",
+            "action": "unit-minimum",
             "style": {
               "fill": "071624FF",
               "border": "173246FF",
@@ -155,6 +214,29 @@
         ]
       },
       {
+        "id": "resources",
+        "role": "secondary",
+        "kind": "fields",
+        "label": "RESOURCES",
+        "fields": [
+          {
+            "id": "available-engineers",
+            "label": "ENGINEERS AVAILABLE",
+            "value": "0"
+          },
+          {
+            "id": "workshop-space",
+            "label": "WORKSHOP SPACE",
+            "value": "0"
+          },
+          {
+            "id": "hours-per-unit",
+            "label": "ENGINEER HOURS",
+            "value": "0"
+          }
+        ]
+      },
+      {
         "id": "sell",
         "role": "navigation",
         "kind": "actions",
@@ -166,6 +248,27 @@
             "labelKey": "STR_SELL_PRODUCTION",
             "tone": "normal",
             "action": "toggle-sell"
+          },
+          {
+            "id": "fallback-production",
+            "label": "FALLBACK: OFF",
+            "labelKey": "STR_FALLBACK_PRODUCTION",
+            "tone": "normal",
+            "action": "fallback-production"
+          },
+          {
+            "id": "unit-infinity",
+            "label": "INFINITY",
+            "labelKey": "STR_CALYPSO_INFINITY",
+            "tone": "normal",
+            "action": "unit-infinity"
+          },
+          {
+            "id": "unit-minimum",
+            "label": "MINIMUM",
+            "labelKey": "STR_CALYPSO_MINIMUM",
+            "tone": "normal",
+            "action": "unit-minimum"
           }
         ]
       }
@@ -264,6 +367,12 @@
             "y": 113,
             "width": 44,
             "height": 44
+          },
+          "label": {
+            "x": 788,
+            "y": 159,
+            "width": 220,
+            "height": 14
           }
         },
         "units": {
@@ -284,6 +393,12 @@
             "y": 113,
             "width": 44,
             "height": 44
+          },
+          "label": {
+            "x": 1018,
+            "y": 159,
+            "width": 220,
+            "height": 14
           }
         }
       },
@@ -385,6 +500,82 @@
                 "x": 377,
                 "y": 610,
                 "width": 283,
+                "height": 20
+              }
+            }
+          }
+        },
+        "resources": {
+          "panel": {
+            "x": 688,
+            "y": 190,
+            "width": 568,
+            "height": 216
+          },
+          "label": {
+            "x": 700,
+            "y": 202,
+            "width": 544,
+            "height": 20
+          },
+          "fields": {
+            "available-engineers": {
+              "row": {
+                "x": 700,
+                "y": 222,
+                "width": 544,
+                "height": 20
+              },
+              "label": {
+                "x": 700,
+                "y": 222,
+                "width": 244,
+                "height": 20
+              },
+              "value": {
+                "x": 956,
+                "y": 222,
+                "width": 288,
+                "height": 20
+              }
+            },
+            "workshop-space": {
+              "row": {
+                "x": 700,
+                "y": 242,
+                "width": 544,
+                "height": 20
+              },
+              "label": {
+                "x": 700,
+                "y": 242,
+                "width": 244,
+                "height": 20
+              },
+              "value": {
+                "x": 956,
+                "y": 242,
+                "width": 288,
+                "height": 20
+              }
+            },
+            "hours-per-unit": {
+              "row": {
+                "x": 700,
+                "y": 262,
+                "width": 544,
+                "height": 20
+              },
+              "label": {
+                "x": 700,
+                "y": 262,
+                "width": 244,
+                "height": 20
+              },
+              "value": {
+                "x": 956,
+                "y": 262,
+                "width": 288,
                 "height": 20
               }
             }
@@ -550,6 +741,12 @@
           "width": 44,
           "height": 44
         },
+        "control.engineers.label": {
+          "x": 788,
+          "y": 159,
+          "width": 220,
+          "height": 14
+        },
         "control.units.decrement": {
           "x": 1018,
           "y": 113,
@@ -567,6 +764,12 @@
           "y": 113,
           "width": 44,
           "height": 44
+        },
+        "control.units.label": {
+          "x": 1018,
+          "y": 159,
+          "width": 220,
+          "height": 14
         },
         "region.output": {
           "x": 112,
@@ -652,6 +855,72 @@
           "width": 283,
           "height": 20
         },
+        "region.resources": {
+          "x": 688,
+          "y": 190,
+          "width": 568,
+          "height": 216
+        },
+        "region.resources.label": {
+          "x": 700,
+          "y": 202,
+          "width": 544,
+          "height": 20
+        },
+        "region.resources.field.available-engineers": {
+          "x": 700,
+          "y": 222,
+          "width": 544,
+          "height": 20
+        },
+        "region.resources.field.available-engineers.label": {
+          "x": 700,
+          "y": 222,
+          "width": 244,
+          "height": 20
+        },
+        "region.resources.field.available-engineers.value": {
+          "x": 956,
+          "y": 222,
+          "width": 288,
+          "height": 20
+        },
+        "region.resources.field.workshop-space": {
+          "x": 700,
+          "y": 242,
+          "width": 544,
+          "height": 20
+        },
+        "region.resources.field.workshop-space.label": {
+          "x": 700,
+          "y": 242,
+          "width": 244,
+          "height": 20
+        },
+        "region.resources.field.workshop-space.value": {
+          "x": 956,
+          "y": 242,
+          "width": 288,
+          "height": 20
+        },
+        "region.resources.field.hours-per-unit": {
+          "x": 700,
+          "y": 262,
+          "width": 544,
+          "height": 20
+        },
+        "region.resources.field.hours-per-unit.label": {
+          "x": 700,
+          "y": 262,
+          "width": 244,
+          "height": 20
+        },
+        "region.resources.field.hours-per-unit.value": {
+          "x": 956,
+          "y": 262,
+          "width": 288,
+          "height": 20
+        },
         "region.sell": {
           "x": 688,
           "y": 418,
@@ -691,6 +960,18 @@
         "region.sell.action-slot-2": {
           "x": 946,
           "y": 450,
+          "width": 243,
+          "height": 44
+        },
+        "region.sell.action-slot-3": {
+          "x": 700,
+          "y": 497,
+          "width": 243,
+          "height": 44
+        },
+        "region.sell.action-slot-4": {
+          "x": 946,
+          "y": 497,
           "width": 243,
           "height": 44
         },
@@ -768,6 +1049,12 @@
             "y": 52,
             "width": 44,
             "height": 44
+          },
+          "label": {
+            "x": 500,
+            "y": 98,
+            "width": 106,
+            "height": 14
           }
         },
         "units": {
@@ -788,6 +1075,12 @@
             "y": 52,
             "width": 44,
             "height": 44
+          },
+          "label": {
+            "x": 614,
+            "y": 98,
+            "width": 106,
+            "height": 14
           }
         }
       },
@@ -803,7 +1096,7 @@
             "x": 52,
             "y": 108,
             "width": 360,
-            "height": 196
+            "height": 104
           },
           "label": {
             "x": 60,
@@ -815,7 +1108,7 @@
             "x": 60,
             "y": 132,
             "width": 344,
-            "height": 164
+            "height": 72
           }
         },
         "result": {
@@ -894,7 +1187,7 @@
             }
           }
         },
-        "sell": {
+        "resources": {
           "panel": {
             "x": 420,
             "y": 196,
@@ -907,28 +1200,122 @@
             "width": 296,
             "height": 16
           },
-          "content": {
-            "x": 428,
+          "fields": {
+            "available-engineers": {
+              "row": {
+                "x": 428,
+                "y": 220,
+                "width": 296,
+                "height": 16
+              },
+              "label": {
+                "x": 428,
+                "y": 220,
+                "width": 177,
+                "height": 16
+              },
+              "value": {
+                "x": 613,
+                "y": 220,
+                "width": 111,
+                "height": 16
+              }
+            },
+            "workshop-space": {
+              "row": {
+                "x": 428,
+                "y": 236,
+                "width": 296,
+                "height": 16
+              },
+              "label": {
+                "x": 428,
+                "y": 236,
+                "width": 177,
+                "height": 16
+              },
+              "value": {
+                "x": 613,
+                "y": 236,
+                "width": 111,
+                "height": 16
+              }
+            },
+            "hours-per-unit": {
+              "row": {
+                "x": 428,
+                "y": 252,
+                "width": 296,
+                "height": 16
+              },
+              "label": {
+                "x": 428,
+                "y": 252,
+                "width": 177,
+                "height": 16
+              },
+              "value": {
+                "x": 613,
+                "y": 252,
+                "width": 111,
+                "height": 16
+              }
+            }
+          }
+        },
+        "sell": {
+          "panel": {
+            "x": 52,
             "y": 220,
-            "width": 296,
-            "height": 76
+            "width": 680,
+            "height": 84
+          },
+          "label": {
+            "x": 60,
+            "y": 228,
+            "width": 664,
+            "height": 16
+          },
+          "content": {
+            "x": 60,
+            "y": 244,
+            "width": 664,
+            "height": 52
           },
           "actionSlots": [
             {
               "id": "action-slot-1",
               "rect": {
-                "x": 428,
-                "y": 220,
-                "width": 120,
+                "x": 60,
+                "y": 244,
+                "width": 150,
                 "height": 44
               }
             },
             {
               "id": "action-slot-2",
               "rect": {
-                "x": 552,
-                "y": 220,
-                "width": 120,
+                "x": 214,
+                "y": 244,
+                "width": 150,
+                "height": 44
+              }
+            },
+            {
+              "id": "action-slot-3",
+              "rect": {
+                "x": 368,
+                "y": 244,
+                "width": 150,
+                "height": 44
+              }
+            },
+            {
+              "id": "action-slot-4",
+              "rect": {
+                "x": 522,
+                "y": 244,
+                "width": 150,
                 "height": 44
               }
             }
@@ -936,15 +1323,15 @@
           "scroll": {
             "track": {
               "x": 706,
-              "y": 220,
+              "y": 244,
               "width": 18,
-              "height": 76
+              "height": 52
             },
             "thumb": {
               "x": 706,
-              "y": 220,
+              "y": 244,
               "width": 18,
-              "height": 76
+              "height": 52
             }
           }
         }
@@ -1036,6 +1423,12 @@
           "width": 44,
           "height": 44
         },
+        "control.engineers.label": {
+          "x": 500,
+          "y": 98,
+          "width": 106,
+          "height": 14
+        },
         "control.units.decrement": {
           "x": 614,
           "y": 52,
@@ -1054,11 +1447,17 @@
           "width": 44,
           "height": 44
         },
+        "control.units.label": {
+          "x": 614,
+          "y": 98,
+          "width": 106,
+          "height": 14
+        },
         "region.output": {
           "x": 52,
           "y": 108,
           "width": 360,
-          "height": 196
+          "height": 104
         },
         "region.output.label": {
           "x": 60,
@@ -1070,7 +1469,7 @@
           "x": 60,
           "y": 132,
           "width": 344,
-          "height": 164
+          "height": 72
         },
         "region.result": {
           "x": 420,
@@ -1138,46 +1537,124 @@
           "width": 111,
           "height": 16
         },
-        "region.sell": {
+        "region.resources": {
           "x": 420,
           "y": 196,
           "width": 312,
           "height": 108
         },
-        "region.sell.label": {
+        "region.resources.label": {
           "x": 428,
           "y": 204,
           "width": 296,
           "height": 16
         },
-        "region.sell.content": {
+        "region.resources.field.available-engineers": {
           "x": 428,
           "y": 220,
           "width": 296,
-          "height": 76
+          "height": 16
+        },
+        "region.resources.field.available-engineers.label": {
+          "x": 428,
+          "y": 220,
+          "width": 177,
+          "height": 16
+        },
+        "region.resources.field.available-engineers.value": {
+          "x": 613,
+          "y": 220,
+          "width": 111,
+          "height": 16
+        },
+        "region.resources.field.workshop-space": {
+          "x": 428,
+          "y": 236,
+          "width": 296,
+          "height": 16
+        },
+        "region.resources.field.workshop-space.label": {
+          "x": 428,
+          "y": 236,
+          "width": 177,
+          "height": 16
+        },
+        "region.resources.field.workshop-space.value": {
+          "x": 613,
+          "y": 236,
+          "width": 111,
+          "height": 16
+        },
+        "region.resources.field.hours-per-unit": {
+          "x": 428,
+          "y": 252,
+          "width": 296,
+          "height": 16
+        },
+        "region.resources.field.hours-per-unit.label": {
+          "x": 428,
+          "y": 252,
+          "width": 177,
+          "height": 16
+        },
+        "region.resources.field.hours-per-unit.value": {
+          "x": 613,
+          "y": 252,
+          "width": 111,
+          "height": 16
+        },
+        "region.sell": {
+          "x": 52,
+          "y": 220,
+          "width": 680,
+          "height": 84
+        },
+        "region.sell.label": {
+          "x": 60,
+          "y": 228,
+          "width": 664,
+          "height": 16
+        },
+        "region.sell.content": {
+          "x": 60,
+          "y": 244,
+          "width": 664,
+          "height": 52
         },
         "region.sell.scroll.track": {
           "x": 706,
-          "y": 220,
+          "y": 244,
           "width": 18,
-          "height": 76
+          "height": 52
         },
         "region.sell.scroll.thumb": {
           "x": 706,
-          "y": 220,
+          "y": 244,
           "width": 18,
-          "height": 76
+          "height": 52
         },
         "region.sell.action-slot-1": {
-          "x": 428,
-          "y": 220,
-          "width": 120,
+          "x": 60,
+          "y": 244,
+          "width": 150,
           "height": 44
         },
         "region.sell.action-slot-2": {
-          "x": 552,
-          "y": 220,
-          "width": 120,
+          "x": 214,
+          "y": 244,
+          "width": 150,
+          "height": 44
+        },
+        "region.sell.action-slot-3": {
+          "x": 368,
+          "y": 244,
+          "width": 150,
+          "height": 44
+        },
+        "region.sell.action-slot-4": {
+          "x": 522,
+          "y": 244,
+          "width": 150,
           "height": 44
         },
         "action.stop-production": {
@@ -1471,9 +1948,9 @@
   "regionMetrics": {
     "wide": {
       "sell": {
-        "totalItems": 1,
+        "totalItems": 4,
         "visibleCapacity": 4,
-        "totalUnits": 1,
+        "totalUnits": 2,
         "visibleUnits": 2,
         "itemsPerUnit": 2,
         "scrollUnit": "row",
@@ -1508,37 +1985,37 @@
     },
     "compact": {
       "sell": {
-        "totalItems": 1,
-        "visibleCapacity": 2,
+        "totalItems": 4,
+        "visibleCapacity": 4,
         "totalUnits": 1,
         "visibleUnits": 1,
-        "itemsPerUnit": 2,
+        "itemsPerUnit": 4,
         "scrollUnit": "row",
         "overflow": false,
         "scrollSteps": 0,
         "track": {
           "x": 706,
-          "y": 220,
+          "y": 244,
           "width": 18,
-          "height": 76
+          "height": 52
         },
         "thumb": {
           "x": 706,
-          "y": 220,
+          "y": 244,
           "width": 18,
-          "height": 76
+          "height": 52
         },
         "trackHitTarget": {
           "x": 680,
-          "y": 220,
+          "y": 244,
           "width": 44,
-          "height": 76
+          "height": 52
         },
         "thumbHitTarget": {
           "x": 680,
-          "y": 220,
+          "y": 244,
           "width": 44,
-          "height": 76
+          "height": 52
         },
         "thumbTravelPx": 0
       }
@@ -1611,6 +2088,19 @@
       "compact": 8
     },
     {
+      "id": "region-inset-resources",
+      "kind": "inset",
+      "container": "region.resources",
+      "child": "region.resources.label",
+      "edges": [
+        "left",
+        "top",
+        "right"
+      ],
+      "wide": 12,
+      "compact": 8
+    },
+    {
       "id": "region-inset-sell",
       "kind": "inset",
       "container": "region.sell",
@@ -1624,13 +2114,31 @@
       "compact": 8
     },
     {
+      "id": "primary-secondary",
+      "kind": "gap",
+      "first": "region.output",
+      "second": "region.resources",
+      "axis": "horizontal",
+      "wide": 16,
+      "compact": 8
+    },
+    {
       "id": "primary-summary",
       "kind": "gap",
       "first": "region.output",
       "second": "region.result",
       "axis": "vertical",
       "wide": 12,
-      "compact": -196
+      "compact": -104
+    },
+    {
+      "id": "secondary-navigation",
+      "kind": "gap",
+      "first": "region.resources",
+      "second": "region.sell",
+      "axis": "vertical",
+      "wide": 12,
+      "compact": -84
     },
     {
       "id": "footer-action-inset",
@@ -1660,9 +2168,11 @@
     "control.engineers.decrement",
     "control.engineers.value",
     "control.engineers.increment",
+    "control.engineers.label",
     "control.units.decrement",
     "control.units.value",
     "control.units.increment",
+    "control.units.label",
     "region.output",
     "region.output.label",
     "region.output.content",
@@ -1677,6 +2187,17 @@
     "region.result.field.monthly-profit",
     "region.result.field.monthly-profit.label",
     "region.result.field.monthly-profit.value",
+    "region.resources",
+    "region.resources.label",
+    "region.resources.field.available-engineers",
+    "region.resources.field.available-engineers.label",
+    "region.resources.field.available-engineers.value",
+    "region.resources.field.workshop-space",
+    "region.resources.field.workshop-space.label",
+    "region.resources.field.workshop-space.value",
+    "region.resources.field.hours-per-unit",
+    "region.resources.field.hours-per-unit.label",
+    "region.resources.field.hours-per-unit.value",
     "region.sell",
     "region.sell.label",
     "region.sell.content",
@@ -1684,6 +2205,8 @@
     "region.sell.scroll.thumb",
     "region.sell.action-slot-1",
     "region.sell.action-slot-2",
+    "region.sell.action-slot-3",
+    "region.sell.action-slot-4",
     "action.stop-production",
     "action.ok"
   ]

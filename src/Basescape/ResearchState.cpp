@@ -199,6 +199,8 @@ void ResearchState::onOpenTechTreeViewer(Action *action)
 	Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
 		"Technology Tree HD route is not available");
 #else
+	const RuleResearch *selectedTopic =
+		baseProjects[_lstResearch->getSelectedRow()]->getRules();
 	_game->pushState(new TechTreeViewerState(selectedTopic, 0));
 #endif
 }
@@ -267,12 +269,31 @@ void ResearchState::init()
 
 	if (Options::oxceResearchScrollSpeed > 0 || Options::oxceResearchScrollSpeedWithCtrl > 0)
 	{
+#ifdef __EMSCRIPTEN__
+		if (_hdLayout)
+		{
+			// HD layout: the adapter owns the staffing wheel zone (the
+			// projected scientists column of the list), not these summary
+			// texts which the HD shell moves out of the collection area.
+		}
+		else
+		{
+			// 175 +/- 20
+			_lstResearch->setNoScrollArea(_txtAllocated->getX() - 5, _txtAllocated->getX() + 35);
+		}
+#else
 		// 175 +/- 20
 		_lstResearch->setNoScrollArea(_txtAllocated->getX() - 5, _txtAllocated->getX() + 35);
+#endif
 	}
 	else
 	{
-		_lstResearch->setNoScrollArea(0, 0);
+#ifdef __EMSCRIPTEN__
+		if (!_hdLayout)
+#endif
+		{
+			_lstResearch->setNoScrollArea(0, 0);
+		}
 	}
 #ifdef __EMSCRIPTEN__
 	CalypsoTutorial::get().anchorAll({ {"res.btnNew", _btnNew} });

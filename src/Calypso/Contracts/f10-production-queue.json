@@ -353,14 +353,20 @@
       "collectionViewport": {
         "x": 112,
         "y": 234,
-        "width": 816,
-        "height": 412
+        "width": 1144,
+        "height": 344
       },
       "detailPanel": {
-        "x": 944,
-        "y": 190,
-        "width": 312,
-        "height": 456
+        "x": 112,
+        "y": 586,
+        "width": 1144,
+        "height": 64
+      },
+      "contextDock": {
+        "x": 112,
+        "y": 586,
+        "width": 1144,
+        "height": 64
       },
       "collection": {
         "columnHeaders": [
@@ -369,7 +375,7 @@
             "rect": {
               "x": 112,
               "y": 234,
-              "width": 280,
+              "width": 432,
               "height": 36
             },
             "contentRole": "name",
@@ -381,9 +387,9 @@
           {
             "id": "engineers",
             "rect": {
-              "x": 393,
+              "x": 545,
               "y": 234,
-              "width": 95,
+              "width": 120,
               "height": 36
             },
             "contentRole": "count",
@@ -395,9 +401,9 @@
           {
             "id": "produced",
             "rect": {
-              "x": 489,
+              "x": 666,
               "y": 234,
-              "width": 125,
+              "width": 176,
               "height": 36
             },
             "contentRole": "quantity",
@@ -409,9 +415,9 @@
           {
             "id": "cost",
             "rect": {
-              "x": 615,
+              "x": 843,
               "y": 234,
-              "width": 133,
+              "width": 183,
               "height": 36
             },
             "contentRole": "money",
@@ -423,9 +429,9 @@
           {
             "id": "time",
             "rect": {
-              "x": 749,
+              "x": 1027,
               "y": 234,
-              "width": 125,
+              "width": 175,
               "height": 36
             },
             "contentRole": "time",
@@ -441,7 +447,7 @@
             "rect": {
               "x": 112,
               "y": 270,
-              "width": 762,
+              "width": 1090,
               "height": 50
             },
             "cells": [
@@ -450,7 +456,7 @@
                 "rect": {
                   "x": 112,
                   "y": 270,
-                  "width": 280,
+                  "width": 432,
                   "height": 50
                 },
                 "contentRole": "name",
@@ -462,9 +468,9 @@
               {
                 "id": "engineers",
                 "rect": {
-                  "x": 393,
+                  "x": 545,
                   "y": 270,
-                  "width": 95,
+                  "width": 120,
                   "height": 50
                 },
                 "contentRole": "count",
@@ -476,9 +482,9 @@
               {
                 "id": "produced",
                 "rect": {
-                  "x": 489,
+                  "x": 666,
                   "y": 270,
-                  "width": 125,
+                  "width": 176,
                   "height": 50
                 },
                 "contentRole": "quantity",
@@ -490,9 +496,9 @@
               {
                 "id": "cost",
                 "rect": {
-                  "x": 615,
+                  "x": 843,
                   "y": 270,
-                  "width": 133,
+                  "width": 183,
                   "height": 50
                 },
                 "contentRole": "money",
@@ -504,9 +510,9 @@
               {
                 "id": "time",
                 "rect": {
-                  "x": 749,
+                  "x": 1027,
                   "y": 270,
-                  "width": 125,
+                  "width": 175,
                   "height": 50
                 },
                 "contentRole": "time",
@@ -522,7 +528,7 @@
             "rect": {
               "x": 112,
               "y": 320,
-              "width": 762,
+              "width": 1090,
               "height": 50
             },
             "cells": [
@@ -531,7 +537,7 @@
                 "rect": {
                   "x": 112,
                   "y": 320,
-                  "width": 280,
+                  "width": 432,
                   "height": 50
                 },
                 "contentRole": "name",
@@ -543,9 +549,9 @@
               {
                 "id": "engineers",
                 "rect": {
-                  "x": 393,
+                  "x": 545,
                   "y": 320,
-                  "width": 95,
+                  "width": 120,
                   "height": 50
                 },
                 "contentRole": "count",
@@ -557,9 +563,9 @@
               {
                 "id": "produced",
                 "rect": {
-                  "x": 489,
+                  "x": 666,
                   "y": 320,
-                  "width": 125,
+                  "width": 176,
                   "height": 50
                 },
                 "contentRole": "quantity",
@@ -571,9 +577,9 @@
               {
                 "id": "cost",
                 "rect": {
-                  "x": 615,
+                  "x": 843,
                   "y": 320,
-                  "width": 133,
+                  "width": 183,
                   "height": 50
                 },
                 "contentRole": "money",
@@ -585,9 +591,9 @@
               {
                 "id": "time",
                 "rect": {
-                  "x": 749,
+                  "x": 1027,
                   "y": 320,
-                  "width": 125,
+                  "width": 175,
                   "height": 50
                 },
                 "contentRole": "time",
@@ -603,7 +609,7 @@
             "rect": {
               "x": 112,
               "y": 370,
-              "width": 762,
+              "width": 1090,
               "height": 50
             },
             "cells": [
@@ -612,7 +618,7 @@
                 "rect": {
                   "x": 112,
                   "y": 370,
-                  "width": 280,
+                  "width": 432,
                   "height": 50
                 },
                 "contentRole": "name",
@@ -624,9 +630,9 @@
               {
                 "id": "engineers",
                 "rect": {
-                  "x": 393,
+                  "x": 545,
                   "y": 370,
-                  "width": 95,
+                  "width": 120,
                   "height": 50
                 },
                 "contentRole": "count",
@@ -638,9 +644,9 @@
               {
                 "id": "produced",
                 "rect": {
-                  "x": 489,
+                  "x": 666,
                   "y": 370,
-                  "width": 125,
+                  "width": 176,
                   "height": 50
                 },
                 "contentRole": "quantity",
@@ -652,9 +658,9 @@
               {
                 "id": "cost",
                 "rect": {
-                  "x": 615,
+                  "x": 843,
                   "y": 370,
-                  "width": 133,
+                  "width": 183,
                   "height": 50
                 },
                 "contentRole": "money",
@@ -666,9 +672,9 @@
               {
                 "id": "time",
                 "rect": {
-                  "x": 749,
+                  "x": 1027,
                   "y": 370,
-                  "width": 125,
+                  "width": 175,
                   "height": 50
                 },
                 "contentRole": "time",
@@ -684,7 +690,7 @@
             "rect": {
               "x": 112,
               "y": 420,
-              "width": 762,
+              "width": 1090,
               "height": 50
             },
             "cells": [
@@ -693,7 +699,7 @@
                 "rect": {
                   "x": 112,
                   "y": 420,
-                  "width": 280,
+                  "width": 432,
                   "height": 50
                 },
                 "contentRole": "name",
@@ -705,9 +711,9 @@
               {
                 "id": "engineers",
                 "rect": {
-                  "x": 393,
+                  "x": 545,
                   "y": 420,
-                  "width": 95,
+                  "width": 120,
                   "height": 50
                 },
                 "contentRole": "count",
@@ -719,9 +725,9 @@
               {
                 "id": "produced",
                 "rect": {
-                  "x": 489,
+                  "x": 666,
                   "y": 420,
-                  "width": 125,
+                  "width": 176,
                   "height": 50
                 },
                 "contentRole": "quantity",
@@ -733,9 +739,9 @@
               {
                 "id": "cost",
                 "rect": {
-                  "x": 615,
+                  "x": 843,
                   "y": 420,
-                  "width": 133,
+                  "width": 183,
                   "height": 50
                 },
                 "contentRole": "money",
@@ -747,9 +753,9 @@
               {
                 "id": "time",
                 "rect": {
-                  "x": 749,
+                  "x": 1027,
                   "y": 420,
-                  "width": 125,
+                  "width": 175,
                   "height": 50
                 },
                 "contentRole": "time",
@@ -765,7 +771,7 @@
             "rect": {
               "x": 112,
               "y": 470,
-              "width": 762,
+              "width": 1090,
               "height": 50
             },
             "cells": [
@@ -774,7 +780,7 @@
                 "rect": {
                   "x": 112,
                   "y": 470,
-                  "width": 280,
+                  "width": 432,
                   "height": 50
                 },
                 "contentRole": "name",
@@ -786,9 +792,9 @@
               {
                 "id": "engineers",
                 "rect": {
-                  "x": 393,
+                  "x": 545,
                   "y": 470,
-                  "width": 95,
+                  "width": 120,
                   "height": 50
                 },
                 "contentRole": "count",
@@ -800,9 +806,9 @@
               {
                 "id": "produced",
                 "rect": {
-                  "x": 489,
+                  "x": 666,
                   "y": 470,
-                  "width": 125,
+                  "width": 176,
                   "height": 50
                 },
                 "contentRole": "quantity",
@@ -814,9 +820,9 @@
               {
                 "id": "cost",
                 "rect": {
-                  "x": 615,
+                  "x": 843,
                   "y": 470,
-                  "width": 133,
+                  "width": 183,
                   "height": 50
                 },
                 "contentRole": "money",
@@ -828,9 +834,9 @@
               {
                 "id": "time",
                 "rect": {
-                  "x": 749,
+                  "x": 1027,
                   "y": 470,
-                  "width": 125,
+                  "width": 175,
                   "height": 50
                 },
                 "contentRole": "time",
@@ -845,13 +851,13 @@
         "count": 1,
         "scroll": {
           "track": {
-            "x": 910,
+            "x": 1238,
             "y": 270,
             "width": 18,
             "height": 250
           },
           "thumb": {
-            "x": 910,
+            "x": 1238,
             "y": 270,
             "width": 18,
             "height": 250
@@ -908,116 +914,116 @@
       "detail": {
         "id": "selected-production",
         "panel": {
-          "x": 944,
-          "y": 190,
-          "width": 312,
-          "height": 456
+          "x": 112,
+          "y": 586,
+          "width": 1144,
+          "height": 64
         },
         "label": {
-          "x": 956,
-          "y": 202,
-          "width": 288,
-          "height": 24
+          "x": 124,
+          "y": 590,
+          "width": 260,
+          "height": 16
         },
         "identity": {
           "rect": {
-            "x": 956,
-            "y": 226,
-            "width": 288,
-            "height": 48
+            "x": 124,
+            "y": 606,
+            "width": 260,
+            "height": 40
           },
           "title": {
-            "x": 956,
-            "y": 226,
-            "width": 288,
-            "height": 24
+            "x": 124,
+            "y": 606,
+            "width": 260,
+            "height": 20
           },
           "subtitle": {
-            "x": 956,
-            "y": 250,
-            "width": 288,
-            "height": 24
+            "x": 124,
+            "y": 626,
+            "width": 260,
+            "height": 20
           }
         },
         "metrics": {
           "engineers": {
             "rect": {
-              "x": 956,
-              "y": 274,
-              "width": 143,
-              "height": 58
+              "x": 396,
+              "y": 590,
+              "width": 128,
+              "height": 56
             },
             "label": {
-              "x": 956,
-              "y": 274,
-              "width": 143,
-              "height": 29
+              "x": 396,
+              "y": 590,
+              "width": 128,
+              "height": 28
             },
             "value": {
-              "x": 956,
-              "y": 303,
-              "width": 143,
-              "height": 29
+              "x": 396,
+              "y": 618,
+              "width": 128,
+              "height": 28
             }
           },
           "produced": {
             "rect": {
-              "x": 1100,
-              "y": 274,
-              "width": 144,
-              "height": 58
+              "x": 536,
+              "y": 590,
+              "width": 128,
+              "height": 56
             },
             "label": {
-              "x": 1100,
-              "y": 274,
-              "width": 144,
-              "height": 29
+              "x": 536,
+              "y": 590,
+              "width": 128,
+              "height": 28
             },
             "value": {
-              "x": 1100,
-              "y": 303,
-              "width": 144,
-              "height": 29
+              "x": 536,
+              "y": 618,
+              "width": 128,
+              "height": 28
             }
           },
           "unit-cost": {
             "rect": {
-              "x": 956,
-              "y": 332,
-              "width": 143,
-              "height": 58
+              "x": 676,
+              "y": 590,
+              "width": 128,
+              "height": 56
             },
             "label": {
-              "x": 956,
-              "y": 332,
-              "width": 143,
-              "height": 29
+              "x": 676,
+              "y": 590,
+              "width": 128,
+              "height": 28
             },
             "value": {
-              "x": 956,
-              "y": 361,
-              "width": 143,
-              "height": 29
+              "x": 676,
+              "y": 618,
+              "width": 128,
+              "height": 28
             }
           },
           "time-left": {
             "rect": {
-              "x": 1100,
-              "y": 332,
-              "width": 144,
-              "height": 58
+              "x": 816,
+              "y": 590,
+              "width": 128,
+              "height": 56
             },
             "label": {
-              "x": 1100,
-              "y": 332,
-              "width": 144,
-              "height": 29
+              "x": 816,
+              "y": 590,
+              "width": 128,
+              "height": 28
             },
             "value": {
-              "x": 1100,
-              "y": 361,
-              "width": 144,
-              "height": 29
+              "x": 816,
+              "y": 618,
+              "width": 128,
+              "height": 28
             }
           }
         },
@@ -1029,7 +1035,7 @@
             "id": "open-production",
             "rect": {
               "x": 956,
-              "y": 590,
+              "y": 596,
               "width": 140,
               "height": 44
             }
@@ -1038,7 +1044,7 @@
             "id": "tech-tree",
             "rect": {
               "x": 1104,
-              "y": 590,
+              "y": 596,
               "width": 140,
               "height": 44
             }
@@ -1085,8 +1091,8 @@
         "collectionViewport": {
           "x": 112,
           "y": 234,
-          "width": 816,
-          "height": 412
+          "width": 1144,
+          "height": 344
         },
         "footer": {
           "x": 112,
@@ -1125,13 +1131,13 @@
           "height": 44
         },
         "collection.scroll.track": {
-          "x": 910,
+          "x": 1238,
           "y": 270,
           "width": 18,
           "height": 250
         },
         "collection.scroll.thumb": {
-          "x": 910,
+          "x": 1238,
           "y": 270,
           "width": 18,
           "height": 250
@@ -1139,108 +1145,108 @@
         "collection.column.item": {
           "x": 112,
           "y": 234,
-          "width": 280,
+          "width": 432,
           "height": 36
         },
         "collection.column.engineers": {
-          "x": 393,
+          "x": 545,
           "y": 234,
-          "width": 95,
+          "width": 120,
           "height": 36
         },
         "collection.column.produced": {
-          "x": 489,
+          "x": 666,
           "y": 234,
-          "width": 125,
+          "width": 176,
           "height": 36
         },
         "collection.column.cost": {
-          "x": 615,
+          "x": 843,
           "y": 234,
-          "width": 133,
+          "width": 183,
           "height": 36
         },
         "collection.column.time": {
-          "x": 749,
+          "x": 1027,
           "y": 234,
-          "width": 125,
+          "width": 175,
           "height": 36
         },
         "collection.row-slot.1": {
           "x": 112,
           "y": 270,
-          "width": 762,
-          "height": 50
-        },
-        "collection.row-slot.2": {
-          "x": 112,
-          "y": 320,
-          "width": 762,
+          "width": 1090,
           "height": 50
         },
         "detailPanel": {
-          "x": 944,
-          "y": 190,
-          "width": 312,
-          "height": 456
+          "x": 112,
+          "y": 586,
+          "width": 1144,
+          "height": 64
+        },
+        "contextDock": {
+          "x": 112,
+          "y": 586,
+          "width": 1144,
+          "height": 64
         },
         "detail.selected-production": {
-          "x": 944,
-          "y": 190,
-          "width": 312,
-          "height": 456
+          "x": 112,
+          "y": 586,
+          "width": 1144,
+          "height": 64
         },
         "detail.selected-production.label": {
-          "x": 956,
-          "y": 202,
-          "width": 288,
-          "height": 24
+          "x": 124,
+          "y": 590,
+          "width": 260,
+          "height": 16
         },
         "detail.selected-production.identity.title": {
-          "x": 956,
-          "y": 226,
-          "width": 288,
-          "height": 24
+          "x": 124,
+          "y": 606,
+          "width": 260,
+          "height": 20
         },
         "detail.selected-production.identity.subtitle": {
-          "x": 956,
-          "y": 250,
-          "width": 288,
-          "height": 24
+          "x": 124,
+          "y": 626,
+          "width": 260,
+          "height": 20
         },
         "detail.selected-production.metric.engineers": {
-          "x": 956,
-          "y": 274,
-          "width": 143,
-          "height": 58
+          "x": 396,
+          "y": 590,
+          "width": 128,
+          "height": 56
         },
         "detail.selected-production.metric.produced": {
-          "x": 1100,
-          "y": 274,
-          "width": 144,
-          "height": 58
+          "x": 536,
+          "y": 590,
+          "width": 128,
+          "height": 56
         },
         "detail.selected-production.metric.unit-cost": {
-          "x": 956,
-          "y": 332,
-          "width": 143,
-          "height": 58
+          "x": 676,
+          "y": 590,
+          "width": 128,
+          "height": 56
         },
         "detail.selected-production.metric.time-left": {
-          "x": 1100,
-          "y": 332,
-          "width": 144,
-          "height": 58
+          "x": 816,
+          "y": 590,
+          "width": 128,
+          "height": 56
         },
         "detail.selected-production.action.open-production": {
           "x": 956,
-          "y": 590,
+          "y": 596,
           "width": 140,
           "height": 44
         },
         "detail.selected-production.action.tech-tree": {
           "x": 1104,
-          "y": 590,
+          "y": 596,
           "width": 140,
           "height": 44
         },
@@ -1308,14 +1314,20 @@
       "collectionViewport": {
         "x": 52,
         "y": 152,
-        "width": 466,
-        "height": 152
+        "width": 680,
+        "height": 92
       },
       "detailPanel": {
-        "x": 526,
-        "y": 108,
-        "width": 206,
-        "height": 196
+        "x": 52,
+        "y": 252,
+        "width": 680,
+        "height": 52
+      },
+      "contextDock": {
+        "x": 52,
+        "y": 252,
+        "width": 680,
+        "height": 52
       },
       "collection": {
         "columnHeaders": [
@@ -1324,7 +1336,7 @@
             "rect": {
               "x": 52,
               "y": 152,
-              "width": 120,
+              "width": 218,
               "height": 28
             },
             "contentRole": "name",
@@ -1336,9 +1348,9 @@
           {
             "id": "engineers",
             "rect": {
-              "x": 173,
+              "x": 271,
               "y": 152,
-              "width": 68,
+              "width": 85,
               "height": 28
             },
             "contentRole": "count",
@@ -1350,9 +1362,9 @@
           {
             "id": "produced",
             "rect": {
-              "x": 242,
+              "x": 357,
               "y": 152,
-              "width": 72,
+              "width": 105,
               "height": 28
             },
             "contentRole": "quantity",
@@ -1364,9 +1376,9 @@
           {
             "id": "cost",
             "rect": {
-              "x": 315,
+              "x": 463,
               "y": 152,
-              "width": 79,
+              "width": 112,
               "height": 28
             },
             "contentRole": "money",
@@ -1378,9 +1390,9 @@
           {
             "id": "time",
             "rect": {
-              "x": 395,
+              "x": 576,
               "y": 152,
-              "width": 71,
+              "width": 104,
               "height": 28
             },
             "contentRole": "time",
@@ -1396,7 +1408,7 @@
             "rect": {
               "x": 52,
               "y": 180,
-              "width": 414,
+              "width": 628,
               "height": 44
             },
             "cells": [
@@ -1405,7 +1417,7 @@
                 "rect": {
                   "x": 52,
                   "y": 180,
-                  "width": 120,
+                  "width": 218,
                   "height": 44
                 },
                 "contentRole": "name",
@@ -1417,9 +1429,9 @@
               {
                 "id": "engineers",
                 "rect": {
-                  "x": 173,
+                  "x": 271,
                   "y": 180,
-                  "width": 68,
+                  "width": 85,
                   "height": 44
                 },
                 "contentRole": "count",
@@ -1431,9 +1443,9 @@
               {
                 "id": "produced",
                 "rect": {
-                  "x": 242,
+                  "x": 357,
                   "y": 180,
-                  "width": 72,
+                  "width": 105,
                   "height": 44
                 },
                 "contentRole": "quantity",
@@ -1445,9 +1457,9 @@
               {
                 "id": "cost",
                 "rect": {
-                  "x": 315,
+                  "x": 463,
                   "y": 180,
-                  "width": 79,
+                  "width": 112,
                   "height": 44
                 },
                 "contentRole": "money",
@@ -1459,90 +1471,9 @@
               {
                 "id": "time",
                 "rect": {
-                  "x": 395,
+                  "x": 576,
                   "y": 180,
-                  "width": 71,
-                  "height": 44
-                },
-                "contentRole": "time",
-                "font": "data",
-                "align": "right",
-                "minWidth": 64,
-                "weight": 2
-              }
-            ]
-          },
-          {
-            "id": "row-slot-2",
-            "rect": {
-              "x": 52,
-              "y": 224,
-              "width": 414,
-              "height": 44
-            },
-            "cells": [
-              {
-                "id": "item",
-                "rect": {
-                  "x": 52,
-                  "y": 224,
-                  "width": 120,
-                  "height": 44
-                },
-                "contentRole": "name",
-                "font": "body",
-                "align": "left",
-                "minWidth": 96,
-                "weight": 6
-              },
-              {
-                "id": "engineers",
-                "rect": {
-                  "x": 173,
-                  "y": 224,
-                  "width": 68,
-                  "height": 44
-                },
-                "contentRole": "count",
-                "font": "data",
-                "align": "right",
-                "minWidth": 64,
-                "weight": 1
-              },
-              {
-                "id": "produced",
-                "rect": {
-                  "x": 242,
-                  "y": 224,
-                  "width": 72,
-                  "height": 44
-                },
-                "contentRole": "quantity",
-                "font": "data",
-                "align": "right",
-                "minWidth": 64,
-                "weight": 2
-              },
-              {
-                "id": "cost",
-                "rect": {
-                  "x": 315,
-                  "y": 224,
-                  "width": 79,
-                  "height": 44
-                },
-                "contentRole": "money",
-                "font": "data",
-                "align": "right",
-                "minWidth": 72,
-                "weight": 2
-              },
-              {
-                "id": "time",
-                "rect": {
-                  "x": 395,
-                  "y": 224,
-                  "width": 71,
+                  "width": 104,
                   "height": 44
                 },
                 "contentRole": "time",
@@ -1557,16 +1488,16 @@
         "count": 1,
         "scroll": {
           "track": {
-            "x": 500,
+            "x": 714,
             "y": 180,
             "width": 18,
-            "height": 88
+            "height": 44
           },
           "thumb": {
-            "x": 500,
+            "x": 714,
             "y": 180,
             "width": 18,
-            "height": 88
+            "height": 44
           }
         }
       },
@@ -1620,116 +1551,116 @@
       "detail": {
         "id": "selected-production",
         "panel": {
-          "x": 526,
-          "y": 108,
-          "width": 206,
-          "height": 196
+          "x": 52,
+          "y": 252,
+          "width": 680,
+          "height": 52
         },
         "label": {
-          "x": 532,
-          "y": 114,
-          "width": 194,
-          "height": 16
+          "x": 64,
+          "y": 256,
+          "width": 160,
+          "height": 13
         },
         "identity": {
           "rect": {
-            "x": 532,
-            "y": 130,
-            "width": 194,
-            "height": 28
+            "x": 64,
+            "y": 269,
+            "width": 160,
+            "height": 31
           },
           "title": {
-            "x": 532,
-            "y": 130,
-            "width": 194,
-            "height": 14
+            "x": 64,
+            "y": 269,
+            "width": 160,
+            "height": 15
           },
           "subtitle": {
-            "x": 532,
-            "y": 144,
-            "width": 194,
-            "height": 14
+            "x": 64,
+            "y": 284,
+            "width": 160,
+            "height": 16
           }
         },
         "metrics": {
           "engineers": {
             "rect": {
-              "x": 532,
-              "y": 158,
-              "width": 96,
-              "height": 28
+              "x": 236,
+              "y": 256,
+              "width": 51,
+              "height": 44
             },
             "label": {
-              "x": 532,
-              "y": 158,
-              "width": 96,
-              "height": 14
+              "x": 236,
+              "y": 256,
+              "width": 51,
+              "height": 22
             },
             "value": {
-              "x": 532,
-              "y": 172,
-              "width": 96,
-              "height": 14
+              "x": 236,
+              "y": 278,
+              "width": 51,
+              "height": 22
             }
           },
           "produced": {
             "rect": {
-              "x": 629,
-              "y": 158,
-              "width": 97,
-              "height": 28
+              "x": 299,
+              "y": 256,
+              "width": 51,
+              "height": 44
             },
             "label": {
-              "x": 629,
-              "y": 158,
-              "width": 97,
-              "height": 14
+              "x": 299,
+              "y": 256,
+              "width": 51,
+              "height": 22
             },
             "value": {
-              "x": 629,
-              "y": 172,
-              "width": 97,
-              "height": 14
+              "x": 299,
+              "y": 278,
+              "width": 51,
+              "height": 22
             }
           },
           "unit-cost": {
             "rect": {
-              "x": 532,
-              "y": 186,
-              "width": 96,
-              "height": 28
+              "x": 362,
+              "y": 256,
+              "width": 51,
+              "height": 44
             },
             "label": {
-              "x": 532,
-              "y": 186,
-              "width": 96,
-              "height": 14
+              "x": 362,
+              "y": 256,
+              "width": 51,
+              "height": 22
             },
             "value": {
-              "x": 532,
-              "y": 200,
-              "width": 96,
-              "height": 14
+              "x": 362,
+              "y": 278,
+              "width": 51,
+              "height": 22
             }
           },
           "time-left": {
             "rect": {
-              "x": 629,
-              "y": 186,
-              "width": 97,
-              "height": 28
+              "x": 425,
+              "y": 256,
+              "width": 51,
+              "height": 44
             },
             "label": {
-              "x": 629,
-              "y": 186,
-              "width": 97,
-              "height": 14
+              "x": 425,
+              "y": 256,
+              "width": 51,
+              "height": 22
             },
             "value": {
-              "x": 629,
-              "y": 200,
-              "width": 97,
-              "height": 14
+              "x": 425,
+              "y": 278,
+              "width": 51,
+              "height": 22
             }
           }
         },
@@ -1740,18 +1671,18 @@
           {
             "id": "open-production",
             "rect": {
-              "x": 532,
-              "y": 254,
-              "width": 94,
+              "x": 488,
+              "y": 256,
+              "width": 112,
               "height": 44
             }
           },
           {
             "id": "tech-tree",
             "rect": {
-              "x": 632,
-              "y": 254,
-              "width": 94,
+              "x": 608,
+              "y": 256,
+              "width": 112,
               "height": 44
             }
           }
@@ -1797,8 +1728,8 @@
         "collectionViewport": {
           "x": 52,
           "y": 152,
-          "width": 466,
-          "height": 152
+          "width": 680,
+          "height": 92
         },
         "footer": {
           "x": 52,
@@ -1837,123 +1768,123 @@
           "height": 44
         },
         "collection.scroll.track": {
-          "x": 500,
+          "x": 714,
           "y": 180,
           "width": 18,
-          "height": 88
+          "height": 44
         },
         "collection.scroll.thumb": {
-          "x": 500,
+          "x": 714,
           "y": 180,
           "width": 18,
-          "height": 88
+          "height": 44
         },
         "collection.column.item": {
           "x": 52,
           "y": 152,
-          "width": 120,
+          "width": 218,
           "height": 28
         },
         "collection.column.engineers": {
-          "x": 173,
+          "x": 271,
           "y": 152,
-          "width": 68,
+          "width": 85,
           "height": 28
         },
         "collection.column.produced": {
-          "x": 242,
+          "x": 357,
           "y": 152,
-          "width": 72,
+          "width": 105,
           "height": 28
         },
         "collection.column.cost": {
-          "x": 315,
+          "x": 463,
           "y": 152,
-          "width": 79,
+          "width": 112,
           "height": 28
         },
         "collection.column.time": {
-          "x": 395,
+          "x": 576,
           "y": 152,
-          "width": 71,
+          "width": 104,
           "height": 28
         },
         "collection.row-slot.1": {
           "x": 52,
           "y": 180,
-          "width": 414,
-          "height": 44
-        },
-        "collection.row-slot.2": {
-          "x": 52,
-          "y": 224,
-          "width": 414,
+          "width": 628,
           "height": 44
         },
         "detailPanel": {
-          "x": 526,
-          "y": 108,
-          "width": 206,
-          "height": 196
+          "x": 52,
+          "y": 252,
+          "width": 680,
+          "height": 52
+        },
+        "contextDock": {
+          "x": 52,
+          "y": 252,
+          "width": 680,
+          "height": 52
         },
         "detail.selected-production": {
-          "x": 526,
-          "y": 108,
-          "width": 206,
-          "height": 196
+          "x": 52,
+          "y": 252,
+          "width": 680,
+          "height": 52
         },
         "detail.selected-production.label": {
-          "x": 532,
-          "y": 114,
-          "width": 194,
-          "height": 16
+          "x": 64,
+          "y": 256,
+          "width": 160,
+          "height": 13
         },
         "detail.selected-production.identity.title": {
-          "x": 532,
-          "y": 130,
-          "width": 194,
-          "height": 14
+          "x": 64,
+          "y": 269,
+          "width": 160,
+          "height": 15
         },
         "detail.selected-production.identity.subtitle": {
-          "x": 532,
-          "y": 144,
-          "width": 194,
-          "height": 14
+          "x": 64,
+          "y": 284,
+          "width": 160,
+          "height": 16
         },
         "detail.selected-production.metric.engineers": {
-          "x": 532,
-          "y": 158,
-          "width": 96,
-          "height": 28
+          "x": 236,
+          "y": 256,
+          "width": 51,
+          "height": 44
         },
         "detail.selected-production.metric.produced": {
-          "x": 629,
-          "y": 158,
-          "width": 97,
-          "height": 28
+          "x": 299,
+          "y": 256,
+          "width": 51,
+          "height": 44
         },
         "detail.selected-production.metric.unit-cost": {
-          "x": 532,
-          "y": 186,
-          "width": 96,
-          "height": 28
+          "x": 362,
+          "y": 256,
+          "width": 51,
+          "height": 44
         },
         "detail.selected-production.metric.time-left": {
-          "x": 629,
-          "y": 186,
-          "width": 97,
-          "height": 28
+          "x": 425,
+          "y": 256,
+          "width": 51,
+          "height": 44
         },
         "detail.selected-production.action.open-production": {
-          "x": 532,
-          "y": 254,
-          "width": 94,
+          "x": 488,
+          "y": 256,
+          "width": 112,
           "height": 44
         },
         "detail.selected-production.action.tech-tree": {
-          "x": 632,
-          "y": 254,
-          "width": 94,
+          "x": 608,
+          "y": 256,
+          "width": 112,
           "height": 44
         },
         "action.global-overview": {
@@ -2261,25 +2192,25 @@
       "overflow": false,
       "scrollSteps": 0,
       "track": {
-        "x": 910,
+        "x": 1238,
         "y": 270,
         "width": 18,
         "height": 250
       },
       "thumb": {
-        "x": 910,
+        "x": 1238,
         "y": 270,
         "width": 18,
         "height": 250
       },
       "trackHitTarget": {
-        "x": 884,
+        "x": 1212,
         "y": 270,
         "width": 44,
         "height": 250
       },
       "thumbHitTarget": {
-        "x": 884,
+        "x": 1212,
         "y": 270,
         "width": 44,
         "height": 250
@@ -2288,36 +2219,36 @@
     },
     "compact": {
       "totalItems": 1,
-      "visibleCapacity": 2,
+      "visibleCapacity": 1,
       "totalUnits": 1,
-      "visibleUnits": 2,
+      "visibleUnits": 1,
       "itemsPerUnit": 1,
       "scrollUnit": "record",
       "overflow": false,
       "scrollSteps": 0,
       "track": {
-        "x": 500,
+        "x": 714,
         "y": 180,
         "width": 18,
-        "height": 88
+        "height": 44
       },
       "thumb": {
-        "x": 500,
+        "x": 714,
         "y": 180,
         "width": 18,
-        "height": 88
+        "height": 44
       },
       "trackHitTarget": {
-        "x": 474,
+        "x": 688,
         "y": 180,
         "width": 44,
-        "height": 88
+        "height": 44
       },
       "thumbHitTarget": {
-        "x": 474,
+        "x": 688,
         "y": 180,
         "width": 44,
-        "height": 88
+        "height": 44
       },
       "thumbTravelPx": 0
     }
@@ -2349,8 +2280,8 @@
     "collection.column.cost",
     "collection.column.time",
     "collection.row-slot.1",
-    "collection.row-slot.2",
     "detailPanel",
+    "contextDock",
     "detail.selected-production",
     "detail.selected-production.label",
     "detail.selected-production.identity.title",

@@ -41,8 +41,8 @@ struct CalypsoF14GlobalResearchGenLayout
 	CalypsoF14GlobalResearchGenRect collection_column_scientists;
 	CalypsoF14GlobalResearchGenRect collection_column_progress;
 	CalypsoF14GlobalResearchGenRect collection_row_slot_1;
-	CalypsoF14GlobalResearchGenRect collection_row_slot_2;
 	CalypsoF14GlobalResearchGenRect detailPanel;
+	CalypsoF14GlobalResearchGenRect contextDock;
 	CalypsoF14GlobalResearchGenRect detail_selected_project;
 	CalypsoF14GlobalResearchGenRect detail_selected_project_label;
 	CalypsoF14GlobalResearchGenRect detail_selected_project_identity_title;
@@ -58,9 +58,9 @@ struct CalypsoF14GlobalResearchGenLayout
 inline constexpr CalypsoF14GlobalResearchGenLayout kLayouts[] =
 {
 	// wide
-	{ 1280, 720, { 0, 0, 1280, 720 }, { 112, 96, 1144, 78 }, { 640, 96, 360, 78 }, { 130, 119, 480, 36 }, { 1000, 96, 256, 78 }, { 112, 190, 816, 44 }, { 112, 234, 816, 412 }, { 112, 658, 1144, 44 }, { 1000, 96, 84, 78 }, { 1085, 96, 84, 78 }, { 1170, 96, 86, 78 }, { 92, 158, 414, 44 }, { 514, 158, 414, 44 }, { 910, 270, 18, 250 }, { 910, 270, 18, 250 }, { 112, 234, 454, 36 }, { 567, 234, 123, 36 }, { 691, 234, 183, 36 }, { 112, 270, 762, 50 }, { 112, 320, 762, 50 }, { 944, 190, 312, 456 }, { 944, 190, 312, 456 }, { 956, 202, 288, 24 }, { 956, 226, 288, 24 }, { 956, 250, 288, 24 }, { 956, 274, 143, 58 }, { 1100, 274, 144, 58 }, { 956, 590, 140, 44 }, { 1104, 590, 140, 44 }, { 112, 658, 158, 44 }, { 1098, 658, 158, 44 } },
+	{ 1280, 720, { 0, 0, 1280, 720 }, { 112, 96, 1144, 78 }, { 640, 96, 360, 78 }, { 130, 119, 480, 36 }, { 1000, 96, 256, 78 }, { 112, 190, 816, 44 }, { 112, 234, 1144, 344 }, { 112, 658, 1144, 44 }, { 1000, 96, 84, 78 }, { 1085, 96, 84, 78 }, { 1170, 96, 86, 78 }, { 92, 158, 414, 44 }, { 514, 158, 414, 44 }, { 1238, 270, 18, 250 }, { 1238, 270, 18, 250 }, { 112, 234, 672, 36 }, { 785, 234, 160, 36 }, { 946, 234, 256, 36 }, { 112, 270, 1090, 50 }, { 112, 586, 1144, 64 }, { 112, 586, 1144, 64 }, { 112, 586, 1144, 64 }, { 124, 590, 260, 16 }, { 124, 606, 260, 20 }, { 124, 626, 260, 20 }, { 396, 590, 268, 56 }, { 676, 590, 268, 56 }, { 956, 596, 140, 44 }, { 1104, 596, 140, 44 }, { 112, 658, 158, 44 }, { 1098, 658, 158, 44 } },
 	// compact
-	{ 740, 360, { 0, 0, 740, 360 }, { 52, 48, 680, 52 }, { 420, 48, 170, 52 }, { 60, 61, 350, 26 }, { 590, 48, 142, 52 }, { 52, 108, 466, 44 }, { 52, 152, 466, 152 }, { 52, 312, 680, 44 }, { 590, 48, 46, 52 }, { 637, 48, 46, 52 }, { 684, 48, 48, 52 }, { 52, 102, 230, 44 }, { 288, 102, 230, 44 }, { 500, 180, 18, 88 }, { 500, 180, 18, 88 }, { 52, 152, 222, 28 }, { 275, 152, 85, 28 }, { 361, 152, 105, 28 }, { 52, 180, 414, 44 }, { 52, 224, 414, 44 }, { 526, 108, 206, 196 }, { 526, 108, 206, 196 }, { 532, 114, 194, 16 }, { 532, 130, 194, 14 }, { 532, 144, 194, 14 }, { 532, 158, 96, 28 }, { 629, 158, 97, 28 }, { 532, 254, 94, 44 }, { 632, 254, 94, 44 }, { 52, 312, 120, 44 }, { 612, 312, 120, 44 } },
+	{ 740, 360, { 0, 0, 740, 360 }, { 52, 48, 680, 52 }, { 420, 48, 170, 52 }, { 60, 61, 350, 26 }, { 590, 48, 142, 52 }, { 52, 108, 466, 44 }, { 52, 152, 680, 92 }, { 52, 312, 680, 44 }, { 590, 48, 46, 52 }, { 637, 48, 46, 52 }, { 684, 48, 48, 52 }, { 52, 102, 230, 44 }, { 288, 102, 230, 44 }, { 714, 180, 18, 44 }, { 714, 180, 18, 44 }, { 52, 152, 365, 28 }, { 418, 152, 108, 28 }, { 527, 152, 153, 28 }, { 52, 180, 628, 44 }, { 52, 252, 680, 52 }, { 52, 252, 680, 52 }, { 52, 252, 680, 52 }, { 64, 256, 160, 13 }, { 64, 269, 160, 15 }, { 64, 284, 160, 16 }, { 236, 256, 114, 44 }, { 362, 256, 114, 44 }, { 488, 256, 112, 44 }, { 608, 256, 112, 44 }, { 52, 312, 120, 44 }, { 612, 312, 120, 44 } },
 };
 inline constexpr int kLayoutCount = 2;
 
@@ -89,6 +89,44 @@ inline constexpr CalypsoF14GlobalResearchGenActionTone kActionTones[] = {
     { "danger", 0xFF6E72FFu, 0xFF6E72FFu, 0xE7F0F3FFu },
 };
 inline constexpr int kActionToneCount = 5;
+
+struct CalypsoF14GlobalResearchGenProfileStyle
+{
+	std::uint32_t background;
+	std::uint32_t panel;
+	std::uint32_t panelRaised;
+	std::uint32_t hover;
+	std::uint32_t selected;
+	std::uint32_t border;
+	std::uint32_t borderStrong;
+	std::uint32_t accent;
+	std::uint32_t text;
+	std::uint32_t secondary;
+	std::uint32_t disabled;
+	std::uint32_t onAccent;
+	std::uint32_t warning;
+	std::uint32_t danger;
+	float cornerRadiusPx;
+	float cutCornerPx;
+};
+inline constexpr CalypsoF14GlobalResearchGenProfileStyle kProfileStyle = {
+	0x02060EFFu,
+	0x071624FFu,
+	0x0A1C2DFFu,
+	0x0C2232FFu,
+	0x0D2931FFu,
+	0x173246FFu,
+	0x285267FFu,
+	0x81E0B5FFu,
+	0xE7F0F3FFu,
+	0xA8BBC4FFu,
+	0x455966FFu,
+	0x03130DFFu,
+	0xF2C56DFFu,
+	0xFF6E72FFu,
+	12.0f,
+	14.0f,
+};
 
 struct CalypsoF14GlobalResearchGenColumnRole
 {
@@ -156,73 +194,67 @@ struct CalypsoF14GlobalResearchGenCollectionLayout
 };
 
 inline constexpr CalypsoF14GlobalResearchGenCollectionCell kCollectionColumnHeadersWide[] = {
-    { "project", { 112, 234, 454, 36 }, "name", "body", "left", 96, 6 },
-    { "scientists", { 567, 234, 123, 36 }, "count", "data", "right", 64, 1 },
-    { "progress", { 691, 234, 183, 36 }, "status", "body", "left", 64, 2 },
+    { "project", { 112, 234, 672, 36 }, "name", "body", "left", 96, 6 },
+    { "scientists", { 785, 234, 160, 36 }, "count", "data", "right", 64, 1 },
+    { "progress", { 946, 234, 256, 36 }, "status", "body", "left", 64, 2 },
 };
 inline constexpr CalypsoF14GlobalResearchGenCollectionCell kCollectionRowSlot1CellsWide[] = {
-    { "project", { 112, 270, 454, 50 }, "name", "body", "left", 96, 6 },
-    { "scientists", { 567, 270, 123, 50 }, "count", "data", "right", 64, 1 },
-    { "progress", { 691, 270, 183, 50 }, "status", "body", "left", 64, 2 },
+    { "project", { 112, 270, 672, 50 }, "name", "body", "left", 96, 6 },
+    { "scientists", { 785, 270, 160, 50 }, "count", "data", "right", 64, 1 },
+    { "progress", { 946, 270, 256, 50 }, "status", "body", "left", 64, 2 },
 };
 inline constexpr CalypsoF14GlobalResearchGenCollectionCell kCollectionRowSlot2CellsWide[] = {
-    { "project", { 112, 320, 454, 50 }, "name", "body", "left", 96, 6 },
-    { "scientists", { 567, 320, 123, 50 }, "count", "data", "right", 64, 1 },
-    { "progress", { 691, 320, 183, 50 }, "status", "body", "left", 64, 2 },
+    { "project", { 112, 320, 672, 50 }, "name", "body", "left", 96, 6 },
+    { "scientists", { 785, 320, 160, 50 }, "count", "data", "right", 64, 1 },
+    { "progress", { 946, 320, 256, 50 }, "status", "body", "left", 64, 2 },
 };
 inline constexpr CalypsoF14GlobalResearchGenCollectionCell kCollectionRowSlot3CellsWide[] = {
-    { "project", { 112, 370, 454, 50 }, "name", "body", "left", 96, 6 },
-    { "scientists", { 567, 370, 123, 50 }, "count", "data", "right", 64, 1 },
-    { "progress", { 691, 370, 183, 50 }, "status", "body", "left", 64, 2 },
+    { "project", { 112, 370, 672, 50 }, "name", "body", "left", 96, 6 },
+    { "scientists", { 785, 370, 160, 50 }, "count", "data", "right", 64, 1 },
+    { "progress", { 946, 370, 256, 50 }, "status", "body", "left", 64, 2 },
 };
 inline constexpr CalypsoF14GlobalResearchGenCollectionCell kCollectionRowSlot4CellsWide[] = {
-    { "project", { 112, 420, 454, 50 }, "name", "body", "left", 96, 6 },
-    { "scientists", { 567, 420, 123, 50 }, "count", "data", "right", 64, 1 },
-    { "progress", { 691, 420, 183, 50 }, "status", "body", "left", 64, 2 },
+    { "project", { 112, 420, 672, 50 }, "name", "body", "left", 96, 6 },
+    { "scientists", { 785, 420, 160, 50 }, "count", "data", "right", 64, 1 },
+    { "progress", { 946, 420, 256, 50 }, "status", "body", "left", 64, 2 },
 };
 inline constexpr CalypsoF14GlobalResearchGenCollectionCell kCollectionRowSlot5CellsWide[] = {
-    { "project", { 112, 470, 454, 50 }, "name", "body", "left", 96, 6 },
-    { "scientists", { 567, 470, 123, 50 }, "count", "data", "right", 64, 1 },
-    { "progress", { 691, 470, 183, 50 }, "status", "body", "left", 64, 2 },
+    { "project", { 112, 470, 672, 50 }, "name", "body", "left", 96, 6 },
+    { "scientists", { 785, 470, 160, 50 }, "count", "data", "right", 64, 1 },
+    { "progress", { 946, 470, 256, 50 }, "status", "body", "left", 64, 2 },
 };
 inline constexpr CalypsoF14GlobalResearchGenCollectionRowSlot kCollectionRowSlotsWide[] = {
-    { "row-slot-1", { 112, 270, 762, 50 }, kCollectionRowSlot1CellsWide, 3 },
-    { "row-slot-2", { 112, 320, 762, 50 }, kCollectionRowSlot2CellsWide, 3 },
-    { "row-slot-3", { 112, 370, 762, 50 }, kCollectionRowSlot3CellsWide, 3 },
-    { "row-slot-4", { 112, 420, 762, 50 }, kCollectionRowSlot4CellsWide, 3 },
-    { "row-slot-5", { 112, 470, 762, 50 }, kCollectionRowSlot5CellsWide, 3 },
+    { "row-slot-1", { 112, 270, 1090, 50 }, kCollectionRowSlot1CellsWide, 3 },
+    { "row-slot-2", { 112, 320, 1090, 50 }, kCollectionRowSlot2CellsWide, 3 },
+    { "row-slot-3", { 112, 370, 1090, 50 }, kCollectionRowSlot3CellsWide, 3 },
+    { "row-slot-4", { 112, 420, 1090, 50 }, kCollectionRowSlot4CellsWide, 3 },
+    { "row-slot-5", { 112, 470, 1090, 50 }, kCollectionRowSlot5CellsWide, 3 },
 };
 inline constexpr int kCollectionRowSlotWideCount = 5;
-inline constexpr CalypsoF14GlobalResearchGenCollectionMetrics kCollectionMetricsWide = { 1, 5, 1, 5, 1, "record", false, 0, { 910, 270, 18, 250 }, { 910, 270, 18, 250 }, { 884, 270, 44, 250 }, { 884, 270, 44, 250 }, 0 };
+inline constexpr CalypsoF14GlobalResearchGenCollectionMetrics kCollectionMetricsWide = { 1, 5, 1, 5, 1, "record", false, 0, { 1238, 270, 18, 250 }, { 1238, 270, 18, 250 }, { 1212, 270, 44, 250 }, { 1212, 270, 44, 250 }, 0 };
 
 inline constexpr CalypsoF14GlobalResearchGenCollectionCell kCollectionColumnHeadersCompact[] = {
-    { "project", { 52, 152, 222, 28 }, "name", "body", "left", 96, 6 },
-    { "scientists", { 275, 152, 85, 28 }, "count", "data", "right", 64, 1 },
-    { "progress", { 361, 152, 105, 28 }, "status", "body", "left", 64, 2 },
+    { "project", { 52, 152, 365, 28 }, "name", "body", "left", 96, 6 },
+    { "scientists", { 418, 152, 108, 28 }, "count", "data", "right", 64, 1 },
+    { "progress", { 527, 152, 153, 28 }, "status", "body", "left", 64, 2 },
 };
 inline constexpr CalypsoF14GlobalResearchGenCollectionCell kCollectionRowSlot1CellsCompact[] = {
-    { "project", { 52, 180, 222, 44 }, "name", "body", "left", 96, 6 },
-    { "scientists", { 275, 180, 85, 44 }, "count", "data", "right", 64, 1 },
-    { "progress", { 361, 180, 105, 44 }, "status", "body", "left", 64, 2 },
-};
-inline constexpr CalypsoF14GlobalResearchGenCollectionCell kCollectionRowSlot2CellsCompact[] = {
-    { "project", { 52, 224, 222, 44 }, "name", "body", "left", 96, 6 },
-    { "scientists", { 275, 224, 85, 44 }, "count", "data", "right", 64, 1 },
-    { "progress", { 361, 224, 105, 44 }, "status", "body", "left", 64, 2 },
+    { "project", { 52, 180, 365, 44 }, "name", "body", "left", 96, 6 },
+    { "scientists", { 418, 180, 108, 44 }, "count", "data", "right", 64, 1 },
+    { "progress", { 527, 180, 153, 44 }, "status", "body", "left", 64, 2 },
 };
 inline constexpr CalypsoF14GlobalResearchGenCollectionRowSlot kCollectionRowSlotsCompact[] = {
-    { "row-slot-1", { 52, 180, 414, 44 }, kCollectionRowSlot1CellsCompact, 3 },
-    { "row-slot-2", { 52, 224, 414, 44 }, kCollectionRowSlot2CellsCompact, 3 },
+    { "row-slot-1", { 52, 180, 628, 44 }, kCollectionRowSlot1CellsCompact, 3 },
 };
-inline constexpr int kCollectionRowSlotCompactCount = 2;
-inline constexpr CalypsoF14GlobalResearchGenCollectionMetrics kCollectionMetricsCompact = { 1, 2, 1, 2, 1, "record", false, 0, { 500, 180, 18, 88 }, { 500, 180, 18, 88 }, { 474, 180, 44, 88 }, { 474, 180, 44, 88 }, 0 };
+inline constexpr int kCollectionRowSlotCompactCount = 1;
+inline constexpr CalypsoF14GlobalResearchGenCollectionMetrics kCollectionMetricsCompact = { 1, 1, 1, 1, 1, "record", false, 0, { 714, 180, 18, 44 }, { 714, 180, 18, 44 }, { 688, 180, 44, 44 }, { 688, 180, 44, 44 }, 0 };
 
 inline constexpr CalypsoF14GlobalResearchGenCollectionLayout kCollectionsWide[1] = {
     { "collection", kCollectionColumnHeadersWide, 3, kCollectionRowSlotsWide, 5, 1, kCollectionMetricsWide },
 };
 inline constexpr int kCollectionLayoutWideCount = 1;
 inline constexpr CalypsoF14GlobalResearchGenCollectionLayout kCollectionsCompact[1] = {
-    { "collection", kCollectionColumnHeadersCompact, 3, kCollectionRowSlotsCompact, 2, 1, kCollectionMetricsCompact },
+    { "collection", kCollectionColumnHeadersCompact, 3, kCollectionRowSlotsCompact, 1, 1, kCollectionMetricsCompact },
 };
 inline constexpr int kCollectionLayoutCompactCount = 1;
 

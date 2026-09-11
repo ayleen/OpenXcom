@@ -115,6 +115,7 @@ LAYOUT_FIELDS = {
         "controlInset",
         "toolbarWidth",
         "toolbarGap",
+        "contextDockHeight",
         "detailInset",
         "detailLabelHeight",
         "detailIdentityHeight",
@@ -1424,7 +1425,9 @@ def _validate_detail(config, template):
         expected_role = DETAIL_ROLE_BY_KIND[kind]
         role_ok = region["role"] == expected_role
         if kind == "fields":
-            role_ok = region["role"] in {"primary", "summary"}
+            # Secondary fields host typed resource summaries (e.g. production
+            # controls free engineers / workspace / unit facts).
+            role_ok = region["role"] in {"primary", "summary", "secondary"}
         elif kind == "preview":
             role_ok = region["role"] in {"primary", "secondary"}
         if not role_ok:
@@ -1636,7 +1639,7 @@ def _control_rects(controls, authored, bar, name, right_limit=None):
             )
     return rectangles
 
-def _control_parts(controls, rectangles):
+def _control_parts(controls, rectangles, stepper_labels=False):
     parts = {}
     for control in controls:
         if control["kind"] != "stepper":
@@ -1657,15 +1660,28 @@ def _control_parts(controls, rectangles):
                 _right(rect) - 44, rect["y"], 44, 44
             ),
         }
+        if stepper_labels:
+            # Visible localized caption strip directly below the stepper so
+            # the value cell stays numeric-only (external review R07). Only
+            # the R&D operations kinds reserve this strip; the bar layouts of
+            # other archetypes have no room below the controls.
+            parts[control_id]["label"] = _make_rect(
+                rect["x"],
+                rect["y"] + rect["height"] + 2,
+                rect["width"],
+                14,
+            )
     return parts
 
 
-def _control_part_paths(controls):
+def _control_part_paths(controls, stepper_labels=False):
     paths = ["control." + control["id"] for control in controls]
     for control in controls:
         if control["kind"] == "stepper":
             base = "control." + control["id"]
             paths.extend((base + ".decrement", base + ".value", base + ".increment"))
+            if stepper_labels:
+                paths.append(base + ".label")
     return paths
 def _weighted_rects(parent, columns, gap, roles):
     if len(columns) < 1:
@@ -1742,6 +1758,10 @@ def _scroll_metrics(
     if overflow:
         thumb_height = max(minimum, track["height"] * visible_units // total_units)
         thumb_height = min(track["height"], thumb_height)
+        if thumb_height >= track["height"]:
+            # Degenerate one-row viewports (compact docked layouts) still need
+            # working proportional scrolling: yield half the track as thumb.
+            thumb_height = max(1, track["height"] // 2)
         if thumb_height >= track["height"]:
             raise ArchetypeError(
                 "overflowing collection requires positive scrollbar thumb travel"
@@ -1866,7 +1886,13 @@ def _base_contract(config, template, source_name, template_name, actions):
 
 def build_extended_contract(config, template, source_name, template_name):
     """Validate and build one non-confirmation contract."""
+    # The strict per-kind template gate (declared layout fields, window
+    # containment, 44px floors) runs on the prepared operations template
+    # before any synthesis; without it rogue authored fields (an invented
+    # topBar, private chrome geometry) silently pass through to the contract.
     template, profile = _prepare_operations_template(template)
+    if template.get("generatorKind") == "operations" or template.get("id") == "operations-detail":
+        _validate_template(template)
     kind = template["generatorKind"]
     if kind == "operations":
         return _build_operations(config, template, source_name, template_name)
@@ -2405,6 +2431,119 @@ def _build_selection(config, template, source_name, template_name):
     return _finalize_parts(out)
 
 
+def _build_context_dock_fragment(detail, authored, dock):
+    """A+C docked context composition: identity line, compact metrics and
+    trailing 44px action slots inside a full-width dock above the footer.
+    Emits the same fragment shape as the inspector builder so painters and
+    native owners keep one contract; the inspector-only note is absent."""
+    inner = _make_rect(
+        dock["x"] + 12,
+        dock["y"] + 4,
+        dock["width"] - 24,
+        dock["height"] - 8,
+    )
+    name = "contextDock"
+    action_gap = 8
+    action_width = 140 if dock["width"] > 900 else 112
+    action_height = min(44, inner["height"])
+    actions_total = (
+        len(detail["actions"]) * action_width
+        + max(0, len(detail["actions"]) - 1) * action_gap
+    )
+    if actions_total > inner["width"]:
+        raise ArchetypeError(name + " cannot host its actions in one row")
+    actions_x = _right(inner) - actions_total
+    action_y = dock["y"] + (dock["height"] - 44) // 2
+    identity_width = 260 if dock["width"] > 900 else 160
+    metrics_x = inner["x"] + identity_width + 12
+    metrics_avail = max(0, actions_x - 12 - metrics_x)
+    count = len(detail["metrics"])
+    metric_w = ((metrics_avail - 12 * (count - 1)) // count) if count else 0
+    if count and metric_w < 48:
+        raise ArchetypeError(name + " cannot host its metrics in one row")
+    metrics = {}
+    for index, metric in enumerate(detail["metrics"]):
+        rect = _make_rect(
+            metrics_x + index * (metric_w + 12),
+            inner["y"],
+            metric_w,
+            inner["height"],
+        )
+        label_height = rect["height"] // 2
+        metrics[metric["id"]] = {
+            "rect": rect,
+            "label": _make_rect(
+                rect["x"], rect["y"], rect["width"], label_height
+            ),
+            "value": _make_rect(
+                rect["x"],
+                rect["y"] + label_height,
+                rect["width"],
+                rect["height"] - label_height,
+            ),
+        }
+    top_height = max(12, inner["height"] * 3 // 10)
+    label_rect = _make_rect(
+        inner["x"], inner["y"], identity_width, top_height
+    )
+    subtitle_rect = _make_rect(
+        inner["x"] + identity_width // 2,
+        inner["y"],
+        identity_width - identity_width // 2,
+        top_height,
+    )
+    identity_rect = _make_rect(
+        inner["x"],
+        inner["y"] + top_height,
+        identity_width,
+        inner["height"] - top_height,
+    )
+    identity_title_height = identity_rect["height"] // 2
+    if identity_title_height <= 0 or identity_title_height >= identity_rect["height"]:
+        raise ArchetypeError(name + " identity cannot contain two text lines")
+    identity_title = _make_rect(
+        identity_rect["x"],
+        identity_rect["y"],
+        identity_rect["width"],
+        identity_title_height,
+    )
+    identity_subtitle = _make_rect(
+        identity_rect["x"],
+        _bottom(identity_title),
+        identity_rect["width"],
+        identity_rect["height"] - identity_title_height,
+    )
+    return {
+        "id": detail["id"],
+        "panel": {
+            "x": dock["x"],
+            "y": dock["y"],
+            "width": dock["width"],
+            "height": dock["height"],
+        },
+        "label": label_rect,
+        "identity": {
+            "rect": identity_rect,
+            "title": identity_title,
+            "subtitle": identity_subtitle,
+        },
+        "metrics": metrics,
+        "note": {"visible": False},
+        "actions": [
+            {
+                "id": action["id"],
+                "rect": _make_rect(
+                    actions_x + index * (action_width + action_gap),
+                    action_y,
+                    action_width,
+                    action_height,
+                ),
+            }
+            for index, action in enumerate(detail["actions"])
+        ],
+    }
+
+
 def _build_tabbed_detail_fragment(detail, authored, name):
     panel = copy.deepcopy(authored["detailPanel"])
     inset = authored["detailInset"]
@@ -2678,6 +2817,19 @@ def _build_tabbed(config, template, source_name, template_name):
         _ensure_action_copy_fits(actions, action_rects, authored, name + ".action")
         _ensure_text_fits(config["title"], authored["title"], authored, name + ".title")
         collection_viewport = copy.deepcopy(authored["collectionViewport"])
+        presentation = (
+            _operations_presentation(config, template)
+            if template["generatorKind"] == "operations" else None
+        )
+        docked_detail = (
+            template["generatorKind"] == "operations"
+            and detail is not None
+            and (
+                presentation == "table-context"
+                or (presentation == "list-inspector" and name == "compact")
+            )
+        )
+        context_dock = None
         if detail is None:
             collection_viewport["width"] = (
                 _right(authored["detailPanel"]) - collection_viewport["x"]
@@ -2689,10 +2841,61 @@ def _build_tabbed(config, template, source_name, template_name):
                 )
                 - collection_viewport["y"]
             )
+        elif docked_detail:
+            # A+C: a table-context data area spans the full body width and the
+            # selected-row context actions dock above the footer; a compact
+            # list-inspector has no inspector column and docks the same way.
+            dock_height = authored["contextDockHeight"]
+            body_x = collection_viewport["x"]
+            body_right = _right(authored["detailPanel"])
+            context_dock = _make_rect(
+                body_x,
+                authored["footer"]["y"] - 8 - dock_height,
+                body_right - body_x,
+                dock_height,
+            )
+            collection_viewport["width"] = body_right - body_x
+            collection_viewport["height"] = (
+                context_dock["y"] - 8 - collection_viewport["y"]
+            )
+            if collection_viewport["height"] < authored["headerHeight"] + authored["rowHeight"]:
+                raise ArchetypeError(
+                    name + " context dock leaves no full row slot below the header"
+                )
+        fragment_authored = authored
+        if docked_detail and context_dock is not None:
+            # Only whole row slots fit between the header and the dock; the
+            # emitted slot capacity follows the docked data viewport.
+            fit_rows = max(1, (
+                collection_viewport["height"] - authored["headerHeight"]
+            ) // authored["rowHeight"])
+            if fit_rows < authored["visibleRows"]:
+                fragment_authored = dict(authored)
+                fragment_authored["visibleRows"] = fit_rows
         collection_fragment, collection_metrics = _build_collection_fragment(
-            config["collection"], authored, collection_viewport, name,
+            config["collection"], fragment_authored, collection_viewport, name,
             _operations_column_roles(template) if template["generatorKind"] == "operations" else None,
         )
+        if docked_detail and detail is not None:
+            detail_fragment = _build_context_dock_fragment(
+                detail, authored, context_dock
+            )
+        elif detail is not None:
+            detail_fragment = _build_tabbed_detail_fragment(detail, authored, name)
+        else:
+            detail_fragment = None
+        if context_dock is None and detail_fragment is not None:
+            # Undocked inspector: the dock reports the inspector action band so
+            # every consumer shares one context-dock concept.
+            band = [a["rect"] for a in detail_fragment["actions"]]
+            context_dock = _make_rect(
+                min(r["x"] for r in band) - 12,
+                min(r["y"] for r in band) - 4,
+                max(r["x"] + r["width"] for r in band)
+                    - min(r["x"] for r in band) + 24,
+                max(r["y"] + r["height"] for r in band)
+                    - min(r["y"] for r in band) + 8,
+            )
         generated_layout = {
             "designWidth": authored["designWidth"],
             "designHeight": authored["designHeight"],
@@ -2705,11 +2908,15 @@ def _build_tabbed(config, template, source_name, template_name):
             },
             "tabBar": copy.deepcopy(authored["tabBar"]),
             "collectionViewport": collection_viewport,
-            "detailPanel": copy.deepcopy(authored["detailPanel"]),
+            "detailPanel": copy.deepcopy(
+                context_dock if docked_detail else authored["detailPanel"]
+            ),
+            "contextDock": copy.deepcopy(context_dock),
             "collection": collection_fragment,
             "toolbarBar": copy.deepcopy(authored["toolbarBar"]),
             "controls": control_rects,
-            "controlParts": _control_parts(controls, control_rects),
+            "controlParts": _control_parts(controls, control_rects,
+                stepper_labels=template["generatorKind"] == "operations"),
             "footer": copy.deepcopy(authored["footer"]),
             "tabs": {
                 tab["id"]: {key: value for key, value in tab.items() if key != "id"}
@@ -2722,9 +2929,7 @@ def _build_tabbed(config, template, source_name, template_name):
             for shell_part in ("screenHeader", "headerArt"):
                 generated_layout[shell_part] = copy.deepcopy(authored[shell_part])
         if detail is not None:
-            generated_layout["detail"] = _build_tabbed_detail_fragment(
-                detail, authored, name
-            )
+            generated_layout["detail"] = detail_fragment
         out["layouts"][name] = generated_layout
         out["collectionMetrics"][name] = collection_metrics
     out["_partPaths"] = [
@@ -2743,12 +2948,48 @@ def _build_tabbed(config, template, source_name, template_name):
         ]
     out["_partPaths"].extend("summary." + field["id"] for field in config["summary"])
     out["_partPaths"].extend("tab." + tab_id for tab_id in tab_ids)
-    out["_partPaths"].extend(_control_part_paths(controls))
+    out["_partPaths"].extend(_control_part_paths(controls,
+        template["generatorKind"] == "operations"))
     out["_partPaths"].extend("toolbar." + item["id"] for item in toolbar_actions)
     # collection geometry - shared helper ensures list/table/grid parity with standalone and detail
-    out["_partPaths"].extend(_collection_parts(config["collection"], template, "collection"))
+    parts_template = template
+    if template["generatorKind"] == "operations":
+        # Docked layouts may legitimately carry fewer whole row slots than the
+        # authored template; the shared part list follows the fitted capacity.
+        presentation = _operations_presentation(config, template)
+        fits = {}
+        for cls in ("wide", "compact"):
+            lay = template["layouts"][cls]
+            docked = detail is not None and (
+                presentation == "table-context"
+                or (presentation == "list-inspector" and cls == "compact")
+            )
+            if docked:
+                docked_viewport_h = (
+                    lay["footer"]["y"] - 8 - lay["contextDockHeight"]
+                    - lay["collectionViewport"]["y"]
+                )
+                fits[cls] = max(
+                    1,
+                    (docked_viewport_h - lay["headerHeight"]) // lay["rowHeight"],
+                )
+            else:
+                fits[cls] = lay["visibleRows"]
+        if (
+            fits["wide"] < template["layouts"]["wide"]["visibleRows"]
+            or fits["compact"] < template["layouts"]["compact"]["visibleRows"]
+        ):
+            parts_template = copy.deepcopy(template)
+            parts_template["layouts"]["wide"]["visibleRows"] = min(
+                fits["wide"], template["layouts"]["wide"]["visibleRows"]
+            )
+            parts_template["layouts"]["compact"]["visibleRows"] = min(
+                fits["compact"], template["layouts"]["compact"]["visibleRows"]
+            )
+    out["_partPaths"].extend(_collection_parts(config["collection"], parts_template, "collection"))
     if detail is not None:
         out["_partPaths"].append("detailPanel")
+        out["_partPaths"].append("contextDock")
         out["_partPaths"].append("detail." + detail["id"])
         out["_partPaths"].extend(
             (
@@ -2896,7 +3137,34 @@ def _detail_region_parts(region, template):
         collection_prefix = prefix + ".collection"
         parts.append(prefix + ".content")
         parts.append(collection_prefix)
-        parts.extend(_collection_parts(collection, template, collection_prefix))
+        parts_template = template
+        if template.get("id") == "operations-detail" and collection["mode"] in {"list", "table"}:
+            # Region slots clip to whole rows; the shared part list follows the
+            # smallest fitted per-class capacity.
+            fits = {}
+            for cls in ("wide", "compact"):
+                lay = template["layouts"][cls]
+                panel = lay["regionSlots"].get(
+                    "primary" if region["role"] == "primary" else region["role"]
+                )
+                content_h = (
+                    panel["height"] - 2 * lay["regionInset"] - lay["regionHeaderHeight"]
+                )
+                fits[cls] = max(
+                    1, (content_h - lay["headerHeight"]) // lay["rowHeight"]
+                )
+            if (
+                fits["wide"] < template["layouts"]["wide"]["visibleRows"]
+                or fits["compact"] < template["layouts"]["compact"]["visibleRows"]
+            ):
+                parts_template = copy.deepcopy(template)
+                parts_template["layouts"]["wide"]["visibleRows"] = min(
+                    fits["wide"], template["layouts"]["wide"]["visibleRows"]
+                )
+                parts_template["layouts"]["compact"]["visibleRows"] = min(
+                    fits["compact"], template["layouts"]["compact"]["visibleRows"]
+                )
+        parts.extend(_collection_parts(collection, parts_template, collection_prefix))
     elif region["kind"] == "fields":
         for field in region["fields"]:
             field_prefix = prefix + ".field." + field["id"]
@@ -2976,8 +3244,18 @@ def _build_detail_regions(config, template, source_name, template_name):
             if region["kind"] == "preview":
                 generated["content"] = content
             elif region["kind"] == "collection":
+                region_authored = authored
+                if region["collection"]["mode"] in {"list", "table"}:
+                    # Only whole row slots fit inside the region content box;
+                    # overflow scrolls instead of clipping.
+                    fit_rows = max(1, (
+                        content["height"] - authored["headerHeight"]
+                    ) // authored["rowHeight"])
+                    if fit_rows < authored["visibleRows"]:
+                        region_authored = dict(authored)
+                        region_authored["visibleRows"] = fit_rows
                 fragment, metrics = _build_collection_fragment(
-                    region["collection"], authored, content, name + "." + region["id"],
+                    region["collection"], region_authored, content, name + "." + region["id"],
                     _operations_column_roles(template) if template["id"] == "operations-detail" else None,
                 )
                 generated["content"] = content
@@ -3064,7 +3342,8 @@ def _build_detail_regions(config, template, source_name, template_name):
             "title": copy.deepcopy(authored["title"]),
             "controlBar": copy.deepcopy(authored["controlBar"]),
             "controls": control_rects,
-            "controlParts": _control_parts(controls, control_rects),
+            "controlParts": _control_parts(controls, control_rects,
+                stepper_labels=template.get("id") == "operations-detail"),
             "footer": copy.deepcopy(authored["footer"]),
             "regions": regions,
             "actions": action_rects,
@@ -3195,7 +3474,8 @@ def _build_detail_regions(config, template, source_name, template_name):
     out["_partPaths"] = ["window", "status", "title", "controlBar", "footer"]
     if template["id"] == "operations-detail":
         out["_partPaths"].insert(2, "headerArt")
-    out["_partPaths"].extend(_control_part_paths(controls))
+    out["_partPaths"].extend(_control_part_paths(controls,
+        template.get("id") == "operations-detail"))
     out["actions"] = ["action." + action["id"] for action in actions]
     for region in config["regions"]:
         out["_partPaths"].extend(_detail_region_parts(region, template))

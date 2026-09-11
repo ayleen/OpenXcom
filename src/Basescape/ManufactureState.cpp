@@ -40,6 +40,7 @@
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoTutorial.h"
 #include "../Calypso/CalypsoF10ProductionUi.h"
+#include "../Calypso/CalypsoHdUiOverlay.h"
 #endif
 
 namespace OpenXcom
@@ -270,7 +271,12 @@ void ManufactureState::lstManufactureClickMiddle(Action *)
 	}
 	else
 	{
+#ifdef __EMSCRIPTEN__
+		Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
+			"Technology Tree HD route is not available");
+#else
 		_game->pushState(new TechTreeViewerState(0, selectedTopic));
+#endif
 	}
 }
 

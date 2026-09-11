@@ -38,7 +38,6 @@ struct CalypsoF10ProductionRequirementsGenLayout
 	CalypsoF10ProductionRequirementsGenRect region_requirements_collection_column_required;
 	CalypsoF10ProductionRequirementsGenRect region_requirements_collection_column_available;
 	CalypsoF10ProductionRequirementsGenRect region_requirements_collection_row_slot_1;
-	CalypsoF10ProductionRequirementsGenRect region_requirements_collection_row_slot_2;
 	CalypsoF10ProductionRequirementsGenRect region_context;
 	CalypsoF10ProductionRequirementsGenRect region_context_label;
 	CalypsoF10ProductionRequirementsGenRect region_context_content;
@@ -60,9 +59,9 @@ struct CalypsoF10ProductionRequirementsGenLayout
 inline constexpr CalypsoF10ProductionRequirementsGenLayout kLayouts[] =
 {
 	// wide
-	{ 1280, 720, { 0, 0, 1280, 720 }, { 112, 96, 1144, 78 }, { 640, 96, 140, 78 }, { 130, 114, 480, 36 }, { 788, 113, 450, 44 }, { 112, 658, 1144, 44 }, { 112, 190, 560, 336 }, { 124, 202, 536, 20 }, { 124, 222, 536, 292 }, { 124, 222, 536, 292 }, { 642, 254, 18, 220 }, { 642, 254, 18, 220 }, { 124, 222, 186, 32 }, { 311, 222, 147, 32 }, { 459, 222, 147, 32 }, { 124, 254, 482, 44 }, { 124, 298, 482, 44 }, { 688, 190, 568, 216 }, { 700, 202, 544, 20 }, { 700, 222, 544, 172 }, { 112, 538, 560, 108 }, { 124, 550, 536, 20 }, { 124, 570, 536, 20 }, { 124, 570, 241, 20 }, { 377, 570, 283, 20 }, { 124, 590, 536, 20 }, { 124, 590, 241, 20 }, { 377, 590, 283, 20 }, { 124, 610, 536, 20 }, { 124, 610, 241, 20 }, { 377, 610, 283, 20 }, { 898, 658, 158, 44 }, { 1066, 658, 158, 44 } },
+	{ 1280, 720, { 0, 0, 1280, 720 }, { 112, 96, 1144, 78 }, { 640, 96, 140, 78 }, { 130, 114, 480, 36 }, { 788, 113, 450, 44 }, { 112, 658, 1144, 44 }, { 112, 190, 560, 336 }, { 124, 202, 536, 20 }, { 124, 222, 536, 292 }, { 124, 222, 536, 292 }, { 642, 254, 18, 220 }, { 642, 254, 18, 220 }, { 124, 222, 186, 32 }, { 311, 222, 147, 32 }, { 459, 222, 147, 32 }, { 124, 254, 482, 44 }, { 688, 190, 568, 216 }, { 700, 202, 544, 20 }, { 700, 222, 544, 172 }, { 112, 538, 560, 108 }, { 124, 550, 536, 20 }, { 124, 570, 536, 20 }, { 124, 570, 241, 20 }, { 377, 570, 283, 20 }, { 124, 590, 536, 20 }, { 124, 590, 241, 20 }, { 377, 590, 283, 20 }, { 124, 610, 536, 20 }, { 124, 610, 241, 20 }, { 377, 610, 283, 20 }, { 898, 658, 158, 44 }, { 1066, 658, 158, 44 } },
 	// compact
-	{ 740, 360, { 0, 0, 740, 360 }, { 52, 48, 680, 52 }, { 400, 48, 100, 52 }, { 62, 58, 330, 24 }, { 500, 52, 220, 44 }, { 52, 312, 680, 44 }, { 52, 108, 360, 196 }, { 60, 116, 344, 16 }, { 60, 132, 344, 164 }, { 60, 132, 344, 164 }, { 386, 156, 18, 88 }, { 386, 156, 18, 88 }, { 60, 132, 108, 24 }, { 169, 132, 91, 24 }, { 261, 132, 91, 24 }, { 60, 156, 292, 44 }, { 60, 200, 292, 44 }, { 420, 196, 312, 108 }, { 428, 204, 296, 16 }, { 428, 220, 296, 76 }, { 420, 108, 312, 80 }, { 428, 116, 296, 16 }, { 428, 132, 296, 16 }, { 428, 132, 177, 16 }, { 613, 132, 111, 16 }, { 428, 148, 296, 16 }, { 428, 148, 177, 16 }, { 613, 148, 111, 16 }, { 428, 164, 296, 16 }, { 428, 164, 177, 16 }, { 613, 164, 111, 16 }, { 492, 312, 110, 44 }, { 614, 312, 110, 44 } },
+	{ 740, 360, { 0, 0, 740, 360 }, { 52, 48, 680, 52 }, { 400, 48, 100, 52 }, { 62, 58, 330, 24 }, { 500, 52, 220, 44 }, { 52, 312, 680, 44 }, { 52, 108, 360, 104 }, { 60, 116, 344, 16 }, { 60, 132, 344, 72 }, { 60, 132, 344, 72 }, { 386, 156, 18, 44 }, { 386, 156, 18, 44 }, { 60, 132, 108, 24 }, { 169, 132, 91, 24 }, { 261, 132, 91, 24 }, { 60, 156, 292, 44 }, { 420, 196, 312, 108 }, { 428, 204, 296, 16 }, { 428, 220, 296, 76 }, { 420, 108, 312, 80 }, { 428, 116, 296, 16 }, { 428, 132, 296, 16 }, { 428, 132, 177, 16 }, { 613, 132, 111, 16 }, { 428, 148, 296, 16 }, { 428, 148, 177, 16 }, { 613, 148, 111, 16 }, { 428, 164, 296, 16 }, { 428, 164, 177, 16 }, { 613, 164, 111, 16 }, { 492, 312, 110, 44 }, { 614, 312, 110, 44 } },
 };
 inline constexpr int kLayoutCount = 2;
 
@@ -91,6 +90,44 @@ inline constexpr CalypsoF10ProductionRequirementsGenActionTone kActionTones[] = 
     { "danger", 0xFF6E72FFu, 0xFF6E72FFu, 0xE7F0F3FFu },
 };
 inline constexpr int kActionToneCount = 5;
+
+struct CalypsoF10ProductionRequirementsGenProfileStyle
+{
+	std::uint32_t background;
+	std::uint32_t panel;
+	std::uint32_t panelRaised;
+	std::uint32_t hover;
+	std::uint32_t selected;
+	std::uint32_t border;
+	std::uint32_t borderStrong;
+	std::uint32_t accent;
+	std::uint32_t text;
+	std::uint32_t secondary;
+	std::uint32_t disabled;
+	std::uint32_t onAccent;
+	std::uint32_t warning;
+	std::uint32_t danger;
+	float cornerRadiusPx;
+	float cutCornerPx;
+};
+inline constexpr CalypsoF10ProductionRequirementsGenProfileStyle kProfileStyle = {
+	0x02060EFFu,
+	0x071624FFu,
+	0x0A1C2DFFu,
+	0x0C2232FFu,
+	0x0D2931FFu,
+	0x173246FFu,
+	0x285267FFu,
+	0x81E0B5FFu,
+	0xE7F0F3FFu,
+	0xA8BBC4FFu,
+	0x455966FFu,
+	0x03130DFFu,
+	0xF2C56DFFu,
+	0xFF6E72FFu,
+	12.0f,
+	14.0f,
+};
 
 struct CalypsoF10ProductionRequirementsGenColumnRole
 {
@@ -207,24 +244,18 @@ inline constexpr CalypsoF10ProductionRequirementsGenCollectionCell kRegionRequir
     { "required", { 169, 156, 91, 44 }, "count", "data", "right", 89, 1 },
     { "available", { 261, 156, 91, 44 }, "count", "data", "right", 89, 1 },
 };
-inline constexpr CalypsoF10ProductionRequirementsGenCollectionCell kRegionRequirementsCollectionRowSlot2CellsCompact[] = {
-    { "item", { 60, 200, 108, 44 }, "name", "body", "left", 96, 6 },
-    { "required", { 169, 200, 91, 44 }, "count", "data", "right", 89, 1 },
-    { "available", { 261, 200, 91, 44 }, "count", "data", "right", 89, 1 },
-};
 inline constexpr CalypsoF10ProductionRequirementsGenCollectionRowSlot kRegionRequirementsCollectionRowSlotsCompact[] = {
     { "row-slot-1", { 60, 156, 292, 44 }, kRegionRequirementsCollectionRowSlot1CellsCompact, 3 },
-    { "row-slot-2", { 60, 200, 292, 44 }, kRegionRequirementsCollectionRowSlot2CellsCompact, 3 },
 };
-inline constexpr int kRegionRequirementsCollectionRowSlotCompactCount = 2;
-inline constexpr CalypsoF10ProductionRequirementsGenCollectionMetrics kRegionRequirementsCollectionMetricsCompact = { 1, 2, 1, 2, 1, "record", false, 0, { 386, 156, 18, 88 }, { 386, 156, 18, 88 }, { 360, 156, 44, 88 }, { 360, 156, 44, 88 }, 0 };
+inline constexpr int kRegionRequirementsCollectionRowSlotCompactCount = 1;
+inline constexpr CalypsoF10ProductionRequirementsGenCollectionMetrics kRegionRequirementsCollectionMetricsCompact = { 1, 1, 1, 1, 1, "record", false, 0, { 386, 156, 18, 44 }, { 386, 156, 18, 44 }, { 360, 156, 44, 44 }, { 360, 156, 44, 44 }, 0 };
 
 inline constexpr CalypsoF10ProductionRequirementsGenCollectionLayout kCollectionsWide[1] = {
     { "region.requirements.collection", kRegionRequirementsCollectionColumnHeadersWide, 3, kRegionRequirementsCollectionRowSlotsWide, 5, 1, kRegionRequirementsCollectionMetricsWide },
 };
 inline constexpr int kCollectionLayoutWideCount = 1;
 inline constexpr CalypsoF10ProductionRequirementsGenCollectionLayout kCollectionsCompact[1] = {
-    { "region.requirements.collection", kRegionRequirementsCollectionColumnHeadersCompact, 3, kRegionRequirementsCollectionRowSlotsCompact, 2, 1, kRegionRequirementsCollectionMetricsCompact },
+    { "region.requirements.collection", kRegionRequirementsCollectionColumnHeadersCompact, 3, kRegionRequirementsCollectionRowSlotsCompact, 1, 1, kRegionRequirementsCollectionMetricsCompact },
 };
 inline constexpr int kCollectionLayoutCompactCount = 1;
 

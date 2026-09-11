@@ -105,17 +105,33 @@ inline std::size_t calypsoSelectionListScrollForOffset(int offset, int trackH, i
 	return (std::size_t)((o * (long long)maxScroll + travel / 2) / travel);
 }
 
-/// Maps display-space pointer Y to the native row index. `rowStride` is
-/// already projected into display pixels; callers must not apply screen scale
-/// a second time.
-inline std::size_t calypsoSelectionListRowAtDisplayY(
-	double relativeY, int rowStride, std::size_t scroll, std::size_t total)
+/// Maps a pointer offset from the list surface top (engine-logical px, i.e.
+/// already divided by the screen scale once) to a native row. `rowOrigin` is
+/// the logical offset from the surface top to the first painted row slot; the
+/// header and any trailing empty remainder own no row. Out-of-data-viewport or
+/// past-the-end pointers yield `hit == false` — never a clamped last row.
+struct CalypsoSelectionListRowHit
 {
-	if (total == 0 || rowStride <= 0) return 0;
-	const long long offset = static_cast<long long>(
-		std::floor(std::max(0.0, relativeY) / static_cast<double>(rowStride)));
-	const std::size_t index = scroll + static_cast<std::size_t>(offset);
-	return std::min(index, total - 1);
+	bool hit = false;
+	std::size_t index = 0;
+};
+
+inline CalypsoSelectionListRowHit calypsoSelectionListRowAtLogicalY(
+	double relativeLogicalY, double rowStride, double rowOrigin,
+	std::size_t scroll, std::size_t total, std::size_t visibleCapacity)
+{
+	CalypsoSelectionListRowHit out;
+	if (total == 0 || rowStride <= 0 || visibleCapacity == 0) return out;
+	if (!(relativeLogicalY >= rowOrigin)) return out;
+	const double dataY = relativeLogicalY - rowOrigin;
+	const long long slot = static_cast<long long>(
+		std::floor(dataY / rowStride));
+	if (slot < 0 || slot >= static_cast<long long>(visibleCapacity)) return out;
+	const std::size_t index = scroll + static_cast<std::size_t>(slot);
+	if (index >= total) return out;
+	out.hit = true;
+	out.index = index;
+	return out;
 }
 
 } // namespace Calypso

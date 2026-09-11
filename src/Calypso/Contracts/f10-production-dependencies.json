@@ -46,22 +46,12 @@
         "kind": "collection",
         "label": "PRODUCTION DEPENDENCIES",
         "collection": {
-          "mode": "table",
+          "mode": "list",
           "selectionRole": "dependency",
           "columns": [
             {
-              "id": "direct",
-              "label": "DIRECT",
-              "contentRole": "name"
-            },
-            {
-              "id": "level-two",
-              "label": "LEVEL 2",
-              "contentRole": "name"
-            },
-            {
-              "id": "level-three",
-              "label": "LEVEL 3",
+              "id": "topic",
+              "label": "TOPIC",
               "contentRole": "name"
             }
           ],
@@ -69,33 +59,25 @@
             {
               "id": "dependency-1",
               "values": [
-                "MAELSTROM",
-                "Keravnos-M",
-                "Search end"
+                "MAELSTROM"
               ]
             },
             {
               "id": "dependency-2",
               "values": [
-                "MANTIS",
-                "***",
-                "Search end"
+                "MANTIS"
               ]
             },
             {
               "id": "dependency-3",
               "values": [
-                "Cavitation",
-                "***",
-                "Search end"
+                "Cavitation"
               ]
             },
             {
               "id": "dependency-4",
               "values": [
-                "***",
-                "***",
-                "Search end"
+                "***"
               ]
             }
           ]
@@ -141,22 +123,12 @@
         "kind": "collection",
         "label": "PRODUCTION DEPENDENCIES",
         "collection": {
-          "mode": "table",
+          "mode": "list",
           "selectionRole": "dependency",
           "columns": [
             {
-              "id": "direct",
-              "label": "DIRECT",
-              "contentRole": "name"
-            },
-            {
-              "id": "level-two",
-              "label": "LEVEL 2",
-              "contentRole": "name"
-            },
-            {
-              "id": "level-three",
-              "label": "LEVEL 3",
+              "id": "topic",
+              "label": "TOPIC",
               "contentRole": "name"
             }
           ],
@@ -164,33 +136,25 @@
             {
               "id": "dependency-1",
               "values": [
-                "MAELSTROM",
-                "Keravnos-M",
-                "Search end"
+                "MAELSTROM"
               ]
             },
             {
               "id": "dependency-2",
               "values": [
-                "MANTIS",
-                "***",
-                "Search end"
+                "MANTIS"
               ]
             },
             {
               "id": "dependency-3",
               "values": [
-                "Cavitation",
-                "***",
-                "Search end"
+                "Cavitation"
               ]
             },
             {
               "id": "dependency-4",
               "values": [
-                "***",
-                "***",
-                "Search end"
+                "***"
               ]
             }
           ]
@@ -290,39 +254,11 @@
           "collection": {
             "columnHeaders": [
               {
-                "id": "direct",
+                "id": "topic",
                 "rect": {
                   "x": 124,
                   "y": 222,
-                  "width": 160,
-                  "height": 32
-                },
-                "contentRole": "name",
-                "font": "body",
-                "align": "left",
-                "minWidth": 96,
-                "weight": 6
-              },
-              {
-                "id": "level-two",
-                "rect": {
-                  "x": 285,
-                  "y": 222,
-                  "width": 160,
-                  "height": 32
-                },
-                "contentRole": "name",
-                "font": "body",
-                "align": "left",
-                "minWidth": 96,
-                "weight": 6
-              },
-              {
-                "id": "level-three",
-                "rect": {
-                  "x": 446,
-                  "y": 222,
-                  "width": 160,
+                  "width": 482,
                   "height": 32
                 },
                 "contentRole": "name",
@@ -343,39 +279,11 @@
                 },
                 "cells": [
                   {
-                    "id": "direct",
+                    "id": "topic",
                     "rect": {
                       "x": 124,
                       "y": 254,
-                      "width": 160,
-                      "height": 44
-                    },
-                    "contentRole": "name",
-                    "font": "body",
-                    "align": "left",
-                    "minWidth": 96,
-                    "weight": 6
-                  },
-                  {
-                    "id": "level-two",
-                    "rect": {
-                      "x": 285,
-                      "y": 254,
-                      "width": 160,
-                      "height": 44
-                    },
-                    "contentRole": "name",
-                    "font": "body",
-                    "align": "left",
-                    "minWidth": 96,
-                    "weight": 6
-                  },
-                  {
-                    "id": "level-three",
-                    "rect": {
-                      "x": 446,
-                      "y": 254,
-                      "width": 160,
+                      "width": 482,
                       "height": 44
                     },
                     "contentRole": "name",
@@ -396,39 +304,11 @@
                 },
                 "cells": [
                   {
-                    "id": "direct",
+                    "id": "topic",
                     "rect": {
                       "x": 124,
                       "y": 298,
-                      "width": 160,
-                      "height": 44
-                    },
-                    "contentRole": "name",
-                    "font": "body",
-                    "align": "left",
-                    "minWidth": 96,
-                    "weight": 6
-                  },
-                  {
-                    "id": "level-two",
-                    "rect": {
-                      "x": 285,
-                      "y": 298,
-                      "width": 160,
-                      "height": 44
-                    },
-                    "contentRole": "name",
-                    "font": "body",
-                    "align": "left",
-                    "minWidth": 96,
-                    "weight": 6
-                  },
-                  {
-                    "id": "level-three",
-                    "rect": {
-                      "x": 446,
-                      "y": 298,
-                      "width": 160,
+                      "width": 482,
                       "height": 44
                     },
                     "contentRole": "name",
@@ -449,39 +329,11 @@
                 },
                 "cells": [
                   {
-                    "id": "direct",
+                    "id": "topic",
                     "rect": {
                       "x": 124,
                       "y": 342,
-                      "width": 160,
-                      "height": 44
-                    },
-                    "contentRole": "name",
-                    "font": "body",
-                    "align": "left",
-                    "minWidth": 96,
-                    "weight": 6
-                  },
-                  {
-                    "id": "level-two",
-                    "rect": {
-                      "x": 285,
-                      "y": 342,
-                      "width": 160,
-                      "height": 44
-                    },
-                    "contentRole": "name",
-                    "font": "body",
-                    "align": "left",
-                    "minWidth": 96,
-                    "weight": 6
-                  },
-                  {
-                    "id": "level-three",
-                    "rect": {
-                      "x": 446,
-                      "y": 342,
-                      "width": 160,
+                      "width": 482,
                       "height": 44
                     },
                     "contentRole": "name",
@@ -502,39 +354,11 @@
                 },
                 "cells": [
                   {
-                    "id": "direct",
+                    "id": "topic",
                     "rect": {
                       "x": 124,
                       "y": 386,
-                      "width": 160,
-                      "height": 44
-                    },
-                    "contentRole": "name",
-                    "font": "body",
-                    "align": "left",
-                    "minWidth": 96,
-                    "weight": 6
-                  },
-                  {
-                    "id": "level-two",
-                    "rect": {
-                      "x": 285,
-                      "y": 386,
-                      "width": 160,
-                      "height": 44
-                    },
-                    "contentRole": "name",
-                    "font": "body",
-                    "align": "left",
-                    "minWidth": 96,
-                    "weight": 6
-                  },
-                  {
-                    "id": "level-three",
-                    "rect": {
-                      "x": 446,
-                      "y": 386,
-                      "width": 160,
+                      "width": 482,
                       "height": 44
                     },
                     "contentRole": "name",
@@ -555,39 +379,11 @@
                 },
                 "cells": [
                   {
-                    "id": "direct",
+                    "id": "topic",
                     "rect": {
                       "x": 124,
                       "y": 430,
-                      "width": 160,
-                      "height": 44
-                    },
-                    "contentRole": "name",
-                    "font": "body",
-                    "align": "left",
-                    "minWidth": 96,
-                    "weight": 6
-                  },
-                  {
-                    "id": "level-two",
-                    "rect": {
-                      "x": 285,
-                      "y": 430,
-                      "width": 160,
-                      "height": 44
-                    },
-                    "contentRole": "name",
-                    "font": "body",
-                    "align": "left",
-                    "minWidth": 96,
-                    "weight": 6
-                  },
-                  {
-                    "id": "level-three",
-                    "rect": {
-                      "x": 446,
-                      "y": 430,
-                      "width": 160,
+                      "width": 482,
                       "height": 44
                     },
                     "contentRole": "name",
@@ -766,33 +562,15 @@
           "width": 18,
           "height": 220
         },
-        "region.tree.collection.column.direct": {
+        "region.tree.collection.column.topic": {
           "x": 124,
           "y": 222,
-          "width": 160,
-          "height": 32
-        },
-        "region.tree.collection.column.level-two": {
-          "x": 285,
-          "y": 222,
-          "width": 160,
-          "height": 32
-        },
-        "region.tree.collection.column.level-three": {
-          "x": 446,
-          "y": 222,
-          "width": 160,
+          "width": 482,
           "height": 32
         },
         "region.tree.collection.row-slot.1": {
           "x": 124,
           "y": 254,
-          "width": 482,
-          "height": 44
-        },
-        "region.tree.collection.row-slot.2": {
-          "x": 124,
-          "y": 298,
           "width": 482,
           "height": 44
         },
@@ -899,7 +677,7 @@
             "x": 52,
             "y": 108,
             "width": 360,
-            "height": 196
+            "height": 104
           },
           "label": {
             "x": 60,
@@ -911,44 +689,16 @@
             "x": 60,
             "y": 132,
             "width": 344,
-            "height": 164
+            "height": 72
           },
           "collection": {
             "columnHeaders": [
               {
-                "id": "direct",
+                "id": "topic",
                 "rect": {
                   "x": 60,
                   "y": 132,
-                  "width": 97,
-                  "height": 24
-                },
-                "contentRole": "name",
-                "font": "body",
-                "align": "left",
-                "minWidth": 96,
-                "weight": 6
-              },
-              {
-                "id": "level-two",
-                "rect": {
-                  "x": 158,
-                  "y": 132,
-                  "width": 97,
-                  "height": 24
-                },
-                "contentRole": "name",
-                "font": "body",
-                "align": "left",
-                "minWidth": 96,
-                "weight": 6
-              },
-              {
-                "id": "level-three",
-                "rect": {
-                  "x": 256,
-                  "y": 132,
-                  "width": 96,
+                  "width": 292,
                   "height": 24
                 },
                 "contentRole": "name",
@@ -969,92 +719,11 @@
                 },
                 "cells": [
                   {
-                    "id": "direct",
+                    "id": "topic",
                     "rect": {
                       "x": 60,
                       "y": 156,
-                      "width": 97,
-                      "height": 44
-                    },
-                    "contentRole": "name",
-                    "font": "body",
-                    "align": "left",
-                    "minWidth": 96,
-                    "weight": 6
-                  },
-                  {
-                    "id": "level-two",
-                    "rect": {
-                      "x": 158,
-                      "y": 156,
-                      "width": 97,
-                      "height": 44
-                    },
-                    "contentRole": "name",
-                    "font": "body",
-                    "align": "left",
-                    "minWidth": 96,
-                    "weight": 6
-                  },
-                  {
-                    "id": "level-three",
-                    "rect": {
-                      "x": 256,
-                      "y": 156,
-                      "width": 96,
-                      "height": 44
-                    },
-                    "contentRole": "name",
-                    "font": "body",
-                    "align": "left",
-                    "minWidth": 96,
-                    "weight": 6
-                  }
-                ]
-              },
-              {
-                "id": "row-slot-2",
-                "rect": {
-                  "x": 60,
-                  "y": 200,
-                  "width": 292,
-                  "height": 44
-                },
-                "cells": [
-                  {
-                    "id": "direct",
-                    "rect": {
-                      "x": 60,
-                      "y": 200,
-                      "width": 97,
-                      "height": 44
-                    },
-                    "contentRole": "name",
-                    "font": "body",
-                    "align": "left",
-                    "minWidth": 96,
-                    "weight": 6
-                  },
-                  {
-                    "id": "level-two",
-                    "rect": {
-                      "x": 158,
-                      "y": 200,
-                      "width": 97,
-                      "height": 44
-                    },
-                    "contentRole": "name",
-                    "font": "body",
-                    "align": "left",
-                    "minWidth": 96,
-                    "weight": 6
-                  },
-                  {
-                    "id": "level-three",
-                    "rect": {
-                      "x": 256,
-                      "y": 200,
-                      "width": 96,
+                      "width": 292,
                       "height": 44
                     },
                     "contentRole": "name",
@@ -1066,19 +735,19 @@
                 ]
               }
             ],
-            "count": 2,
+            "count": 1,
             "scroll": {
               "track": {
                 "x": 386,
                 "y": 156,
                 "width": 18,
-                "height": 88
+                "height": 44
               },
               "thumb": {
                 "x": 386,
                 "y": 156,
                 "width": 18,
-                "height": 44
+                "height": 22
               }
             }
           }
@@ -1201,7 +870,7 @@
           "x": 52,
           "y": 108,
           "width": 360,
-          "height": 196
+          "height": 104
         },
         "region.tree.label": {
           "x": 60,
@@ -1213,53 +882,35 @@
           "x": 60,
           "y": 132,
           "width": 344,
-          "height": 164
+          "height": 72
         },
         "region.tree.collection": {
           "x": 60,
           "y": 132,
           "width": 344,
-          "height": 164
+          "height": 72
         },
         "region.tree.collection.scroll.track": {
           "x": 386,
           "y": 156,
           "width": 18,
-          "height": 88
+          "height": 44
         },
         "region.tree.collection.scroll.thumb": {
           "x": 386,
           "y": 156,
           "width": 18,
-          "height": 44
+          "height": 22
         },
-        "region.tree.collection.column.direct": {
+        "region.tree.collection.column.topic": {
           "x": 60,
           "y": 132,
-          "width": 97,
-          "height": 24
-        },
-        "region.tree.collection.column.level-two": {
-          "x": 158,
-          "y": 132,
-          "width": 97,
-          "height": 24
-        },
-        "region.tree.collection.column.level-three": {
-          "x": 256,
-          "y": 132,
-          "width": 96,
+          "width": 292,
           "height": 24
         },
         "region.tree.collection.row-slot.1": {
           "x": 60,
           "y": 156,
-          "width": 292,
-          "height": 44
-        },
-        "region.tree.collection.row-slot.2": {
-          "x": 60,
-          "y": 200,
           "width": 292,
           "height": 44
         },
@@ -1640,30 +1291,30 @@
     "compact": {
       "tree": {
         "totalItems": 4,
-        "visibleCapacity": 2,
+        "visibleCapacity": 1,
         "totalUnits": 4,
-        "visibleUnits": 2,
+        "visibleUnits": 1,
         "itemsPerUnit": 1,
         "scrollUnit": "record",
         "overflow": true,
-        "scrollSteps": 2,
+        "scrollSteps": 3,
         "track": {
-          "x": 386,
-          "y": 156,
-          "width": 18,
-          "height": 88
-        },
-        "thumb": {
           "x": 386,
           "y": 156,
           "width": 18,
           "height": 44
         },
+        "thumb": {
+          "x": 386,
+          "y": 156,
+          "width": 18,
+          "height": 22
+        },
         "trackHitTarget": {
           "x": 360,
           "y": 156,
           "width": 44,
-          "height": 88
+          "height": 44
         },
         "thumbHitTarget": {
           "x": 360,
@@ -1671,7 +1322,7 @@
           "width": 44,
           "height": 44
         },
-        "thumbTravelPx": 44
+        "thumbTravelPx": 22
       }
     }
   },
@@ -1770,7 +1421,7 @@
       "second": "region.summary",
       "axis": "vertical",
       "wide": 12,
-      "compact": -196
+      "compact": -104
     },
     {
       "id": "footer-action-inset",
@@ -1801,11 +1452,8 @@
     "region.tree.collection",
     "region.tree.collection.scroll.track",
     "region.tree.collection.scroll.thumb",
-    "region.tree.collection.column.direct",
-    "region.tree.collection.column.level-two",
-    "region.tree.collection.column.level-three",
+    "region.tree.collection.column.topic",
     "region.tree.collection.row-slot.1",
-    "region.tree.collection.row-slot.2",
     "region.context",
     "region.context.label",
     "region.context.content",

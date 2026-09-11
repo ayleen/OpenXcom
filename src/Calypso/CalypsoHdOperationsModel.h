@@ -157,6 +157,9 @@ struct CalypsoHdOperationsControl
 	std::string displayValue;
 	CalypsoHdOperationsRect rect;
 	CalypsoHdOperationsRect valueRect;
+	/// Visible localized caption strip; invalid means the control carries no
+	/// separate label (the value is self-describing).
+	CalypsoHdOperationsRect labelRect;
 	CalypsoHdOperationsAction decrement;
 	CalypsoHdOperationsAction increment;
 	CalypsoHdOperationsState state;
@@ -392,6 +395,31 @@ inline int calypsoHdOperationsPhysicalFontPx(
 		1, std::min<std::int64_t>(rounded, 2147483647)));
 }
 
+/// One shared binder from the emitted generated profile descriptor into the
+/// renderer style. Adapters and the browser reference consume the same
+/// resolved palette; no adapter carries its own HEX literals and nothing
+/// re-parses theme sources at runtime (external review R06).
+template <typename GeneratedProfileStyle>
+void calypsoHdOperationsApplyGeneratedStyle(CalypsoHdOperationsModel& model,
+	const GeneratedProfileStyle& generated)
+{
+	CalypsoHdOperationsStyle& style = model.style;
+	style.regionFill = generated.panel;
+	style.frame = generated.border;
+	style.divider = generated.border;
+	style.text = generated.text;
+	style.mutedText = generated.secondary;
+	style.selection = generated.selected;
+	style.disabled = generated.disabled;
+	style.disabledText = generated.disabled;
+	style.accent = generated.accent;
+	style.warning = generated.warning;
+	style.danger = generated.danger;
+	style.textOnAccent = generated.onAccent;
+	style.cornerRadiusPx = generated.cornerRadiusPx;
+	style.cutCornerPx = generated.cutCornerPx;
+}
+
 
 inline bool calypsoHdOperationsHasScrollMetadata(
 	const CalypsoHdOperationsCollection& collection)
@@ -522,7 +550,9 @@ inline CalypsoHdOperationsActionPalette calypsoHdOperationsActionPalette(
 	else if (tone == "warning")
 		palette = {style.warning, style.warning, style.textOnAccent};
 	else if (tone == "danger")
-		palette = {style.danger, style.danger, style.text};
+		// Approved guide: destructive actions are outline/text, never a full
+		// danger fill.
+		palette = {style.panelFillTop, style.danger, style.danger};
 	else
 		palette = {style.panelFillTop, style.frame, style.text};
 	if (state.selected && tone != "primary" && tone != "warning"

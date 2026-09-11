@@ -21,6 +21,7 @@
 #include "NewManufactureListState.h"
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoF10ProductionUi.h"
+#include "../Calypso/CalypsoHdUiOverlay.h"
 #endif
 #include "../Interface/Window.h"
 #include "../Interface/TextButton.h"
@@ -302,8 +303,13 @@ void NewManufactureListState::lstProdClickMiddle(Action *)
 	}
 	else
 	{
+#ifdef __EMSCRIPTEN__
+		Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
+			"Technology Tree HD route is not available");
+#else
 		const RuleManufacture* selectedTopic = _game->getMod()->getManufacture(articleId);
 		_game->pushState(new TechTreeViewerState(0, selectedTopic));
+#endif
 	}
 }
 #ifdef __EMSCRIPTEN__

@@ -103,7 +103,11 @@ void configureHdSelectionList(
 	const int minThumbHeight = std::max(1, (int)std::llround(generated.minThumbHeight * uiScale));
 	const int rowStride = std::max(1, (int)std::llround(generated.rowHeight * uiScale));
 	const size_t visibleRows = generated.visibleRows > 0 ? (size_t)generated.visibleRows : 0;
-	list->configureCalypsoHdSelectionList(scrollBarWidth, minThumbHeight, rowStride, visibleRows);
+	// F03 rows start at the list top (no column header), so the data viewport
+	// is exactly the union of the painted row slots.
+	const int dataViewportH = std::max(1, rowStride * static_cast<int>(visibleRows));
+	list->configureCalypsoHdSelectionList(scrollBarWidth, minThumbHeight, rowStride,
+		0, dataViewportH, visibleRows);
 }
 
 } // namespace

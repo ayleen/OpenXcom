@@ -71,10 +71,31 @@ void setWindow(Window *window, const R &rect)
 	if (window->getHeight() != projected.h) window->setHeight(projected.h);
 }
 
+/// One descriptor for paint, hit-testing and the native scrollbar: logical row
+/// stride, logical offset from the list surface top to the first painted row
+/// slot (column header owns no rows), the logical union height of the emitted
+/// row slots (trailing panel remainder owns no rows) and the emitted visible
+/// slot capacity — never a hardcoded wide/compact guess.
+template <typename R, typename Collection>
+void configureHdList(TextList &list, const R &parent, const R &rowSlot1,
+	const R &scrollTrack, const Collection &generated, double sx, double sy)
+{
+	const int rowOrigin = std::max(0, static_cast<int>((rowSlot1.y - parent.y) * sy));
+	list.configureCalypsoHdSelectionList(
+		std::max(1, static_cast<int>(scrollTrack.w * sx)),
+		std::max(1, static_cast<int>(44 * sy)),
+		std::max(1, static_cast<int>(rowSlot1.h * sy)),
+		rowOrigin,
+		std::max(rowOrigin + 1, rowOrigin + static_cast<int>(
+			generated.rowSlotCount * rowSlot1.h * sy)),
+		static_cast<std::size_t>(generated.rowSlotCount));
+}
+
 
 
 CalypsoHdOperationsAction action(const std::string &id, const std::string &label,
-	const CalypsoHdOperationsRect &rect, const void *widget, bool visible = true)
+	const CalypsoHdOperationsRect &rect, const void *widget, bool visible = true,
+	const std::string &tone = "normal")
 {
 	CalypsoHdOperationsAction result;
 	result.id = id;
@@ -82,6 +103,7 @@ CalypsoHdOperationsAction action(const std::string &id, const std::string &label
 	result.component = "management-action-group";
 	result.slotRole = "action";
 	result.coordinateSpace = "logical";
+	result.tone = tone;
 	result.visible = rect;
 	result.hit = rect;
 	result.widget = widget;
@@ -146,11 +168,14 @@ void setGeneratedCollectionRows(CalypsoHdOperationsModel &model,
 		model.geometry.collectionRows.push_back(project(collection.rowSlots[i].rect));
 }
 
+template <typename GeneratedProfileStyle>
 void finish(CalypsoHdOperationsModel &model, const Mod *mod,
 	const char *presentation, const char *profileId, const char *profileVersion,
-	const char *provenance)
+	const char *provenance, const GeneratedProfileStyle &generatedStyle)
 {
 	setContractMetadata(model, presentation, profileId, profileVersion, provenance);
+	// One shared binder carries the emitted canonical palette (R06).
+	calypsoHdOperationsApplyGeneratedStyle(model, generatedStyle);
 	setFonts(model, mod);
 }
 
@@ -418,13 +443,13 @@ void CalypsoF14GlobalOperationsUi::applyResearchGeometry()
 		_research->_hdWideLayout ? 1280 : 740,
 		_research->_hdWideLayout ? 720 : 360);
 	if (!g) return;
+	const auto &generated = _research->_hdWideLayout
+		? CalypsoF14GlobalResearchGen::kCollectionsWide[0]
+		: CalypsoF14GlobalResearchGen::kCollectionsCompact[0];
 	setWindow(_research->_window, g->window);
 	const int wx = _research->_window->getX(), wy = _research->_window->getY();
 	const double sx = static_cast<double>(_research->_window->getWidth()) / g->window.w;
 	const double sy = static_cast<double>(_research->_window->getHeight()) / g->window.h;
-	auto p = [&](const auto &rect) {
-		return projectRect(rect, wx, wy, sx, sy, g->window.x, g->window.y);
-	};
 	_research->_lstResearch->rebaseNativeSize(g->collectionViewport.w,
 		g->collectionViewport.h);
 	place(_research->_txtTitle, g->title, wx, wy, sx, sy, g->window.x, g->window.y);
@@ -439,11 +464,8 @@ void CalypsoF14GlobalOperationsUi::applyResearchGeometry()
 	place(_research->_btnOk, g->action_done, wx, wy, sx, sy, g->window.x, g->window.y);
 	place(_research->_btnOpenBaseResearch, g->detail_selected_project_action_open_base_research, wx, wy, sx, sy, g->window.x, g->window.y);
 	place(_research->_btnTechTree, g->detail_selected_project_action_tech_tree, wx, wy, sx, sy, g->window.x, g->window.y);
-	_research->_lstResearch->configureCalypsoHdSelectionList(
-		std::max(1, p(g->collection_scroll_track).w),
-		std::max(1, p(g->collection_row_slot_1).h),
-		std::max(1, p(g->collection_row_slot_1).h),
-		_research->_hdWideLayout ? 5 : 2);
+	configureHdList(*_research->_lstResearch, g->collectionViewport,
+		g->collection_row_slot_1, g->collection_scroll_track, generated, sx, sy);
 }
 
 void CalypsoF14GlobalOperationsUi::applyManufactureGeometry()
@@ -454,6 +476,9 @@ void CalypsoF14GlobalOperationsUi::applyManufactureGeometry()
 		_manufacture->_hdWideLayout ? 1280 : 740,
 		_manufacture->_hdWideLayout ? 720 : 360);
 	if (!g) return;
+	const auto &generated = _manufacture->_hdWideLayout
+		? CalypsoF14GlobalProductionGen::kCollectionsWide[0]
+		: CalypsoF14GlobalProductionGen::kCollectionsCompact[0];
 	setWindow(_manufacture->_window, g->window);
 	const int wx = _manufacture->_window->getX(), wy = _manufacture->_window->getY();
 	const double sx = static_cast<double>(_manufacture->_window->getWidth()) / g->window.w;
@@ -477,11 +502,8 @@ void CalypsoF14GlobalOperationsUi::applyManufactureGeometry()
 	place(_manufacture->_btnOk, g->action_done, wx, wy, sx, sy, g->window.x, g->window.y);
 	place(_manufacture->_btnOpenBaseProduction, g->detail_selected_production_action_open_base_production, wx, wy, sx, sy, g->window.x, g->window.y);
 	place(_manufacture->_btnTechTree, g->detail_selected_production_action_tech_tree, wx, wy, sx, sy, g->window.x, g->window.y);
-	_manufacture->_lstManufacture->configureCalypsoHdSelectionList(
-		std::max(1, p(g->collection_scroll_track).w),
-		std::max(1, p(g->collection_row_slot_1).h),
-		std::max(1, p(g->collection_row_slot_1).h),
-		_manufacture->_hdWideLayout ? 5 : 2);
+	configureHdList(*_manufacture->_lstManufacture, g->collectionViewport,
+		g->collection_row_slot_1, g->collection_scroll_track, generated, sx, sy);
 }
 
 void CalypsoF14GlobalOperationsUi::applyDiaryGeometry()
@@ -492,6 +514,9 @@ void CalypsoF14GlobalOperationsUi::applyDiaryGeometry()
 		_diary->_hdWideLayout ? 1280 : 740,
 		_diary->_hdWideLayout ? 720 : 360);
 	if (!g) return;
+	const auto &generated = _diary->_hdWideLayout
+		? CalypsoF14ResearchDiaryGen::kCollectionsWide[0]
+		: CalypsoF14ResearchDiaryGen::kCollectionsCompact[0];
 	setWindow(_diary->_window, g->window);
 	const int wx = _diary->_window->getX(), wy = _diary->_window->getY();
 	const double sx = static_cast<double>(_diary->_window->getWidth()) / g->window.w;
@@ -514,11 +539,8 @@ void CalypsoF14GlobalOperationsUi::applyDiaryGeometry()
 	place(_diary->_btnOpenTechTree, g->detail_selected_entry_action_open_tech_tree, wx, wy, sx, sy, g->window.x, g->window.y);
 	place(_diary->_btnOpenUfopaedia, g->detail_selected_entry_action_open_ufopaedia, wx, wy, sx, sy, g->window.x, g->window.y);
 	place(_diary->_txtTooltip, g->detail_selected_entry, wx, wy, sx, sy, g->window.x, g->window.y);
-	_diary->_lstItems->configureCalypsoHdSelectionList(
-		std::max(1, p(g->collection_scroll_track).w),
-		std::max(1, p(g->collection_row_slot_1).h),
-		std::max(1, p(g->collection_row_slot_1).h),
-		_diary->_hdWideLayout ? 5 : 2);
+	configureHdList(*_diary->_lstItems, g->collectionViewport,
+		g->collection_row_slot_1, g->collection_scroll_track, generated, sx, sy);
 }
 
 CalypsoHdOperationsModel CalypsoF14GlobalOperationsUi::buildResearchModel() const
@@ -671,7 +693,8 @@ CalypsoHdOperationsModel CalypsoF14GlobalOperationsUi::buildResearchModel() cons
 		CalypsoF14GlobalResearchGen::kPresentationProfile,
 		CalypsoF14GlobalResearchGen::kProfileId,
 		CalypsoF14GlobalResearchGen::kProfileVersion,
-		CalypsoF14GlobalResearchGen::kProvenanceTemplate);
+		CalypsoF14GlobalResearchGen::kProvenanceTemplate,
+		CalypsoF14GlobalResearchGen::kProfileStyle);
 	return model;
 }
 
@@ -829,7 +852,8 @@ CalypsoHdOperationsModel CalypsoF14GlobalOperationsUi::buildManufactureModel() c
 		CalypsoF14GlobalProductionGen::kPresentationProfile,
 		CalypsoF14GlobalProductionGen::kProfileId,
 		CalypsoF14GlobalProductionGen::kProfileVersion,
-		CalypsoF14GlobalProductionGen::kProvenanceTemplate);
+		CalypsoF14GlobalProductionGen::kProvenanceTemplate,
+		CalypsoF14GlobalProductionGen::kProfileStyle);
 	return model;
 }
 CalypsoHdOperationsModel CalypsoF14GlobalOperationsUi::buildDiaryModel() const
@@ -957,7 +981,8 @@ CalypsoHdOperationsModel CalypsoF14GlobalOperationsUi::buildDiaryModel() const
 		CalypsoF14ResearchDiaryGen::kPresentationProfile,
 		CalypsoF14ResearchDiaryGen::kProfileId,
 		CalypsoF14ResearchDiaryGen::kProfileVersion,
-		CalypsoF14ResearchDiaryGen::kProvenanceTemplate);
+		CalypsoF14ResearchDiaryGen::kProvenanceTemplate,
+		CalypsoF14ResearchDiaryGen::kProfileStyle);
 	return model;
 }
 

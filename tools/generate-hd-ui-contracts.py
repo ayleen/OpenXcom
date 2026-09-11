@@ -1390,6 +1390,40 @@ def emit_operations_metadata(out, doc, profile, prefix):
         "",
     ]
 
+    # Canonical resolved profile style: one emitted descriptor replaces every
+    # renderer-side default palette; adapters bind it through the shared
+    # applyGeneratedStyle path (external review R06).
+    token_data = theme.get("resolvedTokens") or {}
+    if token_data:
+        style_tokens = [
+            "background", "panel", "panelRaised", "hover", "selected",
+            "border", "borderStrong", "accent", "text", "secondary",
+            "disabled", "onAccent", "warning", "danger",
+        ]
+        template_style = doc.get("style") or {}
+        out += [
+            "struct " + prefix + "GenProfileStyle",
+            "{",
+        ]
+        out += [TAB + "std::uint32_t " + token + ";" for token in style_tokens]
+        out += [
+            TAB + "float cornerRadiusPx;",
+            TAB + "float cutCornerPx;",
+            "};",
+            "inline constexpr " + prefix + "GenProfileStyle kProfileStyle = {",
+        ]
+        for token in style_tokens:
+            value = token_data.get(token)
+            if not isinstance(value, str) or not value:
+                value = "00000000"
+            out.append(TAB + rgba_call(value) + ",")
+        out += [
+            TAB + str(float(template_style.get("cornerRadiusPx", 12))) + "f,",
+            TAB + str(float(template_style.get("cutCornerPx", 14))) + "f,",
+            "};",
+            "",
+        ]
+
     role_data = profile_data.get("resolvedColumnRoles")
     if not isinstance(role_data, dict):
         role_data = profile_data.get("columnRoles") or {}

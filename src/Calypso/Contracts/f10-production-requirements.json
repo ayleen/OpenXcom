@@ -802,12 +802,6 @@
           "width": 482,
           "height": 44
         },
-        "region.requirements.collection.row-slot.2": {
-          "x": 124,
-          "y": 298,
-          "width": 482,
-          "height": 44
-        },
         "region.context": {
           "x": 688,
           "y": 190,
@@ -947,7 +941,7 @@
             "x": 52,
             "y": 108,
             "width": 360,
-            "height": 196
+            "height": 104
           },
           "label": {
             "x": 60,
@@ -959,7 +953,7 @@
             "x": 60,
             "y": 132,
             "width": 344,
-            "height": 164
+            "height": 72
           },
           "collection": {
             "columnHeaders": [
@@ -1059,59 +1053,6 @@
                     "weight": 1
                   }
                 ]
-              },
-              {
-                "id": "row-slot-2",
-                "rect": {
-                  "x": 60,
-                  "y": 200,
-                  "width": 292,
-                  "height": 44
-                },
-                "cells": [
-                  {
-                    "id": "item",
-                    "rect": {
-                      "x": 60,
-                      "y": 200,
-                      "width": 108,
-                      "height": 44
-                    },
-                    "contentRole": "name",
-                    "font": "body",
-                    "align": "left",
-                    "minWidth": 96,
-                    "weight": 6
-                  },
-                  {
-                    "id": "required",
-                    "rect": {
-                      "x": 169,
-                      "y": 200,
-                      "width": 91,
-                      "height": 44
-                    },
-                    "contentRole": "count",
-                    "font": "data",
-                    "align": "right",
-                    "minWidth": 89,
-                    "weight": 1
-                  },
-                  {
-                    "id": "available",
-                    "rect": {
-                      "x": 261,
-                      "y": 200,
-                      "width": 91,
-                      "height": 44
-                    },
-                    "contentRole": "count",
-                    "font": "data",
-                    "align": "right",
-                    "minWidth": 89,
-                    "weight": 1
-                  }
-                ]
               }
             ],
             "count": 1,
@@ -1120,13 +1061,13 @@
                 "x": 386,
                 "y": 156,
                 "width": 18,
-                "height": 88
+                "height": 44
               },
               "thumb": {
                 "x": 386,
                 "y": 156,
                 "width": 18,
-                "height": 88
+                "height": 44
               }
             }
           }
@@ -1289,7 +1230,7 @@
           "x": 52,
           "y": 108,
           "width": 360,
-          "height": 196
+          "height": 104
         },
         "region.requirements.label": {
           "x": 60,
@@ -1301,25 +1242,25 @@
           "x": 60,
           "y": 132,
           "width": 344,
-          "height": 164
+          "height": 72
         },
         "region.requirements.collection": {
           "x": 60,
           "y": 132,
           "width": 344,
-          "height": 164
+          "height": 72
         },
         "region.requirements.collection.scroll.track": {
           "x": 386,
           "y": 156,
           "width": 18,
-          "height": 88
+          "height": 44
         },
         "region.requirements.collection.scroll.thumb": {
           "x": 386,
           "y": 156,
           "width": 18,
-          "height": 88
+          "height": 44
         },
         "region.requirements.collection.column.item": {
           "x": 60,
@@ -1342,12 +1283,6 @@
         "region.requirements.collection.row-slot.1": {
           "x": 60,
           "y": 156,
-          "width": 292,
-          "height": 44
-        },
-        "region.requirements.collection.row-slot.2": {
-          "x": 60,
-          "y": 200,
           "width": 292,
           "height": 44
         },
@@ -1764,9 +1699,9 @@
     "compact": {
       "requirements": {
         "totalItems": 1,
-        "visibleCapacity": 2,
+        "visibleCapacity": 1,
         "totalUnits": 1,
-        "visibleUnits": 2,
+        "visibleUnits": 1,
         "itemsPerUnit": 1,
         "scrollUnit": "record",
         "overflow": false,
@@ -1775,25 +1710,25 @@
           "x": 386,
           "y": 156,
           "width": 18,
-          "height": 88
+          "height": 44
         },
         "thumb": {
           "x": 386,
           "y": 156,
           "width": 18,
-          "height": 88
+          "height": 44
         },
         "trackHitTarget": {
           "x": 360,
           "y": 156,
           "width": 44,
-          "height": 88
+          "height": 44
         },
         "thumbHitTarget": {
           "x": 360,
           "y": 156,
           "width": 44,
-          "height": 88
+          "height": 44
         },
         "thumbTravelPx": 0
       }
@@ -1894,7 +1829,7 @@
       "second": "region.facts",
       "axis": "vertical",
       "wide": 12,
-      "compact": -196
+      "compact": -104
     },
     {
       "id": "footer-action-inset",
@@ -1929,7 +1864,6 @@
     "region.requirements.collection.column.required",
     "region.requirements.collection.column.available",
     "region.requirements.collection.row-slot.1",
-    "region.requirements.collection.row-slot.2",
     "region.context",
     "region.context.label",
     "region.context.content",

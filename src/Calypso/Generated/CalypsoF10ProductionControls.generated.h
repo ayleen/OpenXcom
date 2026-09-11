@@ -33,9 +33,11 @@ struct CalypsoF10ProductionControlsGenLayout
 	CalypsoF10ProductionControlsGenRect control_engineers_decrement;
 	CalypsoF10ProductionControlsGenRect control_engineers_value;
 	CalypsoF10ProductionControlsGenRect control_engineers_increment;
+	CalypsoF10ProductionControlsGenRect control_engineers_label;
 	CalypsoF10ProductionControlsGenRect control_units_decrement;
 	CalypsoF10ProductionControlsGenRect control_units_value;
 	CalypsoF10ProductionControlsGenRect control_units_increment;
+	CalypsoF10ProductionControlsGenRect control_units_label;
 	CalypsoF10ProductionControlsGenRect region_output;
 	CalypsoF10ProductionControlsGenRect region_output_label;
 	CalypsoF10ProductionControlsGenRect region_output_content;
@@ -50,6 +52,17 @@ struct CalypsoF10ProductionControlsGenLayout
 	CalypsoF10ProductionControlsGenRect region_result_field_monthly_profit;
 	CalypsoF10ProductionControlsGenRect region_result_field_monthly_profit_label;
 	CalypsoF10ProductionControlsGenRect region_result_field_monthly_profit_value;
+	CalypsoF10ProductionControlsGenRect region_resources;
+	CalypsoF10ProductionControlsGenRect region_resources_label;
+	CalypsoF10ProductionControlsGenRect region_resources_field_available_engineers;
+	CalypsoF10ProductionControlsGenRect region_resources_field_available_engineers_label;
+	CalypsoF10ProductionControlsGenRect region_resources_field_available_engineers_value;
+	CalypsoF10ProductionControlsGenRect region_resources_field_workshop_space;
+	CalypsoF10ProductionControlsGenRect region_resources_field_workshop_space_label;
+	CalypsoF10ProductionControlsGenRect region_resources_field_workshop_space_value;
+	CalypsoF10ProductionControlsGenRect region_resources_field_hours_per_unit;
+	CalypsoF10ProductionControlsGenRect region_resources_field_hours_per_unit_label;
+	CalypsoF10ProductionControlsGenRect region_resources_field_hours_per_unit_value;
 	CalypsoF10ProductionControlsGenRect region_sell;
 	CalypsoF10ProductionControlsGenRect region_sell_label;
 	CalypsoF10ProductionControlsGenRect region_sell_content;
@@ -57,6 +70,8 @@ struct CalypsoF10ProductionControlsGenLayout
 	CalypsoF10ProductionControlsGenRect region_sell_scroll_thumb;
 	CalypsoF10ProductionControlsGenRect region_sell_action_slot_1;
 	CalypsoF10ProductionControlsGenRect region_sell_action_slot_2;
+	CalypsoF10ProductionControlsGenRect region_sell_action_slot_3;
+	CalypsoF10ProductionControlsGenRect region_sell_action_slot_4;
 	CalypsoF10ProductionControlsGenRect action_stop_production;
 	CalypsoF10ProductionControlsGenRect action_ok;
 };
@@ -64,9 +79,9 @@ struct CalypsoF10ProductionControlsGenLayout
 inline constexpr CalypsoF10ProductionControlsGenLayout kLayouts[] =
 {
 	// wide
-	{ 1280, 720, { 0, 0, 1280, 720 }, { 112, 96, 1144, 78 }, { 640, 96, 140, 78 }, { 130, 114, 480, 36 }, { 788, 113, 450, 44 }, { 112, 658, 1144, 44 }, { 788, 113, 220, 44 }, { 1018, 113, 220, 44 }, { 788, 113, 44, 44 }, { 832, 113, 132, 44 }, { 964, 113, 44, 44 }, { 1018, 113, 44, 44 }, { 1062, 113, 132, 44 }, { 1194, 113, 44, 44 }, { 112, 190, 560, 336 }, { 124, 202, 536, 20 }, { 124, 222, 536, 292 }, { 112, 538, 560, 108 }, { 124, 550, 536, 20 }, { 124, 570, 536, 20 }, { 124, 570, 241, 20 }, { 377, 570, 283, 20 }, { 124, 590, 536, 20 }, { 124, 590, 241, 20 }, { 377, 590, 283, 20 }, { 124, 610, 536, 20 }, { 124, 610, 241, 20 }, { 377, 610, 283, 20 }, { 688, 418, 568, 228 }, { 700, 430, 544, 20 }, { 700, 450, 544, 184 }, { 1226, 450, 18, 184 }, { 1226, 450, 18, 184 }, { 700, 450, 243, 44 }, { 946, 450, 243, 44 }, { 898, 658, 158, 44 }, { 1066, 658, 158, 44 } },
+	{ 1280, 720, { 0, 0, 1280, 720 }, { 112, 96, 1144, 78 }, { 640, 96, 140, 78 }, { 130, 114, 480, 36 }, { 788, 113, 450, 44 }, { 112, 658, 1144, 44 }, { 788, 113, 220, 44 }, { 1018, 113, 220, 44 }, { 788, 113, 44, 44 }, { 832, 113, 132, 44 }, { 964, 113, 44, 44 }, { 788, 159, 220, 14 }, { 1018, 113, 44, 44 }, { 1062, 113, 132, 44 }, { 1194, 113, 44, 44 }, { 1018, 159, 220, 14 }, { 112, 190, 560, 336 }, { 124, 202, 536, 20 }, { 124, 222, 536, 292 }, { 112, 538, 560, 108 }, { 124, 550, 536, 20 }, { 124, 570, 536, 20 }, { 124, 570, 241, 20 }, { 377, 570, 283, 20 }, { 124, 590, 536, 20 }, { 124, 590, 241, 20 }, { 377, 590, 283, 20 }, { 124, 610, 536, 20 }, { 124, 610, 241, 20 }, { 377, 610, 283, 20 }, { 688, 190, 568, 216 }, { 700, 202, 544, 20 }, { 700, 222, 544, 20 }, { 700, 222, 244, 20 }, { 956, 222, 288, 20 }, { 700, 242, 544, 20 }, { 700, 242, 244, 20 }, { 956, 242, 288, 20 }, { 700, 262, 544, 20 }, { 700, 262, 244, 20 }, { 956, 262, 288, 20 }, { 688, 418, 568, 228 }, { 700, 430, 544, 20 }, { 700, 450, 544, 184 }, { 1226, 450, 18, 184 }, { 1226, 450, 18, 184 }, { 700, 450, 243, 44 }, { 946, 450, 243, 44 }, { 700, 497, 243, 44 }, { 946, 497, 243, 44 }, { 898, 658, 158, 44 }, { 1066, 658, 158, 44 } },
 	// compact
-	{ 740, 360, { 0, 0, 740, 360 }, { 52, 48, 680, 52 }, { 400, 48, 100, 52 }, { 62, 58, 330, 24 }, { 500, 52, 220, 44 }, { 52, 312, 680, 44 }, { 500, 52, 106, 44 }, { 614, 52, 106, 44 }, { 500, 52, 44, 44 }, { 544, 52, 18, 44 }, { 562, 52, 44, 44 }, { 614, 52, 44, 44 }, { 658, 52, 18, 44 }, { 676, 52, 44, 44 }, { 52, 108, 360, 196 }, { 60, 116, 344, 16 }, { 60, 132, 344, 164 }, { 420, 108, 312, 80 }, { 428, 116, 296, 16 }, { 428, 132, 296, 16 }, { 428, 132, 177, 16 }, { 613, 132, 111, 16 }, { 428, 148, 296, 16 }, { 428, 148, 177, 16 }, { 613, 148, 111, 16 }, { 428, 164, 296, 16 }, { 428, 164, 177, 16 }, { 613, 164, 111, 16 }, { 420, 196, 312, 108 }, { 428, 204, 296, 16 }, { 428, 220, 296, 76 }, { 706, 220, 18, 76 }, { 706, 220, 18, 76 }, { 428, 220, 120, 44 }, { 552, 220, 120, 44 }, { 492, 312, 110, 44 }, { 614, 312, 110, 44 } },
+	{ 740, 360, { 0, 0, 740, 360 }, { 52, 48, 680, 52 }, { 400, 48, 100, 52 }, { 62, 58, 330, 24 }, { 500, 52, 220, 44 }, { 52, 312, 680, 44 }, { 500, 52, 106, 44 }, { 614, 52, 106, 44 }, { 500, 52, 44, 44 }, { 544, 52, 18, 44 }, { 562, 52, 44, 44 }, { 500, 98, 106, 14 }, { 614, 52, 44, 44 }, { 658, 52, 18, 44 }, { 676, 52, 44, 44 }, { 614, 98, 106, 14 }, { 52, 108, 360, 104 }, { 60, 116, 344, 16 }, { 60, 132, 344, 72 }, { 420, 108, 312, 80 }, { 428, 116, 296, 16 }, { 428, 132, 296, 16 }, { 428, 132, 177, 16 }, { 613, 132, 111, 16 }, { 428, 148, 296, 16 }, { 428, 148, 177, 16 }, { 613, 148, 111, 16 }, { 428, 164, 296, 16 }, { 428, 164, 177, 16 }, { 613, 164, 111, 16 }, { 420, 196, 312, 108 }, { 428, 204, 296, 16 }, { 428, 220, 296, 16 }, { 428, 220, 177, 16 }, { 613, 220, 111, 16 }, { 428, 236, 296, 16 }, { 428, 236, 177, 16 }, { 613, 236, 111, 16 }, { 428, 252, 296, 16 }, { 428, 252, 177, 16 }, { 613, 252, 111, 16 }, { 52, 220, 680, 84 }, { 60, 228, 664, 16 }, { 60, 244, 664, 52 }, { 706, 244, 18, 52 }, { 706, 244, 18, 52 }, { 60, 244, 150, 44 }, { 214, 244, 150, 44 }, { 368, 244, 150, 44 }, { 522, 244, 150, 44 }, { 492, 312, 110, 44 }, { 614, 312, 110, 44 } },
 };
 inline constexpr int kLayoutCount = 2;
 
@@ -95,6 +110,44 @@ inline constexpr CalypsoF10ProductionControlsGenActionTone kActionTones[] = {
     { "danger", 0xFF6E72FFu, 0xFF6E72FFu, 0xE7F0F3FFu },
 };
 inline constexpr int kActionToneCount = 5;
+
+struct CalypsoF10ProductionControlsGenProfileStyle
+{
+	std::uint32_t background;
+	std::uint32_t panel;
+	std::uint32_t panelRaised;
+	std::uint32_t hover;
+	std::uint32_t selected;
+	std::uint32_t border;
+	std::uint32_t borderStrong;
+	std::uint32_t accent;
+	std::uint32_t text;
+	std::uint32_t secondary;
+	std::uint32_t disabled;
+	std::uint32_t onAccent;
+	std::uint32_t warning;
+	std::uint32_t danger;
+	float cornerRadiusPx;
+	float cutCornerPx;
+};
+inline constexpr CalypsoF10ProductionControlsGenProfileStyle kProfileStyle = {
+	0x02060EFFu,
+	0x071624FFu,
+	0x0A1C2DFFu,
+	0x0C2232FFu,
+	0x0D2931FFu,
+	0x173246FFu,
+	0x285267FFu,
+	0x81E0B5FFu,
+	0xE7F0F3FFu,
+	0xA8BBC4FFu,
+	0x455966FFu,
+	0x03130DFFu,
+	0xF2C56DFFu,
+	0xFF6E72FFu,
+	12.0f,
+	14.0f,
+};
 
 struct CalypsoF10ProductionControlsGenColumnRole
 {
@@ -177,8 +230,10 @@ inline constexpr CalypsoF10ProductionControlsGenActionSlot kRegionSellActionSlot
 };
 
 inline constexpr CalypsoF10ProductionControlsGenActionSlot kRegionSellActionSlotsCompact[] = {
-    { "action-slot-1", { 428, 220, 120, 44 } },
-    { "action-slot-2", { 552, 220, 120, 44 } },
+    { "action-slot-1", { 60, 244, 150, 44 } },
+    { "action-slot-2", { 214, 244, 150, 44 } },
+    { "action-slot-3", { 368, 244, 150, 44 } },
+    { "action-slot-4", { 522, 244, 150, 44 } },
 };
 
 struct CalypsoF10ProductionControlsGenStrictActionSlotGroup
@@ -192,7 +247,7 @@ inline constexpr CalypsoF10ProductionControlsGenStrictActionSlotGroup kStrictAct
 };
 inline constexpr int kStrictActionSlotGroupWideCount = 1;
 inline constexpr CalypsoF10ProductionControlsGenStrictActionSlotGroup kStrictActionSlotGroupsCompact[1] = {
-    { "region.sell", kRegionSellActionSlotsCompact, 2 },
+    { "region.sell", kRegionSellActionSlotsCompact, 4 },
 };
 inline constexpr int kStrictActionSlotGroupCompactCount = 1;
 
