@@ -1,0 +1,249 @@
+{
+  "schema": 1,
+  "id": "operations-workspace",
+  "version": 4,
+  "generatorKind": "operations",
+  "styleProfile": "StyleProfiles/operations-ac.json",
+  "sharedChrome": {
+    "id": "base-command-shell",
+    "version": "hd.2026-09-07.1"
+  },
+  "supportedButtonTones": [
+    "normal",
+    "safe",
+    "primary",
+    "warning",
+    "danger"
+  ],
+  "buttonToneTokens": {
+    "normal": {
+      "fill": "BgPanel",
+      "border": "Border",
+      "text": "TextPrimary"
+    },
+    "safe": {
+      "fill": "BgPanel",
+      "border": "BorderStrong",
+      "text": "TextPrimary"
+    },
+    "primary": {
+      "fill": "Accent",
+      "border": "Accent",
+      "text": "TextOnAccent"
+    },
+    "warning": {
+      "fill": "Warning",
+      "border": "Warning",
+      "text": "TextOnAccent"
+    },
+    "danger": {
+      "fill": "Danger",
+      "border": "Danger",
+      "text": "TextPrimary"
+    }
+  },
+  "style": {
+    "cutCornerPx": 14,
+    "cornerRadiusPx": 12
+  },
+  "limits": {
+    "maxTabs": 2,
+    "maxToolbarActions": 4,
+    "maxSummaryFields": 4,
+    "maxControls": 2,
+    "maxControlOptions": 32,
+    "maxActions": 3,
+    "maxDetailMetrics": 4,
+    "maxDetailActions": 3,
+    "maxDetailNoteLines": 2,
+    "maxItems": 64,
+    "maxColumns": 8,
+    "maxCellCharacters": 48
+  },
+  "layouts": {
+    "wide": {
+      "designWidth": 1280,
+      "designHeight": 720,
+      "window": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 720
+      },
+      "screenHeader": {
+        "x": 112,
+        "y": 96,
+        "width": 1144,
+        "height": 78
+      },
+      "headerArt": {
+        "x": 640,
+        "y": 96,
+        "width": 360,
+        "height": 78
+      },
+      "title": {
+        "x": 130,
+        "y": 119,
+        "width": 480,
+        "height": 36
+      },
+      "summaryBar": {
+        "x": 1000,
+        "y": 96,
+        "width": 256,
+        "height": 78
+      },
+      "toolbarBar": {
+        "x": 112,
+        "y": 190,
+        "width": 816,
+        "height": 44
+      },
+      "collectionViewport": {
+        "x": 112,
+        "y": 234,
+        "width": 816,
+        "height": 412
+      },
+      "detailPanel": {
+        "x": 944,
+        "y": 190,
+        "width": 312,
+        "height": 456
+      },
+      "footer": {
+        "x": 112,
+        "y": 658,
+        "width": 1144,
+        "height": 44
+      },
+      "controlWidth": 120,
+      "controlActionWidth": 44,
+      "controlGap": 10,
+      "controlInset": 0,
+      "toolbarWidth": 190,
+      "toolbarGap": 10,
+      "contextDockHeight": 64,
+      "detailInset": 12,
+      "detailLabelHeight": 24,
+      "detailIdentityHeight": 48,
+      "detailMetricColumns": 2,
+      "detailMetricRowHeight": 58,
+      "detailNoteLineHeight": 20,
+      "detailNoteVisible": 1,
+      "detailActionGap": 8,
+      "headerHeight": 36,
+      "rowHeight": 50,
+      "visibleRows": 5,
+      "gridColumns": 5,
+      "gridRows": 3,
+      "gridGap": 8,
+      "gridLabelLineHeight": 16,
+      "gridLabelMaxLines": 2,
+      "scrollbarWidth": 18,
+      "scrollbarGap": 10,
+      "minThumbHeight": 44,
+      "textUnitWidth": 3,
+      "cellInlineInset": 8,
+      "actionWidth": 158,
+      "actionGap": 10,
+      "actionInset": 0
+    },
+    "compact": {
+      "designWidth": 740,
+      "designHeight": 360,
+      "window": {
+        "x": 0,
+        "y": 0,
+        "width": 740,
+        "height": 360
+      },
+      "screenHeader": {
+        "x": 52,
+        "y": 48,
+        "width": 680,
+        "height": 52
+      },
+      "headerArt": {
+        "x": 420,
+        "y": 48,
+        "width": 170,
+        "height": 52
+      },
+      "title": {
+        "x": 60,
+        "y": 61,
+        "width": 350,
+        "height": 26
+      },
+      "summaryBar": {
+        "x": 590,
+        "y": 48,
+        "width": 142,
+        "height": 52
+      },
+      "toolbarBar": {
+        "x": 52,
+        "y": 108,
+        "width": 466,
+        "height": 44
+      },
+      "collectionViewport": {
+        "x": 52,
+        "y": 152,
+        "width": 466,
+        "height": 152
+      },
+      "detailPanel": {
+        "x": 526,
+        "y": 108,
+        "width": 206,
+        "height": 196
+      },
+      "footer": {
+        "x": 52,
+        "y": 312,
+        "width": 680,
+        "height": 44
+      },
+      "controlWidth": 78,
+      "controlActionWidth": 44,
+      "controlGap": 8,
+      "controlInset": 0,
+      "toolbarWidth": 104,
+      "toolbarGap": 8,
+      "contextDockHeight": 52,
+      "detailInset": 6,
+      "detailLabelHeight": 16,
+      "detailIdentityHeight": 28,
+      "detailMetricColumns": 2,
+      "detailMetricRowHeight": 28,
+      "detailNoteLineHeight": 12,
+      "detailNoteVisible": 0,
+      "detailActionGap": 6,
+      "headerHeight": 28,
+      "rowHeight": 44,
+      "visibleRows": 2,
+      "gridColumns": 3,
+      "gridRows": 1,
+      "gridGap": 8,
+      "gridLabelLineHeight": 12,
+      "gridLabelMaxLines": 2,
+      "scrollbarWidth": 18,
+      "scrollbarGap": 8,
+      "minThumbHeight": 44,
+      "textUnitWidth": 2,
+      "cellInlineInset": 3,
+      "actionWidth": 120,
+      "actionGap": 12,
+      "actionInset": 0
+    }
+  },
+  "motion": {
+    "durationMs": 200,
+    "scaleFrom": 0.96,
+    "easing": "ease-out",
+    "captureModeDurationMs": 0
+  }
+}

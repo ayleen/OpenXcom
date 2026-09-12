@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "id": "f14-research-diary",
+  "familyId": 14,
+  "version": "hd.2026-08-29.1",
+  "archetype": "operations-workspace",
+  "presentation": "table-context",
+  "visual": {"shell": "base-operations", "headerArt": "base-research"},
+  "state": "GlobalResearchDiaryState",
+  "labelKeys": {"title": "STR_RESEARCH_DIARY", "done": "STR_DONE", "search": "STR_QUICK_SEARCH", "sortName": "STR_SORT_NAME", "sortDate": "STR_SORT_DATE", "techTree": "STR_OPEN_TECH_TREE", "ufopaedia": "STR_OPEN_UFOPAEDIA"},
+  "title": "RESEARCH DIARY",
+  "actions": [{"id": "done", "label": "DONE", "labelKey": "STR_DONE", "tone": "primary", "action": "done"}],
+  "summary": [],
+  "collection": {"mode": "table", "selectionRole": "diary-entry", "columns": [{"id": "name", "label": "NAME", "contentRole": "name"}, {"id": "type", "label": "TYPE", "contentRole": "type"}, {"id": "date", "label": "DATE", "contentRole": "date"}], "items": [{"id": "priest-autopsy", "values": ["Priest Autopsy", "0", "2040-09-28"]}, {"id": "priest-corpse", "values": ["Priest Corpse", "0", "2040-09-28"]}, {"id": "gauss-technology", "values": ["Gauss Technology", "0", "2040-08-14"]}, {"id": "deep-one-corpse", "values": ["Deep One Corpse", "0", "2040-07-21"]}]},
+  "controls": [],
+  "toolbar": [{"id": "quick-search", "label": "QUICK SEARCH", "labelKey": "STR_QUICK_SEARCH", "tone": "normal", "action": "quick-search"}, {"id": "sort-name", "label": "SORT: NAME", "labelKey": "STR_SORT_NAME", "tone": "normal", "action": "sort-name"}, {"id": "sort-date", "label": "SORT: DATE", "labelKey": "STR_SORT_DATE", "tone": "normal", "action": "sort-date"}],
+  "detail": {"id": "selected-entry", "label": "SELECTED ENTRY", "title": "Priest Autopsy", "subtitle": "", "metrics": [{"id": "name", "label": "NAME", "value": "Priest Autopsy"}, {"id": "type", "label": "TYPE", "value": "0"}, {"id": "date", "label": "DATE", "value": "2040-09-28"}], "actions": [{"id": "open-tech-tree", "label": "OPEN TECH TREE", "labelKey": "STR_OPEN_TECH_TREE", "tone": "primary", "action": "open-tech-tree"}, {"id": "open-ufopaedia", "label": "OPEN UFOPAEDIA", "labelKey": "STR_OPEN_UFOPAEDIA", "tone": "normal", "action": "open-ufopaedia"}]}
+}

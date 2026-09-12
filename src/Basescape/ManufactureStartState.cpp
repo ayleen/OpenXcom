@@ -17,6 +17,9 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "ManufactureStartState.h"
+#ifdef __EMSCRIPTEN__
+#include "../Calypso/CalypsoF10ProductionUi.h"
+#endif
 #include <sstream>
 #include "../Interface/Window.h"
 #include "../Interface/TextButton.h"
@@ -222,8 +225,25 @@ ManufactureStartState::ManufactureStartState(Base *base, RuleManufacture *item) 
 			_game->getSavedGame()->setManufactureRuleStatus(_item->getName(), RuleManufacture::MANU_STATUS_NORMAL);
 		}
 	}
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF10ProductionUi::configure(*this);
+#endif
 }
 
+ManufactureStartState::~ManufactureStartState()
+{
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
+}
+void ManufactureStartState::init()
+{
+	State::init();
+#ifdef __EMSCRIPTEN__
+	if (_hdAdapter) _hdAdapter->refresh();
+#endif
+}
 /**
  * Returns to previous screen.
  * @param action A pointer to an Action.
@@ -252,5 +272,13 @@ void ManufactureStartState::btnStartClick(Action *)
 		_game->pushState(new ManufactureInfoState(_base, _item));
 	}
 }
+
+#ifdef __EMSCRIPTEN__
+void ManufactureStartState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF10ProductionUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+#endif
 
 }

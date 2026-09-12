@@ -18,9 +18,12 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "../Engine/State.h"
+#include "ResearchInfoTransaction.h"
 
 namespace OpenXcom
 {
+
+namespace Calypso { class CalypsoF09ResearchUi; }
 
 class TextButton;
 class Window;
@@ -32,24 +35,40 @@ class ArrowButton;
 class Timer;
 class InteractiveSurface;
 
+
 /**
  * Window which allows changing of the number of assigned scientist to a project.
  */
 class ResearchInfoState : public State
 {
 private:
+#ifdef __EMSCRIPTEN__
+	friend class Calypso::CalypsoF09ResearchUi;
+#endif
 	Base *_base;
 	TextButton *_btnOk;
 	TextButton *_btnCancel;
+#ifdef __EMSCRIPTEN__
+	TextButton *_btnAllAvailable = nullptr, *_btnRemoveAll = nullptr;
+#endif
 	ArrowButton *_btnMore, *_btnLess;
+	InteractiveSurface *_surfaceScientists;
 	Window *_window;
 	Text *_txtTitle, *_txtAvailableScientist, *_txtAvailableSpace, *_txtAllocatedScientist, *_txtMore, *_txtLess;
-	void setAssignedScientist();
 	ResearchProject *_project;
 	RuleResearch *_rule;
+	ResearchInfoTransaction _transaction;
 	void buildUi();
+	void cancelPreview();
+	void commitPreview();
+	void setAssignedScientist();
 	Timer *_timerMore, *_timerLess;
-	InteractiveSurface *_surfaceScientists;
+#ifdef __EMSCRIPTEN__
+	bool _hdLayout = false;
+	bool _hdWideLayout = false;
+	bool _hdStrategicExitPrepared = false;
+	Calypso::CalypsoF09ResearchUi *_hdAdapter = nullptr;
+#endif
 public:
 	/// Creates the ResearchProject state.
 	ResearchInfoState(Base *base, RuleResearch *rule);
@@ -82,7 +101,17 @@ public:
 	void lessRelease(Action *action);
 	/// Handler for clicking the Less button.
 	void lessClick(Action *action);
+	/// Assign/remove all scientists for the HD staffing action owners.
+	void allAvailableClick(Action *action);
+	void removeAllClick(Action *action);
+	/// Finalizes transient HD state before strategic navigation pops this state.
+#ifdef __EMSCRIPTEN__
+	void prepareHdStrategicExit();
+#endif
 	/// Runs state functionality every cycle(used to update the timer).
+#ifdef __EMSCRIPTEN__
+	void resize(int &dX, int &dY) override;
+#endif
 	void think() override;
 };
 

@@ -38,6 +38,8 @@
 
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoTutorial.h"
+#include "../Calypso/CalypsoF09ResearchUi.h"
+#include "../Calypso/CalypsoHdUiOverlay.h"
 #endif
 
 namespace OpenXcom
@@ -121,6 +123,9 @@ ResearchState::ResearchState(Base *base) : _base(base)
 	_lstResearch->onMouseClick((ActionHandler)&ResearchState::onSelectProject, SDL_BUTTON_LEFT);
 	_lstResearch->onMouseClick((ActionHandler)&ResearchState::onOpenTechTreeViewer, SDL_BUTTON_MIDDLE);
 	_lstResearch->onMousePress((ActionHandler)&ResearchState::lstResearchMousePress);
+#ifdef __EMSCRIPTEN__
+	Calypso::CalypsoF09ResearchUi::configure(*this);
+#endif
 }
 
 /**
@@ -128,6 +133,10 @@ ResearchState::ResearchState(Base *base) : _base(base)
  */
 ResearchState::~ResearchState()
 {
+#ifdef __EMSCRIPTEN__
+	delete _hdAdapter;
+	_hdAdapter = nullptr;
+#endif
 }
 
 /**
@@ -162,6 +171,10 @@ void ResearchState::onSelectProject(Action *action)
 	}
 
 	const std::vector<ResearchProject *> & baseProjects(_base->getResearch());
+	if (_lstResearch->getSelectedRow() >= baseProjects.size())
+	{
+		return;
+	}
 	_game->pushState(new ResearchInfoState(_base, baseProjects[_lstResearch->getSelectedRow()]));
 }
 
@@ -178,7 +191,12 @@ void ResearchState::onOpenTechTreeViewer(Action *action)
 	}
 
 	const std::vector<ResearchProject *> & baseProjects(_base->getResearch());
-	const RuleResearch *selectedTopic = baseProjects[_lstResearch->getSelectedRow()]->getRules();
+	if (_lstResearch->getSelectedRow() >= baseProjects.size())
+	{
+		return;
+	}
+	const RuleResearch *selectedTopic =
+	baseProjects[_lstResearch->getSelectedRow()]->getRules();
 	_game->pushState(new TechTreeViewerState(selectedTopic, 0));
 }
 
@@ -189,6 +207,11 @@ void ResearchState::onOpenTechTreeViewer(Action *action)
 void ResearchState::lstResearchMousePress(Action *action)
 {
 	if (!_lstResearch->isInsideNoScrollArea(action->getAbsoluteXMouse()))
+	{
+		return;
+	}
+	const std::vector<ResearchProject *> & baseProjects(_base->getResearch());
+	if (_lstResearch->getSelectedRow() >= baseProjects.size())
 	{
 		return;
 	}
@@ -241,12 +264,31 @@ void ResearchState::init()
 
 	if (Options::oxceResearchScrollSpeed > 0 || Options::oxceResearchScrollSpeedWithCtrl > 0)
 	{
+#ifdef __EMSCRIPTEN__
+		if (_hdLayout)
+		{
+			// HD layout: the adapter owns the staffing wheel zone (the
+			// projected scientists column of the list), not these summary
+			// texts which the HD shell moves out of the collection area.
+		}
+		else
+		{
+			// 175 +/- 20
+			_lstResearch->setNoScrollArea(_txtAllocated->getX() - 5, _txtAllocated->getX() + 35);
+		}
+#else
 		// 175 +/- 20
 		_lstResearch->setNoScrollArea(_txtAllocated->getX() - 5, _txtAllocated->getX() + 35);
+#endif
 	}
 	else
 	{
-		_lstResearch->setNoScrollArea(0, 0);
+#ifdef __EMSCRIPTEN__
+		if (!_hdLayout)
+#endif
+		{
+			_lstResearch->setNoScrollArea(0, 0);
+		}
 	}
 #ifdef __EMSCRIPTEN__
 	CalypsoTutorial::get().anchorAll({ {"res.btnNew", _btnNew} });
@@ -275,6 +317,10 @@ void ResearchState::fillProjectList(size_t scrl)
 
 	if (scrl)
 		_lstResearch->scrollTo(scrl);
+#ifdef __EMSCRIPTEN__
+	if (_hdAdapter != nullptr)
+		_hdAdapter->refresh();
+#endif
 }
 
 /**
@@ -379,3 +425,14 @@ void ResearchState::moveTopicDown(Action* action, unsigned int row, bool max)
 }
 
 }
+
+#ifdef __EMSCRIPTEN__
+namespace OpenXcom
+{
+void ResearchState::resize(int &dX, int &dY)
+{
+	if (Calypso::CalypsoF09ResearchUi::resize(*this)) return;
+	State::resize(dX, dY);
+}
+}
+#endif

@@ -240,6 +240,9 @@ def validate_f33(f33):
 
 
 IDENT_RE = _re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+PART_PATH_RE = _re.compile(
+    r"^[A-Za-z_][A-Za-z0-9_-]*(?:\.[A-Za-z0-9_-]+)*$"
+)
 SLUG_RE = _re.compile(r"^[a-z0-9][a-z0-9-]*$")
 
 
@@ -261,7 +264,8 @@ def validate_registry(registry):
     allowed_profiles = {"theme", "legacy-abandon", "family", "command-card",
                         "small-confirmation", "contact-decision",
                         "contact-intel-board", "content-block", "screen",
-                        "selection-list"}
+                        "selection-list", "operations-workspace", "operations-detail",
+                        "tabbed-management", "wide-detail"}
     for index, entry in enumerate(entries):
         where = "hd-ui-contracts.json: entries[" + str(index) + "]"
         if not isinstance(entry, dict):
@@ -557,8 +561,11 @@ def validate_family(doc, rel, profile, engine_text_calibration=False):
     if len(set(parts)) != len(parts):
         fail(rel + ": parts must be unique")
     for p in parts:
-        if not isinstance(p, str) or not IDENT_RE.match(p):
-            fail(rel + ": part name must be a C identifier: " + repr(p))
+        if not isinstance(p, str) or not PART_PATH_RE.match(p):
+            fail(rel + ": invalid semantic part path: " + repr(p))
+    native_part_names = [cpp_part_name(part) for part in parts]
+    if len(set(native_part_names)) != len(native_part_names):
+        fail(rel + ": semantic part paths collide as C identifiers")
     if parts[0] != "window":
         fail(rel + ": first part must be the window root")
     actions = doc.get("actions")
@@ -574,12 +581,13 @@ def validate_family(doc, rel, profile, engine_text_calibration=False):
         l = layouts[name]
         if l.get("designWidth", 0) <= 0 or l.get("designHeight", 0) <= 0:
             fail(rel + ": " + name + " design canvas required")
+        part_rects = l.get("partRects", {})
         for part in parts:
-            r = l.get(part)
+            r = part_rects.get(part, l.get(part))
             if not r or not all(isinstance(r[k], int) for k in ("x", "y", "width", "height")):
                 fail(rel + ": " + name + "." + part + " must be an integer rect")
         for a in actions:
-            r = l[a]
+            r = part_rects.get(a, l.get(a))
             if r["width"] < MIN_ACTION_TARGET or r["height"] < MIN_ACTION_TARGET:
                 fail(rel + ": " + name + "." + a
                      + " below the " + str(MIN_ACTION_TARGET) + "x" + str(MIN_ACTION_TARGET)
@@ -592,11 +600,13 @@ def validate_family(doc, rel, profile, engine_text_calibration=False):
         if not contained(l["window"], {"x": 0, "y": 0, "width": l["designWidth"], "height": l["designHeight"]}):
             fail(rel + ": " + name + ".window must fit the design canvas")
         for part in parts:
-            if part != "window" and not contained(l[part], l["window"]):
+            r = part_rects.get(part, l.get(part))
+            if part != "window" and not contained(r, part_rects.get("window", l["window"])):
                 fail(rel + ": " + name + "." + part + " must be inside the window")
         for i, a1 in enumerate(actions):
             for a2 in actions[i + 1:]:
-                r1, r2 = l[a1], l[a2]
+                r1 = part_rects.get(a1, l.get(a1))
+                r2 = part_rects.get(a2, l.get(a2))
                 if (r1["x"] < r2["x"] + r2["width"] and r2["x"] < r1["x"] + r1["width"]
                         and r1["y"] < r2["y"] + r2["height"] and r2["y"] < r1["y"] + r1["height"]):
                     fail(rel + ": " + name + " actions " + a1 + " and " + a2 + " must not overlap")
@@ -1254,18 +1264,488 @@ def emit_selection_list_h(doc, rel, ns, prefix):
     return NL.join(out) + NL
 
 
+def family_part_rect(layout, part):
+    rects = layout.get("partRects", {})
+    if part in rects:
+        return rects[part]
+    return layout[part]
+
+
+def cpp_part_name(path):
+    name = re.sub(r"[^A-Za-z0-9_]", "_", path)
+    return "_" + name if name and name[0].isdigit() else name
+def operations_cpp_name(path):
+    return "".join(
+        segment[:1].upper() + segment[1:]
+        for segment in re.split(r"[^A-Za-z0-9]+", path)
+        if segment
+    )
+
+
+def operations_collections(doc, profile):
+    """Return operation collections with their stable semantic paths."""
+    form = doc.get("form") or {}
+    if profile == "operations-workspace":
+        collection = form.get("collection")
+        return ([("collection", collection, doc.get("collectionMetrics") or {})]
+                if isinstance(collection, dict) else [])
+    if profile != "operations-detail":
+        return []
+    collections = []
+    for region in form.get("regions") or []:
+        if region.get("kind") != "collection":
+            continue
+        collection = region.get("collection")
+        if isinstance(collection, dict):
+            collections.append((
+                "region." + region["id"] + ".collection",
+                collection,
+                (doc.get("regionMetrics") or {}),
+            ))
+    return collections
+
+
+def operation_collection_layout(layout, path):
+    if path == "collection":
+        return layout.get("collection") or {}
+    region_id = path.split(".")[1]
+    return ((layout.get("regions") or {}).get(region_id) or {}).get("collection") or {}
+
+
+def operation_rect(value):
+    rect = value or {}
+    return ("{ " + str(rect.get("x", 0)) + ", " + str(rect.get("y", 0))
+            + ", " + str(rect.get("width", 0)) + ", " + str(rect.get("height", 0))
+            + " }")
+
+
+def operation_metric_rect(metric, name):
+    return operation_rect((metric or {}).get(name))
+
+
+def operation_int(value, default=0):
+    return value if isinstance(value, int) and not isinstance(value, bool) else default
+
+
+def emit_operations_metadata(out, doc, profile, prefix):
+    """Emit typed semantic operation metadata alongside the shared layout."""
+    cpp_string = lambda value: json.dumps(str(value), ensure_ascii=False)
+    form = doc.get("form") or {}
+    provenance = doc.get("provenance") or {}
+    profile_data = doc.get("profile") or {}
+    theme = profile_data.get("theme") or {}
+
+    out += [
+        'inline constexpr const char* kSourceConfig = '
+        + cpp_string(form.get("source", "")) + ";",
+        'inline constexpr const char* kPresentationProfile = '
+        + cpp_string(form.get("presentation", "")) + ";",
+        'inline constexpr const char* kProvenanceTemplate = '
+        + cpp_string(provenance.get("template", "")) + ";",
+        "inline constexpr int kProvenanceTemplateVersion = "
+        + str(operation_int(provenance.get("templateVersion"))) + ";",
+        'inline constexpr const char* kProvenanceGeneratorKind = '
+        + cpp_string(provenance.get("generatorKind", "")) + ";",
+        'inline constexpr const char* kProfileId = '
+        + cpp_string(profile_data.get("id", "")) + ";",
+        'inline constexpr const char* kProfileVersion = '
+        + cpp_string(profile_data.get("version", "")) + ";",
+        'inline constexpr const char* kProfileThemeSource = '
+        + cpp_string(provenance.get("themeSource", theme.get("source", ""))) + ";",
+        'inline constexpr const char* kProfileThemeSourceHash = '
+        + cpp_string(provenance.get("themeSourceHash", theme.get("sourceHash", ""))) + ";",
+        "",
+    ]
+
+    tone_data = profile_data.get("resolvedActionTones") or {}
+    if not tone_data:
+        for action in form.get("actions") or []:
+            tone = action.get("tone")
+            style = action.get("style") or {}
+            if tone and tone not in tone_data:
+                tone_data[tone] = style
+    tone_order = [tone for tone in ("normal", "safe", "primary", "warning", "danger")
+                  if tone in tone_data]
+    out += [
+        "struct " + prefix + "GenActionTone",
+        "{",
+        TAB + "const char* id;",
+        TAB + "std::uint32_t fill;",
+        TAB + "std::uint32_t border;",
+        TAB + "std::uint32_t text;",
+        "};",
+        "inline constexpr " + prefix + "GenActionTone kActionTones[] = {",
+    ]
+    for tone in tone_order:
+        style = tone_data[tone]
+        out.append(
+            "    { " + cpp_string(tone) + ", "
+            + rgba_call(style.get("fill", "00000000")) + ", "
+            + rgba_call(style.get("border", "00000000")) + ", "
+            + rgba_call(style.get("text", "00000000")) + " },"
+        )
+    out += [
+        "};",
+        "inline constexpr int kActionToneCount = " + str(len(tone_order)) + ";",
+        "",
+    ]
+
+    # Canonical resolved profile style: one emitted descriptor replaces every
+    # renderer-side default palette; adapters bind it through the shared
+    # applyGeneratedStyle path (external review R06).
+    token_data = theme.get("resolvedTokens") or {}
+    if token_data:
+        style_tokens = [
+            "background", "panel", "panelRaised", "hover", "selected",
+            "border", "borderStrong", "accent", "text", "secondary",
+            "disabled", "onAccent", "warning", "danger",
+        ]
+        template_style = doc.get("style") or {}
+        out += [
+            "struct " + prefix + "GenProfileStyle",
+            "{",
+        ]
+        out += [TAB + "std::uint32_t " + token + ";" for token in style_tokens]
+        out += [
+            TAB + "float cornerRadiusPx;",
+            TAB + "float cutCornerPx;",
+            "};",
+            "inline constexpr " + prefix + "GenProfileStyle kProfileStyle = {",
+        ]
+        for token in style_tokens:
+            value = token_data.get(token)
+            if not isinstance(value, str) or not value:
+                value = "00000000"
+            out.append(TAB + rgba_call(value) + ",")
+        out += [
+            TAB + str(float(template_style.get("cornerRadiusPx", 12))) + "f,",
+            TAB + str(float(template_style.get("cutCornerPx", 14))) + "f,",
+            "};",
+            "",
+        ]
+
+    # Canonical typography: one emitted descriptor consumed by the native
+    # renderer and the browser reference; neither keeps its own px table
+    # (re-review P2).
+    typography_data = profile_data.get("resolvedTypography") or {}
+    if typography_data:
+        typography_roles = ["title", "detailTitle", "body", "label",
+                            "data", "input", "action"]
+        out += [
+            "struct " + prefix + "GenTypography",
+            "{",
+        ]
+        out += [TAB + "int " + role + ";" for role in typography_roles]
+        out += ["};"]
+        for layout_class, label in (("wide", "Wide"), ("compact", "Compact")):
+            values = typography_data.get(layout_class) or {}
+            out.append("inline constexpr " + prefix + "GenTypography kTypography"
+                       + label + " = {")
+            out.append(TAB + ", ".join(
+                str(operation_int(values.get(role, 0))) for role in typography_roles))
+            out.append("};")
+        out.append("")
+
+    role_data = profile_data.get("resolvedColumnRoles")
+    if not isinstance(role_data, dict):
+        role_data = profile_data.get("columnRoles") or {}
+    role_order = sorted(role_data)
+    out += [
+        "struct " + prefix + "GenColumnRole",
+        "{",
+        TAB + "const char* id;",
+        TAB + "int weight;",
+        TAB + "int minWidth;",
+        TAB + "const char* font;",
+        TAB + "const char* align;",
+        "};",
+        "inline constexpr " + prefix + "GenColumnRole kColumnRoles[] = {",
+    ]
+    for role in role_order:
+        policy = role_data[role]
+        out.append(
+            "    { " + cpp_string(role) + ", "
+            + str(operation_int(policy.get("weight"))) + ", "
+            + str(operation_int(policy.get("minWidth"))) + ", "
+            + cpp_string(policy.get("font", "")) + ", "
+            + cpp_string(policy.get("align", "")) + " },"
+        )
+    out += [
+        "};",
+        "inline constexpr int kColumnRoleCount = " + str(len(role_order)) + ";",
+        "",
+        "struct " + prefix + "GenCollectionCell",
+        "{",
+        TAB + "const char* id;",
+        TAB + prefix + "GenRect rect;",
+        TAB + "const char* contentRole;",
+        TAB + "const char* font;",
+        TAB + "const char* align;",
+        TAB + "int minWidth;",
+        TAB + "int weight;",
+        "};",
+        "struct " + prefix + "GenCollectionRowSlot",
+        "{",
+        TAB + "const char* id;",
+        TAB + prefix + "GenRect rect;",
+        TAB + "const " + prefix + "GenCollectionCell* cells;",
+        TAB + "int cellCount;",
+        "};",
+        "struct " + prefix + "GenCollectionMetrics",
+        "{",
+        TAB + "int totalItems;",
+        TAB + "int visibleCapacity;",
+        TAB + "int totalUnits;",
+        TAB + "int visibleUnits;",
+        TAB + "int itemsPerUnit;",
+        TAB + "const char* scrollUnit;",
+        TAB + "bool overflow;",
+        TAB + "int scrollSteps;",
+        TAB + prefix + "GenRect track;",
+        TAB + prefix + "GenRect thumb;",
+        TAB + prefix + "GenRect trackHitTarget;",
+        TAB + prefix + "GenRect thumbHitTarget;",
+        TAB + "int thumbTravelPx;",
+        "};",
+        "struct " + prefix + "GenCollectionLayout",
+        "{",
+        TAB + "const char* id;",
+        TAB + "const " + prefix + "GenCollectionCell* columns;",
+        TAB + "int columnCount;",
+        TAB + "const " + prefix + "GenCollectionRowSlot* rowSlots;",
+        TAB + "int rowSlotCount;",
+        TAB + "int count;",
+        TAB + prefix + "GenCollectionMetrics metrics;",
+        "};",
+        "",
+    ]
+
+    all_collection_layouts = []
+    for path, collection, metric_container in operations_collections(doc, profile):
+        path_name = operations_cpp_name(path)
+        columns = (collection or {}).get("columns") or []
+        for layout_name, label in (("wide", "Wide"), ("compact", "Compact")):
+            fragment = operation_collection_layout(doc["layouts"][layout_name], path)
+            headers = fragment.get("columnHeaders") or []
+            rows = fragment.get("rowSlots") or []
+            header_name = "k" + path_name + "ColumnHeaders" + label
+            if headers:
+                out.append("inline constexpr " + prefix + "GenCollectionCell "
+                           + header_name + "[] = {")
+                for index, header in enumerate(headers):
+                    role = header.get("contentRole", columns[index].get("contentRole", "")
+                                      if index < len(columns) else "")
+                    out.append(
+                        "    { " + cpp_string(header.get("id", "")) + ", "
+                        + operation_rect(header.get("rect")) + ", "
+                        + cpp_string(role) + ", "
+                        + cpp_string(header.get("font", "")) + ", "
+                        + cpp_string(header.get("align", "")) + ", "
+                        + str(operation_int(header.get("minWidth"))) + ", "
+                        + str(operation_int(header.get("weight"))) + " },"
+                    )
+                out.append("};")
+            cell_names = []
+            for row_index, row in enumerate(rows):
+                cells = row.get("cells") or []
+                if not cells:
+                    continue
+                cell_name = ("k" + path_name + "RowSlot" + str(row_index + 1)
+                             + "Cells" + label)
+                cell_names.append((row_index, cell_name))
+                out.append("inline constexpr " + prefix + "GenCollectionCell "
+                           + cell_name + "[] = {")
+                for index, cell in enumerate(cells):
+                    role = cell.get("contentRole", columns[index].get("contentRole", "")
+                                    if index < len(columns) else "")
+                    out.append(
+                        "    { " + cpp_string(cell.get("id", "")) + ", "
+                        + operation_rect(cell.get("rect")) + ", "
+                        + cpp_string(role) + ", "
+                        + cpp_string(cell.get("font", "")) + ", "
+                        + cpp_string(cell.get("align", "")) + ", "
+                        + str(operation_int(cell.get("minWidth"))) + ", "
+                        + str(operation_int(cell.get("weight"))) + " },"
+                    )
+                out.append("};")
+            rows_name = "k" + path_name + "RowSlots" + label
+            out.append("inline constexpr " + prefix + "GenCollectionRowSlot "
+                       + rows_name + "[] = {")
+            cell_by_index = dict(cell_names)
+            for row_index, row in enumerate(rows):
+                cells = cell_by_index.get(row_index, "nullptr")
+                cell_count = len(row.get("cells") or [])
+                out.append(
+                    "    { " + cpp_string(row.get("id", "")) + ", "
+                    + operation_rect(row.get("rect")) + ", "
+                    + cells + ", " + str(cell_count) + " },"
+                )
+            out.append("};")
+            out.append("inline constexpr int k" + path_name + "RowSlot" + label
+                       + "Count = " + str(len(rows)) + ";")
+            metric = (metric_container.get(layout_name) or {})
+            # Detail metrics are nested by region id.
+            if path.startswith("region."):
+                region_id = path.split(".")[1]
+                metric = (metric_container.get(layout_name) or {}).get(region_id) or {}
+            scroll = fragment.get("scroll") or {}
+            track = metric.get("track") or scroll.get("track")
+            thumb = metric.get("thumb") or scroll.get("thumb")
+            metrics_name = "k" + path_name + "Metrics" + label
+            out.append("inline constexpr " + prefix + "GenCollectionMetrics "
+                       + metrics_name + " = { "
+                       + str(operation_int(metric.get("totalItems"), len((collection or {}).get("items") or []))) + ", "
+                       + str(operation_int(metric.get("visibleCapacity"), len(rows))) + ", "
+                       + str(operation_int(metric.get("totalUnits"), len((collection or {}).get("items") or []))) + ", "
+                       + str(operation_int(metric.get("visibleUnits"), len(rows))) + ", "
+                       + str(operation_int(metric.get("itemsPerUnit"), 1)) + ", "
+                       + cpp_string(metric.get("scrollUnit", "record")) + ", "
+                       + ("true" if metric.get("overflow") else "false") + ", "
+                       + str(operation_int(metric.get("scrollSteps"))) + ", "
+                       + operation_rect(track) + ", " + operation_rect(thumb) + ", "
+                       + operation_metric_rect(metric, "trackHitTarget") + ", "
+                       + operation_metric_rect(metric, "thumbHitTarget") + ", "
+                       + str(operation_int(metric.get("thumbTravelPx"))) + " };")
+            count = operation_int(fragment.get("count"), min(
+                len((collection or {}).get("items") or []), len(rows)))
+            all_collection_layouts.append(
+                (path, label, header_name if headers else "nullptr", len(headers),
+                 rows_name, len(rows), count, metrics_name)
+            )
+            out.append("")
+    wide_collection_count = sum(1 for _, label, *_ in all_collection_layouts if label == "Wide")
+    compact_collection_count = sum(1 for _, label, *_ in all_collection_layouts if label == "Compact")
+    out += [
+        "inline constexpr " + prefix + "GenCollectionLayout kCollectionsWide["
+        + str(max(1, wide_collection_count)) + "] = {",
+    ]
+    for path, label, header, header_count, rows, row_count, count, metrics in all_collection_layouts:
+        if label != "Wide":
+            continue
+        out.append("    { " + cpp_string(path) + ", " + header + ", "
+                   + str(header_count) + ", " + rows + ", " + str(row_count)
+                   + ", " + str(count) + ", " + metrics + " },")
+    out += [
+        "};",
+        "inline constexpr int kCollectionLayoutWideCount = "
+        + str(wide_collection_count) + ";",
+        "inline constexpr " + prefix + "GenCollectionLayout kCollectionsCompact["
+        + str(max(1, compact_collection_count)) + "] = {",
+    ]
+    for path, label, header, header_count, rows, row_count, count, metrics in all_collection_layouts:
+        if label != "Compact":
+            continue
+        out.append("    { " + cpp_string(path) + ", " + header + ", "
+                   + str(header_count) + ", " + rows + ", " + str(row_count)
+                   + ", " + str(count) + ", " + metrics + " },")
+    out += [
+        "};",
+        "inline constexpr int kCollectionLayoutCompactCount = "
+        + str(compact_collection_count) + ";",
+        "",
+    ]
+
+    # Operations-detail action regions are strict slot consumers. Preserve
+    # their slot IDs/geometry in typed arrays rather than asking consumers to
+    # reconstruct slots from authored actions.
+    strict_groups = []
+    out += [
+        "struct " + prefix + "GenActionSlot { const char* id; "
+        + prefix + "GenRect rect; };",
+    ]
+    for layout_name, label in (("wide", "Wide"), ("compact", "Compact")):
+        for region_id, region_layout in (doc["layouts"][layout_name].get("regions") or {}).items():
+            slots = region_layout.get("actionSlots") or []
+            if not slots:
+                continue
+            group_name = "kRegion" + operations_cpp_name(region_id) + "ActionSlots" + label
+            out.append("inline constexpr " + prefix + "GenActionSlot "
+                       + group_name + "[] = {")
+            for slot in slots:
+                out.append("    { " + cpp_string(slot.get("id", "")) + ", "
+                           + operation_rect(slot.get("rect")) + " },")
+            out.append("};")
+            strict_groups.append((label, region_id, group_name, len(slots)))
+        if any(item[0] == label for item in strict_groups):
+            out.append("")
+    out += [
+        "struct " + prefix + "GenStrictActionSlotGroup",
+        "{",
+        TAB + "const char* id;",
+        TAB + "const " + prefix + "GenActionSlot* slots;",
+        TAB + "int slotCount;",
+        "};",
+    ]
+    group_count_wide = sum(1 for label, *_ in strict_groups if label == "Wide")
+    group_count_compact = sum(1 for label, *_ in strict_groups if label == "Compact")
+    out += [
+        "inline constexpr " + prefix + "GenStrictActionSlotGroup "
+        + "kStrictActionSlotGroupsWide["
+        + str(max(1, group_count_wide)) + "] = {",
+    ]
+    for label, region_id, group_name, count in strict_groups:
+        if label == "Wide":
+            out.append("    { " + cpp_string("region." + region_id) + ", "
+                       + group_name + ", " + str(count) + " },")
+    out += [
+        "};",
+        "inline constexpr int kStrictActionSlotGroupWideCount = "
+        + str(group_count_wide) + ";",
+        "inline constexpr " + prefix + "GenStrictActionSlotGroup "
+        + "kStrictActionSlotGroupsCompact["
+        + str(max(1, group_count_compact)) + "] = {",
+    ]
+    for label, region_id, group_name, count in strict_groups:
+        if label == "Compact":
+            out.append("    { " + cpp_string("region." + region_id) + ", "
+                       + group_name + ", " + str(count) + " },")
+    out += [
+        "};",
+        "inline constexpr int kStrictActionSlotGroupCompactCount = "
+        + str(group_count_compact) + ";",
+        "",
+    ]
+
+
+
+
 def emit_family_h(doc, rel, ns, prefix, profile):
-    """Generic F21-family emitter: one rect member per declared part."""
+    """Generic family emitter: one rect member per declared part."""
     layouts = doc["layouts"]
     m = doc["motion"]
     parts = doc["parts"]
+    form = doc.get("form") or {}
+    form_id = form.get("id", "")
+    family_id = form.get("familyId", 0)
+    archetype = form.get("archetype", profile)
+    native_state = form.get("state", "")
     out = [HEADER_BANNER,
            "// Canonical source: src/Calypso/Contracts/" + rel,
            "#pragma once",
            "#include <cstdint>",
            "namespace OpenXcom { namespace Calypso { namespace " + ns + " {",
-           'inline constexpr const char* kContractVersion = "' + doc["version"] + '";',
-           "",
+           'inline constexpr const char* kContractVersion = "' + doc["version"] + '";']
+    if profile in {"operations-workspace", "operations-detail", "wide-detail"}:
+        out += [
+            'inline constexpr const char* kFormId = "' + form_id + '";',
+            "inline constexpr int kFamilyId = " + str(family_id) + ";",
+            'inline constexpr const char* kArchetype = "' + archetype + '";',
+            'inline constexpr const char* kNativeState = "' + native_state + '";',
+        ]
+        if profile in {"operations-workspace", "operations-detail"}:
+            visual = form.get("visual") or {}
+            out += [
+                'inline constexpr const char* kVisualShell = "' + visual.get("shell", "") + '";',
+                'inline constexpr const char* kHeaderArt = "' + visual.get("headerArt", "") + '";',
+            ]
+            shared_chrome = form.get("sharedChrome") or {}
+            out += [
+                'inline constexpr const char* kSharedChromeId = "'
+                + shared_chrome.get("id", "") + '";',
+                'inline constexpr const char* kSharedChromeVersion = "'
+                + shared_chrome.get("version", "") + '";',
+            ]
+    out += ["",
            "/// One design-space rectangle (design px).",
            "struct " + prefix + "GenRect { int x; int y; int w; int h; };",
            "",
@@ -1275,7 +1755,7 @@ def emit_family_h(doc, rel, ns, prefix, profile):
            TAB + "int designWidth;",
            TAB + "int designHeight;"]
     for p in parts:
-        out.append(TAB + prefix + "GenRect " + p + ";")
+        out.append(TAB + prefix + "GenRect " + cpp_part_name(p) + ";")
     out += ["};",
             "",
             "inline constexpr " + prefix + "GenLayout kLayouts[] =",
@@ -1284,11 +1764,13 @@ def emit_family_h(doc, rel, ns, prefix, profile):
         l = layouts[name]
         out.append(TAB + "// " + name)
         out.append(TAB + "{ " + str(l["designWidth"]) + ", " + str(l["designHeight"]) + ", "
-                   + ", ".join("{ " + str(l[p]["x"]) + ", " + str(l[p]["y"]) + ", "
-                               + str(l[p]["width"]) + ", " + str(l[p]["height"]) + " }" for p in parts) + " },")
+                   + ", ".join("{ " + str(family_part_rect(l, p)["x"]) + ", " + str(family_part_rect(l, p)["y"]) + ", "
+                               + str(family_part_rect(l, p)["width"]) + ", " + str(family_part_rect(l, p)["height"]) + " }" for p in parts) + " },")
     out += ["};",
             "inline constexpr int kLayoutCount = " + str(len(layouts)) + ";",
             ""]
+    if profile in {"operations-workspace", "operations-detail"}:
+        emit_operations_metadata(out, doc, profile, prefix)
     if profile == "content-block":
         content = doc["content"]
         metrics = doc["metrics"]

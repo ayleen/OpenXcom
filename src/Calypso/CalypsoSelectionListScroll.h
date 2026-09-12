@@ -6,8 +6,8 @@
 // All inputs are engine-logical px; DPR is never applied here. Empty and
 // non-scrolling lists are safe (thumb height 0, scroll 0).
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
-
 namespace OpenXcom
 {
 namespace Calypso
@@ -103,6 +103,65 @@ inline std::size_t calypsoSelectionListScrollForOffset(int offset, int trackH, i
 		o = travel;
 	}
 	return (std::size_t)((o * (long long)maxScroll + travel / 2) / travel);
+}
+
+/// Maps a pointer offset from the list surface top (engine-logical px, i.e.
+/// already divided by the screen scale once) to a native row. `rowOrigin` is
+/// the logical offset from the surface top to the first painted row slot; the
+/// header and any trailing empty remainder own no row. Out-of-data-viewport or
+/// past-the-end pointers yield `hit == false` — never a clamped last row.
+struct CalypsoSelectionListRowHit
+{
+	bool hit = false;
+	std::size_t index = 0;
+};
+
+inline CalypsoSelectionListRowHit calypsoSelectionListRowAtLogicalY(
+	double relativeLogicalY, double rowStride, double rowOrigin,
+	std::size_t scroll, std::size_t total, std::size_t visibleCapacity)
+{
+	CalypsoSelectionListRowHit out;
+	if (total == 0 || rowStride <= 0 || visibleCapacity == 0) return out;
+	if (!(relativeLogicalY >= rowOrigin)) return out;
+	const double dataY = relativeLogicalY - rowOrigin;
+	const long long slot = static_cast<long long>(
+		std::floor(dataY / rowStride));
+	if (slot < 0 || slot >= static_cast<long long>(visibleCapacity)) return out;
+	const std::size_t index = scroll + static_cast<std::size_t>(slot);
+	if (index >= total) return out;
+	out.hit = true;
+	out.index = index;
+	return out;
+}
+
+/// The one descriptor the adapter hands to the native TextList. Projected
+/// values are engine-logical px. `dataViewportH` is exactly the painted
+/// generated track height — the row origin is applied separately as a Y
+/// offset and must never be folded into the height (re-review P2: the
+/// invisible input rail once extended 36px past the painted track).
+struct CalypsoSelectionListDescriptor
+{
+	int scrollBarWidth = 0;
+	int minThumbHeight = 0;
+	int rowStride = 0;
+	int rowOriginY = 0;
+	int dataViewportH = 0;
+	std::size_t visibleRows = 0;
+};
+
+inline CalypsoSelectionListDescriptor calypsoSelectionListDescriptorFor(
+	int projectedViewportY, int projectedTrackY, int projectedTrackW,
+	int projectedTrackH, int projectedRowStride, std::size_t emittedVisibleRows,
+	int projectedMinThumb)
+{
+	CalypsoSelectionListDescriptor out;
+	out.scrollBarWidth = std::max(1, projectedTrackW);
+	out.minThumbHeight = std::max(1, projectedMinThumb);
+	out.rowStride = std::max(1, projectedRowStride);
+	out.rowOriginY = std::max(0, projectedTrackY - projectedViewportY);
+	out.dataViewportH = std::max(1, projectedTrackH);
+	out.visibleRows = emittedVisibleRows;
+	return out;
 }
 
 } // namespace Calypso

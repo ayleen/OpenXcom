@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "id": "f10-production-catalogue",
+  "familyId": 10,
+  "version": "hd.2026-08-29.1",
+  "archetype": "operations-workspace",
+  "presentation": "list-inspector",
+  "visual": {"shell": "base-operations", "headerArt": "base-manufacture"},
+  "state": "NewManufactureListState",
+  "labelKeys": {"title": "STR_PRODUCTION_ITEMS", "markAllSeen": "STR_MARK_ALL_SEEN", "done": "STR_DONE", "review": "STR_REVIEW_PRODUCTION", "techTree": "STR_TECH_TREE", "ufopaedia": "STR_UFOPAEDIA"},
+  "title": "PRODUCTION ITEMS",
+  "actions": [{"id": "mark-all-seen", "label": "MARK ALL SEEN", "labelKey": "STR_MARK_ALL_SEEN", "tone": "safe", "action": "mark-all-seen"}, {"id": "done", "label": "DONE", "labelKey": "STR_DONE", "tone": "primary", "action": "done"}],
+  "summary": [],
+  "collection": {"mode": "list", "selectionRole": "production-item", "columns": [{"id": "item", "label": "ITEM", "contentRole": "name"}, {"id": "category", "label": "CATEGORY", "contentRole": "category"}, {"id": "status", "label": "STATUS", "contentRole": "status"}], "items": [{"id": "maelstrom-launcher", "values": ["MAELSTROM Launcher", "Sub Weapon", "New"]}, {"id": "keravnos-m", "values": ["Keravnos-M", "Sub Weapon", "Normal"]}, {"id": "keravnos-m-ammo", "values": ["Keravnos-M Ammo", "Ammunition", "Normal"]}, {"id": "mantis-projector", "values": ["MANTIS Projector", "Sub Weapon", "Normal"]}, {"id": "keravnos-p", "values": ["Keravnos-P", "Weapon", "Normal"]}, {"id": "keravnos-p-magazine", "values": ["Keravnos-P Magazine", "Ammunition", "Normal"]}]},
+  "controls": [],
+  "toolbar": [{"id": "availability-default", "label": "AVAILABILITY: DEFAULT", "tone": "normal", "action": "availability-default"}, {"id": "category-all", "label": "CATEGORY: ALL ITEMS", "tone": "normal", "action": "category-all"}, {"id": "show-only-new", "label": "SHOW ONLY NEW", "tone": "normal", "action": "show-only-new"}, {"id": "quick-search", "label": "QUICK SEARCH", "tone": "normal", "action": "quick-search"}],
+  "detail": {"id": "selected-item", "label": "SELECTED ITEM", "title": "MANTIS Projector", "subtitle": "PRODUCTION ITEM", "metrics": [{"id": "category", "label": "CATEGORY", "value": "Sub Weapon"}], "actions": [{"id": "review-production", "label": "REVIEW PRODUCTION", "labelKey": "STR_REVIEW_PRODUCTION", "tone": "primary", "action": "review-production"}, {"id": "tech-tree", "label": "TECH TREE", "labelKey": "STR_TECH_TREE", "tone": "normal", "action": "open-tech-tree"}, {"id": "ufopaedia", "label": "UFOPAEDIA", "labelKey": "STR_UFOPAEDIA", "tone": "normal", "action": "open-ufopaedia"}]}
+}

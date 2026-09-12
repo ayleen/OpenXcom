@@ -1,0 +1,179 @@
+{
+  "schema": 1,
+  "id": "operations-ac",
+  "version": "hd.2026-09-10.1",
+  "theme": {
+    "source": "CommandCenter/CommandCenterTheme.h",
+    "sourceHash": "8c4eb7f074fe2868aac3d0835b324d42f4d57ca727dcea7ab1e16220c19e53b2",
+    "tokens": {
+      "background": "BgRoot",
+      "panel": "BgPanel",
+      "panelRaised": "BgPanelRaised",
+      "hover": "BgHover",
+      "selected": "BgActive",
+      "border": "Border",
+      "borderStrong": "BorderStrong",
+      "accent": "Accent",
+      "text": "TextPrimary",
+      "secondary": "TextSecondary",
+      "disabled": "TextDisabled",
+      "onAccent": "TextOnAccent",
+      "warning": "Warning",
+      "danger": "Danger"
+    }
+  },
+  "actionTones": {
+    "normal": {
+      "fill": "BgPanel",
+      "border": "Border",
+      "text": "TextPrimary"
+    },
+    "safe": {
+      "fill": "BgPanel",
+      "border": "BorderStrong",
+      "text": "TextPrimary"
+    },
+    "primary": {
+      "fill": "Accent",
+      "border": "Accent",
+      "text": "TextOnAccent"
+    },
+    "warning": {
+      "fill": "Warning",
+      "border": "Warning",
+      "text": "TextOnAccent"
+    },
+    "danger": {
+      "fill": "Danger",
+      "border": "Danger",
+      "text": "TextPrimary"
+    }
+  },
+  "columnRoles": {
+    "name": {
+      "weight": 6,
+      "minWidth": 96,
+      "font": "body",
+      "align": "left"
+    },
+    "category": {
+      "weight": 3,
+      "minWidth": 72,
+      "font": "body",
+      "align": "left"
+    },
+    "status": {
+      "weight": 2,
+      "minWidth": 64,
+      "font": "body",
+      "align": "left"
+    },
+    "count": {
+      "weight": 1,
+      "minWidth": 64,
+      "font": "data",
+      "align": "right"
+    },
+    "quantity": {
+      "weight": 2,
+      "minWidth": 64,
+      "font": "data",
+      "align": "right"
+    },
+    "money": {
+      "weight": 2,
+      "minWidth": 72,
+      "font": "data",
+      "align": "right"
+    },
+    "time": {
+      "weight": 2,
+      "minWidth": 64,
+      "font": "data",
+      "align": "right"
+    },
+    "date": {
+      "weight": 2,
+      "minWidth": 72,
+      "font": "data",
+      "align": "right"
+    },
+    "type": {
+      "weight": 1,
+      "minWidth": 64,
+      "font": "data",
+      "align": "right"
+    }
+  },
+  "layouts": {
+    "wide": {
+      "margin": 24,
+      "titleHeight": 72,
+      "sectionGap": 16,
+      "footerHeight": 44,
+      "panelGap": 20,
+      "inspectorWidth": 360,
+      "detailSummaryWidth": 428,
+      "toolbarHeight": 64,
+      "headerHeight": 36,
+      "rowHeight": 52,
+      "tableRowHeight": 44,
+      "dockHeight": 64,
+      "dockGap": 8,
+      "scrollHitWidth": 44,
+      "scrollVisualWidth": 16,
+      "scrollGap": 8,
+      "minimumThumbHeight": 44,
+      "panelInset": 16
+    },
+    "compact": {
+      "margin": 12,
+      "titleHeight": 28,
+      "sectionGap": 8,
+      "footerHeight": 44,
+      "panelGap": 12,
+      "inspectorWidth": 0,
+      "detailSummaryWidth": 270,
+      "toolbarHeight": 44,
+      "headerHeight": 28,
+      "rowHeight": 44,
+      "tableRowHeight": 44,
+      "dockHeight": 52,
+      "dockGap": 8,
+      "scrollHitWidth": 44,
+      "scrollVisualWidth": 16,
+      "scrollGap": 8,
+      "minimumThumbHeight": 44,
+      "panelInset": 8
+    }
+  },
+  "art": {
+    "required": false,
+    "wideMaxHeight": 128,
+    "compactVisible": false
+  },
+  "minimumHitTarget": {
+    "width": 44,
+    "height": 44
+  },
+  "typography": {
+    "wide": {
+      "title": 28,
+      "detailTitle": 18,
+      "body": 14,
+      "label": 12,
+      "data": 15,
+      "input": 14,
+      "action": 14
+    },
+    "compact": {
+      "title": 18,
+      "detailTitle": 16,
+      "body": 12,
+      "label": 12,
+      "data": 13,
+      "input": 12,
+      "action": 12
+    }
+  }
+}

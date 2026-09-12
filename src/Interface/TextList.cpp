@@ -1402,6 +1402,18 @@ void TextList::mousePress(Action *action, State *state)
 		if (action->getDetails()->button.button == SDL_BUTTON_WHEELUP) scrollUp(false, true);
 		else if (action->getDetails()->button.button == SDL_BUTTON_WHEELDOWN) scrollDown(false, true);
 	}
+#ifdef __EMSCRIPTEN__
+	if (_hdSelList)
+	{
+		// Only a pointer inside a painted row slot arms or dispatches a row
+		// action. Header, trailing blank remainder and out-of-list positions
+		// own no item — never clamp to the last row. Wheel scrolling above is
+		// unaffected.
+		const Calypso::CalypsoSelectionListRowHit hit = calypsoHdRowHit(action);
+		if (!hit.hit) return;
+		_selRow = static_cast<int>(hit.index);
+	}
+#endif
 	if (_selectable)
 	{
 		if (_selRow < _rows.size())
@@ -1443,6 +1455,14 @@ void TextList::mouseClick(Action *action, State *state)
 {
 #ifdef __EMSCRIPTEN__
 	if (calypsoHdSuppressClick(action)) return;
+	if (_hdSelList)
+	{
+		// Activate exactly the painted row under the pointer; every other
+		// position (header, blank remainder, below the last row) owns no item.
+		const Calypso::CalypsoSelectionListRowHit hit = calypsoHdRowHit(action);
+		if (!hit.hit) return;
+		_selRow = static_cast<int>(hit.index);
+	}
 #endif
 	if (_selectable)
 	{
@@ -1476,7 +1496,23 @@ void TextList::mouseOver(Action *action, State *state)
 		int rowHeight = std::max(_font->getHeight(), _minimumRowHeight)
 			+ _font->getSpacing(); // theoretical line height
 #ifdef __EMSCRIPTEN__
-		_selRow = calypsoHdHoverSelRow(action->getRelativeYMouse(), action->getYScale(), rowHeight);
+		if (_hdSelList)
+		{
+			const Calypso::CalypsoSelectionListRowHit hit = calypsoHdRowHit(action);
+			if (!hit.hit)
+			{
+				// Header, blank remainder and the captured track own no row:
+				// keep the keyboard selection, stop painting the hover selector.
+				_selector->setVisible(false);
+				InteractiveSurface::mouseOver(action, state);
+				return;
+			}
+			_selRow = static_cast<int>(hit.index);
+		}
+		else
+		{
+			_selRow = std::max(0, (int)(_scroll + (int)floor(action->getRelativeYMouse() / (rowHeight * action->getYScale()))));
+		}
 #else
 		_selRow = std::max(0, (int)(_scroll + (int)floor(action->getRelativeYMouse() / (rowHeight * action->getYScale()))));
 #endif

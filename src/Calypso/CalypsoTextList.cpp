@@ -132,13 +132,19 @@ bool TextList::calypsoHdFilterMouseOver(Action *action, State *state)
 	return false;
 }
 
-int TextList::calypsoHdHoverSelRow(double relY, double yScale, int nativeRowH) const
+Calypso::CalypsoSelectionListRowHit TextList::calypsoHdRowHit(const Action *action) const
 {
-	if (_hdSelList && _hdRowStride > 0)
+	if (!_hdSelList || _hdRowStride <= 0 || _hdVisibleRows == 0)
 	{
-		return std::max(0, (int)(_scroll + (int)floor(relY / ((double)_hdRowStride * yScale))));
+		return {};
 	}
-	return std::max(0, (int)(_scroll + (int)floor(relY / (nativeRowH * scale() * yScale))));
+	// Engine-logical pointer position: the same space the adapter projected the
+	// row slots into. getRelativeYMouse() would be display px — one conversion,
+	// never mixed systems.
+	const double relativeLogicalY = action->getAbsoluteYMouse() - static_cast<double>(getY());
+	return Calypso::calypsoSelectionListRowAtLogicalY(
+		relativeLogicalY, static_cast<double>(_hdRowStride),
+		static_cast<double>(_hdRowOriginY), _scroll, _rows.size(), _hdVisibleRows);
 }
 
 void TextList::calypsoHdMaybeApplyTtf(Text *txt)
@@ -238,16 +244,22 @@ void TextList::setTTFFont(TTFFont* font, float fillFrac)
 			t->setTTFFont(font, fillFrac);
 }
 
-void TextList::configureCalypsoHdSelectionList(int scrollBarWidth, int minThumbHeight, int rowStride, size_t visibleRows)
+void TextList::configureCalypsoHdSelectionList(int scrollBarWidth, int minThumbHeight,
+	int rowStride, int rowOriginY, int dataViewportH, size_t visibleRows)
 {
 	const int cachedStride = rowStride > 0 ? rowStride : 0;
+	const int cachedOrigin = rowOriginY > 0 ? rowOriginY : 0;
+	const int cachedViewportH = dataViewportH > 0 ? dataViewportH : 0;
 	const size_t cachedVisible = visibleRows;
 	const bool changed = !_hdSelList || _hdScrollBarWidth != scrollBarWidth || _hdMinThumb != minThumbHeight ||
-		_hdRowStride != cachedStride || _hdVisibleRows != cachedVisible;
+		_hdRowStride != cachedStride || _hdRowOriginY != cachedOrigin ||
+		_hdDataViewportH != cachedViewportH || _hdVisibleRows != cachedVisible;
 	_hdSelList = true;
 	_hdScrollBarWidth = scrollBarWidth > 0 ? scrollBarWidth : 0;
 	_hdMinThumb = minThumbHeight > 0 ? minThumbHeight : 0;
 	_hdRowStride = cachedStride;
+	_hdRowOriginY = cachedOrigin;
+	_hdDataViewportH = cachedViewportH;
 	_hdVisibleRows = cachedVisible;
 	if (changed)
 	{
@@ -269,6 +281,8 @@ void TextList::clearCalypsoHdSelectionList()
 	_hdScrollBarWidth = 0;
 	_hdMinThumb = 0;
 	_hdRowStride = 0;
+	_hdRowOriginY = 0;
+	_hdDataViewportH = 0;
 	_hdVisibleRows = 0;
 	_hdLastHoverX = 1e30;
 	_hdLastHoverY = 1e30;
@@ -288,8 +302,15 @@ SDL_Rect TextList::getCalypsoHdTrackRect() const
 	track.w = 0;
 	track.h = 0;
 	if (!_hdSelList || _hdScrollBarWidth <= 0 || getWidth() <= 0 || getHeight() <= 0) return track;
+	// The visual track and the native input rail share one geometry: the data
+	// viewport (first painted row slot through the last), never the full list
+	// rect including the column header or the trailing empty remainder.
+	const int originY = _hdRowOriginY > 0 ? _hdRowOriginY : 0;
+	int viewportH = _hdDataViewportH > 0 ? _hdDataViewportH : getHeight() - originY;
+	if (originY + viewportH > getHeight()) viewportH = getHeight() - originY;
+	if (viewportH <= 0) return track;
 	const Calypso::CalypsoSelectionListTrack t = Calypso::calypsoSelectionListTrackForList(
-		getX(), getY(), getWidth(), getHeight(), _hdScrollBarWidth);
+		getX(), getY() + originY, getWidth(), viewportH, _hdScrollBarWidth);
 	track.x = t.x;
 	track.y = t.y;
 	track.w = t.w;

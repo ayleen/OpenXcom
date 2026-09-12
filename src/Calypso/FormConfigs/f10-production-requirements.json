@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "id": "f10-production-requirements",
+  "familyId": 10,
+  "version": "hd.2026-08-29.1",
+  "archetype": "operations-detail",
+  "presentation": "requirements-summary",
+  "state": "ManufactureStartState",
+  "visual": {"shell": "base-operations", "headerArt": "base-manufacture"},
+  "labelKeys": {"title": "STR_MANTIS_PROJECTOR", "cancel": "STR_CANCEL", "start": "STR_START_PRODUCTION"},
+  "title": "MANTIS Projector",
+  "actions": [{"id": "cancel", "label": "CANCEL", "labelKey": "STR_CANCEL", "tone": "safe", "action": "cancel"}, {"id": "start-production", "label": "START", "labelKey": "STR_START_PRODUCTION", "tone": "primary", "action": "start-production"}],
+  "controls": [],
+  "regions": [
+    {"id": "requirements", "role": "primary", "kind": "collection", "label": "SPECIAL MATERIALS REQUIRED", "collection": {"mode": "table", "selectionRole": "production-requirement", "columns": [{"id": "item", "label": "ITEM REQUIRED", "contentRole": "name"}, {"id": "required", "label": "UNITS REQUIRED", "contentRole": "count"}, {"id": "available", "label": "UNITS AVAILABLE", "contentRole": "count"}], "items": [{"id": "ichor", "values": ["Ichor", "15", "1,188"]}] }},
+    {"id": "context", "role": "secondary", "kind": "preview", "label": "PRODUCTION REQUIREMENTS", "contentId": "production-item"},
+    {"id": "facts", "role": "summary", "kind": "fields", "label": "REQUIREMENTS", "fields": [{"id": "hours", "label": "ENGINEER HOURS", "value": "500"}, {"id": "cost", "label": "COST PER UNIT", "value": "$225,000"}, {"id": "items", "label": "ITEMS / SPACE", "value": "Ichor 15 · Space 8"}]}
+  ]
+}
