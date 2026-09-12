@@ -2,17 +2,17 @@
   "schema": 1,
   "version": "hd.2026-08-29.1",
   "form": {
-    "id": "f10-production-requirements",
-    "familyId": 10,
+    "id": "f15-tech-tree",
+    "familyId": 15,
     "archetype": "operations-detail",
-    "source": "FormConfigs/f10-production-requirements.json",
+    "source": "FormConfigs/f15-tech-tree.json",
     "actions": [
       {
-        "id": "cancel",
-        "label": "CANCEL",
-        "labelKey": "STR_CANCEL",
+        "id": "select-topic",
+        "label": "SELECT TOPIC",
+        "labelKey": "STR_SELECT_TOPIC",
         "tone": "safe",
-        "action": "cancel",
+        "action": "select-topic",
         "style": {
           "fill": "071624FF",
           "border": "285267FF",
@@ -20,11 +20,11 @@
         }
       },
       {
-        "id": "start-production",
-        "label": "START",
-        "labelKey": "STR_START_PRODUCTION",
+        "id": "ok",
+        "label": "OK",
+        "labelKey": "STR_OK",
         "tone": "primary",
-        "action": "start-production",
+        "action": "ok",
         "style": {
           "fill": "81E0B5FF",
           "border": "81E0B5FF",
@@ -32,86 +32,87 @@
         }
       }
     ],
-    "presentation": "requirements-summary",
-    "state": "ManufactureStartState",
+    "presentation": "dependency-list",
+    "state": "TechTreeViewerState",
     "labelKeys": {
-      "title": "STR_MANTIS_PROJECTOR",
-      "cancel": "STR_CANCEL",
-      "start": "STR_START_PRODUCTION"
+      "title": "STR_TOPIC",
+      "select": "STR_SELECT_TOPIC",
+      "ok": "STR_OK"
     },
     "regions": [
       {
-        "id": "requirements",
+        "id": "left",
         "role": "primary",
         "kind": "collection",
-        "label": "SPECIAL MATERIALS REQUIRED",
+        "label": "DEPENDENCIES",
         "collection": {
-          "mode": "table",
-          "selectionRole": "production-requirement",
+          "mode": "list",
+          "selectionRole": "tech-topic",
           "columns": [
             {
-              "id": "item",
-              "label": "ITEM REQUIRED",
+              "id": "topic",
+              "label": "TOPIC",
               "contentRole": "name"
-            },
-            {
-              "id": "required",
-              "label": "UNITS REQUIRED",
-              "contentRole": "count"
-            },
-            {
-              "id": "available",
-              "label": "UNITS AVAILABLE",
-              "contentRole": "count"
             }
           ],
           "items": [
             {
-              "id": "ichor",
+              "id": "row-1",
               "values": [
-                "Ichor",
-                "15",
-                "1,188"
+                "UNLOCKED BY"
+              ]
+            },
+            {
+              "id": "row-2",
+              "values": [
+                "WEAPONS"
+              ]
+            },
+            {
+              "id": "row-3",
+              "values": [
+                "***"
               ]
             }
           ]
         }
       },
       {
-        "id": "context",
+        "id": "right",
         "role": "secondary",
-        "kind": "preview",
-        "label": "PRODUCTION REQUIREMENTS",
-        "contentId": "production-item"
-      },
-      {
-        "id": "facts",
-        "role": "summary",
-        "kind": "fields",
-        "label": "REQUIREMENTS",
-        "fields": [
-          {
-            "id": "hours",
-            "label": "ENGINEER HOURS",
-            "value": "500"
-          },
-          {
-            "id": "cost",
-            "label": "COST PER UNIT",
-            "value": "$225,000"
-          },
-          {
-            "id": "items",
-            "label": "ITEMS / SPACE",
-            "value": "Ichor 15 · Space 8"
-          }
-        ]
+        "kind": "collection",
+        "label": "UNLOCKS",
+        "collection": {
+          "mode": "list",
+          "selectionRole": "tech-topic",
+          "columns": [
+            {
+              "id": "topic",
+              "label": "TOPIC",
+              "contentRole": "name"
+            }
+          ],
+          "items": [
+            {
+              "id": "row-1",
+              "values": [
+                "LEADS TO"
+              ]
+            },
+            {
+              "id": "row-2",
+              "values": [
+                "LASER CANNON"
+              ]
+            }
+          ]
+        }
       }
     ],
     "controls": [],
     "visual": {
       "shell": "base-operations",
-      "headerArt": "base-manufacture"
+      "headerArt": "base-research"
     },
     "sharedChrome": {
       "id": "base-command-shell",
@@ -119,74 +120,75 @@
     }
   },
   "copy": {
-    "title": "MANTIS Projector",
+    "title": "TOPIC: LASER",
     "regions": [
       {
-        "id": "requirements",
+        "id": "left",
         "role": "primary",
         "kind": "collection",
-        "label": "SPECIAL MATERIALS REQUIRED",
+        "label": "DEPENDENCIES",
         "collection": {
-          "mode": "table",
-          "selectionRole": "production-requirement",
+          "mode": "list",
+          "selectionRole": "tech-topic",
           "columns": [
             {
-              "id": "item",
-              "label": "ITEM REQUIRED",
+              "id": "topic",
+              "label": "TOPIC",
               "contentRole": "name"
-            },
-            {
-              "id": "required",
-              "label": "UNITS REQUIRED",
-              "contentRole": "count"
-            },
-            {
-              "id": "available",
-              "label": "UNITS AVAILABLE",
-              "contentRole": "count"
             }
           ],
           "items": [
             {
-              "id": "ichor",
+              "id": "row-1",
               "values": [
-                "Ichor",
-                "15",
-                "1,188"
+                "UNLOCKED BY"
+              ]
+            },
+            {
+              "id": "row-2",
+              "values": [
+                "WEAPONS"
+              ]
+            },
+            {
+              "id": "row-3",
+              "values": [
+                "***"
               ]
             }
           ]
         }
       },
       {
-        "id": "context",
+        "id": "right",
         "role": "secondary",
-        "kind": "preview",
-        "label": "PRODUCTION REQUIREMENTS",
-        "contentId": "production-item"
-      },
-      {
-        "id": "facts",
-        "role": "summary",
-        "kind": "fields",
-        "label": "REQUIREMENTS",
-        "fields": [
-          {
-            "id": "hours",
-            "label": "ENGINEER HOURS",
-            "value": "500"
-          },
-          {
-            "id": "cost",
-            "label": "COST PER UNIT",
-            "value": "$225,000"
-          },
-          {
-            "id": "items",
-            "label": "ITEMS / SPACE",
-            "value": "Ichor 15 · Space 8"
-          }
-        ]
+        "kind": "collection",
+        "label": "UNLOCKS",
+        "collection": {
+          "mode": "list",
+          "selectionRole": "tech-topic",
+          "columns": [
+            {
+              "id": "topic",
+              "label": "TOPIC",
+              "contentRole": "name"
+            }
+          ],
+          "items": [
+            {
+              "id": "row-1",
+              "values": [
+                "LEADS TO"
+              ]
+            },
+            {
+              "id": "row-2",
+              "values": [
+                "LASER CANNON"
+              ]
+            }
+          ]
+        }
       }
     ],
     "controls": []
@@ -244,7 +246,7 @@
         "height": 44
       },
       "regions": {
-        "requirements": {
+        "left": {
           "panel": {
             "x": 112,
             "y": 190,
@@ -266,46 +268,18 @@
           "collection": {
             "columnHeaders": [
               {
-                "id": "item",
+                "id": "topic",
                 "rect": {
                   "x": 124,
                   "y": 222,
-                  "width": 186,
+                  "width": 482,
                   "height": 32
                 },
                 "contentRole": "name",
                 "font": "body",
                 "align": "left",
-                "minWidth": 120,
+                "minWidth": 104,
                 "weight": 6
-              },
-              {
-                "id": "required",
-                "rect": {
-                  "x": 311,
-                  "y": 222,
-                  "width": 147,
-                  "height": 32
-                },
-                "contentRole": "count",
-                "font": "data",
-                "align": "right",
-                "minWidth": 136,
-                "weight": 1
-              },
-              {
-                "id": "available",
-                "rect": {
-                  "x": 459,
-                  "y": 222,
-                  "width": 147,
-                  "height": 32
-                },
-                "contentRole": "count",
-                "font": "data",
-                "align": "right",
-                "minWidth": 136,
-                "weight": 1
               }
             ],
             "rowSlots": [
@@ -319,46 +293,18 @@
                 },
                 "cells": [
                   {
-                    "id": "item",
+                    "id": "topic",
                     "rect": {
                       "x": 124,
                       "y": 254,
-                      "width": 186,
+                      "width": 482,
                       "height": 44
                     },
                     "contentRole": "name",
                     "font": "body",
                     "align": "left",
-                    "minWidth": 120,
+                    "minWidth": 104,
                     "weight": 6
-                  },
-                  {
-                    "id": "required",
-                    "rect": {
-                      "x": 311,
-                      "y": 254,
-                      "width": 147,
-                      "height": 44
-                    },
-                    "contentRole": "count",
-                    "font": "data",
-                    "align": "right",
-                    "minWidth": 136,
-                    "weight": 1
-                  },
-                  {
-                    "id": "available",
-                    "rect": {
-                      "x": 459,
-                      "y": 254,
-                      "width": 147,
-                      "height": 44
-                    },
-                    "contentRole": "count",
-                    "font": "data",
-                    "align": "right",
-                    "minWidth": 136,
-                    "weight": 1
                   }
                 ]
               },
@@ -372,46 +318,18 @@
                 },
                 "cells": [
                   {
-                    "id": "item",
+                    "id": "topic",
                     "rect": {
                       "x": 124,
                       "y": 298,
-                      "width": 186,
+                      "width": 482,
                       "height": 44
                     },
                     "contentRole": "name",
                     "font": "body",
                     "align": "left",
-                    "minWidth": 120,
+                    "minWidth": 104,
                     "weight": 6
-                  },
-                  {
-                    "id": "required",
-                    "rect": {
-                      "x": 311,
-                      "y": 298,
-                      "width": 147,
-                      "height": 44
-                    },
-                    "contentRole": "count",
-                    "font": "data",
-                    "align": "right",
-                    "minWidth": 136,
-                    "weight": 1
-                  },
-                  {
-                    "id": "available",
-                    "rect": {
-                      "x": 459,
-                      "y": 298,
-                      "width": 147,
-                      "height": 44
-                    },
-                    "contentRole": "count",
-                    "font": "data",
-                    "align": "right",
-                    "minWidth": 136,
-                    "weight": 1
                   }
                 ]
               },
@@ -425,46 +343,18 @@
                 },
                 "cells": [
                   {
-                    "id": "item",
+                    "id": "topic",
                     "rect": {
                       "x": 124,
                       "y": 342,
-                      "width": 186,
+                      "width": 482,
                       "height": 44
                     },
                     "contentRole": "name",
                     "font": "body",
                     "align": "left",
-                    "minWidth": 120,
+                    "minWidth": 104,
                     "weight": 6
-                  },
-                  {
-                    "id": "required",
-                    "rect": {
-                      "x": 311,
-                      "y": 342,
-                      "width": 147,
-                      "height": 44
-                    },
-                    "contentRole": "count",
-                    "font": "data",
-                    "align": "right",
-                    "minWidth": 136,
-                    "weight": 1
-                  },
-                  {
-                    "id": "available",
-                    "rect": {
-                      "x": 459,
-                      "y": 342,
-                      "width": 147,
-                      "height": 44
-                    },
-                    "contentRole": "count",
-                    "font": "data",
-                    "align": "right",
-                    "minWidth": 136,
-                    "weight": 1
                   }
                 ]
               },
@@ -478,46 +368,18 @@
                 },
                 "cells": [
                   {
-                    "id": "item",
+                    "id": "topic",
                     "rect": {
                       "x": 124,
                       "y": 386,
-                      "width": 186,
+                      "width": 482,
                       "height": 44
                     },
                     "contentRole": "name",
                     "font": "body",
                     "align": "left",
-                    "minWidth": 120,
+                    "minWidth": 104,
                     "weight": 6
-                  },
-                  {
-                    "id": "required",
-                    "rect": {
-                      "x": 311,
-                      "y": 386,
-                      "width": 147,
-                      "height": 44
-                    },
-                    "contentRole": "count",
-                    "font": "data",
-                    "align": "right",
-                    "minWidth": 136,
-                    "weight": 1
-                  },
-                  {
-                    "id": "available",
-                    "rect": {
-                      "x": 459,
-                      "y": 386,
-                      "width": 147,
-                      "height": 44
-                    },
-                    "contentRole": "count",
-                    "font": "data",
-                    "align": "right",
-                    "minWidth": 136,
-                    "weight": 1
                   }
                 ]
               },
@@ -531,51 +393,23 @@
                 },
                 "cells": [
                   {
-                    "id": "item",
+                    "id": "topic",
                     "rect": {
                       "x": 124,
                       "y": 430,
-                      "width": 186,
+                      "width": 482,
                       "height": 44
                     },
                     "contentRole": "name",
                     "font": "body",
                     "align": "left",
-                    "minWidth": 120,
+                    "minWidth": 104,
                     "weight": 6
-                  },
-                  {
-                    "id": "required",
-                    "rect": {
-                      "x": 311,
-                      "y": 430,
-                      "width": 147,
-                      "height": 44
-                    },
-                    "contentRole": "count",
-                    "font": "data",
-                    "align": "right",
-                    "minWidth": 136,
-                    "weight": 1
-                  },
-                  {
-                    "id": "available",
-                    "rect": {
-                      "x": 459,
-                      "y": 430,
-                      "width": 147,
-                      "height": 44
-                    },
-                    "contentRole": "count",
-                    "font": "data",
-                    "align": "right",
-                    "minWidth": 136,
-                    "weight": 1
                   }
                 ]
               }
             ],
-            "count": 1,
+            "count": 3,
             "scroll": {
               "track": {
                 "x": 642,
@@ -592,7 +426,7 @@
             }
           }
         },
-        "context": {
+        "right": {
           "panel": {
             "x": 688,
             "y": 190,
@@ -610,93 +444,127 @@
             "y": 222,
             "width": 544,
             "height": 172
-          }
-        },
-        "facts": {
-          "panel": {
-            "x": 112,
-            "y": 538,
-            "width": 560,
-            "height": 108
           },
-          "label": {
-            "x": 124,
-            "y": 550,
-            "width": 536,
-            "height": 20
-          },
-          "fields": {
-            "hours": {
-              "row": {
-                "x": 124,
-                "y": 570,
-                "width": 536,
-                "height": 20
-              },
-              "label": {
-                "x": 124,
-                "y": 570,
-                "width": 241,
-                "height": 20
-              },
-              "value": {
-                "x": 377,
-                "y": 570,
-                "width": 283,
-                "height": 20
+          "collection": {
+            "columnHeaders": [
+              {
+                "id": "topic",
+                "rect": {
+                  "x": 700,
+                  "y": 222,
+                  "width": 490,
+                  "height": 32
+                },
+                "contentRole": "name",
+                "font": "body",
+                "align": "left",
+                "minWidth": 112,
+                "weight": 6
               }
-            },
-            "cost": {
-              "row": {
-                "x": 124,
-                "y": 590,
-                "width": 536,
-                "height": 20
+            ],
+            "rowSlots": [
+              {
+                "id": "row-slot-1",
+                "rect": {
+                  "x": 700,
+                  "y": 254,
+                  "width": 490,
+                  "height": 44
+                },
+                "cells": [
+                  {
+                    "id": "topic",
+                    "rect": {
+                      "x": 700,
+                      "y": 254,
+                      "width": 490,
+                      "height": 44
+                    },
+                    "contentRole": "name",
+                    "font": "body",
+                    "align": "left",
+                    "minWidth": 112,
+                    "weight": 6
+                  }
+                ]
               },
-              "label": {
-                "x": 124,
-                "y": 590,
-                "width": 241,
-                "height": 20
+              {
+                "id": "row-slot-2",
+                "rect": {
+                  "x": 700,
+                  "y": 298,
+                  "width": 490,
+                  "height": 44
+                },
+                "cells": [
+                  {
+                    "id": "topic",
+                    "rect": {
+                      "x": 700,
+                      "y": 298,
+                      "width": 490,
+                      "height": 44
+                    },
+                    "contentRole": "name",
+                    "font": "body",
+                    "align": "left",
+                    "minWidth": 112,
+                    "weight": 6
+                  }
+                ]
               },
-              "value": {
-                "x": 377,
-                "y": 590,
-                "width": 283,
-                "height": 20
+              {
+                "id": "row-slot-3",
+                "rect": {
+                  "x": 700,
+                  "y": 342,
+                  "width": 490,
+                  "height": 44
+                },
+                "cells": [
+                  {
+                    "id": "topic",
+                    "rect": {
+                      "x": 700,
+                      "y": 342,
+                      "width": 490,
+                      "height": 44
+                    },
+                    "contentRole": "name",
+                    "font": "body",
+                    "align": "left",
+                    "minWidth": 112,
+                    "weight": 6
+                  }
+                ]
               }
-            },
-            "items": {
-              "row": {
-                "x": 124,
-                "y": 610,
-                "width": 536,
-                "height": 20
+            ],
+            "count": 2,
+            "scroll": {
+              "track": {
+                "x": 1226,
+                "y": 254,
+                "width": 18,
+                "height": 132
               },
-              "label": {
-                "x": 124,
-                "y": 610,
-                "width": 241,
-                "height": 20
-              },
-              "value": {
-                "x": 377,
-                "y": 610,
-                "width": 283,
-                "height": 20
+              "thumb": {
+                "x": 1226,
+                "y": 254,
+                "width": 18,
+                "height": 132
               }
             }
           }
         }
       },
       "actions": {
-        "cancel": {
+        "select-topic": {
           "x": 898,
           "y": 658,
           "width": 158,
           "height": 44
         },
-        "start-production": {
+        "ok": {
           "x": 1066,
           "y": 658,
           "width": 158,
@@ -746,157 +614,109 @@
           "width": 1144,
           "height": 44
         },
-        "region.requirements": {
+        "region.left": {
           "x": 112,
           "y": 190,
           "width": 560,
           "height": 336
         },
-        "region.requirements.label": {
+        "region.left.label": {
           "x": 124,
           "y": 202,
           "width": 536,
           "height": 20
         },
-        "region.requirements.content": {
+        "region.left.content": {
           "x": 124,
           "y": 222,
           "width": 536,
           "height": 292
         },
-        "region.requirements.collection": {
+        "region.left.collection": {
           "x": 124,
           "y": 222,
           "width": 536,
           "height": 292
         },
-        "region.requirements.collection.scroll.track": {
+        "region.left.collection.scroll.track": {
           "x": 642,
           "y": 254,
           "width": 18,
           "height": 220
         },
-        "region.requirements.collection.scroll.thumb": {
+        "region.left.collection.scroll.thumb": {
           "x": 642,
           "y": 254,
           "width": 18,
           "height": 220
         },
-        "region.requirements.collection.column.item": {
+        "region.left.collection.column.topic": {
           "x": 124,
           "y": 222,
-          "width": 186,
+          "width": 482,
           "height": 32
         },
-        "region.requirements.collection.column.required": {
-          "x": 311,
-          "y": 222,
-          "width": 147,
-          "height": 32
-        },
-        "region.requirements.collection.column.available": {
-          "x": 459,
-          "y": 222,
-          "width": 147,
-          "height": 32
-        },
-        "region.requirements.collection.row-slot.1": {
+        "region.left.collection.row-slot.1": {
           "x": 124,
           "y": 254,
           "width": 482,
           "height": 44
         },
-        "region.context": {
+        "region.right": {
           "x": 688,
           "y": 190,
           "width": 568,
           "height": 216
         },
-        "region.context.label": {
+        "region.right.label": {
           "x": 700,
           "y": 202,
           "width": 544,
           "height": 20
         },
-        "region.context.content": {
+        "region.right.content": {
           "x": 700,
           "y": 222,
           "width": 544,
           "height": 172
         },
-        "region.facts": {
-          "x": 112,
-          "y": 538,
-          "width": 560,
-          "height": 108
+        "region.right.collection": {
+          "x": 700,
+          "y": 222,
+          "width": 544,
+          "height": 172
         },
-        "region.facts.label": {
-          "x": 124,
-          "y": 550,
-          "width": 536,
-          "height": 20
+        "region.right.collection.scroll.track": {
+          "x": 1226,
+          "y": 254,
+          "width": 18,
+          "height": 132
         },
-        "region.facts.field.hours": {
-          "x": 124,
-          "y": 570,
-          "width": 536,
-          "height": 20
+        "region.right.collection.scroll.thumb": {
+          "x": 1226,
+          "y": 254,
+          "width": 18,
+          "height": 132
         },
-        "region.facts.field.hours.label": {
-          "x": 124,
-          "y": 570,
-          "width": 241,
-          "height": 20
+        "region.right.collection.column.topic": {
+          "x": 700,
+          "y": 222,
+          "width": 490,
+          "height": 32
         },
-        "region.facts.field.hours.value": {
-          "x": 377,
-          "y": 570,
-          "width": 283,
-          "height": 20
+        "region.right.collection.row-slot.1": {
+          "x": 700,
+          "y": 254,
+          "width": 490,
+          "height": 44
         },
-        "region.facts.field.cost": {
-          "x": 124,
-          "y": 590,
-          "width": 536,
-          "height": 20
-        },
-        "region.facts.field.cost.label": {
-          "x": 124,
-          "y": 590,
-          "width": 241,
-          "height": 20
-        },
-        "region.facts.field.cost.value": {
-          "x": 377,
-          "y": 590,
-          "width": 283,
-          "height": 20
-        },
-        "region.facts.field.items": {
-          "x": 124,
-          "y": 610,
-          "width": 536,
-          "height": 20
-        },
-        "region.facts.field.items.label": {
-          "x": 124,
-          "y": 610,
-          "width": 241,
-          "height": 20
-        },
-        "region.facts.field.items.value": {
-          "x": 377,
-          "y": 610,
-          "width": 283,
-          "height": 20
-        },
-        "action.cancel": {
+        "action.select-topic": {
           "x": 898,
           "y": 658,
           "width": 158,
           "height": 44
         },
-        "action.start-production": {
+        "action.ok": {
           "x": 1066,
           "y": 658,
           "width": 158,
@@ -940,7 +760,7 @@
         "height": 44
       },
       "regions": {
-        "requirements": {
+        "left": {
           "panel": {
             "x": 52,
             "y": 108,
@@ -962,11 +782,11 @@
           "collection": {
             "columnHeaders": [
               {
-                "id": "item",
+                "id": "topic",
                 "rect": {
                   "x": 60,
                   "y": 132,
-                  "width": 108,
+                  "width": 292,
                   "height": 24
                 },
                 "contentRole": "name",
@@ -974,34 +794,6 @@
                 "align": "left",
                 "minWidth": 96,
                 "weight": 6
-              },
-              {
-                "id": "required",
-                "rect": {
-                  "x": 169,
-                  "y": 132,
-                  "width": 91,
-                  "height": 24
-                },
-                "contentRole": "count",
-                "font": "data",
-                "align": "right",
-                "minWidth": 89,
-                "weight": 1
-              },
-              {
-                "id": "available",
-                "rect": {
-                  "x": 261,
-                  "y": 132,
-                  "width": 91,
-                  "height": 24
-                },
-                "contentRole": "count",
-                "font": "data",
-                "align": "right",
-                "minWidth": 89,
-                "weight": 1
               }
             ],
             "rowSlots": [
@@ -1015,11 +807,11 @@
                 },
                 "cells": [
                   {
-                    "id": "item",
+                    "id": "topic",
                     "rect": {
                       "x": 60,
                       "y": 156,
-                      "width": 108,
+                      "width": 292,
                       "height": 44
                     },
                     "contentRole": "name",
@@ -1027,34 +819,6 @@
                     "align": "left",
                     "minWidth": 96,
                     "weight": 6
-                  },
-                  {
-                    "id": "required",
-                    "rect": {
-                      "x": 169,
-                      "y": 156,
-                      "width": 91,
-                      "height": 44
-                    },
-                    "contentRole": "count",
-                    "font": "data",
-                    "align": "right",
-                    "minWidth": 89,
-                    "weight": 1
-                  },
-                  {
-                    "id": "available",
-                    "rect": {
-                      "x": 261,
-                      "y": 156,
-                      "width": 91,
-                      "height": 44
-                    },
-                    "contentRole": "count",
-                    "font": "data",
-                    "align": "right",
-                    "minWidth": 89,
-                    "weight": 1
                   }
                 ]
               }
@@ -1071,12 +835,12 @@
                 "x": 386,
                 "y": 156,
                 "width": 18,
-                "height": 44
+                "height": 22
               }
             }
           }
         },
-        "context": {
+        "right": {
           "panel": {
             "x": 420,
             "y": 196,
@@ -1094,93 +858,77 @@
             "y": 220,
             "width": 296,
             "height": 76
-          }
-        },
-        "facts": {
-          "panel": {
-            "x": 420,
-            "y": 108,
-            "width": 312,
-            "height": 80
           },
-          "label": {
-            "x": 428,
-            "y": 116,
-            "width": 296,
-            "height": 16
-          },
-          "fields": {
-            "hours": {
-              "row": {
-                "x": 428,
-                "y": 132,
-                "width": 296,
-                "height": 16
-              },
-              "label": {
-                "x": 428,
-                "y": 132,
-                "width": 177,
-                "height": 16
-              },
-              "value": {
-                "x": 613,
-                "y": 132,
-                "width": 111,
-                "height": 16
+          "collection": {
+            "columnHeaders": [
+              {
+                "id": "topic",
+                "rect": {
+                  "x": 428,
+                  "y": 220,
+                  "width": 244,
+                  "height": 24
+                },
+                "contentRole": "name",
+                "font": "body",
+                "align": "left",
+                "minWidth": 96,
+                "weight": 6
               }
-            },
-            "cost": {
-              "row": {
-                "x": 428,
-                "y": 148,
-                "width": 296,
-                "height": 16
-              },
-              "label": {
-                "x": 428,
-                "y": 148,
-                "width": 177,
-                "height": 16
-              },
-              "value": {
-                "x": 613,
-                "y": 148,
-                "width": 111,
-                "height": 16
+            ],
+            "rowSlots": [
+              {
+                "id": "row-slot-1",
+                "rect": {
+                  "x": 428,
+                  "y": 244,
+                  "width": 244,
+                  "height": 44
+                },
+                "cells": [
+                  {
+                    "id": "topic",
+                    "rect": {
+                      "x": 428,
+                      "y": 244,
+                      "width": 244,
+                      "height": 44
+                    },
+                    "contentRole": "name",
+                    "font": "body",
+                    "align": "left",
+                    "minWidth": 96,
+                    "weight": 6
+                  }
+                ]
               }
-            },
-            "items": {
-              "row": {
-                "x": 428,
-                "y": 164,
-                "width": 296,
-                "height": 16
+            ],
+            "count": 1,
+            "scroll": {
+              "track": {
+                "x": 706,
+                "y": 244,
+                "width": 18,
+                "height": 44
               },
-              "label": {
-                "x": 428,
-                "y": 164,
-                "width": 177,
-                "height": 16
-              },
-              "value": {
-                "x": 613,
-                "y": 164,
-                "width": 111,
-                "height": 16
+              "thumb": {
+                "x": 706,
+                "y": 244,
+                "width": 18,
+                "height": 22
               }
             }
           }
         }
       },
       "actions": {
-        "cancel": {
+        "select-topic": {
           "x": 492,
           "y": 312,
           "width": 110,
           "height": 44
         },
-        "start-production": {
+        "ok": {
           "x": 614,
           "y": 312,
           "width": 110,
@@ -1230,157 +978,109 @@
           "width": 680,
           "height": 44
         },
-        "region.requirements": {
+        "region.left": {
           "x": 52,
           "y": 108,
           "width": 360,
           "height": 104
         },
-        "region.requirements.label": {
+        "region.left.label": {
           "x": 60,
           "y": 116,
           "width": 344,
           "height": 16
         },
-        "region.requirements.content": {
+        "region.left.content": {
           "x": 60,
           "y": 132,
           "width": 344,
           "height": 72
         },
-        "region.requirements.collection": {
+        "region.left.collection": {
           "x": 60,
           "y": 132,
           "width": 344,
           "height": 72
         },
-        "region.requirements.collection.scroll.track": {
+        "region.left.collection.scroll.track": {
           "x": 386,
           "y": 156,
           "width": 18,
           "height": 44
         },
-        "region.requirements.collection.scroll.thumb": {
+        "region.left.collection.scroll.thumb": {
           "x": 386,
           "y": 156,
           "width": 18,
-          "height": 44
+          "height": 22
         },
-        "region.requirements.collection.column.item": {
+        "region.left.collection.column.topic": {
           "x": 60,
           "y": 132,
-          "width": 108,
+          "width": 292,
           "height": 24
         },
-        "region.requirements.collection.column.required": {
-          "x": 169,
-          "y": 132,
-          "width": 91,
-          "height": 24
-        },
-        "region.requirements.collection.column.available": {
-          "x": 261,
-          "y": 132,
-          "width": 91,
-          "height": 24
-        },
-        "region.requirements.collection.row-slot.1": {
+        "region.left.collection.row-slot.1": {
           "x": 60,
           "y": 156,
           "width": 292,
           "height": 44
         },
-        "region.context": {
+        "region.right": {
           "x": 420,
           "y": 196,
           "width": 312,
           "height": 108
         },
-        "region.context.label": {
+        "region.right.label": {
           "x": 428,
           "y": 204,
           "width": 296,
           "height": 16
         },
-        "region.context.content": {
+        "region.right.content": {
           "x": 428,
           "y": 220,
           "width": 296,
           "height": 76
         },
-        "region.facts": {
-          "x": 420,
-          "y": 108,
-          "width": 312,
-          "height": 80
-        },
-        "region.facts.label": {
+        "region.right.collection": {
           "x": 428,
-          "y": 116,
+          "y": 220,
           "width": 296,
-          "height": 16
+          "height": 76
         },
-        "region.facts.field.hours": {
+        "region.right.collection.scroll.track": {
+          "x": 706,
+          "y": 244,
+          "width": 18,
+          "height": 44
+        },
+        "region.right.collection.scroll.thumb": {
+          "x": 706,
+          "y": 244,
+          "width": 18,
+          "height": 22
+        },
+        "region.right.collection.column.topic": {
           "x": 428,
-          "y": 132,
-          "width": 296,
-          "height": 16
+          "y": 220,
+          "width": 244,
+          "height": 24
         },
-        "region.facts.field.hours.label": {
+        "region.right.collection.row-slot.1": {
           "x": 428,
-          "y": 132,
-          "width": 177,
-          "height": 16
+          "y": 244,
+          "width": 244,
+          "height": 44
         },
-        "region.facts.field.hours.value": {
-          "x": 613,
-          "y": 132,
-          "width": 111,
-          "height": 16
-        },
-        "region.facts.field.cost": {
-          "x": 428,
-          "y": 148,
-          "width": 296,
-          "height": 16
-        },
-        "region.facts.field.cost.label": {
-          "x": 428,
-          "y": 148,
-          "width": 177,
-          "height": 16
-        },
-        "region.facts.field.cost.value": {
-          "x": 613,
-          "y": 148,
-          "width": 111,
-          "height": 16
-        },
-        "region.facts.field.items": {
-          "x": 428,
-          "y": 164,
-          "width": 296,
-          "height": 16
-        },
-        "region.facts.field.items.label": {
-          "x": 428,
-          "y": 164,
-          "width": 177,
-          "height": 16
-        },
-        "region.facts.field.items.value": {
-          "x": 613,
-          "y": 164,
-          "width": 111,
-          "height": 16
-        },
-        "action.cancel": {
+        "action.select-topic": {
           "x": 492,
           "y": 312,
           "width": 110,
           "height": 44
         },
-        "action.start-production": {
+        "action.ok": {
           "x": 614,
           "y": 312,
           "width": 110,
@@ -1704,10 +1404,10 @@
   },
   "regionMetrics": {
     "wide": {
-      "requirements": {
-        "totalItems": 1,
+      "left": {
+        "totalItems": 3,
         "visibleCapacity": 5,
-        "totalUnits": 1,
+        "totalUnits": 3,
         "visibleUnits": 5,
         "itemsPerUnit": 1,
         "scrollUnit": "record",
@@ -1738,18 +1438,53 @@
           "height": 220
         },
         "thumbTravelPx": 0
-      }
-    },
-    "compact": {
-      "requirements": {
-        "totalItems": 1,
-        "visibleCapacity": 1,
-        "totalUnits": 1,
-        "visibleUnits": 1,
+      },
+      "right": {
+        "totalItems": 2,
+        "visibleCapacity": 3,
+        "totalUnits": 2,
+        "visibleUnits": 3,
         "itemsPerUnit": 1,
         "scrollUnit": "record",
         "overflow": false,
         "scrollSteps": 0,
+        "track": {
+          "x": 1226,
+          "y": 254,
+          "width": 18,
+          "height": 132
+        },
+        "thumb": {
+          "x": 1226,
+          "y": 254,
+          "width": 18,
+          "height": 132
+        },
+        "trackHitTarget": {
+          "x": 1200,
+          "y": 254,
+          "width": 44,
+          "height": 132
+        },
+        "thumbHitTarget": {
+          "x": 1200,
+          "y": 254,
+          "width": 44,
+          "height": 132
+        },
+        "thumbTravelPx": 0
+      }
+    },
+    "compact": {
+      "left": {
+        "totalItems": 3,
+        "visibleCapacity": 1,
+        "totalUnits": 3,
+        "visibleUnits": 1,
+        "itemsPerUnit": 1,
+        "scrollUnit": "record",
+        "overflow": true,
+        "scrollSteps": 2,
         "track": {
           "x": 386,
           "y": 156,
@@ -1760,7 +1495,7 @@
           "x": 386,
           "y": 156,
           "width": 18,
-          "height": 44
+          "height": 22
         },
         "trackHitTarget": {
           "x": 360,
@@ -1774,7 +1509,42 @@
           "width": 44,
           "height": 44
         },
-        "thumbTravelPx": 0
+        "thumbTravelPx": 22
+      },
+      "right": {
+        "totalItems": 2,
+        "visibleCapacity": 1,
+        "totalUnits": 2,
+        "visibleUnits": 1,
+        "itemsPerUnit": 1,
+        "scrollUnit": "record",
+        "overflow": true,
+        "scrollSteps": 1,
+        "track": {
+          "x": 706,
+          "y": 244,
+          "width": 18,
+          "height": 44
+        },
+        "thumb": {
+          "x": 706,
+          "y": 244,
+          "width": 18,
+          "height": 22
+        },
+        "trackHitTarget": {
+          "x": 680,
+          "y": 244,
+          "width": 44,
+          "height": 44
+        },
+        "thumbHitTarget": {
+          "x": 680,
+          "y": 244,
+          "width": 44,
+          "height": 44
+        },
+        "thumbTravelPx": 22
       }
     }
   },
@@ -1795,7 +1565,7 @@
       "id": "title-first-region",
       "kind": "gap",
       "first": "title",
-      "second": "region.requirements",
+      "second": "region.left",
       "axis": "vertical",
       "wide": 40,
       "compact": 26
@@ -1813,16 +1583,16 @@
       "id": "control-first-region",
       "kind": "gap",
       "first": "controlBar",
-      "second": "region.requirements",
+      "second": "region.left",
       "axis": "vertical",
       "wide": 33,
       "compact": 12
     },
     {
-      "id": "region-inset-requirements",
+      "id": "region-inset-left",
       "kind": "inset",
-      "container": "region.requirements",
-      "child": "region.requirements.label",
+      "container": "region.left",
+      "child": "region.left.label",
       "edges": [
         "left",
         "top",
@@ -1832,23 +1602,10 @@
       "compact": 8
     },
     {
-      "id": "region-inset-context",
+      "id": "region-inset-right",
       "kind": "inset",
-      "container": "region.context",
-      "child": "region.context.label",
-      "edges": [
-        "left",
-        "top",
-        "right"
-      ],
-      "wide": 12,
-      "compact": 8
-    },
-    {
-      "id": "region-inset-facts",
-      "kind": "inset",
-      "container": "region.facts",
-      "child": "region.facts.label",
+      "container": "region.right",
+      "child": "region.right.label",
       "edges": [
         "left",
         "top",
@@ -1860,26 +1617,17 @@
     {
       "id": "primary-secondary",
       "kind": "gap",
-      "first": "region.requirements",
-      "second": "region.context",
+      "first": "region.left",
+      "second": "region.right",
       "axis": "horizontal",
       "wide": 16,
       "compact": 8
     },
     {
-      "id": "primary-summary",
-      "kind": "gap",
-      "first": "region.requirements",
-      "second": "region.facts",
-      "axis": "vertical",
-      "wide": 12,
-      "compact": -104
-    },
-    {
       "id": "footer-action-inset",
       "kind": "inset",
       "container": "footer",
-      "child": "action.start-production",
+      "child": "action.ok",
       "edges": [
         "right"
       ],
@@ -1888,8 +1636,8 @@
     }
   ],
   "actions": [
-    "action.cancel",
-    "action.start-production"
+    "action.select-topic",
+    "action.ok"
   ],
   "parts": [
     "window",
@@ -1898,31 +1646,23 @@
     "title",
     "controlBar",
     "footer",
-    "region.requirements",
-    "region.requirements.label",
-    "region.requirements.content",
-    "region.requirements.collection",
-    "region.requirements.collection.scroll.track",
-    "region.requirements.collection.scroll.thumb",
-    "region.requirements.collection.column.item",
-    "region.requirements.collection.column.required",
-    "region.requirements.collection.column.available",
-    "region.requirements.collection.row-slot.1",
-    "region.context",
-    "region.context.label",
-    "region.context.content",
-    "region.facts",
-    "region.facts.label",
-    "region.facts.field.hours",
-    "region.facts.field.hours.label",
-    "region.facts.field.hours.value",
-    "region.facts.field.cost",
-    "region.facts.field.cost.label",
-    "region.facts.field.cost.value",
-    "region.facts.field.items",
-    "region.facts.field.items.label",
-    "region.facts.field.items.value",
-    "action.cancel",
-    "action.start-production"
+    "region.left",
+    "region.left.label",
+    "region.left.content",
+    "region.left.collection",
+    "region.left.collection.scroll.track",
+    "region.left.collection.scroll.thumb",
+    "region.left.collection.column.topic",
+    "region.left.collection.row-slot.1",
+    "region.right",
+    "region.right.label",
+    "region.right.content",
+    "region.right.collection",
+    "region.right.collection.scroll.track",
+    "region.right.collection.scroll.thumb",
+    "region.right.collection.column.topic",
+    "region.right.collection.row-slot.1",
+    "action.select-topic",
+    "action.ok"
   ]
 }

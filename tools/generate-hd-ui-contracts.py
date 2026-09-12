@@ -1424,6 +1424,28 @@ def emit_operations_metadata(out, doc, profile, prefix):
             "",
         ]
 
+    # Canonical typography: one emitted descriptor consumed by the native
+    # renderer and the browser reference; neither keeps its own px table
+    # (re-review P2).
+    typography_data = profile_data.get("resolvedTypography") or {}
+    if typography_data:
+        typography_roles = ["title", "detailTitle", "body", "label",
+                            "data", "input", "action"]
+        out += [
+            "struct " + prefix + "GenTypography",
+            "{",
+        ]
+        out += [TAB + "int " + role + ";" for role in typography_roles]
+        out += ["};"]
+        for layout_class, label in (("wide", "Wide"), ("compact", "Compact")):
+            values = typography_data.get(layout_class) or {}
+            out.append("inline constexpr " + prefix + "GenTypography kTypography"
+                       + label + " = {")
+            out.append(TAB + ", ".join(
+                str(operation_int(values.get(role, 0))) for role in typography_roles))
+            out.append("};")
+        out.append("")
+
     role_data = profile_data.get("resolvedColumnRoles")
     if not isinstance(role_data, dict):
         role_data = profile_data.get("columnRoles") or {}

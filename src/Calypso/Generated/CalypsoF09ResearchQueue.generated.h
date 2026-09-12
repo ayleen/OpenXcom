@@ -129,6 +129,23 @@ inline constexpr CalypsoF09ResearchQueueGenProfileStyle kProfileStyle = {
 	14.0f,
 };
 
+struct CalypsoF09ResearchQueueGenTypography
+{
+	int title;
+	int detailTitle;
+	int body;
+	int label;
+	int data;
+	int input;
+	int action;
+};
+inline constexpr CalypsoF09ResearchQueueGenTypography kTypographyWide = {
+	28, 18, 14, 12, 15, 14, 14
+};
+inline constexpr CalypsoF09ResearchQueueGenTypography kTypographyCompact = {
+	18, 16, 12, 12, 13, 12, 12
+};
+
 struct CalypsoF09ResearchQueueGenColumnRole
 {
 	const char* id;

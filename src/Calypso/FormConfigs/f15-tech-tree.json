@@ -1,0 +1,106 @@
+{
+  "schema": 1,
+  "id": "f15-tech-tree",
+  "familyId": 15,
+  "version": "hd.2026-08-29.1",
+  "archetype": "operations-detail",
+  "presentation": "dependency-list",
+  "state": "TechTreeViewerState",
+  "visual": {
+    "shell": "base-operations",
+    "headerArt": "base-research"
+  },
+  "labelKeys": {
+    "title": "STR_TOPIC",
+    "select": "STR_SELECT_TOPIC",
+    "ok": "STR_OK"
+  },
+  "title": "TOPIC: LASER",
+  "actions": [
+    {
+      "id": "select-topic",
+      "label": "SELECT TOPIC",
+      "labelKey": "STR_SELECT_TOPIC",
+      "tone": "safe",
+      "action": "select-topic"
+    },
+    {
+      "id": "ok",
+      "label": "OK",
+      "labelKey": "STR_OK",
+      "tone": "primary",
+      "action": "ok"
+    }
+  ],
+  "controls": [],
+  "regions": [
+    {
+      "id": "left",
+      "role": "primary",
+      "kind": "collection",
+      "label": "DEPENDENCIES",
+      "collection": {
+        "mode": "list",
+        "selectionRole": "tech-topic",
+        "columns": [
+          {
+            "id": "topic",
+            "label": "TOPIC",
+            "contentRole": "name"
+          }
+        ],
+        "items": [
+          {
+            "id": "row-1",
+            "values": [
+              "UNLOCKED BY"
+            ]
+          },
+          {
+            "id": "row-2",
+            "values": [
+              "WEAPONS"
+            ]
+          },
+          {
+            "id": "row-3",
+            "values": [
+              "***"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "right",
+      "role": "secondary",
+      "kind": "collection",
+      "label": "UNLOCKS",
+      "collection": {
+        "mode": "list",
+        "selectionRole": "tech-topic",
+        "columns": [
+          {
+            "id": "topic",
+            "label": "TOPIC",
+            "contentRole": "name"
+          }
+        ],
+        "items": [
+          {
+            "id": "row-1",
+            "values": [
+              "LEADS TO"
+            ]
+          },
+          {
+            "id": "row-2",
+            "values": [
+              "LASER CANNON"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

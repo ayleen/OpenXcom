@@ -5,6 +5,8 @@
 #include "CalypsoHdOperationsChrome.h"
 #include "CalypsoHdOperationsRenderer.h"
 #include "CalypsoHdUiOverlay.h"
+#include "CalypsoHdOperationsLayout.h"
+#include "CalypsoViewportRuntime.h"
 #include "Generated/CalypsoF09ResearchCatalogue.generated.h"
 #include "Generated/CalypsoF09ResearchQueue.generated.h"
 #include "Generated/CalypsoF09ResearchStaffing.generated.h"
@@ -40,6 +42,24 @@
 
 namespace OpenXcom { namespace Calypso {
 namespace {
+
+/// Shared responsive input for the eleven R&D forms (re-review P1): the
+/// layout class comes from the canonical logical viewport, never from
+/// Options::baseXResolution or the physical backing size. Below the 740x360
+/// minimum the registered route fails closed with an explicit size error.
+bool calypsoHdRdWideLayout(Game *game)
+{
+	(void)game;
+	const auto &viewport = Calypso::calypsoViewportRuntime().current();
+	const auto layoutClass = Calypso::classifyCalypsoHdOperationsLayout(
+		std::max(1, viewport.logicalWidth), std::max(1, viewport.logicalHeight));
+	if (layoutClass == Calypso::CalypsoHdOperationsLayoutClass::Unsupported)
+	{
+		CalypsoHdUiOverlay::instance().failHdRoute(
+			"R&D HD viewport is below the 740x360 minimum");
+	}
+	return layoutClass == Calypso::CalypsoHdOperationsLayoutClass::Wide;
+}
 
 template <typename R>
 CalypsoHdOperationsRect projectRect(const R &r, int wx, int wy, double sx, double sy,
@@ -225,7 +245,7 @@ void CalypsoF09ResearchUi::configure(ResearchState &state)
 		return;
 	}
 	state._hdLayout = true;
-	state._hdWideLayout = Options::baseXResolution >= 1000;
+	state._hdWideLayout = calypsoHdRdWideLayout(state._game);
 	auto *adapter = new CalypsoF09ResearchUi(&state);
 	state._hdAdapter = adapter;
 	CalypsoHdUiOverlay::instance().registerAdapter(adapter->_renderer);
@@ -242,7 +262,7 @@ void CalypsoF09ResearchUi::configure(NewResearchListState &state)
 		return;
 	}
 	state._hdLayout = true;
-	state._hdWideLayout = Options::baseXResolution >= 1000;
+	state._hdWideLayout = calypsoHdRdWideLayout(state._game);
 	auto *adapter = new CalypsoF09ResearchUi(&state);
 	state._hdAdapter = adapter;
 	CalypsoHdUiOverlay::instance().registerAdapter(adapter->_renderer);
@@ -260,7 +280,7 @@ void CalypsoF09ResearchUi::configure(ResearchInfoState &state)
 	}
 	state._screen = true;
 	state._hdLayout = true;
-	state._hdWideLayout = Options::baseXResolution >= 1000;
+	state._hdWideLayout = calypsoHdRdWideLayout(state._game);
 	auto *adapter = new CalypsoF09ResearchUi(&state);
 	state._hdAdapter = adapter;
 	CalypsoHdUiOverlay::instance().registerAdapter(adapter->_renderer);
@@ -271,7 +291,7 @@ void CalypsoF09ResearchUi::configure(ResearchInfoState &state)
 bool CalypsoF09ResearchUi::resize(ResearchState &state)
 {
 	if (!state._hdLayout || !state._hdAdapter) return false;
-	state._hdWideLayout = Options::baseXResolution >= 1000;
+	state._hdWideLayout = calypsoHdRdWideLayout(state._game);
 	state._hdAdapter->refresh();
 	return true;
 }
@@ -279,7 +299,7 @@ bool CalypsoF09ResearchUi::resize(ResearchState &state)
 bool CalypsoF09ResearchUi::resize(NewResearchListState &state)
 {
 	if (!state._hdLayout || !state._hdAdapter) return false;
-	state._hdWideLayout = Options::baseXResolution >= 1000;
+	state._hdWideLayout = calypsoHdRdWideLayout(state._game);
 	state._hdAdapter->refresh();
 	return true;
 }
@@ -287,7 +307,7 @@ bool CalypsoF09ResearchUi::resize(NewResearchListState &state)
 bool CalypsoF09ResearchUi::resize(ResearchInfoState &state)
 {
 	if (!state._hdLayout || !state._hdAdapter) return false;
-	state._hdWideLayout = Options::baseXResolution >= 1000;
+	state._hdWideLayout = calypsoHdRdWideLayout(state._game);
 	state._hdAdapter->refresh();
 	return true;
 }
@@ -422,21 +442,17 @@ void CalypsoF09ResearchUi::applyQueueGeometry()
 	{
 		_queue->_lstResearch->setNoScrollArea(0, 0);
 	}
-	// One descriptor drives paint, hit-testing and the native scrollbar:
-	// logical row stride, logical offset from the list top to the first painted
-	// row slot (column header owns no rows), the logical union height of the
-	// emitted row slots (trailing panel remainder owns no rows) and the emitted
-	// visible slot capacity — never a hardcoded wide/compact guess.
-	const int rowOrigin = std::max(0, static_cast<int>(
-		(g->collection_row_slot_1.y - g->collectionViewport.y) * sy));
+	const auto descriptor = Calypso::calypsoSelectionListDescriptorFor(
+		static_cast<int>(std::lround(g->collectionViewport.y * sy)),
+		static_cast<int>(std::lround(g->collection_scroll_track.y * sy)),
+		static_cast<int>(std::lround(g->collection_scroll_track.w * sx)),
+		static_cast<int>(std::lround(g->collection_scroll_track.h * sy)),
+		static_cast<int>(std::lround(g->collection_row_slot_1.h * sy)),
+		static_cast<std::size_t>(generated.rowSlotCount),
+		static_cast<int>(std::lround(44 * sy)));
 	_queue->_lstResearch->configureCalypsoHdSelectionList(
-		std::max(1, static_cast<int>(g->collection_scroll_track.w * sx)),
-		std::max(1, static_cast<int>(44 * sy)),
-		std::max(1, static_cast<int>(g->collection_row_slot_1.h * sy)),
-		rowOrigin,
-		std::max(rowOrigin + 1, rowOrigin + static_cast<int>(
-			generated.rowSlotCount * g->collection_row_slot_1.h * sy)),
-		static_cast<std::size_t>(generated.rowSlotCount));
+		descriptor.scrollBarWidth, descriptor.minThumbHeight, descriptor.rowStride,
+		descriptor.rowOriginY, descriptor.dataViewportH, descriptor.visibleRows);
 }
 
 void CalypsoF09ResearchUi::applyCatalogueGeometry()
@@ -472,16 +488,17 @@ void CalypsoF09ResearchUi::applyCatalogueGeometry()
 	place(_catalogue->_btnQuickSearch, g->toolbar_quick_search);
 	place(_catalogue->_cbxSort, g->toolbar_sort_default);
 	place(_catalogue->_btnShowOnlyNew, g->toolbar_show_only_new);
-	const int rowOrigin = std::max(0, static_cast<int>(
-		(g->collection_row_slot_1.y - g->collectionViewport.y) * sy));
+	const auto descriptor = Calypso::calypsoSelectionListDescriptorFor(
+		static_cast<int>(std::lround(g->collectionViewport.y * sy)),
+		static_cast<int>(std::lround(g->collection_scroll_track.y * sy)),
+		static_cast<int>(std::lround(g->collection_scroll_track.w * sx)),
+		static_cast<int>(std::lround(g->collection_scroll_track.h * sy)),
+		static_cast<int>(std::lround(g->collection_row_slot_1.h * sy)),
+		static_cast<std::size_t>(generated.rowSlotCount),
+		static_cast<int>(std::lround(44 * sy)));
 	_catalogue->_lstResearch->configureCalypsoHdSelectionList(
-		std::max(1, static_cast<int>(g->collection_scroll_track.w * sx)),
-		std::max(1, static_cast<int>(44 * sy)),
-		std::max(1, static_cast<int>(g->collection_row_slot_1.h * sy)),
-		rowOrigin,
-		std::max(rowOrigin + 1, rowOrigin + static_cast<int>(
-			generated.rowSlotCount * g->collection_row_slot_1.h * sy)),
-		static_cast<std::size_t>(generated.rowSlotCount));
+		descriptor.scrollBarWidth, descriptor.minThumbHeight, descriptor.rowStride,
+		descriptor.rowOriginY, descriptor.dataViewportH, descriptor.visibleRows);
 }
 
 CalypsoHdOperationsModel CalypsoF09ResearchUi::buildQueueModel() const
@@ -508,6 +525,8 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildQueueModel() const
 		CalypsoF09ResearchQueueGen::kProfileVersion,
 		CalypsoF09ResearchQueueGen::kProvenanceTemplate);
 	calypsoHdOperationsApplyGeneratedStyle(model, CalypsoF09ResearchQueueGen::kProfileStyle);
+	calypsoHdOperationsApplyGeneratedTypography(model,
+		wide ? CalypsoF09ResearchQueueGen::kTypographyWide : CalypsoF09ResearchQueueGen::kTypographyCompact);
 	model.ownerState = _queue;
 	model.visualShell = CalypsoF09ResearchQueueGen::kVisualShell;
 	model.headerArtId = CalypsoF09ResearchQueueGen::kHeaderArt;
@@ -680,6 +699,8 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildCatalogueModel() const
 		CalypsoF09ResearchCatalogueGen::kProfileVersion,
 		CalypsoF09ResearchCatalogueGen::kProvenanceTemplate);
 	calypsoHdOperationsApplyGeneratedStyle(model, CalypsoF09ResearchCatalogueGen::kProfileStyle);
+	calypsoHdOperationsApplyGeneratedTypography(model,
+		wide ? CalypsoF09ResearchCatalogueGen::kTypographyWide : CalypsoF09ResearchCatalogueGen::kTypographyCompact);
 	model.ownerState = _catalogue;
 	model.visualShell = CalypsoF09ResearchCatalogueGen::kVisualShell;
 	model.headerArtId = CalypsoF09ResearchCatalogueGen::kHeaderArt;
@@ -914,6 +935,8 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildStaffingModel() const
 		CalypsoF09ResearchStaffingGen::kProfileVersion,
 		CalypsoF09ResearchStaffingGen::kProvenanceTemplate);
 	calypsoHdOperationsApplyGeneratedStyle(model, CalypsoF09ResearchStaffingGen::kProfileStyle);
+	calypsoHdOperationsApplyGeneratedTypography(model,
+		wide ? CalypsoF09ResearchStaffingGen::kTypographyWide : CalypsoF09ResearchStaffingGen::kTypographyCompact);
 	model.visualShell = CalypsoF09ResearchStaffingGen::kVisualShell;
 	model.headerArtId = CalypsoF09ResearchStaffingGen::kHeaderArt;
 	model.baseName = _staffing->_base ? _staffing->_base->getName() : std::string();

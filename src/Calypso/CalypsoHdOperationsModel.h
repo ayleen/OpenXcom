@@ -323,6 +323,19 @@ struct CalypsoHdOperationsReadiness
 	bool retryable = false;
 };
 
+/// Canonical workspace typography in design px, bound from the generated
+/// profile. Zero values mean "not bound" and keep the renderer fallback.
+struct CalypsoHdOperationsTypographyPx
+{
+	int title = 0;
+	int detailTitle = 0;
+	int body = 0;
+	int label = 0;
+	int data = 0;
+	int input = 0;
+	int action = 0;
+};
+
 struct CalypsoHdOperationsStyle
 {
 	std::uint32_t panelFillTop = 0x071725E8u;
@@ -379,6 +392,7 @@ struct CalypsoHdOperationsModel
 	CalypsoTtfSourceDescriptor bodyFont;
 	CalypsoTtfSourceDescriptor monoFont;
 	CalypsoHdOperationsStyle style;
+	CalypsoHdOperationsTypographyPx typography;
 };
 /// Project a generated design-space font size into the canvas backing store.
 /// The physical/design-height ratio includes both logical layout projection and
@@ -418,6 +432,22 @@ void calypsoHdOperationsApplyGeneratedStyle(CalypsoHdOperationsModel& model,
 	style.textOnAccent = generated.onAccent;
 	style.cornerRadiusPx = generated.cornerRadiusPx;
 	style.cutCornerPx = generated.cutCornerPx;
+}
+
+/// Binds the canonical profile typography for the active layout class so the
+/// native renderer and the browser reference share one source (re-review P2).
+template <typename GeneratedTypography>
+void calypsoHdOperationsApplyGeneratedTypography(CalypsoHdOperationsModel& model,
+	const GeneratedTypography& generated)
+{
+	CalypsoHdOperationsTypographyPx& typography = model.typography;
+	typography.title = generated.title;
+	typography.detailTitle = generated.detailTitle;
+	typography.body = generated.body;
+	typography.label = generated.label;
+	typography.data = generated.data;
+	typography.input = generated.input;
+	typography.action = generated.action;
 }
 
 

@@ -103,12 +103,22 @@ OperationsTypography operationsTypography(const CalypsoHdOperationsModel& model)
 	// Workspace typography is authored per canonical design class and must not
 	// inherit the F01 chrome downscale: the compact 740x360 canvas is its own
 	// CSS canvas, not a half-scale 1280x720 shell (external review R06).
+	// Values bound from the generated profile win; the literals below are a
+	// fallback for models built without the generated binding.
 	const auto& metrics = CalypsoHdUiOverlay::instance().frozenMetrics();
 	const bool wide = model.geometry.designWidth >= 1000;
 	auto px = [&](int designPx) {
 		return calypsoHdOperationsPhysicalFontPx(
 			designPx, model.geometry.designHeight, metrics.physicalHeight);
 	};
+	const auto& bound = model.typography;
+	if (bound.body > 0)
+	{
+		return {
+			px(bound.title), px(bound.detailTitle), px(bound.body),
+			px(bound.label), px(bound.data), px(bound.input), px(bound.action)
+		};
+	}
 	if (wide)
 	{
 		return {

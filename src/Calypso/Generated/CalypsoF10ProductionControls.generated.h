@@ -149,6 +149,23 @@ inline constexpr CalypsoF10ProductionControlsGenProfileStyle kProfileStyle = {
 	14.0f,
 };
 
+struct CalypsoF10ProductionControlsGenTypography
+{
+	int title;
+	int detailTitle;
+	int body;
+	int label;
+	int data;
+	int input;
+	int action;
+};
+inline constexpr CalypsoF10ProductionControlsGenTypography kTypographyWide = {
+	28, 18, 14, 12, 15, 14, 14
+};
+inline constexpr CalypsoF10ProductionControlsGenTypography kTypographyCompact = {
+	18, 16, 12, 12, 13, 12, 12
+};
+
 struct CalypsoF10ProductionControlsGenColumnRole
 {
 	const char* id;

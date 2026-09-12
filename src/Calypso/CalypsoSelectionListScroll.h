@@ -134,5 +134,35 @@ inline CalypsoSelectionListRowHit calypsoSelectionListRowAtLogicalY(
 	return out;
 }
 
+/// The one descriptor the adapter hands to the native TextList. Projected
+/// values are engine-logical px. `dataViewportH` is exactly the painted
+/// generated track height — the row origin is applied separately as a Y
+/// offset and must never be folded into the height (re-review P2: the
+/// invisible input rail once extended 36px past the painted track).
+struct CalypsoSelectionListDescriptor
+{
+	int scrollBarWidth = 0;
+	int minThumbHeight = 0;
+	int rowStride = 0;
+	int rowOriginY = 0;
+	int dataViewportH = 0;
+	std::size_t visibleRows = 0;
+};
+
+inline CalypsoSelectionListDescriptor calypsoSelectionListDescriptorFor(
+	int projectedViewportY, int projectedTrackY, int projectedTrackW,
+	int projectedTrackH, int projectedRowStride, std::size_t emittedVisibleRows,
+	int projectedMinThumb)
+{
+	CalypsoSelectionListDescriptor out;
+	out.scrollBarWidth = std::max(1, projectedTrackW);
+	out.minThumbHeight = std::max(1, projectedMinThumb);
+	out.rowStride = std::max(1, projectedRowStride);
+	out.rowOriginY = std::max(0, projectedTrackY - projectedViewportY);
+	out.dataViewportH = std::max(1, projectedTrackH);
+	out.visibleRows = emittedVisibleRows;
+	return out;
+}
+
 } // namespace Calypso
 } // namespace OpenXcom

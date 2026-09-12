@@ -178,12 +178,7 @@ void GlobalResearchState::onOpenTechTreeViewer(Action *)
 
 	if (selectedTopic)
 	{
-#ifdef __EMSCRIPTEN__
-		Calypso::CalypsoHdUiOverlay::instance().failHdRoute(
-			"Technology Tree HD route is not available");
-#else
 		_game->pushState(new TechTreeViewerState(selectedTopic, 0));
-#endif
 	}
 }
 

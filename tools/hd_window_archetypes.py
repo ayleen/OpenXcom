@@ -359,7 +359,8 @@ def _load_operations_profile(template):
     except (OSError, json.JSONDecodeError) as exc:
         raise ArchetypeError("operations style profile is not parseable: " + str(exc))
     _strict(profile, {"schema", "id", "version", "theme", "actionTones",
-                      "columnRoles", "layouts", "art", "minimumHitTarget"}, set(),
+                      "columnRoles", "layouts", "art", "minimumHitTarget",
+                      "typography"}, set(),
             "operations style profile")
     if profile["schema"] != 1 or profile["id"] != OPERATIONS_PROFILE_ID:
         raise ArchetypeError("operations style profile schema/id is invalid")
@@ -401,6 +402,22 @@ def _load_operations_profile(template):
                     "operations profile action token is missing: " + str(token)
                 )
             resolved_tones[tone][field] = values[token]
+    typography_roles = {"title", "detailTitle", "body", "label", "data",
+                        "input", "action"}
+    typography = profile["typography"]
+    _strict(typography, {"wide", "compact"}, set(),
+            "operations style profile.typography")
+    resolved_typography = {}
+    for layout_class in ("wide", "compact"):
+        values = typography[layout_class]
+        _strict(values, typography_roles, set(),
+                "operations style profile.typography." + layout_class)
+        resolved = {}
+        for role, size in values.items():
+            _positive_int(size, "operations style profile.typography."
+                          + layout_class + "." + role)
+            resolved[role] = size
+        resolved_typography[layout_class] = resolved
     resolved_roles = {}
     for role, policy in profile["columnRoles"].items():
         if role not in OPS_COLUMN_ROLES:
@@ -420,6 +437,7 @@ def _load_operations_profile(template):
         "resolvedTokens": resolved_tokens,
         "resolvedTones": resolved_tones,
         "resolvedRoles": resolved_roles,
+        "resolvedTypography": resolved_typography,
         "themeValues": values,
     }
 
@@ -439,6 +457,12 @@ def _prepare_operations_template(template):
         "text": token_values["text"],
         "mutedText": token_values["secondary"],
         "selection": token_values["selected"],
+        # Resolved action-relevant tokens so the browser reference consumes the
+        # canonical accent instead of a local fallback (re-review P3).
+        "accent": token_values["accent"],
+        "warning": token_values["warning"],
+        "danger": token_values["danger"],
+        "textOnAccent": token_values["onAccent"],
     })
     prepared["_operationsProfile"] = resolved
     if template["id"] == "operations-detail":
@@ -602,12 +626,19 @@ def _layout_rect_fields(kind):
     return ("window", "status", "title", "controlBar", "footer")
 
 def _validate_template(template):
-    _strict(
-        template,
-        TEMPLATE_FIELDS - {"sharedChrome"},
-        {"sharedChrome", "styleProfile", "buttonToneTokens", "_operationsProfile"},
-        "template",
+    template_kind = template.get("generatorKind")
+    template_id = template.get("id")
+    profile_scoped = (
+        template_kind == "operations" or template_id == "operations-detail"
     )
+    required_fields = TEMPLATE_FIELDS - {"sharedChrome"}
+    optional_fields = {"sharedChrome", "_operationsProfile"}
+    if not profile_scoped:
+        # Only the operations kinds declare a style profile with token
+        # references; the other archetypes keep local tone styles.
+        required_fields -= {"styleProfile", "buttonToneTokens"}
+        optional_fields |= {"styleProfile", "buttonToneTokens"}
+    _strict(template, required_fields, optional_fields, "template")
     if template["schema"] != 1:
         raise ArchetypeError("template.schema must be 1")
     archetype = template["id"]
@@ -1430,6 +1461,10 @@ def _validate_detail(config, template):
             role_ok = region["role"] in {"primary", "summary", "secondary"}
         elif kind == "preview":
             role_ok = region["role"] in {"primary", "secondary"}
+        elif kind == "collection":
+            # A secondary collection hosts a second native list snapshot
+            # (e.g. the tech tree viewer's two synchronized topic lists).
+            role_ok = region["role"] in {"primary", "secondary"}
         if not role_ok:
             raise ArchetypeError(
                 region_label + ".kind " + kind + " has an unsupported role"
@@ -1753,19 +1788,25 @@ def _scroll_metrics(
     items_per_unit,
     track,
     minimum,
+    allow_degenerate_thumb=False,
 ):
     overflow = total_units > visible_units
     if overflow:
         thumb_height = max(minimum, track["height"] * visible_units // total_units)
         thumb_height = min(track["height"], thumb_height)
         if thumb_height >= track["height"]:
-            # Degenerate one-row viewports (compact docked layouts) still need
-            # working proportional scrolling: yield half the track as thumb.
+            if not allow_degenerate_thumb:
+                raise ArchetypeError(
+                    "overflowing collection requires positive scrollbar thumb travel"
+                )
+            # Degenerate one-row viewports (compact docked R&D layouts) still
+            # need working proportional scrolling: yield half the track as
+            # thumb. Only the docked operations paths opt into this.
             thumb_height = max(1, track["height"] // 2)
-        if thumb_height >= track["height"]:
-            raise ArchetypeError(
-                "overflowing collection requires positive scrollbar thumb travel"
-            )
+            if thumb_height >= track["height"]:
+                raise ArchetypeError(
+                    "overflowing collection requires positive scrollbar thumb travel"
+                )
     else:
         thumb_height = track["height"]
     thumb = _make_rect(track["x"], track["y"], track["width"], thumb_height)
@@ -1875,6 +1916,7 @@ def _base_contract(config, template, source_name, template_name, actions):
         profile_data = copy.deepcopy(profile["data"])
         profile_data["theme"]["resolvedTokens"] = copy.deepcopy(profile["resolvedTokens"])
         profile_data["resolvedActionTones"] = copy.deepcopy(profile["resolvedTones"])
+        profile_data["resolvedTypography"] = copy.deepcopy(profile["resolvedTypography"])
         profile_data["resolvedColumnRoles"] = copy.deepcopy(profile["resolvedRoles"])
         out["profile"] = profile_data
         out["provenance"]["profile"] = profile["path"]
@@ -1891,8 +1933,7 @@ def build_extended_contract(config, template, source_name, template_name):
     # before any synthesis; without it rogue authored fields (an invented
     # topBar, private chrome geometry) silently pass through to the contract.
     template, profile = _prepare_operations_template(template)
-    if template.get("generatorKind") == "operations" or template.get("id") == "operations-detail":
-        _validate_template(template)
+    _validate_template(template)
     kind = template["generatorKind"]
     if kind == "operations":
         return _build_operations(config, template, source_name, template_name)
@@ -2034,7 +2075,8 @@ def _finalize_parts(contract):
         _strip_internal_markers(layout)
     return contract
 
-def _build_collection_fragment(collection, authored, viewport, name, column_roles=None):
+def _build_collection_fragment(collection, authored, viewport, name,
+                               column_roles=None, allow_degenerate_thumb=False):
     fragment = {}
     mode = collection["mode"]
     total = len(collection["items"])
@@ -2187,6 +2229,7 @@ def _build_collection_fragment(collection, authored, viewport, name, column_role
         items_per_unit,
         track,
         authored["minThumbHeight"],
+        allow_degenerate_thumb=allow_degenerate_thumb,
     )
     if column_roles is not None:
         fragment["_strictSlots"] = True
@@ -2875,6 +2918,7 @@ def _build_tabbed(config, template, source_name, template_name):
         collection_fragment, collection_metrics = _build_collection_fragment(
             config["collection"], fragment_authored, collection_viewport, name,
             _operations_column_roles(template) if template["generatorKind"] == "operations" else None,
+            allow_degenerate_thumb=docked_detail and fragment_authored is not authored,
         )
         if docked_detail and detail is not None:
             detail_fragment = _build_context_dock_fragment(
@@ -3257,6 +3301,8 @@ def _build_detail_regions(config, template, source_name, template_name):
                 fragment, metrics = _build_collection_fragment(
                     region["collection"], region_authored, content, name + "." + region["id"],
                     _operations_column_roles(template) if template["id"] == "operations-detail" else None,
+                    allow_degenerate_thumb=template["id"] == "operations-detail"
+                        and region_authored is not authored,
                 )
                 generated["content"] = content
                 generated["collection"] = fragment

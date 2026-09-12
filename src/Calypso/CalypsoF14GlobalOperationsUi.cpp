@@ -5,6 +5,8 @@
 #include "CalypsoHdOperationsChrome.h"
 #include "CalypsoHdOperationsRenderer.h"
 #include "CalypsoHdUiOverlay.h"
+#include "CalypsoHdOperationsLayout.h"
+#include "CalypsoViewportRuntime.h"
 #include "Generated/CalypsoF14GlobalProduction.generated.h"
 #include "Generated/CalypsoF14GlobalResearch.generated.h"
 #include "Generated/CalypsoF14ResearchDiary.generated.h"
@@ -35,6 +37,24 @@
 
 namespace OpenXcom { namespace Calypso {
 namespace {
+
+/// Shared responsive input for the eleven R&D forms (re-review P1): the
+/// layout class comes from the canonical logical viewport, never from
+/// Options::baseXResolution or the physical backing size. Below the 740x360
+/// minimum the registered route fails closed with an explicit size error.
+bool calypsoHdRdWideLayout(Game *game)
+{
+	(void)game;
+	const auto &viewport = Calypso::calypsoViewportRuntime().current();
+	const auto layoutClass = Calypso::classifyCalypsoHdOperationsLayout(
+		std::max(1, viewport.logicalWidth), std::max(1, viewport.logicalHeight));
+	if (layoutClass == Calypso::CalypsoHdOperationsLayoutClass::Unsupported)
+	{
+		CalypsoHdUiOverlay::instance().failHdRoute(
+			"R&D HD viewport is below the 740x360 minimum");
+	}
+	return layoutClass == Calypso::CalypsoHdOperationsLayoutClass::Wide;
+}
 
 template <typename R>
 CalypsoHdOperationsRect projectRect(const R &rect, int wx, int wy,
@@ -71,24 +91,26 @@ void setWindow(Window *window, const R &rect)
 	if (window->getHeight() != projected.h) window->setHeight(projected.h);
 }
 
-/// One descriptor for paint, hit-testing and the native scrollbar: logical row
-/// stride, logical offset from the list surface top to the first painted row
-/// slot (column header owns no rows), the logical union height of the emitted
-/// row slots (trailing panel remainder owns no rows) and the emitted visible
-/// slot capacity — never a hardcoded wide/compact guess.
+/// One descriptor for paint, hit-testing and the native scrollbar, projected
+/// from the generated track itself: the data viewport height is exactly the
+/// painted track height (the row origin is a separate Y offset, never part of
+/// the height) plus the emitted visible slot capacity — never a hardcoded
+/// wide/compact guess (re-review P2 parity).
 template <typename R, typename Collection>
 void configureHdList(TextList &list, const R &parent, const R &rowSlot1,
 	const R &scrollTrack, const Collection &generated, double sx, double sy)
 {
-	const int rowOrigin = std::max(0, static_cast<int>((rowSlot1.y - parent.y) * sy));
+	const auto descriptor = Calypso::calypsoSelectionListDescriptorFor(
+		static_cast<int>(std::lround(parent.y * sy)),
+		static_cast<int>(std::lround(scrollTrack.y * sy)),
+		static_cast<int>(std::lround(scrollTrack.w * sx)),
+		static_cast<int>(std::lround(scrollTrack.h * sy)),
+		static_cast<int>(std::lround(rowSlot1.h * sy)),
+		static_cast<std::size_t>(generated.rowSlotCount),
+		static_cast<int>(std::lround(44 * sy)));
 	list.configureCalypsoHdSelectionList(
-		std::max(1, static_cast<int>(scrollTrack.w * sx)),
-		std::max(1, static_cast<int>(44 * sy)),
-		std::max(1, static_cast<int>(rowSlot1.h * sy)),
-		rowOrigin,
-		std::max(rowOrigin + 1, rowOrigin + static_cast<int>(
-			generated.rowSlotCount * rowSlot1.h * sy)),
-		static_cast<std::size_t>(generated.rowSlotCount));
+		descriptor.scrollBarWidth, descriptor.minThumbHeight, descriptor.rowStride,
+		descriptor.rowOriginY, descriptor.dataViewportH, descriptor.visibleRows);
 }
 
 
@@ -168,14 +190,19 @@ void setGeneratedCollectionRows(CalypsoHdOperationsModel &model,
 		model.geometry.collectionRows.push_back(project(collection.rowSlots[i].rect));
 }
 
-template <typename GeneratedProfileStyle>
+template <typename GeneratedProfileStyle,
+	typename GeneratedTypographyWide, typename GeneratedTypographyCompact>
 void finish(CalypsoHdOperationsModel &model, const Mod *mod,
 	const char *presentation, const char *profileId, const char *profileVersion,
-	const char *provenance, const GeneratedProfileStyle &generatedStyle)
+	const char *provenance, const GeneratedProfileStyle &generatedStyle,
+	const GeneratedTypographyWide &typographyWide,
+	const GeneratedTypographyCompact &typographyCompact, bool wideLayout)
 {
 	setContractMetadata(model, presentation, profileId, profileVersion, provenance);
 	// One shared binder carries the emitted canonical palette (R06).
 	calypsoHdOperationsApplyGeneratedStyle(model, generatedStyle);
+	calypsoHdOperationsApplyGeneratedTypography(model,
+		wideLayout ? typographyWide : typographyCompact);
 	setFonts(model, mod);
 }
 
@@ -323,7 +350,7 @@ void CalypsoF14GlobalOperationsUi::configure(TYPE &state) \
 		return; \
 	} \
 	state._hdLayout = true; \
-	state._hdWideLayout = Options::baseXResolution >= 1000; \
+	state._hdWideLayout = calypsoHdRdWideLayout(state._game); \
 	auto *adapter = new CalypsoF14GlobalOperationsUi(&state); \
 	state._hdAdapter = adapter; \
 	CalypsoHdUiOverlay::instance().registerAdapter(adapter->_renderer); \
@@ -339,7 +366,7 @@ F14_CONFIGURE(GlobalManufactureState)
 bool CalypsoF14GlobalOperationsUi::resize(TYPE &state) \
 { \
 	if (!state._hdLayout || !state._hdAdapter) return false; \
-	state._hdWideLayout = Options::baseXResolution >= 1000; \
+	state._hdWideLayout = calypsoHdRdWideLayout(state._game); \
 	state._hdAdapter->refresh(); \
 	return true; \
 }
@@ -694,7 +721,9 @@ CalypsoHdOperationsModel CalypsoF14GlobalOperationsUi::buildResearchModel() cons
 		CalypsoF14GlobalResearchGen::kProfileId,
 		CalypsoF14GlobalResearchGen::kProfileVersion,
 		CalypsoF14GlobalResearchGen::kProvenanceTemplate,
-		CalypsoF14GlobalResearchGen::kProfileStyle);
+		CalypsoF14GlobalResearchGen::kProfileStyle,
+		CalypsoF14GlobalResearchGen::kTypographyWide, CalypsoF14GlobalResearchGen::kTypographyCompact,
+		_research->_hdWideLayout);
 	return model;
 }
 
@@ -853,7 +882,9 @@ CalypsoHdOperationsModel CalypsoF14GlobalOperationsUi::buildManufactureModel() c
 		CalypsoF14GlobalProductionGen::kProfileId,
 		CalypsoF14GlobalProductionGen::kProfileVersion,
 		CalypsoF14GlobalProductionGen::kProvenanceTemplate,
-		CalypsoF14GlobalProductionGen::kProfileStyle);
+		CalypsoF14GlobalProductionGen::kProfileStyle,
+		CalypsoF14GlobalProductionGen::kTypographyWide, CalypsoF14GlobalProductionGen::kTypographyCompact,
+		_manufacture->_hdWideLayout);
 	return model;
 }
 CalypsoHdOperationsModel CalypsoF14GlobalOperationsUi::buildDiaryModel() const
@@ -982,7 +1013,9 @@ CalypsoHdOperationsModel CalypsoF14GlobalOperationsUi::buildDiaryModel() const
 		CalypsoF14ResearchDiaryGen::kProfileId,
 		CalypsoF14ResearchDiaryGen::kProfileVersion,
 		CalypsoF14ResearchDiaryGen::kProvenanceTemplate,
-		CalypsoF14ResearchDiaryGen::kProfileStyle);
+		CalypsoF14ResearchDiaryGen::kProfileStyle,
+		CalypsoF14ResearchDiaryGen::kTypographyWide, CalypsoF14ResearchDiaryGen::kTypographyCompact,
+		_diary->_hdWideLayout);
 	return model;
 }
 

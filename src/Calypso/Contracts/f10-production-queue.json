@@ -306,7 +306,11 @@
     "divider": "173246FF",
     "text": "E7F0F3FF",
     "mutedText": "A8BBC4FF",
-    "selection": "0D2931FF"
+    "selection": "0D2931FF",
+    "accent": "81E0B5FF",
+    "warning": "F2C56DFF",
+    "danger": "FF6E72FF",
+    "textOnAccent": "03130DFF"
   },
   "layouts": {
     "wide": {
@@ -2097,6 +2101,26 @@
       "width": 44,
       "height": 44
     },
+    "typography": {
+      "wide": {
+        "title": 28,
+        "detailTitle": 18,
+        "body": 14,
+        "label": 12,
+        "data": 15,
+        "input": 14,
+        "action": 14
+      },
+      "compact": {
+        "title": 18,
+        "detailTitle": 16,
+        "body": 12,
+        "label": 12,
+        "data": 13,
+        "input": 12,
+        "action": 12
+      }
+    },
     "resolvedActionTones": {
       "normal": {
         "fill": "071624FF",
@@ -2122,6 +2146,26 @@
         "fill": "FF6E72FF",
         "border": "FF6E72FF",
         "text": "E7F0F3FF"
+      }
+    },
+    "resolvedTypography": {
+      "wide": {
+        "title": 28,
+        "detailTitle": 18,
+        "body": 14,
+        "label": 12,
+        "data": 15,
+        "input": 14,
+        "action": 14
+      },
+      "compact": {
+        "title": 18,
+        "detailTitle": 16,
+        "body": 12,
+        "label": 12,
+        "data": 13,
+        "input": 12,
+        "action": 12
       }
     },
     "resolvedColumnRoles": {
