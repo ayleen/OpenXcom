@@ -4,6 +4,8 @@
 #include "CalypsoHdFontSource.h"
 #include "CalypsoHdOperationsChrome.h"
 #include "CalypsoHdOperationsRenderer.h"
+#include "CalypsoHdOperationsFluid.h"
+#include "CalypsoHdOperationsLayout.h"
 #include "CalypsoHdUiOverlay.h"
 #include "CalypsoHdOperationsLayout.h"
 #include "CalypsoViewportRuntime.h"
@@ -78,6 +80,19 @@ void place(Surface *surface, const R &rect, int wx, int wy, double sx,
 	if (surface->getWidth() != projected.w) surface->setWidth(projected.w);
 	if (surface->getHeight() != projected.h) surface->setHeight(projected.h);
 }
+
+template <typename R>
+void setSurfaceRect(Surface *surface, const R &rect)
+{
+	if (!surface) return;
+	if (surface->getX() != rect.x) surface->setX(rect.x);
+	if (surface->getY() != rect.y) surface->setY(rect.y);
+	if (surface->getWidth() != rect.w) surface->setWidth(rect.w);
+	if (surface->getHeight() != rect.h) surface->setHeight(rect.h);
+}
+
+using FluidAnchor = CalypsoHdOperationsFluidPolicy::Anchor;
+using FluidVRole = CalypsoHdOperationsFluidPolicy::VerticalRole;
 
 template <typename R>
 void setWindow(Window *window, const R &rect)
@@ -213,10 +228,10 @@ void suppress(CalypsoHdOperationsModel &model, const void *widget)
 
 template <typename G, typename Project>
 void setWorkspaceGeometry(CalypsoHdOperationsModel &model, const G &g,
-	const Project &project)
+	const Project &project, int actualLogicalWidth, int actualLogicalHeight)
 {
-	model.geometry.designWidth = g.designWidth;
-	model.geometry.designHeight = g.designHeight;
+	model.geometry.designWidth = actualLogicalWidth;
+	model.geometry.designHeight = actualLogicalHeight;
 	model.geometry.window = project(g.window);
 	model.geometry.screenHeader = project(g.screenHeader);
 	model.geometry.headerArt = project(g.headerArt);
@@ -233,9 +248,9 @@ void setWorkspaceGeometry(CalypsoHdOperationsModel &model, const G &g,
 
 template <typename G, typename Project>
 void setResearchGeometry(CalypsoHdOperationsModel &model, const G &g,
-	const Project &project)
+	const Project &project, int actualLogicalWidth, int actualLogicalHeight)
 {
-	setWorkspaceGeometry(model, g, project);
+	setWorkspaceGeometry(model, g, project, actualLogicalWidth, actualLogicalHeight);
 	model.geometry.detailIdentity = project(g.detail_selected_project_label);
 	model.geometry.detailIdentityTitle =
 		project(g.detail_selected_project_identity_title);
@@ -253,9 +268,9 @@ void setResearchGeometry(CalypsoHdOperationsModel &model, const G &g,
 
 template <typename G, typename Project>
 void setProductionGeometry(CalypsoHdOperationsModel &model, const G &g,
-	const Project &project)
+	const Project &project, int actualLogicalWidth, int actualLogicalHeight)
 {
-	setWorkspaceGeometry(model, g, project);
+	setWorkspaceGeometry(model, g, project, actualLogicalWidth, actualLogicalHeight);
 	model.geometry.detailIdentity = project(g.detail_selected_production_label);
 	model.geometry.detailIdentityTitle =
 		project(g.detail_selected_production_identity_title);
@@ -272,9 +287,9 @@ void setProductionGeometry(CalypsoHdOperationsModel &model, const G &g,
 
 template <typename G, typename Project>
 void setDiaryGeometry(CalypsoHdOperationsModel &model, const G &g,
-	const Project &project)
+	const Project &project, int actualLogicalWidth, int actualLogicalHeight)
 {
-	setWorkspaceGeometry(model, g, project);
+	setWorkspaceGeometry(model, g, project, actualLogicalWidth, actualLogicalHeight);
 	model.geometry.detailIdentity = project(g.detail_selected_entry_label);
 	model.geometry.detailIdentityTitle =
 		project(g.detail_selected_entry_identity_title);
@@ -474,6 +489,8 @@ void CalypsoF14GlobalOperationsUi::applyResearchGeometry()
 		? CalypsoF14GlobalResearchGen::kCollectionsWide[0]
 		: CalypsoF14GlobalResearchGen::kCollectionsCompact[0];
 	setWindow(_research->_window, g->window);
+	const auto fluid = CalypsoHdOperationsFluidFrame::forReference(
+		g->window.w, g->window.h, g->footer.x, g->footer.w);
 	const int wx = _research->_window->getX(), wy = _research->_window->getY();
 	const double sx = static_cast<double>(_research->_window->getWidth()) / g->window.w;
 	const double sy = static_cast<double>(_research->_window->getHeight()) / g->window.h;
@@ -486,13 +503,33 @@ void CalypsoF14GlobalOperationsUi::applyResearchGeometry()
 	place(_research->_txtProject, g->collection_column_project, wx, wy, sx, sy, g->window.x, g->window.y);
 	place(_research->_txtScientists, g->collection_column_scientists, wx, wy, sx, sy, g->window.x, g->window.y);
 	place(_research->_txtProgress, g->collection_column_progress, wx, wy, sx, sy, g->window.x, g->window.y);
-	place(_research->_lstResearch, g->collectionViewport, wx, wy, sx, sy, g->window.x, g->window.y);
+	{
+		const auto resolvedViewport = fluid.resolve(
+			CalypsoHdOperationsRectf{g->collectionViewport.x, g->collectionViewport.y,
+				g->collectionViewport.w, g->collectionViewport.h}, FluidVRole::Stretch);
+		setSurfaceRect(_research->_lstResearch, resolvedViewport);
+	}
 	place(_research->_btnDiary, g->action_research_diary, wx, wy, sx, sy, g->window.x, g->window.y);
 	place(_research->_btnOk, g->action_done, wx, wy, sx, sy, g->window.x, g->window.y);
 	place(_research->_btnOpenBaseResearch, g->detail_selected_project_action_open_base_research, wx, wy, sx, sy, g->window.x, g->window.y);
 	place(_research->_btnTechTree, g->detail_selected_project_action_tech_tree, wx, wy, sx, sy, g->window.x, g->window.y);
-	configureHdList(*_research->_lstResearch, g->collectionViewport,
-		g->collection_row_slot_1, g->collection_scroll_track, generated, sx, sy);
+	{
+		const int headerHeight = g->collection_row_slot_1.y - g->collectionViewport.y;
+		const int rowStride = std::max(1, g->collection_row_slot_1.h);
+		const auto resolvedViewport = fluid.resolve(
+			CalypsoHdOperationsRectf{g->collectionViewport.x, g->collectionViewport.y,
+				g->collectionViewport.w, g->collectionViewport.h}, FluidVRole::Stretch);
+		const int visibleRows = fluid.policy.visibleRows(
+			resolvedViewport.y, resolvedViewport.h, headerHeight, rowStride);
+		const auto resolvedTrack = fluid.resolve(
+			CalypsoHdOperationsRectf{g->collection_scroll_track.x,
+				resolvedViewport.y + headerHeight, g->collection_scroll_track.w,
+				visibleRows * rowStride}, FluidVRole::Fixed);
+		_research->_lstResearch->configureCalypsoHdSelectionList(
+			std::max(1, resolvedTrack.w), 44, rowStride,
+			resolvedTrack.y - resolvedViewport.y,
+			std::max(1, visibleRows * rowStride), static_cast<std::size_t>(visibleRows));
+	}
 }
 
 void CalypsoF14GlobalOperationsUi::applyManufactureGeometry()
@@ -507,6 +544,8 @@ void CalypsoF14GlobalOperationsUi::applyManufactureGeometry()
 		? CalypsoF14GlobalProductionGen::kCollectionsWide[0]
 		: CalypsoF14GlobalProductionGen::kCollectionsCompact[0];
 	setWindow(_manufacture->_window, g->window);
+	const auto fluid = CalypsoHdOperationsFluidFrame::forReference(
+		g->window.w, g->window.h, g->footer.x, g->footer.w);
 	const int wx = _manufacture->_window->getX(), wy = _manufacture->_window->getY();
 	const double sx = static_cast<double>(_manufacture->_window->getWidth()) / g->window.w;
 	const double sy = static_cast<double>(_manufacture->_window->getHeight()) / g->window.h;
@@ -525,12 +564,32 @@ void CalypsoF14GlobalOperationsUi::applyManufactureGeometry()
 	place(_manufacture->_txtProduced, g->collection_column_produced, wx, wy, sx, sy, g->window.x, g->window.y);
 	place(_manufacture->_txtCost, g->collection_column_cost, wx, wy, sx, sy, g->window.x, g->window.y);
 	place(_manufacture->_txtTimeLeft, g->collection_column_time_left, wx, wy, sx, sy, g->window.x, g->window.y);
-	place(_manufacture->_lstManufacture, g->collectionViewport, wx, wy, sx, sy, g->window.x, g->window.y);
+	{
+		const auto resolvedViewport = fluid.resolve(
+			CalypsoHdOperationsRectf{g->collectionViewport.x, g->collectionViewport.y,
+				g->collectionViewport.w, g->collectionViewport.h}, FluidVRole::Stretch);
+		setSurfaceRect(_manufacture->_lstManufacture, resolvedViewport);
+	}
 	place(_manufacture->_btnOk, g->action_done, wx, wy, sx, sy, g->window.x, g->window.y);
 	place(_manufacture->_btnOpenBaseProduction, g->detail_selected_production_action_open_base_production, wx, wy, sx, sy, g->window.x, g->window.y);
 	place(_manufacture->_btnTechTree, g->detail_selected_production_action_tech_tree, wx, wy, sx, sy, g->window.x, g->window.y);
-	configureHdList(*_manufacture->_lstManufacture, g->collectionViewport,
-		g->collection_row_slot_1, g->collection_scroll_track, generated, sx, sy);
+	{
+		const int headerHeight = g->collection_row_slot_1.y - g->collectionViewport.y;
+		const int rowStride = std::max(1, g->collection_row_slot_1.h);
+		const auto resolvedViewport = fluid.resolve(
+			CalypsoHdOperationsRectf{g->collectionViewport.x, g->collectionViewport.y,
+				g->collectionViewport.w, g->collectionViewport.h}, FluidVRole::Stretch);
+		const int visibleRows = fluid.policy.visibleRows(
+			resolvedViewport.y, resolvedViewport.h, headerHeight, rowStride);
+		const auto resolvedTrack = fluid.resolve(
+			CalypsoHdOperationsRectf{g->collection_scroll_track.x,
+				resolvedViewport.y + headerHeight, g->collection_scroll_track.w,
+				visibleRows * rowStride}, FluidVRole::Fixed);
+		_manufacture->_lstManufacture->configureCalypsoHdSelectionList(
+			std::max(1, resolvedTrack.w), 44, rowStride,
+			resolvedTrack.y - resolvedViewport.y,
+			std::max(1, visibleRows * rowStride), static_cast<std::size_t>(visibleRows));
+	}
 }
 
 void CalypsoF14GlobalOperationsUi::applyDiaryGeometry()
@@ -545,6 +604,8 @@ void CalypsoF14GlobalOperationsUi::applyDiaryGeometry()
 		? CalypsoF14ResearchDiaryGen::kCollectionsWide[0]
 		: CalypsoF14ResearchDiaryGen::kCollectionsCompact[0];
 	setWindow(_diary->_window, g->window);
+	const auto fluid = CalypsoHdOperationsFluidFrame::forReference(
+		g->window.w, g->window.h, g->footer.x, g->footer.w);
 	const int wx = _diary->_window->getX(), wy = _diary->_window->getY();
 	const double sx = static_cast<double>(_diary->_window->getWidth()) / g->window.w;
 	const double sy = static_cast<double>(_diary->_window->getHeight()) / g->window.h;
@@ -557,7 +618,12 @@ void CalypsoF14GlobalOperationsUi::applyDiaryGeometry()
 	place(_diary->_txtName, g->collection_column_name, wx, wy, sx, sy, g->window.x, g->window.y);
 	place(_diary->_txtType, g->collection_column_type, wx, wy, sx, sy, g->window.x, g->window.y);
 	place(_diary->_txtDate, g->collection_column_date, wx, wy, sx, sy, g->window.x, g->window.y);
-	place(_diary->_lstItems, g->collectionViewport, wx, wy, sx, sy, g->window.x, g->window.y);
+	{
+		const auto resolvedViewport = fluid.resolve(
+			CalypsoHdOperationsRectf{g->collectionViewport.x, g->collectionViewport.y,
+				g->collectionViewport.w, g->collectionViewport.h}, FluidVRole::Stretch);
+		setSurfaceRect(_diary->_lstItems, resolvedViewport);
+	}
 	place(_diary->_btnQuickSearch, g->toolbar_quick_search, wx, wy, sx, sy, g->window.x, g->window.y);
 	place(_diary->_btnQuickSearchToggle, g->toolbar_quick_search, wx, wy, sx, sy, g->window.x, g->window.y);
 	place(_diary->_sortName, g->toolbar_sort_name, wx, wy, sx, sy, g->window.x, g->window.y);
@@ -566,8 +632,23 @@ void CalypsoF14GlobalOperationsUi::applyDiaryGeometry()
 	place(_diary->_btnOpenTechTree, g->detail_selected_entry_action_open_tech_tree, wx, wy, sx, sy, g->window.x, g->window.y);
 	place(_diary->_btnOpenUfopaedia, g->detail_selected_entry_action_open_ufopaedia, wx, wy, sx, sy, g->window.x, g->window.y);
 	place(_diary->_txtTooltip, g->detail_selected_entry, wx, wy, sx, sy, g->window.x, g->window.y);
-	configureHdList(*_diary->_lstItems, g->collectionViewport,
-		g->collection_row_slot_1, g->collection_scroll_track, generated, sx, sy);
+	{
+		const int headerHeight = g->collection_row_slot_1.y - g->collectionViewport.y;
+		const int rowStride = std::max(1, g->collection_row_slot_1.h);
+		const auto resolvedViewport = fluid.resolve(
+			CalypsoHdOperationsRectf{g->collectionViewport.x, g->collectionViewport.y,
+				g->collectionViewport.w, g->collectionViewport.h}, FluidVRole::Stretch);
+		const int visibleRows = fluid.policy.visibleRows(
+			resolvedViewport.y, resolvedViewport.h, headerHeight, rowStride);
+		const auto resolvedTrack = fluid.resolve(
+			CalypsoHdOperationsRectf{g->collection_scroll_track.x,
+				resolvedViewport.y + headerHeight, g->collection_scroll_track.w,
+				visibleRows * rowStride}, FluidVRole::Fixed);
+		_diary->_lstItems->configureCalypsoHdSelectionList(
+			std::max(1, resolvedTrack.w), 44, rowStride,
+			resolvedTrack.y - resolvedViewport.y,
+			std::max(1, visibleRows * rowStride), static_cast<std::size_t>(visibleRows));
+	}
 }
 
 CalypsoHdOperationsModel CalypsoF14GlobalOperationsUi::buildResearchModel() const
@@ -583,8 +664,13 @@ CalypsoHdOperationsModel CalypsoF14GlobalOperationsUi::buildResearchModel() cons
 	const auto &generated = _research->_hdWideLayout
 		? CalypsoF14GlobalResearchGen::kCollectionsWide[0]
 		: CalypsoF14GlobalResearchGen::kCollectionsCompact[0];
-	auto p = [&](const auto &rect) {
-		return CalypsoHdOperationsRect{rect.x, rect.y, rect.w, rect.h};
+	const auto fluid = CalypsoHdOperationsFluidFrame::forReference(
+		g->window.w, g->window.h, g->footer.x, g->footer.w);
+	auto p = [&](const auto &rect, FluidVRole vr = FluidVRole::Fixed,
+		FluidAnchor ha = FluidAnchor::Geometry) {
+		const auto css = fluid.cssY(fluid.cssX(
+			CalypsoHdOperationsRectf{rect.x, rect.y, rect.w, rect.h}, ha), vr);
+		return CalypsoHdOperationsRect{css.x, css.y, css.w, css.h};
 	};
 	model.archetype = CalypsoHdOperationsArchetype::OperationsWorkspace;
 	model.familyId = CalypsoF14GlobalResearchGen::kFamilyId;
@@ -595,7 +681,7 @@ CalypsoHdOperationsModel CalypsoF14GlobalOperationsUi::buildResearchModel() cons
 	model.baseName = "GLOBAL";
 	model.sectionLabel = tr("STR_RESEARCH");
 	model.title = _research->_txtTitle->getText();
-	setResearchGeometry(model, *g, p);
+	setResearchGeometry(model, *g, p, fluid.width(), fluid.height());
 	setGeneratedCollectionRows(model, generated, p);
 	setCollectionGeometry(model, *g, p);
 	model.geometry.collectionColumns.clear();
@@ -741,8 +827,13 @@ CalypsoHdOperationsModel CalypsoF14GlobalOperationsUi::buildManufactureModel() c
 	const auto &generated = _manufacture->_hdWideLayout
 		? CalypsoF14GlobalProductionGen::kCollectionsWide[0]
 		: CalypsoF14GlobalProductionGen::kCollectionsCompact[0];
-	auto p = [&](const auto &rect) {
-		return CalypsoHdOperationsRect{rect.x, rect.y, rect.w, rect.h};
+	const auto fluid = CalypsoHdOperationsFluidFrame::forReference(
+		g->window.w, g->window.h, g->footer.x, g->footer.w);
+	auto p = [&](const auto &rect, FluidVRole vr = FluidVRole::Fixed,
+		FluidAnchor ha = FluidAnchor::Geometry) {
+		const auto css = fluid.cssY(fluid.cssX(
+			CalypsoHdOperationsRectf{rect.x, rect.y, rect.w, rect.h}, ha), vr);
+		return CalypsoHdOperationsRect{css.x, css.y, css.w, css.h};
 	};
 	model.archetype = CalypsoHdOperationsArchetype::OperationsWorkspace;
 	model.familyId = CalypsoF14GlobalProductionGen::kFamilyId;
@@ -752,7 +843,7 @@ CalypsoHdOperationsModel CalypsoF14GlobalOperationsUi::buildManufactureModel() c
 	model.baseName = "GLOBAL";
 	model.sectionLabel = tr("STR_MANUFACTURE");
 	model.title = _manufacture->_txtTitle->getText();
-	setProductionGeometry(model, *g, p);
+	setProductionGeometry(model, *g, p, fluid.width(), fluid.height());
 	setGeneratedCollectionRows(model, generated, p);
 	setCollectionGeometry(model, *g, p);
 	model.geometry.collectionColumns.clear();
@@ -901,8 +992,13 @@ CalypsoHdOperationsModel CalypsoF14GlobalOperationsUi::buildDiaryModel() const
 	const auto &generated = _diary->_hdWideLayout
 		? CalypsoF14ResearchDiaryGen::kCollectionsWide[0]
 		: CalypsoF14ResearchDiaryGen::kCollectionsCompact[0];
-	auto p = [&](const auto &rect) {
-		return CalypsoHdOperationsRect{rect.x, rect.y, rect.w, rect.h};
+	const auto fluid = CalypsoHdOperationsFluidFrame::forReference(
+		g->window.w, g->window.h, g->footer.x, g->footer.w);
+	auto p = [&](const auto &rect, FluidVRole vr = FluidVRole::Fixed,
+		FluidAnchor ha = FluidAnchor::Geometry) {
+		const auto css = fluid.cssY(fluid.cssX(
+			CalypsoHdOperationsRectf{rect.x, rect.y, rect.w, rect.h}, ha), vr);
+		return CalypsoHdOperationsRect{css.x, css.y, css.w, css.h};
 	};
 	model.archetype = CalypsoHdOperationsArchetype::OperationsWorkspace;
 	model.familyId = CalypsoF14ResearchDiaryGen::kFamilyId;
@@ -913,7 +1009,7 @@ CalypsoHdOperationsModel CalypsoF14GlobalOperationsUi::buildDiaryModel() const
 	model.baseName = "GLOBAL";
 	model.sectionLabel = tr("STR_RESEARCH");
 	model.title = _diary->_txtTitle->getText();
-	setDiaryGeometry(model, *g, p);
+	setDiaryGeometry(model, *g, p, fluid.width(), fluid.height());
 	setGeneratedCollectionRows(model, generated, p);
 	setCollectionGeometry(model, *g, p);
 	const std::string columnLabels[] = {

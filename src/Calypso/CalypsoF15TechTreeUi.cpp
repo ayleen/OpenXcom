@@ -3,6 +3,7 @@
 
 #include "CalypsoHdFontSource.h"
 #include "CalypsoHdOperationsChrome.h"
+#include "CalypsoHdOperationsFluid.h"
 #include "CalypsoHdOperationsLayout.h"
 #include "CalypsoHdOperationsRenderer.h"
 #include "CalypsoHdUiOverlay.h"
@@ -23,6 +24,9 @@
 
 namespace OpenXcom { namespace Calypso {
 namespace {
+using FluidAnchor = CalypsoHdOperationsFluidPolicy::Anchor;
+using FluidVRole = CalypsoHdOperationsFluidPolicy::VerticalRole;
+
 
 template <typename R>
 CalypsoHdOperationsRect projectRect(const R &r, int wx, int wy, double sx, double sy,
@@ -77,21 +81,29 @@ CalypsoHdOperationsAction action(const std::string &id, const std::string &label
 
 /// Projects the generated track itself into the native descriptor: the data
 /// viewport height is exactly the painted track height (re-review P2).
-template <typename R, typename Collection>
-void configureHdList(TextList &list, const R &parent, const R &rowSlot1,
-	const R &scrollTrack, const Collection &generated, double sx, double sy)
+void configureHdList(TextList &list, const CalypsoHdOperationsFluidFrame &fluid,
+	const CalypsoF15TechTreeGen::CalypsoF15TechTreeGenRect &parent,
+	const CalypsoF15TechTreeGen::CalypsoF15TechTreeGenRect &rowSlot1,
+	const CalypsoF15TechTreeGen::CalypsoF15TechTreeGenRect &scrollTrack,
+	const CalypsoF15TechTreeGen::CalypsoF15TechTreeGenCollectionLayout &generated)
 {
-	const auto descriptor = Calypso::calypsoSelectionListDescriptorFor(
-		static_cast<int>(std::lround(parent.y * sy)),
-		static_cast<int>(std::lround(scrollTrack.y * sy)),
-		static_cast<int>(std::lround(scrollTrack.w * sx)),
-		static_cast<int>(std::lround(scrollTrack.h * sy)),
-		static_cast<int>(std::lround(rowSlot1.h * sy)),
-		static_cast<std::size_t>(generated.rowSlotCount),
-		static_cast<int>(std::lround(44 * sy)));
+	(void)generated;
+	// RR3-001: fluid resolution — capacity from the resolved viewport, the
+	// input rail equals the painted track.
+	const int headerHeight = rowSlot1.y - parent.y;
+	const int rowStride = std::max(1, rowSlot1.h);
+	const auto resolvedViewport = fluid.resolve(
+		CalypsoHdOperationsRectf{parent.x, parent.y, parent.w, parent.h},
+		FluidVRole::Stretch);
+	const int visibleRows = fluid.policy.visibleRows(
+		resolvedViewport.y, resolvedViewport.h, headerHeight, rowStride);
+	const auto resolvedTrack = fluid.resolve(
+		CalypsoHdOperationsRectf{scrollTrack.x, resolvedViewport.y + headerHeight,
+			scrollTrack.w, visibleRows * rowStride}, FluidVRole::Fixed);
 	list.configureCalypsoHdSelectionList(
-		descriptor.scrollBarWidth, descriptor.minThumbHeight, descriptor.rowStride,
-		descriptor.rowOriginY, descriptor.dataViewportH, descriptor.visibleRows);
+		std::max(1, resolvedTrack.w), 44, rowStride,
+		resolvedTrack.y - resolvedViewport.y,
+		std::max(1, visibleRows * rowStride), static_cast<std::size_t>(visibleRows));
 }
 
 } // namespace
@@ -171,6 +183,8 @@ void CalypsoF15TechTreeUi::applyGeometry()
 	const auto *g = CalypsoF15TechTreeGen::layoutForDesign(wide ? 1280 : 740, wide ? 720 : 360);
 	if (!g) return;
 	setWindowRect(_state->_window, {g->window.x, g->window.y, g->window.w, g->window.h});
+	const auto fluid = CalypsoHdOperationsFluidFrame::forReference(
+		g->window.w, g->window.h, g->footer.x, g->footer.w);
 	const int wx = _state->_window->getX(), wy = _state->_window->getY();
 	const double sx = static_cast<double>(_state->_window->getWidth()) / g->window.w;
 	const double sy = static_cast<double>(_state->_window->getHeight()) / g->window.h;
@@ -197,15 +211,12 @@ void CalypsoF15TechTreeUi::applyGeometry()
 		: CalypsoF15TechTreeGen::kCollectionsCompact;
 	const auto &left = collections[0];
 	const auto &right = collections[1];
-	configureHdList(*_state->_lstLeft, g->region_left_collection,
-		g->region_left_collection_row_slot_1, g->region_left_collection_scroll_track,
-		left, sx, sy);
-	configureHdList(*_state->_lstRight, g->region_right_collection,
-		g->region_right_collection_row_slot_1, g->region_right_collection_scroll_track,
-		right, sx, sy);
-	configureHdList(*_state->_lstFull, g->region_left_collection,
-		g->region_left_collection_row_slot_1, g->region_left_collection_scroll_track,
-		left, sx, sy);
+	configureHdList(*_state->_lstLeft, fluid, g->region_left_collection,
+		g->region_left_collection_row_slot_1, g->region_left_collection_scroll_track, left);
+	configureHdList(*_state->_lstRight, fluid, g->region_right_collection,
+		g->region_right_collection_row_slot_1, g->region_right_collection_scroll_track, right);
+	configureHdList(*_state->_lstFull, fluid, g->region_left_collection,
+		g->region_left_collection_row_slot_1, g->region_left_collection_scroll_track, left);
 }
 
 CalypsoHdOperationsModel CalypsoF15TechTreeUi::buildModel() const
