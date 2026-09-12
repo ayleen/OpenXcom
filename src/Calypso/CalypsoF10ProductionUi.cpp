@@ -4,6 +4,7 @@
 #include "CalypsoHdOperationsChrome.h"
 #include "CalypsoHdOperationsRenderer.h"
 #include "CalypsoHdUiOverlay.h"
+#include "CalypsoHdOperationsFluid.h"
 #include "CalypsoHdOperationsLayout.h"
 #include "CalypsoViewportRuntime.h"
 #include "Generated/CalypsoF10ProductionQueue.generated.h"
@@ -82,6 +83,16 @@ void place(Surface *surface, const R &rect, int wx, int wy, double sx, double sy
 }
 
 template <typename R>
+void setSurfaceRect(Surface *surface, const R &rect)
+{
+	if (!surface) return;
+	if (surface->getX() != rect.x) surface->setX(rect.x);
+	if (surface->getY() != rect.y) surface->setY(rect.y);
+	if (surface->getWidth() != rect.w) surface->setWidth(rect.w);
+	if (surface->getHeight() != rect.h) surface->setHeight(rect.h);
+}
+
+template <typename R>
 void setWindow(Window *window, const R &rect)
 {
 	if (!window) return;
@@ -121,6 +132,9 @@ void configureHdList(TextList &list, const R &parent, const R &rowSlot1,
 		descriptor.rowOriginY, descriptor.dataViewportH, descriptor.visibleRows);
 }
 
+
+using FluidAnchor = CalypsoHdOperationsFluidPolicy::Anchor;
+using FluidVRole = CalypsoHdOperationsFluidPolicy::VerticalRole;
 
 void setFonts(CalypsoHdOperationsModel &model, const Mod *mod)
 {
@@ -378,29 +392,50 @@ void CalypsoF10ProductionUi::applyQueueGeometry()
 		? CalypsoF10ProductionQueueGen::kCollectionsWide[0]
 		: CalypsoF10ProductionQueueGen::kCollectionsCompact[0];
 	setOperationsWindow(_queue->_window, g->window);
-	const int wx = _queue->_window->getX(), wy = _queue->_window->getY();
-	const double sx = static_cast<double>(_queue->_window->getWidth()) / g->window.w;
-	const double sy = static_cast<double>(_queue->_window->getHeight()) / g->window.h;
+	// RR3-001: fluid resolution — authored CSS geometry, surplus into the data
+	// area; no affine reference-canvas stretch.
+	const auto fluid = CalypsoHdOperationsFluidFrame::forReference(
+		g->window.w, g->window.h, g->footer.x, g->footer.w);
 	_queue->_lstManufacture->rebaseNativeSize(
 		g->collectionViewport.w, g->collectionViewport.h);
-	auto p = [&](const auto &r) { return projectRect(r, wx, wy, sx, sy, g->window.x, g->window.y); };
-	place(_queue->_txtTitle, g->title, wx, wy, sx, sy, g->window.x, g->window.y);
-	place(_queue->_txtAvailable, g->summary_available, wx, wy, sx, sy, g->window.x, g->window.y);
-	place(_queue->_txtAllocated, g->summary_allocated, wx, wy, sx, sy, g->window.x, g->window.y);
-	place(_queue->_txtSpace, g->summary_workshop_space, wx, wy, sx, sy, g->window.x, g->window.y);
-	place(_queue->_txtItem, g->collection_column_item, wx, wy, sx, sy, g->window.x, g->window.y);
-	place(_queue->_txtEngineers, g->collection_column_engineers, wx, wy, sx, sy, g->window.x, g->window.y);
-	place(_queue->_txtProduced, g->collection_column_produced, wx, wy, sx, sy, g->window.x, g->window.y);
-	place(_queue->_txtCost, g->collection_column_cost, wx, wy, sx, sy, g->window.x, g->window.y);
-	place(_queue->_txtTimeLeft, g->collection_column_time, wx, wy, sx, sy, g->window.x, g->window.y);
-	place(_queue->_lstManufacture, g->collectionViewport, wx, wy, sx, sy, g->window.x, g->window.y);
-	place(_queue->_btnGlobalOverview, g->action_global_overview, wx, wy, sx, sy, g->window.x, g->window.y);
-	place(_queue->_btnNew, g->action_new_production, wx, wy, sx, sy, g->window.x, g->window.y);
-	place(_queue->_btnOk, g->action_done, wx, wy, sx, sy, g->window.x, g->window.y);
-	place(_queue->_btnOpenProduction, g->detail_selected_production_action_open_production, wx, wy, sx, sy, g->window.x, g->window.y);
-	place(_queue->_btnTechTree, g->detail_selected_production_action_tech_tree, wx, wy, sx, sy, g->window.x, g->window.y);
-	configureHdList(*_queue->_lstManufacture, g->collectionViewport,
-		g->collection_row_slot_1, g->collection_scroll_track, generated, sx, sy);
+	auto place = [&](Surface *surface, const auto &rect,
+		FluidVRole vrole = FluidVRole::Fixed, FluidAnchor anchor = FluidAnchor::Geometry)
+	{
+		setSurfaceRect(surface, fluid.resolve(
+			CalypsoHdOperationsRectf{rect.x, rect.y, rect.w, rect.h}, vrole, anchor));
+	};
+	place(_queue->_txtTitle, g->title);
+	place(_queue->_txtAvailable, g->summary_available, FluidVRole::Fixed, FluidAnchor::Right);
+	place(_queue->_txtAllocated, g->summary_allocated, FluidVRole::Fixed, FluidAnchor::Right);
+	place(_queue->_txtSpace, g->summary_workshop_space, FluidVRole::Fixed, FluidAnchor::Right);
+	place(_queue->_txtItem, g->collection_column_item);
+	place(_queue->_txtEngineers, g->collection_column_engineers);
+	place(_queue->_txtProduced, g->collection_column_produced);
+	place(_queue->_txtCost, g->collection_column_cost);
+	place(_queue->_txtTimeLeft, g->collection_column_time);
+	place(_queue->_lstManufacture, g->collectionViewport, FluidVRole::Stretch);
+	place(_queue->_btnGlobalOverview, g->action_global_overview);
+	place(_queue->_btnNew, g->action_new_production);
+	place(_queue->_btnOk, g->action_done);
+	place(_queue->_btnOpenProduction, g->detail_selected_production_action_open_production);
+	place(_queue->_btnTechTree, g->detail_selected_production_action_tech_tree);
+	{
+		const int headerHeight = g->collection_row_slot_1.y - g->collectionViewport.y;
+		const int rowStride = std::max(1, g->collection_row_slot_1.h);
+		const auto resolvedViewport = fluid.resolve(
+			CalypsoHdOperationsRectf{g->collectionViewport.x, g->collectionViewport.y,
+				g->collectionViewport.w, g->collectionViewport.h}, FluidVRole::Stretch);
+		const int visibleRows = fluid.policy.visibleRows(
+			resolvedViewport.y, resolvedViewport.h, headerHeight, rowStride);
+		const auto resolvedTrack = fluid.resolve(
+			CalypsoHdOperationsRectf{g->collection_scroll_track.x,
+				resolvedViewport.y + headerHeight, g->collection_scroll_track.w,
+				visibleRows * rowStride}, FluidVRole::Fixed);
+		_queue->_lstManufacture->configureCalypsoHdSelectionList(
+			std::max(1, resolvedTrack.w), 44, rowStride,
+			resolvedTrack.y - resolvedViewport.y,
+			std::max(1, visibleRows * rowStride), static_cast<std::size_t>(visibleRows));
+	}
 }
 
 void CalypsoF10ProductionUi::applyCatalogueGeometry()
@@ -548,8 +583,13 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildQueueModel() const
 	const auto &generated = wide
 		? CalypsoF10ProductionQueueGen::kCollectionsWide[0]
 		: CalypsoF10ProductionQueueGen::kCollectionsCompact[0];
-	auto p = [&](const auto &r) {
-		return CalypsoHdOperationsRect{r.x, r.y, r.w, r.h};
+	const auto fluid = CalypsoHdOperationsFluidFrame::forReference(
+		g->window.w, g->window.h, g->footer.x, g->footer.w);
+	auto p = [&](const auto &r, FluidVRole vr = FluidVRole::Fixed,
+		FluidAnchor ha = FluidAnchor::Geometry) {
+		const auto css = fluid.cssY(fluid.cssX(
+			CalypsoHdOperationsRectf{r.x, r.y, r.w, r.h}, ha), vr);
+		return CalypsoHdOperationsRect{css.x, css.y, css.w, css.h};
 	};
 	model.archetype = CalypsoHdOperationsArchetype::OperationsWorkspace;
 	setBaseCaption(model, model.baseName);
@@ -567,24 +607,48 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildQueueModel() const
 		_queue->_txtEngineers, _queue->_txtProduced, _queue->_txtCost,
 		_queue->_txtTimeLeft, _queue->_lstManufacture,
 		_queue->_btnGlobalOverview, _queue->_btnOpenProduction, _queue->_btnTechTree};
-	model.geometry.designWidth = g->designWidth;
-	model.geometry.designHeight = g->designHeight;
+	model.geometry.designWidth = fluid.width();
+	model.geometry.designHeight = fluid.height();
 	model.geometry.window = p(g->window);
 	model.geometry.title = p(g->title);
 	model.geometry.screenHeader = p(g->screenHeader);
 	model.geometry.headerArt = p(g->headerArt);
 	model.geometry.summaryBar = p(g->summaryBar);
 	model.geometry.toolbarBar = p(g->toolbarBar);
-	model.geometry.collectionViewport = p(g->collectionViewport);
-	model.geometry.detailPanel = p(g->detailPanel);
+	model.geometry.collectionViewport = p(g->collectionViewport, FluidVRole::Stretch);
+	model.geometry.detailPanel = p(g->detailPanel, FluidVRole::BottomShift);
 	model.geometry.footer = p(g->footer);
-	model.geometry.collectionScrollTrack = p(g->collection_scroll_track);
-	model.geometry.collectionScrollThumb = p(g->collection_scroll_thumb);
+	{
+		const auto viewportCss = p(g->collectionViewport, FluidVRole::Stretch);
+		const auto trackCss = fluid.cssX(
+			CalypsoHdOperationsRectf{g->collection_scroll_track.x, 0,
+				g->collection_scroll_track.w, 0});
+		const int headerHeight = g->collection_row_slot_1.y - g->collectionViewport.y;
+		const int stride = std::max(1, g->collection_row_slot_1.h);
+		model.geometry.collectionScrollTrack = {
+			trackCss.x, viewportCss.y + headerHeight, trackCss.w,
+			static_cast<int>(model.geometry.collectionRows.size()) * stride};
+	}
+	model.geometry.collectionScrollThumb = model.geometry.collectionScrollTrack;
 	model.geometry.collectionColumns = {
 		p(g->collection_column_item), p(g->collection_column_engineers),
 		p(g->collection_column_produced), p(g->collection_column_cost),
 		p(g->collection_column_time)};
-	setGeneratedCollectionRows(model, generated, p);
+	{
+		const int headerHeight = g->collection_row_slot_1.y - g->collectionViewport.y;
+		const int stride = std::max(1, g->collection_row_slot_1.h);
+		const int rows = fluid.policy.visibleRows(
+			model.geometry.collectionViewport.y, model.geometry.collectionViewport.h,
+			headerHeight, stride);
+		model.geometry.collectionRows.clear();
+		for (int i = 0; i < rows; ++i)
+		{
+			model.geometry.collectionRows.push_back(CalypsoHdOperationsRect{
+				model.geometry.collectionViewport.x,
+				model.geometry.collectionViewport.y + headerHeight + i * stride,
+				model.geometry.collectionViewport.w, stride});
+		}
+	}
 	model.geometry.detailIdentity = p(g->detail_selected_production_label);
 	model.geometry.detailIdentityTitle = p(g->detail_selected_production_identity_title);
 	model.geometry.detailIdentitySubtitle = p(g->detail_selected_production_identity_subtitle);
@@ -597,7 +661,9 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildQueueModel() const
 		p(g->detail_selected_production_action_open_production),
 		p(g->detail_selected_production_action_tech_tree)};
 	model.geometry.footerActions = {
-		p(g->action_global_overview), p(g->action_new_production), p(g->action_done)};
+		p(g->action_global_overview, FluidVRole::BottomShift),
+		p(g->action_new_production, FluidVRole::BottomShift),
+		p(g->action_done, FluidVRole::BottomShift)};
 	model.summaryFields.push_back(summary("available",
 		tr("STR_CALYPSO_ENGINEERS_AVAILABLE"),
 		std::to_string(_queue->_base->getAvailableEngineers()),
@@ -636,10 +702,12 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildQueueModel() const
 		row.id = prod->getRules()->getName();
 		row.values = {tr(prod->getRules()->getName()), std::to_string(prod->getAssignedEngineers()),
 			produced, Unicode::formatFunding(prod->getRules()->getManufactureCost()), time};
-		const std::size_t slot = generated.rowSlotCount == 0 ? 0
-			: (i >= nativeOffset ? i - nativeOffset : 0) % generated.rowSlotCount;
-		row.rect = generated.rowSlotCount == 0
-			? model.geometry.collectionViewport : p(generated.rowSlots[slot].rect);
+		const std::size_t slotCount = model.geometry.collectionRows.size();
+		const std::size_t slot = slotCount == 0 ? 0
+			: (i >= nativeOffset ? i - nativeOffset : 0) % slotCount;
+		row.rect = slotCount == 0
+			? model.geometry.collectionViewport
+			: model.geometry.collectionRows[slot];
 		for (std::size_t c = 0; c < row.values.size(); ++c)
 			row.cells.push_back({row.values[c], generated.columns[c].contentRole, {}});
 		row.state.selected = i == nativeSelected;
@@ -648,9 +716,9 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildQueueModel() const
 	}
 	model.collection.selectedIndex = nativeSelected;
 	model.collection.scrollOffset = nativeOffset;
-	model.collection.visibleRows = generated.rowSlotCount;
-	model.collection.rowHeight = generated.rowSlotCount == 0
-		? 0 : p(generated.rowSlots[0].rect).h;
+	model.collection.visibleRows = model.geometry.collectionRows.size();
+	model.collection.rowHeight = model.geometry.collectionRows.empty()
+		? 0 : model.geometry.collectionRows.front().h;
 	model.collection.rowSlots = model.geometry.collectionRows;
 	model.collection.count = productions.size();
 	model.collection.viewport = model.geometry.collectionViewport;
