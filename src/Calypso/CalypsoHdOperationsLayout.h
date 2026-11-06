@@ -57,6 +57,41 @@ struct CalypsoHdOperationsRectf
 	int h = 0;
 };
 
+struct CalypsoHdChooserLayout
+{
+	CalypsoHdOperationsRectf panel;
+	int visibleRows = 0;
+};
+
+/// Resolve popup placement in one coordinate space. Native callers pass
+/// projected logical rects; HD model callers pass CSS rects. Keeping the
+/// placement/clamp/visible-window policy shared prevents double projection.
+inline CalypsoHdChooserLayout calypsoHdResolveChooserLayout(
+	const CalypsoHdOperationsRectf &button,
+	const CalypsoHdOperationsRectf &bounds,
+	int rowHeight, int insetY, int optionCount, int maxOptions,
+	bool preferAbove)
+{
+	const int stride = std::max(1, rowHeight);
+	const int safeInset = std::max(0, insetY);
+	const int availableRows = std::max(1,
+		(bounds.h - safeInset * 2) / stride);
+	const int visibleRows = std::max(1, std::min({
+		std::max(1, optionCount), std::max(1, maxOptions), availableRows}));
+	const int panelH = visibleRows * stride + safeInset * 2;
+	const int panelW = std::max(1, std::min(button.w, bounds.w));
+	const int panelX = std::max(bounds.x,
+		std::min(button.x, bounds.x + bounds.w - panelW));
+	const int aboveY = button.y - panelH;
+	const int belowY = button.y + button.h;
+	int panelY = preferAbove && aboveY >= bounds.y ? aboveY : belowY;
+	if (panelY + panelH > bounds.y + bounds.h && aboveY >= bounds.y)
+		panelY = aboveY;
+	panelY = std::max(bounds.y,
+		std::min(panelY, bounds.y + bounds.h - panelH));
+	return {{panelX, panelY, panelW, panelH}, visibleRows};
+}
+
 inline bool fluidSameEdge(int a, int b)
 {
 	const int delta = a - b;

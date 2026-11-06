@@ -329,43 +329,6 @@ void ManufactureInfoState::applyDeferredProductionOptions()
 	}
 }
 
-#ifdef __EMSCRIPTEN__
-void ManufactureInfoState::cancelUnstartedProductionForHdExit()
-{
-	if (_item == nullptr || _production == nullptr)
-	{
-		return;
-	}
-	_base->removeProduction(_production);
-	_production = nullptr;
-}
-
-void ManufactureInfoState::prepareHdStrategicExit()
-{
-	if (!Calypso::calypsoHdExitOnce(_hdStrategicExitPrepared))
-	{
-		return;
-	}
-	const auto owner = _item != nullptr
-		? Calypso::CalypsoHdExitOwner::NewProduction
-		: Calypso::CalypsoHdExitOwner::ExistingProduction;
-	const auto plan = Calypso::calypsoHdExitPlan(owner);
-	_timerMoreEngineer->stop();
-	_timerLessEngineer->stop();
-	_timerMoreUnit->stop();
-	_timerLessUnit->stop();
-	delete _hdAdapter;
-	_hdAdapter = nullptr;
-	if (plan.removeUnstartedProduction)
-	{
-		cancelUnstartedProductionForHdExit();
-	}
-	else if (plan.applyDeferredProductionOptions)
-	{
-		applyDeferredProductionOptions();
-	}
-}
-#endif
 /**
  * Frees up memory that's not automatically cleaned on exit
  */
@@ -836,14 +799,3 @@ void ManufactureInfoState::think()
 }
 
 }
-
-#ifdef __EMSCRIPTEN__
-namespace OpenXcom
-{
-void ManufactureInfoState::resize(int &dX, int &dY)
-{
-	if (Calypso::CalypsoF10ProductionUi::resize(*this)) return;
-	State::resize(dX, dY);
-}
-}
-#endif

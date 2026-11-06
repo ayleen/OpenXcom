@@ -253,6 +253,7 @@ void ManufactureState::fillProductionList(size_t scrl)
 void ManufactureState::lstManufactureClickLeft(Action *)
 {
 	const std::vector<Production*> productions(_base->getProductions());
+	if (_lstManufacture->getSelectedRow() >= productions.size()) return;
 	_game->pushState(new ManufactureInfoState(_base, productions[_lstManufacture->getSelectedRow()]));
 }
 
@@ -263,6 +264,7 @@ void ManufactureState::lstManufactureClickLeft(Action *)
 void ManufactureState::lstManufactureClickMiddle(Action *)
 {
 	const std::vector<Production*> productions(_base->getProductions());
+	if (_lstManufacture->getSelectedRow() >= productions.size()) return;
 	const RuleManufacture *selectedTopic = productions[_lstManufacture->getSelectedRow()]->getRules();
 	if (_game->isCtrlPressed())
 	{
@@ -285,6 +287,7 @@ void ManufactureState::lstManufactureMousePress(Action *action)
 	{
 		return;
 	}
+	if (_lstManufacture->getSelectedRow() >= _base->getProductions().size()) return;
 
 	int change = Options::oxceManufactureScrollSpeed;
 	if (_game->isCtrlPressed())
@@ -322,14 +325,3 @@ void ManufactureState::lstManufactureMousePress(Action *action)
 }
 
 }
-
-#ifdef __EMSCRIPTEN__
-namespace OpenXcom
-{
-void ManufactureState::resize(int &dX, int &dY)
-{
-	if (Calypso::CalypsoF10ProductionUi::resize(*this)) return;
-	State::resize(dX, dY);
-}
-}
-#endif

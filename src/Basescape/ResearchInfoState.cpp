@@ -205,28 +205,6 @@ void ResearchInfoState::commitPreview()
 	_rule = nullptr;
 }
 
-#ifdef __EMSCRIPTEN__
-void ResearchInfoState::prepareHdStrategicExit()
-{
-	if (!Calypso::calypsoHdExitOnce(_hdStrategicExitPrepared))
-	{
-		return;
-	}
-	const auto owner = _rule != nullptr
-		? Calypso::CalypsoHdExitOwner::NewResearch
-		: Calypso::CalypsoHdExitOwner::ExistingResearch;
-	const auto plan = Calypso::calypsoHdExitPlan(owner);
-	_timerMore->stop();
-	_timerLess->stop();
-	if (plan.cancelResearchPreview)
-	{
-		cancelPreview();
-	}
-	delete _hdAdapter;
-	_hdAdapter = nullptr;
-}
-#endif
-
 ResearchInfoState::~ResearchInfoState()
 {
 	if (_transaction.pending())
@@ -466,14 +444,3 @@ void ResearchInfoState::think()
 }
 
 }
-
-#ifdef __EMSCRIPTEN__
-namespace OpenXcom
-{
-void ResearchInfoState::resize(int &dX, int &dY)
-{
-	if (Calypso::CalypsoF09ResearchUi::resize(*this)) return;
-	State::resize(dX, dY);
-}
-}
-#endif

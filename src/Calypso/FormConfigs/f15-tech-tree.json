@@ -101,6 +101,29 @@
           }
         ]
       }
+    },
+    {
+      "id": "summary",
+      "role": "summary",
+      "kind": "fields",
+      "label": "RESEARCH CONTEXT",
+      "fields": [
+        {
+          "id": "topic",
+          "label": "TOPIC",
+          "value": "TOPIC"
+        },
+        {
+          "id": "progress",
+          "label": "PROGRESS",
+          "value": "PROGRESS"
+        },
+        {
+          "id": "cost",
+          "label": "COST",
+          "value": "COST"
+        }
+      ]
     }
   ]
 }

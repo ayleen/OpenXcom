@@ -413,6 +413,7 @@ void CalypsoF09ResearchUi::ensureQueueOwners()
 		_queue->_btnOpenProject = new TextButton(1, 1, 0, 0);
 		_queue->_btnOpenProject->setText(_queue->tr("STR_OPEN_PROJECT"));
 		_queue->add(_queue->_btnOpenProject, "button", "researchMenu");
+		_queue->_btnOpenProject->setVisible(false);
 		_queue->_btnOpenProject->onMouseClick(
 			(ActionHandler)&ResearchState::onSelectProject);
 	}
@@ -421,6 +422,7 @@ void CalypsoF09ResearchUi::ensureQueueOwners()
 		_queue->_btnTechTree = new TextButton(1, 1, 0, 0);
 		_queue->_btnTechTree->setText(_queue->tr("STR_TECH_TREE"));
 		_queue->add(_queue->_btnTechTree, "button", "researchMenu");
+		_queue->_btnTechTree->setVisible(false);
 		_queue->_btnTechTree->onMouseClick(
 			(ActionHandler)&ResearchState::onOpenTechTreeViewer);
 	}
@@ -429,6 +431,7 @@ void CalypsoF09ResearchUi::ensureQueueOwners()
 		_moveUp = new TextButton(44, 44, 0, 0);
 		_moveUp->setText("");
 		_queue->add(_moveUp, "button", "researchMenu");
+		_moveUp->setVisible(false);
 		_moveUp->onMouseClick((ActionHandler)&ResearchState::lstResearchLeftArrowClick);
 		_moveUp->onMouseClick((ActionHandler)&ResearchState::lstResearchLeftArrowClick,
 			SDL_BUTTON_RIGHT);
@@ -438,6 +441,7 @@ void CalypsoF09ResearchUi::ensureQueueOwners()
 		_moveDown = new TextButton(44, 44, 0, 0);
 		_moveDown->setText("");
 		_queue->add(_moveDown, "button", "researchMenu");
+		_moveDown->setVisible(false);
 		_moveDown->onMouseClick((ActionHandler)&ResearchState::lstResearchRightArrowClick);
 		_moveDown->onMouseClick((ActionHandler)&ResearchState::lstResearchRightArrowClick,
 			SDL_BUTTON_RIGHT);
@@ -467,6 +471,7 @@ void CalypsoF09ResearchUi::ensureCatalogueOwners()
 		button = new TextButton(1, 1, 0, 0);
 		button->setText("");
 		_catalogue->add(button, "button", "selectNewResearch");
+		button->setVisible(false);
 		button->onMouseClick(handler);
 	};
 	make(_catalogue->_btnReview,
@@ -477,6 +482,7 @@ void CalypsoF09ResearchUi::ensureCatalogueOwners()
 		(ActionHandler)&NewResearchListState::onOpenTechTreeViewer);
 	make(_catalogue->_btnMarkAllSeen,
 		(ActionHandler)&NewResearchListState::btnMarkAllAsSeenClick);
+	_catalogue->_btnMarkAllSeen->setVisible(true);
 }
 
 void CalypsoF09ResearchUi::applyQueueGeometry()
@@ -613,7 +619,8 @@ void CalypsoF09ResearchUi::applyCatalogueGeometry()
 		FluidVRole::Fixed);
 	_catalogue->_cbxSort->calypsoHdConfigurePopupSelection(
 		chooserRow.h, chooserInsetX.w, chooserInsetY.h,
-		chooserBounds.x, chooserBounds.y, chooserBounds.w, chooserBounds.h);
+		chooserBounds.x, chooserBounds.y, chooserBounds.w, chooserBounds.h,
+		g->toolbarChooser.maxOptions);
 	place(_catalogue->_btnShowOnlyNew, g->toolbar_show_only_new);
 	const auto descriptor = fluid.selectionListGeometry(
 		{g->collectionViewport.x, g->collectionViewport.y,
@@ -813,8 +820,15 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildQueueModel() const
 	const bool hasSelection = !projects.empty()
 		&& model.collection.selectedIndex < projects.size();
 	const auto *selected = hasSelection ? projects[model.collection.selectedIndex] : nullptr;
+	// Native owners remain in the state tree while HD owns the presentation.
+	// Keep their hit regions disarmed whenever the list's invalid-selection
+	// sentinel is active, including after the last project is removed.
+	if (_queue->_btnOpenProject) _queue->_btnOpenProject->setVisible(hasSelection);
+	if (_queue->_btnTechTree) _queue->_btnTechTree->setVisible(hasSelection);
 	if (Options::oxceBaseResearchReorder && hasSelection && _moveUp && _moveDown)
 	{
+		_moveUp->setVisible(true);
+		_moveDown->setVisible(true);
 		// These are real 44px HD owners bound to ResearchState's existing arrow
 		// handlers. The legacy TextList arrows remain native, but are too small to
 		// serve as a responsive HD hit target directly.
@@ -827,14 +841,22 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildQueueModel() const
 		upRect.h = std::max(width, row.h);
 		CalypsoHdOperationsRect downRect = upRect;
 		downRect.x += width + gap;
-		setSurfaceRect(_moveUp, upRect);
-		setSurfaceRect(_moveDown, downRect);
+		const auto effective = calypsoHdOperationsEffectiveViewport();
+		setSurfaceRect(_moveUp, calypsoHdOperationsProjectForCurrentPresentation(
+			upRect, effective.cssWidth, effective.cssHeight));
+		setSurfaceRect(_moveDown, calypsoHdOperationsProjectForCurrentPresentation(
+			downRect, effective.cssWidth, effective.cssHeight));
 		auto moveUpAction = action("move-up", "↑", upRect, _moveUp, true);
 		moveUpAction.state.disabled = nativeSelected == 0;
 		model.detail.actions.push_back(std::move(moveUpAction));
 		auto moveDownAction = action("move-down", "↓", downRect, _moveDown, true);
 		moveDownAction.state.disabled = nativeSelected + 1 >= projects.size();
 		model.detail.actions.push_back(std::move(moveDownAction));
+	}
+	else if (_moveUp && _moveDown)
+	{
+		_moveUp->setVisible(false);
+		_moveDown->setVisible(false);
 	}
 	model.detail.id = "selected-project";
 	model.detail.panel = model.geometry.detailPanel;
@@ -1106,10 +1128,16 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildCatalogueModel() const
 		model.chooser.owner = _catalogue->_cbxSort;
 		model.chooser.open = _catalogue->_cbxSort->calypsoHdPopupVisible();
 		const int rowHeight = std::max(1, chooserRowHeight);
-		int panelX = 0, panelY = 0, panelW = 0, panelH = 0;
-		_catalogue->_cbxSort->calypsoHdPopupWindowRect(
-			panelX, panelY, panelW, panelH);
-		model.chooser.panel = {panelX, panelY, panelW, panelH};
+		const int optionCount = static_cast<int>(popupList->getTexts());
+		const auto sortRect = p(g->toolbar_sort_default);
+		const auto chooserLayout = calypsoHdResolveChooserLayout(
+			{sortRect.x, sortRect.y, sortRect.w, sortRect.h},
+			{model.chooser.bounds.x, model.chooser.bounds.y,
+				model.chooser.bounds.w, model.chooser.bounds.h}, rowHeight,
+			model.chooser.optionInsetY, optionCount,
+			g->toolbarChooser.maxOptions, _catalogue->_cbxSort->calypsoHdPopupAboveButton());
+		model.chooser.panel = {chooserLayout.panel.x, chooserLayout.panel.y,
+			chooserLayout.panel.w, chooserLayout.panel.h};
 		model.chooser.selectedIndex = popupList->getTexts() > 0
 			? static_cast<int>(_catalogue->_cbxSort->getSelected()) : -1;
 		model.chooser.hoveredIndex = popupList->getTexts() > 0
@@ -1122,9 +1150,18 @@ CalypsoHdOperationsModel CalypsoF09ResearchUi::buildCatalogueModel() const
 				? std::string(CalypsoF09ResearchCatalogueGen::kToolbarChooserOptions[index].id)
 				: std::string("sort-option-") + std::to_string(index);
 			option.label = popupList->getCellText(index, 0);
-			option.rect = {popupList->getX(), popupList->getY()
-				+ static_cast<int>(index) * rowHeight, popupList->getWidth(), rowHeight};
-			option.state.visible = model.chooser.open;
+			// The native popup is already projected into engine coordinates. Keep
+			// the HD chooser model in CSS space so painting and hit testing share
+			// one coordinate system; native ownership is configured separately.
+			const int popupOffset = static_cast<int>(index) -
+				static_cast<int>(popupList->getScroll());
+			option.rect = {model.chooser.panel.x + model.chooser.optionInsetX,
+				model.chooser.panel.y + model.chooser.optionInsetY
+					+ popupOffset * rowHeight,
+				model.chooser.panel.w - 2 * model.chooser.optionInsetX, rowHeight};
+			option.state.visible = model.chooser.open
+				&& popupOffset >= 0
+				&& popupOffset < chooserLayout.visibleRows;
 			option.state.selected = static_cast<int>(index) == model.chooser.selectedIndex;
 			option.state.hovered = static_cast<int>(index) == model.chooser.hoveredIndex;
 			option.widget = popupList;

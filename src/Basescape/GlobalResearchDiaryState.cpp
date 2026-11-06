@@ -411,14 +411,3 @@ void GlobalResearchDiaryState::lstItemMouseOut(Action *)
 }
 
 }
-
-#ifdef __EMSCRIPTEN__
-namespace OpenXcom
-{
-void GlobalResearchDiaryState::resize(int &dX, int &dY)
-{
-	if (Calypso::CalypsoF14GlobalOperationsUi::resize(*this)) return;
-	State::resize(dX, dY);
-}
-}
-#endif

@@ -357,12 +357,13 @@ void CalypsoF10ProductionUi::ensureQueueOwners()
 	auto make = [&](TextButton *&button, ActionHandler handler)
 	{
 		if (button) return;
-		button = new TextButton(1, 1, 0, 0); button->setText("");
+		button = new TextButton(1, 1, 0, 0); button->setText(""); button->setVisible(false);
 		_queue->add(button, "button", "manufactureMenu"); button->onMouseClick(handler);
 	};
 	make(_queue->_btnGlobalOverview, (ActionHandler)&ManufactureState::onCurrentGlobalProductionClick);
 	make(_queue->_btnOpenProduction, (ActionHandler)&ManufactureState::lstManufactureClickLeft);
 	make(_queue->_btnTechTree, (ActionHandler)&ManufactureState::lstManufactureClickMiddle);
+	_queue->_btnGlobalOverview->setVisible(true);
 	_queue->_btnGlobalOverview->setText(_queue->tr("STR_GLOBAL_OVERVIEW"));
 	_queue->_btnOpenProduction->setText(_queue->tr("STR_OPEN_PRODUCTION"));
 	_queue->_btnTechTree->setText(_queue->tr("STR_TECH_TREE"));
@@ -374,13 +375,14 @@ void CalypsoF10ProductionUi::ensureCatalogueOwners()
 	auto make = [&](TextButton *&button, ActionHandler handler)
 	{
 		if (button) return;
-		button = new TextButton(1, 1, 0, 0); button->setText("");
+		button = new TextButton(1, 1, 0, 0); button->setText(""); button->setVisible(false);
 		_catalogue->add(button, "button", "selectNewManufacture"); button->onMouseClick(handler);
 	};
 	make(_catalogue->_btnReview, (ActionHandler)&NewManufactureListState::lstProdClickLeft);
 	make(_catalogue->_btnTechTree, (ActionHandler)&NewManufactureListState::lstProdClickMiddle);
 	make(_catalogue->_btnUfopaedia, (ActionHandler)&NewManufactureListState::onUfopaedia);
 	make(_catalogue->_btnMarkAllSeen, (ActionHandler)&NewManufactureListState::btnMarkAllAsSeenClick);
+	_catalogue->_btnMarkAllSeen->setVisible(true);
 }
 
 void CalypsoF10ProductionUi::applyQueueGeometry()
@@ -463,6 +465,29 @@ void CalypsoF10ProductionUi::applyCatalogueGeometry()
 	put(_catalogue->_lstManufacture, g->collectionViewport,
 		FluidVRole::Stretch, FluidAnchor::Stretch);
 	put(_catalogue->_cbxFilter, g->toolbar_availability_default); put(_catalogue->_cbxCategory, g->toolbar_category_all);
+	// The native combo owns modal input, while the registered HD route owns
+	// popup presentation. Configure both owners from the generated chooser
+	// policy so the visible options and native hit rectangles stay aligned.
+	const auto chooserBounds = fluid.resolve(CalypsoHdOperationsRectf{
+		g->toolbarChooser.bounds.x, g->toolbarChooser.bounds.y,
+		g->toolbarChooser.bounds.w, g->toolbarChooser.bounds.h},
+		FluidVRole::Stretch, FluidAnchor::Stretch);
+	const int chooserRowHeight = fluid.resolve(
+		CalypsoHdOperationsRectf{0, 0, 1, g->toolbarChooser.optionRowHeight},
+		FluidVRole::Fixed).h;
+	const int chooserInsetX = fluid.resolve(
+		CalypsoHdOperationsRectf{0, 0, g->toolbarChooser.optionInsetX, 1},
+		FluidVRole::Fixed).w;
+	const int chooserInsetY = fluid.resolve(
+		CalypsoHdOperationsRectf{0, 0, 1, g->toolbarChooser.optionInsetY},
+		FluidVRole::Fixed).h;
+	_catalogue->_cbxFilter->calypsoHdConfigurePopupSelection(
+		chooserRowHeight, chooserInsetX, chooserInsetY,
+		chooserBounds.x, chooserBounds.y, chooserBounds.w, chooserBounds.h);
+	_catalogue->_cbxCategory->calypsoHdConfigurePopupSelection(
+		chooserRowHeight, chooserInsetX, chooserInsetY,
+		chooserBounds.x, chooserBounds.y, chooserBounds.w, chooserBounds.h,
+		g->toolbarChooser.maxOptions);
 	put(_catalogue->_btnShowOnlyNew, g->toolbar_show_only_new); put(_catalogue->_btnQuickSearch, g->toolbar_quick_search, FluidVRole::Fixed, FluidAnchor::Right);
 	put(_catalogue->_btnReview, g->detail_selected_item_action_review_production, FluidVRole::BottomShift, FluidAnchor::Right);
 	put(_catalogue->_btnTechTree, g->detail_selected_item_action_tech_tree, FluidVRole::BottomShift, FluidAnchor::Right);
@@ -509,13 +534,15 @@ void CalypsoF10ProductionUi::applyRequirementsGeometry()
 			CalypsoHdOperationsRectf{r.x, r.y, r.w, r.h}, vrole, anchor));
 	};
 	put(_requirements->_txtTitle, g->title);
-	// Facts/context are one right-hand semantic group.  Keep their native
-	// input owners with the panel when the content band gains width; applying
-	// Geometry to the inner fields would leave them at authored x coordinates.
+	// Wide facts sit below the stretched left collection; compact facts sit
+	// beside it. Hidden native text owners follow the same panel transform.
+	// The separate context group remains right anchored in either layout.
 	put(_requirements->_txtManHour, g->region_facts_field_hours_value,
-		FluidVRole::Fixed, FluidAnchor::Right);
+		wide ? FluidVRole::BottomShift : FluidVRole::Fixed,
+		wide ? FluidAnchor::Left : FluidAnchor::Right);
 	put(_requirements->_txtCost, g->region_facts_field_cost_value,
-		FluidVRole::Fixed, FluidAnchor::Right);
+		wide ? FluidVRole::BottomShift : FluidVRole::Fixed,
+		wide ? FluidAnchor::Left : FluidAnchor::Right);
 	put(_requirements->_txtWorkSpace, g->region_context_content,
 		FluidVRole::Fixed, FluidAnchor::Right);
 	put(_requirements->_txtRequiredItemsTitle, g->region_requirements_label);
@@ -799,6 +826,10 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildQueueModel() const
 	const bool selected = !productions.empty()
 		&& model.collection.selectedIndex < productions.size();
 	const Production *prod = selected ? productions[model.collection.selectedIndex] : nullptr;
+	// Keep selection-dependent native owners inert while the HD list is empty
+	// or its sentinel points past the current backing vector.
+	if (_queue->_btnOpenProduction) _queue->_btnOpenProduction->setVisible(selected);
+	if (_queue->_btnTechTree) _queue->_btnTechTree->setVisible(selected);
 	model.detail.id = "selected-production";
 	model.detail.panel = p(g->detailPanel, FluidVRole::BottomShift);
 	model.detail.identity.id = "selected-production";
@@ -902,6 +933,8 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildCatalogueModel() const
 		_catalogue->_txtCategory, _catalogue->_lstManufacture, _catalogue->_cbxFilter,
 		_catalogue->_cbxCategory, _catalogue->_btnReview, _catalogue->_btnTechTree,
 		_catalogue->_btnUfopaedia, _catalogue->_btnMarkAllSeen};
+	_catalogue->_cbxFilter->calypsoHdSuppressPopupWidgets(model.suppressedWidgets);
+	_catalogue->_cbxCategory->calypsoHdSuppressPopupWidgets(model.suppressedWidgets);
 	model.geometry.designWidth = fluid.width();
 	model.geometry.designHeight = fluid.height();
 	model.geometry.window = p(g->window); model.geometry.title = p(g->title); model.geometry.summaryBar = p(g->summaryBar);
@@ -993,6 +1026,9 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildCatalogueModel() const
 		model.geometry.collectionScrollThumb};
 	const bool selected = nativeSelected < nativeCount
 		&& nativeSelected < items.size();
+	if (_catalogue->_btnReview) _catalogue->_btnReview->setVisible(selected);
+	if (_catalogue->_btnTechTree) _catalogue->_btnTechTree->setVisible(selected);
+	if (_catalogue->_btnUfopaedia) _catalogue->_btnUfopaedia->setVisible(selected);
 	const RuleManufacture *rule = selected
 		? _catalogue->_game->getMod()->getManufacture(items[nativeSelected]) : nullptr;
 	model.detail.id = "selected-item";
@@ -1042,6 +1078,65 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildCatalogueModel() const
 	model.footerActions.push_back(action("mark-all-seen", tr("STR_MARK_ALL_AS_SEEN"), p(g->action_mark_all_seen, FluidVRole::BottomShift), _catalogue->_btnMarkAllSeen, true, "safe"));
 	model.footerActions.push_back(action("done", tr("STR_DONE"),
 		p(g->action_done, FluidVRole::BottomShift, FluidAnchor::Right), _catalogue->_btnOk));
+	model.chooser.bounds = p(CalypsoHdOperationsRectf{
+		g->toolbarChooser.bounds.x, g->toolbarChooser.bounds.y,
+		g->toolbarChooser.bounds.w, g->toolbarChooser.bounds.h},
+		FluidVRole::Stretch, FluidAnchor::Stretch);
+	model.chooser.optionInsetX = fluid.cssX(CalypsoHdOperationsRectf{
+		0, 0, g->toolbarChooser.optionInsetX, 1}).w;
+	model.chooser.optionInsetY = fluid.cssY(CalypsoHdOperationsRectf{
+		0, 0, 1, g->toolbarChooser.optionInsetY}, FluidVRole::Fixed).h;
+	const int modelChooserRowHeight = fluid.cssY(CalypsoHdOperationsRectf{
+		0, 0, 1, g->toolbarChooser.optionRowHeight}, FluidVRole::Fixed).h;
+	ComboBox *activeCombo = nullptr;
+	const TextList *popupList = nullptr;
+	if (_catalogue->_cbxFilter->calypsoHdPopupVisible())
+	{
+		activeCombo = _catalogue->_cbxFilter;
+		popupList = activeCombo->calypsoHdPopupList();
+	}
+	else if (_catalogue->_cbxCategory->calypsoHdPopupVisible())
+	{
+		activeCombo = _catalogue->_cbxCategory;
+		popupList = activeCombo->calypsoHdPopupList();
+	}
+	if (activeCombo && popupList)
+	{
+		model.chooser.owner = activeCombo;
+		model.chooser.open = true;
+		const auto toolbarRect = activeCombo == _catalogue->_cbxFilter
+			? p(g->toolbar_availability_default)
+			: p(g->toolbar_category_all);
+		const int count = static_cast<int>(popupList->getTexts());
+		const int optionHeight = std::max(1, modelChooserRowHeight);
+		const auto chooserLayout = calypsoHdResolveChooserLayout(
+			{toolbarRect.x, toolbarRect.y, toolbarRect.w, toolbarRect.h},
+			{model.chooser.bounds.x, model.chooser.bounds.y,
+				model.chooser.bounds.w, model.chooser.bounds.h}, optionHeight,
+			model.chooser.optionInsetY, count,
+			g->toolbarChooser.maxOptions, activeCombo->calypsoHdPopupAboveButton());
+		model.chooser.panel = {chooserLayout.panel.x, chooserLayout.panel.y,
+			chooserLayout.panel.w, chooserLayout.panel.h};
+		model.chooser.selectedIndex = static_cast<int>(activeCombo->getSelected());
+		model.chooser.hoveredIndex = static_cast<int>(activeCombo->getHoveredListIdx());
+		const int popupScroll = static_cast<int>(popupList->getScroll());
+		for (int index = 0; index < count; ++index)
+		{
+			CalypsoHdOperationsChooserOption option;
+			option.id = (activeCombo == _catalogue->_cbxFilter ? "availability" : "category")
+				+ std::string("-") + std::to_string(index);
+			option.label = popupList->getCellText(index, 0);
+			const int popupOffset = index - popupScroll;
+			option.rect = {model.chooser.panel.x + model.chooser.optionInsetX,
+				model.chooser.panel.y + model.chooser.optionInsetY + popupOffset * optionHeight,
+				model.chooser.panel.w - 2 * model.chooser.optionInsetX, optionHeight};
+			option.state.visible = popupOffset >= 0 && popupOffset < chooserLayout.visibleRows;
+			option.state.selected = index == model.chooser.selectedIndex;
+			option.state.hovered = index == model.chooser.hoveredIndex;
+			option.widget = popupList;
+			model.chooser.options.push_back(std::move(option));
+		}
+	}
 	finishModel(model, _catalogue->_game->getMod(),
 		CalypsoF10ProductionCatalogueGen::kPresentationProfile,
 		CalypsoF10ProductionCatalogueGen::kProfileId,
@@ -1182,17 +1277,27 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildRequirementsModel() const
 	CalypsoHdOperationsRegion facts;
 	facts.id = "facts";
 	facts.label = tr("STR_CALYPSO_SELECTED_ITEM");
-	facts.rect = p(g->region_facts, FluidVRole::Fixed, FluidAnchor::Right);
-	facts.labelRect = p(g->region_facts_label, FluidVRole::Fixed, FluidAnchor::Right);
+	facts.rect = p(g->region_facts,
+		wide ? FluidVRole::BottomShift : FluidVRole::Fixed,
+		wide ? FluidAnchor::Left : FluidAnchor::Right);
+	facts.labelRect = p(g->region_facts_label,
+		wide ? FluidVRole::BottomShift : FluidVRole::Fixed,
+		wide ? FluidAnchor::Left : FluidAnchor::Right);
 	facts.fields.push_back(metric("hours", tr("STR_CALYPSO_ENGINEER_HOURS"),
 		std::to_string(_requirements->_item->getManufactureTime()),
-		p(g->region_facts_field_hours_value, FluidVRole::Fixed, FluidAnchor::Right)));
+		p(g->region_facts_field_hours_value,
+		wide ? FluidVRole::BottomShift : FluidVRole::Fixed,
+		wide ? FluidAnchor::Left : FluidAnchor::Right)));
 	facts.fields.push_back(metric("cost", tr("STR_CALYPSO_COST_PER_UNIT"),
 		Unicode::formatFunding(_requirements->_item->getManufactureCost()),
-		p(g->region_facts_field_cost_value, FluidVRole::Fixed, FluidAnchor::Right)));
+		p(g->region_facts_field_cost_value,
+		wide ? FluidVRole::BottomShift : FluidVRole::Fixed,
+		wide ? FluidAnchor::Left : FluidAnchor::Right)));
 	facts.fields.push_back(metric("space", tr("STR_CALYPSO_REQUIRED_WORKSPACE"),
 		std::to_string(_requirements->_item->getRequiredSpace()),
-		p(g->region_facts_field_space_value, FluidVRole::Fixed, FluidAnchor::Right)));
+		p(g->region_facts_field_space_value,
+		wide ? FluidVRole::BottomShift : FluidVRole::Fixed,
+		wide ? FluidAnchor::Left : FluidAnchor::Right)));
 	model.regions.push_back(std::move(facts));
 	model.geometry.footerActions = {
 		p(g->action_cancel, FluidVRole::BottomShift),
@@ -1580,12 +1685,18 @@ CalypsoHdOperationsModel CalypsoF10ProductionUi::buildDependenciesModel() const
 	CalypsoHdOperationsRegion summaryRegion;
 	summaryRegion.id = "summary";
 	summaryRegion.label = tr("STR_TOPIC");
-	summaryRegion.rect = p(g->region_summary, FluidVRole::Fixed, FluidAnchor::Right);
-	summaryRegion.labelRect = p(g->region_summary_label, FluidVRole::Fixed, FluidAnchor::Right);
+	summaryRegion.rect = p(g->region_summary,
+		wide ? FluidVRole::BottomShift : FluidVRole::Fixed,
+		wide ? FluidAnchor::Left : FluidAnchor::Right);
+	summaryRegion.labelRect = p(g->region_summary_label,
+		wide ? FluidVRole::BottomShift : FluidVRole::Fixed,
+		wide ? FluidAnchor::Left : FluidAnchor::Right);
 	summaryRegion.fields.push_back(metric("topic", tr("STR_TOPIC"),
 		_dependencies->_selectedItem.empty()
 			? tr("STR_NONE") : tr(_dependencies->_selectedItem),
-		p(g->region_summary_field_topic_value, FluidVRole::Fixed, FluidAnchor::Right)));
+		p(g->region_summary_field_topic_value,
+		wide ? FluidVRole::BottomShift : FluidVRole::Fixed,
+		wide ? FluidAnchor::Left : FluidAnchor::Right)));
 	model.regions.push_back(std::move(summaryRegion));
 
 	model.geometry.footerActions = {

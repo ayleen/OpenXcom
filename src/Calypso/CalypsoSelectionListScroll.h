@@ -159,6 +159,19 @@ inline CalypsoSelectionListRowHit calypsoSelectionListRowAtLogicalY(
 	return out;
 }
 
+/// Ordinary (non-HD-seam) TextList row hit mapping. The row is rendered using
+/// the list's own width scale, then the screen action scale; keeping this
+/// helper pure makes the resized-list regression executable without SDL.
+inline std::size_t calypsoTextListRowAtRenderedY(
+	double relativeY, int rowHeight, double listScale, double yScale,
+	std::size_t scroll)
+{
+	const double stride = std::max(1.0,
+		static_cast<double>(rowHeight) * listScale * yScale);
+	if (!(relativeY >= 0.0)) return scroll;
+	return scroll + static_cast<std::size_t>(std::floor(relativeY / stride));
+}
+
 /// The one descriptor the adapter hands to the native TextList. Projected
 /// values are engine-logical px. `dataViewportH` is exactly the painted
 /// generated track height — the row origin is applied separately as a Y

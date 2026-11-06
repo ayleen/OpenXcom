@@ -51,6 +51,7 @@ private:
 	bool _hdLayout = false;
 	bool _hdWideLayout = false;
 	Calypso::CalypsoF09ResearchUi *_hdAdapter = nullptr;
+	bool calypsoHdUsesSummaryNoScrollArea() const;
 #endif
 public:
 	/// Creates the Research state.

@@ -106,6 +106,7 @@ private:
 	bool calypsoHdHandleResizedHeight();
 	bool calypsoHdClaimedThisFrame() const;
 	bool calypsoHdFilterMouseOver(Action *action, State *state);
+	bool calypsoHdApplyMouseOverSelection(Action *action, State *state, int rowHeight);
 	Calypso::CalypsoSelectionListRowHit calypsoHdRowHit(const Action *action) const;
 	bool calypsoHdSuppressClick(Action *action) const;
 	void calypsoHdMaybeApplyTtf(Text *txt);
@@ -301,7 +302,7 @@ public:
 	/// Special handling for mouse hovering out.
 	void mouseOut(Action *action, State *state) override;
 	/// get the scroll depth
-	size_t getScroll();
+	size_t getScroll() const;
 	/// set the scroll depth
 	void scrollTo(size_t scroll);
 	/// Attaches this button to a combobox.

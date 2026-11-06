@@ -35,51 +35,16 @@
 #include "ResearchInfoState.h"
 #include "TechTreeViewerState.h"
 #include <algorithm>
-#include <cmath>
 
 #ifdef __EMSCRIPTEN__
 #include "../Calypso/CalypsoTutorial.h"
 #include "../Calypso/CalypsoF09ResearchUi.h"
 #include "../Calypso/CalypsoHdUiOverlay.h"
-#include "../Interface/Cursor.h"
-#include "../Engine/Screen.h"
+#include "../Calypso/CalypsoPlacementHooks.h"
 #endif
 
 namespace OpenXcom
 {
-
-#ifdef __EMSCRIPTEN__
-/// SDL_WarpMouse receives physical window coordinates, while the HD adapter
-/// stores its projected row stride in engine-logical coordinates. Keep the
-/// legacy 8px warp for non-HD lists and scale the one shared HD stride exactly
-/// once for the browser input boundary.
-static Uint16 calypsoResearchReorderWarpDelta(const TextList *list, const Action *action)
-{
-	const double yScale = action && action->getYScale() > 0.0
-		? action->getYScale() : 1.0;
-	if (list && list->isCalypsoHdSelectionList()
-		&& list->getCalypsoHdRowStride() > 0)
-	{
-		return static_cast<Uint16>(std::max(1L, std::lround(
-			static_cast<double>(list->getCalypsoHdRowStride()) * yScale)));
-	}
-	return static_cast<Uint16>(std::max(1L, std::lround(8.0 * yScale)));
-}
-
-static void calypsoResearchWarpCursor(Game *game, const Action *action, int delta)
-{
-	Screen *screen = game->getScreen();
-	Cursor *cursor = game->getCursor();
-	if (!screen || !cursor) return;
-	const int x = action->getLeftBlackBand() + action->getXMouse();
-	const int y = action->getTopBlackBand() + action->getYMouse() + delta;
-	const double sx = screen->getXScale() > 0 ? screen->getXScale() : 1;
-	const double sy = screen->getYScale() > 0 ? screen->getYScale() : 1;
-	cursor->setX(static_cast<int>((x - screen->getCursorLeftBlackBand()) / sx));
-	cursor->setY(static_cast<int>((y - screen->getCursorTopBlackBand()) / sy));
-	game->dispatchCalypsoMouseMotion(x, y, 0, delta);
-}
-#endif
 
 /**
  * Initializes all the elements in the Research screen.
@@ -309,26 +274,17 @@ void ResearchState::init()
 	if (Options::oxceResearchScrollSpeed > 0 || Options::oxceResearchScrollSpeedWithCtrl > 0)
 	{
 #ifdef __EMSCRIPTEN__
-		if (_hdLayout)
-		{
-			// HD layout: the adapter owns the staffing wheel zone (the
-			// projected scientists column of the list), not these summary
-			// texts which the HD shell moves out of the collection area.
-		}
-		else
+		if (calypsoHdUsesSummaryNoScrollArea())
+#endif
 		{
 			// 175 +/- 20
 			_lstResearch->setNoScrollArea(_txtAllocated->getX() - 5, _txtAllocated->getX() + 35);
 		}
-#else
-		// 175 +/- 20
-		_lstResearch->setNoScrollArea(_txtAllocated->getX() - 5, _txtAllocated->getX() + 35);
-#endif
 	}
 	else
 	{
 #ifdef __EMSCRIPTEN__
-		if (!_hdLayout)
+		if (calypsoHdUsesSummaryNoScrollArea())
 #endif
 		{
 			_lstResearch->setNoScrollArea(0, 0);
@@ -374,7 +330,8 @@ void ResearchState::fillProjectList(size_t scrl)
 void ResearchState::lstResearchLeftArrowClick(Action* action)
 {
 	unsigned int row = _lstResearch->getSelectedRow();
-	if (row > 0)
+	const auto &topics = _base->getResearch();
+	if (row > 0 && row < topics.size())
 	{
 		if (_game->isLeftClick(action, true))
 		{
@@ -396,6 +353,7 @@ void ResearchState::lstResearchLeftArrowClick(Action* action)
 void ResearchState::moveTopicUp(Action* action, unsigned int row, bool max)
 {
 	auto& topics = _base->getResearch();
+	if (row >= topics.size()) return;
 	if (max)
 	{
 		auto* r = topics.at(row);
@@ -408,7 +366,7 @@ void ResearchState::moveTopicUp(Action* action, unsigned int row, bool max)
 		if (row != _lstResearch->getScroll())
 		{
 			#ifdef __EMSCRIPTEN__
-			const Uint16 warpDelta = calypsoResearchReorderWarpDelta(_lstResearch, action);
+			const Uint16 warpDelta = Calypso::calypsoResearchReorderWarpDelta(_lstResearch, action);
 			#else
 			const Uint16 warpDelta = static_cast<Uint16>(8 * action->getYScale());
 			#endif
@@ -416,7 +374,7 @@ void ResearchState::moveTopicUp(Action* action, unsigned int row, bool max)
 			if (_hdAdapter)
 				// Browsers cannot warp the OS pointer. Move the actual game cursor
 				// through its canonical motion owner by the projected HD row stride.
-				calypsoResearchWarpCursor(_game, action, -static_cast<int>(warpDelta));
+				Calypso::calypsoResearchWarpCursor(_game, action, -static_cast<int>(warpDelta));
 			else
 #endif
 			SDL_WarpMouse(action->getLeftBlackBand() + action->getXMouse(), action->getTopBlackBand() + action->getYMouse() - warpDelta);
@@ -459,6 +417,7 @@ void ResearchState::lstResearchRightArrowClick(Action* action)
 void ResearchState::moveTopicDown(Action* action, unsigned int row, bool max)
 {
 	auto& topics = _base->getResearch();
+	if (row >= topics.size() || row + 1 >= topics.size()) return;
 	if (max)
 	{
 		auto* r = topics.at(row);
@@ -471,7 +430,7 @@ void ResearchState::moveTopicDown(Action* action, unsigned int row, bool max)
 		if (row != _lstResearch->getVisibleRows() - 1 + _lstResearch->getScroll())
 		{
 			#ifdef __EMSCRIPTEN__
-			const Uint16 warpDelta = calypsoResearchReorderWarpDelta(_lstResearch, action);
+			const Uint16 warpDelta = Calypso::calypsoResearchReorderWarpDelta(_lstResearch, action);
 			#else
 			const Uint16 warpDelta = static_cast<Uint16>(8 * action->getYScale());
 			#endif
@@ -479,7 +438,7 @@ void ResearchState::moveTopicDown(Action* action, unsigned int row, bool max)
 			if (_hdAdapter)
 				// Browsers cannot warp the OS pointer. Move the actual game cursor
 				// through its canonical motion owner by the projected HD row stride.
-				calypsoResearchWarpCursor(_game, action, +static_cast<int>(warpDelta));
+				Calypso::calypsoResearchWarpCursor(_game, action, +static_cast<int>(warpDelta));
 			else
 #endif
 			SDL_WarpMouse(action->getLeftBlackBand() + action->getXMouse(), action->getTopBlackBand() + action->getYMouse() + warpDelta);
@@ -493,14 +452,3 @@ void ResearchState::moveTopicDown(Action* action, unsigned int row, bool max)
 }
 
 }
-
-#ifdef __EMSCRIPTEN__
-namespace OpenXcom
-{
-void ResearchState::resize(int &dX, int &dY)
-{
-	if (Calypso::CalypsoF09ResearchUi::resize(*this)) return;
-	State::resize(dX, dY);
-}
-}
-#endif

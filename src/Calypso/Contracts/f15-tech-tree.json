@@ -107,6 +107,29 @@
             }
           ]
         }
+      },
+      {
+        "id": "summary",
+        "role": "summary",
+        "kind": "fields",
+        "label": "RESEARCH CONTEXT",
+        "fields": [
+          {
+            "id": "topic",
+            "label": "TOPIC",
+            "value": "TOPIC"
+          },
+          {
+            "id": "progress",
+            "label": "PROGRESS",
+            "value": "PROGRESS"
+          },
+          {
+            "id": "cost",
+            "label": "COST",
+            "value": "COST"
+          }
+        ]
       }
     ],
     "controls": [],
@@ -189,6 +212,29 @@
             }
           ]
         }
+      },
+      {
+        "id": "summary",
+        "role": "summary",
+        "kind": "fields",
+        "label": "RESEARCH CONTEXT",
+        "fields": [
+          {
+            "id": "topic",
+            "label": "TOPIC",
+            "value": "TOPIC"
+          },
+          {
+            "id": "progress",
+            "label": "PROGRESS",
+            "value": "PROGRESS"
+          },
+          {
+            "id": "cost",
+            "label": "COST",
+            "value": "COST"
+          }
+        ]
       }
     ],
     "controls": []
@@ -555,6 +601,82 @@
               }
             }
           }
+        },
+        "summary": {
+          "panel": {
+            "x": 112,
+            "y": 538,
+            "width": 560,
+            "height": 108
+          },
+          "label": {
+            "x": 124,
+            "y": 550,
+            "width": 536,
+            "height": 20
+          },
+          "fields": {
+            "topic": {
+              "row": {
+                "x": 124,
+                "y": 570,
+                "width": 536,
+                "height": 20
+              },
+              "label": {
+                "x": 124,
+                "y": 570,
+                "width": 241,
+                "height": 20
+              },
+              "value": {
+                "x": 377,
+                "y": 570,
+                "width": 283,
+                "height": 20
+              }
+            },
+            "progress": {
+              "row": {
+                "x": 124,
+                "y": 590,
+                "width": 536,
+                "height": 20
+              },
+              "label": {
+                "x": 124,
+                "y": 590,
+                "width": 241,
+                "height": 20
+              },
+              "value": {
+                "x": 377,
+                "y": 590,
+                "width": 283,
+                "height": 20
+              }
+            },
+            "cost": {
+              "row": {
+                "x": 124,
+                "y": 610,
+                "width": 536,
+                "height": 20
+              },
+              "label": {
+                "x": 124,
+                "y": 610,
+                "width": 241,
+                "height": 20
+              },
+              "value": {
+                "x": 377,
+                "y": 610,
+                "width": 283,
+                "height": 20
+              }
+            }
+          }
         }
       },
       "actions": {
@@ -709,6 +831,72 @@
           "y": 254,
           "width": 490,
           "height": 44
+        },
+        "region.summary": {
+          "x": 112,
+          "y": 538,
+          "width": 560,
+          "height": 108
+        },
+        "region.summary.label": {
+          "x": 124,
+          "y": 550,
+          "width": 536,
+          "height": 20
+        },
+        "region.summary.field.topic": {
+          "x": 124,
+          "y": 570,
+          "width": 536,
+          "height": 20
+        },
+        "region.summary.field.topic.label": {
+          "x": 124,
+          "y": 570,
+          "width": 241,
+          "height": 20
+        },
+        "region.summary.field.topic.value": {
+          "x": 377,
+          "y": 570,
+          "width": 283,
+          "height": 20
+        },
+        "region.summary.field.progress": {
+          "x": 124,
+          "y": 590,
+          "width": 536,
+          "height": 20
+        },
+        "region.summary.field.progress.label": {
+          "x": 124,
+          "y": 590,
+          "width": 241,
+          "height": 20
+        },
+        "region.summary.field.progress.value": {
+          "x": 377,
+          "y": 590,
+          "width": 283,
+          "height": 20
+        },
+        "region.summary.field.cost": {
+          "x": 124,
+          "y": 610,
+          "width": 536,
+          "height": 20
+        },
+        "region.summary.field.cost.label": {
+          "x": 124,
+          "y": 610,
+          "width": 241,
+          "height": 20
+        },
+        "region.summary.field.cost.value": {
+          "x": 377,
+          "y": 610,
+          "width": 283,
+          "height": 20
         },
         "action.select-topic": {
           "x": 898,
@@ -919,6 +1107,82 @@
               }
             }
           }
+        },
+        "summary": {
+          "panel": {
+            "x": 420,
+            "y": 116,
+            "width": 312,
+            "height": 80
+          },
+          "label": {
+            "x": 428,
+            "y": 124,
+            "width": 296,
+            "height": 16
+          },
+          "fields": {
+            "topic": {
+              "row": {
+                "x": 428,
+                "y": 140,
+                "width": 296,
+                "height": 16
+              },
+              "label": {
+                "x": 428,
+                "y": 140,
+                "width": 177,
+                "height": 16
+              },
+              "value": {
+                "x": 613,
+                "y": 140,
+                "width": 111,
+                "height": 16
+              }
+            },
+            "progress": {
+              "row": {
+                "x": 428,
+                "y": 156,
+                "width": 296,
+                "height": 16
+              },
+              "label": {
+                "x": 428,
+                "y": 156,
+                "width": 177,
+                "height": 16
+              },
+              "value": {
+                "x": 613,
+                "y": 156,
+                "width": 111,
+                "height": 16
+              }
+            },
+            "cost": {
+              "row": {
+                "x": 428,
+                "y": 172,
+                "width": 296,
+                "height": 16
+              },
+              "label": {
+                "x": 428,
+                "y": 172,
+                "width": 177,
+                "height": 16
+              },
+              "value": {
+                "x": 613,
+                "y": 172,
+                "width": 111,
+                "height": 16
+              }
+            }
+          }
         }
       },
       "actions": {
@@ -1073,6 +1337,72 @@
           "y": 252,
           "width": 188,
           "height": 44
+        },
+        "region.summary": {
+          "x": 420,
+          "y": 116,
+          "width": 312,
+          "height": 80
+        },
+        "region.summary.label": {
+          "x": 428,
+          "y": 124,
+          "width": 296,
+          "height": 16
+        },
+        "region.summary.field.topic": {
+          "x": 428,
+          "y": 140,
+          "width": 296,
+          "height": 16
+        },
+        "region.summary.field.topic.label": {
+          "x": 428,
+          "y": 140,
+          "width": 177,
+          "height": 16
+        },
+        "region.summary.field.topic.value": {
+          "x": 613,
+          "y": 140,
+          "width": 111,
+          "height": 16
+        },
+        "region.summary.field.progress": {
+          "x": 428,
+          "y": 156,
+          "width": 296,
+          "height": 16
+        },
+        "region.summary.field.progress.label": {
+          "x": 428,
+          "y": 156,
+          "width": 177,
+          "height": 16
+        },
+        "region.summary.field.progress.value": {
+          "x": 613,
+          "y": 156,
+          "width": 111,
+          "height": 16
+        },
+        "region.summary.field.cost": {
+          "x": 428,
+          "y": 172,
+          "width": 296,
+          "height": 16
+        },
+        "region.summary.field.cost.label": {
+          "x": 428,
+          "y": 172,
+          "width": 177,
+          "height": 16
+        },
+        "region.summary.field.cost.value": {
+          "x": 613,
+          "y": 172,
+          "width": 111,
+          "height": 16
         },
         "action.select-topic": {
           "x": 492,
@@ -1615,6 +1945,19 @@
       "compact": 8
     },
     {
+      "id": "region-inset-summary",
+      "kind": "inset",
+      "container": "region.summary",
+      "child": "region.summary.label",
+      "edges": [
+        "left",
+        "top",
+        "right"
+      ],
+      "wide": 12,
+      "compact": 8
+    },
+    {
       "id": "primary-secondary",
       "kind": "gap",
       "first": "region.left",
@@ -1622,6 +1965,15 @@
       "axis": "horizontal",
       "wide": 16,
       "compact": 64
+    },
+    {
+      "id": "primary-summary",
+      "kind": "gap",
+      "first": "region.left",
+      "second": "region.summary",
+      "axis": "vertical",
+      "wide": 12,
+      "compact": -104
     },
     {
       "id": "footer-action-inset",
@@ -1662,6 +2014,17 @@
     "region.right.collection.scroll.thumb",
     "region.right.collection.column.topic",
     "region.right.collection.row-slot.1",
+    "region.summary",
+    "region.summary.label",
+    "region.summary.field.topic",
+    "region.summary.field.topic.label",
+    "region.summary.field.topic.value",
+    "region.summary.field.progress",
+    "region.summary.field.progress.label",
+    "region.summary.field.progress.value",
+    "region.summary.field.cost",
+    "region.summary.field.cost.label",
+    "region.summary.field.cost.value",
     "action.select-topic",
     "action.ok"
   ]

@@ -19,11 +19,17 @@
  */
 #include "../Engine/TouchState.h"
 #include <vector>
+#include <string>
 
 namespace OpenXcom
 {
 
-namespace Calypso { class CalypsoF09ResearchUi; }
+class NewResearchListState;
+namespace Calypso {
+class CalypsoF09ResearchUi;
+std::string calypsoCaptureNewResearchSelection(NewResearchListState& state);
+void calypsoRestoreNewResearchSelection(NewResearchListState& state, const std::string& name);
+}
 
 class TextButton;
 class ToggleTextButton;
@@ -43,6 +49,8 @@ class NewResearchListState : public TouchState
 private:
 #ifdef __EMSCRIPTEN__
 	friend class Calypso::CalypsoF09ResearchUi;
+	friend std::string Calypso::calypsoCaptureNewResearchSelection(NewResearchListState&);
+	friend void Calypso::calypsoRestoreNewResearchSelection(NewResearchListState&, const std::string&);
 #endif
 	Base *_base;
 	bool _sortByCost;

@@ -98,6 +98,7 @@
 #include "CalypsoHdRdNavigationFixture.h"
 #include "CalypsoRdErrorForm.h"
 #include "CalypsoStrategicNavigation.h"
+#include "CalypsoHarnessSaveOwnership.h"
 
 namespace OpenXcom
 {
@@ -155,13 +156,15 @@ void restoreHarnessCursor(Game* game)
 bool prepareOperationsSave(Game *game)
 {
 	if (!game || !game->getMod()) return false;
+	// Fixture routes may only mutate a save owned by this harness.  Reusing a
+	// player campaign and restoring a few fields is not isolation: diary rows,
+	// research status, and other mutable records can survive teardown.  A live
+	// save is therefore rejected until the caller has opened an explicit
+	// harness-owned replacement save.
 	if (!g_harnessSaveLease.active)
 	{
 		if (game->getSavedGame())
-		{
-			g_harnessSaveLease.original = game->getSavedGame();
-			g_harnessSaveLease.originalFunds = g_harnessSaveLease.original->getFunds();
-		}
+			return false;
 		else
 		{
 			g_harnessSaveLease.fixture = new SavedGame();
@@ -170,7 +173,9 @@ bool prepareOperationsSave(Game *game)
 		g_harnessSaveLease.active = true;
 	}
 	SavedGame *save = game->getSavedGame();
-	if (!save) return false;
+	if (!Calypso::calypsoHarnessSaveOwned(g_harnessSaveLease.active,
+		g_harnessSaveLease.fixture, save))
+		return false;
 	save->setFunds(27550246);
 	const int profile = calypsoHarnessSession().rdActiveProfile;
 	const bool dependencyHiddenRowsProfile = profile == 222 || profile == 223;
@@ -477,9 +482,11 @@ Base *makeNavigationReplacementBase(Game *game, const Base *sourceBase)
 bool populateDiaryFixture(Game *game)
 {
 	if (!game || !game->getMod()) return false;
+	// Check ownership before even changing tutorial state: the preview route
+	// must be side-effect free when a real campaign is loaded.
+	if (!prepareOperationsSave(game)) return false;
 	CalypsoTutorial::get().disableForCampaign();
-	if (game->getSavedGame() && !game->getSavedGame()->getResearchDiary().empty())
-		return prepareOperationsSave(game);
+	if (!game->getSavedGame()->getResearchDiary().empty()) return true;
 	const unsigned dates[][3] = {
 		{2040, 9, 28}, {2040, 9, 28}, {2040, 8, 14}, {2040, 7, 21}
 	};
@@ -493,7 +500,6 @@ bool populateDiaryFixture(Game *game)
 		if (rules.size() == 4) break;
 	}
 	if (rules.size() != 4) return false;
-	if (!prepareOperationsSave(game)) return false;
 	SavedGame *save = game->getSavedGame();
 	for (int i = 0; i < 4; ++i)
 	{

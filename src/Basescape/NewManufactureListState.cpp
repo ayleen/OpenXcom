@@ -203,11 +203,11 @@ void NewManufactureListState::lstProdClick(Action* action)
  */
 void NewManufactureListState::lstProdClickLeft(Action *)
 {
-	_lstScroll = _lstManufacture->getScroll();
-
 	ManufacturingFilterType basicFilter = (ManufacturingFilterType)(_cbxFilter->getSelected());
 	if (basicFilter == MANU_FILTER_FACILITY_REQUIRED)
 		return;
+	if (_lstManufacture->getSelectedRow() >= _displayedStrings.size()) return;
+	_lstScroll = _lstManufacture->getScroll();
 
 	RuleManufacture* rule = _game->getMod()->getManufacture(_displayedStrings[_lstManufacture->getSelectedRow()]);
 
@@ -259,6 +259,7 @@ void NewManufactureListState::lstProdClickRight(Action *)
 	}
 	else
 	{
+		if (_lstManufacture->getSelectedRow() >= _displayedStrings.size()) return;
 		// change status
 		const std::string rule = _displayedStrings[_lstManufacture->getSelectedRow()];
 		int oldState = _game->getSavedGame()->getManufactureRuleStatus(rule);
@@ -294,6 +295,7 @@ void NewManufactureListState::lstProdClickRight(Action *)
 */
 void NewManufactureListState::lstProdClickMiddle(Action *)
 {
+	if (_lstManufacture->getSelectedRow() >= _displayedStrings.size()) return;
 	_doInit = false;
 
 	std::string articleId = _displayedStrings[_lstManufacture->getSelectedRow()];
@@ -555,14 +557,3 @@ void NewManufactureListState::fillProductionList(bool refreshCategories)
 }
 
 }
-
-#ifdef __EMSCRIPTEN__
-namespace OpenXcom
-{
-void NewManufactureListState::resize(int &dX, int &dY)
-{
-	if (Calypso::CalypsoF10ProductionUi::resize(*this)) return;
-	TouchState::resize(dX, dY);
-}
-}
-#endif

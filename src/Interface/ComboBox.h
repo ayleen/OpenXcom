@@ -91,7 +91,9 @@ public:
 	/// inset TextList that owns option input.
 	void calypsoHdPopupWindowRect(int& x, int& y, int& width, int& height) const;
 	void calypsoHdConfigurePopupSelection(int rowHeight, int optionInsetX,
-		int optionInsetY, int boundsX, int boundsY, int boundsW, int boundsH);
+		int optionInsetY, int boundsX, int boundsY, int boundsW, int boundsH,
+		int maxOptions = 10);
+	bool calypsoHdPopupAboveButton() const { return _popupAboveButton; }
 	void calypsoHdSuppressPopupWidgets(std::vector<const void*>& widgets) const;
 #endif
 	/// Sets the palette of the text list.

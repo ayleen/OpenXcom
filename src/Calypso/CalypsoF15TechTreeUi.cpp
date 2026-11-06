@@ -285,7 +285,7 @@ CalypsoHdOperationsModel CalypsoF15TechTreeUi::buildModel() const
 	// STR_TOPIC is a format string in the native locale; publish the same
 	// resolved empty-argument label used by TechTreeViewerState instead of
 	// leaking its placeholder into the HD column headers.
-	const std::string topicLabel = tr("STR_TOPIC").arg("");
+	const std::string topicLabels[] = {tr("STR_REQUIRES"), tr("STR_UNLOCKS")};
 	const bool itemsMode = _state->_selectedFlag == TTV_ITEMS;
 	ListSource sources[2] = {
 		{ itemsMode ? _state->_lstFull : _state->_lstLeft,
@@ -307,7 +307,7 @@ CalypsoHdOperationsModel CalypsoF15TechTreeUi::buildModel() const
 	{
 		CalypsoHdOperationsRegion &region = *source.region;
 		region.kind = CalypsoHdOperationsRegionKind::Collection;
-		region.label = topicLabel;
+		region.label = topicLabels[source.region == &rightRegion ? 1 : 0];
 		const int headerHeight = source.rowSlot->y - source.viewport->y;
 		const bool rightGroup = source.region == &rightRegion;
 		const auto groupAnchor = rightGroup ? FluidAnchor::Right : FluidAnchor::Geometry;
@@ -323,7 +323,7 @@ CalypsoHdOperationsModel CalypsoF15TechTreeUi::buildModel() const
 		region.collection.emptyTitle = tr("STR_NO_DEPENDENCIES");
 		region.collection.emptyBody = tr("STR_NONE");
 		region.collection.columns.push_back({
-			"topic", topicLabel, p(source.generated->columns[0].rect,
+			"topic", region.label, p(source.generated->columns[0].rect,
 				FluidVRole::Fixed, groupAnchor), {},
 			source.generated->columns[0].contentRole});
 		if (source.list == nullptr)
@@ -375,6 +375,32 @@ CalypsoHdOperationsModel CalypsoF15TechTreeUi::buildModel() const
 			region.collection.scrollThumb};
 		model.regions.push_back(std::move(region));
 	}
+	// Keep the native topic/type, progress and cost context visible in a
+	// generated summary region.  These values are owned by the state and are
+	// refreshed after every dependency navigation; the HD layer only presents
+	// the localized strings and never reconstructs them from rule data.
+	CalypsoHdOperationsRegion summary;
+	summary.id = "summary";
+	summary.kind = CalypsoHdOperationsRegionKind::Fields;
+	summary.label = tr("STR_RESEARCH_PROGRESS").arg("");
+	const auto summaryRole = wide ? FluidVRole::BottomShift : FluidVRole::Fixed;
+	const auto summaryAnchor = wide ? FluidAnchor::Geometry : FluidAnchor::Right;
+	auto summaryRect = [&](const auto& rect) {
+		return p(rect, summaryRole, summaryAnchor);
+	};
+	summary.rect = summaryRect(g->region_summary);
+	summary.labelRect = summaryRect(g->region_summary_label);
+	if (_state->_txtSelectedTopic->getVisible())
+		summary.fields.push_back({"topic", tr("STR_TOPIC").arg(""),
+		_state->_txtSelectedTopic->getText(), summaryRect(g->region_summary_field_topic), {}});
+	if (_state->_txtProgress->getVisible())
+		summary.fields.push_back({"progress", tr("STR_PROGRESS"),
+		_state->_txtProgress->getText(), summaryRect(g->region_summary_field_progress), {}});
+	if (_state->_txtCostIndicator->getVisible()
+		&& !_state->_txtCostIndicator->getText().empty())
+		summary.fields.push_back({"cost", tr("STR_COST_UC"),
+		_state->_txtCostIndicator->getText(), summaryRect(g->region_summary_field_cost), {}});
+	model.regions.push_back(std::move(summary));
 	model.geometry.footerActions = {
 		p(g->action_select_topic, FluidVRole::BottomShift),
 		p(g->action_ok, FluidVRole::BottomShift)};

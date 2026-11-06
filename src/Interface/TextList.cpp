@@ -554,16 +554,6 @@ void TextList::setColumns(int cols, ...)
 	va_end(args);
 }
 
-#ifdef __EMSCRIPTEN__
-void TextList::rebaseNativeSize(int nativeW, int nativeH)
-{
-	// Re-anchor the HD scale() denominator to the current design so authored
-	// design-space column widths are not re-scaled by the legacy 280 native width
-	// (external review #2). Only meaningful before rows are (re)built.
-	if (nativeW > 0) _nativeW = nativeW;
-	if (nativeH > 0) _nativeH = nativeH;
-}
-#endif
 
 void TextList::setMinimumRowHeight(int height)
 {
@@ -1533,23 +1523,7 @@ void TextList::mouseOver(Action *action, State *state)
 		int rowHeight = std::max(_font->getHeight(), _minimumRowHeight)
 			+ _font->getSpacing(); // theoretical line height
 #ifdef __EMSCRIPTEN__
-		if (_hdSelList)
-		{
-			const Calypso::CalypsoSelectionListRowHit hit = calypsoHdRowHit(action);
-			if (!hit.hit)
-			{
-				// Header, blank remainder and the captured track own no row:
-				// keep the keyboard selection, stop painting the hover selector.
-				_selector->setVisible(false);
-				InteractiveSurface::mouseOver(action, state);
-				return;
-			}
-			_selRow = static_cast<int>(hit.index);
-		}
-		else
-		{
-			_selRow = std::max(0, (int)(_scroll + (int)floor(action->getRelativeYMouse() / (rowHeight * action->getYScale()))));
-		}
+		if (calypsoHdApplyMouseOverSelection(action, state, rowHeight)) return;
 #else
 		_selRow = std::max(0, (int)(_scroll + (int)floor(action->getRelativeYMouse() / (rowHeight * action->getYScale()))));
 #endif
@@ -1577,7 +1551,7 @@ void TextList::mouseOut(Action *action, State *state)
  * get the scroll depth.
  * @return scroll depth.
  */
-size_t TextList::getScroll()
+size_t TextList::getScroll() const
 {
 	return _scroll;
 }

@@ -34,6 +34,7 @@
 #include "../Calypso/CalypsoHdUiOverlay.h"
 #include "../Calypso/CalypsoHdRuntimeDiagnostics.h"
 #include "../Calypso/CalypsoStrategicNavigation.h"
+#include "../Calypso/CalypsoPlacementHooks.h"
 #endif
 #include "../Engine/Sound.h"
 #include "../Engine/Collections.h"
@@ -383,17 +384,7 @@ void State::handle(Action *action)
 void State::blit()
 {
 #ifdef __EMSCRIPTEN__
-	auto& hdOverlay = Calypso::CalypsoHdUiOverlay::instance();
-	const bool registered = hdOverlay.hasRegisteredState(this);
-	if (registered
-		&& !hdOverlay.logicalStateSuppressed(this, hdOverlay.frameId()))
-		++Calypso::calypsoHdRuntimeDiagnostics().registeredVanillaBlits;
-	const bool allowUnregisteredArticle = !registered
-		&& Calypso::calypsoHdHarnessAllowsUnregisteredNativeArticle(this);
-	if (Calypso::calypsoHarnessHostUp(Calypso::calypsoHarnessSession())
-		&& !allowUnregisteredArticle) return;
-	if (Calypso::CalypsoHdUiOverlay::instance().logicalStateSuppressed(this,
-		Calypso::CalypsoHdUiOverlay::instance().frameId())) return;
+	if (Calypso::calypsoHdPrepareNativeBlit(this)) return;
 #endif
 	for (auto* surface : _surfaces)
 	{
@@ -749,42 +740,6 @@ void State::resize(int &dX, int &dY)
 {
 	recenter(dX, dY);
 }
-
-#ifdef __EMSCRIPTEN__
-void State::calypsoHdNavigateWorldClick(Action *)
-{
-	Calypso::calypsoNavigateToWorld(_game);
-}
-
-void State::calypsoHdNavigateBasesClick(Action *)
-{
-	Calypso::calypsoNavigateToBases(_game);
-}
-
-void State::calypsoHdNavigateOperationsClick(Action *)
-{
-	Calypso::calypsoNavigateToStrategicRoute(
-		_game, Calypso::CalypsoStrategicRoute::Intercept);
-}
-
-void State::calypsoHdNavigateAnalyticsClick(Action *)
-{
-	Calypso::calypsoNavigateToStrategicRoute(
-		_game, Calypso::CalypsoStrategicRoute::Graphs);
-}
-
-void State::calypsoHdNavigateArchiveClick(Action *)
-{
-	Calypso::calypsoNavigateToStrategicRoute(
-		_game, Calypso::CalypsoStrategicRoute::Archive);
-}
-
-void State::calypsoHdNavigateSettingsClick(Action *)
-{
-	Calypso::calypsoNavigateToStrategicRoute(
-		_game, Calypso::CalypsoStrategicRoute::Options);
-}
-#endif
 
 /**
  * Re-orients all the surfaces in the state.

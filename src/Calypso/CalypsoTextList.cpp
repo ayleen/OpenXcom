@@ -133,6 +133,28 @@ bool TextList::calypsoHdFilterMouseOver(Action *action, State *state)
 	return false;
 }
 
+bool TextList::calypsoHdApplyMouseOverSelection(Action *action, State *state, int rowHeight)
+{
+	if (_hdSelList)
+	{
+		const Calypso::CalypsoSelectionListRowHit hit = calypsoHdRowHit(action);
+		if (!hit.hit)
+		{
+			_selector->setVisible(false);
+			InteractiveSurface::mouseOver(action, state);
+			return true;
+		}
+		_selRow = static_cast<int>(hit.index);
+	}
+	else
+	{
+		_selRow = static_cast<int>(Calypso::calypsoTextListRowAtRenderedY(
+			action->getRelativeYMouse(), rowHeight, scale(),
+			action->getYScale(), _scroll));
+	}
+	return false;
+}
+
 Calypso::CalypsoSelectionListRowHit TextList::calypsoHdRowHit(const Action *action) const
 {
 	if (!_hdSelList || _hdRowStride <= 0 || _hdVisibleRows == 0)
