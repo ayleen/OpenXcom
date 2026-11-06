@@ -27,6 +27,16 @@ namespace {
 using FluidAnchor = CalypsoHdOperationsFluidPolicy::Anchor;
 using FluidVRole = CalypsoHdOperationsFluidPolicy::VerticalRole;
 
+std::string plainNativeText(std::string text)
+{
+	// Native palette/size markers are formatting instructions, not glyphs.
+	text.erase(std::remove_if(text.begin(), text.end(), [](unsigned char c) {
+		return c == 1 || c == 2;
+	}), text.end());
+	return text;
+}
+
+
 
 template <typename R>
 void setSurfaceRect(Surface *surface, const R &rect)
@@ -382,7 +392,7 @@ CalypsoHdOperationsModel CalypsoF15TechTreeUi::buildModel() const
 	CalypsoHdOperationsRegion summary;
 	summary.id = "summary";
 	summary.kind = CalypsoHdOperationsRegionKind::Fields;
-	summary.label = tr("STR_RESEARCH_PROGRESS").arg("");
+	summary.label = tr("STR_PROGRESS");
 	const auto summaryRole = wide ? FluidVRole::BottomShift : FluidVRole::Fixed;
 	const auto summaryAnchor = wide ? FluidAnchor::Geometry : FluidAnchor::Right;
 	auto summaryRect = [&](const auto& rect) {
@@ -391,15 +401,15 @@ CalypsoHdOperationsModel CalypsoF15TechTreeUi::buildModel() const
 	summary.rect = summaryRect(g->region_summary);
 	summary.labelRect = summaryRect(g->region_summary_label);
 	if (_state->_txtSelectedTopic->getVisible())
-		summary.fields.push_back({"topic", tr("STR_TOPIC").arg(""),
-		_state->_txtSelectedTopic->getText(), summaryRect(g->region_summary_field_topic), {}});
+		summary.fields.push_back({"topic", "",
+		plainNativeText(_state->_txtSelectedTopic->getText()), summaryRect(g->region_summary_field_topic), {}});
 	if (_state->_txtProgress->getVisible())
-		summary.fields.push_back({"progress", tr("STR_PROGRESS"),
-		_state->_txtProgress->getText(), summaryRect(g->region_summary_field_progress), {}});
+		summary.fields.push_back({"progress", "",
+		plainNativeText(_state->_txtProgress->getText()), summaryRect(g->region_summary_field_progress), {}});
 	if (_state->_txtCostIndicator->getVisible()
 		&& !_state->_txtCostIndicator->getText().empty())
-		summary.fields.push_back({"cost", tr("STR_COST_UC"),
-		_state->_txtCostIndicator->getText(), summaryRect(g->region_summary_field_cost), {}});
+		summary.fields.push_back({"cost", "",
+		plainNativeText(_state->_txtCostIndicator->getText()), summaryRect(g->region_summary_field_cost), {}});
 	model.regions.push_back(std::move(summary));
 	model.geometry.footerActions = {
 		p(g->action_select_topic, FluidVRole::BottomShift),

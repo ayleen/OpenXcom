@@ -11,6 +11,9 @@ indicator. The summary panel uses bottom-shifted left anchoring in wide mode
 and fixed right anchoring in compact mode, while the dependency columns retain
 their localized `STR_REQUIRES` and `STR_UNLOCKS` labels. The native
 feature-disabled title remains authoritative when the viewer is disabled.
+Native palette/size control bytes are removed from summary presentation; their
+localized text remains unchanged. The summary heading uses the plain Progress
+label, without an empty formatted percentage.
 
 ## R8 — Harness save ownership
 
